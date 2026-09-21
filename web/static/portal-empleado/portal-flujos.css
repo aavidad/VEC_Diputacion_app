@@ -187,6 +187,10 @@
   gap: 14px;
 }
 
+.distribucion-llamamiento > * {
+  min-width: 0;
+}
+
 .resumen-lateral {
   display: grid;
   align-content: start;
@@ -560,7 +564,6 @@
   .enlace-lateral { padding-right: 9px; font-size: 0.77rem; }
   .etiqueta-menu { display: none; }
   .acciones-cabecera .boton-cabecera { min-width: 38px; padding-inline: 8px; }
-  .acciones-cabecera .boton-avisos,
   .etiqueta-contraste { display: none; }
   .rejilla-cuadro-mando,
   .rejilla-elaboracion,
@@ -589,8 +592,14 @@
   body[data-menu-abierto="true"] .portal-lateral { transform: translateX(0); }
   .boton-menu-movil { display: inline-flex; align-items: center; gap: 6px; }
   .cabecera-portal { min-height: 64px; padding: 8px 12px; }
-  .acciones-cabecera .sesion-presentacion > span:last-child,
-  .boton-avisos { display: none; }
+  .acciones-cabecera .sesion-presentacion > span:last-child { display: none; }
+  .acciones-cabecera .boton-avisos {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 38px;
+    padding-inline: 8px;
+  }
   .contenido-portal { padding: 14px 12px 22px; }
   .rejilla-kpi,
   .rejilla-modulos { grid-template-columns: repeat(2, minmax(0, 1fr)); }

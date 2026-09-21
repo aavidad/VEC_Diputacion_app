@@ -12,7 +12,7 @@ func TestConsultaSeguimientoV2MantieneIdentidadNominal(t *testing.T) {
 	alta, _, principal := escenarioConsultasRRHHDesarrolloPrueba(t)
 	ctx := contextoRutaCoberturaDesarrolloPrueba(alta.soporte, principal, httpinterno.RutaConsultaSeguimientoV2)
 	antes := ctx.Value(claveCapacidadConsultasContratacionTemporalDesarrollo{}).(capacidadConsultaContratacionTemporalDesarrollo)
-	hijo, err := contextoDetalleIncorporacionV2Desarrollo(ctx, alta.soporte)
+	hijo, err := contextoDetalleIncorporacionV2Desarrollo(ctx, alta.soporte, catalogoDetalleCTPrueba(t, alta.soporte))
 	if err != nil {
 		t.Fatal(err)
 	}

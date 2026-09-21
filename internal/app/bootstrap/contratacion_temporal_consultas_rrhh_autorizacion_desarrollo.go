@@ -30,6 +30,50 @@ type proveedorContextoConsultaRRHHDesarrollo interface {
 	ResolverContexto(context.Context) (ports.ContextoAutorizacionAltaV3, error)
 }
 
+type adaptadorContextoConsultaRRHHCTDesarrollo struct {
+	delegado interface {
+		ResolverContexto(context.Context) (contextoSeguridadComunDesarrollo, error)
+	}
+	cursor interface {
+		revalidarSesionCursorRRHHDesarrollo(context.Context, ports.ContextoAutorizacionAltaV3) (ports.ContextoAutorizacionAltaV3, error)
+	}
+	reloj ports.Reloj
+}
+
+func (a adaptadorContextoConsultaRRHHCTDesarrollo) ResolverContexto(ctx context.Context) (ports.ContextoAutorizacionAltaV3, error) {
+	if a.delegado == nil || dependenciaEsNulaContratacionTemporalDesarrollo(a.reloj) {
+		return ports.ContextoAutorizacionAltaV3{}, ports.ErrConsultaRRHHNoDisponible
+	}
+	comun, err := a.delegado.ResolverContexto(ctx)
+	if err != nil {
+		return ports.ContextoAutorizacionAltaV3{}, ports.ErrConsultaRRHHNoDisponible
+	}
+	datos, err := comun.Vinculo.Datos()
+	if err != nil || datos.PerfilActivoRef != comun.Resultado.Contexto.PerfilActivoRef {
+		return ports.ContextoAutorizacionAltaV3{}, ports.ErrConsultaRRHHNoDisponible
+	}
+	ct := ports.ContextoAutorizacionAltaV3{Vinculo: comun.Vinculo, Resultado: comun.Resultado}
+	if ct.ValidarPara(ports.SolicitudResolverContextoAutorizacionAltaV3{
+		AutenticacionRef: datos.AutenticacionRef,
+		SesionRef:        datos.SesionRef,
+		PerfilRef:        datos.PerfilActivoRef,
+	}, a.reloj.Ahora()) != nil {
+		return ports.ContextoAutorizacionAltaV3{}, ports.ErrConsultaRRHHNoDisponible
+	}
+	return ct, nil
+}
+
+// revalidarSesionCursorRRHHDesarrollo queda en el adaptador CT: la fachada
+// común no conoce el DTO ni los diagnósticos de Contratación temporal.
+func (a adaptadorContextoConsultaRRHHCTDesarrollo) revalidarSesionCursorRRHHDesarrollo(
+	ctx context.Context, anterior ports.ContextoAutorizacionAltaV3,
+) (ports.ContextoAutorizacionAltaV3, error) {
+	if a.cursor == nil {
+		return ports.ContextoAutorizacionAltaV3{}, ports.ErrConsultaRRHHNoDisponible
+	}
+	return a.cursor.revalidarSesionCursorRRHHDesarrollo(ctx, anterior)
+}
+
 // Nace exclusivamente con la capacidad mTLS de una petición. No comparte
 // sesiones entre peticiones y conserva también el fallo, sin repetir el alta.
 type contextoConsultaRRHHPeticionDesarrollo struct {
@@ -42,8 +86,26 @@ type contextoConsultaRRHHPeticionDesarrollo struct {
 // La raíz configura una sola fuente nominal antes de servir peticiones.
 // Sin ella nunca se recurre al vínculo histórico del soporte de alta.
 func (a *autoridadConsultasRRHHDesarrollo) configurarProveedorContextoConsultaRRHHDesarrollo(
-	proveedor proveedorContextoConsultaRRHHDesarrollo,
+	entrada any,
 ) error {
+	if a == nil {
+		return ports.ErrConsultaRRHHNoDisponible
+	}
+	var proveedor proveedorContextoConsultaRRHHDesarrollo
+	switch p := entrada.(type) {
+	case proveedorContextoConsultaRRHHDesarrollo:
+		proveedor = p
+	case interface {
+		ResolverContexto(context.Context) (contextoSeguridadComunDesarrollo, error)
+	}:
+		cursor, ok := entrada.(interface {
+			revalidarSesionCursorRRHHDesarrollo(context.Context, ports.ContextoAutorizacionAltaV3) (ports.ContextoAutorizacionAltaV3, error)
+		})
+		if !ok {
+			return ports.ErrConsultaRRHHNoDisponible
+		}
+		proveedor = adaptadorContextoConsultaRRHHCTDesarrollo{delegado: p, cursor: cursor, reloj: a.reloj}
+	}
 	if a == nil || dependenciaEsNulaContratacionTemporalDesarrollo(proveedor) {
 		return ports.ErrConsultaRRHHNoDisponible
 	}

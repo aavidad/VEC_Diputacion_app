@@ -22,6 +22,7 @@ func nuevasDependenciasIdentidadConsultasDesarrollo(
 	ctx context.Context, c config.ConfiguracionPostgreSQLContratacionTemporal,
 	alta *dependenciasAltaContratacionTemporalDesarrollo, derivador *derivadorIdentidadOperacionDesarrollo,
 	reloj relojContratacionTemporalDesarrollo, soporte *soporteAltaContratacionTemporalDesarrollo,
+	fronteras catalogoFronterasComunDesarrollo,
 ) (*proveedorSesionConsultaRRHHDesarrollo, func(), error) {
 	fallo := ports.ErrConsultaRRHHNoDisponible
 	registroDSN, revalidacionDSN, err := c.DSNIdentidadConsultasSeparados()
@@ -116,7 +117,7 @@ func nuevasDependenciasIdentidadConsultasDesarrollo(
 	if err != nil {
 		return nil, nil, fallo
 	}
-	proveedor, err := nuevoProveedorSesionConsultaRRHHDesarrollo(soporte, registro, revalidador, reloj, autoridadContexto)
+	proveedor, err := nuevoProveedorSesionConsultaRRHHConCatalogoDesarrollo(soporte, registro, revalidador, reloj, autoridadContexto, fronteras)
 	if err != nil {
 		return nil, nil, fallo
 	}

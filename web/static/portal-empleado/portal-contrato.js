@@ -113,9 +113,13 @@ export function extraerDatosEnvelopeCanonico(envelope) {
 export function validarAvisosPortal(avisos) {
   if (!Array.isArray(avisos) || avisos.length > 20) throw new Error("lista de avisos no válida");
   return avisos.map((aviso) => {
-    exigirCamposExactos(aviso, ["texto", "destino"], "aviso");
+    if (!esObjeto(aviso) || !Object.hasOwn(aviso, "texto")
+      || Object.keys(aviso).some((clave) => !["texto", "destino"].includes(clave))) {
+      throw new Error("aviso no respeta el contrato cerrado");
+    }
     const texto = exigirCadena(aviso.texto, "texto del aviso");
     if (texto.length > 240) throw new Error("texto del aviso no válido");
+    if (!Object.hasOwn(aviso, "destino")) return Object.freeze({ texto });
     exigirCamposExactos(aviso.destino, ["vista", "etiqueta", "estado", "referencia"], "destino del aviso", ["referencia"]);
     const vista = exigirCadena(aviso.destino.vista, "vista de destino");
     if (!VISTAS_DESTINO_AVISO.has(vista)) throw new Error("vista de destino no registrada");

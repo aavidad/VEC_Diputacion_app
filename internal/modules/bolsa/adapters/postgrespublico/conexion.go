@@ -290,7 +290,9 @@ WITH vistas_esperadas(nombre) AS (VALUES
     ('plazos_convocatorias_publicas_v2'),
     ('requisitos_convocatorias_publicas_v2'),
     ('documentos_convocatorias_publicas_v2'),
-    ('ayuda_convocatorias_publicas_v2')
+    ('ayuda_convocatorias_publicas_v2'),
+    ('bolsas_v1'),
+    ('posiciones_bolsa_v1')
 ), privilegios_relaciones AS (
     SELECT COALESCE(bool_and(
         CASE
@@ -314,7 +316,7 @@ WITH vistas_esperadas(nombre) AS (VALUES
           AND relacion.relkind = 'v'
           AND esperada.nombre IS NOT NULL
           AND pg_catalog.has_table_privilege(session_user, relacion.oid, 'SELECT')
-    ) = 10 AS validos
+    ) = 12 AS validos
       FROM pg_catalog.pg_class AS relacion
       JOIN pg_catalog.pg_namespace AS espacio ON espacio.oid = relacion.relnamespace
  LEFT JOIN vistas_esperadas AS esperada
@@ -373,7 +375,7 @@ WITH vistas_esperadas(nombre) AS (VALUES
                AND permiso.privilege_type = 'SELECT'
            )
     ) AND (
-        SELECT count(*) = 10
+        SELECT count(*) = 12
           FROM pg_catalog.pg_class AS relacion
           JOIN pg_catalog.pg_namespace AS espacio ON espacio.oid = relacion.relnamespace
           CROSS JOIN roles_control AS roles

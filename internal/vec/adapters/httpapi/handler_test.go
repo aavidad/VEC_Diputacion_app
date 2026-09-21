@@ -214,7 +214,7 @@ func TestDietasRoadRouteUsesConfiguredInternalOSRM(t *testing.T) {
 	osrm := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requestedPath = r.URL.RequestURI()
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"code":"Ok","routes":[{"distance":13400,"duration":1080,"geometry":{"type":"LineString","coordinates":[[-3.5986,37.1773],[-3.6200,37.2050],[-3.6554,37.2306]]},"legs":[{"distance":13400,"duration":1080}]}],"waypoints":[],"data_version":"grafo-osm-granada-prueba-v1"}`))
+		_, _ = w.Write([]byte(`{"code":"Ok","routes":[{"distance":13400,"duration":1080,"geometry":{"type":"LineString","coordinates":[[-3.5986,37.1773],[-3.6200,37.2050],[-3.6554,37.2306]]},"legs":[{"distance":13400,"duration":1080,"steps":[{"geometry":{"type":"LineString","coordinates":[[-3.5986,37.1773],[-3.6200,37.2050]]}},{"geometry":{"type":"LineString","coordinates":[[-3.6200,37.2050],[-3.6554,37.2306]]}}]}]}],"waypoints":[],"data_version":"grafo-osm-granada-prueba-v1"}`))
 	}))
 	defer osrm.Close()
 	handler := newTestHandlerWithOptions(t, testOSRMOptions(osrm.URL))
@@ -230,8 +230,8 @@ func TestDietasRoadRouteUsesConfiguredInternalOSRM(t *testing.T) {
 	if !strings.Contains(requestedPath, "alternatives=1") {
 		t.Fatalf("OSRM path does not request default alternative count: %s", requestedPath)
 	}
-	if !strings.Contains(requestedPath, "steps=false") {
-		t.Fatalf("OSRM path should avoid heavy step payloads: %s", requestedPath)
+	if !strings.Contains(requestedPath, "steps=true") {
+		t.Fatalf("OSRM path should request per-leg road geometry: %s", requestedPath)
 	}
 	body := rec.Body.String()
 	for _, want := range []string{`"engine":"osrm_on_premise"`, `"distance":13400`, `"data_version":"grafo-osm-granada-prueba-v1"`} {
@@ -293,7 +293,7 @@ func TestDietasRoadRouteCanRequestAlternatives(t *testing.T) {
 	osrm := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requestedPath = r.URL.RequestURI()
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"code":"Ok","data_version":null,"routes":[{"distance":13400,"duration":1080,"geometry":{"type":"LineString","coordinates":[[-3.5986,37.1773],[-3.6554,37.2306]]},"legs":[{"distance":13400,"duration":1080}]}]}`))
+		_, _ = w.Write([]byte(`{"code":"Ok","data_version":null,"routes":[{"distance":13400,"duration":1080,"geometry":{"type":"LineString","coordinates":[[-3.5986,37.1773],[-3.6554,37.2306]]},"legs":[{"distance":13400,"duration":1080,"steps":[{"geometry":{"type":"LineString","coordinates":[[-3.5986,37.1773],[-3.6554,37.2306]]}}]}]}]}`))
 	}))
 	defer osrm.Close()
 	handler := newTestHandlerWithOptions(t, testOSRMOptions(osrm.URL))
@@ -324,7 +324,7 @@ func TestDietasRoadRouteRejectsCoordinatesOutsideGranadaScope(t *testing.T) {
 func TestDietasRoadRouteScopeCanBeChangedByConfiguration(t *testing.T) {
 	osrm := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"code":"Ok","data_version":null,"routes":[{"distance":430000,"duration":18000,"geometry":{"type":"LineString","coordinates":[[-3.5986,37.1773],[-3.7038,40.4168]]},"legs":[{"distance":430000,"duration":18000}]}]}`))
+		_, _ = w.Write([]byte(`{"code":"Ok","data_version":null,"routes":[{"distance":430000,"duration":18000,"geometry":{"type":"LineString","coordinates":[[-3.5986,37.1773],[-3.7038,40.4168]]},"legs":[{"distance":430000,"duration":18000,"steps":[{"geometry":{"type":"LineString","coordinates":[[-3.5986,37.1773],[-3.7038,40.4168]]}}]}]}]}`))
 	}))
 	defer osrm.Close()
 	handler := newTestHandlerWithOptions(t, testOSRMOptionsConConfiguracion(dietasosrm.Configuracion{

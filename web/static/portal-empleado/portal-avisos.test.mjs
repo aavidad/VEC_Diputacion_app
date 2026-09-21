@@ -1,85 +1,98 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { obtenerDatosPresentacion } from "./datos-presentacion.js";
-import { validarAvisosPortal } from "./portal-contrato.js";
-import {
-  instalarDestinosAvisos,
-  renderizarAvisosNavegables,
-} from "./portal-eventos.js";
+import { instalarDeeplinkAvisosBorradores } from "./portal-borradores-ui.js";
 
-const avisosDisponibles = obtenerDatosPresentacion().avisos;
+const [portal, estilos, html] = await Promise.all([
+  readFile(new URL("portal.js", import.meta.url), "utf8"),
+  readFile(new URL("portal-flujos.css", import.meta.url), "utf8"),
+  readFile(new URL("index.html", import.meta.url), "utf8"),
+]);
 
-function contenedorFalso() {
-  let escuchar = null;
-  return {
-    addEventListener: (tipo, funcion) => { if (tipo === "click") escuchar = funcion; },
-    removeEventListener: (tipo, funcion) => { if (tipo === "click" && escuchar === funcion) escuchar = null; },
-    contains: () => true,
-    click: (indice) => escuchar?.({
-      target: { closest: () => ({ dataset: { avisoDestino: String(indice) } }) },
-      preventDefault: () => {},
-    }),
-  };
-}
-
-test("los avisos solo admiten destinos internos registrados y referencias opacas", () => {
-  const [primero] = validarAvisosPortal(avisosDisponibles);
-  assert.equal(primero.destino.vista, "elaboracion");
-  assert.equal(primero.destino.referencia, "DEMO-AVISO-BOL-014");
-  assert.throws(() => validarAvisosPortal([{
-    texto: "Destino malicioso",
-    destino: { vista: "javascript:alert(1)", etiqueta: "No", estado: "disponible" },
-  }]), /no registrada/);
-  assert.throws(() => validarAvisosPortal([{
-    texto: "URL libre",
-    destino: { vista: "https://externo.example", etiqueta: "No", estado: "disponible" },
-  }]), /no registrada/);
-  assert.throws(() => validarAvisosPortal([{
-    texto: "Referencia libre",
-    destino: { vista: "dietas", etiqueta: "Dietas", estado: "disponible", referencia: "<img>" },
-  }]), /referencia.*no válida/);
+test("el aviso R5 apunta al borrador DEMO exacto mediante una vista interna", () => {
+  const [aviso] = obtenerDatosPresentacion().avisos;
+  assert.deepEqual(aviso, {
+    texto: "Informe jurídico pendiente en DEMO-BORRADOR-001.",
+    destino: {
+      vista: "elaboracion",
+      etiqueta: "Borradores de convocatorias",
+      estado: "disponible",
+      referencia: "DEMO-BORRADOR-001",
+    },
+  });
 });
 
-test("cada aviso disponible se presenta como botón accesible con contexto de destino", () => {
-  const html = renderizarAvisosNavegables(avisosDisponibles, (valor) => String(valor).replaceAll("<", "&lt;"));
-  assert.match(html, /<button type="button"[^>]*data-aviso-destino="0"[^>]*aria-label="Ir a Borradores de convocatorias">/);
-  assert.match(html, />Ir a Borradores de convocatorias<\/button>/);
-  // Un botón nativo recibe Enter y Espacio y emite click; no se añade un
-  // atajo propio que pudiera ejecutarlo dos veces.
-  assert.doesNotMatch(html, /role="link"|tabindex=/);
-});
-
-test("click, incluido el generado por teclado en el botón, cierra el diálogo y navega internamente", () => {
-  const contenedor = contenedorFalso();
+test("el botón nativo conserva teclado, foco y navegación opaca sin construir URL", async () => {
+  let escuchar;
+  let enfocado = false;
   const orden = [];
-  instalarDestinosAvisos(contenedor, avisosDisponibles, {
-    cerrar: () => orden.push("cerrar"),
-    navegar: (vista, opciones) => orden.push(["navegar", vista, opciones]),
-    anunciar: (texto) => orden.push(["anunciar", texto]),
+  const dialogo = { open: false, showModal() { this.open = true; }, close() { this.open = false; } };
+  const titulo = { textContent: "" };
+  const contenido = { innerHTML: "", querySelector: () => ({ focus: () => { enfocado = true; } }) };
+  const elementos = { "dialogo-detalle": dialogo, "titulo-dialogo": titulo, "contenido-dialogo": contenido };
+  const documento = {
+    addEventListener: (_tipo, manejador) => { escuchar = manejador; },
+    removeEventListener: () => {},
+  };
+  instalarDeeplinkAvisosBorradores({
+    documento,
+    escaparHTML: String,
+    porId: (id) => elementos[id],
+    obtenerAvisos: () => obtenerDatosPresentacion().avisos,
+    disponible: () => true,
+    navegar: (vista, opciones) => orden.push([vista, opciones]),
+    anunciar: (mensaje) => orden.push(mensaje),
   });
-  contenedor.click(0);
-  assert.deepEqual(orden, [
-    "cerrar",
-    ["navegar", "elaboracion", { referencia: "DEMO-AVISO-BOL-014" }],
-    ["anunciar", "Aviso: Borradores de convocatorias"],
-  ]);
+  escuchar({ target: { closest: (selector) => selector.includes("boton-avisos") ? {} : null },
+    preventDefault() {}, stopImmediatePropagation() {} });
+  await Promise.resolve();
+  assert.equal(dialogo.open, true);
+  assert.equal(titulo.textContent, "Avisos");
+  assert.match(contenido.innerHTML, /data-aviso-borrador-ref="DEMO-BORRADOR-001"/);
+  assert.equal(enfocado, true);
+  escuchar({ target: { closest: (selector) => selector.includes("data-aviso-borrador-ref")
+    ? { dataset: { avisoBorradorRef: "DEMO-BORRADOR-001" } } : null },
+  preventDefault() {}, stopImmediatePropagation() {} });
+  assert.deepEqual(orden, [["elaboracion", { referencia: "DEMO-BORRADOR-001" }], "Aviso: Borradores de convocatorias"]);
+  assert.equal(dialogo.open, false);
+  assert.doesNotMatch(portal, /location\.href\s*=.*aviso|window\.open\(.*aviso/);
 });
 
-test("un destino pendiente queda deshabilitado y no simula navegación", () => {
-  const avisos = [{
-    texto: "La consulta todavía no está conectada.",
-    destino: { vista: "cronos", etiqueta: "Cronos", estado: "pendiente" },
-  }];
-  const html = renderizarAvisosNavegables(avisos, String);
-  assert.match(html, /disabled aria-disabled="true"/);
-  assert.match(html, /Pendiente de conexión/);
-  const contenedor = contenedorFalso();
-  let navegaciones = 0;
-  instalarDestinosAvisos(contenedor, avisos, {
-    cerrar: () => assert.fail("no debe cerrar"),
-    navegar: () => { navegaciones += 1; },
-    anunciar: () => assert.fail("no debe anunciar"),
+test("el deeplink permanece cerrado sin autorización positiva de Elaboración", () => {
+  let escuchar;
+  let impedido = false;
+  const dialogo = { open: false, showModal() { this.open = true; } };
+  const contenido = { innerHTML: "", querySelector: () => null };
+  instalarDeeplinkAvisosBorradores({
+    documento: {
+      addEventListener: (_tipo, manejador) => { escuchar = manejador; },
+      removeEventListener: () => {},
+    },
+    escaparHTML: String,
+    porId: (id) => id === "dialogo-detalle" ? dialogo
+      : id === "contenido-dialogo" ? contenido : { textContent: "" },
+    obtenerAvisos: () => obtenerDatosPresentacion("tecnico").avisos,
+    disponible: () => false,
+    navegar: () => assert.fail("no debe navegar sin capacidad"),
+    anunciar: () => assert.fail("no debe anunciar un acceso denegado como disponible"),
   });
-  contenedor.click(0);
-  assert.equal(navegaciones, 0);
+  escuchar({
+    target: { closest: (selector) => selector.includes("boton-avisos") ? {} : null },
+    preventDefault: () => { impedido = true; },
+  });
+  assert.equal(dialogo.open, true);
+  assert.equal(impedido, true);
+  assert.doesNotMatch(contenido.innerHTML, /DEMO-BORRADOR-001|data-aviso-borrador-ref/);
+  assert.match(contenido.innerHTML, /Tres llamamientos previstos/);
+  assert.match(portal, /disponible: \(\) => estado\.modoPresentacion && estado\.fuenteLista && vistaPermitida\("elaboracion"\)/);
+});
+
+test("Avisos permanece visible en móvil y ambos activos avanzan de caché", () => {
+  const movil = estilos.slice(estilos.indexOf("@media (max-width: 780px)"));
+  assert.match(movil, /\.acciones-cabecera \.boton-avisos\s*\{[\s\S]*display:\s*inline-flex/);
+  assert.match(movil, /\.acciones-cabecera \.boton-avisos\s*\{[\s\S]*min-width:\s*38px/);
+  assert.doesNotMatch(movil, /\.boton-avisos\s*\{\s*display:\s*none/);
+  assert.match(html, /portal-flujos\.css\?v=20260921-avisos-movil-v1/);
+  assert.match(html, /portal\.js\?v=20260921-avisos-r5-v1/);
 });

@@ -113,7 +113,23 @@ test("la carga inicial no consulta servicios de Bolsa ausentes", () => {
   assert.doesNotMatch(cargaInicial, /fetch\(/);
   assert.doesNotMatch(cargaInicial, /comprobarDisponibilidad/);
   assert.doesNotMatch(cargaInicial, /API_PANEL_BOLSA/);
-  assert.match(cargaInicial, /controladorBolsas\.cargarBolsas\(\)/);
+  assert.match(cargaInicial, /moduloDeVistaPortal\(estado\.vista\) === "bolsa"/);
+});
+
+test("el arranque desconocido normaliza a portal sin sondear Bolsa", () => {
+  const inicio = javascript.indexOf("async function inicializar()");
+  const arranque = javascript.slice(inicio);
+  assert.match(arranque, /estado\.vista = vistaDesdeHash\(\)/);
+  assert.doesNotMatch(arranque, /controladorBolsas\.cargarBolsas\(\)/);
+  assert.match(javascript, /if \(Object\.hasOwn\(TITULOS, candidata\)\) return candidata/);
+  assert.match(javascript, /history\.replaceState\(null, "", "#portal"\);\s+return "portal"/);
+});
+
+test("solo Elaboración compone el destructor de borradores con el de B5 y B12", () => {
+  assert.match(javascript, /if \(vista === "elaboracion"\) superficieBorradoresActiva\(\)\?\.desmontar\(\)/);
+  assert.match(javascript, /controladorBolsas\.cancelarPeticiones\(\)/);
+  assert.match(javascript, /estado\.vista === "elaboracion"\) actualizarVistaBolsa\(\)/);
+  assert.doesNotMatch(javascript, /estado\.vista === "elaboracion"\) renderizar\(\)/);
 });
 
 test("el contrato real exige envelope canónico y rechaza una raíz raw", () => {
@@ -178,6 +194,17 @@ test("el modo real renderiza solo indicadores, convocatorias y actuaciones acred
   assert.match(resumen, /120/);
   assert.match(resumen, /act_0123456789abcdef/);
   assert.match(resumen, /Prueba de lectura/);
+  assert.match(resumen, /Datos conectados en modo de solo lectura/);
+  assert.match(resumen, /class="rejilla-cuadro-mando"/);
+  assert.ok(resumen.indexOf("Cuadro B12") < resumen.indexOf("Convocatorias del ámbito autorizado"));
+  assert.ok(resumen.indexOf("Convocatorias del ámbito autorizado") < resumen.indexOf("Actuaciones pendientes"));
+  assert.ok(resumen.indexOf("Actuaciones pendientes") < resumen.indexOf("Prueba de lectura"));
+  for (const etiqueta of [
+    "Bolsas activas", "Llamamientos pendientes", "Llamamientos en curso",
+    "Documentos pendientes de firma", "Incidencias abiertas",
+  ]) assert.match(resumen, new RegExp(etiqueta));
+  assert.doesNotMatch(resumen, /Bolsas suspendidas|Bolsas agotadas|Convocatorias en borrador/);
+  assert.doesNotMatch(resumen, /Nuevo llamamiento|actividad|gráfico/i);
   assert.match(presentador.renderizarVista("contratos"), /Funcionalidad no conectada/);
 
   fuente = validarPanelBolsa(obtenerDatosPresentacion(), true);
@@ -187,9 +214,7 @@ test("el modo real renderiza solo indicadores, convocatorias y actuaciones acred
   assert.match(javascript, /crearPresentadorPanelInterno/);
   assert.match(javascript, /portal-panel-interno\.js\?v=20260717-panel-interno-v1/);
   for (const indicador of [
-    "convocatorias_borrador", "convocatorias_revision", "convocatorias_pendientes_firma",
-    "convocatorias_publicadas", "bolsas_activas", "bolsas_suspendidas", "bolsas_agotadas",
-    "llamamientos_pendientes", "llamamientos_en_curso", "llamamientos_vencen_hoy",
+    "bolsas_activas", "llamamientos_pendientes", "llamamientos_en_curso",
     "documentos_pendientes_firma", "incidencias_abiertas",
   ]) assert.match(panelInterno, new RegExp(`i\\.${indicador}`));
   assert.match(panelInterno, /No se muestran valores cero, tablas vacías ni controles aparentes/);
@@ -199,9 +224,10 @@ test("el modo real renderiza solo indicadores, convocatorias y actuaciones acred
 
 test("el coordinador respeta DEC-051 y carga el presentador con versión de caché", () => {
   assert.ok(javascript.split(/\r?\n/).length - 1 < 800, "portal.js debe mantenerse por debajo de 800 líneas");
-  assert.match(html, /portal\.js\?v=20260920-cronos-bandeja-v2/);
-  assert.match(html, /dietas\/dietas\.css\?v=20260921-dietas-mapa-osm-v10/);
-  assert.match(javascript, /portal-modulos-coordinador\.js\?v=20260920-cronos-bandeja-v2/);
+  assert.match(html, /portal\.js\?v=20260921-avisos-r5-v1/);
+  assert.match(javascript, /portal-modulos-coordinador\.js\?v=20260921-avisos-r5-v1/);
+  assert.match(javascript, /portal-bolsas-api\.js\?v=20260921-montaje-modulos-b1/);
+  assert.match(javascript, /portal-borradores-ui\.js\?v=20260921-avisos-r5-v1/);
   assert.match(javascript, /portal-eventos\.js\?v=20260721-acceso-real-v2/);
   assert.match(javascript, /import\("\.\/portal-resumen-presentacion\.js\?v=20260721-acceso-real-v2"\)/);
   assert.doesNotMatch(javascript, /^import .*portal-resumen-presentacion/m);
@@ -213,9 +239,19 @@ test("el coordinador respeta DEC-051 y carga el presentador con versión de cach
   assert.match(panelInterno, /export function crearPresentadorPanelInterno/);
 });
 
+test("el montaje de Elaboración conserva la referencia de navegación hasta la superficie", () => {
+  assert.match(javascript, /montar: \(\{ vista, raiz, opciones \}\)/);
+  assert.match(javascript, /function montarVistaBolsa\(vista, contenedor, opciones = \{\}, \{ activar = true \} = \{\}\)/);
+  assert.match(javascript, /superficie\.activar\(\{ referencia: opciones\.referencia \}\)/);
+  assert.match(javascript, /if \(activar\) void superficie\.activar/);
+  assert.match(javascript, /alCambiar: \(\) => \{ if \(estado\.vista === "elaboracion"\) actualizarVistaBolsa\(\); \}/);
+  assert.match(javascript, /function actualizarVistaBolsa\(\{ activar = false \} = \{\}\)/);
+  assert.match(javascript, /superficieBorradoresActiva\(\)\?\.desmontar\(\)/);
+});
+
 test("el hash directo de CT falla cerrado con retorno seguro y sin mensajes de Bolsa", () => {
   assert.match(javascript, /"contratacion-temporal": \[/);
-  assert.match(javascript, /VISTAS_PRESENTACION_VISUALES\.has\(candidata\)/);
+  assert.match(javascript, /if \(Object\.hasOwn\(TITULOS, candidata\)\) return candidata/);
   const decision = javascript.indexOf('contenedor.innerHTML = estado.vista === "contratacion-temporal"');
   const montaje = javascript.indexOf("void coordinadorModulos.montarVista", decision);
   assert.ok(decision > 0 && montaje > decision, "la indisponibilidad debe resolverse antes del montaje");
@@ -251,31 +287,6 @@ test("el hash directo de CT falla cerrado con retorno seguro y sin mensajes de B
     assert.equal(catalogoI18n.includes(literal), true);
   }
   assert.doesNotMatch(vistaCerrada, /Gestión de Bolsas|No se han cargado datos de Bolsa|recargar-fuente/);
-});
-
-test("los recorridos visuales sólo interceptan sus hashes en presentación y no desplazan Bolsa interna", () => {
-  assert.match(javascript, /coordinadorModulos\.vistaGestionada\(estado\.vista\)/);
-  assert.match(javascript, /estado\.modoPresentacion && VISTAS_PRESENTACION_VISUALES\.has\(vista\)/);
-  assert.match(javascript, /\? `#\$\{vista\}` : rutaDeVistaPortal\(vista\)/);
-  assert.match(javascript, /solicitudes: \["Portal del Empleado → Bolsas de trabajo", "Solicitudes y admisión"\]/);
-  assert.match(javascript, /TITULOS_PRESENTACION/);
-  for (const vista of ["nominas-empleado", "aprobaciones-empleado", "administracion-empleado"]) {
-    assert.match(javascript, new RegExp(`"${vista}": \\["Portal del Empleado`));
-  }
-});
-
-test("un deep-link visual se conserva mientras carga la presentación y sólo se monta después", () => {
-  assert.match(javascript, /return !estado\.fuenteLista \|\| coordinadorModulos\.vistaDisponible\(vista\)/);
-  assert.match(javascript, /estado\.vista = vistaDesdeHash\(\)/);
-  assert.match(javascript, /await cargarFuenteDatos\(\)/);
-  assert.match(javascript, /coordinadorModulos\.vistaGestionada\(estado\.vista\)/);
-});
-
-test("las rutas de presentación usan namespace y conservan las sub-vistas Bolsa", () => {
-  assert.match(javascript, /"solicitudes-empleado"/);
-  assert.match(javascript, /vista\.replace\(\/-empleado\$\/u, ""\)/);
-  assert.match(javascript, /rutaDeVistaPortal\(vista\)/);
-  assert.match(javascript, /solicitudes: \["Portal del Empleado → Bolsas de trabajo", "Solicitudes y admisión"\]/);
 });
 
 test("la propuesta real usa el cliente cerrado y no habilita un detalle inexistente", () => {

@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   ErrorAPIBorradores,
 } from "./portal-borradores-api.js";
+import { crearClienteBorradoresPresentacion } from "./portal-borradores-demo-cliente.js";
 import {
   ESQUEMAS_BORRADORES,
   validarSolicitudActualizarBorrador,
@@ -109,6 +110,99 @@ test("la navegación comprueba capacidad sin leer la bandeja y reutiliza las opc
   assert.deepEqual(llamadas, ["opciones", "lista", "detalle"]);
 });
 
+test("activar con referencia abre solo el borrador incluido en la lista autorizada", async () => {
+  const llamadas = [];
+  const clientePresentacion = crearClienteBorradoresPresentacion();
+  const cliente = crearDobleCliente({
+    obtenerOpciones: async () => { llamadas.push("opciones"); return clientePresentacion.obtenerOpciones(); },
+    listar: async () => { llamadas.push("lista"); return clientePresentacion.listar(); },
+    obtenerDetalle: async (referencia) => {
+      llamadas.push(["detalle", referencia]);
+      return clientePresentacion.obtenerDetalle(referencia);
+    },
+  });
+  const { superficie } = crearSuperficie({ cliente });
+  assert.equal(await superficie.activar({ referencia: "DEMO-BORRADOR-001" }), true);
+  assert.deepEqual(llamadas, ["opciones", "lista", ["detalle", "DEMO-BORRADOR-001"]]);
+  assert.match(superficie.renderizar(), /Convocatoria DEMO de Bolsa temporal/);
+});
+
+test("el repintado dirigido por alCambiar sustituye la carga por el borrador exacto sin duplicar activar", async () => {
+  const llamadas = [];
+  const clientePresentacion = crearClienteBorradoresPresentacion();
+  const cliente = crearDobleCliente({
+    obtenerOpciones: () => { llamadas.push("opciones"); return clientePresentacion.obtenerOpciones(); },
+    listar: () => { llamadas.push("lista"); return clientePresentacion.listar(); },
+    obtenerDetalle: (referencia) => { llamadas.push(["detalle", referencia]); return clientePresentacion.obtenerDetalle(referencia); },
+  });
+  const dom = { innerHTML: "" };
+  let superficie;
+  superficie = crearSuperficieBorradoresPortal({
+    escaparHTML,
+    anunciar: () => {},
+    alCambiar: () => { dom.innerHTML = superficie.renderizar(); },
+    confirmar: () => true,
+    crearClienteImpl: () => cliente,
+    generarClaveImpl: () => CLAVE_IDEMPOTENCIA_A,
+  });
+  dom.innerHTML = superficie.renderizar();
+  assert.match(dom.innerHTML, /Comprobando acceso y cargando borradores/);
+  assert.equal(await superficie.activar({ referencia: "DEMO-BORRADOR-001" }), true);
+  assert.match(dom.innerHTML, /DEMO-BORRADOR-001/);
+  assert.doesNotMatch(dom.innerHTML, /Cargando el borrador seleccionado/);
+  assert.deepEqual(llamadas, ["opciones", "lista", ["detalle", "DEMO-BORRADOR-001"]]);
+});
+
+test("una referencia ausente no obtiene detalle ni abre la primera fila", async () => {
+  let detalles = 0;
+  const { anuncios, superficie } = crearSuperficie({ cliente: crearDobleCliente({
+    obtenerDetalle: async () => { detalles += 1; return structuredClone(detalle()); },
+  }) });
+  assert.equal(await superficie.activar({ referencia: "DEMO-BORRADOR-INEXISTENTE" }), false);
+  assert.equal(detalles, 0);
+  assert.match(superficie.renderizar(), /El borrador solicitado no está disponible en la bandeja autorizada/);
+  assert.match(superficie.renderizar(), /Seleccione un borrador o cree uno nuevo/);
+  assert.ok(anuncios.includes("El borrador solicitado no está disponible"));
+});
+
+test("una referencia autorizada con error de detalle conserva un error controlado", async () => {
+  const clientePresentacion = crearClienteBorradoresPresentacion();
+  const { anuncios, superficie } = crearSuperficie({ cliente: crearDobleCliente({
+    obtenerOpciones: () => clientePresentacion.obtenerOpciones(),
+    listar: () => clientePresentacion.listar(),
+    obtenerDetalle: async () => { throw new Error("fallo de red"); },
+  }) });
+  assert.equal(await superficie.activar({ referencia: "DEMO-BORRADOR-001" }), false);
+  assert.match(superficie.renderizar(), /No se pudo cargar el borrador seleccionado/);
+  assert.ok(anuncios.includes("No se pudo cargar el borrador seleccionado"));
+});
+
+test("desmontar aborta la comprobación pendiente y permite remontar sin repintar ni anunciar tarde", async () => {
+  let comprobaciones = 0;
+  let signal;
+  const { anuncios, cambios, superficie } = crearSuperficie({ cliente: crearDobleCliente({
+    obtenerOpciones: ({ signal: signalConsulta }) => {
+      comprobaciones += 1;
+      if (comprobaciones === 2) return Promise.resolve(structuredClone(opciones()));
+      signal = signalConsulta;
+      return new Promise((_resolver, rechazar) => {
+        signal.addEventListener("abort", () => rechazar(new DOMException("Cancelada", "AbortError")), { once: true });
+      });
+    },
+  }) });
+  const carga = superficie.activar({ referencia: "DEMO-BORRADOR-001" });
+  await Promise.resolve();
+  const cambiosAntes = cambios.length;
+  const anunciosAntes = anuncios.length;
+  superficie.desmontar();
+  assert.equal(signal.aborted, true);
+  assert.equal(await carga, false);
+  assert.equal(cambios.length, cambiosAntes);
+  assert.equal(anuncios.length, anunciosAntes);
+  assert.equal(await superficie.activar(), true);
+  assert.equal(comprobaciones, 2);
+});
+
 test("una denegación sobrevenida retira de inmediato lista, detalle y edición", async () => {
   let denegada = false;
   const cliente = crearDobleCliente({
@@ -194,6 +288,75 @@ test("una respuesta de filtro obsoleta no reemplaza la bandeja más reciente", a
   const html = superficie.renderizar();
   assert.match(html, /Resultado reciente/);
   assert.doesNotMatch(html, /Resultado obsoleto/);
+});
+
+test("desmontar cancela una activación tardía sin notificar y permite remontar", async () => {
+  const opcionesTardias = diferida();
+  let signalOpciones;
+  let consultasOpciones = 0;
+  const cliente = crearDobleCliente({
+    obtenerOpciones: async ({ signal }) => {
+      consultasOpciones += 1;
+      signalOpciones = signal;
+      if (consultasOpciones === 1) return opcionesTardias.promesa;
+      return structuredClone(opciones());
+    },
+  });
+  const { anuncios, cambios, superficie } = crearSuperficie({ cliente });
+  const activacion = superficie.activar();
+  await Promise.resolve();
+  const anunciosAlSalir = anuncios.length;
+  const cambiosAlSalir = cambios.length;
+  assert.equal(superficie.desmontar(), true);
+  assert.equal(superficie.desmontar(), false, "el destructor debe ser idempotente");
+  assert.equal(signalOpciones.aborted, true);
+  opcionesTardias.resolver(structuredClone(opciones()));
+  assert.equal(await activacion, false);
+  assert.equal(anuncios.length, anunciosAlSalir);
+  assert.equal(cambios.length, cambiosAlSalir);
+
+  assert.equal(await superficie.activar(), true);
+  assert.match(superficie.renderizar(), /Bandeja de borradores/);
+  assert.equal(consultasOpciones, 2, "el remonte revalida el acceso sin reutilizar la petición cancelada");
+});
+
+test("desmontar cancela guardado tardío, conserva cambios y admite guardar al remontar", async () => {
+  const guardadoTardio = diferida();
+  let actualizaciones = 0;
+  let signalGuardado;
+  const cliente = crearDobleCliente({
+    actualizar: async (_referencia, _solicitud, _limites, control) => {
+      actualizaciones += 1;
+      if (actualizaciones === 1) {
+        signalGuardado = control.signal;
+        return guardadoTardio.promesa;
+      }
+      return structuredClone(recibo("actualizar"));
+    },
+  });
+  const { anuncios, cambios, superficie } = crearSuperficie({ cliente });
+  await superficie.activar();
+  cambiar(superficie, "contenido_editable.titulo", "Título local preservado");
+  const guardado = superficie.guardar();
+  await Promise.resolve();
+  const anunciosAlSalir = anuncios.length;
+  const cambiosAlSalir = cambios.length;
+  assert.equal(superficie.desmontar(), true);
+  assert.equal(signalGuardado.aborted, true);
+  guardadoTardio.resolver(structuredClone(recibo("actualizar")));
+  assert.equal(await guardado, false);
+  assert.equal(anuncios.length, anunciosAlSalir);
+  assert.equal(cambios.length, cambiosAlSalir);
+  assert.doesNotMatch(superficie.renderizar(), /Recibo administrativo del borrador/);
+  assert.match(superficie.renderizar(), /Título local preservado/);
+
+  assert.equal(await superficie.activar(), true);
+  assert.equal(await superficie.guardar(), true);
+  assert.match(superficie.renderizar(), /Recibo administrativo del borrador/);
+  assert.equal(superficie.desmontar(), true);
+  assert.equal(await superficie.activar(), true);
+  assert.match(superficie.renderizar(), /Recibo administrativo del borrador/,
+    "el desmontaje no finge rollback de un recibo ya confirmado");
 });
 
 test("la actualización envía CAS e idempotencia exactos y muestra el recibo", async () => {

@@ -22,14 +22,21 @@ import {
   componerDietasVisible,
   componerPersonalVisible,
 } from "./portal-composicion-empleado.js";
+import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260919-acceso-bolsa-v1";
+import {
+  CLAVES_CARGA_MODULAR,
+  LIMITE_CARGA_MODULAR_MS,
+  cargarModuloConLimite,
+  consultarConLimite,
+  resolverCargasModularesPresentacion,
+} from "./portal-modulos-carga.js";
+export { resolverCargasModularesPresentacion } from "./portal-modulos-carga.js";
 
 const CLAVE_CONTRATACION_TEMPORAL = "contratacion_temporal";
 const CLAVE_PERSONAL = "personal";
-const CLAVES_CARGA_MODULAR = Object.freeze([
-  CLAVE_CONTRATACION_TEMPORAL,
-  CLAVE_PERSONAL,
-  "cronos",
-  "dietas",
+export const CLAVES_MODULOS_VEC_REGISTRADOS = Object.freeze([
+  CLAVE_PERSONAL, "cronos", "dietas", "bolsa",
+  CLAVE_CONTRATACION_TEMPORAL, "administracion", "usuarios",
 ]);
 // Estos recorridos son exclusivamente visuales. Se cargan sólo desde el
 // arranque de presentación y no son una concesión, un manifiesto productivo ni
@@ -51,11 +58,6 @@ const CLAVE_POR_VISTA_PRESENTACION = Object.freeze(Object.fromEntries(
   Object.entries(VISTA_POR_CLAVE_PRESENTACION).map(([clave, vista]) => [vista, clave]),
 ));
 export const VISTAS_PRESENTACION_VISUALES = Object.freeze(new Set(Object.keys(CLAVE_POR_VISTA_PRESENTACION)));
-const CLAVES_CARGA_PRESENTACION = Object.freeze([
-  ...CLAVES_CARGA_MODULAR,
-  ...CLAVES_PRESENTACION_VISUAL,
-]);
-const LIMITE_CARGA_MODULAR_MS = 2_000;
 
 const CARGADORES_PRESENTACION_PREDETERMINADOS = Object.freeze({
   base: async () => {
@@ -162,94 +164,6 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   },
 });
 
-function cargarModuloConLimite(cargar, clave, limiteMs, temporizadores) {
-  if (typeof temporizadores?.setTimeout !== "function"
-    || typeof temporizadores?.clearTimeout !== "function") {
-    return Promise.reject(new TypeError("temporizadores modulares no disponibles"));
-  }
-  return new Promise((resolver, rechazar) => {
-    let terminada = false;
-    const finalizar = (continuacion, valor) => {
-      if (terminada) return;
-      terminada = true;
-      temporizadores.clearTimeout(temporizador);
-      continuacion(valor);
-    };
-    const temporizador = temporizadores.setTimeout(
-      () => finalizar(rechazar, new Error(`tiempo agotado al cargar ${clave}`)),
-      limiteMs,
-    );
-    Promise.resolve()
-      .then(cargar)
-      .then(
-        (recursos) => finalizar(resolver, recursos),
-        () => finalizar(rechazar, new Error(`no se pudo cargar ${clave}`)),
-      );
-  });
-}
-function consultarConLimite(consultar, controlador, limiteMs, temporizadores) {
-  return new Promise((resolver, rechazar) => {
-    let terminada = false;
-    const finalizar = (continuacion, valor) => {
-      if (terminada) return;
-      terminada = true;
-      temporizadores.clearTimeout(temporizador);
-      continuacion(valor);
-    };
-    const temporizador = temporizadores.setTimeout(() => {
-      controlador.abort();
-      finalizar(
-        rechazar,
-        new Error("tiempo agotado al consultar contratación temporal"),
-      );
-    }, limiteMs);
-    Promise.resolve()
-      .then(() => consultar({ signal: controlador.signal }))
-      .then(
-        (resultado) => finalizar(resolver, resultado),
-        () => finalizar(
-          rechazar,
-          new Error("no se pudo consultar contratación temporal"),
-        ),
-      );
-  });
-}
-
-export async function resolverCargasModularesPresentacion(cargadores, {
-  claves = CLAVES_CARGA_PRESENTACION,
-  limiteMs = LIMITE_CARGA_MODULAR_MS,
-  temporizadores = globalThis,
-} = {}) {
-  if (!Array.isArray(claves)
-    || claves.some((clave) => !CLAVES_CARGA_PRESENTACION.includes(clave))
-    || new Set(claves).size !== claves.length
-    || !Number.isSafeInteger(limiteMs) || limiteMs < 1 || limiteMs > 10_000) {
-    throw new TypeError("configuración de carga modular no válida");
-  }
-  const clavesSolicitadas = new Set(claves);
-  const resultados = await Promise.allSettled(CLAVES_CARGA_PRESENTACION.map((clave) => {
-    if (!clavesSolicitadas.has(clave)) return Promise.resolve(undefined);
-    const cargar = cargadores?.[clave];
-    if (typeof cargar !== "function") {
-      return Promise.reject(new TypeError(`cargador modular ausente: ${clave}`));
-    }
-    return cargarModuloConLimite(cargar, clave, limiteMs, temporizadores);
-  }));
-  return Object.freeze(Object.fromEntries(CLAVES_CARGA_PRESENTACION.map((clave, indice) => {
-    if (!clavesSolicitadas.has(clave)) {
-      return [clave, Object.freeze({ disponible: false, estado: "denegado" })];
-    }
-    const resultado = resultados[indice];
-    return [clave, resultado.status === "fulfilled"
-      ? Object.freeze({
-        disponible: true,
-        estado: "disponible",
-        recursos: resultado.value,
-      })
-      : Object.freeze({ disponible: false, estado: "no_disponible" })];
-  })));
-}
-
 function capacidadesDietas(contrato) {
   return Object.freeze([
     contrato.CAPACIDAD_CONSULTAR_GASTO,
@@ -276,6 +190,7 @@ function componerVistaPresentacionAislada(carga, exportacion) {
 }
 
 export const VISTAS_MODULOS_PERSONALES = Object.freeze(new Set(["cronos", "dietas", "personal"]));
+const VISTAS_MODULO_BOLSA = Object.freeze(new Set(VISTAS_INTERNAS_BOLSA));
 export const VISTAS_MODULOS_CONECTADOS = Object.freeze(new Set([
   "contratacion-temporal", ...VISTAS_MODULOS_PERSONALES,
 ]));
@@ -285,20 +200,25 @@ export function moduloDeVistaPortal(vista) {
   if (vista === "contratacion-temporal") return "contratacion_temporal";
   if (vista === "personal") return CLAVE_PERSONAL;
   if (VISTAS_MODULOS_PERSONALES.has(vista)) return vista;
-  return "bolsa";
+  if (VISTAS_PRESENTACION_VISUALES.has(vista)) return CLAVE_POR_VISTA_PRESENTACION[vista];
+  if (VISTAS_MODULO_BOLSA.has(vista)) return "bolsa";
+  return "";
 }
 
 export function rutaDeVistaPortal(vista) {
   if (vista === "portal") return "#portal";
   if (vista === "contratacion-temporal") return "#contratacion-temporal";
   if (VISTAS_MODULOS_PERSONALES.has(vista)) return `#${vista}`;
-  return `#bolsa/${vista}`;
+  if (VISTAS_PRESENTACION_VISUALES.has(vista)) return `#${vista}`;
+  if (VISTAS_MODULO_BOLSA.has(vista)) return `#bolsa/${vista}`;
+  return "#portal";
 }
 
 export function crearCoordinadorModulosPortal({
   escaparHTML,
   anunciar = () => {},
   confirmarOperacion = () => false,
+  montajeBolsa = null,
   entorno = globalThis,
   traducir = traducirPortal,
   cargarCatalogoInterno = cargarCatalogoModulosInterno,
@@ -310,6 +230,8 @@ export function crearCoordinadorModulosPortal({
   if (typeof escaparHTML !== "function" || typeof anunciar !== "function"
     || typeof confirmarOperacion !== "function" || typeof traducir !== "function"
     || typeof cargarCatalogoInterno !== "function"
+    || (montajeBolsa !== null && (typeof montajeBolsa?.montar !== "function"
+      || typeof montajeBolsa?.disponible !== "function"))
     || typeof cargadoresPresentacion?.base !== "function"
     || typeof cargadoresInternos?.contratacion_temporal !== "function"
     || !Number.isSafeInteger(limiteCargaModularMs)
@@ -321,6 +243,9 @@ export function crearCoordinadorModulosPortal({
   let composicion = null;
   let presentacionActiva = false;
   let desmontarVista = null;
+  let vistaMontada = "";
+  let raizMontada = null;
+  let referenciaElaboracionMontada = "";
   let secuenciaMontaje = 0;
   let secuenciaCarga = 0;
   let controladorCargaInterna = null;
@@ -336,7 +261,16 @@ export function crearCoordinadorModulosPortal({
     secuenciaMontaje += 1;
     if (typeof desmontarVista === "function") desmontarVista();
     desmontarVista = null;
+    vistaMontada = "";
+    raizMontada = null;
+    referenciaElaboracionMontada = "";
     cancelarCargaInterna();
+  }
+
+  function reutilizarElaboracion(vista, raiz, opciones) {
+    if (vista !== "elaboracion" || vistaMontada !== vista || raizMontada !== raiz) return false;
+    if (opciones === null || typeof opciones !== "object" || !Object.hasOwn(opciones, "referencia")) return true;
+    return opciones.referencia === referenciaElaboracionMontada;
   }
 
   async function cargarPresentacion(sesionBolsa) {
@@ -679,6 +613,9 @@ export function crearCoordinadorModulosPortal({
   }
 
   function vistaDisponible(vista) {
+    if (VISTAS_MODULO_BOLSA.has(vista)) {
+      return montajeBolsa !== null && montajeBolsa.disponible(vista) === true;
+    }
     if (vista === "contratacion-temporal") {
       return composicion?.contratacionTemporal !== undefined;
     }
@@ -696,7 +633,8 @@ export function crearCoordinadorModulosPortal({
   // visuales que coinciden con sub-vistas de Bolsa sólo se interceptan durante
   // la presentación, nunca en el portal interno.
   function vistaGestionada(vista) {
-    return VISTAS_MODULOS_CONECTADOS.has(vista)
+    return (montajeBolsa !== null && VISTAS_MODULO_BOLSA.has(vista))
+      || VISTAS_MODULOS_CONECTADOS.has(vista)
       || (presentacionActiva && VISTAS_PRESENTACION_VISUALES.has(vista));
   }
 
@@ -760,7 +698,8 @@ export function crearCoordinadorModulosPortal({
         estado: composicion?.estadosModulos?.[clave] || "denegado",
       });
     }
-    if (CLAVES_PRESENTACION_VISUAL.includes(clave)) {
+    if (CLAVES_PRESENTACION_VISUAL.includes(clave)
+      || CLAVES_MODULOS_VEC_REGISTRADOS.includes(clave)) {
       return Object.freeze({
         disponible: false,
         vista: "",
@@ -798,9 +737,41 @@ export function crearCoordinadorModulosPortal({
     if (!raiz || typeof raiz.replaceChildren !== "function") {
       throw new TypeError("raíz del módulo no válida");
     }
+    if (reutilizarElaboracion(vista, raiz, opciones)) return true;
     desmontarVistaActual();
     const montaje = ++secuenciaMontaje;
-    raiz.innerHTML = '<section class="panel"><div class="cuerpo-panel" role="status">Cargando módulo…</div></section>';
+    if (vista === "elaboracion") {
+      vistaMontada = vista;
+      raizMontada = raiz;
+      referenciaElaboracionMontada = opciones?.referencia || "";
+    }
+    raiz.innerHTML = `<section class="panel"><div class="cuerpo-panel" role="status">${escaparHTML(traducir("estado_modulo_comprobando"))}</div></section>`;
+
+    if (VISTAS_MODULO_BOLSA.has(vista)) {
+      let resultado;
+      try {
+        resultado = await montajeBolsa.montar({ vista, raiz, opciones, anunciar });
+      } catch (error) {
+        if (montaje === secuenciaMontaje && vista === "elaboracion") {
+          vistaMontada = "";
+          raizMontada = null;
+          referenciaElaboracionMontada = "";
+        }
+        throw error;
+      }
+      const limpiar = typeof resultado === "function" ? resultado : resultado?.desmontar;
+      if (montaje !== secuenciaMontaje) {
+        if (typeof limpiar === "function") limpiar();
+        return false;
+      }
+      desmontarVista = typeof limpiar === "function" ? limpiar : null;
+      if (vista !== "elaboracion") {
+        vistaMontada = vista;
+        raizMontada = raiz;
+        referenciaElaboracionMontada = "";
+      }
+      return true;
+    }
 
     if (vista === "contratacion-temporal") {
       const esFiscalizacion = composicion.contratacionTemporal.fiscalizacion !== null;

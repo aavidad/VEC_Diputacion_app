@@ -15,15 +15,36 @@ trap 'unlink "${dependencias}" 2>/dev/null || true' EXIT
 
 # C4 admite exactamente la configuracion, el contrato de superficie, los
 # presupuestos HTTP compartidos y el dominio de identidad que valida dicho
-# contrato. C5/C6 ampliaran esta lista de forma deliberada al aportar
-# proveedores productivos reales.
+# contrato. La configuracion integrada de Bolsa usa pgconn exclusivamente para
+# impedir que dos DSN reutilicen el mismo LOGIN; se admite aqui su cierre
+# transitivo exacto, sin incorporar pools ni adaptadores PostgreSQL al binario.
 LC_ALL=C go list -deps -f '{{if not .Standard}}{{.ImportPath}}{{end}}' "${objetivo}" |
 	LC_ALL=C sed '/^$/d' | LC_ALL=C sort -u >"${dependencias}"
 
 prohibidas=()
 while IFS= read -r paquete; do
 	case "${paquete}" in
-		"${modulo}/cmd/vec-interno" | \
+		github.com/jackc/pgpassfile | \
+			github.com/jackc/pgservicefile | \
+			github.com/jackc/pgx/v5/internal/iobufpool | \
+			github.com/jackc/pgx/v5/internal/pgio | \
+			github.com/jackc/pgx/v5/pgconn | \
+			github.com/jackc/pgx/v5/pgconn/ctxwatch | \
+			github.com/jackc/pgx/v5/pgconn/internal/bgreader | \
+			github.com/jackc/pgx/v5/pgproto3 | \
+			github.com/jackc/pgx/v5/pgtype | \
+			golang.org/x/text/cases | \
+			golang.org/x/text/internal | \
+			golang.org/x/text/internal/language | \
+			golang.org/x/text/internal/language/compact | \
+			golang.org/x/text/internal/tag | \
+			golang.org/x/text/language | \
+			golang.org/x/text/runes | \
+			golang.org/x/text/secure/bidirule | \
+			golang.org/x/text/secure/precis | \
+			golang.org/x/text/unicode/bidi | \
+			golang.org/x/text/width | \
+			"${modulo}/cmd/vec-interno" | \
 			"${modulo}/config" | \
 			"${modulo}/internal/app/composicion/interna" | \
 			"${modulo}/internal/app/server" | \

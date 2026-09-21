@@ -128,8 +128,41 @@ func nuevoContextoSinteticoContratacionTemporalDesarrollo(
 	principal dominiovec.Principal,
 	ahora time.Time,
 ) (ports.ContextoAutorizacionAltaV3, error) {
+	return nuevoContextoSinteticoContratacionTemporalDesarrolloConDiscriminador(
+		principal, ahora, discriminadorContextoSinteticoContratacionTemporalDesarrollo(),
+	)
+}
+
+// discriminadorContextoSinteticoDesarrollo nunca llega desde un transporte ni
+// una configuración abierta. Se limita a separar contextos sintéticos que
+// comparten la misma cuenta y persona dentro del ensamblaje de desarrollo.
+type discriminadorContextoSinteticoDesarrollo struct {
+	perfil, vinculo, procedencia, registro string
+	autenticacion, asercion, sesion        string
+	controlSesion, politicaGarantia        string
+}
+
+func discriminadorContextoSinteticoContratacionTemporalDesarrollo() discriminadorContextoSinteticoDesarrollo {
+	return discriminadorContextoSinteticoDesarrollo{
+		perfil: "perfil", vinculo: "vinculo", procedencia: "procedencia", registro: "registro-contexto",
+		autenticacion: "autenticacion", asercion: "asercion", sesion: "sesion",
+		controlSesion: "control-sesion", politicaGarantia: "politica-garantia",
+	}
+}
+
+func (d discriminadorContextoSinteticoDesarrollo) valido() bool {
+	return d.perfil != "" && d.vinculo != "" && d.procedencia != "" && d.registro != "" &&
+		d.autenticacion != "" && d.asercion != "" && d.sesion != "" &&
+		d.controlSesion != "" && d.politicaGarantia != ""
+}
+
+func nuevoContextoSinteticoContratacionTemporalDesarrolloConDiscriminador(
+	principal dominiovec.Principal,
+	ahora time.Time,
+	discriminador discriminadorContextoSinteticoDesarrollo,
+) (ports.ContextoAutorizacionAltaV3, error) {
 	if !principalSinteticoContratacionTemporalDesarrolloValido(principal) ||
-		!domain.InstanteUTCCanonico(ahora) {
+		!domain.InstanteUTCCanonico(ahora) || !discriminador.valido() {
 		return ports.ContextoAutorizacionAltaV3{},
 			errAltaContratacionTemporalDesarrolloNoDisponible
 	}
@@ -142,8 +175,8 @@ func nuevoContextoSinteticoContratacionTemporalDesarrollo(
 	base := principal.ID + "\x00" + principal.Attributes["certificate_sha256"]
 	cuentaRef := referenciaAltaContratacionTemporalDesarrollo("cta_", base+"\x00cuenta")
 	personaRef := referenciaAltaContratacionTemporalDesarrollo("per_", base+"\x00persona")
-	perfilRef := referenciaAltaContratacionTemporalDesarrollo("prf_", base+"\x00perfil")
-	vinculoRef := referenciaAltaContratacionTemporalDesarrollo("vca_", base+"\x00vinculo")
+	perfilRef := referenciaAltaContratacionTemporalDesarrollo("prf_", base+"\x00"+discriminador.perfil)
+	vinculoRef := referenciaAltaContratacionTemporalDesarrollo("vca_", base+"\x00"+discriminador.vinculo)
 	cuenta := dominiovec.CuentaAutenticadaContextoActor{
 		CuentaRef: cuentaRef,
 		Metodo:    dominiovec.AuthMethodCertificate,
@@ -176,11 +209,11 @@ func nuevoContextoSinteticoContratacionTemporalDesarrollo(
 	// y nunca salen de la composicion protegida por doble llave y mTLS.
 	acreditacion := dominiovec.AcreditacionProcedenciaComponenteContextoActorV1{
 		ProcedenciaRef: referenciaAltaContratacionTemporalDesarrollo(
-			"prc_", base+"\x00procedencia",
+			"prc_", base+"\x00"+discriminador.procedencia,
 		),
 		ProcedenciaVersion: 1,
 		ProcedenciaHuellaSHA256: huellaAltaContratacionTemporalDesarrollo(
-			base + "\x00procedencia",
+			base + "\x00" + discriminador.procedencia,
 		),
 		ProcedenciaAutoridad: dominiovec.AutoridadProcedenciaContextoActorMaestraAcreditadaV1,
 	}
@@ -217,7 +250,7 @@ func nuevoContextoSinteticoContratacionTemporalDesarrollo(
 	}
 	resultado := dominiovec.ResultadoContextoActorRegistradoV2{
 		RegistroContextoRef: referenciaAltaContratacionTemporalDesarrollo(
-			"rca_", base+"\x00registro-contexto",
+			"rca_", base+"\x00"+discriminador.registro,
 		),
 		Contexto: actor, RepresentacionCanonica: canon,
 		HuellaSHA256:                      huellaContexto,
@@ -228,33 +261,33 @@ func nuevoContextoSinteticoContratacionTemporalDesarrollo(
 	}
 	autenticacion := dominiovec.AutenticacionRevalidadaV1{
 		AutenticacionRef: referenciaAltaContratacionTemporalDesarrollo(
-			"aut_", base+"\x00autenticacion",
+			"aut_", base+"\x00"+discriminador.autenticacion,
 		),
 		AutenticacionHuellaSHA256: huellaAltaContratacionTemporalDesarrollo(
-			base + "\x00autenticacion",
+			base + "\x00" + discriminador.autenticacion,
 		),
 		AsercionRef: referenciaAltaContratacionTemporalDesarrollo(
-			"ase_", base+"\x00asercion",
+			"ase_", base+"\x00"+discriminador.asercion,
 		),
 		SesionRef: referenciaAltaContratacionTemporalDesarrollo(
-			"ses_", base+"\x00sesion",
+			"ses_", base+"\x00"+discriminador.sesion,
 		),
 		ControlSesionRef: referenciaAltaContratacionTemporalDesarrollo(
-			"cse_", base+"\x00control-sesion",
+			"cse_", base+"\x00"+discriminador.controlSesion,
 		),
 		ControlSesionRevision: 1,
 		ControlSesionHuellaSHA256: huellaAltaContratacionTemporalDesarrollo(
-			base + "\x00control-sesion",
+			base + "\x00" + discriminador.controlSesion,
 		),
 		CuentaRef: cuentaRef, CuentaOrdinariaRef: cuentaRef,
 		Superficie:        dominiovec.SuperficieAutenticacionInternaCorporativaV1,
 		MetodoObservado:   dominiovec.AuthMethodCertificate,
 		GarantiaObservada: dominiovec.AuthAssuranceHigh,
 		PoliticaGarantiaRef: referenciaAltaContratacionTemporalDesarrollo(
-			"pga_", base+"\x00politica-garantia",
+			"pga_", base+"\x00"+discriminador.politicaGarantia,
 		),
 		PoliticaGarantiaHuellaSHA256: huellaAltaContratacionTemporalDesarrollo(
-			base + "\x00politica-garantia",
+			base + "\x00" + discriminador.politicaGarantia,
 		),
 		AutenticacionVerificadaEn: desde,
 		SesionEmitidaEn:           desde.Add(time.Minute),

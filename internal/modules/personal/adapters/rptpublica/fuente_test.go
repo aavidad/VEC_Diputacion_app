@@ -25,7 +25,10 @@ func TestFuenteProyectaSoloCamposPublicosYExigeHuella(t *testing.T) {
 	}
 	var secretaria domain.PuestoRPTPublico
 	for _, puesto := range catalogo.Puestos {
-		if puesto.Codigo == "430-101-001" { secretaria = puesto; break }
+		if puesto.Codigo == "430-101-001" {
+			secretaria = puesto
+			break
+		}
 	}
 	if secretaria.Denominacion != "SECRETARIA DE GRUPO" || secretaria.Centro != "GABINETE DE PRESIDENCIA" || secretaria.Dotacion != 3 || secretaria.Grupos == nil {
 		t.Fatalf("puesto publico incompleto: %+v", secretaria)

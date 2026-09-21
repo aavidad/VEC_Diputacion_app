@@ -69,6 +69,7 @@ func abrirPoolPostgreSQLContratacionTemporalDesarrollo(
 	parametros["statement_timeout"] = "15s"
 	parametros["lock_timeout"] = "3s"
 	parametros["idle_in_transaction_session_timeout"] = "20s"
+	configurarVerificacionPorConexionAuditoriaFronteraBolsaDesarrollo(configuracion, rolEsperado)
 	pool, err := pgxpool.NewWithConfig(ctx, configuracion)
 	if err != nil {
 		return nil, "", errPostgreSQLContratacionTemporalDesarrolloNoDisponible
@@ -101,11 +102,15 @@ func comprobarIdentidadPostgreSQLContratacionTemporalDesarrollo(
 			rolEsperado != rolContextoActorConsultasDesarrollo &&
 			rolEsperado != rolLectorPostgreSQLContratacionTemporalDesarrollo &&
 			rolEsperado != rolAuditoriaFronteraPostgreSQLContratacionTemporalDesarrollo &&
+			rolEsperado != rolAuditoriaFronteraPostgreSQLBolsaDesarrollo &&
 			!rolPoolIncorporacionV2(rolEsperado)) {
 		return "", errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 	}
 	if rolEsperado == rolAuditoriaFronteraPostgreSQLContratacionTemporalDesarrollo {
 		return comprobarIdentidadAuditoriaFronteraPostgreSQLContratacionTemporalDesarrollo(ctx, consultador)
+	}
+	if rolEsperado == rolAuditoriaFronteraPostgreSQLBolsaDesarrollo {
+		return comprobarIdentidadAuditoriaFronteraPostgreSQLBolsaDesarrollo(ctx, consultador)
 	}
 	var usuario string
 	var valido bool

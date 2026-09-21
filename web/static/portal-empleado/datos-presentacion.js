@@ -63,17 +63,11 @@ const DATOS = {
   },
   avisos: [
     {
-      texto: "Informe jurídico pendiente en DEMO-BOL-014.",
-      destino: { vista: "elaboracion", etiqueta: "Borradores de convocatorias", estado: "disponible", referencia: "DEMO-AVISO-BOL-014" },
+      texto: "Informe jurídico pendiente en DEMO-BORRADOR-001.",
+      destino: { vista: "elaboracion", etiqueta: "Borradores de convocatorias", estado: "disponible", referencia: "DEMO-BORRADOR-001" },
     },
-    {
-      texto: "Tres llamamientos previstos en siete días.",
-      destino: { vista: "llamamientos", etiqueta: "Llamamientos", estado: "disponible" },
-    },
-    {
-      texto: "Dos circuitos de firma por configurar.",
-      destino: { vista: "configuracion", etiqueta: "Configuración y roles", estado: "disponible" },
-    },
+    { texto: "Tres llamamientos previstos en siete días." },
+    { texto: "Dos circuitos de firma por configurar." },
   ],
   configuracion_llamamiento: {
     regla: "Reglamento y bases · versión de presentación",

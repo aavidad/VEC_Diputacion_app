@@ -2,10 +2,8 @@ package bootstrap
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/url"
-	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -50,51 +48,30 @@ type datasetBolsasRRHHDesarrollo struct {
 }
 
 type bolsasRRHHDesarrollo struct {
-	datos  datasetBolsasRRHHDesarrollo
-	fuente *fuenteConstituidaRRHHDesarrollo
-}
-
-// vista devuelve el dataset con las bolsas constituidas fusionadas (si las hay).
-func (h *bolsasRRHHDesarrollo) vista(ctx context.Context) *bolsasRRHHDesarrollo {
-	if h.fuente == nil {
-		return h
-	}
-	return &bolsasRRHHDesarrollo{datos: h.fuente.fusionar(ctx, h.datos)}
-}
-
-func leerDatasetBolsasRRHHDesarrollo(ruta string) ([]byte, error) {
-	info, err := os.Lstat(ruta)
-	if err != nil || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 || info.Size() < 1 || info.Size() > 4<<20 {
-		return nil, ErrComposicionDesarrolloIncompleta
-	}
-	contenido, err := os.ReadFile(ruta)
-	if err != nil || int64(len(contenido)) != info.Size() {
-		borrarBytes(contenido)
-		return nil, ErrComposicionDesarrolloIncompleta
-	}
-	return contenido, nil
+	cargar func(context.Context) (datasetBolsasRRHHDesarrollo, error)
 }
 
 func nuevasRutasBolsasRRHHDesarrollo(cfg config.Config) ([]vechttp.RutaExacta, []vechttp.RutaColeccion, error) {
 	return nuevasRutasBolsasRRHHDesarrolloConFuente(cfg, nil)
 }
 
-func nuevasRutasBolsasRRHHDesarrolloConFuente(cfg config.Config, fuente *fuenteConstituidaRRHHDesarrollo) ([]vechttp.RutaExacta, []vechttp.RutaColeccion, error) {
-	if strings.TrimSpace(cfg.BolsaDemoPath) == "" {
-		return nil, nil, nil
+func nuevasRutasBolsasRRHHDesarrolloConFuente(_ config.Config, fuente *fuenteConstituidaRRHHDesarrollo) ([]vechttp.RutaExacta, []vechttp.RutaColeccion, error) {
+	var cargar func(context.Context) (datasetBolsasRRHHDesarrollo, error)
+	if fuente != nil {
+		cargar = fuente.cargar
 	}
-	contenido, err := leerDatasetBolsasRRHHDesarrollo(cfg.BolsaDemoPath)
-	if err != nil {
-		return nil, nil, err
-	}
-	defer borrarBytes(contenido)
-	var datos datasetBolsasRRHHDesarrollo
-	if json.Unmarshal(contenido, &datos) != nil || len(datos.Bolsas) == 0 {
-		return nil, nil, ErrComposicionDesarrolloIncompleta
-	}
-	manejador := &bolsasRRHHDesarrollo{datos: datos, fuente: fuente}
+	manejador := nuevoManejadorBolsasRRHHDesarrollo(cargar)
 	return []vechttp.RutaExacta{{Ruta: rutaBolsasRRHHDesarrollo, Manejador: manejador}},
 		[]vechttp.RutaColeccion{{Prefijo: prefijoCandidatosRRHHDesarrollo, Manejador: manejador}}, nil
+}
+
+func nuevoManejadorBolsasRRHHDesarrollo(cargar func(context.Context) (datasetBolsasRRHHDesarrollo, error)) *bolsasRRHHDesarrollo {
+	if cargar == nil {
+		cargar = func(context.Context) (datasetBolsasRRHHDesarrollo, error) {
+			return datasetBolsasRRHHDesarrollo{}, ErrComposicionDesarrolloIncompleta
+		}
+	}
+	return &bolsasRRHHDesarrollo{cargar: cargar}
 }
 
 func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -115,7 +92,11 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 			responderAreaPersonalDesarrollo(w, http.StatusBadRequest, map[string]string{"codigo": "solicitud_invalida"})
 			return
 		}
-		responderAreaPersonalDesarrollo(w, http.StatusOK, map[string]any{"data": h.vista(r.Context()).respuestaBolsas()}, r.Method == http.MethodHead)
+		vista, ok := h.vistaDurable(r.Context(), w)
+		if !ok {
+			return
+		}
+		responderAreaPersonalDesarrollo(w, http.StatusOK, map[string]any{"data": vista.respuestaBolsas()}, r.Method == http.MethodHead)
 		return
 	}
 	bolsaRef, ok := referenciaBolsaCandidatos(r.URL.Path)
@@ -128,12 +109,25 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		responderAreaPersonalDesarrollo(w, http.StatusBadRequest, map[string]string{"codigo": "solicitud_invalida"})
 		return
 	}
-	respuesta, encontrada := h.vista(r.Context()).respuestaCandidatos(bolsaRef, consulta)
+	vista, ok := h.vistaDurable(r.Context(), w)
+	if !ok {
+		return
+	}
+	respuesta, encontrada := vista.respuestaCandidatos(bolsaRef, consulta)
 	if !encontrada {
 		responderAreaPersonalDesarrollo(w, http.StatusNotFound, map[string]string{"codigo": "recurso_no_encontrado"})
 		return
 	}
 	responderAreaPersonalDesarrollo(w, http.StatusOK, map[string]any{"data": respuesta}, r.Method == http.MethodHead)
+}
+
+func (h *bolsasRRHHDesarrollo) vistaDurable(ctx context.Context, w http.ResponseWriter) (*bolsasRRHHDesarrolloDatos, bool) {
+	datos, err := h.cargar(ctx)
+	if err != nil {
+		responderAreaPersonalDesarrollo(w, http.StatusServiceUnavailable, map[string]string{"codigo": "servicio_no_disponible"})
+		return nil, false
+	}
+	return &bolsasRRHHDesarrolloDatos{datos: datos}, true
 }
 
 type consultaCandidatosRRHH struct {
@@ -198,7 +192,9 @@ func referenciaBolsaCandidatos(ruta string) (string, bool) {
 	return ref, ref != "" && !strings.Contains(ref, "/") && ref == strings.TrimSpace(ref)
 }
 
-func (h *bolsasRRHHDesarrollo) respuestaBolsas() map[string]any {
+type bolsasRRHHDesarrolloDatos struct{ datos datasetBolsasRRHHDesarrollo }
+
+func (h *bolsasRRHHDesarrolloDatos) respuestaBolsas() map[string]any {
 	bolsas := make([]map[string]any, 0, len(h.datos.Bolsas))
 	for _, bolsa := range h.datos.Bolsas {
 		conteo := mapaEstadosVacio()
@@ -212,7 +208,7 @@ func (h *bolsasRRHHDesarrollo) respuestaBolsas() map[string]any {
 	return map[string]any{"esquema": "vec.bolsa.rrhh.bolsas.v1", "generado_en": instanteBolsasRRHH(h.datos.GeneradoEn), "bolsas": bolsas}
 }
 
-func (h *bolsasRRHHDesarrollo) respuestaCandidatos(ref string, consulta consultaCandidatosRRHH) (map[string]any, bool) {
+func (h *bolsasRRHHDesarrolloDatos) respuestaCandidatos(ref string, consulta consultaCandidatosRRHH) (map[string]any, bool) {
 	var bolsa *struct {
 		Referencia   string  `json:"bolsa_ref"`
 		CategoriaRef string  `json:"categoria_ref"`
@@ -278,7 +274,7 @@ func salidaBolsaRRHH(referencia, categoriaRef, categoria, tipo, desde string, ha
 	return map[string]any{"bolsa_ref": referencia, "categoria_clave": strings.TrimPrefix(categoriaRef, "categoria:rpt:"), "categoria": categoria, "tipo_lista": tipo, "vigente_desde": desde, "vigente_hasta": hasta, "total": conteo["disponible"] + conteo["ocupado"] + conteo["no_disponible"] + conteo["excluido"] + conteo["renuncia_pendiente"], "por_estado": conteo}
 }
 
-func (h *bolsasRRHHDesarrollo) salidaCandidata(candidata struct {
+func (h *bolsasRRHHDesarrolloDatos) salidaCandidata(candidata struct {
 	Referencia  string  `json:"candidatura_ref"`
 	BolsaRef    string  `json:"bolsa_ref"`
 	Orden       int     `json:"orden"`

@@ -3,8 +3,8 @@ package postgres
 import (
 	"bytes"
 	"context"
-	"errors"
 	"encoding/json"
+	"errors"
 	"os"
 	"strings"
 	"testing"

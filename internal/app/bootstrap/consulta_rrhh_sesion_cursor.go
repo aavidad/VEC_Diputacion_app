@@ -42,6 +42,10 @@ type consultorCuadroConSesionCursorRRHHDesarrollo struct {
 	continuador *continuadorSesionCursorRRHHDesarrollo
 }
 
+type revalidadorSesionCursorRRHHDesarrollo interface {
+	revalidarSesionCursorRRHHDesarrollo(context.Context, ports.ContextoAutorizacionAltaV3) (ports.ContextoAutorizacionAltaV3, error)
+}
+
 func falloContinuidadCursorRRHHDesarrollo(etapa diagnostico.EtapaConsultaRRHH, causa error) error {
 	return &diagnostico.FalloConsultaRRHH{Etapa: etapa, Sentinela: ports.ErrAutorizacionDenegada, Causa: causa}
 }
@@ -174,7 +178,7 @@ func (c *continuadorSesionCursorRRHHDesarrollo) contextoContinuado(ctx context.C
 		return ports.ContextoAutorizacionAltaV3{}, falloContinuidadCursorRRHHDesarrollo(diagnostico.EtapaCanalContinuidad, nil)
 	}
 	c.autoridad.mu.Lock()
-	proveedor, ok := c.autoridad.proveedor.(*proveedorSesionConsultaRRHHDesarrollo)
+	proveedor, ok := c.autoridad.proveedor.(revalidadorSesionCursorRRHHDesarrollo)
 	c.autoridad.mu.Unlock()
 	if !ok || proveedor == nil {
 		return ports.ContextoAutorizacionAltaV3{}, falloContinuidadCursorRRHHDesarrollo(diagnostico.EtapaSesionRevalidada, nil)

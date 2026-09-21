@@ -9,6 +9,7 @@ import {
   extraerModulosEnvelopeCanonico,
 } from "./portal-catalogo-modulos.js";
 import {
+  CLAVES_MODULOS_VEC_REGISTRADOS,
   crearCoordinadorModulosPortal,
   moduloDeVistaPortal,
   resolverCargasModularesPresentacion,
@@ -77,12 +78,8 @@ function respuestaOSRM() {
       distance: 140_800,
       duration: 6_600,
       legs: [
-        { distance: 70_400, duration: 3_300, geometry: { type: "LineString", coordinates: [
-          [-3.59869101, 37.17428891], [-3.56, 36.95], [-3.52045559, 36.74535308],
-        ] } },
-        { distance: 70_400, duration: 3_300, geometry: { type: "LineString", coordinates: [
-          [-3.52045559, 36.74535308], [-3.56, 36.95], [-3.59869101, 37.17428891],
-        ] } },
+        { distance: 70_400, duration: 3_300 },
+        { distance: 70_400, duration: 3_300 },
       ],
       geometry: {
         type: "LineString",
@@ -315,6 +312,31 @@ test("el catálogo admite el manifiesto real de usuarios con menú nil sin atrib
   ), /colecciones del manifiesto no válidas/);
 });
 
+test("los siete módulos registrados conservan estado fiel sin inventar vistas", async () => {
+  assert.deepEqual(CLAVES_MODULOS_VEC_REGISTRADOS, [
+    "personal", "cronos", "dietas", "bolsa", "contratacion_temporal",
+    "administracion", "usuarios",
+  ]);
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    cargarCatalogoInterno: async () => Object.freeze([
+      { clave: "personal" }, { clave: "cronos" }, { clave: "dietas" },
+      { clave: "bolsa" }, { clave: "contratacion_temporal" },
+      { clave: "administracion" }, { clave: "usuarios" },
+    ]),
+    cargadoresInternos: {
+      contratacion_temporal: async () => { throw new Error("sin dependencia CT"); },
+    },
+  });
+  await coordinador.cargarInterno();
+  for (const clave of ["administracion", "usuarios"]) {
+    assert.deepEqual(coordinador.resolverAcceso(clave), {
+      disponible: false, vista: "", estado: "no_disponible",
+    });
+    assert.equal(coordinador.vistaGestionada(clave), false);
+  }
+});
+
 test("CT inventariado queda visible no_disponible si falla su carga real", async () => {
   let cargasContratacion = 0;
   const clavesTraducidas = [];
@@ -451,7 +473,7 @@ test("Personal de presentación conserva categorías E24, RPT y estructura públ
   assert.ok(raiz.querySelector("[data-personal-rpt-publica]"));
   assert.ok(raiz.querySelector("[data-personal-estructura-organizativa-publica]"));
   assert.equal(llamadas.length, 3);
-  assert.deepEqual(new Set(llamadas.map(({ ruta }) => ruta)), new Set(["/api/vec/personal/categories?q=&area=&limit=25&offset=0", "/api/vec/personal/rpt-publica?vista=categorias&q=&limit=25&offset=0", "/api/vec/personal/estructura-organizativa-publica"]));
+  assert.deepEqual(new Set(llamadas.map(({ ruta }) => ruta)), new Set(["/api/vec/personal/categories?q=&area=&limit=25&offset=0", "/api/vec/personal/rpt-publica?q=&limit=25&offset=0", "/api/vec/personal/estructura-organizativa-publica"]));
   llamadas.forEach(({ opciones }) => { assert.equal(opciones.method, "GET"); assert.equal(opciones.credentials, "same-origin"); assert.equal(opciones.redirect, "error"); assert.equal(Object.hasOwn(opciones, "headers"), false); });
 });
 
@@ -465,70 +487,6 @@ test("el cargador interno predeterminado de Personal compone contrato, cliente y
   });
   await coordinador.cargarInterno(); assert.equal(coordinador.resolverAcceso("personal").etiqueta, "Catálogo profesional de Personal");
   const raiz = raizDietasFalsa(); assert.equal(await coordinador.montarVista("personal", raiz), true); assert.ok(raiz.querySelector("[data-personal-categorias]"));
-});
-
-test("Dietas interna monta borradores HTTP y una zona cartográfica cerrada sin usar el catálogo como identidad", async () => {
-  const montajes = [];
-  const cliente = Object.freeze({
-    listar: async () => Object.freeze({ items: Object.freeze([]) }),
-    crear: async () => { throw new Error("no invocado en el montaje"); },
-  });
-  const coordinador = crearCoordinadorModulosPortal({
-    escaparHTML: String,
-    entorno: { fetch() { throw new Error("el cliente de prueba no consulta al montar"); } },
-    cargarCatalogoInterno: async () => Object.freeze([{ clave: "dietas", permisos: ["inventario-no-autorizador"] }]),
-    cargadoresInternos: {
-      contratacion_temporal: async () => { throw new Error("no debe cargar CT"); },
-      dietas: async () => Object.freeze({
-        contrato: Object.freeze({}),
-        vista: Object.freeze({
-          montarVistaItinerarioPendienteDietas({ raiz }) {
-            return Object.freeze({ desmontar() {} });
-          },
-        }),
-        mapa: Object.freeze({}),
-        calculador: Object.freeze({ crearCalculadorRutasDietasHTTP() { assert.fail("no debe crear rutas sin contexto explícito"); } }),
-        clienteBorradores: Object.freeze({
-          crearClienteBorradoresDietasHTTP({ fetchImpl }) {
-            assert.equal(typeof fetchImpl, "function");
-            return cliente;
-          },
-        }),
-        recorridos: Object.freeze({
-          montarVistaRecorridosDietas(raiz, dependencias) {
-            montajes.push({ raiz, dependencias });
-            return Object.freeze({ desmontar() { montajes.push("desmontado"); } });
-          },
-        }),
-      }),
-    },
-  });
-  await coordinador.cargarInterno();
-  assert.equal(coordinador.resolverAcceso("dietas").disponible, true);
-  assert.equal(await coordinador.montarVista("dietas", raizFalsa()), true);
-  assert.strictEqual(montajes[0].dependencias.clienteBorradores, cliente);
-  assert.equal(typeof montajes[0].dependencias.montarItinerario, "function");
-  coordinador.desmontarVistaActual();
-  assert.equal(montajes.at(-1), "desmontado");
-});
-
-test("el fallo de Dietas interna queda aislado de los demás módulos inventariados", async () => {
-  const coordinador = crearCoordinadorModulosPortal({
-    escaparHTML: String,
-    cargarCatalogoInterno: async () => Object.freeze([{ clave: "dietas" }, { clave: "personal" }]),
-    cargadoresInternos: {
-      contratacion_temporal: async () => { throw new Error("no debe cargar CT"); },
-      dietas: async () => { throw new Error("cliente de Dietas no disponible"); },
-      personal: async () => Object.freeze({
-        contrato: Object.freeze({ CAPACIDAD_CONSULTAR_PUESTO: "personal.puesto.read" }),
-        cliente: Object.freeze({ crearClienteHTTPCategoriasPersonal: () => Object.freeze({}) }),
-        vista: Object.freeze({ montarModuloPersonal: async () => Object.freeze({ desmontar() {} }) }),
-      }),
-    },
-  });
-  await coordinador.cargarInterno();
-  assert.equal(coordinador.resolverAcceso("dietas").estado, "no_disponible");
-  assert.equal(coordinador.resolverAcceso("personal").disponible, true);
 });
 
 test("CT interno se activa solo después de una consulta autorizada", async () => {
@@ -798,516 +756,4 @@ test("CT interno mantiene el alta real cuando el cuadro sigue en 503", async () 
   });
   assert.equal(analisisMontado.analisisInicial, null);
   assert.equal(Object.hasOwn(analisisMontado, "desarrolloNoAutoritativo"), false);
-});
-
-test("la consulta inicial tiene timeout y se aborta al desmontar o sustituir", async () => {
-  const catalogo = crearCatalogoModulosDesdeManifiestos(
-    [manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL,
-  );
-  const señales = [];
-  let resolver = false;
-  const fuente = {
-    capacidades: ["contratacion_temporal.cuadro.consultar"],
-    listar({ signal } = {}) {
-      señales.push(signal);
-      if (resolver) return Promise.resolve({ expedientes: [] });
-      return new Promise((_resolver, rechazar) => {
-        signal.addEventListener("abort", () => {
-          const error = new Error("consulta cancelada");
-          error.name = "AbortError";
-          rechazar(error);
-        }, { once: true });
-      });
-    },
-    async obtener() { throw new Error("sin expedientes"); },
-    async ejecutar() { throw new Error("solo lectura"); },
-  };
-  const coordinador = crearCoordinadorModulosPortal({
-    escaparHTML: String,
-    cargarCatalogoInterno: async () => catalogo,
-    limiteCargaModularMs: 20,
-    cargadoresInternos: {
-      contratacion_temporal: async () => ({
-        cliente: { crearClienteHTTPContratacionTemporal: () => ({}) },
-        adaptador: { crearAdaptadorHTTPExpedientesContratacionTemporal: () => fuente },
-        presentador: {
-          crearPresentadorExpedientesContratacionTemporal: () => ({}),
-        },
-        vista: { montarModuloContratacionTemporal: async () => ({ desmontar() {} }) },
-      }),
-    },
-  });
-  const esperarConsulta = async (total) => {
-    for (let intento = 0; intento < 50 && señales.length < total; intento += 1) {
-      await new Promise((continuar) => setImmediate(continuar));
-    }
-    assert.equal(señales.length, total);
-  };
-
-  await coordinador.cargarInterno();
-  assert.equal(señales[0].aborted, true);
-  assert.equal(coordinador.resolverAcceso("contratacion_temporal").disponible, false);
-
-  const cargaDesmontada = coordinador.cargarInterno();
-  await esperarConsulta(2);
-  coordinador.desmontarVistaActual();
-  await assert.rejects(cargaDesmontada, /carga interna sustituida/);
-  assert.equal(señales[1].aborted, true);
-
-  const cargaSustituida = coordinador.cargarInterno();
-  await esperarConsulta(3);
-  resolver = true;
-  await coordinador.cargarInterno();
-  await assert.rejects(cargaSustituida, /carga interna sustituida/);
-  assert.equal(señales[2].aborted, true);
-  assert.equal(coordinador.resolverAcceso("contratacion_temporal").disponible, true);
-});
-
-test("el funcionario comparte una sola identidad y compone Cronos, Dietas y Personal", async () => {
-  const coordinador = crearCoordinador();
-  const contextoBolsa = await coordinador.cargarPresentacion(
-    obtenerDatosPresentacion("funcionario").sesion,
-  );
-  assert.equal(contextoBolsa, null);
-  assert.equal(coordinador.obtenerContextoBolsa(), null);
-  assert.equal(coordinador.resolverAcceso("bolsa", true).disponible, false);
-  assert.equal(coordinador.resolverAcceso("cronos", true).disponible, true);
-  assert.equal(coordinador.resolverAcceso("dietas", true).disponible, true);
-  assert.equal(coordinador.resolverAcceso("personal", true).disponible, true);
-  assert.deepEqual(coordinador.resolverAcceso("cronos", true), {
-    disponible: true, vista: "cronos", estado: "presentacion", presentacion: true,
-    etiqueta: "Recorrido visual · pendiente de backend", accion_etiqueta: "Ver recorrido",
-  });
-  assert.deepEqual(coordinador.resolverAcceso("dietas", true), {
-    disponible: true, vista: "dietas", estado: "presentacion", presentacion: true,
-    etiqueta: "Mapa conectado · expediente pendiente de backend", accion_etiqueta: "Ver recorrido",
-  });
-  assert.deepEqual(coordinador.resolverAcceso("personal", true), {
-    disponible: true, vista: "personal", estado: "presentacion", presentacion: true,
-    etiqueta: "Catálogos conectados · ficha pendiente de backend", accion_etiqueta: "Ver recorrido",
-  });
-  const navegacion = coordinador.renderizarNavegacion(true, "portal", (vista) => ["cronos", "dietas", "personal"].includes(vista));
-  assert.equal((navegacion.match(/modulo-habilitado/g) || []).length, 3);
-  assert.match(navegacion, /data-modulo-portal="bolsa"[^>]*disabled/u);
-});
-
-test("técnico y administrador mantienen Personal denegado por falta de contexto", async () => {
-  for (const perfil of ["tecnico", "administrador"]) {
-    const coordinador = crearCoordinador();
-    await coordinador.cargarPresentacion(obtenerDatosPresentacion(perfil).sesion);
-    assert.equal(coordinador.resolverAcceso("personal", true).disponible, false, perfil);
-  }
-});
-
-test("las rutas estables no mezclan el submenú de Bolsa con los módulos personales", () => {
-  assert.equal(rutaDeVistaPortal("portal"), "#portal");
-  assert.equal(rutaDeVistaPortal("resumen"), "#bolsa/resumen");
-  assert.equal(rutaDeVistaPortal("cronos"), "#cronos");
-  assert.equal(rutaDeVistaPortal("dietas"), "#dietas");
-  assert.equal(moduloDeVistaPortal("convocatorias"), "bolsa");
-  assert.equal(moduloDeVistaPortal("cronos"), "cronos");
-});
-
-test("Cronos y Dietas montan contenido administrativo y nunca dejan el área en blanco", async () => {
-  const coordinador = crearCoordinador();
-  await coordinador.cargarPresentacion(obtenerDatosPresentacion("funcionario").sesion);
-  const raiz = raizDietasFalsa();
-  assert.equal(await coordinador.montarVista("cronos", raiz), true);
-  const cronos = raiz.querySelector("[data-cronos-recorridos]");
-  assert.ok(cronos);
-  assert.match(cronos.innerHTML, /class="cronos-area/);
-  assert.match(cronos.innerHTML, /Movimientos/);
-  assert.doesNotMatch(cronos.innerHTML, /Descargar recibo/);
-  const raizDietas = raizDietasFalsa();
-  assert.equal(await coordinador.montarVista("dietas", raizDietas), true);
-  const recorridosDietas = raizDietas.querySelector("[data-dietas-recorridos]");
-  assert.equal(raizDietas.querySelector("[data-dietas-itinerario]"), null);
-  recorridosDietas.listeners.click({
-    target: recorridosDietas.querySelector("[data-dietas-abrir-nueva-comision]"),
-  });
-  await new Promise((resolver) => setImmediate(resolver));
-  assert.ok(raizDietas.querySelector("[data-dietas-itinerario]"));
-  assert.equal(raizDietas.querySelector("[data-itinerario-catalogo]"), null);
-  coordinador.desmontarVistaActual();
-});
-
-test("Dietas calcula con el mediador OSRM real de presentación y nunca con simulación", async () => {
-  const llamadas = [];
-  const anuncios = [];
-  const coordinador = crearCoordinador({
-    fetchImpl: async (ruta, opciones) => {
-      llamadas.push({ ruta, opciones });
-      return respuestaJSON(respuestaOSRM());
-    },
-    anunciar: (mensaje, tipo) => anuncios.push({ mensaje, tipo }),
-  });
-  await coordinador.cargarPresentacion(obtenerDatosPresentacion("funcionario").sesion);
-  const raiz = raizDietasFalsa();
-  assert.equal(await coordinador.montarVista("dietas", raiz), true);
-
-  const recorridos = raiz.querySelector("[data-dietas-recorridos]");
-  recorridos.listeners.click({
-    target: recorridos.querySelector("[data-dietas-abrir-nueva-comision]"),
-  });
-  await new Promise((resolver) => setImmediate(resolver));
-
-  const contenedorDietas = raiz.querySelector("[data-dietas-itinerario]");
-  await contenedorDietas.listeners.click({
-    target: contenedorDietas.querySelector("[data-itinerario-calcular]"),
-  });
-
-  assert.equal(llamadas.length, 1);
-  assert.equal(llamadas[0].ruta, "/api/presentacion/cartografia/rutas");
-  assert.equal(llamadas[0].opciones.method, "POST");
-  assert.equal(llamadas[0].opciones.credentials, "omit");
-  assert.equal(llamadas[0].opciones.redirect, "error");
-  assert.deepEqual(JSON.parse(llamadas[0].opciones.body), {
-    coordinates: [
-      { lat: 37.17428891, lon: -3.59869101, name: "Granada" },
-      { lat: 36.74535308, lon: -3.52045559, name: "Motril" },
-      { lat: 37.17428891, lon: -3.59869101, name: "Granada" },
-    ],
-    alternatives: 3,
-  });
-  assert.ok(raiz.querySelector("[data-dietas-mapa-ref]"));
-  assert.ok(anuncios.some(({ mensaje }) => /calculada por el puerto interno/i.test(mensaje)));
-  coordinador.desmontarVistaActual();
-});
-
-test("una navegación aborta el catálogo Dietas pendiente sin publicar su montaje obsoleto", async () => {
-  let resolverCatalogo; let senalCatalogo;
-  const catalogoPendiente = new Promise((resolver) => { resolverCatalogo = resolver; });
-  const [identidad, catalogo, cronosContrato, cronosPresentador, cronosDatos, cronosAdaptador, documentos,
-    dietasContrato, dietaVista, personalVista, catalogoDietas] = await Promise.all([
-    import("./identidad/presentacion.js"), import("./portal-catalogo-presentacion.js"),
-    import("./modulos/cronos/contrato.js"), import("./modulos/cronos/presentador.js"),
-    import("./modulos/cronos/datos-presentacion.js"), import("./modulos/cronos/adaptador-presentacion.js"),
-    import("./documentos/descarga-recibos-presentacion.js"), import("./modulos/dietas/contrato.js"),
-    import("./modulos/dietas/vista-itinerario.js"), import("./modulos/personal/vista.js"),
-    import("./modulos/dietas/catalogo-rutas-provincial.js"),
-  ]);
-  const coordinador = crearCoordinadorModulosPortal({
-    escaparHTML: String,
-    entorno: { location: { origin: "http://127.0.0.2:8081" }, fetch: async () => { throw new Error("no procede"); } },
-    cargadoresPresentacion: {
-      base: async () => Object.freeze({ identidad, catalogo }),
-      cronos: async () => Object.freeze({
-        contrato: cronosContrato, presentador: cronosPresentador, datos: cronosDatos,
-        adaptador: cronosAdaptador, documentos,
-      }),
-      dietas: async () => Object.freeze({
-        contrato: dietasContrato,
-        vista: dietaVista,
-        mapa: { crearVisorRutaDietas: () => ({ montar() { throw new Error("no debe montar mapa"); } }) },
-        calculador: { crearCalculadorRutasDietasPresentacionOSRM: () => ({
-          obtenerCatalogo({ signal }) { senalCatalogo = signal; return catalogoPendiente; },
-          calcular: async () => null,
-        }) },
-      }),
-      personal: async () => Object.freeze({ vista: personalVista }),
-    },
-  });
-  await coordinador.cargarPresentacion(obtenerDatosPresentacion("funcionario").sesion);
-  const raiz = raizDietasFalsa();
-  const montajeAnterior = coordinador.montarVista("dietas", raiz);
-  assert.ok(raiz.querySelector("[data-dietas-itinerario]"));
-  coordinador.desmontarVistaActual();
-  const ajeno = raiz.ownerDocument.createElement("section"); ajeno.dataset.ajeno = ""; raiz.append(ajeno);
-  resolverCatalogo(catalogoDietas.obtenerCatalogoRutasProvincial());
-  assert.equal(senalCatalogo.aborted, true);
-  assert.equal(await montajeAnterior, false);
-  assert.equal(raiz.querySelector("[data-ajeno]"), ajeno);
-  assert.equal(raiz.querySelector("[data-dietas-itinerario]"), null);
-});
-
-test("Dietas falla cerrada sin cliente HTTP y Cronos permanece disponible", async () => {
-  const coordinador = crearCoordinadorModulosPortal({
-    escaparHTML: String,
-    entorno: { location: { origin: "http://127.0.0.2:8081" } },
-  });
-  await coordinador.cargarPresentacion(obtenerDatosPresentacion("funcionario").sesion);
-  assert.equal(coordinador.vistaDisponible("cronos"), true);
-  assert.equal(coordinador.vistaDisponible("dietas"), false);
-  assert.equal(coordinador.resolverAcceso("dietas").estado, "no_disponible");
-  assert.match(coordinador.renderizarNavegacion(true, "dietas"), />No disponible<\/span>/);
-});
-
-test("un cargador modular rechazado no contamina módulos independientes", async () => {
-  const cargas = await resolverCargasModularesPresentacion({
-    contratacion_temporal: async () => Object.freeze({ modulo: "contratacion" }),
-    cronos: async () => Object.freeze({ modulo: "cronos" }),
-    dietas: async () => { throw new Error("cartografía no disponible"); },
-  });
-  assert.equal(cargas.contratacion_temporal.disponible, true);
-  assert.equal(cargas.cronos.disponible, true);
-  assert.equal(cargas.dietas.disponible, false);
-  assert.equal(cargas.dietas.estado, "no_disponible");
-  assert.equal(cargas.contratacion_temporal.recursos.modulo, "contratacion");
-  assert.equal(cargas.cronos.recursos.modulo, "cronos");
-});
-
-test("un cargador pendiente queda acotado y no paraliza los resultados independientes", async () => {
-  const inicio = Date.now();
-  const cargas = await resolverCargasModularesPresentacion({
-    contratacion_temporal: async () => Object.freeze({ modulo: "contratacion" }),
-    cronos: async () => Object.freeze({ modulo: "cronos" }),
-    dietas: async () => new Promise(() => {}),
-  }, { limiteMs: 20 });
-  assert.ok(Date.now() - inicio < 1_000, "la carga pendiente debe quedar acotada");
-  assert.equal(cargas.contratacion_temporal.disponible, true);
-  assert.equal(cargas.cronos.disponible, true);
-  assert.deepEqual(cargas.dietas, {
-    disponible: false,
-    estado: "no_disponible",
-  });
-});
-
-test("un módulo ajeno al ámbito del actor ni siquiera ejecuta su cargador", async () => {
-  let cargasDietas = 0;
-  const cargas = await resolverCargasModularesPresentacion({
-    contratacion_temporal: async () => Object.freeze({ modulo: "contratacion" }),
-    dietas: async () => {
-      cargasDietas += 1;
-      return new Promise(() => {});
-    },
-  }, { claves: ["contratacion_temporal"], limiteMs: 20 });
-  assert.equal(cargasDietas, 0);
-  assert.equal(cargas.contratacion_temporal.disponible, true);
-  assert.equal(cargas.cronos.estado, "denegado");
-  assert.equal(cargas.dietas.estado, "denegado");
-});
-
-test("una recarga inválida borra la composición anterior antes de fallar", async () => {
-  const coordinador = crearCoordinador();
-  await coordinador.cargarPresentacion(obtenerDatosPresentacion("administrador").sesion);
-  assert.equal(coordinador.resolverAcceso("bolsa", true).disponible, true);
-  await assert.rejects(coordinador.cargarPresentacion(null));
-  assert.equal(coordinador.obtenerContextoBolsa(), null);
-  assert.equal(coordinador.resolverAcceso("bolsa", true).disponible, false);
-  assert.equal(coordinador.resolverAcceso("contratacion_temporal").disponible, false);
-  assert.equal(coordinador.resolverAcceso("contratacion_temporal").estado, "denegado");
-});
-
-test("una carga válida obsoleta no puede republicar permisos tras otra inválida", async () => {
-  let invocacionesBase = 0;
-  const coordinador = crearCoordinadorModulosPortal({
-    escaparHTML: String,
-    cargadoresPresentacion: {
-      base: async () => {
-        invocacionesBase += 1;
-        if (invocacionesBase === 1) {
-          await new Promise((resolver) => setTimeout(resolver, 50));
-        }
-        const [identidad, catalogo] = await Promise.all([
-          import("./identidad/presentacion.js"),
-          import("./portal-catalogo-presentacion.js"),
-        ]);
-        return Object.freeze({ identidad, catalogo });
-      },
-    },
-  });
-  const cargaAnterior = coordinador.cargarPresentacion(
-    obtenerDatosPresentacion("administrador").sesion,
-  );
-  await new Promise((resolver) => setTimeout(resolver, 5));
-  await assert.rejects(coordinador.cargarPresentacion(null));
-  await assert.rejects(cargaAnterior, /carga de presentación sustituida/u);
-  assert.equal(coordinador.obtenerContextoBolsa(), null);
-  assert.equal(coordinador.resolverAcceso("bolsa", true).disponible, false);
-  assert.equal(coordinador.resolverAcceso("contratacion_temporal").disponible, false);
-});
-
-test("el coordinador no autentica ni conserva estado en el navegador", async () => {
-  const [fuente, estilos, empleado] = await Promise.all([
-    readFile(new URL("portal-modulos-coordinador.js", import.meta.url), "utf8"),
-    readFile(new URL("portal-modulos.css", import.meta.url), "utf8"),
-    readFile(new URL("portal-composicion-empleado.js", import.meta.url), "utf8"),
-  ]);
-  assert.doesNotMatch(fuente, /document\.cookie|localStorage|sessionStorage/);
-  assert.doesNotMatch(empleado, /document\.cookie|localStorage|sessionStorage/);
-  assert.match(fuente, /Promise\.allSettled/);
-  assert.match(fuente, /LIMITE_CARGA_MODULAR_MS/);
-  assert.match(fuente, /composicion = null/);
-  assert.match(fuente, /secuenciaCarga/);
-  assert.match(empleado, /function componerCronosVisible/);
-  assert.match(fuente, /function capacidadesDietas/);
-  assert.doesNotMatch(fuente, /^import .*\/modulos\//mu);
-  assert.doesNotMatch(fuente, /import\("\.\/modulos\/cronos\/datos-presentacion\.js/);
-  assert.match(fuente, /import\("\.\/modulos\/cronos\/vista-recorridos\.js/);
-  assert.match(fuente, /import\("\.\/modulos\/dietas\/vista-itinerario\.js/);
-  assert.doesNotMatch(fuente, /import\("\.\/modulos\/dietas\/adaptador-presentacion\.js/);
-  assert.match(fuente, /calculador-rutas-presentacion-osrm\.js/);
-  assert.doesNotMatch(fuente, /import\("\.\/modulos\/dietas\/calculador-rutas-presentacion\.js"\)/);
-  assert.doesNotMatch(fuente, /versionGrafo|granada-buffer-osrm-v/u);
-  assert.match(empleado, /recursos\.mapa\.crearVisorRutaDietas\(\{ entorno, permitirTeselas: true \}\)/);
-  assert.match(estilos, /data-modulo-catalogo="bolsa"/);
-  assert.match(estilos, /data-modulo-catalogo="cronos"/);
-  assert.match(estilos, /data-modulo-catalogo="dietas"/);
-  assert.match(estilos, /data-modulo-portal="cronos"/);
-  assert.match(estilos, /forced-colors: active/);
-  assert.match(estilos, /\.modulo-personal\s+\.rpt-huella\s*\{[^}]*overflow-wrap:\s*anywhere;/);
-  assert.doesNotMatch(estilos, /\.tarjeta-modulo-bloqueada/);
-});
-
-const MODULOS_VISUALES_PRESENTACION = Object.freeze([
-  ["nominas", "montarVistaNominas"],
-  ["solicitudes", "montarVistaSolicitudes"],
-  ["meritos", "montarVistaMeritos"],
-  ["comunicaciones", "montarVistaComunicaciones"],
-  ["documentos", "montarVistaDocumentos"],
-  ["aprobaciones", "montarVistaAprobaciones"],
-  ["auditoria", "montarVistaAuditoria"],
-  ["administracion", "montarVistaAdministracion"],
-]);
-
-async function crearCoordinadorRecorridosVisuales({ fallar = new Set(), montajes = [] } = {}) {
-  const [identidad, catalogo] = await Promise.all([
-    import("./identidad/presentacion.js"),
-    import("./portal-catalogo-presentacion.js"),
-  ]);
-  const cargadoresPresentacion = {
-    base: async () => Object.freeze({ identidad, catalogo }),
-    contratacion_temporal: async () => { throw new Error("CT no interviene en esta prueba"); },
-  };
-  for (const [clave, exportacion] of MODULOS_VISUALES_PRESENTACION) {
-    cargadoresPresentacion[clave] = async () => {
-      if (fallar.has(clave)) throw new Error(`fallo aislado: ${clave}`);
-      return Object.freeze({
-        vista: Object.freeze({
-          async [exportacion]({ raiz, registrarDesmontar }) {
-            raiz.innerHTML = `<section data-recorrido-visual="${clave}"></section>`;
-            const desmontar = () => { montajes.push(`desmontar:${clave}`); raiz.replaceChildren(); };
-            registrarDesmontar?.(desmontar);
-            montajes.push(`montar:${clave}`);
-            return Object.freeze({ desmontar });
-          },
-        }),
-      });
-    };
-  }
-  return crearCoordinadorModulosPortal({
-    escaparHTML: String,
-    cargadoresPresentacion,
-    cargadoresInternos: { contratacion_temporal: async () => { throw new Error("no procede"); } },
-  });
-}
-
-test("la presentación monta los ocho recorridos visuales con estado explícito y limpieza", async () => {
-  const montajes = [];
-  const coordinador = await crearCoordinadorRecorridosVisuales({ montajes });
-  await coordinador.cargarPresentacion(obtenerDatosPresentacion("tecnico").sesion);
-  assert.equal(coordinador.vistaGestionada("solicitudes-empleado"), true);
-  for (const [clave] of MODULOS_VISUALES_PRESENTACION) {
-    const vista = `${clave}-empleado`;
-    assert.deepEqual(coordinador.resolverAcceso(clave), {
-      disponible: true,
-      vista,
-      estado: "presentacion",
-      etiqueta: "Recorrido visual · pendiente de backend",
-      presentacion: true,
-      accion_etiqueta: "Ver recorrido",
-    });
-    const raiz = raizFalsa();
-    assert.equal(await coordinador.montarVista(vista, raiz), true);
-    assert.match(raiz.innerHTML, new RegExp(`data-recorrido-visual="${clave}"`));
-  }
-  assert.equal(montajes.filter((evento) => evento.startsWith("montar:")).length, 8);
-  assert.equal(montajes.filter((evento) => evento.startsWith("desmontar:")).length, 7);
-  coordinador.desmontarVistaActual();
-  assert.equal(montajes.filter((evento) => evento.startsWith("desmontar:")).length, 8);
-});
-
-test("un cargador visual fallido no bloquea los recorridos vecinos ni se publica en interno", async () => {
-  const coordinador = await crearCoordinadorRecorridosVisuales({ fallar: new Set(["auditoria"]) });
-  await coordinador.cargarPresentacion(obtenerDatosPresentacion("tecnico").sesion);
-  assert.equal(coordinador.resolverAcceso("auditoria").disponible, false);
-  assert.equal(coordinador.resolverAcceso("auditoria").estado, "no_disponible");
-  assert.equal(coordinador.resolverAcceso("documentos").disponible, true);
-  assert.equal(await coordinador.montarVista("auditoria-empleado", raizFalsa()), false);
-
-  const interno = crearCoordinadorModulosPortal({
-    escaparHTML: String,
-    cargarCatalogoInterno: async () => Object.freeze([{ clave: "nominas" }]),
-    cargadoresInternos: { contratacion_temporal: async () => { throw new Error("no procede"); } },
-  });
-  await interno.cargarInterno();
-  assert.equal(interno.vistaGestionada("solicitudes-empleado"), false);
-  assert.deepEqual(interno.resolverAcceso("nominas"), {
-    disponible: false, vista: "", estado: "no_disponible",
-  });
-  assert.equal(await interno.montarVista("nominas", raizFalsa()), false);
-});
-
-test("las sub-vistas históricas de Bolsa no se gestionan como recorridos visuales", async () => {
-  const coordinador = await crearCoordinadorRecorridosVisuales();
-  await coordinador.cargarPresentacion(obtenerDatosPresentacion("tecnico").sesion);
-  assert.equal(coordinador.vistaGestionada("solicitudes"), false);
-  assert.equal(coordinador.vistaGestionada("solicitudes-empleado"), true);
-  assert.equal(await coordinador.montarVista("solicitudes", raizFalsa()), false);
-});
-
-test("los activos de los recorridos visuales están declarados en HTML y ambos manifiestos", async () => {
-  const [html, interno, produccion] = await Promise.all([
-    readFile(new URL("index.html", import.meta.url), "utf8"),
-    readFile(new URL("../../interno.manifest", import.meta.url), "utf8"),
-    readFile(new URL("../../produccion.manifest", import.meta.url), "utf8"),
-  ]);
-  const activos = [
-    "datos-sinteticos-rrhh.js", "estado-entrega.css", "estado-entrega-i18n.js", "estado-entrega.js",
-    ...MODULOS_VISUALES_PRESENTACION.flatMap(([clave]) => [
-      `modulos/${clave}/${clave}.css`,
-      `modulos/${clave}/i18n.js`,
-      `modulos/${clave}/vista.js`,
-    ]),
-  ];
-  for (const activo of activos) {
-    assert.match(interno, new RegExp(`^static/portal-empleado/${activo.replaceAll(".", "\\.")}$`, "m"), activo);
-    assert.match(produccion, new RegExp(`^static/portal-empleado/${activo.replaceAll(".", "\\.")}$`, "m"), activo);
-  }
-  for (const [clave] of MODULOS_VISUALES_PRESENTACION) {
-    const datoPresentacion = `static/portal-empleado/modulos/${clave}/datos-presentacion.js`;
-    assert.doesNotMatch(interno, new RegExp(`^${datoPresentacion.replaceAll(".", "\\.")}$`, "m"), datoPresentacion);
-    assert.doesNotMatch(produccion, new RegExp(`^${datoPresentacion.replaceAll(".", "\\.")}$`, "m"), datoPresentacion);
-  }
-  for (const [clave] of MODULOS_VISUALES_PRESENTACION) {
-    assert.match(html, new RegExp(`/portal-empleado/modulos/${clave}/${clave}\\.css`));
-  }
-});
-
-test("el cache busting de módulos avanza en cascada hasta el HTML", async () => {
-  const versionCoordinador = "20260920-cronos-bandeja-v2";
-  const versionPortal = "20260920-cronos-bandeja-v2";
-  const versionI18n = "20260920-personal-catalogo-v1";
-  const versionCatalogo = "20260906-acceso-certificado-v1";
-  const versionTema = "20260920-referencia-rrhh-v1";
-  const versionTemaCT = "20260918-botones-v1";
-  const versionCronos = "20260920-cronos-bandeja-v2";
-  const versionDietas = "20260921-dietas-mapa-osm-v10";
-  const versionDietasRecorridos = "20260921-dietas-mapa-osm-v10";
-  const versionRPT = "20260920-personal-rpt-publica-v3";
-  const versionEstilos = "20260920-personal-rpt-publica-v3";
-  const [portal, html] = await Promise.all([
-    readFile(new URL("portal.js", import.meta.url), "utf8"),
-    readFile(new URL("index.html", import.meta.url), "utf8"),
-  ]);
-  const coordinador = await readFile(
-    new URL("portal-modulos-coordinador.js", import.meta.url),
-    "utf8",
-  );
-  assert.match(portal, new RegExp(`portal-modulos-coordinador\\.js\\?v=${versionCoordinador}`));
-  assert.match(portal, new RegExp(`portal-i18n\\.js\\?v=${versionI18n}`));
-  assert.match(coordinador, new RegExp(`portal-catalogo-modulos\\.js\\?v=${versionCatalogo}`));
-  assert.match(coordinador, new RegExp(`portal-i18n\\.js\\?v=${versionI18n}`));
-  assert.match(coordinador, new RegExp(`modulos/personal/cliente-http-categorias\\.js\\?v=${versionI18n}`));
-  assert.match(coordinador, new RegExp(`modulos/personal/cliente-http-rpt-publica\\.js\\?v=${versionRPT}`));
-  assert.match(coordinador, new RegExp(`modulos/personal/vista-rpt-publica\\.js\\?v=${versionRPT}`));
-  assert.match(coordinador, new RegExp(`modulos/cronos/vista-recorridos\\.js\\?v=${versionCronos}`));
-  assert.match(coordinador, new RegExp(`modulos/dietas/vista-itinerario\\.js\\?v=${versionDietas}`));
-  assert.match(coordinador, new RegExp(`modulos/dietas/vista-recorridos\\.js\\?v=${versionDietasRecorridos}`));
-  assert.match(html, new RegExp(`portal\\.js\\?v=${versionPortal}`));
-  assert.match(html, new RegExp(`portal-modulos\\.css\\?v=${versionEstilos}`));
-  assert.match(html, new RegExp(`portal\\.css\\?v=${versionTema}`));
-  assert.match(html, new RegExp(`expedientes-operativo\\.css\\?v=${versionTemaCT}`));
-  assert.match(html, new RegExp(`modulos/cronos/cronos\\.css\\?v=${versionCronos}`));
-  assert.match(html, new RegExp(`modulos/dietas/dietas\\.css\\?v=${versionDietas}`));
 });

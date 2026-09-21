@@ -64,7 +64,11 @@ func TestIncorporacionV2CatalogosDetalleYAltaSeparados(t *testing.T) {
 }
 
 func TestIncorporacionV2CargaArchivoPrivado(t *testing.T) {
-	dir := t.TempDir()
+	dir, err := os.MkdirTemp("/var/tmp", "vec-incorporacion-v2-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
 	if err := os.Chmod(dir, 0700); err != nil {
 		t.Fatal(err)
 	}
@@ -89,7 +93,7 @@ func TestIncorporacionV2CargaArchivoPrivado(t *testing.T) {
 	escribir(b)
 	x, raiz, err := leerConfiguracionIncorporacionV2(ruta)
 	if err != nil || raiz == nil || x.Referencias != c.Referencias {
-		t.Fatal("configuración privada nominal no recuperada")
+		t.Fatalf("configuración privada nominal no recuperada: err=%v raiz=%t referencias=%+v", err, raiz != nil, x.Referencias)
 	}
 	raiz.Close()
 	for nombre, datos := range map[string][]byte{
@@ -205,7 +209,7 @@ func TestIncorporacionV2SelectorArranqueYAmbitoNominal(t *testing.T) {
 	c.certificadoVerificadoEn = alta.soporte.reloj.Ahora().Add(-time.Second)
 	c.certificadoValidoHasta = alta.soporte.reloj.Ahora().Add(time.Minute)
 	ctx = context.WithValue(ctx, claveCapacidadConsultasContratacionTemporalDesarrollo{}, c)
-	hijo, err := contextoDetalleIncorporacionV2Desarrollo(ctx, alta.soporte)
+	hijo, err := contextoDetalleIncorporacionV2Desarrollo(ctx, alta.soporte, catalogoDetalleCTPrueba(t, alta.soporte))
 	if err != nil {
 		t.Fatal(err)
 	}

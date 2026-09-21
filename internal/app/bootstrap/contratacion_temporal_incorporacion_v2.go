@@ -24,6 +24,10 @@ import (
 // Autoridad/Detalle/Reloj de Preparacion se ligan aquí, no desde configuración.
 type ConfiguracionIncorporacionDesarrollo struct {
 	continuidad *continuidadNominalDesarrollo
+	// fronteras se recibe de la composición del servidor y liga todas las
+	// subconsultas de incorporación al mismo catálogo inmutable CT/Bolsa.
+	// No se reconstruye ni se deduce desde la ruta.
+	fronteras catalogoFronterasComunDesarrollo
 	// Sólo la carga nominal de arranque compone este detalle con el PDP real.
 	detalleNominal            *appct.ServicioConsultaDetalleRRHH
 	Referencias               ReferenciasCTIncorporacionDesarrollo
@@ -112,7 +116,7 @@ func nuevasDependenciasIncorporacionV2Desarrollo(c ConfiguracionIncorporacionDes
 	consultas dependenciasConsultasRRHHDesarrollo, reloj relojContratacionTemporalDesarrollo) (*inc.ServidorV2PostgreSQL, error) {
 	f := ct.ErrComposicionIncorporacionAplicacion
 	if !c.Referencias.valida() || alta == nil || alta.soporte == nil || consultas.identidad == nil || consultas.autoridad == nil ||
-		c.Preparacion.Autoridad != nil || c.Preparacion.Detalle != nil || c.Preparacion.Reloj != nil {
+		c.fronteras.identidad == nil || !c.fronteras.mismaInstancia(consultas.identidad.fronteras) || c.Preparacion.Autoridad != nil || c.Preparacion.Detalle != nil || c.Preparacion.Reloj != nil {
 		return nil, f
 	}
 	detalle, ok := consultas.detalle.(*appct.ServicioConsultaDetalleRRHH)
@@ -138,7 +142,45 @@ func nuevasDependenciasIncorporacionV2Desarrollo(c ConfiguracionIncorporacionDes
 // Hijo de la petición mTLS existente para la consulta RRHH. Conserva la misma
 // identidad y ventana del certificado. El sello privado no concede permisos:
 // el detalle y cada consumidor vuelven a exigir su autorización nominal.
-func contextoDetalleIncorporacionV2Desarrollo(ctx context.Context, soporte *soporteAltaContratacionTemporalDesarrollo) (context.Context, error) {
+func subconsultaDetalleContratacionTemporalDesarrollo(ctx context.Context, soporte *soporteAltaContratacionTemporalDesarrollo, fronteras catalogoFronterasComunDesarrollo) (context.Context, error) {
+	if ctx == nil || soporte == nil || fronteras.identidad == nil {
+		return nil, ct.ErrDenegadaIncorporacionAplicacion
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if previa, existe := ctx.Value(claveFronteraSeguridadComunDesarrollo{}).(fronteraSeguridadComunDesarrollo); existe && !fronteras.mismaInstancia(previa.catalogo) {
+		return nil, ct.ErrDenegadaIncorporacionAplicacion
+	}
+	c, ok := soporte.capacidadValida(ctx)
+	if !ok {
+		return nil, ct.ErrDenegadaIncorporacionAplicacion
+	}
+	d, ok := fronteras.resolver(http.MethodPost, httpinterno.RutaConsultaDetalleRRHH)
+	if !ok || !esDescriptorDetalleContratacionTemporalDesarrollo(d, soporte.contexto.Resultado.Contexto.PerfilActivoRef) {
+		return nil, ct.ErrDenegadaIncorporacionAplicacion
+	}
+	c.ruta = httpinterno.RutaConsultaDetalleRRHH
+	c.consultaRRHH = &contextoConsultaRRHHPeticionDesarrollo{}
+	ctx = context.WithValue(ctx, claveCapacidadConsultasContratacionTemporalDesarrollo{}, c)
+	ctx = context.WithValue(ctx, claveFronteraSeguridadComunDesarrollo{}, fronteraSeguridadComunDesarrollo{metodo: http.MethodPost, ruta: httpinterno.RutaConsultaDetalleRRHH, superficie: superficieInternaSeguridadComunDesarrollo, catalogo: fronteras, descriptor: d})
+	return ctx, nil
+}
+
+// esDescriptorDetalleContratacionTemporalDesarrollo fija la frontera que una
+// subconsulta interna puede heredar. Resolver una ruta igual no basta: la
+// acción, política y capacidad tienen que ser las nominales de detalle CT.
+func esDescriptorDetalleContratacionTemporalDesarrollo(d descriptorFronteraComunDesarrollo, perfilBase string) bool {
+	return d.Clave == "ct-expediente-consultar" &&
+		d.ClavePolitica == clavePoliticaContratacionTemporalDesarrollo &&
+		d.ClaveCapacidad == ct.AccionConsultarDetalleRRHH &&
+		d.Metodo == http.MethodPost &&
+		d.Ruta == httpinterno.RutaConsultaDetalleRRHH &&
+		d.Superficie == superficieInternaSeguridadComunDesarrollo &&
+		!d.DetalleColeccion && d.admitePerfil(perfilBase)
+}
+
+func contextoDetalleIncorporacionV2Desarrollo(ctx context.Context, soporte *soporteAltaContratacionTemporalDesarrollo, fronteras catalogoFronterasComunDesarrollo) (context.Context, error) {
 	if ctx == nil || soporte == nil {
 		return nil, ct.ErrDenegadaIncorporacionAplicacion
 	}
@@ -149,15 +191,16 @@ func contextoDetalleIncorporacionV2Desarrollo(ctx context.Context, soporte *sopo
 	if !ok || (c.ruta != httpinterno.RutaIncorporacionEjercicioV2 && c.ruta != httpinterno.RutaFichaGINPIXV2 && c.ruta != httpinterno.RutaConsultaSeguimientoV2 && !rutaContinuidadNominal(c.ruta)) {
 		return nil, ct.ErrDenegadaIncorporacionAplicacion
 	}
-	c.ruta = httpinterno.RutaConsultaDetalleRRHH
-	c.consultaRRHH = &contextoConsultaRRHHPeticionDesarrollo{}
-	ctx = context.WithValue(ctx, claveCapacidadConsultasContratacionTemporalDesarrollo{}, c)
+	ctx, err := subconsultaDetalleContratacionTemporalDesarrollo(ctx, soporte, fronteras)
+	if err != nil {
+		return nil, err
+	}
 	return context.WithValue(ctx, claveIncorporacionV2Desarrollo{}, soporte.sello), nil
 }
 
-func ligarContextoIncorporacionV2Desarrollo(h http.Handler, soporte *soporteAltaContratacionTemporalDesarrollo) http.Handler {
+func ligarContextoIncorporacionV2Desarrollo(h http.Handler, soporte *soporteAltaContratacionTemporalDesarrollo, fronteras catalogoFronterasComunDesarrollo) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx, err := contextoDetalleIncorporacionV2Desarrollo(r.Context(), soporte)
+		ctx, err := contextoDetalleIncorporacionV2Desarrollo(r.Context(), soporte, fronteras)
 		if err == nil {
 			r = r.WithContext(ctx)
 		}

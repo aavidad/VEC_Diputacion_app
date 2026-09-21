@@ -37,11 +37,12 @@ export function rutaCandidatosBolsa(bolsaRef, { estado = "", texto = "", cursor 
   return query ? `${rutaBase}?${query}` : rutaBase;
 }
 
-export async function consultarBolsas({ fetchImpl = fetch } = {}) {
+export async function consultarBolsas({ fetchImpl = fetch, signal } = {}) {
   try {
     const respuesta = await fetchImpl(RUTA_BOLSAS, {
       method: "GET",
       credentials: "omit",
+      signal,
       headers: { Accept: "application/json" },
     });
 
@@ -76,7 +77,7 @@ export async function consultarBolsas({ fetchImpl = fetch } = {}) {
   }
 }
 
-export async function consultarCandidatosBolsa(bolsaRef, opciones = {}, { fetchImpl = fetch } = {}) {
+export async function consultarCandidatosBolsa(bolsaRef, opciones = {}, { fetchImpl = fetch, signal } = {}) {
   if (typeof bolsaRef !== "string" || bolsaRef.trim() === "") {
     return { ok: false, status: 400, codigo: "referencia_invalida", mensaje: "Referencia de bolsa no válida." };
   }
@@ -87,6 +88,7 @@ export async function consultarCandidatosBolsa(bolsaRef, opciones = {}, { fetchI
     const respuesta = await fetchImpl(url, {
       method: "GET",
       credentials: "omit",
+      signal,
       headers: { Accept: "application/json" },
     });
 
@@ -127,7 +129,7 @@ export async function consultarCandidatosBolsa(bolsaRef, opciones = {}, { fetchI
   }
 }
 
-export async function consultarContactosCandidato(participacionRef, { fetchImpl = fetch } = {}) {
+export async function consultarContactosCandidato(participacionRef, { fetchImpl = fetch, signal } = {}) {
   if (typeof participacionRef !== "string" || participacionRef.trim() === "") {
     return { ok: false, status: 400, codigo: "referencia_invalida", mensaje: "Referencia de candidato no válida." };
   }
@@ -138,6 +140,7 @@ export async function consultarContactosCandidato(participacionRef, { fetchImpl 
     const respuesta = await fetchImpl(url, {
       method: "GET",
       credentials: "omit",
+      signal,
       headers: { Accept: "application/json" },
     });
 
@@ -314,19 +317,69 @@ export async function registrarResultadoLlamamiento(llamamientoRef, payload, { f
   }
 }
 
-export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFuenteLectura = () => null }) {
+export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFuenteLectura = () => null, documento = globalThis.document }) {
+  const controladoresLectura = new Map();
   function fuenteLectura() {
     const fuente = obtenerFuenteLectura();
     return fuente && typeof fuente === "object" ? fuente : null;
   }
 
+  function iniciarLectura(clave) {
+    controladoresLectura.get(clave)?.abort();
+    const controlador = new AbortController();
+    controladoresLectura.set(clave, controlador);
+    return controlador;
+  }
+
+  function lecturaVigente(clave, controlador) {
+    return !controlador.signal.aborted && controladoresLectura.get(clave) === controlador;
+  }
+
+  function terminarLectura(clave, controlador) {
+    if (controladoresLectura.get(clave) === controlador) controladoresLectura.delete(clave);
+  }
+
+  function limpiarEstadoCarga(clave) {
+    if (clave === "bolsas" && estado.datosBolsas?.carga === "cargando") estado.datosBolsas = null;
+    if (clave === "candidatos" && estado.datosCandidatos?.carga === "cargando") estado.datosCandidatos = null;
+    if (clave === "contactos" && estado.modalContactos?.carga === "cargando") estado.modalContactos = null;
+  }
+
+  async function resolverLectura(clave, controlador, operacion) {
+    try {
+      return await operacion();
+    } catch (error) {
+      if (!lecturaVigente(clave, controlador)) return null;
+      if (error?.name === "AbortError") {
+        terminarLectura(clave, controlador);
+        limpiarEstadoCarga(clave);
+        return null;
+      }
+      return {
+        ok: false,
+        status: 0,
+        codigo: "error_red_o_contrato",
+        mensaje: error instanceof Error ? error.message : "Error de comunicación con Bolsa.",
+      };
+    }
+  }
+
+  function cancelarPeticiones() {
+    for (const controlador of controladoresLectura.values()) controlador.abort();
+    controladoresLectura.clear();
+    for (const clave of ["bolsas", "candidatos", "contactos"]) limpiarEstadoCarga(clave);
+  }
+
   async function cargarBolsas() {
+    const controlador = iniciarLectura("bolsas");
     estado.datosBolsas = { carga: "cargando", datos: null, error: "" };
     renderizar();
     const fuente = fuenteLectura();
-    const res = fuente?.consultarBolsas
-      ? await fuente.consultarBolsas()
-      : await consultarBolsas();
+    const res = await resolverLectura("bolsas", controlador, () => fuente?.consultarBolsas
+      ? fuente.consultarBolsas({ signal: controlador.signal })
+      : consultarBolsas({ signal: controlador.signal }));
+    if (res === null || !lecturaVigente("bolsas", controlador)) return;
+    terminarLectura("bolsas", controlador);
     if (res.ok) {
       estado.datosBolsas = { carga: "listo", datos: res.datos, error: "" };
     } else if (res.status === 403) {
@@ -337,8 +390,9 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     renderizar();
   }
 
-  async function cargarCandidatosBolsa(bolsaRef, { cursor = "" } = {}) {
+  async function cargarCandidatosBolsa(bolsaRef, { cursor = "", enfocarDestino = false } = {}) {
     if (!bolsaRef) return;
+    const controlador = iniciarLectura("candidatos");
     estado.bolsaSeleccionada = bolsaRef;
     estado.datosCandidatos = { carga: "cargando", datos: null, error: "" };
     renderizar();
@@ -348,9 +402,11 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
       texto: estado.filtrosBolsa?.texto || "",
       cursor,
     };
-    const res = fuente?.consultarCandidatosBolsa
-      ? await fuente.consultarCandidatosBolsa(bolsaRef, opciones)
-      : await consultarCandidatosBolsa(bolsaRef, opciones);
+    const res = await resolverLectura("candidatos", controlador, () => fuente?.consultarCandidatosBolsa
+      ? fuente.consultarCandidatosBolsa(bolsaRef, opciones, { signal: controlador.signal })
+      : consultarCandidatosBolsa(bolsaRef, opciones, { signal: controlador.signal }));
+    if (res === null || !lecturaVigente("candidatos", controlador)) return;
+    terminarLectura("candidatos", controlador);
     if (res.ok) {
       estado.datosCandidatos = { carga: "listo", datos: res.datos, error: "" };
     } else if (res.status === 403) {
@@ -359,10 +415,14 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
       estado.datosCandidatos = { carga: "error", datos: null, error: res.mensaje };
     }
     renderizar();
+    if (enfocarDestino) {
+      documento.querySelector("[data-bolsa-b5-destino='true']")?.focus?.();
+    }
   }
 
   async function abrirContactos(participacionRef, nombreVisible = "") {
     if (!participacionRef) return;
+    const controlador = iniciarLectura("contactos");
     estado.modalContactos = {
       abierto: true,
       participacionRef,
@@ -373,9 +433,11 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     };
     renderizar();
     const fuente = fuenteLectura();
-    const res = fuente?.consultarContactosCandidato
-      ? await fuente.consultarContactosCandidato(participacionRef)
-      : await consultarContactosCandidato(participacionRef);
+    const res = await resolverLectura("contactos", controlador, () => fuente?.consultarContactosCandidato
+      ? fuente.consultarContactosCandidato(participacionRef, { signal: controlador.signal })
+      : consultarContactosCandidato(participacionRef, { signal: controlador.signal }));
+    if (res === null || !lecturaVigente("contactos", controlador)) return;
+    terminarLectura("contactos", controlador);
     if (res.ok) {
       estado.modalContactos.carga = "listo";
       estado.modalContactos.contactos = res.datos.contactos;
@@ -392,11 +454,21 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     if (!candidato || !datos?.bolsa) return;
     estado.modalFicha = { abierto: true, candidato, bolsa: datos.bolsa };
     renderizar();
+    documento.querySelector("[data-bolsa-ficha-inline='true']")?.focus?.();
   }
 
   function cerrarFicha() {
+    const participacionRef = estado.modalFicha?.candidato?.participacion_ref;
     estado.modalFicha = null;
     renderizar();
+    if (!participacionRef) return;
+    const controles = documento.querySelectorAll('[data-bolsa-accion="abrir-ficha"][data-bolsa-control-principal="true"]');
+    for (const control of controles) {
+      if (control.dataset.participacionRef === participacionRef) {
+        control.focus?.();
+        return;
+      }
+    }
   }
 
   function cerrarContactos() {
@@ -442,7 +514,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
   }
 
   function instalar() {
-    document.addEventListener("click", (evento) => {
+    documento.addEventListener("click", (evento) => {
       const botonVer = evento.target?.closest?.('[data-accion="ver-bolsa"], [data-bolsa-abrir="true"]');
       if (botonVer) {
         evento.preventDefault();
@@ -451,7 +523,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
           estado.bolsaSeleccionada = ref;
           estado.filtrosBolsa = { estado: "", texto: "" };
           navegar("bolsa-candidatos");
-          void cargarCandidatosBolsa(ref);
+          void cargarCandidatosBolsa(ref, { enfocarDestino: true });
         }
         return;
       }
@@ -508,7 +580,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
       }
     });
 
-    document.addEventListener("submit", (evento) => {
+    documento.addEventListener("submit", (evento) => {
       const formFiltros = evento.target?.closest?.('[data-bolsa-form="filtros"]');
       if (formFiltros) {
         evento.preventDefault();
@@ -610,7 +682,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
       }
     });
 
-    document.addEventListener("keydown", (evento) => {
+    documento.addEventListener("keydown", (evento) => {
       if (evento.key === "Escape" && estado.modalFicha?.abierto) {
         evento.preventDefault();
         cerrarFicha();
@@ -619,6 +691,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
   }
 
   return Object.freeze({
+    cancelarPeticiones,
     cargarBolsas,
     cargarCandidatosBolsa,
     abrirFicha,

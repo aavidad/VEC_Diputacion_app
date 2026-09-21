@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"reflect"
 	"strings"
 	"testing"
@@ -153,7 +154,12 @@ func (e *entornoSesionConsultaPrueba) contexto() context.Context {
 	canal := ctx.Value(claveCapacidadConsultasContratacionTemporalDesarrollo{}).(capacidadConsultaContratacionTemporalDesarrollo)
 	canal.certificadoVerificadoEn = e.reloj.Ahora().Add(-time.Second)
 	canal.certificadoValidoHasta = e.reloj.Ahora().Add(5 * time.Minute)
-	return context.WithValue(ctx, claveCapacidadConsultasContratacionTemporalDesarrollo{}, canal)
+	ctx = context.WithValue(ctx, claveCapacidadConsultasContratacionTemporalDesarrollo{}, canal)
+	descriptor, ok := e.p.fronteras.resolver(http.MethodPost, httpinterno.RutaConsultaCuadroRRHH)
+	if !ok {
+		panic("frontera CT de cuadro no declarada")
+	}
+	return context.WithValue(ctx, claveFronteraSeguridadComunDesarrollo{}, fronteraSeguridadComunDesarrollo{metodo: http.MethodPost, ruta: httpinterno.RutaConsultaCuadroRRHH, superficie: superficieInternaSeguridadComunDesarrollo, catalogo: e.p.fronteras, descriptor: descriptor})
 }
 
 func TestSesionConsultaRRHHDesarrolloRegistroNuevoConIdentidadConservada(t *testing.T) {
@@ -215,6 +221,11 @@ func TestSesionConsultaRRHHDesarrolloCapsulaLigadaYDeUnSoloUso(t *testing.T) {
 		t.Fatal("evidencia adulterada llegó al registro")
 	}
 	capsula.evidencia.Alta.SesionID = strings.TrimSuffix(capsula.evidencia.Alta.SesionID, "x")
+	capsula.evidencia.PerfilRef += "x"
+	if _, _, err := e.p.registrarCapsula(ctx, capsula); err == nil || len(e.registro.altas) != 0 {
+		t.Fatal("el perfil nominal alterado llegó al registro")
+	}
+	capsula.evidencia.PerfilRef = strings.TrimSuffix(capsula.evidencia.PerfilRef, "x")
 	if _, _, err := e.p.registrarCapsula(ctx, capsula); err != nil {
 		t.Fatal(err)
 	}

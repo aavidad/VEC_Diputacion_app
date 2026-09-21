@@ -51,6 +51,9 @@ type autoridadConsultasContratacionTemporalDesarrollo struct {
 	llamamientoCompuesto                     bool
 	consultasRRHHCompuestas                  bool
 	subsanacionCompuesta                     bool
+	fronterasSeguridadComun                  catalogoFronterasComunDesarrollo
+	envolverBorradorLlamamiento              func(http.Handler) http.Handler
+	coleccionesAdicionales                   []vechttp.RutaColeccion
 	registradorAuditoriaFronteraRutasExactas puertosvec.RegistradorAuditoriaFronteraRutaExacta
 }
 
@@ -66,8 +69,25 @@ type claveSolicitudAutorizacionContratacionTemporalDesarrollo struct{}
 // expediente y resolver su politica. soporteAlta no lee cuerpo ni cabeceras
 // HTTP para ampliar los ambitos de la instantanea.
 type autorizadorAnalisisContratacionTemporalDesarrollo struct {
-	delegado autorizadorLigadoContratacionTemporalDesarrollo
-	soporte  *soporteAltaContratacionTemporalDesarrollo
+	delegado  autorizadorLigadoContratacionTemporalDesarrollo
+	soporte   *soporteAltaContratacionTemporalDesarrollo
+	instalado bool
+}
+
+// instalarDelegadoComun se invoca exclusivamente durante la composición, antes
+// de publicar el servidor. Conserva el mismo wrapper que ya recibieron los
+// servicios de este wrapper CT, de modo que estos consumidores y B-BACK
+// quedan detrás de la misma instancia V3. Otras autoridades CT conservan sus
+// composiciones nominales propias.
+func (a *autorizadorAnalisisContratacionTemporalDesarrollo) instalarDelegadoComun(
+	delegado autorizadorLigadoContratacionTemporalDesarrollo,
+) error {
+	if a == nil || dependenciaEsNulaContratacionTemporalDesarrollo(delegado) || a.instalado {
+		return errAltaContratacionTemporalDesarrolloNoDisponible
+	}
+	a.delegado = delegado
+	a.instalado = true
+	return nil
 }
 
 func (a *autorizadorAnalisisContratacionTemporalDesarrollo) ExigirSolicitudLigadaV3(
@@ -319,8 +339,35 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	consultasRRHH := dependenciasConsultasRRHHDesarrollo{cerrar: func() {}}
 	var borradorRRHH ports.RenderizadorBorradorRRHH
 	var borradorRRHHDOCX httpinterno.RenderizadorBorradorRRHHDOCX
+	alta.soporte.mu.Lock()
+	perfilCTCatalogo := alta.soporte.contexto.Resultado.Contexto.PerfilActivoRef
+	alta.soporte.mu.Unlock()
+	lectoresDeclarados := resolvedorDesarrollo.lectoresConsultaRRHH()
+	lectoresConsulta := make([]string, 0, len(lectoresDeclarados))
+	for _, lector := range lectoresDeclarados {
+		lectoresConsulta = append(lectoresConsulta, lector.perfilRef)
+	}
+	perfilesConsulta := perfilesConsultaContratacionTemporalDesarrollo(perfilCTCatalogo, lectoresConsulta)
+	declaracionesFrontera := descriptoresFronterasContratacionTemporalDesarrollo(perfilCTCatalogo, perfilesConsulta)
+	var soporteBolsaCatalogo *soporteSesionBorradorBolsaDesarrollo
+	if debeComponerBorradorLlamamientoDesarrollo(cfg) {
+		soporteBolsaCatalogo, err = nuevoSoporteSesionBorradorBolsaDesarrollo(cfg.DevelopmentMaterialDir, alta.soporte, reloj.Ahora())
+		if err != nil {
+			return nil, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		}
+		perfilBolsa := soporteBolsaCatalogo.soporteCanal.contexto.Resultado.Contexto.PerfilActivoRef
+		bolsaFronteras, e := descriptoresFronterasBorradorLlamamientoBolsaDesarrollo(perfilBolsa)
+		if e != nil {
+			return nil, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		}
+		declaracionesFrontera = append(declaracionesFrontera, bolsaFronteras...)
+	}
+	catalogoFronteras, err := nuevoCatalogoFronterasComunDesarrollo(declaracionesFrontera)
+	if err != nil {
+		return nil, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+	}
 	if cfg.ContratacionTemporalPostgreSQL.ConsultasRRHHConfiguradas() {
-		consultasRRHH, err = nuevasDependenciasConsultasRRHHDesarrollo(dependencias, &alta)
+		consultasRRHH, err = nuevasDependenciasConsultasRRHHDesarrollo(dependencias, &alta, catalogoFronteras)
 		if err != nil {
 			return nil, nil, nil, err
 		}
@@ -338,7 +385,7 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	cerrarIncorporacion := func() {}
 	if cfg.IncorporacionV2File != "" {
 		var preparada ConfiguracionIncorporacionDesarrollo
-		preparada, cerrarIncorporacion, err = cargarIncorporacionV2Desarrollo(cfg, &alta, consultasRRHH, reloj)
+		preparada, cerrarIncorporacion, err = cargarIncorporacionV2Desarrollo(cfg, &alta, consultasRRHH, reloj, catalogoFronteras)
 		if err != nil {
 			return nil, nil, nil, err
 		}
@@ -421,19 +468,19 @@ func nuevasRutasContratacionTemporalDesarrollo(
 		rutas = append(rutas, seguimiento)
 		for i := range rutas {
 			if rutas[i].Ruta == httpinterno.RutaIncorporacionEjercicioV2 || rutas[i].Ruta == httpinterno.RutaFichaGINPIXV2 || rutas[i].Ruta == httpinterno.RutaConsultaSeguimientoV2 {
-				rutas[i].Manejador = ligarContextoIncorporacionV2Desarrollo(rutas[i].Manejador, alta.soporte)
+				rutas[i].Manejador = ligarContextoIncorporacionV2Desarrollo(rutas[i].Manejador, alta.soporte, catalogoFronteras)
 			}
 		}
 	}
 	if len(incorporacion) == 1 && incorporacion[0].continuidad != nil {
-		continuidad, err := incorporacion[0].continuidad.rutas(derivador)
+		continuidad, err := incorporacion[0].continuidad.rutas(derivador, catalogoFronteras)
 		if err != nil {
 			return nil, nil, nil, err
 		}
 		rutas = append(rutas, continuidad...)
 	}
 	if comunicacionReal != nil && consultasRRHH.detalle != nil && borradorRRHH != nil {
-		resolucion, err := nuevasDependenciasResolucionFormalizacionDesarrollo(&alta, reloj, consultasRRHH.detalle, borradorRRHH, consultasRRHH.preparacionResolucion)
+		resolucion, err := nuevasDependenciasResolucionFormalizacionDesarrollo(&alta, reloj, consultasRRHH.detalle, borradorRRHH, consultasRRHH.preparacionResolucion, catalogoFronteras)
 		if err != nil {
 			return nil, nil, nil, err
 		}
@@ -481,6 +528,31 @@ func nuevasRutasContratacionTemporalDesarrollo(
 		}
 		rutas = append(rutas, rutasAreaPersonal...)
 	}
+	rutasBorrador := []vechttp.RutaExacta(nil)
+	coleccionesBorrador := []vechttp.RutaColeccion(nil)
+	// Instancia única construida antes de las sesiones CT y Bolsa.
+	seguridadBorrador := catalogoFronteras
+	var envolverBorrador func(http.Handler) http.Handler
+	cerrarBorrador := func() {}
+	if debeComponerBorradorLlamamientoDesarrollo(cfg) {
+		if consultasRRHH.identidad == nil {
+			return nil, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		}
+		var errBorrador error
+		rutasBorrador, coleccionesBorrador, seguridadBorrador, envolverBorrador, cerrarBorrador, errBorrador = nuevasDependenciasBorradorLlamamientoDesarrollo(
+			context.Background(), cfg, dependencias, &alta, soporteBolsaCatalogo, catalogoFronteras, consultasRRHH.identidad,
+		)
+		if errBorrador != nil {
+			return nil, nil, nil, errBorrador
+		}
+	}
+	cerrarBorradorPendiente := true
+	defer func() {
+		if cerrarBorradorPendiente {
+			cerrarBorrador()
+		}
+	}()
+	rutas = append(rutas, rutasBorrador...)
 	autoridad := &autoridadConsultasContratacionTemporalDesarrollo{
 		sello:                                    sello,
 		resolvedor:                               resolvedorDesarrollo,
@@ -488,12 +560,16 @@ func nuevasRutasContratacionTemporalDesarrollo(
 		llamamientoCompuesto:                     comunicacionReal != nil,
 		consultasRRHHCompuestas:                  consultasRRHH.cuadro != nil && consultasRRHH.detalle != nil,
 		subsanacionCompuesta:                     subsanacionReal.servicio != nil,
+		fronterasSeguridadComun:                  seguridadBorrador,
+		envolverBorradorLlamamiento:              envolverBorrador,
+		coleccionesAdicionales:                   coleccionesBorrador,
 		registradorAuditoriaFronteraRutasExactas: alta.postgresql.registradorAuditoriaFrontera,
 	}
 	if autoridad.registradorAuditoriaFronteraRutasExactas == nil {
 		return nil, nil, nil, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 	}
 	dependencias.cerrar = func() {
+		cerrarBorrador()
 		cerrarIncorporacion()
 		consultasRRHH.cerrar()
 		coberturaReal.cerrar()
@@ -501,5 +577,10 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	}
 	cerrarCobertura = false
 	cerrarAlta = false
+	cerrarBorradorPendiente = false
 	return rutas, autoridad, dependencias.Cerrar, nil
+}
+
+func debeComponerBorradorLlamamientoDesarrollo(cfg config.Config) bool {
+	return cfg.BolsaBorradoresEnabled
 }

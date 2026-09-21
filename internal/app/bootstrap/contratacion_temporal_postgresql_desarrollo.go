@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 	"vec-diputacion-granada/config"
+	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	postgrescontratacion "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	postgresvec "vec-diputacion-granada/internal/vec/adapters/postgres"
@@ -69,21 +70,24 @@ type materialAtestacionContratacionTemporalDesarrollo struct {
 }
 
 type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
-	ejecucion                        *pgxpool.Pool
-	bolsa                            *pgxpool.Pool
-	gobierno                         *pgxpool.Pool
-	registroAutorizacion             *pgxpool.Pool
-	confirmador                      *pgxpool.Pool
-	lectorResultado                  *postgrescontratacion.PoolRecuperacionCoberturaO405PostgreSQL
-	registradorAuditoriaFrontera     *postgresvec.RegistradorAuditoriaFronteraRutaExactaPostgreSQL
-	auditoriaFrontera                *pgxpool.Pool
-	candidaturas                     ports.ResolutorCandidaturaAlta
-	transaccionAlta                  ports.TransaccionAltasCandidata
-	proveedorMaterial                *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialBolsa           *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialDespachoCorreo  *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialResultadoCorreo *proveedorMaterialAltaContratacionTemporalDesarrollo
-	cerrarUnaVez                     func()
+	ejecucion                         *pgxpool.Pool
+	bolsa                             *pgxpool.Pool
+	gobierno                          *pgxpool.Pool
+	registroAutorizacion              *pgxpool.Pool
+	confirmador                       *pgxpool.Pool
+	lectorResultado                   *postgrescontratacion.PoolRecuperacionCoberturaO405PostgreSQL
+	registradorAuditoriaFrontera      *postgresvec.RegistradorAuditoriaFronteraRutaExactaPostgreSQL
+	auditoriaFrontera                 *pgxpool.Pool
+	candidaturas                      ports.ResolutorCandidaturaAlta
+	transaccionAlta                   ports.TransaccionAltasCandidata
+	proveedorMaterial                 *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialBolsa            *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialBorradorCrear    *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialBorradorConsulta *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialDespachoCorreo   *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialResultadoCorreo  *proveedorMaterialAltaContratacionTemporalDesarrollo
+	catalogoMaterial                  catalogoMaterialAutorizacionComunDesarrollo
+	cerrarUnaVez                      func()
 }
 
 func (d *dependenciasPostgreSQLContratacionTemporalDesarrollo) cerrar() {
@@ -282,6 +286,15 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	if err != nil {
 		return vacias, err
 	}
+	descriptoresMaterial := descriptoresMaterialAutorizacionContratacionTemporalDesarrollo()
+	if cfg.BolsaBorradoresEnabled {
+		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialBorradorLlamamientoBolsaDesarrollo()...)
+	}
+	catalogoMaterial, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(descriptoresMaterial)
+	if err != nil {
+		return vacias, errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
+	}
+	dependencias.catalogoMaterial = catalogoMaterial
 	proveedor, err := nuevoProveedorMaterialAltaContratacionTemporalDesarrollo(
 		material, soporte, reloj,
 	)
@@ -299,6 +312,22 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			return vacias, err
 		}
 		dependencias.proveedorMaterialBolsa = proveedorBolsa
+		if cfg.BolsaBorradoresEnabled {
+			proveedorBorradorCrear, err := nuevoProveedorMaterialBorradorLlamamientoDesarrollo(
+				ctx, gobierno, material, reloj, catalogoMaterial, puertosbolsa.AudienciaCrearBorradorLlamamientoInterno,
+			)
+			if err != nil {
+				return vacias, err
+			}
+			proveedorBorradorConsulta, err := nuevoProveedorMaterialBorradorLlamamientoDesarrollo(
+				ctx, gobierno, material, reloj, catalogoMaterial, puertosbolsa.AudienciaConsultarBorradorLlamamientoInterno,
+			)
+			if err != nil {
+				return vacias, err
+			}
+			dependencias.proveedorMaterialBorradorCrear = proveedorBorradorCrear
+			dependencias.proveedorMaterialBorradorConsulta = proveedorBorradorConsulta
+		}
 	}
 	transaccion, err := postgrescontratacion.NuevaTransaccionAltasPostgreSQLCandidata(
 		ejecucion, proveedor,

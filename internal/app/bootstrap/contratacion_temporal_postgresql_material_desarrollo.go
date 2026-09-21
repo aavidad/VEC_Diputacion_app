@@ -91,6 +91,26 @@ func nuevoProveedorMaterialAltaContratacionTemporalDesarrollo(
 	if soporte == nil {
 		return nil, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 	}
+	proveedor, err := nuevoProveedorMaterialAutorizacionBaseDesarrollo(material, reloj)
+	if err != nil {
+		return nil, err
+	}
+	contexto, err := soporte.contexto.Resultado.Clonar()
+	if err != nil {
+		return nil, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	proveedor.contexto = contexto
+	proveedor.motivo = soporte.motivo
+	return proveedor, nil
+}
+
+// nuevoProveedorMaterialAutorizacionBaseDesarrollo contiene la construcción
+// neutral de material V3. Los wrappers de cada módulo añaden después el
+// contexto y motivo que son de su propiedad.
+func nuevoProveedorMaterialAutorizacionBaseDesarrollo(
+	material materialAtestacionContratacionTemporalDesarrollo,
+	reloj relojContratacionTemporalDesarrollo,
+) (*proveedorMaterialAltaContratacionTemporalDesarrollo, error) {
 	firmante := &firmanteAtestacionAltaContratacionTemporalDesarrollo{
 		claveID: material.claveID,
 		privada: append(ed25519.PrivateKey(nil), material.privada...),
@@ -120,13 +140,9 @@ func nuevoProveedorMaterialAltaContratacionTemporalDesarrollo(
 	if err != nil {
 		return nil, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 	}
-	contexto, err := soporte.contexto.Resultado.Clonar()
-	if err != nil {
-		return nil, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
-	}
 	return &proveedorMaterialAltaContratacionTemporalDesarrollo{
 		atestador: atestador, confianza: confianza, emisor: emisor, fuenteConfianza: material.fuenteConfianza,
-		raiz: material.raiz, contexto: contexto, motivo: soporte.motivo,
+		raiz: material.raiz,
 	}, nil
 }
 

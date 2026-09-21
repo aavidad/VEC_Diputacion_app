@@ -54,6 +54,43 @@ func PublicarProyeccion(
 	return nil
 }
 
+// PublicarProyeccionV3 publica de forma atómica el material V2 y las bolsas
+// públicas B10. Ambos JSON se entregan como parámetros y la base valida que
+// la ancla recibida cubre el manifiesto V3 completo antes de exponerlo.
+func PublicarProyeccionV3(
+	ctx context.Context,
+	dsn string,
+	proyeccionV2 []byte,
+	bolsasV1 []byte,
+	anclaManifiestoSHA256 string,
+) error {
+	anclaManifiestoSHA256 = strings.TrimSpace(anclaManifiestoSHA256)
+	if ctx == nil || ctx.Err() != nil || len(proyeccionV2) == 0 || len(proyeccionV2) > 256*1024*1024 ||
+		len(bolsasV1) == 0 || len(bolsasV1) > 256*1024*1024 || !json.Valid(proyeccionV2) || !json.Valid(bolsasV1) ||
+		!patronHuellaPublicaPostgreSQL.MatchString(anclaManifiestoSHA256) || anclaManifiestoSHA256 == strings.Repeat("0", 64) {
+		return ErrPublicacionPostgreSQLPublicaRechazada
+	}
+	configuracion, err := prepararConfiguracionPublicador(dsn)
+	if err != nil {
+		return err
+	}
+	conexion, err := pgx.ConnectConfig(ctx, configuracion)
+	if err != nil {
+		return ErrPublicacionPostgreSQLPublicaRechazada
+	}
+	defer conexion.Close(context.Background())
+	if err := comprobarIdentidadPublicadorV3(ctx, conexion); err != nil {
+		return err
+	}
+	if _, err := conexion.Exec(ctx, `
+		SELECT vec_bolsa_publica_publicacion.publicar_proyeccion_v3(
+			$1::jsonb, $2::jsonb, $3
+		)`, string(proyeccionV2), string(bolsasV1), anclaManifiestoSHA256); err != nil {
+		return ErrPublicacionPostgreSQLPublicaRechazada
+	}
+	return nil
+}
+
 func prepararConfiguracionPublicador(dsn string) (*pgx.ConnConfig, error) {
 	if strings.TrimSpace(dsn) == "" {
 		return nil, ErrConfiguracionPostgreSQLPublicaInvalida
@@ -87,11 +124,7 @@ SELECT session_user,
        session_user = $1
        AND current_user = session_user
        AND pg_catalog.pg_has_role(session_user, $2, 'MEMBER')
-       AND pg_catalog.has_function_privilege(
-           session_user,
-           'vec_bolsa_publica_publicacion.publicar_proyeccion_v2(jsonb,text)',
-           'EXECUTE'
-       )
+       AND pg_catalog.has_function_privilege(session_user, $4, 'EXECUTE')
        AND pg_catalog.current_setting('application_name') = $3
        AND pg_catalog.replace(
            pg_catalog.current_setting('search_path'), ' ', ''
@@ -120,6 +153,16 @@ SELECT session_user,
        )`
 
 func comprobarIdentidadPublicador(ctx context.Context, conexion *pgx.Conn) error {
+	return comprobarIdentidadPublicadorFuncion(ctx, conexion,
+		"vec_bolsa_publica_publicacion.publicar_proyeccion_v2(jsonb,text)")
+}
+
+func comprobarIdentidadPublicadorV3(ctx context.Context, conexion *pgx.Conn) error {
+	return comprobarIdentidadPublicadorFuncion(ctx, conexion,
+		"vec_bolsa_publica_publicacion.publicar_proyeccion_v3(jsonb,jsonb,text)")
+}
+
+func comprobarIdentidadPublicadorFuncion(ctx context.Context, conexion *pgx.Conn, funcion string) error {
 	if ctx == nil || conexion == nil {
 		return ErrIdentidadPostgreSQLPublicaInvalida
 	}
@@ -130,6 +173,7 @@ func comprobarIdentidadPublicador(ctx context.Context, conexion *pgx.Conn) error
 		rolLoginPublicadorPostgreSQLPublica,
 		rolPublicadorPostgreSQLPublica,
 		aplicacionPublicadorPostgreSQL,
+		funcion,
 	).Scan(&usuarioSesion, &usuarioEfectivo, &valida); err != nil ||
 		usuarioSesion != rolLoginPublicadorPostgreSQLPublica ||
 		usuarioEfectivo != usuarioSesion || !valida {

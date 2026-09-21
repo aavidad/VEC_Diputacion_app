@@ -6,12 +6,14 @@ import { crearAyudanteTramites, MENSAJES_AYUDANTE_TRAMITES_ES } from "./ayudante
 
 test("el ayudante cubre trámites comunes de Dietas, Cronos y Personal", () => {
   const ids = new Set(TRAMITES_AYUDANTE_PORTAL.map((tramite) => tramite.id));
-  [
+  const idsComunes = [
     "dietas-crear-borrador", "dietas-consultar-borrador", "dietas-ruta",
     "cronos-corregir-marcaje", "cronos-solicitar-permiso", "cronos-consultar-saldo",
     "personal-consultar-ficha", "personal-relaciones", "personal-catalogos",
-  ].forEach((id) => assert.ok(ids.has(id), `falta el trámite ${id}`));
-  for (const tramite of TRAMITES_AYUDANTE_PORTAL) {
+  ];
+  idsComunes.forEach((id) => assert.ok(ids.has(id), `falta el trámite ${id}`));
+  for (const id of idsComunes) {
+    const tramite = TRAMITES_AYUDANTE_PORTAL.find((candidato) => candidato.id === id);
     assert.ok(["dietas", "cronos", "personal"].includes(tramite.vista));
     assert.equal(typeof tramite.selector, "string");
     assert.ok(tramite.pasos.length >= 2);
@@ -22,6 +24,33 @@ test("el ayudante cubre trámites comunes de Dietas, Cronos y Personal", () => {
       });
     }
   }
+});
+
+test("las guías de Bolsa recorren B12 y B5 sin automatizar decisiones", () => {
+  const consulta = TRAMITES_AYUDANTE_PORTAL.find(({ id }) => id === "bolsa-consultar-candidatos");
+  assert.ok(consulta);
+  assert.equal(consulta.vista, "resumen");
+  assert.deepEqual(consulta.pasos.map(({ vista, selector, bloqueado }) => ({ vista, selector, bloqueado })), [
+    { vista: "resumen", selector: "#titulo-cuadro-b12", bloqueado: false },
+    { vista: "resumen", selector: '[data-accion="ver-bolsa"][data-bolsa-ref]', bloqueado: false },
+    { vista: "bolsa-candidatos", selector: '[data-bolsa-form="filtros"]', bloqueado: false },
+    { vista: "bolsa-candidatos", selector: '[data-bolsa-accion="abrir-ficha"]', bloqueado: false },
+  ]);
+  assert.equal(consulta.pasos.some((paso) => "activar" in paso), false);
+  assert.match(consulta.pasos[1].instruccion, /manualmente/u);
+});
+
+test("la guía de llamamiento conserva el límite C23 y la política pendiente de RRHH", () => {
+  const llamamiento = TRAMITES_AYUDANTE_PORTAL.find(({ id }) => id === "bolsa-gestionar-llamamiento");
+  assert.ok(llamamiento);
+  const ultimo = llamamiento.pasos.at(-1);
+  assert.equal(ultimo.vista, "bolsa-candidatos");
+  assert.equal(ultimo.selector, "[data-bolsa-c23-pendiente]");
+  assert.equal(ultimo.bloqueado, true);
+  assert.match(ultimo.limite, /C23/u);
+  assert.match(ultimo.limite, /contacto, la apertura ni el resultado/u);
+  assert.match(ultimo.limite, /política de RRHH/u);
+  assert.equal(llamamiento.pasos.some((paso) => "activar" in paso), false);
 });
 
 test("la guía presenta pasos, detalle accesible y límites sin interpolar HTML", async () => {

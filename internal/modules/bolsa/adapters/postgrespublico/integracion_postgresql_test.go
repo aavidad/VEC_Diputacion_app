@@ -205,6 +205,50 @@ func TestIntegracionPostgreSQLPublicoTLSACLConsultasYRevocacion(t *testing.T) {
 	)
 }
 
+// TestIntegracionB10CierraCabecerasAntesDePosiciones acredita el orden de
+// cursores que necesita pgx: el lector materializa y cierra bolsas_v1 antes
+// de abrir posiciones_bolsa_v1 en la misma transaccion.
+func TestIntegracionB10CierraCabecerasAntesDePosiciones(t *testing.T) {
+	dsn := os.Getenv("VEC_PRUEBA_BOLSA_PUBLICA_DSN")
+	if dsn == "" {
+		t.Skip("integracion PostgreSQL B10 no solicitada")
+	}
+	ctx, cancelar := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancelar()
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		t.Fatalf("pool de lector B10: %v", err)
+	}
+	defer pool.Close()
+	tx, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
+	if err != nil {
+		t.Fatalf("transaccion B10: %v", err)
+	}
+	defer rollbackPostgreSQLPublico(tx)
+	var haySuficiente bool
+	if err := tx.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			  FROM vec_bolsa_publica_lectura.posiciones_bolsa_v1
+			 GROUP BY bolsa_ref
+			HAVING count(*) >= 2
+		)`).Scan(&haySuficiente); err != nil {
+		t.Fatalf("precondicion B10: %v", err)
+	}
+	if !haySuficiente {
+		t.Skip("el arnes B10 no contiene una bolsa con dos posiciones")
+	}
+	bolsas, err := leerBolsasManifiestoB10(ctx, tx)
+	if err != nil {
+		t.Fatalf("leer manifiesto B10 (cursor de cabecera cerrado): %v", err)
+	}
+	for _, bolsa := range bolsas {
+		if len(bolsa.Posiciones) != bolsa.Total {
+			t.Fatalf("bolsa %s parcial: posiciones=%d total=%d", bolsa.BolsaRef, len(bolsa.Posiciones), bolsa.Total)
+		}
+	}
+}
+
 func assertTimeoutPublicadorLiberaCandadoYPermiteRecuperar(
 	t *testing.T,
 	ctx context.Context,

@@ -10,7 +10,7 @@ const MENSAJES_RPT_PUESTOS_ES = Object.freeze({
   error: "No se pudo consultar la RPT publicada. No se muestran datos anteriores.",
   fuente: "Fuente: {documento}. {aviso}",
   huella: "Importación: {importacion} · Huella SHA-256: {huella}",
-  resumen: "842 puestos · 1.714 dotaciones · 145 categorías · 41 centros",
+  resumen: "{puestos} puestos · {dotacion} dotaciones · {categorias} categorías · {centros} centros",
   sin_escalas: "No consignada",
   sin_categoria: "No consignada",
   vacio: "No hay resultados para estos filtros.",
@@ -44,5 +44,6 @@ const MENSAJES_RPT_PUESTOS_ES = Object.freeze({
   provision: "Provisión",
 });
 export function crearTraductorRPTPuestos(catalogo = MENSAJES_RPT_PUESTOS_ES) { if (!catalogo || typeof catalogo !== "object" || Object.keys(MENSAJES_RPT_PUESTOS_ES).some((clave) => typeof catalogo[clave] !== "string" || catalogo[clave] === "")) throw new Error("catálogo RPT de puestos incompleto"); return (clave, variables = {}) => { if (!(clave in MENSAJES_RPT_PUESTOS_ES)) throw new Error(`clave RPT desconocida: ${clave}`); return catalogo[clave].replace(/\{([a-z_]+)\}/g, (_m, nombre) => String(variables[nombre] ?? "")); }; }
-export function formatearRecuentoRPTPuestos(total, vista, locale = "es-ES") { if (!Number.isSafeInteger(total) || total < 0 || !["categorias", "puestos"].includes(vista)) throw new TypeError("recuento RPT no válido"); const t = crearTraductorRPTPuestos(); const tipo = vista === "puestos" ? "puesto" : "categoria"; return t(`recuento_${tipo}_${total === 1 ? "uno" : "otro"}`, { total: new Intl.NumberFormat(locale).format(total) }); }
+export function formatearRecuentoRPTPuestos(total, vista, locale = "es-ES") { if (!Number.isSafeInteger(total) || total < 0 || !["categorias", "puestos"].includes(vista)) throw new TypeError("recuento RPT no válido"); const t = crearTraductorRPTPuestos(); const tipo = vista === "puestos" ? "puesto" : "categoria"; return t(`recuento_${tipo}_${total === 1 ? "uno" : "otro"}`, { total: new Intl.NumberFormat(locale, { useGrouping: "always" }).format(total) }); }
+export function formatearResumenRPTPuestos(resumen, locale = "es-ES") { if (!resumen || typeof resumen !== "object" || ["puestos", "dotacion", "categorias", "centros"].some((campo) => !Number.isSafeInteger(resumen[campo]) || resumen[campo] < 0)) throw new TypeError("resumen RPT no válido"); const numero = new Intl.NumberFormat(locale, { useGrouping: "always" }); return crearTraductorRPTPuestos()("resumen", Object.fromEntries(Object.entries(resumen).map(([campo, valor]) => [campo, numero.format(valor)]))); }
 export function formatearCentimosRPT(centimos, locale = "es-ES") { if (!Number.isSafeInteger(centimos) || centimos < 0) throw new TypeError("importe RPT no válido"); return new Intl.NumberFormat(locale, { style: "currency", currency: "EUR" }).format(centimos / 100); }

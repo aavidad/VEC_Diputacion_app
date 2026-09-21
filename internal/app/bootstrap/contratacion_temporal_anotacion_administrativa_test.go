@@ -110,7 +110,7 @@ func TestContinuidadNominalFuenteDetectaCarreraDeRol(t *testing.T) {
 func TestContinuidadNominalMontajeRealDeniegaSinCanal(t *testing.T) {
 	alta, consultas, _ := escenarioConsultasRRHHDesarrolloPrueba(t)
 	c := &continuidadNominalDesarrollo{pool: new(pgxpool.Pool), detalle: new(appct.ServicioConsultaDetalleRRHH), anotacion: &autoridadContinuidadNominal{soporte: alta.soporte, consultas: consultas, reloj: alta.soporte.reloj}, cierre: &autoridadContinuidadNominal{soporte: alta.soporte, consultas: consultas, reloj: alta.soporte.reloj}}
-	rutas, e := c.rutas(nuevoDerivadorIdempotenciaPrueba(t, 2, 1))
+	rutas, e := c.rutas(nuevoDerivadorIdempotenciaPrueba(t, 2, 1), catalogoDetalleCTPrueba(t, alta.soporte))
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -139,7 +139,7 @@ func TestContinuidadNominalCanalConservaIdentidadYSeparaOperacion(t *testing.T) 
 	refs := ReferenciasCTIncorporacionDesarrollo{PrincipalV3Ref: v.PrincipalID, PerfilV3Ref: v.PerfilActivoRef}
 	a := &autoridadContinuidadNominal{soporte: alta.soporte, consultas: consultas, referencias: refs, accion: string(dom.AccionRegistrarAnotacionAdministrativa), reloj: alta.soporte.reloj}
 	ctx := contextoRutaConsultasRRHHDesarrolloPrueba(alta.soporte, principal, httpct.RutaRecuperacionAnotacionesAdministrativas)
-	hijo, e := contextoDetalleIncorporacionV2Desarrollo(ctx, alta.soporte)
+	hijo, e := contextoDetalleIncorporacionV2Desarrollo(ctx, alta.soporte, catalogoDetalleCTPrueba(t, alta.soporte))
 	if e != nil {
 		t.Fatal(e)
 	}

@@ -15,11 +15,9 @@ import (
 	"vec-diputacion-granada/internal/modules/bolsa/ports"
 )
 
-// fuenteConstituidaRRHHDesarrollo sirve las lecturas RRHH de bolsas desde las
-// bolsas constituidas (migración 000007) cuando existen. Para cada categoría
-// constituida sustituye la bolsa del dataset sintético; el resto sigue viniendo
-// del dataset. Los nombres y documentos enmascarados no se almacenan en claro:
-// se recuperan del staging protegido del acta al leer, y se cachean brevemente.
+// fuenteConstituidaRRHHDesarrollo sirve las lecturas RRHH exclusivamente desde
+// bolsas constituidas (migración 000007). Los nombres y documentos enmascarados
+// no se almacenan en claro: se recuperan del staging protegido del acta al leer.
 type fuenteConstituidaRRHHDesarrollo struct {
 	repositorio ports.RepositorioConstitucion
 	recuperador constitucion.Recuperador
@@ -85,48 +83,6 @@ func nuevaFuenteConstituidaRRHHDesarrollo(ctx context.Context, cfg config.Config
 	return &fuenteConstituidaRRHHDesarrollo{repositorio: repositorio, recuperador: recuperador, categorias: categorias, grupos: grupos, ahora: time.Now}
 }
 
-// fusionar devuelve el dataset base con las categorías constituidas
-// sustituidas por su bolsa constituida y sus participaciones.
-func (f *fuenteConstituidaRRHHDesarrollo) fusionar(ctx context.Context, base datasetBolsasRRHHDesarrollo) datasetBolsasRRHHDesarrollo {
-	if f == nil {
-		return base
-	}
-	constituidas, ok := f.constituidas(ctx)
-	if !ok || len(constituidas.Bolsas) == 0 {
-		return base
-	}
-	sustituidas := map[string]struct{}{}
-	for _, bolsa := range constituidas.Bolsas {
-		sustituidas[bolsa.CategoriaRef] = struct{}{}
-	}
-	resultado := datasetBolsasRRHHDesarrollo{GeneradoEn: constituidas.GeneradoEn}
-	retiradas := map[string]struct{}{}
-	for _, bolsa := range base.Bolsas {
-		if _, sustituida := sustituidas[bolsa.CategoriaRef]; sustituida {
-			retiradas[bolsa.Referencia] = struct{}{}
-			continue
-		}
-		resultado.Bolsas = append(resultado.Bolsas, bolsa)
-	}
-	candidaturasRetiradas := map[string]struct{}{}
-	for _, candidatura := range base.Candidaturas {
-		if _, retirada := retiradas[candidatura.BolsaRef]; retirada {
-			candidaturasRetiradas[candidatura.Referencia] = struct{}{}
-			continue
-		}
-		resultado.Candidaturas = append(resultado.Candidaturas, candidatura)
-	}
-	for _, llamamiento := range base.Llamamientos {
-		if _, retirada := candidaturasRetiradas[llamamiento.Candidatura]; retirada {
-			continue
-		}
-		resultado.Llamamientos = append(resultado.Llamamientos, llamamiento)
-	}
-	resultado.Bolsas = append(resultado.Bolsas, constituidas.Bolsas...)
-	resultado.Candidaturas = append(resultado.Candidaturas, constituidas.Candidaturas...)
-	return resultado
-}
-
 func (f *fuenteConstituidaRRHHDesarrollo) constituidas(ctx context.Context) (datasetBolsasRRHHDesarrollo, bool) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -147,6 +103,9 @@ func (f *fuenteConstituidaRRHHDesarrollo) constituidas(ctx context.Context) (dat
 }
 
 func (f *fuenteConstituidaRRHHDesarrollo) cargar(ctx context.Context) (datasetBolsasRRHHDesarrollo, error) {
+	if f == nil || f.repositorio == nil || f.recuperador == nil || f.ahora == nil {
+		return datasetBolsasRRHHDesarrollo{}, ErrComposicionDesarrolloIncompleta
+	}
 	vigentes, err := f.repositorio.ListarVigentes(ctx)
 	if err != nil {
 		return datasetBolsasRRHHDesarrollo{}, err
@@ -173,17 +132,18 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargar(ctx context.Context) (datasetBo
 		if err != nil {
 			return datasetBolsasRRHHDesarrollo{}, err
 		}
+		if !existe {
+			return datasetBolsasRRHHDesarrollo{}, ErrComposicionDesarrolloIncompleta
+		}
 		filas := map[int]struct{ nombre, documento string }{}
-		if existe {
-			for _, fila := range lote.Aceptadas {
-				nombre := strings.TrimSpace(strings.Join([]string{fila.Identidad.Nombre, fila.Identidad.PrimerApellido, fila.Identidad.SegundoApellido}, " "))
-				filas[fila.Numero] = struct{ nombre, documento string }{strings.Join(strings.Fields(nombre), " "), fila.Identidad.Documento}
-			}
+		for _, fila := range lote.Aceptadas {
+			nombre := strings.TrimSpace(strings.Join([]string{fila.Identidad.Nombre, fila.Identidad.PrimerApellido, fila.Identidad.SegundoApellido}, " "))
+			filas[fila.Numero] = struct{ nombre, documento string }{strings.Join(strings.Fields(nombre), " "), fila.Identidad.Documento}
 		}
 		for _, entrada := range entradas {
-			visible := filas[entrada.FilaNumero]
-			if visible.nombre == "" {
-				visible.nombre = "Participación " + entrada.ParticipacionRef[len(entrada.ParticipacionRef)-6:]
+			visible, encontrada := filas[entrada.FilaNumero]
+			if !encontrada {
+				return datasetBolsasRRHHDesarrollo{}, ErrComposicionDesarrolloIncompleta
 			}
 			datos.Candidaturas = append(datos.Candidaturas, struct {
 				Referencia  string  `json:"candidatura_ref"`

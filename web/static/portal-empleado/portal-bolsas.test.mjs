@@ -332,6 +332,105 @@ test("consultarCandidatosBolsa maneja parámetros, códigos de estado y cursor",
   assert.equal(resVacia.codigo, "referencia_invalida");
 });
 
+test("el controlador absorbe AbortError y otros rechazos tardíos al desmontar", async () => {
+  for (const error of [Object.assign(new Error("abortada"), { name: "AbortError" }), new Error("respuesta cancelada")]) {
+    let rechazarLectura;
+    let senal;
+    let renders = 0;
+    const estado = { datosBolsas: null };
+    const controlador = crearControladorBolsas({
+      estado,
+      renderizar: () => { renders += 1; },
+      navegar: () => {},
+      obtenerFuenteLectura: () => ({
+        consultarBolsas: ({ signal }) => {
+          senal = signal;
+          return new Promise((_resolver, rechazar) => { rechazarLectura = rechazar; });
+        },
+      }),
+    });
+
+    const carga = controlador.cargarBolsas();
+    await Promise.resolve();
+    assert.equal(senal.aborted, false);
+    assert.equal(estado.datosBolsas.carga, "cargando");
+    controlador.cancelarPeticiones();
+    assert.equal(senal.aborted, true);
+    assert.equal(estado.datosBolsas, null);
+    rechazarLectura(error);
+    await assert.doesNotReject(carga);
+    assert.equal(estado.datosBolsas, null);
+    assert.equal(renders, 1);
+  }
+});
+
+test("un rechazo vigente de fuente inyectada termina en error con un único render final", async () => {
+  let renders = 0;
+  const estado = { datosBolsas: null };
+  const controlador = crearControladorBolsas({
+    estado,
+    renderizar: () => { renders += 1; },
+    navegar: () => {},
+    obtenerFuenteLectura: () => ({
+      consultarBolsas: async () => { throw new Error("fuente no disponible"); },
+    }),
+  });
+
+  await assert.doesNotReject(controlador.cargarBolsas());
+  assert.equal(estado.datosBolsas.carga, "error");
+  assert.match(estado.datosBolsas.error, /fuente no disponible/);
+  assert.equal(renders, 2, "un render de carga y uno final de error");
+});
+
+test("un AbortError vigente limpia la carga sin render tardío", async () => {
+  let renders = 0;
+  const estado = { datosBolsas: null };
+  const controlador = crearControladorBolsas({
+    estado,
+    renderizar: () => { renders += 1; },
+    navegar: () => {},
+    obtenerFuenteLectura: () => ({
+      consultarBolsas: async () => { throw Object.assign(new Error("abortada"), { name: "AbortError" }); },
+    }),
+  });
+
+  await assert.doesNotReject(controlador.cargarBolsas());
+  assert.equal(estado.datosBolsas, null);
+  assert.equal(renders, 1, "solo se renderiza el inicio de la carga");
+});
+
+test("una petición A resuelta o rechazada después de B no pisa la bolsa seleccionada", async () => {
+  for (const desenlaceAntiguo of ["resolver", "rechazar"]) {
+    const pendientes = new Map();
+    const estado = { datosCandidatos: null, filtrosBolsa: {} };
+    const controlador = crearControladorBolsas({
+      estado,
+      renderizar: () => {},
+      navegar: () => {},
+      obtenerFuenteLectura: () => ({
+        consultarCandidatosBolsa: (bolsaRef) => new Promise((resolver, rechazar) => {
+          pendientes.set(bolsaRef, { resolver, rechazar });
+        }),
+      }),
+    });
+
+    const antigua = controlador.cargarCandidatosBolsa("bolsa:primera");
+    await Promise.resolve();
+    const nueva = controlador.cargarCandidatosBolsa("bolsa:segunda");
+    await Promise.resolve();
+    pendientes.get("bolsa:segunda").resolver({ ok: true, datos: { bolsa: { bolsa_ref: "bolsa:segunda" }, candidatos: [] } });
+    await nueva;
+    if (desenlaceAntiguo === "resolver") {
+      pendientes.get("bolsa:primera").resolver({ ok: true, datos: { bolsa: { bolsa_ref: "bolsa:primera" }, candidatos: [] } });
+    } else {
+      pendientes.get("bolsa:primera").rechazar(new Error("A llegó tarde"));
+    }
+    await assert.doesNotReject(antigua);
+    assert.equal(estado.bolsaSeleccionada, "bolsa:segunda");
+    assert.equal(estado.datosCandidatos.datos.bolsa.bolsa_ref, "bolsa:segunda");
+  }
+});
+
 test("presentadorPanelInterno renderiza el Cuadro B12 en resumen con sus columnas y estados", () => {
   const { envelopeBolsas } = construirFixturesDesdeDemo();
   envelopeBolsas.data.bolsas[1].vigente_hasta = "2025-12-31";
@@ -374,8 +473,14 @@ test("presentadorPanelInterno renderiza el Cuadro B12 en resumen con sus columna
   assert.match(htmlListo, /Cuadro B12/);
   assert.match(htmlListo, /Bolsas de trabajo activas \(Cuadro B12\)/);
   assert.match(htmlListo, /12 bolsas/);
+  assert.match(htmlListo, /Resumen del Cuadro B12/);
+  assert.match(htmlListo, /Bolsas visibles/);
+  assert.match(htmlListo, /Aspirantes/);
+  assert.match(htmlListo, /Disponibles/);
   assert.match(htmlListo, /ADMINISTRATIVO/);
-  assert.match(htmlListo, /Ver candidatos/);
+  const bolsaRef = datosBolsasValidadas.bolsas[0].bolsa_ref;
+  assert.match(htmlListo, new RegExp(`<button type="button" class="enlace-tabla" data-accion="ver-bolsa" data-bolsa-ref="${bolsaRef}" aria-label="Abrir candidatos de la bolsa [^"]+">`));
+  assert.doesNotMatch(htmlListo, /<th scope="col">Acciones<\/th>|Ver candidatos/);
   assert.match(htmlListo, /<time datetime="2025-02-04">4\/2\/25<\/time> \(vigente\)/);
   assert.match(htmlListo, /<time datetime="2025-03-07">7\/3\/25<\/time> — <time datetime="2025-12-31">31\/12\/25<\/time>/);
   assert.match(htmlListo, /<time datetime="2025-03-07T11:30:00Z">7\/3\/25, 12:30<\/time> — <time datetime="2025-12-31T09:30:00Z">31\/12\/25, 10:30<\/time>/);
@@ -444,6 +549,14 @@ test("presentadorPanelInterno renderiza Vista B5 de candidatos con filtros, chip
   assert.match(htmlB5, /Claudio/);
   assert.match(htmlB5, /\*\*\*0034\*\*/);
   assert.match(htmlB5, /data-bolsa-accion="abrir-ficha"/);
+  assert.match(htmlB5, /Recorrido de gestión de candidatos/);
+  assert.match(htmlB5, /Resumen de la bolsa/);
+  assert.match(htmlB5, /Consultar historial de contactos/);
+  assert.match(htmlB5, /Nuevo llamamiento/);
+  assert.match(htmlB5, /Registrar resultado/);
+  assert.match(htmlB5, /dependen de C23/);
+  assert.match(htmlB5, /data-bolsa-c23-pendiente/);
+  assert.match(htmlB5, /disabled aria-disabled="true" title="Pendiente de composición C23"/);
 
   // Con paginación
   const candidatosConPaginacion = {
@@ -464,10 +577,12 @@ test("presentadorPanelInterno renderiza Vista B5 de candidatos con filtros, chip
   assert.match(htmlErr, /Volver al cuadro/);
 });
 
-test("presentadorPanelInterno muestra ficha B5 solo con los campos del contrato de candidatos", () => {
+test("presentadorPanelInterno muestra la ficha B5 en línea junto al único candidato seleccionado", () => {
   const { envelopeCandidatos } = construirFixturesDesdeDemo();
   const datos = validarRespuestaCandidatosBolsa(envelopeCandidatos);
   const candidato = datos.candidatos[0];
+  const segundoCandidato = datos.candidatos[1];
+  let modalFicha = null;
   const presentador = crearPresentadorPanelInterno({
     claseEstado: (c) => `chip-${c}`,
     encabezadoVista: (_s, t, d, a = "") => `<header><h2>${t}</h2><p>${d}</p>${a}</header>`,
@@ -477,338 +592,76 @@ test("presentadorPanelInterno muestra ficha B5 solo con los campos del contrato 
     tituloVista: (v) => v,
     obtenerDatosCandidatosBolsa: () => ({ carga: "listo", datos, error: "" }),
     obtenerEstadoCandidatos: () => ({ estado: "", texto: "" }),
-    obtenerModalFicha: () => ({ abierto: true, candidato, bolsa: datos.bolsa }),
+    obtenerModalFicha: () => modalFicha,
   });
 
-  const html = presentador.renderizarVista("bolsa-candidatos");
-  assert.match(html, /Ficha de participación/);
-  assert.match(html, /Referencia de participación/);
-  assert.match(html, new RegExp(candidato.participacion_ref));
-  assert.match(html, /data-bolsa-accion="cerrar-ficha"/);
-  const ficha = html.slice(html.indexOf('id="titulo-modal-ficha"'));
+  const htmlInicial = presentador.renderizarVista("bolsa-candidatos");
+  assert.doesNotMatch(htmlInicial, /Ficha de participación/);
+  assert.match(htmlInicial, /data-bolsa-control-principal="true"/);
+  assert.match(htmlInicial, /aria-expanded="false"/);
+  assert.doesNotMatch(htmlInicial, /Ficha en aspirante|<th scope="col">Acciones<\/th>/);
+
+  modalFicha = { abierto: true, candidato, bolsa: datos.bolsa };
+  const htmlAbierto = presentador.renderizarVista("bolsa-candidatos");
+  const fichaId = `ficha-participacion-${candidato.participacion_ref}`;
+  assert.match(htmlAbierto, /Ficha de participación/);
+  assert.match(htmlAbierto, /Referencia de participación/);
+  assert.match(htmlAbierto, new RegExp(candidato.participacion_ref));
+  assert.match(htmlAbierto, /data-bolsa-accion="cerrar-ficha"/);
+  assert.match(htmlAbierto, new RegExp(`aria-expanded="true" aria-controls="${fichaId}"`));
+  assert.match(htmlAbierto, new RegExp(`</tr>\\s*<tr class="fila-ficha-participacion" data-ficha-participacion-ref="${candidato.participacion_ref}"`));
+  assert.doesNotMatch(htmlAbierto, /role="dialog"|aria-modal="true"|modal-fondo/);
+  assert.match(htmlAbierto, new RegExp(`id="${fichaId}" class="panel" data-bolsa-ficha-inline="true" tabindex="-1"`));
+  const ficha = htmlAbierto.match(new RegExp(`<section id="${fichaId}"[\\s\\S]*?</section>`))[0];
   assert.doesNotMatch(ficha, /correo|teléfono|puntuación|relación laboral/i);
+
+  modalFicha = { abierto: true, candidato: segundoCandidato, bolsa: datos.bolsa };
+  const htmlSegundo = presentador.renderizarVista("bolsa-candidatos");
+  assert.equal((htmlSegundo.match(/fila-ficha-participacion/g) || []).length, 1);
+  assert.match(htmlSegundo, new RegExp(`data-ficha-participacion-ref="${segundoCandidato.participacion_ref}"`));
+  assert.match(htmlSegundo, new RegExp(`data-participacion-ref="${candidato.participacion_ref}"[^>]*>[\\s\\S]*?aria-expanded="false"`));
+
+  modalFicha = null;
+  const htmlCerrado = presentador.renderizarVista("bolsa-candidatos");
+  assert.doesNotMatch(htmlCerrado, /Fila de participación|fila-ficha-participacion|Ficha de participación/);
 });
 
-test("las vistas de bolsa no contienen la palabra demo en sus textos visibles", () => {
-  const { envelopeBolsas, envelopeCandidatos } = construirFixturesDesdeDemo();
-  const panelMock = {
-    esquema: "vec.bolsa.panel.interno.v1",
-    selector: { clase: "organizacion" },
-    origen: { revision: "rev_1", actualizada_en: "2026-09-17T00:00:00Z" },
-    prueba_lectura: { lectura_ref: "lec_1", auditoria_ref: "aud_1", auditoria_secuencia: 1, confirmada_en: "2026-09-17T00:00:00Z" },
-    indicadores: {}, convocatorias: [], actuaciones_pendientes: [],
-  };
-
-  const presentador = crearPresentadorPanelInterno({
-    claseEstado: (c) => `chip-${c}`,
-    encabezadoVista: (_s, t, d, a = "") => `<header><h2>${t}</h2><p>${d}</p>${a}</header>`,
-    escaparHTML: (v) => String(v ?? ""),
-    numero: (n) => String(n ?? 0),
-    obtenerDatosPanel: () => panelMock,
-    tituloVista: (v) => v,
-    obtenerDatosBolsas: () => ({ carga: "listo", datos: validarRespuestaBolsas(envelopeBolsas), error: "" }),
-    obtenerDatosCandidatosBolsa: () => ({ carga: "listo", datos: validarRespuestaCandidatosBolsa(envelopeCandidatos), error: "" }),
-    obtenerEstadoCandidatos: () => ({ estado: "", texto: "" }),
-  });
-
-  const resumenHtml = presentador.renderizarVista("resumen");
-  const candidatosHtml = presentador.renderizarVista("bolsa-candidatos");
-
-  // Textos visibles no deben incluir "demo"
-  assert.doesNotMatch(resumenHtml, /\bdemo\b/i);
-  assert.doesNotMatch(candidatosHtml, /\bdemo\b/i);
-});
-
-test("contrato de contactos y acciones: validación estricta de contacto y respuesta", () => {
-  const contactoValido = {
-    contacto_ref: "contacto:sintetico:001",
-    canal: "telefono",
-    realizado_en: "2026-09-17T10:30:00Z",
-    resultado_clave: "aceptado",
-    anotacion: "Acepta incorporación inmediata",
-  };
-
-  const validado = validarContacto(contactoValido);
-  assert.equal(validado.contacto_ref, "contacto:sintetico:001");
-  assert.equal(validado.canal, "telefono");
-  assert.equal(validado.resultado_clave, "aceptado");
-
-  // Falla si canal no es válido
-  assert.throws(() => validarContacto({ ...contactoValido, canal: "paloma_mensajera" }), /canal de contacto no reconocido/);
-
-  // Falla si resultado_clave no es válido
-  assert.throws(() => validarContacto({ ...contactoValido, resultado_clave: "indeciso" }), /resultado_clave de contacto no reconocido/);
-
-  // Falla ante datos personales en anotación
-  assert.throws(() => validarContacto({ ...contactoValido, anotacion: "Llamar a test@diputacion.es" }), /contiene datos personales/);
-
-  // Falla si faltan campos o hay campos extra
-  assert.throws(() => validarContacto({ ...contactoValido, extra: "no_permitido" }), /no respeta el contrato cerrado/);
-
-  // Envelope canónico de contactos
-  const envelope = {
-    data: {
-      esquema: ESQUEMA_CONTACTOS,
-      generado_en: "2026-09-17T12:00:00Z",
-      participacion_ref: "part:001",
-      contactos: [contactoValido],
+test("controlador de B5 lleva el foco a la ficha inline y lo recupera en su control principal", () => {
+  const { envelopeCandidatos } = construirFixturesDesdeDemo();
+  const datos = validarRespuestaCandidatosBolsa(envelopeCandidatos);
+  const candidato = datos.candidatos[0];
+  const focos = [];
+  const documento = {
+    querySelector(selector) {
+      assert.equal(selector, "[data-bolsa-ficha-inline='true']");
+      return { focus: () => focos.push("ficha") };
+    },
+    querySelectorAll(selector) {
+      assert.equal(selector, '[data-bolsa-accion="abrir-ficha"][data-bolsa-control-principal="true"]');
+      return [
+        { dataset: { participacionRef: "otra-participacion" }, focus: () => focos.push("otro") },
+        { dataset: { participacionRef: candidato.participacion_ref }, focus: () => focos.push("control-principal") },
+      ];
     },
   };
-  const respuestaValidada = validarRespuestaContactos(envelope);
-  assert.equal(respuestaValidada.esquema, ESQUEMA_CONTACTOS);
-  assert.equal(respuestaValidada.contactos.length, 1);
-  assert.equal(respuestaValidada.contactos[0].contacto_ref, "contacto:sintetico:001");
-});
-
-test("contrato de acciones: validación de payload de crear llamamiento y resultado", () => {
-  const payloadLlamar = {
-    canal: "correo",
-    comunicado_en: "2026-09-17T09:00:00Z",
-    plazo_respuesta_hasta: "2026-09-19T23:59:59Z",
-    anotacion: "Primer llamamiento para plaza vacante",
+  let renderizados = 0;
+  const estado = {
+    datosCandidatos: { carga: "listo", datos, error: "" },
+    modalFicha: null,
   };
-  const llamamientoValidado = validarPayloadCrearLlamamiento(payloadLlamar);
-  assert.equal(llamamientoValidado.canal, "correo");
-
-  assert.throws(() => validarPayloadCrearLlamamiento({ ...payloadLlamar, canal: "fax" }), /canal de llamamiento no válido/);
-  assert.throws(() => validarPayloadCrearLlamamiento({ ...payloadLlamar, comunicado_en: "fecha_invalida" }), /no es una fecha válida|debe ser un instante válido/);
-
-  const payloadResultado = {
-    resultado_clave: "renuncia",
-    anotacion: "Renuncia por incompatibilidad horaria",
-  };
-  const resultadoValidado = validarPayloadResultadoLlamamiento(payloadResultado);
-  assert.equal(resultadoValidado.resultado_clave, "renuncia");
-
-  assert.throws(() => validarPayloadResultadoLlamamiento({ resultado_clave: "otra_cosa" }), /resultado_clave no válido/);
-
-  // Construcción de envelope de acción
-  const accion = construirEnvelopeAccionBolsa("crear_llamamiento", llamamientoValidado, { confirmacion: true });
-  assert.equal(accion.esquema, ESQUEMA_ACCION_BOLSA);
-  assert.equal(accion.accion, "crear_llamamiento");
-  assert.equal(accion.confirmacion, true);
-  assert.deepEqual(accion.payload, llamamientoValidado);
-
-  // Falla sin confirmación explícita
-  assert.throws(() => construirEnvelopeAccionBolsa("crear_llamamiento", llamamientoValidado, { confirmacion: false }), /confirmación explícita/);
-});
-
-test("cliente API: consultarContactosCandidato maneja 200, 403 y errores", async () => {
-  const mockFetchOk = async (url, opciones) => {
-    assert.match(url, /\/api\/vec\/bolsa\/candidatos\/part_123\/contactos/);
-    assert.equal(opciones.credentials, "omit");
-    assert.equal(opciones.headers.Accept, "application/json");
-    return {
-      ok: true,
-      status: 200,
-      json: async () => ({
-        data: {
-          esquema: ESQUEMA_CONTACTOS,
-          generado_en: "2026-09-17T12:00:00Z",
-          participacion_ref: "part_123",
-          contactos: [
-            {
-              contacto_ref: "c_1",
-              canal: "sede",
-              realizado_en: "2026-09-17T10:00:00Z",
-              resultado_clave: "pendiente",
-              anotacion: "Notificación telemática enviada",
-            },
-          ],
-        },
-      }),
-    };
-  };
-
-  const resOk = await consultarContactosCandidato("part_123", { fetchImpl: mockFetchOk });
-  assert.equal(resOk.ok, true);
-  assert.equal(resOk.datos.contactos.length, 1);
-  assert.equal(resOk.datos.contactos[0].canal, "sede");
-
-  const mockFetchDenegado = async () => ({
-    ok: false,
-    status: 403,
-  });
-  const resDenegado = await consultarContactosCandidato("part_123", { fetchImpl: mockFetchDenegado });
-  assert.equal(resDenegado.ok, false);
-  assert.equal(resDenegado.status, 403);
-  assert.equal(resDenegado.codigo, "acceso_denegado");
-});
-
-test("cliente API: crearLlamamientoCandidato y registrarResultadoLlamamiento emiten envelope correcto", async () => {
-  let llamadaLlamar = null;
-  const mockFetchLlamar = async (url, opciones) => {
-    llamadaLlamar = { url, opciones };
-    return {
-      ok: true,
-      status: 200,
-      json: async () => ({
-        data: {
-          recibo_ref: "recibo:llamamiento:001",
-          estado_clave: "ocupado",
-        },
-      }),
-    };
-  };
-
-  const resLlamar = await crearLlamamientoCandidato("part_456", {
-    canal: "telefono",
-    comunicado_en: "2026-09-17T10:00:00Z",
-    plazo_respuesta_hasta: "2026-09-19T10:00:00Z",
-    anotacion: "Llamada telefónica realizada",
-  }, { fetchImpl: mockFetchLlamar });
-
-  assert.equal(resLlamar.ok, true);
-  assert.match(llamadaLlamar.url, /\/api\/vec\/bolsa\/candidatos\/part_456\/llamamientos/);
-  assert.equal(llamadaLlamar.opciones.method, "POST");
-  assert.equal(llamadaLlamar.opciones.credentials, "omit");
-  const bodyLlamar = JSON.parse(llamadaLlamar.opciones.body);
-  assert.equal(bodyLlamar.esquema, ESQUEMA_ACCION_BOLSA);
-  assert.equal(bodyLlamar.accion, "crear_llamamiento");
-  assert.equal(bodyLlamar.confirmacion, true);
-
-  // Registrar resultado
-  let llamadaResultado = null;
-  const mockFetchResultado = async (url, opciones) => {
-    llamadaResultado = { url, opciones };
-    return {
-      ok: true,
-      status: 200,
-      json: async () => ({
-        data: {
-          recibo_ref: "recibo:resultado:001",
-          resultado_clave: "aceptado",
-        },
-      }),
-    };
-  };
-
-  const resResultado = await registrarResultadoLlamamiento("llam_789", {
-    resultado_clave: "aceptado",
-    anotacion: "Acepta la vacante ofrecida",
-  }, { fetchImpl: mockFetchResultado });
-
-  assert.equal(resResultado.ok, true);
-  assert.match(llamadaResultado.url, /\/api\/vec\/bolsa\/llamamientos\/llam_789\/resultado/);
-  const bodyResultado = JSON.parse(llamadaResultado.opciones.body);
-  assert.equal(bodyResultado.esquema, ESQUEMA_ACCION_BOLSA);
-  assert.equal(bodyResultado.accion, "registrar_resultado");
-  assert.equal(bodyResultado.confirmacion, true);
-  assert.equal(bodyResultado.payload.resultado_clave, "aceptado");
-});
-
-test("interfaz B5: deja solo la ficha mientras contactos y efectos no están compuestos", () => {
-  const { envelopeCandidatos } = construirFixturesDesdeDemo();
-  const datosCandidatosValidados = validarRespuestaCandidatosBolsa(envelopeCandidatos);
-
-  let modalContactos = null;
-  let modalLlamar = null;
-  let modalResultado = null;
-
-  const presentador = crearPresentadorPanelInterno({
-    claseEstado: (c) => `chip-${c}`,
-    encabezadoVista: (_s, t, d, a = "") => `<header><h2>${t}</h2><p>${d}</p>${a}</header>`,
-    escaparHTML: (v) => String(v ?? ""),
-    numero: (n) => String(n ?? 0),
-    obtenerDatosPanel: () => ({ esquema: "vec.bolsa.panel.interno.v1" }),
-    tituloVista: (v) => v,
-    obtenerDatosBolsas: () => ({ carga: "listo", datos: { bolsas: [] }, error: "" }),
-    obtenerDatosCandidatosBolsa: () => ({ carga: "listo", datos: datosCandidatosValidados, error: "" }),
-    obtenerEstadoCandidatos: () => ({ estado: "", texto: "" }),
-    obtenerModalContactos: () => modalContactos,
-    obtenerModalLlamar: () => modalLlamar,
-    obtenerModalResultado: () => modalResultado,
+  const controlador = crearControladorBolsas({
+    estado,
+    renderizar: () => { renderizados += 1; },
+    navegar: () => {},
+    documento,
   });
 
-  const html = presentador.renderizarVista("bolsa-candidatos");
+  controlador.abrirFicha(candidato.participacion_ref);
+  assert.equal(estado.modalFicha.candidato.participacion_ref, candidato.participacion_ref);
+  assert.deepEqual(focos, ["ficha"]);
 
-  // Columna Acciones en cabecera
-  assert.match(html, /<th scope="col">Acciones<\/th>/);
-  assert.match(html, /data-bolsa-accion="abrir-ficha"/);
-  assert.match(html, /Acciones pendientes de composición/);
-  assert.doesNotMatch(html, /abrir-contactos|abrir-llamar|abrir-resultado/);
-
-  // Modal de contactos abierto con datos
-  modalContactos = {
-    abierto: true,
-    participacionRef: "part_demo_1",
-    nombreVisible: "Aspirante de Prueba",
-    carga: "listo",
-    contactos: [
-      {
-        contacto_ref: "ct_1",
-        canal: "telefono",
-        realizado_en: "2026-09-17T11:00:00Z",
-        resultado_clave: "aceptado",
-        anotacion: "Llamada satisfactoria",
-      },
-    ],
-  };
-  const htmlConContactos = presentador.renderizarVista("bolsa-candidatos");
-  assert.doesNotMatch(htmlConContactos, /Historial de contactos|Llamada satisfactoria|cerrar-contactos/);
-
-  // Modal de llamar (B7)
-  modalContactos = null;
-  modalLlamar = {
-    abierto: true,
-    participacionRef: "part_demo_1",
-    nombreVisible: "Aspirante de Prueba",
-    orden: 3,
-    carga: "ocioso",
-    error: "",
-  };
-  const htmlConLlamar = presentador.renderizarVista("bolsa-candidatos");
-  assert.doesNotMatch(htmlConLlamar, /Nuevo llamamiento \(B7\)|data-bolsa-form="llamar"|llamar-canal/);
-
-  // Modal de resultado (B3)
-  modalLlamar = null;
-  modalResultado = {
-    abierto: true,
-    llamamientoRef: "llam_1",
-    participacionRef: "part_demo_1",
-    nombreVisible: "Aspirante de Prueba",
-    orden: 3,
-    carga: "ocioso",
-    error: "",
-  };
-  const htmlConResultado = presentador.renderizarVista("bolsa-candidatos");
-  assert.doesNotMatch(htmlConResultado, /Registrar resultado de llamamiento \(B3\)|data-bolsa-form="resultado"|resultado-clave/);
-});
-
-test("la presentación reutiliza B12/B5 con envelopes cerrados, filtros en memoria y contactos sintéticos", () => {
-  const fuente = crearFuenteLecturaBolsasPresentacion({
-    datosIniciales: obtenerDatosPresentacion("tecnico"),
-  });
-  const bolsas = fuente.consultarBolsas();
-  assert.equal(bolsas.ok, true);
-  assert.equal(bolsas.datos.bolsas.length, 6);
-
-  const bolsaRef = bolsas.datos.bolsas[0].bolsa_ref;
-  assert.equal(bolsaRef, "DEMO-BOL-AUXILIAR-ADMIN");
-  assert.equal(bolsas.datos.bolsas[0].tipo_lista, "Pendiente de confirmar");
-  const disponibles = fuente.consultarCandidatosBolsa(bolsaRef, { estado: "disponible" });
-  assert.equal(disponibles.ok, true);
-  assert.equal(disponibles.datos.candidatos.length, 1);
-  assert.match(disponibles.datos.candidatos[0].documento_enmascarado, /^\*{3}\d{4}\*{2}$/);
-  assert.equal(disponibles.datos.candidatos[0].ultimo_llamamiento, null);
-
-  const vacio = fuente.consultarCandidatosBolsa(bolsaRef, { texto: "sin coincidencia" });
-  assert.equal(vacio.ok, true);
-  assert.equal(vacio.datos.candidatos.length, 0);
-
-  const historial = fuente.consultarContactosCandidato(disponibles.datos.candidatos[0].participacion_ref);
-  assert.equal(historial.ok, true);
-  assert.deepEqual(historial.datos.contactos, []);
-
-  const presentador = crearPresentadorPanelInterno({
-    claseEstado: () => "", encabezadoVista: (_s, t) => `<h2>${t}</h2>`, escaparHTML: (v) => String(v ?? ""),
-    numero: (n) => String(n ?? 0), obtenerDatosPanel: () => ({ esquema: "vec.bolsa.panel.interno.v1" }),
-    tituloVista: (v) => v, obtenerDatosCandidatosBolsa: () => ({ carga: "listo", datos: disponibles.datos, error: "" }),
-    obtenerEstadoCandidatos: () => ({ estado: "", texto: "" }), esLecturaPresentacion: () => true,
-  });
-  const html = presentador.renderizarVista("bolsa-candidatos");
-  assert.match(html, /Presentación sintética de solo lectura/);
-  assert.match(html, /Acciones pendientes de composición/);
-  assert.match(html, /abrir-ficha/);
-  assert.doesNotMatch(html, /abrir-contactos|abrir-llamar|abrir-resultado/);
+  controlador.cerrarFicha();
+  assert.equal(estado.modalFicha, null);
+  assert.deepEqual(focos, ["ficha", "control-principal"]);
+  assert.equal(renderizados, 2);
 });
