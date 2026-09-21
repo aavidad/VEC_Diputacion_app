@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"vec-diputacion-granada/config"
+	bolsahttp "vec-diputacion-granada/internal/modules/bolsa/adapters/httpinterno"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 )
 
@@ -48,19 +49,27 @@ type datasetBolsasRRHHDesarrollo struct {
 }
 
 type bolsasRRHHDesarrollo struct {
-	cargar func(context.Context) (datasetBolsasRRHHDesarrollo, error)
+	cargar    func(context.Context) (datasetBolsasRRHHDesarrollo, error)
+	mutar     http.Handler
+	invalidar func()
 }
 
 func nuevasRutasBolsasRRHHDesarrollo(cfg config.Config) ([]vechttp.RutaExacta, []vechttp.RutaColeccion, error) {
 	return nuevasRutasBolsasRRHHDesarrolloConFuente(cfg, nil)
 }
 
-func nuevasRutasBolsasRRHHDesarrolloConFuente(_ config.Config, fuente *fuenteConstituidaRRHHDesarrollo) ([]vechttp.RutaExacta, []vechttp.RutaColeccion, error) {
+func nuevasRutasBolsasRRHHDesarrolloConFuente(_ config.Config, fuente *fuenteConstituidaRRHHDesarrollo, mutadores ...http.Handler) ([]vechttp.RutaExacta, []vechttp.RutaColeccion, error) {
 	var cargar func(context.Context) (datasetBolsasRRHHDesarrollo, error)
+	var invalidar func()
 	if fuente != nil {
 		cargar = fuente.cargar
+		invalidar = fuente.invalidar
 	}
 	manejador := nuevoManejadorBolsasRRHHDesarrollo(cargar)
+	if len(mutadores) == 1 {
+		manejador.mutar = mutadores[0]
+		manejador.invalidar = invalidar
+	}
 	return []vechttp.RutaExacta{{Ruta: rutaBolsasRRHHDesarrollo, Manejador: manejador}},
 		[]vechttp.RutaColeccion{{Prefijo: prefijoCandidatosRRHHDesarrollo, Manejador: manejador}}, nil
 }
@@ -81,6 +90,15 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	if h == nil || r == nil || r.URL == nil || r.URL.RawPath != "" || len(r.TransferEncoding) != 0 || cabeceraCatalogosAltaContratacionTemporalDesarrolloProhibida(r.Header) {
 		responderAreaPersonalDesarrollo(w, http.StatusBadRequest, map[string]string{"codigo": "solicitud_invalida"})
 		return
+	}
+	if h.mutar != nil && r.Method == http.MethodPost {
+		if _, _, ok := bolsahttp.ReferenciasRutaSituacionParticipacion(r); ok {
+			h.mutar.ServeHTTP(w, r)
+			if h.invalidar != nil {
+				h.invalidar()
+			}
+			return
+		}
 	}
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
 		w.Header().Set("Allow", "GET, HEAD")
@@ -301,7 +319,7 @@ func mapaEstadosVacio() map[string]int {
 	return map[string]int{"disponible": 0, "no_disponible": 0, "trabajando": 0, "pendiente_incorporacion": 0, "renuncia": 0, "excluido": 0, "disponible_desde": 0}
 }
 func estadoBolsaCanonico(origen string) string { return origen }
-func estadoBolsaVisible(estado string) bool { _, ok := mapaEstadosVacio()[estado]; return ok }
+func estadoBolsaVisible(estado string) bool    { _, ok := mapaEstadosVacio()[estado]; return ok }
 func instanteBolsasRRHH(valor string) string {
 	if _, err := time.Parse(time.RFC3339, valor); err == nil {
 		return valor

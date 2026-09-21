@@ -230,7 +230,7 @@ func NewHTTPServerDesarrolloWithConfig(
 	ctxBolsas, cancelarBolsas := context.WithTimeout(context.Background(), 15*time.Second)
 	fuenteConstituida := nuevaFuenteConstituidaRRHHDesarrollo(ctxBolsas, cfg)
 	cancelarBolsas()
-	rutasBolsasRRHH, coleccionesBolsasRRHH, err := nuevasRutasBolsasRRHHDesarrolloConFuente(cfg, fuenteConstituida)
+	rutasBolsasRRHH, coleccionesBolsasRRHH, err := nuevasRutasBolsasRRHHDesarrolloConFuente(cfg, fuenteConstituida, autoridadContratacion.manejadorSituacionParticipacion)
 	if err != nil {
 		return nil, nil, err
 	}

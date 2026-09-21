@@ -53,6 +53,7 @@ type autoridadConsultasContratacionTemporalDesarrollo struct {
 	subsanacionCompuesta                     bool
 	fronterasSeguridadComun                  catalogoFronterasComunDesarrollo
 	envolverBorradorLlamamiento              func(http.Handler) http.Handler
+	manejadorSituacionParticipacion          http.Handler
 	coleccionesAdicionales                   []vechttp.RutaColeccion
 	registradorAuditoriaFronteraRutasExactas puertosvec.RegistradorAuditoriaFronteraRutaExacta
 }
@@ -533,13 +534,14 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	// Instancia única construida antes de las sesiones CT y Bolsa.
 	seguridadBorrador := catalogoFronteras
 	var envolverBorrador func(http.Handler) http.Handler
+	var manejadorSituacion http.Handler
 	cerrarBorrador := func() {}
 	if debeComponerBorradorLlamamientoDesarrollo(cfg) {
 		if consultasRRHH.identidad == nil {
 			return nil, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
 		}
 		var errBorrador error
-		rutasBorrador, coleccionesBorrador, seguridadBorrador, envolverBorrador, cerrarBorrador, errBorrador = nuevasDependenciasBorradorLlamamientoDesarrollo(
+		rutasBorrador, coleccionesBorrador, manejadorSituacion, seguridadBorrador, envolverBorrador, cerrarBorrador, errBorrador = nuevasDependenciasBorradorLlamamientoDesarrollo(
 			context.Background(), cfg, dependencias, &alta, soporteBolsaCatalogo, catalogoFronteras, consultasRRHH.identidad,
 		)
 		if errBorrador != nil {
@@ -562,6 +564,7 @@ func nuevasRutasContratacionTemporalDesarrollo(
 		subsanacionCompuesta:                     subsanacionReal.servicio != nil,
 		fronterasSeguridadComun:                  seguridadBorrador,
 		envolverBorradorLlamamiento:              envolverBorrador,
+		manejadorSituacionParticipacion:          manejadorSituacion,
 		coleccionesAdicionales:                   coleccionesBorrador,
 		registradorAuditoriaFronteraRutasExactas: alta.postgresql.registradorAuditoriaFrontera,
 	}

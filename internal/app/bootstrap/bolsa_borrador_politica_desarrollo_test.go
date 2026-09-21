@@ -78,7 +78,7 @@ func nuevaPoliticaBorradorBolsaPrueba(t *testing.T) (*politicaBorradorLlamamient
 	return politica, soporte, autoridad, registro
 }
 
-func TestPoliticaBorradorBolsaPublicaSoloDosConcesionesNominales(t *testing.T) {
+func TestPoliticaBorradorBolsaPublicaTresConcesionesNominales(t *testing.T) {
 	politica, soporte, autoridad, _ := nuevaPoliticaBorradorBolsaPrueba(t)
 	datos, err := soporte.soporteCanal.contexto.Vinculo.Datos()
 	if err != nil {
@@ -97,7 +97,7 @@ func TestPoliticaBorradorBolsaPublicaSoloDosConcesionesNominales(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if instantanea.AsignacionPerfil.PerfilActivoRef != datos.PerfilActivoRef || len(instantanea.VersionRol.Concesiones) != 2 {
+	if instantanea.AsignacionPerfil.PerfilActivoRef != datos.PerfilActivoRef || len(instantanea.VersionRol.Concesiones) != 3 {
 		t.Fatalf("perfil o concesiones inesperados: %+v", instantanea)
 	}
 	concesiones := map[string]dominiovec.ConcesionRol{}
@@ -107,9 +107,14 @@ func TestPoliticaBorradorBolsaPublicaSoloDosConcesionesNominales(t *testing.T) {
 	for accion, finalidad := range map[string]string{
 		puertosbolsa.AccionCrearBorradorLlamamientoInterno:     puertosbolsa.FinalidadCrearBorradorLlamamientoInterno,
 		puertosbolsa.AccionConsultarBorradorLlamamientoInterno: puertosbolsa.FinalidadConsultarBorradorLlamamientoInterno,
+		puertosbolsa.AccionCambiarSituacionParticipacion:       puertosbolsa.FinalidadCambiarSituacionParticipacion,
 	} {
 		concesion, existe := concesiones[accion]
-		if !existe || concesion.ModuloID != puertosbolsa.ModuloBorradorLlamamiento || concesion.TipoRecurso != puertosbolsa.TipoRecursoBorradorLlamamiento || len(concesion.Finalidades) != 1 || concesion.Finalidades[0] != finalidad {
+		tipo := puertosbolsa.TipoRecursoBorradorLlamamiento
+		if accion == puertosbolsa.AccionCambiarSituacionParticipacion {
+			tipo = puertosbolsa.TipoRecursoSituacionParticipacion
+		}
+		if !existe || concesion.ModuloID != puertosbolsa.ModuloBorradorLlamamiento || concesion.TipoRecurso != tipo || len(concesion.Finalidades) != 1 || concesion.Finalidades[0] != finalidad {
 			t.Fatalf("concesión B-BACK no exacta para %s: %+v", accion, concesion)
 		}
 	}

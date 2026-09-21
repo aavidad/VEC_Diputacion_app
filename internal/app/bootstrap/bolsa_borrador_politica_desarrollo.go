@@ -102,9 +102,13 @@ func nuevaInstantaneaAutorizacionBorradorLlamamientoBolsaDesarrollo(
 		return dominiovec.InstantaneaAutorizacion{}, errPoliticaBorradorLlamamientoBolsaDesarrolloNoDisponible
 	}
 	concesion := func(accion, finalidad string) dominiovec.ConcesionRol {
+		tipoRecurso := puertosbolsa.TipoRecursoBorradorLlamamiento
+		if accion == puertosbolsa.AccionCambiarSituacionParticipacion {
+			tipoRecurso = puertosbolsa.TipoRecursoSituacionParticipacion
+		}
 		return dominiovec.ConcesionRol{
 			Accion: accion, ModuloID: puertosbolsa.ModuloBorradorLlamamiento,
-			TipoRecurso: puertosbolsa.TipoRecursoBorradorLlamamiento,
+			TipoRecurso: tipoRecurso,
 			Finalidades: []string{finalidad}, GarantiaMinima: dominiovec.AuthAssuranceHigh,
 		}
 	}
@@ -115,6 +119,7 @@ func nuevaInstantaneaAutorizacionBorradorLlamamientoBolsaDesarrollo(
 		Concesiones: []dominiovec.ConcesionRol{
 			concesion(puertosbolsa.AccionCrearBorradorLlamamientoInterno, puertosbolsa.FinalidadCrearBorradorLlamamientoInterno),
 			concesion(puertosbolsa.AccionConsultarBorradorLlamamientoInterno, puertosbolsa.FinalidadConsultarBorradorLlamamientoInterno),
+			concesion(puertosbolsa.AccionCambiarSituacionParticipacion, puertosbolsa.FinalidadCambiarSituacionParticipacion),
 		},
 		PublicadaPor: "seguridad:desarrollo:no-autoritativa", PublicadaEn: desde,
 	}
@@ -169,7 +174,7 @@ func (p *politicaBorradorLlamamientoBolsaDesarrollo) ValidarReferenciaMotivoAuto
 	publicada, instantanea := p.publicada, p.instantanea
 	p.mu.RUnlock()
 	if !publicada || instantanea.Validar() != nil || !instantanea.AsignacionPerfil.VigenteEn(instante) ||
-		(referencia != motivoCrearBorradorLlamamientoBolsaDesarrollo() && referencia != motivoConsultarBorradorLlamamientoBolsaDesarrollo()) {
+		(referencia != motivoCrearBorradorLlamamientoBolsaDesarrollo() && referencia != motivoConsultarBorradorLlamamientoBolsaDesarrollo() && referencia != motivoCambiarSituacionParticipacionBolsaDesarrollo()) {
 		return dominiovec.ErrSolicitudAutorizacionInvalida
 	}
 	return nil
@@ -231,9 +236,15 @@ func motivoBorradorLlamamientoCorresponde(accion string, motivo dominiovec.Refer
 		return motivo == motivoCrearBorradorLlamamientoBolsaDesarrollo()
 	case puertosbolsa.AccionConsultarBorradorLlamamientoInterno:
 		return motivo == motivoConsultarBorradorLlamamientoBolsaDesarrollo()
+	case puertosbolsa.AccionCambiarSituacionParticipacion:
+		return motivo == motivoCambiarSituacionParticipacionBolsaDesarrollo()
 	default:
 		return false
 	}
+}
+
+func motivoCambiarSituacionParticipacionBolsaDesarrollo() dominiovec.ReferenciaEntradaCatalogo {
+	return dominiovec.ReferenciaEntradaCatalogo{CatalogoID: "motivos_situacion_participacion_bolsa", CatalogoVersion: 1, CatalogoHuellaSHA256: huellaAltaContratacionTemporalDesarrollo("catalogo-motivos-bolsa-b2-v1"), EntradaClave: referenciaAltaContratacionTemporalDesarrollo("motivo_", "bolsa-b2-situacion-cambiar")}
 }
 
 func motivoCrearBorradorLlamamientoBolsaDesarrollo() dominiovec.ReferenciaEntradaCatalogo {

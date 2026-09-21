@@ -13,11 +13,15 @@ const (
 	claveFronteraConsultarBorradorLlamamientoBolsa  = "bolsa-bback-borrador-consultar"
 	claveCapacidadCrearBorradorLlamamientoBolsa     = "capacidad-bolsa-bback-borrador-crear"
 	claveCapacidadConsultarBorradorLlamamientoBolsa = "capacidad-bolsa-bback-borrador-consultar"
+	claveFronteraSituacionParticipacionBolsa        = "bolsa-b2-situacion-cambiar"
+	claveCapacidadSituacionParticipacionBolsa       = "capacidad-bolsa-b2-situacion-cambiar"
 
 	dominioMaterialCrearBorradorLlamamientoBolsa     = "vec.bolsa.borrador-llamamiento.crear.desarrollo.capacidad-v3"
 	prefijoMaterialCrearBorradorLlamamientoBolsa     = "clave:capacidad:bolsa-borrador-crear:"
 	dominioMaterialConsultarBorradorLlamamientoBolsa = "vec.bolsa.borrador-llamamiento.consultar.desarrollo.capacidad-v3"
 	prefijoMaterialConsultarBorradorLlamamientoBolsa = "clave:capacidad:bolsa-borrador-consultar:"
+	dominioMaterialSituacionParticipacionBolsa       = "vec.bolsa.situacion-participacion.cambiar.desarrollo.capacidad-v3"
+	prefijoMaterialSituacionParticipacionBolsa       = "clave:capacidad:bolsa-situacion-cambiar:"
 )
 
 // descriptoresFronterasBorradorLlamamientoBolsaDesarrollo declara las dos
@@ -38,6 +42,7 @@ func descriptoresFronterasBorradorLlamamientoBolsaDesarrollo(
 			ClavePolitica:      clavePoliticaBorradorLlamamientoBolsaDesarrollo,
 			ClaveCapacidad:     claveCapacidadCrearBorradorLlamamientoBolsa,
 		},
+		{Clave: claveFronteraSituacionParticipacionBolsa, Superficie: superficieInternaSeguridadComunDesarrollo, Metodo: http.MethodPost, Ruta: bolsahttp.RutaBolsasGestion, PerfilesActivosRef: []string{perfilActivoRef}, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadSituacionParticipacionBolsa, PlantillaDetalle: []string{"*", "candidatos", "*", "situacion"}},
 		{
 			Clave:      claveFronteraConsultarBorradorLlamamientoBolsa,
 			Superficie: superficieInternaSeguridadComunDesarrollo,
@@ -73,6 +78,7 @@ func descriptoresAutorizacionBorradorLlamamientoBolsaDesarrollo(
 			Fronteras:      []string{claveFronteraConsultarBorradorLlamamientoBolsa},
 			Politica:       politica,
 		},
+		{Accion: puertosbolsa.AccionCambiarSituacionParticipacion, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadSituacionParticipacionBolsa, Fronteras: []string{claveFronteraSituacionParticipacionBolsa}, Politica: politica},
 	}, nil
 }
 
@@ -86,6 +92,7 @@ func descriptoresMaterialBorradorLlamamientoBolsaDesarrollo() []descriptorMateri
 			Prefijo:          prefijoMaterialCrearBorradorLlamamientoBolsa,
 			ProveedorNominal: "proveedor-material-borrador-llamamiento-bolsa-crear",
 		},
+		{Audiencia: puertosbolsa.AudienciaCambiarSituacionParticipacion, Dominio: dominioMaterialSituacionParticipacionBolsa, Prefijo: prefijoMaterialSituacionParticipacionBolsa, ProveedorNominal: "proveedor-material-situacion-participacion-bolsa"},
 		{
 			Audiencia:        puertosbolsa.AudienciaConsultarBorradorLlamamientoInterno,
 			Dominio:          dominioMaterialConsultarBorradorLlamamientoBolsa,

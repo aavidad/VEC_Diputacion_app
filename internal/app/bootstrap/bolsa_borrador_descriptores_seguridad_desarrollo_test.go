@@ -64,8 +64,8 @@ func TestDescriptoresBorradorLlamamientoBolsaFronterasExactas(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(fronteras) != 2 {
-		t.Fatalf("fronteras = %d, se esperan 2", len(fronteras))
+	if len(fronteras) != 3 {
+		t.Fatalf("fronteras = %d, se esperan 3", len(fronteras))
 	}
 	for _, frontera := range fronteras {
 		if len(frontera.PerfilesActivosRef) != 1 || frontera.PerfilesActivosRef[0] != "prf_bolsa_bback" {
@@ -81,6 +81,9 @@ func TestDescriptoresBorradorLlamamientoBolsaFronterasExactas(t *testing.T) {
 	}
 	if _, ok := catalogo.resolver(http.MethodGet, bolsahttp.RutaBorradoresLlamamiento+"/borrador-llamamiento:alta:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"); !ok {
 		t.Fatal("GET detalle de un segmento no quedó declarado")
+	}
+	if _, ok := catalogo.resolver(http.MethodPost, bolsahttp.RutaBolsasGestion+"/bolsa:01/candidatos/participacion:01/situacion"); !ok {
+		t.Fatal("POST B2 no quedó declarado")
 	}
 	for _, caso := range []struct{ metodo, ruta string }{
 		{http.MethodHead, bolsahttp.RutaBorradoresLlamamiento + "/borrador"},
@@ -120,6 +123,9 @@ func TestDescriptoresBorradorLlamamientoBolsaAutorizacionExacta(t *testing.T) {
 	if p, ok := catalogo.politicaPara(puertosbolsa.AccionConsultarBorradorLlamamientoInterno, claveFronteraConsultarBorradorLlamamientoBolsa, clavePoliticaBorradorLlamamientoBolsaDesarrollo, claveCapacidadConsultarBorradorLlamamientoBolsa); !ok || !p.valida() {
 		t.Fatal("consultar no conservó la política Bolsa completa")
 	}
+	if p, ok := catalogo.politicaPara(puertosbolsa.AccionCambiarSituacionParticipacion, claveFronteraSituacionParticipacionBolsa, clavePoliticaBorradorLlamamientoBolsaDesarrollo, claveCapacidadSituacionParticipacionBolsa); !ok || !p.valida() {
+		t.Fatal("cambio B2 no conservó la política Bolsa completa")
+	}
 	for _, caso := range []struct{ accion, frontera, capacidad string }{
 		{puertosbolsa.AccionCrearBorradorLlamamientoInterno, claveFronteraConsultarBorradorLlamamientoBolsa, claveCapacidadConsultarBorradorLlamamientoBolsa},
 		{puertosbolsa.AccionConsultarBorradorLlamamientoInterno, claveFronteraCrearBorradorLlamamientoBolsa, claveCapacidadCrearBorradorLlamamientoBolsa},
@@ -134,8 +140,8 @@ func TestDescriptoresBorradorLlamamientoBolsaAutorizacionExacta(t *testing.T) {
 
 func TestDescriptoresBorradorLlamamientoBolsaMaterialExacto(t *testing.T) {
 	descriptores := descriptoresMaterialBorradorLlamamientoBolsaDesarrollo()
-	if len(descriptores) != 2 {
-		t.Fatalf("materiales = %d, se esperan 2", len(descriptores))
+	if len(descriptores) != 3 {
+		t.Fatalf("materiales = %d, se esperan 3", len(descriptores))
 	}
 	catalogo, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(descriptores)
 	if err != nil {
@@ -144,6 +150,7 @@ func TestDescriptoresBorradorLlamamientoBolsaMaterialExacto(t *testing.T) {
 	for _, esperado := range []descriptorMaterialConsumidorV3Desarrollo{
 		{Audiencia: puertosbolsa.AudienciaCrearBorradorLlamamientoInterno, Dominio: dominioMaterialCrearBorradorLlamamientoBolsa, Prefijo: prefijoMaterialCrearBorradorLlamamientoBolsa, ProveedorNominal: "proveedor-material-borrador-llamamiento-bolsa-crear"},
 		{Audiencia: puertosbolsa.AudienciaConsultarBorradorLlamamientoInterno, Dominio: dominioMaterialConsultarBorradorLlamamientoBolsa, Prefijo: prefijoMaterialConsultarBorradorLlamamientoBolsa, ProveedorNominal: "proveedor-material-borrador-llamamiento-bolsa-consultar"},
+		{Audiencia: puertosbolsa.AudienciaCambiarSituacionParticipacion, Dominio: dominioMaterialSituacionParticipacionBolsa, Prefijo: prefijoMaterialSituacionParticipacionBolsa, ProveedorNominal: "proveedor-material-situacion-participacion-bolsa"},
 	} {
 		actual, ok := catalogo.descriptorPara(esperado.Audiencia)
 		if !ok || actual != esperado {

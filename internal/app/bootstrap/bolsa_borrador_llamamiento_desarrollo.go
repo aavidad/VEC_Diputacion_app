@@ -40,6 +40,25 @@ func (p *preparadorBorradorLlamamientoDesarrollo) ResolverContextoBorradorLlamam
 	return puertosbolsa.ContextoBorradorLlamamientoResuelto{UnidadRef: p.soporte.unidadRef, AmbitoRef: p.soporte.ambitoRef}, nil
 }
 
+func (p *preparadorBorradorLlamamientoDesarrollo) ResolverContextoSituacionParticipacion(_ context.Context, actor dominiovec.ContextoActor) (puertosbolsa.ContextoSituacionParticipacionResuelto, error) {
+	if p == nil || p.soporte == nil || actor.PersonaRef == "" || p.soporte.unidadRef == "" || p.soporte.ambitoRef == "" {
+		return puertosbolsa.ContextoSituacionParticipacionResuelto{}, errBorradorLlamamientoDesarrolloNoDisponible
+	}
+	return puertosbolsa.ContextoSituacionParticipacionResuelto{UnidadRef: p.soporte.unidadRef, AmbitoRef: p.soporte.ambitoRef}, nil
+}
+
+func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudCambiarSituacion(ctx context.Context, entrada bolsahttp.EntradaCambiarSituacionParticipacion) (puertosbolsa.SolicitudCambiarSituacionParticipacion, error) {
+	contexto, err := p.contextoRevalidado(ctx)
+	if err != nil {
+		return puertosbolsa.SolicitudCambiarSituacionParticipacion{}, err
+	}
+	correlacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(ctx, p.generar)
+	if err != nil {
+		return puertosbolsa.SolicitudCambiarSituacionParticipacion{}, err
+	}
+	return puertosbolsa.SolicitudCambiarSituacionParticipacion{Vinculo: contexto.Vinculo, ResultadoContexto: contexto.Resultado, BolsaRef: entrada.BolsaRef, ParticipacionRef: entrada.ParticipacionRef, Destino: entrada.Destino, Motivo: entrada.Motivo, ClaveIdempotencia: entrada.ClaveIdempotencia, FechaDisponible: entrada.FechaDisponible, Correlacion: correlacion, MotivoAutorizacion: motivoCambiarSituacionParticipacionBolsaDesarrollo()}, nil
+}
+
 func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudCrearBorradorLlamamientoInterno(
 	ctx context.Context, entrada bolsahttp.EntradaCrearBorradorLlamamientoInterno,
 ) (puertosbolsa.SolicitudCrearBorradorLlamamiento, error) {
@@ -145,7 +164,7 @@ var _ puertosbolsa.ResolutorContextoBorradorLlamamiento = (*preparadorBorradorLl
 var _ puertosvec.GeneradorReferenciaDecisionAutorizacion = seguridadvec.GeneradorReferenciasCriptograficas{}
 
 type emisorBorradorLlamamientoDesarrollo struct {
-	crear, consultar *emisorMaterialRenovableCTDesarrollo
+	crear, consultar, situacion *emisorMaterialRenovableCTDesarrollo
 }
 
 func (e *emisorBorradorLlamamientoDesarrollo) EmitirMaterialAutorizacionAtestadaV3(ctx context.Context, solicitud dominiovec.SolicitudAutorizacionLigadaV3, resultado dominiovec.ResultadoContextoActorRegistradoV2) (dominiovec.DecisionAutorizacionLigadaV3, puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3, puertosvec.ExportadorMaterialConsumoAutorizacionAtestadaV3, error) {
@@ -162,6 +181,10 @@ func (e *emisorBorradorLlamamientoDesarrollo) EmitirMaterialAutorizacionAtestada
 		if e != nil && e.consultar != nil {
 			return e.consultar.EmitirMaterialAutorizacionAtestadaV3(ctx, solicitud, resultado)
 		}
+	case puertosbolsa.AccionCambiarSituacionParticipacion:
+		if e != nil && e.situacion != nil {
+			return e.situacion.EmitirMaterialAutorizacionAtestadaV3(ctx, solicitud, resultado)
+		}
 	}
 	return dominiovec.DecisionAutorizacionLigadaV3{}, puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, nil, errBorradorLlamamientoDesarrolloNoDisponible
 }
@@ -177,10 +200,10 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	soporteBolsa *soporteSesionBorradorBolsaDesarrollo,
 	catalogoFronteras catalogoFronterasComunDesarrollo,
 	identidadCT *proveedorSesionConsultaRRHHDesarrollo,
-) ([]vechttp.RutaExacta, []vechttp.RutaColeccion, catalogoFronterasComunDesarrollo, func(http.Handler) http.Handler, func(), error) {
+) ([]vechttp.RutaExacta, []vechttp.RutaColeccion, http.Handler, catalogoFronterasComunDesarrollo, func(http.Handler) http.Handler, func(), error) {
 	vacio := catalogoFronterasComunDesarrollo{}
-	if ctx == nil || dependenciasCT == nil || alta == nil || soporteBolsa == nil || identidadCT == nil || catalogoFronteras.identidad == nil || alta.soporte == nil || alta.postgresql.bolsa == nil || alta.postgresql.gobierno == nil || alta.postgresql.registroAutorizacion == nil || alta.postgresql.proveedorMaterialBorradorCrear == nil || alta.postgresql.proveedorMaterialBorradorConsulta == nil {
-		return nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+	if ctx == nil || dependenciasCT == nil || alta == nil || soporteBolsa == nil || identidadCT == nil || catalogoFronteras.identidad == nil || alta.soporte == nil || alta.postgresql.bolsa == nil || alta.postgresql.gobierno == nil || alta.postgresql.registroAutorizacion == nil || alta.postgresql.proveedorMaterialBorradorCrear == nil || alta.postgresql.proveedorMaterialBorradorConsulta == nil || alta.postgresql.proveedorMaterialSituacion == nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
 	}
 	// El manifiesto y el contexto nominal Bolsa se cargan antes de declarar
 	// rutas: cada frontera B-BACK queda ligada al perfil Bolsa, nunca al CT.
@@ -188,15 +211,15 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	vinculo, err := soporteBolsa.soporteCanal.contexto.Vinculo.Datos()
 	if err != nil || !perfilActivoSeguridadComunValido(vinculo.PerfilActivoRef) ||
 		vinculo.PerfilActivoRef != soporteBolsa.soporteCanal.contexto.Resultado.Contexto.PerfilActivoRef {
-		return nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
 	}
 	auditoria, cerrarAuditoria, err := nuevaAuditoriaFronteraBorradorLlamamientoPostgreSQLDesarrollo(ctx, cfg)
 	if err != nil {
-		return nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
 	}
 	if err := publicarContextoPostgreSQLBorradorBolsaDesarrollo(ctx, alta.postgresql.gobierno, soporteBolsa); err != nil {
 		cerrarAuditoria()
-		return nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
 	}
 	completa := false
 	defer func() {
@@ -208,11 +231,11 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 		soporteBolsa.soporteCanal, identidadCT.registro, identidadCT.revalidador, identidadCT.reloj, identidadCT.resolutor, catalogoFronteras,
 	)
 	if err != nil {
-		return nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
 	}
 	seguridad, err := nuevaSeguridadComunDesarrollo(sesionBolsa, dependenciasCT.reloj)
 	if err != nil {
-		return nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
 	}
 	autoridadBolsa := autoridadPostgreSQLDesarrollo{
 		pool: alta.postgresql.gobierno, vinculo: soporteBolsa.soporteCanal.contexto.Vinculo,
@@ -220,63 +243,80 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 		actoAsignacion: "acto:bolsa:bback:asignacion:v1", actoSesion: "acto:bolsa:bback:sesion:v1",
 	}
 	if !autoridadBolsa.validaConfiguracion() || vinculo.PrincipalID == "" {
-		return nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
 	}
 	if alta.soporte.registroDecisionesAnalisis == nil {
-		return nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
 	}
 	politicaBolsa, err := nuevaPoliticaBorradorLlamamientoBolsaDesarrollo(soporteBolsa, &autoridadBolsa, alta.soporte.registroDecisionesAnalisis, dependenciasCT.reloj)
 	desde, _, vigente := ventanaAutoridadSinteticaContratacionTemporalDesarrollo(dependenciasCT.reloj.Ahora())
 	if err != nil || !vigente || publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno, []dominiovec.ReferenciaEntradaCatalogo{
-		motivoCrearBorradorLlamamientoBolsaDesarrollo(), motivoConsultarBorradorLlamamientoBolsaDesarrollo(),
+		motivoCrearBorradorLlamamientoBolsaDesarrollo(), motivoConsultarBorradorLlamamientoBolsaDesarrollo(), motivoCambiarSituacionParticipacionBolsaDesarrollo(),
 	}, desde) != nil || politicaBolsa.PublicarInicial(ctx) != nil {
-		return nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
 	}
 	politicaCT, err := nuevaPoliticaAutorizacionSolicitudLigadaV3Desarrollo(alta.soporte, alta.soporte, alta.soporte, alta.soporte)
 	if err != nil {
-		return nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
 	}
 	politicaB, err := nuevaPoliticaAutorizacionSolicitudLigadaV3Desarrollo(politicaBolsa, politicaBolsa, politicaBolsa, politicaBolsa)
 	if err != nil {
-		return nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
 	}
 	descriptoresBolsa, err := descriptoresAutorizacionBorradorLlamamientoBolsaDesarrollo(politicaB)
 	if err != nil {
-		return nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
 	}
 	descriptoresAutorizacion := append(descriptoresAutorizacionContratacionTemporalDesarrollo(politicaCT), descriptoresBolsa...)
 	catalogoAutorizacion, err := nuevoCatalogoAutorizacionComunDesarrollo(catalogoFronteras, descriptoresAutorizacion)
 	if err != nil {
-		return nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
 	}
 	pdp, err := nuevoAutorizadorComunDesarrollo(catalogoAutorizacion, dependenciasCT.reloj, seguridadvec.GeneradorReferenciasCriptograficas{}, aplicacionvec.ConfiguracionServicioAutorizacion{VigenciaDecision: 90 * time.Second})
 	if err != nil {
-		return nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
 	}
 	wrapper, ok := alta.autorizador.(*autorizadorAnalisisContratacionTemporalDesarrollo)
 	if !ok || wrapper.instalarDelegadoComun(pdp) != nil {
-		return nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
 	}
 	emisorCrear, err := nuevoEmisorMaterialRenovableCTDesarrollo(pdp, alta.postgresql.proveedorMaterialBorradorCrear)
 	if err != nil {
-		return nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
 	}
 	emisorConsulta, err := nuevoEmisorMaterialRenovableCTDesarrollo(pdp, alta.postgresql.proveedorMaterialBorradorConsulta)
 	if err != nil {
-		return nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+	}
+	emisorSituacion, err := nuevoEmisorMaterialRenovableCTDesarrollo(pdp, alta.postgresql.proveedorMaterialSituacion)
+	if err != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
 	}
 	repositorio, err := postgresbolsa.NuevoRepositorioBorradorLlamamientoPostgreSQL(alta.postgresql.bolsa)
 	if err != nil {
-		return nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
 	}
 	preparador := &preparadorBorradorLlamamientoDesarrollo{sesion: seguridad, soporte: soporteBolsa}
-	servicio, err := aplicacionbolsa.NuevoServicioBorradorLlamamiento(preparador, &emisorBorradorLlamamientoDesarrollo{crear: emisorCrear, consultar: emisorConsulta}, repositorio, repositorio)
+	emisor := &emisorBorradorLlamamientoDesarrollo{crear: emisorCrear, consultar: emisorConsulta, situacion: emisorSituacion}
+	servicio, err := aplicacionbolsa.NuevoServicioBorradorLlamamiento(preparador, emisor, repositorio, repositorio)
 	if err != nil {
-		return nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
 	}
 	handler, err := bolsahttp.NuevoHandlerBorradorLlamamiento(preparador, servicio)
 	if err != nil {
-		return nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+	}
+	repositorioSituacion, err := postgresbolsa.NuevoRepositorioSituacionParticipacionPostgreSQL(alta.postgresql.bolsa)
+	if err != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+	}
+	servicioSituacion, err := aplicacionbolsa.NuevoServicioSituacionParticipacion(preparador, emisor, repositorioSituacion, dependenciasCT.reloj.Ahora)
+	if err != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+	}
+	handlerSituacion, err := bolsahttp.NuevoHandlerSituacionParticipacion(preparador, servicioSituacion)
+	if err != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
 	}
 	envolver := func(siguiente http.Handler) http.Handler {
 		auditada, auditErr := bolsahttp.NuevaAuditoriaBorradorLlamamiento(siguiente, auditoria, seguridadvec.GeneradorReferenciasCriptograficas{}, actorBorradorLlamamientoDesdeContextoDesarrollo{})
@@ -297,5 +337,5 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 		})
 	}
 	completa = true
-	return []vechttp.RutaExacta{{Ruta: bolsahttp.RutaBorradoresLlamamiento, Manejador: handler}}, []vechttp.RutaColeccion{{Prefijo: bolsahttp.RutaBorradoresLlamamiento, Manejador: handler}}, catalogoFronteras, envolver, cerrarAuditoria, nil
+	return []vechttp.RutaExacta{{Ruta: bolsahttp.RutaBorradoresLlamamiento, Manejador: handler}}, []vechttp.RutaColeccion{{Prefijo: bolsahttp.RutaBorradoresLlamamiento, Manejador: handler}}, handlerSituacion, catalogoFronteras, envolver, cerrarAuditoria, nil
 }

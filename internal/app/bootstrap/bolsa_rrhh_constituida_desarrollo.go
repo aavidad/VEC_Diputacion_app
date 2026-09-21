@@ -34,6 +34,15 @@ type fuenteConstituidaRRHHDesarrollo struct {
 
 const validezCacheBolsasConstituidas = 30 * time.Second
 
+func (f *fuenteConstituidaRRHHDesarrollo) invalidar() {
+	if f == nil {
+		return
+	}
+	f.mu.Lock()
+	f.cacheada = false
+	f.mu.Unlock()
+}
+
 func nuevaFuenteConstituidaRRHHDesarrollo(ctx context.Context, cfg config.Config) *fuenteConstituidaRRHHDesarrollo {
 	if ctx == nil || !cfg.DevelopmentEnabledByDoubleKey() {
 		return nil

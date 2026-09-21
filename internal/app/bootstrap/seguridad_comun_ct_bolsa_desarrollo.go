@@ -26,6 +26,7 @@ type descriptorFronteraComunDesarrollo struct {
 	ClavePolitica      string
 	ClaveCapacidad     string
 	DetalleColeccion   bool
+	PlantillaDetalle   []string
 }
 
 type catalogoFronterasComunDesarrollo struct {
@@ -76,7 +77,7 @@ func (d descriptorFronteraComunDesarrollo) valida() bool {
 		d.Ruta == "" || d.ClavePolitica == "" || d.ClaveCapacidad == "" ||
 		!claveCatalogoComunValida(d.Clave) || !claveCatalogoComunValida(d.ClavePolitica) ||
 		!claveCatalogoComunValida(d.ClaveCapacidad) || !rutaCatalogoComunValida(d.Ruta) ||
-		len(d.PerfilesActivosRef) == 0 {
+		len(d.PerfilesActivosRef) == 0 || (d.DetalleColeccion && len(d.PlantillaDetalle) != 0) {
 		return false
 	}
 	vistos := make(map[string]struct{}, len(d.PerfilesActivosRef))
@@ -88,6 +89,11 @@ func (d descriptorFronteraComunDesarrollo) valida() bool {
 			return false
 		}
 		vistos[perfil] = struct{}{}
+	}
+	for _, segmento := range d.PlantillaDetalle {
+		if segmento == "" || strings.ContainsAny(segmento, "/?# \t\r\n") {
+			return false
+		}
 	}
 	switch d.Metodo {
 	case http.MethodGet, http.MethodPost, http.MethodHead, http.MethodPut,
@@ -145,7 +151,23 @@ func (d descriptorFronteraComunDesarrollo) coincide(metodo, ruta string) bool {
 		return false
 	}
 	if !d.DetalleColeccion {
-		return d.Ruta == ruta
+		if len(d.PlantillaDetalle) == 0 {
+			return d.Ruta == ruta
+		}
+		resto, presente := strings.CutPrefix(ruta, d.Ruta+"/")
+		if !presente {
+			return false
+		}
+		segmentos := strings.Split(resto, "/")
+		if len(segmentos) != len(d.PlantillaDetalle) {
+			return false
+		}
+		for i, esperado := range d.PlantillaDetalle {
+			if segmentos[i] == "" || (esperado != "*" && segmentos[i] != esperado) {
+				return false
+			}
+		}
+		return true
 	}
 	detalle, presente := strings.CutPrefix(ruta, d.Ruta+"/")
 	return presente && detalle != "" && !strings.Contains(detalle, "/")
