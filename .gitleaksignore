@@ -23,3 +23,7 @@ f9460b55b050169eeb8449e71e5d186d01ef6b28:internal/app/bootstrap/bootstrap_test.g
 
 # B-BACK-01: versionBolsaAPI identifica una version de cache sintetica del test, no una clave API.
 8aacd7897b62c95022e245a2643fa12be672bb64:web/static/portal-empleado/portal-modulos-coordinador.test.mjs:generic-api-key:1120
+
+# Personal: ambas claves son identificadores del catálogo de recorridos web, no credenciales.
+d0601a460a4737dd0234b8e71b042ff9810f7bf2:scripts/revision_web/modelo.py:vep-clave-castellana-asignada:245
+d0601a460a4737dd0234b8e71b042ff9810f7bf2:scripts/revision_web/modelo.py:vep-clave-castellana-asignada:378
