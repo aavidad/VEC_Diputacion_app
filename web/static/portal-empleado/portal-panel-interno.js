@@ -304,6 +304,7 @@ export function crearPresentadorPanelInterno(dependencias) {
     const filtrosActuales = typeof obtenerEstadoCandidatos === "function"
       ? obtenerEstadoCandidatos()
       : { estado: "", texto: "" };
+    const pestana = filtrosActuales.pestana === "historico" ? "historico" : "candidatos";
 
     const accionesEncabezado = '<button type="button" class="boton-secundario" data-vista="resumen">Volver al cuadro</button>';
 
@@ -452,6 +453,20 @@ export function crearPresentadorPanelInterno(dependencias) {
           </div>
         </section>
       </aside>` : "";
+    const llamadas = candidatos.filter((candidato) => candidato.ultimo_llamamiento)
+      .sort((a, b) => b.ultimo_llamamiento.comunicado_en.localeCompare(a.ultimo_llamamiento.comunicado_en));
+    const paginaHistorico = Math.max(0, Number(filtrosActuales.pagina_historico) || 0);
+    const inicioHistorico = paginaHistorico * 6;
+    const paginaLlamadas = llamadas.slice(inicioHistorico, inicioHistorico + 6);
+    const tablaHistorico = paginaLlamadas.length === 0
+      ? '<tr><td colspan="6" class="vacio-controlado">Sin llamamientos registrados</td></tr>'
+      : paginaLlamadas.map((candidato) => {
+        const llamamiento = candidato.ultimo_llamamiento;
+        return `<tr><td>${fechaMarcada(llamamiento.comunicado_en)}</td><td>${escaparHTML(candidato.nombre_visible)}<br><code>${escaparHTML(candidato.documento_enmascarado)}</code></td><td>Llamamiento</td><td>${escaparHTML(etiquetaClave(llamamiento.resultado))}</td><td>—</td><td>—</td></tr>`;
+      }).join("");
+    const navegacionHistorico = llamadas.length > 6 ? `<div class="acciones-vista" aria-label="Paginación del histórico"><span>Mostrando ${numero(inicioHistorico + 1)} a ${numero(Math.min(inicioHistorico + 6, llamadas.length))} de ${numero(llamadas.length)}</span><button type="button" class="boton-secundario" data-bolsa-accion="pagina-historico" data-pagina="${paginaHistorico - 1}"${paginaHistorico === 0 ? " disabled" : ""}>Anterior</button><button type="button" class="boton-secundario" data-bolsa-accion="pagina-historico" data-pagina="${paginaHistorico + 1}"${inicioHistorico + 6 >= llamadas.length ? " disabled" : ""}>Siguiente</button></div>` : "";
+    const pestanas = `<nav class="acciones-vista" role="tablist" aria-label="Vistas de la bolsa"><button type="button" class="boton-secundario" role="tab" aria-selected="${pestana === "candidatos"}" data-bolsa-accion="cambiar-pestana" data-pestana="candidatos">Candidatos</button><button type="button" class="boton-secundario" role="tab" aria-selected="${pestana === "historico"}" data-bolsa-accion="cambiar-pestana" data-pestana="historico">Histórico de llamamientos</button></nav>`;
+    const contenidoHistorico = `<section class="panel" data-bolsa-b5-destino="true" tabindex="-1"><div class="cabecera-panel"><h3>Histórico de llamamientos</h3><span class="estado-chip info">${numero(llamadas.length)} registros</span></div><div class="tabla-contenedor"><table class="tabla-datos"><caption>Últimos llamamientos disponibles en la lectura de candidaturas</caption><thead><tr><th scope="col">Fecha</th><th scope="col">Candidato</th><th scope="col">Tipo</th><th scope="col">Resultado</th><th scope="col">Actor</th><th scope="col">Contacto</th></tr></thead><tbody>${tablaHistorico}</tbody></table></div>${navegacionHistorico}<div class="cuerpo-panel"><small>El contacto no forma parte todavía de esta lectura y se mostrará cuando B3 aporte su histórico.</small></div></section>`;
 
     return `
       ${encabezadoVista("Gestión interna de Bolsas", tituloBolsa, descripcionBolsa, accionesEncabezado)}
@@ -459,20 +474,21 @@ export function crearPresentadorPanelInterno(dependencias) {
       <section class="nota-pendiente" role="note"><strong>Acciones pendientes de composición.</strong> La ficha está disponible para consulta; contactos, llamamientos y resultados dependen de C23 y se habilitarán cuando su circuito esté conectado.</section>
       <div class="distribucion-llamamiento">
         <div>
+          ${pestanas}
           <section class="panel" aria-label="Recorrido de gestión de candidatos">
             <div class="cuerpo-panel">
               <ol class="pasos"><li class="paso completado"><span class="paso-numero">1</span><span>Consultar bolsa</span></li><li class="paso" aria-current="step"><span class="paso-numero">2</span><span>Revisar candidaturas</span></li><li class="paso"><span class="paso-numero">3</span><span>Consultar contactos</span></li><li class="paso"><span class="paso-numero">4</span><span>Registrar llamamiento</span></li></ol>
             </div>
           </section>
-          <section class="panel" data-bolsa-b5-destino="true" tabindex="-1">
+          ${pestana === "historico" ? contenidoHistorico : `<section class="panel" data-bolsa-b5-destino="true" tabindex="-1">
             <div class="cabecera-panel">
               <h3>Filtros y ordenación de aspirantes (Vista B5)</h3>
               <span class="estado-chip info">${numero(candidatos.length)} en esta página</span>
             </div>
             <div class="cuerpo-panel"><div class="rejilla-resumen" aria-label="Contadores por situación">${contadoresEstado}</div></div>
             <div class="cuerpo-panel">${formularioFiltros}</div>
-          </section>
-          <section class="panel">
+          </section>`}
+          <section class="panel"${pestana === "historico" ? " hidden" : ""}>
             <div class="cabecera-panel"><h3>Relación ordenada de candidatos</h3></div>
             <div class="tabla-contenedor">
               <table class="tabla-datos tabla-datos--candidatos">

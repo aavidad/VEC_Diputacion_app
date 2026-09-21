@@ -574,6 +574,14 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
         evento.preventDefault();
         estado.filtrosBolsa = { ...estado.filtrosBolsa, estado: botonAccion.dataset.estado || "" };
         void cargarCandidatosBolsa(estado.bolsaSeleccionada);
+      } else if (accion === "cambiar-pestana") {
+        evento.preventDefault();
+        estado.filtrosBolsa = { ...estado.filtrosBolsa, pestana: botonAccion.dataset.pestana || "candidatos", pagina_historico: 0 };
+        renderizar();
+      } else if (accion === "pagina-historico") {
+        evento.preventDefault();
+        estado.filtrosBolsa = { ...estado.filtrosBolsa, pagina_historico: Math.max(0, Number(botonAccion.dataset.pagina) || 0) };
+        renderizar();
       } else if (accion === "pagina-siguiente") {
         evento.preventDefault();
         const cursor = botonAccion.dataset.cursor || "";

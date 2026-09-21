@@ -551,6 +551,12 @@ test("presentadorPanelInterno renderiza Vista B5 de candidatos con filtros, chip
   assert.match(htmlB5, /dependen de C23/);
   assert.match(htmlB5, /data-bolsa-c23-pendiente/);
   assert.match(htmlB5, /disabled aria-disabled="true" title="Pendiente de composición C23"/);
+  filtrosBolsa = { ...filtrosBolsa, pestana: "historico" };
+  const htmlHistorico = presentador.renderizarVista("bolsa-candidatos");
+  assert.match(htmlHistorico, /Histórico de llamamientos/);
+  assert.match(htmlHistorico, /<th scope="col">Contacto<\/th>/);
+  assert.match(htmlHistorico, /Sin llamamientos registrados|Llamamiento/);
+  assert.match(htmlHistorico, /<section class="panel" hidden>/);
 
   // Con paginación
   const candidatosConPaginacion = {
