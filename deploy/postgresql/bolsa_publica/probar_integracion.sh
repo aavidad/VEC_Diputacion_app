@@ -5,7 +5,7 @@ raiz=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)
 imagen=${VEC_POSTGRES_TEST_IMAGE:-postgres:18.4-bookworm@sha256:1961f96e6029a02c3812d7cb329a3b03a3ac2bb067058dec17b0f5596aca9296}
 contenedor="vec-bolsa-publica-pg-prueba-${USER:-usuario}-$$"
 base=vec_bolsa_publica_prueba
-ancla_inicial=33929a8b6abbab2c1b57aac36a3070f475610f59fdd064a0b0a3e7f760cf8807
+ancla_inicial=1d286e01de4e4cc6865a04b1215e98bc8979548df96dbf33f0483bd1c347211b
 clave_admin="VecAdminPrueba${BASHPID}${RANDOM}"
 clave_lector="VecLectorPrueba${BASHPID}${RANDOM}"
 clave_publicador="VecPublicadorPrueba${BASHPID}${RANDOM}"
@@ -157,6 +157,7 @@ docker exec --interactive "$contenedor" psql -X --set ON_ERROR_STOP=1 \
 {
     printf '%s\n' 'SET ROLE vec_bolsa_publica_migrador;'
     cat "$raiz/deploy/postgresql/bolsa_publica/migraciones/000001_proyeccion_publica.up.sql"
+    cat "$raiz/deploy/postgresql/bolsa_publica/migraciones/000002_proyeccion_bolsas_v1.up.sql"
 } | docker exec --interactive "$contenedor" psql -X --set ON_ERROR_STOP=1 \
     --username postgres --dbname "$base"
 
@@ -264,12 +265,18 @@ SELECT pg_catalog.set_config(
     (SELECT payload::text FROM public.proyeccion_publica_prueba),
     false
 );
+SELECT pg_catalog.set_config(
+    'vec.prueba_bolsas_publicas',
+    '{"generado_en":"2026-07-22T10:00:00Z","bolsas":[]}',
+    false
+);
 \o
 
 SET SESSION AUTHORIZATION vec_bolsa_publica_publicador_login;
-SELECT vec_bolsa_publica_publicacion.publicar_proyeccion_v2(
+SELECT vec_bolsa_publica_publicacion.publicar_proyeccion_v3(
     current_setting('vec.prueba_proyeccion_publica')::jsonb,
-'33929a8b6abbab2c1b57aac36a3070f475610f59fdd064a0b0a3e7f760cf8807'
+    current_setting('vec.prueba_bolsas_publicas')::jsonb,
+'1d286e01de4e4cc6865a04b1215e98bc8979548df96dbf33f0483bd1c347211b'
 );
 RESET SESSION AUTHORIZATION;
 
@@ -277,18 +284,20 @@ RESET SESSION AUTHORIZATION;
 -- Cada escenario se revierte para que los tests Go sigan arrancando sobre A.
 BEGIN;
 SET SESSION AUTHORIZATION vec_bolsa_publica_publicador_login;
-SELECT vec_bolsa_publica_publicacion.publicar_proyeccion_v2(
+SELECT vec_bolsa_publica_publicacion.publicar_proyeccion_v3(
     jsonb_set(
         current_setting('vec.prueba_proyeccion_publica')::jsonb,
         '{fuente,revision}', '"revision-002"'::jsonb
     ),
+    current_setting('vec.prueba_bolsas_publicas')::jsonb,
     repeat('b', 64)
 );
 DO $rechazar_reutilizacion$
 BEGIN
-    PERFORM vec_bolsa_publica_publicacion.publicar_proyeccion_v2(
+    PERFORM vec_bolsa_publica_publicacion.publicar_proyeccion_v3(
         current_setting('vec.prueba_proyeccion_publica')::jsonb,
-        '33929a8b6abbab2c1b57aac36a3070f475610f59fdd064a0b0a3e7f760cf8807'
+        current_setting('vec.prueba_bolsas_publicas')::jsonb,
+        '1d286e01de4e4cc6865a04b1215e98bc8979548df96dbf33f0483bd1c347211b'
     );
     RAISE EXCEPTION USING ERRCODE = 'P0001',
         MESSAGE = 'el historial permitio reutilizar A despues de B';
@@ -315,9 +324,10 @@ RESET ROLE;
 SET SESSION AUTHORIZATION vec_bolsa_publica_publicador_login;
 DO $rechazar_despues_de_cero$
 BEGIN
-    PERFORM vec_bolsa_publica_publicacion.publicar_proyeccion_v2(
+    PERFORM vec_bolsa_publica_publicacion.publicar_proyeccion_v3(
         current_setting('vec.prueba_proyeccion_publica')::jsonb,
-        '33929a8b6abbab2c1b57aac36a3070f475610f59fdd064a0b0a3e7f760cf8807'
+        current_setting('vec.prueba_bolsas_publicas')::jsonb,
+        '1d286e01de4e4cc6865a04b1215e98bc8979548df96dbf33f0483bd1c347211b'
     );
     RAISE EXCEPTION USING ERRCODE = 'P0001',
         MESSAGE = 'el historial permitio reutilizar A despues de invalidarla';
@@ -392,8 +402,10 @@ BEGIN
         exceso_entradas
     ] LOOP
         BEGIN
-            PERFORM vec_bolsa_publica_publicacion.publicar_proyeccion_v2(
-                mutacion, repeat('c', 64)
+            PERFORM vec_bolsa_publica_publicacion.publicar_proyeccion_v3(
+                mutacion,
+                current_setting('vec.prueba_bolsas_publicas')::jsonb,
+                repeat('c', 64)
             );
             RAISE EXCEPTION USING ERRCODE = 'P0001',
                 MESSAGE = 'la allowlist recursiva acepto un campo desconocido';
@@ -402,8 +414,10 @@ BEGIN
         END;
     END LOOP;
     BEGIN
-        PERFORM vec_bolsa_publica_publicacion.publicar_proyeccion_v2(
-            base, repeat('0', 64)
+        PERFORM vec_bolsa_publica_publicacion.publicar_proyeccion_v3(
+            base,
+            current_setting('vec.prueba_bolsas_publicas')::jsonb,
+            repeat('0', 64)
         );
         RAISE EXCEPTION USING ERRCODE = 'P0001',
             MESSAGE = 'el publicador acepto el sentinel cero';
@@ -455,7 +469,7 @@ SELECT
       JOIN pg_catalog.pg_namespace AS esquema ON esquema.oid = objeto.pronamespace
      WHERE esquema.nspname = 'vec_bolsa_publica_publicacion'
        AND pg_get_userbyid(objeto.proowner) = 'vec_bolsa_publica_publicacion_propietario')")
-if [[ "$propietarios" != "3:12:10:1:2" ]]; then
+if [[ "$propietarios" != "3:14:12:2:3" ]]; then
     echo "propietarios fisicos/SECURITY DEFINER inesperados: $propietarios" >&2
     exit 1
 fi
@@ -515,14 +529,14 @@ SELECT
  || ':' ||
     has_function_privilege(
         'vec_bolsa_publica_publicador_login',
-        'vec_bolsa_publica_publicacion.publicar_proyeccion_v2(jsonb,text)', 'EXECUTE'
+        'vec_bolsa_publica_publicacion.publicar_proyeccion_v3(jsonb,jsonb,text)', 'EXECUTE'
     )::text
  || ':' ||
     has_table_privilege(
         'vec_bolsa_publica_publicador_login',
         'public.proyeccion_publica_prueba', 'SELECT'
     )::text")
-if [[ "$acl_funcion" != "12:4:0:0:true:false:false:false:true:false" ]]; then
+if [[ "$acl_funcion" != "14:5:0:0:true:false:false:false:true:false" ]]; then
     echo "ACL de publicacion inesperada: $acl_funcion" >&2
     exit 1
 fi
@@ -534,13 +548,13 @@ docker exec "$contenedor" psql -X --set ON_ERROR_STOP=1 \
     "GRANT USAGE ON SCHEMA vec_bolsa_publica_publicacion
          TO vec_bolsa_publica_integracion_login;
      GRANT EXECUTE ON FUNCTION
-         vec_bolsa_publica_publicacion.publicar_proyeccion_v2(jsonb,text)
+         vec_bolsa_publica_publicacion.publicar_proyeccion_v3(jsonb,jsonb,text)
          TO vec_bolsa_publica_integracion_login" >/dev/null
 if docker exec "$contenedor" psql -X --set ON_ERROR_STOP=1 \
     --username vec_bolsa_publica_integracion_login --dbname "$base" \
     --command \
-    "SELECT vec_bolsa_publica_publicacion.publicar_proyeccion_v2(
-         '{}'::jsonb, repeat('9', 64)
+    "SELECT vec_bolsa_publica_publicacion.publicar_proyeccion_v3(
+         '{}'::jsonb, '{}'::jsonb, repeat('9', 64)
      )" >/dev/null 2>&1; then
     echo "un LOGIN ajeno con EXECUTE atraveso la identidad publicadora" >&2
     exit 1
@@ -548,7 +562,7 @@ fi
 docker exec "$contenedor" psql -X --set ON_ERROR_STOP=1 \
     --username postgres --dbname "$base" --command \
     "REVOKE EXECUTE ON FUNCTION
-         vec_bolsa_publica_publicacion.publicar_proyeccion_v2(jsonb,text)
+         vec_bolsa_publica_publicacion.publicar_proyeccion_v3(jsonb,jsonb,text)
          FROM vec_bolsa_publica_integracion_login;
      REVOKE USAGE ON SCHEMA vec_bolsa_publica_publicacion
          FROM vec_bolsa_publica_integracion_login" >/dev/null
@@ -636,13 +650,19 @@ SELECT pg_catalog.set_config(
     (SELECT payload::text FROM public.proyeccion_publica_prueba),
     false
 );
+SELECT pg_catalog.set_config(
+    'vec.prueba_bolsas_publicas',
+    '{"generado_en":"2026-07-22T10:00:00Z","bolsas":[]}',
+    false
+);
 \o
 SET SESSION AUTHORIZATION vec_bolsa_publica_publicador_login;
-SELECT vec_bolsa_publica_publicacion.publicar_proyeccion_v2(
+SELECT vec_bolsa_publica_publicacion.publicar_proyeccion_v3(
     jsonb_set(
         current_setting('vec.prueba_proyeccion_publica')::jsonb,
         '{fuente,revision}', '"revision-bloqueo"'::jsonb
     ),
+    current_setting('vec.prueba_bolsas_publicas')::jsonb,
     repeat('d', 64)
 );
 SELECT pg_sleep(5);

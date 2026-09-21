@@ -275,8 +275,13 @@ func assertTimeoutPublicadorLiberaCandadoYPermiteRecuperar(
 		t.Fatalf("iniciar publicacion que quedara idle: %v", err)
 	}
 	if _, err := transaccion.Exec(ctx, `
-		SELECT vec_bolsa_publica_publicacion.publicar_proyeccion_v2(
-			$1::jsonb, repeat('e', 64)
+		SELECT vec_bolsa_publica_publicacion.publicar_proyeccion_v3(
+			$1::jsonb,
+			jsonb_build_object(
+				'generado_en', $1::jsonb #>> '{fuente,actualizada_en}',
+				'bolsas', '[]'::jsonb
+			),
+			repeat('e', 64)
 		)`, payload); err != nil {
 		t.Fatalf("publicar antes del idle timeout: %v", err)
 	}
@@ -346,8 +351,16 @@ func assertTimeoutPublicadorLiberaCandadoYPermiteRecuperar(
 		  FROM public.proyeccion_publica_prueba`).Scan(&payloadRecuperacion); err != nil {
 		t.Fatalf("preparar publicacion de recuperacion: %v", err)
 	}
-	if err := PublicarProyeccion(
-		ctx, dsnPublicador, []byte(payloadRecuperacion), strings.Repeat("f", 64),
+	var bolsasRecuperacion string
+	if err := admin.QueryRow(ctx, `
+		SELECT jsonb_build_object(
+			'generado_en', $1::jsonb #>> '{fuente,actualizada_en}',
+			'bolsas', '[]'::jsonb
+		)::text`, payloadRecuperacion).Scan(&bolsasRecuperacion); err != nil {
+		t.Fatalf("preparar bolsas vacías de recuperación: %v", err)
+	}
+	if err := PublicarProyeccionV3(
+		ctx, dsnPublicador, []byte(payloadRecuperacion), []byte(bolsasRecuperacion), strings.Repeat("f", 64),
 	); err != nil {
 		t.Fatalf("publicacion autocommit no se recupero: %v", err)
 	}
@@ -414,8 +427,13 @@ func assertPublicacionMVCCAtomica(
 	}
 	defer func() { _ = transaccion.Rollback(context.Background()) }()
 	if _, err := transaccion.Exec(ctx, `
-		SELECT vec_bolsa_publica_publicacion.publicar_proyeccion_v2(
-			jsonb_set($1::jsonb, '{fuente,revision}', to_jsonb($2::text)), $3
+		SELECT vec_bolsa_publica_publicacion.publicar_proyeccion_v3(
+			jsonb_set($1::jsonb, '{fuente,revision}', to_jsonb($2::text)),
+			jsonb_build_object(
+				'generado_en', $1::jsonb #>> '{fuente,actualizada_en}',
+				'bolsas', '[]'::jsonb
+			),
+			$3
 		)`, payload, manifiestoB.Fuente.Revision, anclaB); err != nil {
 		t.Fatalf("ejecutar función publicadora B: %v", err)
 	}
@@ -509,11 +527,19 @@ func assertErroresPublicacionRedactados(
 		t.Fatalf("LOGIN publicador sin redacción de parámetros: %q, %v", limiteParametros, err)
 	}
 	casos := []string{
-		`SELECT vec_bolsa_publica_publicacion.publicar_proyeccion_v2(
+		`SELECT vec_bolsa_publica_publicacion.publicar_proyeccion_v3(
 			jsonb_set($1::jsonb, '{categorias,snapshots,0,categorias,0,vigente_desde}', to_jsonb($2::text)),
+			jsonb_build_object(
+				'generado_en', $1::jsonb #>> '{fuente,actualizada_en}',
+				'bolsas', '[]'::jsonb
+			),
 			repeat('e', 64))`,
-		`SELECT vec_bolsa_publica_publicacion.publicar_proyeccion_v2(
+		`SELECT vec_bolsa_publica_publicacion.publicar_proyeccion_v3(
 			jsonb_set($1::jsonb, '{catalogos,0,referencia}', to_jsonb(($2::text || '@'))),
+			jsonb_build_object(
+				'generado_en', $1::jsonb #>> '{fuente,actualizada_en}',
+				'bolsas', '[]'::jsonb
+			),
 			repeat('f', 64))`,
 	}
 	for _, consulta := range casos {
@@ -659,6 +685,13 @@ func assertColumnasVistas(t *testing.T, ctx context.Context, pool *pgxpool.Pool)
 		},
 		"ayuda_convocatorias_publicas_v2": {
 			"categoria", "identificador_publico", "orden", "pregunta", "referencia", "respuesta",
+		},
+		"bolsas_v1": {
+			"bolsa_ref", "categoria", "categoria_clave", "grupos", "tipo_lista", "total",
+			"vigente_desde", "vigente_hasta",
+		},
+		"posiciones_bolsa_v1": {
+			"bolsa_ref", "documento_enmascarado", "estado_clave", "orden",
 		},
 	}
 	for vista, columnasEsperadas := range esperadas {
