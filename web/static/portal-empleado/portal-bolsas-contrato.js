@@ -9,7 +9,8 @@
  * - Los documentos viajan siempre enmascarados (***1234**).
  * - Se rechaza cualquier documento sin enmascarar (DNI/NIE), correo electrónico o teléfono.
  * - Vocabulario cerrado de SituacionParticipacionBolsa:
- *   disponible, ocupado, no_disponible, excluido, renuncia_pendiente.
+ *   disponible, no_disponible, trabajando, pendiente_incorporacion, renuncia,
+ *   excluido y disponible_desde.
  * - Contratos estrictos y cerrados: cualquier propiedad no declarada invalida la respuesta.
  */
 
@@ -20,10 +21,12 @@ export const ESQUEMA_ACCION_BOLSA = "vec.bolsa.rrhh.accion.v1";
 
 export const SITUACIONES_PARTICIPACION_BOLSA = Object.freeze([
   "disponible",
-  "ocupado",
   "no_disponible",
+  "trabajando",
+  "pendiente_incorporacion",
+  "renuncia",
   "excluido",
-  "renuncia_pendiente",
+  "disponible_desde",
 ]);
 
 export const CANALES_LLAMAMIENTO = Object.freeze([

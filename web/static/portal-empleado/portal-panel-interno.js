@@ -361,14 +361,19 @@ export function crearPresentadorPanelInterno(dependencias) {
     const opcionesEstado = [
       ["", "Todos los estados"],
       ["disponible", "Disponible"],
-      ["ocupado", "Ocupado"],
       ["no_disponible", "No disponible"],
+      ["trabajando", "Trabajando"],
+      ["pendiente_incorporacion", "Pendiente de incorporación"],
+      ["renuncia", "Renuncia"],
       ["excluido", "Excluido"],
-      ["renuncia_pendiente", "Renuncia pendiente"],
+      ["disponible_desde", "Disponible desde fecha"],
     ].map(([valor, etiqueta]) => `
       <option value="${escaparHTML(valor)}"${valor === filtrosActuales.estado ? " selected" : ""}>${escaparHTML(etiqueta)}</option>
     `).join("");
 
+    const contadoresEstado = Object.entries(bolsa?.por_estado || {}).map(([estado, total]) => `
+      <button type="button" class="tarjeta-estado" data-bolsa-accion="filtrar-estado" data-estado="${escaparHTML(estado)}" aria-pressed="${filtrosActuales.estado === estado}"><span>${escaparHTML(etiquetaClave(estado))}</span><strong>${numero(total)}</strong></button>
+    `).join("");
     const formularioFiltros = `
       <form class="barra-filtros-bolsa" data-bolsa-form="filtros" role="search" aria-label="Filtros de candidatos">
         <div class="campo-filtro">
@@ -404,7 +409,7 @@ export function crearPresentadorPanelInterno(dependencias) {
             <td><strong>#${numero(c.orden)}</strong></td>
             <td><button type="button" class="boton-secundario" data-bolsa-accion="abrir-ficha" data-bolsa-control-principal="true" data-participacion-ref="${escaparHTML(c.participacion_ref)}" aria-expanded="${fichaAbierta}" aria-controls="${escaparHTML(fichaId)}" aria-label="Abrir ficha de participación de ${escaparHTML(c.nombre_visible)}"><strong>${escaparHTML(c.nombre_visible)}</strong></button></td>
             <td><code>${escaparHTML(c.documento_enmascarado)}</code></td>
-            <td><span class="estado-chip ${claseEstado(c.estado_clave)}">${escaparHTML(etiquetaClave(c.estado_clave))}</span></td>
+            <td><span class="estado-chip ${claseEstado(c.estado_clave)}">● ${escaparHTML(etiquetaClave(c.estado_clave))}</span></td>
             <td><small>${escaparHTML(instanteVisible(c.estado_desde))}</small></td>
             <td><small>${c.disponible_desde ? escaparHTML(instanteVisible(c.disponible_desde)) : "—"}</small></td>
             <td>${detalleLlamamiento}</td>
@@ -464,6 +469,7 @@ export function crearPresentadorPanelInterno(dependencias) {
               <h3>Filtros y ordenación de aspirantes (Vista B5)</h3>
               <span class="estado-chip info">${numero(candidatos.length)} en esta página</span>
             </div>
+            <div class="cuerpo-panel"><div class="rejilla-resumen" aria-label="Contadores por situación">${contadoresEstado}</div></div>
             <div class="cuerpo-panel">${formularioFiltros}</div>
           </section>
           <section class="panel">
@@ -471,7 +477,7 @@ export function crearPresentadorPanelInterno(dependencias) {
             <div class="tabla-contenedor">
               <table class="tabla-datos tabla-datos--candidatos">
                 <caption>Aspirantes ordenados por mérito y situación en bolsa</caption>
-                <thead><tr><th scope="col">Orden</th><th scope="col">Aspirante</th><th scope="col">Documento</th><th scope="col">Situación</th><th scope="col">Desde</th><th scope="col">Disponible desde</th><th scope="col">Último llamamiento</th></tr></thead>
+                <thead><tr><th scope="col">Orden</th><th scope="col">Aspirante</th><th scope="col">DNI</th><th scope="col">Situación</th><th scope="col">Fecha</th><th scope="col">Disponible desde</th><th scope="col">Último llamamiento</th></tr></thead>
                 <tbody>${cuerpoTabla}</tbody>
               </table>
             </div>
@@ -496,6 +502,24 @@ export function crearPresentadorPanelInterno(dependencias) {
     const ultimoLlamamiento = candidato.ultimo_llamamiento
       ? `<div class="fila-resumen"><dt>Último llamamiento</dt><dd>${escaparHTML(etiquetaClave(candidato.ultimo_llamamiento.canal))} · ${escaparHTML(etiquetaClave(candidato.ultimo_llamamiento.resultado))}<br><small><time datetime="${escaparHTML(candidato.ultimo_llamamiento.comunicado_en)}">${escaparHTML(instanteVisible(candidato.ultimo_llamamiento.comunicado_en))}</time> · <code>${escaparHTML(candidato.ultimo_llamamiento.llamamiento_ref)}</code></small></dd></div>`
       : `<div class="fila-resumen"><dt>Último llamamiento</dt><dd>Sin llamamientos registrados</dd></div>`;
+    const destinos = {
+      disponible: ["no_disponible", "pendiente_incorporacion", "renuncia", "excluido"],
+      no_disponible: ["disponible", "excluido"],
+      pendiente_incorporacion: ["trabajando", "disponible", "renuncia", "excluido"],
+      trabajando: ["disponible", "disponible_desde", "excluido"],
+      disponible_desde: ["disponible", "excluido"],
+      renuncia: ["disponible", "excluido"],
+      excluido: [],
+    }[candidato.estado_clave] || [];
+    const cambio = modal.cambioSituacion ? `
+      <form data-bolsa-form="cambio-situacion" data-participacion-ref="${escaparHTML(candidato.participacion_ref)}">
+        <p><small>Transiciones provisionales hasta respuesta de RRHH a las dudas 13 y 18.</small></p>
+        <label>Destino <select name="situacion" required><option value="">Seleccionar estado</option>${destinos.map((d) => `<option value="${d}">${escaparHTML(etiquetaClave(d))}</option>`).join("")}</select></label>
+        <label data-bolsa-fecha-disponible>Fecha de disponibilidad <input type="datetime-local" name="fecha_disponible"></label>
+        <label>Motivo <textarea name="motivo" required maxlength="1000"></textarea></label>
+        <button type="submit" class="boton-primario"${destinos.length ? "" : " disabled"}>Guardar cambio</button>
+        <p class="mensaje-error" role="alert">${escaparHTML(modal.errorCambioSituacion || "")}</p>
+      </form>` : "";
 
     return `
       <tr class="fila-ficha-participacion" data-ficha-participacion-ref="${escaparHTML(candidato.participacion_ref)}">
@@ -511,16 +535,18 @@ export function crearPresentadorPanelInterno(dependencias) {
                 <div class="fila-resumen"><dt>Bolsa</dt><dd>${escaparHTML(bolsa.categoria)}<br><small>${escaparHTML(bolsa.categoria_clave)} · ${escaparHTML(etiquetaClave(bolsa.tipo_lista))}</small></dd></div>
                 <div class="fila-resumen"><dt>Vigencia</dt><dd>${escaparHTML(vigencia)}</dd></div>
                 <div class="fila-resumen"><dt>Orden</dt><dd>#${numero(candidato.orden)}</dd></div>
-                <div class="fila-resumen"><dt>Situación</dt><dd><span class="estado-chip ${claseEstado(candidato.estado_clave)}">${escaparHTML(etiquetaClave(candidato.estado_clave))}</span> desde ${escaparHTML(instanteVisible(candidato.estado_desde))}</dd></div>
+                <div class="fila-resumen"><dt>Situación</dt><dd><span class="estado-chip ${claseEstado(candidato.estado_clave)}">● ${escaparHTML(etiquetaClave(candidato.estado_clave))}</span> desde ${escaparHTML(instanteVisible(candidato.estado_desde))}</dd></div>
                 ${disponibilidad}
                 <div class="fila-resumen"><dt>Referencia de participación</dt><dd><code>${escaparHTML(candidato.participacion_ref)}</code></dd></div>
                 ${ultimoLlamamiento}
               </dl>
             </div>
             <div class="acciones-vista">
+              <button type="button" class="boton-primario" data-bolsa-accion="abrir-cambio-situacion">Cambiar situación</button>
               <button type="button" class="boton-secundario" data-bolsa-accion="cerrar-ficha">Cerrar</button>
             </div>
           </section>
+          ${cambio}
         </td>
       </tr>`;
   }

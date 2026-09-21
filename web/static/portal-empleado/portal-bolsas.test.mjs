@@ -43,32 +43,9 @@ const demoJsonRaw = JSON.parse(await readFile(rutaDemoJson, "utf8"));
 
 /**
  * Función que mapea los estados sintéticos de demo al catálogo cerrado de SituacionParticipacionBolsa:
- * trabajando -> ocupado
- * pendiente_incorporacion -> ocupado
- * disponible_desde -> no_disponible (con fecha disponible_desde)
- * renuncia -> renuncia_pendiente
- * disponible -> disponible
- * no_disponible -> no_disponible
- * excluido -> excluido
+ * El fixture conserva el catálogo B2 sin agrupar situaciones.
  */
-function mapearSituacion(estadoClave) {
-  switch (estadoClave) {
-    case "trabajando":
-    case "pendiente_incorporacion":
-      return "ocupado";
-    case "disponible_desde":
-    case "no_disponible":
-      return "no_disponible";
-    case "renuncia":
-      return "renuncia_pendiente";
-    case "disponible":
-      return "disponible";
-    case "excluido":
-      return "excluido";
-    default:
-      return "no_disponible";
-  }
-}
+function mapearSituacion(estadoClave) { return estadoClave; }
 
 function construirFixturesDesdeDemo() {
   const candidaturasPorBolsa = new Map();
@@ -83,10 +60,12 @@ function construirFixturesDesdeDemo() {
     const candidaturas = candidaturasPorBolsa.get(b.bolsa_ref) || [];
     const porEstado = {
       disponible: 0,
-      ocupado: 0,
       no_disponible: 0,
+      trabajando: 0,
+      pendiente_incorporacion: 0,
+      renuncia: 0,
       excluido: 0,
-      renuncia_pendiente: 0,
+      disponible_desde: 0,
     };
     for (const c of candidaturas) {
       const situacion = mapearSituacion(c.estado_clave);
@@ -115,7 +94,7 @@ function construirFixturesDesdeDemo() {
         llamamiento_ref: `llam_${c.candidatura_ref.replace(/[^a-zA-Z0-9]/g, "_")}`,
         comunicado_en: new Date(c.estado_desde).toISOString(),
         canal: "correo",
-        resultado: situacion === "ocupado" ? "aceptado" : "sin_respuesta",
+        resultado: situacion === "trabajando" ? "aceptado" : "sin_respuesta",
       };
     }
     return {
