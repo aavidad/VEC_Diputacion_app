@@ -34,6 +34,10 @@ export const MENSAJES_PORTAL_ES = Object.freeze({
   accion_volver_portal: "Volver al portal",
   accion_entrar: "Entrar",
   accion_reintentar: "Reintentar",
+  paginacion_marco_etiqueta: "Paginación de la tabla",
+  paginacion_marco_recuento: "Mostrando {inicio}–{fin} de {total}",
+  paginacion_marco_anterior: "Anterior",
+  paginacion_marco_siguiente: "Siguiente",
 });
 
 const CLAVES = Object.freeze(Object.keys(MENSAJES_PORTAL_ES));
