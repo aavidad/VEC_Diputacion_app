@@ -6,6 +6,7 @@ import (
 	"errors"
 	"testing"
 
+	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
@@ -111,5 +112,33 @@ func TestKMSContactoUsuarioNiegaOtraClaveYBorraTrasError(t *testing.T) {
 	})
 	if !errors.Is(err, errKMSContactoUsuarioNoDisponible) || len(prestado) == 0 || !bytes.Equal(prestado, make([]byte, len(prestado))) {
 		t.Fatal("no redactó el error o conservó el claro tras fallar el consumidor")
+	}
+}
+
+func TestKMSDatosContactoParticipacionLigaParticipacionYVersion(t *testing.T) {
+	k, _, _ := nuevosProveedoresKMSPrueba(t)
+	claro := []byte(`{"esquema":"vec.bolsa.datos-contacto-participacion.v1","correo":"c@dipgra.es","telefono_1":"600123456","telefono_2":""}`)
+	s, err := k.CifrarDatosContactoParticipacion(context.Background(), "participacion:bolsa:0001", 1, claro)
+	if err != nil || s.Validar() != nil || s.Version != 1 || bytes.Contains(s.Cifrado, []byte("dipgra")) {
+		t.Fatalf("sobre=%+v err=%v", s, err)
+	}
+	var got []byte
+	if err = k.ConDatosContactoParticipacionDescifrados(context.Background(), "participacion:bolsa:0001", s, func(v []byte) error { got = append([]byte(nil), v...); return nil }); err != nil || !bytes.Equal(got, claro) {
+		t.Fatalf("lectura=%q %v", got, err)
+	}
+	if err = k.ConDatosContactoParticipacionDescifrados(context.Background(), "participacion:bolsa:0002", s, func([]byte) error { return nil }); err == nil {
+		t.Fatal("aceptó otra participación")
+	}
+	otro := s
+	otro.Version = 2
+	if err = k.ConDatosContactoParticipacionDescifrados(context.Background(), "participacion:bolsa:0001", otro, func([]byte) error { return nil }); err == nil {
+		t.Fatal("aceptó otra versión")
+	}
+	if _, err = k.CifrarContactoUsuario(context.Background(), "per_0123456789abcdefghijkl", 1, claro); err == nil {
+		// La subclave de persona es distinta: un sobre de persona no abre como contacto de participación.
+		sp, _ := k.CifrarContactoUsuario(context.Background(), "per_0123456789abcdefghijkl", 1, []byte("persona@prueba.local"))
+		if err = k.ConDatosContactoParticipacionDescifrados(context.Background(), "per_0123456789abcdefghijkl", puertosbolsa.SobreDatosContacto{Version: 1, ClaveRef: puertosbolsa.ClaveRefSobreDatosContactoDesarrollo, Nonce: sp.Nonce, Cifrado: sp.Cifrado}, func([]byte) error { return nil }); err == nil {
+			t.Fatal("un sobre de contacto de persona no debe abrirse como datos de participación")
+		}
 	}
 }

@@ -9,7 +9,9 @@ import (
 	"errors"
 	"io"
 	"reflect"
+	"strings"
 
+	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -111,3 +113,89 @@ func dependenciaContactoKMSNula(v any) bool {
 }
 
 var _ vecports.ProtectorContactoUsuario = (*emisorKMSDesarrollo)(nil)
+
+// B4: los datos de contacto de una participación en bolsa (correo y dos
+// teléfonos) se protegen con una subclave distinta de la del contacto de
+// persona, ligada por los datos asociados a la participación y a la versión.
+const dominioKMSDatosContactoParticipacionDesarrollo = "vec.kms.desarrollo.datos-contacto-participacion.v1"
+
+func (e *emisorKMSDesarrollo) CifrarDatosContactoParticipacion(ctx context.Context, participacionRef string, version uint64, claro []byte) (puertosbolsa.SobreDatosContacto, error) {
+	if e == nil || ctx == nil || ctx.Err() != nil || dependenciaContactoKMSNula(e.aleatorio) || claveContactoKMSCero(e.claveEnvoltura) || !participacionKMSValida(participacionRef) || version == 0 || len(claro) == 0 || len(claro) > 2048 {
+		return puertosbolsa.SobreDatosContacto{}, errKMSContactoUsuarioNoDisponible
+	}
+	aad, err := aadDatosContactoParticipacionDesarrollo(participacionRef, version)
+	if err != nil {
+		return puertosbolsa.SobreDatosContacto{}, errKMSContactoUsuarioNoDisponible
+	}
+	defer borrarBytes(aad)
+	clave := derivarClaveDesarrollo(e.claveEnvoltura, dominioKMSDatosContactoParticipacionDesarrollo)
+	defer borrarBytes(clave[:])
+	b, err := aes.NewCipher(clave[:])
+	if err != nil {
+		return puertosbolsa.SobreDatosContacto{}, errKMSContactoUsuarioNoDisponible
+	}
+	g, err := cipher.NewGCM(b)
+	if err != nil {
+		return puertosbolsa.SobreDatosContacto{}, errKMSContactoUsuarioNoDisponible
+	}
+	nonce := make([]byte, g.NonceSize())
+	if _, err = io.ReadFull(e.aleatorio, nonce); err != nil {
+		borrarBytes(nonce)
+		return puertosbolsa.SobreDatosContacto{}, errKMSContactoUsuarioNoDisponible
+	}
+	cifrado := g.Seal(nil, nonce, claro, aad)
+	if ctx.Err() != nil {
+		borrarBytes(nonce)
+		borrarBytes(cifrado)
+		return puertosbolsa.SobreDatosContacto{}, errKMSContactoUsuarioNoDisponible
+	}
+	return puertosbolsa.SobreDatosContacto{Version: version, ClaveRef: puertosbolsa.ClaveRefSobreDatosContactoDesarrollo, Nonce: nonce, Cifrado: cifrado}, nil
+}
+
+func (e *emisorKMSDesarrollo) ConDatosContactoParticipacionDescifrados(ctx context.Context, participacionRef string, sobre puertosbolsa.SobreDatosContacto, usar func([]byte) error) error {
+	if e == nil || ctx == nil || ctx.Err() != nil || usar == nil || dependenciaContactoKMSNula(e.aleatorio) || claveContactoKMSCero(e.claveEnvoltura) || !participacionKMSValida(participacionRef) || sobre.Version == 0 || sobre.ClaveRef != puertosbolsa.ClaveRefSobreDatosContactoDesarrollo || len(sobre.Nonce) != 12 || len(sobre.Cifrado) < 16 || len(sobre.Cifrado) > 2064 {
+		return errKMSContactoUsuarioNoDisponible
+	}
+	aad, err := aadDatosContactoParticipacionDesarrollo(participacionRef, sobre.Version)
+	if err != nil {
+		return errKMSContactoUsuarioNoDisponible
+	}
+	defer borrarBytes(aad)
+	clave := derivarClaveDesarrollo(e.claveEnvoltura, dominioKMSDatosContactoParticipacionDesarrollo)
+	defer borrarBytes(clave[:])
+	b, err := aes.NewCipher(clave[:])
+	if err != nil {
+		return errKMSContactoUsuarioNoDisponible
+	}
+	g, err := cipher.NewGCM(b)
+	if err != nil {
+		return errKMSContactoUsuarioNoDisponible
+	}
+	claro, err := g.Open(nil, sobre.Nonce, sobre.Cifrado, aad)
+	if err != nil || ctx.Err() != nil {
+		borrarBytes(claro)
+		return errKMSContactoUsuarioNoDisponible
+	}
+	defer borrarBytes(claro)
+	if err = usar(claro); err != nil || ctx.Err() != nil {
+		return errKMSContactoUsuarioNoDisponible
+	}
+	return nil
+}
+
+func participacionKMSValida(ref string) bool {
+	return len(ref) >= 8 && len(ref) <= 256 && strings.TrimSpace(ref) == ref && !strings.ContainsAny(ref, " \t\r\n\"")
+}
+
+func aadDatosContactoParticipacionDesarrollo(participacionRef string, version uint64) ([]byte, error) {
+	if !participacionKMSValida(participacionRef) || version == 0 {
+		return nil, errKMSContactoUsuarioNoDisponible
+	}
+	return json.Marshal(struct {
+		Esquema       string `json:"esquema"`
+		Participacion string `json:"participacion_ref"`
+		Version       uint64 `json:"version"`
+	}{"vec.bolsa.datos_contacto_participacion.secreto.v1", participacionRef, version})
+}
+
+var _ puertosbolsa.CifradorDatosContactoParticipacion = (*emisorKMSDesarrollo)(nil)
