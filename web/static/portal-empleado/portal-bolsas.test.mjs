@@ -28,11 +28,25 @@ import {
   consultarBolsas,
   consultarCandidatosBolsa,
   consultarContactosCandidato,
+  cambiarSituacionCandidato,
   crearLlamamientoCandidato,
   registrarResultadoLlamamiento,
   rutaCandidatosBolsa,
   crearControladorBolsas,
 } from "./portal-bolsas-api.js";
+
+test("cambiar situación B2 envía idempotencia y conserva el recibo", async () => {
+  let observada;
+  const resultado = await cambiarSituacionCandidato("bolsa:01", "participacion:01", { situacion: "no_disponible", motivo: "Pausa comunicada", fecha_disponible: null, clave_idempotencia: "b2-cambio-0001" }, { fetchImpl: async (url, opciones) => {
+    observada = { url, opciones };
+    return { ok: true, status: 201, json: async () => ({ data: { recibo_ref: "recibo:situacion:01", situacion: "no_disponible" } }) };
+  }});
+  assert.equal(resultado.ok, true);
+  assert.equal(resultado.datos.recibo_ref, "recibo:situacion:01");
+  assert.equal(observada.opciones.headers["Idempotency-Key"], "b2-cambio-0001");
+  assert.equal(observada.opciones.credentials, "omit");
+  assert.match(observada.url, /\/bolsa:01\/candidatos\/participacion:01\/situacion$/);
+});
 
 import { crearPresentadorPanelInterno } from "./portal-panel-interno.js";
 import { crearFuenteLecturaBolsasPresentacion } from "./portal-presentacion-adaptador.js";

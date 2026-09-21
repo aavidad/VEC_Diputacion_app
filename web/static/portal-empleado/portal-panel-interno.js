@@ -520,6 +520,7 @@ export function crearPresentadorPanelInterno(dependencias) {
         <button type="submit" class="boton-primario"${destinos.length ? "" : " disabled"}>Guardar cambio</button>
         <p class="mensaje-error" role="alert">${escaparHTML(modal.errorCambioSituacion || "")}</p>
       </form>` : "";
+    const reciboSituacion = modal.reciboSituacion ? `<p class="mensaje-exito" role="status">Cambio registrado. Recibo <code>${escaparHTML(modal.reciboSituacion)}</code>.</p>` : "";
 
     return `
       <tr class="fila-ficha-participacion" data-ficha-participacion-ref="${escaparHTML(candidato.participacion_ref)}">
@@ -540,6 +541,7 @@ export function crearPresentadorPanelInterno(dependencias) {
                 <div class="fila-resumen"><dt>Referencia de participación</dt><dd><code>${escaparHTML(candidato.participacion_ref)}</code></dd></div>
                 ${ultimoLlamamiento}
               </dl>
+              ${reciboSituacion}
             </div>
             <div class="acciones-vista">
               <button type="button" class="boton-primario" data-bolsa-accion="abrir-cambio-situacion">Cambiar situación</button>

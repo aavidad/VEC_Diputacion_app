@@ -134,14 +134,19 @@ export async function cambiarSituacionCandidato(bolsaRef, participacionRef, payl
     return { ok: false, status: 400, codigo: "solicitud_invalida", mensaje: "Faltan los datos obligatorios del cambio de situación." };
   }
   try {
-    const respuesta = await fetchImpl(`${rutaCandidatosBolsa(bolsaRef)}/${segmentoRuta(participacionRef)}/situacion`, {
+    const respuesta = await fetchImpl(`${RUTA_BOLSAS}/${segmentoRuta(bolsaRef)}/candidatos/${segmentoRuta(participacionRef)}/situacion`, {
       method: "POST", credentials: "omit",
       headers: { Accept: "application/json", "Content-Type": "application/json", "Idempotency-Key": payload.clave_idempotencia },
       body: JSON.stringify({ situacion: payload.situacion, motivo: payload.motivo, fecha_disponible: payload.fecha_disponible || null }),
     });
     const cuerpo = await respuesta.json().catch(() => ({}));
     if (respuesta.ok && cuerpo?.data?.recibo_ref) return { ok: true, datos: cuerpo.data };
-    return { ok: false, status: respuesta.status, codigo: cuerpo?.error?.codigo || "error_servidor", mensaje: respuesta.status === 403 ? "La sesión no dispone de permiso para cambiar esta situación." : "No se pudo registrar el cambio de situación." };
+    const mensaje = respuesta.status === 403
+      ? "La sesión no dispone de permiso para cambiar esta situación."
+      : respuesta.status === 409
+        ? "El cambio entra en conflicto con la situación vigente o con un reintento anterior."
+        : "No se pudo registrar el cambio de situación.";
+    return { ok: false, status: respuesta.status, codigo: cuerpo?.error?.codigo || "error_servidor", mensaje };
   } catch (error) {
     return { ok: false, status: 0, codigo: "error_red", mensaje: error instanceof Error ? error.message : "Error de comunicación." };
   }
@@ -685,11 +690,26 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
           if (estado.modalFicha) { estado.modalFicha.errorCambioSituacion = "Indique destino, motivo y la fecha futura cuando corresponda."; renderizar(); }
           return;
         }
-        const clave = globalThis.crypto?.randomUUID?.() || `situacion-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        const fechaDisponible = fecha ? new Date(fecha).toISOString() : null;
+        const huellaComando = JSON.stringify([situacion, motivo, fechaDisponible]);
+        let clave = estado.modalFicha?.claveCambioSituacion;
+        if (!clave || estado.modalFicha?.huellaCambioSituacion !== huellaComando) {
+          clave = globalThis.crypto?.randomUUID?.() || `situacion-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+          if (estado.modalFicha) {
+            estado.modalFicha.claveCambioSituacion = clave;
+            estado.modalFicha.huellaCambioSituacion = huellaComando;
+          }
+        }
         void cambiarSituacionCandidato(estado.bolsaSeleccionada, formCambioSituacion.dataset.participacionRef, {
-          situacion, motivo, fecha_disponible: fecha ? new Date(fecha).toISOString() : null, clave_idempotencia: clave,
-        }).then((res) => {
-          if (res.ok) { estado.modalFicha = null; void cargarCandidatosBolsa(estado.bolsaSeleccionada); }
+          situacion, motivo, fecha_disponible: fechaDisponible, clave_idempotencia: clave,
+        }).then(async (res) => {
+          if (res.ok) {
+            const participacionRef = formCambioSituacion.dataset.participacionRef;
+            estado.modalFicha = null;
+            await cargarCandidatosBolsa(estado.bolsaSeleccionada);
+            abrirFicha(participacionRef);
+            if (estado.modalFicha) { estado.modalFicha.reciboSituacion = res.datos.recibo_ref; renderizar(); }
+          }
           else if (estado.modalFicha) { estado.modalFicha.errorCambioSituacion = res.mensaje; renderizar(); }
         });
         return;
