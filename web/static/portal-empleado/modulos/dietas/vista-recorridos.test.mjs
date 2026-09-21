@@ -221,11 +221,12 @@ test("mantiene rutas e itinerario ocultos hasta abrir una nueva comisión", asyn
   contenedor.append(indicador);
   let areaMapa;
   let montajes = 0;
+  let limpiezas = 0;
   const vista = montarVistaRecorridosDietas(contenedor, {
     montarItinerario: (area) => {
       montajes += 1;
       areaMapa = area;
-      return { desmontar() {} };
+      return { desmontar() { limpiezas += 1; } };
     },
   });
   const raiz = contenedor.querySelector("[data-dietas-recorridos]");
@@ -246,7 +247,35 @@ test("mantiene rutas e itinerario ocultos hasta abrir una nueva comisión", asyn
   assert.equal(contenedor.querySelector("[data-cargando]"), null);
   raiz.listeners.click({ target: raiz.querySelector("[data-dietas-cerrar-nueva-comision]") });
   assert.equal(nueva.hidden, true);
+  assert.equal(limpiezas, 1, "cerrar libera el itinerario ya montado");
+  raiz.listeners.click({
+    target: raiz.querySelector("[data-dietas-abrir-nueva-comision]"),
+  });
+  await Promise.resolve();
+  assert.equal(montajes, 2, "una reapertura inicia un itinerario nuevo");
   vista.desmontar();
+});
+
+test("no recupera un itinerario de una apertura cerrada al reabrir", async () => {
+  const contenedor = crearRaiz();
+  const pendientes = [];
+  let limpiezas = 0;
+  const vista = montarVistaRecorridosDietas(contenedor, {
+    montarItinerario: () => new Promise((resolve) => pendientes.push(resolve)),
+  });
+  const raiz = contenedor.querySelector("[data-dietas-recorridos]");
+  const pulsar = (selector) => raiz.listeners.click({ target: raiz.querySelector(selector) });
+  pulsar("[data-dietas-abrir-nueva-comision]");
+  pulsar("[data-dietas-cerrar-nueva-comision]");
+  pulsar("[data-dietas-abrir-nueva-comision]");
+  assert.equal(pendientes.length, 2);
+  pendientes[0]({ desmontar() { limpiezas += 1; } });
+  await Promise.resolve();
+  assert.equal(limpiezas, 1, "la respuesta antigua se libera al resolver");
+  pendientes[1]({ desmontar() { limpiezas += 1; } });
+  await Promise.resolve();
+  vista.desmontar();
+  assert.equal(limpiezas, 2, "la apertura vigente se libera al desmontar");
 });
 
 test("desmonta un itinerario asíncrono que resuelve después de abandonar la vista", async () => {

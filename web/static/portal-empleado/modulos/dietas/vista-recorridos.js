@@ -362,6 +362,7 @@ export function montarVistaRecorridosDietas(
   let desmontarBorradores = () => {};
   let desmontarItinerario = () => {};
   let itinerarioIniciado = false;
+  let generacionItinerario = 0;
   const areaBorradores = elemento(documento, "div");
   areaBorradores.dataset.dietasAreaBorradores = "";
   try {
@@ -383,21 +384,31 @@ export function montarVistaRecorridosDietas(
   if (areaItinerario) {
     areaItinerario.dataset.dietasAreaItinerario = "";
   }
+  function detenerItinerario() {
+    // Cerrar una alta propia abandona su cálculo: no debe mantener un visor
+    // activo ni aceptar el resultado diferido de una apertura anterior.
+    generacionItinerario += 1;
+    itinerarioIniciado = false;
+    desmontarItinerario();
+    desmontarItinerario = () => {};
+    areaItinerario?.replaceChildren?.();
+  }
   function iniciarItinerario() {
     if (!areaItinerario || itinerarioIniciado || !activa) return;
     itinerarioIniciado = true;
+    const generacion = ++generacionItinerario;
     try {
       Promise.resolve(montarItinerario(areaItinerario)).then(
         (vista) => {
           if (typeof vista?.desmontar !== "function") return;
-          if (!activa) {
+          if (!activa || generacion !== generacionItinerario) {
             vista.desmontar();
             return;
           }
           desmontarItinerario = vista.desmontar;
         },
         () => {
-          if (activa && sigueMontada(contenedor, raiz))
+          if (activa && generacion === generacionItinerario && sigueMontada(contenedor, raiz))
             areaItinerario.append(
               elemento(documento, "p", traducir("recorridos_sin_datos")),
             );
@@ -471,7 +482,10 @@ export function montarVistaRecorridosDietas(
       if (abierta) {
         iniciarItinerario();
         zonaNueva?.focus?.();
-      } else botonAbrir?.focus?.();
+      } else {
+        detenerItinerario();
+        botonAbrir?.focus?.();
+      }
       return;
     }
     const boton = evento.target?.closest?.("[data-dietas-cambiar-etapa]");
@@ -508,7 +522,7 @@ export function montarVistaRecorridosDietas(
     activa = false;
     raiz.removeEventListener("click", cambiarEtapa);
     desmontarBorradores();
-    desmontarItinerario();
+    detenerItinerario();
     retirar(contenedor, raiz);
   }
   raiz.addEventListener("click", cambiarEtapa);
