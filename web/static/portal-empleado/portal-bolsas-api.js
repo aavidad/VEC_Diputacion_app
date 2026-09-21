@@ -129,6 +129,24 @@ export async function consultarCandidatosBolsa(bolsaRef, opciones = {}, { fetchI
   }
 }
 
+export async function cambiarSituacionCandidato(bolsaRef, participacionRef, payload, { fetchImpl = fetch } = {}) {
+  if (!bolsaRef || !participacionRef || !payload?.situacion || !payload?.motivo || !payload?.clave_idempotencia) {
+    return { ok: false, status: 400, codigo: "solicitud_invalida", mensaje: "Faltan los datos obligatorios del cambio de situación." };
+  }
+  try {
+    const respuesta = await fetchImpl(`${rutaCandidatosBolsa(bolsaRef)}/${segmentoRuta(participacionRef)}/situacion`, {
+      method: "POST", credentials: "omit",
+      headers: { Accept: "application/json", "Content-Type": "application/json", "Idempotency-Key": payload.clave_idempotencia },
+      body: JSON.stringify({ situacion: payload.situacion, motivo: payload.motivo, fecha_disponible: payload.fecha_disponible || null }),
+    });
+    const cuerpo = await respuesta.json().catch(() => ({}));
+    if (respuesta.ok && cuerpo?.data?.recibo_ref) return { ok: true, datos: cuerpo.data };
+    return { ok: false, status: respuesta.status, codigo: cuerpo?.error?.codigo || "error_servidor", mensaje: respuesta.status === 403 ? "La sesión no dispone de permiso para cambiar esta situación." : "No se pudo registrar el cambio de situación." };
+  } catch (error) {
+    return { ok: false, status: 0, codigo: "error_red", mensaje: error instanceof Error ? error.message : "Error de comunicación." };
+  }
+}
+
 export async function consultarContactosCandidato(participacionRef, { fetchImpl = fetch, signal } = {}) {
   if (typeof participacionRef !== "string" || participacionRef.trim() === "") {
     return { ok: false, status: 400, codigo: "referencia_invalida", mensaje: "Referencia de candidato no válida." };
@@ -457,6 +475,13 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     documento.querySelector("[data-bolsa-ficha-inline='true']")?.focus?.();
   }
 
+  function abrirCambioSituacion() {
+    if (!estado.modalFicha) return;
+    estado.modalFicha.cambioSituacion = true;
+    estado.modalFicha.errorCambioSituacion = "";
+    renderizar();
+  }
+
   function cerrarFicha() {
     const participacionRef = estado.modalFicha?.candidato?.participacion_ref;
     estado.modalFicha = null;
@@ -540,6 +565,10 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
         evento.preventDefault();
         estado.filtrosBolsa = { estado: "", texto: "" };
         void cargarCandidatosBolsa(estado.bolsaSeleccionada);
+      } else if (accion === "filtrar-estado") {
+        evento.preventDefault();
+        estado.filtrosBolsa = { ...estado.filtrosBolsa, estado: botonAccion.dataset.estado || "" };
+        void cargarCandidatosBolsa(estado.bolsaSeleccionada);
       } else if (accion === "pagina-siguiente") {
         evento.preventDefault();
         const cursor = botonAccion.dataset.cursor || "";
@@ -552,6 +581,9 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
       } else if (accion === "abrir-ficha") {
         evento.preventDefault();
         abrirFicha(botonAccion.dataset.participacionRef);
+      } else if (accion === "abrir-cambio-situacion") {
+        evento.preventDefault();
+        abrirCambioSituacion();
       } else if (accion === "cerrar-ficha") {
         evento.preventDefault();
         cerrarFicha();
@@ -638,6 +670,27 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
               renderizar();
             }
           }
+        });
+        return;
+      }
+
+      const formCambioSituacion = evento.target?.closest?.('[data-bolsa-form="cambio-situacion"]');
+      if (formCambioSituacion) {
+        evento.preventDefault();
+        const datos = new FormData(formCambioSituacion);
+        const situacion = String(datos.get("situacion") || "");
+        const motivo = String(datos.get("motivo") || "").trim();
+        const fecha = String(datos.get("fecha_disponible") || "");
+        if (!situacion || !motivo || (situacion === "disponible_desde" && !fecha)) {
+          if (estado.modalFicha) { estado.modalFicha.errorCambioSituacion = "Indique destino, motivo y la fecha futura cuando corresponda."; renderizar(); }
+          return;
+        }
+        const clave = globalThis.crypto?.randomUUID?.() || `situacion-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        void cambiarSituacionCandidato(estado.bolsaSeleccionada, formCambioSituacion.dataset.participacionRef, {
+          situacion, motivo, fecha_disponible: fecha ? new Date(fecha).toISOString() : null, clave_idempotencia: clave,
+        }).then((res) => {
+          if (res.ok) { estado.modalFicha = null; void cargarCandidatosBolsa(estado.bolsaSeleccionada); }
+          else if (estado.modalFicha) { estado.modalFicha.errorCambioSituacion = res.mensaje; renderizar(); }
         });
         return;
       }

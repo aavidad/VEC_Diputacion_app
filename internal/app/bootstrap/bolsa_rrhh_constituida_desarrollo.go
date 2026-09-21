@@ -20,6 +20,7 @@ import (
 // no se almacenan en claro: se recuperan del staging protegido del acta al leer.
 type fuenteConstituidaRRHHDesarrollo struct {
 	repositorio ports.RepositorioConstitucion
+	situaciones ports.RepositorioSituacionParticipacion
 	recuperador constitucion.Recuperador
 	categorias  map[string]string
 	grupos      map[string][]string
@@ -43,6 +44,11 @@ func nuevaFuenteConstituidaRRHHDesarrollo(ctx context.Context, cfg config.Config
 		return nil
 	}
 	repositorio, err := postgresbolsa.NuevoRepositorioConstitucionPostgreSQL(poolBolsa)
+	if err != nil {
+		poolBolsa.Close()
+		return nil
+	}
+	situaciones, err := postgresbolsa.NuevoRepositorioSituacionParticipacionPostgreSQL(poolBolsa)
 	if err != nil {
 		poolBolsa.Close()
 		return nil
@@ -80,7 +86,7 @@ func nuevaFuenteConstituidaRRHHDesarrollo(ctx context.Context, cfg config.Config
 			}
 		}
 	}
-	return &fuenteConstituidaRRHHDesarrollo{repositorio: repositorio, recuperador: recuperador, categorias: categorias, grupos: grupos, ahora: time.Now}
+	return &fuenteConstituidaRRHHDesarrollo{repositorio: repositorio, situaciones: situaciones, recuperador: recuperador, categorias: categorias, grupos: grupos, ahora: time.Now}
 }
 
 func (f *fuenteConstituidaRRHHDesarrollo) constituidas(ctx context.Context) (datasetBolsasRRHHDesarrollo, bool) {
@@ -103,7 +109,7 @@ func (f *fuenteConstituidaRRHHDesarrollo) constituidas(ctx context.Context) (dat
 }
 
 func (f *fuenteConstituidaRRHHDesarrollo) cargar(ctx context.Context) (datasetBolsasRRHHDesarrollo, error) {
-	if f == nil || f.repositorio == nil || f.recuperador == nil || f.ahora == nil {
+	if f == nil || f.repositorio == nil || f.situaciones == nil || f.recuperador == nil || f.ahora == nil {
 		return datasetBolsasRRHHDesarrollo{}, ErrComposicionDesarrolloIncompleta
 	}
 	vigentes, err := f.repositorio.ListarVigentes(ctx)
@@ -145,6 +151,15 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargar(ctx context.Context) (datasetBo
 			if !encontrada {
 				return datasetBolsasRRHHDesarrollo{}, ErrComposicionDesarrolloIncompleta
 			}
+			situacion, err := f.situaciones.SituacionVigente(ctx, entrada.ParticipacionRef)
+			if err != nil {
+				return datasetBolsasRRHHDesarrollo{}, err
+			}
+			var disponible *string
+			if situacion.FechaDisponible != nil {
+				valor := situacion.FechaDisponible.UTC().Format(time.RFC3339)
+				disponible = &valor
+			}
 			datos.Candidaturas = append(datos.Candidaturas, struct {
 				Referencia  string  `json:"candidatura_ref"`
 				BolsaRef    string  `json:"bolsa_ref"`
@@ -156,7 +171,7 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargar(ctx context.Context) (datasetBo
 				Disponible  *string `json:"disponible_desde"`
 			}{
 				Referencia: entrada.ParticipacionRef, BolsaRef: vigente.Bolsa.BolsaRef, Orden: int(entrada.Orden),
-				Nombre: visible.nombre, Documento: visible.documento, Estado: constitucion.EstadoInicial, EstadoDesde: desde,
+				Nombre: visible.nombre, Documento: visible.documento, Estado: situacion.Situacion, EstadoDesde: situacion.Desde.UTC().Format(time.RFC3339), Disponible: disponible,
 			})
 		}
 	}

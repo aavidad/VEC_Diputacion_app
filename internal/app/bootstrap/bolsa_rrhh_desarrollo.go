@@ -298,20 +298,9 @@ func (h *bolsasRRHHDesarrolloDatos) salidaCandidata(candidata struct {
 }
 
 func mapaEstadosVacio() map[string]int {
-	return map[string]int{"disponible": 0, "ocupado": 0, "no_disponible": 0, "excluido": 0, "renuncia_pendiente": 0}
+	return map[string]int{"disponible": 0, "no_disponible": 0, "trabajando": 0, "pendiente_incorporacion": 0, "renuncia": 0, "excluido": 0, "disponible_desde": 0}
 }
-func estadoBolsaCanonico(origen string) string {
-	switch origen {
-	case "trabajando", "pendiente_incorporacion":
-		return "ocupado"
-	case "renuncia":
-		return "renuncia_pendiente"
-	case "disponible_desde":
-		return "disponible"
-	default:
-		return origen
-	}
-}
+func estadoBolsaCanonico(origen string) string { return origen }
 func estadoBolsaVisible(estado string) bool { _, ok := mapaEstadosVacio()[estado]; return ok }
 func instanteBolsasRRHH(valor string) string {
 	if _, err := time.Parse(time.RFC3339, valor); err == nil {

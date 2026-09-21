@@ -252,7 +252,7 @@ export function crearFuenteLecturaBolsasPresentacion({ datosIniciales } = {}) {
     const bolsaRef = String(bolsa.id);
     const candidatos = [
       ["Aspirante sintético A", "***0001**", "disponible"],
-      ["Aspirante sintético B", "***0002**", "ocupado"],
+      ["Aspirante sintético B", "***0002**", "trabajando"],
       ["Aspirante sintético C", "***0003**", "no_disponible"],
       ["Aspirante sintético D", "***0004**", "excluido"],
     ].map(([nombre_visible, documento_enmascarado, estado_clave], posicion) => ({
@@ -266,7 +266,8 @@ export function crearFuenteLecturaBolsasPresentacion({ datosIniciales } = {}) {
       ultimo_llamamiento: null,
     }));
     const por_estado = {
-      disponible: 1, ocupado: 1, no_disponible: 1, excluido: 1, renuncia_pendiente: 0,
+      disponible: 1, no_disponible: 1, trabajando: 1, pendiente_incorporacion: 0,
+      renuncia: 0, excluido: 1, disponible_desde: 0,
     };
     return {
       bolsa: {

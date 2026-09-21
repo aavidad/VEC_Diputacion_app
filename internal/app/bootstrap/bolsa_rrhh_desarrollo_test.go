@@ -37,6 +37,18 @@ type recuperadorBolsasRRHHPrueba struct {
 	existe bool
 }
 
+type situacionesBolsasRRHHPrueba struct{ situacion ports.SituacionParticipacion }
+
+func (r situacionesBolsasRRHHPrueba) SituacionVigente(context.Context, string) (ports.SituacionParticipacion, error) {
+	return r.situacion, nil
+}
+func (situacionesBolsasRRHHPrueba) BuscarRegistroSituacion(context.Context, string, string) (ports.RegistroSituacionParticipacion, error) {
+	return ports.RegistroSituacionParticipacion{}, ports.ErrSituacionParticipacionNoEncontrada
+}
+func (situacionesBolsasRRHHPrueba) RegistrarSituacion(context.Context, string, string, time.Time, *time.Time, string, string, string, string, time.Time) (ports.RegistroSituacionParticipacion, error) {
+	return ports.RegistroSituacionParticipacion{}, ports.ErrSituacionParticipacionNoDisponible
+}
+
 func (r recuperadorBolsasRRHHPrueba) RecuperarLote(context.Context, string, string) (importaciondominio.LoteValidado, importacionapp.EstadoImportacion, bool, error) {
 	return r.lote, importacionapp.EstadoImportacion{}, r.existe, nil
 }
@@ -160,6 +172,7 @@ func TestFuenteConstituidaRRHHNoSirveEntradasSinFilaProtegida(t *testing.T) {
 		t.Run(caso.nombre, func(t *testing.T) {
 			fuente := &fuenteConstituidaRRHHDesarrollo{
 				repositorio: repositorioBolsasRRHHPrueba{vigentes: []ports.ConstitucionVigente{vigente}, entradas: []ports.EntradaConstitucion{{Orden: 1, ParticipacionRef: "participacion:001", FilaNumero: 2}}},
+				situaciones: situacionesBolsasRRHHPrueba{situacion: ports.SituacionParticipacion{ParticipacionRef: "participacion:001", Situacion: "disponible", Desde: time.Date(2026, 9, 20, 10, 0, 0, 0, time.UTC)}},
 				recuperador: recuperadorBolsasRRHHPrueba{existe: caso.existe},
 				ahora:       func() time.Time { return time.Date(2026, 9, 20, 10, 0, 0, 0, time.UTC) },
 			}
