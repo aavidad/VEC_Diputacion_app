@@ -1,7 +1,7 @@
 \set ON_ERROR_STOP on
--- AD3-000044. Sólo admite la preimagen canónica atestada de V3.
--- No declara compatibilidad por número de migración: CT y Personal ya son
--- guardas del núcleo y han de llegar intactas.
+-- AD3-000044. Extiende estructuralmente el núcleo V3 posterior a AD3-32 y
+-- AD3-43. No usa autohuellas: preserva las guardas previas y comprueba las
+-- fachadas antecedentes con su firma nominal.
 BEGIN;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
 SET LOCAL search_path=pg_catalog;
@@ -13,19 +13,18 @@ SELECT pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:migr
 DO $precondicion$
 DECLARE
  f oid := 'vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
- definicion text;
 BEGIN
- SELECT pg_get_functiondef(p.oid) INTO STRICT definicion FROM pg_proc p WHERE p.oid=f;
  IF current_user<>'vec_autorizacion_atestada_v3_propietario'
     OR NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='vec_bolsa_llamamientos_propietario' AND NOT rolcanlogin AND NOT rolbypassrls)
     OR NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='vec_bolsa_llamamientos_ejecutor' AND NOT rolcanlogin AND NOT rolbypassrls)
     OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_creacion_borrador_llamamiento_interno_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
     OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_consulta_borrador_llamamiento_interno_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
-    OR to_regprocedure('pg_catalog.sha256(bytea)') IS NULL
-    OR NOT EXISTS(SELECT 1 FROM pg_proc WHERE oid=f AND proowner='vec_autorizacion_atestada_v3_propietario'::regrole AND prosecdef AND proconfig=ARRAY['search_path=pg_catalog','lock_timeout=2s'])
-    OR md5(definicion)<>'a5421f99d431ca1b24b746e2cab95623'
-    OR encode(sha256(convert_to(definicion,'UTF8')),'hex')<>'1091df6714ab61f8dc4d7ca34ee50f3246e8080530ffcff348893a71886cb45d' THEN
-  RAISE EXCEPTION 'preimagen canónica incompatible para B-BACK-01 V3' USING ERRCODE='55000';
+    OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_despacho_correo_llamamiento_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
+    OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_resultado_correo_llamamiento_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
+    OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_mi_bolsa_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
+    OR NOT EXISTS(SELECT 1 FROM pg_proc WHERE oid=f AND proowner='vec_autorizacion_atestada_v3_propietario'::regrole AND prosecdef AND prokind='f' AND provolatile='v' AND pg_get_function_identity_arguments(oid)='p_perfil_mutacion text, p_capacidad_canonica bytea, p_decision_canonica bytea, p_motivo_canonico bytea, p_contexto_actor_canonico bytea, p_persona_version numeric, p_perfil_version numeric, p_payload_vec_ad_3 bytea, p_sobre_cose_sign1 bytea, p_evidencia_verificacion bytea, p_raiz_publica_spki bytea' AND proconfig=ARRAY['search_path=pg_catalog','lock_timeout=2s'])
+    THEN
+  RAISE EXCEPTION 'estructura V3 posterior a AD3-32/43 incompatible para B-BACK-01' USING ERRCODE='55000';
  END IF;
 END $precondicion$;
 
@@ -34,16 +33,12 @@ DECLARE f oid := 'vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_int
  original text; esperada text; actual text; reconstruida text;
  metadata jsonb; deps jsonb; acl aclitem[]; propietario oid; configuracion text[]; es_definidora boolean;
  marca text := E'       )\n       OR c ->> ''suite'' <> ''VEC-AD-3-COSE-EDDSA-1''';
- exclusion_ct_original text := $ct$ p_perfil_mutacion IS DISTINCT FROM 'bolsa_llamamiento'$ct$;
- exclusion_ct_bback text := $ct$ p_perfil_mutacion IS DISTINCT FROM 'bolsa_llamamiento'
-               AND p_perfil_mutacion IS DISTINCT FROM 'creacion_borrador_llamamiento_interno_bolsa'
-               AND p_perfil_mutacion IS DISTINCT FROM 'consulta_borrador_llamamiento_interno_bolsa'$ct$;
- runtime_bolsa_original text := $g$               p_perfil_mutacion IS NOT DISTINCT FROM 'bolsa_llamamiento'
-               AND NOT pg_catalog.pg_has_role(
-                   session_user, 'vec_personal_ejecutor', 'MEMBER')$g$;
- runtime_bolsa_bback text := $g$               (p_perfil_mutacion IS NOT DISTINCT FROM 'bolsa_llamamiento' OR p_perfil_mutacion IS NOT DISTINCT FROM 'creacion_borrador_llamamiento_interno_bolsa' OR p_perfil_mutacion IS NOT DISTINCT FROM 'consulta_borrador_llamamiento_interno_bolsa')
-               AND NOT pg_catalog.pg_has_role(
-                   session_user, 'vec_personal_ejecutor', 'MEMBER')$g$;
+ exclusion_ancla text := $ct$               AND p_perfil_mutacion IS DISTINCT FROM 'consulta_participaciones_propias_bolsa'$ct$;
+ exclusion_extension text := exclusion_ancla||E'\n               AND p_perfil_mutacion IS DISTINCT FROM ''creacion_borrador_llamamiento_interno_bolsa''\n               AND p_perfil_mutacion IS DISTINCT FROM ''consulta_borrador_llamamiento_interno_bolsa''';
+ runtime_ancla text := $g$               OR p_perfil_mutacion IS NOT DISTINCT FROM 'consulta_participaciones_propias_bolsa')$g$;
+ runtime_extension text := $g$               OR p_perfil_mutacion IS NOT DISTINCT FROM 'consulta_participaciones_propias_bolsa'
+               OR p_perfil_mutacion IS NOT DISTINCT FROM 'creacion_borrador_llamamiento_interno_bolsa'
+               OR p_perfil_mutacion IS NOT DISTINCT FROM 'consulta_borrador_llamamiento_interno_bolsa')$g$;
  extension text := $p$           OR (
  p_perfil_mutacion IS NOT DISTINCT FROM 'creacion_borrador_llamamiento_interno_bolsa'
  AND c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_bolsa_llamamientos.borrador_llamamiento_interno.crear.v1'
@@ -66,25 +61,25 @@ BEGIN
    INTO STRICT original,metadata,acl,propietario,configuracion,es_definidora
    FROM pg_proc p WHERE p.oid=f;
  SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb) INTO deps FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f;
- IF md5(original)<>'a5421f99d431ca1b24b746e2cab95623'
-    OR encode(sha256(convert_to(original,'UTF8')),'hex')<>'1091df6714ab61f8dc4d7ca34ee50f3246e8080530ffcff348893a71886cb45d'
-    OR length(original)-length(replace(original,marca,''))<>length(marca)
-    OR length(original)-length(replace(original,exclusion_ct_original,''))<>length(exclusion_ct_original)
-    OR length(original)-length(replace(original,runtime_bolsa_original,''))<>length(runtime_bolsa_original)
+ IF length(original)-length(replace(original,marca,''))<>length(marca)
+    OR length(original)-length(replace(original,exclusion_ancla,''))<>length(exclusion_ancla)
+    OR length(original)-length(replace(original,runtime_ancla,''))<>length(runtime_ancla)
     OR strpos(original,'creacion_borrador_llamamiento_interno_bolsa')<>0
+    OR strpos(original,'consulta_participaciones_propias_bolsa')=0
+    OR strpos(original,'despacho_correo_llamamiento_ct')=0
     OR strpos(original,'vec_autorizacion.revalidar_decision_contexto_actor_v3_viva')=0 THEN
-  RAISE EXCEPTION 'núcleo canónico no admite extensión B-BACK-01 V3' USING ERRCODE='55000';
+  RAISE EXCEPTION 'núcleo V3 AD3-32/43 no admite extensión B-BACK-01' USING ERRCODE='55000';
  END IF;
- -- Sólo se admiten tres cambios: exclusión runtime CT, perfil runtime Bolsa y
- -- bloque de perfiles. La preimagen ya contiene las guardas nominales CT/Personal.
- esperada:=replace(original,exclusion_ct_original,exclusion_ct_bback);
- esperada:=replace(esperada,runtime_bolsa_original,runtime_bolsa_bback);
+ -- Sólo se admiten tres inserciones nominales; las guardas AD3-32/43 y las
+ -- restantes extensiones del núcleo se conservan byte a byte.
+ esperada:=replace(original,exclusion_ancla,exclusion_extension);
+ esperada:=replace(esperada,runtime_ancla,runtime_extension);
  esperada:=replace(esperada,marca,extension||marca);
  EXECUTE esperada;
  SELECT pg_get_functiondef(p.oid) INTO STRICT actual FROM pg_proc p WHERE p.oid=f;
  reconstruida:=replace(actual,extension||marca,marca);
- reconstruida:=replace(reconstruida,runtime_bolsa_bback,runtime_bolsa_original);
- reconstruida:=replace(reconstruida,exclusion_ct_bback,exclusion_ct_original);
+ reconstruida:=replace(reconstruida,runtime_extension,runtime_ancla);
+ reconstruida:=replace(reconstruida,exclusion_extension,exclusion_ancla);
  IF actual IS DISTINCT FROM esperada OR reconstruida IS DISTINCT FROM original THEN
   RAISE EXCEPTION 'B-BACK-01 modificó el núcleo fuera de sus tres extensiones' USING ERRCODE='55000';
  END IF;
