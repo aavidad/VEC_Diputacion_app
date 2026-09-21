@@ -71,4 +71,5 @@ su ciclo `DOWN/UP` y el paquete conjunto ya había superado `ROLLBACK/COMMIT` en
 PostgreSQL 18.4. El servidor arrancó con la migración final; el alta devolvió
 HTTP 201, su repetición HTTP 200 con el mismo recibo y una sola fila, la lectura
 paginada HTTP 200, el comando divergente HTTP 409 y una bolsa fuera del ámbito
-nominal HTTP 403. Son identidad, datos y autoridad sintéticos de desarrollo.
+nominal HTTP 403. La composición conservó el rol B2 v2 y publicó B3 como v3
+desde esa preimagen exacta. Son identidad, datos y autoridad sintéticos de desarrollo.

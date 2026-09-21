@@ -29,7 +29,7 @@ type SolicitudRegistrarContactoParticipacion struct {
 }
 
 func (s SolicitudRegistrarContactoParticipacion) Validar() error {
-	if s.ResultadoContexto.Validar() != nil || s.Vinculo.ValidarPara(s.ResultadoContexto) != nil || s.BolsaRef == "" || s.ParticipacionRef == "" || s.Canal == "" || s.Resultado == "" || s.Anotacion == "" || s.ClaveIdempotencia == "" || s.Correlacion.Validar() != nil || !dominiovec.ReferenciaMotivoAutorizacionV2Valida(s.MotivoAutorizacion) {
+	if s.ResultadoContexto.Validar() != nil || s.Vinculo.ValidarPara(s.ResultadoContexto) != nil || s.BolsaRef == "" || s.ParticipacionRef == "" || s.Canal == "" || s.Resultado == "" || s.Anotacion == "" || s.ClaveIdempotencia == "" || s.Instante.IsZero() || s.Correlacion.Validar() != nil || !dominiovec.ReferenciaMotivoAutorizacionV2Valida(s.MotivoAutorizacion) {
 		return ErrContactoParticipacionNoDisponible
 	}
 	return nil
@@ -49,8 +49,14 @@ type ComandoRegistrarContactoParticipacion struct {
 	Material                     puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3
 }
 type ConsultaContactosParticipacion struct {
+	ResultadoContexto                  dominiovec.ResultadoContextoActorRegistradoV2
 	BolsaRef, ParticipacionRef, Cursor string
 	Limite                             int
+}
+type ConsultaContactosBolsa struct {
+	ResultadoContexto dominiovec.ResultadoContextoActorRegistradoV2
+	BolsaRef, Cursor  string
+	Limite            int
 }
 type PaginaContactosParticipacion struct {
 	Contactos       []dominiobolsa.ContactoParticipacion
@@ -61,4 +67,9 @@ type RepositorioContactoParticipacion interface {
 	RegistrarContacto(context.Context, ComandoRegistrarContactoParticipacion) (RegistroContactoParticipacion, error)
 	ListarContactosParticipacion(context.Context, ConsultaContactosParticipacion) (PaginaContactosParticipacion, error)
 	ListarContactosBolsa(context.Context, string, string, int) (PaginaContactosParticipacion, error)
+}
+
+type ResolutorContextoContactoParticipacion interface {
+	ResolutorContextoSituacionParticipacion
+	ResolverContextoContactosBolsa(context.Context, dominiovec.ContextoActor, string) (ContextoSituacionParticipacionResuelto, error)
 }

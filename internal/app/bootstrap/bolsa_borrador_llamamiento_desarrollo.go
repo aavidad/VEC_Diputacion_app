@@ -50,6 +50,16 @@ func (p *preparadorBorradorLlamamientoDesarrollo) ResolverContextoSituacionParti
 	return puertosbolsa.ContextoSituacionParticipacionResuelto{UnidadRef: p.soporte.unidadRef, AmbitoRef: p.soporte.ambitoRef}, nil
 }
 
+func (p *preparadorBorradorLlamamientoDesarrollo) ResolverContextoContactosBolsa(_ context.Context, actor dominiovec.ContextoActor, bolsaRef string) (puertosbolsa.ContextoSituacionParticipacionResuelto, error) {
+	if p == nil || p.soporte == nil || actor.PersonaRef == "" || bolsaRef == "" || p.soporte.unidadRef == "" || p.soporte.ambitoRef == "" {
+		return puertosbolsa.ContextoSituacionParticipacionResuelto{}, errBorradorLlamamientoDesarrolloNoDisponible
+	}
+	if _, admitida := p.soporte.bolsasRef[bolsaRef]; !admitida {
+		return puertosbolsa.ContextoSituacionParticipacionResuelto{}, dominiovec.ErrAutorizacionDenegada
+	}
+	return puertosbolsa.ContextoSituacionParticipacionResuelto{UnidadRef: p.soporte.unidadRef, AmbitoRef: p.soporte.ambitoRef}, nil
+}
+
 func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudCambiarSituacion(ctx context.Context, entrada bolsahttp.EntradaCambiarSituacionParticipacion) (puertosbolsa.SolicitudCambiarSituacionParticipacion, error) {
 	contexto, err := p.contextoRevalidado(ctx)
 	if err != nil {
@@ -72,6 +82,14 @@ func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudRegistrarCont
 		return puertosbolsa.SolicitudRegistrarContactoParticipacion{}, err
 	}
 	return puertosbolsa.SolicitudRegistrarContactoParticipacion{Vinculo: contexto.Vinculo, ResultadoContexto: contexto.Resultado, BolsaRef: entrada.BolsaRef, ParticipacionRef: entrada.ParticipacionRef, LlamamientoRef: entrada.LlamamientoRef, Canal: entrada.Canal, Instante: entrada.Instante, Resultado: entrada.Resultado, Anotacion: entrada.Anotacion, ClaveIdempotencia: entrada.ClaveIdempotencia, Correlacion: correlacion, MotivoAutorizacion: motivoRegistrarContactoParticipacionBolsaDesarrollo()}, nil
+}
+
+func (p *preparadorBorradorLlamamientoDesarrollo) PrepararConsultaContactos(ctx context.Context, bolsaRef, participacionRef, cursor string, limite int) (puertosbolsa.ConsultaContactosParticipacion, error) {
+	contexto, err := p.contextoRevalidado(ctx)
+	if err != nil {
+		return puertosbolsa.ConsultaContactosParticipacion{}, err
+	}
+	return puertosbolsa.ConsultaContactosParticipacion{ResultadoContexto: contexto.Resultado, BolsaRef: bolsaRef, ParticipacionRef: participacionRef, Cursor: cursor, Limite: limite}, nil
 }
 
 func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudCrearBorradorLlamamientoInterno(
@@ -361,7 +379,7 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
 	}
-	servicioContacto, err := aplicacionbolsa.NuevoServicioContactoParticipacion(preparador, emisor, repositorioContacto, dependenciasCT.reloj.Ahora)
+	servicioContacto, err := aplicacionbolsa.NuevoServicioContactoParticipacion(preparador, emisor, repositorioContacto)
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
 	}

@@ -145,11 +145,21 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargar(ctx context.Context) (datasetBo
 			Referencia: vigente.Bolsa.BolsaRef, CategoriaRef: vigente.CategoriaRef,
 			Categoria: f.denominacion(vigente.CategoriaRef), TipoLista: "definitiva", VigenteDesde: desde,
 		})
-		paginaContactos, err := f.contactos.ListarContactosBolsa(ctx, vigente.Bolsa.BolsaRef, "", 100)
-		if err != nil {
-			return datasetBolsasRRHHDesarrollo{}, err
+		cursorContactos := ""
+		for paginas := 0; ; paginas++ {
+			if paginas == 100 {
+				return datasetBolsasRRHHDesarrollo{}, ErrComposicionDesarrolloIncompleta
+			}
+			paginaContactos, err := f.contactos.ListarContactosBolsa(ctx, vigente.Bolsa.BolsaRef, cursorContactos, 100)
+			if err != nil {
+				return datasetBolsasRRHHDesarrollo{}, err
+			}
+			datos.Contactos = append(datos.Contactos, paginaContactos.Contactos...)
+			if len(paginaContactos.Contactos) < 100 || paginaContactos.CursorSiguiente == "" {
+				break
+			}
+			cursorContactos = paginaContactos.CursorSiguiente
 		}
-		datos.Contactos = append(datos.Contactos, paginaContactos.Contactos...)
 		entradas, err := f.repositorio.Entradas(ctx, vigente.Instantanea.InstantaneaRef, vigente.Instantanea.Version)
 		if err != nil {
 			return datasetBolsasRRHHDesarrollo{}, err

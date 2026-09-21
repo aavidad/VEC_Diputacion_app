@@ -22,11 +22,12 @@ type EntradaRegistrarContactoParticipacion struct {
 }
 type PreparadorContactoParticipacion interface {
 	PrepararSolicitudRegistrarContacto(context.Context, EntradaRegistrarContactoParticipacion) (puertosbolsa.SolicitudRegistrarContactoParticipacion, error)
+	PrepararConsultaContactos(context.Context, string, string, string, int) (puertosbolsa.ConsultaContactosParticipacion, error)
 }
 type OperadorContactoParticipacion interface {
 	RegistrarContactoParticipacion(context.Context, puertosbolsa.SolicitudRegistrarContactoParticipacion) (puertosbolsa.RegistroContactoParticipacion, error)
 	ListarContactosParticipacion(context.Context, puertosbolsa.ConsultaContactosParticipacion) (puertosbolsa.PaginaContactosParticipacion, error)
-	ListarContactosBolsa(context.Context, string, string, int) (puertosbolsa.PaginaContactosParticipacion, error)
+	ListarContactosBolsa(context.Context, puertosbolsa.ConsultaContactosBolsa) (puertosbolsa.PaginaContactosParticipacion, error)
 }
 type HandlerContactoParticipacion struct {
 	preparador PreparadorContactoParticipacion
@@ -74,7 +75,7 @@ func (h *HandlerContactoParticipacion) registrar(w http.ResponseWriter, r *http.
 	}
 	d := json.NewDecoder(io.LimitReader(r.Body, 4097))
 	d.DisallowUnknownFields()
-	if d.Decode(&c) != nil || d.Decode(&struct{}{}) != io.EOF {
+	if d.Decode(&c) != nil || d.Decode(&struct{}{}) != io.EOF || c.Instante.IsZero() {
 		responderContacto(w, 400, map[string]any{"error": map[string]string{"codigo": "solicitud_invalida"}})
 		return
 	}
@@ -113,7 +114,12 @@ func (h *HandlerContactoParticipacion) listar(w http.ResponseWriter, r *http.Req
 		responderContacto(w, 400, map[string]any{"error": map[string]string{"codigo": "solicitud_invalida"}})
 		return
 	}
-	p, e := h.operador.ListarContactosParticipacion(r.Context(), puertosbolsa.ConsultaContactosParticipacion{BolsaRef: bolsa, ParticipacionRef: participacion, Cursor: cursor, Limite: limite})
+	consulta, e := h.preparador.PrepararConsultaContactos(r.Context(), bolsa, participacion, cursor, limite)
+	if e != nil {
+		responderErrorContacto(w, e)
+		return
+	}
+	p, e := h.operador.ListarContactosParticipacion(r.Context(), consulta)
 	if e != nil {
 		responderErrorContacto(w, e)
 		return

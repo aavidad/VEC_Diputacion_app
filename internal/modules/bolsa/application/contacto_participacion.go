@@ -13,17 +13,16 @@ import (
 )
 
 type ServicioContactoParticipacion struct {
-	contexto    puertosbolsa.ResolutorContextoSituacionParticipacion
+	contexto    puertosbolsa.ResolutorContextoContactoParticipacion
 	autorizador puertosbolsa.AutorizadorSituacionParticipacionV3
 	repositorio puertosbolsa.RepositorioContactoParticipacion
-	reloj       func() time.Time
 }
 
-func NuevoServicioContactoParticipacion(c puertosbolsa.ResolutorContextoSituacionParticipacion, a puertosbolsa.AutorizadorSituacionParticipacionV3, r puertosbolsa.RepositorioContactoParticipacion, reloj func() time.Time) (*ServicioContactoParticipacion, error) {
-	if c == nil || a == nil || r == nil || reloj == nil {
+func NuevoServicioContactoParticipacion(c puertosbolsa.ResolutorContextoContactoParticipacion, a puertosbolsa.AutorizadorSituacionParticipacionV3, r puertosbolsa.RepositorioContactoParticipacion) (*ServicioContactoParticipacion, error) {
+	if c == nil || a == nil || r == nil {
 		return nil, puertosbolsa.ErrContactoParticipacionNoDisponible
 	}
-	return &ServicioContactoParticipacion{c, a, r, reloj}, nil
+	return &ServicioContactoParticipacion{c, a, r}, nil
 }
 
 func (s *ServicioContactoParticipacion) RegistrarContactoParticipacion(ctx context.Context, solicitud puertosbolsa.SolicitudRegistrarContactoParticipacion) (puertosbolsa.RegistroContactoParticipacion, error) {
@@ -48,9 +47,6 @@ func (s *ServicioContactoParticipacion) RegistrarContactoParticipacion(ctx conte
 	h := sha256.Sum256([]byte(solicitud.ParticipacionRef + "\x1f" + solicitud.ClaveIdempotencia))
 	sufijo := hex.EncodeToString(h[:])
 	contacto := dominiobolsa.ContactoParticipacion{ContactoRef: "contacto:" + sufijo, BolsaRef: solicitud.BolsaRef, ParticipacionRef: solicitud.ParticipacionRef, LlamamientoRef: solicitud.LlamamientoRef, Canal: solicitud.Canal, Instante: solicitud.Instante.UTC().Truncate(time.Microsecond), Actor: actor.PersonaRef, Resultado: solicitud.Resultado, Anotacion: solicitud.Anotacion}
-	if contacto.Instante.IsZero() {
-		contacto.Instante = s.reloj().UTC().Truncate(time.Microsecond)
-	}
 	if contacto.Validar() != nil {
 		return puertosbolsa.RegistroContactoParticipacion{}, dominiobolsa.ErrContactoParticipacionInvalido
 	}
@@ -70,14 +66,20 @@ func (s *ServicioContactoParticipacion) RegistrarContactoParticipacion(ctx conte
 	return s.repositorio.RegistrarContacto(ctx, puertosbolsa.ComandoRegistrarContactoParticipacion{Contacto: contacto, ClaveIdempotencia: solicitud.ClaveIdempotencia, ReciboRef: "recibo:contacto:" + sufijo, SolicitudAutorizacion: auth, Decision: decision, Confirmacion: confirmacion, Material: material})
 }
 func (s *ServicioContactoParticipacion) ListarContactosParticipacion(ctx context.Context, q puertosbolsa.ConsultaContactosParticipacion) (puertosbolsa.PaginaContactosParticipacion, error) {
-	if ctx == nil || q.BolsaRef == "" || q.ParticipacionRef == "" || q.Limite < 1 || q.Limite > 100 {
+	if ctx == nil || s == nil || q.ResultadoContexto.Validar() != nil || q.BolsaRef == "" || q.ParticipacionRef == "" || q.Limite < 1 || q.Limite > 100 {
 		return puertosbolsa.PaginaContactosParticipacion{}, puertosbolsa.ErrContactoParticipacionNoDisponible
+	}
+	if _, err := s.contexto.ResolverContextoSituacionParticipacion(ctx, q.ResultadoContexto.Contexto, q.BolsaRef, q.ParticipacionRef); err != nil {
+		return puertosbolsa.PaginaContactosParticipacion{}, err
 	}
 	return s.repositorio.ListarContactosParticipacion(ctx, q)
 }
-func (s *ServicioContactoParticipacion) ListarContactosBolsa(ctx context.Context, bolsa, cursor string, limite int) (puertosbolsa.PaginaContactosParticipacion, error) {
-	if ctx == nil || bolsa == "" || limite < 1 || limite > 100 {
+func (s *ServicioContactoParticipacion) ListarContactosBolsa(ctx context.Context, q puertosbolsa.ConsultaContactosBolsa) (puertosbolsa.PaginaContactosParticipacion, error) {
+	if ctx == nil || s == nil || q.ResultadoContexto.Validar() != nil || q.BolsaRef == "" || q.Limite < 1 || q.Limite > 100 {
 		return puertosbolsa.PaginaContactosParticipacion{}, puertosbolsa.ErrContactoParticipacionNoDisponible
 	}
-	return s.repositorio.ListarContactosBolsa(ctx, bolsa, cursor, limite)
+	if _, err := s.contexto.ResolverContextoContactosBolsa(ctx, q.ResultadoContexto.Contexto, q.BolsaRef); err != nil {
+		return puertosbolsa.PaginaContactosParticipacion{}, err
+	}
+	return s.repositorio.ListarContactosBolsa(ctx, q.BolsaRef, q.Cursor, q.Limite)
 }

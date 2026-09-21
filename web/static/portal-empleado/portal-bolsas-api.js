@@ -15,9 +15,9 @@ import {
   validarPayloadResultadoLlamamiento,
   construirEnvelopeAccionBolsa,
 } from "./portal-bolsas-contrato.js";
+import { traducirBolsaInterna } from "./portal-i18n.js";
 
 export const RUTA_BOLSAS = "/api/vec/bolsa/bolsas";
-
 // El enrutador del servidor solo acepta rutas canónicas (sin secuencias
 // porcentuales): las referencias llevan ":" y "-", legales en un segmento de
 // ruta, así que se envían sin escapar y solo se escapa lo que no es legal.
@@ -199,11 +199,11 @@ export async function consultarContactosCandidato(bolsaRef, participacionRef, { 
 }
 
 export async function registrarContactoCandidato(bolsaRef, participacionRef, payload, { fetchImpl = fetch } = {}) {
-  if (!bolsaRef || !participacionRef || !payload?.canal || !payload?.resultado || !payload?.anotacion || !payload?.clave_idempotencia) return { ok:false,status:400,codigo:"solicitud_invalida",mensaje:"Faltan datos obligatorios del contacto." };
+  if (!bolsaRef || !participacionRef || !payload?.canal || !payload?.resultado || !payload?.anotacion || !payload?.clave_idempotencia) return { ok:false,status:400,codigo:"solicitud_invalida",mensaje:traducirBolsaInterna("contacto_solicitud_invalida") };
   try {
     const respuesta=await fetchImpl(`${RUTA_BOLSAS}/${segmentoRuta(bolsaRef)}/candidatos/${segmentoRuta(participacionRef)}/contactos`,{method:"POST",credentials:"omit",headers:{Accept:"application/json","Content-Type":"application/json","Idempotency-Key":payload.clave_idempotencia},body:JSON.stringify({canal:payload.canal,resultado:payload.resultado,anotacion:payload.anotacion,instante:payload.instante,llamamiento_ref:payload.llamamiento_ref||""})});
-    const cuerpo=await respuesta.json().catch(()=>({})); if(respuesta.ok&&cuerpo?.data?.recibo_ref)return{ok:true,datos:cuerpo.data}; return{ok:false,status:respuesta.status,codigo:cuerpo?.error?.codigo||"error_servidor",mensaje:respuesta.status===403?"La sesión no dispone de permiso para registrar contactos.":respuesta.status===409?"La clave corresponde a otro contacto.":"No se pudo registrar el contacto."};
-  } catch(error){return{ok:false,status:0,codigo:"error_red",mensaje:error instanceof Error?error.message:"Error de comunicación."}}
+    const cuerpo=await respuesta.json().catch(()=>({})); if(respuesta.ok&&cuerpo?.data?.recibo_ref)return{ok:true,datos:cuerpo.data}; return{ok:false,status:respuesta.status,codigo:cuerpo?.error?.codigo||"error_servidor",mensaje:traducirBolsaInterna(respuesta.status===403?"contacto_permiso_denegado":respuesta.status===409?"contacto_clave_conflicto":"contacto_registro_error")};
+  } catch(error){return{ok:false,status:0,codigo:"error_red",mensaje:error instanceof Error?error.message:traducirBolsaInterna("contacto_comunicacion_error")}}
 }
 
 export async function crearLlamamientoCandidato(participacionRef, payload, { fetchImpl = fetch } = {}) {
@@ -734,7 +734,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
       const formContacto = evento.target?.closest?.('[data-bolsa-form="contacto"]');
       if (formContacto) {
         evento.preventDefault(); const datos=new FormData(formContacto); const canal=String(datos.get("canal")||""); const resultado=String(datos.get("resultado")||""); const anotacion=String(datos.get("anotacion")||"").trim();
-        if(!canal||!resultado||!anotacion){if(estado.modalFicha){estado.modalFicha.errorContacto="Complete canal, resultado y anotación.";renderizar()}return}
+        if(!canal||!resultado||!anotacion){if(estado.modalFicha){estado.modalFicha.errorContacto=traducirBolsaInterna("contacto_formulario_incompleto");renderizar()}return}
 		const huella=JSON.stringify([canal,resultado,anotacion,String(datos.get("llamamiento_ref")||"")]); let clave=estado.modalFicha?.claveContacto; let instante=estado.modalFicha?.instanteContacto;
 		if(!clave||estado.modalFicha?.huellaContacto!==huella){clave=globalThis.crypto?.randomUUID?.()||`contacto-${Date.now()}-${Math.random().toString(16).slice(2)}`;instante=new Date().toISOString();if(estado.modalFicha){estado.modalFicha.claveContacto=clave;estado.modalFicha.huellaContacto=huella;estado.modalFicha.instanteContacto=instante}}
         void registrarContactoCandidato(estado.bolsaSeleccionada,formContacto.dataset.participacionRef,{canal,resultado,anotacion,instante,llamamiento_ref:String(datos.get("llamamiento_ref")||""),clave_idempotencia:clave}).then(async(res)=>{if(res.ok){const ref=formContacto.dataset.participacionRef;estado.modalFicha=null;await cargarCandidatosBolsa(estado.bolsaSeleccionada);abrirFicha(ref);if(estado.modalFicha){estado.modalFicha.reciboContacto=res.datos.recibo_ref;renderizar()}}else if(estado.modalFicha){estado.modalFicha.errorContacto=res.mensaje;renderizar()}}); return;
