@@ -1,5 +1,6 @@
 import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js";
 import { montarVistaBorradoresPropios } from "./vista-borradores-propios.js";
+import { montarMapaInicialGranadaDietas } from "./mapa-ruta.js";
 import { obtenerAtlasSinteticoRRHH } from "../../datos-sinteticos-rrhh.js";
 
 const ETAPAS = Object.freeze([
@@ -361,6 +362,7 @@ export function montarVistaRecorridosDietas(
   let seleccionada = COMISIONES_PRESENTACION[0].referencia;
   let desmontarBorradores = () => {};
   let desmontarItinerario = () => {};
+  let desmontarMapaInicial = () => {};
   let itinerarioIniciado = false;
   let generacionItinerario = 0;
   const areaBorradores = elemento(documento, "div");
@@ -389,6 +391,8 @@ export function montarVistaRecorridosDietas(
     // activo ni aceptar el resultado diferido de una apertura anterior.
     generacionItinerario += 1;
     itinerarioIniciado = false;
+    desmontarMapaInicial();
+    desmontarMapaInicial = () => {};
     desmontarItinerario();
     desmontarItinerario = () => {};
     areaItinerario?.replaceChildren?.();
@@ -406,6 +410,13 @@ export function montarVistaRecorridosDietas(
             return;
           }
           desmontarItinerario = vista.desmontar;
+          const mapaPendiente = areaItinerario.querySelector?.("[data-dietas-mapa-pendiente]");
+          if (mapaPendiente) {
+            desmontarMapaInicial = montarMapaInicialGranadaDietas({
+              raiz: mapaPendiente,
+              permitirTeselas: true,
+            }).desmontar;
+          }
         },
         () => {
           if (activa && generacion === generacionItinerario && sigueMontada(contenedor, raiz))

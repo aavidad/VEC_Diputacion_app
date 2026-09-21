@@ -319,10 +319,6 @@
   overflow: hidden;
   border: 1px solid var(--portal-borde);
   background-color: var(--portal-azul-100);
-  background-image:
-    linear-gradient(rgba(21, 94, 117, .08) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(21, 94, 117, .08) 1px, transparent 1px);
-  background-size: 2rem 2rem;
 }
 
 .modulo-dietas .dietas-mapa-centro-inicial {

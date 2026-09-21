@@ -83,17 +83,20 @@ fijación en una variable de entorno.
 
 - Linux con Docker Engine y Docker Compose v2.
 - `bash`, `jq`, `sqlite3`, `sha256sum`, `flock` y `rg` en el host operativo.
-- PBF regular en
-  `deploy/osrm-granada/data/granada-buffer.osm.pbf`. Se monta en sólo lectura y
-  no se duplica.
+- PBF regular en `deploy/osrm-granada/data/`. Por defecto es
+  `granada-buffer.osm.pbf`, el conjunto histórico gobernado; se monta en sólo
+  lectura y no se duplica.
 - SSD con espacio para dos generaciones MBTiles durante una actualización.
 - Límites iniciales: 1 CPU/1 GiB para renderizar, 0,25 CPU/128 MiB para el proxy
   y 2 CPU/3 GiB para importar. Son cotas, no garantías: Sistemas debe medir
   tiempo, memoria, latencia y tamaño.
 
-Copiar `.env.example` a `.env` sólo si se necesitan valores distintos. El
-fragmento Nginx incluido asume el puerto inicial `8091`; si Sistemas lo cambia,
-debe cambiar ambos puntos de forma coordinada.
+Copiar `.env.example` a `.env` sólo si se necesitan valores distintos para los
+servicios de Compose o para la fuente histórica predeterminada. La selección
+excepcional de otro PBF, su bbox y la omisión de integridad no se leen desde
+`.env`: deben pasarse en el entorno de la invocación, como se muestra abajo.
+El fragmento Nginx incluido asume el puerto inicial `8091`; si Sistemas lo
+cambia, debe cambiar ambos puntos de forma coordinada.
 
 ## Validación ligera
 
@@ -119,15 +122,50 @@ cd deploy/osm-tiles-granada
 ./importar_version.sh
 ```
 
+### Selección explícita de la fuente
+
+El valor por defecto conserva `granada-buffer.osm.pbf` y no prueba ni sustituye
+su huella histórica. Para un PBF provincial diferente, previamente custodiado
+en `../osrm-granada/data/`, se declara únicamente un basename en minúsculas y
+su rectángulo efectivo de importación:
+
+```bash
+OSM_SOURCE_BASENAME=granada-openstreetmap-fr-20260921.osm.pbf \
+OSM_IMPORT_BBOX=-4.75,36.55,-1.75,38.25 \
+./importar_version.sh
+```
+
+No se admiten rutas, `..`, enlaces simbólicos, mayúsculas ni otros caracteres.
+Una fuente distinta exige `OSM_IMPORT_BBOX` explícito: no hereda el ámbito ni la
+versión de `granada-buffer`. El nombre alternativo solo identifica el fichero;
+no acredita por sí mismo provincia, buffer, fuente oficial o cobertura.
+
+Si tilemaker rechaza un PBF por referencias internas incompletas, Sistemas puede
+autorizar expresamente una importación excepcional:
+
+```bash
+OSM_IMPORT_SKIP_INTEGRITY=true ./importar_version.sh
+```
+
+El valor por defecto es `false`; solo se aceptan ambos literales en minúsculas.
+Con `true` el script añade el argumento literal `--skip-integrity`, sin evaluar
+texto como comando, y anota `importacion_omite_integridad: true` en el
+manifiesto. Puede perder elementos con referencias incompletas: no corrige el
+PBF, no acredita su cobertura y exige revisar las rutas semilla antes de activar
+la generación.
+
 El script:
 
-1. calcula la huella del PBF compartido;
+1. valida el basename y que el PBF compartido sea regular y no simbólico, y
+   calcula su huella;
 2. crea una versión `AAAAMMDDThhmmssZ-12hex` que nunca sobrescribe otra;
 3. ejecuta tilemaker sin red, sin capacidades y con almacenamiento temporal en
    `estado/trabajo/`; como el PBF compartido actual carece de `bbox` en su
    cabecera, aplica el rectángulo provincial versionado en `OSM_IMPORT_BBOX`;
 4. valida SQLite, metadatos, zoom 0-14 y una tesela semilla de Granada;
-5. publica `granada.mbtiles` en sólo lectura junto a `manifiesto.json`.
+5. publica `granada.mbtiles` en sólo lectura junto a `manifiesto.json`, que
+   registra ruta relativa, basename, SHA-256 y el bbox efectivo entregado a
+   tilemaker, además de si se omitió la comprobación de integridad.
 
 La prueba operativa del 2026-07-19 generó 14.489 teselas de zoom 0-14 en un
 MBTiles de 84,7 MiB a partir del PBF de 105 MiB. La conversión tardó unos 30
@@ -263,8 +301,10 @@ son una fuente de auditoría de desplazamientos.
 - Leaflet 1.9.4: BSD-2-Clause.
 
 La procedencia y fecha del PBF deben registrarse fuera del código en el catálogo
-de activos de Sistemas. `manifiesto.json` conserva su SHA-256 para que cada
-generación sea reproducible y trazable.
+de activos de Sistemas. `manifiesto.json` conserva ruta, SHA-256 y bbox efectivo
+de importación para que cada generación sea reproducible y trazable; ese bbox
+no declara por sí mismo la cobertura real del PBF ni convierte otra fuente en
+`granada-buffer`.
 
 ## Decisiones pendientes de Sistemas antes de producción
 

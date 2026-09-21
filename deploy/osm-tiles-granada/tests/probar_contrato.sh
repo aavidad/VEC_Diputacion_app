@@ -30,6 +30,32 @@ exigir 'nginx:1\.27-alpine@sha256:[a-f0-9]{64}' "$raiz/compose.yaml"
 exigir 'mbtiles://\{granada\}' "$raiz/config/estilos/osm-granada.json"
 exigir '© OpenStreetMap contributors' "$raiz/README.md"
 exigir 'Leaflet 1\.9\.4' "$raiz/README.md"
+exigir 'OSM_SOURCE_BASENAME' "$raiz/importar_version.sh"
+exigir 'bbox_importacion_efectiva' "$raiz/importar_version.sh"
+exigir 'OSM_IMPORT_SKIP_INTEGRITY' "$raiz/importar_version.sh"
+exigir 'argumentos_integridad=\(--skip-integrity\)' "$raiz/importar_version.sh"
+exigir '"\$\{argumentos_integridad\[@\]\}"' "$raiz/importar_version.sh"
+
+for nombre_hostil in '../granada.osm.pbf' 'granada.osm.pbf/extra' \
+  'Granada.osm.pbf' 'granada.pbf' 'granada;id.osm.pbf' 'granada buffer.osm.pbf'; do
+  if OSM_SOURCE_BASENAME="$nombre_hostil" "$raiz/importar_version.sh" >/dev/null 2>&1; then
+    echo "ERROR: se acepto un basename PBF hostil: $nombre_hostil" >&2
+    exit 1
+  fi
+done
+
+for valor_invalido in '' True si 1 falsee; do
+  salida="$(OSM_IMPORT_SKIP_INTEGRITY="$valor_invalido" "$raiz/importar_version.sh" 2>&1 || true)"
+  if [[ "$salida" != *'OSM_IMPORT_SKIP_INTEGRITY solo admite true o false'* ]]; then
+    echo "ERROR: se acepto un valor de integridad no canonico: ${valor_invalido:-vacio}" >&2
+    exit 1
+  fi
+done
+
+if rg -n -- 'eval|sh[[:space:]]+-c' "$raiz/importar_version.sh"; then
+  echo "ERROR: la importacion no puede reinterpretar argumentos de integridad." >&2
+  exit 1
+fi
 
 jq -e '
   .services["importar-osm"].network_mode == "none" and
@@ -38,7 +64,7 @@ jq -e '
   (.services["importar-osm"].cap_drop | index("ALL")) != null and
   (.services["importar-osm"].security_opt | index("no-new-privileges:true")) != null and
   ([.services["importar-osm"].volumes[] |
-    select(.target == "/fuente/granada-buffer.osm.pbf" and .read_only == true)] | length) == 1 and
+    select(.target == "/fuente/entrada.osm.pbf" and .read_only == true)] | length) == 1 and
   .services["tiles-osm"].read_only == true and
   .services["tiles-osm"].pull_policy == "never" and
   (.services["tiles-osm"].cap_drop | index("ALL")) != null and

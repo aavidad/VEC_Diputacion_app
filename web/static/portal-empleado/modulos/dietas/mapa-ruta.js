@@ -33,12 +33,19 @@ function leafletLocalDisponible(entorno) {
     && (typeof leaflet.circleMarker === "function" || typeof leaflet.marker === "function"));
 }
 
+function leafletBaseDisponible(entorno) {
+  const leaflet = entorno?.L;
+  return Boolean(leaflet && typeof leaflet.map === "function" && typeof leaflet.tileLayer === "function");
+}
+
 function resultadoNoDisponible() {
   return Object.freeze({ modo: "mapa_no_disponible", desmontar() {} });
 }
 
 const MAXIMO_ERRORES_TESELA = 3;
 const TIEMPO_ESPERA_TESELAS_MS = 7_000;
+const CENTRO_INICIAL_GRANADA = Object.freeze([37.1773, -3.5986]);
+const ZOOM_INICIAL_GRANADA = 12;
 export const ESTILOS_TRAMO_RUTA_DIETAS = Object.freeze([
   Object.freeze({ color: "#155e75", patron: "Línea continua", dashArray: undefined }),
   Object.freeze({ color: "#9a3412", patron: "Línea discontinua", dashArray: "10 7" }),
@@ -85,6 +92,110 @@ function traducirControlesZoom(lienzo, t) {
     control.setAttribute("title", etiqueta);
     control.setAttribute("aria-label", etiqueta);
   });
+}
+
+/**
+ * Monta la cartografía interna antes de calcular una ruta. No recibe puntos
+ * ni trazado: Granada es solo el encuadre inicial del visor, no un itinerario.
+ */
+export function montarMapaInicialGranadaDietas({
+  raiz,
+  entorno = globalThis,
+  permitirTeselas = false,
+  mensajes = MENSAJES_DIETAS_ES,
+  tiempoEsperaMs = TIEMPO_ESPERA_TESELAS_MS,
+} = {}) {
+  if (!raiz || typeof raiz.querySelector !== "function") throw new TypeError("raíz de mapa de Dietas no válida");
+  if (typeof permitirTeselas !== "boolean") throw new TypeError("configuración de teselas de Dietas no válida");
+  if (!Number.isSafeInteger(tiempoEsperaMs) || tiempoEsperaMs < 10 || tiempoEsperaMs > 15_000) {
+    throw new TypeError("tiempo de espera de teselas no válido");
+  }
+  const t = crearTraductorDietas(mensajes);
+  const lienzo = raiz.querySelector("[data-dietas-mapa-canvas]");
+  const estado = raiz.querySelector("[data-dietas-mapa-estado]");
+  if (!lienzo || !permitirTeselas || !leafletBaseDisponible(entorno)) {
+    return mostrarMapaNoDisponible(lienzo, estado, null, t);
+  }
+
+  let mapa = null;
+  let capaTeselas = null;
+  let temporizador = null;
+  let terminado = false;
+  let desmontado = false;
+  let erroresTesela = 0;
+  let modo = "mapa_cargando";
+  const programar = typeof entorno?.setTimeout === "function"
+    ? entorno.setTimeout.bind(entorno) : globalThis.setTimeout.bind(globalThis);
+  const cancelar = typeof entorno?.clearTimeout === "function"
+    ? entorno.clearTimeout.bind(entorno) : globalThis.clearTimeout.bind(globalThis);
+  const limpiarTemporizador = () => {
+    if (temporizador !== null) cancelar(temporizador);
+    temporizador = null;
+  };
+  const retirarEscuchas = () => {
+    capaTeselas?.off?.("load", alCargarTeselas);
+    capaTeselas?.off?.("tileerror", alFallarTesela);
+  };
+  const noDisponible = () => {
+    if (terminado || desmontado) return;
+    terminado = true;
+    modo = "mapa_no_disponible";
+    limpiarTemporizador();
+    retirarEscuchas();
+    mapa?.remove?.();
+    mapa = null;
+    mostrarMapaNoDisponible(lienzo, estado, null, t);
+  };
+  function alCargarTeselas() {
+    if (terminado || desmontado) return;
+    terminado = true;
+    modo = "openstreetmap_interno";
+    limpiarTemporizador();
+    retirarEscuchas();
+    lienzo.dataset.modoMapa = modo;
+    if (estado) estado.textContent = t("mapa_nota_osm_interno");
+  }
+  function alFallarTesela() {
+    if (terminado || desmontado) return;
+    erroresTesela += 1;
+    if (erroresTesela >= MAXIMO_ERRORES_TESELA) noDisponible();
+  }
+  try {
+    lienzo.replaceChildren();
+    lienzo.dataset.modoMapa = modo;
+    mapa = entorno.L.map(lienzo, { scrollWheelZoom: false, attributionControl: true });
+    traducirControlesZoom(lienzo, t);
+    mapa.attributionControl?.setPrefix?.(false);
+    capaTeselas = entorno.L.tileLayer(PLANTILLA_TESELAS_OSM_INTERNA, {
+      maxNativeZoom: 14,
+      maxZoom: 14,
+      attribution: ATRIBUCION_OSM_INTERNA,
+    });
+    if (!capaTeselas || typeof capaTeselas.on !== "function" || typeof capaTeselas.addTo !== "function") {
+      throw new TypeError("capa de teselas interna no observable");
+    }
+    capaTeselas.on("load", alCargarTeselas);
+    capaTeselas.on("tileerror", alFallarTesela);
+    capaTeselas.addTo(mapa);
+    mapa.setView?.(CENTRO_INICIAL_GRANADA, ZOOM_INICIAL_GRANADA);
+    temporizador = programar(noDisponible, tiempoEsperaMs);
+    return Object.freeze({
+      get modo() { return modo; },
+      desmontar() {
+        if (desmontado) return;
+        desmontado = true;
+        limpiarTemporizador();
+        retirarEscuchas();
+        mapa?.remove?.();
+        mapa = null;
+      },
+    });
+  } catch {
+    limpiarTemporizador();
+    retirarEscuchas();
+    mapa?.remove?.();
+    return mostrarMapaNoDisponible(lienzo, estado, null, t);
+  }
 }
 
 export function crearVisorRutaDietas({

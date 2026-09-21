@@ -17,7 +17,7 @@ services:
     mem_limit: "${OSM_IMPORT_MEMORY:-3g}"
     cpus: "${OSM_IMPORT_CPUS:-2.0}"
     volumes:
-      - ../osrm-granada/data/granada-buffer.osm.pbf:/fuente/granada-buffer.osm.pbf:ro
+      - ../osrm-granada/data/${OSM_SOURCE_BASENAME:-granada-buffer.osm.pbf}:/fuente/entrada.osm.pbf:ro
       - ./estado:/salida:rw
     command: ["--help"]
 

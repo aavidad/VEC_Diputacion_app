@@ -21,7 +21,7 @@ import {
 } from "./contrato.js";
 import { crearDatosDietasPresentacion } from "./datos-presentacion.js";
 import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js";
-import { crearVisorRutaDietas } from "./mapa-ruta.js";
+import { crearVisorRutaDietas, montarMapaInicialGranadaDietas } from "./mapa-ruta.js";
 import { crearPresentadorDietas } from "./presentador.js";
 import { montarModuloDietas, renderizarDietas } from "./vista.js";
 import { crearDescargadorRecibosPresentacion } from "../../documentos/descarga-recibos-presentacion.js";
@@ -361,6 +361,40 @@ test("el visor activa únicamente OpenStreetMap interno y nunca simula un mapa s
   assert.match(estado.textContent, /OpenStreetMap cargado/u);
   montaje.desmontar();
   assert.equal(retirado, true);
+});
+
+test("el mapa previo se centra en Granada con teselas internas y no dibuja itinerario", () => {
+  const eventos = new Map();
+  let centro;
+  let zoom;
+  let plantilla;
+  const lienzo = { dataset: {}, replaceChildren() {}, querySelector() { return null; } };
+  const estado = { textContent: "" };
+  const raiz = { querySelector(selector) {
+    return selector === "[data-dietas-mapa-canvas]" ? lienzo
+      : selector === "[data-dietas-mapa-estado]" ? estado : null;
+  } };
+  const mapa = {
+    attributionControl: { setPrefix() {} },
+    setView(valor, nivel) { centro = valor; zoom = nivel; },
+    remove() {},
+  };
+  const entorno = { L: {
+    map() { return mapa; },
+    tileLayer(url) {
+      plantilla = url;
+      return { on(tipo, fn) { eventos.set(tipo, fn); return this; }, off() {}, addTo() { return this; } };
+    },
+    polyline() { assert.fail("no se dibuja geometría antes del cálculo"); },
+  } };
+  const montaje = montarMapaInicialGranadaDietas({ raiz, entorno, permitirTeselas: true });
+  assert.deepEqual(centro, [37.1773, -3.5986]);
+  assert.equal(zoom, 12);
+  assert.equal(plantilla, PLANTILLA_TESELAS_OSM_INTERNA);
+  eventos.get("load")();
+  assert.equal(montaje.modo, "openstreetmap_interno");
+  assert.match(estado.textContent, /red interna/u);
+  montaje.desmontar();
 });
 
 test("el visor no declara éxito y se retira ante errores de tesela o timeout", () => {
