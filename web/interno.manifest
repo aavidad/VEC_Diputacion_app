@@ -98,6 +98,7 @@ static/portal-empleado/portal-borradores-contrato.js
 static/portal-empleado/portal-borradores-estado.js
 static/portal-empleado/portal-borradores-operaciones.js
 static/portal-empleado/portal-borradores-ui.js
+static/portal-empleado/portal-borradores-ui-soporte.js
 static/portal-empleado/portal-borradores-vista.js
 static/portal-empleado/portal-capacidades.css
 static/portal-empleado/portal-catalogo-modulos.js
@@ -115,6 +116,7 @@ static/portal-empleado/portal-llamamientos.css
 static/portal-empleado/portal-menu-bolsa.css
 static/portal-empleado/portal-menu-bolsa.js
 static/portal-empleado/portal-modulos-coordinador.js
+static/portal-empleado/portal-modulos-carga.js
 static/portal-empleado/portal-composicion-empleado.js
 static/portal-empleado/portal-modulos.css
 static/portal-empleado/portal-panel-interno.js

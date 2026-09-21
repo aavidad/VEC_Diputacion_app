@@ -12708,7 +12708,6 @@ function renderNominasMesScreen(target, view, container) {
   extraProdLabel.style.fontWeight = "bold";
   extraProdLabel.style.color = "#555";
   extraProdLabel.textContent = "Productividad Variable Extra (€):";
-
   const extraProdInput = document.createElement("input");
   extraProdInput.type = "number";
   extraProdInput.min = "0";
@@ -12719,21 +12718,17 @@ function renderNominasMesScreen(target, view, container) {
   extraProdInput.style.borderRadius = "4px";
   extraProdInput.style.border = "1px solid #ccc";
   extraProdInput.style.fontSize = "0.85rem";
-
   extraProdInput.addEventListener("input", (e) => {
     state.nominasExtraProductividad = parseFloat(e.target.value || 0);
     updateLiveCalculations();
   });
-
   extraProdDiv.append(extraProdLabel, extraProdInput);
   simCard.append(extraProdDiv);
-
   const crossModuleInfo = document.createElement("div");
   crossModuleInfo.style.marginTop = "auto";
   crossModuleInfo.style.padding = "12px";
   crossModuleInfo.style.borderRadius = "6px";
   crossModuleInfo.style.fontSize = "0.8rem";
-
   if (state.nominasSelectedMonth === "Junio 2026" && calc.dietasVal > 0) {
     crossModuleInfo.style.background = "#e8f5e9";
     crossModuleInfo.style.border = "1px solid #a5d6a7";
@@ -12752,17 +12747,13 @@ function renderNominasMesScreen(target, view, container) {
     `;
   }
   simCard.append(crossModuleInfo);
-
   layout.append(simCard);
   target.append(layout);
-
   function updateLiveCalculations() {
     const updated = getPayrollCalculations(state.nominasSelectedMonth);
-
     kpiRow.children[0].querySelector("div:last-child").textContent = `${updated.liquido.toFixed(2)} €`;
     kpiRow.children[1].querySelector("div:last-child").textContent = `${updated.devengos.toFixed(2)} €`;
     kpiRow.children[2].querySelector("div:last-child").textContent = `${updated.deducciones.toFixed(2)} €`;
-
     table.querySelector("tbody").innerHTML = `
       <tr>
         <td style="padding:10px; border:1px solid #ddd;">11 - Sueldo Base (Grupo A2)</td>
@@ -12812,12 +12803,10 @@ function renderNominasMesScreen(target, view, container) {
         <td style="padding:12px; border:1px solid #ddd; text-align:right; color:#c62828;">${updated.deducciones.toFixed(2)}</td>
       </tr>
     `;
-
     netoVal.textContent = `${updated.liquido.toFixed(2)} €`;
     detailsGrid.querySelector("div:nth-child(5)").innerHTML = `<strong>Nº Trienios:</strong> ${state.nominasTrieniosCount.toString().padStart(2, '0')}`;
   }
 }
-
 function renderNominasHistoricoScreen(target, view, container) {
   const months = nominasHistoryMonths();
   const history = months.map((month, index) => {
@@ -12845,7 +12834,6 @@ function renderNominasHistoricoScreen(target, view, container) {
   const variationLabel = (value) => value == null ? "-" : `${value >= 0 ? "+" : "-"}${formatPayrollMoney(Math.abs(value))}`;
   const variationColor = (value) => value == null ? "#64748b" : value >= 0 ? "#15803d" : "#b91c1c";
   const thStyle = "background:#f9f9f9; padding:10px; border-bottom:2px solid #ddd; text-align:left; font-weight:bold; color:#555;";
-
   target.innerHTML = `
     <h3 style="margin:0 0 14px; color:#1b5e20; font-size:1.2rem; font-weight:bold;">Evolucion salarial de los ultimos 12 meses</h3>
     <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-bottom:18px;">
@@ -12925,9 +12913,7 @@ function renderNominasHistoricoScreen(target, view, container) {
       </table>
     </div>
   `;
-
   const table = target;
-
   table.querySelectorAll(".btn-visualizar").forEach(btn => {
     btn.addEventListener("click", (e) => {
       state.nominasSelectedMonth = e.target.getAttribute("data-month");
@@ -12935,16 +12921,13 @@ function renderNominasHistoricoScreen(target, view, container) {
       renderCustomNominasApp(container, view);
     });
   });
-
   table.querySelectorAll(".btn-pdf-dummy").forEach(btn => {
     btn.addEventListener("click", (event) => {
       const month = event.currentTarget.getAttribute("data-month") || state.nominasSelectedMonth;
       printPayrollPDF(getPayrollCalculations(month), month);
     });
   });
-
 }
-
 function renderNominasCertificadoScreen(target, view) {
   const title = document.createElement("h3");
   title.style.margin = "0 0 16px 0";
@@ -12953,7 +12936,6 @@ function renderNominasCertificadoScreen(target, view) {
   title.style.fontWeight = "bold";
   title.textContent = "Certificado de Retenciones e Ingresos a Cuenta (I.R.P.F.)";
   target.append(title);
-
   const certCard = document.createElement("div");
   certCard.style.background = "#fff";
   certCard.style.border = "1px solid #ddd";
@@ -12961,7 +12943,6 @@ function renderNominasCertificadoScreen(target, view) {
   certCard.style.padding = "30px";
   certCard.style.boxShadow = "0 4px 10px rgba(0,0,0,0.03)";
   certCard.style.fontSize = "0.85rem";
-
   certCard.innerHTML = `
     <div style="display:flex; justify-content:space-between; border-bottom:2px solid #000; padding-bottom:15px; margin-bottom:20px;">
       <div>
@@ -12973,7 +12954,6 @@ function renderNominasCertificadoScreen(target, view) {
         <div style="font-size:0.75rem; color:#555; font-weight:bold;">MODELO 10T</div>
       </div>
     </div>
-
     <div style="margin-bottom:20px;">
       <h4 style="margin:0 0 10px 0; border-bottom:1px solid #eee; padding-bottom:4px; color:#1b5e20;">DATOS DEL PERCEPTOR</h4>
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
@@ -12983,7 +12963,6 @@ function renderNominasCertificadoScreen(target, view) {
         <div><strong>Relación Jurídica:</strong> Funcionario de Carrera</div>
       </div>
     </div>
-
     <div style="margin-bottom:24px;">
       <h4 style="margin:0 0 10px 0; border-bottom:1px solid #eee; padding-bottom:4px; color:#1b5e20;">RENDIMIENTOS DEL TRABAJO</h4>
       <table style="width:100%; border-collapse:collapse; margin-top:8px;">

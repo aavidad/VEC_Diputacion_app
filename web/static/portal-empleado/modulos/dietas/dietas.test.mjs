@@ -727,7 +727,6 @@ test("genera el resumen anual PDF real por el puerto documental común", async (
     alcance: "Comprobación local, sin consulta a registros, firma o sello reales",
   });
   assert.doesNotMatch(JSON.stringify(descriptor), /persona_ref|actor_ref|dni|latitud|longitud/i);
-
   let blob;
   let nombre;
   const entorno = {
@@ -749,7 +748,6 @@ test("genera el resumen anual PDF real por el puerto documental común", async (
   assert.match(pdf, /Resumen anual de Dietas 2026/);
   assert.match(pdf, /DEMO-DIE-REC-ANUAL-2026-01/);
   assert.ok(blob.size > 10_000);
-
   const sinRuta = presentador([CAPACIDAD_CONSULTAR_GASTO]).prepararDescriptorResumenAnual(2026, t);
   assert.equal(sinRuta.filas.length, 6);
   assert.doesNotMatch(JSON.stringify(sinRuta), /kilómetros|kilometraje|km/i);
@@ -758,7 +756,6 @@ test("genera el resumen anual PDF real por el puerto documental común", async (
     capacidades: CAPACIDADES_EMPLEADO,
   }).prepararDescriptorResumenAnual(2026, t), /servicio documental autorizado/);
 });
-
 test("acepta referencias opacas productivas, rechaza DEMO y prepara cotejo POST", () => {
   const modulo = crearPresentadorDietas({
     datos: datosProductivos(), contextoActor: CONTEXTO_PRODUCTIVO,

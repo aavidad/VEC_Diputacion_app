@@ -1,0 +1,601 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+import { obtenerDatosPresentacion } from "./datos-presentacion.js";
+import { crearAdaptadorPresentacion } from "./portal-presentacion-adaptador.js";
+import {
+  cargarCatalogoModulosInterno,
+  crearCatalogoModulosDesdeManifiestos,
+  extraerModulosEnvelopeCanonico,
+} from "./portal-catalogo-modulos.js";
+import {
+  CLAVES_MODULOS_VEC_REGISTRADOS,
+  crearCoordinadorModulosPortal,
+  moduloDeVistaPortal,
+  resolverCargasModularesPresentacion,
+  rutaDeVistaPortal,
+} from "./portal-modulos-coordinador.js";
+
+function raizFalsa() {
+  const eventos = new Map();
+  return {
+    eventos,
+    innerHTML: "",
+    addEventListener(tipo, manejador) { eventos.set(tipo, manejador); },
+    removeEventListener(tipo, manejador) {
+      if (eventos.get(tipo) === manejador) eventos.delete(tipo);
+    },
+    replaceChildren() { this.innerHTML = ""; },
+    contains() { return true; },
+    querySelector() { return null; },
+    querySelectorAll() { return []; },
+    setAttribute() {},
+    removeAttribute() {},
+  };
+}
+
+function raizDietasFalsa() {
+  const clave = (atributo) => atributo.slice(5).replace(/-([a-z])/g, (_m, letra) => letra.toUpperCase());
+  class Nodo {
+    constructor(documento, etiqueta = "div") {
+      this.ownerDocument = documento; this.tagName = etiqueta; this.children = []; this.dataset = {};
+      this.listeners = {}; this.parent = null; this.textContent = "";
+    }
+    append(...nodos) { this.children.push(...nodos); nodos.forEach((nodo) => { nodo.parent = this; }); }
+    replaceChildren(...nodos) { this.children = []; this.append(...nodos); }
+    removeChild(nodo) { this.children = this.children.filter((hijo) => hijo !== nodo); nodo.parent = null; }
+    remove() { this.parent?.removeChild(this); }
+    addEventListener(tipo, manejador) { this.listeners[tipo] = manejador; }
+    removeEventListener(tipo) { delete this.listeners[tipo]; }
+    setAttribute() {}
+    matches(selector) {
+      const coincidencia = selector.match(/^\[([^=\]]+)(?:="([^"]*)")?\]$/u);
+      if (!coincidencia) return this.tagName === selector;
+      const actual = this.dataset[clave(coincidencia[1])];
+      return actual !== undefined && (coincidencia[2] === undefined || actual === coincidencia[2]);
+    }
+    closest(selector) { for (let nodo = this; nodo; nodo = nodo.parent) if (nodo.matches(selector)) return nodo; return null; }
+    querySelector(selector) { return this.querySelectorAll(selector)[0] || null; }
+    querySelectorAll(selector) {
+      const salida = [];
+      const visitar = (nodo) => { if (nodo.matches(selector)) salida.push(nodo); nodo.children.forEach(visitar); };
+      visitar(this); return salida;
+    }
+  }
+  const documento = { createElement: (etiqueta) => new Nodo(documento, etiqueta) };
+  return new Nodo(documento, "root");
+}
+
+const VERSION_GRAFO = "granada-buffer-osrm-v1-53aba0ad43c4";
+
+function respuestaOSRM() {
+  return {
+    code: "Ok",
+    engine: "osrm_on_premise",
+    route_scope: "Granada provincia + 15 km",
+    data_version: VERSION_GRAFO,
+    routes: [{
+      distance: 140_800,
+      duration: 6_600,
+      legs: [
+        { distance: 70_400, duration: 3_300 },
+        { distance: 70_400, duration: 3_300 },
+      ],
+      geometry: {
+        type: "LineString",
+        coordinates: [
+          [-3.59869101, 37.17428891],
+          [-3.56, 36.95],
+          [-3.52045559, 36.74535308],
+          [-3.56, 36.95],
+          [-3.59869101, 37.17428891],
+        ],
+      },
+    }],
+    waypoints: [],
+  };
+}
+
+function respuestaJSON(datos) {
+  return new Response(JSON.stringify(datos), {
+    status: 200,
+    headers: { "Content-Type": "application/json; charset=UTF-8" },
+  });
+}
+
+function manifiestoContratacionTemporal() {
+  return {
+    id: "vec.module.contratacion_temporal",
+    name_key: "ui.vec.module.contratacion_temporal.name",
+    description_key: "ui.vec.module.contratacion_temporal.description",
+    version: "v0.2.0",
+    group: "recursos_humanos",
+    base_path: "/modules/contratacion-temporal",
+    permissions: [{
+      key: "contratacion_temporal.cuadro.consultar",
+      label_key: "ui.permission.contratacion_temporal.cuadro",
+    }],
+    menu: [{
+      id: "contratacion_temporal.cuadro",
+      module_id: "vec.module.contratacion_temporal",
+      label_key: "ui.vec.menu.contratacion_temporal.cuadro",
+      path: "/modules/contratacion-temporal/cuadro",
+      icon: "layout-dashboard",
+      group: "modulo_contratacion_temporal",
+      order: 100,
+      required_permissions: ["contratacion_temporal.cuadro.consultar"],
+    }],
+  };
+}
+
+const TRADUCCIONES_CONTRATACION_TEMPORAL = Object.freeze({
+  "ui.vec.module.contratacion_temporal.name": "Contratación temporal",
+  "ui.vec.module.contratacion_temporal.description": "Expedientes de contratación temporal",
+});
+
+function crearCoordinador({ fetchImpl = async () => respuestaJSON(respuestaOSRM()), anunciar = () => {} } = {}) {
+  return crearCoordinadorModulosPortal({
+    escaparHTML: (valor) => String(valor).replaceAll("&", "&amp;").replaceAll("<", "&lt;"),
+    anunciar,
+    confirmarOperacion: () => true,
+    entorno: { location: { origin: "http://127.0.0.2:8081" }, fetch: fetchImpl },
+  });
+}
+
+
+test("la consulta inicial tiene timeout y se aborta al desmontar o sustituir", async () => {
+  const catalogo = crearCatalogoModulosDesdeManifiestos(
+    [manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL,
+  );
+  const señales = [];
+  let resolver = false;
+  const fuente = {
+    capacidades: ["contratacion_temporal.cuadro.consultar"],
+    listar({ signal } = {}) {
+      señales.push(signal);
+      if (resolver) return Promise.resolve({ expedientes: [] });
+      return new Promise((_resolver, rechazar) => {
+        signal.addEventListener("abort", () => {
+          const error = new Error("consulta cancelada");
+          error.name = "AbortError";
+          rechazar(error);
+        }, { once: true });
+      });
+    },
+    async obtener() { throw new Error("sin expedientes"); },
+    async ejecutar() { throw new Error("solo lectura"); },
+  };
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    cargarCatalogoInterno: async () => catalogo,
+    limiteCargaModularMs: 20,
+    cargadoresInternos: {
+      contratacion_temporal: async () => ({
+        cliente: { crearClienteHTTPContratacionTemporal: () => ({}) },
+        adaptador: { crearAdaptadorHTTPExpedientesContratacionTemporal: () => fuente },
+        presentador: {
+          crearPresentadorExpedientesContratacionTemporal: () => ({}),
+        },
+        vista: { montarModuloContratacionTemporal: async () => ({ desmontar() {} }) },
+      }),
+    },
+  });
+  const esperarConsulta = async (total) => {
+    for (let intento = 0; intento < 50 && señales.length < total; intento += 1) {
+      await new Promise((continuar) => setImmediate(continuar));
+    }
+    assert.equal(señales.length, total);
+  };
+
+  await coordinador.cargarInterno();
+  assert.equal(señales[0].aborted, true);
+  assert.equal(coordinador.resolverAcceso("contratacion_temporal").disponible, false);
+
+  const cargaDesmontada = coordinador.cargarInterno();
+  await esperarConsulta(2);
+  coordinador.desmontarVistaActual();
+  await assert.rejects(cargaDesmontada, /carga interna sustituida/);
+  assert.equal(señales[1].aborted, true);
+
+  const cargaSustituida = coordinador.cargarInterno();
+  await esperarConsulta(3);
+  resolver = true;
+  await coordinador.cargarInterno();
+  await assert.rejects(cargaSustituida, /carga interna sustituida/);
+  assert.equal(señales[2].aborted, true);
+  assert.equal(coordinador.resolverAcceso("contratacion_temporal").disponible, true);
+});
+
+test("el funcionario comparte una sola identidad y compone Cronos, Dietas y Personal", async () => {
+  const coordinador = crearCoordinador();
+  const contextoBolsa = await coordinador.cargarPresentacion(
+    obtenerDatosPresentacion("funcionario").sesion,
+  );
+  assert.equal(contextoBolsa, null);
+  assert.equal(coordinador.obtenerContextoBolsa(), null);
+  assert.equal(coordinador.resolverAcceso("bolsa", true).disponible, false);
+  assert.equal(coordinador.resolverAcceso("cronos", true).disponible, true);
+  assert.equal(coordinador.resolverAcceso("dietas", true).disponible, true);
+  assert.equal(coordinador.resolverAcceso("personal", true).disponible, true);
+  const navegacion = coordinador.renderizarNavegacion(true, "portal", (vista) => ["cronos", "dietas", "personal"].includes(vista));
+  assert.equal((navegacion.match(/modulo-habilitado/g) || []).length, 3);
+  assert.match(navegacion, /data-modulo-portal="bolsa"[^>]*disabled/u);
+});
+
+test("técnico y administrador mantienen Personal denegado por falta de contexto", async () => {
+  for (const perfil of ["tecnico", "administrador"]) {
+    const coordinador = crearCoordinador();
+    await coordinador.cargarPresentacion(obtenerDatosPresentacion(perfil).sesion);
+    assert.equal(coordinador.resolverAcceso("personal", true).disponible, false, perfil);
+  }
+});
+
+test("las rutas estables no mezclan el submenú de Bolsa con los módulos personales", () => {
+  assert.equal(rutaDeVistaPortal("portal"), "#portal");
+  assert.equal(rutaDeVistaPortal("resumen"), "#bolsa/resumen");
+  assert.equal(rutaDeVistaPortal("cronos"), "#cronos");
+  assert.equal(rutaDeVistaPortal("dietas"), "#dietas");
+  assert.equal(moduloDeVistaPortal("convocatorias"), "bolsa");
+  assert.equal(moduloDeVistaPortal("cronos"), "cronos");
+  assert.equal(moduloDeVistaPortal("vista-no-registrada"), "");
+  assert.equal(rutaDeVistaPortal("vista-no-registrada"), "#portal");
+});
+
+test("Bolsa usa el montaje común para B12 y B5 sin sondear vistas desconocidas", async () => {
+  const montajes = [];
+  const desmontajes = [];
+  const consultasDisponibilidad = [];
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    montajeBolsa: {
+      disponible: (vista) => {
+        consultasDisponibilidad.push(vista);
+        return ["resumen", "bolsa-candidatos"].includes(vista);
+      },
+      montar: ({ vista, raiz }) => {
+        montajes.push(vista);
+        raiz.innerHTML = `<p>${vista}</p>`;
+        return { desmontar: () => desmontajes.push(vista) };
+      },
+    },
+  });
+  const raiz = raizFalsa();
+  assert.equal(await coordinador.montarVista("resumen", raiz), true);
+  assert.equal(await coordinador.montarVista("bolsa-candidatos", raiz), true);
+  assert.deepEqual(desmontajes, ["resumen"]);
+  coordinador.desmontarVistaActual();
+  assert.deepEqual(desmontajes, ["resumen", "bolsa-candidatos"]);
+  assert.equal(coordinador.vistaGestionada("vista-no-registrada"), false);
+  assert.equal(coordinador.vistaDisponible("vista-no-registrada"), false);
+  assert.equal(await coordinador.montarVista("vista-no-registrada", raiz), false);
+  assert.equal(consultasDisponibilidad.includes("vista-no-registrada"), false);
+  assert.deepEqual(montajes, ["resumen", "bolsa-candidatos"]);
+});
+
+test("Elaboración se reutiliza al repintar y sustituye solo la referencia o la vista", async () => {
+  const montajes = [];
+  const abortadas = [];
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    montajeBolsa: {
+      disponible: (vista) => ["elaboracion", "resumen"].includes(vista),
+      montar: ({ vista, opciones }) => {
+        const controlador = new AbortController();
+        montajes.push({ vista, referencia: opciones.referencia || "", signal: controlador.signal });
+        return { desmontar: () => { controlador.abort(); abortadas.push(vista); } };
+      },
+    },
+  });
+  const raiz = raizFalsa();
+  assert.equal(await coordinador.montarVista("elaboracion", raiz, { referencia: "DEMO-BORRADOR-001" }), true);
+  const inicial = montajes[0];
+  assert.equal(await coordinador.montarVista("elaboracion", raiz), true);
+  assert.equal(montajes.length, 1);
+  assert.equal(inicial.signal.aborted, false);
+  assert.equal(await coordinador.montarVista("elaboracion", raiz, { referencia: "DEMO-BORRADOR-002" }), true);
+  assert.equal(inicial.signal.aborted, true);
+  assert.deepEqual(montajes.map(({ referencia }) => referencia), ["DEMO-BORRADOR-001", "DEMO-BORRADOR-002"]);
+  const nueva = montajes[1];
+  assert.equal(await coordinador.montarVista("resumen", raiz), true);
+  assert.equal(nueva.signal.aborted, true);
+  assert.deepEqual(abortadas, ["elaboracion", "elaboracion"]);
+});
+
+test("Elaboración reserva el montaje pendiente antes de una reentrada y descarta el resultado sustituido", async () => {
+  const pendientes = [];
+  const abortadas = [];
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    montajeBolsa: {
+      disponible: (vista) => vista === "elaboracion",
+      montar: ({ opciones }) => new Promise((resolver) => {
+        const controlador = new AbortController();
+        pendientes.push({ referencia: opciones.referencia || "", controlador, resolver });
+      }),
+    },
+  });
+  const raiz = raizFalsa();
+  const primera = coordinador.montarVista("elaboracion", raiz, { referencia: "DEMO-BORRADOR-001" });
+  const htmlPendiente = raiz.innerHTML;
+  assert.equal(await coordinador.montarVista("elaboracion", raiz), true);
+  assert.equal(pendientes.length, 1);
+  assert.equal(raiz.innerHTML, htmlPendiente);
+  const segunda = coordinador.montarVista("elaboracion", raiz, { referencia: "DEMO-BORRADOR-002" });
+  assert.equal(pendientes.length, 2);
+  pendientes[0].resolver({ desmontar: () => { pendientes[0].controlador.abort(); abortadas.push("primera"); } });
+  assert.equal(await primera, false);
+  assert.equal(pendientes[0].controlador.signal.aborted, true);
+  pendientes[1].resolver({ desmontar: () => { pendientes[1].controlador.abort(); abortadas.push("segunda"); } });
+  assert.equal(await segunda, true);
+  coordinador.desmontarVistaActual();
+  assert.equal(pendientes[1].controlador.signal.aborted, true);
+  assert.deepEqual(abortadas, ["primera", "segunda"]);
+});
+
+test("Cronos y Dietas montan contenido administrativo y nunca dejan el área en blanco", async () => {
+  const coordinador = crearCoordinador();
+  await coordinador.cargarPresentacion(obtenerDatosPresentacion("funcionario").sesion);
+  const raiz = raizDietasFalsa();
+  assert.equal(await coordinador.montarVista("cronos", raiz), true);
+  const cronos = raiz.querySelector("[data-cronos-recorridos]");
+  assert.ok(cronos);
+  assert.match(cronos.innerHTML, /class="cronos-area/);
+  assert.match(cronos.innerHTML, /Movimientos/);
+  assert.doesNotMatch(cronos.innerHTML, /Descargar recibo/);
+  const raizDietas = raizDietasFalsa();
+  assert.equal(await coordinador.montarVista("dietas", raizDietas), true);
+  assert.ok(raizDietas.querySelector("[data-dietas-itinerario]"));
+  assert.ok(raizDietas.querySelector("[data-itinerario-catalogo]"));
+  coordinador.desmontarVistaActual();
+});
+
+test("Dietas calcula con el mediador OSRM real de presentación y nunca con simulación", async () => {
+  const llamadas = [];
+  const anuncios = [];
+  const coordinador = crearCoordinador({
+    fetchImpl: async (ruta, opciones) => {
+      llamadas.push({ ruta, opciones });
+      return respuestaJSON(respuestaOSRM());
+    },
+    anunciar: (mensaje, tipo) => anuncios.push({ mensaje, tipo }),
+  });
+  await coordinador.cargarPresentacion(obtenerDatosPresentacion("funcionario").sesion);
+  const raiz = raizDietasFalsa();
+  assert.equal(await coordinador.montarVista("dietas", raiz), true);
+
+  const contenedorDietas = raiz.querySelector("[data-dietas-itinerario]");
+  await contenedorDietas.listeners.click({
+    target: contenedorDietas.querySelector("[data-itinerario-calcular]"),
+  });
+
+  assert.equal(llamadas.length, 1);
+  assert.equal(llamadas[0].ruta, "/api/presentacion/cartografia/rutas");
+  assert.equal(llamadas[0].opciones.method, "POST");
+  assert.equal(llamadas[0].opciones.credentials, "omit");
+  assert.equal(llamadas[0].opciones.redirect, "error");
+  assert.deepEqual(JSON.parse(llamadas[0].opciones.body), {
+    coordinates: [
+      { lat: 37.17428891, lon: -3.59869101, name: "Granada" },
+      { lat: 36.74535308, lon: -3.52045559, name: "Motril" },
+      { lat: 37.17428891, lon: -3.59869101, name: "Granada" },
+    ],
+    alternatives: 3,
+  });
+  assert.ok(raiz.querySelector("[data-dietas-mapa-ref]"));
+  assert.ok(anuncios.some(({ mensaje }) => /calculada por el puerto interno/i.test(mensaje)));
+  coordinador.desmontarVistaActual();
+});
+
+test("una navegación aborta el catálogo Dietas pendiente sin publicar su montaje obsoleto", async () => {
+  let resolverCatalogo; let senalCatalogo;
+  const catalogoPendiente = new Promise((resolver) => { resolverCatalogo = resolver; });
+  const [identidad, catalogo, cronosContrato, cronosPresentador, cronosDatos, cronosAdaptador, documentos,
+    dietasContrato, dietaVista, personalVista, catalogoDietas] = await Promise.all([
+    import("./identidad/presentacion.js"), import("./portal-catalogo-presentacion.js"),
+    import("./modulos/cronos/contrato.js"), import("./modulos/cronos/presentador.js"),
+    import("./modulos/cronos/datos-presentacion.js"), import("./modulos/cronos/adaptador-presentacion.js"),
+    import("./documentos/descarga-recibos-presentacion.js"), import("./modulos/dietas/contrato.js"),
+    import("./modulos/dietas/vista-itinerario.js"), import("./modulos/personal/vista.js"),
+    import("./modulos/dietas/catalogo-rutas-provincial.js"),
+  ]);
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    entorno: { location: { origin: "http://127.0.0.2:8081" }, fetch: async () => { throw new Error("no procede"); } },
+    cargadoresPresentacion: {
+      base: async () => Object.freeze({ identidad, catalogo }),
+      cronos: async () => Object.freeze({
+        contrato: cronosContrato, presentador: cronosPresentador, datos: cronosDatos,
+        adaptador: cronosAdaptador, documentos,
+      }),
+      dietas: async () => Object.freeze({
+        contrato: dietasContrato,
+        vista: dietaVista,
+        mapa: { crearVisorRutaDietas: () => ({ montar() { throw new Error("no debe montar mapa"); } }) },
+        calculador: { crearCalculadorRutasDietasPresentacionOSRM: () => ({
+          obtenerCatalogo({ signal }) { senalCatalogo = signal; return catalogoPendiente; },
+          calcular: async () => null,
+        }) },
+      }),
+      personal: async () => Object.freeze({ vista: personalVista }),
+    },
+  });
+  await coordinador.cargarPresentacion(obtenerDatosPresentacion("funcionario").sesion);
+  const raiz = raizDietasFalsa();
+  const montajeAnterior = coordinador.montarVista("dietas", raiz);
+  assert.ok(raiz.querySelector("[data-dietas-itinerario]"));
+  coordinador.desmontarVistaActual();
+  const ajeno = raiz.ownerDocument.createElement("section"); ajeno.dataset.ajeno = ""; raiz.append(ajeno);
+  resolverCatalogo(catalogoDietas.obtenerCatalogoRutasProvincial());
+  assert.equal(await montajeAnterior, false);
+  assert.equal(senalCatalogo.aborted, true);
+  assert.equal(raiz.querySelector("[data-ajeno]"), ajeno);
+  assert.equal(raiz.querySelector("[data-dietas-itinerario]"), null);
+});
+
+test("Dietas falla cerrada sin cliente HTTP y Cronos permanece disponible", async () => {
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    entorno: { location: { origin: "http://127.0.0.2:8081" } },
+  });
+  await coordinador.cargarPresentacion(obtenerDatosPresentacion("funcionario").sesion);
+  assert.equal(coordinador.vistaDisponible("cronos"), true);
+  assert.equal(coordinador.vistaDisponible("dietas"), false);
+  assert.equal(coordinador.resolverAcceso("dietas").estado, "no_disponible");
+  assert.match(coordinador.renderizarNavegacion(true, "dietas"), />No disponible<\/span>/);
+});
+
+test("un cargador modular rechazado no contamina módulos independientes", async () => {
+  const cargas = await resolverCargasModularesPresentacion({
+    contratacion_temporal: async () => Object.freeze({ modulo: "contratacion" }),
+    cronos: async () => Object.freeze({ modulo: "cronos" }),
+    dietas: async () => { throw new Error("cartografía no disponible"); },
+  });
+  assert.equal(cargas.contratacion_temporal.disponible, true);
+  assert.equal(cargas.cronos.disponible, true);
+  assert.equal(cargas.dietas.disponible, false);
+  assert.equal(cargas.dietas.estado, "no_disponible");
+  assert.equal(cargas.contratacion_temporal.recursos.modulo, "contratacion");
+  assert.equal(cargas.cronos.recursos.modulo, "cronos");
+});
+
+test("un cargador pendiente queda acotado y no paraliza los resultados independientes", async () => {
+  const inicio = Date.now();
+  const cargas = await resolverCargasModularesPresentacion({
+    contratacion_temporal: async () => Object.freeze({ modulo: "contratacion" }),
+    cronos: async () => Object.freeze({ modulo: "cronos" }),
+    dietas: async () => new Promise(() => {}),
+  }, { limiteMs: 20 });
+  assert.ok(Date.now() - inicio < 1_000, "la carga pendiente debe quedar acotada");
+  assert.equal(cargas.contratacion_temporal.disponible, true);
+  assert.equal(cargas.cronos.disponible, true);
+  assert.deepEqual(cargas.dietas, {
+    disponible: false,
+    estado: "no_disponible",
+  });
+});
+
+test("un módulo ajeno al ámbito del actor ni siquiera ejecuta su cargador", async () => {
+  let cargasDietas = 0;
+  const cargas = await resolverCargasModularesPresentacion({
+    contratacion_temporal: async () => Object.freeze({ modulo: "contratacion" }),
+    dietas: async () => {
+      cargasDietas += 1;
+      return new Promise(() => {});
+    },
+  }, { claves: ["contratacion_temporal"], limiteMs: 20 });
+  assert.equal(cargasDietas, 0);
+  assert.equal(cargas.contratacion_temporal.disponible, true);
+  assert.equal(cargas.cronos.estado, "denegado");
+  assert.equal(cargas.dietas.estado, "denegado");
+});
+
+test("una recarga inválida borra la composición anterior antes de fallar", async () => {
+  const coordinador = crearCoordinador();
+  await coordinador.cargarPresentacion(obtenerDatosPresentacion("administrador").sesion);
+  assert.equal(coordinador.resolverAcceso("bolsa", true).disponible, true);
+  await assert.rejects(coordinador.cargarPresentacion(null));
+  assert.equal(coordinador.obtenerContextoBolsa(), null);
+  assert.equal(coordinador.resolverAcceso("bolsa", true).disponible, false);
+  assert.equal(coordinador.resolverAcceso("contratacion_temporal").disponible, false);
+  assert.equal(coordinador.resolverAcceso("contratacion_temporal").estado, "denegado");
+});
+
+test("una carga válida obsoleta no puede republicar permisos tras otra inválida", async () => {
+  let invocacionesBase = 0;
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    cargadoresPresentacion: {
+      base: async () => {
+        invocacionesBase += 1;
+        if (invocacionesBase === 1) {
+          await new Promise((resolver) => setTimeout(resolver, 50));
+        }
+        const [identidad, catalogo] = await Promise.all([
+          import("./identidad/presentacion.js"),
+          import("./portal-catalogo-presentacion.js"),
+        ]);
+        return Object.freeze({ identidad, catalogo });
+      },
+    },
+  });
+  const cargaAnterior = coordinador.cargarPresentacion(
+    obtenerDatosPresentacion("administrador").sesion,
+  );
+  await new Promise((resolver) => setTimeout(resolver, 5));
+  await assert.rejects(coordinador.cargarPresentacion(null));
+  await assert.rejects(cargaAnterior, /carga de presentación sustituida/u);
+  assert.equal(coordinador.obtenerContextoBolsa(), null);
+  assert.equal(coordinador.resolverAcceso("bolsa", true).disponible, false);
+  assert.equal(coordinador.resolverAcceso("contratacion_temporal").disponible, false);
+});
+
+test("el coordinador no autentica ni conserva estado en el navegador", async () => {
+  const [fuenteCoordinador, fuenteCarga, estilos, empleado] = await Promise.all([
+    readFile(new URL("portal-modulos-coordinador.js", import.meta.url), "utf8"),
+    readFile(new URL("portal-modulos-carga.js", import.meta.url), "utf8"),
+    readFile(new URL("portal-modulos.css", import.meta.url), "utf8"),
+    readFile(new URL("portal-composicion-empleado.js", import.meta.url), "utf8"),
+  ]);
+  const fuente = `${fuenteCoordinador}\n${fuenteCarga}`;
+  assert.doesNotMatch(fuente, /document\.cookie|localStorage|sessionStorage/);
+  assert.doesNotMatch(empleado, /document\.cookie|localStorage|sessionStorage/);
+  assert.match(fuente, /Promise\.allSettled/);
+  assert.match(fuente, /LIMITE_CARGA_MODULAR_MS/);
+  assert.match(fuente, /composicion = null/);
+  assert.match(fuente, /secuenciaCarga/);
+  assert.match(empleado, /function componerCronosVisible/);
+  assert.match(fuente, /function capacidadesDietas/);
+  assert.doesNotMatch(fuente, /^import .*\/modulos\//mu);
+  assert.doesNotMatch(fuente, /import\("\.\/modulos\/cronos\/datos-presentacion\.js/);
+  assert.match(fuente, /import\("\.\/modulos\/cronos\/vista-recorridos\.js/);
+  assert.match(fuente, /import\("\.\/modulos\/dietas\/vista-itinerario\.js/);
+  assert.doesNotMatch(fuente, /import\("\.\/modulos\/dietas\/adaptador-presentacion\.js/);
+  assert.match(fuente, /calculador-rutas-presentacion-osrm\.js/);
+  assert.doesNotMatch(fuente, /import\("\.\/modulos\/dietas\/calculador-rutas-presentacion\.js"\)/);
+  assert.doesNotMatch(fuente, /versionGrafo|granada-buffer-osrm-v/u);
+  assert.match(empleado, /recursos\.mapa\.crearVisorRutaDietas\(\{ entorno, permitirTeselas: true \}\)/);
+  assert.match(estilos, /data-modulo-catalogo="bolsa"/);
+  assert.match(estilos, /data-modulo-catalogo="cronos"/);
+  assert.match(estilos, /data-modulo-catalogo="dietas"/);
+  assert.match(estilos, /data-modulo-portal="cronos"/);
+  assert.match(estilos, /forced-colors: active/);
+  assert.match(estilos, /\.modulo-personal\s+\.rpt-huella\s*\{[^}]*overflow-wrap:\s*anywhere;/);
+  assert.doesNotMatch(estilos, /\.tarjeta-modulo-bloqueada/);
+});
+
+test("el cache busting de módulos avanza en cascada hasta el HTML", async () => {
+  const versionCoordinador = "20260921-avisos-r5-v1";
+  const versionPortal = "20260921-avisos-r5-v1";
+  const versionModuloBolsa = "20260921-montaje-modulos-b1";
+  const versionI18n = "20260920-personal-catalogo-v1";
+  const versionCatalogo = "20260906-acceso-certificado-v1";
+  const versionTema = "20260920-referencia-rrhh-v1";
+  const versionTemaCT = "20260918-botones-v1";
+  const versionPulido = "20260920-recorridos-visibles-v1";
+  const versionRPT = "20260920-personal-rpt-publica-v3";
+  const versionEstilos = "20260920-personal-rpt-publica-v3";
+  const versionFlujos = "20260921-avisos-movil-v1";
+  const [portal, html] = await Promise.all([
+    readFile(new URL("portal.js", import.meta.url), "utf8"),
+    readFile(new URL("index.html", import.meta.url), "utf8"),
+  ]);
+  const coordinador = await readFile(
+    new URL("portal-modulos-coordinador.js", import.meta.url),
+    "utf8",
+  );
+  assert.match(portal, new RegExp(`portal-modulos-coordinador\\.js\\?v=${versionCoordinador}`));
+  assert.match(portal, new RegExp(`portal-bolsas-api\\.js\\?v=${versionModuloBolsa}`));
+  assert.match(portal, new RegExp(`portal-i18n\\.js\\?v=${versionI18n}`));
+  assert.match(coordinador, new RegExp(`portal-catalogo-modulos\\.js\\?v=${versionCatalogo}`));
+  assert.match(coordinador, new RegExp(`portal-i18n\\.js\\?v=${versionI18n}`));
+  assert.match(coordinador, new RegExp(`modulos/personal/cliente-http-categorias\\.js\\?v=${versionI18n}`));
+  assert.match(coordinador, new RegExp(`modulos/personal/cliente-http-rpt-publica\\.js\\?v=${versionRPT}`));
+  assert.match(coordinador, new RegExp(`modulos/personal/vista-rpt-publica\\.js\\?v=${versionRPT}`));
+  assert.match(html, new RegExp(`portal\\.js\\?v=${versionPortal}`));
+  assert.match(html, new RegExp(`portal-modulos\\.css\\?v=${versionEstilos}`));
+  assert.match(html, new RegExp(`portal-flujos\\.css\\?v=${versionFlujos}`));
+  assert.match(html, new RegExp(`portal\\.css\\?v=${versionTema}`));
+  assert.match(html, new RegExp(`expedientes-operativo\\.css\\?v=${versionTemaCT}`));
+  assert.match(html, new RegExp(`modulos/cronos/cronos\\.css\\?v=${versionPulido}`));
+  assert.match(html, new RegExp(`modulos/dietas/dietas\\.css\\?v=${versionPulido}`));
+});

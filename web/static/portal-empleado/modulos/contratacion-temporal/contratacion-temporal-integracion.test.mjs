@@ -28,7 +28,7 @@ const [
   readFile(new URL("vista.js", directorio), "utf8"),
   readFile(new URL("contratacion-temporal.css", directorio), "utf8"),
   readFile(new URL("../../portal-modulos-coordinador.js", directorio), "utf8"),
-  readFile(new URL("../../portal-modulos-coordinador.test.mjs", directorio), "utf8"),
+  readFile(new URL("../../portal-modulos-coordinador-flujos.test.mjs", directorio), "utf8"),
   readFile(new URL("../../index.html", directorio), "utf8"),
   readFile(new URL("../../portal-catalogo-presentacion.js", directorio), "utf8"),
   readFile(new URL("vista-expedientes.js", directorio), "utf8"),

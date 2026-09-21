@@ -835,7 +835,6 @@ test("un vuelo bloquea navegación y repintado, conserva el formulario y reinten
   const envio = primerFormulario.enviar();
   await esperarTransmision();
   const otraTarea = expediente.tareas.find(({ tarea_ref: referencia }) => referencia !== tareaRef);
-
   assert.equal(primerFormulario.eventos.size, 4);
   await escenario.raiz.seleccionarTarea(otraTarea.tarea_ref);
   await escenario.raiz.cambiarVista("cuadro");
@@ -850,13 +849,11 @@ test("un vuelo bloquea navegación y repintado, conserva el formulario y reinten
   assert.deepEqual(Object.keys(cliente), ["registrarAnalisis"]);
   assert.ok(escenario.raiz.obtenerControles().every(({ disabled }) => disabled));
   assert.equal(escenario.raiz.obtenerAtributo("aria-busy"), "true");
-
   vuelos[0].rechazar(crearErrorCliente(false));
   await envio;
   assert.strictEqual(escenario.raiz.obtenerAnalisis(), primerFormulario);
   assert.match(primerFormulario.innerHTML, /data-ct-analisis-form/u);
   assert.equal(escenario.raiz.obtenerAtributo("aria-busy"), null);
-
   const reintento = primerFormulario.enviar();
   await esperarTransmision();
   assert.equal(solicitudes.length, 2);
@@ -866,10 +863,8 @@ test("un vuelo bloquea navegación y repintado, conserva el formulario y reinten
   );
   vuelos[1].resolver(crearRecibo(expediente));
   await reintento;
-
   escenario.modulo.desmontar();
 });
-
 test("una respuesta indeterminada conserva el bloqueo sin aborto, remontaje ni segundo envío", async () => {
   const { expediente, tareaRef } = crearExpediente();
   let llamadas = 0;
@@ -889,7 +884,6 @@ test("una respuesta indeterminada conserva el bloqueo sin aborto, remontaje ni s
   const formulario = escenario.raiz.obtenerAnalisis();
   await formulario.enviar();
   const otraTarea = expediente.tareas.find(({ tarea_ref: referencia }) => referencia !== tareaRef);
-
   assert.match(formulario.innerHTML, /data-ct-analisis-indeterminado/u);
   await escenario.raiz.seleccionarTarea(otraTarea.tarea_ref);
   await escenario.raiz.cambiarVista("documentos");
@@ -900,10 +894,8 @@ test("una respuesta indeterminada conserva el bloqueo sin aborto, remontaje ni s
   assert.equal(llamadas, 1);
   assert.equal(signal.aborted, false);
   assert.equal(escenario.raiz.obtenerAtributo("aria-busy"), null);
-
   escenario.modulo.desmontar();
 });
-
 test("el éxito conserva el recibo visible y no reenvía desde la versión obsoleta", async () => {
   const { expediente, tareaRef } = crearExpediente();
   let llamadas = 0;
@@ -920,7 +912,6 @@ test("el éxito conserva el recibo visible y no reenvía desde la versión obsol
   });
   const formulario = escenario.raiz.obtenerAnalisis();
   await formulario.enviar();
-
   assert.match(formulario.innerHTML, /data-ct-analisis-recibo/u);
   assert.match(formulario.innerHTML, /recibo:opaco:analisis:001/u);
   await escenario.raiz.cambiarVista("cuadro");

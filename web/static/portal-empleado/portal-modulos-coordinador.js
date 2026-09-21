@@ -18,15 +18,17 @@ import { traducirPortal } from "./portal-i18n.js?v=20260920-personal-catalogo-v1
 import { calcularMetricasCuadro, tramitesParaInicio } from "./portal-inicio.js";
 import { componerCronosVisible, componerDietasVisible, componerPersonalVisible } from "./portal-composicion-empleado.js";
 import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260919-acceso-bolsa-v1";
+import {
+  CLAVES_CARGA_MODULAR,
+  LIMITE_CARGA_MODULAR_MS,
+  cargarModuloConLimite,
+  consultarConLimite,
+  resolverCargasModularesPresentacion,
+} from "./portal-modulos-carga.js";
+export { resolverCargasModularesPresentacion } from "./portal-modulos-carga.js";
 
 const CLAVE_CONTRATACION_TEMPORAL = "contratacion_temporal";
 const CLAVE_PERSONAL = "personal";
-const CLAVES_CARGA_MODULAR = Object.freeze([
-  CLAVE_CONTRATACION_TEMPORAL,
-  CLAVE_PERSONAL,
-  "cronos",
-  "dietas",
-]);
 export const CLAVES_MODULOS_VEC_REGISTRADOS = Object.freeze([
   CLAVE_PERSONAL,
   "cronos",
@@ -36,7 +38,6 @@ export const CLAVES_MODULOS_VEC_REGISTRADOS = Object.freeze([
   "administracion",
   "usuarios",
 ]);
-const LIMITE_CARGA_MODULAR_MS = 2_000;
 
 const CARGADORES_PRESENTACION_PREDETERMINADOS = Object.freeze({
   base: async () => {
@@ -107,94 +108,6 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
     return Object.freeze({ contrato, cliente, vista });
   },
 });
-
-function cargarModuloConLimite(cargar, clave, limiteMs, temporizadores) {
-  if (typeof temporizadores?.setTimeout !== "function"
-    || typeof temporizadores?.clearTimeout !== "function") {
-    return Promise.reject(new TypeError("temporizadores modulares no disponibles"));
-  }
-  return new Promise((resolver, rechazar) => {
-    let terminada = false;
-    const finalizar = (continuacion, valor) => {
-      if (terminada) return;
-      terminada = true;
-      temporizadores.clearTimeout(temporizador);
-      continuacion(valor);
-    };
-    const temporizador = temporizadores.setTimeout(
-      () => finalizar(rechazar, new Error(`tiempo agotado al cargar ${clave}`)),
-      limiteMs,
-    );
-    Promise.resolve()
-      .then(cargar)
-      .then(
-        (recursos) => finalizar(resolver, recursos),
-        () => finalizar(rechazar, new Error(`no se pudo cargar ${clave}`)),
-      );
-  });
-}
-function consultarConLimite(consultar, controlador, limiteMs, temporizadores) {
-  return new Promise((resolver, rechazar) => {
-    let terminada = false;
-    const finalizar = (continuacion, valor) => {
-      if (terminada) return;
-      terminada = true;
-      temporizadores.clearTimeout(temporizador);
-      continuacion(valor);
-    };
-    const temporizador = temporizadores.setTimeout(() => {
-      controlador.abort();
-      finalizar(
-        rechazar,
-        new Error("tiempo agotado al consultar contratación temporal"),
-      );
-    }, limiteMs);
-    Promise.resolve()
-      .then(() => consultar({ signal: controlador.signal }))
-      .then(
-        (resultado) => finalizar(resolver, resultado),
-        () => finalizar(
-          rechazar,
-          new Error("no se pudo consultar contratación temporal"),
-        ),
-      );
-  });
-}
-
-export async function resolverCargasModularesPresentacion(cargadores, {
-  claves = CLAVES_CARGA_MODULAR,
-  limiteMs = LIMITE_CARGA_MODULAR_MS,
-  temporizadores = globalThis,
-} = {}) {
-  if (!Array.isArray(claves)
-    || claves.some((clave) => !CLAVES_CARGA_MODULAR.includes(clave))
-    || new Set(claves).size !== claves.length
-    || !Number.isSafeInteger(limiteMs) || limiteMs < 1 || limiteMs > 10_000) {
-    throw new TypeError("configuración de carga modular no válida");
-  }
-  const clavesSolicitadas = new Set(claves);
-  const resultados = await Promise.allSettled(CLAVES_CARGA_MODULAR.map((clave) => {
-    if (!clavesSolicitadas.has(clave)) return Promise.resolve(undefined);
-    const cargar = cargadores?.[clave];
-    if (typeof cargar !== "function") {
-      return Promise.reject(new TypeError(`cargador modular ausente: ${clave}`));
-    }
-    return cargarModuloConLimite(cargar, clave, limiteMs, temporizadores);
-  }));
-  return Object.freeze(Object.fromEntries(CLAVES_CARGA_MODULAR.map((clave, indice) => {
-    if (!clavesSolicitadas.has(clave)) {
-      return [clave, Object.freeze({ disponible: false, estado: "denegado" })];
-    }
-    const resultado = resultados[indice];
-    return [clave, resultado.status === "fulfilled"
-      ? Object.freeze({
-        disponible: true,
-        estado: "disponible",
-        recursos: resultado.value,
-      })
-      : Object.freeze({ disponible: false, estado: "no_disponible" })];
-  })));
-}
 
 function capacidadesDietas(contrato) {
   return Object.freeze([
