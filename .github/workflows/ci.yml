@@ -50,51 +50,15 @@ jobs:
         uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: go.mod
+      - name: Instalar Node para las pruebas web
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '20'
       - name: Puerta de calidad
         run: scripts/verificar_calidad.sh
-      - name: Probar el conductor durable O3a V5 sin R
-        working-directory: tools/o3a_v5_conductor
-        run: |
-          set +e
-          ./conductor.sh \
-            "$GITHUB_WORKSPACE" \
-            "$RUNNER_TEMP/evidencia-o3a-v5"
-          estado=$?
-          set -e
-          for evidencia in \
-            resumen.txt manifiesto.tsv residuos.txt \
-            c01_c07_normal.tsv c02_interleavings_normal.tsv \
-            c08_c11_c14_normal.tsv c10_c13_normal.tsv \
-            c15_c21_normal.tsv c19_normal.tsv c20_normal.tsv \
-            c01_c07_normal.log c02_interleavings_normal.log \
-            c08_c11_c14_normal.log c10_c13_normal.log \
-            c15_c21_normal.log c19_normal.log c20_normal.log \
-            c01_c07_race.tsv c02_interleavings_race.tsv \
-            c08_c11_c14_race.tsv c10_c13_race.tsv \
-            c15_c21_race.tsv c19_race.tsv c20_race.tsv \
-            c01_c07_race.log c02_interleavings_race.log \
-            c08_c11_c14_race.log c10_c13_race.log \
-            c15_c21_race.log c19_race.log c20_race.log
-          do
-            ruta="$RUNNER_TEMP/evidencia-o3a-v5/$evidencia"
-            if [[ -f "$ruta" ]]; then
-              printf '\n===== %s =====\n' "$evidencia"
-              sed -n '1,400p' "$ruta"
-            fi
-          done
-          if [[ $estado -ne 0 ]]; then
-            grep -hE 'NO-GO|resultado=NO-GO' \
-              "$RUNNER_TEMP/evidencia-o3a-v5"/*.tsv \
-              "$RUNNER_TEMP/evidencia-o3a-v5/resumen.txt" 2>/dev/null |
-              head -20 |
-              while IFS= read -r diagnostico; do
-                diagnostico=${diagnostico//'%'/'%25'}
-                diagnostico=${diagnostico//$'\r'/'%0D'}
-                diagnostico=${diagnostico//$'\n'/'%0A'}
-                printf '::error title=Conductor O3a V5::%s\n' "$diagnostico"
-              done || true
-          fi
-          exit "$estado"
+      # El conductor O3a V5 (runner endurecido) queda fuera del CI por la
+      # moratoria de INSTRUCCIONES_DESATASCO.md (3 de septiembre): basta
+      # go test ./... con el arnes existente. El codigo sigue en tools/.
 
   puerta-artefactos-productivos:
     runs-on: ubuntu-24.04
