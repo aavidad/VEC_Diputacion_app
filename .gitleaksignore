@@ -20,3 +20,6 @@ f9460b55b050169eeb8449e71e5d186d01ef6b28:internal/app/bootstrap/bootstrap_test.g
 
 # CT91: el valor otra_anotacion del campo accion_clave es un identificador funcional de prueba.
 4fc058f51658f23a7fb461bee7d16eb4430aafdf:web/static/portal-empleado/modulos/contratacion-temporal/adaptador-http-expedientes.test.mjs:vep-clave-castellana-asignada:223
+
+# B-BACK-01: versionBolsaAPI identifica una version de cache sintetica del test, no una clave API.
+8aacd7897b62c95022e245a2643fa12be672bb64:web/static/portal-empleado/portal-modulos-coordinador.test.mjs:generic-api-key:1120
