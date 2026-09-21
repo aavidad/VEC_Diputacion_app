@@ -34,6 +34,7 @@ type proveedorSesionConsultaRRHHDesarrollo struct {
 	reloj       ports.Reloj
 	resolutor   dominiovec.ResolutorContextoActorRegistradoV2
 	base        dominiovec.ResultadoContextoActorRegistradoV2
+	fronteras   catalogoFronterasComunDesarrollo
 	clave       [sha256.Size]byte
 }
 
@@ -69,12 +70,36 @@ func nuevoProveedorSesionConsultaRRHHDesarrollo(
 	reloj ports.Reloj,
 	resolutor dominiovec.ResolutorContextoActorRegistradoV2,
 ) (*proveedorSesionConsultaRRHHDesarrollo, error) {
+	if soporte == nil {
+		return nil, ports.ErrConsultaRRHHNoDisponible
+	}
+	soporte.mu.Lock()
+	perfilCT := soporte.contexto.Resultado.Contexto.PerfilActivoRef
+	soporte.mu.Unlock()
+	fronteras, err := nuevoCatalogoFronterasComunDesarrollo(descriptoresFronterasContratacionTemporalDesarrollo(perfilCT, []string{perfilCT}))
+	if err != nil {
+		return nil, ports.ErrConsultaRRHHNoDisponible
+	}
+	return nuevoProveedorSesionConsultaRRHHConCatalogoDesarrollo(soporte, registro, revalidador, reloj, resolutor, fronteras)
+}
+
+// nuevoProveedorSesionConsultaRRHHConCatalogoDesarrollo conserva la cadena
+// mTLS -> sesión registrada -> ContextoActor V2. La política queda cerrada
+// antes del arranque y sólo admite fronteras exactas ya compuestas.
+func nuevoProveedorSesionConsultaRRHHConCatalogoDesarrollo(
+	soporte *soporteAltaContratacionTemporalDesarrollo,
+	registro httpseguridad.RegistroSesiones,
+	revalidador puertosvec.RevalidadorAutenticacionActorV1,
+	reloj ports.Reloj,
+	resolutor dominiovec.ResolutorContextoActorRegistradoV2,
+	fronteras catalogoFronterasComunDesarrollo,
+) (*proveedorSesionConsultaRRHHDesarrollo, error) {
 	if soporte == nil || soporte.sello == nil || soporte.principalID == "" ||
 		!huellaSHA256ValidaContratacionTemporalDesarrollo(soporte.certificadoSHA256) ||
 		dependenciaEsNulaContratacionTemporalDesarrollo(registro) ||
 		dependenciaEsNulaContratacionTemporalDesarrollo(revalidador) ||
 		dependenciaEsNulaContratacionTemporalDesarrollo(reloj) ||
-		dependenciaEsNulaContratacionTemporalDesarrollo(resolutor) {
+		dependenciaEsNulaContratacionTemporalDesarrollo(resolutor) || fronteras.identidad == nil {
 		return nil, ports.ErrConsultaRRHHNoDisponible
 	}
 	soporte.mu.Lock()
@@ -87,7 +112,7 @@ func nuevoProveedorSesionConsultaRRHHDesarrollo(
 	}
 	p := &proveedorSesionConsultaRRHHDesarrollo{
 		soporte: soporte, registro: registro, revalidador: revalidador,
-		reloj: reloj, resolutor: resolutor, base: base,
+		reloj: reloj, resolutor: resolutor, base: base, fronteras: fronteras,
 	}
 	if _, err := rand.Read(p.clave[:]); err != nil {
 		return nil, ports.ErrConsultaRRHHNoDisponible
@@ -99,15 +124,19 @@ func nuevoProveedorSesionConsultaRRHHDesarrollo(
 // No se cachea aquí otra sesión ni se modifica soporte.contexto.
 func (p *proveedorSesionConsultaRRHHDesarrollo) ResolverContexto(
 	ctx context.Context,
-) (ports.ContextoAutorizacionAltaV3, error) {
-	vacio := ports.ContextoAutorizacionAltaV3{}
+) (contextoSeguridadComunDesarrollo, error) {
+	vacio := contextoSeguridadComunDesarrollo{}
+	perfil, seleccionado := p.perfilActivoSeleccionado(ctx)
+	if !seleccionado {
+		return vacio, ErrSeguridadComunDesarrolloDenegada
+	}
 	ctxCapsula, capsula, err := p.acreditarPeticion(ctx)
 	if err != nil {
-		return vacio, err
+		return vacio, ErrSeguridadComunDesarrolloDenegada
 	}
 	alta, confirmacion, err := p.registrarCapsula(ctxCapsula, capsula)
 	if err != nil {
-		return vacio, err
+		return vacio, ErrSeguridadComunDesarrolloDenegada
 	}
 	// El decorador invoca el puerto nominal real y coteja todos sus datos con
 	// el alta confirmada; nunca devuelve la autenticación histórica del soporte.
@@ -125,21 +154,17 @@ func (p *proveedorSesionConsultaRRHHDesarrollo) ResolverContexto(
 				CuentaRef: p.base.Contexto.Instantanea.CuentaRef,
 				Metodo:    dominiovec.AuthMethodCertificate, Garantia: dominiovec.AuthAssuranceHigh,
 			},
-			PerfilActivoRef: p.base.Contexto.PerfilActivoRef,
+			PerfilActivoRef: perfil,
 		},
 		p.reloj,
 	)
-	if err != nil || !mismaIdentidadVersionadaSesionDesarrollo(p.base, resultado) {
-		return vacio, ports.ErrConsultaRRHHNoDisponible
+	if err != nil || !mismaIdentidadVersionadaSesionDesarrolloParaPerfil(p.base, resultado, perfil) {
+		return vacio, ErrSeguridadComunDesarrolloDenegada
 	}
-	contexto := ports.ContextoAutorizacionAltaV3{Vinculo: vinculo, Resultado: resultado}
-	if contexto.ValidarPara(ports.SolicitudResolverContextoAutorizacionAltaV3{
-		AutenticacionRef: confirmacion.AutenticacionRef, SesionRef: confirmacion.SesionRef,
-		PerfilRef: p.base.Contexto.PerfilActivoRef,
-	}, p.reloj.Ahora()) != nil || ctxCapsula.Err() != nil {
-		return vacio, ports.ErrConsultaRRHHNoDisponible
+	if vinculo.ValidarPara(resultado) != nil || ctxCapsula.Err() != nil {
+		return vacio, ErrSeguridadComunDesarrolloDenegada
 	}
-	return contexto, nil
+	return contextoSeguridadComunDesarrollo{Vinculo: vinculo, Resultado: resultado}, nil
 }
 
 func (p *proveedorSesionConsultaRRHHDesarrollo) acreditarPeticion(
@@ -149,7 +174,17 @@ func (p *proveedorSesionConsultaRRHHDesarrollo) acreditarPeticion(
 		return nil, nil, ports.ErrConsultaRRHHNoDisponible
 	}
 	canal, valido := p.soporte.capacidadValida(ctx)
-	if !valido || !rutaConsultaRRHHContratacionTemporalDesarrollo(canal.ruta) {
+	frontera, adicional := fronteraSeguridadComunDesdeContexto(ctx)
+	_, fronteraSellada := ctx.Value(claveFronteraSeguridadComunDesarrollo{}).(fronteraSeguridadComunDesarrollo)
+	if fronteraSellada && !adicional {
+		return nil, nil, ports.ErrAutorizacionDenegada
+	}
+	if !valido && adicional && frontera.ruta == canal.ruta {
+		valido = canal.sello == p.soporte.sello && principalContratacionTemporalDesarrolloValido(canal.principal) &&
+			canal.principal.ID == p.soporte.principalID && canal.principal.Attributes["certificate_sha256"] == p.soporte.certificadoSHA256
+	}
+	perfil, seleccionado := p.perfilActivoSeleccionado(ctx)
+	if !valido || !seleccionado {
 		return nil, nil, ports.ErrAutorizacionDenegada
 	}
 	ahora := p.reloj.Ahora()
@@ -186,7 +221,7 @@ func (p *proveedorSesionConsultaRRHHDesarrollo) acreditarPeticion(
 	c.evidencia = evidenciaSesionConsultaRRHHDesarrollo{
 		Esquema: "vec.identidad.desarrollo.capsula-mtls.v1",
 		Ruta:    canal.ruta, CertificadoSHA256: p.soporte.certificadoSHA256,
-		PersonaRef: p.base.Contexto.PersonaRef, PerfilRef: p.base.Contexto.PerfilActivoRef,
+		PersonaRef: p.base.Contexto.PersonaRef, PerfilRef: perfil,
 		Alta: altaCapsulaSesionConsultaRRHHDesarrollo{
 			AsercionID: hex.EncodeToString(c.nonce[:]), SesionID: hex.EncodeToString(nonceSesion[:]),
 			SujetoID: p.soporte.principalID, CuentaID: "desarrollo:" + p.base.Contexto.Instantanea.CuentaRef,
@@ -224,8 +259,19 @@ func (p *proveedorSesionConsultaRRHHDesarrollo) registrarCapsula(
 	}
 	nonce, presente := ctx.Value(claveCapsulaSesionConsultaRRHHDesarrollo{}).([32]byte)
 	canal, valido := p.soporte.capacidadValida(ctx)
+	frontera, adicional := fronteraSeguridadComunDesdeContexto(ctx)
+	_, fronteraSellada := ctx.Value(claveFronteraSeguridadComunDesarrollo{}).(fronteraSeguridadComunDesarrollo)
+	if fronteraSellada && !adicional {
+		return fallo()
+	}
+	if !valido && adicional && frontera.ruta == canal.ruta {
+		valido = canal.sello == p.soporte.sello && principalContratacionTemporalDesarrolloValido(canal.principal) &&
+			canal.principal.ID == p.soporte.principalID && canal.principal.Attributes["certificate_sha256"] == p.soporte.certificadoSHA256
+	}
 	ahora := p.reloj.Ahora()
+	perfil, seleccionado := p.perfilActivoSeleccionado(ctx)
 	if !presente || nonce != c.nonce || !valido || canal.ruta != c.evidencia.Ruta ||
+		!seleccionado || perfil != c.evidencia.PerfilRef ||
 		canal.principal.ID != c.evidencia.Alta.SujetoID ||
 		canal.principal.Attributes["certificate_sha256"] != c.evidencia.CertificadoSHA256 ||
 		!domain.InstanteUTCCanonico(ahora) || ahora.Before(c.evidencia.Alta.SesionEmitidaEn) ||
@@ -267,6 +313,27 @@ func (p *proveedorSesionConsultaRRHHDesarrollo) registrarCapsula(
 		return httpseguridad.AltaSesionAtomica{}, httpseguridad.ConfirmacionAltaSesion{}, ports.ErrConsultaRRHHNoDisponible
 	}
 	return alta, confirmacion, nil
+}
+
+func (p *proveedorSesionConsultaRRHHDesarrollo) perfilActivoSeleccionado(ctx context.Context) (string, bool) {
+	if p == nil || ctx == nil {
+		return "", false
+	}
+	canal, valido := p.soporte.capacidadValida(ctx)
+	frontera, adicional := fronteraSeguridadComunDesdeContexto(ctx)
+	_, fronteraSellada := ctx.Value(claveFronteraSeguridadComunDesarrollo{}).(fronteraSeguridadComunDesarrollo)
+	if fronteraSellada && !adicional {
+		return "", false
+	}
+	if !valido && adicional && frontera.ruta == canal.ruta {
+		valido = canal.sello == p.soporte.sello && principalContratacionTemporalDesarrolloValido(canal.principal) &&
+			canal.principal.ID == p.soporte.principalID && canal.principal.Attributes["certificate_sha256"] == p.soporte.certificadoSHA256
+	}
+	if !adicional || !valido || !p.fronteras.mismaInstancia(frontera.catalogo) {
+		return "", false
+	}
+	perfil := p.base.Contexto.PerfilActivoRef
+	return perfil, perfilActivoSeguridadComunValido(perfil) && frontera.descriptor.admitePerfil(perfil)
 }
 
 type revalidadorSesionConsultaRRHHDesarrollo struct {
@@ -316,12 +383,18 @@ func (r revalidadorSesionConsultaRRHHDesarrollo) RevalidarAutenticacionActorV1(
 func mismaIdentidadVersionadaSesionDesarrollo(
 	base, actual dominiovec.ResultadoContextoActorRegistradoV2,
 ) bool {
+	return mismaIdentidadVersionadaSesionDesarrolloParaPerfil(base, actual, base.Contexto.PerfilActivoRef)
+}
+
+func mismaIdentidadVersionadaSesionDesarrolloParaPerfil(
+	base, actual dominiovec.ResultadoContextoActorRegistradoV2, perfilActivoRef string,
+) bool {
 	b, a := base.Contexto.Instantanea, actual.Contexto.Instantanea
 	// El recibo y su ResueltoEn/huella pueden ser nuevos. Las coordenadas y
 	// versiones de la identidad base no se sustituyen por otras al resolver.
 	return actual.Validar() == nil && b.CuentaRef == a.CuentaRef && b.CuentaVersion == a.CuentaVersion &&
 		b.PersonaRef == a.PersonaRef && b.PersonaVersion == a.PersonaVersion &&
-		b.PerfilActivoRef == a.PerfilActivoRef && b.PerfilVersion == a.PerfilVersion &&
+		perfilActivoRef == a.PerfilActivoRef && b.PerfilVersion == a.PerfilVersion &&
 		b.VinculoRef == a.VinculoRef && b.VinculoVersion == a.VinculoVersion &&
 		mismosVinculosReferenciaSesionDesarrollo(b.Vinculos, a.Vinculos)
 }

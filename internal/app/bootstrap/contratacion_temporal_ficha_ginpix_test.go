@@ -13,7 +13,7 @@ func TestFichaGINPIXV2ContextoConservaScopeNominal(t *testing.T) {
 	for _, ruta := range []string{httpinterno.RutaFichaGINPIXV2, httpinterno.RutaIncorporacionEjercicioV2} {
 		ctx := contextoRutaCoberturaDesarrolloPrueba(alta.soporte, principal, ruta)
 		antes := ctx.Value(claveCapacidadConsultasContratacionTemporalDesarrollo{}).(capacidadConsultaContratacionTemporalDesarrollo)
-		hijo, err := contextoDetalleIncorporacionV2Desarrollo(ctx, alta.soporte)
+		hijo, err := contextoDetalleIncorporacionV2Desarrollo(ctx, alta.soporte, catalogoDetalleCTPrueba(t, alta.soporte))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -23,7 +23,7 @@ func TestFichaGINPIXV2ContextoConservaScopeNominal(t *testing.T) {
 		}
 	}
 	otro := contextoRutaCoberturaDesarrolloPrueba(alta.soporte, principal, httpinterno.RutaAltaSolicitudes)
-	if _, err := contextoDetalleIncorporacionV2Desarrollo(otro, alta.soporte); err == nil {
+	if _, err := contextoDetalleIncorporacionV2Desarrollo(otro, alta.soporte, catalogoDetalleCTPrueba(t, alta.soporte)); err == nil {
 		t.Fatal("ruta ajena aceptada")
 	}
 }

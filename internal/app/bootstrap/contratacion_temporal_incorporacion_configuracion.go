@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"vec-diputacion-granada/config"
 	inc "vec-diputacion-granada/internal/app/incorporacionejercicio"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	pgct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	appct "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
@@ -136,10 +138,15 @@ func leerArchivoIncorporacionV2(raiz *os.Root, nombre string, max int64) ([]byte
 	return b, nil
 }
 
-func cargarIncorporacionV2Desarrollo(cfg config.Config, alta *dependenciasAltaContratacionTemporalDesarrollo, consultas dependenciasConsultasRRHHDesarrollo, reloj relojContratacionTemporalDesarrollo) (ConfiguracionIncorporacionDesarrollo, func(), error) {
+func cargarIncorporacionV2Desarrollo(cfg config.Config, alta *dependenciasAltaContratacionTemporalDesarrollo, consultas dependenciasConsultasRRHHDesarrollo, reloj relojContratacionTemporalDesarrollo, fronteras catalogoFronterasComunDesarrollo) (ConfiguracionIncorporacionDesarrollo, func(), error) {
 	f := ct.ErrComposicionIncorporacionAplicacion
 	vacia := ConfiguracionIncorporacionDesarrollo{}
-	if !cfg.DevelopmentEnabledByDoubleKey() || alta == nil || alta.postgresql.registroAutorizacion == nil || consultas.identidad == nil || consultas.sesion == nil || consultas.motivos == nil || consultas.emisorCuadro == nil || consultas.materialDetalle == nil {
+	if !cfg.DevelopmentEnabledByDoubleKey() || alta == nil || alta.postgresql.registroAutorizacion == nil || consultas.identidad == nil || consultas.sesion == nil || consultas.motivos == nil || consultas.emisorCuadro == nil || consultas.materialDetalle == nil || fronteras.identidad == nil {
+		return vacia, nil, f
+	}
+	perfil := alta.soporte.contexto.Resultado.Contexto.PerfilActivoRef
+	descriptorDetalle, existe := fronteras.resolver(http.MethodPost, httpinterno.RutaConsultaDetalleRRHH)
+	if !existe || !descriptorDetalle.admitePerfil(perfil) || !fronteras.mismaInstancia(consultas.identidad.fronteras) {
 		return vacia, nil, f
 	}
 	c, raiz, err := leerConfiguracionIncorporacionV2(cfg.IncorporacionV2File)
@@ -263,7 +270,7 @@ func cargarIncorporacionV2Desarrollo(cfg config.Config, alta *dependenciasAltaCo
 		return vacia, nil, f
 	}
 	completa = true
-	return ConfiguracionIncorporacionDesarrollo{continuidad: continuidad, detalleNominal: detalle, Referencias: c.Referencias, Cadena: cadena,
+	return ConfiguracionIncorporacionDesarrollo{continuidad: continuidad, fronteras: fronteras, detalleNominal: detalle, Referencias: c.Referencias, Cadena: cadena,
 		MotivoAlta: c.MotivoAlta, MotivoLectura: c.MotivoLectura, AltaPersonal: pools["alta_personal"], RegistroCT: pools["registro_ct"],
 		Preparacion: inc.ConfiguracionPreparacionDurableV2PostgreSQL{Planes: planes, TernaPlanes: c.TernaPlanes, FuentePersonal: personal, TernaPersonal: c.TernaPersonal,
 			Pools: inc.PoolsPreparacionDurableV2{InicialCT: pools["raices_ct"], LocalizadorCT: pools["localizador_ct"], LocalizadorPersonal: pools["localizador_personal"], LecturaPersonal: pools["lector_personal"], Historia: pgct.PoolsHistoriaIncorporacionV2{RegistroCT: pools["historia_ct"], Autenticacion: pools["historia_autenticacion"], Contexto: pools["historia_contexto"], Evaluacion: pools["historia_evaluacion"], Concesion: pools["historia_concesion"]}}}}, cerrar, nil

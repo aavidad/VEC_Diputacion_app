@@ -33,6 +33,37 @@ func TestFabricaAlmacenDePruebaRespetaLaMismaListaPositiva(t *testing.T) {
 	}
 }
 
+func TestNuevoContextoRegistradoYVinculoV2CruzaResultadoExacto(t *testing.T) {
+	instante := time.Date(2026, time.September, 20, 10, 0, 0, 123_456_000, time.UTC)
+	resultado, vinculo, err := NuevoContextoRegistradoYVinculoV2(
+		instante,
+		"per_0123456789abcdefghijkl",
+		"prf_0123456789abcdefghijkl",
+		domain.AuthMethodCertificate,
+		domain.AuthAssuranceHigh,
+	)
+	if err != nil {
+		t.Fatalf("crear contexto registrado y vinculo V2: %v", err)
+	}
+	if err := resultado.Validar(); err != nil {
+		t.Fatalf("resultado V2 invalido: %v", err)
+	}
+	if err := vinculo.ValidarPara(resultado); err != nil || !vinculo.VigenteEn(instante, resultado) {
+		t.Fatalf("vinculo V2 no ligado exactamente al resultado: %v", err)
+	}
+	datos, err := vinculo.Datos()
+	if err != nil {
+		t.Fatalf("leer datos del vinculo V2: %v", err)
+	}
+	if datos.RegistroContextoRef != resultado.RegistroContextoRef ||
+		datos.PrincipalID != resultado.Contexto.PersonaRef ||
+		datos.PerfilActivoRef != resultado.Contexto.PerfilActivoRef ||
+		datos.ContextoActorHuellaSHA256 != resultado.HuellaSHA256 ||
+		datos.ManifiestoProcedenciaHuellaSHA256 != resultado.ManifiestoProcedenciaHuellaSHA256 {
+		t.Fatal("el vinculo V2 no conserva el cruce exacto con el resultado registrado")
+	}
+}
+
 func TestFabricasDePruebaNoSeImportanDesdeCodigoProductivo(t *testing.T) {
 	raiz, err := filepath.Abs("../../..")
 	if err != nil {

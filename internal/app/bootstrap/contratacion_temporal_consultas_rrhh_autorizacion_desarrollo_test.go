@@ -282,6 +282,46 @@ type proveedorContextoConsultasRRHHDesarrolloPrueba struct {
 	llamadas int
 }
 
+type proveedorContextoComunConsultasRRHHDesarrolloPrueba struct {
+	resolver func(context.Context) (contextoSeguridadComunDesarrollo, error)
+}
+
+func (p proveedorContextoComunConsultasRRHHDesarrolloPrueba) ResolverContexto(ctx context.Context) (contextoSeguridadComunDesarrollo, error) {
+	return p.resolver(ctx)
+}
+
+func TestAdaptadorContextoConsultaRRHHCTDerivaReferenciasDelVinculo(t *testing.T) {
+	alta, _, _ := escenarioConsultasRRHHDesarrolloPrueba(t)
+	fresco := contextoFrescoConsultasRRHHDesarrolloPrueba(t, alta.soporte, "adaptador")
+	adaptador := adaptadorContextoConsultaRRHHCTDesarrollo{
+		delegado: proveedorContextoComunConsultasRRHHDesarrolloPrueba{resolver: func(context.Context) (contextoSeguridadComunDesarrollo, error) {
+			return contextoSeguridadComunDesarrollo{Vinculo: fresco.Vinculo, Resultado: fresco.Resultado}, nil
+		}},
+		reloj: alta.soporte.reloj,
+	}
+	obtenido, err := adaptador.ResolverContexto(context.Background())
+	if err != nil {
+		t.Fatalf("el adaptador rechazó las referencias selladas: %v", err)
+	}
+	datos, err := fresco.Vinculo.Datos()
+	datosObtenidos, errObtenidos := obtenido.Vinculo.Datos()
+	if err != nil || errObtenidos != nil || datosObtenidos.AutenticacionRef != datos.AutenticacionRef || datosObtenidos.SesionRef != datos.SesionRef {
+		t.Fatal("el adaptador no conservó las referencias del vínculo")
+	}
+
+	resultadoAlterado, err := fresco.Resultado.Clonar()
+	if err != nil {
+		t.Fatal(err)
+	}
+	resultadoAlterado.Contexto.PerfilActivoRef = "prf_perfil_alterado_0123456789abcdef"
+	adaptador.delegado = proveedorContextoComunConsultasRRHHDesarrolloPrueba{resolver: func(context.Context) (contextoSeguridadComunDesarrollo, error) {
+		return contextoSeguridadComunDesarrollo{Vinculo: fresco.Vinculo, Resultado: resultadoAlterado}, nil
+	}}
+	if _, err := adaptador.ResolverContexto(context.Background()); !errors.Is(err, ports.ErrConsultaRRHHNoDisponible) {
+		t.Fatalf("el adaptador admitió un perfil no sellado en el vínculo: %v", err)
+	}
+}
+
 func (p *proveedorContextoConsultasRRHHDesarrolloPrueba) ResolverContexto(ctx context.Context) (ports.ContextoAutorizacionAltaV3, error) {
 	p.llamadas++
 	return p.resolver(ctx)

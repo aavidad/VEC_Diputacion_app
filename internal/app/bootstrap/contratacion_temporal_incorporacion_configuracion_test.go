@@ -205,7 +205,7 @@ func TestIncorporacionV2SelectorArranqueYAmbitoNominal(t *testing.T) {
 	c.certificadoVerificadoEn = alta.soporte.reloj.Ahora().Add(-time.Second)
 	c.certificadoValidoHasta = alta.soporte.reloj.Ahora().Add(time.Minute)
 	ctx = context.WithValue(ctx, claveCapacidadConsultasContratacionTemporalDesarrollo{}, c)
-	hijo, err := contextoDetalleIncorporacionV2Desarrollo(ctx, alta.soporte)
+	hijo, err := contextoDetalleIncorporacionV2Desarrollo(ctx, alta.soporte, catalogoDetalleCTPrueba(t, alta.soporte))
 	if err != nil {
 		t.Fatal(err)
 	}

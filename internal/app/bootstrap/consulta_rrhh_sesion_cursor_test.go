@@ -129,14 +129,15 @@ func prepararContinuidadCursorRRHHDesarrolloPrueba(t *testing.T) (
 ) {
 	t.Helper()
 	e := nuevaSesionConsultaPrueba(t)
-	a := &autoridadConsultasRRHHDesarrollo{soporte: e.soporte, reloj: e.reloj, proveedor: e.p,
+	proveedor := adaptadorContextoConsultaRRHHCTDesarrollo{delegado: e.p, cursor: e.p, reloj: e.reloj}
+	a := &autoridadConsultasRRHHDesarrollo{soporte: e.soporte, reloj: e.reloj, proveedor: proveedor,
 		clase: ports.AmbitoOrganizacionRRHH, ambitoRef: organizacionAltaContratacionTemporalDesarrollo}
 	continuador, err := nuevoContinuadorSesionCursorRRHHDesarrollo(a, e.reloj)
 	if err != nil {
 		t.Fatal(err)
 	}
 	ctx := e.contexto()
-	primero, err := e.p.ResolverContexto(ctx)
+	primero, err := proveedor.ResolverContexto(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -294,8 +295,9 @@ func TestContinuidadCursorRRHHSeparaLectoresYContinuadores(t *testing.T) {
 		t.Fatal(err)
 	}
 	segundaAutoridad := &autoridadConsultasRRHHDesarrollo{
-		soporte: e.soporte, reloj: e.reloj, proveedor: e.p,
-		clase: ports.AmbitoOrganizacionRRHH, ambitoRef: "organizacion:lector-distinto",
+		soporte: e.soporte, reloj: e.reloj,
+		proveedor: adaptadorContextoConsultaRRHHCTDesarrollo{delegado: e.p, cursor: e.p, reloj: e.reloj},
+		clase:     ports.AmbitoOrganizacionRRHH, ambitoRef: "organizacion:lector-distinto",
 	}
 	segundo, err := nuevoContinuadorSesionCursorRRHHDesarrollo(segundaAutoridad, e.reloj)
 	if err != nil {

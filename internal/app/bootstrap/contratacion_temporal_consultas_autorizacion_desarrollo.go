@@ -14,9 +14,22 @@ import (
 func (a *autoridadConsultasContratacionTemporalDesarrollo) proteger(
 	siguiente http.Handler,
 ) http.Handler {
+	fronteras := catalogoFronterasComunDesarrollo{}
+	if a != nil && a.fronterasSeguridadComun.identidad != nil {
+		fronteras = a.fronterasSeguridadComun
+	}
+	protegido := a.protegerConCatalogoSeguridadComun(siguiente, fronteras)
+	if a != nil && a.envolverBorradorLlamamiento != nil {
+		return a.envolverBorradorLlamamiento(protegido)
+	}
+	return protegido
+}
+
+func (a *autoridadConsultasContratacionTemporalDesarrollo) protegerConCatalogoSeguridadComun(siguiente http.Handler, fronteras catalogoFronterasComunDesarrollo) http.Handler {
 	return &revalidadorConsultasContratacionTemporalDesarrollo{
 		siguiente: siguiente,
 		autoridad: a,
+		fronteras: fronteras,
 	}
 }
 
@@ -34,7 +47,8 @@ func (a *autoridadConsultasContratacionTemporalDesarrollo) AutorizarRutaExacta(
 	if !existe {
 		return vechttp.ErrAutenticacionRutaExactaRequerida
 	}
-	if capacidad.sello != a.sello || capacidad.ruta != ruta {
+	frontera, adicional := fronteraSeguridadComunDesdeContexto(ctx)
+	if capacidad.sello != a.sello || capacidad.ruta != ruta || (adicional && frontera.ruta != ruta) {
 		return vechttp.ErrAccesoRutaExactaDenegado
 	}
 	if a.noCompuesta != nil && a.noCompuesta.esRuta(ruta) &&
@@ -49,6 +63,7 @@ func (a *autoridadConsultasContratacionTemporalDesarrollo) AutorizarRutaExacta(
 type revalidadorConsultasContratacionTemporalDesarrollo struct {
 	siguiente http.Handler
 	autoridad *autoridadConsultasContratacionTemporalDesarrollo
+	fronteras catalogoFronterasComunDesarrollo
 }
 
 func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
@@ -61,7 +76,9 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 		return
 	}
 	r = peticionIdentidadConsultasContratacionTemporalDesarrollo(r)
-	if !esRutaContratacionTemporalDesarrollo(r) {
+	protegidaCT := esRutaContratacionTemporalDesarrollo(r)
+	fronteraComun, protegidaComun := m.fronteras.resolver(r.Method, r.URL.Path)
+	if !protegidaCT && !protegidaComun {
 		m.siguiente.ServeHTTP(w, r)
 		return
 	}
@@ -69,6 +86,9 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 		r.Context(), r,
 	)
 	validoRuta := principalContratacionTemporalDesarrolloValidoParaRuta(principal, r.URL.Path)
+	if protegidaComun && !protegidaCT {
+		validoRuta = principalContratacionTemporalDesarrolloValido(principal)
+	}
 	if (rutaConsultaRRHHContratacionTemporalDesarrollo(r.URL.Path) || r.URL.Path == httpinterno.RutaEstadisticasRRHH) && len(m.autoridad.resolvedor.lectoresRRHH) != 0 {
 		_, validoRuta = m.autoridad.resolvedor.lectorConsultaRRHH(principal)
 	}
@@ -78,7 +98,7 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 			ruta:      r.URL.Path,
 			principal: clonarPrincipalDesarrollo(principal),
 		}
-		if rutaContinuidadNominal(capacidad.ruta) || rutaConsultaRRHHContratacionTemporalDesarrollo(capacidad.ruta) ||
+		if protegidaComun || rutaContinuidadNominal(capacidad.ruta) || rutaConsultaRRHHContratacionTemporalDesarrollo(capacidad.ruta) ||
 			capacidad.ruta == httpinterno.RutaIncorporacionEjercicioV2 ||
 			capacidad.ruta == httpinterno.RutaFichaGINPIXV2 ||
 			capacidad.ruta == httpinterno.RutaConsultaSeguimientoV2 ||
@@ -110,11 +130,16 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 				capacidad.vinculoCanalTLS = vinculo
 			}
 		}
-		r = r.WithContext(context.WithValue(
+		ctx := context.WithValue(
 			r.Context(),
 			claveCapacidadConsultasContratacionTemporalDesarrollo{},
 			capacidad,
-		))
+		)
+		ctx = context.WithValue(ctx, claveCacheSeguridadComunDesarrollo{}, &cacheSeguridadComunDesarrollo{})
+		if protegidaComun {
+			ctx = context.WithValue(ctx, claveFronteraSeguridadComunDesarrollo{}, fronteraSeguridadComunDesarrollo{metodo: r.Method, ruta: r.URL.Path, superficie: superficieInternaSeguridadComunDesarrollo, catalogo: m.fronteras, descriptor: fronteraComun})
+		}
+		r = r.WithContext(ctx)
 	}
 	m.siguiente.ServeHTTP(w, r)
 }

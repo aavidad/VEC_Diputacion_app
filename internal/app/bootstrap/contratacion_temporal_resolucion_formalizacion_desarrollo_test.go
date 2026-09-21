@@ -137,7 +137,7 @@ func TestResolucionFormalizacionGETBootstrapNominalSinEfecto(t *testing.T) {
 			}
 			lector := &preparacionResolucionBootstrapPrueba{t: t, p: prep}
 			efecto := &registroResolucionDesarrolloPrueba{}
-			e := &ejecutorResolucionFormalizacionDesarrollo{soporte: p.alta.soporte, preparacion: lector, servicio: efecto, reloj: p.reloj}
+			e := &ejecutorResolucionFormalizacionDesarrollo{soporte: p.alta.soporte, preparacion: lector, servicio: efecto, reloj: p.reloj, fronteras: catalogoDetalleCTPrueba(t, p.alta.soporte)}
 			switch caso {
 			case "sin_lector":
 				e.preparacion = nil
@@ -164,7 +164,7 @@ func TestResolucionFormalizacionGETBootstrapNominalSinEfecto(t *testing.T) {
 			}
 		})
 	}
-	if _, err := nuevasDependenciasResolucionFormalizacionDesarrollo(nil, nil, nil, nil, nil); err == nil {
+	if _, err := nuevasDependenciasResolucionFormalizacionDesarrollo(nil, nil, nil, nil, nil, catalogoFronterasComunDesarrollo{}); err == nil {
 		t.Fatal("composición vacía")
 	}
 }
@@ -181,7 +181,7 @@ func TestResolucionFormalizacionDesarrolloFuenteRealYReplaySinEstadoWeb(t *testi
 	consulta := &detalleResolucionPrueba{t: t, detalle: d}
 	registro := &registroResolucionDesarrolloPrueba{}
 	pdf := informejuridico.RenderizadorBorradorDesarrollo{PDF: pdfvec.Renderizador{}}
-	e := &ejecutorResolucionFormalizacionDesarrollo{soporte: p.alta.soporte, detalle: consulta, renderizador: pdf, servicio: registro, reloj: p.reloj}
+	e := &ejecutorResolucionFormalizacionDesarrollo{soporte: p.alta.soporte, detalle: consulta, renderizador: pdf, servicio: registro, reloj: p.reloj, fronteras: catalogoDetalleCTPrueba(t, p.alta.soporte)}
 	primero, err := e.RegistrarResolucionFormalizacion(ctx, s)
 	if err != nil {
 		t.Fatal(err)

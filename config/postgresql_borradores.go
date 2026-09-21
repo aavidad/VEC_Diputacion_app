@@ -11,6 +11,7 @@ const (
 	EnvBolsaBorradoresEjecutorConsultaDatabaseURL  = "VEC_BOLSA_BORRADORES_EJECUTOR_CONSULTA_DATABASE_URL"
 	EnvBolsaBorradoresProyectorGobiernoDatabaseURL = "VEC_BOLSA_BORRADORES_PROYECTOR_GOBIERNO_DATABASE_URL"
 	EnvBolsaBorradoresVerificadorReciboDatabaseURL = "VEC_BOLSA_BORRADORES_VERIFICADOR_RECIBO_DATABASE_URL"
+	EnvBolsaBorradoresEnabled                      = "VEC_BOLSA_BORRADORES_ENABLED"
 
 	configuracionPostgreSQLBorradoresRedactada = "configuracion_postgresql_borradores_redactada"
 )

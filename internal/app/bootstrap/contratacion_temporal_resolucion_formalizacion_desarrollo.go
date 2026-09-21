@@ -26,18 +26,19 @@ type ejecutorResolucionFormalizacionDesarrollo struct {
 	autorizador  *autorizadorLlamamientoDesarrollo
 	servicio     ports.TransaccionResolucionFormalizacion
 	reloj        ports.Reloj
+	fronteras    catalogoFronterasComunDesarrollo
 }
 
 func nuevasDependenciasResolucionFormalizacionDesarrollo(alta *dependenciasAltaContratacionTemporalDesarrollo,
 	reloj ports.Reloj, detalle httpinterno.ConsultorDetalleRRHH, renderizador ports.RenderizadorBorradorRRHH,
-	preparacion ports.ConsultorPreparacionResolucionFormalizacion) (*ejecutorResolucionFormalizacionDesarrollo, error) {
+	preparacion ports.ConsultorPreparacionResolucionFormalizacion, fronteras catalogoFronterasComunDesarrollo) (*ejecutorResolucionFormalizacionDesarrollo, error) {
 	if alta == nil || alta.soporte == nil || alta.postgresql.ejecucion == nil || dependenciaEsNulaContratacionTemporalDesarrollo(detalle) ||
 		dependenciaEsNulaContratacionTemporalDesarrollo(renderizador) || dependenciaEsNulaContratacionTemporalDesarrollo(reloj) ||
-		dependenciaEsNulaContratacionTemporalDesarrollo(preparacion) {
+		dependenciaEsNulaContratacionTemporalDesarrollo(preparacion) || fronteras.identidad == nil {
 		return nil, ports.ErrResolucionFormalizacionNoDisponible
 	}
 	e := &ejecutorResolucionFormalizacionDesarrollo{soporte: alta.soporte, detalle: detalle, preparacion: preparacion, renderizador: renderizador, reloj: reloj,
-		autorizador: &autorizadorLlamamientoDesarrollo{alta: alta, material: alta.postgresql.proveedorMaterial, resolucionFormalizacion: true}}
+		autorizador: &autorizadorLlamamientoDesarrollo{alta: alta, material: alta.postgresql.proveedorMaterial, resolucionFormalizacion: true}, fronteras: fronteras}
 	r, err := postgresct.NuevoRegistroResolucionFormalizacionPostgreSQL(alta.postgresql.ejecucion, e)
 	if err != nil {
 		return nil, err
@@ -79,9 +80,10 @@ func (e *ejecutorResolucionFormalizacionDesarrollo) RegistrarResolucionFormaliza
 	c, _ := e.soporte.capacidadValida(ctx)
 	// Subconsulta nominal con el mismo canal/actor, sin inventar autorización
 	// de lectura: el servicio existente emite y consume su propia V3.
-	c.ruta = httpinterno.RutaConsultaDetalleRRHH
-	c.consultaRRHH = &contextoConsultaRRHHPeticionDesarrollo{}
-	lectura := context.WithValue(ctx, claveCapacidadConsultasContratacionTemporalDesarrollo{}, c)
+	lectura, err := e.subconsultaDetalle(ctx, c)
+	if err != nil {
+		return z, ports.ErrResolucionFormalizacionDenegada
+	}
 	solicitud, err := ports.NuevaSolicitudDetalleRRHH(s.ExpedienteRef, 7)
 	if err != nil {
 		return z, err
@@ -123,9 +125,10 @@ func (e *ejecutorResolucionFormalizacionDesarrollo) ConsultarPreparacionResoluci
 		return z, ports.ErrResolucionFormalizacionNoDisponible
 	}
 	c, _ := e.soporte.capacidadValida(ctx)
-	c.ruta = httpinterno.RutaConsultaDetalleRRHH
-	c.consultaRRHH = &contextoConsultaRRHHPeticionDesarrollo{}
-	lectura := context.WithValue(ctx, claveCapacidadConsultasContratacionTemporalDesarrollo{}, c)
+	lectura, err := e.subconsultaDetalle(ctx, c)
+	if err != nil {
+		return z, ports.ErrResolucionFormalizacionDenegada
+	}
 	p, err := e.preparacion.ConsultarPreparacionResolucionFormalizacion(lectura, expediente)
 	if ctx.Err() != nil {
 		return z, ctx.Err()
@@ -140,6 +143,21 @@ func (e *ejecutorResolucionFormalizacionDesarrollo) ConsultarPreparacionResoluci
 		return z, ports.ErrResultadoResolucionFormalizacionNoConfiable
 	}
 	return p.Clonar(), nil
+}
+
+func (e *ejecutorResolucionFormalizacionDesarrollo) subconsultaDetalle(ctx context.Context, c capacidadConsultaContratacionTemporalDesarrollo) (context.Context, error) {
+	if e == nil || e.soporte == nil || e.fronteras.identidad == nil {
+		return nil, ports.ErrResolucionFormalizacionDenegada
+	}
+	actual, ok := e.soporte.capacidadValida(ctx)
+	if !ok || actual.sello != c.sello || actual.ruta != httpinterno.RutaResolucionFormalizacion {
+		return nil, ports.ErrResolucionFormalizacionDenegada
+	}
+	lectura, err := subconsultaDetalleContratacionTemporalDesarrollo(ctx, e.soporte, e.fronteras)
+	if err != nil {
+		return nil, ports.ErrResolucionFormalizacionDenegada
+	}
+	return lectura, nil
 }
 
 func (e *ejecutorResolucionFormalizacionDesarrollo) PrepararResolucionFormalizacion(ctx context.Context, s ports.SolicitudResolucionFormalizacion) (ports.MaterialResolucionFormalizacion, error) {

@@ -41,6 +41,7 @@ func nuevasDependenciasLectoresRRHHDesarrollo(
 	lectores []identidadConsultaRRHHDesarrollo, poolConsultas *postgresct.PoolConsultasRRHHPostgreSQL,
 	motivos ports.ResolutorMotivoConsultaRRHH, motivoCuadro, motivoDetalle dominiovec.ReferenciaEntradaCatalogo,
 	base dependenciasConsultasRRHHDesarrollo,
+	fronteras catalogoFronterasComunDesarrollo,
 ) (dependenciasConsultasRRHHDesarrollo, error) {
 	vacio := dependenciasConsultasRRHHDesarrollo{}
 	if len(lectores) == 0 || poolConsultas == nil || motivos == nil || base.cerrar == nil {
@@ -65,7 +66,7 @@ func nuevasDependenciasLectoresRRHHDesarrollo(
 			return vacio, err
 		}
 		local := &dependenciasAltaContratacionTemporalDesarrollo{soporte: soporte, autorizador: autorizador, postgresql: alta.postgresql}
-		identidad, cerrarIdentidad, err := nuevasDependenciasIdentidadConsultasDesarrollo(ctx, cfg.ContratacionTemporalPostgreSQL, local, derivador, reloj, soporte)
+		identidad, cerrarIdentidad, err := nuevasDependenciasIdentidadConsultasDesarrollo(ctx, cfg.ContratacionTemporalPostgreSQL, local, derivador, reloj, soporte, fronteras)
 		if err != nil {
 			return vacio, err
 		}
@@ -85,12 +86,12 @@ func nuevasDependenciasLectoresRRHHDesarrollo(
 			return vacio, err
 		}
 		material.fuenteConfianza = alta.postgresql.proveedorMaterial.fuenteConfianza
-		proveedorCuadro, err := nuevoProveedorMaterialConsumidorDesarrollo(ctx, alta.postgresql.gobierno, material, soporte, reloj, ports.AudienciaConsumoConsultaCuadroRRHHV3)
+		proveedorCuadro, err := nuevoProveedorMaterialConsumidorDesarrollo(ctx, alta.postgresql.gobierno, material, soporte, reloj, alta.postgresql.catalogoMaterial, ports.AudienciaConsumoConsultaCuadroRRHHV3)
 		if err != nil {
 			material.borrarCopiasEfimeras()
 			return vacio, err
 		}
-		proveedorDetalle, err := nuevoProveedorMaterialConsumidorDesarrollo(ctx, alta.postgresql.gobierno, material, soporte, reloj, ports.AudienciaConsumoConsultaDetalleRRHHV3)
+		proveedorDetalle, err := nuevoProveedorMaterialConsumidorDesarrollo(ctx, alta.postgresql.gobierno, material, soporte, reloj, alta.postgresql.catalogoMaterial, ports.AudienciaConsumoConsultaDetalleRRHHV3)
 		material.borrarCopiasEfimeras()
 		if err != nil {
 			return vacio, err
@@ -259,6 +260,7 @@ func nuevoSoporteLectorRRHHDesarrollo(
 func nuevasDependenciasConsultasRRHHDesarrollo(
 	dependenciasCT *DependenciasCT,
 	alta *dependenciasAltaContratacionTemporalDesarrollo,
+	fronteras catalogoFronterasComunDesarrollo,
 ) (dependenciasConsultasRRHHDesarrollo, error) {
 	vacio := dependenciasConsultasRRHHDesarrollo{}
 	if dependenciasCT == nil {
@@ -298,7 +300,7 @@ func nuevasDependenciasConsultasRRHHDesarrollo(
 	}
 	ctx, cancelar := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancelar()
-	identidad, cerrarIdentidad, err := nuevasDependenciasIdentidadConsultasDesarrollo(ctx, c, alta, derivador, reloj, alta.soporte)
+	identidad, cerrarIdentidad, err := nuevasDependenciasIdentidadConsultasDesarrollo(ctx, c, alta, derivador, reloj, alta.soporte, fronteras)
 	if err != nil {
 		return vacio, err
 	}
@@ -351,11 +353,11 @@ func nuevasDependenciasConsultasRRHHDesarrollo(
 	}
 	defer material.borrarCopiasEfimeras()
 	material.fuenteConfianza = alta.postgresql.proveedorMaterial.fuenteConfianza
-	proveedorCuadro, err := nuevoProveedorMaterialConsumidorDesarrollo(ctx, alta.postgresql.gobierno, material, alta.soporte, reloj, ports.AudienciaConsumoConsultaCuadroRRHHV3)
+	proveedorCuadro, err := nuevoProveedorMaterialConsumidorDesarrollo(ctx, alta.postgresql.gobierno, material, alta.soporte, reloj, alta.postgresql.catalogoMaterial, ports.AudienciaConsumoConsultaCuadroRRHHV3)
 	if err != nil {
 		return vacio, err
 	}
-	proveedorDetalle, err := nuevoProveedorMaterialConsumidorDesarrollo(ctx, alta.postgresql.gobierno, material, alta.soporte, reloj, ports.AudienciaConsumoConsultaDetalleRRHHV3)
+	proveedorDetalle, err := nuevoProveedorMaterialConsumidorDesarrollo(ctx, alta.postgresql.gobierno, material, alta.soporte, reloj, alta.postgresql.catalogoMaterial, ports.AudienciaConsumoConsultaDetalleRRHHV3)
 	if err != nil {
 		return vacio, err
 	}
@@ -411,7 +413,7 @@ func nuevasDependenciasConsultasRRHHDesarrollo(
 	}
 	base := dependenciasConsultasRRHHDesarrollo{materialDetalle: proveedorDetalle, emisorCuadro: emisorCuadro, sesion: sesion, motivos: motivos, cuadro: cuadro, detalle: detalle, originalPropuesta: originalPropuesta, cuadroHTTP: cuadroHTTP, detalleHTTP: detalle, originalPropuestaHTTP: originalPropuesta, preparacionResolucion: preparacion, identidad: identidad, autoridad: autoridad, estadisticas: estadisticas, cerrar: cerrar}
 	if len(lectores) > 0 {
-		lectoresDependencias, err := nuevasDependenciasLectoresRRHHDesarrollo(ctx, cfg, alta, derivador, reloj, lectores, poolConsultas, motivos, motivoCuadro, motivoDetalle, base)
+		lectoresDependencias, err := nuevasDependenciasLectoresRRHHDesarrollo(ctx, cfg, alta, derivador, reloj, lectores, poolConsultas, motivos, motivoCuadro, motivoDetalle, base, fronteras)
 		if err != nil {
 			return vacio, err
 		}

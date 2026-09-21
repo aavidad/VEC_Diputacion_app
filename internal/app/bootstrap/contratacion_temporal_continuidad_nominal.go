@@ -435,9 +435,12 @@ func (a *autoridadContinuidadNominal) AutorizarCierreAdministrativo(ctx context.
 	return pgct.AutorizacionCierreAdministrativo{Contexto: c, Solicitud: solicitud, Decision: d, Confirmacion: confirmacion, Motivo: a.configuracion.Motivo, ActorRef: a.referencias.ActorRef, PerfilRef: a.referencias.PerfilV3Ref, UnidadRef: a.referencias.UnidadRef, CorrelacionRef: corCT, Exportacion: x}, nil
 }
 
-func (c *continuidadNominalDesarrollo) rutas(derivador *derivadorIdentidadOperacionDesarrollo) ([]httpapi.RutaExacta, error) {
+func (c *continuidadNominalDesarrollo) rutas(derivador *derivadorIdentidadOperacionDesarrollo, fronteras catalogoFronterasComunDesarrollo) ([]httpapi.RutaExacta, error) {
 	if c == nil {
 		return nil, nil
+	}
+	if fronteras.identidad == nil {
+		return nil, ct.ErrAutorizacionDenegada
 	}
 	aa, ra, e := configuracionesHMACAltaContratacionTemporalDesarrollo(derivador, ct.DominioAmbitoIdempotenciaAnotacionAdministrativa, true)
 	if e != nil {
@@ -487,7 +490,7 @@ func (c *continuidadNominalDesarrollo) rutas(derivador *derivadorIdentidadOperac
 		rutas[n].Manejador = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			capacidad, ok := c.anotacion.soporte.capacidadValida(r.Context())
 			if ok && capacidad.ruta == ruta {
-				ctx, e := contextoDetalleIncorporacionV2Desarrollo(r.Context(), c.anotacion.soporte)
+				ctx, e := contextoDetalleIncorporacionV2Desarrollo(r.Context(), c.anotacion.soporte, fronteras)
 				if e == nil {
 					r = r.WithContext(context.WithValue(ctx, claveRutaContinuidadNominal{}, ruta))
 				}

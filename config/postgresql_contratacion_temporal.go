@@ -146,6 +146,20 @@ func (c ConfiguracionPostgreSQLContratacionTemporal) normalizar() ConfiguracionP
 	return c
 }
 
+// dsnsConfigurados solo se usa dentro de configuración para comprobar que un
+// consumidor nuevo no reutiliza una identidad ya asignada. No expone DSN fuera
+// de la raíz de composición.
+func (c ConfiguracionPostgreSQLContratacionTemporal) dsnsConfigurados() []string {
+	c = c.normalizar()
+	resultado := make([]string, 0, 12)
+	for _, dsn := range []string{c.dsnEjecucion, c.dsnGobierno, c.dsnRegistroAutorizacion, c.dsnConfirmador, c.dsnLectorResultado, c.dsnBolsaLlamamientos, c.dsnConsultasRRHH, c.dsnMotivosRRHH, c.dsnRegistroIdentidad, c.dsnRevalidacionIdentidad, c.dsnContextoActor, c.dsnAuditoriaFrontera} {
+		if dsn != "" {
+			resultado = append(resultado, dsn)
+		}
+	}
+	return resultado
+}
+
 // DSNAuditoriaFronteraSeparado devuelve solamente el DSN del LOGIN nominal
 // miembro de vec_contratacion_temporal_registrador_frontera. Nunca reutiliza
 // las identidades de negocio, consulta, contexto o autorización.

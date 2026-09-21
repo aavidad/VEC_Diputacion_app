@@ -38,7 +38,7 @@ func TestContinuidadNominalPreparacionCierreExigeDetalleAntesDelLector(t *testin
 	v, _ := alta.soporte.contexto.Vinculo.Datos()
 	a := &autoridadContinuidadNominal{soporte: alta.soporte, consultas: consultas, referencias: ReferenciasCTIncorporacionDesarrollo{PrincipalV3Ref: v.PrincipalID, PerfilV3Ref: v.PerfilActivoRef, OrganizacionRef: organizacionAltaContratacionTemporalDesarrollo}, accion: ct.AccionAutorizacionCerrarAdministrativamente, reloj: alta.soporte.reloj}
 	ctx := contextoRutaConsultasRRHHDesarrolloPrueba(alta.soporte, principal, httpct.RutaPreparacionCierreSinCese)
-	ctx, e := contextoDetalleIncorporacionV2Desarrollo(ctx, alta.soporte)
+	ctx, e := contextoDetalleIncorporacionV2Desarrollo(ctx, alta.soporte, catalogoDetalleCTPrueba(t, alta.soporte))
 	if e != nil {
 		t.Fatal(e)
 	}
