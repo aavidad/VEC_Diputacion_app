@@ -1,5 +1,22 @@
 # Estado y plan de ataque del proyecto
 
+## Taller en orden y primeros requisitos de Bolsa cerrados — 21 y 22 de septiembre de 2026
+
+Métrica (criterio estricto de función terminada): Contratación temporal ≈6 de 8 pasos;
+**Bolsa 6 de 14** requisitos de la ficha (B1, B2, B5, B9, B10, B12). `main` = `d8bdeefa`,
+CI de GitHub verde completo por primera vez desde el 18/09 (tests Go y web, artefactos,
+PostgreSQL de bolsa pública y secretos). Una sola línea de trabajo: las ramas de los dos
+directores fusionadas en `main`, siete ramas duplicadas etiquetadas `archivo/*`.
+Cerrado: **B2** situación del candidato (siete estados de `Peticion.pdf`, transiciones
+provisionales pendientes de RRHH, cambio con motivo, concesión V3, auditoría y recibo,
+migraciones 000012 y AD3 000045; pantalla B5 con contadores y cambio inline);
+**B9** sustitución de la bolsa anterior de la categoría al constituir (000014, recibo
+`sustituye_a`); **P-WEB-04** lienzo de escritorio sin scroll de página (R10);
+**P-WEB-05** columna «Disponibles» en B12 y pestaña «Histórico» en B5; **D6** paquete de
+despliegue `deploy/principal/` probado en réplica (AD3 044/045 con guardas estructurales,
+sin autohuella). En curso: B3 histórico de contactos. Pendiente: desplegar `main` en la
+principal con el paquete D6 (exige seis DSN, LOGIN de auditoría y `bolsa-bback.json` v2).
+
 ## Bolsa completa su superficie de presentación — 20 de septiembre de 2026
 
 El corte canónico `a899983bf766ceba46ac7f04416dca8985fb1dd2` permite
