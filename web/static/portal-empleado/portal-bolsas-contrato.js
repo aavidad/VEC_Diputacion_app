@@ -34,6 +34,8 @@ export const CANALES_LLAMAMIENTO = Object.freeze([
   "telefono",
   "sede",
 ]);
+export const CANALES_CONTACTO = Object.freeze(["telefono", "correo", "sms", "presencial", "otro"]);
+export const RESULTADOS_CONTACTO = Object.freeze(["contactado", "no_contesta", "buzon", "acepta", "rechaza", "aplazado", "otro"]);
 
 export const RESULTADOS_LLAMAMIENTO_BOLSA = Object.freeze([
   "aceptado",
@@ -68,6 +70,7 @@ const CAMPOS_CANDIDATO = Object.freeze([
   "estado_desde",
   "disponible_desde",
   "ultimo_llamamiento",
+  "contactos_total",
 ]);
 
 const CAMPOS_ULTIMO_LLAMAMIENTO = Object.freeze([
@@ -79,9 +82,12 @@ const CAMPOS_ULTIMO_LLAMAMIENTO = Object.freeze([
 
 const CAMPOS_CONTACTO = Object.freeze([
   "contacto_ref",
+  "participacion_ref",
+  "llamamiento_ref",
   "canal",
-  "realizado_en",
-  "resultado_clave",
+  "instante",
+  "actor_ref",
+  "resultado",
   "anotacion",
 ]);
 
@@ -249,12 +255,13 @@ export function validarCandidato(candidato) {
     estado_desde: estadoDesde,
     disponible_desde: disponibleDesde,
     ultimo_llamamiento: ultimoLlamamiento,
+    contactos_total: exigirEnteroNoNegativo(candidato.contactos_total, "contactos_total"),
   });
 }
 
 export function validarRespuestaCandidatosBolsa(envelope) {
   const datos = extraerDatosEnvelopeCanonico(envelope);
-  exigirCamposExactos(datos, ["esquema", "generado_en", "bolsa", "candidatos", "hay_mas", "cursor_siguiente"], "respuesta de candidatos");
+  exigirCamposExactos(datos, ["esquema", "generado_en", "bolsa", "candidatos", "contactos", "hay_mas", "cursor_siguiente"], "respuesta de candidatos");
 
   if (datos.esquema !== ESQUEMA_CANDIDATOS) {
     throw new Error(`esquema no compatible: ${datos.esquema}`);
@@ -266,6 +273,8 @@ export function validarRespuestaCandidatosBolsa(envelope) {
     throw new Error("el campo candidatos debe ser un array");
   }
   const candidatos = Object.freeze(datos.candidatos.map(validarCandidato));
+  if (!Array.isArray(datos.contactos)) throw new Error("el campo contactos debe ser un array");
+  const contactos = Object.freeze(datos.contactos.map(validarContacto));
 
   if (typeof datos.hay_mas !== "boolean") {
     throw new Error("hay_mas debe ser un booleano");
@@ -286,6 +295,7 @@ export function validarRespuestaCandidatosBolsa(envelope) {
     generado_en: generadoEn,
     bolsa,
     candidatos,
+    contactos,
     hay_mas: datos.hay_mas,
     cursor_siguiente: cursorSiguiente,
   });
@@ -295,25 +305,25 @@ export function validarContacto(contacto) {
   exigirCamposExactos(contacto, CAMPOS_CONTACTO, "contacto");
 
   const contactoRef = exigirCadenaSegura(contacto.contacto_ref, "contacto_ref");
-  if (!CANALES_LLAMAMIENTO.includes(contacto.canal)) {
+  if (!CANALES_CONTACTO.includes(contacto.canal)) {
     throw new Error(`canal de contacto no reconocido: ${contacto.canal}`);
   }
   const canal = contacto.canal;
-  const realizadoEn = exigirInstanteUTC(contacto.realizado_en, "realizado_en");
-  if (!RESULTADOS_LLAMAMIENTO_BOLSA.includes(contacto.resultado_clave)) {
-    throw new Error(`resultado_clave de contacto no reconocido: ${contacto.resultado_clave}`);
+  const instante = exigirInstanteUTC(contacto.instante, "instante");
+  if (!RESULTADOS_CONTACTO.includes(contacto.resultado)) {
+    throw new Error(`resultado de contacto no reconocido: ${contacto.resultado}`);
   }
-  const resultadoClave = contacto.resultado_clave;
-  let anotacion = "";
-  if (contacto.anotacion !== null && contacto.anotacion !== undefined) {
-    anotacion = exigirCadenaSegura(contacto.anotacion, "anotacion", { maximo: 1024, admiteVacia: true });
-  }
+  const resultado = contacto.resultado;
+  const anotacion = exigirCadenaSegura(contacto.anotacion, "anotacion", { maximo: 1000 });
 
   return Object.freeze({
     contacto_ref: contactoRef,
+    participacion_ref: exigirCadenaSegura(contacto.participacion_ref, "participacion_ref"),
+    llamamiento_ref: contacto.llamamiento_ref === null ? null : exigirCadenaSegura(contacto.llamamiento_ref, "llamamiento_ref"),
     canal,
-    realizado_en: realizadoEn,
-    resultado_clave: resultadoClave,
+    instante,
+    actor_ref: exigirCadenaSegura(contacto.actor_ref, "actor_ref"),
+    resultado,
     anotacion,
   });
 }

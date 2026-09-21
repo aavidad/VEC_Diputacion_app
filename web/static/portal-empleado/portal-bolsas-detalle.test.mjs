@@ -106,6 +106,7 @@ function construirFixturesDesdeDemo() {
       estado_desde: new Date(c.estado_desde).toISOString(),
       disponible_desde: c.disponible_desde ? new Date(c.disponible_desde).toISOString() : null,
       ultimo_llamamiento: ultimoLlamamiento,
+      contactos_total: 0,
     };
   });
 
@@ -123,6 +124,7 @@ function construirFixturesDesdeDemo() {
         generado_en: "2026-09-17T00:00:00Z",
         bolsa: primeraBolsa,
         candidatos,
+        contactos: [],
         hay_mas: false,
         cursor_siguiente: null,
       },
@@ -221,22 +223,25 @@ test("las vistas de bolsa no contienen la palabra demo en sus textos visibles", 
 test("contrato de contactos y acciones: validación estricta de contacto y respuesta", () => {
   const contactoValido = {
     contacto_ref: "contacto:sintetico:001",
+    participacion_ref: "part:001",
+    llamamiento_ref: null,
     canal: "telefono",
-    realizado_en: "2026-09-17T10:30:00Z",
-    resultado_clave: "aceptado",
+    instante: "2026-09-17T10:30:00Z",
+    actor_ref: "actor:rrhh:001",
+    resultado: "acepta",
     anotacion: "Acepta incorporación inmediata",
   };
 
   const validado = validarContacto(contactoValido);
   assert.equal(validado.contacto_ref, "contacto:sintetico:001");
   assert.equal(validado.canal, "telefono");
-  assert.equal(validado.resultado_clave, "aceptado");
+  assert.equal(validado.resultado, "acepta");
 
   // Falla si canal no es válido
   assert.throws(() => validarContacto({ ...contactoValido, canal: "paloma_mensajera" }), /canal de contacto no reconocido/);
 
-  // Falla si resultado_clave no es válido
-  assert.throws(() => validarContacto({ ...contactoValido, resultado_clave: "indeciso" }), /resultado_clave de contacto no reconocido/);
+  // Falla si resultado no es válido
+  assert.throws(() => validarContacto({ ...contactoValido, resultado: "indeciso" }), /resultado de contacto no reconocido/);
 
   // Falla ante datos personales en anotación
   assert.throws(() => validarContacto({ ...contactoValido, anotacion: "Llamar a test@diputacion.es" }), /contiene datos personales/);
@@ -294,7 +299,7 @@ test("contrato de acciones: validación de payload de crear llamamiento y result
 
 test("cliente API: consultarContactosCandidato maneja 200, 403 y errores", async () => {
   const mockFetchOk = async (url, opciones) => {
-    assert.match(url, /\/api\/vec\/bolsa\/candidatos\/part_123\/contactos/);
+    assert.match(url, /\/api\/vec\/bolsa\/bolsas\/bolsa_123\/candidatos\/part_123\/contactos/);
     assert.equal(opciones.credentials, "omit");
     assert.equal(opciones.headers.Accept, "application/json");
     return {
@@ -308,9 +313,12 @@ test("cliente API: consultarContactosCandidato maneja 200, 403 y errores", async
           contactos: [
             {
               contacto_ref: "c_1",
-              canal: "sede",
-              realizado_en: "2026-09-17T10:00:00Z",
-              resultado_clave: "pendiente",
+              participacion_ref: "part_123",
+              llamamiento_ref: null,
+              canal: "correo",
+              instante: "2026-09-17T10:00:00Z",
+              actor_ref: "actor:rrhh:001",
+              resultado: "contactado",
               anotacion: "Notificación telemática enviada",
             },
           ],
@@ -319,16 +327,16 @@ test("cliente API: consultarContactosCandidato maneja 200, 403 y errores", async
     };
   };
 
-  const resOk = await consultarContactosCandidato("part_123", { fetchImpl: mockFetchOk });
+  const resOk = await consultarContactosCandidato("bolsa_123", "part_123", { fetchImpl: mockFetchOk });
   assert.equal(resOk.ok, true);
   assert.equal(resOk.datos.contactos.length, 1);
-  assert.equal(resOk.datos.contactos[0].canal, "sede");
+  assert.equal(resOk.datos.contactos[0].canal, "correo");
 
   const mockFetchDenegado = async () => ({
     ok: false,
     status: 403,
   });
-  const resDenegado = await consultarContactosCandidato("part_123", { fetchImpl: mockFetchDenegado });
+  const resDenegado = await consultarContactosCandidato("bolsa_123", "part_123", { fetchImpl: mockFetchDenegado });
   assert.equal(resDenegado.ok, false);
   assert.equal(resDenegado.status, 403);
   assert.equal(resDenegado.codigo, "acceso_denegado");
@@ -500,7 +508,7 @@ test("la presentación reutiliza B12/B5 con envelopes cerrados, filtros en memor
   assert.equal(vacio.ok, true);
   assert.equal(vacio.datos.candidatos.length, 0);
 
-  const historial = fuente.consultarContactosCandidato(disponibles.datos.candidatos[0].participacion_ref);
+  const historial = fuente.consultarContactosCandidato(bolsaRef, disponibles.datos.candidatos[0].participacion_ref);
   assert.equal(historial.ok, true);
   assert.deepEqual(historial.datos.contactos, []);
 

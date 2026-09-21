@@ -264,6 +264,7 @@ export function crearFuenteLecturaBolsasPresentacion({ datosIniciales } = {}) {
       estado_desde: "2026-09-01T09:00:00Z",
       disponible_desde: estado_clave === "no_disponible" ? "2026-10-01T09:00:00Z" : null,
       ultimo_llamamiento: null,
+      contactos_total: 0,
     }));
     const por_estado = {
       disponible: 1, no_disponible: 1, trabajando: 1, pendiente_incorporacion: 0,
@@ -306,12 +307,12 @@ export function crearFuenteLecturaBolsasPresentacion({ datosIniciales } = {}) {
     return {
       ok: true,
       datos: validarRespuestaCandidatosBolsa({
-        data: { esquema: ESQUEMA_CANDIDATOS, generado_en: generadoEn, bolsa: item.bolsa, candidatos, hay_mas: false, cursor_siguiente: null },
+        data: { esquema: ESQUEMA_CANDIDATOS, generado_en: generadoEn, bolsa: item.bolsa, candidatos, contactos: [], hay_mas: false, cursor_siguiente: null },
       }),
     };
   }
 
-  function consultarContactosCandidato(participacionRef) {
+  function consultarContactosCandidato(_bolsaRef, participacionRef) {
     const referencia = String(participacionRef || "");
     if (!participaciones.has(referencia)) return { ok: false, status: 404, codigo: "no_encontrado", mensaje: "Candidato de presentación no encontrado." };
     return {

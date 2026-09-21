@@ -1,6 +1,6 @@
 \set ON_ERROR_STOP on
--- Orden por dependencias: AD3-000044 -> Bolsa-000011 -> AD3-000045 -> Bolsa-000012.
--- Los cuatro cambios forman una sola transacción; finalizar vale ROLLBACK en el ensayo.
+-- Orden por dependencias: AD3-000044 -> Bolsa-000011 -> AD3-000045 -> Bolsa-000012 -> AD3-000046 -> Bolsa-000013.
+-- Los seis cambios forman una sola transacción; finalizar vale ROLLBACK en el ensayo.
 BEGIN;
 -- INICIO deploy/postgresql/autorizacion_atestada_v3/migraciones/000044_consumidor_borrador_llamamiento.up.sql
 -- AD3-000044. Extiende estructuralmente el núcleo V3 posterior a AD3-32 y
@@ -12,7 +12,6 @@ SET LOCAL timezone='UTC';
 SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='30s';
 SELECT pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:migracion:000044',0));
-
 DO $precondicion$
 DECLARE
  f oid := 'vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
@@ -30,7 +29,6 @@ BEGIN
   RAISE EXCEPTION 'estructura V3 posterior a AD3-32/43 incompatible para B-BACK-01' USING ERRCODE='55000';
  END IF;
 END $precondicion$;
-
 DO $nucleo$
 DECLARE f oid := 'vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
  original text; esperada text; actual text; reconstruida text;
@@ -668,4 +666,135 @@ GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.registrar_situacion_participaci
 GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.leer_situacion_participacion_v1(text) TO vec_bolsa_llamamientos_ejecutor;
 GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.recuperar_situacion_participacion_v1(text,text) TO vec_bolsa_llamamientos_ejecutor;
 -- FIN deploy/postgresql/bolsa_llamamientos/migraciones/000012_situacion_participacion.up.sql
+-- INICIO deploy/postgresql/autorizacion_atestada_v3/migraciones/000046_consumidor_contacto_participacion.up.sql
+-- AD3-000046. Extensión nominal B3 sobre AD3-000045, sin autohuella del núcleo.
+SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario; SET LOCAL search_path=pg_catalog; SET LOCAL timezone='UTC'; SET LOCAL lock_timeout='5s'; SET LOCAL statement_timeout='30s';
+SELECT pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:migracion:000046',0));
+DO $precondicion$
+DECLARE f oid := 'vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
+BEGIN
+ IF current_user<>'vec_autorizacion_atestada_v3_propietario' OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_creacion_borrador_llamamiento_interno_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
+ OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_consulta_borrador_llamamiento_interno_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_despacho_correo_llamamiento_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
+ OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_resultado_correo_llamamiento_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_mi_bolsa_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
+ OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_situacion_participacion_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_contacto_participacion_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
+ OR NOT EXISTS(SELECT 1 FROM pg_proc WHERE oid=f AND proowner='vec_autorizacion_atestada_v3_propietario'::regrole AND prosecdef AND prokind='f' AND provolatile='v' AND pg_get_function_identity_arguments(oid)='p_perfil_mutacion text, p_capacidad_canonica bytea, p_decision_canonica bytea, p_motivo_canonico bytea, p_contexto_actor_canonico bytea, p_persona_version numeric, p_perfil_version numeric, p_payload_vec_ad_3 bytea, p_sobre_cose_sign1 bytea, p_evidencia_verificacion bytea, p_raiz_publica_spki bytea' AND proconfig=ARRAY['search_path=pg_catalog','lock_timeout=2s']) THEN
+  RAISE EXCEPTION 'estructura AD3-000044 incompatible para B3' USING ERRCODE='55000';
+ END IF;
+END $precondicion$;
+DO $nucleo$
+DECLARE f oid := 'vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
+ original text; esperada text; actual text; reconstruida text; metadata jsonb; deps jsonb; acl aclitem[]; propietario oid; configuracion text[]; es_definidora boolean;
+ marca text := E'       )\n       OR c ->> ''suite'' <> ''VEC-AD-3-COSE-EDDSA-1''';
+ exclusion_pre text := $x$               AND p_perfil_mutacion IS DISTINCT FROM 'consulta_borrador_llamamiento_interno_bolsa'
+               AND p_perfil_mutacion IS DISTINCT FROM 'situacion_participacion_bolsa'$x$; exclusion_post text := exclusion_pre||E'\n               AND p_perfil_mutacion IS DISTINCT FROM ''contacto_participacion_bolsa''';
+ runtime_pre text := $x$               OR p_perfil_mutacion IS NOT DISTINCT FROM 'consulta_borrador_llamamiento_interno_bolsa'
+               OR p_perfil_mutacion IS NOT DISTINCT FROM 'situacion_participacion_bolsa')$x$; runtime_post text := $x$               OR p_perfil_mutacion IS NOT DISTINCT FROM 'consulta_borrador_llamamiento_interno_bolsa'
+               OR p_perfil_mutacion IS NOT DISTINCT FROM 'situacion_participacion_bolsa' OR p_perfil_mutacion IS NOT DISTINCT FROM 'contacto_participacion_bolsa')$x$;
+ extension text := $p$           OR (p_perfil_mutacion IS NOT DISTINCT FROM 'contacto_participacion_bolsa' AND c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_bolsa_llamamientos.contacto_participacion.registrar.v1' AND c->>'operacion' IS NOT DISTINCT FROM 'bolsa.contacto_participacion.registrar' AND d->>'accion' IS NOT DISTINCT FROM 'bolsa.contacto_participacion.registrar' AND d->>'modulo_id' IS NOT DISTINCT FROM 'bolsa' AND d->>'tipo_recurso' IS NOT DISTINCT FROM 'participacion_bolsa' AND d->>'finalidad' IS NOT DISTINCT FROM 'gestion_contactos_participacion')
+$p$;
+BEGIN
+ SELECT pg_get_functiondef(f),to_jsonb(p)-'prosrc',p.proacl,p.proowner,p.proconfig,p.prosecdef INTO STRICT original,metadata,acl,propietario,configuracion,es_definidora FROM pg_proc p WHERE p.oid=f;
+ SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb) INTO deps FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f;
+ IF length(original)-length(replace(original,marca,''))<>length(marca) OR length(original)-length(replace(original,exclusion_pre,''))<>length(exclusion_pre) OR length(original)-length(replace(original,runtime_pre,''))<>length(runtime_pre) OR strpos(original,'creacion_borrador_llamamiento_interno_bolsa')=0 OR strpos(original,'consulta_participaciones_propias_bolsa')=0 OR strpos(original,'despacho_correo_llamamiento_ct')=0 OR strpos(original,'situacion_participacion_bolsa')=0 OR strpos(original,'contacto_participacion_bolsa')<>0 THEN RAISE EXCEPTION 'núcleo AD3-000045 no admite extensión B3' USING ERRCODE='55000'; END IF;
+ esperada:=replace(original,exclusion_pre,exclusion_post); esperada:=replace(esperada,runtime_pre,runtime_post); esperada:=replace(esperada,marca,extension||marca); EXECUTE esperada;
+ SELECT pg_get_functiondef(f) INTO STRICT actual;
+ reconstruida:=replace(actual,extension||marca,marca); reconstruida:=replace(reconstruida,runtime_post,runtime_pre); reconstruida:=replace(reconstruida,exclusion_post,exclusion_pre);
+ IF actual IS DISTINCT FROM esperada OR reconstruida IS DISTINCT FROM original OR (SELECT to_jsonb(p)-'prosrc' FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM metadata OR (SELECT proacl FROM pg_proc WHERE oid=f) IS DISTINCT FROM acl OR (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM propietario OR (SELECT proconfig FROM pg_proc WHERE oid=f) IS DISTINCT FROM configuracion OR (SELECT prosecdef FROM pg_proc WHERE oid=f) IS DISTINCT FROM es_definidora OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb) FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps THEN RAISE EXCEPTION 'B3 alteró el núcleo AD3 fuera de su extensión nominal' USING ERRCODE='55000'; END IF;
+END $nucleo$;
+LOCK TABLE vec_autorizacion_atestada_v3.clave_capacidad_version IN ACCESS EXCLUSIVE MODE;
+DO $audiencia$ DECLARE definicion text; nueva text; BEGIN
+ SELECT pg_get_constraintdef(c.oid,true) INTO STRICT definicion FROM pg_constraint c WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass AND c.conname='clave_capacidad_version_audiencia_consumo_check' AND c.contype='c';
+ IF strpos(definicion,'vec_bolsa_llamamientos.contacto_participacion.registrar.v1')<>0 OR strpos(definicion,'CHECK (audiencia_consumo = ANY (ARRAY[')<>1 OR right(definicion,3)<>']))' THEN RAISE EXCEPTION 'audiencias incompatibles para B3' USING ERRCODE='55000'; END IF;
+ nueva:=left(definicion,length(definicion)-3)||', ''vec_bolsa_llamamientos.contacto_participacion.registrar.v1''::text]))';
+ ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version DROP CONSTRAINT clave_capacidad_version_audiencia_consumo_check;
+ EXECUTE 'ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version ADD CONSTRAINT clave_capacidad_version_audiencia_consumo_check '||nueva;
+END $audiencia$;
+CREATE FUNCTION vec_autorizacion_atestada_v3.registrar_y_consumir_contacto_participacion_v3_atestada(p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)
+RETURNS TABLE(decision_ref text,efecto_ref text,huella_efecto_sha256 text,consumo_huella_sha256 text,auditoria_ref text,consumida_en timestamptz,consumo_nuevo boolean)
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET lock_timeout='2s' AS $f$
+DECLARE c jsonb; d jsonb; x record; BEGIN
+ BEGIN c:=convert_from(p_capacidad,'UTF8')::jsonb; d:=convert_from(p_decision,'UTF8')::jsonb; EXCEPTION WHEN others THEN RAISE EXCEPTION 'material B3 inválido' USING ERRCODE='22023'; END;
+ IF c->>'audiencia_consumo' IS DISTINCT FROM 'vec_bolsa_llamamientos.contacto_participacion.registrar.v1' OR c->>'operacion' IS DISTINCT FROM 'bolsa.contacto_participacion.registrar' OR d->>'accion' IS DISTINCT FROM c->>'operacion' OR d->>'modulo_id' IS DISTINCT FROM 'bolsa' OR d->>'tipo_recurso' IS DISTINCT FROM 'participacion_bolsa' OR d->>'finalidad' IS DISTINCT FROM 'gestion_contactos_participacion' OR d->>'recurso_ref' IS DISTINCT FROM c->>'efecto_ref' OR d->>'contexto_recurso_huella_sha256' IS DISTINCT FROM c->>'huella_efecto_sha256' THEN RAISE EXCEPTION 'material B3 rechazado' USING ERRCODE='42501'; END IF;
+ SELECT * INTO STRICT x FROM vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna('contacto_participacion_bolsa',p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz);
+ IF x.consumo_nuevo IS NOT TRUE THEN RAISE EXCEPTION 'B3 requiere consumo nuevo' USING ERRCODE='42501'; END IF; RETURN QUERY SELECT x.decision_ref,x.efecto_ref,x.huella_efecto_sha256,x.consumo_huella_sha256,x.auditoria_ref,x.consumida_en,true; END $f$;
+ALTER FUNCTION vec_autorizacion_atestada_v3.registrar_y_consumir_contacto_participacion_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) OWNER TO vec_autorizacion_atestada_v3_propietario;
+REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.registrar_y_consumir_contacto_participacion_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;
+GRANT USAGE ON SCHEMA vec_autorizacion_atestada_v3 TO vec_bolsa_llamamientos_propietario;
+GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.registrar_y_consumir_contacto_participacion_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_bolsa_llamamientos_propietario;
+REVOKE GRANT OPTION FOR EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.registrar_y_consumir_contacto_participacion_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM vec_bolsa_llamamientos_propietario;
+DO $acl_cerrada$
+DECLARE funcion regprocedure := 'vec_autorizacion_atestada_v3.registrar_y_consumir_contacto_participacion_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure; a record;
+BEGIN
+ FOR a IN SELECT DISTINCT x.grantee FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) x WHERE p.oid=funcion AND x.grantee<>p.proowner AND x.grantee<>'vec_bolsa_llamamientos_propietario'::regrole LOOP
+  IF a.grantee=0 THEN EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC',funcion::text);
+  ELSE EXECUTE format('REVOKE ALL ON FUNCTION %s FROM %I',funcion::text,pg_get_userbyid(a.grantee)); END IF;
+ END LOOP;
+ IF NOT has_function_privilege('vec_bolsa_llamamientos_propietario',funcion,'EXECUTE') OR EXISTS(SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) x WHERE p.oid=funcion AND x.privilege_type='EXECUTE' AND (x.grantee NOT IN (p.proowner,'vec_bolsa_llamamientos_propietario'::regrole) OR x.is_grantable AND x.grantee='vec_bolsa_llamamientos_propietario'::regrole)) THEN RAISE EXCEPTION 'ACL B3 incompatible' USING ERRCODE='55000'; END IF;
+END $acl_cerrada$;
+-- FIN deploy/postgresql/autorizacion_atestada_v3/migraciones/000046_consumidor_contacto_participacion.up.sql
+-- INICIO deploy/postgresql/bolsa_llamamientos/migraciones/000013_contacto_participacion.up.sql
+SET LOCAL ROLE vec_bolsa_llamamientos_propietario;
+SET LOCAL search_path=pg_catalog;
+SET LOCAL timezone='UTC';
+SELECT pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_bolsa_llamamientos:migracion:000013',0));
+DO $b$ DECLARE accion text; ruta text; BEGIN
+ SELECT pg_get_constraintdef(oid,true) INTO STRICT accion FROM pg_constraint WHERE conrelid='vec_bolsa_llamamientos.bitacora_intento_borrador_llamamiento'::regclass AND conname='bitacora_intento_borrador_llamamiento_accion_check';
+ SELECT pg_get_constraintdef(oid,true) INTO STRICT ruta FROM pg_constraint WHERE conrelid='vec_bolsa_llamamientos.bitacora_intento_borrador_llamamiento'::regclass AND conname='bitacora_intento_borrador_llamamiento_ruta_clase_check';
+ IF strpos(accion,'''cambiar_situacion''::text')=0 OR strpos(accion,'''registrar_contacto''::text')<>0 OR strpos(ruta,'''situacion''::text')=0 OR strpos(ruta,'''contactos''::text')<>0 THEN RAISE EXCEPTION 'bitácora incompatible con B3' USING ERRCODE='55000'; END IF;
+END $b$;
+ALTER TABLE vec_bolsa_llamamientos.bitacora_intento_borrador_llamamiento DROP CONSTRAINT bitacora_intento_borrador_llamamiento_accion_check;
+ALTER TABLE vec_bolsa_llamamientos.bitacora_intento_borrador_llamamiento ADD CONSTRAINT bitacora_intento_borrador_llamamiento_accion_check CHECK(accion IN('crear','consultar','cambiar_situacion','registrar_contacto'));
+ALTER TABLE vec_bolsa_llamamientos.bitacora_intento_borrador_llamamiento DROP CONSTRAINT bitacora_intento_borrador_llamamiento_ruta_clase_check;
+ALTER TABLE vec_bolsa_llamamientos.bitacora_intento_borrador_llamamiento ADD CONSTRAINT bitacora_intento_borrador_llamamiento_ruta_clase_check CHECK(ruta_clase IN('coleccion','detalle','situacion','contactos'));
+CREATE OR REPLACE FUNCTION vec_bolsa_llamamientos.registrar_intento_borrador_llamamiento_v1(p_correlacion_ref text,p_accion text,p_ruta_clase text,p_actor_ref text,p_resultado text)
+RETURNS void LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET lock_timeout='2s' AS $f$
+DECLARE v_ref text; BEGIN
+ PERFORM vec_bolsa_llamamientos.exigir_runtime_registrador_frontera_borrador_llamamiento();
+ IF p_correlacion_ref IS NULL OR p_correlacion_ref !~ '^[A-Za-z0-9][A-Za-z0-9:._/-]{7,191}$' OR p_accion NOT IN('crear','consultar','cambiar_situacion','registrar_contacto') OR p_ruta_clase NOT IN('coleccion','detalle','situacion','contactos') OR (p_actor_ref IS NOT NULL AND p_actor_ref !~ '^per_[A-Za-z0-9_-]{22,128}$') OR p_resultado NOT IN('autenticacion_requerida','acceso_denegado','recurso_no_disponible','infraestructura_no_disponible','resultado_indeterminado') THEN RAISE EXCEPTION 'intento de frontera Bolsa inválido' USING ERRCODE='22023'; END IF;
+ v_ref:='intento:'||translate(encode(sha256(convert_to(p_correlacion_ref||':'||p_accion||':'||p_ruta_clase||':'||coalesce(p_actor_ref,'')||':'||p_resultado||':'||clock_timestamp()::text,'UTF8')),'hex'),'0123456789','ghijklmnop');
+ INSERT INTO vec_bolsa_llamamientos.bitacora_intento_borrador_llamamiento(intento_ref,correlacion_ref,accion,ruta_clase,actor_ref,resultado,registrada_en) VALUES(v_ref,p_correlacion_ref,p_accion,p_ruta_clase,p_actor_ref,p_resultado,clock_timestamp());
+END $f$;
+DO $p$ BEGIN
+ IF to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_contacto_participacion_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL OR to_regclass('vec_bolsa_llamamientos.situacion_participacion') IS NULL OR to_regclass('vec_bolsa_llamamientos.contacto_participacion') IS NOT NULL THEN RAISE EXCEPTION 'precondición B3 incompatible' USING ERRCODE='55000'; END IF;
+END $p$;
+CREATE TABLE vec_bolsa_llamamientos.contacto_participacion(contacto_ref text PRIMARY KEY,bolsa_ref text NOT NULL,participacion_ref text NOT NULL,llamamiento_ref text,canal text NOT NULL CHECK(canal IN('telefono','correo','sms','presencial','otro')),instante timestamptz(6) NOT NULL,actor text NOT NULL CHECK(actor ~ '^per_[A-Za-z0-9_-]{22,128}$'),resultado text NOT NULL CHECK(resultado IN('contactado','no_contesta','buzon','acepta','rechaza','aplazado','otro')),anotacion text NOT NULL CHECK(anotacion=btrim(anotacion) AND octet_length(anotacion) BETWEEN 1 AND 1000 AND anotacion !~* '(^|[^[:alpha:]])(dni|nie|nif|pasaporte|email|teléfono)([^[:alpha:]]|$)' AND strpos(anotacion,'@')=0),clave_idempotencia text NOT NULL,recibo_ref text NOT NULL UNIQUE,registrada_en timestamptz(6) NOT NULL DEFAULT clock_timestamp(),UNIQUE(participacion_ref,clave_idempotencia));
+CREATE INDEX contacto_participacion_participacion_fecha ON vec_bolsa_llamamientos.contacto_participacion(participacion_ref,instante DESC,contacto_ref DESC);
+CREATE INDEX contacto_participacion_bolsa_fecha ON vec_bolsa_llamamientos.contacto_participacion(bolsa_ref,instante DESC,contacto_ref DESC);
+ALTER TABLE vec_bolsa_llamamientos.contacto_participacion ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_bolsa_llamamientos.contacto_participacion FORCE ROW LEVEL SECURITY;
+CREATE POLICY contacto_participacion_solo_propietario ON vec_bolsa_llamamientos.contacto_participacion TO vec_bolsa_llamamientos_propietario USING(current_user='vec_bolsa_llamamientos_propietario') WITH CHECK(current_user='vec_bolsa_llamamientos_propietario');
+REVOKE ALL ON vec_bolsa_llamamientos.contacto_participacion FROM PUBLIC;
+CREATE TRIGGER contacto_participacion_inmutable BEFORE UPDATE OR DELETE ON vec_bolsa_llamamientos.contacto_participacion FOR EACH ROW EXECUTE FUNCTION vec_bolsa_llamamientos.constitucion_rechazar_mutacion();
+CREATE FUNCTION vec_bolsa_llamamientos.registrar_contacto_participacion_v1(p_contacto_ref text,p_bolsa_ref text,p_participacion_ref text,p_llamamiento_ref text,p_canal text,p_instante timestamptz,p_actor text,p_resultado text,p_anotacion text,p_clave text,p_recibo text,p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)
+RETURNS TABLE(reutilizado boolean,recibo_ref text,contacto_ref text) LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET lock_timeout='2s' AS $f$
+DECLARE consumo record; d jsonb; anterior vec_bolsa_llamamientos.contacto_participacion%ROWTYPE;
+BEGIN
+ IF current_user<>'vec_bolsa_llamamientos_propietario' OR p_contacto_ref IS NULL OR p_bolsa_ref IS NULL OR p_participacion_ref IS NULL OR p_canal NOT IN('telefono','correo','sms','presencial','otro') OR p_instante IS NULL OR p_actor !~ '^per_[A-Za-z0-9_-]{22,128}$' OR p_resultado NOT IN('contactado','no_contesta','buzon','acepta','rechaza','aplazado','otro') OR p_anotacion IS NULL OR p_anotacion<>btrim(p_anotacion) OR octet_length(p_anotacion) NOT BETWEEN 1 AND 1000 OR p_clave IS NULL OR p_clave<>btrim(p_clave) OR octet_length(p_clave) NOT BETWEEN 1 AND 256 OR p_recibo IS NULL THEN RAISE EXCEPTION 'contacto inválido' USING ERRCODE='22023'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM vec_bolsa_llamamientos.constitucion_entrada e JOIN vec_bolsa_llamamientos.constitucion c USING(instantanea_ref,version_instantanea) WHERE e.participacion_ref=p_participacion_ref AND c.bolsa_ref=p_bolsa_ref) THEN RAISE EXCEPTION 'participación ajena' USING ERRCODE='23503'; END IF;
+ IF p_llamamiento_ref IS NOT NULL AND NOT EXISTS(
+  SELECT 1 FROM vec_bolsa_llamamientos.llamamiento_integracion_desarrollo l
+  JOIN vec_bolsa_llamamientos.integracion_desarrollo o USING(operacion_ref)
+  WHERE l.llamamiento_ref=p_llamamiento_ref AND l.bolsa_ref=p_bolsa_ref
+   AND convert_from(o.registro_canonico,'UTF8')::jsonb#>>'{propuesta,participacion_seleccionada_ref}'=p_participacion_ref
+ ) THEN RAISE EXCEPTION 'llamamiento ajeno' USING ERRCODE='23503'; END IF;
+ SELECT * INTO consumo FROM vec_autorizacion_atestada_v3.registrar_y_consumir_contacto_participacion_v3_atestada(p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz);
+ d:=convert_from(p_decision,'UTF8')::jsonb;
+ IF consumo.efecto_ref IS DISTINCT FROM p_participacion_ref OR consumo.consumo_nuevo IS NOT TRUE OR d->>'principal_id' IS DISTINCT FROM p_actor OR d->>'accion' IS DISTINCT FROM 'bolsa.contacto_participacion.registrar' OR d->>'modulo_id' IS DISTINCT FROM 'bolsa' OR d->>'tipo_recurso' IS DISTINCT FROM 'participacion_bolsa' OR d->>'finalidad' IS DISTINCT FROM 'gestion_contactos_participacion' OR d->>'recurso_ref' IS DISTINCT FROM p_participacion_ref OR d->'campos_permitidos' IS DISTINCT FROM '[]'::jsonb OR d->'obligaciones' IS DISTINCT FROM '[]'::jsonb THEN RAISE EXCEPTION 'contacto no autorizado' USING ERRCODE='42501'; END IF;
+ SELECT * INTO anterior FROM vec_bolsa_llamamientos.contacto_participacion c WHERE c.participacion_ref=p_participacion_ref AND c.clave_idempotencia=p_clave FOR SHARE;
+ IF FOUND THEN
+  IF anterior.bolsa_ref<>p_bolsa_ref OR anterior.llamamiento_ref IS DISTINCT FROM p_llamamiento_ref OR anterior.canal<>p_canal OR anterior.instante<>p_instante OR anterior.actor<>p_actor OR anterior.resultado<>p_resultado OR anterior.anotacion<>p_anotacion THEN RAISE EXCEPTION 'clave idempotente divergente' USING ERRCODE='VBC01'; END IF;
+  RETURN QUERY SELECT true,anterior.recibo_ref,anterior.contacto_ref; RETURN;
+ END IF;
+ INSERT INTO vec_bolsa_llamamientos.contacto_participacion(contacto_ref,bolsa_ref,participacion_ref,llamamiento_ref,canal,instante,actor,resultado,anotacion,clave_idempotencia,recibo_ref) VALUES(p_contacto_ref,p_bolsa_ref,p_participacion_ref,p_llamamiento_ref,p_canal,p_instante,p_actor,p_resultado,p_anotacion,p_clave,p_recibo);
+ RETURN QUERY SELECT false,p_recibo,p_contacto_ref;
+END $f$;
+CREATE FUNCTION vec_bolsa_llamamientos.listar_contactos_participacion_v1(p_bolsa_ref text,p_participacion_ref text,p_cursor text,p_limite integer)
+RETURNS TABLE(contacto_ref text,bolsa_ref text,participacion_ref text,llamamiento_ref text,canal text,instante timestamptz,actor text,resultado text,anotacion text) LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $f$
+ SELECT c.contacto_ref,c.bolsa_ref,c.participacion_ref,c.llamamiento_ref,c.canal,c.instante,c.actor,c.resultado,c.anotacion FROM vec_bolsa_llamamientos.contacto_participacion c WHERE c.bolsa_ref=p_bolsa_ref AND (p_participacion_ref IS NULL OR c.participacion_ref=p_participacion_ref) AND (p_cursor IS NULL OR (c.instante,c.contacto_ref)<(SELECT x.instante,x.contacto_ref FROM vec_bolsa_llamamientos.contacto_participacion x WHERE x.contacto_ref=p_cursor)) ORDER BY c.instante DESC,c.contacto_ref DESC LIMIT p_limite
+$f$;
+REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.registrar_contacto_participacion_v1(text,text,text,text,text,timestamptz,text,text,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;
+REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.listar_contactos_participacion_v1(text,text,text,integer) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.registrar_contacto_participacion_v1(text,text,text,text,text,timestamptz,text,text,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_bolsa_llamamientos_ejecutor;
+GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.listar_contactos_participacion_v1(text,text,text,integer) TO vec_bolsa_llamamientos_ejecutor;
+-- FIN deploy/postgresql/bolsa_llamamientos/migraciones/000013_contacto_participacion.up.sql
 :finalizar;

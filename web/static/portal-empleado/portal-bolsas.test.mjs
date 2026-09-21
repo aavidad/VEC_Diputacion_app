@@ -28,6 +28,7 @@ import {
   consultarBolsas,
   consultarCandidatosBolsa,
   consultarContactosCandidato,
+  registrarContactoCandidato,
   cambiarSituacionCandidato,
   crearLlamamientoCandidato,
   registrarResultadoLlamamiento,
@@ -120,6 +121,7 @@ function construirFixturesDesdeDemo() {
       estado_desde: new Date(c.estado_desde).toISOString(),
       disponible_desde: c.disponible_desde ? new Date(c.disponible_desde).toISOString() : null,
       ultimo_llamamiento: ultimoLlamamiento,
+      contactos_total: 0,
     };
   });
 
@@ -137,6 +139,7 @@ function construirFixturesDesdeDemo() {
         generado_en: "2026-09-17T00:00:00Z",
         bolsa: primeraBolsa,
         candidatos,
+        contactos: [],
         hay_mas: false,
         cursor_siguiente: null,
       },
@@ -161,6 +164,14 @@ test("validarRespuestaBolsas acepta fixtures derivadas del dataset sintético", 
     const sumaEstados = Object.values(b.por_estado).reduce((acc, v) => acc + v, 0);
     assert.equal(sumaEstados, b.total, "la suma de estados debe coincidir con el total");
   }
+});
+
+test("B3 registra y consulta contactos con ruta, idempotencia y recibo", async () => {
+  let peticion;
+  const alta=await registrarContactoCandidato("bolsa:01","participacion:01",{canal:"telefono",resultado:"contactado",anotacion:"Se explicó la oferta",instante:"2026-09-22T00:10:00Z",llamamiento_ref:"",clave_idempotencia:"contacto-0001"},{fetchImpl:async(url,opciones)=>{peticion={url,opciones};return{ok:true,status:201,json:async()=>({data:{recibo_ref:"recibo:contacto:01"}})}}});
+  assert.equal(alta.ok,true); assert.equal(peticion.opciones.headers["Idempotency-Key"],"contacto-0001"); assert.match(peticion.url,/\/bolsa:01\/candidatos\/participacion:01\/contactos$/);
+  const lectura=await consultarContactosCandidato("bolsa:01","participacion:01",{fetchImpl:async()=>({ok:true,status:200,json:async()=>({data:{esquema:ESQUEMA_CONTACTOS,contactos:[{contacto_ref:"contacto:01",participacion_ref:"participacion:01",llamamiento_ref:null,canal:"telefono",instante:"2026-09-22T00:10:00Z",actor_ref:"per_0123456789abcdefghijkl",resultado:"contactado",anotacion:"Se explicó la oferta"}],cursor_siguiente:null,hay_mas:false}})})});
+  assert.equal(lectura.ok,true); assert.equal(lectura.datos.contactos[0].resultado,"contactado");
 });
 
 test("validarRespuestaCandidatosBolsa acepta fixtures derivadas del dataset sintético", () => {
@@ -553,7 +564,7 @@ test("presentadorPanelInterno renderiza Vista B5 de candidatos con filtros, chip
   assert.match(htmlB5, /disabled aria-disabled="true" title="Pendiente de composición C23"/);
   filtrosBolsa = { ...filtrosBolsa, pestana: "historico" };
   const htmlHistorico = presentador.renderizarVista("bolsa-candidatos");
-  assert.match(htmlHistorico, /Histórico de llamamientos/);
+  assert.match(htmlHistorico, /Histórico de contactos y llamamientos/);
   assert.match(htmlHistorico, /<th scope="col">Contacto<\/th>/);
   assert.match(htmlHistorico, /Sin llamamientos registrados|Llamamiento/);
   assert.match(htmlHistorico, /<section class="panel" hidden>/);

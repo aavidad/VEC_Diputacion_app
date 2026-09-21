@@ -152,12 +152,12 @@ export async function cambiarSituacionCandidato(bolsaRef, participacionRef, payl
   }
 }
 
-export async function consultarContactosCandidato(participacionRef, { fetchImpl = fetch, signal } = {}) {
+export async function consultarContactosCandidato(bolsaRef, participacionRef, { fetchImpl = fetch, signal } = {}) {
   if (typeof participacionRef !== "string" || participacionRef.trim() === "") {
     return { ok: false, status: 400, codigo: "referencia_invalida", mensaje: "Referencia de candidato no válida." };
   }
 
-  const url = `/api/vec/bolsa/candidatos/${segmentoRuta(participacionRef)}/contactos`;
+  const url = `${RUTA_BOLSAS}/${segmentoRuta(bolsaRef)}/candidatos/${segmentoRuta(participacionRef)}/contactos?limite=20`;
 
   try {
     const respuesta = await fetchImpl(url, {
@@ -196,6 +196,14 @@ export async function consultarContactosCandidato(participacionRef, { fetchImpl 
       mensaje: error instanceof Error ? error.message : "Error de comunicación al consultar contactos.",
     };
   }
+}
+
+export async function registrarContactoCandidato(bolsaRef, participacionRef, payload, { fetchImpl = fetch } = {}) {
+  if (!bolsaRef || !participacionRef || !payload?.canal || !payload?.resultado || !payload?.anotacion || !payload?.clave_idempotencia) return { ok:false,status:400,codigo:"solicitud_invalida",mensaje:"Faltan datos obligatorios del contacto." };
+  try {
+    const respuesta=await fetchImpl(`${RUTA_BOLSAS}/${segmentoRuta(bolsaRef)}/candidatos/${segmentoRuta(participacionRef)}/contactos`,{method:"POST",credentials:"omit",headers:{Accept:"application/json","Content-Type":"application/json","Idempotency-Key":payload.clave_idempotencia},body:JSON.stringify({canal:payload.canal,resultado:payload.resultado,anotacion:payload.anotacion,instante:payload.instante,llamamiento_ref:payload.llamamiento_ref||""})});
+    const cuerpo=await respuesta.json().catch(()=>({})); if(respuesta.ok&&cuerpo?.data?.recibo_ref)return{ok:true,datos:cuerpo.data}; return{ok:false,status:respuesta.status,codigo:cuerpo?.error?.codigo||"error_servidor",mensaje:respuesta.status===403?"La sesión no dispone de permiso para registrar contactos.":respuesta.status===409?"La clave corresponde a otro contacto.":"No se pudo registrar el contacto."};
+  } catch(error){return{ok:false,status:0,codigo:"error_red",mensaje:error instanceof Error?error.message:"Error de comunicación."}}
 }
 
 export async function crearLlamamientoCandidato(participacionRef, payload, { fetchImpl = fetch } = {}) {
@@ -457,8 +465,8 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     renderizar();
     const fuente = fuenteLectura();
     const res = await resolverLectura("contactos", controlador, () => fuente?.consultarContactosCandidato
-      ? fuente.consultarContactosCandidato(participacionRef, { signal: controlador.signal })
-      : consultarContactosCandidato(participacionRef, { signal: controlador.signal }));
+      ? fuente.consultarContactosCandidato(estado.bolsaSeleccionada, participacionRef, { signal: controlador.signal })
+      : consultarContactosCandidato(estado.bolsaSeleccionada, participacionRef, { signal: controlador.signal }));
     if (res === null || !lecturaVigente("contactos", controlador)) return;
     terminarLectura("contactos", controlador);
     if (res.ok) {
@@ -723,6 +731,15 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
         return;
       }
 
+      const formContacto = evento.target?.closest?.('[data-bolsa-form="contacto"]');
+      if (formContacto) {
+        evento.preventDefault(); const datos=new FormData(formContacto); const canal=String(datos.get("canal")||""); const resultado=String(datos.get("resultado")||""); const anotacion=String(datos.get("anotacion")||"").trim();
+        if(!canal||!resultado||!anotacion){if(estado.modalFicha){estado.modalFicha.errorContacto="Complete canal, resultado y anotación.";renderizar()}return}
+		const huella=JSON.stringify([canal,resultado,anotacion,String(datos.get("llamamiento_ref")||"")]); let clave=estado.modalFicha?.claveContacto; let instante=estado.modalFicha?.instanteContacto;
+		if(!clave||estado.modalFicha?.huellaContacto!==huella){clave=globalThis.crypto?.randomUUID?.()||`contacto-${Date.now()}-${Math.random().toString(16).slice(2)}`;instante=new Date().toISOString();if(estado.modalFicha){estado.modalFicha.claveContacto=clave;estado.modalFicha.huellaContacto=huella;estado.modalFicha.instanteContacto=instante}}
+        void registrarContactoCandidato(estado.bolsaSeleccionada,formContacto.dataset.participacionRef,{canal,resultado,anotacion,instante,llamamiento_ref:String(datos.get("llamamiento_ref")||""),clave_idempotencia:clave}).then(async(res)=>{if(res.ok){const ref=formContacto.dataset.participacionRef;estado.modalFicha=null;await cargarCandidatosBolsa(estado.bolsaSeleccionada);abrirFicha(ref);if(estado.modalFicha){estado.modalFicha.reciboContacto=res.datos.recibo_ref;renderizar()}}else if(estado.modalFicha){estado.modalFicha.errorContacto=res.mensaje;renderizar()}}); return;
+      }
+
       const formResultado = evento.target?.closest?.('[data-bolsa-form="resultado"]');
       if (formResultado) {
         evento.preventDefault();
@@ -763,12 +780,11 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
       }
     });
 
-    documento.addEventListener("keydown", (evento) => {
-      if (evento.key === "Escape" && estado.modalFicha?.abierto) {
-        evento.preventDefault();
-        cerrarFicha();
-      }
-    });
+	    documento.addEventListener("keydown", (evento) => {
+	      if (evento.key === "Escape" && estado.modalFicha?.abierto) {
+	        evento.preventDefault(); cerrarFicha();
+	      }
+	    });
   }
 
   return Object.freeze({
@@ -777,12 +793,8 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     cargarCandidatosBolsa,
     abrirFicha,
     cerrarFicha,
-    abrirContactos,
-    cerrarContactos,
-    abrirLlamar,
-    cerrarLlamar,
-    abrirResultado,
-    cerrarResultado,
-    instalar,
+	    abrirContactos, cerrarContactos,
+	    abrirLlamar, cerrarLlamar,
+	    abrirResultado, cerrarResultado, instalar,
   });
 }

@@ -1,4 +1,4 @@
-# D6 — despliegue de `main@48e64f84` en la principal
+# D6 + B3 — paquete de réplica principal
 
 Este paquete actualiza exclusivamente la instancia sintética principal. Parte de
 su estado conocido: Contratación `000108`, Bolsa llamamientos `000003…000008`
@@ -16,13 +16,15 @@ En este orden causal y dentro de una sola transacción de migraciones:
 3. Bolsa llamamientos `000011`, agregado durable y bitácora de frontera B-BACK;
 4. AD3 `000045`, consumidor V3 de cambio de situación B2;
 5. Bolsa llamamientos `000012`, historia append-only de las siete situaciones B2.
+6. AD3 `000046`, consumidor V3 nominal para registrar contactos B3;
+7. Bolsa llamamientos `000013`, tabla append-only y lectura paginada de contactos B3.
 
 El inventario completo no encuentra otra migración de `main@48e64f84` posterior
 al estado indicado: Bolsa `000009/000010` no existen en `main` y CT termina en
 `000108`. El árbol versionado salta de AD3 `000038` a `000044`; la principal
 conserva AD3-43 por la cadena instalada declarada por Dirección. El paquete no
 la reaplica. `02_migraciones.sql` conserva los `REVOKE ... FROM PUBLIC` y
-`GRANT ... TO <rol>` de las cuatro fuentes y las ejecuta como una unidad.
+`GRANT ... TO <rol>` de las seis fuentes y las ejecuta como una unidad.
 
 `03_entorno.md` enumera las seis conexiones ausentes, el contador 18 y el
 material privado `bolsa-bback.json` v2. La configuración privada debe prepararse
@@ -30,6 +32,7 @@ antes del comando; no puede derivarse ni guardarse en Git.
 
 Decisión de Dirección de 21/09: AD3 `000044/000045` acreditan la preimagen por
 estructura y firmas sobre AD3-32/43, sin autohuella SHA-256 del núcleo V3.
+AD3 `000046` conserva esa decisión D6 y añade únicamente el perfil nominal B3.
 
 ## Un comando
 
@@ -62,3 +65,10 @@ Validada el 21/09/2026 en `postgres:18.4-bookworm` desechable, reproduciendo CT
 y una llamada CT108 conservaron su resultado. `vec-server` arrancó por TLS con
 las 18 conexiones: B5 devolvió HTTP 200 y un POST B2 sintético devolvió HTTP 201
 con recibo durable. No se usó el servidor real ni material personal.
+
+B3 se comprobó el 22/09/2026 sobre la misma réplica: `000013` final completó
+su ciclo `DOWN/UP` y el paquete conjunto ya había superado `ROLLBACK/COMMIT` en
+PostgreSQL 18.4. El servidor arrancó con la migración final; el alta devolvió
+HTTP 201, su repetición HTTP 200 con el mismo recibo y una sola fila, la lectura
+paginada HTTP 200, el comando divergente HTTP 409 y una bolsa fuera del ámbito
+nominal HTTP 403. Son identidad, datos y autoridad sintéticos de desarrollo.
