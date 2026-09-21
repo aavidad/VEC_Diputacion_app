@@ -162,7 +162,7 @@ func gobiernoActualPostgreSQLContratacionTemporalDesarrolloEsPropio(
 		    AND pg_catalog.left(c.acto_ref,
 		        pg_catalog.length('acto:ct:desarrollo:clave-capacidad:'))=
 		        'acto:ct:desarrollo:clave-capacidad:'
-		    AND c.audiencia_consumo IN ($1,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14))
+		    AND c.audiencia_consumo IN ($1,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15))
 		AND EXISTS (
 		 SELECT 1
 		   FROM vec_autorizacion_atestada_v3.puntero_configuracion_actual p
@@ -199,10 +199,11 @@ func gobiernoActualPostgreSQLContratacionTemporalDesarrolloEsPropio(
 		postgrescontratacion.AudienciaCierreAdministrativoSinCese,
 		ctapplication.AudienciaDespachoCorreoLlamamientoV3,
 		ctapplication.AudienciaResultadoCorreoLlamamientoV3,
-		// B-BACK publica dos consumidores distintos. La lista permanece
+		// B-BACK y B2 publican consumidores distintos. La lista permanece
 		// cerrada: no convierte Bolsa ni CT en una audiencia comodín.
 		puertosbolsa.AudienciaCrearBorradorLlamamientoInterno,
 		puertosbolsa.AudienciaConsultarBorradorLlamamientoInterno,
+		puertosbolsa.AudienciaCambiarSituacionParticipacion,
 	).Scan(&propio)
 	return propio, err
 }
@@ -225,7 +226,8 @@ func audienciaConsumoGobiernoPostgreSQLContratacionTemporalDesarrolloEsPropia(
 		ctapplication.AudienciaDespachoCorreoLlamamientoV3,
 		ctapplication.AudienciaResultadoCorreoLlamamientoV3,
 		puertosbolsa.AudienciaCrearBorradorLlamamientoInterno,
-		puertosbolsa.AudienciaConsultarBorradorLlamamientoInterno:
+		puertosbolsa.AudienciaConsultarBorradorLlamamientoInterno,
+		puertosbolsa.AudienciaCambiarSituacionParticipacion:
 		return true
 	default:
 		return false

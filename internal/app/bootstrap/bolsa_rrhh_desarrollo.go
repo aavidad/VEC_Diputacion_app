@@ -87,18 +87,28 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Pragma", "no-cache")
-	if h == nil || r == nil || r.URL == nil || r.URL.RawPath != "" || len(r.TransferEncoding) != 0 || cabeceraCatalogosAltaContratacionTemporalDesarrolloProhibida(r.Header) {
+	esMutacionSituacion := h != nil && h.mutar != nil && r != nil && r.Method == http.MethodPost
+	if esMutacionSituacion {
+		_, _, esMutacionSituacion = bolsahttp.ReferenciasRutaSituacionParticipacion(r)
+	}
+	cabeceras := http.Header(nil)
+	if r != nil {
+		cabeceras = r.Header
+		if esMutacionSituacion {
+			cabeceras = r.Header.Clone()
+			cabeceras.Del("Idempotency-Key")
+		}
+	}
+	if h == nil || r == nil || r.URL == nil || r.URL.RawPath != "" || len(r.TransferEncoding) != 0 || cabeceraCatalogosAltaContratacionTemporalDesarrolloProhibida(cabeceras) {
 		responderAreaPersonalDesarrollo(w, http.StatusBadRequest, map[string]string{"codigo": "solicitud_invalida"})
 		return
 	}
-	if h.mutar != nil && r.Method == http.MethodPost {
-		if _, _, ok := bolsahttp.ReferenciasRutaSituacionParticipacion(r); ok {
-			h.mutar.ServeHTTP(w, r)
-			if h.invalidar != nil {
-				h.invalidar()
-			}
-			return
+	if esMutacionSituacion {
+		h.mutar.ServeHTTP(w, r)
+		if h.invalidar != nil {
+			h.invalidar()
 		}
+		return
 	}
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
 		w.Header().Set("Allow", "GET, HEAD")
