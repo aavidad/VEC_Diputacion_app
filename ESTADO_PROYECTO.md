@@ -1,5 +1,40 @@
 # Estado y plan de ataque del proyecto
 
+## Bolsa integra el backend interno de borradores de llamamiento — 21 de septiembre de 2026
+
+El corte canónico `cd17d97a6981f36fc378c11ba0c559470622ed80` adapta e
+integra sobre `d4c2244e` el backend A de B-BACK-01. Bolsa conserva la propiedad
+del dato y expone dos operaciones internas exactas: crear un borrador mediante
+`POST /api/vec/bolsa/llamamientos/borradores` y recuperar el propio mediante
+`GET /api/vec/bolsa/llamamientos/borradores/{referencia}`. El borrador contiene
+solo un resumen interno y no decide candidato, contacto, plazo ni resultado.
+Creación, replay, recibo, historia, auditoría y outbox mantienen autorización
+V3 fresca, perfil Bolsa separado del perfil de Contratación e idempotencia.
+
+La integración añadió un opt-in explícito,
+`VEC_BOLSA_BORRADORES_ENABLED`. Desactivado conserva el arranque CT+Bolsa
+histórico sin cargar manifiesto, materiales, pools ni rutas B-BACK; activado
+con dependencias incompletas falla cerrado. `HEAD` sobre el detalle responde
+`405 Allow: GET` antes de identidad, auditoría y caso de uso. Dos revisiones
+independientes sobre la candidata final dieron `GO` SQL e identidad, con
+`P0=P1=P2=P3=0`; el diff binario revisado tuvo SHA256
+`53fd743a5ba2e9b1ab469f670ef9955c111c7e5f62296c2e28d4dce57b957a3f`.
+
+Pasaron las pruebas focales de ocho paquetes, la repetición completa de
+`config` y `bootstrap`, la carrera de las cinco capas Bolsa, `go vet` focal y
+global, compilación de `vec-server` y `git diff --check`. La campaña
+`go test ./...` conservó un fallo ajeno y previo en la portada pública:
+`TestSuperficiePublicaSirveLandingAccesoSinIdentidad` espera el texto y la
+estructura ARIA anteriores; este corte no modifica `internal/app/server` ni
+activos web.
+
+Las fuentes AD3-44 y Bolsa-11 están versionadas pero **no instaladas**. No se
+ha ejecutado SQL, runtime, navegador, reinicio ni publicación. Antes de activar
+B-BACK hacen falta el snapshot canónico integral, la prueba positiva de ambas
+migraciones con ACL, dependencias e historia reales, y la provisión privada del
+LOGIN de auditoría. La prueba hostil de preimagen y el ensayo PostgreSQL
+aislado anterior no sustituyen esa puerta.
+
 ## Bolsa B12/B5 completa su lectura visual real — 20 de septiembre de 2026
 
 El cuadro interno B12 resume exclusivamente el contrato real conectado: doce

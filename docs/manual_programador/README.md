@@ -1,5 +1,38 @@
 # Manual mantenido del programador de VEC
 
+## B-BACK-01: borradores internos de llamamiento de Bolsa
+
+El backend integrado en `cd17d97a6981f36fc378c11ba0c559470622ed80`
+mantiene la separación hexagonal `domain` → `application` → `ports` →
+adaptadores HTTP/PostgreSQL. Contratación temporal solo participa en la
+composición común de seguridad; no lee ni escribe las tablas de Bolsa.
+
+El contrato HTTP interno admite exclusivamente:
+
+- `POST /api/vec/bolsa/llamamientos/borradores`, con JSON exacto
+  `{"resumen":"..."}` y clave de idempotencia;
+- `GET /api/vec/bolsa/llamamientos/borradores/{borrador_ref}` para recuperar
+  un borrador propio; y
+- `HEAD` de detalle como rechazo terminal `405 Allow: GET`, sin resolver
+  identidad, autorización, existencia ni auditoría.
+
+Crear y consultar usan acciones, finalidades y audiencias V3 distintas. La
+selección servidor-side por método y ruta compromete un único perfil Bolsa en
+la cápsula HMAC; no suma ni reutiliza el perfil CT. El resumen no puede incluir
+indicadores evidentes de DNI/NIE/NIF, pasaporte, correo o teléfono. El borrador
+no representa una selección, contacto, plazo ni resultado de llamamiento.
+
+La capacidad es opt-in mediante `VEC_BOLSA_BORRADORES_ENABLED=true`. Sin esa
+variable, la configuración histórica de llamamientos de Bolsa no monta rutas,
+manifiesto, materiales ni proveedores B-BACK. Al activarla son obligatorias
+las tres conexiones segregadas de borradores, la conexión exclusiva de
+auditoría de frontera, el manifiesto privado `identidad/bolsa-bback.json` y
+las demás dependencias nominales; una ausencia aborta el montaje.
+
+AD3-44 y Bolsa-11 siguen como fuentes sin instalar. No arrancar este código con
+el opt-in hasta superar la prueba positiva sobre snapshot canónico integral y
+provisionar los roles/LOGIN privados. No ejecutar `DOWN` contra historia.
+
 ## Pausa y entrega conservada por cuota — 10 de septiembre de 2026
 
 Se conserva el código hasta `9fb12560` y se confirman únicamente los sellos

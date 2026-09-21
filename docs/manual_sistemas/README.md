@@ -1,5 +1,18 @@
 # Manual de Sistemas — operación diaria de VEC
 
+## B-BACK-01 integrado en fuente, no activado
+
+El commit `cd17d97a6981f36fc378c11ba0c559470622ed80` incorpora el backend
+interno de borradores de llamamiento de Bolsa, pero no autoriza instalarlo ni
+activarlo. `VEC_BOLSA_BORRADORES_ENABLED` debe permanecer ausente o en falso
+en los runtimes conservados: así no se cargan sus rutas, manifiesto, materiales
+ni pools y continúa el arranque CT+Bolsa histórico.
+
+No aplicar AD3-44 ni Bolsa-11 y no crear el LOGIN de auditoría en una base viva.
+La siguiente puerta requiere snapshot canónico integral, prueba PostgreSQL
+positiva con ACL, dependencias e historia y provisión privada revisada. No se ha
+ejecutado despliegue, SQL, reinicio ni publicación para este corte.
+
 ## Entorno privado vigente
 
 Corte comprobado: 10 de septiembre de 2026. Desarrollo en servidor privado,
