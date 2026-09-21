@@ -200,3 +200,39 @@ func TestBolsasRRHHDesarrolloRechazaConsultaNoCanonica(t *testing.T) {
 		}
 	}
 }
+
+func TestBolsasRRHHDesarrolloDelegaB2ConIdempotencia(t *testing.T) {
+	manejador := manejadorBolsasRRHHPrueba()
+	llamadas := 0
+	manejador.mutar = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		llamadas++
+		if r.Header.Get("Idempotency-Key") != "b2-prueba-0001" {
+			t.Fatal("la frontera perdió la clave de idempotencia")
+		}
+		w.WriteHeader(http.StatusCreated)
+	})
+	peticion := httptest.NewRequest(
+		http.MethodPost,
+		rutaBolsasRRHHDesarrollo+"/bolsa:01/candidatos/participacion:01/situacion",
+		strings.NewReader(`{"situacion":"no_disponible"}`),
+	)
+	peticion.Header.Set("Idempotency-Key", "b2-prueba-0001")
+	respuesta := httptest.NewRecorder()
+	manejador.ServeHTTP(respuesta, peticion)
+	if respuesta.Code != http.StatusCreated || llamadas != 1 {
+		t.Fatalf("B2 no delegada: status=%d llamadas=%d", respuesta.Code, llamadas)
+	}
+
+	peticion = httptest.NewRequest(
+		http.MethodPost,
+		rutaBolsasRRHHDesarrollo+"/bolsa:01/candidatos/participacion:01/situacion",
+		strings.NewReader(`{"situacion":"no_disponible"}`),
+	)
+	peticion.Header.Set("Idempotency-Key", "b2-prueba-0002")
+	peticion.Header.Set("X-Actor", "inyectado")
+	respuesta = httptest.NewRecorder()
+	manejador.ServeHTTP(respuesta, peticion)
+	if respuesta.Code != http.StatusBadRequest || llamadas != 1 {
+		t.Fatalf("cabecera de autoridad aceptada: status=%d llamadas=%d", respuesta.Code, llamadas)
+	}
+}
