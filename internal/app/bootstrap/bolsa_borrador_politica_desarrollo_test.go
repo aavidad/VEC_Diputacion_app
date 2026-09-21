@@ -102,7 +102,7 @@ func TestPoliticaBorradorBolsaPublicaTresConcesionesNominales(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if instantanea.AsignacionPerfil.PerfilActivoRef != datos.PerfilActivoRef || len(instantanea.VersionRol.Concesiones) != 3 {
+	if instantanea.AsignacionPerfil.PerfilActivoRef != datos.PerfilActivoRef || len(instantanea.VersionRol.Concesiones) != 4 {
 		t.Fatalf("perfil o concesiones inesperados: %+v", instantanea)
 	}
 	concesiones := map[string]dominiovec.ConcesionRol{}
@@ -113,10 +113,11 @@ func TestPoliticaBorradorBolsaPublicaTresConcesionesNominales(t *testing.T) {
 		puertosbolsa.AccionCrearBorradorLlamamientoInterno:     puertosbolsa.FinalidadCrearBorradorLlamamientoInterno,
 		puertosbolsa.AccionConsultarBorradorLlamamientoInterno: puertosbolsa.FinalidadConsultarBorradorLlamamientoInterno,
 		puertosbolsa.AccionCambiarSituacionParticipacion:       puertosbolsa.FinalidadCambiarSituacionParticipacion,
+		puertosbolsa.AccionRegistrarContactoParticipacion:      puertosbolsa.FinalidadRegistrarContactoParticipacion,
 	} {
 		concesion, existe := concesiones[accion]
 		tipo := puertosbolsa.TipoRecursoBorradorLlamamiento
-		if accion == puertosbolsa.AccionCambiarSituacionParticipacion {
+		if accion == puertosbolsa.AccionCambiarSituacionParticipacion || accion == puertosbolsa.AccionRegistrarContactoParticipacion {
 			tipo = puertosbolsa.TipoRecursoSituacionParticipacion
 		}
 		if !existe || concesion.ModuloID != puertosbolsa.ModuloBorradorLlamamiento || concesion.TipoRecurso != tipo || len(concesion.Finalidades) != 1 || concesion.Finalidades[0] != finalidad {
@@ -213,7 +214,7 @@ func TestPoliticaBorradorBolsaEvolucionaSoloDesdeBBackV1Exacta(t *testing.T) {
 	if err := politica.PublicarInicial(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if autoridad.publicada.VersionRol.Version != 2 || autoridad.publicada.AsignacionPerfil.Version != 2 || len(autoridad.publicada.VersionRol.Concesiones) != 3 {
+	if autoridad.publicada.VersionRol.Version != 2 || autoridad.publicada.AsignacionPerfil.Version != 2 || len(autoridad.publicada.VersionRol.Concesiones) != 4 {
 		t.Fatalf("sucesión B2 no exacta: %+v", autoridad.publicada)
 	}
 }

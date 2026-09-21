@@ -135,9 +135,10 @@ type LectorBorradorLlamamiento interface {
 type AccionIntentoBorradorLlamamiento string
 
 const (
-	AccionIntentoCrearBorradorLlamamiento      AccionIntentoBorradorLlamamiento = "crear"
-	AccionIntentoConsultarBorradorLlamamiento  AccionIntentoBorradorLlamamiento = "consultar"
-	AccionIntentoCambiarSituacionParticipacion AccionIntentoBorradorLlamamiento = "cambiar_situacion"
+	AccionIntentoCrearBorradorLlamamiento       AccionIntentoBorradorLlamamiento = "crear"
+	AccionIntentoConsultarBorradorLlamamiento   AccionIntentoBorradorLlamamiento = "consultar"
+	AccionIntentoCambiarSituacionParticipacion  AccionIntentoBorradorLlamamiento = "cambiar_situacion"
+	AccionIntentoRegistrarContactoParticipacion AccionIntentoBorradorLlamamiento = "registrar_contacto"
 )
 
 type ClaseRutaIntentoBorradorLlamamiento string
@@ -146,6 +147,7 @@ const (
 	ClaseRutaColeccionBorradorLlamamiento ClaseRutaIntentoBorradorLlamamiento = "coleccion"
 	ClaseRutaDetalleBorradorLlamamiento   ClaseRutaIntentoBorradorLlamamiento = "detalle"
 	ClaseRutaSituacionParticipacion       ClaseRutaIntentoBorradorLlamamiento = "situacion"
+	ClaseRutaContactosParticipacion       ClaseRutaIntentoBorradorLlamamiento = "contactos"
 )
 
 type ResultadoIntentoBorradorLlamamiento string
@@ -168,8 +170,8 @@ type IntentoBorradorLlamamiento struct {
 
 func (i IntentoBorradorLlamamiento) Validar() error {
 	if i.Correlacion.Validar() != nil ||
-		(i.Accion != AccionIntentoCrearBorradorLlamamiento && i.Accion != AccionIntentoConsultarBorradorLlamamiento && i.Accion != AccionIntentoCambiarSituacionParticipacion) ||
-		(i.ClaseRuta != ClaseRutaColeccionBorradorLlamamiento && i.ClaseRuta != ClaseRutaDetalleBorradorLlamamiento && i.ClaseRuta != ClaseRutaSituacionParticipacion) ||
+		(i.Accion != AccionIntentoCrearBorradorLlamamiento && i.Accion != AccionIntentoConsultarBorradorLlamamiento && i.Accion != AccionIntentoCambiarSituacionParticipacion && i.Accion != AccionIntentoRegistrarContactoParticipacion) ||
+		(i.ClaseRuta != ClaseRutaColeccionBorradorLlamamiento && i.ClaseRuta != ClaseRutaDetalleBorradorLlamamiento && i.ClaseRuta != ClaseRutaSituacionParticipacion && i.ClaseRuta != ClaseRutaContactosParticipacion) ||
 		(i.ActorVerificado != "" && !patronActorIntentoBorradorLlamamiento.MatchString(i.ActorVerificado)) ||
 		(i.Resultado != ResultadoIntentoAutenticacionRequeridaBorradorLlamamiento &&
 			i.Resultado != ResultadoIntentoAccesoDenegadoBorradorLlamamiento &&

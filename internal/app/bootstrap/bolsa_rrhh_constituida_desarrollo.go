@@ -21,6 +21,7 @@ import (
 type fuenteConstituidaRRHHDesarrollo struct {
 	repositorio ports.RepositorioConstitucion
 	situaciones ports.RepositorioSituacionParticipacion
+	contactos   ports.RepositorioContactoParticipacion
 	recuperador constitucion.Recuperador
 	categorias  map[string]string
 	grupos      map[string][]string
@@ -62,6 +63,11 @@ func nuevaFuenteConstituidaRRHHDesarrollo(ctx context.Context, cfg config.Config
 		poolBolsa.Close()
 		return nil
 	}
+	contactos, err := postgresbolsa.NuevoRepositorioContactoParticipacionPostgreSQL(poolBolsa)
+	if err != nil {
+		poolBolsa.Close()
+		return nil
+	}
 	material, err := cargarMaterialSeguridadDesarrollo(cfg)
 	if err != nil {
 		poolBolsa.Close()
@@ -95,7 +101,7 @@ func nuevaFuenteConstituidaRRHHDesarrollo(ctx context.Context, cfg config.Config
 			}
 		}
 	}
-	return &fuenteConstituidaRRHHDesarrollo{repositorio: repositorio, situaciones: situaciones, recuperador: recuperador, categorias: categorias, grupos: grupos, ahora: time.Now}
+	return &fuenteConstituidaRRHHDesarrollo{repositorio: repositorio, situaciones: situaciones, contactos: contactos, recuperador: recuperador, categorias: categorias, grupos: grupos, ahora: time.Now}
 }
 
 func (f *fuenteConstituidaRRHHDesarrollo) constituidas(ctx context.Context) (datasetBolsasRRHHDesarrollo, bool) {
@@ -118,7 +124,7 @@ func (f *fuenteConstituidaRRHHDesarrollo) constituidas(ctx context.Context) (dat
 }
 
 func (f *fuenteConstituidaRRHHDesarrollo) cargar(ctx context.Context) (datasetBolsasRRHHDesarrollo, error) {
-	if f == nil || f.repositorio == nil || f.situaciones == nil || f.recuperador == nil || f.ahora == nil {
+	if f == nil || f.repositorio == nil || f.situaciones == nil || f.contactos == nil || f.recuperador == nil || f.ahora == nil {
 		return datasetBolsasRRHHDesarrollo{}, ErrComposicionDesarrolloIncompleta
 	}
 	vigentes, err := f.repositorio.ListarVigentes(ctx)
@@ -139,6 +145,11 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargar(ctx context.Context) (datasetBo
 			Referencia: vigente.Bolsa.BolsaRef, CategoriaRef: vigente.CategoriaRef,
 			Categoria: f.denominacion(vigente.CategoriaRef), TipoLista: "definitiva", VigenteDesde: desde,
 		})
+		paginaContactos, err := f.contactos.ListarContactosBolsa(ctx, vigente.Bolsa.BolsaRef, "", 100)
+		if err != nil {
+			return datasetBolsasRRHHDesarrollo{}, err
+		}
+		datos.Contactos = append(datos.Contactos, paginaContactos.Contactos...)
 		entradas, err := f.repositorio.Entradas(ctx, vigente.Instantanea.InstantaneaRef, vigente.Instantanea.Version)
 		if err != nil {
 			return datasetBolsasRRHHDesarrollo{}, err
