@@ -199,9 +199,9 @@ test("el modo real renderiza solo indicadores, convocatorias y actuaciones acred
 
 test("el coordinador respeta DEC-051 y carga el presentador con versión de caché", () => {
   assert.ok(javascript.split(/\r?\n/).length - 1 < 800, "portal.js debe mantenerse por debajo de 800 líneas");
-  assert.match(html, /portal\.js\?v=20260920-dietas-centro-v8/);
+  assert.match(html, /portal\.js\?v=20260920-cronos-bandeja-v2/);
   assert.match(html, /dietas\/dietas\.css\?v=20260921-dietas-mapa-osm-v10/);
-  assert.match(javascript, /portal-modulos-coordinador\.js\?v=20260920-dietas-centro-v8/);
+  assert.match(javascript, /portal-modulos-coordinador\.js\?v=20260920-cronos-bandeja-v2/);
   assert.match(javascript, /portal-eventos\.js\?v=20260721-acceso-real-v2/);
   assert.match(javascript, /import\("\.\/portal-resumen-presentacion\.js\?v=20260721-acceso-real-v2"\)/);
   assert.doesNotMatch(javascript, /^import .*portal-resumen-presentacion/m);
@@ -289,7 +289,9 @@ test("la propuesta real usa el cliente cerrado y no habilita un detalle inexiste
   assert.doesNotMatch(javascript, /^import .*portal-presentacion-adaptador/m);
   assert.match(`${flujoLlamamientos}\n${vistaLlamamientos}`, /Detalle no disponible/);
   assert.match(eventos, /if \(resultado\.avanzar === true\) estado\.pasoLlamamiento = 2/);
-  assert.doesNotMatch(datos, /puntuacion|Puntuación/);
+  // Ninguna clave de puntuación fabricada para candidatos; el nombre de la columna
+  // «Puntuación» en las incidencias de importación es un texto, no una puntuación.
+  assert.doesNotMatch(datos, /puntuaci[oó]n[a-z_]*\s*:/i);
   assert.doesNotMatch(contratoLlamamientos, /evaluaciones.*confirmacion|camposEvaluacion/i);
 });
 
