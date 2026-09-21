@@ -161,6 +161,7 @@ transportes_mtls_revisados=(
 	static/portal-empleado/portal-catalogo-modulos.js
 	static/portal-empleado/modulos/contratacion-temporal/cliente-http.js
 	static/portal-empleado/modulos/contratacion-temporal/cliente-http-llamamiento.js
+	static/portal-empleado/modulos/personal/cliente-http-categorias.js
 	static/portal-empleado/peticiones-centro/peticiones-centro.js
 	static/portal-empleado/organizacion/organizacion.js
 )
