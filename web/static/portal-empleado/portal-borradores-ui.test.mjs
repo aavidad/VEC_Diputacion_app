@@ -196,6 +196,75 @@ test("una respuesta de filtro obsoleta no reemplaza la bandeja más reciente", a
   assert.doesNotMatch(html, /Resultado obsoleto/);
 });
 
+test("desmontar cancela una activación tardía sin notificar y permite remontar", async () => {
+  const opcionesTardias = diferida();
+  let signalOpciones;
+  let consultasOpciones = 0;
+  const cliente = crearDobleCliente({
+    obtenerOpciones: async ({ signal }) => {
+      consultasOpciones += 1;
+      signalOpciones = signal;
+      if (consultasOpciones === 1) return opcionesTardias.promesa;
+      return structuredClone(opciones());
+    },
+  });
+  const { anuncios, cambios, superficie } = crearSuperficie({ cliente });
+  const activacion = superficie.activar();
+  await Promise.resolve();
+  const anunciosAlSalir = anuncios.length;
+  const cambiosAlSalir = cambios.length;
+  assert.equal(superficie.desmontar(), true);
+  assert.equal(superficie.desmontar(), false, "el destructor debe ser idempotente");
+  assert.equal(signalOpciones.aborted, true);
+  opcionesTardias.resolver(structuredClone(opciones()));
+  assert.equal(await activacion, false);
+  assert.equal(anuncios.length, anunciosAlSalir);
+  assert.equal(cambios.length, cambiosAlSalir);
+
+  assert.equal(await superficie.activar(), true);
+  assert.match(superficie.renderizar(), /Bandeja de borradores/);
+  assert.equal(consultasOpciones, 2, "el remonte revalida el acceso sin reutilizar la petición cancelada");
+});
+
+test("desmontar cancela guardado tardío, conserva cambios y admite guardar al remontar", async () => {
+  const guardadoTardio = diferida();
+  let actualizaciones = 0;
+  let signalGuardado;
+  const cliente = crearDobleCliente({
+    actualizar: async (_referencia, _solicitud, _limites, control) => {
+      actualizaciones += 1;
+      if (actualizaciones === 1) {
+        signalGuardado = control.signal;
+        return guardadoTardio.promesa;
+      }
+      return structuredClone(recibo("actualizar"));
+    },
+  });
+  const { anuncios, cambios, superficie } = crearSuperficie({ cliente });
+  await superficie.activar();
+  cambiar(superficie, "contenido_editable.titulo", "Título local preservado");
+  const guardado = superficie.guardar();
+  await Promise.resolve();
+  const anunciosAlSalir = anuncios.length;
+  const cambiosAlSalir = cambios.length;
+  assert.equal(superficie.desmontar(), true);
+  assert.equal(signalGuardado.aborted, true);
+  guardadoTardio.resolver(structuredClone(recibo("actualizar")));
+  assert.equal(await guardado, false);
+  assert.equal(anuncios.length, anunciosAlSalir);
+  assert.equal(cambios.length, cambiosAlSalir);
+  assert.doesNotMatch(superficie.renderizar(), /Recibo administrativo del borrador/);
+  assert.match(superficie.renderizar(), /Título local preservado/);
+
+  assert.equal(await superficie.activar(), true);
+  assert.equal(await superficie.guardar(), true);
+  assert.match(superficie.renderizar(), /Recibo administrativo del borrador/);
+  assert.equal(superficie.desmontar(), true);
+  assert.equal(await superficie.activar(), true);
+  assert.match(superficie.renderizar(), /Recibo administrativo del borrador/,
+    "el desmontaje no finge rollback de un recibo ya confirmado");
+});
+
 test("la actualización envía CAS e idempotencia exactos y muestra el recibo", async () => {
   const llamadas = [];
   const cliente = crearDobleCliente({

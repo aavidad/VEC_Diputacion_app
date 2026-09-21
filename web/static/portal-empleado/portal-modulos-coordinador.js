@@ -17,6 +17,7 @@ import {
 import { traducirPortal } from "./portal-i18n.js?v=20260920-personal-catalogo-v1";
 import { calcularMetricasCuadro, tramitesParaInicio } from "./portal-inicio.js";
 import { componerCronosVisible, componerDietasVisible, componerPersonalVisible } from "./portal-composicion-empleado.js";
+import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260919-acceso-bolsa-v1";
 
 const CLAVE_CONTRATACION_TEMPORAL = "contratacion_temporal";
 const CLAVE_PERSONAL = "personal";
@@ -25,6 +26,15 @@ const CLAVES_CARGA_MODULAR = Object.freeze([
   CLAVE_PERSONAL,
   "cronos",
   "dietas",
+]);
+export const CLAVES_MODULOS_VEC_REGISTRADOS = Object.freeze([
+  CLAVE_PERSONAL,
+  "cronos",
+  "dietas",
+  "bolsa",
+  CLAVE_CONTRATACION_TEMPORAL,
+  "administracion",
+  "usuarios",
 ]);
 const LIMITE_CARGA_MODULAR_MS = 2_000;
 
@@ -205,6 +215,7 @@ function componerModuloAislado(contexto, carga, componer) {
 }
 
 export const VISTAS_MODULOS_PERSONALES = Object.freeze(new Set(["cronos", "dietas", "personal"]));
+const VISTAS_MODULO_BOLSA = Object.freeze(new Set(VISTAS_INTERNAS_BOLSA));
 export const VISTAS_MODULOS_CONECTADOS = Object.freeze(new Set([
   "contratacion-temporal", ...VISTAS_MODULOS_PERSONALES,
 ]));
@@ -214,20 +225,23 @@ export function moduloDeVistaPortal(vista) {
   if (vista === "contratacion-temporal") return "contratacion_temporal";
   if (vista === "personal") return CLAVE_PERSONAL;
   if (VISTAS_MODULOS_PERSONALES.has(vista)) return vista;
-  return "bolsa";
+  if (VISTAS_MODULO_BOLSA.has(vista)) return "bolsa";
+  return "";
 }
 
 export function rutaDeVistaPortal(vista) {
   if (vista === "portal") return "#portal";
   if (vista === "contratacion-temporal") return "#contratacion-temporal";
   if (VISTAS_MODULOS_PERSONALES.has(vista)) return `#${vista}`;
-  return `#bolsa/${vista}`;
+  if (VISTAS_MODULO_BOLSA.has(vista)) return `#bolsa/${vista}`;
+  return "#portal";
 }
 
 export function crearCoordinadorModulosPortal({
   escaparHTML,
   anunciar = () => {},
   confirmarOperacion = () => false,
+  montajeBolsa = null,
   entorno = globalThis,
   traducir = traducirPortal,
   cargarCatalogoInterno = cargarCatalogoModulosInterno,
@@ -239,6 +253,8 @@ export function crearCoordinadorModulosPortal({
   if (typeof escaparHTML !== "function" || typeof anunciar !== "function"
     || typeof confirmarOperacion !== "function" || typeof traducir !== "function"
     || typeof cargarCatalogoInterno !== "function"
+    || (montajeBolsa !== null && (typeof montajeBolsa?.montar !== "function"
+      || typeof montajeBolsa?.disponible !== "function"))
     || typeof cargadoresPresentacion?.base !== "function"
     || typeof cargadoresInternos?.contratacion_temporal !== "function"
     || !Number.isSafeInteger(limiteCargaModularMs)
@@ -362,6 +378,8 @@ export function crearCoordinadorModulosPortal({
         personal: contextos.personal === undefined
           ? "denegado"
           : (personal === undefined ? "no_disponible" : "disponible"),
+        administracion: "no_disponible",
+        usuarios: "no_disponible",
       }),
     });
     return contextos.bolsa || null;
@@ -556,6 +574,8 @@ export function crearCoordinadorModulosPortal({
         cronos: "no_disponible",
         dietas: "no_disponible",
         personal: personal === undefined ? "no_disponible" : "disponible",
+        administracion: "no_disponible",
+        usuarios: "no_disponible",
       }),
     });
   }
@@ -569,6 +589,9 @@ export function crearCoordinadorModulosPortal({
   }
 
   function vistaDisponible(vista) {
+    if (VISTAS_MODULO_BOLSA.has(vista)) {
+      return montajeBolsa !== null && montajeBolsa.disponible(vista) === true;
+    }
     if (vista === "contratacion-temporal") {
       return composicion?.contratacionTemporal !== undefined;
     }
@@ -576,6 +599,11 @@ export function crearCoordinadorModulosPortal({
     if (vista === "dietas") return composicion?.dietas !== undefined;
     if (vista === "personal") return composicion?.personal !== undefined;
     return false;
+  }
+
+  function vistaGestionada(vista) {
+    return (montajeBolsa !== null && VISTAS_MODULO_BOLSA.has(vista))
+      || VISTAS_MODULOS_CONECTADOS.has(vista);
   }
 
   function resolverAcceso(clave, bolsaDisponible = true) {
@@ -618,6 +646,13 @@ export function crearCoordinadorModulosPortal({
         estado: composicion?.estadosModulos?.[clave] || "denegado",
       });
     }
+    if (CLAVES_MODULOS_VEC_REGISTRADOS.includes(clave)) {
+      return Object.freeze({
+        disponible: false,
+        vista: "",
+        estado: composicion?.estadosModulos?.[clave] || "no_disponible",
+      });
+    }
     return Object.freeze({ disponible: false, vista: "" });
   }
 
@@ -645,13 +680,24 @@ export function crearCoordinadorModulosPortal({
   }
 
   async function montarVista(vista, raiz, opciones = {}) {
-    if (!VISTAS_MODULOS_CONECTADOS.has(vista) || !vistaDisponible(vista)) return false;
+    if (!vistaGestionada(vista) || !vistaDisponible(vista)) return false;
     if (!raiz || typeof raiz.replaceChildren !== "function") {
       throw new TypeError("raíz del módulo no válida");
     }
     desmontarVistaActual();
     const montaje = ++secuenciaMontaje;
-    raiz.innerHTML = '<section class="panel"><div class="cuerpo-panel" role="status">Cargando módulo…</div></section>';
+    raiz.innerHTML = `<section class="panel"><div class="cuerpo-panel" role="status">${escaparHTML(traducir("estado_modulo_comprobando"))}</div></section>`;
+
+    if (VISTAS_MODULO_BOLSA.has(vista)) {
+      const resultado = await montajeBolsa.montar({ vista, raiz, opciones, anunciar });
+      const limpiar = typeof resultado === "function" ? resultado : resultado?.desmontar;
+      if (montaje !== secuenciaMontaje) {
+        if (typeof limpiar === "function") limpiar();
+        return false;
+      }
+      desmontarVista = typeof limpiar === "function" ? limpiar : null;
+      return true;
+    }
 
     if (vista === "contratacion-temporal") {
       const esFiscalizacion = composicion.contratacionTemporal.fiscalizacion !== null;
@@ -793,5 +839,6 @@ export function crearCoordinadorModulosPortal({
     renderizarNavegacion,
     resolverAcceso,
     vistaDisponible,
+    vistaGestionada,
   });
 }

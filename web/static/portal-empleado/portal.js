@@ -11,7 +11,7 @@ import {
   renderizarAyudaContratacionTemporal,
 } from "./ayuda-contenido.js?v=20260917-ayuda-contratacion";
 import { crearAyudanteTramites } from "./ayudante-tramites.js?v=20260920-ayudante-tramites-v1";
-import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20260721-acceso-real-v2";
+import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20260921-ciclo-borradores-b2";
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20260720-pulido-escritorio-v2";
 import { crearVistasConvocatorias } from "./portal-vistas-convocatorias.js?v=20260720-pulido-escritorio-v2";
 import { crearVistasBaremacion } from "./portal-vistas-baremacion.js?v=20260720-pulido-escritorio-v2";
@@ -22,13 +22,13 @@ import {
   crearCoordinadorModulosPortal,
   moduloDeVistaPortal,
   rutaDeVistaPortal,
-  VISTAS_MODULOS_CONECTADOS,
   VISTAS_MODULOS_PERSONALES,
-} from "./portal-modulos-coordinador.js?v=20260920-recorridos-visibles-v1";
+} from "./portal-modulos-coordinador.js?v=20260921-montaje-modulos-b1";
 import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260721-acceso-real-v2";
-import { accesoBolsaEfectivo, instalarMenuBolsa, sincronizarMenuBolsa } from "./portal-menu-bolsa.js?v=20260919-acceso-bolsa-v1";
+import { accesoBolsaEfectivo, instalarMenuBolsa, sincronizarMenuBolsa, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260919-acceso-bolsa-v1";
 import { traducirPortal } from "./portal-i18n.js?v=20260920-personal-catalogo-v1";
-import { crearControladorBolsas } from "./portal-bolsas-api.js";
+import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20260921-montaje-modulos-b1";
+import { crearSuperficieBorradorLlamamiento } from "./portal-borrador-llamamiento-ui.js?v=20260921-bback01-v1";
 /**
  * SUPERFICIE DEFINITIVA DEL PORTAL RRHH.
  *
@@ -168,6 +168,14 @@ function esPerfilRRHH() {
     : false;
 }
 const coordinadorModulos = crearCoordinadorModulosPortal({ escaparHTML, anunciar,
+  montajeBolsa: Object.freeze({
+    disponible: (vista) => VISTAS_INTERNAS_BOLSA.includes(vista),
+    montar: ({ vista, raiz }) => {
+      montarVistaBolsa(vista, raiz);
+      return Object.freeze({ desmontar: () => { if (vista === "elaboracion") superficieBorradoresActiva()?.desmontar();
+        controladorBolsas.cancelarPeticiones(); if (vista === "llamamientos") superficieBorradorLlamamiento.desmontar(); } });
+    },
+  }),
   confirmarOperacion: (descriptor) => window.confirm(`${descriptor.titulo}\n\n${descriptor.advertencia}\n\nReferencia: ${descriptor.referencia}`) });
 const renderizarPortal = crearVistaInicioPortal({
   encabezadoVista,
@@ -350,7 +358,7 @@ async function cargarFuenteDatos() {
       superficieBorradoresPresentacion = crearSuperficieBorradoresPortal({
         escaparHTML,
         anunciar,
-        alCambiar: () => { if (estado.vista === "elaboracion") renderizar(); },
+        alCambiar: () => { if (estado.vista === "elaboracion") actualizarVistaBolsa(); },
         confirmar: (mensaje) => window.confirm(mensaje),
         crearClienteImpl: () => moduloBorradores.crearClienteBorradoresPresentacion(),
       });
@@ -364,7 +372,7 @@ async function cargarFuenteDatos() {
       estado.fuenteLista = true;
       estado.necesidadSeleccionada = DATOS_PANEL.necesidades_llamamiento[0]?.id || "";
       estado.elaboracionSeleccionada = DATOS_PANEL.elaboraciones[0]?.id || "";
-      void controladorBolsas.cargarBolsas();
+      if (moduloDeVistaPortal(estado.vista) === "bolsa") void controladorBolsas.cargarBolsas();
       moduloSelector.instalarSelectorPerfilesPresentacion({ disparador: porId("sesion-visible"), perfilActivo: perfil });
     } catch {
       aviso.hidden = true;
@@ -383,7 +391,7 @@ async function cargarFuenteDatos() {
   aviso.hidden = true;
   await coordinadorModulos.cargarInterno().catch(() => null);
   // Borradores comprueba su API al abrir la vista. B12/B5 usa su propia API compuesta.
-  if (typeof controladorBolsas !== "undefined") void controladorBolsas.cargarBolsas();
+  if (moduloDeVistaPortal(estado.vista) === "bolsa") void controladorBolsas.cargarBolsas();
   actualizarNavegacionModulos();
 }
 
@@ -429,10 +437,13 @@ async function solicitarPropuestaLlamamiento() {
 
 function vistaDesdeHash() {
   const valor = window.location.hash.replace(/^#\/?/, "").trim();
-  if (!valor || valor === "portal") return "portal";
-  const segmentos = valor.split("/").filter(Boolean);
-  const candidata = segmentos.at(-1);
-  return Object.hasOwn(TITULOS, candidata) ? candidata : "portal";
+  if (!valor || valor === "portal") {
+    if (window.location.hash !== "#portal") history.replaceState(null, "", "#portal");
+    return "portal";
+  } const candidata = valor.split("/").filter(Boolean).at(-1);
+  if (Object.hasOwn(TITULOS, candidata)) return candidata;
+  history.replaceState(null, "", "#portal");
+  return "portal";
 }
 
 function rutaDeVista(vista) { return rutaDeVistaPortal(vista); }
@@ -459,7 +470,6 @@ function anunciar(mensaje) {
   region.textContent = "";
   window.setTimeout(() => { region.textContent = mensaje; }, 20);
 }
-
 function navegar(vista, opciones = {}) {
   if (!Object.hasOwn(TITULOS, vista)) return;
   if (!vistaPermitida(vista)) {
@@ -478,11 +488,53 @@ function navegar(vista, opciones = {}) {
   estado.vista = vista;
   estado.opcionesVista = opciones;
   renderizar();
+  if (moduloDeVistaPortal(vista) === "bolsa" && estado.datosBolsas === null) void controladorBolsas.cargarBolsas();
   cerrarMenuMovil();
   if (opciones.enfocar !== false) porId("contenido-principal")?.focus({ preventScroll: true });
   anunciar(`Vista ${TITULOS[vista][1]} abierta`);
 }
-
+function montarVistaBolsa(vista, contenedor) {
+  if (vista === "elaboracion" && estado.modoPresentacion && !estado.fuenteLista) {
+    contenedor.innerHTML = renderizarFuenteNoDisponible(); return;
+  }
+  if (vista === "elaboracion") {
+    const superficie = estado.modoPresentacion ? superficieBorradoresPresentacion : superficieBorradores;
+    if (superficie === null) { contenedor.innerHTML = renderizarFuenteNoDisponible(); return; }
+    contenedor.innerHTML = superficie.renderizar();
+    void superficie.activar(); return;
+  }
+  const vistaBolsas = vista === "resumen" || vista === "bolsa-candidatos";
+  if (vistaBolsas && !presentadorPanelInterno.esActivo() && estado.datosBolsas
+    && (!estado.modoPresentacion || vista === "bolsa-candidatos")) {
+    contenedor.innerHTML = presentadorPanelInterno.renderizarSoloBolsas(vista); return;
+  }
+  if (!estado.fuenteLista) {
+    if (vista === "llamamientos") { superficieBorradorLlamamiento.activar();
+      contenedor.innerHTML = `${renderizarFuenteNoDisponible()}${superficieBorradorLlamamiento.renderizar()}`; return; }
+    contenedor.innerHTML = renderizarFuenteNoDisponible(); return;
+  }
+  if (vistaBolsas && presentadorPanelInterno.esActivo()) {
+    contenedor.innerHTML = presentadorPanelInterno.renderizarVista(vista); return;
+  }
+  const datosVista = { ...DATOS_VACIOS, ...DATOS_PANEL };
+  const renderizadores = {
+    resumen: () => renderizarResumenPresentacion?.() || renderizarFuenteNoDisponible(),
+    convocatorias: () => vistasConvocatorias.renderizarConvocatorias(datosVista, estado), solicitudes: () => vistasConvocatorias.renderizarSolicitudes(datosVista, estado),
+    meritos: () => vistasBaremacion.renderizarMeritos(datosVista, estado), baremacion: () => vistasBaremacion.renderizarBaremacion(datosVista), alegaciones: () => vistasBaremacion.renderizarAlegaciones(datosVista),
+    importacion: () => vistasOperaciones.renderizarImportacion(datosVista),
+    llamamientos: () => (superficieBorradorLlamamiento.activar(), `${asistenteLlamamientos.renderizar(datosVista, estado)}${superficieBorradorLlamamiento.renderizar()}`),
+    contratos: () => vistasOperaciones.renderizarContratos(datosVista), reglas: () => vistaReglas.renderizarReglas(datosVista), consulta: () => renderizarConsulta(),
+    estadisticas: () => vistasGobierno.renderizarEstadisticas(datosVista), documentos: () => vistasOperaciones.renderizarDocumentos(datosVista), comunicaciones: () => vistasOperaciones.renderizarComunicaciones(datosVista),
+    auditoria: () => vistasGobierno.renderizarAuditoria(datosVista), configuracion: () => vistasGobierno.renderizarConfiguracion(datosVista),
+  };
+  contenedor.innerHTML = (renderizadores[vista] || renderizarFuenteNoDisponible)();
+  aplicarBarrasDinamicas(contenedor);
+}
+function actualizarVistaBolsa() {
+  const contenedor = porId("espacio-trabajo");
+  if (contenedor && VISTAS_INTERNAS_BOLSA.includes(estado.vista)) { montarVistaBolsa(estado.vista, contenedor); return; }
+  renderizar();
+}
 function renderizar() {
   const contenedor = porId("espacio-trabajo");
   if (!contenedor) return;
@@ -506,7 +558,7 @@ function renderizar() {
     else boton.removeAttribute("aria-current");
   });
   sincronizarMenuBolsa(porId("navegacion-bolsa"), estado.vista);
-  if (VISTAS_MODULOS_CONECTADOS.has(estado.vista)) {
+  if (coordinadorModulos.vistaGestionada(estado.vista)) {
     if (!coordinadorModulos.vistaDisponible(estado.vista)) {
       coordinadorModulos.desmontarVistaActual();
       contenedor.innerHTML = estado.vista === "contratacion-temporal"
@@ -527,58 +579,13 @@ function renderizar() {
   }
 
   coordinadorModulos.desmontarVistaActual();
-
-  if (estado.vista === "elaboracion" && estado.modoPresentacion && !estado.fuenteLista) {
-    contenedor.innerHTML = renderizarFuenteNoDisponible();
-    return;
-  }
-
-  if (estado.vista === "elaboracion") {
-    const superficie = estado.modoPresentacion ? superficieBorradoresPresentacion : superficieBorradores;
-    if (superficie === null) {
-      contenedor.innerHTML = renderizarFuenteNoDisponible();
-      return;
-    }
-    contenedor.innerHTML = superficie.renderizar();
-    void superficie.activar();
-    return;
-  }
-
-  const vistaBolsas = estado.vista === "resumen" || estado.vista === "bolsa-candidatos";
-  if (vistaBolsas && !presentadorPanelInterno.esActivo() && estado.datosBolsas && (!estado.modoPresentacion || estado.vista === "bolsa-candidatos")) {
-    contenedor.innerHTML = presentadorPanelInterno.renderizarSoloBolsas(estado.vista);
-    return;
-  }
   if (estado.vista !== "portal" && !estado.fuenteLista) {
     contenedor.innerHTML = renderizarFuenteNoDisponible();
     return;
   }
 
-  if (vistaBolsas && presentadorPanelInterno.esActivo()) {
-    contenedor.innerHTML = presentadorPanelInterno.renderizarVista(estado.vista);
-    return;
-  }
-
-  const datosVista = { ...DATOS_VACIOS, ...DATOS_PANEL };
-
   const renderizadores = {
     portal: renderizarPortal,
-    resumen: () => renderizarResumenPresentacion?.() || renderizarFuenteNoDisponible(),
-    convocatorias: () => vistasConvocatorias.renderizarConvocatorias(datosVista, estado),
-    solicitudes: () => vistasConvocatorias.renderizarSolicitudes(datosVista, estado),
-    meritos: () => vistasBaremacion.renderizarMeritos(datosVista, estado),
-    baremacion: () => vistasBaremacion.renderizarBaremacion(datosVista),
-    alegaciones: () => vistasBaremacion.renderizarAlegaciones(datosVista),
-    importacion: () => vistasOperaciones.renderizarImportacion(datosVista),
-    llamamientos: () => asistenteLlamamientos.renderizar(datosVista, estado),
-    contratos: () => vistasOperaciones.renderizarContratos(datosVista),
-    reglas: () => vistaReglas.renderizarReglas(datosVista),
-    consulta: () => renderizarConsulta(),
-    estadisticas: () => vistasGobierno.renderizarEstadisticas(datosVista),
-    documentos: () => vistasOperaciones.renderizarDocumentos(datosVista),
-    comunicaciones: () => vistasOperaciones.renderizarComunicaciones(datosVista),
-    auditoria: () => vistasGobierno.renderizarAuditoria(datosVista),
-    configuracion: () => vistasGobierno.renderizarConfiguracion(datosVista),
   };
   contenedor.innerHTML = (renderizadores[estado.vista] || renderizarPortal)();
   aplicarBarrasDinamicas(contenedor);
@@ -688,11 +695,14 @@ const superficieBorradores = crearSuperficieBorradoresPortal({
   escaparHTML,
   anunciar,
   alCambiar: () => {
-    if (estado.vista === "portal" || estado.vista === "elaboracion") renderizar();
+    if (estado.vista === "portal") renderizar();
+    else if (estado.vista === "elaboracion") actualizarVistaBolsa();
     else actualizarNavegacionModulos();
   },
   confirmar: (mensaje) => window.confirm(mensaje),
 });
+const superficieBorradorLlamamiento = crearSuperficieBorradorLlamamiento({ anunciar,
+  alCambiar: () => { if (estado.vista === "llamamientos") actualizarVistaBolsa(); } });
 
 function instalarEventosBorradores() {
   document.addEventListener("click", (evento) => {
@@ -721,6 +731,13 @@ function instalarEventosBorradores() {
     if (guardar?.dataset.capacidad === "true") guardar.disabled = false;
   });
   document.addEventListener("submit", (evento) => {
+    const formularioLlamamiento = evento.target.closest("[data-borrador-llamamiento-form]");
+    if (formularioLlamamiento) {
+      evento.preventDefault();
+      const datos = new FormData(formularioLlamamiento);
+      void superficieBorradorLlamamiento.manejarFormulario({ accion: formularioLlamamiento.dataset.accion,
+        resumen: datos.get("resumen"), referencia: datos.get("referencia") }); return;
+    }
     const formulario = evento.target.closest("[data-borrador-form]");
     if (!formulario) return;
     evento.preventDefault();
@@ -751,7 +768,7 @@ const presentadorPanelInterno = crearPresentadorPanelInterno({
 
 const controladorBolsas = crearControladorBolsas({
   estado,
-  renderizar,
+  renderizar: actualizarVistaBolsa,
   navegar,
   obtenerFuenteLectura: () => estado.modoPresentacion ? fuenteLecturaBolsasPresentacion : null,
 });

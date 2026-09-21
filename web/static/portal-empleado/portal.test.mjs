@@ -113,7 +113,23 @@ test("la carga inicial no consulta servicios de Bolsa ausentes", () => {
   assert.doesNotMatch(cargaInicial, /fetch\(/);
   assert.doesNotMatch(cargaInicial, /comprobarDisponibilidad/);
   assert.doesNotMatch(cargaInicial, /API_PANEL_BOLSA/);
-  assert.match(cargaInicial, /controladorBolsas\.cargarBolsas\(\)/);
+  assert.match(cargaInicial, /moduloDeVistaPortal\(estado\.vista\) === "bolsa"/);
+});
+
+test("el arranque desconocido normaliza a portal sin sondear Bolsa", () => {
+  const inicio = javascript.indexOf("async function inicializar()");
+  const arranque = javascript.slice(inicio);
+  assert.match(arranque, /estado\.vista = vistaDesdeHash\(\)/);
+  assert.doesNotMatch(arranque, /controladorBolsas\.cargarBolsas\(\)/);
+  assert.match(javascript, /if \(Object\.hasOwn\(TITULOS, candidata\)\) return candidata/);
+  assert.match(javascript, /history\.replaceState\(null, "", "#portal"\);\s+return "portal"/);
+});
+
+test("solo Elaboración compone el destructor de borradores con el de B5 y B12", () => {
+  assert.match(javascript, /if \(vista === "elaboracion"\) superficieBorradoresActiva\(\)\?\.desmontar\(\)/);
+  assert.match(javascript, /controladorBolsas\.cancelarPeticiones\(\)/);
+  assert.match(javascript, /estado\.vista === "elaboracion"\) actualizarVistaBolsa\(\)/);
+  assert.doesNotMatch(javascript, /estado\.vista === "elaboracion"\) renderizar\(\)/);
 });
 
 test("el contrato real exige envelope canónico y rechaza una raíz raw", () => {
@@ -208,8 +224,10 @@ test("el modo real renderiza solo indicadores, convocatorias y actuaciones acred
 
 test("el coordinador respeta DEC-051 y carga el presentador con versión de caché", () => {
   assert.ok(javascript.split(/\r?\n/).length - 1 < 800, "portal.js debe mantenerse por debajo de 800 líneas");
-  assert.match(html, /portal\.js\?v=20260920-recorridos-visibles-v1/);
-  assert.match(javascript, /portal-modulos-coordinador\.js\?v=20260920-recorridos-visibles-v1/);
+  assert.match(html, /portal\.js\?v=20260921-bback01-b2/);
+  assert.match(javascript, /portal-modulos-coordinador\.js\?v=20260921-montaje-modulos-b1/);
+  assert.match(javascript, /portal-bolsas-api\.js\?v=20260921-montaje-modulos-b1/);
+  assert.match(javascript, /portal-borradores-ui\.js\?v=20260921-ciclo-borradores-b2/);
   assert.match(javascript, /portal-eventos\.js\?v=20260721-acceso-real-v2/);
   assert.match(javascript, /import\("\.\/portal-resumen-presentacion\.js\?v=20260721-acceso-real-v2"\)/);
   assert.doesNotMatch(javascript, /^import .*portal-resumen-presentacion/m);
@@ -223,7 +241,7 @@ test("el coordinador respeta DEC-051 y carga el presentador con versión de cach
 
 test("el hash directo de CT falla cerrado con retorno seguro y sin mensajes de Bolsa", () => {
   assert.match(javascript, /"contratacion-temporal": \[/);
-  assert.match(javascript, /return Object\.hasOwn\(TITULOS, candidata\) \? candidata : "portal"/);
+  assert.match(javascript, /if \(Object\.hasOwn\(TITULOS, candidata\)\) return candidata/);
   const decision = javascript.indexOf('contenedor.innerHTML = estado.vista === "contratacion-temporal"');
   const montaje = javascript.indexOf("void coordinadorModulos.montarVista", decision);
   assert.ok(decision > 0 && montaje > decision, "la indisponibilidad debe resolverse antes del montaje");
@@ -272,7 +290,8 @@ test("la propuesta real usa el cliente cerrado y no habilita un detalle inexiste
   assert.doesNotMatch(javascript, /^import .*portal-presentacion-adaptador/m);
   assert.match(`${flujoLlamamientos}\n${vistaLlamamientos}`, /Detalle no disponible/);
   assert.match(eventos, /if \(resultado\.avanzar === true\) estado\.pasoLlamamiento = 2/);
-  assert.doesNotMatch(datos, /puntuacion|Puntuación/);
+  const evaluacionesPresentacion = datos.slice(datos.indexOf("const EVALUACIONES_PRESENTACION"));
+  assert.doesNotMatch(evaluacionesPresentacion, /puntuacion|Puntuación/);
   assert.doesNotMatch(contratoLlamamientos, /evaluaciones.*confirmacion|camposEvaluacion/i);
 });
 

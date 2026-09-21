@@ -117,10 +117,17 @@ export function crearSuperficieBorradoresPortal({
 
   let cliente = null;
   let controlAcceso = null;
+  let desmontada = false;
+  let requiereRevalidar = false;
+  const controladoresOpciones = new Set();
   const operaciones = crearCoordinadorOperacionesBorradores();
 
   function notificar() {
-    alCambiar();
+    if (!desmontada) alCambiar();
+  }
+
+  function avisar(mensaje) {
+    if (!desmontada) anunciar(mensaje);
   }
 
   function clienteAutorizado() {
@@ -141,13 +148,27 @@ export function crearSuperficieBorradoresPortal({
   function alCambiarAcceso(acceso) {
     if (acceso.estado === "denegado") {
       limpiarEstadoSensible();
-      anunciar(traducir("anuncio_acceso_borradores_denegado"));
+      avisar(traducir("anuncio_acceso_borradores_denegado"));
     }
     notificar();
   }
 
+  async function consultarOpcionesCancelables({ signal } = {}) {
+    const controlador = new AbortController();
+    const abortar = () => controlador.abort();
+    if (signal?.aborted) abortar();
+    else signal?.addEventListener("abort", abortar, { once: true });
+    controladoresOpciones.add(controlador);
+    try {
+      return await clienteAutorizado().obtenerOpciones({ signal: controlador.signal });
+    } finally {
+      controladoresOpciones.delete(controlador);
+      signal?.removeEventListener("abort", abortar);
+    }
+  }
+
   controlAcceso = crearControlAccesoBorradores({
-    consultarOpciones: (opciones) => clienteAutorizado().obtenerOpciones(opciones),
+    consultarOpciones: consultarOpcionesCancelables,
     alCambiar: alCambiarAcceso,
     traducir,
   });
@@ -193,7 +214,7 @@ export function crearSuperficieBorradoresPortal({
       estado.conflictoRemoto = null;
       estado.confirmarReaplicacion = false;
       notificar();
-      anunciar("Borrador abierto para edición");
+      avisar("Borrador abierto para edición");
       return true;
     } catch (error) {
       if (!operacion.vigente()) return false;
@@ -201,7 +222,7 @@ export function crearSuperficieBorradoresPortal({
       estado.faseEditor = "error";
       estado.errorEditor = errorSeguro(error, "No se pudo cargar el borrador seleccionado.");
       notificar();
-      anunciar("No se pudo cargar el borrador seleccionado");
+      avisar("No se pudo cargar el borrador seleccionado");
       return false;
     } finally {
       operacion.finalizar();
@@ -256,7 +277,7 @@ export function crearSuperficieBorradoresPortal({
             : traducir("error_servicio_borradores"),
         );
         notificar();
-        anunciar(acceso.estado === "denegado"
+        avisar(acceso.estado === "denegado"
           ? traducir("anuncio_acceso_borradores_denegado")
           : traducir("anuncio_servicio_borradores_error"));
         return false;
@@ -279,7 +300,7 @@ export function crearSuperficieBorradoresPortal({
       estado.faseLista = FASE_ERROR;
       estado.errorLista = errorSeguro(error, "El servicio de borradores no está disponible.");
       notificar();
-      anunciar(traducir("anuncio_servicio_borradores_error"));
+      avisar(traducir("anuncio_servicio_borradores_error"));
       return false;
     } finally {
       operacion.finalizar();
@@ -287,8 +308,28 @@ export function crearSuperficieBorradoresPortal({
   }
 
   function activar() {
+    desmontada = false;
+    if (requiereRevalidar) {
+      requiereRevalidar = false;
+      return cargarSuperficie({ forzarAcceso: true });
+    }
     if (estado.faseLista === FASE_INICIAL || estado.faseLista === FASE_ERROR) return cargarSuperficie();
     return Promise.resolve(true);
+  }
+
+  function desmontar() {
+    if (desmontada) return false;
+    desmontada = true;
+    requiereRevalidar = true;
+    operaciones.invalidar();
+    for (const controlador of controladoresOpciones) controlador.abort();
+    controladoresOpciones.clear();
+    if (estado.faseLista === FASE_CARGANDO) estado.faseLista = estado.lista ? FASE_LISTA : FASE_INICIAL;
+    if (["cargando", "comparando"].includes(estado.faseEditor)) {
+      estado.faseEditor = estado.editor || estado.detalle ? "listo" : "vacio";
+    }
+    estado.guardando = false;
+    return true;
   }
 
   function iniciarNuevo() {
@@ -322,7 +363,7 @@ export function crearSuperficieBorradoresPortal({
     estado.conflictoRemoto = null;
     estado.confirmarReaplicacion = false;
     notificar();
-    anunciar("Editor de nuevo borrador preparado");
+    avisar("Editor de nuevo borrador preparado");
     return true;
   }
 
@@ -463,7 +504,7 @@ export function crearSuperficieBorradoresPortal({
       estado.claveIdempotencia = "";
       estado.conflictoRemoto = null;
       estado.confirmarReaplicacion = false;
-      anunciar(recibo.accion === "crear" ? "Borrador creado y acreditado" : "Borrador actualizado y acreditado");
+      avisar(recibo.accion === "crear" ? "Borrador creado y acreditado" : "Borrador actualizado y acreditado");
       return await refrescarTrasGuardado(recibo) && operacion.vigente();
     } catch (error) {
       if (!operacion.vigente()) return false;
@@ -474,7 +515,7 @@ export function crearSuperficieBorradoresPortal({
       };
       estado.sucio = true;
       if (estado.errorEditor.tipoConflicto === "idempotencia") estado.claveIdempotencia = "";
-      anunciar(estado.errorEditor.tipoConflicto
+      avisar(estado.errorEditor.tipoConflicto
         ? "Conflicto detectado; se conservan los cambios locales"
         : "No se pudo guardar; se conservan los cambios locales");
       return false;
@@ -505,7 +546,7 @@ export function crearSuperficieBorradoresPortal({
       estado.faseEditor = "listo";
       estado.confirmarReaplicacion = false;
       notificar();
-      anunciar("Estado vigente cargado sin sustituir los cambios locales");
+      avisar("Estado vigente cargado sin sustituir los cambios locales");
       return true;
     } catch (error) {
       if (!operacion.vigente()) return false;
@@ -559,7 +600,7 @@ export function crearSuperficieBorradoresPortal({
     estado.claveIdempotencia = "";
     estado.sucio = false;
     notificar();
-    anunciar("Se ha cargado la versión vigente del servidor");
+    avisar("Se ha cargado la versión vigente del servidor");
     return true;
   }
 
@@ -737,6 +778,7 @@ export function crearSuperficieBorradoresPortal({
     aplicarFiltro,
     actualizarCampo,
     comprobarDisponibilidad: controlAcceso.comprobar,
+    desmontar,
     guardar,
     manejarAccion,
     obtenerAcceso: controlAcceso.obtenerAcceso,

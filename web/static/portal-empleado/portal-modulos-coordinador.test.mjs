@@ -9,6 +9,7 @@ import {
   extraerModulosEnvelopeCanonico,
 } from "./portal-catalogo-modulos.js";
 import {
+  CLAVES_MODULOS_VEC_REGISTRADOS,
   crearCoordinadorModulosPortal,
   moduloDeVistaPortal,
   resolverCargasModularesPresentacion,
@@ -307,6 +308,31 @@ test("el catálogo admite el manifiesto real de usuarios con menú nil sin atrib
     [{ ...usuarios, ...coleccionesInvalidas }],
     traducciones,
   ), /colecciones del manifiesto no válidas/);
+});
+
+test("los siete módulos registrados conservan estado fiel sin inventar vistas", async () => {
+  assert.deepEqual(CLAVES_MODULOS_VEC_REGISTRADOS, [
+    "personal", "cronos", "dietas", "bolsa", "contratacion_temporal",
+    "administracion", "usuarios",
+  ]);
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    cargarCatalogoInterno: async () => Object.freeze([
+      { clave: "personal" }, { clave: "cronos" }, { clave: "dietas" },
+      { clave: "bolsa" }, { clave: "contratacion_temporal" },
+      { clave: "administracion" }, { clave: "usuarios" },
+    ]),
+    cargadoresInternos: {
+      contratacion_temporal: async () => { throw new Error("sin dependencia CT"); },
+    },
+  });
+  await coordinador.cargarInterno();
+  for (const clave of ["administracion", "usuarios"]) {
+    assert.deepEqual(coordinador.resolverAcceso(clave), {
+      disponible: false, vista: "", estado: "no_disponible",
+    });
+    assert.equal(coordinador.vistaGestionada(clave), false);
+  }
 });
 
 test("CT inventariado queda visible no_disponible si falla su carga real", async () => {
@@ -824,6 +850,39 @@ test("las rutas estables no mezclan el submenú de Bolsa con los módulos person
   assert.equal(rutaDeVistaPortal("dietas"), "#dietas");
   assert.equal(moduloDeVistaPortal("convocatorias"), "bolsa");
   assert.equal(moduloDeVistaPortal("cronos"), "cronos");
+  assert.equal(moduloDeVistaPortal("vista-no-registrada"), "");
+  assert.equal(rutaDeVistaPortal("vista-no-registrada"), "#portal");
+});
+
+test("Bolsa usa el montaje común para B12 y B5 sin sondear vistas desconocidas", async () => {
+  const montajes = [];
+  const desmontajes = [];
+  const consultasDisponibilidad = [];
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    montajeBolsa: {
+      disponible: (vista) => {
+        consultasDisponibilidad.push(vista);
+        return ["resumen", "bolsa-candidatos"].includes(vista);
+      },
+      montar: ({ vista, raiz }) => {
+        montajes.push(vista);
+        raiz.innerHTML = `<p>${vista}</p>`;
+        return { desmontar: () => desmontajes.push(vista) };
+      },
+    },
+  });
+  const raiz = raizFalsa();
+  assert.equal(await coordinador.montarVista("resumen", raiz), true);
+  assert.equal(await coordinador.montarVista("bolsa-candidatos", raiz), true);
+  assert.deepEqual(desmontajes, ["resumen"]);
+  coordinador.desmontarVistaActual();
+  assert.deepEqual(desmontajes, ["resumen", "bolsa-candidatos"]);
+  assert.equal(coordinador.vistaGestionada("vista-no-registrada"), false);
+  assert.equal(coordinador.vistaDisponible("vista-no-registrada"), false);
+  assert.equal(await coordinador.montarVista("vista-no-registrada", raiz), false);
+  assert.equal(consultasDisponibilidad.includes("vista-no-registrada"), false);
+  assert.deepEqual(montajes, ["resumen", "bolsa-candidatos"]);
 });
 
 test("Cronos y Dietas montan contenido administrativo y nunca dejan el área en blanco", async () => {
@@ -1056,8 +1115,9 @@ test("el coordinador no autentica ni conserva estado en el navegador", async () 
 });
 
 test("el cache busting de módulos avanza en cascada hasta el HTML", async () => {
-  const versionCoordinador = "20260920-recorridos-visibles-v1";
-  const versionPortal = "20260920-recorridos-visibles-v1";
+  const versionCoordinador = "20260921-montaje-modulos-b1";
+  const versionPortal = "20260921-bback01-b2";
+  const versionBolsaAPI = "20260921-montaje-modulos-b1";
   const versionI18n = "20260920-personal-catalogo-v1";
   const versionCatalogo = "20260906-acceso-certificado-v1";
   const versionTema = "20260920-referencia-rrhh-v1";
@@ -1074,6 +1134,7 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
     "utf8",
   );
   assert.match(portal, new RegExp(`portal-modulos-coordinador\\.js\\?v=${versionCoordinador}`));
+  assert.match(portal, new RegExp(`portal-bolsas-api\\.js\\?v=${versionBolsaAPI}`));
   assert.match(portal, new RegExp(`portal-i18n\\.js\\?v=${versionI18n}`));
   assert.match(coordinador, new RegExp(`portal-catalogo-modulos\\.js\\?v=${versionCatalogo}`));
   assert.match(coordinador, new RegExp(`portal-i18n\\.js\\?v=${versionI18n}`));

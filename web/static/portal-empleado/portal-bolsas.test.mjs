@@ -332,6 +332,105 @@ test("consultarCandidatosBolsa maneja parámetros, códigos de estado y cursor",
   assert.equal(resVacia.codigo, "referencia_invalida");
 });
 
+test("el controlador absorbe AbortError y otros rechazos tardíos al desmontar", async () => {
+  for (const error of [Object.assign(new Error("abortada"), { name: "AbortError" }), new Error("respuesta cancelada")]) {
+    let rechazarLectura;
+    let senal;
+    let renders = 0;
+    const estado = { datosBolsas: null };
+    const controlador = crearControladorBolsas({
+      estado,
+      renderizar: () => { renders += 1; },
+      navegar: () => {},
+      obtenerFuenteLectura: () => ({
+        consultarBolsas: ({ signal }) => {
+          senal = signal;
+          return new Promise((_resolver, rechazar) => { rechazarLectura = rechazar; });
+        },
+      }),
+    });
+
+    const carga = controlador.cargarBolsas();
+    await Promise.resolve();
+    assert.equal(senal.aborted, false);
+    assert.equal(estado.datosBolsas.carga, "cargando");
+    controlador.cancelarPeticiones();
+    assert.equal(senal.aborted, true);
+    assert.equal(estado.datosBolsas, null);
+    rechazarLectura(error);
+    await assert.doesNotReject(carga);
+    assert.equal(estado.datosBolsas, null);
+    assert.equal(renders, 1);
+  }
+});
+
+test("un rechazo vigente de fuente inyectada termina en error con un único render final", async () => {
+  let renders = 0;
+  const estado = { datosBolsas: null };
+  const controlador = crearControladorBolsas({
+    estado,
+    renderizar: () => { renders += 1; },
+    navegar: () => {},
+    obtenerFuenteLectura: () => ({
+      consultarBolsas: async () => { throw new Error("fuente no disponible"); },
+    }),
+  });
+
+  await assert.doesNotReject(controlador.cargarBolsas());
+  assert.equal(estado.datosBolsas.carga, "error");
+  assert.match(estado.datosBolsas.error, /fuente no disponible/);
+  assert.equal(renders, 2, "un render de carga y uno final de error");
+});
+
+test("un AbortError vigente limpia la carga sin render tardío", async () => {
+  let renders = 0;
+  const estado = { datosBolsas: null };
+  const controlador = crearControladorBolsas({
+    estado,
+    renderizar: () => { renders += 1; },
+    navegar: () => {},
+    obtenerFuenteLectura: () => ({
+      consultarBolsas: async () => { throw Object.assign(new Error("abortada"), { name: "AbortError" }); },
+    }),
+  });
+
+  await assert.doesNotReject(controlador.cargarBolsas());
+  assert.equal(estado.datosBolsas, null);
+  assert.equal(renders, 1, "solo se renderiza el inicio de la carga");
+});
+
+test("una petición A resuelta o rechazada después de B no pisa la bolsa seleccionada", async () => {
+  for (const desenlaceAntiguo of ["resolver", "rechazar"]) {
+    const pendientes = new Map();
+    const estado = { datosCandidatos: null, filtrosBolsa: {} };
+    const controlador = crearControladorBolsas({
+      estado,
+      renderizar: () => {},
+      navegar: () => {},
+      obtenerFuenteLectura: () => ({
+        consultarCandidatosBolsa: (bolsaRef) => new Promise((resolver, rechazar) => {
+          pendientes.set(bolsaRef, { resolver, rechazar });
+        }),
+      }),
+    });
+
+    const antigua = controlador.cargarCandidatosBolsa("bolsa:primera");
+    await Promise.resolve();
+    const nueva = controlador.cargarCandidatosBolsa("bolsa:segunda");
+    await Promise.resolve();
+    pendientes.get("bolsa:segunda").resolver({ ok: true, datos: { bolsa: { bolsa_ref: "bolsa:segunda" }, candidatos: [] } });
+    await nueva;
+    if (desenlaceAntiguo === "resolver") {
+      pendientes.get("bolsa:primera").resolver({ ok: true, datos: { bolsa: { bolsa_ref: "bolsa:primera" }, candidatos: [] } });
+    } else {
+      pendientes.get("bolsa:primera").rechazar(new Error("A llegó tarde"));
+    }
+    await assert.doesNotReject(antigua);
+    assert.equal(estado.bolsaSeleccionada, "bolsa:segunda");
+    assert.equal(estado.datosCandidatos.datos.bolsa.bolsa_ref, "bolsa:segunda");
+  }
+});
+
 test("presentadorPanelInterno renderiza el Cuadro B12 en resumen con sus columnas y estados", () => {
   const { envelopeBolsas } = construirFixturesDesdeDemo();
   envelopeBolsas.data.bolsas[1].vigente_hasta = "2025-12-31";
