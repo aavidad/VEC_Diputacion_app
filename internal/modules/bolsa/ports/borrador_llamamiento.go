@@ -135,8 +135,9 @@ type LectorBorradorLlamamiento interface {
 type AccionIntentoBorradorLlamamiento string
 
 const (
-	AccionIntentoCrearBorradorLlamamiento     AccionIntentoBorradorLlamamiento = "crear"
-	AccionIntentoConsultarBorradorLlamamiento AccionIntentoBorradorLlamamiento = "consultar"
+	AccionIntentoCrearBorradorLlamamiento      AccionIntentoBorradorLlamamiento = "crear"
+	AccionIntentoConsultarBorradorLlamamiento  AccionIntentoBorradorLlamamiento = "consultar"
+	AccionIntentoCambiarSituacionParticipacion AccionIntentoBorradorLlamamiento = "cambiar_situacion"
 )
 
 type ClaseRutaIntentoBorradorLlamamiento string
@@ -144,6 +145,7 @@ type ClaseRutaIntentoBorradorLlamamiento string
 const (
 	ClaseRutaColeccionBorradorLlamamiento ClaseRutaIntentoBorradorLlamamiento = "coleccion"
 	ClaseRutaDetalleBorradorLlamamiento   ClaseRutaIntentoBorradorLlamamiento = "detalle"
+	ClaseRutaSituacionParticipacion       ClaseRutaIntentoBorradorLlamamiento = "situacion"
 )
 
 type ResultadoIntentoBorradorLlamamiento string
@@ -166,8 +168,8 @@ type IntentoBorradorLlamamiento struct {
 
 func (i IntentoBorradorLlamamiento) Validar() error {
 	if i.Correlacion.Validar() != nil ||
-		(i.Accion != AccionIntentoCrearBorradorLlamamiento && i.Accion != AccionIntentoConsultarBorradorLlamamiento) ||
-		(i.ClaseRuta != ClaseRutaColeccionBorradorLlamamiento && i.ClaseRuta != ClaseRutaDetalleBorradorLlamamiento) ||
+		(i.Accion != AccionIntentoCrearBorradorLlamamiento && i.Accion != AccionIntentoConsultarBorradorLlamamiento && i.Accion != AccionIntentoCambiarSituacionParticipacion) ||
+		(i.ClaseRuta != ClaseRutaColeccionBorradorLlamamiento && i.ClaseRuta != ClaseRutaDetalleBorradorLlamamiento && i.ClaseRuta != ClaseRutaSituacionParticipacion) ||
 		(i.ActorVerificado != "" && !patronActorIntentoBorradorLlamamiento.MatchString(i.ActorVerificado)) ||
 		(i.Resultado != ResultadoIntentoAutenticacionRequeridaBorradorLlamamiento &&
 			i.Resultado != ResultadoIntentoAccesoDenegadoBorradorLlamamiento &&

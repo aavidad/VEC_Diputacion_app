@@ -45,7 +45,7 @@ func (r situacionesBolsasRRHHPrueba) SituacionVigente(context.Context, string) (
 func (situacionesBolsasRRHHPrueba) BuscarRegistroSituacion(context.Context, string, string) (ports.RegistroSituacionParticipacion, error) {
 	return ports.RegistroSituacionParticipacion{}, ports.ErrSituacionParticipacionNoEncontrada
 }
-func (situacionesBolsasRRHHPrueba) RegistrarSituacion(context.Context, string, string, time.Time, *time.Time, string, string, string, string, time.Time) (ports.RegistroSituacionParticipacion, error) {
+func (situacionesBolsasRRHHPrueba) RegistrarSituacion(context.Context, ports.ComandoCambiarSituacionParticipacion) (ports.RegistroSituacionParticipacion, error) {
 	return ports.RegistroSituacionParticipacion{}, ports.ErrSituacionParticipacionNoDisponible
 }
 
@@ -107,7 +107,7 @@ func TestBolsasRRHHDesarrolloExponeContratoCerradoYPaginaCandidatos(t *testing.T
 			} `json:"bolsas"`
 		} `json:"data"`
 	}
-	if err := json.Unmarshal(lista.Body.Bytes(), &salida); err != nil || salida.Data.Esquema != "vec.bolsa.rrhh.bolsas.v1" || len(salida.Data.Bolsas) != 1 || len(salida.Data.Bolsas[0].Estados) != 5 {
+	if err := json.Unmarshal(lista.Body.Bytes(), &salida); err != nil || salida.Data.Esquema != "vec.bolsa.rrhh.bolsas.v1" || len(salida.Data.Bolsas) != 1 || len(salida.Data.Bolsas[0].Estados) != 7 {
 		t.Fatalf("contrato bolsas: %#v err=%v", salida, err)
 	}
 	candidatos := httptest.NewRecorder()
@@ -187,7 +187,7 @@ func TestBolsasRRHHDesarrolloRechazaConsultaNoCanonica(t *testing.T) {
 	manejador := manejadorBolsasRRHHPrueba()
 	for _, caso := range []*http.Request{
 		httptest.NewRequest(http.MethodGet, rutaBolsasRRHHDesarrollo+"?limite=1", nil),
-		httptest.NewRequest(http.MethodGet, rutaBolsasRRHHDesarrollo+"/bolsa:constituida:administrativo/candidatos?estado=trabajando", nil),
+		httptest.NewRequest(http.MethodGet, rutaBolsasRRHHDesarrollo+"/bolsa:constituida:administrativo/candidatos?estado=inventado", nil),
 		httptest.NewRequest(http.MethodGet, rutaBolsasRRHHDesarrollo+"/bolsa:constituida:administrativo/candidatos?limite=101", nil),
 	} {
 		w := httptest.NewRecorder()

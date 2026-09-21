@@ -80,6 +80,19 @@ func TestAuditoriaBorradorLlamamientoRegistraFalloTardioSinCambiarSuRespuesta(t 
 	}
 }
 
+func TestAuditoriaBorradorLlamamientoRegistraDenegacionDeSituacionB2(t *testing.T) {
+	registrador := &registradorIntentoBorradorDoble{}
+	h := nuevaAuditoriaBorradorPrueba(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+	}), registrador, nil)
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodPost, RutaBolsasGestion+"/bolsa:01/candidatos/participacion:01/situacion", strings.NewReader(`{}`))
+	h.ServeHTTP(w, r)
+	if w.Code != http.StatusForbidden || len(registrador.intentos) != 1 || registrador.intentos[0].Accion != puertosbolsa.AccionIntentoCambiarSituacionParticipacion || registrador.intentos[0].ClaseRuta != puertosbolsa.ClaseRutaSituacionParticipacion || registrador.intentos[0].Resultado != puertosbolsa.ResultadoIntentoAccesoDenegadoBorradorLlamamiento {
+		t.Fatalf("denegación B2 no auditada: estado=%d intentos=%#v", w.Code, registrador.intentos)
+	}
+}
+
 func TestAuditoriaBorradorLlamamientoFallaCerradoSiNoPuedePersistir(t *testing.T) {
 	registrador := &registradorIntentoBorradorDoble{err: errors.New("base no disponible")}
 	h := nuevaAuditoriaBorradorPrueba(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

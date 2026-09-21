@@ -8,7 +8,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	"vec-diputacion-granada/internal/modules/bolsa/ports"
+	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
 
 type RepositorioSituacionParticipacionPostgreSQL struct{ pool *pgxpool.Pool }
@@ -42,7 +44,7 @@ func (r *RepositorioSituacionParticipacionPostgreSQL) BuscarRegistroSituacion(ct
 	}
 	var resultado ports.RegistroSituacionParticipacion
 	resultado.ParticipacionRef = ref
-	err := r.pool.QueryRow(ctx, `SELECT recibo_ref,situacion,desde,fecha_disponible,motivo FROM vec_bolsa_llamamientos.situacion_participacion WHERE participacion_ref=$1 AND clave_idempotencia=$2`, ref, clave).Scan(&resultado.ReciboRef, &resultado.Situacion, &resultado.Desde, &resultado.FechaDisponible, &resultado.Motivo)
+	err := r.pool.QueryRow(ctx, `SELECT recibo_ref,situacion,desde,fecha_disponible,motivo FROM vec_bolsa_llamamientos.recuperar_situacion_participacion_v1($1,$2)`, ref, clave).Scan(&resultado.ReciboRef, &resultado.Situacion, &resultado.Desde, &resultado.FechaDisponible, &resultado.Motivo)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ports.RegistroSituacionParticipacion{}, ports.ErrSituacionParticipacionNoEncontrada
 	}
@@ -52,8 +54,9 @@ func (r *RepositorioSituacionParticipacionPostgreSQL) BuscarRegistroSituacion(ct
 	resultado.Reutilizada = true
 	return resultado, nil
 }
-func (r *RepositorioSituacionParticipacionPostgreSQL) RegistrarSituacion(ctx context.Context, ref, situacion string, desde time.Time, fecha *time.Time, motivo, actor, clave, recibo string, registrada time.Time) (ports.RegistroSituacionParticipacion, error) {
-	if r == nil || r.pool == nil || ctx == nil || ref == "" || situacion == "" || motivo == "" || actor == "" || clave == "" || recibo == "" || desde.IsZero() || registrada.IsZero() {
+func (r *RepositorioSituacionParticipacionPostgreSQL) RegistrarSituacion(ctx context.Context, comando ports.ComandoCambiarSituacionParticipacion) (ports.RegistroSituacionParticipacion, error) {
+	cambio := comando.Cambio
+	if r == nil || r.pool == nil || ctx == nil || cambio.ParticipacionRef == "" || comando.BolsaRef == "" || cambio.Destino == "" || cambio.Motivo == "" || comando.Actor == "" || comando.ClaveIdempotencia == "" || comando.ReciboRef == "" || cambio.Desde.IsZero() || cambio.RegistradaEn.IsZero() || comando.Material.ValidarEstructura() != nil {
 		return ports.RegistroSituacionParticipacion{}, ports.ErrSituacionParticipacionNoDisponible
 	}
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
@@ -62,10 +65,15 @@ func (r *RepositorioSituacionParticipacionPostgreSQL) RegistrarSituacion(ctx con
 	}
 	defer tx.Rollback(context.Background())
 	var resultado ports.RegistroSituacionParticipacion
-	resultado.ParticipacionRef = ref
-	err = tx.QueryRow(ctx, `SELECT reutilizada,recibo_ref,situacion,desde,fecha_disponible FROM vec_bolsa_llamamientos.registrar_situacion_participacion_v1($1,$2,$3,$4,$5,$6,$7,$8,$9)`, ref, situacion, desde.UTC(), fecha, motivo, actor, clave, recibo, registrada.UTC()).Scan(&resultado.Reutilizada, &resultado.ReciboRef, &resultado.Situacion, &resultado.Desde, &resultado.FechaDisponible)
+	resultado.ParticipacionRef = cambio.ParticipacionRef
+	m := comando.Material
+	err = tx.QueryRow(ctx, `SELECT reutilizada,recibo_ref,situacion,desde,fecha_disponible FROM vec_bolsa_llamamientos.registrar_situacion_participacion_v1($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15::numeric,$16::numeric,$17,$18,$19,$20)`, comando.BolsaRef, cambio.ParticipacionRef, cambio.Destino, cambio.Desde.UTC(), cambio.FechaDisponible, cambio.Motivo, comando.Actor, comando.ClaveIdempotencia, comando.ReciboRef, cambio.RegistradaEn.UTC(), m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI()).Scan(&resultado.Reutilizada, &resultado.ReciboRef, &resultado.Situacion, &resultado.Desde, &resultado.FechaDisponible)
 	if err != nil {
 		return ports.RegistroSituacionParticipacion{}, errorSituacionParticipacion(err)
+	}
+	if resultado.ReciboRef != comando.ReciboRef || resultado.Situacion != cambio.Destino ||
+		!mismaFechaDisponiblePostgreSQL(resultado.FechaDisponible, cambio.FechaDisponible) {
+		return ports.RegistroSituacionParticipacion{}, ports.ErrSituacionParticipacionNoDisponible
 	}
 	if err = tx.Commit(ctx); err != nil {
 		return ports.RegistroSituacionParticipacion{}, ports.ErrSituacionParticipacionNoDisponible
@@ -74,8 +82,24 @@ func (r *RepositorioSituacionParticipacionPostgreSQL) RegistrarSituacion(ctx con
 }
 func errorSituacionParticipacion(err error) error {
 	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == "23503" {
-		return ports.ErrSituacionParticipacionNoEncontrada
+	if errors.As(err, &pgErr) {
+		switch pgErr.Code {
+		case "23503":
+			return ports.ErrSituacionParticipacionNoEncontrada
+		case "VBS01", "22023":
+			return dominiobolsa.ErrCambioSituacionParticipacionInvalido
+		case "23505":
+			return ports.ErrSituacionParticipacionNoDisponible
+		case "42501":
+			return dominiovec.ErrAutorizacionDenegada
+		}
 	}
 	return ports.ErrSituacionParticipacionNoDisponible
+}
+
+func mismaFechaDisponiblePostgreSQL(a, b *time.Time) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return a.UTC().Truncate(time.Microsecond).Equal(b.UTC().Truncate(time.Microsecond))
 }

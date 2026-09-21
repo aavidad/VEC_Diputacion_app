@@ -370,6 +370,8 @@ func materialBorradorPrueba(t *testing.T, decision dominiovec.DecisionAutorizaci
 	audiencia := puertosbolsa.AudienciaCrearBorradorLlamamientoInterno
 	if datos.Accion == puertosbolsa.AccionConsultarBorradorLlamamientoInterno {
 		audiencia = puertosbolsa.AudienciaConsultarBorradorLlamamientoInterno
+	} else if datos.Accion == puertosbolsa.AccionCambiarSituacionParticipacion {
+		audiencia = puertosbolsa.AudienciaCambiarSituacionParticipacion
 	}
 	resumen, err := puertosvec.NuevoResumenCapacidadAtestacionAutorizacionV3("decision:borrador:prueba", dh, mh, resultado.RegistroContextoRef, resultado.HuellaSHA256, datos.Accion, datos.Recurso.Referencia, rh, audiencia, instante, instante.Add(5*time.Second))
 	if err != nil {
