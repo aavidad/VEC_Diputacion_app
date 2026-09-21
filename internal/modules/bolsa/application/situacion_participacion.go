@@ -33,8 +33,11 @@ func (s *ServicioSituacionParticipacion) Cambiar(ctx context.Context, solicitud 
 		return puertosbolsa.RegistroSituacionParticipacion{}, ErrCambioSituacionParticipacionNoDisponible
 	}
 	actor := solicitud.ResultadoContexto.Contexto
-	resuelto, err := s.contexto.ResolverContextoSituacionParticipacion(ctx, actor)
+	resuelto, err := s.contexto.ResolverContextoSituacionParticipacion(ctx, actor, solicitud.BolsaRef, solicitud.ParticipacionRef)
 	if err != nil || resuelto.Validar() != nil || actor.PersonaRef == "" {
+		if errors.Is(err, dominiovec.ErrAutorizacionDenegada) || errors.Is(err, dominiovec.ErrPermissionDenied) {
+			return puertosbolsa.RegistroSituacionParticipacion{}, err
+		}
 		return puertosbolsa.RegistroSituacionParticipacion{}, ErrCambioSituacionParticipacionNoDisponible
 	}
 	recurso := dominiovec.RecursoAutorizable{Referencia: solicitud.ParticipacionRef, ModuloID: puertosbolsa.ModuloSituacionParticipacion, Tipo: puertosbolsa.TipoRecursoSituacionParticipacion, Ambitos: map[string]string{"unidad_ref": resuelto.UnidadRef, "ambito_ref": resuelto.AmbitoRef}}
@@ -71,7 +74,7 @@ func (s *ServicioSituacionParticipacion) Cambiar(ctx context.Context, solicitud 
 	}
 	ahora := s.reloj().UTC().Truncate(time.Microsecond)
 	cambio := dominiobolsa.CambioSituacionParticipacion{ParticipacionRef: solicitud.ParticipacionRef, Origen: vigente.Situacion, Destino: solicitud.Destino, Desde: ahora, Motivo: solicitud.Motivo, FechaDisponible: solicitud.FechaDisponible, RegistradaEn: ahora}
-	if (!repeticion && cambio.Validar() != nil) || cambio.Desde.Before(vigente.Desde) {
+	if !repeticion && (cambio.Validar() != nil || cambio.Desde.Before(vigente.Desde)) {
 		return puertosbolsa.RegistroSituacionParticipacion{}, dominiobolsa.ErrCambioSituacionParticipacionInvalido
 	}
 	h := sha256.Sum256([]byte(solicitud.ParticipacionRef + "\x1f" + solicitud.ClaveIdempotencia))

@@ -81,6 +81,14 @@ func (a *autoridadPostgreSQLDesarrollo) PublicarInstantanea(
 	return a.publicarInstantanea(ctx, instantanea)
 }
 
+func (a autoridadPostgreSQLDesarrollo) publicarInstantaneaDesdePreimagen(ctx context.Context, instantanea, preimagen dominiovec.InstantaneaAutorizacion) error {
+	return a.publicarInstantaneaConPreimagen(ctx, instantanea, &preimagen)
+}
+
+func (a autoridadPostgreSQLDesarrollo) publicarInstantanea(ctx context.Context, instantanea dominiovec.InstantaneaAutorizacion) error {
+	return a.publicarInstantaneaConPreimagen(ctx, instantanea, nil)
+}
+
 func (a autoridadPostgreSQLDesarrollo) prepararInstantanea(
 	ctx context.Context,
 	solicitada dominiovec.InstantaneaAutorizacion,
@@ -168,12 +176,19 @@ func leerAsignacionActualPostgreSQLDesarrollo(
 	return actual, true, nil
 }
 
-func (a autoridadPostgreSQLDesarrollo) publicarInstantanea(
+func (a autoridadPostgreSQLDesarrollo) publicarInstantaneaConPreimagen(
 	ctx context.Context,
 	instantanea dominiovec.InstantaneaAutorizacion,
+	preimagen *dominiovec.InstantaneaAutorizacion,
 ) error {
 	if !a.validaConfiguracion() || ctx == nil ||
 		ctx.Err() != nil || instantanea.Validar() != nil || len(instantanea.Politicas) != 0 {
+		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	if preimagen != nil && (preimagen.Validar() != nil || len(preimagen.Politicas) != 0 ||
+		preimagen.AsignacionPerfil.PerfilActivoRef != instantanea.AsignacionPerfil.PerfilActivoRef ||
+		preimagen.AsignacionPerfil.PrincipalID != instantanea.AsignacionPerfil.PrincipalID ||
+		preimagen.AsignacionPerfil.AsignacionID != instantanea.AsignacionPerfil.AsignacionID) {
 		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 	}
 	pool := a.pool
@@ -240,7 +255,16 @@ func (a autoridadPostgreSQLDesarrollo) publicarInstantanea(
 			actual.principalID == datosVinculo.PrincipalID &&
 			actual.version > 0 && actual.version < int64(1<<63-1) &&
 			instantanea.AsignacionPerfil.Version == int(actual.version+1)
-		if !yaPublicada && !siguienteExacta {
+		if preimagen != nil && !yaPublicada {
+			huellaPreimagen, errHuella := preimagen.AsignacionPerfil.HuellaSHA256()
+			preimagenExacta := errHuella == nil && actual.referencia == preimagen.AsignacionPerfil.Referencia() &&
+				actual.identificador == preimagen.AsignacionPerfil.AsignacionID && actual.version == int64(preimagen.AsignacionPerfil.Version) &&
+				actual.perfilRef == preimagen.AsignacionPerfil.PerfilActivoRef && actual.principalID == preimagen.AsignacionPerfil.PrincipalID &&
+				actual.versionRolRef == preimagen.VersionRol.Referencia() && actual.huella == huellaPreimagen
+			if !preimagenExacta || !siguienteExacta {
+				return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+			}
+		} else if !yaPublicada && !siguienteExacta {
 			return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 		}
 	} else if instantanea.AsignacionPerfil.Version != 1 {

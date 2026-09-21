@@ -68,6 +68,24 @@ func TestSoporteSesionBorradorBolsaMantienePrincipalYSeparaPerfilCT(t *testing.T
 	}
 }
 
+func TestContextoSituacionB2ExigeBolsaDeclaradaEnIdentidad(t *testing.T) {
+	directorio, soporteCT, principal, ahora := fixtureSoporteSesionBorradorBolsa(t)
+	escribirManifiestoIdentidadBorradorBolsa(t, directorio, principal, ahora, nil)
+	soporte, err := nuevoSoporteSesionBorradorBolsaDesarrollo(directorio, soporteCT, ahora)
+	if err != nil {
+		t.Fatal(err)
+	}
+	preparador := &preparadorBorradorLlamamientoDesarrollo{soporte: soporte}
+	actor := soporte.soporteCanal.contexto.Resultado.Contexto
+	resuelto, err := preparador.ResolverContextoSituacionParticipacion(context.Background(), actor, "bolsa:b2:desarrollo", "participacion:b2")
+	if err != nil || resuelto.UnidadRef != soporte.unidadRef || resuelto.AmbitoRef != soporte.ambitoRef {
+		t.Fatalf("bolsa nominal rechazada: %+v err=%v", resuelto, err)
+	}
+	if _, err := preparador.ResolverContextoSituacionParticipacion(context.Background(), actor, "bolsa:ajena", "participacion:b2"); !errors.Is(err, dominiovec.ErrAutorizacionDenegada) {
+		t.Fatalf("bolsa ajena no fue denegada: %v", err)
+	}
+}
+
 func TestSoporteSesionBorradorBolsaFallaCerradoAnteManifiestoInvalido(t *testing.T) {
 	directorio, soporte, principal, ahora := fixtureSoporteSesionBorradorBolsa(t)
 	if _, err := nuevoSoporteSesionBorradorBolsaDesarrollo(directorio, soporte, ahora); err != ErrMaterialDesarrolloInvalido {
@@ -83,6 +101,7 @@ func TestSoporteSesionBorradorBolsaFallaCerradoAnteManifiestoInvalido(t *testing
 		},
 		"perfil ausente": func(m *archivoManifiestoIdentidadBorradorBolsaDesarrollo) { m.PerfilRef = "" },
 		"ámbito vacío":   func(m *archivoManifiestoIdentidadBorradorBolsaDesarrollo) { m.AmbitoRef = "" },
+		"bolsas vacías":  func(m *archivoManifiestoIdentidadBorradorBolsaDesarrollo) { m.BolsasRef = nil },
 	}
 	for nombre, mutar := range casos {
 		t.Run(nombre, func(t *testing.T) {
@@ -190,7 +209,7 @@ func escribirManifiestoIdentidadBorradorBolsa(t *testing.T, directorio string, p
 	if err != nil {
 		t.Fatal(err)
 	}
-	manifiesto := archivoManifiestoIdentidadBorradorBolsaDesarrollo{Version: 1, Autoridad: AutoridadNoAutoritativa, Sujeto: principal.ID, CertificadoSHA256: principal.Attributes["certificate_sha256"], PerfilRef: datos.PerfilActivoRef, UnidadRef: "unidad:desarrollo:rrhh", AmbitoRef: "ambito:desarrollo:bolsa"}
+	manifiesto := archivoManifiestoIdentidadBorradorBolsaDesarrollo{Version: 2, Autoridad: AutoridadNoAutoritativa, Sujeto: principal.ID, CertificadoSHA256: principal.Attributes["certificate_sha256"], PerfilRef: datos.PerfilActivoRef, UnidadRef: "unidad:desarrollo:rrhh", AmbitoRef: "ambito:desarrollo:bolsa", BolsasRef: []string{"bolsa:b2:desarrollo"}}
 	if mutar != nil {
 		mutar(&manifiesto)
 	}

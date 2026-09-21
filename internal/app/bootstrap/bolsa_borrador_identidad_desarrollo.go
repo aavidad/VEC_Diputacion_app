@@ -18,13 +18,14 @@ import (
 const nombreManifiestoIdentidadBorradorBolsaDesarrollo = "bolsa-bback.json"
 
 type archivoManifiestoIdentidadBorradorBolsaDesarrollo struct {
-	Version           int    `json:"version"`
-	Autoridad         string `json:"autoridad"`
-	Sujeto            string `json:"sujeto"`
-	CertificadoSHA256 string `json:"certificado_sha256"`
-	PerfilRef         string `json:"perfil_ref"`
-	UnidadRef         string `json:"unidad_ref"`
-	AmbitoRef         string `json:"ambito_ref"`
+	Version           int      `json:"version"`
+	Autoridad         string   `json:"autoridad"`
+	Sujeto            string   `json:"sujeto"`
+	CertificadoSHA256 string   `json:"certificado_sha256"`
+	PerfilRef         string   `json:"perfil_ref"`
+	UnidadRef         string   `json:"unidad_ref"`
+	AmbitoRef         string   `json:"ambito_ref"`
+	BolsasRef         []string `json:"bolsas_ref"`
 }
 
 // soporteSesionBorradorBolsaDesarrollo es una fuente nominal preparada al
@@ -35,6 +36,7 @@ type soporteSesionBorradorBolsaDesarrollo struct {
 	soporteCanal *soporteAltaContratacionTemporalDesarrollo
 	unidadRef    string
 	ambitoRef    string
+	bolsasRef    map[string]struct{}
 }
 
 func discriminadorContextoSinteticoBorradorBolsaDesarrollo() discriminadorContextoSinteticoDesarrollo {
@@ -70,7 +72,8 @@ func nuevoSoporteSesionBorradorBolsaDesarrollo(
 	manifiesto, err := cargarManifiestoIdentidadBorradorBolsaDesarrollo(directorio)
 	if err != nil || manifiesto.Sujeto != principalID || manifiesto.CertificadoSHA256 != certificado ||
 		!perfilActivoSeguridadComunValido(manifiesto.PerfilRef) ||
-		!domain.ReferenciaOpacaValida(manifiesto.UnidadRef) || !domain.ReferenciaOpacaValida(manifiesto.AmbitoRef) {
+		!domain.ReferenciaOpacaValida(manifiesto.UnidadRef) || !domain.ReferenciaOpacaValida(manifiesto.AmbitoRef) ||
+		!referenciasBolsasB2Validas(manifiesto.BolsasRef) {
 		return nil, ErrMaterialDesarrolloInvalido
 	}
 	principal := dominiovec.Principal{
@@ -95,7 +98,11 @@ func nuevoSoporteSesionBorradorBolsaDesarrollo(
 		sello: sello, principalID: principalID, certificadoSHA256: certificado,
 		contexto: contextoBolsa, reloj: reloj,
 	}
-	return &soporteSesionBorradorBolsaDesarrollo{soporteCanal: canal, unidadRef: manifiesto.UnidadRef, ambitoRef: manifiesto.AmbitoRef}, nil
+	bolsas := make(map[string]struct{}, len(manifiesto.BolsasRef))
+	for _, ref := range manifiesto.BolsasRef {
+		bolsas[ref] = struct{}{}
+	}
+	return &soporteSesionBorradorBolsaDesarrollo{soporteCanal: canal, unidadRef: manifiesto.UnidadRef, ambitoRef: manifiesto.AmbitoRef, bolsasRef: bolsas}, nil
 }
 
 func cargarManifiestoIdentidadBorradorBolsaDesarrollo(
@@ -113,11 +120,28 @@ func cargarManifiestoIdentidadBorradorBolsaDesarrollo(
 		return archivoManifiestoIdentidadBorradorBolsaDesarrollo{}, ErrMaterialDesarrolloInvalido
 	}
 	var sobra any
-	if err := decodificador.Decode(&sobra); !errors.Is(err, io.EOF) || manifiesto.Version != 1 ||
+	if err := decodificador.Decode(&sobra); !errors.Is(err, io.EOF) || manifiesto.Version != 2 ||
 		manifiesto.Autoridad != AutoridadNoAutoritativa || !huellaCertificadoDesarrolloValida(manifiesto.CertificadoSHA256) {
 		return archivoManifiestoIdentidadBorradorBolsaDesarrollo{}, ErrMaterialDesarrolloInvalido
 	}
 	return manifiesto, nil
+}
+
+func referenciasBolsasB2Validas(referencias []string) bool {
+	if len(referencias) == 0 || len(referencias) > 256 {
+		return false
+	}
+	vistas := make(map[string]struct{}, len(referencias))
+	for _, ref := range referencias {
+		if !domain.ReferenciaOpacaValida(ref) {
+			return false
+		}
+		if _, repetida := vistas[ref]; repetida {
+			return false
+		}
+		vistas[ref] = struct{}{}
+	}
+	return true
 }
 
 func contextoSinteticoCTConsistenteParaBorradorBolsa(

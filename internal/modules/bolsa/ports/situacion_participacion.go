@@ -79,7 +79,7 @@ type ComandoCambiarSituacionParticipacion struct {
 }
 
 type ResolutorContextoSituacionParticipacion interface {
-	ResolverContextoSituacionParticipacion(context.Context, dominiovec.ContextoActor) (ContextoSituacionParticipacionResuelto, error)
+	ResolverContextoSituacionParticipacion(context.Context, dominiovec.ContextoActor, string, string) (ContextoSituacionParticipacionResuelto, error)
 }
 
 type AutorizadorSituacionParticipacionV3 interface {

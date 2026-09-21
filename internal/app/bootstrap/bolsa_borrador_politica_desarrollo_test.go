@@ -18,6 +18,7 @@ import (
 type autoridadInicialBorradorBolsaPrueba struct {
 	preparadas, publicadas int
 	permitirInicial        bool
+	permitirSucesion       bool
 	preparar               func(dominiovec.InstantaneaAutorizacion) (dominiovec.InstantaneaAutorizacion, error)
 	publicar               func(dominiovec.InstantaneaAutorizacion) error
 	publicada              dominiovec.InstantaneaAutorizacion
@@ -34,9 +35,13 @@ func (a *autoridadInicialBorradorBolsaPrueba) prepararInstantanea(
 	return clonarInstantaneaAutorizacionPostgreSQLDesarrollo(instantanea), nil
 }
 
-func (a *autoridadInicialBorradorBolsaPrueba) PublicarInstantanea(
-	_ context.Context, instantanea dominiovec.InstantaneaAutorizacion,
+func (a *autoridadInicialBorradorBolsaPrueba) publicarInstantaneaDesdePreimagen(
+	_ context.Context, instantanea, preimagen dominiovec.InstantaneaAutorizacion,
 ) error {
+	if preimagen.VersionRol.Version != 1 || len(preimagen.VersionRol.Concesiones) != 2 ||
+		(instantanea.AsignacionPerfil.Version == 2 && !a.permitirSucesion) {
+		return errors.New("preimagen no admitida")
+	}
 	a.publicadas++
 	a.publicada = clonarInstantaneaAutorizacionPostgreSQLDesarrollo(instantanea)
 	if a.publicar != nil {
@@ -194,6 +199,22 @@ func TestPoliticaBorradorBolsaPublicaLaSemillaParaCerrarCarrera(t *testing.T) {
 	}
 	if err := politica.PublicarInicial(context.Background()); !errors.Is(err, errPoliticaBorradorLlamamientoBolsaDesarrolloNoDisponible) || politica.publicada || autoridad.publicadas != 1 {
 		t.Fatalf("carrera lógica aceptada: err=%v politica=%+v autoridad=%+v", err, politica, autoridad)
+	}
+}
+
+func TestPoliticaBorradorBolsaEvolucionaSoloDesdeBBackV1Exacta(t *testing.T) {
+	politica, _, autoridad, _ := nuevaPoliticaBorradorBolsaPrueba(t)
+	autoridad.permitirSucesion = true
+	autoridad.preparar = func(i dominiovec.InstantaneaAutorizacion) (dominiovec.InstantaneaAutorizacion, error) {
+		preparada := clonarInstantaneaAutorizacionPostgreSQLDesarrollo(i)
+		preparada.AsignacionPerfil.Version = 2
+		return preparada, nil
+	}
+	if err := politica.PublicarInicial(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if autoridad.publicada.VersionRol.Version != 2 || autoridad.publicada.AsignacionPerfil.Version != 2 || len(autoridad.publicada.VersionRol.Concesiones) != 3 {
+		t.Fatalf("sucesión B2 no exacta: %+v", autoridad.publicada)
 	}
 }
 

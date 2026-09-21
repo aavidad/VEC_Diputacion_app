@@ -22,7 +22,7 @@ var errPoliticaBorradorLlamamientoBolsaDesarrolloNoDisponible = errors.New(
 // común; la política no abre conexiones ni publica por su cuenta al construirse.
 type autoridadInicialBorradorLlamamientoBolsaDesarrollo interface {
 	prepararInstantanea(context.Context, dominiovec.InstantaneaAutorizacion, bool) (dominiovec.InstantaneaAutorizacion, error)
-	PublicarInstantanea(context.Context, dominiovec.InstantaneaAutorizacion) error
+	publicarInstantaneaDesdePreimagen(context.Context, dominiovec.InstantaneaAutorizacion, dominiovec.InstantaneaAutorizacion) error
 }
 
 // politicaBorradorLlamamientoBolsaDesarrollo es la fuente nominal exclusiva de
@@ -73,29 +73,40 @@ func (p *politicaBorradorLlamamientoBolsaDesarrollo) PublicarInicial(ctx context
 	if err != nil {
 		return errPoliticaBorradorLlamamientoBolsaDesarrolloNoDisponible
 	}
+	ahora := p.reloj.Ahora()
 	semilla, err := nuevaInstantaneaAutorizacionBorradorLlamamientoBolsaDesarrollo(
-		datos.PrincipalID, datos.PerfilActivoRef, p.soporte.unidadRef, p.soporte.ambitoRef, p.reloj.Ahora(),
+		datos.PrincipalID, datos.PerfilActivoRef, p.soporte.unidadRef, p.soporte.ambitoRef, ahora,
+	)
+	if err != nil {
+		return errPoliticaBorradorLlamamientoBolsaDesarrolloNoDisponible
+	}
+	preimagen, err := nuevaInstantaneaAutorizacionBorradorLlamamientoBolsaDesarrolloVersion(
+		datos.PrincipalID, datos.PerfilActivoRef, p.soporte.unidadRef, p.soporte.ambitoRef, ahora, 1, false,
 	)
 	if err != nil {
 		return errPoliticaBorradorLlamamientoBolsaDesarrolloNoDisponible
 	}
 	preparada, err := p.autoridad.prepararInstantanea(ctx, semilla, true)
-	// B-BACK sólo inaugura su asignación nominal. Si ya existe una asignación
-	// (incluida una revocada), la autoridad común prepara una sucesora; esa
-	// transición no es una inicialización y se rechaza. Se publica la semilla
-	// original para que la misma comprobación dentro de la transacción detecte
-	// también un cambio entre preparar y publicar.
-	if err != nil || preparada.Validar() != nil || !reflect.DeepEqual(preparada, semilla) ||
-		p.autoridad.PublicarInstantanea(ctx, semilla) != nil {
+	esperada := clonarInstantaneaAutorizacionPostgreSQLDesarrollo(semilla)
+	esperada.AsignacionPerfil.Version = preparada.AsignacionPerfil.Version
+	versionAdmitida := preparada.AsignacionPerfil.Version == 1 || preparada.AsignacionPerfil.Version == 2
+	if err != nil || preparada.Validar() != nil || !versionAdmitida || !reflect.DeepEqual(preparada, esperada) ||
+		p.autoridad.publicarInstantaneaDesdePreimagen(ctx, preparada, preimagen) != nil {
 		return errPoliticaBorradorLlamamientoBolsaDesarrolloNoDisponible
 	}
-	p.instantanea = clonarInstantaneaAutorizacionPostgreSQLDesarrollo(semilla)
+	p.instantanea = clonarInstantaneaAutorizacionPostgreSQLDesarrollo(preparada)
 	p.publicada = true
 	return nil
 }
 
 func nuevaInstantaneaAutorizacionBorradorLlamamientoBolsaDesarrollo(
 	principalID, perfilRef, unidadRef, ambitoRef string, ahora time.Time,
+) (dominiovec.InstantaneaAutorizacion, error) {
+	return nuevaInstantaneaAutorizacionBorradorLlamamientoBolsaDesarrolloVersion(principalID, perfilRef, unidadRef, ambitoRef, ahora, 2, true)
+}
+
+func nuevaInstantaneaAutorizacionBorradorLlamamientoBolsaDesarrolloVersion(
+	principalID, perfilRef, unidadRef, ambitoRef string, ahora time.Time, versionRol int, incluirSituacion bool,
 ) (dominiovec.InstantaneaAutorizacion, error) {
 	desde, hasta, vigente := ventanaAutoridadSinteticaContratacionTemporalDesarrollo(ahora)
 	if !vigente || principalID == "" || perfilRef == "" || unidadRef == "" || ambitoRef == "" {
@@ -112,15 +123,18 @@ func nuevaInstantaneaAutorizacionBorradorLlamamientoBolsaDesarrollo(
 			Finalidades: []string{finalidad}, GarantiaMinima: dominiovec.AuthAssuranceHigh,
 		}
 	}
+	concesiones := []dominiovec.ConcesionRol{
+		concesion(puertosbolsa.AccionCrearBorradorLlamamientoInterno, puertosbolsa.FinalidadCrearBorradorLlamamientoInterno),
+		concesion(puertosbolsa.AccionConsultarBorradorLlamamientoInterno, puertosbolsa.FinalidadConsultarBorradorLlamamientoInterno),
+	}
+	if incluirSituacion {
+		concesiones = append(concesiones, concesion(puertosbolsa.AccionCambiarSituacionParticipacion, puertosbolsa.FinalidadCambiarSituacionParticipacion))
+	}
 	version := dominiovec.VersionRol{
-		RolID: "tecnico_rrhh_borrador_llamamiento_bolsa_desarrollo", Version: 1,
-		Nombre: "Tecnico RRHH de borradores de llamamiento de desarrollo",
-		Estado: dominiovec.EstadoVersionRolPublicada,
-		Concesiones: []dominiovec.ConcesionRol{
-			concesion(puertosbolsa.AccionCrearBorradorLlamamientoInterno, puertosbolsa.FinalidadCrearBorradorLlamamientoInterno),
-			concesion(puertosbolsa.AccionConsultarBorradorLlamamientoInterno, puertosbolsa.FinalidadConsultarBorradorLlamamientoInterno),
-			concesion(puertosbolsa.AccionCambiarSituacionParticipacion, puertosbolsa.FinalidadCambiarSituacionParticipacion),
-		},
+		RolID: "tecnico_rrhh_borrador_llamamiento_bolsa_desarrollo", Version: versionRol,
+		Nombre:       "Tecnico RRHH de borradores de llamamiento de desarrollo",
+		Estado:       dominiovec.EstadoVersionRolPublicada,
+		Concesiones:  concesiones,
 		PublicadaPor: "seguridad:desarrollo:no-autoritativa", PublicadaEn: desde,
 	}
 	asignacion := dominiovec.AsignacionPerfil{

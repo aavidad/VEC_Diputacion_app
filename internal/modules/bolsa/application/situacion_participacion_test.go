@@ -11,9 +11,12 @@ import (
 	"vec-diputacion-granada/internal/vec/pruebas"
 )
 
-type contextoSituacionPrueba struct{}
+type contextoSituacionPrueba struct{ err error }
 
-func (contextoSituacionPrueba) ResolverContextoSituacionParticipacion(context.Context, dominiovec.ContextoActor) (puertosbolsa.ContextoSituacionParticipacionResuelto, error) {
+func (c contextoSituacionPrueba) ResolverContextoSituacionParticipacion(context.Context, dominiovec.ContextoActor, string, string) (puertosbolsa.ContextoSituacionParticipacionResuelto, error) {
+	if c.err != nil {
+		return puertosbolsa.ContextoSituacionParticipacionResuelto{}, c.err
+	}
 	return puertosbolsa.ContextoSituacionParticipacionResuelto{UnidadRef: "unidad:seleccion", AmbitoRef: "ambito:bolsa"}, nil
 }
 
@@ -102,5 +105,16 @@ func TestServicioSituacionDeniegaAntesDeConsultarLaParticipacion(t *testing.T) {
 	_, err := servicio.Cambiar(context.Background(), solicitudSituacionPrueba(t, ahora))
 	if !errors.Is(err, dominiovec.ErrAutorizacionDenegada) || repo.consultas != 0 || repo.llamadas != 0 {
 		t.Fatalf("err=%v consultas=%d escrituras=%d", err, repo.consultas, repo.llamadas)
+	}
+}
+
+func TestServicioSituacionConservaDenegacionDeAmbitoSinConsultarDatos(t *testing.T) {
+	ahora := time.Date(2026, 9, 21, 16, 0, 0, 0, time.UTC)
+	repo := &repositorioSituacionPrueba{}
+	autorizador := &autorizadorBorradorPrueba{t: t, instante: ahora}
+	servicio, _ := NuevoServicioSituacionParticipacion(contextoSituacionPrueba{err: dominiovec.ErrAutorizacionDenegada}, autorizador, repo, func() time.Time { return ahora })
+	_, err := servicio.Cambiar(context.Background(), solicitudSituacionPrueba(t, ahora))
+	if !errors.Is(err, dominiovec.ErrAutorizacionDenegada) || repo.consultas != 0 || autorizador.llamadas != 0 {
+		t.Fatalf("err=%v consultas=%d autorizaciones=%d", err, repo.consultas, autorizador.llamadas)
 	}
 }
