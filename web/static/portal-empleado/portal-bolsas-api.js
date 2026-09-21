@@ -551,7 +551,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
         const ref = botonVer.dataset.bolsaRef;
         if (ref) {
           estado.bolsaSeleccionada = ref;
-          estado.filtrosBolsa = { estado: "", texto: "" };
+          estado.filtrosBolsa = { estado: botonVer.dataset.estado || "", texto: "" };
           navegar("bolsa-candidatos");
           void cargarCandidatosBolsa(ref, { enfocarDestino: true });
         }

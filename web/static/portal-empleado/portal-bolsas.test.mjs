@@ -473,6 +473,7 @@ test("presentadorPanelInterno renderiza el Cuadro B12 en resumen con sus columna
   assert.match(htmlListo, /ADMINISTRATIVO/);
   const bolsaRef = datosBolsasValidadas.bolsas[0].bolsa_ref;
   assert.match(htmlListo, new RegExp(`<button type="button" class="enlace-tabla" data-accion="ver-bolsa" data-bolsa-ref="${bolsaRef}" aria-label="Abrir candidatos de la bolsa [^"]+">`));
+  assert.match(htmlListo, new RegExp(`<button type="button" class="estado-chip exito" data-accion="ver-bolsa" data-bolsa-ref="${bolsaRef}" data-estado="disponible" aria-label="Ver \\d+ candidatos disponibles de [^"]+">`));
   assert.doesNotMatch(htmlListo, /<th scope="col">Acciones<\/th>|Ver candidatos/);
   assert.match(htmlListo, /<time datetime="2025-02-04">4\/2\/25<\/time> \(vigente\)/);
   assert.match(htmlListo, /<time datetime="2025-03-07">7\/3\/25<\/time> — <time datetime="2025-12-31">31\/12\/25<\/time>/);

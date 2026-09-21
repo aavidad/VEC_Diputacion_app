@@ -215,7 +215,7 @@ export function crearPresentadorPanelInterno(dependencias) {
         <td><span class="estado-chip neutro">${escaparHTML(etiquetaClave(b.tipo_lista))}</span></td>
         <td><small>${fechaMarcada(b.vigente_desde)}${b.vigente_hasta ? ` — ${fechaMarcada(b.vigente_hasta)}` : " (vigente)"}</small></td>
         <td><strong>${numero(b.total)}</strong></td>
-        <td><span class="estado-chip exito">${numero(b.por_estado?.disponible)}</span></td>
+        <td><button type="button" class="estado-chip exito" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(b.bolsa_ref)}" data-estado="disponible" aria-label="Ver ${numero(b.por_estado?.disponible)} candidatos disponibles de ${escaparHTML(b.categoria)}">${numero(b.por_estado?.disponible)}</button></td>
         <td><span class="estado-chip neutro">${numero(b.por_estado?.ocupado)}</span></td>
         <td><span class="estado-chip peligro">${numero(b.por_estado?.no_disponible)}</span></td>
         <td><span class="estado-chip peligro">${numero(b.por_estado?.excluido)}</span></td>
