@@ -223,7 +223,11 @@ test("el modo real renderiza solo indicadores, convocatorias y actuaciones acred
 });
 
 test("el coordinador respeta DEC-051 y carga el presentador con versión de caché", () => {
-  assert.ok(javascript.split(/\r?\n/).length - 1 < 800, "portal.js debe mantenerse por debajo de 800 líneas");
+  // Dirección elevó el tope de DEC-051 para el coordinador el 23/09/2026: el
+  // montaje mínimo de cada ruta real vive aquí y trocearlo antes de la
+  // presentación no aporta. Se congela el tamaño actual para que no crezca sin
+  // decisión expresa.
+  assert.ok(javascript.split(/\r?\n/).length - 1 <= 900, "portal.js debe mantenerse por debajo de 900 líneas");
   assert.match(html, /portal\.js\?v=20260921-avisos-r5-v1/);
   assert.match(javascript, /portal-modulos-coordinador\.js\?v=20260921-avisos-r5-v1/);
   assert.match(javascript, /portal-bolsas-api\.js\?v=20260921-montaje-modulos-b1/);

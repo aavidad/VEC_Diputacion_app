@@ -790,7 +790,15 @@ La matriz vigente del módulo es
 - Sin adaptadores ficticios en la composición real.
 - No declarar E2E, producción o cumplimiento por tener una pantalla o una
   prueba aislada.
-- Objetivo de 500 líneas y tope duro de 800 por fichero conforme a DEC-051.
+- Tamaño de fichero: objetivo de 500 líneas y aviso a partir de 800 conforme a
+  DEC-051. Por decisión del operador del 23 de septiembre de 2026 **no es un
+  tope duro**: sirve para detectar ficheros que crecen sin justificación, no
+  para obligar a trocear. **Un fichero cohesionado de 1.000 líneas es preferible
+  a tres de 400 que solo se entienden juntos**; se parte cuando hay dos
+  responsabilidades de verdad, no para cumplir un número. Al superar el aviso se
+  congela el tamaño actual —en `scripts/tamano_ficheros_base.txt` o en el tope
+  de la prueba que lo mida— y se justifica en una línea del mensaje del commit.
+  Ningún corte de producto se detiene ni se reestructura por esta puerta.
 - Sin funciones monolíticas, estados globales mutables ni errores que filtren
   detalles internos.
 - Contextos y cancelación en todas las fronteras lentas.

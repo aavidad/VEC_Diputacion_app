@@ -487,5 +487,6 @@ test("menú, títulos y renderizadores cubren las mismas capacidades", () => {
   for (const [nombre, codigo] of Object.entries(fuentes)) {
     assert.ok(codigo.split(/\r?\n/).length - 1 < 800, `${nombre} supera 800 líneas`);
   }
-  assert.ok(portal.split(/\r?\n/).length - 1 < 800, "portal.js supera 800 líneas");
+  // Tope propio del coordinador, elevado por dirección el 23/09/2026.
+  assert.ok(portal.split(/\r?\n/).length - 1 <= 900, "portal.js supera 900 líneas");
 });
