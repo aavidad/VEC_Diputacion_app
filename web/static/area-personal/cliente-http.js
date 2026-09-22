@@ -1,6 +1,7 @@
-import { validarDatosAreaPersonal, validarRecibo } from "./contrato.js";
+import { validarDatosAreaPersonal, validarRecibo, validarRespuestaMiBolsa } from "./contrato.js";
 
 const RUTA_PANEL = "/api/vec/bolsa/area-personal";
+const RUTA_MI_BOLSA = "/api/vec/bolsa/mi-bolsa";
 const MAXIMO_JSON_BYTES = 512 * 1024;
 const MAXIMO_SOLICITUD_BYTES = 64 * 1024;
 const ACCIONES = Object.freeze({
@@ -113,12 +114,37 @@ export function crearClienteHTTPAreaPersonal({ fetchImpl = globalThis.fetch } = 
       throw new ErrorClienteAreaPersonal("servicio_no_disponible", "No se pudo establecer una conexión segura con el servicio.", error);
     }
     if (!estadosValidos.includes(respuesta?.status)) {
-      throw new ErrorClienteAreaPersonal("operacion_rechazada", mensajeHTTP(respuesta?.status));
+      const codigo = respuesta?.status === 401 ? "autenticacion_requerida"
+        : respuesta?.status === 403 ? "acceso_denegado"
+          : respuesta?.status === 404 ? "recurso_no_encontrado"
+            : respuesta?.status === 503 ? "servicio_no_disponible" : "operacion_rechazada";
+      throw new ErrorClienteAreaPersonal(codigo, mensajeHTTP(respuesta?.status));
     }
     return leerJSONAcotado(respuesta);
   }
 
   async function cargar() {
+    try {
+      const envelope = await solicitar(RUTA_MI_BOLSA, {
+        method: "GET",
+        headers: { Accept: "application/json" },
+      }, [200]);
+      return Object.freeze({ fuente: "real", consulta: validarRespuestaMiBolsa(envelope) });
+    } catch (error) {
+      if (!(error instanceof ErrorClienteAreaPersonal) || !["autenticacion_requerida", "recurso_no_encontrado", "servicio_no_disponible"].includes(error.codigo)) throw error;
+      const envelope = await solicitar(RUTA_PANEL, {
+        method: "GET",
+        headers: { Accept: "application/json" },
+      }, [200]);
+      return Object.freeze({
+        fuente: "ejemplo",
+        causa: error.codigo,
+        datos: validarDatosAreaPersonal(exigirEnvelope(envelope, "La respuesta del área personal"), { presentacionEsperada: false }),
+      });
+    }
+  }
+
+  async function cargarPanelAnterior() {
     const envelope = await solicitar(RUTA_PANEL, {
       method: "GET",
       headers: { Accept: "application/json" },
@@ -164,7 +190,7 @@ export function crearClienteHTTPAreaPersonal({ fetchImpl = globalThis.fetch } = 
     });
   }
 
-  return Object.freeze({ modo: "http", cargar, ejecutar });
+  return Object.freeze({ modo: "http", cargar, cargarPanelAnterior, ejecutar });
 }
 
-export const RUTAS_AREA_PERSONAL = Object.freeze({ panel: RUTA_PANEL, acciones: ACCIONES });
+export const RUTAS_AREA_PERSONAL = Object.freeze({ panel: RUTA_PANEL, miBolsa: RUTA_MI_BOLSA, acciones: ACCIONES });

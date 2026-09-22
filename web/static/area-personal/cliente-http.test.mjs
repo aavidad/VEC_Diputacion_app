@@ -30,19 +30,37 @@ test("el cliente real no cae jamás al adaptador demo ante un fallo de red", asy
   );
 });
 
-test("la carga HTTP omite cookies, caché y credenciales inventadas", async () => {
+test("mi bolsa se consulta primero sin cookies, query ni cabeceras de identidad", async () => {
   let peticion;
-  const datos = await datosProductivosSintéticos();
   const cliente = crearClienteHTTPAreaPersonal({ fetchImpl: async (ruta, opciones) => {
     peticion = { ruta, opciones };
-    return respuestaJSON({ data: datos });
+    return respuestaJSON({ data: { esquema: "vec.bolsa.mi_bolsa.v1", consultada_en: "2026-09-23T10:00:00.000Z", participaciones: [{ bolsa: "bolsa:prueba:01", categoria: "Auxiliar", version: 3, orden_inicial: 12, total_instantanea: 87, estado_bolsa: "vigente", vigente_desde: "2026-09-01T00:00:00.000Z", vigente_hasta: null }] } });
   } });
   const recibido = await cliente.cargar();
-  assert.equal(recibido.meta.presentacion, false);
-  assert.equal(peticion.ruta, "/api/vec/bolsa/area-personal");
+  assert.equal(recibido.fuente, "real");
+  assert.equal(recibido.consulta.participaciones[0].orden_inicial, 12);
+  assert.equal(peticion.ruta, "/api/vec/bolsa/mi-bolsa");
   assert.equal(peticion.opciones.credentials, "omit");
   assert.equal(peticion.opciones.cache, "no-store");
   assert.equal(peticion.opciones.headers.Authorization, undefined);
+  assert.equal(peticion.opciones.headers["X-Identity"], undefined);
+});
+
+test("solo 401, 404 y 503 permiten volver al panel sintético rotulado", async () => {
+  const datos = await datosProductivosSintéticos();
+  const rutas = [];
+  const cliente = crearClienteHTTPAreaPersonal({ fetchImpl: async (ruta) => {
+    rutas.push(ruta);
+    return rutas.length === 1 ? respuestaJSON({}, 404) : respuestaJSON({ data: datos });
+  } });
+  const recibido = await cliente.cargar();
+  assert.equal(recibido.fuente, "ejemplo");
+  assert.deepEqual(rutas, ["/api/vec/bolsa/mi-bolsa", "/api/vec/bolsa/area-personal"]);
+});
+
+test("403 no mezcla datos de ejemplo con una identidad sin acceso", async () => {
+  const cliente = crearClienteHTTPAreaPersonal({ fetchImpl: async () => respuestaJSON({}, 403) });
+  await assert.rejects(() => cliente.cargar(), (error) => error.codigo === "acceso_denegado");
 });
 
 test("el cliente HTTP rechaza capacidad ausente antes de tocar la red", async () => {
@@ -70,10 +88,10 @@ test("un fichero no sale por JSON si el puerto documental no está compuesto", a
   assert.equal(llamadas, 0);
 });
 
-test("el cliente HTTP rechaza una respuesta demo en la ruta productiva", async () => {
+test("el cliente HTTP rechaza un contrato que no sea mi-bolsa", async () => {
   const demo = await crearAdaptadorPresentacion().cargar();
   const cliente = crearClienteHTTPAreaPersonal({ fetchImpl: async () => respuestaJSON({ data: demo }) });
-  await assert.rejects(() => cliente.cargar(), /origen no coincide/);
+  await assert.rejects(() => cliente.cargar(), /mi-bolsa\.esquema/u);
 });
 
 test("una acción real exige confirmación, idempotencia y recibo productivo", async () => {

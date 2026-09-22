@@ -45,7 +45,18 @@ export function renderizarSeguimiento(datos, estado) {
     </aside></div>`;
 }
 
-export function renderizarLlamamientos(datos) {
+export function renderizarLlamamientos(datos, estado = {}) {
+  const participaciones = Array.isArray(estado.participaciones) && estado.participaciones.length
+    ? estado.participaciones : datos.posicion ? [{ bolsa: datos.posicion.bolsa, categoria: datos.posicion.categoria, orden_inicial: datos.posicion.orden, total_instantanea: datos.posicion.total, version: "Pendiente de integración", estado_bolsa: "Pendiente de integración", vigente_desde: datos.posicion.vigente_desde, vigente_hasta: null }] : [];
+  const pagina = Math.max(1, Number(estado.paginaParticipaciones || 1));
+  const porPagina = 6;
+  const totalPaginas = Math.max(1, Math.ceil(participaciones.length / porPagina));
+  const paginaActual = Math.min(pagina, totalPaginas);
+  const visibles = participaciones.slice((paginaActual - 1) * porPagina, paginaActual * porPagina);
+  const tarjetasParticipacion = visibles.map((item) => panel("Mi participación", item.categoria, `${listaDatos([["Estado de la bolsa", chip(item.estado_bolsa)], ["Mi número de orden", `${escaparHTML(String(item.orden_inicial))} de ${escaparHTML(String(item.total_instantanea))}`], ["Versión de la bolsa", escaparHTML(String(item.version))], ["Vigencia", `${escaparHTML(item.vigente_desde)}${item.vigente_hasta ? ` · hasta ${escaparHTML(item.vigente_hasta)}` : " · vigente"}`]])}`, { estado: item.estado_bolsa, clase: "participacion-propia" })).join("");
+  const paginacion = participaciones.length > porPagina ? `<nav class="paginacion-participaciones" aria-label="Paginación de participaciones"><span>Mostrando ${(paginaActual - 1) * porPagina + 1} a ${Math.min(paginaActual * porPagina, participaciones.length)} de ${participaciones.length}</span><button type="button" class="boton-secundario" data-accion="pagina-participaciones" data-pagina="${paginaActual - 1}" ${paginaActual === 1 ? "disabled" : ""}>Anterior</button><button type="button" class="boton-secundario" data-accion="pagina-participaciones" data-pagina="${paginaActual + 1}" ${paginaActual === totalPaginas ? "disabled" : ""}>Siguiente</button></nav>` : "";
+  const avisoFuente = estado.fuenteBolsa === "ejemplo" ? `<section class="aviso-fuente-ejemplo" role="status"><strong>Datos de ejemplo.</strong> El acceso del candidato con DNIe o certificado está pendiente de desarrollo en VEC.${estado.causaBolsa === "autenticacion_requerida" ? " Identifíquese con certificado cuando la frontera esté disponible." : ""}</section>` : "";
+  const fichaParticipaciones = participaciones.length ? `<section class="marco-participaciones" aria-label="Mis participaciones en bolsa">${tarjetasParticipacion}${paginacion}</section>` : panel("Mis participaciones", "Sin participaciones activas", "<p>No constan participaciones en bolsa para la identidad actual.</p>");
   const disponibles = datos.disponibilidad;
   const sufijoDemo = datos.meta.presentacion ? " DEMO" : "";
   const tarjetas = datos.llamamientos.map((item, indice) => {
@@ -62,58 +73,18 @@ export function renderizarLlamamientos(datos) {
     const titulo = indice === 0 ? "Último llamamiento" : "Llamamiento anterior";
     return `<article class="panel"><header><div><p>${titulo}</p><h3>${escaparHTML(item.bolsa)}</h3><p>${escaparHTML(item.id)}</p></div>${chip(item.estado)}</header><div class="panel-contenido">${listaDatos(camposLlamamiento)}${item.estado === "Pendiente de respuesta" ? `<p class="nota aviso">Canal, plazo y efectos pendientes de confirmación por RRHH. Esta acción solo cambia la memoria de presentación.</p><div class="fila-acciones">${botonOperacion("responder_llamamiento", `Aceptar llamamiento${sufijoDemo}`, { id: item.id, descripcion: "Registrar una respuesta efímera al llamamiento mostrado" })}${botonOperacion("responder_llamamiento", `Rechazar llamamiento${sufijoDemo}`, { id: `${item.id}|rechazar`, clase: "boton-peligro", descripcion: "Registrar una respuesta efímera al llamamiento mostrado" })}</div>` : `<p class="nota">La respuesta mostrada es sintética y no acredita un efecto administrativo.</p>`}</div></article>`;
   }).join("");
-  const llamamientos = tarjetas || panel("Sin llamamientos", "No consta ningún llamamiento propio", `<p>No se muestra un plazo, una causa ni un efecto por ausencia de datos.</p>`);
+  const llamamientos = panel("Llamamientos", "Información propia", "<p class=\"nota aviso\"><strong>Pendiente de integración.</strong> Esta información no la devuelve todavía Mi bolsa.</p>");
   const contratos = Array.isArray(datos.contratos) && datos.contratos.length > 0
     ? listaDatos(datos.contratos.map((item) => [escaparHTML(item.id), escaparHTML(item.estado)]))
     : `<p>No consta ningún contrato propio en los datos disponibles.</p>`;
 
-  const seccionPosicion = datos.posicion
-    ? panel("Mi posición", "Situación y orden de prelación en la bolsa adscrita", `<div class="posicion-destacada"><output>#${escaparHTML(String(datos.posicion.orden))}</output><span><strong>${escaparHTML(datos.posicion.categoria)}</strong><small>${escaparHTML(datos.posicion.bolsa)}</small></span></div>${listaDatos([["Bolsa", escaparHTML(datos.posicion.bolsa)], ["Categoría", escaparHTML(datos.posicion.categoria)], ["Orden", `#${escaparHTML(String(datos.posicion.orden))} de ${escaparHTML(String(datos.posicion.total))}`], ["Puntuación", `${formatoPuntos(datos.posicion.puntuacion)} puntos`], ["Vigente desde", escaparHTML(datos.posicion.vigente_desde)]])}`, { estado: `#${datos.posicion.orden}` })
-    : "";
-
-  const camposDisponibilidad = [
-    ["Estado", chip(disponibles.estado_clave ? (disponibles.estado || disponibles.estado_clave) : disponibles.estado)],
-    disponibles.estado_clave ? ["Situación en bolsa", `<code>${escaparHTML(disponibles.estado_clave)}</code>`] : null,
-    disponibles.estado_desde ? ["Situación desde", escaparHTML(disponibles.estado_desde)] : (disponibles.desde ? ["Desde", escaparHTML(disponibles.desde)] : null),
-    disponibles.disponible_desde ? ["Disponible a partir de", escaparHTML(disponibles.disponible_desde)] : null,
-    disponibles.motivo_visible ? ["Causa / Motivo", escaparHTML(disponibles.motivo_visible)] : null,
-    disponibles.bolsas ? ["Bolsas", disponibles.bolsas.map(escaparHTML).join("<br>")] : null,
-  ].filter(Boolean);
-
-  const formularioDisponibilidad = disponibles.disponible
-    ? `<form data-operacion="cambiar_disponibilidad" class="formulario-disponibilidad" id="form-disponibilidad">
-        <input type="hidden" name="disponible" value="false">
-        <div class="campo">
-          <label for="texto-pausa">Aclaración de la pausa (opcional)</label>
-          <input id="texto-pausa" name="motivo_texto" type="text" maxlength="500" placeholder="Motivo o aclaración">
-          <small>Las causas, la documentación y sus efectos están pendientes de confirmación por RRHH.</small>
-        </div>
-        <label class="opcion-check">
-          <input type="checkbox" name="confirmacion" required>
-          <span><strong>Ensayar pausa de disponibilidad</strong><small>Solo cambia esta vista en memoria y se pierde al recargar; no modifica la bolsa.</small></span>
-        </label>
-        <div class="fila-acciones">
-          <button type="submit" class="boton-peligro">Ensayar pausa</button>
-        </div>
-      </form>`
-    : `<form data-operacion="cambiar_disponibilidad" class="formulario-disponibilidad" id="form-disponibilidad">
-        <input type="hidden" name="disponible" value="true">
-        <label class="opcion-check">
-          <input type="checkbox" name="confirmacion" required>
-          <span><strong>Ensayar reactivación de disponibilidad</strong><small>Solo cambia esta vista en memoria y se pierde al recargar; no modifica la bolsa.</small></span>
-        </label>
-        <div class="fila-acciones">
-          <button type="submit" class="boton-primario">Ensayar reactivación</button>
-        </div>
-      </form>`;
-
-  return `${encabezadoVista("Disponibilidad y llamamientos", "Controle su situación y responda únicamente a sus propios llamamientos.")}
-    ${seccionPosicion}
+  const pendiente = "<p class=\"nota aviso\"><strong>Pendiente de integración.</strong> Esta información no la devuelve todavía Mi bolsa.</p>";
+  return `${encabezadoVista("Mi bolsa", "Consulte su posición y vigencia. Identificarse con certificado no firma documentos.")}
+    ${avisoFuente}${fichaParticipaciones}
     <div class="rejilla-principal"><div>${llamamientos}</div><aside>
-      ${panel("Situación actual", "Aplicada a las bolsas en las que figura", `${listaDatos(camposDisponibilidad)}`, { estado: disponibles.estado })}
-      ${panel("Gestión de disponibilidad", "Pausar o reactivar su llamamiento", formularioDisponibilidad)}
-      ${panel("Contratos", "Información propia disponible", contratos)}
-      ${panel("Reglas pendientes de confirmar", "La presentación no las sustituye", `<ul><li>Orden y reposición aplicables.</li><li>Causas, justificantes y efectos de la pausa.</li><li>Canales, intentos y plazo de respuesta.</li><li>Documentación y plazo tras aceptar.</li></ul>`)}
+      ${panel("Disponibilidad", "Pausar o reactivar", pendiente)}
+      ${panel("Último llamamiento", "Información propia", pendiente)}
+      ${panel("Contratos", "Información propia", pendiente)}
     </aside></div>`;
 }
 
