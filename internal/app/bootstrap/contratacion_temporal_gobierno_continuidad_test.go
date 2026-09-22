@@ -36,11 +36,11 @@ func (tx *txGobiernoContinuidadPrueba) QueryRow(
 			*destinos[1].(*int64) = 1
 			return nil
 		case strings.Contains(sql, "c.audiencia_consumo IN"):
-			if len(args) != 17 {
+			if len(args) != 18 {
 				return errors.New("numero de audiencias de gobierno inesperado")
 			}
 			admitida := false
-			for _, indice := range []int{0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16} {
+			for _, indice := range []int{0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17} {
 				if args[indice] == tx.audienciaActual {
 					admitida = true
 				}
@@ -71,6 +71,7 @@ func TestGobiernoPostgreSQLContinuidadNominalAD330YAD331(t *testing.T) {
 		ports.AudienciaCambiarSituacionParticipacion,
 		ports.AudienciaRegistrarContactoParticipacion,
 		ports.AudienciaConsultarContactoParticipacion,
+		ports.AudienciaEmitirLlamamiento,
 	}
 	for _, audiencia := range audienciasPropias {
 		t.Run(audiencia, func(t *testing.T) {
