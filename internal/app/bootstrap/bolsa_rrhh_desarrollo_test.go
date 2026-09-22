@@ -139,7 +139,8 @@ func TestBolsasRRHHDesarrolloExponeContratoCerradoYPaginaCandidatos(t *testing.T
 
 func TestBolsasRRHHDesarrolloNoDependeDelDatasetDemoYFallaCerrado(t *testing.T) {
 	rutas, colecciones, err := nuevasRutasBolsasRRHHDesarrollo(config.Config{BolsaDemoPath: "/no-debe-leerse/bolsa-demo.json"})
-	if err != nil || len(rutas) != 1 || len(colecciones) != 1 {
+	// Dos rutas exactas: el cuadro de bolsas y sus estadísticas agregadas.
+	if err != nil || len(rutas) != 2 || len(colecciones) != 1 {
 		t.Fatalf("rutas RRHH: exactas=%d colecciones=%d error=%v", len(rutas), len(colecciones), err)
 	}
 	w := httptest.NewRecorder()
@@ -234,5 +235,61 @@ func TestBolsasRRHHDesarrolloDelegaB2ConIdempotencia(t *testing.T) {
 	manejador.ServeHTTP(respuesta, peticion)
 	if respuesta.Code != http.StatusBadRequest || llamadas != 1 {
 		t.Fatalf("cabecera de autoridad aceptada: status=%d llamadas=%d", respuesta.Code, llamadas)
+	}
+}
+
+func TestBolsasRRHHDesarrolloPublicaEstadisticasAgregadas(t *testing.T) {
+	manejador := manejadorBolsasRRHHPrueba()
+	rec := httptest.NewRecorder()
+	manejador.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, rutaEstadisticasBolsaRRHHDesarrollo, nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("estadisticas=%d body=%s", rec.Code, rec.Body.String())
+	}
+	cuerpo := strings.ToLower(rec.Body.String())
+	if strings.Contains(cuerpo, "correo") || strings.Contains(cuerpo, "telefono") || strings.Contains(cuerpo, "nombre_visible") {
+		t.Fatalf("las estadísticas no pueden exponer datos personales: %s", rec.Body.String())
+	}
+	var salida struct {
+		Data struct {
+			Esquema string `json:"esquema"`
+			Bolsas  struct {
+				Total, Vigentes, Sustituidas int
+			} `json:"bolsas"`
+			Personas struct {
+				Total     int            `json:"total"`
+				PorEstado map[string]int `json:"por_estado"`
+			} `json:"personas"`
+			PorBolsa []struct {
+				Referencia string `json:"bolsa_ref"`
+				Vigente    bool   `json:"vigente"`
+				Total      int    `json:"total"`
+			} `json:"por_bolsa"`
+		} `json:"data"`
+	}
+	if json.Unmarshal(rec.Body.Bytes(), &salida) != nil || salida.Data.Esquema != "vec.bolsa.rrhh.estadisticas.v1" {
+		t.Fatalf("contrato: %s", rec.Body.String())
+	}
+	if salida.Data.Bolsas.Total != len(salida.Data.PorBolsa) || salida.Data.Bolsas.Total != salida.Data.Bolsas.Vigentes+salida.Data.Bolsas.Sustituidas {
+		t.Fatalf("recuento de bolsas incoherente: %+v", salida.Data)
+	}
+	suma := 0
+	for _, n := range salida.Data.Personas.PorEstado {
+		suma += n
+	}
+	if suma != salida.Data.Personas.Total {
+		t.Fatalf("las personas por estado deben sumar el total: %+v", salida.Data.Personas)
+	}
+	porBolsa := 0
+	for _, b := range salida.Data.PorBolsa {
+		porBolsa += b.Total
+	}
+	if porBolsa != salida.Data.Personas.Total {
+		t.Fatalf("el desglose por bolsa debe sumar el total: %d vs %d", porBolsa, salida.Data.Personas.Total)
+	}
+	// La ruta es de solo lectura y no admite consulta.
+	rec = httptest.NewRecorder()
+	manejador.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, rutaEstadisticasBolsaRRHHDesarrollo+"?periodo=2026", nil))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("consulta no canónica: %d", rec.Code)
 	}
 }

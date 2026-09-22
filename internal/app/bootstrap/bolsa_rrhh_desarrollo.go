@@ -19,6 +19,10 @@ import (
 const (
 	rutaBolsasRRHHDesarrollo        = "/api/vec/bolsa/bolsas"
 	prefijoCandidatosRRHHDesarrollo = rutaBolsasRRHHDesarrollo
+	// B12/estadísticas (Peticion.pdf p.3 «cuadro de control» y p.1 punto 7
+	// «estadísticas y explotación»): lectura agregada del mismo conjunto que
+	// sirve el cuadro, sin consultas ni tablas propias.
+	rutaEstadisticasBolsaRRHHDesarrollo = "/api/vec/bolsa/estadisticas"
 )
 
 type datasetBolsasRRHHDesarrollo struct {
@@ -79,7 +83,10 @@ func nuevasRutasBolsasRRHHDesarrolloConFuente(_ config.Config, fuente *fuenteCon
 		manejador.invalidar = invalidar
 		manejador.contactos, _ = mutadores[0].(lectorContactosBolsaDesarrollo)
 	}
-	return []vechttp.RutaExacta{{Ruta: rutaBolsasRRHHDesarrollo, Manejador: manejador}},
+	return []vechttp.RutaExacta{
+			{Ruta: rutaBolsasRRHHDesarrollo, Manejador: manejador},
+			{Ruta: rutaEstadisticasBolsaRRHHDesarrollo, Manejador: manejador},
+		},
 		[]vechttp.RutaColeccion{{Prefijo: prefijoCandidatosRRHHDesarrollo, Manejador: manejador}}, nil
 }
 
@@ -126,6 +133,18 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
 		w.Header().Set("Allow", "GET, HEAD")
 		responderAreaPersonalDesarrollo(w, http.StatusMethodNotAllowed, map[string]string{"codigo": "metodo_no_permitido"})
+		return
+	}
+	if r.URL.Path == rutaEstadisticasBolsaRRHHDesarrollo {
+		if r.URL.RawQuery != "" || r.ContentLength != 0 {
+			responderAreaPersonalDesarrollo(w, http.StatusBadRequest, map[string]string{"codigo": "solicitud_invalida"})
+			return
+		}
+		vista, ok := h.vistaDurable(r.Context(), w)
+		if !ok {
+			return
+		}
+		responderAreaPersonalDesarrollo(w, http.StatusOK, map[string]any{"data": vista.respuestaEstadisticas()}, r.Method == http.MethodHead)
 		return
 	}
 	if r.URL.Path == rutaBolsasRRHHDesarrollo {
@@ -375,6 +394,58 @@ func (h *bolsasRRHHDesarrolloDatos) salidaCandidata(candidata struct {
 		}
 	}
 	return map[string]any{"participacion_ref": candidata.Referencia, "orden": candidata.Orden, "nombre_visible": candidata.Nombre, "documento_enmascarado": candidata.Documento, "estado_clave": estadoBolsaCanonico(candidata.Estado), "estado_desde": candidata.EstadoDesde, "disponible_desde": candidata.Disponible, "ultimo_llamamiento": llamada, "contactos_total": contactos}
+}
+
+// respuestaEstadisticas agrega lo que el cuadro ya muestra: bolsas vigentes y
+// sustituidas, personas por estado, y llamamientos por canal y resultado. No
+// inventa periodos: el conjunto es el vigente, con su instante de generación.
+func (h *bolsasRRHHDesarrolloDatos) respuestaEstadisticas() map[string]any {
+	porEstado := mapaEstadosVacio()
+	porBolsa := make([]map[string]any, 0, len(h.datos.Bolsas))
+	vigentes, sustituidas := 0, 0
+	for _, bolsa := range h.datos.Bolsas {
+		conteo := mapaEstadosVacio()
+		for _, candidata := range h.datos.Candidaturas {
+			if candidata.BolsaRef == bolsa.Referencia {
+				conteo[estadoBolsaCanonico(candidata.Estado)]++
+				porEstado[estadoBolsaCanonico(candidata.Estado)]++
+			}
+		}
+		total := 0
+		for _, n := range conteo {
+			total += n
+		}
+		if bolsa.VigenteHasta == nil {
+			vigentes++
+		} else {
+			sustituidas++
+		}
+		porBolsa = append(porBolsa, map[string]any{
+			"bolsa_ref": bolsa.Referencia, "categoria": bolsa.Categoria, "tipo_lista": bolsa.TipoLista,
+			"vigente": bolsa.VigenteHasta == nil, "total": total, "por_estado": conteo,
+		})
+	}
+	personas := 0
+	for _, n := range porEstado {
+		personas += n
+	}
+	canales := map[string]int{}
+	resultados := map[string]int{}
+	for _, llamamiento := range h.datos.Llamamientos {
+		if llamamiento.Canal != "" {
+			canales[llamamiento.Canal]++
+		}
+		if llamamiento.Resultado != "" {
+			resultados[llamamiento.Resultado]++
+		}
+	}
+	return map[string]any{
+		"esquema": "vec.bolsa.rrhh.estadisticas.v1", "generado_en": instanteBolsasRRHH(h.datos.GeneradoEn),
+		"bolsas":       map[string]any{"total": len(h.datos.Bolsas), "vigentes": vigentes, "sustituidas": sustituidas},
+		"personas":     map[string]any{"total": personas, "por_estado": porEstado},
+		"llamamientos": map[string]any{"total": len(h.datos.Llamamientos), "por_canal": canales, "por_resultado": resultados},
+		"por_bolsa":    porBolsa,
+	}
 }
 
 func mapaEstadosVacio() map[string]int {
