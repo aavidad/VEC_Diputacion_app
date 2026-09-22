@@ -46,9 +46,8 @@ type auditoriaBorradorLlamamiento struct {
 }
 
 // NuevaAuditoriaBorradorLlamamiento debe envolver la protección de ruta y el
-// handler B-BACK/B2. Así registra tanto una denegación temprana como un fallo
-// del caso de uso ya revertido. Solo persiste fallos de las tres operaciones
-// cerradas (POST colección, GET detalle y POST situación).
+// handler B-BACK/B2/B3. Así registra tanto una denegación temprana como un fallo
+// del caso de uso ya revertido.
 func NuevaAuditoriaBorradorLlamamiento(
 	siguiente http.Handler,
 	registrador puertosbolsa.RegistradorIntentoBorradorLlamamiento,
@@ -115,6 +114,12 @@ func (a *auditoriaBorradorLlamamiento) ServeHTTP(w http.ResponseWriter, r *http.
 }
 
 func intentoAuditableBorradorLlamamiento(r *http.Request) (puertosbolsa.AccionIntentoBorradorLlamamiento, puertosbolsa.ClaseRutaIntentoBorradorLlamamiento, bool) {
+	if _, _, ok := ReferenciasRutaContactosParticipacion(r); ok && r.Method == http.MethodGet {
+		return puertosbolsa.AccionIntentoConsultarBorradorLlamamiento, puertosbolsa.ClaseRutaContactosParticipacion, true
+	}
+	if _, _, ok := ReferenciasRutaContactosParticipacion(r); ok && r.Method == http.MethodPost {
+		return puertosbolsa.AccionIntentoRegistrarContactoParticipacion, puertosbolsa.ClaseRutaContactosParticipacion, true
+	}
 	if _, _, ok := ReferenciasRutaSituacionParticipacion(r); ok && r.Method == http.MethodPost {
 		return puertosbolsa.AccionIntentoCambiarSituacionParticipacion, puertosbolsa.ClaseRutaSituacionParticipacion, true
 	}

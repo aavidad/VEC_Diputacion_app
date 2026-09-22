@@ -15,13 +15,20 @@ const (
 	claveCapacidadConsultarBorradorLlamamientoBolsa = "capacidad-bolsa-bback-borrador-consultar"
 	claveFronteraSituacionParticipacionBolsa        = "bolsa-b2-situacion-cambiar"
 	claveCapacidadSituacionParticipacionBolsa       = "capacidad-bolsa-b2-situacion-cambiar"
+	claveFronteraConsultarContactosBolsa            = "bolsa-b3-contactos-consultar"
+	claveFronteraConsultarContactosB5Bolsa          = "bolsa-b3-contactos-b5-consultar"
+	claveCapacidadConsultarContactosBolsa           = "capacidad-bolsa-b3-contactos-consultar"
 
-	dominioMaterialCrearBorradorLlamamientoBolsa     = "vec.bolsa.borrador-llamamiento.crear.desarrollo.capacidad-v3"
-	prefijoMaterialCrearBorradorLlamamientoBolsa     = "clave:capacidad:bolsa-borrador-crear:"
-	dominioMaterialConsultarBorradorLlamamientoBolsa = "vec.bolsa.borrador-llamamiento.consultar.desarrollo.capacidad-v3"
-	prefijoMaterialConsultarBorradorLlamamientoBolsa = "clave:capacidad:bolsa-borrador-consultar:"
-	dominioMaterialSituacionParticipacionBolsa       = "vec.bolsa.situacion-participacion.cambiar.desarrollo.capacidad-v3"
-	prefijoMaterialSituacionParticipacionBolsa       = "clave:capacidad:bolsa-situacion-cambiar:"
+	dominioMaterialCrearBorradorLlamamientoBolsa      = "vec.bolsa.borrador-llamamiento.crear.desarrollo.capacidad-v3"
+	prefijoMaterialCrearBorradorLlamamientoBolsa      = "clave:capacidad:bolsa-borrador-crear:"
+	dominioMaterialConsultarBorradorLlamamientoBolsa  = "vec.bolsa.borrador-llamamiento.consultar.desarrollo.capacidad-v3"
+	prefijoMaterialConsultarBorradorLlamamientoBolsa  = "clave:capacidad:bolsa-borrador-consultar:"
+	dominioMaterialSituacionParticipacionBolsa        = "vec.bolsa.situacion-participacion.cambiar.desarrollo.capacidad-v3"
+	prefijoMaterialSituacionParticipacionBolsa        = "clave:capacidad:bolsa-situacion-cambiar:"
+	dominioMaterialContactoParticipacionBolsa         = "vec.bolsa.contacto-participacion.registrar.desarrollo.capacidad-v3"
+	prefijoMaterialContactoParticipacionBolsa         = "clave:capacidad:bolsa-contacto-registrar:"
+	dominioMaterialConsultaContactoParticipacionBolsa = "vec.bolsa.contacto-participacion.consultar.desarrollo.capacidad-v3"
+	prefijoMaterialConsultaContactoParticipacionBolsa = "clave:capacidad:bolsa-contacto-consultar:"
 )
 
 // descriptoresFronterasBorradorLlamamientoBolsaDesarrollo declara las dos
@@ -42,7 +49,9 @@ func descriptoresFronterasBorradorLlamamientoBolsaDesarrollo(
 			ClavePolitica:      clavePoliticaBorradorLlamamientoBolsaDesarrollo,
 			ClaveCapacidad:     claveCapacidadCrearBorradorLlamamientoBolsa,
 		},
-		{Clave: claveFronteraSituacionParticipacionBolsa, Superficie: superficieInternaSeguridadComunDesarrollo, Metodo: http.MethodPost, Ruta: bolsahttp.RutaBolsasGestion, PerfilesActivosRef: []string{perfilActivoRef}, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadSituacionParticipacionBolsa, PlantillaDetalle: []string{"*", "candidatos", "*", "situacion"}},
+		{Clave: claveFronteraSituacionParticipacionBolsa, Superficie: superficieInternaSeguridadComunDesarrollo, Metodo: http.MethodPost, Ruta: bolsahttp.RutaBolsasGestion, PerfilesActivosRef: []string{perfilActivoRef}, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadSituacionParticipacionBolsa, PlantillaDetalle: []string{"*", "candidatos", "*", "*"}},
+		{Clave: claveFronteraConsultarContactosBolsa, Superficie: superficieInternaSeguridadComunDesarrollo, Metodo: http.MethodGet, Ruta: bolsahttp.RutaBolsasGestion, PerfilesActivosRef: []string{perfilActivoRef}, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadConsultarContactosBolsa, PlantillaDetalle: []string{"*", "candidatos", "*", "contactos"}},
+		{Clave: claveFronteraConsultarContactosB5Bolsa, Superficie: superficieInternaSeguridadComunDesarrollo, Metodo: http.MethodGet, Ruta: bolsahttp.RutaBolsasGestion, PerfilesActivosRef: []string{perfilActivoRef}, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadConsultarContactosBolsa, PlantillaDetalle: []string{"*", "candidatos"}},
 		{
 			Clave:      claveFronteraConsultarBorradorLlamamientoBolsa,
 			Superficie: superficieInternaSeguridadComunDesarrollo,
@@ -79,6 +88,8 @@ func descriptoresAutorizacionBorradorLlamamientoBolsaDesarrollo(
 			Politica:       politica,
 		},
 		{Accion: puertosbolsa.AccionCambiarSituacionParticipacion, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadSituacionParticipacionBolsa, Fronteras: []string{claveFronteraSituacionParticipacionBolsa}, Politica: politica},
+		{Accion: puertosbolsa.AccionRegistrarContactoParticipacion, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadSituacionParticipacionBolsa, Fronteras: []string{claveFronteraSituacionParticipacionBolsa}, Politica: politica},
+		{Accion: puertosbolsa.AccionConsultarContactoParticipacion, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadConsultarContactosBolsa, Fronteras: []string{claveFronteraConsultarContactosBolsa, claveFronteraConsultarContactosB5Bolsa}, Politica: politica},
 	}, nil
 }
 
@@ -93,6 +104,8 @@ func descriptoresMaterialBorradorLlamamientoBolsaDesarrollo() []descriptorMateri
 			ProveedorNominal: "proveedor-material-borrador-llamamiento-bolsa-crear",
 		},
 		{Audiencia: puertosbolsa.AudienciaCambiarSituacionParticipacion, Dominio: dominioMaterialSituacionParticipacionBolsa, Prefijo: prefijoMaterialSituacionParticipacionBolsa, ProveedorNominal: "proveedor-material-situacion-participacion-bolsa"},
+		{Audiencia: puertosbolsa.AudienciaRegistrarContactoParticipacion, Dominio: dominioMaterialContactoParticipacionBolsa, Prefijo: prefijoMaterialContactoParticipacionBolsa, ProveedorNominal: "proveedor-material-contacto-participacion-bolsa"},
+		{Audiencia: puertosbolsa.AudienciaConsultarContactoParticipacion, Dominio: dominioMaterialConsultaContactoParticipacionBolsa, Prefijo: prefijoMaterialConsultaContactoParticipacionBolsa, ProveedorNominal: "proveedor-material-consulta-contacto-participacion-bolsa"},
 		{
 			Audiencia:        puertosbolsa.AudienciaConsultarBorradorLlamamientoInterno,
 			Dominio:          dominioMaterialConsultarBorradorLlamamientoBolsa,

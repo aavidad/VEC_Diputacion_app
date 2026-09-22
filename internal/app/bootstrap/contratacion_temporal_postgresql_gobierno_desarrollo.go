@@ -162,7 +162,7 @@ func gobiernoActualPostgreSQLContratacionTemporalDesarrolloEsPropio(
 		    AND pg_catalog.left(c.acto_ref,
 		        pg_catalog.length('acto:ct:desarrollo:clave-capacidad:'))=
 		        'acto:ct:desarrollo:clave-capacidad:'
-		    AND c.audiencia_consumo IN ($1,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15))
+		    AND c.audiencia_consumo IN ($1,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17))
 		AND EXISTS (
 		 SELECT 1
 		   FROM vec_autorizacion_atestada_v3.puntero_configuracion_actual p
@@ -204,6 +204,8 @@ func gobiernoActualPostgreSQLContratacionTemporalDesarrolloEsPropio(
 		puertosbolsa.AudienciaCrearBorradorLlamamientoInterno,
 		puertosbolsa.AudienciaConsultarBorradorLlamamientoInterno,
 		puertosbolsa.AudienciaCambiarSituacionParticipacion,
+		puertosbolsa.AudienciaRegistrarContactoParticipacion,
+		puertosbolsa.AudienciaConsultarContactoParticipacion,
 	).Scan(&propio)
 	return propio, err
 }
@@ -227,7 +229,9 @@ func audienciaConsumoGobiernoPostgreSQLContratacionTemporalDesarrolloEsPropia(
 		ctapplication.AudienciaResultadoCorreoLlamamientoV3,
 		puertosbolsa.AudienciaCrearBorradorLlamamientoInterno,
 		puertosbolsa.AudienciaConsultarBorradorLlamamientoInterno,
-		puertosbolsa.AudienciaCambiarSituacionParticipacion:
+		puertosbolsa.AudienciaCambiarSituacionParticipacion,
+		puertosbolsa.AudienciaRegistrarContactoParticipacion,
+		puertosbolsa.AudienciaConsultarContactoParticipacion:
 		return true
 	default:
 		return false

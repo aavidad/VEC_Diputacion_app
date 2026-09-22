@@ -11,6 +11,8 @@ import (
 
 	"vec-diputacion-granada/config"
 	bolsahttp "vec-diputacion-granada/internal/modules/bolsa/adapters/httpinterno"
+	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
+	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 )
 
@@ -46,12 +48,18 @@ type datasetBolsasRRHHDesarrollo struct {
 		Canal       string `json:"canal"`
 		Resultado   string `json:"resultado"`
 	} `json:"llamamientos"`
+	Contactos []dominiobolsa.ContactoParticipacion `json:"contactos"`
 }
 
 type bolsasRRHHDesarrollo struct {
 	cargar    func(context.Context) (datasetBolsasRRHHDesarrollo, error)
 	mutar     http.Handler
 	invalidar func()
+	contactos lectorContactosBolsaDesarrollo
+}
+
+type lectorContactosBolsaDesarrollo interface {
+	ListarContactosBolsa(context.Context, string, string, int) (puertosbolsa.PaginaContactosParticipacion, error)
 }
 
 func nuevasRutasBolsasRRHHDesarrollo(cfg config.Config) ([]vechttp.RutaExacta, []vechttp.RutaColeccion, error) {
@@ -69,6 +77,7 @@ func nuevasRutasBolsasRRHHDesarrolloConFuente(_ config.Config, fuente *fuenteCon
 	if len(mutadores) == 1 {
 		manejador.mutar = mutadores[0]
 		manejador.invalidar = invalidar
+		manejador.contactos, _ = mutadores[0].(lectorContactosBolsaDesarrollo)
 	}
 	return []vechttp.RutaExacta{{Ruta: rutaBolsasRRHHDesarrollo, Manejador: manejador}},
 		[]vechttp.RutaColeccion{{Prefijo: prefijoCandidatosRRHHDesarrollo, Manejador: manejador}}, nil
@@ -91,10 +100,14 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	if esMutacionSituacion {
 		_, _, esMutacionSituacion = bolsahttp.ReferenciasRutaSituacionParticipacion(r)
 	}
+	esContacto := h != nil && h.mutar != nil && r != nil && (r.Method == http.MethodPost || r.Method == http.MethodGet)
+	if esContacto {
+		_, _, esContacto = bolsahttp.ReferenciasRutaContactosParticipacion(r)
+	}
 	cabeceras := http.Header(nil)
 	if r != nil {
 		cabeceras = r.Header
-		if esMutacionSituacion {
+		if esMutacionSituacion || esContacto {
 			cabeceras = r.Header.Clone()
 			cabeceras.Del("Idempotency-Key")
 		}
@@ -103,7 +116,7 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		responderAreaPersonalDesarrollo(w, http.StatusBadRequest, map[string]string{"codigo": "solicitud_invalida"})
 		return
 	}
-	if esMutacionSituacion {
+	if esMutacionSituacion || esContacto {
 		h.mutar.ServeHTTP(w, r)
 		if h.invalidar != nil {
 			h.invalidar()
@@ -141,12 +154,32 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	if !ok {
 		return
 	}
+	if (h.contactos == nil && h.mutar != nil) || (h.contactos != nil && !h.cargarContactos(r.Context(), vista, bolsaRef)) {
+		responderAreaPersonalDesarrollo(w, http.StatusServiceUnavailable, map[string]string{"codigo": "servicio_no_disponible"})
+		return
+	}
 	respuesta, encontrada := vista.respuestaCandidatos(bolsaRef, consulta)
 	if !encontrada {
 		responderAreaPersonalDesarrollo(w, http.StatusNotFound, map[string]string{"codigo": "recurso_no_encontrado"})
 		return
 	}
 	responderAreaPersonalDesarrollo(w, http.StatusOK, map[string]any{"data": respuesta}, r.Method == http.MethodHead)
+}
+
+func (h *bolsasRRHHDesarrollo) cargarContactos(ctx context.Context, vista *bolsasRRHHDesarrolloDatos, bolsa string) bool {
+	cursor := ""
+	for pagina := 0; pagina < 100; pagina++ {
+		p, err := h.contactos.ListarContactosBolsa(ctx, bolsa, cursor, 100)
+		if err != nil {
+			return false
+		}
+		vista.datos.Contactos = append(vista.datos.Contactos, p.Contactos...)
+		if len(p.Contactos) < 100 || p.CursorSiguiente == "" {
+			return true
+		}
+		cursor = p.CursorSiguiente
+	}
+	return false
 }
 
 func (h *bolsasRRHHDesarrollo) vistaDurable(ctx context.Context, w http.ResponseWriter) (*bolsasRRHHDesarrolloDatos, bool) {
@@ -295,7 +328,20 @@ func (h *bolsasRRHHDesarrolloDatos) respuestaCandidatos(ref string, consulta con
 	if hayMas {
 		siguiente = h.datos.Candidaturas[candidatas[fin-1]].Referencia
 	}
-	return map[string]any{"esquema": "vec.bolsa.rrhh.candidatos.v1", "generado_en": instanteBolsasRRHH(h.datos.GeneradoEn), "bolsa": salidaBolsaRRHH(bolsa.Referencia, bolsa.CategoriaRef, bolsa.Categoria, bolsa.TipoLista, bolsa.VigenteDesde, bolsa.VigenteHasta, conteo), "candidatos": salida, "hay_mas": hayMas, "cursor_siguiente": siguiente}, true
+	contactos := make([]map[string]any, 0)
+	for _, c := range h.datos.Contactos {
+		if c.BolsaRef == ref {
+			contactos = append(contactos, map[string]any{"contacto_ref": c.ContactoRef, "participacion_ref": c.ParticipacionRef, "llamamiento_ref": nuloBootstrap(c.LlamamientoRef), "canal": c.Canal, "instante": c.Instante.UTC().Format(time.RFC3339Nano), "actor_ref": c.Actor, "resultado": c.Resultado, "anotacion": c.Anotacion})
+		}
+	}
+	return map[string]any{"esquema": "vec.bolsa.rrhh.candidatos.v1", "generado_en": instanteBolsasRRHH(h.datos.GeneradoEn), "bolsa": salidaBolsaRRHH(bolsa.Referencia, bolsa.CategoriaRef, bolsa.Categoria, bolsa.TipoLista, bolsa.VigenteDesde, bolsa.VigenteHasta, conteo), "candidatos": salida, "contactos": contactos, "hay_mas": hayMas, "cursor_siguiente": siguiente}, true
+}
+
+func nuloBootstrap(v string) any {
+	if v == "" {
+		return nil
+	}
+	return v
 }
 
 func salidaBolsaRRHH(referencia, categoriaRef, categoria, tipo, desde string, hasta *string, conteo map[string]int) map[string]any {
@@ -322,7 +368,13 @@ func (h *bolsasRRHHDesarrolloDatos) salidaCandidata(candidata struct {
 	if ultimo != nil {
 		llamada = ultimo
 	}
-	return map[string]any{"participacion_ref": candidata.Referencia, "orden": candidata.Orden, "nombre_visible": candidata.Nombre, "documento_enmascarado": candidata.Documento, "estado_clave": estadoBolsaCanonico(candidata.Estado), "estado_desde": candidata.EstadoDesde, "disponible_desde": candidata.Disponible, "ultimo_llamamiento": llamada}
+	contactos := 0
+	for _, c := range h.datos.Contactos {
+		if c.ParticipacionRef == candidata.Referencia {
+			contactos++
+		}
+	}
+	return map[string]any{"participacion_ref": candidata.Referencia, "orden": candidata.Orden, "nombre_visible": candidata.Nombre, "documento_enmascarado": candidata.Documento, "estado_clave": estadoBolsaCanonico(candidata.Estado), "estado_desde": candidata.EstadoDesde, "disponible_desde": candidata.Disponible, "ultimo_llamamiento": llamada, "contactos_total": contactos}
 }
 
 func mapaEstadosVacio() map[string]int {

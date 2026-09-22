@@ -64,8 +64,8 @@ func TestDescriptoresBorradorLlamamientoBolsaFronterasExactas(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(fronteras) != 3 {
-		t.Fatalf("fronteras = %d, se esperan 3", len(fronteras))
+	if len(fronteras) != 5 {
+		t.Fatalf("fronteras = %d, se esperan 5", len(fronteras))
 	}
 	for _, frontera := range fronteras {
 		if len(frontera.PerfilesActivosRef) != 1 || frontera.PerfilesActivosRef[0] != "prf_bolsa_bback" {
@@ -84,6 +84,18 @@ func TestDescriptoresBorradorLlamamientoBolsaFronterasExactas(t *testing.T) {
 	}
 	if _, ok := catalogo.resolver(http.MethodPost, bolsahttp.RutaBolsasGestion+"/bolsa:01/candidatos/participacion:01/situacion"); !ok {
 		t.Fatal("POST B2 no quedó declarado")
+	}
+	if _, ok := catalogo.resolver(http.MethodPost, bolsahttp.RutaBolsasGestion+"/bolsa:01/candidatos/participacion:01/contactos"); !ok {
+		t.Fatal("POST B3 no quedó declarado")
+	}
+	if _, ok := catalogo.resolver(http.MethodGet, bolsahttp.RutaBolsasGestion+"/bolsa:01/candidatos/participacion:01/contactos"); !ok {
+		t.Fatal("GET B3 no quedó declarado")
+	}
+	if _, ok := catalogo.resolver(http.MethodGet, bolsahttp.RutaBolsasGestion+"/bolsa:01/candidatos"); !ok {
+		t.Fatal("GET B5 no quedó declarado para consultar contactos")
+	}
+	if _, ok := catalogo.resolver(http.MethodGet, bolsahttp.RutaBolsasGestion+"/bolsa:01/candidatos/participacion:01/situacion"); ok {
+		t.Fatal("GET B3 abrió un subrecurso ajeno")
 	}
 	for _, caso := range []struct{ metodo, ruta string }{
 		{http.MethodHead, bolsahttp.RutaBorradoresLlamamiento + "/borrador"},
@@ -126,6 +138,9 @@ func TestDescriptoresBorradorLlamamientoBolsaAutorizacionExacta(t *testing.T) {
 	if p, ok := catalogo.politicaPara(puertosbolsa.AccionCambiarSituacionParticipacion, claveFronteraSituacionParticipacionBolsa, clavePoliticaBorradorLlamamientoBolsaDesarrollo, claveCapacidadSituacionParticipacionBolsa); !ok || !p.valida() {
 		t.Fatal("cambio B2 no conservó la política Bolsa completa")
 	}
+	if p, ok := catalogo.politicaPara(puertosbolsa.AccionRegistrarContactoParticipacion, claveFronteraSituacionParticipacionBolsa, clavePoliticaBorradorLlamamientoBolsaDesarrollo, claveCapacidadSituacionParticipacionBolsa); !ok || !p.valida() {
+		t.Fatal("registro B3 no conservó la política Bolsa completa")
+	}
 	for _, caso := range []struct{ accion, frontera, capacidad string }{
 		{puertosbolsa.AccionCrearBorradorLlamamientoInterno, claveFronteraConsultarBorradorLlamamientoBolsa, claveCapacidadConsultarBorradorLlamamientoBolsa},
 		{puertosbolsa.AccionConsultarBorradorLlamamientoInterno, claveFronteraCrearBorradorLlamamientoBolsa, claveCapacidadCrearBorradorLlamamientoBolsa},
@@ -140,8 +155,8 @@ func TestDescriptoresBorradorLlamamientoBolsaAutorizacionExacta(t *testing.T) {
 
 func TestDescriptoresBorradorLlamamientoBolsaMaterialExacto(t *testing.T) {
 	descriptores := descriptoresMaterialBorradorLlamamientoBolsaDesarrollo()
-	if len(descriptores) != 3 {
-		t.Fatalf("materiales = %d, se esperan 3", len(descriptores))
+	if len(descriptores) != 5 {
+		t.Fatalf("materiales = %d, se esperan 5", len(descriptores))
 	}
 	catalogo, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(descriptores)
 	if err != nil {
@@ -151,6 +166,8 @@ func TestDescriptoresBorradorLlamamientoBolsaMaterialExacto(t *testing.T) {
 		{Audiencia: puertosbolsa.AudienciaCrearBorradorLlamamientoInterno, Dominio: dominioMaterialCrearBorradorLlamamientoBolsa, Prefijo: prefijoMaterialCrearBorradorLlamamientoBolsa, ProveedorNominal: "proveedor-material-borrador-llamamiento-bolsa-crear"},
 		{Audiencia: puertosbolsa.AudienciaConsultarBorradorLlamamientoInterno, Dominio: dominioMaterialConsultarBorradorLlamamientoBolsa, Prefijo: prefijoMaterialConsultarBorradorLlamamientoBolsa, ProveedorNominal: "proveedor-material-borrador-llamamiento-bolsa-consultar"},
 		{Audiencia: puertosbolsa.AudienciaCambiarSituacionParticipacion, Dominio: dominioMaterialSituacionParticipacionBolsa, Prefijo: prefijoMaterialSituacionParticipacionBolsa, ProveedorNominal: "proveedor-material-situacion-participacion-bolsa"},
+		{Audiencia: puertosbolsa.AudienciaRegistrarContactoParticipacion, Dominio: dominioMaterialContactoParticipacionBolsa, Prefijo: prefijoMaterialContactoParticipacionBolsa, ProveedorNominal: "proveedor-material-contacto-participacion-bolsa"},
+		{Audiencia: puertosbolsa.AudienciaConsultarContactoParticipacion, Dominio: dominioMaterialConsultaContactoParticipacionBolsa, Prefijo: prefijoMaterialConsultaContactoParticipacionBolsa, ProveedorNominal: "proveedor-material-consulta-contacto-participacion-bolsa"},
 	} {
 		actual, ok := catalogo.descriptorPara(esperado.Audiencia)
 		if !ok || actual != esperado {

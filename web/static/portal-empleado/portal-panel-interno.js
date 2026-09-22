@@ -7,6 +7,8 @@
  * sin acceder al DOM global.
  */
 
+import { traducirBolsaInterna } from "./portal-i18n.js";
+
 const ESQUEMA_PANEL_INTERNO = "vec.bolsa.panel.interno.v1";
 
 export function crearPresentadorPanelInterno(dependencias) {
@@ -350,6 +352,7 @@ export function crearPresentadorPanelInterno(dependencias) {
 
     const bolsa = estadoCandidatos.datos?.bolsa;
     const candidatos = estadoCandidatos.datos?.candidatos || [];
+    const contactos = estadoCandidatos.datos?.contactos || [];
     const modalFicha = typeof obtenerModalFicha === "function" ? obtenerModalFicha() : null;
     const hayMas = estadoCandidatos.datos?.hay_mas === true;
     const cursorSiguiente = estadoCandidatos.datos?.cursor_siguiente || "";
@@ -453,20 +456,22 @@ export function crearPresentadorPanelInterno(dependencias) {
           </div>
         </section>
       </aside>` : "";
-    const llamadas = candidatos.filter((candidato) => candidato.ultimo_llamamiento)
-      .sort((a, b) => b.ultimo_llamamiento.comunicado_en.localeCompare(a.ultimo_llamamiento.comunicado_en));
+    const nombres = new Map(candidatos.map((c) => [c.participacion_ref, c]));
+    const llamadas = candidatos.filter((candidato) => candidato.ultimo_llamamiento).map((candidato)=>({fecha:candidato.ultimo_llamamiento.comunicado_en,candidato,tipo:traducirBolsaInterna("contacto_llamamiento_tipo"),resultado:etiquetaClave(candidato.ultimo_llamamiento.resultado),actor:"—",contacto:"—"}))
+      .concat(contactos.map((contacto)=>({fecha:contacto.instante,candidato:nombres.get(contacto.participacion_ref),tipo:traducirBolsaInterna("contacto_tipo"),resultado:traducirBolsaInterna(`contacto_${contacto.resultado}`),actor:contacto.actor_ref,contacto:`${traducirBolsaInterna(`contacto_${contacto.canal}`)} · ${contacto.anotacion}`})))
+      .sort((a, b) => b.fecha.localeCompare(a.fecha));
     const paginaHistorico = Math.max(0, Number(filtrosActuales.pagina_historico) || 0);
     const inicioHistorico = paginaHistorico * 6;
     const paginaLlamadas = llamadas.slice(inicioHistorico, inicioHistorico + 6);
     const tablaHistorico = paginaLlamadas.length === 0
-      ? '<tr><td colspan="6" class="vacio-controlado">Sin llamamientos registrados</td></tr>'
-      : paginaLlamadas.map((candidato) => {
-        const llamamiento = candidato.ultimo_llamamiento;
-        return `<tr><td>${fechaMarcada(llamamiento.comunicado_en)}</td><td>${escaparHTML(candidato.nombre_visible)}<br><code>${escaparHTML(candidato.documento_enmascarado)}</code></td><td>Llamamiento</td><td>${escaparHTML(etiquetaClave(llamamiento.resultado))}</td><td>—</td><td>—</td></tr>`;
+      ? `<tr><td colspan="6" class="vacio-controlado">${traducirBolsaInterna("contacto_historico_vacio")}</td></tr>`
+      : paginaLlamadas.map((evento) => {
+        const candidato=evento.candidato;
+        return `<tr><td>${fechaMarcada(evento.fecha)}</td><td>${escaparHTML(candidato?.nombre_visible||evento.contacto)}${candidato?`<br><code>${escaparHTML(candidato.documento_enmascarado)}</code>`:""}</td><td>${escaparHTML(evento.tipo)}</td><td>${escaparHTML(evento.resultado)}</td><td>${escaparHTML(evento.actor)}</td><td>${escaparHTML(evento.contacto)}</td></tr>`;
       }).join("");
     const navegacionHistorico = llamadas.length > 6 ? `<div class="acciones-vista" aria-label="Paginación del histórico"><span>Mostrando ${numero(inicioHistorico + 1)} a ${numero(Math.min(inicioHistorico + 6, llamadas.length))} de ${numero(llamadas.length)}</span><button type="button" class="boton-secundario" data-bolsa-accion="pagina-historico" data-pagina="${paginaHistorico - 1}"${paginaHistorico === 0 ? " disabled" : ""}>Anterior</button><button type="button" class="boton-secundario" data-bolsa-accion="pagina-historico" data-pagina="${paginaHistorico + 1}"${inicioHistorico + 6 >= llamadas.length ? " disabled" : ""}>Siguiente</button></div>` : "";
     const pestanas = `<nav class="acciones-vista" role="tablist" aria-label="Vistas de la bolsa"><button type="button" class="boton-secundario" role="tab" aria-selected="${pestana === "candidatos"}" data-bolsa-accion="cambiar-pestana" data-pestana="candidatos">Candidatos</button><button type="button" class="boton-secundario" role="tab" aria-selected="${pestana === "historico"}" data-bolsa-accion="cambiar-pestana" data-pestana="historico">Histórico de llamamientos</button></nav>`;
-    const contenidoHistorico = `<section class="panel" data-bolsa-b5-destino="true" tabindex="-1"><div class="cabecera-panel"><h3>Histórico de llamamientos</h3><span class="estado-chip info">${numero(llamadas.length)} registros</span></div><div class="tabla-contenedor"><table class="tabla-datos"><caption>Últimos llamamientos disponibles en la lectura de candidaturas</caption><thead><tr><th scope="col">Fecha</th><th scope="col">Candidato</th><th scope="col">Tipo</th><th scope="col">Resultado</th><th scope="col">Actor</th><th scope="col">Contacto</th></tr></thead><tbody>${tablaHistorico}</tbody></table></div>${navegacionHistorico}<div class="cuerpo-panel"><small>El contacto no forma parte todavía de esta lectura y se mostrará cuando B3 aporte su histórico.</small></div></section>`;
+    const contenidoHistorico = `<section class="panel" data-bolsa-b5-destino="true" tabindex="-1"><div class="cabecera-panel"><h3>${traducirBolsaInterna("contacto_historico_titulo")}</h3><span class="estado-chip info">${numero(llamadas.length)} registros</span></div><div class="tabla-contenedor"><table class="tabla-datos"><caption>${traducirBolsaInterna("contacto_historico_descripcion")}</caption><thead><tr><th scope="col">Fecha</th><th scope="col">Candidato</th><th scope="col">Tipo</th><th scope="col">Resultado</th><th scope="col">Actor</th><th scope="col">Contacto</th></tr></thead><tbody>${tablaHistorico}</tbody></table></div>${navegacionHistorico}</section>`;
 
     return `
       ${encabezadoVista("Gestión interna de Bolsas", tituloBolsa, descripcionBolsa, accionesEncabezado)}
@@ -537,6 +542,10 @@ export function crearPresentadorPanelInterno(dependencias) {
         <p class="mensaje-error" role="alert">${escaparHTML(modal.errorCambioSituacion || "")}</p>
       </form>` : "";
     const reciboSituacion = modal.reciboSituacion ? `<p class="mensaje-exito" role="status">Cambio registrado. Recibo <code>${escaparHTML(modal.reciboSituacion)}</code>.</p>` : "";
+    const reciboContacto = modal.reciboContacto ? `<p class="mensaje-exito" role="status">${escaparHTML(traducirBolsaInterna("contacto_registrado", { recibo: modal.reciboContacto }))}</p>` : "";
+    const opcionLlamamiento = candidato.ultimo_llamamiento ? `<option value="${escaparHTML(candidato.ultimo_llamamiento.llamamiento_ref)}">${escaparHTML(candidato.ultimo_llamamiento.llamamiento_ref)}</option>` : "";
+    const t = traducirBolsaInterna;
+    const formularioContacto = `<form data-bolsa-form="contacto" data-participacion-ref="${escaparHTML(candidato.participacion_ref)}"><h4>${t("contacto_registrar")}</h4><label>${t("contacto_canal")} <select name="canal" required><option value="telefono">${t("contacto_telefono")}</option><option value="correo">${t("contacto_correo")}</option><option value="sms">${t("contacto_sms")}</option><option value="presencial">${t("contacto_presencial")}</option><option value="otro">${t("contacto_otro")}</option></select></label><label>${t("contacto_resultado")} <select name="resultado" required><option value="contactado">${t("contacto_contactado")}</option><option value="no_contesta">${t("contacto_no_contesta")}</option><option value="buzon">${t("contacto_buzon")}</option><option value="acepta">${t("contacto_acepta")}</option><option value="rechaza">${t("contacto_rechaza")}</option><option value="aplazado">${t("contacto_aplazado")}</option><option value="otro">${t("contacto_otro")}</option></select></label>${opcionLlamamiento?`<label>${t("contacto_llamamiento")} <select name="llamamiento_ref"><option value="">${t("contacto_sin_vincular")}</option>${opcionLlamamiento}</select></label>`:""}<label>${t("contacto_anotacion")} <textarea name="anotacion" required maxlength="1000"></textarea></label><button type="submit" class="boton-primario">${t("contacto_registrar")}</button><p class="mensaje-error" role="alert">${escaparHTML(modal.errorContacto||"")}</p></form>`;
 
     return `
       <tr class="fila-ficha-participacion" data-ficha-participacion-ref="${escaparHTML(candidato.participacion_ref)}">
@@ -556,8 +565,10 @@ export function crearPresentadorPanelInterno(dependencias) {
                 ${disponibilidad}
                 <div class="fila-resumen"><dt>Referencia de participación</dt><dd><code>${escaparHTML(candidato.participacion_ref)}</code></dd></div>
                 ${ultimoLlamamiento}
+                <div class="fila-resumen"><dt>${traducirBolsaInterna("contacto_contador")}</dt><dd>${numero(candidato.contactos_total)}</dd></div>
               </dl>
               ${reciboSituacion}
+              ${reciboContacto}
             </div>
             <div class="acciones-vista">
               <button type="button" class="boton-primario" data-bolsa-accion="abrir-cambio-situacion">Cambiar situación</button>
@@ -565,6 +576,7 @@ export function crearPresentadorPanelInterno(dependencias) {
             </div>
           </section>
           ${cambio}
+          ${formularioContacto}
         </td>
       </tr>`;
   }

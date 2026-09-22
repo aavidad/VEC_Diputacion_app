@@ -38,7 +38,7 @@ func (a *autoridadInicialBorradorBolsaPrueba) prepararInstantanea(
 func (a *autoridadInicialBorradorBolsaPrueba) publicarInstantaneaDesdePreimagen(
 	_ context.Context, instantanea, preimagen dominiovec.InstantaneaAutorizacion,
 ) error {
-	if preimagen.VersionRol.Version != 1 || len(preimagen.VersionRol.Concesiones) != 2 ||
+	if preimagen.VersionRol.Version != 2 || len(preimagen.VersionRol.Concesiones) != 3 ||
 		(instantanea.AsignacionPerfil.Version == 2 && !a.permitirSucesion) {
 		return errors.New("preimagen no admitida")
 	}
@@ -102,7 +102,7 @@ func TestPoliticaBorradorBolsaPublicaTresConcesionesNominales(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if instantanea.AsignacionPerfil.PerfilActivoRef != datos.PerfilActivoRef || len(instantanea.VersionRol.Concesiones) != 3 {
+	if instantanea.AsignacionPerfil.PerfilActivoRef != datos.PerfilActivoRef || len(instantanea.VersionRol.Concesiones) != 5 {
 		t.Fatalf("perfil o concesiones inesperados: %+v", instantanea)
 	}
 	concesiones := map[string]dominiovec.ConcesionRol{}
@@ -113,10 +113,12 @@ func TestPoliticaBorradorBolsaPublicaTresConcesionesNominales(t *testing.T) {
 		puertosbolsa.AccionCrearBorradorLlamamientoInterno:     puertosbolsa.FinalidadCrearBorradorLlamamientoInterno,
 		puertosbolsa.AccionConsultarBorradorLlamamientoInterno: puertosbolsa.FinalidadConsultarBorradorLlamamientoInterno,
 		puertosbolsa.AccionCambiarSituacionParticipacion:       puertosbolsa.FinalidadCambiarSituacionParticipacion,
+		puertosbolsa.AccionRegistrarContactoParticipacion:      puertosbolsa.FinalidadRegistrarContactoParticipacion,
+		puertosbolsa.AccionConsultarContactoParticipacion:      puertosbolsa.FinalidadConsultarContactoParticipacion,
 	} {
 		concesion, existe := concesiones[accion]
 		tipo := puertosbolsa.TipoRecursoBorradorLlamamiento
-		if accion == puertosbolsa.AccionCambiarSituacionParticipacion {
+		if accion == puertosbolsa.AccionCambiarSituacionParticipacion || accion == puertosbolsa.AccionRegistrarContactoParticipacion || accion == puertosbolsa.AccionConsultarContactoParticipacion {
 			tipo = puertosbolsa.TipoRecursoSituacionParticipacion
 		}
 		if !existe || concesion.ModuloID != puertosbolsa.ModuloBorradorLlamamiento || concesion.TipoRecurso != tipo || len(concesion.Finalidades) != 1 || concesion.Finalidades[0] != finalidad {
@@ -202,7 +204,7 @@ func TestPoliticaBorradorBolsaPublicaLaSemillaParaCerrarCarrera(t *testing.T) {
 	}
 }
 
-func TestPoliticaBorradorBolsaEvolucionaSoloDesdeBBackV1Exacta(t *testing.T) {
+func TestPoliticaBorradorBolsaEvolucionaSoloDesdeB2Exacta(t *testing.T) {
 	politica, _, autoridad, _ := nuevaPoliticaBorradorBolsaPrueba(t)
 	autoridad.permitirSucesion = true
 	autoridad.preparar = func(i dominiovec.InstantaneaAutorizacion) (dominiovec.InstantaneaAutorizacion, error) {
@@ -213,8 +215,8 @@ func TestPoliticaBorradorBolsaEvolucionaSoloDesdeBBackV1Exacta(t *testing.T) {
 	if err := politica.PublicarInicial(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if autoridad.publicada.VersionRol.Version != 2 || autoridad.publicada.AsignacionPerfil.Version != 2 || len(autoridad.publicada.VersionRol.Concesiones) != 3 {
-		t.Fatalf("sucesión B2 no exacta: %+v", autoridad.publicada)
+	if autoridad.publicada.VersionRol.Version != 3 || autoridad.publicada.AsignacionPerfil.Version != 2 || len(autoridad.publicada.VersionRol.Concesiones) != 5 {
+		t.Fatalf("sucesión B3 no exacta: %+v", autoridad.publicada)
 	}
 }
 
