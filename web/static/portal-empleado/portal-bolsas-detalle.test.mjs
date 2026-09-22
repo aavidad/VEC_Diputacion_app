@@ -81,6 +81,7 @@ function construirFixturesDesdeDemo() {
       vigente_hasta: b.vigente_hasta,
       total: candidaturas.length,
       por_estado: porEstado,
+	  llamamientos_en_curso: 0,
     };
   });
 
@@ -404,7 +405,7 @@ test("cliente API: crearLlamamientoCandidato y registrarResultadoLlamamiento emi
   assert.equal(bodyResultado.payload.resultado_clave, "aceptado");
 });
 
-test("interfaz B5: deja solo la ficha mientras contactos y efectos no están compuestos", () => {
+test("interfaz B5: conecta el nuevo llamamiento y mantiene pendiente la respuesta", () => {
   const { envelopeCandidatos } = construirFixturesDesdeDemo();
   const datosCandidatosValidados = validarRespuestaCandidatosBolsa(envelopeCandidatos);
 
@@ -432,12 +433,13 @@ test("interfaz B5: deja solo la ficha mientras contactos y efectos no están com
   // El aspirante es el único control principal para abrir la ficha.
   assert.doesNotMatch(html, /<th scope="col">Acciones<\/th>/);
   assert.match(html, /data-bolsa-accion="abrir-ficha"/);
-  assert.match(html, /Acciones pendientes de composición/);
-  assert.match(html, /dependen de C23/);
+  assert.match(html, /Operaciones conectadas/);
+  assert.match(html, /recibos recuperables/);
   assert.match(html, /Consultar historial de contactos/);
   assert.match(html, /Nuevo llamamiento/);
   assert.match(html, /Registrar resultado/);
-  assert.match(html, /disabled aria-disabled="true" title="Pendiente de composición C23"/);
+  assert.match(html, /data-bolsa-accion="iniciar-b7"/);
+  assert.match(html, /disabled aria-disabled="true" title="Pendiente de RRHH"/);
   assert.doesNotMatch(html, /abrir-contactos|abrir-llamar|abrir-resultado/);
 
   // Modal de contactos abierto con datos

@@ -217,6 +217,7 @@ export function crearPresentadorPanelInterno(dependencias) {
         <td><span class="estado-chip neutro">${escaparHTML(etiquetaClave(b.tipo_lista))}</span></td>
         <td><small>${fechaMarcada(b.vigente_desde)}${b.vigente_hasta ? ` — ${fechaMarcada(b.vigente_hasta)}` : " (vigente)"}</small></td>
         <td><strong>${numero(b.total)}</strong></td>
+        <td><span class="estado-chip info">${numero(b.llamamientos_en_curso)}</span></td>
         <td><button type="button" class="estado-chip exito" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(b.bolsa_ref)}" data-estado="disponible" aria-label="Ver ${numero(b.por_estado?.disponible)} candidatos disponibles de ${escaparHTML(b.categoria)}">${numero(b.por_estado?.disponible)}</button></td>
         <td><span class="estado-chip neutro">${numero(b.por_estado?.ocupado)}</span></td>
         <td><span class="estado-chip peligro">${numero(b.por_estado?.no_disponible)}</span></td>
@@ -246,6 +247,7 @@ export function crearPresentadorPanelInterno(dependencias) {
                 <th scope="col">Tipo de lista</th>
                 <th scope="col">Vigencia</th>
                 <th scope="col">Total</th>
+                <th scope="col">Llamamientos en curso</th>
                 <th scope="col">Disponibles</th>
                 <th scope="col">Ocupados</th>
                 <th scope="col">No disp.</th>
@@ -296,6 +298,19 @@ export function crearPresentadorPanelInterno(dependencias) {
       <section class="nota-pendiente">Modo de solo lectura: el contrato real no incluye expedientes de elaboración ni concede capacidad para modificarlos.</section>
       <div class="rejilla-kpi">${tarjetaKPI("BOR", numero(i.convocatorias_borrador), "Borrador")}${tarjetaKPI("REV", numero(i.convocatorias_revision), "En revisión")}${tarjetaKPI("FIR", numero(i.convocatorias_pendientes_firma), "Pendientes de firma")}${tarjetaKPI("PUB", numero(i.convocatorias_publicadas), "Publicadas")}</div>
       <section class="panel"><div class="cabecera-panel"><h3>Convocatorias del ámbito autorizado</h3><span class="estado-chip info">${numero(datos.convocatorias.length)} registros</span></div><div class="tabla-contenedor"><table class="tabla-datos"><caption>Convocatorias agregadas en modo de solo lectura</caption><thead><tr><th scope="col">Referencia</th><th scope="col">Categoría</th><th scope="col">Estado</th><th scope="col">Cierre de plazo</th><th scope="col">Solicitudes</th><th scope="col">Pendientes</th></tr></thead><tbody>${filasConvocatorias(datos)}</tbody></table></div></section>`;
+  }
+
+  function renderizarNuevoLlamamiento(bolsa, candidatos, flujo) {
+    const paso = Math.max(1, Math.min(4, Number(flujo.paso) || 1));
+    const nombres = ["Seleccionar bolsa", "Seleccionar candidatos", "Configurar llamamiento", "Revisar y enviar"];
+    const rail = `<nav class="pasos" aria-label="Pasos del nuevo llamamiento">${nombres.map((nombre,i)=>`<span class="paso ${i+1<paso?"completado":""}"${i+1===paso?' aria-current="step"':""}><span class="paso-numero">${i+1<paso?"✓":i+1}</span><span>${nombre}</span></span>`).join("")}</nav>`;
+    const resumen = `<aside class="resumen-lateral"><section class="panel"><div class="cabecera-panel"><h3>Resumen</h3></div><div class="cuerpo-panel"><dl class="resumen-expediente"><div class="fila-resumen"><dt>Categoría</dt><dd>${escaparHTML(bolsa.categoria)}</dd></div><div class="fila-resumen"><dt>Tipo de lista</dt><dd>${escaparHTML(etiquetaClave(bolsa.tipo_lista))}</dd></div><div class="fila-resumen"><dt>Vigencia</dt><dd>${escaparHTML(fechaVisible(bolsa.vigente_desde))}</dd></div><div class="fila-resumen"><dt>Personas</dt><dd>${numero(bolsa.total)}</dd></div><div class="fila-resumen"><dt>Seleccionadas</dt><dd>${numero(flujo.participaciones?.length||0)}</dd></div></dl></div></section></aside>`;
+    let contenido="";
+    if(paso===1) contenido=`<form class="panel" data-bolsa-form="b7-paso1"><div class="cabecera-panel"><h3>1. Seleccionar bolsa</h3><span class="estado-chip exito">Bolsa constituida</span></div><div class="cuerpo-panel"><p><strong>${escaparHTML(bolsa.categoria)}</strong></p><p>La bolsa se ha leído de B12 y contiene ${numero(bolsa.total)} personas, ${numero(bolsa.por_estado?.disponible||0)} disponibles.</p><button class="boton-primario" type="submit">Seleccionar esta bolsa</button></div></form>`;
+    if(paso===2){const estados=new Set(flujo.estados||["disponible"]);const visibles=candidatos.filter(c=>estados.has(c.estado_clave));const pagina=Math.max(0,Math.min(Number(flujo.pagina)||0,Math.max(0,Math.ceil(visibles.length/6)-1)));const inicio=pagina*6;const filas=visibles.slice(inicio,inicio+6).map(c=>`<tr><td><input type="checkbox" name="participacion" value="${escaparHTML(c.participacion_ref)}" ${flujo.participaciones?.includes(c.participacion_ref)?"checked":""} aria-label="Seleccionar orden ${numero(c.orden)}"></td><td>${numero(c.orden)}</td><td>${escaparHTML(c.nombre_visible)}</td><td><span class="estado-chip ${claseEstado(c.estado_clave)}">${escaparHTML(etiquetaClave(c.estado_clave))}</span></td></tr>`).join("");contenido=`<form class="panel" data-bolsa-form="b7-paso2"><div class="cabecera-panel"><h3>2. Seleccionar candidatos</h3><span class="estado-chip info">${numero(visibles.length)} cumplen los filtros</span></div><div class="cuerpo-panel"><fieldset><legend>Estados a incluir</legend>${["disponible","disponible_desde","no_disponible"].map(e=>`<label><input type="checkbox" name="estado" value="${e}" ${estados.has(e)?"checked":""}> ${escaparHTML(etiquetaClave(e))}</label>`).join(" ")}</fieldset><label><input type="checkbox" checked disabled> Respetar orden de prelación (obligatorio)</label></div><div class="tabla-contenedor"><table class="tabla-datos"><caption>Candidatos por el orden vigente de B5</caption><thead><tr><th>Selección</th><th>Orden</th><th>Candidato</th><th>Estado</th></tr></thead><tbody>${filas||'<tr><td colspan="4">No hay candidatos con esos estados.</td></tr>'}</tbody></table></div><div class="cuerpo-panel"><span>Mostrando ${visibles.length?inicio+1:0} a ${Math.min(inicio+6,visibles.length)} de ${numero(visibles.length)}</span> <button type="button" class="boton-secundario" data-bolsa-accion="b7-pagina" data-pagina="${pagina-1}" ${pagina===0?"disabled":""}>Anterior</button> <button type="button" class="boton-secundario" data-bolsa-accion="b7-pagina" data-pagina="${pagina+1}" ${inicio+6>=visibles.length?"disabled":""}>Siguiente</button> <button class="boton-primario" type="submit">Configurar llamamiento</button></div></form>`}
+    if(paso===3) contenido=`<form class="panel" data-bolsa-form="b7-paso3"><div class="cabecera-panel"><h3>3. Configurar llamamiento</h3></div><div class="cuerpo-panel rejilla-formulario"><label>Referencia de necesidad<input name="referencia" required minlength="2" maxlength="160" value="${escaparHTML(flujo.configuracion?.referencia||"")}"></label><label>Categoría<input name="categoria" required value="${escaparHTML(bolsa.categoria)}"></label><label>Centro<input name="centro" required minlength="2" maxlength="200"></label><label>Modalidad<select name="modalidad" required><option>Sustitución</option><option>Vacante</option><option>Programa temporal</option><option>Acumulación de tareas</option></select></label><label>Fecha prevista de inicio<input type="date" name="fecha_inicio" required></label><label>Canal<input value="Correo obligatorio" readonly></label><label>Plazo provisional<input name="plazo" required value="48 horas · pendiente de RRHH, dudas 1–3" readonly></label><label class="campo-ancho">Descripción<textarea name="descripcion" required minlength="2" maxlength="1000"></textarea></label><label>Plantilla<input name="plantilla_version" value="bolsa-llamamiento-v1" readonly></label><label>Asunto<input name="asunto" required value="Llamamiento de bolsa: ${escaparHTML(bolsa.categoria)}"></label><label class="campo-ancho">Texto del correo<textarea name="cuerpo" required>Se comunica una necesidad de cobertura. La referencia, categoría, centro, modalidad y fecha prevista figuran en este llamamiento. Responda por el cauce indicado por RRHH.</textarea></label><button type="submit" class="boton-primario">Revisar llamamiento</button></div></form>`;
+    if(paso===4){const c=flujo.configuracion||{};contenido=`<section class="panel"><div class="cabecera-panel"><h3>4. Revisar y enviar</h3><span class="estado-chip advertencia">Pendiente de confirmación</span></div><div class="cuerpo-panel"><dl class="resumen-expediente"><div class="fila-resumen"><dt>Necesidad</dt><dd>${escaparHTML(c.referencia)}</dd></div><div class="fila-resumen"><dt>Centro / modalidad</dt><dd>${escaparHTML(c.centro)} · ${escaparHTML(c.modalidad)}</dd></div><div class="fila-resumen"><dt>Candidatos</dt><dd>${numero(flujo.participaciones?.length||0)}, en orden de prelación</dd></div><div class="fila-resumen"><dt>Canal</dt><dd>Correo SMTP; teléfono queda como intento manual B3</dd></div><div class="fila-resumen"><dt>Plazo</dt><dd>${escaparHTML(c.plazo)}</dd></div></dl><form data-bolsa-form="b7-paso4"><label><input type="checkbox" name="confirmacion" required> Confirmo la emisión y el envío al relay configurado.</label><button type="submit" class="boton-primario" ${flujo.enviando?"disabled":""}>${flujo.enviando?"Enviando…":"Emitir llamamiento"}</button></form>${flujo.error?`<p role="alert" class="mensaje-error">${escaparHTML(flujo.error)}</p>`:""}${flujo.recibo?`<section class="mensaje-exito" tabindex="-1" data-b7-recibo><strong>Llamamiento ${escaparHTML(flujo.llamamiento_ref)}</strong><br>Estado: emitido, pendiente de respuesta.<br>Recibo <code>${escaparHTML(flujo.recibo)}</code> · <button type="button" class="boton-secundario" data-bolsa-accion="ver-historico-b7">Abrir Histórico</button></section>`:""}</div></section>`}
+    return `${encabezadoVista("Gestión interna de Bolsas","Nuevo llamamiento","Recorrido real B7 sobre bolsa constituida, candidatos B5, PostgreSQL y SMTP.",'<button type="button" class="boton-secundario" data-bolsa-accion="cancelar-b7">Cancelar</button>')}${rail}<div class="distribucion-llamamiento"><div>${contenido}</div>${resumen}</div>`;
   }
 
   function renderizarCandidatosBolsa() {
@@ -356,6 +371,8 @@ export function crearPresentadorPanelInterno(dependencias) {
     const modalFicha = typeof obtenerModalFicha === "function" ? obtenerModalFicha() : null;
     const hayMas = estadoCandidatos.datos?.hay_mas === true;
     const cursorSiguiente = estadoCandidatos.datos?.cursor_siguiente || "";
+
+    if (filtrosActuales.nuevo_llamamiento) return renderizarNuevoLlamamiento(bolsa, candidatos, filtrosActuales.nuevo_llamamiento);
 
     const tituloBolsa = bolsa ? `Candidatos: ${bolsa.categoria}` : "Candidatos de la bolsa";
     const descripcionBolsa = bolsa
@@ -433,6 +450,19 @@ export function crearPresentadorPanelInterno(dependencias) {
         ? `${fechaVisible(bolsa.vigente_desde)} — ${fechaVisible(bolsa.vigente_hasta)}`
         : `${fechaVisible(bolsa.vigente_desde)} — vigente`)
       : "No disponible";
+    const accionesBolsa = lecturaPresentacion
+      ? `<div class="cuerpo-panel acciones-vista" data-bolsa-c23-pendiente>
+            <button type="button" class="boton-secundario boton-ancho" disabled aria-disabled="true">Consultar historial de contactos</button>
+            <button type="button" class="boton-secundario boton-ancho" disabled aria-disabled="true">Nuevo llamamiento</button>
+            <button type="button" class="boton-secundario boton-ancho" disabled aria-disabled="true">Registrar resultado</button>
+            <p><small>Acciones pendientes de composición en la presentación sintética.</small></p>
+          </div>`
+      : `<div class="cuerpo-panel acciones-vista">
+            <button type="button" class="boton-secundario boton-ancho" data-bolsa-accion="cambiar-pestana" data-pestana="historico">Consultar historial de contactos</button>
+            <button type="button" class="boton-primario boton-ancho" data-bolsa-accion="iniciar-b7">Nuevo llamamiento</button>
+            <button type="button" class="boton-secundario boton-ancho" disabled aria-disabled="true" title="Pendiente de RRHH">Registrar resultado</button>
+            <p><small>B7 emite por SMTP y deja recibo; la respuesta y la renuncia siguen pendientes de RRHH.</small></p>
+          </div>`;
     const resumenBolsa = bolsa ? `
       <aside class="resumen-lateral" aria-label="Resumen de la bolsa seleccionada">
         <section class="panel">
@@ -448,12 +478,7 @@ export function crearPresentadorPanelInterno(dependencias) {
         </section>
         <section class="panel">
           <div class="cabecera-panel"><h3>Siguientes actuaciones</h3></div>
-          <div class="cuerpo-panel acciones-vista" data-bolsa-c23-pendiente>
-            <button type="button" class="boton-secundario boton-ancho" disabled aria-disabled="true" title="Pendiente de composición C23">Consultar historial de contactos</button>
-            <button type="button" class="boton-secundario boton-ancho" disabled aria-disabled="true" title="Pendiente de composición C23">Nuevo llamamiento</button>
-            <button type="button" class="boton-secundario boton-ancho" disabled aria-disabled="true" title="Pendiente de composición C23">Registrar resultado</button>
-            <p><small>Contacto, llamamiento y resultado dependen de la composición C23. Esta vista no inicia operaciones.</small></p>
-          </div>
+          ${accionesBolsa}
         </section>
       </aside>` : "";
     const nombres = new Map(candidatos.map((c) => [c.participacion_ref, c]));
@@ -476,7 +501,7 @@ export function crearPresentadorPanelInterno(dependencias) {
     return `
       ${encabezadoVista("Gestión interna de Bolsas", tituloBolsa, descripcionBolsa, accionesEncabezado)}
       ${lecturaPresentacion ? '<section class="nota-pendiente" role="note"><strong>Presentación sintética de solo lectura.</strong> Los datos visibles no acreditan contacto, envío ni entrega.</section>' : ""}
-      <section class="nota-pendiente" role="note"><strong>Acciones pendientes de composición.</strong> La ficha está disponible para consulta; contactos, llamamientos y resultados dependen de C23 y se habilitarán cuando su circuito esté conectado.</section>
+      ${lecturaPresentacion ? "" : '<section class="nota-seguridad" role="note"><strong>Operaciones conectadas.</strong> Los contactos B3 y la emisión B7 usan autorización nominal, persistencia PostgreSQL y recibos recuperables; las respuestas siguen pendientes de RRHH.</section>'}
       <div class="distribucion-llamamiento">
         <div>
           ${pestanas}

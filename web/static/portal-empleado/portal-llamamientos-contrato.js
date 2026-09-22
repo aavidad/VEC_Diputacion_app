@@ -226,3 +226,27 @@ export function validarPropuestaLlamamientoPresentacion(datos) {
     evaluaciones,
   };
 }
+
+export function validarEmisionLlamamiento(datos) {
+  const obligatorios = ["llamamiento_ref", "recibo_ref", "bolsa_ref", "estado", "participaciones", "configuracion", "emitido_en", "reutilizada"];
+  const permitidos = new Set([...obligatorios, "contactos"]);
+  if (!esObjeto(datos) || obligatorios.some((campo) => !Object.hasOwn(datos, campo))
+    || Object.keys(datos).some((campo) => !permitidos.has(campo))
+    || datos.estado !== "emitido_pendiente_respuesta" || typeof datos.reutilizada !== "boolean"
+    || !/^llamamiento:[a-f0-9]{64}$/.test(datos.llamamiento_ref)
+    || !/^recibo:llamamiento:[a-f0-9]{64}$/.test(datos.recibo_ref)
+    || !Array.isArray(datos.participaciones) || datos.participaciones.length < 1 || datos.participaciones.length > 100
+    || new Set(datos.participaciones).size !== datos.participaciones.length || !esObjeto(datos.configuracion)) {
+    throw new Error("emisión de llamamiento no válida");
+  }
+  datos.participaciones.forEach((ref) => validarReferenciaOpacaLlamamiento(ref, "participación"));
+  ["referencia", "descripcion", "categoria", "centro", "modalidad", "fecha_inicio", "plazo", "plantilla_version", "asunto", "cuerpo"]
+    .forEach((campo) => exigirCadena(datos.configuracion[campo], campo, 4000));
+  exigirInstanteUTC(datos.emitido_en, "emisión");
+  if (datos.contactos !== undefined && (!Array.isArray(datos.contactos)
+    || datos.contactos.some((c) => !esObjeto(c) || !["enviado", "no_enviado"].includes(c.resultado)
+      || typeof c.recibo_ref !== "string" || typeof c.participacion_ref !== "string"))) {
+    throw new Error("contactos de emisión no válidos");
+  }
+  return datos;
+}

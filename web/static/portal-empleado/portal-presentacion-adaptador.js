@@ -276,6 +276,7 @@ export function crearFuenteLecturaBolsasPresentacion({ datosIniciales } = {}) {
         categoria_clave: `presentacion_${indice + 1}`,
         categoria: String(bolsa.nombre),
         tipo_lista: "Pendiente de confirmar",
+		llamamientos_en_curso: 0,
         vigente_desde: "2026-09-01T00:00:00Z",
         vigente_hasta: null,
         total: candidatos.length,

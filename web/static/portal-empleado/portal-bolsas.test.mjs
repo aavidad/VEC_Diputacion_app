@@ -29,12 +29,33 @@ import {
   consultarCandidatosBolsa,
   consultarContactosCandidato,
   registrarContactoCandidato,
+  emitirLlamamiento,
   cambiarSituacionCandidato,
   crearLlamamientoCandidato,
   registrarResultadoLlamamiento,
   rutaCandidatosBolsa,
   crearControladorBolsas,
 } from "./portal-bolsas-api.js";
+
+test("B7 emite por la ruta exacta con idempotencia y conserva el recibo", async () => {
+  let llamada;
+  const huella = "a".repeat(64);
+  const salida = await emitirLlamamiento({
+    bolsa_ref: "bolsa:01",
+    participaciones: ["participacion:01"],
+    configuracion: { referencia: "NEC-01", descripcion: "Cobertura", categoria: "Auxiliar", centro: "Centro", modalidad: "Sustitución", fecha_inicio: "2026-10-01", plazo: "48 horas · pendiente de RRHH, dudas 1–3", plantilla_version: "bolsa-llamamiento-v1", asunto: "Llamamiento", cuerpo: "Texto" },
+    clave_idempotencia: "b7-emision-0001",
+  }, { fetchImpl: async (url, opciones) => {
+    llamada = { url, opciones };
+    return { ok: true, status: 201, json: async () => ({ data: { recibo_ref: `recibo:llamamiento:${huella}`, llamamiento_ref: `llamamiento:${huella}`, bolsa_ref: "bolsa:01", estado: "emitido_pendiente_respuesta", participaciones: ["participacion:01"], configuracion: { referencia: "NEC-01", descripcion: "Cobertura", categoria: "Auxiliar", centro: "Centro", modalidad: "Sustitución", fecha_inicio: "2026-10-01", plazo: "48 horas · pendiente de RRHH, dudas 1–3", plantilla_version: "bolsa-llamamiento-v1", asunto: "Llamamiento", cuerpo: "Texto" }, emitido_en: "2026-09-22T12:00:00Z", reutilizada: false } }) };
+  }});
+  assert.equal(salida.ok, true);
+  assert.equal(salida.datos.recibo_ref, `recibo:llamamiento:${huella}`);
+  assert.equal(llamada.url, "/api/vec/bolsa/llamamientos/emisiones");
+  assert.equal(llamada.opciones.credentials, "omit");
+  assert.equal(llamada.opciones.headers["Idempotency-Key"], "b7-emision-0001");
+  assert.deepEqual(JSON.parse(llamada.opciones.body).participaciones, ["participacion:01"]);
+});
 
 test("cambiar situación B2 envía idempotencia y conserva el recibo", async () => {
   let observada;
@@ -96,6 +117,7 @@ function construirFixturesDesdeDemo() {
       vigente_hasta: b.vigente_hasta,
       total: candidaturas.length,
       por_estado: porEstado,
+	  llamamientos_en_curso: 0,
     };
   });
 
@@ -559,9 +581,9 @@ test("presentadorPanelInterno renderiza Vista B5 de candidatos con filtros, chip
   assert.match(htmlB5, /Consultar historial de contactos/);
   assert.match(htmlB5, /Nuevo llamamiento/);
   assert.match(htmlB5, /Registrar resultado/);
-  assert.match(htmlB5, /dependen de C23/);
-  assert.match(htmlB5, /data-bolsa-c23-pendiente/);
-  assert.match(htmlB5, /disabled aria-disabled="true" title="Pendiente de composición C23"/);
+  assert.match(htmlB5, /B7 emite por SMTP y deja recibo/);
+  assert.match(htmlB5, /data-bolsa-accion="iniciar-b7"/);
+  assert.match(htmlB5, /title="Pendiente de RRHH"/);
   filtrosBolsa = { ...filtrosBolsa, pestana: "historico" };
   const htmlHistorico = presentador.renderizarVista("bolsa-candidatos");
   assert.match(htmlHistorico, /Histórico de contactos y llamamientos/);
@@ -637,6 +659,47 @@ test("presentadorPanelInterno muestra la ficha B5 en línea junto al único cand
   assert.doesNotMatch(htmlCerrado, /Fila de participación|fila-ficha-participacion|Ficha de participación/);
 });
 
+test("B7 presenta cuatro pasos, paginación interna y controles de teclado nativos", () => {
+  const { envelopeCandidatos } = construirFixturesDesdeDemo();
+  const datos = validarRespuestaCandidatosBolsa(envelopeCandidatos);
+  const flujo = { paso: 1, estados: ["disponible"], participaciones: [], configuracion: null };
+  const presentador = crearPresentadorPanelInterno({
+    claseEstado: (c) => `chip-${c}`,
+    encabezadoVista: (_s, t, d, a = "") => `<header><h2>${t}</h2><p>${d}</p>${a}</header>`,
+    escaparHTML: (v) => String(v ?? ""),
+    numero: (n) => String(n ?? 0),
+    obtenerDatosPanel: () => ({ esquema: "vec.bolsa.panel.interno.v1" }),
+    tituloVista: (v) => v,
+    obtenerDatosCandidatosBolsa: () => ({ carga: "listo", datos, error: "" }),
+    obtenerEstadoCandidatos: () => ({ nuevo_llamamiento: flujo }),
+  });
+  let html = presentador.renderizarVista("bolsa-candidatos");
+  assert.match(html, /1\. Seleccionar bolsa/);
+  assert.match(html, /aria-current="step"/);
+  assert.match(html, /type="submit">Seleccionar esta bolsa/);
+
+  flujo.paso = 2;
+  html = presentador.renderizarVista("bolsa-candidatos");
+  assert.match(html, /2\. Seleccionar candidatos/);
+  assert.match(html, /Respetar orden de prelación \(obligatorio\)/);
+  assert.match(html, /Mostrando 1 a 6 de/);
+  assert.match(html, /data-bolsa-accion="b7-pagina"/);
+
+  flujo.paso = 3;
+  html = presentador.renderizarVista("bolsa-candidatos");
+  assert.match(html, /3\. Configurar llamamiento/);
+  assert.match(html, /pendiente de RRHH, dudas 1–3/);
+  assert.match(html, /bolsa-llamamiento-v1/);
+
+  flujo.paso = 4;
+  flujo.participaciones = [datos.candidatos.find((c) => c.estado_clave === "disponible").participacion_ref];
+  flujo.configuracion = { referencia: "NEC-01", centro: "Centro", modalidad: "Sustitución", plazo: "48 horas · pendiente de RRHH, dudas 1–3" };
+  html = presentador.renderizarVista("bolsa-candidatos");
+  assert.match(html, /4\. Revisar y enviar/);
+  assert.match(html, /name="confirmacion" required/);
+  assert.match(html, /type="submit" class="boton-primario"/);
+});
+
 test("controlador de B5 lleva el foco a la ficha inline y lo recupera en su control principal", () => {
   const { envelopeCandidatos } = construirFixturesDesdeDemo();
   const datos = validarRespuestaCandidatosBolsa(envelopeCandidatos);
@@ -675,4 +738,28 @@ test("controlador de B5 lleva el foco a la ficha inline y lo recupera en su cont
   assert.equal(estado.modalFicha, null);
   assert.deepEqual(focos, ["ficha", "control-principal"]);
   assert.equal(renderizados, 2);
+});
+
+test("B7 lleva el foco al raíl al iniciarse desde teclado", () => {
+  const escuchas = {};
+  const focos = [];
+  const boton = { dataset: { bolsaAccion: "iniciar-b7" } };
+  const documento = {
+    addEventListener(tipo, fn) { escuchas[tipo] = fn; },
+    querySelector(selector) {
+      assert.equal(selector, '[aria-current="step"]');
+      return { focus: () => focos.push("paso") };
+    },
+  };
+  const estado = { filtrosBolsa: {}, datosCandidatos: { carga: "listo", datos: { candidatos: [] } } };
+  let renderizados = 0;
+  const controlador = crearControladorBolsas({ estado, renderizar: () => { renderizados += 1; }, navegar: () => {}, documento });
+  controlador.instalar();
+  escuchas.click({
+    preventDefault() {},
+    target: { closest(selector) { return selector === "[data-bolsa-accion]" ? boton : null; } },
+  });
+  assert.equal(estado.filtrosBolsa.nuevo_llamamiento.paso, 1);
+  assert.deepEqual(focos, ["paso"]);
+  assert.equal(renderizados, 1);
 });

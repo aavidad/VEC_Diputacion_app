@@ -1,8 +1,8 @@
-# D6 + B3 — paquete de réplica principal
+# D6 + B3 + B7 — paquete de réplica principal
 
 Este paquete actualiza exclusivamente la instancia sintética principal. Parte de
-su estado conocido: Contratación `000108`, Bolsa llamamientos `000003…000008`
-(más C21) y AD3 hasta `000043`. No ejecuta `DOWN`, no toca otra base y no incluye
+su estado conocido para B7: Contratación `000108`, Bolsa llamamientos hasta
+`000016` (más C21) y AD3 hasta `000047`. No ejecuta `DOWN`, no toca otra base y no incluye
 secretos.
 
 ## Diferencia que aplica
@@ -18,13 +18,15 @@ En este orden causal y dentro de una sola transacción de migraciones:
 5. Bolsa llamamientos `000012`, historia append-only de las siete situaciones B2.
 6. AD3 `000046`, consumidores V3 nominales para registrar y consultar contactos B3;
 7. Bolsa llamamientos `000013`, tabla append-only y lectura paginada y auditada de contactos B3.
+8. AD3 `000048`, consumidor V3 nominal `llamamiento.emitir.v1` de B7;
+9. Bolsa llamamientos `000017`, emisión append-only, recuperación idempotente y contador B12.
 
 El inventario completo no encuentra otra migración de `main@48e64f84` posterior
 al estado indicado: Bolsa `000009/000010` no existen en `main` y CT termina en
 `000108`. El árbol versionado salta de AD3 `000038` a `000044`; la principal
 conserva AD3-43 por la cadena instalada declarada por Dirección. El paquete no
 la reaplica. `02_migraciones.sql` conserva los `REVOKE ... FROM PUBLIC` y
-`GRANT ... TO <rol>` de las seis fuentes y las ejecuta como una unidad.
+`GRANT ... TO <rol>` de las ocho fuentes y las ejecuta como una unidad.
 
 `03_entorno.md` enumera las seis conexiones ausentes, el contador 18 y el
 material privado `bolsa-bback.json` v2. La configuración privada debe prepararse
@@ -78,3 +80,7 @@ La corrección final de lectura se ensayó además desde la preimagen AD3-45/Bol
 `000046 + 000013` completaron juntos con `ROLLBACK` y después con `COMMIT` en
 PostgreSQL 18. La consulta ya no usa la caché compartida: revalida la bolsa,
 consume una concesión nominal y deja la auditoría V3 en su transacción de lectura.
+
+B7 añade únicamente `000048 + 000017` sobre la réplica que ya contiene
+AD3-47/Bolsa-16. El ensayo y el recorrido final se registran en el cierre D3-B7;
+el plazo mostrado sigue rotulado como provisional y pendiente de RRHH.

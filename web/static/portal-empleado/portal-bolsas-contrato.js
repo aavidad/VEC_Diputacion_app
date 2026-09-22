@@ -35,7 +35,7 @@ export const CANALES_LLAMAMIENTO = Object.freeze([
   "sede",
 ]);
 export const CANALES_CONTACTO = Object.freeze(["telefono", "correo", "sms", "presencial", "otro"]);
-export const RESULTADOS_CONTACTO = Object.freeze(["contactado", "no_contesta", "buzon", "acepta", "rechaza", "aplazado", "otro"]);
+export const RESULTADOS_CONTACTO = Object.freeze(["contactado", "no_contesta", "buzon", "acepta", "rechaza", "aplazado", "otro", "enviado", "no_enviado"]);
 
 export const RESULTADOS_LLAMAMIENTO_BOLSA = Object.freeze([
   "aceptado",
@@ -59,6 +59,7 @@ const CAMPOS_BOLSA = Object.freeze([
   "vigente_hasta",
   "total",
   "por_estado",
+  "llamamientos_en_curso",
 ]);
 
 const CAMPOS_CANDIDATO = Object.freeze([
@@ -177,6 +178,7 @@ export function validarBolsa(bolsa) {
   const vigenteDesde = exigirFechaOInstante(bolsa.vigente_desde, "vigente_desde");
   const vigenteHasta = bolsa.vigente_hasta === null ? null : exigirFechaOInstante(bolsa.vigente_hasta, "vigente_hasta");
   const total = exigirEnteroNoNegativo(bolsa.total, "total");
+	const llamamientosEnCurso = exigirEnteroNoNegativo(bolsa.llamamientos_en_curso, "llamamientos_en_curso");
 
   exigirCamposExactos(bolsa.por_estado, SITUACIONES_PARTICIPACION_BOLSA, "por_estado");
   const porEstado = {};
@@ -193,6 +195,7 @@ export function validarBolsa(bolsa) {
     vigente_hasta: vigenteHasta,
     total,
     por_estado: Object.freeze(porEstado),
+	llamamientos_en_curso: llamamientosEnCurso,
   });
 }
 
