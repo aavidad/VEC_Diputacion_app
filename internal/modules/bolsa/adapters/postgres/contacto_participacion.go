@@ -10,6 +10,7 @@ import (
 	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	"vec-diputacion-granada/internal/modules/bolsa/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
+	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
 
 type RepositorioContactoParticipacionPostgreSQL struct{ pool *pgxpool.Pool }
@@ -56,16 +57,21 @@ func nuloTexto(v string) any {
 	return v
 }
 func (r *RepositorioContactoParticipacionPostgreSQL) ListarContactosParticipacion(ctx context.Context, q ports.ConsultaContactosParticipacion) (ports.PaginaContactosParticipacion, error) {
-	return r.listar(ctx, `SELECT contacto_ref,bolsa_ref,participacion_ref,coalesce(llamamiento_ref,''),canal,instante,actor,resultado,anotacion FROM vec_bolsa_llamamientos.listar_contactos_participacion_v1($1,$2,$3,$4)`, q.BolsaRef, q.ParticipacionRef, nuloTexto(q.Cursor), q.Limite)
+	return r.listar(ctx, q.BolsaRef, q.ParticipacionRef, q.Cursor, q.Limite, q.Material)
 }
-func (r *RepositorioContactoParticipacionPostgreSQL) ListarContactosBolsa(ctx context.Context, bolsa, cursor string, limite int) (ports.PaginaContactosParticipacion, error) {
-	return r.listar(ctx, `SELECT contacto_ref,bolsa_ref,participacion_ref,coalesce(llamamiento_ref,''),canal,instante,actor,resultado,anotacion FROM vec_bolsa_llamamientos.listar_contactos_participacion_v1($1,NULL,$2,$3)`, bolsa, nuloTexto(cursor), limite)
+func (r *RepositorioContactoParticipacionPostgreSQL) ListarContactosBolsa(ctx context.Context, q ports.ConsultaContactosBolsa) (ports.PaginaContactosParticipacion, error) {
+	return r.listar(ctx, q.BolsaRef, "", q.Cursor, q.Limite, q.Material)
 }
-func (r *RepositorioContactoParticipacionPostgreSQL) listar(ctx context.Context, sql string, args ...any) (ports.PaginaContactosParticipacion, error) {
-	if r == nil || r.pool == nil || ctx == nil {
+func (r *RepositorioContactoParticipacionPostgreSQL) listar(ctx context.Context, bolsa, participacion, cursor string, limite int, m puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.PaginaContactosParticipacion, error) {
+	if r == nil || r.pool == nil || ctx == nil || m.ValidarEstructura() != nil {
 		return ports.PaginaContactosParticipacion{}, ports.ErrContactoParticipacionNoDisponible
 	}
-	filas, err := r.pool.Query(ctx, sql, args...)
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
+	if err != nil {
+		return ports.PaginaContactosParticipacion{}, ports.ErrContactoParticipacionNoDisponible
+	}
+	defer tx.Rollback(context.Background())
+	filas, err := tx.Query(ctx, `SELECT contacto_ref,bolsa_ref,participacion_ref,coalesce(llamamiento_ref,''),canal,instante,actor,resultado,anotacion FROM vec_bolsa_llamamientos.listar_contactos_participacion_v1($1,$2,$3,$4,$5,$6,$7,$8,$9::numeric,$10::numeric,$11,$12,$13,$14)`, bolsa, nuloTexto(participacion), nuloTexto(cursor), limite, m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI())
 	if err != nil {
 		return ports.PaginaContactosParticipacion{}, errorContactoParticipacion(err)
 	}
@@ -83,6 +89,10 @@ func (r *RepositorioContactoParticipacionPostgreSQL) listar(ctx context.Context,
 		p.Contactos = append(p.Contactos, c)
 	}
 	if err = filas.Err(); err != nil {
+		return ports.PaginaContactosParticipacion{}, errorContactoParticipacion(err)
+	}
+	filas.Close()
+	if err = tx.Commit(ctx); err != nil {
 		return ports.PaginaContactosParticipacion{}, errorContactoParticipacion(err)
 	}
 	if len(p.Contactos) > 0 {

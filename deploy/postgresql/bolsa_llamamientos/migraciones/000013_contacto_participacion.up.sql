@@ -22,7 +22,7 @@ DECLARE v_ref text; BEGIN
  INSERT INTO vec_bolsa_llamamientos.bitacora_intento_borrador_llamamiento(intento_ref,correlacion_ref,accion,ruta_clase,actor_ref,resultado,registrada_en) VALUES(v_ref,p_correlacion_ref,p_accion,p_ruta_clase,p_actor_ref,p_resultado,clock_timestamp());
 END $f$;
 DO $p$ BEGIN
- IF to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_contacto_participacion_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL OR to_regclass('vec_bolsa_llamamientos.situacion_participacion') IS NULL OR to_regclass('vec_bolsa_llamamientos.contacto_participacion') IS NOT NULL THEN RAISE EXCEPTION 'precondición B3 incompatible' USING ERRCODE='55000'; END IF;
+ IF to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_contacto_participacion_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_consulta_contacto_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL OR to_regclass('vec_bolsa_llamamientos.situacion_participacion') IS NULL OR to_regclass('vec_bolsa_llamamientos.contacto_participacion') IS NOT NULL THEN RAISE EXCEPTION 'precondición B3 incompatible' USING ERRCODE='55000'; END IF;
 END $p$;
 CREATE TABLE vec_bolsa_llamamientos.contacto_participacion(
  contacto_ref text PRIMARY KEY,
@@ -70,12 +70,18 @@ BEGIN
  INSERT INTO vec_bolsa_llamamientos.contacto_participacion(contacto_ref,bolsa_ref,participacion_ref,llamamiento_ref,canal,instante,actor,resultado,anotacion,clave_idempotencia,recibo_ref) VALUES(p_contacto_ref,p_bolsa_ref,p_participacion_ref,p_llamamiento_ref,p_canal,p_instante,p_actor,p_resultado,p_anotacion,p_clave,p_recibo);
  RETURN QUERY SELECT false,p_recibo,p_contacto_ref;
 END $f$;
-CREATE FUNCTION vec_bolsa_llamamientos.listar_contactos_participacion_v1(p_bolsa_ref text,p_participacion_ref text,p_cursor text,p_limite integer)
-RETURNS TABLE(contacto_ref text,bolsa_ref text,participacion_ref text,llamamiento_ref text,canal text,instante timestamptz,actor text,resultado text,anotacion text) LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $f$
- SELECT c.contacto_ref,c.bolsa_ref,c.participacion_ref,c.llamamiento_ref,c.canal,c.instante,c.actor,c.resultado,c.anotacion FROM vec_bolsa_llamamientos.contacto_participacion c WHERE c.bolsa_ref=p_bolsa_ref AND (p_participacion_ref IS NULL OR c.participacion_ref=p_participacion_ref) AND (p_cursor IS NULL OR (c.instante,c.contacto_ref)<(SELECT x.instante,x.contacto_ref FROM vec_bolsa_llamamientos.contacto_participacion x WHERE x.contacto_ref=p_cursor)) ORDER BY c.instante DESC,c.contacto_ref DESC LIMIT p_limite
+CREATE FUNCTION vec_bolsa_llamamientos.listar_contactos_participacion_v1(p_bolsa_ref text,p_participacion_ref text,p_cursor text,p_limite integer,p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)
+RETURNS TABLE(contacto_ref text,bolsa_ref text,participacion_ref text,llamamiento_ref text,canal text,instante timestamptz,actor text,resultado text,anotacion text) LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET lock_timeout='2s' AS $f$
+DECLARE consumo record; d jsonb; BEGIN
+ IF current_user<>'vec_bolsa_llamamientos_propietario' OR p_bolsa_ref IS NULL OR p_limite NOT BETWEEN 1 AND 100 THEN RAISE EXCEPTION 'consulta contacto inválida' USING ERRCODE='22023'; END IF;
+ SELECT * INTO consumo FROM vec_autorizacion_atestada_v3.registrar_y_consumir_consulta_contacto_v3_atestada(p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz);
+ d:=convert_from(p_decision,'UTF8')::jsonb;
+ IF consumo.efecto_ref IS DISTINCT FROM coalesce(p_participacion_ref,p_bolsa_ref) OR consumo.consumo_nuevo IS NOT TRUE OR d->>'accion' IS DISTINCT FROM 'bolsa.contacto_participacion.consultar' OR d->>'finalidad' IS DISTINCT FROM 'consulta_contactos_participacion' OR d->>'recurso_ref' IS DISTINCT FROM coalesce(p_participacion_ref,p_bolsa_ref) OR d->'campos_permitidos' IS DISTINCT FROM '[]'::jsonb OR d->'obligaciones' IS DISTINCT FROM '[]'::jsonb THEN RAISE EXCEPTION 'consulta contacto no autorizada' USING ERRCODE='42501'; END IF;
+ RETURN QUERY SELECT c.contacto_ref,c.bolsa_ref,c.participacion_ref,c.llamamiento_ref,c.canal,c.instante,c.actor,c.resultado,c.anotacion FROM vec_bolsa_llamamientos.contacto_participacion c WHERE c.bolsa_ref=p_bolsa_ref AND (p_participacion_ref IS NULL OR c.participacion_ref=p_participacion_ref) AND (p_cursor IS NULL OR (c.instante,c.contacto_ref)<(SELECT x.instante,x.contacto_ref FROM vec_bolsa_llamamientos.contacto_participacion x WHERE x.contacto_ref=p_cursor)) ORDER BY c.instante DESC,c.contacto_ref DESC LIMIT p_limite;
+END
 $f$;
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.registrar_contacto_participacion_v1(text,text,text,text,text,timestamptz,text,text,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;
-REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.listar_contactos_participacion_v1(text,text,text,integer) FROM PUBLIC;
+REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.listar_contactos_participacion_v1(text,text,text,integer,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.registrar_contacto_participacion_v1(text,text,text,text,text,timestamptz,text,text,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_bolsa_llamamientos_ejecutor;
-GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.listar_contactos_participacion_v1(text,text,text,integer) TO vec_bolsa_llamamientos_ejecutor;
+GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.listar_contactos_participacion_v1(text,text,text,integer,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_bolsa_llamamientos_ejecutor;
 COMMIT;

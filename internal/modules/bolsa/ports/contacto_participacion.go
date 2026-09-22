@@ -14,6 +14,9 @@ const (
 	AccionRegistrarContactoParticipacion    = "bolsa.contacto_participacion.registrar"
 	FinalidadRegistrarContactoParticipacion = "gestion_contactos_participacion"
 	AudienciaRegistrarContactoParticipacion = "vec_bolsa_llamamientos.contacto_participacion.registrar.v1"
+	AccionConsultarContactoParticipacion    = "bolsa.contacto_participacion.consultar"
+	FinalidadConsultarContactoParticipacion = "consulta_contactos_participacion"
+	AudienciaConsultarContactoParticipacion = "vec_bolsa_llamamientos.contacto_participacion.consultar.v1"
 )
 
 var ErrContactoParticipacionNoDisponible = errors.New("bolsa: contacto de participacion no disponible")
@@ -49,14 +52,28 @@ type ComandoRegistrarContactoParticipacion struct {
 	Material                     puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3
 }
 type ConsultaContactosParticipacion struct {
+	Vinculo                            dominiovec.VinculoAutenticacionActorV2
 	ResultadoContexto                  dominiovec.ResultadoContextoActorRegistradoV2
 	BolsaRef, ParticipacionRef, Cursor string
 	Limite                             int
+	Correlacion                        dominiovec.ReferenciaCorrelacionAutorizacionV2
+	MotivoAutorizacion                 dominiovec.ReferenciaEntradaCatalogo
+	SolicitudAutorizacion              dominiovec.SolicitudAutorizacionLigadaV3
+	Decision                           dominiovec.DecisionAutorizacionLigadaV3
+	Confirmacion                       puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3
+	Material                           puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3
 }
 type ConsultaContactosBolsa struct {
-	ResultadoContexto dominiovec.ResultadoContextoActorRegistradoV2
-	BolsaRef, Cursor  string
-	Limite            int
+	Vinculo               dominiovec.VinculoAutenticacionActorV2
+	ResultadoContexto     dominiovec.ResultadoContextoActorRegistradoV2
+	BolsaRef, Cursor      string
+	Limite                int
+	Correlacion           dominiovec.ReferenciaCorrelacionAutorizacionV2
+	MotivoAutorizacion    dominiovec.ReferenciaEntradaCatalogo
+	SolicitudAutorizacion dominiovec.SolicitudAutorizacionLigadaV3
+	Decision              dominiovec.DecisionAutorizacionLigadaV3
+	Confirmacion          puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3
+	Material              puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3
 }
 type PaginaContactosParticipacion struct {
 	Contactos       []dominiobolsa.ContactoParticipacion
@@ -66,7 +83,7 @@ type RepositorioContactoParticipacion interface {
 	ParticipacionPerteneceABolsa(context.Context, string, string) (bool, error)
 	RegistrarContacto(context.Context, ComandoRegistrarContactoParticipacion) (RegistroContactoParticipacion, error)
 	ListarContactosParticipacion(context.Context, ConsultaContactosParticipacion) (PaginaContactosParticipacion, error)
-	ListarContactosBolsa(context.Context, string, string, int) (PaginaContactosParticipacion, error)
+	ListarContactosBolsa(context.Context, ConsultaContactosBolsa) (PaginaContactosParticipacion, error)
 }
 
 type ResolutorContextoContactoParticipacion interface {

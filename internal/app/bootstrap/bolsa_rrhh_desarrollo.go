@@ -12,6 +12,7 @@ import (
 	"vec-diputacion-granada/config"
 	bolsahttp "vec-diputacion-granada/internal/modules/bolsa/adapters/httpinterno"
 	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
+	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 )
 
@@ -54,6 +55,11 @@ type bolsasRRHHDesarrollo struct {
 	cargar    func(context.Context) (datasetBolsasRRHHDesarrollo, error)
 	mutar     http.Handler
 	invalidar func()
+	contactos lectorContactosBolsaDesarrollo
+}
+
+type lectorContactosBolsaDesarrollo interface {
+	ListarContactosBolsa(context.Context, string, string, int) (puertosbolsa.PaginaContactosParticipacion, error)
 }
 
 func nuevasRutasBolsasRRHHDesarrollo(cfg config.Config) ([]vechttp.RutaExacta, []vechttp.RutaColeccion, error) {
@@ -71,6 +77,7 @@ func nuevasRutasBolsasRRHHDesarrolloConFuente(_ config.Config, fuente *fuenteCon
 	if len(mutadores) == 1 {
 		manejador.mutar = mutadores[0]
 		manejador.invalidar = invalidar
+		manejador.contactos, _ = mutadores[0].(lectorContactosBolsaDesarrollo)
 	}
 	return []vechttp.RutaExacta{{Ruta: rutaBolsasRRHHDesarrollo, Manejador: manejador}},
 		[]vechttp.RutaColeccion{{Prefijo: prefijoCandidatosRRHHDesarrollo, Manejador: manejador}}, nil
@@ -147,12 +154,32 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	if !ok {
 		return
 	}
+	if (h.contactos == nil && h.mutar != nil) || (h.contactos != nil && !h.cargarContactos(r.Context(), vista, bolsaRef)) {
+		responderAreaPersonalDesarrollo(w, http.StatusServiceUnavailable, map[string]string{"codigo": "servicio_no_disponible"})
+		return
+	}
 	respuesta, encontrada := vista.respuestaCandidatos(bolsaRef, consulta)
 	if !encontrada {
 		responderAreaPersonalDesarrollo(w, http.StatusNotFound, map[string]string{"codigo": "recurso_no_encontrado"})
 		return
 	}
 	responderAreaPersonalDesarrollo(w, http.StatusOK, map[string]any{"data": respuesta}, r.Method == http.MethodHead)
+}
+
+func (h *bolsasRRHHDesarrollo) cargarContactos(ctx context.Context, vista *bolsasRRHHDesarrolloDatos, bolsa string) bool {
+	cursor := ""
+	for pagina := 0; pagina < 100; pagina++ {
+		p, err := h.contactos.ListarContactosBolsa(ctx, bolsa, cursor, 100)
+		if err != nil {
+			return false
+		}
+		vista.datos.Contactos = append(vista.datos.Contactos, p.Contactos...)
+		if len(p.Contactos) < 100 || p.CursorSiguiente == "" {
+			return true
+		}
+		cursor = p.CursorSiguiente
+	}
+	return false
 }
 
 func (h *bolsasRRHHDesarrollo) vistaDurable(ctx context.Context, w http.ResponseWriter) (*bolsasRRHHDesarrolloDatos, bool) {

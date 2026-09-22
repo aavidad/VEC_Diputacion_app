@@ -457,8 +457,8 @@ export function crearPresentadorPanelInterno(dependencias) {
         </section>
       </aside>` : "";
     const nombres = new Map(candidatos.map((c) => [c.participacion_ref, c]));
-    const llamadas = candidatos.filter((candidato) => candidato.ultimo_llamamiento).map((candidato)=>({fecha:candidato.ultimo_llamamiento.comunicado_en,candidato,tipo:traducirBolsaInterna("contacto_llamamiento_tipo"),resultado:candidato.ultimo_llamamiento.resultado,actor:"—",contacto:"—"}))
-      .concat(contactos.map((contacto)=>({fecha:contacto.instante,candidato:nombres.get(contacto.participacion_ref),tipo:traducirBolsaInterna("contacto_tipo"),resultado:contacto.resultado,actor:contacto.actor_ref,contacto:`${etiquetaClave(contacto.canal)} · ${contacto.anotacion}`})))
+    const llamadas = candidatos.filter((candidato) => candidato.ultimo_llamamiento).map((candidato)=>({fecha:candidato.ultimo_llamamiento.comunicado_en,candidato,tipo:traducirBolsaInterna("contacto_llamamiento_tipo"),resultado:etiquetaClave(candidato.ultimo_llamamiento.resultado),actor:"—",contacto:"—"}))
+      .concat(contactos.map((contacto)=>({fecha:contacto.instante,candidato:nombres.get(contacto.participacion_ref),tipo:traducirBolsaInterna("contacto_tipo"),resultado:traducirBolsaInterna(`contacto_${contacto.resultado}`),actor:contacto.actor_ref,contacto:`${traducirBolsaInterna(`contacto_${contacto.canal}`)} · ${contacto.anotacion}`})))
       .sort((a, b) => b.fecha.localeCompare(a.fecha));
     const paginaHistorico = Math.max(0, Number(filtrosActuales.pagina_historico) || 0);
     const inicioHistorico = paginaHistorico * 6;
@@ -467,7 +467,7 @@ export function crearPresentadorPanelInterno(dependencias) {
       ? `<tr><td colspan="6" class="vacio-controlado">${traducirBolsaInterna("contacto_historico_vacio")}</td></tr>`
       : paginaLlamadas.map((evento) => {
         const candidato=evento.candidato;
-        return `<tr><td>${fechaMarcada(evento.fecha)}</td><td>${escaparHTML(candidato?.nombre_visible||evento.contacto)}${candidato?`<br><code>${escaparHTML(candidato.documento_enmascarado)}</code>`:""}</td><td>${escaparHTML(evento.tipo)}</td><td>${escaparHTML(etiquetaClave(evento.resultado))}</td><td>${escaparHTML(evento.actor)}</td><td>${escaparHTML(evento.contacto)}</td></tr>`;
+        return `<tr><td>${fechaMarcada(evento.fecha)}</td><td>${escaparHTML(candidato?.nombre_visible||evento.contacto)}${candidato?`<br><code>${escaparHTML(candidato.documento_enmascarado)}</code>`:""}</td><td>${escaparHTML(evento.tipo)}</td><td>${escaparHTML(evento.resultado)}</td><td>${escaparHTML(evento.actor)}</td><td>${escaparHTML(evento.contacto)}</td></tr>`;
       }).join("");
     const navegacionHistorico = llamadas.length > 6 ? `<div class="acciones-vista" aria-label="Paginación del histórico"><span>Mostrando ${numero(inicioHistorico + 1)} a ${numero(Math.min(inicioHistorico + 6, llamadas.length))} de ${numero(llamadas.length)}</span><button type="button" class="boton-secundario" data-bolsa-accion="pagina-historico" data-pagina="${paginaHistorico - 1}"${paginaHistorico === 0 ? " disabled" : ""}>Anterior</button><button type="button" class="boton-secundario" data-bolsa-accion="pagina-historico" data-pagina="${paginaHistorico + 1}"${inicioHistorico + 6 >= llamadas.length ? " disabled" : ""}>Siguiente</button></div>` : "";
     const pestanas = `<nav class="acciones-vista" role="tablist" aria-label="Vistas de la bolsa"><button type="button" class="boton-secundario" role="tab" aria-selected="${pestana === "candidatos"}" data-bolsa-accion="cambiar-pestana" data-pestana="candidatos">Candidatos</button><button type="button" class="boton-secundario" role="tab" aria-selected="${pestana === "historico"}" data-bolsa-accion="cambiar-pestana" data-pestana="historico">Histórico de llamamientos</button></nav>`;
@@ -565,7 +565,7 @@ export function crearPresentadorPanelInterno(dependencias) {
                 ${disponibilidad}
                 <div class="fila-resumen"><dt>Referencia de participación</dt><dd><code>${escaparHTML(candidato.participacion_ref)}</code></dd></div>
                 ${ultimoLlamamiento}
-                <div class="fila-resumen"><dt>Contactos</dt><dd>${numero(candidato.contactos_total)}</dd></div>
+                <div class="fila-resumen"><dt>${traducirBolsaInterna("contacto_contador")}</dt><dd>${numero(candidato.contactos_total)}</dd></div>
               </dl>
               ${reciboSituacion}
               ${reciboContacto}

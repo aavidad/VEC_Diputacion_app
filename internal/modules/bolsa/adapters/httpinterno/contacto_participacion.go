@@ -23,6 +23,7 @@ type EntradaRegistrarContactoParticipacion struct {
 type PreparadorContactoParticipacion interface {
 	PrepararSolicitudRegistrarContacto(context.Context, EntradaRegistrarContactoParticipacion) (puertosbolsa.SolicitudRegistrarContactoParticipacion, error)
 	PrepararConsultaContactos(context.Context, string, string, string, int) (puertosbolsa.ConsultaContactosParticipacion, error)
+	PrepararConsultaContactosBolsa(context.Context, string, string, int) (puertosbolsa.ConsultaContactosBolsa, error)
 }
 type OperadorContactoParticipacion interface {
 	RegistrarContactoParticipacion(context.Context, puertosbolsa.SolicitudRegistrarContactoParticipacion) (puertosbolsa.RegistroContactoParticipacion, error)

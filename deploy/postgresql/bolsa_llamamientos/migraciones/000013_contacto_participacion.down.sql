@@ -4,7 +4,7 @@ SET LOCAL ROLE vec_bolsa_llamamientos_propietario;
 SET LOCAL search_path=pg_catalog;
 SELECT pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_bolsa_llamamientos:migracion:000013',0));
 DO $f$ BEGIN IF EXISTS(SELECT 1 FROM vec_bolsa_llamamientos.contacto_participacion) THEN RAISE EXCEPTION 'hay historia B3; no se deshace' USING ERRCODE='55000'; END IF; END $f$;
-DROP FUNCTION vec_bolsa_llamamientos.listar_contactos_participacion_v1(text,text,text,integer) RESTRICT;
+DROP FUNCTION vec_bolsa_llamamientos.listar_contactos_participacion_v1(text,text,text,integer,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) RESTRICT;
 DROP FUNCTION vec_bolsa_llamamientos.registrar_contacto_participacion_v1(text,text,text,text,text,timestamptz,text,text,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) RESTRICT;
 DROP TABLE vec_bolsa_llamamientos.contacto_participacion RESTRICT;
 CREATE OR REPLACE FUNCTION vec_bolsa_llamamientos.registrar_intento_borrador_llamamiento_v1(p_correlacion_ref text,p_accion text,p_ruta_clase text,p_actor_ref text,p_resultado text)

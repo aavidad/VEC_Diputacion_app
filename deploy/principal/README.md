@@ -16,8 +16,8 @@ En este orden causal y dentro de una sola transacción de migraciones:
 3. Bolsa llamamientos `000011`, agregado durable y bitácora de frontera B-BACK;
 4. AD3 `000045`, consumidor V3 de cambio de situación B2;
 5. Bolsa llamamientos `000012`, historia append-only de las siete situaciones B2.
-6. AD3 `000046`, consumidor V3 nominal para registrar contactos B3;
-7. Bolsa llamamientos `000013`, tabla append-only y lectura paginada de contactos B3.
+6. AD3 `000046`, consumidores V3 nominales para registrar y consultar contactos B3;
+7. Bolsa llamamientos `000013`, tabla append-only y lectura paginada y auditada de contactos B3.
 
 El inventario completo no encuentra otra migración de `main@48e64f84` posterior
 al estado indicado: Bolsa `000009/000010` no existen en `main` y CT termina en
@@ -73,3 +73,8 @@ HTTP 201, su repetición HTTP 200 con el mismo recibo y una sola fila, la lectur
 paginada HTTP 200, el comando divergente HTTP 409 y una bolsa fuera del ámbito
 nominal HTTP 403. La composición conservó el rol B2 v2 y publicó B3 como v3
 desde esa preimagen exacta. Son identidad, datos y autoridad sintéticos de desarrollo.
+
+La corrección final de lectura se ensayó además desde la preimagen AD3-45/Bolsa-12:
+`000046 + 000013` completaron juntos con `ROLLBACK` y después con `COMMIT` en
+PostgreSQL 18. La consulta ya no usa la caché compartida: revalida la bolsa,
+consume una concesión nominal y deja la auditoría V3 en su transacción de lectura.

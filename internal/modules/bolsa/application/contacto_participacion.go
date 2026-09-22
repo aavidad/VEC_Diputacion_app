@@ -66,20 +66,57 @@ func (s *ServicioContactoParticipacion) RegistrarContactoParticipacion(ctx conte
 	return s.repositorio.RegistrarContacto(ctx, puertosbolsa.ComandoRegistrarContactoParticipacion{Contacto: contacto, ClaveIdempotencia: solicitud.ClaveIdempotencia, ReciboRef: "recibo:contacto:" + sufijo, SolicitudAutorizacion: auth, Decision: decision, Confirmacion: confirmacion, Material: material})
 }
 func (s *ServicioContactoParticipacion) ListarContactosParticipacion(ctx context.Context, q puertosbolsa.ConsultaContactosParticipacion) (puertosbolsa.PaginaContactosParticipacion, error) {
-	if ctx == nil || s == nil || q.ResultadoContexto.Validar() != nil || q.BolsaRef == "" || q.ParticipacionRef == "" || q.Limite < 1 || q.Limite > 100 {
+	if ctx == nil || s == nil || q.ResultadoContexto.Validar() != nil || q.Vinculo.ValidarPara(q.ResultadoContexto) != nil || q.BolsaRef == "" || q.ParticipacionRef == "" || q.Limite < 1 || q.Limite > 100 {
 		return puertosbolsa.PaginaContactosParticipacion{}, puertosbolsa.ErrContactoParticipacionNoDisponible
 	}
 	if _, err := s.contexto.ResolverContextoSituacionParticipacion(ctx, q.ResultadoContexto.Contexto, q.BolsaRef, q.ParticipacionRef); err != nil {
 		return puertosbolsa.PaginaContactosParticipacion{}, err
 	}
+	resuelto, err := s.contexto.ResolverContextoSituacionParticipacion(ctx, q.ResultadoContexto.Contexto, q.BolsaRef, q.ParticipacionRef)
+	if err != nil {
+		return puertosbolsa.PaginaContactosParticipacion{}, err
+	}
+	q, err = s.autorizarConsulta(ctx, q, resuelto)
+	if err != nil {
+		return puertosbolsa.PaginaContactosParticipacion{}, err
+	}
 	return s.repositorio.ListarContactosParticipacion(ctx, q)
 }
 func (s *ServicioContactoParticipacion) ListarContactosBolsa(ctx context.Context, q puertosbolsa.ConsultaContactosBolsa) (puertosbolsa.PaginaContactosParticipacion, error) {
-	if ctx == nil || s == nil || q.ResultadoContexto.Validar() != nil || q.BolsaRef == "" || q.Limite < 1 || q.Limite > 100 {
+	if ctx == nil || s == nil || q.ResultadoContexto.Validar() != nil || q.Vinculo.ValidarPara(q.ResultadoContexto) != nil || q.BolsaRef == "" || q.Limite < 1 || q.Limite > 100 {
 		return puertosbolsa.PaginaContactosParticipacion{}, puertosbolsa.ErrContactoParticipacionNoDisponible
 	}
-	if _, err := s.contexto.ResolverContextoContactosBolsa(ctx, q.ResultadoContexto.Contexto, q.BolsaRef); err != nil {
+	resuelto, err := s.contexto.ResolverContextoContactosBolsa(ctx, q.ResultadoContexto.Contexto, q.BolsaRef)
+	if err != nil {
 		return puertosbolsa.PaginaContactosParticipacion{}, err
 	}
-	return s.repositorio.ListarContactosBolsa(ctx, q.BolsaRef, q.Cursor, q.Limite)
+	base := puertosbolsa.ConsultaContactosParticipacion{Vinculo: q.Vinculo, ResultadoContexto: q.ResultadoContexto, BolsaRef: q.BolsaRef, Cursor: q.Cursor, Limite: q.Limite, Correlacion: q.Correlacion, MotivoAutorizacion: q.MotivoAutorizacion}
+	base, err = s.autorizarConsulta(ctx, base, resuelto)
+	if err != nil {
+		return puertosbolsa.PaginaContactosParticipacion{}, err
+	}
+	q.SolicitudAutorizacion, q.Decision, q.Confirmacion, q.Material = base.SolicitudAutorizacion, base.Decision, base.Confirmacion, base.Material
+	return s.repositorio.ListarContactosBolsa(ctx, q)
+}
+
+func (s *ServicioContactoParticipacion) autorizarConsulta(ctx context.Context, q puertosbolsa.ConsultaContactosParticipacion, resuelto puertosbolsa.ContextoSituacionParticipacionResuelto) (puertosbolsa.ConsultaContactosParticipacion, error) {
+	referencia := q.ParticipacionRef
+	if referencia == "" {
+		referencia = q.BolsaRef
+	}
+	recurso := dominiovec.RecursoAutorizable{Referencia: referencia, ModuloID: puertosbolsa.ModuloSituacionParticipacion, Tipo: puertosbolsa.TipoRecursoSituacionParticipacion, Ambitos: map[string]string{"unidad_ref": resuelto.UnidadRef, "ambito_ref": resuelto.AmbitoRef}}
+	auth, err := dominiovec.NuevaSolicitudAutorizacionLigadaV3(dominiovec.DatosSolicitudAutorizacionLigadaV3{VinculoAutenticacionActor: q.Vinculo, ReferenciaMotivo: q.MotivoAutorizacion, Accion: puertosbolsa.AccionConsultarContactoParticipacion, Recurso: recurso, Finalidad: puertosbolsa.FinalidadConsultarContactoParticipacion, Correlacion: q.Correlacion})
+	if err != nil {
+		return q, dominiovec.ErrAutorizacionDenegada
+	}
+	decision, confirmacion, exportador, err := s.autorizador.EmitirMaterialAutorizacionAtestadaV3(ctx, auth, q.ResultadoContexto)
+	if err != nil || exportador == nil || decision.ValidarPara(auth) != nil {
+		return q, errorDependenciaSituacion(err)
+	}
+	material, err := exportador.ExportarMaterialParaConsumidor()
+	if err != nil || !materialAutorizacionBorradorLlamamientoExacto(auth, decision, confirmacion, q.ResultadoContexto, q.MotivoAutorizacion, material, puertosbolsa.AudienciaConsultarContactoParticipacion) {
+		return q, errorDependenciaSituacion(err)
+	}
+	q.SolicitudAutorizacion, q.Decision, q.Confirmacion, q.Material = auth, decision, confirmacion, material
+	return q, nil
 }

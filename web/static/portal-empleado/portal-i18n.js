@@ -78,6 +78,7 @@ export const MENSAJES_BOLSA_INTERNA_ES = Object.freeze({
   contacto_historico_descripcion: "Contactos y llamamientos, más recientes primero",
   contacto_historico_vacio: "Sin contactos ni llamamientos registrados",
   contacto_tipo: "Contacto",
+	contacto_contador: "Contactos",
   contacto_llamamiento_tipo: "Llamamiento",
   contacto_registrado: "Contacto registrado. Recibo {recibo}.",
   contacto_registrar: "Registrar contacto",
