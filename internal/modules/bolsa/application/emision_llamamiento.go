@@ -14,34 +14,27 @@ import (
 )
 
 type ServicioEmisionLlamamiento struct {
-	contexto    puertosbolsa.ResolutorContextoSituacionParticipacion
-	autorizador puertosbolsa.AutorizadorSituacionParticipacionV3
-	repositorio puertosbolsa.RepositorioEmisionLlamamiento
-	correos     puertosbolsa.FuenteCorreoParticipacion
-	emisor      puertosbolsa.EmisorCorreoBolsa
-	reloj       func() time.Time
+	contextoBolsa puertosbolsa.ResolutorContextoContactoParticipacion
+	autorizador   puertosbolsa.AutorizadorSituacionParticipacionV3
+	repositorio   puertosbolsa.RepositorioEmisionLlamamiento
+	correos       puertosbolsa.FuenteCorreoParticipacion
+	emisor        puertosbolsa.EmisorCorreoBolsa
+	reloj         func() time.Time
 }
 
-func NuevoServicioEmisionLlamamiento(c puertosbolsa.ResolutorContextoSituacionParticipacion, a puertosbolsa.AutorizadorSituacionParticipacionV3, r puertosbolsa.RepositorioEmisionLlamamiento, f puertosbolsa.FuenteCorreoParticipacion, e puertosbolsa.EmisorCorreoBolsa, reloj func() time.Time) (*ServicioEmisionLlamamiento, error) {
-	if c == nil || a == nil || r == nil || f == nil || e == nil || reloj == nil {
+func NuevoServicioEmisionLlamamiento(cb puertosbolsa.ResolutorContextoContactoParticipacion, a puertosbolsa.AutorizadorSituacionParticipacionV3, r puertosbolsa.RepositorioEmisionLlamamiento, f puertosbolsa.FuenteCorreoParticipacion, e puertosbolsa.EmisorCorreoBolsa, reloj func() time.Time) (*ServicioEmisionLlamamiento, error) {
+	if cb == nil || a == nil || r == nil || f == nil || e == nil || reloj == nil {
 		return nil, puertosbolsa.ErrEmisionLlamamientoNoDisponible
 	}
-	return &ServicioEmisionLlamamiento{c, a, r, f, e, reloj}, nil
+	return &ServicioEmisionLlamamiento{cb, a, r, f, e, reloj}, nil
 }
 
 func (s *ServicioEmisionLlamamiento) EmitirLlamamiento(ctx context.Context, q puertosbolsa.SolicitudEmitirLlamamiento) (puertosbolsa.EmisionLlamamiento, error) {
 	if ctx == nil || s == nil || validarSolicitudEmision(q) != nil {
 		return puertosbolsa.EmisionLlamamiento{}, puertosbolsa.ErrEmisionLlamamientoInvalida
 	}
-	if previa, recuperarErr := s.repositorio.Recuperar(ctx, q.BolsaRef, q.ClaveIdempotencia); recuperarErr == nil {
-		if !mismaSolicitudEmision(previa, q) {
-			return puertosbolsa.EmisionLlamamiento{}, puertosbolsa.ErrEmisionLlamamientoConflicto
-		}
-		previa.Reutilizada = true
-		return previa, nil
-	}
 	actor := q.ResultadoContexto.Contexto
-	resuelto, err := s.contexto.ResolverContextoSituacionParticipacion(ctx, actor, q.BolsaRef, q.Participaciones[0])
+	resuelto, err := s.contextoBolsa.ResolverContextoContactosBolsa(ctx, actor, q.BolsaRef)
 	if err != nil || resuelto.Validar() != nil {
 		return puertosbolsa.EmisionLlamamiento{}, errorDependenciaSituacion(err)
 	}
@@ -61,6 +54,19 @@ func (s *ServicioEmisionLlamamiento) EmitirLlamamiento(ctx context.Context, q pu
 	h := sha256.Sum256([]byte(q.BolsaRef + "\x1f" + q.ClaveIdempotencia))
 	sufijo := hex.EncodeToString(h[:])
 	ahora := s.reloj().UTC().Truncate(time.Microsecond)
+	reservada, err := s.repositorio.Reservar(ctx, puertosbolsa.ComandoEmitirLlamamiento{LlamamientoRef: "llamamiento:" + sufijo, ReciboRef: "recibo:llamamiento:" + sufijo, BolsaRef: q.BolsaRef, ActorRef: actor.PersonaRef, ClaveIdempotencia: q.ClaveIdempotencia, Participaciones: append([]string(nil), q.Participaciones...), Configuracion: q.Configuracion, EmitidoEn: ahora, SolicitudAutorizacion: auth, Decision: decision, Confirmacion: confirmacion, Material: material})
+	if err != nil {
+		return puertosbolsa.EmisionLlamamiento{}, err
+	}
+	if !mismaSolicitudEmision(reservada, q) {
+		return puertosbolsa.EmisionLlamamiento{}, puertosbolsa.ErrEmisionLlamamientoConflicto
+	}
+	if reservada.Reutilizada {
+		if len(reservada.Contactos) == len(q.Participaciones) {
+			return reservada, nil
+		}
+		return puertosbolsa.EmisionLlamamiento{}, puertosbolsa.ErrEmisionLlamamientoNoDisponible
+	}
 	contactos := make([]puertosbolsa.ResultadoContactoEmision, 0, len(q.Participaciones))
 	for i, participacion := range q.Participaciones {
 		resultado := "no_enviado"
@@ -72,7 +78,18 @@ func (s *ServicioEmisionLlamamiento) EmitirLlamamiento(ctx context.Context, q pu
 		reciboContacto := sha256.Sum256([]byte(q.BolsaRef + "\x1f" + q.ClaveIdempotencia + "\x1f" + participacion))
 		contactos = append(contactos, puertosbolsa.ResultadoContactoEmision{ParticipacionRef: participacion, Resultado: resultado, ReciboRef: "recibo:contacto:" + hex.EncodeToString(reciboContacto[:])})
 	}
-	return s.repositorio.Emitir(ctx, puertosbolsa.ComandoEmitirLlamamiento{LlamamientoRef: "llamamiento:" + sufijo, ReciboRef: "recibo:llamamiento:" + sufijo, BolsaRef: q.BolsaRef, ActorRef: actor.PersonaRef, ClaveIdempotencia: q.ClaveIdempotencia, Participaciones: append([]string(nil), q.Participaciones...), Contactos: contactos, Configuracion: q.Configuracion, EmitidoEn: ahora, SolicitudAutorizacion: auth, Decision: decision, Confirmacion: confirmacion, Material: material})
+	return s.repositorio.RegistrarContactos(ctx, q.BolsaRef, q.ClaveIdempotencia, actor.PersonaRef, contactos)
+}
+
+func (s *ServicioEmisionLlamamiento) RecuperarLlamamiento(ctx context.Context, q puertosbolsa.SolicitudRecuperarLlamamiento) (puertosbolsa.EmisionLlamamiento, error) {
+	if ctx == nil || s == nil || q.ContextoActor.PersonaRef == "" || q.BolsaRef == "" || q.ClaveIdempotencia == "" {
+		return puertosbolsa.EmisionLlamamiento{}, puertosbolsa.ErrEmisionLlamamientoInvalida
+	}
+	resuelto, err := s.contextoBolsa.ResolverContextoContactosBolsa(ctx, q.ContextoActor, q.BolsaRef)
+	if err != nil || resuelto.Validar() != nil {
+		return puertosbolsa.EmisionLlamamiento{}, errorDependenciaSituacion(err)
+	}
+	return s.repositorio.Recuperar(ctx, q.BolsaRef, q.ClaveIdempotencia)
 }
 
 func mismaSolicitudEmision(previa puertosbolsa.EmisionLlamamiento, q puertosbolsa.SolicitudEmitirLlamamiento) bool {
@@ -103,6 +120,9 @@ func validarSolicitudEmision(q puertosbolsa.SolicitudEmitirLlamamiento) error {
 		if strings.TrimSpace(v) != v || len(v) < 2 || len(v) > 4000 {
 			return puertosbolsa.ErrEmisionLlamamientoInvalida
 		}
+	}
+	if len(c.PlantillaVersion) > 900 {
+		return puertosbolsa.ErrEmisionLlamamientoInvalida
 	}
 	return nil
 }

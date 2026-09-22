@@ -93,6 +93,28 @@ func TestAuditoriaBorradorLlamamientoRegistraDenegacionDeSituacionB2(t *testing.
 	}
 }
 
+func TestAuditoriaBorradorLlamamientoIncluyeFronterasB4YB7(t *testing.T) {
+	casos := []struct {
+		metodo, ruta string
+		accion       puertosbolsa.AccionIntentoBorradorLlamamiento
+		clase        puertosbolsa.ClaseRutaIntentoBorradorLlamamiento
+	}{
+		{http.MethodGet, RutaBolsasGestion + "/bolsa:01/candidatos/participacion:01/datos-contacto", puertosbolsa.AccionIntentoConsultarDatosContactoParticipacion, puertosbolsa.ClaseRutaDatosContactoParticipacion},
+		{http.MethodPost, RutaBolsasGestion + "/bolsa:01/candidatos/participacion:01/datos-contacto", puertosbolsa.AccionIntentoRegistrarDatosContactoParticipacion, puertosbolsa.ClaseRutaDatosContactoParticipacion},
+		{http.MethodGet, RutaEmisionesLlamamiento + "?bolsa_ref=bolsa:01&clave_idempotencia=clave-b7", puertosbolsa.AccionIntentoRecuperarLlamamiento, puertosbolsa.ClaseRutaEmisionesLlamamiento},
+		{http.MethodPost, RutaEmisionesLlamamiento, puertosbolsa.AccionIntentoEmitirLlamamiento, puertosbolsa.ClaseRutaEmisionesLlamamiento},
+	}
+	for _, caso := range casos {
+		registrador := &registradorIntentoBorradorDoble{}
+		h := nuevaAuditoriaBorradorPrueba(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusForbidden) }), registrador, nil)
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, httptest.NewRequest(caso.metodo, caso.ruta, nil))
+		if len(registrador.intentos) != 1 || registrador.intentos[0].Accion != caso.accion || registrador.intentos[0].ClaseRuta != caso.clase {
+			t.Fatalf("frontera %s %s no auditada: %#v", caso.metodo, caso.ruta, registrador.intentos)
+		}
+	}
+}
+
 func TestAuditoriaBorradorLlamamientoFallaCerradoSiNoPuedePersistir(t *testing.T) {
 	registrador := &registradorIntentoBorradorDoble{err: errors.New("base no disponible")}
 	h := nuevaAuditoriaBorradorPrueba(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

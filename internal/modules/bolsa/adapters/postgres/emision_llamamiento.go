@@ -20,17 +20,16 @@ func NuevoRepositorioEmisionLlamamientoPostgreSQL(pool *pgxpool.Pool) (*Reposito
 	return &RepositorioEmisionLlamamientoPostgreSQL{pool}, nil
 }
 
-func (r *RepositorioEmisionLlamamientoPostgreSQL) Emitir(ctx context.Context, c ports.ComandoEmitirLlamamiento) (ports.EmisionLlamamiento, error) {
+func (r *RepositorioEmisionLlamamientoPostgreSQL) Reservar(ctx context.Context, c ports.ComandoEmitirLlamamiento) (ports.EmisionLlamamiento, error) {
 	if r == nil || r.pool == nil || ctx == nil || c.Material.ValidarEstructura() != nil {
 		return ports.EmisionLlamamiento{}, ports.ErrEmisionLlamamientoNoDisponible
 	}
 	participaciones, _ := json.Marshal(c.Participaciones)
 	configuracion, _ := json.Marshal(c.Configuracion)
-	contactos, _ := json.Marshal(c.Contactos)
 	m := c.Material
 	var salidaJSON []byte
 	var reutilizada bool
-	err := r.pool.QueryRow(ctx, `SELECT emision,reutilizada FROM vec_bolsa_llamamientos.emitir_llamamiento_v1($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8::jsonb,$9,$10,$11,$12,$13,$14::numeric,$15::numeric,$16,$17,$18,$19)`, c.LlamamientoRef, c.ReciboRef, c.BolsaRef, c.ActorRef, c.ClaveIdempotencia, participaciones, configuracion, contactos, c.EmitidoEn, m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI()).Scan(&salidaJSON, &reutilizada)
+	err := r.pool.QueryRow(ctx, `SELECT emision,reutilizada FROM vec_bolsa_llamamientos.reservar_llamamiento_v1($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10,$11,$12,$13::numeric,$14::numeric,$15,$16,$17,$18)`, c.LlamamientoRef, c.ReciboRef, c.BolsaRef, c.ActorRef, c.ClaveIdempotencia, participaciones, configuracion, c.EmitidoEn, m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI()).Scan(&salidaJSON, &reutilizada)
 	if err != nil {
 		return ports.EmisionLlamamiento{}, errorEmision(err)
 	}
@@ -39,6 +38,22 @@ func (r *RepositorioEmisionLlamamientoPostgreSQL) Emitir(ctx context.Context, c 
 		return ports.EmisionLlamamiento{}, ports.ErrEmisionLlamamientoNoDisponible
 	}
 	out.Reutilizada = reutilizada
+	return out, nil
+}
+
+func (r *RepositorioEmisionLlamamientoPostgreSQL) RegistrarContactos(ctx context.Context, bolsa, clave, actor string, contactos []ports.ResultadoContactoEmision) (ports.EmisionLlamamiento, error) {
+	if r == nil || r.pool == nil || ctx == nil || bolsa == "" || clave == "" || actor == "" || len(contactos) == 0 {
+		return ports.EmisionLlamamiento{}, ports.ErrEmisionLlamamientoNoDisponible
+	}
+	rawContactos, _ := json.Marshal(contactos)
+	var salidaJSON []byte
+	if err := r.pool.QueryRow(ctx, `SELECT vec_bolsa_llamamientos.registrar_contactos_llamamiento_v1($1,$2,$3,$4::jsonb)`, bolsa, clave, actor, rawContactos).Scan(&salidaJSON); err != nil {
+		return ports.EmisionLlamamiento{}, errorEmision(err)
+	}
+	var out ports.EmisionLlamamiento
+	if json.Unmarshal(salidaJSON, &out) != nil {
+		return out, ports.ErrEmisionLlamamientoNoDisponible
+	}
 	return out, nil
 }
 

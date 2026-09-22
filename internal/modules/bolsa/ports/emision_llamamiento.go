@@ -46,10 +46,15 @@ type SolicitudEmitirLlamamiento struct {
 	MotivoAutorizacion dominiovec.ReferenciaEntradaCatalogo
 }
 
+type SolicitudRecuperarLlamamiento struct {
+	ContextoActor     dominiovec.ContextoActor
+	BolsaRef          string
+	ClaveIdempotencia string
+}
+
 type ComandoEmitirLlamamiento struct {
 	LlamamientoRef, ReciboRef, BolsaRef, ActorRef, ClaveIdempotencia string
 	Participaciones                                                  []string
-	Contactos                                                        []ResultadoContactoEmision
 	Configuracion                                                    ConfiguracionLlamamiento
 	EmitidoEn                                                        time.Time
 	SolicitudAutorizacion                                            dominiovec.SolicitudAutorizacionLigadaV3
@@ -77,7 +82,8 @@ type EmisionLlamamiento struct {
 }
 
 type RepositorioEmisionLlamamiento interface {
-	Emitir(context.Context, ComandoEmitirLlamamiento) (EmisionLlamamiento, error)
+	Reservar(context.Context, ComandoEmitirLlamamiento) (EmisionLlamamiento, error)
+	RegistrarContactos(context.Context, string, string, string, []ResultadoContactoEmision) (EmisionLlamamiento, error)
 	Recuperar(context.Context, string, string) (EmisionLlamamiento, error)
 }
 

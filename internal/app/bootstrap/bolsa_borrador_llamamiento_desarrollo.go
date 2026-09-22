@@ -117,6 +117,14 @@ func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudEmitirLlamami
 	return puertosbolsa.SolicitudEmitirLlamamiento{Vinculo: contexto.Vinculo, ResultadoContexto: contexto.Resultado, BolsaRef: entrada.BolsaRef, Participaciones: entrada.Participaciones, Configuracion: entrada.Configuracion, ClaveIdempotencia: entrada.ClaveIdempotencia, Correlacion: correlacion, MotivoAutorizacion: motivoEmitirLlamamientoBolsaDesarrollo()}, nil
 }
 
+func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudRecuperarLlamamiento(ctx context.Context, bolsaRef, clave string) (puertosbolsa.SolicitudRecuperarLlamamiento, error) {
+	contexto, err := p.contextoRevalidado(ctx)
+	if err != nil {
+		return puertosbolsa.SolicitudRecuperarLlamamiento{}, err
+	}
+	return puertosbolsa.SolicitudRecuperarLlamamiento{ContextoActor: contexto.Resultado.Contexto, BolsaRef: bolsaRef, ClaveIdempotencia: clave}, nil
+}
+
 func (p *preparadorBorradorLlamamientoDesarrollo) PrepararConsultaContactos(ctx context.Context, bolsaRef, participacionRef, cursor string, limite int) (puertosbolsa.ConsultaContactosParticipacion, error) {
 	contexto, err := p.contextoRevalidado(ctx)
 	if err != nil {
@@ -520,7 +528,7 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
 	}
-	handlerEmision, err := bolsahttp.NuevoHandlerEmisionLlamamiento(preparador, servicioEmision, repositorioEmision)
+	handlerEmision, err := bolsahttp.NuevoHandlerEmisionLlamamiento(preparador, servicioEmision)
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
 	}

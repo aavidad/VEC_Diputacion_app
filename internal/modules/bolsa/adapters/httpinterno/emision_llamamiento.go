@@ -22,25 +22,23 @@ type EntradaEmitirLlamamiento struct {
 }
 type PreparadorEmisionLlamamiento interface {
 	PrepararSolicitudEmitirLlamamiento(context.Context, EntradaEmitirLlamamiento) (ports.SolicitudEmitirLlamamiento, error)
+	PrepararSolicitudRecuperarLlamamiento(context.Context, string, string) (ports.SolicitudRecuperarLlamamiento, error)
 }
 type OperadorEmisionLlamamiento interface {
 	EmitirLlamamiento(context.Context, ports.SolicitudEmitirLlamamiento) (ports.EmisionLlamamiento, error)
-}
-type RecuperadorEmisionLlamamiento interface {
-	Recuperar(context.Context, string, string) (ports.EmisionLlamamiento, error)
+	RecuperarLlamamiento(context.Context, ports.SolicitudRecuperarLlamamiento) (ports.EmisionLlamamiento, error)
 }
 
 type HandlerEmisionLlamamiento struct {
-	preparador  PreparadorEmisionLlamamiento
-	operador    OperadorEmisionLlamamiento
-	recuperador RecuperadorEmisionLlamamiento
+	preparador PreparadorEmisionLlamamiento
+	operador   OperadorEmisionLlamamiento
 }
 
-func NuevoHandlerEmisionLlamamiento(p PreparadorEmisionLlamamiento, o OperadorEmisionLlamamiento, r RecuperadorEmisionLlamamiento) (http.Handler, error) {
-	if p == nil || o == nil || r == nil {
+func NuevoHandlerEmisionLlamamiento(p PreparadorEmisionLlamamiento, o OperadorEmisionLlamamiento) (http.Handler, error) {
+	if p == nil || o == nil {
 		return nil, ports.ErrEmisionLlamamientoNoDisponible
 	}
-	return &HandlerEmisionLlamamiento{p, o, r}, nil
+	return &HandlerEmisionLlamamiento{p, o}, nil
 }
 func (h *HandlerEmisionLlamamiento) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r == nil || r.URL == nil || r.URL.Path != RutaEmisionesLlamamiento || r.URL.RawPath != "" {
@@ -103,7 +101,12 @@ func (h *HandlerEmisionLlamamiento) recuperar(w http.ResponseWriter, r *http.Req
 		responderEmision(w, 400, map[string]any{"error": map[string]string{"codigo": "solicitud_invalida"}})
 		return
 	}
-	out, err := h.recuperador.Recuperar(r.Context(), bolsa, clave)
+	q, err := h.preparador.PrepararSolicitudRecuperarLlamamiento(r.Context(), bolsa, clave)
+	if err != nil {
+		responderErrorEmision(w, err)
+		return
+	}
+	out, err := h.operador.RecuperarLlamamiento(r.Context(), q)
 	if err != nil {
 		responderErrorEmision(w, err)
 		return

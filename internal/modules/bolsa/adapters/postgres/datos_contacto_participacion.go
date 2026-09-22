@@ -95,6 +95,9 @@ func (r *RepositorioDatosContactoParticipacionPostgreSQL) RegistrarDatosContacto
 	if err = tx.Commit(ctx); err != nil {
 		return ports.RegistroDatosContactoParticipacion{}, ports.ErrDatosContactoParticipacionNoDisponibles
 	}
+	if registro.Reutilizada {
+		return r.BuscarRegistroDatosContacto(ctx, comando.ParticipacionRef, comando.ClaveIdempotencia)
+	}
 	registro.ParticipacionRef, registro.Version, registro.Motivo = comando.ParticipacionRef, uint64(version), comando.Motivo
 	registro.RegistradaEn = registro.RegistradaEn.UTC()
 	registro.Sobre = comando.Sobre
