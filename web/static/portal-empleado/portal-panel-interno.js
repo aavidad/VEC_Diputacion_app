@@ -73,6 +73,18 @@ export function crearPresentadorPanelInterno(dependencias) {
     return texto ? texto.charAt(0).toLocaleUpperCase("es-ES") + texto.slice(1) : "Sin clave";
   }
 
+  function etiquetaEstadoBolsa(estado) {
+    const clave = `bolsa_estado_${estado}`;
+    const traducida = traducirBolsaInterna(clave);
+    return traducida === clave ? etiquetaClave(estado) : traducida;
+  }
+
+  function controlEstadoBolsa(bolsa, estado, clase = "neutro") {
+    const total = numero(bolsa.por_estado?.[estado]);
+    const etiqueta = etiquetaEstadoBolsa(estado);
+    return `<button type="button" class="estado-chip ${escaparHTML(clase)}" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsa.bolsa_ref)}" data-estado="${escaparHTML(estado)}" aria-label="Ver ${escaparHTML(total)} candidatos ${escaparHTML(etiqueta.toLocaleLowerCase("es-ES"))} de ${escaparHTML(bolsa.categoria)}">${escaparHTML(total)}</button>`;
+  }
+
   function instanteVisible(instante) {
     if (!instante || String(instante).startsWith("0001-01-01")) return "Sin fecha límite";
     const fecha = new Date(instante);
@@ -103,6 +115,14 @@ export function crearPresentadorPanelInterno(dependencias) {
     return typeof valor === "string" && /^\d{4}-\d{2}-\d{2}$/u.test(valor)
       ? fechaCivilVisible(valor)
       : instanteVisible(valor);
+  }
+  function fechaAvisoSustitucion(valor) {
+    const partes = typeof valor === "string" && /^(\d{4})-(\d{2})-(\d{2})$/u.exec(valor);
+    if (partes) {
+      const [, anio, mes, dia] = partes;
+      return `${dia}/${mes}/${anio}`;
+    }
+    return fechaVisible(valor);
   }
 
   function fechaMarcada(valor) {
@@ -216,13 +236,14 @@ export function crearPresentadorPanelInterno(dependencias) {
         <td><button type="button" class="enlace-tabla" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(b.bolsa_ref)}" aria-label="Abrir candidatos de la bolsa ${escaparHTML(b.categoria)}"><strong>${escaparHTML(b.categoria)}</strong></button><br><small>${escaparHTML(b.categoria_clave)}</small></td>
         <td><span class="estado-chip neutro">${escaparHTML(etiquetaClave(b.tipo_lista))}</span></td>
         <td><small>${fechaMarcada(b.vigente_desde)}${b.vigente_hasta ? ` — ${fechaMarcada(b.vigente_hasta)}` : " (vigente)"}</small></td>
-        <td><strong>${numero(b.total)}</strong></td>
+        <td><button type="button" class="enlace-tabla" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(b.bolsa_ref)}" aria-label="Ver los ${numero(b.total)} candidatos de ${escaparHTML(b.categoria)}"><strong>${numero(b.total)}</strong></button></td>
         <td><span class="estado-chip info">${numero(b.llamamientos_en_curso)}</span></td>
-        <td><button type="button" class="estado-chip exito" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(b.bolsa_ref)}" data-estado="disponible" aria-label="Ver ${numero(b.por_estado?.disponible)} candidatos disponibles de ${escaparHTML(b.categoria)}">${numero(b.por_estado?.disponible)}</button></td>
-        <td><span class="estado-chip neutro">${numero(b.por_estado?.ocupado)}</span></td>
-        <td><span class="estado-chip peligro">${numero(b.por_estado?.no_disponible)}</span></td>
-        <td><span class="estado-chip peligro">${numero(b.por_estado?.excluido)}</span></td>
-        <td><span class="estado-chip">${numero(b.por_estado?.renuncia_pendiente)}</span></td>
+        <td>${controlEstadoBolsa(b, "disponible", "exito")}</td>
+        <td>${controlEstadoBolsa(b, "trabajando")}</td>
+        <td>${controlEstadoBolsa(b, "no_disponible", "peligro")}</td>
+        <td>${controlEstadoBolsa(b, "excluido", "peligro")}</td>
+        <td>${controlEstadoBolsa(b, "renuncia")}</td>
+        <td>${controlEstadoBolsa(b, "pendiente_incorporacion", "info")}</td>
       </tr>
     `).join("");
 
@@ -249,10 +270,11 @@ export function crearPresentadorPanelInterno(dependencias) {
                 <th scope="col">Total</th>
                 <th scope="col">Llamamientos en curso</th>
                 <th scope="col">Disponibles</th>
-                <th scope="col">Ocupados</th>
+                <th scope="col">Ocupados / Trabajando</th>
                 <th scope="col">No disp.</th>
                 <th scope="col">Excluidos</th>
-                <th scope="col">Renuncia pend.</th>
+                <th scope="col">Renuncia</th>
+                <th scope="col">Pend. incorporación</th>
               </tr>
             </thead>
             <tbody>
@@ -463,6 +485,18 @@ export function crearPresentadorPanelInterno(dependencias) {
             <button type="button" class="boton-secundario boton-ancho" disabled aria-disabled="true" title="Pendiente de RRHH">Registrar resultado</button>
             <p><small>B7 emite por SMTP y deja recibo; la respuesta y la renuncia siguen pendientes de RRHH.</small></p>
           </div>`;
+    const bolsas = typeof obtenerDatosBolsas === "function"
+      ? obtenerDatosBolsas()?.datos?.bolsas || []
+      : [];
+    const bolsaVigente = bolsa?.vigente_hasta
+      ? bolsas.find((item) => item.bolsa_ref !== bolsa.bolsa_ref
+        && item.categoria_clave === bolsa.categoria_clave && !item.vigente_hasta)
+      : null;
+    const avisoSustitucion = bolsaVigente ? `
+      <section class="nota-pendiente" role="note">
+        <p>${escaparHTML(traducirBolsaInterna("bolsa_sustituida_aviso", { fecha: fechaAvisoSustitucion(bolsaVigente.vigente_desde) }))}</p>
+        <button type="button" class="boton-secundario" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsaVigente.bolsa_ref)}">${escaparHTML(traducirBolsaInterna("bolsa_abrir_vigente"))}</button>
+       </section>` : "";
     const resumenBolsa = bolsa ? `
       <aside class="resumen-lateral" aria-label="Resumen de la bolsa seleccionada">
         <section class="panel">
@@ -476,6 +510,7 @@ export function crearPresentadorPanelInterno(dependencias) {
             </dl>
           </div>
         </section>
+        ${avisoSustitucion}
         <section class="panel">
           <div class="cabecera-panel"><h3>Siguientes actuaciones</h3></div>
           ${accionesBolsa}
@@ -483,7 +518,7 @@ export function crearPresentadorPanelInterno(dependencias) {
       </aside>` : "";
     const nombres = new Map(candidatos.map((c) => [c.participacion_ref, c]));
     const llamadas = candidatos.filter((candidato) => candidato.ultimo_llamamiento).map((candidato)=>({fecha:candidato.ultimo_llamamiento.comunicado_en,candidato,tipo:traducirBolsaInterna("contacto_llamamiento_tipo"),resultado:etiquetaClave(candidato.ultimo_llamamiento.resultado),actor:"—",contacto:"—"}))
-      .concat(contactos.map((contacto)=>({fecha:contacto.instante,candidato:nombres.get(contacto.participacion_ref),tipo:traducirBolsaInterna("contacto_tipo"),resultado:traducirBolsaInterna(`contacto_${contacto.resultado}`),actor:contacto.actor_ref,contacto:`${traducirBolsaInterna(`contacto_${contacto.canal}`)} · ${contacto.anotacion}`})))
+      .concat(contactos.map((contacto)=>({fecha:contacto.instante,candidato:nombres.get(contacto.participacion_ref),tipo:traducirBolsaInterna("contacto_tipo"),resultado:traducirBolsaInterna(`contacto_${contacto.resultado}`),actor:contacto.actor_ref,contacto:`${traducirBolsaInterna(`contacto_${contacto.canal}`)} · ${traducirBolsaInterna(`contacto_${contacto.resultado}`)} · ${contacto.anotacion}`})))
       .sort((a, b) => b.fecha.localeCompare(a.fecha));
     const paginaHistorico = Math.max(0, Number(filtrosActuales.pagina_historico) || 0);
     const inicioHistorico = paginaHistorico * 6;
