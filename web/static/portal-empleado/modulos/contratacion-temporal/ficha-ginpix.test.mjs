@@ -35,7 +35,7 @@ test("controlador: el resumen final agrupa sólo centro y categoría ya validado
   assert.match(raiz.innerHTML, /Inicio de incorporación/u);
   assert.match(raiz.innerHTML, /recibo:001/u);
   assert.match(raiz.innerHTML, /<dt>Exportación manual<\/dt><dd>Ficha estructurada disponible para descargar\.<\/dd>/u);
-  assert.match(raiz.innerHTML, /<dt>Transmisión externa<\/dt><dd>Pendiente de envío: el conector externo no está conectado\.<\/dd>/u);
+  assert.match(raiz.innerHTML, /<dt>Transmisión externa<\/dt><dd>Pendiente de integración con GINPIX\.<\/dd>/u);
   assert.doesNotMatch(raiz.innerHTML, /enviado a GINPIX/u);
 });
 test("controlador: conserva el período civil UTC y localiza el instante registrado en Madrid", () => {

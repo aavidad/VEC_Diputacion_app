@@ -5,6 +5,7 @@ import {
   ESQUEMA_BOLSAS,
   ESQUEMA_CANDIDATOS,
   ESQUEMA_CONTACTOS,
+  ESQUEMA_ESTADISTICAS,
   ESQUEMA_ACCION_BOLSA,
   SITUACIONES_PARTICIPACION_BOLSA,
   CANALES_LLAMAMIENTO,
@@ -18,6 +19,7 @@ import {
   validarRespuestaCandidatosBolsa,
   validarContacto,
   validarRespuestaContactos,
+  validarRespuestaEstadisticas,
   validarPayloadCrearLlamamiento,
   validarPayloadResultadoLlamamiento,
   construirEnvelopeAccionBolsa,
@@ -26,6 +28,7 @@ import {
   consultarBolsas,
   consultarCandidatosBolsa,
   consultarContactosCandidato,
+  consultarEstadisticasBolsa,
   registrarContactoCandidato,
   emitirLlamamiento,
   cambiarSituacionCandidato,
@@ -52,6 +55,15 @@ test("B7 emite por la ruta exacta con idempotencia y conserva el recibo", async 
   assert.equal(llamada.opciones.credentials, "omit");
   assert.equal(llamada.opciones.headers["Idempotency-Key"], "b7-emision-0001");
   assert.deepEqual(JSON.parse(llamada.opciones.body).participaciones, ["participacion:01"]);
+});
+test("P-WEB-08 valida y consulta las estadísticas agregadas de Bolsa", async () => {
+  const envelope = { data: { esquema: ESQUEMA_ESTADISTICAS, generado_en: "2026-09-23T08:00:00Z", bolsas: { total: 2, vigentes: 1, sustituidas: 1 }, personas: { total: 3, por_estado: { disponible: 1, no_disponible: 0, trabajando: 1, pendiente_incorporacion: 0, renuncia: 0, excluido: 0, disponible_desde: 1 } }, llamamientos: { total: 2, por_canal: { correo: 2 }, por_resultado: { pendiente: 1, aceptado: 1 } }, por_bolsa: [{ bolsa_ref: "bolsa:01", categoria: "Auxiliar", tipo_lista: "ordinaria", vigente: true, total: 3, por_estado: { disponible: 1, no_disponible: 0, trabajando: 1, pendiente_incorporacion: 0, renuncia: 0, excluido: 0, disponible_desde: 1 } }] } };
+  const validado = validarRespuestaEstadisticas(envelope);
+  assert.equal(validado.personas.total, 3);
+  let llamada = "";
+  const resultado = await consultarEstadisticasBolsa({ fetchImpl: async (url, opciones) => { llamada = url; assert.equal(opciones.credentials, "omit"); return { ok: true, status: 200, json: async () => envelope }; } });
+  assert.equal(llamada, "/api/vec/bolsa/estadisticas");
+  assert.equal(resultado.datos.por_bolsa[0].categoria, "Auxiliar");
 });
 test("cambiar situación B2 envía idempotencia y conserva el recibo", async () => {
   let observada;
@@ -660,6 +672,14 @@ test("B7 presenta cuatro pasos, paginación interna y controles de teclado nativ
   assert.match(html, /4\. Revisar y enviar/);
   assert.match(html, /name="confirmacion" required/);
   assert.match(html, /type="submit" class="boton-primario"/);
+});
+test("P-WEB-08 presenta estadísticas y enlaza cada cifra por bolsa con B5", () => {
+  const estadisticas = validarRespuestaEstadisticas({ data: { esquema: ESQUEMA_ESTADISTICAS, generado_en: "2026-09-23T08:00:00Z", bolsas: { total: 1, vigentes: 1, sustituidas: 0 }, personas: { total: 2, por_estado: { disponible: 1, no_disponible: 0, trabajando: 1, pendiente_incorporacion: 0, renuncia: 0, excluido: 0, disponible_desde: 0 } }, llamamientos: { total: 1, por_canal: { correo: 1 }, por_resultado: { pendiente: 1 } }, por_bolsa: [{ bolsa_ref: "bolsa:01", categoria: "Auxiliar", tipo_lista: "ordinaria", vigente: true, total: 2, por_estado: { disponible: 1, no_disponible: 0, trabajando: 1, pendiente_incorporacion: 0, renuncia: 0, excluido: 0, disponible_desde: 0 } }] } });
+  const presentador = crearPresentadorPanelInterno({ claseEstado: (c) => c, encabezadoVista: (_s, t, d, a = "") => `<header><h2>${t}</h2><p>${d}</p>${a}</header>`, escaparHTML: (v) => String(v ?? ""), numero: (n) => String(n ?? 0), obtenerDatosPanel: () => ({ esquema: "vec.bolsa.panel.interno.v1" }), tituloVista: (v) => v, obtenerDatosEstadisticas: () => ({ carga: "listo", datos: estadisticas, error: "" }) });
+  const html = presentador.renderizarVista("estadisticas");
+  assert.match(html, /Indicadores agregados del ámbito autorizado/);
+  assert.match(html, /data-accion="ver-bolsa" data-bolsa-ref="bolsa:01" data-estado="disponible"/);
+  assert.match(html, /Personas y llamamientos/);
 });
 test("controlador de B5 lleva el foco a la ficha inline y lo recupera en su control principal", () => {
   const { envelopeCandidatos } = construirFixturesDesdeDemo();

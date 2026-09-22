@@ -657,6 +657,30 @@ a:focus-visible,
   transform: none;
 }
 
+.estadisticas-resumen {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.estadisticas-resumen h4 { margin: 0 0 8px; font-size: 0.78rem; color: var(--portal-tinta); }
+.lista-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.lista-chips .estado-chip { white-space: nowrap; }
+
+.nota-integracion {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border-left: 3px solid #a7781e;
+  border-radius: 3px;
+  background: #fff8e6;
+  color: #5c4416;
+  font-size: 0.74rem;
+}
+
+@media (max-width: 780px) {
+  .estadisticas-resumen { grid-template-columns: 1fr; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .boton-primario,
   .boton-secundario {

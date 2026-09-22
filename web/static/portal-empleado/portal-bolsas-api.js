@@ -11,12 +11,14 @@ import {
   validarRespuestaBolsas,
   validarRespuestaCandidatosBolsa,
   validarRespuestaContactos,
+  validarRespuestaEstadisticas,
 } from "./portal-bolsas-contrato.js";
 import { traducirBolsaInterna } from "./portal-i18n.js";
 import { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js";
 export { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js";
 
 export const RUTA_BOLSAS = "/api/vec/bolsa/bolsas";
+export const RUTA_ESTADISTICAS_BOLSA = "/api/vec/bolsa/estadisticas";
 // El enrutador del servidor solo acepta rutas canónicas (sin secuencias
 // porcentuales): las referencias llevan ":" y "-", legales en un segmento de
 // ruta, así que se envían sin escapar y solo se escapa lo que no es legal.
@@ -73,6 +75,19 @@ export async function consultarBolsas({ fetchImpl = fetch, signal } = {}) {
       codigo: "error_red_o_contrato",
       mensaje: error instanceof Error ? error.message : "Error de comunicación con el servicio de bolsas.",
     };
+  }
+}
+
+export async function consultarEstadisticasBolsa({ fetchImpl = fetch, signal } = {}) {
+  try {
+    const respuesta = await fetchImpl(RUTA_ESTADISTICAS_BOLSA, { method: "GET", credentials: "omit", signal, headers: { Accept: "application/json" } });
+    if (!respuesta.ok) {
+      const mensajes = { 401: "Se requiere una sesión interna autenticada.", 403: "La sesión no dispone de permisos para consultar estadísticas de Bolsa.", 404: "El servicio de estadísticas de Bolsa no está disponible." };
+      return { ok: false, status: respuesta.status, codigo: respuesta.status === 403 ? "acceso_denegado" : "error_servidor", mensaje: mensajes[respuesta.status] || `No se pudieron consultar las estadísticas de Bolsa (HTTP ${respuesta.status}).` };
+    }
+    return { ok: true, datos: validarRespuestaEstadisticas(await respuesta.json()) };
+  } catch (error) {
+    return { ok: false, status: 0, codigo: "error_red_o_contrato", mensaje: error instanceof Error ? error.message : "Error de comunicación con el servicio de estadísticas de Bolsa." };
   }
 }
 
@@ -231,6 +246,18 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     if (clave === "bolsas" && estado.datosBolsas?.carga === "cargando") estado.datosBolsas = null;
     if (clave === "candidatos" && estado.datosCandidatos?.carga === "cargando") estado.datosCandidatos = null;
     if (clave === "contactos" && estado.modalContactos?.carga === "cargando") estado.modalContactos = null;
+    if (clave === "estadisticas" && estado.datosEstadisticas?.carga === "cargando") estado.datosEstadisticas = null;
+  }
+
+  async function cargarEstadisticas() {
+    const controlador = iniciarLectura("estadisticas");
+    estado.datosEstadisticas = { carga: "cargando", datos: null, error: "" };
+    renderizar();
+    const res = await resolverLectura("estadisticas", controlador, () => consultarEstadisticasBolsa({ signal: controlador.signal }));
+    if (res === null || !lecturaVigente("estadisticas", controlador)) return;
+    terminarLectura("estadisticas", controlador);
+    estado.datosEstadisticas = res.ok ? { carga: "listo", datos: res.datos, error: "" } : { carga: res.status === 403 ? "denegado" : "error", datos: null, error: res.mensaje };
+    renderizar();
   }
 
   async function resolverLectura(clave, controlador, operacion) {
@@ -431,6 +458,9 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
       } else if (accion === "reintentar-candidatos") {
         evento.preventDefault();
         void cargarCandidatosBolsa(estado.bolsaSeleccionada);
+      } else if (accion === "reintentar-estadisticas") {
+        evento.preventDefault();
+        void cargarEstadisticas();
       } else if (accion === "limpiar-filtros") {
         evento.preventDefault();
         estado.filtrosBolsa = { estado: "", texto: "" };
@@ -697,6 +727,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     cancelarPeticiones,
     cargarBolsas,
     cargarCandidatosBolsa,
+    cargarEstadisticas,
     abrirFicha,
     cerrarFicha,
 	    abrirContactos, cerrarContactos,
