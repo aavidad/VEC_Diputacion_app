@@ -6,11 +6,8 @@
  * contrato no proporciona. Recibe las utilidades visuales para mantener este módulo puro y comprobable
  * sin acceder al DOM global.
  */
-
 import { traducirBolsaInterna } from "./portal-i18n.js";
-
 const ESQUEMA_PANEL_INTERNO = "vec.bolsa.panel.interno.v1";
-
 export function crearPresentadorPanelInterno(dependencias) {
   const {
     claseEstado,
@@ -32,19 +29,15 @@ export function crearPresentadorPanelInterno(dependencias) {
     .some((dependencia) => typeof dependencia !== "function")) {
     throw new Error("dependencias del presentador de panel interno no válidas");
   }
-
   function datosPanel() {
     return obtenerDatosPanel();
   }
-
   function esActivo() {
     return datosPanel()?.esquema === ESQUEMA_PANEL_INTERNO;
   }
-
   function etiquetaFuente() {
     return esActivo() ? "Panel interno agregado autorizado" : "";
   }
-
   function actualizarContextoSesion(elementos) {
     if (!esActivo()) return false;
     const datos = datosPanel();
@@ -59,7 +52,6 @@ export function crearPresentadorPanelInterno(dependencias) {
     }
     return true;
   }
-
   function tarjetaKPI(sigla, valor, etiqueta) {
     return `
       <article class="tarjeta-kpi">
@@ -67,24 +59,20 @@ export function crearPresentadorPanelInterno(dependencias) {
         <div><strong class="valor-kpi">${escaparHTML(valor)}</strong><span class="etiqueta-kpi">${escaparHTML(etiqueta)}</span></div>
       </article>`;
   }
-
   function etiquetaClave(clave) {
     const texto = String(clave || "").replaceAll(/[._-]+/g, " ").trim();
     return texto ? texto.charAt(0).toLocaleUpperCase("es-ES") + texto.slice(1) : "Sin clave";
   }
-
   function etiquetaEstadoBolsa(estado) {
     const clave = `bolsa_estado_${estado}`;
     const traducida = traducirBolsaInterna(clave);
     return traducida === clave ? etiquetaClave(estado) : traducida;
   }
-
   function controlEstadoBolsa(bolsa, estado, clase = "neutro") {
     const total = numero(bolsa.por_estado?.[estado]);
     const etiqueta = etiquetaEstadoBolsa(estado);
     return `<button type="button" class="estado-chip ${escaparHTML(clase)}" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsa.bolsa_ref)}" data-estado="${escaparHTML(estado)}" aria-label="Ver ${escaparHTML(total)} candidatos ${escaparHTML(etiqueta.toLocaleLowerCase("es-ES"))} de ${escaparHTML(bolsa.categoria)}">${escaparHTML(total)}</button>`;
   }
-
   function instanteVisible(instante) {
     if (!instante || String(instante).startsWith("0001-01-01")) return "Sin fecha límite";
     const fecha = new Date(instante);
@@ -93,7 +81,6 @@ export function crearPresentadorPanelInterno(dependencias) {
       dateStyle: "short", timeStyle: "short", timeZone: "Europe/Madrid",
     }).format(fecha);
   }
-
   function fechaCivilVisible(valor) {
     const partes = typeof valor === "string" && /^(\d{4})-(\d{2})-(\d{2})$/u.exec(valor);
     if (!partes) return "Fecha no disponible";
@@ -110,7 +97,6 @@ export function crearPresentadorPanelInterno(dependencias) {
     }
     return new Intl.DateTimeFormat("es-ES", { dateStyle: "short", timeZone: "UTC" }).format(fecha);
   }
-
   function fechaVisible(valor) {
     return typeof valor === "string" && /^\d{4}-\d{2}-\d{2}$/u.test(valor)
       ? fechaCivilVisible(valor)
@@ -124,14 +110,12 @@ export function crearPresentadorPanelInterno(dependencias) {
     }
     return fechaVisible(valor);
   }
-
   function fechaMarcada(valor) {
     const texto = fechaVisible(valor);
     return texto === "Fecha no disponible"
       ? escaparHTML(texto)
       : `<time datetime="${escaparHTML(valor)}">${escaparHTML(texto)}</time>`;
   }
-
   function filasConvocatorias(datos) {
     if (datos.convocatorias.length === 0) {
       return '<tr><td colspan="6" class="vacio-controlado">La fuente autorizada no ha devuelto convocatorias para este ámbito.</td></tr>';
@@ -145,7 +129,6 @@ export function crearPresentadorPanelInterno(dependencias) {
         <td>${numero(item.numero_solicitudes)}</td><td>${numero(item.numero_pendientes)}</td>
       </tr>`).join("");
   }
-
   function filasActuaciones(datos) {
     if (datos.actuaciones_pendientes.length === 0) {
       return '<tr><td colspan="7" class="vacio-controlado">La fuente autorizada no ha devuelto actuaciones pendientes para este ámbito.</td></tr>';
@@ -160,11 +143,9 @@ export function crearPresentadorPanelInterno(dependencias) {
         <td>${numero(item.numero_elementos)}</td>
       </tr>`).join("");
   }
-
   function renderizarCuadroB12() {
     const estadoBolsas = typeof obtenerDatosBolsas === "function" ? obtenerDatosBolsas() : null;
     if (!estadoBolsas) return "";
-
     if (estadoBolsas.carga === "cargando") {
       return `
         <section class="panel" aria-labelledby="titulo-cuadro-b12">
@@ -178,7 +159,6 @@ export function crearPresentadorPanelInterno(dependencias) {
           </div>
         </section>`;
     }
-
     if (estadoBolsas.carga === "error") {
       return `
         <section class="panel" aria-labelledby="titulo-cuadro-b12">
@@ -195,7 +175,6 @@ export function crearPresentadorPanelInterno(dependencias) {
           </div>
         </section>`;
     }
-
     if (estadoBolsas.carga === "denegado") {
       return `
         <section class="panel" aria-labelledby="titulo-cuadro-b12">
@@ -209,7 +188,6 @@ export function crearPresentadorPanelInterno(dependencias) {
           </div>
         </section>`;
     }
-
     const bolsas = estadoBolsas.datos?.bolsas || [];
     if (bolsas.length === 0) {
       return `
@@ -227,7 +205,6 @@ export function crearPresentadorPanelInterno(dependencias) {
           </div>
         </section>`;
     }
-
     const totalAspirantes = bolsas.reduce((total, bolsa) => total + Number(bolsa.total || 0), 0);
     const totalDisponibles = bolsas.reduce((total, bolsa) => total + Number(bolsa.por_estado?.disponible || 0), 0);
     const totalLlamamientosPendientes = bolsas.reduce((total, bolsa) => total + Number(bolsa.por_estado?.renuncia_pendiente || 0), 0);
@@ -237,6 +214,7 @@ export function crearPresentadorPanelInterno(dependencias) {
         <td><span class="estado-chip neutro">${escaparHTML(etiquetaClave(b.tipo_lista))}</span></td>
         <td><small>${fechaMarcada(b.vigente_desde)}${b.vigente_hasta ? ` — ${fechaMarcada(b.vigente_hasta)}` : " (vigente)"}</small></td>
         <td><button type="button" class="enlace-tabla" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(b.bolsa_ref)}" aria-label="Ver los ${numero(b.total)} candidatos de ${escaparHTML(b.categoria)}"><strong>${numero(b.total)}</strong></button></td>
+        <td><span class="estado-chip info">${numero(b.llamamientos_en_curso)}</span></td>
         <td>${controlEstadoBolsa(b, "disponible", "exito")}</td>
         <td>${controlEstadoBolsa(b, "trabajando")}</td>
         <td>${controlEstadoBolsa(b, "no_disponible", "peligro")}</td>
@@ -245,7 +223,6 @@ export function crearPresentadorPanelInterno(dependencias) {
         <td>${controlEstadoBolsa(b, "pendiente_incorporacion", "info")}</td>
       </tr>
     `).join("");
-
     return `
       <section class="panel" aria-labelledby="titulo-cuadro-b12">
         <div class="cabecera-panel">
@@ -267,6 +244,7 @@ export function crearPresentadorPanelInterno(dependencias) {
                 <th scope="col">Tipo de lista</th>
                 <th scope="col">Vigencia</th>
                 <th scope="col">Total</th>
+                <th scope="col">Llamamientos en curso</th>
                 <th scope="col">Disponibles</th>
                 <th scope="col">Ocupados / Trabajando</th>
                 <th scope="col">No disp.</th>
@@ -282,7 +260,6 @@ export function crearPresentadorPanelInterno(dependencias) {
         </div>
       </section>`;
   }
-
   function renderizarResumen(datos) {
     const i = datos.indicadores;
     const indicadoresConectados = [
@@ -292,7 +269,6 @@ export function crearPresentadorPanelInterno(dependencias) {
       ["DOC", i.documentos_pendientes_firma, "Documentos pendientes de firma"],
       ["INC", i.incidencias_abiertas, "Incidencias abiertas"],
     ];
-
     return `
       ${encabezadoVista("Gestión interna de Bolsas", "Cuadro de mando", "Datos conectados, agregados y autorizados del ámbito interno. El contrato no contiene datos personales ni habilita acciones administrativas.", '<button type="button" class="boton-secundario" data-accion="imprimir">Imprimir resumen</button>')}
       <section class="nota-seguridad" aria-label="Alcance de los datos conectados">Datos conectados en modo de solo lectura. Los indicadores, convocatorias y actuaciones proceden del contrato <code>${ESQUEMA_PANEL_INTERNO}</code>; esta vista no es una presentación ni completa datos ausentes.</section>
@@ -310,7 +286,6 @@ export function crearPresentadorPanelInterno(dependencias) {
         </aside>
       </div>`;
   }
-
   function renderizarConvocatorias(datos) {
     const i = datos.indicadores;
     return `
@@ -319,7 +294,18 @@ export function crearPresentadorPanelInterno(dependencias) {
       <div class="rejilla-kpi">${tarjetaKPI("BOR", numero(i.convocatorias_borrador), "Borrador")}${tarjetaKPI("REV", numero(i.convocatorias_revision), "En revisión")}${tarjetaKPI("FIR", numero(i.convocatorias_pendientes_firma), "Pendientes de firma")}${tarjetaKPI("PUB", numero(i.convocatorias_publicadas), "Publicadas")}</div>
       <section class="panel"><div class="cabecera-panel"><h3>Convocatorias del ámbito autorizado</h3><span class="estado-chip info">${numero(datos.convocatorias.length)} registros</span></div><div class="tabla-contenedor"><table class="tabla-datos"><caption>Convocatorias agregadas en modo de solo lectura</caption><thead><tr><th scope="col">Referencia</th><th scope="col">Categoría</th><th scope="col">Estado</th><th scope="col">Cierre de plazo</th><th scope="col">Solicitudes</th><th scope="col">Pendientes</th></tr></thead><tbody>${filasConvocatorias(datos)}</tbody></table></div></section>`;
   }
-
+  function renderizarNuevoLlamamiento(bolsa, candidatos, flujo) {
+    const paso = Math.max(1, Math.min(4, Number(flujo.paso) || 1));
+    const nombres = ["Seleccionar bolsa", "Seleccionar candidatos", "Configurar llamamiento", "Revisar y enviar"];
+    const rail = `<nav class="pasos" aria-label="Pasos del nuevo llamamiento">${nombres.map((nombre,i)=>`<span class="paso ${i+1<paso?"completado":""}"${i+1===paso?' aria-current="step" tabindex="-1"':""}><span class="paso-numero">${i+1<paso?"✓":i+1}</span><span>${nombre}</span></span>`).join("")}</nav>`;
+    const resumen = `<aside class="resumen-lateral"><section class="panel"><div class="cabecera-panel"><h3>Resumen</h3></div><div class="cuerpo-panel"><dl class="resumen-expediente"><div class="fila-resumen"><dt>Categoría</dt><dd>${escaparHTML(bolsa.categoria)}</dd></div><div class="fila-resumen"><dt>Tipo de lista</dt><dd>${escaparHTML(etiquetaClave(bolsa.tipo_lista))}</dd></div><div class="fila-resumen"><dt>Vigencia</dt><dd>${escaparHTML(fechaVisible(bolsa.vigente_desde))}</dd></div><div class="fila-resumen"><dt>Personas</dt><dd>${numero(bolsa.total)}</dd></div><div class="fila-resumen"><dt>Seleccionadas</dt><dd>${numero(flujo.participaciones?.length||0)}</dd></div></dl></div></section></aside>`;
+    let contenido="";
+    if(paso===1) contenido=`<form class="panel" data-bolsa-form="b7-paso1"><div class="cabecera-panel"><h3>1. Seleccionar bolsa</h3><span class="estado-chip exito">Bolsa constituida</span></div><div class="cuerpo-panel"><p><strong>${escaparHTML(bolsa.categoria)}</strong></p><p>La bolsa se ha leído de B12 y contiene ${numero(bolsa.total)} personas, ${numero(bolsa.por_estado?.disponible||0)} disponibles.</p><button class="boton-primario" type="submit">Seleccionar esta bolsa</button></div></form>`;
+    if(paso===2){const estados=new Set(flujo.estados||["disponible"]);const visibles=candidatos.filter(c=>estados.has(c.estado_clave));const pagina=Math.max(0,Math.min(Number(flujo.pagina)||0,Math.max(0,Math.ceil(visibles.length/6)-1)));const inicio=pagina*6;const filas=visibles.slice(inicio,inicio+6).map(c=>`<tr><td><input type="checkbox" name="participacion" value="${escaparHTML(c.participacion_ref)}" ${flujo.participaciones?.includes(c.participacion_ref)?"checked":""} aria-label="Seleccionar orden ${numero(c.orden)}"></td><td>${numero(c.orden)}</td><td>${escaparHTML(c.nombre_visible)}</td><td><span class="estado-chip ${claseEstado(c.estado_clave)}">${escaparHTML(etiquetaClave(c.estado_clave))}</span></td></tr>`).join("");contenido=`<form class="panel" data-bolsa-form="b7-paso2"><div class="cabecera-panel"><h3>2. Seleccionar candidatos</h3><span class="estado-chip info">${numero(visibles.length)} cumplen los filtros</span></div><div class="cuerpo-panel"><fieldset><legend>Estados a incluir</legend>${["disponible","disponible_desde","no_disponible"].map(e=>`<label><input type="checkbox" name="estado" value="${e}" ${estados.has(e)?"checked":""}> ${escaparHTML(etiquetaClave(e))}</label>`).join(" ")}</fieldset><label><input type="checkbox" checked disabled> Respetar orden de prelación (obligatorio)</label></div><div class="tabla-contenedor"><table class="tabla-datos"><caption>Candidatos por el orden vigente de B5</caption><thead><tr><th>Selección</th><th>Orden</th><th>Candidato</th><th>Estado</th></tr></thead><tbody>${filas||'<tr><td colspan="4">No hay candidatos con esos estados.</td></tr>'}</tbody></table></div><div class="cuerpo-panel"><span>Mostrando ${visibles.length?inicio+1:0} a ${Math.min(inicio+6,visibles.length)} de ${numero(visibles.length)}</span> <button type="button" class="boton-secundario" data-bolsa-accion="b7-pagina" data-pagina="${pagina-1}" ${pagina===0?"disabled":""}>Anterior</button> <button type="button" class="boton-secundario" data-bolsa-accion="b7-pagina" data-pagina="${pagina+1}" ${inicio+6>=visibles.length?"disabled":""}>Siguiente</button> <button class="boton-primario" type="submit">Configurar llamamiento</button></div></form>`}
+    if(paso===3) contenido=`<form class="panel" data-bolsa-form="b7-paso3"><div class="cabecera-panel"><h3>3. Configurar llamamiento</h3></div><div class="cuerpo-panel rejilla-formulario"><label>Referencia de necesidad<input name="referencia" required minlength="2" maxlength="160" value="${escaparHTML(flujo.configuracion?.referencia||"")}"></label><label>Categoría<input name="categoria" required value="${escaparHTML(bolsa.categoria)}"></label><label>Centro<input name="centro" required minlength="2" maxlength="200"></label><label>Modalidad<select name="modalidad" required><option>Sustitución</option><option>Vacante</option><option>Programa temporal</option><option>Acumulación de tareas</option></select></label><label>Fecha prevista de inicio<input type="date" name="fecha_inicio" required></label><label>Canal<input value="Correo obligatorio" readonly></label><label>Plazo provisional<input name="plazo" required value="48 horas · pendiente de RRHH, dudas 1–3" readonly></label><label class="campo-ancho">Descripción<textarea name="descripcion" required minlength="2" maxlength="1000"></textarea></label><label>Plantilla<input name="plantilla_version" value="bolsa-llamamiento-v1" readonly></label><label>Asunto<input name="asunto" required value="Llamamiento de bolsa: ${escaparHTML(bolsa.categoria)}"></label><label class="campo-ancho">Texto del correo<textarea name="cuerpo" required>Se comunica una necesidad de cobertura. La referencia, categoría, centro, modalidad y fecha prevista figuran en este llamamiento. Responda por el cauce indicado por RRHH.</textarea></label><button type="submit" class="boton-primario">Revisar llamamiento</button></div></form>`;
+    if(paso===4){const c=flujo.configuracion||{};contenido=`<section class="panel"><div class="cabecera-panel"><h3>4. Revisar y enviar</h3><span class="estado-chip advertencia">Pendiente de confirmación</span></div><div class="cuerpo-panel"><dl class="resumen-expediente"><div class="fila-resumen"><dt>Necesidad</dt><dd>${escaparHTML(c.referencia)}</dd></div><div class="fila-resumen"><dt>Centro / modalidad</dt><dd>${escaparHTML(c.centro)} · ${escaparHTML(c.modalidad)}</dd></div><div class="fila-resumen"><dt>Candidatos</dt><dd>${numero(flujo.participaciones?.length||0)}, en orden de prelación</dd></div><div class="fila-resumen"><dt>Canal</dt><dd>Correo SMTP; teléfono queda como intento manual B3</dd></div><div class="fila-resumen"><dt>Plazo</dt><dd>${escaparHTML(c.plazo)}</dd></div></dl><form data-bolsa-form="b7-paso4"><label><input type="checkbox" name="confirmacion" required> Confirmo la emisión y el envío al relay configurado.</label><button type="submit" class="boton-primario" ${flujo.enviando?"disabled":""}>${flujo.enviando?"Enviando…":"Emitir llamamiento"}</button></form>${flujo.error?`<p role="alert" class="mensaje-error">${escaparHTML(flujo.error)}</p>`:""}${flujo.recibo?`<section class="mensaje-exito" tabindex="-1" data-b7-recibo><strong>Llamamiento ${escaparHTML(flujo.llamamiento_ref)}</strong><br>Estado: emitido, pendiente de respuesta.<br>Recibo <code>${escaparHTML(flujo.recibo)}</code> · <button type="button" class="boton-secundario" data-bolsa-accion="ver-historico-b7">Abrir Histórico</button></section>`:""}</div></section>`}
+    return `${encabezadoVista("Gestión interna de Bolsas","Nuevo llamamiento","Recorrido real B7 sobre bolsa constituida, candidatos B5, PostgreSQL y SMTP.",'<button type="button" class="boton-secundario" data-bolsa-accion="cancelar-b7">Cancelar</button>')}${rail}<div class="distribucion-llamamiento"><div>${contenido}</div>${resumen}</div>`;
+  }
   function renderizarCandidatosBolsa() {
     const lecturaPresentacion = esLecturaPresentacion() === true;
     const estadoCandidatos = typeof obtenerDatosCandidatosBolsa === "function"
@@ -329,9 +315,7 @@ export function crearPresentadorPanelInterno(dependencias) {
       ? obtenerEstadoCandidatos()
       : { estado: "", texto: "" };
     const pestana = filtrosActuales.pestana === "historico" ? "historico" : "candidatos";
-
     const accionesEncabezado = '<button type="button" class="boton-secundario" data-vista="resumen">Volver al cuadro</button>';
-
     if (!estadoCandidatos || estadoCandidatos.carga === "cargando") {
       return `
         ${encabezadoVista("Gestión interna de Bolsas", "Candidatos de la bolsa", "Consulta ordenada de aspirantes y situación de disponibilidad.", accionesEncabezado)}
@@ -342,7 +326,6 @@ export function crearPresentadorPanelInterno(dependencias) {
           </div>
         </section>`;
     }
-
     if (estadoCandidatos.carga === "error") {
       return `
         ${encabezadoVista("Gestión interna de Bolsas", "Candidatos de la bolsa", "Consulta ordenada de aspirantes y situación de disponibilidad.", accionesEncabezado)}
@@ -357,7 +340,6 @@ export function crearPresentadorPanelInterno(dependencias) {
           </div>
         </section>`;
     }
-
     if (estadoCandidatos.carga === "denegado") {
       return `
         ${encabezadoVista("Gestión interna de Bolsas", "Candidatos de la bolsa", "Consulta ordenada de aspirantes y situación de disponibilidad.", accionesEncabezado)}
@@ -371,19 +353,17 @@ export function crearPresentadorPanelInterno(dependencias) {
           </div>
         </section>`;
     }
-
     const bolsa = estadoCandidatos.datos?.bolsa;
     const candidatos = estadoCandidatos.datos?.candidatos || [];
     const contactos = estadoCandidatos.datos?.contactos || [];
     const modalFicha = typeof obtenerModalFicha === "function" ? obtenerModalFicha() : null;
     const hayMas = estadoCandidatos.datos?.hay_mas === true;
     const cursorSiguiente = estadoCandidatos.datos?.cursor_siguiente || "";
-
+    if (filtrosActuales.nuevo_llamamiento) return renderizarNuevoLlamamiento(bolsa, candidatos, filtrosActuales.nuevo_llamamiento);
     const tituloBolsa = bolsa ? `Candidatos: ${bolsa.categoria}` : "Candidatos de la bolsa";
     const descripcionBolsa = bolsa
       ? `${bolsa.categoria_clave} · Lista ${bolsa.tipo_lista} · Total: ${numero(bolsa.total)} aspirantes`
       : "Consulta ordenada de aspirantes y situación de disponibilidad.";
-
     const opcionesEstado = [
       ["", "Todos los estados"],
       ["disponible", "Disponible"],
@@ -396,7 +376,6 @@ export function crearPresentadorPanelInterno(dependencias) {
     ].map(([valor, etiqueta]) => `
       <option value="${escaparHTML(valor)}"${valor === filtrosActuales.estado ? " selected" : ""}>${escaparHTML(etiqueta)}</option>
     `).join("");
-
     const contadoresEstado = Object.entries(bolsa?.por_estado || {}).map(([estado, total]) => `
       <button type="button" class="tarjeta-estado" data-bolsa-accion="filtrar-estado" data-estado="${escaparHTML(estado)}" aria-pressed="${filtrosActuales.estado === estado}"><span>${escaparHTML(etiquetaClave(estado))}</span><strong>${numero(total)}</strong></button>
     `).join("");
@@ -415,7 +394,6 @@ export function crearPresentadorPanelInterno(dependencias) {
           <button type="button" class="boton-secundario" data-bolsa-accion="limpiar-filtros">Limpiar</button>
         </div>
       </form>`;
-
     let cuerpoTabla = "";
     if (candidatos.length === 0) {
       cuerpoTabla = `<tr><td colspan="7" class="vacio-controlado">No se han encontrado aspirantes que coincidan con los criterios seleccionados.</td></tr>`;
@@ -426,7 +404,6 @@ export function crearPresentadorPanelInterno(dependencias) {
           const l = c.ultimo_llamamiento;
           detalleLlamamiento = `<span>${escaparHTML(etiquetaClave(l.canal))} · ${escaparHTML(etiquetaClave(l.resultado))}<br><small><time datetime="${escaparHTML(l.comunicado_en)}">${escaparHTML(instanteVisible(l.comunicado_en))}</time></small></span>`;
         }
-
         const fichaAbierta = modalFicha?.abierto === true
           && modalFicha.candidato?.participacion_ref === c.participacion_ref;
         const fichaId = `ficha-participacion-${c.participacion_ref}`;
@@ -443,18 +420,29 @@ export function crearPresentadorPanelInterno(dependencias) {
           ${fichaAbierta ? renderizarModalFicha(modalFicha, fichaId) : ""}`;
       }).join("");
     }
-
     const paginacion = hayMas && cursorSiguiente
       ? `<div class="paginacion-bolsa">
            <button type="button" class="boton-secundario" data-bolsa-accion="pagina-siguiente" data-cursor="${escaparHTML(cursorSiguiente)}">Cargar siguientes aspirantes</button>
          </div>`
       : "";
-
     const vigenciaBolsa = bolsa
       ? (bolsa.vigente_hasta
         ? `${fechaVisible(bolsa.vigente_desde)} — ${fechaVisible(bolsa.vigente_hasta)}`
         : `${fechaVisible(bolsa.vigente_desde)} — vigente`)
       : "No disponible";
+    const accionesBolsa = lecturaPresentacion
+      ? `<div class="cuerpo-panel acciones-vista" data-bolsa-c23-pendiente>
+            <button type="button" class="boton-secundario boton-ancho" disabled aria-disabled="true">Consultar historial de contactos</button>
+            <button type="button" class="boton-secundario boton-ancho" disabled aria-disabled="true">Nuevo llamamiento</button>
+            <button type="button" class="boton-secundario boton-ancho" disabled aria-disabled="true">Registrar resultado</button>
+            <p><small>Acciones pendientes de composición en la presentación sintética.</small></p>
+          </div>`
+      : `<div class="cuerpo-panel acciones-vista">
+            <button type="button" class="boton-secundario boton-ancho" data-bolsa-accion="cambiar-pestana" data-pestana="historico">Consultar historial de contactos</button>
+            <button type="button" class="boton-primario boton-ancho" data-bolsa-accion="iniciar-b7">Nuevo llamamiento</button>
+            <button type="button" class="boton-secundario boton-ancho" disabled aria-disabled="true" title="Pendiente de RRHH">Registrar resultado</button>
+            <p><small>B7 emite por SMTP y deja recibo; la respuesta y la renuncia siguen pendientes de RRHH.</small></p>
+          </div>`;
     const bolsas = typeof obtenerDatosBolsas === "function"
       ? obtenerDatosBolsas()?.datos?.bolsas || []
       : [];
@@ -466,7 +454,7 @@ export function crearPresentadorPanelInterno(dependencias) {
       <section class="nota-pendiente" role="note">
         <p>${escaparHTML(traducirBolsaInterna("bolsa_sustituida_aviso", { fecha: fechaAvisoSustitucion(bolsaVigente.vigente_desde) }))}</p>
         <button type="button" class="boton-secundario" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsaVigente.bolsa_ref)}">${escaparHTML(traducirBolsaInterna("bolsa_abrir_vigente"))}</button>
-      </section>` : "";
+       </section>` : "";
     const resumenBolsa = bolsa ? `
       <aside class="resumen-lateral" aria-label="Resumen de la bolsa seleccionada">
         <section class="panel">
@@ -483,12 +471,7 @@ export function crearPresentadorPanelInterno(dependencias) {
         ${avisoSustitucion}
         <section class="panel">
           <div class="cabecera-panel"><h3>Siguientes actuaciones</h3></div>
-          <div class="cuerpo-panel acciones-vista" data-bolsa-c23-pendiente>
-            <button type="button" class="boton-secundario boton-ancho" disabled aria-disabled="true" title="Pendiente de composición C23">Consultar historial de contactos</button>
-            <button type="button" class="boton-secundario boton-ancho" disabled aria-disabled="true" title="Pendiente de composición C23">Nuevo llamamiento</button>
-            <button type="button" class="boton-secundario boton-ancho" disabled aria-disabled="true" title="Pendiente de composición C23">Registrar resultado</button>
-            <p><small>Contacto, llamamiento y resultado dependen de la composición C23. Esta vista no inicia operaciones.</small></p>
-          </div>
+          ${accionesBolsa}
         </section>
       </aside>` : "";
     const nombres = new Map(candidatos.map((c) => [c.participacion_ref, c]));
@@ -507,11 +490,10 @@ export function crearPresentadorPanelInterno(dependencias) {
     const navegacionHistorico = llamadas.length > 6 ? `<div class="acciones-vista" aria-label="Paginación del histórico"><span>Mostrando ${numero(inicioHistorico + 1)} a ${numero(Math.min(inicioHistorico + 6, llamadas.length))} de ${numero(llamadas.length)}</span><button type="button" class="boton-secundario" data-bolsa-accion="pagina-historico" data-pagina="${paginaHistorico - 1}"${paginaHistorico === 0 ? " disabled" : ""}>Anterior</button><button type="button" class="boton-secundario" data-bolsa-accion="pagina-historico" data-pagina="${paginaHistorico + 1}"${inicioHistorico + 6 >= llamadas.length ? " disabled" : ""}>Siguiente</button></div>` : "";
     const pestanas = `<nav class="acciones-vista" role="tablist" aria-label="Vistas de la bolsa"><button type="button" class="boton-secundario" role="tab" aria-selected="${pestana === "candidatos"}" data-bolsa-accion="cambiar-pestana" data-pestana="candidatos">Candidatos</button><button type="button" class="boton-secundario" role="tab" aria-selected="${pestana === "historico"}" data-bolsa-accion="cambiar-pestana" data-pestana="historico">Histórico de llamamientos</button></nav>`;
     const contenidoHistorico = `<section class="panel" data-bolsa-b5-destino="true" tabindex="-1"><div class="cabecera-panel"><h3>${traducirBolsaInterna("contacto_historico_titulo")}</h3><span class="estado-chip info">${numero(llamadas.length)} registros</span></div><div class="tabla-contenedor"><table class="tabla-datos"><caption>${traducirBolsaInterna("contacto_historico_descripcion")}</caption><thead><tr><th scope="col">Fecha</th><th scope="col">Candidato</th><th scope="col">Tipo</th><th scope="col">Resultado</th><th scope="col">Actor</th><th scope="col">Contacto</th></tr></thead><tbody>${tablaHistorico}</tbody></table></div>${navegacionHistorico}</section>`;
-
     return `
       ${encabezadoVista("Gestión interna de Bolsas", tituloBolsa, descripcionBolsa, accionesEncabezado)}
       ${lecturaPresentacion ? '<section class="nota-pendiente" role="note"><strong>Presentación sintética de solo lectura.</strong> Los datos visibles no acreditan contacto, envío ni entrega.</section>' : ""}
-      <section class="nota-pendiente" role="note"><strong>Acciones pendientes de composición.</strong> La ficha está disponible para consulta; contactos, llamamientos y resultados dependen de C23 y se habilitarán cuando su circuito esté conectado.</section>
+      ${lecturaPresentacion ? "" : '<section class="nota-seguridad" role="note"><strong>Operaciones conectadas.</strong> Los contactos B3 y la emisión B7 usan autorización nominal, persistencia PostgreSQL y recibos recuperables; las respuestas siguen pendientes de RRHH.</section>'}
       <div class="distribucion-llamamiento">
         <div>
           ${pestanas}
@@ -543,7 +525,6 @@ export function crearPresentadorPanelInterno(dependencias) {
         ${resumenBolsa}
       </div>`;
   }
-
   function renderizarModalFicha(modal, fichaId) {
     if (!modal || !modal.abierto) return "";
     const candidato = modal.candidato;
@@ -581,7 +562,6 @@ export function crearPresentadorPanelInterno(dependencias) {
     const opcionLlamamiento = candidato.ultimo_llamamiento ? `<option value="${escaparHTML(candidato.ultimo_llamamiento.llamamiento_ref)}">${escaparHTML(candidato.ultimo_llamamiento.llamamiento_ref)}</option>` : "";
     const t = traducirBolsaInterna;
     const formularioContacto = `<form data-bolsa-form="contacto" data-participacion-ref="${escaparHTML(candidato.participacion_ref)}"><h4>${t("contacto_registrar")}</h4><label>${t("contacto_canal")} <select name="canal" required><option value="telefono">${t("contacto_telefono")}</option><option value="correo">${t("contacto_correo")}</option><option value="sms">${t("contacto_sms")}</option><option value="presencial">${t("contacto_presencial")}</option><option value="otro">${t("contacto_otro")}</option></select></label><label>${t("contacto_resultado")} <select name="resultado" required><option value="contactado">${t("contacto_contactado")}</option><option value="no_contesta">${t("contacto_no_contesta")}</option><option value="buzon">${t("contacto_buzon")}</option><option value="acepta">${t("contacto_acepta")}</option><option value="rechaza">${t("contacto_rechaza")}</option><option value="aplazado">${t("contacto_aplazado")}</option><option value="otro">${t("contacto_otro")}</option></select></label>${opcionLlamamiento?`<label>${t("contacto_llamamiento")} <select name="llamamiento_ref"><option value="">${t("contacto_sin_vincular")}</option>${opcionLlamamiento}</select></label>`:""}<label>${t("contacto_anotacion")} <textarea name="anotacion" required maxlength="1000"></textarea></label><button type="submit" class="boton-primario">${t("contacto_registrar")}</button><p class="mensaje-error" role="alert">${escaparHTML(modal.errorContacto||"")}</p></form>`;
-
     return `
       <tr class="fila-ficha-participacion" data-ficha-participacion-ref="${escaparHTML(candidato.participacion_ref)}">
         <td colspan="7">
@@ -615,7 +595,6 @@ export function crearPresentadorPanelInterno(dependencias) {
         </td>
       </tr>`;
   }
-
   function renderizarModalContactos(modal) {
     if (!modal || !modal.abierto) return "";
     let contenido = "";
@@ -652,7 +631,6 @@ export function crearPresentadorPanelInterno(dependencias) {
           </table>
         </div>`;
     }
-
     return `
       <div class="modal-fondo" role="dialog" aria-modal="true" aria-labelledby="titulo-modal-contactos">
         <div class="modal-contenido">
@@ -670,14 +648,12 @@ export function crearPresentadorPanelInterno(dependencias) {
         </div>
       </div>`;
   }
-
   function renderizarModalLlamar(modal) {
     if (!modal || !modal.abierto) return "";
     const errorHtml = modal.error
       ? `<div class="mensaje-error" role="alert"><p><strong>Error:</strong> ${escaparHTML(modal.error)}</p></div>`
       : "";
     const enviando = modal.carga === "enviando";
-
     return `
       <div class="modal-fondo" role="dialog" aria-modal="true" aria-labelledby="titulo-modal-llamar">
         <div class="modal-contenido">
@@ -724,14 +700,12 @@ export function crearPresentadorPanelInterno(dependencias) {
         </div>
       </div>`;
   }
-
   function renderizarModalResultado(modal) {
     if (!modal || !modal.abierto) return "";
     const errorHtml = modal.error
       ? `<div class="mensaje-error" role="alert"><p><strong>Error:</strong> ${escaparHTML(modal.error)}</p></div>`
       : "";
     const enviando = modal.carga === "enviando";
-
     return `
       <div class="modal-fondo" role="dialog" aria-modal="true" aria-labelledby="titulo-modal-resultado">
         <div class="modal-contenido">
@@ -771,13 +745,11 @@ export function crearPresentadorPanelInterno(dependencias) {
         </div>
       </div>`;
   }
-
   function renderizarNoConectada(vista) {
     return `
       ${encabezadoVista("Contrato real de alcance mínimo", tituloVista(vista), "Esta sección no está disponible con el contrato interno actualmente conectado.", '<button type="button" class="boton-secundario" data-vista="resumen">Volver al cuadro de mando</button>')}
       <section class="panel"><div class="cuerpo-panel vacio-controlado"><p><strong>Funcionalidad no conectada</strong></p><p>El servidor solo ha acreditado indicadores agregados, convocatorias y actuaciones pendientes. No se muestran valores cero, tablas vacías ni controles aparentes para datos que no han sido proporcionados.</p></div></section>`;
   }
-
   function renderizarVista(vista) {
     if (!esActivo()) throw new Error("el presentador requiere un panel interno válido");
     const datos = datosPanel();
@@ -786,7 +758,6 @@ export function crearPresentadorPanelInterno(dependencias) {
     if (vista === "bolsa-candidatos") return renderizarCandidatosBolsa();
     return renderizarNoConectada(vista);
   }
-
   // Sin panel agregado compuesto, las bolsas constituidas (B12/B5) se muestran
   // igualmente: tienen su propia API y no dependen de los indicadores.
   function renderizarSoloBolsas(vista) {
@@ -795,6 +766,5 @@ export function crearPresentadorPanelInterno(dependencias) {
       ${encabezadoVista("Gestión interna de Bolsas", "Cuadro de mando", "Bolsas constituidas y su desglose por situación. Los indicadores agregados del panel interno no están compuestos todavía.")}
       ${renderizarCuadroB12()}`;
   }
-
   return Object.freeze({ actualizarContextoSesion, esActivo, etiquetaFuente, renderizarSoloBolsas, renderizarVista });
 }

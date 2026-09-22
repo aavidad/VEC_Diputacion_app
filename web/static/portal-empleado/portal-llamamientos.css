@@ -94,3 +94,19 @@
   .recibo-llamamiento,
   .resumen-errores { border: 2px solid CanvasText; }
 }
+@media (min-width: 1024px) {
+  .vista-contenido:has([data-bolsa-form^="b7-"]) {
+    height: calc(100vh - var(--portal-altura-cabecera, 5rem));
+    overflow: hidden;
+  }
+  .vista-contenido:has([data-bolsa-form^="b7-"]) .distribucion-llamamiento {
+    min-height: 0;
+    max-height: calc(100vh - 15rem);
+    overflow: hidden;
+  }
+  .vista-contenido:has([data-bolsa-form^="b7-"]) .tabla-contenedor,
+  .vista-contenido:has([data-bolsa-form^="b7-"]) .cuerpo-panel {
+    max-height: calc(100vh - 24rem);
+    overflow: auto;
+  }
+}

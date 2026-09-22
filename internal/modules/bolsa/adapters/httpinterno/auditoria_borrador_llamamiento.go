@@ -79,11 +79,6 @@ func (a *auditoriaBorradorLlamamiento) ServeHTTP(w http.ResponseWriter, r *http.
 	if respuesta.excedida {
 		estado = http.StatusServiceUnavailable
 	}
-	if !esFalloAuditableBorradorLlamamiento(estado) {
-		respuesta.volcarEn(w, false, r.Method == http.MethodGet)
-		return
-	}
-
 	ctxAuditoria, cancelar := context.WithTimeout(context.WithoutCancel(ctxPeticion), tiempoMaximoAuditoriaBorradorLlamamiento)
 	defer cancelar()
 	correlacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(ctxAuditoria, a.generador)
@@ -114,6 +109,18 @@ func (a *auditoriaBorradorLlamamiento) ServeHTTP(w http.ResponseWriter, r *http.
 }
 
 func intentoAuditableBorradorLlamamiento(r *http.Request) (puertosbolsa.AccionIntentoBorradorLlamamiento, puertosbolsa.ClaseRutaIntentoBorradorLlamamiento, bool) {
+	if _, _, _, ok := ReferenciasRutaDatosContactoParticipacion(r); ok && r.Method == http.MethodGet {
+		return puertosbolsa.AccionIntentoConsultarDatosContactoParticipacion, puertosbolsa.ClaseRutaDatosContactoParticipacion, true
+	}
+	if _, _, _, ok := ReferenciasRutaDatosContactoParticipacion(r); ok && r.Method == http.MethodPost {
+		return puertosbolsa.AccionIntentoRegistrarDatosContactoParticipacion, puertosbolsa.ClaseRutaDatosContactoParticipacion, true
+	}
+	if r.URL != nil && r.URL.Path == RutaEmisionesLlamamiento && r.URL.RawPath == "" && r.Method == http.MethodGet {
+		return puertosbolsa.AccionIntentoRecuperarLlamamiento, puertosbolsa.ClaseRutaEmisionesLlamamiento, true
+	}
+	if r.URL != nil && r.URL.Path == RutaEmisionesLlamamiento && r.URL.RawPath == "" && r.Method == http.MethodPost {
+		return puertosbolsa.AccionIntentoEmitirLlamamiento, puertosbolsa.ClaseRutaEmisionesLlamamiento, true
+	}
 	if _, _, ok := ReferenciasRutaContactosParticipacion(r); ok && r.Method == http.MethodGet {
 		return puertosbolsa.AccionIntentoConsultarBorradorLlamamiento, puertosbolsa.ClaseRutaContactosParticipacion, true
 	}
@@ -137,9 +144,10 @@ func intentoAuditableBorradorLlamamiento(r *http.Request) (puertosbolsa.AccionIn
 	return "", "", false
 }
 
-func esFalloAuditableBorradorLlamamiento(estado int) bool { return estado >= http.StatusBadRequest }
-
 func resultadoIntentoBorradorLlamamiento(estado int) puertosbolsa.ResultadoIntentoBorradorLlamamiento {
+	if estado < http.StatusBadRequest {
+		return puertosbolsa.ResultadoIntentoCorrectoBorradorLlamamiento
+	}
 	switch estado {
 	case http.StatusUnauthorized:
 		return puertosbolsa.ResultadoIntentoAutenticacionRequeridaBorradorLlamamiento

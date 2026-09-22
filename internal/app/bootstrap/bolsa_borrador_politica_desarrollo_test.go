@@ -38,7 +38,7 @@ func (a *autoridadInicialBorradorBolsaPrueba) prepararInstantanea(
 func (a *autoridadInicialBorradorBolsaPrueba) publicarInstantaneaDesdePreimagen(
 	_ context.Context, instantanea, preimagen dominiovec.InstantaneaAutorizacion,
 ) error {
-	if preimagen.VersionRol.Version != 2 || len(preimagen.VersionRol.Concesiones) != 3 ||
+	if preimagen.VersionRol.Version != 4 || len(preimagen.VersionRol.Concesiones) != 6 ||
 		(instantanea.AsignacionPerfil.Version == 2 && !a.permitirSucesion) {
 		return errors.New("preimagen no admitida")
 	}
@@ -83,7 +83,7 @@ func nuevaPoliticaBorradorBolsaPrueba(t *testing.T) (*politicaBorradorLlamamient
 	return politica, soporte, autoridad, registro
 }
 
-func TestPoliticaBorradorBolsaPublicaTresConcesionesNominales(t *testing.T) {
+func TestPoliticaBorradorBolsaPublicaSieteConcesionesNominales(t *testing.T) {
 	politica, soporte, autoridad, _ := nuevaPoliticaBorradorBolsaPrueba(t)
 	datos, err := soporte.soporteCanal.contexto.Vinculo.Datos()
 	if err != nil {
@@ -102,7 +102,7 @@ func TestPoliticaBorradorBolsaPublicaTresConcesionesNominales(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if instantanea.AsignacionPerfil.PerfilActivoRef != datos.PerfilActivoRef || len(instantanea.VersionRol.Concesiones) != 5 {
+	if instantanea.AsignacionPerfil.PerfilActivoRef != datos.PerfilActivoRef || len(instantanea.VersionRol.Concesiones) != 7 {
 		t.Fatalf("perfil o concesiones inesperados: %+v", instantanea)
 	}
 	concesiones := map[string]dominiovec.ConcesionRol{}
@@ -115,11 +115,16 @@ func TestPoliticaBorradorBolsaPublicaTresConcesionesNominales(t *testing.T) {
 		puertosbolsa.AccionCambiarSituacionParticipacion:       puertosbolsa.FinalidadCambiarSituacionParticipacion,
 		puertosbolsa.AccionRegistrarContactoParticipacion:      puertosbolsa.FinalidadRegistrarContactoParticipacion,
 		puertosbolsa.AccionConsultarContactoParticipacion:      puertosbolsa.FinalidadConsultarContactoParticipacion,
+		puertosbolsa.AccionRegistrarDatosContactoParticipacion: puertosbolsa.FinalidadRegistrarDatosContactoParticipacion,
+		puertosbolsa.AccionEmitirLlamamiento:                   puertosbolsa.FinalidadEmitirLlamamiento,
 	} {
 		concesion, existe := concesiones[accion]
 		tipo := puertosbolsa.TipoRecursoBorradorLlamamiento
-		if accion == puertosbolsa.AccionCambiarSituacionParticipacion || accion == puertosbolsa.AccionRegistrarContactoParticipacion || accion == puertosbolsa.AccionConsultarContactoParticipacion {
+		if accion == puertosbolsa.AccionCambiarSituacionParticipacion || accion == puertosbolsa.AccionRegistrarContactoParticipacion || accion == puertosbolsa.AccionConsultarContactoParticipacion || accion == puertosbolsa.AccionRegistrarDatosContactoParticipacion {
 			tipo = puertosbolsa.TipoRecursoSituacionParticipacion
+		}
+		if accion == puertosbolsa.AccionEmitirLlamamiento {
+			tipo = puertosbolsa.TipoRecursoEmision
 		}
 		if !existe || concesion.ModuloID != puertosbolsa.ModuloBorradorLlamamiento || concesion.TipoRecurso != tipo || len(concesion.Finalidades) != 1 || concesion.Finalidades[0] != finalidad {
 			t.Fatalf("concesión B-BACK no exacta para %s: %+v", accion, concesion)
@@ -204,7 +209,7 @@ func TestPoliticaBorradorBolsaPublicaLaSemillaParaCerrarCarrera(t *testing.T) {
 	}
 }
 
-func TestPoliticaBorradorBolsaEvolucionaSoloDesdeB2Exacta(t *testing.T) {
+func TestPoliticaBorradorBolsaEvolucionaSoloDesdeB7Exacta(t *testing.T) {
 	politica, _, autoridad, _ := nuevaPoliticaBorradorBolsaPrueba(t)
 	autoridad.permitirSucesion = true
 	autoridad.preparar = func(i dominiovec.InstantaneaAutorizacion) (dominiovec.InstantaneaAutorizacion, error) {
@@ -215,8 +220,8 @@ func TestPoliticaBorradorBolsaEvolucionaSoloDesdeB2Exacta(t *testing.T) {
 	if err := politica.PublicarInicial(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if autoridad.publicada.VersionRol.Version != 3 || autoridad.publicada.AsignacionPerfil.Version != 2 || len(autoridad.publicada.VersionRol.Concesiones) != 5 {
-		t.Fatalf("sucesión B3 no exacta: %+v", autoridad.publicada)
+	if autoridad.publicada.VersionRol.Version != 5 || autoridad.publicada.AsignacionPerfil.Version != 2 || len(autoridad.publicada.VersionRol.Concesiones) != 7 {
+		t.Fatalf("sucesión B4 no exacta: %+v", autoridad.publicada)
 	}
 }
 

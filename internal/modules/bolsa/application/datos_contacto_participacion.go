@@ -110,12 +110,25 @@ func (s *ServicioDatosContactoParticipacion) Registrar(ctx context.Context, soli
 	}
 	ahora := s.reloj().UTC().Truncate(time.Microsecond)
 	h := sha256.Sum256([]byte(solicitud.ParticipacionRef + "\x1f" + solicitud.ClaveIdempotencia))
-	return s.repositorio.RegistrarDatosContacto(ctx, puertosbolsa.ComandoRegistrarDatosContactoParticipacion{
+	registrado, err := s.repositorio.RegistrarDatosContacto(ctx, puertosbolsa.ComandoRegistrarDatosContactoParticipacion{
 		ParticipacionRef: solicitud.ParticipacionRef, BolsaRef: solicitud.BolsaRef, Sobre: sobre, Motivo: solicitud.Motivo,
 		Actor: actor.PersonaRef, RegistradaEn: ahora, ClaveIdempotencia: solicitud.ClaveIdempotencia,
 		ReciboRef:             "recibo:datos-contacto:" + hex.EncodeToString(h[:]),
 		SolicitudAutorizacion: auth, Decision: decision, Confirmacion: confirmacion, Material: material,
 	})
+	if err != nil {
+		return puertosbolsa.RegistroDatosContactoParticipacion{}, err
+	}
+	if registrado.Reutilizada {
+		iguales, compararErr := s.mismosDatos(ctx, registrado, datos)
+		if compararErr != nil {
+			return puertosbolsa.RegistroDatosContactoParticipacion{}, compararErr
+		}
+		if !iguales || registrado.Motivo != solicitud.Motivo {
+			return puertosbolsa.RegistroDatosContactoParticipacion{}, dominiobolsa.ErrDatosContactoParticipacionInvalidos
+		}
+	}
+	return registrado, nil
 }
 
 // Consultar entrega a RRHH los datos vigentes, en claro y enmascarados, tras

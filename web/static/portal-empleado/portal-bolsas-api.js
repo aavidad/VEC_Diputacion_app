@@ -11,11 +11,10 @@ import {
   validarRespuestaBolsas,
   validarRespuestaCandidatosBolsa,
   validarRespuestaContactos,
-  validarPayloadCrearLlamamiento,
-  validarPayloadResultadoLlamamiento,
-  construirEnvelopeAccionBolsa,
 } from "./portal-bolsas-contrato.js";
 import { traducirBolsaInterna } from "./portal-i18n.js";
+import { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js";
+export { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js";
 
 export const RUTA_BOLSAS = "/api/vec/bolsa/bolsas";
 // El enrutador del servidor solo acepta rutas canónicas (sin secuencias
@@ -204,148 +203,6 @@ export async function registrarContactoCandidato(bolsaRef, participacionRef, pay
     const respuesta=await fetchImpl(`${RUTA_BOLSAS}/${segmentoRuta(bolsaRef)}/candidatos/${segmentoRuta(participacionRef)}/contactos`,{method:"POST",credentials:"omit",headers:{Accept:"application/json","Content-Type":"application/json","Idempotency-Key":payload.clave_idempotencia},body:JSON.stringify({canal:payload.canal,resultado:payload.resultado,anotacion:payload.anotacion,instante:payload.instante,llamamiento_ref:payload.llamamiento_ref||""})});
     const cuerpo=await respuesta.json().catch(()=>({})); if(respuesta.ok&&cuerpo?.data?.recibo_ref)return{ok:true,datos:cuerpo.data}; return{ok:false,status:respuesta.status,codigo:cuerpo?.error?.codigo||"error_servidor",mensaje:traducirBolsaInterna(respuesta.status===403?"contacto_permiso_denegado":respuesta.status===409?"contacto_clave_conflicto":"contacto_registro_error")};
   } catch(_error){return{ok:false,status:0,codigo:"error_red",mensaje:traducirBolsaInterna("contacto_comunicacion_error")}}
-}
-
-export async function crearLlamamientoCandidato(participacionRef, payload, { fetchImpl = fetch } = {}) {
-  if (typeof participacionRef !== "string" || participacionRef.trim() === "") {
-    return { ok: false, status: 400, codigo: "referencia_invalida", mensaje: "Referencia de candidato no válida." };
-  }
-
-  let payloadValidado;
-  let envelopeAccion;
-  try {
-    payloadValidado = validarPayloadCrearLlamamiento(payload);
-    envelopeAccion = construirEnvelopeAccionBolsa("crear_llamamiento", payloadValidado, { confirmacion: true });
-  } catch (err) {
-    return {
-      ok: false,
-      status: 400,
-      codigo: "solicitud_invalida",
-      mensaje: err instanceof Error ? err.message : "Datos de llamamiento no válidos.",
-    };
-  }
-
-  const url = `/api/vec/bolsa/candidatos/${segmentoRuta(participacionRef)}/llamamientos`;
-
-  try {
-    const respuesta = await fetchImpl(url, {
-      method: "POST",
-      credentials: "omit",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify(envelopeAccion),
-    });
-
-    if (!respuesta.ok) {
-      if (respuesta.status === 400) {
-        return { ok: false, status: 400, codigo: "solicitud_invalida", mensaje: "Solicitud de llamamiento rechazada por el servidor." };
-      }
-      if (respuesta.status === 401) {
-        return { ok: false, status: 401, codigo: "no_autenticado", mensaje: "Se requiere una sesión interna autenticada." };
-      }
-      if (respuesta.status === 403) {
-        return { ok: false, status: 403, codigo: "acceso_denegado", mensaje: "Sin permiso para registrar llamamientos." };
-      }
-      if (respuesta.status === 404) {
-        return { ok: false, status: 404, codigo: "no_encontrado", mensaje: "Candidato no encontrado para el llamamiento." };
-      }
-      if (respuesta.status === 409) {
-        return { ok: false, status: 409, codigo: "conflicto", mensaje: "El aspirante no está disponible o ya tiene un llamamiento en curso." };
-      }
-      if (respuesta.status === 422) {
-        return { ok: false, status: 422, codigo: "no_procesable", mensaje: "Los datos del llamamiento no cumplen las reglas de negocio." };
-      }
-      return {
-        ok: false,
-        status: respuesta.status,
-        codigo: "error_servidor",
-        mensaje: `No se pudo registrar el llamamiento (HTTP ${respuesta.status}).`,
-      };
-    }
-
-    const envelope = await respuesta.json();
-    return { ok: true, datos: envelope.data || envelope };
-  } catch (error) {
-    return {
-      ok: false,
-      status: 0,
-      codigo: "error_red_o_contrato",
-      mensaje: error instanceof Error ? error.message : "Error de comunicación al registrar llamamiento.",
-    };
-  }
-}
-
-export async function registrarResultadoLlamamiento(llamamientoRef, payload, { fetchImpl = fetch } = {}) {
-  if (typeof llamamientoRef !== "string" || llamamientoRef.trim() === "") {
-    return { ok: false, status: 400, codigo: "referencia_invalida", mensaje: "Referencia de llamamiento no válida." };
-  }
-
-  let payloadValidado;
-  let envelopeAccion;
-  try {
-    payloadValidado = validarPayloadResultadoLlamamiento(payload);
-    envelopeAccion = construirEnvelopeAccionBolsa("registrar_resultado", payloadValidado, { confirmacion: true });
-  } catch (err) {
-    return {
-      ok: false,
-      status: 400,
-      codigo: "solicitud_invalida",
-      mensaje: err instanceof Error ? err.message : "Datos de resultado no válidos.",
-    };
-  }
-
-  const url = `/api/vec/bolsa/llamamientos/${segmentoRuta(llamamientoRef)}/resultado`;
-
-  try {
-    const respuesta = await fetchImpl(url, {
-      method: "POST",
-      credentials: "omit",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify(envelopeAccion),
-    });
-
-    if (!respuesta.ok) {
-      if (respuesta.status === 400) {
-        return { ok: false, status: 400, codigo: "solicitud_invalida", mensaje: "Solicitud de resultado rechazada por el servidor." };
-      }
-      if (respuesta.status === 401) {
-        return { ok: false, status: 401, codigo: "no_autenticado", mensaje: "Se requiere una sesión interna autenticada." };
-      }
-      if (respuesta.status === 403) {
-        return { ok: false, status: 403, codigo: "acceso_denegado", mensaje: "Sin permiso para registrar resultado de llamamiento." };
-      }
-      if (respuesta.status === 404) {
-        return { ok: false, status: 404, codigo: "no_encontrado", mensaje: "Llamamiento no encontrado." };
-      }
-      if (respuesta.status === 409) {
-        return { ok: false, status: 409, codigo: "conflicto", mensaje: "El llamamiento ya tiene resultado o su estado no permite registrarlo." };
-      }
-      if (respuesta.status === 422) {
-        return { ok: false, status: 422, codigo: "no_procesable", mensaje: "El resultado no es procesable según las reglas de bolsa." };
-      }
-      return {
-        ok: false,
-        status: respuesta.status,
-        codigo: "error_servidor",
-        mensaje: `No se pudo registrar el resultado (HTTP ${respuesta.status}).`,
-      };
-    }
-
-    const envelope = await respuesta.json();
-    return { ok: true, datos: envelope.data || envelope };
-  } catch (error) {
-    return {
-      ok: false,
-      status: 0,
-      codigo: "error_red_o_contrato",
-      mensaje: error instanceof Error ? error.message : "Error de comunicación al registrar resultado.",
-    };
-  }
 }
 
 export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFuenteLectura = () => null, documento = globalThis.document }) {
@@ -630,10 +487,59 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
       } else if (accion === "cerrar-resultado") {
         evento.preventDefault();
         cerrarResultado();
+      } else if (accion === "iniciar-b7") {
+        evento.preventDefault();
+        estado.filtrosBolsa = { ...estado.filtrosBolsa, nuevo_llamamiento: { paso: 1, estados: ["disponible"], participaciones: [], configuracion: null, error: "", recibo: "" } };
+        renderizar();
+        documento.querySelector('[aria-current="step"]')?.focus?.();
+      } else if (accion === "cancelar-b7") {
+        evento.preventDefault();
+        const { nuevo_llamamiento: _omitido, ...resto } = estado.filtrosBolsa || {};
+        estado.filtrosBolsa = resto;
+        renderizar();
+      } else if (accion === "ver-historico-b7") {
+        evento.preventDefault();
+        estado.filtrosBolsa = { estado: "", texto: "", pestana: "historico", pagina_historico: 0 };
+        void cargarCandidatosBolsa(estado.bolsaSeleccionada, { enfocarDestino: true });
+      } else if (accion === "b7-pagina") {
+        evento.preventDefault();
+        const formulario = documento.querySelector('[data-bolsa-form="b7-paso2"]');
+        const datos = formulario ? new FormData(formulario) : null;
+        const previas = new Set(estado.filtrosBolsa.nuevo_llamamiento.participaciones || []);
+        for (const candidato of estado.datosCandidatos?.datos?.candidatos || []) {
+          if (datos?.getAll("participacion").includes(candidato.participacion_ref)) previas.add(candidato.participacion_ref);
+        }
+        Object.assign(estado.filtrosBolsa.nuevo_llamamiento, { pagina: Math.max(0, Number(botonAccion.dataset.pagina) || 0), participaciones: [...previas] });
+        renderizar();
       }
     });
 
     documento.addEventListener("submit", (evento) => {
+      const paso1 = evento.target?.closest?.('[data-bolsa-form="b7-paso1"]');
+      if (paso1) { evento.preventDefault(); estado.filtrosBolsa.nuevo_llamamiento.paso = 2; renderizar(); return; }
+      const paso2 = evento.target?.closest?.('[data-bolsa-form="b7-paso2"]');
+      if (paso2) {
+        evento.preventDefault(); const datos = new FormData(paso2);
+        const seleccion = datos.getAll("participacion").map(String);
+        if (!seleccion.length) { estado.filtrosBolsa.nuevo_llamamiento.error = "Seleccione al menos un candidato."; renderizar(); return; }
+        const orden = new Map((estado.datosCandidatos?.datos?.candidatos || []).map(c => [c.participacion_ref, c.orden]));
+        seleccion.sort((a,b)=>(orden.get(a)||0)-(orden.get(b)||0));
+        Object.assign(estado.filtrosBolsa.nuevo_llamamiento, { paso: 3, estados: datos.getAll("estado").map(String), participaciones: seleccion, error: "" }); renderizar(); return;
+      }
+      const paso3 = evento.target?.closest?.('[data-bolsa-form="b7-paso3"]');
+      if (paso3) {
+        evento.preventDefault(); const datos = new FormData(paso3); const get = n => String(datos.get(n)||"").trim();
+        const configuracion = { referencia:get("referencia"), descripcion:get("descripcion"), categoria:get("categoria"), centro:get("centro"), modalidad:get("modalidad"), fecha_inicio:get("fecha_inicio"), plazo:get("plazo"), plantilla_version:get("plantilla_version"), asunto:get("asunto"), cuerpo:"" };
+        configuracion.cuerpo = `${get("cuerpo")}\n\nReferencia: ${configuracion.referencia}\nCategoría: ${configuracion.categoria}\nCentro: ${configuracion.centro}\nModalidad: ${configuracion.modalidad}\nFecha prevista: ${configuracion.fecha_inicio}\nPlazo provisional: ${configuracion.plazo}`;
+        estado.filtrosBolsa.nuevo_llamamiento.configuracion = configuracion; estado.filtrosBolsa.nuevo_llamamiento.paso = 4; renderizar(); return;
+      }
+      const paso4 = evento.target?.closest?.('[data-bolsa-form="b7-paso4"]');
+      if (paso4) {
+        evento.preventDefault(); const datos = new FormData(paso4); const flujo=estado.filtrosBolsa.nuevo_llamamiento;
+        if (!datos.get("confirmacion") || flujo.enviando) return;
+        flujo.enviando=true; flujo.error=""; flujo.clave_idempotencia ||= globalThis.crypto?.randomUUID?.() || `llamamiento-${Date.now()}-${Math.random().toString(16).slice(2)}`; renderizar();
+        void emitirLlamamiento({ bolsa_ref:estado.bolsaSeleccionada, participaciones:flujo.participaciones, configuracion:flujo.configuracion, clave_idempotencia:flujo.clave_idempotencia }).then(res=>{flujo.enviando=false;if(res.ok){flujo.recibo=res.datos.recibo_ref;flujo.llamamiento_ref=res.datos.llamamiento_ref}else{flujo.error=res.mensaje}renderizar();documento.querySelector("[data-b7-recibo]")?.focus?.()}); return;
+      }
       const formFiltros = evento.target?.closest?.('[data-bolsa-form="filtros"]');
       if (formFiltros) {
         evento.preventDefault();

@@ -28,12 +28,13 @@ const (
 type datasetBolsasRRHHDesarrollo struct {
 	GeneradoEn string `json:"generado_en"`
 	Bolsas     []struct {
-		Referencia   string  `json:"bolsa_ref"`
-		CategoriaRef string  `json:"categoria_ref"`
-		Categoria    string  `json:"categoria"`
-		TipoLista    string  `json:"tipo_lista"`
-		VigenteDesde string  `json:"vigente_desde"`
-		VigenteHasta *string `json:"vigente_hasta"`
+		Referencia          string  `json:"bolsa_ref"`
+		CategoriaRef        string  `json:"categoria_ref"`
+		Categoria           string  `json:"categoria"`
+		TipoLista           string  `json:"tipo_lista"`
+		VigenteDesde        string  `json:"vigente_desde"`
+		VigenteHasta        *string `json:"vigente_hasta"`
+		LlamamientosEnCurso int     `json:"llamamientos_en_curso"`
 	} `json:"bolsas"`
 	Candidaturas []struct {
 		Referencia  string  `json:"candidatura_ref"`
@@ -111,10 +112,14 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	if esContacto {
 		_, _, esContacto = bolsahttp.ReferenciasRutaContactosParticipacion(r)
 	}
+	esDatosContacto := h != nil && h.mutar != nil && r != nil && (r.Method == http.MethodPost || r.Method == http.MethodGet)
+	if esDatosContacto {
+		_, _, _, esDatosContacto = bolsahttp.ReferenciasRutaDatosContactoParticipacion(r)
+	}
 	cabeceras := http.Header(nil)
 	if r != nil {
 		cabeceras = r.Header
-		if esMutacionSituacion || esContacto {
+		if esMutacionSituacion || esContacto || esDatosContacto {
 			cabeceras = r.Header.Clone()
 			cabeceras.Del("Idempotency-Key")
 		}
@@ -123,7 +128,7 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		responderAreaPersonalDesarrollo(w, http.StatusBadRequest, map[string]string{"codigo": "solicitud_invalida"})
 		return
 	}
-	if esMutacionSituacion || esContacto {
+	if esMutacionSituacion || esContacto || esDatosContacto {
 		h.mutar.ServeHTTP(w, r)
 		if h.invalidar != nil {
 			h.invalidar()
@@ -283,19 +288,20 @@ func (h *bolsasRRHHDesarrolloDatos) respuestaBolsas() map[string]any {
 				conteo[estadoBolsaCanonico(candidata.Estado)]++
 			}
 		}
-		bolsas = append(bolsas, salidaBolsaRRHH(bolsa.Referencia, bolsa.CategoriaRef, bolsa.Categoria, bolsa.TipoLista, bolsa.VigenteDesde, bolsa.VigenteHasta, conteo))
+		bolsas = append(bolsas, salidaBolsaRRHH(bolsa.Referencia, bolsa.CategoriaRef, bolsa.Categoria, bolsa.TipoLista, bolsa.VigenteDesde, bolsa.VigenteHasta, conteo, bolsa.LlamamientosEnCurso))
 	}
 	return map[string]any{"esquema": "vec.bolsa.rrhh.bolsas.v1", "generado_en": instanteBolsasRRHH(h.datos.GeneradoEn), "bolsas": bolsas}
 }
 
 func (h *bolsasRRHHDesarrolloDatos) respuestaCandidatos(ref string, consulta consultaCandidatosRRHH) (map[string]any, bool) {
 	var bolsa *struct {
-		Referencia   string  `json:"bolsa_ref"`
-		CategoriaRef string  `json:"categoria_ref"`
-		Categoria    string  `json:"categoria"`
-		TipoLista    string  `json:"tipo_lista"`
-		VigenteDesde string  `json:"vigente_desde"`
-		VigenteHasta *string `json:"vigente_hasta"`
+		Referencia          string  `json:"bolsa_ref"`
+		CategoriaRef        string  `json:"categoria_ref"`
+		Categoria           string  `json:"categoria"`
+		TipoLista           string  `json:"tipo_lista"`
+		VigenteDesde        string  `json:"vigente_desde"`
+		VigenteHasta        *string `json:"vigente_hasta"`
+		LlamamientosEnCurso int     `json:"llamamientos_en_curso"`
 	}
 	for indice := range h.datos.Bolsas {
 		if h.datos.Bolsas[indice].Referencia == ref {
@@ -353,7 +359,7 @@ func (h *bolsasRRHHDesarrolloDatos) respuestaCandidatos(ref string, consulta con
 			contactos = append(contactos, map[string]any{"contacto_ref": c.ContactoRef, "participacion_ref": c.ParticipacionRef, "llamamiento_ref": nuloBootstrap(c.LlamamientoRef), "canal": c.Canal, "instante": c.Instante.UTC().Format(time.RFC3339Nano), "actor_ref": c.Actor, "resultado": c.Resultado, "anotacion": c.Anotacion})
 		}
 	}
-	return map[string]any{"esquema": "vec.bolsa.rrhh.candidatos.v1", "generado_en": instanteBolsasRRHH(h.datos.GeneradoEn), "bolsa": salidaBolsaRRHH(bolsa.Referencia, bolsa.CategoriaRef, bolsa.Categoria, bolsa.TipoLista, bolsa.VigenteDesde, bolsa.VigenteHasta, conteo), "candidatos": salida, "contactos": contactos, "hay_mas": hayMas, "cursor_siguiente": siguiente}, true
+	return map[string]any{"esquema": "vec.bolsa.rrhh.candidatos.v1", "generado_en": instanteBolsasRRHH(h.datos.GeneradoEn), "bolsa": salidaBolsaRRHH(bolsa.Referencia, bolsa.CategoriaRef, bolsa.Categoria, bolsa.TipoLista, bolsa.VigenteDesde, bolsa.VigenteHasta, conteo, bolsa.LlamamientosEnCurso), "candidatos": salida, "contactos": contactos, "hay_mas": hayMas, "cursor_siguiente": siguiente}, true
 }
 
 func nuloBootstrap(v string) any {
@@ -363,8 +369,8 @@ func nuloBootstrap(v string) any {
 	return v
 }
 
-func salidaBolsaRRHH(referencia, categoriaRef, categoria, tipo, desde string, hasta *string, conteo map[string]int) map[string]any {
-	return map[string]any{"bolsa_ref": referencia, "categoria_clave": strings.TrimPrefix(categoriaRef, "categoria:rpt:"), "categoria": categoria, "tipo_lista": tipo, "vigente_desde": desde, "vigente_hasta": hasta, "total": conteo["disponible"] + conteo["ocupado"] + conteo["no_disponible"] + conteo["excluido"] + conteo["renuncia_pendiente"], "por_estado": conteo}
+func salidaBolsaRRHH(referencia, categoriaRef, categoria, tipo, desde string, hasta *string, conteo map[string]int, llamamientos int) map[string]any {
+	return map[string]any{"bolsa_ref": referencia, "categoria_clave": strings.TrimPrefix(categoriaRef, "categoria:rpt:"), "categoria": categoria, "tipo_lista": tipo, "vigente_desde": desde, "vigente_hasta": hasta, "total": conteo["disponible"] + conteo["ocupado"] + conteo["no_disponible"] + conteo["excluido"] + conteo["renuncia_pendiente"], "por_estado": conteo, "llamamientos_en_curso": llamamientos}
 }
 
 func (h *bolsasRRHHDesarrolloDatos) salidaCandidata(candidata struct {

@@ -135,10 +135,14 @@ type LectorBorradorLlamamiento interface {
 type AccionIntentoBorradorLlamamiento string
 
 const (
-	AccionIntentoCrearBorradorLlamamiento       AccionIntentoBorradorLlamamiento = "crear"
-	AccionIntentoConsultarBorradorLlamamiento   AccionIntentoBorradorLlamamiento = "consultar"
-	AccionIntentoCambiarSituacionParticipacion  AccionIntentoBorradorLlamamiento = "cambiar_situacion"
-	AccionIntentoRegistrarContactoParticipacion AccionIntentoBorradorLlamamiento = "registrar_contacto"
+	AccionIntentoCrearBorradorLlamamiento            AccionIntentoBorradorLlamamiento = "crear"
+	AccionIntentoConsultarBorradorLlamamiento        AccionIntentoBorradorLlamamiento = "consultar"
+	AccionIntentoCambiarSituacionParticipacion       AccionIntentoBorradorLlamamiento = "cambiar_situacion"
+	AccionIntentoRegistrarContactoParticipacion      AccionIntentoBorradorLlamamiento = "registrar_contacto"
+	AccionIntentoConsultarDatosContactoParticipacion AccionIntentoBorradorLlamamiento = "consultar_datos_contacto"
+	AccionIntentoRegistrarDatosContactoParticipacion AccionIntentoBorradorLlamamiento = "registrar_datos_contacto"
+	AccionIntentoEmitirLlamamiento                   AccionIntentoBorradorLlamamiento = "emitir_llamamiento"
+	AccionIntentoRecuperarLlamamiento                AccionIntentoBorradorLlamamiento = "recuperar_llamamiento"
 )
 
 type ClaseRutaIntentoBorradorLlamamiento string
@@ -148,6 +152,8 @@ const (
 	ClaseRutaDetalleBorradorLlamamiento   ClaseRutaIntentoBorradorLlamamiento = "detalle"
 	ClaseRutaSituacionParticipacion       ClaseRutaIntentoBorradorLlamamiento = "situacion"
 	ClaseRutaContactosParticipacion       ClaseRutaIntentoBorradorLlamamiento = "contactos"
+	ClaseRutaDatosContactoParticipacion   ClaseRutaIntentoBorradorLlamamiento = "datos_contacto"
+	ClaseRutaEmisionesLlamamiento         ClaseRutaIntentoBorradorLlamamiento = "emisiones"
 )
 
 type ResultadoIntentoBorradorLlamamiento string
@@ -158,6 +164,7 @@ const (
 	ResultadoIntentoRecursoNoDisponibleBorradorLlamamiento         ResultadoIntentoBorradorLlamamiento = "recurso_no_disponible"
 	ResultadoIntentoInfraestructuraNoDisponibleBorradorLlamamiento ResultadoIntentoBorradorLlamamiento = "infraestructura_no_disponible"
 	ResultadoIntentoIndeterminadoBorradorLlamamiento               ResultadoIntentoBorradorLlamamiento = "resultado_indeterminado"
+	ResultadoIntentoCorrectoBorradorLlamamiento                    ResultadoIntentoBorradorLlamamiento = "correcto"
 )
 
 type IntentoBorradorLlamamiento struct {
@@ -170,14 +177,15 @@ type IntentoBorradorLlamamiento struct {
 
 func (i IntentoBorradorLlamamiento) Validar() error {
 	if i.Correlacion.Validar() != nil ||
-		(i.Accion != AccionIntentoCrearBorradorLlamamiento && i.Accion != AccionIntentoConsultarBorradorLlamamiento && i.Accion != AccionIntentoCambiarSituacionParticipacion && i.Accion != AccionIntentoRegistrarContactoParticipacion) ||
-		(i.ClaseRuta != ClaseRutaColeccionBorradorLlamamiento && i.ClaseRuta != ClaseRutaDetalleBorradorLlamamiento && i.ClaseRuta != ClaseRutaSituacionParticipacion && i.ClaseRuta != ClaseRutaContactosParticipacion) ||
+		(i.Accion != AccionIntentoCrearBorradorLlamamiento && i.Accion != AccionIntentoConsultarBorradorLlamamiento && i.Accion != AccionIntentoCambiarSituacionParticipacion && i.Accion != AccionIntentoRegistrarContactoParticipacion && i.Accion != AccionIntentoConsultarDatosContactoParticipacion && i.Accion != AccionIntentoRegistrarDatosContactoParticipacion && i.Accion != AccionIntentoEmitirLlamamiento && i.Accion != AccionIntentoRecuperarLlamamiento) ||
+		(i.ClaseRuta != ClaseRutaColeccionBorradorLlamamiento && i.ClaseRuta != ClaseRutaDetalleBorradorLlamamiento && i.ClaseRuta != ClaseRutaSituacionParticipacion && i.ClaseRuta != ClaseRutaContactosParticipacion && i.ClaseRuta != ClaseRutaDatosContactoParticipacion && i.ClaseRuta != ClaseRutaEmisionesLlamamiento) ||
 		(i.ActorVerificado != "" && !patronActorIntentoBorradorLlamamiento.MatchString(i.ActorVerificado)) ||
 		(i.Resultado != ResultadoIntentoAutenticacionRequeridaBorradorLlamamiento &&
 			i.Resultado != ResultadoIntentoAccesoDenegadoBorradorLlamamiento &&
 			i.Resultado != ResultadoIntentoRecursoNoDisponibleBorradorLlamamiento &&
 			i.Resultado != ResultadoIntentoInfraestructuraNoDisponibleBorradorLlamamiento &&
-			i.Resultado != ResultadoIntentoIndeterminadoBorradorLlamamiento) {
+			i.Resultado != ResultadoIntentoIndeterminadoBorradorLlamamiento &&
+			i.Resultado != ResultadoIntentoCorrectoBorradorLlamamiento) {
 		return ErrSolicitudBorradorLlamamientoInvalida
 	}
 	return nil

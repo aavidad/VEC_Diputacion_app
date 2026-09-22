@@ -61,12 +61,13 @@ var _ constitucionapp.Recuperador = recuperadorBolsasRRHHPrueba{}
 func datosBolsasRRHHPrueba() datasetBolsasRRHHDesarrollo {
 	datos := datasetBolsasRRHHDesarrollo{GeneradoEn: "2026-09-20T10:00:00Z"}
 	datos.Bolsas = append(datos.Bolsas, struct {
-		Referencia   string  `json:"bolsa_ref"`
-		CategoriaRef string  `json:"categoria_ref"`
-		Categoria    string  `json:"categoria"`
-		TipoLista    string  `json:"tipo_lista"`
-		VigenteDesde string  `json:"vigente_desde"`
-		VigenteHasta *string `json:"vigente_hasta"`
+		Referencia          string  `json:"bolsa_ref"`
+		CategoriaRef        string  `json:"categoria_ref"`
+		Categoria           string  `json:"categoria"`
+		TipoLista           string  `json:"tipo_lista"`
+		VigenteDesde        string  `json:"vigente_desde"`
+		VigenteHasta        *string `json:"vigente_hasta"`
+		LlamamientosEnCurso int     `json:"llamamientos_en_curso"`
 	}{Referencia: "bolsa:constituida:administrativo", CategoriaRef: "categoria:rpt:administrativo", Categoria: "Administrativo", TipoLista: "definitiva", VigenteDesde: datos.GeneradoEn})
 	for _, candidatura := range []struct {
 		referencia, nombre, documento string
@@ -291,5 +292,28 @@ func TestBolsasRRHHDesarrolloPublicaEstadisticasAgregadas(t *testing.T) {
 	manejador.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, rutaEstadisticasBolsaRRHHDesarrollo+"?periodo=2026", nil))
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("consulta no canónica: %d", rec.Code)
+	}
+}
+
+func TestBolsasRRHHDesarrolloDelegaB4ConIdempotencia(t *testing.T) {
+	manejador := manejadorBolsasRRHHPrueba()
+	llamadas := 0
+	manejador.mutar = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		llamadas++
+		if r.Header.Get("Idempotency-Key") != "b4-prueba-0001" {
+			t.Fatal("la frontera perdió la clave de idempotencia B4")
+		}
+		w.WriteHeader(http.StatusCreated)
+	})
+	peticion := httptest.NewRequest(
+		http.MethodPost,
+		rutaBolsasRRHHDesarrollo+"/bolsa:01/candidatos/participacion:01/datos-contacto",
+		strings.NewReader(`{"correo":"persona@dipgra.test","motivo":"Preparación sintética"}`),
+	)
+	peticion.Header.Set("Idempotency-Key", "b4-prueba-0001")
+	respuesta := httptest.NewRecorder()
+	manejador.ServeHTTP(respuesta, peticion)
+	if respuesta.Code != http.StatusCreated || llamadas != 1 {
+		t.Fatalf("B4 no delegada: status=%d llamadas=%d", respuesta.Code, llamadas)
 	}
 }

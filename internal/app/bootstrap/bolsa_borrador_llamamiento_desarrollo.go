@@ -13,6 +13,7 @@ import (
 	aplicacionbolsa "vec-diputacion-granada/internal/modules/bolsa/application"
 	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
+	smtpct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/smtp"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	seguridadvec "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	aplicacionvec "vec-diputacion-granada/internal/vec/application"
@@ -82,6 +83,46 @@ func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudRegistrarCont
 		return puertosbolsa.SolicitudRegistrarContactoParticipacion{}, err
 	}
 	return puertosbolsa.SolicitudRegistrarContactoParticipacion{Vinculo: contexto.Vinculo, ResultadoContexto: contexto.Resultado, BolsaRef: entrada.BolsaRef, ParticipacionRef: entrada.ParticipacionRef, LlamamientoRef: entrada.LlamamientoRef, Canal: entrada.Canal, Instante: entrada.Instante, Resultado: entrada.Resultado, Anotacion: entrada.Anotacion, ClaveIdempotencia: entrada.ClaveIdempotencia, Correlacion: correlacion, MotivoAutorizacion: motivoRegistrarContactoParticipacionBolsaDesarrollo()}, nil
+}
+
+func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudRegistrarDatosContacto(ctx context.Context, entrada bolsahttp.EntradaRegistrarDatosContactoParticipacion) (puertosbolsa.SolicitudRegistrarDatosContactoParticipacion, error) {
+	contexto, err := p.contextoRevalidado(ctx)
+	if err != nil {
+		return puertosbolsa.SolicitudRegistrarDatosContactoParticipacion{}, err
+	}
+	correlacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(ctx, p.generar)
+	if err != nil {
+		return puertosbolsa.SolicitudRegistrarDatosContactoParticipacion{}, err
+	}
+	return puertosbolsa.SolicitudRegistrarDatosContactoParticipacion{Vinculo: contexto.Vinculo, ResultadoContexto: contexto.Resultado, BolsaRef: entrada.BolsaRef, ParticipacionRef: entrada.ParticipacionRef, Datos: entrada.Datos, Motivo: entrada.Motivo, ClaveIdempotencia: entrada.ClaveIdempotencia, Correlacion: correlacion, MotivoAutorizacion: motivoRegistrarDatosContactoParticipacionBolsaDesarrollo()}, nil
+}
+
+func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudConsultarDatosContacto(ctx context.Context, bolsaRef, participacionRef string) (puertosbolsa.SolicitudConsultarDatosContactoParticipacion, error) {
+	contexto, err := p.contextoRevalidado(ctx)
+	if err != nil {
+		return puertosbolsa.SolicitudConsultarDatosContactoParticipacion{}, err
+	}
+	return puertosbolsa.SolicitudConsultarDatosContactoParticipacion{ContextoActor: contexto.Resultado.Contexto, BolsaRef: bolsaRef, ParticipacionRef: participacionRef}, nil
+}
+
+func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudEmitirLlamamiento(ctx context.Context, entrada bolsahttp.EntradaEmitirLlamamiento) (puertosbolsa.SolicitudEmitirLlamamiento, error) {
+	contexto, err := p.contextoRevalidado(ctx)
+	if err != nil {
+		return puertosbolsa.SolicitudEmitirLlamamiento{}, err
+	}
+	correlacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(ctx, p.generar)
+	if err != nil {
+		return puertosbolsa.SolicitudEmitirLlamamiento{}, err
+	}
+	return puertosbolsa.SolicitudEmitirLlamamiento{Vinculo: contexto.Vinculo, ResultadoContexto: contexto.Resultado, BolsaRef: entrada.BolsaRef, Participaciones: entrada.Participaciones, Configuracion: entrada.Configuracion, ClaveIdempotencia: entrada.ClaveIdempotencia, Correlacion: correlacion, MotivoAutorizacion: motivoEmitirLlamamientoBolsaDesarrollo()}, nil
+}
+
+func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudRecuperarLlamamiento(ctx context.Context, bolsaRef, clave string) (puertosbolsa.SolicitudRecuperarLlamamiento, error) {
+	contexto, err := p.contextoRevalidado(ctx)
+	if err != nil {
+		return puertosbolsa.SolicitudRecuperarLlamamiento{}, err
+	}
+	return puertosbolsa.SolicitudRecuperarLlamamiento{ContextoActor: contexto.Resultado.Contexto, BolsaRef: bolsaRef, ClaveIdempotencia: clave}, nil
 }
 
 func (p *preparadorBorradorLlamamientoDesarrollo) PrepararConsultaContactos(ctx context.Context, bolsaRef, participacionRef, cursor string, limite int) (puertosbolsa.ConsultaContactosParticipacion, error) {
@@ -213,16 +254,20 @@ var _ puertosbolsa.ResolutorContextoBorradorLlamamiento = (*preparadorBorradorLl
 var _ puertosvec.GeneradorReferenciaDecisionAutorizacion = seguridadvec.GeneradorReferenciasCriptograficas{}
 
 type emisorBorradorLlamamientoDesarrollo struct {
-	crear, consultar, situacion, contacto, consultaContacto *emisorMaterialRenovableCTDesarrollo
+	crear, consultar, situacion, contacto, consultaContacto, datosContacto, emision *emisorMaterialRenovableCTDesarrollo
 }
 
 type manejadorParticipacionBolsaDesarrollo struct {
-	situacion, contacto http.Handler
-	preparador          *preparadorBorradorLlamamientoDesarrollo
-	servicio            *aplicacionbolsa.ServicioContactoParticipacion
+	situacion, contacto, datosContacto http.Handler
+	preparador                         *preparadorBorradorLlamamientoDesarrollo
+	servicio                           *aplicacionbolsa.ServicioContactoParticipacion
 }
 
 func (m *manejadorParticipacionBolsaDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if _, _, _, ok := bolsahttp.ReferenciasRutaDatosContactoParticipacion(r); ok {
+		m.datosContacto.ServeHTTP(w, r)
+		return
+	}
 	if _, _, ok := bolsahttp.ReferenciasRutaContactosParticipacion(r); ok {
 		m.contacto.ServeHTTP(w, r)
 		return
@@ -263,6 +308,14 @@ func (e *emisorBorradorLlamamientoDesarrollo) EmitirMaterialAutorizacionAtestada
 		if e != nil && e.consultaContacto != nil {
 			return e.consultaContacto.EmitirMaterialAutorizacionAtestadaV3(ctx, solicitud, resultado)
 		}
+	case puertosbolsa.AccionRegistrarDatosContactoParticipacion:
+		if e != nil && e.datosContacto != nil {
+			return e.datosContacto.EmitirMaterialAutorizacionAtestadaV3(ctx, solicitud, resultado)
+		}
+	case puertosbolsa.AccionEmitirLlamamiento:
+		if e != nil && e.emision != nil {
+			return e.emision.EmitirMaterialAutorizacionAtestadaV3(ctx, solicitud, resultado)
+		}
 	}
 	return dominiovec.DecisionAutorizacionLigadaV3{}, puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, nil, errBorradorLlamamientoDesarrolloNoDisponible
 }
@@ -280,7 +333,7 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	identidadCT *proveedorSesionConsultaRRHHDesarrollo,
 ) ([]vechttp.RutaExacta, []vechttp.RutaColeccion, http.Handler, catalogoFronterasComunDesarrollo, func(http.Handler) http.Handler, func(), error) {
 	vacio := catalogoFronterasComunDesarrollo{}
-	if ctx == nil || dependenciasCT == nil || alta == nil || soporteBolsa == nil || identidadCT == nil || catalogoFronteras.identidad == nil || alta.soporte == nil || alta.postgresql.bolsa == nil || alta.postgresql.gobierno == nil || alta.postgresql.registroAutorizacion == nil || alta.postgresql.proveedorMaterialBorradorCrear == nil || alta.postgresql.proveedorMaterialBorradorConsulta == nil || alta.postgresql.proveedorMaterialSituacion == nil || alta.postgresql.proveedorMaterialContacto == nil || alta.postgresql.proveedorMaterialConsultaContacto == nil {
+	if ctx == nil || dependenciasCT == nil || dependenciasCT.kms == nil || alta == nil || soporteBolsa == nil || identidadCT == nil || catalogoFronteras.identidad == nil || alta.soporte == nil || alta.postgresql.bolsa == nil || alta.postgresql.gobierno == nil || alta.postgresql.registroAutorizacion == nil || alta.postgresql.proveedorMaterialBorradorCrear == nil || alta.postgresql.proveedorMaterialBorradorConsulta == nil || alta.postgresql.proveedorMaterialSituacion == nil || alta.postgresql.proveedorMaterialContacto == nil || alta.postgresql.proveedorMaterialConsultaContacto == nil || alta.postgresql.proveedorMaterialDatosContacto == nil || alta.postgresql.proveedorMaterialEmision == nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
 	}
 	// El manifiesto y el contexto nominal Bolsa se cargan antes de declarar
@@ -347,6 +400,16 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	}, desde) != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
 	}
+	if publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno, []dominiovec.ReferenciaEntradaCatalogo{
+		motivoRegistrarDatosContactoParticipacionBolsaDesarrollo(),
+	}, desde) != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+	}
+	if publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno, []dominiovec.ReferenciaEntradaCatalogo{
+		motivoEmitirLlamamientoBolsaDesarrollo(),
+	}, desde) != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+	}
 	if politicaBolsa.PublicarInicial(ctx) != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
 	}
@@ -395,12 +458,20 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
 	}
+	emisorDatosContacto, err := nuevoEmisorMaterialRenovableCTDesarrollo(pdp, alta.postgresql.proveedorMaterialDatosContacto)
+	if err != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+	}
+	emisorEmision, err := nuevoEmisorMaterialRenovableCTDesarrollo(pdp, alta.postgresql.proveedorMaterialEmision)
+	if err != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+	}
 	repositorio, err := postgresbolsa.NuevoRepositorioBorradorLlamamientoPostgreSQL(alta.postgresql.bolsa)
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
 	}
 	preparador := &preparadorBorradorLlamamientoDesarrollo{sesion: seguridad, soporte: soporteBolsa}
-	emisor := &emisorBorradorLlamamientoDesarrollo{crear: emisorCrear, consultar: emisorConsulta, situacion: emisorSituacion, contacto: emisorContacto, consultaContacto: emisorConsultaContacto}
+	emisor := &emisorBorradorLlamamientoDesarrollo{crear: emisorCrear, consultar: emisorConsulta, situacion: emisorSituacion, contacto: emisorContacto, consultaContacto: emisorConsultaContacto, datosContacto: emisorDatosContacto, emision: emisorEmision}
 	servicio, err := aplicacionbolsa.NuevoServicioBorradorLlamamiento(preparador, emisor, repositorio, repositorio)
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
@@ -433,7 +504,35 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
 	}
-	mutador := &manejadorParticipacionBolsaDesarrollo{situacion: handlerSituacion, contacto: handlerContacto, preparador: preparador, servicio: servicioContacto}
+	repositorioEmision, err := postgresbolsa.NuevoRepositorioEmisionLlamamientoPostgreSQL(alta.postgresql.bolsa)
+	if err != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+	}
+	repositorioDatos, err := postgresbolsa.NuevoRepositorioDatosContactoParticipacionPostgreSQL(alta.postgresql.bolsa)
+	if err != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+	}
+	servicioDatos, err := aplicacionbolsa.NuevoServicioDatosContactoParticipacion(preparador, emisor, repositorioSituacion, dependenciasCT.kms, repositorioDatos, dependenciasCT.reloj.Ahora)
+	if err != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+	}
+	handlerDatos, err := bolsahttp.NuevoHandlerDatosContactoParticipacion(preparador, servicioDatos)
+	if err != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+	}
+	correoSMTP, err := nuevoEnviadorCorreoLlamamientoDesarrollo(cfg)
+	if err != nil || correoSMTP == nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+	}
+	servicioEmision, err := aplicacionbolsa.NuevoServicioEmisionLlamamiento(preparador, emisor, repositorioEmision, &fuenteCorreoParticipacionB7{repositorioDatos, dependenciasCT.kms}, &emisorCorreoBolsaB7{correoSMTP}, dependenciasCT.reloj.Ahora)
+	if err != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+	}
+	handlerEmision, err := bolsahttp.NuevoHandlerEmisionLlamamiento(preparador, servicioEmision)
+	if err != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+	}
+	mutador := &manejadorParticipacionBolsaDesarrollo{situacion: handlerSituacion, contacto: handlerContacto, datosContacto: handlerDatos, preparador: preparador, servicio: servicioContacto}
 	envolver := func(siguiente http.Handler) http.Handler {
 		auditada, auditErr := bolsahttp.NuevaAuditoriaBorradorLlamamiento(siguiente, auditoria, seguridadvec.GeneradorReferenciasCriptograficas{}, actorBorradorLlamamientoDesdeContextoDesarrollo{})
 		if auditErr != nil {
@@ -453,5 +552,34 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 		})
 	}
 	completa = true
-	return []vechttp.RutaExacta{{Ruta: bolsahttp.RutaBorradoresLlamamiento, Manejador: handler}}, []vechttp.RutaColeccion{{Prefijo: bolsahttp.RutaBorradoresLlamamiento, Manejador: handler}}, mutador, catalogoFronteras, envolver, cerrarAuditoria, nil
+	return []vechttp.RutaExacta{{Ruta: bolsahttp.RutaBorradoresLlamamiento, Manejador: handler}, {Ruta: bolsahttp.RutaEmisionesLlamamiento, Manejador: handlerEmision}}, []vechttp.RutaColeccion{{Prefijo: bolsahttp.RutaBorradoresLlamamiento, Manejador: handler}}, mutador, catalogoFronteras, envolver, cerrarAuditoria, nil
+}
+
+type fuenteCorreoParticipacionB7 struct {
+	repositorio puertosbolsa.RepositorioDatosContactoParticipacion
+	kms         *emisorKMSDesarrollo
+}
+
+func (f *fuenteCorreoParticipacionB7) CorreoParticipacion(ctx context.Context, participacion string) (string, error) {
+	r, err := f.repositorio.DatosContactoVigentes(ctx, participacion)
+	if err != nil {
+		return "", err
+	}
+	var correo string
+	err = f.kms.ConDatosContactoParticipacionDescifrados(ctx, participacion, r.Sobre, func(claro []byte) error {
+		d, e := dominiobolsa.DatosContactoParticipacionDesdeCanonico(participacion, claro)
+		if e == nil {
+			correo = d.Correo
+		}
+		return e
+	})
+	return correo, err
+}
+
+type emisorCorreoBolsaB7 struct {
+	smtp enviadorCorreoLlamamientoDesarrollo
+}
+
+func (e *emisorCorreoBolsaB7) EnviarCorreo(ctx context.Context, destino, asunto, cuerpo, messageID string, fecha time.Time) bool {
+	return e != nil && e.smtp != nil && e.smtp.Enviar(ctx, smtpct.Mensaje{Destino: destino, Asunto: asunto, Cuerpo: cuerpo, MessageID: messageID, FechaOrigen: fecha}).Estado == smtpct.AceptadoPorRelay
 }

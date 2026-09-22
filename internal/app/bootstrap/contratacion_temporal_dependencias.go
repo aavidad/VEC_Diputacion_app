@@ -15,6 +15,7 @@ type DependenciasCT struct {
 	cfg        config.Config
 	resolvedor *resolvedorIdentidadDesarrollo
 	derivador  *derivadorIdentidadOperacionDesarrollo
+	kms        *emisorKMSDesarrollo
 	registro   io.Writer
 	reloj      relojContratacionTemporalDesarrollo
 	sello      *selloConsultasContratacionTemporalDesarrollo
@@ -22,13 +23,13 @@ type DependenciasCT struct {
 	unaVez     sync.Once
 }
 
-func nuevasDependenciasCT(cfg config.Config, resolvedor vechttp.DemoIdentityResolver, derivador *derivadorIdentidadOperacionDesarrollo, registro io.Writer) (*DependenciasCT, error) {
+func nuevasDependenciasCT(cfg config.Config, resolvedor vechttp.DemoIdentityResolver, derivador *derivadorIdentidadOperacionDesarrollo, kms *emisorKMSDesarrollo, registro io.Writer) (*DependenciasCT, error) {
 	cfg = cfg.Normalize()
 	identidad, ok := resolvedor.(*resolvedorIdentidadDesarrollo)
 	if !cfg.DevelopmentEnabledByDoubleKey() || validarRedLocalDesarrollo(cfg) != nil || !ok || identidad == nil || derivador == nil || !derivador.valido() {
 		return nil, ErrActivacionDesarrolloInvalida
 	}
-	return &DependenciasCT{cfg: cfg, resolvedor: identidad, derivador: derivador, registro: registro, reloj: relojContratacionTemporalDesarrollo{}, sello: &selloConsultasContratacionTemporalDesarrollo{}, cerrar: func() {}}, nil
+	return &DependenciasCT{cfg: cfg, resolvedor: identidad, derivador: derivador, kms: kms, registro: registro, reloj: relojContratacionTemporalDesarrollo{}, sello: &selloConsultasContratacionTemporalDesarrollo{}, cerrar: func() {}}, nil
 }
 
 func (d *DependenciasCT) Cerrar() {

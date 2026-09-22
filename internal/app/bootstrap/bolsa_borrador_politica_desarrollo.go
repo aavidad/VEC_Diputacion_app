@@ -81,7 +81,7 @@ func (p *politicaBorradorLlamamientoBolsaDesarrollo) PublicarInicial(ctx context
 		return errPoliticaBorradorLlamamientoBolsaDesarrolloNoDisponible
 	}
 	preimagen, err := nuevaInstantaneaAutorizacionBorradorLlamamientoBolsaDesarrolloVersion(
-		datos.PrincipalID, datos.PerfilActivoRef, p.soporte.unidadRef, p.soporte.ambitoRef, ahora, 2, true, false,
+		datos.PrincipalID, datos.PerfilActivoRef, p.soporte.unidadRef, p.soporte.ambitoRef, ahora, 4,
 	)
 	if err != nil {
 		return errPoliticaBorradorLlamamientoBolsaDesarrolloNoDisponible
@@ -92,7 +92,7 @@ func (p *politicaBorradorLlamamientoBolsaDesarrollo) PublicarInicial(ctx context
 	}
 	esperada := clonarInstantaneaAutorizacionPostgreSQLDesarrollo(semilla)
 	esperada.AsignacionPerfil.Version = preparada.AsignacionPerfil.Version
-	versionAdmitida := preparada.AsignacionPerfil.Version >= 1 && preparada.AsignacionPerfil.Version <= 3
+	versionAdmitida := preparada.AsignacionPerfil.Version >= 1 && preparada.AsignacionPerfil.Version <= 5
 	if err != nil || preparada.Validar() != nil || !versionAdmitida || !reflect.DeepEqual(preparada, esperada) ||
 		p.autoridad.publicarInstantaneaDesdePreimagen(ctx, preparada, preimagen) != nil {
 		return errPoliticaBorradorLlamamientoBolsaDesarrolloNoDisponible
@@ -105,11 +105,11 @@ func (p *politicaBorradorLlamamientoBolsaDesarrollo) PublicarInicial(ctx context
 func nuevaInstantaneaAutorizacionBorradorLlamamientoBolsaDesarrollo(
 	principalID, perfilRef, unidadRef, ambitoRef string, ahora time.Time,
 ) (dominiovec.InstantaneaAutorizacion, error) {
-	return nuevaInstantaneaAutorizacionBorradorLlamamientoBolsaDesarrolloVersion(principalID, perfilRef, unidadRef, ambitoRef, ahora, 3, true, true)
+	return nuevaInstantaneaAutorizacionBorradorLlamamientoBolsaDesarrolloVersion(principalID, perfilRef, unidadRef, ambitoRef, ahora, 5)
 }
 
 func nuevaInstantaneaAutorizacionBorradorLlamamientoBolsaDesarrolloVersion(
-	principalID, perfilRef, unidadRef, ambitoRef string, ahora time.Time, versionRol int, incluirSituacion, incluirContacto bool,
+	principalID, perfilRef, unidadRef, ambitoRef string, ahora time.Time, versionRol int,
 ) (dominiovec.InstantaneaAutorizacion, error) {
 	desde, hasta, vigente := ventanaAutoridadSinteticaContratacionTemporalDesarrollo(ahora)
 	if !vigente || principalID == "" || perfilRef == "" || unidadRef == "" || ambitoRef == "" {
@@ -117,8 +117,11 @@ func nuevaInstantaneaAutorizacionBorradorLlamamientoBolsaDesarrolloVersion(
 	}
 	concesion := func(accion, finalidad string) dominiovec.ConcesionRol {
 		tipoRecurso := puertosbolsa.TipoRecursoBorradorLlamamiento
-		if accion == puertosbolsa.AccionCambiarSituacionParticipacion || accion == puertosbolsa.AccionRegistrarContactoParticipacion || accion == puertosbolsa.AccionConsultarContactoParticipacion {
+		if accion == puertosbolsa.AccionCambiarSituacionParticipacion || accion == puertosbolsa.AccionRegistrarContactoParticipacion || accion == puertosbolsa.AccionConsultarContactoParticipacion || accion == puertosbolsa.AccionRegistrarDatosContactoParticipacion || accion == puertosbolsa.AccionEmitirLlamamiento {
 			tipoRecurso = puertosbolsa.TipoRecursoSituacionParticipacion
+			if accion == puertosbolsa.AccionEmitirLlamamiento {
+				tipoRecurso = puertosbolsa.TipoRecursoEmision
+			}
 		}
 		return dominiovec.ConcesionRol{
 			Accion: accion, ModuloID: puertosbolsa.ModuloBorradorLlamamiento,
@@ -130,12 +133,18 @@ func nuevaInstantaneaAutorizacionBorradorLlamamientoBolsaDesarrolloVersion(
 		concesion(puertosbolsa.AccionCrearBorradorLlamamientoInterno, puertosbolsa.FinalidadCrearBorradorLlamamientoInterno),
 		concesion(puertosbolsa.AccionConsultarBorradorLlamamientoInterno, puertosbolsa.FinalidadConsultarBorradorLlamamientoInterno),
 	}
-	if incluirSituacion {
+	if versionRol >= 2 {
 		concesiones = append(concesiones, concesion(puertosbolsa.AccionCambiarSituacionParticipacion, puertosbolsa.FinalidadCambiarSituacionParticipacion))
 	}
-	if incluirContacto {
+	if versionRol >= 3 {
 		concesiones = append(concesiones, concesion(puertosbolsa.AccionRegistrarContactoParticipacion, puertosbolsa.FinalidadRegistrarContactoParticipacion))
+	}
+	if versionRol >= 4 {
 		concesiones = append(concesiones, concesion(puertosbolsa.AccionConsultarContactoParticipacion, puertosbolsa.FinalidadConsultarContactoParticipacion))
+		concesiones = append(concesiones, concesion(puertosbolsa.AccionEmitirLlamamiento, puertosbolsa.FinalidadEmitirLlamamiento))
+	}
+	if versionRol >= 5 {
+		concesiones = append(concesiones, concesion(puertosbolsa.AccionRegistrarDatosContactoParticipacion, puertosbolsa.FinalidadRegistrarDatosContactoParticipacion))
 	}
 	version := dominiovec.VersionRol{
 		RolID: "tecnico_rrhh_borrador_llamamiento_bolsa_desarrollo", Version: versionRol,
@@ -195,7 +204,7 @@ func (p *politicaBorradorLlamamientoBolsaDesarrollo) ValidarReferenciaMotivoAuto
 	publicada, instantanea := p.publicada, p.instantanea
 	p.mu.RUnlock()
 	if !publicada || instantanea.Validar() != nil || !instantanea.AsignacionPerfil.VigenteEn(instante) ||
-		(referencia != motivoCrearBorradorLlamamientoBolsaDesarrollo() && referencia != motivoConsultarBorradorLlamamientoBolsaDesarrollo() && referencia != motivoCambiarSituacionParticipacionBolsaDesarrollo() && referencia != motivoRegistrarContactoParticipacionBolsaDesarrollo() && referencia != motivoConsultarContactoParticipacionBolsaDesarrollo()) {
+		(referencia != motivoCrearBorradorLlamamientoBolsaDesarrollo() && referencia != motivoConsultarBorradorLlamamientoBolsaDesarrollo() && referencia != motivoCambiarSituacionParticipacionBolsaDesarrollo() && referencia != motivoRegistrarContactoParticipacionBolsaDesarrollo() && referencia != motivoConsultarContactoParticipacionBolsaDesarrollo() && referencia != motivoRegistrarDatosContactoParticipacionBolsaDesarrollo() && referencia != motivoEmitirLlamamientoBolsaDesarrollo()) {
 		return dominiovec.ErrSolicitudAutorizacionInvalida
 	}
 	return nil
@@ -263,6 +272,10 @@ func motivoBorradorLlamamientoCorresponde(accion string, motivo dominiovec.Refer
 		return motivo == motivoRegistrarContactoParticipacionBolsaDesarrollo()
 	case puertosbolsa.AccionConsultarContactoParticipacion:
 		return motivo == motivoConsultarContactoParticipacionBolsaDesarrollo()
+	case puertosbolsa.AccionRegistrarDatosContactoParticipacion:
+		return motivo == motivoRegistrarDatosContactoParticipacionBolsaDesarrollo()
+	case puertosbolsa.AccionEmitirLlamamiento:
+		return motivo == motivoEmitirLlamamientoBolsaDesarrollo()
 	default:
 		return false
 	}
@@ -273,11 +286,19 @@ func motivoCambiarSituacionParticipacionBolsaDesarrollo() dominiovec.ReferenciaE
 }
 
 func motivoRegistrarContactoParticipacionBolsaDesarrollo() dominiovec.ReferenciaEntradaCatalogo {
-	return dominiovec.ReferenciaEntradaCatalogo{CatalogoID: "motivos_contacto_participacion_bolsa", CatalogoVersion: 1, CatalogoHuellaSHA256: huellaAltaContratacionTemporalDesarrollo("catalogo-motivos-bolsa-b3-v1"), EntradaClave: referenciaAltaContratacionTemporalDesarrollo("motivo_", "bolsa-b3-contacto-registrar")}
+	return dominiovec.ReferenciaEntradaCatalogo{CatalogoID: "motivos_contacto_participacion_bolsa_v2", CatalogoVersion: 1, CatalogoHuellaSHA256: huellaAltaContratacionTemporalDesarrollo("catalogo-motivos-bolsa-b3-v2"), EntradaClave: referenciaAltaContratacionTemporalDesarrollo("motivo_", "bolsa-b3-contacto-registrar")}
 }
 
 func motivoConsultarContactoParticipacionBolsaDesarrollo() dominiovec.ReferenciaEntradaCatalogo {
-	return dominiovec.ReferenciaEntradaCatalogo{CatalogoID: "motivos_contacto_participacion_bolsa", CatalogoVersion: 1, CatalogoHuellaSHA256: huellaAltaContratacionTemporalDesarrollo("catalogo-motivos-bolsa-b3-v1"), EntradaClave: referenciaAltaContratacionTemporalDesarrollo("motivo_", "bolsa-b3-contacto-consultar")}
+	return dominiovec.ReferenciaEntradaCatalogo{CatalogoID: "motivos_contacto_participacion_bolsa_v2", CatalogoVersion: 1, CatalogoHuellaSHA256: huellaAltaContratacionTemporalDesarrollo("catalogo-motivos-bolsa-b3-v2"), EntradaClave: referenciaAltaContratacionTemporalDesarrollo("motivo_", "bolsa-b3-contacto-consultar")}
+}
+
+func motivoRegistrarDatosContactoParticipacionBolsaDesarrollo() dominiovec.ReferenciaEntradaCatalogo {
+	return dominiovec.ReferenciaEntradaCatalogo{CatalogoID: "motivos_datos_contacto_participacion_bolsa", CatalogoVersion: 1, CatalogoHuellaSHA256: huellaAltaContratacionTemporalDesarrollo("catalogo-motivos-bolsa-b4-v1"), EntradaClave: referenciaAltaContratacionTemporalDesarrollo("motivo_", "bolsa-b4-datos-contacto-registrar")}
+}
+
+func motivoEmitirLlamamientoBolsaDesarrollo() dominiovec.ReferenciaEntradaCatalogo {
+	return dominiovec.ReferenciaEntradaCatalogo{CatalogoID: "motivos_emision_llamamiento_bolsa", CatalogoVersion: 1, CatalogoHuellaSHA256: huellaAltaContratacionTemporalDesarrollo("catalogo-motivos-bolsa-b7-v1"), EntradaClave: referenciaAltaContratacionTemporalDesarrollo("motivo_", "bolsa-b7-llamamiento-emitir")}
 }
 
 func motivoCrearBorradorLlamamientoBolsaDesarrollo() dominiovec.ReferenciaEntradaCatalogo {

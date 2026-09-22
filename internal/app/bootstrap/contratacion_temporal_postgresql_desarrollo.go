@@ -87,6 +87,8 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	proveedorMaterialSituacion        *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialContacto         *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialConsultaContacto *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialDatosContacto    *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialEmision          *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialDespachoCorreo   *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialResultadoCorreo  *proveedorMaterialAltaContratacionTemporalDesarrollo
 	catalogoMaterial                  catalogoMaterialAutorizacionComunDesarrollo
@@ -345,6 +347,16 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 				return vacias, err
 			}
 			dependencias.proveedorMaterialConsultaContacto = proveedorConsultaContacto
+			proveedorDatosContacto, err := nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, puertosbolsa.AudienciaRegistrarDatosContactoParticipacion)
+			if err != nil {
+				return vacias, err
+			}
+			dependencias.proveedorMaterialDatosContacto = proveedorDatosContacto
+			proveedorEmision, err := nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, puertosbolsa.AudienciaEmitirLlamamiento)
+			if err != nil {
+				return vacias, err
+			}
+			dependencias.proveedorMaterialEmision = proveedorEmision
 		}
 	}
 	transaccion, err := postgrescontratacion.NuevaTransaccionAltasPostgreSQLCandidata(
