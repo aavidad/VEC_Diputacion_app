@@ -11,15 +11,12 @@ import {
   validarRespuestaBolsas,
   validarRespuestaCandidatosBolsa,
   validarRespuestaContactos,
-  validarPayloadCrearLlamamiento,
-  validarPayloadResultadoLlamamiento,
-  construirEnvelopeAccionBolsa,
 } from "./portal-bolsas-contrato.js";
 import { traducirBolsaInterna } from "./portal-i18n.js";
-import { validarEmisionLlamamiento } from "./portal-llamamientos-contrato.js";
+import { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js";
+export { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js";
 
 export const RUTA_BOLSAS = "/api/vec/bolsa/bolsas";
-export const RUTA_EMISIONES_LLAMAMIENTO = "/api/vec/bolsa/llamamientos/emisiones";
 // El enrutador del servidor solo acepta rutas canónicas (sin secuencias
 // porcentuales): las referencias llevan ":" y "-", legales en un segmento de
 // ruta, así que se envían sin escapar y solo se escapa lo que no es legal.
@@ -206,167 +203,6 @@ export async function registrarContactoCandidato(bolsaRef, participacionRef, pay
     const respuesta=await fetchImpl(`${RUTA_BOLSAS}/${segmentoRuta(bolsaRef)}/candidatos/${segmentoRuta(participacionRef)}/contactos`,{method:"POST",credentials:"omit",headers:{Accept:"application/json","Content-Type":"application/json","Idempotency-Key":payload.clave_idempotencia},body:JSON.stringify({canal:payload.canal,resultado:payload.resultado,anotacion:payload.anotacion,instante:payload.instante,llamamiento_ref:payload.llamamiento_ref||""})});
     const cuerpo=await respuesta.json().catch(()=>({})); if(respuesta.ok&&cuerpo?.data?.recibo_ref)return{ok:true,datos:cuerpo.data}; return{ok:false,status:respuesta.status,codigo:cuerpo?.error?.codigo||"error_servidor",mensaje:traducirBolsaInterna(respuesta.status===403?"contacto_permiso_denegado":respuesta.status===409?"contacto_clave_conflicto":"contacto_registro_error")};
   } catch(_error){return{ok:false,status:0,codigo:"error_red",mensaje:traducirBolsaInterna("contacto_comunicacion_error")}}
-}
-
-export async function emitirLlamamiento(payload, { fetchImpl = fetch } = {}) {
-  if (!payload?.bolsa_ref || !Array.isArray(payload.participaciones) || payload.participaciones.length === 0 || !payload.configuracion || !payload.clave_idempotencia) {
-    return { ok: false, status: 400, codigo: "solicitud_invalida", mensaje: "Faltan datos obligatorios del llamamiento." };
-  }
-  try {
-    const respuesta = await fetchImpl(RUTA_EMISIONES_LLAMAMIENTO, {
-      method: "POST", credentials: "omit",
-      headers: { Accept: "application/json", "Content-Type": "application/json", "Idempotency-Key": payload.clave_idempotencia },
-      body: JSON.stringify({ bolsa_ref: payload.bolsa_ref, participaciones: payload.participaciones, configuracion: payload.configuracion }),
-    });
-    const cuerpo = await respuesta.json().catch(() => ({}));
-    if (respuesta.status === 201 || respuesta.status === 200) return { ok: true, datos: validarEmisionLlamamiento(cuerpo?.data) };
-    const mensajes = { 403: "La sesión no dispone de permiso para emitir llamamientos.", 409: "La clave ya corresponde a otro llamamiento.", 422: "La selección ya no respeta la bolsa o la disponibilidad vigente." };
-    return { ok: false, status: respuesta.status, codigo: cuerpo?.error?.codigo || "error_servidor", mensaje: mensajes[respuesta.status] || "No se pudo emitir el llamamiento." };
-  } catch (error) {
-    return { ok: false, status: 0, codigo: "error_red", mensaje: error instanceof Error ? error.message : "Error de comunicación al emitir." };
-  }
-}
-
-export async function crearLlamamientoCandidato(participacionRef, payload, { fetchImpl = fetch } = {}) {
-  if (typeof participacionRef !== "string" || participacionRef.trim() === "") {
-    return { ok: false, status: 400, codigo: "referencia_invalida", mensaje: "Referencia de candidato no válida." };
-  }
-
-  let payloadValidado;
-  let envelopeAccion;
-  try {
-    payloadValidado = validarPayloadCrearLlamamiento(payload);
-    envelopeAccion = construirEnvelopeAccionBolsa("crear_llamamiento", payloadValidado, { confirmacion: true });
-  } catch (err) {
-    return {
-      ok: false,
-      status: 400,
-      codigo: "solicitud_invalida",
-      mensaje: err instanceof Error ? err.message : "Datos de llamamiento no válidos.",
-    };
-  }
-
-  const url = `/api/vec/bolsa/candidatos/${segmentoRuta(participacionRef)}/llamamientos`;
-
-  try {
-    const respuesta = await fetchImpl(url, {
-      method: "POST",
-      credentials: "omit",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify(envelopeAccion),
-    });
-
-    if (!respuesta.ok) {
-      if (respuesta.status === 400) {
-        return { ok: false, status: 400, codigo: "solicitud_invalida", mensaje: "Solicitud de llamamiento rechazada por el servidor." };
-      }
-      if (respuesta.status === 401) {
-        return { ok: false, status: 401, codigo: "no_autenticado", mensaje: "Se requiere una sesión interna autenticada." };
-      }
-      if (respuesta.status === 403) {
-        return { ok: false, status: 403, codigo: "acceso_denegado", mensaje: "Sin permiso para registrar llamamientos." };
-      }
-      if (respuesta.status === 404) {
-        return { ok: false, status: 404, codigo: "no_encontrado", mensaje: "Candidato no encontrado para el llamamiento." };
-      }
-      if (respuesta.status === 409) {
-        return { ok: false, status: 409, codigo: "conflicto", mensaje: "El aspirante no está disponible o ya tiene un llamamiento en curso." };
-      }
-      if (respuesta.status === 422) {
-        return { ok: false, status: 422, codigo: "no_procesable", mensaje: "Los datos del llamamiento no cumplen las reglas de negocio." };
-      }
-      return {
-        ok: false,
-        status: respuesta.status,
-        codigo: "error_servidor",
-        mensaje: `No se pudo registrar el llamamiento (HTTP ${respuesta.status}).`,
-      };
-    }
-
-    const envelope = await respuesta.json();
-    return { ok: true, datos: envelope.data || envelope };
-  } catch (error) {
-    return {
-      ok: false,
-      status: 0,
-      codigo: "error_red_o_contrato",
-      mensaje: error instanceof Error ? error.message : "Error de comunicación al registrar llamamiento.",
-    };
-  }
-}
-
-export async function registrarResultadoLlamamiento(llamamientoRef, payload, { fetchImpl = fetch } = {}) {
-  if (typeof llamamientoRef !== "string" || llamamientoRef.trim() === "") {
-    return { ok: false, status: 400, codigo: "referencia_invalida", mensaje: "Referencia de llamamiento no válida." };
-  }
-
-  let payloadValidado;
-  let envelopeAccion;
-  try {
-    payloadValidado = validarPayloadResultadoLlamamiento(payload);
-    envelopeAccion = construirEnvelopeAccionBolsa("registrar_resultado", payloadValidado, { confirmacion: true });
-  } catch (err) {
-    return {
-      ok: false,
-      status: 400,
-      codigo: "solicitud_invalida",
-      mensaje: err instanceof Error ? err.message : "Datos de resultado no válidos.",
-    };
-  }
-
-  const url = `/api/vec/bolsa/llamamientos/${segmentoRuta(llamamientoRef)}/resultado`;
-
-  try {
-    const respuesta = await fetchImpl(url, {
-      method: "POST",
-      credentials: "omit",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify(envelopeAccion),
-    });
-
-    if (!respuesta.ok) {
-      if (respuesta.status === 400) {
-        return { ok: false, status: 400, codigo: "solicitud_invalida", mensaje: "Solicitud de resultado rechazada por el servidor." };
-      }
-      if (respuesta.status === 401) {
-        return { ok: false, status: 401, codigo: "no_autenticado", mensaje: "Se requiere una sesión interna autenticada." };
-      }
-      if (respuesta.status === 403) {
-        return { ok: false, status: 403, codigo: "acceso_denegado", mensaje: "Sin permiso para registrar resultado de llamamiento." };
-      }
-      if (respuesta.status === 404) {
-        return { ok: false, status: 404, codigo: "no_encontrado", mensaje: "Llamamiento no encontrado." };
-      }
-      if (respuesta.status === 409) {
-        return { ok: false, status: 409, codigo: "conflicto", mensaje: "El llamamiento ya tiene resultado o su estado no permite registrarlo." };
-      }
-      if (respuesta.status === 422) {
-        return { ok: false, status: 422, codigo: "no_procesable", mensaje: "El resultado no es procesable según las reglas de bolsa." };
-      }
-      return {
-        ok: false,
-        status: respuesta.status,
-        codigo: "error_servidor",
-        mensaje: `No se pudo registrar el resultado (HTTP ${respuesta.status}).`,
-      };
-    }
-
-    const envelope = await respuesta.json();
-    return { ok: true, datos: envelope.data || envelope };
-  } catch (error) {
-    return {
-      ok: false,
-      status: 0,
-      codigo: "error_red_o_contrato",
-      mensaje: error instanceof Error ? error.message : "Error de comunicación al registrar resultado.",
-    };
-  }
 }
 
 export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFuenteLectura = () => null, documento = globalThis.document }) {
