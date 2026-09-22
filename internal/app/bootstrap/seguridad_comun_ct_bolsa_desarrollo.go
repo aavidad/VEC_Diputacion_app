@@ -133,12 +133,27 @@ func colisionanFronterasComunDesarrollo(a, b descriptorFronteraComunDesarrollo) 
 		return false
 	}
 	if a.DetalleColeccion == b.DetalleColeccion && a.Ruta == b.Ruta {
+		if !a.DetalleColeccion && len(a.PlantillaDetalle) != 0 && len(b.PlantillaDetalle) != 0 {
+			return plantillasFronteraComunColisionan(a.PlantillaDetalle, b.PlantillaDetalle)
+		}
 		return true
 	}
 	if a.DetalleColeccion && !b.DetalleColeccion && rutaEsDetalleCatalogoComun(a.Ruta, b.Ruta) {
 		return true
 	}
 	return b.DetalleColeccion && !a.DetalleColeccion && rutaEsDetalleCatalogoComun(b.Ruta, a.Ruta)
+}
+
+func plantillasFronteraComunColisionan(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != "*" && b[i] != "*" && a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func rutaEsDetalleCatalogoComun(coleccion, ruta string) bool {

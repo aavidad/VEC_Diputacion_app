@@ -55,6 +55,23 @@ func TestCatalogoFronterasComunPermiteColeccionYDetalleMismaBase(t *testing.T) {
 	}
 }
 
+func TestCatalogoFronterasComunPermitePlantillasDisjuntasMismaBase(t *testing.T) {
+	a := fronteraComunPrueba("lista", http.MethodGet, "/api/modulo", false)
+	a.PlantillaDetalle = []string{"*", "candidatos"}
+	b := fronteraComunPrueba("contactos", http.MethodGet, "/api/modulo", false)
+	b.PlantillaDetalle = []string{"*", "candidatos", "*", "contactos"}
+	c, err := nuevoCatalogoFronterasComunDesarrollo([]descriptorFronteraComunDesarrollo{a, b})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d, ok := c.resolver(http.MethodGet, "/api/modulo/bolsa/candidatos"); !ok || d.Clave != "lista" {
+		t.Fatal("lista no resuelta")
+	}
+	if d, ok := c.resolver(http.MethodGet, "/api/modulo/bolsa/candidatos/persona/contactos"); !ok || d.Clave != "contactos" {
+		t.Fatal("contactos no resueltos")
+	}
+}
+
 func TestCatalogoFronterasComunCopiaDescriptoresYAceptaModuloSintetico(t *testing.T) {
 	d := fronteraComunPrueba("cronos", http.MethodPost, "/api/vec/cronos/partes", false)
 	c, err := nuevoCatalogoFronterasComunDesarrollo([]descriptorFronteraComunDesarrollo{d})
