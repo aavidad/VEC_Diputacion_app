@@ -28,18 +28,21 @@ const (
 type datasetBolsasRRHHDesarrollo struct {
 	GeneradoEn string `json:"generado_en"`
 	Bolsas     []struct {
-		Referencia          string  `json:"bolsa_ref"`
-		CategoriaRef        string  `json:"categoria_ref"`
-		Categoria           string  `json:"categoria"`
-		TipoLista           string  `json:"tipo_lista"`
-		VigenteDesde        string  `json:"vigente_desde"`
-		VigenteHasta        *string `json:"vigente_hasta"`
-		LlamamientosEnCurso int     `json:"llamamientos_en_curso"`
+		Referencia          string                      `json:"bolsa_ref"`
+		CategoriaRef        string                      `json:"categoria_ref"`
+		Categoria           string                      `json:"categoria"`
+		TipoLista           string                      `json:"tipo_lista"`
+		VigenteDesde        string                      `json:"vigente_desde"`
+		VigenteHasta        *string                     `json:"vigente_hasta"`
+		LlamamientosEnCurso int                         `json:"llamamientos_en_curso"`
+		PoliticaOrden       politicaOrdenRRHHDesarrollo `json:"politica_orden"`
 	} `json:"bolsas"`
 	Candidaturas []struct {
 		Referencia  string  `json:"candidatura_ref"`
 		BolsaRef    string  `json:"bolsa_ref"`
-		Orden       int     `json:"orden"`
+		Orden       *int    `json:"orden"`
+		OrdenActa   int     `json:"orden_acta"`
+		RazonOrden  string  `json:"razon_orden"`
 		Nombre      string  `json:"nombre_visible"`
 		Documento   string  `json:"documento_enmascarado"`
 		Estado      string  `json:"estado_clave"`
@@ -54,6 +57,12 @@ type datasetBolsasRRHHDesarrollo struct {
 		Resultado   string `json:"resultado"`
 	} `json:"llamamientos"`
 	Contactos []dominiobolsa.ContactoParticipacion `json:"contactos"`
+}
+
+type politicaOrdenRRHHDesarrollo struct {
+	Referencia, Criterio, TipoLista, Reposicion, Rotulo, Actor, VigenteDesde string
+	Version                                                                  uint64
+	Provisional                                                              bool
 }
 
 type bolsasRRHHDesarrollo struct {
@@ -288,20 +297,21 @@ func (h *bolsasRRHHDesarrolloDatos) respuestaBolsas() map[string]any {
 				conteo[estadoBolsaCanonico(candidata.Estado)]++
 			}
 		}
-		bolsas = append(bolsas, salidaBolsaRRHH(bolsa.Referencia, bolsa.CategoriaRef, bolsa.Categoria, bolsa.TipoLista, bolsa.VigenteDesde, bolsa.VigenteHasta, conteo, bolsa.LlamamientosEnCurso))
+		bolsas = append(bolsas, salidaBolsaRRHH(bolsa.Referencia, bolsa.CategoriaRef, bolsa.Categoria, bolsa.TipoLista, bolsa.VigenteDesde, bolsa.VigenteHasta, conteo, bolsa.LlamamientosEnCurso, bolsa.PoliticaOrden))
 	}
 	return map[string]any{"esquema": "vec.bolsa.rrhh.bolsas.v1", "generado_en": instanteBolsasRRHH(h.datos.GeneradoEn), "bolsas": bolsas}
 }
 
 func (h *bolsasRRHHDesarrolloDatos) respuestaCandidatos(ref string, consulta consultaCandidatosRRHH) (map[string]any, bool) {
 	var bolsa *struct {
-		Referencia          string  `json:"bolsa_ref"`
-		CategoriaRef        string  `json:"categoria_ref"`
-		Categoria           string  `json:"categoria"`
-		TipoLista           string  `json:"tipo_lista"`
-		VigenteDesde        string  `json:"vigente_desde"`
-		VigenteHasta        *string `json:"vigente_hasta"`
-		LlamamientosEnCurso int     `json:"llamamientos_en_curso"`
+		Referencia          string                      `json:"bolsa_ref"`
+		CategoriaRef        string                      `json:"categoria_ref"`
+		Categoria           string                      `json:"categoria"`
+		TipoLista           string                      `json:"tipo_lista"`
+		VigenteDesde        string                      `json:"vigente_desde"`
+		VigenteHasta        *string                     `json:"vigente_hasta"`
+		LlamamientosEnCurso int                         `json:"llamamientos_en_curso"`
+		PoliticaOrden       politicaOrdenRRHHDesarrollo `json:"politica_orden"`
 	}
 	for indice := range h.datos.Bolsas {
 		if h.datos.Bolsas[indice].Referencia == ref {
@@ -320,7 +330,14 @@ func (h *bolsasRRHHDesarrolloDatos) respuestaCandidatos(ref string, consulta con
 		candidatas = append(candidatas, indice)
 	}
 	sort.Slice(candidatas, func(i, j int) bool {
-		return h.datos.Candidaturas[candidatas[i]].Orden < h.datos.Candidaturas[candidatas[j]].Orden
+		a, b := h.datos.Candidaturas[candidatas[i]], h.datos.Candidaturas[candidatas[j]]
+		if a.Orden == nil {
+			return false
+		}
+		if b.Orden == nil {
+			return true
+		}
+		return *a.Orden < *b.Orden
 	})
 	inicio := 0
 	if consulta.cursor != "" {
@@ -359,7 +376,7 @@ func (h *bolsasRRHHDesarrolloDatos) respuestaCandidatos(ref string, consulta con
 			contactos = append(contactos, map[string]any{"contacto_ref": c.ContactoRef, "participacion_ref": c.ParticipacionRef, "llamamiento_ref": nuloBootstrap(c.LlamamientoRef), "canal": c.Canal, "instante": c.Instante.UTC().Format(time.RFC3339Nano), "actor_ref": c.Actor, "resultado": c.Resultado, "anotacion": c.Anotacion})
 		}
 	}
-	return map[string]any{"esquema": "vec.bolsa.rrhh.candidatos.v1", "generado_en": instanteBolsasRRHH(h.datos.GeneradoEn), "bolsa": salidaBolsaRRHH(bolsa.Referencia, bolsa.CategoriaRef, bolsa.Categoria, bolsa.TipoLista, bolsa.VigenteDesde, bolsa.VigenteHasta, conteo, bolsa.LlamamientosEnCurso), "candidatos": salida, "contactos": contactos, "hay_mas": hayMas, "cursor_siguiente": siguiente}, true
+	return map[string]any{"esquema": "vec.bolsa.rrhh.candidatos.v1", "generado_en": instanteBolsasRRHH(h.datos.GeneradoEn), "bolsa": salidaBolsaRRHH(bolsa.Referencia, bolsa.CategoriaRef, bolsa.Categoria, bolsa.TipoLista, bolsa.VigenteDesde, bolsa.VigenteHasta, conteo, bolsa.LlamamientosEnCurso, bolsa.PoliticaOrden), "candidatos": salida, "contactos": contactos, "hay_mas": hayMas, "cursor_siguiente": siguiente}, true
 }
 
 func nuloBootstrap(v string) any {
@@ -369,14 +386,21 @@ func nuloBootstrap(v string) any {
 	return v
 }
 
-func salidaBolsaRRHH(referencia, categoriaRef, categoria, tipo, desde string, hasta *string, conteo map[string]int, llamamientos int) map[string]any {
-	return map[string]any{"bolsa_ref": referencia, "categoria_clave": strings.TrimPrefix(categoriaRef, "categoria:rpt:"), "categoria": categoria, "tipo_lista": tipo, "vigente_desde": desde, "vigente_hasta": hasta, "total": conteo["disponible"] + conteo["ocupado"] + conteo["no_disponible"] + conteo["excluido"] + conteo["renuncia_pendiente"], "por_estado": conteo, "llamamientos_en_curso": llamamientos}
+func salidaBolsaRRHH(referencia, categoriaRef, categoria, tipo, desde string, hasta *string, conteo map[string]int, llamamientos int, politica ...politicaOrdenRRHHDesarrollo) map[string]any {
+	var criterio any = nil
+	if len(politica) == 1 {
+		p := politica[0]
+		criterio = map[string]any{"politica_ref": p.Referencia, "version": p.Version, "criterio": p.Criterio, "tipo_lista": p.TipoLista, "reposicion": p.Reposicion, "provisional": p.Provisional, "rotulo": p.Rotulo, "actor": p.Actor, "vigente_desde": p.VigenteDesde}
+	}
+	return map[string]any{"bolsa_ref": referencia, "categoria_clave": strings.TrimPrefix(categoriaRef, "categoria:rpt:"), "categoria": categoria, "tipo_lista": tipo, "vigente_desde": desde, "vigente_hasta": hasta, "total": conteo["disponible"] + conteo["trabajando"] + conteo["no_disponible"] + conteo["excluido"] + conteo["renuncia"] + conteo["pendiente_incorporacion"] + conteo["disponible_desde"], "por_estado": conteo, "llamamientos_en_curso": llamamientos, "politica_orden": criterio}
 }
 
 func (h *bolsasRRHHDesarrolloDatos) salidaCandidata(candidata struct {
 	Referencia  string  `json:"candidatura_ref"`
 	BolsaRef    string  `json:"bolsa_ref"`
-	Orden       int     `json:"orden"`
+	Orden       *int    `json:"orden"`
+	OrdenActa   int     `json:"orden_acta"`
+	RazonOrden  string  `json:"razon_orden"`
 	Nombre      string  `json:"nombre_visible"`
 	Documento   string  `json:"documento_enmascarado"`
 	Estado      string  `json:"estado_clave"`
@@ -399,7 +423,7 @@ func (h *bolsasRRHHDesarrolloDatos) salidaCandidata(candidata struct {
 			contactos++
 		}
 	}
-	return map[string]any{"participacion_ref": candidata.Referencia, "orden": candidata.Orden, "nombre_visible": candidata.Nombre, "documento_enmascarado": candidata.Documento, "estado_clave": estadoBolsaCanonico(candidata.Estado), "estado_desde": candidata.EstadoDesde, "disponible_desde": candidata.Disponible, "ultimo_llamamiento": llamada, "contactos_total": contactos}
+	return map[string]any{"participacion_ref": candidata.Referencia, "orden": candidata.Orden, "orden_acta": candidata.OrdenActa, "razon_orden": candidata.RazonOrden, "nombre_visible": candidata.Nombre, "documento_enmascarado": candidata.Documento, "estado_clave": estadoBolsaCanonico(candidata.Estado), "estado_desde": candidata.EstadoDesde, "disponible_desde": candidata.Disponible, "ultimo_llamamiento": llamada, "contactos_total": contactos}
 }
 
 // respuestaEstadisticas agrega lo que el cuadro ya muestra: bolsas vigentes y

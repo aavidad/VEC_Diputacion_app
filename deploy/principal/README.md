@@ -44,3 +44,11 @@ acreditan por separado sobre la réplica D6 preparada para este corte. Una
 reserva sin resultados se recupera como `emision_reservada_resultado_pendiente`
 y nunca provoca un reenvío automático ambiguo. Los contactos manuales B3 no
 alteran el resultado SMTP ni el contador del llamamiento.
+# Incremento D3-B6
+
+El paquete aplica además Bolsa `000018`: política de orden versionada y rotulada
+como provisional, lectura derivada para B5/B7 y registro append-only de la
+reposición al volver de `trabajando`. `desplegar.sh` ensaya primero el `UP` con
+`ROLLBACK`; `verificar.sh` exige la política y los campos de orden calculado.
+No existe AD3 `000049`: B6 reutiliza la lectura autorizada B5 y la reposición se
+produce dentro del cambio B2 ya autorizado, auditado e idempotente.

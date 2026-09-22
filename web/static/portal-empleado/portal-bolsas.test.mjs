@@ -108,6 +108,7 @@ function construirFixturesDesdeDemo() {
       total: candidaturas.length,
       por_estado: porEstado,
 	  llamamientos_en_curso: 0,
+	  politica_orden: { politica_ref: `politica:orden:${b.bolsa_ref}`, version: 1, criterio: "puntuacion_desc_acta", tipo_lista: "rotatoria", reposicion: "misma_posicion", provisional: true, rotulo: "Provisional, pendiente de RRHH (dudas 13–14)", actor: "sistema:prueba", vigente_desde: b.vigente_desde },
     };
   });
   const primeraBolsa = bolsas[0];
@@ -126,6 +127,8 @@ function construirFixturesDesdeDemo() {
     return {
       participacion_ref: `part_${c.candidatura_ref.replace(":demo:", ":sintetico:").replace(/[^a-zA-Z0-9]/g, "_")}`,
       orden: c.orden,
+      orden_acta: c.orden,
+      razon_orden: "orden_acta",
       nombre_visible: c.nombre_visible,
       documento_enmascarado: c.documento_enmascarado,
       estado_clave: situacion,
@@ -518,6 +521,9 @@ test("presentadorPanelInterno renderiza Vista B5 de candidatos con filtros, chip
   assert.match(htmlB5, /B7 emite por SMTP y deja recibo/);
   assert.match(htmlB5, /data-bolsa-accion="iniciar-b7"/);
   assert.match(htmlB5, /title="Pendiente de RRHH"/);
+  assert.match(htmlB5, /Criterios de orden/);
+  assert.match(htmlB5, /Puntuación descendente; desempate estable por nº del acta/);
+  assert.match(htmlB5, /Provisional, pendiente de RRHH \(dudas 13–14\)/);
   filtrosBolsa = { ...filtrosBolsa, pestana: "historico" };
   const htmlHistorico = presentador.renderizarVista("bolsa-candidatos");
   assert.match(htmlHistorico, /Histórico de contactos y llamamientos/);
@@ -626,7 +632,9 @@ test("presentadorPanelInterno muestra la ficha B5 en línea junto al único cand
 });
 test("B7 presenta cuatro pasos, paginación interna y controles de teclado nativos", () => {
   const { envelopeCandidatos } = construirFixturesDesdeDemo();
-  const datos = validarRespuestaCandidatosBolsa(envelopeCandidatos);
+  const base = validarRespuestaCandidatosBolsa(envelopeCandidatos);
+  const pausado = base.candidatos.find((c) => c.estado_clave === "no_disponible") || base.candidatos[1];
+  const datos = { ...base, candidatos: base.candidatos.map((c) => c.participacion_ref === pausado.participacion_ref ? { ...c, orden: null, razon_orden: "pausa" } : c) };
   const flujo = { paso: 1, estados: ["disponible"], participaciones: [], configuracion: null };
   const presentador = crearPresentadorPanelInterno({
     claseEstado: (c) => `chip-${c}`,
@@ -646,6 +654,8 @@ test("B7 presenta cuatro pasos, paginación interna y controles de teclado nativ
   html = presentador.renderizarVista("bolsa-candidatos");
   assert.match(html, /2\. Seleccionar candidatos/);
   assert.match(html, /Respetar orden de prelación \(obligatorio\)/);
+  assert.match(html, /no ocupan turno/);
+  assert.doesNotMatch(html, new RegExp(pausado.nombre_visible));
   assert.match(html, /Mostrando 1 a 6 de/);
   assert.match(html, /data-bolsa-accion="b7-pagina"/);
   flujo.paso = 3;

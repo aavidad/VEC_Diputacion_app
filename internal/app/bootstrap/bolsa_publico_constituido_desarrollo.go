@@ -56,7 +56,8 @@ func (f *fuenteBolsasPublicasDesarrollo) ListaPublica(ctx context.Context, bolsa
 	for _, candidatura := range datos.Candidaturas {
 		if candidatura.BolsaRef == bolsaRef {
 			posiciones = append(posiciones, bolsapublico.PosicionPublica{
-				Orden: candidatura.Orden, DocumentoEnmascarado: candidatura.Documento, EstadoClave: estadoBolsaCanonico(candidatura.Estado),
+				Orden: candidatura.OrdenActa, DocumentoEnmascarado: candidatura.Documento,
+				EstadoClave: estadoBolsaPublico(candidatura.Estado, candidatura.Disponible, generadoEn),
 			})
 		}
 	}
@@ -71,6 +72,26 @@ func (f *fuenteBolsasPublicasDesarrollo) ListaPublica(ctx context.Context, bolsa
 		}
 	}
 	return bolsapublico.BolsaPublica{}, nil, time.Time{}, bolsapublico.ErrBolsaPublicaNoEncontrada
+}
+
+func estadoBolsaPublico(estado string, disponibleDesde *string, generadoEn time.Time) string {
+	switch estado {
+	case "trabajando", "pendiente_incorporacion":
+		return "ocupado"
+	case "renuncia":
+		return "renuncia_pendiente"
+	case "disponible_desde":
+		if disponibleDesde != nil {
+			if desde, err := time.Parse(time.RFC3339, *disponibleDesde); err == nil && !desde.After(generadoEn) {
+				return "disponible"
+			}
+		}
+		return "no_disponible"
+	case "disponible", "no_disponible", "excluido":
+		return estado
+	default:
+		return "no_disponible"
+	}
 }
 
 func (f *fuenteBolsasPublicasDesarrollo) datos(ctx context.Context) (datasetBolsasRRHHDesarrollo, time.Time, error) {
@@ -92,13 +113,14 @@ func (f *fuenteBolsasPublicasDesarrollo) datos(ctx context.Context) (datasetBols
 }
 
 func (f *fuenteBolsasPublicasDesarrollo) proyectarBolsa(bolsa struct {
-	Referencia          string  `json:"bolsa_ref"`
-	CategoriaRef        string  `json:"categoria_ref"`
-	Categoria           string  `json:"categoria"`
-	TipoLista           string  `json:"tipo_lista"`
-	VigenteDesde        string  `json:"vigente_desde"`
-	VigenteHasta        *string `json:"vigente_hasta"`
-	LlamamientosEnCurso int     `json:"llamamientos_en_curso"`
+	Referencia          string                      `json:"bolsa_ref"`
+	CategoriaRef        string                      `json:"categoria_ref"`
+	Categoria           string                      `json:"categoria"`
+	TipoLista           string                      `json:"tipo_lista"`
+	VigenteDesde        string                      `json:"vigente_desde"`
+	VigenteHasta        *string                     `json:"vigente_hasta"`
+	LlamamientosEnCurso int                         `json:"llamamientos_en_curso"`
+	PoliticaOrden       politicaOrdenRRHHDesarrollo `json:"politica_orden"`
 }, total int) (bolsapublico.BolsaPublica, error) {
 	desde, err := time.Parse(time.RFC3339, bolsa.VigenteDesde)
 	if err != nil {

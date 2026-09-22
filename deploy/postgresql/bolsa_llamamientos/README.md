@@ -105,6 +105,11 @@ tablas para resolver esas integraciones.
 ./deploy/postgresql/bolsa_llamamientos/probar_integracion.sh
 ```
 
+Para B6, tras instalar `000018` en una réplica sintética, ejecutar además
+`pruebas_sql/b6_orden_vigente.sql`. La prueba se revierte completa y comprueba
+pausa, retorno tras contrato, recolocación al final, una sola fila append-only
+y denegación de lectura directa al ejecutor.
+
 El script usa PostgreSQL fijado por imagen y digest, verifica ACL negativas,
 RLS, `SECURITY DEFINER`, claves de idempotencia y una carrera real por la misma
 necesidad. Los datos sinteticos se insertan unicamente como propietario en la

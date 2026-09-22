@@ -61,14 +61,15 @@ var _ constitucionapp.Recuperador = recuperadorBolsasRRHHPrueba{}
 func datosBolsasRRHHPrueba() datasetBolsasRRHHDesarrollo {
 	datos := datasetBolsasRRHHDesarrollo{GeneradoEn: "2026-09-20T10:00:00Z"}
 	datos.Bolsas = append(datos.Bolsas, struct {
-		Referencia          string  `json:"bolsa_ref"`
-		CategoriaRef        string  `json:"categoria_ref"`
-		Categoria           string  `json:"categoria"`
-		TipoLista           string  `json:"tipo_lista"`
-		VigenteDesde        string  `json:"vigente_desde"`
-		VigenteHasta        *string `json:"vigente_hasta"`
-		LlamamientosEnCurso int     `json:"llamamientos_en_curso"`
-	}{Referencia: "bolsa:constituida:administrativo", CategoriaRef: "categoria:rpt:administrativo", Categoria: "Administrativo", TipoLista: "definitiva", VigenteDesde: datos.GeneradoEn})
+		Referencia          string                      `json:"bolsa_ref"`
+		CategoriaRef        string                      `json:"categoria_ref"`
+		Categoria           string                      `json:"categoria"`
+		TipoLista           string                      `json:"tipo_lista"`
+		VigenteDesde        string                      `json:"vigente_desde"`
+		VigenteHasta        *string                     `json:"vigente_hasta"`
+		LlamamientosEnCurso int                         `json:"llamamientos_en_curso"`
+		PoliticaOrden       politicaOrdenRRHHDesarrollo `json:"politica_orden"`
+	}{Referencia: "bolsa:constituida:administrativo", CategoriaRef: "categoria:rpt:administrativo", Categoria: "Administrativo", TipoLista: "rotatoria", VigenteDesde: datos.GeneradoEn, PoliticaOrden: politicaOrdenRRHHDesarrollo{Referencia: "politica:orden:1", Version: 1, Criterio: "puntuacion_desc_acta", TipoLista: "rotatoria", Reposicion: "misma_posicion", Provisional: true, Rotulo: "Provisional, pendiente de RRHH (dudas 13–14)", Actor: "sistema:prueba", VigenteDesde: datos.GeneradoEn}})
 	for _, candidatura := range []struct {
 		referencia, nombre, documento string
 		orden                         int
@@ -79,16 +80,20 @@ func datosBolsasRRHHPrueba() datasetBolsasRRHHDesarrollo {
 		datos.Candidaturas = append(datos.Candidaturas, struct {
 			Referencia  string  `json:"candidatura_ref"`
 			BolsaRef    string  `json:"bolsa_ref"`
-			Orden       int     `json:"orden"`
+			Orden       *int    `json:"orden"`
+			OrdenActa   int     `json:"orden_acta"`
+			RazonOrden  string  `json:"razon_orden"`
 			Nombre      string  `json:"nombre_visible"`
 			Documento   string  `json:"documento_enmascarado"`
 			Estado      string  `json:"estado_clave"`
 			EstadoDesde string  `json:"estado_desde"`
 			Disponible  *string `json:"disponible_desde"`
-		}{Referencia: candidatura.referencia, BolsaRef: "bolsa:constituida:administrativo", Orden: candidatura.orden, Nombre: candidatura.nombre, Documento: candidatura.documento, Estado: "disponible", EstadoDesde: datos.GeneradoEn})
+		}{Referencia: candidatura.referencia, BolsaRef: "bolsa:constituida:administrativo", Orden: punteroEnteroBolsaRRHHPrueba(candidatura.orden), OrdenActa: candidatura.orden, RazonOrden: "orden_acta", Nombre: candidatura.nombre, Documento: candidatura.documento, Estado: "disponible", EstadoDesde: datos.GeneradoEn})
 	}
 	return datos
 }
+
+func punteroEnteroBolsaRRHHPrueba(valor int) *int { return &valor }
 
 func manejadorBolsasRRHHPrueba() *bolsasRRHHDesarrollo {
 	datos := datosBolsasRRHHPrueba()
@@ -315,5 +320,28 @@ func TestBolsasRRHHDesarrolloDelegaB4ConIdempotencia(t *testing.T) {
 	manejador.ServeHTTP(respuesta, peticion)
 	if respuesta.Code != http.StatusCreated || llamadas != 1 {
 		t.Fatalf("B4 no delegada: status=%d llamadas=%d", respuesta.Code, llamadas)
+	}
+}
+
+func TestEstadoBolsaPublicoConservaCatalogoYActivaFechaCumplida(t *testing.T) {
+	ahora := time.Date(2026, 9, 23, 8, 0, 0, 0, time.UTC)
+	pasada, futura := ahora.Add(-time.Hour).Format(time.RFC3339), ahora.Add(time.Hour).Format(time.RFC3339)
+	casos := map[string]struct {
+		estado string
+		fecha  *string
+		quiere string
+	}{
+		"trabajando": {"trabajando", nil, "ocupado"},
+		"pendiente":  {"pendiente_incorporacion", nil, "ocupado"},
+		"renuncia":   {"renuncia", nil, "renuncia_pendiente"},
+		"espera":     {"disponible_desde", &futura, "no_disponible"},
+		"cumplida":   {"disponible_desde", &pasada, "disponible"},
+	}
+	for nombre, caso := range casos {
+		t.Run(nombre, func(t *testing.T) {
+			if recibido := estadoBolsaPublico(caso.estado, caso.fecha, ahora); recibido != caso.quiere {
+				t.Fatalf("estado público=%q; quiere %q", recibido, caso.quiere)
+			}
+		})
 	}
 }
