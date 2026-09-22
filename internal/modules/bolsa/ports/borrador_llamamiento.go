@@ -164,6 +164,7 @@ const (
 	ResultadoIntentoRecursoNoDisponibleBorradorLlamamiento         ResultadoIntentoBorradorLlamamiento = "recurso_no_disponible"
 	ResultadoIntentoInfraestructuraNoDisponibleBorradorLlamamiento ResultadoIntentoBorradorLlamamiento = "infraestructura_no_disponible"
 	ResultadoIntentoIndeterminadoBorradorLlamamiento               ResultadoIntentoBorradorLlamamiento = "resultado_indeterminado"
+	ResultadoIntentoCorrectoBorradorLlamamiento                    ResultadoIntentoBorradorLlamamiento = "correcto"
 )
 
 type IntentoBorradorLlamamiento struct {
@@ -183,7 +184,8 @@ func (i IntentoBorradorLlamamiento) Validar() error {
 			i.Resultado != ResultadoIntentoAccesoDenegadoBorradorLlamamiento &&
 			i.Resultado != ResultadoIntentoRecursoNoDisponibleBorradorLlamamiento &&
 			i.Resultado != ResultadoIntentoInfraestructuraNoDisponibleBorradorLlamamiento &&
-			i.Resultado != ResultadoIntentoIndeterminadoBorradorLlamamiento) {
+			i.Resultado != ResultadoIntentoIndeterminadoBorradorLlamamiento &&
+			i.Resultado != ResultadoIntentoCorrectoBorradorLlamamiento) {
 		return ErrSolicitudBorradorLlamamientoInvalida
 	}
 	return nil

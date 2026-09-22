@@ -188,7 +188,7 @@ func TestAuditoriaBorradorLlamamientoGETNoEmiteCookieNiTrailer(t *testing.T) {
 	ref := "borrador-llamamiento:alta:" + strings.Repeat("a", 64)
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, RutaBorradoresLlamamiento+"/"+ref, nil))
-	if w.Code != http.StatusOK || w.Header().Get("Set-Cookie") != "" || w.Header().Get("Trailer") != "" || w.Header().Get("X-Interno") != "" || len(registrador.intentos) != 0 {
+	if w.Code != http.StatusOK || w.Header().Get("Set-Cookie") != "" || w.Header().Get("Trailer") != "" || w.Header().Get("X-Interno") != "" || len(registrador.intentos) != 1 || registrador.intentos[0].Resultado != puertosbolsa.ResultadoIntentoCorrectoBorradorLlamamiento || registrador.intentos[0].ActorVerificado != "" {
 		t.Fatalf("GET filtra estado: codigo=%d cabeceras=%#v intentos=%#v", w.Code, w.Header(), registrador.intentos)
 	}
 }

@@ -10,9 +10,10 @@ no contiene secretos ni datos personales reales.
 1. AD3 `000047`, consumidor nominal V3 para registrar datos de contacto B4;
 2. Bolsa `000016`, versiones cifradas de correo y teléfonos;
 3. AD3 `000048`, consumidor nominal V3 `llamamiento.emitir.v1`;
-4. Bolsa `000017`, reserva append-only previa a SMTP, finalización atómica de
-   resultados B3 `enviado/no_enviado`, recuperación idempotente, bitácora de
-   frontera B4/B7 y contador B12.
+4. Bolsa `000017`, reserva append-only previa a SMTP, finalización ligada a
+   una capacidad efímera privada, resultados B3 `enviado/no_enviado`
+   deterministas, recuperación idempotente, bitácora de accesos B4/B7 y
+   contador B12.
 
 No se añaden roles, conexiones ni variables `*_DATABASE_URL`. B7 reutiliza
 las conexiones Bolsa/AD3, el KMS de desarrollo, los datos de contacto B4 y el
@@ -41,4 +42,5 @@ AD3 `000047` → Bolsa `000016` → AD3 `000048` → Bolsa `000017` completó co
 recorrido HTTP/SMTP, concurrencia, replay y recuperación tras reinicio se
 acreditan por separado sobre la réplica D6 preparada para este corte. Una
 reserva sin resultados se recupera como `emision_reservada_resultado_pendiente`
-y nunca provoca un reenvío automático ambiguo.
+y nunca provoca un reenvío automático ambiguo. Los contactos manuales B3 no
+alteran el resultado SMTP ni el contador del llamamiento.

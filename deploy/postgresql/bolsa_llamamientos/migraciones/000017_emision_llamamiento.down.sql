@@ -6,10 +6,10 @@ SELECT pg_advisory_xact_lock(hashtextextended('vec_bolsa_llamamientos:migracion:
 DO $f$ BEGIN
 	 IF EXISTS(SELECT 1 FROM vec_bolsa_llamamientos.llamamiento_emitido)
 	    OR EXISTS(SELECT 1 FROM vec_bolsa_llamamientos.contacto_participacion WHERE resultado IN('enviado','no_enviado'))
-	    OR EXISTS(SELECT 1 FROM vec_bolsa_llamamientos.bitacora_intento_borrador_llamamiento WHERE accion IN('consultar_datos_contacto','emitir_llamamiento','recuperar_llamamiento') OR ruta_clase='emisiones')
+	    OR EXISTS(SELECT 1 FROM vec_bolsa_llamamientos.bitacora_intento_borrador_llamamiento WHERE accion IN('consultar_datos_contacto','emitir_llamamiento','recuperar_llamamiento') OR ruta_clase='emisiones' OR resultado='correcto')
  THEN RAISE EXCEPTION 'hay historia B7; no se deshace' USING ERRCODE='55000'; END IF;
 END $f$;
-DROP FUNCTION vec_bolsa_llamamientos.contar_llamamientos_en_curso_v1(text),vec_bolsa_llamamientos.recuperar_llamamiento_emitido_v1(text,text),vec_bolsa_llamamientos.registrar_contactos_llamamiento_v1(text,text,text,jsonb),vec_bolsa_llamamientos.reservar_llamamiento_v1(text,text,text,text,text,jsonb,jsonb,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea);
+DROP FUNCTION vec_bolsa_llamamientos.contar_llamamientos_en_curso_v1(text),vec_bolsa_llamamientos.recuperar_llamamiento_emitido_v1(text,text),vec_bolsa_llamamientos.registrar_contactos_llamamiento_v1(text,text,text,bytea,jsonb),vec_bolsa_llamamientos.reservar_llamamiento_v1(text,text,text,text,text,jsonb,jsonb,timestamptz,bytea,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea);
 DROP TABLE vec_bolsa_llamamientos.llamamiento_emitido;
 ALTER TABLE vec_bolsa_llamamientos.contacto_participacion DROP CONSTRAINT contacto_participacion_resultado_check;
 ALTER TABLE vec_bolsa_llamamientos.contacto_participacion ADD CONSTRAINT contacto_participacion_resultado_check CHECK(resultado IN('contactado','no_contesta','buzon','acepta','rechaza','aplazado','otro'));
@@ -21,15 +21,19 @@ DECLARE v_ref text; BEGIN
  INSERT INTO vec_bolsa_llamamientos.bitacora_intento_borrador_llamamiento(intento_ref,correlacion_ref,accion,ruta_clase,actor_ref,resultado,registrada_en) VALUES(v_ref,p_correlacion_ref,p_accion,p_ruta_clase,p_actor_ref,p_resultado,clock_timestamp());
 END $f$;
 DO $bitacora$
-DECLARE accion text; ruta text;
+DECLARE accion text; ruta text; resultado text;
 BEGIN
  SELECT pg_get_constraintdef(oid,true) INTO STRICT accion FROM pg_constraint WHERE conrelid='vec_bolsa_llamamientos.bitacora_intento_borrador_llamamiento'::regclass AND conname='bitacora_intento_borrador_llamamiento_accion_check' AND contype='c';
- SELECT pg_get_constraintdef(oid,true) INTO STRICT ruta FROM pg_constraint WHERE conrelid='vec_bolsa_llamamientos.bitacora_intento_borrador_llamamiento'::regclass AND conname='bitacora_intento_borrador_llamamiento_ruta_clase_check' AND contype='c';
+	 SELECT pg_get_constraintdef(oid,true) INTO STRICT ruta FROM pg_constraint WHERE conrelid='vec_bolsa_llamamientos.bitacora_intento_borrador_llamamiento'::regclass AND conname='bitacora_intento_borrador_llamamiento_ruta_clase_check' AND contype='c';
+	 SELECT pg_get_constraintdef(oid,true) INTO STRICT resultado FROM pg_constraint WHERE conrelid='vec_bolsa_llamamientos.bitacora_intento_borrador_llamamiento'::regclass AND conname='bitacora_intento_borrador_llamamiento_resultado_check' AND contype='c';
 	 accion:=replace(replace(replace(accion, ', ''consultar_datos_contacto''::text', ''), ', ''emitir_llamamiento''::text', ''), ', ''recuperar_llamamiento''::text', '');
- ruta:=replace(ruta, ', ''emisiones''::text', '');
+	 ruta:=replace(ruta, ', ''emisiones''::text', '');
+	 resultado:=replace(resultado, ', ''correcto''::text', '');
  ALTER TABLE vec_bolsa_llamamientos.bitacora_intento_borrador_llamamiento DROP CONSTRAINT bitacora_intento_borrador_llamamiento_accion_check;
  EXECUTE 'ALTER TABLE vec_bolsa_llamamientos.bitacora_intento_borrador_llamamiento ADD CONSTRAINT bitacora_intento_borrador_llamamiento_accion_check '||accion;
  ALTER TABLE vec_bolsa_llamamientos.bitacora_intento_borrador_llamamiento DROP CONSTRAINT bitacora_intento_borrador_llamamiento_ruta_clase_check;
- EXECUTE 'ALTER TABLE vec_bolsa_llamamientos.bitacora_intento_borrador_llamamiento ADD CONSTRAINT bitacora_intento_borrador_llamamiento_ruta_clase_check '||ruta;
+	 EXECUTE 'ALTER TABLE vec_bolsa_llamamientos.bitacora_intento_borrador_llamamiento ADD CONSTRAINT bitacora_intento_borrador_llamamiento_ruta_clase_check '||ruta;
+	 ALTER TABLE vec_bolsa_llamamientos.bitacora_intento_borrador_llamamiento DROP CONSTRAINT bitacora_intento_borrador_llamamiento_resultado_check;
+	 EXECUTE 'ALTER TABLE vec_bolsa_llamamientos.bitacora_intento_borrador_llamamiento ADD CONSTRAINT bitacora_intento_borrador_llamamiento_resultado_check '||resultado;
 END $bitacora$;
 COMMIT;

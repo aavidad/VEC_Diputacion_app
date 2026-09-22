@@ -79,11 +79,6 @@ func (a *auditoriaBorradorLlamamiento) ServeHTTP(w http.ResponseWriter, r *http.
 	if respuesta.excedida {
 		estado = http.StatusServiceUnavailable
 	}
-	if !esFalloAuditableBorradorLlamamiento(estado) {
-		respuesta.volcarEn(w, false, r.Method == http.MethodGet)
-		return
-	}
-
 	ctxAuditoria, cancelar := context.WithTimeout(context.WithoutCancel(ctxPeticion), tiempoMaximoAuditoriaBorradorLlamamiento)
 	defer cancelar()
 	correlacion, err := dominiovec.GenerarReferenciaCorrelacionAutorizacionV2(ctxAuditoria, a.generador)
@@ -149,9 +144,10 @@ func intentoAuditableBorradorLlamamiento(r *http.Request) (puertosbolsa.AccionIn
 	return "", "", false
 }
 
-func esFalloAuditableBorradorLlamamiento(estado int) bool { return estado >= http.StatusBadRequest }
-
 func resultadoIntentoBorradorLlamamiento(estado int) puertosbolsa.ResultadoIntentoBorradorLlamamiento {
+	if estado < http.StatusBadRequest {
+		return puertosbolsa.ResultadoIntentoCorrectoBorradorLlamamiento
+	}
 	switch estado {
 	case http.StatusUnauthorized:
 		return puertosbolsa.ResultadoIntentoAutenticacionRequeridaBorradorLlamamiento

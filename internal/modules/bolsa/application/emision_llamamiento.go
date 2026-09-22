@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -54,7 +55,11 @@ func (s *ServicioEmisionLlamamiento) EmitirLlamamiento(ctx context.Context, q pu
 	h := sha256.Sum256([]byte(q.BolsaRef + "\x1f" + q.ClaveIdempotencia))
 	sufijo := hex.EncodeToString(h[:])
 	ahora := s.reloj().UTC().Truncate(time.Microsecond)
-	reservada, err := s.repositorio.Reservar(ctx, puertosbolsa.ComandoEmitirLlamamiento{LlamamientoRef: "llamamiento:" + sufijo, ReciboRef: "recibo:llamamiento:" + sufijo, BolsaRef: q.BolsaRef, ActorRef: actor.PersonaRef, ClaveIdempotencia: q.ClaveIdempotencia, Participaciones: append([]string(nil), q.Participaciones...), Configuracion: q.Configuracion, EmitidoEn: ahora, SolicitudAutorizacion: auth, Decision: decision, Confirmacion: confirmacion, Material: material})
+	tokenFinalizacion := make([]byte, 32)
+	if _, err = rand.Read(tokenFinalizacion); err != nil {
+		return puertosbolsa.EmisionLlamamiento{}, puertosbolsa.ErrEmisionLlamamientoNoDisponible
+	}
+	reservada, err := s.repositorio.Reservar(ctx, puertosbolsa.ComandoEmitirLlamamiento{LlamamientoRef: "llamamiento:" + sufijo, ReciboRef: "recibo:llamamiento:" + sufijo, BolsaRef: q.BolsaRef, ActorRef: actor.PersonaRef, ClaveIdempotencia: q.ClaveIdempotencia, Participaciones: append([]string(nil), q.Participaciones...), Configuracion: q.Configuracion, EmitidoEn: ahora, SolicitudAutorizacion: auth, Decision: decision, Confirmacion: confirmacion, Material: material, TokenFinalizacion: tokenFinalizacion})
 	if err != nil {
 		return puertosbolsa.EmisionLlamamiento{}, err
 	}
@@ -78,7 +83,7 @@ func (s *ServicioEmisionLlamamiento) EmitirLlamamiento(ctx context.Context, q pu
 		reciboContacto := sha256.Sum256([]byte(q.BolsaRef + "\x1f" + q.ClaveIdempotencia + "\x1f" + participacion))
 		contactos = append(contactos, puertosbolsa.ResultadoContactoEmision{ParticipacionRef: participacion, Resultado: resultado, ReciboRef: "recibo:contacto:" + hex.EncodeToString(reciboContacto[:])})
 	}
-	return s.repositorio.RegistrarContactos(ctx, q.BolsaRef, q.ClaveIdempotencia, actor.PersonaRef, contactos)
+	return s.repositorio.RegistrarContactos(ctx, q.BolsaRef, q.ClaveIdempotencia, actor.PersonaRef, tokenFinalizacion, contactos)
 }
 
 func (s *ServicioEmisionLlamamiento) RecuperarLlamamiento(ctx context.Context, q puertosbolsa.SolicitudRecuperarLlamamiento) (puertosbolsa.EmisionLlamamiento, error) {
@@ -121,7 +126,7 @@ func validarSolicitudEmision(q puertosbolsa.SolicitudEmitirLlamamiento) error {
 			return puertosbolsa.ErrEmisionLlamamientoInvalida
 		}
 	}
-	if len(c.PlantillaVersion) > 900 {
+	if c.PlantillaVersion != puertosbolsa.PlantillaCorreoLlamamiento {
 		return puertosbolsa.ErrEmisionLlamamientoInvalida
 	}
 	return nil

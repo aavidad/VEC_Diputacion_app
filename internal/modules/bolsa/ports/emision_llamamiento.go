@@ -14,6 +14,7 @@ const (
 	FinalidadEmitirLlamamiento = "gestion_llamamientos_bolsa"
 	AudienciaEmitirLlamamiento = "vec_bolsa_llamamientos.llamamiento.emitir.v1"
 	TipoRecursoEmision         = "bolsa_constituida"
+	PlantillaCorreoLlamamiento = "bolsa-llamamiento-v1"
 )
 
 var (
@@ -61,6 +62,7 @@ type ComandoEmitirLlamamiento struct {
 	Decision                                                         dominiovec.DecisionAutorizacionLigadaV3
 	Confirmacion                                                     puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3
 	Material                                                         puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3
+	TokenFinalizacion                                                []byte
 }
 
 type ResultadoContactoEmision struct {
@@ -83,7 +85,7 @@ type EmisionLlamamiento struct {
 
 type RepositorioEmisionLlamamiento interface {
 	Reservar(context.Context, ComandoEmitirLlamamiento) (EmisionLlamamiento, error)
-	RegistrarContactos(context.Context, string, string, string, []ResultadoContactoEmision) (EmisionLlamamiento, error)
+	RegistrarContactos(context.Context, string, string, string, []byte, []ResultadoContactoEmision) (EmisionLlamamiento, error)
 	Recuperar(context.Context, string, string) (EmisionLlamamiento, error)
 }
 
