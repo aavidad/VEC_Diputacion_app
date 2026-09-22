@@ -1,7 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-
 import {
   ESQUEMA_BOLSAS,
   ESQUEMA_CANDIDATOS,
@@ -23,7 +22,6 @@ import {
   validarPayloadResultadoLlamamiento,
   construirEnvelopeAccionBolsa,
 } from "./portal-bolsas-contrato.js";
-
 import {
   consultarBolsas,
   consultarCandidatosBolsa,
@@ -36,7 +34,6 @@ import {
   rutaCandidatosBolsa,
   crearControladorBolsas,
 } from "./portal-bolsas-api.js";
-
 test("B7 emite por la ruta exacta con idempotencia y conserva el recibo", async () => {
   let llamada;
   const huella = "a".repeat(64);
@@ -56,7 +53,6 @@ test("B7 emite por la ruta exacta con idempotencia y conserva el recibo", async 
   assert.equal(llamada.opciones.headers["Idempotency-Key"], "b7-emision-0001");
   assert.deepEqual(JSON.parse(llamada.opciones.body).participaciones, ["participacion:01"]);
 });
-
 test("cambiar situación B2 envía idempotencia y conserva el recibo", async () => {
   let observada;
   const resultado = await cambiarSituacionCandidato("bolsa:01", "participacion:01", { situacion: "no_disponible", motivo: "Pausa comunicada", fecha_disponible: null, clave_idempotencia: "b2-cambio-0001" }, { fetchImpl: async (url, opciones) => {
@@ -69,20 +65,16 @@ test("cambiar situación B2 envía idempotencia y conserva el recibo", async () 
   assert.equal(observada.opciones.credentials, "omit");
   assert.match(observada.url, /\/bolsa:01\/candidatos\/participacion:01\/situacion$/);
 });
-
 import { crearPresentadorPanelInterno } from "./portal-panel-interno.js";
 import { crearFuenteLecturaBolsasPresentacion } from "./portal-presentacion-adaptador.js";
 import { obtenerDatosPresentacion } from "./datos-presentacion.js";
-
 const rutaDemoJson = new URL("../../../data/demo/bolsa/v1.bolsas-demo.json", import.meta.url);
 const demoJsonRaw = JSON.parse(await readFile(rutaDemoJson, "utf8"));
-
 /**
  * Función que mapea los estados sintéticos de demo al catálogo cerrado de SituacionParticipacionBolsa:
  * El fixture conserva el catálogo B2 sin agrupar situaciones.
  */
 function mapearSituacion(estadoClave) { return estadoClave; }
-
 function construirFixturesDesdeDemo() {
   const candidaturasPorBolsa = new Map();
   for (const c of demoJsonRaw.candidaturas) {
@@ -91,7 +83,6 @@ function construirFixturesDesdeDemo() {
     }
     candidaturasPorBolsa.get(c.bolsa_ref).push(c);
   }
-
   const bolsas = demoJsonRaw.bolsas.map((b) => {
     const candidaturas = candidaturasPorBolsa.get(b.bolsa_ref) || [];
     const porEstado = {
@@ -107,7 +98,6 @@ function construirFixturesDesdeDemo() {
       const situacion = mapearSituacion(c.estado_clave);
       porEstado[situacion] += 1;
     }
-
     return {
       bolsa_ref: b.bolsa_ref.replace(":demo:", ":sintetico:"),
       categoria_clave: b.categoria_ref.replace(/^categoria:rpt:/, ""),
@@ -120,7 +110,6 @@ function construirFixturesDesdeDemo() {
 	  llamamientos_en_curso: 0,
     };
   });
-
   const primeraBolsa = bolsas[0];
   const candidaturasPrimeraBolsa = candidaturasPorBolsa.get(demoJsonRaw.bolsas[0].bolsa_ref) || [];
   const candidatos = candidaturasPrimeraBolsa.map((c) => {
@@ -146,7 +135,6 @@ function construirFixturesDesdeDemo() {
       contactos_total: 0,
     };
   });
-
   return {
     envelopeBolsas: {
       data: {
@@ -168,16 +156,13 @@ function construirFixturesDesdeDemo() {
     },
   };
 }
-
 test("validarRespuestaBolsas acepta fixtures derivadas del dataset sintético", () => {
   const { envelopeBolsas } = construirFixturesDesdeDemo();
   const validado = validarRespuestaBolsas(envelopeBolsas);
-
   assert.equal(validado.esquema, ESQUEMA_BOLSAS);
   assert.equal(validado.bolsas.length, 12);
   assert.ok(Object.isFrozen(validado));
   assert.ok(Object.isFrozen(validado.bolsas));
-
   for (const b of validado.bolsas) {
     assert.ok(Object.isFrozen(b));
     assert.ok(Object.isFrozen(b.por_estado));
@@ -187,7 +172,6 @@ test("validarRespuestaBolsas acepta fixtures derivadas del dataset sintético", 
     assert.equal(sumaEstados, b.total, "la suma de estados debe coincidir con el total");
   }
 });
-
 test("B3 registra y consulta contactos con ruta, idempotencia y recibo", async () => {
   let peticion;
   const alta=await registrarContactoCandidato("bolsa:01","participacion:01",{canal:"telefono",resultado:"contactado",anotacion:"Se explicó la oferta",instante:"2026-09-22T00:10:00Z",llamamiento_ref:"",clave_idempotencia:"contacto-0001"},{fetchImpl:async(url,opciones)=>{peticion={url,opciones};return{ok:true,status:201,json:async()=>({data:{recibo_ref:"recibo:contacto:01"}})}}});
@@ -195,18 +179,15 @@ test("B3 registra y consulta contactos con ruta, idempotencia y recibo", async (
   const lectura=await consultarContactosCandidato("bolsa:01","participacion:01",{fetchImpl:async()=>({ok:true,status:200,json:async()=>({data:{esquema:ESQUEMA_CONTACTOS,contactos:[{contacto_ref:"contacto:01",participacion_ref:"participacion:01",llamamiento_ref:null,canal:"telefono",instante:"2026-09-22T00:10:00Z",actor_ref:"per_0123456789abcdefghijkl",resultado:"contactado",anotacion:"Se explicó la oferta"}],cursor_siguiente:null,hay_mas:false}})})});
   assert.equal(lectura.ok,true); assert.equal(lectura.datos.contactos[0].resultado,"contactado");
 });
-
 test("validarRespuestaCandidatosBolsa acepta fixtures derivadas del dataset sintético", () => {
   const { envelopeCandidatos } = construirFixturesDesdeDemo();
   const validado = validarRespuestaCandidatosBolsa(envelopeCandidatos);
-
   assert.equal(validado.esquema, ESQUEMA_CANDIDATOS);
   assert.equal(validado.hay_mas, false);
   assert.equal(validado.cursor_siguiente, null);
   assert.ok(validado.candidatos.length > 0);
   assert.ok(Object.isFrozen(validado));
   assert.ok(Object.isFrozen(validado.candidatos));
-
   for (const c of validado.candidatos) {
     assert.ok(Object.isFrozen(c));
     assert.match(c.documento_enmascarado, /^\*{3}\d{4}\*{2}$/);
@@ -214,77 +195,61 @@ test("validarRespuestaCandidatosBolsa acepta fixtures derivadas del dataset sint
     assert.ok(Number.isSafeInteger(c.orden) && c.orden >= 1);
   }
 });
-
 test("validarRespuestaBolsas rechaza respuestas no canónicas o alteradas", () => {
   const { envelopeBolsas } = construirFixturesDesdeDemo();
-
   // Sin data
   assert.throws(() => validarRespuestaBolsas(envelopeBolsas.data), /la API debe responder con el envelope canónico/);
-
   // Esquema incorrecto
   assert.throws(() => validarRespuestaBolsas({
     data: { ...envelopeBolsas.data, esquema: "vec.bolsa.rrhh.bolsas.v2" },
   }), /esquema no compatible/);
-
   // Propiedad extraña (contrato cerrado)
   assert.throws(() => validarRespuestaBolsas({
     data: { ...envelopeBolsas.data, extra_invalido: 123 },
   }), /no respeta el contrato cerrado/);
-
   // Estado desconocido en por_estado
   const copiaBolsas = JSON.parse(JSON.stringify(envelopeBolsas));
   copiaBolsas.data.bolsas[0].por_estado.inventado = 1;
   assert.throws(() => validarRespuestaBolsas(copiaBolsas), /no respeta el contrato cerrado/);
 });
-
 test("validarRespuestaCandidatosBolsa rechaza fugas de datos personales y DNI sin enmascarar", () => {
   const { envelopeCandidatos } = construirFixturesDesdeDemo();
-
   // DNI en documento_enmascarado
   const copiaDNI = JSON.parse(JSON.stringify(envelopeCandidatos));
   copiaDNI.data.candidatos[0].documento_enmascarado = "12345678Z";
   assert.throws(() => validarRespuestaCandidatosBolsa(copiaDNI), /debe estar enmascarado/);
-
   // DNI en nombre_visible
   const copiaNombreDNI = JSON.parse(JSON.stringify(envelopeCandidatos));
   copiaNombreDNI.data.candidatos[0].nombre_visible = "Juan 12345678Z";
   assert.throws(() => validarRespuestaCandidatosBolsa(copiaNombreDNI), /contiene datos personales no permitidos/);
-
   // Correo electrónico en nombre_visible
   const copiaEmail = JSON.parse(JSON.stringify(envelopeCandidatos));
   copiaEmail.data.candidatos[0].nombre_visible = "aspirante@example.com";
   assert.throws(() => validarRespuestaCandidatosBolsa(copiaEmail), /contiene datos personales no permitidos/);
-
   // Teléfono en nombre_visible
   const copiaTel = JSON.parse(JSON.stringify(envelopeCandidatos));
   copiaTel.data.candidatos[0].nombre_visible = "Contacto 612345678";
   assert.throws(() => validarRespuestaCandidatosBolsa(copiaTel), /contiene datos personales no permitidos/);
-
   // Propiedad extraña como telefono
   const copiaCampoExtra = JSON.parse(JSON.stringify(envelopeCandidatos));
   copiaCampoExtra.data.candidatos[0].telefono = "958000000";
   assert.throws(() => validarRespuestaCandidatosBolsa(copiaCampoExtra), /no respeta el contrato cerrado/);
 });
-
 test("validarRespuestaCandidatosBolsa exige coherencia entre hay_mas y cursor_siguiente", () => {
   const { envelopeCandidatos } = construirFixturesDesdeDemo();
-
   // hay_mas true con cursor null
   const copia1 = JSON.parse(JSON.stringify(envelopeCandidatos));
   copia1.data.hay_mas = true;
   copia1.data.cursor_siguiente = null;
   assert.throws(() => validarRespuestaCandidatosBolsa(copia1), /cursor_siguiente debe ser una cadena/);
-
   // hay_mas false con cursor no null
   const copia2 = JSON.parse(JSON.stringify(envelopeCandidatos));
   copia2.data.hay_mas = false;
   copia2.data.cursor_siguiente = "cursor_123";
   assert.throws(() => validarRespuestaCandidatosBolsa(copia2), /cursor_siguiente debe ser null cuando hay_mas es false/);
 });
-
 test("consultarBolsas cliente HTTP maneja 200, 401, 403, 404 y errores de red", async () => {
   const { envelopeBolsas } = construirFixturesDesdeDemo();
-
   // Éxito 200
   const fetchOk = async (url, opciones) => {
     assert.equal(opciones.credentials, "omit");
@@ -298,35 +263,29 @@ test("consultarBolsas cliente HTTP maneja 200, 401, 403, 404 y errores de red", 
   const resOk = await consultarBolsas({ fetchImpl: fetchOk });
   assert.equal(resOk.ok, true);
   assert.equal(resOk.datos.bolsas.length, 12);
-
   // 401
   const fetch401 = async () => ({ ok: false, status: 401 });
   const res401 = await consultarBolsas({ fetchImpl: fetch401 });
   assert.equal(res401.ok, false);
   assert.equal(res401.codigo, "no_autenticado");
-
   // 403
   const fetch403 = async () => ({ ok: false, status: 403 });
   const res403 = await consultarBolsas({ fetchImpl: fetch403 });
   assert.equal(res403.ok, false);
   assert.equal(res403.codigo, "acceso_denegado");
-
   // 404
   const fetch404 = async () => ({ ok: false, status: 404 });
   const res404 = await consultarBolsas({ fetchImpl: fetch404 });
   assert.equal(res404.ok, false);
   assert.equal(res404.codigo, "no_encontrado");
-
   // Error de red
   const fetchFallo = async () => { throw new Error("Fallo de conexión"); };
   const resFallo = await consultarBolsas({ fetchImpl: fetchFallo });
   assert.equal(resFallo.ok, false);
   assert.equal(resFallo.codigo, "error_red_o_contrato");
 });
-
 test("consultarCandidatosBolsa maneja parámetros, códigos de estado y cursor", async () => {
   const { envelopeCandidatos } = construirFixturesDesdeDemo();
-
   let urlLlamada = "";
   const fetchMock = async (url, opciones) => {
     urlLlamada = url;
@@ -337,27 +296,23 @@ test("consultarCandidatosBolsa maneja parámetros, códigos de estado y cursor",
       json: async () => envelopeCandidatos,
     };
   };
-
   const res = await consultarCandidatosBolsa("bolsa:demo:administrativo", {
     estado: "disponible",
     texto: "Adrián",
     cursor: "cur_abc123",
     limite: 20,
   }, { fetchImpl: fetchMock });
-
   assert.equal(res.ok, true);
   assert.match(urlLlamada, /\/api\/vec\/bolsa\/bolsas\/bolsa:demo:administrativo\/candidatos/);
   assert.match(urlLlamada, /estado=disponible/);
   assert.match(urlLlamada, /texto=Adri%C3%A1n/);
   assert.match(urlLlamada, /cursor=cur_abc123/);
   assert.match(urlLlamada, /limite=20/);
-
   // Referencia vacía rechazada
   const resVacia = await consultarCandidatosBolsa("");
   assert.equal(resVacia.ok, false);
   assert.equal(resVacia.codigo, "referencia_invalida");
 });
-
 test("el controlador absorbe AbortError y otros rechazos tardíos al desmontar", async () => {
   for (const error of [Object.assign(new Error("abortada"), { name: "AbortError" }), new Error("respuesta cancelada")]) {
     let rechazarLectura;
@@ -375,7 +330,6 @@ test("el controlador absorbe AbortError y otros rechazos tardíos al desmontar",
         },
       }),
     });
-
     const carga = controlador.cargarBolsas();
     await Promise.resolve();
     assert.equal(senal.aborted, false);
@@ -389,7 +343,6 @@ test("el controlador absorbe AbortError y otros rechazos tardíos al desmontar",
     assert.equal(renders, 1);
   }
 });
-
 test("un rechazo vigente de fuente inyectada termina en error con un único render final", async () => {
   let renders = 0;
   const estado = { datosBolsas: null };
@@ -401,13 +354,11 @@ test("un rechazo vigente de fuente inyectada termina en error con un único rend
       consultarBolsas: async () => { throw new Error("fuente no disponible"); },
     }),
   });
-
   await assert.doesNotReject(controlador.cargarBolsas());
   assert.equal(estado.datosBolsas.carga, "error");
   assert.match(estado.datosBolsas.error, /fuente no disponible/);
   assert.equal(renders, 2, "un render de carga y uno final de error");
 });
-
 test("un AbortError vigente limpia la carga sin render tardío", async () => {
   let renders = 0;
   const estado = { datosBolsas: null };
@@ -419,12 +370,10 @@ test("un AbortError vigente limpia la carga sin render tardío", async () => {
       consultarBolsas: async () => { throw Object.assign(new Error("abortada"), { name: "AbortError" }); },
     }),
   });
-
   await assert.doesNotReject(controlador.cargarBolsas());
   assert.equal(estado.datosBolsas, null);
   assert.equal(renders, 1, "solo se renderiza el inicio de la carga");
 });
-
 test("una petición A resuelta o rechazada después de B no pisa la bolsa seleccionada", async () => {
   for (const desenlaceAntiguo of ["resolver", "rechazar"]) {
     const pendientes = new Map();
@@ -439,7 +388,6 @@ test("una petición A resuelta o rechazada después de B no pisa la bolsa selecc
         }),
       }),
     });
-
     const antigua = controlador.cargarCandidatosBolsa("bolsa:primera");
     await Promise.resolve();
     const nueva = controlador.cargarCandidatosBolsa("bolsa:segunda");
@@ -456,14 +404,12 @@ test("una petición A resuelta o rechazada después de B no pisa la bolsa selecc
     assert.equal(estado.datosCandidatos.datos.bolsa.bolsa_ref, "bolsa:segunda");
   }
 });
-
 test("presentadorPanelInterno renderiza el Cuadro B12 en resumen con sus columnas y estados", () => {
   const { envelopeBolsas } = construirFixturesDesdeDemo();
   envelopeBolsas.data.bolsas[1].vigente_hasta = "2025-12-31";
   envelopeBolsas.data.bolsas[2].vigente_desde = "2025-03-07T11:30:00Z";
   envelopeBolsas.data.bolsas[2].vigente_hasta = "2025-12-31T09:30:00Z";
   const datosBolsasValidadas = validarRespuestaBolsas(envelopeBolsas);
-
   const panelMock = {
     esquema: "vec.bolsa.panel.interno.v1",
     selector: { clase: "organizacion" },
@@ -483,7 +429,6 @@ test("presentadorPanelInterno renderiza el Cuadro B12 en resumen con sus columna
     convocatorias: [],
     actuaciones_pendientes: [],
   };
-
   let estadoBolsas = { carga: "listo", datos: datosBolsasValidadas, error: "" };
   const presentador = crearPresentadorPanelInterno({
     claseEstado: (c) => `chip-${c}`,
@@ -494,7 +439,6 @@ test("presentadorPanelInterno renderiza el Cuadro B12 en resumen con sus columna
     tituloVista: (v) => v,
     obtenerDatosBolsas: () => estadoBolsas,
   });
-
   const htmlListo = presentador.renderizarVista("resumen");
   assert.match(htmlListo, /Cuadro B12/);
   assert.match(htmlListo, /Bolsas de trabajo activas \(Cuadro B12\)/);
@@ -514,38 +458,31 @@ test("presentadorPanelInterno renderiza el Cuadro B12 en resumen con sus columna
   assert.doesNotMatch(htmlListo, /<time datetime="2025-02-04">[^<]*:<\/time>/);
   assert.doesNotMatch(htmlListo, />2025-02-04</);
   assert.match(htmlListo, /<time datetime="2026-09-17T00:00:00Z">17\/9\/26, 2:00<\/time>/);
-
   estadoBolsas = { carga: "listo", datos: { bolsas: [{ ...datosBolsasValidadas.bolsas[0], vigente_desde: "fecha-invalida" }] }, error: "" };
   const htmlFechaInvalida = presentador.renderizarVista("resumen");
   assert.match(htmlFechaInvalida, /<small>Fecha no disponible \(vigente\)<\/small>/);
   assert.doesNotMatch(htmlFechaInvalida, /datetime="fecha-invalida"/);
-
   // Estado cargando
   estadoBolsas = { carga: "cargando", datos: null, error: "" };
   const htmlCargando = presentador.renderizarVista("resumen");
   assert.match(htmlCargando, /Cargando bolsas de trabajo…/);
-
   // Estado error
   estadoBolsas = { carga: "error", datos: null, error: "Fallo de conexión 500" };
   const htmlError = presentador.renderizarVista("resumen");
   assert.match(htmlError, /No se pudieron cargar las bolsas de trabajo/);
   assert.match(htmlError, /reintentar-bolsas/);
-
   // Estado denegado
   estadoBolsas = { carga: "denegado", datos: null, error: "Sin permiso" };
   const htmlDenegado = presentador.renderizarVista("resumen");
   assert.match(htmlDenegado, /Acceso denegado a la consulta de bolsas/);
-
   // Estado vacío
   estadoBolsas = { carga: "listo", datos: { bolsas: [] }, error: "" };
   const htmlVacio = presentador.renderizarVista("resumen");
   assert.match(htmlVacio, /No hay bolsas de trabajo activas/);
 });
-
 test("presentadorPanelInterno renderiza Vista B5 de candidatos con filtros, chips y paginación", () => {
   const { envelopeCandidatos } = construirFixturesDesdeDemo();
   const datosCandidatosValidados = validarRespuestaCandidatosBolsa(envelopeCandidatos);
-
   const panelMock = {
     esquema: "vec.bolsa.panel.interno.v1",
     selector: { clase: "organizacion" },
@@ -553,10 +490,8 @@ test("presentadorPanelInterno renderiza Vista B5 de candidatos con filtros, chip
     prueba_lectura: { lectura_ref: "lec_1", auditoria_ref: "aud_1", auditoria_secuencia: 1, confirmada_en: "2026-09-17T00:00:00Z" },
     indicadores: {}, convocatorias: [], actuaciones_pendientes: [],
   };
-
   let estadoCandidatos = { carga: "listo", datos: datosCandidatosValidados, error: "" };
   let filtrosBolsa = { estado: "disponible", texto: "Claudio" };
-
   const presentador = crearPresentadorPanelInterno({
     claseEstado: (c) => `chip-${c}`,
     encabezadoVista: (_s, t, d, a = "") => `<header><h2>${t}</h2><p>${d}</p>${a}</header>`,
@@ -567,7 +502,6 @@ test("presentadorPanelInterno renderiza Vista B5 de candidatos con filtros, chip
     obtenerDatosCandidatosBolsa: () => estadoCandidatos,
     obtenerEstadoCandidatos: () => filtrosBolsa,
   });
-
   const htmlB5 = presentador.renderizarVista("bolsa-candidatos");
   assert.match(htmlB5, /Vista B5/);
   assert.match(htmlB5, /Filtros y ordenación de aspirantes/);
@@ -590,7 +524,6 @@ test("presentadorPanelInterno renderiza Vista B5 de candidatos con filtros, chip
   assert.match(htmlHistorico, /<th scope="col">Contacto<\/th>/);
   assert.match(htmlHistorico, /Sin llamamientos registrados|Llamamiento/);
   assert.match(htmlHistorico, /<section class="panel" hidden>/);
-
   // Con paginación
   const candidatosConPaginacion = {
     ...datosCandidatosValidados,
@@ -601,7 +534,6 @@ test("presentadorPanelInterno renderiza Vista B5 de candidatos con filtros, chip
   const htmlPag = presentador.renderizarVista("bolsa-candidatos");
   assert.match(htmlPag, /Cargar siguientes aspirantes/);
   assert.match(htmlPag, /token_siguiente_pag/);
-
   // Estados error y denegado
   estadoCandidatos = { carga: "error", datos: null, error: "Error de servidor 500" };
   const htmlErr = presentador.renderizarVista("bolsa-candidatos");
@@ -609,7 +541,6 @@ test("presentadorPanelInterno renderiza Vista B5 de candidatos con filtros, chip
   assert.match(htmlErr, /reintentar-candidatos/);
   assert.match(htmlErr, /Volver al cuadro/);
 });
-
 test("P-WEB-06: B12 enlaza cada estado B2 y B5 señala la bolsa B9 vigente", () => {
   const { envelopeBolsas, envelopeCandidatos } = construirFixturesDesdeDemo();
   const bolsas = validarRespuestaBolsas(envelopeBolsas);
@@ -633,7 +564,6 @@ test("P-WEB-06: B12 enlaza cada estado B2 y B5 señala la bolsa B9 vigente", () 
   assert.match(detalle, /Sustituida por la bolsa vigente de la categoría el 01\/02\/2026\./);
   assert.match(detalle, new RegExp(`data-bolsa-ref="${vigente.bolsa_ref}"`));
 });
-
 test("P-WEB-06: el histórico muestra el contacto B3 completo y conserva el guion cuando no existe", () => {
   const { envelopeCandidatos } = construirFixturesDesdeDemo();
   const datos = validarRespuestaCandidatosBolsa(envelopeCandidatos);
@@ -650,7 +580,6 @@ test("P-WEB-06: el histórico muestra el contacto B3 completo y conserva el guio
   assert.match(html, /Teléfono · Contactado · Oferta comunicada/);
   assert.match(html, />—<\/td>/);
 });
-
 test("presentadorPanelInterno muestra la ficha B5 en línea junto al único candidato seleccionado", () => {
   const { envelopeCandidatos } = construirFixturesDesdeDemo();
   const datos = validarRespuestaCandidatosBolsa(envelopeCandidatos);
@@ -668,13 +597,11 @@ test("presentadorPanelInterno muestra la ficha B5 en línea junto al único cand
     obtenerEstadoCandidatos: () => ({ estado: "", texto: "" }),
     obtenerModalFicha: () => modalFicha,
   });
-
   const htmlInicial = presentador.renderizarVista("bolsa-candidatos");
   assert.doesNotMatch(htmlInicial, /Ficha de participación/);
   assert.match(htmlInicial, /data-bolsa-control-principal="true"/);
   assert.match(htmlInicial, /aria-expanded="false"/);
   assert.doesNotMatch(htmlInicial, /Ficha en aspirante|<th scope="col">Acciones<\/th>/);
-
   modalFicha = { abierto: true, candidato, bolsa: datos.bolsa };
   const htmlAbierto = presentador.renderizarVista("bolsa-candidatos");
   const fichaId = `ficha-participacion-${candidato.participacion_ref}`;
@@ -688,18 +615,15 @@ test("presentadorPanelInterno muestra la ficha B5 en línea junto al único cand
   assert.match(htmlAbierto, new RegExp(`id="${fichaId}" class="panel" data-bolsa-ficha-inline="true" tabindex="-1"`));
   const ficha = htmlAbierto.match(new RegExp(`<section id="${fichaId}"[\\s\\S]*?</section>`))[0];
   assert.doesNotMatch(ficha, /correo|teléfono|puntuación|relación laboral/i);
-
   modalFicha = { abierto: true, candidato: segundoCandidato, bolsa: datos.bolsa };
   const htmlSegundo = presentador.renderizarVista("bolsa-candidatos");
   assert.equal((htmlSegundo.match(/fila-ficha-participacion/g) || []).length, 1);
   assert.match(htmlSegundo, new RegExp(`data-ficha-participacion-ref="${segundoCandidato.participacion_ref}"`));
   assert.match(htmlSegundo, new RegExp(`data-participacion-ref="${candidato.participacion_ref}"[^>]*>[\\s\\S]*?aria-expanded="false"`));
-
   modalFicha = null;
   const htmlCerrado = presentador.renderizarVista("bolsa-candidatos");
   assert.doesNotMatch(htmlCerrado, /Fila de participación|fila-ficha-participacion|Ficha de participación/);
 });
-
 test("B7 presenta cuatro pasos, paginación interna y controles de teclado nativos", () => {
   const { envelopeCandidatos } = construirFixturesDesdeDemo();
   const datos = validarRespuestaCandidatosBolsa(envelopeCandidatos);
@@ -716,22 +640,19 @@ test("B7 presenta cuatro pasos, paginación interna y controles de teclado nativ
   });
   let html = presentador.renderizarVista("bolsa-candidatos");
   assert.match(html, /1\. Seleccionar bolsa/);
-  assert.match(html, /aria-current="step"/);
+  assert.match(html, /aria-current="step" tabindex="-1"/);
   assert.match(html, /type="submit">Seleccionar esta bolsa/);
-
   flujo.paso = 2;
   html = presentador.renderizarVista("bolsa-candidatos");
   assert.match(html, /2\. Seleccionar candidatos/);
   assert.match(html, /Respetar orden de prelación \(obligatorio\)/);
   assert.match(html, /Mostrando 1 a 6 de/);
   assert.match(html, /data-bolsa-accion="b7-pagina"/);
-
   flujo.paso = 3;
   html = presentador.renderizarVista("bolsa-candidatos");
   assert.match(html, /3\. Configurar llamamiento/);
   assert.match(html, /pendiente de RRHH, dudas 1–3/);
   assert.match(html, /bolsa-llamamiento-v1/);
-
   flujo.paso = 4;
   flujo.participaciones = [datos.candidatos.find((c) => c.estado_clave === "disponible").participacion_ref];
   flujo.configuracion = { referencia: "NEC-01", centro: "Centro", modalidad: "Sustitución", plazo: "48 horas · pendiente de RRHH, dudas 1–3" };
@@ -740,7 +661,6 @@ test("B7 presenta cuatro pasos, paginación interna y controles de teclado nativ
   assert.match(html, /name="confirmacion" required/);
   assert.match(html, /type="submit" class="boton-primario"/);
 });
-
 test("controlador de B5 lleva el foco a la ficha inline y lo recupera en su control principal", () => {
   const { envelopeCandidatos } = construirFixturesDesdeDemo();
   const datos = validarRespuestaCandidatosBolsa(envelopeCandidatos);
@@ -770,17 +690,14 @@ test("controlador de B5 lleva el foco a la ficha inline y lo recupera en su cont
     navegar: () => {},
     documento,
   });
-
   controlador.abrirFicha(candidato.participacion_ref);
   assert.equal(estado.modalFicha.candidato.participacion_ref, candidato.participacion_ref);
   assert.deepEqual(focos, ["ficha"]);
-
   controlador.cerrarFicha();
   assert.equal(estado.modalFicha, null);
   assert.deepEqual(focos, ["ficha", "control-principal"]);
   assert.equal(renderizados, 2);
 });
-
 test("B7 lleva el foco al raíl al iniciarse desde teclado", () => {
   const escuchas = {};
   const focos = [];

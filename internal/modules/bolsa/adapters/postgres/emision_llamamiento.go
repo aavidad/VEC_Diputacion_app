@@ -26,10 +26,11 @@ func (r *RepositorioEmisionLlamamientoPostgreSQL) Emitir(ctx context.Context, c 
 	}
 	participaciones, _ := json.Marshal(c.Participaciones)
 	configuracion, _ := json.Marshal(c.Configuracion)
+	contactos, _ := json.Marshal(c.Contactos)
 	m := c.Material
 	var salidaJSON []byte
 	var reutilizada bool
-	err := r.pool.QueryRow(ctx, `SELECT emision,reutilizada FROM vec_bolsa_llamamientos.emitir_llamamiento_v1($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10,$11,$12,$13::numeric,$14::numeric,$15,$16,$17,$18)`, c.LlamamientoRef, c.ReciboRef, c.BolsaRef, c.ActorRef, c.ClaveIdempotencia, participaciones, configuracion, c.EmitidoEn, m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI()).Scan(&salidaJSON, &reutilizada)
+	err := r.pool.QueryRow(ctx, `SELECT emision,reutilizada FROM vec_bolsa_llamamientos.emitir_llamamiento_v1($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8::jsonb,$9,$10,$11,$12,$13,$14::numeric,$15::numeric,$16,$17,$18,$19)`, c.LlamamientoRef, c.ReciboRef, c.BolsaRef, c.ActorRef, c.ClaveIdempotencia, participaciones, configuracion, contactos, c.EmitidoEn, m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI()).Scan(&salidaJSON, &reutilizada)
 	if err != nil {
 		return ports.EmisionLlamamiento{}, errorEmision(err)
 	}

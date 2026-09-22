@@ -38,7 +38,7 @@ func (a *autoridadInicialBorradorBolsaPrueba) prepararInstantanea(
 func (a *autoridadInicialBorradorBolsaPrueba) publicarInstantaneaDesdePreimagen(
 	_ context.Context, instantanea, preimagen dominiovec.InstantaneaAutorizacion,
 ) error {
-	if preimagen.VersionRol.Version != 2 || len(preimagen.VersionRol.Concesiones) != 3 ||
+	if preimagen.VersionRol.Version != 4 || len(preimagen.VersionRol.Concesiones) != 6 ||
 		(instantanea.AsignacionPerfil.Version == 2 && !a.permitirSucesion) {
 		return errors.New("preimagen no admitida")
 	}
@@ -83,7 +83,7 @@ func nuevaPoliticaBorradorBolsaPrueba(t *testing.T) (*politicaBorradorLlamamient
 	return politica, soporte, autoridad, registro
 }
 
-func TestPoliticaBorradorBolsaPublicaTresConcesionesNominales(t *testing.T) {
+func TestPoliticaBorradorBolsaPublicaSieteConcesionesNominales(t *testing.T) {
 	politica, soporte, autoridad, _ := nuevaPoliticaBorradorBolsaPrueba(t)
 	datos, err := soporte.soporteCanal.contexto.Vinculo.Datos()
 	if err != nil {
@@ -209,7 +209,7 @@ func TestPoliticaBorradorBolsaPublicaLaSemillaParaCerrarCarrera(t *testing.T) {
 	}
 }
 
-func TestPoliticaBorradorBolsaEvolucionaSoloDesdeB2Exacta(t *testing.T) {
+func TestPoliticaBorradorBolsaEvolucionaSoloDesdeB7Exacta(t *testing.T) {
 	politica, _, autoridad, _ := nuevaPoliticaBorradorBolsaPrueba(t)
 	autoridad.permitirSucesion = true
 	autoridad.preparar = func(i dominiovec.InstantaneaAutorizacion) (dominiovec.InstantaneaAutorizacion, error) {
@@ -221,7 +221,7 @@ func TestPoliticaBorradorBolsaEvolucionaSoloDesdeB2Exacta(t *testing.T) {
 		t.Fatal(err)
 	}
 	if autoridad.publicada.VersionRol.Version != 5 || autoridad.publicada.AsignacionPerfil.Version != 2 || len(autoridad.publicada.VersionRol.Concesiones) != 7 {
-		t.Fatalf("sucesión B3 no exacta: %+v", autoridad.publicada)
+		t.Fatalf("sucesión B4 no exacta: %+v", autoridad.publicada)
 	}
 }
 

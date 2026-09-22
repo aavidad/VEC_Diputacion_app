@@ -1,8 +1,59 @@
 \set ON_ERROR_STOP on
+-- AD3-000048. Extensión nominal B7 sobre AD3-000047. Añade una única
+-- capacidad de mutación y conserva estructura, ACL y configuración del núcleo.
 BEGIN;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
 SET LOCAL search_path=pg_catalog;
+SET LOCAL timezone='UTC';
+SET LOCAL lock_timeout='5s';
+SET LOCAL statement_timeout='30s';
 SELECT pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:migracion:000048',0));
+
+DO $precondicion$
+DECLARE f oid := 'vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
+BEGIN
+ IF current_user<>'vec_autorizacion_atestada_v3_propietario'
+    OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_datos_contacto_participacion_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
+    OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_emision_llamamiento_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
+    OR NOT EXISTS(SELECT 1 FROM pg_proc WHERE oid=f AND proowner='vec_autorizacion_atestada_v3_propietario'::regrole AND prosecdef AND prokind='f' AND provolatile='v' AND pg_get_function_identity_arguments(oid)='p_perfil_mutacion text, p_capacidad_canonica bytea, p_decision_canonica bytea, p_motivo_canonico bytea, p_contexto_actor_canonico bytea, p_persona_version numeric, p_perfil_version numeric, p_payload_vec_ad_3 bytea, p_sobre_cose_sign1 bytea, p_evidencia_verificacion bytea, p_raiz_publica_spki bytea' AND proconfig=ARRAY['search_path=pg_catalog','lock_timeout=2s']) THEN
+  RAISE EXCEPTION 'estructura AD3-000047 incompatible para B7' USING ERRCODE='55000';
+ END IF;
+END $precondicion$;
+
+DO $nucleo$
+DECLARE f oid := 'vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
+ original text; esperada text; actual text; reconstruida text; metadata jsonb; deps jsonb; acl aclitem[]; propietario oid; configuracion text[]; es_definidora boolean;
+ marca text := E'       )\n       OR c ->> ''suite'' <> ''VEC-AD-3-COSE-EDDSA-1''';
+ exclusion_pre text := $x$               AND p_perfil_mutacion IS DISTINCT FROM 'situacion_participacion_bolsa'
+               AND p_perfil_mutacion IS DISTINCT FROM 'contacto_participacion_bolsa'
+               AND p_perfil_mutacion IS DISTINCT FROM 'datos_contacto_participacion_bolsa'$x$;
+ exclusion_post text := exclusion_pre||E'\n               AND p_perfil_mutacion IS DISTINCT FROM ''emision_llamamiento_bolsa''';
+ runtime_pre text := $x$               OR p_perfil_mutacion IS NOT DISTINCT FROM 'situacion_participacion_bolsa'
+               OR p_perfil_mutacion IS NOT DISTINCT FROM 'contacto_participacion_bolsa'
+               OR p_perfil_mutacion IS NOT DISTINCT FROM 'datos_contacto_participacion_bolsa')$x$;
+ runtime_post text := $x$               OR p_perfil_mutacion IS NOT DISTINCT FROM 'situacion_participacion_bolsa'
+               OR p_perfil_mutacion IS NOT DISTINCT FROM 'contacto_participacion_bolsa'
+               OR p_perfil_mutacion IS NOT DISTINCT FROM 'datos_contacto_participacion_bolsa'
+               OR p_perfil_mutacion IS NOT DISTINCT FROM 'emision_llamamiento_bolsa')$x$;
+ extension text := $p$           OR (
+ p_perfil_mutacion IS NOT DISTINCT FROM 'emision_llamamiento_bolsa'
+ AND c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_bolsa_llamamientos.llamamiento.emitir.v1'
+ AND c->>'operacion' IS NOT DISTINCT FROM 'llamamiento.emitir.v1'
+ AND d->>'accion' IS NOT DISTINCT FROM 'llamamiento.emitir.v1'
+ AND d->>'modulo_id' IS NOT DISTINCT FROM 'bolsa'
+ AND d->>'tipo_recurso' IS NOT DISTINCT FROM 'bolsa_constituida'
+ AND d->>'finalidad' IS NOT DISTINCT FROM 'gestion_llamamientos_bolsa')
+$p$;
+BEGIN
+ SELECT pg_get_functiondef(f),to_jsonb(p)-'prosrc',p.proacl,p.proowner,p.proconfig,p.prosecdef INTO STRICT original,metadata,acl,propietario,configuracion,es_definidora FROM pg_proc p WHERE p.oid=f;
+ SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb) INTO deps FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f;
+ IF length(original)-length(replace(original,marca,''))<>length(marca) OR length(original)-length(replace(original,exclusion_pre,''))<>length(exclusion_pre) OR length(original)-length(replace(original,runtime_pre,''))<>length(runtime_pre) OR strpos(original,'contacto_participacion_bolsa')=0 OR strpos(original,'datos_contacto_participacion_bolsa')=0 OR strpos(original,'emision_llamamiento_bolsa')<>0 THEN RAISE EXCEPTION 'núcleo AD3-000047 no admite extensión B7' USING ERRCODE='55000'; END IF;
+ esperada:=replace(original,exclusion_pre,exclusion_post); esperada:=replace(esperada,runtime_pre,runtime_post); esperada:=replace(esperada,marca,extension||marca); EXECUTE esperada;
+ SELECT pg_get_functiondef(f) INTO STRICT actual;
+ reconstruida:=replace(actual,extension||marca,marca); reconstruida:=replace(reconstruida,runtime_post,runtime_pre); reconstruida:=replace(reconstruida,exclusion_post,exclusion_pre);
+ IF actual IS DISTINCT FROM esperada OR reconstruida IS DISTINCT FROM original OR (SELECT to_jsonb(p)-'prosrc' FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM metadata OR (SELECT proacl FROM pg_proc WHERE oid=f) IS DISTINCT FROM acl OR (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM propietario OR (SELECT proconfig FROM pg_proc WHERE oid=f) IS DISTINCT FROM configuracion OR (SELECT prosecdef FROM pg_proc WHERE oid=f) IS DISTINCT FROM es_definidora OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb) FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps THEN RAISE EXCEPTION 'B7 alteró el núcleo AD3 fuera de su extensión nominal' USING ERRCODE='55000'; END IF;
+END $nucleo$;
+
 DO $audiencias$ DECLARE d text; n text; BEGIN
  SELECT pg_get_constraintdef(oid,true) INTO STRICT d FROM pg_constraint WHERE conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass AND conname='clave_capacidad_version_audiencia_consumo_check';
  IF strpos(d,'''vec_bolsa_llamamientos.llamamiento.emitir.v1''::text')<>0 THEN RAISE EXCEPTION 'audiencia B7 ya presente' USING ERRCODE='55000'; END IF;

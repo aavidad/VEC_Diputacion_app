@@ -98,6 +98,8 @@ export const MENSAJES_BOLSA_INTERNA_ES = Object.freeze({
   contacto_acepta: "Acepta",
   contacto_rechaza: "Rechaza",
   contacto_aplazado: "Aplazado",
+  contacto_enviado: "Enviado",
+  contacto_no_enviado: "No enviado",
   contacto_formulario_incompleto: "Complete canal, resultado y anotación.",
   contacto_solicitud_invalida: "Faltan datos obligatorios del contacto.",
   contacto_permiso_denegado: "La sesión no dispone de permiso para registrar contactos.",

@@ -64,8 +64,8 @@ func TestDescriptoresBorradorLlamamientoBolsaFronterasExactas(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(fronteras) != 6 {
-		t.Fatalf("fronteras = %d, se esperan 6", len(fronteras))
+	if len(fronteras) != 7 {
+		t.Fatalf("fronteras = %d, se esperan 7", len(fronteras))
 	}
 	for _, frontera := range fronteras {
 		if len(frontera.PerfilesActivosRef) != 1 || frontera.PerfilesActivosRef[0] != "prf_bolsa_bback" {
@@ -96,6 +96,9 @@ func TestDescriptoresBorradorLlamamientoBolsaFronterasExactas(t *testing.T) {
 	}
 	if _, ok := catalogo.resolver(http.MethodPost, bolsahttp.RutaEmisionesLlamamiento); !ok {
 		t.Fatal("POST B7 no quedó declarado")
+	}
+	if _, ok := catalogo.resolver(http.MethodGet, bolsahttp.RutaEmisionesLlamamiento); !ok {
+		t.Fatal("GET de recuperación B7 no quedó declarado")
 	}
 	if _, ok := catalogo.resolver(http.MethodGet, bolsahttp.RutaBolsasGestion+"/bolsa:01/candidatos/participacion:01/situacion"); ok {
 		t.Fatal("GET B3 abrió un subrecurso ajeno")

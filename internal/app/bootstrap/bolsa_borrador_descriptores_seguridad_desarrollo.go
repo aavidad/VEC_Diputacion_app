@@ -19,6 +19,7 @@ const (
 	claveFronteraConsultarContactosB5Bolsa          = "bolsa-b3-contactos-b5-consultar"
 	claveCapacidadConsultarContactosBolsa           = "capacidad-bolsa-b3-contactos-consultar"
 	claveFronteraEmisionLlamamientoBolsa            = "bolsa-b7-llamamiento-emitir"
+	claveFronteraRecuperarEmisionLlamamientoBolsa   = "bolsa-b7-llamamiento-recuperar"
 	claveCapacidadEmisionLlamamientoBolsa           = "capacidad-bolsa-b7-llamamiento-emitir"
 
 	dominioMaterialCrearBorradorLlamamientoBolsa      = "vec.bolsa.borrador-llamamiento.crear.desarrollo.capacidad-v3"
@@ -59,6 +60,7 @@ func descriptoresFronterasBorradorLlamamientoBolsaDesarrollo(
 		{Clave: claveFronteraConsultarContactosBolsa, Superficie: superficieInternaSeguridadComunDesarrollo, Metodo: http.MethodGet, Ruta: bolsahttp.RutaBolsasGestion, PerfilesActivosRef: []string{perfilActivoRef}, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadConsultarContactosBolsa, PlantillaDetalle: []string{"*", "candidatos", "*", "contactos"}},
 		{Clave: claveFronteraConsultarContactosB5Bolsa, Superficie: superficieInternaSeguridadComunDesarrollo, Metodo: http.MethodGet, Ruta: bolsahttp.RutaBolsasGestion, PerfilesActivosRef: []string{perfilActivoRef}, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadConsultarContactosBolsa, PlantillaDetalle: []string{"*", "candidatos"}},
 		{Clave: claveFronteraEmisionLlamamientoBolsa, Superficie: superficieInternaSeguridadComunDesarrollo, Metodo: http.MethodPost, Ruta: bolsahttp.RutaEmisionesLlamamiento, PerfilesActivosRef: []string{perfilActivoRef}, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadEmisionLlamamientoBolsa},
+		{Clave: claveFronteraRecuperarEmisionLlamamientoBolsa, Superficie: superficieInternaSeguridadComunDesarrollo, Metodo: http.MethodGet, Ruta: bolsahttp.RutaEmisionesLlamamiento, PerfilesActivosRef: []string{perfilActivoRef}, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadEmisionLlamamientoBolsa},
 		{
 			Clave:      claveFronteraConsultarBorradorLlamamientoBolsa,
 			Superficie: superficieInternaSeguridadComunDesarrollo,
@@ -98,7 +100,7 @@ func descriptoresAutorizacionBorradorLlamamientoBolsaDesarrollo(
 		{Accion: puertosbolsa.AccionRegistrarContactoParticipacion, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadSituacionParticipacionBolsa, Fronteras: []string{claveFronteraSituacionParticipacionBolsa}, Politica: politica},
 		{Accion: puertosbolsa.AccionConsultarContactoParticipacion, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadConsultarContactosBolsa, Fronteras: []string{claveFronteraConsultarContactosBolsa, claveFronteraConsultarContactosB5Bolsa}, Politica: politica},
 		{Accion: puertosbolsa.AccionRegistrarDatosContactoParticipacion, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadSituacionParticipacionBolsa, Fronteras: []string{claveFronteraSituacionParticipacionBolsa}, Politica: politica},
-		{Accion: puertosbolsa.AccionEmitirLlamamiento, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadEmisionLlamamientoBolsa, Fronteras: []string{claveFronteraEmisionLlamamientoBolsa}, Politica: politica},
+		{Accion: puertosbolsa.AccionEmitirLlamamiento, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadEmisionLlamamientoBolsa, Fronteras: []string{claveFronteraEmisionLlamamientoBolsa, claveFronteraRecuperarEmisionLlamamientoBolsa}, Politica: politica},
 	}, nil
 }
 

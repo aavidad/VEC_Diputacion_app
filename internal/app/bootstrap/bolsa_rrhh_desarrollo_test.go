@@ -237,3 +237,26 @@ func TestBolsasRRHHDesarrolloDelegaB2ConIdempotencia(t *testing.T) {
 		t.Fatalf("cabecera de autoridad aceptada: status=%d llamadas=%d", respuesta.Code, llamadas)
 	}
 }
+
+func TestBolsasRRHHDesarrolloDelegaB4ConIdempotencia(t *testing.T) {
+	manejador := manejadorBolsasRRHHPrueba()
+	llamadas := 0
+	manejador.mutar = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		llamadas++
+		if r.Header.Get("Idempotency-Key") != "b4-prueba-0001" {
+			t.Fatal("la frontera perdió la clave de idempotencia B4")
+		}
+		w.WriteHeader(http.StatusCreated)
+	})
+	peticion := httptest.NewRequest(
+		http.MethodPost,
+		rutaBolsasRRHHDesarrollo+"/bolsa:01/candidatos/participacion:01/datos-contacto",
+		strings.NewReader(`{"correo":"persona@dipgra.test","motivo":"Preparación sintética"}`),
+	)
+	peticion.Header.Set("Idempotency-Key", "b4-prueba-0001")
+	respuesta := httptest.NewRecorder()
+	manejador.ServeHTTP(respuesta, peticion)
+	if respuesta.Code != http.StatusCreated || llamadas != 1 {
+		t.Fatalf("B4 no delegada: status=%d llamadas=%d", respuesta.Code, llamadas)
+	}
+}

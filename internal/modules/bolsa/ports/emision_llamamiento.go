@@ -49,6 +49,7 @@ type SolicitudEmitirLlamamiento struct {
 type ComandoEmitirLlamamiento struct {
 	LlamamientoRef, ReciboRef, BolsaRef, ActorRef, ClaveIdempotencia string
 	Participaciones                                                  []string
+	Contactos                                                        []ResultadoContactoEmision
 	Configuracion                                                    ConfiguracionLlamamiento
 	EmitidoEn                                                        time.Time
 	SolicitudAutorizacion                                            dominiovec.SolicitudAutorizacionLigadaV3
@@ -86,8 +87,4 @@ type FuenteCorreoParticipacion interface {
 
 type EmisorCorreoBolsa interface {
 	EnviarCorreo(context.Context, string, string, string, string, time.Time) bool
-}
-
-type RegistradorContactoEmision interface {
-	RegistrarContactoParticipacion(context.Context, SolicitudRegistrarContactoParticipacion) (RegistroContactoParticipacion, error)
 }

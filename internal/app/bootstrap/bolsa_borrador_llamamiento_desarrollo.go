@@ -389,7 +389,15 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	if publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno, []dominiovec.ReferenciaEntradaCatalogo{
 		motivoRegistrarContactoParticipacionBolsaDesarrollo(),
 		motivoConsultarContactoParticipacionBolsaDesarrollo(),
+	}, desde) != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+	}
+	if publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno, []dominiovec.ReferenciaEntradaCatalogo{
 		motivoRegistrarDatosContactoParticipacionBolsaDesarrollo(),
+	}, desde) != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+	}
+	if publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno, []dominiovec.ReferenciaEntradaCatalogo{
 		motivoEmitirLlamamientoBolsaDesarrollo(),
 	}, desde) != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
@@ -508,7 +516,7 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	if err != nil || correoSMTP == nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
 	}
-	servicioEmision, err := aplicacionbolsa.NuevoServicioEmisionLlamamiento(preparador, emisor, repositorioEmision, &fuenteCorreoParticipacionB7{repositorioDatos, dependenciasCT.kms}, &emisorCorreoBolsaB7{correoSMTP}, servicioContacto, dependenciasCT.reloj.Ahora)
+	servicioEmision, err := aplicacionbolsa.NuevoServicioEmisionLlamamiento(preparador, emisor, repositorioEmision, &fuenteCorreoParticipacionB7{repositorioDatos, dependenciasCT.kms}, &emisorCorreoBolsaB7{correoSMTP}, dependenciasCT.reloj.Ahora)
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
 	}

@@ -19,20 +19,26 @@ type ServicioEmisionLlamamiento struct {
 	repositorio puertosbolsa.RepositorioEmisionLlamamiento
 	correos     puertosbolsa.FuenteCorreoParticipacion
 	emisor      puertosbolsa.EmisorCorreoBolsa
-	contactos   puertosbolsa.RegistradorContactoEmision
 	reloj       func() time.Time
 }
 
-func NuevoServicioEmisionLlamamiento(c puertosbolsa.ResolutorContextoSituacionParticipacion, a puertosbolsa.AutorizadorSituacionParticipacionV3, r puertosbolsa.RepositorioEmisionLlamamiento, f puertosbolsa.FuenteCorreoParticipacion, e puertosbolsa.EmisorCorreoBolsa, contactos puertosbolsa.RegistradorContactoEmision, reloj func() time.Time) (*ServicioEmisionLlamamiento, error) {
-	if c == nil || a == nil || r == nil || f == nil || e == nil || contactos == nil || reloj == nil {
+func NuevoServicioEmisionLlamamiento(c puertosbolsa.ResolutorContextoSituacionParticipacion, a puertosbolsa.AutorizadorSituacionParticipacionV3, r puertosbolsa.RepositorioEmisionLlamamiento, f puertosbolsa.FuenteCorreoParticipacion, e puertosbolsa.EmisorCorreoBolsa, reloj func() time.Time) (*ServicioEmisionLlamamiento, error) {
+	if c == nil || a == nil || r == nil || f == nil || e == nil || reloj == nil {
 		return nil, puertosbolsa.ErrEmisionLlamamientoNoDisponible
 	}
-	return &ServicioEmisionLlamamiento{c, a, r, f, e, contactos, reloj}, nil
+	return &ServicioEmisionLlamamiento{c, a, r, f, e, reloj}, nil
 }
 
 func (s *ServicioEmisionLlamamiento) EmitirLlamamiento(ctx context.Context, q puertosbolsa.SolicitudEmitirLlamamiento) (puertosbolsa.EmisionLlamamiento, error) {
 	if ctx == nil || s == nil || validarSolicitudEmision(q) != nil {
 		return puertosbolsa.EmisionLlamamiento{}, puertosbolsa.ErrEmisionLlamamientoInvalida
+	}
+	if previa, recuperarErr := s.repositorio.Recuperar(ctx, q.BolsaRef, q.ClaveIdempotencia); recuperarErr == nil {
+		if !mismaSolicitudEmision(previa, q) {
+			return puertosbolsa.EmisionLlamamiento{}, puertosbolsa.ErrEmisionLlamamientoConflicto
+		}
+		previa.Reutilizada = true
+		return previa, nil
 	}
 	actor := q.ResultadoContexto.Contexto
 	resuelto, err := s.contexto.ResolverContextoSituacionParticipacion(ctx, actor, q.BolsaRef, q.Participaciones[0])
@@ -55,24 +61,30 @@ func (s *ServicioEmisionLlamamiento) EmitirLlamamiento(ctx context.Context, q pu
 	h := sha256.Sum256([]byte(q.BolsaRef + "\x1f" + q.ClaveIdempotencia))
 	sufijo := hex.EncodeToString(h[:])
 	ahora := s.reloj().UTC().Truncate(time.Microsecond)
-	emision, err := s.repositorio.Emitir(ctx, puertosbolsa.ComandoEmitirLlamamiento{LlamamientoRef: "llamamiento:" + sufijo, ReciboRef: "recibo:llamamiento:" + sufijo, BolsaRef: q.BolsaRef, ActorRef: actor.PersonaRef, ClaveIdempotencia: q.ClaveIdempotencia, Participaciones: append([]string(nil), q.Participaciones...), Configuracion: q.Configuracion, EmitidoEn: ahora, SolicitudAutorizacion: auth, Decision: decision, Confirmacion: confirmacion, Material: material})
-	if err != nil || emision.Reutilizada {
-		return emision, err
-	}
-	for i, participacion := range emision.Participaciones {
+	contactos := make([]puertosbolsa.ResultadoContactoEmision, 0, len(q.Participaciones))
+	for i, participacion := range q.Participaciones {
 		resultado := "no_enviado"
 		correo, correoErr := s.correos.CorreoParticipacion(ctx, participacion)
 		messageID := fmt.Sprintf("<%s-%d@vec.dipgra.local>", sufijo, i+1)
-		if correoErr == nil && s.emisor.EnviarCorreo(ctx, correo, q.Configuracion.Asunto, q.Configuracion.Cuerpo, messageID, emision.EmitidoEn) {
+		if correoErr == nil && s.emisor.EnviarCorreo(ctx, correo, q.Configuracion.Asunto, q.Configuracion.Cuerpo, messageID, ahora) {
 			resultado = "enviado"
 		}
-		contacto, contactoErr := s.contactos.RegistrarContactoParticipacion(ctx, puertosbolsa.SolicitudRegistrarContactoParticipacion{Vinculo: q.Vinculo, ResultadoContexto: q.ResultadoContexto, BolsaRef: q.BolsaRef, ParticipacionRef: participacion, LlamamientoRef: emision.LlamamientoRef, Canal: "correo", Instante: emision.EmitidoEn, Resultado: resultado, Anotacion: "Emisión de llamamiento por plantilla " + q.Configuracion.PlantillaVersion, ClaveIdempotencia: q.ClaveIdempotencia + fmt.Sprintf(":correo:%d", i+1), Correlacion: q.Correlacion, MotivoAutorizacion: q.MotivoAutorizacion})
-		if contactoErr != nil {
-			return puertosbolsa.EmisionLlamamiento{}, contactoErr
-		}
-		emision.Contactos = append(emision.Contactos, puertosbolsa.ResultadoContactoEmision{ParticipacionRef: participacion, Resultado: resultado, ReciboRef: contacto.ReciboRef})
+		reciboContacto := sha256.Sum256([]byte(q.BolsaRef + "\x1f" + q.ClaveIdempotencia + "\x1f" + participacion))
+		contactos = append(contactos, puertosbolsa.ResultadoContactoEmision{ParticipacionRef: participacion, Resultado: resultado, ReciboRef: "recibo:contacto:" + hex.EncodeToString(reciboContacto[:])})
 	}
-	return emision, nil
+	return s.repositorio.Emitir(ctx, puertosbolsa.ComandoEmitirLlamamiento{LlamamientoRef: "llamamiento:" + sufijo, ReciboRef: "recibo:llamamiento:" + sufijo, BolsaRef: q.BolsaRef, ActorRef: actor.PersonaRef, ClaveIdempotencia: q.ClaveIdempotencia, Participaciones: append([]string(nil), q.Participaciones...), Contactos: contactos, Configuracion: q.Configuracion, EmitidoEn: ahora, SolicitudAutorizacion: auth, Decision: decision, Confirmacion: confirmacion, Material: material})
+}
+
+func mismaSolicitudEmision(previa puertosbolsa.EmisionLlamamiento, q puertosbolsa.SolicitudEmitirLlamamiento) bool {
+	if previa.BolsaRef != q.BolsaRef || previa.Configuracion != q.Configuracion || len(previa.Participaciones) != len(q.Participaciones) {
+		return false
+	}
+	for i := range q.Participaciones {
+		if previa.Participaciones[i] != q.Participaciones[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func validarSolicitudEmision(q puertosbolsa.SolicitudEmitirLlamamiento) error {

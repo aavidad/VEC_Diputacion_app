@@ -105,10 +105,14 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	if esContacto {
 		_, _, esContacto = bolsahttp.ReferenciasRutaContactosParticipacion(r)
 	}
+	esDatosContacto := h != nil && h.mutar != nil && r != nil && (r.Method == http.MethodPost || r.Method == http.MethodGet)
+	if esDatosContacto {
+		_, _, _, esDatosContacto = bolsahttp.ReferenciasRutaDatosContactoParticipacion(r)
+	}
 	cabeceras := http.Header(nil)
 	if r != nil {
 		cabeceras = r.Header
-		if esMutacionSituacion || esContacto {
+		if esMutacionSituacion || esContacto || esDatosContacto {
 			cabeceras = r.Header.Clone()
 			cabeceras.Del("Idempotency-Key")
 		}
@@ -117,7 +121,7 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		responderAreaPersonalDesarrollo(w, http.StatusBadRequest, map[string]string{"codigo": "solicitud_invalida"})
 		return
 	}
-	if esMutacionSituacion || esContacto {
+	if esMutacionSituacion || esContacto || esDatosContacto {
 		h.mutar.ServeHTTP(w, r)
 		if h.invalidar != nil {
 			h.invalidar()
