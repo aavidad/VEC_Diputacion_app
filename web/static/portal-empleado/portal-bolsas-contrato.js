@@ -17,6 +17,7 @@
 export const ESQUEMA_BOLSAS = "vec.bolsa.rrhh.bolsas.v1";
 export const ESQUEMA_CANDIDATOS = "vec.bolsa.rrhh.candidatos.v1";
 export const ESQUEMA_CONTACTOS = "vec.bolsa.rrhh.contactos.v1";
+export const ESQUEMA_ESTADISTICAS = "vec.bolsa.rrhh.estadisticas.v1";
 export const ESQUEMA_ACCION_BOLSA = "vec.bolsa.rrhh.accion.v1";
 
 export const SITUACIONES_PARTICIPACION_BOLSA = Object.freeze([
@@ -348,6 +349,40 @@ export function validarRespuestaContactos(envelope) {
     generado_en: generadoEn,
     participacion_ref: participacionRef,
     contactos,
+  });
+}
+
+function validarMapaConteos(mapa, nombre, claves = null) {
+  if (!esObjeto(mapa)) throw new Error(`${nombre} debe ser un objeto`);
+  const recibidas = Object.keys(mapa);
+  if (claves && (recibidas.length !== claves.length || claves.some((clave) => !Object.hasOwn(mapa, clave)))) throw new Error(`${nombre} no respeta el contrato cerrado`);
+  const salida = {};
+  for (const clave of recibidas) {
+    if (!clave.trim() || contieneDatosPersonalesSensibles(clave)) throw new Error(`${nombre} contiene una clave no válida`);
+    salida[clave] = exigirEnteroNoNegativo(mapa[clave], `${nombre}.${clave}`);
+  }
+  return Object.freeze(salida);
+}
+
+export function validarRespuestaEstadisticas(envelope) {
+  const datos = extraerDatosEnvelopeCanonico(envelope);
+  exigirCamposExactos(datos, ["esquema", "generado_en", "bolsas", "personas", "llamamientos", "por_bolsa"], "respuesta de estadísticas");
+  if (datos.esquema !== ESQUEMA_ESTADISTICAS) throw new Error(`esquema no compatible: ${datos.esquema}`);
+  exigirCamposExactos(datos.bolsas, ["total", "vigentes", "sustituidas"], "estadísticas de bolsas");
+  exigirCamposExactos(datos.personas, ["total", "por_estado"], "estadísticas de personas");
+  exigirCamposExactos(datos.llamamientos, ["total", "por_canal", "por_resultado"], "estadísticas de llamamientos");
+  if (!Array.isArray(datos.por_bolsa)) throw new Error("por_bolsa debe ser un array");
+  const por_bolsa = Object.freeze(datos.por_bolsa.map((bolsa) => {
+    exigirCamposExactos(bolsa, ["bolsa_ref", "categoria", "tipo_lista", "vigente", "total", "por_estado"], "estadística por bolsa");
+    if (typeof bolsa.vigente !== "boolean") throw new Error("vigente debe ser booleano");
+    return Object.freeze({ bolsa_ref: exigirCadenaSegura(bolsa.bolsa_ref, "bolsa_ref"), categoria: exigirCadenaSegura(bolsa.categoria, "categoria"), tipo_lista: exigirCadenaSegura(bolsa.tipo_lista, "tipo_lista"), vigente: bolsa.vigente, total: exigirEnteroNoNegativo(bolsa.total, "total"), por_estado: validarMapaConteos(bolsa.por_estado, "por_estado", SITUACIONES_PARTICIPACION_BOLSA) });
+  }));
+  return Object.freeze({
+    esquema: datos.esquema, generado_en: exigirInstanteUTC(datos.generado_en, "generado_en"),
+    bolsas: Object.freeze({ total: exigirEnteroNoNegativo(datos.bolsas.total, "bolsas.total"), vigentes: exigirEnteroNoNegativo(datos.bolsas.vigentes, "bolsas.vigentes"), sustituidas: exigirEnteroNoNegativo(datos.bolsas.sustituidas, "bolsas.sustituidas") }),
+    personas: Object.freeze({ total: exigirEnteroNoNegativo(datos.personas.total, "personas.total"), por_estado: validarMapaConteos(datos.personas.por_estado, "personas.por_estado", SITUACIONES_PARTICIPACION_BOLSA) }),
+    llamamientos: Object.freeze({ total: exigirEnteroNoNegativo(datos.llamamientos.total, "llamamientos.total"), por_canal: validarMapaConteos(datos.llamamientos.por_canal, "llamamientos.por_canal"), por_resultado: validarMapaConteos(datos.llamamientos.por_resultado, "llamamientos.por_resultado") }),
+    por_bolsa,
   });
 }
 

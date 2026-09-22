@@ -121,6 +121,7 @@ const estado = {
   bolsaSeleccionada: "",
   datosBolsas: null,
   datosCandidatos: null,
+  datosEstadisticas: null,
   filtrosBolsa: { estado: "", texto: "" },
   modalContactos: null,
   modalFicha: null,
@@ -497,6 +498,11 @@ function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } =
     return;
   }
   const vistaBolsas = vista === "resumen" || vista === "bolsa-candidatos";
+  if (vista === "estadisticas") {
+    contenedor.innerHTML = presentadorPanelInterno.renderizarEstadisticasBolsa();
+    if (estado.datosEstadisticas === null) void controladorBolsas.cargarEstadisticas();
+    return;
+  }
   if (vistaBolsas && !presentadorPanelInterno.esActivo() && estado.datosBolsas
     && (!estado.modoPresentacion || vista === "bolsa-candidatos")) {
     contenedor.innerHTML = presentadorPanelInterno.renderizarSoloBolsas(vista); return;
@@ -754,6 +760,7 @@ const presentadorPanelInterno = crearPresentadorPanelInterno({
   tituloVista: (vista) => TITULOS[vista]?.[1] || "Sección de Bolsa",
   obtenerDatosBolsas: () => estado.datosBolsas,
   obtenerDatosCandidatosBolsa: () => estado.datosCandidatos,
+  obtenerDatosEstadisticas: () => estado.datosEstadisticas,
   obtenerEstadoCandidatos: () => estado.filtrosBolsa,
   obtenerModalContactos: () => estado.modalContactos,
   obtenerModalFicha: () => estado.modalFicha,

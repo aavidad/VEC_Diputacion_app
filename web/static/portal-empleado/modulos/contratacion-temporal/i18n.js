@@ -499,7 +499,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   ficha_ginpix_inicio: "Inicio de incorporación", ficha_ginpix_fin: "Fin de incorporación",
   ficha_ginpix_registrada: "Incorporación registrada", ficha_ginpix_recibo: "Recibo de incorporación confirmado",
   ficha_ginpix_exportacion_manual: "Exportación manual", ficha_ginpix_exportacion_manual_disponible: "Ficha estructurada disponible para descargar.",
-  ficha_ginpix_transmision: "Transmisión externa", ficha_ginpix_transmision_pendiente: "Pendiente de envío: el conector externo no está conectado.",
+  ficha_ginpix_transmision: "Transmisión externa", ficha_ginpix_transmision_pendiente: "Pendiente de integración con GINPIX.",
   ficha_ginpix_nombre_archivo: "Nombre de archivo", ficha_ginpix_descargar: "Descargar ficha GINPIX",
   ficha_ginpix_aviso: "Descarga sintética: no realiza envío, firma ni produce eficacia administrativa.",
   ficha_ginpix_descargando: "Preparando descarga sintética.", ficha_ginpix_error: "No se ha podido preparar la descarga.",
