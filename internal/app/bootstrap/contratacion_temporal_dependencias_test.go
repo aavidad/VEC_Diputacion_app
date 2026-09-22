@@ -28,7 +28,7 @@ func TestRutasCTSinPostgreSQLFallaCerradoYSinCierre(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rutas, autoridad, cerrar, err := nuevasRutasContratacionTemporalDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, io.Discard)
+	rutas, autoridad, cerrar, err := nuevasRutasContratacionTemporalDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, composicion.emisorKMS, io.Discard)
 	if !errors.Is(err, config.ErrConfiguracionPostgreSQLContratacionTemporalIncompleta) || rutas != nil || autoridad != nil || cerrar != nil {
 		t.Fatalf("composición sin PostgreSQL: rutas=%v autoridad=%v cerrar_presente=%t err=%v", rutas, autoridad, cerrar != nil, err)
 	}

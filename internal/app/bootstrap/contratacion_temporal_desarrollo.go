@@ -188,6 +188,7 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	cfg config.Config,
 	resolvedor vechttp.DemoIdentityResolver,
 	derivador *derivadorIdentidadOperacionDesarrollo,
+	kms *emisorKMSDesarrollo,
 	registro io.Writer,
 	incorporacion ...ConfiguracionIncorporacionDesarrollo,
 ) (
@@ -199,7 +200,7 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	if len(incorporacion) > 1 || (len(incorporacion) != 0 && cfg.IncorporacionV2File != "") {
 		return nil, nil, nil, ErrComposicionDesarrolloIncompleta
 	}
-	dependencias, err := nuevasDependenciasCT(cfg, resolvedor, derivador, registro)
+	dependencias, err := nuevasDependenciasCT(cfg, resolvedor, derivador, kms, registro)
 	if err != nil {
 		return nil, nil, nil, err
 	}

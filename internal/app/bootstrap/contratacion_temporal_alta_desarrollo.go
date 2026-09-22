@@ -340,7 +340,7 @@ func nuevaRutaAltaContratacionTemporalDesarrollo(
 	reloj relojContratacionTemporalDesarrollo,
 ) (vechttp.RutaExacta, func(), error) {
 	origen := nuevoOrigenConsultasContratacionTemporalDesarrollo(cfg.PersonalOrganizacionSourcePath)
-	dependenciasCT, err := nuevasDependenciasCT(cfg, identidad, derivador, nil)
+	dependenciasCT, err := nuevasDependenciasCT(cfg, identidad, derivador, nil, nil)
 	if err != nil {
 		return vechttp.RutaExacta{}, nil, err
 	}

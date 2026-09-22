@@ -92,12 +92,13 @@ func (f *fuenteBolsasPublicasDesarrollo) datos(ctx context.Context) (datasetBols
 }
 
 func (f *fuenteBolsasPublicasDesarrollo) proyectarBolsa(bolsa struct {
-	Referencia   string  `json:"bolsa_ref"`
-	CategoriaRef string  `json:"categoria_ref"`
-	Categoria    string  `json:"categoria"`
-	TipoLista    string  `json:"tipo_lista"`
-	VigenteDesde string  `json:"vigente_desde"`
-	VigenteHasta *string `json:"vigente_hasta"`
+	Referencia          string  `json:"bolsa_ref"`
+	CategoriaRef        string  `json:"categoria_ref"`
+	Categoria           string  `json:"categoria"`
+	TipoLista           string  `json:"tipo_lista"`
+	VigenteDesde        string  `json:"vigente_desde"`
+	VigenteHasta        *string `json:"vigente_hasta"`
+	LlamamientosEnCurso int     `json:"llamamientos_en_curso"`
 }, total int) (bolsapublico.BolsaPublica, error) {
 	desde, err := time.Parse(time.RFC3339, bolsa.VigenteDesde)
 	if err != nil {

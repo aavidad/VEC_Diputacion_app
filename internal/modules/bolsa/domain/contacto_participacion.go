@@ -21,10 +21,12 @@ const (
 	ResultadoContactoRechaza    = "rechaza"
 	ResultadoContactoAplazado   = "aplazado"
 	ResultadoContactoOtro       = "otro"
+	ResultadoContactoEnviado    = "enviado"
+	ResultadoContactoNoEnviado  = "no_enviado"
 )
 
 var canalesContacto = map[string]struct{}{CanalContactoTelefono: {}, CanalContactoCorreo: {}, CanalContactoSMS: {}, CanalContactoPresencial: {}, CanalContactoOtro: {}}
-var resultadosContacto = map[string]struct{}{ResultadoContactoContactado: {}, ResultadoContactoNoContesta: {}, ResultadoContactoBuzon: {}, ResultadoContactoAcepta: {}, ResultadoContactoRechaza: {}, ResultadoContactoAplazado: {}, ResultadoContactoOtro: {}}
+var resultadosContacto = map[string]struct{}{ResultadoContactoContactado: {}, ResultadoContactoNoContesta: {}, ResultadoContactoBuzon: {}, ResultadoContactoAcepta: {}, ResultadoContactoRechaza: {}, ResultadoContactoAplazado: {}, ResultadoContactoOtro: {}, ResultadoContactoEnviado: {}, ResultadoContactoNoEnviado: {}}
 
 type ContactoParticipacion struct {
 	ContactoRef, BolsaRef, ParticipacionRef, LlamamientoRef string
@@ -48,5 +50,5 @@ func CanalesContactoParticipacion() []string {
 	return []string{CanalContactoTelefono, CanalContactoCorreo, CanalContactoSMS, CanalContactoPresencial, CanalContactoOtro}
 }
 func ResultadosContactoParticipacion() []string {
-	return []string{ResultadoContactoContactado, ResultadoContactoNoContesta, ResultadoContactoBuzon, ResultadoContactoAcepta, ResultadoContactoRechaza, ResultadoContactoAplazado, ResultadoContactoOtro}
+	return []string{ResultadoContactoContactado, ResultadoContactoNoContesta, ResultadoContactoBuzon, ResultadoContactoAcepta, ResultadoContactoRechaza, ResultadoContactoAplazado, ResultadoContactoOtro, ResultadoContactoEnviado, ResultadoContactoNoEnviado}
 }

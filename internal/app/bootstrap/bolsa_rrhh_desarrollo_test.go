@@ -61,12 +61,13 @@ var _ constitucionapp.Recuperador = recuperadorBolsasRRHHPrueba{}
 func datosBolsasRRHHPrueba() datasetBolsasRRHHDesarrollo {
 	datos := datasetBolsasRRHHDesarrollo{GeneradoEn: "2026-09-20T10:00:00Z"}
 	datos.Bolsas = append(datos.Bolsas, struct {
-		Referencia   string  `json:"bolsa_ref"`
-		CategoriaRef string  `json:"categoria_ref"`
-		Categoria    string  `json:"categoria"`
-		TipoLista    string  `json:"tipo_lista"`
-		VigenteDesde string  `json:"vigente_desde"`
-		VigenteHasta *string `json:"vigente_hasta"`
+		Referencia          string  `json:"bolsa_ref"`
+		CategoriaRef        string  `json:"categoria_ref"`
+		Categoria           string  `json:"categoria"`
+		TipoLista           string  `json:"tipo_lista"`
+		VigenteDesde        string  `json:"vigente_desde"`
+		VigenteHasta        *string `json:"vigente_hasta"`
+		LlamamientosEnCurso int     `json:"llamamientos_en_curso"`
 	}{Referencia: "bolsa:constituida:administrativo", CategoriaRef: "categoria:rpt:administrativo", Categoria: "Administrativo", TipoLista: "definitiva", VigenteDesde: datos.GeneradoEn})
 	for _, candidatura := range []struct {
 		referencia, nombre, documento string

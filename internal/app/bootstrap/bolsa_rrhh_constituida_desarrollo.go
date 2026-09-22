@@ -21,6 +21,7 @@ import (
 type fuenteConstituidaRRHHDesarrollo struct {
 	repositorio ports.RepositorioConstitucion
 	situaciones ports.RepositorioSituacionParticipacion
+	emisiones   *postgresbolsa.RepositorioEmisionLlamamientoPostgreSQL
 	recuperador constitucion.Recuperador
 	categorias  map[string]string
 	grupos      map[string][]string
@@ -62,6 +63,11 @@ func nuevaFuenteConstituidaRRHHDesarrollo(ctx context.Context, cfg config.Config
 		poolBolsa.Close()
 		return nil
 	}
+	emisiones, err := postgresbolsa.NuevoRepositorioEmisionLlamamientoPostgreSQL(poolBolsa)
+	if err != nil {
+		poolBolsa.Close()
+		return nil
+	}
 	material, err := cargarMaterialSeguridadDesarrollo(cfg)
 	if err != nil {
 		poolBolsa.Close()
@@ -95,7 +101,7 @@ func nuevaFuenteConstituidaRRHHDesarrollo(ctx context.Context, cfg config.Config
 			}
 		}
 	}
-	return &fuenteConstituidaRRHHDesarrollo{repositorio: repositorio, situaciones: situaciones, recuperador: recuperador, categorias: categorias, grupos: grupos, ahora: time.Now}
+	return &fuenteConstituidaRRHHDesarrollo{repositorio: repositorio, situaciones: situaciones, emisiones: emisiones, recuperador: recuperador, categorias: categorias, grupos: grupos, ahora: time.Now}
 }
 
 func (f *fuenteConstituidaRRHHDesarrollo) constituidas(ctx context.Context) (datasetBolsasRRHHDesarrollo, bool) {
@@ -118,7 +124,7 @@ func (f *fuenteConstituidaRRHHDesarrollo) constituidas(ctx context.Context) (dat
 }
 
 func (f *fuenteConstituidaRRHHDesarrollo) cargar(ctx context.Context) (datasetBolsasRRHHDesarrollo, error) {
-	if f == nil || f.repositorio == nil || f.situaciones == nil || f.recuperador == nil || f.ahora == nil {
+	if f == nil || f.repositorio == nil || f.situaciones == nil || f.emisiones == nil || f.recuperador == nil || f.ahora == nil {
 		return datasetBolsasRRHHDesarrollo{}, ErrComposicionDesarrolloIncompleta
 	}
 	vigentes, err := f.repositorio.ListarVigentes(ctx)
@@ -129,16 +135,22 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargar(ctx context.Context) (datasetBo
 	for _, vigente := range vigentes {
 		desde := vigente.ConfirmadaEn.UTC().Format(time.RFC3339)
 		datos.Bolsas = append(datos.Bolsas, struct {
-			Referencia   string  `json:"bolsa_ref"`
-			CategoriaRef string  `json:"categoria_ref"`
-			Categoria    string  `json:"categoria"`
-			TipoLista    string  `json:"tipo_lista"`
-			VigenteDesde string  `json:"vigente_desde"`
-			VigenteHasta *string `json:"vigente_hasta"`
+			Referencia          string  `json:"bolsa_ref"`
+			CategoriaRef        string  `json:"categoria_ref"`
+			Categoria           string  `json:"categoria"`
+			TipoLista           string  `json:"tipo_lista"`
+			VigenteDesde        string  `json:"vigente_desde"`
+			VigenteHasta        *string `json:"vigente_hasta"`
+			LlamamientosEnCurso int     `json:"llamamientos_en_curso"`
 		}{
 			Referencia: vigente.Bolsa.BolsaRef, CategoriaRef: vigente.CategoriaRef,
 			Categoria: f.denominacion(vigente.CategoriaRef), TipoLista: "definitiva", VigenteDesde: desde,
 		})
+		totalCurso, err := f.emisiones.ContarEnCurso(ctx, vigente.Bolsa.BolsaRef)
+		if err != nil {
+			return datasetBolsasRRHHDesarrollo{}, err
+		}
+		datos.Bolsas[len(datos.Bolsas)-1].LlamamientosEnCurso = totalCurso
 		entradas, err := f.repositorio.Entradas(ctx, vigente.Instantanea.InstantaneaRef, vigente.Instantanea.Version)
 		if err != nil {
 			return datasetBolsasRRHHDesarrollo{}, err
