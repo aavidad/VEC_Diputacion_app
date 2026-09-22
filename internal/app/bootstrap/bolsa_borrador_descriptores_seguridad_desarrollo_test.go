@@ -144,6 +144,9 @@ func TestDescriptoresBorradorLlamamientoBolsaAutorizacionExacta(t *testing.T) {
 	if p, ok := catalogo.politicaPara(puertosbolsa.AccionRegistrarContactoParticipacion, claveFronteraSituacionParticipacionBolsa, clavePoliticaBorradorLlamamientoBolsaDesarrollo, claveCapacidadSituacionParticipacionBolsa); !ok || !p.valida() {
 		t.Fatal("registro B3 no conservó la política Bolsa completa")
 	}
+	if p, ok := catalogo.politicaPara(puertosbolsa.AccionRegistrarDatosContactoParticipacion, claveFronteraSituacionParticipacionBolsa, clavePoliticaBorradorLlamamientoBolsaDesarrollo, claveCapacidadSituacionParticipacionBolsa); !ok || !p.valida() {
+		t.Fatal("registro B4 no conservó la política Bolsa completa")
+	}
 	for _, caso := range []struct{ accion, frontera, capacidad string }{
 		{puertosbolsa.AccionCrearBorradorLlamamientoInterno, claveFronteraConsultarBorradorLlamamientoBolsa, claveCapacidadConsultarBorradorLlamamientoBolsa},
 		{puertosbolsa.AccionConsultarBorradorLlamamientoInterno, claveFronteraCrearBorradorLlamamientoBolsa, claveCapacidadCrearBorradorLlamamientoBolsa},
@@ -158,8 +161,8 @@ func TestDescriptoresBorradorLlamamientoBolsaAutorizacionExacta(t *testing.T) {
 
 func TestDescriptoresBorradorLlamamientoBolsaMaterialExacto(t *testing.T) {
 	descriptores := descriptoresMaterialBorradorLlamamientoBolsaDesarrollo()
-	if len(descriptores) != 6 {
-		t.Fatalf("materiales = %d, se esperan 6", len(descriptores))
+	if len(descriptores) != 7 {
+		t.Fatalf("materiales = %d, se esperan 7", len(descriptores))
 	}
 	catalogo, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(descriptores)
 	if err != nil {
@@ -171,6 +174,7 @@ func TestDescriptoresBorradorLlamamientoBolsaMaterialExacto(t *testing.T) {
 		{Audiencia: puertosbolsa.AudienciaCambiarSituacionParticipacion, Dominio: dominioMaterialSituacionParticipacionBolsa, Prefijo: prefijoMaterialSituacionParticipacionBolsa, ProveedorNominal: "proveedor-material-situacion-participacion-bolsa"},
 		{Audiencia: puertosbolsa.AudienciaRegistrarContactoParticipacion, Dominio: dominioMaterialContactoParticipacionBolsa, Prefijo: prefijoMaterialContactoParticipacionBolsa, ProveedorNominal: "proveedor-material-contacto-participacion-bolsa"},
 		{Audiencia: puertosbolsa.AudienciaConsultarContactoParticipacion, Dominio: dominioMaterialConsultaContactoParticipacionBolsa, Prefijo: prefijoMaterialConsultaContactoParticipacionBolsa, ProveedorNominal: "proveedor-material-consulta-contacto-participacion-bolsa"},
+		{Audiencia: puertosbolsa.AudienciaRegistrarDatosContactoParticipacion, Dominio: dominioMaterialDatosContactoParticipacionBolsa, Prefijo: prefijoMaterialDatosContactoParticipacionBolsa, ProveedorNominal: "proveedor-material-datos-contacto-participacion-bolsa"},
 		{Audiencia: puertosbolsa.AudienciaEmitirLlamamiento, Dominio: dominioMaterialEmisionLlamamientoBolsa, Prefijo: prefijoMaterialEmisionLlamamientoBolsa, ProveedorNominal: "proveedor-material-emision-llamamiento-bolsa"},
 	} {
 		actual, ok := catalogo.descriptorPara(esperado.Audiencia)
