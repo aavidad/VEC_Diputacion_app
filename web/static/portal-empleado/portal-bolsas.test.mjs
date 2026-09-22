@@ -588,6 +588,47 @@ test("presentadorPanelInterno renderiza Vista B5 de candidatos con filtros, chip
   assert.match(htmlErr, /Volver al cuadro/);
 });
 
+test("P-WEB-06: B12 enlaza cada estado B2 y B5 señala la bolsa B9 vigente", () => {
+  const { envelopeBolsas, envelopeCandidatos } = construirFixturesDesdeDemo();
+  const bolsas = validarRespuestaBolsas(envelopeBolsas);
+  const datosCandidatos = validarRespuestaCandidatosBolsa(envelopeCandidatos);
+  const sustituida = { ...bolsas.bolsas[0], vigente_hasta: "2026-01-31" };
+  const vigente = { ...bolsas.bolsas[1], categoria_clave: sustituida.categoria_clave, vigente_desde: "2026-02-01", vigente_hasta: null };
+  const estadoBolsas = { carga: "listo", datos: { ...bolsas, bolsas: [sustituida, vigente] }, error: "" };
+  const estadoCandidatos = { carga: "listo", datos: { ...datosCandidatos, bolsa: sustituida }, error: "" };
+  const presentador = crearPresentadorPanelInterno({
+    claseEstado: () => "neutro", encabezadoVista: (_s, t) => `<header><h2>${t}</h2></header>`,
+    escaparHTML: (v) => String(v ?? ""), numero: (n) => String(n ?? 0),
+    obtenerDatosPanel: () => ({ esquema: "vec.bolsa.panel.interno.v1", indicadores: {}, convocatorias: [], actuaciones_pendientes: [] }),
+    tituloVista: (v) => v, obtenerDatosBolsas: () => estadoBolsas,
+    obtenerDatosCandidatosBolsa: () => estadoCandidatos, obtenerEstadoCandidatos: () => ({ estado: "", texto: "" }),
+  });
+  const cuadro = presentador.renderizarSoloBolsas("resumen");
+  for (const estado of ["disponible", "trabajando", "no_disponible", "excluido", "renuncia", "pendiente_incorporacion"]) {
+    assert.match(cuadro, new RegExp(`data-estado="${estado}"`));
+  }
+  const detalle = presentador.renderizarVista("bolsa-candidatos");
+  assert.match(detalle, /Sustituida por la bolsa vigente de la categoría el 01\/02\/2026\./);
+  assert.match(detalle, new RegExp(`data-bolsa-ref="${vigente.bolsa_ref}"`));
+});
+
+test("P-WEB-06: el histórico muestra el contacto B3 completo y conserva el guion cuando no existe", () => {
+  const { envelopeCandidatos } = construirFixturesDesdeDemo();
+  const datos = validarRespuestaCandidatosBolsa(envelopeCandidatos);
+  const candidato = datos.candidatos[0];
+  const contacto = validarContacto({ contacto_ref: "contacto:p-web-06", participacion_ref: candidato.participacion_ref, llamamiento_ref: null, canal: "telefono", instante: "2026-09-22T10:00:00Z", actor_ref: "persona:rrhh:p-web-06", resultado: "contactado", anotacion: "Oferta comunicada" });
+  const presentador = crearPresentadorPanelInterno({
+    claseEstado: () => "neutro", encabezadoVista: (_s, t) => `<header><h2>${t}</h2></header>`,
+    escaparHTML: (v) => String(v ?? ""), numero: (n) => String(n ?? 0),
+    obtenerDatosPanel: () => ({ esquema: "vec.bolsa.panel.interno.v1", indicadores: {}, convocatorias: [], actuaciones_pendientes: [] }),
+    tituloVista: (v) => v, obtenerDatosCandidatosBolsa: () => ({ carga: "listo", datos: { ...datos, contactos: [contacto] }, error: "" }),
+    obtenerEstadoCandidatos: () => ({ estado: "", texto: "", pestana: "historico" }),
+  });
+  const html = presentador.renderizarVista("bolsa-candidatos");
+  assert.match(html, /Teléfono · Contactado · Oferta comunicada/);
+  assert.match(html, />—<\/td>/);
+});
+
 test("presentadorPanelInterno muestra la ficha B5 en línea junto al único candidato seleccionado", () => {
   const { envelopeCandidatos } = construirFixturesDesdeDemo();
   const datos = validarRespuestaCandidatosBolsa(envelopeCandidatos);

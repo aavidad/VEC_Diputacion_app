@@ -104,6 +104,15 @@ export const MENSAJES_BOLSA_INTERNA_ES = Object.freeze({
   contacto_clave_conflicto: "La clave corresponde a otro contacto.",
   contacto_registro_error: "No se pudo registrar el contacto.",
   contacto_comunicacion_error: "Error de comunicación.",
+  bolsa_estado_disponible: "Disponibles",
+  bolsa_estado_trabajando: "Ocupados / Trabajando",
+  bolsa_estado_no_disponible: "No disponibles",
+  bolsa_estado_excluido: "Excluidos",
+  bolsa_estado_renuncia: "Renuncia",
+  bolsa_estado_pendiente_incorporacion: "Pendiente de incorporación",
+  bolsa_estado_disponible_desde: "Disponible desde fecha",
+  bolsa_sustituida_aviso: "Sustituida por la bolsa vigente de la categoría el {fecha}.",
+  bolsa_abrir_vigente: "Abrir bolsa vigente",
 });
 
 const CLAVES_BOLSA_INTERNA = Object.freeze(Object.keys(MENSAJES_BOLSA_INTERNA_ES));
