@@ -7,7 +7,7 @@ SET LOCAL timezone='UTC';
 SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='30s';
 SELECT pg_advisory_xact_lock(hashtextextended('vec_contacto_usuario_v1:dependencias:v1',0));
-SELECT pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:migracion:000052',0));
+SELECT pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:migracion:000053',0));
 DO $pre$
 BEGIN
     IF getdatabaseencoding()<>'UTF8'
@@ -16,7 +16,7 @@ BEGIN
        OR EXISTS (SELECT 1 FROM pg_proc WHERE pronamespace='vec_autorizacion_atestada_v3'::regnamespace
             AND proname IN ('contacto_recibo_validar_material_v1','contacto_recibo_material_auditoria_v1',
                 'registrar_y_consumir_recibo_contacto_usuario_v3_atestada','revalidar_recibo_contacto_usuario_v3_atestada')) THEN
-        RAISE EXCEPTION 'AD3-52: preimagen incompatible' USING ERRCODE='55000';
+        RAISE EXCEPTION 'AD3-53: preimagen incompatible' USING ERRCODE='55000';
     END IF;
 END $pre$;
 CREATE FUNCTION vec_autorizacion_atestada_v3.contacto_recibo_validar_material_v1(
@@ -31,31 +31,31 @@ BEGIN
        OR p_recurso IS NULL OR octet_length(p_recurso) NOT BETWEEN 2 AND 16384
        OR p_decision IS NULL OR octet_length(p_decision) NOT BETWEEN 2 AND 524288
        OR p_contexto IS NULL OR octet_length(p_contexto) NOT BETWEEN 2 AND 262144 THEN
-        RAISE EXCEPTION 'AD3-52: material inválido' USING ERRCODE='22023';
+        RAISE EXCEPTION 'AD3-53: material inválido' USING ERRCODE='22023';
     END IF;
     b:=convert_from(p_negocio,'UTF8')::jsonb; r:=convert_from(p_recurso,'UTF8')::jsonb;
     d:=convert_from(p_decision,'UTF8')::jsonb; x:=convert_from(p_contexto,'UTF8')::jsonb;
     a:=vec_autorizacion_atestada_v3.contacto_auditoria_previa_v1(p_auditoria);
     IF vec_autorizacion_atestada_v3.contacto_objeto_v1(r,'{"ambitos":"object","atributos":"object"}'::jsonb) IS NOT TRUE THEN
-        RAISE EXCEPTION 'AD3-52: recurso inválido' USING ERRCODE='22023';
+        RAISE EXCEPTION 'AD3-53: recurso inválido' USING ERRCODE='22023';
     END IF;
     rc:='{"ambitos":'||vec_autorizacion_atestada_v3.contacto_mapa_canonico_v1(r->'ambitos')||
         ',"atributos":'||vec_autorizacion_atestada_v3.contacto_mapa_canonico_v1(r->'atributos')||'}';
     IF p_recurso IS DISTINCT FROM convert_to(rc,'UTF8') THEN
-        RAISE EXCEPTION 'AD3-52: recurso no canónico' USING ERRCODE='22023';
+        RAISE EXCEPTION 'AD3-53: recurso no canónico' USING ERRCODE='22023';
     END IF;
     audiencia:='vec.contacto_usuario.recibo.v1'; finalidad:='gestion_contacto_propio';
     IF vec_autorizacion_atestada_v3.contacto_objeto_v1(b,'{"Esquema":"string","SujetoRef":"string","FinalidadRef":"string","Audiencia":"string","Version":"number"}'::jsonb) IS NOT TRUE
        OR b->>'Esquema' IS DISTINCT FROM 'vec.contacto_usuario.recibo.v1'
        OR r#>>'{atributos,auditoria_sha256}' IS DISTINCT FROM encode(sha256(p_auditoria),'hex') THEN
-        RAISE EXCEPTION 'AD3-52: consulta de recibo inválida' USING ERRCODE='22023';
+        RAISE EXCEPTION 'AD3-53: consulta de recibo inválida' USING ERRCODE='22023';
     END IF;
     anterior:=b->>'Version'; nueva:=anterior;
     canon:='{"Esquema":"vec.contacto_usuario.recibo.v1","SujetoRef":'||
         vec_autorizacion_atestada_v3.texto_json_go(b->>'SujetoRef')||',"FinalidadRef":"gestion_contacto_propio",'||
         '"Audiencia":"vec.contacto_usuario.recibo.v1","Version":'||nueva||'}';
     IF x->>'persona_ref' IS NULL OR x->>'persona_ref' IS DISTINCT FROM b->>'SujetoRef' THEN
-        RAISE EXCEPTION 'AD3-52: recibo propio ajeno' USING ERRCODE='42501';
+        RAISE EXCEPTION 'AD3-53: recibo propio ajeno' USING ERRCODE='42501';
     END IF;
     sujeto:=b->>'SujetoRef';
     IF sujeto IS NULL OR sujeto !~ '^per_[A-Za-z0-9_-]{22,128}$'
@@ -83,11 +83,11 @@ BEGIN
        OR x->>'principal_ref' IS NULL OR x->>'principal_ref' IS DISTINCT FROM d->>'principal_id'
        OR x->>'perfil_activo_ref' IS DISTINCT FROM a->>'actor_profile'
        OR x->>'metodo' IS DISTINCT FROM a->>'auth_method' OR x->>'garantia' IS DISTINCT FROM a->>'auth_assurance' THEN
-        RAISE EXCEPTION 'AD3-52: material no ligado a decisión y contexto' USING ERRCODE='42501';
+        RAISE EXCEPTION 'AD3-53: material no ligado a decisión y contexto' USING ERRCODE='42501';
     END IF;
     RETURN b;
 EXCEPTION WHEN data_exception THEN
-    RAISE EXCEPTION 'AD3-52: material inválido' USING ERRCODE='22023';
+    RAISE EXCEPTION 'AD3-53: material inválido' USING ERRCODE='22023';
 END $f$;
 -- Parche literal con pre/postimagen completa; conserva metadatos y dependencias.
 DO $nucleo$
@@ -102,7 +102,7 @@ BEGIN
     IF NOT COALESCE((SELECT count(*)=1 AND bool_and(x.grantee=p.proowner AND x.grantor=p.proowner
         AND x.privilege_type='EXECUTE' AND NOT x.is_grantable) FROM pg_proc p,
         LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) x WHERE p.oid=f),false) THEN
-        RAISE EXCEPTION 'AD3-52: ACL interna divergente' USING ERRCODE='55000';
+        RAISE EXCEPTION 'AD3-53: ACL interna divergente' USING ERRCODE='55000';
     END IF;
     SELECT jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype)
         INTO deps FROM pg_depend d WHERE (d.classid='pg_proc'::regclass AND d.objid=f)
@@ -125,7 +125,7 @@ BEGIN
        OR c ->> 'suite' <> 'VEC-AD-3-COSE-EDDSA-1'$despues2$,1)
     ) AS cambios(antes,despues,veces) LOOP
         IF length(nueva)-length(replace(nueva,r.antes,''))<>length(r.antes)*r.veces THEN
-            RAISE EXCEPTION 'AD3-52: fragmento no exacto' USING ERRCODE='55000';
+            RAISE EXCEPTION 'AD3-53: fragmento no exacto' USING ERRCODE='55000';
         END IF;
         nueva:=replace(nueva,r.antes,r.despues);
     END LOOP;
@@ -136,7 +136,7 @@ BEGIN
        OR (SELECT jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype)
             FROM pg_depend d WHERE (d.classid='pg_proc'::regclass AND d.objid=f)
             OR (d.refclassid='pg_proc'::regclass AND d.refobjid=f)) IS DISTINCT FROM deps THEN
-        RAISE EXCEPTION 'AD3-52: cambio ajeno al perfil de recibo' USING ERRCODE='55000';
+        RAISE EXCEPTION 'AD3-53: cambio ajeno al perfil de recibo' USING ERRCODE='55000';
     END IF;
 END $nucleo$;
 -- Parche literal con pre/postimagen completa; conserva metadatos y dependencias.
@@ -152,7 +152,7 @@ BEGIN
     IF NOT COALESCE((SELECT count(*)=1 AND bool_and(x.grantee=p.proowner AND x.grantor=p.proowner
         AND x.privilege_type='EXECUTE' AND NOT x.is_grantable) FROM pg_proc p,
         LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) x WHERE p.oid=f),false) THEN
-        RAISE EXCEPTION 'AD3-52: ACL interna divergente' USING ERRCODE='55000';
+        RAISE EXCEPTION 'AD3-53: ACL interna divergente' USING ERRCODE='55000';
     END IF;
     SELECT jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype)
         INTO deps FROM pg_depend d WHERE (d.classid='pg_proc'::regclass AND d.objid=f)
@@ -170,7 +170,7 @@ BEGIN
     ELSIF p_perfil_consulta = 'contacto_usuario_alta' THEN$despues3$,1)
     ) AS cambios(antes,despues,veces) LOOP
         IF length(nueva)-length(replace(nueva,r.antes,''))<>length(r.antes)*r.veces THEN
-            RAISE EXCEPTION 'AD3-52: fragmento no exacto' USING ERRCODE='55000';
+            RAISE EXCEPTION 'AD3-53: fragmento no exacto' USING ERRCODE='55000';
         END IF;
         nueva:=replace(nueva,r.antes,r.despues);
     END LOOP;
@@ -181,7 +181,7 @@ BEGIN
        OR (SELECT jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype)
             FROM pg_depend d WHERE (d.classid='pg_proc'::regclass AND d.objid=f)
             OR (d.refclassid='pg_proc'::regclass AND d.refobjid=f)) IS DISTINCT FROM deps THEN
-        RAISE EXCEPTION 'AD3-52: cambio ajeno al perfil de recibo' USING ERRCODE='55000';
+        RAISE EXCEPTION 'AD3-53: cambio ajeno al perfil de recibo' USING ERRCODE='55000';
     END IF;
 END $revalidacion$;
 LOCK TABLE vec_autorizacion_atestada_v3.clave_capacidad_version IN ACCESS EXCLUSIVE MODE;
@@ -197,7 +197,7 @@ BEGIN
     IF def IS DISTINCT FROM canon OR cardinality(valores) NOT BETWEEN 12 AND 64
        OR NOT (ARRAY['vec.contacto_usuario.registro.v1','vec.contacto_usuario.consulta.v1']<@valores)
        OR ARRAY['vec.contacto_usuario.recibo.v1']&&valores THEN
-        RAISE EXCEPTION 'AD3-52: audiencias previas incompatibles' USING ERRCODE='55000';
+        RAISE EXCEPTION 'AD3-53: audiencias previas incompatibles' USING ERRCODE='55000';
     END IF;
     valores:=valores||ARRAY['vec.contacto_usuario.recibo.v1','vec.contacto_usuario.version_propia.v1','vec.contacto_usuario.version_llamamiento.v1'];
     ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version DROP CONSTRAINT clave_capacidad_version_audiencia_consumo_check;
@@ -219,7 +219,7 @@ BEGIN
        OR p_persona_version IS NULL OR p_perfil_version IS NULL OR p_payload IS NULL OR p_sobre IS NULL
        OR p_evidencia IS NULL OR p_raiz IS NULL
        OR vec_autorizacion_atestada_v3.contacto_sesion_nominal_v1('contacto_usuario_alta') IS NOT TRUE THEN
-        RAISE EXCEPTION 'AD3-52: consumo contacto denegado' USING ERRCODE='42501';
+        RAISE EXCEPTION 'AD3-53: consumo contacto denegado' USING ERRCODE='42501';
     END IF;
     PERFORM vec_autorizacion_atestada_v3.contacto_recibo_validar_material_v1(
         'vec.contacto_usuario.consultar',p_negocio,p_recurso,p_auditoria,p_decision,p_contexto);
@@ -227,7 +227,7 @@ BEGIN
         'contacto_usuario_recibo',p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,
         p_payload,p_sobre,p_evidencia,p_raiz);
     IF consumo.consumo_nuevo IS NOT TRUE THEN
-        RAISE EXCEPTION 'AD3-52: contacto requiere concesión nueva' USING ERRCODE='P1102';
+        RAISE EXCEPTION 'AD3-53: contacto requiere concesión nueva' USING ERRCODE='P1102';
     END IF;
     RETURN QUERY SELECT consumo.decision_ref,consumo.efecto_ref,consumo.huella_efecto_sha256,
         consumo.consumo_huella_sha256,consumo.auditoria_ref,consumo.consumida_en,true;
@@ -242,7 +242,7 @@ LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET lock_t
 AS $f$
 BEGIN
     IF vec_autorizacion_atestada_v3.contacto_sesion_nominal_v1('contacto_usuario_alta') IS NOT TRUE THEN
-        RAISE EXCEPTION 'AD3-52: revalidación contacto denegada' USING ERRCODE='42501';
+        RAISE EXCEPTION 'AD3-53: revalidación contacto denegada' USING ERRCODE='42501';
     END IF;
     PERFORM vec_autorizacion_atestada_v3.contacto_recibo_validar_material_v1(
         'vec.contacto_usuario.consultar',p_negocio,p_recurso,p_auditoria,p_decision,p_contexto);
@@ -310,7 +310,7 @@ BEGIN
            )$despues2$,1)
     ) AS cambios(antes,despues,veces) LOOP
         IF length(nueva)-length(replace(nueva,r.antes,''))<>length(r.antes)*r.veces THEN
-            RAISE EXCEPTION 'AD3-52: selector no encuentra preimagen exacta' USING ERRCODE='55000';
+            RAISE EXCEPTION 'AD3-53: selector no encuentra preimagen exacta' USING ERRCODE='55000';
         END IF;
         nueva:=replace(nueva,r.antes,r.despues);
     END LOOP;
@@ -321,7 +321,7 @@ BEGIN
        OR (SELECT jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype)
             FROM pg_depend d WHERE (d.classid='pg_proc'::regclass AND d.objid=f)
             OR (d.refclassid='pg_proc'::regclass AND d.refobjid=f)) IS DISTINCT FROM deps THEN
-        RAISE EXCEPTION 'AD3-52: selector cambia núcleo ajeno' USING ERRCODE='55000';
+        RAISE EXCEPTION 'AD3-53: selector cambia núcleo ajeno' USING ERRCODE='55000';
     END IF;
 END $version_nucleo$;
 
@@ -363,7 +363,7 @@ BEGIN
         v_finalidad := 'gestion_contacto_propio';$despues3$,1)
     ) AS cambios(antes,despues,veces) LOOP
         IF length(nueva)-length(replace(nueva,r.antes,''))<>length(r.antes)*r.veces THEN
-            RAISE EXCEPTION 'AD3-52: selector no encuentra preimagen de revalidación' USING ERRCODE='55000';
+            RAISE EXCEPTION 'AD3-53: selector no encuentra preimagen de revalidación' USING ERRCODE='55000';
         END IF;
         nueva:=replace(nueva,r.antes,r.despues);
     END LOOP;
@@ -374,7 +374,7 @@ BEGIN
        OR (SELECT jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype)
             FROM pg_depend d WHERE (d.classid='pg_proc'::regclass AND d.objid=f)
             OR (d.refclassid='pg_proc'::regclass AND d.refobjid=f)) IS DISTINCT FROM deps THEN
-        RAISE EXCEPTION 'AD3-52: selector cambia revalidación ajena' USING ERRCODE='55000';
+        RAISE EXCEPTION 'AD3-53: selector cambia revalidación ajena' USING ERRCODE='55000';
     END IF;
 END $version_revalidacion$;
 
@@ -389,7 +389,7 @@ BEGIN
        OR p_recurso IS NULL OR octet_length(p_recurso) NOT BETWEEN 2 AND 16384
        OR p_decision IS NULL OR octet_length(p_decision) NOT BETWEEN 2 AND 524288
        OR p_contexto IS NULL OR octet_length(p_contexto) NOT BETWEEN 2 AND 262144 THEN
-        RAISE EXCEPTION 'AD3-52: selector inválido' USING ERRCODE='22023';
+        RAISE EXCEPTION 'AD3-53: selector inválido' USING ERRCODE='22023';
     END IF;
     b:=convert_from(p_negocio,'UTF8')::jsonb; r:=convert_from(p_recurso,'UTF8')::jsonb;
     d:=convert_from(p_decision,'UTF8')::jsonb; x:=convert_from(p_contexto,'UTF8')::jsonb;
@@ -398,7 +398,7 @@ BEGIN
     audiencia:=CASE p_accion WHEN 'vec.contacto_usuario.version_propia' THEN 'vec.contacto_usuario.version_propia.v1' ELSE 'vec.contacto_usuario.version_llamamiento.v1' END;
     IF vec_autorizacion_atestada_v3.contacto_objeto_v1(b,'{"Esquema":"string","SujetoRef":"string","FinalidadRef":"string","Audiencia":"string","Version":"number"}'::jsonb) IS NOT TRUE
        OR vec_autorizacion_atestada_v3.contacto_objeto_v1(r,'{"ambitos":"object","atributos":"object"}'::jsonb) IS NOT TRUE THEN
-        RAISE EXCEPTION 'AD3-52: campos del selector inválidos' USING ERRCODE='22023';
+        RAISE EXCEPTION 'AD3-53: campos del selector inválidos' USING ERRCODE='22023';
     END IF;
     sujeto:=b->>'SujetoRef';
     canon:='{"Esquema":"vec.contacto_usuario.version.v1","SujetoRef":'||
@@ -434,11 +434,11 @@ BEGIN
        OR x->>'perfil_activo_ref' IS DISTINCT FROM a->>'actor_profile'
        OR x->>'metodo' IS DISTINCT FROM a->>'auth_method' OR x->>'garantia' IS DISTINCT FROM a->>'auth_assurance'
        OR (p_accion='vec.contacto_usuario.version_propia' AND x->>'persona_ref' IS DISTINCT FROM sujeto) THEN
-        RAISE EXCEPTION 'AD3-52: selector no ligado a decisión y persona' USING ERRCODE='42501';
+        RAISE EXCEPTION 'AD3-53: selector no ligado a decisión y persona' USING ERRCODE='42501';
     END IF;
     RETURN b;
 EXCEPTION WHEN data_exception THEN
-    RAISE EXCEPTION 'AD3-52: selector inválido' USING ERRCODE='22023';
+    RAISE EXCEPTION 'AD3-53: selector inválido' USING ERRCODE='22023';
 END $f$;
 
 CREATE FUNCTION vec_autorizacion_atestada_v3.registrar_y_consumir_version_contacto_usuario_v3_atestada(
@@ -456,12 +456,12 @@ BEGIN
         WHEN 'vec.contacto_usuario.version_para_llamamiento' THEN 'contacto_usuario_version_llamamiento' END;
     IF perfil IS NULL OR vec_autorizacion_atestada_v3.contacto_sesion_nominal_v1(
         CASE perfil WHEN 'contacto_usuario_version_propia' THEN 'contacto_usuario_alta' ELSE 'contacto_usuario_consultar' END) IS NOT TRUE THEN
-        RAISE EXCEPTION 'AD3-52: selector denegado' USING ERRCODE='42501';
+        RAISE EXCEPTION 'AD3-53: selector denegado' USING ERRCODE='42501';
     END IF;
     PERFORM vec_autorizacion_atestada_v3.contacto_version_validar_material_v1(accion,p_negocio,p_recurso,p_auditoria,p_decision,p_contexto);
     SELECT * INTO STRICT consumo FROM vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(
         perfil,p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz);
-    IF consumo.consumo_nuevo IS NOT TRUE THEN RAISE EXCEPTION 'AD3-52: selector requiere concesión nueva' USING ERRCODE='P1102'; END IF;
+    IF consumo.consumo_nuevo IS NOT TRUE THEN RAISE EXCEPTION 'AD3-53: selector requiere concesión nueva' USING ERRCODE='P1102'; END IF;
     RETURN QUERY SELECT consumo.decision_ref,consumo.efecto_ref,consumo.huella_efecto_sha256,
         consumo.consumo_huella_sha256,consumo.auditoria_ref,consumo.consumida_en,true;
 END $f$;
@@ -480,7 +480,7 @@ BEGIN
         WHEN 'vec.contacto_usuario.version_para_llamamiento' THEN 'contacto_usuario_version_llamamiento' END;
     IF perfil IS NULL OR vec_autorizacion_atestada_v3.contacto_sesion_nominal_v1(
         CASE perfil WHEN 'contacto_usuario_version_propia' THEN 'contacto_usuario_alta' ELSE 'contacto_usuario_consultar' END) IS NOT TRUE THEN
-        RAISE EXCEPTION 'AD3-52: revalidación selector denegada' USING ERRCODE='42501';
+        RAISE EXCEPTION 'AD3-53: revalidación selector denegada' USING ERRCODE='42501';
     END IF;
     PERFORM vec_autorizacion_atestada_v3.contacto_version_validar_material_v1(accion,p_negocio,p_recurso,p_auditoria,p_decision,p_contexto);
     RETURN QUERY SELECT * FROM vec_autorizacion_atestada_v3.revalidar_consumo_consulta_rrhh_v3_interna(
@@ -535,7 +535,9 @@ BEGIN
                 AND x.privilege_type='EXECUTE' AND NOT x.is_grantable)
             FROM pg_proc p,LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) x
             WHERE p.oid=f),false) THEN
-        RAISE EXCEPTION 'AD3-52: ACL de selector divergente' USING ERRCODE='55000';
+        RAISE EXCEPTION 'AD3-53: ACL de selector divergente' USING ERRCODE='55000';
     END IF;
 END $acl_selector$;
+-- WIP: se retira sólo tras fijar postimagen y ensayo PG18 aislado.
+DO $f2_incompleta$ BEGIN RAISE EXCEPTION 'AD3-53 WIP: falta hash post-CT51 y PG18' USING ERRCODE='55000'; END $f2_incompleta$;
 COMMIT;

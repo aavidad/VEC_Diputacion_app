@@ -6,7 +6,7 @@ SET LOCAL timezone='UTC';
 SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='30s';
 SELECT pg_advisory_xact_lock(hashtextextended('vec_contacto_usuario_v1:dependencias:v1',0));
-SELECT pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:migracion:000052',0));
+SELECT pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:migracion:000053',0));
 LOCK TABLE vec_autorizacion_atestada_v3.clave_capacidad_version IN ACCESS EXCLUSIVE MODE;
 LOCK TABLE vec_autorizacion_atestada_v3.atestacion_decision_v3 IN ACCESS EXCLUSIVE MODE;
 DO $historia$
@@ -22,7 +22,7 @@ BEGIN
             WHERE audiencia_consumo IN ('vec.contacto_usuario.recibo.v1','vec.contacto_usuario.version_propia.v1','vec.contacto_usuario.version_llamamiento.v1'))
        OR EXISTS (SELECT 1 FROM vec_autorizacion_atestada_v3.atestacion_decision_v3
             WHERE convert_from(capacidad_canonica,'UTF8')::jsonb->>'audiencia_consumo' IN ('vec.contacto_usuario.recibo.v1','vec.contacto_usuario.version_propia.v1','vec.contacto_usuario.version_llamamiento.v1')) THEN
-        RAISE EXCEPTION 'AD3-52: dependencias o historia conservada; no admite DOWN' USING ERRCODE='55000';
+        RAISE EXCEPTION 'AD3-53: dependencias o historia conservada; no admite DOWN' USING ERRCODE='55000';
     END IF;
 END $historia$;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
@@ -84,7 +84,7 @@ BEGIN
            )$despues2$,1)
     ) AS cambios(antes,despues,veces) LOOP
         IF length(nueva)-length(replace(nueva,r.antes,''))<>length(r.antes)*r.veces THEN
-            RAISE EXCEPTION 'AD3-52: selector DOWN sin postimagen exacta' USING ERRCODE='55000';
+            RAISE EXCEPTION 'AD3-53: selector DOWN sin postimagen exacta' USING ERRCODE='55000';
         END IF;
         nueva:=replace(nueva,r.antes,r.despues);
     END LOOP;
@@ -95,7 +95,7 @@ BEGIN
        OR (SELECT jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype)
             FROM pg_depend d WHERE (d.classid='pg_proc'::regclass AND d.objid=f)
             OR (d.refclassid='pg_proc'::regclass AND d.refobjid=f)) IS DISTINCT FROM deps THEN
-        RAISE EXCEPTION 'AD3-52: selector cambia núcleo ajeno' USING ERRCODE='55000';
+        RAISE EXCEPTION 'AD3-53: selector cambia núcleo ajeno' USING ERRCODE='55000';
     END IF;
 END $version_nucleo$;
 
@@ -137,7 +137,7 @@ BEGIN
         v_finalidad := 'gestion_contacto_propio';$despues3$,1)
     ) AS cambios(antes,despues,veces) LOOP
         IF length(nueva)-length(replace(nueva,r.antes,''))<>length(r.antes)*r.veces THEN
-            RAISE EXCEPTION 'AD3-52: selector DOWN sin revalidación exacta' USING ERRCODE='55000';
+            RAISE EXCEPTION 'AD3-53: selector DOWN sin revalidación exacta' USING ERRCODE='55000';
         END IF;
         nueva:=replace(nueva,r.antes,r.despues);
     END LOOP;
@@ -148,7 +148,7 @@ BEGIN
        OR (SELECT jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype)
             FROM pg_depend d WHERE (d.classid='pg_proc'::regclass AND d.objid=f)
             OR (d.refclassid='pg_proc'::regclass AND d.refobjid=f)) IS DISTINCT FROM deps THEN
-        RAISE EXCEPTION 'AD3-52: selector cambia revalidación ajena' USING ERRCODE='55000';
+        RAISE EXCEPTION 'AD3-53: selector cambia revalidación ajena' USING ERRCODE='55000';
     END IF;
 END $version_revalidacion$;
 DO $version_audiencias$
@@ -162,7 +162,7 @@ BEGIN
         SELECT quote_literal(v)||'::text' FROM unnest(valores) WITH ORDINALITY x(v,n) ORDER BY n),', ')||']))';
     IF def IS DISTINCT FROM canon OR NOT (ARRAY['vec.contacto_usuario.recibo.v1',
         'vec.contacto_usuario.version_propia.v1','vec.contacto_usuario.version_llamamiento.v1']<@valores) THEN
-        RAISE EXCEPTION 'AD3-52: audiencias de selector divergentes' USING ERRCODE='55000';
+        RAISE EXCEPTION 'AD3-53: audiencias de selector divergentes' USING ERRCODE='55000';
     END IF;
     valores:=array_remove(array_remove(valores,'vec.contacto_usuario.version_propia.v1'),
         'vec.contacto_usuario.version_llamamiento.v1');
@@ -184,7 +184,7 @@ BEGIN
     IF NOT COALESCE((SELECT count(*)=1 AND bool_and(x.grantee=p.proowner AND x.grantor=p.proowner
         AND x.privilege_type='EXECUTE' AND NOT x.is_grantable) FROM pg_proc p,
         LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) x WHERE p.oid=f),false) THEN
-        RAISE EXCEPTION 'AD3-52: ACL interna divergente' USING ERRCODE='55000';
+        RAISE EXCEPTION 'AD3-53: ACL interna divergente' USING ERRCODE='55000';
     END IF;
     SELECT jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype)
         INTO deps FROM pg_depend d WHERE (d.classid='pg_proc'::regclass AND d.objid=f)
@@ -207,7 +207,7 @@ BEGIN
         ($antes2$p_perfil_mutacion IN ('contacto_usuario_alta','contacto_usuario_actualizar','contacto_usuario_consultar','contacto_usuario_recibo')$antes2$,$despues2$p_perfil_mutacion IN ('contacto_usuario_alta','contacto_usuario_actualizar','contacto_usuario_consultar')$despues2$,1)
     ) AS cambios(antes,despues,veces) LOOP
         IF length(nueva)-length(replace(nueva,r.antes,''))<>length(r.antes)*r.veces THEN
-            RAISE EXCEPTION 'AD3-52: fragmento no exacto' USING ERRCODE='55000';
+            RAISE EXCEPTION 'AD3-53: fragmento no exacto' USING ERRCODE='55000';
         END IF;
         nueva:=replace(nueva,r.antes,r.despues);
     END LOOP;
@@ -218,7 +218,7 @@ BEGIN
        OR (SELECT jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype)
             FROM pg_depend d WHERE (d.classid='pg_proc'::regclass AND d.objid=f)
             OR (d.refclassid='pg_proc'::regclass AND d.refobjid=f)) IS DISTINCT FROM deps THEN
-        RAISE EXCEPTION 'AD3-52: cambio ajeno al perfil de recibo' USING ERRCODE='55000';
+        RAISE EXCEPTION 'AD3-53: cambio ajeno al perfil de recibo' USING ERRCODE='55000';
     END IF;
 END $nucleo$;
 -- Parche literal con pre/postimagen completa; conserva metadatos y dependencias.
@@ -234,7 +234,7 @@ BEGIN
     IF NOT COALESCE((SELECT count(*)=1 AND bool_and(x.grantee=p.proowner AND x.grantor=p.proowner
         AND x.privilege_type='EXECUTE' AND NOT x.is_grantable) FROM pg_proc p,
         LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) x WHERE p.oid=f),false) THEN
-        RAISE EXCEPTION 'AD3-52: ACL interna divergente' USING ERRCODE='55000';
+        RAISE EXCEPTION 'AD3-53: ACL interna divergente' USING ERRCODE='55000';
     END IF;
     SELECT jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype)
         INTO deps FROM pg_depend d WHERE (d.classid='pg_proc'::regclass AND d.objid=f)
@@ -252,7 +252,7 @@ BEGIN
         ($antes3$p_perfil_consulta IN ('contacto_usuario','contacto_usuario_alta','contacto_usuario_actualizar','contacto_usuario_recibo')$antes3$,$despues3$p_perfil_consulta IN ('contacto_usuario','contacto_usuario_alta','contacto_usuario_actualizar')$despues3$,2)
     ) AS cambios(antes,despues,veces) LOOP
         IF length(nueva)-length(replace(nueva,r.antes,''))<>length(r.antes)*r.veces THEN
-            RAISE EXCEPTION 'AD3-52: fragmento no exacto' USING ERRCODE='55000';
+            RAISE EXCEPTION 'AD3-53: fragmento no exacto' USING ERRCODE='55000';
         END IF;
         nueva:=replace(nueva,r.antes,r.despues);
     END LOOP;
@@ -263,7 +263,7 @@ BEGIN
        OR (SELECT jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype)
             FROM pg_depend d WHERE (d.classid='pg_proc'::regclass AND d.objid=f)
             OR (d.refclassid='pg_proc'::regclass AND d.refobjid=f)) IS DISTINCT FROM deps THEN
-        RAISE EXCEPTION 'AD3-52: cambio ajeno al perfil de recibo' USING ERRCODE='55000';
+        RAISE EXCEPTION 'AD3-53: cambio ajeno al perfil de recibo' USING ERRCODE='55000';
     END IF;
 END $revalidacion$;
 DO $audiencias$
@@ -273,7 +273,7 @@ BEGIN
         WHERE conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
         AND conname='clave_capacidad_version_audiencia_consumo_check' AND contype='c' AND convalidated;
     IF length(def)-length(replace(def,marca,''))<>length(marca) THEN
-        RAISE EXCEPTION 'AD3-52: audiencias divergentes' USING ERRCODE='55000';
+        RAISE EXCEPTION 'AD3-53: audiencias divergentes' USING ERRCODE='55000';
     END IF;
     nueva:=replace(def,marca,'');
     ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version DROP CONSTRAINT clave_capacidad_version_audiencia_consumo_check;

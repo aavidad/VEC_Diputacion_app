@@ -5,7 +5,7 @@ SET LOCAL timezone='UTC';
 SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='30s';
 SELECT pg_advisory_xact_lock(hashtextextended('vec_contacto_usuario_v1:dependencias:v1',0));
-SELECT pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:migracion:000051',0));
+SELECT pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:migracion:000052',0));
 LOCK TABLE vec_autorizacion_atestada_v3.clave_capacidad_version IN ACCESS EXCLUSIVE MODE;
 LOCK TABLE vec_autorizacion_atestada_v3.atestacion_decision_v3 IN ACCESS EXCLUSIVE MODE;
 DO $historia$
@@ -22,7 +22,7 @@ BEGIN
        OR EXISTS (SELECT 1 FROM vec_autorizacion_atestada_v3.atestacion_decision_v3
             WHERE convert_from(capacidad_canonica,'UTF8')::jsonb->>'operacion' IN
                 ('vec.contacto_usuario.alta','vec.contacto_usuario.actualizar','vec.contacto_usuario.consultar')) THEN
-        RAISE EXCEPTION 'AD3-51: dependencias o historia de contacto; no admite DOWN' USING ERRCODE='55000';
+        RAISE EXCEPTION 'AD3-52: dependencias o historia de contacto; no admite DOWN' USING ERRCODE='55000';
     END IF;
 END $historia$;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
@@ -59,21 +59,21 @@ DECLARE f oid:='vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_inter
 $contactoperfiles$;
 BEGIN
     SELECT pg_get_functiondef(p.oid),to_jsonb(p)-'prosrc' INTO STRICT def,metadata FROM pg_proc p WHERE p.oid=f;
-    inicio:=strpos(def,'/* AD3-51 GUARDA INICIO */');
-    original:=strpos(def,'/* AD3-51 GUARDA ORIGINAL */');
-    fin:=strpos(def,') END) /* AD3-51 GUARDA FIN */');
+    inicio:=strpos(def,'/* AD3-52 GUARDA INICIO */');
+    original:=strpos(def,'/* AD3-52 GUARDA ORIGINAL */');
+    fin:=strpos(def,') END) /* AD3-52 GUARDA FIN */');
     IF inicio=0 OR original<=inicio OR fin<=original
        OR length(def)-length(replace(def,extension,''))<>length(extension) THEN
-        RAISE EXCEPTION 'AD3-51: postimagen de núcleo divergente' USING ERRCODE='55000';
+        RAISE EXCEPTION 'AD3-52: postimagen de núcleo divergente' USING ERRCODE='55000';
     END IF;
-    nueva:=overlay(def placing substring(def FROM original+length('/* AD3-51 GUARDA ORIGINAL */')
-        FOR fin-original-length('/* AD3-51 GUARDA ORIGINAL */'))
-        FROM inicio FOR fin-inicio+length(') END) /* AD3-51 GUARDA FIN */'));
+    nueva:=overlay(def placing substring(def FROM original+length('/* AD3-52 GUARDA ORIGINAL */')
+        FOR fin-original-length('/* AD3-52 GUARDA ORIGINAL */'))
+        FROM inicio FOR fin-inicio+length(') END) /* AD3-52 GUARDA FIN */'));
     nueva:=replace(nueva,extension,'');
     EXECUTE nueva;
     IF pg_get_functiondef(f) IS DISTINCT FROM nueva OR
        (SELECT to_jsonb(p)-'prosrc' FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM metadata THEN
-        RAISE EXCEPTION 'AD3-51: restauración divergente' USING ERRCODE='55000';
+        RAISE EXCEPTION 'AD3-52: restauración divergente' USING ERRCODE='55000';
     END IF;
 END $restaurar$;
 DO $audiencias$
@@ -83,7 +83,7 @@ BEGIN
         WHERE conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
         AND conname='clave_capacidad_version_audiencia_consumo_check' AND contype='c' AND convalidated;
     IF length(def)-length(replace(def,marca,''))<>length(marca) THEN
-        RAISE EXCEPTION 'AD3-51: postimagen de audiencias divergente' USING ERRCODE='55000';
+        RAISE EXCEPTION 'AD3-52: postimagen de audiencias divergente' USING ERRCODE='55000';
     END IF;
     nueva:=replace(def,marca,'');
     ALTER TABLE vec_autorizacion_atestada_v3.clave_capacidad_version DROP CONSTRAINT clave_capacidad_version_audiencia_consumo_check;
@@ -99,13 +99,13 @@ BEGIN
     SELECT pg_get_functiondef(p.oid),to_jsonb(p)-'prosrc' INTO STRICT def,metadata FROM pg_proc p
         WHERE p.oid=f AND p.proowner='vec_autorizacion_atestada_v3_propietario'::regrole
         AND encode(sha256(convert_to(prosrc,'UTF8')),'hex')='984574088bcae01e38631358510d9cdab3b35ba94d917a553b0bb8bef9017190';
-    inicio:=strpos(def,'/* AD3-51 RV INICIO */'); original:=strpos(def,'/* AD3-51 RV ORIGINAL */');
-    fin:=strpos(def,') END) /* AD3-51 RV FIN */');
+    inicio:=strpos(def,'/* AD3-52 RV INICIO */'); original:=strpos(def,'/* AD3-52 RV ORIGINAL */');
+    fin:=strpos(def,') END) /* AD3-52 RV FIN */');
     IF inicio=0 OR original<=inicio OR fin<=original THEN
-        RAISE EXCEPTION 'AD3-51: revalidación posterior incompatible' USING ERRCODE='55000';
+        RAISE EXCEPTION 'AD3-52: revalidación posterior incompatible' USING ERRCODE='55000';
     END IF;
-    nueva:=overlay(def placing substring(def FROM original+length('/* AD3-51 RV ORIGINAL */')
-        FOR fin-original-length('/* AD3-51 RV ORIGINAL */')) FROM inicio FOR fin-inicio+length(') END) /* AD3-51 RV FIN */'));
+    nueva:=overlay(def placing substring(def FROM original+length('/* AD3-52 RV ORIGINAL */')
+        FOR fin-original-length('/* AD3-52 RV ORIGINAL */')) FROM inicio FOR fin-inicio+length(') END) /* AD3-52 RV FIN */'));
     nueva:=replace(nueva,$antes$p_perfil_consulta NOT IN ('cuadro', 'detalle', 'contacto_usuario', 'contacto_usuario_alta', 'contacto_usuario_actualizar')$antes$,$despues$p_perfil_consulta NOT IN ('cuadro', 'detalle')$despues$);
     nueva:=replace(nueva,$antes$IF p_perfil_consulta = 'contacto_usuario_alta' THEN
         v_audiencia := 'vec.contacto_usuario.registro.v1';
@@ -126,9 +126,9 @@ BEGIN
     nueva:=replace(nueva,$antes$d ->> 'modulo_id' IS DISTINCT FROM (CASE WHEN p_perfil_consulta IN ('contacto_usuario','contacto_usuario_alta','contacto_usuario_actualizar')
            THEN 'vec.module.usuarios' ELSE 'contratacion_temporal' END)$antes$,$despues$d ->> 'modulo_id' <> 'contratacion_temporal'$despues$);
     EXECUTE nueva;
-    IF (SELECT encode(sha256(convert_to(prosrc,'UTF8')),'hex') FROM pg_proc WHERE oid=f) IS DISTINCT FROM '7cfc002cff8878fc36288fa1200de1c51965e9ae4d84b4ffe6179bc62372b5ff'
+    IF (SELECT encode(sha256(convert_to(prosrc,'UTF8')),'hex') FROM pg_proc WHERE oid=f) IS DISTINCT FROM '3530828669500274e9a46838c0d890aa0a974c2779e3fa38b5b2054c3919706d'
        OR (SELECT to_jsonb(p)-'prosrc' FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM metadata THEN
-        RAISE EXCEPTION 'AD3-51: restauración de revalidación divergente' USING ERRCODE='55000';
+        RAISE EXCEPTION 'AD3-52: restauración de revalidación divergente' USING ERRCODE='55000';
     END IF;
 END $revalidacion$;
 DROP FUNCTION vec_autorizacion_atestada_v3.revalidar_consulta_contacto_usuario_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea,bytea) RESTRICT;

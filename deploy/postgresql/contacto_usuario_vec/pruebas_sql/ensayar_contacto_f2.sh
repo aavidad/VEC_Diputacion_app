@@ -22,7 +22,7 @@ raiz=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)
 contenedor="vec-f2-pg18-$$"
 base="vec_f2_$$"
 imagen=${VEC_POSTGRES_TEST_IMAGE:-postgres:18.4-bookworm@sha256:1961f96e6029a02c3812d7cb329a3b03a3ac2bb067058dec17b0f5596aca9296}
-limpiar(){ docker rm -f "$contenedor" >/dev/null 2>&1 || true; for tmp in "${transaccion:-}" "${roles_sql:-}"; do if [[ -n "$tmp" && -f "$tmp" ]]; then unlink "$tmp"; fi; done; if [[ -n "${socketdir:-}" ]]; then rm -f "$socketdir/.s.PGSQL.5432" "$socketdir/.s.PGSQL.5432.lock"; rmdir "$socketdir" 2>/dev/null || true; fi; }
+limpiar(){ docker rm -f "$contenedor" >/dev/null 2>&1 || true; for tmp in "${transaccion:-}" "${roles_sql:-}" "${prueba_json:-}"; do if [[ -n "$tmp" && -f "$tmp" ]]; then unlink "$tmp"; fi; done; if [[ -n "${socketdir:-}" ]]; then rm -f "$socketdir/.s.PGSQL.5432" "$socketdir/.s.PGSQL.5432.lock"; rmdir "$socketdir" 2>/dev/null || true; fi; }
 trap limpiar EXIT INT TERM
 volumen=()
 if [[ "${VEC_F2_POSITIVO:-}" == 1 ]]; then
@@ -73,15 +73,21 @@ aplicar "$raiz/deploy/postgresql/bolsa_registro_accesos/migraciones/000004_prepa
 aplicar "$raiz/deploy/postgresql/bolsa_registro_accesos/migraciones/000004_preparar_resultado_correo_ad3.up.sql"
 aplicar "$raiz/deploy/postgresql/bolsa_registro_accesos/cerrar_acl_dba.sql"
 aplicar "$raiz/deploy/postgresql/bolsa_registro_accesos/migraciones/000005_registrar_resultado_correo.up.sql"
+# CT51 es la postimagen obligatoria previa. Su rol se instala por la migración
+# productiva CT cuando esté integrada en esta rama; nunca con GRANT de ensayo.
+rol_ct="$raiz/deploy/postgresql/contratacion_temporal/roles_consultor_rrhh_ambito_up.sql"
+[[ -r "$rol_ct" ]] || { echo 'F2: falta rol productivo CT previo a AD3-51' >&2; exit 1; }
+aplicar "$rol_ct"
+aplicar "$raiz/deploy/postgresql/autorizacion_atestada_v3/migraciones/000051_consulta_rrhh_ambito_productiva.up.sql"
 core_original=$(consulta "SELECT encode(sha256(convert_to(prosrc,'UTF8')),'hex') FROM pg_proc WHERE oid='vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure")
-preimagen=$(consulta "SELECT current_setting('server_version_num')::int BETWEEN 180000 AND 189999 AND current_database() LIKE 'vec_f2_%' AND to_regnamespace('vec_bolsa_registro_accesos') IS NOT NULL AND to_regnamespace('vec_contacto_usuario_v1') IS NULL AND to_regrole('vec_contacto_usuario_owner') IS NULL AND to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL AND to_regprocedure('vec_bolsa_registro_accesos.registrar_resultado_correo_llamamiento_ct_v1(bytea,text,bytea,bytea,text,text,text,boolean,text)') IS NOT NULL")
+preimagen=$(consulta "SELECT current_setting('server_version_num')::int BETWEEN 180000 AND 189999 AND current_database() LIKE 'vec_f2_%' AND to_regnamespace('vec_bolsa_registro_accesos') IS NOT NULL AND to_regnamespace('vec_contacto_usuario_v1') IS NULL AND to_regrole('vec_contacto_usuario_owner') IS NULL AND to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea)') IS NOT NULL AND to_regprocedure('vec_bolsa_registro_accesos.registrar_resultado_correo_llamamiento_ct_v1(bytea,text,bytea,bytea,text,text,text,boolean,text)') IS NOT NULL AND (SELECT encode(sha256(convert_to(prosrc,'UTF8')),'hex') FROM pg_proc WHERE oid='vec_autorizacion_atestada_v3.consumir_consulta_rrhh_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure)='6baef6127627ce9d6e6146c9d5425d7463f1a89b10411aac70fa70ed1944fd98'")
 [[ "$preimagen" == t ]] || { echo 'F2: preimagen PG18/main50 no acreditada' >&2; exit 1; }
 archivos=(
   "$raiz/deploy/postgresql/contacto_usuario_vec/roles_up.sql"
-  "$raiz/deploy/postgresql/autorizacion_atestada_v3/migraciones/000051_consumidor_contacto_usuario.up.sql"
+  "$raiz/deploy/postgresql/autorizacion_atestada_v3/migraciones/000052_consumidor_contacto_usuario.up.sql"
   "$raiz/deploy/postgresql/bolsa_registro_accesos/migraciones/000006_registrar_contacto_usuario.up.sql"
   "$raiz/deploy/postgresql/contacto_usuario_vec/migraciones/000001_almacen_contacto_usuario.up.sql"
-  "$raiz/deploy/postgresql/autorizacion_atestada_v3/migraciones/000052_consulta_recibo_contacto_propio.up.sql"
+  "$raiz/deploy/postgresql/autorizacion_atestada_v3/migraciones/000053_consulta_recibo_contacto_propio.up.sql"
   "$raiz/deploy/postgresql/bolsa_registro_accesos/migraciones/000007_consulta_recibo_contacto_propio.up.sql"
   "$raiz/deploy/postgresql/contacto_usuario_vec/migraciones/000002_consulta_recibo_contacto_propio.up.sql"
 )
@@ -94,7 +100,7 @@ transaccion=$(mktemp)
   echo 'BEGIN;'
   for archivo in "${archivos[@]}"; do
     printf '%s\n' "\\echo F2 ROLLBACK $(basename "$archivo")"
-    if [[ "${VEC_F2_DIAGNOSTICO:-}" == 1 && "$archivo" == *000052_consulta_recibo_contacto_propio.up.sql ]]; then
+    if [[ "${VEC_F2_DIAGNOSTICO:-}" == 1 && "$archivo" == *000053_consulta_recibo_contacto_propio.up.sql ]]; then
       echo "SELECT 'CORE_PRE='||encode(sha256(convert_to(prosrc,'UTF8')),'hex') FROM pg_proc WHERE oid='vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;"
       echo "SELECT 'REVALIDACION_PRE='||encode(sha256(convert_to(prosrc,'UTF8')),'hex') FROM pg_proc WHERE oid='vec_autorizacion_atestada_v3.revalidar_consumo_consulta_rrhh_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;"
     fi
@@ -124,14 +130,30 @@ if [[ "${VEC_F2_POSITIVO:-}" == 1 ]]; then
   docker exec --user root "$contenedor" chmod 0777 /var/run/postgresql
   dsn(){ printf 'host=%s port=5432 dbname=%s user=%s sslmode=disable' "$socketdir" "$base" "$1"; }
   cd "$raiz"
-  VEC_F2_CONTACTO_PG18_DESECHABLE=1 \
+  prueba_json=$(mktemp)
+  if ! VEC_F2_CONTACTO_PG18_DESECHABLE=1 \
   VEC_F2_CONTACTO_PG_ADMIN_DSN="$(dsn postgres)" \
   VEC_F2_CONTACTO_PG_CONTEXTO_DSN="$(dsn vec_contacto_f2_contexto_login)" \
   VEC_F2_CONTACTO_PG_FUENTE_DSN="$(dsn vec_contacto_f2_fuente_login)" \
   VEC_F2_CONTACTO_PG_REGISTRO_DSN="$(dsn vec_contacto_f2_registro_login)" \
   VEC_F2_CONTACTO_PG_MOTIVOS_DSN="$(dsn vec_contacto_f2_motivos_login)" \
   VEC_F2_CONTACTO_PG_WRITER_DSN="$(dsn vec_contacto_f2_login)" \
-  GOMAXPROCS=2 go test ./internal/app/bootstrap -run '^TestContactoPropioPG18MaterialFirmadoYConsumoNominal$' -count=1 -v
+  GOMAXPROCS=2 go test ./internal/app/bootstrap -run '^TestContactoPropioPG18MaterialFirmadoYConsumoNominal$' -count=1 -json > "$prueba_json" 2>&1; then
+    echo 'F2: prueba positiva PG18 falló; log efímero privado retenido sólo durante este proceso' >&2
+    exit 1
+  fi
+  python3 - "$prueba_json" <<'PYRESULTADO'
+import json,sys
+objetivo='TestContactoPropioPG18MaterialFirmadoYConsumoNominal'
+paso=omito=False
+for linea in open(sys.argv[1],encoding='utf-8'):
+    try: evento=json.loads(linea)
+    except ValueError: continue
+    if evento.get('Test')==objetivo:
+        paso |= evento.get('Action')=='pass'
+        omito |= evento.get('Action')=='skip'
+if not paso or omito: raise SystemExit('F2: prueba positiva omitida o sin PASS; no acreditar consumo')
+PYRESULTADO
   echo 'F2: material COSE real y POST nominal probado en PG18 aislado; comprobar detalle Go antes de atribuir GET/replay'
   exit 0
 fi
@@ -141,12 +163,12 @@ retirar_login
 for archivo in \
   "$raiz/deploy/postgresql/contacto_usuario_vec/migraciones/000002_consulta_recibo_contacto_propio.down.sql" \
   "$raiz/deploy/postgresql/bolsa_registro_accesos/migraciones/000007_consulta_recibo_contacto_propio.down.sql" \
-  "$raiz/deploy/postgresql/autorizacion_atestada_v3/migraciones/000052_consulta_recibo_contacto_propio.down.sql" \
+  "$raiz/deploy/postgresql/autorizacion_atestada_v3/migraciones/000053_consulta_recibo_contacto_propio.down.sql" \
   "$raiz/deploy/postgresql/contacto_usuario_vec/migraciones/000001_almacen_contacto_usuario.down.sql" \
   "$raiz/deploy/postgresql/bolsa_registro_accesos/migraciones/000006_registrar_contacto_usuario.down.sql" \
-  "$raiz/deploy/postgresql/autorizacion_atestada_v3/migraciones/000051_consumidor_contacto_usuario.down.sql"; do aplicar "$archivo"; done
+  "$raiz/deploy/postgresql/autorizacion_atestada_v3/migraciones/000052_consumidor_contacto_usuario.down.sql"; do aplicar "$archivo"; done
 [[ "$(consulta "SELECT encode(sha256(convert_to(prosrc,'UTF8')),'hex') FROM pg_proc WHERE oid='vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure")" == "$core_original" ]] || { echo 'F2: DOWN alteró núcleo previo' >&2; exit 1; }
 for archivo in "${archivos[@]:1}"; do aplicar "$archivo"; done
 preparar_login
 aplicar "$raiz/deploy/postgresql/contacto_usuario_vec/pruebas_sql/ensayar_contacto_f2.sql"
-echo 'F2: ROLLBACK, COMMIT, DOWN vacío, reinstalación y ACL LOGIN AD3 50→51/52 acreditados en PG18 desechable; Cronos 55 pertenece a F3'
+echo 'F2: ROLLBACK, COMMIT, DOWN vacío, reinstalación y ACL LOGIN CT51→Contacto52/53 acreditados en PG18 desechable; Cronos pertenece a F3'
