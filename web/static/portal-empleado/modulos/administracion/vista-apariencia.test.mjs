@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFile } from "node:fs/promises";
 import { montarVistaApariencia } from "./vista-apariencia.js";
 import { crearTraductorAdministracion } from "./i18n.js";
 
@@ -177,4 +178,27 @@ test("tras una sustitución externa, otra preview toma como base el tema nuevo",
   raiz.buscar((n) => n.etiqueta === "button" && n.textContent === "Restablecer").emitir("click");
   assert.equal(documento.documentElement.getAttribute("data-tema"), "institucional");
   vista.desmontar();
+});
+
+test("el import versionado es distinto y la carga real permite previsualizar", async () => {
+  const sinVersion = new URL("../../../comun/tema-vec.js", import.meta.url);
+  const versionada = new URL("../../../comun/tema-vec.js?v=20260924-f2-web2", import.meta.url);
+  assert.notEqual(versionada.href, sinVersion.href);
+  const rutaNavegador = new URL("../../../comun/tema-vec.js?v=20260924-f2-web2", "https://vec.example/portal-empleado/modulos/administracion/vista-apariencia.js");
+  assert.equal(rutaNavegador.pathname, "/comun/tema-vec.js");
+  assert.equal(rutaNavegador.search, "?v=20260924-f2-web2");
+  const fuente = await readFile(new URL("./vista-apariencia.js", import.meta.url), "utf8");
+  assert.match(fuente, /import\("\.\.\/\.\.\/\.\.\/comun\/tema-vec\.js\?v=20260924-f2-web2"\)/u);
+
+  const documento = documentoFalso();
+  const raiz = documento.createElement("div");
+  const vista = montarVistaApariencia({ raiz, t: crearTraductorAdministracion() });
+  await esperarEstado(raiz, "disponible");
+  const granate = raiz.buscar((n) => n.etiqueta === "input" && n.value === "granate");
+  granate.checked = true;
+  granate.emitir("change");
+  raiz.buscar((n) => n.etiqueta === "form").emitir("submit");
+  assert.equal(documento.documentElement.getAttribute("data-tema"), "granate");
+  vista.desmontar();
+  assert.equal(documento.documentElement.getAttribute("data-tema"), null);
 });
