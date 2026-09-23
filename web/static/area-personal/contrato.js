@@ -1,4 +1,5 @@
 const ESQUEMA_PANEL = "vec.bolsa.area-personal.v1";
+export const ESQUEMA_MI_BOLSA = "vec.bolsa.mi_bolsa.v1";
 const ESQUEMA_RECIBO = "vec.bolsa.area-personal.recibo.v1";
 const ESQUEMA_RECIBO_PRESENTACION = "vec.bolsa.area-personal.recibo-demo.v1";
 const PATRON_DNI_NIE = /\b(?:[XYZ]\d{7}[A-Z]|\d{8}[A-Z])\b/i;
@@ -126,6 +127,26 @@ function congelarProfundo(valor) {
     Object.freeze(valor);
   }
   return valor;
+}
+
+export function validarRespuestaMiBolsa(entrada) {
+  const datos = structuredClone(exigirObjeto(exigirObjeto(entrada, "respuesta mi-bolsa").data, "respuesta mi-bolsa.data"));
+  if (exigirCadena(datos.esquema, "mi-bolsa.esquema", 80) !== ESQUEMA_MI_BOLSA) {
+    throw new TypeError("El esquema de mi bolsa no es compatible.");
+  }
+  exigirInstante(datos.consultada_en, "mi-bolsa.consultada_en");
+  exigirLista(datos.participaciones, "mi-bolsa.participaciones").forEach((participacion, indice) => {
+    const item = exigirObjeto(participacion, `mi-bolsa.participaciones[${indice}]`);
+    exigirReferencia(item.bolsa, `mi-bolsa.participaciones[${indice}].bolsa`);
+    exigirCadena(item.categoria, `mi-bolsa.participaciones[${indice}].categoria`, 200);
+    exigirNumero(item.version, `mi-bolsa.participaciones[${indice}].version`, { minimo: 1 });
+    exigirNumero(item.orden_inicial, `mi-bolsa.participaciones[${indice}].orden_inicial`, { minimo: 1 });
+    exigirNumero(item.total_instantanea, `mi-bolsa.participaciones[${indice}].total_instantanea`, { minimo: 0 });
+    exigirCadena(item.estado_bolsa, `mi-bolsa.participaciones[${indice}].estado_bolsa`, 80);
+    exigirFechaOInstante(item.vigente_desde, `mi-bolsa.participaciones[${indice}].vigente_desde`);
+    if (item.vigente_hasta !== null) exigirFechaOInstante(item.vigente_hasta, `mi-bolsa.participaciones[${indice}].vigente_hasta`);
+  });
+  return congelarProfundo(datos);
 }
 
 export function validarDatosAreaPersonal(entrada, { presentacionEsperada = false } = {}) {

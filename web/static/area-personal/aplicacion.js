@@ -63,8 +63,8 @@ export function esOrigenSinteticoODesarrollo(meta = {}) {
 
 function rutaDesdeURL() {
   const parametros = new URLSearchParams(window.location.search);
-  const vista = parametros.get("vista") || "inicio";
-  return RUTAS[vista] ? vista : "inicio";
+  const vista = parametros.get("vista") || "llamamientos";
+  return RUTAS[vista] ? vista : "llamamientos";
 }
 
 function formularioAObjeto(formulario) {
@@ -155,8 +155,21 @@ function notificar(mensaje) {
 
 function mostrarError(estado, error) {
   porId("estado-carga").hidden = true;
-  porId("espacio-trabajo").innerHTML = `<section class="estado-error" role="alert"><h2>No se pudo cargar el área personal</h2><p>${escaparHTML(error instanceof Error ? error.message : "Servicio no disponible.")}</p><p>No se muestran datos aparentes y no se ha realizado ninguna operación.</p><button type="button" class="boton-primario" data-accion="reintentar">Reintentar conexión segura</button></section>`;
+  const autenticacion = error?.codigo === "autenticacion_requerida";
+  const acceso = error?.codigo === "acceso_denegado";
+  porId("espacio-trabajo").innerHTML = `<section class="estado-error" role="alert"><h2>${autenticacion ? "Identifíquese para consultar su bolsa" : acceso ? "No tiene acceso a esta área personal" : "No se pudo cargar el área personal"}</h2><p>${escaparHTML(autenticacion ? "Use su DNIe o certificado para continuar. Identificarse con certificado no firma documentos." : error instanceof Error ? error.message : "Servicio no disponible.")}</p><p>${acceso ? "No se muestran datos de otra persona." : "No se muestran datos aparentes y no se ha realizado ninguna operación."}</p>${acceso ? "" : '<button type="button" class="boton-primario" data-accion="reintentar">Reintentar conexión segura</button>'}</section>`;
   estado.error = error;
+}
+
+function datosMinimosMiBolsa(consulta) {
+  return Object.freeze({
+    meta: { presentacion: false, origen: "GET /api/vec/bolsa/mi-bolsa", generado_en: consulta.consultada_en },
+    sesion: { nombre_visible: "Candidato identificado", iniciales: "CI", metodo: "DNIe o certificado", persona_ref: "candidato:identificado" },
+    resumen: { acciones_pendientes: 0, convocatorias_abiertas: 0, solicitudes_activas: 0, mensajes_no_leidos: 0, puntuacion_provisional: 0 },
+    perfil: { referencia: "perfil:pendiente", nombre_visible: "Pendiente de integración", identificador_visible: "Pendiente de integración", correo: "Pendiente de integración", telefono: "Pendiente de integración", domicilio: "Pendiente de integración", estado_verificacion: "Pendiente de integración" },
+    plazos: [], convocatorias: [], meritos: [], solicitudes: [], baremo: [], llamamientos: [], subsanaciones: [], alegaciones: [], mensajes: [], certificados: [], documentos: [], actividad: [], ayuda: [], contratos: [],
+    disponibilidad: { disponible: false, estado: "Pendiente de integración" }, capacidades: {},
+  });
 }
 
 function actualizarShell(estado) {
@@ -453,6 +466,10 @@ function atenderAccion(estado, boton) {
   if (accion === "ver-sesion") return verSesion(estado);
   if (accion === "descargar-recibo") return void descargarRecibo(estado);
   if (accion === "reintentar") return cargar(estado);
+  if (accion === "pagina-participaciones") {
+    estado.paginaParticipaciones = Math.max(1, Number(boton.dataset.pagina || 1));
+    return renderizar(estado, { enfocar: true });
+  }
   if (accion === "abrir-convocatoria") return navegar(estado, "convocatoria", { id: boton.dataset.id });
   if (accion === "volver-convocatorias") return navegar(estado, "convocatorias");
   if (accion === "iniciar-solicitud") {
@@ -650,9 +667,13 @@ async function cargar(estado) {
   porId("estado-carga").innerHTML = '<span aria-hidden="true"></span>Cargando información autorizada…';
   porId("espacio-trabajo").replaceChildren();
   try {
-    const datos = await estado.cliente.cargar();
+    const respuesta = await estado.cliente.cargar();
+    const datos = respuesta?.datos || (respuesta?.consulta ? datosMinimosMiBolsa(respuesta.consulta) : respuesta);
     if (datos.meta.presentacion !== estado.presentacionSolicitada) throw new Error("El origen recibido no coincide con el modo solicitado.");
     estado.datos = datos;
+    estado.participaciones = respuesta?.consulta?.participaciones || [];
+    estado.fuenteBolsa = respuesta?.fuente || "real";
+    estado.causaBolsa = respuesta?.causa || "";
     if (!estado.convocatoriaSolicitud) {
       estado.convocatoriaSolicitud = datos.convocatorias.find((item) => item.estado === "Plazo abierto"
         || (datos.meta.presentacion && item.recorrido_demo === true))?.id || "";
@@ -687,6 +708,10 @@ export async function iniciarAreaPersonal({ cliente, descargarReciboPDF = null, 
     errorPasoSolicitud: "",
     operacionPendiente: null,
     ultimoRecibo: null,
+    participaciones: [],
+    paginaParticipaciones: 1,
+    fuenteBolsa: "real",
+    causaBolsa: "",
   };
   if (presentacionSolicitada) porId("aviso-presentacion").hidden = false;
   conectarEventos(estado);

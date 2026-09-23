@@ -36,7 +36,7 @@ test("la superficie cubre todos los recorridos solicitados y conserva semántica
   const fuentes = (await Promise.all((await archivosEn(join(RAIZ, "vistas"))).map((ruta) => readFile(ruta, "utf8")))).join("\n");
   for (const texto of [
     "Inicio y plazos", "Convocatorias", "Perfil y contacto", "Méritos y documentos",
-    "Nueva solicitud", "Autobaremación", "Mis expedientes", "Disponibilidad y llamamientos",
+    "Nueva solicitud", "Autobaremación", "Mis expedientes", "Mi bolsa",
     "Subsanaciones", "Alegaciones", "Mensajes y noticias", "Certificados y descargas",
     "Ayuda y accesibilidad",
   ]) assert.match(`${html}\n${fuentes}`, new RegExp(texto, "u"), texto);
@@ -243,54 +243,30 @@ test("la composición conserva el modo en enlaces y bloquea capacidades antes de
   assert.match(aplicacion, /\["Objetivo", escaparHTML\(recibo\.objetivo\)\]/u);
 });
 
-test("la sección Mi posición se renderiza en disponibilidad cuando está presente (B11)", async () => {
+test("la ficha propia muestra la participación sin convertirla en una decisión de RRHH", async () => {
   const adaptador = crearAdaptadorPresentacion();
   const datos = await adaptador.cargar();
   const html = renderizarLlamamientos(datos);
 
-  assert.match(html, /<h3>Mi posición<\/h3>/u);
-  assert.match(html, /#18/u);
+  assert.match(html, /<h3>Mi participación<\/h3>/u);
+  assert.match(html, /18 de 146/u);
   assert.match(html, /Operario\/a/u);
   assert.match(html, /146/u);
 
-  // Cuando no hay posición en los datos, no se muestra la sección
+  // Sin posición ni participación se informa de la ausencia de datos.
   const datosSinPosicion = structuredClone(datos);
   delete datosSinPosicion.posicion;
   const htmlSin = renderizarLlamamientos(datosSinPosicion);
-  assert.doesNotMatch(htmlSin, /<h3>Mi posición<\/h3>/u);
+  assert.match(htmlSin, /Sin participaciones activas/u);
 });
 
-test("el formulario de disponibilidad B8 es accesible y marca su efecto efímero", async () => {
+test("la disponibilidad B8 no se simula mientras sigue pendiente de integración", async () => {
   const adaptador = crearAdaptadorPresentacion();
   const datos = await adaptador.cargar();
 
-  // 1. Estado disponible -> formulario de pausa
   const htmlDisponible = renderizarLlamamientos(datos);
-  assert.match(htmlDisponible, /<form\b[^>]*data-operacion="cambiar_disponibilidad"/u);
-  assert.match(htmlDisponible, /name="motivo_texto"/u);
-  assert.match(htmlDisponible, /pendientes de confirmación por RRHH/u);
-  assert.match(htmlDisponible, /no modifica la bolsa/u);
-  assert.match(htmlDisponible, /<input type="checkbox" name="confirmacion" required>/u);
-  assert.match(htmlDisponible, /<button type="submit" class="boton-peligro">/u);
-
-  // Accesibilidad: etiquetas vinculadas a campos
-  assert.match(htmlDisponible, /<label for="texto-pausa">/u);
-  assert.match(htmlDisponible, /id="texto-pausa"/u);
-
-  // 2. Estado no disponible -> formulario de reactivación
-  const datosNoDisponible = structuredClone(datos);
-  datosNoDisponible.disponibilidad.disponible = false;
-  datosNoDisponible.disponibilidad.estado_clave = "no_disponible";
-  datosNoDisponible.disponibilidad.estado = "No disponible (pausa voluntaria)";
-  const htmlNoDisponible = renderizarLlamamientos(datosNoDisponible);
-  assert.match(htmlNoDisponible, /<input type="hidden" name="disponible" value="true">/u);
-  assert.match(htmlNoDisponible, /<input type="checkbox" name="confirmacion" required>/u);
-  assert.match(htmlNoDisponible, /<button type="submit" class="boton-primario">Ensayar reactivación<\/button>/u);
-
-  // Estricto: el formulario B8 declara que no produce un efecto durable.
-  const formDisponibilidad = htmlDisponible.match(/<form[^>]*id="form-disponibilidad"[\s\S]*?<\/form>/u)?.[0] || "";
-  assert.ok(formDisponibilidad.length > 0);
-  assert.match(formDisponibilidad, /solo cambia esta vista en memoria/iu);
+  assert.match(htmlDisponible, /<strong>Pendiente de integración\.<\/strong> Esta información no la devuelve todavía Mi bolsa\./u);
+  assert.doesNotMatch(htmlDisponible, /data-operacion="cambiar_disponibilidad"|Ensayar pausa|Ensayar reactivación/u);
 });
 
 test("llamamientos y contratos vacíos son explícitos sin inventar fecha de comunicación", async () => {
@@ -298,8 +274,8 @@ test("llamamientos y contratos vacíos son explícitos sin inventar fecha de com
   datos.llamamientos = [];
   datos.contratos = [];
   const html = renderizarLlamamientos(datos);
-  assert.match(html, /Sin llamamientos/u);
-  assert.match(html, /No consta ningún contrato propio/u);
+  assert.match(html, /Llamamientos/u);
+  assert.match(html, /Pendiente de integración/u);
   const conLlamamientos = renderizarLlamamientos(await crearAdaptadorPresentacion().cargar());
-  assert.doesNotMatch(conLlamamientos, /Comunicado el/u);
+  assert.doesNotMatch(conLlamamientos, /Comunicado el|Aceptar llamamiento/u);
 });
