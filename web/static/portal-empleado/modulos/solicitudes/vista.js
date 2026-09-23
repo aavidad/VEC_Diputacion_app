@@ -59,7 +59,10 @@ function certificados(datos, t) {
 export function renderizarSolicitudes(estado = {}, mensajes = MENSAJES_SOLICITUDES_ES) {
   const t = crearTraductorSolicitudes(mensajes);
   const situacion = SITUACIONES.has(estado.situacion) ? estado.situacion : "no_configurado";
-  const datos = situacion === "disponible" && estado.datos && typeof estado.datos === "object" ? estado.datos : {};
+  const datos = situacion === "disponible" && estado.datos && typeof estado.datos === "object" ? estado.datos
+    : situacion === "vacio" && estado.datos && typeof estado.datos === "object"
+      ? { tramites: [], catalogo: lista(estado.datos.catalogo), certificados: lista(estado.datos.certificados) }
+      : {};
   const pestana = PESTANAS.includes(estado.pestana) ? estado.pestana : "bandeja";
   const seguro = { busqueda: String(estado.busqueda ?? ""), filtro: ESTADOS.includes(estado.filtro) ? estado.filtro : "todos", seleccionada: situacion === "disponible" ? String(estado.seleccionada ?? "") : "" };
   const contenido = pestana === "bandeja" ? bandeja(datos, seguro, t)
