@@ -211,7 +211,7 @@ function actualizarShell(estado) {
   contadorMensajes.hidden = datos.resumen.mensajes_no_leidos === 0;
 }
 
-function renderizar(estado, { enfocar = false } = {}) {
+function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {}) {
   if (!estado.datos) return;
   estado.destruirContactoPropio?.();
   estado.destruirContactoPropio = null;
@@ -221,6 +221,7 @@ function renderizar(estado, { enfocar = false } = {}) {
     estado.abortContactoPropio = null;
     estado.cargandoContactoPropio = false;
   }
+  if (estado.vista !== "perfil") Object.assign(estado, { contactoPropio: null, contactoPropioRecibo: null, contactoPropioCargado: false });
   estado.vista = RUTAS[estado.vista] ? estado.vista : "inicio";
   actualizarShell(estado);
   porId("estado-carga").hidden = true;
@@ -256,11 +257,10 @@ function renderizar(estado, { enfocar = false } = {}) {
       presentacion: estado.presentacionSolicitada || estado.datos.meta.presentacion === true,
       alConfirmar: (resultado) => {
         conservarResultadoContactoPropio(estado, resultado);
-        Object.assign(estado, { contactoPropioConfirmacionReciente: resultado, contactoPropioEnfocarConfirmacion: true });
-        if (estado.vista === "perfil") renderizar(estado);
+        if (estado.vista === "perfil") renderizar(estado, { confirmacionContacto: resultado });
       },
       alDenegar: () => {
-        Object.assign(estado, { contactoPropio: null, contactoPropioRecibo: null, contactoPropioConfirmacionReciente: null });
+        Object.assign(estado, { contactoPropio: null, contactoPropioRecibo: null });
       },
     });
     const montajeContacto = montarContactoPropio({
@@ -269,11 +269,11 @@ function renderizar(estado, { enfocar = false } = {}) {
       autorizacionServidor: estado.contactoPropio,
       fetchImpl: estado.fetchImpl,
       presentacion: estado.presentacionSolicitada || estado.datos.meta.presentacion === true,
-      reciboAnterior: estado.contactoPropioRecibo, confirmacionReciente: estado.contactoPropioConfirmacionReciente,
-      enfocarConfirmacion: estado.contactoPropioEnfocarConfirmacion,
+      reciboAnterior: estado.contactoPropioRecibo, confirmacionReciente: confirmacionContacto,
+      enfocarConfirmacion: Boolean(confirmacionContacto),
       controlador: estado.controladorContactoPropio,
     });
-    estado.contactoPropioEnfocarConfirmacion = false; estado.destruirContactoPropio = montajeContacto?.destruir ?? null;
+    estado.destruirContactoPropio = montajeContacto?.destruir ?? null;
   }
 
   if (enfocar) {

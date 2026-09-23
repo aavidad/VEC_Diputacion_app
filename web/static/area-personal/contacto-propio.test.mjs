@@ -198,9 +198,13 @@ test("remonte durante callback de confirmación no convierte el recibo válido e
 test("remonte tras 201 o 503 recuperado enfoca estado concreto con recibo original", async () => {
   for (const incierto of [false, true]) {
     const peticiones = [];
+    let consultas = 0;
+    let resolverIndiceNuevo;
     const fetchImpl = async (ruta) => {
       peticiones.push(ruta);
-      if (ruta === RUTAS_OPERACIONES_CONTACTO.consultas) return respuesta(200, { operaciones: [] });
+      if (ruta === RUTAS_OPERACIONES_CONTACTO.consultas) return consultas++ === 0
+        ? respuesta(200, { operaciones: [] })
+        : new Promise((resolve) => { resolverIndiceNuevo = resolve; });
       if (ruta === RUTAS_OPERACIONES_CONTACTO.preparar) return respuesta(201, preparado());
       if (ruta === RUTAS_OPERACIONES_CONTACTO.confirmar) return incierto
         ? respuesta(503, { codigo: "confirmacion_incierta", operacion_ref: REF }) : respuesta(201, confirmado());
@@ -224,6 +228,9 @@ test("remonte tras 201 o 503 recuperado enfoca estado concreto con recibo origin
     assert.equal(contenedor.ownerDocument.activeElement, status);
     assert.match(status.textContent, /recibo-original/u);
     assert.equal(contenedor.children[0].children[3].hidden, true);
+    resolverIndiceNuevo(respuesta(200, { operaciones: [] }));
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.doesNotMatch(status.textContent, /recibo-original/u);
     assert.equal(peticiones.filter((ruta) => ruta === RUTAS_OPERACIONES_CONTACTO.confirmar).length, 1);
     montaje.destruir();
   }

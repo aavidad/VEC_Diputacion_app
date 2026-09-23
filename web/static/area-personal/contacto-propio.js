@@ -223,6 +223,8 @@ export function montarContactoPropio({ contenedor, autorizacionServidor = null, 
   estado.setAttribute("aria-live", "polite"); estado.setAttribute("tabindex", "-1");
   const anterior = nodo("p", "nota", reciboAnterior?.reciboRef ? t("correctoAnterior", { recibo: reciboAnterior.reciboRef }) : "");
   anterior.hidden = !reciboAnterior?.reciboRef || reciboAnterior.reciboRef === confirmacionReciente?.reciboRef;
+  let confirmacionVigente = confirmacionReciente;
+  confirmacionReciente = null;
   const listaPanel = nodo("section", "contacto-operaciones-panel");
   const cabecera = nodo("div", "contacto-operaciones-cabecera");
   const titulo = nodo("h4", "", t("historialTitulo"));
@@ -238,6 +240,7 @@ export function montarContactoPropio({ contenedor, autorizacionServidor = null, 
   const sincronizar = () => {
     if (!activa) return;
     const op = controlador.seleccion;
+    if (controlador.cargado || op || !controlador.autorizado) confirmacionVigente = null;
     const habilitado = controlador.autorizado && !controlador.ocupado;
     if (!controlador.autorizado) { entrada.value = ""; anterior.textContent = ""; anterior.hidden = true; }
     entrada.disabled = !habilitado;
@@ -246,9 +249,9 @@ export function montarContactoPropio({ contenedor, autorizacionServidor = null, 
     cancelar.hidden = op?.estado !== "preparada";
     confirmar.disabled = !habilitado; cancelar.disabled = !habilitado;
     actualizar.disabled = !habilitado; mas.hidden = !controlador.siguienteDesde; mas.disabled = !habilitado;
-    const confirmacionVisible = controlador.autorizado && !op && controlador.tipoAviso !== "error" && confirmacionReciente?.reciboRef;
+    const confirmacionVisible = controlador.autorizado && !op && controlador.tipoAviso !== "error" && confirmacionVigente?.reciboRef;
     estado.textContent = !controlador.autorizado ? t("sinAutorizacion")
-      : confirmacionVisible ? t("correcto", { recibo: confirmacionReciente.reciboRef })
+      : confirmacionVisible ? t("correcto", { recibo: confirmacionVigente.reciboRef })
         : controlador.aviso || t("seleccionExplicita");
     estado.className = `nota ${confirmacionVisible ? "contacto-exito" : controlador.tipoAviso === "error" ? "error" : controlador.tipoAviso === "aviso" ? "aviso" : ""}`.trim();
     const items = controlador.operaciones;
@@ -299,7 +302,7 @@ export function montarContactoPropio({ contenedor, autorizacionServidor = null, 
   sincronizar();
   if (enfocarConfirmacion && controlador.autorizado) estado.focus();
   if (controlador.autorizado && !controlador.cargado) void controlador.cargar().catch(() => {});
-  return Object.freeze({ controlador, destruir() { activa = false; controlador.destruir(); desuscribir();
+  return Object.freeze({ controlador, destruir() { activa = false; confirmacionVigente = null; controlador.destruir(); desuscribir();
     formulario.removeEventListener("submit", alPreparar); confirmar.removeEventListener("click", alConfirmarClick);
     cancelar.removeEventListener("click", alCancelar); actualizar.removeEventListener("click", alActualizar); mas.removeEventListener("click", alMas); } });
 }
