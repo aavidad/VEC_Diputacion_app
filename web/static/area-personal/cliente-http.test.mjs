@@ -14,32 +14,30 @@ function respuestaJSON(datos, estado = 200) {
   };
 }
 
-async function datosProductivosSintéticos() {
-  const datos = structuredClone(await crearAdaptadorPresentacion().cargar());
-  datos.meta.presentacion = false;
-  datos.meta.origen = "API interna autenticada de prueba";
-  datos.sesion.persona_ref = "PER-PRUEBA-0001";
-  datos.perfil.referencia = "PERFIL-PRUEBA-0001";
-  return datos;
-}
-
 test("el cliente real no cae jamás al adaptador demo ante un fallo de red", async () => {
-  const cliente = crearClienteHTTPAreaPersonal({ fetchImpl: async () => { throw new Error("sin red"); } });
+  const rutas = [];
+  const cliente = crearClienteHTTPAreaPersonal({ fetchImpl: async (ruta) => {
+    rutas.push(ruta);
+    throw new Error("sin red");
+  } });
   await assert.rejects(
     () => cliente.cargar(),
     (error) => error instanceof ErrorClienteAreaPersonal && error.codigo === "servicio_no_disponible",
   );
+  assert.deepEqual(rutas, ["/api/vec/bolsa/mi-bolsa"]);
 });
 
 test("mi bolsa se consulta primero sin cookies, query ni cabeceras de identidad", async () => {
-  let peticion;
+  const peticiones = [];
   const cliente = crearClienteHTTPAreaPersonal({ fetchImpl: async (ruta, opciones) => {
-    peticion = { ruta, opciones };
+    peticiones.push({ ruta, opciones });
     return respuestaJSON({ data: { esquema: "vec.bolsa.mi-bolsa.v1", consultada_en: "2026-09-23T10:00:00.000000Z", participaciones: [{ bolsa: "bolsa:prueba:01", categoria: "Auxiliar", version: 3, orden_inicial: 12, total_instantanea: 87, estado_bolsa: "vigente", vigente_desde: "2026-09-01T00:00:00.000000Z", vigente_hasta: null }] } });
   } });
   const recibido = await cliente.cargar();
   assert.equal(recibido.fuente, "real");
   assert.equal(recibido.consulta.participaciones[0].orden_inicial, 12);
+  assert.equal(peticiones.length, 1);
+  const peticion = peticiones[0];
   assert.equal(peticion.ruta, "/api/vec/bolsa/mi-bolsa");
   assert.equal(peticion.opciones.credentials, "omit");
   assert.equal(peticion.opciones.cache, "no-store");
@@ -57,22 +55,25 @@ test("el cliente acepta el payload exacto serializado por httppersonal", async (
   assert.equal(recibido.consulta.consultada_en, "2026-09-20T11:00:00.000000Z");
 });
 
-test("solo 401, 404 y 503 permiten volver al panel sintético rotulado", async () => {
-  const datos = await datosProductivosSintéticos();
-  const rutas = [];
-  const cliente = crearClienteHTTPAreaPersonal({ fetchImpl: async (ruta) => {
-    rutas.push(ruta);
-    return rutas.length === 1 ? respuestaJSON({}, 404) : respuestaJSON({ data: datos });
-  } });
-  const recibido = await cliente.cargar();
-  assert.equal(recibido.fuente, "ejemplo");
-  assert.deepEqual(rutas, ["/api/vec/bolsa/mi-bolsa", "/api/vec/bolsa/area-personal"]);
-});
-
-test("403 no mezcla datos de ejemplo con una identidad sin acceso", async () => {
-  const cliente = crearClienteHTTPAreaPersonal({ fetchImpl: async () => respuestaJSON({}, 403) });
-  await assert.rejects(() => cliente.cargar(), (error) => error.codigo === "acceso_denegado");
-});
+for (const [estado, codigo] of [
+  [401, "autenticacion_requerida"],
+  [403, "acceso_denegado"],
+  [404, "recurso_no_encontrado"],
+  [503, "servicio_no_disponible"],
+]) {
+  test(`mi bolsa HTTP ${estado} conserva el error y no consulta el panel anterior`, async () => {
+    const rutas = [];
+    const cliente = crearClienteHTTPAreaPersonal({ fetchImpl: async (ruta) => {
+      rutas.push(ruta);
+      return respuestaJSON({}, estado);
+    } });
+    await assert.rejects(
+      () => cliente.cargar(),
+      (error) => error instanceof ErrorClienteAreaPersonal && error.codigo === codigo,
+    );
+    assert.deepEqual(rutas, ["/api/vec/bolsa/mi-bolsa"]);
+  });
+}
 
 test("el cliente HTTP rechaza capacidad ausente antes de tocar la red", async () => {
   let llamadas = 0;
