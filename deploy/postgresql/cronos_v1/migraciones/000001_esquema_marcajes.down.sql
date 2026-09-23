@@ -21,5 +21,6 @@ DROP TABLE vec_cronos_v1.marcaje_acceso,vec_cronos_v1.marcaje_outbox,vec_cronos_
 DROP FUNCTION vec_cronos_v1.rechazar_mutacion_historia();
 DROP SCHEMA vec_cronos_v1;
 ALTER DEFAULT PRIVILEGES FOR ROLE vec_cronos_v1_propietario GRANT EXECUTE ON FUNCTIONS TO PUBLIC;
+DO $conectar$ BEGIN EXECUTE format('REVOKE CONNECT ON DATABASE %I FROM vec_cronos_v1_ejecutor', current_database()); END $conectar$;
 DROP ROLE vec_cronos_v1_ejecutor,vec_cronos_v1_migrador,vec_cronos_v1_propietario;
 COMMIT;

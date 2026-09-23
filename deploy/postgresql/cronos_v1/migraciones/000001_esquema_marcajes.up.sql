@@ -12,6 +12,8 @@ GRANT vec_cronos_v1_propietario TO vec_cronos_v1_migrador WITH ADMIN FALSE, INHE
 CREATE SCHEMA vec_cronos_v1 AUTHORIZATION vec_cronos_v1_propietario;
 REVOKE ALL ON SCHEMA vec_cronos_v1 FROM PUBLIC;
 GRANT USAGE ON SCHEMA vec_cronos_v1 TO vec_cronos_v1_ejecutor;
+-- Sin CONNECT, un LOGIN que herede el ejecutor no puede abrir sesión (Dietas, 23/09).
+DO $conectar$ BEGIN EXECUTE format('GRANT CONNECT ON DATABASE %I TO vec_cronos_v1_ejecutor', current_database()); END $conectar$;
 SET LOCAL ROLE vec_cronos_v1_propietario;
 ALTER DEFAULT PRIVILEGES FOR ROLE vec_cronos_v1_propietario REVOKE ALL ON FUNCTIONS FROM PUBLIC;
 ALTER DEFAULT PRIVILEGES FOR ROLE vec_cronos_v1_propietario IN SCHEMA vec_cronos_v1 REVOKE ALL ON TABLES FROM PUBLIC;
