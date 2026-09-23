@@ -63,6 +63,7 @@ function jornadaVisible(diezmilesimas, locale, t) {
   const minutos = Math.round(diezmilesimas * (37 * 60 + 30) / 10_000);
   const porcentaje = new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 2 })
     .format(diezmilesimas / 10_000);
+  if (minutos < 1) return t("cabecera_jornada_menos_minuto", { porcentaje });
   return t("cabecera_jornada_valor", {
     horas: String(Math.floor(minutos / 60)), minutos: String(minutos % 60), porcentaje,
   });
