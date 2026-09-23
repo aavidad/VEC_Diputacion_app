@@ -54,4 +54,5 @@ comprobar seguimiento "/api/vec/contratacion-temporal/incorporaciones-ejercicio/
 comprobar B12 "/api/vec/bolsa/bolsas"
 comprobar B5 "/api/vec/bolsa/bolsas/$bolsa/candidatos?limite=50"
 comprobar_b6
+comprobar D3-AV "/api/vec/bolsa/avisos?limite=6"
 comprobar B10 "/api/publico/bolsa/bolsas"

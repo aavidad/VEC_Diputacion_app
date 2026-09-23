@@ -52,3 +52,10 @@ reposición al volver de `trabajando`. `desplegar.sh` ensaya primero el `UP` con
 `ROLLBACK`; `verificar.sh` exige la política y los campos de orden calculado.
 No existe AD3 `000049`: B6 reutiliza la lectura autorizada B5 y la reposición se
 produce dentro del cambio B2 ya autorizado, auditado e idempotente.
+
+# Incremento D3-AV
+
+Bolsa `000020` añade exclusivamente la función de lectura que deriva los avisos
+de salto de orden y de tres años desde B7, B6 y el histórico B2. El despliegue
+ensaya el `UP` con `ROLLBACK`, lo aplica después de `000018` y comprueba el GET
+`/api/vec/bolsa/avisos`; no añade consumidor AD3, tablas ni escritura de negocio.
