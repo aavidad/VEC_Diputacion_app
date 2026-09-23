@@ -26,7 +26,7 @@ raiz=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)
 contenedor="vec-f2-pg18-$$"
 base="vec_f2_$$"
 imagen=${VEC_POSTGRES_TEST_IMAGE:-postgres:18.4-bookworm@sha256:1961f96e6029a02c3812d7cb329a3b03a3ac2bb067058dec17b0f5596aca9296}
-limpiar(){ docker rm -f "$contenedor" >/dev/null 2>&1 || true; for tmp in "${transaccion:-}" "${roles_sql:-}" "${prueba_json:-}" "${rol_ct_copia:-}" "${neg_rol_log:-}"; do if [[ -n "$tmp" && -f "$tmp" ]]; then unlink "$tmp"; fi; done; if [[ -n "${socketdir:-}" ]]; then rm -f "$socketdir/.s.PGSQL.5432" "$socketdir/.s.PGSQL.5432.lock"; rmdir "$socketdir" 2>/dev/null || true; fi; if [[ -n "${materialdir:-}" ]]; then rm -rf -- "$materialdir"; fi; }
+limpiar(){ docker rm -f "$contenedor" >/dev/null 2>&1 || true; for tmp in "${transaccion:-}" "${transaccion_ops:-}" "${roles_sql:-}" "${prueba_json:-}" "${rol_ct_copia:-}" "${neg_rol_log:-}" "${neg_historia_log:-}"; do if [[ -n "$tmp" && -f "$tmp" ]]; then unlink "$tmp"; fi; done; if [[ -n "${socketdir:-}" ]]; then rm -f "$socketdir/.s.PGSQL.5432" "$socketdir/.s.PGSQL.5432.lock"; rmdir "$socketdir" 2>/dev/null || true; fi; if [[ -n "${materialdir:-}" ]]; then rm -rf -- "$materialdir"; fi; }
 trap limpiar EXIT INT TERM
 volumen=()
 if [[ "${VEC_F2_POSITIVO:-}" == 1 ]]; then
@@ -149,6 +149,31 @@ aplicar "$raiz/deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/contacto_u
 aplicar "$raiz/deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/contacto_recibo_codec.sql"
 [[ "$(consulta "SELECT to_regprocedure('vec_contacto_usuario_v1.consultar_version_contacto_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea,bytea)') IS NOT NULL AND to_regprocedure('vec_contacto_usuario_v1.consultar_recibo_contacto_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea,bytea)') IS NOT NULL AND NOT has_table_privilege('vec_contacto_usuario_writer','vec_contacto_usuario_v1.versiones','SELECT') AND NOT has_table_privilege('vec_contacto_usuario_reader','vec_contacto_usuario_v1.actual','SELECT')")" == t ]] || { echo 'F2: postimagen/ACL no acreditadas' >&2; exit 1; }
 if [[ "${VEC_F2_POSITIVO:-}" == 1 ]]; then
+  # La inversión de Contacto3 sólo es admisible con cero historia de contacto.
+  # Se ensaya antes del POST legado positivo y se reinstala después de él.
+  archivos_operaciones=(
+    "$raiz/deploy/postgresql/autorizacion_atestada_v3/migraciones/000054_operaciones_contacto_propio.up.sql"
+    "$raiz/deploy/postgresql/bolsa_registro_accesos/migraciones/000008_operaciones_contacto_propio.up.sql"
+    "$raiz/deploy/postgresql/contacto_usuario_vec/migraciones/000003_operaciones_contacto_propio.up.sql"
+  )
+  transaccion_ops=$(mktemp)
+  {
+    echo 'BEGIN;'
+    for archivo in "${archivos_operaciones[@]}"; do
+      printf '%s\n' "\\echo F2 ROLLBACK $(basename "$archivo")"
+      sed '/^BEGIN;$/d;/^COMMIT;$/d' "$archivo"
+      echo 'RESET ROLE;'
+    done
+    echo 'ROLLBACK;'
+  } > "$transaccion_ops"
+  aplicar "$transaccion_ops"
+  [[ "$(consulta "SELECT to_regclass('vec_contacto_usuario_v1.operaciones') IS NULL AND to_regprocedure('vec_bolsa_registro_accesos.registrar_operacion_contacto_v1(text,bytea,bytea,bytea,bytea,bytea,text,text,text,text,text)') IS NULL")" == t ]] || { echo 'F2: ROLLBACK de operaciones dejó efectos' >&2; exit 1; }
+  for archivo in "${archivos_operaciones[@]}"; do aplicar "$archivo"; done
+  for archivo in \
+    "$raiz/deploy/postgresql/contacto_usuario_vec/migraciones/000003_operaciones_contacto_propio.down.sql" \
+    "$raiz/deploy/postgresql/bolsa_registro_accesos/migraciones/000008_operaciones_contacto_propio.down.sql" \
+    "$raiz/deploy/postgresql/autorizacion_atestada_v3/migraciones/000054_operaciones_contacto_propio.down.sql"; do aplicar "$archivo"; done
+  [[ "$(consulta "SELECT to_regclass('vec_contacto_usuario_v1.operaciones') IS NULL AND has_function_privilege('vec_contacto_f2_login','vec_contacto_usuario_v1.registrar_contacto_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea,bytea)','EXECUTE') AND (SELECT count(*)=0 FROM vec_contacto_usuario_v1.versiones)")" == t ]] || { echo 'F2: DOWN vacío de operaciones alteró legado' >&2; exit 1; }
   aplicar "$raiz/deploy/postgresql/contexto_actor_v1/pruebas_sql/fixtures_sinteticos.sql"
   aplicar "$raiz/deploy/postgresql/contacto_usuario_vec/pruebas_sql/ensayar_operaciones_f2.sql"
   consulta "CREATE ROLE vec_contacto_f2_contexto_login LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS; GRANT vec_contexto_actor_v1_runtime TO vec_contacto_f2_contexto_login WITH ADMIN FALSE, INHERIT TRUE, SET FALSE; GRANT CONNECT ON DATABASE $base TO vec_contacto_f2_contexto_login" >/dev/null
@@ -184,11 +209,6 @@ for linea in open(sys.argv[1],encoding='utf-8'):
 if not paso or omito: raise SystemExit('F2: prueba positiva omitida o sin PASS; no acreditar consumo')
 PYRESULTADO
   echo 'F2: fase legado firmada y consumo nominal probados; aún no acredita Contacto3'
-  archivos_operaciones=(
-    "$raiz/deploy/postgresql/autorizacion_atestada_v3/migraciones/000054_operaciones_contacto_propio.up.sql"
-    "$raiz/deploy/postgresql/bolsa_registro_accesos/migraciones/000008_operaciones_contacto_propio.up.sql"
-    "$raiz/deploy/postgresql/contacto_usuario_vec/migraciones/000003_operaciones_contacto_propio.up.sql"
-  )
   for archivo in "${archivos_operaciones[@]}"; do aplicar "$archivo"; done
   if ! VEC_F2_CONTACTO_OPERACIONES_PG18_DESECHABLE=1 \
   VEC_F2_CONTACTO_MATERIAL_EFIMERO="$materialdir" \
@@ -214,6 +234,15 @@ for linea in open(sys.argv[1],encoding='utf-8'):
         omito |= evento.get('Action')=='skip'
 if not paso or omito: raise SystemExit('F2: operaciones omitidas o sin PASS')
 PYOPERACIONES
+  # La historia de operación impide revertir Contacto3 aunque el DBA tenga
+  # permiso; el DOWN abortado no puede borrar la versión o el recibo original.
+  neg_historia_log=$(mktemp)
+  if docker exec -i "$contenedor" psql -X -q --set ON_ERROR_STOP=1 --set VERBOSITY=verbose --username postgres --dbname "$base" \
+      < "$raiz/deploy/postgresql/contacto_usuario_vec/migraciones/000003_operaciones_contacto_propio.down.sql" > "$neg_historia_log" 2>&1 \
+      || ! rg -q '55000' "$neg_historia_log"; then
+    echo 'F2: DOWN de Contacto3 aceptó historia o no devolvió 55000' >&2; exit 1
+  fi
+  [[ "$(consulta "SELECT (SELECT count(*)=2 FROM vec_contacto_usuario_v1.versiones) AND (SELECT count(*)=3 FROM vec_contacto_usuario_v1.operaciones) AND NOT has_function_privilege('vec_contacto_f2_login','vec_contacto_usuario_v1.registrar_contacto_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea,bytea)','EXECUTE')")" == t ]] || { echo 'F2: DOWN denegado alteró historia o ACL' >&2; exit 1; }
   referencia_reinicio=$(consulta "SELECT operacion_ref||'|'||recibo_ref FROM vec_contacto_usuario_v1.operaciones WHERE estado='confirmada' AND version_esperada=1")
   [[ "$referencia_reinicio" =~ ^opr_[A-Za-z0-9_-]{22,128}\|acc_[0-9a-f]{40}$ ]] || { echo 'F2: recibo único previo al reinicio no acreditado' >&2; exit 1; }
   IFS='|' read -r operacion_reinicio recibo_reinicio <<< "$referencia_reinicio"
