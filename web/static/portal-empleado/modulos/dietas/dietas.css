@@ -1284,6 +1284,10 @@
   gap: 0;
 }
 
+.dietas-borradores-propios .dietas-comision-formulario[hidden] {
+  display: none;
+}
+
 .dietas-borradores-propios .dietas-borradores-campos {
   display: grid;
   min-width: 0;
@@ -1615,6 +1619,10 @@
 .modulo-dietas.dietas-recorridos .dietas-nueva-comision > [data-dietas-area-itinerario] {
   min-width: 0;
   padding: 1rem;
+}
+
+.modulo-dietas.dietas-recorridos .dietas-recorridos-aviso-registro {
+  margin: 1rem 1rem 0;
 }
 
 @media (max-width: 760px) {

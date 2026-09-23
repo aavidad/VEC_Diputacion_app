@@ -279,10 +279,14 @@ test("permite consultar itinerario sin cliente de borradores y mantiene cerrado 
   const abrir = raiz.querySelector("[data-dietas-abrir-nueva-comision]");
   assert.equal(abrir.disabled, false);
   assert.match(abrir.textContent, /Explorar itinerario/);
+  assert.equal(abrir.attrs["aria-controls"], "dietas-recorridos-nueva");
+  assert.match(textoVisible(raiz.querySelector('[data-dietas-panel-etapa="solicitante"]')), /Consultar y registrar comisiones requiere el servicio autorizado/u);
   raiz.listeners.click({ target: abrir });
   await Promise.resolve();
   assert.equal(montajes, 1);
   assert.equal(raiz.querySelector("[data-dietas-borrador-form]").hidden, true);
+  assert.match(textoVisible(raiz.querySelector("[data-dietas-nueva-comision]")), /guardar una comisión requiere el servicio de borradores autorizado/u);
+  assert.match(textoVisible(raiz.querySelector("[data-dietas-nueva-comision]")), /Cerrar itinerario/u);
   vista.desmontar();
 });
 
