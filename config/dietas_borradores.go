@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"path/filepath"
 	"strings"
 )
 
@@ -12,11 +11,7 @@ const (
 	// EnvDietasBorradoresEnabled es un selector deliberado, no un permiso. Sólo
 	// admite los literales canónicos "true" y "false"; la ausencia equivale a
 	// apagado. Evitamos que un 1/yes copiado de otro despliegue abra Dietas.
-	EnvDietasBorradoresEnabled = "VEC_DIETAS_BORRADORES_ENABLED"
-	// EnvDietasIdentidadFile apunta al mapa privado de mTLS a cuentas técnicas.
-	// No contiene ni concede datos de persona, empleado o autorización.
-	EnvDietasIdentidadFile = "VEC_DIETAS_IDENTIDAD_FILE"
-
+	EnvDietasBorradoresEnabled             = "VEC_DIETAS_BORRADORES_ENABLED"
 	EnvDietasBorradoresDatabaseURL         = "VEC_DIETAS_BORRADORES_DATABASE_URL"
 	EnvDietasPersonalRelacionesDatabaseURL = "VEC_DIETAS_PERSONAL_RELACIONES_DATABASE_URL"
 )
@@ -89,7 +84,7 @@ func (c Config) DietasBorradoresDesarrolloActivos() (bool, error) {
 	case "false":
 		return false, nil
 	case "true":
-		if !c.DevelopmentEnabledByDoubleKey() || c.DietasIdentidadFile == "" || !filepath.IsAbs(c.DietasIdentidadFile) {
+		if !c.DevelopmentEnabledByDoubleKey() {
 			return false, ErrConfiguracionDietasBorradoresActivacion
 		}
 		if err := c.DietasBorradoresPostgreSQL.Validar(); err != nil {
