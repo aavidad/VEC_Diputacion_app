@@ -1,4 +1,5 @@
 /** Vistas compartidas de importación, llamamientos, relaciones, documentos y comunicaciones. */
+import { traducirContratos } from "./portal-i18n-contratos.js";
 
 export function crearVistasOperaciones(u) {
   const { escaparHTML: e, numero, fecha, chip, tabla, kpi, encabezadoVista,
@@ -47,13 +48,45 @@ export function crearVistasOperaciones(u) {
   }
 
   function renderizarContratos(datos) {
-    const filas = datos.contratos.map((item) => [e(item.expediente), e(item.bolsa), e(item.acto), e(fecha(item.inicio)), e(fecha(item.fin)), chip(item.estado), `<div class="acciones-fila">${botonOperacion("Contrato", "registrar-contrato", item.expediente, "boton-terciario")}${botonOperacion("Cese", "registrar-cese", item.expediente, "boton-terciario")}${botonOperacion("Reincorporar", "reincorporar-bolsa", item.expediente, "boton-terciario")}</div>`]);
-    return `
-      ${encabezadoVista("Continuidad del expediente", "Contratos, ceses y reincorporaciones DEMO", "Simulación volátil de causa, vigencia y disponibilidad; no acredita relación jurídica, cese ni incorporación.", botonOperacion("Nueva relación DEMO", "registrar-contrato", "DEMO-CON-NUEVO", "boton-primario"))}
-      ${avisoPresentacion("No se crea una relación jurídica ni se cambia la disponibilidad de Bolsa. Personal conserva la confirmación efectiva.")}
-      <div class="rejilla-kpi">${kpi("ACT", numero(datos.contratos.filter((x) => x.estado === "Activo").length), "Activos")}${kpi("CES", numero(datos.contratos.filter((x) => /cese/i.test(x.estado)).length), "Ceses")}${kpi("REI", numero(datos.contratos.filter((x) => /reincorpor/i.test(x.estado)).length), "Reincorporaciones")}${kpi("REV", numero(datos.contratos.filter((x) => /revisión/i.test(x.estado)).length), "En revisión")}</div>
-      <section class="panel"><div class="cabecera-panel"><div><h3>Relaciones y disponibilidad</h3><p>Referencias sin datos identificativos en la bandeja.</p></div>${fuentePresentacion()}</div>${tabla({ titulo: "Contratos, ceses y reincorporaciones", cabeceras: ["Expediente", "Bolsa", "Acto", "Inicio", "Fin", "Estado", "Acciones"], filas })}</section>
-      <section class="nota-pendiente">En producción el alta o cese requerirá conciliación con el sistema corporativo y no podrá inferirse únicamente de la interfaz.</section>`;
+    const t = traducirContratos;
+    const contratos = Array.isArray(datos?.contratos) ? datos.contratos : [];
+    const filas = contratos.map((item) => [
+      `<strong class="contratos-referencia">${e(item.expediente)}</strong>`,
+      e(item.acto), e(item.bolsa),
+      `<span class="contratos-fecha">${e(fecha(item.inicio))}</span><span class="contratos-fecha contratos-fecha-fin">${e(fecha(item.fin))}</span>`,
+      chip(item.estado),
+    ]);
+    const pasos = [
+      ["paso_bolsa", "paso_bolsa_descripcion"],
+      ["paso_formalizacion", "paso_formalizacion_descripcion"],
+      ["paso_personal", "paso_personal_descripcion"],
+      ["paso_ginpix", "paso_ginpix_descripcion"],
+      ["paso_reincorporacion", "paso_reincorporacion_descripcion"],
+    ];
+    const pasoHTML = pasos.map(([titulo, descripcion], indice) => `
+      <li class="contratos-paso"><span class="contratos-paso-numero" aria-hidden="true">${indice + 1}</span>
+        <div><strong>${e(t(titulo))}</strong><small>${e(t(descripcion))}</small></div>
+        <span class="estado-chip neutro">${e(t("sin_fuente"))}</span></li>`).join("");
+    const accionPendiente = (etiqueta, motivo, atributoOperacion) => `
+      <div class="contratos-accion"><button class="boton-secundario" type="button" ${atributoOperacion} disabled aria-disabled="true" title="${e(t(motivo))}">${e(t(etiqueta))}</button>
+        <small>${e(t(motivo))}</small></div>`;
+    return `<div class="contratos-vista">
+      ${encabezadoVista(t("sobrelinea"), t("titulo"), t("descripcion"))}
+      ${avisoPresentacion(t("aviso_sintetico"))}
+      <section class="panel contratos-panel-circuito" aria-labelledby="contratos-circuito-titulo">
+        <div class="cabecera-panel"><div><h3 id="contratos-circuito-titulo">${e(t("circuito_titulo"))}</h3><p>${e(t("circuito_subtitulo"))}</p></div><span class="estado-chip aviso">${e(t("sin_conector"))}</span></div>
+        <ol class="contratos-pasos">${pasoHTML}</ol>
+      </section>
+      <section class="panel contratos-panel-registros" aria-labelledby="contratos-registros-titulo">
+        <div class="cabecera-panel"><div><h3 id="contratos-registros-titulo">${e(t("registros_titulo"))}</h3><p>${e(t("registros_subtitulo"))}</p></div>${fuentePresentacion()}</div>
+        ${tabla({ titulo: t("tabla_titulo"), cabeceras: [t("columna_expediente"), t("columna_acto"), t("columna_bolsa"), t("columna_fechas"), t("columna_estado")], clavesColumnas: ["referencia", "acto", "bolsa", "fechas", "estado"], prioridadColumnas: "estado", filas, vacio: t("vacio") })}
+      </section>
+      <section class="panel contratos-panel-acciones" aria-labelledby="contratos-acciones-titulo">
+        <div class="cabecera-panel"><div><h3 id="contratos-acciones-titulo">${e(t("acciones_titulo"))}</h3><p>${e(t("acciones_subtitulo"))}</p></div></div>
+        <div class="contratos-acciones">${accionPendiente("accion_contrato", "motivo_contrato", 'data-operacion="registrar-contrato"')}${accionPendiente("accion_cese", "motivo_cese", 'data-operacion="registrar-cese"')}${accionPendiente("accion_reincorporar", "motivo_reincorporar", 'data-operacion="reincorporar-bolsa"')}</div>
+      </section>
+      <details class="contratos-ayuda"><summary>${e(t("ayuda"))}</summary><p>${e(t("ayuda_contenido"))}</p></details>
+    </div>`;
   }
 
   function renderizarDocumentos(datos) {
