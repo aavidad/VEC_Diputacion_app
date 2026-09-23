@@ -189,6 +189,8 @@ test("B7 muestra página local, consulta pendiente, límite y confirmación de c
   assert.match(html, /aria-label="Ayuda sobre el límite de selección">\?<\/summary>/);
   assert.match(html, /Configurar llamamiento<\/button>/);
   assert.match(html, /Consultando todas las páginas/);
+  assert.match(html, /data-bolsa-accion="b7-fuente-siguiente"/);
+  assert.match(html, /data-bolsa-accion="b7-limpiar-seleccion"/);
   flujo.consultando = false;
   flujo.participaciones = Array.from({ length: 100 }, (_, i) => candidata(i + 1).participacion_ref);
   html = presentador.renderizarVista("bolsa-candidatos");
@@ -199,33 +201,141 @@ test("B7 muestra página local, consulta pendiente, límite y confirmación de c
   assert.match(html, /data-cantidad="100"/);
   assert.match(html, /Confirmo la emisión para exactamente 100 candidatos/);
   assert.match(html, /100 seleccionados de 101 elegibles/);
+  flujo.error_422 = true;
+  flujo.error = "El servidor rechazó la emisión.";
+  html = presentador.renderizarVista("bolsa-candidatos");
+  assert.match(html, /data-bolsa-accion="b7-revisar-configuracion"/);
+  assert.match(html, /data-bolsa-accion="b7-volver-seleccion"/);
+  flujo.paso = 3;
+  flujo.cuerpoBorrador = "Texto revisable";
+  html = presentador.renderizarVista("bolsa-candidatos");
+  assert.match(html, /Texto revisable<\/textarea>/);
+  assert.match(html, /El servidor rechazó la emisión/);
 });
 
-test("B7 devuelve al paso de selección un 422 de orden vigente sin recibo de éxito", async () => {
+test("B7 conserva selección y permite revisar configuración tras un 422 genérico", async () => {
   const escuchas = {};
   const form = { dataset: { cantidad: "1" } };
   const documento = { addEventListener(tipo, fn) { escuchas[tipo] = fn; }, querySelector() { return null; } };
   const FormDataOriginal = globalThis.FormData;
   const fetchOriginal = globalThis.fetch;
   let enviado;
+  let intentos = 0;
+  const configuracion = { referencia: "NEC-01", descripcion: "Cobertura", categoria: "Auxiliar", centro: "Centro", modalidad: "Sustitución", fecha_inicio: "2026-10-01", plazo: "48 horas", plantilla_version: "bolsa-llamamiento-v1", asunto: "Llamamiento", cuerpo: "Texto del correo" };
   globalThis.FormData = class { get(clave) { return clave === "confirmacion" ? "on" : null; } };
   globalThis.fetch = async (_url, opciones) => {
     enviado = JSON.parse(opciones.body);
-    return { status: 422, json: async () => ({ error: { codigo: "orden_desactualizado" } }) };
+    intentos += 1;
+    if (intentos === 1) return { status: 422, json: async () => ({ error: { codigo: "emision_invalida" } }) };
+    const huella = "b".repeat(64);
+    return { status: 201, json: async () => ({ data: { llamamiento_ref: `llamamiento:${huella}`, recibo_ref: `recibo:llamamiento:${huella}`, bolsa_ref: "bolsa:01", estado: "emitido_pendiente_respuesta", participaciones: ["participacion:001"], configuracion, emitido_en: "2026-09-23T10:00:00Z", reutilizada: false } }) };
   };
   try {
-    const flujo = { paso: 4, estados: ["disponible"], participaciones: ["participacion:001"], configuracion: { referencia: "NEC-01" }, recibo: "", error: "" };
+    const flujo = { paso: 4, estados: ["disponible"], participaciones: ["participacion:001"], configuracion, recibo: "", error: "" };
     const estado = { bolsaSeleccionada: "bolsa:01", filtrosBolsa: { estado: "", texto: "", nuevo_llamamiento: flujo } };
     crearControladorBolsas({ estado, renderizar: () => {}, navegar: () => {}, documento }).instalar();
     escuchas.submit({ preventDefault() {}, target: { closest(selector) { return selector === '[data-bolsa-form="b7-paso4"]' ? form : null; } } });
     await new Promise(setImmediate);
     assert.deepEqual(enviado.participaciones, ["participacion:001"]);
-    assert.equal(flujo.paso, 2);
-    assert.deepEqual(flujo.participaciones, []);
+    assert.equal(flujo.paso, 4);
+    assert.deepEqual(flujo.participaciones, ["participacion:001"]);
     assert.equal(flujo.recibo, "");
-    assert.match(flujo.error, /selecci[oó]n ya no respeta la bolsa|orden vigente/i);
+    assert.match(flujo.error, /revise la configuraci[oó]n|actualice la selecci[oó]n/i);
+    assert.equal(flujo.error_422, true);
+    escuchas.submit({ preventDefault() {}, target: { closest(selector) { return selector === '[data-bolsa-form="b7-paso4"]' ? form : null; } } });
+    await new Promise(setImmediate);
+    assert.equal(intentos, 2);
+    assert.equal(flujo.error_422, false);
+    assert.match(flujo.recibo, /^recibo:llamamiento:b{64}$/);
   } finally {
     globalThis.FormData = FormDataOriginal;
     globalThis.fetch = fetchOriginal;
+  }
+});
+
+test("B7 permite llegar al 101.º candidato en otra página y elegirlo solo", async () => {
+  const escuchas = {};
+  const form = { estados: ["disponible"], marcadas: [] };
+  const documento = {
+    addEventListener(tipo, fn) { escuchas[tipo] = fn; },
+    querySelector(selector) { return selector === '[data-bolsa-form="b7-paso2"]' ? form : null; },
+  };
+  const FormDataOriginal = globalThis.FormData;
+  globalThis.FormData = class {
+    getAll(clave) { return clave === "estado" ? form.estados : clave === "participacion" ? form.marcadas : []; }
+  };
+  try {
+    const candidatos = Array.from({ length: 101 }, (_, i) => candidata(i + 1));
+    const fuente = (_ref, { cursor = "" }) => {
+      const inicio = Number(cursor || 0);
+      const fin = Math.min(inicio + 50, 101);
+      return Promise.resolve(pagina(candidatos.slice(inicio, fin), fin < 101 ? String(fin) : null, "bolsa:01", 101));
+    };
+    const flujo = { paso: 2, estados: ["disponible"], participaciones: [], cursoresPagina: [""], seleccion_total: false };
+    const estado = { bolsaSeleccionada: "bolsa:01", filtrosBolsa: { estado: "", texto: "", nuevo_llamamiento: flujo }, datosCandidatos: { carga: "listo", datos: (await fuente("bolsa:01", {})).datos, error: "" } };
+    crearControladorBolsas({ estado, renderizar: () => {}, navegar: () => {}, documento, obtenerFuenteLectura: () => ({ consultarCandidatosBolsa: fuente }) }).instalar();
+    const click = (accion) => escuchas.click({ preventDefault() {}, target: { closest(selector) { return selector === "[data-bolsa-accion]" ? { dataset: { bolsaAccion: accion } } : null; } } });
+    click("b7-fuente-siguiente");
+    await new Promise(setImmediate);
+    click("b7-fuente-siguiente");
+    await new Promise(setImmediate);
+    assert.equal(estado.datosCandidatos.datos.candidatos[0].participacion_ref, "participacion:101");
+    form.marcadas = ["participacion:101"];
+    escuchas.change({ target: { name: "participacion", closest(selector) { return selector === '[data-bolsa-form="b7-paso2"]' ? form : null; } } });
+    escuchas.submit({ preventDefault() {}, target: { closest(selector) { return selector === '[data-bolsa-form="b7-paso2"]' ? form : null; } } });
+    assert.equal(flujo.paso, 3);
+    assert.deepEqual(flujo.participaciones, ["participacion:101"]);
+  } finally {
+    globalThis.FormData = FormDataOriginal;
+  }
+});
+
+test("B7 conserva el recibo 201 al salir de la vista durante el POST", async () => {
+  const escuchas = {};
+  const form = { dataset: { cantidad: "1" } };
+  const documento = { addEventListener(tipo, fn) { escuchas[tipo] = fn; }, querySelector() { return null; } };
+  const FormDataOriginal = globalThis.FormData;
+  const fetchOriginal = globalThis.fetch;
+  let resolverRespuesta;
+  globalThis.FormData = class { get(clave) { return clave === "confirmacion" ? "on" : null; } };
+  globalThis.fetch = async () => new Promise((resolver) => { resolverRespuesta = resolver; });
+  try {
+    const configuracion = { referencia: "NEC-01", descripcion: "Cobertura", categoria: "Auxiliar", centro: "Centro", modalidad: "Sustitución", fecha_inicio: "2026-10-01", plazo: "48 horas", plantilla_version: "bolsa-llamamiento-v1", asunto: "Llamamiento", cuerpo: "Texto del correo" };
+    const flujo = { paso: 4, estados: ["disponible"], participaciones: ["participacion:001"], configuracion, recibo: "", error: "" };
+    const estado = { bolsaSeleccionada: "bolsa:01", filtrosBolsa: { estado: "", texto: "", nuevo_llamamiento: flujo } };
+    const controlador = crearControladorBolsas({ estado, renderizar: () => {}, navegar: () => {}, documento });
+    controlador.instalar();
+    escuchas.submit({ preventDefault() {}, target: { closest(selector) { return selector === '[data-bolsa-form="b7-paso4"]' ? form : null; } } });
+    assert.equal(flujo.enviando, true);
+    controlador.cancelarPeticiones();
+    const huella = "a".repeat(64);
+    resolverRespuesta({ status: 201, json: async () => ({ data: { llamamiento_ref: `llamamiento:${huella}`, recibo_ref: `recibo:llamamiento:${huella}`, bolsa_ref: "bolsa:01", estado: "emitido_pendiente_respuesta", participaciones: ["participacion:001"], configuracion, emitido_en: "2026-09-23T10:00:00Z", reutilizada: false } }) });
+    await new Promise(setImmediate);
+    assert.equal(flujo.recibo, `recibo:llamamiento:${huella}`);
+    assert.equal(flujo.enviando, false);
+    assert.equal(estado.filtrosBolsa.nuevo_llamamiento, flujo);
+  } finally {
+    globalThis.FormData = FormDataOriginal;
+    globalThis.fetch = fetchOriginal;
+  }
+});
+
+test("B7 bloquea antes de enviar un cuerpo que supera 4000 caracteres tras añadir metadatos", () => {
+  const escuchas = {};
+  const form = {};
+  const documento = { addEventListener(tipo, fn) { escuchas[tipo] = fn; } };
+  const FormDataOriginal = globalThis.FormData;
+  const campos = { referencia: "NEC-01", descripcion: "Cobertura", categoria: "Auxiliar", centro: "Centro", modalidad: "Sustitución", fecha_inicio: "2026-10-01", plazo: "48 horas", plantilla_version: "bolsa-llamamiento-v1", asunto: "Llamamiento", cuerpo: "a".repeat(3990) };
+  globalThis.FormData = class { get(clave) { return campos[clave]; } };
+  try {
+    const flujo = { paso: 3, estados: ["disponible"], participaciones: ["participacion:001"], error: "" };
+    const estado = { bolsaSeleccionada: "bolsa:01", filtrosBolsa: { nuevo_llamamiento: flujo } };
+    crearControladorBolsas({ estado, renderizar: () => {}, navegar: () => {}, documento }).instalar();
+    escuchas.submit({ preventDefault() {}, target: { closest(selector) { return selector === '[data-bolsa-form="b7-paso3"]' ? form : null; } } });
+    assert.equal(flujo.paso, 3);
+    assert.match(flujo.error, /supera 4000 caracteres/);
+    assert.equal(flujo.cuerpoBorrador.length, 3990);
+  } finally {
+    globalThis.FormData = FormDataOriginal;
   }
 });

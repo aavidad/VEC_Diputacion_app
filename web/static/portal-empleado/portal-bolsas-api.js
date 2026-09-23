@@ -425,7 +425,9 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
   }
 
   function cancelarPeticiones() {
-    invalidarSeleccionMasiva();
+    // El POST de emisión no es cancelable: conservar su flujo permite recuperar
+    // el recibo al volver a Bolsa aunque se abandone la vista durante la espera.
+    if (!estado.filtrosBolsa?.nuevo_llamamiento?.enviando) invalidarSeleccionMasiva();
     estado.modalFicha?.controladorOperaciones?.abort();
     for (const controlador of controladoresLectura.values()) controlador.abort();
     controladoresLectura.clear();
@@ -633,6 +635,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
       const botonVer = evento.target?.closest?.('[data-accion="ver-bolsa"], [data-bolsa-abrir="true"]');
       if (botonVer) {
         evento.preventDefault();
+        if (estado.filtrosBolsa?.nuevo_llamamiento?.enviando) return;
         const ref = botonVer.dataset.bolsaRef;
         if (ref) {
           invalidarSeleccionMasiva();
@@ -646,12 +649,16 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
       const botonAccion = evento.target?.closest?.("[data-bolsa-accion]");
       if (!botonAccion) return;
       const accion = botonAccion.dataset.bolsaAccion;
+      if (estado.filtrosBolsa?.nuevo_llamamiento?.enviando && accion !== "cancelar-b7") {
+        evento.preventDefault();
+        return;
+      }
       if (accion === "reintentar-bolsas") {
         evento.preventDefault();
         void cargarBolsas();
       } else if (accion === "reintentar-candidatos") {
         evento.preventDefault();
-        void cargarCandidatosBolsa(estado.bolsaSeleccionada);
+        void cargarCandidatosBolsa(estado.bolsaSeleccionada, { cursor: estado.filtrosBolsa?.nuevo_llamamiento?.cursoresPagina?.at(-1) || "" });
       } else if (accion === "reintentar-estadisticas") {
         evento.preventDefault();
         void cargarEstadisticas();
@@ -716,12 +723,14 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
         cerrarResultado();
       } else if (accion === "iniciar-b7") {
         evento.preventDefault();
+        if (estado.filtrosBolsa?.nuevo_llamamiento?.enviando) return;
         invalidarSeleccionMasiva();
-        estado.filtrosBolsa = { ...estado.filtrosBolsa, estado: "", texto: "", nuevo_llamamiento: { paso: 1, estados: ["disponible"], participaciones: [], configuracion: null, error: "", recibo: "", seleccion_total: false } };
+        estado.filtrosBolsa = { ...estado.filtrosBolsa, estado: "", texto: "", nuevo_llamamiento: { paso: 1, estados: ["disponible"], participaciones: [], configuracion: null, error: "", recibo: "", seleccion_total: false, cursoresPagina: [""] } };
         renderizar();
         documento.querySelector('[aria-current="step"]')?.focus?.();
       } else if (accion === "cancelar-b7") {
         evento.preventDefault();
+        if (estado.filtrosBolsa?.nuevo_llamamiento?.enviando) return;
         invalidarSeleccionMasiva();
         const { nuevo_llamamiento: _omitido, ...resto } = estado.filtrosBolsa || {};
         estado.filtrosBolsa = resto;
@@ -737,6 +746,43 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
         if (!estado.filtrosBolsa.nuevo_llamamiento.seleccion_total) sincronizarPaginaB7(formulario);
         estado.filtrosBolsa.nuevo_llamamiento.pagina = Math.max(0, Number(botonAccion.dataset.pagina) || 0);
         renderizar();
+      } else if (accion === "b7-fuente-siguiente" || accion === "b7-fuente-anterior") {
+        evento.preventDefault();
+        const flujo = estado.filtrosBolsa?.nuevo_llamamiento;
+        if (!flujo || flujo.consultando || flujo.enviando) return;
+        if (!flujo.seleccion_total) sincronizarPaginaB7(documento.querySelector('[data-bolsa-form="b7-paso2"]'));
+        flujo.cursoresPagina ||= [""];
+        if (accion === "b7-fuente-siguiente") {
+          const cursor = estado.datosCandidatos?.datos?.cursor_siguiente;
+          if (!estado.datosCandidatos?.datos?.hay_mas || !cursor || flujo.cursoresPagina.includes(cursor)) return;
+          flujo.cursoresPagina.push(cursor);
+        } else if (flujo.cursoresPagina.length > 1) {
+          flujo.cursoresPagina.pop();
+        } else return;
+        flujo.pagina = 0;
+        void cargarCandidatosBolsa(estado.bolsaSeleccionada, { cursor: flujo.cursoresPagina.at(-1) })
+          .then(() => documento.querySelector('[data-bolsa-form="b7-paso2"] input[name="participacion"]')?.focus?.());
+      } else if (accion === "b7-limpiar-seleccion") {
+        evento.preventDefault();
+        invalidarSeleccionMasiva();
+        renderizar();
+      } else if (accion === "b7-revisar-configuracion") {
+        evento.preventDefault();
+        const flujo = estado.filtrosBolsa?.nuevo_llamamiento;
+        if (!flujo || flujo.enviando) return;
+        flujo.paso = 3;
+        renderizar();
+      } else if (accion === "b7-volver-seleccion") {
+        evento.preventDefault();
+        const flujo = estado.filtrosBolsa?.nuevo_llamamiento;
+        if (!flujo || flujo.enviando) return;
+        invalidarSeleccionMasiva();
+        flujo.paso = 2;
+        flujo.error = "";
+        flujo.cursoresPagina = [""];
+        flujo.pagina = 0;
+        void cargarCandidatosBolsa(estado.bolsaSeleccionada)
+          .then(() => documento.querySelector('[data-bolsa-form="b7-paso2"] input[name="participacion"]')?.focus?.());
       } else if (accion === "b7-seleccionar-todas") {
         evento.preventDefault();
         const flujo = estado.filtrosBolsa.nuevo_llamamiento;
@@ -769,9 +815,19 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
       const paso3 = evento.target?.closest?.('[data-bolsa-form="b7-paso3"]');
       if (paso3) {
         evento.preventDefault(); const datos = new FormData(paso3); const get = n => String(datos.get(n)||"").trim();
+        const flujo = estado.filtrosBolsa.nuevo_llamamiento;
         const configuracion = { referencia:get("referencia"), descripcion:get("descripcion"), categoria:get("categoria"), centro:get("centro"), modalidad:get("modalidad"), fecha_inicio:get("fecha_inicio"), plazo:get("plazo"), plantilla_version:get("plantilla_version"), asunto:get("asunto"), cuerpo:"" };
         configuracion.cuerpo = `${get("cuerpo")}\n\nReferencia: ${configuracion.referencia}\nCategoría: ${configuracion.categoria}\nCentro: ${configuracion.centro}\nModalidad: ${configuracion.modalidad}\nFecha prevista: ${configuracion.fecha_inicio}\nPlazo provisional: ${configuracion.plazo}`;
-        estado.filtrosBolsa.nuevo_llamamiento.configuracion = configuracion; estado.filtrosBolsa.nuevo_llamamiento.paso = 4; renderizar(); return;
+        flujo.cuerpoBorrador = get("cuerpo");
+        flujo.configuracion = configuracion;
+        if (configuracion.cuerpo.length > 4000) {
+          flujo.error = "El texto final del correo supera 4000 caracteres. Reduzca el mensaje antes de continuar.";
+          renderizar(); return;
+        }
+        flujo.error = "";
+        flujo.error_422 = false;
+        flujo.paso = 4;
+        renderizar(); return;
       }
       const paso4 = evento.target?.closest?.('[data-bolsa-form="b7-paso4"]');
       if (paso4) {
@@ -781,7 +837,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
           flujo.error = "La selección ha cambiado. Revise el número de candidatos antes de confirmar.";
           renderizar(); return;
         }
-        flujo.enviando=true; flujo.error=""; flujo.clave_idempotencia ||= globalThis.crypto?.randomUUID?.() || `llamamiento-${Date.now()}-${Math.random().toString(16).slice(2)}`; renderizar();
+        flujo.enviando=true; flujo.error=""; flujo.error_422=false; flujo.clave_idempotencia ||= globalThis.crypto?.randomUUID?.() || `llamamiento-${Date.now()}-${Math.random().toString(16).slice(2)}`; renderizar();
         const revisionEmision = revisionSeleccionMasiva;
         const bolsaEmision = estado.bolsaSeleccionada;
         void emitirLlamamiento({ bolsa_ref:estado.bolsaSeleccionada, participaciones:flujo.participaciones, configuracion:flujo.configuracion, clave_idempotencia:flujo.clave_idempotencia }).then(res=>{
@@ -791,17 +847,16 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
             flujo.recibo = res.datos.recibo_ref;
             flujo.llamamiento_ref = res.datos.llamamiento_ref;
           } else if (res.status === 422) {
-            invalidarSeleccionMasiva();
-            flujo.paso = 2;
             flujo.recibo = "";
             flujo.llamamiento_ref = "";
             flujo.clave_idempotencia = "";
-            flujo.error = `${res.mensaje} Seleccione de nuevo según el orden vigente.`;
+            flujo.error_422 = true;
+            flujo.error = "El servidor rechazó la emisión (422). Revise la configuración o actualice la selección según la bolsa vigente.";
           } else {
             flujo.error = res.mensaje;
           }
           renderizar();
-          if (res.ok) documento.querySelector("[data-b7-recibo]")?.focus?.();
+          documento.querySelector(res.ok ? "[data-b7-recibo]" : "[data-b7-emision-error]")?.focus?.();
         }); return;
       }
       const formFiltros = evento.target?.closest?.('[data-bolsa-form="filtros"]');
