@@ -10,14 +10,25 @@ SET LOCAL statement_timeout='30s';
 SELECT pg_advisory_xact_lock(hashtextextended('vec_contacto_usuario_v1:dependencias:v1',0));
 SELECT pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:migracion:000054',0));
 DO $pre$
+DECLARE r text;
 BEGIN
  IF current_user<>'vec_autorizacion_atestada_v3_propietario' OR getdatabaseencoding()<>'UTF8'
     OR to_regprocedure('vec_autorizacion_atestada_v3.contacto_version_material_auditoria_v1(text,bytea,bytea,bytea,bytea,bytea)') IS NULL
     OR to_regprocedure('vec_autorizacion_atestada_v3.contacto_huellas_replay_canonicas_v1(jsonb)') IS NULL
     OR to_regprocedure('vec_autorizacion_atestada_v3.contacto_operacion_material_auditoria_v1(text,bytea,bytea,bytea,bytea,bytea)') IS NOT NULL
+    OR EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+        WHERE n.nspname='vec_bolsa_registro_accesos' AND p.proname='registrar_operacion_contacto_v1')
     OR to_regclass('vec_contacto_usuario_v1.operaciones') IS NOT NULL THEN
     RAISE EXCEPTION 'AD3-54: preimagen Contacto53 incompatible' USING ERRCODE='55000';
  END IF;
+ FOREACH r IN ARRAY ARRAY['vec_contacto_usuario_owner','vec_contacto_usuario_writer',
+      'vec_contacto_usuario_reader','vec_contacto_usuario_migrador'] LOOP
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname=r AND NOT rolcanlogin AND NOT rolinherit
+        AND NOT rolsuper AND NOT rolbypassrls AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolreplication)
+       OR has_function_privilege(r,'vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE') THEN
+       RAISE EXCEPTION 'AD3-54: roles o ACL de contacto incompatibles' USING ERRCODE='55000';
+    END IF;
+ END LOOP;
 END $pre$;
 
 -- AuditEntry previa con las mismas 17 claves y orden JSON de la autoridad
@@ -407,9 +418,39 @@ BEGIN
 END $f$;
 
 REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.registrar_y_consumir_operacion_contacto_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea,bytea) FROM PUBLIC;
-REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.revalidar_operacion_contacto_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea) FROM PUBLIC;
+REVOKE ALL ON FUNCTION vec_autorizacion_atestada_v3.revalidar_operacion_contacto_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea,bytea) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.registrar_y_consumir_operacion_contacto_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea,bytea) TO vec_contacto_usuario_owner;
-GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.revalidar_operacion_contacto_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea) TO vec_contacto_usuario_owner;
+GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.revalidar_operacion_contacto_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea,bytea) TO vec_contacto_usuario_owner;
+
+DO $acl$
+DECLARE f oid; r record; propietario oid:='vec_autorizacion_atestada_v3_propietario'::regrole;
+BEGIN
+ FOR r IN SELECT * FROM (VALUES
+   ('contacto_operacion_auditoria_previa_v1(bytea)',1,'i','search_path=pg_catalog'),
+   ('contacto_operacion_validar_material_v1(text,bytea,bytea,bytea,bytea,bytea)',1,'i','search_path=pg_catalog'),
+   ('contacto_operacion_material_auditoria_v1(text,bytea,bytea,bytea,bytea,bytea)',3,'i','search_path=pg_catalog'),
+   ('registrar_y_consumir_operacion_contacto_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea,bytea)',2,'v','lock_timeout=2s'),
+   ('revalidar_operacion_contacto_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea,bytea)',2,'v','lock_timeout=1s')
+ ) AS funciones(firma,numero,volatilidad,configuracion) LOOP
+   f:=to_regprocedure('vec_autorizacion_atestada_v3.'||r.firma);
+   IF f IS NULL OR NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid=f AND p.proowner=propietario
+       AND p.provolatile=r.volatilidad AND p.pronargdefaults=0 AND p.prosecdef=(r.numero>1)
+       AND p.proconfig=CASE WHEN r.numero=1 OR r.firma LIKE 'contacto_operacion_material%'
+           THEN ARRAY['search_path=pg_catalog'] ELSE ARRAY['search_path=pg_catalog',r.configuracion] END)
+      OR NOT COALESCE((SELECT count(*)=r.numero AND count(DISTINCT x.grantee)=r.numero
+           AND bool_and(x.grantor=propietario AND x.privilege_type='EXECUTE' AND NOT x.is_grantable
+             AND x.grantee IN (propietario,'vec_contacto_usuario_owner'::regrole,'vec_bolsa_accesos_propietario'::regrole))
+           FROM pg_proc p,LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) x WHERE p.oid=f),false)
+      OR (r.numero>1 AND NOT has_function_privilege('vec_contacto_usuario_owner',f,'EXECUTE'))
+      OR (r.numero=3 AND NOT has_function_privilege('vec_bolsa_accesos_propietario',f,'EXECUTE'))
+      OR (r.numero<3 AND has_function_privilege('vec_bolsa_accesos_propietario',f,'EXECUTE'))
+      OR (r.numero=1 AND has_function_privilege('vec_contacto_usuario_owner',f,'EXECUTE'))
+      OR has_function_privilege('vec_contacto_usuario_writer',f,'EXECUTE')
+      OR has_function_privilege('vec_contacto_usuario_reader',f,'EXECUTE') THEN
+      RAISE EXCEPTION 'AD3-54: ACL nominal divergente' USING ERRCODE='55000';
+   END IF;
+ END LOOP;
+END $acl$;
 
 -- Guarda WIP: faltan huellas posteriores sobre CT51/Contacto52/53,
 -- inversión/ensayo PG18 y revisión E10. Ninguna instalación posible.

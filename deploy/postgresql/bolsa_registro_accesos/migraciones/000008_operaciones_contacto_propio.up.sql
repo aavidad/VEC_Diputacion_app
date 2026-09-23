@@ -10,6 +10,7 @@ SET LOCAL statement_timeout='30s';
 SELECT pg_advisory_xact_lock(hashtextextended('vec_contacto_usuario_v1:dependencias:v1',0));
 SELECT pg_advisory_xact_lock(hashtextextended('vec_bolsa_registro_accesos:migracion:000008',0));
 DO $pre$
+DECLARE r text;
 BEGIN
  IF current_user<>'vec_bolsa_accesos_propietario' OR getdatabaseencoding()<>'UTF8'
     OR to_regprocedure('vec_bolsa_registro_accesos.registrar_consulta_version_contacto_v1(bytea,bytea,bytea,bytea,bytea,text,text,text,boolean,numeric)') IS NULL
@@ -17,6 +18,15 @@ BEGIN
     OR to_regprocedure('vec_bolsa_registro_accesos.registrar_operacion_contacto_v1(text,bytea,bytea,bytea,bytea,bytea,text,text,text,text,text)') IS NOT NULL THEN
     RAISE EXCEPTION 'T13/8: preimagen o dependencia incompatibles' USING ERRCODE='55000';
  END IF;
+ FOREACH r IN ARRAY ARRAY['vec_contacto_usuario_owner','vec_contacto_usuario_writer',
+      'vec_contacto_usuario_reader','vec_contacto_usuario_migrador'] LOOP
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname=r AND NOT rolcanlogin AND NOT rolinherit
+        AND NOT rolsuper AND NOT rolbypassrls AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolreplication)
+       OR has_function_privilege(r,'vec_bolsa_registro_accesos.registrar_interno_v1(jsonb)','EXECUTE')
+       OR has_table_privilege(r,'vec_bolsa_registro_accesos.registro_acceso','SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') THEN
+       RAISE EXCEPTION 'T13/8: rol o ACL de contacto incompatibles' USING ERRCODE='55000';
+    END IF;
+ END LOOP;
 END $pre$;
 
 CREATE FUNCTION vec_bolsa_registro_accesos.registrar_operacion_contacto_v1(

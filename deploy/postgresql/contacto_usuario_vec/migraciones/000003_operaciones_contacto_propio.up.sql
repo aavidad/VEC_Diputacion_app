@@ -11,17 +11,29 @@ SET LOCAL statement_timeout='30s';
 SELECT pg_advisory_xact_lock(hashtextextended('vec_contacto_usuario_v1:dependencias:v1',0));
 SELECT pg_advisory_xact_lock(hashtextextended('vec_contacto_usuario_v1:migracion:3',0));
 DO $pre$
+DECLARE r text;
 BEGIN
  IF current_user<>'vec_contacto_usuario_owner' OR getdatabaseencoding()<>'UTF8'
     OR to_regprocedure('vec_contacto_usuario_v1.registrar_contacto_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea,bytea)') IS NULL
     OR to_regprocedure('vec_contacto_usuario_v1.consultar_recibo_contacto_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea,bytea)') IS NULL
     OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_operacion_contacto_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea,bytea)') IS NULL
-    OR to_regprocedure('vec_autorizacion_atestada_v3.revalidar_operacion_contacto_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea)') IS NULL
+    OR to_regprocedure('vec_autorizacion_atestada_v3.revalidar_operacion_contacto_v3_atestada(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea,bytea)') IS NULL
     OR to_regprocedure('vec_autorizacion_atestada_v3.contacto_operacion_material_auditoria_v1(text,bytea,bytea,bytea,bytea,bytea)') IS NULL
     OR to_regprocedure('vec_bolsa_registro_accesos.registrar_operacion_contacto_v1(text,bytea,bytea,bytea,bytea,bytea,text,text,text,text,text)') IS NULL
-    OR to_regclass('vec_contacto_usuario_v1.operaciones') IS NOT NULL THEN
+    OR to_regclass('vec_contacto_usuario_v1.operaciones') IS NOT NULL
+    OR NOT has_function_privilege('vec_contacto_usuario_writer',
+        'vec_contacto_usuario_v1.registrar_contacto_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea,bytea)','EXECUTE') THEN
     RAISE EXCEPTION 'Contacto3: preimagen o dependencias incompatibles' USING ERRCODE='55000';
  END IF;
+ FOREACH r IN ARRAY ARRAY['vec_contacto_usuario_owner','vec_contacto_usuario_writer',
+      'vec_contacto_usuario_reader','vec_contacto_usuario_migrador'] LOOP
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname=r AND NOT rolcanlogin AND NOT rolinherit
+        AND NOT rolsuper AND NOT rolbypassrls AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolreplication)
+       OR (r<>'vec_contacto_usuario_owner' AND
+           has_table_privilege(r,'vec_contacto_usuario_v1.versiones','SELECT,INSERT,UPDATE,DELETE')) THEN
+       RAISE EXCEPTION 'Contacto3: roles o ACL de contacto incompatibles' USING ERRCODE='55000';
+    END IF;
+ END LOOP;
 END $pre$;
 
 CREATE TABLE vec_contacto_usuario_v1.operaciones (
