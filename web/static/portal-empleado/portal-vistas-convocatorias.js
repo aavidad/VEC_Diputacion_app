@@ -1,5 +1,5 @@
 import { traducirBolsaInterna } from "./portal-i18n.js";
-import { traducirConvocatoriasS1 } from "./portal-i18n-convocatorias.js";
+import { traducirConvocatoriasS1 } from "./portal-i18n-convocatorias.js?v=20260924-f2-web2";
 /** Vistas compartidas de gobierno de convocatorias y admisión. */
 
 export function crearVistasConvocatorias(u) {
