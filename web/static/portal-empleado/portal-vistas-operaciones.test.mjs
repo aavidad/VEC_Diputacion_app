@@ -7,7 +7,7 @@ import { crearTraductorContratos, MENSAJES_CONTRATOS_ES } from "./portal-i18n-co
 
 function utilidades() {
   return crearUtilidadesVista({
-    escaparHTML: (valor) => String(valor),
+    escaparHTML: (valor) => String(valor).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;"),
     numero: (valor) => String(valor ?? 0),
     claseEstado: () => "neutro",
     encabezadoVista: (_sobrelinea, titulo, descripcion, acciones = "") => `<h2>${titulo}</h2><p>${descripcion}</p>${acciones}`,
@@ -43,6 +43,10 @@ test("contratos sin fuente no incorpora las filas antiguas y no ofrece efectos v
   assert.doesNotMatch(html, /DEMO-CON-184|DEMO-CES-089|DEMO-REI-032/);
   assert.match(html, /tabindex="0" role="region"/);
   assert.match(html, /<summary>\? Ayuda sobre el circuito<\/summary>/);
+  assert.equal((html.match(/name="contratos-recorrido"/g) || []).length, 3);
+  assert.match(html, /<summary><strong>Contratos y relaciones<\/strong>/);
+  assert.match(html, /<summary><strong>Ceses<\/strong>/);
+  assert.match(html, /<summary><strong>Reincorporación en Bolsa<\/strong>/);
   assert.equal((html.match(/disabled aria-disabled="true"/g) || []).length, 3);
   assert.doesNotMatch(html, /data-comando="(?:registrar-contrato|registrar-cese|reincorporar-bolsa)"/);
   assert.doesNotMatch(html, /data-accion="operacion-presentacion"/);
@@ -61,6 +65,11 @@ test("contratos conserva solo filas inyectadas con estado disponible y cierra lo
   }
   assert.match(vista.renderizarContratos({ contratos_fuente: { estado: "disponible", registros: [] } }), /Sin registros/);
   assert.match(vista.renderizarContratos({ contratos_fuente: { estado: "disponible" } }), /Error de consulta/);
+  assert.match(vista.renderizarContratos({ contratos_fuente: { estado: "disponible", registros: [null] } }), /Error de consulta/);
+  const malicioso = [{ ...contratos[0], expediente: '<img src=x onerror=alert(1)>' }];
+  const escapado = vista.renderizarContratos({ contratos_fuente: { estado: "disponible", registros: malicioso } });
+  assert.match(escapado, /&lt;img src=x onerror=alert\(1\)&gt;/);
+  assert.doesNotMatch(escapado, /<img src=x/);
   assert.throws(() => crearTraductorContratos({}), /incompleto/);
   assert.throws(() => crearTraductorContratos()("desconocida"), /desconocida/);
   for (const valor of Object.values(MENSAJES_CONTRATOS_ES)) assert.ok(valor.length > 0);
