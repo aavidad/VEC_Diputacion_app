@@ -128,3 +128,11 @@ test("escapa datos inyectados y no introduce transporte ni persistencia web", as
   const fuente = await readFile(new URL("vista.js", import.meta.url), "utf8");
   assert.doesNotMatch(fuente, /fetch\(|XMLHttpRequest|localStorage|sessionStorage|indexedDB|document\.cookie/i);
 });
+
+test("la vista carga el catálogo i18n con la versión F2 actual", async () => {
+  const fuente = await readFile(new URL("vista.js", import.meta.url), "utf8");
+  assert.match(fuente, /from "\.\/i18n\.js\?v=20260924-f2-web2"/);
+  const modulo = await import(new URL("./vista.js?v=20260924-f2-web2", import.meta.url));
+  assert.equal(typeof modulo.montarVistaInscripciones, "function");
+  assert.match(modulo.renderizarVistaInscripciones(), /Vista pendiente de conexión/);
+});
