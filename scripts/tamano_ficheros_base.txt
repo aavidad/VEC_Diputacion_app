@@ -79,7 +79,8 @@
 876 web/static/portal-empleado/modulos/contratacion-temporal/cliente-http.test.mjs
 1000 web/static/portal-empleado/modulos/contratacion-temporal/expedientes.css
 887 web/static/portal-empleado/modulos/contratacion-temporal/expedientes-presentacion.test.mjs
-1066 web/static/portal-empleado/modulos/contratacion-temporal/montaje-formulario-analisis.test.mjs
+1068 web/static/portal-empleado/modulos/contratacion-temporal/montaje-formulario-analisis.test.mjs
+811 web/static/portal-empleado/modulos/contratacion-temporal/formulario-analisis.js
 1123 web/static/portal-empleado/modulos/dietas/dietas.css
 907 web/static/portal-empleado/modulos/dietas/dietas.test.mjs
 941 web/static/portal-empleado/portal-modulos-coordinador.js
