@@ -59,6 +59,7 @@ export async function consultarSeleccionMasivaBolsa(bolsaRef, estados, { consult
   const referencias = new Set();
   let cursor = "";
   let bolsaInicial = null;
+  let totalBolsa = 0;
   for (;;) {
     if (signal?.aborted) return { ok: false, status: 0, mensaje: "La consulta se ha cancelado." };
     const respuesta = await consultar(bolsaRef, { cursor, limite: 100 }, { signal });
@@ -74,6 +75,7 @@ export async function consultarSeleccionMasivaBolsa(bolsaRef, estados, { consult
       return { ok: false, status: 409, mensaje: "La bolsa o su orden cambiaron durante la consulta. Vuelva a seleccionar." };
     }
     bolsaInicial = version;
+    totalBolsa = bolsa.total;
     for (const candidata of datos.candidatos) {
       if (referencias.has(candidata.participacion_ref)) {
         return { ok: false, status: 409, mensaje: "La lista cambió durante la consulta. Vuelva a seleccionar." };
@@ -92,6 +94,9 @@ export async function consultarSeleccionMasivaBolsa(bolsaRef, estados, { consult
     }
     cursor = datos.cursor_siguiente;
     cursores.add(cursor);
+  }
+  if (referencias.size !== totalBolsa) {
+    return { ok: false, status: 409, mensaje: "La cantidad de candidatos cambió durante la consulta. Vuelva a seleccionar." };
   }
   const participaciones = primeras.map((candidata) => candidata.participacion_ref);
   const orden = Object.fromEntries(primeras.map((candidata) => [candidata.participacion_ref, candidata.orden]));

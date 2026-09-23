@@ -6,8 +6,8 @@ import { crearPresentadorPanelInterno } from "./portal-panel-interno.js";
 function candidata(orden, estado_clave = "disponible") {
   return { participacion_ref: `participacion:${String(orden).padStart(3, "0")}`, estado_clave, orden };
 }
-function pagina(candidatos, cursor_siguiente = null, bolsaRef = "bolsa:01") {
-  return { ok: true, datos: { generado_en: "2026-09-23T10:00:00Z", bolsa: { bolsa_ref: bolsaRef, total: 120, por_estado: { disponible: 110, no_disponible: 10 }, politica_orden: { politica_ref: "politica:b6", version: 1 } }, candidatos, hay_mas: cursor_siguiente !== null, cursor_siguiente } };
+function pagina(candidatos, cursor_siguiente = null, bolsaRef = "bolsa:01", total = 120) {
+  return { ok: true, datos: { generado_en: "2026-09-23T10:00:00Z", bolsa: { bolsa_ref: bolsaRef, total, por_estado: { disponible: 110, no_disponible: 10 }, politica_orden: { politica_ref: "politica:b6", version: 1 } }, candidatos, hay_mas: cursor_siguiente !== null, cursor_siguiente } };
 }
 
 test("B7 recorre el cursor completo y ordena por B6 aunque una página posterior tenga mejor turno", async () => {
@@ -15,8 +15,8 @@ test("B7 recorre el cursor completo y ordena por B6 aunque una página posterior
   const resultado = await consultarSeleccionMasivaBolsa("bolsa:01", ["disponible", "disponible_desde"], {
     consultar: async (ref, opciones) => {
       llamadas.push({ ref, ...opciones });
-      if (!opciones.cursor) return pagina([candidata(40), candidata(3, "no_disponible")], "cursor:02");
-      return pagina([candidata(2, "disponible_desde"), candidata(1)], null);
+      if (!opciones.cursor) return pagina([candidata(40), candidata(3, "no_disponible")], "cursor:02", "bolsa:01", 4);
+      return pagina([candidata(2, "disponible_desde"), candidata(1)], null, "bolsa:01", 4);
     },
   });
   assert.equal(resultado.ok, true);
@@ -31,7 +31,7 @@ test("B7 conserva 100 exactas y con 101 sólo permite las primeras 100", async (
     const primera = Array.from({ length: 50 }, (_, i) => candidata(cantidad - i));
     const segunda = Array.from({ length: cantidad - 50 }, (_, i) => candidata(cantidad - 50 - i));
     const resultado = await consultarSeleccionMasivaBolsa("bolsa:01", ["disponible"], {
-      consultar: async (_ref, { cursor }) => cursor ? pagina(segunda) : pagina(primera, "siguiente"),
+      consultar: async (_ref, { cursor }) => cursor ? pagina(segunda, null, "bolsa:01", cantidad) : pagina(primera, "siguiente", "bolsa:01", cantidad),
     });
     assert.equal(resultado.ok, true);
     assert.equal(resultado.total, cantidad);
@@ -60,6 +60,10 @@ test("B7 rechaza un 403 intermedio y una paginación cambiante sin selección pa
     },
   });
   assert.equal(otroInstante.status, 409);
+  const incompleta = await consultarSeleccionMasivaBolsa("bolsa:01", ["disponible"], {
+    consultar: async () => pagina([candidata(1)], null, "bolsa:01", 2),
+  });
+  assert.equal(incompleta.status, 409);
 });
 
 test("B7 ignora el filtro B5 al iniciar y consulta la bolsa completa por estados propios", async () => {
@@ -78,7 +82,7 @@ test("B7 ignora el filtro B5 al iniciar y consulta la bolsa completa por estados
   try {
     const estado = { bolsaSeleccionada: "bolsa:01", filtrosBolsa: { estado: "no_disponible", texto: "nombre" }, datosCandidatos: { carga: "listo", datos: pagina([candidata(5, "no_disponible")]).datos } };
     crearControladorBolsas({ estado, renderizar: () => {}, navegar: () => {}, documento, obtenerFuenteLectura: () => ({
-      consultarCandidatosBolsa: async (_ref, opciones) => { llamadas.push(opciones); return pagina([candidata(1)]); },
+      consultarCandidatosBolsa: async (_ref, opciones) => { llamadas.push(opciones); return pagina([candidata(1)], null, "bolsa:01", 1); },
     }) }).instalar();
     const click = (accion) => escuchas.click({ preventDefault() {}, target: { closest(selector) { return selector === "[data-bolsa-accion]" ? { dataset: { bolsaAccion: accion } } : null; } } });
     click("iniciar-b7");
@@ -122,9 +126,9 @@ test("B7 descarta una respuesta tardía tras iniciar otra selección", async () 
     assert.equal(flujo.consultando, true);
     click();
     assert.equal(solicitudes[0].signal.aborted, true);
-    solicitudes[1].resolver(pagina([candidata(2)]));
+    solicitudes[1].resolver(pagina([candidata(2)], null, "bolsa:01", 1));
     await new Promise(setImmediate);
-    solicitudes[0].resolver(pagina([candidata(1)]));
+    solicitudes[0].resolver(pagina([candidata(1)], null, "bolsa:01", 1));
     await new Promise(setImmediate);
     assert.deepEqual(flujo.participaciones, ["participacion:002"]);
     assert.equal(flujo.seleccion_total, true);
@@ -157,7 +161,7 @@ test("B7 cancela la selección en curso al cambiar los estados del filtro", asyn
     escuchas.click({ preventDefault() {}, target: { closest(selector) { return selector === "[data-bolsa-accion]" ? boton : null; } } });
     form.estados = ["disponible_desde"];
     escuchas.change({ target: { name: "estado", closest(selector) { return selector === '[data-bolsa-form="b7-paso2"]' ? form : null; } } });
-    resolverConsulta(pagina([candidata(1)]));
+    resolverConsulta(pagina([candidata(1)], null, "bolsa:01", 1));
     await new Promise(setImmediate);
     assert.deepEqual(flujo.participaciones, []);
     assert.deepEqual(flujo.estados, ["disponible_desde"]);
