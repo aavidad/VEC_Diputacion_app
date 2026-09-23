@@ -178,6 +178,13 @@ test("renderizarVistaEstadisticas y componentes HTML/SVG accesibles", () => {
   assert.equal(/demo/i.test(html), false, "No debe contener la palabra demo");
 });
 
+test("carga, error y denegación conservan cabecera y estado dentro del panel", () => {
+  for (const [carga, estado] of [["cargando", "Consultando"], ["error", "Consulta fallida"], ["denegado", "Acceso denegado"]]) {
+    const html = renderizarVistaEstadisticas({ estadoEstadisticas: { carga, error: "Sin datos" }, filtros: {} });
+    assert.match(html, new RegExp(`<section class="panel">[\\s\\S]*<div class="cabecera-panel"><h3>Series estadísticas</h3><span class="estado-chip [^"]+">${estado}</span>`));
+  }
+});
+
 test("montarVistaEstadisticas: ciclo de vida y montaje con cliente simulado", async () => {
   const eventos = new Map();
   let contenido = "";

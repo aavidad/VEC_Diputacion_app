@@ -544,7 +544,7 @@ a:focus-visible,
     display: grid;
     height: 100%;
     min-height: 0;
-    grid-template-rows: auto minmax(0, 1.25fr) minmax(0, 1fr) auto;
+    grid-template-rows: minmax(0, 1fr) auto;
     gap: 10px;
     overflow: hidden;
   }
@@ -559,10 +559,6 @@ a:focus-visible,
     flex: 1 1 auto;
     min-height: 0;
     overflow: auto;
-  }
-
-  .cuadro-bolsa-solo > .texto-ayuda {
-    margin: 0;
   }
 }
 

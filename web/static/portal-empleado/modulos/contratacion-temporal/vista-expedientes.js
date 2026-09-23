@@ -6,7 +6,7 @@ import { montarFormularioResolucionFormalizacion } from "./formulario-resolucion
 import { montarFormularioAnotacionAdministrativa } from "./formulario-anotacion-administrativa.js";
 import { montarFormularioCierreAdministrativo } from "./formulario-cierre-administrativo.js";
 import { montarFormularioLlamamiento } from "./formulario-llamamiento.js";
-import { montarVistaEstadisticas } from "./vista-estadisticas.js";
+import { montarVistaEstadisticas } from "./vista-estadisticas.js?v=20260923-pweb17-v1";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js";
 import { crearTraductorContratacionTemporal } from "./i18n.js";
 import { cerrarFase, mostrarFase } from "./fases-expediente.js";

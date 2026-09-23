@@ -71,13 +71,16 @@ function filaAviso(aviso) {
 }
 
 export function renderizarBloqueAvisos({ estado = "cargando", datos = null, error = "" } = {}) {
-  const cabecera = `<header class="seccion-cabecera"><div><p class="eyebrow">Control interno</p><h2>Avisos</h2></div></header>`;
-  if (estado === "cargando") return `<section class="panel panel--contenido" aria-busy="true" aria-live="polite">${cabecera}<p>Cargando avisos…</p></section>`;
-  if (estado === "error") return `<section class="panel panel--contenido" aria-live="assertive">${cabecera}<div class="aviso aviso--error"><p>${texto(error || "No se pudieron cargar los avisos.")}</p><button type="button" data-accion="reintentar-avisos">Reintentar</button></div></section>`;
-  if (!datos || datos.items.length === 0) return `<section class="panel panel--contenido" aria-live="polite">${cabecera}<div class="estado-vacio"><h3>Sin avisos</h3><p>No hay saltos de orden ni periodos de tres años detectados en el corte consultado.</p></div><p class="texto-ayuda">${texto(datos?.provisionalidad || "")}</p></section>`;
-  const conteos = `<div class="resumen-indicadores" aria-label="Avisos por tipo"><span><strong>${datos.conteos.salto_orden}</strong> saltos de orden</span><span><strong>${datos.conteos.tres_anos}</strong> tres años</span></div>`;
+  const conteos = datos?.conteos
+    ? `<div class="avisos-bolsa-conteos" aria-label="Avisos por tipo"><span class="estado-chip advertencia">${datos.conteos.salto_orden} saltos de orden</span><span class="estado-chip info">${datos.conteos.tres_anos} tres años</span></div>`
+    : "";
+  const cabecera = `<div class="cabecera-panel"><div><p>Control interno</p><h2>Avisos</h2></div>${conteos}</div>`;
+  const nota = datos?.provisionalidad ? `<p class="avisos-bolsa-nota"><strong>Provisional:</strong> ${texto(datos.provisionalidad)}${datos.conteos.tres_anos === 0 ? " Los tres años se calculan desde el histórico de situaciones de VEC, que empieza el 17/09/2026." : ""}</p>` : "";
+  if (estado === "cargando") return `<section class="panel avisos-bolsa" aria-busy="true" aria-live="polite">${cabecera}<div class="cuerpo-panel avisos-bolsa-vacio" role="status">Cargando avisos…</div></section>`;
+  if (estado === "error") return `<section class="panel avisos-bolsa" aria-live="assertive">${cabecera}<div class="cuerpo-panel aviso aviso--error"><span>${texto(error || "No se pudieron cargar los avisos.")}</span><button type="button" data-accion="reintentar-avisos">Reintentar</button></div></section>`;
+  if (!datos || datos.items.length === 0) return `<section class="panel avisos-bolsa" aria-live="polite">${cabecera}<div class="cuerpo-panel avisos-bolsa-vacio"><span class="avisos-bolsa-icono" aria-hidden="true">✓</span><span><strong>Sin avisos.</strong> No hay saltos de orden ni periodos de tres años detectados en el corte consultado.</span></div>${nota}</section>`;
   const paginacion = `<footer class="paginacion"><span>Mostrando ${datos.paginacion.desde} a ${datos.paginacion.hasta} de ${datos.paginacion.total}</span><button type="button" data-accion="siguiente-avisos"${datos.paginacion.cursor_siguiente ? "" : " disabled"}>Siguiente</button></footer>`;
-  return `<section class="panel panel--contenido" aria-live="polite">${cabecera}${conteos}<div class="tabla-contenedor" tabindex="0"><ul class="lista-actividad">${datos.items.map(filaAviso).join("")}</ul></div>${paginacion}<p class="texto-ayuda"><strong>Provisional:</strong> ${texto(datos.provisionalidad)}</p></section>`;
+  return `<section class="panel avisos-bolsa" aria-live="polite">${cabecera}<div class="tabla-contenedor avisos-bolsa-lista" tabindex="0"><ul class="lista-actividad">${datos.items.map(filaAviso).join("")}</ul></div>${paginacion}${nota}</section>`;
 }
 
 // El montaje P-WEB-10 puede delegar aquí sin conocer el contrato: la ficha B5
@@ -92,4 +95,3 @@ export function manejarAccionAvisos(evento, { abrirFichaB5, siguiente, reintenta
   else return false;
   return true;
 }
-

@@ -20,11 +20,12 @@ test("renderiza carga, vacío, error y lista R10 con contadores y ficha B5", () 
   assert.match(renderizarBloqueAvisos({ estado: "error", error: "Fallo controlado" }), /Reintentar/);
   assert.match(renderizarBloqueAvisos({ estado: "listo", datos: { ...datos, items: [], conteos: { salto_orden: 0, tres_anos: 0 }, paginacion: { ...datos.paginacion, desde: 0, hasta: 0, total: 0 } } }), /Sin avisos/);
   const html = renderizarBloqueAvisos({ estado: "listo", datos });
-  assert.match(html, /1<\/strong> saltos de orden/);
-  assert.match(html, /1<\/strong> tres años/);
+  assert.match(html, /<div class="cabecera-panel">[\s\S]*<h2>Avisos<\/h2>[\s\S]*1 saltos de orden[\s\S]*1 tres años/);
+  assert.match(html, /class="tabla-contenedor avisos-bolsa-lista" tabindex="0"/);
   assert.match(html, /Mostrando 1 a 2 de 2/);
   assert.match(html, /data-accion="abrir-ficha-b5"/);
   assert.match(html, /Cómputo legal de encadenamiento pendiente de RRHH/);
+  assert.match(html, /class="avisos-bolsa-nota"/);
   assert.doesNotMatch(html, /nombre|DNI|correo|teléfono/i);
 });
 
@@ -54,4 +55,3 @@ test("rechaza campos personales y tipos ajenos al contrato", () => {
   const html = renderizarBloqueAvisos({ estado: "listo", datos: { ...datos, provisionalidad: "<script>alert(1)</script>" } });
   assert.doesNotMatch(html, /<script>/);
 });
-

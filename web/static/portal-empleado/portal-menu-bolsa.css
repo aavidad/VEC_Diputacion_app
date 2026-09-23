@@ -20,6 +20,16 @@
   border-radius: 50%;
 }
 
+.categoria-menu-bolsa:has(> .etiqueta-menu) {
+  grid-template-columns: 30px minmax(0, 1fr);
+}
+
+.categoria-menu-bolsa > .etiqueta-menu {
+  grid-column: 2;
+  justify-self: start;
+  margin-top: -4px;
+}
+
 .categoria-menu-bolsa[data-categoria-activa="true"] {
   border-left-color: #58a8ff;
   background: rgba(4, 104, 223, 0.5);
