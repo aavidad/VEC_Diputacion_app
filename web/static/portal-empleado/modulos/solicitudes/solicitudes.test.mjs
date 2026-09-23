@@ -35,6 +35,14 @@ function raizFalsa() {
 const tick = () => new Promise((resolver) => setImmediate(resolver));
 const objetivo = (atributo, valor = "") => ({ closest: (selector) => selector === `[${atributo}]` ? { dataset: { solicitudesDetalle: valor } } : null });
 
+test("vista carga el catálogo i18n con URL F2 inmutable", async () => {
+  const vista = await readFile(new URL("vista.js", import.meta.url), "utf8");
+  assert.match(vista, /from "\.\/i18n\.js\?v=20260924-f2-web2"/);
+  const modulo = await import("./vista.js?v=20260924-f2-web2");
+  assert.equal(typeof modulo.montarVistaSolicitudes, "function");
+  assert.match(modulo.renderizarSolicitudes(), /Consulta no configurada/);
+});
+
 test("sin fuente autorizada muestra estado no configurado y ningún recibo ni expediente sintético", () => {
   const html = renderizarSolicitudes();
   assert.match(html, /Consulta no configurada/);

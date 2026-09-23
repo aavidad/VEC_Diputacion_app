@@ -1,4 +1,4 @@
-import { crearTraductorSolicitudes, MENSAJES_SOLICITUDES_ES } from "./i18n.js";
+import { crearTraductorSolicitudes, MENSAJES_SOLICITUDES_ES } from "./i18n.js?v=20260924-f2-web2";
 
 const PESTANAS = Object.freeze(["bandeja", "nueva", "seguimiento", "certificados"]);
 const SITUACIONES = new Set(["cargando", "disponible", "vacio", "no_configurado", "denegado", "error"]);
