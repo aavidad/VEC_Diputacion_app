@@ -51,19 +51,65 @@ es_migracion_wip_contacto(){
   esac
   return 1
 }
-filtrar_guardia_ensayo(){
-  if [[ "${VEC_F2_COTEJO_WIP:-}" == 1 ]] && es_migracion_wip_contacto "$1"; then
-    [[ "$(rg -c '^DO \$(f2_incompleta|incompleta)\$ BEGIN RAISE EXCEPTION .* WIP:' "$1")" == 1 ]] || { echo 'F2: guarda WIP de cotejo no exacta' >&2; return 1; }
-    sed '/^DO \$f2_incompleta\$ BEGIN RAISE EXCEPTION .* WIP:/d;/^DO \$incompleta\$ BEGIN RAISE EXCEPTION .* WIP:/d' "$1"
-  else
-    cat "$1"
-  fi
+crear_copia_cotejo(){
+  cotejo_sql=$(mktemp)
+  python3 - "$raiz" "$1" "$cotejo_sql" <<'PYCOTEJO'
+from pathlib import Path
+import hashlib,os,subprocess,sys
+raiz=Path(sys.argv[1]).resolve(); fuente=Path(sys.argv[2]).resolve(); copia=Path(sys.argv[3])
+commit='bbba417c4340e9afce64228eca718a2ecc838a8c'
+# ruta : (blob Git, SHA256 fuente, SHA256 derivado, bloque WIP literal)
+manifiesto={
+ 'deploy/postgresql/autorizacion_atestada_v3/migraciones/000052_consumidor_contacto_usuario.up.sql':(
+  '33e4e528bb1b99dc904a118fafaf5a0ac5fed298','db71a03b5f03e8d2a68ec98f380f6dcdf2da8349d7661ab3789f6fe20f682d0c','7ea2fcf0d6bd12ec9131d02abe727359d79c15eec1b071dc38ab387028b312ad',
+  "DO $f2_incompleta$ BEGIN RAISE EXCEPTION 'AD3-52 WIP: falta cotejo post-CT51 en PG18' USING ERRCODE='55000'; END $f2_incompleta$;\n"),
+ 'deploy/postgresql/autorizacion_atestada_v3/migraciones/000053_consulta_recibo_contacto_propio.up.sql':(
+  'e60977be36ee4afa39636df02b7da557c95d8d2a','4427ce1f020132bcbfc7035ce9c9279344f06200e7cc219f984a0054b2b9d848','1132494ba0845c0b21daf98f126462c903bb35b639f6076f7e079712d246a918',
+  "DO $f2_incompleta$ BEGIN RAISE EXCEPTION 'AD3-53 WIP: falta cotejo post-CT51 en PG18' USING ERRCODE='55000'; END $f2_incompleta$;\n"),
+ 'deploy/postgresql/autorizacion_atestada_v3/migraciones/000054_operaciones_contacto_propio.up.sql':(
+  'ab39eb5eaf054274e684f434082c4d0876a31604','1698c8b30c3f633a774eee40e0bd4250801b151d0cc2e3158a1eec224ef30a83','0df4291c3e52cc06e445374b0e875627d38785a7d9ac731b033f023ccf9cea54',
+  "DO $incompleta$ BEGIN RAISE EXCEPTION 'AD3-54 WIP: postimagen y ensayo PG18 pendientes' USING ERRCODE='55000'; END $incompleta$;\n"),
+ 'deploy/postgresql/autorizacion_atestada_v3/migraciones/000054_operaciones_contacto_propio.down.sql':(
+  '9cf696e5e028b3c923d51132749432238d5075c1','0cc272d75e4e009c49de69c5795c0f9ceee1e9f13d242bbc3734b7fb90b0be8e','c17ef6969ac4d0d062ed032e870063907f8d0b33338a6e192006e6301c4e789b',
+  "DO $incompleta$ BEGIN RAISE EXCEPTION 'AD3-54 DOWN WIP: postimagen PG18 pendiente' USING ERRCODE='55000'; END $incompleta$;\n"),
+ 'deploy/postgresql/bolsa_registro_accesos/migraciones/000008_operaciones_contacto_propio.up.sql':(
+  'a699f04501522501c1b388a3217c03c1d46241d9','5f6eb2c699e107e6d32ec49efdb8d84ec939543bf439db6ea17a69943b8932cf','4e44d882e2ae93df1f0a5f144f9034dc597bf9a88e1548a5248d95ad9b1cb15a',
+  "DO $incompleta$ BEGIN RAISE EXCEPTION 'T13/8 WIP: falta AD3 post-CT51 y validación' USING ERRCODE='55000'; END $incompleta$;\n"),
+ 'deploy/postgresql/contacto_usuario_vec/migraciones/000003_operaciones_contacto_propio.up.sql':(
+  '662b8fa1687ce5893ef204c651a2678a0ac78c20','c175c5f22ba48421376b4fdf2c633e14f54bab7b821d88226b8633bb925d097c','54e10a7aefa1b84e6e5e9a0eef6f8bdbdf27704c42adced8122c83cae4f66d6a',
+  "DO $incompleta$ BEGIN RAISE EXCEPTION 'Contacto3 WIP: falta AD3 post-CT51 y validación' USING ERRCODE='55000'; END $incompleta$;\n"),
+}
+try:
+ ruta=fuente.relative_to(raiz).as_posix()
+ blob,sha_original,sha_derivado,guardia=manifiesto[ruta]
+ def huella(data): return hashlib.sha256(data).hexdigest()
+ if subprocess.check_output(['git','-C',str(raiz),'rev-parse',commit+':'+ruta],stderr=subprocess.DEVNULL).decode().strip()!=blob:
+  raise ValueError('procedencia')
+ original=fuente.read_bytes(); bloque=guardia.encode(); cierre=b'COMMIT;\n'
+ def transformar(datos,sha_entrada):
+  if huella(datos)!=sha_entrada or datos.count(bloque)!=1 or not datos.endswith(bloque+cierre): raise ValueError('preimagen/posición')
+  derivado=datos[:-len(bloque+cierre)]+cierre
+  if derivado!=datos.replace(bloque,b'',1) or derivado[:-len(cierre)]+bloque+cierre!=datos or huella(derivado)!=sha_derivado:
+   raise ValueError('diff/postimagen')
+  return derivado
+ derivado=transformar(original,sha_original)
+ prefijo=original[:-len(bloque+cierre)]
+ negativos=(original.replace(bloque,b'',1),prefijo+bloque+bloque+cierre,bloque+prefijo+cierre,prefijo+b'SELECT 1;\n'+bloque+cierre)
+ for negativo in negativos:
+  try: transformar(negativo,huella(negativo))
+  except ValueError: pass
+  else: raise ValueError('negativo aceptado')
+ if (os.stat(copia).st_mode & 0o777)!=0o600: raise ValueError('modo copia')
+ copia.write_bytes(derivado)
+ if (os.stat(copia).st_mode & 0o777)!=0o600 or copia.read_bytes()!=derivado: raise ValueError('copia divergente')
+except (KeyError,ValueError,OSError,subprocess.CalledProcessError):
+ raise SystemExit('F2: manifiesto o derivación WIP divergente; no ejecutar SQL')
+PYCOTEJO
 }
 aplicar(){
   printf "F2 ensaya %s\n" "$(basename "$1")" >&2
   if [[ "${VEC_F2_COTEJO_WIP:-}" == 1 ]] && es_migracion_wip_contacto "$1"; then
-    cotejo_sql=$(mktemp)
-    filtrar_guardia_ensayo "$1" > "$cotejo_sql"
+    crear_copia_cotejo "$1"
     docker exec -i "$contenedor" psql -X -q --set ON_ERROR_STOP=1 --username postgres --dbname "$base" < "$cotejo_sql"
     unlink "$cotejo_sql"; cotejo_sql=
   else
@@ -150,22 +196,24 @@ if [[ "${VEC_F2_DIAGNOSTICO:-}" == 1 ]]; then
   consulta "SELECT pg_get_constraintdef(oid,true) FROM pg_constraint WHERE conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass AND conname='clave_capacidad_version_audiencia_consumo_check'" >&2
 fi
 for archivo in "${archivos[@]}"; do [[ -r "$archivo" ]] || { echo 'F2: falta migración' >&2; exit 1; }; done
-transaccion=$(mktemp)
-{
-  echo 'BEGIN;'
-  for archivo in "${archivos[@]}"; do
-    printf '%s\n' "\\echo F2 ROLLBACK $(basename "$archivo")"
-    if [[ "${VEC_F2_DIAGNOSTICO:-}" == 1 && "$archivo" == *000053_consulta_recibo_contacto_propio.up.sql ]]; then
-      echo "SELECT 'CORE_PRE='||encode(sha256(convert_to(prosrc,'UTF8')),'hex') FROM pg_proc WHERE oid='vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;"
-      echo "SELECT 'REVALIDACION_PRE='||encode(sha256(convert_to(prosrc,'UTF8')),'hex') FROM pg_proc WHERE oid='vec_autorizacion_atestada_v3.revalidar_consumo_consulta_rrhh_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;"
-    fi
-    filtrar_guardia_ensayo "$archivo" | sed '/^BEGIN;$/d;/^COMMIT;$/d'
-    echo 'RESET ROLE;'
-  done
-  echo 'ROLLBACK;'
-} > "$transaccion"
-aplicar "$transaccion"
-[[ "$(consulta "SELECT to_regnamespace('vec_contacto_usuario_v1') IS NULL AND to_regrole('vec_contacto_usuario_owner') IS NULL")" == t ]] || { echo 'F2: ROLLBACK dejó efectos' >&2; exit 1; }
+if [[ "${VEC_F2_COTEJO_WIP:-}" != 1 ]]; then
+  transaccion=$(mktemp)
+  {
+    echo 'BEGIN;'
+    for archivo in "${archivos[@]}"; do
+      printf '%s\n' "\\echo F2 ROLLBACK $(basename "$archivo")"
+      if [[ "${VEC_F2_DIAGNOSTICO:-}" == 1 && "$archivo" == *000053_consulta_recibo_contacto_propio.up.sql ]]; then
+        echo "SELECT 'CORE_PRE='||encode(sha256(convert_to(prosrc,'UTF8')),'hex') FROM pg_proc WHERE oid='vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;"
+        echo "SELECT 'REVALIDACION_PRE='||encode(sha256(convert_to(prosrc,'UTF8')),'hex') FROM pg_proc WHERE oid='vec_autorizacion_atestada_v3.revalidar_consumo_consulta_rrhh_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;"
+      fi
+      sed '/^BEGIN;$/d;/^COMMIT;$/d' "$archivo"
+      echo 'RESET ROLE;'
+    done
+    echo 'ROLLBACK;'
+  } > "$transaccion"
+  aplicar "$transaccion"
+  [[ "$(consulta "SELECT to_regnamespace('vec_contacto_usuario_v1') IS NULL AND to_regrole('vec_contacto_usuario_owner') IS NULL")" == t ]] || { echo 'F2: ROLLBACK dejó efectos' >&2; exit 1; }
+fi
 for archivo in "${archivos[@]}"; do aplicar "$archivo"; done
 # El ensayo de ACL usa una identidad LOGIN nominal, no SET ROLE desde DBA.
 preparar_login(){ consulta "CREATE ROLE vec_contacto_f2_login LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS; GRANT vec_contacto_usuario_writer TO vec_contacto_f2_login WITH ADMIN FALSE, INHERIT TRUE, SET FALSE" >/dev/null; }
@@ -183,18 +231,20 @@ if [[ "${VEC_F2_POSITIVO:-}" == 1 ]]; then
     "$raiz/deploy/postgresql/bolsa_registro_accesos/migraciones/000008_operaciones_contacto_propio.up.sql"
     "$raiz/deploy/postgresql/contacto_usuario_vec/migraciones/000003_operaciones_contacto_propio.up.sql"
   )
-  transaccion_ops=$(mktemp)
-  {
-    echo 'BEGIN;'
-    for archivo in "${archivos_operaciones[@]}"; do
-      printf '%s\n' "\\echo F2 ROLLBACK $(basename "$archivo")"
-      filtrar_guardia_ensayo "$archivo" | sed '/^BEGIN;$/d;/^COMMIT;$/d'
-      echo 'RESET ROLE;'
-    done
-    echo 'ROLLBACK;'
-  } > "$transaccion_ops"
-  aplicar "$transaccion_ops"
-  [[ "$(consulta "SELECT to_regclass('vec_contacto_usuario_v1.operaciones') IS NULL AND to_regprocedure('vec_bolsa_registro_accesos.registrar_operacion_contacto_v1(text,bytea,bytea,bytea,bytea,bytea,text,text,text,text,text)') IS NULL")" == t ]] || { echo 'F2: ROLLBACK de operaciones dejó efectos' >&2; exit 1; }
+  if [[ "${VEC_F2_COTEJO_WIP:-}" != 1 ]]; then
+    transaccion_ops=$(mktemp)
+    {
+      echo 'BEGIN;'
+      for archivo in "${archivos_operaciones[@]}"; do
+        printf '%s\n' "\\echo F2 ROLLBACK $(basename "$archivo")"
+        sed '/^BEGIN;$/d;/^COMMIT;$/d' "$archivo"
+        echo 'RESET ROLE;'
+      done
+      echo 'ROLLBACK;'
+    } > "$transaccion_ops"
+    aplicar "$transaccion_ops"
+    [[ "$(consulta "SELECT to_regclass('vec_contacto_usuario_v1.operaciones') IS NULL AND to_regprocedure('vec_bolsa_registro_accesos.registrar_operacion_contacto_v1(text,bytea,bytea,bytea,bytea,bytea,text,text,text,text,text)') IS NULL")" == t ]] || { echo 'F2: ROLLBACK de operaciones dejó efectos' >&2; exit 1; }
+  fi
   for archivo in "${archivos_operaciones[@]}"; do aplicar "$archivo"; done
   for archivo in \
     "$raiz/deploy/postgresql/contacto_usuario_vec/migraciones/000003_operaciones_contacto_propio.down.sql" \
