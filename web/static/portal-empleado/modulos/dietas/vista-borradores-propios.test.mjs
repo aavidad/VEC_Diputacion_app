@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { montarVistaBorradoresPropios } from "./vista-borradores-propios.js";
+import { crearClienteBorradoresDietasHTTP } from "./cliente-borradores-http.js";
 
 const claveDatos = (atributo) =>
   atributo.slice(5).replace(/-([a-z])/g, (_m, letra) => letra.toUpperCase());
@@ -265,6 +266,52 @@ test("un POST incierto reintenta el mismo material y la misma clave sin inventar
     assert.equal(solicitudes[1].clave_idempotencia, "operacion-estable");
     assert.match(textoVisible(contenedor), /rcd_1234567890123456789012/u);
     assert.equal(contenedor.querySelector("[data-dietas-borradores-estado]").dataset.tono, "exito");
+  } finally {
+    globalThis.FormData = FormDataOriginal;
+    vista.desmontar();
+  }
+});
+
+test("la vista conserva la clave si el POST real responde 201 sin recibo válido", async () => {
+  const contenedor = raiz();
+  const solicitudes = [];
+  const confirmado = {
+    comision: { ...item.comision, codigos_ruta: ["18087", "18003"] },
+    recibo: { ...item.recibo, registrado_en: "2026-09-20T10:00:00.123456Z", repeticion: true },
+  };
+  const cliente = crearClienteBorradoresDietasHTTP({ fetchImpl: async (ruta, opciones) => {
+    if (opciones.method === "GET")
+      return new Response(JSON.stringify({ items: [] }), { status: 200, headers: { "Content-Type": "application/json; charset=utf-8" } });
+    assert.equal(ruta, "/api/vec/dietas/comisiones");
+    solicitudes.push(JSON.parse(opciones.body));
+    return solicitudes.length === 1
+      ? new Response("no-json", { status: 201, headers: { "Content-Type": "application/json; charset=utf-8" } })
+      : new Response(JSON.stringify(confirmado), { status: 200, headers: { "Content-Type": "application/json; charset=utf-8" } });
+  } });
+  const vista = montarVistaBorradoresPropios(contenedor, {
+    cliente,
+    generarClaveIdempotencia: () => "operacion-estable-20260924",
+  });
+  await new Promise((resolver) => setImmediate(resolver));
+  const form = contenedor.querySelector("[data-dietas-borrador-form]");
+  form.checkValidity = () => true;
+  const datos = {
+    fecha_inicio: "2026-09-20", fecha_fin: "2026-09-21", motivo: "Visita",
+    hora_inicio: "09:00", hora_fin: "18:00", origen_codigo: "18087", destino_codigo: "18003",
+  };
+  const FormDataOriginal = globalThis.FormData;
+  globalThis.FormData = class { get(nombre) { return datos[nombre] ?? null; } };
+  try {
+    const panel = contenedor.querySelector("[data-dietas-borradores-propios]");
+    await panel.listeners.submit({ target: form, preventDefault() {} });
+    assert.equal(contenedor.querySelector("[data-dietas-borrador-recibo]"), null);
+    assert.match(textoVisible(contenedor), /No se ha podido confirmar/u);
+    await panel.listeners.submit({ target: form, preventDefault() {} });
+    assert.equal(solicitudes.length, 2);
+    assert.deepEqual(solicitudes[0], solicitudes[1]);
+    assert.equal(solicitudes[1].clave_idempotencia, "operacion-estable-20260924");
+    assert.match(textoVisible(contenedor), /2026-09-20T10:00:00\.123456Z/u);
+    assert.match(textoVisible(contenedor), /recuperado sin crear otro borrador/u);
   } finally {
     globalThis.FormData = FormDataOriginal;
     vista.desmontar();

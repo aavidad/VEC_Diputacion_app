@@ -59,21 +59,30 @@ async function leerJSONAcotado(respuesta, signal) {
   } catch (causa) { await cancelarRespuesta(respuesta, lector); throw causa; } finally { signal?.removeEventListener("abort", abortar); try { lector.releaseLock?.(); } catch {} }
 }
 function codigoError(cuerpo, estado) { const codigo = typeof cuerpo?.error === "string" && cuerpo.error.startsWith("dietas.error.") ? cuerpo.error.slice("dietas.error.".length) : null; return CODIGOS_POR_ESTADO.get(estado)?.has(codigo) ? codigo : "respuesta_rechazada"; }
-async function ejecutar(fetchImpl, ruta, opciones, estadosCorrectos, signal, escritura = false) {
+async function ejecutar(fetchImpl, ruta, opciones, estadosCorrectos, signal, escritura = false, validarResultado) {
   let respuesta; try { respuesta = await fetchImpl(ruta, { ...opciones, credentials: "same-origin", mode: "same-origin", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer", signal }); } catch { throw fallo(signal?.aborted ? "operacion_abortada" : "red_no_disponible", 0, escritura && !signal?.aborted); }
   if (!respuesta || respuesta.redirected === true) { await cancelarRespuesta(respuesta); throw fallo("respuesta_rechazada", respuesta?.status || 0, escritura); }
   const estado = respuesta.status || 0; let cuerpo;
   try { cuerpo = await leerJSONAcotado(respuesta, signal); } catch (causa) {
-    if (causa instanceof ErrorClienteBorradoresDietas && escritura && estado === 503) throw fallo(causa.codigo, estado, true);
+    if (escritura && (estado === 0 || estado >= 500 || (estado >= 200 && estado < 300)) &&
+        !(causa instanceof ErrorClienteBorradoresDietas && causa.codigo === "operacion_abortada"))
+      throw fallo(causa instanceof ErrorClienteBorradoresDietas ? causa.codigo : "respuesta_incompatible", estado, true);
     throw causa;
   }
-  if (!estadosCorrectos.includes(estado) || respuesta.ok !== true) { const codigo = codigoError(cuerpo, estado); throw fallo(codigo, estado, escritura && (estado === 0 || estado === 503)); }
+  if (!estadosCorrectos.includes(estado) || respuesta.ok !== true) {
+    const codigo = codigoError(cuerpo, estado);
+    throw fallo(codigo, estado, escritura && (estado === 0 || estado >= 500 || (estado >= 200 && estado < 300)));
+  }
+  if (validarResultado) {
+    try { return validarResultado(cuerpo); }
+    catch { throw fallo("respuesta_incompatible", estado, escritura); }
+  }
   return cuerpo;
 }
 export function crearClienteBorradoresDietasHTTP({ fetchImpl = globalThis.fetch } = {}) {
   if (typeof fetchImpl !== "function") throw new TypeError("cliente de borradores de Dietas no disponible");
   return Object.freeze({
-    async crear(entrada, opciones = {}) { const solicitud = validarSolicitud(entrada); const signal = validarOpciones(opciones); const cuerpo = JSON.stringify(solicitud); if (codificador.encode(cuerpo).byteLength > MAXIMO_CUERPO_SOLICITUD_BYTES) throw new TypeError("solicitud de borrador de Dietas demasiado grande"); return validarItem(await ejecutar(fetchImpl, RUTA_COMISIONES, { method: "POST", headers: { "Content-Type": "application/json; charset=utf-8", Accept: "application/json" }, body: cuerpo }, [200, 201], signal, true)); },
+    async crear(entrada, opciones = {}) { const solicitud = validarSolicitud(entrada); const signal = validarOpciones(opciones); const cuerpo = JSON.stringify(solicitud); if (codificador.encode(cuerpo).byteLength > MAXIMO_CUERPO_SOLICITUD_BYTES) throw new TypeError("solicitud de borrador de Dietas demasiado grande"); return ejecutar(fetchImpl, RUTA_COMISIONES, { method: "POST", headers: { "Content-Type": "application/json; charset=utf-8", Accept: "application/json" }, body: cuerpo }, [200, 201], signal, true, validarItem); },
     async listar(consulta = {}, opciones = {}) {
       if (!registro(consulta) || Object.keys(consulta).some((clave) => !["limit", "cursor", "relacion_ref"].includes(clave))) throw new TypeError("consulta de borradores de Dietas no válida");
       const { limit = 20, cursor, relacion_ref } = consulta;
