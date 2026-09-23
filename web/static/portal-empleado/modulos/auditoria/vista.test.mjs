@@ -1,31 +1,30 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { ESTADO_AUDITORIA_PRESENTACION, EVENTOS_AUDITORIA_PRESENTACION } from "./datos-presentacion.js";
 import { renderizarVistaAuditoria } from "./vista.js";
 
-test("Auditoría presenta una muestra sintética, minimizada y con límites explícitos", () => {
+test("Auditoría abre cerrada y no presenta la muestra ficticia como resultado", () => {
   const html = renderizarVistaAuditoria();
-  assert.match(html, /datos ficticios y minimizados/u);
-  assert.match(html, /Actor enmascarado/u);
-  assert.match(html, /Sin validez probatoria/u);
-  assert.match(html, /Almacén durable, segregado y de solo adición/u);
-  assert.match(html, /Exportación firmada y controlada/u);
+  assert.match(html, /Consulta no configurada/u);
+  assert.match(html, /No se han solicitado ni mostrado eventos/u);
+  assert.match(html, /Referencia exacta del recurso/u);
+  assert.match(html, /competencia, recurso y finalidad/u);
+  assert.match(html, /data-auditoria-ayuda aria-controls="auditoria-ayuda" aria-expanded="false"/u);
   assert.match(html, /disabled aria-disabled="true"/u);
-  assert.equal(ESTADO_AUDITORIA_PRESENTACION.estado, "visual_pendiente_backend");
-  assert.equal(EVENTOS_AUDITORIA_PRESENTACION.length, 6);
+  assert.doesNotMatch(html, /AUD-2026|rec_sint_|cor_sint_|E\. M\. R\.|<table/u);
 });
 
-test("Auditoría filtra localmente por vista, módulo, resultado y periodo", () => {
-  const accesos = renderizarVistaAuditoria({ vista: "accesos" });
-  const denegados = renderizarVistaAuditoria({ resultado: "Denegado", periodo: "18/09/2026" });
-  assert.match(accesos, /Acceso a incidencia/u);
-  assert.doesNotMatch(accesos, /Preparación de informe/u);
-  assert.match(denegados, /Consulta de justificante/u);
-  assert.doesNotMatch(denegados, /Preparación de informe/u);
+test("la denegación tampoco revela eventos, identidad o recurso", () => {
+  const html = renderizarVistaAuditoria({ estado: "denegado", ayudaAbierta: true });
+  assert.match(html, /Acceso denegado/u);
+  assert.match(html, /No hay eventos visibles con este acceso/u);
+  assert.match(html, /id="auditoria-ayuda" class="panel auditoria-ayuda"  aria-labelledby/u);
+  assert.match(html, /aria-expanded="true"/u);
+  assert.doesNotMatch(html, /AUD-2026|rec_sint_|cor_sint_|E\. M\. R\.|<table/u);
 });
 
-test("La superficie no añade red ni almacenamiento persistente", async () => {
+test("la vista no añade red, almacenamiento ni datos locales de auditoría", async () => {
   const fuente = await readFile(new URL("./vista.js", import.meta.url), "utf8");
-  assert.doesNotMatch(fuente, /(?:fetch\(|XMLHttpRequest|localStorage|sessionStorage|indexedDB|document\.cookie)/iu);
+  assert.doesNotMatch(fuente, /(?:fetch\(|XMLHttpRequest|localStorage|sessionStorage|indexedDB|document\.cookie|datos-presentacion\.js)/iu);
+  assert.doesNotMatch(fuente, /EVENTOS_AUDITORIA_PRESENTACION|ESTADO_AUDITORIA_PRESENTACION/u);
 });
