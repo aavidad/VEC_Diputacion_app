@@ -1455,3 +1455,171 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Revisión de comisión: bandeja propia visible y fases sin servicio explícitas. */
+.modulo-dietas.dietas-recorridos {
+  min-width: 0;
+  padding: 1rem;
+  background: var(--portal-fondo);
+}
+
+.modulo-dietas.dietas-recorridos .dietas-recorridos-pasos {
+  gap: 0;
+  padding: .35rem;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio-lg);
+  background: var(--portal-superficie);
+  box-shadow: var(--portal-sombra-sm);
+}
+
+.modulo-dietas.dietas-recorridos .dietas-recorridos-pasos button {
+  min-height: 2.75rem;
+  padding-inline: .85rem;
+}
+
+.modulo-dietas.dietas-recorridos .dietas-recorridos-principal > :not(h3):not(p:first-of-type) {
+  margin-inline: 0;
+}
+
+.modulo-dietas.dietas-recorridos .dietas-recorridos-cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem 1rem;
+  padding: 1rem 1.15rem;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio-lg);
+  background: var(--portal-superficie);
+  box-shadow: var(--portal-sombra-sm);
+}
+
+.modulo-dietas.dietas-recorridos .dietas-recorridos-cabecera h2 {
+  margin: 0;
+  color: var(--portal-azul-950);
+  font-size: clamp(1.35rem, 2vw, 1.5rem);
+}
+
+.modulo-dietas.dietas-recorridos .dietas-recorridos-cabecera p {
+  margin: .25rem 0 0;
+  color: var(--portal-muted);
+  font-size: .875rem;
+}
+
+.modulo-dietas.dietas-recorridos .dietas-recorridos-cabecera-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: .75rem;
+}
+
+.modulo-dietas.dietas-recorridos .dietas-recorridos-ayuda {
+  position: relative;
+  max-width: 26rem;
+  color: var(--portal-muted);
+  font-size: .84rem;
+}
+
+.modulo-dietas.dietas-recorridos .dietas-recorridos-ayuda summary {
+  cursor: pointer;
+  color: var(--portal-azul-700);
+  font-weight: 700;
+}
+
+.modulo-dietas.dietas-recorridos .dietas-recorridos-ayuda p {
+  margin: .4rem 0 0;
+  padding: .65rem;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio);
+  background: var(--portal-superficie-alterna);
+}
+
+.modulo-dietas.dietas-recorridos .dietas-recorridos-revision {
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio-lg);
+  background: var(--portal-superficie);
+  box-shadow: var(--portal-sombra-sm);
+}
+
+.modulo-dietas.dietas-recorridos [data-dietas-borradores-propios] > h2 {
+  display: none;
+}
+
+.modulo-dietas.dietas-recorridos .dietas-recorridos-revision-cabecera {
+  margin: 0 0 1rem;
+  padding: .8rem 1rem;
+  border-bottom: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio) var(--portal-radio) 0 0;
+  background: var(--portal-superficie-alterna);
+}
+
+.modulo-dietas.dietas-recorridos .dietas-recorridos-revision-cabecera h3,
+.modulo-dietas.dietas-recorridos .dietas-recorridos-revision-cabecera p {
+  margin: 0;
+}
+
+.modulo-dietas.dietas-recorridos .dietas-recorridos-revision-cabecera h3 {
+  color: var(--portal-azul-950);
+  font-size: 1.05rem;
+}
+
+.modulo-dietas.dietas-recorridos .dietas-recorridos-revision-cabecera p {
+  margin-top: .25rem;
+  color: var(--portal-muted);
+  font-size: .84rem;
+}
+
+.modulo-dietas.dietas-recorridos .dietas-recorridos-pendiente .cabecera-panel,
+.modulo-dietas.dietas-recorridos .dietas-nueva-comision .cabecera-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  padding: .8rem 1rem;
+  background: var(--portal-superficie-alterna);
+}
+
+.modulo-dietas.dietas-recorridos .dietas-recorridos-pendiente h2,
+.modulo-dietas.dietas-recorridos .dietas-nueva-comision h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.modulo-dietas.dietas-recorridos .dietas-recorridos-pendiente .cuerpo-panel {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.modulo-dietas.dietas-recorridos .dietas-recorridos-pendiente .acciones-vista {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+}
+
+.modulo-dietas.dietas-recorridos .dietas-recorridos-pendiente button:disabled {
+  cursor: not-allowed;
+}
+
+.modulo-dietas.dietas-recorridos .dietas-nueva-comision {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: var(--portal-superficie);
+  box-shadow: var(--portal-sombra-sm);
+}
+
+.modulo-dietas.dietas-recorridos .dietas-nueva-comision > [data-dietas-area-itinerario] {
+  min-width: 0;
+  padding: 1rem;
+}
+
+@media (max-width: 760px) {
+  .modulo-dietas.dietas-recorridos { padding: .5rem; }
+  .modulo-dietas.dietas-recorridos .dietas-recorridos-pasos { grid-template-columns: 1fr; }
+  .modulo-dietas.dietas-recorridos .dietas-recorridos-cabecera-acciones { justify-content: flex-start; }
+  .modulo-dietas.dietas-recorridos .dietas-recorridos-revision { padding: .5rem; }
+}
