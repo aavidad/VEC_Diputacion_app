@@ -16,7 +16,7 @@ body.area-personal-app {
   --ap-radio: var(--portal-radio-lg, 8px); --ap-texto-inverso: var(--portal-texto-inverso, #ffffff);
   --ap-lateral-muted: var(--portal-lateral-muted, #d6e8f8); --ap-lateral: 284px;
 }
-
+.area-personal-app .oportunidades { --portal-fondo: var(--ap-fondo); --portal-superficie: var(--ap-superficie); --portal-superficie-alterna: var(--ap-superficie-alterna); --portal-cabecera-panel: var(--ap-cabecera-panel); --portal-tinta: var(--ap-tinta); --portal-muted: var(--ap-muted); --portal-borde: var(--ap-borde); --portal-azul-700: var(--ap-azul-700); --portal-exito: var(--ap-verde); --portal-exito-suave: var(--ap-verde-suave); --portal-peligro: var(--ap-rojo); --portal-peligro-suave: var(--ap-rojo-suave); --portal-violeta: var(--ap-violeta); --portal-violeta-suave: var(--ap-violeta-suave); --portal-neutro-suave: var(--ap-neutro-suave); --portal-sombra-sm: var(--ap-sombra); --portal-radio-lg: var(--ap-radio); }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 html { min-width: 320px; scroll-behavior: smooth; }

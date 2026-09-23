@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { crearControladorContactoPropio, capturarCorreoEnviado, montarContactoPropio } from "./contacto-propio.js";
-import { crearClienteOperacionesContactoPropio, RUTAS_OPERACIONES_CONTACTO } from "./cliente-http.js";
+import { crearClienteOperacionesContactoPropio, RUTAS_OPERACIONES_CONTACTO } from "./cliente-http.js?v=20260924-f2-b11-v1";
 import { textoContactoPropio } from "./i18n-contacto-propio.js";
 import { traducir } from "./i18n.js";
 
@@ -32,6 +32,16 @@ function contenedorDOM() {
   return { ownerDocument: documento, replaceChildren(...nodos) { this.children = nodos; } };
 }
 const autorizado = { capacidad: true, version: 7 };
+
+test("Contacto y arranque comparten la URL versionada del cliente HTTP", async () => {
+  const [contacto, arranque] = await Promise.all([
+    readFile(new URL("./contacto-propio.js", import.meta.url), "utf8"),
+    readFile(new URL("./arranque.js", import.meta.url), "utf8"),
+  ]);
+  const ruta = "./cliente-http.js?v=20260924-f2-b11-v1";
+  assert.ok(contacto.includes(ruta));
+  assert.ok(arranque.includes(ruta));
+});
 
 test("prepara 201 y confirma 201 solo por acción explícita, conserva recibo original", async () => {
   const s = servidor([[201, preparado()], [201, confirmado()]]);

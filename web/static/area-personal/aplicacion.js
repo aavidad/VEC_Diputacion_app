@@ -1,6 +1,7 @@
 import { escaparAtributo, escaparHTML, listaDatos } from "./vistas/comunes.js";
 import { MOTIVOS_PAUSA_DISPONIBILIDAD } from "./contrato.js";
-import { textosErrorCargaAreaPersonal, traducir } from "./i18n.js";
+import { textosErrorCargaAreaPersonal, traducir } from "./i18n.js?v=20260924-f2-b15-area-v1";
+import { montarVistaOportunidades } from "../comun/oportunidades/vista.js?v=20260924-f2-b15-area-v1";
 import {
   renderizarConvocatorias, renderizarDetalleConvocatoria, renderizarInicio,
 } from "./vistas/inicio-convocatorias.js";
@@ -22,6 +23,7 @@ const MOTIVO_PAUSA_PREDETERMINADO = MOTIVOS_PAUSA_DISPONIBILIDAD[0];
 const RUTAS = Object.freeze({
   inicio: ["areaPersonal.rutas.inicio", renderizarInicio],
   convocatorias: ["areaPersonal.rutas.convocatorias", renderizarConvocatorias],
+  oportunidades: ["areaPersonal.rutas.oportunidades", () => '<div id="oportunidades-montaje"></div>'],
   convocatoria: ["areaPersonal.rutas.convocatoria", renderizarDetalleConvocatoria],
   perfil: ["areaPersonal.rutas.perfil", renderizarPerfil],
   meritos: ["areaPersonal.rutas.meritos", renderizarMeritos],
@@ -214,6 +216,8 @@ function actualizarShell(estado) {
 
 function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {}) {
   if (!estado.datos) return;
+  estado.desmontarOportunidades?.();
+  estado.desmontarOportunidades = null;
   estado.destruirContactoPropio?.();
   estado.destruirContactoPropio = null;
   estado.controladorContactoPropio = null;
@@ -227,6 +231,11 @@ function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {
   actualizarShell(estado);
   porId("estado-carga").hidden = true;
   porId("espacio-trabajo").innerHTML = RUTAS[estado.vista][1](estado.datos, estado);
+  if (estado.vista === "oportunidades") {
+    // La bandeja actual no aporta una evaluación B15 autorizada: no derivarla de convocatorias DEMO.
+    const vista = montarVistaOportunidades({ raiz: porId("oportunidades-montaje"), anunciar });
+    estado.desmontarOportunidades = vista.desmontar;
+  }
   actualizarEnlacesNavegacion(estado);
   aplicarCapacidadesVisibles(estado);
   if (estado.vista === "perfil" && !estado.contactoPropioCargado && !estado.cargandoContactoPropio
@@ -785,6 +794,7 @@ export async function iniciarAreaPersonal({ cliente, descargarReciboPDF = null, 
     contactoPropioRecibo: null,
     controladorContactoPropio: null,
     destruirContactoPropio: null,
+    desmontarOportunidades: null,
     fetchImpl,
     participaciones: [],
     paginaParticipaciones: 1,

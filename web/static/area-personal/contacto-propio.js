@@ -1,4 +1,4 @@
-import { crearClienteOperacionesContactoPropio, ErrorOperacionContacto, referenciaOperacionContactoValida } from "./cliente-http.js";
+import { crearClienteOperacionesContactoPropio, ErrorOperacionContacto, referenciaOperacionContactoValida } from "./cliente-http.js?v=20260924-f2-b11-v1";
 import { textoContactoPropio as t } from "./i18n-contacto-propio.js";
 
 export function capturarCorreoEnviado(entrada) { return String(entrada?.value ?? "").trim(); }
