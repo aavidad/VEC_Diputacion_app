@@ -1,17 +1,58 @@
-/** Catálogo cerrado de la interfaz de Comunicaciones. Los datos visibles llegan del atlas. */
+/** Catálogo cerrado de la vista de Comunicaciones. */
 export const MENSAJES_COMUNICACIONES_ES = Object.freeze({
-  detalle_sobrelinea: "Detalle seleccionado", referencia: "Referencia", expediente: "Expediente", canal_previsto: "Canal previsto", contacto: "Contacto", plantilla: "Plantilla", fecha_visible: "Fecha visible", historial: "Historial",
-  ayuda: "Ayuda contextual", preparacion_sintetica: "Preparación sintética", contacto_pendiente: "Pendiente del alta propia de VEC", trazabilidad_titulo: "Evidencia de la comunicación", trazabilidad_ayuda: "La aceptación del transporte solo confirmaría la recepción por el canal técnico; la entrega y la lectura necesitan pruebas distintas.", evidencia_transporte: "Aceptado por transporte", evidencia_entrega: "Entregado al destinatario", evidencia_lectura: "Leído por el destinatario", sin_evidencia: "Sin evidencia", sin_resultados: "No hay comunicaciones que coincidan con el filtro.", enviar: "Enviar", enviar_motivo: "Envío no disponible: falta un canal corporativo conectado, destinatario del alta propia VEC y recibo verificable.",
-  limite_detalle: "No hay acuse, documento adjunto, despacho, entrega ni notificación fehaciente acreditados.", acusar_recepcion: "Acusar recepción", acusar_motivo: "Disponible al conectar el caso de uso y su recibo.", archivar: "Archivar", archivar_motivo: "Disponible al conectar el historial y la autorización.", ver_documento: "Ver documento", documento_motivo: "No hay documento ni descarga conectados.",
-  bandeja_sobrelinea: "Avisos personales y administrativos", bandeja_de: "Bandeja de {persona}", visibles: "{numero} visibles", region_bandeja: "Bandeja de comunicaciones", caption_bandeja: "Bandeja de comunicaciones sintéticas", asunto: "Asunto", tipo: "Tipo", canal: "Canal", fecha: "Fecha", estado: "Estado",
-  preferencias_sobrelinea: "Canales y consentimiento", preferencias_titulo: "Preferencias de canal", cambiar_preferencias: "Cambiar preferencias", cambiar_preferencias_motivo: "Disponible al conectar la fuente autorizada de preferencias.", preferencias_ayuda: "Los datos mostrados son sintéticos. Ningún contacto real se carga ni se modifica en esta pantalla.", caption_preferencias: "Preferencias sintéticas de canal", finalidad: "Finalidad", consentimiento: "Consentimiento",
-  plantillas_sobrelinea: "Contenido versionado visible", plantillas_titulo: "Plantillas", redactar: "Redactar comunicación", redactar_motivo: "Disponible al conectar plantilla, autorización y recibo.",
-  administrativas_sobrelinea: "Área segregada", administrativas_titulo: "Campañas y comunicaciones administrativas", crear_campana: "Crear campaña", crear_campana_motivo: "Disponible con autorización específica, audiencia y auditoría.", administrativas_ayuda: "La gestión colectiva se mantiene separada de los avisos personales. Esta presentación no permite seleccionar destinatarios, adjuntar documentos ni enviar comunicaciones.", administrativas_audiencia: "Audiencia y segmentación: pendientes de autorización y finalidad.", administrativas_adjuntos: "Adjuntos: pendientes de gestión documental y control antivirus.", administrativas_evidencias: "Despacho, acuse y evidencias: pendientes de conectores, auditoría y recibos.",
-  cabecera_sobrelinea: "Comunicaciones · presentación RRHH", titulo: "Comunicaciones y avisos", descripcion: "Consulta visual con información sintética y minimizada. Un aviso no acredita envío, entrega, notificación ni acuse.", estado_resumen: "Sin fuente ni canal conectados · ver límites", navegacion: "Secciones de Comunicaciones", pestana_bandeja: "Bandeja", pestana_preferencias: "Preferencias", pestana_plantillas: "Plantillas", pestana_administrativas: "Administrativas", filtrar: "Filtrar avisos", filtro_placeholder: "Asunto, tipo o canal", aplicar_filtro: "Aplicar filtro", seccion_seleccionada: "Sección {seccion} seleccionada.", filtro_aplicado: "Filtro aplicado solo a datos sintéticos visibles.",
+  cabecera_sobrelinea: "Comunicaciones",
+  titulo: "Comunicaciones y avisos",
+  descripcion: "Bandeja pendiente de una fuente autorizada. Un aviso no acredita envío, entrega, notificación ni lectura.",
+  estado_resumen: "No configurado · ver límites y dependencias",
+  no_configurado: "No configurado",
+  sin_fuente_resumen: "Esta bandeja no consulta comunicaciones ni preferencias porque todavía no tiene una fuente autorizada.",
+  pendiente_fuente: "Consulta autorizada de comunicaciones, con ámbito y finalidad.",
+  pendiente_canal: "Canal corporativo y destinatario del alta propia de VEC.",
+  pendiente_recibo: "Recibos y evidencias diferenciadas de transporte, entrega y lectura.",
+  conexion_pendiente: "Sin API ni canal activos en esta vista",
+  navegacion: "Secciones de Comunicaciones",
+  pestana_bandeja: "Bandeja",
+  pestana_preferencias: "Preferencias",
+  pestana_plantillas: "Plantillas",
+  pestana_administrativas: "Administrativas",
+  seccion_seleccionada: "Sección {seccion} seleccionada.",
+  bandeja_sobrelinea: "Comunicaciones propias",
+  bandeja_titulo: "Bandeja",
+  visibles: "{numero} visibles",
+  region_bandeja: "Bandeja de comunicaciones",
+  caption_bandeja: "Comunicaciones y etapas de evidencia",
+  asunto: "Asunto",
+  canal_previsto: "Canal previsto",
+  evidencia_transporte: "Aceptado por transporte",
+  evidencia_entrega: "Entregado al destinatario",
+  evidencia_lectura: "Leído por el destinatario",
+  bandeja_vacia: "No hay comunicaciones para mostrar: la fuente todavía no está conectada.",
+  detalle_sobrelinea: "Seguimiento de evidencias",
+  trazabilidad_titulo: "Transporte, entrega y lectura",
+  trazabilidad_ayuda: "La aceptación del transporte solo confirmaría la recepción por el canal técnico. La entrega y la lectura requieren evidencias distintas.",
+  sin_fuente: "Sin fuente",
+  limite_detalle: "No hay despacho, entrega, lectura ni notificación fehaciente acreditados.",
+  enviar: "Enviar",
+  enviar_motivo: "Envío no disponible: faltan un canal corporativo conectado, el destinatario del alta propia de VEC y un recibo verificable.",
+  preferencias_titulo: "Preferencias de canal",
+  preferencias_ayuda: "No se consultan ni modifican preferencias hasta conectar su fuente autorizada.",
+  cambiar_preferencias: "Cambiar preferencias",
+  cambiar_preferencias_motivo: "Disponible al conectar la fuente autorizada de preferencias.",
+  plantillas_titulo: "Plantillas",
+  plantillas_ayuda: "No hay plantillas disponibles en esta vista sin un catálogo versionado conectado.",
+  redactar: "Redactar comunicación",
+  redactar_motivo: "Disponible al conectar plantilla, autorización y recibo.",
+  administrativas_titulo: "Campañas y comunicaciones administrativas",
+  administrativas_ayuda: "La gestión colectiva requiere autorización específica, audiencia y auditoría. Esta vista no selecciona destinatarios ni prepara despachos.",
+  crear_campana: "Crear campaña",
+  crear_campana_motivo: "Disponible con autorización específica, audiencia y auditoría.",
 });
 
 const CLAVES = Object.freeze(Object.keys(MENSAJES_COMUNICACIONES_ES));
 export function crearTraductorComunicaciones(catalogo = MENSAJES_COMUNICACIONES_ES) {
   if (!catalogo || typeof catalogo !== "object" || CLAVES.some((clave) => typeof catalogo[clave] !== "string" || catalogo[clave] === "")) throw new Error("catálogo i18n de Comunicaciones incompleto");
-  return (clave, variables = {}) => { if (!CLAVES.includes(clave)) throw new Error(`clave i18n de Comunicaciones desconocida: ${clave}`); return catalogo[clave].replace(/\{([a-z_]+)\}/g, (_coincidencia, variable) => String(variables[variable] ?? "")); };
+  return (clave, variables = {}) => {
+    if (!CLAVES.includes(clave)) throw new Error(`clave i18n de Comunicaciones desconocida: ${clave}`);
+    return catalogo[clave].replace(/\{([a-z_]+)\}/g, (_coincidencia, variable) => String(variables[variable] ?? ""));
+  };
 }

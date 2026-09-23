@@ -6,22 +6,13 @@
 .comunicaciones-pestanas { display: flex; flex-wrap: wrap; gap: .4rem; border-bottom: 1px solid var(--portal-borde); }
 .comunicaciones-pestanas button { min-height: 2.5rem; padding: .5rem .75rem; border: 1px solid transparent; border-radius: var(--portal-radio) var(--portal-radio) 0 0; background: transparent; color: var(--portal-azul-800); font: inherit; font-weight: 760; cursor: pointer; }
 .comunicaciones-pestanas button[aria-selected="true"] { border-color: var(--portal-borde); border-bottom-color: var(--portal-superficie); background: var(--portal-superficie); }
-.comunicaciones-filtros { display: flex; flex-wrap: wrap; align-items: end; gap: .75rem; padding: .8rem; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio); background: var(--portal-superficie); }
-.comunicaciones-filtros label { display: grid; flex: 1 1 18rem; gap: .3rem; color: var(--portal-muted); font-size: .82rem; font-weight: 700; }
-.comunicaciones-filtros input { min-height: 2.45rem; padding: .5rem .65rem; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio); background: var(--portal-superficie); color: var(--portal-tinta); font: inherit; }
 .comunicaciones-espacio { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(20rem, .8fr); gap: 1rem; align-items: start; }
 .comunicaciones-bandeja, .comunicaciones-detalle { min-width: 0; }
-.comunicaciones-bandeja tr[data-seleccionada="true"] { background: var(--portal-azul-100); box-shadow: inset .25rem 0 var(--portal-azul-700); }
 .comunicaciones-bandeja .tabla-contenedor { max-width: 100%; overflow-x: auto; }
 .comunicaciones-tabla { min-width: 48rem; }
 .comunicaciones-tabla th:first-child { min-width: 13rem; }
 .comunicaciones-tabla th:not(:first-child), .comunicaciones-tabla td { white-space: normal; }
-.comunicaciones-tabla th small { overflow-wrap: anywhere; }
-.comunicaciones-bandeja th small { display: block; margin-top: .2rem; color: var(--portal-muted); font-weight: 500; }
-.comunicaciones-datos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .7rem; margin: 0; }
-.comunicaciones-datos div { min-width: 0; padding-bottom: .5rem; border-bottom: 1px solid var(--portal-borde); }
-.comunicaciones-datos dt { color: var(--portal-muted); font-size: .72rem; font-weight: 750; }.comunicaciones-datos dd { margin: .2rem 0 0; overflow-wrap: anywhere; }
-.comunicaciones-historial { display: grid; gap: .55rem; padding-left: 1.2rem; }.comunicaciones-historial li::marker { color: var(--portal-azul-700); }
+.comunicaciones-vacio { margin: 0; padding: .9rem; color: var(--portal-muted); background: var(--portal-superficie-alterna); }
 .comunicaciones-evidencias { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; margin: .55rem 0 .8rem; }
 .comunicaciones-evidencias > div { min-width: 0; padding: .7rem; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio); background: var(--portal-superficie-alterna); }
 .comunicaciones-evidencias dt { margin-bottom: .4rem; color: var(--portal-muted); font-size: .75rem; font-weight: 700; }
@@ -29,7 +20,6 @@
 .comunicaciones-explicacion, .comunicaciones-motivo { color: var(--portal-muted); font-size: .82rem; }
 .comunicaciones-motivo { display: block; margin: .55rem 0 0; }
 .comunicaciones-limite { padding: .65rem .75rem; border-left: .3rem solid var(--portal-aviso); background: var(--portal-aviso-suave); font-size: .84rem; }
-.comunicaciones-plantillas { display: grid; gap: .65rem; padding: 0; margin: 0; list-style: none; }.comunicaciones-plantillas li { display: flex; justify-content: space-between; align-items: start; gap: .75rem; padding: .7rem 0; border-bottom: 1px solid var(--portal-borde); }.comunicaciones-plantillas span { display: block; margin-top: .2rem; color: var(--portal-muted); font-size: .8rem; }
 .comunicaciones-segregadas { border-top: .3rem solid var(--portal-azul-700); }.modulo-comunicaciones button:disabled { cursor: not-allowed; opacity: .65; }
 @media (max-width: 1100px) { .comunicaciones-espacio { grid-template-columns: 1fr; } }
-@media (max-width: 600px) { .comunicaciones-datos, .comunicaciones-evidencias { grid-template-columns: 1fr; } .comunicaciones-filtros { display: grid; } .comunicaciones-pestanas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); } .comunicaciones-pestanas button { min-width: 0; border-radius: var(--portal-radio); } }
+@media (max-width: 600px) { .comunicaciones-evidencias { grid-template-columns: 1fr; } .comunicaciones-pestanas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); } .comunicaciones-pestanas button { min-width: 0; border-radius: var(--portal-radio); } }
