@@ -15,6 +15,12 @@ const BLOQUES = Object.freeze({
   documentos: { titulo: "ficha_documentos_titulo", ayuda: "ficha_documentos_ayuda", columnas: [["documento", "ficha_cab_documento"], ["fecha", "ficha_cab_fecha"], ["estado", "ficha_cab_estado"]] },
 });
 const ESTADOS = new Set(["disponible", "vacio", "no_configurado", "denegado"]);
+const ETIQUETAS_ESTADO = Object.freeze({
+  sin_consulta: "ficha_estado_sin_consulta", cargando: "ficha_estado_cargando",
+  disponible: "ficha_estado_disponible", vacio: "ficha_estado_vacio",
+  no_configurado: "ficha_estado_no_configurado", denegado: "ficha_estado_denegado",
+  error: "ficha_estado_error",
+});
 
 function nodo(d, etiqueta, texto) { const n = d.createElement(etiqueta); if (texto !== undefined) n.textContent = texto; return n; }
 function panel(d, titulo, contenido, clase = "") {
@@ -36,11 +42,13 @@ function accesos(d, t, navegarModulo) {
   }
   return acciones;
 }
-function portada(d, t, navegarModulo) {
+function portada(d, t, navegarModulo, estados) {
   const bloques = nodo(d, "div"); bloques.className = "personal-ficha-bloques";
   for (const clave of Object.keys(BLOQUES)) {
     const ficha = nodo(d, "div"); ficha.className = "personal-ficha-bloque";
-    ficha.append(nodo(d, "strong", t(BLOQUES[clave].titulo)), nodo(d, "span", t("ficha_estado_sin_consulta"))); bloques.append(ficha);
+    ficha.dataset.personalFichaEstado = estados[clave];
+    const estado = nodo(d, "span", t(ETIQUETAS_ESTADO[estados[clave]])); estado.className = "personal-ficha-estado";
+    ficha.append(nodo(d, "strong", t(BLOQUES[clave].titulo)), estado); bloques.append(ficha);
   }
   return [panel(d, t("ficha_resumen"), [mensaje(d, t("ficha_fuente_pendiente")), bloques], "personal-ficha-panel-ancho"),
     panel(d, t("ficha_accesos_titulo"), [nodo(d, "p", t("ficha_accesos_ayuda")), accesos(d, t, navegarModulo)], "personal-ficha-panel-ancho")];
@@ -49,17 +57,20 @@ function validarResultado(resultado, bloque) {
   if (!resultado || typeof resultado !== "object" || !ESTADOS.has(resultado.estado)) throw new TypeError("respuesta de ficha no válida");
   if (resultado.estado !== "disponible" && resultado.estado !== "vacio") return { estado: resultado.estado };
   if (typeof resultado.fuente !== "string" || !resultado.fuente.trim() || resultado.fuente.length > 160 ||
-      typeof resultado.actualizado_en !== "string" || !Number.isFinite(Date.parse(resultado.actualizado_en)) ||
+      typeof resultado.actualizado_en !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/u.test(resultado.actualizado_en) ||
+      !Number.isFinite(Date.parse(resultado.actualizado_en)) ||
       !Array.isArray(resultado.items) || resultado.items.length > 50 ||
       (resultado.estado === "vacio" && resultado.items.length !== 0) || (resultado.estado === "disponible" && resultado.items.length === 0)) throw new TypeError("respuesta de ficha no válida");
   const columnas = BLOQUES[bloque].columnas.map(([campo]) => campo);
   const items = resultado.items.map((item) => {
     if (!item || typeof item !== "object") throw new TypeError("fila de ficha no válida");
-    return Object.fromEntries(columnas.map((campo) => {
+    const visible = Object.fromEntries(columnas.map((campo) => {
       const valor = item[campo];
       if (valor !== undefined && (typeof valor !== "string" || valor.length > 240)) throw new TypeError("campo de ficha no válido");
       return [campo, valor ?? ""];
     }));
+    if (!Object.values(visible).some((valor) => valor.trim())) throw new TypeError("fila de ficha sin datos visibles");
+    return visible;
   });
   return { estado: resultado.estado, fuente: resultado.fuente, actualizado_en: resultado.actualizado_en, items };
 }
@@ -121,6 +132,8 @@ export function montarVistaFichaIntegralPersonal({ raiz, anunciar = () => {}, re
   const d = raiz.ownerDocument; if (!d?.createElement) throw new TypeError("documento ficha integral de Personal no disponible");
   const t = crearTraductorPersonal(); const contenedor = nodo(d, "section"); contenedor.className = "modulo-personal";
   contenedor.dataset.personalFichaIntegral = ""; raiz.append(contenedor);
+  const estados = Object.fromEntries(Object.keys(BLOQUES).map((clave) => [clave,
+    Object.hasOwn(fuentes, clave) && typeof fuentes[clave]?.consultarPropios === "function" ? "sin_consulta" : "no_configurado"]));
   let activa = true; let actual = "ficha"; let vuelo; let limpiarCatalogos; let secuencia = 0;
   const limpiar = () => { const fn = limpiarCatalogos; limpiarCatalogos = undefined; fn?.(); };
   const desmontar = () => { if (!activa) return; activa = false; secuencia += 1; vuelo?.abort(); limpiar(); contenedor.remove?.(); };
@@ -133,13 +146,14 @@ export function montarVistaFichaIntegralPersonal({ raiz, anunciar = () => {}, re
   const pintar = (clave) => {
     if (!activa) return;
     if (actual === "catalogos") limpiar();
+    if (vuelo && Object.hasOwn(estados, actual) && estados[actual] === "cargando") estados[actual] = "sin_consulta";
     secuencia += 1; vuelo?.abort(); vuelo = undefined; actual = clave;
     for (const [valor] of PESTANAS) {
       const tab = tabs.querySelector?.(`[data-personal-ficha-tab="${valor}"]`);
       tab?.setAttribute("aria-selected", String(valor === clave)); tab?.setAttribute("tabindex", valor === clave ? "0" : "-1");
     }
     principal.setAttribute("aria-labelledby", `personal-ficha-tab-${clave}`);
-    if (clave === "ficha") { principal.replaceChildren(...portada(d, t, navegarModulo)); return; }
+    if (clave === "ficha") { principal.replaceChildren(...portada(d, t, navegarModulo, estados)); return; }
     if (clave === "catalogos") {
       const hueco = nodo(d, "div"); hueco.dataset.personalFichaCatalogos = "";
       principal.replaceChildren(panel(d, t("ficha_catalogos_titulo"), [nodo(d, "p", t("ficha_catalogos_completos")), hueco], "personal-ficha-panel-ancho"));
@@ -155,15 +169,18 @@ export function montarVistaFichaIntegralPersonal({ raiz, anunciar = () => {}, re
       }).catch(() => { if (activa && actual === "catalogos" && turno === secuencia) hueco.replaceChildren(mensaje(d, t("ficha_catalogos_error"), "alert")); });
       return;
     }
-    const consultar = fuentes[clave]?.consultarPropios;
+    const consultar = Object.hasOwn(fuentes, clave) ? fuentes[clave]?.consultarPropios : undefined;
     if (typeof consultar !== "function") { pintarBloque(d, principal, t, clave, { estado: "no_configurado" }); return; }
     const turno = secuencia; const controlador = new AbortController(); vuelo = controlador;
+    estados[clave] = "cargando";
     pintarBloque(d, principal, t, clave, { estado: "cargando" });
     Promise.resolve().then(() => consultar({ signal: controlador.signal })).then((resultado) => {
       if (!activa || actual !== clave || turno !== secuencia || controlador.signal.aborted) return;
-      pintarBloque(d, principal, t, clave, validarResultado(resultado, clave));
+      const validado = validarResultado(resultado, clave); estados[clave] = validado.estado;
+      pintarBloque(d, principal, t, clave, validado);
     }).catch(() => {
       if (!activa || actual !== clave || turno !== secuencia || controlador.signal.aborted) return;
+      estados[clave] = "error";
       pintarBloque(d, principal, t, clave, { estado: "error" }); anunciar(t("ficha_error"), "error");
     }).finally(() => { if (vuelo === controlador) vuelo = undefined; });
   };

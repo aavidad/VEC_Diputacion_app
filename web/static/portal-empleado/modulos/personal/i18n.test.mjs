@@ -9,7 +9,9 @@ test("el catálogo de Personal advierte de la naturaleza DEMO y de sus límites"
   assert.match(t("servicios_ayuda"), /no se calcula antigüedad, trienios/i);
   assert.match(t("nominas_ayuda"), /No se muestran importes/i);
   assert.match(t("dietas_ayuda"), /no acreditan liquidación/i);
-  assert.match(t("ficha_aviso_compacto"), /sin identidad privada.*sin efectos administrativos/i);
+  assert.match(t("ficha_accesos_ayuda"), /no envía identificadores ni acredita una relación de servicio/i);
+  assert.match(t("ficha_estado_no_configurado"), /Fuente no conectada/i);
+  assert.match(t("ficha_catalogos_completos"), /No acreditan ocupación actual/i);
   assert.match(t("ficha_abrir_ayuda"), /^\? /);
   assert.match(t("ficha_tiempo_ayuda"), /fichaje no acredita servicios reconocidos/i);
   assert.match(t("ficha_no_configurado"), /ausencia de datos no equivale a cero/i);
