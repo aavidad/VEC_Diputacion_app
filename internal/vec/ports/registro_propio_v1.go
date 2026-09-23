@@ -68,7 +68,8 @@ type AutorizadorRegistroPropioV1 interface {
 }
 
 type RegistroPropioV1 interface {
-	// El repositorio bloquea el sujeto y sólo entonces invoca preparar. La
-	// preparación revalida fuente, equivalencia y actor antes del efecto SQL.
-	RegistrarPropio(context.Context, string, func(context.Context) (OrdenRegistroPropioV1, error)) (domain.ReciboRegistroPropioV1, error)
+	// La orden incluye una concesión V3 ya durable ANTES de abrir la
+	// transacción SERIALIZABLE. Bajo el lock del sujeto se revalidan fuente y
+	// equivalencia; el consumidor V3 revalida actor/concesión en esa transacción.
+	RegistrarPropio(context.Context, OrdenRegistroPropioV1, func(context.Context) error) (domain.ReciboRegistroPropioV1, error)
 }
