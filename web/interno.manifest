@@ -1,4 +1,6 @@
 static/assets/logo-diputacion-granada.svg
+static/comun/tema-vec.css
+static/comun/tema-vec.js
 static/favicon.svg
 static/portal-empleado/assets/ayuda-llamamiento-bolsa.mp3
 static/portal-empleado/ayuda-contenido.js
@@ -66,6 +68,7 @@ static/portal-empleado/modulos/auditoria/i18n.js
 static/portal-empleado/modulos/auditoria/vista.js
 static/portal-empleado/modulos/administracion/administracion.css
 static/portal-empleado/modulos/administracion/i18n.js
+static/portal-empleado/modulos/administracion/vista-apariencia.js
 static/portal-empleado/modulos/administracion/vista.js
 static/portal-empleado/modulos/contratacion-temporal/componentes-expedientes.js
 static/portal-empleado/modulos/contratacion-temporal/contratacion-temporal.css
