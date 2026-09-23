@@ -38,6 +38,16 @@ export function rutaCandidatosBolsa(bolsaRef, { estado = "", texto = "", cursor 
   return query ? `${rutaBase}?${query}` : rutaBase;
 }
 
+export function seleccionarParticipacionesPorEstado(candidatos, estados, limite = 100) {
+  const estadosIncluidos = new Set(estados || []);
+  return (candidatos || [])
+    .filter((candidato) => estadosIncluidos.has(candidato.estado_clave) && Number.isSafeInteger(candidato.orden))
+    .sort((izquierda, derecha) => izquierda.orden - derecha.orden
+      || String(izquierda.participacion_ref).localeCompare(String(derecha.participacion_ref), "es"))
+    .slice(0, limite)
+    .map((candidato) => candidato.participacion_ref);
+}
+
 export async function consultarBolsas({ fetchImpl = fetch, signal } = {}) {
   try {
     const respuesta = await fetchImpl(RUTA_BOLSAS, {
@@ -519,7 +529,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
         cerrarResultado();
       } else if (accion === "iniciar-b7") {
         evento.preventDefault();
-        estado.filtrosBolsa = { ...estado.filtrosBolsa, nuevo_llamamiento: { paso: 1, estados: ["disponible"], participaciones: [], configuracion: null, error: "", recibo: "" } };
+        estado.filtrosBolsa = { ...estado.filtrosBolsa, nuevo_llamamiento: { paso: 1, estados: ["disponible"], participaciones: [], configuracion: null, error: "", recibo: "", seleccion_total: false } };
         renderizar();
         documento.querySelector('[aria-current="step"]')?.focus?.();
       } else if (accion === "cancelar-b7") {
@@ -541,6 +551,15 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
         }
         Object.assign(estado.filtrosBolsa.nuevo_llamamiento, { pagina: Math.max(0, Number(botonAccion.dataset.pagina) || 0), participaciones: [...previas] });
         renderizar();
+      } else if (accion === "b7-seleccionar-todas") {
+        evento.preventDefault();
+        const flujo = estado.filtrosBolsa.nuevo_llamamiento;
+        const formulario = documento.querySelector('[data-bolsa-form="b7-paso2"]');
+        flujo.estados = formulario ? new FormData(formulario).getAll("estado").map(String) : flujo.estados;
+        flujo.participaciones = seleccionarParticipacionesPorEstado(estado.datosCandidatos?.datos?.candidatos, flujo.estados);
+        flujo.seleccion_total = true;
+        flujo.error = "";
+        renderizar();
       }
     });
 
@@ -550,11 +569,14 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
       const paso2 = evento.target?.closest?.('[data-bolsa-form="b7-paso2"]');
       if (paso2) {
         evento.preventDefault(); const datos = new FormData(paso2);
-        const seleccion = datos.getAll("participacion").map(String);
+        const flujo = estado.filtrosBolsa.nuevo_llamamiento;
+        const seleccion = flujo.seleccion_total
+          ? seleccionarParticipacionesPorEstado(estado.datosCandidatos?.datos?.candidatos, flujo.estados)
+          : datos.getAll("participacion").map(String);
         if (!seleccion.length) { estado.filtrosBolsa.nuevo_llamamiento.error = "Seleccione al menos un candidato."; renderizar(); return; }
         const orden = new Map((estado.datosCandidatos?.datos?.candidatos || []).map(c => [c.participacion_ref, c.orden]));
         seleccion.sort((a,b)=>(orden.get(a)||0)-(orden.get(b)||0));
-        Object.assign(estado.filtrosBolsa.nuevo_llamamiento, { paso: 3, estados: datos.getAll("estado").map(String), participaciones: seleccion, error: "" }); renderizar(); return;
+        Object.assign(flujo, { paso: 3, estados: datos.getAll("estado").map(String), participaciones: seleccion, error: "", seleccion_total: false }); renderizar(); return;
       }
       const paso3 = evento.target?.closest?.('[data-bolsa-form="b7-paso3"]');
       if (paso3) {
