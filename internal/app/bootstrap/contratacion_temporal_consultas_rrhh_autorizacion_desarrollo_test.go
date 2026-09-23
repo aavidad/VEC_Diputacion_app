@@ -26,6 +26,7 @@ import (
 func escenarioConsultasRRHHDesarrolloPrueba(t *testing.T) (*dependenciasAltaContratacionTemporalDesarrollo, *autoridadConsultasRRHHDesarrollo, dominiovec.Principal) {
 	t.Helper()
 	soporte, cobertura, principal := escenarioAutorizacionCoberturaDesarrolloPrueba(t)
+	soporte.contextoEsperadoRegistrado = soporte.contexto.Resultado
 	delegado, ok := cobertura.autorizador.(autorizadorLigadoContratacionTemporalDesarrollo)
 	if !ok {
 		t.Fatal("se requiere el autorizador V3 existente")
@@ -570,7 +571,8 @@ func TestConsultasRRHHDesarrolloCapacidadRespetaVentanaCertificado(t *testing.T)
 		{"edicion_organizacion_vigente", rutaCambiosOrganizacionContratacionTemporalDesarrollo, ahora.Add(-time.Hour), ahora.Add(time.Hour), true},
 		{"edicion_organizacion_caducado", rutaCambiosOrganizacionContratacionTemporalDesarrollo, ahora.Add(-time.Hour), ahora.Add(-time.Minute), false},
 		{"edicion_organizacion_futuro", rutaCambiosOrganizacionContratacionTemporalDesarrollo, ahora.Add(time.Minute), ahora.Add(time.Hour), false},
-		{"ruta_previa_intacta", httpinterno.RutaAltaSolicitudes, ahora.Add(-time.Hour), ahora.Add(-time.Minute), true},
+		{"alta_vigente", httpinterno.RutaAltaSolicitudes, ahora.Add(-time.Hour), ahora.Add(time.Hour), true},
+		{"alta_caducado", httpinterno.RutaAltaSolicitudes, ahora.Add(-time.Hour), ahora.Add(-time.Minute), false},
 	} {
 		t.Run(caso.nombre, func(t *testing.T) {
 			certificado := &x509.Certificate{Raw: raw, NotBefore: caso.desde, NotAfter: caso.hasta}
@@ -597,7 +599,7 @@ func TestConsultasRRHHDesarrolloCapacidadRespetaVentanaCertificado(t *testing.T)
 					if existe != esperaCapacidad {
 						t.Fatal("emisión de capacidad incorrecta")
 					}
-					if existe && (rutaConsultaRRHHContratacionTemporalDesarrollo(caso.ruta) || caso.ruta == rutaOrganizacionContratacionTemporalDesarrollo || caso.ruta == rutaCambiosOrganizacionContratacionTemporalDesarrollo) {
+					if existe && (rutaContextoAutorizacionContratacionTemporalDesarrollo(caso.ruta) || caso.ruta == rutaOrganizacionContratacionTemporalDesarrollo) {
 						if capacidad.consultaRRHH == nil || capacidad.certificadoVerificadoEn.Location() != time.UTC ||
 							capacidad.certificadoVerificadoEn.Before(caso.desde) || !capacidad.certificadoVerificadoEn.Before(caso.hasta) ||
 							capacidad.certificadoValidoHasta != certificado.NotAfter.UTC() {

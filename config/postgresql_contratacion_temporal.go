@@ -192,6 +192,16 @@ func (c ConfiguracionPostgreSQLContratacionTemporal) ConsultasRRHHConfiguradas()
 		c.dsnRegistroIdentidad != "" || c.dsnRevalidacionIdentidad != "" || c.dsnContextoActor != ""
 }
 
+// ValidarIdentidadOperativa exige las consultas y las tres identidades
+// nominales que alimentan el contexto registrado de todas las rutas CT.
+// La raíz lo comprueba antes de abrir pools o publicar rutas de escritura.
+func (c ConfiguracionPostgreSQLContratacionTemporal) ValidarIdentidadOperativa() error {
+	if _, err := c.DSNContextoActorConsultasSeparado(); err != nil {
+		return fmt.Errorf("config: contexto actor registrado de contratacion temporal requiere consultas, motivos, registro y revalidacion de identidad y resolutor separados: %w", err)
+	}
+	return nil
+}
+
 func (c ConfiguracionPostgreSQLContratacionTemporal) DSNContextoActorConsultasSeparado() (string, error) {
 	c = c.normalizar()
 	if _, _, err := c.DSNIdentidadConsultasSeparados(); err != nil {

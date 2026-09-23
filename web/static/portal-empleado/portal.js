@@ -13,10 +13,10 @@ import { crearVistasBaremacion } from "./portal-vistas-baremacion.js?v=20260720-
 import { crearVistaReglas } from "./portal-vistas-reglas.js?v=20260720-pulido-escritorio-v2";
 import { crearVistasOperaciones } from "./portal-vistas-operaciones.js?v=20260720-pulido-escritorio-v2";
 import { crearVistasGobierno } from "./portal-vistas-gobierno.js?v=20260718-formularios-v2";
-import { crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, VISTAS_MODULOS_PERSONALES, VISTAS_PRESENTACION_VISUALES } from "./portal-modulos-coordinador.js?v=20260923-pweb17-v1";
-import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260721-acceso-real-v2";
+import { crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, VISTAS_MODULOS_PERSONALES, VISTAS_PRESENTACION_VISUALES } from "./portal-modulos-coordinador.js?v=20260923-p4-estado-modulos-v1";
+import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260923-p4-reintento-v2";
 import { accesoBolsaEfectivo, instalarMenuBolsa, resumenAccesosModulos, sincronizarMenuBolsa, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260923-pweb14-v1";
-import { traducirPortal } from "./portal-i18n.js?v=20260920-personal-catalogo-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260923-p4-reintento-v2";
 import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20260923-pweb13-b8-v1";
 import { crearSuperficieBorradorLlamamiento } from "./portal-borrador-llamamiento-ui.js?v=20260921-bback01-v1";
 import { consultarAvisosBolsa, manejarAccionAvisos } from "./portal-bolsas-avisos.js?v=20260923-pweb17-v1";
@@ -47,15 +47,8 @@ function pintarPaginacionMarco(tabla, paginaSolicitada = 1) {
   estado.pagina = calculo.pagina;
   estado.navegacion.innerHTML = `<span aria-live="polite">${traducirPortal('paginacion_marco_recuento', calculo)}</span><span class="paginacion-marco__paginas"><button type="button" data-paginacion-marco-accion="primera" ${calculo.pagina === 1 ? 'disabled' : ''}>${traducirPortal('paginacion_marco_primera')}</button><button type="button" data-paginacion-marco-accion="anterior" ${calculo.pagina === 1 ? 'disabled' : ''}>${traducirPortal('paginacion_marco_anterior')}</button>${botonesPaginaMarco(calculo)}<button type="button" data-paginacion-marco-accion="siguiente" ${calculo.pagina === calculo.paginas ? 'disabled' : ''}>${traducirPortal('paginacion_marco_siguiente')}</button></span>`;
 } function prepararTablaPaginable(contenedor) { const tabla = contenedor.querySelector(":scope > table"); if (!tabla || tablasPaginadas.has(tabla)) return; const remoto = navegadorRemotoDeTabla(contenedor); if (remoto) { remoto.classList.add("paginacion-marco", "paginacion-marco--remota"); contenedor.parentElement?.classList.add("marco-tabla-paginado"); return; } const filas = Array.from(tabla.tBodies?.[0]?.rows || []).filter((fila) => !fila.hasAttribute('data-ct-exp-resumen-fila')); if (filas.length <= TAMANO_PAGINA_MARCO) return; const navegacion = document.createElement("nav"); navegacion.className = "paginacion-marco"; navegacion.setAttribute("aria-label", traducirPortal("paginacion_marco_etiqueta")); contenedor.insertAdjacentElement("afterend", navegacion); contenedor.parentElement?.classList.add("marco-tabla-paginado"); tablasPaginadas.set(tabla, { navegacion, pagina: 1, tamano: TAMANO_PAGINA_MARCO }); pintarPaginacionMarco(tabla); } function actualizarPaginacionesMarco() { document.querySelectorAll("#espacio-trabajo .tabla-contenedor").forEach(prepararTablaPaginable); } function instalarPaginacionMarco() { const espacio = porId("espacio-trabajo"); if (!espacio) return; espacio.addEventListener("click", (evento) => { const control = evento.target.closest("[data-paginacion-marco-accion], [data-paginacion-marco-pagina]"); if (!control || control.disabled) return; const navegacion = control.closest(".paginacion-marco"); const tabla = navegacion?.previousElementSibling?.querySelector(":scope > table"); const estado = tabla && tablasPaginadas.get(tabla); if (!estado) return; const pagina = control.dataset.paginacionMarcoPagina ? Number(control.dataset.paginacionMarcoPagina) : control.dataset.paginacionMarcoAccion === "primera" ? 1 : estado.pagina + (control.dataset.paginacionMarcoAccion === "siguiente" ? 1 : -1); pintarPaginacionMarco(tabla, pagina); tabla.querySelector("tbody tr:not([hidden])")?.querySelector("button, a, [tabindex]")?.focus?.({ preventScroll: true }); }); new MutationObserver(actualizarPaginacionesMarco).observe(espacio, { childList: true, subtree: true }); actualizarPaginacionesMarco(); }
-/**
- * SUPERFICIE DEFINITIVA DEL PORTAL RRHH.
- * La ruta normal obtiene datos exclusivamente de la API interna protegida. El
- * juego sintético está aislado en `datos-presentacion.js` y solo se importa si
- * la URL declara `?presentacion=rrhh`. Ninguna mutación de negocio se ejecuta
- * en el navegador salvo el guardado durable de borradores, aislado tras su
- * cliente autenticado, CAS e idempotencia. Mapa de sustitución y límites:
- * docs/portal_vec/entregable_rrhh_bolsa_2026-07-17.md.
- */
+// La ruta normal usa la API interna; ?presentacion=rrhh aísla datos sintéticos.
+// Borradores usa su cliente autenticado, CAS e idempotencia; límites en docs/portal_vec/entregable_rrhh_bolsa_2026-07-17.md.
 const DATOS_VACIOS = Object.freeze({
   esquema: "vec.bolsa.panel.no-cargado.v1",
   demostracion: false,
@@ -206,6 +199,7 @@ const renderizarPortal = crearVistaInicioPortal({
   esPerfilRRHH,
   obtenerMetricasCuadro: () => coordinadorModulos.obtenerMetricasCuadro?.() || null,
   obtenerTramitesInicio: () => coordinadorModulos.obtenerTramitesInicio?.() || null,
+  catalogoFallido: () => !estado.modoPresentacion && estado.errorFuente !== "",
 });
 function renderizarContenidoAyuda(contexto = null) {
   if (estado.vista === "contratacion-temporal") {
@@ -235,8 +229,14 @@ function perfilPresentacionSolicitado() {
   if (valores.length !== 1 || !["administrador", "tecnico", "funcionario"].includes(valores[0])) return null;
   return valores[0];
 }
+function disponibilidadBolsa() {
+  if (estado.modoPresentacion) return estado.fuenteLista;
+  const acceso = accesoBolsaEfectivo(superficieBorradores.obtenerAcceso(), estado.datosBolsas);
+  if (acceso?.estado !== "cargando" || estado.datosBolsas?.carga === "cargando" || estado.vista === "elaboracion") return acceso;
+  return { disponible: false, vista: "", estado: estado.datosBolsas?.carga === "denegado" ? "denegado" : estado.datosBolsas?.carga === "error" ? "error" : "no_disponible" };
+}
 function resolverAccesoPerfil(clave) {
-  const disponibilidad = estado.modoPresentacion ? estado.fuenteLista : accesoBolsaEfectivo(superficieBorradores.obtenerAcceso(), estado.datosBolsas);
+  const disponibilidad = disponibilidadBolsa();
   const acceso = coordinadorModulos.resolverAcceso(clave, disponibilidad);
   if (acceso.disponible !== true || vistaPermitida(acceso.vista)) return acceso;
   return { ...acceso, disponible: false, vista: "", estado: "denegado",
@@ -354,7 +354,7 @@ function actualizarSesionVisible() {
   }
 }
 async function cargarFuenteDatos() {
-  estado.modoPresentacion = modoPresentacionSolicitado();
+  estado.modoPresentacion = modoPresentacionSolicitado(); estado.errorFuente = "";
   const aviso = document.querySelector(".aviso-presentacion");
   if (estado.modoPresentacion) {
     try {
@@ -408,7 +408,7 @@ async function cargarFuenteDatos() {
   superficieBorradoresPresentacion = null;
   renderizarResumenPresentacion = null;
   aviso.hidden = true;
-  await coordinadorModulos.cargarInterno().catch(() => null);
+  await coordinadorModulos.cargarInterno().catch(() => { estado.errorFuente = traducirPortal("error_catalogo_modulos"); });
   // Borradores comprueba su API al abrir la vista. B12/B5 usa su propia API compuesta.
   if (moduloDeVistaPortal(estado.vista) === "bolsa") void controladorBolsas.cargarBolsas();
   actualizarNavegacionModulos();
@@ -473,14 +473,14 @@ function actualizarNavegacionModulos() {
   const contenedor = porId("navegacion-modulos-dinamica");
   if (!contenedor) return;
   const moduloActivo = moduloActivoDeVista(estado.vista);
-  const disponibilidad = estado.modoPresentacion ? estado.fuenteLista : accesoBolsaEfectivo(superficieBorradores.obtenerAcceso(), estado.datosBolsas);
+  const disponibilidad = disponibilidadBolsa();
   contenedor.innerHTML = coordinadorModulos.renderizarNavegacion(disponibilidad, moduloActivo, vistaPermitida);
   const fase = porId("texto-estado-modulos-portal");
   if (fase) {
     const accesos = ["bolsa", "contratacion_temporal", "cronos", "dietas"]
       .map((clave) => resolverAccesoPerfil(clave));
-    fase.textContent = resumenAccesosModulos(accesos,
-      !estado.modoPresentacion && (estado.datosBolsas === null || estado.datosBolsas.carga === "cargando"));
+    fase.textContent = estado.errorFuente || resumenAccesosModulos(accesos,
+      !estado.modoPresentacion && estado.datosBolsas?.carga === "cargando");
   }
 }
 
@@ -575,7 +575,7 @@ function renderizarLlamamientoSinBolsa() {
       <div class="acciones-vista"><a class="boton-primario" href="#bolsa/resumen">Ir al cuadro de bolsas</a></div>
     </div></section>`;
 }
-function actualizarVistaBolsa({ activar = false } = {}) {
+function actualizarVistaBolsa({ activar = false } = {}) { actualizarNavegacionModulos();
   const contenedor = porId("espacio-trabajo");
   if (contenedor && VISTAS_INTERNAS_BOLSA.includes(estado.vista)) {
     montarVistaBolsa(estado.vista, contenedor, {}, { activar });

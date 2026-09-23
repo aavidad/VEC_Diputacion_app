@@ -39,24 +39,34 @@ export function cargarModuloConLimite(cargar, clave, limiteMs, temporizadores) {
   });
 }
 
-export function consultarConLimite(consultar, controlador, limiteMs, temporizadores) {
+export function consultarConLimite(consultar, controlador, limiteMs, temporizadores, operacion = "consultar contratación temporal") {
   return new Promise((resolver, rechazar) => {
     let terminada = false;
+    const cancelada = () => finalizar(rechazar, new Error(`carga cancelada al ${operacion}`));
     const finalizar = (continuacion, valor) => {
       if (terminada) return;
       terminada = true;
       temporizadores.clearTimeout(temporizador);
+      controlador.signal.removeEventListener("abort", cancelada);
       continuacion(valor);
     };
     const temporizador = temporizadores.setTimeout(() => {
+      finalizar(rechazar, new Error(`tiempo agotado al ${operacion}`));
       controlador.abort();
-      finalizar(rechazar, new Error("tiempo agotado al consultar contratación temporal"));
     }, limiteMs);
+    controlador.signal.addEventListener("abort", cancelada, { once: true });
+    if (controlador.signal.aborted) {
+      cancelada();
+      return;
+    }
     Promise.resolve()
-      .then(() => consultar({ signal: controlador.signal }))
+      .then(() => {
+        if (controlador.signal.aborted) throw new Error("consulta cancelada");
+        return consultar({ signal: controlador.signal });
+      })
       .then(
         (resultado) => finalizar(resolver, resultado),
-        () => finalizar(rechazar, new Error("no se pudo consultar contratación temporal")),
+        () => finalizar(rechazar, new Error(`no se pudo ${operacion}`)),
       );
   });
 }
