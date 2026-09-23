@@ -261,6 +261,19 @@ esperar_fallo 'DOWN con historia CT desechable' archivo \
     contratacion_temporal/migraciones_identidad/000002_revalidacion_consulta_rrhh_ambito_v1.down.sql
 psql_admin --command \
     'DROP TABLE vec_contratacion_temporal.registro_acceso_rrhh' >/dev/null
+psql_admin <<'SQL' >/dev/null
+-- Sentinela del control de génesis V3: este runner mínimo no instala AD3.
+CREATE SCHEMA IF NOT EXISTS vec_autorizacion_atestada_v3;
+CREATE TABLE vec_autorizacion_atestada_v3.control_cadena_auditoria (
+    control_id boolean, secuencia numeric, cabeza_sha256 text);
+INSERT INTO vec_autorizacion_atestada_v3.control_cadena_auditoria
+VALUES (true, 1, repeat('a', 64));
+SQL
+esperar_fallo 'DOWN con control V3 fuera de génesis' archivo \
+    contratacion_temporal/migraciones_identidad/000002_revalidacion_consulta_rrhh_ambito_v1.down.sql
+psql_admin --command \
+    "UPDATE vec_autorizacion_atestada_v3.control_cadena_auditoria
+        SET secuencia = 0, cabeza_sha256 = repeat('0', 64)" >/dev/null
 archivo \
     contratacion_temporal/migraciones_identidad/000002_revalidacion_consulta_rrhh_ambito_v1.down.sql
 if [[ $(psql_admin --no-align --tuples-only --command \
