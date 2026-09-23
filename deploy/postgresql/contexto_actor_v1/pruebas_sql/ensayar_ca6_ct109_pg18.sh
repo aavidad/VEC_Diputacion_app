@@ -162,48 +162,38 @@ BEGIN
      WHERE m.roleid='vec_contexto_actor_v1_propietario'::regrole
        AND m.member='vec_ad3_o207_gobierno'::regrole
        AND NOT m.admin_option AND m.inherit_option AND m.set_option)<>1
+   OR (SELECT count(*) FROM pg_auth_members m
+     JOIN pg_roles l ON l.oid=m.member
+     WHERE m.roleid='vec_contexto_actor_v1_runtime'::regrole
+       AND l.rolname IN ('vec_contexto_o207_neg_runtime',
+         'vec_ct_contexto_actor_desarrollo','vec_dietas_r1d_contexto_desarrollo')
+       AND NOT m.admin_option AND m.inherit_option AND NOT m.set_option)<>3
  THEN RAISE EXCEPTION 'membresía CA posterior no acreditada'; END IF;
 END $membresia_historica$;
 REVOKE vec_contexto_actor_v1_propietario FROM vec_ad3_o207_gobierno;
+REVOKE vec_contexto_actor_v1_runtime FROM vec_contexto_o207_neg_runtime,
+ vec_ct_contexto_actor_desarrollo,vec_dietas_r1d_contexto_desarrollo;
 SQL
 psql_archivo "$raiz/deploy/postgresql/contexto_actor_v1/migraciones/000003_organizacion_corporativa_v1.up.sql"
-psql_sql <<'SQL'
-SELECT 'ca4_topologia',count(*) FROM pg_auth_members m
- WHERE m.roleid IN ('vec_contexto_actor_v1_propietario'::regrole,
-   'vec_contexto_actor_v1_migrador'::regrole,
-   'vec_contexto_actor_corporativo_rrhh_selector'::regrole)
- OR m.member IN ('vec_contexto_actor_v1_propietario'::regrole,
-   'vec_contexto_actor_v1_migrador'::regrole,
-   'vec_contexto_actor_v1_runtime'::regrole,
-   'vec_contexto_actor_corporativo_rrhh_selector'::regrole);
-SELECT 'ca4_runtime',l.rolname,
- vec_contexto_actor_v1.privilegios_efectivos_runtime_minimos(
-  l.oid,(SELECT oid FROM pg_database WHERE datname=current_database()),
-  'vec_contexto_actor_v1'::regnamespace,
-  ARRAY[
-   'vec_contexto_actor_v1.acreditar_runtime_contexto_actor_v1()'::regprocedure,
-   'vec_contexto_actor_v1.resolver_y_registrar_contexto_actor_v2(text,text,text,text,text,text,timestamptz)'::regprocedure,
-   'vec_contexto_actor_v1.reconciliar_contexto_actor_v2(text,text,text,text,text,text,timestamptz)'::regprocedure
-  ])
- FROM pg_auth_members m JOIN pg_authid l ON l.oid=m.member
- WHERE m.roleid='vec_contexto_actor_v1_runtime'::regrole;
-SELECT 'ca4_selector',has_database_privilege(
- 'vec_contexto_actor_corporativo_rrhh_selector',current_database(),'CONNECT'),
- has_database_privilege('vec_contexto_actor_corporativo_rrhh_selector',
-  current_database(),'CREATE,TEMPORARY'),
- has_schema_privilege('vec_contexto_actor_corporativo_rrhh_selector',
-  'vec_contexto_actor_v1','USAGE');
-SQL
 psql_archivo "$raiz/deploy/postgresql/contexto_actor_v1/migraciones/000004_vinculo_corporativo_rrhh_v1.up.sql"
 psql_sql <<'SQL'
 GRANT vec_contexto_actor_v1_propietario TO vec_ad3_o207_gobierno
  WITH ADMIN FALSE, INHERIT TRUE, SET TRUE;
+GRANT vec_contexto_actor_v1_runtime TO vec_contexto_o207_neg_runtime,
+ vec_ct_contexto_actor_desarrollo,vec_dietas_r1d_contexto_desarrollo
+ WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
 DO $membresia_restituida$
 BEGIN
  IF (SELECT count(*) FROM pg_auth_members m
      WHERE m.roleid='vec_contexto_actor_v1_propietario'::regrole
        AND m.member='vec_ad3_o207_gobierno'::regrole
        AND NOT m.admin_option AND m.inherit_option AND m.set_option)<>1
+   OR (SELECT count(*) FROM pg_auth_members m
+     JOIN pg_roles l ON l.oid=m.member
+     WHERE m.roleid='vec_contexto_actor_v1_runtime'::regrole
+       AND l.rolname IN ('vec_contexto_o207_neg_runtime',
+         'vec_ct_contexto_actor_desarrollo','vec_dietas_r1d_contexto_desarrollo')
+       AND NOT m.admin_option AND m.inherit_option AND NOT m.set_option)<>3
  THEN RAISE EXCEPTION 'membresía CA posterior no restituida'; END IF;
 END $membresia_restituida$;
 SQL
