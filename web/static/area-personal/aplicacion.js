@@ -11,6 +11,7 @@ import {
   renderizarAlegaciones, renderizarLlamamientos, renderizarSeguimiento, renderizarSubsanaciones,
 } from "./vistas/seguimiento-tramites.js";
 import { renderizarAyuda, renderizarCertificados, renderizarMensajes } from "./vistas/comunicaciones-ayuda.js";
+import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js";
 import {
   aplicarPasoSolicitud, crearPayloadBorrador, crearProgresoSolicitud,
   declaracionFinalConfirmada, localizarSolicitudEdicion,
@@ -52,6 +53,25 @@ const TITULOS_OPERACION = Object.freeze({
   solicitar_certificado: "Solicitar certificado",
   solicitar_descarga: "Preparar descarga",
 });
+
+export function conservarResultadoContactoPropio(estado, { reciboRef, version, correo }) {
+  estado.contactoPropio = { ...estado.contactoPropio, version };
+  estado.contactoPropioRecibo = { reciboRef, version };
+  estado.datos = structuredClone(estado.datos);
+  estado.datos.perfil.correo = correo;
+}
+
+export function conservarOperacionContactoPropio(estado, operacion) {
+  estado.contactoPropioOperacion = operacion;
+  if (operacion?.resultado?.reciboRef && estado.contactoPropioRecibo?.reciboRef !== operacion.resultado.reciboRef) {
+    conservarResultadoContactoPropio(estado, operacion.resultado);
+  }
+}
+
+export function excluirCorreoDeActualizacionContacto(payload) {
+  const { correo: _correo, ...sinCorreo } = payload;
+  return sinCorreo;
+}
 
 const porId = (id) => document.getElementById(id);
 
@@ -202,12 +222,63 @@ function actualizarShell(estado) {
 
 function renderizar(estado, { enfocar = false } = {}) {
   if (!estado.datos) return;
+  estado.destruirContactoPropio?.();
+  estado.destruirContactoPropio = null;
+  if (estado.vista !== "perfil" && estado.abortContactoPropio) {
+    estado.abortContactoPropio.abort();
+    estado.abortContactoPropio = null;
+    estado.cargandoContactoPropio = false;
+  }
+
   estado.vista = RUTAS[estado.vista] ? estado.vista : "inicio";
   actualizarShell(estado);
   porId("estado-carga").hidden = true;
   porId("espacio-trabajo").innerHTML = RUTAS[estado.vista][1](estado.datos, estado);
   actualizarEnlacesNavegacion(estado);
   aplicarCapacidadesVisibles(estado);
+  if (estado.vista === "perfil" && !estado.contactoPropioCargado && !estado.cargandoContactoPropio
+    && typeof estado.cliente.cargarContactoPropio === "function") {
+    estado.cargandoContactoPropio = true;
+    const controlador = new AbortController();
+    estado.abortContactoPropio = controlador;
+    estado.cliente.cargarContactoPropio({ signal: controlador.signal }).then((respuesta) => {
+      if (controlador.signal.aborted || estado.vista !== "perfil") return;
+      estado.contactoPropio = respuesta?.autorizacion ?? null;
+      estado.contactoPropioRecibo = respuesta?.recibo ?? null;
+      estado.contactoPropioCargado = true;
+      estado.controladorContactoPropio = null;
+      renderizar(estado);
+    }).catch(() => {
+      if (controlador.signal.aborted || estado.vista !== "perfil") return;
+      estado.contactoPropioCargado = true;
+      estado.contactoPropio = null;
+      notificar("No se pudo comprobar el contacto propio. Recargue para reintentar.");
+    }).finally(() => {
+      if (estado.abortContactoPropio === controlador) estado.abortContactoPropio = null;
+      estado.cargandoContactoPropio = false;
+    });
+  }
+  if (estado.vista === "perfil") {
+    estado.controladorContactoPropio ??= crearControladorContactoPropio({
+      autorizacionServidor: estado.contactoPropio,
+      fetchImpl: estado.fetchImpl,
+      presentacion: estado.presentacionSolicitada || estado.datos.meta.presentacion === true,
+      operacion: estado.contactoPropioOperacion,
+      alActualizarOperacion: (operacion) => conservarOperacionContactoPropio(estado, operacion),
+    });
+    const montajeContacto = montarContactoPropio({
+      contenedor: porId("contacto-propio"),
+      correo: "",
+      autorizacionServidor: estado.contactoPropio,
+      fetchImpl: estado.fetchImpl,
+      presentacion: estado.presentacionSolicitada || estado.datos.meta.presentacion === true,
+      reciboAnterior: estado.contactoPropioRecibo,
+      controlador: estado.controladorContactoPropio,
+      alGuardar: () => { if (estado.vista === "perfil") renderizar(estado); },
+    });
+    estado.destruirContactoPropio = montajeContacto?.destruir ?? null;
+  }
+
   if (enfocar) {
     porId("contenido-principal").focus({ preventScroll: true });
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -600,7 +671,9 @@ function conectarEventos(estado) {
         anunciar("Operación no disponible.");
         return;
       }
-      const payload = formularioAObjeto(formulario);
+      const payloadInicial = formularioAObjeto(formulario);
+      const payload = formulario.dataset.operacion === "actualizar_contacto"
+        ? excluirCorreoDeActualizacionContacto(payloadInicial) : payloadInicial;
       if (formulario.dataset.operacion === "cambiar_disponibilidad") {
         const disponible = payload.disponible === "true" || payload.disponible === true;
         if (disponible) {
@@ -686,7 +759,7 @@ async function cargar(estado) {
   }
 }
 
-export async function iniciarAreaPersonal({ cliente, descargarReciboPDF = null, presentacionSolicitada = false } = {}) {
+export async function iniciarAreaPersonal({ cliente, descargarReciboPDF = null, presentacionSolicitada = false, contactoPropio = null, fetchImpl = globalThis.fetch } = {}) {
   if (!cliente || typeof cliente.cargar !== "function" || typeof cliente.ejecutar !== "function") {
     throw new TypeError("El cliente inyectado no respeta el contrato del área personal.");
   }
@@ -708,6 +781,15 @@ export async function iniciarAreaPersonal({ cliente, descargarReciboPDF = null, 
     errorPasoSolicitud: "",
     operacionPendiente: null,
     ultimoRecibo: null,
+    contactoPropio,
+    contactoPropioCargado: contactoPropio !== null,
+    cargandoContactoPropio: false,
+    abortContactoPropio: null,
+    contactoPropioRecibo: null,
+    contactoPropioOperacion: null,
+    controladorContactoPropio: null,
+    destruirContactoPropio: null,
+    fetchImpl,
     participaciones: [],
     paginaParticipaciones: 1,
     fuenteBolsa: "real",

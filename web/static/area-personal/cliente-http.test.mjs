@@ -41,7 +41,7 @@ test("mi bolsa se consulta primero sin cookies, query ni cabeceras de identidad"
   assert.equal(recibido.fuente, "real");
   assert.equal(recibido.consulta.participaciones[0].orden_inicial, 12);
   assert.equal(peticion.ruta, "/api/vec/bolsa/mi-bolsa");
-  assert.equal(peticion.opciones.credentials, "omit");
+  assert.equal(peticion.opciones.credentials, "same-origin");
   assert.equal(peticion.opciones.cache, "no-store");
   assert.equal(peticion.opciones.headers.Authorization, undefined);
   assert.equal(peticion.opciones.headers["X-Identity"], undefined);
@@ -130,7 +130,7 @@ test("una acción real exige confirmación, idempotencia y recibo productivo", a
   });
   assert.equal(resultado.recibo.presentacion, false);
   assert.equal(peticion.ruta, "/api/vec/bolsa/mis-solicitudes/borrador");
-  assert.equal(peticion.opciones.credentials, "omit");
+  assert.equal(peticion.opciones.credentials, "same-origin");
   assert.match(peticion.opciones.headers["X-Idempotency-Key"], /^WEB-[0-9a-f-]{36}$/u);
   assert.equal(peticion.opciones.headers.Authorization, undefined);
 });
@@ -148,4 +148,39 @@ test("una respuesta no JSON o excesiva falla cerrada", async () => {
     text: async () => "{}",
   }) });
   await assert.rejects(() => clienteTamano.cargar(), (error) => error.codigo === "respuesta_excesiva");
+});
+
+test("recargar contacto consulta versión y recibo originales desde servidor", async () => {
+  const peticiones = [];
+  const cliente = crearClienteHTTPAreaPersonal({ fetchImpl: async (ruta, opciones) => {
+    peticiones.push({ ruta, opciones });
+    return peticiones.length === 1
+      ? respuestaJSON({ encontrado: true, version: 3 })
+      : respuestaJSON({ recibo_ref: "acc_1234567890123456789012345678901234567890", version: 3 });
+  } });
+  const recibido = await cliente.cargarContactoPropio();
+  assert.equal(recibido.autorizacion.version, 3);
+  assert.equal(recibido.recibo.version, 3);
+  assert.deepEqual(peticiones.map((p) => [p.ruta, p.opciones.method, p.opciones.credentials]), [
+    ["/api/vec/usuarios/contacto-propio", "GET", "same-origin"],
+    ["/api/vec/usuarios/contacto-propio/recibo", "POST", "same-origin"],
+  ]);
+  assert.equal(JSON.parse(peticiones[1].opciones.body).version, 3);
+  assert.equal(JSON.stringify(recibido).includes("correo"), false);
+});
+
+test("contacto denegado no presenta capacidad ni consulta recibo", async () => {
+  let llamadas = 0;
+  const cliente = crearClienteHTTPAreaPersonal({ fetchImpl: async () => { llamadas += 1; return respuestaJSON({}, 403); } });
+  assert.equal(await cliente.cargarContactoPropio(), null);
+  assert.equal(llamadas, 1);
+});
+
+test("versión sin recibo coincidente no confirma contacto", async () => {
+  let llamadas = 0;
+  const cliente = crearClienteHTTPAreaPersonal({ fetchImpl: async () => {
+    llamadas += 1;
+    return llamadas === 1 ? respuestaJSON({ encontrado: true, version: 2 }) : respuestaJSON({ recibo_ref: "acc_otra", version: 1 });
+  } });
+  await assert.rejects(() => cliente.cargarContactoPropio(), (error) => error.codigo === "respuesta_incompatible");
 });

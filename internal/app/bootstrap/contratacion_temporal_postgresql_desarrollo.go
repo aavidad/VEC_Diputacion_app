@@ -72,31 +72,35 @@ type materialAtestacionContratacionTemporalDesarrollo struct {
 }
 
 type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
-	ejecucion                         *pgxpool.Pool
-	bolsa                             *pgxpool.Pool
-	gobierno                          *pgxpool.Pool
-	registroAutorizacion              *pgxpool.Pool
-	confirmador                       *pgxpool.Pool
-	lectorResultado                   *postgrescontratacion.PoolRecuperacionCoberturaO405PostgreSQL
-	registradorAuditoriaFrontera      *postgresvec.RegistradorAuditoriaFronteraRutaExactaPostgreSQL
-	auditoriaFrontera                 *pgxpool.Pool
-	candidaturas                      ports.ResolutorCandidaturaAlta
-	transaccionAlta                   ports.TransaccionAltasCandidata
-	proveedorMaterial                 *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialBolsa            *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialMiBolsa          *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialBorradorCrear    *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialBorradorConsulta *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialSituacion        *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialContacto         *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialConsultaContacto *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialDatosContacto    *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialEmision          *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialDespachoCorreo   *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialResultadoCorreo  *proveedorMaterialAltaContratacionTemporalDesarrollo
-	materialDietas                    materialDietasDesdeCTDesarrollo
-	catalogoMaterial                  catalogoMaterialAutorizacionComunDesarrollo
-	cerrarUnaVez                      func()
+	ejecucion                                   *pgxpool.Pool
+	bolsa                                       *pgxpool.Pool
+	gobierno                                    *pgxpool.Pool
+	registroAutorizacion                        *pgxpool.Pool
+	confirmador                                 *pgxpool.Pool
+	lectorResultado                             *postgrescontratacion.PoolRecuperacionCoberturaO405PostgreSQL
+	registradorAuditoriaFrontera                *postgresvec.RegistradorAuditoriaFronteraRutaExactaPostgreSQL
+	auditoriaFrontera                           *pgxpool.Pool
+	candidaturas                                ports.ResolutorCandidaturaAlta
+	transaccionAlta                             ports.TransaccionAltasCandidata
+	proveedorMaterial                           *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialBolsa                      *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialMiBolsa                    *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialBorradorCrear              *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialBorradorConsulta           *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialSituacion                  *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialContacto                   *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialConsultaContacto           *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialDatosContacto              *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialEmision                    *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialDespachoCorreo             *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialResultadoCorreo            *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialDietas                              materialDietasDesdeCTDesarrollo
+	proveedorMaterialContactoUsuario            *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialReciboContacto             *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialVersionContactoPropia      *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialVersionContactoLlamamiento *proveedorMaterialAltaContratacionTemporalDesarrollo
+	catalogoMaterial                            catalogoMaterialAutorizacionComunDesarrollo
+	cerrarUnaVez                                func()
 }
 
 func (d *dependenciasPostgreSQLContratacionTemporalDesarrollo) cerrar() {
@@ -296,6 +300,9 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		return vacias, err
 	}
 	descriptoresMaterial := descriptoresMaterialAutorizacionContratacionTemporalDesarrollo()
+	if cfg.ContactoUsuarioPostgreSQL.Configurada() {
+		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialContactoPropioDesarrollo()...)
+	}
 	if cfg.BolsaBorradoresEnabled {
 		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialBorradorLlamamientoBolsaDesarrollo()...)
 	}
@@ -315,6 +322,31 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		return vacias, errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
 	}
 	dependencias.catalogoMaterial = catalogoMaterial
+	if cfg.ContactoUsuarioPostgreSQL.Configurada() {
+		contacto, falloContacto := nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, "vec.contacto_usuario.registro.v1")
+		if falloContacto == nil {
+			recibo, e := nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, "vec.contacto_usuario.recibo.v1")
+			falloContacto = e
+			if e == nil {
+				version, e := nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, "vec.contacto_usuario.version_propia.v1")
+				falloContacto = e
+				if e == nil {
+					versionB7, e := nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, "vec.contacto_usuario.version_llamamiento.v1")
+					falloContacto = e
+					if e == nil {
+						dependencias.proveedorMaterialContactoUsuario = contacto
+						dependencias.proveedorMaterialReciboContacto = recibo
+						dependencias.proveedorMaterialVersionContactoPropia = version
+						dependencias.proveedorMaterialVersionContactoLlamamiento = versionB7
+					}
+				}
+			}
+		}
+		// Un consumidor opcional no impide que CT conserve sus rutas. El
+		// material parcial no se publica como manejador de contacto.
+		_ = falloContacto
+	}
+
 	if dietasBorradoresSolicitadas(cfg.DietasBorradoresEnabled) {
 		var dietas [3]*proveedorMaterialAltaContratacionTemporalDesarrollo
 		for i, audiencia := range []string{audienciaConsumoPersonalDietasDesarrollo, audienciaConsumoCrearDietasDesarrollo, audienciaConsumoConsultarDietasDesarrollo} {

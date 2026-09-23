@@ -2,6 +2,8 @@ import { validarDatosAreaPersonal, validarRecibo, validarRespuestaMiBolsa } from
 
 const RUTA_PANEL = "/api/vec/bolsa/area-personal";
 const RUTA_MI_BOLSA = "/api/vec/bolsa/mi-bolsa";
+const RUTA_CONTACTO_PROPIO = "/api/vec/usuarios/contacto-propio";
+const RUTA_RECIBO_CONTACTO_PROPIO = `${RUTA_CONTACTO_PROPIO}/recibo`;
 const MAXIMO_JSON_BYTES = 512 * 1024;
 const MAXIMO_SOLICITUD_BYTES = 64 * 1024;
 const ACCIONES = Object.freeze({
@@ -104,7 +106,7 @@ export function crearClienteHTTPAreaPersonal({ fetchImpl = globalThis.fetch } = 
     let respuesta;
     try {
       respuesta = await fetchImpl(ruta, {
-        credentials: "omit",
+        credentials: "same-origin",
         cache: "no-store",
         redirect: "error",
         referrerPolicy: "no-referrer",
@@ -121,6 +123,35 @@ export function crearClienteHTTPAreaPersonal({ fetchImpl = globalThis.fetch } = 
       throw new ErrorClienteAreaPersonal(codigo, mensajeHTTP(respuesta?.status));
     }
     return leerJSONAcotado(respuesta);
+  }
+
+  async function cargarContactoPropio({ signal } = {}) {
+    const respuesta = await fetchImpl(RUTA_CONTACTO_PROPIO, {
+      method: "GET", credentials: "same-origin", cache: "no-store", redirect: "error",
+      referrerPolicy: "no-referrer", headers: { Accept: "application/json" }, signal,
+    });
+    if (respuesta.status === 403 || respuesta.status === 404) return null;
+    if (respuesta.status !== 200) throw new ErrorClienteAreaPersonal("servicio_no_disponible", mensajeHTTP(respuesta.status));
+    const estado = await leerJSONAcotado(respuesta);
+    if (!estado || typeof estado !== "object" || Array.isArray(estado)
+      || typeof estado.encontrado !== "boolean" || !Number.isSafeInteger(estado.version)
+      || estado.version < 0 || estado.encontrado !== (estado.version > 0)) {
+      throw new ErrorClienteAreaPersonal("respuesta_incompatible", "El estado del contacto no es válido.");
+    }
+    let recibo = null;
+    if (estado.encontrado) {
+      const r = await fetchImpl(RUTA_RECIBO_CONTACTO_PROPIO, {
+        method: "POST", credentials: "same-origin", cache: "no-store", redirect: "error",
+        referrerPolicy: "no-referrer", headers: { Accept: "application/json", "Content-Type": "application/json" },
+        body: JSON.stringify({ version: estado.version }), signal,
+      });
+      if (r.status !== 200) throw new ErrorClienteAreaPersonal("recibo_no_disponible", "No se pudo recuperar el recibo del contacto.");
+      const recibido = await leerJSONAcotado(r);
+      if (!recibido || typeof recibido.recibo_ref !== "string" || !recibido.recibo_ref
+        || recibido.version !== estado.version) throw new ErrorClienteAreaPersonal("respuesta_incompatible", "El recibo del contacto no coincide.");
+      recibo = Object.freeze({ reciboRef: recibido.recibo_ref, version: recibido.version });
+    }
+    return Object.freeze({ autorizacion: Object.freeze({ capacidad: true, version: estado.version, consultarRecibo: true }), recibo });
   }
 
   async function cargar() {
@@ -190,7 +221,7 @@ export function crearClienteHTTPAreaPersonal({ fetchImpl = globalThis.fetch } = 
     });
   }
 
-  return Object.freeze({ modo: "http", cargar, cargarPanelAnterior, ejecutar });
+  return Object.freeze({ modo: "http", cargar, cargarContactoPropio, cargarPanelAnterior, ejecutar });
 }
 
 export const RUTAS_AREA_PERSONAL = Object.freeze({ panel: RUTA_PANEL, miBolsa: RUTA_MI_BOLSA, acciones: ACCIONES });

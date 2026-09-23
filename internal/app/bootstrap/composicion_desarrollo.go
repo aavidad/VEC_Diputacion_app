@@ -211,6 +211,11 @@ func NewHTTPServerDesarrolloWithConfig(
 	if err != nil {
 		return nil, nil, err
 	}
+	if cfg.ContactoUsuarioPostgreSQL.Configurada() {
+		if _, _, _, _, err := cfg.ContactoUsuarioPostgreSQL.DSNSeparados(cfg); err != nil {
+			return nil, nil, errContactoPropioDesarrolloNoDisponible
+		}
+	}
 	consultaCategorias, categoriasPersonal, err := nuevasDependenciasCategoriasProfesionales(cfg)
 	if err != nil {
 		return nil, nil, err
