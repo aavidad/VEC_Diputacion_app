@@ -22,7 +22,7 @@ raiz=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)
 contenedor="vec-f2-pg18-$$"
 base="vec_f2_$$"
 imagen=${VEC_POSTGRES_TEST_IMAGE:-postgres:18.4-bookworm@sha256:1961f96e6029a02c3812d7cb329a3b03a3ac2bb067058dec17b0f5596aca9296}
-limpiar(){ docker rm -f "$contenedor" >/dev/null 2>&1 || true; for tmp in "${transaccion:-}" "${roles_sql:-}" "${prueba_json:-}" "${rol_ct_copia:-}"; do if [[ -n "$tmp" && -f "$tmp" ]]; then unlink "$tmp"; fi; done; if [[ -n "${socketdir:-}" ]]; then rm -f "$socketdir/.s.PGSQL.5432" "$socketdir/.s.PGSQL.5432.lock"; rmdir "$socketdir" 2>/dev/null || true; fi; }
+limpiar(){ docker rm -f "$contenedor" >/dev/null 2>&1 || true; for tmp in "${transaccion:-}" "${roles_sql:-}" "${prueba_json:-}" "${rol_ct_copia:-}" "${neg_rol_log:-}"; do if [[ -n "$tmp" && -f "$tmp" ]]; then unlink "$tmp"; fi; done; if [[ -n "${socketdir:-}" ]]; then rm -f "$socketdir/.s.PGSQL.5432" "$socketdir/.s.PGSQL.5432.lock"; rmdir "$socketdir" 2>/dev/null || true; fi; }
 trap limpiar EXIT INT TERM
 volumen=()
 if [[ "${VEC_F2_POSITIVO:-}" == 1 ]]; then
@@ -88,6 +88,14 @@ if [[ -r "$raiz/$rol_ct_ruta" ]]; then
 fi
 legacy_pre=$(consulta "SELECT jsonb_build_object('rol',to_jsonb(r),'membresias',coalesce((SELECT jsonb_agg(to_jsonb(m) ORDER BY m.member,m.roleid) FROM pg_auth_members m WHERE m.roleid=r.oid OR m.member=r.oid),'[]'::jsonb),'esquema',to_jsonb(n))::text FROM pg_roles r,pg_namespace n WHERE r.rolname='vec_contratacion_temporal_consultor_rrhh' AND n.nspname='vec_contratacion_temporal'")
 [[ -n "$legacy_pre" && "$(consulta "SELECT to_regrole('vec_contratacion_temporal_consultor_rrhh_ambito') IS NULL")" == t ]] || { echo 'F2: preimagen de rol CT incompatible' >&2; exit 1; }
+# Negativo real: el UP productivo debe abortar por 55000 si el grupo ya existe.
+consulta "CREATE ROLE vec_contratacion_temporal_consultor_rrhh_ambito NOLOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS" >/dev/null
+neg_rol_log=$(mktemp)
+if docker exec -i "$contenedor" psql -X -q --set ON_ERROR_STOP=1 --set VERBOSITY=verbose --username postgres --dbname "$base" < "$rol_ct_copia" > "$neg_rol_log" 2>&1 || ! rg -q '55000' "$neg_rol_log"; then
+  echo 'F2: UP de rol CT aceptó preexistencia o no devolvió 55000' >&2; exit 1
+fi
+[[ "$(consulta "SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='vec_contratacion_temporal_consultor_rrhh_ambito') AND NOT EXISTS (SELECT 1 FROM pg_auth_members WHERE roleid='vec_contratacion_temporal_consultor_rrhh_ambito'::regrole OR member='vec_contratacion_temporal_consultor_rrhh_ambito'::regrole)")" == t ]] || { echo 'F2: negativo CT cambió membresías' >&2; exit 1; }
+consulta "DROP ROLE vec_contratacion_temporal_consultor_rrhh_ambito" >/dev/null
 aplicar "$rol_ct_copia"
 legacy_post=$(consulta "SELECT jsonb_build_object('rol',to_jsonb(r),'membresias',coalesce((SELECT jsonb_agg(to_jsonb(m) ORDER BY m.member,m.roleid) FROM pg_auth_members m WHERE m.roleid=r.oid OR m.member=r.oid),'[]'::jsonb),'esquema',to_jsonb(n))::text FROM pg_roles r,pg_namespace n WHERE r.rolname='vec_contratacion_temporal_consultor_rrhh' AND n.nspname='vec_contratacion_temporal'")
 [[ "$legacy_post" == "$legacy_pre" && "$(consulta "SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='vec_contratacion_temporal_consultor_rrhh_ambito' AND NOT rolcanlogin AND rolinherit AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolreplication AND NOT rolbypassrls) AND NOT EXISTS (SELECT 1 FROM pg_auth_members WHERE member='vec_contratacion_temporal_consultor_rrhh_ambito'::regrole OR roleid='vec_contratacion_temporal_consultor_rrhh_ambito'::regrole) AND NOT has_schema_privilege('vec_contratacion_temporal_consultor_rrhh_ambito','vec_contratacion_temporal','USAGE') AND NOT has_database_privilege('vec_contratacion_temporal_consultor_rrhh_ambito',current_database(),'CREATE') AND NOT has_database_privilege('vec_contratacion_temporal_consultor_rrhh_ambito',current_database(),'TEMP')")" == t ]] || { echo 'F2: postimagen de rol CT o legado divergente' >&2; exit 1; }
