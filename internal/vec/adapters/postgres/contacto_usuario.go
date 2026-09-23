@@ -101,7 +101,9 @@ func (r *RegistroContactoUsuarioPostgreSQL) GuardarContactoUsuario(ctx context.C
 		return ports.ReciboContactoUsuario{}, err
 	}
 	if err = tx.Commit(ctx); err != nil {
-		return ports.ReciboContactoUsuario{}, contactoError(ctx, err)
+		// Una pérdida de respuesta al confirmar no prueba ROLLBACK. El cliente
+		// conserva la misma operación para consultar o reintentar con V3 fresco.
+		return ports.ReciboContactoUsuario{}, vecapp.ErrContactoUsuarioCommitIncierto
 	}
 	return recibo, nil
 }

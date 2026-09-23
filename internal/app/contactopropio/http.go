@@ -105,6 +105,10 @@ func (h *manejadorContactoPropio) ServeHTTP(w http.ResponseWriter, r *http.Reque
 			responderContactoPropio(w, h.catalogo, http.StatusConflict, claveErrorPeticion)
 			return
 		}
+		if errors.Is(err, ErrContactoPropioCommitIncierto) {
+			responderContactoPropio(w, h.catalogo, http.StatusServiceUnavailable, "api.error.internal")
+			return
+		}
 		responderContactoPropio(w, h.catalogo, http.StatusForbidden, claveErrorAccesoDenegado)
 		return
 	}

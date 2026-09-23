@@ -124,6 +124,14 @@ func TestManejadorContactoPropioLocalizaErroresYNoExponeCorreo(t *testing.T) {
 	if w.Code != http.StatusConflict || strings.Contains(w.Body.String(), "ana@example.test") {
 		t.Fatalf("conflicto: status=%d body=%q", w.Code, w.Body.String())
 	}
+	ejecutor.err = ErrContactoPropioCommitIncierto
+	r = httptest.NewRequest(http.MethodPost, RutaContactoPropio, strings.NewReader(`{"correo":"ana@example.test","version_esperada":1}`))
+	r.Header.Set("Content-Type", "application/json")
+	w = httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	if w.Code != http.StatusServiceUnavailable || !strings.Contains(w.Body.String(), "Error interno del servidor") || strings.Contains(w.Body.String(), "ana@example.test") || w.Header().Get("Cache-Control") != "no-store" {
+		t.Fatalf("COMMIT incierto confundido con permiso o éxito: status=%d body=%q", w.Code, w.Body.String())
+	}
 }
 
 func TestNuevoManejadorContactoPropioCierraDependenciasNulas(t *testing.T) {

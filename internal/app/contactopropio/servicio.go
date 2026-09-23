@@ -19,9 +19,10 @@ import (
 )
 
 var (
-	ErrContactoPropioInvalido     = errors.New("contacto propio: entrada invalida")
-	ErrContactoPropioConflicto    = errors.New("contacto propio: version o correo en conflicto")
-	ErrContactoPropioNoDisponible = errors.New("contacto propio: operacion no disponible")
+	ErrContactoPropioInvalido       = errors.New("contacto propio: entrada invalida")
+	ErrContactoPropioConflicto      = errors.New("contacto propio: version o correo en conflicto")
+	ErrContactoPropioCommitIncierto = errors.New("contacto propio: confirmacion incierta")
+	ErrContactoPropioNoDisponible   = errors.New("contacto propio: operacion no disponible")
 )
 
 const (
@@ -98,6 +99,10 @@ func NuevoServicio(d Dependencias) (*Servicio, error) {
 // contiene el correo. El alta general y su requisito de contacto deben usar
 // el estado durable de este registro; esta operación no completa un perfil.
 func (s *Servicio) Guardar(ctx context.Context, correo string, versionEsperada uint64) (ports.ReciboContactoUsuario, error) {
+	return s.guardar(ctx, correo, versionEsperada, "")
+}
+
+func (s *Servicio) guardar(ctx context.Context, correo string, versionEsperada uint64, sujetoEsperado string) (ports.ReciboContactoUsuario, error) {
 	vacio := ports.ReciboContactoUsuario{}
 	if len(correo) == 0 || len(correo) > 254 || strings.TrimSpace(correo) != correo || strings.ContainsAny(correo, "\r\n") || versionEsperada >= 1<<53-1 {
 		return vacio, ErrContactoPropioInvalido
@@ -118,7 +123,7 @@ func (s *Servicio) Guardar(ctx context.Context, correo string, versionEsperada u
 		}
 		vinculo, resultado, err = domain.CrearVinculoAutenticacionActorV2ConResultado(ctx, d.Revalidador, domain.SolicitudRevalidacionAutenticacionActorV1{AutenticacionRef: audit.AutenticacionRef(), SesionRef: audit.SesionRef()}, d.Resolutor, domain.SolicitudContextoActor{Cuenta: cuenta, PerfilActivoRef: d.PerfilPropioRef}, d.Reloj)
 	}
-	if err != nil || vinculo.ValidarPara(resultado) != nil || resultado.Contexto.PerfilActivoRef != d.PerfilPropioRef || resultado.Contexto.Principal.AuthAssurance != domain.AuthAssuranceHigh || (resultado.Contexto.Principal.AuthMethod != domain.AuthMethodCertificate && resultado.Contexto.Principal.AuthMethod != domain.AuthMethodDNIe) {
+	if err != nil || vinculo.ValidarPara(resultado) != nil || resultado.Contexto.PerfilActivoRef != d.PerfilPropioRef || resultado.Contexto.Principal.AuthAssurance != domain.AuthAssuranceHigh || (resultado.Contexto.Principal.AuthMethod != domain.AuthMethodCertificate && resultado.Contexto.Principal.AuthMethod != domain.AuthMethodDNIe) || (sujetoEsperado != "" && resultado.Contexto.PersonaRef != sujetoEsperado) {
 		return vacio, ErrContactoPropioNoDisponible
 	}
 	contacto, err := domain.NuevoContactoUsuario(resultado.Contexto.PersonaRef, correo, versionEsperada+1)
@@ -147,11 +152,47 @@ func (s *Servicio) Guardar(ctx context.Context, correo string, versionEsperada u
 	if errors.Is(err, application.ErrContactoUsuarioConflicto) {
 		return vacio, ErrContactoPropioConflicto
 	}
+	if errors.Is(err, application.ErrContactoUsuarioCommitIncierto) {
+		return vacio, ErrContactoPropioCommitIncierto
+	}
 	if err != nil {
 		return vacio, ErrContactoPropioNoDisponible
 	}
 	return recibo, nil
 }
+
+// CompletarContactoDeAlta enlaza el recibo de contacto con la operación de
+// registro propio. Sólo la autoridad del registro puede declarar Confirmado:
+// una escritura de contacto, incluso recuperada por replay, no cambia por sí
+// misma el estado pendiente_contacto del alta.
+func (s *Servicio) CompletarContactoDeAlta(ctx context.Context, alta ports.ReferenciaAltaContactoUsuario, correo string, confirmar ports.ConfirmadorAltaContactoUsuario) (ports.ConfirmacionAltaContactoUsuario, error) {
+	vacio := ports.ConfirmacionAltaContactoUsuario{}
+	if ctx == nil || ctx.Err() != nil || dependenciaContactoPropioNula(confirmar) || !operacionAltaContactoCanonica.MatchString(alta.OperacionRef) || !domain.ReferenciaSujetoContactoUsuarioValida(alta.PersonaRef) {
+		return vacio, ErrContactoPropioNoDisponible
+	}
+	recibo, err := s.guardar(ctx, correo, 0, alta.PersonaRef)
+	if err != nil {
+		return vacio, err
+	}
+	if recibo.SujetoRef != alta.PersonaRef || recibo.Version != 1 || recibo.EvidenciaCentral.Referencia == "" {
+		return vacio, ErrContactoPropioNoDisponible
+	}
+	return confirmarAltaContacto(ctx, alta, recibo, confirmar)
+}
+
+func confirmarAltaContacto(ctx context.Context, alta ports.ReferenciaAltaContactoUsuario, recibo ports.ReciboContactoUsuario, confirmar ports.ConfirmadorAltaContactoUsuario) (ports.ConfirmacionAltaContactoUsuario, error) {
+	vacio := ports.ConfirmacionAltaContactoUsuario{}
+	if ctx == nil || ctx.Err() != nil || dependenciaContactoPropioNula(confirmar) || !operacionAltaContactoCanonica.MatchString(alta.OperacionRef) || !domain.ReferenciaSujetoContactoUsuarioValida(alta.PersonaRef) || recibo.SujetoRef != alta.PersonaRef || recibo.Version != 1 || recibo.EvidenciaCentral.Referencia == "" {
+		return vacio, ErrContactoPropioNoDisponible
+	}
+	resultado, err := confirmar.ConfirmarAltaConContacto(ctx, alta, recibo)
+	if err != nil || ctx.Err() != nil || resultado.OperacionRef != alta.OperacionRef || resultado.PersonaRef != alta.PersonaRef || resultado.Version != recibo.Version || resultado.EvidenciaRef != recibo.EvidenciaCentral.Referencia || (resultado.Confirmado && resultado.ReciboRef == "") {
+		return vacio, ErrContactoPropioNoDisponible
+	}
+	return resultado, nil
+}
+
+var operacionAltaContactoCanonica = regexp.MustCompile(`^opr_[A-Za-z0-9_-]{22,128}$`)
 
 // preparadorAuditoria adapta la fuente central y el HMAC existente. La firma
 // y AuthorizationRef finales sólo los produce T13 tras consumir la decisión.

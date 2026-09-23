@@ -12,6 +12,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -139,11 +140,15 @@ func (protectorContactoPrueba) ConContactoUsuarioDescifrado(_ context.Context, s
 type registroContactoPrueba struct {
 	orden    ports.OrdenRegistroContactoUsuario
 	llamadas int
+	err      error
 }
 
 func (r *registroContactoPrueba) GuardarContactoUsuario(_ context.Context, o ports.OrdenRegistroContactoUsuario) (ports.ReciboContactoUsuario, error) {
 	r.llamadas++
 	r.orden = o
+	if r.err != nil {
+		return ports.ReciboContactoUsuario{}, r.err
+	}
 	return reciboCentralContactoFuente(o)
 }
 
@@ -256,6 +261,15 @@ func TestContactoGuardarConEmisorV3RealYCorreoCifrado(t *testing.T) {
 		}
 		return nil
 	}))
+}
+
+func TestContactoGuardarPropagaCommitInciertoSinFabricarRecibo(t *testing.T) {
+	e := nuevoEntornoContacto(t)
+	e.registro.err = ErrContactoUsuarioCommitIncierto
+	r, err := e.servicio.Guardar(context.Background(), e.solicitud)
+	if !errors.Is(err, ErrContactoUsuarioCommitIncierto) || !reflect.DeepEqual(r, ports.ReciboContactoUsuario{}) || e.registro.llamadas != 1 {
+		t.Fatal("una confirmación incierta no puede convertirse en recibo ni denegación")
+	}
 }
 func TestContactoGuardarRechazaRecursoFirmadoDistinto(t *testing.T) {
 	for _, campo := range []string{"material_sha256", "contacto_sujeto_ref", "contacto_finalidad_ref", "contacto_version", "modulo", "finalidad", "accion"} {

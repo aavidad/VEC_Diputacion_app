@@ -21,6 +21,11 @@ import (
 var ErrContactoUsuarioNoDisponible = errors.New("vec: contacto de usuario no disponible")
 var ErrContactoUsuarioConflicto = errors.New("vec: contacto de usuario en conflicto")
 
+// El COMMIT pudo haber surtido efecto aunque se perdiera su confirmación.
+// Sólo una consulta de la operación exacta o un replay semántico autorizado
+// pueden resolver este estado; nunca se fabrica un recibo local.
+var ErrContactoUsuarioCommitIncierto = errors.New("vec: confirmacion de contacto incierta")
+
 const (
 	AccionAltaContactoUsuario       = "vec.contacto_usuario.alta"
 	AccionActualizarContactoUsuario = "vec.contacto_usuario.actualizar"
@@ -100,6 +105,9 @@ func (s *ServicioContactoUsuario) Guardar(ctx context.Context, solicitud ports.S
 	recibo, err := s.registro.GuardarContactoUsuario(ctx, ports.OrdenRegistroContactoUsuario{Preparacion: clonarPreparacion(preparacion), Material: material})
 	if errors.Is(err, ErrContactoUsuarioConflicto) {
 		return ports.ReciboContactoUsuario{}, ErrContactoUsuarioConflicto
+	}
+	if errors.Is(err, ErrContactoUsuarioCommitIncierto) {
+		return ports.ReciboContactoUsuario{}, ErrContactoUsuarioCommitIncierto
 	}
 	if err != nil || !reciboGuardadoValido(recibo, preparacion, material.ResumenCapacidad().DecisionRef()) {
 		return ports.ReciboContactoUsuario{}, ErrContactoUsuarioNoDisponible

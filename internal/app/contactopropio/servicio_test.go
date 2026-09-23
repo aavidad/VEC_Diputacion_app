@@ -24,6 +24,53 @@ type fuenteAuditoriaPrueba struct {
 	llamadas          int
 }
 
+type confirmadorAltaContactoPrueba struct {
+	resultado ports.ConfirmacionAltaContactoUsuario
+	llamadas  int
+}
+
+func (c *confirmadorAltaContactoPrueba) ConfirmarAltaConContacto(_ context.Context, _ ports.ReferenciaAltaContactoUsuario, _ ports.ReciboContactoUsuario) (ports.ConfirmacionAltaContactoUsuario, error) {
+	c.llamadas++
+	return c.resultado, nil
+}
+
+func TestAltaContactoSoloAceptaConfirmacionDelPuertoLigadaAlRegistro(t *testing.T) {
+	alta := ports.ReferenciaAltaContactoUsuario{OperacionRef: "opr_" + strings.Repeat("o", 22), PersonaRef: "per_" + strings.Repeat("p", 22)}
+	recibo := ports.ReciboContactoUsuario{SujetoRef: alta.PersonaRef, Version: 1, EvidenciaCentral: ports.EvidenciaAuditoriaCentralContactoUsuario{Referencia: "acc_" + strings.Repeat("a", 40)}}
+	base := ports.ConfirmacionAltaContactoUsuario{OperacionRef: alta.OperacionRef, PersonaRef: alta.PersonaRef, Version: 1, EvidenciaRef: recibo.EvidenciaCentral.Referencia}
+	confirmador := &confirmadorAltaContactoPrueba{resultado: base}
+	pendiente, err := confirmarAltaContacto(context.Background(), alta, recibo, confirmador)
+	if err != nil || pendiente.Confirmado || confirmador.llamadas != 1 {
+		t.Fatal("el recibo de contacto se confundió con alta completa")
+	}
+	confirmador.resultado.Confirmado = true
+	confirmador.resultado.ReciboRef = "rpr_" + strings.Repeat("r", 22)
+	confirmado, err := confirmarAltaContacto(context.Background(), alta, recibo, confirmador)
+	if err != nil || !confirmado.Confirmado || confirmado.OperacionRef != alta.OperacionRef {
+		t.Fatal("la confirmación exacta del puerto fue rechazada")
+	}
+	for nombre, alterar := range map[string]func(*ports.ConfirmacionAltaContactoUsuario){
+		"operacion ajena": func(r *ports.ConfirmacionAltaContactoUsuario) { r.OperacionRef = "opr_" + strings.Repeat("x", 22) },
+		"persona ajena":   func(r *ports.ConfirmacionAltaContactoUsuario) { r.PersonaRef = "per_" + strings.Repeat("x", 22) },
+		"version ajena":   func(r *ports.ConfirmacionAltaContactoUsuario) { r.Version = 2 },
+		"evidencia ajena": func(r *ports.ConfirmacionAltaContactoUsuario) { r.EvidenciaRef = "acc_" + strings.Repeat("x", 40) },
+		"sin recibo":      func(r *ports.ConfirmacionAltaContactoUsuario) { r.ReciboRef = "" },
+	} {
+		t.Run(nombre, func(t *testing.T) {
+			c := &confirmadorAltaContactoPrueba{resultado: confirmado}
+			alterar(&c.resultado)
+			if r, err := confirmarAltaContacto(context.Background(), alta, recibo, c); !errors.Is(err, ErrContactoPropioNoDisponible) || r.Confirmado {
+				t.Fatal("confirmación ajena admitida")
+			}
+		})
+	}
+	confirmador.llamadas = 0
+	recibo.SujetoRef = "per_" + strings.Repeat("x", 22)
+	if _, err := confirmarAltaContacto(context.Background(), alta, recibo, confirmador); !errors.Is(err, ErrContactoPropioNoDisponible) || confirmador.llamadas != 0 {
+		t.Fatal("contacto de otra persona llegó al confirmador")
+	}
+}
+
 func (f *fuenteAuditoriaPrueba) ObtenerInstantaneaAutorizacion(_ context.Context, principal, perfil string) (domain.InstantaneaAutorizacion, error) {
 	f.principal, f.perfil = principal, perfil
 	f.llamadas++

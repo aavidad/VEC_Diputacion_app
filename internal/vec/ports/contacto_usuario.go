@@ -109,6 +109,32 @@ type RegistroContactoUsuario interface {
 	GuardarContactoUsuario(context.Context, OrdenRegistroContactoUsuario) (ReciboContactoUsuario, error)
 }
 
+// ReferenciaAltaContactoUsuario llega del recibo durable del registro propio.
+// La composición debe comprobar ese recibo con su autoridad antes de invocar
+// contacto. OperacionRef nunca procede de un campo libre de HTTP.
+type ReferenciaAltaContactoUsuario struct {
+	OperacionRef string
+	PersonaRef   string
+}
+
+// ConfirmacionAltaContactoUsuario sólo es verdadera tras la transición durable
+// del registro propio. El recibo de contacto por sí solo no completa el alta.
+type ConfirmacionAltaContactoUsuario struct {
+	OperacionRef string
+	PersonaRef   string
+	Version      uint64
+	ReciboRef    string
+	EvidenciaRef string
+	Confirmado   bool
+}
+
+// ConfirmadorAltaContactoUsuario pertenece al registro propio. Debe comprobar
+// su operación, persona y recibo de contacto, revalidar la autoridad y persistir
+// la transición pendiente_contacto -> alta_completa con replay idempotente.
+type ConfirmadorAltaContactoUsuario interface {
+	ConfirmarAltaConContacto(context.Context, ReferenciaAltaContactoUsuario, ReciboContactoUsuario) (ConfirmacionAltaContactoUsuario, error)
+}
+
 // SolicitudAccesoContactoUsuario sigue siendo la frontera de lectura. El
 // adaptador verifica firmas/gobierno, consumo y auditoría de acceso, revalida
 // revocación y vigencia tras descifrar y antes del único callback activo.
