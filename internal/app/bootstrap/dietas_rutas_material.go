@@ -83,13 +83,17 @@ func (m *materialAtestacionRutasDietasDesarrollo) borrarCopiasEfimeras() {
 // Sólo reconstruye las representaciones nominales del material previamente
 // provisionado. Las audiencias Dietas nunca se reciben del cliente HTTP.
 func nuevoMaterialAtestacionRutasDietasDesarrollo(d datosMaterialRutasDietasDesarrollo) (materialAtestacionRutasDietasDesarrollo, error) {
+	return nuevoMaterialAtestacionDietasDesarrollo(d, audienciaAtestacionRutasDietasDesarrollo, audienciaConsumoRutasDietasDesarrollo)
+}
+
+func nuevoMaterialAtestacionDietasDesarrollo(d datosMaterialRutasDietasDesarrollo, audienciaAtestacion, audienciaConsumo string) (materialAtestacionRutasDietasDesarrollo, error) {
 	vacio := materialAtestacionRutasDietasDesarrollo{}
-	if len(d.PrivadaEd25519) != ed25519.PrivateKeySize || len(d.PublicaEd25519) != ed25519.PublicKeySize ||
+	if audienciaAtestacion == "" || audienciaConsumo == "" || len(d.PrivadaEd25519) != ed25519.PrivateKeySize || len(d.PublicaEd25519) != ed25519.PublicKeySize ||
 		!bytes.Equal(ed25519.PrivateKey(d.PrivadaEd25519).Public().(ed25519.PublicKey), d.PublicaEd25519) {
 		return vacio, errMaterialRutasDietasDesarrollo
 	}
 	raiz, err := confianzaatestacion.NuevaRaizPublicaAtestacionAutorizacionV3EdDSA(
-		d.ClaveID, d.ClaveVersion, ed25519.PublicKey(d.PublicaEd25519), audienciaAtestacionRutasDietasDesarrollo,
+		d.ClaveID, d.ClaveVersion, ed25519.PublicKey(d.PublicaEd25519), audienciaAtestacion,
 		d.EstadoRaiz, d.ValidaDesde, d.ValidaHasta, d.RevocadaEn,
 	)
 	if err != nil {
@@ -102,7 +106,7 @@ func nuevoMaterialAtestacionRutasDietasDesarrollo(d datosMaterialRutasDietasDesa
 		return vacio, errMaterialRutasDietasDesarrollo
 	}
 	capacidad, err := confianzaatestacion.NuevaClaveHMACCapacidadAtestacionAutorizacionV3(
-		d.ClaveHMACID, d.ClaveHMACVersion, d.MaterialHMAC, d.EmisorID, audienciaConsumoRutasDietasDesarrollo,
+		d.ClaveHMACID, d.ClaveHMACVersion, d.MaterialHMAC, d.EmisorID, audienciaConsumo,
 		d.EstadoHMAC, d.HMACValidaDesde, d.HMACValidaHasta,
 		d.HMACRevocadaEn, d.RevisionGobierno, d.HuellaGobierno,
 	)
@@ -123,7 +127,11 @@ type proveedorMaterialAccesoRutasDietasDesarrollo struct {
 }
 
 func nuevoProveedorMaterialAccesoRutasDietasDesarrollo(m materialAtestacionRutasDietasDesarrollo, reloj puertosvec.Reloj) (*proveedorMaterialAccesoRutasDietasDesarrollo, error) {
-	if len(m.privada) != ed25519.PrivateKeySize {
+	return nuevoProveedorMaterialDietasDesarrollo(m, reloj, audienciaAtestacionRutasDietasDesarrollo)
+}
+
+func nuevoProveedorMaterialDietasDesarrollo(m materialAtestacionRutasDietasDesarrollo, reloj puertosvec.Reloj, audienciaAtestacion string) (*proveedorMaterialAccesoRutasDietasDesarrollo, error) {
+	if audienciaAtestacion == "" || len(m.privada) != ed25519.PrivateKeySize {
 		return nil, errMaterialRutasDietasDesarrollo
 	}
 	confianza, err := confianzaatestacion.NuevoServicioConfianzaAtestacionAutorizacionV3(m.configuracion, reloj)
@@ -138,7 +146,7 @@ func nuevoProveedorMaterialAccesoRutasDietasDesarrollo(m materialAtestacionRutas
 	atestador, err := aplicacionvec.NuevoServicioAtestacionesAutorizacionV3(dominiovec.CabeceraAtestacionAutorizacionV3{
 		FormatoVersion: dominiovec.VersionFormatoAtestacionAutorizacionV3,
 		Suite:          confianzaatestacion.SuiteAtestacionAutorizacionV3COSEEdDSA,
-		ClaveID:        m.claveID, Audiencia: audienciaAtestacionRutasDietasDesarrollo,
+		ClaveID:        m.claveID, Audiencia: audienciaAtestacion,
 	}, firmante)
 	if err != nil {
 		clear(firmante.privada)
