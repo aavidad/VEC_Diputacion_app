@@ -205,3 +205,12 @@ static/portal-empleado/modulos/contratacion-temporal/vista-estadisticas.js
 static/portal-empleado/modulos/contratacion-temporal/cliente-http-estadisticas.js
 static/portal-empleado/modulos/contratacion-temporal/contrato-estadisticas.js
 static/portal-empleado/modulos/contratacion-temporal/estadisticas.css
+static/portal-empleado/modulos/seleccion/inscripciones/vista.js
+static/portal-empleado/modulos/seleccion/inscripciones/i18n.js
+static/portal-empleado/modulos/seleccion/inscripciones/inscripciones.css
+static/portal-empleado/modulos/seleccion/pruebas/vista.js
+static/portal-empleado/modulos/seleccion/pruebas/i18n.js
+static/portal-empleado/modulos/seleccion/pruebas/pruebas.css
+static/portal-empleado/modulos/seleccion/comunicaciones/vista.js
+static/portal-empleado/modulos/seleccion/comunicaciones/i18n.js
+static/portal-empleado/modulos/seleccion/comunicaciones/comunicaciones.css
