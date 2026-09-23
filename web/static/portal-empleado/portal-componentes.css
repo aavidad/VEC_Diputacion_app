@@ -318,7 +318,7 @@
 }
 
 .tabla-datos th {
-  background: #f3f6fa;
+  background: var(--portal-fondo);
   color: var(--portal-azul-950);
   font-size: 0.7rem;
   font-weight: 760;
@@ -327,7 +327,7 @@
 }
 
 .tabla-datos tbody tr:nth-child(even) {
-  background: #fafbfd;
+  background: var(--portal-fondo);
 }
 
 .tabla-datos tbody tr:last-child td {
@@ -336,7 +336,7 @@
 
 .tabla-datos tbody tr:hover,
 .tabla-datos tbody tr[aria-selected="true"] {
-  background: #f0f6ff;
+  background: var(--portal-azul-100);
 }
 
 /*

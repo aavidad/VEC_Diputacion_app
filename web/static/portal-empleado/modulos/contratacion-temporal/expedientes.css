@@ -282,6 +282,117 @@
   min-width: 1060px;
 }
 
+.ct-exp-listado .tabla-datos thead th {
+  border-bottom: 2px solid var(--portal-azul-700);
+}
+
+.ct-exp-listado .ct-exp-fila,
+.ct-exp-listado .ct-exp-fila-resumen {
+  --ct-fase-acento: var(--portal-azul-700);
+  --ct-fase-fondo: var(--portal-azul-100);
+}
+
+.ct-exp-listado [data-ct-fase="analisis_rrhh"],
+.ct-exp-listado [data-ct-fase="gestion_bolsa"] {
+  --ct-fase-acento: var(--portal-cian-fuerte);
+  --ct-fase-fondo: var(--portal-cian-suave);
+}
+
+.ct-exp-listado [data-ct-fase="fiscalizacion"],
+.ct-exp-listado [data-ct-fase="obtencion_candidato"] {
+  --ct-fase-acento: var(--portal-aviso);
+  --ct-fase-fondo: var(--portal-aviso-suave);
+}
+
+.ct-exp-listado [data-ct-fase="nombramiento"],
+.ct-exp-listado [data-ct-fase="incorporacion"],
+.ct-exp-listado [data-ct-fase="seguimiento"] {
+  --ct-fase-acento: var(--portal-exito);
+  --ct-fase-fondo: var(--portal-exito-suave);
+}
+
+.ct-exp-listado .ct-exp-fila:nth-child(4n + 3) {
+  background: var(--portal-fondo);
+}
+
+.ct-exp-listado .ct-exp-fila > th,
+.ct-exp-listado .ct-exp-fila > td {
+  border-bottom-color: var(--portal-borde);
+}
+
+.ct-exp-listado .ct-exp-fila > th:first-child {
+  border-left: 5px solid var(--ct-fase-acento);
+}
+
+.ct-exp-listado .ct-exp-fila:hover,
+.ct-exp-listado .ct-exp-fila:focus-within {
+  background: var(--ct-fase-fondo);
+}
+
+.ct-exp-listado .ct-exp-fila:focus-within > th:first-child {
+  box-shadow: inset 3px 0 var(--portal-tinta);
+}
+
+.ct-exp-listado .ct-exp-fila-resumen > td {
+  padding: 0 12px 12px 0;
+  border-bottom: 8px solid var(--portal-superficie);
+  background: var(--portal-superficie);
+  white-space: normal;
+}
+
+.ct-exp-listado .ct-exp-fila-resumen section {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--portal-borde);
+  border-left: 5px solid var(--ct-fase-acento);
+  border-radius: 0 0 var(--portal-radio) var(--portal-radio);
+  background: var(--ct-fase-fondo);
+  box-shadow: var(--portal-sombra-sm);
+}
+
+.ct-exp-progreso-bandeja {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.ct-exp-progreso-bandeja span {
+  padding: 3px 7px;
+  border: 1px solid var(--portal-borde);
+  border-radius: 999px;
+  background: var(--portal-superficie);
+  color: var(--portal-tinta);
+  font-size: 0.72rem;
+}
+
+.ct-exp-progreso-bandeja [aria-current="step"] {
+  border-color: var(--ct-fase-acento);
+  box-shadow: inset 0 0 0 1px var(--ct-fase-acento);
+  font-weight: 800;
+}
+
+.ct-exp-resumen-datos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  margin: 0;
+}
+
+.ct-exp-resumen-datos div {
+  display: flex;
+  gap: 5px;
+}
+
+.ct-exp-resumen-datos dt {
+  color: var(--portal-muted);
+}
+
+.ct-exp-resumen-datos dd {
+  margin: 0;
+  font-weight: 700;
+}
+
 .ct-exp-chip {
   display: inline-flex;
   align-items: center;

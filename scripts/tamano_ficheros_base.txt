@@ -77,8 +77,8 @@
 1179 scripts/smoke_nominas_peoplenet.js
 13086 web/static/app.js
 876 web/static/portal-empleado/modulos/contratacion-temporal/cliente-http.test.mjs
-843 web/static/portal-empleado/modulos/contratacion-temporal/expedientes.css
-868 web/static/portal-empleado/modulos/contratacion-temporal/expedientes-presentacion.test.mjs
+953 web/static/portal-empleado/modulos/contratacion-temporal/expedientes.css
+886 web/static/portal-empleado/modulos/contratacion-temporal/expedientes-presentacion.test.mjs
 1066 web/static/portal-empleado/modulos/contratacion-temporal/montaje-formulario-analisis.test.mjs
 1052 web/static/portal-empleado/modulos/dietas/dietas.css
 907 web/static/portal-empleado/modulos/dietas/dietas.test.mjs

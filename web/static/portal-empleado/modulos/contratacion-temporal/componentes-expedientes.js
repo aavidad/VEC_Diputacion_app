@@ -67,6 +67,36 @@ function esNumeroVisibleLegible(numero) {
   return /^\d{4}\/CT-\d+$/u.test(String(numero ?? ""));
 }
 
+const FASES_BANDEJA = [
+  ["solicitud", "etiqueta_fase_solicitud"],
+  ["analisis_rrhh", "etiqueta_fase_analisis_rrhh"],
+  ["gestion_bolsa", "etiqueta_fase_gestion_bolsa"],
+  ["fiscalizacion", "etiqueta_fase_fiscalizacion"],
+  ["obtencion_candidato", "etiqueta_fase_obtencion_candidato"],
+  ["nombramiento", "etiqueta_fase_nombramiento"],
+  ["incorporacion", "etiqueta_fase_incorporacion"],
+  ["seguimiento", "etiqueta_fase_seguimiento"],
+];
+const FASES_EQUIVALENTES = {
+  solicitud_registrada: "solicitud", analisis: "analisis_rrhh",
+  asignacion: "gestion_bolsa", asignacion_unidad: "gestion_bolsa",
+  informe_juridico: "gestion_bolsa", subsanacion_unidad: "fiscalizacion",
+  llamamiento: "obtencion_candidato",
+};
+
+function faseBandeja(clave) {
+  const normalizada = FASES_EQUIVALENTES[clave] ?? clave;
+  return FASES_BANDEJA.some(([fase]) => fase === normalizada) ? normalizada : "otra";
+}
+
+function fechaBandeja(valor) {
+  if (typeof valor !== "string" || !/^\d{4}-\d{2}-\d{2}T/u.test(valor)) return "";
+  const fecha = new Date(valor);
+  return Number.isNaN(fecha.valueOf()) ? "" : new Intl.DateTimeFormat("es-ES", {
+    dateStyle: "medium", timeZone: "Europe/Madrid",
+  }).format(fecha);
+}
+
 function renderizarTrabajoOperativo(cuadro, t) {
   const esDemostracion = cuadro.demostracion === true;
   // Sin expedientes no hay bandeja ni distribución que mostrar.
@@ -172,29 +202,32 @@ export function renderizarCuadro(estado, t) {
     const centro = centroVisible(expediente.centro);
     const resumenId = `ct-exp-resumen-${expediente.expediente_ref}`;
     const controlId = `ct-exp-resumen-control-${expediente.expediente_ref}`;
-    return `<tr>
+    const fase = faseBandeja(expediente.fase_clave);
+    const fechaSolicitud = fechaBandeja(expediente.fecha_solicitud);
+    const modalidad = expediente.modalidad === "—" ? t("modalidad_no_informada_bandeja") : expediente.modalidad;
+    const progreso = fase === "otra" ? "" : `<div class="ct-exp-progreso-bandeja" aria-label="${escaparHTML(t("flujo_expediente"))}">
+      ${FASES_BANDEJA.map(([clave, etiqueta]) => `<span${clave === fase ? ' aria-current="step"' : ""}>${escaparHTML(t(etiqueta))}</span>`).join("")}
+    </div>`;
+    return `<tr class="ct-exp-fila" data-ct-fase="${escaparHTML(fase)}">
     <th scope="row"><button type="button" class="enlace-tabla" id="${escaparHTML(controlId)}"
       data-ct-exp-resumen aria-controls="${escaparHTML(resumenId)}" aria-expanded="false"
       aria-label="${escaparHTML(t("resumen_fila", { expediente: expediente.numero_visible }))}">${escaparHTML(expediente.numero_visible)}</button></th>
     <td${centro.referencia ? ` title="${escaparHTML(centro.referencia)}"` : ""}>${escaparHTML(centro.etiqueta)}</td>
     <td>${escaparHTML(expediente.categoria)}</td>
-    <td>${escaparHTML(expediente.modalidad)}</td>
+    <td>${escaparHTML(modalidad)}</td>
     <td><span class="ct-exp-chip ${estadoClave(expediente.estado_clave)}">${escaparHTML(expediente.estado)}</span></td>
     <td>${escaparHTML(expediente.fase_actual)}</td>
     <td>${escaparHTML(expediente.plazo)}</td>
     <td><button type="button" class="boton-terciario" data-ct-exp-abrir="${escaparHTML(expediente.expediente_ref)}">${escaparHTML(t("abrir"))}</button></td>
   </tr>
-  <tr class="ct-exp-fila-resumen" id="${escaparHTML(resumenId)}" data-ct-exp-resumen-fila
+  <tr class="ct-exp-fila-resumen" id="${escaparHTML(resumenId)}" data-ct-fase="${escaparHTML(fase)}" data-ct-exp-resumen-fila
     aria-labelledby="${escaparHTML(controlId)}" hidden>
     <td colspan="8">
       <section aria-label="${escaparHTML(t("resumen_fila", { expediente: expediente.numero_visible }))}">
-        <dl class="ct-resumen">
-          <div><dt>${escaparHTML(t("columna_centro"))}</dt><dd${centro.referencia ? ` title="${escaparHTML(centro.referencia)}"` : ""}>${escaparHTML(centro.etiqueta)}</dd></div>
-          <div><dt>${escaparHTML(t("columna_categoria"))}</dt><dd>${escaparHTML(expediente.categoria)}</dd></div>
-          <div><dt>${escaparHTML(t("columna_modalidad"))}</dt><dd>${escaparHTML(expediente.modalidad)}</dd></div>
-          <div><dt>${escaparHTML(t("columna_estado"))}</dt><dd><span class="ct-exp-chip ${estadoClave(expediente.estado_clave)}">${escaparHTML(expediente.estado)}</span></dd></div>
-          <div><dt>${escaparHTML(t("columna_fase"))}</dt><dd>${escaparHTML(expediente.fase_actual)}</dd></div>
-          <div><dt>${escaparHTML(t("columna_plazo"))}</dt><dd>${escaparHTML(expediente.plazo)}</dd></div>
+        ${progreso}
+        <dl class="ct-exp-resumen-datos">
+          ${fechaSolicitud ? `<div><dt>${escaparHTML(t("resumen_fecha_solicitud"))}</dt><dd>${escaparHTML(fechaSolicitud)}</dd></div>` : ""}
+          ${expediente.version ? `<div><dt>${escaparHTML(t("version"))}</dt><dd>${escaparHTML(expediente.version)}</dd></div>` : ""}
         </dl>
         <button type="button" class="boton-terciario" data-ct-exp-abrir="${escaparHTML(expediente.expediente_ref)}">${escaparHTML(t("resumen_abrir_expediente"))}</button>
       </section>

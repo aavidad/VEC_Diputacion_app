@@ -67,11 +67,11 @@ test("el listado precede al trabajo auxiliar y cada expediente ofrece un resumen
     "u",
   ));
   assert.match(html, new RegExp(
-    `<tr class="ct-exp-fila-resumen" id="${resumenId}" data-ct-exp-resumen-fila[\\s\\S]*?hidden>`,
+    `<tr class="ct-exp-fila-resumen" id="${resumenId}"[\\s\\S]*?data-ct-exp-resumen-fila[\\s\\S]*?hidden>`,
     "u",
   ));
   assert.match(html, new RegExp(
-    `<tr>[\\s\\S]*?${primerExpediente.numero_visible}[\\s\\S]*?</tr>\\s*<tr class="ct-exp-fila-resumen"`,
+    `<tr class="ct-exp-fila"[\\s\\S]*?${primerExpediente.numero_visible}[\\s\\S]*?</tr>\\s*<tr class="ct-exp-fila-resumen"`,
     "u",
   ));
   assert.match(html, new RegExp(`aria-label="Resumen del expediente ${primerExpediente.numero_visible}"`, "u"));
@@ -81,7 +81,7 @@ test("el listado precede al trabajo auxiliar y cada expediente ofrece un resumen
   ));
 });
 
-test("el resumen inicial escapa datos de la fila y conserva texto y clase de estado", () => {
+test("el resumen inicial escapa datos, marca la fase y omite las columnas de la fila", () => {
   const t = crearTraductorExpedientesContratacion();
   const html = renderizarCuadro({
     vista: "cuadro",
@@ -97,8 +97,11 @@ test("el resumen inicial escapa datos de la fila y conserva texto y clase de est
         modalidad: "Modalidad <segura>",
         estado_clave: "en_curso",
         estado: "En curso <seguro>",
+        fase_clave: "analisis_rrhh",
         fase_actual: "Análisis <seguro>",
         plazo: "Hoy <seguro>",
+        fecha_solicitud: "2026-09-21T10:00:00Z",
+        version: 3,
       }],
     },
     filtros: { texto: "", estado: "", fase: "" },
@@ -108,7 +111,15 @@ test("el resumen inicial escapa datos de la fila y conserva texto y clase de est
   assert.match(html, /Centro &lt;seguro&gt;/u);
   assert.match(html, /class="ct-exp-chip ct-fase-en_curso">En curso &lt;seguro&gt;<\/span>/u);
   assert.match(html, /data-ct-exp-abrir="expediente:ct:resumen:&amp;lt;script&amp;gt;"/u);
-  assert.match(html, /class="ct-resumen"/u);
+  assert.match(html, /data-ct-fase="analisis_rrhh"/u);
+  const ficha = html.match(/<tr class="ct-exp-fila-resumen"[\s\S]*?<\/tr>/u)?.[0];
+  assert.ok(ficha);
+  assert.match(ficha, /aria-current="step">Análisis de RRHH/u);
+  assert.match(ficha, /Solicitud registrada<\/dt><dd>/u);
+  assert.match(ficha, /Versión<\/dt><dd>3<\/dd>/u);
+  for (const columna of ["Centro", "Categoría", "Modalidad", "Estado", "Fase actual", "Plazo"]) {
+    assert.doesNotMatch(ficha, new RegExp(`<dt>${columna}</dt>`, "u"));
+  }
   assert.doesNotMatch(html, /<script>/u);
 });
 
@@ -118,7 +129,22 @@ test("la bandeja presenta una referencia de centro legible y deja la técnica en
     demostracion: false, indicadores: [], expedientes: [{ expediente_ref: "expediente:ct:centro", numero_visible: "2026/CT-000042", centro: "centro:desarrollo:001", categoria: "Auxiliar", modalidad: "Sustitución", estado_clave: "en_curso", estado: "En curso", fase_actual: "Solicitud", plazo: "Sin plazo" }],
   }, filtros: { texto: "", estado: "", fase: "" } }, t);
   assert.match(html, /title="centro:desarrollo:001">Centro desarrollo · 001/u);
-  assert.match(html, /<dl class="ct-resumen">/u);
+  assert.match(html, />Sustitución<\/td>/u);
+});
+
+test("la modalidad ausente se rotula con precisión y los metadatos ausentes se omiten", () => {
+  const t = crearTraductorExpedientesContratacion();
+  const html = renderizarCuadro({ vista: "cuadro", carga: "listo", cuadro: {
+    demostracion: false, indicadores: [], expedientes: [{
+      expediente_ref: "expediente:ct:sin-modalidad", numero_visible: "2026/CT-000043",
+      centro: "Centro", categoria: "Auxiliar", modalidad: "—", estado_clave: "en_curso",
+      estado: "En curso", fase_clave: "solicitud", fase_actual: "Solicitud", plazo: "—",
+    }],
+  }, filtros: { texto: "", estado: "", fase: "" } }, t);
+  assert.match(html, />No informada en bandeja<\/td>/u);
+  const ficha = html.match(/<tr class="ct-exp-fila-resumen"[\s\S]*?<\/tr>/u)?.[0];
+  assert.ok(ficha);
+  assert.doesNotMatch(ficha, /ct-exp-resumen-datos[\s\S]*?<div>/u);
 });
 
 test("el control de resumen abre una fila, cierra las demás y no selecciona expediente", async () => {

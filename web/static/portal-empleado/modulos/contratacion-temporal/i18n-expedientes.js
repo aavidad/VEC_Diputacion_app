@@ -141,6 +141,8 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
   abrir: "Abrir expediente",
   resumen_fila: "Resumen del expediente {expediente}",
   resumen_abrir_expediente: "Abrir expediente completo",
+  resumen_fecha_solicitud: "Solicitud registrada",
+  modalidad_no_informada_bandeja: "No informada en bandeja",
   flujo_expediente: "Progreso del expediente",
   expediente_etiqueta: "Expediente",
   metadatos_tecnicos: "Metadatos técnicos del expediente",
