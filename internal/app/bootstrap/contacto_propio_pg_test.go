@@ -4,10 +4,12 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -472,6 +474,56 @@ func TestContactoOperacionesPG18RecuperacionNominal(t *testing.T) {
 	if err != nil || !detalle.Encontrada || detalle.Operacion.Estado != ports.OperacionContactoConfirmada ||
 		detalle.Operacion.ReciboRef != confirmada.ReciboRef {
 		t.Fatal("nuevo pool/app no recuperó operación confirmada")
+	}
+	type resultadoConcurrente struct {
+		op  ports.OperacionContactoUsuario
+		err error
+	}
+	var wg sync.WaitGroup
+	inicio := make(chan struct{})
+	resultados := make([]resultadoConcurrente, 2)
+	for i, correo := range []string{"pendiente-a@example.test", "pendiente-b@example.test"} {
+		wg.Add(1)
+		go func(i int, correo string) {
+			defer wg.Done()
+			<-inicio
+			resultados[i].op, resultados[i].err = operacionesRecuperadas.PrepararOperacion(ctx, correo, 2)
+		}(i, correo)
+	}
+	close(inicio)
+	wg.Wait()
+	ganadora := -1
+	for i, r := range resultados {
+		if r.err == nil && r.op.Estado == ports.OperacionContactoPreparada {
+			if ganadora >= 0 {
+				t.Fatal("concurrencia preparó dos intenciones de la misma versión")
+			}
+			ganadora = i
+		} else if !errors.Is(r.err, vecapp.ErrOperacionContactoPreparada) &&
+			!errors.Is(r.err, contactopropio.ErrContactoPropioNoDisponible) &&
+			!errors.Is(r.err, contactopropio.ErrContactoPropioCommitIncierto) {
+			t.Fatal("concurrencia produjo un resultado no permitido")
+		}
+	}
+	if ganadora < 0 {
+		t.Fatal("concurrencia no produjo una intención recuperable")
+	}
+	var pendientes int
+	if err := admin.QueryRow(ctx, `SELECT count(*) FROM vec_contacto_usuario_v1.operaciones
+        WHERE estado='preparada' AND version_esperada=2`).Scan(&pendientes); err != nil || pendientes != 1 {
+		t.Fatal("concurrencia duplicó o perdió la intención pendiente")
+	}
+	cancelada, err := operacionesRecuperadas.CancelarOperacion(ctx, resultados[ganadora].op.OperacionRef)
+	if err != nil || cancelada.Estado != ports.OperacionContactoCancelada {
+		t.Fatal("intención distinta no pudo cancelarse de forma explícita")
+	}
+	sustituta, err := operacionesRecuperadas.PrepararOperacion(ctx, "sustituta@example.test", 2)
+	if err != nil || sustituta.Estado != ports.OperacionContactoPreparada || sustituta.OperacionRef == cancelada.OperacionRef {
+		t.Fatal("cancelación bloqueó permanentemente la misma versión")
+	}
+	lista, err = operacionesRecuperadas.ListarOperaciones(ctx, 20, "")
+	if err != nil || len(lista.Operaciones) != 3 {
+		t.Fatal("índice propio no conservó historial de cancelación y sustitución")
 	}
 }
 
