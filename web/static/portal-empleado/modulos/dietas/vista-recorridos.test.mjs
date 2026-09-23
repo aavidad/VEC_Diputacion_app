@@ -269,6 +269,23 @@ test("mantiene rutas e itinerario ocultos hasta abrir una nueva comisión", asyn
   vista.desmontar();
 });
 
+test("permite consultar itinerario sin cliente de borradores y mantiene cerrado el registro", async () => {
+  const contenedor = crearRaiz();
+  let montajes = 0;
+  const vista = montarVistaRecorridosDietas(contenedor, {
+    montarItinerario: () => { montajes += 1; return { desmontar() {} }; },
+  });
+  const raiz = contenedor.querySelector("[data-dietas-recorridos]");
+  const abrir = raiz.querySelector("[data-dietas-abrir-nueva-comision]");
+  assert.equal(abrir.disabled, false);
+  assert.match(abrir.textContent, /Explorar itinerario/);
+  raiz.listeners.click({ target: abrir });
+  await Promise.resolve();
+  assert.equal(montajes, 1);
+  assert.equal(raiz.querySelector("[data-dietas-borrador-form]").hidden, true);
+  vista.desmontar();
+});
+
 test("no recupera un itinerario de una apertura cerrada al reabrir", async () => {
   const contenedor = crearRaiz();
   const pendientes = [];

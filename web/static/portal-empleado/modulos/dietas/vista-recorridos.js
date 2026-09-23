@@ -62,12 +62,12 @@ function panelSolicitante(documento, t, areaBorradores, areaItinerario, puedeCre
   titulos.append(nodo(documento, "h2", t("revision_mis_comisiones")), nodo(documento, "p", t("revision_subtitulo")));
   const acciones = nodo(documento, "div");
   acciones.className = "dietas-recorridos-cabecera-acciones";
-  const abrir = nodo(documento, "button", t("nueva_comision", { demo: "" }));
+  const abrir = nodo(documento, "button", puedeCrear ? t("nueva_comision", { demo: "" }) : t("revision_explorar_itinerario"));
   abrir.type = "button";
   abrir.className = "boton-primario";
   abrir.dataset.dietasAbrirNuevaComision = "";
-  abrir.disabled = !puedeCrear;
-  if (!puedeCrear) abrir.title = t("borradores_propios_pendiente_conexion");
+  abrir.disabled = !puedeCrear && !areaItinerario;
+  if (!puedeCrear) abrir.title = areaItinerario ? t("revision_itinerario_sin_registro") : t("borradores_propios_pendiente_conexion");
   abrir.setAttribute("aria-expanded", "false");
   abrir.setAttribute("aria-controls", "dietas-recorridos-nueva dietas-recorridos-formulario");
   acciones.append(ayuda(documento, t, "revision_ayuda_propia"), abrir);
@@ -84,7 +84,7 @@ function panelSolicitante(documento, t, areaBorradores, areaItinerario, puedeCre
   cerrar.type = "button";
   cerrar.className = "boton-secundario";
   cerrar.dataset.dietasCerrarNuevaComision = "";
-  cabeceraNueva.append(nodo(documento, "h3", t("nueva_comision", { demo: "" })), cerrar);
+  cabeceraNueva.append(nodo(documento, "h3", puedeCrear ? t("nueva_comision", { demo: "" }) : t("revision_explorar_itinerario")), cerrar);
   nueva.append(cabeceraNueva);
   if (areaItinerario) nueva.append(areaItinerario);
   const revision = nodo(documento, "section");
@@ -210,7 +210,7 @@ export function montarVistaRecorridosDietas(contenedor, {
       if (botonAbrir) { botonAbrir.hidden = abierta; botonAbrir.setAttribute("aria-expanded", String(abierta)); }
       if (abierta) {
         iniciarItinerario();
-        if (!vistaBorradores?.abrirFormulario?.()) nueva?.focus?.();
+        if (!clienteBorradores || !vistaBorradores?.abrirFormulario?.()) nueva?.focus?.();
       }
       else { vistaBorradores?.cerrarFormulario?.(); detenerItinerario(); botonAbrir?.focus?.(); }
       return;
