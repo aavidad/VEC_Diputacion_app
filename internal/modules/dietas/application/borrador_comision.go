@@ -323,7 +323,11 @@ func construirEfectoAutorizacionBorradorActor(actor vecdomain.ContextoActor, rel
 	if relacion.VigenteHasta == "" {
 		atributos["vigente_hasta"] = "sin_fin"
 	}
-	recurso := vecdomain.RecursoAutorizable{Referencia: m.RecursoRef, ModuloID: dietasports.ModuloDietas, Tipo: dietasports.TipoRecursoComisionBorrador, Ambitos: map[string]string{"persona_ref": relacion.PersonaRef, "empleado_ref": relacion.EmpleadoRef, "relacion_ref": relacion.RelacionRef, "unidad_ref": relacion.UnidadRef}, Atributos: atributos}
+	// Una sola asignación de perfil cubre Personal y Dietas, y el PDP exige el
+	// mismo conjunto de ámbitos (AsignacionPerfil.Cubre). Relación y unidad
+	// siguen ligadas: van en material_sha256, que firma la decisión, y el SQL
+	// las revalida en la misma transacción (revalidar_relacion_dietas_v1).
+	recurso := vecdomain.RecursoAutorizable{Referencia: m.RecursoRef, ModuloID: dietasports.ModuloDietas, Tipo: dietasports.TipoRecursoComisionBorrador, Ambitos: map[string]string{"persona_ref": relacion.PersonaRef, "empleado_ref": relacion.EmpleadoRef}, Atributos: atributos}
 	if recurso.Validar() != nil {
 		return dietasports.EfectoAutorizacionBorrador{}, dietasports.ErrEfectoAutorizacionBorradorInvalido
 	}

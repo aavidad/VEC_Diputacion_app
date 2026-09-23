@@ -33,14 +33,13 @@ BEGIN
   END IF;
   m:=jsonb_set(m,'{huella_semantica}',to_jsonb(vec_dietas.huella_semantica_crear_borrador_v1(m::text)),true);
   mt:=m::text; i:=m->'identidad';
-  amb:='{"empleado_ref":'||(i->'empleado_ref')::text||',"persona_ref":'||(i->'persona_ref')::text||',"relacion_ref":'||(i->'relacion_ref')::text||',"unidad_ref":'||(i->'unidad_ref')::text||'}';
+  amb:='{"empleado_ref":'||(i->'empleado_ref')::text||',"persona_ref":'||(i->'persona_ref')::text||'}';
   atr:='{"contexto_actor_ref":'||(i->'contexto_actor_ref')::text||',"contexto_version":'||to_jsonb(i->>'contexto_version')::text||',"cuenta_ref":'||(i->'cuenta_ref')::text||',"cuenta_version":'||to_jsonb(i->>'cuenta_version')::text||',"fecha_referencia":'||(i->'fecha_referencia')::text||',"fuente_ref":'||(i->'fuente_ref')::text||',"fuente_version":'||to_jsonb(i->>'fuente_version')::text||',"material_sha256":"'||encode(sha256(convert_to(mt,'UTF8')),'hex')||'","operacion":'||to_jsonb(op)::text||',"perfil_version":'||to_jsonb(i->>'perfil_version')::text||',"persona_version":'||to_jsonb(i->>'persona_version')::text||',"procedencia_acto_ref":'||(i->'procedencia_acto_ref')::text||',"recurso_ref":'||(m->'recurso_ref')::text||',"relacion_version":'||to_jsonb(i->>'relacion_version')::text||',"vigente_desde":'||(i->'vigente_desde')::text||',"vigente_hasta":"sin_fin"}';
   h:=encode(sha256(convert_to('{"ambitos":'||amb||',"atributos":'||atr||'}','UTF8')),'hex');
   d:=jsonb_set(d,'{contexto_recurso_huella_sha256}',to_jsonb(h));
   cap:=jsonb_set(cap,'{huella_efecto_sha256}',to_jsonb(h));
  END IF;
- campos:=CASE op WHEN 'lista' THEN '["items.comision.calculo","items.comision.codigos_ruta","items.comision.estado","items.comision.fecha_fin","items.comision.fecha_inicio","items.comision.motivo","items.comision.referencia","items.comision.relacion_ref","items.recibo.registrado_en","items.recibo.referencia","items.recibo.repeticion","items.recibo.version","siguiente_cursor"]'::jsonb
- ELSE '["comision.calculo","comision.codigos_ruta","comision.estado","comision.fecha_fin","comision.fecha_inicio","comision.motivo","comision.referencia","comision.relacion_ref","recibo.registrado_en","recibo.referencia","recibo.repeticion","recibo.version"]'::jsonb END;
+ campos:=CASE op WHEN 'crear' THEN '["comision.calculo","comision.codigos_ruta","comision.estado","comision.fecha_fin","comision.fecha_inicio","comision.motivo","comision.referencia","comision.relacion_ref","recibo.referencia","recibo.registrado_en","recibo.repeticion","recibo.version"]'::jsonb ELSE '["comision.calculo","comision.codigos_ruta","comision.estado","comision.fecha_fin","comision.fecha_inicio","comision.motivo","comision.referencia","comision.relacion_ref","items.comision.calculo","items.comision.codigos_ruta","items.comision.estado","items.comision.fecha_fin","items.comision.fecha_inicio","items.comision.motivo","items.comision.referencia","items.comision.relacion_ref","items.recibo.referencia","items.recibo.registrado_en","items.recibo.repeticion","items.recibo.version","recibo.referencia","recibo.registrado_en","recibo.repeticion","recibo.version","siguiente_cursor"]'::jsonb END;
  d:=jsonb_set(d,'{campos_permitidos}',campos);
  cap:=jsonb_set(cap,'{huella_decision_sha256}',to_jsonb(encode(sha256(convert_to(d::text,'UTF8')),'hex')));
  material:=m::text; decision:=convert_to(d::text,'UTF8'); capacidad:=convert_to(cap::text,'UTF8');
@@ -57,7 +56,7 @@ DO $pruebas$
 DECLARE mt text; cap bytea; dec bytea; ctx bytea; salida jsonb; recibo text; ref text; n bigint;
 BEGIN
  SELECT * INTO mt,cap,dec,ctx FROM vec_dietas_prueba.preparar_calculada('crear','dietas:borradores:propios','nonce_calculo_viejo','clave_calculo_00000009');
- SELECT x.decision,x.capacidad INTO dec,cap FROM vec_dietas_prueba.mutar_decision_capacidad(dec,cap,ARRAY['campos_permitidos'],'["comision.codigos_ruta","comision.estado","comision.fecha_fin","comision.fecha_inicio","comision.motivo","comision.referencia","comision.relacion_ref","recibo.registrado_en","recibo.referencia","recibo.repeticion","recibo.version"]'::jsonb) x;
+ SELECT x.decision,x.capacidad INTO dec,cap FROM vec_dietas_prueba.mutar_decision_capacidad(dec,cap,ARRAY['campos_permitidos'],'["comision.codigos_ruta","comision.estado","comision.fecha_fin","comision.fecha_inicio","comision.motivo","comision.referencia","comision.relacion_ref","recibo.referencia","recibo.registrado_en","recibo.repeticion","recibo.version"]'::jsonb) x;
  BEGIN PERFORM vec_dietas.crear_o_recuperar_comision_calculada_v1(mt,cap,dec,'motivo'::bytea,ctx,1,1,'p'::bytea,'s'::bytea,'e'::bytea,'r'::bytea); RAISE EXCEPTION 'proyección antigua aceptada'; EXCEPTION WHEN SQLSTATE 'PD003' THEN NULL; END;
  IF vec_dietas_prueba.contar_consumos_ad3()<>0 THEN RAISE EXCEPTION 'denegación consumió AD3'; END IF;
  SELECT * INTO mt,cap,dec,ctx FROM vec_dietas_prueba.preparar_calculada('crear','dietas:borradores:propios','nonce_preconsulta_uno','clave_calculo_00000001');

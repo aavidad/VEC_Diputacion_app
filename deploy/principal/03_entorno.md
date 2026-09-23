@@ -1,5 +1,38 @@
 # Entorno privado de la principal para `main@48e64f84`
 
+## Activar Dietas
+
+Con `main` desplegada, ejecutar **como el usuario del servicio** en cidonia:
+
+```bash
+VEC_DEVELOPMENT_MATERIAL_DIR=<material privado> python3 deploy/principal/preparar_dietas_desarrollo.py
+```
+
+El script es idempotente (fechas de la política fijadas en su estado privado) y ensaya cada paso con `ROLLBACK` antes de confirmarlo:
+instala `04_dietas_migraciones.sh` si falta; crea ocho LOGIN nominales con
+credenciales privadas; da a la identidad sintética del certificado cliente de
+la demo (la de Bolsa/B-BACK) un perfil Dietas, una relación y asignación de
+Personal rotuladas provisionales y su rol V3; escribe
+`identidad/dietas-comisiones.json` y `dietas-r1d.env` (OSRM limitado a Granada
+y a su IP `/32`), añade `--env-file` a las tres variantes de `arrancar_app.sh`
+con copia `*.antes-dietas-r1d` y rearranca.
+
+**No publica gobierno V3.** En desarrollo hay un único gobierno: Contratación
+publica la configuración vigente con una sola raíz y la renueva cada día. Dietas
+deriva sus tres claves de capacidad por audiencia bajo esa raíz, como Bolsa
+(`internal/app/bootstrap/dietas_material_ct_desarrollo.go`). Publicar otra
+configuración movería el puntero único y dejaría sin firma a CT y Bolsa.
+
+Si el contenedor OSRM no es inequívoco, el script se detiene antes de escribir y
+pide `VEC_DIETAS_OSRM_URL=http://IP:PUERTO`.
+
+Volver atrás: restaurar las tres copias `*.antes-dietas-r1d` sobre
+`arrancar_app.sh` y sus variantes y rearrancar. La historia SQL, la relación
+sintética y el material privado se conservan; no ejecutar migraciones `DOWN`.
+También siguen vigentes el rol y la asignación RBAC de Dietas y los ocho LOGIN;
+sin el selector activo no se usan (desarrollo).
+
+
 El inventario canónico de `config/` contiene 18 variables `VEC_*_DATABASE_URL`.
 La principal ya tiene las once identidades de Contratación/Bolsa llamamientos y
 `VEC_CT_AUDITORIA_FRONTERA_DATABASE_URL`. Faltan estas seis en

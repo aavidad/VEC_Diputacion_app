@@ -19,10 +19,10 @@ func (a *autoridadExactaDelegadaPrueba) AutorizarRutaExacta(context.Context, str
 }
 
 func TestComisionesDietasSoloSeMontanConSelectorYMaterialNominal(t *testing.T) {
-	if a, err := nuevasComisionesDietasDesarrollo(config.Config{DietasBorradoresEnabled: "false"}, nil, nil); err != nil || a != nil {
+	if a, err := nuevasComisionesDietasDesarrollo(config.Config{DietasBorradoresEnabled: "false"}, nil, nil, materialDietasDesdeCTDesarrollo{}); err != nil || a != nil {
 		t.Fatalf("Dietas inerte no debe abrir rutas: %v %v", a, err)
 	}
-	if a, err := nuevasComisionesDietasDesarrollo(config.Config{DietasBorradoresEnabled: "true"}, nil, nil); err == nil || a != nil {
+	if a, err := nuevasComisionesDietasDesarrollo(config.Config{DietasBorradoresEnabled: "true"}, nil, nil, materialDietasDesdeCTDesarrollo{}); err == nil || a != nil {
 		t.Fatalf("selector sin gobierno abrió ruta: %v %v", a, err)
 	}
 }

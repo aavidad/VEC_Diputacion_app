@@ -94,6 +94,7 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	proveedorMaterialEmision          *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialDespachoCorreo   *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialResultadoCorreo  *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialDietas                    materialDietasDesdeCTDesarrollo
 	catalogoMaterial                  catalogoMaterialAutorizacionComunDesarrollo
 	cerrarUnaVez                      func()
 }
@@ -306,11 +307,24 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			ProveedorNominal: "proveedor-material-bolsa-mi-bolsa",
 		})
 	}
+	if dietasBorradoresSolicitadas(cfg.DietasBorradoresEnabled) {
+		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialDietasDesarrollo()...)
+	}
 	catalogoMaterial, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(descriptoresMaterial)
 	if err != nil {
 		return vacias, errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
 	}
 	dependencias.catalogoMaterial = catalogoMaterial
+	if dietasBorradoresSolicitadas(cfg.DietasBorradoresEnabled) {
+		var dietas [3]*proveedorMaterialAltaContratacionTemporalDesarrollo
+		for i, audiencia := range []string{audienciaConsumoPersonalDietasDesarrollo, audienciaConsumoCrearDietasDesarrollo, audienciaConsumoConsultarDietasDesarrollo} {
+			dietas[i], err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, audiencia)
+			if err != nil {
+				return vacias, err
+			}
+		}
+		dependencias.materialDietas = materialDietasDesdeCTDesarrollo{personal: dietas[0], crear: dietas[1], consultar: dietas[2]}
+	}
 	proveedor, err := nuevoProveedorMaterialAltaContratacionTemporalDesarrollo(
 		material, soporte, reloj,
 	)

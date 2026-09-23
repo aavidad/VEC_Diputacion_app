@@ -50,7 +50,7 @@ BEGIN
     OR c ? 'calculo' OR c->>'clave_idempotencia' !~ '^[A-Za-z0-9_-]{16,128}$'
     OR c->>'hora_inicio' !~ '^([01][0-9]|2[0-3]):[0-5][0-9]$' OR c->>'hora_fin' !~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'
     OR jsonb_typeof(c->'codigos_ruta')<>'array' OR jsonb_array_length(c->'codigos_ruta') NOT BETWEEN 2 AND 12
-    OR d->'campos_permitidos' IS DISTINCT FROM '["comision.calculo","comision.codigos_ruta","comision.estado","comision.fecha_fin","comision.fecha_inicio","comision.motivo","comision.referencia","comision.relacion_ref","recibo.registrado_en","recibo.referencia","recibo.repeticion","recibo.version"]'::jsonb
+    OR d->'campos_permitidos' IS DISTINCT FROM '["comision.calculo","comision.codigos_ruta","comision.estado","comision.fecha_fin","comision.fecha_inicio","comision.motivo","comision.referencia","comision.relacion_ref","recibo.referencia","recibo.registrado_en","recibo.repeticion","recibo.version"]'::jsonb
     OR m->>'huella_semantica' IS DISTINCT FROM vec_dietas.huella_semantica_crear_borrador_v1(p_material)
     OR vec_dietas.cotejar_recurso_dietas_borrador_v1(p_material,p_capacidad,p_decision,p_contexto) IS NOT TRUE
  THEN RAISE EXCEPTION 'preconsulta Dietas inválida' USING ERRCODE='PD003'; END IF;
@@ -84,7 +84,7 @@ BEGIN
     OR pg_has_role(session_user,'vec_dietas_migrador','MEMBER') THEN RAISE EXCEPTION 'ejecutor Dietas inválido' USING ERRCODE='42501'; END IF;
  IF current_setting('transaction_isolation')<>'serializable' OR current_setting('TimeZone')<>'UTC' THEN RAISE EXCEPTION 'transacción Dietas incompatible' USING ERRCODE='25000'; END IF;
  BEGIN m:=p_material::jsonb; c:=m->'comando'; calc:=c->'calculo'; decision:=convert_from(p_decision,'UTF8')::jsonb; EXCEPTION WHEN others THEN RAISE EXCEPTION 'cálculo Dietas inválido' USING ERRCODE='22023'; END;
- IF decision->'campos_permitidos' IS DISTINCT FROM '["comision.calculo","comision.codigos_ruta","comision.estado","comision.fecha_fin","comision.fecha_inicio","comision.motivo","comision.referencia","comision.relacion_ref","recibo.registrado_en","recibo.referencia","recibo.repeticion","recibo.version"]'::jsonb THEN RAISE EXCEPTION 'proyección de cálculo no autorizada' USING ERRCODE='PD003'; END IF;
+ IF decision->'campos_permitidos' IS DISTINCT FROM '["comision.calculo","comision.codigos_ruta","comision.estado","comision.fecha_fin","comision.fecha_inicio","comision.motivo","comision.referencia","comision.relacion_ref","recibo.referencia","recibo.registrado_en","recibo.repeticion","recibo.version"]'::jsonb THEN RAISE EXCEPTION 'proyección de cálculo no autorizada' USING ERRCODE='PD003'; END IF;
  IF m->>'operacion'<>'crear' OR calc IS NULL OR jsonb_typeof(calc)<>'object'
     OR calc->>'procedencia'<>'osrm_interno' OR calc->>'motor'<>'OSRM'
     OR length(coalesce(calc->>'version_grafo','')) NOT BETWEEN 1 AND 160
@@ -162,8 +162,9 @@ BEGIN
     OR pg_has_role(session_user,'vec_dietas_propietario','MEMBER')
     OR pg_has_role(session_user,'vec_dietas_migrador','MEMBER') THEN RAISE EXCEPTION 'ejecutor Dietas inválido' USING ERRCODE='42501'; END IF;
  BEGIN material:=p_material::jsonb; decision:=convert_from(p_decision,'UTF8')::jsonb; EXCEPTION WHEN others THEN RAISE EXCEPTION 'consulta Dietas inválida' USING ERRCODE='22023'; END;
- IF (material->>'operacion'='detalle' AND decision->'campos_permitidos' IS DISTINCT FROM '["comision.calculo","comision.codigos_ruta","comision.estado","comision.fecha_fin","comision.fecha_inicio","comision.motivo","comision.referencia","comision.relacion_ref","recibo.registrado_en","recibo.referencia","recibo.repeticion","recibo.version"]'::jsonb)
-    OR (material->>'operacion'='lista' AND decision->'campos_permitidos' IS DISTINCT FROM '["items.comision.calculo","items.comision.codigos_ruta","items.comision.estado","items.comision.fecha_fin","items.comision.fecha_inicio","items.comision.motivo","items.comision.referencia","items.comision.relacion_ref","items.recibo.registrado_en","items.recibo.referencia","items.recibo.repeticion","items.recibo.version","siguiente_cursor"]'::jsonb)
+ -- Una concesión de consulta sirve al listado y al detalle: el PDP no distingue
+ -- recursos dentro de una acción. La proyección de cada operación la fija este SQL.
+ IF decision->'campos_permitidos' IS DISTINCT FROM '["comision.calculo","comision.codigos_ruta","comision.estado","comision.fecha_fin","comision.fecha_inicio","comision.motivo","comision.referencia","comision.relacion_ref","items.comision.calculo","items.comision.codigos_ruta","items.comision.estado","items.comision.fecha_fin","items.comision.fecha_inicio","items.comision.motivo","items.comision.referencia","items.comision.relacion_ref","items.recibo.referencia","items.recibo.registrado_en","items.recibo.repeticion","items.recibo.version","recibo.referencia","recibo.registrado_en","recibo.repeticion","recibo.version","siguiente_cursor"]'::jsonb
     OR material->>'operacion' NOT IN ('detalle','lista') THEN RAISE EXCEPTION 'proyección de cálculo no autorizada' USING ERRCODE='PD003'; END IF;
  salida:=vec_dietas.consultar_borradores_propios_v1(p_material,p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz);
  IF salida->>'resultado'='no_encontrado' THEN RETURN salida; END IF;

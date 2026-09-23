@@ -58,6 +58,7 @@ type autoridadConsultasContratacionTemporalDesarrollo struct {
 	manejadorSituacionParticipacion          http.Handler
 	coleccionesAdicionales                   []vechttp.RutaColeccion
 	registradorAuditoriaFronteraRutasExactas puertosvec.RegistradorAuditoriaFronteraRutaExacta
+	materialDietas                           materialDietasDesdeCTDesarrollo
 }
 
 type autorizadorLigadoContratacionTemporalDesarrollo interface {
@@ -595,6 +596,7 @@ func nuevasRutasContratacionTemporalDesarrollo(
 		manejadorSituacionParticipacion:          manejadorSituacion,
 		coleccionesAdicionales:                   coleccionesBorrador,
 		registradorAuditoriaFronteraRutasExactas: alta.postgresql.registradorAuditoriaFrontera,
+		materialDietas:                           alta.postgresql.materialDietas,
 	}
 	if autoridad.registradorAuditoriaFronteraRutasExactas == nil {
 		return nil, nil, nil, errPostgreSQLContratacionTemporalDesarrolloNoDisponible

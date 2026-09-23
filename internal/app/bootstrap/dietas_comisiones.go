@@ -25,37 +25,29 @@ import (
 	identidadpg "vec-diputacion-granada/internal/vec/adapters/httpseguridad/postgres"
 	vecpg "vec-diputacion-granada/internal/vec/adapters/postgres"
 	"vec-diputacion-granada/internal/vec/adapters/seguridad"
-	"vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
 	vecapp "vec-diputacion-granada/internal/vec/application"
 	core "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
-const (
-	audienciaAtestacionPersonalDietas  = "vec:desarrollo:personal:dietas:atestacion:v3"
-	audienciaAtestacionCrearDietas     = "vec:desarrollo:dietas:crear:atestacion:v3"
-	audienciaAtestacionConsultarDietas = "vec:desarrollo:dietas:consultar:atestacion:v3"
-)
-
-// El archivo privado sólo selecciona cuentas y material ya gobernado. Su
-// ausencia con el selector activado impide montar la ruta; no genera claves.
+// El archivo privado sólo selecciona cuentas, conexiones y motivos. Las claves
+// V3 no viven aquí: Dietas firma con el gobierno único de desarrollo que
+// publica Contratación (ver dietas_material_ct_desarrollo.go). Su ausencia con
+// el selector activado impide montar la ruta; no genera claves.
 type configuracionComisionesDietasDesarrollo struct {
 	redaccionMaterialRutasDietas
-	Version                  int                                `json:"version"`
-	Autoridad                string                             `json:"autoridad"`
-	Cuentas                  []cuentaRutasDietasDesarrollo      `json:"cuentas"`
-	DSNRegistroIdentidad     string                             `json:"dsn_registro_identidad"`
-	DSNRevalidacionIdentidad string                             `json:"dsn_revalidacion_identidad"`
-	DSNContexto              string                             `json:"dsn_contexto"`
-	DSNFuenteAutorizacion    string                             `json:"dsn_fuente_autorizacion"`
-	DSNRegistroAutorizacion  string                             `json:"dsn_registro_autorizacion"`
-	DSNMotivos               string                             `json:"dsn_motivos"`
-	MotivoPersonal           core.ReferenciaEntradaCatalogo     `json:"motivo_personal"`
-	MotivoCrear              core.ReferenciaEntradaCatalogo     `json:"motivo_crear"`
-	MotivoConsultar          core.ReferenciaEntradaCatalogo     `json:"motivo_consultar"`
-	MaterialPersonal         datosMaterialRutasDietasDesarrollo `json:"material_personal"`
-	MaterialCrear            datosMaterialRutasDietasDesarrollo `json:"material_crear"`
-	MaterialConsultar        datosMaterialRutasDietasDesarrollo `json:"material_consultar"`
+	Version                  int                            `json:"version"`
+	Autoridad                string                         `json:"autoridad"`
+	Cuentas                  []cuentaRutasDietasDesarrollo  `json:"cuentas"`
+	DSNRegistroIdentidad     string                         `json:"dsn_registro_identidad"`
+	DSNRevalidacionIdentidad string                         `json:"dsn_revalidacion_identidad"`
+	DSNContexto              string                         `json:"dsn_contexto"`
+	DSNFuenteAutorizacion    string                         `json:"dsn_fuente_autorizacion"`
+	DSNRegistroAutorizacion  string                         `json:"dsn_registro_autorizacion"`
+	DSNMotivos               string                         `json:"dsn_motivos"`
+	MotivoPersonal           core.ReferenciaEntradaCatalogo `json:"motivo_personal"`
+	MotivoCrear              core.ReferenciaEntradaCatalogo `json:"motivo_crear"`
+	MotivoConsultar          core.ReferenciaEntradaCatalogo `json:"motivo_consultar"`
 }
 
 type claveContextoComisionesDietas struct{}
@@ -84,12 +76,18 @@ func (s seguridadComisionesDietasDesarrollo) ResolverContexto(ctx context.Contex
 	return contextoSeguridadComunDesarrollo{Vinculo: c.seguridad.Vinculo, Resultado: clon}, nil
 }
 
+// emisorMaterialDietasDesarrollo es lo único que Dietas necesita de un emisor
+// V3: el renovable de Contratación sigue la configuración vigente cada día.
+type emisorMaterialDietasDesarrollo interface {
+	EmitirMaterialAutorizacionAtestadaV3(context.Context, core.SolicitudAutorizacionLigadaV3, core.ResultadoContextoActorRegistradoV2) (core.DecisionAutorizacionLigadaV3, vecports.ConfirmacionRegistroConcesionAutorizacionLigadaV3, vecports.ExportadorMaterialConsumoAutorizacionAtestadaV3, error)
+}
+
 type emisorComisionesDietasDesarrollo struct {
-	personal, crear, consultar *confianzaatestacion.EmisorMaterialAutorizacionAtestadaV3
+	personal, crear, consultar emisorMaterialDietasDesarrollo
 }
 
 func (e *emisorComisionesDietasDesarrollo) EmitirMaterialAutorizacionAtestadaV3(ctx context.Context, solicitud core.SolicitudAutorizacionLigadaV3, resultado core.ResultadoContextoActorRegistradoV2) (core.DecisionAutorizacionLigadaV3, vecports.ConfirmacionRegistroConcesionAutorizacionLigadaV3, vecports.ExportadorMaterialConsumoAutorizacionAtestadaV3, error) {
-	var elegido *confianzaatestacion.EmisorMaterialAutorizacionAtestadaV3
+	var elegido emisorMaterialDietasDesarrollo
 	datos, err := solicitud.Datos()
 	if err == nil && e != nil {
 		switch datos.Accion {
@@ -195,7 +193,7 @@ func (a autoridadExactasConDietas) AutorizarRutaExacta(ctx context.Context, ruta
 	return nil
 }
 
-func nuevasComisionesDietasDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdentityResolver, derivador *derivadorIdentidadOperacionDesarrollo) (*autoridadComisionesDietasDesarrollo, error) {
+func nuevasComisionesDietasDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdentityResolver, derivador *derivadorIdentidadOperacionDesarrollo, material materialDietasDesdeCTDesarrollo) (*autoridadComisionesDietasDesarrollo, error) {
 	activo, err := cfg.DietasBorradoresDesarrolloActivos()
 	if err != nil {
 		return nil, err
@@ -204,7 +202,7 @@ func nuevasComisionesDietasDesarrollo(cfg config.Config, resolvedor vechttp.Demo
 		return nil, nil
 	}
 	identidad, ok := resolvedor.(*resolvedorIdentidadDesarrollo)
-	if !ok || identidad == nil || derivador == nil || !derivador.valido() {
+	if !ok || identidad == nil || derivador == nil || !derivador.valido() || !material.completo() {
 		return nil, ErrComposicionBorradoresDietasNoDisponible
 	}
 	ruta := filepath.Join(cfg.DevelopmentMaterialDir, "identidad", "dietas-comisiones.json")
@@ -220,9 +218,6 @@ func nuevasComisionesDietasDesarrollo(cfg config.Config, resolvedor vechttp.Demo
 	if dec.Decode(&c) != nil || !errors.Is(dec.Decode(&extra), io.EOF) || c.Version != 1 || c.Autoridad != AutoridadNoAutoritativa || len(c.Cuentas) == 0 || len(c.Cuentas) > 64 || c.MotivoPersonal.Validar() != nil || c.MotivoCrear.Validar() != nil || c.MotivoConsultar != c.MotivoCrear || c.MotivoPersonal.CatalogoID != c.MotivoCrear.CatalogoID {
 		return nil, ErrComposicionBorradoresDietasNoDisponible
 	}
-	defer c.MaterialPersonal.borrarCopiasEfimeras()
-	defer c.MaterialCrear.borrarCopiasEfimeras()
-	defer c.MaterialConsultar.borrarCopiasEfimeras()
 	cuentas := map[string]cuentaRutasDietasDesarrollo{}
 	for _, cuenta := range c.Cuentas {
 		b, e := hex.DecodeString(cuenta.CertificadoSHA256)
@@ -241,13 +236,9 @@ func nuevasComisionesDietasDesarrollo(cfg config.Config, resolvedor vechttp.Demo
 	defer cancel()
 	entradas := []struct{ dsn, rol string }{{c.DSNRegistroIdentidad, "vec_identidad_sesiones_v1_registrador"}, {c.DSNRevalidacionIdentidad, "vec_identidad_sesiones_v1_revalidador"}, {c.DSNContexto, "vec_contexto_actor_v1_runtime"}, {c.DSNFuenteAutorizacion, "vec_autorizacion_fuente"}, {c.DSNRegistroAutorizacion, "vec_autorizacion_registro"}, {c.DSNMotivos, "vec_autorizacion_motivos_evaluador"}}
 	var pools []*pgxpool.Pool
-	var proveedores []*proveedorMaterialAccesoRutasDietasDesarrollo
 	var propios *poolsPostgreSQLDietasDesarrollo
 	completa := false
 	cerrar := func() {
-		for _, p := range proveedores {
-			p.Cerrar()
-		}
 		if propios != nil {
 			propios.Cerrar()
 		}
@@ -320,26 +311,13 @@ func nuevasComisionesDietasDesarrollo(cfg config.Config, resolvedor vechttp.Demo
 	if err != nil {
 		return nil, ErrComposicionBorradoresDietasNoDisponible
 	}
-	materiales := []struct {
-		datos               datosMaterialRutasDietasDesarrollo
-		atestacion, consumo string
-	}{{c.MaterialPersonal, audienciaAtestacionPersonalDietas, "vec_personal.relacion_propia.consultar_dietas.v1"}, {c.MaterialCrear, audienciaAtestacionCrearDietas, "vec_dietas.borrador_propio.crear.v1"}, {c.MaterialConsultar, audienciaAtestacionConsultarDietas, "vec_dietas.borrador_propio.consultar.v1"}}
-	var emisores [3]*confianzaatestacion.EmisorMaterialAutorizacionAtestadaV3
-	for i, item := range materiales {
-		m, e := nuevoMaterialAtestacionDietasDesarrollo(item.datos, item.atestacion, item.consumo)
+	var emisores [3]emisorMaterialDietasDesarrollo
+	for i, p := range []*proveedorMaterialAltaContratacionTemporalDesarrollo{material.personal, material.crear, material.consultar} {
+		emisor, e := nuevoEmisorMaterialRenovableCTDesarrollo(autorizador, p)
 		if e != nil {
 			return nil, ErrComposicionBorradoresDietasNoDisponible
 		}
-		p, e := nuevoProveedorMaterialDietasDesarrollo(m, reloj, item.atestacion)
-		m.borrarCopiasEfimeras()
-		if e != nil {
-			return nil, ErrComposicionBorradoresDietasNoDisponible
-		}
-		proveedores = append(proveedores, p)
-		emisores[i], e = confianzaatestacion.NuevoEmisorMaterialAutorizacionAtestadaV3(autorizador, p.atestador, p.confianza, p.emisor)
-		if e != nil {
-			return nil, ErrComposicionBorradoresDietasNoDisponible
-		}
+		emisores[i] = emisor
 	}
 	nonce, err := nonceRutasDietas()
 	if err != nil {

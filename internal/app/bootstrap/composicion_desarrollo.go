@@ -245,7 +245,7 @@ func NewHTTPServerDesarrolloWithConfig(
 			cerrarDietas()
 		}
 	}()
-	comisionesDietas, err := nuevasComisionesDietasDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia)
+	comisionesDietas, err := nuevasComisionesDietasDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, autoridadContratacion.materialDietas)
 	if err != nil {
 		return nil, nil, err
 	}
