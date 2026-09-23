@@ -100,7 +100,9 @@ El script usa el material de `${XDG_STATE_HOME:-$HOME/.local/state}/vec-diputaci
 `VEC_CANDIDATE_BASE_URL`. Emite el certificado y el PKCS#12 con la CA existente;
 elige una participación importada de bolsa vigente; calcula las referencias
 opacas y escribe los dos manifiestos privados tras ensayar la proyección SQL
-con `ROLLBACK` y aplicarla con `COMMIT`. Repetirlo con el mismo material y
+con `ROLLBACK` y aplicarla con `COMMIT`. Una intención privada conserva la
+selección ante un fallo entre COMMIT y manifiesto; cada transacción comprueba
+la vigencia de esa participación bajo bloqueo de la tabla de bolsas. Repetirlo con el mismo material y
 proyección no duplica filas ni sobrescribe ficheros. Ante material parcial,
 referencias distintas o vínculo candidato previo distinto, se detiene.
 

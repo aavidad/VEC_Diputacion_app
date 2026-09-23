@@ -114,23 +114,46 @@ for otro in "$material/mtls/cliente.crt" "$material/mtls/intervencion.crt"; do
   fi
 done
 
-# La elección se ata al manifiesto existente para que una importación posterior
-# no cambie la identidad en un reintento. Sin manifiesto: primera participación
-# por bolsa, orden del acta y referencia, entre bolsas vigentes.
-if [[ -f $manifiesto ]]; then
-  bolsa=$(python3 - "$manifiesto" <<'PY'
+# La intención privada conserva la elección entre COMMIT y publicación JSON.
+# Se retira solo después de confirmar la proyección y ambos manifiestos.
+intencion=$material/identidad/.bolsa-candidato-intencion.json
+[[ ! -L $intencion ]] || fallar 'intención privada enlazada'
+if [[ -e $intencion ]]; then
+  [[ -f $intencion && $(stat -c %a -- "$intencion") == 600 ]] || fallar 'intención privada insegura'
+  fila=$(python3 - "$intencion" "$huella" <<'PY'
+import json, re, sys
+with open(sys.argv[1], encoding='utf-8') as archivo:
+    datos = json.load(archivo)
+if datos.get('certificate_sha256') != sys.argv[2] or datos.get('version') != 1:
+    raise SystemExit('intención privada no corresponde al certificado')
+for clave in ('candidato_ref', 'participacion_ref', 'bolsa_ref'):
+    valor = datos.get(clave)
+    if not isinstance(valor, str) or not valor or '|' in valor or '\n' in valor or '\r' in valor:
+        raise SystemExit('intención privada inválida')
+print('|'.join(datos[clave] for clave in ('candidato_ref', 'participacion_ref', 'bolsa_ref')))
+PY
+  )
+else
+  # Sin intención: primera participación por bolsa, orden y referencia.
+  if [[ -f $manifiesto ]]; then
+    bolsa=$(python3 - "$manifiesto" <<'PY'
 import json, sys
 with open(sys.argv[1], encoding='utf-8') as archivo:
     print(json.load(archivo)['candidato_ref'])
 PY
-  )
-  seleccion="AND vc.candidato_ref = :'seleccion'"
-else
-  seleccion="AND (:'seleccion' = '' OR c.bolsa_ref = :'seleccion')"
-fi
-fila=$(psql_contenedor -At -F '|' -v seleccion="$bolsa" <<SQL
+    )
+    seleccion="AND vc.candidato_ref = :'seleccion'"
+    vigencia=''
+  else
+    seleccion="AND (:'seleccion' = '' OR c.bolsa_ref = :'seleccion')"
+    vigencia="AND b.estado = 'vigente' AND b.vigente_desde <= clock_timestamp()
+      AND (b.vigente_hasta IS NULL OR clock_timestamp() < b.vigente_hasta)
+      AND NOT EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.bolsa_constituida posterior
+                      WHERE posterior.bolsa_ref = b.bolsa_ref AND posterior.version > b.version)"
+  fi
+  fila=$(psql_contenedor -At -F '|' -v seleccion="$bolsa" <<SQL
   SET ROLE vec_bolsa_llamamientos_propietario;
-  SELECT vc.candidato_ref, vc.participacion_ref
+  SELECT vc.candidato_ref, vc.participacion_ref, c.bolsa_ref
   FROM vec_bolsa_llamamientos.vinculo_candidato vc
   JOIN vec_bolsa_llamamientos.constitucion c ON c.acta_ref = vc.acta_ref
   JOIN vec_bolsa_llamamientos.constitucion_entrada e
@@ -139,30 +162,47 @@ fila=$(psql_contenedor -At -F '|' -v seleccion="$bolsa" <<SQL
   JOIN vec_bolsa_llamamientos.bolsa_constituida b
     ON b.bolsa_ref = c.bolsa_ref AND b.version = c.version_bolsa
    AND b.huella_bolsa_sha256 = c.huella_bolsa_sha256
-  WHERE b.estado = 'vigente' AND b.vigente_desde <= clock_timestamp()
-    AND (b.vigente_hasta IS NULL OR clock_timestamp() < b.vigente_hasta)
-    AND NOT EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.bolsa_constituida posterior
-                    WHERE posterior.bolsa_ref = b.bolsa_ref AND posterior.version > b.version)
-    $seleccion
+  WHERE true $vigencia $seleccion
   ORDER BY c.bolsa_ref, e.orden, vc.participacion_ref LIMIT 1;
 SQL
-)
-[[ $fila == *'|'* && $fila != *$'\n'* ]] || fallar 'no hay una participación importada vigente inequívoca'
+  )
+fi
+[[ $fila == *'|'*'|'* && $fila != *$'\n'* ]] || fallar 'no hay una participación importada inequívoca'
 candidato=${fila%%|*}
-participacion=${fila#*|}
-[[ $candidato =~ ^can_[A-Za-z0-9_-]{22,128}$ && -n $participacion ]] || fallar 'referencia importada inválida'
+resto=${fila#*|}
+participacion=${resto%%|*}
+bolsa_ref=${resto#*|}
+[[ $candidato =~ ^can_[A-Za-z0-9_-]{22,128}$ && -n $participacion && -n $bolsa_ref ]] || fallar 'referencia importada inválida'
+[[ -z ${VEC_CANDIDATE_BOLSA_REF:-} || ! -e $intencion || $bolsa_ref == "$VEC_CANDIDATE_BOLSA_REF" ]] || fallar 'intención previa de otra bolsa'
+
+if [[ ! -e $intencion ]]; then
+  temporal_intencion=$(mktemp -- "$material/identidad/.candidato-intencion.XXXXXXXX")
+  trap 'rm -f -- "${temporal_intencion:-}"' EXIT
+  python3 - "$temporal_intencion" "$huella" "$candidato" "$participacion" "$bolsa_ref" <<'PY'
+import json, sys
+with open(sys.argv[1], 'w', encoding='utf-8') as archivo:
+    json.dump(dict(version=1, certificate_sha256=sys.argv[2], candidato_ref=sys.argv[3],
+                   participacion_ref=sys.argv[4], bolsa_ref=sys.argv[5]), archivo, separators=(',', ':'))
+    archivo.write('\n')
+PY
+  mv -nT -- "$temporal_intencion" "$intencion"
+  temporal_intencion=
+  trap - EXIT
+fi
 
 temporal=$(mktemp -d -- "$material/.proyeccion-candidato.XXXXXXXX")
 trap 'rm -rf -- "${temporal:-}"' EXIT
-python3 - "$temporal" "$material" "$huella" "$candidato" "$participacion" "$hasta" <<'PY'
+python3 - "$temporal" "$material" "$huella" "$candidato" "$participacion" "$bolsa_ref" "$hasta" <<'PY'
 import hashlib, json, pathlib, re, sys
 
-destino, material, huella, candidato, participacion, hasta = sys.argv[1:]
+destino, material, huella, candidato, participacion, bolsa_ref, hasta = sys.argv[1:]
 destino, material = pathlib.Path(destino), pathlib.Path(material)
 if not re.fullmatch(r'[0-9a-f]{64}', huella) or not re.fullmatch(r'can_[A-Za-z0-9_-]{22,128}', candidato):
     raise SystemExit('referencia inválida')
 if not participacion or len(participacion.encode()) > 512 or any(ord(c) < 32 for c in participacion):
     raise SystemExit('participación inválida')
+if not bolsa_ref or len(bolsa_ref.encode()) > 512 or any(ord(c) < 32 for c in bolsa_ref):
+    raise SystemExit('bolsa inválida')
 
 def hash_ref(prefijo, material):
     return prefijo + hashlib.sha256(b'vec.ct.alta.desarrollo.v1\0' + material).hexdigest()[:32]
@@ -189,6 +229,7 @@ def literal(s):
 
 p, h, authority = map(literal, [procedencia, huella_procedencia, 'autoridad_maestra_acreditada'])
 c, pe, pr, vc, vr, can = map(literal, [cuenta, persona, perfil, contexto, vinculo, candidato])
+part, bolsa_sql = map(literal, [participacion, bolsa_ref])
 fin = literal(hasta)
 sql = f'''BEGIN;
 SET LOCAL ROLE vec_contexto_actor_v1_propietario;
@@ -196,6 +237,43 @@ SET LOCAL search_path = pg_catalog;
 SET LOCAL timezone = 'UTC';
 SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended({pe}, 0));
 SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('vec.mi-bolsa.candidato:' || {can}, 0));
+-- Si la proyección ya existe, el DO final comprueba su coincidencia íntegra.
+-- La recuperación no depende de que la bolsa siga vigente días después.
+SELECT CASE WHEN EXISTS (
+  SELECT 1 FROM vec_contexto_actor_v1.vinculo_referencia_actual a
+  JOIN vec_contexto_actor_v1.vinculo_referencia_versiones v USING(vinculo_ref,version)
+  WHERE a.vinculo_ref={vr} AND a.version=1 AND v.persona_ref={pe}
+    AND v.tipo='candidato' AND v.referencia={can}
+) THEN 'true' ELSE 'false' END AS recuperacion \\gset
+\\if :recuperacion
+\\else
+  SET LOCAL ROLE vec_bolsa_llamamientos_propietario;
+  -- Bloquea nuevas versiones de la bolsa hasta terminar el COMMIT.
+  LOCK TABLE vec_bolsa_llamamientos.bolsa_constituida IN SHARE MODE;
+  DO $seleccion$
+  BEGIN
+    IF NOT EXISTS (
+      SELECT 1 FROM vec_bolsa_llamamientos.vinculo_candidato vc
+      JOIN vec_bolsa_llamamientos.constitucion c ON c.acta_ref=vc.acta_ref
+      JOIN vec_bolsa_llamamientos.constitucion_entrada e
+        ON e.instantanea_ref=vc.instantanea_ref AND e.version_instantanea=vc.version_instantanea
+       AND e.participacion_ref=vc.participacion_ref
+      JOIN vec_bolsa_llamamientos.bolsa_constituida b
+        ON b.bolsa_ref=c.bolsa_ref AND b.version=c.version_bolsa
+       AND b.huella_bolsa_sha256=c.huella_bolsa_sha256
+      WHERE vc.candidato_ref={can} AND vc.participacion_ref={part}
+        AND c.bolsa_ref={bolsa_sql} AND b.estado='vigente'
+        AND b.vigente_desde <= clock_timestamp()
+        AND (b.vigente_hasta IS NULL OR clock_timestamp() < b.vigente_hasta)
+        AND NOT EXISTS (
+          SELECT 1 FROM vec_bolsa_llamamientos.bolsa_constituida posterior
+          WHERE posterior.bolsa_ref=b.bolsa_ref AND posterior.version>b.version
+        )
+    ) THEN RAISE EXCEPTION 'participación importada ya no vigente'; END IF;
+  END
+  $seleccion$;
+  SET LOCAL ROLE vec_contexto_actor_v1_propietario;
+\\endif
 DO $proyectar$
 DECLARE
   existentes integer;
@@ -298,6 +376,7 @@ for nombre in candidato.json bolsa-candidato.json; do
     install -m 0600 -- "$temporal/$nombre" "$material/identidad/$nombre"
   fi
 done
+rm -f -- "$intencion"
 
 printf 'Candidato de desarrollo preparado; proyección ensayada y confirmada.\n'
 printf 'Reiniciar solo la aplicación: podman restart %q\n' "$aplicacion"
