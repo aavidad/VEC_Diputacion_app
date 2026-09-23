@@ -206,9 +206,13 @@ probar_ok() {
 }
 probar_ok vec_identidad2_legacy vec_identidad2_legacy
 probar_ok vec_identidad2_ambito vec_identidad2_ambito
-if [[ -n $(psql_login vec_identidad2_ambito --command \
+if ! salida_invalida=$(psql_login vec_identidad2_ambito --command \
     "SELECT vec_contratacion_temporal.identidad2_prueba(
-        '$autenticacion','ses_0000000000000000000000')") ]]; then
+        '$autenticacion','ses_0000000000000000000000')"); then
+    printf 'la consulta de sesión inválida falló antes de evaluar su salida\n' >&2
+    exit 1
+fi
+if [[ -n $salida_invalida ]]; then
     printf 'la sesión inválida produjo identidad\n' >&2
     exit 1
 fi
