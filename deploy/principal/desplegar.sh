@@ -47,6 +47,9 @@ psql_base=(psql "$VEC_PRINCIPAL_ADMIN_DATABASE_URL" --no-psqlrc --set=ON_ERROR_S
 sed '$s/^COMMIT;$/ROLLBACK;/' "$repo/deploy/postgresql/bolsa_llamamientos/migraciones/000018_orden_vigente.up.sql" \
   | "${psql_base[@]}"
 "${psql_base[@]}" --file "$repo/deploy/postgresql/bolsa_llamamientos/migraciones/000018_orden_vigente.up.sql"
+sed '/^COMMIT;$/s//ROLLBACK;/' "$repo/deploy/postgresql/bolsa_llamamientos/migraciones/000019_operacion_situacion_participacion.up.sql" \
+  | "${psql_base[@]}"
+"${psql_base[@]}" --file "$repo/deploy/postgresql/bolsa_llamamientos/migraciones/000019_operacion_situacion_participacion.up.sql"
 sed '/^COMMIT;$/s//ROLLBACK;/' "$repo/deploy/postgresql/bolsa_llamamientos/migraciones/000020_avisos_rrhh.up.sql" \
   | "${psql_base[@]}"
 "${psql_base[@]}" --file "$repo/deploy/postgresql/bolsa_llamamientos/migraciones/000020_avisos_rrhh.up.sql"

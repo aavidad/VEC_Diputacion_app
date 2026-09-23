@@ -61,3 +61,13 @@ Bolsa `000020` añade exclusivamente la función de lectura que deriva los aviso
 de salto de orden y de tres años desde B7, B6 y el histórico B2. El despliegue
 ensaya el `UP` con `ROLLBACK`, lo aplica después de `000018` y comprueba el GET
 `/api/vec/bolsa/avisos`; no añade consumidor AD3, tablas ni escritura de negocio.
+
+# Incremento D3-B8
+
+Bolsa `000019` registra pausar, reactivar y excluir en la situación B2 y en una
+fila append-only con motivo, referencia y huella del justificante, actor y
+validador. El paquete ensaya el `UP` con `ROLLBACK` y lo aplica tras `000018`.
+Reutiliza la autorización B2; no incorpora documentos ni otro consumidor AD3.
+La exigencia de validador distinto al registrar una exclusión es provisional
+hasta resolver la duda 6 de RRHH. La pausa conserva la posición de acta y B6
+la recupera al reactivar con la política de orden vigente.
