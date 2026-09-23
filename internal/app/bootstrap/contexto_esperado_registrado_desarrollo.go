@@ -1,10 +1,10 @@
 package bootstrap
 
 import (
-	"bytes"
 	"context"
 	"sync"
 
+	"vec-diputacion-granada/internal/app/identidadcomun"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
@@ -26,34 +26,11 @@ func contextoEsperadoRegistradoDesarrollo(
 		!huellaSHA256ValidaContratacionTemporalDesarrollo(soporte.certificadoSHA256) {
 		return dominiovec.ResultadoContextoActorRegistradoV2{}, fallo
 	}
-	actor := semilla.Contexto
-	registrado, err := resolutor.ResolverContextoActorRegistradoV2(ctx, dominiovec.SolicitudContextoActor{
-		Cuenta: dominiovec.CuentaAutenticadaContextoActor{
-			CuentaRef: actor.Instantanea.CuentaRef,
-			Metodo:    dominiovec.AuthMethodCertificate, Garantia: dominiovec.AuthAssuranceHigh,
-		},
-		PerfilActivoRef: actor.PerfilActivoRef,
-	})
-	if err != nil || registrado.Validar() != nil ||
-		registrado.AutoridadEfectiva != dominiovec.AutoridadProcedenciaContextoActorMaestraAcreditadaV1 ||
-		registrado.Contexto.Principal.AuthMethod != dominiovec.AuthMethodCertificate ||
-		registrado.Contexto.Principal.AuthAssurance != dominiovec.AuthAssuranceHigh ||
-		registrado.Contexto.Instantanea.CuentaRef != actor.Instantanea.CuentaRef ||
-		registrado.Contexto.Instantanea.PersonaRef != actor.Instantanea.PersonaRef ||
-		registrado.Contexto.Instantanea.PerfilActivoRef != actor.Instantanea.PerfilActivoRef ||
-		registrado.Contexto.Instantanea.VinculoRef != actor.Instantanea.VinculoRef ||
-		registrado.Contexto.PersonaRef != actor.PersonaRef ||
-		registrado.Contexto.PerfilActivoRef != actor.PerfilActivoRef ||
-		registrado.Contexto.Principal.ID != actor.Principal.ID ||
-		!registrado.Contexto.Instantanea.VigenteEn(registrado.ResueltoEnAutoritativo) {
+	registrado, err := identidadcomun.ResolverEsperadoRegistrado(ctx, resolutor, semilla)
+	if err != nil {
 		return dominiovec.ResultadoContextoActorRegistradoV2{}, fallo
 	}
-	for _, vinculo := range registrado.Contexto.Instantanea.Vinculos {
-		if !vinculo.VigenteEn(registrado.ResueltoEnAutoritativo) {
-			return dominiovec.ResultadoContextoActorRegistradoV2{}, fallo
-		}
-	}
-	return registrado.Clonar()
+	return registrado, nil
 }
 
 // Un recibo fresco tiene otra referencia e instante. Todo lo demás debe ser
@@ -61,19 +38,7 @@ func contextoEsperadoRegistradoDesarrollo(
 func mismoContextoEsperadoRegistradoDesarrollo(
 	esperado, actual dominiovec.ResultadoContextoActorRegistradoV2,
 ) bool {
-	if esperado.Validar() != nil || actual.Validar() != nil ||
-		esperado.AutoridadEfectiva != actual.AutoridadEfectiva ||
-		!bytes.Equal(esperado.ManifiestoProcedenciaCanonico, actual.ManifiestoProcedenciaCanonico) ||
-		esperado.ManifiestoProcedenciaHuellaSHA256 != actual.ManifiestoProcedenciaHuellaSHA256 {
-		return false
-	}
-	actor, err := actual.Contexto.Clonar()
-	if err != nil {
-		return false
-	}
-	actor.ResueltoEn = esperado.Contexto.ResueltoEn
-	canon, err := actor.RepresentacionCanonicaVinculadaV2()
-	return err == nil && bytes.Equal(canon, esperado.RepresentacionCanonica)
+	return identidadcomun.MismoContextoEsperadoRegistrado(esperado, actual)
 }
 
 type contextoOperacionCTDesarrollo struct {
