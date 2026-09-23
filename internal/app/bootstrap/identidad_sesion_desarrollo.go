@@ -35,6 +35,7 @@ type proveedorSesionConsultaRRHHDesarrollo struct {
 	resolutor   dominiovec.ResolutorContextoActorRegistradoV2
 	base        dominiovec.ResultadoContextoActorRegistradoV2
 	fronteras   catalogoFronterasComunDesarrollo
+	superficie  httpseguridad.Superficie
 	clave       [sha256.Size]byte
 }
 
@@ -113,6 +114,10 @@ func nuevoProveedorSesionConsultaRRHHConCatalogoDesarrollo(
 	p := &proveedorSesionConsultaRRHHDesarrollo{
 		soporte: soporte, registro: registro, revalidador: revalidador,
 		reloj: reloj, resolutor: resolutor, base: base, fronteras: fronteras,
+		superficie: httpseguridad.SuperficieInternaCorporativa,
+	}
+	if soporte.candidatoBolsa {
+		p.superficie = httpseguridad.SuperficieExternaPersonal
 	}
 	if _, err := rand.Read(p.clave[:]); err != nil {
 		return nil, ports.ErrConsultaRRHHNoDisponible
@@ -141,7 +146,7 @@ func (p *proveedorSesionConsultaRRHHDesarrollo) ResolverContexto(
 	// El decorador invoca el puerto nominal real y coteja todos sus datos con
 	// el alta confirmada; nunca devuelve la autenticación histórica del soporte.
 	revalidador := revalidadorSesionConsultaRRHHDesarrollo{
-		delegado: p.revalidador, alta: alta, confirmacion: confirmacion, reloj: p.reloj,
+		delegado: p.revalidador, alta: alta, confirmacion: confirmacion, reloj: p.reloj, superficie: p.superficie,
 	}
 	vinculo, resultado, err := dominiovec.CrearVinculoAutenticacionActorV2ConResultado(
 		ctxCapsula, revalidador,
@@ -226,7 +231,7 @@ func (p *proveedorSesionConsultaRRHHDesarrollo) acreditarPeticion(
 			AsercionID: hex.EncodeToString(c.nonce[:]), SesionID: hex.EncodeToString(nonceSesion[:]),
 			SujetoID: p.soporte.principalID, CuentaID: "desarrollo:" + p.base.Contexto.Instantanea.CuentaRef,
 			// Clase de ruta interna, no afirmación de identidad corporativa.
-			Superficie:       httpseguridad.SuperficieInternaCorporativa,
+			Superficie:       p.superficie,
 			EspacioIdentidad: espacioIdentidadSesionDesarrollo,
 			MetodoObservado:  dominiovec.AuthMethodCertificate, GarantiaObservada: dominiovec.AuthAssuranceHigh,
 			AutenticacionVerificadaEn: canal.certificadoVerificadoEn, SesionEmitidaEn: ahora,
@@ -341,6 +346,7 @@ type revalidadorSesionConsultaRRHHDesarrollo struct {
 	alta         httpseguridad.AltaSesionAtomica
 	confirmacion httpseguridad.ConfirmacionAltaSesion
 	reloj        ports.Reloj
+	superficie   httpseguridad.Superficie
 }
 
 func (r revalidadorSesionConsultaRRHHDesarrollo) RevalidarAutenticacionActorV1(
@@ -366,7 +372,7 @@ func (r revalidadorSesionConsultaRRHHDesarrollo) RevalidarAutenticacionActorV1(
 		AsercionRef: c.AsercionRef, SesionRef: c.SesionRef, ControlSesionRef: c.ControlSesionRef,
 		ControlSesionRevision: c.ControlSesionRevision, ControlSesionHuellaSHA256: c.ControlSesionHuellaSHA256,
 		CuentaRef: c.CuentaRef, CuentaOrdinariaRef: c.CuentaOrdinariaRef,
-		CuentaPrivilegiada: a.CuentaPrivilegiada, Superficie: dominiovec.SuperficieAutenticacionInternaCorporativaV1,
+		CuentaPrivilegiada: a.CuentaPrivilegiada, Superficie: dominiovec.SuperficieAutenticacionActorV1(r.superficie),
 		MetodoObservado: a.MetodoObservado, GarantiaObservada: a.GarantiaObservada,
 		PoliticaGarantiaRef: a.PoliticaGarantiaRef, PoliticaGarantiaHuellaSHA256: a.PoliticaGarantiaHuellaSHA256,
 		AutenticacionVerificadaEn: a.AutenticacionVerificadaEn, SesionEmitidaEn: a.SesionEmitidaEn,

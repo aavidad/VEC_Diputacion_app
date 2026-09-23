@@ -16,8 +16,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"vec-diputacion-granada/config"
+	dominioct "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -28,6 +30,7 @@ const tamanoMaximoFicheroMaterialDesarrollo = 256 << 10
 type materialSeguridadDesarrollo struct {
 	configuracionTLS             *tls.Config
 	identidad                    *resolvedorIdentidadDesarrollo
+	candidato                    *identidadCandidatoBolsaDesarrollo
 	claveKMS                     [sha256.Size]byte
 	firmaAtestacionKMS           ed25519.PrivateKey
 	verificadorAtestacionKMS     ed25519.PublicKey
@@ -46,6 +49,85 @@ type archivoIdentidadDesarrollo struct {
 	Subject           string   `json:"subject"`
 	DisplayName       string   `json:"display_name"`
 	Roles             []string `json:"roles"`
+}
+
+// La asociación externa es privada, nominal y opcional. Su ausencia conserva
+// la ruta cerrada; un fichero presente pero inválido impide arrancar.
+type identidadCandidatoBolsaDesarrollo struct {
+	identidad    identidadCertificadoDesarrollo
+	cuentaRef    string
+	candidatoRef string
+	personaRef   string
+	perfilRef    string
+	validoHasta  time.Time
+	verificadoEn time.Time
+}
+
+type archivoCandidatoBolsaDesarrollo struct {
+	Version      int    `json:"version"`
+	Autoridad    string `json:"autoridad"`
+	Certificado  string `json:"certificado"`
+	Identidad    string `json:"identidad"`
+	Sujeto       string `json:"sujeto"`
+	CuentaRef    string `json:"cuenta_ref"`
+	PersonaRef   string `json:"persona_ref"`
+	PerfilRef    string `json:"perfil_ref"`
+	CandidatoRef string `json:"candidato_ref"`
+}
+
+func cargarIdentidadCandidatoBolsaDesarrollo(directorio string, ca *x509.Certificate) (*identidadCandidatoBolsaDesarrollo, error) {
+	ruta := filepath.Join(directorio, "identidad", "bolsa-candidato.json")
+	if _, err := os.Lstat(ruta); errors.Is(err, os.ErrNotExist) {
+		return nil, nil
+	} else if err != nil || ca == nil {
+		return nil, ErrMaterialDesarrolloInvalido
+	}
+	contenido, err := leerFicheroMaterialSeguro(ruta, 16<<10)
+	if err != nil || validarClavesJSONUnicas(contenido) != nil {
+		return nil, ErrMaterialDesarrolloInvalido
+	}
+	var archivo archivoCandidatoBolsaDesarrollo
+	decodificador := json.NewDecoder(bytes.NewReader(contenido))
+	decodificador.DisallowUnknownFields()
+	if decodificador.Decode(&archivo) != nil {
+		return nil, ErrMaterialDesarrolloInvalido
+	}
+	var sobra any
+	if !errors.Is(decodificador.Decode(&sobra), io.EOF) || archivo.Version != 1 ||
+		archivo.Autoridad != AutoridadNoAutoritativa || archivo.Sujeto == "" ||
+		!dominioct.ReferenciaOpacaValida(archivo.CuentaRef) ||
+		!dominioct.ReferenciaOpacaValida(archivo.PersonaRef) ||
+		!dominioct.ReferenciaOpacaValida(archivo.PerfilRef) ||
+		!dominioct.ReferenciaOpacaValida(archivo.CandidatoRef) ||
+		!strings.HasPrefix(archivo.CuentaRef, "cta_") ||
+		!strings.HasPrefix(archivo.PersonaRef, "per_") ||
+		!strings.HasPrefix(archivo.PerfilRef, "prf_") ||
+		!strings.HasPrefix(archivo.CandidatoRef, "can_") {
+		return nil, ErrMaterialDesarrolloInvalido
+	}
+	rutaCert, validaCert := rutaMaterialConsultaRRHHDesarrollo(directorio, archivo.Certificado)
+	rutaIdentidad, validaIdentidad := rutaMaterialConsultaRRHHDesarrollo(directorio, archivo.Identidad)
+	if !validaCert || !validaIdentidad {
+		return nil, ErrMaterialDesarrolloInvalido
+	}
+	pemCert, err := leerFicheroMaterialSeguro(rutaCert, tamanoMaximoFicheroMaterialDesarrollo)
+	if err != nil {
+		return nil, ErrMaterialDesarrolloInvalido
+	}
+	cert, err := decodificarCertificadoUnico(pemCert)
+	if err != nil || cert == nil {
+		return nil, ErrMaterialDesarrolloInvalido
+	}
+	raices := x509.NewCertPool()
+	raices.AddCert(ca)
+	if _, err := cert.Verify(x509.VerifyOptions{Roots: raices, KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}}); err != nil {
+		return nil, ErrMaterialDesarrolloInvalido
+	}
+	identidad, err := cargarIdentidadDesarrollo(rutaIdentidad, cert, "candidato_bolsa")
+	if err != nil || identidad.principal.ID != archivo.Sujeto {
+		return nil, ErrMaterialDesarrolloInvalido
+	}
+	return &identidadCandidatoBolsaDesarrollo{identidad: identidad, cuentaRef: archivo.CuentaRef, candidatoRef: archivo.CandidatoRef, personaRef: archivo.PersonaRef, perfilRef: archivo.PerfilRef, validoHasta: cert.NotAfter.UTC().Truncate(time.Microsecond), verificadoEn: time.Now().UTC().Truncate(time.Microsecond)}, nil
 }
 
 type archivoManifiestoDesarrollo struct {
@@ -204,7 +286,14 @@ func cargarMaterialSeguridadDesarrollo(cfg config.Config) (materialSeguridadDesa
 	if err != nil {
 		return materialSeguridadDesarrollo{}, err
 	}
+	candidato, err := cargarIdentidadCandidatoBolsaDesarrollo(cfg.DevelopmentMaterialDir, ca)
+	if err != nil {
+		return materialSeguridadDesarrollo{}, err
+	}
 	identidades := append([]identidadCertificadoDesarrollo{identidadRRHH, identidadIntervencion}, adscripciones.Identidades...)
+	if candidato != nil {
+		identidades = append(identidades, candidato.identidad)
+	}
 	for _, lector := range lectoresRRHH {
 		if lector.identidad.huella == identidadRRHH.huella {
 			continue
@@ -220,6 +309,11 @@ func cargarMaterialSeguridadDesarrollo(cfg config.Config) (materialSeguridadDesa
 	}
 	if manifiestoLectoresActivo {
 		if err := identidad.registrarLectoresRRHH(lectoresRRHH); err != nil {
+			return materialSeguridadDesarrollo{}, err
+		}
+	}
+	if candidato != nil {
+		if err := identidad.registrarCandidatoBolsa(*candidato); err != nil {
 			return materialSeguridadDesarrollo{}, err
 		}
 	}
@@ -258,6 +352,7 @@ func cargarMaterialSeguridadDesarrollo(cfg config.Config) (materialSeguridadDesa
 			MaxVersion:   tls.VersionTLS13,
 		},
 		identidad:                    identidad,
+		candidato:                    candidato,
 		claveKMS:                     claveKMS,
 		firmaAtestacionKMS:           append(ed25519.PrivateKey(nil), firmaAtestacionKMS...),
 		verificadorAtestacionKMS:     append(ed25519.PublicKey(nil), verificadorAtestacionKMS...),

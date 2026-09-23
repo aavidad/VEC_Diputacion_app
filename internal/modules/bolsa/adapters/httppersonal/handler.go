@@ -98,6 +98,7 @@ type participacion struct {
 type respuesta struct {
 	Data struct {
 		Esquema         string          `json:"esquema"`
+		AvisoDesarrollo string          `json:"aviso_desarrollo"`
 		ConsultadaEn    string          `json:"consultada_en"`
 		Participaciones []participacion `json:"participaciones"`
 	} `json:"data"`
@@ -106,6 +107,7 @@ type respuesta struct {
 func nuevaRespuesta(i puertosbolsa.InstantaneaMiBolsa) respuesta {
 	var r respuesta
 	r.Data.Esquema = puertosbolsa.EsquemaMiBolsaV1
+	r.Data.AvisoDesarrollo = "Acceso de desarrollo con certificado sintético. Cl@ve, certificado FNMT y DNIe dependen de la pasarela de Sistemas."
 	r.Data.ConsultadaEn = i.ConsultadaEn.Format("2006-01-02T15:04:05.000000Z07:00")
 	r.Data.Participaciones = make([]participacion, 0, len(i.Participaciones))
 	for _, p := range i.Participaciones {

@@ -5,6 +5,8 @@ import (
 	"crypto/ed25519"
 	"errors"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 	"vec-diputacion-granada/config"
@@ -82,6 +84,7 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	transaccionAlta                   ports.TransaccionAltasCandidata
 	proveedorMaterial                 *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialBolsa            *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialMiBolsa          *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialBorradorCrear    *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialBorradorConsulta *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialSituacion        *proveedorMaterialAltaContratacionTemporalDesarrollo
@@ -295,6 +298,14 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	if cfg.BolsaBorradoresEnabled {
 		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialBorradorLlamamientoBolsaDesarrollo()...)
 	}
+	if debeComponerMiBolsaDesarrollo(cfg) {
+		descriptoresMaterial = append(descriptoresMaterial, descriptorMaterialConsumidorV3Desarrollo{
+			Audiencia:        puertosbolsa.AudienciaMiBolsa,
+			Dominio:          "vec.bolsa.mi-bolsa.desarrollo.capacidad-v3",
+			Prefijo:          "clave:capacidad:bolsa-mi-bolsa:",
+			ProveedorNominal: "proveedor-material-bolsa-mi-bolsa",
+		})
+	}
 	catalogoMaterial, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(descriptoresMaterial)
 	if err != nil {
 		return vacias, errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
@@ -317,6 +328,13 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			return vacias, err
 		}
 		dependencias.proveedorMaterialBolsa = proveedorBolsa
+		if debeComponerMiBolsaDesarrollo(cfg) {
+			proveedorMiBolsa, err := nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, puertosbolsa.AudienciaMiBolsa)
+			if err != nil {
+				return vacias, err
+			}
+			dependencias.proveedorMaterialMiBolsa = proveedorMiBolsa
+		}
 		if cfg.BolsaBorradoresEnabled {
 			proveedorBorradorCrear, err := nuevoProveedorMaterialBorradorLlamamientoDesarrollo(
 				ctx, gobierno, material, reloj, catalogoMaterial, puertosbolsa.AudienciaCrearBorradorLlamamientoInterno,
@@ -410,4 +428,13 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	dependencias.proveedorMaterial = proveedor
 	completa = true
 	return dependencias, nil
+}
+
+func debeComponerMiBolsaDesarrollo(cfg config.Config) bool {
+	if !cfg.ContratacionTemporalPostgreSQL.BolsaLlamamientosConfigurada() {
+		return false
+	}
+	ruta := filepath.Join(cfg.DevelopmentMaterialDir, "identidad", "bolsa-candidato.json")
+	_, err := os.Lstat(ruta)
+	return err == nil
 }

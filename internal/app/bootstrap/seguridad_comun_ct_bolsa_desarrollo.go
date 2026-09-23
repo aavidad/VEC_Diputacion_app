@@ -12,6 +12,7 @@ import (
 )
 
 const superficieInternaSeguridadComunDesarrollo = "interna-corporativa"
+const superficieExternaPersonalSeguridadComunDesarrollo = "externa-personal"
 
 var ErrSeguridadComunDesarrolloDenegada = errors.New("bootstrap: seguridad común denegada")
 
@@ -73,7 +74,8 @@ func (c catalogoFronterasComunDesarrollo) mismaInstancia(otro catalogoFronterasC
 }
 
 func (d descriptorFronteraComunDesarrollo) valida() bool {
-	if d.Clave == "" || d.Superficie != superficieInternaSeguridadComunDesarrollo ||
+	if d.Clave == "" || (d.Superficie != superficieInternaSeguridadComunDesarrollo &&
+		!(d.Superficie == superficieExternaPersonalSeguridadComunDesarrollo && d.Metodo == http.MethodGet && d.Ruta == "/api/vec/bolsa/mi-bolsa")) ||
 		d.Ruta == "" || d.ClavePolitica == "" || d.ClaveCapacidad == "" ||
 		!claveCatalogoComunValida(d.Clave) || !claveCatalogoComunValida(d.ClavePolitica) ||
 		!claveCatalogoComunValida(d.ClaveCapacidad) || !rutaCatalogoComunValida(d.Ruta) ||
@@ -220,11 +222,11 @@ func fronteraSeguridadComunDesdeContexto(
 		return fronteraSeguridadComunDesarrollo{}, false
 	}
 	frontera, ok := ctx.Value(claveFronteraSeguridadComunDesarrollo{}).(fronteraSeguridadComunDesarrollo)
-	if !ok || frontera.superficie != superficieInternaSeguridadComunDesarrollo {
+	if !ok {
 		return fronteraSeguridadComunDesarrollo{}, false
 	}
 	descriptor, ok := frontera.catalogo.resolver(frontera.metodo, frontera.ruta)
-	if !ok {
+	if !ok || descriptor.Superficie != frontera.superficie {
 		return fronteraSeguridadComunDesarrollo{}, false
 	}
 	frontera.descriptor = descriptor
