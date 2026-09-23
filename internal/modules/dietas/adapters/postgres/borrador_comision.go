@@ -18,6 +18,7 @@ import (
 )
 
 const crearORecuperarBorradorSQL = `SELECT vec_dietas.crear_o_recuperar_comision_calculada_v1($1::text,$2::bytea,$3::bytea,$4::bytea,$5::bytea,$6::numeric,$7::numeric,$8::bytea,$9::bytea,$10::bytea,$11::bytea)`
+const recuperarComisionPorClaveSQL = `SELECT vec_dietas.recuperar_comision_por_clave_v1($1::text,$2::bytea,$3::bytea,$4::bytea,$5::bytea,$6::numeric,$7::numeric,$8::bytea,$9::bytea,$10::bytea,$11::bytea)`
 const consultarBorradoresSQL = `SELECT vec_dietas.consultar_comisiones_calculadas_v1($1::text,$2::bytea,$3::bytea,$4::bytea,$5::bytea,$6::numeric,$7::numeric,$8::bytea,$9::bytea,$10::bytea,$11::bytea)`
 
 var referenciaReciboBorrador = regexp.MustCompile(`^rcd_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
@@ -69,6 +70,42 @@ func (r *RepositorioBorradorComisionPostgreSQL) CrearORecuperar(ctx context.Cont
 		return resultado, err
 	}
 	return resultado, nil
+}
+
+// RecuperarPorClave consume autorización V3 y coteja la intención antes de
+// llamar a OSRM. Una ausencia autorizada no crea nada y exige nueva concesión
+// ligada al cálculo para el alta posterior.
+func (r *RepositorioBorradorComisionPostgreSQL) RecuperarPorClave(ctx context.Context, identidad dietasports.IdentidadEfectivaBorrador, solicitud dietasports.SolicitudCrearBorradorPropio) (dietasports.ResultadoBorradorComision, bool, error) {
+	var cero dietasports.ResultadoBorradorComision
+	if solicitud.Calculo != nil {
+		return cero, false, domain.ErrComisionBorradorInvalida
+	}
+	efecto, err := efectoCrearBorrador(identidad, solicitud)
+	if err != nil {
+		return cero, false, err
+	}
+	var bruto []byte
+	if err = r.ejecutarBruto(ctx, identidad, recuperarComisionPorClaveSQL, efecto.Material, &bruto); err != nil {
+		return cero, false, err
+	}
+	var presencia struct {
+		Encontrado bool `json:"encontrado"`
+	}
+	if json.Unmarshal(bruto, &presencia) != nil {
+		return cero, false, dietasports.ErrBorradorNoDisponible
+	}
+	if !presencia.Encontrado {
+		var ausente map[string]json.RawMessage
+		if json.Unmarshal(bruto, &ausente) != nil || len(ausente) != 1 {
+			return cero, false, dietasports.ErrBorradorNoDisponible
+		}
+		return cero, false, nil
+	}
+	resultado, err := decodificarResultado(bruto)
+	if err != nil || resultado.Comision.Calculo == nil || !resultado.Recibo.Repeticion {
+		return cero, false, dietasports.ErrBorradorNoDisponible
+	}
+	return resultado, true, nil
 }
 
 func (r *RepositorioBorradorComisionPostgreSQL) ObtenerPropio(ctx context.Context, identidad dietasports.IdentidadEfectivaBorrador, referencia string) (dietasports.ResultadoBorradorComision, error) {

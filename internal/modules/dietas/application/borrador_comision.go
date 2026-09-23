@@ -67,6 +67,27 @@ func (s *ServicioBorradorComision) CrearPropio(ctx context.Context, identidad di
 	return s.repositorio.CrearORecuperar(ctx, identidad, solicitud)
 }
 
+func (s *ServicioBorradorComision) RecuperarPorClave(ctx context.Context, identidad dietasports.IdentidadEfectivaBorrador, solicitud dietasports.SolicitudCrearBorradorPropio) (dietasports.ResultadoBorradorComision, bool, error) {
+	var cero dietasports.ResultadoBorradorComision
+	if ctx == nil || !servicioValido(s) || solicitud.Calculo != nil {
+		return cero, false, domain.ErrComisionBorradorInvalida
+	}
+	if err := identidadValida(identidad, AccionCrearBorradorPropio, RecursoMisBorradores, FinalidadCrearBorradorPropio); err != nil {
+		return cero, false, err
+	}
+	normalizada, err := normalizarSolicitudCrear(solicitud)
+	if err != nil || (normalizada.RelacionRef != "" && normalizada.RelacionRef != identidad.Relacion.RelacionRef) || identidad.Autorizacion.Revalidacion.FechaReferencia != normalizada.FechaInicio {
+		return cero, false, dietasports.ErrAccesoBorradorDenegado
+	}
+	recuperador, ok := s.repositorio.(interface {
+		RecuperarPorClave(context.Context, dietasports.IdentidadEfectivaBorrador, dietasports.SolicitudCrearBorradorPropio) (dietasports.ResultadoBorradorComision, bool, error)
+	})
+	if !ok {
+		return cero, false, dietasports.ErrBorradorNoDisponible
+	}
+	return recuperador.RecuperarPorClave(ctx, identidad, normalizada)
+}
+
 func (s *ServicioBorradorComision) ObtenerPropio(ctx context.Context, identidad dietasports.IdentidadEfectivaBorrador, referencia string) (dietasports.ResultadoBorradorComision, error) {
 	if ctx == nil || !servicioValido(s) || !referenciaComision.MatchString(referencia) {
 		return dietasports.ResultadoBorradorComision{}, dietasports.ErrComisionNoEncontrada
@@ -187,6 +208,8 @@ type crearOperacionBorradorV1 struct {
 	FechaFin          string                  `json:"fecha_fin"`
 	Motivo            string                  `json:"motivo"`
 	CodigosRuta       []string                `json:"codigos_ruta"`
+	HoraInicio        string                  `json:"hora_inicio,omitempty"`
+	HoraFin           string                  `json:"hora_fin,omitempty"`
 	Calculo           *domain.CalculoComision `json:"calculo,omitempty"`
 }
 type listaOperacionBorradorV1 struct {
@@ -210,6 +233,8 @@ type replaySemanticoCrearBorradorV1 struct {
 	FechaFin           string   `json:"fecha_fin"`
 	Motivo             string   `json:"motivo"`
 	CodigosRuta        []string `json:"codigos_ruta"`
+	HoraInicio         string   `json:"hora_inicio,omitempty"`
+	HoraFin            string   `json:"hora_fin,omitempty"`
 }
 
 // ConstruirEfectoAutorizacionBorrador liga actor registrado, relación
@@ -260,7 +285,7 @@ func construirEfectoAutorizacionBorradorActor(actor vecdomain.ContextoActor, rel
 	case solicitud.Operacion == dietasports.OperacionCrearBorrador:
 		operacion = "crear"
 		m.RecursoRef = "dietas:borradores:propios"
-		m.Comando = &crearOperacionBorradorV1{solicitud.Crear.ClaveIdempotencia, solicitud.Crear.FechaInicio, solicitud.Crear.FechaFin, solicitud.Crear.Motivo, append([]string{}, solicitud.Crear.CodigosRuta...), solicitud.Crear.Calculo}
+		m.Comando = &crearOperacionBorradorV1{solicitud.Crear.ClaveIdempotencia, solicitud.Crear.FechaInicio, solicitud.Crear.FechaFin, solicitud.Crear.Motivo, append([]string{}, solicitud.Crear.CodigosRuta...), solicitud.Crear.HoraInicio, solicitud.Crear.HoraFin, solicitud.Crear.Calculo}
 		m.HuellaSemantica, err = huellaSemanticaCrearBorrador(relacion, solicitud.Crear)
 		if err != nil {
 			return dietasports.EfectoAutorizacionBorrador{}, dietasports.ErrEfectoAutorizacionBorradorInvalido
@@ -312,7 +337,7 @@ func huellaSemanticaCrearBorrador(relacion dietasports.RelacionServicioAcreditad
 		VigenteDesde: relacion.VigenteDesde, VigenteHasta: relacion.VigenteHasta,
 		ProcedenciaActoRef: relacion.ProcedenciaActoRef, FuenteRef: relacion.FuenteRef, FuenteVersion: relacion.FuenteVersion,
 		ClaveIdempotencia: solicitud.ClaveIdempotencia, FechaInicio: solicitud.FechaInicio, FechaFin: solicitud.FechaFin,
-		Motivo: solicitud.Motivo, CodigosRuta: append([]string{}, solicitud.CodigosRuta...),
+		Motivo: solicitud.Motivo, CodigosRuta: append([]string{}, solicitud.CodigosRuta...), HoraInicio: solicitud.HoraInicio, HoraFin: solicitud.HoraFin,
 	}
 	bytes, err := json.Marshal(canon)
 	if err != nil {

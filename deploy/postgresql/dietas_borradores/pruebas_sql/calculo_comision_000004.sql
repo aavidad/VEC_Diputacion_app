@@ -22,12 +22,16 @@ BEGIN
  FROM vec_dietas_prueba.preparar(op,recurso,nonce,clave) x;
  m:=material::jsonb; d:=convert_from(decision,'UTF8')::jsonb; cap:=convert_from(capacidad,'UTF8')::jsonb;
  IF op='crear' THEN
+  m:=jsonb_set(jsonb_set(m,'{comando,hora_inicio}',to_jsonb(CASE WHEN nonce='nonce_preconsulta_hora' THEN '09:00' ELSE '08:00' END),true),'{comando,hora_fin}','"18:00"'::jsonb,true);
+  IF nonce NOT LIKE 'nonce_preconsulta%' THEN
   tramo:=jsonb_build_object('fecha','2026-09-21','tipo','manutencion','porcentaje',50,'importe_centimos',2500,'version_tarifa_ref','provisional:ensayo:20260921','rotulo','PROVISIONAL · pendiente de confirmación por RRHH');
   FOR grupo IN 1..3 LOOP
    opciones:=opciones||jsonb_build_array(jsonb_build_object('grupo',grupo,'calculo',jsonb_build_object('tramos',jsonb_build_array(tramo),'manutencion_centimos',2500,'alojamiento_tope_centimos',0,'total_maximo_orientativo_centimos',2500,'version_tarifa_ref','provisional:ensayo:20260921','rotulo','PROVISIONAL · pendiente de confirmación por RRHH')));
   END LOOP;
-  calc:=jsonb_build_object('procedencia','osrm_interno','motor','OSRM','version_grafo','grafo-sintetico-v1','version_tarifa','provisional:ensayo:20260921','rotulo','PROVISIONAL · pendiente de confirmación por RRHH','hora_inicio','08:00','hora_fin','18:00','kilometros','12.0000','eur_por_km','0.2600','importe_kilometraje_centimos',312,'tramos_ruta',jsonb_build_array(jsonb_build_object('origen_codigo','GR:001','destino_codigo','GR:002','kilometros','12.0000')),'opciones_dieta',opciones);
+  calc:=jsonb_build_object('procedencia','osrm_interno','motor','OSRM','version_grafo',CASE WHEN nonce='nonce_calculo_dos' THEN 'grafo-sintetico-v2' ELSE 'grafo-sintetico-v1' END,'version_tarifa','provisional:ensayo:20260921','rotulo','PROVISIONAL · pendiente de confirmación por RRHH','hora_inicio','08:00','hora_fin','18:00','kilometros','12.0000','eur_por_km','0.2600','importe_kilometraje_centimos',312,'tramos_ruta',jsonb_build_array(jsonb_build_object('origen_codigo','GR:001','destino_codigo','GR:002','kilometros','12.0000')),'opciones_dieta',opciones);
   m:=jsonb_set(m,'{comando,calculo}',calc,true);
+  END IF;
+  m:=jsonb_set(m,'{huella_semantica}',to_jsonb(vec_dietas.huella_semantica_crear_borrador_v1(m::text)),true);
   mt:=m::text; i:=m->'identidad';
   amb:='{"empleado_ref":'||(i->'empleado_ref')::text||',"persona_ref":'||(i->'persona_ref')::text||',"relacion_ref":'||(i->'relacion_ref')::text||',"unidad_ref":'||(i->'unidad_ref')::text||'}';
   atr:='{"contexto_actor_ref":'||(i->'contexto_actor_ref')::text||',"contexto_version":'||to_jsonb(i->>'contexto_version')::text||',"cuenta_ref":'||(i->'cuenta_ref')::text||',"cuenta_version":'||to_jsonb(i->>'cuenta_version')::text||',"fecha_referencia":'||(i->'fecha_referencia')::text||',"fuente_ref":'||(i->'fuente_ref')::text||',"fuente_version":'||to_jsonb(i->>'fuente_version')::text||',"material_sha256":"'||encode(sha256(convert_to(mt,'UTF8')),'hex')||'","operacion":'||to_jsonb(op)::text||',"perfil_version":'||to_jsonb(i->>'perfil_version')::text||',"persona_version":'||to_jsonb(i->>'persona_version')::text||',"procedencia_acto_ref":'||(i->'procedencia_acto_ref')::text||',"recurso_ref":'||(m->'recurso_ref')::text||',"relacion_version":'||to_jsonb(i->>'relacion_version')::text||',"vigente_desde":'||(i->'vigente_desde')::text||',"vigente_hasta":"sin_fin"}';
@@ -44,6 +48,9 @@ BEGIN
 END $casos$;
 ALTER FUNCTION vec_dietas_prueba.preparar_calculada(text,text,text,text) OWNER TO vec_dietas_propietario;
 GRANT EXECUTE ON FUNCTION vec_dietas_prueba.preparar_calculada(text,text,text,text) TO vec_dietas_ejecutor;
+CREATE FUNCTION vec_dietas_prueba.contar_calculos() RETURNS bigint LANGUAGE sql SECURITY DEFINER SET search_path=pg_catalog SET row_security=on AS $conteo$ SELECT count(*) FROM vec_dietas.calculo_comision $conteo$;
+ALTER FUNCTION vec_dietas_prueba.contar_calculos() OWNER TO vec_dietas_propietario;
+GRANT EXECUTE ON FUNCTION vec_dietas_prueba.contar_calculos() TO vec_dietas_ejecutor;
 RESET ROLE;
 SET LOCAL SESSION AUTHORIZATION vec_prueba_dietas;
 DO $pruebas$
@@ -53,17 +60,32 @@ BEGIN
  SELECT x.decision,x.capacidad INTO dec,cap FROM vec_dietas_prueba.mutar_decision_capacidad(dec,cap,ARRAY['campos_permitidos'],'["comision.codigos_ruta","comision.estado","comision.fecha_fin","comision.fecha_inicio","comision.motivo","comision.referencia","comision.relacion_ref","recibo.registrado_en","recibo.referencia","recibo.repeticion","recibo.version"]'::jsonb) x;
  BEGIN PERFORM vec_dietas.crear_o_recuperar_comision_calculada_v1(mt,cap,dec,'motivo'::bytea,ctx,1,1,'p'::bytea,'s'::bytea,'e'::bytea,'r'::bytea); RAISE EXCEPTION 'proyección antigua aceptada'; EXCEPTION WHEN SQLSTATE 'PD003' THEN NULL; END;
  IF vec_dietas_prueba.contar_consumos_ad3()<>0 THEN RAISE EXCEPTION 'denegación consumió AD3'; END IF;
+ SELECT * INTO mt,cap,dec,ctx FROM vec_dietas_prueba.preparar_calculada('crear','dietas:borradores:propios','nonce_preconsulta_uno','clave_calculo_00000001');
+ salida:=vec_dietas.recuperar_comision_por_clave_v1(mt,cap,dec,'motivo'::bytea,ctx,1,1,'p'::bytea,'s'::bytea,'e'::bytea,'r'::bytea);
+ IF salida->>'encontrado'<>'false' THEN RAISE EXCEPTION 'preconsulta creó o encontró borrador'; END IF;
  SELECT * INTO mt,cap,dec,ctx FROM vec_dietas_prueba.preparar_calculada('crear','dietas:borradores:propios','nonce_calculo_uno','clave_calculo_00000001');
  salida:=vec_dietas.crear_o_recuperar_comision_calculada_v1(mt,cap,dec,'motivo'::bytea,ctx,1,1,'p'::bytea,'s'::bytea,'e'::bytea,'r'::bytea);
  recibo:=salida#>>'{recibo,referencia}'; ref:=salida#>>'{comision,referencia}';
  IF recibo IS NULL OR salida#>>'{comision,calculo,kilometros}'<>'12.0000' OR salida#>>'{comision,calculo,importe_kilometraje_centimos}'<>'312' THEN RAISE EXCEPTION 'comisión calculada no registrada'; END IF;
+ PERFORM set_config('vec.dietas.persona_ref','',true);
+ IF vec_dietas_prueba.contar_calculos()<>0 THEN RAISE EXCEPTION 'RLS permite cálculo sin persona'; END IF;
+ PERFORM set_config('vec.dietas.persona_ref','per_otra_persona_0123456789012345',true);
+ IF vec_dietas_prueba.contar_calculos()<>0 THEN RAISE EXCEPTION 'RLS permite cálculo ajeno'; END IF;
+ SELECT * INTO mt,cap,dec,ctx FROM vec_dietas_prueba.preparar_calculada('crear','dietas:borradores:propios','nonce_preconsulta_dos','clave_calculo_00000001');
+ salida:=vec_dietas.recuperar_comision_por_clave_v1(mt,cap,dec,'motivo'::bytea,ctx,1,1,'p'::bytea,'s'::bytea,'e'::bytea,'r'::bytea);
+ IF salida->>'encontrado'<>'true' OR salida#>>'{recibo,referencia}' IS DISTINCT FROM recibo OR salida#>>'{comision,calculo,version_grafo}'<>'grafo-sintetico-v1' THEN RAISE EXCEPTION 'preconsulta no recuperó instantánea'; END IF;
+ SELECT * INTO mt,cap,dec,ctx FROM vec_dietas_prueba.preparar_calculada('crear','dietas:borradores:propios','nonce_preconsulta_hora','clave_calculo_00000001');
+ BEGIN
+  PERFORM vec_dietas.recuperar_comision_por_clave_v1(mt,cap,dec,'motivo'::bytea,ctx,1,1,'p'::bytea,'s'::bytea,'e'::bytea,'r'::bytea);
+  RAISE EXCEPTION 'hora distinta aceptada';
+ EXCEPTION WHEN SQLSTATE 'PD002' THEN NULL; END;
  SELECT * INTO mt,cap,dec,ctx FROM vec_dietas_prueba.preparar_calculada('crear','dietas:borradores:propios','nonce_calculo_dos','clave_calculo_00000001');
  salida:=vec_dietas.crear_o_recuperar_comision_calculada_v1(mt,cap,dec,'motivo'::bytea,ctx,1,1,'p'::bytea,'s'::bytea,'e'::bytea,'r'::bytea);
- IF salida#>>'{recibo,referencia}' IS DISTINCT FROM recibo OR salida#>>'{recibo,repeticion}'<>'true' THEN RAISE EXCEPTION 'replay no conservó recibo'; END IF;
+ IF salida#>>'{recibo,referencia}' IS DISTINCT FROM recibo OR salida#>>'{recibo,repeticion}'<>'true' OR salida#>>'{comision,calculo,version_grafo}'<>'grafo-sintetico-v1' THEN RAISE EXCEPTION 'replay no conservó recibo y grafo'; END IF;
  SELECT * INTO mt,cap,dec,ctx FROM vec_dietas_prueba.preparar_calculada('detalle',ref,'nonce_calculo_detalle','');
  salida:=vec_dietas.consultar_comisiones_calculadas_v1(mt,cap,dec,'motivo'::bytea,ctx,1,1,'p'::bytea,'s'::bytea,'e'::bytea,'r'::bytea);
  IF salida#>>'{recibo,referencia}' IS DISTINCT FROM recibo OR salida#>>'{comision,calculo,kilometros}'<>'12.0000' THEN RAISE EXCEPTION 'detalle no recuperó cálculo'; END IF;
  SELECT vec_dietas_prueba.contar_consumos_ad3() INTO n;
- IF n<>3 THEN RAISE EXCEPTION 'consumos AD3 inesperados: %',n; END IF;
+ IF n<>5 THEN RAISE EXCEPTION 'consumos AD3 inesperados: %',n; END IF;
 END $pruebas$;
 ROLLBACK;

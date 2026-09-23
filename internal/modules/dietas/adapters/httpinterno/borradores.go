@@ -33,6 +33,9 @@ type ManejadorBorradores struct {
 	preparador  interface {
 		Preparar(context.Context, dietasports.SolicitudCrearBorradorPropio) (dietasports.SolicitudCrearBorradorPropio, error)
 	}
+	recuperador interface {
+		RecuperarPorClave(context.Context, dietasports.IdentidadEfectivaBorrador, dietasports.SolicitudCrearBorradorPropio) (dietasports.ResultadoBorradorComision, bool, error)
+	}
 }
 
 func NuevoManejadorBorradores(identidades dietasports.ResolutorIdentidadEfectivaBorrador, casoUso dietasapp.CasoUsoBorradorComision) (*ManejadorBorradores, error) {
@@ -52,7 +55,14 @@ func NuevoManejadorBorradoresConCalculo(identidades dietasports.ResolutorIdentid
 	if err != nil {
 		return nil, err
 	}
+	recuperador, ok := casoUso.(interface {
+		RecuperarPorClave(context.Context, dietasports.IdentidadEfectivaBorrador, dietasports.SolicitudCrearBorradorPropio) (dietasports.ResultadoBorradorComision, bool, error)
+	})
+	if !ok || dependenciaNula(recuperador) {
+		return nil, ErrManejadorNoDisponible
+	}
 	m.preparador = preparador
+	m.recuperador = recuperador
 	return m, nil
 }
 
@@ -131,9 +141,29 @@ func (m *ManejadorBorradores) atenderColeccion(w http.ResponseWriter, r *http.Re
 			HoraFin:           entrada.HoraFin,
 			RelacionRef:       entrada.RelacionRef,
 		}
-		// El material V3 vincula la instantánea calculada al comando exacto.
-		// La frontera mTLS protege la ruta antes de este cálculo servidor.
 		if m.preparador != nil {
+			if solicitud.HoraInicio == "" {
+				solicitud.HoraInicio = "08:00"
+			}
+			if solicitud.HoraFin == "" {
+				solicitud.HoraFin = "18:00"
+			}
+			preautorizacion := dietasports.SolicitudOperacionBorrador{Operacion: dietasports.OperacionCrearBorrador, Crear: solicitud, RelacionRef: solicitud.RelacionRef}
+			identidadPrevia, err := m.identidades.ResolverIdentidadEfectivaBorrador(r.Context(), preautorizacion)
+			if err != nil {
+				responderErrorClasificado(w, err)
+				return
+			}
+			recuperada, encontrada, err := m.recuperador.RecuperarPorClave(r.Context(), identidadPrevia, solicitud)
+			if err != nil {
+				responderErrorClasificado(w, err)
+				return
+			}
+			if encontrada {
+				responderJSON(w, http.StatusOK, resultadoAJSON(recuperada))
+				return
+			}
+			// El segundo material V3 se liga al cálculo exacto antes de escribir.
 			preparada, err := m.preparador.Preparar(r.Context(), solicitud)
 			if err != nil {
 				responderErrorClasificado(w, err)

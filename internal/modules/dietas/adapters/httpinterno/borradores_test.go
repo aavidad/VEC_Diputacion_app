@@ -30,10 +30,53 @@ func (r *resolutorPrueba) ResolverIdentidadEfectivaBorrador(_ context.Context, s
 }
 
 type casoUsoPrueba struct {
-	creaciones, listas, detalles int
-	resultado                    dietasports.ResultadoBorradorComision
-	pagina                       dietasports.PaginaBorradoresPropios
-	err                          error
+	creaciones, listas, detalles, recuperaciones int
+	resultado                                    dietasports.ResultadoBorradorComision
+	pagina                                       dietasports.PaginaBorradoresPropios
+	err                                          error
+	recuperada                                   bool
+}
+
+func (c *casoUsoPrueba) RecuperarPorClave(_ context.Context, _ dietasports.IdentidadEfectivaBorrador, _ dietasports.SolicitudCrearBorradorPropio) (dietasports.ResultadoBorradorComision, bool, error) {
+	c.recuperaciones++
+	return c.resultado, c.recuperada, c.err
+}
+
+type preparadorBorradorPrueba struct{ llamadas int }
+
+func (p *preparadorBorradorPrueba) Preparar(_ context.Context, s dietasports.SolicitudCrearBorradorPropio) (dietasports.SolicitudCrearBorradorPropio, error) {
+	p.llamadas++
+	return s, nil
+}
+
+func TestManejadorCalculadoAutorizaYRecuperaAntesDeOSRM(t *testing.T) {
+	r, c, p := &resolutorPrueba{}, &casoUsoPrueba{}, &preparadorBorradorPrueba{}
+	m, err := NuevoManejadorBorradoresConCalculo(r, c, p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cuerpo := `{"clave_idempotencia":"clave_idempotente_0001","fecha_inicio":"2026-09-22","fecha_fin":"2026-09-22","motivo":"Visita técnica","codigos_ruta":["18087","18175"]}`
+	enviar := func() int {
+		peticion := httptest.NewRequest(http.MethodPost, RutaBorradores, strings.NewReader(cuerpo))
+		peticion.Header.Set("Content-Type", "application/json; charset=utf-8")
+		peticion.Header.Set("Accept", "application/json")
+		respuesta := httptest.NewRecorder()
+		m.ServeHTTP(respuesta, peticion)
+		return respuesta.Code
+	}
+	r.err = dietasports.ErrAccesoBorradorDenegado
+	if estado := enviar(); estado != http.StatusForbidden || c.recuperaciones != 0 || p.llamadas != 0 {
+		t.Fatalf("denegación previa: %d, %d, %d", estado, c.recuperaciones, p.llamadas)
+	}
+	r.err = nil
+	c.recuperada = true
+	if estado := enviar(); estado != http.StatusOK || c.recuperaciones != 1 || p.llamadas != 0 || r.llamadas != 2 {
+		t.Fatalf("replay sin OSRM: %d, %d, %d, %d", estado, c.recuperaciones, p.llamadas, r.llamadas)
+	}
+	c.recuperada = false
+	if estado := enviar(); estado != http.StatusCreated || c.recuperaciones != 2 || p.llamadas != 1 || r.llamadas != 4 || c.creaciones != 1 || r.solicitud.Crear.HoraInicio != "08:00" {
+		t.Fatalf("alta calculada: %d, %d, %d, %d, %d", estado, c.recuperaciones, p.llamadas, r.llamadas, c.creaciones)
+	}
 }
 
 func (c *casoUsoPrueba) CrearPropio(context.Context, dietasports.IdentidadEfectivaBorrador, dietasports.SolicitudCrearBorradorPropio) (dietasports.ResultadoBorradorComision, error) {

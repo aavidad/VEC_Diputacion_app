@@ -26,10 +26,53 @@ CREATE TABLE vec_dietas.calculo_comision (
 );
 ALTER TABLE vec_dietas.calculo_comision ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vec_dietas.calculo_comision FORCE ROW LEVEL SECURITY;
-CREATE POLICY propietario_calculo ON vec_dietas.calculo_comision FOR ALL TO vec_dietas_propietario USING (true) WITH CHECK (true);
+CREATE POLICY persona_contextual ON vec_dietas.calculo_comision FOR ALL TO vec_dietas_propietario
+ USING (EXISTS (SELECT 1 FROM vec_dietas.borrador_comision b WHERE b.referencia=comision_ref AND b.persona_ref=current_setting('vec.dietas.persona_ref',true)))
+ WITH CHECK (EXISTS (SELECT 1 FROM vec_dietas.borrador_comision b WHERE b.referencia=comision_ref AND b.persona_ref=current_setting('vec.dietas.persona_ref',true)));
 CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE ON vec_dietas.calculo_comision FOR EACH ROW EXECUTE FUNCTION vec_dietas.rechazar_mutacion_borrador_v1();
 CREATE TRIGGER no_truncar BEFORE TRUNCATE ON vec_dietas.calculo_comision FOR EACH STATEMENT EXECUTE FUNCTION vec_dietas.rechazar_mutacion_borrador_v1();
 REVOKE ALL ON vec_dietas.calculo_comision FROM PUBLIC,vec_dietas_ejecutor;
+
+-- Preconsulta con la misma concesión nominal de crear. Consume AD3 y
+-- revalida Personal antes de cualquier llamada a OSRM; no crea borrador.
+CREATE FUNCTION vec_dietas.recuperar_comision_por_clave_v1(p_material text,p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea) RETURNS jsonb
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET row_security=on SET timezone='UTC' SET lock_timeout='2s' AS $$
+DECLARE m jsonb; i jsonb; c jsonb; cap jsonb; ctx jsonb; d jsonb; v record; b vec_dietas.borrador_comision%ROWTYPE; r vec_dietas.recibo_borrador_comision%ROWTYPE; calc jsonb; ahora timestamptz(6):=date_trunc('microseconds',clock_timestamp());
+BEGIN
+ IF current_user<>'vec_dietas_propietario' OR session_user=current_user
+    OR NOT pg_has_role(session_user,'vec_dietas_ejecutor','MEMBER')
+    OR pg_has_role(session_user,'vec_dietas_propietario','MEMBER')
+    OR pg_has_role(session_user,'vec_dietas_migrador','MEMBER') THEN RAISE EXCEPTION 'ejecutor Dietas inválido' USING ERRCODE='42501'; END IF;
+ IF current_setting('transaction_isolation')<>'serializable' OR current_setting('TimeZone')<>'UTC' THEN RAISE EXCEPTION 'transacción Dietas incompatible' USING ERRCODE='25000'; END IF;
+ BEGIN m:=p_material::jsonb; i:=m->'identidad'; c:=m->'comando'; cap:=convert_from(p_capacidad,'UTF8')::jsonb; ctx:=convert_from(p_contexto,'UTF8')::jsonb; d:=convert_from(p_decision,'UTF8')::jsonb;
+ EXCEPTION WHEN others THEN RAISE EXCEPTION 'material Dietas inválido' USING ERRCODE='22023'; END;
+ IF m->>'esquema'<>'vec.dietas.borrador-operacion.v1' OR m->>'operacion'<>'crear' OR m->>'recurso_ref'<>'dietas:borradores:propios'
+    OR c ? 'calculo' OR c->>'clave_idempotencia' !~ '^[A-Za-z0-9_-]{16,128}$'
+    OR c->>'hora_inicio' !~ '^([01][0-9]|2[0-3]):[0-5][0-9]$' OR c->>'hora_fin' !~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+    OR jsonb_typeof(c->'codigos_ruta')<>'array' OR jsonb_array_length(c->'codigos_ruta') NOT BETWEEN 2 AND 12
+    OR d->'campos_permitidos' IS DISTINCT FROM '["comision.calculo","comision.codigos_ruta","comision.estado","comision.fecha_fin","comision.fecha_inicio","comision.motivo","comision.referencia","comision.relacion_ref","recibo.registrado_en","recibo.referencia","recibo.repeticion","recibo.version"]'::jsonb
+    OR m->>'huella_semantica' IS DISTINCT FROM vec_dietas.huella_semantica_crear_borrador_v1(p_material)
+    OR vec_dietas.cotejar_recurso_dietas_borrador_v1(p_material,p_capacidad,p_decision,p_contexto) IS NOT TRUE
+ THEN RAISE EXCEPTION 'preconsulta Dietas inválida' USING ERRCODE='PD003'; END IF;
+ IF p_persona_version IS DISTINCT FROM (i->>'persona_version')::numeric OR p_perfil_version IS DISTINCT FROM (i->>'perfil_version')::numeric
+    OR p_persona_version IS DISTINCT FROM (ctx->>'persona_version')::numeric OR p_perfil_version IS DISTINCT FROM (ctx->>'perfil_version')::numeric THEN RAISE EXCEPTION 'versiones ContextoActor Dietas incoherentes' USING ERRCODE='PD003'; END IF;
+ SELECT * INTO STRICT v FROM vec_dietas.consumir_ad3_borrador_v1(p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz);
+ IF v.consumo_nuevo IS NOT TRUE OR v.decision_ref IS DISTINCT FROM d->>'decision_ref' OR v.efecto_ref IS DISTINCT FROM m->>'recurso_ref'
+    OR cap->>'huella_efecto_sha256' IS DISTINCT FROM v.huella_efecto_sha256 OR NOT vec_dietas.cotejar_contexto_dietas_borrador_v1(i,p_contexto)
+ THEN RAISE EXCEPTION 'AD3 no ligado a preconsulta Dietas' USING ERRCODE='PD003'; END IF;
+ PERFORM set_config('vec.dietas.persona_ref',i->>'persona_ref',true);
+ PERFORM vec_personal.revalidar_relacion_dietas_v1(i->>'relacion_ref',i->>'persona_ref',i->>'empleado_ref',i->>'unidad_ref',i->>'vigente_desde',coalesce(i->>'vigente_hasta',''),(i->>'relacion_version')::bigint,i->>'procedencia_acto_ref',i->>'fuente_ref',(i->>'fuente_version')::bigint,(i->>'fecha_referencia')::date);
+ SELECT * INTO b FROM vec_dietas.borrador_comision WHERE persona_ref=i->>'persona_ref' AND clave_idempotencia=c->>'clave_idempotencia';
+ IF NOT FOUND THEN
+  INSERT INTO vec_dietas.auditoria_borrador_comision VALUES('adi_'||md5(v.auditoria_ref||'preconsulta'||ahora::text),NULL,'dietas:borradores:propios','consultar',d->>'principal_id',i->>'persona_ref','no_encontrado',d->>'correlacion_ref',ahora);
+  RETURN jsonb_build_object('encontrado',false);
+ END IF;
+ IF b.huella_semantica_sha256 IS DISTINCT FROM m->>'huella_semantica' THEN RAISE EXCEPTION 'conflicto de idempotencia Dietas' USING ERRCODE='PD002'; END IF;
+ SELECT * INTO STRICT r FROM vec_dietas.recibo_borrador_comision WHERE comision_ref=b.referencia;
+ SELECT calculo INTO STRICT calc FROM vec_dietas.calculo_comision WHERE comision_ref=b.referencia;
+ INSERT INTO vec_dietas.auditoria_borrador_comision VALUES('adi_'||md5(v.auditoria_ref||b.referencia||ahora::text),b.referencia,b.referencia,'consultar',d->>'principal_id',i->>'persona_ref','concedido',d->>'correlacion_ref',ahora);
+ RETURN jsonb_build_object('encontrado',true,'comision',jsonb_build_object('referencia',b.referencia,'estado','borrador','fecha_inicio',b.fecha_inicio::text,'fecha_fin',b.fecha_fin::text,'motivo',b.motivo,'codigos_ruta',b.codigos_ruta,'relacion_ref',b.relacion_ref,'calculo',calc),'recibo',jsonb_build_object('referencia',r.referencia,'version',r.version,'registrado_en',to_char(r.registrada_en AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),'repeticion',true));
+END $$;
 
 CREATE FUNCTION vec_dietas.crear_o_recuperar_comision_calculada_v1(p_material text,p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea) RETURNS jsonb
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET row_security=on SET timezone='UTC' SET lock_timeout='2s' AS $$
@@ -51,6 +94,7 @@ BEGIN
     OR calc->>'eur_por_km' !~ '^0\.[0-9]{4}$'
     OR calc->>'hora_inicio' !~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'
     OR calc->>'hora_fin' !~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+    OR c->>'hora_inicio' IS DISTINCT FROM calc->>'hora_inicio' OR c->>'hora_fin' IS DISTINCT FROM calc->>'hora_fin'
     OR jsonb_typeof(c->'codigos_ruta')<>'array' OR jsonb_typeof(calc->'tramos_ruta')<>'array'
     OR jsonb_typeof(calc->'opciones_dieta')<>'array'
     OR jsonb_array_length(c->'codigos_ruta') NOT BETWEEN 2 AND 12
@@ -103,7 +147,9 @@ BEGIN
   INSERT INTO vec_dietas.calculo_comision VALUES(ref,calc,calc->>'version_tarifa',clock_timestamp());
  END IF;
  SELECT calculo INTO STRICT anterior FROM vec_dietas.calculo_comision WHERE comision_ref=ref;
- IF anterior IS DISTINCT FROM calc THEN RAISE EXCEPTION 'conflicto de idempotencia Dietas' USING ERRCODE='PD002'; END IF;
+ -- La huella semántica ya ligó fechas, horas, motivo y ruta. En replay se
+ -- conserva la instantánea original aunque OSRM haya publicado otro grafo.
+ IF (salida->'recibo'->>'repeticion')::boolean IS FALSE AND anterior IS DISTINCT FROM calc THEN RAISE EXCEPTION 'cálculo Dietas incompatible' USING ERRCODE='PD003'; END IF;
  RETURN jsonb_set(salida,'{comision,calculo}',anterior,true);
 END $$;
 
@@ -134,8 +180,9 @@ BEGIN
  RETURN jsonb_set(salida,'{comision,calculo}',calc,true);
 END $$;
 ALTER FUNCTION vec_dietas.crear_o_recuperar_comision_calculada_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) OWNER TO vec_dietas_propietario;
+ALTER FUNCTION vec_dietas.recuperar_comision_por_clave_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) OWNER TO vec_dietas_propietario;
 ALTER FUNCTION vec_dietas.consultar_comisiones_calculadas_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) OWNER TO vec_dietas_propietario;
 REVOKE ALL ON FUNCTION vec_dietas.crear_o_recuperar_borrador_propio_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea), vec_dietas.consultar_borradores_propios_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM vec_dietas_ejecutor;
-REVOKE ALL ON FUNCTION vec_dietas.crear_o_recuperar_comision_calculada_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea), vec_dietas.consultar_comisiones_calculadas_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION vec_dietas.crear_o_recuperar_comision_calculada_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea), vec_dietas.consultar_comisiones_calculadas_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_dietas_ejecutor;
+REVOKE ALL ON FUNCTION vec_dietas.recuperar_comision_por_clave_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea), vec_dietas.crear_o_recuperar_comision_calculada_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea), vec_dietas.consultar_comisiones_calculadas_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION vec_dietas.recuperar_comision_por_clave_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea), vec_dietas.crear_o_recuperar_comision_calculada_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea), vec_dietas.consultar_comisiones_calculadas_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_dietas_ejecutor;
 COMMIT;
