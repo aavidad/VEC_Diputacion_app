@@ -9,11 +9,17 @@ no prueba una ejecución en cidonia.
 
 - Selector Dietas apagado, aplicación drenada para estas ocho cuentas y cero
   sesiones activas. `ALTER ROLE NOLOGIN` no cierra sesiones existentes.
-- DBA de PostgreSQL 18, conexión administrativa mediante `PGSERVICE` y
-  ficheros privados `PGSERVICEFILE`/`PGPASSFILE` propios, `0600` y externos a
-  Git. El servicio nombra host, puerto, base y usuario; la contraseña queda
-  solo en el passfile. El runner no pasa DSN ni contraseña en argumentos.
-  Directorio externo a Git, propio y `0700` en `VEC_P6_EVIDENCIA_DIR`.
+- DBA de PostgreSQL 18. En cidonia se usa `podman exec -i` contra el
+  contenedor PostgreSQL indicado por `VEC_P6_POSTGRES_CONTAINER` en el entorno
+  privado: `psql -U postgres -d postgres` recibe el SQL por stdin. El runner
+  verifica versión 18 y sesión superusuario antes de inventariar. No requiere
+  `psql` en el host ni pasa DSN o contraseña en argumentos.
+- Fuera de ese entorno se conserva el transporte `PGSERVICE` con
+  `PGSERVICEFILE`/`PGPASSFILE` privados, propios, `0600` y externos a Git. El
+  servicio nombra host, puerto, base y usuario; la contraseña queda solo en el
+  passfile. Los dos transportes son excluyentes.
+- Directorio de evidencia externo a Git, propio y `0700` en
+  `VEC_P6_EVIDENCIA_DIR`.
 - Exactamente los ocho LOGIN `vec_dietas_r1d_{registro_identidad,
   revalidacion_identidad,contexto,fuente_autorizacion,registro_autorizacion,
   motivos,dietas,personal}_desarrollo`, con atributos mínimos y una membresía
@@ -33,6 +39,19 @@ no prueba una ejecución en cidonia.
   asignaciones sin contraseñas.
 
 ## Orden de uso por el ejecutor autorizado
+
+En cidonia, como usuario operador autorizado del host, el identificador del
+contenedor procede del entorno privado; no se escribe aquí ni se versiona:
+
+```bash
+export VEC_P6_POSTGRES_CONTAINER='<nombre obtenido del entorno privado>'
+export VEC_P6_EVIDENCIA_DIR='<directorio privado externo a Git, modo 0700>'
+bash deploy/principal/p6_retirada_dietas/ejecutar.sh --inventario
+bash deploy/principal/p6_retirada_dietas/ejecutar.sh --rollback
+VEC_P6_APLICAR=SI-P6-REVISADO bash deploy/principal/p6_retirada_dietas/ejecutar.sh --commit
+```
+
+En un host que tenga `psql` y su conexión privada revisada:
 
 ```bash
 export PGSERVICE='<nombre de servicio privado>'
@@ -64,9 +83,10 @@ no sustituye esa condición operativa.
 
 El runner guarda inventarios `p6-inventario-*`/`p6-post-*` fuera de Git con
 permisos privados; borra los ficheros transitorios que contienen la preimagen
-y el plan. No imprimir DSN ni adjuntar inventarios al canal o a Git. No
-reintentar `--commit` tras una respuesta incierta sin consultar el puntero y
-los roles: la nueva versión ya podría estar confirmada.
+y el plan. No imprimir DSN ni adjuntar inventarios al canal o a Git. Si falla
+el transporte de la transacción, el runner intenta un postinventario nuevo y
+sale con error, aunque el cambio pudiera estar confirmado. No reintentar
+`--commit` tras una respuesta incierta sin consultar el puntero y los roles.
 
 Tras el `COMMIT`, Claude debe acreditar cero sesiones, rechazo de nuevas
 conexiones de los ocho LOGIN, denegación de autorizaciones anteriores por
@@ -83,5 +103,7 @@ LOGIN existentes.
 la estructura de autorización necesaria y una asignación sintética; prueba
 ROLLBACK, COMMIT y repetición denegada, rutas transitivas de grupo y refresco
 de sesiones. Solo monta el repositorio en lectura y un directorio privado
-desechable; no usa datos ni credenciales de cidonia. Este fixture comprueba el mecanismo, no reemplaza el inventario
+desechable; emula `podman exec` sobre Docker local para probar el mismo
+protocolo de stdin. No usa datos ni credenciales de cidonia. Este fixture
+comprueba el mecanismo, no reemplaza el inventario
 real, el cierre de sesiones ni la revalidación V3 de Claude.

@@ -21,6 +21,10 @@ done
 docker exec "$container" pg_isready -h 127.0.0.1 -U postgres >/dev/null
 cat > "$test_dir/psql" <<'SH'
 #!/usr/bin/env bash
+if [[ "${VEC_P6_TEST_HOST_PSQL_FAIL:-}" == 1 ]]; then
+  echo 'psql host prohibido en transporte contenedor' >&2
+  exit 88
+fi
 for argumento in "$@"; do
   case "$argumento" in
     postgresql://*|postgres://*|*password=*)
@@ -34,6 +38,28 @@ exec docker exec -i -u root \
   --env "PGPASSFILE=$PGPASSFILE" "$VEC_P6_CONTAINER" psql "$@"
 SH
 chmod 700 "$test_dir/psql"
+cat > "$test_dir/podman" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+[[ "${1:-}" == exec && "${2:-}" == -i ]] || { echo 'podman de prueba exige exec -i' >&2; exit 2; }
+for argumento in "$@"; do
+  case "$argumento" in
+    postgresql://*|postgres://*|*password=*)
+      echo 'credencial o DSN en argv de podman' >&2
+      exit 2;;
+  esac
+done
+printf '%s\0' "$@" >> "$VEC_P6_PODMAN_ARGV_LOG"
+if [[ "${VEC_P6_TEST_PODMAN_FAIL:-}" == antes ]]; then exit 77; fi
+if [[ "${VEC_P6_TEST_PODMAN_FAIL:-}" == sin_dba ]]; then printf '%s\n' '180004|false|true'; exit 0; fi
+if [[ "${VEC_P6_TEST_PODMAN_FAIL:-}" == pg17 ]]; then printf '%s\n' '170000|true|true'; exit 0; fi
+if [[ "${VEC_P6_TEST_PODMAN_FAIL:-}" == despues_rollback && " $* " == *p6_finalizar=ROLLBACK* ]]; then
+  docker "$@"
+  exit 77
+fi
+exec docker "$@"
+SH
+chmod 700 "$test_dir/podman"
 cat > "$test_dir/pg_service.conf" <<'SERVICE'
 [p6fixture]
 host=127.0.0.1
@@ -45,8 +71,15 @@ SERVICE
 chmod 600 "$test_dir/pg_service.conf" "$test_dir/pgpass"
 export VEC_P6_CONTAINER="$container" VEC_P6_EVIDENCIA_DIR="$test_dir"
 export VEC_P6_ARGV_LOG="$test_dir/psql-argv.bin"
+export VEC_P6_PODMAN_ARGV_LOG="$test_dir/podman-argv.bin"
 export PGSERVICE=p6fixture PGSERVICEFILE="$test_dir/pg_service.conf" PGPASSFILE="$test_dir/pgpass"
 export PATH="$test_dir:$PATH"
+run_p6_contenedor() {
+  env -u PGSERVICE -u PGSERVICEFILE -u PGPASSFILE \
+    VEC_P6_POSTGRES_CONTAINER="$container" VEC_P6_APLICAR="${VEC_P6_APLICAR:-}" \
+    VEC_P6_TEST_HOST_PSQL_FAIL=1 \
+    bash "$base_dir/ejecutar.sh" "$@"
+}
 psql -Xq -v ON_ERROR_STOP=1 -f "$repo_dir/deploy/postgresql/autorizacion/roles_up.sql" >/dev/null
 psql -Xq -v ON_ERROR_STOP=1 -f "$repo_dir/deploy/postgresql/autorizacion/migraciones/000001_autorizacion.up.sql" >/dev/null
 python3 "$base_dir/fixture_pg18.py" > "$test_dir/fixture.sql"
@@ -84,19 +117,58 @@ if lineas != ["antes=0", "sin_refresco=0", "con_refresco=1"]:
     raise SystemExit(f"snapshot PG18 no demostro refresco: {lineas}")
 PY
 
+# El transporte contenedor debe rechazar tanto una avería previa como la
+# pérdida de la respuesta después de un ROLLBACK ejecutado.
+if VEC_P6_TEST_PODMAN_FAIL=antes run_p6_contenedor --inventario \
+    > "$test_dir/transporte-antes.out" 2> "$test_dir/transporte-antes.err"; then
+  echo 'fallo de transporte previo fue aceptado' >&2; exit 1
+fi
+if VEC_P6_TEST_PODMAN_FAIL=sin_dba run_p6_contenedor --inventario \
+    > "$test_dir/sin-dba.out" 2> "$test_dir/sin-dba.err"; then
+  echo 'sesion sin DBA fue aceptada' >&2; exit 1
+fi
+if VEC_P6_TEST_PODMAN_FAIL=pg17 run_p6_contenedor --inventario \
+    > "$test_dir/pg17.out" 2> "$test_dir/pg17.err"; then
+  echo 'PostgreSQL 17 fue aceptado' >&2; exit 1
+fi
+bash "$base_dir/ejecutar.sh" --inventario >/dev/null
+if VEC_P6_TEST_PODMAN_FAIL=despues_rollback run_p6_contenedor --rollback \
+    > "$test_dir/transporte-rollback.out" 2> "$test_dir/transporte-rollback.err"; then
+  echo 'respuesta perdida tras ROLLBACK fue aceptada' >&2; exit 1
+fi
+grep -q 'revisar inventario privado' "$test_dir/transporte-rollback.err" || {
+  echo 'fallo de transporte no dejo diagnostico recuperable' >&2; exit 1;
+}
+
+# Una sesion nominal viva hace abortar la operacion antes de la revocacion.
+docker exec -u root "$container" psql -h 127.0.0.1 -U vec_dietas_r1d_dietas_desarrollo -d postgres \
+  -XAtq -v ON_ERROR_STOP=1 -c 'SELECT pg_sleep(8)' > "$test_dir/sesion-viva.out" &
+sesion_viva=$!
+sesion_detectada=f
+for _ in $(seq 1 40); do
+  sesion_detectada="$(psql -XAtq -v ON_ERROR_STOP=1 -c "SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE usename='vec_dietas_r1d_dietas_desarrollo')")"
+  [[ "$sesion_detectada" == t ]] && break
+  sleep 0.1
+done
+[[ "$sesion_detectada" == t ]] || { echo 'sesion nominal de prueba no aparecio' >&2; exit 1; }
+if run_p6_contenedor --rollback > "$test_dir/sesion-viva-p6.out" 2> "$test_dir/sesion-viva-p6.err"; then
+  echo 'operacion acepto sesion nominal viva' >&2; exit 1
+fi
+wait "$sesion_viva"
+
 psql -Xq -v ON_ERROR_STOP=1 -c 'CREATE ROLE vec_dietas_r1d_auditoria_frontera_desarrollo LOGIN;' >/dev/null
-if bash "$base_dir/ejecutar.sh" --rollback > "$test_dir/noveno.out" 2> "$test_dir/noveno.err"; then
+if run_p6_contenedor --rollback > "$test_dir/noveno.out" 2> "$test_dir/noveno.err"; then
   echo 'noveno LOGIN no fue rechazado' >&2; exit 1
 fi
 psql -Xq -v ON_ERROR_STOP=1 -c 'DROP ROLE vec_dietas_r1d_auditoria_frontera_desarrollo;' >/dev/null
 
 psql -Xq -v ON_ERROR_STOP=1 -c 'CREATE ROLE p6_otro_login LOGIN; GRANT vec_dietas_ejecutor TO p6_otro_login WITH ADMIN FALSE, INHERIT TRUE, SET TRUE;' >/dev/null
-if bash "$base_dir/ejecutar.sh" --rollback > "$test_dir/ruta-dietas.out" 2> "$test_dir/ruta-dietas.err"; then
+if run_p6_contenedor --rollback > "$test_dir/ruta-dietas.out" 2> "$test_dir/ruta-dietas.err"; then
   echo 'LOGIN ajeno con grupo Dietas no fue rechazado' >&2; exit 1
 fi
 psql -Xq -v ON_ERROR_STOP=1 -c 'REVOKE vec_dietas_ejecutor FROM p6_otro_login; DROP ROLE p6_otro_login;' >/dev/null
 
-bash "$base_dir/ejecutar.sh" --rollback
+run_p6_contenedor --rollback
 python3 - "$test_dir" <<'PY'
 import glob
 import json
@@ -115,10 +187,10 @@ if not any(r["grupo"] == "vec_autorizacion_fuente" and r["login"] == "p6_ct_shar
            and r["uso"] and r["set"] for r in inventario["login_con_grupo"]):
     raise SystemExit("inventario no muestra LOGIN con acceso efectivo a grupo compartido")
 PY
-bash "$base_dir/ejecutar.sh" --commit 2> "$test_dir/commit-sin-autorizacion.err" && {
+run_p6_contenedor --commit 2> "$test_dir/commit-sin-autorizacion.err" && {
   echo 'COMMIT sin bandera fue aceptado' >&2; exit 1;
 }
-VEC_P6_APLICAR=SI-P6-REVISADO bash "$base_dir/ejecutar.sh" --commit
+VEC_P6_APLICAR=SI-P6-REVISADO run_p6_contenedor --commit
 if docker exec -u root "$container" psql -h 127.0.0.1 -U vec_dietas_r1d_dietas_desarrollo -d postgres \
     -c 'SELECT 1' > "$test_dir/conexion-rechazada.out" 2> "$test_dir/conexion-rechazada.err"; then
   echo 'conexion Dietas posterior a COMMIT fue aceptada' >&2; exit 1
@@ -126,7 +198,7 @@ fi
 grep -q 'not permitted to log in' "$test_dir/conexion-rechazada.err" || {
   echo 'conexion rechazada por causa distinta de NOLOGIN' >&2; exit 1;
 }
-if VEC_P6_APLICAR=SI-P6-REVISADO bash "$base_dir/ejecutar.sh" --commit \
+if VEC_P6_APLICAR=SI-P6-REVISADO run_p6_contenedor --commit \
     > "$test_dir/reentrada.out" 2> "$test_dir/reentrada.err"; then
   echo 'reentrada COMMIT no fue rechazada' >&2; exit 1
 fi
