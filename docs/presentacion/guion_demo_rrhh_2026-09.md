@@ -8,7 +8,7 @@ simular ni afirmar como demostradas hasta que Dirección las reactive.
 
 ## Orden de la demostración
 
-1. Abrir el portal de empleado de cidonia y recorrer las lecturas que estén accesibles.
+1. Abrir el portal de empleado de cidonia y comenzar la bandeja de Contratación por un expediente con número legible `2026/CT-0000NN`; los números con hash pertenecen a pruebas E2E sintéticas y no se usan en la demostración.
 2. Mostrar el cuadro de Bolsa y la lista B5/B6 únicamente si el servidor entrega sus
    contratos reales y autorizados.
 3. Cuando Dirección reactive B-BACK, abrir el recorrido B7: bolsa, candidatos ordenados,

@@ -108,7 +108,17 @@ test("el resumen inicial escapa datos de la fila y conserva texto y clase de est
   assert.match(html, /Centro &lt;seguro&gt;/u);
   assert.match(html, /class="ct-exp-chip ct-fase-en_curso">En curso &lt;seguro&gt;<\/span>/u);
   assert.match(html, /data-ct-exp-abrir="expediente:ct:resumen:&amp;lt;script&amp;gt;"/u);
+  assert.match(html, /class="ct-resumen"/u);
   assert.doesNotMatch(html, /<script>/u);
+});
+
+test("la bandeja presenta una referencia de centro legible y deja la técnica en title", () => {
+  const t = crearTraductorExpedientesContratacion();
+  const html = renderizarCuadro({ vista: "cuadro", carga: "listo", cuadro: {
+    demostracion: false, indicadores: [], expedientes: [{ expediente_ref: "expediente:ct:centro", numero_visible: "2026/CT-000042", centro: "centro:desarrollo:001", categoria: "Auxiliar", modalidad: "Sustitución", estado_clave: "en_curso", estado: "En curso", fase_actual: "Solicitud", plazo: "Sin plazo" }],
+  }, filtros: { texto: "", estado: "", fase: "" } }, t);
+  assert.match(html, /title="centro:desarrollo:001">Centro desarrollo · 001/u);
+  assert.match(html, /<dl class="ct-resumen">/u);
 });
 
 test("el control de resumen abre una fila, cierra las demás y no selecciona expediente", async () => {

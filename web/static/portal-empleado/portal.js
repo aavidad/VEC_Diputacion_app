@@ -449,6 +449,10 @@ function actualizarNavegacionModulos() {
   contenedor.innerHTML = coordinadorModulos.renderizarNavegacion(disponibilidad, moduloActivo, vistaPermitida);
   const fase = porId("texto-estado-modulos-portal");
   if (fase) {
+    if (estado.datosBolsas === null && !estado.modoPresentacion) {
+      fase.textContent = "Fase inicial: comprobando módulos";
+      return;
+    }
     const disponibles = ["bolsa", "contratacion_temporal", "cronos", "dietas"]
       .filter((clave) => resolverAccesoPerfil(clave).disponible).length;
     fase.textContent = disponibles > 0
@@ -487,6 +491,10 @@ function navegar(vista, opciones = {}) {
   anunciar(`Vista ${tituloDeVista(vista)[1]} abierta`);
 }
 function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } = {}) {
+  if (vista === "llamamientos" && !estado.bolsaSeleccionada) {
+    contenedor.innerHTML = renderizarLlamamientoSinBolsa();
+    return;
+  }
   if (vista === "elaboracion" && estado.modoPresentacion && !estado.fuenteLista) {
     contenedor.innerHTML = renderizarFuenteNoDisponible(); return;
   }
@@ -528,6 +536,19 @@ function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } =
   };
   contenedor.innerHTML = (renderizadores[vista] || renderizarFuenteNoDisponible)();
   aplicarBarrasDinamicas(contenedor);
+}
+
+function renderizarLlamamientoSinBolsa() {
+  return `${encabezadoVista(
+    "Gestión interna de Bolsas",
+    "Nuevo llamamiento",
+    "El llamamiento se inicia desde una bolsa concreta para conservar el orden B6 y su ámbito autorizado.",
+  )}
+    <section class="panel"><div class="cuerpo-panel vacio-controlado" role="status">
+      <p><strong>Elija una bolsa para iniciar un llamamiento.</strong></p>
+      <p>El orden del reglamento sigue provisional hasta resolver las dudas 13–14. El correo usa el relay de pruebas, no un buzón corporativo.</p>
+      <div class="acciones-vista"><a class="boton-primario" href="#bolsa/resumen">Ir al cuadro de bolsas</a></div>
+    </div></section>`;
 }
 function actualizarVistaBolsa({ activar = false } = {}) {
   const contenedor = porId("espacio-trabajo");

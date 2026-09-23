@@ -34,7 +34,8 @@
 }
 
 .barra-filtros-estadisticas .campo-filtro select,
-.barra-filtros-estadisticas .campo-filtro input[type="date"] {
+.barra-filtros-estadisticas .campo-filtro input[type="date"],
+.barra-filtros-estadisticas .campo-filtro input[type="search"] {
   width: 100%;
   padding: 8px 12px;
   font-size: 0.9rem;
@@ -46,7 +47,8 @@
 }
 
 .barra-filtros-estadisticas .campo-filtro select:focus,
-.barra-filtros-estadisticas .campo-filtro input[type="date"]:focus {
+.barra-filtros-estadisticas .campo-filtro input[type="date"]:focus,
+.barra-filtros-estadisticas .campo-filtro input[type="search"]:focus {
   outline: none;
   border-color: #0284c7;
   box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);

@@ -408,7 +408,7 @@ export function crearPresentadorPanelInterno(dependencias) {
       <button type="button" class="tarjeta-estado" data-bolsa-accion="filtrar-estado" data-estado="${escaparHTML(estado)}" aria-pressed="${filtrosActuales.estado === estado}"><span>${escaparHTML(etiquetaClave(estado))}</span><strong>${numero(total)}</strong></button>
     `).join("");
     const formularioFiltros = `
-      <form class="barra-filtros-bolsa" data-bolsa-form="filtros" role="search" aria-label="Filtros de candidatos">
+      <form class="barra-filtros-bolsa barra-filtros-estadisticas" data-bolsa-form="filtros" role="search" aria-label="Filtros de candidatos">
         <div class="campo-filtro">
           <label for="filtro-bolsa-estado">Situación:</label>
           <select id="filtro-bolsa-estado" name="estado">${opcionesEstado}</select>
@@ -438,7 +438,7 @@ export function crearPresentadorPanelInterno(dependencias) {
         return `
           <tr data-participacion-ref="${escaparHTML(c.participacion_ref)}">
             <td><strong>${c.orden === null ? "—" : `#${numero(c.orden)}`}</strong>${c.razon_orden !== "orden_acta" ? `<br><small>${escaparHTML(c.razon_orden === "reposicion_tras_contrato" ? "Reposición tras contrato" : c.razon_orden === "pausa" ? "Pausa" : etiquetaClave(c.razon_orden))}</small>` : ""}</td>
-            <td><button type="button" class="boton-secundario" data-bolsa-accion="abrir-ficha" data-bolsa-control-principal="true" data-participacion-ref="${escaparHTML(c.participacion_ref)}" aria-expanded="${fichaAbierta}" aria-controls="${escaparHTML(fichaId)}" aria-label="Abrir ficha de participación de ${escaparHTML(c.nombre_visible)}"><strong>${escaparHTML(c.nombre_visible)}</strong></button></td>
+            <td><button type="button" class="enlace-tabla" data-bolsa-accion="abrir-ficha" data-bolsa-control-principal="true" data-participacion-ref="${escaparHTML(c.participacion_ref)}" aria-expanded="${fichaAbierta}" aria-controls="${escaparHTML(fichaId)}" aria-label="Abrir ficha de participación de ${escaparHTML(c.nombre_visible)}"><strong>${escaparHTML(c.nombre_visible)}</strong></button></td>
             <td><code>${escaparHTML(c.documento_enmascarado)}</code></td>
             <td><span class="estado-chip ${claseEstado(c.estado_clave)}">● ${escaparHTML(etiquetaClave(c.estado_clave))}</span></td>
             <td><small>${escaparHTML(instanteVisible(c.estado_desde))}</small></td>
