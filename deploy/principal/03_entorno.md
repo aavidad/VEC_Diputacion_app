@@ -87,53 +87,26 @@ No se versionan el fichero efectivo, contraseñas, certificados ni DSN reales.
 
 ## D3-B11: acceso personal de Bolsa en desarrollo
 
-En cidonia, con AD3 `000043` y Bolsa `000010` ya instaladas, preparar **fuera de
-Git** un candidato sintético distinto de RRHH e Intervención. No ejecutar de
-nuevo esas migraciones. Usar la CA que ya está en
-`$VEC_DEVELOPMENT_MATERIAL_DIR/ca/`; emitir `mtls/candidato.crt` y
-`mtls/candidato.key` con el mismo procedimiento de
-`scripts/generar_credenciales_desarrollo.sh` para `cliente`, cambiando el CN y
-SAN a `candidato-bolsa-desarrollo` y `urn:vec:desarrollo:candidato-bolsa`.
-Mantener certificado, clave, CSR, extensión y contraseña PKCS#12 en el directorio
-privado, propietario del servicio, modo `0600`; exportar PKCS#12 para el
-navegador del ensayo. La clave y la contraseña no entran en JSON ni en Git.
+En cidonia, tras instalar las migraciones autorizadas, ejecutar **como `openclaw`**:
 
-1. Con acceso de lectura del propietario de Bolsa, elegir **una participación
-   importada existente** y anotar `candidato_ref` mediante
-   `SELECT candidato_ref, participacion_ref FROM
-   vec_bolsa_llamamientos.vinculo_candidato WHERE candidato_ref = '<ref>'`.
-   No inventar un `can_` ni importar otra bolsa para esta prueba.
-2. Calcular `certificate_sha256` como SHA-256 del DER de
-   `mtls/candidato.crt` (`openssl x509 -in ... -outform DER | sha256sum`).
-   Elegir un `subject` opaco `per_...` sintético, exclusivo del candidato.
-   Calcular las referencias con SHA-256 y los **primeros 16 bytes** en hex:
-   `cuenta_ref = "cta_" + SHA256("vec.ct.alta.desarrollo.v1\0" + subject +
-   "\0" + certificate_sha256 + "\0cuenta")[:16]`;
-   `persona_ref` usa el mismo material y sufijo `\0persona` con prefijo
-   `per_`. Elegir `perfil_ref` opaco `prf_...` exclusivo.
-3. Crear `identidad/candidato.json` (modo `0600`) con
-   `{"version":1,"autoridad":"no_autoritativo","certificate_sha256":"<SHA256 DER>","subject":"<subject>","display_name":"Candidato sintético","roles":["candidato_bolsa"]}`.
-   Crear `identidad/bolsa-candidato.json` (modo `0600`) con
-   `{"version":1,"autoridad":"no_autoritativo","certificado":"mtls/candidato.crt","identidad":"identidad/candidato.json","sujeto":"<subject>","cuenta_ref":"<cuenta_ref>","persona_ref":"<persona_ref>","perfil_ref":"<perfil_ref>","candidato_ref":"<ref importada>"}`.
-4. En la base de desarrollo y mediante el propietario de
-   `vec_contexto_actor_v1`, proyectar esa cuenta, persona, perfil, vínculo de
-   cuenta a perfil y **un solo** vínculo vigente de tipo `candidato` a la
-   referencia importada. La plantilla exacta de columnas, tablas `*_versiones`
-   y punteros `*_actual` es
-   `deploy/postgresql/contexto_actor_v1/pruebas_sql/fixtures_sinteticos.sql`:
-   sustituir sus cinco referencias opacas y la procedencia por valores nuevos,
-   el tipo/referencia del primer vínculo por `candidato`/`<ref importada>`,
-   **omitir** su segundo vínculo de ejemplo y sustituir **todas** las ocurrencias
-   de `no_autoritativa` en la proyección SQL por
-   `autoridad_maestra_acreditada` (contrato del resolutor registrado; véase
-   `deploy/postgresql/autorizacion/pruebas_sql/fixture_contexto_actor_v3.sql`).
-   Usar una transacción y vigencia que incluya el momento del ensayo; comprobar
-   que no existe otro vínculo `candidato` vigente para esa persona. No insertar
-   en el registro `contexto_actor_v1`: el arranque y cada GET lo crean mediante
-   el resolutor registrado existente.
-5. Reiniciar solo la instancia de desarrollo y consultar
-   `GET /api/vec/bolsa/mi-bolsa` con el PKCS#12 del candidato: esperar `200` y
-   el aviso de certificado sintético. Repetir con el certificado RRHH (denegado)
-   y probar una ruta interna con el candidato (denegada). Si no hay material
-   válido o la participación no coincide, el arranque falla cerrado. Cl@ve,
-   certificado FNMT y DNIe dependen de la pasarela de Sistemas.
+```bash
+bash deploy/principal/preparar_candidato_desarrollo.sh
+```
+
+El script usa el material de `${XDG_STATE_HOME:-$HOME/.local/state}/vec-diputacion/desarrollo`,
+`vec-postgresql-20260906` y la base `postgres` por defecto. Se pueden ajustar
+`VEC_DEVELOPMENT_MATERIAL_DIR`, `VEC_PRINCIPAL_POSTGRES_CONTAINER`, `VEC_CANDIDATE_DATABASE`,
+`VEC_CANDIDATE_DATABASE_USER`, `VEC_CANDIDATE_BOLSA_REF` y
+`VEC_CANDIDATE_BASE_URL`. Emite el certificado y el PKCS#12 con la CA existente;
+elige una participación importada de bolsa vigente; calcula las referencias
+opacas y escribe los dos manifiestos privados tras ensayar la proyección SQL
+con `ROLLBACK` y aplicarla con `COMMIT`. Repetirlo con el mismo material y
+proyección no duplica filas ni sobrescribe ficheros. Ante material parcial,
+referencias distintas o vínculo candidato previo distinto, se detiene.
+
+Al terminar imprime el `podman restart` de la aplicación y el `curl` mTLS
+exactos para `GET /api/vec/bolsa/mi-bolsa`. Ese GET y los controles negativos
+con RRHH y con una ruta interna siguen siendo comprobaciones del operador en
+cidonia; el script no reinicia servicios ni declara el HTTP probado. El
+certificado es sintético y no sustituye Cl@ve, FNMT ni DNIe, que dependen de la
+pasarela de Sistemas. No reaplicar AD3 `000043` ni Bolsa `000010`.
