@@ -62,6 +62,12 @@ func (r *recursoPoolConsultasCT) cerrar() error {
 }
 
 func nuevaAplicacionLecturaCT(ctx context.Context, cfg Configuracion, p proveedoresLecturaCT) (*AplicacionInterna, error) {
+	transferida := false
+	defer func() {
+		if !transferida {
+			cerrarProveedoresNoTransferidos(p)
+		}
+	}()
 	if ctx == nil || ctx.Err() != nil || cfg.Validar() != nil || p.identidad == nil ||
 		interfazNulaIdentidadOffline(p.extractor) || p.servicioVEC == nil ||
 		interfazNulaIdentidadOffline(p.autoridadRutas) ||
@@ -73,21 +79,6 @@ func nuevaAplicacionLecturaCT(ctx context.Context, cfg Configuracion, p proveedo
 		interfazNulaIdentidadOffline(p.actor.reloj) || p.consultas.pool == nil {
 		return nil, ErrDependenciasProductivasNoDisponibles
 	}
-	transferida := false
-	defer func() {
-		if transferida {
-			return
-		}
-		// La adquisición todavía pertenece a la raíz si algún constructor
-		// falla. Cerrar del pool es idempotente; recursos ya reclamados por
-		// nuevaAplicacionInterna se cierran allí y no se reclaman otra vez.
-		p.consultas.pool.Cerrar()
-		for _, recurso := range p.recursos {
-			if !interfazNulaIdentidadOffline(recurso) && recurso.reclamarPropiedad() {
-				_ = cerrarRecursoAplicacionInterna(recurso)
-			}
-		}
-	}()
 	p.actor.identidad = p.identidad
 	rutas, err := nuevasRutasConsultasRRHH(p.consultas, autoridadContextoConsultaRRHH{
 		actor: p.actor, ambitos: p.ambitos,
@@ -117,4 +108,18 @@ func nuevaAplicacionLecturaCT(ctx context.Context, cfg Configuracion, p proveedo
 	}
 	transferida = true
 	return aplicacion, nil
+}
+
+func cerrarProveedoresNoTransferidos(p proveedoresLecturaCT) {
+	// Un error puede ocurrir antes de crear el servidor o incluso antes de
+	// recibir el conjunto completo. Los recursos ya reclamados por
+	// nuevaAplicacionInterna tienen su propio cierre y no se reclaman de nuevo.
+	if p.consultas.pool != nil {
+		p.consultas.pool.Cerrar()
+	}
+	for _, recurso := range p.recursos {
+		if !interfazNulaIdentidadOffline(recurso) && recurso.reclamarPropiedad() {
+			_ = cerrarRecursoAplicacionInterna(recurso)
+		}
+	}
 }

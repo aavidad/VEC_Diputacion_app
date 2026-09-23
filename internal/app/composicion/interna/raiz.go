@@ -129,6 +129,12 @@ func NuevoServidor(cfg Configuracion) (*ServidorInterno, error) {
 // esta raíz devuelve un inventario verificable antes de construir o escuchar.
 // Los adaptadores de prueba no se conectan al arranque productivo.
 func NuevaAplicacion(ctx context.Context, cfg Configuracion) (*AplicacionInterna, error) {
+	return nuevaAplicacionConCargador(ctx, cfg, obtenerProveedoresLecturaCT)
+}
+
+type cargadorProveedoresLecturaCT func(context.Context, Configuracion) (proveedoresLecturaCT, error)
+
+func nuevaAplicacionConCargador(ctx context.Context, cfg Configuracion, cargar cargadorProveedoresLecturaCT) (*AplicacionInterna, error) {
 	if ctx == nil {
 		return nil, ErrDependenciasProductivasNoDisponibles
 	}
@@ -138,8 +144,12 @@ func NuevaAplicacion(ctx context.Context, cfg Configuracion) (*AplicacionInterna
 	if err := cfg.Validar(); err != nil {
 		return nil, err
 	}
-	proveedores, err := obtenerProveedoresLecturaCT(ctx, cfg)
+	if cargar == nil {
+		return nil, ErrDependenciasProductivasNoDisponibles
+	}
+	proveedores, err := cargar(ctx, cfg)
 	if err != nil {
+		cerrarProveedoresNoTransferidos(proveedores)
 		return nil, err
 	}
 	return nuevaAplicacionLecturaCT(ctx, cfg, proveedores)
