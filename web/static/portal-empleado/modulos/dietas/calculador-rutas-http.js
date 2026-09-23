@@ -199,7 +199,7 @@ async function solicitarJSON(fetchImpl, ruta, configuracion, signalExterno, tiem
     const operacion = (async () => {
       respuesta = await fetchImpl(ruta, {
         ...configuracion,
-        credentials: "omit",
+        credentials: "same-origin",
         mode: "same-origin",
         redirect: "error",
         cache: "no-store",

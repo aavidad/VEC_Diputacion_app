@@ -94,7 +94,9 @@ test("la carga inicial usa solo las APIs de Bolsa que están compuestas", () => 
   assert.doesNotMatch(javascript, /const cargaDisponibilidad = superficieBorradores/);
   assert.match(javascript, /await coordinadorModulos\.cargarInterno\(\)\.catch/);
   assert.match(javascript, /controladorBolsas\.cargarBolsas\(\)/);
-  assert.doesNotMatch(`${javascript}\n${apiLlamamientos}`, /credentials: "(?:same-origin|include)"/);
+  // same-origin es obligatorio para presentar el certificado mTLS (y la
+  // autenticación de la demo en el proxy); include enviaría credenciales a otros orígenes.
+  assert.doesNotMatch(`${javascript}\n${apiLlamamientos}`, /credentials: "include"/);
   assert.doesNotMatch(javascript, /document\.cookie|localStorage.*(?:token|sesion|auth)/i);
   assert.doesNotMatch(javascript, /PROVEEDOR_BEARER_BORRADORES|globalThis\[[^\]]*BEARER/i);
   assert.doesNotMatch(javascript, /Bearer|Authorization|resolverProveedorBearer|obtenerBearer/i);

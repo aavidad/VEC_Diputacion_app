@@ -103,7 +103,7 @@ test("el cliente emite exactamente el POST y las dos cabeceras permitidas", asyn
   assert.equal(ruta, "/api/vec/bolsa/propuestas-llamamiento");
   assert.deepEqual(opciones, {
     method: "POST",
-    credentials: "omit",
+    credentials: "same-origin",
     headers: { Accept: "application/json", "Content-Type": "application/json" },
     body: JSON.stringify({
       data: {

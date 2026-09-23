@@ -2,7 +2,7 @@
  * Cliente HTTP seguro para la consulta interna de Bolsas y Candidatos.
  *
  * Sigue la política de seguridad DEC-053:
- * - credentials: "omit" en toda llamada.
+ * - credentials: "same-origin" en toda llamada.
  * - Accept: "application/json".
  * - Validación exhaustiva con los contratos de portal-bolsas-contrato.js.
  */
@@ -53,7 +53,7 @@ export async function consultarBolsas({ fetchImpl = fetch, signal } = {}) {
   try {
     const respuesta = await fetchImpl(RUTA_BOLSAS, {
       method: "GET",
-      credentials: "omit",
+      credentials: "same-origin",
       signal,
       headers: { Accept: "application/json" },
     });
@@ -91,7 +91,7 @@ export async function consultarBolsas({ fetchImpl = fetch, signal } = {}) {
 
 export async function consultarEstadisticasBolsa({ fetchImpl = fetch, signal } = {}) {
   try {
-    const respuesta = await fetchImpl(RUTA_ESTADISTICAS_BOLSA, { method: "GET", credentials: "omit", signal, headers: { Accept: "application/json" } });
+    const respuesta = await fetchImpl(RUTA_ESTADISTICAS_BOLSA, { method: "GET", credentials: "same-origin", signal, headers: { Accept: "application/json" } });
     if (!respuesta.ok) {
       const mensajes = { 401: "Se requiere una sesión interna autenticada.", 403: "La sesión no dispone de permisos para consultar estadísticas de Bolsa.", 404: "El servicio de estadísticas de Bolsa no está disponible." };
       return { ok: false, status: respuesta.status, codigo: respuesta.status === 403 ? "acceso_denegado" : "error_servidor", mensaje: mensajes[respuesta.status] || `No se pudieron consultar las estadísticas de Bolsa (HTTP ${respuesta.status}).` };
@@ -112,7 +112,7 @@ export async function consultarCandidatosBolsa(bolsaRef, opciones = {}, { fetchI
   try {
     const respuesta = await fetchImpl(url, {
       method: "GET",
-      credentials: "omit",
+      credentials: "same-origin",
       signal,
       headers: { Accept: "application/json" },
     });
@@ -160,7 +160,7 @@ export async function cambiarSituacionCandidato(bolsaRef, participacionRef, payl
   }
   try {
     const respuesta = await fetchImpl(`${RUTA_BOLSAS}/${segmentoRuta(bolsaRef)}/candidatos/${segmentoRuta(participacionRef)}/situacion`, {
-      method: "POST", credentials: "omit",
+      method: "POST", credentials: "same-origin",
       headers: { Accept: "application/json", "Content-Type": "application/json", "Idempotency-Key": payload.clave_idempotencia },
       body: JSON.stringify({ situacion: payload.situacion, motivo: payload.motivo, fecha_disponible: payload.fecha_disponible || null }),
     });
@@ -187,7 +187,7 @@ export async function consultarContactosCandidato(bolsaRef, participacionRef, { 
   try {
     const respuesta = await fetchImpl(url, {
       method: "GET",
-      credentials: "omit",
+      credentials: "same-origin",
       signal,
       headers: { Accept: "application/json" },
     });
@@ -226,7 +226,7 @@ export async function consultarContactosCandidato(bolsaRef, participacionRef, { 
 export async function registrarContactoCandidato(bolsaRef, participacionRef, payload, { fetchImpl = fetch } = {}) {
   if (!bolsaRef || !participacionRef || !payload?.canal || !payload?.resultado || !payload?.anotacion || !payload?.clave_idempotencia) return { ok:false,status:400,codigo:"solicitud_invalida",mensaje:traducirBolsaInterna("contacto_solicitud_invalida") };
   try {
-    const respuesta=await fetchImpl(`${RUTA_BOLSAS}/${segmentoRuta(bolsaRef)}/candidatos/${segmentoRuta(participacionRef)}/contactos`,{method:"POST",credentials:"omit",headers:{Accept:"application/json","Content-Type":"application/json","Idempotency-Key":payload.clave_idempotencia},body:JSON.stringify({canal:payload.canal,resultado:payload.resultado,anotacion:payload.anotacion,instante:payload.instante,llamamiento_ref:payload.llamamiento_ref||""})});
+    const respuesta=await fetchImpl(`${RUTA_BOLSAS}/${segmentoRuta(bolsaRef)}/candidatos/${segmentoRuta(participacionRef)}/contactos`,{method:"POST",credentials: "same-origin",headers:{Accept:"application/json","Content-Type":"application/json","Idempotency-Key":payload.clave_idempotencia},body:JSON.stringify({canal:payload.canal,resultado:payload.resultado,anotacion:payload.anotacion,instante:payload.instante,llamamiento_ref:payload.llamamiento_ref||""})});
     const cuerpo=await respuesta.json().catch(()=>({})); if(respuesta.ok&&cuerpo?.data?.recibo_ref)return{ok:true,datos:cuerpo.data}; return{ok:false,status:respuesta.status,codigo:cuerpo?.error?.codigo||"error_servidor",mensaje:traducirBolsaInterna(respuesta.status===403?"contacto_permiso_denegado":respuesta.status===409?"contacto_clave_conflicto":"contacto_registro_error")};
   } catch(_error){return{ok:false,status:0,codigo:"error_red",mensaje:traducirBolsaInterna("contacto_comunicacion_error")}}
 }

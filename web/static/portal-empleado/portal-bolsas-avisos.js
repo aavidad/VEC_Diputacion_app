@@ -38,7 +38,7 @@ export async function consultarAvisosBolsa({ cursor = "", limite = 6, fetchImpl 
   const parametros = new URLSearchParams({ limite: String(limite) });
   if (cursor) parametros.set("cursor", cursor);
   try {
-    const respuesta = await fetchImpl(`${RUTA_AVISOS_BOLSA}?${parametros}`, { method: "GET", credentials: "omit", signal, headers: { Accept: "application/json" } });
+    const respuesta = await fetchImpl(`${RUTA_AVISOS_BOLSA}?${parametros}`, { method: "GET", credentials: "same-origin", signal, headers: { Accept: "application/json" } });
     if (!respuesta.ok) {
       const mensajes = { 401: "Se requiere una sesión interna autenticada.", 403: "La sesión no dispone de ámbito para consultar avisos.", 404: "El servicio de avisos no está disponible." };
       return { ok: false, status: respuesta.status, mensaje: mensajes[respuesta.status] || `No se pudieron consultar los avisos (HTTP ${respuesta.status}).` };

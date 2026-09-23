@@ -43,7 +43,7 @@ test("cliente GET omite cookies, no usa caché y valida envelope y ETag", async 
   assert.equal((await cliente.listar()).elementos.length, 1);
   assert.equal((await cliente.obtenerDetalle("convocatoria:externa:2026#1", limites())).etag, detalle().etag);
   for (const llamada of llamadas) {
-    assert.equal(llamada.opcionesFetch.credentials, "omit");
+    assert.equal(llamada.opcionesFetch.credentials, "same-origin");
     assert.equal(llamada.opcionesFetch.cache, "no-store");
     assert.equal(llamada.opcionesFetch.redirect, "error");
     assert.equal(llamada.opcionesFetch.referrerPolicy, "no-referrer");
@@ -63,7 +63,7 @@ test("el canal interno autenticado funciona sin proveedor Bearer ni Authorizatio
   });
   assert.equal((await cliente.obtenerOpciones()).esquema, ESQUEMAS_BORRADORES.opciones);
   assert.equal(opcionesFetch.headers.has("authorization"), false);
-  assert.equal(opcionesFetch.credentials, "omit");
+  assert.equal(opcionesFetch.credentials, "same-origin");
 });
 
 test("la configuración cerrada rechaza cualquier proveedor de credenciales", () => {
@@ -605,7 +605,7 @@ test("fuente del cliente no contiene cookies, storage ni adaptador de presentaci
   assert.doesNotMatch(codigo, /document\.cookie|localStorage|sessionStorage|datos-presentacion\.js/);
   assert.doesNotMatch(api, /new TextEncoder/);
   assert.doesNotMatch(api, /respuesta\.text\s*\(/);
-  assert.match(api, /credentials: "omit"/);
+  assert.match(api, /credentials: "same-origin"/);
   assert.match(api, /crypto|getRandomValues/);
   assert.match(api, /"Idempotency-Key"/);
   assert.match(api, /"If-Match"/);

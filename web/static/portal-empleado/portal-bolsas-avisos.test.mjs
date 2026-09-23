@@ -36,7 +36,7 @@ test("consulta sin credenciales web y valida el contrato", async () => {
     return { ok: true, json: async () => ({ data: datos }) };
   } });
   assert.equal(resultado.ok, true);
-  assert.equal(observada.opciones.credentials, "omit");
+  assert.equal(observada.opciones.credentials, "same-origin");
   assert.equal(observada.opciones.method, "GET");
   assert.match(observada.ruta, /^\/api\/vec\/bolsa\/avisos\?limite=6$/);
   assert.equal(validarAvisosBolsa({ data: datos }), datos);

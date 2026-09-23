@@ -200,7 +200,7 @@ test("proyecta catalogo sin coordenadas y mapea OSRM interno al contrato no liqu
   for (const llamada of llamadas) {
     assert.match(llamada.ruta, /^\/api\/vec\/[a-z/-]+$/u);
     assert.doesNotMatch(llamada.ruta, /^[a-z][a-z0-9+.-]*:/iu);
-    assert.equal(llamada.opciones.credentials, "omit");
+    assert.equal(llamada.opciones.credentials, "same-origin");
     assert.equal(llamada.opciones.mode, "same-origin");
     assert.equal(llamada.opciones.redirect, "error");
     assert.equal(llamada.opciones.cache, "no-store");
@@ -240,7 +240,7 @@ test("impone en todo fetch productivo la política same-origin sin cookies ni re
   assert.equal(llamadas.length, 2);
   llamadas.forEach(({ ruta, opciones }) => {
     assert.match(ruta, /^\/api\/vec\//u);
-    assert.equal(opciones.credentials, "omit");
+    assert.equal(opciones.credentials, "same-origin");
     assert.equal(opciones.mode, "same-origin");
     assert.equal(opciones.redirect, "error");
     assert.equal(opciones.cache, "no-store");

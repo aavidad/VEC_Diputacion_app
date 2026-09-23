@@ -15,7 +15,7 @@ test("crea con contrato mínimo, identidad resuelta por servidor y clave criptog
   const resultado = await cliente.crear({ resumen: "Preparar cobertura interna" });
   assert.equal(resultado.borrador_ref, ref);
   assert.equal(llamada[0], RUTA_BORRADORES_LLAMAMIENTO);
-  assert.equal(llamada[1].credentials, "omit");
+  assert.equal(llamada[1].credentials, "same-origin");
   assert.equal(llamada[1].headers["Idempotency-Key"], `blam-${"07".repeat(24)}`);
   assert.deepEqual(JSON.parse(llamada[1].body), { resumen: "Preparar cobertura interna" });
   assert.equal(Object.hasOwn(llamada[1].headers, "Authorization"), false);

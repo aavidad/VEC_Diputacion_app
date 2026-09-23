@@ -442,7 +442,7 @@ export function crearClienteBorradores(configuracion = {}) {
           ...opciones,
           signal,
           headers,
-          credentials: "omit",
+          credentials: "same-origin",
           cache: "no-store",
           redirect: "error",
           referrerPolicy: "no-referrer",

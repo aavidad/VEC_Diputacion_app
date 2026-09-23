@@ -77,7 +77,7 @@ test("B7 emite por la ruta exacta con idempotencia y conserva el recibo", async 
   assert.equal(salida.ok, true);
   assert.equal(salida.datos.recibo_ref, `recibo:llamamiento:${huella}`);
   assert.equal(llamada.url, "/api/vec/bolsa/llamamientos/emisiones");
-  assert.equal(llamada.opciones.credentials, "omit");
+  assert.equal(llamada.opciones.credentials, "same-origin");
   assert.equal(llamada.opciones.headers["Idempotency-Key"], "b7-emision-0001");
   assert.deepEqual(JSON.parse(llamada.opciones.body).participaciones, ["participacion:01"]);
 });
@@ -86,7 +86,7 @@ test("P-WEB-08 valida y consulta las estadísticas agregadas de Bolsa", async ()
   const validado = validarRespuestaEstadisticas(envelope);
   assert.equal(validado.personas.total, 3);
   let llamada = "";
-  const resultado = await consultarEstadisticasBolsa({ fetchImpl: async (url, opciones) => { llamada = url; assert.equal(opciones.credentials, "omit"); return { ok: true, status: 200, json: async () => envelope }; } });
+  const resultado = await consultarEstadisticasBolsa({ fetchImpl: async (url, opciones) => { llamada = url; assert.equal(opciones.credentials, "same-origin"); return { ok: true, status: 200, json: async () => envelope }; } });
   assert.equal(llamada, "/api/vec/bolsa/estadisticas");
   assert.equal(resultado.datos.por_bolsa[0].categoria, "Auxiliar");
 });
@@ -99,7 +99,7 @@ test("cambiar situación B2 envía idempotencia y conserva el recibo", async () 
   assert.equal(resultado.ok, true);
   assert.equal(resultado.datos.recibo_ref, "recibo:situacion:01");
   assert.equal(observada.opciones.headers["Idempotency-Key"], "b2-cambio-0001");
-  assert.equal(observada.opciones.credentials, "omit");
+  assert.equal(observada.opciones.credentials, "same-origin");
   assert.match(observada.url, /\/bolsa:01\/candidatos\/participacion:01\/situacion$/);
 });
 import { crearPresentadorPanelInterno } from "./portal-panel-interno.js";
@@ -292,7 +292,7 @@ test("consultarBolsas cliente HTTP maneja 200, 401, 403, 404 y errores de red", 
   const { envelopeBolsas } = construirFixturesDesdeDemo();
   // Éxito 200
   const fetchOk = async (url, opciones) => {
-    assert.equal(opciones.credentials, "omit");
+    assert.equal(opciones.credentials, "same-origin");
     assert.equal(opciones.headers.Accept, "application/json");
     return {
       ok: true,
@@ -329,7 +329,7 @@ test("consultarCandidatosBolsa maneja parámetros, códigos de estado y cursor",
   let urlLlamada = "";
   const fetchMock = async (url, opciones) => {
     urlLlamada = url;
-    assert.equal(opciones.credentials, "omit");
+    assert.equal(opciones.credentials, "same-origin");
     return {
       ok: true,
       status: 200,

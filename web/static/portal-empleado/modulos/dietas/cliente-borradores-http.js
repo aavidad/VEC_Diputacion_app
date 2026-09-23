@@ -60,7 +60,7 @@ async function leerJSONAcotado(respuesta, signal) {
 }
 function codigoError(cuerpo, estado) { const codigo = typeof cuerpo?.error === "string" && cuerpo.error.startsWith("dietas.error.") ? cuerpo.error.slice("dietas.error.".length) : null; return CODIGOS_POR_ESTADO.get(estado)?.has(codigo) ? codigo : "respuesta_rechazada"; }
 async function ejecutar(fetchImpl, ruta, opciones, estadosCorrectos, signal, escritura = false) {
-  let respuesta; try { respuesta = await fetchImpl(ruta, { ...opciones, credentials: "omit", mode: "same-origin", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer", signal }); } catch { throw fallo(signal?.aborted ? "operacion_abortada" : "red_no_disponible", 0, escritura && !signal?.aborted); }
+  let respuesta; try { respuesta = await fetchImpl(ruta, { ...opciones, credentials: "same-origin", mode: "same-origin", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer", signal }); } catch { throw fallo(signal?.aborted ? "operacion_abortada" : "red_no_disponible", 0, escritura && !signal?.aborted); }
   if (!respuesta || respuesta.redirected === true) { await cancelarRespuesta(respuesta); throw fallo("respuesta_rechazada", respuesta?.status || 0, escritura); }
   const estado = respuesta.status || 0; let cuerpo;
   try { cuerpo = await leerJSONAcotado(respuesta, signal); } catch (causa) {

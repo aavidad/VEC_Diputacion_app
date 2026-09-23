@@ -2,7 +2,7 @@
  * Cliente HTTP seguro para la consulta de estadísticas de contratación temporal (C18 / G16).
  *
  * Sigue la política DEC-053:
- * - credentials: "omit".
+ * - credentials: "same-origin".
  * - Accept: "application/json".
  * - Validación exhaustiva con contrato-estadisticas.js.
  */
@@ -36,7 +36,7 @@ export async function consultarEstadisticas(filtros = {}, { fetchImpl = fetch } 
   try {
     const respuesta = await fetchImpl(url, {
       method: "GET",
-      credentials: "omit",
+      credentials: "same-origin",
       headers: { Accept: "application/json" },
     });
 

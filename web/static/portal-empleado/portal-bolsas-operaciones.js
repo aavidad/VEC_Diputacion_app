@@ -26,7 +26,7 @@ function respuestaInvalida(mensaje) {
 export async function consultarOperacionesSituacion(bolsa, participacion, { fetchImpl = fetch, signal } = {}) {
   try {
     const respuesta = await fetchImpl(rutaOperacionesSituacion(bolsa, participacion), {
-      method: "GET", credentials: "omit", signal, headers: { Accept: "application/json" },
+      method: "GET", credentials: "same-origin", signal, headers: { Accept: "application/json" },
     });
     if (!respuesta.ok) {
       const cuerpoError = await respuesta.json().catch(() => ({}));
@@ -76,7 +76,7 @@ export async function registrarOperacionSituacion(bolsa, participacion, comando,
   }
   try {
     const respuesta = await fetchImpl(rutaOperacionesSituacion(bolsa, participacion), {
-      method: "POST", credentials: "omit",
+      method: "POST", credentials: "same-origin",
       headers: { Accept: "application/json", "Content-Type": "application/json", "Idempotency-Key": clave },
       body: JSON.stringify(comando),
     });

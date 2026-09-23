@@ -304,7 +304,7 @@ test("contrato de acciones: validación de payload de crear llamamiento y result
 test("cliente API: consultarContactosCandidato maneja 200, 403 y errores", async () => {
   const mockFetchOk = async (url, opciones) => {
     assert.match(url, /\/api\/vec\/bolsa\/bolsas\/bolsa_123\/candidatos\/part_123\/contactos/);
-    assert.equal(opciones.credentials, "omit");
+    assert.equal(opciones.credentials, "same-origin");
     assert.equal(opciones.headers.Accept, "application/json");
     return {
       ok: true,
@@ -372,7 +372,7 @@ test("cliente API: crearLlamamientoCandidato y registrarResultadoLlamamiento emi
   assert.equal(resLlamar.ok, true);
   assert.match(llamadaLlamar.url, /\/api\/vec\/bolsa\/candidatos\/part_456\/llamamientos/);
   assert.equal(llamadaLlamar.opciones.method, "POST");
-  assert.equal(llamadaLlamar.opciones.credentials, "omit");
+  assert.equal(llamadaLlamar.opciones.credentials, "same-origin");
   const bodyLlamar = JSON.parse(llamadaLlamar.opciones.body);
   assert.equal(bodyLlamar.esquema, ESQUEMA_ACCION_BOLSA);
   assert.equal(bodyLlamar.accion, "crear_llamamiento");

@@ -86,7 +86,7 @@ export function crearClienteBorradorLlamamiento({ fetchImpl = globalThis.fetch, 
   async function ejecutar(ruta, opciones, signal) {
     let respuesta;
     try {
-      respuesta = await fetchImpl(ruta, { ...opciones, signal, credentials: "omit", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer" });
+      respuesta = await fetchImpl(ruta, { ...opciones, signal, credentials: "same-origin", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer" });
       const envelope = await leerJSON(respuesta);
       if (!respuesta.ok) {
         const codigo = typeof envelope?.error?.codigo === "string" ? envelope.error.codigo : "error_http";
