@@ -227,8 +227,17 @@ export function montarContactoPropio({ contenedor, autorizacionServidor = null, 
   const acciones = nodo("div", "fila-acciones"); acciones.append(preparar, confirmar, cancelar);
   const estado = nodo("p", "nota"); estado.setAttribute("role", "status");
   estado.setAttribute("aria-live", "polite"); estado.setAttribute("tabindex", "-1");
-  const anterior = nodo("p", "nota", reciboAnterior?.reciboRef ? t("correctoAnterior", { recibo: reciboAnterior.reciboRef }) : "");
-  anterior.hidden = !reciboAnterior?.reciboRef || reciboAnterior.reciboRef === confirmacionReciente?.reciboRef;
+  const situacion = nodo("section", "contacto-operaciones-panel contacto-situacion-panel");
+  const cabeceraSituacion = nodo("div", "contacto-operaciones-cabecera");
+  cabeceraSituacion.append(nodo("h4", "", t("situacionTitulo")),
+    nodo("small", "", t("situacionVersion", { version: autorizacionServidor?.version ?? 0 })));
+  const cuerpoSituacion = nodo("div", "panel-contenido");
+  const verRecibo = nodo("details");
+  verRecibo.append(nodo("summary", "", t("verReciboVigente")),
+    nodo("p", "nota", reciboAnterior?.reciboRef ? t("reciboVigente", { recibo: reciboAnterior.reciboRef }) : ""));
+  verRecibo.hidden = !reciboAnterior?.reciboRef;
+  cuerpoSituacion.append(nodo("p", "", t("situacionSubtitulo")), verRecibo);
+  situacion.append(cabeceraSituacion, cuerpoSituacion);
   let confirmacionVigente = confirmacionReciente;
   confirmacionReciente = null;
   const listaPanel = nodo("section", "contacto-operaciones-panel");
@@ -239,8 +248,8 @@ export function montarContactoPropio({ contenedor, autorizacionServidor = null, 
   const lista = nodo("ul", "contacto-operaciones-lista");
   const mas = nodo("button", "boton-secundario", t("masOperaciones")); mas.type = "button";
   listaPanel.append(cabecera, lista, mas);
-  formulario.append(campo, acciones, estado, anterior);
-  contenedor.replaceChildren(formulario, listaPanel);
+  formulario.append(campo, acciones, estado);
+  contenedor.replaceChildren(formulario, listaPanel, situacion);
   let activa = true;
   let listaClave = "";
   const sincronizar = () => {
@@ -248,7 +257,7 @@ export function montarContactoPropio({ contenedor, autorizacionServidor = null, 
     const op = controlador.seleccion;
     if (controlador.cargado || op || !controlador.autorizado) confirmacionVigente = null;
     const habilitado = controlador.autorizado && !controlador.ocupado;
-    if (!controlador.autorizado) { entrada.value = ""; anterior.textContent = ""; anterior.hidden = true; }
+    if (!controlador.autorizado) { entrada.value = ""; verRecibo.replaceChildren(); situacion.hidden = true; }
     entrada.disabled = !habilitado;
     preparar.disabled = !habilitado || Boolean(controlador.operaciones.find((item) => item.estado === "preparada"));
     confirmar.hidden = op?.estado !== "preparada";

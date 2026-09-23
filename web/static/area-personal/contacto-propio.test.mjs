@@ -242,13 +242,34 @@ test("remonte tras 201 o 503 recuperado enfoca estado concreto con recibo origin
     const status = contenedor.children[0].children[2];
     assert.equal(contenedor.ownerDocument.activeElement, status);
     assert.match(status.textContent, /recibo-original/u);
-    assert.equal(contenedor.children[0].children[3].hidden, true);
+    assert.equal(contenedor.children[0].children.length, 3);
+    assert.match(contenedor.children[2].className, /contacto-situacion-panel/u);
     resolverIndiceNuevo(respuesta(200, { operaciones: [] }));
     await new Promise((resolve) => setImmediate(resolve));
     assert.doesNotMatch(status.textContent, /recibo-original/u);
     assert.equal(peticiones.filter((ruta) => ruta === RUTAS_OPERACIONES_CONTACTO.confirmar).length, 1);
     montaje.destruir();
   }
+});
+
+test("recarga con dos operaciones separa recibo vigente GET del detalle seleccionado", async () => {
+  const otra = `opr_${"b".repeat(22)}`;
+  const a = { ...confirmado(6), recibo_ref: "recibo-A" };
+  const b = { ...confirmado(7), operacion_ref: otra, recibo_ref: "recibo-B" };
+  const s = servidor([[200, { operaciones: [b, a] }], [200, a]]);
+  const c = crearControladorContactoPropio({ autorizacionServidor: { capacidad: true, version: 8 }, fetchImpl: s.fetchImpl });
+  await c.cargar();
+  const contenedor = contenedorDOM();
+  const montaje = montarContactoPropio({ contenedor, controlador: c, autorizacionServidor: { capacidad: true, version: 8 },
+    reciboAnterior: { reciboRef: "recibo-B", version: 8 } });
+  const status = contenedor.children[0].children[2];
+  assert.doesNotMatch(status.textContent, /recibo-[AB]/u);
+  const detalleVigente = contenedor.children[2].children[1].children[1];
+  assert.match(detalleVigente.children[1].textContent, /recibo-B/u);
+  await c.seleccionar(REF);
+  assert.match(status.textContent, /recibo-A/u);
+  assert.doesNotMatch(status.textContent, /recibo-B/u);
+  montaje.destruir();
 });
 
 test("403/404 no muestran datos ajenos; 409 entre pestañas exige consulta", async () => {
