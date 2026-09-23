@@ -530,3 +530,4 @@ END $post$;
 -- Falta congelar la postimagen AD3-54, completar DOWN y ejecutar E10/PG18.
 -- Se deja una guarda explícita y se retira sólo con esas dependencias cerradas.
 DO $incompleta$ BEGIN RAISE EXCEPTION 'Contacto3 WIP: falta AD3 post-CT51 y validación' USING ERRCODE='55000'; END $incompleta$;
+COMMIT;
