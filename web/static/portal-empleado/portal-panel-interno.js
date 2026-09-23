@@ -445,7 +445,7 @@ export function crearPresentadorPanelInterno(dependencias) {
             <td><strong>${c.orden === null ? "—" : `#${numero(c.orden)}`}</strong>${c.razon_orden !== "orden_acta" ? `<br><small>${escaparHTML(c.razon_orden === "reposicion_tras_contrato" ? "Reposición tras contrato" : c.razon_orden === "pausa" ? "Pausa" : etiquetaClave(c.razon_orden))}</small>` : ""}</td>
             <td><button type="button" class="enlace-tabla" data-bolsa-accion="abrir-ficha" data-bolsa-control-principal="true" data-participacion-ref="${escaparHTML(c.participacion_ref)}" aria-expanded="${fichaAbierta}" aria-controls="${escaparHTML(fichaId)}" aria-label="Abrir ficha de participación de ${escaparHTML(c.nombre_visible)}"><strong>${escaparHTML(c.nombre_visible)}</strong></button></td>
             <td><code>${escaparHTML(c.documento_enmascarado)}</code></td>
-            <td><span class="estado-chip ${claseEstado(c.estado_clave)}">● ${escaparHTML(etiquetaClave(c.estado_clave))}</span></td>
+            <td><span class="estado-chip ${claseEstado(c.estado_clave)}">${escaparHTML(etiquetaClave(c.estado_clave))}</span></td>
             <td><small>${escaparHTML(instanteVisible(c.estado_desde))}</small></td>
             <td><small>${c.disponible_desde ? escaparHTML(instanteVisible(c.disponible_desde)) : "—"}</small></td>
             <td>${detalleLlamamiento}</td>
@@ -619,7 +619,7 @@ export function crearPresentadorPanelInterno(dependencias) {
                 <div class="fila-resumen"><dt>Bolsa</dt><dd>${escaparHTML(bolsa.categoria)}<br><small>${escaparHTML(bolsa.categoria_clave)} · ${escaparHTML(etiquetaClave(bolsa.tipo_lista))}</small></dd></div>
                 <div class="fila-resumen"><dt>Vigencia</dt><dd>${escaparHTML(vigencia)}</dd></div>
                 <div class="fila-resumen"><dt>Nº orden vigente</dt><dd>${candidato.orden === null ? "Sin turno" : `#${numero(candidato.orden)}`} <small>(acta #${numero(candidato.orden_acta)})</small></dd></div>
-                <div class="fila-resumen"><dt>Situación</dt><dd><span class="estado-chip ${claseEstado(candidato.estado_clave)}">● ${escaparHTML(etiquetaClave(candidato.estado_clave))}</span> desde ${escaparHTML(instanteVisible(candidato.estado_desde))}</dd></div>
+                <div class="fila-resumen"><dt>Situación</dt><dd><span class="estado-chip ${claseEstado(candidato.estado_clave)}">${escaparHTML(etiquetaClave(candidato.estado_clave))}</span> desde ${escaparHTML(instanteVisible(candidato.estado_desde))}</dd></div>
                 ${disponibilidad}
                 <div class="fila-resumen"><dt>Referencia de participación</dt><dd><code>${escaparHTML(candidato.participacion_ref)}</code></dd></div>
                 ${ultimoLlamamiento}
