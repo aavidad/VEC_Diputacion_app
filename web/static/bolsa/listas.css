@@ -1,345 +1,244 @@
-/**
- * Estilos específicos para la consulta pública de listas de bolsas de trabajo (B10).
- * Accesible en dispositivos móviles (390 px) y escritorios.
- */
+/** Consulta pública B10: estructura y estados sobre los tokens comunes. */
+.portal-bolsa-publico .portal-publico-superficie {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-width: 0;
+}
 
 .contenedor-listas {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 16px 20px 48px;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  width: min(1200px, calc(100% - 40px));
+  max-width: none;
+  padding: 20px 0 24px;
 }
 
-.cabecera-seccion-publica {
-  margin-bottom: 24px;
-}
-
+.cabecera-seccion-publica { margin-bottom: 16px; }
 .cabecera-seccion-publica h1 {
-  font-size: 1.6rem;
-  margin: 8px 0 6px;
+  margin: 6px 0 8px;
   color: var(--text);
+  font-size: clamp(1.35rem, 2vw, 1.55rem);
 }
-
 .cabecera-seccion-publica p {
+  max-width: 85ch;
+  margin: 0;
   color: var(--muted-strong);
-  margin: 0 0 12px;
-  line-height: 1.5;
+  line-height: 1.45;
 }
+.ayuda-listas-publica { margin: -8px 0 16px; color: var(--muted-strong); font-size: .88rem; }
+.ayuda-listas-publica summary {
+  width: fit-content;
+  padding: 5px 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--brand);
+  cursor: pointer;
+  font-weight: 700;
+}
+.ayuda-listas-publica > p { max-width: 85ch; line-height: 1.5; }
+.ayuda-listas-publica[open] > p { margin: 12px 0; }
+.ayuda-listas-publica .aviso-privacidad-publica { margin: 12px 0 0; }
 
 .aviso-privacidad-publica {
-  padding: 14px 18px;
-  background: #f0f9ff;
-  border: 1px solid #bae6fd;
-  border-left: 4px solid #0284c7;
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--document);
   border-radius: var(--radius);
-  margin-bottom: 24px;
-  font-size: 0.92rem;
-  color: #0369a1;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  background: var(--document-soft);
+  color: var(--text);
+  font-size: .9rem;
 }
 
-.aviso-privacidad-publica strong {
-  color: #0c4a6e;
+#seccion-bolsas,
+#seccion-lista {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
 }
+#seccion-bolsas > h2 { margin: 0 0 4px; font-size: 1.08rem; }
+#seccion-bolsas > p { margin: 0 0 12px; color: var(--muted-strong); }
+#seccion-lista > p { margin: 0 0 12px; }
 
-/* Paneles de estado */
 .panel-estado {
-  padding: 28px 24px;
-  text-align: center;
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-  border: 1px solid #e2e8f0;
+  margin: 8px 0 16px;
+  padding: 20px;
+  border: 1px solid var(--line);
   border-radius: var(--radius);
-  margin: 16px 0;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  background: var(--surface-muted);
+  color: var(--muted-strong);
+  text-align: center;
 }
-
-.panel-estado--error {
-  border-color: #fca5a5;
-  background: #fef2f2;
-  color: #991b1b;
-}
-
-.panel-estado--vacio {
-  color: #64748b;
-}
-
+.panel-estado h3 { margin: 0 0 6px; color: var(--text); }
+.panel-estado p { margin: 0 0 12px; }
+.panel-estado--error { border-color: var(--danger); background: var(--danger-soft); }
+.panel-estado--error h3 { color: var(--danger); }
+.panel-estado--vacio { border-color: var(--line-strong); }
 .indicador-carga-spinner {
   display: inline-block;
-  width: 24px;
-  height: 24px;
-  border: 3px solid #e2e8f0;
-  border-top-color: #07365e;
-  border-radius: 50%;
-  animation: girar 0.8s linear infinite;
-  vertical-align: middle;
+  width: 20px;
+  height: 20px;
   margin-right: 8px;
+  border: 3px solid var(--line);
+  border-top-color: var(--brand);
+  border-radius: 50%;
+  animation: girar .8s linear infinite;
+  vertical-align: middle;
 }
+@keyframes girar { to { transform: rotate(360deg); } }
 
-@keyframes girar {
-  to { transform: rotate(360deg); }
-}
-
-/* Ficha de bolsa seleccionada */
 .tarjeta-bolsa-activa {
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-  border: 1px solid #cbd5e1;
-  border-left: 5px solid #3730a3;
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--procedure);
   border-radius: var(--radius);
-  padding: 18px 20px;
-  margin-bottom: 24px;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  background: var(--surface-muted);
 }
-
 .tarjeta-bolsa-activa__info h2 {
-  margin: 0 0 6px;
-  font-size: 1.3rem;
-  color: #0f172a;
-  font-weight: 750;
-  letter-spacing: -0.01em;
+  margin: 0 0 10px;
+  color: var(--text);
+  font-size: 1.14rem;
 }
-
-.tarjeta-bolsa-activa__meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 12px;
-  font-size: 0.88rem;
-  color: #334155;
-}
-
+.tarjeta-bolsa-activa__info { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.tarjeta-bolsa-activa__info h2 { margin: 0; }
+.tarjeta-bolsa-activa__meta { display: flex; flex-wrap: wrap; gap: 8px; }
 .tarjeta-bolsa-activa__meta span {
   display: inline-flex;
-  align-items: center;
-  background: #f1f5f9;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  padding: 4px 10px;
-  font-weight: 550;
-}
-
-.tarjeta-bolsa-activa__meta strong {
-  color: #0f172a;
-  margin-right: 4px;
-}
-
-/* Formulario de búsqueda de documento enmascarado */
-.formulario-busqueda-lista {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-top: 3px solid #07365e;
+  gap: 4px;
+  padding: 5px 8px;
+  border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 18px 20px;
-  margin-bottom: 24px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  background: var(--surface);
+  color: var(--muted-strong);
+  font-size: .85rem;
 }
+.tarjeta-bolsa-activa__meta strong { color: var(--text); }
 
-.formulario-busqueda-lista fieldset {
-  border: 0;
-  padding: 0;
-  margin: 0;
+.formulario-busqueda-lista {
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-muted);
 }
-
-.formulario-busqueda-lista legend {
-  font-weight: 750;
-  font-size: 1.05rem;
-  margin-bottom: 12px;
-  color: #0f172a;
-}
-
-.fila-busqueda {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  align-items: flex-end;
-}
-
-.campo-documento {
-  flex: 1 1 240px;
-}
-
-.campo-documento label {
-  display: block;
-  font-size: 0.88rem;
-  font-weight: 650;
-  color: #334155;
-  margin-bottom: 6px;
-}
-
+.formulario-busqueda-lista fieldset { margin: 0; padding: 0; border: 0; }
+.formulario-busqueda-lista legend { margin-bottom: 8px; color: var(--text); font-weight: 700; }
+.fila-busqueda { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
+.campo-documento { flex: 1 1 240px; }
+.campo-documento label { display: block; margin-bottom: 5px; color: var(--muted-strong); font-size: .85rem; font-weight: 650; }
 .campo-documento input {
   width: 100%;
   min-height: 44px;
-  padding: 8px 14px;
-  border: 1px solid #cbd5e1;
+  padding: 8px 12px;
+  border: 1px solid var(--line-strong);
   border-radius: var(--radius);
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-  font-size: 1.05rem;
-  box-sizing: border-box;
-  background: #ffffff;
-  color: #0f172a;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  background: var(--surface);
+  color: var(--text);
+  font: 1rem ui-monospace, SFMono-Regular, Consolas, monospace;
 }
+.ayuda-busqueda-doc { margin: 5px 0 0; color: var(--muted-strong); font-size: .8rem; line-height: 1.4; }
+.ayuda-formato-lista { margin-top: 5px; color: var(--muted-strong); font-size: .8rem; }
+.ayuda-formato-lista summary { width: fit-content; color: var(--brand); cursor: pointer; font-weight: 650; }
+.acciones-busqueda { display: flex; gap: 8px; }
 
-.campo-documento input:focus {
-  border-color: #07365e;
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(7, 54, 94, 0.2);
-}
-
-.ayuda-busqueda-doc {
-  font-size: 0.82rem;
-  color: #64748b;
-  margin-top: 6px;
-  line-height: 1.4;
-}
-
-.acciones-busqueda {
-  display: flex;
-  gap: 8px;
-}
-
-/* Tablas accesibles con scroll interno para pantallas estrechas */
 .tabla-contenedor-accesible {
-  width: 100%;
+  flex: 1 1 auto;
+  min-height: 130px;
   overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  background: #ffffff;
-  border: 1px solid #cbd5e1;
+  overflow-y: auto;
+  border: 1px solid var(--line);
   border-radius: var(--radius);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  margin-bottom: 24px;
+  background: var(--surface);
 }
-
-.tabla-listas-publica {
-  width: 100%;
-  border-collapse: collapse;
-  text-align: left;
-  font-size: 0.94rem;
-  min-width: 320px;
-}
-
+.tabla-listas-publica { width: 100%; min-width: 600px; border-collapse: collapse; text-align: left; font-size: .9rem; }
+#seccion-lista .tabla-listas-publica { min-width: 360px; }
 .tabla-listas-publica caption {
-  padding: 14px 18px;
-  font-weight: 750;
-  font-size: 1rem;
-  text-align: left;
-  background: #f8fafc;
-  border-bottom: 2px solid #cbd5e1;
-  color: #0f172a;
-  letter-spacing: -0.01em;
-}
-
-.tabla-listas-publica th {
-  padding: 12px 14px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-muted);
+  color: var(--text);
   font-weight: 700;
-  background: #edf2f7;
-  border-bottom: 2px solid #cbd5e1;
-  color: #1e293b;
+  text-align: left;
+}
+.tabla-listas-publica th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line-strong);
+  background: var(--surface-muted);
+  color: var(--text);
+  font-weight: 700;
   white-space: nowrap;
 }
-
 .tabla-listas-publica td {
-  padding: 12px 14px;
-  border-bottom: 1px solid #e2e8f0;
-  color: #334155;
+  padding: 9px 12px;
+  height: 46px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted-strong);
   vertical-align: middle;
 }
+.tabla-listas-publica tbody tr:nth-child(even) { background: var(--surface-muted); }
+.tabla-listas-publica tbody tr:hover { background: var(--brand-soft); }
+.tabla-listas-publica tbody tr:focus-within { outline: 2px solid var(--focus); outline-offset: -2px; }
+.tabla-listas-publica tr:last-child td { border-bottom: 0; }
+.tabla-listas-publica td:first-child strong { color: var(--brand); }
+.tabla-listas-publica td:nth-last-child(2):not(:first-child) { font-variant-numeric: tabular-nums; }
 
-.tabla-listas-publica tbody tr:nth-child(even) {
-  background: #f8fafc;
-}
-
-.tabla-listas-publica tbody tr:hover {
-  background: #f1f5f9;
-}
-
-.tabla-listas-publica tr:last-child td {
-  border-bottom: 0;
-}
-
-/* Chips de estado */
 .estado-chip-publico {
   display: inline-flex;
   align-items: center;
-  padding: 4px 12px;
+  gap: 6px;
+  padding: 4px 9px;
   border-radius: 999px;
-  font-size: 0.82rem;
+  background: var(--audit-soft);
+  color: var(--audit);
+  font-size: .8rem;
   font-weight: 700;
-  letter-spacing: 0.01em;
-  border: 1px solid transparent;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  white-space: nowrap;
 }
+.estado-chip-publico::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.estado-chip-publico--disponible { background: var(--success-soft); color: var(--success); }
+.estado-chip-publico--ocupado { background: var(--brand-soft); color: var(--brand); }
+.estado-chip-publico--no_disponible,
+.estado-chip-publico--renuncia_pendiente { background: var(--notice-soft); color: var(--notice); }
+.estado-chip-publico--excluido { background: var(--danger-soft); color: var(--danger); }
+.paginacion-lista-publica { display: flex; justify-content: center; margin-top: 12px; }
 
-.estado-chip-publico--disponible {
-  background: #ecfdf5;
-  border-color: #6ee7b7;
-  color: #065f46;
+.contenedor-listas :is(button, input, .tabla-contenedor-accesible, h2, summary):focus-visible,
+.ayuda-listas-publica summary:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
 }
+.contenedor-listas button:disabled { cursor: progress; opacity: .65; }
 
-.estado-chip-publico--ocupado {
-  background: #eff6ff;
-  border-color: #93c5fd;
-  color: #1e40af;
+@media (min-width: 801px) {
+  .portal-bolsa-publico .portal-publico-superficie { height: 100vh; overflow: hidden; }
+  .contenedor-listas { overflow-y: auto; }
+  .portal-bolsa-publico .pie-publico { flex: 0 0 auto; }
 }
-
-.estado-chip-publico--no_disponible {
-  background: #fffbeb;
-  border-color: #fcd34d;
-  color: #92400e;
+@media (max-width: 800px) {
+  .contenedor-listas { width: min(100% - 28px, 720px); padding: 18px 0 32px; }
+  #seccion-bolsas, #seccion-lista { flex: 0 0 auto; }
+  .tabla-contenedor-accesible { max-height: min(50vh, 520px); }
 }
-
-.estado-chip-publico--excluido {
-  background: #fef2f2;
-  border-color: #fca5a5;
-  color: #991b1b;
-}
-
-.estado-chip-publico--renuncia_pendiente {
-  background: #fefce8;
-  border-color: #fde047;
-  color: #854d0e;
-}
-
-/* Paginación */
-.paginacion-lista-publica {
-  display: flex;
-  justify-content: center;
-  margin: 16px 0 32px;
-}
-
-/* Adaptación para pantallas estrechas (390 px) */
 @media (max-width: 480px) {
-  .contenedor-listas {
-    padding: 12px 14px 32px;
-  }
-
-  .tarjeta-bolsa-activa {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .fila-busqueda {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .campo-documento {
-    flex: 1 1 100%;
-  }
-
-  .acciones-busqueda {
-    width: 100%;
-  }
-
-  .acciones-busqueda button {
-    flex: 1;
-  }
-
-  .tabla-listas-publica th,
-  .tabla-listas-publica td {
-    padding: 8px 10px;
-    font-size: 0.88rem;
-  }
+  .contenedor-listas { width: min(100% - 20px, 430px); }
+  #seccion-bolsas, #seccion-lista { padding: 12px; }
+  .fila-busqueda, .acciones-busqueda { flex-direction: column; align-items: stretch; }
+  .campo-documento { flex: 1 1 auto; }
+  .acciones-busqueda { width: 100%; }
+  .tabla-listas-publica th, .tabla-listas-publica td { padding: 8px 10px; }
 }
+@media (prefers-reduced-motion: reduce) { .indicador-carga-spinner { animation: none; } }

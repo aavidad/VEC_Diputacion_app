@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import vm from "node:vm";
 
 import {
   validarRespuestaBolsasPublicas,
@@ -13,10 +14,10 @@ import {
   consultarBolsasPublicas,
   consultarListaBolsaPublica,
 } from "./lista-bolsas-api.js";
-import { crearControladorListaBolsas } from "./lista-bolsas.js";
-
 const directorio = dirname(fileURLToPath(import.meta.url));
 const rutaRaiz = join(directorio, "../../..");
+vm.runInThisContext(readFileSync(join(directorio, "i18n-publica.js"), "utf8"));
+const { crearControladorListaBolsas } = await import("./lista-bolsas.js");
 const datasetDemo = JSON.parse(
   readFileSync(join(rutaRaiz, "data/demo/bolsa/v1.bolsas-demo.json"), "utf8")
 );
@@ -341,7 +342,7 @@ test("controlador público: gestiona adecuadamente estados de error y vacío", a
   const ctrlError = crearControladorListaBolsas({ elementos, api: apiError });
   await ctrlError.cargarBolsas();
   assert.equal(elementos.bolsasError.hidden, false);
-  assert.equal(elementos.mensajeErrorBolsas.textContent, "Fallo de conexión 503");
+  assert.equal(elementos.mensajeErrorBolsas.textContent, "Error al consultar bolsas");
 
   // Simulación de lista vacía
   const apiVacia = {
@@ -446,10 +447,56 @@ test("controlador público: restaura lista y filtro con Atrás/Adelante", async 
     cursor: "",
   });
 
+  ventana.location.href = "https://vec.test/bolsa/listas.html?bolsa=bolsa%3Asintetico%3Aadministrativo&documento=12345678Z";
+  listeners.get("popstate")();
+  await new Promise((resolver) => setImmediate(resolver));
+  assert.equal(elementos.inputDocumento.value, "");
+  assert.equal(consultas.at(-1).documento, "");
+  assert.doesNotMatch(ventana.location.href, /12345678Z/);
+
   ventana.location.href = "https://vec.test/bolsa/listas.html";
   listeners.get("popstate")();
   await new Promise((resolver) => setImmediate(resolver));
 
   assert.equal(elementos.seccionBolsas.hidden, false);
   assert.equal(elementos.seccionLista.hidden, true);
+});
+
+test("error de lista pública redacta datos del servidor y permite reintentar un enlace directo", async () => {
+  let reintentar;
+  let intentos = 0;
+  const elementos = {
+    seccionBolsas: { hidden: false, addEventListener() {} },
+    seccionLista: { hidden: true },
+    bolsasCargando: { hidden: true }, bolsasError: { hidden: true }, bolsasVacio: { hidden: true },
+    cuerpoTablaBolsas: { innerHTML: "" },
+    listaCargando: { hidden: true }, listaError: { hidden: true }, listaVacio: { hidden: true },
+    mensajeErrorLista: { textContent: "" }, infoBolsaActiva: { innerHTML: "" },
+    cuerpoTablaLista: { innerHTML: "" }, contenedorPaginacion: { hidden: true },
+    botonSiguiente: { dataset: {}, disabled: false, addEventListener() {} },
+    botonReintentarLista: { addEventListener(_tipo, fn) { reintentar = fn; } },
+  };
+  let href = "https://vec.test/bolsa/listas.html?bolsa=bolsa:sintetico:administrativo&documento=12345678Z";
+  const ventana = {
+    location: { get href() { return href; }, get search() { return new URL(href).search; } },
+    history: { replaceState(_estado, _titulo, url) { href = url; } }, addEventListener() {},
+  };
+  const api = {
+    consultarBolsasPublicas: async () => ({ bolsas: [] }),
+    consultarListaBolsaPublica: async () => {
+      if (++intentos === 1) throw Object.assign(new Error("DNI 12345678Z no disponible"), { status: 404 });
+      return generarFixtureListaPublica().data;
+    },
+  };
+  const ctrl = crearControladorListaBolsas({ elementos, api, ventana });
+  ctrl.instalar();
+  await new Promise((resolver) => setImmediate(resolver));
+  assert.equal(elementos.mensajeErrorLista.textContent, "La bolsa solicitada no está disponible para consulta pública.");
+  assert.doesNotMatch(elementos.mensajeErrorLista.textContent, /12345678Z/);
+  assert.doesNotMatch(ventana.location.href, /12345678Z/);
+  assert.equal(ctrl.estado.bolsaRefSolicitada, "bolsa:sintetico:administrativo");
+  reintentar();
+  await new Promise((resolver) => setImmediate(resolver));
+  assert.equal(elementos.listaError.hidden, true);
+  assert.match(elementos.cuerpoTablaLista.innerHTML, /\*\*\*/);
 });
