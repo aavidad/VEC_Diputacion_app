@@ -49,7 +49,15 @@ export function crearVistasOperaciones(u) {
 
   function renderizarContratos(datos) {
     const t = traducirContratos;
-    const contratos = Array.isArray(datos?.contratos) ? datos.contratos : [];
+    // Solo este campo explícito admite lecturas autorizadas; `datos.contratos`
+    // pertenece al antiguo panel de presentación y nunca alimenta esta vista.
+    const fuente = datos?.contratos_fuente;
+    const estados = ["cargando", "disponible", "vacio", "no_configurado", "denegado", "error"];
+    let estado = estados.includes(fuente?.estado) ? fuente.estado : "no_configurado";
+    if (estado === "disponible" && !Array.isArray(fuente.registros)) estado = "error";
+    const contratos = estado === "disponible" ? fuente.registros : [];
+    if (estado === "disponible" && contratos.length === 0) estado = "vacio";
+    const clasesEstado = { cargando: "info", disponible: "exito", vacio: "neutro", no_configurado: "aviso", denegado: "peligro", error: "peligro" };
     const filas = contratos.map((item) => [
       `<strong class="contratos-referencia">${e(item.expediente)}</strong>`,
       e(item.acto), e(item.bolsa),
@@ -65,20 +73,19 @@ export function crearVistasOperaciones(u) {
     ];
     const pasoHTML = pasos.map(([titulo, descripcion], indice) => `
       <li class="contratos-paso"><span class="contratos-paso-numero" aria-hidden="true">${indice + 1}</span>
-        <div><strong>${e(t(titulo))}</strong><small>${e(t(descripcion))}</small></div>
-        <span class="estado-chip neutro">${e(t("sin_fuente"))}</span></li>`).join("");
+        <div><strong>${e(t(titulo))}</strong><small>${e(t(descripcion))}</small></div></li>`).join("");
     const accionPendiente = (etiqueta, motivo, atributoOperacion) => `
       <div class="contratos-accion"><button class="boton-secundario" type="button" ${atributoOperacion} disabled aria-disabled="true" title="${e(t(motivo))}">${e(t(etiqueta))}</button>
         <small>${e(t(motivo))}</small></div>`;
     return `<div class="contratos-vista">
       ${encabezadoVista(t("sobrelinea"), t("titulo"), t("descripcion"))}
-      ${avisoPresentacion(t("aviso_sintetico"))}
+      <section class="nota-pendiente" role="status" aria-live="polite">${e(t(`detalle_${estado}`))}</section>
       <section class="panel contratos-panel-circuito" aria-labelledby="contratos-circuito-titulo">
-        <div class="cabecera-panel"><div><h3 id="contratos-circuito-titulo">${e(t("circuito_titulo"))}</h3><p>${e(t("circuito_subtitulo"))}</p></div><span class="estado-chip aviso">${e(t("sin_conector"))}</span></div>
+        <div class="cabecera-panel"><div><h3 id="contratos-circuito-titulo">${e(t("circuito_titulo"))}</h3><p>${e(t("circuito_subtitulo"))}</p></div></div>
         <ol class="contratos-pasos">${pasoHTML}</ol>
       </section>
       <section class="panel contratos-panel-registros" aria-labelledby="contratos-registros-titulo">
-        <div class="cabecera-panel"><div><h3 id="contratos-registros-titulo">${e(t("registros_titulo"))}</h3><p>${e(t("registros_subtitulo"))}</p></div>${fuentePresentacion()}</div>
+        <div class="cabecera-panel"><div><h3 id="contratos-registros-titulo">${e(t("registros_titulo"))}</h3><p>${e(t("registros_subtitulo"))}</p></div><span class="estado-chip ${clasesEstado[estado]}">${e(t(`estado_${estado}`))}</span></div>
         ${tabla({ titulo: t("tabla_titulo"), cabeceras: [t("columna_expediente"), t("columna_acto"), t("columna_bolsa"), t("columna_fechas"), t("columna_estado")], clavesColumnas: ["referencia", "acto", "bolsa", "fechas", "estado"], prioridadColumnas: "estado", filas, vacio: t("vacio") })}
       </section>
       <section class="panel contratos-panel-acciones" aria-labelledby="contratos-acciones-titulo">

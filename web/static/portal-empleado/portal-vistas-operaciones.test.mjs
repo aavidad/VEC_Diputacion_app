@@ -25,20 +25,22 @@ test("las vistas operativas rotulan el recorrido DEMO sin alterar sus comandos",
   const comunicaciones = vistas.renderizarComunicaciones(datos);
   assert.match(llamamientos, /Llamamientos DEMO/);
   assert.match(llamamientos, /no fijan una regla ni un plazo operativo/);
-  assert.match(contratos, /no acredita relación jurídica, cese ni incorporación/);
+  assert.match(contratos, /no acredita por sí sola relación jurídica, cese ni incorporación/);
   assert.match(documentos, /La autenticación no firma documentos y ningún borrador es oficial/);
   assert.match(documentos, /Firmar DEMO · sin firma legal/);
   assert.match(comunicaciones, /Un aviso no acredita envío, entrega, notificación ni acuse/);
 });
 
-test("contratos distingue los hechos de Bolsa, Personal, firma y GINPIX sin ofrecer efectos volátiles", () => {
+test("contratos sin fuente no incorpora las filas antiguas y no ofrece efectos volátiles", () => {
   const html = crearVistasOperaciones(utilidades()).renderizarContratos(obtenerDatosPresentacion());
   assert.match(html, /Una propuesta de llamamiento no acredita aceptación/);
   assert.match(html, /Solo Personal confirma la relación y la incorporación/);
   assert.match(html, /El borrador y la autenticación no son firma/);
   assert.match(html, /La ficha o descarga no acredita entrega al sistema/);
   assert.match(html, /El cese acreditado precede a la política de Bolsa/);
-  assert.match(html, /Estado en muestra/);
+  assert.match(html, /No configurado/);
+  assert.match(html, /No hay relaciones disponibles para mostrar/);
+  assert.doesNotMatch(html, /DEMO-CON-184|DEMO-CES-089|DEMO-REI-032/);
   assert.match(html, /tabindex="0" role="region"/);
   assert.match(html, /<summary>\? Ayuda sobre el circuito<\/summary>/);
   assert.equal((html.match(/disabled aria-disabled="true"/g) || []).length, 3);
@@ -46,9 +48,19 @@ test("contratos distingue los hechos de Bolsa, Personal, firma y GINPIX sin ofre
   assert.doesNotMatch(html, /data-accion="operacion-presentacion"/);
 });
 
-test("contratos indica vacío y usa el catálogo completo", () => {
-  const html = crearVistasOperaciones(utilidades()).renderizarContratos({ contratos: [] });
-  assert.match(html, /No hay ejemplos de contratos para mostrar/);
+test("contratos conserva solo filas inyectadas con estado disponible y cierra los demás estados", () => {
+  const vista = crearVistasOperaciones(utilidades());
+  const contratos = obtenerDatosPresentacion().contratos;
+  const disponible = vista.renderizarContratos({ contratos_fuente: { estado: "disponible", registros: contratos } });
+  assert.match(disponible, /DEMO-CON-184/);
+  assert.match(disponible, /Disponible/);
+  for (const estado of ["cargando", "vacio", "denegado", "error", "no_configurado", "desconocido"]) {
+    const html = vista.renderizarContratos({ contratos_fuente: { estado, registros: contratos } });
+    assert.doesNotMatch(html, /DEMO-CON-184/);
+    assert.match(html, /No hay relaciones disponibles para mostrar/);
+  }
+  assert.match(vista.renderizarContratos({ contratos_fuente: { estado: "disponible", registros: [] } }), /Sin registros/);
+  assert.match(vista.renderizarContratos({ contratos_fuente: { estado: "disponible" } }), /Error de consulta/);
   assert.throws(() => crearTraductorContratos({}), /incompleto/);
   assert.throws(() => crearTraductorContratos()("desconocida"), /desconocida/);
   for (const valor of Object.values(MENSAJES_CONTRATOS_ES)) assert.ok(valor.length > 0);
