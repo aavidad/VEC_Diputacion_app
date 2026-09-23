@@ -105,7 +105,7 @@ func (e *EmisorMaterialAutorizacionAtestadaV3) EmitirMaterialAutorizacionAtestad
 			)
 		}
 		return decisionVacia, confirmacionVacia, nil,
-			nuevoErrorEmisionMaterialAutorizacionAtestadaV3(ctx.Err())
+			nuevoErrorEmisionMaterialAutorizacionAtestadaV3(err, ctx.Err())
 	}
 	if validarConcesionEmisionMaterialV3(
 		solicitud,

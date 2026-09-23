@@ -306,25 +306,26 @@ func TestEmisorMaterialAutorizacionAtestadaV3NoAceptaCentinelaSinPrueba(t *testi
 	casos := []struct {
 		nombre   string
 		preparar func(*escenarioEmisionMaterialV3Prueba) context.Context
+		causa    error
 	}{
 		{"decision positiva", func(e *escenarioEmisionMaterialV3Prueba) context.Context {
 			e.autorizador.err = errors.Join(domain.ErrAutorizacionDenegada,
 				ports.ErrDenegacionExplicitaAutorizacionLigadaV3)
 			return context.Background()
-		}},
+		}, nil},
 		{"decision nula", func(e *escenarioEmisionMaterialV3Prueba) context.Context {
 			e.autorizador.decision = domain.DecisionAutorizacionLigadaV3{}
 			e.autorizador.err = errors.Join(domain.ErrAutorizacionDenegada,
 				ports.ErrDenegacionExplicitaAutorizacionLigadaV3)
 			return context.Background()
-		}},
+		}, nil},
 		{"registro fallido", func(e *escenarioEmisionMaterialV3Prueba) context.Context {
 			e.autorizador.decision = decisionDenegadaEmisionMaterialV3Prueba(t, *e)
 			e.autorizador.err = errors.Join(domain.ErrAutorizacionDenegada,
 				ports.ErrDenegacionExplicitaAutorizacionLigadaV3,
 				ports.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible)
 			return context.Background()
-		}},
+		}, nil},
 		{"cancelacion", func(e *escenarioEmisionMaterialV3Prueba) context.Context {
 			e.autorizador.decision = decisionDenegadaEmisionMaterialV3Prueba(t, *e)
 			e.autorizador.err = errors.Join(domain.ErrAutorizacionDenegada,
@@ -332,14 +333,21 @@ func TestEmisorMaterialAutorizacionAtestadaV3NoAceptaCentinelaSinPrueba(t *testi
 			ctx, cancelar := context.WithCancel(context.Background())
 			e.autorizador.cancelar = cancelar
 			return ctx
-		}},
+		}, context.Canceled},
+		{"cancelacion PDP con contexto vivo", func(e *escenarioEmisionMaterialV3Prueba) context.Context {
+			e.autorizador.decision = decisionDenegadaEmisionMaterialV3Prueba(t, *e)
+			e.autorizador.err = errors.Join(domain.ErrAutorizacionDenegada,
+				ports.ErrDenegacionExplicitaAutorizacionLigadaV3,
+				context.Canceled)
+			return context.Background()
+		}, context.Canceled},
 		{"plazo", func(e *escenarioEmisionMaterialV3Prueba) context.Context {
 			e.autorizador.decision = decisionDenegadaEmisionMaterialV3Prueba(t, *e)
 			e.autorizador.err = errors.Join(domain.ErrAutorizacionDenegada,
 				ports.ErrDenegacionExplicitaAutorizacionLigadaV3,
 				context.DeadlineExceeded)
 			return context.Background()
-		}},
+		}, context.DeadlineExceeded},
 	}
 	for _, caso := range casos {
 		t.Run(caso.nombre, func(t *testing.T) {
@@ -350,6 +358,7 @@ func TestEmisorMaterialAutorizacionAtestadaV3NoAceptaCentinelaSinPrueba(t *testi
 			)
 			if decision.Validar() == nil || confirmacion.Validar() == nil || material != nil ||
 				errors.Is(err, ports.ErrDenegacionExplicitaAutorizacionLigadaV3) ||
+				(caso.causa != nil && !errors.Is(err, caso.causa)) ||
 				e.atestador.invocaciones != 0 {
 				t.Fatalf("centinela no acreditado aceptado: %v", err)
 			}
