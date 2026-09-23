@@ -13,6 +13,7 @@ import (
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
+	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
 
 const (
@@ -95,6 +96,42 @@ type ContextoConsultaRRHH struct {
 	ambitoRef                 string
 	resueltoEn                time.Time
 	validoHasta               time.Time
+	comprobanteAmbito         *puertosvec.ComprobanteAmbitoCorporativoRRHHV1
+}
+
+// NuevoContextoConsultaRRHHConAmbitoAcreditado retiene la version exacta del
+// vinculo y de la organizacion hasta el consumo SQL. El comprobante inicial
+// nunca sustituye su reacreditacion transaccional por ContextoActor.
+func NuevoContextoConsultaRRHHConAmbitoAcreditado(
+	autoridad ContextoAutorizacionAltaV3,
+	comprobante puertosvec.ComprobanteAmbitoCorporativoRRHHV1,
+	clase ClaseAmbitoConsultaRRHH,
+	ambitoRef string,
+	instante time.Time,
+) (ContextoConsultaRRHH, error) {
+	d, err := comprobante.Datos()
+	if err != nil || clase != AmbitoOrganizacionRRHH || ambitoRef != d.OrganizacionRef ||
+		instante.Before(d.VigenteDesde) || !instante.Before(d.VigenteHasta) {
+		return ContextoConsultaRRHH{}, ErrContextoConsultaRRHHInvalido
+	}
+	c, err := NuevoContextoConsultaRRHHConAmbito(
+		autoridad, d.OrganizacionRef, clase, ambitoRef, instante,
+	)
+	if err != nil {
+		return ContextoConsultaRRHH{}, err
+	}
+	a := autoridad.Resultado.Contexto
+	if d.CuentaRef != a.Instantanea.CuentaRef || d.CuentaVersion != a.Instantanea.CuentaVersion ||
+		d.PersonaRef != a.PersonaRef || d.PersonaVersion != a.Instantanea.PersonaVersion ||
+		d.PerfilRef != a.PerfilActivoRef || d.PerfilVersion != a.Instantanea.PerfilVersion ||
+		d.ContextoRef != a.Instantanea.VinculoRef || d.ContextoVersion != a.Instantanea.VinculoVersion {
+		return ContextoConsultaRRHH{}, ErrContextoConsultaRRHHInvalido
+	}
+	c.comprobanteAmbito = &comprobante
+	if c.validarEn(instante) != nil {
+		return ContextoConsultaRRHH{}, ErrContextoConsultaRRHHInvalido
+	}
+	return c, nil
 }
 
 func NuevoContextoConsultaRRHH(
@@ -241,6 +278,21 @@ func (c ContextoConsultaRRHH) validarEn(instante time.Time) error {
 	if c.autoridad.ValidarPara(solicitud, instante) != nil {
 		return ErrContextoConsultaRRHHInvalido
 	}
+	if c.comprobanteAmbito != nil {
+		d, err := c.comprobanteAmbito.Datos()
+		if err != nil || c.claseAmbito != AmbitoOrganizacionRRHH ||
+			c.ambitoRef != d.OrganizacionRef || c.organizacionRef != d.OrganizacionRef ||
+			instante.Before(d.VigenteDesde) || !instante.Before(d.VigenteHasta) ||
+			d.CuentaRef != c.autoridad.Resultado.Contexto.Instantanea.CuentaRef ||
+			d.CuentaVersion != c.autoridad.Resultado.Contexto.Instantanea.CuentaVersion ||
+			d.PersonaRef != c.autoridad.Resultado.Contexto.PersonaRef ||
+			d.PersonaVersion != c.autoridad.Resultado.Contexto.Instantanea.PersonaVersion ||
+			d.PerfilRef != c.perfilRef || d.PerfilVersion != c.perfilVersion ||
+			d.ContextoRef != c.autoridad.Resultado.Contexto.Instantanea.VinculoRef ||
+			d.ContextoVersion != c.autoridad.Resultado.Contexto.Instantanea.VinculoVersion {
+			return ErrContextoConsultaRRHHInvalido
+		}
+	}
 	datos, err := c.autoridad.Vinculo.Datos()
 	if err != nil ||
 		datos.AutenticacionRef != c.autenticacionRef ||
@@ -290,6 +342,13 @@ func (c ContextoConsultaRRHH) PerfilVersion() uint64   { return c.perfilVersion 
 func (c ContextoConsultaRRHH) OrganizacionRef() string { return c.organizacionRef }
 func (c ContextoConsultaRRHH) ResueltoEn() time.Time   { return c.resueltoEn }
 func (c ContextoConsultaRRHH) ValidoHasta() time.Time  { return c.validoHasta }
+
+func (c ContextoConsultaRRHH) ExportarComprobanteAmbitoParaSQL() ([]byte, error) {
+	if c.comprobanteAmbito == nil {
+		return nil, ErrContextoConsultaRRHHInvalido
+	}
+	return c.comprobanteAmbito.JSONParaSQL()
+}
 
 type SolicitudCuadroRRHH struct {
 	texto       string
