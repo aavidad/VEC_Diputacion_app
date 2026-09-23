@@ -153,8 +153,33 @@ COMMENT ON ROLE vec_contexto_actor_corporativo_rrhh_selector IS
  'vec_contexto_actor_v1:rol-contexto-corporativo-rrhh-selector:v1';
 GRANT CONNECT ON DATABASE postgres TO vec_contexto_actor_corporativo_rrhh_selector;
 SQL
+psql_sql <<'SQL'
+-- CA3/CA4 son anteriores a la membresía de gobierno AD3 del dump. En esta
+-- efímera se reproduce su preimagen histórica y se restaura después.
+DO $membresia_historica$
+BEGIN
+ IF (SELECT count(*) FROM pg_auth_members m
+     WHERE m.roleid='vec_contexto_actor_v1_propietario'::regrole
+       AND m.member='vec_ad3_o207_gobierno'::regrole
+       AND NOT m.admin_option AND m.inherit_option AND m.set_option)<>1
+ THEN RAISE EXCEPTION 'membresía CA posterior no acreditada'; END IF;
+END $membresia_historica$;
+REVOKE vec_contexto_actor_v1_propietario FROM vec_ad3_o207_gobierno;
+SQL
 psql_archivo "$raiz/deploy/postgresql/contexto_actor_v1/migraciones/000003_organizacion_corporativa_v1.up.sql"
 psql_archivo "$raiz/deploy/postgresql/contexto_actor_v1/migraciones/000004_vinculo_corporativo_rrhh_v1.up.sql"
+psql_sql <<'SQL'
+GRANT vec_contexto_actor_v1_propietario TO vec_ad3_o207_gobierno
+ WITH ADMIN FALSE, INHERIT TRUE, SET TRUE;
+DO $membresia_restituida$
+BEGIN
+ IF (SELECT count(*) FROM pg_auth_members m
+     WHERE m.roleid='vec_contexto_actor_v1_propietario'::regrole
+       AND m.member='vec_ad3_o207_gobierno'::regrole
+       AND NOT m.admin_option AND m.inherit_option AND m.set_option)<>1
+ THEN RAISE EXCEPTION 'membresía CA posterior no restituida'; END IF;
+END $membresia_restituida$;
+SQL
 psql_archivo "$raiz/deploy/postgresql/contratacion_temporal/roles_consultor_rrhh_ambito_up.sql"
 psql_archivo "$VEC_AD3_51_UP"
 psql_archivo "$VEC_IDENTIDAD2_UP"
