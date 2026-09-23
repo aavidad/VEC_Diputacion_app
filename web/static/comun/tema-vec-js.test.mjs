@@ -38,6 +38,7 @@ test("la vista previa se cancela y restaura la ausencia inicial del atributo", (
   const d = documento();
   const tema = crearControladorTema({ documento: d });
   assert.equal(tema.leerEstado().estado_servidor, null);
+  assert.equal(tema.leerEstado().tema_id, "institucional");
   tema.previsualizar({ tema_id: "granate", revision: 1 });
   assert.equal(d.documentElement.getAttribute("data-tema"), "granate");
   assert.equal(tema.leerEstado().previsualizacion, true);
@@ -45,6 +46,20 @@ test("la vista previa se cancela y restaura la ausencia inicial del atributo", (
   assert.equal(d.documentElement.getAttribute("data-tema"), null);
   assert.equal(tema.leerEstado().previsualizacion, false);
   assert.equal(tema.leerEstado().estado_servidor, null);
+});
+
+test("un atributo inicial válido informa del tema visible sin atribuirlo al servidor", () => {
+  const d = documento();
+  d.documentElement.dataset.tema = "granate";
+  const tema = crearControladorTema({ documento: d });
+  assert.equal(tema.leerEstado().tema_id, "granate");
+  assert.equal(tema.leerEstado().revision, 1);
+  assert.equal(tema.leerEstado().estado_servidor, null);
+  tema.previsualizar({ tema_id: "institucional", revision: 1 });
+  assert.equal(tema.leerEstado().tema_id, "institucional");
+  tema.cancelarPrevisualizacion();
+  assert.equal(tema.leerEstado().tema_id, "granate");
+  assert.equal(d.documentElement.getAttribute("data-tema"), "granate");
 });
 
 test("varias previsualizaciones conservan el estado servidor y su revisión", () => {
