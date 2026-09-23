@@ -8,8 +8,22 @@ export LC_ALL=C TZ=UTC
 : "${VEC_AD3_51_SHA256:?huella de AD3-51 revisada requerida}"
 : "${VEC_IDENTIDAD2_UP:?ruta de Identidad2 revisada requerida}"
 : "${VEC_IDENTIDAD2_SHA256:?huella de Identidad2 revisada requerida}"
+[[ "${VEC_IDENTIDAD2_UP##*/}" == '000002_revalidacion_consulta_rrhh_ambito_v1.up.sql' \
+   && "$VEC_IDENTIDAD2_SHA256" == '96840ddfc06c0a2a24ace75cdadc3bbb9b09450910eb8c3e1ca0f502b9bd5f66' ]] || {
+  echo 'Identidad2: ruta o huella ajena a revalidación RRHH de ámbito' >&2
+  exit 1
+}
 
 raiz=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)
+# El lanzador `go` local puede seleccionar una versión demasiado antigua con
+# GOTOOLCHAIN=local. Elegir el binario concreto antes de abrir PostgreSQL.
+go_pruebas=${VEC_GO_TEST_BIN:-$(go env GOROOT)/bin/go}
+[[ -x "$go_pruebas" ]] || { echo 'binario Go de prueba ausente' >&2; exit 1; }
+version_go=$(GOTOOLCHAIN=local "$go_pruebas" version)
+[[ "$version_go" =~ go1\.26\.([5-9]|[1-9][0-9]+)([[:space:]]|$) ]] || {
+  echo 'binario Go de prueba incompatible' >&2
+  exit 1
+}
 imagen=${VEC_POSTGRES_TEST_IMAGE:-postgres:18.4-bookworm@sha256:1961f96e6029a02c3812d7cb329a3b03a3ac2bb067058dec17b0f5596aca9296}
 contenedor="vec-ca6-ct109-${USER:-agente}-$$"
 temporal=$(mktemp -d)
@@ -35,6 +49,36 @@ comprobar_sha "$VEC_PREIMAGEN_DIR/roles_acl_saneadas.tsv" \
   43e43ea31fc92097db955089b144d52f1d872e7c2fc3cc22a6ede0519fa58809
 comprobar_sha "$VEC_AD3_51_UP" "$VEC_AD3_51_SHA256"
 comprobar_sha "$VEC_IDENTIDAD2_UP" "$VEC_IDENTIDAD2_SHA256"
+rg -Fq 'vec_identidad_sesiones_v1.revalidar_consulta_rrhh_v1(text,text)' \
+  "$VEC_IDENTIDAD2_UP" || {
+  echo 'Identidad2: función de revalidación RRHH de ámbito ausente' >&2
+  exit 1
+}
+python3 - "$VEC_PREIMAGEN_DIR/cidonia_schema_10_esquemas.sql" \
+  "$raiz/deploy/postgresql/contexto_actor_v1/pruebas_sql/ct109_positivo_genesis.sql" \
+  "$temporal/schema_con_genesis.sql" <<'PY'
+from pathlib import Path
+import hashlib, sys
+origen, genesis, destino = map(Path, sys.argv[1:])
+base, filas = origen.read_bytes(), genesis.read_bytes()
+if hashlib.sha256(base).hexdigest() != '9df366c79f29322b833fbe271212eed739a7a0ef9cfad789b6602f45c28d528f':
+    raise SystemExit('preimagen estructural distinta')
+ancla = (b'CREATE TRIGGER bloquear_insercion_checkpoint BEFORE INSERT ON '
+         b'vec_autorizacion.motivo_v2_checkpoint_origen FOR EACH ROW EXECUTE '
+         b'FUNCTION vec_autorizacion.motivo_v2_bloquear_mutacion_inmutable();')
+if base.count(ancla) != 1 or b'\\restrict ' not in base or b'\\unrestrict ' not in base:
+    raise SystemExit('punto de genesis no univoco')
+if any(line.lstrip().startswith(b'\\') for line in filas.splitlines()):
+    raise SystemExit('genesis contiene metacomandos')
+pos = base.index(ancla)
+if base[:pos].count(b'\nBEGIN;\n') or base[:pos].count(b'\nCOMMIT;\n'):
+    raise SystemExit('dump inesperadamente transaccional antes de genesis')
+ensayo = base[:pos] + filas + b'\n' + base[pos:]
+if ensayo[:pos] + ensayo[pos+len(filas)+1:] != base:
+    raise SystemExit('preimagen modificada fuera de genesis')
+destino.write_bytes(ensayo)
+PY
+chmod 600 "$temporal/schema_con_genesis.sql"
 
 python3 - "$VEC_PREIMAGEN_DIR/roles_acl_saneadas.tsv" "$temporal/roles.sql" <<'PY'
 import re,sys
@@ -98,7 +142,45 @@ psql_archivo "$temporal/roles.sql"
 psql_sql <<'SQL'
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 SQL
-psql_archivo "$VEC_PREIMAGEN_DIR/cidonia_schema_10_esquemas.sql"
+psql_archivo "$temporal/schema_con_genesis.sql"
+# La inserción histórica de génesis debe dejar idénticos esquema, ACL y
+# definiciones/estado de triggers al restaurar el mismo dump sin datos.
+docker exec "$contenedor" createdb -U postgres -T template0 ct109_schema_referencia
+docker exec "$contenedor" psql -Xq -v ON_ERROR_STOP=1 \
+  -U postgres -d ct109_schema_referencia -c 'CREATE EXTENSION pgcrypto;' >/dev/null
+docker exec -i "$contenedor" psql -Xq -v ON_ERROR_STOP=1 \
+  -U postgres -d ct109_schema_referencia \
+  < "$VEC_PREIMAGEN_DIR/cidonia_schema_10_esquemas.sql"
+docker exec "$contenedor" pg_dump -U postgres -d postgres --schema-only \
+  > "$temporal/schema_con_genesis.dump.sql"
+docker exec "$contenedor" pg_dump -U postgres -d ct109_schema_referencia --schema-only \
+  > "$temporal/schema_referencia.dump.sql"
+python3 - "$temporal/schema_con_genesis.dump.sql" \
+  "$temporal/schema_referencia.dump.sql" <<'PY'
+from pathlib import Path
+import sys
+def normalizar(ruta):
+    lineas=[]
+    for linea in Path(ruta).read_bytes().splitlines(keepends=True):
+        if linea.startswith(b'\\restrict '): linea=b'\\restrict ID\n'
+        elif linea.startswith(b'\\unrestrict '): linea=b'\\unrestrict ID\n'
+        lineas.append(linea)
+    return b''.join(lineas)
+if normalizar(sys.argv[1]) != normalizar(sys.argv[2]):
+    raise SystemExit('genesis altero esquema, ACL o triggers frente a restauracion integra')
+PY
+psql_sql <<'SQL'
+DO $guardas_restauradas$
+BEGIN
+ IF (SELECT count(*) FROM pg_trigger
+     WHERE (tgrelid='vec_autorizacion.motivo_v2_checkpoint_origen'::regclass
+            AND tgname='bloquear_insercion_checkpoint'
+            OR tgrelid='vec_autorizacion.vinculacion_motivo_consulta_rrhh_checkpoint_v1'::regclass
+            AND tgname='vinculacion_motivo_rrhh_checkpoint_inmutable')
+       AND NOT tgisinternal AND tgenabled='O')<>2
+ THEN RAISE EXCEPTION 'guardas de genesis no restauradas activas'; END IF;
+END $guardas_restauradas$;
+SQL
 
 # Schema-only no contiene la fila de generacion: verificar antes de sembrarla.
 psql_sql <<'SQL'
@@ -590,4 +672,20 @@ END $acl_restituida$;
 SQL
 psql_archivo "$raiz/deploy/postgresql/contexto_actor_v1/migraciones/000006_acreditacion_ambito_rrhh_v1.up.sql"
 psql_archivo "$raiz/deploy/postgresql/contratacion_temporal/migraciones/000109_consultas_rrhh_ambito_v1.up.sql"
-echo 'CA6 + AD3-51 + CT109: ACL, concurrencia y DOWN/UP vacío conservados OK'
+
+# El positivo usa la misma preimagen y migraciones, pero después del ensayo
+# DOWN/UP vacío: un acceso real avanza las cadenas CT y V3 y ya no admite DOWN.
+psql_archivo "$raiz/deploy/postgresql/contexto_actor_v1/pruebas_sql/ct109_positivo_fixture.sql"
+docker exec -i "$contenedor" psql -Xq -v ON_ERROR_STOP=1 \
+  -U ct109_motivos_proyector -d postgres \
+  < "$raiz/deploy/postgresql/contexto_actor_v1/pruebas_sql/ct109_positivo_motivos.sql"
+(cd "$raiz" && CGO_ENABLED=0 GOTOOLCHAIN=local "$go_pruebas" test -c \
+  -o "$temporal/ct109_positivo.test" ./internal/app/bootstrap)
+chmod 700 "$temporal/ct109_positivo.test"
+docker cp "$temporal/ct109_positivo.test" "$contenedor:/tmp/ct109_positivo.test"
+docker exec \
+  -e VEC_CT109_PG_DESECHABLE=1 \
+  -e 'VEC_CT109_PG_DSN=postgres://postgres@/postgres?host=/var/run/postgresql' \
+  "$contenedor" /tmp/ct109_positivo.test -test.run '^TestCT109PositivoPostgreSQL$' -test.v
+psql_archivo "$raiz/deploy/postgresql/contexto_actor_v1/pruebas_sql/ct109_positivo_comprobar.sql"
+echo 'CA6 + AD3-51 + CT109: ACL, concurrencia, DOWN/UP vacío y consulta positiva nominal OK'
