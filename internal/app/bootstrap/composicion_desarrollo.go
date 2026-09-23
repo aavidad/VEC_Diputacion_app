@@ -236,9 +236,18 @@ func NewHTTPServerDesarrolloWithConfig(
 	}
 	rutasContratacion = append(rutasContratacion, rutasBolsasRRHH...)
 	coleccionesBolsasRRHH = append(coleccionesBolsasRRHH, autoridadContratacion.coleccionesAdicionales...)
+	autoridadDietas, cerrarDietas, err := nuevasRutasDietasDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer func() {
+		if !completa {
+			cerrarDietas()
+		}
+	}()
 	vecAPI, err := newVECShellAPICompuestaConIdentidadYRutas(
 		cfg, resolvedor, categoriasPersonal, rutasContratacion, autoridadContratacion,
-		autoridadContratacion.registradorAuditoriaFronteraRutasExactas, coleccionesBolsasRRHH...,
+		autoridadContratacion.registradorAuditoriaFronteraRutasExactas, autoridadDietas, coleccionesBolsasRRHH...,
 	)
 	if err != nil {
 		return nil, nil, err
@@ -263,6 +272,7 @@ func NewHTTPServerDesarrolloWithConfig(
 		return nil, nil, err
 	}
 	servidor.RegisterOnShutdown(cerrarContratacion)
+	servidor.RegisterOnShutdown(cerrarDietas)
 	completa = true
 	return servidor, composicion, nil
 }
