@@ -1,6 +1,6 @@
 \set ON_ERROR_STOP on
--- AD3-51: reversión controlada de los cuerpos V3 (solo base efímera).
--- No elimina datos ni cambia ACL; rechaza una postimagen distinta.
+-- AD3-51: reversión solo si no existe historia V3. No usar sobre historia
+-- conservada: los locks bloquean consumos concurrentes hasta COMMIT/ROLLBACK.
 BEGIN;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
 SET LOCAL search_path = pg_catalog;
@@ -9,6 +9,39 @@ SET LOCAL lock_timeout = '5s';
 SET LOCAL statement_timeout = '30s';
 SELECT pg_catalog.pg_advisory_xact_lock(
     pg_catalog.hashtextextended('vec_autorizacion_atestada_v3:migracion:000051', 0));
+
+-- El consumidor V3 toma checkpoint_gobierno antes de escribir atestación,
+-- consumo y auditoría. El primer lock espera a cualquier efecto en curso;
+-- los siguientes cierran también la vía de escrituras directas.
+LOCK TABLE vec_autorizacion_atestada_v3.checkpoint_gobierno,
+           vec_autorizacion_atestada_v3.atestacion_decision_v3,
+           vec_autorizacion_atestada_v3.consumo_decision_v3,
+           vec_autorizacion_atestada_v3.auditoria_consumo_v3,
+           vec_autorizacion_atestada_v3.control_cadena_auditoria
+    IN ACCESS EXCLUSIVE MODE;
+
+DO $historia$
+DECLARE
+    v_cadena record;
+BEGIN
+    IF current_user <> 'vec_autorizacion_atestada_v3_propietario' THEN
+        RAISE EXCEPTION 'AD3-51: propietario incompatible' USING ERRCODE='55000';
+    END IF;
+    SELECT control_id, secuencia, cabeza_sha256 INTO v_cadena
+      FROM vec_autorizacion_atestada_v3.control_cadena_auditoria;
+    IF NOT FOUND OR v_cadena.control_id IS NOT TRUE
+       OR v_cadena.secuencia IS DISTINCT FROM 0::numeric
+       OR v_cadena.cabeza_sha256 IS DISTINCT FROM pg_catalog.repeat('0',64)
+       OR (SELECT pg_catalog.count(*) FROM vec_autorizacion_atestada_v3.control_cadena_auditoria) <> 1
+       OR EXISTS (SELECT 1 FROM vec_autorizacion_atestada_v3.atestacion_decision_v3)
+       OR EXISTS (SELECT 1 FROM vec_autorizacion_atestada_v3.consumo_decision_v3)
+       OR EXISTS (SELECT 1 FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3)
+    THEN
+        RAISE EXCEPTION 'AD3-51: DOWN rechazado por historia V3 o control incompleto'
+            USING ERRCODE='55000';
+    END IF;
+END
+$historia$;
 
 DO $migracion$
 DECLARE
