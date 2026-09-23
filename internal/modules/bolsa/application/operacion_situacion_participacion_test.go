@@ -9,6 +9,7 @@ import (
 	"vec-diputacion-granada/internal/modules/bolsa/domain"
 	"vec-diputacion-granada/internal/modules/bolsa/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
+	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
 
 type repositorioOperacionPrueba struct {
@@ -17,19 +18,21 @@ type repositorioOperacionPrueba struct {
 	escrituras int
 }
 
-func (r *repositorioOperacionPrueba) BuscarOperacion(context.Context, string, string) (ports.RegistroOperacionSituacion, error) {
-	if r.operacion == nil {
-		return ports.RegistroOperacionSituacion{}, ports.ErrSituacionParticipacionNoEncontrada
-	}
-	return *r.operacion, nil
-}
 func (r *repositorioOperacionPrueba) RegistrarOperacion(_ context.Context, c ports.ComandoOperacionSituacion) (ports.RegistroSituacionParticipacion, error) {
+	if r.operacion != nil {
+		if r.operacion.Operacion != c.Operacion || r.operacion.Justificante != c.Justificante || r.operacion.Validador != c.Validador || r.operacion.Motivo != c.Cambio.Motivo {
+			return ports.RegistroSituacionParticipacion{}, ports.ErrClaveOperacionReutilizada
+		}
+		previo := r.operacion.RegistroSituacionParticipacion
+		previo.Reutilizada = true
+		return previo, nil
+	}
 	r.escrituras++
 	res := ports.RegistroSituacionParticipacion{ReciboRef: c.ReciboRef, Motivo: c.Cambio.Motivo, SituacionParticipacion: ports.SituacionParticipacion{ParticipacionRef: c.Cambio.ParticipacionRef, Situacion: c.Cambio.Destino, Desde: c.Cambio.Desde}}
 	r.operacion = &ports.RegistroOperacionSituacion{RegistroSituacionParticipacion: res, Operacion: c.Operacion, Justificante: c.Justificante, Actor: c.Actor, Validador: c.Validador, ValidadaEn: c.ValidadaEn}
 	return res, nil
 }
-func (r *repositorioOperacionPrueba) ListarOperaciones(context.Context, string) ([]ports.RegistroOperacionSituacion, error) {
+func (r *repositorioOperacionPrueba) ListarOperaciones(context.Context, string, string, puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3) ([]ports.RegistroOperacionSituacion, error) {
 	if r.operacion == nil {
 		return []ports.RegistroOperacionSituacion{}, nil
 	}

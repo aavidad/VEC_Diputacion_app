@@ -109,6 +109,14 @@ func (a *auditoriaBorradorLlamamiento) ServeHTTP(w http.ResponseWriter, r *http.
 }
 
 func intentoAuditableBorradorLlamamiento(r *http.Request) (puertosbolsa.AccionIntentoBorradorLlamamiento, puertosbolsa.ClaseRutaIntentoBorradorLlamamiento, bool) {
+	if _, _, ok := ReferenciasRutaOperacionesSituacion(r); ok {
+		if r.Method == http.MethodPost {
+			return puertosbolsa.AccionIntentoCambiarSituacionParticipacion, puertosbolsa.ClaseRutaSituacionParticipacion, true
+		}
+		if r.Method == http.MethodGet {
+			return puertosbolsa.AccionIntentoConsultarBorradorLlamamiento, puertosbolsa.ClaseRutaSituacionParticipacion, true
+		}
+	}
 	if _, _, _, ok := ReferenciasRutaDatosContactoParticipacion(r); ok && r.Method == http.MethodGet {
 		return puertosbolsa.AccionIntentoConsultarDatosContactoParticipacion, puertosbolsa.ClaseRutaDatosContactoParticipacion, true
 	}

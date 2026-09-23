@@ -93,6 +93,22 @@ func TestAuditoriaBorradorLlamamientoRegistraDenegacionDeSituacionB2(t *testing.
 	}
 }
 
+func TestAuditoriaOperacionesB8RegistraGETyPOST(t *testing.T) {
+	ruta := RutaBolsasGestion + "/bolsa:01/candidatos/participacion:01/operaciones"
+	for _, caso := range []struct {
+		metodo string
+		accion puertosbolsa.AccionIntentoBorradorLlamamiento
+	}{{http.MethodGet, puertosbolsa.AccionIntentoConsultarBorradorLlamamiento}, {http.MethodPost, puertosbolsa.AccionIntentoCambiarSituacionParticipacion}} {
+		registrador := &registradorIntentoBorradorDoble{}
+		h := nuevaAuditoriaBorradorPrueba(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusForbidden) }), registrador, nil)
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, httptest.NewRequest(caso.metodo, ruta, nil))
+		if w.Code != http.StatusForbidden || len(registrador.intentos) != 1 || registrador.intentos[0].Accion != caso.accion || registrador.intentos[0].ClaseRuta != puertosbolsa.ClaseRutaSituacionParticipacion || registrador.intentos[0].Resultado != puertosbolsa.ResultadoIntentoAccesoDenegadoBorradorLlamamiento {
+			t.Fatalf("B8 %s no auditado: estado=%d intentos=%#v", caso.metodo, w.Code, registrador.intentos)
+		}
+	}
+}
+
 func TestAuditoriaBorradorLlamamientoIncluyeFronterasB4YB7(t *testing.T) {
 	casos := []struct {
 		metodo, ruta string

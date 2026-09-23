@@ -34,7 +34,21 @@ BEGIN
  VALUES(p,'excluido',base+interval '3 second','Exclusión B8 sintética','persona:operador-b8',base+interval '3 second','b8:excluye','recibo:b8:excluye');
  INSERT INTO vec_bolsa_llamamientos.operacion_situacion_participacion(participacion_ref,desde,operacion,justificante_tipo,justificante_ref,justificante_sha256,actor,validador,validada_en,registrada_en,clave_idempotencia)
  VALUES(p,base+interval '3 second','excluir','resolucion','justificante:excluye',repeat('c',64),'persona:operador-b8','persona:validador-b8',base+interval '3 second',base+interval '3 second','b8:excluye');
- SELECT count(*) INTO filas FROM vec_bolsa_llamamientos.listar_operaciones_situacion_participacion_v1(p);
+ SELECT count(*) INTO filas FROM vec_bolsa_llamamientos.operacion_situacion_participacion WHERE participacion_ref=p;
  IF filas<>3 THEN RAISE EXCEPTION 'B8: historial incompleto'; END IF;
 END $prueba$;
+SET LOCAL ROLE vec_bolsa_llamamientos_ejecutor;
+DO $acl$ BEGIN
+ BEGIN
+  PERFORM 1 FROM vec_bolsa_llamamientos.operacion_situacion_participacion;
+  RAISE EXCEPTION 'B8: lectura directa de tabla permitida';
+ EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+ BEGIN
+  PERFORM 1 FROM vec_bolsa_llamamientos.listar_operaciones_situacion_participacion_v1(
+   'participacion:sin_autorizacion','persona:sin_autorizacion',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+  RAISE EXCEPTION 'B8: consulta sin material V3 permitida';
+ EXCEPTION WHEN others THEN
+  IF SQLERRM='B8: consulta sin material V3 permitida' THEN RAISE; END IF;
+ END;
+END $acl$;
 ROLLBACK;

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
+	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
 
 var ErrClaveOperacionReutilizada = errors.New("bolsa: clave de operacion reutilizada")
@@ -35,7 +36,6 @@ type RegistroOperacionSituacion struct {
 }
 
 type RepositorioOperacionSituacion interface {
-	BuscarOperacion(context.Context, string, string) (RegistroOperacionSituacion, error)
 	RegistrarOperacion(context.Context, ComandoOperacionSituacion) (RegistroSituacionParticipacion, error)
-	ListarOperaciones(context.Context, string) ([]RegistroOperacionSituacion, error)
+	ListarOperaciones(context.Context, string, string, puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3) ([]RegistroOperacionSituacion, error)
 }

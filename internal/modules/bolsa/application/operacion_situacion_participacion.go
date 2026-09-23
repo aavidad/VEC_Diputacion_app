@@ -4,7 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
+	"strings"
 	"time"
 
 	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
@@ -35,34 +35,18 @@ func (s *ServicioSituacionParticipacion) Operar(ctx context.Context, q ports.Sol
 	ahora := s.reloj().UTC().Truncate(time.Microsecond)
 	// El validador es una identidad declarada por RRHH, no un firmante. La
 	// separación en exclusión es provisional hasta resolver la duda 6.
-	if q.Validador == "" || (q.Operacion == dominiobolsa.OperacionExcluir && q.Validador == actor) {
+	if q.Validador == "" || strings.TrimSpace(q.Validador) != q.Validador || len(q.Validador) > 256 || (q.Operacion == dominiobolsa.OperacionExcluir && q.Validador == actor) {
 		return ports.RegistroSituacionParticipacion{}, dominiobolsa.ErrOperacionSituacionParticipacionInvalida
-	}
-	previo, err := repo.BuscarOperacion(ctx, q.ParticipacionRef, q.ClaveIdempotencia)
-	if err == nil {
-		if previo.Operacion != q.Operacion || previo.Motivo != q.Motivo || previo.Actor != actor || previo.Validador != q.Validador || previo.Justificante != q.Justificante {
-			return ports.RegistroSituacionParticipacion{}, ports.ErrClaveOperacionReutilizada
-		}
-		previo.Reutilizada = true
-		return previo.RegistroSituacionParticipacion, nil
-	}
-	if !errors.Is(err, ports.ErrSituacionParticipacionNoEncontrada) {
-		return ports.RegistroSituacionParticipacion{}, err
-	}
-	// La misma clave puede existir ya en B2 sin justificante B8. No se
-	// atribuye retroactivamente una operación a ese cambio.
-	if _, err := s.repositorio.BuscarRegistroSituacion(ctx, q.ParticipacionRef, q.ClaveIdempotencia); err == nil {
-		return ports.RegistroSituacionParticipacion{}, ports.ErrClaveOperacionReutilizada
-	} else if !errors.Is(err, ports.ErrSituacionParticipacionNoEncontrada) {
-		return ports.RegistroSituacionParticipacion{}, err
 	}
 	vigente, err := s.repositorio.SituacionVigente(ctx, q.ParticipacionRef)
 	if err != nil {
 		return ports.RegistroSituacionParticipacion{}, err
 	}
 	cambio := dominiobolsa.CambioSituacionParticipacion{ParticipacionRef: q.ParticipacionRef, Origen: vigente.Situacion, Destino: destino, Desde: ahora, Motivo: q.Motivo, RegistradaEn: ahora}
-	op := dominiobolsa.OperacionSituacionParticipacion{Cambio: cambio, Operacion: q.Operacion, Justificante: q.Justificante, Actor: actor, Validador: q.Validador, ValidadaEn: ahora}
-	if op.Validar() != nil || ahora.Before(vigente.Desde) {
+	// El cambio vigente puede ser ya el efecto de esta clave. B2 resuelve
+	// replay antes de validar transiciones, bajo el mismo consumo V3; una
+	// lectura previa del recibo abriría una vía SQL sin permiso consumido.
+	if ahora.Before(vigente.Desde) {
 		return ports.RegistroSituacionParticipacion{}, dominiobolsa.ErrCambioSituacionParticipacionInvalido
 	}
 	h := sha256.Sum256([]byte(q.ParticipacionRef + "\x1f" + q.ClaveIdempotencia))
@@ -78,10 +62,11 @@ func (s *ServicioSituacionParticipacion) ListarOperaciones(ctx context.Context, 
 	if !ok {
 		return nil, ErrCambioSituacionParticipacionNoDisponible
 	}
-	if _, _, _, _, err := s.autorizarOperacion(ctx, q); err != nil {
+	_, _, _, material, err := s.autorizarOperacion(ctx, q)
+	if err != nil {
 		return nil, err
 	}
-	return repo.ListarOperaciones(ctx, q.ParticipacionRef)
+	return repo.ListarOperaciones(ctx, q.ParticipacionRef, q.ResultadoContexto.Contexto.PersonaRef, material)
 }
 
 func (s *ServicioSituacionParticipacion) autorizarOperacion(ctx context.Context, q ports.SolicitudCambiarSituacionParticipacion) (dominiovec.SolicitudAutorizacionLigadaV3, dominiovec.DecisionAutorizacionLigadaV3, puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3, puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {

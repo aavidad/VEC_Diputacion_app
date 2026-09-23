@@ -98,29 +98,41 @@ BEGIN
  RETURN QUERY SELECT false, v_cambio.recibo_ref, v_cambio.situacion, v_cambio.desde, v_cambio.fecha_disponible;
 END $f$;
 
-CREATE FUNCTION vec_bolsa_llamamientos.recuperar_operacion_situacion_participacion_v1(p_participacion_ref text, p_clave_idempotencia text)
-RETURNS TABLE(recibo_ref text, situacion text, desde timestamptz, operacion text, justificante_tipo text, justificante_ref text, justificante_sha256 text, actor text, validador text, validada_en timestamptz, motivo text)
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog AS $f$
- SELECT s.recibo_ref, s.situacion, s.desde, o.operacion, o.justificante_tipo, o.justificante_ref, o.justificante_sha256, o.actor, o.validador, o.validada_en, s.motivo
-   FROM vec_bolsa_llamamientos.operacion_situacion_participacion o
-   JOIN vec_bolsa_llamamientos.situacion_participacion s USING (participacion_ref, desde)
-  WHERE o.participacion_ref = p_participacion_ref AND o.clave_idempotencia = p_clave_idempotencia
-$f$;
-
-CREATE FUNCTION vec_bolsa_llamamientos.listar_operaciones_situacion_participacion_v1(p_participacion_ref text)
+CREATE FUNCTION vec_bolsa_llamamientos.listar_operaciones_situacion_participacion_v1(
+ p_participacion_ref text,p_actor text,p_capacidad bytea,p_decision bytea,p_motivo_autorizacion bytea,p_contexto bytea,
+ p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)
 RETURNS TABLE(desde timestamptz, operacion text, situacion text, justificante_tipo text, justificante_ref text, justificante_sha256 text, actor text, validador text, validada_en timestamptz, motivo text)
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog AS $f$
- SELECT o.desde, o.operacion, s.situacion, o.justificante_tipo, o.justificante_ref, o.justificante_sha256, o.actor, o.validador, o.validada_en, s.motivo
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = pg_catalog AS $f$
+DECLARE v_consumo record; v_decision jsonb;
+BEGIN
+ IF current_user <> 'vec_bolsa_llamamientos_propietario' OR p_participacion_ref IS NULL OR p_actor IS NULL THEN
+  RAISE EXCEPTION USING ERRCODE='42501',MESSAGE='consulta de operaciones no autorizada';
+ END IF;
+ SELECT * INTO STRICT v_consumo FROM vec_autorizacion_atestada_v3.registrar_y_consumir_situacion_participacion_v3_atestada(
+  p_capacidad,p_decision,p_motivo_autorizacion,p_contexto,p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz);
+ BEGIN v_decision:=convert_from(p_decision,'UTF8')::jsonb;
+ EXCEPTION WHEN others THEN RAISE EXCEPTION USING ERRCODE='42501',MESSAGE='consulta de operaciones no autorizada'; END;
+ IF v_consumo.efecto_ref IS DISTINCT FROM p_participacion_ref OR v_consumo.consumo_nuevo IS NOT TRUE
+    OR v_decision->>'principal_id' IS DISTINCT FROM p_actor
+    OR v_decision->>'accion' IS DISTINCT FROM 'bolsa.situacion_participacion.cambiar'
+    OR v_decision->>'modulo_id' IS DISTINCT FROM 'bolsa'
+    OR v_decision->>'tipo_recurso' IS DISTINCT FROM 'participacion_bolsa'
+    OR v_decision->>'finalidad' IS DISTINCT FROM 'gestion_situacion_participacion'
+    OR v_decision->>'recurso_ref' IS DISTINCT FROM p_participacion_ref
+    OR v_decision->'campos_permitidos' IS DISTINCT FROM '[]'::jsonb
+    OR v_decision->'obligaciones' IS DISTINCT FROM '[]'::jsonb
+    OR v_consumo.huella_efecto_sha256 IS DISTINCT FROM v_decision->>'contexto_recurso_huella_sha256' THEN
+  RAISE EXCEPTION USING ERRCODE='42501',MESSAGE='consulta de operaciones no autorizada';
+ END IF;
+ RETURN QUERY SELECT o.desde, o.operacion, s.situacion, o.justificante_tipo, o.justificante_ref, o.justificante_sha256, o.actor, o.validador, o.validada_en, s.motivo
    FROM vec_bolsa_llamamientos.operacion_situacion_participacion o
    JOIN vec_bolsa_llamamientos.situacion_participacion s USING (participacion_ref, desde)
   WHERE o.participacion_ref = p_participacion_ref
-  ORDER BY o.desde DESC
-$f$;
+  ORDER BY o.desde DESC;
+END $f$;
 
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.registrar_operacion_situacion_participacion_v1(text,text,text,timestamptz,timestamptz,text,text,text,text,timestamptz,text,text,text,text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;
-REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.recuperar_operacion_situacion_participacion_v1(text,text) FROM PUBLIC;
-REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.listar_operaciones_situacion_participacion_v1(text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.listar_operaciones_situacion_participacion_v1(text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.registrar_operacion_situacion_participacion_v1(text,text,text,timestamptz,timestamptz,text,text,text,text,timestamptz,text,text,text,text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_bolsa_llamamientos_ejecutor;
-GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.recuperar_operacion_situacion_participacion_v1(text,text) TO vec_bolsa_llamamientos_ejecutor;
-GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.listar_operaciones_situacion_participacion_v1(text) TO vec_bolsa_llamamientos_ejecutor;
+GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.listar_operaciones_situacion_participacion_v1(text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_bolsa_llamamientos_ejecutor;
 COMMIT;
