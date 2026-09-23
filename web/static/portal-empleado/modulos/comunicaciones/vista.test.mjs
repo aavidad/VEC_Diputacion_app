@@ -133,3 +133,10 @@ test("catálogo cerrado, sin red ni almacenamiento en la vista", async () => {
   const fuente = await readFile(new URL("./vista.js", import.meta.url), "utf8");
   assert.doesNotMatch(fuente, /(?:fetch\(|localStorage|sessionStorage|document\.cookie|datos-presentacion)/u);
 });
+
+test("la vista carga el catálogo i18n con la versión F2 de caché", async () => {
+  const fuente = await readFile(new URL("./vista.js", import.meta.url), "utf8");
+  assert.match(fuente, /^import \{ crearTraductorComunicaciones \} from "\.\/i18n\.js\?v=20260924-f2-web2";$/mu);
+  const modulo = await import("./vista.js?v=20260924-f2-web2");
+  assert.match(modulo.renderizarVistaComunicaciones(), /Comunicaciones y avisos/u);
+});
