@@ -143,6 +143,48 @@ type registroContactoPrueba struct {
 	err      error
 }
 
+type generadorOperacionContactoPrueba string
+
+func (g generadorOperacionContactoPrueba) NuevaOperacionContactoUsuario(context.Context) (string, error) {
+	return string(g), nil
+}
+
+type repositorioOperacionContactoPrueba struct {
+	orden    ports.OrdenPrepararOperacionContacto
+	llamadas int
+}
+
+func (r *repositorioOperacionContactoPrueba) PrepararOperacionContacto(_ context.Context, o ports.OrdenPrepararOperacionContacto) (ports.OperacionContactoUsuario, error) {
+	r.llamadas++
+	r.orden = o
+	base, err := reciboCentralContactoFuente(ports.OrdenRegistroContactoUsuario{Preparacion: ports.PreparacionRegistroContactoUsuario{SujetoRef: o.SujetoRef, VersionNueva: o.VersionEsperada + 1, Auditoria: o.Acceso.Auditoria, PayloadNegocio: o.Acceso.PayloadNegocio, Recurso: o.Acceso.Recurso}, Material: o.Acceso.Material})
+	if err != nil {
+		return ports.OperacionContactoUsuario{}, err
+	}
+	var central proyeccionCentralContacto
+	if err = json.Unmarshal(base.EvidenciaCentral.JSONOriginal, &central); err != nil {
+		return ports.OperacionContactoUsuario{}, err
+	}
+	central.Metadata["operacion_ref"] = o.OperacionRef
+	central.Metadata["estado_operacion"] = "preparada"
+	raw, err := json.Marshal(central)
+	if err != nil {
+		return ports.OperacionContactoUsuario{}, err
+	}
+	evidencia, err := envolverEvidenciaCentralContacto(raw)
+	return ports.OperacionContactoUsuario{OperacionRef: o.OperacionRef, Estado: ports.OperacionContactoPreparada, VersionEsperada: o.VersionEsperada,
+		AuditoriaOperacion: evidencia, ConsumoRef: base.ConsumoRef, ConsumoHuellaSHA256: base.ConsumoHuellaSHA256}, err
+}
+func (*repositorioOperacionContactoPrueba) CancelarOperacionContacto(context.Context, ports.OrdenCancelarOperacionContacto) (ports.OperacionContactoUsuario, error) {
+	return ports.OperacionContactoUsuario{}, ErrContactoUsuarioNoDisponible
+}
+func (*repositorioOperacionContactoPrueba) ListarOperacionesContacto(context.Context, ports.OrdenListarOperacionesContacto) (ports.ResultadoListaOperacionesContacto, error) {
+	return ports.ResultadoListaOperacionesContacto{}, ErrContactoUsuarioNoDisponible
+}
+func (*repositorioOperacionContactoPrueba) DetalleOperacionContacto(context.Context, ports.OrdenDetalleOperacionContacto) (ports.ResultadoDetalleOperacionContacto, error) {
+	return ports.ResultadoDetalleOperacionContacto{}, ErrContactoUsuarioNoDisponible
+}
+
 func (r *registroContactoPrueba) GuardarContactoUsuario(_ context.Context, o ports.OrdenRegistroContactoUsuario) (ports.ReciboContactoUsuario, error) {
 	r.llamadas++
 	r.orden = o
@@ -196,6 +238,9 @@ func contactoExigir(t *testing.T, err error) {
 	}
 }
 func nuevoEntornoContacto(t *testing.T) *entornoContacto {
+	return nuevoEntornoContactoConAudiencia(t, "vec.contacto_usuario.v1")
+}
+func nuevoEntornoContactoConAudiencia(t *testing.T, audiencia string) *entornoContacto {
 	t.Helper()
 	e := &entornoContacto{entornoAutorizacionSolicitudV3Prueba: nuevoEntornoAutorizacionSolicitudV3Prueba(t), registro: &registroContactoPrueba{}}
 	e.entornoAutorizacionSolicitudV3Prueba.servicio.generador = generadorContactoAleatorio{}
@@ -222,7 +267,7 @@ func nuevoEntornoContacto(t *testing.T) *entornoContacto {
 	contactoExigir(t, err)
 	ver, err := confianza.NuevoServicioConfianzaAtestacionAutorizacionV3(cfg, reloj)
 	contactoExigir(t, err)
-	clave, err := confianza.NuevaClaveHMACCapacidadAtestacionAutorizacionV3("clave:capacidad:contacto", 1, bytes.Repeat([]byte{0x71}, 32), "emisor:prueba:contacto", "vec.contacto_usuario.v1", confianza.EstadoClaveHMACCapacidadAtestacionV3Emision, e.ahora.Add(-time.Hour), e.ahora.Add(time.Hour), time.Time{}, 1, strings.Repeat("7", 64))
+	clave, err := confianza.NuevaClaveHMACCapacidadAtestacionAutorizacionV3("clave:capacidad:contacto", 1, bytes.Repeat([]byte{0x71}, 32), "emisor:prueba:contacto", audiencia, confianza.EstadoClaveHMACCapacidadAtestacionV3Emision, e.ahora.Add(-time.Hour), e.ahora.Add(time.Hour), time.Time{}, 1, strings.Repeat("7", 64))
 	contactoExigir(t, err)
 	em, err := confianza.NuevoEmisorCapacidadesAtestacionAutorizacionV3(clave, reloj)
 	contactoExigir(t, err)
@@ -236,7 +281,7 @@ func nuevoEntornoContacto(t *testing.T) *entornoContacto {
 	e.servicio.ahora = func() time.Time { return e.ahora }
 	c, err := domain.NuevoContactoUsuario(e.resultado.Contexto.PersonaRef, "persona@prueba.local", 1)
 	contactoExigir(t, err)
-	e.solicitud = ports.SolicitudRegistroContactoUsuario{ContextoActor: e.resultado.Contexto, Contacto: c, FinalidadRef: base.Finalidad, Recurso: base.Recurso, Audiencia: "vec.contacto_usuario.v1", SolicitudBase: base, ResultadoContexto: e.resultado}
+	e.solicitud = ports.SolicitudRegistroContactoUsuario{ContextoActor: e.resultado.Contexto, Contacto: c, FinalidadRef: base.Finalidad, Recurso: base.Recurso, Audiencia: audiencia, SolicitudBase: base, ResultadoContexto: e.resultado}
 	return e
 }
 func TestContactoGuardarConEmisorV3RealYCorreoCifrado(t *testing.T) {
@@ -290,6 +335,42 @@ func TestContactoOperacionSeLigaAlRecursoFirmadoAntesDelRegistro(t *testing.T) {
 	e.solicitud.SolicitudBase.Recurso = e.solicitud.Recurso
 	if _, err := e.servicio.Guardar(context.Background(), e.solicitud); err == nil || e.registro.llamadas != 0 {
 		t.Fatal("selector de operación distinto del recurso llegó al registro")
+	}
+}
+
+func TestPrepararOperacionContactoFirmaHMACSinCorreoClaro(t *testing.T) {
+	e := nuevoEntornoContactoConAudiencia(t, AudienciaPrepararOperacionContacto)
+	persona := e.resultado.Contexto.PersonaRef
+	recurso := domain.RecursoAutorizable{Referencia: persona, ModuloID: "vec.module.usuarios", Tipo: "contacto_usuario", Ambitos: map[string]string{"unidad": "seleccion"}}
+	base := e.solicitud.SolicitudBase
+	base.Recurso, base.Accion, base.Finalidad = recurso, AccionPrepararOperacionContacto, "gestion_contacto_propio"
+	e.fuente.instantanea.VersionRol.Concesiones = []domain.ConcesionRol{{Accion: AccionPrepararOperacionContacto, ModuloID: recurso.ModuloID, TipoRecurso: recurso.Tipo,
+		Finalidades: []string{base.Finalidad}, GarantiaMinima: domain.AuthAssuranceHigh}}
+	correlacion, err := base.Correlacion.ValorCanonico()
+	contactoExigir(t, err)
+	repo := &repositorioOperacionContactoPrueba{}
+	ref := "opr_" + strings.Repeat("o", 22)
+	servicio, err := NuevoServicioOperacionesContactoUsuario(auditorContactoPrueba{e.ahora, base.Finalidad, correlacion},
+		derivadorHuellasContactoPrueba{}, e.emisor, repo, generadorOperacionContactoPrueba(ref))
+	contactoExigir(t, err)
+	servicio.ahora = func() time.Time { return e.ahora }
+	op, err := servicio.Preparar(context.Background(), ports.SolicitudPrepararOperacionContacto{ContextoActor: e.resultado.Contexto,
+		Correo: "persona@prueba.local", Recurso: recurso, SolicitudBase: base, ResultadoContexto: e.resultado})
+	contactoExigir(t, err)
+	if repo.llamadas != 1 || op.OperacionRef != ref || op.Estado != ports.OperacionContactoPreparada ||
+		repo.orden.Acceso.Recurso.Atributos["contacto_operacion_ref"] != ref ||
+		e.emisor.material.ResumenCapacidad().AudienciaConsumo() != AudienciaPrepararOperacionContacto ||
+		bytes.Contains(repo.orden.Acceso.PayloadNegocio, []byte("persona@prueba.local")) ||
+		bytes.Contains(e.emisor.material.CapacidadCanonica(), []byte("persona@prueba.local")) {
+		t.Fatal("preparación expuso correo o perdió operación/recurso firmados")
+	}
+	e = nuevoEntornoContactoConAudiencia(t, AudienciaPrepararOperacionContacto)
+	// La autorización del emisor no transforma un selector declarado por el
+	// cliente en referencia de operación válida.
+	servicio.generador = generadorOperacionContactoPrueba("opr_no_canonica")
+	if _, err := servicio.Preparar(context.Background(), ports.SolicitudPrepararOperacionContacto{ContextoActor: e.resultado.Contexto,
+		Correo: "persona@prueba.local", Recurso: recurso, SolicitudBase: base, ResultadoContexto: e.resultado}); err == nil || repo.llamadas != 1 {
+		t.Fatal("referencia no canónica llegó al registro")
 	}
 }
 func TestContactoGuardarRechazaRecursoFirmadoDistinto(t *testing.T) {

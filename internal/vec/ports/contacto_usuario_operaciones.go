@@ -20,12 +20,15 @@ const (
 // OperacionContactoUsuario omite correo, HMAC y sobre incluso en consultas
 // internas. OperacionRef sólo selecciona; nunca acredita titularidad ni permiso.
 type OperacionContactoUsuario struct {
-	OperacionRef     string
-	Estado           EstadoOperacionContactoUsuario
-	VersionEsperada  uint64
-	Version          uint64
-	ReciboRef        string
-	ReplayConfirmado bool // Sólo para que HTTP distinga 201 de 200.
+	OperacionRef        string
+	Estado              EstadoOperacionContactoUsuario
+	VersionEsperada     uint64
+	Version             uint64
+	ReciboRef           string
+	ReplayConfirmado    bool // Sólo para que HTTP distinga 201 de 200.
+	AuditoriaOperacion  EvidenciaAuditoriaCentralContactoUsuario
+	ConsumoRef          string
+	ConsumoHuellaSHA256 string
 }
 
 // Las órdenes durables transportan la autorización nominal V3 ya emitida. La

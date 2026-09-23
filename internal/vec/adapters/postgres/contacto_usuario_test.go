@@ -59,6 +59,27 @@ func TestContactoOperativoNoUsaRegistroLegadoNiAbreTxSinSelectorFirmado(t *testi
 	}
 }
 
+func TestOperacionContactoSQLSoloAceptaProyeccionMinimizada(t *testing.T) {
+	ref := "opr_abcdefghijklmnopqrstuv"
+	for _, caso := range []struct {
+		nombre, cuerpo string
+		valida         bool
+	}{
+		{"preparada", `{"operacion_ref":"` + ref + `","estado":"preparada","version_esperada":0,"version":null,"recibo_ref":null}`, true},
+		{"confirmada", `{"operacion_ref":"` + ref + `","estado":"confirmada","version_esperada":0,"version":1,"recibo_ref":"acc_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}`, true},
+		{"correo filtrado", `{"operacion_ref":"` + ref + `","estado":"preparada","version_esperada":0,"version":null,"recibo_ref":null,"correo":"persona@example.test"}`, false},
+		{"sin recibo", `{"operacion_ref":"` + ref + `","estado":"confirmada","version_esperada":0,"version":1,"recibo_ref":null}`, false},
+		{"version falsa", `{"operacion_ref":"` + ref + `","estado":"cancelada","version_esperada":0,"version":1,"recibo_ref":null}`, false},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			_, err := decodificarOperacionContactoSQL([]byte(caso.cuerpo))
+			if (err == nil) != caso.valida {
+				t.Fatal("proyección SQL de operación aceptada/rechazada indebidamente")
+			}
+		})
+	}
+}
+
 func TestArgumentosContactoMantieneOrdenMaterialV3DeCatorcePiezas(t *testing.T) {
 	negocio, recurso, auditoria := []byte("negocio"), []byte("recurso"), []byte("auditoria")
 	a := argumentosContacto("vec.contacto_usuario.consultar", ports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, negocio, recurso, auditoria)
