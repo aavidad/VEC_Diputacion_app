@@ -55,18 +55,20 @@ func (r *RegistroOperacionContactoPostgreSQL) PrepararOperacionContacto(ctx cont
 	}
 	var ref, estado, consumoRef, consumoHuella string
 	var version uint64
+	var versionResultado *uint64
+	var reciboRef *string
 	var replay, conflictoMaterial, conflictoVersion bool
 	var recibo []byte
-	err = tx.QueryRow(ctx, `SELECT operacion_ref,estado,version_esperada,replay_confirmado,conflicto_material,conflicto_version,auditoria_central,consumo_ref,consumo_huella_sha256 FROM vec_contacto_usuario_v1.preparar_operacion_contacto_v1($1,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11,$12,$13,$14)`, argumentosContacto(vecapp.AccionPrepararOperacionContacto, a.Material, a.PayloadNegocio, recurso, auditoria)...).Scan(&ref, &estado, &version, &replay, &conflictoMaterial, &conflictoVersion, &recibo, &consumoRef, &consumoHuella)
+	err = tx.QueryRow(ctx, `SELECT operacion_ref,estado,version_esperada,replay_confirmado,version_resultante,recibo_ref,conflicto_material,conflicto_version,auditoria_central,consumo_ref,consumo_huella_sha256 FROM vec_contacto_usuario_v1.preparar_operacion_contacto_v1($1,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11,$12,$13,$14)`, argumentosContacto(vecapp.AccionPrepararOperacionContacto, a.Material, a.PayloadNegocio, recurso, auditoria)...).Scan(&ref, &estado, &version, &replay, &versionResultado, &reciboRef, &conflictoMaterial, &conflictoVersion, &recibo, &consumoRef, &consumoHuella)
 	if err != nil {
 		return vacio, contactoError(ctx, err)
 	}
-	estadoAudit := "preparada"
+	estadoAudit := estado
 	if conflictoMaterial || conflictoVersion {
 		estadoAudit = "conflicto"
 	}
 	evidencia, err := vecapp.ValidarEvidenciaCentralOperacionContacto(recibo, a, o.OperacionRef, estadoAudit, consumoRef, consumoHuella)
-	if err != nil || version != o.VersionEsperada || (conflictoVersion && ref != "") || (!conflictoVersion && !vecapp.ReferenciaOperacionContactoValida(ref)) || (ref != o.OperacionRef && !replay && !conflictoMaterial) || (replay && conflictoMaterial) {
+	if err != nil || version != o.VersionEsperada || (conflictoVersion && ref != "") || (!conflictoVersion && !vecapp.ReferenciaOperacionContactoValida(ref)) || (ref != o.OperacionRef && !replay && !conflictoMaterial) || (replay && conflictoMaterial) || (estado == string(ports.OperacionContactoConfirmada) && (!replay && !conflictoMaterial || versionResultado == nil || reciboRef == nil)) {
 		return vacio, vecapp.ErrContactoUsuarioNoDisponible
 	}
 	if err = ctx.Err(); err != nil {
@@ -78,7 +80,13 @@ func (r *RegistroOperacionContactoPostgreSQL) PrepararOperacionContacto(ctx cont
 	if conflictoVersion {
 		return vacio, vecapp.ErrContactoUsuarioConflicto
 	}
-	op := ports.OperacionContactoUsuario{OperacionRef: ref, Estado: ports.OperacionContactoPreparada, VersionEsperada: version, ReplayConfirmado: replay, AuditoriaOperacion: evidencia, ConsumoRef: consumoRef, ConsumoHuellaSHA256: consumoHuella}
+	op := ports.OperacionContactoUsuario{OperacionRef: ref, Estado: ports.EstadoOperacionContactoUsuario(estado), VersionEsperada: version, ReplayConfirmado: replay, AuditoriaOperacion: evidencia, ConsumoRef: consumoRef, ConsumoHuellaSHA256: consumoHuella}
+	if versionResultado != nil {
+		op.Version = *versionResultado
+	}
+	if reciboRef != nil {
+		op.ReciboRef = *reciboRef
+	}
 	if vecapp.ValidarOperacionContacto(op) != nil {
 		return vacio, vecapp.ErrContactoUsuarioNoDisponible
 	}

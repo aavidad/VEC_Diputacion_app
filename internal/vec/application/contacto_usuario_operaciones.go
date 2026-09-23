@@ -135,10 +135,10 @@ func (s *ServicioOperacionesContactoUsuario) Preparar(ctx context.Context, p por
 			return op, err
 		}
 	}
-	if err != nil || ctx.Err() != nil || op.Estado != ports.OperacionContactoPreparada || op.VersionEsperada != p.VersionEsperada || ValidarOperacionContacto(op) != nil || !ReferenciaOperacionContactoValida(op.OperacionRef) {
+	if err != nil || ctx.Err() != nil || (op.Estado != ports.OperacionContactoPreparada && (op.Estado != ports.OperacionContactoConfirmada || !op.ReplayConfirmado)) || op.VersionEsperada != p.VersionEsperada || ValidarOperacionContacto(op) != nil || !ReferenciaOperacionContactoValida(op.OperacionRef) {
 		return vacio, ErrContactoUsuarioNoDisponible
 	}
-	e, err := ValidarEvidenciaCentralOperacionContacto(op.AuditoriaOperacion.JSONOriginal, acceso, ref, "preparada", op.ConsumoRef, op.ConsumoHuellaSHA256)
+	e, err := ValidarEvidenciaCentralOperacionContacto(op.AuditoriaOperacion.JSONOriginal, acceso, ref, string(op.Estado), op.ConsumoRef, op.ConsumoHuellaSHA256)
 	if err != nil || e.Referencia != op.AuditoriaOperacion.Referencia || e.HuellaJSONSHA256 != op.AuditoriaOperacion.HuellaJSONSHA256 {
 		return vacio, ErrContactoUsuarioNoDisponible
 	}

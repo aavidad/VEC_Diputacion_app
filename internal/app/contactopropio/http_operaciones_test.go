@@ -80,6 +80,15 @@ func TestOperacionesContactoSoloRutasFijasYJSONMinimo(t *testing.T) {
 			t.Fatalf("entrada no canónica admitida: %d", w.Code)
 		}
 	}
+	e.op = ports.OperacionContactoUsuario{OperacionRef: ref, Estado: ports.OperacionContactoConfirmada, VersionEsperada: 0, Version: 1,
+		ReciboRef: "acc_" + strings.Repeat("a", 40), ReplayConfirmado: true}
+	r := httptest.NewRequest(http.MethodPost, RutaOperacionContactoPreparar, strings.NewReader(`{"correo":"ana@example.test","version_esperada":0}`))
+	r.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	rutas[0].Manejador.ServeHTTP(w, r)
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"estado":"confirmada"`) || !strings.Contains(w.Body.String(), `"recibo_ref"`) {
+		t.Fatal("replay de preparación confirmada perdió recibo original")
+	}
 }
 
 func TestOperacionContactoCommitInciertoConservaSelectorSinFalsoRecibo(t *testing.T) {

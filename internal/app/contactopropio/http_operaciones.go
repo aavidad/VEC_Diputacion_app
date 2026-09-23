@@ -193,7 +193,8 @@ func (h *manejadorOperacionesContacto) responderOperacion(w http.ResponseWriter,
 		responderErrorOperacion(w, err, ref)
 		return
 	}
-	if application.ValidarOperacionContacto(op) != nil || op.Estado != esperado {
+	preparacionYaConfirmada := esperado == ports.OperacionContactoPreparada && op.Estado == ports.OperacionContactoConfirmada && op.ReplayConfirmado
+	if application.ValidarOperacionContacto(op) != nil || (op.Estado != esperado && !preparacionYaConfirmada) {
 		responderCodigoOperacion(w, http.StatusServiceUnavailable, "servicio_no_disponible", "")
 		return
 	}
