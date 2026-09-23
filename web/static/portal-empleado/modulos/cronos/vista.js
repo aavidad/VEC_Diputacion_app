@@ -8,8 +8,8 @@ import {
   tieneCapacidadCronos,
   validarCapacidadesCronos,
   validarDatosCronos,
-} from "./contrato.js";
-import { crearTraductorCronos, MENSAJES_CRONOS_ES } from "./i18n.js";
+} from "./contrato.js?v=20260924-f2-web2";
+import { crearTraductorCronos, MENSAJES_CRONOS_ES } from "./i18n.js?v=20260924-f2-web2";
 
 function escaparHTML(valor) {
   return String(valor ?? "")
