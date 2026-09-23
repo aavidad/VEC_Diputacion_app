@@ -56,6 +56,7 @@ BEGIN
  IF b->>'SujetoRef' IS NULL
     OR (p_accion IN ('vec.contacto_usuario.operacion.preparar','vec.contacto_usuario.operacion.cancelar',
                     'vec.contacto_usuario.operacion.detalle') AND b->>'OperacionRef' IS DISTINCT FROM p_operacion_ref)
+    OR (p_accion='vec.contacto_usuario.operacion.listar' AND b->>'DespuesDe' IS DISTINCT FROM p_operacion_ref)
     OR (p_accion='vec.contacto_usuario.operacion.listar' AND p_estado<>'consulta')
     OR (p_accion='vec.contacto_usuario.operacion.preparar' AND p_estado NOT IN ('preparada','confirmada','conflicto'))
     OR (p_accion='vec.contacto_usuario.operacion.cancelar' AND p_estado NOT IN ('cancelada','conflicto','ausente'))

@@ -22,7 +22,7 @@ raiz=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)
 contenedor="vec-f2-pg18-$$"
 base="vec_f2_$$"
 imagen=${VEC_POSTGRES_TEST_IMAGE:-postgres:18.4-bookworm@sha256:1961f96e6029a02c3812d7cb329a3b03a3ac2bb067058dec17b0f5596aca9296}
-limpiar(){ docker rm -f "$contenedor" >/dev/null 2>&1 || true; for tmp in "${transaccion:-}" "${roles_sql:-}" "${prueba_json:-}"; do if [[ -n "$tmp" && -f "$tmp" ]]; then unlink "$tmp"; fi; done; if [[ -n "${socketdir:-}" ]]; then rm -f "$socketdir/.s.PGSQL.5432" "$socketdir/.s.PGSQL.5432.lock"; rmdir "$socketdir" 2>/dev/null || true; fi; }
+limpiar(){ docker rm -f "$contenedor" >/dev/null 2>&1 || true; for tmp in "${transaccion:-}" "${roles_sql:-}" "${prueba_json:-}" "${rol_ct_copia:-}"; do if [[ -n "$tmp" && -f "$tmp" ]]; then unlink "$tmp"; fi; done; if [[ -n "${socketdir:-}" ]]; then rm -f "$socketdir/.s.PGSQL.5432" "$socketdir/.s.PGSQL.5432.lock"; rmdir "$socketdir" 2>/dev/null || true; fi; }
 trap limpiar EXIT INT TERM
 volumen=()
 if [[ "${VEC_F2_POSITIVO:-}" == 1 ]]; then
@@ -73,11 +73,24 @@ aplicar "$raiz/deploy/postgresql/bolsa_registro_accesos/migraciones/000004_prepa
 aplicar "$raiz/deploy/postgresql/bolsa_registro_accesos/migraciones/000004_preparar_resultado_correo_ad3.up.sql"
 aplicar "$raiz/deploy/postgresql/bolsa_registro_accesos/cerrar_acl_dba.sql"
 aplicar "$raiz/deploy/postgresql/bolsa_registro_accesos/migraciones/000005_registrar_resultado_correo.up.sql"
-# CT51 es la postimagen obligatoria previa. Su rol se instala por la migración
-# productiva CT cuando esté integrada en esta rama; nunca con GRANT de ensayo.
-rol_ct="$raiz/deploy/postgresql/contratacion_temporal/roles_consultor_rrhh_ambito_up.sql"
-[[ -r "$rol_ct" ]] || { echo 'F2: falta rol productivo CT previo a AD3-51' >&2; exit 1; }
-aplicar "$rol_ct"
+# CT51 exige el rol productivo CT, conservado en el commit revisado. Se ejecuta
+# una copia de SU blob exacto; nunca un GRANT diagnóstico ni una ruta mutable.
+rol_ct_commit=6058a11dae0579f0a8babcf7c545e965db096624
+rol_ct_ruta=deploy/postgresql/contratacion_temporal/roles_consultor_rrhh_ambito_up.sql
+rol_ct_blob=130744d492fd005379d299d104a926e154190792
+rol_ct_sha=2ca2191eab2c23346efd027f5b7c39d3b6f07e4487953774a39300ba12b8399f
+[[ "$(git -C "$raiz" rev-parse "$rol_ct_commit:$rol_ct_ruta" 2>/dev/null)" == "$rol_ct_blob" ]] || { echo 'F2: falta procedencia exacta del rol CT' >&2; exit 1; }
+rol_ct_copia=$(mktemp)
+git -C "$raiz" show "$rol_ct_commit:$rol_ct_ruta" > "$rol_ct_copia"
+[[ "$(git -C "$raiz" hash-object "$rol_ct_copia")" == "$rol_ct_blob" && "$(sha256sum "$rol_ct_copia" | cut -d' ' -f1)" == "$rol_ct_sha" ]] || { echo 'F2: copia del rol CT divergente' >&2; exit 1; }
+if [[ -r "$raiz/$rol_ct_ruta" ]]; then
+  [[ "$(sha256sum "$raiz/$rol_ct_ruta" | cut -d' ' -f1)" == "$rol_ct_sha" ]] || { echo 'F2: rol CT integrado divergente' >&2; exit 1; }
+fi
+legacy_pre=$(consulta "SELECT jsonb_build_object('rol',to_jsonb(r),'membresias',coalesce((SELECT jsonb_agg(to_jsonb(m) ORDER BY m.member,m.roleid) FROM pg_auth_members m WHERE m.roleid=r.oid OR m.member=r.oid),'[]'::jsonb),'esquema',to_jsonb(n))::text FROM pg_roles r,pg_namespace n WHERE r.rolname='vec_contratacion_temporal_consultor_rrhh' AND n.nspname='vec_contratacion_temporal'")
+[[ -n "$legacy_pre" && "$(consulta "SELECT to_regrole('vec_contratacion_temporal_consultor_rrhh_ambito') IS NULL")" == t ]] || { echo 'F2: preimagen de rol CT incompatible' >&2; exit 1; }
+aplicar "$rol_ct_copia"
+legacy_post=$(consulta "SELECT jsonb_build_object('rol',to_jsonb(r),'membresias',coalesce((SELECT jsonb_agg(to_jsonb(m) ORDER BY m.member,m.roleid) FROM pg_auth_members m WHERE m.roleid=r.oid OR m.member=r.oid),'[]'::jsonb),'esquema',to_jsonb(n))::text FROM pg_roles r,pg_namespace n WHERE r.rolname='vec_contratacion_temporal_consultor_rrhh' AND n.nspname='vec_contratacion_temporal'")
+[[ "$legacy_post" == "$legacy_pre" && "$(consulta "SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='vec_contratacion_temporal_consultor_rrhh_ambito' AND NOT rolcanlogin AND rolinherit AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolreplication AND NOT rolbypassrls) AND NOT EXISTS (SELECT 1 FROM pg_auth_members WHERE member='vec_contratacion_temporal_consultor_rrhh_ambito'::regrole OR roleid='vec_contratacion_temporal_consultor_rrhh_ambito'::regrole) AND NOT has_schema_privilege('vec_contratacion_temporal_consultor_rrhh_ambito','vec_contratacion_temporal','USAGE') AND NOT has_database_privilege('vec_contratacion_temporal_consultor_rrhh_ambito',current_database(),'CREATE') AND NOT has_database_privilege('vec_contratacion_temporal_consultor_rrhh_ambito',current_database(),'TEMP')")" == t ]] || { echo 'F2: postimagen de rol CT o legado divergente' >&2; exit 1; }
 aplicar "$raiz/deploy/postgresql/autorizacion_atestada_v3/migraciones/000051_consulta_rrhh_ambito_productiva.up.sql"
 core_original=$(consulta "SELECT encode(sha256(convert_to(prosrc,'UTF8')),'hex') FROM pg_proc WHERE oid='vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure")
 preimagen=$(consulta "SELECT current_setting('server_version_num')::int BETWEEN 180000 AND 189999 AND current_database() LIKE 'vec_f2_%' AND to_regnamespace('vec_bolsa_registro_accesos') IS NOT NULL AND to_regnamespace('vec_contacto_usuario_v1') IS NULL AND to_regrole('vec_contacto_usuario_owner') IS NULL AND to_regprocedure('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea)') IS NOT NULL AND to_regprocedure('vec_bolsa_registro_accesos.registrar_resultado_correo_llamamiento_ct_v1(bytea,text,bytea,bytea,text,text,text,boolean,text)') IS NOT NULL AND (SELECT encode(sha256(convert_to(prosrc,'UTF8')),'hex') FROM pg_proc WHERE oid='vec_autorizacion_atestada_v3.consumir_consulta_rrhh_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure)='6baef6127627ce9d6e6146c9d5425d7463f1a89b10411aac70fa70ed1944fd98'")

@@ -27,6 +27,7 @@ END $pre$;
 CREATE TABLE vec_contacto_usuario_v1.operaciones (
     operacion_ref text PRIMARY KEY CHECK(operacion_ref ~ '^opr_[A-Za-z0-9_-]{22,128}$'),
     sujeto_ref text NOT NULL CHECK(sujeto_ref ~ '^per_[A-Za-z0-9_-]{22,128}$'),
+    actor_id_hmac text NOT NULL CHECK(actor_id_hmac ~ '^hmac-sha256:[a-z][a-z0-9._-]{0,63}:[0-9a-f]{64}$'),
     version_esperada numeric(20,0) NOT NULL CHECK(version_esperada BETWEEN 0 AND 9007199254740990),
     hmac_clave_ref text NOT NULL CHECK(hmac_clave_ref ~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'),
     hmac_valor text NOT NULL CHECK(hmac_valor ~ '^[0-9a-f]{64}$' AND hmac_valor<>repeat('0',64)),
@@ -114,12 +115,13 @@ CREATE FUNCTION vec_contacto_usuario_v1.preparar_operacion_contacto_v1(
     p_evidencia bytea,p_raiz bytea,p_negocio bytea,p_recurso bytea,p_auditoria bytea)
 RETURNS TABLE(operacion_ref text,estado text,version_esperada numeric,replay_confirmado boolean,
     version_resultante numeric,recibo_ref text,conflicto_material boolean,conflicto_version boolean,auditoria_central bytea,
-    consumo_ref text,consumo_huella_sha256 text)
+    consumo_ref text,consumo_huella_sha256 text,hmac_clave_ref text,hmac_valor text)
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET timezone='UTC' SET lock_timeout='2s'
 AS $f$
 DECLARE b jsonb; s text; op text; esperada numeric; actual numeric; huellas jsonb; anterior record;
     consumo record; revalidada record; auditada jsonb; conflicto text:=''; ref_resultado text; repetida boolean:=false;
     estado_resultado text:='preparada'; version_resultado numeric; recibo_resultado text;
+    hmac_clave_resultado text:=''; hmac_valor_resultado text:='';
 BEGIN
  IF p_accion IS DISTINCT FROM 'vec.contacto_usuario.operacion.preparar'
     OR current_user<>'vec_contacto_usuario_owner' OR session_user=current_user
@@ -154,6 +156,7 @@ BEGIN
  IF FOUND THEN
     ref_resultado:=anterior.operacion_ref; estado_resultado:=anterior.estado;
     version_resultado:=anterior.version_resultante; recibo_resultado:=anterior.recibo_ref;
+    hmac_clave_resultado:=anterior.hmac_clave_ref; hmac_valor_resultado:=anterior.hmac_valor;
     IF EXISTS(SELECT 1 FROM jsonb_array_elements(huellas) h
         WHERE h->>'ClaveRef'=anterior.hmac_clave_ref AND h->>'ValorHMACSHA256'=anterior.hmac_valor) THEN
        repetida:=true;
@@ -162,6 +165,7 @@ BEGIN
     conflicto:='version'; ref_resultado:=''; estado_resultado:='conflicto';
  ELSE
     ref_resultado:=op;
+    hmac_clave_resultado:=huellas->0->>'ClaveRef'; hmac_valor_resultado:=huellas->0->>'ValorHMACSHA256';
  END IF;
  auditada:=vec_bolsa_registro_accesos.registrar_operacion_contacto_v1(
     p_accion,p_auditoria,p_negocio,p_recurso,p_decision,p_contexto,
@@ -171,9 +175,9 @@ BEGIN
     RAISE EXCEPTION 'Contacto3: auditoría de preparación ausente' USING ERRCODE='55000';
  END IF;
  IF conflicto='' AND NOT repetida THEN
-    INSERT INTO vec_contacto_usuario_v1.operaciones(operacion_ref,sujeto_ref,version_esperada,
+    INSERT INTO vec_contacto_usuario_v1.operaciones(operacion_ref,sujeto_ref,actor_id_hmac,version_esperada,
         hmac_clave_ref,hmac_valor,estado,auditoria_preparacion_ref)
-      VALUES(op,s,esperada,huellas->0->>'ClaveRef',huellas->0->>'ValorHMACSHA256','preparada',auditada->>'id');
+      VALUES(op,s,b#>>'{Auditoria,actor_id}',esperada,huellas->0->>'ClaveRef',huellas->0->>'ValorHMACSHA256','preparada',auditada->>'id');
     INSERT INTO vec_contacto_usuario_v1.operacion_eventos(operacion_ref,sujeto_ref,secuencia,estado,auditoria_ref)
       VALUES(op,s,1,'preparada',auditada->>'id');
  END IF;
@@ -188,7 +192,8 @@ BEGIN
  RETURN QUERY SELECT ref_resultado,
     estado_resultado,esperada,repetida,version_resultado,recibo_resultado,
     conflicto='material',conflicto='version',
-    convert_to(auditada::text,'UTF8'),consumo.auditoria_ref::text,consumo.consumo_huella_sha256::text;
+    convert_to(auditada::text,'UTF8'),consumo.auditoria_ref::text,consumo.consumo_huella_sha256::text,
+    hmac_clave_resultado,hmac_valor_resultado;
 END $f$;
 
 CREATE FUNCTION vec_contacto_usuario_v1.cancelar_operacion_contacto_v1(
