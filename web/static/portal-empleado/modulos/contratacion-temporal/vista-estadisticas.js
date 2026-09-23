@@ -295,6 +295,8 @@ export function renderizarVistaEstadisticas({ estadoEstadisticas, filtros }) {
 }
 
 export function montarVistaEstadisticas({ raiz, cliente, anunciar, descargarCSVImpl }) {
+  let montada = true;
+  let generacionConsulta = 0;
   let filtros = {
     periodo: "mensual",
     desde: "",
@@ -314,18 +316,28 @@ export function montarVistaEstadisticas({ raiz, cliente, anunciar, descargarCSVI
   }
 
   async function cargar() {
+    if (!montada) return;
+    const generacionActual = ++generacionConsulta;
     estadoEstadisticas = { carga: "cargando", datos: null, error: "" };
     renderizar();
-    const res = await ejecutarConsulta(filtros);
-    if (res.ok) {
+    let res;
+    try {
+      res = await ejecutarConsulta({ ...filtros });
+    } catch {
+      res = { ok: false, mensaje: "No se pudieron obtener las series estadísticas." };
+    }
+    if (!montada || generacionActual !== generacionConsulta) return;
+    if (res?.ok) {
       estadoEstadisticas = { carga: "listo", datos: res.datos, error: "" };
-      if (typeof anunciar === "function") anunciar("Estadísticas actualizadas");
-    } else if (res.status === 403) {
+    } else if (res?.status === 403) {
       estadoEstadisticas = { carga: "denegado", datos: null, error: res.mensaje };
     } else {
-      estadoEstadisticas = { carga: "error", datos: null, error: res.mensaje };
+      estadoEstadisticas = { carga: "error", datos: null, error: res?.mensaje };
     }
     renderizar();
+    if (res?.ok && montada && generacionActual === generacionConsulta && typeof anunciar === "function") {
+      anunciar("Estadísticas actualizadas");
+    }
   }
 
   function descargarCSV() {
@@ -380,6 +392,9 @@ export function montarVistaEstadisticas({ raiz, cliente, anunciar, descargarCSVI
 
   return {
     desmontar() {
+      if (!montada) return;
+      montada = false;
+      generacionConsulta++;
       raiz.removeEventListener("click", manejarClick);
       raiz.removeEventListener("submit", manejarSubmit);
       raiz.innerHTML = "";
