@@ -67,11 +67,24 @@ chmod 600 "$temporal/roles.sql"
 
 docker run -d --rm --network none --name "$contenedor" \
   -e POSTGRES_HOST_AUTH_METHOD=trust "$imagen" >/dev/null
-for _ in $(seq 1 100); do
-  if docker exec "$contenedor" pg_isready -U postgres -d postgres >/dev/null 2>&1; then break; fi
+for _ in $(seq 1 200); do
+  if docker logs "$contenedor" 2>&1 | rg -q 'PostgreSQL init process complete'; then break; fi
   sleep 0.2
 done
-docker exec "$contenedor" pg_isready -U postgres -d postgres >/dev/null
+docker logs "$contenedor" 2>&1 | rg -q 'PostgreSQL init process complete'
+consecutivas=0
+for _ in $(seq 1 100); do
+  if version=$(docker exec "$contenedor" psql -XAtq -v ON_ERROR_STOP=1 \
+    -U postgres -d postgres -c "SELECT current_setting('server_version_num')||'|'||pg_is_in_recovery()" \
+    2>/dev/null) && [[ "$version" == '180004|false' ]]; then
+    consecutivas=$((consecutivas+1))
+    [[ "$consecutivas" -eq 3 ]] && break
+  else
+    consecutivas=0
+  fi
+  sleep 0.25
+done
+[[ "$consecutivas" -eq 3 ]] || { echo 'PostgreSQL 18.4 no arrancó estable' >&2; exit 1; }
 psql_archivo() {
   docker exec -i "$contenedor" psql -Xq -v ON_ERROR_STOP=1 -U postgres -d postgres < "$1"
 }
