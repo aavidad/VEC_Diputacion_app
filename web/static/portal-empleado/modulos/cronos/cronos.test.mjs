@@ -51,13 +51,19 @@ test("Jornada sin servicio muestra estados honestos y no expone cifras ni accion
 });
 
 test("Jornada disponible exige proyección propia y oculta bloques sin capacidad", () => {
-  const contexto = contextoPresentacion();
-  const datos = crearDatosCronosPresentacion(contexto);
+  const contexto = contextoReal();
+  const datos = datosRealesPara(contexto);
+  const contextoDemo = contextoPresentacion();
+  assert.match(renderizarJornadaCronos({ estado: "disponible", contextoActor: contexto, capacidades: [CAPACIDAD_CONSULTAR_FICHAJES] }), /data-estado="no_configurado"/);
+  assert.match(renderizarJornadaCronos({
+    estado: "disponible", contextoActor: contextoDemo,
+    datos: crearDatosCronosPresentacion(contextoDemo), capacidades: [CAPACIDAD_CONSULTAR_FICHAJES],
+  }), /data-estado="no_configurado"/);
   const soloHorario = renderizarJornadaCronos({
     estado: "disponible", contextoActor: contexto, datos,
     capacidades: [CAPACIDAD_CONSULTAR_HORARIO],
   });
-  assert.match(soloHorario, /Datos sintéticos de demostración/);
+  assert.match(soloHorario, /Datos de la consulta recibida/);
   assert.match(soloHorario, /La sesión no tiene capacidad para consultar fichajes/);
   assert.doesNotMatch(soloHorario, /DEMO-REC-FIC-1900|08:01|tabla-cronos-jornada/);
   const todo = renderizarJornadaCronos({
@@ -76,7 +82,7 @@ test("Jornada disponible exige proyección propia y oculta bloques sin capacidad
   assert.match(inyectado, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
   assert.doesNotMatch(inyectado, /<script>/);
   assert.throws(() => renderizarJornadaCronos({
-    estado: "disponible", contextoActor: contexto, datos: { ...datos, actor_ref: "DEMO-OTRO-ACTOR" },
+    estado: "disponible", contextoActor: contexto, datos: { ...datos, actor_ref: "REAL-OTRO-ACTOR" },
     capacidades: [CAPACIDAD_CONSULTAR_FICHAJES],
   }), /no pertenecen/);
 });
@@ -88,11 +94,15 @@ test("Jornada se monta y desmonta sin listeners ni efectos", () => {
     append: (elemento) => montajes.push(elemento),
   };
   let desmontarRegistrado;
-  const vista = montarJornadaCronos({ raiz, registrarDesmontar: (desmontar) => { desmontarRegistrado = desmontar; } });
+  const anuncios = [];
+  const vista = montarJornadaCronos({ raiz, anunciar: (texto) => anuncios.push(texto), registrarDesmontar: (desmontar) => { desmontarRegistrado = desmontar; } });
   assert.equal(montajes.length, 1);
   assert.match(montajes[0].innerHTML, /Servicio pendiente/);
   vista.actualizar({ estado: "error" });
   assert.match(montajes[0].innerHTML, /Consulta no disponible/);
+  vista.actualizar({ estado: "disponible" });
+  assert.match(montajes[0].innerHTML, /data-estado="no_configurado"/);
+  assert.equal(anuncios.at(-1), "Servicio pendiente");
   desmontarRegistrado();
   assert.equal(montajes[0].eliminado, true);
   assert.throws(() => vista.actualizar({ estado: "cargando" }), /desmontada/);
