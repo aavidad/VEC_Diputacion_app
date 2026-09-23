@@ -1,7 +1,7 @@
 package interna
 
 import (
-	ctinterna "vec-diputacion-granada/internal/app/composicion/interna/contrataciontemporal"
+	httpinterno "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	postgresct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	ctapp "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	ctports "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
@@ -12,30 +12,40 @@ import (
 // nominal. El pool y el emisor deben proceder de proveedores productivos; la
 // raíz no lee configuraciones de desarrollo ni fabrica material criptográfico.
 type dependenciasLecturasRRHH struct {
-	autoridad ctports.AutoridadContextoConsultaRRHH
-	emisor    *ctports.EmisorMaterialConsultaRRHH
-	pool      *postgresct.PoolConsultasRRHHPostgreSQL
-	reloj     ctports.Reloj
+	emisor *ctports.EmisorMaterialConsultaRRHH
+	pool   *postgresct.PoolConsultasRRHHPostgreSQL
 }
 
-func nuevasRutasConsultasRRHH(d dependenciasLecturasRRHH) ([]httpapi.RutaExacta, error) {
+func nuevasRutasConsultasRRHH(d dependenciasLecturasRRHH, autoridad autoridadContextoConsultaRRHH) ([]httpapi.RutaExacta, error) {
 	sesion, err := postgresct.NuevaSesionConsultaRRHHPostgreSQL(d.pool)
 	if err != nil {
 		return nil, ErrDependenciasProductivasNoDisponibles
 	}
-	cuadro, err := ctapp.NuevoServicioConsultaCuadroRRHH(d.autoridad, d.emisor, sesion, d.reloj)
+	cuadro, err := ctapp.NuevoServicioConsultaCuadroRRHH(autoridad, d.emisor, sesion, autoridad.actor.reloj)
 	if err != nil {
 		return nil, ErrDependenciasProductivasNoDisponibles
 	}
-	detalle, err := ctapp.NuevoServicioConsultaDetalleRRHH(d.autoridad, d.emisor, sesion, d.reloj)
+	detalle, err := ctapp.NuevoServicioConsultaDetalleRRHH(autoridad, d.emisor, sesion, autoridad.actor.reloj)
 	if err != nil {
 		return nil, ErrDependenciasProductivasNoDisponibles
 	}
-	rutas, err := ctinterna.NuevasRutasConsultasRRHH(ctinterna.DependenciasConsultasRRHH{
-		Cuadro: cuadro, Detalle: detalle,
-	})
+	return rutasConsultoresRRHH(cuadro, detalle)
+}
+
+func rutasConsultoresRRHH(
+	cuadro httpinterno.ConsultorCuadroRRHH,
+	detalle httpinterno.ConsultorDetalleRRHH,
+) ([]httpapi.RutaExacta, error) {
+	manejadorCuadro, err := httpinterno.NuevoManejadorConsultaCuadroRRHH(cuadro)
 	if err != nil {
 		return nil, ErrDependenciasProductivasNoDisponibles
 	}
-	return rutas, nil
+	manejadorDetalle, err := httpinterno.NuevoManejadorConsultaDetalleRRHH(detalle)
+	if err != nil {
+		return nil, ErrDependenciasProductivasNoDisponibles
+	}
+	return []httpapi.RutaExacta{
+		{Ruta: httpinterno.RutaConsultaCuadroRRHH, Manejador: manejadorCuadro},
+		{Ruta: httpinterno.RutaConsultaDetalleRRHH, Manejador: manejadorDetalle},
+	}, nil
 }

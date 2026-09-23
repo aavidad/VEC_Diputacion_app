@@ -32,6 +32,7 @@ const (
 	DependenciaVerificadorAsercion   Dependencia = "verificador_asercion_institucional"
 	DependenciaEvaluadorGarantia     Dependencia = "evaluador_garantia_institucional"
 	DependenciaPerfilActivo          Dependencia = "perfil_activo_institucional"
+	DependenciaAmbitoRRHHRegistrado  Dependencia = "ambito_rrhh_registrado"
 	DependenciaSeudonimizacionHSM    Dependencia = "seudonimizacion_hsm"
 	DependenciaMaterialCOSEConsultas Dependencia = "material_cose_consultas_ct"
 	DependenciaConsultaRRHHNominal   Dependencia = "postgres_consulta_rrhh_nominal"
@@ -62,6 +63,7 @@ var dependenciasLecturaCT = [...]Dependencia{
 	DependenciaVerificadorAsercion,
 	DependenciaEvaluadorGarantia,
 	DependenciaPerfilActivo,
+	DependenciaAmbitoRRHHRegistrado,
 	DependenciaSesionesDurables,
 	DependenciaSeudonimizacionHSM,
 	DependenciaRevalidacionActor,
@@ -136,7 +138,9 @@ func NuevaAplicacion(ctx context.Context, cfg Configuracion) (*AplicacionInterna
 	if err := cfg.Validar(); err != nil {
 		return nil, err
 	}
-	return nil, &ErrorDependenciasFaltantes{
-		faltantes: append([]Dependencia(nil), dependenciasLecturaCT[:]...),
+	proveedores, err := obtenerProveedoresLecturaCT(ctx, cfg)
+	if err != nil {
+		return nil, err
 	}
+	return nuevaAplicacionLecturaCT(ctx, cfg, proveedores)
 }

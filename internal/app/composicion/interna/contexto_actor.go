@@ -2,7 +2,9 @@ package interna
 
 import (
 	"context"
+	"time"
 
+	ctdomain "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	ctports "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	"vec-diputacion-granada/internal/vec/adapters/httpseguridad"
 	vec "vec-diputacion-granada/internal/vec/domain"
@@ -68,19 +70,58 @@ func (a contextoActorLecturaCT) resolver(ctx context.Context) (ctports.ContextoA
 }
 
 type autoridadContextoConsultaRRHH struct {
-	actor           contextoActorLecturaCT
-	organizacionRef string
-	clase           ctports.ClaseAmbitoConsultaRRHH
-	ambitoRef       string
+	actor   contextoActorLecturaCT
+	ambitos resolutorAmbitoConsultaRRHHRegistrado
+}
+
+// El dueño de organización resuelve el ámbito exacto y vigente para el mismo
+// actor/perfil ya revalidado. Ningún campo procede de parámetros HTTP.
+type resolutorAmbitoConsultaRRHHRegistrado interface {
+	ResolverAmbitoConsultaRRHH(context.Context, vec.ResultadoContextoActorRegistradoV2) (ambitoConsultaRRHHRegistrado, error)
+}
+
+type ambitoConsultaRRHHRegistrado struct {
+	RegistroRef     string
+	ActorRef        string
+	PerfilRef       string
+	PerfilVersion   uint64
+	ContextoRef     string
+	ContextoHuella  string
+	OrganizacionRef string
+	Clase           ctports.ClaseAmbitoConsultaRRHH
+	AmbitoRef       string
+	VigenteDesde    time.Time
+	VigenteHasta    time.Time
+}
+
+func (a ambitoConsultaRRHHRegistrado) coincideCon(resultado vec.ResultadoContextoActorRegistradoV2, instante time.Time) bool {
+	return ctdomain.ReferenciaOpacaValida(a.RegistroRef) &&
+		ctdomain.ReferenciaOpacaValida(a.OrganizacionRef) &&
+		ctdomain.ReferenciaOpacaValida(a.AmbitoRef) &&
+		a.ActorRef == resultado.Contexto.Principal.ID &&
+		a.PerfilRef == resultado.Contexto.PerfilActivoRef &&
+		a.PerfilVersion == resultado.Contexto.Instantanea.PerfilVersion &&
+		a.ContextoRef == resultado.RegistroContextoRef &&
+		a.ContextoHuella == resultado.HuellaSHA256 &&
+		ctdomain.InstanteUTCCanonico(a.VigenteDesde) &&
+		ctdomain.InstanteUTCCanonico(a.VigenteHasta) &&
+		ctdomain.InstanteUTCCanonico(instante) &&
+		!instante.Before(a.VigenteDesde) && instante.Before(a.VigenteHasta)
 }
 
 func (a autoridadContextoConsultaRRHH) ResolverContextoConsultaRRHH(ctx context.Context) (ctports.ContextoConsultaRRHH, error) {
 	contexto, err := a.actor.resolver(ctx)
-	if err != nil || interfazNulaIdentidadOffline(a.actor.reloj) {
+	if err != nil || interfazNulaIdentidadOffline(a.ambitos) ||
+		interfazNulaIdentidadOffline(a.actor.reloj) {
+		return ctports.ContextoConsultaRRHH{}, ctports.ErrConsultaRRHHNoDisponible
+	}
+	ambito, err := a.ambitos.ResolverAmbitoConsultaRRHH(ctx, contexto.Resultado)
+	instante := a.actor.reloj.Ahora()
+	if err != nil || !ambito.coincideCon(contexto.Resultado, instante) || ctx.Err() != nil {
 		return ctports.ContextoConsultaRRHH{}, ctports.ErrConsultaRRHHNoDisponible
 	}
 	consulta, err := ctports.NuevoContextoConsultaRRHHConAmbito(
-		contexto, a.organizacionRef, a.clase, a.ambitoRef, a.actor.reloj.Ahora(),
+		contexto, ambito.OrganizacionRef, ambito.Clase, ambito.AmbitoRef, instante,
 	)
 	if err != nil {
 		return ctports.ContextoConsultaRRHH{}, ctports.ErrConsultaRRHHNoDisponible

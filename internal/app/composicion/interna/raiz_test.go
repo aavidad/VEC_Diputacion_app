@@ -25,6 +25,29 @@ func TestNuevaAplicacionLecturaCTFallaCerradaSinProveedoresInstitucionales(t *te
 	}
 }
 
+func TestNuevaAplicacionNoAbreListenerAnteDependenciaInstitucionalAusente(t *testing.T) {
+	reserva, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	direccion := reserva.Addr().String()
+	if err := reserva.Close(); err != nil {
+		t.Fatal(err)
+	}
+	cfg := configuracionInternaValidaPrueba()
+	cfg.DireccionEscucha = direccion
+	cfg.RedesPermitidas = []string{"127.0.0.0/8"}
+	if aplicacion, err := NuevaAplicacion(context.Background(), cfg); aplicacion != nil ||
+		!errors.Is(err, ErrDependenciasProductivasNoDisponibles) {
+		t.Fatalf("arranque sin proveedores = (%v, %v)", aplicacion, err)
+	}
+	listener, err := net.Listen("tcp", direccion)
+	if err != nil {
+		t.Fatalf("la raíz reservó un socket sin proveedores: %v", err)
+	}
+	_ = listener.Close()
+}
+
 func TestNuevoServidorPermaneceCerradoConInventarioCompleto(t *testing.T) {
 	servidor, err := NuevoServidor(configuracionInternaValidaPrueba())
 	if servidor != nil || !errors.Is(err, ErrDependenciasProductivasNoDisponibles) {
