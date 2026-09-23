@@ -140,6 +140,7 @@ func TestProveedorSesionBorradorBolsaResuelvePerfilNominalSinCruzarCT(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
+	bolsa.soporteCanal.contextoEsperadoRegistrado = bolsa.soporteCanal.contexto.Resultado
 	proveedor, err := nuevoProveedorSesionConsultaRRHHConCatalogoDesarrollo(bolsa.soporteCanal, e.registro, e.revalidador, e.reloj, e.resolutor, catalogo)
 	if err != nil {
 		t.Fatal(err)

@@ -71,7 +71,11 @@ func (p *proveedorEntregaPeticionDesarrollo) ActorEntregaPeticionCentro(ctx cont
 	if !ok || c.ruta != rutaEntregaPeticionCentro || c.certificadoVerificadoEn.IsZero() || !p.reloj.Ahora().Before(c.certificadoValidoHasta) {
 		return "", "", ports.ErrAutorizacionDenegada
 	}
-	v, err := p.alta.soporte.contexto.Vinculo.Datos()
+	operativo, err := p.alta.soporte.contextoOperativoDesarrollo(ctx)
+	if err != nil {
+		return "", "", ports.ErrAutorizacionDenegada
+	}
+	v, err := operativo.Vinculo.Datos()
 	if err != nil {
 		return "", "", ports.ErrAutorizacionDenegada
 	}
@@ -98,7 +102,11 @@ func (p *proveedorEntregaPeticionDesarrollo) AutorizarEntregaPeticionCentro(ctx 
 	if err != nil {
 		return vacio, err
 	}
-	d := vecdomain.DatosSolicitudAutorizacionLigadaV3{VinculoAutenticacionActor: p.alta.soporte.contexto.Vinculo, ReferenciaMotivo: motivoEntregaPeticionDesarrollo(), Accion: postgresct.AccionEntregaPeticionCentro(m), Recurso: r, Finalidad: ports.FinalidadEntregaPeticionCentro, Correlacion: c}
+	operativo, err := p.alta.soporte.contextoOperativoDesarrollo(ctx)
+	if err != nil {
+		return vacio, ports.ErrAutorizacionDenegada
+	}
+	d := vecdomain.DatosSolicitudAutorizacionLigadaV3{VinculoAutenticacionActor: operativo.Vinculo, ReferenciaMotivo: motivoEntregaPeticionDesarrollo(), Accion: postgresct.AccionEntregaPeticionCentro(m), Recurso: r, Finalidad: ports.FinalidadEntregaPeticionCentro, Correlacion: c}
 	ctx = context.WithValue(ctx, claveMaterialEntregaPeticionDesarrollo{}, m)
 	if !solicitudAutorizacionEntregaPeticionValida(ctx, d) {
 		return vacio, ports.ErrAutorizacionDenegada
@@ -108,11 +116,11 @@ func (p *proveedorEntregaPeticionDesarrollo) AutorizarEntregaPeticionCentro(ctx 
 		return vacio, err
 	}
 	ctx = context.WithValue(ctx, claveSolicitudAutorizacionContratacionTemporalDesarrollo{}, d)
-	decision, confirmacion, err := p.alta.autorizador.ExigirSolicitudLigadaV3(ctx, s, p.alta.soporte.contexto.Resultado)
+	decision, confirmacion, err := p.alta.autorizador.ExigirSolicitudLigadaV3(ctx, s, operativo.Resultado)
 	if err != nil {
 		return vacio, err
 	}
-	return p.alta.postgresql.proveedorMaterial.proveerMaterialConfirmacion(ctx, s, decision, confirmacion, motivoEntregaPeticionDesarrollo(), p.alta.soporte.contexto.Resultado)
+	return p.alta.postgresql.proveedorMaterial.proveerMaterialConfirmacion(ctx, s, decision, confirmacion, motivoEntregaPeticionDesarrollo(), operativo.Resultado)
 }
 
 func motivoEntregaPeticionDesarrollo() vecdomain.ReferenciaEntradaCatalogo {

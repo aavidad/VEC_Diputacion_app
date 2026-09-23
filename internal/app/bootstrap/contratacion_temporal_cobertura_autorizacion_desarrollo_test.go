@@ -30,6 +30,17 @@ type registroDecisionesAnalisisContratacionTemporalDesarrolloPrueba struct {
 	huella       string
 }
 
+// El doble se instala solo en fixtures: la ruta productiva exige el proveedor
+// registrado, mientras estas pruebas focales ejercitan el PDP con su semilla.
+type proveedorSesionOperativaCTPrueba struct {
+	contexto ports.ContextoAutorizacionAltaV3
+}
+
+func (p proveedorSesionOperativaCTPrueba) ResolverContexto(context.Context) (contextoSeguridadComunDesarrollo, error) {
+	resultado, err := p.contexto.Resultado.Clonar()
+	return contextoSeguridadComunDesarrollo{Vinculo: p.contexto.Vinculo, Resultado: resultado}, err
+}
+
 func (r *registroDecisionesAnalisisContratacionTemporalDesarrolloPrueba) RegistrarConcesionCandidataAutorizacionLigadaV3SiInstantaneaVigente(
 	_ context.Context,
 	orden puertosvec.OrdenRegistroConcesionCandidataAutorizacionLigadaV3,
@@ -641,6 +652,8 @@ func escenarioAutorizacionCoberturaDesarrolloPrueba(
 		registroDecisionesAnalisis:   &registroDecisionesAnalisisContratacionTemporalDesarrolloPrueba{},
 		instantaneasPorSolicitud:     make(map[string]dominiovec.InstantaneaAutorizacion),
 	}
+	soporte.contextoEsperadoRegistrado = contexto.Resultado
+	soporte.sesionOperativa = proveedorSesionOperativaCTPrueba{contexto: contexto}
 	generador := seguridadvec.GeneradorReferenciasCriptograficas{}
 	servicio, err := aplicacionvec.NuevoServicioAutorizacionSolicitudLigadaV3(
 		soporte,
@@ -672,11 +685,14 @@ func contextoRutaCoberturaDesarrolloPrueba(
 	principal dominiovec.Principal,
 	ruta string,
 ) context.Context {
+	ahora := soporte.reloj.Ahora()
 	return context.WithValue(
 		context.Background(),
 		claveCapacidadConsultasContratacionTemporalDesarrollo{},
 		capacidadConsultaContratacionTemporalDesarrollo{
 			sello: soporte.sello, ruta: ruta, principal: principal,
+			certificadoVerificadoEn: ahora.Add(-time.Second), certificadoValidoHasta: ahora.Add(time.Hour),
+			contextoOperacion: &contextoOperacionCTDesarrollo{},
 		},
 	)
 }

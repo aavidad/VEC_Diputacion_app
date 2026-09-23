@@ -104,7 +104,8 @@ func nuevoProveedorSesionConsultaRRHHConCatalogoDesarrollo(
 		return nil, ports.ErrConsultaRRHHNoDisponible
 	}
 	soporte.mu.Lock()
-	base, err := soporte.contexto.Resultado.Clonar()
+	esperado := soporte.contextoEsperadoRegistrado
+	base, err := esperado.Clonar()
 	soporte.mu.Unlock()
 	if err != nil || base.Contexto.Principal.AuthMethod != dominiovec.AuthMethodCertificate ||
 		base.Contexto.Principal.AuthAssurance != dominiovec.AuthAssuranceHigh ||
@@ -334,10 +335,17 @@ func (p *proveedorSesionConsultaRRHHDesarrollo) perfilActivoSeleccionado(ctx con
 		valido = canal.sello == p.soporte.sello && principalContratacionTemporalDesarrolloValido(canal.principal) &&
 			canal.principal.ID == p.soporte.principalID && canal.principal.Attributes["certificate_sha256"] == p.soporte.certificadoSHA256
 	}
-	if !adicional || !valido || !p.fronteras.mismaInstancia(frontera.catalogo) {
+	if !valido {
 		return "", false
 	}
 	perfil := p.base.Contexto.PerfilActivoRef
+	if !adicional {
+		return perfil, rutaSesionOperativaCTDesarrollo(canal.ruta) &&
+			perfilActivoSeguridadComunValido(perfil)
+	}
+	if !p.fronteras.mismaInstancia(frontera.catalogo) {
+		return "", false
+	}
 	return perfil, perfilActivoSeguridadComunValido(perfil) && frontera.descriptor.admitePerfil(perfil)
 }
 
@@ -395,14 +403,8 @@ func mismaIdentidadVersionadaSesionDesarrollo(
 func mismaIdentidadVersionadaSesionDesarrolloParaPerfil(
 	base, actual dominiovec.ResultadoContextoActorRegistradoV2, perfilActivoRef string,
 ) bool {
-	b, a := base.Contexto.Instantanea, actual.Contexto.Instantanea
-	// El recibo y su ResueltoEn/huella pueden ser nuevos. Las coordenadas y
-	// versiones de la identidad base no se sustituyen por otras al resolver.
-	return actual.Validar() == nil && b.CuentaRef == a.CuentaRef && b.CuentaVersion == a.CuentaVersion &&
-		b.PersonaRef == a.PersonaRef && b.PersonaVersion == a.PersonaVersion &&
-		perfilActivoRef == a.PerfilActivoRef && b.PerfilVersion == a.PerfilVersion &&
-		b.VinculoRef == a.VinculoRef && b.VinculoVersion == a.VinculoVersion &&
-		mismosVinculosReferenciaSesionDesarrollo(b.Vinculos, a.Vinculos)
+	return perfilActivoRef == base.Contexto.PerfilActivoRef &&
+		mismoContextoEsperadoRegistradoDesarrollo(base, actual)
 }
 
 // mismosVinculosReferenciaSesionDesarrollo compara los vínculos por contenido.

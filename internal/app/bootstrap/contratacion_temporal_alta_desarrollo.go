@@ -85,6 +85,8 @@ type soporteAltaContratacionTemporalDesarrollo struct {
 	claseAmbitoConsultaRRHH            ports.ClaseAmbitoConsultaRRHH
 	ambitoConsultaRRHH                 string
 	contexto                           ports.ContextoAutorizacionAltaV3
+	contextoEsperadoRegistrado         dominiovec.ResultadoContextoActorRegistradoV2
+	sesionOperativa                    proveedorSesionOperativaCTDesarrollo
 	flujo                              ports.ConfiguracionAltaFlujo
 	motivo                             dominiovec.ReferenciaEntradaCatalogo
 	instantanea                        dominiovec.InstantaneaAutorizacion

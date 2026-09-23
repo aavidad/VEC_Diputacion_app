@@ -78,7 +78,11 @@ func (p *proveedorOrganizacionDesarrollo) ActorOrganizacion(ctx context.Context)
 		!p.reloj.Ahora().Before(c.certificadoValidoHasta) {
 		return "", personalports.ErrCambioOrganizacionDenegado
 	}
-	v, err := p.alta.soporte.contexto.Vinculo.Datos()
+	operativo, err := p.alta.soporte.contextoOperativoDesarrollo(ctx)
+	if err != nil {
+		return "", personalports.ErrCambioOrganizacionDenegado
+	}
+	v, err := operativo.Vinculo.Datos()
 	if err != nil {
 		return "", personalports.ErrCambioOrganizacionDenegado
 	}
@@ -99,8 +103,12 @@ func (p *proveedorOrganizacionDesarrollo) AutorizarCambioOrganizacion(ctx contex
 	if err != nil {
 		return vacio, err
 	}
+	operativo, err := p.alta.soporte.contextoOperativoDesarrollo(ctx)
+	if err != nil {
+		return vacio, personalports.ErrCambioOrganizacionDenegado
+	}
 	datos := vecdomain.DatosSolicitudAutorizacionLigadaV3{
-		VinculoAutenticacionActor: p.alta.soporte.contexto.Vinculo,
+		VinculoAutenticacionActor: operativo.Vinculo,
 		ReferenciaMotivo:          motivoOrganizacionDesarrollo(), Accion: personalports.AccionCambioOrganizacion,
 		Recurso: recurso, Finalidad: finalidadOrganizacionDesarrollo, Correlacion: correlacion,
 	}
@@ -113,12 +121,12 @@ func (p *proveedorOrganizacionDesarrollo) AutorizarCambioOrganizacion(ctx contex
 		return vacio, err
 	}
 	ctx = context.WithValue(ctx, claveSolicitudAutorizacionContratacionTemporalDesarrollo{}, datos)
-	decision, confirmacion, err := p.alta.autorizador.ExigirSolicitudLigadaV3(ctx, solicitud, p.alta.soporte.contexto.Resultado)
+	decision, confirmacion, err := p.alta.autorizador.ExigirSolicitudLigadaV3(ctx, solicitud, operativo.Resultado)
 	if err != nil {
 		return vacio, err
 	}
 	return p.alta.postgresql.proveedorMaterial.proveerMaterialConfirmacion(ctx, solicitud, decision, confirmacion,
-		motivoOrganizacionDesarrollo(), p.alta.soporte.contexto.Resultado)
+		motivoOrganizacionDesarrollo(), operativo.Resultado)
 }
 
 func motivoOrganizacionDesarrollo() vecdomain.ReferenciaEntradaCatalogo {

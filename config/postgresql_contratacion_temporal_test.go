@@ -204,6 +204,29 @@ func TestIdentidadConsultasRRHHExigeDosConexionesNominalesSeparadas(t *testing.T
 	if dsn, err := c.DSNContextoActorConsultasSeparado(); err != nil || dsn != strings.TrimSpace(c.dsnContextoActor) {
 		t.Fatal("contexto no cargado")
 	}
+	if err := c.ValidarIdentidadOperativa(); err != nil {
+		t.Fatalf("la configuración nominal completa no compone identidad operativa: %v", err)
+	}
+}
+
+func TestIdentidadOperativaCTRechazaConfiguracionMinimaYParcial(t *testing.T) {
+	c, err := NuevaConfiguracionPostgreSQLContratacionTemporal("ejecutor", "gobierno", "registro", "confirmador", "lector")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := c.ValidarIdentidadOperativa(); !errors.Is(err, ErrConfiguracionPostgreSQLContratacionTemporalIncompleta) ||
+		!strings.Contains(err.Error(), "contexto actor registrado") {
+		t.Fatal("la configuración mínima CT no falla con dependencia explícita", err)
+	}
+	c.dsnConsultasRRHH, c.dsnMotivosRRHH = "consultas", "motivos"
+	c.dsnRegistroIdentidad, c.dsnRevalidacionIdentidad = "identidad", "revalidacion"
+	if err := c.ValidarIdentidadOperativa(); !errors.Is(err, ErrConfiguracionPostgreSQLContratacionTemporalIncompleta) {
+		t.Fatal("se aceptó contexto actor ausente", err)
+	}
+	c.dsnContextoActor = "contexto"
+	if err := c.ValidarIdentidadOperativa(); err != nil {
+		t.Fatal("las identidades separadas deben habilitar montaje", err)
+	}
 }
 
 func TestBolsaLlamamientosSeConfiguraSeparadaSinExponerConexion(t *testing.T) {

@@ -379,6 +379,12 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 		cerrarAuditoria()
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
+	esperadoRegistrado, err := contextoEsperadoRegistradoDesarrollo(ctx, identidadCT.resolutor, soporteBolsa.soporteCanal)
+	if err != nil {
+		cerrarAuditoria()
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+	}
+	soporteBolsa.soporteCanal.contextoEsperadoRegistrado = esperadoRegistrado
 	completa := false
 	defer func() {
 		if !completa {

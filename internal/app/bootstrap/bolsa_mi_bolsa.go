@@ -318,7 +318,8 @@ func nuevaRutaMiBolsaDesarrollo(
 	soporte := &soporteAltaContratacionTemporalDesarrollo{
 		sello: sello, principalID: identidad.identidad.principal.ID,
 		certificadoSHA256: identidad.identidad.principal.Attributes["certificate_sha256"],
-		candidatoBolsa:    true, contexto: ctports.ContextoAutorizacionAltaV3{Vinculo: vinculo, Resultado: resultado}, reloj: reloj,
+		candidatoBolsa:    true, contexto: ctports.ContextoAutorizacionAltaV3{Vinculo: vinculo, Resultado: resultado},
+		contextoEsperadoRegistrado: resultado, reloj: reloj,
 	}
 	// La cuenta técnica usa el alias seudónimo de identidad ya existente. Su
 	// perfil de arranque es sólo un fixture para el proyector de cuenta; el

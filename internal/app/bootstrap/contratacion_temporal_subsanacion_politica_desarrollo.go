@@ -40,7 +40,11 @@ func (f fuentePoliticaSubsanacionReparosDesarrollo) ResolverContextoCanalSubsana
 		!ahora.Before(capacidad.certificadoValidoHasta) {
 		return httpinterno.ContextoCanalSubsanacionReparos{}, ports.ErrAutorizacionDenegada
 	}
-	v, err := f.soporte.contexto.Vinculo.Datos()
+	operativo, err := f.soporte.contextoOperativoDesarrollo(ctx)
+	if err != nil {
+		return httpinterno.ContextoCanalSubsanacionReparos{}, ports.ErrAutorizacionDenegada
+	}
+	v, err := operativo.Vinculo.Datos()
 	if err != nil {
 		return httpinterno.ContextoCanalSubsanacionReparos{}, ports.ErrAutorizacionDenegada
 	}

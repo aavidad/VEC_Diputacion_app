@@ -79,7 +79,7 @@ type proveedorMaterialAltaContratacionTemporalDesarrollo struct {
 	confianza       *confianzaatestacion.ServicioConfianzaAtestacionAutorizacionV3
 	emisor          *confianzaatestacion.EmisorCapacidadesAtestacionAutorizacionV3
 	raiz            confianzaatestacion.RaizPublicaAtestacionAutorizacionV3
-	contexto        dominiovec.ResultadoContextoActorRegistradoV2
+	soporte         *soporteAltaContratacionTemporalDesarrollo
 	motivo          dominiovec.ReferenciaEntradaCatalogo
 }
 
@@ -95,11 +95,7 @@ func nuevoProveedorMaterialAltaContratacionTemporalDesarrollo(
 	if err != nil {
 		return nil, err
 	}
-	contexto, err := soporte.contexto.Resultado.Clonar()
-	if err != nil {
-		return nil, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
-	}
-	proveedor.contexto = contexto
+	proveedor.soporte = soporte
 	proveedor.motivo = soporte.motivo
 	return proveedor, nil
 }
@@ -155,13 +151,20 @@ func (p *proveedorMaterialAltaContratacionTemporalDesarrollo) ProveerMaterialCon
 		return puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3{},
 			ports.ErrPersistenciaNoDisponible
 	}
+	if p == nil || p.soporte == nil {
+		return puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, ports.ErrPersistenciaNoDisponible
+	}
+	operativo, err := p.soporte.contextoOperativoDesarrollo(ctx)
+	if err != nil {
+		return puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, ports.ErrPersistenciaNoDisponible
+	}
 	return p.proveerMaterialConfirmacion(
 		ctx,
 		datos.SolicitudAutorizacionV3,
 		datos.DecisionAutorizacionV3,
 		datos.ConfirmacionRegistroV3,
 		p.motivo,
-		p.contexto,
+		operativo.Resultado,
 	)
 }
 

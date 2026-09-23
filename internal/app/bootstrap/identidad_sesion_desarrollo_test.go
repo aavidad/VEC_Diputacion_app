@@ -142,6 +142,7 @@ func nuevaSesionConsultaPrueba(t *testing.T) *entornoSesionConsultaPrueba {
 	registro := &registroSesionConsultaPrueba{reloj: reloj, cuenta: soporte.contexto.Resultado.Contexto.Instantanea.CuentaRef}
 	revalidador := &revalidadorSesionConsultaPrueba{registro: registro}
 	resolutor := &resolutorSesionConsultaPrueba{base: soporte.contexto.Resultado, reloj: reloj}
+	soporte.contextoEsperadoRegistrado = resolutor.base
 	p, err := nuevoProveedorSesionConsultaRRHHDesarrollo(soporte, registro, revalidador, reloj, resolutor)
 	if err != nil {
 		t.Fatal(err)
@@ -241,8 +242,7 @@ func TestSesionConsultaRRHHDesarrolloRechazaSinCanal(t *testing.T) {
 	otroCertificado := clonarPrincipalDesarrollo(e.principal)
 	otroCertificado.Attributes["certificate_sha256"] = strings.Repeat("e", 64)
 	for _, ctx := range []context.Context{nil, context.Background(), cancelado,
-		contextoRutaCoberturaDesarrolloPrueba(e.soporte, otroCertificado, httpinterno.RutaConsultaCuadroRRHH),
-		contextoRutaCoberturaDesarrolloPrueba(e.soporte, e.principal, httpinterno.RutaAltaSolicitudes)} {
+		contextoRutaCoberturaDesarrolloPrueba(e.soporte, otroCertificado, httpinterno.RutaConsultaCuadroRRHH)} {
 		if _, err := e.p.ResolverContexto(ctx); err == nil {
 			t.Fatal("se admitió una petición sin el canal exacto de consultas")
 		}

@@ -410,8 +410,12 @@ func (a *autorizadorLlamamientoDesarrollo) AutorizarOperacion(ctx context.Contex
 	if err != nil {
 		return vacio, err
 	}
+	operativo, err := a.alta.soporte.contextoOperativoDesarrollo(ctx)
+	if err != nil {
+		return vacio, ports.ErrAutorizacionDenegada
+	}
 	return a.material.proveerMaterialConfirmacion(ctx, solicitud, decision, confirmacion,
-		a.motivo(), a.alta.soporte.contexto.Resultado)
+		a.motivo(), operativo.Resultado)
 }
 
 // La recuperación es una lectura autorizada nueva, aunque el resultado sea
@@ -469,8 +473,12 @@ func (a *autorizadorLlamamientoDesarrollo) exigirOperacion(ctx context.Context, 
 	if err != nil {
 		return fallo(err)
 	}
+	operativo, err := s.contextoOperativoDesarrollo(ctx)
+	if err != nil {
+		return fallo(ports.ErrAutorizacionDenegada)
+	}
 	datos := dominiovec.DatosSolicitudAutorizacionLigadaV3{
-		VinculoAutenticacionActor: s.contexto.Vinculo, ReferenciaMotivo: a.motivo(),
+		VinculoAutenticacionActor: operativo.Vinculo, ReferenciaMotivo: a.motivo(),
 		Accion: accion, Recurso: recurso, Finalidad: "gestionar_contratacion_temporal", Correlacion: correlacion,
 	}
 	if !solicitudAutorizacionLlamamientoDesarrolloValida(ctx, capacidad.ruta, datos) {
@@ -481,7 +489,7 @@ func (a *autorizadorLlamamientoDesarrollo) exigirOperacion(ctx context.Context, 
 		return fallo(err)
 	}
 	ctx = context.WithValue(ctx, claveSolicitudAutorizacionContratacionTemporalDesarrollo{}, datos)
-	decision, confirmacion, err := a.alta.autorizador.ExigirSolicitudLigadaV3(ctx, solicitud, s.contexto.Resultado)
+	decision, confirmacion, err := a.alta.autorizador.ExigirSolicitudLigadaV3(ctx, solicitud, operativo.Resultado)
 	if err != nil {
 		return fallo(err)
 	}

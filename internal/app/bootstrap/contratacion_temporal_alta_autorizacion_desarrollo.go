@@ -104,7 +104,11 @@ func (s *soporteAltaContratacionTemporalDesarrollo) ResolverContextoCanalAlta(
 	if !s.capacidadAltaValida(ctx) {
 		return application.SolicitudRegistrarExpediente{}, ports.ErrAutorizacionDenegada
 	}
-	vinculo, err := s.contexto.Vinculo.Datos()
+	operativo, err := s.contextoOperativoDesarrollo(ctx)
+	if err != nil {
+		return application.SolicitudRegistrarExpediente{}, ports.ErrAutorizacionDenegada
+	}
+	vinculo, err := operativo.Vinculo.Datos()
 	if err != nil {
 		return application.SolicitudRegistrarExpediente{}, ports.ErrAutorizacionDenegada
 	}
@@ -123,7 +127,11 @@ func (s *soporteAltaContratacionTemporalDesarrollo) ResolverContextoCanalAnalisi
 	if !valida || !rutaAnalisisContratacionTemporalDesarrollo(capacidad.ruta) {
 		return httpinterno.ContextoCanalAnalisisRRHH{}, ports.ErrAutorizacionDenegada
 	}
-	vinculo, err := s.contexto.Vinculo.Datos()
+	operativo, err := s.contextoOperativoDesarrollo(ctx)
+	if err != nil {
+		return httpinterno.ContextoCanalAnalisisRRHH{}, ports.ErrAutorizacionDenegada
+	}
+	vinculo, err := operativo.Vinculo.Datos()
 	if err != nil {
 		return httpinterno.ContextoCanalAnalisisRRHH{}, ports.ErrAutorizacionDenegada
 	}
@@ -142,7 +150,11 @@ func (s *soporteAltaContratacionTemporalDesarrollo) ResolverContextoCanalAsignac
 	if !valida || !rutaAsignacionContratacionTemporalDesarrollo(capacidad.ruta) {
 		return httpinterno.ContextoCanalAsignacion{}, ports.ErrAutorizacionDenegada
 	}
-	vinculo, err := s.contexto.Vinculo.Datos()
+	operativo, err := s.contextoOperativoDesarrollo(ctx)
+	if err != nil {
+		return httpinterno.ContextoCanalAsignacion{}, ports.ErrAutorizacionDenegada
+	}
+	vinculo, err := operativo.Vinculo.Datos()
 	if err != nil {
 		return httpinterno.ContextoCanalAsignacion{}, ports.ErrAutorizacionDenegada
 	}
@@ -161,7 +173,11 @@ func (s *soporteAltaContratacionTemporalDesarrollo) ResolverContextoCanalInforme
 	if !valida || !rutaInformeJuridicoContratacionTemporalDesarrollo(capacidad.ruta) {
 		return httpinterno.ContextoCanalInformeJuridico{}, ports.ErrAutorizacionDenegada
 	}
-	vinculo, err := s.contexto.Vinculo.Datos()
+	operativo, err := s.contextoOperativoDesarrollo(ctx)
+	if err != nil {
+		return httpinterno.ContextoCanalInformeJuridico{}, ports.ErrAutorizacionDenegada
+	}
+	vinculo, err := operativo.Vinculo.Datos()
 	if err != nil {
 		return httpinterno.ContextoCanalInformeJuridico{}, ports.ErrAutorizacionDenegada
 	}
@@ -182,19 +198,17 @@ func (s *soporteAltaContratacionTemporalDesarrollo) ResolverContextoAutorizacion
 		solicitud.Validar() != nil {
 		return ports.ContextoAutorizacionAltaV3{}, ports.ErrAutorizacionDenegada
 	}
-	vinculo, err := s.contexto.Vinculo.Datos()
+	operativo, err := s.contextoOperativoDesarrollo(ctx)
+	if err != nil {
+		return ports.ContextoAutorizacionAltaV3{}, ports.ErrAutorizacionDenegada
+	}
+	vinculo, err := operativo.Vinculo.Datos()
 	if err != nil || solicitud.AutenticacionRef != vinculo.AutenticacionRef ||
 		solicitud.SesionRef != vinculo.SesionRef ||
 		solicitud.PerfilRef != vinculo.PerfilActivoRef {
 		return ports.ContextoAutorizacionAltaV3{}, ports.ErrAutorizacionDenegada
 	}
-	resultado, err := s.contexto.Resultado.Clonar()
-	if err != nil {
-		return ports.ContextoAutorizacionAltaV3{}, ports.ErrAutorizacionDenegada
-	}
-	return ports.ContextoAutorizacionAltaV3{
-		Vinculo: s.contexto.Vinculo, Resultado: resultado,
-	}, nil
+	return operativo, nil
 }
 
 func (s *soporteAltaContratacionTemporalDesarrollo) centroDeCatalogo(ref string) bool {

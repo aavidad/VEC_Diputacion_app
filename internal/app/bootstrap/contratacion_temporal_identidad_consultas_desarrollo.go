@@ -117,10 +117,29 @@ func nuevasDependenciasIdentidadConsultasDesarrollo(
 	if err != nil {
 		return nil, nil, fallo
 	}
+	esperado, err := contextoEsperadoRegistradoDesarrollo(ctx, autoridadContexto, soporte)
+	if err != nil {
+		return nil, nil, fallo
+	}
+	soporte.mu.Lock()
+	if soporte.contextoEsperadoRegistrado.Validar() == nil &&
+		!mismoContextoEsperadoRegistradoDesarrollo(soporte.contextoEsperadoRegistrado, esperado) {
+		soporte.mu.Unlock()
+		return nil, nil, fallo
+	}
+	soporte.contextoEsperadoRegistrado = esperado
+	soporte.mu.Unlock()
 	proveedor, err := nuevoProveedorSesionConsultaRRHHConCatalogoDesarrollo(soporte, registro, revalidador, reloj, autoridadContexto, fronteras)
 	if err != nil {
 		return nil, nil, fallo
 	}
+	soporte.mu.Lock()
+	if soporte.sesionOperativa != nil {
+		soporte.mu.Unlock()
+		return nil, nil, fallo
+	}
+	soporte.sesionOperativa = proveedor
+	soporte.mu.Unlock()
 	completa = true
 	return proveedor, cerrar, nil
 }

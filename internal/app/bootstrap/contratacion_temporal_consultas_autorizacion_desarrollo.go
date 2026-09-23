@@ -102,7 +102,7 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 			ruta:      r.URL.Path,
 			principal: clonarPrincipalDesarrollo(principal),
 		}
-		if protegidaComun || rutaContinuidadNominal(capacidad.ruta) || rutaConsultaRRHHContratacionTemporalDesarrollo(capacidad.ruta) ||
+		if protegidaCT || protegidaComun || rutaContinuidadNominal(capacidad.ruta) || rutaConsultaRRHHContratacionTemporalDesarrollo(capacidad.ruta) ||
 			capacidad.ruta == bolsapersonal.RutaMiBolsa ||
 			capacidad.ruta == httpinterno.RutaIncorporacionEjercicioV2 ||
 			capacidad.ruta == httpinterno.RutaFichaGINPIXV2 ||
@@ -128,6 +128,9 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 			capacidad.certificadoVerificadoEn = observado
 			capacidad.certificadoValidoHasta = certificado.NotAfter.UTC()
 			capacidad.consultaRRHH = &contextoConsultaRRHHPeticionDesarrollo{}
+			if protegidaCT {
+				capacidad.contextoOperacion = &contextoOperacionCTDesarrollo{}
+			}
 			if rutaConsultaRRHHContratacionTemporalDesarrollo(capacidad.ruta) {
 				vinculo, ok := vinculoCanalTLSCursorRRHHDesarrollo(r.TLS)
 				if !ok {

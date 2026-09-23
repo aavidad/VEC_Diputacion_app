@@ -69,7 +69,11 @@ func (s *soporteAltaContratacionTemporalDesarrollo) ResolverContextoCanalCobertu
 		capacidad.ruta != httpinterno.RutaRectificacionCobertura) {
 		return httpinterno.ContextoCanalCobertura{}, ports.ErrAutorizacionDenegada
 	}
-	vinculo, err := s.contexto.Vinculo.Datos()
+	operativo, err := s.contextoOperativoDesarrollo(ctx)
+	if err != nil {
+		return httpinterno.ContextoCanalCobertura{}, ports.ErrAutorizacionDenegada
+	}
+	vinculo, err := operativo.Vinculo.Datos()
 	if err != nil {
 		return httpinterno.ContextoCanalCobertura{}, ports.ErrAutorizacionDenegada
 	}
@@ -89,7 +93,11 @@ func (s *soporteAltaContratacionTemporalDesarrollo) ResolverContextoRecuperacion
 		return ports.ContextoRecuperacionResultadoCobertura{},
 			ports.ErrAutorizacionDenegada
 	}
-	vinculo, err := s.contexto.Vinculo.Datos()
+	operativo, err := s.contextoOperativoDesarrollo(ctx)
+	if err != nil {
+		return ports.ContextoRecuperacionResultadoCobertura{}, ports.ErrAutorizacionDenegada
+	}
+	vinculo, err := operativo.Vinculo.Datos()
 	if err != nil {
 		return ports.ContextoRecuperacionResultadoCobertura{},
 			ports.ErrAutorizacionDenegada
@@ -101,7 +109,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) ResolverContextoRecuperacion
 	}
 	return ports.NuevoContextoRecuperacionResultadoCobertura(
 		solicitud,
-		s.contexto,
+		operativo,
 		organizacionAltaContratacionTemporalDesarrollo,
 		s.reloj.Ahora(),
 	)
