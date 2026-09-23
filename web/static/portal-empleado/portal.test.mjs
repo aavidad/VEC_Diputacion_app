@@ -11,6 +11,7 @@ import { obtenerDatosPresentacion, obtenerPropuestaPresentacion } from "./datos-
 import { AYUDA_PORTAL_BOLSA } from "./ayuda-contenido.js";
 import { crearPresentadorPanelInterno } from "./portal-panel-interno.js";
 import { MENSAJES_PORTAL_ES, traducirPortal } from "./portal-i18n.js";
+import { accesoBolsaEfectivo } from "./portal-menu-bolsa.js";
 
 const directorio = new URL("./", import.meta.url);
 const [html, manifiestoProduccion, javascript, coordinadorModulos, catalogoI18n, eventos, contrato, contratoLlamamientos, apiLlamamientos, flujoLlamamientos, vistaLlamamientos, panelInterno, resumenPresentacion, datos, ayuda, estilosBase, estilosComponentes, estilosFlujos, estilosCapacidades] = await Promise.all([
@@ -105,6 +106,43 @@ test("la carga inicial usa solo las APIs de Bolsa que están compuestas", () => 
   assert.match(javascript, /superficieBorradores\.obtenerAcceso\(\)/);
   assert.doesNotMatch(javascript, /resolverAcceso\(clave, estado\.fuenteLista\)/);
   assert.doesNotMatch(codigo, /María Pérez|García López|Auxiliar Administrativo|BOL-2026|CON-2026|DOC-[A-Z]{2}|20\/07\/2026/);
+});
+
+test("Bolsa actualiza el indicador del shell al terminar B12 sin cambiar la vista", () => {
+  const inicio = javascript.indexOf("function actualizarVistaBolsa(");
+  const fin = javascript.indexOf("function renderizar()", inicio);
+  assert.ok(inicio > 0 && fin > inicio);
+  const pasos = [];
+  const raiz = {};
+  const actualizar = runInNewContext(`${javascript.slice(inicio, fin)}; actualizarVistaBolsa`, {
+    porId: () => raiz,
+    VISTAS_INTERNAS_BOLSA: ["resumen"],
+    estado: { vista: "resumen" },
+    actualizarNavegacionModulos: () => pasos.push("indicador"),
+    montarVistaBolsa: () => pasos.push("bolsa"),
+    renderizar: () => pasos.push("portal"),
+  });
+  actualizar();
+  assert.deepEqual(pasos, ["indicador", "bolsa"]);
+});
+
+test("Bolsa solo figura comprobando mientras existe una consulta activa", () => {
+  const inicio = javascript.indexOf("function disponibilidadBolsa()");
+  const fin = javascript.indexOf("function resolverAccesoPerfil(", inicio);
+  assert.ok(inicio > 0 && fin > inicio);
+  const estadoBolsa = { modoPresentacion: false, vista: "portal", datosBolsas: null };
+  const disponibilidad = runInNewContext(`${javascript.slice(inicio, fin)}; disponibilidadBolsa`, {
+    estado: estadoBolsa,
+    accesoBolsaEfectivo,
+    superficieBorradores: { obtenerAcceso: () => ({ disponible: false, vista: "", estado: "cargando" }) },
+  });
+  assert.equal(disponibilidad().estado, "no_disponible");
+  estadoBolsa.datosBolsas = { carga: "cargando" };
+  assert.equal(disponibilidad().estado, "cargando");
+  estadoBolsa.datosBolsas = { carga: "listo", datos: { bolsas: [{ referencia: "bolsa:ejemplo" }] } };
+  assert.equal(disponibilidad().disponible, true);
+  estadoBolsa.datosBolsas = { carga: "error" };
+  assert.equal(disponibilidad().estado, "error");
 });
 
 test("la carga inicial no consulta servicios de Bolsa ausentes", () => {
@@ -230,8 +268,8 @@ test("el coordinador respeta DEC-051 y carga el presentador con versión de cach
   // presentación no aporta. Se congela el tamaño actual para que no crezca sin
   // decisión expresa.
   assert.ok(javascript.split(/\r?\n/).length - 1 <= 900, "portal.js debe mantenerse por debajo de 900 líneas");
-  assert.match(html, /portal\.js\?v=20260923-pweb17-v1/);
-  assert.match(javascript, /portal-modulos-coordinador\.js\?v=20260923-pweb17-v1/);
+  assert.match(html, /portal\.js\?v=20260923-p4-estado-modulos-v1/);
+  assert.match(javascript, /portal-modulos-coordinador\.js\?v=20260923-p4-estado-modulos-v1/);
   assert.match(javascript, /portal-bolsas-api\.js\?v=20260923-pweb13-b8-v1/);
   assert.match(javascript, /portal-borradores-ui\.js\?v=20260921-avisos-r5-v1/);
   assert.match(javascript, /portal-eventos\.js\?v=20260721-acceso-real-v2/);

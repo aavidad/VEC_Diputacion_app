@@ -29,8 +29,8 @@ import {
   cargarModuloConLimite,
   consultarConLimite,
   resolverCargasModularesPresentacion,
-} from "./portal-modulos-carga.js";
-export { resolverCargasModularesPresentacion } from "./portal-modulos-carga.js";
+} from "./portal-modulos-carga.js?v=20260923-p4-estado-modulos-v1";
+export { resolverCargasModularesPresentacion } from "./portal-modulos-carga.js?v=20260923-p4-estado-modulos-v1";
 
 const CLAVE_CONTRATACION_TEMPORAL = "contratacion_temporal";
 const CLAVE_PERSONAL = "personal";
@@ -221,7 +221,7 @@ export function crearCoordinadorModulosPortal({
   montajeBolsa = null,
   entorno = globalThis,
   traducir = traducirPortal,
-  cargarCatalogoInterno = cargarCatalogoModulosInterno,
+  cargarCatalogoInterno = null,
   cargadoresPresentacion = CARGADORES_PRESENTACION_PREDETERMINADOS,
   cargadoresInternos = CARGADORES_INTERNOS_PREDETERMINADOS,
   limiteCargaModularMs = LIMITE_CARGA_MODULAR_MS,
@@ -229,7 +229,7 @@ export function crearCoordinadorModulosPortal({
 } = {}) {
   if (typeof escaparHTML !== "function" || typeof anunciar !== "function"
     || typeof confirmarOperacion !== "function" || typeof traducir !== "function"
-    || typeof cargarCatalogoInterno !== "function"
+    || (cargarCatalogoInterno !== null && typeof cargarCatalogoInterno !== "function")
     || (montajeBolsa !== null && (typeof montajeBolsa?.montar !== "function"
       || typeof montajeBolsa?.disponible !== "function"))
     || typeof cargadoresPresentacion?.base !== "function"
@@ -279,7 +279,9 @@ export function crearCoordinadorModulosPortal({
     presentacionActiva = true;
     composicion = null;
     catalogo = Object.freeze([]);
-    const base = await cargadoresPresentacion.base();
+    const base = await cargarModuloConLimite(
+      cargadoresPresentacion.base, "base de presentación", limiteCargaModularMs, temporizadores,
+    );
     if (carga !== secuenciaCarga) throw new Error("carga de presentación sustituida");
     const contexto = base.identidad.crearContextoActorPresentacionDesdeSesion(sesionBolsa);
     const contextos = compartirContextoActor(
@@ -348,7 +350,10 @@ export function crearCoordinadorModulosPortal({
       },
     );
     if (contratacionTemporal && typeof contratacionTemporal.cargarMetricas === "function") {
-      await contratacionTemporal.cargarMetricas();
+      // Las métricas del inicio son opcionales: una consulta pendiente no debe
+      // retener el catálogo ni ocultar los módulos independientes.
+      await cargarModuloConLimite(() => contratacionTemporal.cargarMetricas(),
+        "métricas de contratación temporal", limiteCargaModularMs, temporizadores).catch(() => {});
     }
     const vistasPresentacion = Object.freeze({
       nominas: componerVistaPresentacionAislada(cargas.nominas, "montarVistaNominas"),
@@ -397,7 +402,24 @@ export function crearCoordinadorModulosPortal({
     presentacionActiva = false;
     composicion = null;
     catalogo = Object.freeze([]);
-    const catalogoInterno = await cargarCatalogoInterno();
+    const controladorCatalogo = new AbortController();
+    controladorCargaInterna = controladorCatalogo;
+    let catalogoInterno;
+    try {
+      catalogoInterno = await consultarConLimite(({ signal }) => {
+        if (cargarCatalogoInterno !== null) return cargarCatalogoInterno(signal);
+        const fetchImpl = typeof entorno.fetch === "function"
+          ? entorno.fetch.bind(entorno) : globalThis.fetch;
+        return cargarCatalogoModulosInterno((ruta, opciones) => fetchImpl(ruta, {
+          ...opciones, signal,
+        }));
+      }, controladorCatalogo, limiteCargaModularMs, temporizadores, "cargar catálogo de módulos");
+    } catch (error) {
+      if (carga !== secuenciaCarga) throw new Error("carga interna sustituida");
+      throw error;
+    } finally {
+      if (controladorCargaInterna === controladorCatalogo) controladorCargaInterna = null;
+    }
     if (carga !== secuenciaCarga) throw new Error("carga interna sustituida");
     catalogo = catalogoInterno;
     let contratacionTemporal;
@@ -640,7 +662,9 @@ export function crearCoordinadorModulosPortal({
 
   function resolverAcceso(clave, bolsaDisponible = true) {
     if (clave === "bolsa") {
-      const autorizada = !presentacionActiva || composicion?.contextos.bolsa !== undefined;
+      const autorizada = presentacionActiva
+        ? composicion?.contextos.bolsa !== undefined
+        : catalogo.some((modulo) => modulo.clave === "bolsa");
       const acceso = bolsaDisponible !== null && typeof bolsaDisponible === "object"
         ? bolsaDisponible
         : { disponible: bolsaDisponible === true, vista: "resumen" };
@@ -648,6 +672,7 @@ export function crearCoordinadorModulosPortal({
         ...acceso,
         disponible: acceso.disponible === true && autorizada,
         vista: acceso.disponible === true && autorizada ? acceso.vista : "",
+        ...(!autorizada ? { estado: presentacionActiva ? "denegado" : "no_disponible" } : {}),
       });
     }
     if (clave === "contratacion_temporal" && vistaDisponible("contratacion-temporal")) {
