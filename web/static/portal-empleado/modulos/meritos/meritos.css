@@ -1,37 +1,55 @@
-.modulo-meritos { display: grid; gap: var(--portal-espacio-3, 18px); color: var(--portal-tinta); }
-.meritos-cabecera, .meritos-resumen, .meritos-grid { display: grid; gap: 12px; }
-.meritos-cabecera { grid-template-columns: minmax(0, 1fr) auto; align-items: start; }
-.meritos-cabecera h2, .meritos-cabecera p, .meritos-panel h3, .meritos-panel p { margin: 0; }
-.meritos-cabecera h2 { margin-top: 3px; font-size: clamp(1.35rem, 2vw, 1.8rem); }
-.meritos-sobrelinea { color: var(--portal-azul-700); font-size: .74rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
-.meritos-demo { border: 1px solid var(--portal-aviso); border-radius: 999px; color: var(--portal-aviso); font-size: .75rem; font-weight: 750; padding: .35rem .65rem; white-space: nowrap; }
-.meritos-tabs { display: flex; gap: 2px; overflow-x: auto; border-bottom: 1px solid var(--portal-borde); }
-.meritos-tabs button { border: 0; border-bottom: 3px solid transparent; background: transparent; color: var(--portal-muted); font: inherit; font-size: .82rem; font-weight: 750; min-height: 42px; padding: 8px 12px; white-space: nowrap; }
-.meritos-tabs button[aria-selected="true"] { border-bottom-color: var(--portal-azul-700); color: var(--portal-azul-950); }
-.meritos-resumen { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.meritos-kpi { border: 1px solid var(--portal-borde); border-radius: var(--portal-radio, .35rem); padding: 12px; background: var(--portal-superficie); }
-.meritos-kpi strong { display: block; color: var(--portal-azul-950); font-size: 1.35rem; }
-.meritos-kpi span { color: var(--portal-muted); font-size: .77rem; }
-.meritos-grid { grid-template-columns: minmax(0, 1fr) minmax(250px, .34fr); align-items: start; }
-.meritos-panel { border: 1px solid var(--portal-borde); border-radius: var(--portal-radio, .35rem); background: var(--portal-superficie); min-width: 0; }
-.meritos-panel > header, .meritos-panel > div, .meritos-panel > p { padding: 12px 14px; }
-.meritos-panel > header { border-bottom: 1px solid var(--portal-borde); }
-.meritos-panel header p, .meritos-ayuda { color: var(--portal-muted); font-size: .8rem; margin-top: 4px !important; }
-.meritos-filtros { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; padding: 12px 14px; }
-.meritos-filtros label { display: grid; gap: 4px; color: var(--portal-muted); font-size: .78rem; font-weight: 700; }
-.meritos-filtros select { min-height: 36px; min-width: 180px; }
-.meritos-tabla-contenedor { overflow-x: auto; padding: 0 !important; }
-.meritos-tabla { width: 100%; min-width: 620px; border-collapse: collapse; font-size: .84rem; }
-.meritos-tabla caption { padding: 10px 14px; text-align: left; color: var(--portal-muted); font-size: .78rem; }
-.meritos-tabla th, .meritos-tabla td { border-top: 1px solid var(--portal-borde); padding: 10px 14px; text-align: left; vertical-align: top; }
-.meritos-tabla th { color: var(--portal-muted); font-size: .73rem; text-transform: uppercase; }
-.meritos-chip { display: inline-block; border-radius: 999px; background: var(--portal-superficie-alterna); color: var(--portal-azul-950); font-size: .72rem; font-weight: 750; padding: .22rem .5rem; }
-.meritos-lista { display: grid; gap: 8px; list-style: none; margin: 0; padding: 12px 14px; }
-.meritos-lista li { border-inline-start: 3px solid var(--portal-azul-700); padding-inline-start: 9px; }
-.meritos-lista strong, .meritos-lista span { display: block; }
-.meritos-lista span { color: var(--portal-muted); font-size: .8rem; }
-.meritos-accion { display: grid; gap: 7px; margin: 12px 14px; padding: 10px; border-radius: var(--portal-radio, .35rem); background: var(--portal-superficie-alterna); }
-.meritos-accion button { justify-self: start; min-height: 36px; }
+.modulo-meritos { display: grid; gap: var(--portal-espacio-4); min-width: 0; color: var(--portal-tinta); }
+.meritos-cabecera { display: flex; justify-content: space-between; align-items: start; gap: var(--portal-espacio-4); }
+.meritos-cabecera h2, .meritos-cabecera p { margin: 0; }
+.meritos-cabecera h2 { font-size: clamp(1.4rem, 2vw, 1.55rem); line-height: 1.2; }
+.meritos-cabecera > div > p:last-child { margin-top: var(--portal-espacio-2); color: var(--portal-muted); font-size: .88rem; }
+.meritos-sobrelinea { color: var(--portal-azul-700); font-size: .76rem; font-weight: 700; }
+.meritos-ayuda { position: relative; flex: none; }
+.meritos-ayuda summary { display: grid; place-items: center; width: 36px; height: 36px; border: 1px solid var(--portal-borde); border-radius: 50%; background: var(--portal-superficie); color: var(--portal-azul-700); cursor: pointer; font-weight: 800; list-style: none; }
+.meritos-ayuda summary::-webkit-details-marker { display: none; }
+.meritos-ayuda p { position: absolute; z-index: 2; right: 0; top: 38px; width: min(310px, 78vw); padding: var(--portal-espacio-4); border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-lg); background: var(--portal-superficie); box-shadow: var(--portal-sombra-sm); color: var(--portal-tinta); font-size: .84rem; }
+.meritos-situacion { display: flex; align-items: center; gap: var(--portal-espacio-3); flex-wrap: wrap; color: var(--portal-muted); font-size: .82rem; }
+.meritos-estado { display: inline-flex; align-items: center; gap: var(--portal-espacio-2); border-radius: 999px; padding: 4px 9px; background: var(--portal-azul-100); color: var(--portal-azul-950); font-size: .76rem; font-weight: 700; white-space: nowrap; }
+.meritos-estado::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.meritos-estado--acreditado, .meritos-estado--cumple { background: var(--portal-exito-suave); color: var(--portal-exito); }
+.meritos-estado--declarado { background: var(--portal-azul-100); color: var(--portal-azul-950); }
+.meritos-estado--pendiente { background: var(--portal-aviso-suave); color: var(--portal-aviso); }
+.meritos-estado--rechazado, .meritos-estado--no_cumple { background: var(--portal-peligro-suave); color: var(--portal-peligro); }
+.meritos-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0; }
+.meritos-kpi { min-height: 76px; padding: var(--portal-espacio-3); }
+.meritos-kpi .icono-kpi { width: 38px; height: 38px; border-radius: 50%; }
+.meritos-kpi--pendiente .icono-kpi { background: var(--portal-aviso-suave); color: var(--portal-aviso); }
+.meritos-kpi--pendiente .valor-kpi { color: var(--portal-aviso); }
+.meritos-kpi--rechazado .icono-kpi { background: var(--portal-peligro-suave); color: var(--portal-peligro); }
+.meritos-kpi--rechazado .valor-kpi { color: var(--portal-peligro); }
+.meritos-tabs { display: flex; flex-wrap: wrap; gap: var(--portal-espacio-2); }
+.meritos-tabs button { min-height: 40px; padding: 7px 13px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-lg); background: var(--portal-superficie); color: var(--portal-azul-950); font: inherit; font-size: .84rem; font-weight: 700; cursor: pointer; }
+.meritos-tabs button[aria-selected="true"] { background: var(--portal-azul-950); color: var(--portal-superficie); border-color: var(--portal-azul-950); }
+.meritos-panel .cabecera-panel { align-items: start; }
+.meritos-panel .cuerpo-panel { display: grid; gap: var(--portal-espacio-3); }
+.meritos-aviso { border-left: 4px solid var(--portal-aviso); }
+.meritos-aviso--denegado, .meritos-aviso--error { border-left-color: var(--portal-peligro); }
+.meritos-aviso .cuerpo-panel { padding: var(--portal-espacio-5); }
+.meritos-aviso strong { color: var(--portal-azul-950); }
+.meritos-aviso p, .meritos-vacio { margin: 0; color: var(--portal-muted); }
+.meritos-controles { display: flex; flex-wrap: wrap; gap: var(--portal-espacio-2); align-items: center; font-size: .84rem; }
+.meritos-controles label { font-weight: 700; }
+.meritos-controles select { min-height: 38px; padding: 5px 28px 5px 9px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio); background: var(--portal-superficie); color: var(--portal-tinta); font: inherit; }
+.meritos-cuenta { margin-left: auto; color: var(--portal-muted); }
+.meritos-tabla-wrap { max-width: 100%; overflow: auto; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-lg); }
+.meritos-tabla { width: 100%; min-width: 650px; border-collapse: collapse; font-size: .82rem; }
+.meritos-tabla th, .meritos-tabla td { padding: 10px 12px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--portal-borde); }
+.meritos-tabla thead { background: var(--portal-cabecera-panel); color: var(--portal-azul-950); font-size: .76rem; }
+.meritos-tabla tbody tr:nth-child(even) { background: var(--portal-superficie-alterna); }
+.meritos-tabla tbody tr:hover, .meritos-tabla tbody tr:focus-within { background: var(--portal-azul-100); }
+.meritos-tabla tbody tr:last-child th, .meritos-tabla tbody tr:last-child td { border-bottom: 0; }
+.meritos-tabla tbody th { color: var(--portal-azul-700); font-weight: 700; }
+.meritos-tabla small { display: block; margin-top: 3px; color: var(--portal-muted); font-size: .75rem; font-weight: 400; }
+.meritos-numero { text-align: right !important; font-variant-numeric: tabular-nums; }
+.meritos-accion { display: flex; align-items: center; gap: var(--portal-espacio-3); flex-wrap: wrap; }
+.meritos-accion button { min-height: 36px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio); padding: 6px 12px; background: var(--portal-superficie-alterna); color: var(--portal-muted); font: inherit; font-weight: 700; }
 .meritos-accion small { color: var(--portal-muted); }
-@media (max-width: 780px) { .meritos-cabecera, .meritos-grid { grid-template-columns: minmax(0, 1fr); } .meritos-resumen { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 430px) { .meritos-resumen { grid-template-columns: 1fr; } .meritos-demo { white-space: normal; } }
+.meritos-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
+.modulo-meritos :is(button, select, summary, .meritos-tabla-wrap):focus-visible { outline: 3px solid var(--portal-azul-700); outline-offset: 2px; }
+@media (max-width: 780px) { .meritos-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 430px) { .meritos-tabs { display: grid; grid-template-columns: 1fr; } .meritos-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .meritos-kpi { min-height: 72px; grid-template-columns: 34px minmax(0, 1fr); padding: 8px; } .meritos-kpi .icono-kpi { width: 34px; height: 34px; } .meritos-cuenta { margin-left: 0; width: 100%; } }

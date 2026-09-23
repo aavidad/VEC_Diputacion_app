@@ -1,23 +1,35 @@
-/** Catálogo cerrado de la interfaz de Méritos; los valores del expediente no son etiquetas UI. */
+/** Catálogo de la vista. Los hechos y decisiones llegan como datos, nunca como etiquetas. */
 export const MENSAJES_MERITOS_ES = Object.freeze({
-  resumen: "Resumen", titulos: "Títulos", cursos: "Cursos", servicios: "Experiencia y servicios", evidencias: "Evidencias", homologaciones: "Homologaciones", formacion: "Formación disponible", procesos: "Reutilización en procesos",
-  area_personal: "Área personal · demostración", titulo: "Méritos y formación", descripcion: "Consulta preparada para conectar el expediente único de la persona.", sin_validez: "{aviso} · sin validez administrativa", navegacion: "Secciones de Méritos", datos_demostracion: "Datos de demostración", personas_ficticias: "Personas y datos ficticios con apariencia realista.", sin_fuente: "No se ha conectado ninguna fuente personal, documental ni de formación.",
-  titulos_declarados: "títulos declarados", cursos_mostrados: "cursos mostrados", servicios_mostrados: "servicios mostrados", evidencias_conectar: "evidencias por conectar", expediente: "Expediente de méritos", estados_demo: "Los estados son de demostración; no constituyen acreditación, baremación ni admisión en un proceso.",
-  estado_resumen: "Demostración visual con datos sintéticos. No consulta expedientes, documentos ni fuentes de Personal.", falta_fuente: "Fuente autorizada de títulos, cursos y servicios", falta_evidencia: "Documento o evidencia con procedencia y vigencia", falta_validacion: "Validación u homologación por el circuito competente", falta_autorizacion: "Autorización por acción, ámbito y finalidad", falta_historial: "Historial, recibo e idempotencia de cada operación", fuente_catalogo: "Catálogo local de presentación", sin_conexion: "Sin API, sin red, sin cookies ni almacenamiento web.",
-  aportacion: "Aportar un mérito", aportar_titulo: "Aportar título", aportar_curso: "Aportar curso", contraste: "Solicitar contraste", validar: "Validar evidencia", inscribir: "Inscribirme", reutilizar: "Reutilizar méritos", exportar: "Exportar expediente", accion_general_pendiente: "Pendiente de fuente, documento, autorización, validación e historial con recibo.", accion_pendiente: "Acción deshabilitada hasta disponer de fuente, evidencia, autorización, validación, historial y recibo.", exportar_pendiente: "Pendiente de consulta autorizada, documento original e historial/recibo.",
-  consulta_local: "Consulta local de demostración; el filtro no modifica ni guarda datos.", filtro: "Filtrar por estado", todos: "Todos los registros", pendientes: "Pendientes", acreditados: "Acreditados", registros_visibles: "{numero} registros visibles", titulos_tabla: "Títulos declarados", cursos_tabla: "Cursos y acciones formativas", servicios_tabla: "Experiencia y servicios", evidencias_tabla: "Evidencias documentales", formacion_tabla: "Formación disponible", procesos_tabla: "Reutilización en procesos", cab_titulo: "Título", cab_entidad: "Entidad", cab_ano: "Año", cab_estado: "Estado", cab_curso: "Curso", cab_duracion: "Duración", cab_puesto: "Puesto", cab_centro: "Centro o unidad", cab_periodo: "Periodo", cab_evidencia: "Evidencia", cab_tipo: "Tipo", cab_procedencia: "Procedencia", cab_actividad: "Actividad", cab_modalidad: "Modalidad", cab_plazas: "Plazas", cab_fechas: "Fechas", cab_proceso: "Proceso", cab_situacion: "Situación", cab_aplicacion: "Aplicación de méritos",
-  homologaciones_titulo: "Homologaciones y equivalencias", homologaciones_ayuda: "Las equivalencias requieren una fuente y decisión competente; esta pantalla no interpreta títulos.", homologacion_uno: "Máster Universitario en Gestión Pública", homologacion_uno_ayuda: "Equivalencia: no evaluada. Pendiente de criterio aprobado y validación.", homologacion_dos: "Excel aplicado a la gestión de personal", homologacion_dos_ayuda: "Homologación: pendiente de entidad, programa y evidencia documental.", solicitar_homologacion: "Solicitar homologación", homologacion_pendiente: "Pendiente de circuito, autorización, evidencia y recibo verificable.", anuncio_inicial: "Méritos y formación: demostración visual sin conexión administrativa.", anuncio_seccion: "Sección: {nombre}",
+  sobrelinea: "Área personal", titulo: "Méritos", descripcion: "Un inventario de hechos aportados una vez y reutilizables con su procedencia.",
+  ayuda: "Ayuda", ayuda_texto: "Una titulación o un servicio se aporta una vez. Cada convocatoria comprueba por separado sus requisitos de acceso y calcula, si procede, su propia puntuación. Una declaración no equivale a acreditación y los puntos de un proceso no se trasladan a otro.",
+  inventario: "Inventario", requisitos: "Requisitos de acceso", valoraciones: "Valoraciones por convocatoria", navegacion: "Secciones de Méritos",
+  no_configurado: "Fuente de méritos no conectada", no_configurado_texto: "Aún no se puede consultar el expediente personal de méritos. No se han cargado datos de ejemplo.",
+  cargando: "Cargando méritos", cargando_texto: "Esperando una respuesta de la fuente autorizada.",
+  vacio: "Sin méritos aportados", vacio_texto: "La fuente consultada no devolvió méritos para esta persona.",
+  denegado: "Acceso denegado", denegado_texto: "No hay autorización para consultar estos datos con el perfil y finalidad actuales.",
+  error: "No se pudieron consultar los méritos", error_texto: "La consulta falló. Inténtalo de nuevo cuando esté disponible el servicio.",
+  disponible: "Consulta disponible", solo_lectura: "Consulta de solo lectura", consulta_pendiente: "La consulta y aportación requieren fuente, autorización, evidencia e historial con recibo.",
+  total: "Hechos registrados", acreditados: "Acreditados", pendientes: "Pendientes", rechazados: "Rechazados", sin_dato: "Sin dato", registros: "{numero} registros",
+  inventario_ayuda: "Cada fila representa un hecho; fuente, evidencia, vigencia y estado se consultan juntos.",
+  requisitos_ayuda: "El acceso se verifica contra las bases versionadas de cada convocatoria. La puntuación no decide si se cumple un requisito.",
+  valoraciones_ayuda: "Cada puntuación pertenece exclusivamente a su convocatoria y a la versión de sus bases.",
+  sin_resultados: "No hay méritos con este estado.", sin_requisitos: "No hay comprobaciones de acceso disponibles para esta consulta.", sin_valoraciones: "No hay valoraciones disponibles para esta consulta.",
+  nombre: "Hecho aportado", tipo: "Tipo", fuente: "Fuente", evidencia: "Evidencia", vigencia: "Vigencia", estado: "Estado",
+  convocatoria: "Convocatoria", bases: "Bases", requisito: "Requisito", resultado: "Resultado", motivo: "Motivo", procedencia: "Procedencia", hito: "Hito de cumplimiento", merito: "Mérito", puntos: "Puntos", criterio: "Criterio",
+  declarado: "Declarado", pendiente: "Pendiente", acreditado: "Acreditado", rechazado: "Rechazado", cumple: "Cumple", no_cumple: "No cumple",
+  filtrar: "Filtrar por estado", todos: "Todos", aportar: "Aportar mérito", aportar_pendiente: "La aportación estará disponible al conectar el expediente, los documentos, la autorización y el recibo.",
+  aviso_sin_evidencia: "Evidencia no disponible", aviso_sin_vigencia: "Vigencia no informada", aviso_sin_fuente: "Fuente no informada", aviso_sin_version: "Versión de bases no informada",
+  anuncio_inicial: "Méritos: fuente personal no conectada.", anuncio_seccion: "Sección: {nombre}", anuncio_actualizado: "Méritos actualizados.",
 });
 
-const CLAVES_MERITOS = Object.freeze(Object.keys(MENSAJES_MERITOS_ES));
-
+const CLAVES = Object.freeze(Object.keys(MENSAJES_MERITOS_ES));
 export function crearTraductorMeritos(mensajes = MENSAJES_MERITOS_ES) {
   if (!mensajes || typeof mensajes !== "object" || Array.isArray(mensajes)
-    || Object.keys(mensajes).length !== CLAVES_MERITOS.length
-    || CLAVES_MERITOS.some((clave) => typeof mensajes[clave] !== "string")
-    || Object.keys(mensajes).some((clave) => !CLAVES_MERITOS.includes(clave))) throw new TypeError("catálogo de Méritos incompleto o no disponible");
+    || Object.keys(mensajes).length !== CLAVES.length
+    || CLAVES.some((clave) => typeof mensajes[clave] !== "string")
+    || Object.keys(mensajes).some((clave) => !CLAVES.includes(clave))) throw new TypeError("catálogo de Méritos incompleto");
   return (clave, variables = {}) => {
-    if (!Object.hasOwn(mensajes, clave) || typeof mensajes[clave] !== "string") throw new TypeError(`clave de Méritos no disponible: ${clave}`);
+    if (!Object.hasOwn(mensajes, clave)) throw new TypeError(`clave de Méritos no disponible: ${clave}`);
     return mensajes[clave].replace(/\{([a-z_]+)\}/gu, (_, nombre) => String(variables[nombre] ?? ""));
   };
 }
