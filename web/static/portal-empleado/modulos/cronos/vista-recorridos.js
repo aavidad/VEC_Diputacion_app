@@ -1,5 +1,5 @@
-import { crearTraductorCronos, MENSAJES_CRONOS_ES } from "./i18n.js";
-import { MENSAJES_CRONOS_PERMISOS_ES } from "./i18n-permisos.js";
+import { crearTraductorCronos, MENSAJES_CRONOS_ES } from "./i18n.js?v=20260924-f2-web2";
+import { MENSAJES_CRONOS_PERMISOS_ES } from "./i18n-permisos.js?v=20260924-f2-web2";
 
 function escaparHTML(valor) {
   return String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;")
