@@ -11,13 +11,18 @@ no prueba una ejecución en cidonia.
   sesiones activas. `ALTER ROLE NOLOGIN` no cierra sesiones existentes.
 - DBA de PostgreSQL 18. En cidonia se usa `podman exec -i` contra el
   contenedor PostgreSQL indicado por `VEC_P6_POSTGRES_CONTAINER` en el entorno
-  privado: `psql -U postgres -d postgres` recibe el SQL por stdin. El runner
-  verifica versión 18 y sesión superusuario antes de inventariar. No requiere
-  `psql` en el host ni pasa DSN o contraseña en argumentos.
+  privado. `VEC_P6_PG_SOCKET_DIR` y `VEC_P6_PG_PORT` fijan el socket Unix y
+  puerto **dentro del contenedor**, confirmados por el operador; no se publican
+  aquí sus valores efectivos. `psql -h <socket> -p <puerto> -U postgres -d
+  postgres` recibe el SQL por stdin bajo `env -i`, que elimina las variables
+  `PG*` heredadas del contenedor. El runner comprueba versión 18, base
+  `postgres`, conexión por socket y sesión superusuario antes de inventariar;
+  la transacción repite la guarda de destino. No requiere `psql` en el host ni
+  pasa DSN o contraseña en argumentos.
 - Fuera de ese entorno se conserva el transporte `PGSERVICE` con
   `PGSERVICEFILE`/`PGPASSFILE` privados, propios, `0600` y externos a Git. El
-  servicio nombra host, puerto, base y usuario; la contraseña queda solo en el
-  passfile. Los dos transportes son excluyentes.
+  servicio nombra un socket Unix local, puerto, base `postgres` y usuario; la
+  contraseña queda solo en el passfile. Los dos transportes son excluyentes.
 - Directorio de evidencia externo a Git, propio y `0700` en
   `VEC_P6_EVIDENCIA_DIR`.
 - Exactamente los ocho LOGIN `vec_dietas_r1d_{registro_identidad,
@@ -45,6 +50,8 @@ contenedor procede del entorno privado; no se escribe aquí ni se versiona:
 
 ```bash
 export VEC_P6_POSTGRES_CONTAINER='<nombre obtenido del entorno privado>'
+export VEC_P6_PG_SOCKET_DIR='<directorio del socket dentro del contenedor>'
+export VEC_P6_PG_PORT='<puerto local confirmado>'
 export VEC_P6_EVIDENCIA_DIR='<directorio privado externo a Git, modo 0700>'
 bash deploy/principal/p6_retirada_dietas/ejecutar.sh --inventario
 bash deploy/principal/p6_retirada_dietas/ejecutar.sh --rollback
@@ -104,6 +111,8 @@ la estructura de autorización necesaria y una asignación sintética; prueba
 ROLLBACK, COMMIT y repetición denegada, rutas transitivas de grupo y refresco
 de sesiones. Solo monta el repositorio en lectura y un directorio privado
 desechable; emula `podman exec` sobre Docker local para probar el mismo
-protocolo de stdin. No usa datos ni credenciales de cidonia. Este fixture
+protocolo de stdin con `PGHOST`, `PGHOSTADDR`, `PGPORT` y `PGSERVICE`
+maliciosos inyectados dentro del contenedor, además de destinos remotos y
+sockets erróneos. No usa datos ni credenciales de cidonia. Este fixture
 comprueba el mecanismo, no reemplaza el inventario
 real, el cierre de sesiones ni la revalidación V3 de Claude.

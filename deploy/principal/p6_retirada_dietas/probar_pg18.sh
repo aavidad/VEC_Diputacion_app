@@ -51,18 +51,20 @@ for argumento in "$@"; do
 done
 printf '%s\0' "$@" >> "$VEC_P6_PODMAN_ARGV_LOG"
 if [[ "${VEC_P6_TEST_PODMAN_FAIL:-}" == antes ]]; then exit 77; fi
-if [[ "${VEC_P6_TEST_PODMAN_FAIL:-}" == sin_dba ]]; then printf '%s\n' '180004|false|true'; exit 0; fi
-if [[ "${VEC_P6_TEST_PODMAN_FAIL:-}" == pg17 ]]; then printf '%s\n' '170000|true|true'; exit 0; fi
+if [[ "${VEC_P6_TEST_PODMAN_FAIL:-}" == sin_dba ]]; then printf '%s\n' '180004|false|true|true|postgres'; exit 0; fi
+if [[ "${VEC_P6_TEST_PODMAN_FAIL:-}" == pg17 ]]; then printf '%s\n' '170000|true|true|true|postgres'; exit 0; fi
 if [[ "${VEC_P6_TEST_PODMAN_FAIL:-}" == despues_rollback && " $* " == *p6_finalizar=ROLLBACK* ]]; then
-  docker "$@"
+  docker exec --env PGHOST=remoto.invalid --env PGHOSTADDR=203.0.113.1 \
+    --env PGPORT=6543 --env PGSERVICE=servicio_malicioso "${@:2}"
   exit 77
 fi
-exec docker "$@"
+exec docker exec --env PGHOST=remoto.invalid --env PGHOSTADDR=203.0.113.1 \
+  --env PGPORT=6543 --env PGSERVICE=servicio_malicioso "${@:2}"
 SH
 chmod 700 "$test_dir/podman"
 cat > "$test_dir/pg_service.conf" <<'SERVICE'
 [p6fixture]
-host=127.0.0.1
+host=/var/run/postgresql
 port=5432
 dbname=postgres
 user=postgres
@@ -77,6 +79,8 @@ export PATH="$test_dir:$PATH"
 run_p6_contenedor() {
   env -u PGSERVICE -u PGSERVICEFILE -u PGPASSFILE \
     VEC_P6_POSTGRES_CONTAINER="$container" VEC_P6_APLICAR="${VEC_P6_APLICAR:-}" \
+    VEC_P6_PG_SOCKET_DIR="${VEC_P6_TEST_SOCKET_DIR:-/var/run/postgresql}" \
+    VEC_P6_PG_PORT="${VEC_P6_TEST_PG_PORT:-5432}" \
     VEC_P6_TEST_HOST_PSQL_FAIL=1 \
     bash "$base_dir/ejecutar.sh" "$@"
 }
@@ -130,6 +134,14 @@ fi
 if VEC_P6_TEST_PODMAN_FAIL=pg17 run_p6_contenedor --inventario \
     > "$test_dir/pg17.out" 2> "$test_dir/pg17.err"; then
   echo 'PostgreSQL 17 fue aceptado' >&2; exit 1
+fi
+if VEC_P6_TEST_SOCKET_DIR=127.0.0.1 run_p6_contenedor --inventario \
+    > "$test_dir/destino-remoto.out" 2> "$test_dir/destino-remoto.err"; then
+  echo 'destino remoto fue aceptado como socket' >&2; exit 1
+fi
+if VEC_P6_TEST_SOCKET_DIR=/tmp run_p6_contenedor --inventario \
+    > "$test_dir/socket-equivocado.out" 2> "$test_dir/socket-equivocado.err"; then
+  echo 'socket local equivocado fue aceptado' >&2; exit 1
 fi
 bash "$base_dir/ejecutar.sh" --inventario >/dev/null
 if VEC_P6_TEST_PODMAN_FAIL=despues_rollback run_p6_contenedor --rollback \

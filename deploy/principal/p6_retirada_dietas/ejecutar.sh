@@ -21,6 +21,14 @@ if [[ -n "${VEC_P6_POSTGRES_CONTAINER:-}" ]]; then
   [[ "$VEC_P6_POSTGRES_CONTAINER" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$ ]] || {
     echo 'nombre de contenedor P6 invalido' >&2; exit 2;
   }
+  : "${VEC_P6_PG_SOCKET_DIR:?falta socket PostgreSQL privado}"
+  : "${VEC_P6_PG_PORT:?falta puerto PostgreSQL privado}"
+  [[ "$VEC_P6_PG_SOCKET_DIR" =~ ^/[A-Za-z0-9_./-]+$ \
+     && "$VEC_P6_PG_SOCKET_DIR" != *..* \
+     && "$VEC_P6_PG_PORT" =~ ^[1-9][0-9]{0,4}$ \
+     && "$VEC_P6_PG_PORT" -le 65535 ]] || {
+    echo 'socket o puerto PostgreSQL P6 invalidos' >&2; exit 2;
+  }
   for nombre in PGSERVICE PGSERVICEFILE PGPASSFILE PGHOST PGHOSTADDR PGPORT PGDATABASE PGUSER PGPASSWORD PGOPTIONS; do
     if [[ -n "${!nombre+x}" ]]; then
       echo "variable PG incompatible con transporte contenedor: $nombre" >&2
@@ -60,13 +68,22 @@ if nombre not in servicios or "password" in servicios[nombre]:
 for clave in ("host", "port", "dbname", "user"):
     if not servicios[nombre].get(clave):
         raise SystemExit("servicio PG incompleto")
+host = servicios[nombre]["host"]
+port = servicios[nombre]["port"]
+if (not host.startswith("/") or any(x in (".", "..") for x in host.split("/"))
+        or not port.isascii() or not port.isdigit() or not 1 <= int(port) <= 65535
+        or servicios[nombre]["dbname"] != "postgres"):
+    raise SystemExit("servicio PG debe apuntar al socket local de postgres")
 PY
 fi
 
 psql_ejecutar() {
   if [[ "$transporte" == contenedor ]]; then
     podman exec -i "$VEC_P6_POSTGRES_CONTAINER" \
-      psql -XAtq -v ON_ERROR_STOP=1 -U postgres -d postgres "$@"
+      env -i PATH=/usr/local/bin:/usr/bin:/bin \
+      psql -XAtq -w -v ON_ERROR_STOP=1 \
+      -h "$VEC_P6_PG_SOCKET_DIR" -p "$VEC_P6_PG_PORT" \
+      -U postgres -d postgres "$@"
   else
     psql -XAtq -v ON_ERROR_STOP=1 "$@"
   fi
@@ -79,13 +96,15 @@ case "$evidencia_dir/" in "$repo_dir/"*) echo 'evidencia dentro de Git' >&2; exi
 [[ "$(stat -c '%u' "$evidencia_dir")" == "$(id -u)" ]] || { echo 'evidencia debe pertenecer al ejecutor' >&2; exit 2; }
 if ! puerta="$(printf '%s\n' "SELECT current_setting('server_version_num')||'|'||" \
   "(SELECT rolsuper::text FROM pg_roles WHERE rolname=session_user)||'|'||" \
-  "(session_user=current_user)::text;" | psql_ejecutar)"; then
+  "(session_user=current_user)::text||'|'||" \
+  "(inet_server_addr() IS NULL)::text||'|'||current_database();" | psql_ejecutar)"; then
   echo 'fallo de transporte al verificar PostgreSQL/DBA' >&2; exit 2
 fi
-IFS='|' read -r version super mismo <<< "$puerta"
+IFS='|' read -r version super mismo socket_local base <<< "$puerta"
 [[ "$version" =~ ^[0-9]{6}$ && "$version" -ge 180000 && "$version" -lt 190000
-   && "$super" == true && "$mismo" == true ]] || {
-  echo 'P6 exige PostgreSQL 18 y sesion DBA sin SET ROLE' >&2; exit 2;
+   && "$super" == true && "$mismo" == true && "$socket_local" == true
+   && "$base" == postgres ]] || {
+  echo 'P6 exige PostgreSQL 18, socket local, base postgres y sesion DBA' >&2; exit 2;
 }
 
 marca="$(date -u +%Y%m%dT%H%M%SZ)"

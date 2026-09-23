@@ -17,8 +17,9 @@ DO $pre$
 DECLARE v jsonb; n integer;
 BEGIN
  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname=session_user AND rolsuper)
-    OR session_user<>current_user THEN
-   RAISE EXCEPTION 'P6 requiere sesion DBA sin SET ROLE' USING ERRCODE='42501';
+    OR session_user<>current_user OR inet_server_addr() IS NOT NULL
+    OR current_database()<>'postgres' THEN
+   RAISE EXCEPTION 'P6 requiere DBA en socket local de postgres' USING ERRCODE='42501';
  END IF;
  SELECT dato INTO STRICT v FROM p6_plan;
  IF v->>'actor'<>'administracion:p6:retirada-dietas-r1d'
