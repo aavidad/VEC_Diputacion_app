@@ -1,0 +1,121 @@
+package application
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
+	"time"
+
+	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
+	"vec-diputacion-granada/internal/modules/bolsa/ports"
+	dominiovec "vec-diputacion-granada/internal/vec/domain"
+	puertosvec "vec-diputacion-granada/internal/vec/ports"
+)
+
+// Operar aplica B8 a la situación B2 vigente. La operación se conserva junto
+// al cambio en una sola transacción del repositorio.
+func (s *ServicioSituacionParticipacion) Operar(ctx context.Context, q ports.SolicitudOperacionSituacion) (ports.RegistroSituacionParticipacion, error) {
+	if s == nil || ctx == nil || q.SolicitudCambiarSituacionParticipacion.Validar() != nil || q.Justificante.Validar() != nil {
+		return ports.RegistroSituacionParticipacion{}, dominiobolsa.ErrOperacionSituacionParticipacionInvalida
+	}
+	destino, ok := dominiobolsa.DestinoOperacionSituacion(q.Operacion)
+	if !ok || q.Destino != destino || q.FechaDisponible != nil {
+		return ports.RegistroSituacionParticipacion{}, dominiobolsa.ErrOperacionSituacionParticipacionInvalida
+	}
+	repo, ok := s.repositorio.(ports.RepositorioOperacionSituacion)
+	if !ok {
+		return ports.RegistroSituacionParticipacion{}, ErrCambioSituacionParticipacionNoDisponible
+	}
+	auth, decision, confirmacion, material, err := s.autorizarOperacion(ctx, q.SolicitudCambiarSituacionParticipacion)
+	if err != nil {
+		return ports.RegistroSituacionParticipacion{}, err
+	}
+	actor := q.ResultadoContexto.Contexto.PersonaRef
+	ahora := s.reloj().UTC().Truncate(time.Microsecond)
+	// El validador es una identidad declarada por RRHH, no un firmante. La
+	// separación en exclusión es provisional hasta resolver la duda 6.
+	if q.Validador == "" || (q.Operacion == dominiobolsa.OperacionExcluir && q.Validador == actor) {
+		return ports.RegistroSituacionParticipacion{}, dominiobolsa.ErrOperacionSituacionParticipacionInvalida
+	}
+	previo, err := repo.BuscarOperacion(ctx, q.ParticipacionRef, q.ClaveIdempotencia)
+	if err == nil {
+		if previo.Operacion != q.Operacion || previo.Motivo != q.Motivo || previo.Actor != actor || previo.Validador != q.Validador || previo.Justificante != q.Justificante {
+			return ports.RegistroSituacionParticipacion{}, ports.ErrClaveOperacionReutilizada
+		}
+		previo.Reutilizada = true
+		return previo.RegistroSituacionParticipacion, nil
+	}
+	if !errors.Is(err, ports.ErrSituacionParticipacionNoEncontrada) {
+		return ports.RegistroSituacionParticipacion{}, err
+	}
+	// La misma clave puede existir ya en B2 sin justificante B8. No se
+	// atribuye retroactivamente una operación a ese cambio.
+	if _, err := s.repositorio.BuscarRegistroSituacion(ctx, q.ParticipacionRef, q.ClaveIdempotencia); err == nil {
+		return ports.RegistroSituacionParticipacion{}, ports.ErrClaveOperacionReutilizada
+	} else if !errors.Is(err, ports.ErrSituacionParticipacionNoEncontrada) {
+		return ports.RegistroSituacionParticipacion{}, err
+	}
+	vigente, err := s.repositorio.SituacionVigente(ctx, q.ParticipacionRef)
+	if err != nil {
+		return ports.RegistroSituacionParticipacion{}, err
+	}
+	cambio := dominiobolsa.CambioSituacionParticipacion{ParticipacionRef: q.ParticipacionRef, Origen: vigente.Situacion, Destino: destino, Desde: ahora, Motivo: q.Motivo, RegistradaEn: ahora}
+	op := dominiobolsa.OperacionSituacionParticipacion{Cambio: cambio, Operacion: q.Operacion, Justificante: q.Justificante, Actor: actor, Validador: q.Validador, ValidadaEn: ahora}
+	if op.Validar() != nil || ahora.Before(vigente.Desde) {
+		return ports.RegistroSituacionParticipacion{}, dominiobolsa.ErrCambioSituacionParticipacionInvalido
+	}
+	h := sha256.Sum256([]byte(q.ParticipacionRef + "\x1f" + q.ClaveIdempotencia))
+	recibo := "recibo:situacion:" + hex.EncodeToString(h[:])
+	return repo.RegistrarOperacion(ctx, ports.ComandoOperacionSituacion{ComandoCambiarSituacionParticipacion: ports.ComandoCambiarSituacionParticipacion{Cambio: cambio, Actor: actor, BolsaRef: q.BolsaRef, ClaveIdempotencia: q.ClaveIdempotencia, ReciboRef: recibo, SolicitudAutorizacion: auth, Decision: decision, Confirmacion: confirmacion, Material: material}, Operacion: q.Operacion, Justificante: q.Justificante, Validador: q.Validador, ValidadaEn: ahora})
+}
+
+func (s *ServicioSituacionParticipacion) ListarOperaciones(ctx context.Context, q ports.SolicitudCambiarSituacionParticipacion) ([]ports.RegistroOperacionSituacion, error) {
+	if s == nil || ctx == nil || q.Validar() != nil {
+		return nil, ErrCambioSituacionParticipacionNoDisponible
+	}
+	repo, ok := s.repositorio.(ports.RepositorioOperacionSituacion)
+	if !ok {
+		return nil, ErrCambioSituacionParticipacionNoDisponible
+	}
+	if _, _, _, _, err := s.autorizarOperacion(ctx, q); err != nil {
+		return nil, err
+	}
+	return repo.ListarOperaciones(ctx, q.ParticipacionRef)
+}
+
+func (s *ServicioSituacionParticipacion) autorizarOperacion(ctx context.Context, q ports.SolicitudCambiarSituacionParticipacion) (dominiovec.SolicitudAutorizacionLigadaV3, dominiovec.DecisionAutorizacionLigadaV3, puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3, puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
+	var a dominiovec.SolicitudAutorizacionLigadaV3
+	var d dominiovec.DecisionAutorizacionLigadaV3
+	var c puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3
+	var m puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3
+	if s.contexto == nil || s.autorizador == nil || s.repositorio == nil || q.ResultadoContexto.Contexto.PersonaRef == "" {
+		return a, d, c, m, ErrCambioSituacionParticipacionNoDisponible
+	}
+	resuelto, err := s.contexto.ResolverContextoSituacionParticipacion(ctx, q.ResultadoContexto.Contexto, q.BolsaRef, q.ParticipacionRef)
+	if err != nil || resuelto.Validar() != nil {
+		return a, d, c, m, errorDependenciaSituacion(err)
+	}
+	pertenece, err := s.repositorio.ParticipacionPerteneceABolsa(ctx, q.BolsaRef, q.ParticipacionRef)
+	if err != nil {
+		return a, d, c, m, err
+	}
+	if !pertenece {
+		return a, d, c, m, dominiovec.ErrAutorizacionDenegada
+	}
+	recurso := dominiovec.RecursoAutorizable{Referencia: q.ParticipacionRef, ModuloID: ports.ModuloSituacionParticipacion, Tipo: ports.TipoRecursoSituacionParticipacion, Ambitos: map[string]string{"unidad_ref": resuelto.UnidadRef, "ambito_ref": resuelto.AmbitoRef}}
+	a, err = dominiovec.NuevaSolicitudAutorizacionLigadaV3(dominiovec.DatosSolicitudAutorizacionLigadaV3{VinculoAutenticacionActor: q.Vinculo, ReferenciaMotivo: q.MotivoAutorizacion, Accion: ports.AccionCambiarSituacionParticipacion, Recurso: recurso, Finalidad: ports.FinalidadCambiarSituacionParticipacion, Correlacion: q.Correlacion})
+	if err != nil {
+		return a, d, c, m, dominiovec.ErrAutorizacionDenegada
+	}
+	var exportador puertosvec.ExportadorMaterialConsumoAutorizacionAtestadaV3
+	d, c, exportador, err = s.autorizador.EmitirMaterialAutorizacionAtestadaV3(ctx, a, q.ResultadoContexto)
+	if err != nil || exportador == nil || d.ValidarPara(a) != nil {
+		return a, d, c, m, errorDependenciaSituacion(err)
+	}
+	m, err = exportador.ExportarMaterialParaConsumidor()
+	if err != nil || !materialAutorizacionBorradorLlamamientoExacto(a, d, c, q.ResultadoContexto, q.MotivoAutorizacion, m, ports.AudienciaCambiarSituacionParticipacion) {
+		return a, d, c, m, errorDependenciaSituacion(err)
+	}
+	return a, d, c, m, nil
+}

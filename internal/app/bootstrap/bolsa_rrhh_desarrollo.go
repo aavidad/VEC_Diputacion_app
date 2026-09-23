@@ -124,6 +124,10 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	if esMutacionSituacion {
 		_, _, esMutacionSituacion = bolsahttp.ReferenciasRutaSituacionParticipacion(r)
 	}
+	esOperacion := h != nil && h.mutar != nil && r != nil && (r.Method == http.MethodPost || r.Method == http.MethodGet)
+	if esOperacion {
+		_, _, esOperacion = bolsahttp.ReferenciasRutaOperacionesSituacion(r)
+	}
 	esContacto := h != nil && h.mutar != nil && r != nil && (r.Method == http.MethodPost || r.Method == http.MethodGet)
 	if esContacto {
 		_, _, esContacto = bolsahttp.ReferenciasRutaContactosParticipacion(r)
@@ -135,7 +139,7 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	cabeceras := http.Header(nil)
 	if r != nil {
 		cabeceras = r.Header
-		if esMutacionSituacion || esContacto || esDatosContacto {
+		if esMutacionSituacion || esOperacion || esContacto || esDatosContacto {
 			cabeceras = r.Header.Clone()
 			cabeceras.Del("Idempotency-Key")
 		}
@@ -144,7 +148,7 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		responderAreaPersonalDesarrollo(w, http.StatusBadRequest, map[string]string{"codigo": "solicitud_invalida"})
 		return
 	}
-	if esMutacionSituacion || esContacto || esDatosContacto {
+	if esMutacionSituacion || esOperacion || esContacto || esDatosContacto {
 		h.mutar.ServeHTTP(w, r)
 		if h.invalidar != nil {
 			h.invalidar()
@@ -349,6 +353,14 @@ func consultaCandidatos(cruda string) (consultaCandidatosRRHH, bool) {
 func rutaBolsasCandidatosRRHHDesarrollo(ruta string) bool {
 	_, valida := referenciaBolsaCandidatos(ruta)
 	return valida
+}
+
+func rutaBolsasOperacionesRRHHDesarrollo(ruta string) bool {
+	if !strings.HasPrefix(ruta, rutaBolsasRRHHDesarrollo+"/") {
+		return false
+	}
+	partes := strings.Split(strings.TrimPrefix(ruta, rutaBolsasRRHHDesarrollo+"/"), "/")
+	return len(partes) == 4 && partes[0] != "" && partes[1] == "candidatos" && partes[2] != "" && partes[3] == "operaciones"
 }
 
 func referenciaBolsaCandidatos(ruta string) (string, bool) {

@@ -277,12 +277,16 @@ type emisorBorradorLlamamientoDesarrollo struct {
 }
 
 type manejadorParticipacionBolsaDesarrollo struct {
-	situacion, contacto, datosContacto http.Handler
-	preparador                         *preparadorBorradorLlamamientoDesarrollo
-	servicio                           *aplicacionbolsa.ServicioContactoParticipacion
+	situacion, operaciones, contacto, datosContacto http.Handler
+	preparador                                      *preparadorBorradorLlamamientoDesarrollo
+	servicio                                        *aplicacionbolsa.ServicioContactoParticipacion
 }
 
 func (m *manejadorParticipacionBolsaDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if _, _, ok := bolsahttp.ReferenciasRutaOperacionesSituacion(r); ok {
+		m.operaciones.ServeHTTP(w, r)
+		return
+	}
 	if _, _, _, ok := bolsahttp.ReferenciasRutaDatosContactoParticipacion(r); ok {
 		m.datosContacto.ServeHTTP(w, r)
 		return
@@ -515,6 +519,10 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
+	handlerOperaciones, err := bolsahttp.NuevoHandlerOperacionesSituacion(preparador, servicioSituacion)
+	if err != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+	}
 	repositorioContacto, err := postgresbolsa.NuevoRepositorioContactoParticipacionPostgreSQL(alta.postgresql.bolsa)
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
@@ -555,7 +563,7 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
-	mutador := &manejadorParticipacionBolsaDesarrollo{situacion: handlerSituacion, contacto: handlerContacto, datosContacto: handlerDatos, preparador: preparador, servicio: servicioContacto}
+	mutador := &manejadorParticipacionBolsaDesarrollo{situacion: handlerSituacion, operaciones: handlerOperaciones, contacto: handlerContacto, datosContacto: handlerDatos, preparador: preparador, servicio: servicioContacto}
 	envolver := func(siguiente http.Handler) http.Handler {
 		auditada, auditErr := bolsahttp.NuevaAuditoriaBorradorLlamamiento(siguiente, auditoria, seguridadvec.GeneradorReferenciasCriptograficas{}, actorBorradorLlamamientoDesdeContextoDesarrollo{})
 		if auditErr != nil {

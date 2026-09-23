@@ -13,11 +13,15 @@ import (
 func TestFronteraAdmiteTodasLasRutasDelManejadorRRHHDeBolsa(t *testing.T) {
 	for _, ruta := range []string{
 		rutaBolsasRRHHDesarrollo,
+		rutaBolsasRRHHDesarrollo + "/bolsa:01/candidatos/participacion:01/operaciones",
 		rutaEstadisticasBolsaRRHHDesarrollo,
 		rutaAvisosBolsaRRHHDesarrollo,
 	} {
 		if !esRutaContratacionTemporalDesarrollo(httptest.NewRequest(http.MethodGet, ruta, nil)) {
 			t.Errorf("la frontera de desarrollo no revalida %s: respondería 401", ruta)
 		}
+	}
+	if !esRutaContratacionTemporalDesarrollo(httptest.NewRequest(http.MethodPost, rutaBolsasRRHHDesarrollo+"/bolsa:01/candidatos/participacion:01/operaciones", nil)) {
+		t.Fatal("la frontera mTLS debe admitir POST B8 en el prefijo Bolsa ya declarado")
 	}
 }

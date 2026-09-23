@@ -55,7 +55,7 @@ func (j JustificanteOperacionSituacion) Validar() error {
 	if _, ok := catalogoTiposJustificante[j.Tipo]; !ok {
 		return ErrOperacionSituacionParticipacionInvalida
 	}
-	if strings.TrimSpace(j.Referencia) != j.Referencia || len(j.Referencia) == 0 || len(j.Referencia) > 256 ||
+	if !referenciaLlamamientoOpacaValida(j.Referencia) || len(j.Referencia) > 256 ||
 		!patronHuellaJustificante.MatchString(j.SHA256) {
 		return ErrOperacionSituacionParticipacionInvalida
 	}

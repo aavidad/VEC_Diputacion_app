@@ -109,7 +109,7 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 			rutaPeticionCentroDesarrollo(capacidad.ruta) ||
 			capacidad.ruta == rutaOrganizacionContratacionTemporalDesarrollo ||
 			capacidad.ruta == rutaCambiosOrganizacionContratacionTemporalDesarrollo ||
-			capacidad.ruta == rutaBolsasRRHHDesarrollo || rutaBolsasCandidatosRRHHDesarrollo(capacidad.ruta) ||
+			capacidad.ruta == rutaBolsasRRHHDesarrollo || rutaBolsasCandidatosRRHHDesarrollo(capacidad.ruta) || rutaBolsasOperacionesRRHHDesarrollo(capacidad.ruta) ||
 			capacidad.ruta == rutaEstadisticasBolsaRRHHDesarrollo ||
 			capacidad.ruta == rutaAvisosBolsaRRHHDesarrollo {
 			// El resolvedor ya ha cotejado la hoja y su cadena mTLS. Revalidar

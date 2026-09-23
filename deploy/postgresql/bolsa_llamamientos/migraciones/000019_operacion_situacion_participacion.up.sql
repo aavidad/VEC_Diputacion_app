@@ -26,7 +26,7 @@ CREATE TABLE vec_bolsa_llamamientos.operacion_situacion_participacion (
     desde timestamptz(6) NOT NULL,
     operacion text NOT NULL CHECK (operacion IN ('pausar','reactivar','excluir')),
     justificante_tipo text NOT NULL CHECK (justificante_tipo IN ('solicitud_candidato','informe_medico','resolucion','correo','acta_bolsa','otro')),
-    justificante_ref text NOT NULL CHECK (octet_length(justificante_ref) BETWEEN 1 AND 256 AND justificante_ref = btrim(justificante_ref)),
+    justificante_ref text NOT NULL CHECK (octet_length(justificante_ref) BETWEEN 1 AND 256 AND justificante_ref ~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]*$'),
     justificante_sha256 text NOT NULL CHECK (justificante_sha256 ~ '^[a-f0-9]{64}$'),
     actor text NOT NULL CHECK (octet_length(actor) BETWEEN 1 AND 256 AND actor = btrim(actor)),
     validador text NOT NULL CHECK (octet_length(validador) BETWEEN 1 AND 256 AND validador = btrim(validador)),
@@ -61,7 +61,7 @@ BEGIN
  v_situacion := CASE p_operacion WHEN 'pausar' THEN 'no_disponible' WHEN 'reactivar' THEN 'disponible' WHEN 'excluir' THEN 'excluido' END;
  IF v_situacion IS NULL
     OR p_justificante_tipo NOT IN ('solicitud_candidato','informe_medico','resolucion','correo','acta_bolsa','otro')
-    OR p_justificante_ref IS NULL OR p_justificante_ref <> btrim(p_justificante_ref) OR octet_length(p_justificante_ref) NOT BETWEEN 1 AND 256
+    OR p_justificante_ref IS NULL OR p_justificante_ref !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]*$' OR octet_length(p_justificante_ref) NOT BETWEEN 1 AND 256
     OR p_justificante_sha256 IS NULL OR p_justificante_sha256 !~ '^[a-f0-9]{64}$'
     OR p_validador IS NULL OR p_validador <> btrim(p_validador) OR octet_length(p_validador) NOT BETWEEN 1 AND 256
     OR p_validada_en IS NULL OR p_registrada_en IS NULL OR p_validada_en > p_registrada_en
@@ -70,31 +70,25 @@ BEGIN
   RAISE EXCEPTION USING ERRCODE='22023', MESSAGE='operacion invalida';
  END IF;
 
- -- Una operación ya registrada con la misma clave devuelve su recibo sin
- -- volver a cambiar la situación, y solo si el justificante es el mismo.
+ -- B2 consume primero la misma autorización positiva también en replay.
+ -- Su comprobación de clave impide adoptar un cambio B2 ajeno a B8.
  SELECT o.*, s.situacion AS situacion_registrada, s.recibo_ref AS recibo_registrado, s.fecha_disponible AS fecha_registrada
    INTO v_previa
    FROM vec_bolsa_llamamientos.operacion_situacion_participacion o
    JOIN vec_bolsa_llamamientos.situacion_participacion s USING (participacion_ref, desde)
   WHERE o.participacion_ref = p_participacion_ref AND o.clave_idempotencia = p_clave_idempotencia;
- IF FOUND THEN
-  IF v_previa.operacion <> p_operacion OR v_previa.justificante_tipo <> p_justificante_tipo
+ SELECT * INTO STRICT v_cambio FROM vec_bolsa_llamamientos.registrar_situacion_participacion_v1(
+   p_bolsa_ref, p_participacion_ref, v_situacion, p_desde, NULL, p_motivo, p_actor, p_clave_idempotencia,
+   p_recibo_ref, p_registrada_en, p_capacidad, p_decision, p_motivo_autorizacion, p_contexto, p_persona_version,
+   p_perfil_version, p_payload, p_sobre, p_evidencia, p_raiz);
+ IF v_cambio.reutilizada THEN
+  IF v_previa.participacion_ref IS NULL OR v_previa.operacion <> p_operacion OR v_previa.justificante_tipo <> p_justificante_tipo
      OR v_previa.justificante_ref <> p_justificante_ref OR v_previa.justificante_sha256 <> p_justificante_sha256
      OR v_previa.validador <> p_validador OR v_previa.actor <> p_actor THEN
    RAISE EXCEPTION USING ERRCODE='VBS01', MESSAGE='clave idempotente reutilizada con otra operacion';
   END IF;
   RETURN QUERY SELECT true, v_previa.recibo_registrado, v_previa.situacion_registrada, v_previa.desde, v_previa.fecha_registrada;
   RETURN;
- END IF;
-
- SELECT * INTO STRICT v_cambio FROM vec_bolsa_llamamientos.registrar_situacion_participacion_v1(
-   p_bolsa_ref, p_participacion_ref, v_situacion, p_desde, NULL, p_motivo, p_actor, p_clave_idempotencia,
-   p_recibo_ref, p_registrada_en, p_capacidad, p_decision, p_motivo_autorizacion, p_contexto, p_persona_version,
-   p_perfil_version, p_payload, p_sobre, p_evidencia, p_raiz);
- -- B2 solo devuelve `reutilizada` cuando ya guardó ese cambio sin operación
- -- B8 asociada: un cambio suelto no se adopta como operación con justificante.
- IF v_cambio.reutilizada THEN
-  RAISE EXCEPTION USING ERRCODE='VBS01', MESSAGE='la clave ya identifica un cambio de situacion sin justificante';
  END IF;
  INSERT INTO vec_bolsa_llamamientos.operacion_situacion_participacion(
    participacion_ref, desde, operacion, justificante_tipo, justificante_ref, justificante_sha256,
@@ -105,9 +99,9 @@ BEGIN
 END $f$;
 
 CREATE FUNCTION vec_bolsa_llamamientos.recuperar_operacion_situacion_participacion_v1(p_participacion_ref text, p_clave_idempotencia text)
-RETURNS TABLE(recibo_ref text, situacion text, desde timestamptz, operacion text, justificante_tipo text, justificante_ref text, justificante_sha256 text, actor text, validador text, validada_en timestamptz)
+RETURNS TABLE(recibo_ref text, situacion text, desde timestamptz, operacion text, justificante_tipo text, justificante_ref text, justificante_sha256 text, actor text, validador text, validada_en timestamptz, motivo text)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog AS $f$
- SELECT s.recibo_ref, s.situacion, s.desde, o.operacion, o.justificante_tipo, o.justificante_ref, o.justificante_sha256, o.actor, o.validador, o.validada_en
+ SELECT s.recibo_ref, s.situacion, s.desde, o.operacion, o.justificante_tipo, o.justificante_ref, o.justificante_sha256, o.actor, o.validador, o.validada_en, s.motivo
    FROM vec_bolsa_llamamientos.operacion_situacion_participacion o
    JOIN vec_bolsa_llamamientos.situacion_participacion s USING (participacion_ref, desde)
   WHERE o.participacion_ref = p_participacion_ref AND o.clave_idempotencia = p_clave_idempotencia
