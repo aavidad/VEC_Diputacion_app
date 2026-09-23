@@ -162,8 +162,8 @@ test("recargar contacto consulta versión y recibo originales desde servidor", a
   assert.equal(recibido.autorizacion.version, 3);
   assert.equal(recibido.recibo.version, 3);
   assert.deepEqual(peticiones.map((p) => [p.ruta, p.opciones.method, p.opciones.credentials]), [
-    ["/api/vec/usuarios/contacto-propio", "GET", "same-origin"],
-    ["/api/vec/usuarios/contacto-propio/recibo", "POST", "same-origin"],
+    ["/api/vec/usuarios/contacto-propio", "GET", "omit"],
+    ["/api/vec/usuarios/contacto-propio/recibo", "POST", "omit"],
   ]);
   assert.equal(JSON.parse(peticiones[1].opciones.body).version, 3);
   assert.equal(JSON.stringify(recibido).includes("correo"), false);

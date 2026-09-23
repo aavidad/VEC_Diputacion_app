@@ -4,6 +4,10 @@ const RUTA_PANEL = "/api/vec/bolsa/area-personal";
 const RUTA_MI_BOLSA = "/api/vec/bolsa/mi-bolsa";
 const RUTA_CONTACTO_PROPIO = "/api/vec/usuarios/contacto-propio";
 const RUTA_RECIBO_CONTACTO_PROPIO = `${RUTA_CONTACTO_PROPIO}/recibo`;
+export const RUTAS_OPERACIONES_CONTACTO = Object.freeze(Object.fromEntries(
+  ["preparar", "confirmar", "cancelar", "consultas", "detalle"]
+    .map((accion) => [accion, `${RUTA_CONTACTO_PROPIO}/operaciones/${accion}`]),
+));
 const MAXIMO_JSON_BYTES = 512 * 1024;
 const MAXIMO_SOLICITUD_BYTES = 64 * 1024;
 const ACCIONES = Object.freeze({
@@ -30,6 +34,110 @@ export class ErrorClienteAreaPersonal extends Error {
     this.name = "ErrorClienteAreaPersonal";
     this.codigo = codigo;
   }
+}
+
+export class ErrorOperacionContacto extends Error {
+  constructor(codigo, estado = 0, operacionRef = "") {
+    super(codigo);
+    this.name = "ErrorOperacionContacto";
+    this.codigo = codigo;
+    this.estado = estado;
+    this.operacionRef = operacionRef;
+  }
+}
+
+const REFERENCIA_OPERACION_CONTACTO = /^opr_[A-Za-z0-9_-]{22,128}$/u;
+export function referenciaOperacionContactoValida(ref) {
+  return typeof ref === "string" && REFERENCIA_OPERACION_CONTACTO.test(ref);
+}
+
+function validarDTOOperacionContacto(valor) {
+  if (!valor || typeof valor !== "object" || Array.isArray(valor)
+    || !referenciaOperacionContactoValida(valor.operacion_ref)
+    || !Number.isSafeInteger(valor.version_esperada) || valor.version_esperada < 0
+    || valor.version_esperada >= Number.MAX_SAFE_INTEGER) {
+    throw new ErrorOperacionContacto("respuesta_incompatible");
+  }
+  if (valor.estado === "confirmada") {
+    if (valor.version !== valor.version_esperada + 1 || typeof valor.recibo_ref !== "string" || !valor.recibo_ref) {
+      throw new ErrorOperacionContacto("respuesta_incompatible");
+    }
+  } else if (!["preparada", "cancelada"].includes(valor.estado)
+    || valor.version !== undefined || valor.recibo_ref !== undefined) {
+    throw new ErrorOperacionContacto("respuesta_incompatible");
+  }
+  const claves = valor.estado === "confirmada"
+    ? ["operacion_ref", "estado", "version_esperada", "version", "recibo_ref"]
+    : ["operacion_ref", "estado", "version_esperada"];
+  if (Object.keys(valor).length !== claves.length || Object.keys(valor).some((clave) => !claves.includes(clave))) {
+    throw new ErrorOperacionContacto("respuesta_incompatible");
+  }
+  return Object.freeze({ operacion_ref: valor.operacion_ref, estado: valor.estado,
+    version_esperada: valor.version_esperada,
+    ...(valor.estado === "confirmada" ? { version: valor.version, recibo_ref: valor.recibo_ref } : {}) });
+}
+
+export function crearClienteOperacionesContactoPropio({ fetchImpl = globalThis.fetch } = {}) {
+  async function pedir(accion, cuerpo, { signal } = {}) {
+    if (typeof fetchImpl !== "function" || !RUTAS_OPERACIONES_CONTACTO[accion]) {
+      throw new ErrorOperacionContacto("servicio_no_disponible");
+    }
+    let respuesta;
+    try {
+      respuesta = await fetchImpl(RUTAS_OPERACIONES_CONTACTO[accion], {
+        method: "POST", credentials: "omit", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer",
+        headers: { Accept: "application/json", "Content-Type": "application/json" },
+        body: JSON.stringify(cuerpo), signal,
+      });
+    } catch (error) {
+      if (signal?.aborted) throw error;
+      throw new ErrorOperacionContacto("servicio_no_disponible");
+    }
+    const estado = respuesta?.status;
+    if (![200, 201, 400, 403, 404, 409, 503].includes(estado)) {
+      throw new ErrorOperacionContacto("servicio_no_disponible", estado);
+    }
+    let dato;
+    try { dato = await leerJSONAcotado(respuesta); }
+    catch { throw new ErrorOperacionContacto("respuesta_incompatible", estado); }
+    if (![200, 201].includes(estado)) {
+      const admitidos = {
+        400: ["peticion_invalida"], 403: ["acceso_denegado"], 404: ["no_encontrada"],
+        409: ["conflicto", "operacion_preparada"], 503: ["confirmacion_incierta", "servicio_no_disponible"],
+      };
+      const codigo = admitidos[estado]?.includes(dato?.codigo) ? dato.codigo : "respuesta_incompatible";
+      const ref = ["operacion_preparada", "confirmacion_incierta"].includes(codigo)
+        && referenciaOperacionContactoValida(dato?.operacion_ref) ? dato.operacion_ref : "";
+      throw new ErrorOperacionContacto(codigo, estado, ref);
+    }
+    if (accion === "consultas") {
+      if (estado !== 200 || !Array.isArray(dato?.operaciones) || dato.operaciones.length > cuerpo.limite
+        || dato.siguiente_desde !== undefined && (!referenciaOperacionContactoValida(dato.siguiente_desde)
+          || dato.siguiente_desde !== dato.operaciones.at(-1)?.operacion_ref)) {
+        throw new ErrorOperacionContacto("respuesta_incompatible", estado);
+      }
+      return Object.freeze({ operaciones: Object.freeze(dato.operaciones.map(validarDTOOperacionContacto)),
+        siguiente_desde: dato.siguiente_desde || "" });
+    }
+    const operacion = validarDTOOperacionContacto(dato);
+    if (accion === "preparar" && operacion.estado !== "preparada"
+      || accion === "confirmar" && operacion.estado !== "confirmada"
+      || accion === "cancelar" && operacion.estado !== "cancelada"
+      || accion !== "preparar" && accion !== "consultas" && operacion.operacion_ref !== cuerpo.operacion_ref
+      || ["preparar", "confirmar"].includes(accion) && operacion.version_esperada !== cuerpo.version_esperada
+      || ["preparar", "confirmar", "detalle"].includes(accion) && ![200, 201].includes(estado)
+      || ["cancelar", "detalle"].includes(accion) && estado !== 200) {
+      throw new ErrorOperacionContacto("respuesta_incompatible", estado);
+    }
+    return operacion;
+  }
+  return Object.freeze({
+    preparar: (correo, versionEsperada, opciones) => pedir("preparar", { correo, version_esperada: versionEsperada }, opciones),
+    confirmar: (ref, correo, versionEsperada, opciones) => pedir("confirmar", { operacion_ref: ref, correo, version_esperada: versionEsperada }, opciones),
+    cancelar: (ref, opciones) => pedir("cancelar", { operacion_ref: ref }, opciones),
+    listar: (limite = 20, despuesDe = "", opciones) => pedir("consultas", { limite, ...(despuesDe ? { despues_de: despuesDe } : {}) }, opciones),
+    detalle: (ref, opciones) => pedir("detalle", { operacion_ref: ref }, opciones),
+  });
 }
 
 function exigirEnvelope(valor, nombre) {
@@ -127,7 +235,7 @@ export function crearClienteHTTPAreaPersonal({ fetchImpl = globalThis.fetch } = 
 
   async function cargarContactoPropio({ signal } = {}) {
     const respuesta = await fetchImpl(RUTA_CONTACTO_PROPIO, {
-      method: "GET", credentials: "same-origin", cache: "no-store", redirect: "error",
+      method: "GET", credentials: "omit", cache: "no-store", redirect: "error",
       referrerPolicy: "no-referrer", headers: { Accept: "application/json" }, signal,
     });
     if (respuesta.status === 403 || respuesta.status === 404) return null;
@@ -141,7 +249,7 @@ export function crearClienteHTTPAreaPersonal({ fetchImpl = globalThis.fetch } = 
     let recibo = null;
     if (estado.encontrado) {
       const r = await fetchImpl(RUTA_RECIBO_CONTACTO_PROPIO, {
-        method: "POST", credentials: "same-origin", cache: "no-store", redirect: "error",
+        method: "POST", credentials: "omit", cache: "no-store", redirect: "error",
         referrerPolicy: "no-referrer", headers: { Accept: "application/json", "Content-Type": "application/json" },
         body: JSON.stringify({ version: estado.version }), signal,
       });
