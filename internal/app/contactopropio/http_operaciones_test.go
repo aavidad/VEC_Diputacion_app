@@ -67,6 +67,21 @@ func TestOperacionesContactoSoloRutasFijasYJSONMinimo(t *testing.T) {
 			t.Fatalf("ruta %d expuso datos o falló: estado=%d cuerpo=%s", i, w.Code, w.Body.String())
 		}
 	}
+	for _, caso := range []struct {
+		indice int
+		ruta   string
+	}{
+		{4, RutaOperacionContactoDetalle + "/" + ref},
+		{3, RutaOperacionContactoConsultas + "?despues_de=" + ref},
+	} {
+		r := httptest.NewRequest(http.MethodPost, caso.ruta, strings.NewReader(`{"operacion_ref":"`+ref+`","limite":20}`))
+		r.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		rutas[caso.indice].Manejador.ServeHTTP(w, r)
+		if w.Code != http.StatusNotFound || e.llamadas != 5 || strings.Contains(w.Body.String(), ref) {
+			t.Fatal("selector de operación admitido en URL o query")
+		}
+	}
 	for _, cuerpo := range []string{
 		`{"correo":"ana@example.test","version_esperada":0,"persona_ref":"forjada"}`,
 		`{"correo":"ana@example.test","correo":"otra@example.test","version_esperada":0}`,
