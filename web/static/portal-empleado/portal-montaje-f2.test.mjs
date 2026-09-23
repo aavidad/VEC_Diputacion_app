@@ -19,6 +19,10 @@ const necesarios = [
   "static/portal-empleado/modulos/cronos/permisos.css",
   "static/portal-empleado/modulos/dietas/borradores-propios.css",
 ];
+const recursosPublicosConsumidos = [
+  "static/bolsa/i18n-publica.js",
+  "static/area-personal/i18n.js",
+];
 
 test("el montaje F2 declara una sola vez sus recursos internos reales", async () => {
   const manifiesto = (await readFile(new URL("interno.manifest", raizWeb), "utf8")).trim().split(/\r?\n/u);
@@ -55,5 +59,45 @@ test("los estilos F2 cargan una vez tras sus bases y todos están empaquetados",
   ]) {
     assert.equal(posicion(`/portal-empleado/modulos/${extension}`),
       posicion(`/portal-empleado/modulos/${base}`) + 1);
+  }
+});
+
+test("el producto incluye los activos F2 consumidos y excluye otros módulos sin montaje", async () => {
+  const texto = await readFile(new URL("produccion.manifest", raizWeb), "utf8");
+  const entradas = texto.trim().split(/\r?\n/u);
+  const manifiesto = new Set(entradas);
+  assert.equal(manifiesto.size, entradas.length, "el manifiesto productivo no admite duplicados");
+  for (const ruta of [...necesarios, ...recursosPublicosConsumidos]) {
+    assert.ok(manifiesto.has(ruta), `${ruta} debe figurar en producto`);
+    await access(new URL(ruta, raizWeb));
+  }
+  for (const ruta of [
+    "static/comun/oportunidades/i18n.js",
+    "static/portal-empleado/modulos/seleccion/inscripciones/i18n.js",
+    "static/portal-empleado/modulos/seleccion/pruebas/i18n.js",
+    "static/portal-empleado/modulos/seleccion/comunicaciones/i18n.js",
+  ]) {
+    assert.ok(!manifiesto.has(ruta), `${ruta} no tiene consumidor F2`);
+  }
+});
+
+test("los catálogos públicos y F2 responden a imports o scripts existentes", async () => {
+  const consumidores = new Map([
+    ["static/bolsa/i18n-publica.js", ["static/bolsa/index.html", "static/bolsa/listas.html"]],
+    ["static/area-personal/i18n.js", ["static/area-personal/arranque.js"]],
+    ["static/comun/tema-vec.js", ["static/portal-empleado/modulos/administracion/vista-apariencia.js"]],
+    ["static/portal-empleado/modulos/administracion/vista-apariencia.js", ["static/portal-empleado/modulos/administracion/vista.js"]],
+    ["static/portal-empleado/portal-i18n-baremacion.js", ["static/portal-empleado/portal-vistas-baremacion.js"]],
+    ["static/portal-empleado/portal-i18n-contratos.js", ["static/portal-empleado/portal-vistas-operaciones.js"]],
+    ["static/portal-empleado/portal-i18n-convocatorias.js", ["static/portal-empleado/portal-vistas-convocatorias.js"]],
+    ["static/portal-empleado/modulos/cronos/i18n-permisos.js", ["static/portal-empleado/modulos/cronos/vista-recorridos.js"]],
+    ["static/portal-empleado/modulos/dietas/i18n-borradores.js", ["static/portal-empleado/modulos/dietas/vista-borradores-propios.js"]],
+    ["static/portal-empleado/modulos/dietas/i18n-revision.js", ["static/portal-empleado/modulos/dietas/vista-recorridos.js"]],
+  ]);
+  for (const [recurso, origenes] of consumidores) {
+    for (const origen of origenes) {
+      const codigo = await readFile(new URL(origen, raizWeb), "utf8");
+      assert.ok(codigo.includes(recurso.slice(recurso.lastIndexOf("/") + 1)), `${origen} debe consumir ${recurso}`);
+    }
   }
 });
