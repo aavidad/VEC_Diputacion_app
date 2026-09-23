@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"sort"
 	"strconv"
 	"testing"
 	"time"
@@ -79,6 +80,9 @@ func TestCT109PositivoPostgreSQL(t *testing.T) {
 	}
 	runtime := pool("ct109_runtime_contexto", "vec_contexto_actor_v1_runtime")
 	resolver, e := ca.NuevoResolutorRegistroContextoActorPostgreSQLV2(ctx, runtime)
+	if e != nil {
+		ct109DiagnosticarRuntime(t, ctx, admin, runtime)
+	}
 	ct109OK(t, "resolutor contexto real", e)
 	servicio, e := app.NuevoServicioContextoActorProductivoV2(resolver, ca.NuevoGeneradorOperacionContextoActorV2Criptografico(), reloj)
 	ct109OK(t, "servicio contexto", e)
@@ -345,3 +349,99 @@ func ct109Consultar(t *testing.T, ctx context.Context, pool *pgxpool.Pool, org s
 	t.Helper()
 	ct109OK(t, "CT109 "+tipo, ct109Ejecutar(ctx, pool, org, proof, m, tipo, expediente, false, false))
 }
+
+// Solo se ejecuta tras el rechazo del constructor nominal. El preparador lee
+// metadatos de la efímera; nunca reintenta la autoridad usando su privilegio.
+// La salida está restringida a etiquetas constantes, booleanos y conteos.
+func ct109DiagnosticarRuntime(t *testing.T, ctx context.Context, admin, runtime *pgxpool.Pool) {
+	t.Helper()
+	var identidadExacta, roleNone bool
+	if err := runtime.QueryRow(ctx, `SELECT session_user=current_user, current_setting('role')='none'`).Scan(&identidadExacta, &roleNone); err != nil {
+		t.Log("CT109 diagnóstico: contexto de conexión no disponible")
+	} else {
+		t.Logf("CT109 diagnóstico: identidad_exacta=%t current_role_none=%t", identidadExacta, roleNone)
+	}
+	var encoded []byte
+	if err := admin.QueryRow(ctx, ct109DiagnosticoRuntimeSQL).Scan(&encoded); err != nil {
+		var pgerr *pgconn.PgError
+		if errors.As(err, &pgerr) {
+			t.Logf("CT109 diagnóstico: consulta metadatos SQLSTATE=%s", pgerr.Code)
+		} else {
+			t.Log("CT109 diagnóstico: metadatos no disponibles")
+		}
+		return
+	}
+	var valores map[string]json.RawMessage
+	if json.Unmarshal(encoded, &valores) != nil {
+		t.Log("CT109 diagnóstico: resultado no estructurado")
+		return
+	}
+	claves := make([]string, 0, len(valores))
+	for k := range valores {
+		claves = append(claves, k)
+	}
+	sort.Strings(claves)
+	for _, k := range claves {
+		// Incluso un resultado SQL inesperado queda cerrado: no imprimimos texto,
+		// JSON arbitrario, nombres de objetos, errores originales ni parámetros.
+		var n int64
+		if json.Unmarshal(valores[k], &n) == nil && string(valores[k]) != "null" {
+			t.Logf("CT109 diagnóstico: %s=%d", k, n)
+			continue
+		}
+		var b bool
+		if json.Unmarshal(valores[k], &b) == nil && string(valores[k]) != "null" {
+			t.Logf("CT109 diagnóstico: %s=%t", k, b)
+			continue
+		}
+		t.Log("CT109 diagnóstico: valor fuera de contrato")
+	}
+}
+
+const ct109DiagnosticoRuntimeSQL = `WITH
+ l AS (SELECT * FROM pg_roles WHERE rolname='ct109_runtime_contexto'),
+ g AS (SELECT * FROM pg_roles WHERE rolname='vec_contexto_actor_v1_runtime'),
+ b AS (SELECT oid FROM pg_database WHERE datname=current_database()),
+ n AS (SELECT oid FROM pg_namespace WHERE nspname='vec_contexto_actor_v1'),
+ f AS (SELECT ARRAY[
+  to_regprocedure('vec_contexto_actor_v1.acreditar_runtime_contexto_actor_v1()')::oid,
+  to_regprocedure('vec_contexto_actor_v1.resolver_y_registrar_contexto_actor_v2(text,text,text,text,text,text,timestamptz)')::oid,
+  to_regprocedure('vec_contexto_actor_v1.reconciliar_contexto_actor_v2(text,text,text,text,text,text,timestamptz)')::oid] ids),
+ x AS (SELECT l.oid login,g.oid grupo,b.oid base,n.oid esquema,f.ids FROM l,g,b,n,f)
+SELECT jsonb_build_object(
+ 'objetos_resueltos',(SELECT count(*)=1 FROM x),
+ 'funciones_resueltas',(SELECT cardinality(ids)=3 AND array_position(ids,NULL) IS NULL FROM f),
+ 'login_seguro',(SELECT rolcanlogin AND rolinherit AND NOT rolsuper AND NOT rolcreaterole AND NOT rolcreatedb AND NOT rolreplication AND NOT rolbypassrls AND rolconfig IS NULL FROM l),
+ 'grupo_seguro',(SELECT NOT rolcanlogin AND NOT rolinherit AND NOT rolsuper AND NOT rolcreaterole AND NOT rolcreatedb AND NOT rolreplication AND NOT rolbypassrls AND rolconfig IS NULL FROM g),
+ 'membresias_directas',(SELECT count(*) FROM pg_auth_members m,x WHERE m.member=x.login),
+ 'membresia_exacta',(SELECT count(*)=1 FROM pg_auth_members m,x WHERE m.member=x.login AND m.roleid=x.grupo AND NOT m.admin_option AND m.inherit_option AND NOT m.set_option),
+ 'membresias_login_ajenas',(SELECT count(*) FROM pg_roles r,x WHERE r.oid<>x.login AND r.oid<>x.grupo AND pg_has_role(x.login,r.oid,'MEMBER')),
+ 'membresias_grupo',(SELECT count(*) FROM pg_roles r,x WHERE r.oid<>x.grupo AND pg_has_role(x.grupo,r.oid,'MEMBER')),
+ 'configuraciones_roles',(SELECT count(*) FROM pg_db_role_setting s,x WHERE s.setrole IN(x.login,x.grupo)),
+ 'acl_predeterminadas',(SELECT count(*) FROM pg_default_acl d LEFT JOIN LATERAL aclexplode(coalesce(d.defaclacl,'{}'::aclitem[])) a ON true CROSS JOIN x WHERE d.defaclrole IN(x.login,x.grupo) OR a.grantee IN(x.login,x.grupo) OR a.grantor IN(x.login,x.grupo)),
+ 'politicas_roles',(SELECT count(*) FROM pg_policy p,x WHERE x.login=ANY(p.polroles) OR x.grupo=ANY(p.polroles)),
+ 'dependencias_login',(SELECT count(*) FROM pg_shdepend d,x WHERE d.refclassid='pg_authid'::regclass AND d.refobjid=x.login),
+ 'dependencias_grupo',(SELECT count(*) FROM pg_shdepend d,x WHERE d.refclassid='pg_authid'::regclass AND d.refobjid=x.grupo),
+ 'dependencias_grupo_exactas',(SELECT count(*)=5 AND bool_and(d.deptype='a' AND d.objsubid=0 AND ((d.classid='pg_database'::regclass AND d.objid=x.base) OR (d.classid='pg_namespace'::regclass AND d.objid=x.esquema) OR (d.classid='pg_proc'::regclass AND d.objid=ANY(x.ids)))) FROM pg_shdepend d,x WHERE d.refclassid='pg_authid'::regclass AND d.refobjid=x.grupo),
+ 'acl_base_exacta',(SELECT count(*)=1 AND bool_and(a.privilege_type='CONNECT' AND NOT a.is_grantable) FROM pg_database d CROSS JOIN LATERAL aclexplode(coalesce(d.datacl,acldefault('d',d.datdba))) a CROSS JOIN x WHERE d.oid=x.base AND a.grantee=x.grupo),
+ 'acl_esquema_exacta',(SELECT count(*)=1 AND bool_and(a.privilege_type='USAGE' AND NOT a.is_grantable) FROM pg_namespace d CROSS JOIN LATERAL aclexplode(coalesce(d.nspacl,acldefault('n',d.nspowner))) a CROSS JOIN x WHERE d.oid=x.esquema AND a.grantee=x.grupo),
+ 'acl_funciones_exacta',(SELECT count(*)=3 AND count(DISTINCT p.oid)=3 AND bool_and(a.privilege_type='EXECUTE' AND NOT a.is_grantable) FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a CROSS JOIN x WHERE p.oid=ANY(x.ids) AND a.grantee=x.grupo),
+ 'acl_efectiva_minima',(SELECT vec_contexto_actor_v1.privilegios_efectivos_runtime_minimos(login,base,esquema,ids) FROM x)
+) || CASE WHEN (SELECT vec_contexto_actor_v1.privilegios_efectivos_runtime_minimos(login,base,esquema,ids) FROM x) IS TRUE THEN '{}'::jsonb ELSE jsonb_build_object(
+ 'efectivo_public_usage',(SELECT has_schema_privilege(x.login,n.oid,'USAGE') FROM pg_namespace n,x WHERE n.nspname='public'),
+ 'efectivo_public_funciones',(SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace CROSS JOIN x WHERE n.nspname='public' AND has_function_privilege(x.login,p.oid,'EXECUTE')),
+ 'efectivo_connect',(SELECT has_database_privilege(login,base,'CONNECT') FROM x),
+ 'efectivo_create_base',(SELECT has_database_privilege(login,base,'CREATE') FROM x),
+ 'efectivo_temporary',(SELECT has_database_privilege(login,base,'TEMPORARY') FROM x),
+ 'efectivo_esquemas',(SELECT count(*) FROM pg_namespace n,x WHERE n.nspname<>'information_schema' AND n.nspname!~'^pg_' AND ((n.oid<>x.esquema AND has_schema_privilege(x.login,n.oid,'USAGE')) OR has_schema_privilege(x.login,n.oid,'CREATE'))),
+ 'efectivo_tablas_columnas',(SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace CROSS JOIN x WHERE n.nspname<>'information_schema' AND n.nspname!~'^pg_' AND c.relkind IN('r','p','v','m','f') AND (has_table_privilege(x.login,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN') OR has_any_column_privilege(x.login,c.oid,'SELECT,INSERT,UPDATE,REFERENCES'))),
+ 'efectivo_secuencias',(SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace CROSS JOIN x WHERE n.nspname<>'information_schema' AND n.nspname!~'^pg_' AND c.relkind='S' AND has_sequence_privilege(x.login,c.oid,'USAGE,SELECT,UPDATE')),
+ 'efectivo_funciones_ajenas',(SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace CROSS JOIN x WHERE n.nspname<>'information_schema' AND n.nspname!~'^pg_' AND p.oid<>ALL(x.ids) AND has_function_privilege(x.login,p.oid,'EXECUTE')),
+ 'efectivo_tipos',(SELECT count(*) FROM pg_type t JOIN pg_namespace n ON n.oid=t.typnamespace CROSS JOIN x WHERE n.nspname<>'information_schema' AND n.nspname!~'^pg_' AND t.typtype IN('c','d','e','m','r') AND has_type_privilege(x.login,t.oid,'USAGE') AND NOT (t.typtype='c' AND t.typacl IS NULL AND NOT has_schema_privilege(x.login,n.oid,'USAGE') AND EXISTS(SELECT 1 FROM pg_class c WHERE c.oid=t.typrelid AND c.relkind IN('r','p','v','m','f')))),
+ 'efectivo_largeobjects',(SELECT count(*) FROM pg_largeobject_metadata l,x WHERE has_largeobject_privilege(x.login,l.oid,'SELECT,UPDATE')),
+ 'efectivo_fdw',(SELECT count(*) FROM pg_foreign_data_wrapper f,x WHERE has_foreign_data_wrapper_privilege(x.login,f.oid,'USAGE')),
+ 'efectivo_servidores',(SELECT count(*) FROM pg_foreign_server s,x WHERE has_server_privilege(x.login,s.oid,'USAGE')),
+ 'efectivo_lenguajes',(SELECT count(*) FROM pg_language l,x WHERE l.oid>=16384 AND has_language_privilege(x.login,l.oid,'USAGE')),
+ 'efectivo_tablespaces',(SELECT count(*) FROM pg_tablespace t,x WHERE t.oid>=16384 AND has_tablespace_privilege(x.login,t.oid,'CREATE')),
+ 'efectivo_parametros',(SELECT count(*) FROM pg_parameter_acl a,x WHERE has_parameter_privilege(x.login,a.parname,'SET,ALTER SYSTEM'))
+) END`
