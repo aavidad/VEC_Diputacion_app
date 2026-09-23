@@ -167,7 +167,7 @@ for linea in open(sys.argv[1],encoding='utf-8'):
         omito |= evento.get('Action')=='skip'
 if not paso or omito: raise SystemExit('F2: prueba positiva omitida o sin PASS; no acreditar consumo')
 PYRESULTADO
-  echo 'F2: material COSE real y POST nominal probado en PG18 aislado; comprobar detalle Go antes de atribuir GET/replay'
+  echo 'F2: material COSE real, POST, consulta de recibo y replay nominales probados en PG18 aislado; no acredita Contacto3 ni reinicio'
   exit 0
 fi
 # DOWN solo con tablas F2 vacías en este contenedor desechable.

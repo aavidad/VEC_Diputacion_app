@@ -2,6 +2,8 @@ package bootstrap
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"io"
 	"os"
 	"strings"
@@ -55,6 +57,15 @@ func abrirPoolContactoPGPrueba(t *testing.T, ctx context.Context, variable, rol 
 	if err := pool.QueryRow(ctx, `SELECT current_database(),session_user,current_setting('server_version_num')::int`).Scan(&base, &login, &version); err != nil || !strings.HasPrefix(base, "vec_f2_") || version < 180000 || version >= 190000 || login != rol {
 		t.Fatal("pool F2 fuera de contenedor nominal PostgreSQL 18")
 	}
+	if rol != "postgres" {
+		var exclusiva bool
+		if err := pool.QueryRow(ctx, `SELECT session_user=current_user AND
+            (SELECT count(*)=1 FROM pg_auth_members WHERE member=session_user::regrole) AND
+            (SELECT rolcanlogin AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolreplication AND NOT rolbypassrls
+               FROM pg_roles WHERE rolname=session_user)`).Scan(&exclusiva); err != nil || !exclusiva {
+			t.Fatal("LOGIN F2 no tiene membresía nominal exclusiva")
+		}
+	}
 	return pool
 }
 
@@ -84,7 +95,10 @@ func TestContactoPropioPG18MaterialFirmadoYConsumoNominal(t *testing.T) {
 	vinculo, resultado := contextoRegistradoContactoPGPrueba(t, ctx, contexto, ahora)
 	instantanea, err := nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(resultado.Contexto.Principal.ID, resultado.Contexto.PerfilActivoRef, ahora,
 		"contacto_propio_f2_prueba", "Contacto propio sintético", "contacto-propio-f2-prueba",
-		[]domain.ConcesionRol{{Accion: vecapp.AccionAltaContactoUsuario, ModuloID: usuarios.ModuleID, TipoRecurso: "contacto_usuario", Finalidades: []string{contactopropio.FinalidadRegistro}, GarantiaMinima: domain.AuthAssuranceHigh}},
+		[]domain.ConcesionRol{
+			{Accion: vecapp.AccionAltaContactoUsuario, ModuloID: usuarios.ModuleID, TipoRecurso: "contacto_usuario", Finalidades: []string{contactopropio.FinalidadRegistro}, GarantiaMinima: domain.AuthAssuranceHigh},
+			{Accion: vecapp.AccionConsultarContactoUsuario, ModuloID: usuarios.ModuleID, TipoRecurso: "contacto_usuario", Finalidades: []string{contactopropio.FinalidadRegistro}, GarantiaMinima: domain.AuthAssuranceHigh},
+		},
 		[]domain.AmbitoPerfil{{Clave: "persona_ref", Valores: []string{resultado.Contexto.PersonaRef}}})
 	if err != nil {
 		t.Fatal("rol de contacto sintético inválido")
@@ -95,7 +109,8 @@ func TestContactoPropioPG18MaterialFirmadoYConsumoNominal(t *testing.T) {
 		t.Fatal("autoridad PostgreSQL no publicó permiso nominal")
 	}
 	motivo := motivoContactoPropioDesarrollo("contacto-propio-pg-prueba")
-	if err := publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, admin, []domain.ReferenciaEntradaCatalogo{motivo}, ahora); err != nil {
+	motivoRecibo := motivoContactoPropioDesarrollo("contacto-recibo-pg-prueba")
+	if err := publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, admin, []domain.ReferenciaEntradaCatalogo{motivo, motivoRecibo}, ahora); err != nil {
 		t.Fatal("motivo gobernado de contacto no disponible")
 	}
 	cfg, _ := generarMaterialDesarrolloPrueba(t)
@@ -114,6 +129,29 @@ func TestContactoPropioPG18MaterialFirmadoYConsumoNominal(t *testing.T) {
 		confianza.EstadoClaveHMACCapacidadAtestacionV3Emision, material.validaDesde, material.validaHasta, time.Time{}, material.claveHMACRevision, material.claveHMACHuella)
 	if err != nil || publicarGobiernoContactoPGPrueba(ctx, admin, material) != nil {
 		t.Fatal("gobierno V3 de contacto no disponible")
+	}
+	materialRecibo := material
+	semillaRecibo := sha256.Sum256(append(append([]byte(nil), material.claveHMAC...), []byte("vec.contacto.recibo.prueba.v1")...))
+	materialRecibo.claveHMAC = append([]byte(nil), semillaRecibo[:]...)
+	t.Cleanup(func() { clear(materialRecibo.claveHMAC) })
+	materialRecibo.claveHMACID = "clave:capacidad:contacto-recibo:prueba"
+	materialRecibo.claveHMACVersion = 2
+	materialRecibo.claveHMACRevision = 2
+	materialRecibo.claveHMACOrden = 2
+	materialRecibo.emisorID = "emisor:contacto-recibo:prueba"
+	materialRecibo.audienciaConsumo = vecapp.AudienciaConsultaReciboContactoUsuario
+	huellaSecretoRecibo := sha256.Sum256(materialRecibo.claveHMAC)
+	materialRecibo.claveHMACSecreto = hex.EncodeToString(huellaSecretoRecibo[:])
+	hGobierno := sha256.New()
+	_, _ = hGobierno.Write([]byte("vec.ct.desarrollo.capacidad-v3.gobierno.v1\x00"))
+	_, _ = hGobierno.Write(materialRecibo.claveHMAC)
+	materialRecibo.claveHMACHuella = hex.EncodeToString(hGobierno.Sum(nil))
+	materialRecibo.capacidad, err = confianza.NuevaClaveHMACCapacidadAtestacionAutorizacionV3(materialRecibo.claveHMACID, materialRecibo.claveHMACVersion,
+		materialRecibo.claveHMAC, materialRecibo.emisorID, materialRecibo.audienciaConsumo,
+		confianza.EstadoClaveHMACCapacidadAtestacionV3Emision, materialRecibo.validaDesde, materialRecibo.validaHasta,
+		time.Time{}, materialRecibo.claveHMACRevision, materialRecibo.claveHMACHuella)
+	if err != nil || publicarGobiernoContactoPGPrueba(ctx, admin, materialRecibo) != nil {
+		t.Fatal("gobierno V3 de recibo no disponible")
 	}
 	almacenFuente, err := vecpg.NuevoAlmacenAutorizacion(fuente)
 	if err != nil {
@@ -140,6 +178,14 @@ func TestContactoPropioPG18MaterialFirmadoYConsumoNominal(t *testing.T) {
 	if err != nil {
 		t.Fatal("emisor V3 de contacto no disponible")
 	}
+	proveedorRecibo, err := nuevoProveedorMaterialAutorizacionBaseDesarrollo(materialRecibo, reloj)
+	if err != nil {
+		t.Fatal("atestación COSE de recibo no disponible")
+	}
+	emisorRecibo, err := confianza.NuevoEmisorMaterialAutorizacionAtestadaV3(pdp, proveedorRecibo.atestador, proveedorRecibo.confianza, proveedorRecibo.emisor)
+	if err != nil {
+		t.Fatal("emisor V3 de recibo no disponible")
+	}
 	clave := derivarClaveDesarrollo(seguridad.emisorKMS.claveEnvoltura, "vec.contacto.usuario.auditoria.prueba.v1")
 	seudonimizador, err := seguridaddoc.NuevoSelladorHMAC("contacto_pg_prueba_v1", clave[:])
 	borrarBytes(clave[:])
@@ -156,6 +202,18 @@ func TestContactoPropioPG18MaterialFirmadoYConsumoNominal(t *testing.T) {
 	recibo, err := servicio.Guardar(ctx, "persona@example.test", 0)
 	if err != nil || recibo.ReplayConfirmado || recibo.SujetoRef != resultado.Contexto.PersonaRef || recibo.Version != 1 || recibo.EvidenciaCentral.Referencia == "" {
 		t.Fatal("POST contacto firmado no confirmó en PostgreSQL")
+	}
+	conRecibos, err := contactopropio.NuevoServicioConRecibos(servicio, contactopropio.DependenciasConsultaRecibo{PoolConsulta: writer, Emisor: emisorRecibo, Motivo: motivoRecibo})
+	if err != nil {
+		t.Fatal("servicio de recibo propio no disponible")
+	}
+	consultado, err := conRecibos.ConsultarRecibo(ctx, 1)
+	if err != nil || !consultado.Encontrado || consultado.Version != 1 || consultado.ReciboOriginal.EvidenciaCentral.Referencia != recibo.EvidenciaCentral.Referencia {
+		t.Fatal("GET autorizado no recuperó recibo original")
+	}
+	repetido, err := servicio.Guardar(ctx, "persona@example.test", 0)
+	if err != nil || !repetido.ReplayConfirmado || repetido.EvidenciaCentral.Referencia != recibo.EvidenciaCentral.Referencia || repetido.ConsumoRef != recibo.ConsumoRef {
+		t.Fatal("replay semántico no conservó recibo/contacto")
 	}
 	var versiones, actuales, outbox int
 	if err := admin.QueryRow(ctx, `SELECT (SELECT count(*) FROM vec_contacto_usuario_v1.versiones),
@@ -225,12 +283,12 @@ func publicarGobiernoContactoPGPrueba(ctx context.Context, pool *pgxpool.Pool, m
             VALUES($1,$2,$3,$4,'acto:f2:prueba:puntero-clave')`, []any{m.claveHMACOrden, m.claveHMACID, m.claveHMACVersion, m.validaDesde}},
 		{`INSERT INTO vec_autorizacion_atestada_v3.raiz_confianza_version
             (clave_id,version,clave_publica_spki,huella_spki_sha256,valida_desde,valida_hasta,suite,audiencia_despliegue,acto_ref)
-            VALUES($1,$2,$3,$4,$5,$6,$7,$8,'acto:f2:prueba:raiz')`, []any{m.claveID, m.claveVersion, m.spki, m.spkiHuella, m.validaDesde, m.validaHasta, confianza.SuiteAtestacionAutorizacionV3COSEEdDSA, audienciaAtestacionContratacionTemporalDesarrollo}},
+			VALUES($1,$2,$3,$4,$5,$6,$7,$8,'acto:f2:prueba:raiz') ON CONFLICT DO NOTHING`, []any{m.claveID, m.claveVersion, m.spki, m.spkiHuella, m.validaDesde, m.validaHasta, confianza.SuiteAtestacionAutorizacionV3COSEEdDSA, audienciaAtestacionContratacionTemporalDesarrollo}},
 		{`INSERT INTO vec_autorizacion_atestada_v3.configuracion_confianza_version(revision,secuencia,huella_configuracion_sha256,publicada_en,expira_en,acto_ref)
-            VALUES($1,$2,$3,$4,$5,'acto:f2:prueba:configuracion')`, []any{m.configuracionRef, m.configuracionOrden, m.configuracionHuella, m.publicadaEn, m.expiraEn}},
-		{`INSERT INTO vec_autorizacion_atestada_v3.configuracion_raiz(configuracion_revision,raiz_clave_id,raiz_version) VALUES($1,$2,$3)`, []any{m.configuracionRef, m.claveID, m.claveVersion}},
+			VALUES($1,$2,$3,$4,$5,'acto:f2:prueba:configuracion') ON CONFLICT DO NOTHING`, []any{m.configuracionRef, m.configuracionOrden, m.configuracionHuella, m.publicadaEn, m.expiraEn}},
+		{`INSERT INTO vec_autorizacion_atestada_v3.configuracion_raiz(configuracion_revision,raiz_clave_id,raiz_version) VALUES($1,$2,$3) ON CONFLICT DO NOTHING`, []any{m.configuracionRef, m.claveID, m.claveVersion}},
 		{`INSERT INTO vec_autorizacion_atestada_v3.puntero_configuracion_actual(orden,configuracion_revision,establecida_en,acto_ref)
-            VALUES($1,$2,$3,'acto:f2:prueba:puntero-configuracion')`, []any{m.configuracionOrden, m.configuracionRef, m.publicadaEn}},
+			VALUES($1,$2,$3,'acto:f2:prueba:puntero-configuracion') ON CONFLICT DO NOTHING`, []any{m.configuracionOrden, m.configuracionRef, m.publicadaEn}},
 	}
 	for _, q := range consultas {
 		if _, err = tx.Exec(ctx, q.sql, q.args...); err != nil {
