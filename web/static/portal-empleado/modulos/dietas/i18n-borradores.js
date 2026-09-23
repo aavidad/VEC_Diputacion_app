@@ -5,6 +5,11 @@ export const MENSAJES_BORRADORES_ES = Object.freeze({
   borradores_propios_detalle_no_actualizado: "No se ha podido actualizar el detalle. Se conserva el último recibo obtenido.",
   borradores_propios_detalle_denegado: "No tiene permiso para consultar este detalle. Se conserva el último recibo obtenido.",
   borradores_propios_creado_listado_denegado: "Borrador registrado. No tiene permiso para actualizar la bandeja; conserve el recibo y no vuelva a crear el borrador.",
+  borradores_propios_fechas_invalidas: "El regreso debe ser posterior a la salida. Revise las fechas y horas.",
+  borradores_propios_ruta_no_declarada: "Sin itinerario declarado",
+  borradores_propios_consulta_denegada: "No tiene permiso para consultar sus borradores de Dietas.",
+  borradores_propios_creacion_denegada: "No tiene permiso para crear un borrador de Dietas.",
+  borradores_propios_autenticacion_requerida: "Debe identificarse de nuevo para consultar o crear borradores de Dietas.",
 });
 
 export function crearTraductorBorradoresDietas(traducirBase) {

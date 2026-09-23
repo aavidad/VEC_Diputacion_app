@@ -34,6 +34,11 @@ function claveContenido(solicitud) {
   ]);
 }
 function euros(centimos) { return new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(centimos / 100); }
+function rutaLegible(codigos, traducir) {
+  return codigos.length
+    ? codigos.map((codigo) => NOMBRES_RUTA.get(codigo) || codigo).join(" → ")
+    : traducir("borradores_propios_ruta_no_declarada");
+}
 function referenciasRelacionAutorizadas(valores) {
   if (!Array.isArray(valores))
     throw new TypeError("relaciones autorizadas de Dietas no válidas");
@@ -64,9 +69,13 @@ function fechaLegible(valor, conHora = false) {
       ).format(fecha)
     : "—";
 }
-function errorClave(error) {
+function errorClave(error, accion = "consulta") {
+  if (error?.codigo === "autenticacion_requerida")
+    return "borradores_propios_autenticacion_requerida";
   if (error?.codigo === "acceso_denegado")
-    return "borradores_propios_error_acceso";
+    return accion === "crear"
+      ? "borradores_propios_creacion_denegada"
+      : "borradores_propios_consulta_denegada";
   if (
     [
       "relacion_ambigua",
@@ -116,6 +125,11 @@ export function montarVistaBorradoresPropios(
   }
   const documento = contenedor.ownerDocument;
   const tBorradores = crearTraductorBorradoresDietas(traducir);
+  const enfocar = (elemento) => elemento?.focus?.(
+    (documento.defaultView?.innerWidth ?? 1440) >= 1024
+      ? { preventScroll: true }
+      : undefined,
+  );
   const relaciones = referenciasRelacionAutorizadas(relacionesAutorizadas);
   const raiz = nodo(documento, "section");
   raiz.className = "modulo-dietas dietas-borradores-propios";
@@ -289,6 +303,8 @@ export function montarVistaBorradoresPropios(
   function listado() {
     const seccion = nodo(documento, "section");
     seccion.className = "panel dietas-listado";
+    seccion.dataset.dietasBorradoresListado = "";
+    seccion.setAttribute("tabindex", "-1");
     const cabecera = nodo(documento, "div");
     cabecera.className = "cabecera-panel";
     cabecera.append(nodo(documento, "h3", traducir("borradores_propios_listado")));
@@ -303,16 +319,19 @@ export function montarVistaBorradoresPropios(
       return seccion;
     }
     if (estado.carga) {
-      cuerpo.append(
-        nodo(documento, "p", traducir("borradores_propios_cargando")),
-      );
+      const carga = nodo(documento, "p", traducir("borradores_propios_cargando"));
+      carga.className = "dietas-borradores-indicacion";
+      cuerpo.append(carga);
       return seccion;
     }
     if (estado.errorLista) {
-      cuerpo.append(nodo(documento, "p", tBorradores(estado.errorListaClave || estado.mensaje)));
+      const fallo = nodo(documento, "p", tBorradores(estado.errorListaClave || estado.mensaje));
+      fallo.className = "dietas-borradores-indicacion dietas-borradores-indicacion-error";
+      cuerpo.append(fallo);
       if (relaciones.length < 2 || relacionSeleccionada) {
         const reintentar = nodo(documento, "button", traducir("borradores_propios_reintentar_consulta"));
         reintentar.type = "button";
+        reintentar.className = "boton-secundario";
         reintentar.dataset.dietasBorradorRecargar = "";
         cuerpo.append(reintentar);
       }
@@ -321,6 +340,7 @@ export function montarVistaBorradoresPropios(
     if (!estado.items.length) {
       const vacio = nodo(documento, "p", traducir("borradores_propios_vacio"));
       vacio.dataset.dietasBorradoresVacio = "";
+      vacio.className = "dietas-borradores-indicacion";
       cuerpo.append(vacio);
       return seccion;
     }
@@ -343,7 +363,8 @@ export function montarVistaBorradoresPropios(
         "aria-label",
         `${traducir("borradores_propios_seleccionar")}: ${item.comision.motivo}, ${fechaLegible(item.comision.fecha_inicio)}`,
       );
-      boton.setAttribute("aria-pressed", String(estado.detalle?.comision.referencia === item.comision.referencia));
+      if (estado.detalle?.comision.referencia === item.comision.referencia)
+        boton.setAttribute("aria-current", "true");
       li.append(
         boton,
         (() => { const estadoBorrador = nodo(documento, "span", traducir("borradores_propios_estado_borrador")); estadoBorrador.className = "estado-chip info"; return estadoBorrador; })(),
@@ -369,6 +390,9 @@ export function montarVistaBorradoresPropios(
   function detalle() {
     const seccion = nodo(documento, "section");
     seccion.className = "panel dietas-detalle";
+    seccion.dataset.dietasBorradorFicha = "";
+    seccion.setAttribute("tabindex", "-1");
+    seccion.setAttribute("aria-label", traducir("borradores_propios_detalle"));
     const cabecera = nodo(documento, "div");
     cabecera.className = "cabecera-panel";
     cabecera.append(nodo(documento, "h3", traducir("borradores_propios_detalle")));
@@ -392,7 +416,7 @@ export function montarVistaBorradoresPropios(
       ],
       ["borradores_propios_fecha_fin", fechaLegible(item.comision.fecha_fin)],
       ["borradores_propios_motivo", item.comision.motivo],
-      ["borradores_propios_ruta", item.comision.codigos_ruta.join(", ") || "—"],
+      ["borradores_propios_ruta", rutaLegible(item.comision.codigos_ruta, tBorradores)],
     ].forEach(([etiqueta, valor]) => {
       const fila = nodo(documento, "div");
       fila.append(
@@ -436,6 +460,7 @@ export function montarVistaBorradoresPropios(
       avisoPersistente = nodo(documento, "p");
       avisoPersistente.dataset.dietasBorradoresEstado = "";
       avisoPersistente.setAttribute("aria-live", "polite");
+      avisoPersistente.setAttribute("tabindex", "-1");
       const espacio = nodo(documento, "div");
       espacio.className = "dietas-borradores-espacio";
       const principal = nodo(documento, "div");
@@ -449,6 +474,7 @@ export function montarVistaBorradoresPropios(
         ? traducir("borradores_propios_titulo")
         : tBorradores("borradores_propios_titulo_registrados")), avisoPersistente, espacio);
     }
+    raiz.dataset.formularioVisible = String(formularioVisible);
     formularioPersistente.hidden = !formularioVisible;
     const botonGuardar = formularioPersistente.querySelector('button');
     if (botonGuardar) botonGuardar.disabled = !conectada || controlador !== null || (relaciones.length > 1 && !relacionSeleccionada);
@@ -535,12 +561,19 @@ export function montarVistaBorradoresPropios(
       pintar();
       return;
     }
+    if (base.fecha_fin < base.fecha_inicio ||
+        (base.fecha_fin === base.fecha_inicio && base.hora_fin <= base.hora_inicio)) {
+      mensaje("borradores_propios_fechas_invalidas", "aviso");
+      pintar();
+      return;
+    }
     if (base.codigos_ruta[0] === base.codigos_ruta[1]) { mensaje("borradores_propios_ruta_distinta","aviso"); pintar(); return; }
     const contenido = claveContenido(base);
     if (ultimoAlta?.contenido === contenido) {
       estado = { ...estado, detalle: ultimoAlta.item };
       mensaje("borradores_propios_ya_registrado", "exito");
       pintar();
+      enfocarRecibo();
       return;
     }
     if (pendiente && pendiente.contenido !== contenido) {
@@ -559,6 +592,7 @@ export function montarVistaBorradoresPropios(
     const solicitud = { clave_idempotencia: clave, ...base };
     controlador = new AbortController();
     const signal = controlador.signal;
+    let altaConfirmada = false;
     mensaje("borradores_propios_enviando");
     pintar();
     try {
@@ -566,6 +600,7 @@ export function montarVistaBorradoresPropios(
       if (!activaAhora() || signal.aborted) return;
       pendiente = null;
       ultimoAlta = { contenido, item };
+      altaConfirmada = true;
       estado = {
         ...estado,
         detalle: item,
@@ -584,16 +619,26 @@ export function montarVistaBorradoresPropios(
     } catch (error) {
       if (!activaAhora() || signal.aborted) return;
       if (!error?.resultadoIndeterminado) pendiente = null;
-      mensaje(errorClave(error), "error");
+      mensaje(errorClave(error, "crear"), "error");
     } finally {
       if (controlador?.signal === signal) controlador = null;
-      if (activaAhora()) pintar();
+      if (activaAhora()) {
+        pintar();
+        if (altaConfirmada) enfocarRecibo();
+      }
     }
+  }
+  function enfocarRecibo() {
+    const reciboActual = fichaPersistente?.querySelector?.("[data-dietas-borrador-recibo]");
+    if (!reciboActual) return;
+    reciboActual.setAttribute("tabindex", "-1");
+    enfocar(reciboActual);
   }
   async function clic(evento) {
     const recargar = evento.target?.closest?.("[data-dietas-borrador-recargar]");
     if (recargar && activaAhora() && !controlador) {
       await cargar();
+      enfocar(listaPersistente?.querySelector?.("[data-dietas-borradores-listado]"));
       return;
     }
     const pagina = evento.target?.closest?.("[data-dietas-borrador-pagina]");
@@ -601,12 +646,12 @@ export function montarVistaBorradoresPropios(
       if (pagina.dataset.dietasBorradorPagina === "siguiente" && siguienteCursor) {
         cursores = [...cursores.slice(0, indicePagina + 1), siguienteCursor];
         indicePagina += 1;
-        estado = { ...estado, detalle: null };
         await cargar();
+        enfocar(listaPersistente?.querySelector?.("[data-dietas-borradores-listado]"));
       } else if (pagina.dataset.dietasBorradorPagina === "anterior" && indicePagina > 0) {
         indicePagina -= 1;
-        estado = { ...estado, detalle: null };
         await cargar();
+        enfocar(listaPersistente?.querySelector?.("[data-dietas-borradores-listado]"));
       }
       return;
     }
@@ -615,6 +660,7 @@ export function montarVistaBorradoresPropios(
     const referencia = boton.dataset.dietasBorradorDetalle;
     controlador = new AbortController();
     const signal = controlador.signal;
+    let detalleActualizado = false;
     mensaje("borradores_propios_cargando");
     pintar();
     try {
@@ -624,6 +670,7 @@ export function montarVistaBorradoresPropios(
       });
       if (!activaAhora() || signal.aborted) return;
       estado = { ...estado, detalle: item };
+      detalleActualizado = true;
       mensaje("borradores_propios_detalle");
     } catch (error) {
       if (!activaAhora() || signal.aborted) return;
@@ -632,7 +679,11 @@ export function montarVistaBorradoresPropios(
         : errorClave(error), "error");
     } finally {
       if (controlador?.signal === signal) controlador = null;
-      if (activaAhora()) pintar();
+      if (activaAhora()) {
+        pintar();
+        if (detalleActualizado) enfocar(fichaPersistente?.querySelector?.("[data-dietas-borrador-ficha]"));
+        else if (!signal.aborted) enfocar(avisoPersistente);
+      }
     }
   }
   function cambiarRelacion(evento) {
@@ -660,7 +711,7 @@ export function montarVistaBorradoresPropios(
     if (!activaAhora()) return false;
     formularioVisible = true;
     pintar();
-    formularioPersistente.querySelector("input")?.focus?.();
+    enfocar(formularioPersistente.querySelector("input"));
     return true;
   }
   function cerrarFormulario() {

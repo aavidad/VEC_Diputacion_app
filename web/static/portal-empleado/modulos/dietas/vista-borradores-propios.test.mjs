@@ -43,6 +43,9 @@ class Nodo {
   setAttribute(nombre, valor) {
     this.attrs[nombre] = String(valor);
   }
+  focus() {
+    this.ownerDocument.activeElement = this;
+  }
   matches(selector) {
     if (!selector.startsWith("[")) return this.tagName === selector;
     const coincidencia = selector.match(/^\[([^=\]]+)(?:="([^"]*)")?\]$/u);
@@ -435,8 +438,104 @@ test("permite mostrar y cerrar el formulario desde Mis comisiones sin desmontar 
   assert.ok(contenedor.querySelector("[data-dietas-borrador-detalle]"));
   assert.equal(vista.abrirFormulario(), true);
   assert.equal(form.hidden, false);
+  assert.equal(contenedor.ownerDocument.activeElement.tagName, "input");
   assert.equal(vista.cerrarFormulario(), true);
   assert.equal(form.hidden, true);
   vista.desmontar();
   assert.equal(vista.abrirFormulario(), false);
+});
+
+test("mantiene el foco navegable tras reemplazar la lista y muestra la ficha en castellano", async () => {
+  const contenedor = raiz();
+  const comisionConRuta = { ...item, comision: { ...item.comision, codigos_ruta: ["18087", "18003"] } };
+  const vista = montarVistaBorradoresPropios(contenedor, {
+    formularioInicialmenteVisible: false,
+    cliente: {
+      listar: async () => ({ items: [comisionConRuta] }),
+      obtener: async () => comisionConRuta,
+      crear: async () => item,
+    },
+  });
+  await Promise.resolve();
+  await Promise.resolve();
+  const panel = contenedor.querySelector("[data-dietas-borradores-propios]");
+  const boton = contenedor.querySelector("[data-dietas-borrador-detalle]");
+  await panel.listeners.click({ target: boton });
+  assert.equal(contenedor.ownerDocument.activeElement.dataset.dietasBorradorFicha, "");
+  assert.match(textoVisible(contenedor), /Granada → Albolote/u);
+  const reintento = vista.recargar();
+  await reintento;
+  assert.match(textoVisible(contenedor), /rcd_1234567890123456789012/u);
+  vista.desmontar();
+});
+
+test("rechaza fechas y horas incoherentes antes del POST y enfoca el recibo exacto tras confirmar", async () => {
+  const contenedor = raiz();
+  let escrituras = 0;
+  const itemExacto = { ...item, recibo: { ...item.recibo, registrado_en: "2026-09-20T10:00:00.123456Z" } };
+  const vista = montarVistaBorradoresPropios(contenedor, {
+    cliente: {
+      listar: async () => ({ items: [] }),
+      obtener: async () => item,
+      crear: async () => { escrituras += 1; return itemExacto; },
+    },
+  });
+  await Promise.resolve();
+  await Promise.resolve();
+  const form = contenedor.querySelector("[data-dietas-borrador-form]");
+  form.checkValidity = () => true;
+  const datos = {
+    fecha_inicio: "2026-09-20", fecha_fin: "2026-09-20", motivo: "Visita",
+    hora_inicio: "18:00", hora_fin: "09:00", origen_codigo: "18087", destino_codigo: "18003",
+  };
+  const FormDataOriginal = globalThis.FormData;
+  globalThis.FormData = class { get(nombre) { return datos[nombre] ?? null; } };
+  try {
+    const panel = contenedor.querySelector("[data-dietas-borradores-propios]");
+    await panel.listeners.submit({ target: form, preventDefault() {} });
+    assert.equal(escrituras, 0);
+    assert.match(textoVisible(contenedor), /El regreso debe ser posterior/u);
+    datos.fecha_fin = "2026-09-21";
+    await panel.listeners.submit({ target: form, preventDefault() {} });
+    assert.equal(escrituras, 1);
+    assert.equal(contenedor.ownerDocument.activeElement.dataset.dietasBorradorRecibo, "");
+    assert.match(textoVisible(contenedor), /2026-09-20T10:00:00\.123456Z/u);
+  } finally {
+    globalThis.FormData = FormDataOriginal;
+    vista.desmontar();
+  }
+});
+
+test("distingue carga, vacío y denegación de consulta sin presentar un alta", async () => {
+  const contenedor = raiz();
+  let resolver;
+  const vista = montarVistaBorradoresPropios(contenedor, {
+    cliente: {
+      listar: () => new Promise((resuelve) => { resolver = resuelve; }),
+      obtener: async () => item,
+      crear: async () => { throw new Error("POST inesperado"); },
+    },
+  });
+  assert.match(textoVisible(contenedor), /Cargando sus borradores/u);
+  assert.equal(contenedor.querySelector("[data-dietas-borradores-vacio]"), null);
+  resolver({ items: [] });
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.match(textoVisible(contenedor), /Todavía no hay borradores propios/u);
+  vista.desmontar();
+
+  const denegado = raiz();
+  const vistaDenegada = montarVistaBorradoresPropios(denegado, {
+    cliente: {
+      listar: async () => { const error = new Error(); error.codigo = "acceso_denegado"; throw error; },
+      obtener: async () => item,
+      crear: async () => item,
+    },
+  });
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.match(textoVisible(denegado), /No tiene permiso para consultar sus borradores/u);
+  assert.doesNotMatch(textoVisible(denegado), /No tiene permiso para crear un borrador/u);
+  assert.equal(denegado.querySelector("[data-dietas-borradores-vacio]"), null);
+  vistaDenegada.desmontar();
 });
