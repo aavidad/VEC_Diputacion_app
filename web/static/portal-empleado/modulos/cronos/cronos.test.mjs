@@ -72,6 +72,9 @@ test("Jornada disponible exige proyección propia y oculta bloques sin capacidad
   });
   assert.match(todo, /tabla-cronos-jornada/);
   assert.match(todo, /Jornada diaria/);
+  assert.match(todo, /Calendario laboral/);
+  assert.match(todo, /Sin calendario autorizado para el centro y el periodo/);
+  assert.doesNotMatch(todo, /cronos-mini-calendario|data-cronos-control|data-cronos-detalle/);
   assert.match(todo, /data-accion="ayuda"/);
   assert.doesNotMatch(todo, /data-cronos-accion="registrar-fichaje"/);
   const inyectado = renderizarJornadaCronos({

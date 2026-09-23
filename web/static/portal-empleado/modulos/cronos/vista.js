@@ -165,10 +165,16 @@ export function renderizarJornadaCronos({
       <header class="cabecera-panel"><div><h4 id="cronos-jornada-movimientos">${escaparHTML(t("jornada_movimientos"))}</h4><p>${escaparHTML(t("jornada_movimientos_detalle"))}</p></div>${botonAyuda(t, t("jornada_movimientos"))}</header>
       ${puedeConsultarFichajes ? tabla({ id: "tabla-cronos-jornada", titulo: t("jornada_tabla"), cabeceras: [t("cab_fecha"), t("cab_hora"), t("cab_movimiento"), t("cab_canal"), t("cab_estado")], filas, vacio: t("fichajes_vacio") }) : `<p class="cronos-acceso-denegado" role="status">${escaparHTML(t("fichajes_denegado"))}</p>`}
     </section>
-    <aside class="panel cronos-jornada-panel" aria-labelledby="cronos-jornada-perfil">
-      <header class="cabecera-panel"><div><h4 id="cronos-jornada-perfil">${escaparHTML(t("horario_titulo"))}</h4><p>${escaparHTML(t("horario_descripcion"))}</p></div>${botonAyuda(t, t("horario_titulo"))}</header>
-      ${puedeConsultarHorario ? `<dl class="cronos-resumen-datos"><div><dt>${escaparHTML(t("perfil"))}</dt><dd>${escaparHTML(perfil.nombre)}</dd></div><div><dt>${escaparHTML(t("jornada_diaria"))}</dt><dd>${escaparHTML(perfil.jornada_diaria)}</dd></div><div><dt>${escaparHTML(t("ventana_entrada"))}</dt><dd>${escaparHTML(perfil.ventana_entrada)}</dd></div><div><dt>${escaparHTML(t("tramo_obligatorio"))}</dt><dd>${escaparHTML(perfil.tramo_obligatorio)}</dd></div></dl>` : `<p class="cronos-acceso-denegado" role="status">${escaparHTML(t("horario_denegado"))}</p>`}
-    </aside>
+    <div class="cronos-jornada-lateral">
+      <aside class="panel cronos-jornada-panel" aria-labelledby="cronos-jornada-perfil">
+        <header class="cabecera-panel"><div><h4 id="cronos-jornada-perfil">${escaparHTML(t("horario_titulo"))}</h4><p>${escaparHTML(t("horario_descripcion"))}</p></div>${botonAyuda(t, t("horario_titulo"))}</header>
+        ${puedeConsultarHorario ? `<dl class="cronos-resumen-datos"><div><dt>${escaparHTML(t("perfil"))}</dt><dd>${escaparHTML(perfil.nombre)}</dd></div><div><dt>${escaparHTML(t("jornada_diaria"))}</dt><dd>${escaparHTML(perfil.jornada_diaria)}</dd></div><div><dt>${escaparHTML(t("ventana_entrada"))}</dt><dd>${escaparHTML(perfil.ventana_entrada)}</dd></div><div><dt>${escaparHTML(t("tramo_obligatorio"))}</dt><dd>${escaparHTML(perfil.tramo_obligatorio)}</dd></div></dl>` : `<p class="cronos-acceso-denegado" role="status">${escaparHTML(t("horario_denegado"))}</p>`}
+      </aside>
+      <aside class="panel cronos-jornada-panel" aria-labelledby="cronos-jornada-calendario">
+        <header class="cabecera-panel"><div><h4 id="cronos-jornada-calendario">${escaparHTML(t("jornada_calendario_titulo"))}</h4><p>${escaparHTML(t("jornada_calendario_fuente"))}</p></div>${botonAyuda(t, t("jornada_calendario_titulo"))}</header>
+        <div class="cuerpo-panel cronos-jornada-calendario-pendiente" role="status"><span class="cronos-estado cronos-estado-aviso">${escaparHTML(t("jornada_estado_no_configurado"))}</span><p>${escaparHTML(t("jornada_calendario_pendiente"))}</p></div>
+      </aside>
+    </div>
   </div>` : `<section class="panel cronos-jornada-panel" aria-labelledby="cronos-jornada-sin-datos"><header class="cabecera-panel"><h4 id="cronos-jornada-sin-datos">${escaparHTML(estadoVisible)}</h4></header><div class="cuerpo-panel" role="status">${escaparHTML(descripcionEstado)}</div></section>`;
 
   return `<section class="cronos-jornada cronos-area" data-cronos-jornada data-estado="${estado}" aria-labelledby="cronos-jornada-titulo"${estado === "cargando" ? ' aria-busy="true"' : ""}>
