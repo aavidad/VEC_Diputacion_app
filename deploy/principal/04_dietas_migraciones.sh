@@ -14,6 +14,7 @@ migraciones=(
   personal/migraciones/000009_asignacion_dietas.up.sql
   dietas_borradores/migraciones/000001_borrador_comision_durable.up.sql
   dietas_borradores/migraciones/000002_tarifas_provisionales.up.sql
+  dietas_borradores/migraciones/000003_consulta_tarifas_provisionales.up.sql
 )
 
 printf '%s\n' '\set ON_ERROR_STOP on' 'BEGIN;'
