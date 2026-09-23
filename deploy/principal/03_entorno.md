@@ -112,3 +112,55 @@ con RRHH y con una ruta interna siguen siendo comprobaciones del operador en
 cidonia; el script no reinicia servicios ni declara el HTTP probado. El
 certificado es sintético y no sustituye Cl@ve, FNMT ni DNIe, que dependen de la
 pasarela de Sistemas. No reaplicar AD3 `000043` ni Bolsa `000010`.
+
+### D3-B11-D: vínculos de constituciones anteriores a Bolsa 000008
+
+Bolsa `000021` añade una función propietaria de relleno. El paquete
+`02_migraciones.sh` la ensambla desde su fuente canónica. En una base donde
+`000016`/`000017` ya tienen historia, instalar **solo** `000021`: primero
+reemplazar el `COMMIT;` final por `ROLLBACK;` y ejecutar con `psql -v
+ON_ERROR_STOP=1`, después ejecutar el `.up.sql` intacto. No reaplicar las
+migraciones antiguas ni ejecutar el `.down.sql` si hay vínculos.
+
+El staging de CONVOCA guarda las filas cifradas; la referencia `can_*` exige
+el mismo material KMS que utilizó `constituir-bolsa`. Por ello SQL no descifra
+ni recibe la clave: `rellenar-vinculos-bolsa` usa el recuperador acreditado de
+CONVOCA, `DerivadorCandidatoHMAC` y el número de fila guardado en la
+constitución. Solo transmite pares `{fila_numero,candidato_ref}` a la función
+de Bolsa. Esta comprueba que el acta ya existe, que se entregan **todas** sus
+filas una sola vez y que cualquier vínculo previo coincide. No modifica
+constituciones, situaciones ni vínculos existentes. Si el staging fue
+expurgado o falta la clave KMS original, se detiene: no se infieren referencias.
+
+Como administrador de la base, enumerar las actas ya constituidas con su
+huella y categoría desde la importación (solo metadatos, sin staging):
+
+```sql
+SELECT l.huella_fichero_sha256, l.categoria_ref
+FROM vec_bolsa_importacion_convoca.lote l
+WHERE EXISTS (
+  SELECT 1 FROM vec_bolsa_llamamientos.constitucion c
+  WHERE c.acta_ref=l.acta_ref
+)
+ORDER BY l.categoria_ref, l.huella_fichero_sha256;
+```
+
+Con `VEC_BOLSA_IMPORTACION_CONVOCA_DATABASE_URL` de **recuperación** (LOGIN
+miembro solo de `vec_bolsa_importacion_convoca_recuperador`) y la conexión
+administrativa existente `VEC_PRINCIPAL_ADMIN_DATABASE_URL`, por cada pareja
+ejecutar el binario fuera del servidor web en el entorno privado de desarrollo.
+La función 000021 no concede `EXECUTE` al ejecutor ordinario de Bolsa: el
+comando usa `SET LOCAL ROLE vec_bolsa_llamamientos_propietario` dentro de la
+transacción administrativa. La primera llamada ensaya en `ROLLBACK`; la
+segunda confirma. Se repite para las doce actas y se comprueba que un segundo
+`--aplicar` informa `nuevos=0`. No se pasan nombres ni documentos por CLI.
+
+```bash
+vec-server rellenar-vinculos-bolsa --huella '<sha256_importado>' --categoria '<categoria_ref>'
+vec-server rellenar-vinculos-bolsa --huella '<sha256_importado>' --categoria '<categoria_ref>' --aplicar
+bash deploy/principal/preparar_candidato_desarrollo.sh
+```
+
+`preparar_candidato_desarrollo.sh` sigue siendo una operación posterior y
+separada. Instalar 000021 y rellenar los vínculos no enciende por sí mismo
+«Mi bolsa» ni declara una sesión de candidato probada.

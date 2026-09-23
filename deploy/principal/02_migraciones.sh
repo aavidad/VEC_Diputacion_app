@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Ensambla B4/B7 directamente desde sus migraciones canónicas. La salida es
+# Ensambla B4/B7/B11 directamente desde sus migraciones canónicas. La salida es
 # una única transacción; `:finalizar` lo fija quien ejecuta el paquete.
 set -Eeuo pipefail
 
@@ -10,6 +10,7 @@ migraciones=(
   bolsa_llamamientos/migraciones/000016_datos_contacto_participacion
   autorizacion_atestada_v3/migraciones/000048_consumidor_emision_llamamiento
   bolsa_llamamientos/migraciones/000017_emision_llamamiento
+  bolsa_llamamientos/migraciones/000021_rellenar_vinculos_candidato
 )
 
 printf '%s\n' '\set ON_ERROR_STOP on' 'BEGIN;'

@@ -5,6 +5,7 @@ import _ "time/tzdata"
 import (
 	"context"
 	"errors"
+	"flag"
 	"log"
 	"net/http"
 	"os"
@@ -14,6 +15,21 @@ import (
 )
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "rellenar-vinculos-bolsa" {
+		opciones := flag.NewFlagSet("rellenar-vinculos-bolsa", flag.ExitOnError)
+		huella := opciones.String("huella", "", "SHA-256 del fichero importado")
+		categoria := opciones.String("categoria", "", "categoría importada")
+		aplicar := opciones.Bool("aplicar", false, "confirmar; por defecto se ensaya con ROLLBACK")
+		if err := opciones.Parse(os.Args[2:]); err != nil || opciones.NArg() != 0 {
+			log.Fatal("argumentos de relleno invalidos")
+		}
+		r, err := bootstrap.EjecutarRellenoVinculosBolsa(context.Background(), config.Load(), *huella, *categoria, *aplicar)
+		if err != nil {
+			log.Fatal(err)
+		}
+		log.Printf("relleno_vinculos aplicar=%t nuevos=%d existentes=%d", *aplicar, r.Nuevos, r.Existentes)
+		return
+	}
 	if len(os.Args) > 1 && os.Args[1] == "publicar-proyeccion-publica" {
 		if err := ejecutarPublicacionProyeccionPublica(context.Background(), os.Args[2:], os.Stdout, config.Load(), publicarProyeccionPublicaPostgreSQL); err != nil {
 			log.Fatal(err)

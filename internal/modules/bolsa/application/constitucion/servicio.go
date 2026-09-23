@@ -63,6 +63,37 @@ type Solicitud struct {
 	ActorRef            string
 }
 
+// FilaVinculoCandidato transporta solo el número del staging acreditado y su
+// referencia opaca. La participación se resuelve contra el acta en Bolsa SQL.
+type FilaVinculoCandidato struct {
+	FilaNumero   int    `json:"fila_numero"`
+	CandidatoRef string `json:"candidato_ref"`
+}
+
+// DerivarFilasVinculo reutiliza el derivador vigente sin recrear la
+// constitución ni leer datos de otro módulo. El lote procede del recuperador
+// que descifra y verifica la atestación del staging de CONVOCA.
+func DerivarFilasVinculo(lote importacion.LoteValidado, derivador DerivadorCandidato) ([]FilaVinculoCandidato, error) {
+	if derivador == nil || lote.Validar() != nil || lote.Acta.Esquema != importacion.EsquemaResumenPersona {
+		return nil, ports.ErrConstitucionBolsaInvalida
+	}
+	filas := make([]FilaVinculoCandidato, 0, len(lote.Aceptadas))
+	for _, fila := range lote.Aceptadas {
+		if fila.Resumen == nil || fila.Numero <= 0 {
+			return nil, ports.ErrConstitucionBolsaInvalida
+		}
+		ref, err := derivador.CandidatoRef(fila.Identidad)
+		if err != nil {
+			return nil, errors.Join(ports.ErrConstitucionBolsaInvalida, err)
+		}
+		filas = append(filas, FilaVinculoCandidato{FilaNumero: fila.Numero, CandidatoRef: ref})
+	}
+	if len(filas) == 0 {
+		return nil, ErrActaSinFilasAceptadas
+	}
+	return filas, nil
+}
+
 // Constituir construye la bolsa y su instantánea desde las filas aceptadas del
 // acta (orden: Total descendente, empate por apellidos y nombre), la persiste
 // y registra el vínculo `can_* → participación` de cada fila. Como la
