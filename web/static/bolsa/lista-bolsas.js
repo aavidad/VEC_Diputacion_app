@@ -43,6 +43,7 @@ export function crearControladorListaBolsas({
     cursorSiguiente: null,
     filtroDocumento: "",
     bolsaRefSolicitada: "",
+    cursorSolicitado: "",
     cargando: false,
     secuenciaConsulta: 0,
   };
@@ -53,8 +54,19 @@ export function crearControladorListaBolsas({
 
   function mensajeError(error, alcance) {
     if (error?.status === 401 || error?.status === 403) return t(`${alcance}_denegado`);
+    if (alcance === "error_bolsas" && error?.status === 404) return t("consulta_no_disponible");
     if (alcance === "error_lista" && error?.status === 404) return t("error_lista_no_encontrada");
     return t(alcance);
+  }
+
+  function mostrarTabla(cuerpo, visible) {
+    const contenedor = cuerpo?.closest?.(".tabla-contenedor-accesible");
+    if (contenedor) contenedor.hidden = !visible;
+  }
+
+  function habilitarBusqueda(habilitada) {
+    const campos = elementos.formularioBusqueda?.querySelector?.("fieldset");
+    if (campos) campos.disabled = !habilitada;
   }
 
   async function cargarBolsas() {
@@ -67,6 +79,7 @@ export function crearControladorListaBolsas({
     elementos.bolsasError.hidden = true;
     elementos.bolsasVacio.hidden = true;
     if (elementos.cuerpoTablaBolsas) elementos.cuerpoTablaBolsas.innerHTML = "";
+    mostrarTabla(elementos.cuerpoTablaBolsas, false);
 
     try {
       const respuesta = await api.consultarBolsasPublicas();
@@ -80,6 +93,7 @@ export function crearControladorListaBolsas({
       }
 
       renderizarTablaBolsas(estado.bolsas);
+      mostrarTabla(elementos.cuerpoTablaBolsas, true);
     } catch (err) {
       if (secuencia !== estado.secuenciaConsulta) return;
       elementos.bolsasCargando.hidden = true;
@@ -115,9 +129,11 @@ export function crearControladorListaBolsas({
 
   async function seleccionarBolsa(bolsaRef, documento = "", cursor = "", { historial = "push" } = {}) {
     const secuencia = ++estado.secuenciaConsulta;
+    const documentoSeguro = PATRON_DOCUMENTO_ENMASCARADO.test(documento) ? documento : "";
     estado.cargando = true;
-    estado.filtroDocumento = documento;
+    estado.filtroDocumento = documentoSeguro;
     estado.bolsaRefSolicitada = bolsaRef;
+    estado.cursorSolicitado = cursor;
     elementos.seccionLista?.setAttribute?.("aria-busy", "true");
     elementos.seccionBolsas.hidden = true;
     elementos.seccionLista.hidden = false;
@@ -128,17 +144,24 @@ export function crearControladorListaBolsas({
 
     elementos.listaCargando.hidden = false;
     if (!cursor) {
+      estado.bolsaSeleccionada = null;
       estado.posiciones = [];
+      if (elementos.inputDocumento) elementos.inputDocumento.value = documentoSeguro;
+      if (elementos.errorDocumento) elementos.errorDocumento.hidden = true;
+      if (elementos.infoBolsaActiva) elementos.infoBolsaActiva.innerHTML = "";
       if (elementos.cuerpoTablaLista) elementos.cuerpoTablaLista.innerHTML = "";
+      mostrarTabla(elementos.cuerpoTablaLista, false);
+      habilitarBusqueda(false);
     }
 
     try {
       const respuesta = await api.consultarListaBolsaPublica({
         bolsa_ref: bolsaRef,
-        documento,
+        documento: documentoSeguro,
         cursor,
       });
       if (secuencia !== estado.secuenciaConsulta) return;
+      if (respuesta.bolsa?.bolsa_ref !== bolsaRef) throw new Error("La lista pública no corresponde a la bolsa solicitada");
 
       estado.bolsaSeleccionada = respuesta.bolsa;
       estado.hayMas = respuesta.hay_mas;
@@ -153,13 +176,15 @@ export function crearControladorListaBolsas({
       elementos.listaCargando.hidden = true;
       renderizarDetalleBolsa(estado.bolsaSeleccionada);
       renderizarTablaLista(estado.posiciones);
+      mostrarTabla(elementos.cuerpoTablaLista, estado.posiciones.length > 0);
+      habilitarBusqueda(true);
 
       if (estado.posiciones.length === 0) {
         elementos.listaVacio.hidden = false;
       }
 
       actualizarPaginacion();
-      actualizarURL(bolsaRef, documento, historial);
+      actualizarURL(bolsaRef, documentoSeguro, historial);
       if (!cursor && historial === "push") {
         const titulo = elementos.infoBolsaActiva?.querySelector?.("h2");
         titulo?.focus?.();
@@ -170,6 +195,11 @@ export function crearControladorListaBolsas({
       elementos.listaError.hidden = false;
       if (elementos.mensajeErrorLista) {
         elementos.mensajeErrorLista.textContent = mensajeError(err, "error_lista");
+      }
+      const tituloError = elementos.listaError?.querySelector?.("h3");
+      if (tituloError && !cursor && historial === "push") {
+        tituloError.tabIndex = -1;
+        tituloError.focus();
       }
     } finally {
       if (secuencia === estado.secuenciaConsulta) {
@@ -250,11 +280,17 @@ export function crearControladorListaBolsas({
     estado.posiciones = [];
     estado.filtroDocumento = "";
     estado.bolsaRefSolicitada = "";
+    estado.cursorSolicitado = "";
     if (elementos.inputDocumento) elementos.inputDocumento.value = "";
     if (elementos.errorDocumento) elementos.errorDocumento.hidden = true;
     ++estado.secuenciaConsulta;
     actualizarURL("", "", "push");
     cargarBolsas();
+    const titulo = elementos.seccionBolsas?.querySelector?.("h2");
+    if (titulo) {
+      titulo.tabIndex = -1;
+      titulo.focus();
+    }
   }
 
   function restaurarDesdeURL() {
@@ -280,6 +316,7 @@ export function crearControladorListaBolsas({
     estado.posiciones = [];
     estado.filtroDocumento = "";
     estado.bolsaRefSolicitada = "";
+    estado.cursorSolicitado = "";
     if (elementos.inputDocumento) elementos.inputDocumento.value = "";
     if (elementos.errorDocumento) elementos.errorDocumento.hidden = true;
     return cargarBolsas();
@@ -334,7 +371,7 @@ export function crearControladorListaBolsas({
     if (elementos.botonReintentarLista) {
       elementos.botonReintentarLista.addEventListener("click", () => {
         if (estado.bolsaRefSolicitada) {
-          seleccionarBolsa(estado.bolsaRefSolicitada, estado.filtroDocumento, "", { historial: "replace" });
+          seleccionarBolsa(estado.bolsaRefSolicitada, estado.filtroDocumento, estado.cursorSolicitado, { historial: "replace" });
         }
       });
     }
