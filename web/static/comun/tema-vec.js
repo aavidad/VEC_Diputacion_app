@@ -45,8 +45,28 @@ export function crearControladorTema({ documento = globalThis.document } = {}) {
   let estadoServidor = null;
   let vistaPrevia = null;
   let temaAnterior = null;
+  let conflictoExterno = false;
+
+  // Una autoridad externa puede actualizar el atributo mientras hay una vista
+  // previa. No restauramos una preimagen que ya no nos pertenece.
+  const sincronizarAtributo = () => {
+    const actual = raiz.getAttribute("data-tema");
+    if (vistaPrevia !== null && actual !== vistaPrevia.tema_id) {
+      vistaPrevia = null;
+      temaAnterior = null;
+      estadoServidor = null;
+      conflictoExterno = true;
+      return true;
+    }
+    if (vistaPrevia === null && estadoServidor !== null && actual !== estadoServidor.tema_id) {
+      estadoServidor = null;
+      conflictoExterno = true;
+    }
+    return false;
+  };
 
   const leerEstado = () => {
+    sincronizarAtributo();
     const visible = vistaPrevia ?? estadoServidor;
     const temaVisible = visible?.tema_id ?? raiz.getAttribute("data-tema") ?? "institucional";
     return Object.freeze({
@@ -65,17 +85,23 @@ export function crearControladorTema({ documento = globalThis.document } = {}) {
       estadoServidor = valido;
       vistaPrevia = null;
       temaAnterior = null;
+      conflictoExterno = false;
       raiz.dataset.tema = valido.tema_id;
       return leerEstado();
     },
     previsualizar(estado) {
       const valido = validarEstadoTema(estado);
+      sincronizarAtributo();
+      if (conflictoExterno) {
+        throw new ErrorTemaVec("tema_modificado", "El tema visible cambió fuera de este controlador.");
+      }
       if (vistaPrevia === null) temaAnterior = raiz.getAttribute("data-tema");
       vistaPrevia = valido;
       raiz.dataset.tema = valido.tema_id;
       return leerEstado();
     },
     cancelarPrevisualizacion() {
+      if (sincronizarAtributo()) return leerEstado();
       if (vistaPrevia === null) return leerEstado();
       if (temaAnterior === null) raiz.removeAttribute("data-tema");
       else raiz.dataset.tema = temaAnterior;

@@ -64,6 +64,37 @@ test("alto contraste prevalece sobre todos los colores de paleta", () => {
   assert.ok(contraste(altoContraste["--portal-lateral-muted"], altoContraste["--portal-azul-950"]) >= 7);
 });
 
+test("los estados semánticos mantienen texto legible y el contraste reforzado", () => {
+  for (const [fuerte, suave] of [
+    ["exito", "exito-suave"], ["aviso", "aviso-suave"],
+    ["peligro", "peligro-suave"], ["violeta", "violeta-suave"],
+    ["cian-fuerte", "cian-suave"], ["naranja", "naranja-suave"],
+  ]) {
+    for (const [nombre, paleta, minimo] of [
+      ["institucional", base, 4.5],
+      ["granate", { ...base, ...granate }, 4.5],
+      ["alto contraste", { ...base, ...granate, ...altoContraste }, 7],
+    ]) {
+      assert.ok(contraste(paleta[`--portal-${fuerte}`], paleta[`--portal-${suave}`]) >= minimo,
+        `${fuerte} sobre ${suave} en ${nombre}`);
+    }
+  }
+});
+
+test("las marcas numeradas del menú mantienen texto inverso visible", () => {
+  for (const [nombre, paleta, minimo] of [
+    ["institucional", base, 4.5],
+    ["granate", { ...base, ...granate }, 4.5],
+    ["alto contraste", { ...base, ...granate, ...altoContraste }, 7],
+  ]) {
+    for (const token of ["azul-700", "exito", "naranja", "violeta", "cian-fuerte", "peligro", "oliva", "aviso", "turquesa", "morado"]) {
+      assert.ok(contraste(paleta["--portal-texto-inverso"], paleta[`--portal-${token}`]) >= minimo,
+        `${token} en ${nombre}`);
+    }
+  }
+  assert.doesNotMatch(regla(portal, ".tono-turquesa"), /#[0-9a-f]{3,8}\b/i);
+});
+
 test("los componentes comunes conservan la paleta activa en tarjetas y tablas", async () => {
   const componentes = await readFile(new URL("../portal-empleado/portal-componentes.css", import.meta.url), "utf8");
   for (const selector of [
@@ -73,6 +104,11 @@ test("los componentes comunes conservan la paleta activa en tarjetas y tablas", 
     '.tabla-datos--prioritaria tbody tr[aria-selected="true"] > [data-columna="acciones"]',
     ".acceso-rapido:hover",
   ]) {
+    const cuerpo = regla(componentes, selector);
+    assert.match(cuerpo, /var\(--portal-/);
+    assert.doesNotMatch(cuerpo, /#[0-9a-f]{3,8}\b|rgba?\(/i);
+  }
+  for (const selector of [".grafico-anillo", ".barras-mini span", ".linea-mini span", ".linea-mini span::before"]) {
     const cuerpo = regla(componentes, selector);
     assert.match(cuerpo, /var\(--portal-/);
     assert.doesNotMatch(cuerpo, /#[0-9a-f]{3,8}\b|rgba?\(/i);

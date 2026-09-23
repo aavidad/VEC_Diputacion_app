@@ -713,8 +713,8 @@
   height: 90px;
   margin: 12px auto;
   border-radius: 50%;
-  background: conic-gradient(#2b9ec5 0 55%, #f2bc36 55% 74%, #ef8b1f 74% 85%, #d74646 85% 100%);
-  mask: radial-gradient(circle at center, transparent 0 54%, #000 56%);
+  background: conic-gradient(var(--portal-cian-fuerte) 0 55%, var(--portal-aviso) 55% 74%, var(--portal-naranja) 74% 85%, var(--portal-peligro) 85% 100%);
+  mask: radial-gradient(circle at center, transparent 0 54%, currentColor 56%);
 }
 
 .barras-mini {
@@ -724,14 +724,14 @@
   justify-content: space-around;
   gap: 7px;
   padding-top: 12px;
-  border-bottom: 1px solid #aebbc9;
+  border-bottom: 1px solid var(--portal-borde);
 }
 
 .barras-mini span {
   width: 17%;
   min-height: 12px;
   border-radius: 3px 3px 0 0;
-  background: #4bb96b;
+  background: var(--portal-exito);
 }
 
 .linea-mini {
@@ -740,13 +740,13 @@
   align-items: end;
   gap: 4px;
   padding-top: 16px;
-  border-bottom: 1px solid #aebbc9;
+  border-bottom: 1px solid var(--portal-borde);
 }
 
 .linea-mini span {
   position: relative;
   width: 14%;
-  border-top: 3px solid #2f80df;
+  border-top: 3px solid var(--portal-azul-700);
 }
 
 .linea-mini span::before {
@@ -756,7 +756,7 @@
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #2f80df;
+  background: var(--portal-azul-700);
   content: "";
 }
 
