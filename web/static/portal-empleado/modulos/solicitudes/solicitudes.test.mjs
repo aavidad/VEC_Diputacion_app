@@ -37,33 +37,41 @@ test("sin fuente autorizada muestra estado no configurado y ningún recibo ni ex
 });
 
 test("lista, filtros, ficha e historia usan solo la fuente inyectada y escapan sus datos", () => {
-  const html = renderizarSolicitudes({ datos, filtro: "pendiente_subsanacion", busqueda: "SOL-001" });
+  const html = renderizarSolicitudes({ situacion: "disponible", datos, filtro: "pendiente_subsanacion", busqueda: "SOL-001" });
   assert.match(html, /SOL-001/);
   assert.doesNotMatch(html, /SOL-002/);
   assert.match(html, /Solicitud &lt;propia&gt;/);
   assert.doesNotMatch(html, /Solicitud <propia>/);
   assert.match(html, /Pendiente de subsanación/);
-  const ficha = renderizarSolicitudes({ datos, pestana: "seguimiento", seleccionada: "SOL-001" });
+  const ficha = renderizarSolicitudes({ situacion: "disponible", datos, pestana: "seguimiento", seleccionada: "SOL-001" });
   assert.match(ficha, /Entrada recibida/);
   assert.match(ficha, /Falta &lt;documento&gt;/);
   assert.match(ficha, /Siguiente acción indicada/);
   assert.match(ficha, /disabled aria-disabled="true"/);
   assert.doesNotMatch(ficha, /<documento>/);
-  const sinHistoria = renderizarSolicitudes({ datos, pestana: "seguimiento", seleccionada: "SOL-002" });
+  const sinHistoria = renderizarSolicitudes({ situacion: "disponible", datos, pestana: "seguimiento", seleccionada: "SOL-002" });
   assert.match(sinHistoria, /La fuente no ha devuelto hitos/);
 });
 
 test("catálogo y certificados son consultables, las operaciones permanecen deshabilitadas", () => {
-  const nueva = renderizarSolicitudes({ datos, pestana: "nueva" });
+  const nueva = renderizarSolicitudes({ situacion: "disponible", datos, pestana: "nueva" });
   assert.match(nueva, /Servicios previos/);
   assert.match(nueva, /Iniciar trámite/);
   assert.match(nueva, /Pendiente de conectar el caso de uso/);
   assert.match(nueva, /disabled aria-disabled="true"/);
-  const certificados = renderizarSolicitudes({ datos, pestana: "certificados" });
+  const certificados = renderizarSolicitudes({ situacion: "disponible", datos, pestana: "certificados" });
   assert.match(certificados, /Períodos reconocidos/);
   assert.match(certificados, /Emitir o descargar/);
   assert.match(certificados, /disabled aria-disabled="true"/);
   assert.doesNotMatch(certificados, /CERT-2026/);
+});
+
+test("la vista pura descarta trámites y selección si la consulta no está disponible", () => {
+  for (const situacion of ["denegado", "error", "no_configurado", "invalido", "vacio"]) {
+    const html = renderizarSolicitudes({ situacion, datos, pestana: "seguimiento", seleccionada: "SOL-001" });
+    assert.doesNotMatch(html, /SOL-001|SOL-002|Entrada recibida|Solicitud &lt;propia&gt;/);
+    assert.match(html, /Selecciona un trámite de la bandeja/);
+  }
 });
 
 test("montaje consulta una vez, representa vacío, denegado y error, y cancela al desmontar", async () => {
