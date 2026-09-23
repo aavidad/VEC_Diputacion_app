@@ -104,6 +104,7 @@ aplicar "$raiz/deploy/postgresql/identidad_sesiones_v1/pruebas_sql/registro_prop
 # primer FOR SHARE espera un puntero bloqueado. Debe denegar, sin nuevo efecto.
 consulta "SET ROLE vec_contexto_actor_v1_propietario; INSERT INTO vec_contexto_actor_v1.control_generacion_punteros_actuales_v2(control_id,generacion,actualizada_en) VALUES(true,0,clock_timestamp()); RESET ROLE;" >/dev/null
 consulta "SET ROLE vec_contexto_actor_v1_propietario; SELECT * FROM vec_contexto_actor_v1.registrar_persona_registro_propio_v1('cta_registroespera000000000001','per_registroespera000000000001','prf_registroespera000000000001','vca_registroespera000000000001',true,'prc_registroespera000000000001',1,repeat('b',64),'autoridad_maestra_acreditada',clock_timestamp()-interval '1 minute',clock_timestamp()+interval '1.2 seconds'); RESET ROLE;" >/dev/null
+consulta "SELECT vec_contexto_actor_v1.validar_registro_propio_v1('cta_registroespera000000000001',1,'per_registroespera000000000001',1,'prf_registroespera000000000001',1,'vca_registroespera000000000001',1)" >/dev/null
 lock_log=$(mktemp)
 docker exec "$contenedor" psql -X -A -t -q --set ON_ERROR_STOP=1 --username postgres --dbname "$base" \
   --command "BEGIN; SET ROLE vec_contexto_actor_v1_propietario; SELECT 'LOCKED' FROM vec_contexto_actor_v1.proyeccion_cuenta_actual WHERE cuenta_ref='cta_registroespera000000000001' FOR UPDATE; SELECT pg_sleep(1.8); COMMIT;" > "$lock_log" 2>&1 &
