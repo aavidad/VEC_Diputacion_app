@@ -9,6 +9,10 @@ assert.match(MENSAJES_NOMINAS_ES.certificados_pendientes, /No se generan certifi
 assert.equal(crearTraductorNominas()("seleccionado", { periodo: "2026-09", version: 2 }), "Recibo seleccionado: 2026-09, versión 2.");
 
 const vista = await readFile(new URL("./vista.js", import.meta.url), "utf8");
+const i18nVersionada = new URL("./i18n.js?v=20260924-f2-web2", import.meta.url);
+assert.match(vista, /from "\.\/i18n\.js\?v=20260924-f2-web2"/);
+assert.equal((await import(i18nVersionada.href)).crearTraductorNominas()("titulo"), "Nóminas y retribuciones");
+assert.equal(typeof (await import("./vista.js")).montarVistaNominas, "function");
 assert.doesNotMatch(vista, /datos-presentacion|datos-sinteticos|localStorage|sessionStorage|document\.cookie|fetch\(/);
 assert.match(vista, /fuente\.consultar\(\{ signal: controlador\.signal \}\)/);
 assert.match(vista, /descarga\.disabled = descargando \|\| !recibo\.descargable \|\| typeof fuente\?\.descargar !== "function"/);

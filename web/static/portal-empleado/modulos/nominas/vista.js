@@ -1,4 +1,4 @@
-import { crearTraductorNominas } from "./i18n.js";
+import { crearTraductorNominas } from "./i18n.js?v=20260924-f2-web2";
 
 const ESTADOS = new Set(["no_configurado", "cargando", "disponible", "vacio", "denegado", "error"]);
 const FORMATO_PERIODO = /^\d{4}-(0[1-9]|1[0-2])$/;
