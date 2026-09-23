@@ -34,6 +34,7 @@ func esRutaContratacionTemporalDesarrollo(r *http.Request) bool {
 		r.URL.Path == rutaAreaPersonalBolsaDesarrollo ||
 		r.URL.Path == rutaDisponibilidadBolsaDesarrollo ||
 		r.URL.Path == rutaBolsasRRHHDesarrollo || rutaBolsasCandidatosRRHHDesarrollo(r.URL.Path) ||
+		r.URL.Path == rutaEstadisticasBolsaRRHHDesarrollo ||
 		r.URL.Path == rutaCatalogosAltaContratacionTemporalDesarrollo ||
 		r.URL.Path == rutaOrganizacionContratacionTemporalDesarrollo ||
 		r.URL.Path == rutaCambiosOrganizacionContratacionTemporalDesarrollo ||
