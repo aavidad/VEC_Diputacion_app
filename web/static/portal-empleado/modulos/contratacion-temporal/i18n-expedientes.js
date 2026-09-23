@@ -223,6 +223,21 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
   documentos_titulo: "Documentos del expediente",
   documentos_descripcion:
     "Versiones, firmas, estados y descarga autorizada de cada pieza documental.",
+  continuidad_expediente_titulo: "Documentos y continuidad de la incorporación",
+  continuidad_expediente_descripcion:
+    "Consulte el índice documental de este expediente. La ficha manual GINPIX y el seguimiento requieren un recibo de incorporación confirmado y consultas disponibles.",
+  continuidad_expediente_documentos: "Consultar documentos del expediente",
+  continuidad_documentos_titulo: "Ficha GINPIX y seguimiento",
+  continuidad_documentos_ficha: "Ficha manual para GINPIX",
+  continuidad_documentos_ficha_estado:
+    "La descarga se ofrece en el expediente solo con recibo de incorporación confirmado y consulta disponible.",
+  continuidad_documentos_ficha_limite:
+    "La ficha descargada no transmite datos ni confirma un alta en GINPIX.",
+  continuidad_documentos_seguimiento: "Seguimiento de la incorporación",
+  continuidad_documentos_seguimiento_estado:
+    "El seguimiento original se consulta desde el mismo recibo en el expediente, cuando la consulta está disponible.",
+  continuidad_documentos_seguimiento_limite:
+    "Consultar el seguimiento no registra anotaciones ni cierra la relación.",
   documentos_tabla: "Índice documental del expediente",
   documento: "Documento",
   tipo: "Formato",

@@ -106,6 +106,73 @@
   background: var(--modulo-suave, var(--portal-azul-100));
 }
 
+.ct-exp-continuidad {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--portal-espacio-3);
+  align-items: center;
+  padding: var(--portal-espacio-4);
+  border: 1px solid var(--portal-borde);
+  border-inline-start: 4px solid var(--portal-cian-fuerte);
+  border-radius: var(--portal-radio-lg);
+  background: var(--portal-superficie);
+  box-shadow: var(--portal-sombra-sm);
+}
+
+.ct-exp-continuidad h3,
+.ct-exp-continuidad h4,
+.ct-exp-continuidad p {
+  margin: 0;
+}
+
+.ct-exp-continuidad h3 {
+  font-size: 1rem;
+}
+
+.ct-exp-continuidad p {
+  margin-top: var(--portal-espacio-1);
+  color: var(--portal-muted);
+  font-size: 0.82rem;
+}
+
+.ct-exp-continuidad-documentos {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.ct-exp-continuidad-pasos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--portal-espacio-3);
+}
+
+.ct-exp-continuidad-pasos article {
+  min-width: 0;
+  padding: var(--portal-espacio-3);
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio-md);
+  background: var(--portal-fondo);
+}
+
+.ct-exp-continuidad-pasos article:first-child {
+  border-inline-start: 3px solid var(--portal-cian-fuerte);
+}
+
+.ct-exp-continuidad-pasos article:last-child {
+  border-inline-start: 3px solid var(--portal-exito);
+}
+
+.ct-exp-continuidad-pasos h4 {
+  font-size: 0.86rem;
+}
+
+.ct-exp-continuidad-pasos small {
+  display: block;
+  margin-top: var(--portal-espacio-2);
+  color: var(--portal-muted);
+  font-size: 0.78rem;
+}
+
 /* La incorporación recuperada, la ficha manual y B11 comparten una lectura
    continua, pero cada respuesta conserva su propio estado y sus límites. */
 .ct-expedientes [data-ct-exp-incorporacion-ejercicio] {

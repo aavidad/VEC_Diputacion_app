@@ -51,6 +51,15 @@
 }
 
 @media (max-width: 620px) {
+  .ct-exp-continuidad,
+  .ct-exp-continuidad-pasos {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ct-exp-continuidad > button {
+    width: 100%;
+  }
+
   .ct-exp-documentos-cabecera {
     align-items: stretch;
     flex-direction: column;

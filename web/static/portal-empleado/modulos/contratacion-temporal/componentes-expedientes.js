@@ -672,7 +672,40 @@ export function renderizarExpediente(estado, t, locale, zonaHoraria, analisisDis
     ${renderizarCabecera(expediente, t, solicitudInformeDefinitivoDesdeEstado(estado) !== null)}
     ${renderizarFases(expediente, t)}
     ${tramitacion}
-    ${renderizarHistorialHitos(expediente, t)}`;
+    ${renderizarHistorialHitos(expediente, t)}
+    ${renderizarContinuidadDesdeExpediente(estado, t)}`;
+}
+
+// La versión solo decide si mostrar orientación; el recibo y las consultas
+// autorizadas deciden si se montan la ficha o el seguimiento reales.
+function versionConPosibleIncorporacion(expediente) {
+  return expediente?.demostracion === false
+    && Number.isSafeInteger(expediente.version) && expediente.version >= 8;
+}
+
+function renderizarContinuidadDesdeExpediente(estado, t) {
+  if (!versionConPosibleIncorporacion(estado.expediente)
+    || estado.navegacion?.documentos !== true) return "";
+  return `<section class="ct-exp-continuidad" aria-labelledby="ct-exp-continuidad-titulo">
+    <div><h3 id="ct-exp-continuidad-titulo">${escaparHTML(t("continuidad_expediente_titulo"))}</h3>
+      <p>${escaparHTML(t("continuidad_expediente_descripcion"))}</p></div>
+    <button type="button" class="boton-secundario" data-ct-exp-vista="documentos">${escaparHTML(t("continuidad_expediente_documentos"))}</button>
+  </section>`;
+}
+
+function renderizarContinuidadDesdeDocumentos(expediente, t) {
+  if (!versionConPosibleIncorporacion(expediente)) return "";
+  return `<section class="ct-exp-continuidad ct-exp-continuidad-documentos" aria-labelledby="ct-exp-continuidad-documentos-titulo">
+    <h3 id="ct-exp-continuidad-documentos-titulo">${escaparHTML(t("continuidad_documentos_titulo"))}</h3>
+    <div class="ct-exp-continuidad-pasos">
+      <article><h4>${escaparHTML(t("continuidad_documentos_ficha"))}</h4>
+        <p>${escaparHTML(t("continuidad_documentos_ficha_estado"))}</p>
+        <small>${escaparHTML(t("continuidad_documentos_ficha_limite"))}</small></article>
+      <article><h4>${escaparHTML(t("continuidad_documentos_seguimiento"))}</h4>
+        <p>${escaparHTML(t("continuidad_documentos_seguimiento_estado"))}</p>
+        <small>${escaparHTML(t("continuidad_documentos_seguimiento_limite"))}</small></article>
+    </div>
+  </section>`;
 }
 
 export function renderizarDocumentos(estado, t) {
@@ -706,7 +739,8 @@ export function renderizarDocumentos(estado, t) {
         </tr>`).join("")}</tbody>
       </table>
     </div>` : `<p class="ct-exp-documentos-vacio" role="status">${escaparHTML(t("panel_sin_datos"))}</p>`}
-    </section>`;
+    </section>
+    ${renderizarContinuidadDesdeDocumentos(expediente, t)}`;
 }
 
 export function renderizarAuditoria(estado, t) {

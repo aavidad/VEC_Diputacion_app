@@ -48,6 +48,40 @@ function presentadorDe(fuente, capacidades = fuente.capacidades) {
   return crearPresentadorExpedientesContratacionTemporal({ fuente, capacidades });
 }
 
+test("la continuidad real abre el índice documental sin fingir envío GINPIX ni consulta B11", () => {
+  const expediente = { ...crearExpedienteContratacionTemporalPresentacion(),
+    demostracion: false, version: 8 };
+  const estado = { vista: "expediente", carga: "listo", expediente,
+    expediente_ref: expediente.expediente_ref, tarea_ref: expediente.tareas[0].tarea_ref,
+    navegacion: { documentos: true }, ocupado: false,
+    actualizacion_pendiente: false, resultado_indeterminado: false };
+  const t = crearTraductorExpedientesContratacion();
+  const html = renderizarExpediente(estado, t, "es-ES", "Europe/Madrid");
+
+  assert.match(html, /Documentos y continuidad de la incorporación/u);
+  assert.match(html, /data-ct-exp-vista="documentos">Consultar documentos del expediente/u);
+  assert.match(html, /recibo de incorporación confirmado/u);
+  assert.doesNotMatch(html, /data-ct-ficha-ginpix-descargar|data-ct-seguimiento-consultar|ginpix\.enviar/u);
+  assert.doesNotMatch(renderizarExpediente({ ...estado, navegacion: { documentos: false } }, t, "es-ES", "Europe/Madrid"), /ct-exp-continuidad/u);
+  assert.doesNotMatch(renderizarExpediente({ ...estado, expediente: { ...expediente, version: 7 } }, t, "es-ES", "Europe/Madrid"), /ct-exp-continuidad/u);
+});
+
+test("documentos explica ficha manual y seguimiento con textos inyectados escapados", () => {
+  const expediente = { ...crearExpedienteContratacionTemporalPresentacion(),
+    demostracion: false, version: 8 };
+  const t = crearTraductorExpedientesContratacion({
+    continuidad_documentos_ficha_limite: "Sin transmisión <externa>",
+  });
+  const html = renderizarDocumentos({ expediente, documentos: { documentos: [] } }, t);
+
+  assert.match(html, /Ficha manual para GINPIX/u);
+  assert.match(html, /Sin transmisión &lt;externa&gt;/u);
+  assert.match(html, /Seguimiento de la incorporación/u);
+  assert.match(html, /El seguimiento original se consulta desde el mismo recibo/u);
+  assert.match(html, /data-ct-exp-vista="expediente">Expediente/u);
+  assert.doesNotMatch(html, /<externa>|data-ct-ficha-ginpix-descargar|data-ct-seguimiento-consultar/u);
+});
+
 test("el índice documental mantiene el regreso al expediente y explica el estado vacío", () => {
   const expediente = crearExpedienteContratacionTemporalPresentacion();
   const t = crearTraductorExpedientesContratacion();
