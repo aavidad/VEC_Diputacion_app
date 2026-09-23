@@ -145,6 +145,11 @@ func validarResultado(r puertosbolsa.InstantaneaMiBolsa, ahora time.Time) error 
 				return puertosbolsa.ErrResultadoMiBolsaInvalido
 			}
 		}
+		if l := p.UltimoLlamamiento; l != nil {
+			if l.EmitidoEn.IsZero() || l.EmitidoEn.After(ahora) || l.Canal != "correo" || (l.Resultado != "enviado" && l.Resultado != "no_enviado") {
+				return puertosbolsa.ErrResultadoMiBolsaInvalido
+			}
+		}
 	}
 	return nil
 }

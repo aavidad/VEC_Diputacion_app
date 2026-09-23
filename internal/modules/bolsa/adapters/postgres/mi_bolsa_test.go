@@ -47,3 +47,12 @@ func TestDecodificarMiBolsaConSituacionActualMinimizada(t *testing.T) {
 		t.Fatalf("situación actual incorrecta: %#v", s)
 	}
 }
+
+func TestDecodificarMiBolsaConUltimoLlamamientoPropio(t *testing.T) {
+	ahora := time.Date(2026, 9, 23, 10, 0, 0, 0, time.UTC)
+	contenido := []byte(`{"consultada_en":"2026-09-23T10:00:00Z","participaciones":[{"bolsa":"bolsa:01","categoria":"Auxiliar","version":3,"orden_inicial":2,"total_instantanea":4,"estado_bolsa":"vigente","vigente_desde":"2026-09-01T00:00:00Z","vigente_hasta":null,"ultimo_llamamiento":{"emitido_en":"2026-09-20T10:00:00Z","canal":"correo","resultado":"no_enviado"}}]}`)
+	r, err := decodificarInstantaneaMiBolsa(contenido, ahora)
+	if err != nil || r.Participaciones[0].UltimoLlamamiento == nil || r.Participaciones[0].UltimoLlamamiento.Resultado != "no_enviado" {
+		t.Fatalf("último llamamiento: %#v, %v", r, err)
+	}
+}
