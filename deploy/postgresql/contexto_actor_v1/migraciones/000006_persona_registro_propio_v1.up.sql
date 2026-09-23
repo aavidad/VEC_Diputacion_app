@@ -113,7 +113,8 @@ CREATE FUNCTION vec_contexto_actor_v1.validar_registro_propio_v1(
  p_cuenta text,p_cuenta_version numeric,p_persona text,p_persona_version numeric,
  p_perfil text,p_perfil_version numeric,p_vinculo text,p_vinculo_version numeric)
 RETURNS void LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET lock_timeout='2s' AS $v$
-DECLARE c record; p record; f record; v record; t timestamptz:=clock_timestamp();
+DECLARE c record; p record; f record; v record; t timestamptz;
+ c_encontrada boolean; p_encontrada boolean; f_encontrada boolean; v_encontrada boolean;
 BEGIN
  IF current_user<>'vec_contexto_actor_v1_propietario'
     OR NOT pg_has_role(session_user,'vec_identidad_sesiones_v1_provisionador','MEMBER')
@@ -122,22 +123,28 @@ BEGIN
  FROM vec_contexto_actor_v1.proyeccion_cuenta_actual a
  JOIN vec_contexto_actor_v1.proyeccion_cuenta_versiones h USING(cuenta_ref,version)
  WHERE a.cuenta_ref=p_cuenta FOR SHARE OF a;
- IF NOT FOUND OR c.version IS DISTINCT FROM p_cuenta_version OR c.estado<>'activo' OR t<c.vigente_desde OR t>=c.vigente_hasta
- THEN RAISE EXCEPTION 'registro propio: cuenta revocada' USING ERRCODE='42501'; END IF;
+ c_encontrada:=FOUND;
  SELECT a.version,h.estado,h.vigente_desde,h.vigente_hasta INTO p
  FROM vec_contexto_actor_v1.persona_actual a JOIN vec_contexto_actor_v1.persona_versiones h USING(persona_ref,version)
  WHERE a.persona_ref=p_persona FOR SHARE OF a;
- IF NOT FOUND OR p.version IS DISTINCT FROM p_persona_version OR p.estado<>'activo' OR t<p.vigente_desde OR t>=p.vigente_hasta
- THEN RAISE EXCEPTION 'registro propio: persona revocada' USING ERRCODE='42501'; END IF;
+ p_encontrada:=FOUND;
  SELECT a.version,h.persona_ref,h.estado,h.vigente_desde,h.vigente_hasta INTO f
  FROM vec_contexto_actor_v1.perfil_actual a JOIN vec_contexto_actor_v1.perfil_versiones h USING(perfil_ref,version)
  WHERE a.perfil_ref=p_perfil FOR SHARE OF a;
- IF NOT FOUND OR f.version IS DISTINCT FROM p_perfil_version OR f.persona_ref IS DISTINCT FROM p_persona OR f.estado<>'activo' OR t<f.vigente_desde OR t>=f.vigente_hasta
- THEN RAISE EXCEPTION 'registro propio: perfil revocado' USING ERRCODE='42501'; END IF;
+ f_encontrada:=FOUND;
  SELECT a.version,h.cuenta_ref,h.perfil_ref,h.persona_ref,h.estado,h.vigente_desde,h.vigente_hasta INTO v
  FROM vec_contexto_actor_v1.vinculo_contexto_actual a JOIN vec_contexto_actor_v1.vinculo_contexto_versiones h USING(vinculo_ref,version)
  WHERE a.vinculo_ref=p_vinculo FOR SHARE OF a;
- IF NOT FOUND OR v.version IS DISTINCT FROM p_vinculo_version OR v.cuenta_ref IS DISTINCT FROM p_cuenta
+ v_encontrada:=FOUND;
+ -- Ninguna vigencia se evalúa con un instante anterior a una espera por lock.
+ t:=clock_timestamp();
+ IF NOT c_encontrada OR c.version IS DISTINCT FROM p_cuenta_version OR c.estado<>'activo' OR t<c.vigente_desde OR t>=c.vigente_hasta
+ THEN RAISE EXCEPTION 'registro propio: cuenta revocada' USING ERRCODE='42501'; END IF;
+ IF NOT p_encontrada OR p.version IS DISTINCT FROM p_persona_version OR p.estado<>'activo' OR t<p.vigente_desde OR t>=p.vigente_hasta
+ THEN RAISE EXCEPTION 'registro propio: persona revocada' USING ERRCODE='42501'; END IF;
+ IF NOT f_encontrada OR f.version IS DISTINCT FROM p_perfil_version OR f.persona_ref IS DISTINCT FROM p_persona OR f.estado<>'activo' OR t<f.vigente_desde OR t>=f.vigente_hasta
+ THEN RAISE EXCEPTION 'registro propio: perfil revocado' USING ERRCODE='42501'; END IF;
+ IF NOT v_encontrada OR v.version IS DISTINCT FROM p_vinculo_version OR v.cuenta_ref IS DISTINCT FROM p_cuenta
     OR v.perfil_ref IS DISTINCT FROM p_perfil OR v.persona_ref IS DISTINCT FROM p_persona
     OR v.estado<>'activo' OR t<v.vigente_desde OR t>=v.vigente_hasta
  THEN RAISE EXCEPTION 'registro propio: vínculo revocado' USING ERRCODE='42501'; END IF;

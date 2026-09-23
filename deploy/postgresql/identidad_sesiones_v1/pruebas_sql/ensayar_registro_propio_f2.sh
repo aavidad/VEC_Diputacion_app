@@ -23,7 +23,7 @@ raiz_contacto=${VEC_F2_CONTACTO_SOURCE:-$raiz}
 contenedor="vec-f2-registro-pg18-$$"
 base="vec_f2_$$"
 imagen=${VEC_POSTGRES_TEST_IMAGE:-postgres:18.4-bookworm@sha256:1961f96e6029a02c3812d7cb329a3b03a3ac2bb067058dec17b0f5596aca9296}
-limpiar(){ docker rm -f "$contenedor" >/dev/null 2>&1 || true; for tmp in "${transaccion:-}" "${roles_sql:-}"; do if [[ -n "$tmp" && -f "$tmp" ]]; then unlink "$tmp"; fi; done; }
+limpiar(){ docker rm -f "$contenedor" >/dev/null 2>&1 || true; for tmp in "${transaccion:-}" "${roles_sql:-}" "${lock_log:-}"; do if [[ -n "$tmp" && -f "$tmp" ]]; then unlink "$tmp"; fi; done; }
 trap limpiar EXIT INT TERM
 docker run --detach --rm --network none --name "$contenedor" --env POSTGRES_HOST_AUTH_METHOD=trust "$imagen" >/dev/null
 for _ in $(seq 1 60); do docker exec "$contenedor" pg_isready -q -U postgres -d postgres && break; sleep 0.5; done
@@ -99,6 +99,34 @@ aplicar "$transaccion"
 [[ "$(consulta "SELECT to_regclass('vec_identidad_sesiones_v1.registro_propio_v1') IS NULL AND to_regnamespace('vec_contacto_usuario_v1') IS NULL")" == t ]] || { echo 'F2: ROLLBACK dejó efectos' >&2; exit 1; }
 for archivo in "${archivos[@]}"; do aplicar "$archivo"; done
 aplicar "$raiz/deploy/postgresql/identidad_sesiones_v1/pruebas_sql/registro_propio_v1_acl.sql"
+
+# Carrera focal: la vigencia es válida al entrar, pero caduca mientras el
+# primer FOR SHARE espera un puntero bloqueado. Debe denegar, sin nuevo efecto.
+consulta "SET ROLE vec_contexto_actor_v1_propietario; SELECT * FROM vec_contexto_actor_v1.registrar_persona_registro_propio_v1('cta_registroespera000000000001','per_registroespera000000000001','prf_registroespera000000000001','vca_registroespera000000000001',true,'prc_registroespera000000000001',1,repeat('b',64),'autoridad_maestra_acreditada',clock_timestamp()-interval '1 minute',clock_timestamp()+interval '1.2 seconds'); RESET ROLE;" >/dev/null
+lock_log=$(mktemp)
+docker exec "$contenedor" psql -X -A -t -q --set ON_ERROR_STOP=1 --username postgres --dbname "$base" \
+  --command "BEGIN; SET ROLE vec_contexto_actor_v1_propietario; SELECT 'LOCKED' FROM vec_contexto_actor_v1.proyeccion_cuenta_actual WHERE cuenta_ref='cta_registroespera000000000001' FOR UPDATE; SELECT pg_sleep(1.8); COMMIT;" > "$lock_log" 2>&1 &
+locker=$!
+for _ in $(seq 1 50); do rg -q '^LOCKED$' "$lock_log" && break; sleep 0.01; done
+rg -q '^LOCKED$' "$lock_log" || { echo 'F2: no se obtuvo el lock adversarial' >&2; exit 1; }
+docker exec -i "$contenedor" psql -X -q --set ON_ERROR_STOP=1 --username postgres --dbname "$base" <<'SQL_CADUCIDAD'
+DO $test$
+BEGIN
+ IF clock_timestamp()>=(SELECT h.vigente_hasta FROM vec_contexto_actor_v1.proyeccion_cuenta_actual a
+ JOIN vec_contexto_actor_v1.proyeccion_cuenta_versiones h USING(cuenta_ref,version)
+ WHERE a.cuenta_ref='cta_registroespera000000000001')
+ THEN RAISE EXCEPTION 'F2: ensayo empezó después de caducar' USING ERRCODE='55000'; END IF;
+ BEGIN
+  PERFORM vec_contexto_actor_v1.validar_registro_propio_v1(
+   'cta_registroespera000000000001',1,'per_registroespera000000000001',1,
+   'prf_registroespera000000000001',1,'vca_registroespera000000000001',1);
+  RAISE EXCEPTION 'F2: replay aceptado tras caducidad durante lock' USING ERRCODE='55000';
+ EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+ IF EXISTS(SELECT 1 FROM vec_identidad_sesiones_v1.registro_propio_v1)
+ THEN RAISE EXCEPTION 'F2: ensayo alteró registro' USING ERRCODE='55000'; END IF;
+END $test$;
+SQL_CADUCIDAD
+wait "$locker"
 [[ "$(consulta "SELECT to_regclass('vec_identidad_sesiones_v1.registro_propio_v1') IS NOT NULL AND to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_registro_propio_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL")" == t ]] || { echo 'F2: postimagen no acreditada' >&2; exit 1; }
 # DOWN únicamente en el contenedor desechable y vacío, para comprobar reversión.
 [[ "$(consulta "SELECT NOT EXISTS(SELECT 1 FROM vec_identidad_sesiones_v1.registro_propio_v1)")" == t ]] || { echo 'F2: historia impide DOWN' >&2; exit 1; }
