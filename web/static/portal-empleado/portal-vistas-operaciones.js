@@ -1,5 +1,5 @@
 /** Vistas compartidas de importación, llamamientos, relaciones, documentos y comunicaciones. */
-import { traducirContratos } from "./portal-i18n-contratos.js";
+import { traducirContratos } from "./portal-i18n-contratos.js?v=20260924-f2-web2";
 
 export function crearVistasOperaciones(u) {
   const { escaparHTML: e, numero, fecha, chip, tabla, kpi, encabezadoVista,
