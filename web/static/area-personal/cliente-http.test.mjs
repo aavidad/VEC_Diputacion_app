@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { crearAdaptadorPresentacion } from "./adaptador-presentacion.js";
@@ -34,7 +35,7 @@ test("mi bolsa se consulta primero sin cookies, query ni cabeceras de identidad"
   let peticion;
   const cliente = crearClienteHTTPAreaPersonal({ fetchImpl: async (ruta, opciones) => {
     peticion = { ruta, opciones };
-    return respuestaJSON({ data: { esquema: "vec.bolsa.mi_bolsa.v1", consultada_en: "2026-09-23T10:00:00.000Z", participaciones: [{ bolsa: "bolsa:prueba:01", categoria: "Auxiliar", version: 3, orden_inicial: 12, total_instantanea: 87, estado_bolsa: "vigente", vigente_desde: "2026-09-01T00:00:00.000Z", vigente_hasta: null }] } });
+    return respuestaJSON({ data: { esquema: "vec.bolsa.mi-bolsa.v1", consultada_en: "2026-09-23T10:00:00.000000Z", participaciones: [{ bolsa: "bolsa:prueba:01", categoria: "Auxiliar", version: 3, orden_inicial: 12, total_instantanea: 87, estado_bolsa: "vigente", vigente_desde: "2026-09-01T00:00:00.000000Z", vigente_hasta: null }] } });
   } });
   const recibido = await cliente.cargar();
   assert.equal(recibido.fuente, "real");
@@ -44,6 +45,16 @@ test("mi bolsa se consulta primero sin cookies, query ni cabeceras de identidad"
   assert.equal(peticion.opciones.cache, "no-store");
   assert.equal(peticion.opciones.headers.Authorization, undefined);
   assert.equal(peticion.opciones.headers["X-Identity"], undefined);
+});
+
+test("el cliente acepta el payload exacto serializado por httppersonal", async () => {
+  const archivo = new URL("../../../internal/modules/bolsa/adapters/httppersonal/testdata/mi_bolsa_situacion.json", import.meta.url);
+  const payload = JSON.parse(await readFile(archivo, "utf8"));
+  const cliente = crearClienteHTTPAreaPersonal({ fetchImpl: async () => respuestaJSON(payload) });
+  const recibido = await cliente.cargar();
+  assert.equal(recibido.consulta.participaciones[0].situacion_actual.estado, "no_disponible");
+  assert.equal(recibido.consulta.participaciones[0].ultimo_llamamiento.resultado, "enviado");
+  assert.equal(recibido.consulta.consultada_en, "2026-09-20T11:00:00.000000Z");
 });
 
 test("solo 401, 404 y 503 permiten volver al panel sintético rotulado", async () => {

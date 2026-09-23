@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -11,6 +12,7 @@ import (
 	"io"
 	"net/http"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"time"
@@ -47,6 +49,7 @@ type configuracionComisionesDietasDesarrollo struct {
 	DSNFuenteAutorizacion    string                         `json:"dsn_fuente_autorizacion"`
 	DSNRegistroAutorizacion  string                         `json:"dsn_registro_autorizacion"`
 	DSNMotivos               string                         `json:"dsn_motivos"`
+	DSNAuditoriaFrontera     string                         `json:"dsn_auditoria_frontera"`
 	MotivoPersonal           core.ReferenciaEntradaCatalogo `json:"motivo_personal"`
 	MotivoCrear              core.ReferenciaEntradaCatalogo `json:"motivo_crear"`
 	MotivoConsultar          core.ReferenciaEntradaCatalogo `json:"motivo_consultar"`
@@ -113,22 +116,35 @@ type autoridadComisionesDietasDesarrollo struct {
 	cuentas     map[string]cuentaRutasDietasDesarrollo
 	rutas       []vechttp.RutaExacta
 	colecciones []vechttp.RutaColeccion
+	registrador dietasports.RegistradorAuditoriaFronteraComision
 	cerrar      func()
 }
 
 func esRutaComisionesDietas(ruta string) bool {
-	if ruta == dietashttp.RutaBorradores {
-		return true
-	}
-	resto, ok := strings.CutPrefix(ruta, dietashttp.RutaBorradores+"/")
-	return ok && resto != "" && !strings.Contains(resto, "/")
+	return ruta == dietashttp.RutaBorradores || strings.HasPrefix(ruta, dietashttp.RutaBorradores+"/")
 }
+
+var referenciaRutaComisionDietas = regexp.MustCompile(`^dco_[A-Za-z0-9_-]{22,128}$`)
 
 func metodoComisionesDietasValido(ruta, metodo string) bool {
 	if ruta == dietashttp.RutaBorradores {
 		return metodo == http.MethodGet || metodo == http.MethodPost
 	}
-	return esRutaComisionesDietas(ruta) && metodo == http.MethodGet
+	resto, ok := strings.CutPrefix(ruta, dietashttp.RutaBorradores+"/")
+	return ok && metodo == http.MethodGet && referenciaRutaComisionDietas.MatchString(resto)
+}
+
+func accionFronteraComisionesDietas(ruta, metodo string) string {
+	if !metodoComisionesDietasValido(ruta, metodo) {
+		return dietasports.AccionFronteraMetodoNoAdmitido
+	}
+	if ruta != dietashttp.RutaBorradores {
+		return dietasports.AccionFronteraConsultarDetalle
+	}
+	if metodo == http.MethodPost {
+		return dietasports.AccionFronteraCrear
+	}
+	return dietasports.AccionFronteraListar
 }
 
 func (a *autoridadComisionesDietasDesarrollo) proteger(siguiente http.Handler) http.Handler {
@@ -142,29 +158,74 @@ func (a *autoridadComisionesDietasDesarrollo) proteger(siguiente http.Handler) h
 			return
 		}
 		if a == nil || a.base == nil || r.TLS == nil || len(r.TLS.VerifiedChains) == 0 || len(r.TLS.VerifiedChains[0]) == 0 || r.Header.Get("Cookie") != "" || r.Header.Get("Authorization") != "" {
-			responderDenegacionComisionesDietas(w, http.StatusUnauthorized)
+			a.denegar(w, r, http.StatusUnauthorized)
 			return
 		}
 		principal, err := a.base.resolvedor.ResolveDemoIdentity(r.Context(), r)
 		ahora := a.reloj.Ahora()
 		cert := r.TLS.VerifiedChains[0][0]
 		if err != nil || principal.AuthMethod != core.AuthMethodCertificate || principal.AuthAssurance != core.AuthAssuranceHigh || ahora.Before(cert.NotBefore) || !ahora.Before(cert.NotAfter) {
-			responderDenegacionComisionesDietas(w, http.StatusUnauthorized)
+			a.denegar(w, r, http.StatusUnauthorized)
 			return
 		}
 		cuenta, ok := a.cuentas[principal.Attributes["certificate_sha256"]]
 		if !ok || cuenta.Sujeto != principal.ID {
-			responderDenegacionComisionesDietas(w, http.StatusForbidden)
+			a.denegar(w, r, http.StatusForbidden)
 			return
 		}
 		vinculo, resultado, err := a.base.resolverSesion(r.Context(), r, &capsulaRutasDietasDesarrollo{autoridad: a.base, peticion: r, cuenta: cuenta, instante: ahora})
 		if err != nil {
-			responderDenegacionComisionesDietas(w, http.StatusServiceUnavailable)
+			a.denegar(w, r, http.StatusServiceUnavailable)
+			return
+		}
+		if !metodoComisionesDietasValido(r.URL.Path, r.Method) || r.URL.RawPath != "" || r.URL.EscapedPath() != r.URL.Path {
+			a.denegar(w, r, http.StatusForbidden)
 			return
 		}
 		ctx := context.WithValue(r.Context(), claveContextoComisionesDietas{}, contextoComisionesDietas{autoridad: a, ruta: r.URL.Path, metodo: r.Method, seguridad: contextoSeguridadComunDesarrollo{Vinculo: vinculo, Resultado: resultado}})
 		siguiente.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+func (a *autoridadComisionesDietasDesarrollo) denegar(w http.ResponseWriter, r *http.Request, estado int) {
+	if r == nil || r.URL == nil {
+		responderDenegacionComisionesDietas(w, http.StatusServiceUnavailable)
+		return
+	}
+	if a.registrarDenegacion(r.Context(), r.URL.Path, r.Method, estado) != nil {
+		responderDenegacionComisionesDietas(w, http.StatusServiceUnavailable)
+		return
+	}
+	responderDenegacionComisionesDietas(w, estado)
+}
+
+func (a *autoridadComisionesDietasDesarrollo) registrarDenegacion(ctx context.Context, rutaPeticion, metodo string, estado int) error {
+	if a == nil || a.registrador == nil || ctx == nil {
+		return ErrComposicionBorradoresDietasNoDisponible
+	}
+	motivo := dietasports.MotivoFronteraDependencia
+	switch estado {
+	case http.StatusUnauthorized:
+		motivo = dietasports.MotivoFronteraAutenticacion
+	case http.StatusForbidden:
+		motivo = dietasports.MotivoFronteraAccesoDenegado
+	}
+	ruta := dietasports.RutaAuditoriaFronteraComision
+	if rutaPeticion != dietashttp.RutaBorradores {
+		ruta = dietasports.RutaAuditoriaFronteraDetalle
+	}
+	var aleatorio [16]byte
+	correlacion := "corr_no_disponible"
+	if _, err := rand.Read(aleatorio[:]); err == nil {
+		correlacion = "corr_" + hex.EncodeToString(aleatorio[:])
+	}
+	orden := dietasports.OrdenAuditoriaFronteraComision{CorrelacionRef: correlacion, Motivo: motivo, Ruta: ruta, Accion: accionFronteraComisionesDietas(rutaPeticion, metodo)}
+	if orden.Validar() != nil {
+		return ErrComposicionBorradoresDietasNoDisponible
+	}
+	ctxAuditoria, cancelar := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+	defer cancelar()
+	return a.registrador.RegistrarAuditoriaFronteraComision(ctxAuditoria, orden)
 }
 
 func responderDenegacionComisionesDietas(w http.ResponseWriter, estado int) {
@@ -190,6 +251,9 @@ func (a autoridadExactasConDietas) AutorizarRutaExacta(ctx context.Context, ruta
 		return vechttp.ErrAutenticacionRutaExactaRequerida
 	}
 	if a.dietas == nil || c.autoridad != a.dietas || c.ruta != ruta || !metodoComisionesDietasValido(ruta, c.metodo) || c.seguridad.Resultado.Validar() != nil || !c.seguridad.Vinculo.VigenteEn(a.dietas.reloj.Ahora(), c.seguridad.Resultado) {
+		if a.dietas != nil && a.dietas.registrarDenegacion(ctx, ruta, c.metodo, http.StatusForbidden) != nil {
+			return ErrComposicionBorradoresDietasNoDisponible
+		}
 		return vechttp.ErrAccesoRutaExactaDenegado
 	}
 	return nil
@@ -239,10 +303,14 @@ func nuevasComisionesDietasDesarrollo(cfg config.Config, resolvedor vechttp.Demo
 	entradas := []struct{ dsn, rol string }{{c.DSNRegistroIdentidad, "vec_identidad_sesiones_v1_registrador"}, {c.DSNRevalidacionIdentidad, "vec_identidad_sesiones_v1_revalidador"}, {c.DSNContexto, "vec_contexto_actor_v1_runtime"}, {c.DSNFuenteAutorizacion, "vec_autorizacion_fuente"}, {c.DSNRegistroAutorizacion, "vec_autorizacion_registro"}, {c.DSNMotivos, "vec_autorizacion_motivos_evaluador"}}
 	var pools []*pgxpool.Pool
 	var propios *poolsPostgreSQLDietasDesarrollo
+	var auditoria *pgxpool.Pool
 	completa := false
 	cerrar := func() {
 		if propios != nil {
 			propios.Cerrar()
+		}
+		if auditoria != nil {
+			auditoria.Close()
 		}
 		for _, p := range pools {
 			p.Close()
@@ -277,6 +345,14 @@ func nuevasComisionesDietasDesarrollo(cfg config.Config, resolvedor vechttp.Demo
 			return nil, errComposicionDietasEn()
 		}
 		usuarios[usuario] = true
+	}
+	auditoria, usuarioAuditoria, err := abrirPoolAuditoriaFronteraDietasDesarrollo(ctx, c.DSNAuditoriaFrontera)
+	if err != nil || usuarios[usuarioAuditoria] {
+		return nil, errComposicionDietasEn()
+	}
+	registrador, err := dietaspg.NuevoRegistradorAuditoriaFronteraComisionPostgreSQL(auditoria)
+	if err != nil || registrador.Preflight(ctx) != nil {
+		return nil, errComposicionDietasEn()
 	}
 	registro, err := identidadpg.NuevoRegistroSesionesPostgreSQL(ctx, pools[0], pools[1], &seudonimizadorSesionDesarrollo{derivador: derivador}, espacioIdentidadSesionDesarrollo, dominioIdentidadSesionDesarrollo)
 	if err != nil {
@@ -328,7 +404,7 @@ func nuevasComisionesDietasDesarrollo(cfg config.Config, resolvedor vechttp.Demo
 		return nil, errComposicionDietasEn()
 	}
 	base := &autoridadRutasDietasDesarrollo{resolvedor: identidad, cuentas: cuentas, registro: registro, revalidador: revalidador, contextos: contextos, reloj: reloj, instancia: nonce}
-	a := &autoridadComisionesDietasDesarrollo{base: base, reloj: reloj, cuentas: cuentas, cerrar: cerrar}
+	a := &autoridadComisionesDietasDesarrollo{base: base, reloj: reloj, cuentas: cuentas, registrador: registrador, cerrar: cerrar}
 	seguridadComisiones := seguridadComisionesDietasDesarrollo{autoridad: a}
 	calculador, err := nuevoCasoUsoCalculoRutas(cfg)
 	if err != nil || calculador == nil {

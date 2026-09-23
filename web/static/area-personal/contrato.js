@@ -1,5 +1,5 @@
 const ESQUEMA_PANEL = "vec.bolsa.area-personal.v1";
-export const ESQUEMA_MI_BOLSA = "vec.bolsa.mi_bolsa.v1";
+export const ESQUEMA_MI_BOLSA = "vec.bolsa.mi-bolsa.v1";
 const ESQUEMA_RECIBO = "vec.bolsa.area-personal.recibo.v1";
 const ESQUEMA_RECIBO_PRESENTACION = "vec.bolsa.area-personal.recibo-demo.v1";
 const PATRON_DNI_NIE = /\b(?:[XYZ]\d{7}[A-Z]|\d{8}[A-Z])\b/i;
@@ -12,6 +12,11 @@ export const SITUACIONES_PARTICIPACION_BOLSA = Object.freeze([
   "no_disponible",
   "excluido",
   "renuncia_pendiente",
+]);
+
+const SITUACIONES_ACTUALES_MI_BOLSA = Object.freeze([
+  "disponible", "no_disponible", "trabajando", "pendiente_incorporacion",
+  "renuncia", "excluido", "disponible_desde",
 ]);
 
 export const RESULTADOS_LLAMAMIENTO = Object.freeze([
@@ -70,7 +75,7 @@ function exigirReferencia(valor, nombre, { demostracion = false } = {}) {
 
 function exigirInstante(valor, nombre) {
   const instante = exigirCadena(valor, nombre, 40);
-  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(instante)) {
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$/.test(instante)) {
     throw new TypeError(`${nombre} debe ser un instante UTC ISO 8601.`);
   }
   return instante;
@@ -145,6 +150,25 @@ export function validarRespuestaMiBolsa(entrada) {
     exigirCadena(item.estado_bolsa, `mi-bolsa.participaciones[${indice}].estado_bolsa`, 80);
     exigirFechaOInstante(item.vigente_desde, `mi-bolsa.participaciones[${indice}].vigente_desde`);
     if (item.vigente_hasta !== null) exigirFechaOInstante(item.vigente_hasta, `mi-bolsa.participaciones[${indice}].vigente_hasta`);
+    if (item.situacion_actual !== undefined && item.situacion_actual !== null) {
+      const actual = exigirObjeto(item.situacion_actual, `mi-bolsa.participaciones[${indice}].situacion_actual`);
+      if (!SITUACIONES_ACTUALES_MI_BOLSA.includes(actual.estado)) throw new TypeError("La situación actual de mi bolsa no es válida.");
+      exigirFechaOInstante(actual.desde, `mi-bolsa.participaciones[${indice}].situacion_actual.desde`);
+      if (actual.hasta !== null) exigirFechaOInstante(actual.hasta, `mi-bolsa.participaciones[${indice}].situacion_actual.hasta`);
+      if (actual.fecha_disponible !== null) exigirFechaOInstante(actual.fecha_disponible, `mi-bolsa.participaciones[${indice}].situacion_actual.fecha_disponible`);
+      if ((actual.estado === "disponible_desde") !== (actual.fecha_disponible !== null)) throw new TypeError("La fecha de disponibilidad no corresponde a la situación actual.");
+      if (actual.hasta !== null && Date.parse(actual.hasta) < Date.parse(actual.desde)) throw new TypeError("La situación actual termina antes de comenzar.");
+    }
+    if (item.ultimo_llamamiento !== undefined && item.ultimo_llamamiento !== null) {
+      const ultimo = exigirObjeto(item.ultimo_llamamiento, `mi-bolsa.participaciones[${indice}].ultimo_llamamiento`);
+      exigirInstante(ultimo.emitido_en, `mi-bolsa.participaciones[${indice}].ultimo_llamamiento.emitido_en`);
+      if (Date.parse(ultimo.emitido_en) > Date.parse(datos.consultada_en) || ultimo.canal !== "correo" || !["enviado", "no_enviado"].includes(ultimo.resultado)) {
+        throw new TypeError("El último llamamiento propio no es válido.");
+      }
+      if (Object.keys(ultimo).sort().join() !== "canal,emitido_en,resultado") {
+        throw new TypeError("El último llamamiento contiene campos no autorizados.");
+      }
+    }
   });
   return congelarProfundo(datos);
 }

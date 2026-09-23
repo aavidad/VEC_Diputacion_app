@@ -34,3 +34,25 @@ func TestDecodificarInstantaneaMiBolsaMapeaSnakeCase(t *testing.T) {
 		t.Fatalf("proyección no mapeada: %#v", p)
 	}
 }
+
+func TestDecodificarMiBolsaConSituacionActualMinimizada(t *testing.T) {
+	ahora := time.Date(2026, 9, 23, 10, 0, 0, 0, time.UTC)
+	contenido := []byte(`{"consultada_en":"2026-09-23T10:00:00Z","participaciones":[{"bolsa":"bolsa:01","categoria":"Auxiliar","version":3,"orden_inicial":2,"total_instantanea":4,"estado_bolsa":"vigente","vigente_desde":"2026-09-01T00:00:00Z","vigente_hasta":null,"situacion_actual":{"estado":"no_disponible","desde":"2026-09-20T10:00:00Z","hasta":null,"fecha_disponible":null}}]}`)
+	resultado, err := decodificarInstantaneaMiBolsa(contenido, ahora)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := resultado.Participaciones[0].SituacionActual
+	if s == nil || s.Estado != "no_disponible" || s.Desde != time.Date(2026, 9, 20, 10, 0, 0, 0, time.UTC) || s.Hasta != nil || s.FechaDisponible != nil {
+		t.Fatalf("situación actual incorrecta: %#v", s)
+	}
+}
+
+func TestDecodificarMiBolsaConUltimoLlamamientoPropio(t *testing.T) {
+	ahora := time.Date(2026, 9, 23, 10, 0, 0, 0, time.UTC)
+	contenido := []byte(`{"consultada_en":"2026-09-23T10:00:00Z","participaciones":[{"bolsa":"bolsa:01","categoria":"Auxiliar","version":3,"orden_inicial":2,"total_instantanea":4,"estado_bolsa":"vigente","vigente_desde":"2026-09-01T00:00:00Z","vigente_hasta":null,"ultimo_llamamiento":{"emitido_en":"2026-09-20T10:00:00Z","canal":"correo","resultado":"no_enviado"}}]}`)
+	r, err := decodificarInstantaneaMiBolsa(contenido, ahora)
+	if err != nil || r.Participaciones[0].UltimoLlamamiento == nil || r.Participaciones[0].UltimoLlamamiento.Resultado != "no_enviado" {
+		t.Fatalf("último llamamiento: %#v, %v", r, err)
+	}
+}

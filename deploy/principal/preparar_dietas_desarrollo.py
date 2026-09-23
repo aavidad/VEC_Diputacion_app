@@ -54,6 +54,7 @@ ROLES = (
     ("motivos", "vec_autorizacion_motivos_evaluador"),
     ("dietas", "vec_dietas_ejecutor"),
     ("personal", "vec_dietas_ejecutor"),
+    ("auditoria_frontera", "vec_dietas_registrador_frontera"),
 )
 
 
@@ -238,15 +239,30 @@ def migration_state() -> bool:
 
 
 def migrate() -> None:
-    if migration_state():
-        return
-    assembled = run(["bash", str(ROOT / "deploy/principal/04_dietas_migraciones.sh")]).decode()
-    if not assembled.endswith(":finalizar;\n"):
-        fail("paquete de migraciones incompatible")
-    for action in ("ROLLBACK", "COMMIT"):
-        psql(assembled.replace(":finalizar;\n", action + ";\n"))
     if not migration_state():
-        fail("migraciones de Dietas no quedaron instaladas")
+        assembled = run(["bash", str(ROOT / "deploy/principal/04_dietas_migraciones.sh")]).decode()
+        if not assembled.endswith(":finalizar;\n"):
+            fail("paquete de migraciones incompatible")
+        for action in ("ROLLBACK", "COMMIT"):
+            psql(assembled.replace(":finalizar;\n", action + ";\n"))
+        if not migration_state():
+            fail("migraciones de Dietas no quedaron instaladas")
+    # 000001–000004 ya tienen historia en la principal. La nueva bitácora se
+    # instala como delta y jamás se vuelven a aplicar las migraciones previas.
+    firma = "vec_dietas.registrar_auditoria_frontera_comision_v1(text,text,text,text,text,text)"
+    vigente = query(f"SELECT (to_regprocedure({sql_literal(firma)}) IS NOT NULL)::int;")
+    if vigente == ["1"]:
+        return
+    if vigente != ["0"]:
+        fail("estado de auditoría Dietas incompatible")
+    ruta = ROOT / "deploy/postgresql/dietas_borradores/migraciones/000005_auditoria_frontera.up.sql"
+    texto = ruta.read_text(encoding="utf-8")
+    if not texto.endswith("COMMIT;\n") or texto.count("\nCOMMIT;\n") != 1:
+        fail("migración de auditoría Dietas con forma inesperada")
+    for action in ("ROLLBACK", "COMMIT"):
+        psql(texto[: -len("COMMIT;\n")] + action + ";\n")
+    if query(f"SELECT (to_regprocedure({sql_literal(firma)}) IS NOT NULL)::int;") != ["1"]:
+        fail("auditoría de frontera Dietas no quedó instalada")
 
 
 def identity() -> dict:
@@ -348,6 +364,12 @@ def load_state(identity_data: dict, context: dict, emp: str | None, relation: di
         state = private_json(STATE)
         if state.get("version") != 2 or state.get("person") != context["persona"] or state.get("subject") != identity_data["subject"] or state.get("certificate_sha256") != identity_data["certificate_sha256"] or state.get("account") != context["cuenta"] or state.get("employee") != (emp or state.get("employee")):
             fail("estado privado previo no corresponde a la identidad y cuenta actuales")
+        passwords = state.get("login_passwords")
+        if not isinstance(passwords, dict) or any(not isinstance(passwords.get(name), str) or not passwords[name] for name, _ in ROLES if name != "auditoria_frontera"):
+            fail("LOGIN existentes de Dietas incompletos")
+        if "auditoria_frontera" not in passwords:
+            passwords["auditoria_frontera"] = secrets.token_urlsafe(36)
+            atomic_private(STATE, json.dumps(state, ensure_ascii=False, separators=(",", ":")) + "\n")
         return state
     state = new_state(identity_data, context, emp, relation, reason)
     atomic_private(STATE, json.dumps(state, ensure_ascii=False, separators=(",", ":")) + "\n")
@@ -569,6 +591,7 @@ def material_json(state: dict, dsns: dict[str, str]) -> str:
               "dsn_registro_identidad": dsns["registro_identidad"], "dsn_revalidacion_identidad": dsns["revalidacion_identidad"],
               "dsn_contexto": dsns["contexto"], "dsn_fuente_autorizacion": dsns["fuente_autorizacion"],
               "dsn_registro_autorizacion": dsns["registro_autorizacion"], "dsn_motivos": dsns["motivos"],
+              "dsn_auditoria_frontera": dsns["auditoria_frontera"],
               "motivo_personal": state["motive"], "motivo_crear": state["motive"],
               "motivo_consultar": state["motive"]}
     return json.dumps(result, ensure_ascii=False, separators=(",", ":")) + "\n"

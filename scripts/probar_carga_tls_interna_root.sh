@@ -8,6 +8,7 @@ binario="$(mktemp)"
 volumen="vec-c4-tls-root-${RANDOM}-$$"
 trap 'rm -f "${binario}"; docker volume rm -f "${volumen}" >/dev/null 2>&1 || true' EXIT
 CGO_ENABLED=0 go test -c -o "${binario}" ./internal/app/composicion/interna
+chmod 0755 "${binario}"
 
 if ! command -v docker >/dev/null 2>&1; then
 	printf 'Se requiere Docker para probar provisionador root y runtime 10001.\n' >&2

@@ -2,6 +2,32 @@ import {
   botonOperacion, chip, encabezadoVista, enlaceRuta, escaparAtributo, escaparHTML,
   formatoPuntos, listaDatos, panel, tabla,
 } from "./comunes.js";
+import { traducir } from "../i18n.js";
+
+const CLASES_SITUACION = Object.freeze({
+  disponible: "exito", no_disponible: "aviso", trabajando: "info",
+  pendiente_incorporacion: "aviso", renuncia: "aviso", excluido: "error",
+  disponible_desde: "aviso",
+});
+
+function fechaSituacion(valor) {
+  return new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" }).format(new Date(valor));
+}
+
+function fichaSituacionActual(actual) {
+  if (!actual || !Object.hasOwn(CLASES_SITUACION, actual.estado)) {
+    return `<p class="nota aviso">${escaparHTML(traducir("areaPersonal.miBolsa.situacion.sinDato"))}</p>`;
+  }
+  const etiqueta = traducir(`areaPersonal.miBolsa.situacion.${actual.estado}`);
+  const filas = [
+    [traducir("areaPersonal.miBolsa.situacion.estado"), `<span class="estado-chip ${CLASES_SITUACION[actual.estado]}">${escaparHTML(etiqueta)}</span>`],
+    [traducir("areaPersonal.miBolsa.situacion.desde"), escaparHTML(fechaSituacion(actual.desde))],
+    [traducir("areaPersonal.miBolsa.situacion.hasta"), actual.hasta ? escaparHTML(fechaSituacion(actual.hasta)) : escaparHTML(traducir("areaPersonal.miBolsa.situacion.sinFin"))],
+  ];
+  if (actual.fecha_disponible) filas.push([traducir("areaPersonal.miBolsa.situacion.fechaDisponible"), escaparHTML(fechaSituacion(actual.fecha_disponible))]);
+  filas.push([traducir("areaPersonal.miBolsa.situacion.explicacion"), escaparHTML(traducir(`areaPersonal.miBolsa.situacion.explicacion.${actual.estado}`))]);
+  return listaDatos(filas);
+}
 
 export function renderizarSeguimiento(datos, estado) {
   const solicitud = datos.solicitudes.find((item) => item.id === estado.expedienteSeleccionado) || datos.solicitudes[0];
@@ -53,37 +79,29 @@ export function renderizarLlamamientos(datos, estado = {}) {
   const totalPaginas = Math.max(1, Math.ceil(participaciones.length / porPagina));
   const paginaActual = Math.min(pagina, totalPaginas);
   const visibles = participaciones.slice((paginaActual - 1) * porPagina, paginaActual * porPagina);
-  const tarjetasParticipacion = visibles.map((item) => panel("Mi participación", item.categoria, `${listaDatos([["Estado de la bolsa", chip(item.estado_bolsa)], ["Mi número de orden", `${escaparHTML(String(item.orden_inicial))} de ${escaparHTML(String(item.total_instantanea))}`], ["Versión de la bolsa", escaparHTML(String(item.version))], ["Vigencia", `${escaparHTML(item.vigente_desde)}${item.vigente_hasta ? ` · hasta ${escaparHTML(item.vigente_hasta)}` : " · vigente"}`]])}`, { estado: item.estado_bolsa, clase: "participacion-propia" })).join("");
+  const tarjetasParticipacion = visibles.map((item) => panel("Mi participación", item.categoria, `${listaDatos([["Estado de la bolsa", chip(item.estado_bolsa)], [traducir("areaPersonal.miBolsa.ordenInicial"), `${escaparHTML(String(item.orden_inicial))} de ${escaparHTML(String(item.total_instantanea))}`], ["Versión de la bolsa", escaparHTML(String(item.version))], [traducir("areaPersonal.miBolsa.vigenciaBolsa"), `${escaparHTML(fechaSituacion(item.vigente_desde))}${item.vigente_hasta ? ` · hasta ${escaparHTML(fechaSituacion(item.vigente_hasta))}` : " · vigente"}`]])}<h4>${escaparHTML(traducir("areaPersonal.miBolsa.situacion.titulo"))}</h4>${fichaSituacionActual(item.situacion_actual)}`, { estado: item.estado_bolsa, clase: "participacion-propia" })).join("");
   const paginacion = participaciones.length > porPagina ? `<nav class="paginacion-participaciones" aria-label="Paginación de participaciones"><span>Mostrando ${(paginaActual - 1) * porPagina + 1} a ${Math.min(paginaActual * porPagina, participaciones.length)} de ${participaciones.length}</span><button type="button" class="boton-secundario" data-accion="pagina-participaciones" data-pagina="${paginaActual - 1}" ${paginaActual === 1 ? "disabled" : ""}>Anterior</button><button type="button" class="boton-secundario" data-accion="pagina-participaciones" data-pagina="${paginaActual + 1}" ${paginaActual === totalPaginas ? "disabled" : ""}>Siguiente</button></nav>` : "";
   const avisoFuente = estado.fuenteBolsa === "ejemplo" ? `<section class="aviso-fuente-ejemplo" role="status"><strong>Datos de ejemplo.</strong> El acceso del candidato con DNIe o certificado está pendiente de desarrollo en VEC.${estado.causaBolsa === "autenticacion_requerida" ? " Identifíquese con certificado cuando la frontera esté disponible." : ""}</section>` : "";
   const fichaParticipaciones = participaciones.length ? `<section class="marco-participaciones" aria-label="Mis participaciones en bolsa">${tarjetasParticipacion}${paginacion}</section>` : panel("Mis participaciones", "Sin participaciones activas", "<p>No constan participaciones en bolsa para la identidad actual.</p>");
-  const disponibles = datos.disponibilidad;
-  const sufijoDemo = datos.meta.presentacion ? " DEMO" : "";
-  const tarjetas = datos.llamamientos.map((item, indice) => {
-    const camposLlamamiento = [
-      ["Puesto y destino", escaparHTML(item.puesto)],
-      item.jornada ? ["Jornada", escaparHTML(item.jornada)] : null,
-      item.duracion ? ["Duración", escaparHTML(item.duracion)] : null,
-      ["Plazo", escaparHTML(item.plazo)],
-      item.posicion ? ["Prelación", escaparHTML(item.posicion)] : null,
-      item.canal ? ["Canal", escaparHTML(item.canal)] : null,
-      item.comunicado_en ? ["Comunicado el", escaparHTML(item.comunicado_en)] : null,
-      item.resultado_clave ? ["Resultado", chip(item.resultado_clave)] : null,
-    ].filter(Boolean);
-    const titulo = indice === 0 ? "Último llamamiento" : "Llamamiento anterior";
-    return `<article class="panel"><header><div><p>${titulo}</p><h3>${escaparHTML(item.bolsa)}</h3><p>${escaparHTML(item.id)}</p></div>${chip(item.estado)}</header><div class="panel-contenido">${listaDatos(camposLlamamiento)}${item.estado === "Pendiente de respuesta" ? `<p class="nota aviso">Canal, plazo y efectos pendientes de confirmación por RRHH. Esta acción solo cambia la memoria de presentación.</p><div class="fila-acciones">${botonOperacion("responder_llamamiento", `Aceptar llamamiento${sufijoDemo}`, { id: item.id, descripcion: "Registrar una respuesta efímera al llamamiento mostrado" })}${botonOperacion("responder_llamamiento", `Rechazar llamamiento${sufijoDemo}`, { id: `${item.id}|rechazar`, clase: "boton-peligro", descripcion: "Registrar una respuesta efímera al llamamiento mostrado" })}</div>` : `<p class="nota">La respuesta mostrada es sintética y no acredita un efecto administrativo.</p>`}</div></article>`;
-  }).join("");
-  const llamamientos = panel("Llamamientos", "Información propia", "<p class=\"nota aviso\"><strong>Pendiente de integración.</strong> Esta información no la devuelve todavía Mi bolsa.</p>");
-  const contratos = Array.isArray(datos.contratos) && datos.contratos.length > 0
-    ? listaDatos(datos.contratos.map((item) => [escaparHTML(item.id), escaparHTML(item.estado)]))
-    : `<p>No consta ningún contrato propio en los datos disponibles.</p>`;
+  const propios = participaciones.filter((item) => item.ultimo_llamamiento);
+  propios.sort((a, b) => b.ultimo_llamamiento.emitido_en.localeCompare(a.ultimo_llamamiento.emitido_en) || a.categoria.localeCompare(b.categoria) || a.bolsa.localeCompare(b.bolsa));
+  const ultimo = propios[0];
+  const resultado = ultimo?.ultimo_llamamiento.resultado;
+  const detalle = ultimo ? `${listaDatos([
+    [traducir("areaPersonal.miBolsa.llamamiento.bolsa"), escaparHTML(ultimo.bolsa)],
+    [traducir("areaPersonal.miBolsa.llamamiento.categoria"), escaparHTML(ultimo.categoria)],
+    [traducir("areaPersonal.miBolsa.llamamiento.fecha"), escaparHTML(fechaSituacion(ultimo.ultimo_llamamiento.emitido_en))],
+    [traducir("areaPersonal.miBolsa.llamamiento.canal"), escaparHTML(traducir("areaPersonal.miBolsa.llamamiento.correo"))],
+    [traducir("areaPersonal.miBolsa.llamamiento.resultado"), `<span class="estado-chip ${resultado === "enviado" ? "info" : "aviso"}">${escaparHTML(traducir(`areaPersonal.miBolsa.llamamiento.${resultado}`))}</span>`],
+  ])}<p class="nota aviso">${escaparHTML(traducir("areaPersonal.miBolsa.llamamiento.limite"))}</p>`
+    : `<p class="nota aviso">${escaparHTML(traducir("areaPersonal.miBolsa.llamamiento.sinDato"))}</p>`;
+  const llamamientos = panel(traducir("areaPersonal.miBolsa.llamamiento.titulo"), traducir("areaPersonal.miBolsa.llamamiento.subtitulo"), detalle);
 
   const pendiente = "<p class=\"nota aviso\"><strong>Pendiente de integración.</strong> Esta información no la devuelve todavía Mi bolsa.</p>";
   return `${encabezadoVista("Mi bolsa", "Consulte su posición y vigencia. Identificarse con certificado no firma documentos.")}
     ${avisoFuente}${fichaParticipaciones}
     <div class="rejilla-principal"><div>${llamamientos}</div><aside>
-      ${panel("Disponibilidad", "Pausar o reactivar", pendiente)}
-      ${panel("Último llamamiento", "Información propia", pendiente)}
+      ${panel(traducir("areaPersonal.miBolsa.disponibilidad.titulo"), traducir("areaPersonal.miBolsa.disponibilidad.subtitulo"), `<p class="nota aviso">${escaparHTML(traducir("areaPersonal.miBolsa.disponibilidad.detalle"))}</p>`)}
       ${panel("Contratos", "Información propia", pendiente)}
     </aside></div>`;
 }

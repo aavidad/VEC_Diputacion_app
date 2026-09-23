@@ -67,14 +67,29 @@ type respuestaMiBolsaPostgreSQL struct {
 	Participaciones []participacionMiBolsaPostgreSQL `json:"participaciones"`
 }
 type participacionMiBolsaPostgreSQL struct {
-	Bolsa            string     `json:"bolsa"`
-	Categoria        string     `json:"categoria"`
-	Version          uint64     `json:"version"`
-	OrdenInicial     uint64     `json:"orden_inicial"`
-	TotalInstantanea uint64     `json:"total_instantanea"`
-	EstadoBolsa      string     `json:"estado_bolsa"`
-	VigenteDesde     time.Time  `json:"vigente_desde"`
-	VigenteHasta     *time.Time `json:"vigente_hasta"`
+	Bolsa             string                              `json:"bolsa"`
+	Categoria         string                              `json:"categoria"`
+	Version           uint64                              `json:"version"`
+	OrdenInicial      uint64                              `json:"orden_inicial"`
+	TotalInstantanea  uint64                              `json:"total_instantanea"`
+	EstadoBolsa       string                              `json:"estado_bolsa"`
+	VigenteDesde      time.Time                           `json:"vigente_desde"`
+	VigenteHasta      *time.Time                          `json:"vigente_hasta"`
+	SituacionActual   *situacionActualMiBolsaPostgreSQL   `json:"situacion_actual"`
+	UltimoLlamamiento *ultimoLlamamientoMiBolsaPostgreSQL `json:"ultimo_llamamiento"`
+}
+
+type ultimoLlamamientoMiBolsaPostgreSQL struct {
+	EmitidoEn time.Time `json:"emitido_en"`
+	Canal     string    `json:"canal"`
+	Resultado string    `json:"resultado"`
+}
+
+type situacionActualMiBolsaPostgreSQL struct {
+	Estado          string     `json:"estado"`
+	Desde           time.Time  `json:"desde"`
+	Hasta           *time.Time `json:"hasta"`
+	FechaDisponible *time.Time `json:"fecha_disponible"`
 }
 
 func decodificarInstantaneaMiBolsa(contenido []byte, esperada time.Time) (puertosbolsa.InstantaneaMiBolsa, error) {
@@ -89,7 +104,30 @@ func decodificarInstantaneaMiBolsa(contenido []byte, esperada time.Time) (puerto
 			hasta := origen.VigenteHasta.UTC()
 			p.VigenteHasta = &hasta
 		}
+		if origen.SituacionActual != nil {
+			s := origen.SituacionActual
+			actual := &puertosbolsa.SituacionActualMiBolsa{Estado: s.Estado, Desde: s.Desde.UTC()}
+			if s.Hasta != nil {
+				hasta := s.Hasta.UTC()
+				actual.Hasta = &hasta
+			}
+			if s.FechaDisponible != nil {
+				fecha := s.FechaDisponible.UTC()
+				actual.FechaDisponible = &fecha
+			}
+			p.SituacionActual = actual
+		}
+		if origen.UltimoLlamamiento != nil {
+			l := origen.UltimoLlamamiento
+			if l.EmitidoEn.IsZero() || l.EmitidoEn.After(esperada) || l.Canal != "correo" || (l.Resultado != "enviado" && l.Resultado != "no_enviado") {
+				return puertosbolsa.InstantaneaMiBolsa{}, puertosbolsa.ErrResultadoMiBolsaInvalido
+			}
+			p.UltimoLlamamiento = &puertosbolsa.UltimoLlamamientoMiBolsa{EmitidoEn: l.EmitidoEn.UTC(), Canal: l.Canal, Resultado: l.Resultado}
+		}
 		if p.Bolsa == "" || p.Categoria == "" || p.Version == 0 || p.OrdenInicial == 0 || p.TotalInstantanea < p.OrdenInicial || p.EstadoBolsa == "" || p.VigenteDesde.IsZero() || (p.VigenteHasta != nil && !p.VigenteHasta.After(p.VigenteDesde)) {
+			return puertosbolsa.InstantaneaMiBolsa{}, puertosbolsa.ErrResultadoMiBolsaInvalido
+		}
+		if s := p.SituacionActual; s != nil && (s.Estado == "" || s.Desde.IsZero() || s.Desde.After(esperada) || s.Hasta != nil && s.Hasta.Before(s.Desde)) {
 			return puertosbolsa.InstantaneaMiBolsa{}, puertosbolsa.ErrResultadoMiBolsaInvalido
 		}
 		resultado.Participaciones = append(resultado.Participaciones, p)
