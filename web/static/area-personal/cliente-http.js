@@ -120,7 +120,7 @@ export function crearClienteOperacionesContactoPropio({ fetchImpl = globalThis.f
         siguiente_desde: dato.siguiente_desde || "" });
     }
     const operacion = validarDTOOperacionContacto(dato);
-    if (accion === "preparar" && operacion.estado !== "preparada"
+    if (accion === "preparar" && !(operacion.estado === "preparada" || estado === 200 && operacion.estado === "confirmada")
       || accion === "confirmar" && operacion.estado !== "confirmada"
       || accion === "cancelar" && operacion.estado !== "cancelada"
       || accion !== "preparar" && accion !== "consultas" && operacion.operacion_ref !== cuerpo.operacion_ref

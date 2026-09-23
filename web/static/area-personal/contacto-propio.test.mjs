@@ -60,6 +60,21 @@ test("replay 200 de preparación y confirmación conserva una sola versión y re
   assert.equal(c.seleccion.recibo_ref, "recibo-original");
 });
 
+test("preparar replay 200 ya confirmado recupera recibo sin otro POST confirmar", async () => {
+  const s = servidor([[200, confirmado()]]);
+  const recibos = [];
+  const c = crearControladorContactoPropio({ autorizacionServidor: autorizado, fetchImpl: s.fetchImpl,
+    alConfirmar: (r) => recibos.push(r) });
+  const resultado = await c.preparar("uno@ejemplo.test");
+  assert.equal(resultado.estado, "confirmada");
+  assert.equal(c.seleccion.recibo_ref, "recibo-original");
+  assert.equal(c.operaciones.length, 1);
+  assert.deepEqual(recibos, [{ reciboRef: "recibo-original", version: 8, correo: "uno@ejemplo.test" }]);
+  assert.deepEqual(s.peticiones.map((p) => p.ruta), [RUTAS_OPERACIONES_CONTACTO.preparar]);
+  const invalida = crearClienteOperacionesContactoPropio({ fetchImpl: async () => respuesta(201, confirmado()) });
+  await assert.rejects(() => invalida.preparar("uno@ejemplo.test", 7), (e) => e.codigo === "respuesta_incompatible");
+});
+
 test("cliente falla cerrado ante DTO con correo, versión incoherente o recibo en preparación", async () => {
   for (const dato of [
     { ...preparado(), correo: "filtrado@ejemplo.test" },

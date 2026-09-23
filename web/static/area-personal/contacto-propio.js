@@ -103,8 +103,8 @@ export function crearControladorContactoPropio({ autorizacionServidor = null, fe
     });
   }
   async function preparar(correo) {
-    return ejecutar(async (signal) => {
-      const limpio = String(correo ?? "").trim();
+    const limpio = String(correo ?? "").trim();
+    const resultado = await ejecutar(async (signal) => {
       if (!limpio || limpio.length > 254) throw new ErrorOperacionContacto("peticion_invalida");
       if (operaciones.some((op) => op.estado === "preparada")) {
         decir(t("preparadaPendiente"), "aviso");
@@ -113,10 +113,12 @@ export function crearControladorContactoPropio({ autorizacionServidor = null, fe
       try {
         const op = await cliente.preparar(limpio, version, { signal });
         if (!activo) return null;
+        if (op.estado === "confirmada") version = op.version;
         seleccion = op;
         generacion++;
         actualizar(op);
-        decir(t("preparadaRevisar"), "aviso");
+        decir(op.estado === "confirmada" ? t("reciboSeleccionado", { recibo: op.recibo_ref }) : t("preparadaRevisar"),
+          op.estado === "confirmada" ? "exito" : "aviso");
         return op;
       } catch (error) {
         if (error?.codigo === "operacion_preparada") {
@@ -128,6 +130,10 @@ export function crearControladorContactoPropio({ autorizacionServidor = null, fe
         throw error;
       }
     });
+    if (activo && resultado?.estado === "confirmada") {
+      alConfirmar?.({ reciboRef: resultado.recibo_ref, version: resultado.version, correo: limpio });
+    }
+    return resultado;
   }
   async function confirmar(correo) {
     const limpio = String(correo ?? "").trim();
@@ -284,7 +290,7 @@ export function montarContactoPropio({ contenedor, autorizacionServidor = null, 
   const alPreparar = async (evento) => {
     evento.preventDefault();
     if (!entrada.checkValidity()) { estado.textContent = t("errorEntrada"); entrada.focus(); return; }
-    try { await controlador.preparar(capturarCorreoEnviado(entrada)); estado.focus(); }
+    try { await controlador.preparar(capturarCorreoEnviado(entrada)); if (activa) estado.focus(); }
     catch { if (activa) estado.focus(); }
   };
   const alConfirmarClick = async () => {
