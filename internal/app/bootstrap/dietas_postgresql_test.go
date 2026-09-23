@@ -12,6 +12,12 @@ import (
 )
 
 func TestPoolsPostgreSQLDietasDesarrolloAbreDosIdentidadesYCierra(t *testing.T) {
+	// Personal expone esta consulta exclusivamente al rol de Dietas; cada
+	// pool usa un login distinto con esa única membresía nominal.
+	if perfilesPoolPostgreSQLDietasDesarrollo[0].rol != "vec_dietas_ejecutor" ||
+		perfilesPoolPostgreSQLDietasDesarrollo[1].rol != "vec_dietas_ejecutor" {
+		t.Fatal("consulta propia de Personal sin rol nominal de Dietas")
+	}
 	poolsPrueba := make([]*poolDietasPostgreSQLPrueba, 2)
 	for i := range poolsPrueba {
 		poolsPrueba[i] = nuevoPoolDietasPostgreSQLPrueba("login-dietas-" + string(rune('a'+i)))

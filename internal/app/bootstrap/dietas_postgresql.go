@@ -15,7 +15,7 @@ import (
 
 const (
 	rolDietasBorradoresPostgreSQLDesarrollo = "vec_dietas_ejecutor"
-	rolPersonalDietasPostgreSQLDesarrollo   = "vec_personal_ejecutor"
+	rolPersonalDietasPostgreSQLDesarrollo   = "vec_dietas_ejecutor"
 )
 
 var (
