@@ -18,6 +18,7 @@ set -euo pipefail
 [[ -s "$VEC_F2_SCHEMA_SQL" && -s "$VEC_F2_ROLES_TXT" && -s "$VEC_F2_ROLES_ACL_TSV" ]] || { echo 'F2: preimagen vacía' >&2; exit 1; }
 [[ "$(sha256sum "$VEC_F2_SCHEMA_SQL" | cut -d' ' -f1)" == "$VEC_F2_SCHEMA_SHA256" && "$(sha256sum "$VEC_F2_ROLES_TXT" | cut -d' ' -f1)" == "$VEC_F2_ROLES_SHA256" && "$(sha256sum "$VEC_F2_ROLES_ACL_TSV" | cut -d' ' -f1)" == "$VEC_F2_ROLES_ACL_SHA256" ]] || { echo 'F2: huellas de preimagen divergentes' >&2; exit 1; }
 [[ "$(stat -c %a "$VEC_F2_SCHEMA_SQL")" == 600 && "$(stat -c %a "$VEC_F2_ROLES_TXT")" == 600 && "$(stat -c %a "$VEC_F2_ROLES_ACL_TSV")" == 600 ]] || { echo 'F2: preimagen debe tener modo 0600' >&2; exit 1; }
+[[ "${VEC_F2_COTEJO_WIP:-}" != 1 || "${VEC_F2_POSITIVO:-}" == 1 ]] || { echo 'F2: cotejo WIP exige positivo nominal y no acredita fuente' >&2; exit 1; }
 head -n 9 "$VEC_F2_SCHEMA_SQL" | grep -q 'Dumped from database version 18.4' || { echo 'F2: dump no procede de PG18.4' >&2; exit 1; }
 if rg -q '^(COPY |INSERT INTO |\\copy )' "$VEC_F2_SCHEMA_SQL" || rg -qv '^vec_[a-z0-9_]+$' "$VEC_F2_ROLES_TXT"; then
   echo 'F2: entradas contienen datos o roles inválidos' >&2; exit 1
@@ -26,7 +27,7 @@ raiz=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)
 contenedor="vec-f2-pg18-$$"
 base="vec_f2_$$"
 imagen=${VEC_POSTGRES_TEST_IMAGE:-postgres:18.4-bookworm@sha256:1961f96e6029a02c3812d7cb329a3b03a3ac2bb067058dec17b0f5596aca9296}
-limpiar(){ docker rm -f "$contenedor" >/dev/null 2>&1 || true; for tmp in "${transaccion:-}" "${transaccion_ops:-}" "${roles_sql:-}" "${prueba_json:-}" "${rol_ct_copia:-}" "${neg_rol_log:-}" "${neg_historia_log:-}"; do if [[ -n "$tmp" && -f "$tmp" ]]; then unlink "$tmp"; fi; done; if [[ -n "${socketdir:-}" ]]; then rm -f "$socketdir/.s.PGSQL.5432" "$socketdir/.s.PGSQL.5432.lock"; rmdir "$socketdir" 2>/dev/null || true; fi; if [[ -n "${materialdir:-}" ]]; then rm -rf -- "$materialdir"; fi; }
+limpiar(){ docker rm -f "$contenedor" >/dev/null 2>&1 || true; for tmp in "${transaccion:-}" "${transaccion_ops:-}" "${roles_sql:-}" "${prueba_json:-}" "${rol_ct_copia:-}" "${neg_rol_log:-}" "${neg_historia_log:-}" "${cotejo_sql:-}"; do if [[ -n "$tmp" && -f "$tmp" ]]; then unlink "$tmp"; fi; done; if [[ -n "${socketdir:-}" ]]; then rm -f "$socketdir/.s.PGSQL.5432" "$socketdir/.s.PGSQL.5432.lock"; rmdir "$socketdir" 2>/dev/null || true; fi; if [[ -n "${materialdir:-}" ]]; then rm -rf -- "$materialdir"; fi; }
 trap limpiar EXIT INT TERM
 volumen=()
 if [[ "${VEC_F2_POSITIVO:-}" == 1 ]]; then
@@ -42,7 +43,33 @@ for _ in $(seq 1 60); do docker exec "$contenedor" pg_isready -q -U postgres -d 
 docker exec "$contenedor" pg_isready -q -U postgres -d postgres
 docker exec "$contenedor" createdb -U postgres "$base"
 consulta(){ docker exec "$contenedor" psql -X -A -t -q --set ON_ERROR_STOP=1 --username postgres --dbname "$base" --command "$1"; }
-aplicar(){ printf "F2 ensaya %s\n" "$(basename "$1")" >&2; docker exec -i "$contenedor" psql -X -q --set ON_ERROR_STOP=1 --username postgres --dbname "$base" < "$1"; }
+es_migracion_wip_contacto(){
+  case "$(basename "$1")" in
+    000052_consumidor_contacto_usuario.up.sql|000053_consulta_recibo_contacto_propio.up.sql|\
+    000054_operaciones_contacto_propio.up.sql|000054_operaciones_contacto_propio.down.sql|\
+    000008_operaciones_contacto_propio.up.sql|000003_operaciones_contacto_propio.up.sql) return 0;;
+  esac
+  return 1
+}
+filtrar_guardia_ensayo(){
+  if [[ "${VEC_F2_COTEJO_WIP:-}" == 1 ]] && es_migracion_wip_contacto "$1"; then
+    [[ "$(rg -c '^DO \$(f2_incompleta|incompleta)\$ BEGIN RAISE EXCEPTION .* WIP:' "$1")" == 1 ]] || { echo 'F2: guarda WIP de cotejo no exacta' >&2; return 1; }
+    sed '/^DO \$f2_incompleta\$ BEGIN RAISE EXCEPTION .* WIP:/d;/^DO \$incompleta\$ BEGIN RAISE EXCEPTION .* WIP:/d' "$1"
+  else
+    cat "$1"
+  fi
+}
+aplicar(){
+  printf "F2 ensaya %s\n" "$(basename "$1")" >&2
+  if [[ "${VEC_F2_COTEJO_WIP:-}" == 1 ]] && es_migracion_wip_contacto "$1"; then
+    cotejo_sql=$(mktemp)
+    filtrar_guardia_ensayo "$1" > "$cotejo_sql"
+    docker exec -i "$contenedor" psql -X -q --set ON_ERROR_STOP=1 --username postgres --dbname "$base" < "$cotejo_sql"
+    unlink "$cotejo_sql"; cotejo_sql=
+  else
+    docker exec -i "$contenedor" psql -X -q --set ON_ERROR_STOP=1 --username postgres --dbname "$base" < "$1"
+  fi
+}
 roles_sql=$(mktemp)
 python3 - "$VEC_F2_ROLES_ACL_TSV" "$base" > "$roles_sql" <<'PYROLES'
 import re,sys
@@ -132,7 +159,7 @@ transaccion=$(mktemp)
       echo "SELECT 'CORE_PRE='||encode(sha256(convert_to(prosrc,'UTF8')),'hex') FROM pg_proc WHERE oid='vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;"
       echo "SELECT 'REVALIDACION_PRE='||encode(sha256(convert_to(prosrc,'UTF8')),'hex') FROM pg_proc WHERE oid='vec_autorizacion_atestada_v3.revalidar_consumo_consulta_rrhh_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;"
     fi
-    sed '/^BEGIN;$/d;/^COMMIT;$/d' "$archivo"
+    filtrar_guardia_ensayo "$archivo" | sed '/^BEGIN;$/d;/^COMMIT;$/d'
     echo 'RESET ROLE;'
   done
   echo 'ROLLBACK;'
@@ -161,7 +188,7 @@ if [[ "${VEC_F2_POSITIVO:-}" == 1 ]]; then
     echo 'BEGIN;'
     for archivo in "${archivos_operaciones[@]}"; do
       printf '%s\n' "\\echo F2 ROLLBACK $(basename "$archivo")"
-      sed '/^BEGIN;$/d;/^COMMIT;$/d' "$archivo"
+      filtrar_guardia_ensayo "$archivo" | sed '/^BEGIN;$/d;/^COMMIT;$/d'
       echo 'RESET ROLE;'
     done
     echo 'ROLLBACK;'
@@ -276,7 +303,11 @@ for linea in open(sys.argv[1],encoding='utf-8'):
         omito |= evento.get('Action')=='skip'
 if not paso or omito: raise SystemExit('F2: recuperación tras reinicio omitida o sin PASS')
 PYREINICIO
-  echo 'F2: Contacto3 firmado/consumido, ACL legado, replay, concurrencia y recuperación nominal tras reinicio PG18 acreditados'
+  if [[ "${VEC_F2_COTEJO_WIP:-}" == 1 ]]; then
+    echo 'F2: cotejo positivo en copias efímeras sin guarda; FUENTE WIP SIGUE NO-GO hasta gate exacto y E10'
+  else
+    echo 'F2: Contacto3 firmado/consumido, ACL legado, replay, concurrencia y recuperación nominal tras reinicio PG18 acreditados'
+  fi
   exit 0
 fi
 # DOWN solo con tablas F2 vacías en este contenedor desechable.
