@@ -212,7 +212,7 @@ test("el modo real renderiza solo indicadores, convocatorias y actuaciones acred
   assert.throws(() => presentador.renderizarVista("resumen"), /requiere un panel interno válido/);
 
   assert.match(javascript, /crearPresentadorPanelInterno/);
-  assert.match(javascript, /portal-panel-interno\.js\?v=20260717-panel-interno-v1/);
+  assert.match(javascript, /portal-panel-interno\.js\?v=20260923-pweb12-montaje-v1/);
   for (const indicador of [
     "bolsas_activas", "llamamientos_pendientes", "llamamientos_en_curso",
     "documentos_pendientes_firma", "incidencias_abiertas",

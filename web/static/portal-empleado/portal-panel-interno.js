@@ -7,6 +7,7 @@
  * sin acceder al DOM global.
  */
 import { traducirBolsaInterna } from "./portal-i18n.js";
+import { renderizarBloqueAvisos } from "./portal-bolsas-avisos.js?v=20260923-pweb12-montaje-v1";
 const ESQUEMA_PANEL_INTERNO = "vec.bolsa.panel.interno.v1";
 const ESTADOS_BOLSA = Object.freeze(["disponible", "no_disponible", "trabajando", "pendiente_incorporacion", "renuncia", "excluido", "disponible_desde"]);
 export function crearPresentadorPanelInterno(dependencias) {
@@ -20,6 +21,7 @@ export function crearPresentadorPanelInterno(dependencias) {
     obtenerDatosBolsas,
     obtenerDatosCandidatosBolsa,
     obtenerDatosEstadisticas,
+    obtenerDatosAvisos,
     obtenerEstadoCandidatos,
     obtenerModalContactos,
     obtenerModalFicha,
@@ -800,9 +802,18 @@ export function crearPresentadorPanelInterno(dependencias) {
   // igualmente: tienen su propia API y no dependen de los indicadores.
   function renderizarSoloBolsas(vista) {
     if (vista === "bolsa-candidatos") return renderizarCandidatosBolsa();
+    const estadoAvisos = typeof obtenerDatosAvisos === "function" ? obtenerDatosAvisos() : null;
     return `
       ${encabezadoVista("Gestión interna de Bolsas", "Cuadro de mando", "Bolsas constituidas y su desglose por situación. Los indicadores agregados del panel interno no están compuestos todavía.")}
-      ${renderizarCuadroB12()}`;
+      ${renderizarCuadroB12()}
+      ${renderizarBloqueAvisos({
+        estado: estadoAvisos?.carga || "cargando",
+        datos: estadoAvisos?.datos || null,
+        error: estadoAvisos?.error || "",
+      })}
+      ${estadoAvisos?.datos?.conteos?.tres_anos === 0
+        ? '<p class="texto-ayuda">Los tres años se calculan desde el histórico de situaciones de VEC, que empieza el 17/09/2026.</p>'
+        : ""}`;
   }
   return Object.freeze({ actualizarContextoSesion, esActivo, etiquetaFuente, renderizarEstadisticasBolsa, renderizarSoloBolsas, renderizarVista });
 }
