@@ -22,9 +22,15 @@ raiz=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)
 contenedor="vec-f2-pg18-$$"
 base="vec_f2_$$"
 imagen=${VEC_POSTGRES_TEST_IMAGE:-postgres:18.4-bookworm@sha256:1961f96e6029a02c3812d7cb329a3b03a3ac2bb067058dec17b0f5596aca9296}
-limpiar(){ docker rm -f "$contenedor" >/dev/null 2>&1 || true; for tmp in "${transaccion:-}" "${roles_sql:-}"; do if [[ -n "$tmp" && -f "$tmp" ]]; then unlink "$tmp"; fi; done; }
+limpiar(){ docker rm -f "$contenedor" >/dev/null 2>&1 || true; for tmp in "${transaccion:-}" "${roles_sql:-}"; do if [[ -n "$tmp" && -f "$tmp" ]]; then unlink "$tmp"; fi; done; if [[ -n "${socketdir:-}" ]]; then rm -f "$socketdir/.s.PGSQL.5432" "$socketdir/.s.PGSQL.5432.lock"; rmdir "$socketdir" 2>/dev/null || true; fi; }
 trap limpiar EXIT INT TERM
-docker run --detach --rm --network none --name "$contenedor" --env POSTGRES_HOST_AUTH_METHOD=trust "$imagen" >/dev/null
+volumen=()
+if [[ "${VEC_F2_POSITIVO:-}" == 1 ]]; then
+  socketdir=$(mktemp -d)
+  chmod 0777 "$socketdir"
+  volumen=(--volume "$socketdir:/var/run/postgresql")
+fi
+docker run --detach --rm --network none --name "$contenedor" --env POSTGRES_HOST_AUTH_METHOD=trust "${volumen[@]}" "$imagen" >/dev/null
 for _ in $(seq 1 60); do docker exec "$contenedor" pg_isready -q -U postgres -d postgres && break; sleep 0.5; done
 docker exec "$contenedor" pg_isready -q -U postgres -d postgres
 docker exec "$contenedor" createdb -U postgres "$base"
@@ -108,6 +114,27 @@ aplicar "$raiz/deploy/postgresql/contacto_usuario_vec/pruebas_sql/ensayar_contac
 aplicar "$raiz/deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/contacto_usuario_codec.sql"
 aplicar "$raiz/deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/contacto_recibo_codec.sql"
 [[ "$(consulta "SELECT to_regprocedure('vec_contacto_usuario_v1.consultar_version_contacto_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea,bytea)') IS NOT NULL AND to_regprocedure('vec_contacto_usuario_v1.consultar_recibo_contacto_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea,bytea)') IS NOT NULL AND NOT has_table_privilege('vec_contacto_usuario_writer','vec_contacto_usuario_v1.versiones','SELECT') AND NOT has_table_privilege('vec_contacto_usuario_reader','vec_contacto_usuario_v1.actual','SELECT')")" == t ]] || { echo 'F2: postimagen/ACL no acreditadas' >&2; exit 1; }
+if [[ "${VEC_F2_POSITIVO:-}" == 1 ]]; then
+  aplicar "$raiz/deploy/postgresql/contexto_actor_v1/pruebas_sql/fixtures_sinteticos.sql"
+  aplicar "$raiz/deploy/postgresql/contacto_usuario_vec/pruebas_sql/ensayar_operaciones_f2.sql"
+  consulta "CREATE ROLE vec_contacto_f2_contexto_login LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS; GRANT vec_contexto_actor_v1_runtime TO vec_contacto_f2_contexto_login WITH ADMIN FALSE, INHERIT TRUE, SET FALSE; GRANT CONNECT ON DATABASE $base TO vec_contacto_f2_contexto_login" >/dev/null
+  consulta "CREATE ROLE vec_contacto_f2_fuente_login LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS; GRANT vec_autorizacion_fuente TO vec_contacto_f2_fuente_login WITH ADMIN FALSE, INHERIT TRUE, SET FALSE; GRANT CONNECT ON DATABASE $base TO vec_contacto_f2_fuente_login" >/dev/null
+  consulta "CREATE ROLE vec_contacto_f2_registro_login LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS; GRANT vec_autorizacion_registro TO vec_contacto_f2_registro_login WITH ADMIN FALSE, INHERIT TRUE, SET FALSE; GRANT CONNECT ON DATABASE $base TO vec_contacto_f2_registro_login" >/dev/null
+  consulta "CREATE ROLE vec_contacto_f2_motivos_login LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS; GRANT vec_autorizacion_motivos_evaluador TO vec_contacto_f2_motivos_login WITH ADMIN FALSE, INHERIT TRUE, SET FALSE; GRANT CONNECT ON DATABASE $base TO vec_contacto_f2_motivos_login" >/dev/null
+  docker exec --user root "$contenedor" chmod 0777 /var/run/postgresql
+  dsn(){ printf 'host=%s port=5432 dbname=%s user=%s sslmode=disable' "$socketdir" "$base" "$1"; }
+  cd "$raiz"
+  VEC_F2_CONTACTO_PG18_DESECHABLE=1 \
+  VEC_F2_CONTACTO_PG_ADMIN_DSN="$(dsn postgres)" \
+  VEC_F2_CONTACTO_PG_CONTEXTO_DSN="$(dsn vec_contacto_f2_contexto_login)" \
+  VEC_F2_CONTACTO_PG_FUENTE_DSN="$(dsn vec_contacto_f2_fuente_login)" \
+  VEC_F2_CONTACTO_PG_REGISTRO_DSN="$(dsn vec_contacto_f2_registro_login)" \
+  VEC_F2_CONTACTO_PG_MOTIVOS_DSN="$(dsn vec_contacto_f2_motivos_login)" \
+  VEC_F2_CONTACTO_PG_WRITER_DSN="$(dsn vec_contacto_f2_login)" \
+  GOMAXPROCS=2 go test ./internal/app/bootstrap -run '^TestContactoPropioPG18MaterialFirmadoYConsumoNominal$' -count=1 -v
+  echo 'F2: material COSE real y POST nominal probado en PG18 aislado; comprobar detalle Go antes de atribuir GET/replay'
+  exit 0
+fi
 # DOWN solo con tablas F2 vacías en este contenedor desechable.
 [[ "$(consulta "SELECT NOT EXISTS (SELECT 1 FROM vec_contacto_usuario_v1.versiones) AND NOT EXISTS (SELECT 1 FROM vec_bolsa_registro_accesos.registro_acceso)")" == t ]] || { echo 'F2: DOWN rechazado por historia' >&2; exit 1; }
 retirar_login
