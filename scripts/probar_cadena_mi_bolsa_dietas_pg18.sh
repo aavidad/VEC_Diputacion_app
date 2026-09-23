@@ -13,13 +13,13 @@ roles=${2:?falta lista de roles vec_}
 if rg -q '^(COPY |INSERT INTO |\\copy )' "$dump"; then
   echo 'El volcado contiene datos; se exige --schema-only' >&2; exit 2
 fi
-if rg -v '^vec_[a-z0-9_]+$' "$roles"; then
+if rg -qv '^vec_[a-z0-9_]+$' "$roles"; then
   echo 'Lista de roles inválida' >&2; exit 2
 fi
 
 container="vec-p2-pg18-$$"
 trap 'docker rm -f "$container" >/dev/null 2>&1 || true' EXIT
-docker run -d --rm --name "$container" --env POSTGRES_HOST_AUTH_METHOD=trust postgres:18.4-alpine >/dev/null
+docker run -d --rm --network none --name "$container" --env POSTGRES_HOST_AUTH_METHOD=trust postgres:18.4-alpine >/dev/null
 for _ in $(seq 1 60); do
   if docker exec "$container" pg_isready -q -U postgres -d postgres; then break; fi
   sleep 0.5
@@ -95,7 +95,7 @@ assert_eq "$(scalar "SELECT relrowsecurity AND relforcerowsecurity FROM pg_class
 assert_eq "$(scalar "SELECT NOT rolcanlogin FROM pg_roles WHERE rolname='vec_dietas_registrador_frontera'")" t 'D5 registrador NOLOGIN'
 assert_eq "$(scalar "SELECT has_function_privilege('vec_dietas_registrador_frontera','$auditoria_sig','EXECUTE') AND NOT has_function_privilege('vec_dietas_ejecutor','$auditoria_sig','EXECUTE')")" t 'D5 ACL de función'
 assert_eq "$(scalar "SELECT NOT has_table_privilege('vec_dietas_registrador_frontera','$dietas.auditoria_frontera_comision','SELECT,INSERT,UPDATE,DELETE') AND NOT has_table_privilege('vec_dietas_ejecutor','$dietas.auditoria_frontera_comision','SELECT,INSERT,UPDATE,DELETE')")" t 'D5 sin acceso directo a tabla'
-assert_eq "$(scalar "SELECT has_database_privilege('vec_dietas_registrador_frontera',current_database(),'CONNECT')")" t 'D5 CONNECT nominal'
+assert_eq "$(scalar "SELECT EXISTS (SELECT 1 FROM pg_database d CROSS JOIN LATERAL aclexplode(d.datacl) acl JOIN pg_roles r ON r.oid=acl.grantee WHERE d.datname=current_database() AND r.rolname='vec_dietas_registrador_frontera' AND acl.privilege_type='CONNECT')")" t 'D5 CONNECT nominal explícito'
 assert_eq "$(scalar "SELECT md5(pg_get_functiondef('vec_autorizacion_atestada_v3.registrar_y_consumir_mi_bolsa_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure))")" "$v3_previa" 'historia funcional V3 conservada'
 assert_eq "$(scalar "SELECT md5(coalesce(string_agg(n.nspname||'.'||c.relname||':'||coalesce(c.relacl::text,'')||':'||c.relrowsecurity||':'||c.relforcerowsecurity,'|' ORDER BY n.nspname,c.relname),'')) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname IN ('$bolsa','$dietas') AND c.relkind IN ('r','p') AND c.oid<>'$dietas.auditoria_frontera_comision'::regclass")" "$acl_previa" 'ACL/RLS de tablas anteriores conservadas'
 echo 'OK cadena incremental en estructura real; no se han restaurado ni rellenado filas'
