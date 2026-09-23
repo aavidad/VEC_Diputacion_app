@@ -66,7 +66,6 @@ export function excluirCorreoDeActualizacionContacto(payload) {
 }
 
 const porId = (id) => document.getElementById(id);
-
 export function esOrigenSinteticoODesarrollo(meta = {}) {
   if (meta === null || typeof meta !== "object") return false;
   return [meta.origen, meta.entorno].filter((declaracion) => typeof declaracion === "string")
@@ -257,11 +256,11 @@ function renderizar(estado, { enfocar = false } = {}) {
       presentacion: estado.presentacionSolicitada || estado.datos.meta.presentacion === true,
       alConfirmar: (resultado) => {
         conservarResultadoContactoPropio(estado, resultado);
+        Object.assign(estado, { contactoPropioConfirmacionReciente: resultado, contactoPropioEnfocarConfirmacion: true });
         if (estado.vista === "perfil") renderizar(estado);
       },
       alDenegar: () => {
-        estado.contactoPropio = null;
-        estado.contactoPropioRecibo = null;
+        Object.assign(estado, { contactoPropio: null, contactoPropioRecibo: null, contactoPropioConfirmacionReciente: null });
       },
     });
     const montajeContacto = montarContactoPropio({
@@ -270,10 +269,11 @@ function renderizar(estado, { enfocar = false } = {}) {
       autorizacionServidor: estado.contactoPropio,
       fetchImpl: estado.fetchImpl,
       presentacion: estado.presentacionSolicitada || estado.datos.meta.presentacion === true,
-      reciboAnterior: estado.contactoPropioRecibo,
+      reciboAnterior: estado.contactoPropioRecibo, confirmacionReciente: estado.contactoPropioConfirmacionReciente,
+      enfocarConfirmacion: estado.contactoPropioEnfocarConfirmacion,
       controlador: estado.controladorContactoPropio,
     });
-    estado.destruirContactoPropio = montajeContacto?.destruir ?? null;
+    estado.contactoPropioEnfocarConfirmacion = false; estado.destruirContactoPropio = montajeContacto?.destruir ?? null;
   }
 
   if (enfocar) {

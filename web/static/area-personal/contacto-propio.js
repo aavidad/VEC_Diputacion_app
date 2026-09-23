@@ -201,7 +201,8 @@ export function crearControladorContactoPropio({ autorizacionServidor = null, fe
 }
 
 export function montarContactoPropio({ contenedor, autorizacionServidor = null, fetchImpl,
-  presentacion = false, reciboAnterior = null, alGuardar = null, controlador: externo = null } = {}) {
+  presentacion = false, reciboAnterior = null, confirmacionReciente = null, enfocarConfirmacion = false,
+  alGuardar = null, controlador: externo = null } = {}) {
   if (!contenedor?.replaceChildren) return null;
   const controlador = externo ?? crearControladorContactoPropio({ autorizacionServidor, fetchImpl, presentacion, alConfirmar: alGuardar });
   const doc = contenedor.ownerDocument;
@@ -221,7 +222,7 @@ export function montarContactoPropio({ contenedor, autorizacionServidor = null, 
   const estado = nodo("p", "nota"); estado.setAttribute("role", "status");
   estado.setAttribute("aria-live", "polite"); estado.setAttribute("tabindex", "-1");
   const anterior = nodo("p", "nota", reciboAnterior?.reciboRef ? t("correctoAnterior", { recibo: reciboAnterior.reciboRef }) : "");
-  anterior.hidden = !reciboAnterior?.reciboRef;
+  anterior.hidden = !reciboAnterior?.reciboRef || reciboAnterior.reciboRef === confirmacionReciente?.reciboRef;
   const listaPanel = nodo("section", "contacto-operaciones-panel");
   const cabecera = nodo("div", "contacto-operaciones-cabecera");
   const titulo = nodo("h4", "", t("historialTitulo"));
@@ -245,8 +246,11 @@ export function montarContactoPropio({ contenedor, autorizacionServidor = null, 
     cancelar.hidden = op?.estado !== "preparada";
     confirmar.disabled = !habilitado; cancelar.disabled = !habilitado;
     actualizar.disabled = !habilitado; mas.hidden = !controlador.siguienteDesde; mas.disabled = !habilitado;
-    estado.textContent = controlador.autorizado ? controlador.aviso || t("seleccionExplicita") : t("sinAutorizacion");
-    estado.className = `nota ${controlador.tipoAviso === "error" ? "error" : controlador.tipoAviso === "aviso" ? "aviso" : ""}`.trim();
+    const confirmacionVisible = controlador.autorizado && !op && controlador.tipoAviso !== "error" && confirmacionReciente?.reciboRef;
+    estado.textContent = !controlador.autorizado ? t("sinAutorizacion")
+      : confirmacionVisible ? t("correcto", { recibo: confirmacionReciente.reciboRef })
+        : controlador.aviso || t("seleccionExplicita");
+    estado.className = `nota ${confirmacionVisible ? "contacto-exito" : controlador.tipoAviso === "error" ? "error" : controlador.tipoAviso === "aviso" ? "aviso" : ""}`.trim();
     const items = controlador.operaciones;
     const claveActual = JSON.stringify([controlador.cargado, items, op?.operacion_ref ?? ""]);
     if (claveActual !== listaClave) {
@@ -293,6 +297,7 @@ export function montarContactoPropio({ contenedor, autorizacionServidor = null, 
   formulario.addEventListener("submit", alPreparar); confirmar.addEventListener("click", alConfirmarClick);
   cancelar.addEventListener("click", alCancelar); actualizar.addEventListener("click", alActualizar); mas.addEventListener("click", alMas);
   sincronizar();
+  if (enfocarConfirmacion && controlador.autorizado) estado.focus();
   if (controlador.autorizado && !controlador.cargado) void controlador.cargar().catch(() => {});
   return Object.freeze({ controlador, destruir() { activa = false; controlador.destruir(); desuscribir();
     formulario.removeEventListener("submit", alPreparar); confirmar.removeEventListener("click", alConfirmarClick);

@@ -23,11 +23,12 @@ function servidor(secuencia) {
   return { peticiones, fetchImpl };
 }
 function contenedorDOM() {
+  const documento = { activeElement: null };
   const crearNodo = () => ({ children: [], handlers: {}, attrs: {}, append(...nodos) { this.children.push(...nodos); },
     replaceChildren(...nodos) { this.children = nodos; }, setAttribute(clave, valor) { this.attrs[clave] = valor; },
     addEventListener(tipo, fn) { this.handlers[tipo] = fn; }, removeEventListener(tipo) { delete this.handlers[tipo]; },
-    checkValidity() { return true; }, focus() {} });
-  const documento = { createElement: crearNodo };
+    checkValidity() { return true; }, focus() { documento.activeElement = this; } });
+  documento.createElement = crearNodo;
   return { ownerDocument: documento, replaceChildren(...nodos) { this.children = nodos; } };
 }
 const autorizado = { capacidad: true, version: 7 };
@@ -192,6 +193,40 @@ test("remonte durante callback de confirmación no convierte el recibo válido e
   assert.equal(resultado.recibo_ref, "recibo-original");
   assert.equal(callbacks, 1);
   assert.equal(c.autorizado, false);
+});
+
+test("remonte tras 201 o 503 recuperado enfoca estado concreto con recibo original", async () => {
+  for (const incierto of [false, true]) {
+    const peticiones = [];
+    const fetchImpl = async (ruta) => {
+      peticiones.push(ruta);
+      if (ruta === RUTAS_OPERACIONES_CONTACTO.consultas) return respuesta(200, { operaciones: [] });
+      if (ruta === RUTAS_OPERACIONES_CONTACTO.preparar) return respuesta(201, preparado());
+      if (ruta === RUTAS_OPERACIONES_CONTACTO.confirmar) return incierto
+        ? respuesta(503, { codigo: "confirmacion_incierta", operacion_ref: REF }) : respuesta(201, confirmado());
+      if (ruta === RUTAS_OPERACIONES_CONTACTO.detalle) return respuesta(200, confirmado());
+      throw new Error("ruta inesperada");
+    };
+    const contenedor = contenedorDOM();
+    let montaje;
+    const c = crearControladorContactoPropio({ autorizacionServidor: autorizado, fetchImpl, alConfirmar: (resultado) => {
+      montaje.destruir();
+      const nuevo = crearControladorContactoPropio({ autorizacionServidor: { capacidad: true, version: resultado.version }, fetchImpl });
+      montaje = montarContactoPropio({ contenedor, controlador: nuevo, reciboAnterior: resultado,
+        confirmacionReciente: resultado, enfocarConfirmacion: true });
+    } });
+    await c.cargar();
+    await c.preparar("uno@ejemplo.test");
+    montaje = montarContactoPropio({ contenedor, controlador: c });
+    const resultado = await c.confirmar("uno@ejemplo.test");
+    assert.equal(resultado.recibo_ref, "recibo-original");
+    const status = contenedor.children[0].children[2];
+    assert.equal(contenedor.ownerDocument.activeElement, status);
+    assert.match(status.textContent, /recibo-original/u);
+    assert.equal(contenedor.children[0].children[3].hidden, true);
+    assert.equal(peticiones.filter((ruta) => ruta === RUTAS_OPERACIONES_CONTACTO.confirmar).length, 1);
+    montaje.destruir();
+  }
 });
 
 test("403/404 no muestran datos ajenos; 409 entre pestañas exige consulta", async () => {
