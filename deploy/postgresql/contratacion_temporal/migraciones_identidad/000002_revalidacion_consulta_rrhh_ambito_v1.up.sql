@@ -87,7 +87,7 @@ BEGIN
         RAISE EXCEPTION 'Identidad2: preimagen o ACL incompatible'
             USING ERRCODE = '55000';
     END IF;
-    SELECT pg_catalog.coalesce(pg_catalog.jsonb_agg(
+    SELECT coalesce(pg_catalog.jsonb_agg(
         pg_catalog.to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,
         d.refclassid,d.refobjid,d.refobjsubid,d.deptype), '[]'::jsonb)
       INTO v_dependencias_antes FROM pg_catalog.pg_depend d
@@ -101,7 +101,7 @@ BEGIN
            pg_catalog.pg_get_functiondef(p.oid) AS definition
       INTO STRICT v_despues FROM pg_catalog.pg_proc p
      WHERE p.oid = v_funcion;
-    SELECT pg_catalog.coalesce(pg_catalog.jsonb_agg(
+    SELECT coalesce(pg_catalog.jsonb_agg(
         pg_catalog.to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,
         d.refclassid,d.refobjid,d.refobjsubid,d.deptype), '[]'::jsonb)
       INTO v_dependencias_despues FROM pg_catalog.pg_depend d

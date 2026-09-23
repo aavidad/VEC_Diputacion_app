@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-raiz="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd -P)"
+raiz="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../../.." && pwd -P)"
 imagen=${VEC_POSTGRES_TEST_IMAGE:-postgres:18.4-bookworm@sha256:1961f96e6029a02c3812d7cb329a3b03a3ac2bb067058dec17b0f5596aca9296}
 contenedor="vec-ct-identidad2-rrhh-${PPID}-${RANDOM}"
 volumen="${contenedor}-datos"
@@ -251,6 +251,16 @@ DROP FUNCTION vec_contratacion_temporal.identidad2_prueba(text,text);
 REVOKE vec_contratacion_temporal_consultor_rrhh_ambito FROM vec_identidad2_ambito;
 REVOKE vec_contratacion_temporal_consultor_rrhh_ambito FROM vec_identidad2_doble;
 SQL
+psql_admin <<'SQL' >/dev/null
+-- Sentinela desechable: el esquema CT existe, pero el runner mínimo no instala
+-- la migración CT36 completa. Prueba la barrera de historia sin fingir un E2E.
+CREATE TABLE vec_contratacion_temporal.registro_acceso_rrhh (id integer);
+INSERT INTO vec_contratacion_temporal.registro_acceso_rrhh VALUES (1);
+SQL
+esperar_fallo 'DOWN con historia CT desechable' archivo \
+    contratacion_temporal/migraciones_identidad/000002_revalidacion_consulta_rrhh_ambito_v1.down.sql
+psql_admin --command \
+    'DROP TABLE vec_contratacion_temporal.registro_acceso_rrhh' >/dev/null
 archivo \
     contratacion_temporal/migraciones_identidad/000002_revalidacion_consulta_rrhh_ambito_v1.down.sql
 if [[ $(psql_admin --no-align --tuples-only --command \

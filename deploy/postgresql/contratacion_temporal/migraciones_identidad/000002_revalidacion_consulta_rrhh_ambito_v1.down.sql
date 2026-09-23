@@ -14,6 +14,7 @@ DECLARE
     v_nombre text;
     v_tabla regclass;
     v_fila integer;
+    v_control record;
 BEGIN
     FOREACH v_nombre IN ARRAY ARRAY[
         'vec_contratacion_temporal.registro_acceso_rrhh',
@@ -30,14 +31,44 @@ BEGIN
             END IF;
             EXECUTE pg_catalog.format(
                 'LOCK TABLE %s IN ACCESS EXCLUSIVE MODE', v_tabla);
+            v_fila := NULL;
             EXECUTE pg_catalog.format(
                 'SELECT 1 FROM %s LIMIT 1', v_tabla) INTO v_fila;
-            IF FOUND THEN
+            IF v_fila IS NOT NULL THEN
                 RAISE EXCEPTION 'Identidad2: DOWN rechazado por historia'
                     USING ERRCODE = '55000';
             END IF;
         END IF;
     END LOOP;
+    v_tabla := pg_catalog.to_regclass(
+        'vec_autorizacion_atestada_v3.control_cadena_auditoria');
+    IF v_tabla IS NOT NULL THEN
+        IF NOT pg_catalog.has_table_privilege(
+            current_user, v_tabla, 'SELECT') THEN
+            RAISE EXCEPTION 'Identidad2: control V3 no verificable'
+                USING ERRCODE = '55000';
+        END IF;
+        EXECUTE pg_catalog.format(
+            'LOCK TABLE %s IN ACCESS EXCLUSIVE MODE', v_tabla);
+        EXECUTE pg_catalog.format(
+            'SELECT control_id, secuencia, cabeza_sha256 FROM %s', v_tabla)
+            INTO v_control;
+        IF v_control.control_id IS DISTINCT FROM true
+           OR v_control.secuencia IS DISTINCT FROM 0::numeric
+           OR v_control.cabeza_sha256 IS DISTINCT FROM
+              pg_catalog.repeat('0', 64) THEN
+            RAISE EXCEPTION 'Identidad2: control V3 fuera de génesis'
+                USING ERRCODE = '55000';
+        END IF;
+        v_fila := NULL;
+        EXECUTE pg_catalog.format(
+            'SELECT 1 FROM %s OFFSET 1 LIMIT 1', v_tabla)
+            INTO v_fila;
+        IF v_fila IS NOT NULL THEN
+            RAISE EXCEPTION 'Identidad2: control V3 duplicado'
+                USING ERRCODE = '55000';
+        END IF;
+    END IF;
     IF EXISTS (
         SELECT 1 FROM pg_catalog.pg_auth_members m
          WHERE m.roleid =
@@ -128,7 +159,7 @@ BEGIN
         RAISE EXCEPTION 'Identidad2: preimagen o ACL incompatible'
             USING ERRCODE = '55000';
     END IF;
-    SELECT pg_catalog.coalesce(pg_catalog.jsonb_agg(
+    SELECT coalesce(pg_catalog.jsonb_agg(
         pg_catalog.to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,
         d.refclassid,d.refobjid,d.refobjsubid,d.deptype), '[]'::jsonb)
       INTO v_dependencias_antes FROM pg_catalog.pg_depend d
@@ -142,7 +173,7 @@ BEGIN
            pg_catalog.pg_get_functiondef(p.oid) AS definition
       INTO STRICT v_despues FROM pg_catalog.pg_proc p
      WHERE p.oid = v_funcion;
-    SELECT pg_catalog.coalesce(pg_catalog.jsonb_agg(
+    SELECT coalesce(pg_catalog.jsonb_agg(
         pg_catalog.to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,
         d.refclassid,d.refobjid,d.refobjsubid,d.deptype), '[]'::jsonb)
       INTO v_dependencias_despues FROM pg_catalog.pg_depend d
