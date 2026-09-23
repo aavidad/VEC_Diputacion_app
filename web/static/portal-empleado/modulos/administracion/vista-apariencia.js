@@ -14,11 +14,26 @@ export function montarVistaApariencia({ raiz, anunciar = () => {}, t, cargarCont
     throw new TypeError("vista de Apariencia no disponible");
   }
   const documento = raiz.ownerDocument;
+  const raizTema = documento.documentElement;
   const idAyuda = `administracion-apariencia-ayuda-${++secuenciaAyuda}`;
   let activa = true;
   let controlador = null;
-  const temaInicial = documento.documentElement?.getAttribute?.("data-tema");
-  let seleccion = OPCIONES.includes(temaInicial) ? temaInicial : "institucional";
+  let crearControlador = null;
+  let observador = null;
+  let ultimoTemaAplicado = null;
+  let temaBase = raizTema?.getAttribute?.("data-tema");
+  let seleccion = OPCIONES.includes(temaBase) ? temaBase : "institucional";
+  let actualizarEstado = () => {};
+
+  const detectarCambioExterno = (mutaciones = []) => {
+    if (ultimoTemaAplicado === null) return;
+    if (!mutaciones.length && raizTema.getAttribute("data-tema") === ultimoTemaAplicado) return;
+    controlador = null;
+    temaBase = raizTema.getAttribute("data-tema");
+    ultimoTemaAplicado = null;
+    actualizarEstado();
+  };
+  const revisarCambiosExternos = () => detectarCambioExterno(observador?.takeRecords() ?? []);
 
   const cabecera = () => {
     const header = nodo(documento, "header", "", "cabecera-panel administracion-apariencia-cabecera");
@@ -90,8 +105,8 @@ export function montarVistaApariencia({ raiz, anunciar = () => {}, t, cargarCont
     const limitePublicacion = nodo(documento, "p", t("apariencia_sin_autoridad"), "administracion-apariencia-limite");
     limitePublicacion.id = `${idAyuda}-limite`;
     publicar.setAttribute("aria-describedby", limitePublicacion.id);
-    const actualizarEstado = () => {
-      const previa = controlador.leerEstado().previsualizacion;
+    actualizarEstado = () => {
+      const previa = Boolean(controlador?.leerEstado().previsualizacion);
       panel.dataset.aparienciaPrevia = String(previa);
       estado.textContent = t(previa ? "apariencia_estado_previa" : "apariencia_estado_base");
       estado.setAttribute("role", "status");
@@ -100,7 +115,14 @@ export function montarVistaApariencia({ raiz, anunciar = () => {}, t, cargarCont
     form.addEventListener("submit", (evento) => {
       evento.preventDefault();
       try {
+        revisarCambiosExternos();
+        if (ultimoTemaAplicado === null) {
+          temaBase = raizTema.getAttribute("data-tema");
+          controlador = crearControlador({ documento });
+        }
         controlador.previsualizar({ tema_id: seleccion, revision: 1 });
+        ultimoTemaAplicado = seleccion;
+        observador?.takeRecords();
         actualizarEstado();
         anunciar(t("apariencia_estado_previa"), "info");
       } catch {
@@ -111,8 +133,10 @@ export function montarVistaApariencia({ raiz, anunciar = () => {}, t, cargarCont
     });
     cancelar.addEventListener("click", () => {
       try {
-        controlador.cancelarPrevisualizacion();
-        seleccion = OPCIONES.includes(temaInicial) ? temaInicial : "institucional";
+        revisarCambiosExternos();
+        controlador?.cancelarPrevisualizacion();
+        ultimoTemaAplicado = null;
+        seleccion = OPCIONES.includes(temaBase) ? temaBase : "institucional";
         radios.forEach((radio) => { radio.checked = radio.value === seleccion; });
         actualizarEstado();
         anunciar(t("apariencia_estado_base"), "info");
@@ -135,7 +159,14 @@ export function montarVistaApariencia({ raiz, anunciar = () => {}, t, cargarCont
       const modulo = await cargarControlador();
       if (!activa) return;
       if (typeof modulo?.crearControladorTema !== "function") throw new TypeError("controlador de tema no disponible");
-      controlador = modulo.crearControladorTema({ documento });
+      crearControlador = modulo.crearControladorTema;
+      controlador = crearControlador({ documento });
+      temaBase = raizTema.getAttribute("data-tema");
+      const MutationObserverTema = documento.defaultView?.MutationObserver ?? globalThis.MutationObserver;
+      if (MutationObserverTema) {
+        observador = new MutationObserverTema((mutaciones) => detectarCambioExterno(mutaciones));
+        observador.observe(raizTema, { attributes: true, attributeFilter: ["data-tema"] });
+      }
       pintarLista();
     } catch {
       if (activa) { pintarEspera("apariencia_error_carga", true); anunciar(t("apariencia_error_carga"), "error"); }
@@ -145,7 +176,9 @@ export function montarVistaApariencia({ raiz, anunciar = () => {}, t, cargarCont
   return Object.freeze({ desmontar() {
     if (!activa) return;
     activa = false;
-    controlador?.cancelarPrevisualizacion();
-    raiz.replaceChildren();
+    revisarCambiosExternos();
+    observador?.disconnect();
+    try { controlador?.cancelarPrevisualizacion(); }
+    finally { raiz.replaceChildren(); }
   } });
 }

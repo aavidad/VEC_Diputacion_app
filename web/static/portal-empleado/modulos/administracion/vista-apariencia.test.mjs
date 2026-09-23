@@ -17,9 +17,9 @@ class Elemento {
   }
   append(...hijos) { this.children.push(...hijos); }
   replaceChildren(...hijos) { this.children = hijos; }
-  setAttribute(clave, valor) { this.atributos.set(clave, String(valor)); }
+  setAttribute(clave, valor) { this.atributos.set(clave, String(valor)); this.ownerDocument.notificarAtributo?.(this, clave); }
   getAttribute(clave) { return this.atributos.get(clave) ?? null; }
-  removeAttribute(clave) { this.atributos.delete(clave); }
+  removeAttribute(clave) { this.atributos.delete(clave); this.ownerDocument.notificarAtributo?.(this, clave); }
   addEventListener(clave, fn) { this.eventos.set(clave, fn); }
   emitir(clave) { this.eventos.get(clave)?.({ preventDefault() {} }); }
   buscar(predicado) {
@@ -34,6 +34,19 @@ class Elemento {
 
 function documentoFalso() {
   const documento = { createElement(etiqueta) { return new Elemento(documento, etiqueta); } };
+  const observadores = new Set();
+  documento.defaultView = { MutationObserver: class {
+    constructor(callback) { this.callback = callback; this.registros = []; }
+    observe(objetivo) { this.objetivo = objetivo; observadores.add(this); }
+    takeRecords() { return this.registros.splice(0); }
+    disconnect() { observadores.delete(this); }
+    anotar(objetivo, nombre) {
+      if (objetivo !== this.objetivo || nombre !== "data-tema") return;
+      this.registros.push({ type: "attributes", attributeName: nombre });
+      queueMicrotask(() => { const registros = this.takeRecords(); if (registros.length) this.callback(registros); });
+    }
+  } };
+  documento.notificarAtributo = (objetivo, nombre) => { for (const observador of observadores) observador.anotar(objetivo, nombre); };
   documento.documentElement = documento.createElement("html");
   documento.body = documento.createElement("body");
   return documento;
@@ -95,5 +108,73 @@ test("Apariencia permite reintentar una carga fallida sin aplicar tema", async (
   await esperarEstado(raiz, "disponible");
   assert.equal(raiz.buscar((n) => n.dataset.aparienciaEstado === "disponible")?.etiqueta, "section");
   assert.equal(documento.documentElement.getAttribute("data-tema"), null);
+  vista.desmontar();
+});
+
+test("un cambio externo de tema prevalece al desmontar sin alterar foco ni contraste", async () => {
+  const documento = documentoFalso();
+  documento.body.dataset.contraste = "true";
+  const foco = documento.createElement("button");
+  documento.activeElement = foco;
+  const raiz = documento.createElement("div");
+  const vista = montarVistaApariencia({ raiz, t: crearTraductorAdministracion(), cargarControlador: cargar });
+  await esperarEstado(raiz, "disponible");
+  const granate = raiz.buscar((n) => n.etiqueta === "input" && n.value === "granate");
+  granate.checked = true;
+  granate.emitir("change");
+  raiz.buscar((n) => n.etiqueta === "form").emitir("submit");
+  assert.equal(documento.documentElement.getAttribute("data-tema"), "granate");
+  documento.documentElement.dataset.tema = "institucional";
+  vista.desmontar();
+  assert.equal(documento.documentElement.getAttribute("data-tema"), "institucional");
+  assert.equal(documento.body.dataset.contraste, "true");
+  assert.equal(documento.activeElement, foco);
+});
+
+test("una escritura externa del mismo tema desactiva la preview y una nueva parte del estado visible", async () => {
+  const documento = documentoFalso();
+  const raiz = documento.createElement("div");
+  const vista = montarVistaApariencia({ raiz, t: crearTraductorAdministracion(), cargarControlador: cargar });
+  await esperarEstado(raiz, "disponible");
+  const granate = raiz.buscar((n) => n.etiqueta === "input" && n.value === "granate");
+  granate.checked = true;
+  granate.emitir("change");
+  const form = raiz.buscar((n) => n.etiqueta === "form");
+  form.emitir("submit");
+  documento.documentElement.dataset.tema = "granate";
+  await Promise.resolve();
+  assert.equal(raiz.buscar((n) => n.dataset.aparienciaPrevia === "false")?.etiqueta, "section");
+  vista.desmontar();
+  assert.equal(documento.documentElement.getAttribute("data-tema"), "granate");
+
+  const otraRaiz = documento.createElement("div");
+  const otraVista = montarVistaApariencia({ raiz: otraRaiz, t: crearTraductorAdministracion(), cargarControlador: cargar });
+  await esperarEstado(otraRaiz, "disponible");
+  const institucional = otraRaiz.buscar((n) => n.etiqueta === "input" && n.value === "institucional");
+  institucional.checked = true;
+  institucional.emitir("change");
+  otraRaiz.buscar((n) => n.etiqueta === "form").emitir("submit");
+  otraRaiz.buscar((n) => n.etiqueta === "button" && n.textContent === "Restablecer").emitir("click");
+  assert.equal(documento.documentElement.getAttribute("data-tema"), "granate");
+  otraVista.desmontar();
+});
+
+test("tras una sustitución externa, otra preview toma como base el tema nuevo", async () => {
+  const documento = documentoFalso();
+  const raiz = documento.createElement("div");
+  const vista = montarVistaApariencia({ raiz, t: crearTraductorAdministracion(), cargarControlador: cargar });
+  await esperarEstado(raiz, "disponible");
+  const granate = raiz.buscar((n) => n.etiqueta === "input" && n.value === "granate");
+  granate.checked = true;
+  granate.emitir("change");
+  const form = raiz.buscar((n) => n.etiqueta === "form");
+  form.emitir("submit");
+  documento.documentElement.dataset.tema = "institucional";
+  await Promise.resolve();
+  assert.equal(raiz.buscar((n) => n.dataset.aparienciaPrevia === "false")?.etiqueta, "section");
+  form.emitir("submit");
+  assert.equal(documento.documentElement.getAttribute("data-tema"), "granate");
+  raiz.buscar((n) => n.etiqueta === "button" && n.textContent === "Restablecer").emitir("click");
+  assert.equal(documento.documentElement.getAttribute("data-tema"), "institucional");
   vista.desmontar();
 });
