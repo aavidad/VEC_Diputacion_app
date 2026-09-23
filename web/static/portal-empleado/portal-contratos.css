@@ -70,9 +70,59 @@
   line-height: 1.3;
 }
 
-.contratos-paso .estado-chip {
-  grid-column: 2;
-  justify-self: start;
+.contratos-secciones {
+  display: grid;
+  gap: var(--portal-espacio-2);
+  min-width: 0;
+}
+
+.contratos-seccion summary {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  gap: var(--portal-espacio-3);
+  padding: var(--portal-espacio-2) var(--portal-espacio-4);
+  background: var(--portal-cabecera-panel);
+  color: var(--portal-azul-950);
+  cursor: pointer;
+  list-style: none;
+}
+
+.contratos-seccion summary::-webkit-details-marker {
+  display: none;
+}
+
+.contratos-seccion summary:focus-visible {
+  outline: 3px solid var(--portal-azul-700);
+  outline-offset: -3px;
+}
+
+.contratos-seccion summary::before {
+  content: "▸";
+  color: var(--portal-azul-700);
+}
+
+.contratos-seccion[open] summary::before {
+  content: "▾";
+}
+
+.contratos-seccion[open] summary {
+  border-bottom: 1px solid var(--portal-borde);
+}
+
+.contratos-seccion summary strong {
+  font-size: 1rem;
+}
+
+.contratos-seccion summary .estado-chip {
+  margin-left: auto;
+}
+
+.contratos-seccion-descripcion {
+  margin: 0;
+  padding: var(--portal-espacio-2) var(--portal-espacio-4);
+  color: var(--portal-muted);
+  font-size: .76rem;
 }
 
 .contratos-panel-registros .tabla-contenedor {
@@ -104,23 +154,16 @@
   content: "→ ";
 }
 
-.contratos-acciones {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--portal-espacio-3);
-  padding: var(--portal-espacio-3);
-}
-
 .contratos-accion {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--portal-espacio-1);
+  align-items: center;
+  gap: var(--portal-espacio-3);
   min-width: 0;
+  padding: var(--portal-espacio-2) var(--portal-espacio-4);
 }
 
 .contratos-accion button {
-  width: 100%;
+  min-width: 180px;
   min-height: 36px;
   opacity: 1;
   color: var(--portal-muted);
@@ -156,14 +199,12 @@
 }
 
 @media (max-width: 700px) {
-  .contratos-panel-circuito .cabecera-panel,
-  .contratos-panel-registros .cabecera-panel {
+  .contratos-panel-circuito .cabecera-panel {
     align-items: flex-start;
     flex-direction: column;
   }
 
-  .contratos-pasos,
-  .contratos-acciones {
+  .contratos-pasos {
     grid-template-columns: 1fr;
   }
 
@@ -171,8 +212,16 @@
     grid-template-columns: 1.7rem minmax(0, 1fr) auto;
   }
 
-  .contratos-paso .estado-chip {
-    grid-column: 3;
-    align-self: start;
+  .contratos-seccion summary {
+    flex-wrap: wrap;
+  }
+
+  .contratos-accion {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .contratos-accion button {
+    width: 100%;
   }
 }
