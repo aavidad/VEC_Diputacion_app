@@ -8,7 +8,7 @@
  */
 import { traducirBolsaInterna } from "./portal-i18n.js";
 import { renderizarBloqueAvisos } from "./portal-bolsas-avisos.js?v=20260923-pweb12-montaje-v1";
-import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260923-pweb13-b8-v1";
+import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260923-pweb14-v1";
 const ESQUEMA_PANEL_INTERNO = "vec.bolsa.panel.interno.v1";
 const ESTADOS_BOLSA = Object.freeze(["disponible", "no_disponible", "trabajando", "pendiente_incorporacion", "renuncia", "excluido", "disponible_desde"]);
 export function crearPresentadorPanelInterno(dependencias) {
@@ -229,7 +229,7 @@ export function crearPresentadorPanelInterno(dependencias) {
     }
     const totalAspirantes = bolsas.reduce((total, bolsa) => total + Number(bolsa.total || 0), 0);
     const totalDisponibles = bolsas.reduce((total, bolsa) => total + Number(bolsa.por_estado?.disponible || 0), 0);
-    const totalLlamamientosPendientes = bolsas.reduce((total, bolsa) => total + Number(bolsa.por_estado?.renuncia_pendiente || 0), 0);
+    const totalPersonasEnRenuncia = bolsas.reduce((total, bolsa) => total + Number(bolsa.por_estado?.renuncia || 0), 0);
     const filas = bolsas.map((b) => `
       <tr data-bolsa-ref="${escaparHTML(b.bolsa_ref)}">
         <td><button type="button" class="enlace-tabla" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(b.bolsa_ref)}" aria-label="Abrir candidatos de la bolsa ${escaparHTML(b.categoria)}"><strong>${escaparHTML(b.categoria)}</strong></button><br><small>${escaparHTML(b.categoria_clave)}</small></td>
@@ -255,7 +255,7 @@ export function crearPresentadorPanelInterno(dependencias) {
           <article class="tarjeta-estado"><span>Bolsas visibles</span><strong>${numero(bolsas.length)}</strong></article>
           <article class="tarjeta-estado"><span>Aspirantes</span><strong>${numero(totalAspirantes)}</strong></article>
           <article class="tarjeta-estado"><span>Disponibles</span><strong>${numero(totalDisponibles)}</strong></article>
-          <article class="tarjeta-estado"><span>Renuncias pendientes</span><strong>${numero(totalLlamamientosPendientes)}</strong></article>
+          <article class="tarjeta-estado"><span>Personas en renuncia</span><strong>${numero(totalPersonasEnRenuncia)}</strong></article>
         </div>
         <div class="tabla-contenedor">
           <table class="tabla-datos">
@@ -808,7 +808,7 @@ export function crearPresentadorPanelInterno(dependencias) {
   function renderizarSoloBolsas(vista) {
     if (vista === "bolsa-candidatos") return renderizarCandidatosBolsa();
     const estadoAvisos = typeof obtenerDatosAvisos === "function" ? obtenerDatosAvisos() : null;
-    return `
+    return `<div class="cuadro-bolsa-solo">
       ${encabezadoVista("Gestión interna de Bolsas", "Cuadro de mando", "Bolsas constituidas y su desglose por situación. Los indicadores agregados del panel interno no están compuestos todavía.")}
       ${renderizarCuadroB12()}
       ${renderizarBloqueAvisos({
@@ -818,7 +818,7 @@ export function crearPresentadorPanelInterno(dependencias) {
       })}
       ${estadoAvisos?.datos?.conteos?.tres_anos === 0
         ? '<p class="texto-ayuda">Los tres años se calculan desde el histórico de situaciones de VEC, que empieza el 17/09/2026.</p>'
-        : ""}`;
+        : ""}</div>`;
   }
   return Object.freeze({ actualizarContextoSesion, esActivo, etiquetaFuente, renderizarEstadisticasBolsa, renderizarSoloBolsas, renderizarVista });
 }

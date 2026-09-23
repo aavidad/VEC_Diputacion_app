@@ -527,6 +527,31 @@ a:focus-visible,
     overscroll-behavior: contain;
     scrollbar-gutter: stable;
   }
+
+  .cuadro-bolsa-solo {
+    display: grid;
+    height: 100%;
+    min-height: 0;
+    grid-template-rows: auto minmax(0, 1.25fr) minmax(0, 1fr) auto;
+    gap: 10px;
+    overflow: hidden;
+  }
+
+  .cuadro-bolsa-solo > .panel {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+  }
+
+  .cuadro-bolsa-solo > .panel > .tabla-contenedor {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+  }
+
+  .cuadro-bolsa-solo > .texto-ayuda {
+    margin: 0;
+  }
 }
 
 .sobrelinea {
