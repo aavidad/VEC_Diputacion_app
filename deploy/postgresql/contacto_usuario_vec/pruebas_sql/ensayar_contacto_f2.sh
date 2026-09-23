@@ -100,12 +100,17 @@ transaccion=$(mktemp)
 aplicar "$transaccion"
 [[ "$(consulta "SELECT to_regnamespace('vec_contacto_usuario_v1') IS NULL AND to_regrole('vec_contacto_usuario_owner') IS NULL")" == t ]] || { echo 'F2: ROLLBACK dejó efectos' >&2; exit 1; }
 for archivo in "${archivos[@]}"; do aplicar "$archivo"; done
+# El ensayo de ACL usa una identidad LOGIN nominal, no SET ROLE desde DBA.
+preparar_login(){ consulta "CREATE ROLE vec_contacto_f2_login LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS; GRANT vec_contacto_usuario_writer TO vec_contacto_f2_login WITH ADMIN FALSE, INHERIT TRUE, SET FALSE" >/dev/null; }
+retirar_login(){ consulta "REVOKE vec_contacto_usuario_writer FROM vec_contacto_f2_login; DROP ROLE vec_contacto_f2_login" >/dev/null; }
+preparar_login
 aplicar "$raiz/deploy/postgresql/contacto_usuario_vec/pruebas_sql/ensayar_contacto_f2.sql"
 aplicar "$raiz/deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/contacto_usuario_codec.sql"
 aplicar "$raiz/deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/contacto_recibo_codec.sql"
 [[ "$(consulta "SELECT to_regprocedure('vec_contacto_usuario_v1.consultar_version_contacto_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea,bytea)') IS NOT NULL AND to_regprocedure('vec_contacto_usuario_v1.consultar_recibo_contacto_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea,bytea)') IS NOT NULL AND NOT has_table_privilege('vec_contacto_usuario_writer','vec_contacto_usuario_v1.versiones','SELECT') AND NOT has_table_privilege('vec_contacto_usuario_reader','vec_contacto_usuario_v1.actual','SELECT')")" == t ]] || { echo 'F2: postimagen/ACL no acreditadas' >&2; exit 1; }
 # DOWN solo con tablas F2 vacías en este contenedor desechable.
 [[ "$(consulta "SELECT NOT EXISTS (SELECT 1 FROM vec_contacto_usuario_v1.versiones) AND NOT EXISTS (SELECT 1 FROM vec_bolsa_registro_accesos.registro_acceso)")" == t ]] || { echo 'F2: DOWN rechazado por historia' >&2; exit 1; }
+retirar_login
 for archivo in \
   "$raiz/deploy/postgresql/contacto_usuario_vec/migraciones/000002_consulta_recibo_contacto_propio.down.sql" \
   "$raiz/deploy/postgresql/bolsa_registro_accesos/migraciones/000007_consulta_recibo_contacto_propio.down.sql" \
@@ -115,5 +120,6 @@ for archivo in \
   "$raiz/deploy/postgresql/autorizacion_atestada_v3/migraciones/000051_consumidor_contacto_usuario.down.sql"; do aplicar "$archivo"; done
 [[ "$(consulta "SELECT encode(sha256(convert_to(prosrc,'UTF8')),'hex') FROM pg_proc WHERE oid='vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure")" == "$core_original" ]] || { echo 'F2: DOWN alteró núcleo previo' >&2; exit 1; }
 for archivo in "${archivos[@]:1}"; do aplicar "$archivo"; done
+preparar_login
 aplicar "$raiz/deploy/postgresql/contacto_usuario_vec/pruebas_sql/ensayar_contacto_f2.sql"
-echo 'F2: ROLLBACK, COMMIT, DOWN vacío y reinstalación AD3 50→51/52 acreditados en PG18 desechable; Cronos 55 pertenece a F3'
+echo 'F2: ROLLBACK, COMMIT, DOWN vacío, reinstalación y ACL LOGIN AD3 50→51/52 acreditados en PG18 desechable; Cronos 55 pertenece a F3'
