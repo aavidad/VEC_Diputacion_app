@@ -1,4 +1,4 @@
-import { crearTraductorPruebas } from "./i18n.js";
+import { crearTraductorPruebas } from "./i18n.js?v=20260924-f2-web2";
 
 const ESTADOS = new Set(["no_configurado", "cargando", "vacio", "denegado", "error", "disponible"]);
 const ESTADOS_FILA = new Set(["pendiente", "programada", "realizada", "suspendida", "borrador", "en_revision", "aprobada", "publicada", "registrado", "validado"]);

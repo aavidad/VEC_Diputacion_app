@@ -4,6 +4,17 @@ import { readFile } from "node:fs/promises";
 import { montarVistaPruebas, renderizarVistaPruebas } from "./vista.js";
 import { crearTraductorPruebas, MENSAJES_PRUEBAS_ES } from "./i18n.js";
 
+test("el import interno de i18n usa la URL immutable F2 y carga el catálogo", async () => {
+  const fuente = await readFile(new URL("./vista.js", import.meta.url), "utf8");
+  const importacion = fuente.match(/^import \{ crearTraductorPruebas \} from "([^"]+)";/mu);
+  assert.equal(importacion?.[1], "./i18n.js?v=20260924-f2-web2");
+  const url = new URL(importacion[1], new URL("./vista.js", import.meta.url));
+  assert.equal(url.search, "?v=20260924-f2-web2");
+  const catalogo = await import(url.href);
+  assert.equal(catalogo.crearTraductorPruebas()("titulo"), "Pruebas y actas");
+  assert.match(renderizarVistaPruebas(), /Pruebas y actas/u);
+});
+
 test("sin conector muestra dependencia concreta y ninguna calificación o acta ficticia", () => {
   const html = renderizarVistaPruebas();
   assert.match(html, /data-estado="no_configurado"/u);
