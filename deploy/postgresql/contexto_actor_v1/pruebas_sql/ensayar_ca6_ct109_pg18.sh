@@ -235,7 +235,8 @@ if docker exec -i "$contenedor" psql -Xq -v ON_ERROR_STOP=1 \
  -v VERBOSITY=verbose -U ct_ambito_pg_prueba -d postgres \
  > "$temporal/ct109_material_invalido.log" 2>&1 <<'SQL'
 BEGIN ISOLATION LEVEL SERIALIZABLE READ WRITE;
-SELECT * FROM vec_contratacion_temporal.consultar_cuadro_rrhh_ambito_v1(
+SELECT f.* FROM public.ca6_comprobante_prueba p
+ CROSS JOIN LATERAL vec_contratacion_temporal.consultar_cuadro_rrhh_ambito_v1(
  ROW('org_diputaciondemo0001','organizacion','org_diputaciondemo0001')::
    vec_contratacion_temporal.alcance_consulta_rrhh_v1,
  ROW('','','',10,'')::vec_contratacion_temporal.consulta_cuadro_rrhh_v1,
@@ -252,8 +253,7 @@ SELECT * FROM vec_contratacion_temporal.consultar_cuadro_rrhh_ambito_v1(
    'contexto_actor_ref',p.comprobante->>'contexto_ref',
    'contexto_version',(p.comprobante->>'contexto_version')::numeric)::text,'UTF8'),
  1,1,convert_to('x','UTF8'),convert_to('x','UTF8'),
- convert_to('x','UTF8'),convert_to('x','UTF8'))
- FROM public.ca6_comprobante_prueba p;
+ convert_to('x','UTF8'),convert_to('x','UTF8')) f;
 COMMIT;
 SQL
 then
