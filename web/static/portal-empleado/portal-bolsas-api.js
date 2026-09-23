@@ -312,6 +312,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     if (!estados.length) {
       flujo.error = "Seleccione al menos un estado antes de consultar la bolsa.";
       renderizar();
+      documento.querySelector("[data-b7-seleccion-error]")?.focus?.();
       return;
     }
     const revision = revisionSeleccionMasiva;
@@ -323,6 +324,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     flujo.consultando = true;
     flujo.error = "";
     renderizar();
+    documento.querySelector("[data-b7-seleccion-status]")?.focus?.();
     const fuente = fuenteLectura();
     let resultado;
     try {
@@ -351,6 +353,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
       flujo.error = resultado.status === 403 ? "Permiso denegado al consultar candidatos. No se ha seleccionado nadie." : resultado.status === 409 ? resultado.mensaje : `No se pudo completar la consulta: ${resultado.mensaje || "error de lectura"}`;
     }
     renderizar();
+    documento.querySelector(resultado.ok ? '[data-bolsa-accion="b7-seleccionar-todas"]' : '[data-b7-seleccion-error]')?.focus?.();
   }
   const controladorOperacionesB8 = crearControladorOperacionesSituacion({
     estado,
