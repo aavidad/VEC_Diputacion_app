@@ -19,6 +19,7 @@ func TestPaqueteCronosSeEnsamblaDesdeFuentesCanonicas(t *testing.T) {
 		"cronos_v1/migraciones/000001_esquema_marcajes.up.sql",
 		"autorizacion_atestada_v3/migraciones/000051_consumidor_marcaje_propio_cronos.up.sql",
 		"cronos_v1/migraciones/000002_registrar_marcaje_propio.up.sql",
+		"cronos_v1/migraciones/000003_resultado_ejecucion_marcaje.up.sql",
 	}
 	var esperado bytes.Buffer
 	esperado.WriteString("\\set ON_ERROR_STOP on\nBEGIN;\n")
