@@ -9,6 +9,14 @@ import { CAMPOS_SELECCION, CAMPOS_COMUNICACION,
 export function renderizarLlamamiento(estado, t, fecha) {
   const esRespuesta = (operacion) => ["respuesta", "respuesta_siguiente"].includes(operacion);
   const esResolucion = (operacion) => ["resolucion", "resolucion_siguiente"].includes(operacion);
+  function tiempoVisible(valor) {
+    if (typeof valor !== "string") return "";
+    const instante = new Date(valor);
+    if (Number.isNaN(instante.getTime())) return "";
+    const visible = fecha.format(instante);
+    // Date pierde los microsegundos: el atributo y el nombre accesible conservan el recibo exacto.
+    return `<time datetime="${e(valor)}" title="${e(valor)}" aria-label="${e(`${visible} · ${valor}`)}">${e(visible)}</time>`;
+  }
   function resumenResultado() {
     const esSucesor = Boolean(estado.siguiente?.recibo);
     const declaracion = estado[esSucesor ? "respuesta_siguiente" : "respuesta"].recibo;
@@ -24,13 +32,8 @@ export function renderizarLlamamiento(estado, t, fecha) {
         respuesta: t("llamamiento_resolucion_" + resolucion.respuesta),
       })
       : t("llamamiento_resultado_circuito_pendiente");
-    const fechaConfirmada = (valor) => {
-      if (typeof valor !== "string") return "";
-      const instante = new Date(valor);
-      return Number.isNaN(instante.getTime()) ? "" : fecha.format(instante);
-    };
-    const declaradaEn = fechaConfirmada(declaracion?.registrada_en);
-    const resueltaEn = fechaConfirmada(resolucion?.resuelta_en);
+    const declaradaEn = tiempoVisible(declaracion?.registrada_en);
+    const resueltaEn = tiempoVisible(resolucion?.resuelta_en);
     let siguiente = t("llamamiento_resultado_siguiente_resolucion");
     if (resolucion?.respuesta === "renuncia") {
       siguiente = t(esSucesor
@@ -46,9 +49,9 @@ export function renderizarLlamamiento(estado, t, fecha) {
       <div><p class="sobrelinea">${e(t("llamamiento_resultado_sobrelinea"))}</p>
         <h3 id="ct-llamamiento-resultado-titulo">${e(t(esSucesor ? "llamamiento_resultado_titulo_sucesor" : "llamamiento_resultado_titulo"))}</h3></div>
       <dl><div><dt>${e(t("llamamiento_resultado_declaracion"))}</dt><dd>${e(declaracionTexto)}</dd></div>
-        ${declaradaEn ? `<div><dt>${e(t("llamamiento_resultado_declarada_en"))}</dt><dd>${e(declaradaEn)}</dd></div>` : ""}
+        ${declaradaEn ? `<div><dt>${e(t("llamamiento_resultado_declarada_en"))}</dt><dd>${declaradaEn}</dd></div>` : ""}
         <div><dt>${e(t("llamamiento_resultado_circuito"))}</dt><dd>${e(resolucionTexto)}</dd></div>
-        ${resueltaEn ? `<div><dt>${e(t("llamamiento_resultado_resuelta_en"))}</dt><dd>${e(resueltaEn)}</dd></div>` : ""}
+        ${resueltaEn ? `<div><dt>${e(t("llamamiento_resultado_resuelta_en"))}</dt><dd>${resueltaEn}</dd></div>` : ""}
         <div><dt>${e(t("llamamiento_resultado_vencimiento"))}</dt><dd>${e(t("llamamiento_resultado_vencimiento_no_evaluable"))}</dd></div>
         <div><dt>${e(t("llamamiento_resultado_siguiente"))}</dt><dd>${e(siguiente)}</dd></div></dl>
       <p>${e(t("llamamiento_resultado_limite"))}</p>
@@ -118,17 +121,18 @@ export function renderizarLlamamiento(estado, t, fecha) {
         const intencion = nombre.startsWith("intencion_siguiente_");
         let valor = intencion ? datos.intencion_siguiente[nombre.slice("intencion_siguiente_".length)] : datos[nombre];
         if (["confirmada_en", "registrada_en", "recibida_en", "resuelta_en", "intencion_siguiente_actualizada_en"].includes(nombre)) {
-          valor = esResolucion(operacion) || ["respuesta", "respuesta_siguiente", "siguiente", "propuesta"].includes(operacion) ? valor : fecha.format(new Date(valor));
-        } else if (nombre === "intencion_siguiente_estado_local") valor = t("llamamiento_intencion_siguiente_" + valor);
-        else if (nombre === "estado_intencion") valor = t("llamamiento_intencion_" + valor);
-        else if (nombre === "estado_local" || nombre === "estado") valor = t("llamamiento_" + valor);
-        else if (nombre === "estado_plazo") valor = t("llamamiento_plazo_" + valor);
-        else if (nombre === "respuesta") valor = t(esResolucion(operacion)
-          ? "llamamiento_resolucion_" + valor : "llamamiento_respuesta_" + valor);
+          valor = tiempoVisible(valor) || e(valor);
+        } else if (nombre === "intencion_siguiente_estado_local") valor = e(t("llamamiento_intencion_siguiente_" + valor));
+        else if (nombre === "estado_intencion") valor = e(t("llamamiento_intencion_" + valor));
+        else if (nombre === "estado_local" || nombre === "estado") valor = e(t("llamamiento_" + valor));
+        else if (nombre === "estado_plazo") valor = e(t("llamamiento_plazo_" + valor));
+        else if (nombre === "respuesta") valor = e(t(esResolucion(operacion)
+          ? "llamamiento_resolucion_" + valor : "llamamiento_respuesta_" + valor));
+        else valor = e(valor);
         return `<div><dt>${e(t(operacion === "siguiente" && nombre === "llamamiento_ref" ? "llamamiento_nuevo_ref"
           : operacion === "siguiente" && nombre === "confirmada_en" ? "llamamiento_continuacion_confirmada_en" : nombre === "respuesta"
           ? esResolucion(operacion) ? "llamamiento_respuesta_solicitada" : "llamamiento_respuesta_declarada"
-          : "llamamiento_" + nombre))}</dt><dd>${e(valor)}</dd></div>`;
+          : "llamamiento_" + nombre))}</dt><dd>${valor}</dd></div>`;
       }).join("")}</dl>
       ${operacion === "propuesta" && estado.propuesta.actualizacionPendiente ? `<div class="ct-acciones">
         <button class="boton-secundario" type="button" data-ct-llamamiento-actualizar-propuesta
