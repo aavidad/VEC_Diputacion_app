@@ -1,4 +1,4 @@
-import { crearTraductorInscripciones } from "./i18n.js";
+import { crearTraductorInscripciones } from "./i18n.js?v=20260924-f2-web2";
 
 const PESTANAS = Object.freeze(["convocatorias", "mis_inscripciones", "subsanaciones", "preparar"]);
 const ESTADOS = new Set(["cargando", "disponible", "vacio", "no_configurado", "denegado", "error"]);
