@@ -23,8 +23,8 @@ function servidor(secuencia) {
   return { peticiones, fetchImpl };
 }
 function contenedorDOM() {
-  const crearNodo = () => ({ children: [], handlers: {}, append(...nodos) { this.children.push(...nodos); },
-    replaceChildren(...nodos) { this.children = nodos; }, setAttribute() {},
+  const crearNodo = () => ({ children: [], handlers: {}, attrs: {}, append(...nodos) { this.children.push(...nodos); },
+    replaceChildren(...nodos) { this.children = nodos; }, setAttribute(clave, valor) { this.attrs[clave] = valor; },
     addEventListener(tipo, fn) { this.handlers[tipo] = fn; }, removeEventListener(tipo) { delete this.handlers[tipo]; },
     checkValidity() { return true; }, focus() {} });
   const documento = { createElement: crearNodo };
@@ -89,7 +89,8 @@ test("503 de confirmación consulta detalle exacto y no repite POST; recupera 20
   const recibos = [];
   const c = crearControladorContactoPropio({ autorizacionServidor: autorizado, fetchImpl: s.fetchImpl, alConfirmar: (r) => recibos.push(r) });
   await c.preparar("uno@ejemplo.test");
-  await assert.rejects(() => c.confirmar("uno@ejemplo.test"), (e) => e.codigo === "confirmacion_incierta");
+  const resultado = await c.confirmar("uno@ejemplo.test");
+  assert.equal(resultado.recibo_ref, "recibo-original");
   assert.equal(c.seleccion.recibo_ref, "recibo-original");
   assert.equal(recibos.length, 1);
   assert.deepEqual(s.peticiones.map((p) => p.ruta), [RUTAS_OPERACIONES_CONTACTO.preparar, RUTAS_OPERACIONES_CONTACTO.confirmar, RUTAS_OPERACIONES_CONTACTO.detalle]);
@@ -143,6 +144,54 @@ test("403 posterior a lista y detalle 200 borra datos y bloquea el controlador",
   assert.equal(denegaciones, 1);
   await assert.rejects(() => c.cargar(), (e) => e.codigo === "acceso_denegado");
   assert.equal(s.peticiones.length, 3);
+});
+
+test("409 con consulta automática 403 o 404 borra recibo y no mantiene autorización", async () => {
+  for (const [estado, codigo] of [[403, "acceso_denegado"], [404, "no_encontrada"]]) {
+    const s = servidor([[200, { operaciones: [confirmado()] }], [200, confirmado()],
+      [409, { codigo: "operacion_preparada", operacion_ref: REF }], [estado, { codigo }]]);
+    let denegaciones = 0;
+    const c = crearControladorContactoPropio({ autorizacionServidor: autorizado, fetchImpl: s.fetchImpl, alDenegar: () => { denegaciones++; } });
+    await c.cargar();
+    await c.seleccionar(REF);
+    await assert.rejects(() => c.preparar("otro@ejemplo.test"), (e) => e.codigo === "operacion_preparada");
+    assert.equal(c.autorizado, false);
+    assert.equal(c.seleccion, null);
+    assert.deepEqual(c.operaciones, []);
+    assert.equal(denegaciones, 1);
+  }
+});
+
+test("dos operaciones con igual estado y versión mantienen rótulo y selección distinguibles", async () => {
+  const otra = `opr_${"b".repeat(22)}`;
+  const a = { ...preparado(), estado: "cancelada" };
+  const b = { ...a, operacion_ref: otra };
+  const s = servidor([[200, { operaciones: [a, b] }], [200, b]]);
+  const c = crearControladorContactoPropio({ autorizacionServidor: autorizado, fetchImpl: s.fetchImpl });
+  await c.cargar();
+  const contenedor = contenedorDOM();
+  const montaje = montarContactoPropio({ contenedor, controlador: c });
+  await c.seleccionar(otra);
+  const filas = contenedor.children[1].children[1].children;
+  assert.notEqual(filas[0].children[1].textContent, filas[1].children[1].textContent);
+  assert.equal(filas.filter((fila) => fila.className.includes("seleccionada")).length, 1);
+  assert.equal(filas.find((fila) => fila.className.includes("seleccionada")).children[0].attrs["aria-pressed"], "true");
+  assert.equal(filas.find((fila) => !fila.className.includes("seleccionada")).children[0].attrs["aria-pressed"], "false");
+  assert.match(c.aviso, new RegExp(otra.slice(-8), "u"));
+  montaje.destruir();
+});
+
+test("remonte durante callback de confirmación no convierte el recibo válido en error", async () => {
+  const s = servidor([[201, preparado()], [201, confirmado()]]);
+  let c;
+  let callbacks = 0;
+  c = crearControladorContactoPropio({ autorizacionServidor: autorizado, fetchImpl: s.fetchImpl,
+    alConfirmar: () => { callbacks++; c.destruir(); } });
+  await c.preparar("uno@ejemplo.test");
+  const resultado = await c.confirmar("uno@ejemplo.test");
+  assert.equal(resultado.recibo_ref, "recibo-original");
+  assert.equal(callbacks, 1);
+  assert.equal(c.autorizado, false);
 });
 
 test("403/404 no muestran datos ajenos; 409 entre pestañas exige consulta", async () => {

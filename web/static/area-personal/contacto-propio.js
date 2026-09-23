@@ -16,6 +16,7 @@ function errorVisible(error) {
   if (error?.codigo === "confirmacion_incierta") return t("confirmacionIncierta");
   return t("errorServicio");
 }
+const esDenegacion = (error) => ["acceso_denegado", "no_encontrada"].includes(error?.codigo);
 
 export function crearControladorContactoPropio({ autorizacionServidor = null, fetchImpl = globalThis.fetch,
   presentacion = false, clienteOperaciones = null, alConfirmar = null, alDenegar = null } = {}) {
@@ -34,7 +35,7 @@ export function crearControladorContactoPropio({ autorizacionServidor = null, fe
   let denegado = false;
   const abortos = new Set();
   const emitir = () => { if (activo) for (const fn of suscriptores) fn(); };
-  const decir = (texto, tipo = "info") => { if (!activo) return; aviso = texto; tipoAviso = tipo; emitir(); };
+  const decir = (texto, tipo = "info") => { if (!activo || denegado) return; aviso = texto; tipoAviso = tipo; emitir(); };
   const limpiar = () => { operaciones = []; siguienteDesde = ""; seleccion = null; cargado = false; version = 0; generacion++; };
   const bloquear = () => { if (!activo || denegado) return; denegado = true; limpiar(); aviso = t("errorPermiso"); tipoAviso = "error"; alDenegar?.(); emitir(); };
   const exigir = () => { if (!activo || denegado || !autorizado(autorizacionServidor) || presentacion) throw new ErrorOperacionContacto("acceso_denegado", 403); };
@@ -56,7 +57,7 @@ export function crearControladorContactoPropio({ autorizacionServidor = null, fe
       if (!activo) throw new ErrorOperacionContacto("operacion_desmontada");
       return resultado;
     } catch (error) {
-      if (activo && ["acceso_denegado", "no_encontrada"].includes(error?.codigo)) {
+      if (activo && esDenegacion(error)) {
         bloquear();
       }
       throw error;
@@ -76,7 +77,7 @@ export function crearControladorContactoPropio({ autorizacionServidor = null, fe
         if (!despuesDe) { seleccion = null; generacion++; }
         decir(operaciones.length ? t("seleccionExplicita") : t("historialVacio"));
         return operaciones;
-      } catch (error) { decir(errorVisible(error), "error"); throw error; }
+      } catch (error) { if (!esDenegacion(error)) decir(errorVisible(error), "error"); throw error; }
     });
   }
   async function seleccionar(ref) {
@@ -91,11 +92,12 @@ export function crearControladorContactoPropio({ autorizacionServidor = null, fe
         seleccion = detalle;
         actualizar(detalle);
         decir(detalle.estado === "confirmada" ? t("reciboSeleccionado", { recibo: detalle.recibo_ref })
-          : detalle.estado === "preparada" ? t("preparadaSeleccionada") : t("canceladaSeleccionada"),
+          : detalle.estado === "preparada" ? t("preparadaSeleccionada", { referencia: detalle.operacion_ref.slice(-8) })
+            : t("canceladaSeleccionada", { referencia: detalle.operacion_ref.slice(-8) }),
         detalle.estado === "confirmada" ? "exito" : "info");
         return detalle;
       } catch (error) {
-        if (turno === generacion) decir(errorVisible(error), "error");
+        if (turno === generacion && !esDenegacion(error)) decir(errorVisible(error), "error");
         throw error;
       }
     });
@@ -120,18 +122,18 @@ export function crearControladorContactoPropio({ autorizacionServidor = null, fe
         if (error?.codigo === "operacion_preparada") {
           // Otra pestaña pudo preparar una intención. Su referencia no autoriza nada.
           try { const lista = await cliente.listar(20, "", { signal }); if (activo) { operaciones = [...lista.operaciones]; siguienteDesde = lista.siguiente_desde; cargado = true; } }
-          catch { /* Se conserva el conflicto; se podrá consultar de nuevo. */ }
+          catch (consultaError) { if (esDenegacion(consultaError)) bloquear(); }
         }
-        decir(errorVisible(error), "error");
+        if (!esDenegacion(error)) decir(errorVisible(error), "error");
         throw error;
       }
     });
   }
   async function confirmar(correo) {
-    return ejecutar(async (signal) => {
+    const limpio = String(correo ?? "").trim();
+    const resultado = await ejecutar(async (signal) => {
       const op = seleccion;
       if (op?.estado !== "preparada") throw new ErrorOperacionContacto("peticion_invalida");
-      const limpio = String(correo ?? "").trim();
       if (!limpio || limpio.length > 254) throw new ErrorOperacionContacto("peticion_invalida");
       const turno = generacion;
       try {
@@ -140,7 +142,6 @@ export function crearControladorContactoPropio({ autorizacionServidor = null, fe
         version = confirmado.version;
         actualizar(confirmado);
         decir(t("correcto", { recibo: confirmado.recibo_ref }), "exito");
-        alConfirmar?.({ reciboRef: confirmado.recibo_ref, version: confirmado.version, correo: limpio });
         return confirmado;
       } catch (error) {
         if (error?.codigo === "confirmacion_incierta") {
@@ -153,17 +154,21 @@ export function crearControladorContactoPropio({ autorizacionServidor = null, fe
               if (detalle.estado === "confirmada") {
                 version = detalle.version;
                 decir(t("reciboSeleccionado", { recibo: detalle.recibo_ref }), "exito");
-                alConfirmar?.({ reciboRef: detalle.recibo_ref, version: detalle.version, correo: limpio });
+                return detalle;
               } else decir(t("resultadoNoConfirmado"), "aviso");
             }
           } catch (consultaError) {
-            if (["acceso_denegado", "no_encontrada"].includes(consultaError?.codigo)) bloquear();
+            if (esDenegacion(consultaError)) bloquear();
             else if (activo && turno === generacion) decir(t("consultaSinConfirmacion"), "aviso");
           }
-        } else decir(errorVisible(error), "error");
+        } else if (!esDenegacion(error)) decir(errorVisible(error), "error");
         throw error;
       }
     });
+    if (activo && resultado?.estado === "confirmada") {
+      alConfirmar?.({ reciboRef: resultado.recibo_ref, version: resultado.version, correo: limpio });
+    }
+    return resultado;
   }
   async function cancelar() {
     return ejecutar(async (signal) => {
@@ -172,14 +177,14 @@ export function crearControladorContactoPropio({ autorizacionServidor = null, fe
       const turno = generacion;
       try {
         const cancelada = await cliente.cancelar(op.operacion_ref, { signal });
-        if (activo && turno === generacion) { actualizar(cancelada); decir(t("canceladaSeleccionada")); }
+        if (activo && turno === generacion) { actualizar(cancelada); decir(t("canceladaSeleccionada", { referencia: cancelada.operacion_ref.slice(-8) })); }
         return cancelada;
       } catch (error) {
         if (error?.codigo === "conflicto" || error?.codigo === "confirmacion_incierta") {
           try { const detalle = await cliente.detalle(op.operacion_ref, { signal }); if (activo && turno === generacion) actualizar(detalle); }
-          catch (consultaError) { if (["acceso_denegado", "no_encontrada"].includes(consultaError?.codigo)) bloquear(); }
+          catch (consultaError) { if (esDenegacion(consultaError)) bloquear(); }
         }
-        decir(errorVisible(error), "error");
+        if (!esDenegacion(error)) decir(errorVisible(error), "error");
         throw error;
       }
     });
@@ -243,15 +248,17 @@ export function montarContactoPropio({ contenedor, autorizacionServidor = null, 
     estado.textContent = controlador.autorizado ? controlador.aviso || t("seleccionExplicita") : t("sinAutorizacion");
     estado.className = `nota ${controlador.tipoAviso === "error" ? "error" : controlador.tipoAviso === "aviso" ? "aviso" : ""}`.trim();
     const items = controlador.operaciones;
-    const claveActual = JSON.stringify([controlador.cargado, items]);
+    const claveActual = JSON.stringify([controlador.cargado, items, op?.operacion_ref ?? ""]);
     if (claveActual !== listaClave) {
       const teniaFoco = lista.contains?.(doc.activeElement);
       listaClave = claveActual;
       lista.replaceChildren();
     for (const [indice, item] of items.entries()) {
-      const li = nodo("li", `contacto-operacion ${item.estado}`);
+      const seleccionada = item.operacion_ref === op?.operacion_ref;
+      const li = nodo("li", `contacto-operacion ${item.estado}${seleccionada ? " seleccionada" : ""}`);
       const boton = nodo("button", "boton-secundario", t(`estado.${item.estado}`));
       boton.type = "button"; boton.disabled = !habilitado;
+      boton.setAttribute("aria-pressed", String(seleccionada));
       boton.setAttribute("aria-label", t("seleccionarOperacion", { estado: t(`estado.${item.estado}`), numero: indice + 1, referencia: item.operacion_ref }));
       boton.addEventListener("click", async () => { try { await controlador.seleccionar(item.operacion_ref); entrada.value = ""; } catch { /* Mensaje del controlador. */ } finally { if (activa) estado.focus(); } });
       const abreviada = `${item.operacion_ref.slice(0, 8)}…${item.operacion_ref.slice(-6)}`;
@@ -276,7 +283,7 @@ export function montarContactoPropio({ contenedor, autorizacionServidor = null, 
   const alConfirmarClick = async () => {
     if (!entrada.checkValidity()) { estado.textContent = t("errorEntrada"); entrada.focus(); return; }
     const correo = capturarCorreoEnviado(entrada);
-    try { const op = await controlador.confirmar(correo); if (op?.estado === "confirmada") alGuardar?.({ reciboRef: op.recibo_ref, version: op.version, correo }); }
+    try { await controlador.confirmar(correo); if (activa) estado.focus(); }
     catch { if (activa) estado.focus(); }
   };
   const alCancelar = async () => { if (globalThis.confirm?.(t("confirmarCancelacion")) === false) return;

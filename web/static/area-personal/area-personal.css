@@ -344,7 +344,7 @@ fieldset { min-width: 0; margin: 0; padding: 13px; border: 1px solid var(--ap-bo
 .contacto-operacion.preparada { border-left-color: var(--ap-ambar); }
 .contacto-operacion.confirmada { border-left-color: var(--ap-verde); }
 .contacto-operacion.cancelada { border-left-color: var(--ap-muted); }
-.contacto-operacion button { min-width: 124px; }
+.contacto-operacion button { min-width: 124px; } .contacto-operacion.seleccionada { outline: 2px solid var(--ap-azul-700); outline-offset: -2px; background: var(--ap-azul-100); }
 .contacto-operacion small { color: var(--ap-muted); text-align: right; }
 .contacto-operacion-vacia { padding: 16px; color: var(--ap-muted); }
 .contacto-operaciones-panel > .boton-secundario { margin: 12px 16px; }
