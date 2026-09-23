@@ -210,6 +210,84 @@ test("la consulta inicial tiene timeout y se aborta al desmontar o sustituir", a
   assert.equal(coordinador.resolverAcceso("contratacion_temporal").disponible, true);
 });
 
+test("un catálogo interno pendiente deja de bloquear el arranque y admite reintento", async () => {
+  const catalogo = Object.freeze([{ clave: "bolsa" }]);
+  const senales = [];
+  let intentos = 0;
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    limiteCargaModularMs: 20,
+    cargarCatalogoInterno: (signal) => {
+      senales.push(signal);
+      intentos += 1;
+      return intentos === 1 ? new Promise(() => {}) : Promise.resolve(catalogo);
+    },
+  });
+  await assert.rejects(coordinador.cargarInterno(), /tiempo agotado.*catálogo/u);
+  assert.equal(senales[0].aborted, true);
+  assert.deepEqual(coordinador.obtenerCatalogo(), []);
+  assert.equal(coordinador.resolverAcceso("bolsa", true).disponible, false);
+  await coordinador.cargarInterno();
+  assert.equal(coordinador.obtenerCatalogo(), catalogo);
+  assert.equal(coordinador.resolverAcceso("bolsa", true).disponible, true);
+});
+
+test("un catálogo interno sustituido se aborta y no publica resultados tardíos", async () => {
+  let resolverPrimero;
+  const catalogoViejo = Object.freeze([{ clave: "bolsa" }]);
+  const catalogoNuevo = Object.freeze([{ clave: "personal" }]);
+  const senales = [];
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    limiteCargaModularMs: 100,
+    cargarCatalogoInterno: (signal) => {
+      senales.push(signal);
+      return senales.length === 1
+        ? new Promise((resolver) => { resolverPrimero = resolver; })
+        : Promise.resolve(catalogoNuevo);
+    },
+    cargadoresInternos: { contratacion_temporal: async () => ({}) },
+  });
+  const primera = coordinador.cargarInterno();
+  const rechazoPrimera = assert.rejects(primera, /carga interna sustituida/u);
+  await new Promise((resolver) => setImmediate(resolver));
+  await coordinador.cargarInterno();
+  assert.equal(senales[0].aborted, true);
+  await rechazoPrimera;
+  resolverPrimero(catalogoViejo);
+  await new Promise((resolver) => setImmediate(resolver));
+  assert.equal(coordinador.obtenerCatalogo(), catalogoNuevo);
+  assert.equal(coordinador.resolverAcceso("bolsa", true).disponible, false);
+});
+
+test("el catálogo real aborta ambas consultas al agotarse el límite y falla cerrado", async () => {
+  const solicitudes = [];
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    limiteCargaModularMs: 20,
+    entorno: { fetch: (ruta, opciones) => {
+      solicitudes.push({ ruta, opciones });
+      return new Promise(() => {});
+    } },
+  });
+  await assert.rejects(coordinador.cargarInterno(), /tiempo agotado.*catálogo/u);
+  assert.deepEqual(solicitudes.map(({ ruta }) => ruta), ["/api/vec/modules", "/locales/es.json"]);
+  assert.ok(solicitudes.every(({ opciones }) => opciones.signal.aborted === true));
+  assert.deepEqual(coordinador.obtenerCatalogo(), []);
+  assert.equal(coordinador.resolverAcceso("bolsa", true).disponible, false);
+});
+
+test("la base de presentación pendiente termina en error sin habilitar ningún módulo", async () => {
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    limiteCargaModularMs: 20,
+    cargadoresPresentacion: { base: () => new Promise(() => {}) },
+  });
+  await assert.rejects(coordinador.cargarPresentacion({}), /tiempo agotado.*base/u);
+  assert.deepEqual(coordinador.obtenerCatalogo(), []);
+  assert.equal(coordinador.resolverAcceso("bolsa", true).disponible, false);
+});
+
 test("el funcionario comparte una sola identidad y compone Cronos, Dietas y Personal", async () => {
   const coordinador = crearCoordinador();
   const contextoBolsa = await coordinador.cargarPresentacion(
@@ -581,8 +659,8 @@ test("el coordinador no autentica ni conserva estado en el navegador", async () 
 });
 
 test("el cache busting de módulos avanza en cascada hasta el HTML", async () => {
-  const versionCoordinador = "20260923-pweb17-v1";
-  const versionPortal = "20260923-pweb17-v1";
+  const versionCoordinador = "20260923-p4-estado-modulos-v1";
+  const versionPortal = "20260923-p4-estado-modulos-v1";
   const versionModuloBolsa = "20260923-pweb13-b8-v1";
   const versionI18n = "20260920-personal-catalogo-v1";
   const versionCatalogo = "20260906-acceso-certificado-v1";
@@ -602,6 +680,7 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
     "utf8",
   );
   assert.match(portal, new RegExp(`portal-modulos-coordinador\\.js\\?v=${versionCoordinador}`));
+  assert.match(coordinador, new RegExp(`portal-modulos-carga\\.js\\?v=${versionCoordinador}`));
   assert.match(portal, new RegExp(`portal-bolsas-api\\.js\\?v=${versionModuloBolsa}`));
   assert.match(portal, new RegExp(`portal-i18n\\.js\\?v=${versionI18n}`));
   assert.match(coordinador, new RegExp(`portal-catalogo-modulos\\.js\\?v=${versionCatalogo}`));
