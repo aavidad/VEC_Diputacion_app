@@ -102,11 +102,13 @@ func (r *ResolutorIdentidadEfectivaBorrador) ResolverIdentidadEfectivaBorrador(c
 func seleccionSolicitud(s dietasports.SolicitudOperacionBorrador, fecha personaldomain.FechaCivil) (personaldomain.FechaCivil, string, error) {
 	if s.Operacion == dietasports.OperacionCrearBorrador {
 		f, err := personaldomain.NuevaFechaCivil(s.Crear.FechaInicio)
-		if err != nil || s.RelacionRef == "" || s.RelacionRef != s.Crear.RelacionRef {
+		if err != nil || s.RelacionRef != s.Crear.RelacionRef {
 			return "", "", dietasports.ErrRelacionNoValida
 		}
 		// La fecha del comando se autoriza como parte del efecto. No procede de
 		// identidad ni sustituye la fecha de canal usada en lecturas sin fecha.
+		// Sin selector explícito, Personal debe acreditar una sola relación
+		// vigente; nunca elegimos una entre varias por orden o por nombre.
 		return f, s.RelacionRef, nil
 	}
 	if s.Operacion != dietasports.OperacionConsultarBorrador {

@@ -170,6 +170,44 @@ func TestResolutorR15RelacionUnicaYCierresAntesDeDietas(t *testing.T) {
 	}
 }
 
+func TestCrearBorradorSinSelectorUsaSoloRelacionUnicaAcreditada(t *testing.T) {
+	base, material := identidadYMaterialR15(t)
+	uno := relacionR15(base.Contexto.Contexto.PersonaRef, "a")
+	for _, caso := range []struct {
+		nombre     string
+		relaciones []personaldomain.RelacionEmpleado
+		esperado   error
+	}{
+		{"una", []personaldomain.RelacionEmpleado{uno}, nil},
+		{"muchas", []personaldomain.RelacionEmpleado{uno, relacionR15(base.Contexto.Contexto.PersonaRef, "b")}, dietasports.ErrRelacionAmbigua},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			repo := &repoConsultaR15{r: resultadoR15(material, uno)}
+			repo.r.Relaciones = caso.relaciones
+			consulta, err := personalapp.NuevoServicioConsultaRelacionEmpleado(proveedorConsultaR15{material}, repo)
+			if err != nil {
+				t.Fatal(err)
+			}
+			a := &autorizadorCompletoR15{a: autorizacionR15(t, base, uno, "dietas.borrador.propio.crear", "dietas:borradores:propios", "crear_borrador_propio")}
+			r, err := NuevoResolutorIdentidadEfectivaBorrador(&fuenteContextoR15{identidad: base}, consulta, a)
+			if err != nil {
+				t.Fatal(err)
+			}
+			s := dietasports.SolicitudOperacionBorrador{Operacion: dietasports.OperacionCrearBorrador, Crear: dietasports.SolicitudCrearBorradorPropio{ClaveIdempotencia: "clave_0123456789abcdef", FechaInicio: "2026-09-21", FechaFin: "2026-09-21", Motivo: "Visita técnica", CodigosRuta: []string{}}}
+			got, err := r.ResolverIdentidadEfectivaBorrador(context.Background(), s)
+			if !errors.Is(err, caso.esperado) {
+				t.Fatalf("error=%v; esperado=%v", err, caso.esperado)
+			}
+			if caso.esperado == nil && (got.Relacion.RelacionRef != uno.RelacionRef || a.llamadas != 1) {
+				t.Fatalf("relacion=%q; autorizaciones=%d", got.Relacion.RelacionRef, a.llamadas)
+			}
+			if caso.esperado != nil && a.llamadas != 0 {
+				t.Fatalf("se autorizó relación ambigua: %d", a.llamadas)
+			}
+		})
+	}
+}
+
 func identidadYMaterialR15(t *testing.T) (IdentidadRegistradaBorrador, vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) {
 	t.Helper()
 	ahora := time.Date(2026, 9, 21, 10, 0, 0, 0, time.UTC)
