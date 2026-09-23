@@ -1,7 +1,6 @@
 package bootstrap
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"sync"
@@ -261,24 +260,21 @@ func (a *autoridadConsultasRRHHDesarrollo) contextoConsultaRRHHDesarrollo(ctx co
 
 func (a *autoridadConsultasRRHHDesarrollo) contextoConsultaRRHHConservaActor(contexto ports.ContextoAutorizacionAltaV3) bool {
 	base := a.soporte.contexto
+	a.soporte.mu.Lock()
+	esperado := a.soporte.contextoEsperadoRegistrado
+	a.soporte.mu.Unlock()
+	if esperado.Validar() != nil {
+		return false
+	}
 	nuevo, err := contexto.Vinculo.Datos()
 	anterior, errBase := base.Vinculo.Datos()
 	if err != nil || errBase != nil || contexto.Vinculo.ValidarPara(contexto.Resultado) != nil ||
 		nuevo.CuentaRef != anterior.CuentaRef || nuevo.CuentaOrdinariaRef != anterior.CuentaOrdinariaRef ||
 		nuevo.CuentaPrivilegiada != anterior.CuentaPrivilegiada || nuevo.Superficie != anterior.Superficie ||
-		contexto.Resultado.AutoridadEfectiva != base.Resultado.AutoridadEfectiva ||
-		!bytes.Equal(contexto.Resultado.ManifiestoProcedenciaCanonico, base.Resultado.ManifiestoProcedenciaCanonico) {
+		nuevo.PrincipalID != anterior.PrincipalID || nuevo.PerfilActivoRef != anterior.PerfilActivoRef {
 		return false
 	}
-	actor, err := contexto.Resultado.Contexto.Clonar()
-	if err != nil {
-		return false
-	}
-	// Solo se normaliza una copia para comparar la identidad y sus versiones.
-	// El resultado fresco y su instante autoritativo nunca se modifican.
-	actor.ResueltoEn = base.Resultado.Contexto.ResueltoEn
-	canon, err := actor.RepresentacionCanonicaVinculadaV2()
-	return err == nil && bytes.Equal(canon, base.Resultado.RepresentacionCanonica)
+	return mismoContextoEsperadoRegistradoDesarrollo(esperado, contexto.Resultado)
 }
 
 func (a *autoridadConsultasRRHHDesarrollo) ExigirSolicitudLigadaV3(

@@ -219,7 +219,11 @@ func (p *puenteBolsaLlamamientoDesarrollo) preparacion(ctx context.Context, clav
 func (p *puenteBolsaLlamamientoDesarrollo) contexto(ctx context.Context, preparacion preparacionLlamamientoDesarrollo,
 	operacion, accion string, recurso ports.ReferenciaVersionadaIntegracionBolsa,
 ) (ports.ContextoPeticionIntegracionBolsa, error) {
-	v, err := p.alta.soporte.contexto.Vinculo.Datos()
+	operativo, err := p.alta.soporte.contextoOperativoDesarrollo(ctx)
+	if err != nil {
+		return ports.ContextoPeticionIntegracionBolsa{}, err
+	}
+	v, err := operativo.Vinculo.Datos()
 	if err != nil {
 		return ports.ContextoPeticionIntegracionBolsa{}, err
 	}

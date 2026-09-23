@@ -92,8 +92,10 @@ func TestEntregaPeticionDesarrolloRechazaSelloDeOtraClaveAntesDeAutorizar(t *tes
 	sello := &selloConsultasContratacionTemporalDesarrollo{}
 	hmac := &selladorEntregaPeticionPrueba{}
 	soporte := &soporteAltaContratacionTemporalDesarrollo{sello: sello, principalID: p.ID, certificadoSHA256: p.Attributes["certificate_sha256"], contexto: c, ambitos: hmac}
+	soporte.contextoEsperadoRegistrado = c.Resultado
+	soporte.sesionOperativa = proveedorSesionOperativaCTPrueba{contexto: c}
 	proveedor := &proveedorEntregaPeticionDesarrollo{alta: &dependenciasAltaContratacionTemporalDesarrollo{soporte: soporte}}
-	ctx := context.WithValue(context.Background(), claveCapacidadConsultasContratacionTemporalDesarrollo{}, capacidadConsultaContratacionTemporalDesarrollo{sello: sello, ruta: rutaEntregaPeticionCentro, principal: p, certificadoVerificadoEn: ahora, certificadoValidoHasta: ahora.Add(time.Hour)})
+	ctx := context.WithValue(context.Background(), claveCapacidadConsultasContratacionTemporalDesarrollo{}, capacidadConsultaContratacionTemporalDesarrollo{sello: sello, ruta: rutaEntregaPeticionCentro, principal: p, certificadoVerificadoEn: ahora, certificadoValidoHasta: ahora.Add(time.Hour), contextoOperacion: &contextoOperacionCTDesarrollo{}})
 	clave, selloCorrecto, err := proveedor.NuevaClaveAltaDePeticion(ctx)
 	if err != nil || !ports.ClaveIdempotenciaValida(clave) || hmac.clave != clave {
 		t.Fatal("clave y sello no ligados", err)
