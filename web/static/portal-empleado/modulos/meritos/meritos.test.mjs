@@ -13,7 +13,7 @@ function raizDePrueba() {
     addEventListener(tipo, oyente) { this.listeners.set(tipo, oyente); }
     removeEventListener(tipo, oyente) { if (this.listeners.get(tipo) === oyente) this.listeners.delete(tipo); }
     contains(nodo) { return nodo?.padre === this; }
-    querySelector(selector) { if (selector === "[data-meritos-filtro]" || selector.startsWith('[data-meritos-vista=')) return { focus() {} }; return null; }
+    querySelector(selector) { if (selector === "[data-meritos-filtro]" || selector.startsWith('[data-meritos-vista=') || selector.startsWith('[data-meritos-detalle=')) return { focus() {} }; return null; }
   }
   const documento = { createElement() { return new Nodo(documento); } };
   const raiz = new Nodo(documento);
@@ -50,19 +50,26 @@ test("sin conector no se cargan datos sintéticos ni se ofrece una aportación e
   assert.doesNotMatch(html, /Antonio López|Grado en Derecho|registros visibles|puntos obtenidos/);
   assert.doesNotMatch(html, /<table/);
   assert.match(renderizarMeritos({ estado: "denegado" }), /Acceso denegado/);
+  assert.doesNotMatch(renderizarMeritos({ estado: "denegado", meritos: datos.meritos }), /Grado en Derecho/);
   assert.match(renderizarMeritos({ estado: "error" }), /La consulta falló/);
   assert.match(renderizarMeritos({ estado: "cargando" }), /Esperando una respuesta/);
 });
 
-test("el inventario enseña fuente, evidencia, vigencia y estado declarado sin confundirlo con acreditación", () => {
+test("el inventario resume hechos y el detalle contiene fuente, evidencia y vigencia", () => {
   const html = renderizarMeritos(datos);
   assert.match(html, /Grado en Derecho/);
-  assert.match(html, /Documento aportado/);
-  assert.match(html, /Sin caducidad informada/);
+  assert.match(html, /aria-expanded="false"/);
+  assert.doesNotMatch(html, /Documento aportado/);
   assert.match(html, /Declarado/);
   assert.match(html, /Acreditados/);
   assert.match(html, /<button type="button" disabled aria-disabled="true"/);
   assert.doesNotMatch(html, /Bolsa A|1,5/);
+  const detalle = renderizarMeritos(datos, { seleccionado: 0 });
+  assert.match(detalle, /aria-expanded="true"/);
+  assert.match(detalle, /Documento aportado/);
+  assert.match(detalle, /Sin caducidad informada/);
+  assert.match(detalle, /Persona/);
+  assert.match(detalle, /colspan="3"/);
 });
 
 test("requisitos y valoraciones mantienen convocatoria y versión independientes", () => {
@@ -79,9 +86,11 @@ test("requisitos y valoraciones mantienen convocatoria y versión independientes
 });
 
 test("escapa datos recibidos y no deriva el cumplimiento de los puntos", () => {
-  const html = renderizarMeritos({ estado: "disponible", meritos: [{ nombre: "<script>alert(1)</script>", estado: "acreditado" }], requisitos: [{ requisito: "Título", resultado: "pendiente" }], valoraciones: [{ puntos: 9 }] });
+  const html = renderizarMeritos({ estado: "disponible", meritos: [{ nombre: "<script>alert(1)</script>", evidencia: "<img src=x>", estado: "acreditado" }], requisitos: [{ requisito: "Título", resultado: "pendiente" }], valoraciones: [{ puntos: 9 }] }, { seleccionado: 0 });
   assert.doesNotMatch(html, /<script>/);
   assert.match(html, /&lt;script&gt;/);
+  assert.doesNotMatch(html, /<img/);
+  assert.match(html, /&lt;img src=x&gt;/);
   assert.match(renderizarMeritos({ estado: "disponible", requisitos: datos.requisitos, valoraciones: datos.valoraciones }, { pestana: "requisitos" }), /Pendiente/);
   assert.throws(() => renderizarMeritos({ estado: "disponible", meritos: {} }), /inválida/);
 });
@@ -93,11 +102,19 @@ test("montaje, pestañas por teclado, actualización y desmontaje conservan el c
   assert.match(nodo.innerHTML, /Fuente de méritos no conectada/);
   montaje.actualizar(datos);
   assert.match(nodo.innerHTML, /Grado en Derecho/);
+  const detalle = { padre: nodo, dataset: { meritosDetalle: "0" } };
+  nodo.listeners.get("click")({ target: { closest: (selector) => selector === "[data-meritos-detalle]" ? detalle : null } });
+  assert.match(nodo.innerHTML, /Documento aportado/);
+  nodo.listeners.get("click")({ target: { closest: (selector) => selector === "[data-meritos-detalle]" ? detalle : null } });
+  assert.doesNotMatch(nodo.innerHTML, /Documento aportado/);
   let prevenido = false;
   const boton = { padre: nodo, dataset: { meritosVista: "inventario" } };
   nodo.listeners.get("keydown")({ key: "ArrowRight", target: { closest: () => boton }, preventDefault() { prevenido = true; } });
   assert.ok(prevenido);
   assert.match(nodo.innerHTML, /Bolsa A/);
+  montaje.actualizar({ estado: "denegado", meritos: datos.meritos });
+  assert.match(nodo.innerHTML, /Acceso denegado/);
+  assert.doesNotMatch(nodo.innerHTML, /Grado en Derecho|Documento aportado/);
   assert.ok(anuncios.length >= 2);
   assert.equal(registrado, montaje.desmontar);
   montaje.desmontar();
