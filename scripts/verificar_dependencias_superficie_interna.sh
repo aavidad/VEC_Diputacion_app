@@ -13,11 +13,12 @@ fi
 dependencias="$(mktemp)"
 trap 'unlink "${dependencias}" 2>/dev/null || true' EXIT
 
-# C4 admite exactamente la configuracion, el contrato de superficie, los
-# presupuestos HTTP compartidos y el dominio de identidad que valida dicho
-# contrato. La configuracion integrada de Bolsa usa pgconn exclusivamente para
-# impedir que dos DSN reutilicen el mismo LOGIN; se admite aqui su cierre
-# transitivo exacto, sin incorporar pools ni adaptadores PostgreSQL al binario.
+# C4 partia de una capsula TLS cerrada. El primer montaje de lectura CT añade
+# exactamente el cierre transitivo observado de sus servicios, handler HTTP y
+# pool nominal PostgreSQL. Algunos paquetes Go contienen tambien operaciones
+# de otros modulos: su importacion NO habilita rutas, autoridades ni datos. La
+# lista positiva detecta cualquier arista nueva; la composicion exige ademas
+# una guarda explicita de capacidades antes del dispatcher HTTP.
 LC_ALL=C go list -deps -f '{{if not .Standard}}{{.ImportPath}}{{end}}' "${objetivo}" |
 	LC_ALL=C sed '/^$/d' | LC_ALL=C sort -u >"${dependencias}"
 
@@ -25,7 +26,14 @@ prohibidas=()
 while IFS= read -r paquete; do
 	case "${paquete}" in
 		github.com/jackc/pgpassfile | \
-			github.com/jackc/pgservicefile | \
+		github.com/jackc/pgx/v5 | \
+		github.com/jackc/pgx/v5/internal/sanitize | \
+		github.com/jackc/pgx/v5/internal/stmtcache | \
+		github.com/jackc/pgx/v5/pgxpool | \
+		github.com/jackc/puddle/v2 | \
+		github.com/jackc/puddle/v2/internal/genstack | \
+		golang.org/x/sync/semaphore | \
+		github.com/jackc/pgservicefile | \
 			github.com/jackc/pgx/v5/internal/iobufpool | \
 			github.com/jackc/pgx/v5/internal/pgio | \
 			github.com/jackc/pgx/v5/pgconn | \
@@ -46,7 +54,38 @@ while IFS= read -r paquete; do
 			golang.org/x/text/width | \
 			"${modulo}/cmd/vec-interno" | \
 			"${modulo}/config" | \
-			"${modulo}/internal/app/composicion/interna" | \
+		"${modulo}/internal/app/composicion/interna" | \
+		"${modulo}/internal/modules/administracion" | \
+		"${modulo}/internal/modules/bolsa" | \
+		"${modulo}/internal/modules/contrataciontemporal/adapters/ginpixfichero" | \
+		"${modulo}/internal/modules/contrataciontemporal/adapters/historiaincorporacion" | \
+		"${modulo}/internal/modules/contrataciontemporal/adapters/httpinterno" | \
+		"${modulo}/internal/modules/contrataciontemporal/adapters/postgres" | \
+		"${modulo}/internal/modules/contrataciontemporal/application" | \
+		"${modulo}/internal/modules/contrataciontemporal/application/diagnostico" | \
+		"${modulo}/internal/modules/contrataciontemporal/cobertura" | \
+		"${modulo}/internal/modules/contrataciontemporal/domain" | \
+		"${modulo}/internal/modules/contrataciontemporal/ports" | \
+		"${modulo}/internal/modules/cronos" | \
+		"${modulo}/internal/modules/dietas" | \
+		"${modulo}/internal/modules/personal" | \
+		"${modulo}/internal/modules/personal/adapters/contrataciontemporal" | \
+		"${modulo}/internal/modules/personal/adapters/fuenteejercicio" | \
+		"${modulo}/internal/modules/personal/adapters/lecturaincorporacion" | \
+		"${modulo}/internal/modules/personal/application" | \
+		"${modulo}/internal/modules/personal/domain" | \
+		"${modulo}/internal/modules/personal/ports" | \
+		"${modulo}/internal/shared/i18n" | \
+		"${modulo}/internal/vec/adapters/contextoactor/postgres" | \
+		"${modulo}/internal/vec/adapters/httpapi" | \
+		"${modulo}/internal/vec/adapters/httpseguridad/postgres" | \
+		"${modulo}/internal/vec/adapters/postgres" | \
+		"${modulo}/internal/vec/application" | \
+		"${modulo}/internal/vec/canonico/almacen" | \
+		"${modulo}/internal/vec/canonico/documental" | \
+		"${modulo}/internal/vec/canonico/pagos" | \
+		"${modulo}/internal/vec/canonico/recibomaterial" | \
+		"${modulo}/internal/vec/ports" | \
 			"${modulo}/internal/app/server" | \
 			"${modulo}/internal/shared/limiteshttp" | \
 			"${modulo}/internal/vec/adapters/httpseguridad" | \
@@ -71,6 +110,10 @@ for obligatoria in \
 	"${modulo}/config" \
 	"${modulo}/internal/app/composicion/interna" \
 	"${modulo}/internal/app/server" \
+	"${modulo}/internal/modules/contrataciontemporal/adapters/httpinterno" \
+	"${modulo}/internal/modules/contrataciontemporal/adapters/postgres" \
+	"${modulo}/internal/modules/contrataciontemporal/application" \
+	"${modulo}/internal/vec/adapters/httpapi" \
 	"${modulo}/internal/vec/adapters/httpseguridad" \
 	"${modulo}/internal/vec/domain"; do
 	if ! grep -Fxq "${obligatoria}" "${dependencias}"; then

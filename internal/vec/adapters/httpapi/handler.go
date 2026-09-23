@@ -31,7 +31,19 @@ type Handler struct {
 	rutasColeccion                           []RutaColeccion
 	autoridadRutasExactas                    AutoridadRutasExactas
 	registradorAuditoriaFronteraRutasExactas ports.RegistradorAuditoriaFronteraRutaExacta
+	rutasCompuestasInternas                  map[capacidadRutaInterna]struct{}
+	restringirRutasInternas                  bool
 }
+
+// CapacidadRutaInterna limita el dispatcher a un método y una ruta exactos.
+// No contiene concesiones: la autoridad de ruta y el caso de uso siguen
+// evaluando identidad, V3 y ámbito después de esta primera barrera.
+type CapacidadRutaInterna struct {
+	Metodo string
+	Ruta   string
+}
+
+type capacidadRutaInterna struct{ metodo, ruta string }
 
 type HandlerOptions struct {
 	InternalOperations                       *application.InternalOperations
@@ -63,6 +75,52 @@ type DemoIdentityResolver interface {
 
 func NewHandler(service *application.Service) (*Handler, error) {
 	return NewHandlerWithOptions(service, HandlerOptions{})
+}
+
+// NewHandlerInternoConCapacidades es el constructor de la raíz interna. Un
+// catálogo vacío, duplicado o discordante con sus rutas exactas falla antes
+// de que exista un listener. NewHandlerWithOptions conserva el perfil legado
+// de desarrollo; la raíz productiva debe usar exclusivamente este constructor.
+func NewHandlerInternoConCapacidades(service *application.Service, options HandlerOptions, permitidas []CapacidadRutaInterna) (*Handler, error) {
+	if len(permitidas) == 0 {
+		return nil, ErrRutaExactaInvalida
+	}
+	catalogo := make(map[capacidadRutaInterna]struct{}, len(permitidas))
+	for _, entrada := range permitidas {
+		if !rutaCapacidadInternaValida(entrada.Ruta) ||
+			(entrada.Metodo != http.MethodGet && entrada.Metodo != http.MethodPost) {
+			return nil, ErrRutaExactaInvalida
+		}
+		clave := capacidadRutaInterna{metodo: entrada.Metodo, ruta: entrada.Ruta}
+		if _, duplicada := catalogo[clave]; duplicada {
+			return nil, ErrRutaExactaInvalida
+		}
+		catalogo[clave] = struct{}{}
+	}
+	for _, ruta := range options.RutasExactas {
+		if _, habilitada := catalogo[capacidadRutaInterna{metodo: http.MethodPost, ruta: ruta.Ruta}]; !habilitada {
+			return nil, ErrRutaExactaInvalida
+		}
+	}
+	h, err := NewHandlerWithOptions(service, options)
+	if err != nil {
+		return nil, err
+	}
+	h.rutasCompuestasInternas = catalogo
+	h.restringirRutasInternas = true
+	return h, nil
+}
+
+func rutaCapacidadInternaValida(ruta string) bool {
+	if rutaExactaAdicionalValida(ruta) {
+		return true
+	}
+	for _, base := range rutasBaseVEC() {
+		if ruta == base && !strings.Contains(base, "{") {
+			return true
+		}
+	}
+	return false
 }
 
 func NewHandlerWithOptions(service *application.Service, options HandlerOptions) (*Handler, error) {
@@ -113,6 +171,13 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.WriteHeader(http.StatusServiceUnavailable)
 		return
+	}
+	if h.restringirRutasInternas {
+		_, permitida := h.rutasCompuestasInternas[capacidadRutaInterna{metodo: r.Method, ruta: r.URL.Path}]
+		if !permitida || !peticionRutaExactaCanonica(r) {
+			responderAutorizacionRutaExacta(w, errRutaExactaNoEncontrada)
+			return
+		}
 	}
 	if h.atenderRutaDietas(w, r) {
 		return
