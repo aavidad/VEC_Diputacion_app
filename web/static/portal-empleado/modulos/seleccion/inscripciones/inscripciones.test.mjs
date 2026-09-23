@@ -10,7 +10,7 @@ const ejemplo = (condicion = "externa") => ({
   persona: { condicion, nombre_visible: "Ana Ejemplo", contacto_visible: "Correo de la persona" },
   convocatorias: [{ identificador_publico: "conv-publica-1", titulo: "Proceso de prueba", categoria: "Administración", plazo: "Según bases", bases: "Bases publicadas", requisitos: [{ descripcion: "Titulación", estado: "pendiente", motivo: "Falta acreditación", procedencia: "Declaración" }], documentos: ["Solicitud"] }],
   convocatoriaSeleccionada: { identificador_publico: "conv-publica-1", titulo: "Proceso de prueba" },
-  inscripciones: [], subsanaciones: [],
+  inscripciones: [], subsanaciones: [{ titulo: "Subsanar titulación", motivo: "Aportar documento", fecha_limite: "Según requerimiento", estado: "Pendiente" }],
 });
 
 function raizDePrueba() {
@@ -49,6 +49,9 @@ test("pendiente no bloquea el recorrido y los datos de solicitud no se precomple
   assert.match(preparacion, /Aspirante externo/);
   assert.doesNotMatch(preparacion, /Ana Ejemplo/);
   assert.match(preparacion, /data-inscripciones-preparar disabled/);
+  const completando = renderizarVistaInscripciones(datos, { pestana: "preparar", confirmada: true, contacto: "Correo de la persona" });
+  assert.match(completando, /value="Ana Ejemplo" readonly/);
+  assert.match(completando, /value="Correo de la persona"/);
   const preparado = renderizarVistaInscripciones(datos, { pestana: "preparar", confirmada: true, preparado: true });
   assert.match(preparado, /Ana Ejemplo/);
   assert.match(preparado, /Borrador local sin registro/);
@@ -67,8 +70,12 @@ test("el montaje abre solo el identificador público, confirma en memoria y limp
   nodo.listeners.get("click")({ target: { closest: (s) => s === "[data-inscripciones-tab]" ? { dataset: { inscripcionesTab: "preparar" } } : null } });
   assert.doesNotMatch(nodo.innerHTML, /Ana Ejemplo/);
   nodo.listeners.get("change")({ target: { closest: (s) => s === "[data-inscripciones-confirmar]" ? { checked: true } : null } });
+  assert.doesNotMatch(nodo.innerHTML, /Ana Ejemplo/);
   nodo.listeners.get("click")({ target: { closest: (s) => s === "[data-inscripciones-preparar]" ? { disabled: false } : null } });
   assert.match(nodo.innerHTML, /Ana Ejemplo/);
+  assert.doesNotMatch(nodo.innerHTML, /Borrador local sin registro/);
+  nodo.listeners.get("click")({ target: { closest: (s) => s === "[data-inscripciones-solicitud-siguiente]" ? {} : null } });
+  assert.match(nodo.innerHTML, /Borrador local sin registro/);
   assert.match(anuncios[0], /No se ha presentado/);
   vista.actualizar(ejemplo("empleada"));
   assert.doesNotMatch(nodo.innerHTML, /Ana Ejemplo/);
@@ -76,6 +83,40 @@ test("el montaje abre solo el identificador público, confirma en memoria y limp
   vista.desmontar();
   assert.equal(raiz.children.length, 0);
   assert.equal(nodo.listeners.size, 0);
+});
+
+test("el asistente valida solicitud y subsanación sin crear envío ni justificante", () => {
+  const raiz = raizDePrueba();
+  const datos = ejemplo(); datos.persona.contacto_visible = "";
+  const avisos = [];
+  montarVistaInscripciones({ raiz, datos, anunciar: (texto) => avisos.push(texto) });
+  const nodo = raiz.children[0];
+  const click = (selector, extras = {}) => nodo.listeners.get("click")({ target: { closest: (s) => s === selector ? extras : null } });
+  const cambio = (selector, extras) => nodo.listeners.get("change")({ target: { closest: (s) => s === selector ? extras : null } });
+  const entrada = (selector, value) => nodo.listeners.get("input")({ target: { value, closest: (s) => s === selector ? { value } : null } });
+  click("[data-inscripciones-tab]", { dataset: { inscripcionesTab: "preparar" } });
+  cambio("[data-inscripciones-confirmar]", { checked: true });
+  click("[data-inscripciones-preparar]", { disabled: false });
+  click("[data-inscripciones-solicitud-siguiente]");
+  assert.match(nodo.innerHTML, /Indica un contacto/);
+  assert.doesNotMatch(nodo.innerHTML, /Borrador local sin registro/);
+  entrada("[data-inscripciones-contacto]", "contacto@example.invalid");
+  click("[data-inscripciones-solicitud-siguiente]");
+  assert.match(nodo.innerHTML, /Borrador local sin registro/);
+  assert.match(nodo.innerHTML, /disabled aria-disabled="true"/);
+  click("[data-inscripciones-tab]", { dataset: { inscripcionesTab: "subsanaciones" } });
+  click("[data-inscripciones-seleccionar-subsanacion]", { dataset: { inscripcionesSeleccionarSubsanacion: "0" } });
+  assert.match(nodo.innerHTML, /He leído el motivo/);
+  cambio("[data-inscripciones-confirmar-requerimiento]", { checked: true });
+  click("[data-inscripciones-subsanacion-siguiente]");
+  entrada("[data-inscripciones-respuesta]", "corta");
+  click("[data-inscripciones-subsanacion-siguiente]");
+  assert.match(nodo.innerHTML, /entre 10 y 1000 caracteres/);
+  entrada("[data-inscripciones-respuesta]", "Adjunto la acreditación cuando exista el canal autorizado.");
+  click("[data-inscripciones-subsanacion-siguiente]");
+  assert.match(nodo.innerHTML, /Respuesta preparada en memoria/);
+  assert.match(nodo.innerHTML, /disabled aria-disabled="true"/);
+  assert.ok(avisos.some((a) => /subsanación/i.test(a)));
 });
 
 test("escapa datos inyectados y no introduce transporte ni persistencia web", async () => {
