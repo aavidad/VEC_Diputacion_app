@@ -217,8 +217,8 @@ export function crearSuperficieConvocatoriasS1({
       && valor.bases.documentos.every((item) => item && typeof item === "object");
   }
   function aviso(carga) {
-    const alerta = carga === "denegado" || carga === "error";
-    return `<section class="panel s1-estado" ${alerta ? 'role="alert"' : 'role="status"'} aria-live="polite"><div class="cabecera-panel"><h3>${e(t(`estado_${carga}_titulo`))}</h3></div><div class="cuerpo-panel"><p>${e(t(`estado_${carga}_detalle`))}</p></div></section>`;
+    const alerta = carga === "denegado" || carga === "error" || carga === "error_detalle";
+    return `<section class="panel s1-estado" ${alerta ? 'role="alert"' : 'role="status"'} aria-live="polite" tabindex="-1"><div class="cabecera-panel"><h3>${e(t(`estado_${carga}_titulo`))}</h3></div><div class="cuerpo-panel"><p>${e(t(`estado_${carga}_detalle`))}</p></div></section>`;
   }
   function controlNoConectado(clave) {
     return `<button type="button" class="boton-secundario" disabled aria-disabled="true" title="${e(t("accion_no_conectada"))}">${e(t(clave))}</button>`;
@@ -227,8 +227,15 @@ export function crearSuperficieConvocatoriasS1({
     const seleccionada = item.referencia === estado.seleccionada;
     return `<li class="s1-elemento${seleccionada ? " s1-elemento-activo" : ""}"><button type="button" data-s1-convocatoria="${e(item.referencia)}" aria-current="${seleccionada ? "true" : "false"}"><strong>${e(item.titulo)}</strong><span>${texto(item.categoria)}</span><span class="s1-meta">${e(t("version"))}: ${texto(item.version_actual)} · ${e(t("cierre"))}: ${e(fecha(item.cierre_plazo))}</span><span class="estado-chip info">${texto(item.estado)}</span></button></li>`;
   }
-  function grupo(titulo, contenido, vacio) {
-    return `<section class="panel"><div class="cabecera-panel"><h3>${e(t(titulo))}</h3></div><div class="cuerpo-panel">${contenido || `<p class="s1-vacio">${e(t(vacio))}</p>`}</div></section>`;
+  const apartados = Object.freeze([
+    ["resumen", "resumen"], ["bases", "bases_apartado"], ["versiones", "navegacion_versiones"],
+    ["requisitos", "navegacion_requisitos"], ["hitos", "navegacion_hitos"], ["documentos", "navegacion_documentos"],
+  ]);
+  function navegacionDetalle() {
+    return `<nav class="s1-navegacion" aria-label="${e(t("navegacion_detalle"))}">${apartados.map(([id, clave]) => `<button type="button" data-s1-seccion="${id}" aria-controls="s1-seccion-${id}">${e(t(clave))}</button>`).join("")}</nav>`;
+  }
+  function grupo(id, titulo, contenido, vacio) {
+    return `<section class="panel" id="s1-seccion-${id}" tabindex="-1"><div class="cabecera-panel"><h3>${e(t(titulo))}</h3></div><div class="cuerpo-panel">${contenido || `<p class="s1-vacio">${e(t(vacio))}</p>`}</div></section>`;
   }
   function detalleHTML(detalle) {
     if (!detalle) return aviso("sin_seleccion");
@@ -238,11 +245,13 @@ export function crearSuperficieConvocatoriasS1({
     const hitos = lista(bases.hitos).map((item) => `<li class="s1-fila"><strong>${texto(item.titulo)}</strong><time>${e(fecha(item.fecha))}</time></li>`).join("");
     const documentos = lista(bases.documentos).map((item) => `<li class="s1-fila"><strong>${texto(item.titulo)}</strong><span>${texto(item.referencia)}</span></li>`).join("");
     return `<div class="s1-detalle">
-      <section class="panel s1-resumen"><div class="cabecera-panel"><div><h3>${e(detalle.titulo)}</h3><p>${texto(detalle.categoria)}</p></div><span class="estado-chip info">${texto(detalle.estado)}</span></div><div class="cuerpo-panel"><p>${texto(detalle.resumen)}</p><dl class="resumen-expediente"><div class="fila-resumen"><dt>${e(t("version_actual"))}</dt><dd>${texto(detalle.version_actual)}</dd></div><div class="fila-resumen"><dt>${e(t("identificador_publico"))}</dt><dd>${texto(detalle.identificador_publico)}</dd></div><div class="fila-resumen"><dt>${e(t("bases"))}</dt><dd>${texto(bases.codigo)}</dd></div></dl></div></section>
-      ${grupo("versiones", versiones ? `<ul class="s1-lista">${versiones}</ul>` : "", "versiones_vacias")}
-      ${grupo("requisitos", requisitos ? `<ul class="s1-lista">${requisitos}</ul>` : "", "requisitos_vacios")}
-      ${grupo("hitos", hitos ? `<ul class="s1-lista">${hitos}</ul>` : "", "hitos_vacios")}
-      ${grupo("documentos", documentos ? `<ul class="s1-lista">${documentos}</ul>` : "", "documentos_vacios")}
+      ${navegacionDetalle()}
+      <section class="panel s1-resumen" id="s1-seccion-resumen" tabindex="-1"><div class="cabecera-panel"><div><h3>${e(detalle.titulo)}</h3><p>${texto(detalle.categoria)}</p></div><span class="estado-chip info">${texto(detalle.estado)}</span></div><div class="cuerpo-panel"><p>${texto(detalle.resumen)}</p><dl class="resumen-expediente"><div class="fila-resumen"><dt>${e(t("version_actual"))}</dt><dd>${texto(detalle.version_actual)}</dd></div><div class="fila-resumen"><dt>${e(t("identificador_publico"))}</dt><dd>${texto(detalle.identificador_publico)}</dd></div></dl></div></section>
+      ${grupo("bases", "bases_apartado", `<dl class="s1-bases-datos"><div><dt>${e(t("version"))}</dt><dd>${texto(bases.codigo)}</dd></div></dl>${bases.resumen ? `<p>${texto(bases.resumen)}</p>` : `<p class="s1-vacio">${e(t("bases_vacias"))}</p>`}`, "bases_vacias")}
+      ${grupo("versiones", "versiones", versiones ? `<ul class="s1-lista">${versiones}</ul>` : "", "versiones_vacias")}
+      ${grupo("requisitos", "requisitos", requisitos ? `<ul class="s1-lista">${requisitos}</ul>` : "", "requisitos_vacios")}
+      ${grupo("hitos", "hitos", hitos ? `<ul class="s1-lista">${hitos}</ul>` : "", "hitos_vacios")}
+      ${grupo("documentos", "documentos", documentos ? `<ul class="s1-lista">${documentos}</ul>` : "", "documentos_vacios")}
       <section class="panel"><div class="cabecera-panel"><h3>${e(t("acciones"))}</h3></div><div class="cuerpo-panel s1-acciones">${controlNoConectado("editar_bases")}${controlNoConectado("enviar_firma")}${controlNoConectado("publicar")}</div></section>
     </div>`;
   }
@@ -253,16 +262,18 @@ export function crearSuperficieConvocatoriasS1({
     return `<div class="consulta-convocatorias-s1">${cabecera}<div class="s1-rejilla"><section class="panel s1-listado"><div class="cabecera-panel"><div><h3>${e(t("listado"))}</h3><p>${e(t("cantidad", { numero: new Intl.NumberFormat("es-ES").format(estado.convocatorias.length) }))}</p></div><span class="estado-chip info">${e(t("solo_lectura"))}</span></div><ul class="s1-lista">${estado.convocatorias.map(ficha).join("")}</ul></section>${estado.cargaDetalle === "cargando" ? aviso("cargando_detalle") : estado.cargaDetalle === "no_configurado" ? aviso("no_configurado") : estado.cargaDetalle === "denegado" ? aviso("denegado") : estado.cargaDetalle === "error" ? aviso("error_detalle") : detalleHTML(estado.detalle)}</div></div>`;
   }
   function pintar() { if (activo && contenedor) contenedor.innerHTML = renderizar(); }
-  async function cargarDetalle(referencia) {
+  async function cargarDetalle(referencia, { enfocarDetalle = false } = {}) {
     if (!activo || !estado.convocatorias.some((item) => item.referencia === referencia)) return;
     controlador?.abort();
     controlador = new AbortController();
     const actual = ++generacion;
     estado = { ...estado, seleccionada: referencia, detalle: null, cargaDetalle: "cargando" };
     pintar();
+    if (enfocarDetalle) contenedor.querySelector?.(".s1-rejilla > .s1-estado")?.focus();
     if (typeof consultarDetalle !== "function") {
       estado = { ...estado, cargaDetalle: "no_configurado" };
       pintar();
+      if (enfocarDetalle) contenedor.querySelector?.(".s1-rejilla > .s1-estado")?.focus();
       return;
     }
     try {
@@ -275,11 +286,23 @@ export function crearSuperficieConvocatoriasS1({
       estado = { ...estado, detalle: null, cargaDetalle: error?.status === 401 || error?.status === 403 ? "denegado" : "error" };
     }
     pintar();
+    if (enfocarDetalle) {
+      contenedor.querySelector?.(estado.cargaDetalle === "disponible" ? "#s1-seccion-resumen" : ".s1-rejilla > .s1-estado")?.focus();
+    }
   }
   function seleccionar(evento) {
     const boton = evento.target?.closest?.("[data-s1-convocatoria]");
-    if (!boton || !contenedor?.contains(boton)) return;
-    void cargarDetalle(boton.dataset.s1Convocatoria);
+    if (boton && contenedor?.contains(boton)) {
+      void cargarDetalle(boton.dataset.s1Convocatoria, { enfocarDetalle: true });
+      return;
+    }
+    const enlace = evento.target?.closest?.("[data-s1-seccion]");
+    if (!enlace || !contenedor?.contains(enlace)) return;
+    const seccion = apartados.find(([id]) => id === enlace.dataset.s1Seccion);
+    if (!seccion) return;
+    const destino = contenedor.querySelector?.(`#s1-seccion-${seccion[0]}`);
+    destino?.scrollIntoView?.({ block: "start", behavior: "instant" });
+    destino?.focus?.({ preventScroll: true });
   }
   async function montar() {
     if (!contenedor || typeof contenedor.addEventListener !== "function") throw new TypeError("contenedor S1 inválido");
