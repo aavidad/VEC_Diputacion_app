@@ -86,10 +86,10 @@ const CARGADORES_PRESENTACION_PREDETERMINADOS = Object.freeze({
   dietas: async () => {
     const [contrato, vista, mapa, calculador, recorridos] = await Promise.all([
       import("./modulos/dietas/contrato.js"),
-      import("./modulos/dietas/vista-itinerario.js?v=20260921-dietas-mapa-osm-v10"),
-      import("./modulos/dietas/mapa-ruta.js?v=20260921-dietas-mapa-osm-v10"),
+      import("./modulos/dietas/vista-itinerario.js?v=20260923-dietas-r1"),
+      import("./modulos/dietas/mapa-ruta.js?v=20260923-dietas-r1"),
       import("./modulos/dietas/calculador-rutas-presentacion-osrm.js"),
-      import("./modulos/dietas/vista-recorridos.js?v=20260921-dietas-mapa-osm-v10"),
+      import("./modulos/dietas/vista-recorridos.js?v=20260923-dietas-r1"),
     ]);
     return Object.freeze({ contrato, vista, mapa, calculador, recorridos });
   },
@@ -154,10 +154,10 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   dietas: async () => {
     const [contrato, vista, mapa, calculador, recorridos, clienteBorradores] = await Promise.all([
       import("./modulos/dietas/contrato.js"),
-      import("./modulos/dietas/vista-itinerario.js?v=20260921-dietas-mapa-osm-v10"),
-      import("./modulos/dietas/mapa-ruta.js?v=20260921-dietas-mapa-osm-v10"),
+      import("./modulos/dietas/vista-itinerario.js?v=20260923-dietas-r1"),
+      import("./modulos/dietas/mapa-ruta.js?v=20260923-dietas-r1"),
       import("./modulos/dietas/calculador-rutas-http.js"),
-      import("./modulos/dietas/vista-recorridos.js?v=20260921-dietas-mapa-osm-v10"),
+      import("./modulos/dietas/vista-recorridos.js?v=20260923-dietas-r1"),
       import("./modulos/dietas/cliente-borradores-http.js"),
     ]);
     return Object.freeze({ contrato, vista, mapa, calculador, recorridos, clienteBorradores });

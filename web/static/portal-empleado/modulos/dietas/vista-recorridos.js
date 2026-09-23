@@ -1,5 +1,5 @@
 import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js";
-import { montarVistaBorradoresPropios } from "./vista-borradores-propios.js";
+import { montarVistaBorradoresPropios } from "./vista-borradores-propios.js?v=20260923-dietas-r1";
 import { montarMapaInicialGranadaDietas } from "./mapa-ruta.js";
 import { obtenerAtlasSinteticoRRHH } from "../../datos-sinteticos-rrhh.js";
 
