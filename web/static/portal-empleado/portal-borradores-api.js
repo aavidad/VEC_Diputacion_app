@@ -443,6 +443,7 @@ export function crearClienteBorradores(configuracion = {}) {
           signal,
           headers,
           credentials: "same-origin",
+          mode: "same-origin",
           cache: "no-store",
           redirect: "error",
           referrerPolicy: "no-referrer",

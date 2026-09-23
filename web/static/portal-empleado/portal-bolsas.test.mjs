@@ -38,6 +38,13 @@ import {
   seleccionarParticipacionesPorEstado,
   crearControladorBolsas,
 } from "./portal-bolsas-api.js";
+function comprobarTransporteInterno(opciones) {
+  assert.equal(opciones.credentials, "same-origin");
+  assert.equal(opciones.mode, "same-origin");
+  assert.equal(opciones.cache, "no-store");
+  assert.equal(opciones.redirect, "error");
+}
+
 test("P-WEB-10 selecciona todas las participaciones del filtro según el orden vigente B6", () => {
   const candidatas = [
     { participacion_ref: "participacion:03", estado_clave: "disponible", orden: 3 },
@@ -78,6 +85,7 @@ test("B7 emite por la ruta exacta con idempotencia y conserva el recibo", async 
   assert.equal(salida.datos.recibo_ref, `recibo:llamamiento:${huella}`);
   assert.equal(llamada.url, "/api/vec/bolsa/llamamientos/emisiones");
   assert.equal(llamada.opciones.credentials, "same-origin");
+  comprobarTransporteInterno(llamada.opciones);
   assert.equal(llamada.opciones.headers["Idempotency-Key"], "b7-emision-0001");
   assert.deepEqual(JSON.parse(llamada.opciones.body).participaciones, ["participacion:01"]);
 });
@@ -86,7 +94,7 @@ test("P-WEB-08 valida y consulta las estadísticas agregadas de Bolsa", async ()
   const validado = validarRespuestaEstadisticas(envelope);
   assert.equal(validado.personas.total, 3);
   let llamada = "";
-  const resultado = await consultarEstadisticasBolsa({ fetchImpl: async (url, opciones) => { llamada = url; assert.equal(opciones.credentials, "same-origin"); return { ok: true, status: 200, json: async () => envelope }; } });
+  const resultado = await consultarEstadisticasBolsa({ fetchImpl: async (url, opciones) => { llamada = url; comprobarTransporteInterno(opciones); return { ok: true, status: 200, json: async () => envelope }; } });
   assert.equal(llamada, "/api/vec/bolsa/estadisticas");
   assert.equal(resultado.datos.por_bolsa[0].categoria, "Auxiliar");
 });
@@ -100,6 +108,7 @@ test("cambiar situación B2 envía idempotencia y conserva el recibo", async () 
   assert.equal(resultado.datos.recibo_ref, "recibo:situacion:01");
   assert.equal(observada.opciones.headers["Idempotency-Key"], "b2-cambio-0001");
   assert.equal(observada.opciones.credentials, "same-origin");
+  comprobarTransporteInterno(observada.opciones);
   assert.match(observada.url, /\/bolsa:01\/candidatos\/participacion:01\/situacion$/);
 });
 import { crearPresentadorPanelInterno } from "./portal-panel-interno.js";
@@ -216,6 +225,7 @@ test("B3 registra y consulta contactos con ruta, idempotencia y recibo", async (
   let peticion;
   const alta=await registrarContactoCandidato("bolsa:01","participacion:01",{canal:"telefono",resultado:"contactado",anotacion:"Se explicó la oferta",instante:"2026-09-22T00:10:00Z",llamamiento_ref:"",clave_idempotencia:"contacto-0001"},{fetchImpl:async(url,opciones)=>{peticion={url,opciones};return{ok:true,status:201,json:async()=>({data:{recibo_ref:"recibo:contacto:01"}})}}});
   assert.equal(alta.ok,true); assert.equal(peticion.opciones.headers["Idempotency-Key"],"contacto-0001"); assert.match(peticion.url,/\/bolsa:01\/candidatos\/participacion:01\/contactos$/);
+  comprobarTransporteInterno(peticion.opciones);
   const lectura=await consultarContactosCandidato("bolsa:01","participacion:01",{fetchImpl:async()=>({ok:true,status:200,json:async()=>({data:{esquema:ESQUEMA_CONTACTOS,contactos:[{contacto_ref:"contacto:01",participacion_ref:"participacion:01",llamamiento_ref:null,canal:"telefono",instante:"2026-09-22T00:10:00Z",actor_ref:"per_0123456789abcdefghijkl",resultado:"contactado",anotacion:"Se explicó la oferta"}],cursor_siguiente:null,hay_mas:false}})})});
   assert.equal(lectura.ok,true); assert.equal(lectura.datos.contactos[0].resultado,"contactado");
 });
@@ -293,6 +303,7 @@ test("consultarBolsas cliente HTTP maneja 200, 401, 403, 404 y errores de red", 
   // Éxito 200
   const fetchOk = async (url, opciones) => {
     assert.equal(opciones.credentials, "same-origin");
+    comprobarTransporteInterno(opciones);
     assert.equal(opciones.headers.Accept, "application/json");
     return {
       ok: true,
@@ -330,6 +341,7 @@ test("consultarCandidatosBolsa maneja parámetros, códigos de estado y cursor",
   const fetchMock = async (url, opciones) => {
     urlLlamada = url;
     assert.equal(opciones.credentials, "same-origin");
+    comprobarTransporteInterno(opciones);
     return {
       ok: true,
       status: 200,

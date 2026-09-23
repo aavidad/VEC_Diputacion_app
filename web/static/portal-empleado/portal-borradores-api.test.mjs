@@ -44,6 +44,7 @@ test("cliente GET omite cookies, no usa caché y valida envelope y ETag", async 
   assert.equal((await cliente.obtenerDetalle("convocatoria:externa:2026#1", limites())).etag, detalle().etag);
   for (const llamada of llamadas) {
     assert.equal(llamada.opcionesFetch.credentials, "same-origin");
+    assert.equal(llamada.opcionesFetch.mode, "same-origin");
     assert.equal(llamada.opcionesFetch.cache, "no-store");
     assert.equal(llamada.opcionesFetch.redirect, "error");
     assert.equal(llamada.opcionesFetch.referrerPolicy, "no-referrer");

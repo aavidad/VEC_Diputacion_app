@@ -305,6 +305,7 @@ test("cliente API: consultarContactosCandidato maneja 200, 403 y errores", async
   const mockFetchOk = async (url, opciones) => {
     assert.match(url, /\/api\/vec\/bolsa\/bolsas\/bolsa_123\/candidatos\/part_123\/contactos/);
     assert.equal(opciones.credentials, "same-origin");
+    assert.deepEqual([opciones.mode, opciones.cache, opciones.redirect], ["same-origin", "no-store", "error"]);
     assert.equal(opciones.headers.Accept, "application/json");
     return {
       ok: true,
@@ -373,6 +374,7 @@ test("cliente API: crearLlamamientoCandidato y registrarResultadoLlamamiento emi
   assert.match(llamadaLlamar.url, /\/api\/vec\/bolsa\/candidatos\/part_456\/llamamientos/);
   assert.equal(llamadaLlamar.opciones.method, "POST");
   assert.equal(llamadaLlamar.opciones.credentials, "same-origin");
+  assert.deepEqual([llamadaLlamar.opciones.mode, llamadaLlamar.opciones.cache, llamadaLlamar.opciones.redirect], ["same-origin", "no-store", "error"]);
   const bodyLlamar = JSON.parse(llamadaLlamar.opciones.body);
   assert.equal(bodyLlamar.esquema, ESQUEMA_ACCION_BOLSA);
   assert.equal(bodyLlamar.accion, "crear_llamamiento");
@@ -401,6 +403,7 @@ test("cliente API: crearLlamamientoCandidato y registrarResultadoLlamamiento emi
 
   assert.equal(resResultado.ok, true);
   assert.match(llamadaResultado.url, /\/api\/vec\/bolsa\/llamamientos\/llam_789\/resultado/);
+  assert.deepEqual([llamadaResultado.opciones.mode, llamadaResultado.opciones.cache, llamadaResultado.opciones.redirect], ["same-origin", "no-store", "error"]);
   const bodyResultado = JSON.parse(llamadaResultado.opciones.body);
   assert.equal(bodyResultado.esquema, ESQUEMA_ACCION_BOLSA);
   assert.equal(bodyResultado.accion, "registrar_resultado");

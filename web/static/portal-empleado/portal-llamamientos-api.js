@@ -126,6 +126,7 @@ export function crearClientePropuestasLlamamiento({ fetchImpl = globalThis.fetch
       respuesta = await fetchImpl(RUTA_PROPUESTAS_LLAMAMIENTO, {
         method: "POST",
         credentials: "same-origin",
+        mode: "same-origin", cache: "no-store", redirect: "error",
         headers: {
           Accept: "application/json",
           "Content-Type": "application/json",
