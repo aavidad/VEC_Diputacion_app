@@ -21,20 +21,12 @@ func TestPaqueteMigracionesSeEnsamblaDesdeFuentesCanonicas(t *testing.T) {
 		"autorizacion_atestada_v3/migraciones/000048_consumidor_emision_llamamiento",
 		"bolsa_llamamientos/migraciones/000017_emision_llamamiento",
 		"bolsa_llamamientos/migraciones/000021_rellenar_vinculos_candidato",
-		"dietas_borradores/roles_up.sql",
-		"personal/migraciones/000007_relacion_empleado_dietas",
-		"autorizacion_atestada_v3/migraciones/000049_consumidor_personal_dietas",
-		"personal/migraciones/000008_consulta_relaciones_propias_dietas",
-		"dietas_borradores/migraciones/000001_borrador_comision_durable",
 	}
 
 	var esperado bytes.Buffer
 	esperado.WriteString("\\set ON_ERROR_STOP on\nBEGIN;\n")
 	for _, relativa := range relativas {
 		nombre := relativa + ".up.sql"
-		if strings.HasSuffix(relativa, ".sql") {
-			nombre = relativa
-		}
 		ruta := filepath.Join(repo, "deploy", "postgresql", nombre)
 		contenido, err := os.ReadFile(ruta)
 		if err != nil {
