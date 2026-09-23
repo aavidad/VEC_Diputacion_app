@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"reflect"
 	"strings"
 	"testing"
@@ -191,6 +192,168 @@ func nuevoEscenarioEmisionMaterialV3Prueba(
 		relojConfianza: relojConfianza, relojCapacidad: relojCapacidad,
 		confianza: confianza, emisorCapacidades: emisorCapacidades,
 		emisorMaterial: emisorMaterial, registro: registro,
+	}
+}
+
+func decisionDenegadaEmisionMaterialV3Prueba(
+	t *testing.T,
+	e escenarioEmisionMaterialV3Prueba,
+) domain.DecisionAutorizacionLigadaV3 {
+	t.Helper()
+	datos, err := e.base.solicitud.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	vinculo, err := datos.VinculoAutenticacionActor.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	version := domain.VersionRol{
+		RolID: "tecnico_rrhh", Version: 1, Nombre: "Tecnico RRHH",
+		Estado: domain.EstadoVersionRolPublicada,
+		Concesiones: []domain.ConcesionRol{{
+			Accion: "otra.accion", ModuloID: datos.Recurso.ModuloID,
+			TipoRecurso:    datos.Recurso.Tipo,
+			Finalidades:    []string{datos.Finalidad},
+			GarantiaMinima: domain.AuthAssuranceSubstantial,
+		}},
+		PublicadaPor: "responsable-seguridad",
+		PublicadaEn:  e.base.ahora.Add(-24 * time.Hour),
+	}
+	huellaCatalogo, err := domain.HuellaCatalogoPoliticasAutorizacion(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	instantanea := domain.InstantaneaAutorizacion{
+		AsignacionPerfil: domain.AsignacionPerfil{
+			AsignacionID: "asig-rrhh", Version: 1,
+			PerfilActivoRef: vinculo.PerfilActivoRef,
+			PrincipalID:     vinculo.PrincipalID,
+			VersionRolRef:   version.Referencia(),
+			Estado:          domain.EstadoAsignacionPerfilActiva,
+			Ambitos: []domain.AmbitoPerfil{
+				{Clave: "organizacion_ref", Valores: []string{"organizacion:dipgra"}},
+				{Clave: "centro_ref", Valores: []string{"centro:servicios-generales"}},
+				{Clave: "categoria_ref", Valores: []string{"categoria:auxiliar-administrativo"}},
+			},
+			VigenteDesde: e.base.ahora.Add(-time.Hour),
+			VigenteHasta: e.base.ahora.Add(time.Hour),
+			EmitidaPor:   "administrador-identidades",
+			EmitidaEn:    e.base.ahora.Add(-2 * time.Hour),
+		},
+		VersionRol: version,
+		ControlVigenciaVersionRol: domain.ControlVigenciaVersionRol{
+			VersionRolRef: version.Referencia(), Revision: 1,
+			Estado:         domain.EstadoControlVigenciaVersionRolHabilitada,
+			ActualizadoPor: version.PublicadaPor,
+			ActualizadoEn:  version.PublicadaEn,
+		},
+		RevisionCatalogoPoliticas:     1,
+		CatalogoPoliticasHuellaSHA256: huellaCatalogo,
+	}
+	evidencia, err := domain.NuevaEvidenciaEvaluacionAutorizacionV3(
+		e.base.solicitud, instantanea,
+		"dec_denegada_0123456789abcdef0123456789",
+		e.base.ahora, e.base.ahora.Add(90*time.Second),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decision, err := domain.NuevaDecisionAutorizacionLigadaV3(e.base.solicitud, evidencia)
+	if err != nil {
+		t.Fatal(err)
+	}
+	concedida, codigo, err := decision.Resultado()
+	if err != nil || concedida || codigo == "concedida" {
+		t.Fatalf("fixture de denegacion invalida: %t %q %v", concedida, codigo, err)
+	}
+	return decision
+}
+
+func TestEmisorMaterialAutorizacionAtestadaV3DenegacionExplicitaNoAtesta(t *testing.T) {
+	e := nuevoEscenarioEmisionMaterialV3Prueba(t)
+	e.autorizador.decision = decisionDenegadaEmisionMaterialV3Prueba(t, e)
+	e.autorizador.confirmacion = ports.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}
+	e.autorizador.err = errors.Join(
+		domain.ErrAutorizacionDenegada,
+		ports.ErrDenegacionExplicitaAutorizacionLigadaV3,
+	)
+	decision, confirmacion, material, err := e.emisorMaterial.EmitirMaterialAutorizacionAtestadaV3(
+		context.Background(), e.base.solicitud, e.base.resultado,
+	)
+	if decision.Validar() == nil || confirmacion.Validar() == nil || material != nil ||
+		!errors.Is(err, ports.ErrDenegacionExplicitaAutorizacionLigadaV3) ||
+		!errors.Is(err, errEmisionMaterialAutorizacionAtestadaV3NoDisponible) ||
+		e.atestador.invocaciones != 0 ||
+		!reflect.DeepEqual(e.registro.etapas, []string{"pdp_durable"}) {
+		t.Fatalf("denegacion explicita alcanzo emision: %v", err)
+	}
+	for _, salida := range []string{err.Error(), fmt.Sprintf("%+v", err)} {
+		if strings.Contains(salida, "per_") || strings.Contains(salida, "prf_") ||
+			strings.Contains(salida, "dec_denegada") {
+			t.Fatalf("error de denegacion filtro datos: %q", salida)
+		}
+	}
+	var log bytes.Buffer
+	slog.New(slog.NewTextHandler(&log, nil)).Error("denegacion", "error", err)
+	if strings.Contains(log.String(), "per_") || strings.Contains(log.String(), "prf_") ||
+		strings.Contains(log.String(), "dec_denegada") {
+		t.Fatalf("log de denegacion filtro datos: %q", log.String())
+	}
+}
+
+func TestEmisorMaterialAutorizacionAtestadaV3NoAceptaCentinelaSinPrueba(t *testing.T) {
+	casos := []struct {
+		nombre   string
+		preparar func(*escenarioEmisionMaterialV3Prueba) context.Context
+	}{
+		{"decision positiva", func(e *escenarioEmisionMaterialV3Prueba) context.Context {
+			e.autorizador.err = errors.Join(domain.ErrAutorizacionDenegada,
+				ports.ErrDenegacionExplicitaAutorizacionLigadaV3)
+			return context.Background()
+		}},
+		{"decision nula", func(e *escenarioEmisionMaterialV3Prueba) context.Context {
+			e.autorizador.decision = domain.DecisionAutorizacionLigadaV3{}
+			e.autorizador.err = errors.Join(domain.ErrAutorizacionDenegada,
+				ports.ErrDenegacionExplicitaAutorizacionLigadaV3)
+			return context.Background()
+		}},
+		{"registro fallido", func(e *escenarioEmisionMaterialV3Prueba) context.Context {
+			e.autorizador.decision = decisionDenegadaEmisionMaterialV3Prueba(t, *e)
+			e.autorizador.err = errors.Join(domain.ErrAutorizacionDenegada,
+				ports.ErrDenegacionExplicitaAutorizacionLigadaV3,
+				ports.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible)
+			return context.Background()
+		}},
+		{"cancelacion", func(e *escenarioEmisionMaterialV3Prueba) context.Context {
+			e.autorizador.decision = decisionDenegadaEmisionMaterialV3Prueba(t, *e)
+			e.autorizador.err = errors.Join(domain.ErrAutorizacionDenegada,
+				ports.ErrDenegacionExplicitaAutorizacionLigadaV3)
+			ctx, cancelar := context.WithCancel(context.Background())
+			e.autorizador.cancelar = cancelar
+			return ctx
+		}},
+		{"plazo", func(e *escenarioEmisionMaterialV3Prueba) context.Context {
+			e.autorizador.decision = decisionDenegadaEmisionMaterialV3Prueba(t, *e)
+			e.autorizador.err = errors.Join(domain.ErrAutorizacionDenegada,
+				ports.ErrDenegacionExplicitaAutorizacionLigadaV3,
+				context.DeadlineExceeded)
+			return context.Background()
+		}},
+	}
+	for _, caso := range casos {
+		t.Run(caso.nombre, func(t *testing.T) {
+			e := nuevoEscenarioEmisionMaterialV3Prueba(t)
+			ctx := caso.preparar(&e)
+			decision, confirmacion, material, err := e.emisorMaterial.EmitirMaterialAutorizacionAtestadaV3(
+				ctx, e.base.solicitud, e.base.resultado,
+			)
+			if decision.Validar() == nil || confirmacion.Validar() == nil || material != nil ||
+				errors.Is(err, ports.ErrDenegacionExplicitaAutorizacionLigadaV3) ||
+				e.atestador.invocaciones != 0 {
+				t.Fatalf("centinela no acreditado aceptado: %v", err)
+			}
+		})
 	}
 }
 
