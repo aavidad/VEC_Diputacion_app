@@ -37,6 +37,11 @@ func (s *soporteAltaContratacionTemporalDesarrollo) capacidadValida(
 	if s.peticionesCentro {
 		principalValido = rutaPeticionCentroDesarrollo(capacidad.ruta) && principalPeticionCentroDesarrolloValido(capacidad.principal)
 	}
+	if s.candidatoBolsa {
+		principalValido = capacidad.ruta == "/api/vec/bolsa/mi-bolsa" &&
+			principalSinteticoContratacionTemporalDesarrolloValido(capacidad.principal) &&
+			len(capacidad.principal.Roles) == 1 && capacidad.principal.Roles[0] == "candidato_bolsa"
+	}
 	if capacidad.ruta == httpinterno.RutaSubsanacionReparos {
 		ahora := s.reloj.Ahora()
 		if !domain.InstanteUTCCanonico(ahora) ||

@@ -18,9 +18,33 @@ type identidadCertificadoDesarrollo struct {
 }
 
 type resolvedorIdentidadDesarrollo struct {
-	porHuella    map[[sha256.Size]byte]vecdomain.Principal
-	porSujeto    map[string]adscripcionCentroDesarrollo
-	lectoresRRHH map[[sha256.Size]byte]identidadConsultaRRHHDesarrollo
+	porHuella      map[[sha256.Size]byte]vecdomain.Principal
+	porSujeto      map[string]adscripcionCentroDesarrollo
+	lectoresRRHH   map[[sha256.Size]byte]identidadConsultaRRHHDesarrollo
+	candidatoBolsa *identidadCandidatoBolsaDesarrollo
+}
+
+func (r *resolvedorIdentidadDesarrollo) registrarCandidatoBolsa(c identidadCandidatoBolsaDesarrollo) error {
+	if r == nil || c.identidad.principal.Validate() != nil || len(c.identidad.principal.Roles) != 1 ||
+		c.identidad.principal.Roles[0] != "candidato_bolsa" || c.candidatoRef == "" ||
+		c.personaRef == "" || c.perfilRef == "" || r.candidatoBolsa != nil {
+		return ErrMaterialDesarrolloInvalido
+	}
+	principal, existe := r.porHuella[c.identidad.huella]
+	if !existe || principal.ID != c.identidad.principal.ID ||
+		principal.Attributes["certificate_sha256"] != c.identidad.principal.Attributes["certificate_sha256"] {
+		return ErrMaterialDesarrolloInvalido
+	}
+	r.candidatoBolsa = &c
+	return nil
+}
+
+func (r *resolvedorIdentidadDesarrollo) principalCandidatoBolsaValido(p vecdomain.Principal) bool {
+	return r != nil && r.candidatoBolsa != nil &&
+		principalSinteticoContratacionTemporalDesarrolloValido(p) &&
+		len(p.Roles) == 1 && p.Roles[0] == "candidato_bolsa" &&
+		p.ID == r.candidatoBolsa.identidad.principal.ID &&
+		p.Attributes["certificate_sha256"] == r.candidatoBolsa.identidad.principal.Attributes["certificate_sha256"]
 }
 
 func nuevoResolvedorIdentidadDesarrollo(

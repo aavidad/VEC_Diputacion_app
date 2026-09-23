@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 	"vec-diputacion-granada/config"
+	bolsapersonal "vec-diputacion-granada/internal/modules/bolsa/adapters/httppersonal"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
@@ -86,6 +87,9 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 		r.Context(), r,
 	)
 	validoRuta := principalContratacionTemporalDesarrolloValidoParaRuta(principal, r.URL.Path)
+	if r.URL.Path == bolsapersonal.RutaMiBolsa {
+		validoRuta = m.autoridad.resolvedor.principalCandidatoBolsaValido(principal)
+	}
 	if protegidaComun && !protegidaCT {
 		validoRuta = principalContratacionTemporalDesarrolloValido(principal)
 	}
@@ -99,6 +103,7 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 			principal: clonarPrincipalDesarrollo(principal),
 		}
 		if protegidaComun || rutaContinuidadNominal(capacidad.ruta) || rutaConsultaRRHHContratacionTemporalDesarrollo(capacidad.ruta) ||
+			capacidad.ruta == bolsapersonal.RutaMiBolsa ||
 			capacidad.ruta == httpinterno.RutaIncorporacionEjercicioV2 ||
 			capacidad.ruta == httpinterno.RutaFichaGINPIXV2 ||
 			capacidad.ruta == httpinterno.RutaConsultaSeguimientoV2 ||
@@ -139,7 +144,7 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 		)
 		ctx = context.WithValue(ctx, claveCacheSeguridadComunDesarrollo{}, &cacheSeguridadComunDesarrollo{})
 		if protegidaComun {
-			ctx = context.WithValue(ctx, claveFronteraSeguridadComunDesarrollo{}, fronteraSeguridadComunDesarrollo{metodo: r.Method, ruta: r.URL.Path, superficie: superficieInternaSeguridadComunDesarrollo, catalogo: m.fronteras, descriptor: fronteraComun})
+			ctx = context.WithValue(ctx, claveFronteraSeguridadComunDesarrollo{}, fronteraSeguridadComunDesarrollo{metodo: r.Method, ruta: r.URL.Path, superficie: fronteraComun.Superficie, catalogo: m.fronteras, descriptor: fronteraComun})
 		}
 		r = r.WithContext(ctx)
 	} else if err == nil && (protegidaCT || protegidaComun) && principalSinteticoContratacionTemporalDesarrolloValido(principal) {

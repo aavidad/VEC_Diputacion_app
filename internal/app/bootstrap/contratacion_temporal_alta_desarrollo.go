@@ -74,6 +74,7 @@ type registroDecisionesAnalisisContratacionTemporalDesarrollo interface {
 type soporteAltaContratacionTemporalDesarrollo struct {
 	origen                             *origenConsultasContratacionTemporalDesarrollo
 	peticionesCentro                   bool
+	candidatoBolsa                     bool
 	mu                                 sync.Mutex
 	sello                              *selloConsultasContratacionTemporalDesarrollo
 	principalID                        string

@@ -11,6 +11,7 @@ import (
 	"vec-diputacion-granada/config"
 	contratacioncomposicion "vec-diputacion-granada/internal/app/composicion/interna/contrataciontemporal"
 	inc "vec-diputacion-granada/internal/app/incorporacionejercicio"
+	bolsapersonal "vec-diputacion-granada/internal/modules/bolsa/adapters/httppersonal"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/informejuridico"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
@@ -352,6 +353,18 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	}
 	perfilesConsulta := perfilesConsultaContratacionTemporalDesarrollo(perfilCTCatalogo, lectoresConsulta)
 	declaracionesFrontera := descriptoresFronterasContratacionTemporalDesarrollo(perfilCTCatalogo, perfilesConsulta)
+	if candidato := resolvedorDesarrollo.candidatoBolsa; candidato != nil {
+		if !debeComponerMiBolsaDesarrollo(cfg) || !perfilActivoSeguridadComunValido(candidato.perfilRef) {
+			return nil, nil, nil, errMiBolsaNoDisponible
+		}
+		declaracionesFrontera = append(declaracionesFrontera, descriptorFronteraComunDesarrollo{
+			Clave:      "bolsa-mi-bolsa-consultar",
+			Superficie: superficieExternaPersonalSeguridadComunDesarrollo,
+			Metodo:     http.MethodGet, Ruta: bolsapersonal.RutaMiBolsa,
+			PerfilesActivosRef: []string{candidato.perfilRef},
+			ClavePolitica:      "politica-bolsa-mi-bolsa", ClaveCapacidad: "capacidad-bolsa-mi-bolsa-consultar",
+		})
+	}
 	var soporteBolsaCatalogo *soporteSesionBorradorBolsaDesarrollo
 	if debeComponerBorradorLlamamientoDesarrollo(cfg) {
 		soporteBolsaCatalogo, err = nuevoSoporteSesionBorradorBolsaDesarrollo(cfg.DevelopmentMaterialDir, alta.soporte, reloj.Ahora())
@@ -557,6 +570,19 @@ func nuevasRutasContratacionTemporalDesarrollo(
 		}
 	}()
 	rutas = append(rutas, rutasBorrador...)
+	if resolvedorDesarrollo.candidatoBolsa != nil {
+		if !debeComponerMiBolsaDesarrollo(cfg) || consultasRRHH.identidad == nil {
+			return nil, nil, nil, errMiBolsaNoDisponible
+		}
+		miBolsa, err := nuevaRutaMiBolsaDesarrollo(
+			context.Background(), resolvedorDesarrollo.candidatoBolsa, sello, &alta,
+			consultasRRHH.identidad, catalogoFronteras, derivador, reloj,
+		)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		rutas = append(rutas, vechttp.RutaExacta{Ruta: bolsapersonal.RutaMiBolsa, Manejador: miBolsa})
+	}
 	autoridad := &autoridadConsultasContratacionTemporalDesarrollo{
 		sello:                                    sello,
 		resolvedor:                               resolvedorDesarrollo,
