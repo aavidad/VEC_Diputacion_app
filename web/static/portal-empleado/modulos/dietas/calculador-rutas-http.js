@@ -5,12 +5,11 @@
  * solo se envian al endpoint same-origin que media con el OSRM on-premise. El
  * ContextoActor sirve para fijar el ambito de composicion, nunca como fuente de
  * autorizacion: el servidor debe autenticar y autorizar de nuevo cada peticion.
- * La política HTTP usa `credentials: omit`: esta superficie no envía cookies,
- * certificados cliente ni credenciales HTTP del navegador. Por ello no admite
- * `globalThis.fetch` de forma implícita: exige un cliente inyectado por el
- * conector de identidad nativo o una mediación corporativa autenticada sin
- * cookies. Hasta disponer de ese conector, la composición productiva falla
- * cerrada; no se presupone que Kerberos/SPNEGO o mTLS atraviesen Fetch.
+ * La política HTTP usa `credentials: same-origin`: el navegador presenta el
+ * certificado cliente mTLS (o la autenticación del proxy de la frontera) solo
+ * al mismo origen; el servidor no emite cookies y rechaza Cookie y
+ * Authorization. No admite `globalThis.fetch` de forma implícita: exige un
+ * cliente inyectado por la composición; sin él, la composición falla cerrada.
  *
  * Dependencia de integracion: GET /api/vec/workspace debe proyectar
  * province_route_points y province_route_matrix para el actor autorizado. A
