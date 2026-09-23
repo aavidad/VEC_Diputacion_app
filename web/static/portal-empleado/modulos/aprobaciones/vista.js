@@ -1,42 +1,131 @@
 import { renderizarEstadoEntrega } from "../../estado-entrega.js";
-import { obtenerDatosAprobacionesPresentacion } from "./datos-presentacion.js";
 import { crearTraductorAprobaciones } from "./i18n.js";
 
-const crear = (d, etiqueta, texto = "", clase = "") => { const n = d.createElement(etiqueta); if (texto) n.textContent = texto; if (clase) n.className = clase; return n; };
-const botonInactivo = (d, texto, motivo) => { const bloque = crear(d, "div", "", "aprobaciones-accion-bloqueada"); const b = crear(d, "button", texto, "aprobaciones-accion"); b.type = "button"; b.disabled = true; b.setAttribute("aria-disabled", "true"); bloque.append(b, crear(d, "small", motivo)); return bloque; };
-function cabeceraPanel(d, titulo, ayuda) { const header = crear(d, "header", "", "cabecera-panel aprobaciones-panel-cabecera"); header.append(crear(d, "h3", titulo)); if (ayuda) { const detalles = crear(d, "details", "", "aprobaciones-ayuda"); const resumen = crear(d, "summary", "?"); resumen.setAttribute("aria-label", `${titulo}: ${ayuda}`); detalles.append(resumen, crear(d, "p", ayuda)); header.append(detalles); } return header; }
-function tabla(d, titulo, cabeceras, filas) { const region = crear(d, "div", "", "aprobaciones-tabla"); region.tabIndex = 0; region.setAttribute("role", "region"); region.setAttribute("aria-label", titulo); const elementoTabla = crear(d, "table"); elementoTabla.append(crear(d, "caption", titulo)); const head = crear(d, "thead"); const hr = crear(d, "tr"); cabeceras.forEach((x) => { const th = crear(d, "th", x); th.scope = "col"; hr.append(th); }); head.append(hr); const body = crear(d, "tbody"); filas.forEach((fila) => body.append(fila)); elementoTabla.append(head, body); region.append(elementoTabla); return region; }
-function etiqueta(d, texto) { return crear(d, "span", texto, "estado-chip violeta aprobaciones-etiqueta"); }
+function crear(documento, etiqueta, texto = "", clase = "") {
+  const nodo = documento.createElement(etiqueta);
+  if (texto) nodo.textContent = texto;
+  if (clase) nodo.className = clase;
+  return nodo;
+}
 
-/** Monta una superficie local: consulta, filtros y selección; nunca firma, aprueba ni registra. */
-export function montarVistaAprobaciones({ raiz, anunciar = () => {}, registrarDesmontar, estadoVista = "no_configurado" } = {}) {
-  if (!raiz?.append || typeof anunciar !== "function" || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function")) throw new TypeError("vista de Aprobaciones no disponible");
-  const estadosValidos = ["cargando", "disponible", "vacio", "no_configurado", "denegado", "error"];
-  if (!estadosValidos.includes(estadoVista)) throw new TypeError("estado de Aprobaciones no disponible");
-  const d = raiz.ownerDocument; if (!d?.createElement) throw new TypeError("documento de Aprobaciones no disponible");
-  const t = crearTraductorAprobaciones(); const datos = obtenerDatosAprobacionesPresentacion(); let activa = true; let circuito = "todos"; let texto = ""; let seleccion = datos.pendientes[0] ?? null;
-  const contenedor = crear(d, "section", "", "modulo-aprobaciones"); contenedor.dataset.aprobaciones = ""; contenedor.dataset.estadoEntrega = datos.estado; contenedor.dataset.estadoVista = estadoVista; raiz.append(contenedor);
-  const cabecera = crear(d, "header", "", "aprobaciones-cabecera"); const introduccion = crear(d, "div", "", "aprobaciones-intro"); introduccion.append(crear(d, "p", t("sobrelinea"), "sobrelinea"), crear(d, "h2", t("titulo")), crear(d, "p", t("descripcion"))); cabecera.append(introduccion, crear(d, "span", t(`estado_${estadoVista}`), "estado-chip neutro")); const aviso = crear(d, "p", datos.aviso, "aprobaciones-aviso");
-  const filtros = crear(d, "form", "", "panel aprobaciones-filtros"); const filtrosCuerpo = crear(d, "div", "", "cuerpo-panel aprobaciones-filtros-cuerpo"); const filtroCircuito = crear(d, "label", t("circuito")); const selector = crear(d, "select"); datos.circuitos.forEach((item) => { const op = crear(d, "option", item.etiqueta); op.value = item.id; selector.append(op); }); filtroCircuito.append(selector); const filtroTexto = crear(d, "label", t("buscar")); const campo = crear(d, "input"); campo.type = "search"; campo.placeholder = t("buscar_placeholder"); filtroTexto.append(campo); const aplicar = crear(d, "button", t("aplicar"), "boton-primario aprobaciones-filtrar"); aplicar.type = "submit"; if (!["no_configurado", "disponible"].includes(estadoVista)) { selector.disabled = true; campo.disabled = true; aplicar.disabled = true; } filtrosCuerpo.append(filtroCircuito, filtroTexto, aplicar); filtros.append(cabeceraPanel(d, t("filtros"), t("ayuda_filtros")), filtrosCuerpo);
-  const indicadores = crear(d, "div", "", "rejilla-kpi aprobaciones-indicadores"); const principal = crear(d, "div", "", "aprobaciones-principal"); const bandeja = crear(d, "section", "", "panel aprobaciones-bandeja"); const detalle = crear(d, "section", "", "panel aprobaciones-detalle"); const suplencias = crear(d, "section", "", "panel aprobaciones-suplencias"); const pie = crear(d, "div", "", "aprobaciones-limite");
-  pie.innerHTML = renderizarEstadoEntrega({ estado: datos.estado, resumen: t("resumen_entrega"), pendientes: ["pendiente_identidad", "pendiente_matriz", "pendiente_firma", "pendiente_operacion", "pendiente_origen"].map(t), fuente: { etiqueta: datos.aviso }, conexion: t("conexion") });
-  function visibles() { if (!["no_configurado", "disponible"].includes(estadoVista)) return []; const consulta = texto.trim().toLocaleLowerCase("es"); return datos.pendientes.filter((item) => (circuito === "todos" || item.circuito === circuito) && (!consulta || `${item.id} ${item.asunto} ${item.solicitante} ${item.unidad}`.toLocaleLowerCase("es").includes(consulta))); }
-  function pintarIndicadores() { const v = visibles(); indicadores.replaceChildren(...[["▤", t("pendientes_visibles"), String(v.length), t("bandeja_local")], ["!", t("alta_prioridad"), String(v.filter((x) => x.prioridad === "Alta").length), t("sin_plazos")], ["◫", t("circuitos"), String(new Set(v.map((x) => x.circuito)).size), t("revision_visual")], ["◇", t("firma_multiple"), t("firma_no_verificada"), t("portafirmas_pendiente")]].map(([icono, a, b, c], indice) => { const card = crear(d, "article", "", `tarjeta-kpi aprobaciones-kpi aprobaciones-kpi--${indice}`); const simbolo = crear(d, "span", icono, "icono-kpi"); simbolo.setAttribute("aria-hidden", "true"); card.append(simbolo, crear(d, "span", a), crear(d, "strong", b, "valor-kpi"), crear(d, "small", c)); return card; })); }
-  function pintarBandeja() { const v = visibles(); const filas = v.map((item) => { const tr = crear(d, "tr"); if (item.id === seleccion?.id) tr.dataset.seleccionada = "true"; [item.id, item.tipo, item.solicitante, item.prioridad].forEach((valor, indice) => { const td = crear(d, "td"); td.append(crear(d, indice === 0 ? "strong" : "span", valor)); tr.append(td); }); const estado = crear(d, "td"); estado.append(etiqueta(d, item.estado)); tr.append(estado); const accion = crear(d, "td"); const b = crear(d, "button", t("ver_detalle"), "aprobaciones-enlace"); b.type = "button"; b.addEventListener("click", () => { seleccion = item; pintar(); anunciar(t("detalle_anunciado", { referencia: item.id }), "informacion"); }); accion.append(b); tr.append(accion); return tr; }); const cuerpo = crear(d, "div", "", "cuerpo-panel"); if (filas.length) cuerpo.append(tabla(d, t("tabla_pendientes"), ["referencia", "tipo", "solicitante", "prioridad", "estado", "acciones"].map(t), filas)); else cuerpo.append(crear(d, "p", t(estadoVista === "no_configurado" || estadoVista === "disponible" ? "sin_resultados" : `mensaje_${estadoVista}`), "aprobaciones-vacio")); bandeja.replaceChildren(cabeceraPanel(d, t("bandeja"), t("ayuda_bandeja")), cuerpo); }
-  function lista(datosLista, clase) { const ul = crear(d, "ul", "", clase); datosLista.forEach((item) => { const li = crear(d, "li"); item.forEach((valor, indice) => li.append(crear(d, indice === 0 ? "strong" : "span", valor))); ul.append(li); }); return ul; }
-  function pintarDetalle() {
-    const cuerpo = crear(d, "div", "", "cuerpo-panel aprobaciones-detalle-cuerpo");
-    if (!seleccion) { cuerpo.append(crear(d, "p", t(estadoVista === "no_configurado" || estadoVista === "disponible" ? "detalle_vacio" : `mensaje_${estadoVista}`), "aprobaciones-vacio")); detalle.replaceChildren(cabeceraPanel(d, t("detalle")), cuerpo); return; }
-    const acciones = crear(d, "div", "", "aprobaciones-acciones");
-    [["aprobar", "motivo_aprobar"], ["devolver", "motivo_devolver"], ["rechazar", "motivo_rechazar"], ["firmar", "motivo_firmar"], ["remitir", "motivo_remitir"], ["descargar", "motivo_descargar"], ["delegar", "motivo_delegar"]].forEach(([accion, motivo]) => acciones.append(botonInactivo(d, t(accion), t(motivo))));
-    const docs = crear(d, "ul", "", "aprobaciones-documentos"); seleccion.documentos.forEach((nombre) => { const li = crear(d, "li"); li.append(crear(d, "strong", nombre), crear(d, "span", t("original_pendiente"))); docs.append(li); });
-    const resumen = crear(d, "dl", "", "aprobaciones-resumen");
-    [["referencia", seleccion.id], ["circuito", datos.circuitos.find((x) => x.id === seleccion.circuito)?.etiqueta], ["solicitante", seleccion.solicitante], ["unidad", seleccion.unidad], ["recibido", seleccion.recibido], ["impacto", seleccion.importe], ["seguimiento", seleccion.firmantes]].forEach(([k, v]) => { const div = crear(d, "div"); div.append(crear(d, "dt", t(k)), crear(d, "dd", v ?? t("sin_dato"))); resumen.append(div); });
-    cuerpo.append(crear(d, "p", t("expediente_seleccionado"), "sobrelinea"), crear(d, "h4", seleccion.asunto), etiqueta(d, seleccion.estado), resumen, crear(d, "h4", t("documentos")), docs, crear(d, "h4", t("linea")), lista(seleccion.revisiones, "aprobaciones-linea"), crear(d, "h4", t("matriz")), lista(seleccion.autoridad, "aprobaciones-matriz"), crear(d, "p", t("separacion_funciones"), "aprobaciones-separacion"), crear(d, "p", t("referencia_ejemplo", { referencia: seleccion.recibo }), "aprobaciones-auditoria"), crear(d, "h4", t("acciones_pendientes")), acciones);
-    detalle.replaceChildren(cabeceraPanel(d, t("detalle"), t("ayuda_detalle")), cuerpo);
+function cabeceraPanel(documento, titulo, ayuda) {
+  const cabecera = crear(documento, "header", "", "cabecera-panel aprobaciones-panel-cabecera");
+  cabecera.append(crear(documento, "h3", titulo));
+  if (ayuda) {
+    const desplegable = crear(documento, "details", "", "aprobaciones-ayuda");
+    const resumen = crear(documento, "summary", "?");
+    resumen.setAttribute("aria-label", `${titulo}: ${ayuda}`);
+    desplegable.append(resumen, crear(documento, "p", ayuda));
+    cabecera.append(desplegable);
   }
-  function pintarSuplencias() { const cuerpo = crear(d, "div", "", "cuerpo-panel"); if (["no_configurado", "disponible"].includes(estadoVista)) { const filas = datos.suplencias.map((item) => { const tr = crear(d, "tr"); [item.tipo, item.titular, item.cobertura, item.alcance, item.vigencia].forEach((x) => tr.append(crear(d, "td", x))); return tr; }); cuerpo.append(tabla(d, t("tabla_suplencias"), ["figura", "titular", "cobertura", "alcance", "vigencia"].map(t), filas)); } else cuerpo.append(crear(d, "p", t(`mensaje_${estadoVista}`), "aprobaciones-vacio")); suplencias.replaceChildren(cabeceraPanel(d, t("suplencias"), t("suplencias_ayuda")), cuerpo); }
-  function pintar() { if (!activa) return; const encontrados = visibles(); if (!encontrados.some((item) => item.id === seleccion?.id)) seleccion = encontrados[0] ?? null; pintarIndicadores(); pintarBandeja(); pintarDetalle(); pintarSuplencias(); }
-  filtros.addEventListener("submit", (evento) => { evento.preventDefault(); circuito = selector.value; texto = campo.value; pintar(); anunciar(t("visibles_anunciado", { cantidad: visibles().length }), "informacion"); });
-  principal.append(bandeja, detalle); contenedor.append(cabecera, aviso, filtros, indicadores, principal, suplencias, pie); pintar(); const desmontar = () => { if (!activa) return; activa = false; contenedor.remove(); }; registrarDesmontar?.(desmontar); return Object.freeze({ desmontar });
+  return cabecera;
+}
+
+function botonInactivo(documento, texto, motivo) {
+  const bloque = crear(documento, "div", "", "aprobaciones-accion-bloqueada");
+  const boton = crear(documento, "button", texto, "aprobaciones-accion");
+  boton.type = "button";
+  boton.disabled = true;
+  boton.setAttribute("aria-disabled", "true");
+  bloque.append(boton, crear(documento, "small", motivo));
+  return bloque;
+}
+
+const ESTADOS = Object.freeze(["cargando", "disponible", "vacio", "no_configurado", "denegado", "error"]);
+
+/**
+ * Superficie de Aprobaciones sin fuente de pendientes conectada. El integrador
+ * aporta la raíz y, en el futuro, el estado verificado por su conector.
+ * No se crean decisiones, recibos, firmas, envíos ni datos de muestra.
+ */
+export function montarVistaAprobaciones({ raiz, anunciar = () => {}, registrarDesmontar, estadoVista = "no_configurado" } = {}) {
+  if (!raiz?.append || typeof anunciar !== "function" || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function")) {
+    throw new TypeError("vista de Aprobaciones no disponible");
+  }
+  if (!ESTADOS.includes(estadoVista)) throw new TypeError("estado de Aprobaciones no disponible");
+  const documento = raiz.ownerDocument;
+  if (!documento?.createElement) throw new TypeError("documento de Aprobaciones no disponible");
+  const t = crearTraductorAprobaciones();
+  let activa = true;
+
+  const contenedor = crear(documento, "section", "", "modulo-aprobaciones");
+  contenedor.dataset.aprobaciones = "";
+  contenedor.dataset.estadoEntrega = "visual_pendiente_backend";
+  contenedor.dataset.estadoVista = estadoVista;
+  const cabecera = crear(documento, "header", "", "aprobaciones-cabecera");
+  const introduccion = crear(documento, "div", "", "aprobaciones-intro");
+  introduccion.append(crear(documento, "p", t("sobrelinea"), "sobrelinea"), crear(documento, "h2", t("titulo")), crear(documento, "p", t("descripcion")));
+  cabecera.append(introduccion, crear(documento, "span", t(`estado_${estadoVista}`), "estado-chip neutro"));
+
+  const filtros = crear(documento, "form", "", "panel aprobaciones-filtros");
+  const filtrosCuerpo = crear(documento, "div", "", "cuerpo-panel aprobaciones-filtros-cuerpo");
+  const circuito = crear(documento, "label", t("circuito"));
+  const selector = crear(documento, "select");
+  const todos = crear(documento, "option", t("todos_circuitos"));
+  todos.value = "todos";
+  selector.append(todos);
+  selector.disabled = true;
+  circuito.append(selector);
+  const busqueda = crear(documento, "label", t("buscar"));
+  const campo = crear(documento, "input");
+  campo.type = "search";
+  campo.placeholder = t("buscar_placeholder");
+  campo.disabled = true;
+  busqueda.append(campo);
+  const aplicar = crear(documento, "button", t("aplicar"), "boton-primario aprobaciones-filtrar");
+  aplicar.type = "submit";
+  aplicar.disabled = true;
+  filtrosCuerpo.append(circuito, busqueda, aplicar);
+  filtros.append(cabeceraPanel(documento, t("filtros"), t("ayuda_filtros")), filtrosCuerpo);
+  filtros.addEventListener("submit", (evento) => evento.preventDefault());
+
+  const indicadores = crear(documento, "div", "", "rejilla-kpi aprobaciones-indicadores");
+  const resumen = [
+    ["▤", t("pendientes_visibles"), "0", t("sin_fuente")],
+    ["!", t("alta_prioridad"), "0", t("sin_plazos")],
+    ["◫", t("circuitos"), "0", t("sin_fuente")],
+    ["◇", t("firma_multiple"), t("firma_no_verificada"), t("portafirmas_pendiente")],
+  ];
+  indicadores.append(...resumen.map(([icono, nombre, valor, nota], indice) => {
+    const tarjeta = crear(documento, "article", "", `tarjeta-kpi aprobaciones-kpi aprobaciones-kpi--${indice}`);
+    const simbolo = crear(documento, "span", icono, "icono-kpi");
+    simbolo.setAttribute("aria-hidden", "true");
+    tarjeta.append(simbolo, crear(documento, "span", nombre), crear(documento, "strong", valor, "valor-kpi"), crear(documento, "small", nota));
+    return tarjeta;
+  }));
+
+  const principal = crear(documento, "div", "", "aprobaciones-principal");
+  const bandeja = crear(documento, "section", "", "panel aprobaciones-bandeja");
+  const bandejaCuerpo = crear(documento, "div", "", "cuerpo-panel");
+  const mensaje = estadoVista === "disponible" ? "mensaje_vacio" : `mensaje_${estadoVista}`;
+  bandejaCuerpo.append(crear(documento, "p", t(mensaje), "aprobaciones-vacio"));
+  bandeja.replaceChildren(cabeceraPanel(documento, t("bandeja"), t("ayuda_bandeja")), bandejaCuerpo);
+
+  const detalle = crear(documento, "section", "", "panel aprobaciones-detalle");
+  const detalleCuerpo = crear(documento, "div", "", "cuerpo-panel aprobaciones-detalle-cuerpo");
+  detalleCuerpo.append(crear(documento, "p", t("detalle_vacio"), "aprobaciones-vacio"), crear(documento, "p", t("separacion_funciones"), "aprobaciones-separacion"), crear(documento, "h4", t("acciones_pendientes")));
+  const acciones = crear(documento, "div", "", "aprobaciones-acciones");
+  [["aprobar", "motivo_aprobar"], ["devolver", "motivo_devolver"], ["rechazar", "motivo_rechazar"], ["firmar", "motivo_firmar"], ["remitir", "motivo_remitir"], ["descargar", "motivo_descargar"], ["delegar", "motivo_delegar"]].forEach(([accion, motivo]) => acciones.append(botonInactivo(documento, t(accion), t(motivo))));
+  detalleCuerpo.append(acciones);
+  detalle.replaceChildren(cabeceraPanel(documento, t("detalle"), t("ayuda_detalle")), detalleCuerpo);
+  principal.append(bandeja, detalle);
+
+  const suplencias = crear(documento, "section", "", "panel aprobaciones-suplencias");
+  const suplenciasCuerpo = crear(documento, "div", "", "cuerpo-panel");
+  suplenciasCuerpo.append(crear(documento, "p", t("suplencias_sin_fuente"), "aprobaciones-vacio"));
+  suplencias.replaceChildren(cabeceraPanel(documento, t("suplencias"), t("suplencias_ayuda")), suplenciasCuerpo);
+
+  const pie = crear(documento, "div", "", "aprobaciones-limite");
+  pie.innerHTML = renderizarEstadoEntrega({
+    estado: "visual_pendiente_backend",
+    resumen: t("resumen_entrega"),
+    pendientes: ["pendiente_identidad", "pendiente_matriz", "pendiente_firma", "pendiente_operacion", "pendiente_origen"].map(t),
+    fuente: { etiqueta: t("sin_fuente") },
+    conexion: t("conexion"),
+  });
+  contenedor.append(cabecera, crear(documento, "p", t("aviso_sin_fuente"), "aprobaciones-aviso"), filtros, indicadores, principal, suplencias, pie);
+  raiz.append(contenedor);
+  const desmontar = () => { if (!activa) return; activa = false; contenedor.remove(); };
+  registrarDesmontar?.(desmontar);
+  return Object.freeze({ desmontar });
 }
