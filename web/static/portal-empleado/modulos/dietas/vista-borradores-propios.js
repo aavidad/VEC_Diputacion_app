@@ -1,4 +1,10 @@
 import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js";
+import { obtenerCatalogoRutasProvincial } from "./catalogo-rutas-provincial.js";
+
+// El catálogo público incluye núcleos NGMEP aún pendientes de importación.
+// El alta calculada sólo ofrece municipios INE presentes en ambos contratos.
+const PUNTOS_RUTA = obtenerCatalogoRutasProvincial().puntos.filter((punto) => /^\d{5}$/u.test(punto.codigo));
+const NOMBRES_RUTA = new Map(PUNTOS_RUTA.map((punto) => [punto.codigo, punto.nombre]));
 
 function nodo(documento, etiqueta, texto = "") {
   const resultado = documento.createElement(etiqueta);
@@ -19,22 +25,14 @@ function claveContenido(solicitud) {
   return JSON.stringify([
     solicitud.fecha_inicio,
     solicitud.fecha_fin,
+    solicitud.hora_inicio,
+    solicitud.hora_fin,
     solicitud.motivo,
     solicitud.codigos_ruta,
     solicitud.relacion_ref,
   ]);
 }
-function codigosRuta(valor) {
-  const salida = [
-    ...new Set(
-      String(valor || "")
-        .split(",")
-        .map((codigo) => codigo.trim())
-        .filter(Boolean),
-    ),
-  ];
-  return salida.length ? salida : undefined;
-}
+function euros(centimos) { return new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(centimos / 100); }
 function referenciasRelacionAutorizadas(valores) {
   if (!Array.isArray(valores))
     throw new TypeError("relaciones autorizadas de Dietas no válidas");
@@ -156,6 +154,7 @@ export function montarVistaBorradoresPropios(
   function formulario() {
     const form = nodo(documento, "form");
     form.dataset.dietasBorradorForm = "";
+    form.className = "panel dietas-comision-formulario";
     const campo = (nombre, etiqueta, tipo = "text", obligatorio = true) => {
       const label = nodo(documento, "label", traducir(etiqueta));
       const input = nodo(documento, "input");
@@ -166,21 +165,13 @@ export function montarVistaBorradoresPropios(
       return label;
     };
     const motivo = campo("motivo", "borradores_propios_motivo");
-    const ruta = campo(
-      "codigos_ruta",
-      "borradores_propios_ruta",
-      "text",
-      false,
-    );
-    ruta
-      .querySelector("input")
-      .setAttribute("aria-describedby", "dietas-borradores-ruta-ayuda");
-    const ayuda = nodo(
-      documento,
-      "small",
-      traducir("borradores_propios_ruta_ayuda"),
-    );
-    ayuda.id = "dietas-borradores-ruta-ayuda";
+    const puntoRuta = (nombre, clave) => {
+      const etiqueta = nodo(documento, "label", traducir(clave));
+      const selector = nodo(documento, "select"); selector.name = nombre; selector.required = true;
+      const inicial = nodo(documento, "option", traducir("borradores_propios_elegir_localidad")); inicial.value = ""; selector.append(inicial);
+      PUNTOS_RUTA.forEach((punto) => { const opcion=nodo(documento,"option",punto.nombre); opcion.value=punto.codigo; selector.append(opcion); });
+      etiqueta.append(selector); return etiqueta;
+    };
     const boton = nodo(
       documento,
       "button",
@@ -217,16 +208,20 @@ export function montarVistaBorradoresPropios(
       return etiqueta;
     })();
     form.append(
+      nodo(documento,"h3",traducir("borradores_propios_nuevo")),
       campo("fecha_inicio", "borradores_propios_fecha_inicio", "date"),
+      campo("hora_inicio", "borradores_propios_hora_inicio", "time"),
       campo("fecha_fin", "borradores_propios_fecha_fin", "date"),
+      campo("hora_fin", "borradores_propios_hora_fin", "time"),
       motivo,
-      ruta,
-      ayuda,
+      puntoRuta("origen_codigo","borradores_propios_origen"),
+      puntoRuta("destino_codigo","borradores_propios_destino"),
+      nodo(documento,"p",traducir("borradores_propios_ruta_ayuda")),
       ...(selectorRelacion ? [selectorRelacion] : []),
       boton,
     );
     if (!conectada) {
-      [...form.querySelectorAll("input"), boton].forEach((control) => {
+      [...form.querySelectorAll("input"), ...form.querySelectorAll("select"), boton].forEach((control) => {
         control.disabled = true;
       });
     }
@@ -349,7 +344,31 @@ export function montarVistaBorradoresPropios(
       datos.append(fila);
     });
     seccion.append(datos);
+    if (item.comision.calculo) seccion.append(resumenCalculo(item.comision.calculo));
     return seccion;
+  }
+  function resumenCalculo(calculo) {
+    const resumen=nodo(documento,"section"); resumen.className="dietas-comision-calculo";
+    resumen.append(nodo(documento,"h4",traducir("borradores_propios_calculo")));
+    const cifras=nodo(documento,"div"); cifras.className="dietas-comision-cifras";
+    [[traducir("borradores_propios_km"),`${Number(calculo.kilometros).toLocaleString("es-ES",{maximumFractionDigits:1})} km`],
+      [traducir("borradores_propios_importe_km"),euros(calculo.importe_kilometraje_centimos)]].forEach(([titulo,valor])=>{
+        const tarjeta=nodo(documento,"article"); tarjeta.className="tarjeta-kpi";
+        tarjeta.append(nodo(documento,"small",titulo),nodo(documento,"strong",valor)); cifras.append(tarjeta);
+      });
+    resumen.append(cifras,nodo(documento,"p",`${calculo.rotulo} · ${calculo.version_tarifa} · ${calculo.version_grafo}`));
+    const ruta=nodo(documento,"ol"); ruta.className="dietas-comision-tramos-ruta";
+    calculo.tramos_ruta.forEach((tramo)=>ruta.append(nodo(documento,"li",`${NOMBRES_RUTA.get(tramo.origen_codigo)||tramo.origen_codigo} → ${NOMBRES_RUTA.get(tramo.destino_codigo)||tramo.destino_codigo} · ${Number(tramo.kilometros).toLocaleString("es-ES",{maximumFractionDigits:1})} km`)));
+    resumen.append(nodo(documento,"h5",traducir("borradores_propios_tramos_ruta")),ruta);
+    const aviso=nodo(documento,"p",traducir("borradores_propios_grupo_pendiente")); aviso.className="estado-chip aviso"; resumen.append(aviso);
+    calculo.opciones_dieta.forEach((opcion)=>{
+      const bloque=nodo(documento,"section"); bloque.className="dietas-comision-grupo";
+      bloque.append(nodo(documento,"h5",`${traducir("borradores_propios_grupo")} ${opcion.grupo} · ${euros(opcion.calculo.total_maximo_orientativo_centimos)}`));
+      const lista=nodo(documento,"ul");
+      opcion.calculo.tramos.forEach((tramo)=>lista.append(nodo(documento,"li",`${tramo.fecha} · ${tramo.tipo==="manutencion"?traducir("borradores_propios_manutencion"):traducir("borradores_propios_alojamiento_tope")} ${tramo.porcentaje}% · ${euros(tramo.importe_centimos)}`)));
+      bloque.append(lista); resumen.append(bloque);
+    });
+    return resumen;
   }
   function pintar() {
     if (!activaAhora()) return;
@@ -421,10 +440,11 @@ export function montarVistaBorradoresPropios(
       ...(datos.get("relacion_ref")
         ? { relacion_ref: String(datos.get("relacion_ref")) }
         : {}),
-      ...(codigosRuta(datos.get("codigos_ruta"))
-        ? { codigos_ruta: codigosRuta(datos.get("codigos_ruta")) }
-        : {}),
+      hora_inicio: String(datos.get("hora_inicio")||""),
+      hora_fin: String(datos.get("hora_fin")||""),
+      codigos_ruta: [String(datos.get("origen_codigo")||""),String(datos.get("destino_codigo")||"")],
     };
+    if (base.codigos_ruta[0] === base.codigos_ruta[1]) { mensaje("borradores_propios_ruta_distinta","aviso"); pintar(); return; }
     const contenido = claveContenido(base);
     if (pendiente && pendiente.contenido !== contenido) {
       pendiente = null;
