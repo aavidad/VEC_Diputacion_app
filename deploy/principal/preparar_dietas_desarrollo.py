@@ -255,7 +255,9 @@ def identity() -> dict:
     if certificate.is_symlink() or not certificate.is_file():
         fail("certificado cliente de la demo ausente")
     der = run(["openssl", "x509", "-in", str(certificate), "-outform", "DER"])
-    if data.get("certificate_sha256") != digest(der) or not re.fullmatch(r"per_[A-Za-z0-9_-]{22,128}", data.get("subject", "")):
+    # subject es el principal del certificado (p. ej. desarrollo:…); la persona
+    # (persona_ref per_…) es otra referencia y se toma del contexto de B-BACK.
+    if data.get("certificate_sha256") != digest(der) or not re.fullmatch(r"[A-Za-z0-9_:.-]{3,256}", data.get("subject", "")):
         fail("la identidad privada no coincide con el certificado cliente")
     if data.get("autoridad") != "no_autoritativo":
         fail("la identidad de desarrollo no está rotulada como sintética")
@@ -266,17 +268,20 @@ def identity() -> dict:
     return data
 
 
-def source_context(person: str, profile_bback: str) -> dict:
-    rows = query(f"""SELECT jsonb_build_object('cuenta',v.cuenta_ref,'procedencia',v.procedencia_ref,
+def source_context(profile_bback: str) -> dict:
+    rows = query(f"""SELECT jsonb_build_object('persona',v.persona_ref,'cuenta',v.cuenta_ref,'procedencia',v.procedencia_ref,
         'procedencia_version',v.procedencia_version,'procedencia_huella',v.procedencia_huella_sha256,
         'procedencia_autoridad',v.procedencia_autoridad,'vigente_hasta',v.vigente_hasta)::text
       FROM vec_contexto_actor_v1.vinculo_contexto_actual a
       JOIN vec_contexto_actor_v1.vinculo_contexto_versiones v USING(vinculo_ref,version)
-      WHERE v.persona_ref={sql_literal(person)} AND v.perfil_ref={sql_literal(profile_bback)}
+      WHERE v.perfil_ref={sql_literal(profile_bback)}
         AND v.estado='activo' AND clock_timestamp()>=v.vigente_desde AND clock_timestamp()<v.vigente_hasta;""")
     if len(rows) != 1:
         fail("la identidad Bolsa/B-BACK no tiene un contexto de cuenta inequívoco")
-    return json.loads(rows[0])
+    context = json.loads(rows[0])
+    if not re.fullmatch(r"per_[A-Za-z0-9_-]{22,128}", context.get("persona", "")):
+        fail("la persona del contexto B-BACK no tiene forma per_…")
+    return context
 
 
 def employee(person: str) -> str | None:
@@ -319,9 +324,9 @@ def motive() -> dict:
 
 
 def new_state(identity_data: dict, context: dict, emp: str | None, relation: dict | None, reason: dict) -> dict:
-    person = identity_data["subject"]
+    person = context["persona"]
     certificate = identity_data["certificate_sha256"]
-    return {"version": 2, "autoridad": "no_autoritativo", "person": person, "certificate_sha256": certificate,
+    return {"version": 2, "autoridad": "no_autoritativo", "person": person, "subject": identity_data["subject"], "certificate_sha256": certificate,
             "account": context["cuenta"], "employee": emp or ref("emp_", person, certificate),
             "employee_link_new": emp is None,
             "profile": ref("prf_", person, certificate, "perfil-dietas"),
@@ -341,7 +346,7 @@ def new_state(identity_data: dict, context: dict, emp: str | None, relation: dic
 def load_state(identity_data: dict, context: dict, emp: str | None, relation: dict | None, reason: dict) -> dict:
     if STATE.exists():
         state = private_json(STATE)
-        if state.get("version") != 2 or state.get("person") != identity_data["subject"] or state.get("certificate_sha256") != identity_data["certificate_sha256"] or state.get("account") != context["cuenta"] or state.get("employee") != (emp or state.get("employee")):
+        if state.get("version") != 2 or state.get("person") != context["persona"] or state.get("subject") != identity_data["subject"] or state.get("certificate_sha256") != identity_data["certificate_sha256"] or state.get("account") != context["cuenta"] or state.get("employee") != (emp or state.get("employee")):
             fail("estado privado previo no corresponde a la identidad y cuenta actuales")
         return state
     state = new_state(identity_data, context, emp, relation, reason)
@@ -557,7 +562,7 @@ def policy(state: dict) -> None:
 
 def material_json(state: dict, dsns: dict[str, str]) -> str:
     result = {"version": 1, "autoridad": "no_autoritativo", "cuentas": [{"certificado_sha256": state["certificate_sha256"],
-               "sujeto": state["person"], "cuenta_ref": state["account"], "perfil_ref": state["profile"]}],
+               "sujeto": state["subject"], "cuenta_ref": state["account"], "perfil_ref": state["profile"]}],
               "dsn_registro_identidad": dsns["registro_identidad"], "dsn_revalidacion_identidad": dsns["revalidacion_identidad"],
               "dsn_contexto": dsns["contexto"], "dsn_fuente_autorizacion": dsns["fuente_autorizacion"],
               "dsn_registro_autorizacion": dsns["registro_autorizacion"], "dsn_motivos": dsns["motivos"],
@@ -589,11 +594,11 @@ def main() -> None:
         paths = starts()
         raw_template, template = dsn_template()
         person = identity()
-        context = source_context(person["subject"], person["perfil_bback"])
-        current_emp = employee(person["subject"])
+        context = source_context(person["perfil_bback"])
+        current_emp = employee(context["persona"])
         current_reason = motive()
         migrate()
-        current_relation = existing_relation(person["subject"], current_emp) if current_emp else None
+        current_relation = existing_relation(context["persona"], current_emp) if current_emp else None
         state = load_state(person, context, current_emp, current_relation, current_reason)
         dsn = logins(state, template)
         raw = logins_raw(state, raw_template)
