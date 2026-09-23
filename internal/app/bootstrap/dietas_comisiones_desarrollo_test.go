@@ -2,10 +2,18 @@ package bootstrap
 
 import (
 	"context"
+	"crypto/sha256"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/hex"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"strings"
 	"testing"
+	"time"
 
 	"vec-diputacion-granada/config"
 	dietashttp "vec-diputacion-granada/internal/modules/dietas/adapters/httpinterno"
@@ -88,14 +96,14 @@ func TestFronteraComisionesDietasNoDelegaNiSirveSinSesion(t *testing.T) {
 	}
 	registrador.err = nil
 	respuesta = httptest.NewRecorder()
-	(&autoridadComisionesDietasDesarrollo{registrador: registrador}).denegar(respuesta, httptest.NewRequest(http.MethodPost, dietashttp.RutaBorradores, nil), http.StatusForbidden)
+	(&autoridadComisionesDietasDesarrollo{registrador: registrador}).denegar(respuesta, httptest.NewRequest(http.MethodPost, dietashttp.RutaBorradores, nil), http.StatusForbidden, "")
 	if respuesta.Code != http.StatusForbidden || registrador.llamadas != 3 || registrador.orden.Motivo != dietasports.MotivoFronteraAccesoDenegado || registrador.orden.Accion != dietasports.AccionFronteraCrear || registrador.orden.ActorRef != "" {
 		t.Fatalf("403 filtró sujeto o perdió acción: estado=%d orden=%+v", respuesta.Code, registrador.orden)
 	}
 	ctx, cancelar := context.WithCancel(context.Background())
 	cancelar()
 	respuesta = httptest.NewRecorder()
-	(&autoridadComisionesDietasDesarrollo{registrador: registrador}).denegar(respuesta, httptest.NewRequest(http.MethodDelete, dietashttp.RutaBorradores, nil).WithContext(ctx), http.StatusForbidden)
+	(&autoridadComisionesDietasDesarrollo{registrador: registrador}).denegar(respuesta, httptest.NewRequest(http.MethodDelete, dietashttp.RutaBorradores, nil).WithContext(ctx), http.StatusForbidden, "")
 	if respuesta.Code != http.StatusForbidden || registrador.ctxErr != nil || registrador.orden.Accion != dietasports.AccionFronteraMetodoNoAdmitido {
 		t.Fatalf("cancelación o método denegado: estado=%d orden=%+v ctx=%v", respuesta.Code, registrador.orden, registrador.ctxErr)
 	}
@@ -122,5 +130,127 @@ func TestAutoridadComisionesDietasAuditaSesionInvalidaSinDelegar(t *testing.T) {
 	registrador.err = errors.New("auditoría caída")
 	if err := autoridad.AutorizarRutaExacta(ctx, dietashttp.RutaBorradores); !errors.Is(err, ErrComposicionBorradoresDietasNoDisponible) || registrador.llamadas != 2 {
 		t.Fatalf("fallo auditoría no cerró ruta: %v", err)
+	}
+}
+
+func TestComisionesDietasAuditaActorSoloTrasSesionYContextoVerificados(t *testing.T) {
+	cfg, rutas := generarMaterialDesarrolloPrueba(t)
+	composicion, err := NuevaComposicionSeguridadDesarrollo(cfg, io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	identidad := composicion.identidad.(*resolvedorIdentidadDesarrollo)
+	clienteCert, err := tls.LoadX509KeyPair(rutas.ClientCertificate, rutas.ClientPrivateKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest := sha256.Sum256(clienteCert.Certificate[0])
+	huella := hex.EncodeToString(digest[:])
+	principal := identidad.porHuella[digest]
+	fixture := nuevoEscenarioMaterialRutasDietasPrueba(t, dietasports.AccionConsultarCatalogoRutasDietas, time.Now().UTC().Truncate(time.Microsecond))
+	// El doble central y la identidad TLS representan al mismo sujeto sintético.
+	principal.ID = fixture.resultado.Contexto.Principal.ID
+	identidad.porHuella[digest] = principal
+	reloj := &relojSesionConsultaPrueba{ahora: fixture.ahora}
+	cuenta := cuentaRutasDietasDesarrollo{CertificadoSHA256: huella, Sujeto: principal.ID, CuentaRef: fixture.resultado.Contexto.Instantanea.CuentaRef, PerfilRef: fixture.resultado.Contexto.PerfilActivoRef}
+	registro := &registroSesionConsultaPrueba{reloj: reloj, cuenta: cuenta.CuentaRef}
+	revalidador := &revalidadorSesionConsultaPrueba{registro: registro}
+	resolutor := &resolutorSesionConsultaPrueba{base: fixture.resultado, reloj: reloj}
+	base := &autoridadRutasDietasDesarrollo{resolvedor: identidad, registro: registro, revalidador: revalidador, contextos: resolutor, reloj: reloj, instancia: strings.Repeat("a", 64)}
+	auditoria := &registradorFronteraComisionPrueba{}
+	autoridad := &autoridadComisionesDietasDesarrollo{base: base, reloj: reloj, cuentas: map[string]cuentaRutasDietasDesarrollo{huella: cuenta}, registrador: auditoria}
+	servidos := 0
+	servidor := httptest.NewUnstartedServer(autoridad.proteger(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		servidos++
+		w.WriteHeader(http.StatusNoContent)
+	})))
+	servidor.TLS = composicion.tls.Clone()
+	servidor.StartTLS()
+	t.Cleanup(servidor.Close)
+	ca, err := os.ReadFile(rutas.CACertificate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raices := x509.NewCertPool()
+	if !raices.AppendCertsFromPEM(ca) {
+		t.Fatal("CA de prueba inválida")
+	}
+	transporte := &http.Transport{TLSClientConfig: &tls.Config{Certificates: []tls.Certificate{clienteCert}, RootCAs: raices, ServerName: "localhost", MinVersion: tls.VersionTLS13}}
+	t.Cleanup(transporte.CloseIdleConnections)
+	cliente := &http.Client{Transport: transporte}
+	for _, caso := range []struct{ metodo, ruta string }{
+		{http.MethodDelete, dietashttp.RutaBorradores},
+		{http.MethodGet, dietashttp.RutaBorradores + "/ruta-no-admitida"},
+	} {
+		solicitud, err := http.NewRequest(caso.metodo, servidor.URL+caso.ruta, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		respuesta, err := cliente.Do(solicitud)
+		if err != nil {
+			t.Fatal(err)
+		}
+		respuesta.Body.Close()
+		if respuesta.StatusCode != http.StatusForbidden || auditoria.orden.ActorRef != principal.ID || auditoria.orden.Motivo != dietasports.MotivoFronteraAccesoDenegado || servidos != 0 {
+			t.Fatalf("rechazo de %s %s: estado=%d actor=%q servidos=%d", caso.metodo, caso.ruta, respuesta.StatusCode, auditoria.orden.ActorRef, servidos)
+		}
+	}
+	if len(registro.altas) != 2 || revalidador.llamadas != 2 {
+		t.Fatalf("identidad central no verificada antes del rechazo: sesiones=%d revalidaciones=%d", len(registro.altas), revalidador.llamadas)
+	}
+	anónimo := httptest.NewRecorder()
+	autoridad.proteger(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { servidos++ })).ServeHTTP(anónimo, httptest.NewRequest(http.MethodGet, dietashttp.RutaBorradores, nil))
+	if anónimo.Code != http.StatusUnauthorized || auditoria.orden.ActorRef != "" || servidos != 0 {
+		t.Fatalf("anónimo atribuido o servido: estado=%d actor=%q servidos=%d", anónimo.Code, auditoria.orden.ActorRef, servidos)
+	}
+	principal.ID = "per_aaaaaaaaaaaaaaaaaaaaaa"
+	identidad.porHuella[digest] = principal
+	cuenta.Sujeto = principal.ID
+	autoridad.cuentas[huella] = cuenta
+	solicitud, err := http.NewRequest(http.MethodDelete, servidor.URL+dietashttp.RutaBorradores, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	respuesta, err := cliente.Do(solicitud)
+	if err != nil {
+		t.Fatal(err)
+	}
+	respuesta.Body.Close()
+	if respuesta.StatusCode != http.StatusServiceUnavailable || auditoria.orden.ActorRef != "" || servidos != 0 {
+		t.Fatalf("sujeto TLS y contexto cruzados: estado=%d actor=%q servidos=%d", respuesta.StatusCode, auditoria.orden.ActorRef, servidos)
+	}
+}
+
+func TestAutoridadComisionesDietasNoAtribuyeContextoAjeno(t *testing.T) {
+	fixture := nuevoEscenarioMaterialRutasDietasPrueba(t, dietasports.AccionConsultarCatalogoRutasDietas)
+	datos, err := fixture.solicitud.Datos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	reloj := &relojSesionConsultaPrueba{ahora: fixture.ahora}
+	auditoria := &registradorFronteraComisionPrueba{}
+	autoridad := &autoridadComisionesDietasDesarrollo{reloj: reloj, registrador: auditoria}
+	ajena := &autoridadComisionesDietasDesarrollo{reloj: reloj}
+	seguridad := contextoSeguridadComunDesarrollo{Vinculo: datos.VinculoAutenticacionActor, Resultado: fixture.resultado}
+	for _, caso := range []struct {
+		nombre    string
+		origen    *autoridadComisionesDietasDesarrollo
+		seguridad contextoSeguridadComunDesarrollo
+		esperado  string
+	}{
+		{"autoridad propia", autoridad, seguridad, fixture.resultado.Contexto.Principal.ID},
+		{"autoridad ajena", ajena, seguridad, ""},
+		{"vínculo inválido", autoridad, contextoSeguridadComunDesarrollo{Resultado: fixture.resultado}, ""},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			ctx := context.WithValue(context.Background(), claveContextoComisionesDietas{}, contextoComisionesDietas{autoridad: caso.origen, ruta: dietashttp.RutaBorradores, metodo: http.MethodDelete, seguridad: caso.seguridad})
+			acceso := autoridadExactasConDietas{delegada: &autoridadExactaDelegadaPrueba{}, dietas: autoridad}
+			if err := acceso.AutorizarRutaExacta(ctx, dietashttp.RutaBorradores); err != vechttp.ErrAccesoRutaExactaDenegado || auditoria.orden.ActorRef != caso.esperado {
+				t.Fatalf("denegación=%v actor=%q esperado=%q", err, auditoria.orden.ActorRef, caso.esperado)
+			}
+		})
+	}
+	if auditoria.llamadas != 3 {
+		t.Fatalf("denegaciones auditadas=%d", auditoria.llamadas)
 	}
 }

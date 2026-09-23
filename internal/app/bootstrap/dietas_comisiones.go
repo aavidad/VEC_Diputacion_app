@@ -158,28 +158,33 @@ func (a *autoridadComisionesDietasDesarrollo) proteger(siguiente http.Handler) h
 			return
 		}
 		if a == nil || a.base == nil || r.TLS == nil || len(r.TLS.VerifiedChains) == 0 || len(r.TLS.VerifiedChains[0]) == 0 || r.Header.Get("Cookie") != "" || r.Header.Get("Authorization") != "" {
-			a.denegar(w, r, http.StatusUnauthorized)
+			a.denegar(w, r, http.StatusUnauthorized, "")
 			return
 		}
 		principal, err := a.base.resolvedor.ResolveDemoIdentity(r.Context(), r)
 		ahora := a.reloj.Ahora()
 		cert := r.TLS.VerifiedChains[0][0]
 		if err != nil || principal.AuthMethod != core.AuthMethodCertificate || principal.AuthAssurance != core.AuthAssuranceHigh || ahora.Before(cert.NotBefore) || !ahora.Before(cert.NotAfter) {
-			a.denegar(w, r, http.StatusUnauthorized)
+			a.denegar(w, r, http.StatusUnauthorized, "")
 			return
 		}
 		cuenta, ok := a.cuentas[principal.Attributes["certificate_sha256"]]
 		if !ok || cuenta.Sujeto != principal.ID {
-			a.denegar(w, r, http.StatusForbidden)
+			a.denegar(w, r, http.StatusForbidden, "")
 			return
 		}
 		vinculo, resultado, err := a.base.resolverSesion(r.Context(), r, &capsulaRutasDietasDesarrollo{autoridad: a.base, peticion: r, cuenta: cuenta, instante: ahora})
 		if err != nil {
-			a.denegar(w, r, http.StatusServiceUnavailable)
+			a.denegar(w, r, http.StatusServiceUnavailable, "")
+			return
+		}
+		actorRef := actorVerificadoComisionesDietas(vinculo, resultado, a.reloj.Ahora())
+		if actorRef == "" || actorRef != principal.ID {
+			a.denegar(w, r, http.StatusServiceUnavailable, "")
 			return
 		}
 		if !metodoComisionesDietasValido(r.URL.Path, r.Method) || r.URL.RawPath != "" || r.URL.EscapedPath() != r.URL.Path {
-			a.denegar(w, r, http.StatusForbidden)
+			a.denegar(w, r, http.StatusForbidden, actorRef)
 			return
 		}
 		ctx := context.WithValue(r.Context(), claveContextoComisionesDietas{}, contextoComisionesDietas{autoridad: a, ruta: r.URL.Path, metodo: r.Method, seguridad: contextoSeguridadComunDesarrollo{Vinculo: vinculo, Resultado: resultado}})
@@ -187,19 +192,32 @@ func (a *autoridadComisionesDietasDesarrollo) proteger(siguiente http.Handler) h
 	})
 }
 
-func (a *autoridadComisionesDietasDesarrollo) denegar(w http.ResponseWriter, r *http.Request, estado int) {
+// Sólo el vínculo V2 ligado al contexto registrado puede aportar identidad a
+// la auditoría. Ni la petición ni un principal aún no revalidado son fuente.
+func actorVerificadoComisionesDietas(vinculo core.VinculoAutenticacionActorV2, resultado core.ResultadoContextoActorRegistradoV2, ahora time.Time) string {
+	if !vinculo.VigenteEn(ahora, resultado) {
+		return ""
+	}
+	datos, err := vinculo.Datos()
+	if err != nil {
+		return ""
+	}
+	return datos.PrincipalID
+}
+
+func (a *autoridadComisionesDietasDesarrollo) denegar(w http.ResponseWriter, r *http.Request, estado int, actorRef string) {
 	if r == nil || r.URL == nil {
 		responderDenegacionComisionesDietas(w, http.StatusServiceUnavailable)
 		return
 	}
-	if a.registrarDenegacion(r.Context(), r.URL.Path, r.Method, estado) != nil {
+	if a.registrarDenegacion(r.Context(), r.URL.Path, r.Method, estado, actorRef) != nil {
 		responderDenegacionComisionesDietas(w, http.StatusServiceUnavailable)
 		return
 	}
 	responderDenegacionComisionesDietas(w, estado)
 }
 
-func (a *autoridadComisionesDietasDesarrollo) registrarDenegacion(ctx context.Context, rutaPeticion, metodo string, estado int) error {
+func (a *autoridadComisionesDietasDesarrollo) registrarDenegacion(ctx context.Context, rutaPeticion, metodo string, estado int, actorRef string) error {
 	if a == nil || a.registrador == nil || ctx == nil {
 		return ErrComposicionBorradoresDietasNoDisponible
 	}
@@ -219,7 +237,7 @@ func (a *autoridadComisionesDietasDesarrollo) registrarDenegacion(ctx context.Co
 	if _, err := rand.Read(aleatorio[:]); err == nil {
 		correlacion = "corr_" + hex.EncodeToString(aleatorio[:])
 	}
-	orden := dietasports.OrdenAuditoriaFronteraComision{CorrelacionRef: correlacion, Motivo: motivo, Ruta: ruta, Accion: accionFronteraComisionesDietas(rutaPeticion, metodo)}
+	orden := dietasports.OrdenAuditoriaFronteraComision{CorrelacionRef: correlacion, Motivo: motivo, Ruta: ruta, Accion: accionFronteraComisionesDietas(rutaPeticion, metodo), ActorRef: actorRef}
 	if orden.Validar() != nil {
 		return ErrComposicionBorradoresDietasNoDisponible
 	}
@@ -251,7 +269,11 @@ func (a autoridadExactasConDietas) AutorizarRutaExacta(ctx context.Context, ruta
 		return vechttp.ErrAutenticacionRutaExactaRequerida
 	}
 	if a.dietas == nil || c.autoridad != a.dietas || c.ruta != ruta || !metodoComisionesDietasValido(ruta, c.metodo) || c.seguridad.Resultado.Validar() != nil || !c.seguridad.Vinculo.VigenteEn(a.dietas.reloj.Ahora(), c.seguridad.Resultado) {
-		if a.dietas != nil && a.dietas.registrarDenegacion(ctx, ruta, c.metodo, http.StatusForbidden) != nil {
+		actorRef := ""
+		if a.dietas != nil && a.dietas.reloj != nil && c.autoridad == a.dietas {
+			actorRef = actorVerificadoComisionesDietas(c.seguridad.Vinculo, c.seguridad.Resultado, a.dietas.reloj.Ahora())
+		}
+		if a.dietas != nil && a.dietas.registrarDenegacion(ctx, ruta, c.metodo, http.StatusForbidden, actorRef) != nil {
 			return ErrComposicionBorradoresDietasNoDisponible
 		}
 		return vechttp.ErrAccesoRutaExactaDenegado
