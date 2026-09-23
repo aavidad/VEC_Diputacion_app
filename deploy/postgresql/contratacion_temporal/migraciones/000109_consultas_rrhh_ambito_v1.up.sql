@@ -112,6 +112,8 @@ SET idle_in_transaction_session_timeout='6s'
 AS $funcion$
 DECLARE v_actor jsonb; v_acreditada timestamptz;
 BEGIN
+ PERFORM pg_advisory_xact_lock_shared(hashtextextended(
+  'vec_contratacion_temporal:consulta_rrhh_ambito:v1',0));
  IF vec_contratacion_temporal.login_consultor_rrhh_ambito_v1() IS NOT TRUE
     OR current_setting('transaction_isolation')<>'serializable'
     OR current_setting('transaction_read_only')<>'off'
@@ -185,6 +187,8 @@ SET idle_in_transaction_session_timeout='6s'
 AS $funcion$
 DECLARE v_actor jsonb; v_acreditada timestamptz;
 BEGIN
+ PERFORM pg_advisory_xact_lock_shared(hashtextextended(
+  'vec_contratacion_temporal:consulta_rrhh_ambito:v1',0));
  IF vec_contratacion_temporal.login_consultor_rrhh_ambito_v1() IS NOT TRUE
     OR current_setting('transaction_isolation')<>'serializable'
     OR current_setting('transaction_read_only')<>'off'

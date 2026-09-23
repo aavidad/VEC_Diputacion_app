@@ -97,6 +97,30 @@ INSERT INTO vec_contexto_actor_v1.control_generacion_punteros_actuales_v2
  (control_id,generacion,actualizada_en) VALUES (true,0,clock_timestamp());
 COMMIT;
 SQL
+psql_sql <<'SQL'
+DO $ausencia$
+BEGIN
+ IF EXISTS (SELECT 1 FROM vec_contratacion_temporal.control_cadena_accesos_rrhh)
+   OR EXISTS (SELECT 1 FROM vec_autorizacion_atestada_v3.checkpoint_gobierno)
+   OR EXISTS (SELECT 1 FROM vec_autorizacion_atestada_v3.control_cadena_auditoria)
+ THEN RAISE EXCEPTION 'singleton CT/V3 ya presente en schema-only'; END IF;
+END $ausencia$;
+BEGIN;
+SET LOCAL ROLE vec_contratacion_temporal_propietario;
+INSERT INTO vec_contratacion_temporal.control_cadena_accesos_rrhh
+ (control,ultima_secuencia,cabeza_sha256,actualizada_en)
+ VALUES (true,0,repeat('0',64),date_trunc('microseconds',clock_timestamp()));
+COMMIT;
+BEGIN;
+SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
+INSERT INTO vec_autorizacion_atestada_v3.checkpoint_gobierno
+ (control_id,revision,configuracion_secuencia_minima,raiz_version_minima,actualizada_en)
+ VALUES (true,0,0,0,clock_timestamp());
+INSERT INTO vec_autorizacion_atestada_v3.control_cadena_auditoria
+ (control_id,secuencia,cabeza_sha256,actualizada_en)
+ VALUES (true,0,repeat('0',64),clock_timestamp());
+COMMIT;
+SQL
 psql_archivo "$raiz/deploy/postgresql/contratacion_temporal/roles_consultor_rrhh_ambito_up.sql"
 psql_archivo "$raiz/deploy/postgresql/contexto_actor_v1/migraciones/000006_acreditacion_ambito_rrhh_v1.up.sql"
 psql_archivo "$VEC_AD3_51_UP"
@@ -405,4 +429,87 @@ wait "$caducidad_pid"
  tail -n 15 "$temporal/caducidad.log" >&2
  exit 1
 }
-echo 'CA6 + AD3-51 + CT109: catálogo, ACL, revocación, snapshot, locks y caducidad OK'
+
+# DOWN solo en esta base desechable. Un login activo y cualquier avance de
+# historia o cadena deben bloquearlo antes de modificar funciones/ACL.
+down_ct="$raiz/deploy/postgresql/contratacion_temporal/migraciones/000109_consultas_rrhh_ambito_v1.down.sql"
+down_ca="$raiz/deploy/postgresql/contexto_actor_v1/migraciones/000006_acreditacion_ambito_rrhh_v1.down.sql"
+if psql_archivo "$down_ct" > "$temporal/down_login.log" 2>&1; then
+ echo 'CT109 DOWN aceptó login productivo activo' >&2
+ exit 1
+fi
+rg -q 'identidad activa' "$temporal/down_login.log" || {
+ echo 'CT109 DOWN falló por causa ajena al login' >&2
+ tail -n 15 "$temporal/down_login.log" >&2
+ exit 1
+}
+psql_sql <<'SQL'
+REVOKE SELECT ON public.ca6_comprobante_prueba FROM ct_ambito_pg_prueba;
+REVOKE vec_contratacion_temporal_consultor_rrhh_ambito FROM ct_ambito_pg_prueba;
+DROP ROLE ct_ambito_pg_prueba;
+BEGIN;
+SET LOCAL ROLE vec_contratacion_temporal_propietario;
+UPDATE vec_contratacion_temporal.control_cadena_accesos_rrhh
+ SET ultima_secuencia=1,cabeza_sha256=repeat('a',64)
+ WHERE control;
+COMMIT;
+SQL
+if psql_archivo "$down_ct" > "$temporal/down_ct_historia.log" 2>&1; then
+ echo 'CT109 DOWN aceptó cadena CT avanzada' >&2
+ exit 1
+fi
+rg -q 'historia o genesis incompatible' "$temporal/down_ct_historia.log" || {
+ echo 'CT109 DOWN no comprobó historia CT' >&2
+ tail -n 15 "$temporal/down_ct_historia.log" >&2
+ exit 1
+}
+psql_sql <<'SQL'
+BEGIN;
+SET LOCAL ROLE vec_contratacion_temporal_propietario;
+UPDATE vec_contratacion_temporal.control_cadena_accesos_rrhh
+ SET ultima_secuencia=0,cabeza_sha256=repeat('0',64)
+ WHERE control;
+COMMIT;
+BEGIN;
+SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
+UPDATE vec_autorizacion_atestada_v3.control_cadena_auditoria
+ SET secuencia=1,cabeza_sha256=repeat('b',64)
+ WHERE control_id;
+COMMIT;
+SQL
+if psql_archivo "$down_ct" > "$temporal/down_v3_historia.log" 2>&1; then
+ echo 'CT109 DOWN aceptó cadena V3 avanzada' >&2
+ exit 1
+fi
+rg -q 'historia o genesis incompatible' "$temporal/down_v3_historia.log" || {
+ echo 'CT109 DOWN no comprobó historia V3' >&2
+ tail -n 15 "$temporal/down_v3_historia.log" >&2
+ exit 1
+}
+psql_sql <<'SQL'
+BEGIN;
+SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
+UPDATE vec_autorizacion_atestada_v3.control_cadena_auditoria
+ SET secuencia=0,cabeza_sha256=repeat('0',64)
+ WHERE control_id;
+COMMIT;
+SQL
+psql_archivo "$down_ct"
+psql_archivo "$down_ca"
+psql_sql <<'SQL'
+DO $acl_restituida$
+BEGIN
+ IF to_regprocedure('vec_contexto_actor_v1.acreditar_ambito_rrhh_v1(jsonb,text,text,text,text,text)') IS NOT NULL
+ OR to_regprocedure('vec_contratacion_temporal.consultar_cuadro_rrhh_ambito_v1(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_cuadro_rrhh_v1,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
+ OR has_schema_privilege('vec_contexto_actor_corporativo_rrhh_selector',
+   'vec_contexto_actor_v1','USAGE')
+ OR has_schema_privilege('vec_contratacion_temporal_propietario',
+   'vec_contexto_actor_v1','USAGE')
+ OR NOT has_schema_privilege('vec_contexto_actor_v1_runtime',
+   'vec_contexto_actor_v1','USAGE')
+ THEN RAISE EXCEPTION 'CA6/CT109: ACL no restituidas'; END IF;
+END $acl_restituida$;
+SQL
+psql_archivo "$raiz/deploy/postgresql/contexto_actor_v1/migraciones/000006_acreditacion_ambito_rrhh_v1.up.sql"
+psql_archivo "$raiz/deploy/postgresql/contratacion_temporal/migraciones/000109_consultas_rrhh_ambito_v1.up.sql"
+echo 'CA6 + AD3-51 + CT109: ACL, concurrencia y DOWN/UP vacío conservados OK'

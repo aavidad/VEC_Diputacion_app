@@ -1,12 +1,50 @@
 -- Retirada exclusivamente antes de aprovisionar cualquier login productivo.
 BEGIN;
 SET LOCAL search_path=pg_catalog;
+SET LOCAL timezone='UTC';
+SET LOCAL lock_timeout='5s';
+SET LOCAL statement_timeout='30s';
+SELECT pg_advisory_xact_lock(hashtextextended(
+ 'vec_contratacion_temporal:consulta_rrhh_ambito:v1',0));
+LOCK TABLE pg_catalog.pg_authid,pg_catalog.pg_auth_members IN SHARE MODE;
+-- Orden V3 antes de CT igual que el consumo. Estas barreras esperan a toda
+-- consulta ya iniciada y mantienen inmóviles historia y membresías.
+LOCK TABLE vec_autorizacion_atestada_v3.checkpoint_gobierno,
+ vec_autorizacion_atestada_v3.atestacion_decision_v3,
+ vec_autorizacion_atestada_v3.consumo_decision_v3,
+ vec_autorizacion_atestada_v3.auditoria_consumo_v3,
+ vec_autorizacion_atestada_v3.control_cadena_auditoria IN ACCESS EXCLUSIVE MODE;
+LOCK TABLE vec_contratacion_temporal.control_cadena_accesos_rrhh,
+ vec_contratacion_temporal.registro_acceso_rrhh IN ACCESS EXCLUSIVE MODE;
 DO $preimagen$
+DECLARE ct record; v3 record; gobierno record;
 BEGIN
  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname=current_user AND rolsuper)
     OR EXISTS (SELECT 1 FROM pg_auth_members
        WHERE roleid='vec_contratacion_temporal_consultor_rrhh_ambito'::regrole)
  THEN RAISE EXCEPTION 'CT109: retirada con identidad activa' USING ERRCODE='55000'; END IF;
+ SELECT control,ultima_secuencia,cabeza_sha256 INTO ct
+ FROM vec_contratacion_temporal.control_cadena_accesos_rrhh;
+ SELECT control_id,secuencia,cabeza_sha256 INTO v3
+ FROM vec_autorizacion_atestada_v3.control_cadena_auditoria;
+ SELECT control_id,revision,configuracion_secuencia_minima,raiz_version_minima
+ INTO gobierno FROM vec_autorizacion_atestada_v3.checkpoint_gobierno;
+ IF ct.control IS DISTINCT FROM true OR ct.ultima_secuencia IS DISTINCT FROM 0::numeric
+    OR ct.cabeza_sha256 IS DISTINCT FROM repeat('0',64)
+    OR (SELECT count(*) FROM vec_contratacion_temporal.control_cadena_accesos_rrhh)<>1
+    OR EXISTS (SELECT 1 FROM vec_contratacion_temporal.registro_acceso_rrhh)
+    OR v3.control_id IS DISTINCT FROM true OR v3.secuencia IS DISTINCT FROM 0::numeric
+    OR v3.cabeza_sha256 IS DISTINCT FROM repeat('0',64)
+    OR (SELECT count(*) FROM vec_autorizacion_atestada_v3.control_cadena_auditoria)<>1
+    OR gobierno.control_id IS DISTINCT FROM true
+    OR gobierno.revision IS DISTINCT FROM 0::numeric
+    OR gobierno.configuracion_secuencia_minima IS DISTINCT FROM 0::numeric
+    OR gobierno.raiz_version_minima IS DISTINCT FROM 0::numeric
+    OR (SELECT count(*) FROM vec_autorizacion_atestada_v3.checkpoint_gobierno)<>1
+    OR EXISTS (SELECT 1 FROM vec_autorizacion_atestada_v3.atestacion_decision_v3)
+    OR EXISTS (SELECT 1 FROM vec_autorizacion_atestada_v3.consumo_decision_v3)
+    OR EXISTS (SELECT 1 FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3)
+ THEN RAISE EXCEPTION 'CT109: historia o genesis incompatible' USING ERRCODE='55000'; END IF;
 END $preimagen$;
 SET LOCAL ROLE vec_contratacion_temporal_propietario;
 SET LOCAL search_path=pg_catalog;

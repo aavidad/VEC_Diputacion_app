@@ -14,6 +14,15 @@ BEGIN
     OR to_regprocedure('vec_contexto_actor_v1.leer_contexto_original_v2(text,text,text)') IS NULL
     OR to_regrole('vec_contexto_actor_corporativo_rrhh_selector') IS NULL
     OR to_regrole('vec_contratacion_temporal_propietario') IS NULL
+    OR has_schema_privilege('vec_contexto_actor_corporativo_rrhh_selector',
+         'vec_contexto_actor_v1','USAGE')
+    OR has_schema_privilege('vec_contratacion_temporal_propietario',
+         'vec_contexto_actor_v1','USAGE')
+    OR EXISTS (SELECT 1 FROM pg_namespace n,
+        LATERAL aclexplode(coalesce(n.nspacl,acldefault('n',n.nspowner))) a
+       WHERE n.nspname='vec_contexto_actor_v1'
+         AND a.grantee IN ('vec_contexto_actor_corporativo_rrhh_selector'::regrole,
+                           'vec_contratacion_temporal_propietario'::regrole))
  THEN RAISE EXCEPTION 'CA6: preimagen incompatible' USING ERRCODE='55000'; END IF;
 END $preimagen$;
 
@@ -186,4 +195,23 @@ GRANT EXECUTE ON FUNCTION vec_contexto_actor_v1.resolver_comprobante_ambito_rrhh
  TO vec_contexto_actor_corporativo_rrhh_selector;
 GRANT EXECUTE ON FUNCTION vec_contexto_actor_v1.acreditar_ambito_rrhh_v1(
  jsonb,text,text,text,text,text) TO vec_contratacion_temporal_propietario;
+DO $postimagen_acl$
+DECLARE cantidad integer;
+BEGIN
+ SELECT count(*) INTO cantidad FROM pg_namespace n,
+  LATERAL aclexplode(n.nspacl) a
+ WHERE n.nspname='vec_contexto_actor_v1'
+   AND a.grantee IN ('vec_contexto_actor_corporativo_rrhh_selector'::regrole,
+                     'vec_contratacion_temporal_propietario'::regrole)
+   AND a.grantor='vec_contexto_actor_v1_propietario'::regrole
+   AND a.privilege_type='USAGE' AND NOT a.is_grantable;
+ IF cantidad<>2 OR EXISTS (SELECT 1 FROM pg_namespace n,
+   LATERAL aclexplode(n.nspacl) a
+   WHERE n.nspname='vec_contexto_actor_v1'
+     AND a.grantee IN ('vec_contexto_actor_corporativo_rrhh_selector'::regrole,
+                       'vec_contratacion_temporal_propietario'::regrole)
+     AND (a.grantor<>'vec_contexto_actor_v1_propietario'::regrole
+       OR a.privilege_type<>'USAGE' OR a.is_grantable))
+ THEN RAISE EXCEPTION 'CA6: ACL de esquema incompatible' USING ERRCODE='55000'; END IF;
+END $postimagen_acl$;
 COMMIT;
