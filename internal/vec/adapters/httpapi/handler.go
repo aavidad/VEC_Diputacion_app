@@ -82,7 +82,15 @@ func NewHandler(service *application.Service) (*Handler, error) {
 // de que exista un listener. NewHandlerWithOptions conserva el perfil legado
 // de desarrollo; la raíz productiva debe usar exclusivamente este constructor.
 func NewHandlerInternoConCapacidades(service *application.Service, options HandlerOptions, permitidas []CapacidadRutaInterna) (*Handler, error) {
-	if len(permitidas) == 0 {
+	if len(permitidas) == 0 || options.AllowDemoIdentity || options.DemoIdentityResolver != nil ||
+		options.TrustIdentityHeaders || len(options.TrustedProxyCIDRs) != 0 ||
+		options.IdentitySubjectHeader != "" || options.IdentityRolesHeader != "" ||
+		options.IdentityMechanismHeader != "" || len(options.RutasColeccion) != 0 ||
+		!dependenciaRutaExactaNula(options.ManejadorRutaDietas) ||
+		!dependenciaRutaExactaNula(options.ManejadorCatalogoRutaDietas) ||
+		!dependenciaRutaExactaNula(options.AutoridadRutasDietas) ||
+		!dependenciaRutaExactaNula(options.PersonalCatalog) ||
+		!dependenciaRutaExactaNula(options.CategoriasProfesionales) {
 		return nil, ErrRutaExactaInvalida
 	}
 	catalogo := make(map[capacidadRutaInterna]struct{}, len(permitidas))

@@ -93,3 +93,29 @@ func TestHandlerInternoCompuestoRechazaCatalogoVacioDuplicadoYAjeno(t *testing.T
 		}
 	}
 }
+
+func TestHandlerInternoCompuestoRechazaAutoridadesHeredadas(t *testing.T) {
+	store := memory.NewStore()
+	servicio, err := application.NewService(store, store, store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ruta := "/api/vec/contratacion-temporal/cuadro/consultas"
+	base := HandlerOptions{
+		RutasExactas:          []RutaExacta{{Ruta: ruta, Manejador: http.NotFoundHandler()}},
+		AutoridadRutasExactas: &autoridadRutaInternaCompuestaPrueba{},
+	}
+	for _, alterar := range []func(*HandlerOptions){
+		func(o *HandlerOptions) { o.AllowDemoIdentity = true },
+		func(o *HandlerOptions) { o.TrustIdentityHeaders = true },
+		func(o *HandlerOptions) { o.ManejadorRutaDietas = http.NotFoundHandler() },
+		func(o *HandlerOptions) { o.IdentitySubjectHeader = "X-Identidad-Libre" },
+	} {
+		opciones := base
+		alterar(&opciones)
+		h, err := NewHandlerInternoConCapacidades(servicio, opciones, []CapacidadRutaInterna{{Metodo: http.MethodPost, Ruta: ruta}})
+		if h != nil || !errors.Is(err, ErrRutaExactaInvalida) {
+			t.Fatalf("autoridad heredada aceptada: (%v, %v)", h, err)
+		}
+	}
+}
