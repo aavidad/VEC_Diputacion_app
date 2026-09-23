@@ -1,4 +1,5 @@
 import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js";
+import { crearTraductorBorradoresDietas } from "./i18n-borradores.js";
 import { obtenerCatalogoRutasProvincial } from "./catalogo-rutas-provincial.js";
 
 // El catálogo público incluye núcleos NGMEP aún pendientes de importación.
@@ -90,6 +91,7 @@ export function montarVistaBorradoresPropios(
     anunciar = () => {},
     generarClaveIdempotencia = () => globalThis.crypto?.randomUUID?.(),
     registrarDesmontar,
+    formularioInicialmenteVisible = true,
     // Sólo la composición que haya consultado una fuente autorizada puede
     // aportar estas referencias opacas. Esta vista no deduce ni fabrica una.
     relacionesAutorizadas = [],
@@ -106,12 +108,14 @@ export function montarVistaBorradoresPropios(
     typeof traducir !== "function" ||
     typeof anunciar !== "function" ||
     typeof generarClaveIdempotencia !== "function" ||
+    typeof formularioInicialmenteVisible !== "boolean" ||
     (registrarDesmontar !== undefined &&
       typeof registrarDesmontar !== "function")
   ) {
     throw new TypeError("vista de borradores propios de Dietas no disponible");
   }
   const documento = contenedor.ownerDocument;
+  const tBorradores = crearTraductorBorradoresDietas(traducir);
   const relaciones = referenciasRelacionAutorizadas(relacionesAutorizadas);
   const raiz = nodo(documento, "section");
   raiz.className = "modulo-dietas dietas-borradores-propios";
@@ -125,6 +129,8 @@ export function montarVistaBorradoresPropios(
   let listaPersistente = null;
   let fichaPersistente = null;
   let pendiente = null;
+  let ultimoAlta = null;
+  let formularioVisible = formularioInicialmenteVisible;
   let cursores = [undefined];
   let indicePagina = 0;
   let siguienteCursor = undefined;
@@ -139,6 +145,7 @@ export function montarVistaBorradoresPropios(
     tono: "informacion",
     detalle: null,
     errorLista: false,
+    errorListaClave: null,
   };
   const activaAhora = () => activa && montada(contenedor, raiz);
   const desmontar = () => {
@@ -155,7 +162,7 @@ export function montarVistaBorradoresPropios(
   function mensaje(clave, tono = "informacion") {
     estado = { ...estado, mensaje: clave, tono };
     try {
-      anunciar(traducir(clave), tono);
+      anunciar(tBorradores(clave), tono);
     } catch {}
   }
   function formulario() {
@@ -302,7 +309,7 @@ export function montarVistaBorradoresPropios(
       return seccion;
     }
     if (estado.errorLista) {
-      cuerpo.append(nodo(documento, "p", traducir(estado.mensaje)));
+      cuerpo.append(nodo(documento, "p", tBorradores(estado.errorListaClave || estado.mensaje)));
       if (relaciones.length < 2 || relacionSeleccionada) {
         const reintentar = nodo(documento, "button", traducir("borradores_propios_reintentar_consulta"));
         reintentar.type = "button";
@@ -322,6 +329,7 @@ export function montarVistaBorradoresPropios(
     estado.items.forEach((item) => {
       const li = nodo(documento, "li");
       li.className = "dietas-borradores-fila";
+      li.dataset.seleccionado = String(estado.detalle?.comision.referencia === item.comision.referencia);
       const boton = nodo(
         documento,
         "button",
@@ -333,8 +341,9 @@ export function montarVistaBorradoresPropios(
       boton.dataset.dietasBorradorRelacion = item.comision.relacion_ref;
       boton.setAttribute(
         "aria-label",
-        `${traducir("borradores_propios_seleccionar")}: ${item.comision.referencia}`,
+        `${traducir("borradores_propios_seleccionar")}: ${item.comision.motivo}, ${fechaLegible(item.comision.fecha_inicio)}`,
       );
+      boton.setAttribute("aria-pressed", String(estado.detalle?.comision.referencia === item.comision.referencia));
       li.append(
         boton,
         (() => { const estadoBorrador = nodo(documento, "span", traducir("borradores_propios_estado_borrador")); estadoBorrador.className = "estado-chip info"; return estadoBorrador; })(),
@@ -415,7 +424,7 @@ export function montarVistaBorradoresPropios(
       const bloque=nodo(documento,"section"); bloque.className="dietas-comision-grupo";
       bloque.append(nodo(documento,"h5",`${traducir("borradores_propios_grupo")} ${opcion.grupo} · ${euros(opcion.calculo.total_maximo_orientativo_centimos)}`));
       const lista=nodo(documento,"ul");
-      opcion.calculo.tramos.forEach((tramo)=>lista.append(nodo(documento,"li",`${tramo.fecha} · ${tramo.tipo==="manutencion"?traducir("borradores_propios_manutencion"):traducir("borradores_propios_alojamiento_tope")} ${tramo.porcentaje}% · ${euros(tramo.importe_centimos)}`)));
+      opcion.calculo.tramos.forEach((tramo)=>lista.append(nodo(documento,"li",`${fechaLegible(tramo.fecha)} · ${tramo.tipo==="manutencion"?traducir("borradores_propios_manutencion"):traducir("borradores_propios_alojamiento_tope")} ${tramo.porcentaje}% · ${euros(tramo.importe_centimos)}`)));
       bloque.append(lista); resumen.append(bloque);
     });
     return resumen;
@@ -436,11 +445,14 @@ export function montarVistaBorradoresPropios(
       fichaPersistente = nodo(documento, "div");
       fichaPersistente.className = "dietas-borradores-lateral";
       espacio.append(principal, fichaPersistente);
-      raiz.append(nodo(documento, "h2", traducir("borradores_propios_titulo")), avisoPersistente, espacio);
+      raiz.append(nodo(documento, "h2", formularioInicialmenteVisible
+        ? traducir("borradores_propios_titulo")
+        : tBorradores("borradores_propios_titulo_registrados")), avisoPersistente, espacio);
     }
+    formularioPersistente.hidden = !formularioVisible;
     const botonGuardar = formularioPersistente.querySelector('button');
     if (botonGuardar) botonGuardar.disabled = !conectada || controlador !== null || (relaciones.length > 1 && !relacionSeleccionada);
-    avisoPersistente.textContent = traducir(estado.mensaje);
+    avisoPersistente.textContent = tBorradores(estado.mensaje);
     avisoPersistente.dataset.tono = estado.tono;
     avisoPersistente.className = `estado-chip ${estado.tono === "error" ? "peligro" : estado.tono === "exito" ? "exito" : estado.tono === "aviso" ? "aviso" : "info"}`;
     avisoPersistente.setAttribute("role", estado.tono === "error" ? "alert" : "status");
@@ -453,14 +465,14 @@ export function montarVistaBorradoresPropios(
       return;
     }
     if (relaciones.length > 1 && !relacionSeleccionada) {
-      estado = { ...estado, carga: false, items: [], detalle: null, errorLista: true };
+      estado = { ...estado, carga: false, items: [], detalle: null, errorLista: true, errorListaClave: "borradores_propios_error_relacion" };
       mensaje("borradores_propios_error_relacion", "aviso");
       pintar();
       return;
     }
     controlador?.abort();
     controlador = new AbortController();
-    estado = { ...estado, carga: true, errorLista: false };
+    estado = { ...estado, carga: true, errorLista: false, errorListaClave: null };
     pintar();
     const signal = controlador.signal;
     try {
@@ -480,14 +492,18 @@ export function montarVistaBorradoresPropios(
         carga: false,
         items: pagina.items,
         errorLista: false,
+        errorListaClave: null,
         mensaje: conservarMensaje ? estado.mensaje : "borradores_propios_listado",
         tono: conservarMensaje ? estado.tono : "informacion",
       };
       siguienteCursor = pagina.siguiente_cursor;
     } catch (error) {
       if (!activaAhora() || signal.aborted) return;
-      estado = { ...estado, carga: false, errorLista: true, items: [], ...(error?.codigo === "acceso_denegado" ? { detalle: null } : {}) };
-      mensaje(conservarMensaje ? "borradores_propios_creado_listado_no_actualizado" : errorClave(error), conservarMensaje ? "aviso" : "error");
+      const claveError = conservarMensaje
+        ? (error?.codigo === "acceso_denegado" ? "borradores_propios_creado_listado_denegado" : "borradores_propios_creado_listado_no_actualizado")
+        : errorClave(error);
+      estado = { ...estado, carga: false, errorLista: true, errorListaClave: claveError, items: [] };
+      mensaje(claveError, conservarMensaje ? "aviso" : "error");
     } finally {
       if (controlador?.signal === signal) controlador = null;
       if (activaAhora()) pintar();
@@ -521,6 +537,12 @@ export function montarVistaBorradoresPropios(
     }
     if (base.codigos_ruta[0] === base.codigos_ruta[1]) { mensaje("borradores_propios_ruta_distinta","aviso"); pintar(); return; }
     const contenido = claveContenido(base);
+    if (ultimoAlta?.contenido === contenido) {
+      estado = { ...estado, detalle: ultimoAlta.item };
+      mensaje("borradores_propios_ya_registrado", "exito");
+      pintar();
+      return;
+    }
     if (pendiente && pendiente.contenido !== contenido) {
       pendiente = null;
       mensaje("borradores_propios_cambio_intencion", "aviso");
@@ -543,6 +565,7 @@ export function montarVistaBorradoresPropios(
       const item = await cliente.crear(solicitud, { signal });
       if (!activaAhora() || signal.aborted) return;
       pendiente = null;
+      ultimoAlta = { contenido, item };
       estado = {
         ...estado,
         detalle: item,
@@ -592,7 +615,6 @@ export function montarVistaBorradoresPropios(
     const referencia = boton.dataset.dietasBorradorDetalle;
     controlador = new AbortController();
     const signal = controlador.signal;
-    estado = { ...estado, detalle: null };
     mensaje("borradores_propios_cargando");
     pintar();
     try {
@@ -605,7 +627,9 @@ export function montarVistaBorradoresPropios(
       mensaje("borradores_propios_detalle");
     } catch (error) {
       if (!activaAhora() || signal.aborted) return;
-      mensaje(errorClave(error), "error");
+      mensaje(estado.detalle
+        ? (error?.codigo === "acceso_denegado" ? "borradores_propios_detalle_denegado" : "borradores_propios_detalle_no_actualizado")
+        : errorClave(error), "error");
     } finally {
       if (controlador?.signal === signal) controlador = null;
       if (activaAhora()) pintar();
@@ -632,5 +656,18 @@ export function montarVistaBorradoresPropios(
   raiz.addEventListener("change", cambiarRelacion);
   pintar();
   cargar();
-  return Object.freeze({ desmontar, recargar: cargar });
+  function abrirFormulario() {
+    if (!activaAhora()) return false;
+    formularioVisible = true;
+    pintar();
+    formularioPersistente.querySelector("input")?.focus?.();
+    return true;
+  }
+  function cerrarFormulario() {
+    if (!activaAhora()) return false;
+    formularioVisible = false;
+    pintar();
+    return true;
+  }
+  return Object.freeze({ desmontar, recargar: cargar, abrirFormulario, cerrarFormulario });
 }

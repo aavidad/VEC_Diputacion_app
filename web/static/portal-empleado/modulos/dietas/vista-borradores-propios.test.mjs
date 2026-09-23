@@ -338,3 +338,105 @@ test("muestra km, importe y tramos provisionales de la comisión recuperada", as
   assert.match(texto,/12 km/u); assert.match(texto,/3,12/u); assert.match(texto,/Granada → Albolote/u); assert.match(texto,/Grupo 3/u);
   vista.desmontar();
 });
+
+test("conserva el recibo si el GET posterior al alta resulta denegado y no repite el POST", async () => {
+  const contenedor = raiz();
+  let lecturas = 0;
+  const solicitudes = [];
+  const vista = montarVistaBorradoresPropios(contenedor, {
+    generarClaveIdempotencia: () => "operacion-post-confirmado",
+    cliente: {
+      listar: async () => {
+        lecturas += 1;
+        if (lecturas === 1) return { items: [] };
+        const error = new Error("denegado");
+        error.codigo = "acceso_denegado";
+        throw error;
+      },
+      obtener: async () => item,
+      crear: async (solicitud) => { solicitudes.push(solicitud); return item; },
+    },
+  });
+  await Promise.resolve();
+  await Promise.resolve();
+  const form = contenedor.querySelector("[data-dietas-borrador-form]");
+  form.checkValidity = () => true;
+  const datos = {
+    fecha_inicio: "2026-09-20", fecha_fin: "2026-09-21", motivo: "Visita",
+    hora_inicio: "09:00", hora_fin: "18:00", origen_codigo: "18087", destino_codigo: "18003",
+  };
+  const FormDataOriginal = globalThis.FormData;
+  globalThis.FormData = class { get(nombre) { return datos[nombre] ?? null; } };
+  try {
+    const panel = contenedor.querySelector("[data-dietas-borradores-propios]");
+    await panel.listeners.submit({ target: form, preventDefault() {} });
+    assert.equal(lecturas, 2);
+    assert.equal(solicitudes.length, 1);
+    assert.match(textoVisible(contenedor), /rcd_1234567890123456789012/u);
+    assert.match(textoVisible(contenedor), /Borrador registrado\. No tiene permiso para actualizar/u);
+    await panel.listeners.submit({ target: form, preventDefault() {} });
+    assert.equal(solicitudes.length, 1);
+    assert.match(textoVisible(contenedor), /Este borrador ya se registró/u);
+    assert.match(textoVisible(contenedor), /rcd_1234567890123456789012/u);
+  } finally {
+    globalThis.FormData = FormDataOriginal;
+    vista.desmontar();
+  }
+});
+
+test("un GET de detalle fallido mantiene visible el recibo anterior", async () => {
+  const contenedor = raiz();
+  const vista = montarVistaBorradoresPropios(contenedor, {
+    cliente: {
+      listar: async () => ({ items: [item] }),
+      obtener: async () => { throw new Error("red"); },
+      crear: async () => item,
+    },
+  });
+  await Promise.resolve();
+  await Promise.resolve();
+  const panel = contenedor.querySelector("[data-dietas-borradores-propios]");
+  // El detalle puede ser el recibo de un alta, además de una ficha consultada.
+  const form = contenedor.querySelector("[data-dietas-borrador-form]");
+  form.checkValidity = () => true;
+  const datos = {
+    fecha_inicio: "2026-09-20", fecha_fin: "2026-09-21", motivo: "Visita",
+    hora_inicio: "09:00", hora_fin: "18:00", origen_codigo: "18087", destino_codigo: "18003",
+  };
+  const FormDataOriginal = globalThis.FormData;
+  globalThis.FormData = class { get(nombre) { return datos[nombre] ?? null; } };
+  try {
+    await panel.listeners.submit({ target: form, preventDefault() {} });
+    const boton = contenedor.querySelector("[data-dietas-borrador-detalle]");
+    await panel.listeners.click({ target: boton });
+    assert.match(textoVisible(contenedor), /Se conserva el último recibo obtenido/u);
+    assert.match(textoVisible(contenedor), /rcd_1234567890123456789012/u);
+  } finally {
+    globalThis.FormData = FormDataOriginal;
+    vista.desmontar();
+  }
+});
+
+test("permite mostrar y cerrar el formulario desde Mis comisiones sin desmontar la lista", async () => {
+  const contenedor = raiz();
+  const vista = montarVistaBorradoresPropios(contenedor, {
+    formularioInicialmenteVisible: false,
+    cliente: {
+      listar: async () => ({ items: [item] }),
+      obtener: async () => item,
+      crear: async () => item,
+    },
+  });
+  await Promise.resolve();
+  await Promise.resolve();
+  const form = contenedor.querySelector("[data-dietas-borrador-form]");
+  assert.equal(form.hidden, true);
+  assert.match(textoVisible(contenedor), /Borradores registrados/u);
+  assert.ok(contenedor.querySelector("[data-dietas-borrador-detalle]"));
+  assert.equal(vista.abrirFormulario(), true);
+  assert.equal(form.hidden, false);
+  assert.equal(vista.cerrarFormulario(), true);
+  assert.equal(form.hidden, true);
+  vista.desmontar();
+  assert.equal(vista.abrirFormulario(), false);
+});
