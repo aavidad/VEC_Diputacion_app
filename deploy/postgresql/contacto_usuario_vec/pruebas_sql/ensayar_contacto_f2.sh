@@ -183,7 +183,38 @@ for linea in open(sys.argv[1],encoding='utf-8'):
         omito |= evento.get('Action')=='skip'
 if not paso or omito: raise SystemExit('F2: prueba positiva omitida o sin PASS; no acreditar consumo')
 PYRESULTADO
-  echo 'F2: material COSE real, POST, consulta de recibo y replay nominales probados en PG18 aislado; no acredita Contacto3 ni reinicio'
+  echo 'F2: fase legado firmada y consumo nominal probados; aún no acredita Contacto3'
+  archivos_operaciones=(
+    "$raiz/deploy/postgresql/autorizacion_atestada_v3/migraciones/000054_operaciones_contacto_propio.up.sql"
+    "$raiz/deploy/postgresql/bolsa_registro_accesos/migraciones/000008_operaciones_contacto_propio.up.sql"
+    "$raiz/deploy/postgresql/contacto_usuario_vec/migraciones/000003_operaciones_contacto_propio.up.sql"
+  )
+  for archivo in "${archivos_operaciones[@]}"; do aplicar "$archivo"; done
+  if ! VEC_F2_CONTACTO_OPERACIONES_PG18_DESECHABLE=1 \
+  VEC_F2_CONTACTO_MATERIAL_EFIMERO="$materialdir" \
+  VEC_F2_CONTACTO_PG_ADMIN_DSN="$(dsn postgres)" \
+  VEC_F2_CONTACTO_PG_CONTEXTO_DSN="$(dsn vec_contacto_f2_contexto_login)" \
+  VEC_F2_CONTACTO_PG_FUENTE_DSN="$(dsn vec_contacto_f2_fuente_login)" \
+  VEC_F2_CONTACTO_PG_REGISTRO_DSN="$(dsn vec_contacto_f2_registro_login)" \
+  VEC_F2_CONTACTO_PG_MOTIVOS_DSN="$(dsn vec_contacto_f2_motivos_login)" \
+  VEC_F2_CONTACTO_PG_WRITER_DSN="$(dsn vec_contacto_f2_login)" \
+  GOMAXPROCS=2 go test ./internal/app/bootstrap -run '^TestContactoOperacionesPG18RecuperacionNominal$' -count=1 -json > "$prueba_json" 2>&1; then
+    echo 'F2: prueba Contacto3 PG18 falló; no acreditar operaciones' >&2
+    exit 1
+  fi
+  python3 - "$prueba_json" <<'PYOPERACIONES'
+import json,sys
+objetivo='TestContactoOperacionesPG18RecuperacionNominal'
+paso=omito=False
+for linea in open(sys.argv[1],encoding='utf-8'):
+    try: evento=json.loads(linea)
+    except ValueError: continue
+    if evento.get('Test')==objetivo:
+        paso |= evento.get('Action')=='pass'
+        omito |= evento.get('Action')=='skip'
+if not paso or omito: raise SystemExit('F2: operaciones omitidas o sin PASS')
+PYOPERACIONES
+  echo 'F2: Contacto3 firmado/consumido, ACL legado, intención, confirmación, recibo, replay y nuevo pool probados en PG18 aislado'
   exit 0
 fi
 # DOWN solo con tablas F2 vacías en este contenedor desechable.
