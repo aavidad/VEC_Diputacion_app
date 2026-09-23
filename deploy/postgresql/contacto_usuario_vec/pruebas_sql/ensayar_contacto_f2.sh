@@ -3,6 +3,10 @@ set -euo pipefail
 
 # Restaura estructura main hasta AD3-50 y recompone T13/1-5 en PG18.4 sin red.
 # No acepta la base histórica ni instala nada en cidonia.
+# El corte Contacto3 revoca el POST directo. Su ensayo final debe acreditar
+# juntos: denegación ACL del legado, cinco rutas con ServicioOperaciones/V3,
+# recibo original, replay, concurrencia y recuperación tras reiniciar PG/app.
+# No instalar Contacto3 en un runtime que aún publique sólo el POST directo.
 
 
 : "${VEC_F2_SCHEMA_SQL:?falta copia local schema-only F2}"

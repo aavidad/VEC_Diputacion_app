@@ -67,7 +67,9 @@ func respuestaOperacion(op ports.OperacionContactoUsuario) respuestaOperacionCon
 }
 
 // NuevasRutasOperaciones sólo entrega declaraciones exactas. La composición
-// registra estas cinco rutas juntas después de instalar AD3-53/T13-8/Contacto3.
+// registra estas cinco rutas juntas al pasar a AD3-54/T13-8/Contacto3. Esa
+// transición también retira el POST directo anterior: Contacto3 revoca su
+// EXECUTE y el runtime debe consumir ServicioOperaciones con V3 nominal.
 func NuevasRutasOperaciones(e EjecutorOperacionesContactoPropio, catalogo *i18n.Catalog) ([]httpapi.RutaExacta, error) {
 	if dependenciaContactoPropioNula(e) || catalogo == nil {
 		return nil, ErrManejadorContactoPropioInvalido
