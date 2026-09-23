@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"time"
 
+	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
@@ -129,6 +130,20 @@ func validarResultado(r puertosbolsa.InstantaneaMiBolsa, ahora time.Time) error 
 	for _, p := range r.Participaciones {
 		if p.Bolsa == "" || p.Categoria == "" || p.Version == 0 || p.OrdenInicial == 0 || p.TotalInstantanea < p.OrdenInicial || p.EstadoBolsa == "" || p.VigenteDesde.IsZero() || !p.VigenteDesde.Before(ahora) && !p.VigenteDesde.Equal(ahora) || p.VigenteHasta != nil && !p.VigenteHasta.After(p.VigenteDesde) {
 			return puertosbolsa.ErrResultadoMiBolsaInvalido
+		}
+		if s := p.SituacionActual; s != nil {
+			valida := false
+			for _, estado := range dominiobolsa.SituacionesParticipacion() {
+				if s.Estado == estado {
+					valida = true
+					break
+				}
+			}
+			if !valida || s.Desde.IsZero() || s.Desde.After(ahora) || s.Hasta != nil && s.Hasta.Before(s.Desde) ||
+				(s.Estado == dominiobolsa.SituacionDisponibleDesde) != (s.FechaDisponible != nil) ||
+				s.FechaDisponible != nil && !s.FechaDisponible.After(s.Desde) {
+				return puertosbolsa.ErrResultadoMiBolsaInvalido
+			}
 		}
 	}
 	return nil

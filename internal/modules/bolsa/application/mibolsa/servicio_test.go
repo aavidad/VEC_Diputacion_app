@@ -158,6 +158,16 @@ func TestConsultaVaciaErrorYResultadoInvalido(t *testing.T) {
 		{"fecha distinta", func(e *entornoMiBolsa) {
 			e.repositorio.mutar = func(r *bolsa.InstantaneaMiBolsa) { r.ConsultadaEn = r.ConsultadaEn.Add(time.Second) }
 		}, bolsa.ErrResultadoMiBolsaInvalido},
+		{"situacion desconocida", func(e *entornoMiBolsa) {
+			e.repositorio.mutar = func(r *bolsa.InstantaneaMiBolsa) {
+				r.Participaciones[0].SituacionActual = &bolsa.SituacionActualMiBolsa{Estado: "inventado", Desde: r.ConsultadaEn.Add(-time.Hour)}
+			}
+		}, bolsa.ErrResultadoMiBolsaInvalido},
+		{"disponible desde sin fecha", func(e *entornoMiBolsa) {
+			e.repositorio.mutar = func(r *bolsa.InstantaneaMiBolsa) {
+				r.Participaciones[0].SituacionActual = &bolsa.SituacionActualMiBolsa{Estado: "disponible_desde", Desde: r.ConsultadaEn.Add(-time.Hour)}
+			}
+		}, bolsa.ErrResultadoMiBolsaInvalido},
 	} {
 		t.Run(caso.nombre, func(t *testing.T) {
 			e := nuevoEntorno(t)

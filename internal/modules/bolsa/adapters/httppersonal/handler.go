@@ -86,14 +86,21 @@ type respuestaError struct {
 	Error errorRespuesta `json:"error"`
 }
 type participacion struct {
-	Bolsa            string  `json:"bolsa"`
-	Categoria        string  `json:"categoria"`
-	Version          uint64  `json:"version"`
-	OrdenInicial     uint64  `json:"orden_inicial"`
-	TotalInstantanea uint64  `json:"total_instantanea"`
-	EstadoBolsa      string  `json:"estado_bolsa"`
-	VigenteDesde     string  `json:"vigente_desde"`
-	VigenteHasta     *string `json:"vigente_hasta"`
+	Bolsa            string           `json:"bolsa"`
+	Categoria        string           `json:"categoria"`
+	Version          uint64           `json:"version"`
+	OrdenInicial     uint64           `json:"orden_inicial"`
+	TotalInstantanea uint64           `json:"total_instantanea"`
+	EstadoBolsa      string           `json:"estado_bolsa"`
+	VigenteDesde     string           `json:"vigente_desde"`
+	VigenteHasta     *string          `json:"vigente_hasta"`
+	SituacionActual  *situacionActual `json:"situacion_actual"`
+}
+type situacionActual struct {
+	Estado          string  `json:"estado"`
+	Desde           string  `json:"desde"`
+	Hasta           *string `json:"hasta"`
+	FechaDisponible *string `json:"fecha_disponible"`
 }
 type respuesta struct {
 	Data struct {
@@ -111,10 +118,22 @@ func nuevaRespuesta(i puertosbolsa.InstantaneaMiBolsa) respuesta {
 	r.Data.ConsultadaEn = i.ConsultadaEn.Format("2006-01-02T15:04:05.000000Z07:00")
 	r.Data.Participaciones = make([]participacion, 0, len(i.Participaciones))
 	for _, p := range i.Participaciones {
-		x := participacion{p.Bolsa, p.Categoria, p.Version, p.OrdenInicial, p.TotalInstantanea, p.EstadoBolsa, p.VigenteDesde.Format("2006-01-02T15:04:05.000000Z07:00"), nil}
+		x := participacion{Bolsa: p.Bolsa, Categoria: p.Categoria, Version: p.Version, OrdenInicial: p.OrdenInicial, TotalInstantanea: p.TotalInstantanea, EstadoBolsa: p.EstadoBolsa, VigenteDesde: p.VigenteDesde.Format("2006-01-02T15:04:05.000000Z07:00")}
 		if p.VigenteHasta != nil {
 			v := p.VigenteHasta.Format("2006-01-02T15:04:05.000000Z07:00")
 			x.VigenteHasta = &v
+		}
+		if p.SituacionActual != nil {
+			s := p.SituacionActual
+			x.SituacionActual = &situacionActual{Estado: s.Estado, Desde: s.Desde.Format("2006-01-02T15:04:05.000000Z07:00")}
+			if s.Hasta != nil {
+				hasta := s.Hasta.Format("2006-01-02T15:04:05.000000Z07:00")
+				x.SituacionActual.Hasta = &hasta
+			}
+			if s.FechaDisponible != nil {
+				fecha := s.FechaDisponible.Format("2006-01-02T15:04:05.000000Z07:00")
+				x.SituacionActual.FechaDisponible = &fecha
+			}
 		}
 		r.Data.Participaciones = append(r.Data.Participaciones, x)
 	}

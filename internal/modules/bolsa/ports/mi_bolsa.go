@@ -36,6 +36,16 @@ type ParticipacionMiBolsa struct {
 	EstadoBolsa      string
 	VigenteDesde     time.Time
 	VigenteHasta     *time.Time
+	SituacionActual  *SituacionActualMiBolsa
+}
+
+// SituacionActualMiBolsa contiene solo el ultimo hecho B2 autorizado.
+// El motivo libre, actor, recibo y referencia interna no salen de Bolsa.
+type SituacionActualMiBolsa struct {
+	Estado          string
+	Desde           time.Time
+	Hasta           *time.Time
+	FechaDisponible *time.Time
 }
 
 type InstantaneaMiBolsa struct {

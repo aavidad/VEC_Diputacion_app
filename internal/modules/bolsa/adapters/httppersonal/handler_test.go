@@ -1,10 +1,13 @@
 package httppersonal
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -14,6 +17,36 @@ import (
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
+
+func TestMiBolsaSerializaUltimoEstadoSinMotivoLibre(t *testing.T) {
+	desde := time.Date(2026, 9, 20, 10, 0, 0, 0, time.UTC)
+	i := puertosbolsa.InstantaneaMiBolsa{ConsultadaEn: desde.Add(time.Hour), Participaciones: []puertosbolsa.ParticipacionMiBolsa{{
+		Bolsa: "bolsa:01", Categoria: "Auxiliar", Version: 3, OrdenInicial: 2, TotalInstantanea: 4,
+		EstadoBolsa: "vigente", VigenteDesde: desde.Add(-time.Hour),
+		SituacionActual: &puertosbolsa.SituacionActualMiBolsa{Estado: "no_disponible", Desde: desde},
+	}}}
+	contenido, err := json.Marshal(nuevaRespuesta(i))
+	if err != nil {
+		t.Fatal(err)
+	}
+	esperado, err := os.ReadFile("testdata/mi_bolsa_situacion.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(contenido, bytes.TrimSpace(esperado)) {
+		t.Fatalf("cambió el payload HTTP propio: %s", contenido)
+	}
+	for _, requerido := range []string{`"situacion_actual"`, `"estado":"no_disponible"`, `"desde":"2026-09-20T10:00:00.000000Z"`, `"hasta":null`} {
+		if !strings.Contains(string(contenido), requerido) {
+			t.Fatalf("falta %s: %s", requerido, contenido)
+		}
+	}
+	for _, prohibido := range []string{"motivo", "actor", "recibo_ref", "participacion_ref"} {
+		if strings.Contains(string(contenido), prohibido) {
+			t.Fatalf("se expone %s: %s", prohibido, contenido)
+		}
+	}
+}
 
 type preparadorPrueba struct {
 	llamadas int
