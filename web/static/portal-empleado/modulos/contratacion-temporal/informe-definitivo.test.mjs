@@ -44,6 +44,7 @@ async function montar(descargar, perfil = perfiles[0], estado = estadoReal()) {
   const reintentos = perfiles.map(({ accion }) => ({ disabled: true, hidden: true, dataset: {
     ctExpAccion: accion.replace("descargar-", "reintentar-descarga-"),
   } }));
+  const cancelaciones = [{ disabled: true, dataset: { ctExpAccion: "cancelar-descarga" } }];
   const boton = botones.find((control) => control.dataset.ctExpAccion === perfil.accion);
   const raiz = {
     innerHTML: "", contains: () => true,
@@ -52,7 +53,8 @@ async function montar(descargar, perfil = perfiles[0], estado = estadoReal()) {
     querySelector: (selector) => selector === "[data-ct-exp-mensaje]" ? mensaje
       : reintentos.find((control) => selector === `[data-ct-exp-accion="${control.dataset.ctExpAccion}"]`) ?? null,
     querySelectorAll: (selector) => selector.startsWith('[data-ct-exp-accion^="reintentar-descarga-"]')
-      ? reintentos : selector.includes("data-ct-exp-accion") ? botones : [],
+      ? reintentos : selector === '[data-ct-exp-accion="cancelar-descarga"]'
+        ? cancelaciones : selector.includes("data-ct-exp-accion") ? botones : [],
   };
   const montaje = await montarModuloContratacionTemporal({
     raiz, presentador: {
@@ -73,7 +75,8 @@ async function montar(descargar, perfil = perfiles[0], estado = estadoReal()) {
   const click = (selector = "[data-ct-exp-accion]", control = boton) => eventos.get("click")({
     target: { closest: (buscado) => buscado === selector ? control : null }, preventDefault() {},
   });
-  return { estado, raiz, boton, botones, reintentos, mensaje, montaje, click, descargas, creados, revocados };
+  return { estado, raiz, boton, botones, cancelaciones, reintentos, mensaje, montaje, click,
+    descargas, creados, revocados };
 }
 
 test("seis botones de cabecera v7 real sin tareas, nunca fase/versión/consulta pendiente ajenas", () => {
@@ -389,6 +392,38 @@ test("cancelar una descarga aborta su lectura sin alterar el detalle", async () 
   await pendiente;
   assert.equal(vista.raiz.innerHTML, detalle);
   assert.deepEqual(vista.descargas, []);
+  vista.montaje.desmontar();
+});
+
+test("la respuesta tardía cancelada no libera los controles del reintento activo", async () => {
+  const resolver = [];
+  const señales = [];
+  const vista = await montar((_, opciones) => {
+    señales.push(opciones.signal);
+    return new Promise((resolve) => { resolver.push(resolve); });
+  });
+  const pendienteA = vista.click();
+  assert.equal(vista.cancelaciones[0].disabled, false);
+  await vista.click("[data-ct-exp-accion]", vista.cancelaciones[0]);
+  assert.equal(señales[0].aborted, true);
+  const pendienteB = vista.click();
+  assert.equal(señales.length, 2);
+  assert.equal(señales[1].aborted, false);
+  assert.ok(vista.botones.every((control) => control.disabled === true));
+  assert.equal(vista.cancelaciones[0].disabled, false);
+
+  resolver[0](new Blob(["respuesta A"], { type: "application/pdf" }));
+  await pendienteA;
+  assert.deepEqual(vista.descargas, []);
+  assert.ok(vista.botones.every((control) => control.disabled === true));
+  assert.equal(vista.cancelaciones[0].disabled, false);
+
+  resolver[1](new Blob(["respuesta B"], { type: "application/pdf" }));
+  await pendienteB;
+  assert.equal(vista.descargas.length, 1);
+  assert.equal(await vista.creados[0].text(), "respuesta B");
+  assert.ok(vista.botones.every((control) => control.disabled === false));
+  assert.equal(vista.cancelaciones[0].disabled, true);
   vista.montaje.desmontar();
 });
 
