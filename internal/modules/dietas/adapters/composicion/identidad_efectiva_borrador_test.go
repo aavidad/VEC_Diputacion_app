@@ -26,7 +26,7 @@ func (i *identidadR15Prueba) ResolverIdentidadRegistradaBorrador(context.Context
 
 type proveedorR15Prueba struct{ llamadas int }
 
-func (p *proveedorR15Prueba) AutorizarBorradorPropio(context.Context, dietasports.EfectoAutorizacionBorrador) (dietasports.AutorizacionBorradorDurable, error) {
+func (p *proveedorR15Prueba) AutorizarBorradorPropio(context.Context, IdentidadRegistradaBorrador, dietasports.SolicitudOperacionBorrador, dietasports.RevalidacionRelacionPersonal, dietasports.EfectoAutorizacionBorrador) (dietasports.AutorizacionBorradorDurable, error) {
 	p.llamadas++
 	return dietasports.AutorizacionBorradorDurable{}, nil
 }
@@ -134,7 +134,7 @@ type relojVinculoR15 struct{ ahora time.Time }
 
 func (r relojVinculoR15) Ahora() time.Time { return r.ahora }
 
-func (a *autorizadorCompletoR15) AutorizarBorradorPropio(context.Context, dietasports.EfectoAutorizacionBorrador) (dietasports.AutorizacionBorradorDurable, error) {
+func (a *autorizadorCompletoR15) AutorizarBorradorPropio(context.Context, IdentidadRegistradaBorrador, dietasports.SolicitudOperacionBorrador, dietasports.RevalidacionRelacionPersonal, dietasports.EfectoAutorizacionBorrador) (dietasports.AutorizacionBorradorDurable, error) {
 	a.llamadas++
 	return a.a, a.err
 }

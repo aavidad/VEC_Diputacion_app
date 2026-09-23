@@ -33,7 +33,7 @@ type ResolutorIdentidadRegistradaBorrador interface {
 // libres. La implementación productiva emite el material V3 que SQL volverá a
 // verificar y consumir junto al efecto.
 type ProveedorAutorizacionBorrador interface {
-	AutorizarBorradorPropio(context.Context, dietasports.EfectoAutorizacionBorrador) (dietasports.AutorizacionBorradorDurable, error)
+	AutorizarBorradorPropio(context.Context, IdentidadRegistradaBorrador, dietasports.SolicitudOperacionBorrador, dietasports.RevalidacionRelacionPersonal, dietasports.EfectoAutorizacionBorrador) (dietasports.AutorizacionBorradorDurable, error)
 }
 
 type ResolutorIdentidadEfectivaBorrador struct {
@@ -88,7 +88,7 @@ func (r *ResolutorIdentidadEfectivaBorrador) ResolverIdentidadEfectivaBorrador(c
 	if err != nil {
 		return cero, dietasports.ErrAccesoBorradorDenegado
 	}
-	autorizacion, err := r.autorizacion.AutorizarBorradorPropio(ctx, efecto)
+	autorizacion, err := r.autorizacion.AutorizarBorradorPropio(ctx, base, solicitud, sello, efecto)
 	if err != nil {
 		return cero, opaco(ctx, err)
 	}
