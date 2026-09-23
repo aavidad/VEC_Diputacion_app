@@ -38,6 +38,7 @@ type capacidadConsultaContratacionTemporalDesarrollo struct {
 	ruta                    string
 	principal               vecdomain.Principal
 	consultaRRHH            *contextoConsultaRRHHPeticionDesarrollo
+	contextoOperacion       *contextoOperacionCTDesarrollo
 	vinculoCanalTLS         [32]byte
 	certificadoVerificadoEn time.Time
 	certificadoValidoHasta  time.Time
@@ -205,6 +206,9 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	}
 	dependencias, err := nuevasDependenciasCT(cfg, resolvedor, derivador, kms, registro)
 	if err != nil {
+		return nil, nil, nil, err
+	}
+	if err := dependencias.cfg.ContratacionTemporalPostgreSQL.ValidarIdentidadOperativa(); err != nil {
 		return nil, nil, nil, err
 	}
 	cfg, resolvedorDesarrollo, derivador, registro := dependencias.cfg, dependencias.resolvedor, dependencias.derivador, dependencias.registro
