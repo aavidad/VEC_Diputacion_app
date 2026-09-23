@@ -1,4 +1,4 @@
-import { crearTraductorAuditoria } from "./i18n.js";
+import { crearTraductorAuditoria } from "./i18n.js?v=20260924-f2-web2";
 
 function escapar(valor) {
   return String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;")

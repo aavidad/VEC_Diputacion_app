@@ -28,3 +28,11 @@ test("la vista no añade red, almacenamiento ni datos locales de auditoría", as
   assert.doesNotMatch(fuente, /(?:fetch\(|XMLHttpRequest|localStorage|sessionStorage|indexedDB|document\.cookie|datos-presentacion\.js)/iu);
   assert.doesNotMatch(fuente, /EVENTOS_AUDITORIA_PRESENTACION|ESTADO_AUDITORIA_PRESENTACION/u);
 });
+
+test("la vista carga la versión actual del catálogo de Auditoría", async () => {
+  const fuente = await readFile(new URL("./vista.js", import.meta.url), "utf8");
+  assert.match(fuente, /from "\.\/i18n\.js\?v=20260924-f2-web2"/u);
+  const catalogo = await import("./i18n.js?v=20260924-f2-web2");
+  assert.equal(catalogo.crearTraductorAuditoria()("estado_no_configurado"), "Consulta no configurada");
+  assert.match(renderizarVistaAuditoria(), /Consulta no configurada/u);
+});
