@@ -43,7 +43,7 @@ const respaldo = Object.freeze({
   "areaPersonal.contacto.correctoAnterior": "Recibo de un guardado anterior: {recibo}. No acredita el resultado de otro intento.",
   "areaPersonal.contacto.errorEntrada": "Revise el correo de contacto antes de enviarlo.",
   "areaPersonal.contacto.errorPermiso": "No dispone de permiso para actualizar el correo de contacto.",
-  "areaPersonal.contacto.errorServicio": "No se pudo confirmar el guardado del correo de contacto. No se ha repetido la operación.",
+  "areaPersonal.contacto.errorServicio": "No se pudo determinar el resultado del cambio. Consulte las operaciones antes de volver a actuar; no se ha repetido la petición.",
   "areaPersonal.contacto.consultarRecibo": "Consultar recibo",
   "areaPersonal.contacto.consultando": "Consultando recibo…",
   "areaPersonal.contacto.consultaNoDisponible": "La consulta del recibo no está disponible para este intento.",
@@ -69,7 +69,7 @@ const respaldo = Object.freeze({
   "areaPersonal.contacto.canceladaSeleccionada": "Preparación cancelada. Puede iniciar un cambio nuevo.",
   "areaPersonal.contacto.reciboSeleccionado": "Operación confirmada. Recibo original: {recibo}.",
   "areaPersonal.contacto.conflictoPreparada": "Otra pestaña preparó un cambio. Actualice las operaciones y seleccione la preparación pendiente.",
-  "areaPersonal.contacto.conflicto": "La versión o el estado cambió. Consulte esta operación antes de continuar.",
+  "areaPersonal.contacto.conflicto": "La versión o el estado cambió. Actualice las operaciones y recargue la página antes de continuar.",
   "areaPersonal.contacto.confirmacionIncierta": "La confirmación no tiene respuesta definitiva. Se consulta esta operación exacta; no se enviará otra confirmación automáticamente.",
   "areaPersonal.contacto.resultadoNoConfirmado": "La operación sigue preparada. Consulte su estado antes de decidir cómo continuar.",
   "areaPersonal.demo.nota": "Recorrido de demostración. Los títulos, CVE y fechas de publicación BOP son referencias públicas reales. La identidad, los expedientes, los plazos operativos, las puntuaciones y todas las acciones son sintéticos; solo viven en memoria y generan recibos DEMO sin validez administrativa."
