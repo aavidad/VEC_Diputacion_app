@@ -3,6 +3,32 @@
   display: none;
 }
 
+.dietas-borradores-propios [data-dietas-borradores-listado]:focus,
+.dietas-borradores-propios [data-dietas-borrador-ficha]:focus,
+.dietas-borradores-propios [data-dietas-borrador-recibo]:focus {
+  outline: 3px solid var(--portal-azul-700);
+  outline-offset: -3px;
+}
+
+.dietas-borradores-propios .dietas-listado > .cuerpo-panel > .dietas-borradores-indicacion {
+  margin: 12px;
+  padding: 14px;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio);
+  background: var(--portal-superficie-alterna);
+  color: var(--portal-muted);
+}
+
+.dietas-borradores-propios .dietas-listado > .cuerpo-panel > .dietas-borradores-indicacion-error {
+  border-inline-start: 4px solid var(--portal-peligro);
+  color: var(--portal-tinta);
+}
+
+.dietas-borradores-propios .dietas-listado > .cuerpo-panel > [data-dietas-borrador-recargar] {
+  justify-self: start;
+  margin: 0 12px 12px;
+}
+
 .dietas-borradores-propios .dietas-borradores-fila[data-seleccionado="true"] {
   border-inline-start-color: var(--portal-exito);
   background: var(--portal-superficie-alterna);
@@ -15,6 +41,12 @@
 .dietas-borradores-propios select:focus-visible {
   outline: 3px solid var(--portal-azul-700);
   outline-offset: 2px;
+}
+
+@media (min-width: 1024px) {
+  .dietas-borradores-propios[data-formulario-visible="false"] .dietas-borradores-principal {
+    grid-template-rows: minmax(0, 1fr);
+  }
 }
 
 @media (max-width: 520px) {
