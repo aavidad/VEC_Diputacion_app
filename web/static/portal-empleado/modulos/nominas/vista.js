@@ -2,7 +2,9 @@ import { crearTraductorNominas } from "./i18n.js";
 
 const ESTADOS = new Set(["no_configurado", "cargando", "disponible", "vacio", "denegado", "error"]);
 const FORMATO_PERIODO = /^\d{4}-(0[1-9]|1[0-2])$/;
+const NOMBRE_PDF = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,119}\.pdf$/i;
 const fechaES = new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" });
+let siguienteDetalleId = 0;
 
 function elemento(doc, etiqueta, texto, clase) {
   const nodo = doc.createElement(etiqueta);
@@ -33,15 +35,26 @@ function validarRespuesta(respuesta) {
     if (fecha && Number.isNaN(fecha.getTime())) throw new TypeError("fecha de nómina inválida");
     return { referencia: r.referencia, periodo: r.periodo, tipo: r.tipo, version: r.version, fecha, descargable: r.descargable === true };
   });
+  if (new Set(recibos.map((r) => r.referencia)).size !== recibos.length) throw new TypeError("referencias de nómina duplicadas");
   const actualizada = respuesta.actualizado_en ? new Date(respuesta.actualizado_en) : null;
   if (actualizada && Number.isNaN(actualizada.getTime())) throw new TypeError("actualización de nómina inválida");
   return { estado: recibos.length ? "disponible" : "vacio", recibos, origen: respuesta.origen.trim(), actualizada };
 }
 
+async function validarDocumento(respuesta, ventana) {
+  if (!respuesta || !(respuesta.contenido instanceof ventana.Blob) || respuesta.contenido.size === 0 || respuesta.contenido.size > 50 * 1024 * 1024 || respuesta.contenido.type !== "application/pdf" || typeof respuesta.nombre !== "string" || !NOMBRE_PDF.test(respuesta.nombre)) {
+    throw new TypeError("documento de nómina inválido");
+  }
+  if (await respuesta.contenido.slice(0, 5).text() !== "%PDF-") throw new TypeError("documento de nómina inválido");
+  return respuesta;
+}
+
 /**
  * Montaje: montarVistaNominas({ raiz, anunciar?, registrarDesmontar?, fuente? }).
  * fuente.consultar({ signal }) devuelve { estado, origen, actualizado_en, recibos }.
- * fuente.descargar(referencia, { signal }) ejecuta la descarga autorizada del original.
+ * fuente.descargar(referencia, { signal }) devuelve { contenido: Blob PDF, nombre }.
+ * El conector autorizado obtiene el original; la vista valida el archivo y dispara
+ * la descarga local sin guardar el contenido en almacenamiento web.
  * Sin fuente no se consulta ni se muestra el atlas sintético de presentación.
  */
 export function montarVistaNominas({ raiz, anunciar = () => {}, registrarDesmontar, fuente } = {}) {
@@ -53,7 +66,7 @@ export function montarVistaNominas({ raiz, anunciar = () => {}, registrarDesmont
   const cabecera = elemento(doc, "header", undefined, "nominas-cabecera");
   cabecera.append(elemento(doc, "h2", t("titulo")), elemento(doc, "p", t("descripcion")));
   const ayuda = elemento(doc, "details", undefined, "nominas-ayuda");
-  ayuda.append(elemento(doc, "summary", `${t("ayuda")} (?)`), elemento(doc, "p", t("ayuda_texto")));
+  ayuda.append(elemento(doc, "summary", t("ayuda")), elemento(doc, "p", t("ayuda_texto")));
   cabecera.append(ayuda);
   const estadoVisible = elemento(doc, "div", undefined, "nominas-estado");
   estadoVisible.setAttribute("role", "status");
@@ -62,6 +75,12 @@ export function montarVistaNominas({ raiz, anunciar = () => {}, registrarDesmont
   const principal = elemento(doc, "div", undefined, "nominas-principal");
   const historial = panel(doc, t("historial"), t("historial_subtitulo"), "nominas-historial");
   const lateral = elemento(doc, "div", undefined, "nominas-lateral");
+  lateral.tabIndex = 0;
+  lateral.setAttribute("role", "region");
+  lateral.setAttribute("aria-label", t("lateral"));
+  const detalle = panel(doc, t("detalle"), t("detalle_subtitulo"), "nominas-detalle");
+  detalle.seccion.id = `nominas-detalle-${++siguienteDetalleId}`;
+  detalle.seccion.hidden = true;
   const certificados = panel(doc, t("certificados"), t("certificados_subtitulo"), "nominas-certificados");
   certificados.cuerpo.append(elemento(doc, "p", t("certificados_pendientes")));
   const aclaraciones = panel(doc, t("aclaraciones"), t("aclaraciones_subtitulo"), "nominas-aclaraciones");
@@ -71,7 +90,7 @@ export function montarVistaNominas({ raiz, anunciar = () => {}, registrarDesmont
   botonAclaracion.disabled = true;
   botonAclaracion.title = t("aclaraciones_pendientes");
   aclaraciones.cuerpo.append(botonAclaracion);
-  lateral.append(certificados.seccion, aclaraciones.seccion);
+  lateral.append(detalle.seccion, certificados.seccion, aclaraciones.seccion);
   principal.append(historial.seccion, lateral);
   contenedor.append(cabecera, estadoVisible, metadatos, principal);
   raiz.append(contenedor);
@@ -83,7 +102,11 @@ export function montarVistaNominas({ raiz, anunciar = () => {}, registrarDesmont
   let origen = "";
   let actualizada = null;
   let periodo = "";
+  let seleccion = "";
   let secuencia = 0;
+  let descargando = false;
+  const urlsTemporales = new Set();
+  const temporizadoresURL = new Set();
 
   function pintarEstado() {
     estadoVisible.dataset.estado = estado;
@@ -96,6 +119,68 @@ export function montarVistaNominas({ raiz, anunciar = () => {}, registrarDesmont
       metadatos.append(elemento(doc, "span", `${t("origen")}: ${origen}`));
       if (actualizada) metadatos.append(elemento(doc, "span", `${t("actualizado")}: ${fechaES.format(actualizada)}`));
     }
+  }
+
+  function pintarDetalle() {
+    const recibo = estado === "disponible" ? recibos.find((r) => r.referencia === seleccion) : null;
+    detalle.seccion.hidden = !recibo;
+    detalle.cuerpo.replaceChildren();
+    if (!recibo) return;
+    const datos = elemento(doc, "dl", undefined, "nominas-ficha");
+    for (const [clave, valor] of [
+      ["periodo", recibo.periodo],
+      ["tipo", recibo.tipo],
+      ["version", String(recibo.version)],
+      ["fecha", recibo.fecha ? fechaES.format(recibo.fecha) : t("dato_no_disponible")],
+      ["referencia", recibo.referencia],
+    ]) {
+      datos.append(elemento(doc, "dt", t(clave)), elemento(doc, "dd", valor));
+    }
+    const descarga = elemento(doc, "button", t("descargar"), "boton boton-secundario nominas-descarga");
+    descarga.type = "button";
+    descarga.disabled = descargando || !recibo.descargable || typeof fuente?.descargar !== "function";
+    if (descarga.disabled) descarga.title = t(descargando ? "descarga_en_curso" : "descarga_no_disponible");
+    else descarga.addEventListener("click", async () => {
+      if (descargando) return;
+      descargando = true;
+      const peticion = secuencia;
+      const senal = controlador?.signal;
+      const focoPrevio = doc.activeElement === descarga;
+      descarga.disabled = true;
+      descarga.setAttribute("aria-busy", "true");
+      try {
+        const archivo = await validarDocumento(await fuente.descargar(recibo.referencia, { signal: senal }), doc.defaultView);
+        if (!activa || peticion !== secuencia || senal?.aborted || seleccion !== recibo.referencia) return;
+        const url = doc.defaultView.URL.createObjectURL(archivo.contenido);
+        urlsTemporales.add(url);
+        const enlace = elemento(doc, "a");
+        enlace.href = url;
+        enlace.download = archivo.nombre;
+        contenedor.append(enlace);
+        try { enlace.click(); } catch (error) {
+          doc.defaultView.URL.revokeObjectURL(url);
+          urlsTemporales.delete(url);
+          throw error;
+        } finally { enlace.remove(); }
+        const temporizador = doc.defaultView.setTimeout(() => {
+          doc.defaultView.URL.revokeObjectURL(url);
+          urlsTemporales.delete(url);
+          temporizadoresURL.delete(temporizador);
+        }, 30000);
+        temporizadoresURL.add(temporizador);
+        anunciar(t("descarga_iniciada"), "informacion");
+      } catch {
+        if (activa && peticion === secuencia && !senal?.aborted) anunciar(t("descarga_error"), "error");
+      } finally {
+        descargando = false;
+        if (activa && descarga.isConnected) {
+          descarga.disabled = false;
+          descarga.removeAttribute("aria-busy");
+          if (focoPrevio) descarga.focus({ preventScroll: true });
+        } else if (activa) pintarDetalle();
+      }
+    });
+    detalle.cuerpo.append(datos, descarga);
   }
 
   function pintarHistorial() {
@@ -114,13 +199,20 @@ export function montarVistaNominas({ raiz, anunciar = () => {}, registrarDesmont
     }
     selector.value = periodo;
     selector.disabled = estado !== "disponible";
-    selector.addEventListener("change", () => { periodo = selector.value; pintarHistorial(); });
+    selector.addEventListener("change", () => {
+      periodo = selector.value;
+      const visibles = recibos.filter((r) => !periodo || r.periodo === periodo);
+      if (!visibles.some((r) => r.referencia === seleccion)) seleccion = visibles[0]?.referencia ?? "";
+      pintarHistorial();
+      pintarDetalle();
+      historial.cuerpo.querySelector("select")?.focus({ preventScroll: true });
+    });
     etiqueta.append(selector);
     barra.append(etiqueta);
     if (estado === "error" && fuente) {
       const reintentar = elemento(doc, "button", t("reintentar"), "boton boton-secundario");
       reintentar.type = "button";
-      reintentar.addEventListener("click", consultar);
+      reintentar.addEventListener("click", () => { void consultar(true); });
       barra.append(reintentar);
     }
     historial.cuerpo.append(barra);
@@ -130,6 +222,7 @@ export function montarVistaNominas({ raiz, anunciar = () => {}, registrarDesmont
       return;
     }
     const region = elemento(doc, "div", undefined, "nominas-tabla");
+    historial.cuerpo.append(elemento(doc, "p", t("tabla_desplazable"), "nominas-ayuda-tabla"));
     region.tabIndex = 0;
     region.setAttribute("role", "region");
     region.setAttribute("aria-label", t("historial"));
@@ -147,22 +240,24 @@ export function montarVistaNominas({ raiz, anunciar = () => {}, registrarDesmont
       const fila = elemento(doc, "tr");
       for (const valor of [recibo.periodo, recibo.tipo, String(recibo.version), recibo.fecha ? fechaES.format(recibo.fecha) : t("dato_no_disponible")]) fila.append(elemento(doc, "td", valor));
       const celda = elemento(doc, "td");
-      const descarga = elemento(doc, "button", t("descargar"), "boton boton-secundario nominas-descarga");
-      descarga.type = "button";
-      descarga.disabled = !recibo.descargable || typeof fuente?.descargar !== "function";
-      if (descarga.disabled) descarga.title = t("descarga_no_disponible");
-      else descarga.addEventListener("click", async () => {
-        descarga.disabled = true;
-        try {
-          await fuente.descargar(recibo.referencia, { signal: controlador?.signal });
-          if (activa) anunciar(t("descarga_solicitada"), "informacion");
-        } catch {
-          if (activa) anunciar(t("descarga_error"), "error");
-        } finally {
-          if (activa) descarga.disabled = false;
+      const ver = elemento(doc, "button", t("ver_detalle"), "boton boton-secundario nominas-ver");
+      ver.type = "button";
+      ver.setAttribute("aria-controls", detalle.seccion.id);
+      ver.setAttribute("aria-pressed", String(recibo.referencia === seleccion));
+      if (recibo.referencia === seleccion) fila.dataset.seleccionada = "true";
+      ver.addEventListener("click", () => {
+        seleccion = recibo.referencia;
+        for (const otra of tbody.querySelectorAll("tr")) {
+          const boton = otra.querySelector("button[aria-controls]");
+          const elegido = boton === ver;
+          boton?.setAttribute("aria-pressed", String(elegido));
+          if (elegido) otra.dataset.seleccionada = "true";
+          else delete otra.dataset.seleccionada;
         }
+        pintarDetalle();
+        anunciar(t("seleccionado", recibo), "informacion");
       });
-      celda.append(descarga);
+      celda.append(ver);
       fila.append(celda);
       tbody.append(fila);
     }
@@ -175,9 +270,10 @@ export function montarVistaNominas({ raiz, anunciar = () => {}, registrarDesmont
     if (!activa || !ESTADOS.has(estado)) return;
     pintarEstado();
     pintarHistorial();
+    pintarDetalle();
   }
 
-  async function consultar() {
+  async function consultar(enfocar = false) {
     if (!activa || !fuente) return;
     controlador?.abort();
     controlador = new AbortController();
@@ -187,11 +283,14 @@ export function montarVistaNominas({ raiz, anunciar = () => {}, registrarDesmont
     origen = "";
     actualizada = null;
     periodo = "";
+    seleccion = "";
     pintar();
+    if (enfocar) { estadoVisible.tabIndex = -1; estadoVisible.focus({ preventScroll: true }); }
     try {
       const respuesta = validarRespuesta(await fuente.consultar({ signal: controlador.signal }));
       if (!activa || actual !== secuencia || controlador.signal.aborted) return;
       ({ estado, recibos, origen = "", actualizada = null } = respuesta);
+      seleccion = recibos[0]?.referencia ?? "";
     } catch {
       if (!activa || actual !== secuencia || controlador.signal.aborted) return;
       estado = "error";
@@ -204,6 +303,10 @@ export function montarVistaNominas({ raiz, anunciar = () => {}, registrarDesmont
     activa = false;
     ++secuencia;
     controlador?.abort();
+    for (const temporizador of temporizadoresURL) doc.defaultView.clearTimeout(temporizador);
+    for (const url of urlsTemporales) doc.defaultView.URL.revokeObjectURL(url);
+    temporizadoresURL.clear();
+    urlsTemporales.clear();
     contenedor.remove();
   }
   registrarDesmontar?.(desmontar);

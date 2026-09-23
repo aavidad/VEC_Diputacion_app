@@ -1,7 +1,7 @@
 export const MENSAJES_NOMINAS_ES = Object.freeze({
   titulo: "Nóminas y retribuciones",
   descripcion: "Consulta personal de recibos por periodo y certificados económicos.",
-  ayuda: "Ayuda sobre esta consulta",
+  ayuda: "Ayuda sobre esta consulta (?)",
   ayuda_texto: "Los recibos y sus versiones se mostrarán cuando el sistema de nómina aporte una consulta autorizada para esta persona. Una nómina emitida, un certificado fiscal y una aclaración tienen fuentes y trámites distintos. La descarga requiere el documento original y autorización vigente.",
   estado_no_configurado: "Fuente de nóminas pendiente",
   estado_cargando: "Consultando la fuente de nóminas",
@@ -17,6 +17,12 @@ export const MENSAJES_NOMINAS_ES = Object.freeze({
   explicacion_error: "La consulta ha fallado. Puede volver a intentarlo; no se han sustituido los datos por ejemplos.",
   historial: "Historial de recibos",
   historial_subtitulo: "Periodos y versiones aportados por la fuente autorizada",
+  detalle: "Recibo seleccionado",
+  detalle_subtitulo: "Datos del documento aportados por la fuente",
+  lateral: "Recibo, certificados y aclaraciones",
+  ver_detalle: "Ver recibo",
+  seleccionado: "Recibo seleccionado: {periodo}, versión {version}.",
+  referencia: "Referencia",
   periodo: "Periodo",
   todos: "Todos los periodos",
   tipo: "Documento",
@@ -24,9 +30,11 @@ export const MENSAJES_NOMINAS_ES = Object.freeze({
   fecha: "Fecha de emisión",
   acciones: "Acciones",
   sin_recibos: "No hay recibos disponibles para mostrar.",
+  tabla_desplazable: "Deslice la tabla para ver el resto de columnas y acciones.",
   descargar: "Descargar original",
   descarga_no_disponible: "Descarga pendiente del conector documental autorizado",
-  descarga_solicitada: "Se ha solicitado la descarga del documento original.",
+  descarga_en_curso: "Descarga del original en curso",
+  descarga_iniciada: "Se ha iniciado la descarga del documento original.",
   descarga_error: "No se ha podido descargar el documento.",
   certificados: "Certificados económicos",
   certificados_subtitulo: "Retenciones y otros certificados de la fuente competente",
@@ -42,5 +50,5 @@ export const MENSAJES_NOMINAS_ES = Object.freeze({
 });
 
 export function crearTraductorNominas(mensajes = MENSAJES_NOMINAS_ES) {
-  return (clave) => mensajes[clave] ?? clave;
+  return (clave, valores = {}) => (mensajes[clave] ?? clave).replace(/\{(\w+)\}/g, (_, campo) => String(valores[campo] ?? ""));
 }
