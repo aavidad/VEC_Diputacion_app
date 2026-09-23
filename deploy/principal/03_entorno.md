@@ -55,3 +55,32 @@ El ejemplo es sintético y no se copia literalmente: `sujeto`,
 `certificado_sha256` y `perfil_ref` deben ser los tres valores correlacionados
 con la identidad de desarrollo ya publicada. Ninguno se obtiene del navegador.
 No se versionan el fichero efectivo, contraseñas, certificados ni DSN reales.
+
+## Lo que exigió de verdad el despliegue en cidonia (23/09/2026)
+
+- **Conexiones.** Con Bolsa llamamientos configurada, el arranque solo exige
+  `VEC_BOLSA_AUDITORIA_FRONTERA_DATABASE_URL` (LOGIN
+  `vec_b2_auditoria_frontera_desarrollo`); las otras cinco de la lista anterior
+  son de funciones opcionales (consulta pública separada, borradores de
+  convocatoria) y su ausencia no impide arrancar. En cidonia el contador pasó de
+  12 a **13**, no a 18.
+- **`perfil_ref` no es libre.** El arranque de B-BACK lo compara con el perfil
+  que deriva de la identidad (`bolsa_borrador_identidad_desarrollo.go`), así que
+  un valor inventado lo rechaza con «material criptográfico de desarrollo
+  inválido». Se calcula así, con `sujeto` y `certificado_sha256` del mismo
+  manifiesto:
+
+  ```text
+  perfil_ref = "prf_" + hex(SHA-256("vec.ct.alta.desarrollo.v1\0" + sujeto
+                                    + "\0" + certificado_sha256
+                                    + "\0perfil-bolsa-bback-v1")[0:16])
+  ```
+
+- **`bolsas_ref`** son las referencias vigentes de
+  `vec_bolsa_llamamientos.bolsa_constituida` en esa base; en cidonia, las doce
+  importadas de CONVOCA (`bolsa:<categoría>:2026-09-17`).
+- **Réplica atrasada.** Si la base está por detrás de AD3 `000046` / Bolsa
+  `000014`, primero `00_puesta_al_dia.sh` (ensayo con `ROLLBACK`, luego
+  `COMMIT`), después `01_roles.sql`, `02_migraciones.sql` y Bolsa `000018`.
+- **Diagnóstico.** Si B-BACK no monta, el registro de arranque indica ahora el
+  fichero y la línea de la comprobación que falló, encadenando la causa.
