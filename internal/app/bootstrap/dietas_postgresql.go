@@ -16,6 +16,7 @@ import (
 const (
 	rolDietasBorradoresPostgreSQLDesarrollo = "vec_dietas_ejecutor"
 	rolPersonalDietasPostgreSQLDesarrollo   = "vec_dietas_ejecutor"
+	rolAuditoriaFronteraDietasDesarrollo    = "vec_dietas_registrador_frontera"
 )
 
 var (
@@ -41,6 +42,10 @@ type perfilPoolPostgreSQLDietasDesarrollo struct {
 var perfilesPoolPostgreSQLDietasDesarrollo = [2]perfilPoolPostgreSQLDietasDesarrollo{
 	{rolDietasBorradoresPostgreSQLDesarrollo, "vec-dietas-borradores", 4, false},
 	{rolPersonalDietasPostgreSQLDesarrollo, "vec-dietas-personal-relaciones", 2, true},
+}
+
+var perfilAuditoriaFronteraDietasDesarrollo = perfilPoolPostgreSQLDietasDesarrollo{
+	rolAuditoriaFronteraDietasDesarrollo, "vec-dietas-auditoria-frontera", 2, false,
 }
 
 // poolsPostgreSQLDietasDesarrollo no retiene DSN. Cada getter entrega sólo el
@@ -114,6 +119,34 @@ func crearPoolPostgreSQLDietasDesarrollo(ctx context.Context, cfg *pgxpool.Confi
 		return nil, errConexionPostgreSQLDietasDesarrolloNoDisponible
 	}
 	return pool, nil
+}
+
+// La bitácora de denegaciones utiliza una identidad sin privilegios de negocio.
+// Se acredita igual que los pools propios y nunca comparte login con ellos.
+func abrirPoolAuditoriaFronteraDietasDesarrollo(ctx context.Context, dsn string) (*pgxpool.Pool, string, error) {
+	if ctx == nil || ctx.Err() != nil {
+		return nil, "", errConexionPostgreSQLDietasDesarrolloNoDisponible
+	}
+	configuracion, err := prepararConfiguracionPoolPostgreSQLDietasDesarrollo(dsn, perfilAuditoriaFronteraDietasDesarrollo)
+	if err != nil {
+		return nil, "", err
+	}
+	pool, err := pgxpool.NewWithConfig(ctx, configuracion)
+	if err != nil {
+		return nil, "", errConexionPostgreSQLDietasDesarrolloNoDisponible
+	}
+	sonda, cancelar := context.WithTimeout(ctx, 5*time.Second)
+	defer cancelar()
+	if pool.Ping(sonda) != nil {
+		pool.Close()
+		return nil, "", errConexionPostgreSQLDietasDesarrolloNoDisponible
+	}
+	usuario, _, err := acreditarPoolPostgreSQLDietasDesarrollo(ctx, pool, rolAuditoriaFronteraDietasDesarrollo)
+	if err != nil {
+		pool.Close()
+		return nil, "", errIdentidadPostgreSQLDietasDesarrolloInvalida
+	}
+	return pool, usuario, nil
 }
 
 func prepararConfiguracionPoolPostgreSQLDietasDesarrollo(dsn string, perfil perfilPoolPostgreSQLDietasDesarrollo) (*pgxpool.Config, error) {
@@ -193,6 +226,9 @@ func acreditarPoolPostgreSQLDietasDesarrollo(ctx context.Context, consulta inter
 }
 
 func rolPoolPostgreSQLDietasDesarrolloValido(rol string) bool {
+	if rol == rolAuditoriaFronteraDietasDesarrollo {
+		return true
+	}
 	for _, p := range perfilesPoolPostgreSQLDietasDesarrollo {
 		if p.rol == rol {
 			return true
