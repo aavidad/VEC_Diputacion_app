@@ -1,5 +1,31 @@
 # Estado y plan de ataque del proyecto
 
+## Cidonia al día y plan hasta la presentación — 23 de septiembre de 2026
+
+Métrica (criterio estricto): Contratación temporal ≈6 de 8 pasos (sin cambio);
+**Bolsa 10 de 14** requisitos (B1, B2, B3, B4, B5, B6, B7, B9, B10, B12). `main` =
+`340e4947`, puerta de calidad verde (Go con `-race`, 1.110 pruebas web).
+
+**Cidonia.cloud, sede de la presentación, sirve `main@b2a688fd` con B-BACK activo.**
+Recorrido en Chrome a 1440×900: cuadro → bolsa → candidatos con orden calculado B6 →
+«Nuevo llamamiento» y bandeja/detalle de Contratación, con 0 errores JS, 0 peticiones
+fallidas y sin scroll de página. El despliegue destapó y corrigió tres fallos: la cadena
+SQL publicada no se podía instalar (AD3 000044 exigía la 000043, que nunca llegó a
+`main`; se integró y se añadió `deploy/principal/00_puesta_al_dia.sh`); la ruta de
+estadísticas no estaba declarada en la frontera mTLS (401); y el `perfil_ref` de
+`bolsa-bback.json` se deriva de la identidad (fórmula en `deploy/principal/03_entorno.md`).
+El montaje de B-BACK dice ahora qué comprobación falla.
+
+**Plan aprobado por Alberto tras revisar el proyecto contra `Peticion.pdf`:** primero lo
+que RRHH pidió expresamente y todavía no existe; ningún consumidor AD3 nuevo hasta la
+presentación. En curso: avisos de salto de orden y de tres años (p. 3, Módulos, D3-AV);
+envío masivo por estado sobre B7 y guion de la demo (Principal, P-WEB-10); después,
+pulido de lo que la demo enseña (P-WEB-11). B8 aparcado en
+`trabajo/b8-operaciones-situacion`. B11 no compone: el acceso del candidato con DNIe o
+certificado ya está decidido (acordado 4) y falta construirlo; el área personal se rotula
+como datos de ejemplo. Siguen sin existir: sanciones, SMS y personalización del envío.
+Instalador desde cero: último, solo si RRHH quiere la aplicación.
+
 ## Taller en orden y primeros requisitos de Bolsa cerrados — 21 y 22 de septiembre de 2026
 
 Métrica (criterio estricto de función terminada): Contratación temporal ≈6 de 8 pasos;
