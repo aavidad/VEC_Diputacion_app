@@ -1,3 +1,6 @@
+import { MENSAJES_BORRADORES_ES } from "./i18n-borradores.js";
+import { MENSAJES_REVISION_DIETAS_ES } from "./i18n-revision.js";
+
 /** Catálogo completo de textos propios de la superficie Dietas. */
 export const MENSAJES_DIETAS_ES = Object.freeze({
   estado_todos: "Todos",
@@ -376,6 +379,8 @@ export const MENSAJES_DIETAS_ES = Object.freeze({
   recorridos_gastos_ayuda: "Dietas, kilometraje, otros gastos y justificantes se muestran como declaración de ejemplo; no aplican una regla aprobada.",
   recorridos_adjuntar_justificante: "Adjuntar justificante",
   recorridos_incidencia: "Incidencia",
+  ...MENSAJES_BORRADORES_ES,
+  ...MENSAJES_REVISION_DIETAS_ES,
 });
 
 const CLAVES = Object.freeze(Object.keys(MENSAJES_DIETAS_ES));

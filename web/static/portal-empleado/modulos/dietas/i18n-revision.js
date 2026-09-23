@@ -9,12 +9,18 @@ export const MENSAJES_REVISION_DIETAS_ES = Object.freeze({
   revision_jefatura_sin_servicio: "La bandeja y las decisiones de jefatura aún no están conectadas al servicio autorizado.",
   revision_gestion_sin_servicio: "La liquidación, fiscalización y consulta de pago aún no están conectadas al circuito económico autorizado.",
   revision_accion_sin_servicio: "Acción pendiente del servicio autorizado",
+  revision_explorar_itinerario: "Explorar itinerario",
+  revision_itinerario_sin_registro: "El itinerario se puede consultar; guardar la comisión requiere el servicio de borradores autorizado.",
 });
 
 export function crearTraductorRevisionDietas(traducirBase) {
   if (typeof traducirBase !== "function") throw new TypeError("traductor de Dietas no disponible");
   return (clave, variables = {}) => {
     if (!Object.hasOwn(MENSAJES_REVISION_DIETAS_ES, clave)) return traducirBase(clave, variables);
+    try {
+      const traducido = traducirBase(clave, variables);
+      if (typeof traducido === "string" && traducido !== clave) return traducido;
+    } catch { /* Catálogos antiguos sin la extensión usan el texto castellano. */ }
     return MENSAJES_REVISION_DIETAS_ES[clave].replace(/\{([a-z_]+)\}/gu, (_coincidencia, variable) => String(variables[variable] ?? ""));
   };
 }
