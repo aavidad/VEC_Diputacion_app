@@ -41,8 +41,12 @@ expedientes. Nada de lo que se enseña firma, notifica ni produce efectos admini
   misma posición, rotulado *provisional, pendiente de RRHH (dudas 13–14)*. *Comprobado.*
 - Los **siete estados** de la petición (disponible, no disponible, trabajando, pendiente de
   incorporación, renuncia, excluido, disponible desde) como contadores y filtro.
-  *Comprobado.* Cambiar la situación de una persona con motivo y recibo (B2): *pendiente
-  de ensayo en cidonia*.
+  *Comprobado.*
+- **Pausar, reactivar y excluir** desde la ficha (B8): motivo, justificante (referencia y
+  huella del documento, que no se sube a VEC) y persona validadora; la exclusión exige una
+  segunda persona (regla provisional, duda 6). Recibo e historial de operaciones.
+  *Comprobado en cidonia por la API (9/9) y en la ficha.* La última persona de «Encargado»
+  ya figura excluida por la prueba.
 - **Ficha de la persona**: datos de contacto cifrados (correo y dos teléfonos, B4) y
   histórico de contactos (B3). *Registro de contactos comprobado por la API; ficha
   pendiente de ensayo.*
@@ -81,7 +85,7 @@ Decirlo sin rodeos al final (ver tabla).
 
 | Petición | Qué se enseña | Estado | Falta y de quién |
 | --- | --- | --- | --- |
-| 1. Bolsas y candidatos | Cuadro, lista ordenada, ficha, contactos cifrados | Hecho | — |
+| 1. Bolsas y candidatos | Cuadro, lista ordenada, ficha, contactos cifrados, pausas y exclusiones con justificante | Hecho | — |
 | 2. Llamamientos según reglamento | Asistente de 4 pasos por el orden vigente | Parcial | Reglamento de Granada: RRHH (dudas 13–14); emisión en cidonia: Desarrollo |
 | 3. Contratos, ceses, reincorporaciones | Tramitación en Contratación temporal | Parcial | Ceses y reincorporaciones completos: Desarrollo |
 | 4. Motor de reglas configurable | Política de orden versionada y rotulada | Parcial | Parámetros aprobados: RRHH |
@@ -95,7 +99,7 @@ Decirlo sin rodeos al final (ver tabla).
 | Reglas de 5 y 9 meses (p. 2) | Reposición provisional | Pendiente | Regla exacta: RRHH (duda 13) |
 | Zona pública (p. 2) | Consulta pública B10 en instancia separada | Hecho, no publicado | Publicación y minimización: RRHH, Secretaría y DPD |
 | Envío masivo por estado (p. 3) | Selección por filtro, hasta 100 | Hecho, sin ensayo | Personalización por persona: Desarrollo |
-| Avisos de salto de orden y 3 años (p. 3) | — | En desarrollo | D3-AV: Desarrollo; destino del aviso y art. 15.5 ET: RRHH |
+| Avisos de salto de orden y 3 años (p. 3) | Bloque «Avisos» en el cuadro de mando | Hecho | Tres años sale a cero hasta que haya histórico; art. 15.5 ET: RRHH (duda 13) |
 | Plantillas y coste por categoría (p. 4) | — | Pendiente | Tabla de retribuciones y plantillas: RRHH; GINPIX: integración |
 
 ## Frases de cierre

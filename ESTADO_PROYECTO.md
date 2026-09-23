@@ -3,8 +3,19 @@
 ## Cidonia al día y plan hasta la presentación — 23 de septiembre de 2026
 
 Métrica (criterio estricto): Contratación temporal ≈6 de 8 pasos (sin cambio);
-**Bolsa 10 de 14** requisitos (B1, B2, B3, B4, B5, B6, B7, B9, B10, B12). `main` =
-`340e4947`, puerta de calidad verde (Go con `-race`, 1.110 pruebas web).
+**Bolsa 12 de 14** requisitos (B1–B10, B12, B13). Faltan B11 (portal del candidato: código
+integrado y revisado, falta preparar la identidad sintética del candidato en cidonia) y B14
+(plazo y documentación para formalizar: dudas 9 y 18 de RRHH). `main` = `caa05b59`, puerta
+verde (Go con `-race`, 1.129 pruebas web). Agentes Codex en `gpt-6-sol`.
+
+Mañana del 23/09: **B6** orden calculado, **B13** envío por estado y avisos de salto de orden
+y tres años (el de tres años sale a cero con su motivo: el histórico empieza el 17/09/2026;
+no se fabrica historia), **B8** pausar, reactivar y excluir con justificante (prueba HTTP
+real en cidonia 9/9), **B11** en código. Corregidos: manifiestos de empaquetado incompletos
+(el portal dejó de cargar en cidonia ~1 h; prueba nueva lo impide), configuración Codex
+versionada que asignaba a toda sesión el papel de Módulos «sin Bolsa», y copia desfasada de
+AD3 000048 en el paquete de despliegue (causa del 403 al emitir; parche preparado, lo aplica
+el operador).
 
 **Cidonia.cloud, sede de la presentación, sirve `main@b2a688fd` con B-BACK activo.**
 Recorrido en Chrome a 1440×900: cuadro → bolsa → candidatos con orden calculado B6 →
