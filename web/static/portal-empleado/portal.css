@@ -299,9 +299,9 @@ a:focus-visible,
 
 .enlace-lateral:hover:not(:disabled),
 .enlace-lateral[aria-current="page"] {
-  border-left-color: #58a8ff;
-  background: rgba(4, 104, 223, 0.64);
-  color: #fff;
+  border-left-color: var(--portal-azul-100);
+  background: var(--portal-azul-700);
+  color: var(--portal-texto-inverso);
 }
 
 .enlace-lateral:disabled {
@@ -629,44 +629,44 @@ a:focus-visible,
 }
 
 .boton-primario {
-  border-color: #064ca7;
+  border-color: var(--portal-azul-800);
   background: var(--portal-azul-700);
-  color: #fff;
-  box-shadow: 0 1px 3px rgba(7, 95, 202, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  color: var(--portal-texto-inverso);
+  box-shadow: 0 1px 3px var(--portal-sombra-color);
   transition: background-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
 }
 
 .boton-primario:hover {
-  background: #064fae;
-  box-shadow: 0 3px 8px rgba(7, 95, 202, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  background: var(--portal-azul-800);
+  box-shadow: 0 3px 8px var(--portal-sombra-color);
   transform: translateY(-1px);
 }
 
 .boton-primario:active {
-  background: var(--portal-azul-800);
-  box-shadow: 0 1px 3px rgba(7, 95, 202, 0.3);
+  background: var(--portal-azul-900);
+  box-shadow: 0 1px 3px var(--portal-sombra-color);
   transform: translateY(0);
 }
 
 .boton-secundario {
-  border-color: #a9c4e6;
+  border-color: var(--portal-borde);
   background: var(--portal-superficie);
   color: var(--portal-azul-800);
-  box-shadow: 0 1px 3px rgba(27, 51, 82, 0.12);
+  box-shadow: 0 1px 3px var(--portal-sombra-color);
   transition: background-color 120ms ease, border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
 }
 
 .boton-secundario:hover {
   border-color: var(--portal-azul-700);
-  background: #dbe9fb;
+  background: var(--portal-azul-100);
   color: var(--portal-azul-900);
-  box-shadow: 0 3px 9px rgba(27, 51, 82, 0.16);
+  box-shadow: 0 3px 9px var(--portal-sombra-color);
   transform: translateY(-1px);
 }
 
 .boton-secundario:active {
-  background: #c9ddf7;
-  box-shadow: 0 1px 2px rgba(27, 51, 82, 0.14);
+  background: var(--portal-cabecera-panel);
+  box-shadow: 0 1px 2px var(--portal-sombra-color);
   transform: translateY(0);
 }
 
