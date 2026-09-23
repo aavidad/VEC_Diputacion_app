@@ -179,7 +179,7 @@ func (r *RegistroOperacionContactoPostgreSQL) ListarOperacionesContacto(ctx cont
 	if !cursorEncontrado {
 		return vacio, vecapp.ErrOperacionContactoNoEncontrada
 	}
-	return ports.ResultadoListaOperacionesContacto{Operaciones: operaciones, SiguienteDesde: siguiente, Auditoria: evidencia}, nil
+	return ports.ResultadoListaOperacionesContacto{Operaciones: operaciones, SiguienteDesde: siguiente, Auditoria: evidencia, ConsumoRef: consumoRef, ConsumoHuellaSHA256: consumoHuella}, nil
 }
 
 func (r *RegistroOperacionContactoPostgreSQL) DetalleOperacionContacto(ctx context.Context, o ports.OrdenDetalleOperacionContacto) (ports.ResultadoDetalleOperacionContacto, error) {
@@ -230,7 +230,7 @@ func (r *RegistroOperacionContactoPostgreSQL) DetalleOperacionContacto(ctx conte
 	if err = tx.Commit(ctx); err != nil {
 		return vacio, vecapp.ErrContactoUsuarioCommitIncierto
 	}
-	return ports.ResultadoDetalleOperacionContacto{Encontrada: encontrada, Operacion: op, Auditoria: evidencia}, nil
+	return ports.ResultadoDetalleOperacionContacto{Encontrada: encontrada, Operacion: op, Auditoria: evidencia, ConsumoRef: consumoRef, ConsumoHuellaSHA256: consumoHuella}, nil
 }
 
 func decodificarListaOperacionesContactoSQL(raw []byte) ([]ports.OperacionContactoUsuario, error) {

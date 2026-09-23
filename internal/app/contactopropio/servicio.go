@@ -113,19 +113,8 @@ func (s *Servicio) guardar(ctx context.Context, correo string, versionEsperada u
 		return vacio, ErrContactoPropioNoDisponible
 	}
 	d := s.dependencias
-	var vinculo domain.VinculoAutenticacionActorV2
-	var resultado domain.ResultadoContextoActorRegistradoV2
-	var err error
-	if !dependenciaContactoPropioNula(d.Sesion) {
-		vinculo, resultado, err = d.Sesion.ResolverContactoPropio(ctx)
-	} else {
-		cuenta, audit, errorIdentidad := d.Identidad.ExtraerCapsulaIdentidadPeticion(ctx)
-		if errorIdentidad != nil || audit.CuentaPrivilegiada() || audit.Superficie() != httpseguridad.SuperficieExternaPersonal || cuenta.Garantia != domain.AuthAssuranceHigh || (cuenta.Metodo != domain.AuthMethodCertificate && cuenta.Metodo != domain.AuthMethodDNIe) {
-			return vacio, ErrContactoPropioNoDisponible
-		}
-		vinculo, resultado, err = domain.CrearVinculoAutenticacionActorV2ConResultado(ctx, d.Revalidador, domain.SolicitudRevalidacionAutenticacionActorV1{AutenticacionRef: audit.AutenticacionRef(), SesionRef: audit.SesionRef()}, d.Resolutor, domain.SolicitudContextoActor{Cuenta: cuenta, PerfilActivoRef: d.PerfilPropioRef}, d.Reloj)
-	}
-	if err != nil || vinculo.ValidarPara(resultado) != nil || resultado.Contexto.PerfilActivoRef != d.PerfilPropioRef || resultado.Contexto.Principal.AuthAssurance != domain.AuthAssuranceHigh || (resultado.Contexto.Principal.AuthMethod != domain.AuthMethodCertificate && resultado.Contexto.Principal.AuthMethod != domain.AuthMethodDNIe) || (sujetoEsperado != "" && resultado.Contexto.PersonaRef != sujetoEsperado) {
+	vinculo, resultado, err := s.resolverContactoPropio(ctx)
+	if err != nil || (sujetoEsperado != "" && resultado.Contexto.PersonaRef != sujetoEsperado) {
 		return vacio, ErrContactoPropioNoDisponible
 	}
 	contacto, err := domain.NuevoContactoUsuario(resultado.Contexto.PersonaRef, correo, versionEsperada+1)
@@ -169,6 +158,29 @@ func (s *Servicio) guardar(ctx context.Context, correo string, versionEsperada u
 		return vacio, ErrContactoPropioNoDisponible
 	}
 	return recibo, nil
+}
+
+func (s *Servicio) resolverContactoPropio(ctx context.Context) (domain.VinculoAutenticacionActorV2, domain.ResultadoContextoActorRegistradoV2, error) {
+	var vinculo domain.VinculoAutenticacionActorV2
+	var resultado domain.ResultadoContextoActorRegistradoV2
+	if s == nil || ctx == nil || ctx.Err() != nil || (s.dependencias.Identidad == nil && dependenciaContactoPropioNula(s.dependencias.Sesion)) {
+		return vinculo, resultado, ErrContactoPropioNoDisponible
+	}
+	d := s.dependencias
+	var err error
+	if !dependenciaContactoPropioNula(d.Sesion) {
+		vinculo, resultado, err = d.Sesion.ResolverContactoPropio(ctx)
+	} else {
+		cuenta, audit, errorIdentidad := d.Identidad.ExtraerCapsulaIdentidadPeticion(ctx)
+		if errorIdentidad != nil || audit.CuentaPrivilegiada() || audit.Superficie() != httpseguridad.SuperficieExternaPersonal || cuenta.Garantia != domain.AuthAssuranceHigh || (cuenta.Metodo != domain.AuthMethodCertificate && cuenta.Metodo != domain.AuthMethodDNIe) {
+			return vinculo, resultado, ErrContactoPropioNoDisponible
+		}
+		vinculo, resultado, err = domain.CrearVinculoAutenticacionActorV2ConResultado(ctx, d.Revalidador, domain.SolicitudRevalidacionAutenticacionActorV1{AutenticacionRef: audit.AutenticacionRef(), SesionRef: audit.SesionRef()}, d.Resolutor, domain.SolicitudContextoActor{Cuenta: cuenta, PerfilActivoRef: d.PerfilPropioRef}, d.Reloj)
+	}
+	if err != nil || vinculo.ValidarPara(resultado) != nil || resultado.Contexto.PerfilActivoRef != d.PerfilPropioRef || resultado.Contexto.Principal.AuthAssurance != domain.AuthAssuranceHigh || (resultado.Contexto.Principal.AuthMethod != domain.AuthMethodCertificate && resultado.Contexto.Principal.AuthMethod != domain.AuthMethodDNIe) {
+		return domain.VinculoAutenticacionActorV2{}, domain.ResultadoContextoActorRegistradoV2{}, ErrContactoPropioNoDisponible
+	}
+	return vinculo, resultado, nil
 }
 
 // CompletarContactoDeAlta enlaza el recibo de contacto con la operación de

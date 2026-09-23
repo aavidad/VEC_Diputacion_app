@@ -55,9 +55,11 @@ type OrdenListarOperacionesContacto struct {
 }
 
 type ResultadoListaOperacionesContacto struct {
-	Operaciones    []OperacionContactoUsuario
-	SiguienteDesde string
-	Auditoria      EvidenciaAuditoriaCentralContactoUsuario
+	Operaciones         []OperacionContactoUsuario
+	SiguienteDesde      string
+	Auditoria           EvidenciaAuditoriaCentralContactoUsuario
+	ConsumoRef          string
+	ConsumoHuellaSHA256 string
 }
 
 type OrdenDetalleOperacionContacto struct {
@@ -67,9 +69,11 @@ type OrdenDetalleOperacionContacto struct {
 }
 
 type ResultadoDetalleOperacionContacto struct {
-	Encontrada bool
-	Operacion  OperacionContactoUsuario
-	Auditoria  EvidenciaAuditoriaCentralContactoUsuario
+	Encontrada          bool
+	Operacion           OperacionContactoUsuario
+	Auditoria           EvidenciaAuditoriaCentralContactoUsuario
+	ConsumoRef          string
+	ConsumoHuellaSHA256 string
 }
 
 type RepositorioOperacionesContactoUsuario interface {
@@ -92,6 +96,16 @@ type SolicitudPrepararOperacionContacto struct {
 	ContextoActor     domain.ContextoActor
 	Correo            string
 	VersionEsperada   uint64
+	Recurso           domain.RecursoAutorizable
+	SolicitudBase     domain.DatosSolicitudAutorizacionLigadaV3
+	ResultadoContexto domain.ResultadoContextoActorRegistradoV2
+}
+
+type SolicitudGestionOperacionContacto struct {
+	ContextoActor     domain.ContextoActor
+	OperacionRef      string
+	Limite            uint32
+	DespuesDe         string
 	Recurso           domain.RecursoAutorizable
 	SolicitudBase     domain.DatosSolicitudAutorizacionLigadaV3
 	ResultadoContexto domain.ResultadoContextoActorRegistradoV2

@@ -30,6 +30,9 @@ const (
 	AccionListarOperacionesContacto    = "vec.contacto_usuario.operacion.listar"
 	AccionDetalleOperacionContacto     = "vec.contacto_usuario.operacion.detalle"
 	AudienciaPrepararOperacionContacto = "vec.contacto_usuario.operacion.preparar.v1"
+	AudienciaCancelarOperacionContacto = "vec.contacto_usuario.operacion.cancelar.v1"
+	AudienciaListarOperacionesContacto = "vec.contacto_usuario.operacion.listar.v1"
+	AudienciaDetalleOperacionContacto  = "vec.contacto_usuario.operacion.detalle.v1"
 )
 
 type ServicioOperacionesContactoUsuario struct {
@@ -140,6 +143,155 @@ func (s *ServicioOperacionesContactoUsuario) Preparar(ctx context.Context, p por
 		return vacio, ErrContactoUsuarioNoDisponible
 	}
 	return op, nil
+}
+
+func (s *ServicioOperacionesContactoUsuario) Cancelar(ctx context.Context, p ports.SolicitudGestionOperacionContacto) (ports.OperacionContactoUsuario, error) {
+	vacio := ports.OperacionContactoUsuario{}
+	if !ReferenciaOperacionContactoValida(p.OperacionRef) {
+		return vacio, ErrContactoUsuarioNoDisponible
+	}
+	a, err := s.autorizarGestion(ctx, p, AccionCancelarOperacionContacto, AudienciaCancelarOperacionContacto)
+	if err != nil {
+		return vacio, err
+	}
+	op, err := s.repositorio.CancelarOperacionContacto(ctx, ports.OrdenCancelarOperacionContacto{OperacionRef: p.OperacionRef, SujetoRef: p.ContextoActor.PersonaRef, Acceso: a})
+	if errors.Is(err, ErrOperacionContactoNoEncontrada) || errors.Is(err, ErrContactoUsuarioConflicto) || errors.Is(err, ErrContactoUsuarioCommitIncierto) {
+		return vacio, err
+	}
+	if err != nil || ctx.Err() != nil || op.OperacionRef != p.OperacionRef || op.Estado != ports.OperacionContactoCancelada || ValidarOperacionContacto(op) != nil {
+		return vacio, ErrContactoUsuarioNoDisponible
+	}
+	e, err := ValidarEvidenciaCentralOperacionContacto(op.AuditoriaOperacion.JSONOriginal, a, p.OperacionRef, "cancelada", op.ConsumoRef, op.ConsumoHuellaSHA256)
+	if err != nil || e.Referencia != op.AuditoriaOperacion.Referencia || e.HuellaJSONSHA256 != op.AuditoriaOperacion.HuellaJSONSHA256 {
+		return vacio, ErrContactoUsuarioNoDisponible
+	}
+	return op, nil
+}
+
+func (s *ServicioOperacionesContactoUsuario) Listar(ctx context.Context, p ports.SolicitudGestionOperacionContacto) (ports.ResultadoListaOperacionesContacto, error) {
+	vacio := ports.ResultadoListaOperacionesContacto{}
+	if p.Limite < 1 || p.Limite > 50 || p.DespuesDe != "" && !ReferenciaOperacionContactoValida(p.DespuesDe) || p.OperacionRef != "" {
+		return vacio, ErrContactoUsuarioNoDisponible
+	}
+	a, err := s.autorizarGestion(ctx, p, AccionListarOperacionesContacto, AudienciaListarOperacionesContacto)
+	if err != nil {
+		return vacio, err
+	}
+	r, err := s.repositorio.ListarOperacionesContacto(ctx, ports.OrdenListarOperacionesContacto{SujetoRef: p.ContextoActor.PersonaRef, Limite: p.Limite, DespuesDe: p.DespuesDe, Acceso: a})
+	if errors.Is(err, ErrOperacionContactoNoEncontrada) || errors.Is(err, ErrContactoUsuarioCommitIncierto) {
+		return vacio, err
+	}
+	if err != nil || ctx.Err() != nil || len(r.Operaciones) > int(p.Limite) || r.SiguienteDesde != "" && (len(r.Operaciones) == 0 || r.SiguienteDesde != r.Operaciones[len(r.Operaciones)-1].OperacionRef) {
+		return vacio, ErrContactoUsuarioNoDisponible
+	}
+	for _, op := range r.Operaciones {
+		if ValidarOperacionContacto(op) != nil {
+			return vacio, ErrContactoUsuarioNoDisponible
+		}
+	}
+	e, err := ValidarEvidenciaCentralOperacionContacto(r.Auditoria.JSONOriginal, a, p.DespuesDe, "consulta", r.ConsumoRef, r.ConsumoHuellaSHA256)
+	if err != nil || e.Referencia != r.Auditoria.Referencia || e.HuellaJSONSHA256 != r.Auditoria.HuellaJSONSHA256 {
+		return vacio, ErrContactoUsuarioNoDisponible
+	}
+	return r, nil
+}
+
+func (s *ServicioOperacionesContactoUsuario) Detalle(ctx context.Context, p ports.SolicitudGestionOperacionContacto) (ports.ResultadoDetalleOperacionContacto, error) {
+	vacio := ports.ResultadoDetalleOperacionContacto{}
+	if !ReferenciaOperacionContactoValida(p.OperacionRef) || p.Limite != 0 || p.DespuesDe != "" {
+		return vacio, ErrContactoUsuarioNoDisponible
+	}
+	a, err := s.autorizarGestion(ctx, p, AccionDetalleOperacionContacto, AudienciaDetalleOperacionContacto)
+	if err != nil {
+		return vacio, err
+	}
+	r, err := s.repositorio.DetalleOperacionContacto(ctx, ports.OrdenDetalleOperacionContacto{OperacionRef: p.OperacionRef, SujetoRef: p.ContextoActor.PersonaRef, Acceso: a})
+	if errors.Is(err, ErrContactoUsuarioCommitIncierto) {
+		return vacio, err
+	}
+	if err != nil || ctx.Err() != nil || r.Encontrada && (r.Operacion.OperacionRef != p.OperacionRef || ValidarOperacionContacto(r.Operacion) != nil) || !r.Encontrada && r.Operacion.OperacionRef != "" {
+		return vacio, ErrContactoUsuarioNoDisponible
+	}
+	estado := "ausente"
+	if r.Encontrada {
+		estado = "encontrada"
+	}
+	e, err := ValidarEvidenciaCentralOperacionContacto(r.Auditoria.JSONOriginal, a, p.OperacionRef, estado, r.ConsumoRef, r.ConsumoHuellaSHA256)
+	if err != nil || e.Referencia != r.Auditoria.Referencia || e.HuellaJSONSHA256 != r.Auditoria.HuellaJSONSHA256 {
+		return vacio, ErrContactoUsuarioNoDisponible
+	}
+	return r, nil
+}
+
+func (s *ServicioOperacionesContactoUsuario) autorizarGestion(ctx context.Context, p ports.SolicitudGestionOperacionContacto, accion, audiencia string) (ports.SolicitudAccesoContactoUsuario, error) {
+	vacio := ports.SolicitudAccesoContactoUsuario{}
+	if s == nil || ctx == nil || ctx.Err() != nil || nulo(s.auditoria) || nulo(s.autorizador) || nulo(s.repositorio) || p.ContextoActor.Validar() != nil || p.Recurso.Validar() != nil || p.Recurso.Referencia != p.ContextoActor.PersonaRef || p.Recurso.ModuloID != "vec.module.usuarios" || p.Recurso.Tipo != "contacto_usuario" || p.Recurso.Atributos != nil {
+		return vacio, ErrContactoUsuarioNoDisponible
+	}
+	switch accion {
+	case AccionCancelarOperacionContacto, AccionDetalleOperacionContacto:
+		if !ReferenciaOperacionContactoValida(p.OperacionRef) || p.Limite != 0 || p.DespuesDe != "" {
+			return vacio, ErrContactoUsuarioNoDisponible
+		}
+	case AccionListarOperacionesContacto:
+		if p.OperacionRef != "" || p.Limite < 1 || p.Limite > 50 || p.DespuesDe != "" && !ReferenciaOperacionContactoValida(p.DespuesDe) {
+			return vacio, ErrContactoUsuarioNoDisponible
+		}
+	default:
+		return vacio, ErrContactoUsuarioNoDisponible
+	}
+	a, err := s.auditoria.PrepararAuditoriaContactoUsuario(ctx, p.ContextoActor, accion, p.Recurso.ModuloID, p.ContextoActor.PersonaRef, 1)
+	if err != nil || !auditoriaPreparadaValidaPara(a, p.ContextoActor, accion, p.ContextoActor.PersonaRef, 1, "gestion_contacto_propio", p.Recurso.ModuloID) {
+		return vacio, ErrContactoUsuarioNoDisponible
+	}
+	var negocio []byte
+	if accion == AccionListarOperacionesContacto {
+		negocio, err = json.Marshal(struct {
+			Esquema, SujetoRef string
+			Limite             uint32
+			DespuesDe          string
+			Auditoria          domain.AuditEntry
+		}{audiencia, p.ContextoActor.PersonaRef, p.Limite, p.DespuesDe, a})
+	} else {
+		negocio, err = json.Marshal(struct {
+			Esquema, SujetoRef, OperacionRef string
+			Auditoria                        domain.AuditEntry
+		}{audiencia, p.ContextoActor.PersonaRef, p.OperacionRef, a})
+	}
+	if err != nil || len(negocio) == 0 || len(negocio) > 65536 {
+		return vacio, ErrContactoUsuarioNoDisponible
+	}
+	recurso := clonarRecurso(p.Recurso)
+	recurso.Atributos = map[string]string{"contacto_sujeto_ref": p.ContextoActor.PersonaRef}
+	if p.OperacionRef != "" {
+		recurso.Atributos["contacto_operacion_ref"] = p.OperacionRef
+	}
+	huella := sha256.Sum256(negocio)
+	recurso.Atributos["material_sha256"] = hex.EncodeToString(huella[:])
+	if recurso.Validar() != nil {
+		return vacio, ErrContactoUsuarioNoDisponible
+	}
+	base := p.SolicitudBase
+	correlacion, err := base.Correlacion.ValorCanonico()
+	if err != nil || correlacion != a.CorrelationRef || base.Accion != accion || base.Finalidad != "gestion_contacto_propio" || !reflect.DeepEqual(base.Recurso, p.Recurso) {
+		return vacio, ErrContactoUsuarioNoDisponible
+	}
+	base.Recurso = recurso
+	nominal, err := domain.NuevaSolicitudAutorizacionLigadaV3(base)
+	if err != nil || !contextoContactoValido(nominal, p.ResultadoContexto, p.ContextoActor, s.ahora()) {
+		return vacio, ErrContactoUsuarioNoDisponible
+	}
+	decision, confirmacion, exportador, err := s.autorizador.EmitirMaterialAutorizacionAtestadaV3(ctx, nominal, p.ResultadoContexto)
+	if err != nil || nulo(exportador) || ctx.Err() != nil {
+		return vacio, ErrContactoUsuarioNoDisponible
+	}
+	material, err := exportador.ExportarMaterialParaConsumidor()
+	if err != nil || !concesionContactoValida(material, nominal, decision, confirmacion, p.ResultadoContexto, p.ContextoActor, accion, recurso, audiencia, "gestion_contacto_propio", s.ahora()) {
+		return vacio, ErrContactoUsuarioNoDisponible
+	}
+	return ports.SolicitudAccesoContactoUsuario{Auditoria: a, SujetoRef: p.ContextoActor.PersonaRef, ContextoActor: p.ContextoActor,
+		FinalidadRef: "gestion_contacto_propio", Recurso: recurso, Audiencia: audiencia, PayloadNegocio: bytes.Clone(negocio), Material: material,
+		Version: 1, Solicitud: nominal, Decision: decision, Confirmacion: confirmacion, ResultadoContexto: p.ResultadoContexto}, nil
 }
 
 func ReferenciaOperacionContactoValida(ref string) bool {

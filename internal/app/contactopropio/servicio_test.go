@@ -80,6 +80,21 @@ func TestAltaContactoNoEscribibleSinRepositorioDeOperacion(t *testing.T) {
 	}
 }
 
+func TestOperacionesContactoExigenAutoridadesYReferenciaAleatoria(t *testing.T) {
+	if s, err := NuevoServicioOperaciones(nil, DependenciasOperaciones{}); s != nil || !errors.Is(err, ErrContactoPropioNoDisponible) {
+		t.Fatal("operaciones sin autoridad montadas")
+	}
+	g := generadorOperacionContacto{}
+	a, err := g.NuevaOperacionContactoUsuario(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := g.NuevaOperacionContactoUsuario(context.Background())
+	if err != nil || a == b || !application.ReferenciaOperacionContactoValida(a) || !application.ReferenciaOperacionContactoValida(b) {
+		t.Fatal("referencias de operación no aleatorias/canónicas")
+	}
+}
+
 func (f *fuenteAuditoriaPrueba) ObtenerInstantaneaAutorizacion(_ context.Context, principal, perfil string) (domain.InstantaneaAutorizacion, error) {
 	f.principal, f.perfil = principal, perfil
 	f.llamadas++
