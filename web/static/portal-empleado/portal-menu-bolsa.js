@@ -7,6 +7,7 @@
 const VISTAS_POR_CATEGORIA = Object.freeze({
   "bolsas-candidatos": Object.freeze([
     "elaboracion", "convocatorias", "solicitudes", "meritos", "alegaciones", "importacion",
+    "seleccion-inscripciones", "seleccion-pruebas", "seleccion-comunicaciones",
   ]),
   llamamientos: Object.freeze(["llamamientos"]),
   contratos: Object.freeze(["contratos"]),
@@ -36,6 +37,7 @@ export const VISTAS_INTERNAS_BOLSA = Object.freeze([
 // tienen todavía un servicio autorizado que pueda ejecutar su operación.
 export const VISTAS_BOLSA_PENDIENTES_NO_COMPUESTAS = Object.freeze([
   "llamamientos", "contratos", "documentos", "comunicaciones",
+  "seleccion-inscripciones", "seleccion-pruebas", "seleccion-comunicaciones",
 ]);
 
 export function vistaBolsaPendienteNoCompuesta(vista) {

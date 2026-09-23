@@ -477,7 +477,7 @@ test("Personal de presentación conserva categorías E24, RPT y estructura públ
   llamadas.forEach(({ opciones }) => { assert.equal(opciones.method, "GET"); assert.equal(opciones.credentials, "same-origin"); assert.equal(opciones.redirect, "error"); assert.equal(Object.hasOwn(opciones, "headers"), false); });
 });
 
-test("el cargador interno predeterminado de Personal compone contrato, cliente y vista reales", async () => {
+test("el cargador interno predeterminado de Personal monta la ficha sin cargar catálogos al entrar", async () => {
   const categorias = { data: { categories: { items: null, total: 0, limit: 25, offset: 0, catalogo: { catalogo_id: "categorias-profesionales", catalogo_version: 1, catalogo_huella_sha256: "a".repeat(64) }, fuente: { revision: "demo-v1", actualizada_en: "2026-09-20T08:00:00Z", demostracion: true, aviso: "DEMOSTRACIÓN pendiente de validación RRHH." } } } };
   const coordinador = crearCoordinadorModulosPortal({
     escaparHTML: String,
@@ -486,7 +486,35 @@ test("el cargador interno predeterminado de Personal compone contrato, cliente y
     cargadoresInternos: { contratacion_temporal: async () => { throw new Error("no debe cargar CT"); } },
   });
   await coordinador.cargarInterno(); assert.equal(coordinador.resolverAcceso("personal").etiqueta, "Catálogo profesional de Personal");
-  const raiz = raizDietasFalsa(); assert.equal(await coordinador.montarVista("personal", raiz), true); assert.ok(raiz.querySelector("[data-personal-categorias]"));
+  const raiz = raizDietasFalsa(); assert.equal(await coordinador.montarVista("personal", raiz), true);
+  assert.ok(raiz.querySelector("[data-personal-ficha-integral]"));
+  assert.equal(raiz.querySelector("[data-personal-categorias]"), null);
+  coordinador.desmontarVistaActual();
+  assert.equal(raiz.querySelector("[data-personal-ficha-integral]"), null);
+});
+
+test("Cronos interno solo se compone desde el catálogo y deja la jornada sin fichaje", async () => {
+  const { montarJornadaCronos } = await import("./modulos/cronos/vista.js");
+  const cargadoresInternos = {
+    contratacion_temporal: async () => { throw new Error("no debe cargar CT"); },
+    cronos: async () => ({ vista: { montarJornadaCronos } }),
+  };
+  const coordinador = crearCoordinadorModulosPortal({ escaparHTML: String,
+    cargarCatalogoInterno: async () => [{ clave: "cronos" }], cargadoresInternos });
+  await coordinador.cargarInterno();
+  assert.equal(coordinador.resolverAcceso("cronos").disponible, true);
+  const raiz = raizDietasFalsa();
+  assert.equal(await coordinador.montarVista("cronos", raiz), true);
+  const montaje = raiz.querySelector("[data-cronos-jornada-montaje]");
+  assert.ok(montaje);
+  assert.match(montaje.innerHTML, /data-estado="no_configurado"/);
+  assert.equal((montaje.innerHTML.match(/disabled aria-disabled="true"/g) || []).length, 2);
+  coordinador.desmontarVistaActual();
+  assert.equal(raiz.querySelector("[data-cronos-jornada-montaje]"), null);
+  const sinCatalogo = crearCoordinadorModulosPortal({ escaparHTML: String,
+    cargarCatalogoInterno: async () => [], cargadoresInternos });
+  await sinCatalogo.cargarInterno();
+  assert.equal(sinCatalogo.resolverAcceso("cronos").disponible, false);
 });
 
 test("CT interno se activa solo después de una consulta autorizada", async () => {

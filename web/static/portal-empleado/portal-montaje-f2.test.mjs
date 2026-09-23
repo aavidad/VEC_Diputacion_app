@@ -18,6 +18,15 @@ const necesarios = [
   "static/portal-empleado/portal-convocatorias.css",
   "static/portal-empleado/modulos/cronos/permisos.css",
   "static/portal-empleado/modulos/dietas/borradores-propios.css",
+  "static/portal-empleado/modulos/seleccion/inscripciones/vista.js",
+  "static/portal-empleado/modulos/seleccion/inscripciones/i18n.js",
+  "static/portal-empleado/modulos/seleccion/inscripciones/inscripciones.css",
+  "static/portal-empleado/modulos/seleccion/pruebas/vista.js",
+  "static/portal-empleado/modulos/seleccion/pruebas/i18n.js",
+  "static/portal-empleado/modulos/seleccion/pruebas/pruebas.css",
+  "static/portal-empleado/modulos/seleccion/comunicaciones/vista.js",
+  "static/portal-empleado/modulos/seleccion/comunicaciones/i18n.js",
+  "static/portal-empleado/modulos/seleccion/comunicaciones/comunicaciones.css",
 ];
 const recursosPublicosConsumidos = [
   "static/bolsa/i18n-publica.js",
@@ -71,12 +80,7 @@ test("el producto incluye los activos F2 consumidos y excluye otros módulos sin
     assert.ok(manifiesto.has(ruta), `${ruta} debe figurar en producto`);
     await access(new URL(ruta, raizWeb));
   }
-  for (const ruta of [
-    "static/comun/oportunidades/i18n.js",
-    "static/portal-empleado/modulos/seleccion/inscripciones/i18n.js",
-    "static/portal-empleado/modulos/seleccion/pruebas/i18n.js",
-    "static/portal-empleado/modulos/seleccion/comunicaciones/i18n.js",
-  ]) {
+  for (const ruta of ["static/comun/oportunidades/i18n.js"]) {
     assert.ok(!manifiesto.has(ruta), `${ruta} no tiene consumidor F2`);
   }
 });
