@@ -1,0 +1,20 @@
+/* Catálogo cromático F2, revisión 1. Cargar después de portal.css.
+   El institucional hereda los tokens base. Esta candidata granate solo altera
+   color; paneles, tablas, formularios, navegación y densidad siguen siendo comunes.
+   La capa de contraste de portal.css vive en body y prevalece por herencia. */
+html[data-tema="granate"] {
+  --portal-azul-950: #451a32;
+  --portal-azul-900: #5b2540;
+  --portal-azul-800: #6d2b4b;
+  --portal-azul-700: #81304f;
+  --portal-azul-600: #8a3658;
+  --portal-azul-100: #f8eaf0;
+  --portal-tinta: #2e1d2a;
+  --portal-muted: #625260;
+  --portal-borde: #ddc9d3;
+  --portal-fondo: #f4edf1;
+  --portal-superficie: #ffffff;
+  --portal-superficie-alterna: #fbf4f7;
+  --portal-cabecera-panel: #f4e7ee;
+  --portal-sombra-color: rgb(69 26 50 / 15%);
+}
