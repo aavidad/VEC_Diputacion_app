@@ -74,13 +74,22 @@ function exigirFecha(valor, nombre) {
   if (typeof valor !== "string" || !PATRON_FECHA.test(valor)) {
     throw new TypeError(`${nombre} debe tener formato AAAA-MM-DD`);
   }
-  if (Number.isNaN(Date.parse(`${valor}T00:00:00Z`))) {
+  const fecha = new Date(`${valor}T00:00:00Z`);
+  if (Number.isNaN(fecha.getTime()) || fecha.toISOString().slice(0, 10) !== valor) {
     throw new TypeError(`${nombre} no es una fecha válida`);
   }
   if (contieneDatosPersonales(valor)) {
     throw new TypeError(`${nombre} contiene datos personales no permitidos`);
   }
   return valor;
+}
+
+function inicioPeriodo(fecha, periodo) {
+  if (periodo === "anual") return `${fecha.slice(0, 4)}-01-01`;
+  if (periodo === "mensual") return `${fecha.slice(0, 7)}-01`;
+  const lunes = new Date(`${fecha}T00:00:00Z`);
+  lunes.setUTCDate(lunes.getUTCDate() - (lunes.getUTCDay() + 6) % 7);
+  return lunes.toISOString().slice(0, 10);
 }
 
 export function validarSerieEstadisticas(serie, indice = 0) {
@@ -158,6 +167,17 @@ export function validarRespuestaEstadisticas(envelope) {
     throw new TypeError("el campo series debe ser un array");
   }
   const series = Object.freeze(datos.series.map(validarSerieEstadisticas));
+  const primerInicio = inicioPeriodo(desde, periodo);
+  const ultimoInicio = inicioPeriodo(hasta, periodo);
+  for (let indice = 0; indice < series.length; indice++) {
+    const inicio = series[indice].inicio;
+    if (inicio < primerInicio || inicio > ultimoInicio) {
+      throw new TypeError(`serie[${indice}].inicio está fuera del rango consultado`);
+    }
+    if (indice > 0 && inicio <= series[indice - 1].inicio) {
+      throw new TypeError(`serie[${indice}].inicio no sigue un orden cronológico estricto`);
+    }
+  }
   const totales = validarTotalesEstadisticas(datos.totales);
 
   const suma = series.reduce((acc, s) => ({
