@@ -30,7 +30,7 @@ function formularioPermisos(t) {
     </ol>
     <div class="cronos-permisos-rejilla"><form class="cronos-permisos-formulario" data-cronos-permisos-formulario>
       <section class="cronos-permisos-paso" data-cronos-paso="1" aria-labelledby="cronos-permisos-paso-1-titulo">
-        <h5 id="cronos-permisos-paso-1-titulo">${t("permisos_paso_1")}</h5>
+        <h5 id="cronos-permisos-paso-1-titulo" tabindex="-1">${t("permisos_paso_1")}</h5>
         <details class="cronos-permisos-ayuda"><summary>${t("permisos_ayuda")}</summary><p>${t("permisos_ayuda_contenido")}</p></details>
         <label>${t("presentacion_form_tipo")}<select name="tipo" disabled aria-disabled="true" title="${t("permisos_no_configurado")}"><option value="">${t("permisos_no_configurado")}</option></select></label>
         <p class="cronos-permisos-nota">${t("permisos_catalogo_ausente")}</p>
@@ -39,7 +39,7 @@ function formularioPermisos(t) {
         <div class="cronos-permisos-acciones"><button type="button" class="boton-secundario" data-cronos-paso-siguiente>${t("permisos_siguiente")}</button></div>
       </section>
       <section class="cronos-permisos-paso" data-cronos-paso="2" aria-labelledby="cronos-permisos-paso-2-titulo" hidden>
-        <h5 id="cronos-permisos-paso-2-titulo">${t("permisos_paso_2")}</h5>
+        <h5 id="cronos-permisos-paso-2-titulo" tabindex="-1">${t("permisos_paso_2")}</h5>
         <label>${t("presentacion_form_observacion")}<textarea name="observacion" maxlength="500" rows="3" disabled aria-disabled="true" title="${t("permisos_no_configurado")}"></textarea></label>
         <p class="cronos-permisos-nota">${t("permisos_observacion_ayuda")}</p>
         <label>${t("permisos_justificante")}<input type="text" name="documento_ref" maxlength="120" disabled aria-disabled="true" title="${t("permisos_no_configurado")}"></label>
@@ -47,7 +47,7 @@ function formularioPermisos(t) {
         <div class="cronos-permisos-acciones"><button type="button" class="boton-secundario" data-cronos-paso-anterior>${t("permisos_anterior")}</button><button type="button" class="boton-secundario" data-cronos-paso-siguiente>${t("permisos_siguiente")}</button></div>
       </section>
       <section class="cronos-permisos-paso" data-cronos-paso="3" aria-labelledby="cronos-permisos-paso-3-titulo" hidden>
-        <h5 id="cronos-permisos-paso-3-titulo">${t("permisos_paso_3")}</h5>
+        <h5 id="cronos-permisos-paso-3-titulo" tabindex="-1">${t("permisos_paso_3")}</h5>
         <p class="cronos-permisos-nota">${t("permisos_revision_no_configurada")}</p>
         <div class="cronos-permisos-acciones"><button type="button" class="boton-secundario" data-cronos-paso-anterior>${t("permisos_anterior")}</button><button type="button" class="boton-primario" disabled aria-disabled="true" title="${t("permisos_sin_registro")}">${t("permisos_registrar")}</button></div>
       </section>
@@ -74,7 +74,7 @@ export function renderizarRecorridosCronos({ mensajes = MENSAJES_CRONOS_ES } = {
   const rrhh = `<section class="cronos-recorrido-etapa" id="cronos-rrhh" aria-labelledby="cronos-rrhh-titulo" hidden><header><p class="sobrelinea">${t("recorridos_rrhh")}</p><h3 id="cronos-rrhh-titulo">${t("presentacion_rrhh_titulo")}</h3><p>${t("permisos_no_configurado_detalle")}</p></header><div class="cronos-recorrido-rejilla">
     ${panel(t, "presentacion_incidencias", vacio(t), "cronos-recorrido-panel-ancho")}
   </div></section>`;
-  return `<section class="cronos-area cronos-recorridos" data-estado-entrega="no_configurado" aria-labelledby="cronos-recorridos-titulo"><header class="cronos-encabezado"><div><p class="sobrelinea">${t("recorridos_sobrelinea")}</p><h2 id="cronos-recorridos-titulo">${t("presentacion_titulo")}</h2></div><span class="cronos-recorrido-pendiente" role="status">${t("permisos_no_configurado")}</span></header><nav class="cronos-recorrido-etapas" role="tablist" aria-label="${t("recorridos_etapas")}"><button type="button" role="tab" data-cronos-rol="cronos-persona" aria-controls="cronos-persona" aria-selected="true"><strong>${t("recorridos_persona")}</strong><span>${t("presentacion_etapa_persona")}</span></button><button type="button" role="tab" data-cronos-rol="cronos-responsable" aria-controls="cronos-responsable" aria-selected="false"><strong>${t("recorridos_responsable")}</strong><span>${t("presentacion_etapa_responsable")}</span></button><button type="button" role="tab" data-cronos-rol="cronos-rrhh" aria-controls="cronos-rrhh" aria-selected="false"><strong>${t("recorridos_rrhh")}</strong><span>${t("presentacion_etapa_rrhh")}</span></button></nav>${persona}${responsable}${rrhh}<p class="cronos-recorrido-privacidad">${t("recorridos_nota_privacidad")}</p></section>`;
+  return `<section class="cronos-area cronos-recorridos" data-estado-entrega="no_configurado" aria-labelledby="cronos-recorridos-titulo"><header class="cronos-encabezado"><div><p class="sobrelinea">${t("recorridos_sobrelinea")}</p><h2 id="cronos-recorridos-titulo">${t("presentacion_titulo")}</h2></div><span class="cronos-recorrido-pendiente" role="status">${t("permisos_no_configurado")}</span></header><nav class="cronos-recorrido-etapas" role="tablist" aria-label="${t("recorridos_etapas")}"><button type="button" role="tab" data-cronos-rol="cronos-persona" aria-controls="cronos-persona" aria-selected="true" tabindex="0"><strong>${t("recorridos_persona")}</strong><span>${t("presentacion_etapa_persona")}</span></button><button type="button" role="tab" data-cronos-rol="cronos-responsable" aria-controls="cronos-responsable" aria-selected="false" tabindex="-1"><strong>${t("recorridos_responsable")}</strong><span>${t("presentacion_etapa_responsable")}</span></button><button type="button" role="tab" data-cronos-rol="cronos-rrhh" aria-controls="cronos-rrhh" aria-selected="false" tabindex="-1"><strong>${t("recorridos_rrhh")}</strong><span>${t("presentacion_etapa_rrhh")}</span></button></nav>${persona}${responsable}${rrhh}<p class="cronos-recorrido-privacidad">${t("recorridos_nota_privacidad")}</p></section>`;
 }
 
 export function montarVistaRecorridosCronos({ raiz, anunciar = () => {}, registrarDesmontar, mensajes = MENSAJES_CRONOS_ES } = {}) {
@@ -94,7 +94,16 @@ export function montarVistaRecorridosCronos({ raiz, anunciar = () => {}, registr
       nodo.setAttribute("data-estado", orden < numero ? "hecho" : orden === numero ? "actual" : "pendiente");
       if (orden === numero) nodo.setAttribute("aria-current", "step"); else nodo.removeAttribute("aria-current");
     });
-    contenedor.querySelector?.(`[data-cronos-paso="${numero}"] summary, [data-cronos-paso="${numero}"] button`)?.focus?.();
+    contenedor.querySelector?.(`#cronos-permisos-paso-${numero}-titulo`)?.focus?.();
+  };
+  const activarRol = (rol) => {
+    contenedor.querySelectorAll?.("[data-cronos-rol]").forEach((nodo) => {
+      const activo = nodo === rol;
+      nodo.setAttribute("aria-selected", String(activo));
+      nodo.setAttribute("tabindex", activo ? "0" : "-1");
+    });
+    contenedor.querySelectorAll?.(".cronos-recorrido-etapa").forEach((nodo) => { nodo.hidden = nodo.id !== rol.dataset.cronosRol; });
+    contenedor.querySelector?.(`#${rol.dataset.cronosRol}`)?.scrollIntoView?.({ block: "start", behavior: "smooth" });
   };
   const cambiar = (evento) => {
     if (evento.target?.closest?.("[data-cronos-paso-siguiente]")) { mostrarPaso(Math.min(3, pasoActual + 1)); return; }
@@ -109,20 +118,30 @@ export function montarVistaRecorridosCronos({ raiz, anunciar = () => {}, registr
       return;
     }
     const rol = evento.target?.closest?.("[data-cronos-rol]");
-    if (rol) {
-      contenedor.querySelectorAll?.("[data-cronos-rol]").forEach((nodo) => nodo.setAttribute("aria-selected", String(nodo === rol)));
-      contenedor.querySelectorAll?.(".cronos-recorrido-etapa").forEach((nodo) => { nodo.hidden = nodo.id !== rol.dataset.cronosRol; });
-      contenedor.querySelector?.(`#${rol.dataset.cronosRol}`)?.scrollIntoView?.({ block: "start", behavior: "smooth" });
-    }
+    if (rol) activarRol(rol);
+  };
+  const teclado = (evento) => {
+    const rol = evento.target?.closest?.("[data-cronos-rol]");
+    if (!rol || !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].includes(evento.key)) return;
+    const roles = [...(contenedor.querySelectorAll?.("[data-cronos-rol]") || [])];
+    const indice = roles.indexOf(rol);
+    if (indice < 0 || roles.length === 0) return;
+    evento.preventDefault();
+    const siguiente = evento.key === "Home" ? 0 : evento.key === "End" ? roles.length - 1
+      : (indice + (["ArrowRight", "ArrowDown"].includes(evento.key) ? 1 : -1) + roles.length) % roles.length;
+    activarRol(roles[siguiente]);
+    roles[siguiente].focus?.();
   };
   const impedirEnvio = (evento) => { if (evento.target?.matches?.("[data-cronos-permisos-formulario]")) evento.preventDefault(); };
   contenedor.addEventListener?.("click", cambiar);
+  contenedor.addEventListener?.("keydown", teclado);
   contenedor.addEventListener?.("submit", impedirEnvio);
   let activa = true;
   const desmontar = () => {
     if (!activa) return;
     activa = false;
     contenedor.removeEventListener?.("click", cambiar);
+    contenedor.removeEventListener?.("keydown", teclado);
     contenedor.removeEventListener?.("submit", impedirEnvio);
     contenedor.remove?.();
   };

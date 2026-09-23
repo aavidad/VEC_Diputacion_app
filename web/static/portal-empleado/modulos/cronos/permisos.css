@@ -9,6 +9,8 @@
 .cronos-permisos-paso, .cronos-permisos-resumen { min-width: 0; padding: 14px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-lg, 8px); background: var(--portal-superficie); box-shadow: var(--portal-sombra-sm); }
 .cronos-permisos-paso[hidden] { display: none; }
 .cronos-permisos-paso h5, .cronos-permisos-resumen h5 { margin: 0 0 9px; font-size: 1rem; }
+.cronos-permisos-paso h5:focus { outline: 3px solid var(--portal-cian); outline-offset: 3px; }
+.cronos-recorridos .cronos-recorrido-etapas [role="tab"]:focus-visible { outline: 3px solid var(--portal-cian); outline-offset: 2px; }
 .cronos-permisos-ayuda { margin: 0 0 12px; color: var(--portal-azul-700); font-size: .76rem; }
 .cronos-permisos-ayuda summary { width: fit-content; cursor: pointer; font-weight: 700; }
 .cronos-permisos-ayuda summary:focus-visible { outline: 3px solid var(--portal-cian); outline-offset: 2px; }
@@ -16,10 +18,9 @@
 .cronos-permisos-paso label { display: grid; gap: 4px; margin: 0 0 11px; color: var(--portal-muted); font-size: .8rem; font-weight: 700; }
 .cronos-permisos-paso input, .cronos-permisos-paso select, .cronos-permisos-paso textarea { box-sizing: border-box; width: 100%; min-height: 38px; padding: 7px 9px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio); background: var(--portal-superficie); color: var(--portal-tinta); font: inherit; }
 .cronos-permisos-paso textarea { min-height: 74px; resize: vertical; }
+.cronos-permisos-paso :is(input, select, textarea):disabled { background: var(--portal-superficie-alterna); color: var(--portal-muted); cursor: not-allowed; }
 .cronos-permisos-paso input:focus-visible, .cronos-permisos-paso select:focus-visible, .cronos-permisos-paso textarea:focus-visible, .cronos-permisos-acciones button:focus-visible { outline: 3px solid var(--portal-cian); outline-offset: 2px; }
 .cronos-permisos-nota { margin: 4px 0 12px; color: var(--portal-muted); font-size: .76rem; }
-.cronos-permisos-error { margin: 0 0 10px; color: var(--portal-peligro); font-size: .8rem; font-weight: 700; }
-.cronos-permisos-error[hidden] { display: none; }
 .cronos-permisos-acciones { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .cronos-permisos-acciones button { min-height: 38px; }
 .cronos-permisos-acciones button:disabled { cursor: not-allowed; }
