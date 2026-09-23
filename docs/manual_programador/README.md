@@ -1,6 +1,60 @@
 # Manual mantenido del programador de VEC
 
-## B-BACK-01: borradores internos de llamamiento de Bolsa
+## Estado técnico vigente — 23 de septiembre de 2026
+
+Base contrastada: `e73792989220c69e5aeb61e39d6d7f488b816bc4`. Este apartado
+describe el código integrado; la instalación, los recorridos conservados y la
+publicación se acreditan por separado en [Estado del proyecto](../../ESTADO_PROYECTO.md)
+y la [guía de recorrido](../../GUIA_RECORRIDO_ALBERTO.md). Los cortes fechados
+inferiores conservan antecedentes y no actualizan por sí solos este estado.
+
+**Ningún módulo es todavía un programa terminado y aceptado en producción.**
+El plan consensuado y aprobado el 23/09 exige requisitos completos en la
+composición productiva, identidad institucional, roles y autorización V3,
+historia, i18n, accesibilidad, recuperación, operación y restauración. Una
+capacidad que espera una decisión de RRHH o un contrato externo debe identificarse
+como «implementada, pendiente de validación externa» solo si su implementación
+está realmente probada; un puerto aislado no equivale a un conector terminado.
+La prioridad siguiente es el corte conjunto de identidad/contexto común y
+primera composición productiva, seguido de contacto VEC, Contratación y Bolsa.
+
+| Superficie | Integrado y comprobable en este árbol | Límite actual |
+| --- | --- | --- |
+| Contratación temporal | `internal/modules/contrataciontemporal/` contiene dominio, aplicación, puertos y adaptadores; el perfil de desarrollo compone el recorrido con PostgreSQL y Bolsa. [Estado](../../ESTADO_PROYECTO.md) conserva ≈6/8 pasos y 15/19 pantallas funcionales. | Faltan efectos institucionales de firma/formalización, correo y plazos, confirmación externa GINPIX, identidad/roles completos y composición productiva. Los seis documentos demostrados son borradores. |
+| Bolsa | `internal/modules/bolsa/` posee convocatorias, candidaturas, orden y llamamientos; [Estado](../../ESTADO_PROYECTO.md) registra B1–B10, B12 y B13 en desarrollo (12/14 del corte de gestión). | B11 es parcial; B14 depende de decisiones pendientes. B15 y S1–S7 forman parte del alcance de sustitución de CONVOCA y siguen abiertos. La cifra 12/14 no mide toda Bolsa. |
+| Servidor interno productivo | [cmd/vec-interno](../../cmd/vec-interno/main.go) usa [composicion/interna](../../internal/app/composicion/interna/raiz.go). | `NuevoServidor` devuelve las 14 dependencias productivas pendientes después de validar configuración; no construye listener. [bootstrap](../../internal/app/bootstrap/bootstrap.go) separa el perfil de desarrollo y también rechaza la composición productiva no disponible. |
+
+La arquitectura aplica la regla `domain` → `application` + `ports` →
+`adapters`, conectados en composición. `internal/vec/` aporta contratos y
+autoridades compartidas; el registro del módulo y su menú no conectan por sí
+solos rutas, permisos ni almacenamiento. El shell usa el contrato del módulo,
+no sus reglas de negocio. CT coordina por puertos y referencias opacas: Bolsa
+mantiene orden, disponibilidad y llamamientos; Personal mantiene relaciones,
+ocupación e incorporación. Ningún módulo debe consultar ni escribir las tablas
+de otro. Una persona puede ser aspirante externo y no empleado.
+
+En el perfil de desarrollo, los archivos `internal/app/bootstrap/*_desarrollo.go`
+conectan proveedores concretos de CT y Bolsa. La frontera HTTP obtiene la
+identidad del canal validado y la autorización V3 exige concesión central
+positiva, exacta y vigente para actor, acción, recurso, ámbito, finalidad,
+perfil, campos y obligaciones. RBAC es necesario y ABAC solo restringe. Ni el
+menú, la ruta, los datos del navegador o un perfil adicional conceden acceso;
+se revalida antes del efecto y en el replay. Los contextos y recibos entre CT
+y Bolsa no trasladan autoridad de escritura de un módulo al otro.
+
+PostgreSQL se organiza por propietarios, roles técnicos y migraciones en
+`deploy/postgresql/`. Los adaptadores de cada módulo guardan sus estados,
+versiones, historia, recibos y efectos pendientes según el caso de uso. No
+reaplicar migraciones instaladas ni ejecutar `DOWN` sobre historia conservada;
+una garantía de ACL, transacción, concurrencia o recuperación exige prueba en
+PostgreSQL real. Los cambios de SQL, identidad, criptografía y fronteras de
+datos personales requieren dos revisiones independientes de la versión final.
+Para declarar recorrible una capacidad, comprobar navegador → API → V3 →
+aplicación → PostgreSQL → recibo y recuperación tras reinicio cuando se afirme
+durabilidad. Las pruebas focales Go y web sirven al código afectado; sus
+resultados aislados no acreditan despliegue productivo ni aceptación funcional.
+
+## Antecedente B-BACK-01 — borradores internos de llamamiento de Bolsa
 
 El backend integrado en `cd17d97a6981f36fc378c11ba0c559470622ed80`
 mantiene la separación hexagonal `domain` → `application` → `ports` →
@@ -29,11 +83,11 @@ las tres conexiones segregadas de borradores, la conexión exclusiva de
 auditoría de frontera, el manifiesto privado `identidad/bolsa-bback.json` y
 las demás dependencias nominales; una ausencia aborta el montaje.
 
-AD3-44 y Bolsa-11 siguen como fuentes sin instalar. No arrancar este código con
-el opt-in hasta superar la prueba positiva sobre snapshot canónico integral y
-provisionar los roles/LOGIN privados. No ejecutar `DOWN` contra historia.
+En este corte histórico, AD3-44 y Bolsa-11 eran fuentes sin instalar. La
+instalación posterior se consulta en Estado y Sistemas; no ejecutar `DOWN`
+contra historia.
 
-## Pausa y entrega conservada por cuota — 10 de septiembre de 2026
+## Pausa y entrega conservada por cuota — antecedente del 10 de septiembre de 2026
 
 Se conserva el código hasta `9fb12560` y se confirman únicamente los sellos
 HMAC de anotación ya comprobados. Implementación SHA256
@@ -64,11 +118,9 @@ reales, usando índice temporal y CAS. Conservar el WIP ajeno de paginación/foc
 y las entradas existentes del manifiesto. No reutilizar el índice real para
 inventariar esta línea.
 
-Copia privada: `cierre-cuota/inventario-wip.json`, `wip/`,
-`wip-contra-canonica.patch` y `entregas-tmp/`, dentro de
-`/root/.local/state/vec-codex-director-20260910`. La copia corresponde a la base
-`9fb12560`; no atribuye autoría al material ajeno. No ejecutar SQL ni reiniciar
-servicios al recuperar esta pausa. Auth13 y el recorrido durable siguen pendientes.
+El inventario de recuperación de aquella pausa se conservó fuera de Git;
+corresponde a la base `9fb12560` y no atribuye autoría al material ajeno.
+Su estado de Auth13 y del recorrido durable era el de aquel corte.
 
 ## Cierre administrativo: persistencia integrada en código
 
@@ -134,7 +186,7 @@ fuera de este corte. La dependencia raíz y fuente nominal, su configuración y
 Auth13 en runtime siguen pendientes. No hay anotación visible ni cierre
 completo del objetivo 13.
 
-## Continuación técnica vigente — 10 de septiembre de 2026
+## Continuación técnica del 10 de septiembre de 2026 — antecedente
 
 ### Continuidad de incorporación integrada en dominio y servicio
 
@@ -242,8 +294,8 @@ La aprobación administrativa y conexión al alta/ratificación siguen pendiente
 no reutilice esta tabla como fuente de permisos.
 
 **Cierre de bandeja y análisis publicado:** `b2effbaf09fd4ad8477bf42c56e4615ff52d0c62`.
-La base principal conserva 51 solicitudes; bandeja y detalle consultables en `8443`/base
-`55433`; el caso verificado encadena solicitud `v1` a análisis `201`/`v2` y
+La base principal de aquel recorrido conservaba 51 solicitudes; bandeja y
+detalle eran consultables. El caso verificado encadena solicitud `v1` a análisis `201`/`v2` y
 recupera un único recibo tras reinicio, mediante lectura independiente de
 PostgreSQL y navegador. La bandeja no añade por sí sola otro paso completo.
 Consultar la [guía canónica](../../GUIA_RECORRIDO_ALBERTO.md) para el recorrido
@@ -383,7 +435,7 @@ git diff --stat -- docs/manual_programador
 Revisar el resultado completo: no ejecutar el generador por cada edición de
 este manual ni confiar en sus resúmenes históricos como estado del producto.
 
-## Estado funcional: cinco pasos y partes del sexto y séptimo
+## Estado funcional del 6 de septiembre — antecedente
 
 El recorrido usa navegador, API interna, autorización, PostgreSQL y recibos
 reales con datos sintéticos. La declaración RRHH tiene su comprobación propia
@@ -442,8 +494,8 @@ ni aceptación o renuncia terminal. El original sigue en el sistema de correo.
 
 CT `000056_respuesta_recibida_rrhh` y AD3
 `000014_consumidor_respuesta_recibida_rrhh` ya estaban instaladas en **ambas bases
-locales en el corte histórico**. No reaplicarlas ni recrear bases. Las once DSN
-de aquel corte no completan la configuración de incorporación actual.
+locales en el corte histórico**. No reaplicarlas ni recrear bases. La
+configuración de aquel corte no completa la incorporación posterior.
 Los DOWN bloquean la reversión cuando
 hay registros o dependencias; no eliminan la declaración conservada.
 
@@ -482,7 +534,7 @@ ante resultado ambiguo se congelan clave y material, sin reintento automático.
 El resolutor consulta el justificante mediante CT57 con permiso propio V3 real
 y fresco (`contratacion_temporal.llamamiento.respuesta.consultar_justificante`),
 sin doble. El resultado es interno, no DTO HTTP; `Seleccion` no sale.
-AD3 `000016` / CT `000057` instaladas en ambas bases locales (`55433`/`55432`),
+AD3 `000016` / CT `000057` instaladas en las dos bases de aquel ejercicio,
 con consulta confirmada tras reinicio de app/PostgreSQL principal; no concede resolución.
 
 La composición de desarrollo de doble llave fija la política sintética y exige
@@ -663,7 +715,8 @@ de tocar esos archivos; no copiar una rama o worktree sobre el árbol compartido
 
 ## Arquitectura real y propiedad
 
-El ejecutable del recorrido es [cmd/vec-server](../../cmd/vec-server/main.go).
+Esta sección describe la **composición de desarrollo** conservada. El ejecutable
+de ese recorrido es [cmd/vec-server](../../cmd/vec-server/main.go).
 Carga `config`, llama a `bootstrap.NewHTTPServerWithConfig` y, con el perfil
 de desarrollo explícito, entra en la composición de desarrollo.
 
@@ -733,76 +786,21 @@ Conservar el shell y el tema compartidos: contexto del expediente, etiquetas,
 confirmación explícita, estados de espera/error y recibo. No duplicar helpers,
 CSS estructural ni reglas funcionales en la vista.
 
-## Preparar y arrancar desarrollo local — referencia histórica
+## Preparación de desarrollo — antecedente operativo
 
-Desde la raíz del worktree canónico asignado, no desde la raíz histórica ni
-desde el producto publicado mientras otra persona lo está validando.
+Los recorridos históricos usaron un perfil de desarrollo explícito, Go según
+[go.mod](../../go.mod), PostgreSQL, conexiones y certificados separados por
+función. El lanzador de desarrollo no instala roles ni migraciones; la mera
+presencia de configuración tampoco acredita que una capacidad funcione.
 
-Requisitos verificables en las fuentes:
-
-- Go: [go.mod](../../go.mod) declara mínimo `1.25.12` y toolchain `1.26.5`.
-  Usar la toolchain de entrega fijada, sin degradarla para salvar una compilación.
-- Bash, Python 3, `curl`, OpenSSL y utilidades de sistema para el lanzador y
-  el generador de credenciales. Git para inventario y revisión.
-- Node.js compatible con `node --test` para pruebas web focales.
-- PostgreSQL **18.4** para este recorrido y sus migraciones exactas; Docker
-  solo si se utiliza la instancia aislada existente. No levantar otra por inercia.
-- Certificados y material persistente fuera de Git; conexiones con
-  `sslmode=verify-full` y autoridades de certificación correctas.
-
-El [lanzador](../../scripts/arrancar_vec_desarrollo.sh) no instala PostgreSQL,
-roles ni migraciones. Genera o verifica material de desarrollo, compila un
-binario temporal y escucha en loopback con TLS 1.3 y certificado de cliente.
-No usar `arrancar_presentacion_rrhh.sh` para demostrar efectos persistentes.
-
-Para el recorrido ya conservado, preparar las once conexiones DSN en las dos
-instancias PostgreSQL locales según el
-[bloque histórico de la guía](../../GUIA_RECORRIDO_ALBERTO.md).
-Cada aplicación usa sus once logins contra una sola base; no se mezclan entre
-instancias, ni son conexiones a un remoto de desarrollo. No copiar DSN,
-credenciales ni rutas privadas en este manual:
-
-- `VEC_CT_DATABASE_URL`: ejecución del módulo.
-- `VEC_CT_GOBIERNO_DATABASE_URL`: gobierno.
-- `VEC_CT_CONFIRMADOR_DATABASE_URL`: confirmación de cobertura.
-- `VEC_CT_LECTOR_RESULTADO_DATABASE_URL`: lectura de resultado.
-- `VEC_CT_REGISTRO_AUTORIZACION_DATABASE_URL`: registro de autorización.
-- `VEC_BOLSA_LLAMAMIENTOS_DATABASE_URL`: ejecución de Bolsa.
-- Las cinco DSN adicionales de consultas, motivos RRHH, registro y
-  revalidación de identidad y contexto del actor, también locales, se preparan
-  según la guía.
-
-Las once conexiones de cada aplicación apuntan a su única base local. No se
-usa un DSN de desarrollo remoto. No activarlas parcialmente ni atribuir éxito
-por existir sus variables.
-
-Con esas conexiones preparadas y la variable `material_vec` apuntando al
-directorio persistente aprobado:
-
-```bash
-go version
-scripts/arrancar_vec_desarrollo.sh --puerto 8443 \
-  --directorio-material "$material_vec"
-```
-
-Abrir `https://localhost:8443/portal-empleado/` con el certificado de RRHH;
-Intervención usa su certificado y perfil de navegador separados.
-Esta receta corresponde al antiguo entorno local. Para la instancia remota
-activa use el apartado vigente de Sistemas; no arranque una segunda copia.
-La importación protegida de certificados se describe en la guía; no publicar
-claves, contraseñas ni cadenas de conexión en Git, capturas o mensajes.
-
-La guía distingue la base del navegador en `55433` y la base de pruebas
-en `55432`. Dirección puede reservar esta última para validar una candidata:
-no lanzar pruebas en paralelo contra ella ni cambiar el destino del producto.
-Nunca reconstruir o restaurar una base para resolver un fallo de arranque sin
-una orden explícita.
-
-Para parar, `Ctrl-C` en la terminal del lanzador. Para reiniciar, repetir el
-mismo comando conservando conexiones, base y directorio de material. No
-regenerar claves ni crear UUID nuevos para recuperar una operación anterior.
-Una interrupción de transporte puede dejar un efecto confirmado: recuperar
-con la misma intención y comparar recibos antes de ordenar otra operación.
+Para operar una instancia, consultar el inventario operativo privado vigente
+y el [manual de Sistemas](../manual_sistemas/README.md). Allí se determina la
+ubicación canónica, el material, las conexiones y la secuencia autorizada para
+arranque, parada, prueba y recuperación. No inferir esos datos del recorrido
+histórico de este manual ni reconstruir una base por un fallo de arranque.
+Ante un resultado incierto, recuperar con la misma intención y comparar el
+recibo antes de ordenar otra operación; conservar las claves y el material de
+la instancia para que el replay sea verificable.
 
 ## Ciclo corto: un hito observable, pruebas al terminar
 
