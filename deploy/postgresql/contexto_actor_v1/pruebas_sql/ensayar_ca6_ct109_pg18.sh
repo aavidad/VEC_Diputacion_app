@@ -150,6 +150,8 @@ COMMENT ON ROLE vec_contexto_actor_corporativo_rrhh_selector IS
  'vec_contexto_actor_v1:rol-contexto-corporativo-rrhh-selector:v1';
 GRANT CONNECT ON DATABASE postgres TO vec_contexto_actor_corporativo_rrhh_selector;
 SQL
+psql_archivo "$raiz/deploy/postgresql/contexto_actor_v1/migraciones/000003_organizacion_corporativa_v1.up.sql"
+psql_archivo "$raiz/deploy/postgresql/contexto_actor_v1/migraciones/000004_vinculo_corporativo_rrhh_v1.up.sql"
 psql_archivo "$raiz/deploy/postgresql/contratacion_temporal/roles_consultor_rrhh_ambito_up.sql"
 psql_archivo "$raiz/deploy/postgresql/contexto_actor_v1/migraciones/000006_acreditacion_ambito_rrhh_v1.up.sql"
 psql_archivo "$VEC_AD3_51_UP"
