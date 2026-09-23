@@ -36,6 +36,7 @@ export const MENSAJES_PORTAL_ES = Object.freeze({
   accion_reintentar: "Reintentar",
   paginacion_marco_etiqueta: "Paginación de la tabla",
   paginacion_marco_recuento: "Mostrando {inicio}–{fin} de {total}",
+  paginacion_marco_primera: "Primera",
   paginacion_marco_anterior: "Anterior",
   paginacion_marco_siguiente: "Siguiente",
 });

@@ -204,7 +204,7 @@ export function renderizarCuadro(estado, t) {
     const controlId = `ct-exp-resumen-control-${expediente.expediente_ref}`;
     const fase = faseBandeja(expediente.fase_clave);
     const fechaSolicitud = fechaBandeja(expediente.fecha_solicitud);
-    const modalidad = expediente.modalidad === "—" ? t("modalidad_no_informada_bandeja") : expediente.modalidad;
+    const modalidadAusente = expediente.modalidad === "—";
     const progreso = fase === "otra" ? "" : `<div class="ct-exp-progreso-bandeja" aria-label="${escaparHTML(t("flujo_expediente"))}">
       ${FASES_BANDEJA.map(([clave, etiqueta]) => `<span${clave === fase ? ' aria-current="step"' : ""}>${escaparHTML(t(etiqueta))}</span>`).join("")}
     </div>`;
@@ -214,7 +214,7 @@ export function renderizarCuadro(estado, t) {
       aria-label="${escaparHTML(t("resumen_fila", { expediente: expediente.numero_visible }))}">${escaparHTML(expediente.numero_visible)}</button></th>
     <td${centro.referencia ? ` title="${escaparHTML(centro.referencia)}"` : ""}>${escaparHTML(centro.etiqueta)}</td>
     <td>${escaparHTML(expediente.categoria)}</td>
-    <td>${escaparHTML(modalidad)}</td>
+    <td${modalidadAusente ? ` title="${escaparHTML(t("modalidad_no_informada_bandeja"))}"` : ""}>${escaparHTML(expediente.modalidad)}</td>
     <td><span class="ct-exp-chip ${estadoClave(expediente.estado_clave)}">${escaparHTML(expediente.estado)}</span></td>
     <td>${escaparHTML(expediente.fase_actual)}</td>
     <td>${escaparHTML(expediente.plazo)}</td>
@@ -243,18 +243,20 @@ export function renderizarCuadro(estado, t) {
       <table class="tabla-datos tabla-datos--prioritaria">
         <caption>${escaparHTML(t("tabla_expedientes"))}</caption>
         <thead><tr>
-          <th scope="col">${escaparHTML(t("columna_numero"))}</th>
+          <th scope="col" class="ct-exp-numero">${escaparHTML(t("columna_numero"))}</th>
           <th scope="col">${escaparHTML(t("columna_centro"))}</th>
           <th scope="col">${escaparHTML(t("columna_categoria"))}</th>
           <th scope="col">${escaparHTML(t("columna_modalidad"))}</th>
           <th scope="col">${escaparHTML(t("columna_estado"))}</th>
-          <th scope="col">${escaparHTML(t("columna_fase"))}</th>
+          <th scope="col" class="ct-exp-fase">${escaparHTML(t("columna_fase"))}</th>
           <th scope="col">${escaparHTML(t("columna_plazo"))}</th>
           <th scope="col">${escaparHTML(t("columna_acciones"))}</th>
         </tr></thead>
         <tbody>${filas}</tbody>
       </table>
     </div>
+    ${cuadro.expedientes.some((expediente) => expediente.modalidad === "—")
+    ? `<p class="ct-exp-nota-tabla">${escaparHTML(t("modalidad_nota_bandeja"))}</p>` : ""}
   </section>`;
   const paginacion = cuadro.paginacion ? `<nav class="ct-exp-paginacion" aria-label="${escaparHTML(t("paginacion"))}">
     <span>${escaparHTML(t("pagina_actual", { pagina: cuadro.paginacion.pagina }))}</span>

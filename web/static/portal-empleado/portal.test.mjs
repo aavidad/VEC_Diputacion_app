@@ -228,7 +228,7 @@ test("el coordinador respeta DEC-051 y carga el presentador con versión de cach
   // presentación no aporta. Se congela el tamaño actual para que no crezca sin
   // decisión expresa.
   assert.ok(javascript.split(/\r?\n/).length - 1 <= 900, "portal.js debe mantenerse por debajo de 900 líneas");
-  assert.match(html, /portal\.js\?v=20260923-pweb14-v1/);
+  assert.match(html, /portal\.js\?v=20260923-pweb16-v1/);
   assert.match(javascript, /portal-modulos-coordinador\.js\?v=20260921-avisos-r5-v1/);
   assert.match(javascript, /portal-bolsas-api\.js\?v=20260923-pweb13-b8-v1/);
   assert.match(javascript, /portal-borradores-ui\.js\?v=20260921-avisos-r5-v1/);

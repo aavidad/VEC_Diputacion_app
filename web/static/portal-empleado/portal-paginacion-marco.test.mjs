@@ -33,10 +33,21 @@ test("la paginación distingue tablas locales de cursores remotos", () => {
   assert.match(javascript, /new MutationObserver\(actualizarPaginacionesMarco\)/u);
 });
 
+test("la paginación larga conserva primera, vecinas, puntos y última sin dibujar 24 números", () => {
+  const inicio = javascript.indexOf("function botonesPaginaMarco(calculo)");
+  const fin = javascript.indexOf("function pintarPaginacionMarco", inicio);
+  assert.ok(inicio >= 0 && fin > inicio);
+  const fuente = `${javascript.slice(inicio, fin)}\nbotonesPaginaMarco({ pagina: 12, paginas: 24 });`;
+  const html = runInNewContext(fuente, { Array });
+  assert.deepEqual([...html.matchAll(/data-paginacion-marco-pagina="(\d+)"/gu)].map((m) => Number(m[1])), [1, 11, 12, 13, 24]);
+  assert.equal((html.match(/paginacion-marco__puntos/gu) || []).length, 2);
+  assert.match(javascript, /data-paginacion-marco-accion="primera"/u);
+});
+
 test("los textos visibles proceden del catálogo común", () => {
-  for (const clave of ["paginacion_marco_etiqueta", "paginacion_marco_recuento", "paginacion_marco_anterior", "paginacion_marco_siguiente"]) {
+  for (const clave of ["paginacion_marco_etiqueta", "paginacion_marco_recuento", "paginacion_marco_primera", "paginacion_marco_anterior", "paginacion_marco_siguiente"]) {
     assert.match(catalogo, new RegExp(`${clave}:`));
-    assert.match(javascript, new RegExp(`traducirPortal\\(\\"${clave}\\"`));
+    assert.match(javascript, new RegExp(`traducirPortal\\([\\"\\']${clave}[\\"\\']`));
   }
 });
 

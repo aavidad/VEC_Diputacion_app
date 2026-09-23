@@ -141,7 +141,8 @@ test("la modalidad ausente se rotula con precisión y los metadatos ausentes se 
       estado: "En curso", fase_clave: "solicitud", fase_actual: "Solicitud", plazo: "—",
     }],
   }, filtros: { texto: "", estado: "", fase: "" } }, t);
-  assert.match(html, />No informada en bandeja<\/td>/u);
+  assert.match(html, /title="La consulta de la bandeja no devuelve la modalidad de este expediente\.">—<\/td>/u);
+  assert.match(html, /— en Modalidad: la consulta de la bandeja aún no devuelve ese dato/u);
   const ficha = html.match(/<tr class="ct-exp-fila-resumen"[\s\S]*?<\/tr>/u)?.[0];
   assert.ok(ficha);
   assert.doesNotMatch(ficha, /ct-exp-resumen-datos[\s\S]*?<div>/u);
