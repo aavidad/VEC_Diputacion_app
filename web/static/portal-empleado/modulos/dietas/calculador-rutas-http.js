@@ -8,7 +8,7 @@
  * La política HTTP usa `credentials: same-origin`: el navegador presenta el
  * certificado cliente mTLS (o la autenticación del proxy de la frontera) solo
  * al mismo origen; el servidor no emite cookies y rechaza Cookie y
- * Authorization. No admite `globalThis.fetch` de forma implícita: exige un
+ * la cabecera de autorización HTTP. No admite `globalThis.fetch` de forma implícita: exige un
  * cliente inyectado por la composición; sin él, la composición falla cerrada.
  *
  * Dependencia de integracion: GET /api/vec/workspace debe proyectar
