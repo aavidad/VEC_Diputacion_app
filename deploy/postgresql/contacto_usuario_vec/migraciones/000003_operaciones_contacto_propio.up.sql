@@ -461,9 +461,18 @@ BEGIN
         p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,
         p_payload_v3,p_sobre_cose,p_evidencia,p_raiz,p_negocio,p_recurso,p_auditoria);
  END IF;
- IF q.decision_ref IS DISTINCT FROM recibo->>'authorization_ref'
-    OR q.consumo_huella_sha256 IS DISTINCT FROM v.consumo_huella_sha256
-    OR q.revalidada_en IS NULL THEN
+ -- El replay conserva el recibo/consumo originales de la versión. La
+ -- revalidación corresponde a la decisión V3 FRESCA de este intento; sólo
+ -- un alta nueva puede comparar sus referencias con el recibo que acaba de
+ -- producir. Comparar ambas en replay rechazaría una recuperación legítima.
+ IF q.revalidada_en IS NULL OR v.replay_confirmado IS NULL
+    OR q.decision_ref IS DISTINCT FROM (convert_from(p_decision,'UTF8')::jsonb->>'decision_ref')
+    OR q.consumo_huella_sha256 IS NULL
+    OR q.consumo_huella_sha256 !~ '^[0-9a-f]{64}$'
+    OR q.consumo_huella_sha256=repeat('0',64)
+    OR (v.replay_confirmado IS DISTINCT FROM true AND
+        (q.decision_ref IS DISTINCT FROM recibo->>'authorization_ref'
+         OR q.consumo_huella_sha256 IS DISTINCT FROM v.consumo_huella_sha256)) THEN
     RAISE EXCEPTION 'Contacto3: autorización dejó de estar vigente' USING ERRCODE='42501';
  END IF;
  RETURN QUERY SELECT v.sujeto_ref::text,v.version::numeric,v.auditoria_central::bytea,
