@@ -288,10 +288,9 @@ test("los filtros locales preservan valores y no se disfrazan de exportación", 
   assert.match(salidas[1], /data-total-filtro="solicitudes" data-total="1"/);
   assert.match(salidas[1], /DEMO-SOL-002/);
   assert.doesNotMatch(salidas[1], /<strong>DEMO-SOL-001<\/strong>/);
-  assert.match(salidas[2], /data-total-filtro="meritos" data-total="1"/);
-  assert.match(salidas[2], /DEMO-MER-004/);
-  assert.doesNotMatch(salidas[2], /<strong>DEMO-MER-001<\/strong>/);
-  for (const salida of salidas) {
+  assert.match(salidas[2], /Fuente no configurada/);
+  assert.doesNotMatch(salidas[2], /DEMO-MER-004|data-total-filtro="meritos"/);
+  for (const salida of salidas.slice(0, 2)) {
     const formulario = salida.match(/<form class="barra-filtros"[\s\S]*?<\/form>/)?.[0] || "";
     assert.match(formulario, /data-filtro=/);
     assert.match(formulario, /<button type="submit"/);
@@ -332,7 +331,7 @@ test("los formularios gobernados envían nombres estables y comandos explícitos
   ];
   const formularios = salidas.flatMap((salida) => [...salida.matchAll(/<form class="[^"]*formulario-gobernado[^"]*"[\s\S]*?<\/form>/g)]
     .map((coincidencia) => coincidencia[0]));
-  assert.equal(formularios.length, 8, "ningún formulario operativo debe quedar como cascarón visual");
+  assert.equal(formularios.length, 7, "las vistas sin fuente no exponen formularios operativos");
   for (const formulario of formularios) {
     for (const control of formulario.matchAll(/<(?:input|select|textarea)\b([^>]*)>/g)) {
       assert.match(control[1], /\bname="[a-z][a-z0-9_]*"/, `control sin nombre canónico: ${control[0]}`);
@@ -340,15 +339,16 @@ test("los formularios gobernados envían nombres estables y comandos explícitos
     assert.match(formulario, /data-comando=/, "cada formulario debe exponer al menos un comando explícito");
   }
   const meritos = salidas[1];
-  assert.doesNotMatch(meritos, />Resultado<\/span>/);
+  assert.match(meritos, /Fuente no configurada/);
+  assert.doesNotMatch(meritos, />Resultado<\/span>|data-comando=/);
   for (const operacion of ["aceptar-merito", "rechazar-merito", "revocar-merito", "rehabilitar-merito"]) {
-    assert.match(meritos, new RegExp(`data-comando="${operacion}"`));
+    assert.doesNotMatch(meritos, new RegExp(`data-comando="${operacion}"`));
   }
   assert.match(salidas[2], /data-operacion="guardar-reglas-baremo" data-objetivo="DEMO-CRI-001"/);
   assert.doesNotMatch(fuentes["portal-vistas-reglas.js"], /DEMO-(?:CRI|BOL)-/u);
   assert.doesNotMatch(salidas[3], /data-operacion="guardar-reglas-baremo"/);
   assert.doesNotMatch(salidas[1], /REV-DEMO-MERITOS/);
-  assert.match(salidas[1], /DEMO-REV-MERITOS/);
+  assert.doesNotMatch(salidas[1], /DEMO-REV-MERITOS/);
 });
 
 test("reglas y baremación son espacios de trabajo distintos", () => {
@@ -365,14 +365,14 @@ test("reglas y baremación son espacios de trabajo distintos", () => {
   assert.match(reglas, /data-comando="guardar-reglas-baremo"/);
   assert.doesNotMatch(reglas, /Ranking provisional/);
   assert.match(baremacion, /Baremación, ranking y listas/);
-  assert.match(baremacion, /Contexto de ejecución/);
-  assert.match(baremacion, /Ranking provisional/);
+  assert.match(baremacion, /Fuente no configurada/);
+  assert.doesNotMatch(baremacion, /Contexto de ejecución|Ranking provisional/);
   assert.doesNotMatch(baremacion, /Configurar criterio|Preparar la siguiente versión|guardar-reglas-baremo/);
   assert.match(portal, /reglas: \(\) => vistaReglas\.renderizarReglas\(datosVista\)/);
   assert.doesNotMatch(portal, /reglas: \(\) => vistasBaremacion\.renderizarBaremacion/);
 });
 
-test("todas las capacidades producen una pantalla completa con datos sintéticos", () => {
+test("todas las capacidades producen una pantalla o un estado cerrado sin fuente", () => {
   const modo = { valor: true };
   const u = utilidades(modo);
   const datos = obtenerDatosPresentacion();
@@ -392,10 +392,11 @@ test("todas las capacidades producen una pantalla completa con datos sintéticos
     gobierno.renderizarConfiguracion(datos),
   ];
   assert.equal(salidas.length, 14);
-  for (const salida of salidas) {
-    assert.match(salida, /<h2>/);
+  for (const [indice, salida] of salidas.entries()) {
+    assert.match(salida, /<h[23][^>]*>/);
     assert.match(salida, /<section/);
-    assert.match(salida, /DEMO|sintétic|presentación/i);
+    if ([2, 4, 5, 8].includes(indice)) assert.match(salida, /No configurado|Fuente no configurada/);
+    else assert.match(salida, /DEMO|sintétic|presentación/i);
   }
 });
 
@@ -422,9 +423,9 @@ test("las bandejas densas identifican y fijan sus columnas operativas", async ()
   const salidas = [
     [convocatorias.renderizarConvocatorias(datos, { elaboracionSeleccionada: "DEMO-BOL-014" }), "estado"],
     [convocatorias.renderizarSolicitudes(datos), "estado-acciones"],
-    [baremacion.renderizarAlegaciones(datos), "estado-acciones"],
     [operaciones.renderizarImportacion(datos), "estado-acciones"],
   ];
+  assert.match(baremacion.renderizarAlegaciones(datos), /Fuente no configurada/);
   for (const [salida, prioridad] of salidas) {
     assert.match(salida, new RegExp(`data-tabla-prioritaria="${prioridad}"`));
     assert.match(salida, /data-columna="estado"/);
