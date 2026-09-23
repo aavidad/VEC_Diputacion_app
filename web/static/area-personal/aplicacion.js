@@ -61,13 +61,6 @@ export function conservarResultadoContactoPropio(estado, { reciboRef, version, c
   estado.datos.perfil.correo = correo;
 }
 
-export function conservarOperacionContactoPropio(estado, operacion) {
-  estado.contactoPropioOperacion = operacion;
-  if (operacion?.resultado?.reciboRef && estado.contactoPropioRecibo?.reciboRef !== operacion.resultado.reciboRef) {
-    conservarResultadoContactoPropio(estado, operacion.resultado);
-  }
-}
-
 export function excluirCorreoDeActualizacionContacto(payload) {
   const { correo: _correo, ...sinCorreo } = payload;
   return sinCorreo;
@@ -263,8 +256,10 @@ function renderizar(estado, { enfocar = false } = {}) {
       autorizacionServidor: estado.contactoPropio,
       fetchImpl: estado.fetchImpl,
       presentacion: estado.presentacionSolicitada || estado.datos.meta.presentacion === true,
-      operacion: estado.contactoPropioOperacion,
-      alActualizarOperacion: (operacion) => conservarOperacionContactoPropio(estado, operacion),
+      alConfirmar: (resultado) => {
+        conservarResultadoContactoPropio(estado, resultado);
+        if (estado.vista === "perfil") renderizar(estado);
+      },
     });
     const montajeContacto = montarContactoPropio({
       contenedor: porId("contacto-propio"),
@@ -274,7 +269,6 @@ function renderizar(estado, { enfocar = false } = {}) {
       presentacion: estado.presentacionSolicitada || estado.datos.meta.presentacion === true,
       reciboAnterior: estado.contactoPropioRecibo,
       controlador: estado.controladorContactoPropio,
-      alGuardar: () => { if (estado.vista === "perfil") renderizar(estado); },
     });
     estado.destruirContactoPropio = montajeContacto?.destruir ?? null;
   }
@@ -786,7 +780,6 @@ export async function iniciarAreaPersonal({ cliente, descargarReciboPDF = null, 
     cargandoContactoPropio: false,
     abortContactoPropio: null,
     contactoPropioRecibo: null,
-    contactoPropioOperacion: null,
     controladorContactoPropio: null,
     destruirContactoPropio: null,
     fetchImpl,

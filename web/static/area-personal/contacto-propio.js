@@ -1,283 +1,254 @@
-import { textoContactoPropio } from "./i18n-contacto-propio.js";
+import { crearClienteOperacionesContactoPropio, ErrorOperacionContacto, referenciaOperacionContactoValida } from "./cliente-http.js";
+import { textoContactoPropio as t } from "./i18n-contacto-propio.js";
 
-export const RUTA_CONTACTO_PROPIO = "/api/vec/usuarios/contacto-propio";
-export const RUTA_RECIBO_CONTACTO_PROPIO = `${RUTA_CONTACTO_PROPIO}/recibo`;
+export function capturarCorreoEnviado(entrada) { return String(entrada?.value ?? "").trim(); }
 
-export function capturarCorreoEnviado(entrada) {
-  return String(entrada?.value ?? "").trim();
+function autorizado(contexto) {
+  return contexto?.capacidad === true && Number.isSafeInteger(contexto.version)
+    && contexto.version >= 0 && contexto.version < Number.MAX_SAFE_INTEGER;
 }
 
-function esContextoAutorizado(contexto) {
-  return contexto !== null && typeof contexto === "object"
-    && contexto.capacidad === true
-    && Number.isSafeInteger(contexto.version)
-    && contexto.version >= 0
-    && contexto.version < Number.MAX_SAFE_INTEGER;
+function errorVisible(error) {
+  if (error?.codigo === "peticion_invalida") return t("errorEntrada");
+  if (error?.codigo === "acceso_denegado" || error?.codigo === "no_encontrada") return t("errorPermiso");
+  if (error?.codigo === "operacion_preparada") return t("conflictoPreparada");
+  if (error?.codigo === "conflicto") return t("conflicto");
+  if (error?.codigo === "confirmacion_incierta") return t("confirmacionIncierta");
+  return t("errorServicio");
 }
 
-function mensajeError(estado) {
-  if (estado === 400) return textoContactoPropio("errorEntrada");
-  if (estado === 403) return textoContactoPropio("errorPermiso");
-  return textoContactoPropio("errorServicio");
-}
-
-function validarRespuesta(respuesta, versionEsperada) {
-  if (!respuesta || typeof respuesta !== "object" || Array.isArray(respuesta)
-    || typeof respuesta.recibo_ref !== "string" || respuesta.recibo_ref.length === 0
-    || !Number.isSafeInteger(respuesta.version) || respuesta.version !== versionEsperada + 1) {
-    throw new TypeError(textoContactoPropio("errorServicio"));
-  }
-  return Object.freeze({ reciboRef: respuesta.recibo_ref, version: respuesta.version });
-}
-
-function crearOperacion(operacion, version) {
-  if (operacion && typeof operacion === "object" && Number.isSafeInteger(operacion.versionEsperada)) return { ...operacion };
-  return { versionEsperada: version, intencion: null, versionIntentada: null, recibo: null, resultado: null };
-}
-
-export function crearControladorContactoPropio({ autorizacionServidor = null, fetchImpl = globalThis.fetch, presentacion = false, operacion = null, alActualizarOperacion = null } = {}) {
-  let enviando = false;
-  let consultando = false;
-  let estadoOperacion = crearOperacion(operacion, autorizacionServidor?.version);
+export function crearControladorContactoPropio({ autorizacionServidor = null, fetchImpl = globalThis.fetch,
+  presentacion = false, clienteOperaciones = null, alConfirmar = null } = {}) {
+  const cliente = clienteOperaciones ?? crearClienteOperacionesContactoPropio({ fetchImpl });
   const suscriptores = new Set();
-  const notificarEstado = () => {
-    for (const suscriptor of suscriptores) suscriptor();
+  let version = autorizacionServidor?.version ?? 0;
+  let operaciones = [];
+  let siguienteDesde = "";
+  let seleccion = null;
+  let cargado = false;
+  let ocupado = false;
+  let aviso = "";
+  let tipoAviso = "info";
+  let generacion = 0;
+  const emitir = () => { for (const fn of suscriptores) fn(); };
+  const decir = (texto, tipo = "info") => { aviso = texto; tipoAviso = tipo; emitir(); };
+  const exigir = () => { if (!autorizado(autorizacionServidor) || presentacion) throw new ErrorOperacionContacto("acceso_denegado", 403); };
+  const actualizar = (op) => {
+    operaciones = [op, ...operaciones.filter((item) => item.operacion_ref !== op.operacion_ref)];
+    if (seleccion?.operacion_ref === op.operacion_ref) seleccion = op;
+    emitir();
   };
-  const publicarOperacion = () => {
-    const instantanea = Object.freeze({ ...estadoOperacion, intencion: estadoOperacion.intencion && { ...estadoOperacion.intencion }, recibo: estadoOperacion.recibo && { ...estadoOperacion.recibo }, resultado: estadoOperacion.resultado && { ...estadoOperacion.resultado } });
-    alActualizarOperacion?.(instantanea);
-    notificarEstado();
-  };
-  const limpiarIntento = () => { estadoOperacion = { ...estadoOperacion, intencion: null, versionIntentada: null }; publicarOperacion(); };
-
-  async function guardar(correo) {
-    if (presentacion === true || !esContextoAutorizado(autorizacionServidor)) {
-      throw new Error(textoContactoPropio("sinAutorizacion"));
-    }
-    if (typeof fetchImpl !== "function") throw new Error(textoContactoPropio("errorServicio"));
-    const correoNormalizado = String(correo ?? "").trim();
-    if (!correoNormalizado || correoNormalizado.length > 254) {
-      throw new Error(textoContactoPropio("errorEntrada"));
-    }
-    if (enviando || consultando) throw new Error(textoContactoPropio("preparando"));
-    if (estadoOperacion.intencion && correoNormalizado !== estadoOperacion.intencion.correo) throw new Error(textoContactoPropio("reintentoExacto"));
-    enviando = true;
-    try {
-      const intencion = estadoOperacion.intencion ?? Object.freeze({ correo: correoNormalizado, version_esperada: estadoOperacion.versionEsperada });
-      estadoOperacion = { ...estadoOperacion, intencion, versionIntentada: intencion.version_esperada + 1 };
-      publicarOperacion();
-      const respuesta = await fetchImpl(RUTA_CONTACTO_PROPIO, {
-        method: "POST",
-        credentials: "same-origin",
-        cache: "no-store",
-        redirect: "error",
-        referrerPolicy: "no-referrer",
-        headers: { Accept: "application/json", "Content-Type": "application/json" },
-        body: JSON.stringify(intencion),
-      });
-      if (respuesta?.status !== 201 && respuesta?.status !== 200) {
-        if (respuesta?.status === 400 || respuesta?.status === 403) limpiarIntento();
-        throw new Error(mensajeError(respuesta?.status));
+  async function ejecutar(fn) {
+    exigir();
+    if (ocupado) throw new ErrorOperacionContacto("operacion_en_curso");
+    ocupado = true;
+    emitir();
+    try { return await fn(); }
+    finally { ocupado = false; emitir(); }
+  }
+  async function cargar({ despuesDe = "", signal } = {}) {
+    return ejecutar(async () => {
+      try {
+        const lista = await cliente.listar(20, despuesDe, { signal });
+        operaciones = despuesDe ? [...operaciones, ...lista.operaciones] : [...lista.operaciones];
+        siguienteDesde = lista.siguiente_desde;
+        cargado = true;
+        if (!despuesDe) { seleccion = null; generacion++; }
+        decir(operaciones.length ? t("seleccionExplicita") : t("historialVacio"));
+        return operaciones;
+      } catch (error) { decir(errorVisible(error), "error"); throw error; }
+    });
+  }
+  async function seleccionar(ref) {
+    return ejecutar(async () => {
+      if (!referenciaOperacionContactoValida(ref)) throw new ErrorOperacionContacto("peticion_invalida");
+      const turno = ++generacion;
+      seleccion = null;
+      emitir();
+      try {
+        const detalle = await cliente.detalle(ref);
+        if (turno !== generacion) return null;
+        seleccion = detalle;
+        actualizar(detalle);
+        decir(detalle.estado === "confirmada" ? t("reciboSeleccionado", { recibo: detalle.recibo_ref })
+          : detalle.estado === "preparada" ? t("preparadaSeleccionada") : t("canceladaSeleccionada"),
+        detalle.estado === "confirmada" ? "exito" : "info");
+        return detalle;
+      } catch (error) {
+        if (turno === generacion) decir(errorVisible(error), "error");
+        throw error;
       }
-      const resultado = validarRespuesta(await respuesta.json(), intencion.version_esperada);
-      estadoOperacion = { ...estadoOperacion, versionEsperada: resultado.version, intencion: null, versionIntentada: null, recibo: resultado, resultado: { ...resultado, correo: intencion.correo } };
-      publicarOperacion();
-      return resultado;
-    } catch (error) {
-      if (error instanceof Error && Object.values({
-        entrada: textoContactoPropio("errorEntrada"),
-        permiso: textoContactoPropio("errorPermiso"),
-        servicio: textoContactoPropio("errorServicio"),
-      }).includes(error.message)) throw error;
-      throw new Error(textoContactoPropio("errorServicio"));
-    } finally {
-      enviando = false;
-      notificarEstado();
-    }
+    });
   }
-
-  async function consultarRecibo() {
-    if (presentacion === true || !esContextoAutorizado(autorizacionServidor)
-      || autorizacionServidor.consultarRecibo !== true || estadoOperacion.versionIntentada === null) {
-      throw new Error(textoContactoPropio("consultaNoDisponible"));
-    }
-    if (enviando || consultando) throw new Error(textoContactoPropio("consultando"));
-    const version = estadoOperacion.versionIntentada;
-    consultando = true;
-    try {
-      const respuesta = await fetchImpl(RUTA_RECIBO_CONTACTO_PROPIO, {
-        method: "POST", credentials: "same-origin", cache: "no-store", redirect: "error",
-        referrerPolicy: "no-referrer",
-        headers: { Accept: "application/json", "Content-Type": "application/json" },
-        body: JSON.stringify({ version }),
-      });
-      if (respuesta?.status !== 200) throw new Error();
-      // La consulta acredita una versión histórica, no el correo del intento.
-      // No modifica recibo, versión esperada ni el estado del guardado.
-      return validarRespuesta(await respuesta.json(), version - 1);
-    } catch {
-      throw new Error(textoContactoPropio("consultaSinConfirmacion"));
-    } finally {
-      consultando = false;
-      notificarEstado();
-    }
+  async function preparar(correo) {
+    return ejecutar(async () => {
+      const limpio = String(correo ?? "").trim();
+      if (!limpio || limpio.length > 254) throw new ErrorOperacionContacto("peticion_invalida");
+      if (operaciones.some((op) => op.estado === "preparada")) {
+        decir(t("preparadaPendiente"), "aviso");
+        throw new ErrorOperacionContacto("operacion_preparada", 409);
+      }
+      try {
+        const op = await cliente.preparar(limpio, version);
+        seleccion = op;
+        generacion++;
+        actualizar(op);
+        decir(t("preparadaRevisar"), "aviso");
+        return op;
+      } catch (error) {
+        if (error?.codigo === "operacion_preparada") {
+          // Otra pestaña pudo preparar una intención. Su referencia no autoriza nada.
+          try { const lista = await cliente.listar(20); operaciones = [...lista.operaciones]; siguienteDesde = lista.siguiente_desde; cargado = true; }
+          catch { /* Se conserva el conflicto; se podrá consultar de nuevo. */ }
+        }
+        decir(errorVisible(error), "error");
+        throw error;
+      }
+    });
   }
-
+  async function confirmar(correo) {
+    return ejecutar(async () => {
+      const op = seleccion;
+      if (op?.estado !== "preparada") throw new ErrorOperacionContacto("peticion_invalida");
+      const limpio = String(correo ?? "").trim();
+      if (!limpio || limpio.length > 254) throw new ErrorOperacionContacto("peticion_invalida");
+      const turno = generacion;
+      try {
+        const confirmado = await cliente.confirmar(op.operacion_ref, limpio, op.version_esperada);
+        if (turno !== generacion) return confirmado;
+        version = confirmado.version;
+        actualizar(confirmado);
+        decir(t("correcto", { recibo: confirmado.recibo_ref }), "exito");
+        alConfirmar?.({ reciboRef: confirmado.recibo_ref, version: confirmado.version, correo: limpio });
+        return confirmado;
+      } catch (error) {
+        if (error?.codigo === "confirmacion_incierta") {
+          decir(t("confirmacionIncierta"), "aviso");
+          // La referencia exacta se consulta. Nunca se confirma de nuevo automáticamente.
+          try {
+            const detalle = await cliente.detalle(op.operacion_ref);
+            if (turno === generacion) {
+              actualizar(detalle);
+              if (detalle.estado === "confirmada") {
+                version = detalle.version;
+                decir(t("reciboSeleccionado", { recibo: detalle.recibo_ref }), "exito");
+                alConfirmar?.({ reciboRef: detalle.recibo_ref, version: detalle.version, correo: limpio });
+              } else decir(t("resultadoNoConfirmado"), "aviso");
+            }
+          } catch { if (turno === generacion) decir(t("consultaSinConfirmacion"), "aviso"); }
+        } else decir(errorVisible(error), "error");
+        throw error;
+      }
+    });
+  }
+  async function cancelar() {
+    return ejecutar(async () => {
+      const op = seleccion;
+      if (op?.estado !== "preparada") throw new ErrorOperacionContacto("peticion_invalida");
+      const turno = generacion;
+      try {
+        const cancelada = await cliente.cancelar(op.operacion_ref);
+        if (turno === generacion) { actualizar(cancelada); decir(t("canceladaSeleccionada")); }
+        return cancelada;
+      } catch (error) {
+        if (error?.codigo === "conflicto" || error?.codigo === "confirmacion_incierta") {
+          try { const detalle = await cliente.detalle(op.operacion_ref); if (turno === generacion) actualizar(detalle); }
+          catch { /* El resultado sigue incierto hasta otra consulta explícita. */ }
+        }
+        decir(errorVisible(error), "error");
+        throw error;
+      }
+    });
+  }
   return Object.freeze({
-    autorizado: presentacion !== true && esContextoAutorizado(autorizacionServidor),
-    guardar,
-    consultarRecibo,
-    suscribir(suscriptor) {
-      if (typeof suscriptor !== "function") return () => {};
-      suscriptores.add(suscriptor);
-      return () => suscriptores.delete(suscriptor);
-    },
-    get puedeConsultarRecibo() {
-      return presentacion !== true && esContextoAutorizado(autorizacionServidor)
-        && autorizacionServidor.consultarRecibo === true && estadoOperacion.versionIntentada !== null;
-    },
-    get consultando() { return consultando; },
-    get enviando() { return enviando; },
-    get recibo() { return estadoOperacion.recibo; },
-    get intencion() { return estadoOperacion.intencion && { ...estadoOperacion.intencion }; },
-    get resultado() { return estadoOperacion.resultado && { ...estadoOperacion.resultado }; },
+    get autorizado() { return !presentacion && autorizado(autorizacionServidor); },
+    get ocupado() { return ocupado; }, get cargado() { return cargado; },
+    get operaciones() { return [...operaciones]; }, get siguienteDesde() { return siguienteDesde; },
+    get seleccion() { return seleccion; }, get aviso() { return aviso; }, get tipoAviso() { return tipoAviso; },
+    cargar, seleccionar, preparar, confirmar, cancelar,
+    suscribir(fn) { suscriptores.add(fn); return () => suscriptores.delete(fn); },
   });
 }
 
-export function montarContactoPropio({
-  contenedor, correo = "", autorizacionServidor = null, fetchImpl,
-  presentacion = false, reciboAnterior = null, alGuardar = null, controlador: controladorExterno = null,
-} = {}) {
-  if (!contenedor || typeof contenedor.replaceChildren !== "function") return null;
-  const controlador = controladorExterno ?? crearControladorContactoPropio({ autorizacionServidor, fetchImpl, presentacion });
-  const documento = contenedor.ownerDocument;
-  const formulario = documento.createElement("form");
-  formulario.noValidate = true;
-  const campo = documento.createElement("div");
-  campo.className = "campo";
-  const etiqueta = documento.createElement("label");
-  etiqueta.htmlFor = "correo-contacto-propio";
-  etiqueta.textContent = textoContactoPropio("etiquetaCorreo");
-  const entrada = documento.createElement("input");
-  entrada.id = "correo-contacto-propio";
-  entrada.name = "correo";
-  entrada.type = "email";
-  entrada.autocomplete = "email";
-  entrada.required = true;
-  entrada.maxLength = 254;
-  entrada.value = controlador.intencion?.correo ?? correo;
-  const ayuda = documento.createElement("small");
-  ayuda.textContent = textoContactoPropio("ayuda");
-  campo.append(etiqueta, entrada, ayuda);
-  const estado = documento.createElement("p");
-  estado.className = "nota";
-  estado.hidden = true;
-  estado.setAttribute("role", "status");
-  const boton = documento.createElement("button");
-  boton.type = "submit";
-  boton.className = "boton-primario";
-  boton.textContent = controlador.intencion ? textoContactoPropio("reintentoExacto") : textoContactoPropio("guardar");
-  const consultar = documento.createElement("button");
-  consultar.type = "button";
-  consultar.className = "boton-secundario";
-  consultar.textContent = textoContactoPropio("consultarRecibo");
-  consultar.hidden = true;
-  const historial = documento.createElement("p");
-  historial.className = "nota";
-  historial.hidden = true;
-  formulario.append(campo, boton, consultar, estado, historial);
-  const habilitado = controlador.autorizado && presentacion !== true;
+export function montarContactoPropio({ contenedor, autorizacionServidor = null, fetchImpl,
+  presentacion = false, reciboAnterior = null, alGuardar = null, controlador: externo = null } = {}) {
+  if (!contenedor?.replaceChildren) return null;
+  const controlador = externo ?? crearControladorContactoPropio({ autorizacionServidor, fetchImpl, presentacion, alConfirmar: alGuardar });
+  const doc = contenedor.ownerDocument;
+  const nodo = (tipo, clase = "", texto = "") => { const el = doc.createElement(tipo); el.className = clase; el.textContent = texto; return el; };
+  const formulario = nodo("form", "contacto-operacion-formulario"); formulario.noValidate = true;
+  const campo = nodo("div", "campo");
+  const etiqueta = nodo("label", "", t("etiquetaCorreo")); etiqueta.htmlFor = "correo-contacto-propio";
+  const entrada = nodo("input"); entrada.id = "correo-contacto-propio"; entrada.type = "email";
+  entrada.name = "correo"; entrada.autocomplete = "email"; entrada.required = true; entrada.maxLength = 254;
+  const ayuda = nodo("small", "", t("ayuda")); campo.append(etiqueta, entrada, ayuda);
+  const preparar = nodo("button", "boton-primario", t("preparar")); preparar.type = "submit";
+  const confirmar = nodo("button", "boton-primario", t("confirmar")); confirmar.type = "button";
+  const cancelar = nodo("button", "boton-peligro", t("cancelar")); cancelar.type = "button";
+  const acciones = nodo("div", "fila-acciones"); acciones.append(preparar, confirmar, cancelar);
+  const estado = nodo("p", "nota"); estado.setAttribute("role", "status");
+  estado.setAttribute("aria-live", "polite"); estado.setAttribute("tabindex", "-1");
+  const anterior = nodo("p", "nota", reciboAnterior?.reciboRef ? t("correctoAnterior", { recibo: reciboAnterior.reciboRef }) : "");
+  anterior.hidden = !reciboAnterior?.reciboRef;
+  const listaPanel = nodo("section", "contacto-operaciones-panel");
+  const cabecera = nodo("div", "contacto-operaciones-cabecera");
+  const titulo = nodo("h4", "", t("historialTitulo"));
+  const actualizar = nodo("button", "boton-secundario", t("actualizarHistorial")); actualizar.type = "button";
+  cabecera.append(titulo, actualizar);
+  const lista = nodo("ul", "contacto-operaciones-lista");
+  const mas = nodo("button", "boton-secundario", t("masOperaciones")); mas.type = "button";
+  listaPanel.append(cabecera, lista, mas);
+  formulario.append(campo, acciones, estado, anterior);
+  contenedor.replaceChildren(formulario, listaPanel);
   let activa = true;
-  let resultadoMostrado = controlador.resultado?.reciboRef ?? null;
-  let estadoActual = "inicial";
-  const mostrarEstado = (clase, texto, tipo) => {
-    estado.hidden = false;
-    estado.className = clase;
-    estado.textContent = texto;
-    estadoActual = tipo;
-  };
-  const mostrarHistorico = (resultado) => {
-    if (!resultado?.reciboRef) return;
-    historial.hidden = false;
-    historial.textContent = textoContactoPropio("correctoAnterior", { recibo: resultado.reciboRef });
-  };
   const sincronizar = () => {
     if (!activa) return;
-    const intencion = controlador.intencion;
-    if (intencion) entrada.value = intencion.correo;
-    entrada.disabled = !habilitado || Boolean(intencion) || controlador.enviando || controlador.consultando;
-    boton.disabled = !habilitado || controlador.enviando || controlador.consultando;
-    boton.textContent = intencion ? textoContactoPropio("reintentoExacto") : textoContactoPropio("guardar");
-    consultar.hidden = !controlador.puedeConsultarRecibo;
-    consultar.disabled = controlador.enviando || controlador.consultando;
-    if (intencion && controlador.resultado) mostrarHistorico(controlador.resultado);
-    if (controlador.resultado?.reciboRef && controlador.resultado.reciboRef !== resultadoMostrado) {
-      resultadoMostrado = controlador.resultado.reciboRef;
-      mostrarEstado("nota", textoContactoPropio("correcto", { recibo: resultadoMostrado }), "exito");
-    } else if (intencion && estadoActual === "inicial") {
-      mostrarEstado("nota aviso", textoContactoPropio("errorServicio"), "incertidumbre");
+    const op = controlador.seleccion;
+    const habilitado = controlador.autorizado && !controlador.ocupado;
+    entrada.disabled = !habilitado;
+    preparar.disabled = !habilitado || Boolean(controlador.operaciones.find((item) => item.estado === "preparada"));
+    confirmar.hidden = op?.estado !== "preparada";
+    cancelar.hidden = op?.estado !== "preparada";
+    confirmar.disabled = !habilitado; cancelar.disabled = !habilitado;
+    actualizar.disabled = !habilitado; mas.hidden = !controlador.siguienteDesde; mas.disabled = !habilitado;
+    estado.textContent = controlador.autorizado ? controlador.aviso || t("seleccionExplicita") : t("sinAutorizacion");
+    estado.className = `nota ${controlador.tipoAviso === "error" ? "error" : controlador.tipoAviso === "aviso" ? "aviso" : ""}`.trim();
+    lista.replaceChildren();
+    for (const item of controlador.operaciones) {
+      const li = nodo("li", `contacto-operacion ${item.estado}`);
+      const boton = nodo("button", "boton-secundario", t(`estado.${item.estado}`));
+      boton.type = "button"; boton.disabled = !habilitado;
+      boton.setAttribute("aria-label", t("seleccionarOperacion", { estado: t(`estado.${item.estado}`) }));
+      boton.addEventListener("click", async () => { try { await controlador.seleccionar(item.operacion_ref); entrada.value = ""; estado.focus(); } catch { /* Mensaje del controlador. */ } });
+      const meta = nodo("small", "", t("versionOperacion", { version: item.version_esperada }));
+      li.append(boton, meta); lista.append(li);
+    }
+    if (controlador.cargado && controlador.operaciones.length === 0) {
+      lista.append(nodo("li", "contacto-operacion-vacia", t("historialVacio")));
     }
   };
-  mostrarHistorico(controlador.resultado ?? reciboAnterior);
-  if (!habilitado) {
-    entrada.disabled = true;
-    boton.disabled = true;
-    boton.setAttribute("aria-disabled", "true");
-    mostrarEstado("nota aviso", textoContactoPropio("sinAutorizacion"), "denegado");
-  } else if (controlador.intencion) {
-    entrada.disabled = true;
-    mostrarEstado("nota aviso", textoContactoPropio("errorServicio"), "incertidumbre");
-  }
-  sincronizar();
-  const cancelarSuscripcion = controlador.suscribir?.(sincronizar);
-  const guardar = async (evento) => {
+  const desuscribir = controlador.suscribir(sincronizar);
+  const alPreparar = async (evento) => {
     evento.preventDefault();
-    if (!entrada.checkValidity()) {
-      mostrarEstado("nota error", textoContactoPropio("errorEntrada"), "error");
-      entrada.focus();
-      return;
-    }
-    if (controlador.enviando || controlador.consultando) return;
-    const correoEnviado = capturarCorreoEnviado(entrada);
-    boton.disabled = true;
-    entrada.disabled = true;
-    consultar.disabled = true;
-    mostrarEstado("nota", textoContactoPropio("preparando"), "preparando");
-    try {
-      const resultado = await controlador.guardar(correoEnviado);
-      if (!activa) return;
-      mostrarEstado("nota", textoContactoPropio("correcto", { recibo: resultado.reciboRef }), "exito");
-      alGuardar?.({ ...resultado, correo: correoEnviado });
-    } catch (error) {
-      if (!activa) return;
-      mostrarEstado("nota error", error instanceof Error ? error.message : textoContactoPropio("errorServicio"), "error");
-    } finally {
-      if (!activa) return;
-      sincronizar();
-    }
+    if (!entrada.checkValidity()) { estado.textContent = t("errorEntrada"); entrada.focus(); return; }
+    try { await controlador.preparar(capturarCorreoEnviado(entrada)); estado.focus(); }
+    catch { /* Mensaje del controlador. */ }
   };
-  const consultarRecibo = async () => {
-    if (controlador.enviando || controlador.consultando) return;
-    consultar.disabled = true;
-    boton.disabled = true;
-    entrada.disabled = true;
-    mostrarEstado("nota", textoContactoPropio("consultando"), "consulta");
-    try {
-      const resultado = await controlador.consultarRecibo();
-      if (!activa) return;
-      mostrarEstado("nota", textoContactoPropio("reciboConsultado", {
-        recibo: resultado.reciboRef, version: resultado.version,
-      }), "consulta");
-    } catch {
-      if (!activa) return;
-      mostrarEstado("nota aviso", textoContactoPropio("consultaSinConfirmacion"), "consulta");
-    } finally {
-      if (!activa) return;
-      sincronizar();
-    }
+  const alConfirmarClick = async () => {
+    if (!entrada.checkValidity()) { estado.textContent = t("errorEntrada"); entrada.focus(); return; }
+    const correo = capturarCorreoEnviado(entrada);
+    try { const op = await controlador.confirmar(correo); if (op?.estado === "confirmada") alGuardar?.({ reciboRef: op.recibo_ref, version: op.version, correo }); }
+    catch { /* Mensaje del controlador. */ }
   };
-  formulario.addEventListener("submit", guardar);
-  consultar.addEventListener("click", consultarRecibo);
-  contenedor.replaceChildren(formulario);
-  return Object.freeze({ controlador, destruir() { activa = false; cancelarSuscripcion?.(); formulario.removeEventListener("submit", guardar); consultar.removeEventListener("click", consultarRecibo); } });
+  const alCancelar = async () => { if (globalThis.confirm?.(t("confirmarCancelacion")) === false) return;
+    try { await controlador.cancelar(); entrada.value = ""; estado.focus(); } catch { /* Mensaje del controlador. */ } };
+  const alActualizar = async () => { try { await controlador.cargar(); } catch { /* Mensaje del controlador. */ } };
+  const alMas = async () => { try { await controlador.cargar({ despuesDe: controlador.siguienteDesde }); } catch { /* Mensaje del controlador. */ } };
+  formulario.addEventListener("submit", alPreparar); confirmar.addEventListener("click", alConfirmarClick);
+  cancelar.addEventListener("click", alCancelar); actualizar.addEventListener("click", alActualizar); mas.addEventListener("click", alMas);
+  sincronizar();
+  if (controlador.autorizado && !controlador.cargado) void controlador.cargar().catch(() => {});
+  return Object.freeze({ controlador, destruir() { activa = false; desuscribir();
+    formulario.removeEventListener("submit", alPreparar); confirmar.removeEventListener("click", alConfirmarClick);
+    cancelar.removeEventListener("click", alCancelar); actualizar.removeEventListener("click", alActualizar); mas.removeEventListener("click", alMas); } });
 }
