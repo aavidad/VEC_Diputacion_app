@@ -120,6 +120,13 @@ func esRutaComisionesDietas(ruta string) bool {
 	return ok && resto != "" && !strings.Contains(resto, "/")
 }
 
+func metodoComisionesDietasValido(ruta, metodo string) bool {
+	if ruta == dietashttp.RutaBorradores {
+		return metodo == http.MethodGet || metodo == http.MethodPost
+	}
+	return esRutaComisionesDietas(ruta) && metodo == http.MethodGet
+}
+
 func (a *autoridadComisionesDietasDesarrollo) proteger(siguiente http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r == nil || r.URL == nil {
@@ -178,7 +185,7 @@ func (a autoridadExactasConDietas) AutorizarRutaExacta(ctx context.Context, ruta
 	if !ok {
 		return vechttp.ErrAutenticacionRutaExactaRequerida
 	}
-	if a.dietas == nil || c.autoridad != a.dietas || c.ruta != ruta || c.seguridad.Resultado.Validar() != nil || !c.seguridad.Vinculo.VigenteEn(a.dietas.reloj.Ahora(), c.seguridad.Resultado) {
+	if a.dietas == nil || c.autoridad != a.dietas || c.ruta != ruta || !metodoComisionesDietasValido(ruta, c.metodo) || c.seguridad.Resultado.Validar() != nil || !c.seguridad.Vinculo.VigenteEn(a.dietas.reloj.Ahora(), c.seguridad.Resultado) {
 		return vechttp.ErrAccesoRutaExactaDenegado
 	}
 	return nil

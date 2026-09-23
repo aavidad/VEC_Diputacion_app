@@ -28,6 +28,20 @@ func TestComisionesDietasSoloSeMontanConSelectorYMaterialNominal(t *testing.T) {
 }
 
 func TestFronteraComisionesDietasNoDelegaNiSirveSinSesion(t *testing.T) {
+	for _, caso := range []struct {
+		ruta, metodo string
+		admitido     bool
+	}{
+		{dietashttp.RutaBorradores, http.MethodGet, true},
+		{dietashttp.RutaBorradores, http.MethodPost, true},
+		{dietashttp.RutaBorradores, http.MethodPut, false},
+		{dietashttp.RutaBorradores + "/dco_aaaaaaaaaaaaaaaaaaaaaa", http.MethodGet, true},
+		{dietashttp.RutaBorradores + "/dco_aaaaaaaaaaaaaaaaaaaaaa", http.MethodPost, false},
+	} {
+		if obtenido := metodoComisionesDietasValido(caso.ruta, caso.metodo); obtenido != caso.admitido {
+			t.Fatalf("método %s %s admitido=%t", caso.metodo, caso.ruta, obtenido)
+		}
+	}
 	delegada := &autoridadExactaDelegadaPrueba{}
 	a := autoridadExactasConDietas{delegada: delegada, dietas: &autoridadComisionesDietasDesarrollo{}}
 	for _, ruta := range []string{dietashttp.RutaBorradores, dietashttp.RutaBorradores + "/dco_aaaaaaaaaaaaaaaaaaaaaa"} {
