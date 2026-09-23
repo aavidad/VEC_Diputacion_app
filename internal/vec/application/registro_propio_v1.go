@@ -49,40 +49,42 @@ func (s *ServicioRegistroPropioV1) Registrar(ctx context.Context, q ports.Solici
 	if actor == equivalencia.PersonaRef {
 		return domain.ReciboRegistroPropioV1{}, ports.ErrRegistroPropioNoDisponible
 	}
-	entrada, huella, err := entradaRegistroPropio(q.OperacionRef, acreditacion, equivalencia)
-	if err != nil {
-		return domain.ReciboRegistroPropioV1{}, ports.ErrRegistroPropioNoDisponible
-	}
-	recurso := domain.RecursoAutorizable{Referencia: q.OperacionRef, ModuloID: "vec", Tipo: "registro_propio", Ambitos: map[string]string{"sujeto_ref": acreditacion.SujetoRef}, Atributos: map[string]string{"entrada_sha256": huella, "equivalencia_ref": equivalencia.PruebaRef}}
-	recursoCanonico, err := json.Marshal(struct {
-		Ambitos   map[string]string `json:"ambitos"`
-		Atributos map[string]string `json:"atributos"`
-	}{recurso.Ambitos, recurso.Atributos})
-	if err != nil {
-		return domain.ReciboRegistroPropioV1{}, ports.ErrRegistroPropioNoDisponible
-	}
-	nominal, err := domain.NuevaSolicitudAutorizacionLigadaV3(domain.DatosSolicitudAutorizacionLigadaV3{VinculoAutenticacionActor: q.VinculoActor, ReferenciaMotivo: q.Motivo, Accion: ports.AccionRegistroPropioV1, Recurso: recurso, Finalidad: ports.FinalidadRegistroPropioV1, Correlacion: q.Correlacion})
-	if err != nil {
-		return domain.ReciboRegistroPropioV1{}, ports.ErrRegistroPropioNoDisponible
-	}
-	decision, confirmacion, exportador, err := s.autorizador.EmitirMaterialAutorizacionAtestadaV3(ctx, nominal, q.ResultadoActor)
-	if err != nil || nuloRegistroPropio(exportador) || decision.ValidarPara(nominal) != nil {
-		return domain.ReciboRegistroPropioV1{}, ports.ErrRegistroPropioNoDisponible
-	}
-	material, err := exportador.ExportarMaterialParaConsumidor()
-	if err != nil || !materialRegistroPropioValido(material, nominal, decision, confirmacion, q.ResultadoActor, recurso, s.ahora()) {
-		return domain.ReciboRegistroPropioV1{}, ports.ErrRegistroPropioNoDisponible
-	}
-	// Revalidar la credencial y la equivalencia inmediatamente antes de pedir
-	// el efecto durable. El adaptador SQL vuelve a comprobar material y estado.
-	if err = s.acreditador.RevalidarRegistroPropio(ctx, acreditacion); err != nil || acreditacion.ValidarEn(s.ahora()) != nil {
-		return domain.ReciboRegistroPropioV1{}, ports.ErrRegistroPropioNoDisponible
-	}
-	segunda, err := s.equivalencia.ResolverEquivalenciaPersona(ctx, q.OperacionRef, acreditacion)
-	if err != nil || !reflect.DeepEqual(segunda, equivalencia) || ctx.Err() != nil {
-		return domain.ReciboRegistroPropioV1{}, ports.ErrRegistroPropioNoDisponible
-	}
-	recibo, err := s.registro.RegistrarPropio(ctx, ports.OrdenRegistroPropioV1{OperacionRef: q.OperacionRef, Acreditacion: acreditacion, Equivalencia: equivalencia, ActorRef: actor, EntradaCanonica: entrada, RecursoCanonico: recursoCanonico, Solicitud: nominal, Decision: decision, Confirmacion: confirmacion, Material: material})
+	recibo, err := s.registro.RegistrarPropio(ctx, acreditacion.SujetoRef, func(bloqueado context.Context) (ports.OrdenRegistroPropioV1, error) {
+		// Esta función se ejecuta después del lock transaccional del sujeto.
+		// Ningún material V3 se emite antes de esta revalidación.
+		if err := s.acreditador.RevalidarRegistroPropio(bloqueado, acreditacion); err != nil || acreditacion.ValidarEn(s.ahora()) != nil {
+			return ports.OrdenRegistroPropioV1{}, ports.ErrRegistroPropioNoDisponible
+		}
+		segunda, err := s.equivalencia.ResolverEquivalenciaPersona(bloqueado, q.OperacionRef, acreditacion)
+		if err != nil || !reflect.DeepEqual(segunda, equivalencia) || bloqueado.Err() != nil {
+			return ports.OrdenRegistroPropioV1{}, ports.ErrRegistroPropioNoDisponible
+		}
+		entrada, huella, err := entradaRegistroPropio(q.OperacionRef, acreditacion, equivalencia)
+		if err != nil {
+			return ports.OrdenRegistroPropioV1{}, ports.ErrRegistroPropioNoDisponible
+		}
+		recurso := domain.RecursoAutorizable{Referencia: q.OperacionRef, ModuloID: "vec", Tipo: "registro_propio", Ambitos: map[string]string{"sujeto_ref": acreditacion.SujetoRef}, Atributos: map[string]string{"entrada_sha256": huella, "equivalencia_ref": equivalencia.PruebaRef}}
+		recursoCanonico, err := json.Marshal(struct {
+			Ambitos   map[string]string `json:"ambitos"`
+			Atributos map[string]string `json:"atributos"`
+		}{recurso.Ambitos, recurso.Atributos})
+		if err != nil {
+			return ports.OrdenRegistroPropioV1{}, ports.ErrRegistroPropioNoDisponible
+		}
+		nominal, err := domain.NuevaSolicitudAutorizacionLigadaV3(domain.DatosSolicitudAutorizacionLigadaV3{VinculoAutenticacionActor: q.VinculoActor, ReferenciaMotivo: q.Motivo, Accion: ports.AccionRegistroPropioV1, Recurso: recurso, Finalidad: ports.FinalidadRegistroPropioV1, Correlacion: q.Correlacion})
+		if err != nil {
+			return ports.OrdenRegistroPropioV1{}, ports.ErrRegistroPropioNoDisponible
+		}
+		decision, confirmacion, exportador, err := s.autorizador.EmitirMaterialAutorizacionAtestadaV3(bloqueado, nominal, q.ResultadoActor)
+		if err != nil || nuloRegistroPropio(exportador) || decision.ValidarPara(nominal) != nil {
+			return ports.OrdenRegistroPropioV1{}, ports.ErrRegistroPropioNoDisponible
+		}
+		material, err := exportador.ExportarMaterialParaConsumidor()
+		if err != nil || !materialRegistroPropioValido(material, nominal, decision, confirmacion, q.ResultadoActor, recurso, s.ahora()) {
+			return ports.OrdenRegistroPropioV1{}, ports.ErrRegistroPropioNoDisponible
+		}
+		return ports.OrdenRegistroPropioV1{OperacionRef: q.OperacionRef, Acreditacion: acreditacion, Equivalencia: equivalencia, ActorRef: actor, EntradaCanonica: entrada, RecursoCanonico: recursoCanonico, Solicitud: nominal, Decision: decision, Confirmacion: confirmacion, Material: material}, nil
+	})
 	if err != nil || recibo.ValidarPendiente() != nil || recibo.OperacionRef != q.OperacionRef || recibo.ProcedenciaRef != acreditacion.ProcedenciaRef || recibo.ProcedenciaVersion != acreditacion.ProcedenciaVersion || recibo.ProcedenciaSHA256 != acreditacion.ProcedenciaSHA256 || equivalencia.PersonaRef != "" && recibo.PersonaRef != equivalencia.PersonaRef {
 		return domain.ReciboRegistroPropioV1{}, ports.ErrRegistroPropioNoDisponible
 	}

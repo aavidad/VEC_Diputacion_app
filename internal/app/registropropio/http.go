@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"mime"
 	"net/http"
 	"strings"
 
@@ -22,10 +23,12 @@ type RegistradorPropio interface {
 }
 
 type ResultadoContactoAlta struct {
+	OperacionRef string
 	PersonaRef   string
 	Version      uint64
 	ReciboRef    string
 	EvidenciaRef string
+	Confirmado   bool
 }
 
 type CompletadorContactoRegistroPropio interface {
@@ -51,15 +54,25 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
 		return
 	}
-	if r.Method != http.MethodPost || r.Header.Get("Cookie") != "" {
+	if r.Method != http.MethodPost || len(r.Cookies()) != 0 || r.Header.Get("Cookie") != "" {
 		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+		return
+	}
+	tipo, parametros, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if err != nil || tipo != "application/json" || (len(parametros) != 0 && (len(parametros) != 1 || !strings.EqualFold(parametros["charset"], "utf-8"))) {
+		http.Error(w, http.StatusText(http.StatusUnsupportedMediaType), http.StatusUnsupportedMediaType)
+		return
+	}
+	bytesCuerpo, err := io.ReadAll(io.LimitReader(r.Body, 2049))
+	if err != nil || len(bytesCuerpo) > 2048 {
+		http.Error(w, http.StatusText(http.StatusRequestEntityTooLarge), http.StatusRequestEntityTooLarge)
 		return
 	}
 	var cuerpo struct {
 		Correo       string `json:"correo"`
 		Confirmacion string `json:"confirmacion"`
 	}
-	dec := json.NewDecoder(io.LimitReader(r.Body, 2048))
+	dec := json.NewDecoder(strings.NewReader(string(bytesCuerpo)))
 	dec.DisallowUnknownFields()
 	if dec.Decode(&cuerpo) != nil || dec.Decode(new(any)) != io.EOF || cuerpo.Correo == "" || cuerpo.Correo != cuerpo.Confirmacion || strings.TrimSpace(cuerpo.Correo) != cuerpo.Correo {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
@@ -80,7 +93,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	contacto, err := h.contacto.CompletarContactoPropio(r.Context(), recibo, cuerpo.Correo)
-	if err != nil || contacto.PersonaRef != recibo.PersonaRef || contacto.Version == 0 || contacto.ReciboRef == "" || contacto.EvidenciaRef == "" {
+	if err != nil || !contacto.Confirmado || contacto.OperacionRef != recibo.OperacionRef || contacto.PersonaRef != recibo.PersonaRef || contacto.Version == 0 || contacto.ReciboRef == "" || contacto.EvidenciaRef == "" {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusAccepted)
 		_ = json.NewEncoder(w).Encode(struct {

@@ -28,8 +28,26 @@ func NuevoRepositorioRegistroPropioPostgreSQL(pool *pgxpool.Pool) (*RepositorioR
 	return &RepositorioRegistroPropioPostgreSQL{pool: pool}, nil
 }
 
-func (r *RepositorioRegistroPropioPostgreSQL) RegistrarPropio(ctx context.Context, orden ports.OrdenRegistroPropioV1) (domain.ReciboRegistroPropioV1, error) {
+func (r *RepositorioRegistroPropioPostgreSQL) RegistrarPropio(ctx context.Context, sujetoRef string, preparar func(context.Context) (ports.OrdenRegistroPropioV1, error)) (domain.ReciboRegistroPropioV1, error) {
 	if r == nil || nuloRegistroPropioPostgres(r.pool) || ctx == nil || ctx.Err() != nil ||
+		preparar == nil || !domain.ReferenciaSujetoRegistroPropioValida(sujetoRef) {
+		return domain.ReciboRegistroPropioV1{}, ports.ErrRegistroPropioNoDisponible
+	}
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
+	if err != nil {
+		return domain.ReciboRegistroPropioV1{}, errorRegistroPropio(err)
+	}
+	defer tx.Rollback(context.Background())
+	if _, err = tx.Exec(ctx, `SELECT set_config('search_path','pg_catalog',true),set_config('row_security','on',true),set_config('timezone','UTC',true),set_config('lock_timeout','2s',true),set_config('statement_timeout','15s',true)`); err != nil {
+		return domain.ReciboRegistroPropioV1{}, errorRegistroPropio(err)
+	}
+	// Mismo lock que toma la función SQL. Se retiene durante la revalidación
+	// institucional y V3 y hasta el commit; otra alta del sujeto no puede pasar.
+	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended('vec:registro-propio:sujeto:'||$1,0))`, sujetoRef); err != nil {
+		return domain.ReciboRegistroPropioV1{}, errorRegistroPropio(err)
+	}
+	orden, err := preparar(ctx)
+	if err != nil || orden.Acreditacion.SujetoRef != sujetoRef || orden.Equivalencia.SujetoRef != sujetoRef ||
 		orden.OperacionRef == "" || orden.ActorRef == "" || orden.Acreditacion.ValidarEn(orden.Acreditacion.VigenteDesde) != nil ||
 		len(orden.EntradaCanonica) == 0 || len(orden.RecursoCanonico) == 0 || orden.Material.ValidarEstructura() != nil ||
 		orden.Decision.ValidarPara(orden.Solicitud) != nil {
@@ -42,14 +60,6 @@ func (r *RepositorioRegistroPropioPostgreSQL) RegistrarPropio(ctx context.Contex
 	vinculo, err := data.VinculoAutenticacionActor.Datos()
 	if err != nil || vinculo.PrincipalID != orden.ActorRef {
 		return domain.ReciboRegistroPropioV1{}, ports.ErrRegistroPropioNoDisponible
-	}
-	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
-	if err != nil {
-		return domain.ReciboRegistroPropioV1{}, errorRegistroPropio(err)
-	}
-	defer tx.Rollback(context.Background())
-	if _, err = tx.Exec(ctx, `SELECT set_config('search_path','pg_catalog',true),set_config('row_security','on',true),set_config('timezone','UTC',true),set_config('lock_timeout','2s',true),set_config('statement_timeout','15s',true)`); err != nil {
-		return domain.ReciboRegistroPropioV1{}, errorRegistroPropio(err)
 	}
 	m := orden.Material
 	var raw []byte

@@ -68,5 +68,7 @@ type AutorizadorRegistroPropioV1 interface {
 }
 
 type RegistroPropioV1 interface {
-	RegistrarPropio(context.Context, OrdenRegistroPropioV1) (domain.ReciboRegistroPropioV1, error)
+	// El repositorio bloquea el sujeto y sólo entonces invoca preparar. La
+	// preparación revalida fuente, equivalencia y actor antes del efecto SQL.
+	RegistrarPropio(context.Context, string, func(context.Context) (OrdenRegistroPropioV1, error)) (domain.ReciboRegistroPropioV1, error)
 }

@@ -19,6 +19,10 @@ func referenciaRegistroConPrefijo(valor, prefijo string) bool {
 
 const EstadoRegistroPropioPendienteContacto = "pendiente_contacto"
 
+func ReferenciaSujetoRegistroPropioValida(ref string) bool {
+	return referenciaRegistroConPrefijo(ref, "suj_")
+}
+
 // AcreditacionInstitucionalRegistroPropioV1 procede exclusivamente de una
 // autoridad institucional inyectada. Su estructura valida no acredita por si
 // sola la credencial: el productor debe revalidarla al crear el efecto.

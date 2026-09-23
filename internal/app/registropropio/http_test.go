@@ -30,13 +30,14 @@ func (r *registroPrueba) Registrar(context.Context, ports.SolicitudRegistroPropi
 }
 
 type contactoPrueba struct {
-	persona  string
-	llamadas int
+	persona   string
+	llamadas  int
+	pendiente bool
 }
 
 func (c *contactoPrueba) CompletarContactoPropio(_ context.Context, _ domain.ReciboRegistroPropioV1, _ string) (ResultadoContactoAlta, error) {
 	c.llamadas++
-	return ResultadoContactoAlta{PersonaRef: c.persona, Version: 1, ReciboRef: "rco_abcdefghijklmnopqrstuv", EvidenciaRef: "evi_abcdefghijklmnopqrstuv"}, nil
+	return ResultadoContactoAlta{OperacionRef: "opr_abcdefghijklmnopqrstuv", PersonaRef: c.persona, Version: 1, ReciboRef: "rco_abcdefghijklmnopqrstuv", EvidenciaRef: "evi_abcdefghijklmnopqrstuv", Confirmado: !c.pendiente}, nil
 }
 
 func reciboPendientePrueba() domain.ReciboRegistroPropioV1 {
@@ -55,12 +56,16 @@ func TestRegistroPropioHTTPNoCierraAltaConContactoAjenoNiExponeCorreo(t *testing
 		t.Fatal(err)
 	}
 	respuesta := httptest.NewRecorder()
-	h.ServeHTTP(respuesta, httptest.NewRequest(http.MethodPost, "/api/vec/usuarios/registro-propio", strings.NewReader(`{"correo":"prueba@example.invalid","confirmacion":"prueba@example.invalid"}`)))
+	peticion := httptest.NewRequest(http.MethodPost, "/api/vec/usuarios/registro-propio", strings.NewReader(`{"correo":"prueba@example.invalid","confirmacion":"prueba@example.invalid"}`))
+	peticion.Header.Set("Content-Type", "application/json")
+	h.ServeHTTP(respuesta, peticion)
 	if respuesta.Code != http.StatusAccepted || !strings.Contains(respuesta.Body.String(), "pendiente_contacto") || strings.Contains(respuesta.Body.String(), "prueba@example.invalid") || p.llamadas != 1 || r.llamadas != 1 || c.llamadas != 1 {
 		t.Fatalf("alta cerrada o correo expuesto: estado=%d cuerpo=%s", respuesta.Code, respuesta.Body.String())
 	}
 	respuesta = httptest.NewRecorder()
-	h.ServeHTTP(respuesta, httptest.NewRequest(http.MethodPost, "/api/vec/usuarios/registro-propio", strings.NewReader(`{"correo":"prueba@example.invalid","confirmacion":"otra@example.invalid"}`)))
+	peticion = httptest.NewRequest(http.MethodPost, "/api/vec/usuarios/registro-propio", strings.NewReader(`{"correo":"prueba@example.invalid","confirmacion":"otra@example.invalid"}`))
+	peticion.Header.Set("Content-Type", "application/json")
+	h.ServeHTTP(respuesta, peticion)
 	if respuesta.Code != http.StatusBadRequest || r.llamadas != 1 {
 		t.Fatal("confirmacion distinta produjo efecto")
 	}
@@ -76,5 +81,53 @@ func TestRegistroPropioSinAutoridadInstitucionalDeniega(t *testing.T) {
 	}
 	if _, err := NuevoHandler(nil, &registroPrueba{}, &contactoPrueba{}); !errors.Is(err, ports.ErrRegistroPropioNoDisponible) {
 		t.Fatal("handler sin frontera montado")
+	}
+}
+
+func TestRegistroPropioHTTPExigeContactoConfirmadoYJSONAcotado(t *testing.T) {
+	p := &preparadorPrueba{}
+	r := &registroPrueba{recibo: reciboPendientePrueba()}
+	c := &contactoPrueba{persona: r.recibo.PersonaRef, pendiente: true}
+	h, err := NuevoHandler(p, r, c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	peticion := func(cuerpo, tipo string) *http.Request {
+		req := httptest.NewRequest(http.MethodPost, "/api/vec/usuarios/registro-propio", strings.NewReader(cuerpo))
+		if tipo != "" {
+			req.Header.Set("Content-Type", tipo)
+		}
+		return req
+	}
+	contenido := `{"correo":"prueba@example.invalid","confirmacion":"prueba@example.invalid"}`
+	respuesta := httptest.NewRecorder()
+	h.ServeHTTP(respuesta, peticion(contenido, "application/json"))
+	if respuesta.Code != http.StatusAccepted || strings.Contains(respuesta.Body.String(), "alta_completa") || c.llamadas != 1 {
+		t.Fatal("contacto no confirmado cerró alta")
+	}
+	c.pendiente = false
+	respuesta = httptest.NewRecorder()
+	h.ServeHTTP(respuesta, peticion(contenido, "application/json"))
+	if respuesta.Code != http.StatusCreated || !strings.Contains(respuesta.Body.String(), "alta_completa") {
+		t.Fatal("contacto confirmado no cerró alta")
+	}
+	for _, tc := range []struct {
+		cuerpo, tipo string
+		estado       int
+	}{
+		{contenido, "", http.StatusUnsupportedMediaType},
+		{contenido, "text/plain", http.StatusUnsupportedMediaType},
+		{contenido, "application/json; foo=bar", http.StatusUnsupportedMediaType},
+		{contenido + strings.Repeat(" ", 2049), "application/json", http.StatusRequestEntityTooLarge},
+		{`{"correo":"prueba@example.invalid","confirmacion":"prueba@example.invalid","otro":1}`, "application/json", http.StatusBadRequest},
+	} {
+		respuesta = httptest.NewRecorder()
+		h.ServeHTTP(respuesta, peticion(tc.cuerpo, tc.tipo))
+		if respuesta.Code != tc.estado {
+			t.Fatalf("estado %d, esperado %d", respuesta.Code, tc.estado)
+		}
+	}
+	if r.llamadas != 2 || c.llamadas != 2 {
+		t.Fatal("entrada inválida produjo efectos")
 	}
 }
