@@ -84,7 +84,7 @@
 907 web/static/portal-empleado/modulos/dietas/dietas.test.mjs
 941 web/static/portal-empleado/portal-modulos-coordinador.js
 829 web/static/portal-empleado/portal-modulos-coordinador.test.mjs
-825 web/static/portal-empleado/portal-componentes.css
+928 web/static/portal-empleado/portal-componentes.css
 900 web/static/portal-empleado/portal.js
 824 web/static/portal-empleado/portal-panel-interno.js
 3053 web/static/styles.css

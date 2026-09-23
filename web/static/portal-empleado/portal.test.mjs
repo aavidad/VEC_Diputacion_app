@@ -212,7 +212,7 @@ test("el modo real renderiza solo indicadores, convocatorias y actuaciones acred
   assert.throws(() => presentador.renderizarVista("resumen"), /requiere un panel interno válido/);
 
   assert.match(javascript, /crearPresentadorPanelInterno/);
-  assert.match(javascript, /portal-panel-interno\.js\?v=20260923-pweb14-v1/);
+  assert.match(javascript, /portal-panel-interno\.js\?v=20260923-pweb17-v1/);
   for (const indicador of [
     "bolsas_activas", "llamamientos_pendientes", "llamamientos_en_curso",
     "documentos_pendientes_firma", "incidencias_abiertas",
@@ -228,8 +228,8 @@ test("el coordinador respeta DEC-051 y carga el presentador con versión de cach
   // presentación no aporta. Se congela el tamaño actual para que no crezca sin
   // decisión expresa.
   assert.ok(javascript.split(/\r?\n/).length - 1 <= 900, "portal.js debe mantenerse por debajo de 900 líneas");
-  assert.match(html, /portal\.js\?v=20260923-pweb16-v1/);
-  assert.match(javascript, /portal-modulos-coordinador\.js\?v=20260921-avisos-r5-v1/);
+  assert.match(html, /portal\.js\?v=20260923-pweb17-v1/);
+  assert.match(javascript, /portal-modulos-coordinador\.js\?v=20260923-pweb17-v1/);
   assert.match(javascript, /portal-bolsas-api\.js\?v=20260923-pweb13-b8-v1/);
   assert.match(javascript, /portal-borradores-ui\.js\?v=20260921-avisos-r5-v1/);
   assert.match(javascript, /portal-eventos\.js\?v=20260721-acceso-real-v2/);

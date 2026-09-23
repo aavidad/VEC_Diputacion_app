@@ -222,6 +222,7 @@ export function renderizarVistaEstadisticas({ estadoEstadisticas, filtros }) {
     return `
       ${encabezado}
       <section class="panel">
+        <div class="cabecera-panel"><h3>Series estadísticas</h3><span class="estado-chip info">Consultando</span></div>
         <div class="cuerpo-panel vacio-controlado" role="status" aria-busy="true">
           <p><strong>Cargando estadísticas…</strong></p>
           <p>Obteniendo series temporales agregadas del servidor.</p>
@@ -234,6 +235,7 @@ export function renderizarVistaEstadisticas({ estadoEstadisticas, filtros }) {
     return `
       ${encabezado}
       <section class="panel">
+        <div class="cabecera-panel"><h3>Series estadísticas</h3><span class="estado-chip peligro">Consulta fallida</span></div>
         <div class="cuerpo-panel vacio-controlado" role="alert">
           <p><strong>Error al consultar estadísticas</strong></p>
           <p>${escaparHTML(estadoEstadisticas.error || "No se pudieron obtener las series estadísticas.")}</p>
@@ -249,6 +251,7 @@ export function renderizarVistaEstadisticas({ estadoEstadisticas, filtros }) {
     return `
       ${encabezado}
       <section class="panel">
+        <div class="cabecera-panel"><h3>Series estadísticas</h3><span class="estado-chip peligro">Acceso denegado</span></div>
         <div class="cuerpo-panel vacio-controlado" role="alert">
           <p><strong>Acceso denegado</strong></p>
           <p>La sesión no dispone de permisos suficientes para consultar las estadísticas de contratación temporal.</p>

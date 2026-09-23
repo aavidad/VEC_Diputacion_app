@@ -550,7 +550,8 @@ test("presentadorPanelInterno renderiza Vista B5 de candidatos con filtros, chip
   assert.match(htmlB5, /Claudio/);
   assert.match(htmlB5, /\*\*\*0034\*\*/);
   assert.match(htmlB5, /data-bolsa-accion="abrir-ficha"/);
-  assert.match(htmlB5, /Recorrido de gestión de candidatos/);
+  assert.match(htmlB5, /class="rejilla-kpi kpi-candidatos"/);
+  assert.match(htmlB5, /class="tarjeta-kpi kpi-filtro kpi--exito"/);
   assert.match(htmlB5, /Resumen de la bolsa/);
   assert.match(htmlB5, /Consultar historial de contactos/);
   assert.match(htmlB5, /Nuevo llamamiento/);

@@ -14,13 +14,16 @@ test("P-WEB-14 cuenta las personas en renuncia del contrato B12", () => {
     ] }, error: "" }),
   });
   const html = presentador.renderizarSoloBolsas("resumen");
-  assert.match(html, /<span>Personas en renuncia<\/span><strong>24<\/strong>/);
+  assert.match(html, /<span class="etiqueta-kpi">Personas en renuncia<\/span><strong class="valor-kpi">24<\/strong>/);
+  assert.match(html, /class="rejilla-kpi cuadro-b12-kpi"/);
+  assert.match(html, /class="tarjeta-kpi kpi--exito"/);
+  assert.match(html, /class="tarjeta-kpi kpi--advertencia"/);
   assert.doesNotMatch(html, /Renuncias pendientes/);
   assert.match(html, /<div class="cuadro-bolsa-solo">[\s\S]*<h2>Avisos<\/h2>/);
 });
 
 test("P-WEB-14 encaja B12 y Avisos en dos marcos internos del lienzo R10", async () => {
   const css = await readFile(new URL("./portal.css", import.meta.url), "utf8");
-  assert.match(css, /\.cuadro-bolsa-solo\s*\{[^}]*height:\s*100%;[^}]*grid-template-rows:\s*auto minmax\(0, 1\.25fr\) minmax\(0, 1fr\)/);
+  assert.match(css, /\.cuadro-bolsa-solo\s*\{[^}]*height:\s*100%;[^}]*grid-template-rows:\s*minmax\(0, 1fr\) auto/);
   assert.match(css, /\.cuadro-bolsa-solo > \.panel > \.tabla-contenedor\s*\{[^}]*min-height:\s*0;[^}]*overflow:\s*auto/);
 });
