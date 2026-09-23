@@ -31,6 +31,7 @@ const (
 	DependenciaTransporteAsercion    Dependencia = "transporte_asercion_institucional"
 	DependenciaVerificadorAsercion   Dependencia = "verificador_asercion_institucional"
 	DependenciaEvaluadorGarantia     Dependencia = "evaluador_garantia_institucional"
+	DependenciaPerfilActivo          Dependencia = "perfil_activo_institucional"
 	DependenciaSeudonimizacionHSM    Dependencia = "seudonimizacion_hsm"
 	DependenciaMaterialCOSEConsultas Dependencia = "material_cose_consultas_ct"
 	DependenciaConsultaRRHHNominal   Dependencia = "postgres_consulta_rrhh_nominal"
@@ -60,6 +61,7 @@ var dependenciasLecturaCT = [...]Dependencia{
 	DependenciaTransporteAsercion,
 	DependenciaVerificadorAsercion,
 	DependenciaEvaluadorGarantia,
+	DependenciaPerfilActivo,
 	DependenciaSesionesDurables,
 	DependenciaSeudonimizacionHSM,
 	DependenciaRevalidacionActor,
