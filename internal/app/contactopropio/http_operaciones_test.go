@@ -128,4 +128,13 @@ func TestOperacionContactoCommitInciertoConservaSelectorSinFalsoRecibo(t *testin
 	if w.Code != http.StatusNotFound {
 		t.Fatalf("selector ajeno/ausente no quedó oculto: %d", w.Code)
 	}
+	e.fallo = application.ErrOperacionContactoAccesoDenegado
+	r = httptest.NewRequest(http.MethodPost, RutaOperacionContactoDetalle, strings.NewReader(`{"operacion_ref":"`+ref+`"}`))
+	r.Header.Set("Content-Type", "application/json")
+	w = httptest.NewRecorder()
+	rutas[4].Manejador.ServeHTTP(w, r)
+	if w.Code != http.StatusForbidden || !strings.Contains(w.Body.String(), `"codigo":"acceso_denegado"`) ||
+		strings.Contains(w.Body.String(), ref) || strings.Contains(w.Body.String(), "recibo_ref") {
+		t.Fatal("denegación tipada expuso operación o se convirtió en 503")
+	}
 }
