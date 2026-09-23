@@ -1,0 +1,30 @@
+/* Complemento del recorrido de permisos; consume el tema y los paneles comunes. */
+.cronos-permisos-pasos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 16px 0 12px; margin: 0; list-style: none; }
+.cronos-permisos-pasos li { display: flex; align-items: center; gap: 8px; min-width: 0; color: var(--portal-muted); font-size: .76rem; font-weight: 700; }
+.cronos-permisos-pasos li::before { content: attr(data-paso); display: grid; place-items: center; flex: 0 0 26px; height: 26px; border: 1px solid var(--portal-borde); border-radius: 50%; background: var(--portal-superficie); color: var(--portal-azul-700); }
+.cronos-permisos-pasos li[data-estado="actual"]::before { border-color: var(--portal-azul-700); background: var(--portal-azul-700); color: var(--portal-superficie); }
+.cronos-permisos-pasos li[data-estado="hecho"]::before { content: "✓"; border-color: var(--portal-exito); background: var(--portal-exito-suave); color: var(--portal-exito); }
+.cronos-permisos-pasos li[data-estado="actual"] { color: var(--portal-tinta); }
+.cronos-permisos-rejilla { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(205px, .7fr); gap: 12px; align-items: start; }
+.cronos-permisos-paso, .cronos-permisos-resumen { min-width: 0; padding: 14px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-lg, 8px); background: var(--portal-superficie); box-shadow: var(--portal-sombra-sm); }
+.cronos-permisos-paso[hidden] { display: none; }
+.cronos-permisos-paso h5, .cronos-permisos-resumen h5 { margin: 0 0 9px; font-size: 1rem; }
+.cronos-permisos-ayuda { margin: 0 0 12px; color: var(--portal-azul-700); font-size: .76rem; }
+.cronos-permisos-ayuda summary { width: fit-content; cursor: pointer; font-weight: 700; }
+.cronos-permisos-ayuda summary:focus-visible { outline: 3px solid var(--portal-cian); outline-offset: 2px; }
+.cronos-permisos-ayuda p { padding: 9px; margin: 7px 0 0; border-radius: var(--portal-radio); background: var(--portal-superficie-alterna); color: var(--portal-tinta); }
+.cronos-permisos-paso label { display: grid; gap: 4px; margin: 0 0 11px; color: var(--portal-muted); font-size: .8rem; font-weight: 700; }
+.cronos-permisos-paso input, .cronos-permisos-paso select, .cronos-permisos-paso textarea { box-sizing: border-box; width: 100%; min-height: 38px; padding: 7px 9px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio); background: var(--portal-superficie); color: var(--portal-tinta); font: inherit; }
+.cronos-permisos-paso textarea { min-height: 74px; resize: vertical; }
+.cronos-permisos-paso input:focus-visible, .cronos-permisos-paso select:focus-visible, .cronos-permisos-paso textarea:focus-visible, .cronos-permisos-acciones button:focus-visible { outline: 3px solid var(--portal-cian); outline-offset: 2px; }
+.cronos-permisos-nota { margin: 4px 0 12px; color: var(--portal-muted); font-size: .76rem; }
+.cronos-permisos-error { margin: 0 0 10px; color: var(--portal-peligro); font-size: .8rem; font-weight: 700; }
+.cronos-permisos-error[hidden] { display: none; }
+.cronos-permisos-acciones { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.cronos-permisos-acciones button { min-height: 38px; }
+.cronos-permisos-acciones button:disabled { cursor: not-allowed; }
+.cronos-permisos-resumen dl { display: grid; gap: 7px; margin: 0; }
+.cronos-permisos-resumen dt { color: var(--portal-muted); font-size: .72rem; }
+.cronos-permisos-resumen dd { margin: 0; overflow-wrap: anywhere; font-size: .83rem; font-weight: 700; }
+.cronos-permisos-limite { padding: 10px; margin: 12px 0 0; border-left: 4px solid var(--portal-aviso); border-radius: var(--portal-radio); background: var(--portal-aviso-suave); color: var(--portal-tinta); font-size: .76rem; }
+@media (max-width: 720px) { .cronos-permisos-rejilla { grid-template-columns: minmax(0, 1fr); } .cronos-permisos-pasos { grid-template-columns: minmax(0, 1fr); } }
