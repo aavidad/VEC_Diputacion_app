@@ -148,9 +148,10 @@ func TestComisionesDietasAuditaActorSoloTrasSesionYContextoVerificados(t *testin
 	huella := hex.EncodeToString(digest[:])
 	principal := identidad.porHuella[digest]
 	fixture := nuevoEscenarioMaterialRutasDietasPrueba(t, dietasports.AccionConsultarCatalogoRutasDietas, time.Now().UTC().Truncate(time.Microsecond))
-	// El doble central y la identidad TLS representan al mismo sujeto sintético.
-	principal.ID = fixture.resultado.Contexto.Principal.ID
-	identidad.porHuella[digest] = principal
+	actorRef := fixture.resultado.Contexto.Principal.ID
+	if !strings.HasPrefix(principal.ID, "desarrollo:") || !strings.HasPrefix(actorRef, "per_") || principal.ID == actorRef {
+		t.Fatalf("el sujeto TLS y la persona V2 deben conservar sus espacios distintos: sujeto=%q actor=%q", principal.ID, actorRef)
+	}
 	reloj := &relojSesionConsultaPrueba{ahora: fixture.ahora}
 	cuenta := cuentaRutasDietasDesarrollo{CertificadoSHA256: huella, Sujeto: principal.ID, CuentaRef: fixture.resultado.Contexto.Instantanea.CuentaRef, PerfilRef: fixture.resultado.Contexto.PerfilActivoRef}
 	registro := &registroSesionConsultaPrueba{reloj: reloj, cuenta: cuenta.CuentaRef}
@@ -191,7 +192,7 @@ func TestComisionesDietasAuditaActorSoloTrasSesionYContextoVerificados(t *testin
 			t.Fatal(err)
 		}
 		respuesta.Body.Close()
-		if respuesta.StatusCode != http.StatusForbidden || auditoria.orden.ActorRef != principal.ID || auditoria.orden.Motivo != dietasports.MotivoFronteraAccesoDenegado || servidos != 0 {
+		if respuesta.StatusCode != http.StatusForbidden || auditoria.orden.ActorRef != actorRef || auditoria.orden.Motivo != dietasports.MotivoFronteraAccesoDenegado || servidos != 0 {
 			t.Fatalf("rechazo de %s %s: estado=%d actor=%q servidos=%d", caso.metodo, caso.ruta, respuesta.StatusCode, auditoria.orden.ActorRef, servidos)
 		}
 	}
@@ -203,9 +204,7 @@ func TestComisionesDietasAuditaActorSoloTrasSesionYContextoVerificados(t *testin
 	if anónimo.Code != http.StatusUnauthorized || auditoria.orden.ActorRef != "" || servidos != 0 {
 		t.Fatalf("anónimo atribuido o servido: estado=%d actor=%q servidos=%d", anónimo.Code, auditoria.orden.ActorRef, servidos)
 	}
-	principal.ID = "per_aaaaaaaaaaaaaaaaaaaaaa"
-	identidad.porHuella[digest] = principal
-	cuenta.Sujeto = principal.ID
+	cuenta.Sujeto = "desarrollo:otro-sujeto"
 	autoridad.cuentas[huella] = cuenta
 	solicitud, err := http.NewRequest(http.MethodDelete, servidor.URL+dietashttp.RutaBorradores, nil)
 	if err != nil {
@@ -216,8 +215,8 @@ func TestComisionesDietasAuditaActorSoloTrasSesionYContextoVerificados(t *testin
 		t.Fatal(err)
 	}
 	respuesta.Body.Close()
-	if respuesta.StatusCode != http.StatusServiceUnavailable || auditoria.orden.ActorRef != "" || servidos != 0 {
-		t.Fatalf("sujeto TLS y contexto cruzados: estado=%d actor=%q servidos=%d", respuesta.StatusCode, auditoria.orden.ActorRef, servidos)
+	if respuesta.StatusCode != http.StatusForbidden || auditoria.orden.ActorRef != "" || servidos != 0 || len(registro.altas) != 2 {
+		t.Fatalf("sujeto TLS y cuenta cruzados: estado=%d actor=%q servidos=%d sesiones=%d", respuesta.StatusCode, auditoria.orden.ActorRef, servidos, len(registro.altas))
 	}
 }
 
