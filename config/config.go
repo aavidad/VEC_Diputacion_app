@@ -9,7 +9,12 @@ import (
 )
 
 const (
-	EnvAddress                                     = "VEC_HTTP_ADDR"
+	EnvAddress = "VEC_HTTP_ADDR"
+	// EnvHTTPIdleTimeout alarga el tiempo que el servidor mantiene abiertas las
+	// conexiones inactivas. Las consultas RRHH ligan su cursor al canal TLS, así
+	// que un cierre por inactividad obliga a rehacer la consulta; un despliegue
+	// detrás de un proxy con una conexión persistente puede necesitar más margen.
+	EnvHTTPIdleTimeout                             = "VEC_HTTP_IDLE_TIMEOUT"
 	LegacyEnvAddress                               = "BOLSA_HTTP_ADDR"
 	EnvStorageMode                                 = "VEC_BOLSA_STORAGE_MODE"
 	LegacyEnvStorageMode                           = "BOLSA_STORAGE_MODE"
@@ -163,7 +168,7 @@ func Load() Config {
 		ReadHeaderTimeout:      DefaultReadHeaderLimit,
 		ReadTimeout:            DefaultReadTimeout,
 		WriteTimeout:           DefaultWriteTimeout,
-		IdleTimeout:            DefaultIdleTimeout,
+		IdleTimeout:            idleTimeoutDesdeEntorno(),
 		MaxHeaderBytes:         DefaultMaxHeaderBytes,
 		MaxRequestBodyBytes:    DefaultMaxRequestBodyBytes,
 		StorageMode:            envFirst(EnvStorageMode, LegacyEnvStorageMode),
@@ -486,4 +491,19 @@ func splitCSV(value string) []string {
 		}
 	}
 	return values
+}
+
+// idleTimeoutDesdeEntorno acepta VEC_HTTP_IDLE_TIMEOUT como duración de Go entre
+// 30 segundos y 2 horas. Un valor ausente, mal formado o fuera de rango conserva
+// el valor por defecto: la configuración nunca amplía el margen sin límite.
+func idleTimeoutDesdeEntorno() time.Duration {
+	valor := strings.TrimSpace(os.Getenv(EnvHTTPIdleTimeout))
+	if valor == "" {
+		return DefaultIdleTimeout
+	}
+	duracion, err := time.ParseDuration(valor)
+	if err != nil || duracion < 30*time.Second || duracion > 2*time.Hour {
+		return DefaultIdleTimeout
+	}
+	return duracion
 }
