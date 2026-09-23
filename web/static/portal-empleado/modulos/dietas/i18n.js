@@ -1,5 +1,5 @@
-import { MENSAJES_BORRADORES_ES } from "./i18n-borradores.js";
-import { MENSAJES_REVISION_DIETAS_ES } from "./i18n-revision.js";
+import { MENSAJES_BORRADORES_ES } from "./i18n-borradores.js?v=20260924-f2-web2";
+import { MENSAJES_REVISION_DIETAS_ES } from "./i18n-revision.js?v=20260924-f2-web2";
 
 /** Catálogo completo de textos propios de la superficie Dietas. */
 export const MENSAJES_DIETAS_ES = Object.freeze({
