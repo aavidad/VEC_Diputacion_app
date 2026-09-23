@@ -227,3 +227,15 @@ test("accesoBolsaEfectivo abre el cuadro cuando hay bolsas reales aunque los bor
   const borradores = Object.freeze({ disponible: true, vista: "elaboracion", estado: "disponible", etiqueta: "Borradores disponibles" });
   assert.equal(accesoBolsaEfectivo(borradores, conBolsas), borradores);
 });
+
+// Regresión del 23/09/2026: las descripciones largas pintadas como etiqueta
+// visible se montaban sobre el texto del menú lateral y lo partían palabra a
+// palabra. La etiqueta visible es corta; la descripción completa queda para el
+// lector de pantalla mediante aria-describedby.
+test("las etiquetas visibles del menú son cortas y la descripción completa es accesible", () => {
+  for (const categoria of ["llamamientos", "contratos", "documentos", "comunicaciones"]) {
+    const visible = html.match(new RegExp(`<span class="etiqueta-menu" aria-hidden="true">([^<]*)</span><span class="solo-lectura" id="estado-menu-${categoria}">`, "u"));
+    assert.ok(visible, `falta la etiqueta corta de ${categoria}`);
+    assert.ok(visible[1].length <= 20, `etiqueta visible demasiado larga en ${categoria}: ${visible[1]}`);
+  }
+});
