@@ -267,7 +267,9 @@ func nuevasComisionesDietasDesarrollo(cfg config.Config, resolvedor vechttp.Demo
 	}
 	propios, err = nuevosPoolsPostgreSQLDietasDesarrollo(ctx, cfg)
 	if err != nil {
-		return nil, errComposicionDietasEn()
+		// Sus errores son centinelas fijos (conexión, identidad, configuración),
+		// sin DSN ni identidades: se conservan para diagnosticar el arranque.
+		return nil, fmt.Errorf("%w: %w", errComposicionDietasEn(), err)
 	}
 	for _, pool := range []*pgxpool.Pool{propios.Dietas(), propios.Personal()} {
 		var usuario string
