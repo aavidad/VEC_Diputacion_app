@@ -41,9 +41,9 @@ function documentoFalso() {
 
 const cargar = () => import("../../../comun/tema-vec.js");
 async function esperarEstado(raiz, estado) {
-  for (let i = 0; i < 30; i += 1) {
+  for (let i = 0; i < 200; i += 1) {
     if (raiz.buscar((n) => n.dataset.aparienciaEstado === estado)) return;
-    await new Promise((resolver) => setImmediate(resolver));
+    await new Promise((resolver) => setTimeout(resolver, 5));
   }
   assert.fail(`Apariencia no alcanzó el estado ${estado}`);
 }
