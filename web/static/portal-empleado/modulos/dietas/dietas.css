@@ -344,8 +344,8 @@
   height: .85rem;
   border: .2rem solid var(--portal-superficie);
   border-radius: 50% 50% 50% 0;
-  background: var(--portal-rojo, #b42318);
-  box-shadow: 0 0 0 2px var(--portal-rojo, #b42318);
+  background: var(--portal-peligro);
+  box-shadow: 0 0 0 2px var(--portal-peligro);
   content: "";
   transform: rotate(-45deg);
 }
@@ -361,7 +361,7 @@
   min-height: 0;
   border: 1px dashed var(--portal-azul-600);
   border-radius: var(--portal-radio);
-  background: rgba(255, 255, 255, .92);
+  background: color-mix(in srgb, var(--portal-superficie) 92%, transparent);
   color: var(--portal-azul-800);
   font-weight: 700;
 }
@@ -584,8 +584,8 @@
 .modulo-dietas .dietas-itinerario-aviso {
   margin: 0.5rem 0;
   padding: 0.55rem 0.65rem;
-  border-inline-start: 0.3rem solid var(--portal-aviso, #a15c00);
-  background: var(--portal-aviso-suave, #fff5df);
+  border-inline-start: 0.3rem solid var(--portal-aviso);
+  background: var(--portal-aviso-suave);
   color: var(--portal-tinta);
 }
 
