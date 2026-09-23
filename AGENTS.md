@@ -786,6 +786,23 @@ La matriz vigente del módulo es
 
 ## Calidad
 
+### Validación eficiente — orden del operador, 24 de septiembre de 2026
+
+- Durante la edición, ejecutar solo comprobaciones focales proporcionales al
+  cambio: formato, prueba del paquete o fichero afectado, `git diff --check` y
+  ensayo PostgreSQL desechable únicamente si se modifica su contrato. No lanzar
+  `go test -race ./...` ni `scripts/verificar_calidad.sh` por cada ajuste pequeño.
+- Congelar el candidato y pasar `scripts/verificar_calidad.sh` una vez sobre el
+  hash final antes del PR o la integración, conforme a la puerta vigente. Si
+  una revisión detecta `NO-GO`, detener la puerta de ese hash; corregir y validar
+  el candidato nuevo. No repetir una campaña verde sin cambio relevante o fallo
+  nuevo. Ningún encargo se cierra con su puerta exigida en rojo.
+- Ejecutar como máximo una puerta completa local a la vez y coordinarla con
+  PostgreSQL y CI para no superar dos campañas intensivas globales. La batería
+  `go test -race ./...`, en especial `internal/vec/ports`, usa CPU. Go, Node y
+  PostgreSQL no obtienen una aceleración útil trasladando esas pruebas a la GPU;
+  reducir campañas y usar pruebas focales es la medida de rendimiento aplicable.
+
 - Código documentado cuando la intención o el contrato no sean obvios.
 - Sin adaptadores ficticios en la composición real.
 - No declarar E2E, producción o cumplimiento por tener una pantalla o una

@@ -261,6 +261,12 @@ Probar lo afectado y los controles relevantes. Go: formato, pruebas focales,
 `go test ./...` y `go vet ./...` antes de integración según alcance; race,
 mutación y revisión adversarial proporcionadas al riesgo sensible. Web: contratos,
 i18n y revisión visual. No repetir campañas cerradas sin cambio o fallo nuevo.
+Durante la edición usar paquetes y ficheros afectados; reservar la puerta
+completa para el candidato final revisado que se entregue a integración. Detener
+la puerta de un hash con `NO-GO` y no ejecutar dos puertas completas locales a la
+vez. Coordinar PostgreSQL y CI para un máximo de dos campañas intensivas
+globales. Las pruebas Go, Node y PostgreSQL son trabajo de CPU; no intentar
+trasladarlas a la GPU como sustituto de las pruebas focales.
 
 Una capacidad recorrible requiere navegador → API → autorización → aplicación →
 PostgreSQL → recibo, y recuperación tras reinicio cuando se afirma persistencia.
