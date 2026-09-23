@@ -662,6 +662,18 @@ func TestContactoOperacionesPG18RecuperacionNominal(t *testing.T) {
 	if otra, err := operacionesRecuperadas.ConfirmarOperacion(ctx, cancelada.OperacionRef, correosPendientes[ganadora], 2); !errors.Is(err, contactopropio.ErrContactoPropioConflicto) || otra.ReciboRef != "" {
 		t.Fatal("operación cancelada aceptó confirmación posterior")
 	}
+	revocada := instantaneaRotada
+	revocada.AsignacionPerfil.Version++
+	revocada.AsignacionPerfil.Estado = domain.EstadoAsignacionPerfilRevocada
+	revocada.AsignacionPerfil.RevocadaPor = "autoridad:f2:prueba"
+	revocada.AsignacionPerfil.RevocacionRef = "revocacion:contacto:f2:prueba"
+	revocada.AsignacionPerfil.RevocadaEn = time.Now().UTC().Truncate(time.Microsecond)
+	if revocada.Validar() != nil || autoridadRotada.publicarInstantaneaDesdePreimagen(ctx, revocada, instantaneaRotada) != nil {
+		t.Fatal("revocación sintética de asignación no publicada")
+	}
+	if detalleRevocado, err := operacionesRotadasRecuperadas.DetalleOperacion(ctx, preparada.OperacionRef); err == nil || detalleRevocado.Encontrada {
+		t.Fatal("perfil revocado recuperó recibo")
+	}
 	sustituta, err := operacionesRecuperadas.PrepararOperacion(ctx, "sustituta@example.test", 2)
 	if err != nil || sustituta.Estado != ports.OperacionContactoPreparada || sustituta.OperacionRef == cancelada.OperacionRef {
 		t.Fatal("cancelación bloqueó permanentemente la misma versión")
