@@ -11,13 +11,17 @@ class Elemento {
     this.children = [];
     this.atributos = new Map();
     this.eventos = new Map();
-    this.dataset = {};
+    this.dataset = new Proxy({}, {
+      get: (_, clave) => this.getAttribute(`data-${clave}`) ?? undefined,
+      set: (_, clave, valor) => { this.setAttribute(`data-${clave}`, String(valor)); return true; },
+    });
     this.textContent = "";
   }
   append(...hijos) { this.children.push(...hijos); }
   replaceChildren(...hijos) { this.children = hijos; }
   setAttribute(clave, valor) { this.atributos.set(clave, String(valor)); }
   getAttribute(clave) { return this.atributos.get(clave) ?? null; }
+  removeAttribute(clave) { this.atributos.delete(clave); }
   addEventListener(clave, fn) { this.eventos.set(clave, fn); }
   emitir(clave, datos = {}) { this.eventos.get(clave)?.({ preventDefault() {}, ...datos }); }
   focus() { this.ownerDocument.activeElement = this; }
@@ -72,4 +76,33 @@ test("ADMIN usa claves i18n cerradas y no carga ejemplos ni almacenamiento web",
   claves.forEach((clave) => assert.ok(CLAVES_I18N_ADMINISTRACION.includes(clave), "clave ausente: " + clave));
   assert.doesNotMatch(vista, /datos-presentacion|fetch\(|localStorage|sessionStorage|document\.cookie|indexedDB|localhost/u);
   assert.doesNotMatch(catalogo, /demostrat|sintétic|fictici|ejemplo|localhost/iu);
+});
+
+test("imports directos versionados montan ADMIN y cargan la preview", async () => {
+  const fuente = await readFile(new URL("./vista.js", import.meta.url), "utf8");
+  for (const nombre of ["i18n.js", "vista-apariencia.js"]) {
+    const ruta = `./${nombre}?v=20260924-f2-web2`;
+    assert.ok(fuente.includes(`from "${ruta}"`), nombre);
+    assert.notEqual(new URL(ruta, import.meta.url).href, new URL(`./${nombre}`, import.meta.url).href);
+    const navegador = new URL(ruta, "https://vec.example/portal-empleado/modulos/administracion/vista.js");
+    assert.equal(navegador.pathname, `/portal-empleado/modulos/administracion/${nombre}`);
+    assert.equal(navegador.search, "?v=20260924-f2-web2");
+  }
+
+  const documento = documentoFalso();
+  const raiz = documento.createElement("div");
+  const vista = montarVistaAdministracion({ raiz });
+  assert.equal(raiz.buscar((n) => n.etiqueta === "h2")?.textContent, "Gobierno, configuración y controles");
+  raiz.buscar((n) => n.dataset.administracionPestana === "apariencia").emitir("click");
+  for (let intento = 0; intento < 200 && !raiz.buscar((n) => n.dataset.aparienciaEstado === "disponible"); intento += 1) {
+    await new Promise((resolver) => setTimeout(resolver, 5));
+  }
+  assert.ok(raiz.buscar((n) => n.dataset.aparienciaEstado === "disponible"));
+  const granate = raiz.buscar((n) => n.etiqueta === "input" && n.value === "granate");
+  granate.checked = true;
+  granate.emitir("change");
+  raiz.buscar((n) => n.etiqueta === "form").emitir("submit");
+  assert.equal(documento.documentElement.getAttribute("data-tema"), "granate");
+  vista.desmontar();
+  assert.equal(documento.documentElement.getAttribute("data-tema"), null);
 });
