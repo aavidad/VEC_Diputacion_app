@@ -17,7 +17,7 @@ export async function emitirLlamamiento(payload, { fetchImpl = fetch } = {}) {
   }
   try {
     const respuesta = await fetchImpl(RUTA_EMISIONES_LLAMAMIENTO, {
-      method: "POST", credentials: "same-origin",
+      method: "POST", credentials: "same-origin", mode: "same-origin", cache: "no-store", redirect: "error",
       headers: { Accept: "application/json", "Content-Type": "application/json", "Idempotency-Key": payload.clave_idempotencia },
       body: JSON.stringify({ bolsa_ref: payload.bolsa_ref, participaciones: payload.participaciones, configuracion: payload.configuracion }),
     });
@@ -39,7 +39,7 @@ export async function crearLlamamientoCandidato(participacionRef, payload, { fet
     return { ok: false, status: 400, codigo: "solicitud_invalida", mensaje: error instanceof Error ? error.message : "Datos de llamamiento no válidos." };
   }
   try {
-    const respuesta = await fetchImpl(`/api/vec/bolsa/candidatos/${segmentoRuta(participacionRef)}/llamamientos`, { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(envelopeAccion) });
+    const respuesta = await fetchImpl(`/api/vec/bolsa/candidatos/${segmentoRuta(participacionRef)}/llamamientos`, { method: "POST", credentials: "same-origin", mode: "same-origin", cache: "no-store", redirect: "error", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(envelopeAccion) });
     if (!respuesta.ok) {
       const mensajes = { 400: "Solicitud de llamamiento rechazada por el servidor.", 401: "Se requiere una sesión interna autenticada.", 403: "Sin permiso para registrar llamamientos.", 404: "Candidato no encontrado para el llamamiento.", 409: "El aspirante no está disponible o ya tiene un llamamiento en curso.", 422: "Los datos del llamamiento no cumplen las reglas de negocio." };
       return { ok: false, status: respuesta.status, codigo: respuesta.status === 401 ? "no_autenticado" : respuesta.status === 403 ? "acceso_denegado" : respuesta.status === 404 ? "no_encontrado" : respuesta.status === 409 ? "conflicto" : respuesta.status === 422 ? "no_procesable" : respuesta.status === 400 ? "solicitud_invalida" : "error_servidor", mensaje: mensajes[respuesta.status] || `No se pudo registrar el llamamiento (HTTP ${respuesta.status}).` };
@@ -60,7 +60,7 @@ export async function registrarResultadoLlamamiento(llamamientoRef, payload, { f
     return { ok: false, status: 400, codigo: "solicitud_invalida", mensaje: error instanceof Error ? error.message : "Datos de resultado no válidos." };
   }
   try {
-    const respuesta = await fetchImpl(`/api/vec/bolsa/llamamientos/${segmentoRuta(llamamientoRef)}/resultado`, { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(envelopeAccion) });
+    const respuesta = await fetchImpl(`/api/vec/bolsa/llamamientos/${segmentoRuta(llamamientoRef)}/resultado`, { method: "POST", credentials: "same-origin", mode: "same-origin", cache: "no-store", redirect: "error", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(envelopeAccion) });
     if (!respuesta.ok) {
       const mensajes = { 400: "Solicitud de resultado rechazada por el servidor.", 401: "Se requiere una sesión interna autenticada.", 403: "Sin permiso para registrar resultado de llamamiento.", 404: "Llamamiento no encontrado.", 409: "El llamamiento ya tiene resultado o su estado no permite registrarlo.", 422: "El resultado no es procesable según las reglas de bolsa." };
       return { ok: false, status: respuesta.status, codigo: respuesta.status === 401 ? "no_autenticado" : respuesta.status === 403 ? "acceso_denegado" : respuesta.status === 404 ? "no_encontrado" : respuesta.status === 409 ? "conflicto" : respuesta.status === 422 ? "no_procesable" : respuesta.status === 400 ? "solicitud_invalida" : "error_servidor", mensaje: mensajes[respuesta.status] || `No se pudo registrar el resultado (HTTP ${respuesta.status}).` };

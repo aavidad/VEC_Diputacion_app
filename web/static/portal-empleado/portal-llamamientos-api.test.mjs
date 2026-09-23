@@ -104,6 +104,9 @@ test("el cliente emite exactamente el POST y las dos cabeceras permitidas", asyn
   assert.deepEqual(opciones, {
     method: "POST",
     credentials: "same-origin",
+    mode: "same-origin",
+    cache: "no-store",
+    redirect: "error",
     headers: { Accept: "application/json", "Content-Type": "application/json" },
     body: JSON.stringify({
       data: {

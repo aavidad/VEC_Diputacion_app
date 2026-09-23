@@ -54,6 +54,7 @@ test("P-WEB-13 compone la ruta canónica y registra 201/200 con JSON e Idempoten
     assert.equal(resultado.ok, true);
     assert.equal(resultado.datos.reutilizada, status === 200);
     assert.equal(llamada[0], rutaOperacionesSituacion("bolsa:uno", "participacion:dos"));
+    assert.deepEqual([llamada[1].credentials, llamada[1].mode, llamada[1].cache, llamada[1].redirect], ["same-origin", "same-origin", "no-store", "error"]);
     assert.deepEqual(llamada[1].headers, { Accept: "application/json", "Content-Type": "application/json", "Idempotency-Key": "clave-estable" });
     assert.deepEqual(JSON.parse(llamada[1].body), cuerpo);
   }
@@ -81,6 +82,7 @@ test("P-WEB-13 traduce 400, 403, 409 y 503 sin exponer datos de error", async ()
 test("P-WEB-13 señala 404 como operación aún no desplegada y valida el GET", async () => {
   const get404 = await consultarOperacionesSituacion("bolsa:uno", "participacion:dos", { fetchImpl: async (_url, opciones) => {
     assert.deepEqual(opciones.headers, { Accept: "application/json" });
+    assert.deepEqual([opciones.credentials, opciones.mode, opciones.cache, opciones.redirect], ["same-origin", "same-origin", "no-store", "error"]);
     return response(404, {});
   } });
   assert.match(get404.mensaje, /operación no disponible todavía/i);
