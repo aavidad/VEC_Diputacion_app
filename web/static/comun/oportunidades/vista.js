@@ -2,8 +2,25 @@ import { crearTraductorOportunidades } from "./i18n.js";
 
 const ESTADOS_CONSULTA = new Set(["cargando", "disponible", "vacio", "no_configurado", "denegado", "error"]);
 const ESTADOS_REQUISITO = new Set(["cumple", "no_cumple", "pendiente"]);
+const HITOS = Object.freeze({ solicitud: "hito_solicitud", fin_plazo: "hito_fin_plazo", inicio_proceso_selectivo: "hito_inicio_proceso", prueba: "hito_prueba", incorporacion: "hito_incorporacion", fecha_explicita: "hito_fecha" });
 const escapar = (valor) => String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 const texto = (valor) => typeof valor === "string" ? valor.trim() : "";
+
+function fechaLocalizada(valor) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(valor)) return "";
+  const fecha = new Date(`${valor}T00:00:00Z`);
+  if (Number.isNaN(fecha.getTime()) || fecha.toISOString().slice(0, 10) !== valor) return "";
+  return new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" }).format(fecha);
+}
+
+function hitoRequisito(requisito, t) {
+  if (requisito?.temporal === false) return { valido: true, texto: t("hito_no_temporal") };
+  const clave = Object.hasOwn(HITOS, requisito?.hito_cumplimiento) ? HITOS[requisito.hito_cumplimiento] : "";
+  if (requisito?.temporal !== true || !clave) return { valido: false, texto: t("hito_no_especificado") };
+  if (requisito.hito_cumplimiento !== "fecha_explicita") return { valido: true, texto: t(clave) };
+  const fecha = fechaLocalizada(texto(requisito.fecha_hito));
+  return fecha ? { valido: true, texto: `${t(clave)}: ${fecha}` } : { valido: false, texto: t("hito_fecha_invalida") };
+}
 
 function evaluarRequisito(requisito, oportunidad, t) {
   const fuente = texto(requisito?.procedencia);
@@ -12,12 +29,17 @@ function evaluarRequisito(requisito, oportunidad, t) {
   const version = texto(oportunidad?.version_bases);
   const origen = texto(oportunidad?.fuente_evaluacion);
   const estado = ESTADOS_REQUISITO.has(requisito?.estado) ? requisito.estado : "pendiente";
-  if (!estructurado) return { estado: "pendiente", motivo: t("texto_libre"), procedencia: fuente };
-  if (!version) return { estado: "pendiente", motivo: t("sin_version"), procedencia: fuente };
-  if (!origen) return { estado: "pendiente", motivo: t("sin_fuente"), procedencia: fuente };
-  if (!fuente) return { estado: "pendiente", motivo: t("sin_procedencia"), procedencia: "" };
-  if (!motivo) return { estado: "pendiente", motivo: t("sin_motivo"), procedencia: fuente };
-  return { estado, motivo, procedencia: fuente };
+  const hito = hitoRequisito(requisito, t);
+  const pendiente = (razon) => ({ estado: "pendiente", motivo: razon, procedencia: fuente, hito: hito.texto });
+  if (!estructurado) return pendiente(t("texto_libre"));
+  if (!version) return pendiente(t("sin_version"));
+  if (!origen) return pendiente(t("sin_fuente"));
+  if (oportunidad?.evaluacion_autorizada !== true) return pendiente(t("sin_evaluacion_autorizada"));
+  if (!fuente) return pendiente(t("sin_procedencia"));
+  if (!motivo) return pendiente(t("sin_motivo"));
+  if (!hito.valido) return pendiente(hito.texto);
+  if (requisito?.cumplimiento_previsto === true && estado === "cumple") return pendiente(t("prevision_no_acreditada"));
+  return { estado, motivo, procedencia: fuente, hito: hito.texto };
 }
 
 function situacionGlobal(oportunidad, requisitos, t) {
@@ -39,8 +61,8 @@ function renderizarOportunidad(oportunidad, indice, t) {
   return `<article class="oportunidades-ficha" data-estado="${global.codigo}" aria-labelledby="oportunidades-titulo-${indice}">
     <div class="oportunidades-ficha-cabecera"><div><p class="oportunidades-categoria">${escapar(texto(oportunidad?.categoria) || t("sin_categoria"))}</p><h4 id="oportunidades-titulo-${indice}">${escapar(texto(oportunidad?.titulo) || t("sin_titulo"))}</h4></div><span class="oportunidades-estado oportunidades-estado--${global.codigo}">${escapar(global.texto)}</span></div>
     <dl class="oportunidades-metadatos"><div><dt>${escapar(t("plazo"))}</dt><dd>${escapar(plazo || t("plazo_no_disponible"))}</dd></div><div><dt>${escapar(t("bases"))}</dt><dd>${escapar(texto(oportunidad?.version_bases) || t("sin_version"))}</dd></div><div><dt>${escapar(t("fuente"))}</dt><dd>${escapar(texto(oportunidad?.fuente_evaluacion) || t("sin_fuente"))}</dd></div></dl>
-    <details class="oportunidades-requisitos"><summary>${escapar(t("requisitos"))} <span>(${requisitos.length})</span></summary>${requisitos.length ? `<ul>${requisitos.map((requisito, numero) => `<li><div><strong>${escapar(texto(oportunidad.requisitos[numero]?.etiqueta) || t("requisitos"))}</strong><span class="oportunidades-estado oportunidades-estado--${requisito.estado}">${escapar(t(requisito.estado))}</span></div><p>${escapar(requisito.motivo)}</p><small>${escapar(requisito.procedencia || t("sin_procedencia"))}</small></li>`).join("")}</ul>` : `<p>${escapar(t("sin_requisitos"))}</p>`}</details>
-    <div class="oportunidades-acciones">${href ? `<a href="${escapar(href)}">${escapar(t("ver_detalle"))}</a>` : `<span>${escapar(t("detalle_no_disponible"))}</span>`}<button type="button" disabled aria-disabled="true" title="${escapar(t("iniciar_pendiente"))}">${escapar(t("iniciar"))}</button></div>
+    <details class="oportunidades-requisitos" open><summary>${escapar(t("requisitos"))} <span>(${requisitos.length})</span></summary>${requisitos.length ? `<ul>${requisitos.map((requisito, numero) => `<li><div><strong>${escapar(texto(oportunidad.requisitos[numero]?.etiqueta) || t("requisitos"))}</strong><span class="oportunidades-estado oportunidades-estado--${requisito.estado}">${escapar(t(requisito.estado))}</span></div><p class="oportunidades-hito"><span>${escapar(t("hito"))}:</span> ${escapar(requisito.hito)}</p><p>${escapar(requisito.motivo)}</p><small>${escapar(requisito.procedencia || t("sin_procedencia"))}</small></li>`).join("")}</ul>` : `<p>${escapar(t("sin_requisitos"))}</p>`}</details>
+    <div class="oportunidades-acciones">${href ? `<a href="${escapar(href)}">${escapar(t("ver_detalle"))}</a>` : `<span>${escapar(t("detalle_no_disponible"))}</span>`}<div class="oportunidades-accion-pendiente"><button type="button" disabled aria-disabled="true">${escapar(t("iniciar"))}</button><small>${escapar(t("iniciar_pendiente"))}</small></div></div>
   </article>`;
 }
 
