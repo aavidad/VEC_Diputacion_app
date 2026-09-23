@@ -52,6 +52,11 @@ BEGIN
  IF FOUND THEN
   IF v_cuenta.estado<>'activo' OR v_cuenta.vigente_desde>clock_timestamp() OR v_cuenta.vigente_hasta<=clock_timestamp()
   THEN RAISE EXCEPTION 'registro propio: cuenta revocada' USING ERRCODE='42501'; END IF;
+  IF EXISTS(
+   SELECT 1 FROM vec_contexto_actor_v1.vinculo_contexto_actual a
+   JOIN vec_contexto_actor_v1.vinculo_contexto_versiones v USING(vinculo_ref,version)
+   WHERE v.cuenta_ref=p_cuenta AND v.persona_ref<>p_persona
+  ) THEN RAISE EXCEPTION 'registro propio: cuenta vinculada a otra persona' USING ERRCODE='42501'; END IF;
   cuenta_version:=v_cuenta.version;
  ELSE
   INSERT INTO vec_contexto_actor_v1.proyeccion_cuenta_versiones(cuenta_ref,version,procedencia_ref,procedencia_version,procedencia_huella_sha256,procedencia_autoridad,estado,vigente_desde,vigente_hasta)
@@ -85,4 +90,58 @@ END $f$;
 REVOKE ALL ON FUNCTION vec_contexto_actor_v1.registrar_persona_registro_propio_v1(text,text,text,text,boolean,text,numeric,text,text,timestamptz,timestamptz) FROM PUBLIC;
 GRANT USAGE ON SCHEMA vec_contexto_actor_v1 TO vec_identidad_sesiones_v1_propietario;
 GRANT EXECUTE ON FUNCTION vec_contexto_actor_v1.registrar_persona_registro_propio_v1(text,text,text,text,boolean,text,numeric,text,text,timestamptz,timestamptz) TO vec_identidad_sesiones_v1_propietario;
+
+-- El maestro aún no entrega equivalencia de cuenta entre alias rotados.
+-- Bajo el mismo lock de persona que usa el alta, deniega crear otra cuenta
+-- si la persona ya conserva un vínculo, incluso histórico.
+CREATE FUNCTION vec_contexto_actor_v1.persona_con_cuenta_registro_propio_v1(p_persona text)
+RETURNS boolean LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET lock_timeout='2s' AS $c$
+BEGIN
+ IF current_user<>'vec_contexto_actor_v1_propietario'
+    OR NOT pg_has_role(session_user,'vec_identidad_sesiones_v1_provisionador','MEMBER')
+    OR NOT vec_contexto_actor_v1.referencia_valida(p_persona,'per_')
+ THEN RAISE EXCEPTION 'registro propio: equivalencia de cuenta denegada' USING ERRCODE='42501'; END IF;
+ PERFORM pg_advisory_xact_lock(hashtextextended('vec:registro-propio:persona:'||p_persona,0));
+ RETURN EXISTS(SELECT 1 FROM vec_contexto_actor_v1.vinculo_contexto_versiones v WHERE v.persona_ref=p_persona);
+END $c$;
+REVOKE ALL ON FUNCTION vec_contexto_actor_v1.persona_con_cuenta_registro_propio_v1(text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION vec_contexto_actor_v1.persona_con_cuenta_registro_propio_v1(text) TO vec_identidad_sesiones_v1_propietario;
+
+-- Revalidación del vínculo completo tras los locks y en el replay. Compara
+-- las versiones actuales exactas: una revocación o sustitución deniega.
+CREATE FUNCTION vec_contexto_actor_v1.validar_registro_propio_v1(
+ p_cuenta text,p_cuenta_version numeric,p_persona text,p_persona_version numeric,
+ p_perfil text,p_perfil_version numeric,p_vinculo text,p_vinculo_version numeric)
+RETURNS void LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET lock_timeout='2s' AS $v$
+DECLARE c record; p record; f record; v record; t timestamptz:=clock_timestamp();
+BEGIN
+ IF current_user<>'vec_contexto_actor_v1_propietario'
+    OR NOT pg_has_role(session_user,'vec_identidad_sesiones_v1_provisionador','MEMBER')
+ THEN RAISE EXCEPTION 'registro propio: contexto denegado' USING ERRCODE='42501'; END IF;
+ SELECT a.version,h.estado,h.vigente_desde,h.vigente_hasta INTO c
+ FROM vec_contexto_actor_v1.proyeccion_cuenta_actual a
+ JOIN vec_contexto_actor_v1.proyeccion_cuenta_versiones h USING(cuenta_ref,version)
+ WHERE a.cuenta_ref=p_cuenta FOR SHARE OF a;
+ IF NOT FOUND OR c.version IS DISTINCT FROM p_cuenta_version OR c.estado<>'activo' OR t<c.vigente_desde OR t>=c.vigente_hasta
+ THEN RAISE EXCEPTION 'registro propio: cuenta revocada' USING ERRCODE='42501'; END IF;
+ SELECT a.version,h.estado,h.vigente_desde,h.vigente_hasta INTO p
+ FROM vec_contexto_actor_v1.persona_actual a JOIN vec_contexto_actor_v1.persona_versiones h USING(persona_ref,version)
+ WHERE a.persona_ref=p_persona FOR SHARE OF a;
+ IF NOT FOUND OR p.version IS DISTINCT FROM p_persona_version OR p.estado<>'activo' OR t<p.vigente_desde OR t>=p.vigente_hasta
+ THEN RAISE EXCEPTION 'registro propio: persona revocada' USING ERRCODE='42501'; END IF;
+ SELECT a.version,h.persona_ref,h.estado,h.vigente_desde,h.vigente_hasta INTO f
+ FROM vec_contexto_actor_v1.perfil_actual a JOIN vec_contexto_actor_v1.perfil_versiones h USING(perfil_ref,version)
+ WHERE a.perfil_ref=p_perfil FOR SHARE OF a;
+ IF NOT FOUND OR f.version IS DISTINCT FROM p_perfil_version OR f.persona_ref IS DISTINCT FROM p_persona OR f.estado<>'activo' OR t<f.vigente_desde OR t>=f.vigente_hasta
+ THEN RAISE EXCEPTION 'registro propio: perfil revocado' USING ERRCODE='42501'; END IF;
+ SELECT a.version,h.cuenta_ref,h.perfil_ref,h.persona_ref,h.estado,h.vigente_desde,h.vigente_hasta INTO v
+ FROM vec_contexto_actor_v1.vinculo_contexto_actual a JOIN vec_contexto_actor_v1.vinculo_contexto_versiones h USING(vinculo_ref,version)
+ WHERE a.vinculo_ref=p_vinculo FOR SHARE OF a;
+ IF NOT FOUND OR v.version IS DISTINCT FROM p_vinculo_version OR v.cuenta_ref IS DISTINCT FROM p_cuenta
+    OR v.perfil_ref IS DISTINCT FROM p_perfil OR v.persona_ref IS DISTINCT FROM p_persona
+    OR v.estado<>'activo' OR t<v.vigente_desde OR t>=v.vigente_hasta
+ THEN RAISE EXCEPTION 'registro propio: vínculo revocado' USING ERRCODE='42501'; END IF;
+END $v$;
+REVOKE ALL ON FUNCTION vec_contexto_actor_v1.validar_registro_propio_v1(text,numeric,text,numeric,text,numeric,text,numeric) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION vec_contexto_actor_v1.validar_registro_propio_v1(text,numeric,text,numeric,text,numeric,text,numeric) TO vec_identidad_sesiones_v1_propietario;
 COMMIT;

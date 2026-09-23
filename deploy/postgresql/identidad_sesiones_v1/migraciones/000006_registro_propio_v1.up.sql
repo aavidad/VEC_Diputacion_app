@@ -10,6 +10,8 @@ DO $pre$ BEGIN
  IF current_user<>'vec_identidad_sesiones_v1_propietario'
     OR to_regprocedure('vec_identidad_sesiones_v1.provisionar_cuenta_v1(text,text,text,text,bigint,bytea,bytea,boolean,bytea)') IS NULL
     OR to_regprocedure('vec_contexto_actor_v1.registrar_persona_registro_propio_v1(text,text,text,text,boolean,text,numeric,text,text,timestamptz,timestamptz)') IS NULL
+    OR to_regprocedure('vec_contexto_actor_v1.validar_registro_propio_v1(text,numeric,text,numeric,text,numeric,text,numeric)') IS NULL
+    OR to_regprocedure('vec_contexto_actor_v1.persona_con_cuenta_registro_propio_v1(text)') IS NULL
     OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_registro_propio_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
     OR to_regclass('vec_identidad_sesiones_v1.registro_propio_v1') IS NOT NULL
  THEN RAISE EXCEPTION 'identidad 000006: preimagen incompatible' USING ERRCODE='55000'; END IF;
@@ -44,6 +46,8 @@ CREATE TABLE vec_identidad_sesiones_v1.registro_propio_v1 (
  procedencia_version numeric(20,0) NOT NULL,
  procedencia_sha256 text NOT NULL CHECK(procedencia_sha256 ~ '^[0-9a-f]{64}$'),
  decision_ref text NOT NULL UNIQUE,
+ auditoria_v3_ref text NOT NULL UNIQUE CHECK(auditoria_v3_ref ~ '^aud_v3_[A-Za-z0-9_-]{22,128}$'),
+ consumo_huella_sha256 text NOT NULL CHECK(consumo_huella_sha256 ~ '^[0-9a-f]{64}$'),
  estado text NOT NULL CHECK(estado='pendiente_contacto'),
  registrada_en timestamptz(6) NOT NULL
 );
@@ -68,6 +72,23 @@ ALTER TABLE vec_identidad_sesiones_v1.registro_propio_outbox_v1 FORCE ROW LEVEL 
 CREATE POLICY registro_propio_outbox_solo_propietario ON vec_identidad_sesiones_v1.registro_propio_outbox_v1 TO vec_identidad_sesiones_v1_propietario USING(current_user='vec_identidad_sesiones_v1_propietario') WITH CHECK(current_user='vec_identidad_sesiones_v1_propietario');
 CREATE TRIGGER registro_propio_outbox_inmutable BEFORE UPDATE OR DELETE ON vec_identidad_sesiones_v1.registro_propio_outbox_v1 FOR EACH ROW EXECUTE FUNCTION vec_identidad_sesiones_v1.rechazar_mutacion();
 REVOKE ALL ON vec_identidad_sesiones_v1.registro_propio_outbox_v1 FROM PUBLIC;
+
+CREATE FUNCTION vec_identidad_sesiones_v1.validar_cuenta_registro_propio_v1(p_cuenta text)
+RETURNS void LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET lock_timeout='2s' AS $v$
+DECLARE v record;
+BEGIN
+ IF current_user<>'vec_identidad_sesiones_v1_propietario'
+    OR NOT pg_has_role(session_user,'vec_identidad_sesiones_v1_provisionador','MEMBER')
+ THEN RAISE EXCEPTION 'registro propio: cuenta denegada' USING ERRCODE='42501'; END IF;
+ SELECT c.cuenta_privilegiada,c.cuenta_ordinaria_ref,e.estado INTO v
+ FROM vec_identidad_sesiones_v1.cuenta c
+ JOIN vec_identidad_sesiones_v1.estado_cuenta_actual a USING(cuenta_ref)
+ JOIN vec_identidad_sesiones_v1.estado_cuenta e ON e.cuenta_ref=a.cuenta_ref AND e.revision=a.revision
+ WHERE c.cuenta_ref=p_cuenta FOR SHARE OF a;
+ IF NOT FOUND OR v.cuenta_privilegiada OR v.cuenta_ordinaria_ref IS NOT NULL OR v.estado<>'activa'
+ THEN RAISE EXCEPTION 'registro propio: cuenta inactiva' USING ERRCODE='42501'; END IF;
+END $v$;
+REVOKE ALL ON FUNCTION vec_identidad_sesiones_v1.validar_cuenta_registro_propio_v1(text) FROM PUBLIC;
 
 CREATE FUNCTION vec_identidad_sesiones_v1.registrar_propio_v1(
  p_entrada bytea,p_recurso bytea,p_actor text,
@@ -121,15 +142,23 @@ BEGIN
     OR v_decision->>'finalidad' IS DISTINCT FROM 'alta_vec_propia'
     OR v_decision->>'recurso_ref' IS DISTINCT FROM v_operacion
  THEN RAISE EXCEPTION 'registro propio: autoridad divergente' USING ERRCODE='42501'; END IF;
+ PERFORM pg_advisory_xact_lock(hashtextextended('vec:registro-propio:sujeto:'||v_sujeto,0));
+ -- Revalidar bajo lock el actor/concesión vigente en AD3. Su consumo,
+ -- auditoría central y las escrituras de Identidad comparten transacción.
  SELECT * INTO STRICT v_consumo FROM vec_autorizacion_atestada_v3.registrar_y_consumir_registro_propio_v3_atestada(
   p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz);
  IF v_consumo.consumo_nuevo IS DISTINCT FROM true OR v_consumo.efecto_ref IS DISTINCT FROM v_operacion
+    OR v_consumo.decision_ref IS DISTINCT FROM v_decision->>'decision_ref'
+    OR v_consumo.auditoria_ref !~ '^aud_v3_[A-Za-z0-9_-]{22,128}$'
+    OR v_consumo.consumo_huella_sha256 !~ '^[0-9a-f]{64}$'
  THEN RAISE EXCEPTION 'registro propio: consumo denegado' USING ERRCODE='42501'; END IF;
- PERFORM pg_advisory_xact_lock(hashtextextended('vec:registro-propio:sujeto:'||v_sujeto,0));
  SELECT * INTO v_prev FROM vec_identidad_sesiones_v1.registro_propio_v1 WHERE operacion_ref=v_operacion;
  IF FOUND THEN
   IF v_prev.entrada_sha256<>v_huella OR v_prev.actor_ref<>p_actor
   THEN RAISE EXCEPTION 'registro propio: clave divergente' USING ERRCODE='23505'; END IF;
+  PERFORM vec_identidad_sesiones_v1.validar_cuenta_registro_propio_v1(v_prev.cuenta_ref);
+  PERFORM vec_contexto_actor_v1.validar_registro_propio_v1(v_prev.cuenta_ref,v_prev.cuenta_version,
+   v_prev.persona_ref,v_prev.persona_version,v_prev.perfil_ref,v_prev.perfil_version,v_prev.vinculo_ref,v_prev.vinculo_version);
   RETURN jsonb_build_object('OperacionRef',v_prev.operacion_ref,'ReciboRef',v_prev.recibo_ref,'Estado',v_prev.estado,
    'CuentaRef',v_prev.cuenta_ref,'CuentaVersion',v_prev.cuenta_version,'PersonaRef',v_prev.persona_ref,'PersonaVersion',v_prev.persona_version,
    'PerfilRef',v_prev.perfil_ref,'PerfilVersion',v_prev.perfil_version,'VinculoRef',v_prev.vinculo_ref,'VinculoVersion',v_prev.vinculo_version,
@@ -137,10 +166,22 @@ BEGIN
  END IF;
  IF EXISTS(SELECT 1 FROM vec_identidad_sesiones_v1.sujeto_persona_registro_propio_v1 WHERE sujeto_ref=v_sujeto)
  THEN RAISE EXCEPTION 'registro propio: sujeto ya registrado con otra clave' USING ERRCODE='23505'; END IF;
- SELECT cuenta_ref INTO STRICT v_cuenta FROM vec_identidad_sesiones_v1.provisionar_cuenta_v1(
-  v_operacion,'vec.identidad.hmac-sha256.v1',v_acred->>'DominioHMACRef',v_acred->>'ClaveHMACID',
-  (v_acred->>'ClaveHMACVersion')::bigint,decode(v_acred->>'CuentaHuellaHMAC','base64'),
-  decode(v_acred->>'SujetoHuellaHMAC','base64'),false,NULL);
+ SELECT a.cuenta_ref INTO v_cuenta FROM vec_identidad_sesiones_v1.alias_hmac_cuenta a
+ WHERE a.esquema_hmac='vec.identidad.hmac-sha256.v1'
+   AND a.dominio_hmac_ref=v_acred->>'DominioHMACRef' AND a.clave_hmac_id=v_acred->>'ClaveHMACID'
+   AND a.clave_hmac_version=(v_acred->>'ClaveHMACVersion')::bigint
+   AND a.cuenta_id_hmac=decode(v_acred->>'CuentaHuellaHMAC','base64')
+   AND a.sujeto_id_hmac=decode(v_acred->>'SujetoHuellaHMAC','base64');
+ IF FOUND THEN
+  PERFORM vec_identidad_sesiones_v1.validar_cuenta_registro_propio_v1(v_cuenta);
+ ELSE
+  IF v_nueva IS FALSE AND vec_contexto_actor_v1.persona_con_cuenta_registro_propio_v1(v_equiv->>'PersonaRef')
+  THEN RAISE EXCEPTION 'registro propio: cuenta existente sin equivalencia de alias acreditada' USING ERRCODE='42501'; END IF;
+  SELECT cuenta_ref INTO STRICT v_cuenta FROM vec_identidad_sesiones_v1.provisionar_cuenta_v1(
+   v_operacion,'vec.identidad.hmac-sha256.v1',v_acred->>'DominioHMACRef',v_acred->>'ClaveHMACID',
+   (v_acred->>'ClaveHMACVersion')::bigint,decode(v_acred->>'CuentaHuellaHMAC','base64'),
+   decode(v_acred->>'SujetoHuellaHMAC','base64'),false,NULL);
+ END IF;
  v_persona:=CASE WHEN v_nueva THEN 'per_'||encode(public.gen_random_bytes(18),'hex') ELSE v_equiv->>'PersonaRef' END;
  v_perfil:='prf_'||encode(public.gen_random_bytes(18),'hex');
  v_vinculo:='vca_'||encode(public.gen_random_bytes(18),'hex');
@@ -150,10 +191,12 @@ BEGIN
   v_cuenta,v_persona,v_perfil,v_vinculo,v_nueva,v_acred->>'ProcedenciaRef',
   (v_acred->>'ProcedenciaVersion')::numeric,v_acred->>'ProcedenciaSHA256',
   v_acred->>'ProcedenciaAutoridad',v_desde,v_hasta);
+ PERFORM vec_contexto_actor_v1.validar_registro_propio_v1(v_cuenta,v_version.cuenta_version,
+  v_persona,v_version.persona_version,v_perfil,v_version.perfil_version,v_vinculo,v_version.vinculo_version);
  INSERT INTO vec_identidad_sesiones_v1.sujeto_persona_registro_propio_v1(sujeto_ref,persona_ref,prueba_ref,prueba_version,prueba_sha256,operacion_ref)
   VALUES(v_sujeto,v_persona,v_equiv->>'PruebaRef',(v_equiv->>'PruebaVersion')::numeric,v_equiv->>'PruebaSHA256',v_operacion);
- INSERT INTO vec_identidad_sesiones_v1.registro_propio_v1(operacion_ref,recibo_ref,entrada_sha256,actor_ref,sujeto_ref,cuenta_ref,cuenta_version,persona_ref,persona_version,perfil_ref,perfil_version,vinculo_ref,vinculo_version,procedencia_ref,procedencia_version,procedencia_sha256,decision_ref,estado,registrada_en)
-  VALUES(v_operacion,v_recibo,v_huella,p_actor,v_sujeto,v_cuenta,v_version.cuenta_version,v_persona,v_version.persona_version,v_perfil,v_version.perfil_version,v_vinculo,v_version.vinculo_version,v_acred->>'ProcedenciaRef',(v_acred->>'ProcedenciaVersion')::numeric,v_acred->>'ProcedenciaSHA256',v_consumo.decision_ref,'pendiente_contacto',v_ahora);
+ INSERT INTO vec_identidad_sesiones_v1.registro_propio_v1(operacion_ref,recibo_ref,entrada_sha256,actor_ref,sujeto_ref,cuenta_ref,cuenta_version,persona_ref,persona_version,perfil_ref,perfil_version,vinculo_ref,vinculo_version,procedencia_ref,procedencia_version,procedencia_sha256,decision_ref,auditoria_v3_ref,consumo_huella_sha256,estado,registrada_en)
+  VALUES(v_operacion,v_recibo,v_huella,p_actor,v_sujeto,v_cuenta,v_version.cuenta_version,v_persona,v_version.persona_version,v_perfil,v_version.perfil_version,v_vinculo,v_version.vinculo_version,v_acred->>'ProcedenciaRef',(v_acred->>'ProcedenciaVersion')::numeric,v_acred->>'ProcedenciaSHA256',v_consumo.decision_ref,v_consumo.auditoria_ref,v_consumo.consumo_huella_sha256,'pendiente_contacto',v_ahora);
  INSERT INTO vec_identidad_sesiones_v1.registro_propio_outbox_v1(operacion_ref,evento_ref,tipo,creada_en)
   VALUES(v_operacion,'evt_'||encode(public.gen_random_bytes(18),'hex'),'registro_pendiente_contacto',v_ahora);
  RETURN jsonb_build_object('OperacionRef',v_operacion,'ReciboRef',v_recibo,'Estado','pendiente_contacto',

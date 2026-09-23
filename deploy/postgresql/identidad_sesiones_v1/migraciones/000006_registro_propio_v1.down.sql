@@ -9,6 +9,7 @@ DO $guardia$ BEGIN
 END $guardia$;
 REVOKE EXECUTE ON FUNCTION vec_identidad_sesiones_v1.registrar_propio_v1(bytea,bytea,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM vec_identidad_sesiones_v1_provisionador;
 DROP FUNCTION vec_identidad_sesiones_v1.registrar_propio_v1(bytea,bytea,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea);
+DROP FUNCTION vec_identidad_sesiones_v1.validar_cuenta_registro_propio_v1(text);
 DROP TABLE vec_identidad_sesiones_v1.registro_propio_outbox_v1;
 DROP TABLE vec_identidad_sesiones_v1.registro_propio_v1;
 DROP TABLE vec_identidad_sesiones_v1.sujeto_persona_registro_propio_v1;
