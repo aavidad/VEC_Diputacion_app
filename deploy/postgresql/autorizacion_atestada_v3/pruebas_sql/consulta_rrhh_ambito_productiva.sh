@@ -86,3 +86,110 @@ ROLLBACK;
 SQL
 done
 echo 'AD3-51: cuatro identidades y las dos funciones verificadas en PG18 efímero'
+limpiar
+trap - EXIT
+
+# El dump schema-only omite filas de control. Se restituye únicamente la
+# génesis vacía para probar el DOWN protegido, nunca un consumo de negocio.
+docker exec -i "$contenedor" psql -v ON_ERROR_STOP=1 -U postgres -d postgres <<'SQL'
+BEGIN;
+SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
+INSERT INTO vec_autorizacion_atestada_v3.control_cadena_auditoria
+  (control_id,secuencia,cabeza_sha256,actualizada_en)
+SELECT true,0,repeat('0',64),clock_timestamp()
+WHERE NOT EXISTS (SELECT 1 FROM vec_autorizacion_atestada_v3.control_cadena_auditoria);
+DO $vacia$
+BEGIN
+ IF (SELECT count(*) FROM vec_autorizacion_atestada_v3.control_cadena_auditoria) <> 1
+    OR EXISTS (SELECT 1 FROM vec_autorizacion_atestada_v3.control_cadena_auditoria
+                WHERE secuencia<>0 OR cabeza_sha256<>repeat('0',64))
+    OR EXISTS (SELECT 1 FROM vec_autorizacion_atestada_v3.atestacion_decision_v3)
+    OR EXISTS (SELECT 1 FROM vec_autorizacion_atestada_v3.consumo_decision_v3)
+    OR EXISTS (SELECT 1 FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3)
+ THEN RAISE EXCEPTION 'AD3-51: la base de prueba no está vacía'; END IF;
+END $vacia$;
+COMMIT;
+SQL
+
+migraciones="$raiz/../migraciones"
+down="$migraciones/000051_consulta_rrhh_ambito_productiva.down.sql"
+up="$migraciones/000051_consulta_rrhh_ambito_productiva.up.sql"
+
+rechazar_down() {
+  local salida estado
+  salida=$(mktemp)
+  set +e
+  docker exec -i "$contenedor" psql -v ON_ERROR_STOP=1 -U postgres -d postgres \
+    < "$down" > "$salida" 2>&1
+  estado=$?
+  set -e
+  if [[ $estado -ne 3 ]] || ! rg -q 'DOWN rechazado por historia V3' "$salida"; then
+    cat "$salida" >&2
+    rm -f "$salida"
+    echo 'AD3-51: DOWN no rechazó la historia como se esperaba' >&2
+    exit 1
+  fi
+  rm -f "$salida"
+  docker exec -i "$contenedor" psql -v ON_ERROR_STOP=1 -U postgres -d postgres \
+    < "$raiz/consulta_rrhh_ambito_productiva.sql"
+}
+
+# Una fila de auditoría sintética basta para impedir DOWN aunque la cadena
+# permanezca en génesis. Solo este contenedor efímero usa replica para omitir
+# el FK de la fila deliberadamente huérfana; no se instala ni conserva.
+docker exec -i "$contenedor" psql -v ON_ERROR_STOP=1 -U postgres -d postgres <<'SQL'
+BEGIN;
+SET LOCAL session_replication_role=replica;
+INSERT INTO vec_autorizacion_atestada_v3.auditoria_consumo_v3
+  (auditoria_ref,secuencia,decision_ref,efecto_ref,huella_efecto_sha256,
+   anterior_sha256,huella_sha256,registrada_en)
+VALUES ('aud_ad351_sintetica',1,'decision_ad351_sintetica','efecto_ad351_sintetico',
+        repeat('a',64),repeat('0',64),repeat('b',64),clock_timestamp());
+COMMIT;
+SQL
+rechazar_down
+docker exec -i "$contenedor" psql -v ON_ERROR_STOP=1 -U postgres -d postgres <<'SQL'
+BEGIN;
+SET LOCAL session_replication_role=replica;
+DELETE FROM vec_autorizacion_atestada_v3.auditoria_consumo_v3
+ WHERE auditoria_ref='aud_ad351_sintetica';
+COMMIT;
+SQL
+
+# El marcador de cadena también impide revertir una historia cuyos registros
+# hubieran sido retirados fuera del circuito de solo adición.
+docker exec -i "$contenedor" psql -v ON_ERROR_STOP=1 -U postgres -d postgres <<'SQL'
+BEGIN;
+SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
+UPDATE vec_autorizacion_atestada_v3.control_cadena_auditoria
+   SET secuencia=1,cabeza_sha256=repeat('b',64) WHERE control_id;
+COMMIT;
+SQL
+rechazar_down
+docker exec -i "$contenedor" psql -v ON_ERROR_STOP=1 -U postgres -d postgres <<'SQL'
+BEGIN;
+SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
+UPDATE vec_autorizacion_atestada_v3.control_cadena_auditoria
+   SET secuencia=0,cabeza_sha256=repeat('0',64) WHERE control_id;
+COMMIT;
+SQL
+
+docker exec -i "$contenedor" psql -v ON_ERROR_STOP=1 -U postgres -d postgres \
+  < "$down"
+docker exec -i "$contenedor" psql -v ON_ERROR_STOP=1 -U postgres -d postgres <<'SQL'
+DO $reversion$
+BEGIN
+ IF (SELECT encode(sha256(convert_to(prosrc,'UTF8')),'hex') FROM pg_proc
+      WHERE oid='vec_autorizacion_atestada_v3.consumir_consulta_rrhh_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure)
+      <> '1cec6ba3faa9d25607273638e458d76dd5f7e1eca0373754d1a2e3f28c6fa137'
+    OR (SELECT encode(sha256(convert_to(prosrc,'UTF8')),'hex') FROM pg_proc
+      WHERE oid='vec_autorizacion_atestada_v3.revalidar_consumo_consulta_rrhh_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure)
+      <> '7cfc002cff8878fc36288fa1200de1c51965e9ae4d84b4ffe6179bc62372b5ff'
+ THEN RAISE EXCEPTION 'AD3-51: DOWN no restauró cuerpos previos'; END IF;
+END $reversion$;
+SQL
+docker exec -i "$contenedor" psql -v ON_ERROR_STOP=1 -U postgres -d postgres \
+  < "$up"
+docker exec -i "$contenedor" psql -v ON_ERROR_STOP=1 -U postgres -d postgres \
+  < "$raiz/consulta_rrhh_ambito_productiva.sql"
+echo 'AD3-51: historia sintética rechazada y DOWN/UP vacío verificados'
