@@ -41,12 +41,13 @@ done < <(git ls-files -co --exclude-standard -- cmd config deploy internal scrip
 
 if (( fallos )); then
   cat >&2 <<'MENSAJE'
-Hay ficheros de codigo por encima del tope duro de 800 lineas.
-El objetivo de diseno son 500 lineas; hasta 800 hay margen para ficheros
-cohesionados. Por encima del tope hay que trocear antes de ampliar (en Go,
-dividir un fichero en varios del mismo paquete conserva API y
-comportamiento). Vease
-docs/portal_vec/auditoria_diseno_y_seguridad_2026-07-16.md, directriz 9.
+Hay ficheros de codigo que han crecido por encima de su linea base.
+El objetivo de diseno son 500 lineas y el aviso salta a partir de 800; no es
+un tope duro (decision del operador del 23/09/2026, AGENTS.md, Calidad): un
+fichero cohesionado grande es preferible a varios que solo se entienden
+juntos. Si el crecimiento esta justificado, sube su linea en
+scripts/tamano_ficheros_base.txt y explicalo en una linea del commit; si hay
+dos responsabilidades de verdad, divide el fichero en un corte de limpieza.
 MENSAJE
   exit 1
 fi
