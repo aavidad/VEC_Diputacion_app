@@ -1,5 +1,5 @@
-import { crearTraductorAdministracion } from "./i18n.js";
-import { montarVistaApariencia } from "./vista-apariencia.js";
+import { crearTraductorAdministracion } from "./i18n.js?v=20260924-f2-web2";
+import { montarVistaApariencia } from "./vista-apariencia.js?v=20260924-f2-web2";
 
 export const PESTANAS_ADMINISTRACION = Object.freeze([
   "resumen", "roles", "catalogos", "calendarios", "reglas", "conectores",
