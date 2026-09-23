@@ -110,7 +110,8 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 			capacidad.ruta == rutaOrganizacionContratacionTemporalDesarrollo ||
 			capacidad.ruta == rutaCambiosOrganizacionContratacionTemporalDesarrollo ||
 			capacidad.ruta == rutaBolsasRRHHDesarrollo || rutaBolsasCandidatosRRHHDesarrollo(capacidad.ruta) ||
-			capacidad.ruta == rutaEstadisticasBolsaRRHHDesarrollo {
+			capacidad.ruta == rutaEstadisticasBolsaRRHHDesarrollo ||
+			capacidad.ruta == rutaAvisosBolsaRRHHDesarrollo {
 			// El resolvedor ya ha cotejado la hoja y su cadena mTLS. Revalidar
 			// aquí su ventana también cubre conexiones abiertas antes de caducar.
 			certificado := r.TLS.VerifiedChains[0][0]
@@ -140,6 +141,12 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 		if protegidaComun {
 			ctx = context.WithValue(ctx, claveFronteraSeguridadComunDesarrollo{}, fronteraSeguridadComunDesarrollo{metodo: r.Method, ruta: r.URL.Path, superficie: superficieInternaSeguridadComunDesarrollo, catalogo: m.fronteras, descriptor: fronteraComun})
 		}
+		r = r.WithContext(ctx)
+	} else if err == nil && (protegidaCT || protegidaComun) && principalSinteticoContratacionTemporalDesarrolloValido(principal) {
+		// Una identidad mTLS válida pero sin el perfil/ámbito de esta ruta está
+		// autenticada. Se conserva una capacidad deliberadamente no sellada para
+		// que la autoridad exacta responda 403, no el 401 de identidad ausente.
+		ctx := context.WithValue(r.Context(), claveCapacidadConsultasContratacionTemporalDesarrollo{}, capacidadConsultaContratacionTemporalDesarrollo{ruta: r.URL.Path, principal: clonarPrincipalDesarrollo(principal)})
 		r = r.WithContext(ctx)
 	}
 	m.siguiente.ServeHTTP(w, r)

@@ -11,6 +11,7 @@ import (
 
 	"vec-diputacion-granada/config"
 	bolsahttp "vec-diputacion-granada/internal/modules/bolsa/adapters/httpinterno"
+	bolsaapplication "vec-diputacion-granada/internal/modules/bolsa/application"
 	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
@@ -23,6 +24,7 @@ const (
 	// «estadísticas y explotación»): lectura agregada del mismo conjunto que
 	// sirve el cuadro, sin consultas ni tablas propias.
 	rutaEstadisticasBolsaRRHHDesarrollo = "/api/vec/bolsa/estadisticas"
+	rutaAvisosBolsaRRHHDesarrollo       = "/api/vec/bolsa/avisos"
 )
 
 type datasetBolsasRRHHDesarrollo struct {
@@ -70,6 +72,7 @@ type bolsasRRHHDesarrollo struct {
 	mutar     http.Handler
 	invalidar func()
 	contactos lectorContactosBolsaDesarrollo
+	avisos    *bolsaapplication.ServicioAvisosRRHH
 }
 
 type lectorContactosBolsaDesarrollo interface {
@@ -88,6 +91,9 @@ func nuevasRutasBolsasRRHHDesarrolloConFuente(_ config.Config, fuente *fuenteCon
 		invalidar = fuente.invalidar
 	}
 	manejador := nuevoManejadorBolsasRRHHDesarrollo(cargar)
+	if fuente != nil {
+		manejador.avisos = fuente.avisos
+	}
 	if len(mutadores) == 1 {
 		manejador.mutar = mutadores[0]
 		manejador.invalidar = invalidar
@@ -96,6 +102,7 @@ func nuevasRutasBolsasRRHHDesarrolloConFuente(_ config.Config, fuente *fuenteCon
 	return []vechttp.RutaExacta{
 			{Ruta: rutaBolsasRRHHDesarrollo, Manejador: manejador},
 			{Ruta: rutaEstadisticasBolsaRRHHDesarrollo, Manejador: manejador},
+			{Ruta: rutaAvisosBolsaRRHHDesarrollo, Manejador: manejador},
 		},
 		[]vechttp.RutaColeccion{{Prefijo: prefijoCandidatosRRHHDesarrollo, Manejador: manejador}}, nil
 }
@@ -161,6 +168,10 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		responderAreaPersonalDesarrollo(w, http.StatusOK, map[string]any{"data": vista.respuestaEstadisticas()}, r.Method == http.MethodHead)
 		return
 	}
+	if r.URL.Path == rutaAvisosBolsaRRHHDesarrollo {
+		h.responderAvisos(w, r)
+		return
+	}
 	if r.URL.Path == rutaBolsasRRHHDesarrollo {
 		if r.URL.RawQuery != "" || r.ContentLength != 0 {
 			responderAreaPersonalDesarrollo(w, http.StatusBadRequest, map[string]string{"codigo": "solicitud_invalida"})
@@ -197,6 +208,69 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	responderAreaPersonalDesarrollo(w, http.StatusOK, map[string]any{"data": respuesta}, r.Method == http.MethodHead)
+}
+
+func (h *bolsasRRHHDesarrollo) responderAvisos(w http.ResponseWriter, r *http.Request) {
+	consulta, ok := consultaAvisosRRHH(r.URL.RawQuery)
+	if !ok || r.ContentLength != 0 {
+		responderAreaPersonalDesarrollo(w, http.StatusBadRequest, map[string]string{"codigo": "solicitud_invalida"})
+		return
+	}
+	if h == nil || h.avisos == nil {
+		responderAreaPersonalDesarrollo(w, http.StatusServiceUnavailable, map[string]string{"codigo": "servicio_no_disponible"})
+		return
+	}
+	pagina, err := h.avisos.Consultar(r.Context(), consulta)
+	if err != nil {
+		responderAreaPersonalDesarrollo(w, http.StatusServiceUnavailable, map[string]string{"codigo": "servicio_no_disponible"})
+		return
+	}
+	items := make([]map[string]any, 0, len(pagina.Avisos))
+	for _, aviso := range pagina.Avisos {
+		items = append(items, map[string]any{
+			"tipo": aviso.Tipo, "bolsa": aviso.BolsaRef, "referencia": aviso.Referencia,
+			"detalle": aviso.Detalle, "fecha": aviso.Fecha.UTC().Format(time.RFC3339Nano),
+		})
+	}
+	responderAreaPersonalDesarrollo(w, http.StatusOK, map[string]any{"data": map[string]any{
+		"esquema": "vec.bolsa.rrhh.avisos.v1", "generado_en": pagina.GeneradaEn.UTC().Format(time.RFC3339Nano),
+		"provisionalidad": pagina.Provisionalidad, "items": items,
+		"conteos":    pagina.Conteos,
+		"paginacion": map[string]any{"limite": consulta.Limite, "desde": pagina.Desde, "hasta": pagina.Hasta, "total": pagina.Total, "cursor_siguiente": pagina.CursorSiguiente},
+	}}, r.Method == http.MethodHead)
+}
+
+func consultaAvisosRRHH(cruda string) (bolsaapplication.ConsultaAvisos, bool) {
+	resultado := bolsaapplication.ConsultaAvisos{Limite: 20}
+	if cruda == "" {
+		return resultado, true
+	}
+	valores, err := url.ParseQuery(cruda)
+	if err != nil || len(valores) > 2 {
+		return resultado, false
+	}
+	for clave, lista := range valores {
+		if len(lista) != 1 {
+			return resultado, false
+		}
+		valor := strings.TrimSpace(lista[0])
+		switch clave {
+		case "cursor":
+			if valor == "" || len(valor) > 512 {
+				return resultado, false
+			}
+			resultado.Cursor = valor
+		case "limite":
+			limite, e := strconv.Atoi(valor)
+			if e != nil || limite < 1 || limite > 100 {
+				return resultado, false
+			}
+			resultado.Limite = limite
+		default:
+			return resultado, false
+		}
+	}
+	return resultado, true
 }
 
 func (h *bolsasRRHHDesarrollo) cargarContactos(ctx context.Context, vista *bolsasRRHHDesarrolloDatos, bolsa string) bool {

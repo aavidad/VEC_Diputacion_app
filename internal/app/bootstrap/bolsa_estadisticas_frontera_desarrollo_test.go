@@ -14,6 +14,7 @@ func TestFronteraAdmiteTodasLasRutasDelManejadorRRHHDeBolsa(t *testing.T) {
 	for _, ruta := range []string{
 		rutaBolsasRRHHDesarrollo,
 		rutaEstadisticasBolsaRRHHDesarrollo,
+		rutaAvisosBolsaRRHHDesarrollo,
 	} {
 		if !esRutaContratacionTemporalDesarrollo(httptest.NewRequest(http.MethodGet, ruta, nil)) {
 			t.Errorf("la frontera de desarrollo no revalida %s: respondería 401", ruta)

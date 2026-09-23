@@ -145,8 +145,8 @@ func TestBolsasRRHHDesarrolloExponeContratoCerradoYPaginaCandidatos(t *testing.T
 
 func TestBolsasRRHHDesarrolloNoDependeDelDatasetDemoYFallaCerrado(t *testing.T) {
 	rutas, colecciones, err := nuevasRutasBolsasRRHHDesarrollo(config.Config{BolsaDemoPath: "/no-debe-leerse/bolsa-demo.json"})
-	// Dos rutas exactas: el cuadro de bolsas y sus estadísticas agregadas.
-	if err != nil || len(rutas) != 2 || len(colecciones) != 1 {
+	// Tres rutas exactas: cuadro, estadísticas agregadas y avisos derivados.
+	if err != nil || len(rutas) != 3 || len(colecciones) != 1 {
 		t.Fatalf("rutas RRHH: exactas=%d colecciones=%d error=%v", len(rutas), len(colecciones), err)
 	}
 	w := httptest.NewRecorder()

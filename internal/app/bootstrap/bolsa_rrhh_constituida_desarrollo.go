@@ -23,6 +23,7 @@ type fuenteConstituidaRRHHDesarrollo struct {
 	repositorio ports.RepositorioConstitucion
 	situaciones ports.RepositorioSituacionParticipacion
 	orden       *bolsaapplication.ServicioOrdenVigente
+	avisos      *bolsaapplication.ServicioAvisosRRHH
 	emisiones   *postgresbolsa.RepositorioEmisionLlamamientoPostgreSQL
 	recuperador constitucion.Recuperador
 	categorias  map[string]string
@@ -75,6 +76,16 @@ func nuevaFuenteConstituidaRRHHDesarrollo(ctx context.Context, cfg config.Config
 		poolBolsa.Close()
 		return nil
 	}
+	consultaAvisos, err := postgresbolsa.NuevaConsultaAvisosRRHHPostgreSQL(poolBolsa)
+	if err != nil {
+		poolBolsa.Close()
+		return nil
+	}
+	avisos, err := bolsaapplication.NuevoServicioAvisosRRHH(consultaAvisos, time.Now)
+	if err != nil {
+		poolBolsa.Close()
+		return nil
+	}
 	emisiones, err := postgresbolsa.NuevoRepositorioEmisionLlamamientoPostgreSQL(poolBolsa)
 	if err != nil {
 		poolBolsa.Close()
@@ -113,7 +124,7 @@ func nuevaFuenteConstituidaRRHHDesarrollo(ctx context.Context, cfg config.Config
 			}
 		}
 	}
-	return &fuenteConstituidaRRHHDesarrollo{repositorio: repositorio, situaciones: situaciones, orden: orden, emisiones: emisiones, recuperador: recuperador, categorias: categorias, grupos: grupos, ahora: time.Now}
+	return &fuenteConstituidaRRHHDesarrollo{repositorio: repositorio, situaciones: situaciones, orden: orden, avisos: avisos, emisiones: emisiones, recuperador: recuperador, categorias: categorias, grupos: grupos, ahora: time.Now}
 }
 
 func (f *fuenteConstituidaRRHHDesarrollo) constituidas(ctx context.Context) (datasetBolsasRRHHDesarrollo, bool) {
