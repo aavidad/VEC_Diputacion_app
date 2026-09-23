@@ -134,7 +134,22 @@ INSERT INTO vec_autorizacion_atestada_v3.control_cadena_auditoria
  VALUES (true,0,repeat('0',64),clock_timestamp());
 COMMIT;
 SQL
-psql_archivo "$raiz/deploy/postgresql/contexto_actor_v1/roles_contexto_corporativo_rrhh_selector_v1_up.sql"
+psql_sql <<'SQL'
+-- Fixture de rol únicamente efímero. El instalador oficial del selector
+-- requiere una preimagen de membresías más estrecha que este dump de
+-- desarrollo; no se relajan ni eliminan las membresías conservadas.
+DO $ausencia_selector$
+BEGIN
+ IF to_regrole('vec_contexto_actor_corporativo_rrhh_selector') IS NOT NULL
+ THEN RAISE EXCEPTION 'selector ya presente en preimagen'; END IF;
+END $ausencia_selector$;
+CREATE ROLE vec_contexto_actor_corporativo_rrhh_selector
+ NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE
+ NOREPLICATION NOBYPASSRLS CONNECTION LIMIT -1 PASSWORD NULL;
+COMMENT ON ROLE vec_contexto_actor_corporativo_rrhh_selector IS
+ 'vec_contexto_actor_v1:rol-contexto-corporativo-rrhh-selector:v1';
+GRANT CONNECT ON DATABASE postgres TO vec_contexto_actor_corporativo_rrhh_selector;
+SQL
 psql_archivo "$raiz/deploy/postgresql/contratacion_temporal/roles_consultor_rrhh_ambito_up.sql"
 psql_archivo "$raiz/deploy/postgresql/contexto_actor_v1/migraciones/000006_acreditacion_ambito_rrhh_v1.up.sql"
 psql_archivo "$VEC_AD3_51_UP"
