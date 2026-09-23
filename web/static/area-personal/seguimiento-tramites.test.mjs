@@ -50,3 +50,15 @@ test("mi bolsa distingue estado vigente de la participación y vigencia de la bo
   assert.match(vista, /Consta temporalmente no disponible en Bolsa/u);
   assert.doesNotMatch(vista, /Datos de ejemplo|motivo|Pausa comunicada/u);
 });
+
+test("mi bolsa muestra el último resultado B7 propio sin respuesta ni plazo", async () => {
+  const datos = structuredClone(await crearAdaptadorPresentacion().cargar());
+  const participaciones = [
+    { bolsa: "bolsa:1", categoria: "Auxiliar", version: 1, orden_inicial: 2, total_instantanea: 3, estado_bolsa: "vigente", vigente_desde: "2026-09-01T00:00:00Z", vigente_hasta: null, ultimo_llamamiento: { emitido_en: "2026-09-20T10:00:00Z", canal: "correo", resultado: "enviado" } },
+    { bolsa: "bolsa:2", categoria: "Administrativo", version: 1, orden_inicial: 1, total_instantanea: 3, estado_bolsa: "vigente", vigente_desde: "2026-09-01T00:00:00Z", vigente_hasta: null, ultimo_llamamiento: { emitido_en: "2026-09-21T10:00:00Z", canal: "correo", resultado: "no_enviado" } },
+  ];
+  const vista = renderizarLlamamientos(datos, { participaciones, fuenteBolsa: "real" });
+  assert.match(vista, /Último resultado de correo[\s\S]*bolsa:2[\s\S]*Administrativo[\s\S]*No enviado/u);
+  assert.match(vista, /no acredita recepción, respuesta ni plazo aprobado/u);
+  assert.doesNotMatch(vista, /Aceptar llamamiento|Rechazar llamamiento|nota privada/u);
+});

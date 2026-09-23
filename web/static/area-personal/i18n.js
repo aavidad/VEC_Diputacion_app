@@ -23,6 +23,11 @@ const respaldo = Object.freeze({
   "areaPersonal.miBolsa.situacion.explicacion.disponible_desde": "Consta una fecha indicada para recuperar disponibilidad; no acredita un llamamiento ni determina por sí sola los efectos legales.",
   "areaPersonal.miBolsa.disponibilidad.titulo": "Disponibilidad", "areaPersonal.miBolsa.disponibilidad.subtitulo": "Situación por participación",
   "areaPersonal.miBolsa.disponibilidad.detalle": "Consulte arriba la situación de cada participación. Las acciones de pausa o reactivación aún no están habilitadas en Mi bolsa.",
+  "areaPersonal.miBolsa.llamamiento.titulo": "Último resultado de correo", "areaPersonal.miBolsa.llamamiento.subtitulo": "De mis llamamientos en Bolsa",
+  "areaPersonal.miBolsa.llamamiento.bolsa": "Bolsa", "areaPersonal.miBolsa.llamamiento.categoria": "Categoría", "areaPersonal.miBolsa.llamamiento.fecha": "Emisión registrada", "areaPersonal.miBolsa.llamamiento.canal": "Canal", "areaPersonal.miBolsa.llamamiento.correo": "Correo",
+  "areaPersonal.miBolsa.llamamiento.resultado": "Resultado", "areaPersonal.miBolsa.llamamiento.enviado": "Enviado", "areaPersonal.miBolsa.llamamiento.no_enviado": "No enviado",
+  "areaPersonal.miBolsa.llamamiento.limite": "El resultado de envío no acredita recepción, respuesta ni plazo aprobado.",
+  "areaPersonal.miBolsa.llamamiento.sinDato": "No consta un resultado de correo B7 para estas participaciones. Esta consulta no muestra otros llamamientos o contactos.",
   "areaPersonal.demo.nota": "Recorrido de demostración. Los títulos, CVE y fechas de publicación BOP son referencias públicas reales. La identidad, los expedientes, los plazos operativos, las puntuaciones y todas las acciones son sintéticos; solo viven en memoria y generan recibos DEMO sin validez administrativa."
 });
 let catalogo = respaldo;

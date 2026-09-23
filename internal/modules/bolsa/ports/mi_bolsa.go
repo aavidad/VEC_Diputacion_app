@@ -28,15 +28,24 @@ var (
 // ParticipacionMiBolsa es la proyeccion cerrada que el SQL debe devolver. No
 // contiene la referencia de participacion, candidato, persona ni baremo.
 type ParticipacionMiBolsa struct {
-	Bolsa            string
-	Categoria        string
-	Version          uint64
-	OrdenInicial     uint64
-	TotalInstantanea uint64
-	EstadoBolsa      string
-	VigenteDesde     time.Time
-	VigenteHasta     *time.Time
-	SituacionActual  *SituacionActualMiBolsa
+	Bolsa             string
+	Categoria         string
+	Version           uint64
+	OrdenInicial      uint64
+	TotalInstantanea  uint64
+	EstadoBolsa       string
+	VigenteDesde      time.Time
+	VigenteHasta      *time.Time
+	SituacionActual   *SituacionActualMiBolsa
+	UltimoLlamamiento *UltimoLlamamientoMiBolsa
+}
+
+// UltimoLlamamientoMiBolsa solo expone el resultado de correo propio B7.
+// No acredita recepción ni respuesta de la persona.
+type UltimoLlamamientoMiBolsa struct {
+	EmitidoEn time.Time
+	Canal     string
+	Resultado string
 }
 
 // SituacionActualMiBolsa contiene solo el ultimo hecho B2 autorizado.

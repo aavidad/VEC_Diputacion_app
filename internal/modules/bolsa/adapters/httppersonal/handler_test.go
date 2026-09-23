@@ -23,7 +23,8 @@ func TestMiBolsaSerializaUltimoEstadoSinMotivoLibre(t *testing.T) {
 	i := puertosbolsa.InstantaneaMiBolsa{ConsultadaEn: desde.Add(time.Hour), Participaciones: []puertosbolsa.ParticipacionMiBolsa{{
 		Bolsa: "bolsa:01", Categoria: "Auxiliar", Version: 3, OrdenInicial: 2, TotalInstantanea: 4,
 		EstadoBolsa: "vigente", VigenteDesde: desde.Add(-time.Hour),
-		SituacionActual: &puertosbolsa.SituacionActualMiBolsa{Estado: "no_disponible", Desde: desde},
+		SituacionActual:   &puertosbolsa.SituacionActualMiBolsa{Estado: "no_disponible", Desde: desde},
+		UltimoLlamamiento: &puertosbolsa.UltimoLlamamientoMiBolsa{EmitidoEn: desde, Canal: "correo", Resultado: "enviado"},
 	}}}
 	contenido, err := json.Marshal(nuevaRespuesta(i))
 	if err != nil {
@@ -36,7 +37,7 @@ func TestMiBolsaSerializaUltimoEstadoSinMotivoLibre(t *testing.T) {
 	if !bytes.Equal(contenido, bytes.TrimSpace(esperado)) {
 		t.Fatalf("cambió el payload HTTP propio: %s", contenido)
 	}
-	for _, requerido := range []string{`"situacion_actual"`, `"estado":"no_disponible"`, `"desde":"2026-09-20T10:00:00.000000Z"`, `"hasta":null`} {
+	for _, requerido := range []string{`"situacion_actual"`, `"estado":"no_disponible"`, `"desde":"2026-09-20T10:00:00.000000Z"`, `"hasta":null`, `"ultimo_llamamiento"`, `"resultado":"enviado"`} {
 		if !strings.Contains(string(contenido), requerido) {
 			t.Fatalf("falta %s: %s", requerido, contenido)
 		}

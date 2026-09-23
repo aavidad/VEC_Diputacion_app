@@ -86,15 +86,22 @@ type respuestaError struct {
 	Error errorRespuesta `json:"error"`
 }
 type participacion struct {
-	Bolsa            string           `json:"bolsa"`
-	Categoria        string           `json:"categoria"`
-	Version          uint64           `json:"version"`
-	OrdenInicial     uint64           `json:"orden_inicial"`
-	TotalInstantanea uint64           `json:"total_instantanea"`
-	EstadoBolsa      string           `json:"estado_bolsa"`
-	VigenteDesde     string           `json:"vigente_desde"`
-	VigenteHasta     *string          `json:"vigente_hasta"`
-	SituacionActual  *situacionActual `json:"situacion_actual"`
+	Bolsa             string             `json:"bolsa"`
+	Categoria         string             `json:"categoria"`
+	Version           uint64             `json:"version"`
+	OrdenInicial      uint64             `json:"orden_inicial"`
+	TotalInstantanea  uint64             `json:"total_instantanea"`
+	EstadoBolsa       string             `json:"estado_bolsa"`
+	VigenteDesde      string             `json:"vigente_desde"`
+	VigenteHasta      *string            `json:"vigente_hasta"`
+	SituacionActual   *situacionActual   `json:"situacion_actual"`
+	UltimoLlamamiento *ultimoLlamamiento `json:"ultimo_llamamiento"`
+}
+
+type ultimoLlamamiento struct {
+	EmitidoEn string `json:"emitido_en"`
+	Canal     string `json:"canal"`
+	Resultado string `json:"resultado"`
 }
 type situacionActual struct {
 	Estado          string  `json:"estado"`
@@ -134,6 +141,10 @@ func nuevaRespuesta(i puertosbolsa.InstantaneaMiBolsa) respuesta {
 				fecha := s.FechaDisponible.Format("2006-01-02T15:04:05.000000Z07:00")
 				x.SituacionActual.FechaDisponible = &fecha
 			}
+		}
+		if p.UltimoLlamamiento != nil {
+			l := p.UltimoLlamamiento
+			x.UltimoLlamamiento = &ultimoLlamamiento{EmitidoEn: l.EmitidoEn.UTC().Format("2006-01-02T15:04:05.000000Z07:00"), Canal: l.Canal, Resultado: l.Resultado}
 		}
 		r.Data.Participaciones = append(r.Data.Participaciones, x)
 	}
