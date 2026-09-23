@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { calcularMetricasCuadro, crearVistaInicioPortal, tramitesParaInicio } from "./portal-inicio.js";
+import { crearControladorPortal } from "./portal-eventos.js";
 
 const moduloBolsa = Object.freeze({
   clave: "bolsa",
@@ -25,6 +26,50 @@ function renderizar(acceso) {
     resolverAcceso: () => acceso,
   })();
 }
+
+test("la portada sin catálogo ofrece reintento y el clic activa la recarga existente", async () => {
+  const estado = { errorFuente: "error anterior", fuenteLista: true };
+  const vista = crearVistaInicioPortal({
+    encabezadoVista: () => "<header>Portal</header>",
+    escaparHTML,
+    obtenerCatalogo: () => [],
+    resolverAcceso: () => { throw new Error("sin módulos"); },
+    catalogoFallido: () => estado.errorFuente !== "",
+  });
+  let html = vista();
+  assert.match(html, /role="alert" aria-labelledby="error-catalogo-modulos-titulo"/u);
+  assert.match(html, /El catálogo interno de módulos no está disponible/u);
+  assert.match(html, /<button[^>]*data-accion="recargar-fuente"[^>]*>Reintentar<\/button>/u);
+
+  const documentoAnterior = globalThis.document;
+  const ventanaAnterior = globalThis.window;
+  const escuchas = new Map();
+  const control = { addEventListener() {} };
+  let recargas = 0; let repintados = 0;
+  globalThis.document = { addEventListener: (tipo, escuchar) => escuchas.set(tipo, escuchar) };
+  globalThis.window = { addEventListener() {} };
+  try {
+    const controlador = crearControladorPortal({
+      porId: () => control,
+      estado,
+      obtenerDatosPanel: () => ({}),
+      renderizar: () => { repintados += 1; html = vista(); },
+      cargarFuenteDatos: async () => { recargas += 1; },
+    });
+    controlador.instalar();
+    const boton = { dataset: { accion: "recargar-fuente" } };
+    escuchas.get("click")({ target: { closest: (selector) => selector === "[data-accion]" ? boton : null } });
+    await new Promise((resolver) => setImmediate(resolver));
+    assert.equal(recargas, 1);
+    assert.equal(estado.errorFuente, "");
+    assert.equal(estado.fuenteLista, false);
+    assert.equal(repintados, 2);
+    assert.doesNotMatch(html, /data-accion="recargar-fuente"/u);
+  } finally {
+    globalThis.document = documentoAnterior;
+    globalThis.window = ventanaAnterior;
+  }
+});
 
 test("la tarjeta anuncia la comprobación sin ofrecer una ruta prematura", () => {
   const html = renderizar({

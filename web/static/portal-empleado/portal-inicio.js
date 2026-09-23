@@ -5,7 +5,7 @@
  * qué módulos están disponibles para el ContextoActor activo; los restantes
  * permanecen visibles para conservar la navegación estable y fallan cerrados.
  */
-import { traducirPortal } from "./portal-i18n.js?v=20260721-acceso-real-v2";
+import { traducirPortal } from "./portal-i18n.js?v=20260923-p4-reintento-v2";
 
 export function calcularMetricasCuadro(cuadro) {
 	const totales = cuadro?.totales;
@@ -73,6 +73,15 @@ function renderizarTramitesInicio(tramites, escaparHTML) {
     </div>`;
 }
 
+function renderizarErrorCatalogo(escaparHTML, traducir) {
+  return `<section class="panel" role="alert" aria-labelledby="error-catalogo-modulos-titulo">
+    <div class="cabecera-panel"><h3 id="error-catalogo-modulos-titulo">${escaparHTML(traducir("titulo_error_catalogo_modulos"))}</h3></div>
+    <div class="cuerpo-panel"><p>${escaparHTML(traducir("error_catalogo_modulos"))}</p>
+      <div class="acciones-vista"><button type="button" class="boton-primario" data-accion="recargar-fuente">${escaparHTML(traducir("accion_reintentar"))}</button></div>
+    </div>
+  </section>`;
+}
+
 export function crearVistaInicioPortal({
   encabezadoVista,
   escaparHTML,
@@ -83,14 +92,16 @@ export function crearVistaInicioPortal({
   obtenerMetricasCuadro = () => null,
   numero = (v) => String(v ?? 0),
   obtenerTramitesInicio = () => null,
+  catalogoFallido = () => false,
 }) {
   if (typeof encabezadoVista !== "function" || typeof escaparHTML !== "function"
     || typeof obtenerCatalogo !== "function" || typeof resolverAcceso !== "function"
-    || typeof traducir !== "function") {
+    || typeof traducir !== "function" || typeof catalogoFallido !== "function") {
     throw new TypeError("la vista inicial requiere sus dependencias");
   }
 
   return function renderizarInicioPortal() {
+    const avisoCatalogo = catalogoFallido() ? renderizarErrorCatalogo(escaparHTML, traducir) : "";
     if (typeof esPerfilRRHH === "function" && esPerfilRRHH()) {
       const catalogo = obtenerCatalogo();
       if (!Array.isArray(catalogo)) throw new TypeError("catálogo de módulos no válido");
@@ -120,6 +131,7 @@ export function crearVistaInicioPortal({
           "Inicio del portal",
           "Accesos directos y estado general de la contratación temporal para Recursos Humanos.",
         )}
+        ${avisoCatalogo}
         <section class="portal-rrhh-inicio" aria-label="Inicio de Contratación Temporal">
           <div class="portal-rrhh-accesos" aria-label="Accesos directos">
             <button type="button" class="boton-primario" data-vista="contratacion-temporal" data-ct-exp-vista="cuadro">Cuadro de mando</button>
@@ -160,6 +172,7 @@ export function crearVistaInicioPortal({
     if (!Array.isArray(catalogo)) throw new TypeError("catálogo de módulos no válido");
     return `
       ${encabezadoVista("Acceso unificado", "Portal del Empleado", "Identidad, datos, documentos y trazabilidad se comparten mediante contratos comunes. La disponibilidad depende del perfil y de los adaptadores compuestos.")}
+      ${avisoCatalogo}
       <section class="nota-seguridad" aria-label="Separación de acceso">
         Este portal representa el acceso interno. La zona externa de aspirantes usa otra sesión, permisos y proyección de datos; nunca muestra expedientes de terceras personas.
       </section>

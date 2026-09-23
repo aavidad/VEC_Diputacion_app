@@ -660,9 +660,10 @@ test("el coordinador no autentica ni conserva estado en el navegador", async () 
 
 test("el cache busting de módulos avanza en cascada hasta el HTML", async () => {
   const versionCoordinador = "20260923-p4-estado-modulos-v1";
-  const versionPortal = "20260923-p4-estado-modulos-v1";
+  const versionPortal = "20260923-p4-reintento-v2";
   const versionModuloBolsa = "20260923-pweb13-b8-v1";
   const versionI18n = "20260920-personal-catalogo-v1";
+  const versionI18nPortal = "20260923-p4-reintento-v2";
   const versionCatalogo = "20260906-acceso-certificado-v1";
   const versionTema = "20260923-pweb17-v1";
   const versionTemaCT = "20260918-botones-v1";
@@ -682,7 +683,7 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
   assert.match(portal, new RegExp(`portal-modulos-coordinador\\.js\\?v=${versionCoordinador}`));
   assert.match(coordinador, new RegExp(`portal-modulos-carga\\.js\\?v=${versionCoordinador}`));
   assert.match(portal, new RegExp(`portal-bolsas-api\\.js\\?v=${versionModuloBolsa}`));
-  assert.match(portal, new RegExp(`portal-i18n\\.js\\?v=${versionI18n}`));
+  assert.match(portal, new RegExp(`portal-i18n\\.js\\?v=${versionI18nPortal}`));
   assert.match(coordinador, new RegExp(`portal-catalogo-modulos\\.js\\?v=${versionCatalogo}`));
   assert.match(coordinador, new RegExp(`portal-i18n\\.js\\?v=${versionI18n}`));
   assert.match(coordinador, new RegExp(`modulos/personal/cliente-http-categorias\\.js\\?v=${versionI18n}`));

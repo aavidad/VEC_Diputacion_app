@@ -23,6 +23,8 @@ export const MENSAJES_PORTAL_ES = Object.freeze({
   estado_modulo_no_habilitado: "No habilitado",
   estado_modulo_disponible_perfil: "Disponible para el perfil activo",
   estado_modulo_no_disponible_titulo: "Módulo no disponible",
+  titulo_error_catalogo_modulos: "No se pudieron comprobar los módulos",
+  error_catalogo_modulos: "El catálogo interno de módulos no está disponible. Reintente la comprobación.",
   personal_catalogo_profesional: "Catálogo profesional de Personal",
   descripcion_superficie_no_montada: "No se pudo montar la superficie solicitada.",
   contratacion_temporal_encabezado: "Contratación temporal",
