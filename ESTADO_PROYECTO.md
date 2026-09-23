@@ -1,5 +1,34 @@
 # Estado y plan de ataque del proyecto
 
+## Dietas recuperada, jornada en horas y CI en verde — 23 de septiembre de 2026 (tarde)
+
+Métrica (criterio estricto): Contratación ≈6 de 8 (sin cambio); **Bolsa 12 de 14** (sin
+cambio); **Dietas 0 de 9 cerrados, D1–D4 en `main`** y pendientes de activar en cidonia;
+Cronos 0 de 12 (ficha de requisitos escrita). Agentes Codex: las dos cuentas sin cupo hasta
+el 26/09 a las 14:56; dirección programa directamente y revisa con un revisor independiente.
+
+- **Dietas (DIETAS-R1 + R1D).** Recuperado el trabajo del 20–21/09 que nunca llegó a `main`
+  (inventario de 217 ficheros en la bitácora de Módulos): comisión con origen y destino,
+  km por la OSRM interna, tres opciones de tramos por grupo rotuladas provisionales y recibo
+  durable. Antes de activarla se corrigieron cuatro defectos que la habrían roto: publicaba
+  un gobierno V3 propio (dejaba sin firma a CT y Bolsa); AD3-49 y Dietas 000004 exigían
+  listas de campos contradictorias y desordenadas; la huella SQL del recurso usaba cuatro
+  ámbitos y Go dos; y el gobierno de CT no admitía sus audiencias. Revisión independiente:
+  NO-GO, corregido, GO. `deploy/principal/preparar_dietas_desarrollo.py` activa Dietas en la
+  principal (ROLLBACK y COMMIT, conexiones 13→15, selector, reinicio con vuelta atrás).
+  **Estado en cidonia:** migraciones, LOGIN y política instalados; la aplicación todavía
+  no arranca con el selector (fallo al abrir las conexiones propias de Dietas, en
+  diagnóstico) y el script la deja como estaba.
+- **Contratación.** La jornada del análisis se escribe en horas y minutos de media semanal
+  (referencia 37 h 30 min, provisional); la API sigue en diezmilésimas. Pregunta 38 a RRHH
+  sobre jornada de referencia y turnos en `dudas.md`.
+- **CI.** La puerta de artefactos productivos estaba en rojo desde las 04:20: la descarga
+  de borradores PDF/Word no figuraba entre los transportes mTLS revisados. Corregido y
+  reproducido con Docker; la puerta local completa pasa en verde.
+- **Proceso.** Cuatro arreglos subieron a `main` sin revisión ni puerta completa previas;
+  después recibieron ambas (GO, puerta verde). Pendiente: las mejoras menores restantes de
+  esa revisión.
+
 ## Cidonia al día y plan hasta la presentación — 23 de septiembre de 2026
 
 Métrica (criterio estricto): Contratación temporal ≈6 de 8 pasos (sin cambio);
