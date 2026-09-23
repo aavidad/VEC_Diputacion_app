@@ -392,10 +392,13 @@ test("el portal conserva el shell rico y delega el catálogo sin fijar módulos 
   assert.match(html, /modulos\/cronos\/cronos\.css/);
   assert.match(html, /modulos\/dietas\/dietas\.css/);
   assert.doesNotMatch(html, /Bolsas de trabajo[\s\S]{0,180}etiqueta-menu/);
-  const vistas = ["resumen", "elaboracion", "convocatorias", "solicitudes", "meritos",
-    "baremacion", "alegaciones", "importacion", "llamamientos", "contratos",
-    "documentos", "comunicaciones", "estadisticas", "auditoria", "configuracion"];
-  for (const vista of vistas) assert.match(html, new RegExp(`data-vista="${vista}"`));
+  for (const vista of ["resumen", "elaboracion", "convocatorias", "solicitudes", "meritos",
+    "baremacion", "alegaciones", "importacion", "llamamientos", "estadisticas", "auditoria", "configuracion"])
+    assert.match(html, new RegExp(`data-vista="${vista}"`));
+  assert.match(html, /data-categoria-bolsa="contratos" data-vista="contratacion-temporal"/);
+  assert.match(html, /data-categoria-bolsa="documentos" data-vista="contratacion-temporal"/);
+  assert.match(javascript, /function renderizarLlamamientoSinBolsa\(\)/u);
+  assert.match(javascript, /Elija una bolsa para iniciar un llamamiento\./u);
 });
 
 test("la interfaz es semántica, adaptable y no contiene CSS inline", () => {

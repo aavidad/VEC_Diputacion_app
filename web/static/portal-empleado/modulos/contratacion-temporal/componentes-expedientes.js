@@ -55,6 +55,18 @@ function opcionFiltro(valor, etiqueta, seleccionado) {
   return `<option value="${escaparHTML(valor)}"${valor === seleccionado ? " selected" : ""}>${escaparHTML(etiqueta)}</option>`;
 }
 
+function centroVisible(centro) {
+  const referencia = String(centro ?? "");
+  const coincidencia = /^centro:([^:]+):(\d+)$/u.exec(referencia);
+  if (!coincidencia) return { etiqueta: referencia, referencia: "" };
+  const [, ambito, numero] = coincidencia;
+  return { etiqueta: `Centro ${ambito.replaceAll(/[-_]+/g, " ")} · ${numero}`, referencia };
+}
+
+function esNumeroVisibleLegible(numero) {
+  return /^\d{4}\/CT-\d+$/u.test(String(numero ?? ""));
+}
+
 function renderizarTrabajoOperativo(cuadro, t) {
   const esDemostracion = cuadro.demostracion === true;
   // Sin expedientes no hay bandeja ni distribución que mostrar.
@@ -153,14 +165,18 @@ export function renderizarCuadro(estado, t) {
       <button type="button" class="boton-secundario" data-ct-exp-accion="limpiar-filtros">${escaparHTML(t("limpiar_filtros"))}</button>
     </div>
   </form>`;
-  const filas = cuadro.expedientes.map((expediente) => {
+  const filas = [...cuadro.expedientes].sort((izquierda, derecha) => {
+    const prioridad = Number(esNumeroVisibleLegible(derecha.numero_visible)) - Number(esNumeroVisibleLegible(izquierda.numero_visible));
+    return prioridad || String(izquierda.numero_visible).localeCompare(String(derecha.numero_visible), "es");
+  }).map((expediente) => {
+    const centro = centroVisible(expediente.centro);
     const resumenId = `ct-exp-resumen-${expediente.expediente_ref}`;
     const controlId = `ct-exp-resumen-control-${expediente.expediente_ref}`;
     return `<tr>
     <th scope="row"><button type="button" class="enlace-tabla" id="${escaparHTML(controlId)}"
       data-ct-exp-resumen aria-controls="${escaparHTML(resumenId)}" aria-expanded="false"
       aria-label="${escaparHTML(t("resumen_fila", { expediente: expediente.numero_visible }))}">${escaparHTML(expediente.numero_visible)}</button></th>
-    <td>${escaparHTML(expediente.centro)}</td>
+    <td${centro.referencia ? ` title="${escaparHTML(centro.referencia)}"` : ""}>${escaparHTML(centro.etiqueta)}</td>
     <td>${escaparHTML(expediente.categoria)}</td>
     <td>${escaparHTML(expediente.modalidad)}</td>
     <td><span class="ct-exp-chip ${estadoClave(expediente.estado_clave)}">${escaparHTML(expediente.estado)}</span></td>
@@ -172,8 +188,8 @@ export function renderizarCuadro(estado, t) {
     aria-labelledby="${escaparHTML(controlId)}" hidden>
     <td colspan="8">
       <section aria-label="${escaparHTML(t("resumen_fila", { expediente: expediente.numero_visible }))}">
-        <dl>
-          <div><dt>${escaparHTML(t("columna_centro"))}</dt><dd>${escaparHTML(expediente.centro)}</dd></div>
+        <dl class="ct-resumen">
+          <div><dt>${escaparHTML(t("columna_centro"))}</dt><dd${centro.referencia ? ` title="${escaparHTML(centro.referencia)}"` : ""}>${escaparHTML(centro.etiqueta)}</dd></div>
           <div><dt>${escaparHTML(t("columna_categoria"))}</dt><dd>${escaparHTML(expediente.categoria)}</dd></div>
           <div><dt>${escaparHTML(t("columna_modalidad"))}</dt><dd>${escaparHTML(expediente.modalidad)}</dd></div>
           <div><dt>${escaparHTML(t("columna_estado"))}</dt><dd><span class="ct-exp-chip ${estadoClave(expediente.estado_clave)}">${escaparHTML(expediente.estado)}</span></dd></div>

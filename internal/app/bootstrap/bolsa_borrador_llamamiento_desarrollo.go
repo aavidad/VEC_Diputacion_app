@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"path/filepath"
 	"runtime"
@@ -195,12 +196,14 @@ func (p *preparadorBorradorLlamamientoDesarrollo) contextoRevalidado(ctx context
 	}
 	contexto, err := p.sesion.ResolverContexto(ctx)
 	if err != nil || contexto.Resultado.Validar() != nil || contexto.Vinculo.ValidarPara(contexto.Resultado) != nil {
+		registrarRechazoBorradorLlamamientoDesarrollo("sesion_no_resuelta", err)
 		return contextoSeguridadComunDesarrollo{}, ErrSeguridadComunDesarrolloDenegada
 	}
 	esperado := p.soporte.soporteCanal.contexto.Resultado.Contexto.PerfilActivoRef
 	datos, err := contexto.Vinculo.Datos()
 	if err != nil || !perfilActivoSeguridadComunValido(esperado) ||
 		contexto.Resultado.Contexto.PerfilActivoRef != esperado || datos.PerfilActivoRef != esperado {
+		registrarRechazoBorradorLlamamientoDesarrollo("perfil_distinto", err)
 		return contextoSeguridadComunDesarrollo{}, ErrSeguridadComunDesarrolloDenegada
 	}
 	if holder, ok := ctx.Value(claveHolderActorBorradorLlamamientoDesarrollo{}).(*holderActorBorradorLlamamientoDesarrollo); ok {
@@ -330,7 +333,11 @@ func (e *emisorBorradorLlamamientoDesarrollo) EmitirMaterialAutorizacionAtestada
 		}
 	case puertosbolsa.AccionEmitirLlamamiento:
 		if e != nil && e.emision != nil {
-			return e.emision.EmitirMaterialAutorizacionAtestadaV3(ctx, solicitud, resultado)
+			decision, confirmacion, exportador, err := e.emision.EmitirMaterialAutorizacionAtestadaV3(ctx, solicitud, resultado)
+			if err != nil {
+				registrarRechazoBorradorLlamamientoDesarrollo("material_emision", err)
+			}
+			return decision, confirmacion, exportador, err
 		}
 	}
 	return dominiovec.DecisionAutorizacionLigadaV3{}, puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, nil, errBorradorNoDisponibleEn()
@@ -598,4 +605,16 @@ type emisorCorreoBolsaB7 struct {
 
 func (e *emisorCorreoBolsaB7) EnviarCorreo(ctx context.Context, destino, asunto, cuerpo, messageID string, fecha time.Time) bool {
 	return e != nil && e.smtp != nil && e.smtp.Enviar(ctx, smtpct.Mensaje{Destino: destino, Asunto: asunto, Cuerpo: cuerpo, MessageID: messageID, FechaOrigen: fecha}).Estado == smtpct.AceptadoPorRelay
+}
+
+// registrarRechazoBorradorLlamamientoDesarrollo deja en el registro del servidor
+// por qué B-BACK denegó una operación. La respuesta HTTP sigue siendo el 403
+// genérico; aquí solo van la fase y el texto del error, que son centinelas
+// técnicos sin datos personales ni material de autorización.
+func registrarRechazoBorradorLlamamientoDesarrollo(fase string, err error) {
+	causa := "sin_error"
+	if err != nil {
+		causa = err.Error()
+	}
+	slog.Warn("bback: operacion denegada", "fase", fase, "causa", causa)
 }

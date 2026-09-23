@@ -86,6 +86,22 @@ test("las diez categorías reproducen la jerarquía funcional facilitada por RRH
   ]) assert.match(html, new RegExp(texto));
 });
 
+test("las entradas con recorrido real describen su alcance concreto", () => {
+  for (const texto of [
+    "B7 desde cada bolsa · correo de pruebas · orden provisional (dudas 13–14)",
+    "La tramitación está en Contratación temporal · ceses y reincorporaciones pendientes",
+    "Borradores PDF en Contratación temporal · portafirmas pendiente de integración",
+    "Correo operativo con relay de pruebas · correo corporativo y SMS pendientes",
+  ]) assert.ok(html.includes(texto), texto);
+  assert.doesNotMatch(html, /Pendiente: sin servicio autorizado/u);
+  for (const categoria of ["llamamientos", "contratos", "documentos", "comunicaciones"]) {
+    const entrada = html.match(new RegExp(`<button[^>]*data-categoria-bolsa="${categoria}"[^>]*>`, "u"))?.[0] || "";
+    assert.doesNotMatch(entrada, /disabled|aria-disabled/u);
+  }
+  assert.match(html, /data-categoria-bolsa="contratos" data-vista="contratacion-temporal"/u);
+  assert.match(html, /data-categoria-bolsa="documentos" data-vista="contratacion-temporal"/u);
+});
+
 test("ninguna ruta de la gestión actual desaparece al agrupar el menú", () => {
   const vistas = [
     "resumen", "elaboracion", "convocatorias", "solicitudes", "meritos", "baremacion",
@@ -94,14 +110,17 @@ test("ninguna ruta de la gestión actual desaparece al agrupar el menú", () => 
   ];
   const vistasMapeadas = Object.values(CATEGORIAS_MENU_BOLSA).flat();
   const fragmentoMenu = html.match(/<nav class="navegacion-bolsa"[\s\S]+?<\/nav>/)?.[0] || "";
-  const vistasEnPlantilla = [...fragmentoMenu.matchAll(/data-vista="([a-z]+)"/g)].map((item) => item[1]);
+  const vistasEnPlantilla = [...fragmentoMenu.matchAll(/data-vista="([a-z-]+)"/g)].map((item) => item[1]);
   assert.equal(vistasMapeadas.length, 17);
   assert.equal(new Set(vistasMapeadas).size, 17, "cada vista debe pertenecer a una sola categoría");
   assert.deepEqual([...vistasMapeadas].sort(), [...vistas].sort());
   assert.equal(vistasEnPlantilla.length, 17);
-  assert.equal(new Set(vistasEnPlantilla).size, 17, "la plantilla no debe duplicar rutas entre categorías");
-  assert.deepEqual([...vistasEnPlantilla].sort(), [...vistas].sort());
-  for (const vista of vistas) assert.match(html, new RegExp(`data-vista="${vista}"`));
+  assert.deepEqual([...vistasEnPlantilla].filter((vista) => vistas.includes(vista)).sort(), [
+    ...vistas.filter((vista) => !["contratos", "documentos", "comunicaciones"].includes(vista)),
+    "llamamientos",
+  ].sort());
+  assert.equal(vistasEnPlantilla.filter((vista) => vista === "contratacion-temporal").length, 2);
+  assert.equal(vistasEnPlantilla.filter((vista) => vista === "llamamientos").length, 2);
   assert.equal(categoriaDeVistaBolsa("convocatorias"), "bolsas-candidatos");
   assert.equal(categoriaDeVistaBolsa("baremacion"), "reglas");
   assert.equal(categoriaDeVistaBolsa("configuracion"), "auditoria");
@@ -131,18 +150,16 @@ test("la subvista activa se anuncia y B5 conserva abierto su grupo", () => {
   assert.equal(enlace.getAttribute("aria-current"), null);
 });
 
-test("las operaciones sin composición permanecen visibles, pendientes y sin activación", () => {
-  const pendientes = ["llamamientos", "contratos", "documentos", "comunicaciones"];
+test("las entradas del menú llevan solo a recorridos disponibles y explican sus límites", () => {
+  const entradas = ["llamamientos", "contratos", "documentos", "comunicaciones"];
   const fragmentoMenu = html.match(/<nav class="navegacion-bolsa"[\s\S]+?<\/nav>/)?.[0] || "";
-  for (const vista of pendientes) {
-    const boton = fragmentoMenu.match(new RegExp(`<button[^>]*data-vista="${vista}"[^>]*>[\\s\\S]*?<\\/button>`))?.[0] || "";
-    assert.equal(vistaBolsaPendienteNoCompuesta(vista), true);
-    assert.match(boton, /categoria-menu-pendiente/);
-    assert.match(boton, /\sdisabled(?:\s|=|>)/);
-    assert.match(boton, /aria-disabled="true"/);
+  for (const categoria of entradas) {
+    const boton = fragmentoMenu.match(new RegExp(`<button[^>]*data-categoria-bolsa="${categoria}"[^>]*>[\\s\\S]*?<\\/button>`))?.[0] || "";
+    assert.doesNotMatch(boton, /categoria-menu-pendiente|\sdisabled(?:\s|=|>)|aria-disabled="true"/);
     assert.match(boton, /aria-describedby="estado-menu-[a-z]+"/);
-    assert.match(boton, /Pendiente: sin servicio autorizado/);
   }
+  assert.equal(vistaBolsaPendienteNoCompuesta("llamamientos"), true);
+  assert.equal(vistaBolsaPendienteNoCompuesta("contratos"), true);
   assert.equal(vistaBolsaPendienteNoCompuesta("resumen"), false);
   assert.equal(vistaBolsaPendienteNoCompuesta("desconocida"), false);
   assert.match(codigoEventos, /if \(botonVista && !botonVista\.disabled\)/);
@@ -209,4 +226,16 @@ test("accesoBolsaEfectivo abre el cuadro cuando hay bolsas reales aunque los bor
   assert.equal(accesoBolsaEfectivo(denegado, undefined), denegado);
   const borradores = Object.freeze({ disponible: true, vista: "elaboracion", estado: "disponible", etiqueta: "Borradores disponibles" });
   assert.equal(accesoBolsaEfectivo(borradores, conBolsas), borradores);
+});
+
+// Regresión del 23/09/2026: las descripciones largas pintadas como etiqueta
+// visible se montaban sobre el texto del menú lateral y lo partían palabra a
+// palabra. La etiqueta visible es corta; la descripción completa queda para el
+// lector de pantalla mediante aria-describedby.
+test("las etiquetas visibles del menú son cortas y la descripción completa es accesible", () => {
+  for (const categoria of ["llamamientos", "contratos", "documentos", "comunicaciones"]) {
+    const visible = html.match(new RegExp(`<span class="etiqueta-menu" aria-hidden="true">([^<]*)</span><span class="solo-lectura" id="estado-menu-${categoria}">`, "u"));
+    assert.ok(visible, `falta la etiqueta corta de ${categoria}`);
+    assert.ok(visible[1].length <= 20, `etiqueta visible demasiado larga en ${categoria}: ${visible[1]}`);
+  }
 });
