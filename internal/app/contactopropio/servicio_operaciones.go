@@ -126,15 +126,25 @@ func (s *ServicioOperaciones) prepararAplicacion(ctx context.Context) (*applicat
 }
 
 func (s *ServicioOperaciones) PrepararOperacion(ctx context.Context, correo string, versionEsperada uint64) (ports.OperacionContactoUsuario, error) {
+	return s.prepararOperacion(ctx, correo, versionEsperada, "", "")
+}
+
+func (s *ServicioOperaciones) prepararOperacion(ctx context.Context, correo string, versionEsperada uint64, operacionRef, sujetoEsperado string) (ports.OperacionContactoUsuario, error) {
 	vacio := ports.OperacionContactoUsuario{}
 	if correo == "" || len(correo) > 254 || strings.TrimSpace(correo) != correo || strings.ContainsAny(correo, "\r\n") || versionEsperada >= 1<<53-1 {
 		return vacio, ErrContactoPropioInvalido
+	}
+	if operacionRef != "" && (!application.ReferenciaOperacionContactoValida(operacionRef) || !domain.ReferenciaSujetoContactoUsuarioValida(sujetoEsperado)) {
+		return vacio, ErrContactoPropioNoDisponible
 	}
 	servicio, vinculo, resultado, recurso, correlacion, err := s.prepararAplicacion(ctx)
 	if err != nil {
 		return vacio, err
 	}
-	op, err := servicio.Preparar(ctx, ports.SolicitudPrepararOperacionContacto{ContextoActor: resultado.Contexto, Correo: correo, VersionEsperada: versionEsperada,
+	if sujetoEsperado != "" && resultado.Contexto.PersonaRef != sujetoEsperado {
+		return vacio, application.ErrOperacionContactoAccesoDenegado
+	}
+	op, err := servicio.Preparar(ctx, ports.SolicitudPrepararOperacionContacto{ContextoActor: resultado.Contexto, Correo: correo, OperacionRef: operacionRef, VersionEsperada: versionEsperada,
 		Recurso: recurso, ResultadoContexto: resultado, SolicitudBase: domain.DatosSolicitudAutorizacionLigadaV3{VinculoAutenticacionActor: vinculo,
 			ReferenciaMotivo: s.dependenciasOperaciones.MotivoPreparar, Accion: application.AccionPrepararOperacionContacto,
 			Recurso: recurso, Finalidad: FinalidadRegistro, Correlacion: correlacion}})
@@ -142,6 +152,25 @@ func (s *ServicioOperaciones) PrepararOperacion(ctx context.Context, correo stri
 		return op, traducirErrorOperacion(err)
 	}
 	return op, nil
+}
+
+// El registro propio entrega un op_ref durable y una persona acreditada. La
+// preparación usa ese op_ref exacto; solo entonces se confirma el contacto y
+// se pide al propietario del alta su transición durable a alta_completa.
+func (s *ServicioOperaciones) CompletarContactoDeAlta(ctx context.Context, alta ports.ReferenciaAltaContactoUsuario, correo string, confirmar ports.ConfirmadorAltaContactoUsuario) (ports.ConfirmacionAltaContactoUsuario, error) {
+	vacio := ports.ConfirmacionAltaContactoUsuario{}
+	if s == nil || !application.ReferenciaOperacionContactoValida(alta.OperacionRef) || !domain.ReferenciaSujetoContactoUsuarioValida(alta.PersonaRef) || dependenciaContactoPropioNula(confirmar) {
+		return vacio, ErrContactoPropioNoDisponible
+	}
+	preparada, err := s.prepararOperacion(ctx, correo, 0, alta.OperacionRef, alta.PersonaRef)
+	if err != nil {
+		return vacio, err
+	}
+	if preparada.OperacionRef != alta.OperacionRef || preparada.VersionEsperada != 0 ||
+		(preparada.Estado != ports.OperacionContactoPreparada && preparada.Estado != ports.OperacionContactoConfirmada) {
+		return vacio, ErrContactoPropioNoDisponible
+	}
+	return s.Servicio.CompletarContactoDeAlta(ctx, alta, correo, confirmar)
 }
 
 func (s *ServicioOperaciones) CancelarOperacion(ctx context.Context, operacionRef string) (ports.OperacionContactoUsuario, error) {

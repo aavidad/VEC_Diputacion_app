@@ -29,6 +29,7 @@ type OperacionContactoUsuario struct {
 	AuditoriaOperacion  EvidenciaAuditoriaCentralContactoUsuario
 	ConsumoRef          string
 	ConsumoHuellaSHA256 string
+	HuellaOriginal      HuellaSolicitudContactoUsuario // Sólo preparación interna; HTTP la omite.
 }
 
 // Las órdenes durables transportan la autorización nominal V3 ya emitida. La
@@ -95,6 +96,7 @@ type GeneradorOperacionContactoUsuario interface {
 type SolicitudPrepararOperacionContacto struct {
 	ContextoActor     domain.ContextoActor
 	Correo            string
+	OperacionRef      string // Sólo el alta propia registrada puede aportarla; HTTP nunca lo acepta al preparar.
 	VersionEsperada   uint64
 	Recurso           domain.RecursoAutorizable
 	SolicitudBase     domain.DatosSolicitudAutorizacionLigadaV3

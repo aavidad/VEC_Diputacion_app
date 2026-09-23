@@ -54,12 +54,13 @@ func (r *RegistroOperacionContactoPostgreSQL) PrepararOperacionContacto(ctx cont
 		return vacio, contactoError(ctx, err)
 	}
 	var ref, estado, consumoRef, consumoHuella string
+	var claveHMAC, valorHMAC string
 	var version uint64
 	var versionResultado *uint64
 	var reciboRef *string
 	var replay, conflictoMaterial, conflictoVersion bool
 	var recibo []byte
-	err = tx.QueryRow(ctx, `SELECT operacion_ref,estado,version_esperada,replay_confirmado,version_resultante,recibo_ref,conflicto_material,conflicto_version,auditoria_central,consumo_ref,consumo_huella_sha256 FROM vec_contacto_usuario_v1.preparar_operacion_contacto_v1($1,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11,$12,$13,$14)`, argumentosContacto(vecapp.AccionPrepararOperacionContacto, a.Material, a.PayloadNegocio, recurso, auditoria)...).Scan(&ref, &estado, &version, &replay, &versionResultado, &reciboRef, &conflictoMaterial, &conflictoVersion, &recibo, &consumoRef, &consumoHuella)
+	err = tx.QueryRow(ctx, `SELECT operacion_ref,estado,version_esperada,replay_confirmado,version_resultante,recibo_ref,conflicto_material,conflicto_version,auditoria_central,consumo_ref,consumo_huella_sha256,hmac_clave_ref,hmac_valor FROM vec_contacto_usuario_v1.preparar_operacion_contacto_v1($1,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11,$12,$13,$14)`, argumentosContacto(vecapp.AccionPrepararOperacionContacto, a.Material, a.PayloadNegocio, recurso, auditoria)...).Scan(&ref, &estado, &version, &replay, &versionResultado, &reciboRef, &conflictoMaterial, &conflictoVersion, &recibo, &consumoRef, &consumoHuella, &claveHMAC, &valorHMAC)
 	if err != nil {
 		return vacio, contactoError(ctx, err)
 	}
@@ -80,7 +81,7 @@ func (r *RegistroOperacionContactoPostgreSQL) PrepararOperacionContacto(ctx cont
 	if conflictoVersion {
 		return vacio, vecapp.ErrContactoUsuarioConflicto
 	}
-	op := ports.OperacionContactoUsuario{OperacionRef: ref, Estado: ports.EstadoOperacionContactoUsuario(estado), VersionEsperada: version, ReplayConfirmado: replay, AuditoriaOperacion: evidencia, ConsumoRef: consumoRef, ConsumoHuellaSHA256: consumoHuella}
+	op := ports.OperacionContactoUsuario{OperacionRef: ref, Estado: ports.EstadoOperacionContactoUsuario(estado), VersionEsperada: version, ReplayConfirmado: replay, AuditoriaOperacion: evidencia, ConsumoRef: consumoRef, ConsumoHuellaSHA256: consumoHuella, HuellaOriginal: ports.HuellaSolicitudContactoUsuario{ClaveRef: claveHMAC, ValorHMACSHA256: valorHMAC}}
 	if versionResultado != nil {
 		op.Version = *versionResultado
 	}

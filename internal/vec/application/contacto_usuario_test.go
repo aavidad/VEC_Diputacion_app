@@ -173,7 +173,7 @@ func (r *repositorioOperacionContactoPrueba) PrepararOperacionContacto(_ context
 	}
 	evidencia, err := envolverEvidenciaCentralContacto(raw)
 	return ports.OperacionContactoUsuario{OperacionRef: o.OperacionRef, Estado: ports.OperacionContactoPreparada, VersionEsperada: o.VersionEsperada,
-		AuditoriaOperacion: evidencia, ConsumoRef: base.ConsumoRef, ConsumoHuellaSHA256: base.ConsumoHuellaSHA256}, err
+		AuditoriaOperacion: evidencia, ConsumoRef: base.ConsumoRef, ConsumoHuellaSHA256: base.ConsumoHuellaSHA256, HuellaOriginal: o.HuellasReplay[0]}, err
 }
 func (*repositorioOperacionContactoPrueba) CancelarOperacionContacto(context.Context, ports.OrdenCancelarOperacionContacto) (ports.OperacionContactoUsuario, error) {
 	return ports.OperacionContactoUsuario{}, ErrContactoUsuarioNoDisponible
