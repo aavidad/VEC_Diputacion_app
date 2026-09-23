@@ -88,6 +88,7 @@ func TestContactoPropioPG18MaterialFirmadoYConsumoNominal(t *testing.T) {
 	if err := admin.QueryRow(ctx, `SELECT NOT EXISTS(SELECT 1 FROM vec_contacto_usuario_v1.versiones)
         AND NOT EXISTS(SELECT 1 FROM vec_contacto_usuario_v1.actual)
         AND NOT EXISTS(SELECT 1 FROM vec_autorizacion_atestada_v3.clave_capacidad_version)
+        AND to_regclass('vec_contacto_usuario_v1.operaciones') IS NULL
         AND to_regprocedure('vec_contacto_usuario_v1.registrar_contacto_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea,bytea)') IS NOT NULL`).Scan(&vacia); err != nil || !vacia {
 		t.Fatal("preimagen F2 de prueba contaminada")
 	}
