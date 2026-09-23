@@ -1,22 +1,24 @@
 # Guion de demostración para RRHH — septiembre de 2026
 
 Guion para la presentación de VEC a RRHH en la principal de cidonia. Cada afirmación
-distingue lo **comprobado en cidonia** (recorrido en Chrome a 1440×900 el 23/09/2026,
-sin errores JS ni peticiones fallidas), lo **pendiente de ensayo** y lo **que no existe**.
+distingue lo **comprobado en cidonia** (barrido en Chrome tras el despliegue del
+23/09/2026, con 0 respuestas HTTP ≥400 y 0 errores JS en las vistas recorridas),
+lo **pendiente de ensayo** y lo **que no existe**.
 Todos los datos son sintéticos: personas, DNI enmascarados, correos `.test` y
 expedientes. Nada de lo que se enseña firma, notifica ni produce efectos administrativos.
 
 ## Antes de la reunión (lista de control)
 
-1. **Acceso.** `https://vec.cidonia.cloud/` muestra solo la portada pública de acceso
-   (Cl@ve, certificado y DNIe aún no habilitados por Sistemas); el portal interno no es
-   alcanzable desde ahí por diseño. Decidir con dirección: túnel desde el portátil o
-   publicación temporal protegida. **Pendiente de decisión.**
-2. **Emisión de llamamientos.** En cidonia, «Emitir llamamiento» responde hoy 403. Está
-   diagnosticado y asignado con prioridad máxima (D3-B7-FIX). **No enseñar el paso 4
-   hasta que el ensayo general lo dé por bueno.**
+1. **Acceso.** El portal interno de RRHH está servido en
+   `https://vec.cidonia.cloud/` con autenticación básica de Caddy configurada fuera
+   de Git. Preparar las credenciales por el canal privado para la reunión; Cl@ve,
+   certificado y DNIe aún no están habilitados por Sistemas.
+2. **Emisión de llamamientos.** El 23/09 se verificaron una emisión B7 con respuesta
+   `201` y el correo en Mailpit. No se repitió esta prueba tras los despliegues de la
+   tarde: incluir el paso 4 y el buzón de pruebas en el ensayo general.
 3. **Ensayo general completo** en cidonia el día anterior, siguiendo este guion de
-   principio a fin, incluido un llamamiento que llegue al buzón de pruebas.
+   principio a fin, incluido un llamamiento que llegue al buzón de pruebas. Revisar
+   también el menú, cuya comprobación P4 seguía abierta en el último barrido.
 4. Contratación: los expedientes con número legible (`2026/CT-0000NN`) están en
    Solicitud, Asignación y Fiscalización. Los tres que llegan a **Nombramiento**, que son
    los que tienen documentos, tienen número-hash porque los creó una prueba automática;
@@ -31,7 +33,7 @@ expedientes. Nada de lo que se enseña firma, notifica ni produce efectos admini
   bolsa, paginado. *Comprobado.*
 - **Estadísticas** (menú 7): tarjetas de bolsas, vigentes, sustituidas, personas y
   llamamientos; desglose por situación y por bolsa. Cada cifra abre la lista filtrada.
-  *Comprobado.*
+  *Vista comprobada tras el despliegue; comprobar el acceso desde el menú en P4.*
 
 ### 2. Bolsa: una bolsa por dentro (p. 1, puntos 1 y 4; p. 2)
 
@@ -57,19 +59,20 @@ expedientes. Nada de lo que se enseña firma, notifica ni produce efectos admini
   vigente; solo ocupan turno disponibles y disponibles desde fecha). *Comprobado.*
 - **Envío por estado**: «Seleccionar todas las que cumplen el filtro»; si son más de 100,
   se envían las 100 primeras por orden y la pantalla lo dice. *Desplegado; pendiente de
-  ensayo.*
+  ensayo completo.*
 - Paso 3: referencia, centro, modalidad, fecha, asunto y texto (comunes a todas las
   personas; la personalización por persona no existe). Canal: correo por el **relay de
   pruebas**, no el buzón corporativo. Plazo de respuesta *provisional (dudas 1–3)*.
-- Paso 4: confirmar y emitir; recibo y paso al histórico. **Bloqueado por el 403 (punto 2
-  de la lista de control).**
+- Paso 4: confirmar y emitir; recibo y paso al histórico. *Emisión `201` y correo en
+  Mailpit verificados el 23/09 antes de los despliegues de la tarde; pendiente de
+  repetir en el ensayo general.*
 
 ### 4. Contratación temporal (el procedimiento que remitió RRHH)
 
-- **Bandeja de expedientes**: 71 expedientes sintéticos con centro, categoría, modalidad,
-  estado, fase y plazo; filtros por número, estado y fase. *Comprobado.*
+- **Bandeja de expedientes**: 142 expedientes sintéticos con centro, categoría, modalidad,
+  estado, fase y plazo; filtros por número, estado y fase. *Comprobado tras el despliegue.*
 - **Primeras fases**: abrir un expediente legible (`2026/CT-0000NN`, en Solicitud o
-  Fiscalización) y enseñar su recorrido. *Comprobado.*
+  Fiscalización) y enseñar su recorrido. *Bandeja y detalle comprobados tras el despliegue.*
 - **Documentos**: filtrar la fase *Nombramiento*, abrir `2026/CT-4b2ba511…` →
   *Abrir expediente completo*. Ofrece seis documentos preparatorios, **cada uno en PDF y
   en Word**: informe, resolución, diligencia, toma de posesión, notificación y
@@ -80,16 +83,17 @@ expedientes. Nada de lo que se enseña firma, notifica ni produce efectos admini
 ### 5. Cierre: lo que falta y de quién depende
 
 Decirlo sin rodeos al final (ver tabla).
+El módulo Dietas permanece desactivado y queda fuera de esta demostración.
 
 ## Petición de RRHH frente a lo que hay
 
 | Petición | Qué se enseña | Estado | Falta y de quién |
 | --- | --- | --- | --- |
 | 1. Bolsas y candidatos | Cuadro, lista ordenada, ficha, contactos cifrados, pausas y exclusiones con justificante | Hecho | — |
-| 2. Llamamientos según reglamento | Asistente de 4 pasos por el orden vigente | Parcial | Reglamento de Granada: RRHH (dudas 13–14); emisión en cidonia: Desarrollo |
+| 2. Llamamientos según reglamento | Asistente de 4 pasos por el orden vigente; emisión y correo de prueba verificados antes del último despliegue | Parcial | Reglamento de Granada: RRHH (dudas 13–14); repetir emisión en el ensayo general |
 | 3. Contratos, ceses, reincorporaciones | Tramitación en Contratación temporal | Parcial | Ceses y reincorporaciones completos: Desarrollo |
 | 4. Motor de reglas configurable | Política de orden versionada y rotulada | Parcial | Parámetros aprobados: RRHH |
-| 5. Portal del candidato con acceso seguro | Área personal con **datos de ejemplo**, rotulada | Pendiente | Acceso con DNIe/certificado (ya decidido): desarrollo propio |
+| 5. Portal del candidato con acceso seguro | «Mi bolsa» no se muestra al candidato en cidonia | Pendiente | Completar P3 y acceso con DNIe/certificado (ya decidido): desarrollo propio |
 | 6. Cuadro de mando | Cuadro B12 | Hecho | — |
 | 7. Estadísticas | Pestaña de estadísticas | Hecho | — |
 | 8. Documentos Word/PDF | Seis documentos preparatorios en PDF y Word desde el expediente | Parcial | Plantillas oficiales: RRHH; firma en portafirmas: integración |
