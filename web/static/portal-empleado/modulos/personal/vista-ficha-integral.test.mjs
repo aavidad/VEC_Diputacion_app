@@ -25,7 +25,8 @@ const completar = () => new Promise((resolve) => setImmediate(resolve));
 test("la portada no fabrica persona, relación, curso, fichaje ni nómina", () => {
   const raiz = raizFalsa(); montarVistaFichaIntegralPersonal({ raiz }); const ficha = raiz.querySelector("[data-personal-ficha-integral]");
   assert.ok(ficha); assert.equal(tab(ficha, "tiempo").textContent, "Tiempo");
-  assert.match(texto(ficha), /Abra un apartado para consultar su fuente/);
+  assert.match(texto(ficha), /Abra un apartado para consultar su fuente propia/);
+  assert.equal(nodos(ficha).filter((n) => n.dataset.personalFichaEstado === "no_configurado").length, 6);
   assert.doesNotMatch(texto(ficha), /Antonio López|Funcionario de carrera|Junio 2026|Nómina orientativa/);
   assert.equal(raiz.querySelector("[data-personal-ficha-ayuda]").tagName, "details");
   assert.ok(nodos(ficha).filter((n) => n.dataset.personalFichaDestino).every((n) => n.disabled));
@@ -44,18 +45,53 @@ test("cada apartado se consulta solo al abrirlo y conserva procedencia sin refer
   assert.doesNotMatch(texto(ficha), /curso acreditado|trienio concedido|Entrada a las 08:00/i);
 });
 
+test("las seis capacidades conservan su estado y nunca muestran filas de otra fuente", async () => {
+  const raiz = raizFalsa(); const llamadas = []; const campos = {
+    relaciones: "puesto", servicios: "procedencia", tiempo: "tipo",
+    formacion: "curso", economia: "documento", documentos: "documento",
+  };
+  const fuentes = Object.fromEntries(Object.entries(campos).map(([clave, campo]) => [clave, { consultarPropios() {
+    llamadas.push(clave); return { estado: "disponible", fuente: `Fuente ${clave}`, actualizado_en: "2026-09-24T08:00:00Z", items: [{ [campo]: `Dato ${clave}` }] };
+  } }]));
+  montarVistaFichaIntegralPersonal({ raiz, fuentes }); const ficha = raiz.querySelector("[data-personal-ficha-integral]");
+  assert.deepEqual(llamadas, []);
+  for (const clave of Object.keys(campos)) {
+    tab(ficha, clave).listeners.get("click")(); await completar();
+    assert.match(texto(ficha), new RegExp(`Dato ${clave}`));
+    for (const ajena of Object.keys(campos).filter((otra) => otra !== clave)) assert.doesNotMatch(texto(ficha), new RegExp(`Dato ${ajena}`));
+  }
+  assert.deepEqual(llamadas, Object.keys(campos));
+  tab(ficha, "ficha").listeners.get("click")();
+  assert.equal(nodos(ficha).filter((n) => n.dataset.personalFichaEstado === "disponible").length, 6);
+  assert.match(texto(ficha), /Datos en la última consulta/);
+  assert.doesNotMatch(texto(ficha), /Dato relaciones|Dato tiempo/);
+});
+
+test("una capacidad heredada no habilita ninguna consulta propia", () => {
+  const raiz = raizFalsa(); let lecturas = 0;
+  const fuentes = Object.create({ servicios: { consultarPropios() { lecturas += 1; } } });
+  montarVistaFichaIntegralPersonal({ raiz, fuentes }); const ficha = raiz.querySelector("[data-personal-ficha-integral]");
+  tab(ficha, "servicios").listeners.get("click")();
+  assert.equal(lecturas, 0); assert.match(texto(ficha), /No hay una fuente propia autorizada conectada/);
+});
+
 test("estados separados: fuente ausente, vacío autorizado, denegado y error", async () => {
   const raiz = raizFalsa(); const avisos = [];
   montarVistaFichaIntegralPersonal({ raiz, anunciar: (...args) => avisos.push(args), fuentes: {
     servicios: { consultarPropios: () => ({ estado: "vacio", fuente: "Personal", actualizado_en: "2026-09-24T08:00:00Z", items: [] }) },
     tiempo: { consultarPropios: () => ({ estado: "denegado", items: [{ tipo: "oculto" }] }) },
     formacion: { consultarPropios: () => Promise.reject(new Error("detalle interno")) },
+    documentos: { consultarPropios: () => ({ estado: "disponible", fuente: "Archivo", actualizado_en: "2026-09-24T08:00:00Z", items: [{}] }) },
   } });
   const ficha = raiz.querySelector("[data-personal-ficha-integral]");
   tab(ficha, "economia").listeners.get("click")(); assert.match(texto(ficha), /No hay una fuente propia autorizada conectada/);
   tab(ficha, "servicios").listeners.get("click")(); await completar(); assert.match(texto(ficha), /no devuelve registros/);
   tab(ficha, "tiempo").listeners.get("click")(); await completar(); assert.match(texto(ficha), /No tiene permiso/); assert.doesNotMatch(texto(ficha), /oculto/);
   tab(ficha, "formacion").listeners.get("click")(); await completar(); assert.match(texto(ficha), /No se pudo consultar/); assert.doesNotMatch(texto(ficha), /detalle interno/); assert.equal(avisos.length, 1);
+  tab(ficha, "documentos").listeners.get("click")(); await completar(); assert.match(texto(ficha), /No se pudo consultar/); assert.doesNotMatch(texto(ficha), /No consta.*No consta/);
+  tab(ficha, "ficha").listeners.get("click")();
+  assert.equal(nodos(ficha).find((n) => n.dataset.personalFichaEstado === "denegado") !== undefined, true);
+  assert.equal(nodos(ficha).filter((n) => n.dataset.personalFichaEstado === "error").length, 2);
 });
 
 test("cambiar de pestaña y desmontar aborta consultas sin pintar respuestas tardías", async () => {
@@ -64,7 +100,10 @@ test("cambiar de pestaña y desmontar aborta consultas sin pintar respuestas tar
   const ficha = raiz.querySelector("[data-personal-ficha-integral]"); tab(ficha, "relaciones").listeners.get("click")(); await completar();
   tab(ficha, "servicios").listeners.get("click")(); assert.equal(senal.aborted, true);
   resolver({ estado: "disponible", fuente: "Personal", actualizado_en: "2026-09-24T08:00:00Z", items: [{ puesto: "No visible" }] }); await completar();
-  assert.doesNotMatch(texto(ficha), /No visible/); montaje.desmontar(); assert.equal(raiz.querySelector("[data-personal-ficha-integral]"), null);
+  assert.doesNotMatch(texto(ficha), /No visible/);
+  tab(ficha, "ficha").listeners.get("click")();
+  assert.equal(nodos(ficha).find((n) => n.dataset.personalFichaEstado === "sin_consulta") !== undefined, true);
+  montaje.desmontar(); assert.equal(raiz.querySelector("[data-personal-ficha-integral]"), null);
 });
 
 test("teclado y navegación a otros módulos no transportan identidad", () => {
@@ -72,6 +111,10 @@ test("teclado y navegación a otros módulos no transportan identidad", () => {
   montarVistaFichaIntegralPersonal({ raiz, navegarModulo: (...args) => destinos.push(args) }); const ficha = raiz.querySelector("[data-personal-ficha-integral]");
   let prevenido = false; tab(ficha, "ficha").listeners.get("keydown")({ key: "ArrowRight", preventDefault() { prevenido = true; } });
   assert.equal(prevenido, true); assert.equal(tab(ficha, "relaciones").atributos.get("aria-selected"), "true"); assert.equal(tab(ficha, "relaciones").enfocado, true);
+  tab(ficha, "relaciones").listeners.get("keydown")({ key: "End", preventDefault() {} });
+  assert.equal(tab(ficha, "catalogos").atributos.get("aria-selected"), "true"); assert.equal(tab(ficha, "catalogos").enfocado, true);
+  tab(ficha, "catalogos").listeners.get("keydown")({ key: "Home", preventDefault() {} });
+  assert.equal(tab(ficha, "ficha").atributos.get("aria-selected"), "true"); assert.equal(tab(ficha, "ficha").enfocado, true);
   tab(ficha, "ficha").listeners.get("click")(); nodos(ficha).find((n) => n.dataset.personalFichaDestino === "dietas").listeners.get("click")();
   assert.deepEqual(destinos, [["dietas"]]);
 });
@@ -82,6 +125,6 @@ test("catálogos existentes se montan bajo demanda y se limpian al salir", async
     montajes += 1; registrarDesmontar(() => { limpiezas += 1; }); return { desmontar() { limpiezas += 1; } };
   } });
   const ficha = raiz.querySelector("[data-personal-ficha-integral]"); tab(ficha, "catalogos").listeners.get("click")(); await completar();
-  assert.equal(montajes, 1); assert.match(texto(ficha), /consulta HTTP completa/);
+  assert.equal(montajes, 1); assert.match(texto(ficha), /se consultan por separado/);
   tab(ficha, "ficha").listeners.get("click")(); assert.ok(limpiezas >= 1);
 });
