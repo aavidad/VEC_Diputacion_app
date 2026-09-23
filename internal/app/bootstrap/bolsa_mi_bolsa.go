@@ -261,8 +261,9 @@ func nuevaInstantaneaMiBolsaDesarrollo(identidad *identidadCandidatoBolsaDesarro
 		Nombre: "Consulta propia de bolsa en desarrollo", Estado: dominiovec.EstadoVersionRolPublicada,
 		Concesiones: []dominiovec.ConcesionRol{{
 			Accion: puertosbolsa.AccionConsultarMiBolsa, ModuloID: puertosbolsa.ModuloMiBolsa,
-			TipoRecurso: puertosbolsa.TipoRecursoMiBolsa,
-			Finalidades: []string{puertosbolsa.FinalidadMiBolsa}, GarantiaMinima: dominiovec.AuthAssuranceHigh,
+			TipoRecurso:      puertosbolsa.TipoRecursoMiBolsa,
+			Finalidades:      []string{puertosbolsa.FinalidadMiBolsa},
+			CamposPermitidos: []string{puertosbolsa.CampoMiBolsa}, GarantiaMinima: dominiovec.AuthAssuranceHigh,
 		}},
 		PublicadaPor: "seguridad:desarrollo:no-autoritativa", PublicadaEn: desde,
 	}

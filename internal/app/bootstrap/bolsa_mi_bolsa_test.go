@@ -18,6 +18,7 @@ import (
 
 	"vec-diputacion-granada/config"
 	bolsapersonal "vec-diputacion-granada/internal/modules/bolsa/adapters/httppersonal"
+	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	cthttp "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 )
@@ -173,6 +174,27 @@ func TestMiBolsaFronteraSeparaCertificadosExternosEInternos(t *testing.T) {
 				t.Fatalf("estado = %d; esperado %d", w.Code, caso.estado)
 			}
 		})
+	}
+}
+
+func TestMiBolsaPoliticaLimitaCampoYCandidato(t *testing.T) {
+	identidad := &identidadCandidatoBolsaDesarrollo{
+		personaRef:   "per_candidato_sintetico_1234567890123456",
+		perfilRef:    "prf_candidato_sintetico_1234567890123456",
+		candidatoRef: "can_candidato_sintetico_1234567890123456",
+	}
+	instantanea, err := nuevaInstantaneaMiBolsaDesarrollo(identidad, time.Now().UTC())
+	if err != nil || instantanea.Validar() != nil {
+		t.Fatalf("política candidata inválida: %v", err)
+	}
+	concesiones := instantanea.VersionRol.Concesiones
+	if len(concesiones) != 1 || len(concesiones[0].CamposPermitidos) != 1 ||
+		concesiones[0].CamposPermitidos[0] != puertosbolsa.CampoMiBolsa ||
+		len(instantanea.AsignacionPerfil.Ambitos) != 1 ||
+		instantanea.AsignacionPerfil.Ambitos[0].Clave != "candidato_ref" ||
+		len(instantanea.AsignacionPerfil.Ambitos[0].Valores) != 1 ||
+		instantanea.AsignacionPerfil.Ambitos[0].Valores[0] != identidad.candidatoRef {
+		t.Fatal("la concesión no limita la lectura al campo y candidato propios")
 	}
 }
 

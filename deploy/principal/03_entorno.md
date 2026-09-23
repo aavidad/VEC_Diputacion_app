@@ -123,8 +123,11 @@ navegador del ensayo. La clave y la contraseña no entran en JSON ni en Git.
    `deploy/postgresql/contexto_actor_v1/pruebas_sql/fixtures_sinteticos.sql`:
    sustituir sus cinco referencias opacas y la procedencia por valores nuevos,
    el tipo/referencia del primer vínculo por `candidato`/`<ref importada>`,
-   y **omitir** su segundo vínculo de ejemplo. Usar una transacción, procedencia
-   `no_autoritativa`, vigencia que incluya el momento del ensayo, y comprobar
+   **omitir** su segundo vínculo de ejemplo y sustituir **todas** las ocurrencias
+   de `no_autoritativa` en la proyección SQL por
+   `autoridad_maestra_acreditada` (contrato del resolutor registrado; véase
+   `deploy/postgresql/autorizacion/pruebas_sql/fixture_contexto_actor_v3.sql`).
+   Usar una transacción y vigencia que incluya el momento del ensayo; comprobar
    que no existe otro vínculo `candidato` vigente para esa persona. No insertar
    en el registro `contexto_actor_v1`: el arranque y cada GET lo crean mediante
    el resolutor registrado existente.
