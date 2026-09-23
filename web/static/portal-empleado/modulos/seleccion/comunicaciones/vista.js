@@ -1,4 +1,4 @@
-import { crearTraductorSeleccionComunicaciones } from "./i18n.js";
+import { crearTraductorSeleccionComunicaciones } from "./i18n.js?v=20260924-f2-web2";
 
 const ESTADOS_FUENTE = new Set(["cargando", "disponible", "vacio", "no_configurado", "denegado", "error"]);
 const HITOS = ["preparacion", "revision", "transporte", "entrega", "lectura"];

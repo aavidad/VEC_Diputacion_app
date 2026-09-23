@@ -92,3 +92,10 @@ test("filtro sin coincidencias no conserva un detalle ajeno al resultado", () =>
   assert.match(html, /Seleccione una comunicación de la lista para ver sus hitos/u);
   assert.doesNotMatch(html, /smtp:01/u);
 });
+
+test("S6 carga el catálogo i18n con la versión F2 de caché", async () => {
+  const fuente = await readFile(new URL("./vista.js", import.meta.url), "utf8");
+  assert.match(fuente, /^import \{ crearTraductorSeleccionComunicaciones \} from "\.\/i18n\.js\?v=20260924-f2-web2";/mu);
+  const modulo = await import("./vista.js?v=20260924-f2-web2");
+  assert.match(modulo.renderizarVistaSeleccionComunicaciones(), /Sin fuente de comunicaciones de selección conectada/u);
+});
