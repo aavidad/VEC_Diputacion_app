@@ -39,7 +39,7 @@ DECLARE a jsonb; d jsonb; b jsonb; entrada jsonb; recibo jsonb; h text;
 BEGIN
  IF p_accion IS NULL OR p_accion NOT IN ('vec.contacto_usuario.operacion.preparar','vec.contacto_usuario.operacion.cancelar',
                     'vec.contacto_usuario.operacion.listar','vec.contacto_usuario.operacion.detalle')
-    OR p_estado IS NULL OR p_estado NOT IN ('preparada','cancelada','consulta','encontrada','ausente','conflicto')
+    OR p_estado IS NULL OR p_estado NOT IN ('preparada','confirmada','cancelada','consulta','encontrada','ausente','conflicto')
     OR p_operacion_ref IS NULL OR (p_operacion_ref<>'' AND p_operacion_ref !~ '^opr_[A-Za-z0-9_-]{22,128}$')
     OR p_decision_ref IS NULL OR p_decision_ref !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'
     OR p_consumo_huella IS NULL OR p_consumo_huella !~ '^[0-9a-f]{64}$' OR p_consumo_huella=repeat('0',64)
