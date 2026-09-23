@@ -10,6 +10,14 @@ const [vista, css] = await Promise.all([
   readFile(new URL("documentos.css", directorio), "utf8"),
 ]);
 
+test("la vista carga el catálogo Documentos con la URL F2 vigente", async () => {
+  const ruta = new URL("./i18n.js?v=20260924-f2-web2", directorio);
+  assert.ok(vista.includes(`from "./i18n.js${ruta.search}"`));
+  assert.ok(!vista.includes('from "./i18n.js"'));
+  const catalogo = await import(ruta.href);
+  assert.equal(catalogo.crearTraductorDocumentos()("titulo"), "Repositorio documental");
+});
+
 function entrada(cambios = {}) {
   return {
     ref: "doc-1", titulo: "Documento de prueba", tipo: "Informe", version: 2,
