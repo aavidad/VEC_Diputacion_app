@@ -1,5 +1,5 @@
 import { crearControladorPortal } from "./portal-eventos.js?v=20260721-acceso-real-v2";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20260717-panel-interno-v1";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20260923-pweb12-montaje-v1";
 import { extraerDatosEnvelopeCanonico, validarPanelBolsa } from "./portal-contrato.js?v=20260717-panel-interno-v1";
 import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?v=20260718-llamamientos-v1";
 import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20260718-llamamientos-v1";
@@ -19,6 +19,7 @@ import { accesoBolsaEfectivo, instalarMenuBolsa, sincronizarMenuBolsa, VISTAS_IN
 import { traducirPortal } from "./portal-i18n.js?v=20260920-personal-catalogo-v1";
 import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20260921-montaje-modulos-b1";
 import { crearSuperficieBorradorLlamamiento } from "./portal-borrador-llamamiento-ui.js?v=20260921-bback01-v1";
+import { consultarAvisosBolsa, manejarAccionAvisos } from "./portal-bolsas-avisos.js?v=20260923-pweb12-montaje-v1";
 const TAMANO_PAGINA_MARCO = 6; const tablasPaginadas = new WeakMap(); export function calcularPaginaMarco(total, paginaSolicitada, tamano = TAMANO_PAGINA_MARCO) { const cantidad = Number.isSafeInteger(total) && total > 0 ? total : 0; const medida = Number.isSafeInteger(tamano) && tamano > 0 ? tamano : TAMANO_PAGINA_MARCO; const paginas = Math.max(1, Math.ceil(cantidad / medida)); const pagina = Math.min(Math.max(Number.isSafeInteger(paginaSolicitada) ? paginaSolicitada : 1, 1), paginas); const inicio = cantidad === 0 ? 0 : ((pagina - 1) * medida) + 1; const fin = Math.min(pagina * medida, cantidad); return Object.freeze({ total: cantidad, tamano: medida, paginas, pagina, inicio, fin }); } function navegadorRemotoDeTabla(contenedor) { const padre = contenedor.parentElement; return padre?.querySelector(":scope > .ct-exp-paginacion, :scope > .paginacion-bolsa, :scope > nav[aria-label*='aginación'], :scope > nav[aria-label*='aginacion']") || null; } function botonesPaginaMarco(calculo) { return Array.from({ length: calculo.paginas }, (_valor, indice) => { const pagina = indice + 1; return `<button type="button" data-paginacion-marco-pagina="${pagina}" ${pagina === calculo.pagina ? 'aria-current="page"' : ""} aria-label="Página ${pagina}">${pagina}</button>`; }).join(""); } function pintarPaginacionMarco(tabla, paginaSolicitada = 1) { const estado = tablasPaginadas.get(tabla); if (!estado || !tabla.isConnected) return; const filas = Array.from(tabla.tBodies?.[0]?.rows || []).filter((fila) => !fila.hasAttribute("data-personal-rpt-publica-detalle-fila")); const calculo = calcularPaginaMarco(filas.length, paginaSolicitada, estado.tamano); filas.forEach((fila, indice) => { fila.hidden = indice < calculo.inicio - 1 || indice >= calculo.fin; }); estado.pagina = calculo.pagina; estado.navegacion.innerHTML = `<span aria-live="polite">${traducirPortal("paginacion_marco_recuento", calculo)}</span><span class="paginacion-marco__paginas"><button type="button" data-paginacion-marco-accion="anterior" ${calculo.pagina === 1 ? "disabled" : ""}>${traducirPortal("paginacion_marco_anterior")}</button>${botonesPaginaMarco(calculo)}<button type="button" data-paginacion-marco-accion="siguiente" ${calculo.pagina === calculo.paginas ? "disabled" : ""}>${traducirPortal("paginacion_marco_siguiente")}</button></span>`; } function prepararTablaPaginable(contenedor) { const tabla = contenedor.querySelector(":scope > table"); if (!tabla || tablasPaginadas.has(tabla)) return; const remoto = navegadorRemotoDeTabla(contenedor); if (remoto) { remoto.classList.add("paginacion-marco", "paginacion-marco--remota"); contenedor.parentElement?.classList.add("marco-tabla-paginado"); return; } const filas = Array.from(tabla.tBodies?.[0]?.rows || []); if (filas.length <= TAMANO_PAGINA_MARCO) return; const navegacion = document.createElement("nav"); navegacion.className = "paginacion-marco"; navegacion.setAttribute("aria-label", traducirPortal("paginacion_marco_etiqueta")); contenedor.insertAdjacentElement("afterend", navegacion); contenedor.parentElement?.classList.add("marco-tabla-paginado"); tablasPaginadas.set(tabla, { navegacion, pagina: 1, tamano: TAMANO_PAGINA_MARCO }); pintarPaginacionMarco(tabla); } function actualizarPaginacionesMarco() { document.querySelectorAll("#espacio-trabajo .tabla-contenedor").forEach(prepararTablaPaginable); } function instalarPaginacionMarco() { const espacio = porId("espacio-trabajo"); if (!espacio) return; espacio.addEventListener("click", (evento) => { const control = evento.target.closest("[data-paginacion-marco-accion], [data-paginacion-marco-pagina]"); if (!control || control.disabled) return; const navegacion = control.closest(".paginacion-marco"); const tabla = navegacion?.previousElementSibling?.querySelector(":scope > table"); const estado = tabla && tablasPaginadas.get(tabla); if (!estado) return; const pagina = control.dataset.paginacionMarcoPagina ? Number(control.dataset.paginacionMarcoPagina) : estado.pagina + (control.dataset.paginacionMarcoAccion === "siguiente" ? 1 : -1); pintarPaginacionMarco(tabla, pagina); tabla.querySelector("tbody tr:not([hidden])")?.querySelector("button, a, [tabindex]")?.focus?.({ preventScroll: true }); }); new MutationObserver(actualizarPaginacionesMarco).observe(espacio, { childList: true, subtree: true }); actualizarPaginacionesMarco(); }
 /**
  * SUPERFICIE DEFINITIVA DEL PORTAL RRHH.
@@ -122,6 +123,7 @@ const estado = {
   datosBolsas: null,
   datosCandidatos: null,
   datosEstadisticas: null,
+  datosAvisos: null,
   filtrosBolsa: { estado: "", texto: "" },
   modalContactos: null,
   modalFicha: null,
@@ -165,7 +167,7 @@ const coordinadorModulos = crearCoordinadorModulosPortal({ escaparHTML, anunciar
     montar: ({ vista, raiz, opciones }) => {
       montarVistaBolsa(vista, raiz, opciones);
       return Object.freeze({ desmontar: () => { if (vista === "elaboracion") superficieBorradoresActiva()?.desmontar();
-        controladorBolsas.cancelarPeticiones(); if (vista === "llamamientos") superficieBorradorLlamamiento.desmontar(); } });
+        controladorBolsas.cancelarPeticiones(); cancelarAvisosBolsa(); if (vista === "llamamientos") superficieBorradorLlamamiento.desmontar(); } });
     },
   }),
   confirmarOperacion: (descriptor) => window.confirm(`${descriptor.titulo}\n\n${descriptor.advertencia}\n\nReferencia: ${descriptor.referencia}`) });
@@ -513,7 +515,9 @@ function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } =
   }
   if (vistaBolsas && !presentadorPanelInterno.esActivo() && estado.datosBolsas
     && (!estado.modoPresentacion || vista === "bolsa-candidatos")) {
-    contenedor.innerHTML = presentadorPanelInterno.renderizarSoloBolsas(vista); return;
+    contenedor.innerHTML = presentadorPanelInterno.renderizarSoloBolsas(vista);
+    if (vista === "resumen" && estado.datosAvisos === null) void cargarAvisosBolsa();
+    return;
   }
   if (!estado.fuenteLista) {
     if (vista === "llamamientos") { superficieBorradorLlamamiento.activar();
@@ -782,6 +786,7 @@ const presentadorPanelInterno = crearPresentadorPanelInterno({
   obtenerDatosBolsas: () => estado.datosBolsas,
   obtenerDatosCandidatosBolsa: () => estado.datosCandidatos,
   obtenerDatosEstadisticas: () => estado.datosEstadisticas,
+  obtenerDatosAvisos: () => estado.datosAvisos,
   obtenerEstadoCandidatos: () => estado.filtrosBolsa,
   obtenerModalContactos: () => estado.modalContactos,
   obtenerModalFicha: () => estado.modalFicha,
@@ -796,6 +801,52 @@ const controladorBolsas = crearControladorBolsas({
   navegar,
   obtenerFuenteLectura: () => estado.modoPresentacion ? fuenteLecturaBolsasPresentacion : null,
 });
+
+let controladorAvisos = null;
+function cancelarAvisosBolsa() {
+  controladorAvisos?.abort();
+  controladorAvisos = null;
+  if (estado.datosAvisos?.carga === "cargando") estado.datosAvisos = null;
+}
+
+async function cargarAvisosBolsa({ cursor = "", forzar = false } = {}) {
+  if (!forzar && estado.datosAvisos !== null) return;
+  cancelarAvisosBolsa();
+  const controlador = new AbortController();
+  controladorAvisos = controlador;
+  estado.datosAvisos = { carga: "cargando", datos: null, cursor, error: "" };
+  actualizarVistaBolsa();
+  const resultado = await consultarAvisosBolsa({ cursor, signal: controlador.signal });
+  if (controlador.signal.aborted || controladorAvisos !== controlador) return;
+  controladorAvisos = null;
+  estado.datosAvisos = resultado.ok
+    ? { carga: "listo", datos: resultado.datos, cursor, error: "" }
+    : { carga: "error", datos: null, cursor, error: resultado.mensaje };
+  actualizarVistaBolsa();
+}
+
+function instalarEventosAvisosBolsa() {
+  document.addEventListener("click", (evento) => {
+    const consumida = manejarAccionAvisos(evento, {
+      abrirFichaB5: (bolsaRef, participacionRef) => {
+        estado.bolsaSeleccionada = bolsaRef;
+        estado.filtrosBolsa = { estado: "", texto: "" };
+        navegar("bolsa-candidatos", { enfocar: false });
+        void controladorBolsas.cargarCandidatosBolsa(bolsaRef, { enfocarDestino: true })
+          .then(() => controladorBolsas.abrirFicha(participacionRef));
+      },
+      siguiente: () => void cargarAvisosBolsa({
+        cursor: estado.datosAvisos?.datos?.paginacion?.cursor_siguiente || "",
+        forzar: true,
+      }),
+      reintentar: () => void cargarAvisosBolsa({
+        cursor: estado.datosAvisos?.cursor || "",
+        forzar: true,
+      }),
+    });
+    if (consumida) evento.preventDefault();
+  });
+}
 
 const controlador = crearControladorPortal({
   anunciar, asistenteLlamamientos, cargarFuenteDatos, confirmarOperacionPresentacion: (mensaje) => window.confirm(mensaje),
@@ -814,6 +865,7 @@ async function inicializar() {
   renderizar();
   controlador.instalar();
   controladorBolsas.instalar();
+  instalarEventosAvisosBolsa();
   instalarMenuBolsa(porId("navegacion-bolsa"));
   instalarDeeplinkAvisosBorradores({ documento: document, escaparHTML, porId,
     obtenerAvisos: () => DATOS_PANEL.avisos,
