@@ -610,3 +610,16 @@ test("el formulario monta las 151 categorías del catálogo y mantiene el límit
     catalogos: crearCatalogos(1001),
   }), /categorías/u);
 });
+
+test("la jornada previa se reenvía exacta si no se tocan horas ni minutos", async () => {
+  const solicitudes = [];
+  const vista = montar({ cliente: { registrarAnalisis(solicitud) { solicitudes.push(solicitud); return Promise.resolve(crearRecibo()); } } });
+  await vista.enviar(crearValores({ jornada_horas: "28", jornada_minutos: "8", jornada_original: "7501" }));
+  assert.equal(solicitudes[0].analisis.porcentaje_jornada, 7501);
+  vista.desmontar();
+  const otra = [];
+  const vista2 = montar({ cliente: { registrarAnalisis(solicitud) { otra.push(solicitud); return Promise.resolve(crearRecibo()); } } });
+  await vista2.enviar(crearValores({ jornada_horas: "28", jornada_minutos: "9", jornada_original: "7501" }));
+  assert.equal(otra[0].analisis.porcentaje_jornada, 7507);
+  vista2.desmontar();
+});

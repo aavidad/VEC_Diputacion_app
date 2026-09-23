@@ -25,6 +25,16 @@ export function diezmilesimasDesdeHorasMinutos(horas, minutos) {
   return String(Math.max(1, Math.round(total * 10000 / MINUTOS_JORNADA_COMPLETA)));
 }
 
+function jornadaDesdeFormulario(datos) {
+  const horas = String(datos.get("jornada_horas") ?? "").trim();
+  const minutos = String(datos.get("jornada_minutos") ?? "").trim();
+  const original = String(datos.get("jornada_original") ?? "");
+  const previa = horasMinutosDesdeDiezmilesimas(original);
+  if (PATRON_JORNADA.test(original) && String(Number(horas)) === previa.horas
+    && String(Number(minutos)) === previa.minutos && horas !== "" && minutos !== "") return original;
+  return diezmilesimasDesdeHorasMinutos(horas, minutos);
+}
+
 export function horasMinutosDesdeDiezmilesimas(valor) {
   if (!PATRON_JORNADA.test(valor)) return { horas: "", minutos: "" };
   const total = Math.round(Number(valor) * MINUTOS_JORNADA_COMPLETA / 10000);
@@ -337,13 +347,17 @@ function campoJornada(estado, t, formateadorJornada) {
     porcentaje: formateadorJornada.format(Number(valor) / 10000),
   }) : "";
   const atributos = atributosCampo(estado, "porcentaje_jornada");
-  return `<fieldset class="ct-campo ct-campo-jornada" aria-describedby="ct-analisis-porcentaje_jornada-ayuda">
+  // jornada_original conserva el valor exacto en diezmilésimas: si horas y
+  // minutos no se tocan, se reenvía tal cual y no se redondea al minuto.
+  const original = PATRON_JORNADA.test(valor)
+    ? `<input type="hidden" name="jornada_original" value="${escaparHTML(valor)}">` : "";
+  return `<fieldset class="ct-campo ct-campo-jornada">${original}
     <legend>${escaparHTML(t("analisis_jornada"))} <b aria-hidden="true">*</b></legend>
     <div class="ct-jornada-entradas">
       <label for="ct-analisis-porcentaje_jornada">${escaparHTML(t("analisis_jornada_horas"))}</label>
       <input id="ct-analisis-porcentaje_jornada" name="jornada_horas" type="number" required value="${escaparHTML(horas)}" ${atributos} min="0" max="37" step="1" inputmode="numeric">
       <label for="ct-analisis-jornada_minutos">${escaparHTML(t("analisis_jornada_minutos"))}</label>
-      <input id="ct-analisis-jornada_minutos" name="jornada_minutos" type="number" required value="${escaparHTML(minutos)}" min="0" max="59" step="1" inputmode="numeric">
+      <input id="ct-analisis-jornada_minutos" name="jornada_minutos" type="number" required value="${escaparHTML(minutos)}" ${atributos} min="0" max="59" step="1" inputmode="numeric">
     </div>
     <small id="ct-analisis-porcentaje_jornada-ayuda">${escaparHTML(t("analisis_jornada_ayuda"))}</small>
     <small id="ct-analisis-porcentaje_jornada-equivalencia" aria-live="polite" aria-atomic="true">${escaparHTML(equivalencia)}</small>
@@ -441,9 +455,7 @@ function extraerBorrador(formulario) {
     inicio: String(datos.get("inicio") ?? ""), fin: String(datos.get("fin") ?? ""),
     jornada_horas: String(datos.get("jornada_horas") ?? "").trim(),
     jornada_minutos: String(datos.get("jornada_minutos") ?? "").trim(),
-    porcentaje_jornada: diezmilesimasDesdeHorasMinutos(
-      String(datos.get("jornada_horas") ?? "").trim(), String(datos.get("jornada_minutos") ?? "").trim(),
-    ),
+    porcentaje_jornada: jornadaDesdeFormulario(datos),
     entrada_rc_referencia: String(datos.get("entrada_rc_referencia") ?? ""),
     motivo_rectificacion_clave: String(datos.get("motivo_rectificacion_clave") ?? ""),
     observaciones: String(datos.get("observaciones") ?? "").trim(),
