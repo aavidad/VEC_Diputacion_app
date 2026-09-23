@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
 import { CAPACIDAD_CONSULTAR_PUESTO } from "./contrato.js";
 import { montarModuloPersonal } from "./vista.js";
+
+test("categorías carga el i18n actualizado del corte F2", () => {
+  const codigo = readFileSync(new URL("./vista.js", import.meta.url), "utf8");
+  assert.match(codigo, /from "\.\/i18n\.js\?v=20260924-f2-web2";/u);
+});
 
 function raizFalsa() {
   class Nodo {
