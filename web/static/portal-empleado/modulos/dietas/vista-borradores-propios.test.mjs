@@ -124,11 +124,148 @@ test("carga la colección propia real y recupera su detalle mediante el cliente 
     .querySelector("[data-dietas-borradores-propios]")
     .listeners.click({ target: boton });
   assert.deepEqual(llamadas[1], ["obtener", "dco_1234567890123456789012"]);
+  assert.match(textoVisible(contenedor), /rcd_1234567890123456789012/u);
+  assert.match(textoVisible(contenedor), /2026-09-20T10:00:00Z/u);
   assert.match(
     contenedor.querySelector("[data-dietas-borradores-estado]").textContent,
     /Detalle/u,
   );
   vista.desmontar();
+});
+
+test("conserva el formulario y sus datos al recuperar la lista y la ficha", async () => {
+  const contenedor = raiz();
+  const vista = montarVistaBorradoresPropios(contenedor, {
+    cliente: {
+      listar: async () => ({ items: [item] }),
+      obtener: async () => item,
+      crear: async () => item,
+    },
+  });
+  await Promise.resolve();
+  await Promise.resolve();
+  const form = contenedor.querySelector("[data-dietas-borrador-form]");
+  const motivo = form.querySelectorAll("input").find((campo) => campo.name === "motivo");
+  motivo.value = "Visita conservada";
+  const boton = contenedor.querySelector("[data-dietas-borrador-detalle]");
+  await contenedor.querySelector("[data-dietas-borradores-propios]").listeners.click({ target: boton });
+  assert.equal(contenedor.querySelector("[data-dietas-borrador-form]"), form);
+  assert.equal(motivo.value, "Visita conservada");
+  vista.desmontar();
+});
+
+test("pagina con el cursor real del cliente y vuelve a la primera página", async () => {
+  const contenedor = raiz();
+  const consultas = [];
+  const vista = montarVistaBorradoresPropios(contenedor, {
+    cliente: {
+      listar: async (consulta) => {
+        consultas.push(consulta);
+        return consulta.cursor
+          ? { items: [{ ...item, comision: { ...item.comision, motivo: "Segunda página" } }] }
+          : { items: [item], siguiente_cursor: "cursor-servidor" };
+      },
+      obtener: async () => item,
+      crear: async () => item,
+    },
+  });
+  await Promise.resolve();
+  await Promise.resolve();
+  const panel = contenedor.querySelector("[data-dietas-borradores-propios]");
+  await panel.listeners.click({ target: contenedor.querySelector('[data-dietas-borrador-pagina="siguiente"]') });
+  assert.deepEqual(consultas.at(-1), { limit: 6, cursor: "cursor-servidor" });
+  assert.match(textoVisible(contenedor), /Segunda página/u);
+  await panel.listeners.click({ target: contenedor.querySelector('[data-dietas-borrador-pagina="anterior"]') });
+  assert.deepEqual(consultas.at(-1), { limit: 6 });
+  vista.desmontar();
+});
+
+test("una denegación de lista no se presenta como lista vacía", async () => {
+  const contenedor = raiz();
+  const vista = montarVistaBorradoresPropios(contenedor, {
+    cliente: {
+      listar: async () => { const error = new Error(); error.codigo = "acceso_denegado"; throw error; },
+      obtener: async () => item,
+      crear: async () => item,
+    },
+  });
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.match(textoVisible(contenedor), /No tiene permiso/u);
+  assert.equal(contenedor.querySelector("[data-dietas-borradores-vacio]"), null);
+  vista.desmontar();
+});
+
+test("permite reintentar el GET fallido sin ejecutar POST", async () => {
+  const contenedor = raiz();
+  let lecturas = 0;
+  let escrituras = 0;
+  const vista = montarVistaBorradoresPropios(contenedor, {
+    cliente: {
+      listar: async () => {
+        lecturas += 1;
+        if (lecturas === 1) throw new Error("red");
+        return { items: [item] };
+      },
+      obtener: async () => item,
+      crear: async () => { escrituras += 1; return item; },
+    },
+  });
+  await Promise.resolve();
+  await Promise.resolve();
+  const boton = contenedor.querySelector("[data-dietas-borrador-recargar]");
+  assert.ok(boton);
+  await contenedor.querySelector("[data-dietas-borradores-propios]").listeners.click({ target: boton });
+  assert.equal(lecturas, 2);
+  assert.equal(escrituras, 0);
+  assert.match(textoVisible(contenedor), /Reunión/u);
+  assert.equal(contenedor.querySelector("[data-dietas-borradores-estado]").dataset.tono, "informacion");
+  vista.desmontar();
+});
+
+test("un POST incierto reintenta el mismo material y la misma clave sin inventar recibo", async () => {
+  const contenedor = raiz();
+  const solicitudes = [];
+  const vista = montarVistaBorradoresPropios(contenedor, {
+    generarClaveIdempotencia: () => "operacion-estable",
+    cliente: {
+      listar: async () => ({ items: [] }),
+      obtener: async () => item,
+      crear: async (solicitud) => {
+        solicitudes.push(solicitud);
+        if (solicitudes.length === 1) {
+          const error = new Error();
+          error.resultadoIndeterminado = true;
+          throw error;
+        }
+        return item;
+      },
+    },
+  });
+  await Promise.resolve();
+  await Promise.resolve();
+  const form = contenedor.querySelector("[data-dietas-borrador-form]");
+  form.checkValidity = () => true;
+  const datos = {
+    fecha_inicio: "2026-09-20", fecha_fin: "2026-09-21", motivo: "Visita",
+    hora_inicio: "09:00", hora_fin: "18:00", origen_codigo: "18087", destino_codigo: "18003",
+  };
+  const FormDataOriginal = globalThis.FormData;
+  globalThis.FormData = class { get(nombre) { return datos[nombre] ?? null; } };
+  try {
+    const raizVista = contenedor.querySelector("[data-dietas-borradores-propios]");
+    await raizVista.listeners.submit({ target: form, preventDefault() {} });
+    assert.equal(contenedor.querySelector("[data-dietas-borrador-recibo]"), null);
+    assert.match(textoVisible(contenedor), /No se ha podido confirmar/u);
+    await raizVista.listeners.submit({ target: form, preventDefault() {} });
+    assert.deepEqual(solicitudes[0], solicitudes[1]);
+    assert.equal(solicitudes[1].clave_idempotencia, "operacion-estable");
+    assert.match(textoVisible(contenedor), /rcd_1234567890123456789012/u);
+    assert.equal(contenedor.querySelector("[data-dietas-borradores-estado]").dataset.tono, "exito");
+  } finally {
+    globalThis.FormData = FormDataOriginal;
+    vista.desmontar();
+  }
 });
 
 test("no escoge la primera relación cuando la composición aporta varias autorizadas", async () => {
