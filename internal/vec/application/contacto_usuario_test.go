@@ -271,6 +271,27 @@ func TestContactoGuardarPropagaCommitInciertoSinFabricarRecibo(t *testing.T) {
 		t.Fatal("una confirmación incierta no puede convertirse en recibo ni denegación")
 	}
 }
+
+func TestContactoOperacionSeLigaAlRecursoFirmadoAntesDelRegistro(t *testing.T) {
+	e := nuevoEntornoContacto(t)
+	ref := "opr_" + strings.Repeat("o", 22)
+	e.solicitud.OperacionRef = ref
+	e.solicitud.Recurso.Atributos = map[string]string{"contacto_operacion_ref": ref}
+	e.solicitud.SolicitudBase.Recurso = e.solicitud.Recurso
+	if _, err := e.servicio.Guardar(context.Background(), e.solicitud); err != nil {
+		t.Fatal(err)
+	}
+	if e.registro.llamadas != 1 || e.registro.orden.OperacionRef != ref || e.registro.orden.Preparacion.Recurso.Atributos["contacto_operacion_ref"] != ref || e.emisor.material.ResumenCapacidad().DecisionRef() == "" {
+		t.Fatal("la operación no quedó ligada al material V3 firmado")
+	}
+	e = nuevoEntornoContacto(t)
+	e.solicitud.OperacionRef = ref
+	e.solicitud.Recurso.Atributos = map[string]string{"contacto_operacion_ref": "opr_" + strings.Repeat("x", 22)}
+	e.solicitud.SolicitudBase.Recurso = e.solicitud.Recurso
+	if _, err := e.servicio.Guardar(context.Background(), e.solicitud); err == nil || e.registro.llamadas != 0 {
+		t.Fatal("selector de operación distinto del recurso llegó al registro")
+	}
+}
 func TestContactoGuardarRechazaRecursoFirmadoDistinto(t *testing.T) {
 	for _, campo := range []string{"material_sha256", "contacto_sujeto_ref", "contacto_finalidad_ref", "contacto_version", "modulo", "finalidad", "accion"} {
 		t.Run(campo, func(t *testing.T) {

@@ -99,10 +99,10 @@ func NuevoServicio(d Dependencias) (*Servicio, error) {
 // contiene el correo. El alta general y su requisito de contacto deben usar
 // el estado durable de este registro; esta operación no completa un perfil.
 func (s *Servicio) Guardar(ctx context.Context, correo string, versionEsperada uint64) (ports.ReciboContactoUsuario, error) {
-	return s.guardar(ctx, correo, versionEsperada, "")
+	return s.guardar(ctx, correo, versionEsperada, "", "", nil)
 }
 
-func (s *Servicio) guardar(ctx context.Context, correo string, versionEsperada uint64, sujetoEsperado string) (ports.ReciboContactoUsuario, error) {
+func (s *Servicio) guardar(ctx context.Context, correo string, versionEsperada uint64, sujetoEsperado, operacionRef string, registro ports.RegistroContactoUsuario) (ports.ReciboContactoUsuario, error) {
 	vacio := ports.ReciboContactoUsuario{}
 	if len(correo) == 0 || len(correo) > 254 || strings.TrimSpace(correo) != correo || strings.ContainsAny(correo, "\r\n") || versionEsperada >= 1<<53-1 {
 		return vacio, ErrContactoPropioInvalido
@@ -139,16 +139,24 @@ func (s *Servicio) guardar(ctx context.Context, correo string, versionEsperada u
 		return vacio, ErrContactoPropioNoDisponible
 	}
 	recurso := domain.RecursoAutorizable{Referencia: resultado.Contexto.PersonaRef, ModuloID: usuarios.ModuleID, Tipo: "contacto_usuario", Ambitos: clonarAmbitos(d.AmbitosRecurso)}
+	if operacionRef != "" {
+		if !application.ReferenciaOperacionContactoValida(operacionRef) || dependenciaContactoPropioNula(registro) {
+			return vacio, ErrContactoPropioNoDisponible
+		}
+		recurso.Atributos = map[string]string{"contacto_operacion_ref": operacionRef}
+	} else {
+		registro = s.registro
+	}
 	accion := application.AccionAltaContactoUsuario
 	if versionEsperada > 0 {
 		accion = application.AccionActualizarContactoUsuario
 	}
 	preparador := preparadorAuditoria{fuente: d.FuenteAutorizacion, seudonimizador: d.Seudonimizador, reloj: d.Reloj, correlacion: correlacionRef, recurso: recurso}
-	servicio, err := application.NuevoServicioContactoUsuario(preparador, d.Protector, d.Emisor, s.registro, d.Huellas)
+	servicio, err := application.NuevoServicioContactoUsuario(preparador, d.Protector, d.Emisor, registro, d.Huellas)
 	if err != nil {
 		return vacio, ErrContactoPropioNoDisponible
 	}
-	recibo, err := servicio.Guardar(ctx, ports.SolicitudRegistroContactoUsuario{ContextoActor: resultado.Contexto, Contacto: contacto, VersionEsperada: versionEsperada, FinalidadRef: FinalidadRegistro, Recurso: recurso, Audiencia: AudienciaRegistro, ResultadoContexto: resultado, SolicitudBase: domain.DatosSolicitudAutorizacionLigadaV3{VinculoAutenticacionActor: vinculo, ReferenciaMotivo: d.Motivo, Accion: accion, Recurso: recurso, Finalidad: FinalidadRegistro, Correlacion: correlacion}})
+	recibo, err := servicio.Guardar(ctx, ports.SolicitudRegistroContactoUsuario{ContextoActor: resultado.Contexto, Contacto: contacto, OperacionRef: operacionRef, VersionEsperada: versionEsperada, FinalidadRef: FinalidadRegistro, Recurso: recurso, Audiencia: AudienciaRegistro, ResultadoContexto: resultado, SolicitudBase: domain.DatosSolicitudAutorizacionLigadaV3{VinculoAutenticacionActor: vinculo, ReferenciaMotivo: d.Motivo, Accion: accion, Recurso: recurso, Finalidad: FinalidadRegistro, Correlacion: correlacion}})
 	if errors.Is(err, application.ErrContactoUsuarioConflicto) {
 		return vacio, ErrContactoPropioConflicto
 	}
@@ -170,7 +178,7 @@ func (s *Servicio) CompletarContactoDeAlta(ctx context.Context, alta ports.Refer
 	if ctx == nil || ctx.Err() != nil || dependenciaContactoPropioNula(confirmar) || !operacionAltaContactoCanonica.MatchString(alta.OperacionRef) || !domain.ReferenciaSujetoContactoUsuarioValida(alta.PersonaRef) {
 		return vacio, ErrContactoPropioNoDisponible
 	}
-	recibo, err := s.guardar(ctx, correo, 0, alta.PersonaRef)
+	recibo, err := s.guardar(ctx, correo, 0, alta.PersonaRef, "", nil)
 	if err != nil {
 		return vacio, err
 	}

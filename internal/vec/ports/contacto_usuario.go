@@ -11,6 +11,7 @@ import (
 type SolicitudRegistroContactoUsuario struct {
 	ContextoActor     domain.ContextoActor
 	Contacto          domain.ContactoUsuario
+	OperacionRef      string // Sólo al confirmar una intención propia preparada.
 	VersionEsperada   uint64
 	FinalidadRef      string
 	Recurso           domain.RecursoAutorizable
@@ -51,8 +52,9 @@ type PreparacionRegistroContactoUsuario struct {
 // que sobre, versión, auditoría y outbox. El cuerpo no es PayloadVECAD3: este
 // último es la atestación nativa que compromete la decisión sobre el recurso.
 type OrdenRegistroContactoUsuario struct {
-	Preparacion PreparacionRegistroContactoUsuario
-	Material    ExportacionMaterialConsumoAutorizacionAtestadaV3
+	Preparacion  PreparacionRegistroContactoUsuario
+	Material     ExportacionMaterialConsumoAutorizacionAtestadaV3
+	OperacionRef string // Debe coincidir con el atributo firmado del recurso.
 }
 
 // EvidenciaAuditoriaCentralContactoUsuario conserva la respuesta central

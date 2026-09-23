@@ -59,7 +59,7 @@ func NuevoServicioContactoUsuarioConLectura(auditoria ports.PreparadorAuditoriaC
 }
 
 func (s *ServicioContactoUsuario) Guardar(ctx context.Context, solicitud ports.SolicitudRegistroContactoUsuario) (ports.ReciboContactoUsuario, error) {
-	if s == nil || ctx == nil || ctx.Err() != nil || nulo(s.auditoria) || nulo(s.protector) || nulo(s.huellas) || nulo(s.autorizador) || nulo(s.registro) || solicitud.ContextoActor.Validar() != nil || solicitud.Contacto.Validar() != nil || solicitud.Contacto.SujetoRef() != solicitud.ContextoActor.PersonaRef || !textoSeguro(solicitud.FinalidadRef) || solicitud.Recurso.Validar() != nil || !textoSeguro(solicitud.Audiencia) {
+	if s == nil || ctx == nil || ctx.Err() != nil || nulo(s.auditoria) || nulo(s.protector) || nulo(s.huellas) || nulo(s.autorizador) || nulo(s.registro) || solicitud.ContextoActor.Validar() != nil || solicitud.Contacto.Validar() != nil || solicitud.Contacto.SujetoRef() != solicitud.ContextoActor.PersonaRef || !textoSeguro(solicitud.FinalidadRef) || solicitud.Recurso.Validar() != nil || !textoSeguro(solicitud.Audiencia) || (solicitud.OperacionRef != "" && (!ReferenciaOperacionContactoValida(solicitud.OperacionRef) || solicitud.Recurso.Atributos["contacto_operacion_ref"] != solicitud.OperacionRef)) || (solicitud.OperacionRef == "" && solicitud.Recurso.Atributos["contacto_operacion_ref"] != "") {
 		return ports.ReciboContactoUsuario{}, ErrContactoUsuarioNoDisponible
 	}
 	accion := AccionAltaContactoUsuario
@@ -102,7 +102,7 @@ func (s *ServicioContactoUsuario) Guardar(ctx context.Context, solicitud ports.S
 	if err != nil || ctx.Err() != nil || !concesionContactoValida(material, nominal, decision, confirmacion, solicitud.ResultadoContexto, solicitud.ContextoActor, accion, preparacion.Recurso, preparacion.Audiencia, preparacion.FinalidadRef, s.ahora()) {
 		return ports.ReciboContactoUsuario{}, ErrContactoUsuarioNoDisponible
 	}
-	recibo, err := s.registro.GuardarContactoUsuario(ctx, ports.OrdenRegistroContactoUsuario{Preparacion: clonarPreparacion(preparacion), Material: material})
+	recibo, err := s.registro.GuardarContactoUsuario(ctx, ports.OrdenRegistroContactoUsuario{Preparacion: clonarPreparacion(preparacion), Material: material, OperacionRef: solicitud.OperacionRef})
 	if errors.Is(err, ErrContactoUsuarioConflicto) {
 		return ports.ReciboContactoUsuario{}, ErrContactoUsuarioConflicto
 	}

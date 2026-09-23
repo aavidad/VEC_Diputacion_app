@@ -45,7 +45,7 @@ func nuevoResolutorContactoUsuarioPostgreSQL(pool iniciadorTransacciones, protec
 }
 
 func (r *RegistroContactoUsuarioPostgreSQL) GuardarContactoUsuario(ctx context.Context, orden ports.OrdenRegistroContactoUsuario) (ports.ReciboContactoUsuario, error) {
-	if r == nil || valorNuloPostgreSQL(r.pool) || ctx == nil || ctx.Err() != nil {
+	if r == nil || valorNuloPostgreSQL(r.pool) || ctx == nil || ctx.Err() != nil || orden.OperacionRef != "" {
 		return ports.ReciboContactoUsuario{}, vecapp.ErrContactoUsuarioNoDisponible
 	}
 	p := orden.Preparacion
