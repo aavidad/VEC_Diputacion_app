@@ -214,7 +214,40 @@ for linea in open(sys.argv[1],encoding='utf-8'):
         omito |= evento.get('Action')=='skip'
 if not paso or omito: raise SystemExit('F2: operaciones omitidas o sin PASS')
 PYOPERACIONES
-  echo 'F2: Contacto3 firmado/consumido, ACL legado, intención, confirmación, recibo, replay y nuevo pool probados en PG18 aislado'
+  referencia_reinicio=$(consulta "SELECT operacion_ref||'|'||recibo_ref FROM vec_contacto_usuario_v1.operaciones WHERE estado='confirmada' AND version_esperada=1")
+  [[ "$referencia_reinicio" =~ ^opr_[A-Za-z0-9_-]{22,128}\|acc_[0-9a-f]{40}$ ]] || { echo 'F2: recibo único previo al reinicio no acreditado' >&2; exit 1; }
+  IFS='|' read -r operacion_reinicio recibo_reinicio <<< "$referencia_reinicio"
+  docker restart --time 5 "$contenedor" >/dev/null
+  for _ in $(seq 1 60); do docker exec "$contenedor" pg_isready -q -U postgres -d "$base" && break; sleep 0.5; done
+  docker exec "$contenedor" pg_isready -q -U postgres -d "$base"
+  if ! VEC_F2_CONTACTO_OPERACIONES_PG18_DESECHABLE=1 \
+  VEC_F2_CONTACTO_RECUPERACION_PG18=1 \
+  VEC_F2_CONTACTO_RECUPERACION_OP_REF="$operacion_reinicio" \
+  VEC_F2_CONTACTO_RECUPERACION_RECIBO_REF="$recibo_reinicio" \
+  VEC_F2_CONTACTO_MATERIAL_EFIMERO="$materialdir" \
+  VEC_F2_CONTACTO_PG_ADMIN_DSN="$(dsn postgres)" \
+  VEC_F2_CONTACTO_PG_CONTEXTO_DSN="$(dsn vec_contacto_f2_contexto_login)" \
+  VEC_F2_CONTACTO_PG_FUENTE_DSN="$(dsn vec_contacto_f2_fuente_login)" \
+  VEC_F2_CONTACTO_PG_REGISTRO_DSN="$(dsn vec_contacto_f2_registro_login)" \
+  VEC_F2_CONTACTO_PG_MOTIVOS_DSN="$(dsn vec_contacto_f2_motivos_login)" \
+  VEC_F2_CONTACTO_PG_WRITER_DSN="$(dsn vec_contacto_f2_login)" \
+  GOMAXPROCS=2 go test ./internal/app/bootstrap -run '^TestContactoOperacionesPG18RecuperacionNominal$' -count=1 -json > "$prueba_json" 2>&1; then
+    echo 'F2: recuperación nominal tras reinicio PG18 falló' >&2
+    exit 1
+  fi
+  python3 - "$prueba_json" <<'PYREINICIO'
+import json,sys
+objetivo='TestContactoOperacionesPG18RecuperacionNominal'
+paso=omito=False
+for linea in open(sys.argv[1],encoding='utf-8'):
+    try: evento=json.loads(linea)
+    except ValueError: continue
+    if evento.get('Test')==objetivo:
+        paso |= evento.get('Action')=='pass'
+        omito |= evento.get('Action')=='skip'
+if not paso or omito: raise SystemExit('F2: recuperación tras reinicio omitida o sin PASS')
+PYREINICIO
+  echo 'F2: Contacto3 firmado/consumido, ACL legado, replay, concurrencia y recuperación nominal tras reinicio PG18 acreditados'
   exit 0
 fi
 # DOWN solo con tablas F2 vacías en este contenedor desechable.

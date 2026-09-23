@@ -277,14 +277,27 @@ func TestContactoOperacionesPG18RecuperacionNominal(t *testing.T) {
 	registro := abrirPoolContactoPGPrueba(t, ctx, contactoPGRegistroDSN, "vec_contacto_f2_registro_login")
 	motivos := abrirPoolContactoPGPrueba(t, ctx, contactoPGMotivosDSN, "vec_contacto_f2_motivos_login")
 	writer := abrirPoolContactoPGPrueba(t, ctx, contactoPGWriterDSN, "vec_contacto_f2_login")
+	recuperacion := os.Getenv("VEC_F2_CONTACTO_RECUPERACION_PG18") == "1"
 	var preimagen bool
-	if err := admin.QueryRow(ctx, `SELECT
+	var preimagenSQL string
+	if recuperacion {
+		preimagenSQL = `SELECT
+        (SELECT count(*)=2 FROM vec_contacto_usuario_v1.versiones)
+        AND (SELECT count(*)=1 FROM vec_contacto_usuario_v1.actual)
+        AND (SELECT count(*)=2 FROM vec_contacto_usuario_v1.outbox)
+        AND (SELECT count(*)=3 FROM vec_contacto_usuario_v1.operaciones)
+        AND NOT has_function_privilege('vec_contacto_f2_login',
+            'vec_contacto_usuario_v1.registrar_contacto_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea,bytea)','EXECUTE')`
+	} else {
+		preimagenSQL = `SELECT
         (SELECT count(*)=1 FROM vec_contacto_usuario_v1.versiones)
         AND (SELECT count(*)=1 FROM vec_contacto_usuario_v1.actual)
         AND (SELECT count(*)=1 FROM vec_contacto_usuario_v1.outbox)
         AND (SELECT count(*)=0 FROM vec_contacto_usuario_v1.operaciones)
         AND NOT has_function_privilege('vec_contacto_f2_login',
-            'vec_contacto_usuario_v1.registrar_contacto_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea,bytea)','EXECUTE')`).Scan(&preimagen); err != nil || !preimagen {
+			'vec_contacto_usuario_v1.registrar_contacto_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea)','EXECUTE')`
+	}
+	if err := admin.QueryRow(ctx, preimagenSQL).Scan(&preimagen); err != nil || !preimagen {
 		t.Fatal("Contacto3 no retiró el escritor directo o alteró la preimagen")
 	}
 	ahora := time.Now().UTC().Truncate(time.Microsecond)
@@ -358,8 +371,10 @@ func TestContactoOperacionesPG18RecuperacionNominal(t *testing.T) {
 	}
 	for i, audiencia := range operacionesAudiencia {
 		operacionesMaterial[i] = derivarMaterialOperacionContactoPGPrueba(t, material, audiencia, i+3)
-		if err := publicarGobiernoContactoPGPrueba(ctx, admin, operacionesMaterial[i]); err != nil {
-			t.Fatal("gobierno V3 de operación no disponible")
+		if !recuperacion {
+			if err := publicarGobiernoContactoPGPrueba(ctx, admin, operacionesMaterial[i]); err != nil {
+				t.Fatal("gobierno V3 de operación no disponible")
+			}
 		}
 	}
 	t.Cleanup(func() {
@@ -392,6 +407,33 @@ func TestContactoOperacionesPG18RecuperacionNominal(t *testing.T) {
 	if err != nil {
 		t.Fatal("ServicioOperaciones no disponible")
 	}
+	materialRecibo := derivarMaterialReciboContactoPGPrueba(t, material)
+	defer clear(materialRecibo.claveHMAC)
+	conRecibos, err := contactopropio.NuevoServicioConRecibos(servicio, contactopropio.DependenciasConsultaRecibo{
+		PoolConsulta: writer, Emisor: emitir(materialRecibo), Motivo: motivoRecibo})
+	if err != nil {
+		t.Fatal("consulta propia de recibo no disponible")
+	}
+	if recuperacion {
+		esperadaRef := os.Getenv("VEC_F2_CONTACTO_RECUPERACION_OP_REF")
+		esperadoRecibo := os.Getenv("VEC_F2_CONTACTO_RECUPERACION_RECIBO_REF")
+		if !vecapp.ReferenciaOperacionContactoValida(esperadaRef) || len(esperadoRecibo) != 44 || !strings.HasPrefix(esperadoRecibo, "acc_") {
+			t.Fatal("selectores de recuperación ausentes")
+		}
+		lista, err := operaciones.ListarOperaciones(ctx, 20, "")
+		if err != nil || len(lista.Operaciones) != 3 {
+			t.Fatal("índice autorizado no recuperó historia tras reinicio PostgreSQL")
+		}
+		detalle, err := operaciones.DetalleOperacion(ctx, esperadaRef)
+		if err != nil || !detalle.Encontrada || detalle.Operacion.Estado != ports.OperacionContactoConfirmada || detalle.Operacion.ReciboRef != esperadoRecibo {
+			t.Fatal("detalle autorizado cambió recibo tras reinicio PostgreSQL")
+		}
+		consultado, err := conRecibos.ConsultarRecibo(ctx, 2)
+		if err != nil || !consultado.Encontrado || consultado.ReciboOriginal.EvidenciaCentral.Referencia != esperadoRecibo {
+			t.Fatal("GET autorizado no recuperó recibo original tras reinicio PostgreSQL")
+		}
+		return
+	}
 	const correo = "actualizado@example.test"
 	preparada, err := operaciones.PrepararOperacion(ctx, correo, 1)
 	if err != nil || preparada.Estado != ports.OperacionContactoPreparada || preparada.VersionEsperada != 1 || preparada.OperacionRef == "" {
@@ -416,34 +458,6 @@ func TestContactoOperacionesPG18RecuperacionNominal(t *testing.T) {
 	preparacionRepetida, err := operaciones.PrepararOperacion(ctx, correo, 1)
 	if err != nil || !preparacionRepetida.ReplayConfirmado || preparacionRepetida.OperacionRef != preparada.OperacionRef || preparacionRepetida.ReciboRef != confirmada.ReciboRef {
 		t.Fatal("replay semántico de preparación perdió intención confirmada")
-	}
-	materialRecibo := material
-	semillaRecibo := sha256.Sum256(append(append([]byte(nil), material.claveHMAC...), []byte("vec.contacto.recibo.prueba.v1")...))
-	materialRecibo.claveHMAC = append([]byte(nil), semillaRecibo[:]...)
-	defer clear(materialRecibo.claveHMAC)
-	materialRecibo.claveHMACID = "clave:capacidad:contacto-recibo:prueba"
-	materialRecibo.claveHMACVersion = 2
-	materialRecibo.claveHMACRevision = 2
-	materialRecibo.claveHMACOrden = 2
-	materialRecibo.emisorID = "emisor:contacto-recibo:prueba"
-	materialRecibo.audienciaConsumo = vecapp.AudienciaConsultaReciboContactoUsuario
-	huellaSecretoRecibo := sha256.Sum256(materialRecibo.claveHMAC)
-	materialRecibo.claveHMACSecreto = hex.EncodeToString(huellaSecretoRecibo[:])
-	hGobierno := sha256.New()
-	_, _ = hGobierno.Write([]byte("vec.ct.desarrollo.capacidad-v3.gobierno.v1\x00"))
-	_, _ = hGobierno.Write(materialRecibo.claveHMAC)
-	materialRecibo.claveHMACHuella = hex.EncodeToString(hGobierno.Sum(nil))
-	materialRecibo.capacidad, err = confianza.NuevaClaveHMACCapacidadAtestacionAutorizacionV3(materialRecibo.claveHMACID, materialRecibo.claveHMACVersion,
-		materialRecibo.claveHMAC, materialRecibo.emisorID, materialRecibo.audienciaConsumo,
-		confianza.EstadoClaveHMACCapacidadAtestacionV3Emision, materialRecibo.validaDesde, materialRecibo.validaHasta,
-		time.Time{}, materialRecibo.claveHMACRevision, materialRecibo.claveHMACHuella)
-	if err != nil {
-		t.Fatal("clave V3 de recibo no disponible")
-	}
-	conRecibos, err := contactopropio.NuevoServicioConRecibos(servicio, contactopropio.DependenciasConsultaRecibo{
-		PoolConsulta: writer, Emisor: emitir(materialRecibo), Motivo: motivoRecibo})
-	if err != nil {
-		t.Fatal("consulta propia de recibo no disponible")
 	}
 	consultado, err := conRecibos.ConsultarRecibo(ctx, 2)
 	if err != nil || !consultado.Encontrado || consultado.ReciboOriginal.EvidenciaCentral.Referencia != confirmada.ReciboRef {
@@ -548,6 +562,31 @@ func derivarMaterialOperacionContactoPGPrueba(t *testing.T, base materialAtestac
 		m.validaDesde, m.validaHasta, time.Time{}, m.claveHMACRevision, m.claveHMACHuella)
 	if err != nil {
 		t.Fatal("derivación de audiencia V3 de prueba inválida")
+	}
+	return m
+}
+
+func derivarMaterialReciboContactoPGPrueba(t *testing.T, base materialAtestacionContratacionTemporalDesarrollo) materialAtestacionContratacionTemporalDesarrollo {
+	t.Helper()
+	m := base
+	semilla := sha256.Sum256(append(append([]byte(nil), base.claveHMAC...), []byte("vec.contacto.recibo.prueba.v1")...))
+	m.claveHMAC = append([]byte(nil), semilla[:]...)
+	m.claveHMACID = "clave:capacidad:contacto-recibo:prueba"
+	m.claveHMACVersion, m.claveHMACRevision, m.claveHMACOrden = 2, 2, 2
+	m.emisorID = "emisor:contacto-recibo:prueba"
+	m.audienciaConsumo = vecapp.AudienciaConsultaReciboContactoUsuario
+	secreto := sha256.Sum256(m.claveHMAC)
+	m.claveHMACSecreto = hex.EncodeToString(secreto[:])
+	h := sha256.New()
+	_, _ = h.Write([]byte("vec.ct.desarrollo.capacidad-v3.gobierno.v1\x00"))
+	_, _ = h.Write(m.claveHMAC)
+	m.claveHMACHuella = hex.EncodeToString(h.Sum(nil))
+	var err error
+	m.capacidad, err = confianza.NuevaClaveHMACCapacidadAtestacionAutorizacionV3(m.claveHMACID, m.claveHMACVersion,
+		m.claveHMAC, m.emisorID, m.audienciaConsumo, confianza.EstadoClaveHMACCapacidadAtestacionV3Emision,
+		m.validaDesde, m.validaHasta, time.Time{}, m.claveHMACRevision, m.claveHMACHuella)
+	if err != nil {
+		t.Fatal("derivación de recibo V3 de prueba inválida")
 	}
 	return m
 }
