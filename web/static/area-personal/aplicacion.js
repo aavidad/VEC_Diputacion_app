@@ -60,7 +60,6 @@ export function conservarResultadoContactoPropio(estado, { reciboRef, version, c
   estado.datos = structuredClone(estado.datos);
   estado.datos.perfil.correo = correo;
 }
-
 export function excluirCorreoDeActualizacionContacto(payload) {
   const { correo: _correo, ...sinCorreo } = payload;
   return sinCorreo;
@@ -217,12 +216,12 @@ function renderizar(estado, { enfocar = false } = {}) {
   if (!estado.datos) return;
   estado.destruirContactoPropio?.();
   estado.destruirContactoPropio = null;
+  estado.controladorContactoPropio = null;
   if (estado.vista !== "perfil" && estado.abortContactoPropio) {
     estado.abortContactoPropio.abort();
     estado.abortContactoPropio = null;
     estado.cargandoContactoPropio = false;
   }
-
   estado.vista = RUTAS[estado.vista] ? estado.vista : "inicio";
   actualizarShell(estado);
   porId("estado-carga").hidden = true;
@@ -259,6 +258,10 @@ function renderizar(estado, { enfocar = false } = {}) {
       alConfirmar: (resultado) => {
         conservarResultadoContactoPropio(estado, resultado);
         if (estado.vista === "perfil") renderizar(estado);
+      },
+      alDenegar: () => {
+        estado.contactoPropio = null;
+        estado.contactoPropioRecibo = null;
       },
     });
     const montajeContacto = montarContactoPropio({

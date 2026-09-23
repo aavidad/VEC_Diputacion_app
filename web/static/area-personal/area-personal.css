@@ -330,7 +330,9 @@ fieldset { min-width: 0; margin: 0; padding: 13px; border: 1px solid var(--ap-bo
 .nota.error { border-left-color: var(--ap-rojo); background: var(--ap-rojo-suave); color: #771323; }
 .nota.demo { border-left-color: #8c6400; background: #fff7d9; color: #5a4200; }
 .contacto-operacion-formulario { display: grid; gap: 12px; }
-.contacto-operacion-formulario .campo { max-width: 640px; }
+.contacto-ayuda { margin-top: 8px; border: 0; }
+.contacto-ayuda summary { display: grid; width: 30px; min-height: 30px; place-items: center; padding: 0; border: 1px solid var(--ap-borde); border-radius: 50%; background: var(--ap-azul-100); color: var(--ap-azul-800); font-weight: 800; list-style: none; }
+.contacto-ayuda p { max-width: 62ch; margin: 8px 0 0; color: var(--ap-muted); font-size: .8125rem; }
 .contacto-operacion-formulario .fila-acciones { margin-top: 2px; }
 .contacto-operacion-formulario .nota { margin: 0; overflow-wrap: anywhere; }
 .contacto-operaciones-panel { margin-top: 20px; border: 1px solid var(--portal-borde, var(--ap-borde)); border-radius: var(--portal-radio-lg, var(--ap-radio)); background: var(--portal-superficie, var(--ap-superficie)); box-shadow: var(--portal-sombra-sm, var(--ap-sombra)); overflow: hidden; }

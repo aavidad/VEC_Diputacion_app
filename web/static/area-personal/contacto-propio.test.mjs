@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
-import { crearControladorContactoPropio, capturarCorreoEnviado } from "./contacto-propio.js";
+import { crearControladorContactoPropio, capturarCorreoEnviado, montarContactoPropio } from "./contacto-propio.js";
 import { crearClienteOperacionesContactoPropio, RUTAS_OPERACIONES_CONTACTO } from "./cliente-http.js";
 import { textoContactoPropio } from "./i18n-contacto-propio.js";
 import { traducir } from "./i18n.js";
@@ -21,6 +21,14 @@ function servidor(secuencia) {
     return respuesta(...siguiente);
   };
   return { peticiones, fetchImpl };
+}
+function contenedorDOM() {
+  const crearNodo = () => ({ children: [], handlers: {}, append(...nodos) { this.children.push(...nodos); },
+    replaceChildren(...nodos) { this.children = nodos; }, setAttribute() {},
+    addEventListener(tipo, fn) { this.handlers[tipo] = fn; }, removeEventListener(tipo) { delete this.handlers[tipo]; },
+    checkValidity() { return true; }, focus() {} });
+  const documento = { createElement: crearNodo };
+  return { ownerDocument: documento, replaceChildren(...nodos) { this.children = nodos; } };
 }
 const autorizado = { capacidad: true, version: 7 };
 
@@ -92,9 +100,49 @@ test("503 y detalle 404 dejan incertidumbre, sin atribuir recibo vigente ni reen
   const c = crearControladorContactoPropio({ autorizacionServidor: autorizado, fetchImpl: s.fetchImpl });
   await c.preparar("uno@ejemplo.test");
   await assert.rejects(() => c.confirmar("uno@ejemplo.test"));
-  assert.equal(c.seleccion.estado, "preparada");
-  assert.match(c.aviso, /no se ha podido recuperar|no se pudo recuperar/iu);
+  assert.equal(c.seleccion, null);
+  assert.equal(c.autorizado, false);
   assert.equal(s.peticiones.filter((p) => p.ruta === RUTAS_OPERACIONES_CONTACTO.confirmar).length, 1);
+});
+
+test("destruir durante confirmación tardía invalida recibo, correo y callback", async () => {
+  let resolverConfirmacion;
+  const fetchImpl = async (ruta) => {
+    if (ruta === RUTAS_OPERACIONES_CONTACTO.consultas) return respuesta(200, { operaciones: [] });
+    if (ruta === RUTAS_OPERACIONES_CONTACTO.preparar) return respuesta(201, preparado());
+    if (ruta === RUTAS_OPERACIONES_CONTACTO.confirmar) return new Promise((resolve) => { resolverConfirmacion = resolve; });
+    throw new Error("ruta inesperada");
+  };
+  let callbacks = 0;
+  const c = crearControladorContactoPropio({ autorizacionServidor: autorizado, fetchImpl, alConfirmar: () => { callbacks++; } });
+  await c.cargar();
+  await c.preparar("uno@ejemplo.test");
+  const montaje = montarContactoPropio({ contenedor: contenedorDOM(), controlador: c });
+  const pendiente = c.confirmar("uno@ejemplo.test");
+  montaje.destruir();
+  resolverConfirmacion(respuesta(201, confirmado()));
+  await assert.rejects(pendiente);
+  assert.equal(callbacks, 0);
+  assert.equal(c.seleccion, null);
+  assert.deepEqual(c.operaciones, []);
+  assert.equal(c.autorizado, false);
+  assert.equal(JSON.stringify(c).includes("uno@ejemplo.test"), false);
+});
+
+test("403 posterior a lista y detalle 200 borra datos y bloquea el controlador", async () => {
+  const s = servidor([[200, { operaciones: [confirmado()] }], [200, confirmado()], [403, { codigo: "acceso_denegado" }]]);
+  let denegaciones = 0;
+  const c = crearControladorContactoPropio({ autorizacionServidor: autorizado, fetchImpl: s.fetchImpl, alDenegar: () => { denegaciones++; } });
+  await c.cargar();
+  await c.seleccionar(REF);
+  assert.equal(c.seleccion.recibo_ref, "recibo-original");
+  await assert.rejects(() => c.cargar(), (e) => e.codigo === "acceso_denegado");
+  assert.equal(c.seleccion, null);
+  assert.deepEqual(c.operaciones, []);
+  assert.equal(c.autorizado, false);
+  assert.equal(denegaciones, 1);
+  await assert.rejects(() => c.cargar(), (e) => e.codigo === "acceso_denegado");
+  assert.equal(s.peticiones.length, 3);
 });
 
 test("403/404 no muestran datos ajenos; 409 entre pestañas exige consulta", async () => {
