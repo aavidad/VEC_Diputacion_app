@@ -46,8 +46,49 @@ test("estados desconocidos no se presentan como validados o publicados", () => {
   assert.doesNotMatch(html, /Firmada|firmada/u);
 });
 
+test("el detalle enlaza resultados y actas por identificador estable, incluso con nombres repetidos", () => {
+  const datos = {
+    estado: "disponible",
+    pruebas: [
+      { id: "p-1", nombre: "Ejercicio común", descripcion: "Primera sesión", estado: "realizada" },
+      { id: "p-2", nombre: "Ejercicio común", descripcion: "Segunda sesión", estado: "programada" },
+    ],
+    resultados: [
+      { prueba_id: "p-1", prueba: "Ejercicio común", aspirante: "ASP-UNO", resultado: "Pendiente" },
+      { prueba_id: "p-2", prueba: "Ejercicio común", aspirante: "ASP-DOS", resultado: "Pendiente" },
+      { prueba: "Ejercicio común", aspirante: "SIN-VINCULO", resultado: "Pendiente" },
+    ],
+    actas: [
+      { prueba_id: "p-1", prueba: "Ejercicio común", referencia: "ACT-UNO" },
+      { prueba_id: "p-2", prueba: "Ejercicio común", referencia: "ACT-DOS" },
+    ],
+  };
+  const general = renderizarVistaPruebas(datos);
+  assert.match(general, /ASP-UNO/u);
+  assert.match(general, /ASP-DOS/u);
+  assert.match(general, /data-prueba-detalle="p-1"/u);
+  const detalle = renderizarVistaPruebas(datos, undefined, "p-2");
+  assert.match(detalle, /Segunda sesión/u);
+  assert.match(detalle, /ASP-DOS/u);
+  assert.match(detalle, /ACT-DOS/u);
+  assert.match(detalle, /data-pruebas-todas/u);
+  assert.doesNotMatch(detalle, /ASP-UNO|ACT-UNO|SIN-VINCULO|Primera sesión/u);
+  assert.match(detalle, /<strong>1<\/strong> resultado vinculado/u);
+  assert.match(detalle, /<strong>1<\/strong> acta vinculada/u);
+});
+
+test("el detalle no infiere vínculos por nombre ni conserva datos en estado denegado", () => {
+  const datos = { estado: "disponible", pruebas: [{ id: "p-1", nombre: "Igual" }], resultados: [{ prueba: "Igual", aspirante: "Sin referencia" }] };
+  const detalle = renderizarVistaPruebas(datos, undefined, "p-1");
+  assert.match(detalle, /No hay resultados vinculados/u);
+  assert.doesNotMatch(detalle, /Sin referencia/u);
+  const denegado = renderizarVistaPruebas({ ...datos, estado: "denegado" }, undefined, "p-1");
+  assert.doesNotMatch(denegado, /Igual|Sin referencia|pruebas-ficha/u);
+});
+
 test("montaje permite actualizaciones y desmontaje idempotente", () => {
-  const raiz = { innerHTML: "", replaceChildren() { this.innerHTML = ""; } };
+  const eventos = new Map();
+  const raiz = { innerHTML: "", replaceChildren() { this.innerHTML = ""; }, addEventListener(tipo, fn) { eventos.set(tipo, fn); }, removeEventListener(tipo) { eventos.delete(tipo); } };
   let registrado;
   const vista = montarVistaPruebas({ raiz, registrarDesmontar: (desmontar) => { registrado = desmontar; } });
   assert.match(raiz.innerHTML, /Sin conexión configurada/u);
@@ -55,10 +96,29 @@ test("montaje permite actualizaciones y desmontaje idempotente", () => {
   assert.match(raiz.innerHTML, /Cargando pruebas y actas/u);
   registrado();
   assert.equal(raiz.innerHTML, "");
+  assert.equal(eventos.size, 0);
   vista.actualizar({ estado: "disponible" });
   assert.equal(raiz.innerHTML, "");
   vista.desmontar();
   assert.throws(() => montarVistaPruebas({ raiz: null }), TypeError);
+});
+
+test("el montaje navega al detalle y vuelve sin cambiar el modelo fuente", () => {
+  const eventos = new Map();
+  const datos = { estado: "disponible", pruebas: [{ id: "p-1", nombre: "Primera" }], resultados: [{ prueba_id: "p-1", aspirante: "ASP-1" }] };
+  const raiz = { innerHTML: "", replaceChildren() { this.innerHTML = ""; }, addEventListener(tipo, fn) { eventos.set(tipo, fn); }, removeEventListener(tipo) { eventos.delete(tipo); }, querySelector() { return { focus() {} }; } };
+  const vista = montarVistaPruebas({ raiz, datos });
+  eventos.get("click")({ target: { closest: (selector) => selector === "[data-prueba-detalle]" ? { dataset: { pruebaDetalle: "p-1" } } : null } });
+  assert.match(raiz.innerHTML, /id="pruebas-ficha"/u);
+  vista.actualizar({ ...datos, estado: "denegado" });
+  assert.doesNotMatch(raiz.innerHTML, /id="pruebas-ficha"|ASP-1/u);
+  vista.actualizar(datos);
+  assert.doesNotMatch(raiz.innerHTML, /id="pruebas-ficha"/u);
+  eventos.get("click")({ target: { closest: (selector) => selector === "[data-prueba-detalle]" ? { dataset: { pruebaDetalle: "p-1" } } : null } });
+  eventos.get("click")({ target: { closest: (selector) => selector === "[data-pruebas-todas]" ? {} : null } });
+  assert.doesNotMatch(raiz.innerHTML, /id="pruebas-ficha"/u);
+  assert.equal(datos.pruebas[0].nombre, "Primera");
+  vista.desmontar();
 });
 
 test("catálogo cerrado, ayuda con teclado y CSS de lienzo responsive", async () => {

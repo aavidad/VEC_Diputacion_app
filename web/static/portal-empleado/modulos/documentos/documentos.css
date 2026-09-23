@@ -15,6 +15,10 @@
 .documentos-cabecera h2 { font-size: 1.45rem; color: var(--portal-azul-950); }
 .documentos-cabecera > p:not(.sobrelinea) { max-width: 72ch; color: var(--portal-muted); }
 .documentos-cabecera .documentos-aviso {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
   max-width: none;
   padding: 8px 12px;
   border-left: 4px solid var(--portal-aviso);
@@ -24,6 +28,11 @@
   font-size: .82rem;
   font-weight: 650;
 }
+.documentos-aviso small { width: 100%; font-weight: 500; }
+.modulo-documentos[data-estado="disponible"] .documentos-aviso,
+.modulo-documentos[data-estado="vacio"] .documentos-aviso { border-left-color: var(--portal-exito); background: var(--portal-exito-suave); }
+.modulo-documentos[data-estado="denegado"] .documentos-aviso,
+.modulo-documentos[data-estado="error"] .documentos-aviso { border-left-color: var(--portal-peligro); background: var(--portal-peligro-suave); }
 
 .documentos-indicadores {
   display: grid;
@@ -52,7 +61,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1.45fr) minmax(330px, .85fr);
   gap: 16px;
-  align-items: stretch;
+  align-items: start;
   min-width: 0;
 }
 .documentos-listado,
@@ -60,12 +69,21 @@
 .documentos-listado { display: grid; grid-template-rows: auto 1fr; }
 .documentos-listado .cuerpo-panel,
 .documentos-ficha .cuerpo-panel { display: grid; gap: 12px; }
+.documentos-listado .cuerpo-panel { grid-template-rows: auto auto minmax(0, 1fr); }
+.documentos-listado-contenido { min-width: 0; min-height: 160px; }
+.documentos-tabla-ayuda { display: none; margin: 0; color: var(--portal-muted); font-size: .76rem; }
+.documentos-filtros { display: flex; align-items: end; gap: 8px; }
+.documentos-filtros label { display: grid; flex: 1; min-width: 0; gap: 4px; color: var(--portal-muted); font-size: .8rem; font-weight: 700; }
+.documentos-filtros input { width: 100%; min-height: 38px; padding: 7px 9px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio); background: var(--portal-superficie); color: var(--portal-tinta); }
+.documentos-filtros input:disabled,
+.documentos-filtros button:disabled { cursor: not-allowed; opacity: .75; }
+.documentos-filtros button { min-height: 38px; }
+.documentos-reintentar { min-height: 36px; margin-bottom: 8px; }
 .documentos-vacio {
   display: grid;
   align-content: center;
   gap: 8px;
   min-height: 220px;
-  height: 100%;
   padding: 20px;
   border: 1px dashed var(--portal-borde);
   border-radius: var(--portal-radio-lg);
@@ -74,6 +92,26 @@
 .documentos-vacio strong { color: var(--portal-aviso); font-size: 1.1rem; }
 .documentos-vacio p { margin: 0; }
 .documentos-vacio small { color: var(--portal-muted); }
+.documentos-tabla { max-width: 100%; max-height: min(40vh, 390px); overflow: auto; }
+.documentos-tabla table { width: 100%; min-width: 570px; border-collapse: collapse; }
+.documentos-tabla caption { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.documentos-tabla th,
+.documentos-tabla td { padding: 8px 10px; border-bottom: 1px solid var(--portal-borde); text-align: left; }
+.documentos-tabla th { position: sticky; top: 0; z-index: 1; background: var(--portal-cabecera-panel); color: var(--portal-azul-950); font-size: .76rem; }
+.documentos-tabla td { height: 44px; font-size: .84rem; }
+.documentos-tabla td:first-child { color: var(--portal-azul-800); font-weight: 700; }
+.documentos-tabla tbody tr:nth-child(even) { background: var(--portal-superficie-alterna); }
+.documentos-tabla tbody tr:hover,
+.documentos-tabla tbody tr:focus-within { background: var(--portal-azul-100); }
+.documentos-tabla tr[data-seleccionada="true"] { box-shadow: inset 4px 0 var(--portal-azul-700); }
+.documentos-ver { min-height: 34px; padding: 4px 8px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio); background: var(--portal-superficie); color: var(--portal-azul-700); font: inherit; font-weight: 700; cursor: pointer; }
+.documentos-ver:hover { background: var(--portal-azul-100); }
+.documentos-estado { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 999px; font-size: .73rem; font-weight: 700; white-space: nowrap; }
+.documentos-estado::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.documentos-estado--borrador { color: var(--portal-azul-800); background: var(--portal-azul-100); }
+.documentos-estado--pendiente_firma { color: var(--portal-violeta); background: var(--portal-violeta-suave); }
+.documentos-estado--firmado { color: var(--portal-exito); background: var(--portal-exito-suave); }
+.documentos-estado--sin_acreditar { color: var(--portal-aviso); background: var(--portal-aviso-suave); }
 .documentos-titulo-ficha {
   margin: 0;
   padding: 8px 10px;
@@ -107,6 +145,9 @@
   font-weight: 700;
   cursor: not-allowed;
 }
+.documentos-descargar:not(:disabled) { background: var(--portal-azul-700); border-color: var(--portal-azul-700); color: var(--portal-superficie); cursor: pointer; }
+.documentos-descargar:not(:disabled):hover { background: var(--portal-azul-800); }
+.documentos-descarga-estado { min-height: 1.2em; margin: 0; color: var(--portal-muted); font-size: .8rem; }
 .documentos-ayuda > summary { padding: 11px 15px; cursor: pointer; background: var(--portal-cabecera-panel); color: var(--portal-azul-950); font-weight: 720; }
 .documentos-ayuda[open] > summary { border-bottom: 1px solid var(--portal-borde); }
 .documentos-ayuda .cuerpo-panel { display: grid; gap: 12px; }
@@ -120,6 +161,7 @@
 @media (max-width: 1150px) {
   .documentos-principal { grid-template-columns: 1fr; }
   .documentos-vacio { min-height: 130px; }
+  .documentos-tabla { max-height: 30vh; }
 }
 @media (max-width: 850px) {
   .documentos-indicadores { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -130,4 +172,7 @@
   .documentos-indicador { padding: 8px; }
   .documentos-acciones { grid-template-columns: 1fr; }
   .documentos-metadatos div { grid-template-columns: 1fr; gap: 1px; }
+  .documentos-filtros { display: grid; }
+  .documentos-filtros button { width: 100%; }
+  .modulo-documentos[data-estado="disponible"] .documentos-tabla-ayuda { display: block; }
 }

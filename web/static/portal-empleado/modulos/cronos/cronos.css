@@ -56,6 +56,25 @@
   min-width: 0;
 }
 
+.cronos-jornada-lateral {
+  display: grid;
+  align-content: start;
+  gap: var(--portal-espacio-3);
+  min-width: 0;
+}
+
+.cronos-jornada-calendario-pendiente {
+  display: grid;
+  justify-items: start;
+  gap: var(--portal-espacio-2);
+}
+
+.cronos-jornada-calendario-pendiente p {
+  margin: 0;
+  color: var(--portal-muted);
+  font-size: .75rem;
+}
+
 .cronos-jornada-panel .cabecera-panel h4 {
   margin: 0;
   color: var(--portal-azul-950);
@@ -94,10 +113,14 @@
 
 @media (max-width: 1024px) {
   .cronos-jornada-rejilla { grid-template-columns: minmax(0, 1fr); }
+  .cronos-jornada-lateral { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cronos-jornada-panel .cronos-tabla-contenedor { max-height: 210px; }
 }
 
 @media (max-width: 720px) {
   .cronos-jornada-indicadores { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cronos-jornada-lateral { grid-template-columns: minmax(0, 1fr); }
+  .cronos-jornada-panel .cronos-tabla-contenedor { max-height: 280px; }
 }
 
 @media (max-width: 420px) {

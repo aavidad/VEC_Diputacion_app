@@ -34,7 +34,9 @@
 }
 .pruebas-ayuda summary::-webkit-details-marker { display: none; }
 .pruebas-ayuda summary:focus-visible,
-.pruebas-tabla:focus-visible { outline: 3px solid var(--portal-azul-700); outline-offset: 2px; }
+.pruebas-tabla:focus-visible,
+.pruebas-enlace:focus-visible,
+.pruebas-ficha button:focus-visible { outline: 3px solid var(--portal-azul-700); outline-offset: 2px; }
 .pruebas-ayuda p {
   position: absolute;
   z-index: 2;
@@ -82,6 +84,39 @@
 .pruebas-tabla caption { text-align: left; }
 .pruebas-tabla th,
 .pruebas-tabla td { overflow-wrap: anywhere; }
+.pruebas-tabla tr[data-seleccionada="true"] > th {
+  border-left: 4px solid var(--portal-azul-700);
+  background: var(--portal-azul-100);
+}
+.pruebas-enlace {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--portal-azul-700);
+  cursor: pointer;
+  font-weight: 700;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.pruebas-enlace:hover { color: var(--portal-azul-950); }
+.pruebas-ficha {
+  display: grid;
+  gap: var(--portal-espacio-2);
+  margin-top: var(--portal-espacio-3);
+  padding: var(--portal-espacio-3);
+  border: 1px solid var(--portal-borde);
+  border-left: 4px solid var(--portal-azul-700);
+  border-radius: var(--portal-radio-md);
+  background: var(--portal-superficie-alterna);
+}
+.pruebas-ficha:focus { outline: 3px solid var(--portal-azul-700); outline-offset: 2px; }
+.pruebas-ficha-cabecera { display: flex; align-items: start; justify-content: space-between; gap: var(--portal-espacio-2); }
+.pruebas-ficha-cabecera p, .pruebas-ficha > p { margin: 0; color: var(--portal-muted); font-size: .8rem; }
+.pruebas-ficha h4 { margin: 0; font-size: .98rem; }
+.pruebas-ficha-recuento { display: flex; flex-wrap: wrap; gap: var(--portal-espacio-2); }
+.pruebas-ficha-recuento span { padding: var(--portal-espacio-1) var(--portal-espacio-2); border-radius: var(--portal-radio-md); background: var(--portal-superficie); font-size: .78rem; }
+.pruebas-ficha-recuento strong { color: var(--portal-azul-700); font-variant-numeric: tabular-nums; }
 .pruebas-vacio { margin: 0; color: var(--portal-muted); font-size: .84rem; }
 
 .pruebas-acciones {
@@ -98,6 +133,7 @@
   .pruebas-rejilla { grid-template-columns: minmax(0, 1fr); }
   .pruebas-panel--ancho { grid-column: auto; }
   .pruebas-contexto { align-items: start; flex-direction: column; gap: var(--portal-espacio-1); }
+  .pruebas-ficha-cabecera { flex-direction: column; }
   .pruebas-acciones { justify-content: stretch; }
   .pruebas-acciones button { flex: 1 1 100%; }
 }

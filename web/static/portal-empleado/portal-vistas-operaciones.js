@@ -54,7 +54,10 @@ export function crearVistasOperaciones(u) {
     const fuente = datos?.contratos_fuente;
     const estados = ["cargando", "disponible", "vacio", "no_configurado", "denegado", "error"];
     let estado = estados.includes(fuente?.estado) ? fuente.estado : "no_configurado";
-    if (estado === "disponible" && !Array.isArray(fuente.registros)) estado = "error";
+    const registroValido = (item) => item && typeof item === "object"
+      && ["expediente", "acto", "bolsa", "estado"].every((clave) => typeof item[clave] === "string");
+    if (estado === "disponible" && (!Array.isArray(fuente.registros)
+      || !fuente.registros.every(registroValido))) estado = "error";
     const contratos = estado === "disponible" ? fuente.registros : [];
     if (estado === "disponible" && contratos.length === 0) estado = "vacio";
     const clasesEstado = { cargando: "info", disponible: "exito", vacio: "neutro", no_configurado: "aviso", denegado: "peligro", error: "peligro" };
@@ -84,13 +87,23 @@ export function crearVistasOperaciones(u) {
         <div class="cabecera-panel"><div><h3 id="contratos-circuito-titulo">${e(t("circuito_titulo"))}</h3><p>${e(t("circuito_subtitulo"))}</p></div></div>
         <ol class="contratos-pasos">${pasoHTML}</ol>
       </section>
-      <section class="panel contratos-panel-registros" aria-labelledby="contratos-registros-titulo">
-        <div class="cabecera-panel"><div><h3 id="contratos-registros-titulo">${e(t("registros_titulo"))}</h3><p>${e(t("registros_subtitulo"))}</p></div><span class="estado-chip ${clasesEstado[estado]}">${e(t(`estado_${estado}`))}</span></div>
-        ${tabla({ titulo: t("tabla_titulo"), cabeceras: [t("columna_expediente"), t("columna_acto"), t("columna_bolsa"), t("columna_fechas"), t("columna_estado")], clavesColumnas: ["referencia", "acto", "bolsa", "fechas", "estado"], prioridadColumnas: "estado", filas, vacio: t("vacio") })}
-      </section>
-      <section class="panel contratos-panel-acciones" aria-labelledby="contratos-acciones-titulo">
-        <div class="cabecera-panel"><div><h3 id="contratos-acciones-titulo">${e(t("acciones_titulo"))}</h3><p>${e(t("acciones_subtitulo"))}</p></div></div>
-        <div class="contratos-acciones">${accionPendiente("accion_contrato", "motivo_contrato", 'data-operacion="registrar-contrato"')}${accionPendiente("accion_cese", "motivo_cese", 'data-operacion="registrar-cese"')}${accionPendiente("accion_reincorporar", "motivo_reincorporar", 'data-operacion="reincorporar-bolsa"')}</div>
+      <section class="contratos-secciones" aria-label="${e(t("navegacion_titulo"))}">
+        <details class="panel contratos-seccion contratos-panel-registros" name="contratos-recorrido" open>
+          <summary><strong>${e(t("seccion_contratos"))}</strong><span class="estado-chip ${clasesEstado[estado]}">${e(t(`estado_${estado}`))}</span></summary>
+          <p class="contratos-seccion-descripcion">${e(t("registros_subtitulo"))}</p>
+          ${tabla({ titulo: t("tabla_titulo"), cabeceras: [t("columna_expediente"), t("columna_acto"), t("columna_bolsa"), t("columna_fechas"), t("columna_estado")], clavesColumnas: ["referencia", "acto", "bolsa", "fechas", "estado"], prioridadColumnas: "estado", filas, vacio: t("vacio") })}
+          ${accionPendiente("accion_contrato", "motivo_contrato", 'data-operacion="registrar-contrato"')}
+        </details>
+        <details class="panel contratos-seccion" name="contratos-recorrido">
+          <summary><strong>${e(t("seccion_ceses"))}</strong><span class="estado-chip aviso">${e(t("accion_pendiente"))}</span></summary>
+          <p class="contratos-seccion-descripcion">${e(t("descripcion_ceses"))}</p>
+          ${accionPendiente("accion_cese", "motivo_cese", 'data-operacion="registrar-cese"')}
+        </details>
+        <details class="panel contratos-seccion" name="contratos-recorrido">
+          <summary><strong>${e(t("seccion_reincorporacion"))}</strong><span class="estado-chip aviso">${e(t("accion_pendiente"))}</span></summary>
+          <p class="contratos-seccion-descripcion">${e(t("descripcion_reincorporacion"))}</p>
+          ${accionPendiente("accion_reincorporar", "motivo_reincorporar", 'data-operacion="reincorporar-bolsa"')}
+        </details>
       </section>
       <details class="contratos-ayuda"><summary>${e(t("ayuda"))}</summary><p>${e(t("ayuda_contenido"))}</p></details>
     </div>`;

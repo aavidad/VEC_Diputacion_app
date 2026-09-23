@@ -41,7 +41,7 @@
 
 .nominas-principal { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(240px, .8fr); align-items: start; gap: 16px; min-width: 0; }
 .nominas-principal > *, .nominas-lateral > * { min-width: 0; }
-.nominas-lateral { display: grid; gap: 16px; min-width: 0; }
+.nominas-lateral { display: grid; align-content: start; gap: 16px; max-height: calc(100vh - 360px); min-width: 0; overflow: auto; overscroll-behavior: contain; }
 .modulo-nominas .cabecera-panel p { margin: 2px 0 0; }
 .modulo-nominas .cuerpo-panel { display: grid; gap: 12px; }
 .modulo-nominas .cuerpo-panel > p { margin: 0; color: var(--portal-muted); font-size: .87rem; }
@@ -50,24 +50,31 @@
 .nominas-barra select { min-height: 38px; max-width: 100%; padding: 6px 9px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio); background: var(--portal-superficie); color: var(--portal-azul-950); font: inherit; }
 .nominas-barra select:disabled { color: var(--portal-muted); background: var(--portal-superficie-alterna); }
 .nominas-vacio { min-height: 82px; display: grid; align-content: center; padding: 12px 14px; border: 1px dashed var(--portal-borde); border-radius: var(--portal-radio-lg); background: var(--portal-superficie-alterna); }
+.modulo-nominas .nominas-ayuda-tabla { display: none; margin: 0; color: var(--portal-muted); font-size: .76rem; }
 .nominas-tabla { max-width: 100%; max-height: min(45vh, 420px); min-width: 0; overflow: auto; overscroll-behavior: contain; }
 .nominas-tabla table { width: 100%; min-width: 560px; border-collapse: collapse; }
 .nominas-tabla th, .nominas-tabla td { padding: 10px 12px; border-bottom: 1px solid var(--portal-borde); text-align: left; font-size: .84rem; white-space: nowrap; }
 .nominas-tabla th { position: sticky; top: 0; background: var(--portal-superficie-alterna); color: var(--portal-muted); font-size: .75rem; }
 .nominas-tabla tbody tr:nth-child(even) { background: var(--portal-superficie-alterna); }
 .nominas-tabla tbody tr:hover { background: var(--portal-azul-100); }
+.nominas-tabla tbody tr[data-seleccionada="true"] { background: var(--portal-azul-100); box-shadow: inset 4px 0 var(--portal-azul-700); }
 .nominas-tabla td:nth-child(3) { text-align: right; font-variant-numeric: tabular-nums; }
 .nominas-tabla th:nth-child(3) { text-align: right; }
-.modulo-nominas .nominas-descarga { white-space: nowrap; }
+.modulo-nominas .nominas-ver, .modulo-nominas .nominas-descarga { white-space: nowrap; }
+.nominas-ficha { display: grid; grid-template-columns: minmax(84px, 35%) minmax(0, 1fr); gap: 6px 10px; margin: 0; font-size: .83rem; }
+.nominas-ficha dt { color: var(--portal-muted); font-weight: 700; }
+.nominas-ficha dd { margin: 0; overflow-wrap: anywhere; }
+.nominas-detalle .nominas-descarga { justify-self: start; }
 .modulo-nominas button:disabled { cursor: not-allowed; opacity: .72; }
 .nominas-accion-bloqueada { justify-self: start; }
 
 @media (max-width: 900px) {
   .nominas-principal { grid-template-columns: minmax(0, 1fr); }
-  .nominas-lateral { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .nominas-lateral { grid-template-columns: repeat(2, minmax(0, 1fr)); max-height: none; overflow: visible; }
 }
 @media (max-width: 620px) {
   .nominas-lateral { grid-template-columns: minmax(0, 1fr); }
+  .modulo-nominas .nominas-ayuda-tabla { display: block; }
   .nominas-barra label, .nominas-barra select { width: 100%; }
   .nominas-estado { display: grid; }
 }

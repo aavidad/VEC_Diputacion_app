@@ -8,12 +8,20 @@ function contenedorFalso() {
   const oyentes = new Map();
   return {
     innerHTML: "",
+    destinos: [],
     addEventListener(nombre, oyente) { oyentes.set(nombre, oyente); },
     removeEventListener(nombre) { oyentes.delete(nombre); },
     replaceChildren() { this.innerHTML = ""; },
     contains() { return true; },
     pulsar(referencia) {
-      oyentes.get("click")?.({ target: { closest: () => ({ dataset: { s1Convocatoria: referencia } }) } });
+      oyentes.get("click")?.({ target: { closest: (selector) => selector === "[data-s1-convocatoria]" ? { dataset: { s1Convocatoria: referencia } } : null } });
+    },
+    pulsarSeccion(seccion) {
+      oyentes.get("click")?.({ target: { closest: (selector) => selector === "[data-s1-seccion]" ? { dataset: { s1Seccion: seccion } } : null } });
+    },
+    querySelector(selector) {
+      this.destinos.push(selector);
+      return { scrollIntoView: () => this.destinos.push(`scroll:${selector}`), focus: () => this.destinos.push(`focus:${selector}`) };
     },
     get oyentes() { return oyentes.size; },
   };
@@ -25,7 +33,7 @@ const detalle = {
   identificador_publico: "auxiliar-2026", version_actual: "v2",
   versiones: [{ codigo: "v1", estado: "Sustituida", publicada_en: "2026-08-01" }, { codigo: "v2", estado: "Publicada", publicada_en: "2026-09-01" }],
   bases: {
-    codigo: "v2", requisitos: [{ referencia: "titulacion", titulo: "Titulación", descripcion: "Título exigido por las bases", obligatorio: true, hito_exigibilidad: "Fin del plazo" }],
+    codigo: "v2", resumen: "Bases de la versión publicada", requisitos: [{ referencia: "titulacion", titulo: "Titulación", descripcion: "Título exigido por las bases", obligatorio: true, hito_exigibilidad: "Fin del plazo" }],
     hitos: [{ titulo: "Fin de solicitudes", fecha: "2026-10-15T23:59:00+02:00" }],
     documentos: [{ titulo: "Bases publicadas", referencia: "BOP-123" }],
   },
@@ -46,14 +54,29 @@ test("consulta versiones, bases, requisitos, hitos y documentos sin habilitar ef
   const contenedor = contenedorFalso();
   const vista = crearSuperficieConvocatoriasS1({ contenedor, consultarLista: async () => lista, consultarDetalle: async () => detalle });
   await vista.montar();
-  for (const texto of ["Auxiliar", "v1", "v2", "Titulación", "Fin del plazo", "Fin de solicitudes", "Bases publicadas", "BOP-123"]) {
+  for (const texto of ["Auxiliar", "v1", "v2", "Bases de la versión publicada", "Titulación", "Fin del plazo", "Fin de solicitudes", "Bases publicadas", "BOP-123"]) {
     assert.ok(contenedor.innerHTML.includes(texto), texto);
   }
   assert.match(contenedor.innerHTML, /data-s1-convocatoria="conv-1"/);
   assert.match(contenedor.innerHTML, /aria-current="true"/);
   assert.match(contenedor.innerHTML, /<details class="s1-ayuda">/);
+  for (const apartado of ["resumen", "bases", "versiones", "requisitos", "hitos", "documentos"]) {
+    assert.match(contenedor.innerHTML, new RegExp(`data-s1-seccion="${apartado}"`));
+    assert.match(contenedor.innerHTML, new RegExp(`id="s1-seccion-${apartado}"`));
+  }
   assert.equal((contenedor.innerHTML.match(/disabled aria-disabled="true"/g) || []).length, 3);
-  assert.doesNotMatch(contenedor.innerHTML, /data-operacion="publicar/);
+  assert.doesNotMatch(contenedor.innerHTML, /DEMO|data-operacion=/);
+  vista.desmontar();
+});
+
+test("la navegación local desplaza y enfoca apartados sin cambiar la URL", async () => {
+  const contenedor = contenedorFalso();
+  const vista = crearSuperficieConvocatoriasS1({ contenedor, consultarLista: async () => lista, consultarDetalle: async () => detalle });
+  await vista.montar();
+  contenedor.pulsarSeccion("requisitos");
+  assert.ok(contenedor.destinos.includes("scroll:#s1-seccion-requisitos"));
+  assert.ok(contenedor.destinos.includes("focus:#s1-seccion-requisitos"));
+  assert.doesNotMatch(contenedor.innerHTML, /href="#s1-/);
   vista.desmontar();
 });
 

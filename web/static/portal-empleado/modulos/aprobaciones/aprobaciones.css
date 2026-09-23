@@ -1,4 +1,4 @@
-/* Aprobaciones comparte superficies y tokens del Portal; sus datos son ejemplos locales. */
+/* Aprobaciones comparte superficies y tokens del Portal. */
 .modulo-aprobaciones {
   display: grid;
   gap: 14px;
@@ -119,6 +119,7 @@
   font: inherit;
   font-weight: 700;
 }
+.aprobaciones-reintentar { margin: 0 16px 16px; }
 .aprobaciones-etiqueta { max-width: 100%; font-size: .73rem; white-space: normal; }
 .aprobaciones-vacio { margin: 0; padding: 16px; color: var(--portal-muted); }
 .aprobaciones-detalle-cuerpo { display: grid; gap: 10px; }

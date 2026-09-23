@@ -11,8 +11,9 @@ const oportunidad = (cambios = {}) => ({
   plazo_etiqueta: "Plazo abierto según las bases",
   estado_solicitud: "no_presentada",
   fuente_evaluacion: "Evaluación autorizada",
+  evaluacion_autorizada: true,
   version_bases: "v2",
-  requisitos: [{ etiqueta: "Titulación", estructurado: true, estado: "cumple", motivo: "Título acreditado vigente", procedencia: "Expediente de méritos" }],
+  requisitos: [{ etiqueta: "Titulación", estructurado: true, temporal: true, hito_cumplimiento: "fin_plazo", estado: "cumple", motivo: "Título acreditado vigente", procedencia: "Expediente de méritos" }],
   ...cambios,
 });
 
@@ -21,6 +22,8 @@ test("una evaluación completa muestra el resultado, sus pruebas y el detalle p�
   assert.match(html, /data-estado="cumple"/);
   assert.match(html, /Título acreditado vigente/);
   assert.match(html, /Expediente de méritos/);
+  assert.match(html, /Al finalizar el plazo/);
+  assert.match(html, /class="oportunidades-requisitos" open/);
   assert.match(html, /href="\/bolsa\/\?convocatoria=bolsa-auxiliar-2026"/);
   assert.match(html, /Iniciar solicitud precompletada<\/button>/);
   assert.match(html, /disabled aria-disabled="true"/);
@@ -30,7 +33,10 @@ test("texto libre, falta de fuente, versión, motivo o procedencia impiden afirm
   for (const cambio of [
     { requisitos: [{ etiqueta: "Requisito textual", estado: "cumple", motivo: "supuesto", procedencia: "méritos" }] },
     { fuente_evaluacion: "" },
+    { evaluacion_autorizada: false },
     { version_bases: "" },
+    { requisitos: [{ etiqueta: "Titulación", estructurado: true, temporal: true, estado: "cumple", motivo: "sí", procedencia: "méritos" }] },
+    { requisitos: [{ etiqueta: "Titulación", estructurado: true, temporal: true, hito_cumplimiento: "fecha_explicita", fecha_hito: "2026-02-30", estado: "cumple", motivo: "sí", procedencia: "méritos" }] },
     { requisitos: [{ etiqueta: "Titulación", estructurado: true, estado: "no_cumple", motivo: "", procedencia: "méritos" }] },
     { requisitos: [{ etiqueta: "Titulación", estructurado: true, estado: "cumple", motivo: "sí", procedencia: "" }] },
   ]) {
@@ -51,11 +57,21 @@ test("no deduce plazo, solicitud ni datos personales sin fuente", () => {
 });
 
 test("un incumplimiento estructurado y explicado queda visible sin abrir una solicitud", () => {
-  const html = renderizarOportunidades({ estado: "disponible", oportunidades: [oportunidad({ requisitos: [{ etiqueta: "Título exigido", estructurado: true, estado: "no_cumple", motivo: "No consta el título exigido en el hito fijado por las bases", procedencia: "Evaluación de acceso" }] })] });
+  const html = renderizarOportunidades({ estado: "disponible", oportunidades: [oportunidad({ requisitos: [{ etiqueta: "Título exigido", estructurado: true, temporal: true, hito_cumplimiento: "incorporacion", estado: "no_cumple", motivo: "No consta el título exigido en el hito fijado por las bases", procedencia: "Evaluación de acceso" }] })] });
   assert.match(html, /data-estado="no_cumple"/);
   assert.match(html, /No consta el título exigido/);
+  assert.match(html, /En la incorporación/);
   assert.match(html, /No cumple/);
   assert.match(html, /disabled aria-disabled="true"/);
+});
+
+test("la fecha explícita se localiza y el cumplimiento previsto nunca se muestra acreditado", () => {
+  const requisito = { etiqueta: "Título previsto", estructurado: true, temporal: true, hito_cumplimiento: "fecha_explicita", fecha_hito: "2027-06-15", cumplimiento_previsto: true, estado: "cumple", motivo: "Previsión declarada", procedencia: "Expediente de méritos" };
+  const html = renderizarOportunidades({ estado: "disponible", oportunidades: [oportunidad({ requisitos: [requisito] })] });
+  assert.match(html, /15\/06\/2027/);
+  assert.match(html, /previsión de cumplimiento no acredita/);
+  assert.match(html, /data-estado="pendiente"/);
+  assert.doesNotMatch(html, /oportunidades-estado--cumple/);
 });
 
 test("escapa campos de proyección e identificador y distingue estados de consulta", () => {

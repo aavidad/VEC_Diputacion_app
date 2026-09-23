@@ -91,6 +91,36 @@ test("una respuesta nueva validada sustituye una vista previa; una inválida no 
   assert.equal(d.documentElement.getAttribute("data-tema"), "institucional");
 });
 
+test("cancelar no restaura una paleta sustituida por otra autoridad", () => {
+  const d = documento();
+  const tema = crearControladorTema({ documento: d });
+  tema.aplicarEstadoServidor({ tema_id: "institucional", revision: 1 });
+  tema.previsualizar({ tema_id: "granate", revision: 1 });
+  d.documentElement.dataset.tema = "institucional";
+  const visible = tema.cancelarPrevisualizacion();
+  assert.equal(d.documentElement.getAttribute("data-tema"), "institucional");
+  assert.equal(visible.tema_id, "institucional");
+  assert.equal(visible.previsualizacion, false);
+  assert.equal(visible.estado_servidor, null);
+});
+
+test("otra previsualización exige renovar el controlador si cambió el tema visible", () => {
+  const d = documento();
+  const tema = crearControladorTema({ documento: d });
+  tema.aplicarEstadoServidor({ tema_id: "granate", revision: 1 });
+  tema.previsualizar({ tema_id: "institucional", revision: 1 });
+  d.documentElement.removeAttribute("data-tema");
+  assert.equal(tema.leerEstado().tema_id, "institucional");
+  assert.throws(() => tema.previsualizar({ tema_id: "granate", revision: 1 }),
+    (error) => error instanceof ErrorTemaVec && error.codigo === "tema_modificado");
+  assert.equal(d.documentElement.getAttribute("data-tema"), null);
+  assert.equal(tema.leerEstado().previsualizacion, false);
+  assert.equal(tema.leerEstado().estado_servidor, null);
+  tema.aplicarEstadoServidor({ tema_id: "institucional", revision: 1 });
+  tema.previsualizar({ tema_id: "granate", revision: 1 });
+  assert.equal(tema.leerEstado().previsualizacion, true);
+});
+
 test("alto contraste es independiente de la paleta y conserva el ajuste previo", () => {
   const d = documento();
   d.body.dataset.contraste = "true";

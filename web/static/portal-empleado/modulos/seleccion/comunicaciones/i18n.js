@@ -15,14 +15,14 @@ export const MENSAJES_SELECCION_COMUNICACIONES_ES = Object.freeze({
   revisar: "Revisar", revisar_motivo: "Falta el caso de uso de revisión con autorización e historia.",
   enviar: "Enviar", enviar_motivo_canal: "No hay canal corporativo configurado para el envío.",
   enviar_motivo_conector: "Falta el conector de envío autorizado, con idempotencia, auditoría y recibo real.",
-  bandeja_titulo: "Comunicaciones preparadas", bandeja_subtitulo: "Consulta de comunicaciones del proceso, sin efecto de despacho.",
+  bandeja_titulo: "Bandeja de comunicaciones", bandeja_subtitulo: "Estados del proceso consultados sin efecto de despacho.",
   buscar: "Buscar por asunto o referencia", filtrar: "Filtrar", todas: "Todos los canales", correo: "Correo electrónico", sms: "SMS",
-  tabla_region: "Tabla de comunicaciones de selección", tabla_caption: "Comunicaciones consultadas", asunto: "Asunto", referencia: "Referencia", estado_preparacion: "Preparación", estado_revision: "Revisión", ver: "Ver seguimiento", sin_resultados: "Ninguna comunicación coincide con el filtro.",
+  tabla_region: "Tabla de comunicaciones de selección", tabla_deslizar: "Deslice la tabla para consultar entrega y lectura.", hitos: "Transporte, entrega y lectura", tabla_caption: "Comunicaciones consultadas", asunto: "Asunto", referencia: "Referencia", estado_preparacion: "Preparación", estado_revision: "Revisión", ver: "Ver seguimiento", visible_uno: "{numero} visible", visibles: "{numero} visibles", sin_resultados: "Ninguna comunicación coincide con el filtro.",
   detalle_titulo: "Seguimiento de una comunicación", detalle_ayuda: "Cada hito muestra solo la evidencia recibida de la fuente. La ausencia de dato se conserva como sin constancia.",
   sin_seleccion: "Seleccione una comunicación de la lista para ver sus hitos.",
   transporte: "Transporte", entrega: "Entrega", lectura: "Lectura", preparacion: "Preparación", revision: "Revisión",
   destinatarios_resumen: "Audiencia autorizada", fecha: "Fecha", referencia_evidencia: "Referencia de evidencia",
-  sin_constancia: "Sin constancia", dato_no_disponible: "No disponible", limite: "Sin entrega o lectura acreditada no se muestra un acuse.",
+  sin_constancia: "Sin constancia", dato_no_disponible: "No disponible", limite: "La aceptación del transporte no acredita entrega ni lectura; cada evidencia figura en su hito.",
   estado_pendiente: "Pendiente", estado_preparada: "Preparada", estado_revisada: "Revisada", estado_observada: "Con observaciones",
   estado_solicitado: "Solicitado", estado_aceptado: "Aceptado por transporte", estado_fallido: "Fallido",
   estado_entregado: "Entregado", estado_leido: "Leído", estado_sin_constancia: "Sin constancia",
@@ -30,8 +30,8 @@ export const MENSAJES_SELECCION_COMUNICACIONES_ES = Object.freeze({
 const CLAVES = Object.keys(MENSAJES_SELECCION_COMUNICACIONES_ES);
 export function crearTraductorSeleccionComunicaciones(catalogo = MENSAJES_SELECCION_COMUNICACIONES_ES) {
   if (!catalogo || CLAVES.some((clave) => typeof catalogo[clave] !== "string" || !catalogo[clave])) throw new TypeError("catálogo S6 incompleto");
-  return (clave) => {
+  return (clave, variables = {}) => {
     if (!Object.hasOwn(catalogo, clave)) throw new TypeError(`clave i18n S6 desconocida: ${clave}`);
-    return catalogo[clave];
+    return catalogo[clave].replace(/\{([a-z_]+)\}/g, (_texto, variable) => String(variables[variable] ?? ""));
   };
 }

@@ -18,13 +18,22 @@ function raizFalsa() {
   return {
     innerHTML: "",
     eventos,
+    focos: [],
     replaceChildren() { this.innerHTML = ""; },
     addEventListener(tipo, callback) { eventos.set(tipo, callback); },
     removeEventListener(tipo) { eventos.delete(tipo); },
-    querySelector() { return { focus() {} }; },
+    querySelector(selector) { return { focus: () => this.focos.push(selector) }; },
+    querySelectorAll(selector) {
+      if (selector !== "[data-solicitudes-detalle]") return [];
+      return [...this.innerHTML.matchAll(/data-solicitudes-detalle="([^"]+)"/g)].map(([, referencia]) => ({
+        dataset: { solicitudesDetalle: referencia },
+        focus: () => this.focos.push(`detalle:${referencia}`),
+      }));
+    },
   };
 }
 const tick = () => new Promise((resolver) => setImmediate(resolver));
+const objetivo = (atributo, valor = "") => ({ closest: (selector) => selector === `[${atributo}]` ? { dataset: { solicitudesDetalle: valor } } : null });
 
 test("sin fuente autorizada muestra estado no configurado y ningún recibo ni expediente sintético", () => {
   const html = renderizarSolicitudes();
@@ -81,6 +90,43 @@ test("una bandeja vacía conserva catálogo y certificados autorizados sin inven
   assert.doesNotMatch(renderizarSolicitudes({ ...vacio, pestana: "bandeja" }), /SOL-001|SOL-002/);
 });
 
+test("de la bandeja se abre la ficha seleccionada y se vuelve con foco al listado", async () => {
+  const raiz = raizFalsa();
+  montarVistaSolicitudes({ raiz, fuente: { consultar: () => datos } });
+  await tick();
+  raiz.eventos.get("click")({ target: objetivo("data-solicitudes-detalle", "SOL-001") });
+  assert.match(raiz.innerHTML, /Entrada recibida/);
+  assert.match(raiz.innerHTML, /Volver a mis trámites/);
+  assert.match(raiz.innerHTML, /aria-labelledby="solicitudes-tab-seguimiento"/);
+  assert.equal(raiz.focos.at(-1), "#solicitudes-panel-actual");
+  raiz.eventos.get("click")({ target: objetivo("data-solicitudes-volver") });
+  assert.match(raiz.innerHTML, /Trámites propios consultados/);
+  assert.match(raiz.innerHTML, /SOL-001/);
+  assert.equal(raiz.focos.at(-1), "detalle:SOL-001");
+  raiz.eventos.get("click")({ target: objetivo("data-solicitudes-detalle", "SOL-002") });
+  assert.match(raiz.innerHTML, /Reconocimiento/);
+  raiz.eventos.get("click")({ target: objetivo("data-solicitudes-volver") });
+  assert.equal(raiz.focos.at(-1), "detalle:SOL-002");
+});
+
+test("estados expresos no filtran filas, mientras vacío conserva catálogos", async () => {
+  for (const estado of ["denegado", "no_configurado", "error", "invalido"]) {
+    const raiz = raizFalsa();
+    montarVistaSolicitudes({ raiz, fuente: { consultar: () => ({ ...datos, estado }) } });
+    await tick();
+    assert.doesNotMatch(raiz.innerHTML, /SOL-001|Servicios previos|Períodos reconocidos/);
+    raiz.eventos.get("click")({ target: objetivo("data-solicitudes-detalle", "SOL-001") });
+    assert.doesNotMatch(raiz.innerHTML, /Entrada recibida/);
+  }
+  const vacia = raizFalsa();
+  montarVistaSolicitudes({ raiz: vacia, fuente: { consultar: () => ({ ...datos, estado: "vacio" }) } });
+  await tick();
+  assert.doesNotMatch(vacia.innerHTML, /SOL-001/);
+  vacia.eventos.get("click")({ target: { closest: (selector) => selector === "[data-solicitudes-tab]" ? { dataset: { solicitudesTab: "nueva" } } : null } });
+  assert.match(vacia.innerHTML, /Servicios previos/);
+  vacia.eventos.get("click")({ target: { closest: (selector) => selector === "[data-solicitudes-tab]" ? { dataset: { solicitudesTab: "certificados" } } : null } });
+  assert.match(vacia.innerHTML, /Períodos reconocidos/);
+});
 test("montaje consulta una vez, representa vacío, denegado y error, y cancela al desmontar", async () => {
   const raiz = raizFalsa();
   let consultas = 0;

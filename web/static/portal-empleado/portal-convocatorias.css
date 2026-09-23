@@ -52,6 +52,42 @@
 .consulta-convocatorias-s1 .s1-listado,
 .consulta-convocatorias-s1 .s1-detalle { min-width: 0; }
 .consulta-convocatorias-s1 .s1-detalle { display: grid; gap: var(--portal-espacio-4); }
+.consulta-convocatorias-s1 .s1-navegacion {
+  position: sticky;
+  z-index: 1;
+  top: 0;
+  display: flex;
+  gap: var(--portal-espacio-2);
+  min-width: 0;
+  padding: var(--portal-espacio-2);
+  overflow-x: auto;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio-lg);
+  background: var(--portal-cabecera-panel);
+  box-shadow: var(--portal-sombra-sm);
+}
+.consulta-convocatorias-s1 .s1-navegacion button {
+  flex: none;
+  min-height: 36px;
+  padding: var(--portal-espacio-2) var(--portal-espacio-3);
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio);
+  background: var(--portal-superficie);
+  color: var(--portal-azul-700);
+  font-weight: 650;
+  cursor: pointer;
+}
+.consulta-convocatorias-s1 .s1-navegacion button:hover { background: var(--portal-azul-100); }
+.consulta-convocatorias-s1 .s1-navegacion button:focus-visible,
+.consulta-convocatorias-s1 .s1-detalle section:focus-visible {
+  outline: 3px solid var(--portal-azul-700);
+  outline-offset: 2px;
+}
+.consulta-convocatorias-s1 .s1-detalle section[id] { scroll-margin-top: 62px; }
+.consulta-convocatorias-s1 .s1-bases-datos { margin: 0; }
+.consulta-convocatorias-s1 .s1-bases-datos div { display: flex; gap: var(--portal-espacio-2); }
+.consulta-convocatorias-s1 .s1-bases-datos dt { color: var(--portal-muted); }
+.consulta-convocatorias-s1 .s1-bases-datos dd { margin: 0; font-weight: 650; }
 .consulta-convocatorias-s1 .s1-lista { margin: 0; padding: 0; list-style: none; }
 .consulta-convocatorias-s1 .s1-elemento + .s1-elemento,
 .consulta-convocatorias-s1 .s1-fila + .s1-fila { border-top: 1px solid var(--portal-borde); }

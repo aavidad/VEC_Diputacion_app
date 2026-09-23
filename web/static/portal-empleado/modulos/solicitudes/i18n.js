@@ -34,6 +34,7 @@ export const MENSAJES_SOLICITUDES_ES = Object.freeze({
   estado: "Estado",
   accion: "Acción",
   ver: "Ver ficha",
+  volver_bandeja: "Volver a mis trámites",
   sin_resultados: "Ningún trámite coincide con los filtros.",
   sin_dato: "No consta",
   resumen_activos: "Trámites en curso",
