@@ -6,12 +6,14 @@ import (
 	"encoding/hex"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/app/contactopropio"
 	"vec-diputacion-granada/internal/modules/usuarios"
 	contextopg "vec-diputacion-granada/internal/vec/adapters/contextoactor/postgres"
@@ -69,6 +71,29 @@ func abrirPoolContactoPGPrueba(t *testing.T, ctx context.Context, variable, rol 
 	return pool
 }
 
+func configuracionMaterialContactoPGPrueba(t *testing.T) config.Config {
+	t.Helper()
+	directorio := os.Getenv("VEC_F2_CONTACTO_MATERIAL_EFIMERO")
+	if directorio == "" {
+		cfg, _ := generarMaterialDesarrolloPrueba(t)
+		return cfg
+	}
+	raiz, err := filepath.Abs(filepath.Join("..", "..", ".."))
+	if err != nil {
+		t.Fatal("raíz de ensayo F2 no disponible")
+	}
+	return config.Config{
+		Address:                   "127.0.0.1:0",
+		ExecutionProfile:          config.ExecutionProfileDevelopment,
+		AuthMode:                  config.AuthModeDevelopment,
+		DevelopmentGuard:          config.DevelopmentGuardAcknowledgement,
+		DevelopmentMaterialDir:    directorio,
+		PersonalCatalogPath:       "memory",
+		BolsaPublicSourcePath:     filepath.Join(raiz, config.DefaultBolsaPublicSourcePath),
+		BolsaCategoriesSourcePath: filepath.Join(raiz, config.DefaultBolsaCategoriesSourcePath),
+	}.Normalize()
+}
+
 // Sólo se habilita desde el runner de esquema sintético, en contenedor PG18
 // desechable sin red. ContextoActor, PDP, registro V3, COSE, confianza y
 // consumidor SQL son los adaptadores reales; la identidad inicial es fixture.
@@ -114,7 +139,7 @@ func TestContactoPropioPG18MaterialFirmadoYConsumoNominal(t *testing.T) {
 	if err := publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, admin, []domain.ReferenciaEntradaCatalogo{motivo, motivoRecibo}, ahora); err != nil {
 		t.Fatal("motivo gobernado de contacto no disponible")
 	}
-	cfg, _ := generarMaterialDesarrolloPrueba(t)
+	cfg := configuracionMaterialContactoPGPrueba(t)
 	seguridad, err := NuevaComposicionSeguridadDesarrollo(cfg, io.Discard)
 	if err != nil {
 		t.Fatal("seguridad de ensayo no disponible")

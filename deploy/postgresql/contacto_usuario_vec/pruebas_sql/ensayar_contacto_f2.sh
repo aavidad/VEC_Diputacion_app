@@ -26,13 +26,16 @@ raiz=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)
 contenedor="vec-f2-pg18-$$"
 base="vec_f2_$$"
 imagen=${VEC_POSTGRES_TEST_IMAGE:-postgres:18.4-bookworm@sha256:1961f96e6029a02c3812d7cb329a3b03a3ac2bb067058dec17b0f5596aca9296}
-limpiar(){ docker rm -f "$contenedor" >/dev/null 2>&1 || true; for tmp in "${transaccion:-}" "${roles_sql:-}" "${prueba_json:-}" "${rol_ct_copia:-}" "${neg_rol_log:-}"; do if [[ -n "$tmp" && -f "$tmp" ]]; then unlink "$tmp"; fi; done; if [[ -n "${socketdir:-}" ]]; then rm -f "$socketdir/.s.PGSQL.5432" "$socketdir/.s.PGSQL.5432.lock"; rmdir "$socketdir" 2>/dev/null || true; fi; }
+limpiar(){ docker rm -f "$contenedor" >/dev/null 2>&1 || true; for tmp in "${transaccion:-}" "${roles_sql:-}" "${prueba_json:-}" "${rol_ct_copia:-}" "${neg_rol_log:-}"; do if [[ -n "$tmp" && -f "$tmp" ]]; then unlink "$tmp"; fi; done; if [[ -n "${socketdir:-}" ]]; then rm -f "$socketdir/.s.PGSQL.5432" "$socketdir/.s.PGSQL.5432.lock"; rmdir "$socketdir" 2>/dev/null || true; fi; if [[ -n "${materialdir:-}" ]]; then rm -rf -- "$materialdir"; fi; }
 trap limpiar EXIT INT TERM
 volumen=()
 if [[ "${VEC_F2_POSITIVO:-}" == 1 ]]; then
   socketdir=$(mktemp -d)
   chmod 0777 "$socketdir"
   volumen=(--volume "$socketdir:/var/run/postgresql")
+  materialdir=$(mktemp -d)
+  rmdir "$materialdir"
+  "$raiz/scripts/generar_credenciales_desarrollo.sh" "$materialdir" >/dev/null 2>&1 || { echo 'F2: material efímero sintético no disponible' >&2; exit 1; }
 fi
 docker run --detach --rm --network none --name "$contenedor" --env POSTGRES_HOST_AUTH_METHOD=trust "${volumen[@]}" "$imagen" >/dev/null
 for _ in $(seq 1 60); do docker exec "$contenedor" pg_isready -q -U postgres -d postgres && break; sleep 0.5; done
@@ -157,6 +160,7 @@ if [[ "${VEC_F2_POSITIVO:-}" == 1 ]]; then
   cd "$raiz"
   prueba_json=$(mktemp)
   if ! VEC_F2_CONTACTO_PG18_DESECHABLE=1 \
+  VEC_F2_CONTACTO_MATERIAL_EFIMERO="$materialdir" \
   VEC_F2_CONTACTO_PG_ADMIN_DSN="$(dsn postgres)" \
   VEC_F2_CONTACTO_PG_CONTEXTO_DSN="$(dsn vec_contacto_f2_contexto_login)" \
   VEC_F2_CONTACTO_PG_FUENTE_DSN="$(dsn vec_contacto_f2_fuente_login)" \
