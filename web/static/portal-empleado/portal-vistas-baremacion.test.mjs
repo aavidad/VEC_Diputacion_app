@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { crearVistasBaremacion } from "./portal-vistas-baremacion.js";
 import { crearTraductorBaremacion, traducirBaremacion } from "./portal-i18n-baremacion.js";
+import { crearUtilidadesVista } from "./portal-vistas-utilidades.js";
 
 const escaparHTML = (dato) => String(dato ?? "").replace(/[&<>"]/g,
   (caracter) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[caracter]);
@@ -21,7 +22,8 @@ const datos = {
   meritos_revision: [{ id: "MER-1", tipo: "Formación", declarado: "Curso", estado_dato: "declarado",
     evidencia: "DOC-1", puntos: "99", estado: "Aceptado" }],
   criterios_baremo: [{ bloque: "Formación", version: "v2" }],
-  ranking: [{ posicion: 1, persona_ref: "PER-1", experiencia: "1,0", formacion: "2,0",
+  ranking: [{ posicion: 1, persona_ref: "PER-1", solicitud_ref: "SOL-3",
+    convocatoria_ref: "CON-3", version_reglas: "v2", experiencia: "1,0", formacion: "2,0",
     otros: "0", total: "3,0", desempate: "Según bases", estado: "Provisional" }],
   alegaciones: [{ id: "ALE-1", persona_ref: "PER-1", objeto: "Curso", registrada: "Ayer",
     plazo: "Dentro de plazo", evidencia: "DOC-1", estado: "Pendiente" }],
@@ -87,8 +89,11 @@ test("acreditación, acceso, valoración y revisión exigen sus fuentes propias"
   const html = vistas.renderizarMeritos({ meritos_revision: [item] }, disponible("meritos"));
   assert.match(html, /Acreditado según fuente/);
   assert.match(html, /Cumple requisito/);
-  assert.match(html, /Título exigido · Bases · v4/);
+  assert.match(html, /Título exigido · Bases/);
+  assert.match(html, /CON-1 · REQ-1 · v4/);
   assert.match(html, /2,5/);
+  assert.match(html, /SOL-1 · CON-1 · v4/);
+  assert.match(html, /CAL-1/);
   assert.match(html, /Documento comprobado · Registro · v4/);
   item.evaluacion_acceso.fuente = "";
   item.valoracion.fuente_calculo = "";
@@ -115,21 +120,56 @@ test("una titulación futura no habilita una bolsa y necesita previsión admitid
 test("el ranking exige contexto de solicitud, bases y fuente, sin referencia fabricada", () => {
   assert.match(vistas.renderizarBaremacion(datos, disponible("baremacion")), /Fuente no configurada/);
   const completo = { ...datos, contexto_baremacion: { convocatoria_ref: "CON-3",
-    solicitud_ref: "SOL-3", version_reglas: "v2", fuente_calculo: "CAL-3",
+    entrada_ref: "ENT-3", version_reglas: "v2", fuente_calculo: "CAL-3",
     estado_salida: "Provisional" } };
   const html = vistas.renderizarBaremacion(completo, disponible("baremacion"));
-  assert.match(html, /SOL-3 · CAL-3/);
+  assert.match(html, /ENT-3 · CAL-3/);
   assert.match(html, /CON-3/);
+  assert.match(html, /SOL-3/);
   assert.match(html, /3,0/);
   assert.match(html, /data-comando="publicar-lista-provisional"[^>]+disabled/);
+  assert.match(html, /data-vista="baremacion" aria-current="page"/);
+  completo.ranking[0].version_reglas = "v1";
+  assert.match(vistas.renderizarBaremacion(completo, disponible("baremacion")), /Fuente no configurada/);
+  completo.ranking[0].version_reglas = "v2";
+  completo.contexto_baremacion.estado_salida = "Definitivo";
+  assert.match(vistas.renderizarBaremacion(completo, disponible("baremacion")), /Fuente no configurada/);
+  Object.assign(completo.contexto_baremacion, {
+    lista_ref: "LIST-3", acta_ref: "ACT-3", firma_ref: "FIR-3", publicacion_ref: "PUB-3",
+  });
+  assert.match(vistas.renderizarBaremacion(completo, disponible("baremacion")), /Definitivo/);
 });
 
 test("registro y plazo de alegación se ocultan si faltan referencias acreditantes", () => {
   const html = vistas.renderizarAlegaciones(datos, disponible("alegaciones"));
   assert.match(html, /Sin registro acreditado/);
   assert.match(html, /Sin plazo acreditado/);
+  assert.match(html, /Estado sin verificar/);
+  assert.match(html, /Sin resolución acreditada/);
   assert.doesNotMatch(html, /Ayer|Dentro de plazo/);
-  assert.match(html, /data-comando="resolver-alegacion"[^>]+disabled/);
+  assert.doesNotMatch(html, /data-comando="resolver-alegacion"/);
+});
+
+test("la consulta disponible ofrece navegación y tablas enfocables con utilidades reales", () => {
+  const u = crearUtilidadesVista({
+    escaparHTML, numero: String, claseEstado: () => "neutro",
+    encabezadoVista: (_seccion, titulo, descripcion, accion = "") =>
+      `<h2>${escaparHTML(titulo)}</h2><p>${escaparHTML(descripcion)}</p>${accion}`,
+    esPresentacion: () => false, operacionPermitida: () => false,
+  });
+  const reales = crearVistasBaremacion(u);
+  const ranking = reales.renderizarBaremacion({
+    ...datos, contexto_baremacion: { convocatoria_ref: "CON-3", entrada_ref: "ENT-3",
+      version_reglas: "v2", fuente_calculo: "CAL-3", estado_salida: "Provisional" },
+  }, disponible("baremacion"));
+  assert.match(ranking, /<nav aria-label="Recorrido de baremación">/);
+  assert.match(ranking, /data-vista="meritos"/);
+  assert.match(ranking, /data-vista="alegaciones"/);
+  assert.match(ranking, /tabindex="0" role="region"/);
+  assert.match(ranking, /data-tabla-prioritaria="estado"/);
+  assert.match(ranking, /data-columna="total"/);
+  const alegaciones = reales.renderizarAlegaciones(datos, disponible("alegaciones"));
+  assert.match(alegaciones, /data-tabla-prioritaria="estado"/);
 });
 
 test("textos localizados y datos escapados", () => {
