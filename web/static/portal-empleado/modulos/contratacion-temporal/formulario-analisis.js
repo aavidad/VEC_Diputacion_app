@@ -11,6 +11,25 @@ const PATRON_CLAVE = /^[a-z][a-z0-9._-]{1,79}$/u;
 const PATRON_GRUPO = /^[A-Z][A-Z0-9/+.-]{0,19}$/u;
 const PATRON_HUELLA = /^[0-9a-f]{64}$/u;
 const PATRON_JORNADA = /^(?:[1-9][0-9]{0,3}|10000)$/u;
+// La API guarda la jornada en diezmilésimas de la jornada completa (entero
+// exacto). La persona la escribe en horas y minutos semanales; la referencia
+// de jornada completa es provisional hasta que RRHH la confirme.
+export const MINUTOS_JORNADA_COMPLETA = 37 * 60 + 30;
+const PATRON_HORAS = /^(?:[0-9]|[1-9][0-9])$/u;
+const PATRON_MINUTOS = /^(?:[0-9]|[1-5][0-9])$/u;
+
+export function diezmilesimasDesdeHorasMinutos(horas, minutos) {
+  if (!PATRON_HORAS.test(horas) || !PATRON_MINUTOS.test(minutos)) return "";
+  const total = Number(horas) * 60 + Number(minutos);
+  if (total < 1 || total > MINUTOS_JORNADA_COMPLETA) return "";
+  return String(Math.max(1, Math.round(total * 10000 / MINUTOS_JORNADA_COMPLETA)));
+}
+
+export function horasMinutosDesdeDiezmilesimas(valor) {
+  if (!PATRON_JORNADA.test(valor)) return { horas: "", minutos: "" };
+  const total = Math.round(Number(valor) * MINUTOS_JORNADA_COMPLETA / 10000);
+  return { horas: String(Math.floor(total / 60)), minutos: String(total % 60) };
+}
 const MAXIMO_OPCIONES = 100;
 const MAXIMO_CATEGORIAS = 1000;
 const UUID_PRUEBA = "00000000-0000-4000-8000-000000000001";
@@ -311,16 +330,25 @@ function campoEntrada(estado, t, campo, tipo, claveEtiqueta, claveAyuda, atribut
 
 function campoJornada(estado, t, formateadorJornada) {
   const valor = estado.borrador.porcentaje_jornada;
+  const derivada = horasMinutosDesdeDiezmilesimas(valor);
+  const horas = estado.borrador.jornada_horas ?? derivada.horas;
+  const minutos = estado.borrador.jornada_minutos ?? derivada.minutos;
   const equivalencia = PATRON_JORNADA.test(valor) ? t("analisis_jornada_equivalencia", {
     porcentaje: formateadorJornada.format(Number(valor) / 10000),
   }) : "";
-  return `<div class="ct-campo">
-    <label for="ct-analisis-porcentaje_jornada">${escaparHTML(t("analisis_jornada"))} <b aria-hidden="true">*</b></label>
-    <input id="ct-analisis-porcentaje_jornada" name="porcentaje_jornada" type="number" required value="${escaparHTML(valor)}" ${atributosCampo(estado, "porcentaje_jornada")} min="1" max="10000" step="1" inputmode="numeric">
+  const atributos = atributosCampo(estado, "porcentaje_jornada");
+  return `<fieldset class="ct-campo ct-campo-jornada" aria-describedby="ct-analisis-porcentaje_jornada-ayuda">
+    <legend>${escaparHTML(t("analisis_jornada"))} <b aria-hidden="true">*</b></legend>
+    <div class="ct-jornada-entradas">
+      <label for="ct-analisis-porcentaje_jornada">${escaparHTML(t("analisis_jornada_horas"))}</label>
+      <input id="ct-analisis-porcentaje_jornada" name="jornada_horas" type="number" required value="${escaparHTML(horas)}" ${atributos} min="0" max="37" step="1" inputmode="numeric">
+      <label for="ct-analisis-jornada_minutos">${escaparHTML(t("analisis_jornada_minutos"))}</label>
+      <input id="ct-analisis-jornada_minutos" name="jornada_minutos" type="number" required value="${escaparHTML(minutos)}" min="0" max="59" step="1" inputmode="numeric">
+    </div>
     <small id="ct-analisis-porcentaje_jornada-ayuda">${escaparHTML(t("analisis_jornada_ayuda"))}</small>
     <small id="ct-analisis-porcentaje_jornada-equivalencia" aria-live="polite" aria-atomic="true">${escaparHTML(equivalencia)}</small>
     ${estado.errores.porcentaje_jornada ? `<span class="ct-error-campo" id="ct-analisis-porcentaje_jornada-error">${escaparHTML(mensajeCampo(t, estado.errores.porcentaje_jornada))}</span>` : ""}
-  </div>`;
+  </fieldset>`;
 }
 
 function campoAreaTexto(estado, t, campo, id, claveEtiqueta, claveAyuda, maxlength = 4000) {
@@ -411,7 +439,11 @@ function extraerBorrador(formulario) {
     grupo_subgrupo: String(datos.get("grupo_subgrupo") ?? ""),
     causa_clave: String(datos.get("causa_clave") ?? ""),
     inicio: String(datos.get("inicio") ?? ""), fin: String(datos.get("fin") ?? ""),
-    porcentaje_jornada: String(datos.get("porcentaje_jornada") ?? ""),
+    jornada_horas: String(datos.get("jornada_horas") ?? "").trim(),
+    jornada_minutos: String(datos.get("jornada_minutos") ?? "").trim(),
+    porcentaje_jornada: diezmilesimasDesdeHorasMinutos(
+      String(datos.get("jornada_horas") ?? "").trim(), String(datos.get("jornada_minutos") ?? "").trim(),
+    ),
     entrada_rc_referencia: String(datos.get("entrada_rc_referencia") ?? ""),
     motivo_rectificacion_clave: String(datos.get("motivo_rectificacion_clave") ?? ""),
     observaciones: String(datos.get("observaciones") ?? "").trim(),
@@ -707,13 +739,16 @@ export function montarFormularioAnalisisRRHH(configuracion = {}) {
 
   function alEscribir(evento) {
     const entrada = evento.target;
-    if (entrada?.name !== "porcentaje_jornada" || estado.ocupado) return;
+    if ((entrada?.name !== "jornada_horas" && entrada?.name !== "jornada_minutos") || estado.ocupado) return;
     const formulario = entrada.closest?.("[data-ct-analisis-form]");
     if (!formulario || !raizActual.contains(formulario)) return;
     const ayuda = raizActual.querySelector("#ct-analisis-porcentaje_jornada-equivalencia");
     if (!ayuda) return;
-    ayuda.textContent = PATRON_JORNADA.test(entrada.value)
-      ? t("analisis_jornada_equivalencia", { porcentaje: formateadorJornada.format(Number(entrada.value) / 10000) })
+    const horas = formulario.querySelector?.("[name=jornada_horas]")?.value ?? "";
+    const minutos = formulario.querySelector?.("[name=jornada_minutos]")?.value ?? "";
+    const valor = diezmilesimasDesdeHorasMinutos(String(horas).trim(), String(minutos).trim());
+    ayuda.textContent = valor
+      ? t("analisis_jornada_equivalencia", { porcentaje: formateadorJornada.format(Number(valor) / 10000) })
       : "";
   }
 

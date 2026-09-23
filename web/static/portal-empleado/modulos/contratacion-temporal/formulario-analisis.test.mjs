@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { montarFormularioAnalisisRRHH } from "./formulario-analisis.js";
+import { diezmilesimasDesdeHorasMinutos, horasMinutosDesdeDiezmilesimas, montarFormularioAnalisisRRHH } from "./formulario-analisis.js";
 
 const UUID = "123e4567-e89b-42d3-a456-426614174000";
 const HUELLA = "a".repeat(64);
@@ -65,7 +65,8 @@ function crearValores(sobrescrituras = {}) {
     causa_clave: "sustitucion",
     inicio: "2026-09-01",
     fin: "2027-08-31",
-    porcentaje_jornada: "10000",
+    jornada_horas: "37",
+    jornada_minutos: "30",
     entrada_rc_referencia: "entrada-rc:opaca:001",
     motivo_rectificacion_clave: "correccion_datos",
     ...sobrescrituras,
@@ -132,9 +133,13 @@ function crearRaiz() {
       };
       return eventos.get("click")({ target: control, preventDefault() {} });
     },
-    escribirJornada(valor) {
-      const formulario = { closest(selector) { return selector === "[data-ct-analisis-form]" ? this : null; } };
-      const control = { name: "porcentaje_jornada", value: valor, closest(selector) { return selector === "[data-ct-analisis-form]" ? formulario : null; } };
+    escribirJornada(horas, minutos) {
+      const campos = { jornada_horas: { value: horas }, jornada_minutos: { value: minutos } };
+      const formulario = {
+        closest(selector) { return selector === "[data-ct-analisis-form]" ? this : null; },
+        querySelector(selector) { return campos[/name=(\w+)/u.exec(selector)?.[1]] ?? null; },
+      };
+      const control = { name: "jornada_horas", value: horas, closest(selector) { return selector === "[data-ct-analisis-form]" ? formulario : null; } };
       return eventos.get("input")({ target: control });
     },
   };
@@ -221,19 +226,33 @@ test("la vista usa controles gobernados, etiquetas, ayudas y regiones vivas", ()
   desmontar();
 });
 
-test("la jornada muestra su porcentaje legible al escribir y conserva el DTO canónico", async () => {
+test("la jornada se escribe en horas y minutos semanales y conserva el DTO canónico", async () => {
   const solicitudes = [];
   const vista = montar({ cliente: { registrarAnalisis(solicitud) { solicitudes.push(solicitud); return Promise.resolve(crearRecibo()); } } });
-  assert.match(vista.raiz.innerHTML, /Jornada en diezmilésimas/u);
-  vista.escribirJornada("5000");
-  assert.equal(vista.ayudas.get("#ct-analisis-porcentaje_jornada-equivalencia"), "Equivale a 50,00 % de la jornada.");
-  vista.escribirJornada("10000");
-  assert.equal(vista.ayudas.get("#ct-analisis-porcentaje_jornada-equivalencia"), "Equivale a 100,00 % de la jornada.");
-  vista.escribirJornada("10001");
+  assert.match(vista.raiz.innerHTML, /Jornada contratada \(media semanal\)/u);
+  assert.doesNotMatch(vista.raiz.innerHTML, /diezmil/iu);
+  vista.escribirJornada("18", "45");
+  assert.equal(vista.ayudas.get("#ct-analisis-porcentaje_jornada-equivalencia"), "Equivale a 50,00\u00a0% de la jornada completa.");
+  vista.escribirJornada("37", "30");
+  assert.equal(vista.ayudas.get("#ct-analisis-porcentaje_jornada-equivalencia"), "Equivale a 100,00\u00a0% de la jornada completa.");
+  vista.escribirJornada("37", "31");
   assert.equal(vista.ayudas.get("#ct-analisis-porcentaje_jornada-equivalencia"), "");
-  await vista.enviar(crearValores({ porcentaje_jornada: "5000" }));
+  await vista.enviar(crearValores({ jornada_horas: "18", jornada_minutos: "45" }));
   assert.equal(solicitudes[0].analisis.porcentaje_jornada, 5000);
   vista.desmontar();
+});
+
+test("la conversión horas-minutos y diezmilésimas es estable en ambos sentidos", () => {
+  assert.equal(diezmilesimasDesdeHorasMinutos("37", "30"), "10000");
+  assert.equal(diezmilesimasDesdeHorasMinutos("0", "0"), "");
+  assert.equal(diezmilesimasDesdeHorasMinutos("38", "0"), "");
+  assert.equal(diezmilesimasDesdeHorasMinutos("10", "60"), "");
+  assert.deepEqual(horasMinutosDesdeDiezmilesimas("7500"), { horas: "28", minutos: "8" });
+  for (const minutos of [1, 59, 600, 1125, 2249, 2250]) {
+    const valor = diezmilesimasDesdeHorasMinutos(String(Math.floor(minutos / 60)), String(minutos % 60));
+    const vuelta = horasMinutosDesdeDiezmilesimas(valor);
+    assert.equal(Number(vuelta.horas) * 60 + Number(vuelta.minutos), minutos);
+  }
 });
 
 test("registrar envía una sola vez el DTO exacto y presenta el recibo verificado", async () => {
@@ -313,7 +332,7 @@ test("los errores locales producen resumen accesible y foco sin tocar el cliente
     modalidad_clave: "inventada",
     inicio: "2027-01-02",
     fin: "2027-01-01",
-    porcentaje_jornada: "10001",
+    jornada_horas: "38",
   }));
 
   assert.equal(llamadas, 0);
@@ -496,7 +515,8 @@ test("la rectificación prellena datos anteriores sin seleccionar RC, grupo ni m
   });
   assert.match(escenario.raiz.innerHTML, /value="sustitucion" selected/u);
   assert.match(escenario.raiz.innerHTML, /value="2027-01-01"/u);
-  assert.match(escenario.raiz.innerHTML, /value="7500"/u);
+  assert.match(escenario.raiz.innerHTML, /name="jornada_horas" type="number" required value="28"/u);
+  assert.match(escenario.raiz.innerHTML, /name="jornada_minutos" type="number" required value="8"/u);
   assert.doesNotMatch(escenario.raiz.innerHTML, /value="(?:entrada-rc:opaca:001|A1|correccion_datos)" selected/u);
   await escenario.enviar(crearValores({
     entrada_rc_referencia: "", grupo_subgrupo: "", motivo_rectificacion_clave: "",

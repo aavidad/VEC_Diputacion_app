@@ -167,10 +167,12 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   analisis_fin: "Fecha de fin",
   analisis_periodo_ayuda:
     "Indique las fechas previstas. El fin no puede ser anterior al inicio.",
-  analisis_jornada: "Jornada en diezmilésimas",
+  analisis_jornada: "Jornada contratada (media semanal)",
+  analisis_jornada_horas: "Horas",
+  analisis_jornada_minutos: "Minutos",
   analisis_jornada_ayuda:
-    "Introduzca un entero entre 1 y 10.000; la equivalencia porcentual se actualizará al escribir.",
-  analisis_jornada_equivalencia: "Equivale a {porcentaje} de la jornada.",
+    "Media semanal en cómputo anual. Con turnos, las semanas que superan la media se reflejan en el cuadrante, no aquí. Jornada completa de referencia: 37 h 30 min (provisional, a confirmar por RRHH).",
+  analisis_jornada_equivalencia: "Equivale a {porcentaje} de la jornada completa.",
   analisis_entrada_rc: "Retención de crédito (RC)",
   analisis_entrada_rc_ayuda:
     "Seleccione la RC disponible para este expediente.",
@@ -196,7 +198,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   analisis_error_fecha: "Introduzca una fecha válida.",
   analisis_error_periodo:
     "La fecha de fin no puede ser anterior a la de inicio ni superar el periodo permitido.",
-  analisis_error_jornada: "Introduzca una jornada entera entre 1 y 10.000.",
+  analisis_error_jornada: "Introduzca una media semanal entre 1 minuto y 37 h 30 min.",
   analisis_error_observaciones: "Las observaciones no pueden superar 4.000 caracteres ni incluir caracteres no admitidos.",
   analisis_error_motivo: "Seleccione un motivo disponible para rectificar.",
   analisis_error_contrato: "Revise los datos del análisis antes de continuar.",
