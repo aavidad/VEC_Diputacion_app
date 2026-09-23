@@ -57,6 +57,7 @@ type Dependencias struct {
 	Protector            ports.ProtectorContactoUsuario
 	Huellas              ports.DerivadorHuellasContactoUsuario
 	PoolEscritor         *pgxpool.Pool
+	RegistroOperaciones  ports.RegistroContactoUsuario // Opt-in tras Contacto3.
 	Reloj                ports.Reloj
 	GeneradorCorrelacion GeneradorCorrelacion
 	PerfilPropioRef      string
@@ -67,8 +68,9 @@ type Dependencias struct {
 var perfilPropioCanonico = regexp.MustCompile(`^prf_[A-Za-z0-9_-]{22,128}$`)
 
 type Servicio struct {
-	dependencias Dependencias
-	registro     ports.RegistroContactoUsuario
+	dependencias        Dependencias
+	registro            ports.RegistroContactoUsuario
+	registroOperaciones ports.RegistroContactoUsuario
 }
 
 func NuevoServicio(d Dependencias) (*Servicio, error) {
@@ -92,7 +94,7 @@ func NuevoServicio(d Dependencias) (*Servicio, error) {
 	if err != nil {
 		return nil, ErrContactoPropioNoDisponible
 	}
-	return &Servicio{dependencias: d, registro: registro}, nil
+	return &Servicio{dependencias: d, registro: registro, registroOperaciones: d.RegistroOperaciones}, nil
 }
 
 // Guardar sólo obtiene el sujeto de la identidad registrada. Su recibo no
@@ -178,7 +180,10 @@ func (s *Servicio) CompletarContactoDeAlta(ctx context.Context, alta ports.Refer
 	if ctx == nil || ctx.Err() != nil || dependenciaContactoPropioNula(confirmar) || !operacionAltaContactoCanonica.MatchString(alta.OperacionRef) || !domain.ReferenciaSujetoContactoUsuarioValida(alta.PersonaRef) {
 		return vacio, ErrContactoPropioNoDisponible
 	}
-	recibo, err := s.guardar(ctx, correo, 0, alta.PersonaRef, "", nil)
+	if s == nil || dependenciaContactoPropioNula(s.registroOperaciones) {
+		return vacio, ErrContactoPropioNoDisponible
+	}
+	recibo, err := s.guardar(ctx, correo, 0, alta.PersonaRef, alta.OperacionRef, s.registroOperaciones)
 	if err != nil {
 		return vacio, err
 	}

@@ -45,7 +45,14 @@ func nuevoResolutorContactoUsuarioPostgreSQL(pool iniciadorTransacciones, protec
 }
 
 func (r *RegistroContactoUsuarioPostgreSQL) GuardarContactoUsuario(ctx context.Context, orden ports.OrdenRegistroContactoUsuario) (ports.ReciboContactoUsuario, error) {
-	if r == nil || valorNuloPostgreSQL(r.pool) || ctx == nil || ctx.Err() != nil || orden.OperacionRef != "" {
+	if r == nil {
+		return ports.ReciboContactoUsuario{}, vecapp.ErrContactoUsuarioNoDisponible
+	}
+	return guardarContactoPostgreSQL(ctx, r.pool, orden, false)
+}
+
+func guardarContactoPostgreSQL(ctx context.Context, pool iniciadorTransacciones, orden ports.OrdenRegistroContactoUsuario, conOperacion bool) (ports.ReciboContactoUsuario, error) {
+	if valorNuloPostgreSQL(pool) || ctx == nil || ctx.Err() != nil || conOperacion != (orden.OperacionRef != "") || (conOperacion && (!vecapp.ReferenciaOperacionContactoValida(orden.OperacionRef) || orden.Preparacion.Recurso.Atributos["contacto_operacion_ref"] != orden.OperacionRef)) {
 		return ports.ReciboContactoUsuario{}, vecapp.ErrContactoUsuarioNoDisponible
 	}
 	p := orden.Preparacion
@@ -57,7 +64,7 @@ func (r *RegistroContactoUsuarioPostgreSQL) GuardarContactoUsuario(ctx context.C
 	if err != nil {
 		return ports.ReciboContactoUsuario{}, vecapp.ErrContactoUsuarioNoDisponible
 	}
-	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
+	tx, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
 	if err != nil || valorNuloPostgreSQL(tx) {
 		return ports.ReciboContactoUsuario{}, contactoError(ctx, err)
 	}
@@ -71,7 +78,13 @@ func (r *RegistroContactoUsuarioPostgreSQL) GuardarContactoUsuario(ctx context.C
 	var evidencia []byte
 	var replay bool
 	var claveHMAC, valorHMAC string
-	err = tx.QueryRow(ctx, `SELECT sujeto_ref, version, consumo_ref, consumo_huella_sha256, auditoria_central, replay_confirmado, hmac_clave_ref, hmac_valor FROM vec_contacto_usuario_v1.registrar_contacto_v1($1,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11,$12,$13,$14)`, argumentosContacto(accionRegistroContacto(p.VersionEsperada), orden.Material, payload, recurso, auditoria)...).Scan(&sujeto, &version, &consumoRef, &consumoHuella, &evidencia, &replay, &claveHMAC, &valorHMAC)
+	argumentos := argumentosContacto(accionRegistroContacto(p.VersionEsperada), orden.Material, payload, recurso, auditoria)
+	consulta := `SELECT sujeto_ref, version, consumo_ref, consumo_huella_sha256, auditoria_central, replay_confirmado, hmac_clave_ref, hmac_valor FROM vec_contacto_usuario_v1.registrar_contacto_v1($1,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11,$12,$13,$14)`
+	if conOperacion {
+		consulta = `SELECT sujeto_ref, version, consumo_ref, consumo_huella_sha256, auditoria_central, replay_confirmado, hmac_clave_ref, hmac_valor FROM vec_contacto_usuario_v1.confirmar_operacion_contacto_v1($1,$2,$3,$4,$5,$6,$7::numeric,$8::numeric,$9,$10,$11,$12,$13,$14,$15)`
+		argumentos = append([]any{orden.OperacionRef}, argumentos...)
+	}
+	err = tx.QueryRow(ctx, consulta, argumentos...).Scan(&sujeto, &version, &consumoRef, &consumoHuella, &evidencia, &replay, &claveHMAC, &valorHMAC)
 	if err != nil {
 		return ports.ReciboContactoUsuario{}, contactoError(ctx, err)
 	}

@@ -35,6 +35,28 @@ func TestContactoUsuarioPostgreSQLRechazaDependenciasAusentes(t *testing.T) {
 	if r, err := nuevoResolutorContactoUsuarioPostgreSQL(nil, nil); err == nil || r != nil {
 		t.Fatal("el lector sin pool/protector debe denegarse")
 	}
+	if r, err := nuevoRegistroOperacionContactoPostgreSQL(nil); err == nil || r != nil {
+		t.Fatal("el confirmador de operación sin pool debe denegarse")
+	}
+}
+
+func TestContactoOperativoNoUsaRegistroLegadoNiAbreTxSinSelectorFirmado(t *testing.T) {
+	pool := &iniciadorContactoPrueba{}
+	legado, err := nuevoRegistroContactoUsuarioPostgreSQL(pool)
+	if err != nil {
+		t.Fatal(err)
+	}
+	operativo, err := nuevoRegistroOperacionContactoPostgreSQL(pool)
+	if err != nil {
+		t.Fatal(err)
+	}
+	orden := ports.OrdenRegistroContactoUsuario{OperacionRef: "opr_abcdefghijklmnopqrstuv"}
+	if _, err := legado.GuardarContactoUsuario(context.Background(), orden); err == nil || pool.llamadas != 0 {
+		t.Fatal("el registro legado aceptó operación")
+	}
+	if _, err := operativo.GuardarContactoUsuario(context.Background(), orden); err == nil || pool.llamadas != 0 {
+		t.Fatal("la operación sin atributo V3 abrió transacción")
+	}
 }
 
 func TestArgumentosContactoMantieneOrdenMaterialV3DeCatorcePiezas(t *testing.T) {

@@ -71,6 +71,15 @@ func TestAltaContactoSoloAceptaConfirmacionDelPuertoLigadaAlRegistro(t *testing.
 	}
 }
 
+func TestAltaContactoNoEscribibleSinRepositorioDeOperacion(t *testing.T) {
+	alta := ports.ReferenciaAltaContactoUsuario{OperacionRef: "opr_" + strings.Repeat("o", 22), PersonaRef: "per_" + strings.Repeat("p", 22)}
+	confirmador := &confirmadorAltaContactoPrueba{}
+	var servicio *Servicio
+	if _, err := servicio.CompletarContactoDeAlta(context.Background(), alta, "ana@example.test", confirmador); !errors.Is(err, ErrContactoPropioNoDisponible) || confirmador.llamadas != 0 {
+		t.Fatal("el alta escribió sin operación durable de contacto")
+	}
+}
+
 func (f *fuenteAuditoriaPrueba) ObtenerInstantaneaAutorizacion(_ context.Context, principal, perfil string) (domain.InstantaneaAutorizacion, error) {
 	f.principal, f.perfil = principal, perfil
 	f.llamadas++
