@@ -46,7 +46,7 @@ func NuevoResolutorComprobanteAmbitoCorporativoRRHHV1(ctx context.Context, pool 
 	cfg := pool.Config()
 	if cfg == nil || cfg.ConnConfig == nil || cfg.ConnConfig.User != loginNominal ||
 		cfg.ConnConfig.TLSConfig == nil || cfg.ConnConfig.TLSConfig.InsecureSkipVerify ||
-		cfg.ConnConfig.TLSConfig.ServerName == "" {
+		cfg.ConnConfig.TLSConfig.ServerName == "" || len(cfg.ConnConfig.Fallbacks) != 0 {
 		return nil, ports.ErrComprobanteAmbitoCorporativoRRHHV1Invalido
 	}
 	if err := acreditarSelectorAmbitoRRHHV1(ctx, pool, loginNominal); err != nil {

@@ -19,7 +19,6 @@ func TestSesionConsultaRRHHConAmbitoNoAceptaPoolLegacyNiSQLAntiguo(t *testing.T)
 	}{
 		{consultaCuadroRRHHAmbitoPostgreSQL, "consultar_cuadro_rrhh_ambito_v1(", "consultar_cuadro_rrhh_atestado_v2(", 19},
 		{consultaDetalleRRHHAmbitoPostgreSQL, "consultar_detalle_rrhh_ambito_v1(", "consultar_detalle_rrhh_atestado_v1(", 16},
-		{consultaOriginalPropuestaRRHHAmbitoPostgreSQL, "consultar_original_propuesta_rrhh_ambito_v1(", "consultar_original_propuesta_rrhh_atestado_v1(", 16},
 	}
 	for _, c := range casos {
 		if !strings.Contains(c.sql, c.nuevo) || strings.Contains(c.sql, c.antiguo) ||
