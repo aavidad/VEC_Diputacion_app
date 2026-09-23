@@ -46,7 +46,12 @@ func (r *RepositorioSituacionParticipacionPostgreSQL) ListarOperaciones(ctx cont
 	if r == nil || r.pool == nil || ctx == nil || ref == "" || actor == "" || m.ValidarEstructura() != nil {
 		return nil, ports.ErrSituacionParticipacionNoDisponible
 	}
-	rows, err := r.pool.Query(ctx, `SELECT desde,operacion,situacion,justificante_tipo,justificante_ref,justificante_sha256,actor,validador,validada_en,motivo FROM vec_bolsa_llamamientos.listar_operaciones_situacion_participacion_v1($1,$2,$3,$4,$5,$6,$7::numeric,$8::numeric,$9,$10,$11,$12)`, ref, actor, m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI())
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
+	if err != nil {
+		return nil, ports.ErrSituacionParticipacionNoDisponible
+	}
+	defer tx.Rollback(context.Background())
+	rows, err := tx.Query(ctx, `SELECT desde,operacion,situacion,justificante_tipo,justificante_ref,justificante_sha256,actor,validador,validada_en,motivo FROM vec_bolsa_llamamientos.listar_operaciones_situacion_participacion_v1($1,$2,$3,$4,$5,$6,$7::numeric,$8::numeric,$9,$10,$11,$12)`, ref, actor, m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI())
 	if err != nil {
 		return nil, errorSituacionParticipacion(err)
 	}
@@ -62,6 +67,10 @@ func (r *RepositorioSituacionParticipacionPostgreSQL) ListarOperaciones(ctx cont
 	}
 	if rows.Err() != nil {
 		return nil, errorSituacionParticipacion(rows.Err())
+	}
+	rows.Close()
+	if err := tx.Commit(ctx); err != nil {
+		return nil, errorSituacionParticipacion(err)
 	}
 	return items, nil
 }
