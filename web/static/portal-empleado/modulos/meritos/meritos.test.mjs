@@ -127,3 +127,11 @@ test("la vista no abre red ni almacenamiento web", async () => {
   assert.doesNotMatch(fuente, /fetch\(|XMLHttpRequest|localStorage|sessionStorage|indexedDB|document\.cookie/i);
   assert.doesNotMatch(fuente, /datos-presentacion|datos-sinteticos/i);
 });
+
+test("la vista carga el catálogo i18n de la versión F2", async () => {
+  const fuente = await readFile(new URL("vista.js", import.meta.url), "utf8");
+  assert.match(fuente, /from "\.\/i18n\.js\?v=20260924-f2-web2"/);
+  const modulo = await import("./vista.js?v=20260924-f2-web2");
+  assert.equal(typeof modulo.montarVistaMeritos, "function");
+  assert.match(modulo.renderizarMeritos(), /Fuente de méritos no conectada/);
+});
