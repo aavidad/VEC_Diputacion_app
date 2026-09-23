@@ -35,8 +35,33 @@ import {
   crearLlamamientoCandidato,
   registrarResultadoLlamamiento,
   rutaCandidatosBolsa,
+  seleccionarParticipacionesPorEstado,
   crearControladorBolsas,
 } from "./portal-bolsas-api.js";
+test("P-WEB-10 selecciona todas las participaciones del filtro según el orden vigente B6", () => {
+  const candidatas = [
+    { participacion_ref: "participacion:03", estado_clave: "disponible", orden: 3 },
+    { participacion_ref: "participacion:01", estado_clave: "disponible", orden: 1 },
+    { participacion_ref: "participacion:02", estado_clave: "disponible_desde", orden: 2 },
+    { participacion_ref: "participacion:pausada", estado_clave: "no_disponible", orden: 0 },
+    { participacion_ref: "participacion:sin-turno", estado_clave: "disponible", orden: null },
+  ];
+  assert.deepEqual(
+    seleccionarParticipacionesPorEstado(candidatas, ["disponible", "disponible_desde"]),
+    ["participacion:01", "participacion:02", "participacion:03"],
+  );
+});
+test("P-WEB-10 limita la selección masiva a las primeras cien por orden B6", () => {
+  const candidatas = Array.from({ length: 105 }, (_, indice) => ({
+    participacion_ref: `participacion:${String(105 - indice).padStart(3, "0")}`,
+    estado_clave: "disponible",
+    orden: 105 - indice,
+  }));
+  const seleccion = seleccionarParticipacionesPorEstado(candidatas, ["disponible"]);
+  assert.equal(seleccion.length, 100);
+  assert.deepEqual(seleccion.slice(0, 2), ["participacion:001", "participacion:002"]);
+  assert.equal(seleccion.at(-1), "participacion:100");
+});
 test("B7 emite por la ruta exacta con idempotencia y conserva el recibo", async () => {
   let llamada;
   const huella = "a".repeat(64);
@@ -670,9 +695,13 @@ test("B7 presenta cuatro pasos, paginación interna y controles de teclado nativ
   assert.doesNotMatch(html, new RegExp(pausado.nombre_visible));
   assert.match(html, /Mostrando 1 a 6 de/);
   assert.match(html, /data-bolsa-accion="b7-pagina"/);
+  assert.match(html, /Seleccionar todas las que cumplen el filtro/);
+  assert.match(html, /0 seleccionadas/);
   flujo.paso = 3;
   html = presentador.renderizarVista("bolsa-candidatos");
   assert.match(html, /3\. Configurar llamamiento/);
+  assert.match(html, /El asunto y el texto son comunes a todas las personas seleccionadas/);
+  assert.match(html, /La personalización por persona está pendiente de desarrollo/);
   assert.match(html, /pendiente de RRHH, dudas 1–3/);
   assert.match(html, /bolsa-llamamiento-v1/);
   flujo.paso = 4;
