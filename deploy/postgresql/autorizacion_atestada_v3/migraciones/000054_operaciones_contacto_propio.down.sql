@@ -67,7 +67,7 @@ BEGIN
       WHERE p.oid=f AND p.proowner='vec_autorizacion_atestada_v3_propietario'::regrole
         AND p.prosecdef AND p.provolatile='v' AND p.pronargdefaults=0
         AND p.proconfig=ARRAY['search_path=pg_catalog','lock_timeout=2s']
-        AND encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')='F2_PENDIENTE_SHA_MUTACION_54';
+        AND encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')='3434a876cc67ee9331d1f5a9340790495c3ce531994ba8ef235d4a455d627942';
     SELECT jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype)
       INTO deps FROM pg_depend d WHERE (d.classid='pg_proc'::regclass AND d.objid=f)
          OR (d.refclassid='pg_proc'::regclass AND d.refobjid=f);
@@ -121,7 +121,7 @@ BEGIN
     END LOOP;
     EXECUTE nueva;
     IF pg_get_functiondef(f) IS DISTINCT FROM nueva
-       OR (SELECT encode(sha256(convert_to(prosrc,'UTF8')),'hex') FROM pg_proc WHERE oid=f) IS DISTINCT FROM 'F2_PENDIENTE_SHA_MUTACION_CONTACTO53'
+       OR (SELECT encode(sha256(convert_to(prosrc,'UTF8')),'hex') FROM pg_proc WHERE oid=f) IS DISTINCT FROM '63c14d42c5fce79d92be437bd5bb61328ab14a26e2e5392cf7063f87371e2ffe'
        OR (SELECT to_jsonb(p)-'prosrc' FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM metadata
        OR (SELECT jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype)
              FROM pg_depend d WHERE (d.classid='pg_proc'::regclass AND d.objid=f)
@@ -138,7 +138,7 @@ BEGIN
       WHERE p.oid=f AND p.proowner='vec_autorizacion_atestada_v3_propietario'::regrole
         AND p.prosecdef AND p.provolatile='v' AND p.pronargdefaults=0
         AND p.proconfig=ARRAY['search_path=pg_catalog','lock_timeout=1s']
-        AND encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')='F2_PENDIENTE_SHA_REVALIDACION_54';
+        AND encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')='51f4b05feb19efeff9f1e985a723ed7f64e03d1b8d264691ad57131676467b14';
     SELECT jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype)
       INTO deps FROM pg_depend d WHERE (d.classid='pg_proc'::regclass AND d.objid=f)
          OR (d.refclassid='pg_proc'::regclass AND d.refobjid=f);
@@ -174,7 +174,7 @@ BEGIN
     END LOOP;
     EXECUTE nueva;
     IF pg_get_functiondef(f) IS DISTINCT FROM nueva
-       OR (SELECT encode(sha256(convert_to(prosrc,'UTF8')),'hex') FROM pg_proc WHERE oid=f) IS DISTINCT FROM 'F2_PENDIENTE_SHA_REVALIDACION_CONTACTO53'
+       OR (SELECT encode(sha256(convert_to(prosrc,'UTF8')),'hex') FROM pg_proc WHERE oid=f) IS DISTINCT FROM '58d7d00d858132f8e08cc470c716ca04fc0521268834482e293894f7be3d806b'
        OR (SELECT to_jsonb(p)-'prosrc' FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM metadata
        OR (SELECT jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype)
              FROM pg_depend d WHERE (d.classid='pg_proc'::regclass AND d.objid=f)
@@ -183,6 +183,6 @@ BEGIN
     END IF;
 END $operacion_revalidacion_down$;
 
--- WIP: faltan posthash exactos y ensayo PG18 de la inversión.
-DO $incompleta$ BEGIN RAISE EXCEPTION 'AD3-54 DOWN WIP: posthash y ensayo PG18 pendientes' USING ERRCODE='55000'; END $incompleta$;
+-- Inversión textual con hashes candidatos: faltan cotejo PG18 y E10.
+DO $incompleta$ BEGIN RAISE EXCEPTION 'AD3-54 DOWN WIP: postimagen PG18 pendiente' USING ERRCODE='55000'; END $incompleta$;
 COMMIT;

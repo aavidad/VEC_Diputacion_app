@@ -39,7 +39,7 @@ BEGIN
         WHERE p.oid=f AND p.proowner='vec_autorizacion_atestada_v3_propietario'::regrole
         AND p.prosecdef AND p.provolatile='v' AND p.pronargdefaults=0
         AND p.proconfig=ARRAY['search_path=pg_catalog','lock_timeout=2s']
-        AND encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')='41a3b44472f819cd16bb6519c4866190d3ea51c6bb6da233fbd56672c38b1c74';
+        AND encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')='63c14d42c5fce79d92be437bd5bb61328ab14a26e2e5392cf7063f87371e2ffe';
     SELECT jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype)
         INTO deps FROM pg_depend d WHERE (d.classid='pg_proc'::regclass AND d.objid=f)
         OR (d.refclassid='pg_proc'::regclass AND d.refobjid=f);
@@ -90,7 +90,7 @@ BEGIN
     END LOOP;
     EXECUTE nueva;
     IF pg_get_functiondef(f) IS DISTINCT FROM nueva
-       OR (SELECT encode(sha256(convert_to(prosrc,'UTF8')),'hex') FROM pg_proc WHERE oid=f) IS DISTINCT FROM '9c1b0ce16a281b405ea29a7ac96684c3cd4b3e4ea6a56244422612198552a25a'
+       OR (SELECT encode(sha256(convert_to(prosrc,'UTF8')),'hex') FROM pg_proc WHERE oid=f) IS DISTINCT FROM '4440e6acb9e69624fff683ae48dd0204d6d8217bc1bd3aba22d96d22b6c1df91'
        OR (SELECT to_jsonb(p)-'prosrc' FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM metadata
        OR (SELECT jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype)
             FROM pg_depend d WHERE (d.classid='pg_proc'::regclass AND d.objid=f)
@@ -107,7 +107,7 @@ BEGIN
         WHERE p.oid=f AND p.proowner='vec_autorizacion_atestada_v3_propietario'::regrole
         AND p.prosecdef AND p.provolatile='v' AND p.pronargdefaults=0
         AND p.proconfig=ARRAY['search_path=pg_catalog','lock_timeout=1s']
-        AND encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')='f3ef6b57c688fd0b693e0e704a76650c5867b55997cea69ad36519ac36ff5a55';
+        AND encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')='58d7d00d858132f8e08cc470c716ca04fc0521268834482e293894f7be3d806b';
     SELECT jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype)
         INTO deps FROM pg_depend d WHERE (d.classid='pg_proc'::regclass AND d.objid=f)
         OR (d.refclassid='pg_proc'::regclass AND d.refobjid=f);
@@ -143,7 +143,7 @@ BEGIN
     END LOOP;
     EXECUTE nueva;
     IF pg_get_functiondef(f) IS DISTINCT FROM nueva
-       OR (SELECT encode(sha256(convert_to(prosrc,'UTF8')),'hex') FROM pg_proc WHERE oid=f) IS DISTINCT FROM 'f4770aacc8a61c3ce01f68f78b43d10cce43f242e2dbf66a5d1b9c9fbe323c4d'
+       OR (SELECT encode(sha256(convert_to(prosrc,'UTF8')),'hex') FROM pg_proc WHERE oid=f) IS DISTINCT FROM 'b13d24219dd5f18beb873e6391c06b93bea423d6d242b40568d5c8bc80802145'
        OR (SELECT to_jsonb(p)-'prosrc' FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM metadata
        OR (SELECT jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype)
             FROM pg_depend d WHERE (d.classid='pg_proc'::regclass AND d.objid=f)
@@ -180,7 +180,7 @@ BEGIN
         WHERE p.oid=f AND p.proowner='vec_autorizacion_atestada_v3_propietario'::regrole
         AND p.prosecdef AND p.provolatile='v' AND p.pronargdefaults=0
         AND p.proconfig=ARRAY['search_path=pg_catalog','lock_timeout=2s']
-        AND encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')='9c1b0ce16a281b405ea29a7ac96684c3cd4b3e4ea6a56244422612198552a25a';
+        AND encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')='4440e6acb9e69624fff683ae48dd0204d6d8217bc1bd3aba22d96d22b6c1df91';
     IF NOT COALESCE((SELECT count(*)=1 AND bool_and(x.grantee=p.proowner AND x.grantor=p.proowner
         AND x.privilege_type='EXECUTE' AND NOT x.is_grantable) FROM pg_proc p,
         LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) x WHERE p.oid=f),false) THEN
@@ -213,7 +213,7 @@ BEGIN
     END LOOP;
     EXECUTE nueva;
     IF pg_get_functiondef(f) IS DISTINCT FROM nueva
-       OR (SELECT encode(sha256(convert_to(prosrc,'UTF8')),'hex') FROM pg_proc WHERE oid=f) IS DISTINCT FROM 'ee184cc4a2214befe8543eabeaa13cbce3b575a260815a6c6cb8f09e4867021a'
+       OR (SELECT encode(sha256(convert_to(prosrc,'UTF8')),'hex') FROM pg_proc WHERE oid=f) IS DISTINCT FROM '9abb29c2a598fe6853eb3281b4231eb46a3158b8a8afffe718d3951296e50738'
        OR (SELECT to_jsonb(p)-'prosrc' FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM metadata
        OR (SELECT jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype)
             FROM pg_depend d WHERE (d.classid='pg_proc'::regclass AND d.objid=f)
@@ -230,7 +230,7 @@ BEGIN
         WHERE p.oid=f AND p.proowner='vec_autorizacion_atestada_v3_propietario'::regrole
         AND p.prosecdef AND p.provolatile='v' AND p.pronargdefaults=0
         AND p.proconfig=ARRAY['search_path=pg_catalog','lock_timeout=1s']
-        AND encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')='f4770aacc8a61c3ce01f68f78b43d10cce43f242e2dbf66a5d1b9c9fbe323c4d';
+        AND encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')='b13d24219dd5f18beb873e6391c06b93bea423d6d242b40568d5c8bc80802145';
     IF NOT COALESCE((SELECT count(*)=1 AND bool_and(x.grantee=p.proowner AND x.grantor=p.proowner
         AND x.privilege_type='EXECUTE' AND NOT x.is_grantable) FROM pg_proc p,
         LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) x WHERE p.oid=f),false) THEN
@@ -258,7 +258,7 @@ BEGIN
     END LOOP;
     EXECUTE nueva;
     IF pg_get_functiondef(f) IS DISTINCT FROM nueva
-       OR (SELECT encode(sha256(convert_to(prosrc,'UTF8')),'hex') FROM pg_proc WHERE oid=f) IS DISTINCT FROM '984574088bcae01e38631358510d9cdab3b35ba94d917a553b0bb8bef9017190'
+       OR (SELECT encode(sha256(convert_to(prosrc,'UTF8')),'hex') FROM pg_proc WHERE oid=f) IS DISTINCT FROM '9078f7304058d5b2a07fc1756ca13877696b47399b726735fed31dd466e5c295'
        OR (SELECT to_jsonb(p)-'prosrc' FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM metadata
        OR (SELECT jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype)
             FROM pg_depend d WHERE (d.classid='pg_proc'::regclass AND d.objid=f)

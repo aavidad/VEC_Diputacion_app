@@ -98,7 +98,7 @@ DECLARE f oid:='vec_autorizacion_atestada_v3.revalidar_consumo_consulta_rrhh_v3_
 BEGIN
     SELECT pg_get_functiondef(p.oid),to_jsonb(p)-'prosrc' INTO STRICT def,metadata FROM pg_proc p
         WHERE p.oid=f AND p.proowner='vec_autorizacion_atestada_v3_propietario'::regrole
-        AND encode(sha256(convert_to(prosrc,'UTF8')),'hex')='984574088bcae01e38631358510d9cdab3b35ba94d917a553b0bb8bef9017190';
+        AND encode(sha256(convert_to(prosrc,'UTF8')),'hex')='9078f7304058d5b2a07fc1756ca13877696b47399b726735fed31dd466e5c295';
     inicio:=strpos(def,'/* AD3-52 RV INICIO */'); original:=strpos(def,'/* AD3-52 RV ORIGINAL */');
     fin:=strpos(def,') END) /* AD3-52 RV FIN */');
     IF inicio=0 OR original<=inicio OR fin<=original THEN

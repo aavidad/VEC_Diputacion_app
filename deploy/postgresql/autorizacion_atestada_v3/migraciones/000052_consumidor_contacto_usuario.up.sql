@@ -535,7 +535,7 @@ BEGIN
            THEN 'vec.module.usuarios' ELSE 'contratacion_temporal' END)$despues$);
     EXECUTE nueva;
     IF pg_get_functiondef(f) IS DISTINCT FROM nueva
-       OR (SELECT encode(sha256(convert_to(prosrc,'UTF8')),'hex') FROM pg_proc WHERE oid=f) IS DISTINCT FROM '984574088bcae01e38631358510d9cdab3b35ba94d917a553b0bb8bef9017190'
+       OR (SELECT encode(sha256(convert_to(prosrc,'UTF8')),'hex') FROM pg_proc WHERE oid=f) IS DISTINCT FROM '9078f7304058d5b2a07fc1756ca13877696b47399b726735fed31dd466e5c295'
        OR (SELECT to_jsonb(p)-'prosrc' FROM pg_proc p WHERE p.oid=f) IS DISTINCT FROM metadata
        OR (SELECT jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype)
             FROM pg_depend d WHERE (d.classid='pg_proc'::regclass AND d.objid=f)
@@ -646,6 +646,7 @@ BEGIN
         END IF;
     END LOOP;
 END $post$;
--- WIP: se retira sólo tras fijar postimagen y ensayo PG18 aislado.
-DO $f2_incompleta$ BEGIN RAISE EXCEPTION 'AD3-52 WIP: falta hash post-CT51 y PG18' USING ERRCODE='55000'; END $f2_incompleta$;
+-- Huellas candidatas derivadas por parche textual sobre la preimagen CT51;
+-- sólo pg_proc.prosrc/ACL en PG18 aislado puede acreditarlas y retirar WIP.
+DO $f2_incompleta$ BEGIN RAISE EXCEPTION 'AD3-52 WIP: falta cotejo post-CT51 en PG18' USING ERRCODE='55000'; END $f2_incompleta$;
 COMMIT;
