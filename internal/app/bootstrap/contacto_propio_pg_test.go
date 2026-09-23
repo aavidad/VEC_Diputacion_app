@@ -825,6 +825,16 @@ func registrarIdentidadSinteticaContactoPGPrueba(t *testing.T, ctx context.Conte
 		if _, err := tx.Exec(ctx, `INSERT INTO vec_contexto_actor_v1.persona_actual(persona_ref,version) VALUES($1,1)`, personaRef); err != nil {
 			t.Fatal("vigencia de persona sintética ajena no disponible")
 		}
+		if _, err := tx.Exec(ctx, `INSERT INTO vec_contexto_actor_v1.vinculo_referencia_versiones
+            (vinculo_ref,version,persona_ref,tipo,referencia,procedencia_ref,procedencia_version,procedencia_huella_sha256,procedencia_autoridad,estado,vigente_desde,vigente_hasta)
+            VALUES($1,1,$2,'candidato',$3,$4,1,repeat('a',64),'autoridad_maestra_acreditada','activo',clock_timestamp()-interval '1 hour',clock_timestamp()+interval '1 hour')`,
+			"vin_"+strings.Repeat(letra, 22), personaRef, "can_"+strings.Repeat(letra, 22), procedencia); err != nil {
+			t.Fatal("vínculo de persona sintética ajena no disponible")
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO vec_contexto_actor_v1.vinculo_referencia_actual(vinculo_ref,version) VALUES($1,1)`,
+			"vin_"+strings.Repeat(letra, 22)); err != nil {
+			t.Fatal("vigencia de vínculo sintético ajeno no disponible")
+		}
 	}
 	operaciones := []struct {
 		sql  string
