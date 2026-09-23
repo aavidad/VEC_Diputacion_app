@@ -1,4 +1,4 @@
-import { crearTraductorOportunidades } from "./i18n.js";
+import { crearTraductorOportunidades } from "./i18n.js?v=20260924-f2-web2";
 
 const ESTADOS_CONSULTA = new Set(["cargando", "disponible", "vacio", "no_configurado", "denegado", "error"]);
 const ESTADOS_REQUISITO = new Set(["cumple", "no_cumple", "pendiente"]);
