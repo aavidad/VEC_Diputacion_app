@@ -4,6 +4,7 @@ import { crearTraductorAdministracion } from "./i18n.js";
 import { montarVistaApariencia } from "./vista-apariencia.js";
 
 const PESTANAS_VISIBLES = Object.freeze([...PESTANAS_ADMINISTRACION, "apariencia"]);
+let secuenciaVista = 0;
 
 const crear = (d, etiqueta, texto = "", clase = "") => { const n = d.createElement(etiqueta); if (texto) n.textContent = texto; if (clase) n.className = clase; return n; };
 const accionBloqueada = (d, t, texto, motivo = t("accion_bloqueada")) => { const b = crear(d, "button", texto, "administracion-accion"); b.type = "button"; b.disabled = true; b.setAttribute("aria-disabled", "true"); b.title = motivo; return b; };
@@ -34,8 +35,8 @@ function detalle(d, t, fila, clave) {
 
 function formularioIA(d, t) {
   const seccion = crear(d, "section", "", "panel administracion-ia"); seccion.append(crear(d, "h3", t("ia_titulo")), crear(d, "p", t("ia_ayuda")));
-  const formulario = crear(d, "form"); [[t("ia_endpoint"), "http://localhost:11434"], [t("ia_modelo"), t("ia_modelo_ejemplo")], [t("ia_indice"), t("ia_indice_ejemplo")]].forEach(([etiqueta, ejemplo]) => { const label = crear(d, "label", etiqueta); const input = crear(d, "input"); input.value = ejemplo; input.disabled = true; input.setAttribute("aria-describedby", "administracion-ia-limite"); label.append(input); formulario.append(label); });
-  const controles = crear(d, "div", "", "administracion-acciones"); controles.append(accionBloqueada(d, t, t("probar_conexion"), t("prueba_bloqueada")), accionBloqueada(d, t, t("activar_ia"), t("activar_bloqueada"))); formulario.append(controles); seccion.append(formulario, crear(d, "p", t("ia_limite"), "administracion-limite")); return seccion;
+  const formulario = crear(d, "form"); [[t("ia_endpoint"), t("ia_endpoint_ejemplo")], [t("ia_modelo"), t("ia_modelo_ejemplo")], [t("ia_indice"), t("ia_indice_ejemplo")]].forEach(([etiqueta, ejemplo]) => { const label = crear(d, "label", etiqueta); const input = crear(d, "input"); input.value = ejemplo; input.disabled = true; input.setAttribute("aria-describedby", "administracion-ia-limite"); label.append(input); formulario.append(label); });
+  const controles = crear(d, "div", "", "administracion-acciones"); controles.append(accionBloqueada(d, t, t("probar_conexion"), t("prueba_bloqueada")), accionBloqueada(d, t, t("activar_ia"), t("activar_bloqueada"))); formulario.append(controles); const limite = crear(d, "p", t("ia_limite"), "administracion-limite"); limite.id = "administracion-ia-limite"; seccion.append(formulario, limite); return seccion;
 }
 
 function controlesPendientes(d, t, clave) {
@@ -61,7 +62,8 @@ export function montarVistaAdministracion({ raiz, anunciar = () => {}, registrar
   let activa = true;
   let vistaApariencia = null;
   let estado = { pestana: "resumen", filtro: "", selecciones: {} };
-  const pintar = (focoPestana = false) => {
+  const idVista = `administracion-${++secuenciaVista}`;
+  const pintar = (focoPestana = false, focoFiltro = false) => {
     if (!activa) return;
     vistaApariencia?.desmontar();
     vistaApariencia = null;
@@ -71,28 +73,45 @@ export function montarVistaAdministracion({ raiz, anunciar = () => {}, registrar
     seccion.dataset.estadoEntrega = "visual_pendiente_backend";
     const cabecera = crear(documento, "header", "", "cabecera-vista");
     cabecera.append(crear(documento, "p", t("sobrelinea"), "sobrelinea"), crear(documento, "h2", t("titulo")), crear(documento, "p", t("descripcion")));
-    const aviso = crear(documento, "p", DATOS_ADMINISTRACION_PRESENTACION.aviso, "administracion-aviso");
-    const entrega = crear(documento, "div");
-    entrega.innerHTML = renderizarEstadoEntrega(estadoEntrega);
+    const aviso = crear(documento, "p", t("aviso_datos"), "administracion-aviso");
+    const entrega = crear(documento, "details", "", "administracion-entrega");
+    const resumenEntrega = crear(documento, "summary", t("estado_conexion_breve"));
+    const detalleEntrega = crear(documento, "div");
+    detalleEntrega.innerHTML = renderizarEstadoEntrega(estadoEntrega);
+    entrega.append(resumenEntrega, detalleEntrega);
     const nav = crear(documento, "nav", "", "administracion-pestanas");
     nav.setAttribute("role", "tablist");
     nav.setAttribute("aria-label", t("pestanas"));
     let tabSeleccionada = null;
+    const seleccionarPestana = (clave) => {
+      if (clave === estado.pestana) return;
+      estado = { ...estado, pestana: clave, filtro: "" };
+      pintar(true);
+      anunciar(t("seccion_seleccionada", { etiqueta: t(`tab_${clave}`) }), "info");
+    };
     PESTANAS_VISIBLES.forEach((clave) => {
       const boton = crear(documento, "button", t(`tab_${clave}`));
       boton.type = "button";
+      boton.id = `${idVista}-tab-${clave}`;
       boton.dataset.administracionPestana = clave;
       boton.setAttribute("role", "tab");
       boton.setAttribute("aria-selected", String(clave === estado.pestana));
+      boton.setAttribute("aria-controls", `${idVista}-panel`);
+      boton.tabIndex = clave === estado.pestana ? 0 : -1;
       if (clave === estado.pestana) tabSeleccionada = boton;
-      boton.addEventListener("click", () => {
-        estado = { ...estado, pestana: clave, filtro: "" };
-        pintar(true);
-        anunciar(t("seccion_seleccionada", { etiqueta: t(`tab_${clave}`) }), "info");
+      boton.addEventListener("click", () => seleccionarPestana(clave));
+      boton.addEventListener("keydown", (evento) => {
+        const indice = PESTANAS_VISIBLES.indexOf(clave);
+        const destino = evento.key === "ArrowRight" ? (indice + 1) % PESTANAS_VISIBLES.length
+          : evento.key === "ArrowLeft" ? (indice - 1 + PESTANAS_VISIBLES.length) % PESTANAS_VISIBLES.length
+            : evento.key === "Home" ? 0 : evento.key === "End" ? PESTANAS_VISIBLES.length - 1 : -1;
+        if (destino < 0) return;
+        evento.preventDefault();
+        seleccionarPestana(PESTANAS_VISIBLES[destino]);
       });
       nav.append(boton);
     });
-    const filtros = crear(documento, "form", "administracion-filtros");
+    const filtros = crear(documento, "form", "", "administracion-filtros");
     const label = crear(documento, "label", t("filtro"));
     const input = crear(documento, "input");
     input.name = "filtro";
@@ -106,16 +125,20 @@ export function montarVistaAdministracion({ raiz, anunciar = () => {}, registrar
     filtros.addEventListener("submit", (evento) => {
       evento.preventDefault();
       estado = { ...estado, filtro: input.value.trim() };
-      pintar();
+      pintar(false, true);
       anunciar(t("filtro_aplicado"), "info");
     });
     seccion.append(cabecera, aviso, entrega, nav);
     if (!["resumen", "ia", "apariencia"].includes(estado.pestana)) seccion.append(filtros);
     const cuerpo = contenido(documento, t, estado.pestana, estado, (cambios) => { estado = { ...estado, ...cambios }; pintar(); });
+    cuerpo.id = `${idVista}-panel`;
+    cuerpo.setAttribute("role", "tabpanel");
+    cuerpo.setAttribute("aria-labelledby", `${idVista}-tab-${estado.pestana}`);
     seccion.append(cuerpo);
     raiz.append(seccion);
     if (estado.pestana === "apariencia") vistaApariencia = montarVistaApariencia({ raiz: cuerpo, anunciar, t });
     if (focoPestana) tabSeleccionada?.focus?.();
+    if (focoFiltro) input.focus?.();
   };
   pintar();
   const desmontar = () => {

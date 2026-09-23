@@ -1,4 +1,5 @@
 const OPCIONES = Object.freeze(["institucional", "granate"]);
+let secuenciaAyuda = 0;
 
 function nodo(documento, etiqueta, texto = "", clase = "") {
   const elemento = documento.createElement(etiqueta);
@@ -13,26 +14,30 @@ export function montarVistaApariencia({ raiz, anunciar = () => {}, t, cargarCont
     throw new TypeError("vista de Apariencia no disponible");
   }
   const documento = raiz.ownerDocument;
+  const idAyuda = `administracion-apariencia-ayuda-${++secuenciaAyuda}`;
   let activa = true;
   let controlador = null;
-  let seleccion = OPCIONES.includes(documento.documentElement?.getAttribute?.("data-tema"))
-    ? documento.documentElement.getAttribute("data-tema") : "institucional";
+  const temaInicial = documento.documentElement?.getAttribute?.("data-tema");
+  let seleccion = OPCIONES.includes(temaInicial) ? temaInicial : "institucional";
 
   const cabecera = () => {
-    const header = nodo(documento, "header", "", "administracion-apariencia-cabecera");
-    const titulo = nodo(documento, "h3", t("apariencia_titulo"));
+    const header = nodo(documento, "header", "", "cabecera-panel administracion-apariencia-cabecera");
+    const encabezado = nodo(documento, "div");
+    encabezado.append(nodo(documento, "h3", t("apariencia_titulo")), nodo(documento, "p", t("apariencia_descripcion")));
     const ayuda = nodo(documento, "button", "?", "administracion-apariencia-ayuda");
     ayuda.type = "button";
     ayuda.setAttribute("aria-label", t("apariencia_ayuda_abrir"));
     ayuda.setAttribute("aria-expanded", "false");
+    ayuda.setAttribute("aria-controls", idAyuda);
     const textoAyuda = nodo(documento, "p", t("apariencia_ayuda"), "administracion-apariencia-ayuda-texto");
+    textoAyuda.id = idAyuda;
     textoAyuda.hidden = true;
     ayuda.addEventListener("click", () => {
       textoAyuda.hidden = !textoAyuda.hidden;
       ayuda.setAttribute("aria-expanded", String(!textoAyuda.hidden));
       ayuda.setAttribute("aria-label", t(textoAyuda.hidden ? "apariencia_ayuda_abrir" : "apariencia_ayuda_cerrar"));
     });
-    header.append(titulo, ayuda, textoAyuda);
+    header.append(encabezado, ayuda, textoAyuda);
     return header;
   };
 
@@ -40,7 +45,7 @@ export function montarVistaApariencia({ raiz, anunciar = () => {}, t, cargarCont
     const panel = nodo(documento, "section", "", "panel administracion-apariencia");
     panel.dataset.aparienciaEstado = reintentar ? "error" : "cargando";
     const mensaje = nodo(documento, "p", t(clave), "administracion-apariencia-estado");
-    mensaje.setAttribute("role", "status");
+    mensaje.setAttribute("role", reintentar ? "alert" : "status");
     panel.append(cabecera(), mensaje);
     if (reintentar) {
       const boton = nodo(documento, "button", t("apariencia_reintentar"), "boton-secundario");
@@ -57,6 +62,7 @@ export function montarVistaApariencia({ raiz, anunciar = () => {}, t, cargarCont
     const form = nodo(documento, "form", "", "administracion-apariencia-formulario");
     const opciones = nodo(documento, "fieldset", "", "administracion-apariencia-opciones");
     opciones.append(nodo(documento, "legend", t("apariencia_elegir")));
+    const radios = [];
     for (const id of OPCIONES) {
       const etiqueta = nodo(documento, "label", "", "administracion-apariencia-opcion");
       const radio = nodo(documento, "input");
@@ -64,7 +70,8 @@ export function montarVistaApariencia({ raiz, anunciar = () => {}, t, cargarCont
       radio.name = "tema-vec-previa";
       radio.value = id;
       radio.checked = seleccion === id;
-      radio.addEventListener("change", () => { seleccion = id; });
+      radio.addEventListener("change", () => { if (radio.checked) seleccion = id; });
+      radios.push(radio);
       etiqueta.append(radio, nodo(documento, "span", t(`apariencia_tema_${id}`)), nodo(documento, "small", t("apariencia_revision")));
       opciones.append(etiqueta);
     }
@@ -80,10 +87,14 @@ export function montarVistaApariencia({ raiz, anunciar = () => {}, t, cargarCont
     publicar.disabled = true;
     publicar.setAttribute("aria-disabled", "true");
     publicar.title = t("apariencia_sin_autoridad");
+    const limitePublicacion = nodo(documento, "p", t("apariencia_sin_autoridad"), "administracion-apariencia-limite");
+    limitePublicacion.id = `${idAyuda}-limite`;
+    publicar.setAttribute("aria-describedby", limitePublicacion.id);
     const actualizarEstado = () => {
       const previa = controlador.leerEstado().previsualizacion;
       panel.dataset.aparienciaPrevia = String(previa);
       estado.textContent = t(previa ? "apariencia_estado_previa" : "apariencia_estado_base");
+      estado.setAttribute("role", "status");
       cancelar.disabled = !previa;
     };
     form.addEventListener("submit", (evento) => {
@@ -94,16 +105,25 @@ export function montarVistaApariencia({ raiz, anunciar = () => {}, t, cargarCont
         anunciar(t("apariencia_estado_previa"), "info");
       } catch {
         estado.textContent = t("apariencia_error_aplicar");
+        estado.setAttribute("role", "alert");
         anunciar(estado.textContent, "error");
       }
     });
     cancelar.addEventListener("click", () => {
-      controlador.cancelarPrevisualizacion();
-      actualizarEstado();
-      anunciar(t("apariencia_estado_base"), "info");
+      try {
+        controlador.cancelarPrevisualizacion();
+        seleccion = OPCIONES.includes(temaInicial) ? temaInicial : "institucional";
+        radios.forEach((radio) => { radio.checked = radio.value === seleccion; });
+        actualizarEstado();
+        anunciar(t("apariencia_estado_base"), "info");
+      } catch {
+        estado.textContent = t("apariencia_error_restablecer");
+        estado.setAttribute("role", "alert");
+        anunciar(estado.textContent, "error");
+      }
     });
     acciones.append(previsualizar, cancelar, publicar);
-    form.append(opciones, acciones);
+    form.append(opciones, acciones, limitePublicacion);
     panel.append(cabecera(), form, estado);
     raiz.replaceChildren(panel);
     actualizarEstado();
