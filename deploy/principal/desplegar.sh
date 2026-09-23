@@ -44,6 +44,9 @@ psql_base=(psql "$VEC_PRINCIPAL_ADMIN_DATABASE_URL" --no-psqlrc --set=ON_ERROR_S
   --file "$script_dir/01_roles.sql"
 "${psql_base[@]}" --set=finalizar=ROLLBACK --file "$script_dir/02_migraciones.sql"
 "${psql_base[@]}" --set=finalizar=COMMIT --file "$script_dir/02_migraciones.sql"
+sed '$s/^COMMIT;$/ROLLBACK;/' "$repo/deploy/postgresql/bolsa_llamamientos/migraciones/000018_orden_vigente.up.sql" \
+  | "${psql_base[@]}"
+"${psql_base[@]}" --file "$repo/deploy/postgresql/bolsa_llamamientos/migraciones/000018_orden_vigente.up.sql"
 
 mkdir -p -- "$artefacto" "$respaldo"
 GOTOOLCHAIN=auto go -C "$repo" build -buildvcs=false -o "$nuevo" ./cmd/vec-server

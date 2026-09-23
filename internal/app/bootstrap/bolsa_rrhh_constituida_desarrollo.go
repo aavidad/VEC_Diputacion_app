@@ -11,6 +11,7 @@ import (
 	postgresbolsa "vec-diputacion-granada/internal/modules/bolsa/adapters/postgres"
 	importacionpg "vec-diputacion-granada/internal/modules/bolsa/adapters/postgresimportacionconvoca"
 	protector "vec-diputacion-granada/internal/modules/bolsa/adapters/protectorstagingdesarrollo"
+	bolsaapplication "vec-diputacion-granada/internal/modules/bolsa/application"
 	"vec-diputacion-granada/internal/modules/bolsa/application/constitucion"
 	"vec-diputacion-granada/internal/modules/bolsa/ports"
 )
@@ -21,6 +22,7 @@ import (
 type fuenteConstituidaRRHHDesarrollo struct {
 	repositorio ports.RepositorioConstitucion
 	situaciones ports.RepositorioSituacionParticipacion
+	orden       *bolsaapplication.ServicioOrdenVigente
 	emisiones   *postgresbolsa.RepositorioEmisionLlamamientoPostgreSQL
 	recuperador constitucion.Recuperador
 	categorias  map[string]string
@@ -63,6 +65,16 @@ func nuevaFuenteConstituidaRRHHDesarrollo(ctx context.Context, cfg config.Config
 		poolBolsa.Close()
 		return nil
 	}
+	consultaOrden, err := postgresbolsa.NuevaConsultaOrdenVigentePostgreSQL(poolBolsa)
+	if err != nil {
+		poolBolsa.Close()
+		return nil
+	}
+	orden, err := bolsaapplication.NuevoServicioOrdenVigente(consultaOrden)
+	if err != nil {
+		poolBolsa.Close()
+		return nil
+	}
 	emisiones, err := postgresbolsa.NuevoRepositorioEmisionLlamamientoPostgreSQL(poolBolsa)
 	if err != nil {
 		poolBolsa.Close()
@@ -101,7 +113,7 @@ func nuevaFuenteConstituidaRRHHDesarrollo(ctx context.Context, cfg config.Config
 			}
 		}
 	}
-	return &fuenteConstituidaRRHHDesarrollo{repositorio: repositorio, situaciones: situaciones, emisiones: emisiones, recuperador: recuperador, categorias: categorias, grupos: grupos, ahora: time.Now}
+	return &fuenteConstituidaRRHHDesarrollo{repositorio: repositorio, situaciones: situaciones, orden: orden, emisiones: emisiones, recuperador: recuperador, categorias: categorias, grupos: grupos, ahora: time.Now}
 }
 
 func (f *fuenteConstituidaRRHHDesarrollo) constituidas(ctx context.Context) (datasetBolsasRRHHDesarrollo, bool) {
@@ -124,7 +136,7 @@ func (f *fuenteConstituidaRRHHDesarrollo) constituidas(ctx context.Context) (dat
 }
 
 func (f *fuenteConstituidaRRHHDesarrollo) cargar(ctx context.Context) (datasetBolsasRRHHDesarrollo, error) {
-	if f == nil || f.repositorio == nil || f.situaciones == nil || f.emisiones == nil || f.recuperador == nil || f.ahora == nil {
+	if f == nil || f.repositorio == nil || f.situaciones == nil || f.orden == nil || f.emisiones == nil || f.recuperador == nil || f.ahora == nil {
 		return datasetBolsasRRHHDesarrollo{}, ErrComposicionDesarrolloIncompleta
 	}
 	vigentes, err := f.repositorio.ListarVigentes(ctx)
@@ -133,18 +145,41 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargar(ctx context.Context) (datasetBo
 	}
 	datos := datasetBolsasRRHHDesarrollo{GeneradoEn: f.ahora().UTC().Format(time.RFC3339)}
 	for _, vigente := range vigentes {
+		ordenVigente, err := f.orden.Consultar(ctx, vigente.Bolsa.BolsaRef)
+		if err != nil {
+			return datasetBolsasRRHHDesarrollo{}, err
+		}
+		posiciones := make(map[string]struct {
+			acta    int
+			vigente *int
+			razon   string
+		}, len(ordenVigente.Posiciones))
+		for _, posicion := range ordenVigente.Posiciones {
+			var actual *int
+			if posicion.OrdenVigente != nil {
+				v := int(*posicion.OrdenVigente)
+				actual = &v
+			}
+			posiciones[posicion.ParticipacionRef] = struct {
+				acta    int
+				vigente *int
+				razon   string
+			}{int(posicion.OrdenActa), actual, posicion.Razon}
+		}
+		politica := politicaOrdenRRHHDesarrollo{Referencia: ordenVigente.Politica.PoliticaRef, Criterio: ordenVigente.Politica.Criterio, TipoLista: ordenVigente.Politica.TipoLista, Reposicion: ordenVigente.Politica.Reposicion, Rotulo: ordenVigente.Politica.Rotulo, Actor: ordenVigente.Politica.Actor, VigenteDesde: ordenVigente.Politica.VigenteDesde.UTC().Format(time.RFC3339), Version: ordenVigente.Politica.Version, Provisional: ordenVigente.Politica.Provisional}
 		desde := vigente.ConfirmadaEn.UTC().Format(time.RFC3339)
 		datos.Bolsas = append(datos.Bolsas, struct {
-			Referencia          string  `json:"bolsa_ref"`
-			CategoriaRef        string  `json:"categoria_ref"`
-			Categoria           string  `json:"categoria"`
-			TipoLista           string  `json:"tipo_lista"`
-			VigenteDesde        string  `json:"vigente_desde"`
-			VigenteHasta        *string `json:"vigente_hasta"`
-			LlamamientosEnCurso int     `json:"llamamientos_en_curso"`
+			Referencia          string                      `json:"bolsa_ref"`
+			CategoriaRef        string                      `json:"categoria_ref"`
+			Categoria           string                      `json:"categoria"`
+			TipoLista           string                      `json:"tipo_lista"`
+			VigenteDesde        string                      `json:"vigente_desde"`
+			VigenteHasta        *string                     `json:"vigente_hasta"`
+			LlamamientosEnCurso int                         `json:"llamamientos_en_curso"`
+			PoliticaOrden       politicaOrdenRRHHDesarrollo `json:"politica_orden"`
 		}{
 			Referencia: vigente.Bolsa.BolsaRef, CategoriaRef: vigente.CategoriaRef,
-			Categoria: f.denominacion(vigente.CategoriaRef), TipoLista: "definitiva", VigenteDesde: desde,
+			Categoria: f.denominacion(vigente.CategoriaRef), TipoLista: politica.TipoLista, VigenteDesde: desde, PoliticaOrden: politica,
 		})
 		totalCurso, err := f.emisiones.ContarEnCurso(ctx, vigente.Bolsa.BolsaRef)
 		if err != nil {
@@ -168,6 +203,10 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargar(ctx context.Context) (datasetBo
 			filas[fila.Numero] = struct{ nombre, documento string }{strings.Join(strings.Fields(nombre), " "), fila.Identidad.Documento}
 		}
 		for _, entrada := range entradas {
+			posicion, encontradaOrden := posiciones[entrada.ParticipacionRef]
+			if !encontradaOrden {
+				return datasetBolsasRRHHDesarrollo{}, ErrComposicionDesarrolloIncompleta
+			}
 			visible, encontrada := filas[entrada.FilaNumero]
 			if !encontrada {
 				return datasetBolsasRRHHDesarrollo{}, ErrComposicionDesarrolloIncompleta
@@ -184,14 +223,16 @@ func (f *fuenteConstituidaRRHHDesarrollo) cargar(ctx context.Context) (datasetBo
 			datos.Candidaturas = append(datos.Candidaturas, struct {
 				Referencia  string  `json:"candidatura_ref"`
 				BolsaRef    string  `json:"bolsa_ref"`
-				Orden       int     `json:"orden"`
+				Orden       *int    `json:"orden"`
+				OrdenActa   int     `json:"orden_acta"`
+				RazonOrden  string  `json:"razon_orden"`
 				Nombre      string  `json:"nombre_visible"`
 				Documento   string  `json:"documento_enmascarado"`
 				Estado      string  `json:"estado_clave"`
 				EstadoDesde string  `json:"estado_desde"`
 				Disponible  *string `json:"disponible_desde"`
 			}{
-				Referencia: entrada.ParticipacionRef, BolsaRef: vigente.Bolsa.BolsaRef, Orden: int(entrada.Orden),
+				Referencia: entrada.ParticipacionRef, BolsaRef: vigente.Bolsa.BolsaRef, Orden: posicion.vigente, OrdenActa: posicion.acta, RazonOrden: posicion.razon,
 				Nombre: visible.nombre, Documento: visible.documento, Estado: situacion.Situacion, EstadoDesde: situacion.Desde.UTC().Format(time.RFC3339), Disponible: disponible,
 			})
 		}

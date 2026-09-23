@@ -82,6 +82,7 @@ function construirFixturesDesdeDemo() {
       total: candidaturas.length,
       por_estado: porEstado,
 	  llamamientos_en_curso: 0,
+	  politica_orden: { politica_ref: `politica:orden:${b.bolsa_ref}`, version: 1, criterio: "puntuacion_desc_acta", tipo_lista: "rotatoria", reposicion: "misma_posicion", provisional: true, rotulo: "Provisional, pendiente de RRHH (dudas 13–14)", actor: "sistema:prueba", vigente_desde: b.vigente_desde },
     };
   });
 
@@ -101,6 +102,8 @@ function construirFixturesDesdeDemo() {
     return {
       participacion_ref: `part_${c.candidatura_ref.replace(":demo:", ":sintetico:").replace(/[^a-zA-Z0-9]/g, "_")}`,
       orden: c.orden,
+      orden_acta: c.orden,
+      razon_orden: "orden_acta",
       nombre_visible: c.nombre_visible,
       documento_enmascarado: c.documento_enmascarado,
       estado_clave: situacion,
@@ -499,7 +502,8 @@ test("la presentación reutiliza B12/B5 con envelopes cerrados, filtros en memor
 
   const bolsaRef = bolsas.datos.bolsas[0].bolsa_ref;
   assert.equal(bolsaRef, "DEMO-BOL-AUXILIAR-ADMIN");
-  assert.equal(bolsas.datos.bolsas[0].tipo_lista, "Pendiente de confirmar");
+  assert.equal(bolsas.datos.bolsas[0].tipo_lista, "rotatoria");
+  assert.equal(bolsas.datos.bolsas[0].politica_orden.provisional, true);
   const disponibles = fuente.consultarCandidatosBolsa(bolsaRef, { estado: "disponible" });
   assert.equal(disponibles.ok, true);
   assert.equal(disponibles.datos.candidatos.length, 1);

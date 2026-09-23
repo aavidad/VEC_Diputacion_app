@@ -61,11 +61,19 @@ const CAMPOS_BOLSA = Object.freeze([
   "total",
   "por_estado",
   "llamamientos_en_curso",
+  "politica_orden",
+]);
+
+const CAMPOS_POLITICA_ORDEN = Object.freeze([
+  "politica_ref", "version", "criterio", "tipo_lista", "reposicion",
+  "provisional", "rotulo", "actor", "vigente_desde",
 ]);
 
 const CAMPOS_CANDIDATO = Object.freeze([
   "participacion_ref",
   "orden",
+  "orden_acta",
+  "razon_orden",
   "nombre_visible",
   "documento_enmascarado",
   "estado_clave",
@@ -180,6 +188,21 @@ export function validarBolsa(bolsa) {
   const vigenteHasta = bolsa.vigente_hasta === null ? null : exigirFechaOInstante(bolsa.vigente_hasta, "vigente_hasta");
   const total = exigirEnteroNoNegativo(bolsa.total, "total");
 	const llamamientosEnCurso = exigirEnteroNoNegativo(bolsa.llamamientos_en_curso, "llamamientos_en_curso");
+	if (bolsa.politica_orden === null) throw new Error("politica_orden es obligatoria");
+	exigirCamposExactos(bolsa.politica_orden, CAMPOS_POLITICA_ORDEN, "politica_orden");
+	const politicaOrden = Object.freeze({
+	  politica_ref: exigirCadenaSegura(bolsa.politica_orden.politica_ref, "politica_ref"),
+	  version: exigirEnteroNoNegativo(bolsa.politica_orden.version, "version"),
+	  criterio: bolsa.politica_orden.criterio,
+	  tipo_lista: bolsa.politica_orden.tipo_lista,
+	  reposicion: bolsa.politica_orden.reposicion,
+	  provisional: bolsa.politica_orden.provisional,
+	  rotulo: exigirCadenaSegura(bolsa.politica_orden.rotulo, "rotulo"),
+	  actor: exigirCadenaSegura(bolsa.politica_orden.actor, "actor"),
+	  vigente_desde: exigirFechaOInstante(bolsa.politica_orden.vigente_desde, "politica vigente_desde"),
+	});
+	if (politicaOrden.version < 1 || politicaOrden.criterio !== "puntuacion_desc_acta" || !["cerrada","rotatoria"].includes(politicaOrden.tipo_lista) || !["misma_posicion","fin_lista","no_disponible_hasta_fecha"].includes(politicaOrden.reposicion) || typeof politicaOrden.provisional !== "boolean") throw new Error("politica_orden no es valida");
+	if (politicaOrden.provisional && politicaOrden.rotulo !== "Provisional, pendiente de RRHH (dudas 13–14)") throw new Error("politica provisional sin rotulo obligatorio");
 
   exigirCamposExactos(bolsa.por_estado, SITUACIONES_PARTICIPACION_BOLSA, "por_estado");
   const porEstado = {};
@@ -197,6 +220,7 @@ export function validarBolsa(bolsa) {
     total,
     por_estado: Object.freeze(porEstado),
 	llamamientos_en_curso: llamamientosEnCurso,
+	politica_orden: politicaOrden,
   });
 }
 
@@ -224,9 +248,9 @@ export function validarCandidato(candidato) {
   exigirCamposExactos(candidato, CAMPOS_CANDIDATO, "candidato");
 
   const participacionRef = exigirCadenaSegura(candidato.participacion_ref, "participacion_ref");
-  if (!Number.isSafeInteger(candidato.orden) || candidato.orden < 1) {
-    throw new Error("orden de candidato debe ser un entero positivo mayor o igual a 1");
-  }
+  if (candidato.orden !== null && (!Number.isSafeInteger(candidato.orden) || candidato.orden < 1)) throw new Error("orden de candidato debe ser nulo o entero positivo");
+  if (!Number.isSafeInteger(candidato.orden_acta) || candidato.orden_acta < 1) throw new Error("orden_acta debe ser entero positivo");
+  if (!["orden_acta","reposicion_tras_contrato","pausa","trabajando","sin_turno"].includes(candidato.razon_orden)) throw new Error("razon_orden no reconocida");
   const nombreVisible = exigirCadenaSegura(candidato.nombre_visible, "nombre_visible");
   const documentoEnmascarado = validarDocumentoEnmascarado(candidato.documento_enmascarado);
 
@@ -253,6 +277,8 @@ export function validarCandidato(candidato) {
   return Object.freeze({
     participacion_ref: participacionRef,
     orden: candidato.orden,
+	orden_acta: candidato.orden_acta,
+	razon_orden: candidato.razon_orden,
     nombre_visible: nombreVisible,
     documento_enmascarado: documentoEnmascarado,
     estado_clave: estadoClave,
