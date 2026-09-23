@@ -181,6 +181,20 @@ BEGIN
  THEN RAISE EXCEPTION 'guardas de genesis no restauradas activas'; END IF;
 END $guardas_restauradas$;
 SQL
+# La comparación de esquema crea ACL del mismo rol en otra base. Retirarla
+# antes de acreditar un LOGIN runtime: ContextoActor exige exactamente las
+# cinco dependencias globales de la base bajo prueba.
+docker exec "$contenedor" dropdb -U postgres ct109_schema_referencia
+psql_sql <<'SQL'
+DO $referencia_retirada$
+BEGIN
+ IF EXISTS (SELECT 1 FROM pg_database WHERE datname='ct109_schema_referencia')
+    OR (SELECT count(*) FROM pg_shdepend
+         WHERE refclassid='pg_catalog.pg_authid'::regclass
+           AND refobjid='vec_contexto_actor_v1_runtime'::regrole)<>5
+ THEN RAISE EXCEPTION 'base comparativa alteró ACL runtime'; END IF;
+END $referencia_retirada$;
+SQL
 
 # Schema-only no contiene la fila de generacion: verificar antes de sembrarla.
 psql_sql <<'SQL'
