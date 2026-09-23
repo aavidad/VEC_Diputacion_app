@@ -29,10 +29,24 @@ test("mi bolsa muestra tarjetas propias, provisionalidad y paginación", async (
   const participaciones = Array.from({ length: 7 }, (_, indice) => ({ bolsa: `bolsa:prueba:${indice}`, categoria: "Auxiliar", version: 3, orden_inicial: indice + 1, total_instantanea: 87, estado_bolsa: "vigente", vigente_desde: "2026-09-01T00:00:00Z", vigente_hasta: null }));
   const vista = renderizarLlamamientos(datos, { participaciones, paginaParticipaciones: 1, fuenteBolsa: "ejemplo" });
   assert.match(vista, /Datos de ejemplo\.<\/strong> El acceso del candidato con DNIe o certificado está pendiente de desarrollo en VEC\./u);
-  assert.match(vista, /Mi número de orden[\s\S]*1 de 87/u);
+  assert.match(vista, /Mi número de orden inicial[\s\S]*1 de 87/u);
   assert.match(vista, /Versión de la bolsa/u);
   assert.match(vista, /Mostrando 1 a 6 de 7/u);
   assert.match(vista, /Identificarse con certificado no firma documentos\./u);
   assert.match(vista, /Pendiente de integración/u);
+  assert.match(vista, /La situación actual de esta participación aún no está disponible/u);
   assert.doesNotMatch(vista, /Ensayar pausa|Ensayar reactivación/u);
+});
+
+test("mi bolsa distingue estado vigente de la participación y vigencia de la bolsa", async () => {
+  const datos = structuredClone(await crearAdaptadorPresentacion().cargar());
+  const participaciones = [{ bolsa: "bolsa:prueba", categoria: "Auxiliar", version: 3, orden_inicial: 2, total_instantanea: 40, estado_bolsa: "vigente", vigente_desde: "2026-09-01T00:00:00Z", vigente_hasta: null,
+    situacion_actual: { estado: "no_disponible", desde: "2026-09-20T10:00:00Z", hasta: null, fecha_disponible: null } }];
+  const vista = renderizarLlamamientos(datos, { participaciones, fuenteBolsa: "real" });
+  assert.match(vista, /Última situación registrada de mi participación/u);
+  assert.match(vista, /No disponible/u);
+  assert.match(vista, /20 sept 2026/u);
+  assert.match(vista, /Sin fecha de fin registrada/u);
+  assert.match(vista, /Consta temporalmente no disponible en Bolsa/u);
+  assert.doesNotMatch(vista, /Datos de ejemplo|motivo|Pausa comunicada/u);
 });

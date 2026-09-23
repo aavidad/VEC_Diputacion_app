@@ -2,6 +2,32 @@ import {
   botonOperacion, chip, encabezadoVista, enlaceRuta, escaparAtributo, escaparHTML,
   formatoPuntos, listaDatos, panel, tabla,
 } from "./comunes.js";
+import { traducir } from "../i18n.js";
+
+const CLASES_SITUACION = Object.freeze({
+  disponible: "exito", no_disponible: "aviso", trabajando: "info",
+  pendiente_incorporacion: "aviso", renuncia: "aviso", excluido: "error",
+  disponible_desde: "aviso",
+});
+
+function fechaSituacion(valor) {
+  return new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" }).format(new Date(valor));
+}
+
+function fichaSituacionActual(actual) {
+  if (!actual || !Object.hasOwn(CLASES_SITUACION, actual.estado)) {
+    return `<p class="nota aviso">${escaparHTML(traducir("areaPersonal.miBolsa.situacion.sinDato"))}</p>`;
+  }
+  const etiqueta = traducir(`areaPersonal.miBolsa.situacion.${actual.estado}`);
+  const filas = [
+    [traducir("areaPersonal.miBolsa.situacion.estado"), `<span class="estado-chip ${CLASES_SITUACION[actual.estado]}">${escaparHTML(etiqueta)}</span>`],
+    [traducir("areaPersonal.miBolsa.situacion.desde"), escaparHTML(fechaSituacion(actual.desde))],
+    [traducir("areaPersonal.miBolsa.situacion.hasta"), actual.hasta ? escaparHTML(fechaSituacion(actual.hasta)) : escaparHTML(traducir("areaPersonal.miBolsa.situacion.sinFin"))],
+  ];
+  if (actual.fecha_disponible) filas.push([traducir("areaPersonal.miBolsa.situacion.fechaDisponible"), escaparHTML(fechaSituacion(actual.fecha_disponible))]);
+  filas.push([traducir("areaPersonal.miBolsa.situacion.explicacion"), escaparHTML(traducir(`areaPersonal.miBolsa.situacion.explicacion.${actual.estado}`))]);
+  return listaDatos(filas);
+}
 
 export function renderizarSeguimiento(datos, estado) {
   const solicitud = datos.solicitudes.find((item) => item.id === estado.expedienteSeleccionado) || datos.solicitudes[0];
@@ -53,11 +79,10 @@ export function renderizarLlamamientos(datos, estado = {}) {
   const totalPaginas = Math.max(1, Math.ceil(participaciones.length / porPagina));
   const paginaActual = Math.min(pagina, totalPaginas);
   const visibles = participaciones.slice((paginaActual - 1) * porPagina, paginaActual * porPagina);
-  const tarjetasParticipacion = visibles.map((item) => panel("Mi participación", item.categoria, `${listaDatos([["Estado de la bolsa", chip(item.estado_bolsa)], ["Mi número de orden", `${escaparHTML(String(item.orden_inicial))} de ${escaparHTML(String(item.total_instantanea))}`], ["Versión de la bolsa", escaparHTML(String(item.version))], ["Vigencia", `${escaparHTML(item.vigente_desde)}${item.vigente_hasta ? ` · hasta ${escaparHTML(item.vigente_hasta)}` : " · vigente"}`]])}`, { estado: item.estado_bolsa, clase: "participacion-propia" })).join("");
+  const tarjetasParticipacion = visibles.map((item) => panel("Mi participación", item.categoria, `${listaDatos([["Estado de la bolsa", chip(item.estado_bolsa)], [traducir("areaPersonal.miBolsa.ordenInicial"), `${escaparHTML(String(item.orden_inicial))} de ${escaparHTML(String(item.total_instantanea))}`], ["Versión de la bolsa", escaparHTML(String(item.version))], [traducir("areaPersonal.miBolsa.vigenciaBolsa"), `${escaparHTML(fechaSituacion(item.vigente_desde))}${item.vigente_hasta ? ` · hasta ${escaparHTML(fechaSituacion(item.vigente_hasta))}` : " · vigente"}`]])}<h4>${escaparHTML(traducir("areaPersonal.miBolsa.situacion.titulo"))}</h4>${fichaSituacionActual(item.situacion_actual)}`, { estado: item.estado_bolsa, clase: "participacion-propia" })).join("");
   const paginacion = participaciones.length > porPagina ? `<nav class="paginacion-participaciones" aria-label="Paginación de participaciones"><span>Mostrando ${(paginaActual - 1) * porPagina + 1} a ${Math.min(paginaActual * porPagina, participaciones.length)} de ${participaciones.length}</span><button type="button" class="boton-secundario" data-accion="pagina-participaciones" data-pagina="${paginaActual - 1}" ${paginaActual === 1 ? "disabled" : ""}>Anterior</button><button type="button" class="boton-secundario" data-accion="pagina-participaciones" data-pagina="${paginaActual + 1}" ${paginaActual === totalPaginas ? "disabled" : ""}>Siguiente</button></nav>` : "";
   const avisoFuente = estado.fuenteBolsa === "ejemplo" ? `<section class="aviso-fuente-ejemplo" role="status"><strong>Datos de ejemplo.</strong> El acceso del candidato con DNIe o certificado está pendiente de desarrollo en VEC.${estado.causaBolsa === "autenticacion_requerida" ? " Identifíquese con certificado cuando la frontera esté disponible." : ""}</section>` : "";
   const fichaParticipaciones = participaciones.length ? `<section class="marco-participaciones" aria-label="Mis participaciones en bolsa">${tarjetasParticipacion}${paginacion}</section>` : panel("Mis participaciones", "Sin participaciones activas", "<p>No constan participaciones en bolsa para la identidad actual.</p>");
-  const disponibles = datos.disponibilidad;
   const sufijoDemo = datos.meta.presentacion ? " DEMO" : "";
   const tarjetas = datos.llamamientos.map((item, indice) => {
     const camposLlamamiento = [
@@ -82,7 +107,7 @@ export function renderizarLlamamientos(datos, estado = {}) {
   return `${encabezadoVista("Mi bolsa", "Consulte su posición y vigencia. Identificarse con certificado no firma documentos.")}
     ${avisoFuente}${fichaParticipaciones}
     <div class="rejilla-principal"><div>${llamamientos}</div><aside>
-      ${panel("Disponibilidad", "Pausar o reactivar", pendiente)}
+      ${panel(traducir("areaPersonal.miBolsa.disponibilidad.titulo"), traducir("areaPersonal.miBolsa.disponibilidad.subtitulo"), `<p class="nota aviso">${escaparHTML(traducir("areaPersonal.miBolsa.disponibilidad.detalle"))}</p>`)}
       ${panel("Último llamamiento", "Información propia", pendiente)}
       ${panel("Contratos", "Información propia", pendiente)}
     </aside></div>`;

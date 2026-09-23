@@ -10,9 +10,23 @@ import {
   SITUACIONES_PARTICIPACION_BOLSA,
   esModoPresentacion,
   validarDatosAreaPersonal,
+  validarRespuestaMiBolsa,
   validarPayloadCambiarDisponibilidad,
   validarRecibo,
 } from "./contrato.js";
+
+test("mi bolsa valida la situación actual sin exigirla a la respuesta antigua", () => {
+  const base = { data: { esquema: "vec.bolsa.mi-bolsa.v1", consultada_en: "2026-09-23T10:00:00.000Z", participaciones: [
+    { bolsa: "bolsa:prueba:01", categoria: "Auxiliar", version: 3, orden_inicial: 12, total_instantanea: 87, estado_bolsa: "vigente", vigente_desde: "2026-09-01T00:00:00.000Z", vigente_hasta: null },
+  ] } };
+  assert.equal(validarRespuestaMiBolsa(base).participaciones[0].situacion_actual, undefined);
+  base.data.participaciones[0].situacion_actual = { estado: "disponible_desde", desde: "2026-09-20T10:00:00.000Z", hasta: null, fecha_disponible: "2026-10-01T10:00:00.000Z" };
+  assert.equal(validarRespuestaMiBolsa(base).participaciones[0].situacion_actual.estado, "disponible_desde");
+  base.data.participaciones[0].situacion_actual.estado = "inventado";
+  assert.throws(() => validarRespuestaMiBolsa(base), /situación actual/u);
+  base.data.participaciones[0].situacion_actual.estado = "disponible";
+  assert.throws(() => validarRespuestaMiBolsa(base), /fecha de disponibilidad/u);
+});
 
 test("el selector de presentación es único y explícito", () => {
   assert.equal(esModoPresentacion(new URLSearchParams("presentacion=rrhh")), true);
@@ -272,4 +286,3 @@ test("el contrato procesa fixtures derivadas del dataset sintético con mapeo de
     assert.equal(resultado.posicion.orden, c.orden);
   }
 });
-
