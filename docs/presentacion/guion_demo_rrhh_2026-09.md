@@ -1,53 +1,101 @@
 # Guion de demostración para RRHH — septiembre de 2026
 
-Este guion separa lo publicado y recorrible de los ejemplos sintéticos y de lo
-pendiente. El punto de entrada de la reunión es `https://cidonia.cloud/portal-empleado/`:
-responde en esta fecha, pero las pantallas B-BACK de situaciones, contactos y nuevo
-llamamiento siguen apagadas allí mientras Dirección corrige su arranque. No se deben
-simular ni afirmar como demostradas hasta que Dirección las reactive.
+Guion para la presentación de VEC a RRHH en la principal de cidonia. Cada afirmación
+distingue lo **comprobado en cidonia** (recorrido en Chrome a 1440×900 el 23/09/2026,
+sin errores JS ni peticiones fallidas), lo **pendiente de ensayo** y lo **que no existe**.
+Todos los datos son sintéticos: personas, DNI enmascarados, correos `.test` y
+expedientes. Nada de lo que se enseña firma, notifica ni produce efectos administrativos.
+
+## Antes de la reunión (lista de control)
+
+1. **Acceso.** `https://vec.cidonia.cloud/` muestra solo la portada pública de acceso
+   (Cl@ve, certificado y DNIe aún no habilitados por Sistemas); el portal interno no es
+   alcanzable desde ahí por diseño. Decidir con dirección: túnel desde el portátil o
+   publicación temporal protegida. **Pendiente de decisión.**
+2. **Emisión de llamamientos.** En cidonia, «Emitir llamamiento» responde hoy 403. Está
+   diagnosticado y asignado con prioridad máxima (D3-B7-FIX). **No enseñar el paso 4
+   hasta que el ensayo general lo dé por bueno.**
+3. **Ensayo general completo** en cidonia el día anterior, siguiendo este guion de
+   principio a fin, incluido un llamamiento que llegue al buzón de pruebas.
+4. Empezar Contratación por un expediente con número legible (`2026/CT-0000NN`); los
+   números con hash vienen de pruebas automáticas sintéticas.
 
 ## Orden de la demostración
 
-1. Abrir el portal de empleado de cidonia y comenzar la bandeja de Contratación por un expediente con número legible `2026/CT-0000NN`; los números con hash pertenecen a pruebas E2E sintéticas y no se usan en la demostración.
-2. Mostrar el cuadro de Bolsa y la lista B5/B6 únicamente si el servidor entrega sus
-   contratos reales y autorizados.
-3. Cuando Dirección reactive B-BACK, abrir el recorrido B7: bolsa, candidatos ordenados,
-   configuración y revisión/envío. La selección masiva de este corte está preparada en
-   código, pero no se presenta como publicada hasta su despliegue.
-4. Cerrar con los límites: correo corporativo, avisos, reglas temporales, documentos
-   administrativos finales e integración GINPIX requieren trabajo o decisión adicional.
+### 1. Bolsa: la foto de conjunto (petición p. 1, puntos 6 y 7; p. 3)
 
-## Petición, pantalla y estado
+- **Cuadro de mando** (menú: *Cuadro de mando para dirección*): 12 bolsas vigentes
+  importadas de CONVOCA, 390 aspirantes, disponibles, trabajando y no disponibles por
+  bolsa, paginado. *Comprobado.*
+- **Estadísticas** (menú 7): tarjetas de bolsas, vigentes, sustituidas, personas y
+  llamamientos; desglose por situación y por bolsa. Cada cifra abre la lista filtrada.
+  *Comprobado.*
 
-| Petición RRHH | Pantalla y qué pulsar | Qué se enseña hoy | Pendiente y responsable | Estado |
-| --- | --- | --- | --- | --- |
-| 1. Gestión de bolsas y candidatos | Bolsa → Candidatos (B5) → abrir una bolsa | Lectura de bolsa, candidatura y situación, cuando B-BACK esté activo; no usar datos de ejemplo como operación real. | Activar B-BACK en cidonia: Dirección. | Parcial, pantalla apagada en cidonia. |
-| 2. Llamamientos automáticos | Bolsa → Nuevo llamamiento (B7) | Emisión real B7 se prepara por pasos sobre el orden B6; no decide automáticamente a quién llamar. | Reglas aprobadas y automatización: RRHH; implementación: Desarrollo. | Parcial. |
-| 3. Contratos, ceses y reincorporaciones | No hay pantalla de demostración | No se muestra una operación inexistente. | Reglas, autoridad e integración de Personal: RRHH y Desarrollo. | Pendiente. |
-| 4. Motor de reglas configurable | B6 → ver rótulo de política provisional | Se muestra el orden vigente y que sus parámetros son provisionales. | Dudas 13–14 y gobierno de reglas: RRHH; motor versionado: Desarrollo. | Parcial. |
-| 5. Portal seguro de candidato | Portal del empleado → Mi bolsa | La web consulta primero su fuente real; el acceso externo de candidato sigue pendiente de construir en VEC. | Superficie externa con certificado/DNIe: Desarrollo. | Parcial, sin acceso real de candidato. |
-| 6. Cuadro de mando | Bolsa → Cuadro de mando / Estadísticas | Indicadores agregados conectados si el contrato está disponible; no habilitan acciones. | Arranque y autorización en cidonia: Dirección. | Parcial. |
-| 7. Estadísticas | Bolsa → Estadísticas → abrir una cifra | Desglose agregado por bolsa y estado; cada cifra abre la lista filtrada. | Fuente autorizada disponible en servidor: Dirección. | Parcial. |
-| 8. Word y PDF | Documentos | No se atribuye generación automática de plantillas Bolsa. | Plantillas, custodia, firma y conector: Desarrollo con criterios RRHH. | Pendiente. |
-| 9. Correo, SMS y mensajería | B7 → Configurar llamamiento | B7 usa relay de desarrollo y rotula que no acredita buzón corporativo; SMS/WhatsApp no se muestran. | Correo corporativo y política/canales: Dirección/RRHH; conectores: Desarrollo. | Parcial. |
-| 10. Auditoría y trazabilidad | B5 → Histórico; B7 → recibo tras emitir | Las operaciones conectadas conservan recibo e historial; el ejemplo no acredita una auditoría completa de todos los módulos. | Extender la cobertura por proceso y política IP/equipo: Desarrollo, Seguridad y RRHH. | Parcial. |
-| Histórico de contratos, llamamientos, renuncias, sanciones, estados, correos y documentos | B5 → Histórico; B2/B3/B7 cuando estén activos | Histórico de contactos y llamamientos B3/B7 existe en su recorrido; no se suplanta histórico de contratos, sanciones o documentos. | Resto de históricos: Desarrollo; criterios de retención: RRHH/Seguridad. | Parcial. |
-| Estados: disponible, trabajando, no disponible, pendiente, renuncia, excluido y desde fecha | Bolsa → Candidatos → filtro / ficha → cambiar situación | Catálogo B2 y cambio con motivo y recibo, condicionado a que B-BACK esté activo. | Activar la pantalla en cidonia: Dirección; transiciones definitivas: RRHH. | Parcial, pantalla apagada en cidonia. |
-| Reglas de cinco y nueve meses sin hojas de cálculo | No hay pantalla de demostración | No se inventa el cómputo temporal ni se muestran alertas ficticias. | Regla, vigencia y excepciones: RRHH; cálculo reproducible: Desarrollo. | Pendiente. |
-| Portal personal: bolsa, posición, estado, último llamamiento, contratos y disponibilidad | Portal del empleado → Mi bolsa | La pantalla diferencia datos reales de fallback sintético; no concede acceso real de candidato. | Identidad externa y lecturas autorizadas: Desarrollo. | Parcial. |
-| Zona pública de estados | No hay pantalla de demostración | No se publica identidad ni situación individual sin decisión de minimización. | Alcance publicable y seudonimización: RRHH, Secretaría, Jurídica y DPD. | Pendiente. |
-| Cuadro interno: bolsas, candidatos y estados | Bolsa → Cuadro de mando / Estadísticas | Muestra agregados autorizados, no identidades ni acciones administrativas. | Disponibilidad de B-BACK en cidonia: Dirección. | Parcial. |
-| Envío masivo por estado | B7 → paso 2 → «Seleccionar todas las que cumplen el filtro» | Selecciona todas las participaciones del filtro en el orden B6; si superan 100, conserva las cien primeras y lo rotula. | Publicar el corte en cidonia: Dirección. | Preparado, pendiente de despliegue. |
-| Personalización de la comunicación | B7 → paso 3 | El asunto y texto son comunes a todas las personas; el rótulo visible dice que no hay personalización. | Diseño y desarrollo por persona: Desarrollo; contenido/plantillas: RRHH. | Pendiente. |
-| Oferta, solicitud web, orden y llamamiento directo | B7 → pasos 2–4 | Se emite una comunicación por el orden B6; no se presenta como solicitud del candidato ni como llamamiento directo automático. | Reglas de respuesta, salto y directo: RRHH; desarrollo posterior. | Parcial. |
-| Avisos de salto de orden y tres años | No hay pantalla de demostración | No se sustituyen por avisos de ejemplo. | D3-AV: Módulos; reglas y destino del aviso: RRHH. | En desarrollo. |
-| Plantillas: contrato, nombramiento, toma de posesión, cese, modificación, informes y resoluciones | Documentos | No se muestran documentos sintéticos como administrativos ni firmados. | Plantillas, datos, firma/sello, CSV y custodia: RRHH y Desarrollo. | Pendiente. |
-| Coste por categoría e integración GINPIX/SAVIA o alternativa | No hay pantalla de demostración | No se calcula ni muestra coste aparente. | Fuente admitida, contrato y autorización: RRHH/Dirección; conector: Desarrollo. | Pendiente. |
-| Auditoría: autor, fecha/hora, antes/después, motivo, expediente e IP/equipo | B2/B3/B7 → recibo e histórico | Se enseñan recibo e historia de las operaciones disponibles; IP/equipo solo se incorporará con política de seguridad. | Política y modelo probatorio completo: Seguridad/RRHH; extensión técnica: Desarrollo. | Parcial. |
+### 2. Bolsa: una bolsa por dentro (p. 1, puntos 1 y 4; p. 2)
+
+- Pulsar **ADMINISTRATIVO** en el cuadro → **Candidatos** (41 aspirantes).
+- Mostrar el **orden calculado** (Nº orden, orden del acta y razón si difieren) y el
+  bloque **Criterios de orden**: puntuación descendente, lista rotatoria, reposición en la
+  misma posición, rotulado *provisional, pendiente de RRHH (dudas 13–14)*. *Comprobado.*
+- Los **siete estados** de la petición (disponible, no disponible, trabajando, pendiente de
+  incorporación, renuncia, excluido, disponible desde) como contadores y filtro.
+  *Comprobado.* Cambiar la situación de una persona con motivo y recibo (B2): *pendiente
+  de ensayo en cidonia*.
+- **Ficha de la persona**: datos de contacto cifrados (correo y dos teléfonos, B4) y
+  histórico de contactos (B3). *Registro de contactos comprobado por la API; ficha
+  pendiente de ensayo.*
+
+### 3. Bolsa: nuevo llamamiento (p. 1, punto 2; p. 3, envío por estado)
+
+- Desde la bolsa, **Nuevo llamamiento** → paso 1 (bolsa) → paso 2 (candidatos por el orden
+  vigente; solo ocupan turno disponibles y disponibles desde fecha). *Comprobado.*
+- **Envío por estado**: «Seleccionar todas las que cumplen el filtro»; si son más de 100,
+  se envían las 100 primeras por orden y la pantalla lo dice. *Desplegado; pendiente de
+  ensayo.*
+- Paso 3: referencia, centro, modalidad, fecha, asunto y texto (comunes a todas las
+  personas; la personalización por persona no existe). Canal: correo por el **relay de
+  pruebas**, no el buzón corporativo. Plazo de respuesta *provisional (dudas 1–3)*.
+- Paso 4: confirmar y emitir; recibo y paso al histórico. **Bloqueado por el 403 (punto 2
+  de la lista de control).**
+
+### 4. Contratación temporal (el procedimiento que remitió RRHH)
+
+- **Bandeja de expedientes**: 71 expedientes sintéticos con centro, categoría, modalidad,
+  estado, fase y plazo; filtros por número, estado y fase. *Comprobado.*
+- **Abrir un expediente legible** y recorrer sus fases. Borradores PDF de informe,
+  resolución, diligencia y comunicación al centro: *existen; pendiente de ensayo en
+  cidonia.* Son borradores sin firma ni valor administrativo.
+
+### 5. Cierre: lo que falta y de quién depende
+
+Decirlo sin rodeos al final (ver tabla).
+
+## Petición de RRHH frente a lo que hay
+
+| Petición | Qué se enseña | Estado | Falta y de quién |
+| --- | --- | --- | --- |
+| 1. Bolsas y candidatos | Cuadro, lista ordenada, ficha, contactos cifrados | Hecho | — |
+| 2. Llamamientos según reglamento | Asistente de 4 pasos por el orden vigente | Parcial | Reglamento de Granada: RRHH (dudas 13–14); emisión en cidonia: Desarrollo |
+| 3. Contratos, ceses, reincorporaciones | Tramitación en Contratación temporal | Parcial | Ceses y reincorporaciones completos: Desarrollo |
+| 4. Motor de reglas configurable | Política de orden versionada y rotulada | Parcial | Parámetros aprobados: RRHH |
+| 5. Portal del candidato con acceso seguro | Área personal con **datos de ejemplo**, rotulada | Pendiente | Acceso con DNIe/certificado (ya decidido): desarrollo propio |
+| 6. Cuadro de mando | Cuadro B12 | Hecho | — |
+| 7. Estadísticas | Pestaña de estadísticas | Hecho | — |
+| 8. Documentos Word/PDF | Borradores PDF en Contratación | Parcial | Plantillas oficiales: RRHH; firma en portafirmas: integración |
+| 9. Correo, SMS, mensajería | Correo por relay de pruebas | Parcial | Correo corporativo: Sistemas; SMS/WhatsApp: no iniciado |
+| 10. Auditoría y trazabilidad | Recibos e históricos de cada operación | Hecho en lo conectado | IP/equipo según política de seguridad |
+| Histórico (p. 2) | Estados, contactos, llamamientos | Parcial | Contratos y sanciones: Desarrollo |
+| Reglas de 5 y 9 meses (p. 2) | Reposición provisional | Pendiente | Regla exacta: RRHH (duda 13) |
+| Zona pública (p. 2) | Consulta pública B10 en instancia separada | Hecho, no publicado | Publicación y minimización: RRHH, Secretaría y DPD |
+| Envío masivo por estado (p. 3) | Selección por filtro, hasta 100 | Hecho, sin ensayo | Personalización por persona: Desarrollo |
+| Avisos de salto de orden y 3 años (p. 3) | — | En desarrollo | D3-AV: Desarrollo; destino del aviso y art. 15.5 ET: RRHH |
+| Plantillas y coste por categoría (p. 4) | — | Pendiente | Tabla de retribuciones y plantillas: RRHH; GINPIX: integración |
 
 ## Frases de cierre
 
-- «Lo visible como conectado solo se afirma cuando la pantalla obtiene su contrato real y autorizado.»
-- «El relay de desarrollo no acredita envío ni entrega en correo corporativo.»
-- «La selección masiva no altera el orden: si hay más de cien destinatarios, se realizan envíos separados con las cien primeras personas de cada orden.»
-- «Un certificado identifica el acceso; no equivale a firma de un documento administrativo.»
+- «Lo que se ve conectado usa autorización, persistencia y recibo reales; los datos son
+  sintéticos.»
+- «El correo sale por un relay de pruebas; no acredita entrega en el buzón corporativo.»
+- «El orden y los plazos están rotulados como provisionales hasta que nos confirméis el
+  reglamento.»
+- «Identificarse con certificado no es firmar: la firma irá por el portafirmas.»
