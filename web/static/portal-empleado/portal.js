@@ -1,5 +1,5 @@
 import { crearControladorPortal } from "./portal-eventos.js?v=20260721-acceso-real-v2";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20260923-pweb13-b8-v1";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20260923-pweb14-v1";
 import { extraerDatosEnvelopeCanonico, validarPanelBolsa } from "./portal-contrato.js?v=20260717-panel-interno-v1";
 import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?v=20260718-llamamientos-v1";
 import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20260718-llamamientos-v1";
@@ -15,7 +15,7 @@ import { crearVistasOperaciones } from "./portal-vistas-operaciones.js?v=2026072
 import { crearVistasGobierno } from "./portal-vistas-gobierno.js?v=20260718-formularios-v2";
 import { crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, VISTAS_MODULOS_PERSONALES, VISTAS_PRESENTACION_VISUALES } from "./portal-modulos-coordinador.js?v=20260921-avisos-r5-v1";
 import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260721-acceso-real-v2";
-import { accesoBolsaEfectivo, instalarMenuBolsa, sincronizarMenuBolsa, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260919-acceso-bolsa-v1";
+import { accesoBolsaEfectivo, instalarMenuBolsa, resumenAccesosModulos, sincronizarMenuBolsa, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260923-pweb14-v1";
 import { traducirPortal } from "./portal-i18n.js?v=20260920-personal-catalogo-v1";
 import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20260923-pweb13-b8-v1";
 import { crearSuperficieBorradorLlamamiento } from "./portal-borrador-llamamiento-ui.js?v=20260921-bback01-v1";
@@ -451,15 +451,10 @@ function actualizarNavegacionModulos() {
   contenedor.innerHTML = coordinadorModulos.renderizarNavegacion(disponibilidad, moduloActivo, vistaPermitida);
   const fase = porId("texto-estado-modulos-portal");
   if (fase) {
-    if (estado.datosBolsas === null && !estado.modoPresentacion) {
-      fase.textContent = "Fase inicial: comprobando módulos";
-      return;
-    }
-    const disponibles = ["bolsa", "contratacion_temporal", "cronos", "dietas"]
-      .filter((clave) => resolverAccesoPerfil(clave).disponible).length;
-    fase.textContent = disponibles > 0
-      ? `${disponibles} módulos habilitados en fase inicial`
-      : "Módulos pendientes de sesión autorizada";
+    const accesos = ["bolsa", "contratacion_temporal", "cronos", "dietas"]
+      .map((clave) => resolverAccesoPerfil(clave));
+    fase.textContent = resumenAccesosModulos(accesos,
+      !estado.modoPresentacion && (estado.datosBolsas === null || estado.datosBolsas.carga === "cargando"));
   }
 }
 

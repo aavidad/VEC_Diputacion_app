@@ -52,6 +52,16 @@ export function accesoBolsaEfectivo(accesoBorradores, datosBolsas) {
   return Object.freeze({ disponible: true, vista: "resumen", estado: "disponible", etiqueta: "Cuadro de bolsas" });
 }
 
+export function resumenAccesosModulos(accesos, comprobandoBolsas) {
+  if (comprobandoBolsas || accesos.some((acceso) => acceso.estado === "cargando")) {
+    return "Fase inicial: comprobando módulos";
+  }
+  const disponibles = accesos.filter((acceso) => acceso.disponible === true).length;
+  return disponibles > 0
+    ? `${disponibles} ${disponibles === 1 ? "módulo habilitado" : "módulos habilitados"} en fase inicial`
+    : "Módulos pendientes de sesión autorizada";
+}
+
 export function categoriaDeVistaBolsa(vista) {
   if (typeof vista !== "string") return "";
   if (vista === VISTA_CANDIDATOS_BOLSA) return "bolsas-candidatos";

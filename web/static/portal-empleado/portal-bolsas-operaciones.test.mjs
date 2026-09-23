@@ -4,9 +4,36 @@ import {
   crearControladorOperacionesSituacion,
   consultarOperacionesSituacion,
   registrarOperacionSituacion,
+  referenciaContieneDocumentoIdentidad,
   renderizarOperacionesSituacion,
   rutaOperacionesSituacion,
 } from "./portal-bolsas-operaciones.js";
+
+test("P-WEB-14 rechaza DNI, NIE y etiquetas de identidad antes del POST B8", async () => {
+  for (const referencia of ["12345678Z", "REG/X1234567L", "exp:12.34.56.78-Z", "dni:123", "nie-ref"] ) {
+    assert.equal(referenciaContieneDocumentoIdentidad(referencia), true, referencia);
+    const resultado = await registrarOperacionSituacion("bolsa:uno", "participacion:dos",
+      { ...cuerpo, justificante: { ...cuerpo.justificante, referencia } }, "clave", {
+        fetchImpl: () => { throw new Error("No debe enviarse"); },
+      });
+    assert.equal(resultado.status, 400);
+    assert.equal(resultado.mensaje, "La referencia no puede contener un DNI o NIE; use el número de registro o de expediente");
+  }
+  assert.equal(referenciaContieneDocumentoIdentidad("EXP-2026-123"), false);
+});
+
+test("P-WEB-14 muestra el motivo en el paso de justificante y conserva el formulario", () => {
+  const anterior = globalThis.FormData;
+  globalThis.FormData = class { constructor(formulario) { this.valores = formulario.valores; } get(campo) { return this.valores[campo]; } };
+  try {
+    const flujo = { carga: "listo", items: [], paso: 2, operacion: "pausar", formulario: { motivo: "Solicitud" } };
+    const estado = { modalFicha: { candidato: { estado_clave: "disponible" }, operacionesB8: flujo } };
+    const controlador = crearControladorOperacionesSituacion({ estado, renderizar() {}, recargar() {} });
+    controlador.manejarSubmit({ target: { closest: () => ({ valores: { tipo: "correo", referencia: "X1234567L", sha256: "a".repeat(64) } }) }, preventDefault() {} });
+    assert.equal(flujo.paso, 2);
+    assert.match(renderizarOperacionesSituacion({ candidato: estado.modalFicha.candidato, estado: flujo }), /La referencia no puede contener un DNI o NIE/);
+  } finally { globalThis.FormData = anterior; }
+});
 
 const cuerpo = {
   operacion: "excluir",

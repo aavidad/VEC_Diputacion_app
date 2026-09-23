@@ -8,9 +8,17 @@ import {
   alternarGrupoBolsa,
   categoriaDeVistaBolsa,
   instalarMenuBolsa,
+  resumenAccesosModulos,
   sincronizarMenuBolsa,
   vistaBolsaPendienteNoCompuesta,
 } from "./portal-menu-bolsa.js";
+
+test("P-WEB-14 no anuncia un total mientras Bolsa sigue comprobando", () => {
+  const accesos = [{ disponible: true, estado: "disponible" }, { disponible: false, estado: "cargando" }];
+  assert.equal(resumenAccesosModulos(accesos, false), "Fase inicial: comprobando módulos");
+  assert.equal(resumenAccesosModulos([{ disponible: true, estado: "disponible" }], true), "Fase inicial: comprobando módulos");
+  assert.equal(resumenAccesosModulos([{ disponible: true, estado: "disponible" }], false), "1 módulo habilitado en fase inicial");
+});
 
 const directorio = new URL("./", import.meta.url);
 const [html, estilos, codigoMenu, codigoPortal, codigoEventos] = await Promise.all([

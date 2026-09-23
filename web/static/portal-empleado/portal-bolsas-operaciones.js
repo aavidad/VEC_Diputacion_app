@@ -1,6 +1,15 @@
 const BASE = "/api/vec/bolsa/bolsas";
 const TIPOS_JUSTIFICANTE = Object.freeze(["solicitud_candidato", "informe_medico", "resolucion", "correo", "acta_bolsa", "otro"]);
 const HEX_SHA256 = /^[a-f0-9]{64}$/;
+// Espejo de patronDocumentoIdentidadEnReferencia y patronEtiquetaDocumentoIdentidad
+// del dominio: evita enviar referencias que la API rechaza con HTTP 400.
+const DOCUMENTO_IDENTIDAD = /((?:[0-9][._:/#-]?){8}|[XYZ][._:/#-]?(?:[0-9][._:/#-]?){7})[A-Z]/i;
+const ETIQUETA_DOCUMENTO_IDENTIDAD = /(^|[._:/#-])(dni|nie|nif|pasaporte|passport)([._:/#-]|$)/i;
+const MENSAJE_REFERENCIA_IDENTIDAD = "La referencia no puede contener un DNI o NIE; use el número de registro o de expediente";
+
+export function referenciaContieneDocumentoIdentidad(referencia) {
+  return typeof referencia === "string" && (DOCUMENTO_IDENTIDAD.test(referencia) || ETIQUETA_DOCUMENTO_IDENTIDAD.test(referencia));
+}
 
 function segmento(valor) {
   return encodeURIComponent(String(valor ?? "").trim()).replace(/%3A/gi, ":");
@@ -53,6 +62,9 @@ function errorHttp(status, codigoServidor = "") {
 }
 
 export async function registrarOperacionSituacion(bolsa, participacion, comando, clave, { fetchImpl = fetch } = {}) {
+  if (referenciaContieneDocumentoIdentidad(comando?.justificante?.referencia)) {
+    return { ok: false, status: 400, codigo: "referencia_identidad", mensaje: MENSAJE_REFERENCIA_IDENTIDAD };
+  }
   if (!bolsa || !participacion || !comando || !clave
     || !["pausar", "reactivar", "excluir"].includes(comando.operacion)
     || typeof comando.motivo !== "string" || !comando.motivo.trim()
@@ -216,8 +228,9 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
     if (Number(flujo.paso) < 3) {
       if (flujo.paso === 1) flujo.formulario = { ...flujo.formulario, motivo: String(datos.get("motivo") || "").trim() };
       else flujo.formulario = { ...flujo.formulario, tipo: String(datos.get("tipo") || ""), referencia: String(datos.get("referencia") || "").trim(), sha256: String(datos.get("sha256") || "").trim().toLowerCase() };
-      flujo.paso += 1;
-      flujo.errorFormulario = "";
+      flujo.errorFormulario = flujo.paso === 2 && referenciaContieneDocumentoIdentidad(flujo.formulario.referencia)
+        ? MENSAJE_REFERENCIA_IDENTIDAD : "";
+      if (!flujo.errorFormulario) flujo.paso += 1;
       renderizar(); return true;
     }
     flujo.formulario = { ...flujo.formulario, validador: String(datos.get("validador") || "").trim(), confirma_validador_distinto: datos.has("confirma_validador_distinto") };
