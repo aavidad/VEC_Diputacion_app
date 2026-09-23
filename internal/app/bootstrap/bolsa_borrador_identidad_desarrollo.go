@@ -5,8 +5,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"vec-diputacion-granada/config"
@@ -57,7 +59,7 @@ func nuevoSoporteSesionBorradorBolsaDesarrollo(
 	ahora time.Time,
 ) (*soporteSesionBorradorBolsaDesarrollo, error) {
 	if soporteCT == nil || directorio == "" || !domain.InstanteUTCCanonico(ahora) {
-		return nil, ErrMaterialDesarrolloInvalido
+		return nil, errMaterialBorradorBolsaInvalidoEn()
 	}
 	soporteCT.mu.Lock()
 	principalID, certificado := soporteCT.principalID, soporteCT.certificadoSHA256
@@ -67,14 +69,14 @@ func nuevoSoporteSesionBorradorBolsaDesarrollo(
 	soporteCT.mu.Unlock()
 	if sello == nil || !identificadorSesionDesarrolloValido(principalID) ||
 		!contextoSinteticoCTConsistenteParaBorradorBolsa(principalID, certificado, contextoCT) {
-		return nil, ErrMaterialDesarrolloInvalido
+		return nil, errMaterialBorradorBolsaInvalidoEn()
 	}
 	manifiesto, err := cargarManifiestoIdentidadBorradorBolsaDesarrollo(directorio)
 	if err != nil || manifiesto.Sujeto != principalID || manifiesto.CertificadoSHA256 != certificado ||
 		!perfilActivoSeguridadComunValido(manifiesto.PerfilRef) ||
 		!domain.ReferenciaOpacaValida(manifiesto.UnidadRef) || !domain.ReferenciaOpacaValida(manifiesto.AmbitoRef) ||
 		!referenciasBolsasB2Validas(manifiesto.BolsasRef) {
-		return nil, ErrMaterialDesarrolloInvalido
+		return nil, errMaterialBorradorBolsaInvalidoEn()
 	}
 	principal := dominiovec.Principal{
 		ID: principalID, Roles: []string{rolTecnicoRRHHContratacionTemporalDesarrollo},
@@ -88,11 +90,11 @@ func nuevoSoporteSesionBorradorBolsaDesarrollo(
 		principal, ahora, discriminadorContextoSinteticoBorradorBolsaDesarrollo(),
 	)
 	if err != nil || !contextoSinteticoBolsaSeparadoDeCT(contextoCT, contextoBolsa) {
-		return nil, ErrMaterialDesarrolloInvalido
+		return nil, errMaterialBorradorBolsaInvalidoEn()
 	}
 	datos, err := contextoBolsa.Vinculo.Datos()
 	if err != nil || manifiesto.PerfilRef != datos.PerfilActivoRef {
-		return nil, ErrMaterialDesarrolloInvalido
+		return nil, errMaterialBorradorBolsaInvalidoEn()
 	}
 	canal := &soporteAltaContratacionTemporalDesarrollo{
 		sello: sello, principalID: principalID, certificadoSHA256: certificado,
@@ -103,6 +105,17 @@ func nuevoSoporteSesionBorradorBolsaDesarrollo(
 		bolsas[ref] = struct{}{}
 	}
 	return &soporteSesionBorradorBolsaDesarrollo{soporteCanal: canal, unidadRef: manifiesto.UnidadRef, ambitoRef: manifiesto.AmbitoRef, bolsasRef: bolsas}, nil
+}
+
+// errMaterialBorradorBolsaInvalidoEn conserva ErrMaterialDesarrolloInvalido
+// para errors.Is y añade la línea que rechazó la identidad de B-BACK. Solo
+// llega al registro de arranque del servidor.
+func errMaterialBorradorBolsaInvalidoEn() error {
+	_, fichero, linea, ok := runtime.Caller(1)
+	if !ok {
+		return ErrMaterialDesarrolloInvalido
+	}
+	return fmt.Errorf("%w (%s:%d)", ErrMaterialDesarrolloInvalido, filepath.Base(fichero), linea)
 }
 
 func cargarManifiestoIdentidadBorradorBolsaDesarrollo(

@@ -88,7 +88,7 @@ func TestContextoSituacionB2ExigeBolsaDeclaradaEnIdentidad(t *testing.T) {
 
 func TestSoporteSesionBorradorBolsaFallaCerradoAnteManifiestoInvalido(t *testing.T) {
 	directorio, soporte, principal, ahora := fixtureSoporteSesionBorradorBolsa(t)
-	if _, err := nuevoSoporteSesionBorradorBolsaDesarrollo(directorio, soporte, ahora); err != ErrMaterialDesarrolloInvalido {
+	if _, err := nuevoSoporteSesionBorradorBolsaDesarrollo(directorio, soporte, ahora); !errors.Is(err, ErrMaterialDesarrolloInvalido) {
 		t.Fatalf("ausente: %v", err)
 	}
 	casos := map[string]func(*archivoManifiestoIdentidadBorradorBolsaDesarrollo){
@@ -106,7 +106,7 @@ func TestSoporteSesionBorradorBolsaFallaCerradoAnteManifiestoInvalido(t *testing
 	for nombre, mutar := range casos {
 		t.Run(nombre, func(t *testing.T) {
 			escribirManifiestoIdentidadBorradorBolsa(t, directorio, principal, ahora, mutar)
-			if _, err := nuevoSoporteSesionBorradorBolsaDesarrollo(directorio, soporte, ahora); err != ErrMaterialDesarrolloInvalido {
+			if _, err := nuevoSoporteSesionBorradorBolsaDesarrollo(directorio, soporte, ahora); !errors.Is(err, ErrMaterialDesarrolloInvalido) {
 				t.Fatalf("err=%v", err)
 			}
 		})
