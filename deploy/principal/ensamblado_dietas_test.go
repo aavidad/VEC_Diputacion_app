@@ -19,6 +19,7 @@ func TestPaqueteDietasSeEnsamblaDesdeFuentesCanonicas(t *testing.T) {
 		"dietas_borradores/roles_up.sql",
 		"personal/migraciones/000007_relacion_empleado_dietas.up.sql",
 		"autorizacion_atestada_v3/migraciones/000049_consumidor_personal_dietas.up.sql",
+		"autorizacion_atestada_v3/migraciones/000050_acceso_rutas_dietas.up.sql",
 		"personal/migraciones/000008_consulta_relaciones_propias_dietas.up.sql",
 		"personal/migraciones/000009_asignacion_dietas.up.sql",
 		"dietas_borradores/migraciones/000001_borrador_comision_durable.up.sql",
