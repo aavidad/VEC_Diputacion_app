@@ -14,6 +14,7 @@ import (
 const (
 	catalogoMotivosDecisionCoberturaDesarrollo = "motivos_cobertura"
 	moduloMotivosDecisionCoberturaDesarrollo   = "contratacion_temporal"
+	concurrenciaPreparacionCoberturaDesarrollo = 4
 )
 
 type dependenciasCoberturaContratacionTemporalDesarrollo struct {
@@ -161,7 +162,7 @@ func nuevasDependenciasCoberturaContratacionTemporalDesarrollo(
 		consultas,
 		fuentes.referencias,
 		reloj,
-		1,
+		concurrenciaPreparacionCoberturaDesarrollo,
 		application.TiempoMaximoPreparacionGlobalCobertura,
 	)
 	if err != nil {
