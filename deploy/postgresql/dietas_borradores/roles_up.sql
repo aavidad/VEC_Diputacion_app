@@ -11,6 +11,7 @@ GRANT vec_dietas_propietario TO vec_dietas_migrador WITH ADMIN FALSE, INHERIT FA
 CREATE SCHEMA vec_dietas AUTHORIZATION vec_dietas_propietario;
 REVOKE ALL ON SCHEMA vec_dietas FROM PUBLIC;
 GRANT USAGE ON SCHEMA vec_dietas TO vec_dietas_migrador,vec_dietas_ejecutor;
+DO $conectar$ BEGIN EXECUTE format('GRANT CONNECT ON DATABASE %I TO vec_dietas_migrador, vec_dietas_ejecutor', current_database()); END $conectar$;
 ALTER DEFAULT PRIVILEGES FOR ROLE vec_dietas_propietario REVOKE ALL ON TABLES FROM PUBLIC;
 ALTER DEFAULT PRIVILEGES FOR ROLE vec_dietas_propietario REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
 COMMIT;

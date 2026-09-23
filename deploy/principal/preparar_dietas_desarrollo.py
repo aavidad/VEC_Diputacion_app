@@ -356,7 +356,10 @@ def load_state(identity_data: dict, context: dict, emp: str | None, relation: di
 
 def logins(state: dict, template: str) -> dict[str, str]:
     names = {}
-    statements = ["BEGIN;", "SET LOCAL search_path=pg_catalog;", "SET LOCAL lock_timeout='5s';"]
+    # roles_up de Dietas no concedía CONNECT en las instalaciones anteriores:
+    # sin él los LOGIN heredados de vec_dietas_ejecutor no pueden conectar.
+    statements = ["BEGIN;", "SET LOCAL search_path=pg_catalog;", "SET LOCAL lock_timeout='5s';",
+                  "DO $conectar$ BEGIN EXECUTE format('GRANT CONNECT ON DATABASE %I TO vec_dietas_ejecutor', current_database()); END $conectar$;"]
     for name, role in ROLES:
         login = "vec_dietas_r1d_" + name + "_desarrollo"
         names[name] = login

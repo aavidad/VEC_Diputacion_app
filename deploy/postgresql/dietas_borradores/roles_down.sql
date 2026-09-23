@@ -10,6 +10,7 @@ DROP SCHEMA vec_dietas;
 ALTER DEFAULT PRIVILEGES FOR ROLE vec_dietas_propietario GRANT EXECUTE ON FUNCTIONS TO PUBLIC;
 ALTER DEFAULT PRIVILEGES FOR ROLE vec_dietas_propietario GRANT USAGE ON TYPES TO PUBLIC;
 REVOKE vec_dietas_propietario FROM vec_dietas_migrador;
+DO $conectar$ BEGIN EXECUTE format('REVOKE CONNECT ON DATABASE %I FROM vec_dietas_migrador, vec_dietas_ejecutor', current_database()); END $conectar$;
 DROP ROLE vec_dietas_ejecutor;
 DROP ROLE vec_dietas_migrador;
 DROP ROLE vec_dietas_propietario;
