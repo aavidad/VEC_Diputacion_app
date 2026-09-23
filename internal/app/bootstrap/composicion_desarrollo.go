@@ -236,14 +236,43 @@ func NewHTTPServerDesarrolloWithConfig(
 	}
 	rutasContratacion = append(rutasContratacion, rutasBolsasRRHH...)
 	coleccionesBolsasRRHH = append(coleccionesBolsasRRHH, autoridadContratacion.coleccionesAdicionales...)
+	autoridadDietas, cerrarDietas, err := nuevasRutasDietasDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer func() {
+		if !completa {
+			cerrarDietas()
+		}
+	}()
+	comisionesDietas, err := nuevasComisionesDietasDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia)
+	if err != nil {
+		return nil, nil, err
+	}
+	if comisionesDietas != nil {
+		defer func() {
+			if !completa {
+				comisionesDietas.cerrar()
+			}
+		}()
+		rutasContratacion = append(rutasContratacion, comisionesDietas.rutas...)
+		coleccionesBolsasRRHH = append(coleccionesBolsasRRHH, comisionesDietas.colecciones...)
+	}
+	autoridadExactas := vechttp.AutoridadRutasExactas(autoridadContratacion)
+	if comisionesDietas != nil {
+		autoridadExactas = autoridadExactasConDietas{delegada: autoridadContratacion, dietas: comisionesDietas}
+	}
 	vecAPI, err := newVECShellAPICompuestaConIdentidadYRutas(
-		cfg, resolvedor, categoriasPersonal, rutasContratacion, autoridadContratacion,
-		autoridadContratacion.registradorAuditoriaFronteraRutasExactas, coleccionesBolsasRRHH...,
+		cfg, resolvedor, categoriasPersonal, rutasContratacion, autoridadExactas,
+		autoridadContratacion.registradorAuditoriaFronteraRutasExactas, autoridadDietas, coleccionesBolsasRRHH...,
 	)
 	if err != nil {
 		return nil, nil, err
 	}
 	vecAPI = autoridadContratacion.proteger(vecAPI)
+	if comisionesDietas != nil {
+		vecAPI = comisionesDietas.proteger(vecAPI)
+	}
 	cfgPublica := cfg
 	cfgPublica.AuthMode = config.AuthModeDisabled
 	publicaBolsaAPI, err := publicatransitoria.NuevaAPIConCatalogos(cfgPublica, consultaCategorias)
@@ -263,6 +292,10 @@ func NewHTTPServerDesarrolloWithConfig(
 		return nil, nil, err
 	}
 	servidor.RegisterOnShutdown(cerrarContratacion)
+	servidor.RegisterOnShutdown(cerrarDietas)
+	if comisionesDietas != nil {
+		servidor.RegisterOnShutdown(comisionesDietas.cerrar)
+	}
 	completa = true
 	return servidor, composicion, nil
 }

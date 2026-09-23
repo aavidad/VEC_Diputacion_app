@@ -26,19 +26,20 @@ func TestPaqueteMigracionesSeEnsamblaDesdeFuentesCanonicas(t *testing.T) {
 	var esperado bytes.Buffer
 	esperado.WriteString("\\set ON_ERROR_STOP on\nBEGIN;\n")
 	for _, relativa := range relativas {
-		ruta := filepath.Join(repo, "deploy", "postgresql", relativa+".up.sql")
+		nombre := relativa + ".up.sql"
+		ruta := filepath.Join(repo, "deploy", "postgresql", nombre)
 		contenido, err := os.ReadFile(ruta)
 		if err != nil {
 			t.Fatal(err)
 		}
-		esperado.WriteString("-- INICIO deploy/postgresql/" + relativa + ".up.sql\n")
+		esperado.WriteString("-- INICIO deploy/postgresql/" + nombre + "\n")
 		for _, linea := range strings.Split(strings.TrimSuffix(string(contenido), "\n"), "\n") {
 			if linea == "\\set ON_ERROR_STOP on" || linea == "BEGIN;" || linea == "COMMIT;" {
 				continue
 			}
 			esperado.WriteString(linea + "\n")
 		}
-		esperado.WriteString("-- FIN deploy/postgresql/" + relativa + ".up.sql\n")
+		esperado.WriteString("-- FIN deploy/postgresql/" + nombre + "\n")
 	}
 	esperado.WriteString(":finalizar;\n")
 
@@ -48,7 +49,7 @@ func TestPaqueteMigracionesSeEnsamblaDesdeFuentesCanonicas(t *testing.T) {
 		t.Fatalf("el ensamblador falló: %v\n%s", err, obtenido)
 	}
 	if !bytes.Equal(obtenido, esperado.Bytes()) {
-		t.Fatal("el paquete desplegable difiere de las cinco migraciones canónicas")
+		t.Fatal("el paquete desplegable difiere de las migraciones canónicas")
 	}
 	if bytes.Count(obtenido, []byte("p_perfil_mutacion IS NOT DISTINCT FROM 'emision_llamamiento_bolsa'")) < 2 {
 		t.Fatal("el paquete perdió la admisión B7 del núcleo AD3-48")

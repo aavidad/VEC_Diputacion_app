@@ -24,6 +24,8 @@ type Handler struct {
 	personalCatalog                          CatalogoPersonal
 	categoriasProfesionales                  ConsultaCategoriasProfesionales
 	roadRoute                                http.Handler
+	catalogoRutaDietas                       http.Handler
+	autoridadRutasDietas                     AutoridadPeticionRutasDietas
 	identityPolicy                           identityPolicy
 	rutasExactas                             map[string]http.Handler
 	rutasColeccion                           []RutaColeccion
@@ -36,6 +38,8 @@ type HandlerOptions struct {
 	PersonalCatalog                          CatalogoPersonal
 	CategoriasProfesionales                  ConsultaCategoriasProfesionales
 	ManejadorRutaDietas                      http.Handler
+	ManejadorCatalogoRutaDietas              http.Handler
+	AutoridadRutasDietas                     AutoridadPeticionRutasDietas
 	AllowDemoIdentity                        bool
 	DemoIdentityResolver                     DemoIdentityResolver
 	TrustIdentityHeaders                     bool
@@ -93,6 +97,8 @@ func NewHandlerWithOptions(service *application.Service, options HandlerOptions)
 		personalCatalog:                          options.PersonalCatalog,
 		categoriasProfesionales:                  options.CategoriasProfesionales,
 		roadRoute:                                options.ManejadorRutaDietas,
+		catalogoRutaDietas:                       options.ManejadorCatalogoRutaDietas,
+		autoridadRutasDietas:                     options.AutoridadRutasDietas,
 		identityPolicy:                           identityPolicy,
 		rutasExactas:                             rutasExactas,
 		rutasColeccion:                           rutasColeccion,
@@ -106,6 +112,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.WriteHeader(http.StatusServiceUnavailable)
+		return
+	}
+	if h.atenderRutaDietas(w, r) {
 		return
 	}
 	if manejador, registrada := h.rutasExactas[r.URL.Path]; registrada {

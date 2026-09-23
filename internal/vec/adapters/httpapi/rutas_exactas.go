@@ -302,6 +302,7 @@ func rutasBaseVEC() []string {
 		"/api/vec/personal/categories/{slug}",
 		"/api/vec/personal/catalogs",
 		"/api/vec/dietas/road-route",
+		"/api/vec/dietas/route-catalog",
 		"/api/vec/modules/cronos/action",
 		"/api/vec/modules/horarios/action",
 		"/api/vec/modules/permisos/action",

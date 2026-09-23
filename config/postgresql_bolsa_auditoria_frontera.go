@@ -60,6 +60,16 @@ func (c Config) DSNBolsaAuditoriaFronteraSeparado() (string, error) {
 // que ya tienen autoridad en VEC. Incluir configuraciones parciales evita que
 // una URL añadida para Bolsa se convierta en vía de reutilización.
 func (c Config) dsnsPostgreSQLConfigurados() []string {
+	resultado := c.dsnsPostgreSQLConfiguradosSinDietas()
+	for _, dsn := range []string{c.DietasBorradoresPostgreSQL.dsnDietas, c.DietasBorradoresPostgreSQL.dsnPersonal} {
+		if dsn = strings.TrimSpace(dsn); dsn != "" {
+			resultado = append(resultado, dsn)
+		}
+	}
+	return resultado
+}
+
+func (c Config) dsnsPostgreSQLConfiguradosSinDietas() []string {
 	c = c.Normalize()
 	resultado := c.ContratacionTemporalPostgreSQL.dsnsConfigurados()
 	for _, dsn := range []string{

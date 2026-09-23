@@ -147,8 +147,8 @@ test("no escoge la primera relación cuando la composición aporta varias autori
   });
   await Promise.resolve();
   assert.equal(listas, 0);
-  const opciones = contenedor.querySelectorAll("option");
-  assert.deepEqual(opciones.map((opcion) => opcion.value), ["", "rel_1234567890123456789012", "rel_abcdefghijklmnopqrstuv"]);
+  const selectorRelacion = contenedor.querySelectorAll("select").find((selector) => selector.name === "relacion_ref");
+  assert.deepEqual(selectorRelacion.children.map((opcion) => opcion.value), ["", "rel_1234567890123456789012", "rel_abcdefghijklmnopqrstuv"]);
   vista.desmontar();
 });
 
@@ -185,5 +185,19 @@ test("reserva la explicación administrativa para la ayuda contextual", () => {
     textoVisible(contenedor),
     /Cree un borrador propio|No acredita autorización, liquidación ni pago/u,
   );
+  vista.desmontar();
+});
+test("muestra km, importe y tramos provisionales de la comisión recuperada", async () => {
+  const calculado={...item,comision:{...item.comision,codigos_ruta:["18087","18003"],calculo:{
+    rotulo:"PROVISIONAL · pendiente de confirmación por RRHH",version_tarifa:"provisional:rd462:20260923",version_grafo:"grafo-sintetico-v1",kilometros:"12.0000",importe_kilometraje_centimos:312,
+    tramos_ruta:[{origen_codigo:"18087",destino_codigo:"18003",kilometros:"12.0000"}],
+    opciones_dieta:[1,2,3].map((grupo)=>({grupo,calculo:{total_maximo_orientativo_centimos:2500,tramos:[{fecha:"2026-09-20",tipo:"manutencion",porcentaje:50,importe_centimos:2500}]}})),
+  }}};
+  const contenedor=raiz(); const vista=montarVistaBorradoresPropios(contenedor,{cliente:{listar:async()=>({items:[calculado]}),obtener:async()=>calculado,crear:async()=>calculado}});
+  await Promise.resolve(); await Promise.resolve();
+  const boton=contenedor.querySelector("[data-dietas-borrador-detalle]");
+  await contenedor.querySelector("[data-dietas-borradores-propios]").listeners.click({target:boton});
+  const texto=textoVisible(contenedor);
+  assert.match(texto,/12 km/u); assert.match(texto,/3,12/u); assert.match(texto,/Granada → Albolote/u); assert.match(texto,/Grupo 3/u);
   vista.desmontar();
 });

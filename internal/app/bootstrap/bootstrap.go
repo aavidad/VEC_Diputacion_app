@@ -228,7 +228,7 @@ func newVECShellAPICompuestaConIdentidad(
 	categoriasPersonal *personalapp.ServicioConsultaCategoriasProfesionales,
 ) (http.Handler, error) {
 	return newVECShellAPICompuestaConIdentidadYRutas(
-		cfg, resolvedorIdentidad, categoriasPersonal, nil, nil, nil,
+		cfg, resolvedorIdentidad, categoriasPersonal, nil, nil, nil, nil,
 	)
 }
 
@@ -239,6 +239,7 @@ func newVECShellAPICompuestaConIdentidadYRutas(
 	rutasExactas []vechttp.RutaExacta,
 	autoridadRutasExactas vechttp.AutoridadRutasExactas,
 	registradorAuditoriaFronteraRutasExactas vecports.RegistradorAuditoriaFronteraRutaExacta,
+	autoridadRutasDietas vechttp.AutoridadPeticionRutasDietas,
 	rutasColeccion ...vechttp.RutaColeccion,
 ) (http.Handler, error) {
 	personalCatalog, err := nuevoServicioCatalogoPersonal(cfg.PersonalCatalogPath)
@@ -272,6 +273,8 @@ func newVECShellAPICompuestaConIdentidadYRutas(
 		PersonalCatalog:                          personalCatalog,
 		CategoriasProfesionales:                  categoriasPersonal,
 		ManejadorRutaDietas:                      manejadorRutaDietas,
+		ManejadorCatalogoRutaDietas:              nuevoManejadorCatalogoRutasDietas(),
+		AutoridadRutasDietas:                     autoridadRutasDietas,
 		AllowDemoIdentity:                        resolvedorIdentidad != nil,
 		DemoIdentityResolver:                     resolvedorIdentidad,
 		RutasExactas:                             rutasExactas,

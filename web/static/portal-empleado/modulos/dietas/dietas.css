@@ -344,8 +344,8 @@
   height: .85rem;
   border: .2rem solid var(--portal-superficie);
   border-radius: 50% 50% 50% 0;
-  background: var(--portal-rojo, #b42318);
-  box-shadow: 0 0 0 2px var(--portal-rojo, #b42318);
+  background: var(--portal-peligro);
+  box-shadow: 0 0 0 2px var(--portal-peligro);
   content: "";
   transform: rotate(-45deg);
 }
@@ -361,7 +361,7 @@
   min-height: 0;
   border: 1px dashed var(--portal-azul-600);
   border-radius: var(--portal-radio);
-  background: rgba(255, 255, 255, .92);
+  background: color-mix(in srgb, var(--portal-superficie) 92%, transparent);
   color: var(--portal-azul-800);
   font-weight: 700;
 }
@@ -584,8 +584,8 @@
 .modulo-dietas .dietas-itinerario-aviso {
   margin: 0.5rem 0;
   padding: 0.55rem 0.65rem;
-  border-inline-start: 0.3rem solid var(--portal-aviso, #a15c00);
-  background: var(--portal-aviso-suave, #fff5df);
+  border-inline-start: 0.3rem solid var(--portal-aviso);
+  background: var(--portal-aviso-suave);
   color: var(--portal-tinta);
 }
 
@@ -1049,4 +1049,75 @@
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* Comisión propia: recorrido breve y cálculo provisional acreditado. */
+.modulo-dietas .dietas-comision-formulario,
+.modulo-dietas .dietas-comision-calculo,
+.modulo-dietas .dietas-comision-grupo {
+  background: var(--portal-superficie);
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio-lg);
+  box-shadow: var(--portal-sombra-sm);
+  padding: 16px;
+}
+.modulo-dietas .dietas-comision-formulario {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.modulo-dietas .dietas-comision-formulario > h3,
+.modulo-dietas .dietas-comision-formulario > p {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+.modulo-dietas .dietas-comision-formulario > h3,
+.modulo-dietas .dietas-comision-calculo > h4 {
+  background: var(--portal-superficie-alterna);
+  border-bottom: 1px solid var(--portal-borde);
+  font-size: 1.05rem;
+  margin: -16px -16px 0;
+  padding: 12px 16px;
+}
+.modulo-dietas .dietas-comision-formulario label { display: grid; gap: 8px; min-width: 0; }
+.modulo-dietas .dietas-comision-formulario input,
+.modulo-dietas .dietas-comision-formulario select { min-width: 0; width: 100%; }
+.modulo-dietas .dietas-comision-formulario button { justify-self: start; }
+.modulo-dietas .dietas-comision-calculo { margin-top: 16px; }
+.modulo-dietas .dietas-comision-cifras { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 16px 0; }
+.modulo-dietas .dietas-comision-cifras .tarjeta-kpi { display: grid; gap: 8px; }
+.modulo-dietas .dietas-comision-cifras strong { font-size: 1.5rem; }
+.modulo-dietas .dietas-comision-tramos-ruta { padding-left: 24px; }
+.modulo-dietas .dietas-comision-grupo { margin-top: 16px; border-left: 4px solid var(--portal-azul-700); }
+.modulo-dietas .dietas-comision-grupo h5 { margin: 0 0 12px; }
+.modulo-dietas .dietas-comision-grupo ul { margin: 0; padding-left: 24px; }
+@media (max-width: 640px) {
+  .modulo-dietas .dietas-comision-formulario,
+  .modulo-dietas .dietas-comision-cifras { grid-template-columns: minmax(0, 1fr); }
+}
+.modulo-dietas .dietas-listado,
+.modulo-dietas .dietas-detalle { padding: 16px; }
+.modulo-dietas .dietas-listado > h3,
+.modulo-dietas .dietas-detalle > h3 {
+  margin: -16px -16px 16px;
+  padding: 12px 16px;
+  background: var(--portal-superficie-alterna);
+  border-bottom: 1px solid var(--portal-borde);
+  font-size: 1.05rem;
+}
+.modulo-dietas .dietas-listado > ul { list-style: none; margin: 0; padding: 0; }
+.modulo-dietas .dietas-listado > ul > li {
+  min-height: 48px;
+  padding: 10px 12px;
+  border-left: 4px solid var(--portal-azul-700);
+  background: var(--portal-superficie-alterna);
+}
+.modulo-dietas .dietas-detalle > dl { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; margin: 0; }
+.modulo-dietas .dietas-detalle > dl > div { min-width: 0; }
+.modulo-dietas .dietas-detalle > dl dd { margin: 0; overflow-wrap: anywhere; }
+.modulo-dietas .dietas-comision-cifras .tarjeta-kpi { grid-template-columns: minmax(0,1fr); align-content: center; }
+.modulo-dietas .dietas-comision-cifras .tarjeta-kpi strong { display: block; color: var(--portal-azul-700); }
+.modulo-dietas .dietas-comision-calculo > .estado-chip { display: block; width: fit-content; max-width: 100%; white-space: normal; line-height: 1.5; }
+@media (max-width: 640px) {
+  .modulo-dietas .dietas-detalle > dl { grid-template-columns: minmax(0,1fr); }
 }
