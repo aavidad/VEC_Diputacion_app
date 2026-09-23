@@ -17,8 +17,10 @@ expedientes. Nada de lo que se enseña firma, notifica ni produce efectos admini
    hasta que el ensayo general lo dé por bueno.**
 3. **Ensayo general completo** en cidonia el día anterior, siguiendo este guion de
    principio a fin, incluido un llamamiento que llegue al buzón de pruebas.
-4. Empezar Contratación por un expediente con número legible (`2026/CT-0000NN`); los
-   números con hash vienen de pruebas automáticas sintéticas.
+4. Contratación: los expedientes con número legible (`2026/CT-0000NN`) están en
+   Solicitud, Asignación y Fiscalización. Los tres que llegan a **Nombramiento**, que son
+   los que tienen documentos, tienen número-hash porque los creó una prueba automática;
+   usar `2026/CT-4b2ba511…` y decirlo así.
 
 ## Orden de la demostración
 
@@ -62,9 +64,14 @@ expedientes. Nada de lo que se enseña firma, notifica ni produce efectos admini
 
 - **Bandeja de expedientes**: 71 expedientes sintéticos con centro, categoría, modalidad,
   estado, fase y plazo; filtros por número, estado y fase. *Comprobado.*
-- **Abrir un expediente legible** y recorrer sus fases. Borradores PDF de informe,
-  resolución, diligencia y comunicación al centro: *existen; pendiente de ensayo en
-  cidonia.* Son borradores sin firma ni valor administrativo.
+- **Primeras fases**: abrir un expediente legible (`2026/CT-0000NN`, en Solicitud o
+  Fiscalización) y enseñar su recorrido. *Comprobado.*
+- **Documentos**: filtrar la fase *Nombramiento*, abrir `2026/CT-4b2ba511…` →
+  *Abrir expediente completo*. Ofrece seis documentos preparatorios, **cada uno en PDF y
+  en Word**: informe, resolución, diligencia, toma de posesión, notificación y
+  comunicación al centro. *Comprobado: el informe se descarga (PDF de una página) con
+  los datos del expediente y el rótulo «borrador preparatorio, no firmado ni
+  validado».* Sin firma ni valor administrativo.
 
 ### 5. Cierre: lo que falta y de quién depende
 
@@ -81,7 +88,7 @@ Decirlo sin rodeos al final (ver tabla).
 | 5. Portal del candidato con acceso seguro | Área personal con **datos de ejemplo**, rotulada | Pendiente | Acceso con DNIe/certificado (ya decidido): desarrollo propio |
 | 6. Cuadro de mando | Cuadro B12 | Hecho | — |
 | 7. Estadísticas | Pestaña de estadísticas | Hecho | — |
-| 8. Documentos Word/PDF | Borradores PDF en Contratación | Parcial | Plantillas oficiales: RRHH; firma en portafirmas: integración |
+| 8. Documentos Word/PDF | Seis documentos preparatorios en PDF y Word desde el expediente | Parcial | Plantillas oficiales: RRHH; firma en portafirmas: integración |
 | 9. Correo, SMS, mensajería | Correo por relay de pruebas | Parcial | Correo corporativo: Sistemas; SMS/WhatsApp: no iniciado |
 | 10. Auditoría y trazabilidad | Recibos e históricos de cada operación | Hecho en lo conectado | IP/equipo según política de seguridad |
 | Histórico (p. 2) | Estados, contactos, llamamientos | Parcial | Contratos y sanciones: Desarrollo |
