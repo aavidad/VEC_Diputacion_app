@@ -177,7 +177,12 @@ func (s *Servicio) resolverContactoPropio(ctx context.Context) (domain.VinculoAu
 		}
 		vinculo, resultado, err = domain.CrearVinculoAutenticacionActorV2ConResultado(ctx, d.Revalidador, domain.SolicitudRevalidacionAutenticacionActorV1{AutenticacionRef: audit.AutenticacionRef(), SesionRef: audit.SesionRef()}, d.Resolutor, domain.SolicitudContextoActor{Cuenta: cuenta, PerfilActivoRef: d.PerfilPropioRef}, d.Reloj)
 	}
-	if err != nil || vinculo.ValidarPara(resultado) != nil || resultado.Contexto.PerfilActivoRef != d.PerfilPropioRef || resultado.Contexto.Principal.AuthAssurance != domain.AuthAssuranceHigh || (resultado.Contexto.Principal.AuthMethod != domain.AuthMethodCertificate && resultado.Contexto.Principal.AuthMethod != domain.AuthMethodDNIe) {
+	datosVinculo, errorDatos := vinculo.Datos()
+	if err != nil || errorDatos != nil || vinculo.ValidarPara(resultado) != nil ||
+		!vinculo.VigenteEn(d.Reloj.Ahora(), resultado) ||
+		datosVinculo.CuentaPrivilegiada || datosVinculo.Superficie != domain.SuperficieAutenticacionExternaPersonalV1 ||
+		datosVinculo.CuentaRef != datosVinculo.CuentaOrdinariaRef ||
+		resultado.Contexto.PerfilActivoRef != d.PerfilPropioRef || resultado.Contexto.Principal.AuthAssurance != domain.AuthAssuranceHigh || (resultado.Contexto.Principal.AuthMethod != domain.AuthMethodCertificate && resultado.Contexto.Principal.AuthMethod != domain.AuthMethodDNIe) {
 		return domain.VinculoAutenticacionActorV2{}, domain.ResultadoContextoActorRegistradoV2{}, ErrContactoPropioNoDisponible
 	}
 	return vinculo, resultado, nil

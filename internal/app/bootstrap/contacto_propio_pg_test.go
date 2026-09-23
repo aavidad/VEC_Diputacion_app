@@ -42,6 +42,10 @@ type sesionContactoPGPrueba struct {
 	resultado domain.ResultadoContextoActorRegistradoV2
 }
 
+type relojContactoFijoPGPrueba time.Time
+
+func (r relojContactoFijoPGPrueba) Ahora() time.Time { return time.Time(r) }
+
 func (s sesionContactoPGPrueba) ResolverContactoPropio(context.Context) (domain.VinculoAutenticacionActorV2, domain.ResultadoContextoActorRegistradoV2, error) {
 	return s.vinculo, s.resultado, nil
 }
@@ -97,6 +101,22 @@ func configuracionMaterialContactoPGPrueba(t *testing.T) config.Config {
 	}.Normalize()
 }
 
+func concesionesContactoPGPrueba() []domain.ConcesionRol {
+	acciones := []string{
+		vecapp.AccionAltaContactoUsuario, vecapp.AccionActualizarContactoUsuario,
+		vecapp.AccionConsultarContactoUsuario, vecapp.AccionPrepararOperacionContacto,
+		vecapp.AccionCancelarOperacionContacto, vecapp.AccionListarOperacionesContacto,
+		vecapp.AccionDetalleOperacionContacto,
+	}
+	salida := make([]domain.ConcesionRol, 0, len(acciones))
+	for _, accion := range acciones {
+		salida = append(salida, domain.ConcesionRol{Accion: accion, ModuloID: usuarios.ModuleID,
+			TipoRecurso: "contacto_usuario", Finalidades: []string{contactopropio.FinalidadRegistro},
+			GarantiaMinima: domain.AuthAssuranceHigh})
+	}
+	return salida
+}
+
 // Sólo se habilita desde el runner de esquema sintético, en contenedor PG18
 // desechable sin red. ContextoActor, PDP, registro V3, COSE, confianza y
 // consumidor SQL son los adaptadores reales; la identidad inicial es fixture.
@@ -124,15 +144,7 @@ func TestContactoPropioPG18MaterialFirmadoYConsumoNominal(t *testing.T) {
 	vinculo, resultado := contextoRegistradoContactoPGPrueba(t, ctx, contexto, ahora)
 	instantanea, err := nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(resultado.Contexto.Principal.ID, resultado.Contexto.PerfilActivoRef, ahora,
 		"contacto_propio_f2_prueba", "Contacto propio sintético", "contacto-propio-f2-prueba",
-		[]domain.ConcesionRol{
-			{Accion: vecapp.AccionAltaContactoUsuario, ModuloID: usuarios.ModuleID, TipoRecurso: "contacto_usuario", Finalidades: []string{contactopropio.FinalidadRegistro}, GarantiaMinima: domain.AuthAssuranceHigh},
-			{Accion: vecapp.AccionActualizarContactoUsuario, ModuloID: usuarios.ModuleID, TipoRecurso: "contacto_usuario", Finalidades: []string{contactopropio.FinalidadRegistro}, GarantiaMinima: domain.AuthAssuranceHigh},
-			{Accion: vecapp.AccionConsultarContactoUsuario, ModuloID: usuarios.ModuleID, TipoRecurso: "contacto_usuario", Finalidades: []string{contactopropio.FinalidadRegistro}, GarantiaMinima: domain.AuthAssuranceHigh},
-			{Accion: vecapp.AccionPrepararOperacionContacto, ModuloID: usuarios.ModuleID, TipoRecurso: "contacto_usuario", Finalidades: []string{contactopropio.FinalidadRegistro}, GarantiaMinima: domain.AuthAssuranceHigh},
-			{Accion: vecapp.AccionCancelarOperacionContacto, ModuloID: usuarios.ModuleID, TipoRecurso: "contacto_usuario", Finalidades: []string{contactopropio.FinalidadRegistro}, GarantiaMinima: domain.AuthAssuranceHigh},
-			{Accion: vecapp.AccionListarOperacionesContacto, ModuloID: usuarios.ModuleID, TipoRecurso: "contacto_usuario", Finalidades: []string{contactopropio.FinalidadRegistro}, GarantiaMinima: domain.AuthAssuranceHigh},
-			{Accion: vecapp.AccionDetalleOperacionContacto, ModuloID: usuarios.ModuleID, TipoRecurso: "contacto_usuario", Finalidades: []string{contactopropio.FinalidadRegistro}, GarantiaMinima: domain.AuthAssuranceHigh},
-		},
+		concesionesContactoPGPrueba(),
 		[]domain.AmbitoPerfil{{Clave: "persona_ref", Valores: []string{resultado.Contexto.PersonaRef}}})
 	if err != nil {
 		t.Fatal("rol de contacto sintético inválido")
@@ -439,21 +451,127 @@ func TestContactoOperacionesPG18RecuperacionNominal(t *testing.T) {
 	if err != nil || preparada.Estado != ports.OperacionContactoPreparada || preparada.VersionEsperada != 1 || preparada.OperacionRef == "" {
 		t.Fatal("preparación V3 nominal no persistió intención")
 	}
-	detalle, err := operaciones.DetalleOperacion(ctx, preparada.OperacionRef)
+	vinculoPrivilegiado, resultadoPrivilegiado := contextoRegistradoParaContactoPGPruebaConPrivilegio(t, ctx, contexto, ahora,
+		"cta_sintetica_aaaaaaaaaaaaaaaaaaaaaaaa", "prf_sintetico_cccccccccccccccccccccccc", true)
+	dependenciasPrivilegiadas := dependencias
+	dependenciasPrivilegiadas.Sesion = sesionContactoPGPrueba{vinculoPrivilegiado, resultadoPrivilegiado}
+	servicioPrivilegiado, err := contactopropio.NuevoServicio(dependenciasPrivilegiadas)
+	if err != nil {
+		t.Fatal("fixture privilegiada no disponible")
+	}
+	operacionesPrivilegiadas, err := contactopropio.NuevoServicioOperaciones(servicioPrivilegiado, dOperaciones)
+	if err != nil {
+		t.Fatal("fixture privilegiada sin operaciones")
+	}
+	if _, err := operacionesPrivilegiadas.DetalleOperacion(ctx, preparada.OperacionRef); !errors.Is(err, vecapp.ErrOperacionContactoAccesoDenegado) {
+		t.Fatal("rama Sesion aceptó cuenta privilegiada")
+	}
+	dependenciasCaducadas := dependencias
+	dependenciasCaducadas.Reloj = relojContactoFijoPGPrueba(ahora.Add(21 * time.Minute))
+	servicioCaducado, err := contactopropio.NuevoServicio(dependenciasCaducadas)
+	if err != nil {
+		t.Fatal("fixture de sesión caducada no disponible")
+	}
+	operacionesCaducadas, err := contactopropio.NuevoServicioOperaciones(servicioCaducado, dOperaciones)
+	if err != nil {
+		t.Fatal("fixture de operaciones caducadas no disponible")
+	}
+	if _, err := operacionesCaducadas.DetalleOperacion(ctx, preparada.OperacionRef); !errors.Is(err, vecapp.ErrOperacionContactoAccesoDenegado) {
+		t.Fatal("rama Sesion aceptó vínculo caducado")
+	}
+	cuentaRotada, perfilRotado := registrarCredencialRotadaContactoPGPrueba(t, ctx, admin, resultado.Contexto.PersonaRef)
+	vinculoRotado, resultadoRotado := contextoRegistradoParaContactoPGPrueba(t, ctx, contexto, ahora, cuentaRotada, perfilRotado)
+	if resultadoRotado.Contexto.PersonaRef != resultado.Contexto.PersonaRef ||
+		resultadoRotado.Contexto.Principal.ID == resultado.Contexto.Principal.ID {
+		t.Fatal("credencial rotada no acredita la misma persona con principal distinto")
+	}
+	dependenciasRotadas := dependencias
+	dependenciasRotadas.Sesion = sesionContactoPGPrueba{vinculoRotado, resultadoRotado}
+	dependenciasRotadas.PerfilPropioRef = perfilRotado
+	dependenciasRotadas.AmbitosRecurso = map[string]string{"persona_ref": resultadoRotado.Contexto.PersonaRef}
+	servicioRotado, err := contactopropio.NuevoServicio(dependenciasRotadas)
+	if err != nil {
+		t.Fatal("servicio rotado no disponible")
+	}
+	operacionesRotadas, err := contactopropio.NuevoServicioOperaciones(servicioRotado, dOperaciones)
+	if err != nil {
+		t.Fatal("operaciones rotadas no disponibles")
+	}
+	if detalleSinPermiso, err := operacionesRotadas.DetalleOperacion(ctx, preparada.OperacionRef); err == nil || detalleSinPermiso.Encontrada {
+		t.Fatal("perfil rotado sin concesión leyó intención")
+	}
+	instantaneaRotada, err := nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(
+		resultadoRotado.Contexto.Principal.ID, perfilRotado, ahora,
+		"contacto_propio_f2_rotado_prueba", "Contacto propio rotado sintético", "contacto-propio-f2-rotado-prueba",
+		concesionesContactoPGPrueba(), []domain.AmbitoPerfil{{Clave: "persona_ref", Valores: []string{resultadoRotado.Contexto.PersonaRef}}})
+	if err != nil {
+		t.Fatal("rol sintético de credencial rotada inválido")
+	}
+	autoridadRotada := autoridadPostgreSQLDesarrollo{pool: admin, vinculo: vinculoRotado,
+		prefijoBloqueo: "vec:f2:prueba:autorizacion:", actoControlRol: "acto:f2:prueba:control-rotado",
+		actoAsignacion: "acto:f2:prueba:asignacion-rotada", actoSesion: "acto:f2:prueba:sesion-rotada"}
+	instantaneaRotada, err = autoridadRotada.prepararInstantanea(ctx, instantaneaRotada, true)
+	if err != nil || autoridadRotada.publicarInstantanea(ctx, instantaneaRotada) != nil {
+		t.Fatal("permiso V3 nominal rotado no publicado")
+	}
+	cuentaAjena, perfilAjeno, personaAjena := registrarPersonaAjenaContactoPGPrueba(t, ctx, admin)
+	vinculoAjeno, resultadoAjeno := contextoRegistradoParaContactoPGPrueba(t, ctx, contexto, ahora, cuentaAjena, perfilAjeno)
+	if resultadoAjeno.Contexto.PersonaRef != personaAjena || personaAjena == resultado.Contexto.PersonaRef {
+		t.Fatal("persona ajena sintética no acreditada")
+	}
+	instantaneaAjena, err := nuevaInstantaneaAutorizacionContratacionTemporalDesarrollo(
+		resultadoAjeno.Contexto.Principal.ID, perfilAjeno, ahora,
+		"contacto_propio_f2_ajeno_prueba", "Contacto ajeno sintético", "contacto-propio-f2-ajeno-prueba",
+		concesionesContactoPGPrueba(), []domain.AmbitoPerfil{{Clave: "persona_ref", Valores: []string{personaAjena}}})
+	if err != nil {
+		t.Fatal("rol sintético ajeno inválido")
+	}
+	autoridadAjena := autoridadPostgreSQLDesarrollo{pool: admin, vinculo: vinculoAjeno,
+		prefijoBloqueo: "vec:f2:prueba:autorizacion:", actoControlRol: "acto:f2:prueba:control-ajeno",
+		actoAsignacion: "acto:f2:prueba:asignacion-ajena", actoSesion: "acto:f2:prueba:sesion-ajena"}
+	instantaneaAjena, err = autoridadAjena.prepararInstantanea(ctx, instantaneaAjena, true)
+	if err != nil || autoridadAjena.publicarInstantanea(ctx, instantaneaAjena) != nil {
+		t.Fatal("permiso V3 nominal ajeno no publicado")
+	}
+	dependenciasAjenas := dependencias
+	dependenciasAjenas.Sesion = sesionContactoPGPrueba{vinculoAjeno, resultadoAjeno}
+	dependenciasAjenas.PerfilPropioRef = perfilAjeno
+	dependenciasAjenas.AmbitosRecurso = map[string]string{"persona_ref": personaAjena}
+	servicioAjeno, err := contactopropio.NuevoServicio(dependenciasAjenas)
+	if err != nil {
+		t.Fatal("servicio ajeno no disponible")
+	}
+	operacionesAjenas, err := contactopropio.NuevoServicioOperaciones(servicioAjeno, dOperaciones)
+	if err != nil {
+		t.Fatal("operaciones ajenas no disponibles")
+	}
+	if detalleAjeno, err := operacionesAjenas.DetalleOperacion(ctx, preparada.OperacionRef); err != nil || detalleAjeno.Encontrada {
+		t.Fatal("persona ajena vio intención por conocer op_ref")
+	}
+	detalle, err := operacionesRotadas.DetalleOperacion(ctx, preparada.OperacionRef)
 	if err != nil || !detalle.Encontrada || detalle.Operacion.Estado != ports.OperacionContactoPreparada {
-		t.Fatal("detalle propio no recuperó intención")
+		t.Fatal("misma persona con credencial rotada no recuperó intención")
 	}
 	lista, err := operaciones.ListarOperaciones(ctx, 20, "")
 	if err != nil || len(lista.Operaciones) != 1 || lista.Operaciones[0].OperacionRef != preparada.OperacionRef {
 		t.Fatal("índice propio no recuperó intención")
 	}
-	confirmada, err := operaciones.ConfirmarOperacion(ctx, preparada.OperacionRef, correo, 1)
+	confirmada, err := operacionesRotadas.ConfirmarOperacion(ctx, preparada.OperacionRef, correo, 1)
 	if err != nil || confirmada.Estado != ports.OperacionContactoConfirmada || confirmada.Version != 2 || confirmada.ReciboRef == "" {
-		t.Fatal("confirmación Contacto3 no produjo recibo original")
+		t.Fatal("confirmación rotada Contacto3 no produjo recibo original")
+	}
+	var actoresTrazados int
+	if err := admin.QueryRow(ctx, `SELECT count(DISTINCT actor_id) FROM vec_bolsa_registro_accesos.registro_acceso
+        WHERE subject_ref=$1 AND action IN ('vec.contacto_usuario.operacion.preparar','vec.contacto_usuario.actualizar')`,
+		resultado.Contexto.PersonaRef).Scan(&actoresTrazados); err != nil || actoresTrazados != 2 {
+		t.Fatal("preparación y confirmación rotada no conservaron dos trazas nominales")
 	}
 	repetida, err := operaciones.ConfirmarOperacion(ctx, preparada.OperacionRef, correo, 1)
 	if err != nil || !repetida.ReplayConfirmado || repetida.ReciboRef != confirmada.ReciboRef {
 		t.Fatal("replay Contacto3 cambió recibo original")
+	}
+	if otra, err := operacionesRotadas.ConfirmarOperacion(ctx, preparada.OperacionRef, "material-distinto@example.test", 1); !errors.Is(err, contactopropio.ErrContactoPropioConflicto) || otra.ReciboRef != "" {
+		t.Fatal("material distinto reabrió operación confirmada")
 	}
 	preparacionRepetida, err := operaciones.PrepararOperacion(ctx, correo, 1)
 	if err != nil || !preparacionRepetida.ReplayConfirmado || preparacionRepetida.OperacionRef != preparada.OperacionRef || preparacionRepetida.ReciboRef != confirmada.ReciboRef {
@@ -496,7 +614,8 @@ func TestContactoOperacionesPG18RecuperacionNominal(t *testing.T) {
 	var wg sync.WaitGroup
 	inicio := make(chan struct{})
 	resultados := make([]resultadoConcurrente, 2)
-	for i, correo := range []string{"pendiente-a@example.test", "pendiente-b@example.test"} {
+	correosPendientes := []string{"pendiente-a@example.test", "pendiente-b@example.test"}
+	for i, correo := range correosPendientes {
 		wg.Add(1)
 		go func(i int, correo string) {
 			defer wg.Done()
@@ -527,9 +646,21 @@ func TestContactoOperacionesPG18RecuperacionNominal(t *testing.T) {
         WHERE estado='preparada' AND version_esperada=2`).Scan(&pendientes); err != nil || pendientes != 1 {
 		t.Fatal("concurrencia duplicó o perdió la intención pendiente")
 	}
-	cancelada, err := operacionesRecuperadas.CancelarOperacion(ctx, resultados[ganadora].op.OperacionRef)
+	dependenciasRotadas.PoolEscritor = writerRecuperado
+	servicioRotadoRecuperado, err := contactopropio.NuevoServicio(dependenciasRotadas)
+	if err != nil {
+		t.Fatal("servicio rotado recuperado no disponible")
+	}
+	operacionesRotadasRecuperadas, err := contactopropio.NuevoServicioOperaciones(servicioRotadoRecuperado, dOperaciones)
+	if err != nil {
+		t.Fatal("operaciones rotadas recuperadas no disponibles")
+	}
+	cancelada, err := operacionesRotadasRecuperadas.CancelarOperacion(ctx, resultados[ganadora].op.OperacionRef)
 	if err != nil || cancelada.Estado != ports.OperacionContactoCancelada {
 		t.Fatal("intención distinta no pudo cancelarse de forma explícita")
+	}
+	if otra, err := operacionesRecuperadas.ConfirmarOperacion(ctx, cancelada.OperacionRef, correosPendientes[ganadora], 2); !errors.Is(err, contactopropio.ErrContactoPropioConflicto) || otra.ReciboRef != "" {
+		t.Fatal("operación cancelada aceptó confirmación posterior")
 	}
 	sustituta, err := operacionesRecuperadas.PrepararOperacion(ctx, "sustituta@example.test", 2)
 	if err != nil || sustituta.Estado != ports.OperacionContactoPreparada || sustituta.OperacionRef == cancelada.OperacionRef {
@@ -592,6 +723,15 @@ func derivarMaterialReciboContactoPGPrueba(t *testing.T, base materialAtestacion
 }
 
 func contextoRegistradoContactoPGPrueba(t *testing.T, ctx context.Context, pool *pgxpool.Pool, ahora time.Time) (domain.VinculoAutenticacionActorV2, domain.ResultadoContextoActorRegistradoV2) {
+	return contextoRegistradoParaContactoPGPrueba(t, ctx, pool, ahora,
+		"cta_sintetica_aaaaaaaaaaaaaaaaaaaaaaaa", "prf_sintetico_cccccccccccccccccccccccc")
+}
+
+func contextoRegistradoParaContactoPGPrueba(t *testing.T, ctx context.Context, pool *pgxpool.Pool, ahora time.Time, cuentaRef, perfilRef string) (domain.VinculoAutenticacionActorV2, domain.ResultadoContextoActorRegistradoV2) {
+	return contextoRegistradoParaContactoPGPruebaConPrivilegio(t, ctx, pool, ahora, cuentaRef, perfilRef, false)
+}
+
+func contextoRegistradoParaContactoPGPruebaConPrivilegio(t *testing.T, ctx context.Context, pool *pgxpool.Pool, ahora time.Time, cuentaRef, perfilRef string, privilegiada bool) (domain.VinculoAutenticacionActorV2, domain.ResultadoContextoActorRegistradoV2) {
 	t.Helper()
 	reloj := relojContratacionTemporalDesarrollo{}
 	resolutor, err := contextopg.NuevoResolutorRegistroContextoActorPostgreSQLV2(ctx, pool)
@@ -606,8 +746,8 @@ func contextoRegistradoContactoPGPrueba(t *testing.T, ctx context.Context, pool 
 	if err != nil {
 		t.Fatal("autoridad ContextoActor no disponible")
 	}
-	cuenta := domain.CuentaAutenticadaContextoActor{CuentaRef: "cta_sintetica_aaaaaaaaaaaaaaaaaaaaaaaa", Metodo: domain.AuthMethodCertificate, Garantia: domain.AuthAssuranceHigh}
-	solicitud := domain.SolicitudContextoActor{Cuenta: cuenta, PerfilActivoRef: "prf_sintetico_cccccccccccccccccccccccc"}
+	cuenta := domain.CuentaAutenticadaContextoActor{CuentaRef: cuentaRef, Metodo: domain.AuthMethodCertificate, Garantia: domain.AuthAssuranceHigh}
+	solicitud := domain.SolicitudContextoActor{Cuenta: cuenta, PerfilActivoRef: perfilRef}
 	confirmacion, err := servicio.ResolverRegistrado(ctx, solicitud)
 	if err != nil {
 		t.Fatal("ContextoActor no resolvió fixture maestra")
@@ -616,19 +756,90 @@ func contextoRegistradoContactoPGPrueba(t *testing.T, ctx context.Context, pool 
 		RepresentacionCanonica: confirmacion.RepresentacionCanonica, HuellaSHA256: confirmacion.HuellaSHA256,
 		ManifiestoProcedenciaCanonico: confirmacion.ManifiestoProcedenciaCanonico, ManifiestoProcedenciaHuellaSHA256: confirmacion.ManifiestoProcedenciaHuellaSHA256,
 		AutoridadEfectiva: confirmacion.AutoridadEfectiva, ResueltoEnAutoritativo: confirmacion.ResueltoEnAutoritativo}
-	base := "contacto-f2-pg-sintetico"
+	base := "contacto-f2-pg-sintetico" + cuentaRef
 	aut := domain.AutenticacionRevalidadaV1{AutenticacionRef: referenciaAltaContratacionTemporalDesarrollo("aut_", base+"aut"), AutenticacionHuellaSHA256: huellaAltaContratacionTemporalDesarrollo(base + "aut"),
 		AsercionRef: referenciaAltaContratacionTemporalDesarrollo("ase_", base+"ase"), SesionRef: referenciaAltaContratacionTemporalDesarrollo("ses_", base+"ses"),
 		ControlSesionRef: referenciaAltaContratacionTemporalDesarrollo("cse_", base+"cse"), ControlSesionRevision: 1, ControlSesionHuellaSHA256: huellaAltaContratacionTemporalDesarrollo(base + "cse"),
 		CuentaRef: cuenta.CuentaRef, CuentaOrdinariaRef: cuenta.CuentaRef, Superficie: domain.SuperficieAutenticacionExternaPersonalV1,
 		MetodoObservado: cuenta.Metodo, GarantiaObservada: cuenta.Garantia, PoliticaGarantiaRef: referenciaAltaContratacionTemporalDesarrollo("pga_", base+"pga"), PoliticaGarantiaHuellaSHA256: huellaAltaContratacionTemporalDesarrollo(base + "pga"),
 		AutenticacionVerificadaEn: ahora.Add(-2 * time.Minute), SesionEmitidaEn: ahora.Add(-2 * time.Minute), SesionRevalidadaEn: ahora.Add(-time.Minute), SesionValidaHasta: ahora.Add(20 * time.Minute)}
+	if privilegiada {
+		aut.CuentaPrivilegiada = true
+		aut.CuentaOrdinariaRef = "cta_" + strings.Repeat("o", 22)
+		aut.Superficie = domain.SuperficieAutenticacionAdministracionPrivilegiadaV1
+	}
 	vinculo, fresco, err := domain.CrearVinculoAutenticacionActorV2ConResultado(ctx, revalidadorAutenticacionAltaContratacionTemporalDesarrollo{valor: aut},
 		domain.SolicitudRevalidacionAutenticacionActorV1{AutenticacionRef: aut.AutenticacionRef, SesionRef: aut.SesionRef}, autoridad, solicitud, reloj)
 	if err != nil || vinculo.ValidarPara(fresco) != nil || fresco.Contexto.PersonaRef != resultado.Contexto.PersonaRef {
 		t.Fatal("vínculo V2 no usa ContextoActor PostgreSQL")
 	}
 	return vinculo, fresco
+}
+
+// Sólo publica proyecciones maestras sintéticas de otra credencial y perfil
+// para la MISMA persona. El resultado ContextoActor y la decisión V3 se
+// obtienen después por sus servicios reales, nunca se insertan aquí.
+func registrarCredencialRotadaContactoPGPrueba(t *testing.T, ctx context.Context, admin *pgxpool.Pool, personaRef string) (string, string) {
+	return registrarIdentidadSinteticaContactoPGPrueba(t, ctx, admin, personaRef, "r", false)
+}
+
+func registrarPersonaAjenaContactoPGPrueba(t *testing.T, ctx context.Context, admin *pgxpool.Pool) (string, string, string) {
+	personaRef := "per_" + strings.Repeat("x", 22)
+	cuentaRef, perfilRef := registrarIdentidadSinteticaContactoPGPrueba(t, ctx, admin, personaRef, "x", true)
+	return cuentaRef, perfilRef, personaRef
+}
+
+func registrarIdentidadSinteticaContactoPGPrueba(t *testing.T, ctx context.Context, admin *pgxpool.Pool, personaRef, letra string, nuevaPersona bool) (string, string) {
+	t.Helper()
+	cuentaRef := "cta_" + strings.Repeat(letra, 22)
+	perfilRef := "prf_" + strings.Repeat(letra, 22)
+	vinculoRef := "vca_" + strings.Repeat(letra, 22)
+	tx, err := admin.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
+	if err != nil {
+		t.Fatal("transacción maestra rotada no disponible")
+	}
+	defer tx.Rollback(context.Background())
+	if _, err := tx.Exec(ctx, `SET LOCAL ROLE vec_contexto_actor_v1_propietario`); err != nil {
+		t.Fatal("autoridad maestra rotada no disponible")
+	}
+	const procedencia = "prc_maestra_sintetica_contacto_f2_01"
+	if nuevaPersona {
+		if _, err := tx.Exec(ctx, `INSERT INTO vec_contexto_actor_v1.persona_versiones
+            (persona_ref,version,procedencia_ref,procedencia_version,procedencia_huella_sha256,procedencia_autoridad,estado,vigente_desde,vigente_hasta)
+            VALUES($1,1,$2,1,repeat('a',64),'autoridad_maestra_acreditada','activo',clock_timestamp()-interval '1 hour',clock_timestamp()+interval '1 hour')`,
+			personaRef, procedencia); err != nil {
+			t.Fatal("persona sintética ajena no disponible")
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO vec_contexto_actor_v1.persona_actual(persona_ref,version) VALUES($1,1)`, personaRef); err != nil {
+			t.Fatal("vigencia de persona sintética ajena no disponible")
+		}
+	}
+	operaciones := []struct {
+		sql  string
+		args []any
+	}{
+		{`INSERT INTO vec_contexto_actor_v1.proyeccion_cuenta_versiones
+            (cuenta_ref,version,procedencia_ref,procedencia_version,procedencia_huella_sha256,procedencia_autoridad,estado,vigente_desde,vigente_hasta)
+            VALUES($1,1,$2,1,repeat('a',64),'autoridad_maestra_acreditada','activo',clock_timestamp()-interval '1 hour',clock_timestamp()+interval '1 hour')`, []any{cuentaRef, procedencia}},
+		{`INSERT INTO vec_contexto_actor_v1.proyeccion_cuenta_actual(cuenta_ref,version) VALUES($1,1)`, []any{cuentaRef}},
+		{`INSERT INTO vec_contexto_actor_v1.perfil_versiones
+            (perfil_ref,version,persona_ref,procedencia_ref,procedencia_version,procedencia_huella_sha256,procedencia_autoridad,estado,vigente_desde,vigente_hasta)
+            VALUES($1,1,$2,$3,1,repeat('a',64),'autoridad_maestra_acreditada','activo',clock_timestamp()-interval '1 hour',clock_timestamp()+interval '1 hour')`, []any{perfilRef, personaRef, procedencia}},
+		{`INSERT INTO vec_contexto_actor_v1.perfil_actual(perfil_ref,version) VALUES($1,1)`, []any{perfilRef}},
+		{`INSERT INTO vec_contexto_actor_v1.vinculo_contexto_versiones
+            (vinculo_ref,version,cuenta_ref,perfil_ref,persona_ref,procedencia_ref,procedencia_version,procedencia_huella_sha256,procedencia_autoridad,estado,vigente_desde,vigente_hasta)
+            VALUES($1,1,$2,$3,$4,$5,1,repeat('a',64),'autoridad_maestra_acreditada','activo',clock_timestamp()-interval '1 hour',clock_timestamp()+interval '1 hour')`, []any{vinculoRef, cuentaRef, perfilRef, personaRef, procedencia}},
+		{`INSERT INTO vec_contexto_actor_v1.vinculo_contexto_actual(vinculo_ref,version) VALUES($1,1)`, []any{vinculoRef}},
+	}
+	for _, operacion := range operaciones {
+		if _, err := tx.Exec(ctx, operacion.sql, operacion.args...); err != nil {
+			t.Fatal("proyección maestra rotada no disponible")
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal("proyección maestra rotada no confirmada")
+	}
+	return cuentaRef, perfilRef
 }
 
 func publicarGobiernoContactoPGPrueba(ctx context.Context, pool *pgxpool.Pool, m materialAtestacionContratacionTemporalDesarrollo) error {
