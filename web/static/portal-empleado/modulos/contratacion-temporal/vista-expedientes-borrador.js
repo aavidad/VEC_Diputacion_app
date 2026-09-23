@@ -134,10 +134,10 @@ export function crearGestorDescargaBorradorRRHH({
         descargaInforme = null;
         accionDescargaInforme = null;
         formatoDescargaInforme = null;
+        botones.forEach((control) => { control.disabled = false; });
+        cancelaciones.forEach((control) => { control.disabled = true; });
+        reintentos.forEach((control) => { control.disabled = control.hidden !== false; });
       }
-      botones.forEach((control) => { control.disabled = false; });
-      cancelaciones.forEach((control) => { control.disabled = true; });
-      reintentos.forEach((control) => { control.disabled = control.hidden !== false; });
     }
   }
 
