@@ -162,38 +162,39 @@ BEGIN
      WHERE m.roleid='vec_contexto_actor_v1_propietario'::regrole
        AND m.member='vec_ad3_o207_gobierno'::regrole
        AND NOT m.admin_option AND m.inherit_option AND m.set_option)<>1
-   OR (SELECT count(*) FROM pg_auth_members m
-     JOIN pg_roles l ON l.oid=m.member
-     WHERE m.roleid='vec_contexto_actor_v1_runtime'::regrole
-       AND l.rolname IN ('vec_contexto_o207_neg_runtime',
-         'vec_ct_contexto_actor_desarrollo','vec_dietas_r1d_contexto_desarrollo')
-       AND NOT m.admin_option AND m.inherit_option AND NOT m.set_option)<>3
  THEN RAISE EXCEPTION 'membresía CA posterior no acreditada'; END IF;
 END $membresia_historica$;
 REVOKE vec_contexto_actor_v1_propietario FROM vec_ad3_o207_gobierno;
-REVOKE vec_contexto_actor_v1_runtime FROM vec_contexto_o207_neg_runtime,
- vec_ct_contexto_actor_desarrollo,vec_dietas_r1d_contexto_desarrollo;
 SQL
 psql_archivo "$raiz/deploy/postgresql/contexto_actor_v1/migraciones/000003_organizacion_corporativa_v1.up.sql"
-psql_archivo "$raiz/deploy/postgresql/contexto_actor_v1/migraciones/000004_vinculo_corporativo_rrhh_v1.up.sql"
+# El dump es posterior a CA5, pero anterior a CA3/CA4. La guarda histórica
+# de CA4 debe rechazarlo; para probar CA6 se materializa solo la estructura
+# desde el segmento DDL y postcondiciones de CA4, con huella fija. Esto NO
+# acredita la instalación histórica CA4 ni equivale a aplicarla en cidonia.
+python3 - "$raiz/deploy/postgresql/contexto_actor_v1/migraciones/000004_vinculo_corporativo_rrhh_v1.up.sql" "$temporal/ca4_fixture.sql" <<'PY'
+from pathlib import Path
+import hashlib,sys
+fuente=Path(sys.argv[1]); salida=Path(sys.argv[2]); s=fuente.read_text()
+if hashlib.sha256(fuente.read_bytes()).hexdigest()!='f1be3123b1286e7fe8ffae99073179b90b08303c31c8ee8c3783315a6078f368':
+    raise SystemExit('CA4: fuente historica alterada')
+a=s.index('SET LOCAL ROLE vec_contexto_actor_v1_propietario;')
+b=s.rindex('\nCOMMIT;')
+segmento=s[a:b]
+if hashlib.sha256(segmento.encode()).hexdigest()!='70fe8690fcd9858f342aef43355cf9521cc7d3dfbd0279359a05777a09c5c9d3':
+    raise SystemExit('CA4: segmento estructural alterado')
+salida.write_text('BEGIN;\nSET LOCAL search_path=pg_catalog;\nSET LOCAL timezone=\'UTC\';\n'+segmento+'\nCOMMIT;\n')
+PY
+chmod 600 "$temporal/ca4_fixture.sql"
+psql_archivo "$temporal/ca4_fixture.sql"
 psql_sql <<'SQL'
 GRANT vec_contexto_actor_v1_propietario TO vec_ad3_o207_gobierno
  WITH ADMIN FALSE, INHERIT TRUE, SET TRUE;
-GRANT vec_contexto_actor_v1_runtime TO vec_contexto_o207_neg_runtime,
- vec_ct_contexto_actor_desarrollo,vec_dietas_r1d_contexto_desarrollo
- WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
 DO $membresia_restituida$
 BEGIN
  IF (SELECT count(*) FROM pg_auth_members m
      WHERE m.roleid='vec_contexto_actor_v1_propietario'::regrole
        AND m.member='vec_ad3_o207_gobierno'::regrole
        AND NOT m.admin_option AND m.inherit_option AND m.set_option)<>1
-   OR (SELECT count(*) FROM pg_auth_members m
-     JOIN pg_roles l ON l.oid=m.member
-     WHERE m.roleid='vec_contexto_actor_v1_runtime'::regrole
-       AND l.rolname IN ('vec_contexto_o207_neg_runtime',
-         'vec_ct_contexto_actor_desarrollo','vec_dietas_r1d_contexto_desarrollo')
-       AND NOT m.admin_option AND m.inherit_option AND NOT m.set_option)<>3
  THEN RAISE EXCEPTION 'membresía CA posterior no restituida'; END IF;
 END $membresia_restituida$;
 SQL
