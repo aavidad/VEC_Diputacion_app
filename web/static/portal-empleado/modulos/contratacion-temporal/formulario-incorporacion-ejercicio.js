@@ -52,8 +52,12 @@ export function montarFormularioIncorporacionEjercicio({
   const texto = (k) => e(t("incorporacion_ejercicio_" + k));
   const fila = (k, v) => `<div><dt>${texto(k)}</dt><dd>${e(String(v))}</dd></div>`;
   const siNo = (valor) => valor ? "Sí" : "No";
-  const fecha = new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "medium", timeZone: zonaHoraria });
-  const periodo = (p) => fila("desde", fecha.format(new Date(p.desde))) + fila("hasta", fecha.format(new Date(p.hasta)));
+  // Los límites del período se presentan por su día civil UTC; el instante de
+  // registro sí muestra la hora en la zona elegida por quien consulta el recibo.
+  const fechaCivil = new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeZone: "UTC" });
+  const fechaRegistro = new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "medium", timeZone: zonaHoraria });
+  const periodo = (p) => fila("desde", fechaCivil.format(new Date(p.desde)))
+    + fila("hasta", fechaCivil.format(new Date(p.hasta)));
   let montado = true, ocupado = false, inmutable = false, controlador = null;
   let recibo = contexto.recibo, versionActual = contexto.version_actual_expediente, solicitud = null;
   let valores = { motivo_clave: "", confirma_revision_personal: false, confirma_ejercicio_sintetico: false };
@@ -68,7 +72,7 @@ export function montarFormularioIncorporacionEjercicio({
       </dl>
       ${recibo ? `<section class="ct-recibo" role="status"><h4>${texto("recibo")}</h4><dl>
         ${fila("recibo_ref", recibo.recibo_ref)}
-        ${fila("registrada_en", `${fecha.format(new Date(recibo.registrada_en))} · ${recibo.registrada_en}`)}
+        ${fila("registrada_en", `${fechaRegistro.format(new Date(recibo.registrada_en))} · ${recibo.registrada_en}`)}
         ${fila("ejercicio_sintetico", siNo(recibo.ejercicio_sintetico))}
         ${fila("firma_oficial", siNo(recibo.firma_oficial))}
         ${fila("eficacia_administrativa", siNo(recibo.eficacia_administrativa))}
