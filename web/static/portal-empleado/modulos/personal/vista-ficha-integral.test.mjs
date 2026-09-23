@@ -1,15 +1,87 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { montarVistaFichaIntegralPersonal } from "./vista-ficha-integral.js";
-import { renderizarEstadoEntrega } from "../../estado-entrega.js";
 
-function raizFalsa() { class Nodo { constructor(documento, etiqueta = "div") { this.ownerDocument = documento; this.tagName = etiqueta; this.children = []; this.dataset = {}; this.listeners = new Map(); this.parent = null; this.textContent = ""; this.atributos = new Map(); this.disabled = false; this.value = ""; } append(...nodos) { this.children.push(...nodos); nodos.forEach((n) => { n.parent = this; }); } replaceChildren(...nodos) { this.children = []; this.append(...nodos); } removeChild(n) { this.children = this.children.filter((h) => h !== n); n.parent = null; } remove() { this.parent?.removeChild(this); } addEventListener(t, f) { this.listeners.set(t, f); } setAttribute(k, v) { this.atributos.set(k, v); } removeAttribute(k) { this.atributos.delete(k); } focus() { this.enfocado = true; } matches(s) { const clave = s.match(/^\[data-([a-z-]+)(?:="[a-z_-]+")?\]$/u)?.[1]?.replace(/-([a-z])/g, (_m, l) => l.toUpperCase()); const valor = s.match(/="([a-z_-]+)"/u)?.[1]; return Boolean(clave && this.dataset[clave] !== undefined && (valor === undefined || this.dataset[clave] === valor)); } querySelector(s) { if (this.matches(s)) return this; for (const h of this.children) { const e = h.querySelector(s); if (e) return e; } return null; } } const documento = { createElement: (e) => new Nodo(documento, e) }; return new Nodo(documento, "root"); }
-function nodos(n) { return [n, ...n.children.flatMap(nodos)]; } function texto(n) { return nodos(n).map((x) => x.textContent).join(" "); }
+function raizFalsa() {
+  class Nodo {
+    constructor(documento, etiqueta = "div") { this.ownerDocument = documento; this.tagName = etiqueta; this.children = []; this.dataset = {}; this.listeners = new Map(); this.parent = null; this.textContent = ""; this.atributos = new Map(); this.disabled = false; }
+    append(...hijos) { this.children.push(...hijos); hijos.forEach((hijo) => { hijo.parent = this; }); }
+    replaceChildren(...hijos) { this.children = []; this.append(...hijos); }
+    remove() { if (this.parent) this.parent.children = this.parent.children.filter((hijo) => hijo !== this); }
+    addEventListener(tipo, fn) { this.listeners.set(tipo, fn); }
+    setAttribute(clave, valor) { this.atributos.set(clave, valor); }
+    focus() { this.enfocado = true; }
+    matches(selector) { const coincide = selector.match(/^\[data-([a-z-]+)(?:="([a-z_-]+)")?\]$/u); if (!coincide) return false; const clave = coincide[1].replace(/-([a-z])/g, (_m, letra) => letra.toUpperCase()); return this.dataset[clave] !== undefined && (coincide[2] === undefined || this.dataset[clave] === coincide[2]); }
+    querySelector(selector) { if (this.matches(selector)) return this; for (const hijo of this.children) { const encontrado = hijo.querySelector(selector); if (encontrado) return encontrado; } return null; }
+  }
+  const documento = { createElement: (etiqueta) => new Nodo(documento, etiqueta) };
+  return new Nodo(documento, "root");
+}
+function nodos(n) { return [n, ...n.children.flatMap(nodos)]; }
+function texto(n) { return nodos(n).map((item) => item.textContent).join(" "); }
+function tab(ficha, clave) { return nodos(ficha).find((n) => n.dataset.personalFichaTab === clave); }
+const completar = () => new Promise((resolve) => setImmediate(resolve));
 
-test("ficha RRHH presenta a Antonio con etiqueta sintética y deuda visible", () => { const raiz = raizFalsa(); montarVistaFichaIntegralPersonal({ raiz }); const ficha = raiz.querySelector("[data-personal-ficha-integral]"); assert.equal(ficha.dataset.estadoEntrega, "visual_pendiente_backend"); assert.match(texto(ficha), /Antonio López Fernández/); assert.match(texto(ficha), /Datos ficticios de presentación/); assert.match(texto(ficha), /visual_pendiente_backend/); assert.doesNotMatch(texto(ficha), /DNI|@/); });
-test("la ayuda evidente se oculta tras el control contextual y el límite queda compacto", () => { const raiz = raizFalsa(); montarVistaFichaIntegralPersonal({ raiz }); const ficha = raiz.querySelector("[data-personal-ficha-integral]"); const ayuda = raiz.querySelector("[data-personal-ficha-ayuda]"); assert.equal(ayuda.tagName, "details"); assert.match(texto(ayuda), /Ayuda sobre esta ficha/); assert.match(texto(ayuda), /La identidad, la relación y cada fuente/); assert.match(texto(ficha), /sin identidad privada, sin inferir relación laboral y sin efectos administrativos/i); assert.doesNotMatch(texto(ficha), /ficha_visual_pendiente/); });
-test("las siete pestañas son navegables por teclado y muestran historia sintética", () => { const raiz = raizFalsa(); montarVistaFichaIntegralPersonal({ raiz }); const ficha = raiz.querySelector("[data-personal-ficha-integral]"); const tabs = nodos(ficha).filter((n) => n.dataset.personalFichaTab); assert.equal(tabs.length, 7); let prevenido = false; tabs[0].listeners.get("keydown")({ key: "ArrowRight", preventDefault() { prevenido = true; } }); assert.equal(prevenido, true); assert.equal(tabs[1].atributos.get("aria-selected"), "true"); assert.match(texto(ficha), /Funcionario de carrera.*Técnico de Administración General/); });
-test("filtros locales activos cambian las filas visibles y efectos administrativos siempre deshabilitados", () => { const raiz = raizFalsa(); montarVistaFichaIntegralPersonal({ raiz }); const ficha = raiz.querySelector("[data-personal-ficha-integral]"); nodos(ficha).find((n) => n.dataset.personalFichaTab === "economia").listeners.get("click")(); const select = nodos(ficha).find((n) => n.dataset.personalFichaFiltro === "economia"); assert.equal(select.disabled, false); assert.match(texto(ficha), /Nómina orientativa.*Bases de cotización/); select.value = "Junio 2026"; select.listeners.get("change")(); assert.match(texto(ficha), /Nómina orientativa/); assert.doesNotMatch(texto(ficha), /Bases de cotización/); assert.ok(nodos(ficha).filter((n) => n.tagName === "button" && /Editar|Solicitar|Descargar|Ver referencia/.test(n.textContent)).every((n) => n.disabled)); });
-test("catálogos se montan bajo demanda, preservan clientes conectados y se limpian", async () => { const raiz = raizFalsa(); let montajes = 0; let limpiezas = 0; montarVistaFichaIntegralPersonal({ raiz, montarCatalogos: ({ raiz: hueco, registrarDesmontar }) => { montajes += 1; registrarDesmontar(() => { limpiezas += 1; }); hueco.append(hueco.ownerDocument.createElement("table")); return Promise.resolve({ desmontar() { limpiezas += 1; } }); } }); const ficha = raiz.querySelector("[data-personal-ficha-integral]"); nodos(ficha).find((n) => n.dataset.personalFichaTab === "catalogos").listeners.get("click")(); await Promise.resolve(); assert.equal(montajes, 1); assert.match(texto(ficha), /consulta HTTP completa.*no los duplica/i); nodos(ficha).find((n) => n.dataset.personalFichaTab === "ficha").listeners.get("click")(); assert.ok(limpiezas >= 1); });
-test("navegación a Cronos y Dietas no transporta identidad", () => { const raiz = raizFalsa(); const destinos = []; montarVistaFichaIntegralPersonal({ raiz, navegarModulo: (...args) => destinos.push(args) }); const ficha = raiz.querySelector("[data-personal-ficha-integral]"); nodos(ficha).find((n) => n.dataset.personalFichaDestino === "dietas").listeners.get("click")(); assert.deepEqual(destinos, [["dietas"]]); });
-test("el estado visible escapa la deuda declarada", () => { const html = renderizarEstadoEntrega({ estado: "visual_pendiente_backend", resumen: "<pendiente>", pendientes: ["<documentos>"], fuente: { etiqueta: "Personal" } }); assert.match(html, /&lt;pendiente&gt;/); assert.doesNotMatch(html, /<pendiente>/); });
+test("la portada no fabrica persona, relación, curso, fichaje ni nómina", () => {
+  const raiz = raizFalsa(); montarVistaFichaIntegralPersonal({ raiz }); const ficha = raiz.querySelector("[data-personal-ficha-integral]");
+  assert.ok(ficha); assert.equal(tab(ficha, "tiempo").textContent, "Tiempo");
+  assert.match(texto(ficha), /Abra un apartado para consultar su fuente/);
+  assert.doesNotMatch(texto(ficha), /Antonio López|Funcionario de carrera|Junio 2026|Nómina orientativa/);
+  assert.equal(raiz.querySelector("[data-personal-ficha-ayuda]").tagName, "details");
+  assert.ok(nodos(ficha).filter((n) => n.dataset.personalFichaDestino).every((n) => n.disabled));
+});
+
+test("cada apartado se consulta solo al abrirlo y conserva procedencia sin referencias en la petición", async () => {
+  const raiz = raizFalsa(); const llamadas = [];
+  montarVistaFichaIntegralPersonal({ raiz, fuentes: {
+    servicios: { consultarPropios(entrada) { llamadas.push(entrada); return { estado: "disponible", fuente: "Personal", actualizado_en: "2026-09-24T08:00:00Z", items: [{ desde: "2020-01-01", procedencia: "Diputación", reconocimiento: "Confirmado", estado: "Reconocido" }] }; } },
+    tiempo: { consultarPropios() { throw new Error("no debe abrirse"); } },
+  } });
+  const ficha = raiz.querySelector("[data-personal-ficha-integral]"); assert.equal(llamadas.length, 0);
+  tab(ficha, "servicios").listeners.get("click")(); await completar();
+  assert.equal(llamadas.length, 1); assert.deepEqual(Object.keys(llamadas[0]), ["signal"]);
+  assert.match(texto(ficha), /Fuente: Personal/); assert.match(texto(ficha), /Reconocido/); assert.match(texto(ficha), /1 ene 2020/);
+  assert.doesNotMatch(texto(ficha), /curso acreditado|trienio concedido|Entrada a las 08:00/i);
+});
+
+test("estados separados: fuente ausente, vacío autorizado, denegado y error", async () => {
+  const raiz = raizFalsa(); const avisos = [];
+  montarVistaFichaIntegralPersonal({ raiz, anunciar: (...args) => avisos.push(args), fuentes: {
+    servicios: { consultarPropios: () => ({ estado: "vacio", fuente: "Personal", actualizado_en: "2026-09-24T08:00:00Z", items: [] }) },
+    tiempo: { consultarPropios: () => ({ estado: "denegado", items: [{ tipo: "oculto" }] }) },
+    formacion: { consultarPropios: () => Promise.reject(new Error("detalle interno")) },
+  } });
+  const ficha = raiz.querySelector("[data-personal-ficha-integral]");
+  tab(ficha, "economia").listeners.get("click")(); assert.match(texto(ficha), /No hay una fuente propia autorizada conectada/);
+  tab(ficha, "servicios").listeners.get("click")(); await completar(); assert.match(texto(ficha), /no devuelve registros/);
+  tab(ficha, "tiempo").listeners.get("click")(); await completar(); assert.match(texto(ficha), /No tiene permiso/); assert.doesNotMatch(texto(ficha), /oculto/);
+  tab(ficha, "formacion").listeners.get("click")(); await completar(); assert.match(texto(ficha), /No se pudo consultar/); assert.doesNotMatch(texto(ficha), /detalle interno/); assert.equal(avisos.length, 1);
+});
+
+test("cambiar de pestaña y desmontar aborta consultas sin pintar respuestas tardías", async () => {
+  const raiz = raizFalsa(); let resolver; let senal;
+  const montaje = montarVistaFichaIntegralPersonal({ raiz, fuentes: { relaciones: { consultarPropios({ signal }) { senal = signal; return new Promise((resolve) => { resolver = resolve; }); } } } });
+  const ficha = raiz.querySelector("[data-personal-ficha-integral]"); tab(ficha, "relaciones").listeners.get("click")(); await completar();
+  tab(ficha, "servicios").listeners.get("click")(); assert.equal(senal.aborted, true);
+  resolver({ estado: "disponible", fuente: "Personal", actualizado_en: "2026-09-24T08:00:00Z", items: [{ puesto: "No visible" }] }); await completar();
+  assert.doesNotMatch(texto(ficha), /No visible/); montaje.desmontar(); assert.equal(raiz.querySelector("[data-personal-ficha-integral]"), null);
+});
+
+test("teclado y navegación a otros módulos no transportan identidad", () => {
+  const raiz = raizFalsa(); const destinos = [];
+  montarVistaFichaIntegralPersonal({ raiz, navegarModulo: (...args) => destinos.push(args) }); const ficha = raiz.querySelector("[data-personal-ficha-integral]");
+  let prevenido = false; tab(ficha, "ficha").listeners.get("keydown")({ key: "ArrowRight", preventDefault() { prevenido = true; } });
+  assert.equal(prevenido, true); assert.equal(tab(ficha, "relaciones").atributos.get("aria-selected"), "true"); assert.equal(tab(ficha, "relaciones").enfocado, true);
+  tab(ficha, "ficha").listeners.get("click")(); nodos(ficha).find((n) => n.dataset.personalFichaDestino === "dietas").listeners.get("click")();
+  assert.deepEqual(destinos, [["dietas"]]);
+});
+
+test("catálogos existentes se montan bajo demanda y se limpian al salir", async () => {
+  const raiz = raizFalsa(); let montajes = 0; let limpiezas = 0;
+  montarVistaFichaIntegralPersonal({ raiz, montarCatalogos: ({ registrarDesmontar }) => {
+    montajes += 1; registrarDesmontar(() => { limpiezas += 1; }); return { desmontar() { limpiezas += 1; } };
+  } });
+  const ficha = raiz.querySelector("[data-personal-ficha-integral]"); tab(ficha, "catalogos").listeners.get("click")(); await completar();
+  assert.equal(montajes, 1); assert.match(texto(ficha), /consulta HTTP completa/);
+  tab(ficha, "ficha").listeners.get("click")(); assert.ok(limpiezas >= 1);
+});
