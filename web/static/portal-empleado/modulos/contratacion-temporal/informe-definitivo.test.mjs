@@ -41,6 +41,9 @@ async function montar(descargar, perfil = perfiles[0], estado = estadoReal()) {
   const botones = perfiles.map(({ accion }) => ({ disabled: false, dataset: {
     ctExpAccion: accion, expedienteRef: "expediente:ajeno", version: 99,
   } }));
+  const botonesDocx = perfiles.map(({ accion }) => ({ disabled: false, dataset: {
+    ctExpAccion: accion.replace("descargar-", "descargar-docx-"),
+  } }));
   const reintentos = perfiles.map(({ accion }) => ({ disabled: true, hidden: true, dataset: {
     ctExpAccion: accion.replace("descargar-", "reintentar-descarga-"),
   } }));
@@ -54,7 +57,7 @@ async function montar(descargar, perfil = perfiles[0], estado = estadoReal()) {
       : reintentos.find((control) => selector === `[data-ct-exp-accion="${control.dataset.ctExpAccion}"]`) ?? null,
     querySelectorAll: (selector) => selector.startsWith('[data-ct-exp-accion^="reintentar-descarga-"]')
       ? reintentos : selector === '[data-ct-exp-accion="cancelar-descarga"]'
-        ? cancelaciones : selector.includes("data-ct-exp-accion") ? botones : [],
+        ? cancelaciones : selector.includes("data-ct-exp-accion") ? [...botones, ...botonesDocx] : [],
   };
   const montaje = await montarModuloContratacionTemporal({
     raiz, presentador: {
@@ -75,7 +78,7 @@ async function montar(descargar, perfil = perfiles[0], estado = estadoReal()) {
   const click = (selector = "[data-ct-exp-accion]", control = boton) => eventos.get("click")({
     target: { closest: (buscado) => buscado === selector ? control : null }, preventDefault() {},
   });
-  return { estado, raiz, boton, botones, cancelaciones, reintentos, mensaje, montaje, click,
+  return { estado, raiz, boton, botones, botonesDocx, cancelaciones, reintentos, mensaje, montaje, click,
     descargas, creados, revocados };
 }
 
@@ -395,6 +398,42 @@ test("cancelar una descarga aborta su lectura sin alterar el detalle", async () 
   vista.montaje.desmontar();
 });
 
+test("cancelar sin reintento activo restaura PDF, DOCX y Cancelar aunque A termine tarde", async () => {
+  for (const rechazar of [false, true]) {
+    let resolverA, rechazarA;
+    const llamadas = [];
+    const vista = await montar((_, opciones) => {
+      llamadas.push(opciones);
+      if (llamadas.length > 1) return new Blob(["reintento"], { type: "application/pdf" });
+      return new Promise((resolve, reject) => { resolverA = resolve; rechazarA = reject; });
+    }, perfiles[1]);
+    const pendienteA = vista.click("[data-ct-exp-accion]", vista.botonesDocx[1]);
+    assert.equal(llamadas[0].formato, "docx");
+    await vista.click("[data-ct-exp-accion]", vista.cancelaciones[0]);
+    assert.equal(llamadas[0].signal.aborted, true);
+    assert.ok(vista.botones.every((control) => control.disabled === false));
+    assert.ok(vista.botonesDocx.every((control) => control.disabled === false));
+    assert.equal(vista.cancelaciones[0].disabled, true);
+    assert.equal(vista.reintentos[1].disabled, false);
+    assert.equal(vista.reintentos[1].hidden, false);
+    assert.equal(vista.reintentos[1].dataset.ctExpFormato, "docx");
+
+    if (rechazar) rechazarA(new Error("respuesta tardía"));
+    else resolverA(new Blob(["respuesta A"], { type: "application/pdf" }));
+    await pendienteA;
+    assert.deepEqual(vista.descargas, []);
+    assert.ok(vista.botones.every((control) => control.disabled === false));
+    assert.ok(vista.botonesDocx.every((control) => control.disabled === false));
+    assert.equal(vista.cancelaciones[0].disabled, true);
+    assert.equal(vista.reintentos[1].disabled, false);
+    assert.equal(vista.reintentos[1].dataset.ctExpFormato, "docx");
+    await vista.click("[data-ct-exp-accion]", vista.reintentos[1]);
+    assert.equal(llamadas[1].formato, "docx");
+    assert.equal(vista.descargas.length, 1);
+    vista.montaje.desmontar();
+  }
+});
+
 test("la respuesta tardía cancelada no libera los controles del reintento activo", async () => {
   const resolver = [];
   const señales = [];
@@ -406,6 +445,11 @@ test("la respuesta tardía cancelada no libera los controles del reintento activ
   assert.equal(vista.cancelaciones[0].disabled, false);
   await vista.click("[data-ct-exp-accion]", vista.cancelaciones[0]);
   assert.equal(señales[0].aborted, true);
+  assert.ok(vista.botones.every((control) => control.disabled === false));
+  assert.ok(vista.botonesDocx.every((control) => control.disabled === false));
+  assert.equal(vista.cancelaciones[0].disabled, true);
+  assert.equal(vista.reintentos[0].disabled, false);
+  assert.equal(vista.reintentos[0].hidden, false);
   const pendienteB = vista.click();
   assert.equal(señales.length, 2);
   assert.equal(señales[1].aborted, false);
