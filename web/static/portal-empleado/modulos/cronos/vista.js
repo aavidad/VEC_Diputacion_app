@@ -112,6 +112,12 @@ function botonAyuda(t, asunto) {
 
 const ESTADOS_JORNADA = new Set(["cargando", "disponible", "vacio", "no_configurado", "denegado", "error"]);
 
+function estadoJornadaConFuente(estado, contextoActor, datos) {
+  if (estado !== "disponible") return estado;
+  return contextoActor?.demostracion === false && datos?.demostracion === false
+    ? "disponible" : "no_configurado";
+}
+
 /**
  * Superficie de Jornada para el montaje del portal. El llamador solo puede
  * indicar "disponible" después de recibir una proyección propia de Cronos.
@@ -122,6 +128,7 @@ export function renderizarJornadaCronos({
   mensajes = MENSAJES_CRONOS_ES, locale = "es-ES", zonaHoraria = "Europe/Madrid",
 } = {}) {
   if (!ESTADOS_JORNADA.has(estado)) throw new Error("estado de jornada de Cronos no válido");
+  estado = estadoJornadaConFuente(estado, contextoActor, datos);
   const t = crearTraductorCronos(mensajes);
   let vista;
   let puedeConsultarFichajes = false;
@@ -165,8 +172,8 @@ export function renderizarJornadaCronos({
   </div>` : `<section class="panel cronos-jornada-panel" aria-labelledby="cronos-jornada-sin-datos"><header class="cabecera-panel"><h4 id="cronos-jornada-sin-datos">${escaparHTML(estadoVisible)}</h4></header><div class="cuerpo-panel" role="status">${escaparHTML(descripcionEstado)}</div></section>`;
 
   return `<section class="cronos-jornada cronos-area" data-cronos-jornada data-estado="${estado}" aria-labelledby="cronos-jornada-titulo"${estado === "cargando" ? ' aria-busy="true"' : ""}>
-    <header class="cronos-jornada-encabezado"><div><p class="sobrelinea">${escaparHTML(t("sobrelinea"))}</p><h3 id="cronos-jornada-titulo">${escaparHTML(t("jornada_titulo"))}</h3><p>${escaparHTML(t("jornada_descripcion"))}</p></div><span class="cronos-estado cronos-estado-${estado === "disponible" ? "exito" : "aviso"}" role="status">${escaparHTML(vista?.demostracion ? t("entorno_demo") : estadoVisible)}</span></header>
-    ${estado === "disponible" ? `<p class="cronos-jornada-fuente">${escaparHTML(t(vista.demostracion ? "jornada_fuente_demo" : "jornada_fuente_servicio", { fecha: instanteVisible(vista.actualizado_en, locale, zonaHoraria).completo }))}</p>` : ""}
+    <header class="cronos-jornada-encabezado"><div><p class="sobrelinea">${escaparHTML(t("sobrelinea"))}</p><h3 id="cronos-jornada-titulo">${escaparHTML(t("jornada_titulo"))}</h3><p>${escaparHTML(t("jornada_descripcion"))}</p></div><span class="cronos-estado cronos-estado-${estado === "disponible" ? "exito" : "aviso"}" role="status">${escaparHTML(estadoVisible)}</span></header>
+    ${estado === "disponible" ? `<p class="cronos-jornada-fuente">${escaparHTML(t("jornada_fuente_servicio", { fecha: instanteVisible(vista.actualizado_en, locale, zonaHoraria).completo }))}</p>` : ""}
     ${saldos}${contenido}
     <div class="cronos-jornada-acciones"><button type="button" class="boton-primario" disabled aria-disabled="true" title="${escaparHTML(t("jornada_accion_bloqueada"))}">${escaparHTML(t("accion_entrada"))}</button><button type="button" class="boton-secundario" disabled aria-disabled="true" title="${escaparHTML(t("jornada_accion_bloqueada"))}">${escaparHTML(t("accion_salida"))}</button><span>${escaparHTML(t("jornada_accion_bloqueada"))}</span></div>
   </section>`;
@@ -185,7 +192,8 @@ export function montarJornadaCronos({ raiz, registrarDesmontar, anunciar = () =>
   const actualizar = (siguiente) => {
     if (!activo) throw new Error("jornada de Cronos desmontada");
     contenedor.innerHTML = renderizarJornadaCronos(siguiente);
-    anunciar(crearTraductorCronos(siguiente?.mensajes)(`jornada_estado_${siguiente?.estado ?? "no_configurado"}`));
+    const estadoVisible = estadoJornadaConFuente(siguiente?.estado ?? "no_configurado", siguiente?.contextoActor, siguiente?.datos);
+    anunciar(crearTraductorCronos(siguiente?.mensajes)(`jornada_estado_${estadoVisible}`));
   };
   const desmontar = () => {
     if (!activo) return;

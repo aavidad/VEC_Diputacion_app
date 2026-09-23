@@ -54,7 +54,6 @@ export const MENSAJES_CRONOS_ES = Object.freeze({
   jornada_descripcion_no_configurado: "Falta conectar una fuente autorizada de jornada y fichajes. No se muestran saldos ni marcajes de ejemplo.",
   jornada_descripcion_denegado: "La sesión no tiene capacidad para consultar jornada ni fichajes.",
   jornada_descripcion_error: "No se pudo obtener la jornada. Los datos anteriores no se muestran como actuales.",
-  jornada_fuente_demo: "Datos sintéticos de demostración · {fecha}. No acreditan marcajes ni saldo real.",
   jornada_fuente_servicio: "Datos de la consulta recibida · {fecha}.",
   jornada_movimientos: "Movimientos del periodo",
   jornada_movimientos_detalle: "Inicio, fin e interrupciones según la fuente consultada.",
