@@ -72,3 +72,23 @@ test("estados sin datos no filtran registros y el montaje libera escuchas", asyn
   assert.equal(listeners.size, 0);
   assert.equal(raiz.innerHTML, "");
 });
+
+test("bandeja distingue transporte, entrega y lectura sin ocultar falta de evidencia", () => {
+  const html = renderizarVistaSeleccionComunicaciones({ estadoFuente: "disponible", comunicaciones: [comunicacion] });
+  const fila = html.match(/<tr data-seleccionada="true">([\s\S]*?)<\/tr>/u)?.[1];
+  assert.ok(fila);
+  assert.match(html, /<th scope="col">Transporte, entrega y lectura<\/th>/u);
+  assert.match(fila, /<dt>Transporte<\/dt>[\s\S]*<dt>Entrega<\/dt>[\s\S]*<dt>Lectura<\/dt>/u);
+  assert.match(fila, /Aceptado por transporte/u);
+  assert.equal((fila.match(/Sin constancia/gu) || []).length, 2);
+  assert.match(fila, /aria-current="true"/u);
+  assert.match(html, /1 visible/u);
+});
+
+test("filtro sin coincidencias no conserva un detalle ajeno al resultado", () => {
+  const html = renderizarVistaSeleccionComunicaciones({ estadoFuente: "disponible", comunicaciones: [comunicacion] }, { filtro: "otro asunto", canal: "todas", seleccion: "com:01" });
+  assert.match(html, /0 visibles/u);
+  assert.match(html, /Ninguna comunicación coincide con el filtro/u);
+  assert.match(html, /Seleccione una comunicación de la lista para ver sus hitos/u);
+  assert.doesNotMatch(html, /smtp:01/u);
+});
