@@ -6,6 +6,8 @@ export LC_ALL=C TZ=UTC
 : "${VEC_PREIMAGEN_DIR:?preimagen schema-only privada requerida}"
 : "${VEC_AD3_51_UP:?ruta de AD3-51 revisada requerida}"
 : "${VEC_AD3_51_SHA256:?huella de AD3-51 revisada requerida}"
+: "${VEC_IDENTIDAD2_UP:?ruta de Identidad2 revisada requerida}"
+: "${VEC_IDENTIDAD2_SHA256:?huella de Identidad2 revisada requerida}"
 
 raiz=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)
 imagen=${VEC_POSTGRES_TEST_IMAGE:-postgres:18.4-bookworm@sha256:1961f96e6029a02c3812d7cb329a3b03a3ac2bb067058dec17b0f5596aca9296}
@@ -32,6 +34,7 @@ comprobar_sha "$VEC_PREIMAGEN_DIR/roles_vec.txt" \
 comprobar_sha "$VEC_PREIMAGEN_DIR/roles_acl_saneadas.tsv" \
   43e43ea31fc92097db955089b144d52f1d872e7c2fc3cc22a6ede0519fa58809
 comprobar_sha "$VEC_AD3_51_UP" "$VEC_AD3_51_SHA256"
+comprobar_sha "$VEC_IDENTIDAD2_UP" "$VEC_IDENTIDAD2_SHA256"
 
 python3 - "$VEC_PREIMAGEN_DIR/roles_acl_saneadas.tsv" "$temporal/roles.sql" <<'PY'
 import re,sys
@@ -153,8 +156,9 @@ SQL
 psql_archivo "$raiz/deploy/postgresql/contexto_actor_v1/migraciones/000003_organizacion_corporativa_v1.up.sql"
 psql_archivo "$raiz/deploy/postgresql/contexto_actor_v1/migraciones/000004_vinculo_corporativo_rrhh_v1.up.sql"
 psql_archivo "$raiz/deploy/postgresql/contratacion_temporal/roles_consultor_rrhh_ambito_up.sql"
-psql_archivo "$raiz/deploy/postgresql/contexto_actor_v1/migraciones/000006_acreditacion_ambito_rrhh_v1.up.sql"
 psql_archivo "$VEC_AD3_51_UP"
+psql_archivo "$VEC_IDENTIDAD2_UP"
+psql_archivo "$raiz/deploy/postgresql/contexto_actor_v1/migraciones/000006_acreditacion_ambito_rrhh_v1.up.sql"
 psql_archivo "$raiz/deploy/postgresql/contratacion_temporal/migraciones/000109_consultas_rrhh_ambito_v1.up.sql"
 psql_archivo "$raiz/deploy/postgresql/contexto_actor_v1/pruebas_sql/ensayar_ca6_ct109_pg18.sql"
 psql_sql <<'SQL'

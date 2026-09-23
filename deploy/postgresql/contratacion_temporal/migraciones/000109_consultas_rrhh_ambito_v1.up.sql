@@ -14,6 +14,10 @@ BEGIN
     OR (SELECT encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')
           FROM pg_proc p WHERE p.oid='vec_autorizacion_atestada_v3.revalidar_consumo_consulta_rrhh_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure)
        IS DISTINCT FROM '3530828669500274e9a46838c0d890aa0a974c2779e3fa38b5b2054c3919706d'
+    OR (SELECT encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')
+          FROM pg_proc p WHERE p.oid=to_regprocedure(
+           'vec_identidad_sesiones_v1.revalidar_consulta_rrhh_v1(text,text)'))
+       IS DISTINCT FROM '3c6d7bd086f80dfeab8a94a3d6f4b4400b544a9ce793444b0303669f323444e4'
     OR to_regprocedure('vec_contratacion_temporal.consultar_cuadro_rrhh_atestado_v2(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_cuadro_rrhh_v1,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
     OR to_regprocedure('vec_contratacion_temporal.consultar_detalle_rrhh_atestado_v1(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_detalle_rrhh_v1,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
     OR to_regprocedure('vec_contratacion_temporal.consultar_original_propuesta_rrhh_atestado_v1(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_detalle_rrhh_v1,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
