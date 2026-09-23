@@ -13,6 +13,8 @@ test("el catálogo i18n cubre los estados nuevos de acceso, navegación y reinte
   }
   assert.match(traducir("acceso_borradores_denegado"), /permiso/);
   assert.match(traducir("accion_reintentar"), /Reintentar/);
+  assert.match(traducir("error_catalogo_modulos"), /catálogo interno/u);
+  assert.match(traducir("titulo_error_catalogo_modulos"), /módulos/u);
   assert.equal(traducir("personal_catalogo_profesional"), "Catálogo profesional de Personal");
 });
 
