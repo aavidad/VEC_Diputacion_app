@@ -1,0 +1,24 @@
+/* Complementos propios sobre el marco y los tokens comunes de Dietas. */
+.dietas-borradores-propios .dietas-comision-formulario[hidden] {
+  display: none;
+}
+
+.dietas-borradores-propios .dietas-borradores-fila[data-seleccionado="true"] {
+  border-inline-start-color: var(--portal-exito);
+  background: var(--portal-superficie-alterna);
+}
+
+.dietas-borradores-propios .enlace-tabla:focus-visible,
+.dietas-borradores-propios button:focus-visible,
+.dietas-borradores-propios summary:focus-visible,
+.dietas-borradores-propios input:focus-visible,
+.dietas-borradores-propios select:focus-visible {
+  outline: 3px solid var(--portal-azul-700);
+  outline-offset: 2px;
+}
+
+@media (max-width: 520px) {
+  .dietas-borradores-propios .dietas-borradores-paginacion {
+    justify-content: flex-start;
+  }
+}
