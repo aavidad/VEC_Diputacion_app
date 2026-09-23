@@ -32,16 +32,17 @@ func main() {
 
 func ejecutar() error {
 	cfg := interna.CargarConfiguracion()
-	servidor, err := interna.NuevoServidor(cfg)
+	aplicacion, err := interna.NuevaAplicacion(context.Background(), cfg)
 	if err != nil {
 		return errArranqueComposicion
 	}
+	defer aplicacion.Cerrar()
 	log.Print("servidor interno VEC iniciando escucha TLS mutua")
 	ctx, detenerSenales := signal.NotifyContext(
 		context.Background(), os.Interrupt, syscall.SIGTERM,
 	)
 	defer detenerSenales()
-	return servirHastaApagado(ctx, servidor)
+	return servirHastaApagado(ctx, aplicacion)
 }
 
 func servirHastaApagado(ctx context.Context, servidor servidorInternoEjecutable) error {

@@ -1,6 +1,7 @@
 package interna
 
 import (
+	"context"
 	"errors"
 )
 
@@ -27,6 +28,12 @@ const (
 	DependenciaPostgreSQLProyector   Dependencia = "postgres_proyector_gobierno"
 	DependenciaPostgreSQLVerificador Dependencia = "postgres_verificador_recibo"
 	DependenciaAPIInterna            Dependencia = "api_interna"
+	DependenciaTransporteAsercion    Dependencia = "transporte_asercion_institucional"
+	DependenciaVerificadorAsercion   Dependencia = "verificador_asercion_institucional"
+	DependenciaEvaluadorGarantia     Dependencia = "evaluador_garantia_institucional"
+	DependenciaSeudonimizacionHSM    Dependencia = "seudonimizacion_hsm"
+	DependenciaMaterialCOSEConsultas Dependencia = "material_cose_consultas_ct"
+	DependenciaConsultaRRHHNominal   Dependencia = "postgres_consulta_rrhh_nominal"
 )
 
 var dependenciasC4 = [...]Dependencia{
@@ -43,6 +50,23 @@ var dependenciasC4 = [...]Dependencia{
 	DependenciaPostgreSQLEjecutor,
 	DependenciaPostgreSQLProyector,
 	DependenciaPostgreSQLVerificador,
+	DependenciaAPIInterna,
+}
+
+// El primer montaje se limita a cuadro y detalle CT. No consume TSA ni
+// firma documental; ambos pertenecen a efectos distintos.
+var dependenciasLecturaCT = [...]Dependencia{
+	DependenciaTLSMutuo,
+	DependenciaTransporteAsercion,
+	DependenciaVerificadorAsercion,
+	DependenciaEvaluadorGarantia,
+	DependenciaSesionesDurables,
+	DependenciaSeudonimizacionHSM,
+	DependenciaRevalidacionActor,
+	DependenciaContextoActor,
+	DependenciaPDPV3,
+	DependenciaMaterialCOSEConsultas,
+	DependenciaConsultaRRHHNominal,
 	DependenciaAPIInterna,
 }
 
@@ -94,4 +118,23 @@ func NuevoServidor(cfg Configuracion) (*ServidorInterno, error) {
 	}
 	faltantes := append([]Dependencia(nil), dependenciasC4[:]...)
 	return nil, &ErrorDependenciasFaltantes{faltantes: faltantes}
+}
+
+// NuevaAplicacion es la única entrada del binario interno. El contrato del
+// proveedor institucional de aserciones y el HSM no están aún disponibles:
+// esta raíz devuelve un inventario verificable antes de construir o escuchar.
+// Los adaptadores de prueba no se conectan al arranque productivo.
+func NuevaAplicacion(ctx context.Context, cfg Configuracion) (*AplicacionInterna, error) {
+	if ctx == nil {
+		return nil, ErrDependenciasProductivasNoDisponibles
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if err := cfg.Validar(); err != nil {
+		return nil, err
+	}
+	return nil, &ErrorDependenciasFaltantes{
+		faltantes: append([]Dependencia(nil), dependenciasLecturaCT[:]...),
+	}
 }

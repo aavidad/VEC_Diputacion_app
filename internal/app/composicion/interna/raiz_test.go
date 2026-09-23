@@ -1,12 +1,29 @@
 package interna
 
 import (
+	"context"
 	"errors"
 	"net"
 	"reflect"
 	"strings"
 	"testing"
 )
+
+func TestNuevaAplicacionLecturaCTFallaCerradaSinProveedoresInstitucionales(t *testing.T) {
+	aplicacion, err := NuevaAplicacion(context.Background(), configuracionInternaValidaPrueba())
+	if aplicacion != nil || !errors.Is(err, ErrDependenciasProductivasNoDisponibles) {
+		t.Fatalf("composicion lectura CT = (%v, %v)", aplicacion, err)
+	}
+	var faltantes *ErrorDependenciasFaltantes
+	if !errors.As(err, &faltantes) || !reflect.DeepEqual(faltantes.Faltantes(), dependenciasLecturaCT[:]) {
+		t.Fatalf("inventario de lectura CT = %v", err)
+	}
+	for _, ajena := range []Dependencia{DependenciaTSACualificada, DependenciaKMSVerificacionFirmas} {
+		if faltantes.Falta(ajena) {
+			t.Fatalf("la lectura exige dependencia ajena: %s", ajena)
+		}
+	}
+}
 
 func TestNuevoServidorPermaneceCerradoConInventarioCompleto(t *testing.T) {
 	servidor, err := NuevoServidor(configuracionInternaValidaPrueba())
