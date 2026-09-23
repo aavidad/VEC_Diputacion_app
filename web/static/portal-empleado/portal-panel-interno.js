@@ -8,6 +8,7 @@
  */
 import { traducirBolsaInterna } from "./portal-i18n.js";
 import { renderizarBloqueAvisos } from "./portal-bolsas-avisos.js?v=20260923-pweb12-montaje-v1";
+import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260923-pweb13-b8-v1";
 const ESQUEMA_PANEL_INTERNO = "vec.bolsa.panel.interno.v1";
 const ESTADOS_BOLSA = Object.freeze(["disponible", "no_disponible", "trabajando", "pendiente_incorporacion", "renuncia", "excluido", "disponible_desde"]);
 export function crearPresentadorPanelInterno(dependencias) {
@@ -387,6 +388,8 @@ export function crearPresentadorPanelInterno(dependencias) {
     const candidatos = estadoCandidatos.datos?.candidatos || [];
     const contactos = estadoCandidatos.datos?.contactos || [];
     const modalFicha = typeof obtenerModalFicha === "function" ? obtenerModalFicha() : null;
+    const reciboFichaFuera = modalFicha?.operacionesB8?.recibo && !candidatos.some((item) => item.participacion_ref === modalFicha.candidato?.participacion_ref)
+      ? `<p class="mensaje-exito" role="status">Operación registrada. Recibo <code>${escaparHTML(modalFicha.operacionesB8.recibo)}</code>. La participación ya no coincide con el filtro o la página actual; consulte su nueva situación al quitar el filtro.</p>` : "";
     const hayMas = estadoCandidatos.datos?.hay_mas === true;
     const cursorSiguiente = estadoCandidatos.datos?.cursor_siguiente || "";
     if (filtrosActuales.nuevo_llamamiento) return renderizarNuevoLlamamiento(bolsa, candidatos, filtrosActuales.nuevo_llamamiento);
@@ -533,6 +536,7 @@ export function crearPresentadorPanelInterno(dependencias) {
       ${encabezadoVista("Gestión interna de Bolsas", tituloBolsa, descripcionBolsa, accionesEncabezado)}
       ${lecturaPresentacion ? '<section class="nota-pendiente" role="note"><strong>Presentación sintética de solo lectura.</strong> Los datos visibles no acreditan contacto, envío ni entrega.</section>' : ""}
       ${lecturaPresentacion ? "" : '<section class="nota-seguridad" role="note"><strong>Operaciones conectadas.</strong> Los contactos B3 y la emisión B7 usan autorización nominal, persistencia PostgreSQL y recibos recuperables; las respuestas siguen pendientes de RRHH.</section>'}
+      ${reciboFichaFuera}
       <div class="distribucion-llamamiento">
         <div>
           ${pestanas}
@@ -623,6 +627,7 @@ export function crearPresentadorPanelInterno(dependencias) {
               </dl>
               ${reciboSituacion}
               ${reciboContacto}
+              ${renderizarOperacionesSituacion({ candidato, estado: modal.operacionesB8 || {}, escaparHTML })}
             </div>
             <div class="acciones-vista">
               <button type="button" class="boton-primario" data-bolsa-accion="abrir-cambio-situacion">Cambiar situación</button>

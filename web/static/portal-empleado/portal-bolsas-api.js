@@ -14,6 +14,7 @@ import {
   validarRespuestaEstadisticas,
 } from "./portal-bolsas-contrato.js";
 import { traducirBolsaInterna } from "./portal-i18n.js";
+import { crearControladorOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260923-pweb13-b8-v1";
 import { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js";
 export { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js";
 
@@ -232,6 +233,18 @@ export async function registrarContactoCandidato(bolsaRef, participacionRef, pay
 
 export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFuenteLectura = () => null, documento = globalThis.document }) {
   const controladoresLectura = new Map();
+  const controladorOperacionesB8 = crearControladorOperacionesSituacion({
+    estado,
+    renderizar,
+    recargar: async (participacionRef) => {
+      const bolsaRef = estado.bolsaSeleccionada;
+      const modal = estado.modalFicha;
+      await Promise.all([cargarCandidatosBolsa(bolsaRef), cargarBolsas(), cargarEstadisticas()]);
+      if (estado.modalFicha !== modal) return;
+      const candidato = estado.datosCandidatos?.datos?.candidatos?.find((item) => item.participacion_ref === participacionRef);
+      if (candidato) modal.candidato = candidato;
+    },
+  });
   function fuenteLectura() {
     const fuente = obtenerFuenteLectura();
     return fuente && typeof fuente === "object" ? fuente : null;
@@ -290,6 +303,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
   }
 
   function cancelarPeticiones() {
+    estado.modalFicha?.controladorOperaciones?.abort();
     for (const controlador of controladoresLectura.values()) controlador.abort();
     controladoresLectura.clear();
     for (const clave of ["bolsas", "candidatos", "contactos"]) limpiarEstadoCarga(clave);
@@ -377,8 +391,9 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     const datos = estado.datosCandidatos?.datos;
     const candidato = datos?.candidatos?.find((item) => item.participacion_ref === participacionRef);
     if (!candidato || !datos?.bolsa) return;
+    estado.modalFicha?.controladorOperaciones?.abort();
     estado.modalFicha = { abierto: true, candidato, bolsa: datos.bolsa };
-    renderizar();
+    void controladorOperacionesB8.cargar(estado.modalFicha);
     documento.querySelector("[data-bolsa-ficha-inline='true']")?.focus?.();
   }
 
@@ -391,6 +406,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
 
   function cerrarFicha() {
     const participacionRef = estado.modalFicha?.candidato?.participacion_ref;
+    estado.modalFicha?.controladorOperaciones?.abort();
     estado.modalFicha = null;
     renderizar();
     if (!participacionRef) return;
@@ -446,6 +462,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
   }
 
   function instalar() {
+    controladorOperacionesB8.instalar(documento);
     documento.addEventListener("click", (evento) => {
       const botonVer = evento.target?.closest?.('[data-accion="ver-bolsa"], [data-bolsa-abrir="true"]');
       if (botonVer) {

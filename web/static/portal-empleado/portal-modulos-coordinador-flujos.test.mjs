@@ -583,7 +583,7 @@ test("el coordinador no autentica ni conserva estado en el navegador", async () 
 test("el cache busting de módulos avanza en cascada hasta el HTML", async () => {
   const versionCoordinador = "20260921-avisos-r5-v1";
   const versionPortal = "20260921-avisos-r5-v1";
-  const versionModuloBolsa = "20260921-montaje-modulos-b1";
+  const versionModuloBolsa = "20260923-pweb13-b8-v1";
   const versionI18n = "20260920-personal-catalogo-v1";
   const versionCatalogo = "20260906-acceso-certificado-v1";
   const versionTema = "20260920-referencia-rrhh-v1";

@@ -85,5 +85,5 @@
 941 web/static/portal-empleado/portal-modulos-coordinador.js
 829 web/static/portal-empleado/portal-modulos-coordinador.test.mjs
 879 web/static/portal-empleado/portal.js
-819 web/static/portal-empleado/portal-panel-interno.js
+824 web/static/portal-empleado/portal-panel-interno.js
 3053 web/static/styles.css
