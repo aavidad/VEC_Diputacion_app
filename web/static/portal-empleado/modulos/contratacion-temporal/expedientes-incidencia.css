@@ -4,13 +4,13 @@
    rojo incidencia y amarillo espera de otro departamento. */
 .ct-exp-progreso li.ct-fase-completado {
   background: var(--portal-exito-suave);
-  color: #135f2d;
+  color: var(--portal-exito);
 }
 
 .ct-exp-progreso li.ct-fase-completado .ct-exp-numero-fase {
   border-color: var(--portal-exito);
   background: var(--portal-exito);
-  color: #fff;
+  color: var(--portal-superficie);
 }
 
 .ct-exp-progreso li.ct-fase-completado::before {
@@ -19,24 +19,24 @@
 
 .ct-exp-progreso li.ct-fase-espera {
   background: var(--portal-aviso-suave);
-  color: #7a4a00;
+  color: var(--portal-aviso);
 }
 
 .ct-exp-progreso li.ct-fase-espera .ct-exp-numero-fase {
-  border-color: #d99a1a;
-  background: #ffe8ad;
-  color: #7a4a00;
+  border-color: var(--portal-aviso);
+  background: var(--portal-aviso-suave);
+  color: var(--portal-aviso);
 }
 
 .ct-exp-progreso li.ct-fase-incidencia {
   background: var(--portal-peligro-suave);
-  color: #8c3640;
+  color: var(--portal-peligro);
 }
 
 .ct-exp-progreso li.ct-fase-incidencia .ct-exp-numero-fase {
-  border-color: #e0a3ab;
-  background: #fff;
-  color: #a8323f;
+  border-color: var(--portal-peligro);
+  background: var(--portal-superficie);
+  color: var(--portal-peligro);
 }
 
 .ct-exp-progreso li.ct-fase-pendiente {
@@ -46,7 +46,7 @@
 
 .ct-exp-progreso li.ct-fase-pendiente .ct-exp-numero-fase {
   border-color: var(--portal-borde);
-  background: #fff;
+  background: var(--portal-superficie);
   color: var(--portal-muted);
 }
 
@@ -58,7 +58,7 @@
 .ct-exp-progreso li.ct-fase-en_curso .ct-exp-numero-fase {
   border-color: var(--portal-azul-700);
   background: var(--portal-azul-700);
-  color: #fff;
+  color: var(--portal-superficie);
 }
 
 .ct-exp-incidencia {
@@ -69,7 +69,7 @@
   gap: 12px 18px;
   margin: 0 0 14px;
   padding: 14px 16px;
-  border: 1px solid #e8c56a;
+  border: 1px solid var(--portal-aviso);
   border-left: 6px solid var(--portal-aviso);
   border-radius: var(--portal-radio);
   background: var(--portal-aviso-suave);
@@ -82,7 +82,7 @@
 
 .ct-exp-incidencia h3 {
   margin: 0 0 4px;
-  color: #7a4a00;
+  color: var(--portal-aviso);
   font-size: 1rem;
 }
 
@@ -200,7 +200,7 @@
 .ct-exp-incidencia-reparo {
   margin: 4px 0 8px;
   padding: 8px 12px;
-  border-left: 4px solid #d99a1a;
+  border-left: 4px solid var(--portal-aviso);
   border-radius: 4px;
   background: rgba(255, 255, 255, 0.7);
   color: var(--portal-tinta);

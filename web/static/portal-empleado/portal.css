@@ -7,9 +7,11 @@
   --portal-azul-100: #e9f2ff;
   --portal-tinta: #10213b;
   --portal-muted: #586985;
-  --portal-borde: #dce5ef;
-  --portal-fondo: #f5f8fc;
+  --portal-borde: #c9d7e6;
+  --portal-fondo: #eaf1f8;
   --portal-superficie: #ffffff;
+  --portal-superficie-alterna: #f0f5fb;
+  --portal-cabecera-panel: #e8f0f9;
   --portal-exito: #17823b;
   --portal-exito-suave: #eaf8ee;
   --portal-aviso: #9a5c00;
@@ -17,6 +19,8 @@
   --portal-peligro: #ba2737;
   --portal-peligro-suave: #fff0f1;
   --portal-violeta: #7451cf;
+  --portal-violeta-suave: #f2ecff;
+  --portal-neutro-suave: #edf2f7;
   --portal-cian: #078aa5;
   --portal-cian-fuerte: #08717d;
   --portal-cian-suave: #e7f8fa;
@@ -24,6 +28,7 @@
   --portal-naranja-suave: #fff0e7;
   --portal-sombra: 0 3px 12px rgba(27, 51, 82, 0.06);
   --portal-sombra-sm: 0 1px 4px rgba(27, 51, 82, 0.06);
+  --portal-sombra-color: rgb(6 45 86 / 15%);
   --portal-radio: 6px;
   --portal-radio-md: 5px;
   --portal-radio-lg: 8px;
@@ -31,6 +36,7 @@
   --portal-espacio-2: 8px;
   --portal-espacio-3: 12px;
   --portal-espacio-4: 16px;
+  --portal-espacio-5: 24px;
   --portal-tinta-suave: var(--portal-muted);
   --portal-lateral: 274px;
 }
@@ -73,7 +79,13 @@ body.portal-empleado-app[data-contraste="true"] {
   --portal-tinta: #000000;
   --portal-muted: #26303d;
   --portal-borde: #687588;
-  --portal-fondo: #ffffff;
+  --portal-fondo: #e8edf4;
+  --portal-superficie-alterna: #e1e9f2;
+  --portal-cabecera-panel: #d6e3f1;
+  --portal-violeta: #51329c;
+  --portal-violeta-suave: #e5dcf8;
+  --portal-neutro-suave: #dce5ef;
+  --portal-sombra-color: rgb(0 0 0 / 35%);
 }
 
 button,
@@ -631,7 +643,7 @@ a:focus-visible,
 
 .boton-secundario {
   border-color: #a9c4e6;
-  background: var(--portal-azul-100);
+  background: var(--portal-superficie);
   color: var(--portal-azul-800);
   box-shadow: 0 1px 3px rgba(27, 51, 82, 0.12);
   transition: background-color 120ms ease, border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;

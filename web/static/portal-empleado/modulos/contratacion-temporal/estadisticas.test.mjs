@@ -248,8 +248,7 @@ test("estadisticas.css: la hoja de estilos existe, es válida y cumple con los e
   assert.ok(css.includes(".barra-filtros-estadisticas"), "Debe definir la clase de filtros");
   assert.ok(css.includes(".grafico-svg-contenedor"), "Debe definir la clase del contenedor SVG");
   assert.ok(css.includes(".tabla-datos"), "Debe definir los estilos de tabla de datos");
-  assert.ok(css.includes("#edf2f7"), "Debe usar el tintado institucional en cabeceras de tabla");
+  assert.ok(css.includes("var(--portal-cabecera-panel)"), "Debe usar el tintado institucional en cabeceras de tabla");
   assert.ok(css.includes("@media"), "Debe incluir reglas de adaptación responsive");
   assert.ok(!css.toLowerCase().includes("demo"), "No debe contener referencias a entornos 'demo'");
 });
-

@@ -2,9 +2,9 @@
 .tarjeta-kpi,
 .tarjeta-modulo {
   border: 1px solid var(--portal-borde);
-  border-radius: var(--portal-radio);
+  border-radius: var(--portal-radio-lg);
   background: var(--portal-superficie);
-  box-shadow: 0 1px 2px rgba(20, 45, 75, 0.035);
+  box-shadow: var(--portal-sombra-sm);
 }
 
 .panel {
@@ -20,12 +20,12 @@
   gap: 12px;
   padding: 10px 15px;
   border-bottom: 1px solid var(--portal-borde);
-  background: #ffffff;
+  background: var(--portal-cabecera-panel);
 }
 
 .cabecera-panel h3 {
   margin: 0;
-  font-size: 0.96rem;
+  font-size: 1.03rem;
   font-weight: 720;
   color: var(--portal-azul-950);
 }
@@ -148,7 +148,7 @@
 
 .tarjeta-kpi:nth-child(2) .icono-kpi { background: var(--portal-exito-suave); color: var(--portal-exito); }
 .tarjeta-kpi:nth-child(3) .icono-kpi { background: var(--portal-naranja-suave); color: var(--portal-naranja); }
-.tarjeta-kpi:nth-child(4) .icono-kpi { background: #f2ecff; color: var(--portal-violeta); }
+.tarjeta-kpi:nth-child(4) .icono-kpi { background: var(--portal-violeta-suave); color: var(--portal-violeta); }
 .tarjeta-kpi:nth-child(5) .icono-kpi { background: var(--portal-cian-suave); color: var(--portal-cian-fuerte); }
 
 .valor-kpi {
@@ -157,7 +157,13 @@
   font-size: 1.25rem;
   font-variant-numeric: tabular-nums;
   font-weight: 760;
+  color: var(--portal-azul-700);
 }
+
+.tarjeta-kpi:nth-child(2) .valor-kpi { color: var(--portal-exito); }
+.tarjeta-kpi:nth-child(3) .valor-kpi { color: var(--portal-aviso); }
+.tarjeta-kpi:nth-child(4) .valor-kpi { color: var(--portal-violeta); }
+.tarjeta-kpi:nth-child(5) .valor-kpi { color: var(--portal-cian-fuerte); }
 
 .etiqueta-kpi {
   display: block;
@@ -179,13 +185,13 @@
 .rejilla-cuadro-mando {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(320px, 0.95fr);
-  gap: 12px;
+  gap: var(--portal-espacio-4);
 }
 
 .columna-cuadro {
   display: grid;
   align-content: start;
-  gap: 12px;
+  gap: var(--portal-espacio-4);
 }
 
 .tabla-contenedor {
@@ -220,7 +226,10 @@
   align-items: center;
   justify-content: flex-end;
   gap: 4px;
+  flex-wrap: wrap;
 }
+
+.paginacion-marco__puntos { padding: 0 3px; color: var(--portal-muted); }
 
 .paginacion-marco button {
   min-width: 34px;
@@ -228,7 +237,7 @@
   padding: 4px 8px;
   border: 1px solid var(--portal-borde);
   border-radius: var(--portal-radio-md);
-  background: #fff;
+  background: var(--portal-superficie);
   color: var(--portal-azul-800);
   cursor: pointer;
   font-weight: 740;
@@ -310,6 +319,7 @@
 
 .tabla-datos th,
 .tabla-datos td {
+  min-height: 44px;
   padding: 9px 12px;
   border-bottom: 1px solid var(--portal-borde);
   text-align: left;
@@ -318,7 +328,7 @@
 }
 
 .tabla-datos th {
-  background: var(--portal-fondo);
+  background: var(--portal-cabecera-panel);
   color: var(--portal-azul-950);
   font-size: 0.7rem;
   font-weight: 760;
@@ -327,8 +337,14 @@
 }
 
 .tabla-datos tbody tr:nth-child(even) {
-  background: var(--portal-fondo);
+  background: var(--portal-superficie-alterna);
 }
+
+.tabla-datos tbody tr { height: 44px; }
+
+.tabla-datos tbody tr:focus-within { background: var(--portal-azul-100); }
+.tabla-datos [data-tipo="numero"],
+.tabla-datos .columna-numero { text-align: right; font-variant-numeric: tabular-nums; }
 
 .tabla-datos tbody tr:last-child td {
   border-bottom: 0;
@@ -528,21 +544,32 @@
   min-height: 23px;
   align-items: center;
   padding: 2px 10px;
-  border: 1px solid #f0dca1;
+  gap: 5px;
+  border: 1px solid var(--portal-aviso);
   border-radius: 999px;
   background: var(--portal-aviso-suave);
-  color: #785000;
+  color: var(--portal-aviso);
   font-size: 0.68rem;
   font-weight: 720;
   white-space: nowrap;
   letter-spacing: 0.01em;
 }
 
-.estado-chip.exito { border-color: #a3d9b1; background: #ebfbee; color: #147432; }
-.estado-chip.info { border-color: #b1d2f7; background: #eef6ff; color: #0759be; }
-.estado-chip.peligro { border-color: #f8b4bb; background: #fef1f2; color: #b91c1c; }
-.estado-chip.neutro { border-color: #cbd5e1; background: #f1f5f9; color: #334155; }
-.estado-chip.violeta { border-color: #d1c1f8; background: #f5f0ff; color: #5b21b6; }
+.insignia::before,
+.estado-chip::before {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 6px;
+  border-radius: 50%;
+  background: currentColor;
+  content: "";
+}
+
+.estado-chip.exito { border-color: var(--portal-exito); background: var(--portal-exito-suave); color: var(--portal-exito); }
+.estado-chip.info { border-color: var(--portal-azul-700); background: var(--portal-azul-100); color: var(--portal-azul-700); }
+.estado-chip.peligro { border-color: var(--portal-peligro); background: var(--portal-peligro-suave); color: var(--portal-peligro); }
+.estado-chip.neutro { border-color: var(--portal-muted); background: var(--portal-neutro-suave); color: var(--portal-muted); }
+.estado-chip.violeta { border-color: var(--portal-violeta); background: var(--portal-violeta-suave); color: var(--portal-violeta); }
 
 .elemento-actividad {
   grid-template-columns: 10px minmax(0, 1fr);
