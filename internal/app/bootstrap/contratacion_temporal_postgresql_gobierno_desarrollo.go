@@ -162,7 +162,7 @@ func gobiernoActualPostgreSQLContratacionTemporalDesarrolloEsPropio(
 		    AND pg_catalog.left(c.acto_ref,
 		        pg_catalog.length('acto:ct:desarrollo:clave-capacidad:'))=
 		        'acto:ct:desarrollo:clave-capacidad:'
-		    AND c.audiencia_consumo IN ($1,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19))
+		    AND c.audiencia_consumo IN ($1,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22))
 		AND EXISTS (
 		 SELECT 1
 		   FROM vec_autorizacion_atestada_v3.puntero_configuracion_actual p
@@ -208,6 +208,11 @@ func gobiernoActualPostgreSQLContratacionTemporalDesarrolloEsPropio(
 		puertosbolsa.AudienciaConsultarContactoParticipacion,
 		puertosbolsa.AudienciaRegistrarDatosContactoParticipacion,
 		puertosbolsa.AudienciaEmitirLlamamiento,
+		// Dietas deriva tres consumidores bajo esta misma raíz (ver
+		// dietas_material_ct_desarrollo.go); su clave puede ser la última.
+		audienciaConsumoPersonalDietasDesarrollo,
+		audienciaConsumoCrearDietasDesarrollo,
+		audienciaConsumoConsultarDietasDesarrollo,
 	).Scan(&propio)
 	return propio, err
 }
@@ -235,7 +240,10 @@ func audienciaConsumoGobiernoPostgreSQLContratacionTemporalDesarrolloEsPropia(
 		puertosbolsa.AudienciaRegistrarContactoParticipacion,
 		puertosbolsa.AudienciaConsultarContactoParticipacion,
 		puertosbolsa.AudienciaRegistrarDatosContactoParticipacion,
-		puertosbolsa.AudienciaEmitirLlamamiento:
+		puertosbolsa.AudienciaEmitirLlamamiento,
+		audienciaConsumoPersonalDietasDesarrollo,
+		audienciaConsumoCrearDietasDesarrollo,
+		audienciaConsumoConsultarDietasDesarrollo:
 		return true
 	default:
 		return false

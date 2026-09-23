@@ -36,11 +36,11 @@ func (tx *txGobiernoContinuidadPrueba) QueryRow(
 			*destinos[1].(*int64) = 1
 			return nil
 		case strings.Contains(sql, "c.audiencia_consumo IN"):
-			if len(args) != 19 {
+			if len(args) != 22 {
 				return errors.New("numero de audiencias de gobierno inesperado")
 			}
 			admitida := false
-			for _, indice := range []int{0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18} {
+			for _, indice := range []int{0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21} {
 				if args[indice] == tx.audienciaActual {
 					admitida = true
 				}
@@ -73,6 +73,9 @@ func TestGobiernoPostgreSQLContinuidadNominalAD330YAD331(t *testing.T) {
 		ports.AudienciaConsultarContactoParticipacion,
 		ports.AudienciaRegistrarDatosContactoParticipacion,
 		ports.AudienciaEmitirLlamamiento,
+		audienciaConsumoPersonalDietasDesarrollo,
+		audienciaConsumoCrearDietasDesarrollo,
+		audienciaConsumoConsultarDietasDesarrollo,
 	}
 	for _, audiencia := range audienciasPropias {
 		t.Run(audiencia, func(t *testing.T) {
@@ -97,5 +100,15 @@ func TestGobiernoPostgreSQLContinuidadNominalAD330YAD331(t *testing.T) {
 	}
 	if audienciaConsumoGobiernoPostgreSQLContratacionTemporalDesarrolloEsPropia(audienciaAjena) {
 		t.Fatal("publicador acepta una audiencia ajena")
+	}
+}
+
+// Toda audiencia que se añade al catálogo común debe poder publicarla el
+// gobierno de CT; si no, el arranque con ese módulo activo cae entero.
+func TestAudienciasDietasPublicablesPorElGobiernoCT(t *testing.T) {
+	for _, d := range descriptoresMaterialDietasDesarrollo() {
+		if !audienciaConsumoGobiernoPostgreSQLContratacionTemporalDesarrolloEsPropia(d.Audiencia) {
+			t.Fatalf("audiencia de Dietas no publicable por CT: %s", d.Audiencia)
+		}
 	}
 }
