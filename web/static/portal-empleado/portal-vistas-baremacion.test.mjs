@@ -1,8 +1,20 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
 import { crearVistasBaremacion } from "./portal-vistas-baremacion.js";
 import { crearTraductorBaremacion, traducirBaremacion } from "./portal-i18n-baremacion.js";
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js";
+
+test("la vista carga el catálogo i18n con URL nueva y el módulo resuelve", async () => {
+  const codigo = readFileSync(new URL("./portal-vistas-baremacion.js", import.meta.url), "utf8");
+  const actual = new URL("./portal-i18n-baremacion.js?v=20260924-f2-web2", import.meta.url);
+  const anterior = new URL("./portal-i18n-baremacion.js?v=20260924-f2-web1", import.meta.url);
+  assert.notEqual(actual.href, anterior.href);
+  assert.notEqual(actual.href, new URL("./portal-i18n-baremacion.js", import.meta.url).href);
+  assert.match(codigo, /from "\.\/portal-i18n-baremacion\.js\?v=20260924-f2-web2"/);
+  const modulo = await import(actual.href);
+  assert.equal(modulo.traducirBaremacion("ayuda"), "Ayuda");
+});
 
 const escaparHTML = (dato) => String(dato ?? "").replace(/[&<>"]/g,
   (caracter) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[caracter]);
