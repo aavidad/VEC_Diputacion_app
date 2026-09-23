@@ -83,7 +83,8 @@ function crearValoresFormulario() {
     causa_clave: "sustitucion",
     inicio: "2026-09-01",
     fin: "2027-08-31",
-    porcentaje_jornada: "10000",
+    jornada_horas: "37",
+    jornada_minutos: "30",
     entrada_rc_referencia: "entrada-rc:opaca:001",
     motivo_rectificacion_clave: "",
   };
@@ -481,7 +482,8 @@ test("la rectificación exige análisis vigente, misma versión y un motivo publ
   assert.match(formulario.innerHTML, /Rectificar análisis de RRHH/u);
   assert.match(formulario.innerHTML, /value="2027-01-01"/u);
   assert.match(formulario.innerHTML, /value="2027-03-31"/u);
-  assert.match(formulario.innerHTML, /value="7500"/u);
+  assert.match(formulario.innerHTML, /name="jornada_horas" type="number" required value="28"/u);
+  assert.match(formulario.innerHTML, /name="jornada_minutos" type="number" required value="8"/u);
   assert.match(formulario.innerHTML, /Análisis de demostración RRHH C6-05; necesidad temporal verificada\./u);
   assert.equal(solicitudes.length, 0);
   cliente.rectificarAnalisis = () => {

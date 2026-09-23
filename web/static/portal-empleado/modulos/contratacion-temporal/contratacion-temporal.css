@@ -211,6 +211,23 @@
   font-weight: 760;
 }
 
+.ct-campo-jornada {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.ct-campo-jornada > legend {
+  padding: 0;
+}
+
+.ct-jornada-entradas {
+  display: grid;
+  grid-template-columns: auto minmax(0, 6rem) auto minmax(0, 6rem);
+  gap: 8px;
+  align-items: center;
+}
+
 .ct-campo-ancho {
   grid-column: 1 / -1;
 }

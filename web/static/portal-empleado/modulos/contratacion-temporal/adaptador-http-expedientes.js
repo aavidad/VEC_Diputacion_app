@@ -57,6 +57,17 @@ const CLAVES_ETIQUETAS_CONOCIDAS = new Map([
   ["no_consta", "comprobacion_resultado_no_consta"],
 ]);
 
+// La jornada se guarda en diezmilésimas; se muestra en horas y minutos de media
+// semanal (referencia provisional de 37 h 30 min) con su porcentaje.
+function jornadaVisible(diezmilesimas, locale, t) {
+  const minutos = Math.round(diezmilesimas * (37 * 60 + 30) / 10_000);
+  const porcentaje = new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 2 })
+    .format(diezmilesimas / 10_000);
+  return t("cabecera_jornada_valor", {
+    horas: String(Math.floor(minutos / 60)), minutos: String(minutos % 60), porcentaje,
+  });
+}
+
 function etiqueta(clave, t, alternativa = t("etiqueta_no_consta")) {
   if (typeof clave !== "string" || clave === "") return alternativa;
   const mensaje = CLAVES_ETIQUETAS_CONOCIDAS.get(clave);
@@ -256,9 +267,7 @@ function cabeceraDetalle(detalle, locale, catalogos, t) {
     campos.push(
       campo("periodo_analizado", t("cabecera_periodo_analizado"), `${fechaCivil(detalle.analisis.periodo_inicio, locale)} — ${fechaCivil(detalle.analisis.periodo_fin, locale)}`),
       campo("causa", t("cabecera_causa_analizada"), etiqueta(detalle.analisis.causa_clave, t)),
-      campo("jornada", t("cabecera_jornada"), new Intl.NumberFormat(locale, {
-        style: "percent", maximumFractionDigits: 2,
-      }).format(detalle.analisis.porcentaje_jornada / 10_000)),
+      campo("jornada", t("cabecera_jornada"), jornadaVisible(detalle.analisis.porcentaje_jornada, locale, t)),
       campo("resultado_rc", t("cabecera_resultado_rc"), etiqueta(detalle.analisis.resultado_rc, t)),
       campo("coste_estimado", t("cabecera_coste_estimado"), costeEstimadoVisible(detalle.analisis, locale, t)),
     );
