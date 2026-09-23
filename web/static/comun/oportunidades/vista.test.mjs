@@ -1,6 +1,18 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFile } from "node:fs/promises";
 import { montarVistaOportunidades, renderizarOportunidades } from "./vista.js";
+
+test("la vista carga el catálogo i18n por su URL versionada", async () => {
+  const fuente = await readFile(new URL("./vista.js", import.meta.url), "utf8");
+  const ruta = fuente.match(/^import \{ crearTraductorOportunidades \} from "([^"]+)";/m)?.[1];
+  assert.ok(ruta);
+  const url = new URL(ruta, new URL("./vista.js", import.meta.url));
+  assert.equal(url.pathname, new URL("./i18n.js", import.meta.url).pathname);
+  assert.equal(url.search, "?v=20260924-f2-web2");
+  const { crearTraductorOportunidades } = await import(url.href);
+  assert.equal(crearTraductorOportunidades()("titulo"), "Oportunidades para ti");
+});
 
 const oportunidad = (cambios = {}) => ({
   identificador_publico: "bolsa-auxiliar-2026",
