@@ -515,13 +515,12 @@ function leerPantalla(estado) {
   notificar("Lectura por voz iniciada. Pulse Esc o cambie de página para detenerla.");
 }
 
-function alternarPreferencia(accion, boton) {
+function alternarPreferencia(accion) {
   const atributo = accion === "alternar-texto" ? "textoGrande" : "contraste";
   const destino = accion === "alternar-texto" ? document.documentElement : document.body;
   const activo = destino.dataset[atributo] !== "true";
   destino.dataset[atributo] = String(activo);
   document.querySelectorAll(`[data-accion="${accion}"]`).forEach((control) => control.setAttribute("aria-pressed", String(activo)));
-  boton?.blur();
   anunciar(activo ? "Preferencia visual activada." : "Preferencia visual desactivada.");
 }
 
@@ -529,7 +528,7 @@ function atenderAccion(estado, boton) {
   const accion = boton.dataset.accion;
   if (accion === "alternar-menu") return alternarMenu();
   if (accion === "cerrar-menu") return cerrarMenu({ restaurarFoco: true });
-  if (accion === "alternar-texto" || accion === "alternar-contraste") return alternarPreferencia(accion, boton);
+  if (accion === "alternar-texto" || accion === "alternar-contraste") return alternarPreferencia(accion);
   if (accion === "leer-pantalla") return leerPantalla(estado);
   if (accion === "ver-sesion") return verSesion(estado);
   if (accion === "descargar-recibo") return void descargarRecibo(estado);
