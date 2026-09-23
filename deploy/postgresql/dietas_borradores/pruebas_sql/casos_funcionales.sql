@@ -28,12 +28,6 @@ BEGIN
 END $casos$;
 ALTER FUNCTION vec_dietas_prueba.preparar(text,text,text,text,text,integer,text,text,text) OWNER TO vec_dietas_propietario;
 GRANT EXECUTE ON FUNCTION vec_dietas_prueba.preparar(text,text,text,text,text,integer,text,text,text) TO vec_dietas_ejecutor;
-CREATE FUNCTION vec_dietas_prueba.contar_outbox() RETURNS bigint
-LANGUAGE sql SECURITY DEFINER SET search_path=pg_catalog AS $$
- SELECT count(*) FROM vec_dietas.outbox_borrador_comision
-$$;
-ALTER FUNCTION vec_dietas_prueba.contar_outbox() OWNER TO vec_dietas_propietario;
-GRANT EXECUTE ON FUNCTION vec_dietas_prueba.contar_outbox() TO vec_dietas_ejecutor;
 CREATE FUNCTION vec_dietas_prueba.contar_consumos_ad3() RETURNS bigint
 LANGUAGE sql SECURITY DEFINER SET search_path=pg_catalog AS $$
  SELECT count(*) FROM vec_autorizacion_atestada_v3.stub_consumo
@@ -59,7 +53,7 @@ COMMIT;
 \else
 SET LOCAL SESSION AUTHORIZATION vec_prueba_dietas;
 DO $pruebas$
-DECLARE mt text; capacidad bytea; decision bytea; contexto bytea; salida jsonb; primera text; segunda text; comision_uno text; tercera text; cursor_uno text; comision_otra text; antes_consumos bigint; antes_outbox bigint; op text; material_mutado text;
+DECLARE mt text; capacidad bytea; decision bytea; contexto bytea; salida jsonb; primera text; segunda text; comision_uno text; tercera text; cursor_uno text; comision_otra text; antes_consumos bigint; op text; material_mutado text;
 BEGIN
  SELECT * INTO mt,capacidad,decision,contexto FROM vec_dietas_prueba.preparar('crear','dietas:borradores:propios','nonce_uno','clave_idempotente_0001');
  salida:=vec_dietas.crear_o_recuperar_borrador_propio_v1(mt,capacidad,decision,'motivo'::bytea,contexto,1,1,'p'::bytea,'s'::bytea,'e'::bytea,'r'::bytea); primera:=salida#>>'{recibo,referencia}'; comision_uno:=salida#>>'{comision,referencia}';
@@ -67,7 +61,6 @@ BEGIN
  SELECT * INTO mt,capacidad,decision,contexto FROM vec_dietas_prueba.preparar('crear','dietas:borradores:propios','nonce_dos','clave_idempotente_0001');
  salida:=vec_dietas.crear_o_recuperar_borrador_propio_v1(mt,capacidad,decision,'motivo'::bytea,contexto,1,1,'p'::bytea,'s'::bytea,'e'::bytea,'r'::bytea); segunda:=salida#>>'{recibo,referencia}';
  IF salida#>>'{recibo,repeticion}'<>'true' OR segunda IS DISTINCT FROM primera THEN RAISE EXCEPTION 'replay fresco no conserva recibo'; END IF;
- IF vec_dietas_prueba.contar_outbox()<>1 THEN RAISE EXCEPTION 'replay duplicó outbox'; END IF;
  BEGIN PERFORM vec_dietas.crear_o_recuperar_borrador_propio_v1(mt,capacidad,decision,'motivo'::bytea,contexto,1,1,'p'::bytea,'s'::bytea,'e'::bytea,'r'::bytea); RAISE EXCEPTION 'consumo viejo aceptado'; EXCEPTION WHEN SQLSTATE 'PD003' THEN NULL; END;
  -- Misma clave, preimagen distinta y autorización fresca: no puede reconciliar.
  SELECT * INTO mt,capacidad,decision,contexto FROM vec_dietas_prueba.preparar('crear','dietas:borradores:propios','nonce_conflicto','clave_idempotente_0001','Otro motivo');
@@ -76,7 +69,6 @@ BEGIN
  SELECT * INTO mt,capacidad,decision,contexto FROM vec_dietas_prueba.preparar('crear','dietas:borradores:propios','nonce_tres','clave_idempotente_0002','Segunda visita');
  salida:=vec_dietas.crear_o_recuperar_borrador_propio_v1(mt,capacidad,decision,'motivo'::bytea,contexto,1,1,'p'::bytea,'s'::bytea,'e'::bytea,'r'::bytea); tercera:=salida#>>'{comision,referencia}';
  IF tercera IS NULL OR tercera=comision_uno THEN RAISE EXCEPTION 'segunda alta no durable'; END IF;
- IF vec_dietas_prueba.contar_outbox()<>2 THEN RAISE EXCEPTION 'dos altas no dejaron dos outbox'; END IF;
  -- Misma persona y empleado, pero otra relación/unidad: concesión A no ve B.
  SELECT * INTO mt,capacidad,decision,contexto FROM vec_dietas_prueba.preparar('crear','dietas:borradores:propios','nonce_otra','clave_idempotente_otra','Otra relación',1,'','rel_iiiiiiiiiiiiiiiiiiiiii','unidad:otra');
  salida:=vec_dietas.crear_o_recuperar_borrador_propio_v1(mt,capacidad,decision,'motivo'::bytea,contexto,1,1,'p'::bytea,'s'::bytea,'e'::bytea,'r'::bytea); comision_otra:=salida#>>'{comision,referencia}';
@@ -99,21 +91,20 @@ BEGIN
  SELECT * INTO mt,capacidad,decision,contexto FROM vec_dietas_prueba.preparar('lista','dietas:borradores:propios','nonce_lista_otra','', 'Visita técnica',10,'','rel_iiiiiiiiiiiiiiiiiiiiii','unidad:otra');
  salida:=vec_dietas.consultar_borradores_propios_v1(mt,capacidad,decision,'motivo'::bytea,contexto,1,1,'p'::bytea,'s'::bytea,'e'::bytea,'r'::bytea);
  IF jsonb_array_length(salida->'items')<>1 OR salida#>>'{items,0,comision,referencia}'<>comision_otra THEN RAISE EXCEPTION 'lista B no quedó aislada por relación/unidad'; END IF;
- IF vec_dietas_prueba.contar_outbox()<>3 THEN RAISE EXCEPTION 'consulta produjo o alteró outbox'; END IF;
  -- Las capacidades se rehacen desde la decisión mutada: este caso no puede
  -- quedar cubierto por una huella vieja que falle antes de la guarda Dietas.
  FOR op IN SELECT unnest(ARRAY['crear','detalle','lista']) LOOP
    IF op='crear' THEN SELECT * INTO material_mutado,capacidad,decision,contexto FROM vec_dietas_prueba.preparar('crear','dietas:borradores:propios','nonce_campo_crear','clave_idempotente_0006');
    ELSIF op='detalle' THEN SELECT * INTO material_mutado,capacidad,decision,contexto FROM vec_dietas_prueba.preparar('detalle',comision_uno,'nonce_campo_detalle','');
    ELSE SELECT * INTO material_mutado,capacidad,decision,contexto FROM vec_dietas_prueba.preparar('lista','dietas:borradores:propios','nonce_campo_lista','', 'Visita técnica',1,''); END IF;
-   antes_consumos:=vec_dietas_prueba.contar_consumos_ad3(); antes_outbox:=vec_dietas_prueba.contar_outbox();
+   antes_consumos:=vec_dietas_prueba.contar_consumos_ad3();
    SELECT * INTO decision,capacidad FROM vec_dietas_prueba.mutar_decision_capacidad(decision,capacidad,ARRAY['campos_permitidos'],'["campo.restringido"]'::jsonb);
    BEGIN IF op='crear' THEN PERFORM vec_dietas.crear_o_recuperar_borrador_propio_v1(material_mutado,capacidad,decision,'motivo'::bytea,contexto,1,1,'p'::bytea,'s'::bytea,'e'::bytea,'r'::bytea); ELSE PERFORM vec_dietas.consultar_borradores_propios_v1(material_mutado,capacidad,decision,'motivo'::bytea,contexto,1,1,'p'::bytea,'s'::bytea,'e'::bytea,'r'::bytea); END IF; RAISE EXCEPTION 'campo restringido aceptado %',op; EXCEPTION WHEN SQLSTATE 'PD003' THEN NULL; END;
-   IF vec_dietas_prueba.contar_consumos_ad3()<>antes_consumos OR vec_dietas_prueba.contar_outbox()<>antes_outbox THEN RAISE EXCEPTION 'campo restringido produjo consumo o efecto %',op; END IF;
+   IF vec_dietas_prueba.contar_consumos_ad3()<>antes_consumos THEN RAISE EXCEPTION 'campo restringido produjo consumo %',op; END IF;
    SELECT * INTO material_mutado,capacidad,decision,contexto FROM vec_dietas_prueba.preparar(op,CASE WHEN op='detalle' THEN comision_uno ELSE 'dietas:borradores:propios' END,'nonce_obligacion_'||op,CASE WHEN op='crear' THEN 'clave_idempotente_0007' ELSE '' END, 'Visita técnica',1,'');
    SELECT * INTO decision,capacidad FROM vec_dietas_prueba.mutar_decision_capacidad(decision,capacidad,ARRAY['obligaciones'],'["auditar"]'::jsonb);
    BEGIN IF op='crear' THEN PERFORM vec_dietas.crear_o_recuperar_borrador_propio_v1(material_mutado,capacidad,decision,'motivo'::bytea,contexto,1,1,'p'::bytea,'s'::bytea,'e'::bytea,'r'::bytea); ELSE PERFORM vec_dietas.consultar_borradores_propios_v1(material_mutado,capacidad,decision,'motivo'::bytea,contexto,1,1,'p'::bytea,'s'::bytea,'e'::bytea,'r'::bytea); END IF; RAISE EXCEPTION 'obligación desconocida aceptada %',op; EXCEPTION WHEN SQLSTATE 'PD003' THEN NULL; END;
-   IF vec_dietas_prueba.contar_consumos_ad3()<>antes_consumos OR vec_dietas_prueba.contar_outbox()<>antes_outbox THEN RAISE EXCEPTION 'obligación desconocida produjo consumo o efecto %',op; END IF;
+   IF vec_dietas_prueba.contar_consumos_ad3()<>antes_consumos THEN RAISE EXCEPTION 'obligación desconocida produjo consumo %',op; END IF;
  END LOOP;
  -- Cada fragmento ligado a la preimagen se rechaza si se altera sin rehacer la
  -- decisión/capacidad: identidad, versiones, fechas, rutas, cursor/límite y huellas.
@@ -144,7 +135,7 @@ BEGIN
 END $pruebas$;
 RESET SESSION AUTHORIZATION;
 DO $$ BEGIN
- IF (SELECT count(*) FROM vec_dietas.borrador_comision)<>3 OR (SELECT count(*) FROM vec_dietas.historia_borrador_comision)<>3 OR (SELECT count(*) FROM vec_dietas.outbox_borrador_comision)<>3 OR (SELECT count(*) FROM vec_dietas.auditoria_borrador_comision WHERE accion='crear')<>4 THEN RAISE EXCEPTION 'historia/auditoría/outbox crear incoherente'; END IF;
+ IF (SELECT count(*) FROM vec_dietas.borrador_comision)<>3 OR (SELECT count(*) FROM vec_dietas.historia_borrador_comision)<>3 OR (SELECT count(*) FROM vec_dietas.auditoria_borrador_comision WHERE accion='crear')<>4 THEN RAISE EXCEPTION 'historia/auditoría crear incoherente'; END IF;
 END $$;
 SET LOCAL SESSION AUTHORIZATION vec_prueba_dietas;
 DO $personal$

@@ -1,5 +1,5 @@
 \set ON_ERROR_STOP on
--- Instalar después de roles Dietas y Personal 000007, y sólo cuando AD3-39
+-- Instalar después de roles Dietas y Personal 000007, y sólo cuando AD3-49
 -- publique el consumidor/audiencia nominal de Dietas. Esta migración no amplía AD3.
 BEGIN;
 SET LOCAL ROLE vec_dietas_propietario;
@@ -16,7 +16,7 @@ BEGIN
     OR NOT EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='vec_autorizacion_atestada_v3' AND p.proname='registrar_y_consumir_dietas_borrador_v3_atestada' AND p.pronargs=10)
     OR NOT has_schema_privilege('vec_dietas_propietario','vec_autorizacion_atestada_v3','USAGE')
     OR NOT has_function_privilege('vec_dietas_propietario','vec_autorizacion_atestada_v3.registrar_y_consumir_dietas_borrador_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE') THEN
-   RAISE EXCEPTION 'Dietas 000001: falta Personal 000007 o consumidor AD3-39 nominal' USING ERRCODE='55000';
+   RAISE EXCEPTION 'Dietas 000001: falta Personal 000007 o consumidor AD3-49 nominal' USING ERRCODE='55000';
  END IF;
 END $pre$;
 
@@ -50,26 +50,14 @@ CREATE TABLE vec_dietas.auditoria_borrador_comision (
  recurso_ref text NOT NULL, accion text NOT NULL CHECK(accion IN ('crear','consultar')), actor_ref text NOT NULL, persona_ref text NOT NULL,
  resultado text NOT NULL CHECK(resultado IN ('concedido','no_encontrado')), correlacion_ref text NOT NULL, registrada_en timestamptz(6) NOT NULL
 );
--- No representa un envío ni un destino externo: deja disponible para el
--- consumidor técnico la intención durable del único efecto confirmado.
-CREATE TABLE vec_dietas.outbox_borrador_comision (
- evento_ref text PRIMARY KEY CHECK(evento_ref~'^odi_[0-9a-f]{32}$'),
- comision_ref text NOT NULL REFERENCES vec_dietas.borrador_comision(referencia),
- recibo_ref text NOT NULL REFERENCES vec_dietas.recibo_borrador_comision(referencia),
- operacion text NOT NULL CHECK(operacion='dietas.borrador.propio.crear'),
- huella_semantica_sha256 text NOT NULL CHECK(huella_semantica_sha256~'^[0-9a-f]{64}$'),
- registrada_en timestamptz(6) NOT NULL,
- estado_tecnico text NOT NULL CHECK(estado_tecnico='pendiente'),
- UNIQUE(comision_ref,operacion), UNIQUE(recibo_ref,operacion)
-);
 CREATE FUNCTION vec_dietas.rechazar_mutacion_borrador_v1() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$ BEGIN RAISE EXCEPTION 'historia Dietas inmutable' USING ERRCODE='55000'; END $$;
 ALTER FUNCTION vec_dietas.rechazar_mutacion_borrador_v1() OWNER TO vec_dietas_propietario;
 DO $$ DECLARE t text; BEGIN
- FOREACH t IN ARRAY ARRAY['borrador_comision','recibo_borrador_comision','historia_borrador_comision','auditoria_borrador_comision','outbox_borrador_comision'] LOOP
+ FOREACH t IN ARRAY ARRAY['borrador_comision','recibo_borrador_comision','historia_borrador_comision','auditoria_borrador_comision'] LOOP
   EXECUTE format('ALTER TABLE vec_dietas.%I ENABLE ROW LEVEL SECURITY',t); EXECUTE format('ALTER TABLE vec_dietas.%I FORCE ROW LEVEL SECURITY',t);
   IF t='borrador_comision' THEN
     EXECUTE 'CREATE POLICY persona_contextual ON vec_dietas.borrador_comision FOR ALL TO vec_dietas_propietario USING (persona_ref=current_setting(''vec.dietas.persona_ref'',true) AND current_setting(''vec.dietas.persona_ref'',true) IS NOT NULL) WITH CHECK (persona_ref=current_setting(''vec.dietas.persona_ref'',true) AND current_setting(''vec.dietas.persona_ref'',true) IS NOT NULL)';
-  ELSIF t IN ('recibo_borrador_comision','historia_borrador_comision','outbox_borrador_comision') THEN
+  ELSIF t IN ('recibo_borrador_comision','historia_borrador_comision') THEN
     EXECUTE format('CREATE POLICY persona_contextual ON vec_dietas.%I FOR ALL TO vec_dietas_propietario USING (EXISTS (SELECT 1 FROM vec_dietas.borrador_comision b WHERE b.referencia=%I AND b.persona_ref=current_setting(''vec.dietas.persona_ref'',true))) WITH CHECK (EXISTS (SELECT 1 FROM vec_dietas.borrador_comision b WHERE b.referencia=%I AND b.persona_ref=current_setting(''vec.dietas.persona_ref'',true)))',t,'comision_ref','comision_ref');
   ELSE
     EXECUTE 'CREATE POLICY persona_contextual ON vec_dietas.auditoria_borrador_comision FOR ALL TO vec_dietas_propietario USING (persona_ref=current_setting(''vec.dietas.persona_ref'',true) AND current_setting(''vec.dietas.persona_ref'',true) IS NOT NULL) WITH CHECK (persona_ref=current_setting(''vec.dietas.persona_ref'',true) AND current_setting(''vec.dietas.persona_ref'',true) IS NOT NULL)';
@@ -230,7 +218,6 @@ BEGIN
    INSERT INTO vec_dietas.borrador_comision VALUES(ref,i->>'persona_ref',i->>'empleado_ref',i->>'relacion_ref',i->>'unidad_ref',(i->>'relacion_version')::bigint,i->>'procedencia_acto_ref',i->>'fuente_ref',(i->>'fuente_version')::bigint,(c->>'fecha_inicio')::date,(c->>'fecha_fin')::date,c->>'motivo',c->'codigos_ruta',c->>'clave_idempotencia',m->>'huella_semantica',1,ahora) RETURNING * INTO b;
    INSERT INTO vec_dietas.recibo_borrador_comision VALUES('rcd_'||substr(md5(ref),1,8)||'-'||substr(md5(ref),9,4)||'-'||substr(md5(ref),13,4)||'-'||substr(md5(ref),17,4)||'-'||substr(md5(ref),21,12),ref,1,v.decision_ref,v.efecto_ref,v.consumo_huella_sha256,v.auditoria_ref,ahora) RETURNING * INTO r;
    INSERT INTO vec_dietas.historia_borrador_comision VALUES('hdi_'||md5(ref||'historia'),ref,'borrador_creado',r.referencia,b.huella_semantica_sha256,ahora);
-   INSERT INTO vec_dietas.outbox_borrador_comision VALUES('odi_'||md5(ref||'outbox'),ref,r.referencia,'dietas.borrador.propio.crear',b.huella_semantica_sha256,ahora,'pendiente');
    nuevo:=true;
  END IF;
  INSERT INTO vec_dietas.auditoria_borrador_comision VALUES('adi_'||md5(v.auditoria_ref||b.referencia||ahora::text),b.referencia,'dietas:borradores:propios','crear',d->>'principal_id',i->>'persona_ref','concedido',d->>'correlacion_ref',ahora);

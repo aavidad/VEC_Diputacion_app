@@ -93,7 +93,7 @@ if ! rg -q 'ERROR:  55000:' /tmp/vec-dietas-r13-down-historia.out; then
   echo 'ERROR: DOWN confirmado falló por una causa distinta de la guarda histórica' >&2
   exit 1
 fi
-docker exec "$container" psql -X -qAt -v ON_ERROR_STOP=1 -U postgres -d postgres -c "SELECT (SELECT count(*) FROM vec_dietas.borrador_comision)=1 AND (SELECT count(*) FROM vec_dietas.outbox_borrador_comision)=1 AND to_regclass('vec_dietas.borrador_comision') IS NOT NULL" | grep -qx t
+docker exec "$container" psql -X -qAt -v ON_ERROR_STOP=1 -U postgres -d postgres -c "SELECT (SELECT count(*) FROM vec_dietas.borrador_comision)=1 AND (SELECT count(*) FROM vec_dietas.historia_borrador_comision)=1 AND to_regclass('vec_dietas.borrador_comision') IS NOT NULL" | grep -qx t
 cleanup
 container=""
 preparar
@@ -104,7 +104,7 @@ if docker exec -i "$container" psql -X --set=VERBOSITY=verbose -v ON_ERROR_STOP=
   exit 1
 fi
 rg -q 'ERROR:  55000:' /tmp/vec-dietas-r13-down-funcional.out
-docker exec "$container" psql -X -qAt -v ON_ERROR_STOP=1 -U postgres -d postgres -c "SELECT (SELECT count(*) FROM vec_dietas.borrador_comision)=3 AND (SELECT count(*) FROM vec_dietas.outbox_borrador_comision)=3 AND to_regclass('vec_dietas.borrador_comision') IS NOT NULL" | grep -qx t
+docker exec "$container" psql -X -qAt -v ON_ERROR_STOP=1 -U postgres -d postgres -c "SELECT (SELECT count(*) FROM vec_dietas.borrador_comision)=3 AND (SELECT count(*) FROM vec_dietas.historia_borrador_comision)=3 AND to_regclass('vec_dietas.borrador_comision') IS NOT NULL" | grep -qx t
 cleanup
 container=""
 preparar
