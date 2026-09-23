@@ -16,7 +16,7 @@
   --portal-superficie: #ffffff;
   --portal-superficie-alterna: #f0f5fb;
   --portal-cabecera-panel: #e8f0f9;
-  --portal-exito: #17823b;
+  --portal-exito: #147a36;
   --portal-exito-suave: #eaf8ee;
   --portal-aviso: #9a5c00;
   --portal-aviso-suave: #fff5d9;
@@ -30,6 +30,9 @@
   --portal-cian-suave: #e7f8fa;
   --portal-naranja: #b34705;
   --portal-naranja-suave: #fff0e7;
+  --portal-oliva: #4e7838;
+  --portal-turquesa: #006f77;
+  --portal-morado: #895ad7;
   --portal-sombra: 0 3px 12px rgba(27, 51, 82, 0.06);
   --portal-sombra-sm: 0 1px 4px rgba(27, 51, 82, 0.06);
   --portal-sombra-color: rgb(6 45 86 / 15%);
@@ -91,11 +94,19 @@ body.portal-empleado-app[data-contraste="true"] {
   --portal-superficie: #ffffff;
   --portal-superficie-alterna: #e1e9f2;
   --portal-cabecera-panel: #d6e3f1;
-  --portal-violeta: #51329c;
   --portal-violeta-suave: #e5dcf8;
   --portal-neutro-suave: #dce5ef;
+  --portal-exito: #0b5f2d;
+  --portal-aviso: #6a4100;
+  --portal-peligro: #8a1022;
   --portal-texto-inverso: #ffffff;
   --portal-lateral-muted: #ffffff;
+  --portal-violeta: #483082;
+  --portal-cian-fuerte: #00536c;
+  --portal-naranja: #823600;
+  --portal-oliva: #345523;
+  --portal-turquesa: #004d52;
+  --portal-morado: #5e348f;
   --portal-sombra-color: rgb(0 0 0 / 35%);
   --portal-sombra: 0 0 0 1px var(--portal-borde);
   --portal-sombra-sm: 0 0 0 1px var(--portal-borde);
@@ -186,7 +197,7 @@ a:focus-visible,
   overflow-y: auto;
   background: linear-gradient(180deg, var(--portal-azul-950), var(--portal-azul-900));
   color: #fff;
-  scrollbar-color: #6d8bab transparent;
+  scrollbar-color: var(--portal-lateral-muted) transparent;
   scrollbar-width: thin;
 }
 
@@ -331,16 +342,16 @@ a:focus-visible,
   font-size: 0.72rem;
 }
 
-.tono-azul { background: #1e7eea; }
-.tono-verde { background: #2a9d45; }
-.tono-naranja { background: #d97706; }
-.tono-violeta { background: #7352ce; }
-.tono-cian { background: #0795bc; }
-.tono-rojo { background: #d84b59; }
-.tono-oliva { background: #598b45; }
-.tono-ambar { background: #ee9f08; }
-.tono-turquesa { background: #0ba6b1; }
-.tono-morado { background: #895ad7; }
+.tono-azul { background: var(--portal-azul-700); }
+.tono-verde { background: var(--portal-exito); }
+.tono-naranja { background: var(--portal-naranja); }
+.tono-violeta { background: var(--portal-violeta); }
+.tono-cian { background: var(--portal-cian-fuerte); }
+.tono-rojo { background: var(--portal-peligro); }
+.tono-oliva { background: var(--portal-oliva); }
+.tono-ambar { background: var(--portal-aviso); }
+.tono-turquesa { background: var(--portal-turquesa); }
+.tono-morado { background: var(--portal-morado); }
 
 .etiqueta-menu {
   padding: 2px 6px;
@@ -684,14 +695,14 @@ a:focus-visible,
 }
 
 .boton-peligro {
-  border-color: #efb7bd;
+  border-color: var(--portal-peligro);
   background: var(--portal-peligro-suave);
   color: var(--portal-peligro);
-  box-shadow: 0 1px 3px rgba(186, 39, 55, 0.16);
+  box-shadow: 0 1px 3px var(--portal-sombra-color);
 }
 
 .boton-peligro:hover {
-  background: #ffe3e6;
+  background: color-mix(in srgb, var(--portal-peligro) 14%, var(--portal-superficie));
   border-color: var(--portal-peligro);
 }
 
@@ -716,10 +727,10 @@ a:focus-visible,
 .nota-integracion {
   margin: 10px 0 0;
   padding: 8px 10px;
-  border-left: 3px solid #a7781e;
+  border-left: 3px solid var(--portal-aviso);
   border-radius: 3px;
-  background: #fff8e6;
-  color: #5c4416;
+  background: var(--portal-aviso-suave);
+  color: var(--portal-aviso);
   font-size: 0.74rem;
 }
 
