@@ -49,6 +49,55 @@ export function seleccionarParticipacionesPorEstado(candidatos, estados, limite 
     .map((candidato) => candidato.participacion_ref);
 }
 
+// La página visible de B5 no representa el conjunto del filtro. La selección
+// sólo conserva referencias y se rehace mediante el cursor de lectura existente.
+export async function consultarSeleccionMasivaBolsa(bolsaRef, estados, { consultar = consultarCandidatosBolsa, signal } = {}) {
+  const primeras = [];
+  const estadosIncluidos = new Set(estados);
+  let total = 0;
+  const cursores = new Set();
+  const referencias = new Set();
+  let cursor = "";
+  let bolsaInicial = null;
+  for (;;) {
+    if (signal?.aborted) return { ok: false, status: 0, mensaje: "La consulta se ha cancelado." };
+    const respuesta = await consultar(bolsaRef, { cursor, limite: 100 }, { signal });
+    if (!respuesta.ok) return respuesta;
+    if (signal?.aborted) return { ok: false, status: 0, mensaje: "La consulta se ha cancelado." };
+    const datos = respuesta.datos;
+    const bolsa = datos?.bolsa;
+    if (!bolsa || bolsa.bolsa_ref !== bolsaRef || !Array.isArray(datos.candidatos)) {
+      return { ok: false, status: 409, mensaje: "La consulta devolvió otra bolsa o una página incompleta. Vuelva a seleccionar." };
+    }
+    const version = JSON.stringify([datos.generado_en, bolsa.total, bolsa.por_estado, bolsa.politica_orden?.politica_ref, bolsa.politica_orden?.version]);
+    if (bolsaInicial !== null && version !== bolsaInicial) {
+      return { ok: false, status: 409, mensaje: "La bolsa o su orden cambiaron durante la consulta. Vuelva a seleccionar." };
+    }
+    bolsaInicial = version;
+    for (const candidata of datos.candidatos) {
+      if (referencias.has(candidata.participacion_ref)) {
+        return { ok: false, status: 409, mensaje: "La lista cambió durante la consulta. Vuelva a seleccionar." };
+      }
+      referencias.add(candidata.participacion_ref);
+      if (estadosIncluidos.has(candidata.estado_clave) && Number.isSafeInteger(candidata.orden)) {
+        total += 1;
+        primeras.push({ participacion_ref: candidata.participacion_ref, estado_clave: candidata.estado_clave, orden: candidata.orden });
+        primeras.sort((a, b) => a.orden - b.orden || a.participacion_ref.localeCompare(b.participacion_ref, "es"));
+        if (primeras.length > 100) primeras.pop();
+      }
+    }
+    if (!datos.hay_mas) break;
+    if (!datos.candidatos.length || !datos.cursor_siguiente || cursores.has(datos.cursor_siguiente)) {
+      return { ok: false, status: 409, mensaje: "No se pudo completar la paginación. Vuelva a seleccionar." };
+    }
+    cursor = datos.cursor_siguiente;
+    cursores.add(cursor);
+  }
+  const participaciones = primeras.map((candidata) => candidata.participacion_ref);
+  const orden = Object.fromEntries(primeras.map((candidata) => [candidata.participacion_ref, candidata.orden]));
+  return { ok: true, participaciones, orden, total };
+}
+
 export async function consultarBolsas({ fetchImpl = fetch, signal } = {}) {
   try {
     const respuesta = await fetchImpl(RUTA_BOLSAS, {
@@ -236,6 +285,68 @@ export async function registrarContactoCandidato(bolsaRef, participacionRef, pay
 
 export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFuenteLectura = () => null, documento = globalThis.document }) {
   const controladoresLectura = new Map();
+  let controladorSeleccionMasiva = null;
+  let revisionSeleccionMasiva = 0;
+  function invalidarSeleccionMasiva() {
+    revisionSeleccionMasiva += 1;
+    controladorSeleccionMasiva?.abort();
+    controladorSeleccionMasiva = null;
+    const flujo = estado.filtrosBolsa?.nuevo_llamamiento;
+    if (flujo) {
+      flujo.consultando = false;
+      flujo.seleccion_total = false;
+      flujo.participaciones = [];
+      flujo.ordenSeleccion = {};
+      flujo.totalElegibles = null;
+    }
+  }
+  async function seleccionarTodoElFiltro(estados) {
+    invalidarSeleccionMasiva();
+    const flujo = estado.filtrosBolsa?.nuevo_llamamiento;
+    if (!flujo || flujo.paso !== 2) return;
+    if (!estados.length) {
+      flujo.error = "Seleccione al menos un estado antes de consultar la bolsa.";
+      renderizar();
+      return;
+    }
+    const revision = revisionSeleccionMasiva;
+    const bolsaRef = estado.bolsaSeleccionada;
+    const filtros = { estado: estado.filtrosBolsa.estado || "", texto: estado.filtrosBolsa.texto || "" };
+    const controlador = new AbortController();
+    controladorSeleccionMasiva = controlador;
+    flujo.estados = estados;
+    flujo.consultando = true;
+    flujo.error = "";
+    renderizar();
+    const fuente = fuenteLectura();
+    let resultado;
+    try {
+      resultado = await consultarSeleccionMasivaBolsa(bolsaRef, estados, {
+        consultar: (ref, opciones, contexto) => fuente?.consultarCandidatosBolsa
+          ? fuente.consultarCandidatosBolsa(ref, opciones, contexto)
+          : consultarCandidatosBolsa(ref, opciones, contexto),
+        signal: controlador.signal,
+      });
+    } catch (error) {
+      resultado = { ok: false, status: 0, mensaje: error instanceof Error ? error.message : "Error de comunicación con Bolsa." };
+    }
+    if (controlador.signal.aborted || revision !== revisionSeleccionMasiva || estado.filtrosBolsa?.nuevo_llamamiento !== flujo || estado.bolsaSeleccionada !== bolsaRef || estado.filtrosBolsa.estado !== filtros.estado || estado.filtrosBolsa.texto !== filtros.texto || flujo.estados.join("|") !== estados.join("|")) return;
+    controladorSeleccionMasiva = null;
+    flujo.consultando = false;
+    if (resultado.ok) {
+      flujo.participaciones = resultado.participaciones;
+      flujo.ordenSeleccion = resultado.orden;
+      flujo.totalElegibles = resultado.total;
+      flujo.seleccion_total = true;
+    } else {
+      flujo.participaciones = [];
+      flujo.ordenSeleccion = {};
+      flujo.totalElegibles = null;
+      flujo.seleccion_total = false;
+      flujo.error = resultado.status === 403 ? "Permiso denegado al consultar candidatos. No se ha seleccionado nadie." : resultado.status === 409 ? resultado.mensaje : `No se pudo completar la consulta: ${resultado.mensaje || "error de lectura"}`;
+    }
+    renderizar();
+  }
   const controladorOperacionesB8 = crearControladorOperacionesSituacion({
     estado,
     renderizar,
@@ -306,10 +417,28 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
   }
 
   function cancelarPeticiones() {
+    invalidarSeleccionMasiva();
     estado.modalFicha?.controladorOperaciones?.abort();
     for (const controlador of controladoresLectura.values()) controlador.abort();
     controladoresLectura.clear();
     for (const clave of ["bolsas", "candidatos", "contactos"]) limpiarEstadoCarga(clave);
+  }
+
+  function sincronizarPaginaB7(formulario) {
+    const flujo = estado.filtrosBolsa?.nuevo_llamamiento;
+    if (!flujo || !formulario || flujo.consultando) return;
+    const visibles = (estado.datosCandidatos?.datos?.candidatos || []).filter((candidata) => flujo.estados.includes(candidata.estado_clave) && Number.isSafeInteger(candidata.orden));
+    const pagina = Math.max(0, Math.min(Number(flujo.pagina) || 0, Math.max(0, Math.ceil(visibles.length / 6) - 1)));
+    const presentes = visibles.slice(pagina * 6, pagina * 6 + 6);
+    const marcadas = new Set(new FormData(formulario).getAll("participacion").map(String));
+    const seleccionadas = new Set(flujo.participaciones || []);
+    flujo.ordenSeleccion ||= {};
+    for (const candidata of presentes) {
+      flujo.ordenSeleccion[candidata.participacion_ref] = candidata.orden;
+      if (marcadas.has(candidata.participacion_ref)) seleccionadas.add(candidata.participacion_ref);
+      else seleccionadas.delete(candidata.participacion_ref);
+    }
+    flujo.participaciones = [...seleccionadas].sort((a, b) => (flujo.ordenSeleccion[a] || 0) - (flujo.ordenSeleccion[b] || 0) || a.localeCompare(b, "es"));
   }
 
   async function cargarBolsas() {
@@ -334,6 +463,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
 
   async function cargarCandidatosBolsa(bolsaRef, { cursor = "", enfocarDestino = false } = {}) {
     if (!bolsaRef) return;
+    if (estado.bolsaSeleccionada !== bolsaRef) invalidarSeleccionMasiva();
     const controlador = iniciarLectura("candidatos");
     estado.bolsaSeleccionada = bolsaRef;
     estado.datosCandidatos = { carga: "cargando", datos: null, error: "" };
@@ -466,12 +596,38 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
 
   function instalar() {
     controladorOperacionesB8.instalar(documento);
+    documento.addEventListener("change", (evento) => {
+      const control = evento.target;
+      if (!control?.closest?.('[data-bolsa-form="b7-paso2"]')) return;
+      const flujo = estado.filtrosBolsa?.nuevo_llamamiento;
+      if (!flujo) return;
+      if (control.name === "estado") {
+        const formulario = documento.querySelector('[data-bolsa-form="b7-paso2"]');
+        const estados = formulario ? new FormData(formulario).getAll("estado").map(String) : [];
+        invalidarSeleccionMasiva();
+        flujo.estados = estados;
+        flujo.pagina = 0;
+        flujo.error = "";
+        renderizar();
+      } else if (control.name === "participacion" && flujo.seleccion_total) {
+        sincronizarPaginaB7(documento.querySelector('[data-bolsa-form="b7-paso2"]'));
+        flujo.seleccion_total = false;
+        flujo.totalElegibles = null;
+        const estadoSeleccion = documento.querySelector("[data-b7-seleccion-status]");
+        if (estadoSeleccion) estadoSeleccion.textContent = `${flujo.participaciones.length} seleccionadas.`;
+      } else if (control.name === "participacion") {
+        sincronizarPaginaB7(documento.querySelector('[data-bolsa-form="b7-paso2"]'));
+        const estadoSeleccion = documento.querySelector("[data-b7-seleccion-status]");
+        if (estadoSeleccion) estadoSeleccion.textContent = `${flujo.participaciones.length} seleccionadas.`;
+      }
+    });
     documento.addEventListener("click", (evento) => {
       const botonVer = evento.target?.closest?.('[data-accion="ver-bolsa"], [data-bolsa-abrir="true"]');
       if (botonVer) {
         evento.preventDefault();
         const ref = botonVer.dataset.bolsaRef;
         if (ref) {
+          invalidarSeleccionMasiva();
           estado.bolsaSeleccionada = ref;
           estado.filtrosBolsa = { estado: botonVer.dataset.estado || "", texto: "" };
           navegar("bolsa-candidatos");
@@ -493,10 +649,12 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
         void cargarEstadisticas();
       } else if (accion === "limpiar-filtros") {
         evento.preventDefault();
+        invalidarSeleccionMasiva();
         estado.filtrosBolsa = { estado: "", texto: "" };
         void cargarCandidatosBolsa(estado.bolsaSeleccionada);
       } else if (accion === "filtrar-estado") {
         evento.preventDefault();
+        invalidarSeleccionMasiva();
         estado.filtrosBolsa = { ...estado.filtrosBolsa, estado: botonAccion.dataset.estado || "" };
         void cargarCandidatosBolsa(estado.bolsaSeleccionada);
       } else if (accion === "cambiar-pestana") {
@@ -509,6 +667,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
         renderizar();
       } else if (accion === "pagina-siguiente") {
         evento.preventDefault();
+        invalidarSeleccionMasiva();
         const cursor = botonAccion.dataset.cursor || "";
         void cargarCandidatosBolsa(estado.bolsaSeleccionada, { cursor });
       } else if (accion === "abrir-contactos") {
@@ -549,54 +708,55 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
         cerrarResultado();
       } else if (accion === "iniciar-b7") {
         evento.preventDefault();
-        estado.filtrosBolsa = { ...estado.filtrosBolsa, nuevo_llamamiento: { paso: 1, estados: ["disponible"], participaciones: [], configuracion: null, error: "", recibo: "", seleccion_total: false } };
+        invalidarSeleccionMasiva();
+        estado.filtrosBolsa = { ...estado.filtrosBolsa, estado: "", texto: "", nuevo_llamamiento: { paso: 1, estados: ["disponible"], participaciones: [], configuracion: null, error: "", recibo: "", seleccion_total: false } };
         renderizar();
         documento.querySelector('[aria-current="step"]')?.focus?.();
       } else if (accion === "cancelar-b7") {
         evento.preventDefault();
+        invalidarSeleccionMasiva();
         const { nuevo_llamamiento: _omitido, ...resto } = estado.filtrosBolsa || {};
         estado.filtrosBolsa = resto;
         renderizar();
       } else if (accion === "ver-historico-b7") {
         evento.preventDefault();
+        invalidarSeleccionMasiva();
         estado.filtrosBolsa = { estado: "", texto: "", pestana: "historico", pagina_historico: 0 };
         void cargarCandidatosBolsa(estado.bolsaSeleccionada, { enfocarDestino: true });
       } else if (accion === "b7-pagina") {
         evento.preventDefault();
         const formulario = documento.querySelector('[data-bolsa-form="b7-paso2"]');
-        const datos = formulario ? new FormData(formulario) : null;
-        const previas = new Set(estado.filtrosBolsa.nuevo_llamamiento.participaciones || []);
-        for (const candidato of estado.datosCandidatos?.datos?.candidatos || []) {
-          if (datos?.getAll("participacion").includes(candidato.participacion_ref)) previas.add(candidato.participacion_ref);
-        }
-        Object.assign(estado.filtrosBolsa.nuevo_llamamiento, { pagina: Math.max(0, Number(botonAccion.dataset.pagina) || 0), participaciones: [...previas] });
+        if (!estado.filtrosBolsa.nuevo_llamamiento.seleccion_total) sincronizarPaginaB7(formulario);
+        estado.filtrosBolsa.nuevo_llamamiento.pagina = Math.max(0, Number(botonAccion.dataset.pagina) || 0);
         renderizar();
       } else if (accion === "b7-seleccionar-todas") {
         evento.preventDefault();
         const flujo = estado.filtrosBolsa.nuevo_llamamiento;
         const formulario = documento.querySelector('[data-bolsa-form="b7-paso2"]');
-        flujo.estados = formulario ? new FormData(formulario).getAll("estado").map(String) : flujo.estados;
-        flujo.participaciones = seleccionarParticipacionesPorEstado(estado.datosCandidatos?.datos?.candidatos, flujo.estados);
-        flujo.seleccion_total = true;
-        flujo.error = "";
-        renderizar();
+        const estados = formulario ? new FormData(formulario).getAll("estado").map(String) : flujo.estados;
+        void seleccionarTodoElFiltro(estados);
       }
     });
 
     documento.addEventListener("submit", (evento) => {
       const paso1 = evento.target?.closest?.('[data-bolsa-form="b7-paso1"]');
-      if (paso1) { evento.preventDefault(); estado.filtrosBolsa.nuevo_llamamiento.paso = 2; renderizar(); return; }
+      if (paso1) { evento.preventDefault(); estado.filtrosBolsa.nuevo_llamamiento.paso = 2; void cargarCandidatosBolsa(estado.bolsaSeleccionada); return; }
       const paso2 = evento.target?.closest?.('[data-bolsa-form="b7-paso2"]');
       if (paso2) {
         evento.preventDefault(); const datos = new FormData(paso2);
         const flujo = estado.filtrosBolsa.nuevo_llamamiento;
-        const seleccion = flujo.seleccion_total
-          ? seleccionarParticipacionesPorEstado(estado.datosCandidatos?.datos?.candidatos, flujo.estados)
-          : datos.getAll("participacion").map(String);
+        if (flujo.consultando) return;
+        const estados = datos.getAll("estado").map(String);
+        if (flujo.seleccion_total && estados.join("|") !== flujo.estados.join("|")) {
+          invalidarSeleccionMasiva();
+          flujo.error = "Los estados cambiaron. Vuelva a seleccionar los candidatos.";
+          renderizar(); return;
+        }
+        if (!flujo.seleccion_total) sincronizarPaginaB7(paso2);
+        const seleccion = [...flujo.participaciones];
         if (!seleccion.length) { estado.filtrosBolsa.nuevo_llamamiento.error = "Seleccione al menos un candidato."; renderizar(); return; }
-        const orden = new Map((estado.datosCandidatos?.datos?.candidatos || []).map(c => [c.participacion_ref, c.orden]));
-        seleccion.sort((a,b)=>(orden.get(a)||0)-(orden.get(b)||0));
-        Object.assign(flujo, { paso: 3, estados: datos.getAll("estado").map(String), participaciones: seleccion, error: "", seleccion_total: false }); renderizar(); return;
+        if (seleccion.length > 100) { flujo.error = "El límite por envío es de 100 candidatos."; renderizar(); return; }
+        Object.assign(flujo, { paso: 3, estados, participaciones: seleccion, error: "", seleccion_total: false }); renderizar(); return;
       }
       const paso3 = evento.target?.closest?.('[data-bolsa-form="b7-paso3"]');
       if (paso3) {
@@ -608,13 +768,38 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
       const paso4 = evento.target?.closest?.('[data-bolsa-form="b7-paso4"]');
       if (paso4) {
         evento.preventDefault(); const datos = new FormData(paso4); const flujo=estado.filtrosBolsa.nuevo_llamamiento;
-        if (!datos.get("confirmacion") || flujo.enviando) return;
+        if (!datos.get("confirmacion") || flujo.enviando || flujo.recibo) return;
+        if (!flujo.participaciones?.length || flujo.participaciones.length > 100 || Number(paso4.dataset.cantidad) !== flujo.participaciones.length) {
+          flujo.error = "La selección ha cambiado. Revise el número de candidatos antes de confirmar.";
+          renderizar(); return;
+        }
         flujo.enviando=true; flujo.error=""; flujo.clave_idempotencia ||= globalThis.crypto?.randomUUID?.() || `llamamiento-${Date.now()}-${Math.random().toString(16).slice(2)}`; renderizar();
-        void emitirLlamamiento({ bolsa_ref:estado.bolsaSeleccionada, participaciones:flujo.participaciones, configuracion:flujo.configuracion, clave_idempotencia:flujo.clave_idempotencia }).then(res=>{flujo.enviando=false;if(res.ok){flujo.recibo=res.datos.recibo_ref;flujo.llamamiento_ref=res.datos.llamamiento_ref}else{flujo.error=res.mensaje}renderizar();documento.querySelector("[data-b7-recibo]")?.focus?.()}); return;
+        const revisionEmision = revisionSeleccionMasiva;
+        const bolsaEmision = estado.bolsaSeleccionada;
+        void emitirLlamamiento({ bolsa_ref:estado.bolsaSeleccionada, participaciones:flujo.participaciones, configuracion:flujo.configuracion, clave_idempotencia:flujo.clave_idempotencia }).then(res=>{
+          if (estado.filtrosBolsa?.nuevo_llamamiento !== flujo || estado.bolsaSeleccionada !== bolsaEmision || revisionSeleccionMasiva !== revisionEmision) return;
+          flujo.enviando = false;
+          if (res.ok) {
+            flujo.recibo = res.datos.recibo_ref;
+            flujo.llamamiento_ref = res.datos.llamamiento_ref;
+          } else if (res.status === 422) {
+            invalidarSeleccionMasiva();
+            flujo.paso = 2;
+            flujo.recibo = "";
+            flujo.llamamiento_ref = "";
+            flujo.clave_idempotencia = "";
+            flujo.error = `${res.mensaje} Seleccione de nuevo según el orden vigente.`;
+          } else {
+            flujo.error = res.mensaje;
+          }
+          renderizar();
+          if (res.ok) documento.querySelector("[data-b7-recibo]")?.focus?.();
+        }); return;
       }
       const formFiltros = evento.target?.closest?.('[data-bolsa-form="filtros"]');
       if (formFiltros) {
         evento.preventDefault();
+        invalidarSeleccionMasiva();
         const datos = new FormData(formFiltros);
         estado.filtrosBolsa = {
           estado: datos.get("estado") || "",
