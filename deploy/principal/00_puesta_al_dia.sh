@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Ensambla, en orden causal, las migraciones que llevan una réplica detenida en
-# Bolsa `000008` / AD3 `000031` hasta la preimagen que exige `02_migraciones.sql`
+# Bolsa `000008` / AD3 `000031` hasta la preimagen que exige `02_migraciones.sh`
 # (AD3 `000046`, Bolsa `000014`). Imprime una sola transacción en la salida
 # estándar; el `:finalizar` lo fija quien la ejecuta (`ROLLBACK` para ensayar,
 # `COMMIT` para aplicar). No contiene secretos ni datos personales.

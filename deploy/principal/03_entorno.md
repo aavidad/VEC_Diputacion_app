@@ -81,6 +81,6 @@ No se versionan el fichero efectivo, contraseñas, certificados ni DSN reales.
   importadas de CONVOCA (`bolsa:<categoría>:2026-09-17`).
 - **Réplica atrasada.** Si la base está por detrás de AD3 `000046` / Bolsa
   `000014`, primero `00_puesta_al_dia.sh` (ensayo con `ROLLBACK`, luego
-  `COMMIT`), después `01_roles.sql`, `02_migraciones.sql` y Bolsa `000018`.
+  `COMMIT`), después `01_roles.sql`, el ensamblador `02_migraciones.sh` y Bolsa `000018`.
 - **Diagnóstico.** Si B-BACK no monta, el registro de arranque indica ahora el
   fichero y la línea de la comprobación que falló, encadenando la causa.

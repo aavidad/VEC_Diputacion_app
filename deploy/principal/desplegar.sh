@@ -42,8 +42,8 @@ psql_base=(psql "$VEC_PRINCIPAL_ADMIN_DATABASE_URL" --no-psqlrc --set=ON_ERROR_S
 "${psql_base[@]}" --set=finalizar=COMMIT \
   --set=bolsa_auditoria_password="$VEC_BOLSA_AUDITORIA_FRONTERA_LOGIN_PASSWORD" \
   --file "$script_dir/01_roles.sql"
-"${psql_base[@]}" --set=finalizar=ROLLBACK --file "$script_dir/02_migraciones.sql"
-"${psql_base[@]}" --set=finalizar=COMMIT --file "$script_dir/02_migraciones.sql"
+"$script_dir/02_migraciones.sh" | "${psql_base[@]}" --set=finalizar=ROLLBACK
+"$script_dir/02_migraciones.sh" | "${psql_base[@]}" --set=finalizar=COMMIT
 sed '$s/^COMMIT;$/ROLLBACK;/' "$repo/deploy/postgresql/bolsa_llamamientos/migraciones/000018_orden_vigente.up.sql" \
   | "${psql_base[@]}"
 "${psql_base[@]}" --file "$repo/deploy/postgresql/bolsa_llamamientos/migraciones/000018_orden_vigente.up.sql"

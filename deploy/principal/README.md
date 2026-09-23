@@ -5,7 +5,8 @@ llamamiento» B7 a la instancia sintética principal. Exige como preimagen AD3
 `000046` y Bolsa llamamientos `000015`; no ejecuta `DOWN`, no toca otra base y
 no contiene secretos ni datos personales reales.
 
-`02_migraciones.sql` aplica dentro de una sola transacción y en orden causal:
+`02_migraciones.sh` ensambla las cuatro migraciones canónicas en cada ejecución
+y las aplica dentro de una sola transacción y en orden causal:
 
 1. AD3 `000047`, consumidor nominal V3 para registrar datos de contacto B4;
 2. Bolsa `000016`, versiones cifradas de correo y teléfonos;
@@ -29,7 +30,8 @@ réplica detenible y la preimagen comprobada:
 ./deploy/principal/desplegar.sh
 ```
 
-El script rechaza un checkout sucio, ensaya roles y migraciones con
+El script rechaza un checkout sucio, ensambla desde las fuentes para impedir
+copias desfasadas, ensaya roles y migraciones con
 `ROLLBACK`, las aplica con `COMMIT`, compila, conserva un respaldo, sincroniza
 `web/`, reinicia y ejecuta `verificar.sh`. No publica ni despliega por sí
 solo fuera de la instancia indicada por sus variables.
