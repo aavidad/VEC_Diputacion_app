@@ -680,9 +680,14 @@ export function renderizarDocumentos(estado, t) {
   const indice = estado.documentos;
   if (!expediente || !indice) return renderizarExpediente(estado, t, "es-ES", "Europe/Madrid");
   return `${renderizarCabecera(expediente, t)}
-    <header class="ct-exp-subcabecera"><h3>${escaparHTML(t("documentos_titulo"))}</h3><p>${escaparHTML(t("documentos_descripcion"))}</p></header>
     ${solicitudInformeDefinitivoDesdeEstado(estado) ? renderizarBorradoresFormalizacion(t) : ""}
-    <div class="tabla-contenedor tabla-contenedor--prioritaria" tabindex="0">
+    <section class="panel ct-exp-documentos" aria-labelledby="ct-exp-documentos-titulo">
+      <header class="cabecera-panel ct-exp-subcabecera ct-exp-documentos-cabecera">
+        <div><h3 id="ct-exp-documentos-titulo" tabindex="-1">${escaparHTML(t("documentos_titulo"))}</h3>
+          <p>${escaparHTML(t("documentos_descripcion"))}</p></div>
+        <button type="button" class="boton-secundario" data-ct-exp-vista="expediente">${escaparHTML(t("nav_expediente"))}</button>
+      </header>
+      ${indice.documentos.length ? `<div class="tabla-contenedor tabla-contenedor--prioritaria" tabindex="0" role="region" aria-label="${escaparHTML(t("documentos_tabla"))}">
       <table class="tabla-datos tabla-datos--prioritaria">
         <caption>${escaparHTML(t("documentos_tabla"))}</caption>
         <thead><tr>
@@ -692,7 +697,7 @@ export function renderizarDocumentos(estado, t) {
           <th scope="col">${escaparHTML(t("descarga"))}</th>
         </tr></thead>
         <tbody>${indice.documentos.map((documento) => `<tr>
-          <th scope="row">${escaparHTML(documento.titulo)}<code>${escaparHTML(documento.documento_ref)}</code></th>
+          <th scope="row">${escaparHTML(documento.titulo)}<small><code>${escaparHTML(documento.documento_ref)}</code></small></th>
           <td>${escaparHTML(documento.tipo)}</td><td>${documento.version}</td>
           <td>${escaparHTML(documento.estado)}</td><td>${escaparHTML(documento.firma)}</td>
           <td>${escaparHTML(documento.fecha)}</td><td>${documento.descarga_disponible
@@ -700,7 +705,8 @@ export function renderizarDocumentos(estado, t) {
     : escaparHTML(t("no_disponible"))}</td>
         </tr>`).join("")}</tbody>
       </table>
-    </div>`;
+    </div>` : `<p class="ct-exp-documentos-vacio" role="status">${escaparHTML(t("panel_sin_datos"))}</p>`}
+    </section>`;
 }
 
 export function renderizarAuditoria(estado, t) {
