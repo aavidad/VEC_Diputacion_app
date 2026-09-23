@@ -7,7 +7,7 @@ import { crearContextoActorPresentacionDesdeSesion } from "../../identidad/prese
 import { crearAdaptadorContratacionTemporalPresentacion } from "./adaptador-presentacion.js";
 import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js";
 import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js";
-import { renderizarCuadro, renderizarExpediente } from "./componentes-expedientes.js";
+import { renderizarCuadro, renderizarDocumentos, renderizarExpediente } from "./componentes-expedientes.js";
 import {
   CAPACIDADES_CONTRATACION_TEMPORAL as CAP,
   validarAuditoriaContratacionTemporal,
@@ -47,6 +47,35 @@ function adaptador(perfil = "administrador") {
 function presentadorDe(fuente, capacidades = fuente.capacidades) {
   return crearPresentadorExpedientesContratacionTemporal({ fuente, capacidades });
 }
+
+test("el índice documental mantiene el regreso al expediente y explica el estado vacío", () => {
+  const expediente = crearExpedienteContratacionTemporalPresentacion();
+  const t = crearTraductorExpedientesContratacion();
+  const html = renderizarDocumentos({ expediente, documentos: { documentos: [] } }, t);
+
+  assert.match(html, /class="panel ct-exp-documentos" aria-labelledby="ct-exp-documentos-titulo"/u);
+  assert.match(html, /class="cabecera-panel ct-exp-subcabecera ct-exp-documentos-cabecera"/u);
+  assert.match(html, /id="ct-exp-documentos-titulo" tabindex="-1"/u);
+  assert.match(html, /data-ct-exp-vista="expediente">Expediente<\/button>/u);
+  assert.match(html, /role="status">No hay datos disponibles en este panel\.<\/p>/u);
+  assert.doesNotMatch(html, /<table/u);
+  assert.doesNotMatch(html, /data-ct-ficha-ginpix-descargar|data-ct-exp-efecto="[^"]*ginpix\.enviar/u);
+});
+
+test("el índice documental conserva cada estado y escapa referencias en la tabla", () => {
+  const expediente = crearExpedienteContratacionTemporalPresentacion();
+  const t = crearTraductorExpedientesContratacion();
+  const html = renderizarDocumentos({ expediente, documentos: { documentos: [{
+    titulo: "Ficha <GINPIX>", documento_ref: "documento:<interno>", tipo: "JSON",
+    version: 1, estado: "Preparado", firma: "Sin firma", fecha: "24/09/2026",
+    descarga_disponible: true,
+  }] } }, t);
+
+  assert.match(html, /Ficha &lt;GINPIX&gt;<small><code>documento:&lt;interno&gt;<\/code><\/small>/u);
+  assert.match(html, /Preparado<\/td><td>Sin firma<\/td>/u);
+  assert.match(html, /Descarga pendiente de conectar/u);
+  assert.doesNotMatch(html, /<GINPIX>|data-ct-ficha-ginpix-descargar/u);
+});
 
 test("el listado precede al trabajo auxiliar y cada expediente ofrece un resumen inicial cerrado", async () => {
   const fuente = adaptador();

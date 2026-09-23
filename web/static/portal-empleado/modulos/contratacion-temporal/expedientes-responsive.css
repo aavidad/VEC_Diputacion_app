@@ -51,6 +51,30 @@
 }
 
 @media (max-width: 620px) {
+  .ct-exp-documentos-cabecera {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .ct-exp-documentos-cabecera button {
+    width: 100%;
+  }
+
+  .ct-expedientes [data-ct-exp-incorporacion-ejercicio] > .ct-alta,
+  .ct-expedientes [data-ct-exp-incorporacion-ejercicio] > div > section {
+    padding: var(--portal-espacio-3);
+  }
+
+  .ct-expedientes [data-ct-exp-incorporacion-ejercicio] > div > section > h3,
+  .ct-expedientes [data-ct-exp-incorporacion-ejercicio] > .ct-alta > h3 {
+    margin: calc(-1 * var(--portal-espacio-3)) calc(-1 * var(--portal-espacio-3)) 0;
+    padding: var(--portal-espacio-3);
+  }
+
+  .ct-expedientes [data-ct-ficha-ginpix] [data-ct-ficha-ginpix-descargar] {
+    width: 100%;
+  }
+
   .ct-exp-borradores-cabecera {
     align-items: stretch;
     flex-direction: column;
