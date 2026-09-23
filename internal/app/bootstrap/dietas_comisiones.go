@@ -7,9 +7,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -203,12 +205,12 @@ func nuevasComisionesDietasDesarrollo(cfg config.Config, resolvedor vechttp.Demo
 	}
 	identidad, ok := resolvedor.(*resolvedorIdentidadDesarrollo)
 	if !ok || identidad == nil || derivador == nil || !derivador.valido() || !material.completo() {
-		return nil, ErrComposicionBorradoresDietasNoDisponible
+		return nil, errComposicionDietasEn()
 	}
 	ruta := filepath.Join(cfg.DevelopmentMaterialDir, "identidad", "dietas-comisiones.json")
 	contenido, err := leerFicheroMaterialSeguro(ruta, 256<<10)
 	if err != nil || validarClavesJSONUnicas(contenido) != nil {
-		return nil, ErrComposicionBorradoresDietasNoDisponible
+		return nil, errComposicionDietasEn()
 	}
 	defer borrarBytes(contenido)
 	var c configuracionComisionesDietasDesarrollo
@@ -216,19 +218,19 @@ func nuevasComisionesDietasDesarrollo(cfg config.Config, resolvedor vechttp.Demo
 	dec.DisallowUnknownFields()
 	var extra any
 	if dec.Decode(&c) != nil || !errors.Is(dec.Decode(&extra), io.EOF) || c.Version != 1 || c.Autoridad != AutoridadNoAutoritativa || len(c.Cuentas) == 0 || len(c.Cuentas) > 64 || c.MotivoPersonal.Validar() != nil || c.MotivoCrear.Validar() != nil || c.MotivoConsultar != c.MotivoCrear || c.MotivoPersonal.CatalogoID != c.MotivoCrear.CatalogoID {
-		return nil, ErrComposicionBorradoresDietasNoDisponible
+		return nil, errComposicionDietasEn()
 	}
 	cuentas := map[string]cuentaRutasDietasDesarrollo{}
 	for _, cuenta := range c.Cuentas {
 		b, e := hex.DecodeString(cuenta.CertificadoSHA256)
 		if e != nil || len(b) != sha256.Size || hex.EncodeToString(b) != cuenta.CertificadoSHA256 || cuenta.Sujeto == "" || cuenta.CuentaRef == "" || cuenta.PerfilRef == "" {
-			return nil, ErrComposicionBorradoresDietasNoDisponible
+			return nil, errComposicionDietasEn()
 		}
 		var digest [32]byte
 		copy(digest[:], b)
 		principal, existe := identidad.porHuella[digest]
 		if !existe || principal.ID != cuenta.Sujeto || principal.AuthMethod != core.AuthMethodCertificate || principal.AuthAssurance != core.AuthAssuranceHigh || cuentas[cuenta.CertificadoSHA256].Sujeto != "" {
-			return nil, ErrComposicionBorradoresDietasNoDisponible
+			return nil, errComposicionDietasEn()
 		}
 		cuentas[cuenta.CertificadoSHA256] = cuenta
 	}
@@ -258,81 +260,81 @@ func nuevasComisionesDietasDesarrollo(cfg config.Config, resolvedor vechttp.Demo
 			if pool != nil {
 				pool.Close()
 			}
-			return nil, ErrComposicionBorradoresDietasNoDisponible
+			return nil, errComposicionDietasEn()
 		}
 		pools = append(pools, pool)
 		usuarios[usuario] = true
 	}
 	propios, err = nuevosPoolsPostgreSQLDietasDesarrollo(ctx, cfg)
 	if err != nil {
-		return nil, ErrComposicionBorradoresDietasNoDisponible
+		return nil, errComposicionDietasEn()
 	}
 	for _, pool := range []*pgxpool.Pool{propios.Dietas(), propios.Personal()} {
 		var usuario string
 		if pool == nil || pool.QueryRow(ctx, `SELECT session_user::text`).Scan(&usuario) != nil || usuarios[usuario] {
-			return nil, ErrComposicionBorradoresDietasNoDisponible
+			return nil, errComposicionDietasEn()
 		}
 		usuarios[usuario] = true
 	}
 	registro, err := identidadpg.NuevoRegistroSesionesPostgreSQL(ctx, pools[0], pools[1], &seudonimizadorSesionDesarrollo{derivador: derivador}, espacioIdentidadSesionDesarrollo, dominioIdentidadSesionDesarrollo)
 	if err != nil {
-		return nil, ErrComposicionBorradoresDietasNoDisponible
+		return nil, errComposicionDietasEn()
 	}
 	revalidador, err := identidadpg.NuevoRevalidadorAutenticacionActorPostgreSQL(ctx, pools[1])
 	if err != nil {
-		return nil, ErrComposicionBorradoresDietasNoDisponible
+		return nil, errComposicionDietasEn()
 	}
 	resolutor, err := contextopg.NuevoResolutorRegistroContextoActorPostgreSQLV2(ctx, pools[2])
 	if err != nil {
-		return nil, ErrComposicionBorradoresDietasNoDisponible
+		return nil, errComposicionDietasEn()
 	}
 	reloj := relojRutasDietas{}
 	servicioContexto, err := vecapp.NuevoServicioContextoActorProductivoV2(resolutor, contextopg.NuevoGeneradorOperacionContextoActorV2Criptografico(), reloj)
 	if err != nil {
-		return nil, ErrComposicionBorradoresDietasNoDisponible
+		return nil, errComposicionDietasEn()
 	}
 	contextos, err := vecapp.NuevaAutoridadContextoActorRegistradoV2(servicioContexto)
 	if err != nil {
-		return nil, ErrComposicionBorradoresDietasNoDisponible
+		return nil, errComposicionDietasEn()
 	}
 	fuente, err := vecpg.NuevoAlmacenAutorizacion(pools[3])
 	if err != nil {
-		return nil, ErrComposicionBorradoresDietasNoDisponible
+		return nil, errComposicionDietasEn()
 	}
 	registroAutorizacion, err := vecpg.NuevoAlmacenAutorizacion(pools[4])
 	if err != nil {
-		return nil, ErrComposicionBorradoresDietasNoDisponible
+		return nil, errComposicionDietasEn()
 	}
 	motivos, err := vecpg.NuevoValidadorReferenciaMotivoPostgreSQLV2(pools[5], c.MotivoPersonal.CatalogoID)
 	if err != nil {
-		return nil, ErrComposicionBorradoresDietasNoDisponible
+		return nil, errComposicionDietasEn()
 	}
 	autorizador, err := vecapp.NuevoServicioAutorizacionSolicitudLigadaV3(fuente, registroAutorizacion, registroAutorizacion, motivos, reloj, seguridad.GeneradorReferenciasCriptograficas{}, vecapp.ConfiguracionServicioAutorizacion{VigenciaDecision: 30 * time.Second})
 	if err != nil {
-		return nil, ErrComposicionBorradoresDietasNoDisponible
+		return nil, errComposicionDietasEn()
 	}
 	var emisores [3]emisorMaterialDietasDesarrollo
 	for i, p := range []*proveedorMaterialAltaContratacionTemporalDesarrollo{material.personal, material.crear, material.consultar} {
 		emisor, e := nuevoEmisorMaterialRenovableCTDesarrollo(autorizador, p)
 		if e != nil {
-			return nil, ErrComposicionBorradoresDietasNoDisponible
+			return nil, errComposicionDietasEn()
 		}
 		emisores[i] = emisor
 	}
 	nonce, err := nonceRutasDietas()
 	if err != nil {
-		return nil, ErrComposicionBorradoresDietasNoDisponible
+		return nil, errComposicionDietasEn()
 	}
 	base := &autoridadRutasDietasDesarrollo{resolvedor: identidad, cuentas: cuentas, registro: registro, revalidador: revalidador, contextos: contextos, reloj: reloj, instancia: nonce}
 	a := &autoridadComisionesDietasDesarrollo{base: base, reloj: reloj, cuentas: cuentas, cerrar: cerrar}
 	seguridadComisiones := seguridadComisionesDietasDesarrollo{autoridad: a}
 	calculador, err := nuevoCasoUsoCalculoRutas(cfg)
 	if err != nil || calculador == nil {
-		return nil, ErrComposicionBorradoresDietasNoDisponible
+		return nil, errComposicionDietasEn()
 	}
 	tarifas, err := dietaspg.NuevoRepositorioTarifasProvisionales(propios.Dietas())
 	if err != nil {
-		return nil, ErrComposicionBorradoresDietasNoDisponible
+		return nil, errComposicionDietasEn()
 	}
 	puntos := map[string]dietasports.CoordenadaRuta{}
 	for _, punto := range dietas.ProvinceRoutePoints() {
@@ -340,7 +342,7 @@ func nuevasComisionesDietasDesarrollo(cfg config.Config, resolvedor vechttp.Demo
 	}
 	preparador, err := dietasapp.NuevoPreparadorComision(puntos, calculador, tarifas)
 	if err != nil {
-		return nil, ErrComposicionBorradoresDietasNoDisponible
+		return nil, errComposicionDietasEn()
 	}
 	rutas, colecciones, err := componerBorradoresDietas(dependenciasBorradoresDietas{personal: propios.Personal(), dietas: propios.Dietas(), seguridad: seguridadComisiones, reloj: reloj, emisorPersonal: &emisorComisionesDietasDesarrollo{personal: emisores[0]}, emisorDietas: &emisorComisionesDietasDesarrollo{crear: emisores[1], consultar: emisores[2]}, motivoPersonal: c.MotivoPersonal, motivoDietas: c.MotivoCrear, preparador: preparador})
 	if err != nil {
@@ -349,4 +351,14 @@ func nuevasComisionesDietasDesarrollo(cfg config.Config, resolvedor vechttp.Demo
 	a.rutas, a.colecciones = rutas, colecciones
 	completa = true
 	return a, nil
+}
+
+// errComposicionDietasEn conserva ErrComposicionBorradoresDietasNoDisponible y
+// añade solo fichero y línea del rechazo: sin DSN, identidades ni material.
+func errComposicionDietasEn() error {
+	_, fichero, linea, ok := runtime.Caller(1)
+	if !ok {
+		return ErrComposicionBorradoresDietasNoDisponible
+	}
+	return fmt.Errorf("%w (%s:%d)", ErrComposicionBorradoresDietasNoDisponible, filepath.Base(fichero), linea)
 }
