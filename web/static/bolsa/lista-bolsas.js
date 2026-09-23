@@ -11,14 +11,6 @@ import { PATRON_DOCUMENTO_ENMASCARADO } from "./contrato-publico-bolsas.js";
 
 const t = globalThis.VECBolsaI18n?.t || ((clave) => clave);
 
-const ETIQUETAS_ESTADO = Object.freeze({
-  disponible: "Disponible",
-  ocupado: "Ocupado / Nombrado",
-  no_disponible: "No disponible (pausa)",
-  excluido: "Excluido",
-  renuncia_pendiente: "Renuncia en trámite",
-});
-
 function escaparHTML(valor) {
   return String(valor ?? "")
     .replace(/&/g, "&amp;")
@@ -29,12 +21,12 @@ function escaparHTML(valor) {
 }
 
 function formatoFecha(iso) {
-  if (!iso) return "—";
+  if (!iso) return t("dato_no_disponible");
   try {
     const d = new Date(iso);
-    return isNaN(d.getTime()) ? String(iso) : d.toLocaleDateString("es-ES", { dateStyle: "medium" });
+    return isNaN(d.getTime()) ? t("dato_no_disponible") : d.toLocaleDateString("es-ES", { dateStyle: "medium" });
   } catch {
-    return String(iso);
+    return t("dato_no_disponible");
   }
 }
 
@@ -50,34 +42,25 @@ export function crearControladorListaBolsas({
     hayMas: false,
     cursorSiguiente: null,
     filtroDocumento: "",
+    bolsaRefSolicitada: "",
     cargando: false,
     secuenciaConsulta: 0,
   };
 
-  function mostrarPanel(panelAMostrar) {
-    const paneles = [
-      elementos.seccionBolsas,
-      elementos.seccionLista,
-      elementos.bolsasCargando,
-      elementos.bolsasError,
-      elementos.bolsasVacio,
-      elementos.listaCargando,
-      elementos.listaError,
-      elementos.listaVacio,
-    ];
-    for (const p of paneles) {
-      if (p) p.hidden = true;
-    }
-    if (panelAMostrar) panelAMostrar.hidden = false;
+  function etiquetaEstado(clave) {
+    return t(clave);
   }
 
-  function etiquetaEstado(clave) {
-    return ETIQUETAS_ESTADO[clave] || clave;
+  function mensajeError(error, alcance) {
+    if (error?.status === 401 || error?.status === 403) return t(`${alcance}_denegado`);
+    if (alcance === "error_lista" && error?.status === 404) return t("error_lista_no_encontrada");
+    return t(alcance);
   }
 
   async function cargarBolsas() {
     const secuencia = ++estado.secuenciaConsulta;
     estado.cargando = true;
+    elementos.seccionBolsas?.setAttribute?.("aria-busy", "true");
     elementos.seccionBolsas.hidden = false;
     elementos.seccionLista.hidden = true;
     elementos.bolsasCargando.hidden = false;
@@ -102,10 +85,13 @@ export function crearControladorListaBolsas({
       elementos.bolsasCargando.hidden = true;
       elementos.bolsasError.hidden = false;
       if (elementos.mensajeErrorBolsas) {
-        elementos.mensajeErrorBolsas.textContent = err.message || t("error_bolsas");
+        elementos.mensajeErrorBolsas.textContent = mensajeError(err, "error_bolsas");
       }
     } finally {
-      estado.cargando = false;
+      if (secuencia === estado.secuenciaConsulta) {
+        estado.cargando = false;
+        elementos.seccionBolsas?.removeAttribute?.("aria-busy");
+      }
     }
   }
 
@@ -120,7 +106,7 @@ export function crearControladorListaBolsas({
         <td><strong>${Number(b.total || 0).toLocaleString("es-ES")}</strong></td>
         <td>
           <button type="button" class="boton-secundario" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(b.bolsa_ref)}">
-            Consultar lista
+            ${escaparHTML(t("consultar_lista"))}
           </button>
         </td>
       </tr>
@@ -131,15 +117,19 @@ export function crearControladorListaBolsas({
     const secuencia = ++estado.secuenciaConsulta;
     estado.cargando = true;
     estado.filtroDocumento = documento;
+    estado.bolsaRefSolicitada = bolsaRef;
+    elementos.seccionLista?.setAttribute?.("aria-busy", "true");
     elementos.seccionBolsas.hidden = true;
     elementos.seccionLista.hidden = false;
     elementos.listaError.hidden = true;
     elementos.listaVacio.hidden = true;
+    if (elementos.contenedorPaginacion) elementos.contenedorPaginacion.hidden = true;
+    if (elementos.botonSiguiente) elementos.botonSiguiente.disabled = true;
 
+    elementos.listaCargando.hidden = false;
     if (!cursor) {
       estado.posiciones = [];
       if (elementos.cuerpoTablaLista) elementos.cuerpoTablaLista.innerHTML = "";
-      elementos.listaCargando.hidden = false;
     }
 
     try {
@@ -170,15 +160,23 @@ export function crearControladorListaBolsas({
 
       actualizarPaginacion();
       actualizarURL(bolsaRef, documento, historial);
+      if (!cursor && historial === "push") {
+        const titulo = elementos.infoBolsaActiva?.querySelector?.("h2");
+        titulo?.focus?.();
+      }
     } catch (err) {
       if (secuencia !== estado.secuenciaConsulta) return;
       elementos.listaCargando.hidden = true;
       elementos.listaError.hidden = false;
       if (elementos.mensajeErrorLista) {
-        elementos.mensajeErrorLista.textContent = err.message || t("error_lista");
+        elementos.mensajeErrorLista.textContent = mensajeError(err, "error_lista");
       }
     } finally {
-      estado.cargando = false;
+      if (secuencia === estado.secuenciaConsulta) {
+        estado.cargando = false;
+        elementos.seccionLista?.removeAttribute?.("aria-busy");
+        if (elementos.botonSiguiente) elementos.botonSiguiente.disabled = false;
+      }
     }
   }
 
@@ -186,12 +184,12 @@ export function crearControladorListaBolsas({
     if (!elementos.infoBolsaActiva || !bolsa) return;
     elementos.infoBolsaActiva.innerHTML = `
       <div class="tarjeta-bolsa-activa__info">
-        <h2>${escaparHTML(bolsa.categoria)}</h2>
+        <h2 tabindex="-1">${escaparHTML(bolsa.categoria)}</h2>
         <div class="tarjeta-bolsa-activa__meta">
-          <span><strong>Grupos:</strong> ${escaparHTML((bolsa.grupos || []).join(", "))}</span>
-          <span><strong>Tipo:</strong> ${escaparHTML(bolsa.tipo_lista)}</span>
-          <span><strong>Vigente desde:</strong> ${escaparHTML(formatoFecha(bolsa.vigente_desde))}</span>
-          <span><strong>Total aspirantes:</strong> ${Number(bolsa.total || 0).toLocaleString("es-ES")}</span>
+          <span><strong>${escaparHTML(t("grupos"))}:</strong> ${escaparHTML((bolsa.grupos || []).join(", "))}</span>
+          <span><strong>${escaparHTML(t("tipo_lista"))}:</strong> ${escaparHTML(bolsa.tipo_lista)}</span>
+          <span><strong>${escaparHTML(t("vigente_desde"))}:</strong> ${escaparHTML(formatoFecha(bolsa.vigente_desde))}</span>
+          <span><strong>${escaparHTML(t("total_aspirantes"))}:</strong> ${Number(bolsa.total || 0).toLocaleString("es-ES")}</span>
         </div>
       </div>
     `;
@@ -251,6 +249,7 @@ export function crearControladorListaBolsas({
     estado.bolsaSeleccionada = null;
     estado.posiciones = [];
     estado.filtroDocumento = "";
+    estado.bolsaRefSolicitada = "";
     if (elementos.inputDocumento) elementos.inputDocumento.value = "";
     if (elementos.errorDocumento) elementos.errorDocumento.hidden = true;
     ++estado.secuenciaConsulta;
@@ -262,10 +261,15 @@ export function crearControladorListaBolsas({
     if (!ventana?.location) return cargarBolsas();
     const parametros = new URLSearchParams(ventana.location.search);
     const bolsaRef = parametros.get("bolsa");
-    const documento = parametros.get("documento") || "";
-    if (!bolsaRef) return volverAListadoDesdeHistorial();
+    const documentoURL = parametros.get("documento") || "";
+    const documento = PATRON_DOCUMENTO_ENMASCARADO.test(documentoURL) ? documentoURL : "";
+    if (!bolsaRef) {
+      if (documentoURL) actualizarURL("", "", "replace");
+      return volverAListadoDesdeHistorial();
+    }
+    if (documentoURL && !documento) actualizarURL(bolsaRef, "", "replace");
     if (elementos.inputDocumento) {
-      elementos.inputDocumento.value = PATRON_DOCUMENTO_ENMASCARADO.test(documento) ? documento : "";
+      elementos.inputDocumento.value = documento;
     }
     return seleccionarBolsa(bolsaRef, documento, "", { historial: "replace" });
   }
@@ -275,6 +279,7 @@ export function crearControladorListaBolsas({
     estado.bolsaSeleccionada = null;
     estado.posiciones = [];
     estado.filtroDocumento = "";
+    estado.bolsaRefSolicitada = "";
     if (elementos.inputDocumento) elementos.inputDocumento.value = "";
     if (elementos.errorDocumento) elementos.errorDocumento.hidden = true;
     return cargarBolsas();
@@ -328,8 +333,8 @@ export function crearControladorListaBolsas({
 
     if (elementos.botonReintentarLista) {
       elementos.botonReintentarLista.addEventListener("click", () => {
-        if (estado.bolsaSeleccionada) {
-          seleccionarBolsa(estado.bolsaSeleccionada.bolsa_ref, estado.filtroDocumento, "", { historial: "replace" });
+        if (estado.bolsaRefSolicitada) {
+          seleccionarBolsa(estado.bolsaRefSolicitada, estado.filtroDocumento, "", { historial: "replace" });
         }
       });
     }
@@ -361,9 +366,33 @@ export function crearControladorListaBolsas({
   });
 }
 
+function prepararAyudaListas(documento) {
+  const cabecera = documento.querySelector?.(".cabecera-seccion-publica");
+  const introduccion = cabecera?.querySelector?.("p:not(.eyebrow)");
+  const aviso = documento.querySelector?.(".aviso-privacidad-publica");
+  if (!cabecera || !introduccion || !aviso) return;
+  const ayuda = documento.createElement("details");
+  ayuda.className = "ayuda-listas-publica";
+  const resumen = documento.createElement("summary");
+  resumen.textContent = `${t("ayuda_privacidad_listas")}  ?`;
+  ayuda.append(resumen, introduccion, aviso);
+  cabecera.after(ayuda);
+
+  const textoFormato = documento.querySelector?.(".campo-documento .ayuda-busqueda-doc:not([id])");
+  if (textoFormato) {
+    const ayudaFormato = documento.createElement("details");
+    ayudaFormato.className = "ayuda-formato-lista";
+    const resumenFormato = documento.createElement("summary");
+    resumenFormato.textContent = `${t("ayuda_documento_lista")}  ?`;
+    ayudaFormato.append(resumenFormato, textoFormato);
+    documento.querySelector(".campo-documento input")?.after(ayudaFormato);
+  }
+}
+
 // Inicialización automática al cargar el documento
 if (typeof document !== "undefined") {
   document.addEventListener("DOMContentLoaded", () => {
+    prepararAyudaListas(document);
     const porId = (id) => document.getElementById(id);
     const elementos = {
       seccionBolsas: porId("seccion-bolsas"),
