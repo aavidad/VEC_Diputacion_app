@@ -3,7 +3,10 @@ package bootstrap
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
+	"path/filepath"
+	"runtime"
 	"sync"
 	"time"
 
@@ -43,7 +46,7 @@ func (p *preparadorBorradorLlamamientoDesarrollo) ResolverContextoBorradorLlamam
 
 func (p *preparadorBorradorLlamamientoDesarrollo) ResolverContextoSituacionParticipacion(_ context.Context, actor dominiovec.ContextoActor, bolsaRef, participacionRef string) (puertosbolsa.ContextoSituacionParticipacionResuelto, error) {
 	if p == nil || p.soporte == nil || actor.PersonaRef == "" || bolsaRef == "" || participacionRef == "" || p.soporte.unidadRef == "" || p.soporte.ambitoRef == "" {
-		return puertosbolsa.ContextoSituacionParticipacionResuelto{}, errBorradorLlamamientoDesarrolloNoDisponible
+		return puertosbolsa.ContextoSituacionParticipacionResuelto{}, errBorradorNoDisponibleEn()
 	}
 	if _, admitida := p.soporte.bolsasRef[bolsaRef]; !admitida {
 		return puertosbolsa.ContextoSituacionParticipacionResuelto{}, dominiovec.ErrAutorizacionDenegada
@@ -53,7 +56,7 @@ func (p *preparadorBorradorLlamamientoDesarrollo) ResolverContextoSituacionParti
 
 func (p *preparadorBorradorLlamamientoDesarrollo) ResolverContextoContactosBolsa(_ context.Context, actor dominiovec.ContextoActor, bolsaRef string) (puertosbolsa.ContextoSituacionParticipacionResuelto, error) {
 	if p == nil || p.soporte == nil || actor.PersonaRef == "" || bolsaRef == "" || p.soporte.unidadRef == "" || p.soporte.ambitoRef == "" {
-		return puertosbolsa.ContextoSituacionParticipacionResuelto{}, errBorradorLlamamientoDesarrolloNoDisponible
+		return puertosbolsa.ContextoSituacionParticipacionResuelto{}, errBorradorNoDisponibleEn()
 	}
 	if _, admitida := p.soporte.bolsasRef[bolsaRef]; !admitida {
 		return puertosbolsa.ContextoSituacionParticipacionResuelto{}, dominiovec.ErrAutorizacionDenegada
@@ -249,6 +252,19 @@ func (h *holderActorBorradorLlamamientoDesarrollo) ActorVerificadoParaAuditoriaB
 
 var errBorradorLlamamientoDesarrolloNoDisponible = errors.New("bootstrap: borrador de llamamiento no disponible")
 
+// errBorradorNoDisponibleEn conserva errBorradorLlamamientoDesarrolloNoDisponible
+// para errors.Is y añade el fichero y la línea donde se rechazó el montaje.
+// Hay decenas de comprobaciones que fallan cerradas con el mismo error; sin
+// este dato el registro de arranque no permite saber cuál falló. Solo alcanza
+// ese registro del servidor: ninguna respuesta HTTP lleva el detalle.
+func errBorradorNoDisponibleEn() error {
+	_, fichero, linea, ok := runtime.Caller(1)
+	if !ok {
+		return errBorradorLlamamientoDesarrolloNoDisponible
+	}
+	return fmt.Errorf("%w (%s:%d)", errBorradorLlamamientoDesarrolloNoDisponible, filepath.Base(fichero), linea)
+}
+
 var _ bolsahttp.PreparadorBorradorLlamamientoInterno = (*preparadorBorradorLlamamientoDesarrollo)(nil)
 var _ puertosbolsa.ResolutorContextoBorradorLlamamiento = (*preparadorBorradorLlamamientoDesarrollo)(nil)
 var _ puertosvec.GeneradorReferenciaDecisionAutorizacion = seguridadvec.GeneradorReferenciasCriptograficas{}
@@ -285,7 +301,7 @@ func (m *manejadorParticipacionBolsaDesarrollo) ListarContactosBolsa(ctx context
 func (e *emisorBorradorLlamamientoDesarrollo) EmitirMaterialAutorizacionAtestadaV3(ctx context.Context, solicitud dominiovec.SolicitudAutorizacionLigadaV3, resultado dominiovec.ResultadoContextoActorRegistradoV2) (dominiovec.DecisionAutorizacionLigadaV3, puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3, puertosvec.ExportadorMaterialConsumoAutorizacionAtestadaV3, error) {
 	datos, err := solicitud.Datos()
 	if err != nil {
-		return dominiovec.DecisionAutorizacionLigadaV3{}, puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return dominiovec.DecisionAutorizacionLigadaV3{}, puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, nil, errBorradorNoDisponibleEn()
 	}
 	switch datos.Accion {
 	case puertosbolsa.AccionCrearBorradorLlamamientoInterno:
@@ -317,7 +333,7 @@ func (e *emisorBorradorLlamamientoDesarrollo) EmitirMaterialAutorizacionAtestada
 			return e.emision.EmitirMaterialAutorizacionAtestadaV3(ctx, solicitud, resultado)
 		}
 	}
-	return dominiovec.DecisionAutorizacionLigadaV3{}, puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, nil, errBorradorLlamamientoDesarrolloNoDisponible
+	return dominiovec.DecisionAutorizacionLigadaV3{}, puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, nil, errBorradorNoDisponibleEn()
 }
 
 // nuevasDependenciasBorradorLlamamientoDesarrollo conecta el único caso B-BACK
@@ -334,7 +350,7 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 ) ([]vechttp.RutaExacta, []vechttp.RutaColeccion, http.Handler, catalogoFronterasComunDesarrollo, func(http.Handler) http.Handler, func(), error) {
 	vacio := catalogoFronterasComunDesarrollo{}
 	if ctx == nil || dependenciasCT == nil || dependenciasCT.kms == nil || alta == nil || soporteBolsa == nil || identidadCT == nil || catalogoFronteras.identidad == nil || alta.soporte == nil || alta.postgresql.bolsa == nil || alta.postgresql.gobierno == nil || alta.postgresql.registroAutorizacion == nil || alta.postgresql.proveedorMaterialBorradorCrear == nil || alta.postgresql.proveedorMaterialBorradorConsulta == nil || alta.postgresql.proveedorMaterialSituacion == nil || alta.postgresql.proveedorMaterialContacto == nil || alta.postgresql.proveedorMaterialConsultaContacto == nil || alta.postgresql.proveedorMaterialDatosContacto == nil || alta.postgresql.proveedorMaterialEmision == nil {
-		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	// El manifiesto y el contexto nominal Bolsa se cargan antes de declarar
 	// rutas: cada frontera B-BACK queda ligada al perfil Bolsa, nunca al CT.
@@ -342,15 +358,15 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	vinculo, err := soporteBolsa.soporteCanal.contexto.Vinculo.Datos()
 	if err != nil || !perfilActivoSeguridadComunValido(vinculo.PerfilActivoRef) ||
 		vinculo.PerfilActivoRef != soporteBolsa.soporteCanal.contexto.Resultado.Contexto.PerfilActivoRef {
-		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	auditoria, cerrarAuditoria, err := nuevaAuditoriaFronteraBorradorLlamamientoPostgreSQLDesarrollo(ctx, cfg)
 	if err != nil {
-		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	if err := publicarContextoPostgreSQLBorradorBolsaDesarrollo(ctx, alta.postgresql.gobierno, soporteBolsa); err != nil {
 		cerrarAuditoria()
-		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	completa := false
 	defer func() {
@@ -362,11 +378,11 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 		soporteBolsa.soporteCanal, identidadCT.registro, identidadCT.revalidador, identidadCT.reloj, identidadCT.resolutor, catalogoFronteras,
 	)
 	if err != nil {
-		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	seguridad, err := nuevaSeguridadComunDesarrollo(sesionBolsa, dependenciasCT.reloj)
 	if err != nil {
-		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	autoridadBolsa := autoridadPostgreSQLDesarrollo{
 		pool: alta.postgresql.gobierno, vinculo: soporteBolsa.soporteCanal.contexto.Vinculo,
@@ -374,163 +390,163 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 		actoAsignacion: "acto:bolsa:bback:asignacion:v1", actoSesion: "acto:bolsa:bback:sesion:v1",
 	}
 	if !autoridadBolsa.validaConfiguracion() || vinculo.PrincipalID == "" {
-		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	if alta.soporte.registroDecisionesAnalisis == nil {
-		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	politicaBolsa, err := nuevaPoliticaBorradorLlamamientoBolsaDesarrollo(soporteBolsa, &autoridadBolsa, alta.soporte.registroDecisionesAnalisis, dependenciasCT.reloj)
 	desde, _, vigente := ventanaAutoridadSinteticaContratacionTemporalDesarrollo(dependenciasCT.reloj.Ahora())
 	if err != nil || !vigente {
-		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	if publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno, []dominiovec.ReferenciaEntradaCatalogo{
 		motivoCrearBorradorLlamamientoBolsaDesarrollo(), motivoConsultarBorradorLlamamientoBolsaDesarrollo(),
 	}, desde) != nil {
-		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	if publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno, []dominiovec.ReferenciaEntradaCatalogo{
 		motivoCambiarSituacionParticipacionBolsaDesarrollo(),
 	}, desde) != nil {
-		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	if publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno, []dominiovec.ReferenciaEntradaCatalogo{
 		motivoRegistrarContactoParticipacionBolsaDesarrollo(),
 		motivoConsultarContactoParticipacionBolsaDesarrollo(),
 	}, desde) != nil {
-		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	if publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno, []dominiovec.ReferenciaEntradaCatalogo{
 		motivoRegistrarDatosContactoParticipacionBolsaDesarrollo(),
 	}, desde) != nil {
-		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	if publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno, []dominiovec.ReferenciaEntradaCatalogo{
 		motivoEmitirLlamamientoBolsaDesarrollo(),
 	}, desde) != nil {
-		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	if politicaBolsa.PublicarInicial(ctx) != nil {
-		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	politicaCT, err := nuevaPoliticaAutorizacionSolicitudLigadaV3Desarrollo(alta.soporte, alta.soporte, alta.soporte, alta.soporte)
 	if err != nil {
-		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	politicaB, err := nuevaPoliticaAutorizacionSolicitudLigadaV3Desarrollo(politicaBolsa, politicaBolsa, politicaBolsa, politicaBolsa)
 	if err != nil {
-		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	descriptoresBolsa, err := descriptoresAutorizacionBorradorLlamamientoBolsaDesarrollo(politicaB)
 	if err != nil {
-		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	descriptoresAutorizacion := append(descriptoresAutorizacionContratacionTemporalDesarrollo(politicaCT), descriptoresBolsa...)
 	catalogoAutorizacion, err := nuevoCatalogoAutorizacionComunDesarrollo(catalogoFronteras, descriptoresAutorizacion)
 	if err != nil {
-		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	pdp, err := nuevoAutorizadorComunDesarrollo(catalogoAutorizacion, dependenciasCT.reloj, seguridadvec.GeneradorReferenciasCriptograficas{}, aplicacionvec.ConfiguracionServicioAutorizacion{VigenciaDecision: 90 * time.Second})
 	if err != nil {
-		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	wrapper, ok := alta.autorizador.(*autorizadorAnalisisContratacionTemporalDesarrollo)
 	if !ok || wrapper.instalarDelegadoComun(pdp) != nil {
-		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	emisorCrear, err := nuevoEmisorMaterialRenovableCTDesarrollo(pdp, alta.postgresql.proveedorMaterialBorradorCrear)
 	if err != nil {
-		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	emisorConsulta, err := nuevoEmisorMaterialRenovableCTDesarrollo(pdp, alta.postgresql.proveedorMaterialBorradorConsulta)
 	if err != nil {
-		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	emisorSituacion, err := nuevoEmisorMaterialRenovableCTDesarrollo(pdp, alta.postgresql.proveedorMaterialSituacion)
 	if err != nil {
-		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	emisorContacto, err := nuevoEmisorMaterialRenovableCTDesarrollo(pdp, alta.postgresql.proveedorMaterialContacto)
 	if err != nil {
-		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	emisorConsultaContacto, err := nuevoEmisorMaterialRenovableCTDesarrollo(pdp, alta.postgresql.proveedorMaterialConsultaContacto)
 	if err != nil {
-		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	emisorDatosContacto, err := nuevoEmisorMaterialRenovableCTDesarrollo(pdp, alta.postgresql.proveedorMaterialDatosContacto)
 	if err != nil {
-		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	emisorEmision, err := nuevoEmisorMaterialRenovableCTDesarrollo(pdp, alta.postgresql.proveedorMaterialEmision)
 	if err != nil {
-		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	repositorio, err := postgresbolsa.NuevoRepositorioBorradorLlamamientoPostgreSQL(alta.postgresql.bolsa)
 	if err != nil {
-		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	preparador := &preparadorBorradorLlamamientoDesarrollo{sesion: seguridad, soporte: soporteBolsa}
 	emisor := &emisorBorradorLlamamientoDesarrollo{crear: emisorCrear, consultar: emisorConsulta, situacion: emisorSituacion, contacto: emisorContacto, consultaContacto: emisorConsultaContacto, datosContacto: emisorDatosContacto, emision: emisorEmision}
 	servicio, err := aplicacionbolsa.NuevoServicioBorradorLlamamiento(preparador, emisor, repositorio, repositorio)
 	if err != nil {
-		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	handler, err := bolsahttp.NuevoHandlerBorradorLlamamiento(preparador, servicio)
 	if err != nil {
-		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	repositorioSituacion, err := postgresbolsa.NuevoRepositorioSituacionParticipacionPostgreSQL(alta.postgresql.bolsa)
 	if err != nil {
-		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	servicioSituacion, err := aplicacionbolsa.NuevoServicioSituacionParticipacion(preparador, emisor, repositorioSituacion, dependenciasCT.reloj.Ahora)
 	if err != nil {
-		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	handlerSituacion, err := bolsahttp.NuevoHandlerSituacionParticipacion(preparador, servicioSituacion)
 	if err != nil {
-		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	repositorioContacto, err := postgresbolsa.NuevoRepositorioContactoParticipacionPostgreSQL(alta.postgresql.bolsa)
 	if err != nil {
-		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	servicioContacto, err := aplicacionbolsa.NuevoServicioContactoParticipacion(preparador, emisor, repositorioContacto)
 	if err != nil {
-		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	handlerContacto, err := bolsahttp.NuevoHandlerContactoParticipacion(preparador, servicioContacto)
 	if err != nil {
-		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	repositorioEmision, err := postgresbolsa.NuevoRepositorioEmisionLlamamientoPostgreSQL(alta.postgresql.bolsa)
 	if err != nil {
-		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	repositorioDatos, err := postgresbolsa.NuevoRepositorioDatosContactoParticipacionPostgreSQL(alta.postgresql.bolsa)
 	if err != nil {
-		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	servicioDatos, err := aplicacionbolsa.NuevoServicioDatosContactoParticipacion(preparador, emisor, repositorioSituacion, dependenciasCT.kms, repositorioDatos, dependenciasCT.reloj.Ahora)
 	if err != nil {
-		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	handlerDatos, err := bolsahttp.NuevoHandlerDatosContactoParticipacion(preparador, servicioDatos)
 	if err != nil {
-		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	correoSMTP, err := nuevoEnviadorCorreoLlamamientoDesarrollo(cfg)
 	if err != nil || correoSMTP == nil {
-		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	servicioEmision, err := aplicacionbolsa.NuevoServicioEmisionLlamamiento(preparador, emisor, repositorioEmision, &fuenteCorreoParticipacionB7{repositorioDatos, dependenciasCT.kms}, &emisorCorreoBolsaB7{correoSMTP}, dependenciasCT.reloj.Ahora)
 	if err != nil {
-		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	handlerEmision, err := bolsahttp.NuevoHandlerEmisionLlamamiento(preparador, servicioEmision)
 	if err != nil {
-		return nil, nil, nil, vacio, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	mutador := &manejadorParticipacionBolsaDesarrollo{situacion: handlerSituacion, contacto: handlerContacto, datosContacto: handlerDatos, preparador: preparador, servicio: servicioContacto}
 	envolver := func(siguiente http.Handler) http.Handler {

@@ -21,25 +21,25 @@ const (
 // publicar contexto o instalar el PDP común para que B-BACK falle cerrado.
 func nuevaAuditoriaFronteraBorradorLlamamientoPostgreSQLDesarrollo(ctx context.Context, cfg config.Config) (*postgresbolsa.AuditoriaIntentoBorradorLlamamientoPostgreSQL, func(), error) {
 	if ctx == nil {
-		return nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, errBorradorNoDisponibleEn()
 	}
 	dsn, err := cfg.DSNBolsaAuditoriaFronteraSeparado()
 	if err != nil || dsn == "" {
-		return nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, errBorradorNoDisponibleEn()
 	}
 	pool, _, err := abrirPoolPostgreSQLContratacionTemporalDesarrollo(ctx, dsn, "vec-bolsa-bback-auditoria-frontera", rolAuditoriaFronteraPostgreSQLBolsaDesarrollo)
 	if err != nil {
-		return nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, errBorradorNoDisponibleEn()
 	}
 	cerrar := cerrarPoolIdempotenteBorradorLlamamientoDesarrollo(pool)
 	if err := preflightAuditoriaFronteraBorradorLlamamientoPostgreSQLDesarrollo(ctx, pool); err != nil {
 		cerrar()
-		return nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, errBorradorNoDisponibleEn()
 	}
 	auditoria, err := postgresbolsa.NuevaAuditoriaIntentoBorradorLlamamientoPostgreSQL(pool)
 	if err != nil {
 		cerrar()
-		return nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, errBorradorNoDisponibleEn()
 	}
 	return auditoria, cerrar, nil
 }
@@ -116,7 +116,7 @@ func comprobarIdentidadAuditoriaFronteraPostgreSQLBolsaDesarrollo(ctx context.Co
 
 func preflightAuditoriaFronteraBorradorLlamamientoPostgreSQLDesarrollo(ctx context.Context, pool *pgxpool.Pool) error {
 	if ctx == nil || pool == nil {
-		return errBorradorLlamamientoDesarrolloNoDisponible
+		return errBorradorNoDisponibleEn()
 	}
 	return comprobarPreflightAuditoriaFronteraBorradorLlamamientoPostgreSQLDesarrollo(ctx, pool)
 }
@@ -125,7 +125,7 @@ func comprobarPreflightAuditoriaFronteraBorradorLlamamientoPostgreSQLDesarrollo(
 	QueryRow(context.Context, string, ...any) pgx.Row
 }) error {
 	if ctx == nil || consultador == nil {
-		return errBorradorLlamamientoDesarrolloNoDisponible
+		return errBorradorNoDisponibleEn()
 	}
 	var valido bool
 	err := consultador.QueryRow(ctx, `
@@ -214,7 +214,7 @@ func comprobarPreflightAuditoriaFronteraBorradorLlamamientoPostgreSQLDesarrollo(
 		          AND (acl.grantee = 0 OR pg_catalog.pg_has_role(session_user, acl.grantee, 'USAGE'))
 		   )`, funcionAuditoriaFronteraBorradorLlamamientoPostgreSQL).Scan(&valido)
 	if err != nil || !valido {
-		return errBorradorLlamamientoDesarrolloNoDisponible
+		return errBorradorNoDisponibleEn()
 	}
 	return nil
 }

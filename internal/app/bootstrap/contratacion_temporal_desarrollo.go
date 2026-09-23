@@ -355,18 +355,18 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	if debeComponerBorradorLlamamientoDesarrollo(cfg) {
 		soporteBolsaCatalogo, err = nuevoSoporteSesionBorradorBolsaDesarrollo(cfg.DevelopmentMaterialDir, alta.soporte, reloj.Ahora())
 		if err != nil {
-			return nil, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+			return nil, nil, nil, errBorradorNoDisponibleEn()
 		}
 		perfilBolsa := soporteBolsaCatalogo.soporteCanal.contexto.Resultado.Contexto.PerfilActivoRef
 		bolsaFronteras, e := descriptoresFronterasBorradorLlamamientoBolsaDesarrollo(perfilBolsa)
 		if e != nil {
-			return nil, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+			return nil, nil, nil, errBorradorNoDisponibleEn()
 		}
 		declaracionesFrontera = append(declaracionesFrontera, bolsaFronteras...)
 	}
 	catalogoFronteras, err := nuevoCatalogoFronterasComunDesarrollo(declaracionesFrontera)
 	if err != nil {
-		return nil, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+		return nil, nil, nil, errBorradorNoDisponibleEn()
 	}
 	if cfg.ContratacionTemporalPostgreSQL.ConsultasRRHHConfiguradas() {
 		consultasRRHH, err = nuevasDependenciasConsultasRRHHDesarrollo(dependencias, &alta, catalogoFronteras)
@@ -539,7 +539,7 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	cerrarBorrador := func() {}
 	if debeComponerBorradorLlamamientoDesarrollo(cfg) {
 		if consultasRRHH.identidad == nil {
-			return nil, nil, nil, errBorradorLlamamientoDesarrolloNoDisponible
+			return nil, nil, nil, errBorradorNoDisponibleEn()
 		}
 		var errBorrador error
 		rutasBorrador, coleccionesBorrador, manejadorSituacion, seguridadBorrador, envolverBorrador, cerrarBorrador, errBorrador = nuevasDependenciasBorradorLlamamientoDesarrollo(
