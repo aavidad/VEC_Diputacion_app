@@ -1,11 +1,11 @@
-# B4 parte 2 + D3-B7 — paquete incremental de la réplica principal
+# B4 parte 2 + D3-B7 + D3-B11-D — paquete incremental de la réplica principal
 
 Este paquete conecta los datos de contacto cifrados B4 y añade «Nuevo
 llamamiento» B7 a la instancia sintética principal. Exige como preimagen AD3
 `000046` y Bolsa llamamientos `000015`; no ejecuta `DOWN`, no toca otra base y
 no contiene secretos ni datos personales reales.
 
-`02_migraciones.sh` ensambla las cuatro migraciones canónicas en cada ejecución
+`02_migraciones.sh` ensambla las cinco migraciones canónicas en cada ejecución
 y las aplica dentro de una sola transacción y en orden causal:
 
 1. AD3 `000047`, consumidor nominal V3 para registrar datos de contacto B4;
@@ -15,6 +15,10 @@ y las aplica dentro de una sola transacción y en orden causal:
    una capacidad efímera privada, resultados B3 `enviado/no_enviado`
    deterministas, recuperación idempotente, bitácora de accesos B4/B7 y
    contador B12.
+5. Bolsa `000021`, función propietaria para vincular actas anteriores a 000008
+   con referencias `can_*` derivadas por el recuperador protegido. Solo la
+   conexión administrativa puede invocarla como propietario. Su
+   instalación no ejecuta el relleno: el procedimiento está en `03_entorno.md`.
 
 No se añaden roles, conexiones ni variables `*_DATABASE_URL`. B7 reutiliza
 las conexiones Bolsa/AD3, el KMS de desarrollo, los datos de contacto B4 y el

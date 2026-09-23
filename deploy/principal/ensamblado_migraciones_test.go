@@ -20,6 +20,7 @@ func TestPaqueteMigracionesSeEnsamblaDesdeFuentesCanonicas(t *testing.T) {
 		"bolsa_llamamientos/migraciones/000016_datos_contacto_participacion",
 		"autorizacion_atestada_v3/migraciones/000048_consumidor_emision_llamamiento",
 		"bolsa_llamamientos/migraciones/000017_emision_llamamiento",
+		"bolsa_llamamientos/migraciones/000021_rellenar_vinculos_candidato",
 	}
 
 	var esperado bytes.Buffer
@@ -47,7 +48,7 @@ func TestPaqueteMigracionesSeEnsamblaDesdeFuentesCanonicas(t *testing.T) {
 		t.Fatalf("el ensamblador falló: %v\n%s", err, obtenido)
 	}
 	if !bytes.Equal(obtenido, esperado.Bytes()) {
-		t.Fatal("el paquete desplegable difiere de las cuatro migraciones canónicas")
+		t.Fatal("el paquete desplegable difiere de las cinco migraciones canónicas")
 	}
 	if bytes.Count(obtenido, []byte("p_perfil_mutacion IS NOT DISTINCT FROM 'emision_llamamiento_bolsa'")) < 2 {
 		t.Fatal("el paquete perdió la admisión B7 del núcleo AD3-48")
