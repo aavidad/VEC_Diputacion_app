@@ -108,8 +108,12 @@ lock_log=$(mktemp)
 docker exec "$contenedor" psql -X -A -t -q --set ON_ERROR_STOP=1 --username postgres --dbname "$base" \
   --command "BEGIN; SET ROLE vec_contexto_actor_v1_propietario; SELECT 'LOCKED' FROM vec_contexto_actor_v1.proyeccion_cuenta_actual WHERE cuenta_ref='cta_registroespera000000000001' FOR UPDATE; SELECT pg_sleep(1.8); COMMIT;" > "$lock_log" 2>&1 &
 locker=$!
-for _ in $(seq 1 50); do rg -q '^LOCKED$' "$lock_log" && break; sleep 0.01; done
-rg -q '^LOCKED$' "$lock_log" || { echo 'F2: no se obtuvo el lock adversarial' >&2; exit 1; }
+lock_tomado=f
+for _ in $(seq 1 50); do
+  if [[ "$(consulta "SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE datname=current_database() AND pid<>pg_backend_pid() AND wait_event='PgSleep' AND query LIKE '%SELECT pg_sleep(1.8)%')")" == t ]]; then lock_tomado=t; break; fi
+  sleep 0.01
+done
+[[ "$lock_tomado" == t ]] || { echo 'F2: no se obtuvo el lock adversarial' >&2; cat "$lock_log" >&2; exit 1; }
 docker exec -i "$contenedor" psql -X -q --set ON_ERROR_STOP=1 --username postgres --dbname "$base" <<'SQL_CADUCIDAD'
 DO $test$
 BEGIN
