@@ -134,6 +134,7 @@ INSERT INTO vec_autorizacion_atestada_v3.control_cadena_auditoria
  VALUES (true,0,repeat('0',64),clock_timestamp());
 COMMIT;
 SQL
+psql_archivo "$raiz/deploy/postgresql/contexto_actor_v1/roles_contexto_corporativo_rrhh_selector_v1_up.sql"
 psql_archivo "$raiz/deploy/postgresql/contratacion_temporal/roles_consultor_rrhh_ambito_up.sql"
 psql_archivo "$raiz/deploy/postgresql/contexto_actor_v1/migraciones/000006_acreditacion_ambito_rrhh_v1.up.sql"
 psql_archivo "$VEC_AD3_51_UP"
