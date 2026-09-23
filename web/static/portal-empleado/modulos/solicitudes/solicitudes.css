@@ -75,6 +75,8 @@
 .solicitudes-accion-pendiente { display: grid; justify-items: start; gap: var(--portal-espacio-1); margin-top: var(--portal-espacio-2); }
 .solicitudes-accion-pendiente button { padding: var(--portal-espacio-2) var(--portal-espacio-3); border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-md); background: var(--portal-neutro-suave); color: var(--portal-muted); }
 .solicitudes-accion-pendiente small { color: var(--portal-muted); font-size: .76rem; }
+.solicitudes-volver { margin-bottom: var(--portal-espacio-4); padding: var(--portal-espacio-2) var(--portal-espacio-3); border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-md); background: var(--portal-superficie); color: var(--portal-azul-700); cursor: pointer; font-weight: 700; }
+.solicitudes-volver::before { content: "←"; margin-right: var(--portal-espacio-2); }
 .solicitudes-ficha { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(220px, .7fr); gap: var(--portal-espacio-4); }
 .solicitudes-ficha dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--portal-espacio-3); margin: 0; }
 .solicitudes-ficha dl > div { min-width: 0; padding: var(--portal-espacio-3); border-left: 4px solid var(--portal-azul-700); background: var(--portal-superficie-alterna); }

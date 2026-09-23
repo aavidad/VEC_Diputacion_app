@@ -47,7 +47,30 @@ function nueva(datos, t) {
 function seguimiento(datos, estado, t) {
   const item = lista(datos.tramites).find((tramite) => referencia(tramite) === estado.seleccionada);
   const historial = lista(item?.historial);
-  return `<section class="solicitudes-panel panel solicitudes-detalle" aria-labelledby="solicitudes-seguimiento-titulo"><header class="cabecera-panel solicitudes-panel-cabecera"><div><h3 id="solicitudes-seguimiento-titulo">${escapar(t("seguimiento_titulo"))}</h3><p>${escapar(t("seguimiento_ayuda"))}</p></div>${ayuda("seguimiento_ayuda", t)}</header><div class="cuerpo-panel">${item ? `<div class="solicitudes-ficha"><dl><div><dt>${escapar(t("referencia"))}</dt><dd>${escapar(referencia(item))}</dd></div><div><dt>${escapar(t("tramite"))}</dt><dd>${escapar(texto(titulo(item), t))}</dd></div><div><dt>${escapar(t("fecha"))}</dt><dd>${escapar(fecha(item.fecha, t))}</dd></div><div><dt>${escapar(t("estado"))}</dt><dd>${chip(item, t)}</dd></div><div><dt>${escapar(t("unidad"))}</dt><dd>${escapar(texto(item.unidad, t))}</dd></div><div><dt>${escapar(t("hito_actual"))}</dt><dd>${escapar(texto(item.paso, t))}</dd></div></dl><div class="solicitudes-ficha-descripcion"><h4>${escapar(t("descripcion"))}</h4><p>${escapar(texto(item.descripcion, t))}</p>${item.siguienteAccion ? `<p><strong>${escapar(t("siguiente_accion"))}:</strong> ${escapar(item.siguienteAccion)}</p>` : ""}</div></div><div class="solicitudes-historial"><h4>${escapar(t("historial"))}</h4>${historial.length ? `<ol>${historial.map((hito) => `<li><time>${escapar(fecha(hito.fecha, t))}</time><strong>${escapar(texto(hito.titulo, t))}</strong>${hito.detalle ? `<span>${escapar(hito.detalle)}</span>` : ""}</li>`).join("")}</ol>` : `<p>${escapar(t("historial_vacio"))}</p>`}</div>${botonPendiente("aportar", "aportar_motivo", t)}` : `<p class="solicitudes-vacio">${escapar(t("seguimiento_vacio"))}</p>`}</div></section>`;
+  const volver = `<button type="button" class="solicitudes-volver" data-solicitudes-volver>${escapar(t("volver_bandeja"))}</button>`;
+  const ficha = item
+    ? `${volver}<div class="solicitudes-ficha">
+      <dl>
+        <div><dt>${escapar(t("referencia"))}</dt><dd>${escapar(referencia(item))}</dd></div>
+        <div><dt>${escapar(t("tramite"))}</dt><dd>${escapar(texto(titulo(item), t))}</dd></div>
+        <div><dt>${escapar(t("fecha"))}</dt><dd>${escapar(fecha(item.fecha, t))}</dd></div>
+        <div><dt>${escapar(t("estado"))}</dt><dd>${chip(item, t)}</dd></div>
+        <div><dt>${escapar(t("unidad"))}</dt><dd>${escapar(texto(item.unidad, t))}</dd></div>
+        <div><dt>${escapar(t("hito_actual"))}</dt><dd>${escapar(texto(item.paso, t))}</dd></div>
+      </dl>
+      <div class="solicitudes-ficha-descripcion">
+        <h4>${escapar(t("descripcion"))}</h4><p>${escapar(texto(item.descripcion, t))}</p>
+        ${item.siguienteAccion ? `<p><strong>${escapar(t("siguiente_accion"))}:</strong> ${escapar(item.siguienteAccion)}</p>` : ""}
+      </div>
+    </div>
+    <div class="solicitudes-historial"><h4>${escapar(t("historial"))}</h4>
+      ${historial.length ? `<ol>${historial.map((hito) => `<li><time>${escapar(fecha(hito.fecha, t))}</time><strong>${escapar(texto(hito.titulo, t))}</strong>${hito.detalle ? `<span>${escapar(hito.detalle)}</span>` : ""}</li>`).join("")}</ol>` : `<p>${escapar(t("historial_vacio"))}</p>`}
+    </div>${botonPendiente("aportar", "aportar_motivo", t)}`
+    : `<p class="solicitudes-vacio">${escapar(t("seguimiento_vacio"))}</p>`;
+  return `<section class="solicitudes-panel panel solicitudes-detalle" aria-labelledby="solicitudes-seguimiento-titulo">
+    <header class="cabecera-panel solicitudes-panel-cabecera"><div><h3 id="solicitudes-seguimiento-titulo">${escapar(t("seguimiento_titulo"))}</h3><p>${escapar(t("seguimiento_ayuda"))}</p></div>${ayuda("seguimiento_ayuda", t)}</header>
+    <div class="cuerpo-panel">${ficha}</div>
+  </section>`;
 }
 function certificados(datos, t) {
   const items = lista(datos.certificados);
@@ -69,7 +92,7 @@ export function renderizarSolicitudes(estado = {}, mensajes = MENSAJES_SOLICITUD
     : pestana === "nueva" ? nueva(datos, t)
       : pestana === "seguimiento" ? seguimiento(datos, seguro, t)
         : certificados(datos, t);
-  return `<section class="solicitudes-modulo" data-solicitudes-modulo><header class="solicitudes-cabecera"><p class="solicitudes-sobrelinea">${escapar(t("sobrelinea"))}</p><h2>${escapar(t("titulo"))}</h2><p>${escapar(t("descripcion_cabecera"))}</p></header>${estadoConsulta(situacion, t)}${resumen(datos, situacion, t)}<nav class="solicitudes-pestanas" role="tablist" aria-label="${escapar(t("navegacion"))}">${PESTANAS.map((clave) => `<button type="button" role="tab" data-solicitudes-tab="${clave}" aria-selected="${clave === pestana}" tabindex="${clave === pestana ? "0" : "-1"}" aria-controls="solicitudes-panel-actual">${escapar(t(clave))}</button>`).join("")}</nav><div id="solicitudes-panel-actual" role="tabpanel" tabindex="0" class="solicitudes-contenido">${contenido}</div></section>`;
+  return `<section class="solicitudes-modulo" data-solicitudes-modulo><header class="solicitudes-cabecera"><p class="solicitudes-sobrelinea">${escapar(t("sobrelinea"))}</p><h2>${escapar(t("titulo"))}</h2><p>${escapar(t("descripcion_cabecera"))}</p></header>${estadoConsulta(situacion, t)}${resumen(datos, situacion, t)}<nav class="solicitudes-pestanas" role="tablist" aria-label="${escapar(t("navegacion"))}">${PESTANAS.map((clave) => `<button type="button" role="tab" id="solicitudes-tab-${clave}" data-solicitudes-tab="${clave}" aria-selected="${clave === pestana}" tabindex="${clave === pestana ? "0" : "-1"}" aria-controls="solicitudes-panel-actual">${escapar(t(clave))}</button>`).join("")}</nav><div id="solicitudes-panel-actual" role="tabpanel" tabindex="0" aria-labelledby="solicitudes-tab-${pestana}" class="solicitudes-contenido">${contenido}</div></section>`;
 }
 
 /** Montaje de consulta. fuente.consultar({ signal }) devuelve datos ya autorizados. */
@@ -82,10 +105,17 @@ export function montarVistaSolicitudes({ raiz, fuente, anunciar = () => {}, regi
   const pintar = () => { if (activa) raiz.innerHTML = renderizarSolicitudes(estado, mensajes); };
   const cambiarPestana = (pestana, foco = false) => { if (!PESTANAS.includes(pestana)) return; estado = { ...estado, pestana }; pintar(); if (foco) raiz.querySelector?.(`[data-solicitudes-tab="${pestana}"]`)?.focus?.(); anunciar(t("anuncio_seccion", { seccion: t(pestana) }), "informacion"); };
   const alClick = (evento) => {
+    if (evento.target?.closest?.("[data-solicitudes-volver]")) {
+      cambiarPestana("bandeja");
+      const seleccion = [...(raiz.querySelectorAll?.("[data-solicitudes-detalle]") ?? [])]
+        .find((boton) => boton.dataset.solicitudesDetalle === estado.seleccionada);
+      (seleccion ?? raiz.querySelector?.('[data-solicitudes-tab="bandeja"]'))?.focus?.();
+      return;
+    }
     const tab = evento.target?.closest?.("[data-solicitudes-tab]");
     if (tab) { cambiarPestana(tab.dataset.solicitudesTab); return; }
     const detalle = evento.target?.closest?.("[data-solicitudes-detalle]");
-    if (detalle && lista(estado.datos.tramites).some((item) => referencia(item) === detalle.dataset.solicitudesDetalle)) {
+    if (detalle && estado.situacion === "disponible" && lista(estado.datos.tramites).some((item) => referencia(item) === detalle.dataset.solicitudesDetalle)) {
       estado = { ...estado, seleccionada: detalle.dataset.solicitudesDetalle, pestana: "seguimiento" };
       pintar(); raiz.querySelector?.("#solicitudes-panel-actual")?.focus?.();
       anunciar(t("anuncio_detalle", { referencia: estado.seleccionada }), "informacion");
@@ -113,10 +143,15 @@ export function montarVistaSolicitudes({ raiz, fuente, anunciar = () => {}, regi
   raiz.addEventListener("keydown", alTecla);
   if (fuente) Promise.resolve().then(() => fuente.consultar({ signal: controlador.signal })).then((respuesta) => {
     if (!activa) return;
-    if (respuesta?.estado === "denegado" || respuesta?.estado === "no_configurado") { estado = { ...estado, situacion: respuesta.estado, datos: {} }; pintar(); return; }
+    if (respuesta?.estado === "denegado" || respuesta?.estado === "no_configurado" || respuesta?.estado === "error") {
+      estado = { ...estado, situacion: respuesta.estado, datos: {}, seleccionada: "" };
+      pintar();
+      return;
+    }
+    if (respuesta?.estado !== undefined && !["disponible", "vacio"].includes(respuesta.estado)) throw new TypeError("estado de solicitudes inválido");
     if (!respuesta || !Array.isArray(respuesta.tramites) || respuesta.tramites.some((item) => !item || typeof item !== "object" || !referencia(item).trim())) throw new TypeError("respuesta de solicitudes inválida");
     const datos = { tramites: respuesta.tramites, catalogo: lista(respuesta.catalogo), certificados: lista(respuesta.certificados) };
-    estado = { ...estado, datos, situacion: datos.tramites.length ? "disponible" : "vacio" };
+    estado = { ...estado, datos, situacion: respuesta.estado === "vacio" || !datos.tramites.length ? "vacio" : "disponible" };
     pintar();
   }).catch(() => { if (!activa || controlador.signal.aborted) return; estado = { ...estado, situacion: "error", datos: {} }; pintar(); });
   const desmontar = () => { if (!activa) return; activa = false; controlador.abort(); raiz.removeEventListener("click", alClick); raiz.removeEventListener("change", alCambio); raiz.removeEventListener("submit", alSubmit); raiz.removeEventListener("keydown", alTecla); raiz.replaceChildren(); };
