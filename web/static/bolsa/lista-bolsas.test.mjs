@@ -348,7 +348,7 @@ test("controlador público: gestiona adecuadamente estados de error y vacío", a
   const apiVacia = {
     consultarBolsasPublicas: async () => ({ bolsas: [] }),
     consultarListaBolsaPublica: async () => ({
-      bolsa: { categoria: "PRUEBA", grupos: [], tipo_lista: "ordinaria", total: 0 },
+      bolsa: { bolsa_ref: "bolsa:sintetico:vacia", categoria: "PRUEBA", grupos: [], tipo_lista: "ordinaria", total: 0 },
       posiciones: [],
       hay_mas: false,
       cursor_siguiente: null,
@@ -499,4 +499,109 @@ test("error de lista pública redacta datos del servidor y permite reintentar un
   await new Promise((resolver) => setImmediate(resolver));
   assert.equal(elementos.listaError.hidden, true);
   assert.match(elementos.cuerpoTablaLista.innerHTML, /\*\*\*/);
+});
+
+test("al cambiar de bolsa, un fallo no deja visible la posición ni el filtro anteriores", async () => {
+  const refAnterior = "bolsa:sintetico:administrativo";
+  const refNueva = "bolsa:sintetico:otra";
+  const tabla = { hidden: false };
+  const campos = { disabled: false };
+  const elementos = {
+    seccionBolsas: { hidden: false }, seccionLista: { hidden: true },
+    bolsasCargando: { hidden: true }, bolsasError: { hidden: true }, bolsasVacio: { hidden: true },
+    cuerpoTablaBolsas: { innerHTML: "" },
+    listaCargando: { hidden: true }, listaError: { hidden: true }, listaVacio: { hidden: true },
+    mensajeErrorLista: { textContent: "" },
+    infoBolsaActiva: { innerHTML: "" },
+    cuerpoTablaLista: { innerHTML: "", closest: () => tabla },
+    formularioBusqueda: { querySelector: () => campos },
+    inputDocumento: { value: "" }, errorDocumento: { hidden: true },
+    contenedorPaginacion: { hidden: true }, botonSiguiente: { dataset: {}, disabled: false },
+  };
+  const api = {
+    consultarBolsasPublicas: async () => ({ bolsas: [] }),
+    consultarListaBolsaPublica: async ({ bolsa_ref }) => {
+      if (bolsa_ref === refNueva) throw Object.assign(new Error("DNI 12345678Z"), { status: 404 });
+      return generarFixtureListaPublica(refAnterior).data;
+    },
+  };
+  const ctrl = crearControladorListaBolsas({ elementos, api });
+  await ctrl.seleccionarBolsa(refAnterior, "***1234**");
+  assert.equal(tabla.hidden, false);
+  assert.ok(elementos.cuerpoTablaLista.innerHTML.includes("***"));
+  await ctrl.seleccionarBolsa(refNueva, "12345678Z");
+  assert.equal(ctrl.estado.bolsaSeleccionada, null);
+  assert.equal(ctrl.estado.filtroDocumento, "");
+  assert.equal(elementos.inputDocumento.value, "");
+  assert.equal(elementos.infoBolsaActiva.innerHTML, "");
+  assert.equal(elementos.cuerpoTablaLista.innerHTML, "");
+  assert.equal(tabla.hidden, true);
+  assert.equal(campos.disabled, true);
+  assert.equal(elementos.mensajeErrorLista.textContent, "La bolsa solicitada no está disponible para consulta pública.");
+});
+
+test("un error al cargar la página siguiente conserva las posiciones y reintenta el mismo cursor", async () => {
+  const bolsaRef = "bolsa:sintetico:administrativo";
+  const base = generarFixtureListaPublica(bolsaRef).data;
+  const cursores = [];
+  let siguiente;
+  let reintentar;
+  const elementos = {
+    seccionBolsas: { hidden: false, addEventListener() {} }, seccionLista: { hidden: true },
+    bolsasCargando: { hidden: true }, bolsasError: { hidden: true }, bolsasVacio: { hidden: true },
+    cuerpoTablaBolsas: { innerHTML: "" },
+    listaCargando: { hidden: true }, listaError: { hidden: true }, listaVacio: { hidden: true },
+    mensajeErrorLista: { textContent: "" }, infoBolsaActiva: { innerHTML: "" },
+    cuerpoTablaLista: { innerHTML: "" }, contenedorPaginacion: { hidden: true },
+    botonSiguiente: { dataset: {}, disabled: false, addEventListener(_tipo, fn) { siguiente = fn; } },
+    botonReintentarLista: { addEventListener(_tipo, fn) { reintentar = fn; } },
+  };
+  const ventana = {
+    location: { href: `https://vec.test/bolsa/listas.html?bolsa=${bolsaRef}`, search: `?bolsa=${bolsaRef}` },
+    history: { replaceState() {} }, addEventListener() {},
+  };
+  const api = {
+    consultarBolsasPublicas: async () => ({ bolsas: [] }),
+    consultarListaBolsaPublica: async ({ cursor }) => {
+      cursores.push(cursor);
+      if (cursor && cursores.length === 2) throw Object.assign(new Error("Fallo temporal"), { status: 503 });
+      return cursor
+        ? { ...base, posiciones: base.posiciones.slice(2, 4), hay_mas: false, cursor_siguiente: null }
+        : { ...base, posiciones: base.posiciones.slice(0, 2), hay_mas: true, cursor_siguiente: "cursor:pagina:2" };
+    },
+  };
+  const ctrl = crearControladorListaBolsas({ elementos, api, ventana });
+  ctrl.instalar();
+  await new Promise((resolver) => setImmediate(resolver));
+  assert.equal(ctrl.estado.posiciones.length, 2);
+  siguiente();
+  await new Promise((resolver) => setImmediate(resolver));
+  assert.equal(elementos.listaError.hidden, false);
+  assert.equal(ctrl.estado.posiciones.length, 2);
+  assert.equal(ctrl.estado.cursorSolicitado, "cursor:pagina:2");
+  reintentar();
+  await new Promise((resolver) => setImmediate(resolver));
+  assert.deepEqual(cursores, ["", "cursor:pagina:2", "cursor:pagina:2"]);
+  assert.equal(ctrl.estado.posiciones.length, 4);
+  assert.equal(elementos.listaError.hidden, true);
+});
+
+test("una respuesta de otra bolsa no se presenta como posición de la solicitada", async () => {
+  const elementos = {
+    seccionBolsas: { hidden: false }, seccionLista: { hidden: true },
+    bolsasCargando: { hidden: true }, bolsasError: { hidden: true }, bolsasVacio: { hidden: true },
+    listaCargando: { hidden: true }, listaError: { hidden: true }, listaVacio: { hidden: true },
+    mensajeErrorLista: { textContent: "" }, infoBolsaActiva: { innerHTML: "" },
+    cuerpoTablaLista: { innerHTML: "" }, contenedorPaginacion: { hidden: true },
+  };
+  const api = {
+    consultarBolsasPublicas: async () => ({ bolsas: [] }),
+    consultarListaBolsaPublica: async () => generarFixtureListaPublica("bolsa:sintetico:administrativo").data,
+  };
+  const ctrl = crearControladorListaBolsas({ elementos, api });
+  await ctrl.seleccionarBolsa("bolsa:sintetico:otra");
+  assert.equal(elementos.listaError.hidden, false);
+  assert.equal(elementos.infoBolsaActiva.innerHTML, "");
+  assert.equal(elementos.cuerpoTablaLista.innerHTML, "");
+  assert.equal(ctrl.estado.bolsaSeleccionada, null);
 });
