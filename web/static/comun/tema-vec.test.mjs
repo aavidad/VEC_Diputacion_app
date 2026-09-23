@@ -48,6 +48,7 @@ test("lienzo tintado, panel claro y texto/foco legibles en ambas paletas", () =>
       assert.ok(contraste(paleta[tinta], paleta["--portal-superficie"]) >= 4.5, `${tinta} sobre panel`);
     }
     assert.ok(contraste(paleta["--portal-texto-inverso"], paleta["--portal-azul-600"]) >= 4.5);
+    assert.ok(contraste(paleta["--portal-lateral-muted"], paleta["--portal-azul-950"]) >= 4.5);
   }
 });
 
@@ -60,6 +61,22 @@ test("alto contraste prevalece sobre todos los colores de paleta", () => {
   assert.ok(contraste(altoContraste["--portal-azul-700"], altoContraste["--portal-superficie"]) >= 7);
   assert.ok(contraste(altoContraste["--portal-tinta"], altoContraste["--portal-superficie"]) >= 7);
   assert.match(portal, /outline:\s*3px solid var\(--portal-azul-700\)/);
+  assert.ok(contraste(altoContraste["--portal-lateral-muted"], altoContraste["--portal-azul-950"]) >= 7);
+});
+
+test("los componentes comunes conservan la paleta activa en tarjetas y tablas", async () => {
+  const componentes = await readFile(new URL("../portal-empleado/portal-componentes.css", import.meta.url), "utf8");
+  for (const selector of [
+    ".tarjeta-modulo-habilitada",
+    ".tarjeta-modulo-bloqueada",
+    '.tabla-datos--prioritaria thead [data-columna="acciones"]',
+    '.tabla-datos--prioritaria tbody tr[aria-selected="true"] > [data-columna="acciones"]',
+    ".acceso-rapido:hover",
+  ]) {
+    const cuerpo = regla(componentes, selector);
+    assert.match(cuerpo, /var\(--portal-/);
+    assert.doesNotMatch(cuerpo, /#[0-9a-f]{3,8}\b|rgba?\(/i);
+  }
 });
 
 function regla(css, selector) {

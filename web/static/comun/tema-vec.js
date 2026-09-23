@@ -48,9 +48,10 @@ export function crearControladorTema({ documento = globalThis.document } = {}) {
 
   const leerEstado = () => {
     const visible = vistaPrevia ?? estadoServidor;
+    const temaVisible = visible?.tema_id ?? raiz.getAttribute("data-tema") ?? "institucional";
     return Object.freeze({
-      tema_id: visible?.tema_id ?? null,
-      revision: visible?.revision ?? null,
+      tema_id: temaVisible,
+      revision: visible?.revision ?? TEMAS_VEC[temaVisible]?.revision ?? null,
       previsualizacion: vistaPrevia !== null,
       estado_servidor: estadoServidor,
       alto_contraste: cuerpo.dataset.contraste === "true",

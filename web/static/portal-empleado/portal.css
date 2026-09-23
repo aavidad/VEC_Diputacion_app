@@ -8,6 +8,7 @@
   --portal-acento: var(--portal-azul-700);
   --portal-foco: var(--portal-azul-700);
   --portal-texto-inverso: #ffffff;
+  --portal-lateral-muted: #b7cde0;
   --portal-tinta: #10213b;
   --portal-muted: #586985;
   --portal-borde: #c9d7e6;
@@ -94,6 +95,7 @@ body.portal-empleado-app[data-contraste="true"] {
   --portal-violeta-suave: #e5dcf8;
   --portal-neutro-suave: #dce5ef;
   --portal-texto-inverso: #ffffff;
+  --portal-lateral-muted: #ffffff;
   --portal-sombra-color: rgb(0 0 0 / 35%);
   --portal-sombra: 0 0 0 1px var(--portal-borde);
   --portal-sombra-sm: 0 0 0 1px var(--portal-borde);
@@ -238,7 +240,7 @@ a:focus-visible,
 
 .marca-portal div > span {
   margin-top: 3px;
-  color: #d8e8f8;
+  color: var(--portal-lateral-muted);
   font-size: 0.78rem;
 }
 
@@ -272,7 +274,7 @@ a:focus-visible,
 
 .titulo-navegacion {
   margin: 11px 18px 5px;
-  color: #9fc0df;
+  color: var(--portal-lateral-muted);
   font-size: 0.67rem;
   font-weight: 850;
   letter-spacing: 0.075em;
@@ -291,7 +293,7 @@ a:focus-visible,
   border-left: 4px solid transparent;
   border-radius: 0;
   background: transparent;
-  color: #edf5fd;
+  color: var(--portal-texto-inverso);
   cursor: pointer;
   font-size: 0.81rem;
   text-align: left;
@@ -305,7 +307,7 @@ a:focus-visible,
 }
 
 .enlace-lateral:disabled {
-  color: #a8b9ca;
+  color: var(--portal-lateral-muted);
   cursor: not-allowed;
   opacity: 0.72;
 }
@@ -354,7 +356,7 @@ a:focus-visible,
 .etiqueta-bloqueada {
   border-color: rgba(255, 255, 255, 0.16);
   background: rgba(255, 255, 255, 0.06);
-  color: #bdcad7;
+  color: var(--portal-lateral-muted);
 }
 
 .pie-lateral {
@@ -366,7 +368,7 @@ a:focus-visible,
 .pie-lateral > span {
   display: block;
   padding: 0 18px;
-  color: #9fc0df;
+  color: var(--portal-lateral-muted);
   font-size: 0.68rem;
 }
 

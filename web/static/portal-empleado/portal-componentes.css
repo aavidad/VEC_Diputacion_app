@@ -62,7 +62,7 @@
 }
 
 .tarjeta-modulo-habilitada {
-  border-color: #9fc7f5;
+  border-color: var(--portal-azul-700);
   box-shadow: var(--portal-sombra-sm);
 }
 
@@ -117,12 +117,12 @@
 .estado-proximamente { color: var(--portal-muted); }
 
 .tarjeta-modulo-bloqueada {
-  background: #f9fbfd;
+  background: var(--portal-superficie-alterna);
 }
 
 .tarjeta-modulo-bloqueada .icono-modulo {
-  background: #eef2f6;
-  color: #6e7e92;
+  background: var(--portal-neutro-suave);
+  color: var(--portal-muted);
 }
 
 .rejilla-kpi {
@@ -507,7 +507,7 @@
 .tabla-datos--prioritaria thead [data-columna="estado"],
 .tabla-datos--prioritaria thead [data-columna="acciones"] {
   z-index: 3;
-  background: #f3f6fa;
+  background: var(--portal-cabecera-panel);
 }
 
 .tabla-datos--prioritaria [data-columna="acciones"] {
@@ -549,7 +549,7 @@
 .tabla-datos--prioritaria tbody tr:hover > [data-columna="acciones"],
 .tabla-datos--prioritaria tbody tr[aria-selected="true"] > [data-columna="estado"],
 .tabla-datos--prioritaria tbody tr[aria-selected="true"] > [data-columna="acciones"] {
-  background: #f1f7ff;
+  background: var(--portal-azul-100);
 }
 
 .tabla-datos a,
@@ -570,7 +570,7 @@
   margin-right: 6px;
   overflow: hidden;
   border-radius: 999px;
-  background: #e6ecf3;
+  background: var(--portal-neutro-suave);
   vertical-align: middle;
 }
 
@@ -578,7 +578,7 @@
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: #36ae58;
+  background: var(--portal-exito);
 }
 
 .lista-proximos,
@@ -614,8 +614,8 @@
   min-height: 48px;
   place-items: center;
   border-radius: 7px;
-  background: #f1edff;
-  color: #4934a1;
+  background: var(--portal-violeta-suave);
+  color: var(--portal-violeta);
   font-size: 0.68rem;
   font-weight: 800;
   text-align: center;
@@ -683,10 +683,10 @@
   width: 8px;
   height: 8px;
   margin-top: 4px;
-  border: 2px solid #fff;
+  border: 2px solid var(--portal-superficie);
   border-radius: 50%;
   background: var(--portal-azul-600);
-  box-shadow: 0 0 0 2px #c8dbf2;
+  box-shadow: 0 0 0 2px var(--portal-azul-100);
 }
 
 .graficos-resumen {
@@ -779,7 +779,7 @@
   padding: 8px;
   border: 1px solid var(--portal-borde);
   border-radius: 7px;
-  background: #fff;
+  background: var(--portal-superficie);
   color: var(--portal-tinta);
   cursor: pointer;
   font-size: 0.7rem;
@@ -787,8 +787,8 @@
 }
 
 .acceso-rapido:hover {
-  border-color: #9dc4ef;
-  background: #f3f8ff;
+  border-color: var(--portal-azul-700);
+  background: var(--portal-azul-100);
 }
 
 .portal-rrhh-accesos {
