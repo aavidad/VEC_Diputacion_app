@@ -17,6 +17,17 @@ const ACCIONES_PENDIENTES = Object.freeze({
   ia: ["probar_conexion", "activar_ia"],
 });
 
+const CAMPOS_PENDIENTES = Object.freeze({
+  roles: ["campo_identidad", "campo_perfil", "campo_ambito"],
+  catalogos: ["campo_catalogo", "campo_version"],
+  calendarios: ["campo_calendario", "campo_vigencia"],
+  reglas: ["campo_regla", "campo_version"],
+  conectores: ["campo_conector", "campo_destino"],
+  modulos: ["campo_modulo", "campo_version"],
+  privacidad: ["campo_politica", "campo_vigencia"],
+  ia: ["ia_endpoint", "ia_modelo", "ia_indice"],
+});
+
 let secuenciaVista = 0;
 
 function crear(documento, etiqueta, texto = "", clase = "") {
@@ -34,14 +45,15 @@ function contenidoPendiente(documento, t, clave) {
   const cuerpo = crear(documento, "div", "", "cuerpo-panel administracion-configuracion-cuerpo");
   cuerpo.append(crear(documento, "p", t("sin_fuente")));
 
-  if (clave === "ia") {
-    const campos = crear(documento, "div", "", "administracion-ia-campos");
-    for (const campo of ["ia_endpoint", "ia_modelo", "ia_indice"]) {
+  if (CAMPOS_PENDIENTES[clave]) {
+    const campos = crear(documento, "div", "", "administracion-campos");
+    for (const campo of CAMPOS_PENDIENTES[clave]) {
       const etiqueta = crear(documento, "label", t(campo));
       const entrada = crear(documento, "input");
       entrada.type = "text";
       entrada.value = "";
       entrada.disabled = true;
+      entrada.autocomplete = "off";
       entrada.setAttribute("aria-label", t(campo) + " · " + t("no_configurado"));
       etiqueta.append(entrada);
       campos.append(etiqueta);
@@ -140,6 +152,7 @@ export function montarVistaAdministracion({ raiz, anunciar = () => {}, registrar
     cuerpo.id = idVista + "-panel";
     cuerpo.setAttribute("role", "tabpanel");
     cuerpo.setAttribute("aria-labelledby", idVista + "-tab-" + pestana);
+    cuerpo.tabIndex = 0;
     seccion.append(cabecera, estado, nav, cuerpo);
     raiz.append(seccion);
     if (pestana === "apariencia") vistaApariencia = montarVistaApariencia({ raiz: cuerpo, anunciar, t });

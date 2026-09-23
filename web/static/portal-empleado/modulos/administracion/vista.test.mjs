@@ -46,17 +46,22 @@ test("ADMIN solo muestra no configurado y controles vacíos sin fuente", () => {
   assert.equal(raiz.buscar((n) => n.dataset.configuracionEstado === "no_configurado")?.etiqueta, "section");
   assert.deepEqual(PESTANAS_ADMINISTRACION, ["resumen", "roles", "catalogos", "calendarios", "reglas", "conectores", "modulos", "privacidad", "ia", "apariencia"]);
 
-  raiz.buscar((n) => n.dataset.administracionPestana === "roles").emitir("click");
+  raiz.buscar((n) => n.dataset.administracionPestana === "resumen").emitir("keydown", { key: "ArrowRight" });
+  assert.equal(documento.activeElement?.textContent, "Roles y permisos");
   const guardar = raiz.buscar((n) => n.etiqueta === "button" && n.textContent === "Guardar asignación");
   assert.equal(guardar.disabled, true);
   assert.equal(raiz.buscar((n) => n.dataset.configuracionEstado === "no_configurado")?.etiqueta, "section");
 
-  raiz.buscar((n) => n.dataset.administracionPestana === "ia").emitir("click");
-  const campos = raiz.buscar((n) => n.className === "administracion-ia-campos");
-  assert.equal(campos.children.length, 3);
-  for (const etiqueta of campos.children) {
-    assert.equal(etiqueta.children[0].value, "");
-    assert.equal(etiqueta.children[0].disabled, true);
+  const cantidades = { roles: 3, catalogos: 2, calendarios: 2, reglas: 2, conectores: 2, modulos: 2, privacidad: 2, ia: 3 };
+  for (const [clave, cantidad] of Object.entries(cantidades)) {
+    raiz.buscar((n) => n.dataset.administracionPestana === clave).emitir("click");
+    const campos = raiz.buscar((n) => n.className === "administracion-campos");
+    assert.equal(campos.children.length, cantidad, clave);
+    for (const etiqueta of campos.children) {
+      assert.equal(etiqueta.children[0].value, "", clave);
+      assert.equal(etiqueta.children[0].disabled, true, clave);
+    }
+    assert.equal(raiz.buscar((n) => n.getAttribute("role") === "tabpanel")?.tabIndex, 0);
   }
   vista.desmontar();
   assert.deepEqual(raiz.children, []);

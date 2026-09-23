@@ -8,14 +8,15 @@
 .administracion-pestanas button[aria-selected="true"] { border-color: var(--portal-borde); border-bottom-color: var(--portal-superficie); background: var(--portal-superficie); }
 .administracion-configuracion-cuerpo { display: grid; gap: 1rem; }
 .administracion-configuracion-cuerpo > p { margin: 0; }
-.administracion-ia-campos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem; }
-.administracion-ia-campos label { display: grid; gap: .3rem; color: var(--portal-muted); font-size: .82rem; font-weight: 700; }
-.administracion-ia-campos input { min-width: 0; min-height: 2.4rem; padding: .48rem .6rem; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio); background: var(--portal-fondo); color: var(--portal-muted); }
+.administracion-campos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem; }
+.administracion-campos label { display: grid; gap: .3rem; color: var(--portal-muted); font-size: .82rem; font-weight: 700; }
+.administracion-campos input { min-width: 0; min-height: 2.4rem; padding: .48rem .6rem; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio); background: var(--portal-fondo); color: var(--portal-muted); }
+.administracion-configuracion:focus-visible, .administracion-apariencia-raiz:focus-visible { outline: 3px solid var(--portal-foco); outline-offset: 2px; }
 .administracion-acciones { display: flex; flex-wrap: wrap; gap: .6rem; }
 .administracion-limite { padding: .65rem .75rem; border-left: .3rem solid var(--portal-aviso); background: var(--portal-aviso-suave); font-size: .85rem; }
 .administracion-accion { min-height: 2.4rem; padding: .5rem .75rem; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio); background: var(--portal-fondo); color: var(--portal-muted); font-weight: 700; }
 .administracion-accion:disabled { cursor: not-allowed; opacity: .72; }
-@media (max-width: 850px) { .administracion-ia-campos { grid-template-columns: 1fr; } }
+@media (max-width: 850px) { .administracion-campos { grid-template-columns: 1fr; } }
 @media (max-width: 480px) { .administracion-pestanas { flex-wrap: nowrap; overflow-x: auto; }.administracion-pestanas button { white-space: nowrap; } }
 
 .administracion-apariencia-raiz { min-width: 0; min-height: 0; }
