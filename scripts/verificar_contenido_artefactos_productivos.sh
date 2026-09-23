@@ -161,6 +161,9 @@ transportes_mtls_revisados=(
 	static/portal-empleado/portal-catalogo-modulos.js
 	static/portal-empleado/modulos/contratacion-temporal/cliente-http.js
 	static/portal-empleado/modulos/contratacion-temporal/cliente-http-llamamiento.js
+	# Descarga de los borradores PDF/Word: POST a ruta interna fija, same-origin,
+	# no-store, redirect error y no-referrer, como cliente-http.js (revisado 23/09).
+	static/portal-empleado/modulos/contratacion-temporal/cliente-http-informe-definitivo.js
 	static/portal-empleado/modulos/personal/cliente-http-categorias.js
 	static/portal-empleado/peticiones-centro/peticiones-centro.js
 	static/portal-empleado/organizacion/organizacion.js
