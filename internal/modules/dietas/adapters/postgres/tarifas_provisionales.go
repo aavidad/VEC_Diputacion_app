@@ -16,12 +16,7 @@ var ErrTarifaProvisionalNoDisponible = errors.New("dietas: tarifa provisional no
 
 // TarifaComisionProvisional une solo importes propios de Dietas. El grupo lo
 // resuelve Personal; el cliente HTTP nunca lo selecciona como autoridad.
-type TarifaComisionProvisional struct {
-	Dieta      domain.TarifaNacionalProvisional
-	EURPorKM   string
-	Vehiculo   string
-	Referencia string
-}
+type TarifaComisionProvisional = domain.TarifaComisionProvisional
 
 type consultaTarifaProvisional interface {
 	QueryRow(context.Context, string, ...any) pgx.Row

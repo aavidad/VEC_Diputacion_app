@@ -2,6 +2,7 @@
 package httpinterno
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -29,6 +30,9 @@ var (
 type ManejadorBorradores struct {
 	identidades dietasports.ResolutorIdentidadEfectivaBorrador
 	casoUso     dietasapp.CasoUsoBorradorComision
+	preparador  interface {
+		Preparar(context.Context, dietasports.SolicitudCrearBorradorPropio) (dietasports.SolicitudCrearBorradorPropio, error)
+	}
 }
 
 func NuevoManejadorBorradores(identidades dietasports.ResolutorIdentidadEfectivaBorrador, casoUso dietasapp.CasoUsoBorradorComision) (*ManejadorBorradores, error) {
@@ -36,6 +40,20 @@ func NuevoManejadorBorradores(identidades dietasports.ResolutorIdentidadEfectiva
 		return nil, ErrManejadorNoDisponible
 	}
 	return &ManejadorBorradores{identidades: identidades, casoUso: casoUso}, nil
+}
+
+func NuevoManejadorBorradoresConCalculo(identidades dietasports.ResolutorIdentidadEfectivaBorrador, casoUso dietasapp.CasoUsoBorradorComision, preparador interface {
+	Preparar(context.Context, dietasports.SolicitudCrearBorradorPropio) (dietasports.SolicitudCrearBorradorPropio, error)
+}) (*ManejadorBorradores, error) {
+	if dependenciaNula(preparador) {
+		return nil, ErrManejadorNoDisponible
+	}
+	m, err := NuevoManejadorBorradores(identidades, casoUso)
+	if err != nil {
+		return nil, err
+	}
+	m.preparador = preparador
+	return m, nil
 }
 
 func (m *ManejadorBorradores) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -109,7 +127,19 @@ func (m *ManejadorBorradores) atenderColeccion(w http.ResponseWriter, r *http.Re
 			FechaFin:          entrada.FechaFin,
 			Motivo:            entrada.Motivo,
 			CodigosRuta:       entrada.CodigosRuta,
+			HoraInicio:        entrada.HoraInicio,
+			HoraFin:           entrada.HoraFin,
 			RelacionRef:       entrada.RelacionRef,
+		}
+		// El material V3 vincula la instantánea calculada al comando exacto.
+		// La frontera mTLS protege la ruta antes de este cálculo servidor.
+		if m.preparador != nil {
+			preparada, err := m.preparador.Preparar(r.Context(), solicitud)
+			if err != nil {
+				responderErrorClasificado(w, err)
+				return
+			}
+			solicitud = preparada
 		}
 		operacion := dietasports.SolicitudOperacionBorrador{Operacion: dietasports.OperacionCrearBorrador, Crear: solicitud, RelacionRef: solicitud.RelacionRef}
 		identidad, err := m.identidades.ResolverIdentidadEfectivaBorrador(r.Context(), operacion)
@@ -139,6 +169,8 @@ type solicitudCrearJSON struct {
 	FechaFin          string   `json:"fecha_fin"`
 	Motivo            string   `json:"motivo"`
 	CodigosRuta       []string `json:"codigos_ruta"`
+	HoraInicio        string   `json:"hora_inicio"`
+	HoraFin           string   `json:"hora_fin"`
 	RelacionRef       string   `json:"relacion_ref"`
 }
 

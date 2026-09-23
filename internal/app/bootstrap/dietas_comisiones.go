@@ -15,7 +15,11 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"vec-diputacion-granada/config"
+	dietas "vec-diputacion-granada/internal/modules/dietas"
 	dietashttp "vec-diputacion-granada/internal/modules/dietas/adapters/httpinterno"
+	dietaspg "vec-diputacion-granada/internal/modules/dietas/adapters/postgres"
+	dietasapp "vec-diputacion-granada/internal/modules/dietas/application"
+	dietasports "vec-diputacion-granada/internal/modules/dietas/ports"
 	contextopg "vec-diputacion-granada/internal/vec/adapters/contextoactor/postgres"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	identidadpg "vec-diputacion-granada/internal/vec/adapters/httpseguridad/postgres"
@@ -344,7 +348,23 @@ func nuevasComisionesDietasDesarrollo(cfg config.Config, resolvedor vechttp.Demo
 	base := &autoridadRutasDietasDesarrollo{resolvedor: identidad, cuentas: cuentas, registro: registro, revalidador: revalidador, contextos: contextos, reloj: reloj, instancia: nonce}
 	a := &autoridadComisionesDietasDesarrollo{base: base, reloj: reloj, cuentas: cuentas, cerrar: cerrar}
 	seguridadComisiones := seguridadComisionesDietasDesarrollo{autoridad: a}
-	rutas, colecciones, err := componerBorradoresDietas(dependenciasBorradoresDietas{personal: propios.Personal(), dietas: propios.Dietas(), seguridad: seguridadComisiones, reloj: reloj, emisorPersonal: &emisorComisionesDietasDesarrollo{personal: emisores[0]}, emisorDietas: &emisorComisionesDietasDesarrollo{crear: emisores[1], consultar: emisores[2]}, motivoPersonal: c.MotivoPersonal, motivoDietas: c.MotivoCrear})
+	calculador, err := nuevoCasoUsoCalculoRutas(cfg)
+	if err != nil || calculador == nil {
+		return nil, ErrComposicionBorradoresDietasNoDisponible
+	}
+	tarifas, err := dietaspg.NuevoRepositorioTarifasProvisionales(propios.Dietas())
+	if err != nil {
+		return nil, ErrComposicionBorradoresDietasNoDisponible
+	}
+	puntos := map[string]dietasports.CoordenadaRuta{}
+	for _, punto := range dietas.ProvinceRoutePoints() {
+		puntos[punto.Code] = dietasports.CoordenadaRuta{Latitud: punto.Latitude, Longitud: punto.Longitude, Nombre: punto.Name}
+	}
+	preparador, err := dietasapp.NuevoPreparadorComision(puntos, calculador, tarifas)
+	if err != nil {
+		return nil, ErrComposicionBorradoresDietasNoDisponible
+	}
+	rutas, colecciones, err := componerBorradoresDietas(dependenciasBorradoresDietas{personal: propios.Personal(), dietas: propios.Dietas(), seguridad: seguridadComisiones, reloj: reloj, emisorPersonal: &emisorComisionesDietasDesarrollo{personal: emisores[0]}, emisorDietas: &emisorComisionesDietasDesarrollo{crear: emisores[1], consultar: emisores[2]}, motivoPersonal: c.MotivoPersonal, motivoDietas: c.MotivoCrear, preparador: preparador})
 	if err != nil {
 		return nil, err
 	}

@@ -4,7 +4,6 @@ package domain
 import (
 	"errors"
 	"regexp"
-	"sort"
 	"time"
 )
 
@@ -18,13 +17,14 @@ var (
 // ComisionBorrador es una declaración de comisión. No contiene cuantías,
 // kilometraje reconocido, tarifa, validación, liquidación ni pago.
 type ComisionBorrador struct {
-	Referencia  string   `json:"referencia"`
-	Estado      string   `json:"estado"`
-	FechaInicio string   `json:"fecha_inicio"`
-	FechaFin    string   `json:"fecha_fin"`
-	Motivo      string   `json:"motivo"`
-	CodigosRuta []string `json:"codigos_ruta"`
-	RelacionRef string   `json:"relacion_ref"`
+	Referencia  string           `json:"referencia"`
+	Estado      string           `json:"estado"`
+	FechaInicio string           `json:"fecha_inicio"`
+	FechaFin    string           `json:"fecha_fin"`
+	Motivo      string           `json:"motivo"`
+	CodigosRuta []string         `json:"codigos_ruta"`
+	RelacionRef string           `json:"relacion_ref"`
+	Calculo     *CalculoComision `json:"calculo,omitempty"`
 }
 
 func (c ComisionBorrador) Validar() error {
@@ -35,10 +35,15 @@ func (c ComisionBorrador) Validar() error {
 		len(c.CodigosRuta) > 16 {
 		return ErrComisionBorradorInvalida
 	}
-	for i, codigo := range c.CodigosRuta {
-		if !codigoRuta.MatchString(codigo) || (i > 0 && c.CodigosRuta[i-1] >= codigo) {
+	vistos := map[string]bool{}
+	for _, codigo := range c.CodigosRuta {
+		if !codigoRuta.MatchString(codigo) || vistos[codigo] {
 			return ErrComisionBorradorInvalida
 		}
+		vistos[codigo] = true
+	}
+	if c.Calculo != nil && c.Calculo.Validar(c.CodigosRuta) != nil {
+		return ErrComisionBorradorInvalida
 	}
 	return nil
 }
@@ -48,14 +53,6 @@ func NuevaComisionBorrador(referencia, inicio, fin, motivo, relacion string, cod
 	// campo. Así se conserva la misma preimagen y la misma respuesta en una
 	// recuperación idempotente.
 	copia := append([]string{}, codigos...)
-	sort.Strings(copia)
-	if len(copia) > 1 {
-		for i := 1; i < len(copia); i++ {
-			if copia[i-1] == copia[i] {
-				return ComisionBorrador{}, ErrComisionBorradorInvalida
-			}
-		}
-	}
 	c := ComisionBorrador{Referencia: referencia, Estado: "borrador", FechaInicio: inicio, FechaFin: fin, Motivo: motivo, CodigosRuta: copia, RelacionRef: relacion}
 	if c.Validar() != nil {
 		return ComisionBorrador{}, ErrComisionBorradorInvalida

@@ -25,7 +25,7 @@ func TestValidarSolicitudOperacionRechazaVariantesNoCanonicas(t *testing.T) {
 	casos := []dietasports.SolicitudOperacionBorrador{
 		{Operacion: dietasports.OperacionCrearBorrador, Crear: func() dietasports.SolicitudCrearBorradorPropio {
 			x := base
-			x.CodigosRuta = []string{"ruta:b", "ruta:a"}
+			x.CodigosRuta = []string{"ruta:a", "ruta:a"}
 			return x
 		}()},
 		{Operacion: dietasports.OperacionCrearBorrador, Crear: base, Consulta: dietasports.ConsultaBorradoresPropios{Limite: 1}},

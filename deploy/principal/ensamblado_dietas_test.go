@@ -25,6 +25,7 @@ func TestPaqueteDietasSeEnsamblaDesdeFuentesCanonicas(t *testing.T) {
 		"dietas_borradores/migraciones/000001_borrador_comision_durable.up.sql",
 		"dietas_borradores/migraciones/000002_tarifas_provisionales.up.sql",
 		"dietas_borradores/migraciones/000003_consulta_tarifas_provisionales.up.sql",
+		"dietas_borradores/migraciones/000004_calculo_comision.up.sql",
 	}
 	var esperado bytes.Buffer
 	esperado.WriteString("\\set ON_ERROR_STOP on\nBEGIN;\n")

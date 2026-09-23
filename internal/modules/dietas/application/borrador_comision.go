@@ -8,7 +8,6 @@ import (
 	"errors"
 	"reflect"
 	"regexp"
-	"sort"
 	"strconv"
 	"time"
 
@@ -183,11 +182,12 @@ type identidadOperacionBorradorV1 struct {
 	PerfilVersion      uint64 `json:"perfil_version"`
 }
 type crearOperacionBorradorV1 struct {
-	ClaveIdempotencia string   `json:"clave_idempotencia"`
-	FechaInicio       string   `json:"fecha_inicio"`
-	FechaFin          string   `json:"fecha_fin"`
-	Motivo            string   `json:"motivo"`
-	CodigosRuta       []string `json:"codigos_ruta"`
+	ClaveIdempotencia string                  `json:"clave_idempotencia"`
+	FechaInicio       string                  `json:"fecha_inicio"`
+	FechaFin          string                  `json:"fecha_fin"`
+	Motivo            string                  `json:"motivo"`
+	CodigosRuta       []string                `json:"codigos_ruta"`
+	Calculo           *domain.CalculoComision `json:"calculo,omitempty"`
 }
 type listaOperacionBorradorV1 struct {
 	Cursor string `json:"cursor"`
@@ -260,7 +260,7 @@ func construirEfectoAutorizacionBorradorActor(actor vecdomain.ContextoActor, rel
 	case solicitud.Operacion == dietasports.OperacionCrearBorrador:
 		operacion = "crear"
 		m.RecursoRef = "dietas:borradores:propios"
-		m.Comando = &crearOperacionBorradorV1{solicitud.Crear.ClaveIdempotencia, solicitud.Crear.FechaInicio, solicitud.Crear.FechaFin, solicitud.Crear.Motivo, append([]string{}, solicitud.Crear.CodigosRuta...)}
+		m.Comando = &crearOperacionBorradorV1{solicitud.Crear.ClaveIdempotencia, solicitud.Crear.FechaInicio, solicitud.Crear.FechaFin, solicitud.Crear.Motivo, append([]string{}, solicitud.Crear.CodigosRuta...), solicitud.Crear.Calculo}
 		m.HuellaSemantica, err = huellaSemanticaCrearBorrador(relacion, solicitud.Crear)
 		if err != nil {
 			return dietasports.EfectoAutorizacionBorrador{}, dietasports.ErrEfectoAutorizacionBorradorInvalido
@@ -353,18 +353,19 @@ var codigoRutaDietas = regexp.MustCompile(`^[A-Za-z0-9:_-]{1,64}$`)
 
 func normalizarSolicitudCrear(s dietasports.SolicitudCrearBorradorPropio) (dietasports.SolicitudCrearBorradorPropio, error) {
 	s.CodigosRuta = append([]string{}, s.CodigosRuta...)
-	sort.Strings(s.CodigosRuta)
-	for i := 1; i < len(s.CodigosRuta); i++ {
-		if s.CodigosRuta[i-1] == s.CodigosRuta[i] {
+	vistos := map[string]bool{}
+	for _, codigo := range s.CodigosRuta {
+		if vistos[codigo] {
 			return s, domain.ErrComisionBorradorInvalida
 		}
+		vistos[codigo] = true
 	}
 	return s, validarSolicitudCrear(s)
 }
 func validarSolicitudCrear(s dietasports.SolicitudCrearBorradorPropio) error {
 	i, e1 := time.Parse("2006-01-02", s.FechaInicio)
 	f, e2 := time.Parse("2006-01-02", s.FechaFin)
-	if !claveIdempotenciaDietas.MatchString(s.ClaveIdempotencia) || e1 != nil || e2 != nil || i.After(f) || len(s.Motivo) < 3 || len(s.Motivo) > 600 || len(s.CodigosRuta) > 16 || (s.RelacionRef != "" && !referenciaDietas(s.RelacionRef, "rel_")) {
+	if !claveIdempotenciaDietas.MatchString(s.ClaveIdempotencia) || e1 != nil || e2 != nil || i.After(f) || len(s.Motivo) < 3 || len(s.Motivo) > 600 || len(s.CodigosRuta) > 16 || (s.RelacionRef != "" && !referenciaDietas(s.RelacionRef, "rel_")) || (s.HoraInicio != "" && !horaSolicitudValida(s.HoraInicio)) || (s.HoraFin != "" && !horaSolicitudValida(s.HoraFin)) || (s.Calculo != nil && (s.Calculo.Validar(s.CodigosRuta) != nil || s.HoraInicio != s.Calculo.HoraInicio || s.HoraFin != s.Calculo.HoraFin)) {
 		return domain.ErrComisionBorradorInvalida
 	}
 	for _, r := range s.Motivo {
@@ -425,7 +426,7 @@ func validarSolicitudOperacion(s dietasports.SolicitudOperacionBorrador) error {
 }
 
 func solicitudesCrearIguales(a, b dietasports.SolicitudCrearBorradorPropio) bool {
-	if a.ClaveIdempotencia != b.ClaveIdempotencia || a.FechaInicio != b.FechaInicio || a.FechaFin != b.FechaFin || a.Motivo != b.Motivo || a.RelacionRef != b.RelacionRef || len(a.CodigosRuta) != len(b.CodigosRuta) {
+	if a.ClaveIdempotencia != b.ClaveIdempotencia || a.FechaInicio != b.FechaInicio || a.FechaFin != b.FechaFin || a.HoraInicio != b.HoraInicio || a.HoraFin != b.HoraFin || a.Motivo != b.Motivo || a.RelacionRef != b.RelacionRef || !reflect.DeepEqual(a.Calculo, b.Calculo) || len(a.CodigosRuta) != len(b.CodigosRuta) {
 		return false
 	}
 	for i := range a.CodigosRuta {
@@ -436,5 +437,9 @@ func solicitudesCrearIguales(a, b dietasports.SolicitudCrearBorradorPropio) bool
 	return true
 }
 func solicitudCrearVacia(s dietasports.SolicitudCrearBorradorPropio) bool {
-	return s.ClaveIdempotencia == "" && s.FechaInicio == "" && s.FechaFin == "" && s.Motivo == "" && s.RelacionRef == "" && len(s.CodigosRuta) == 0
+	return s.ClaveIdempotencia == "" && s.FechaInicio == "" && s.FechaFin == "" && s.HoraInicio == "" && s.HoraFin == "" && s.Calculo == nil && s.Motivo == "" && s.RelacionRef == "" && len(s.CodigosRuta) == 0
+}
+
+func horaSolicitudValida(s string) bool {
+	return len(s) == 5 && s[2] == ':' && s[:2] >= "00" && s[:2] <= "23" && s[3:] >= "00" && s[3:] <= "59"
 }

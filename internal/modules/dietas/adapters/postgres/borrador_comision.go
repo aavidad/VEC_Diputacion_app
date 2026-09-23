@@ -17,8 +17,8 @@ import (
 	dietasports "vec-diputacion-granada/internal/modules/dietas/ports"
 )
 
-const crearORecuperarBorradorSQL = `SELECT vec_dietas.crear_o_recuperar_borrador_propio_v1($1::text,$2::bytea,$3::bytea,$4::bytea,$5::bytea,$6::numeric,$7::numeric,$8::bytea,$9::bytea,$10::bytea,$11::bytea)`
-const consultarBorradoresSQL = `SELECT vec_dietas.consultar_borradores_propios_v1($1::text,$2::bytea,$3::bytea,$4::bytea,$5::bytea,$6::numeric,$7::numeric,$8::bytea,$9::bytea,$10::bytea,$11::bytea)`
+const crearORecuperarBorradorSQL = `SELECT vec_dietas.crear_o_recuperar_comision_calculada_v1($1::text,$2::bytea,$3::bytea,$4::bytea,$5::bytea,$6::numeric,$7::numeric,$8::bytea,$9::bytea,$10::bytea,$11::bytea)`
+const consultarBorradoresSQL = `SELECT vec_dietas.consultar_comisiones_calculadas_v1($1::text,$2::bytea,$3::bytea,$4::bytea,$5::bytea,$6::numeric,$7::numeric,$8::bytea,$9::bytea,$10::bytea,$11::bytea)`
 
 var referenciaReciboBorrador = regexp.MustCompile(`^rcd_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 var referenciaCursorComision = regexp.MustCompile(`^dco_[A-Za-z0-9_-]{22,128}$`)

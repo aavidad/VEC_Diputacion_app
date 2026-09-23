@@ -80,6 +80,9 @@ type SolicitudCrearBorradorPropio struct {
 	FechaFin          string
 	Motivo            string
 	CodigosRuta       []string
+	HoraInicio        string
+	HoraFin           string
+	Calculo           *domain.CalculoComision
 	RelacionRef       string
 }
 

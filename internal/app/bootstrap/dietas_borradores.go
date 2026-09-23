@@ -11,6 +11,7 @@ import (
 	dietashttp "vec-diputacion-granada/internal/modules/dietas/adapters/httpinterno"
 	dietaspostgres "vec-diputacion-granada/internal/modules/dietas/adapters/postgres"
 	dietasapp "vec-diputacion-granada/internal/modules/dietas/application"
+	dietasports "vec-diputacion-granada/internal/modules/dietas/ports"
 	personalcomp "vec-diputacion-granada/internal/modules/personal/adapters/composicion"
 	personalpostgres "vec-diputacion-granada/internal/modules/personal/adapters/postgres"
 	personalapp "vec-diputacion-granada/internal/modules/personal/application"
@@ -33,6 +34,9 @@ type dependenciasBorradoresDietas struct {
 	emisorDietas   dietascomp.EmisorMaterialBorradorV3
 	motivoPersonal vecdomain.ReferenciaEntradaCatalogo
 	motivoDietas   vecdomain.ReferenciaEntradaCatalogo
+	preparador     interface {
+		Preparar(context.Context, dietasports.SolicitudCrearBorradorPropio) (dietasports.SolicitudCrearBorradorPropio, error)
+	}
 }
 
 func componerBorradoresDietas(d dependenciasBorradoresDietas) ([]vechttp.RutaExacta, []vechttp.RutaColeccion, error) {
@@ -71,7 +75,12 @@ func componerBorradoresDietas(d dependenciasBorradoresDietas) ([]vechttp.RutaExa
 	if err != nil {
 		return nil, nil, ErrComposicionBorradoresDietasNoDisponible
 	}
-	manejador, err := dietashttp.NuevoManejadorBorradores(identidadDietas, servicio)
+	var manejador *dietashttp.ManejadorBorradores
+	if d.preparador != nil {
+		manejador, err = dietashttp.NuevoManejadorBorradoresConCalculo(identidadDietas, servicio, d.preparador)
+	} else {
+		manejador, err = dietashttp.NuevoManejadorBorradores(identidadDietas, servicio)
+	}
 	if err != nil {
 		return nil, nil, ErrComposicionBorradoresDietasNoDisponible
 	}
