@@ -74,6 +74,13 @@ test("la vista pura descarta trámites y selección si la consulta no está disp
   }
 });
 
+test("una bandeja vacía conserva catálogo y certificados autorizados sin inventar trámites", () => {
+  const vacio = { situacion: "vacio", datos, pestana: "nueva" };
+  assert.match(renderizarSolicitudes(vacio), /Servicios previos/);
+  assert.match(renderizarSolicitudes({ ...vacio, pestana: "certificados" }), /Períodos reconocidos/);
+  assert.doesNotMatch(renderizarSolicitudes({ ...vacio, pestana: "bandeja" }), /SOL-001|SOL-002/);
+});
+
 test("montaje consulta una vez, representa vacío, denegado y error, y cancela al desmontar", async () => {
   const raiz = raizFalsa();
   let consultas = 0;
