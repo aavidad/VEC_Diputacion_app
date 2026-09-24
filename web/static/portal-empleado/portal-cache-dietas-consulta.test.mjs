@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const raiz = new URL("./", import.meta.url);
-const versionEntradaNueva = "20260924-rescate-web-v2";
+const versionEntradaNueva = "20260924-rescate-web-v3";
 const versionCoordinadorNuevo = "20260924-web-paradas-periodos-v1";
 const versionVistaNueva = "20260924-web-paradas-periodos-v1";
 const versionAnteriorEntrada = "20260924-web-c-ayuda-v5";

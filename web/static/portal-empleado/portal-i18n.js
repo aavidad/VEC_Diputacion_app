@@ -1,5 +1,5 @@
 import { MENSAJES_AYUDA_PORTAL_ES } from "./portal-i18n-ayuda.js?v=20260924-ayuda-i18n-v1";
-import { MENSAJES_PANEL_INTERNO_ES } from "./portal-panel-interno-i18n.js?v=20260924-ayuda-panel-i18n-v2";
+import { MENSAJES_PANEL_INTERNO_ES } from "./portal-panel-interno-i18n.js?v=20260924-ayuda-panel-i18n-v3";
 
 /** Catálogo común de los estados del shell y del acceso a Borradores. */
 export const MENSAJES_PORTAL_ES = Object.freeze({

@@ -1,18 +1,18 @@
-import { crearControladorPortal } from "./portal-eventos.js?v=20260924-rescate-web-v2";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20260924-rescate-web-v2";
+import { crearControladorPortal } from "./portal-eventos.js?v=20260924-rescate-web-v3";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20260924-rescate-web-v3";
 import { extraerDatosEnvelopeCanonico } from "./portal-contrato.js?v=20260717-panel-interno-v1";
 import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?v=20260718-llamamientos-v1";
 import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20260718-llamamientos-v1";
-import { AYUDA_PORTAL_BOLSA, detectarContextoContratacionTemporal, obtenerAyudaContratacionTemporal, renderizarAyudaContratacionTemporal } from "./ayuda-contenido.js?v=20260924-rescate-web-v2";
-import { crearAyudanteTramites } from "./ayudante-tramites.js?v=20260924-rescate-web-v2";
+import { AYUDA_PORTAL_BOLSA, detectarContextoContratacionTemporal, obtenerAyudaContratacionTemporal, renderizarAyudaContratacionTemporal } from "./ayuda-contenido.js?v=20260924-rescate-web-v3";
+import { crearAyudanteTramites } from "./ayudante-tramites.js?v=20260924-rescate-web-v3";
 import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20260924-f2-cronos-permisos-v2";
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20260720-pulido-escritorio-v2";
 import { crearVistasOperaciones } from "./portal-vistas-operaciones.js?v=20260924-f2-shell-v1";
 import { crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, VISTAS_MODULOS_PERSONALES, VISTAS_PRESENTACION_VISUALES } from "./portal-modulos-coordinador.js?v=20260924-web-paradas-periodos-v1";
 import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260924-f2-cronos-permisos-v2";
 import { accesoBolsaEfectivo, instalarMenuBolsa, resumenAccesosModulos, sincronizarMenuBolsa, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260924-f2-shell-v1";
-import { traducirPortal } from "./portal-i18n.js?v=20260924-rescate-web-v2";
-import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20260924-rescate-web-v2";
+import { traducirPortal } from "./portal-i18n.js?v=20260924-rescate-web-v3";
+import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20260924-rescate-web-v3";
 import { crearSuperficieBorradorLlamamiento } from "./portal-borrador-llamamiento-ui.js?v=20260921-bback01-v1";
 import { consultarAvisosBolsa, manejarAccionAvisos } from "./portal-bolsas-avisos.js?v=20260923-pweb17-v1";
 const TAMANO_PAGINA_MARCO = 6; const tablasPaginadas = new WeakMap(); export function calcularPaginaMarco(total, paginaSolicitada, tamano = TAMANO_PAGINA_MARCO) { const cantidad = Number.isSafeInteger(total) && total > 0 ? total : 0; const medida = Number.isSafeInteger(tamano) && tamano > 0 ? tamano : TAMANO_PAGINA_MARCO; const paginas = Math.max(1, Math.ceil(cantidad / medida)); const pagina = Math.min(Math.max(Number.isSafeInteger(paginaSolicitada) ? paginaSolicitada : 1, 1), paginas); const inicio = cantidad === 0 ? 0 : ((pagina - 1) * medida) + 1; const fin = Math.min(pagina * medida, cantidad); return Object.freeze({ total: cantidad, tamano: medida, paginas, pagina, inicio, fin }); } function navegadorRemotoDeTabla(contenedor) { const padre = contenedor.parentElement; return padre?.querySelector(":scope > .ct-exp-paginacion, :scope > .paginacion-bolsa, :scope > nav[aria-label*='aginación'], :scope > nav[aria-label*='aginacion']") || null; } function botonesPaginaMarco(calculo) {

@@ -130,6 +130,51 @@ test("B7 recupera con la misma clave un 503 posterior al commit aunque se cancel
   } finally { globalThis.fetch = fetchOriginal; restaurar(); }
 });
 
+for (const status of [400, 409]) test(`B7 libera la clave tras rechazo definitivo ${status} y exige revisión antes de otra emisión`, async () => {
+  const restaurar = simularFormData();
+  const fetchOriginal = globalThis.fetch;
+  const envios = [];
+  const huella = (status === 400 ? "d" : "e").repeat(64);
+  globalThis.fetch = async (_url, opciones) => {
+    envios.push({ cuerpo: opciones.body, clave: opciones.headers["Idempotency-Key"] });
+    if (envios.length === 1) return { status, json: async () => ({
+      error: { codigo: status === 409 ? "clave_divergente" : "solicitud_invalida" },
+    }) };
+    const peticion = JSON.parse(opciones.body);
+    return { status: 201, json: async () => ({ data: {
+      llamamiento_ref: `llamamiento:${huella}`, recibo_ref: `recibo:llamamiento:${huella}`,
+      bolsa_ref: peticion.bolsa_ref, estado: "emitido_pendiente_respuesta",
+      participaciones: peticion.participaciones, configuracion: peticion.configuracion,
+      emitido_en: "2026-09-23T10:00:00Z", reutilizada: false,
+    } }) };
+  };
+  try {
+    const app = montar({ paso: 4 });
+    app.submit(4); await esperar();
+    assert.equal(envios.length, 1);
+    assert.equal(app.flujo.clave_idempotencia, "");
+    assert.equal(app.flujo.revision_obligatoria, true);
+    assert.match(app.html(), status === 400 ? /rechazó los datos del llamamiento \(400\)/ : /clave ya corresponde a otro llamamiento/);
+    assert.match(app.html(), /data-bolsa-accion="b7-revisar-configuracion"/);
+    assert.match(app.html(), /data-bolsa-accion="b7-volver-seleccion"/);
+    app.submit(4);
+    assert.equal(envios.length, 1, "otro clic sin revisar no repite el POST");
+    app.click("b7-revisar-configuracion");
+    assert.equal(app.flujo.paso, 3);
+    const campos = { ...configuracion, asunto: "Llamamiento revisado", cuerpo: "Texto revisado",
+      confirmacion: "on" };
+    globalThis.FormData = class { get(clave) { return campos[clave] ?? null; } };
+    app.submit(3);
+    assert.equal(app.flujo.paso, 4);
+    assert.equal(app.flujo.revision_obligatoria, false);
+    app.submit(4); await esperar();
+    assert.equal(envios.length, 2);
+    assert.notEqual(envios[1].clave, envios[0].clave);
+    assert.notEqual(envios[1].cuerpo, envios[0].cuerpo);
+    assert.equal(app.flujo.recibo, `recibo:llamamiento:${huella}`);
+  } finally { globalThis.fetch = fetchOriginal; restaurar(); }
+});
+
 test("B7 conserva un 201 tardío tras abrir una ficha desde avisos B5", async () => {
   const restaurar = simularFormData();
   const fetchOriginal = globalThis.fetch;

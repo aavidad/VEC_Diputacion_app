@@ -865,7 +865,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
         const seleccion = [...flujo.participaciones];
         if (!seleccion.length) { estado.filtrosBolsa.nuevo_llamamiento.error = "Seleccione al menos un candidato."; renderizar(); return; }
         if (seleccion.length > 100) { flujo.error = traducirBolsaInterna("b7_limite_envio"); renderizar(); return; }
-        Object.assign(flujo, { paso: 3, estados, participaciones: seleccion, error: "", seleccion_total: false }); renderizar(); return;
+        Object.assign(flujo, { paso: 3, estados, participaciones: seleccion, error: "", seleccion_total: false, revision_obligatoria: false }); renderizar(); return;
       }
       const paso3 = evento.target?.closest?.('[data-bolsa-form="b7-paso3"]');
       if (paso3) {
@@ -886,13 +886,14 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
         }
         flujo.error = "";
         flujo.error_422 = false;
+        flujo.revision_obligatoria = false;
         flujo.paso = 4;
         renderizar(); return;
       }
       const paso4 = evento.target?.closest?.('[data-bolsa-form="b7-paso4"]');
       if (paso4) {
         evento.preventDefault(); const datos = new FormData(paso4); const flujo=estado.filtrosBolsa?.nuevo_llamamiento;
-        if (!flujo || !datos.get("confirmacion") || flujo.enviando || flujo.recibo || flujo.acceso_denegado) return;
+        if (!flujo || !datos.get("confirmacion") || flujo.enviando || flujo.recibo || flujo.acceso_denegado || flujo.revision_obligatoria) return;
         if (emisionB7 && emisionB7.flujo !== flujo) return;
         if (emisionB7) restaurarComandoB7(emisionB7);
         if (!emisionB7 && (!flujo.participaciones?.length || flujo.participaciones.length > 100 || Number(paso4.dataset.cantidad) !== flujo.participaciones.length)) {
@@ -926,13 +927,18 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
             registro.estado = "confirmado";
             flujo.recibo = res.datos.recibo_ref;
             flujo.llamamiento_ref = res.datos.llamamiento_ref;
-          } else if (res.status === 422) {
+          } else if ([400, 409, 422].includes(res.status)) {
+            // Rechazo definitivo: el servidor no aplicó este comando. Una
+            // revisión podrá iniciar otra intención con una clave nueva.
             emisionB7 = null;
             flujo.recibo = "";
             flujo.llamamiento_ref = "";
             flujo.clave_idempotencia = "";
             flujo.error_422 = true;
-            flujo.error = traducirBolsaInterna("b7_emision_rechazada");
+            flujo.revision_obligatoria = res.status !== 422;
+            flujo.error = res.status === 422 ? traducirBolsaInterna("b7_emision_rechazada")
+              : res.status === 400 ? traducirPortal("panel_b7_solicitud_rechazada")
+              : res.mensaje;
           } else if ([401, 403].includes(res.status)) {
             registro.estado = "incierto";
             flujo.acceso_denegado = true;

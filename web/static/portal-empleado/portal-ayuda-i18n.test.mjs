@@ -48,7 +48,7 @@ test("la cadena de módulos renueva caché hasta el HTML", async () => {
   const [html, portal, ayuda, ayudante, i18n] = await Promise.all([
     "index.html", "portal.js", "ayuda-contenido.js", "ayudante-tramites.js", "portal-i18n.js",
   ].map((nombre) => readFile(new URL(nombre, import.meta.url), "utf8")));
-  const version = "20260924-rescate-web-v2";
+  const version = "20260924-rescate-web-v3";
   assert.match(html, new RegExp(`portal\\.js\\?v=${version}`));
   for (const nombre of ["ayuda-contenido.js", "ayudante-tramites.js", "portal-i18n.js"])
     assert.match(portal, new RegExp(`${nombre.replaceAll(".", "\\.")}\\?v=${version}`));
@@ -56,5 +56,5 @@ test("la cadena de módulos renueva caché hasta el HTML", async () => {
   assert.match(ayudante, new RegExp(`portal-i18n\\.js\\?v=${version}`));
   assert.match(ayudante, new RegExp(`ayuda-contenido\\.js\\?v=${version}`));
   assert.match(i18n, /portal-i18n-ayuda\.js\?v=20260924-ayuda-i18n-v1/u);
-  assert.match(i18n, /portal-panel-interno-i18n\.js\?v=20260924-ayuda-panel-i18n-v2/u);
+  assert.match(i18n, /portal-panel-interno-i18n\.js\?v=20260924-ayuda-panel-i18n-v3/u);
 });

@@ -254,7 +254,7 @@ test("el modo real renderiza solo indicadores, convocatorias y actuaciones acred
   assert.throws(() => presentador.renderizarVista("resumen"), /requiere un panel interno válido/);
 
   assert.match(javascript, /crearPresentadorPanelInterno/);
-  assert.match(javascript, /portal-panel-interno\.js\?v=20260924-rescate-web-v2/);
+  assert.match(javascript, /portal-panel-interno\.js\?v=20260924-rescate-web-v3/);
   for (const indicador of [
     "bolsas_activas", "llamamientos_pendientes", "llamamientos_en_curso",
     "documentos_pendientes_firma", "incidencias_abiertas",
@@ -270,7 +270,7 @@ test("el coordinador respeta DEC-051 y carga el presentador con versión de cach
   // presentación no aporta. Se congela el tamaño actual para que no crezca sin
   // decisión expresa.
   assert.ok(javascript.split(/\r?\n/).length - 1 <= 950, "portal.js debe mantenerse por debajo de 950 líneas");
-  assert.match(html, /portal\.js\?v=20260924-rescate-web-v2/);
+  assert.match(html, /portal\.js\?v=20260924-rescate-web-v3/);
   assert.match(javascript, /portal-modulos-coordinador\.js\?v=20260924-web-paradas-periodos-v1/);
   assert.doesNotMatch(html, /portal\.js\?v=20260924-web-c-ayuda-v5/);
   assert.doesNotMatch(javascript, /portal-modulos-coordinador\.js\?v=20260924-web-c-ayuda-v5/);
@@ -291,11 +291,11 @@ test("el coordinador respeta DEC-051 y carga el presentador con versión de cach
   assert.doesNotMatch(html, /portal\.js\?v=20260924-f2-cache-v3/);
   assert.doesNotMatch(javascript, /portal-modulos-coordinador\.js\?v=20260924-f2-cache-v3/);
   assert.match(javascript, /portal-inicio\.js\?v=20260924-f2-cronos-permisos-v2/);
-  assert.match(javascript, /portal-i18n\.js\?v=20260924-rescate-web-v2/);
+  assert.match(javascript, /portal-i18n\.js\?v=20260924-rescate-web-v3/);
   assert.match(javascript, /traducirPortal\("error_catalogo_modulos"\)/);
-  assert.match(javascript, /portal-bolsas-api\.js\?v=20260924-rescate-web-v2/);
+  assert.match(javascript, /portal-bolsas-api\.js\?v=20260924-rescate-web-v3/);
   assert.match(javascript, /portal-borradores-ui\.js\?v=20260924-f2-cronos-permisos-v2/);
-  assert.match(javascript, /portal-eventos\.js\?v=20260924-rescate-web-v2/);
+  assert.match(javascript, /portal-eventos\.js\?v=20260924-rescate-web-v3/);
   assert.doesNotMatch(javascript, /import\("\.\/portal-resumen-presentacion\.js/);
   assert.doesNotMatch(javascript, /^import .*portal-resumen-presentacion/m);
   assert.doesNotMatch(manifiestoProduccion, /portal-resumen-presentacion\.js/);

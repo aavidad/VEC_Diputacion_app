@@ -4,7 +4,7 @@ import test from "node:test";
 
 const raiz = new URL("./", import.meta.url);
 const version = "20260924-web-paradas-periodos-v1";
-const versionEntradaAyuda = "20260924-rescate-web-v2";
+const versionEntradaAyuda = "20260924-rescate-web-v3";
 const dietas = "modulos/dietas/";
 const cronos = "modulos/cronos/";
 

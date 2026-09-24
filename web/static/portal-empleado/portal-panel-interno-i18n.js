@@ -65,6 +65,7 @@ export const MENSAJES_PANEL_INTERNO_ES = Object.freeze({
   panel_b7_plazo_indicado: "Plazo de respuesta indicado por RRHH",
   panel_b7_plazo_ayuda: "Introduzca el plazo indicado por RRHH antes de continuar. Esta aplicación no presupone un plazo legal ni acredita la entrega del correo.",
   panel_b7_plazo_error: "Indique el plazo de respuesta comunicado por RRHH antes de revisar el llamamiento.",
+  panel_b7_solicitud_rechazada: "El servidor rechazó los datos del llamamiento (400). Revise la configuración o actualice la selección antes de emitir otra vez.",
   panel_b7_cuerpo_metadatos: "\n\nReferencia: {referencia}\nCategoría: {categoria}\nCentro: {centro}\nModalidad: {modalidad}\nFecha prevista: {fecha_inicio}\nPlazo de respuesta: {plazo}",
   panel_llamar_plazo_error: "Indique una fecha y hora válidas para el límite de respuesta antes de registrar el llamamiento.",
   panel_b7_descripcion_campo: "Descripción",
