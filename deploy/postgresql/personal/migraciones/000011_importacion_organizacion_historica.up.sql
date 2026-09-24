@@ -118,7 +118,7 @@ BEGIN
      'fase','hechos','lote_ref','manifiesto','perfil_ref','perfil_version','persona_version',
      'revision_esperada','revisor_actor_ref']
     OR m->>'esquema' IS DISTINCT FROM 'vec.personal.importacion-organizacion.v1'
-    OR v_fase NOT IN ('preparar','conciliar','publicar')
+    OR v_fase IS NULL OR v_fase NOT IN ('preparar','conciliar','publicar')
     OR v_org IS NULL OR v_org !~ '^[a-z][a-z0-9_:-]{2,127}$'
     OR v_fuente IS NULL OR length(v_fuente) NOT BETWEEN 3 AND 256
     OR v_clave IS NULL OR v_clave::text !~ '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
@@ -147,8 +147,11 @@ BEGIN
     OR (v_fase='conciliar' AND (v_lote IS NULL OR v_lote !~ '^lote:[0-9a-f-]{36}$' OR v_revision_esperada<1 OR jsonb_array_length(hechos)<>0 OR jsonb_array_length(nuevas) NOT BETWEEN 1 AND 1000)) THEN
   RAISE EXCEPTION 'fase de importación inválida' USING ERRCODE='22023';
  END IF;
- IF mf->>'tipo' NOT IN ('rpt','plantilla') OR mf->>'version_ref' !~ '^[0-9a-f-]{36}$'
-    OR (mf->>'version_revision')::integer<1 OR mf->>'fuente_huella_sha256' !~ '^[0-9a-f]{64}$'
+ -- Cada comparación es cerrada frente a NULL: una clave ausente nunca pasa.
+ IF coalesce(mf->>'tipo','') NOT IN ('rpt','plantilla')
+    OR coalesce(mf->>'version_ref','') !~ '^[0-9a-f-]{36}$'
+    OR coalesce(mf->>'version_revision','') !~ '^[1-9][0-9]{0,8}$'
+    OR coalesce(mf->>'fuente_huella_sha256','') !~ '^[0-9a-f]{64}$'
     OR mf->>'fuente_version' IS NULL OR length(mf->>'fuente_version') NOT BETWEEN 1 AND 160
     OR jsonb_typeof(mf->'catalogo_unidades') IS DISTINCT FROM 'object'
     OR jsonb_typeof(mf->'catalogo_clasificaciones') IS DISTINCT FROM 'object' THEN
@@ -184,11 +187,12 @@ BEGIN
  END IF;
  IF v_fase='preparar' THEN
   -- Lote y hechos quedan sellados; no se insertan en las tablas publicadas.
-  IF EXISTS (SELECT 1 FROM jsonb_array_elements(hechos) h WHERE jsonb_typeof(h)<>'object'
+  IF EXISTS (SELECT 1 FROM jsonb_array_elements(hechos) h WHERE jsonb_typeof(h) IS DISTINCT FROM 'object'
+      OR coalesce(h->>'clase','') NOT IN ('nodo','puesto_tipo','dotacion','plaza','puesto_individual','vinculo')
       OR h->>'organismo_ref' IS DISTINCT FROM v_org
-      OR h->>'hecho_ref' !~ '^[0-9a-f-]{36}$'
+      OR coalesce(h->>'hecho_ref','') !~ '^[0-9a-f-]{36}$'
       OR h->>'fila_fuente_ref' IS NULL
-      OR (h->>'revision')::integer<1)
+      OR coalesce(h->>'revision','') !~ '^[1-9][0-9]{0,8}$')
      OR (SELECT count(*) FROM jsonb_array_elements(hechos))<>
         (SELECT count(*) FROM (SELECT DISTINCT h->>'clase',h->>'hecho_ref' FROM jsonb_array_elements(hechos) h) u) THEN
    RAISE EXCEPTION 'hechos preparatorios inválidos' USING ERRCODE='22023';
@@ -212,14 +216,14 @@ BEGIN
      OR prev.manifiesto IS DISTINCT FROM mf THEN
    RAISE EXCEPTION 'lote de importación ha cambiado' USING ERRCODE='P0112';
   END IF;
-  IF EXISTS (SELECT 1 FROM jsonb_array_elements(nuevas) x WHERE jsonb_typeof(x)<>'object'
-      OR x->>'resultado' NOT IN ('vinculada','pendiente','descartada')
-      OR x->>'clase' NOT IN ('unidad','clasificacion','puesto_tipo','dotacion','plaza','puesto_individual','vinculo')
+  IF EXISTS (SELECT 1 FROM jsonb_array_elements(nuevas) x WHERE jsonb_typeof(x) IS DISTINCT FROM 'object'
+      OR coalesce(x->>'resultado','') NOT IN ('vinculada','pendiente','descartada')
+      OR coalesce(x->>'clase','') NOT IN ('unidad','clasificacion','puesto_tipo','dotacion','plaza','puesto_individual','vinculo')
       OR length(coalesce(x->>'fila_fuente_ref','')) NOT BETWEEN 3 AND 256
       OR length(coalesce(x->>'evidencia_ref','')) NOT BETWEEN 3 AND 256
       OR length(coalesce(x->>'motivo','')) NOT BETWEEN 1 AND 2048
       OR (x->>'resultado'='vinculada' AND length(coalesce(x->>'destino_ref','')) NOT BETWEEN 3 AND 256)
-      OR (x->>'resultado'<>'vinculada' AND coalesce(x->>'destino_ref','')<>''))
+      OR (x->>'resultado' IS DISTINCT FROM 'vinculada' AND coalesce(x->>'destino_ref','')<>''))
      OR (SELECT count(*) FROM jsonb_array_elements(nuevas))<>
         (SELECT count(*) FROM (SELECT DISTINCT x->>'clase',x->>'fila_fuente_ref' FROM jsonb_array_elements(nuevas) x) u) THEN
    RAISE EXCEPTION 'decisiones de conciliación inválidas' USING ERRCODE='22023';
@@ -254,7 +258,7 @@ BEGIN
        WHERE x->>'fila_fuente_ref'=h->>'fila_fuente_ref'
          AND x->>'clase'=CASE WHEN h->>'clase'='nodo' THEN 'unidad' ELSE h->>'clase' END
          AND x->>'resultado'='vinculada'))
-     AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements(v_decisiones) x WHERE x->>'resultado'<>'vinculada') THEN
+     AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements(v_decisiones) x WHERE x->>'resultado' IS DISTINCT FROM 'vinculada') THEN
    v_estado:='conciliada';
   ELSE v_estado:='conciliacion_pendiente'; END IF;
  END IF;

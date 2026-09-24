@@ -13,7 +13,7 @@ BEGIN ISOLATION LEVEL SERIALIZABLE READ WRITE;
 SET LOCAL timezone='UTC';
 SET LOCAL search_path=pg_catalog;
 DO $casos$
-DECLARE mf jsonb; hechos jsonb; m text; d jsonb; c jsonb; h text; canon text; r jsonb; lote text; v_ref text; v_fase text; denegada boolean:=false;
+DECLARE mf jsonb; hechos jsonb; m text; d jsonb; c jsonb; h text; canon text; r jsonb; lote text; v_ref text; v_fase text; denegada boolean:=false; mal jsonb;
 BEGIN
  mf:=jsonb_build_object('organismo_ref','org:prueba','tipo','rpt',
   'version_ref','22222222-2222-4222-8222-222222222222','version_revision',1,
@@ -100,6 +100,50 @@ BEGIN
  EXCEPTION WHEN insufficient_privilege THEN denegada:=true;
  END;
  IF NOT denegada THEN RAISE EXCEPTION 'publicación sin autoridad no denegada'; END IF;
+ -- Claves ausentes: la tabla es inmutable, así que ningún NULL puede pasar
+ -- una validación por comparación (NOT IN, !~ o cast) y quedar sellado.
+ FOR mal IN SELECT e FROM jsonb_array_elements(jsonb_build_array(
+   jsonb_build_object('fase','conciliar','clave','dddddddd-dddd-4ddd-8ddd-dddddddddddd','manifiesto',mf,'hechos','[]'::jsonb,
+    'decisiones',jsonb_build_array(jsonb_build_object('fila_fuente_ref','fila:uno','clase','unidad',
+     'motivo','sin resultado','evidencia_ref','evidencia:dos'))),
+   jsonb_build_object('fase','conciliar','clave','eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee','manifiesto',mf,'hechos','[]'::jsonb,
+    'decisiones',jsonb_build_array(jsonb_build_object('fila_fuente_ref','fila:uno','resultado','pendiente',
+     'motivo','sin clase','evidencia_ref','evidencia:dos'))),
+   jsonb_build_object('fase','preparar','clave','ffffffff-ffff-4fff-8fff-ffffffffffff','manifiesto',mf,
+    'hechos',jsonb_build_array((hechos->0)-'clase'),'decisiones','[]'::jsonb),
+   jsonb_build_object('fase','preparar','clave','abababab-abab-4bab-8bab-abababababab','manifiesto',mf,
+    'hechos',jsonb_build_array((hechos->0)-'revision'),'decisiones','[]'::jsonb),
+   jsonb_build_object('fase','preparar','clave','cdcdcdcd-cdcd-4dcd-8dcd-cdcdcdcdcdcd','manifiesto',mf,
+    'hechos',jsonb_build_array(jsonb_set(hechos->0,'{clase}','"inventada"')),'decisiones','[]'::jsonb),
+   jsonb_build_object('fase','preparar','clave','efefefef-efef-4fef-8fef-efefefefefef','manifiesto',mf-'tipo',
+    'hechos',hechos,'decisiones','[]'::jsonb),
+   jsonb_build_object('fase','preparar','clave','12121212-1212-4212-8212-121212121212','manifiesto',mf-'version_revision',
+    'hechos',hechos,'decisiones','[]'::jsonb))) e LOOP
+  v_fase:=mal->>'fase'; v_ref:=CASE WHEN v_fase='preparar' THEN 'org:prueba' ELSE lote END;
+  m:=jsonb_build_object('esquema','vec.personal.importacion-organizacion.v1','fase',v_fase,
+   'lote_ref',CASE WHEN v_fase='preparar' THEN '' ELSE lote END,
+   'revision_esperada',CASE WHEN v_fase='preparar' THEN 0 ELSE 2 END,
+   'clave_idempotencia',mal->>'clave','correlacion_ref','corr:null','manifiesto',mal->'manifiesto',
+   'hechos',mal->'hechos','decisiones',mal->'decisiones','revisor_actor_ref','','actor_ref','actor:uno',
+   'contexto_ref','contexto:uno','perfil_ref','perfil:uno','persona_version',1,'perfil_version',1)::text;
+  canon:='{"ambitos":{"organismo_ref":"org:prueba"},"atributos":{"fase":"'||v_fase||'","fuente_ref":"fuente:prueba","lote_ref":"'||v_ref||'","material_sha256":"'||encode(sha256(convert_to(m,'UTF8')),'hex')||'"}}';
+  h:=encode(sha256(convert_to(canon,'UTF8')),'hex');
+  d:=jsonb_set(d,'{accion}',to_jsonb('personal.organizacion_historica.'||v_fase));
+  d:=jsonb_set(d,'{finalidad}',to_jsonb(v_fase||'_organizacion_historica'));
+  d:=jsonb_set(d,'{decision_ref}',to_jsonb('decision:null:'||(mal->>'clave')));
+  d:=jsonb_set(d,'{recurso_ref}',to_jsonb(v_ref));
+  d:=jsonb_set(d,'{contexto_recurso_huella_sha256}',to_jsonb(h));
+  c:=jsonb_set(c,'{operacion}',to_jsonb('personal.organizacion_historica.'||v_fase));
+  c:=jsonb_set(c,'{efecto_ref}',to_jsonb(v_ref));
+  c:=jsonb_set(c,'{huella_efecto_sha256}',to_jsonb(h));
+  denegada:=false;
+  BEGIN
+   PERFORM vec_personal.ejecutar_importacion_organizacion_v1(m,NULL,convert_to(c::text,'UTF8'),
+    convert_to(d::text,'UTF8'),'m'::bytea,'x'::bytea,1,1,'p'::bytea,'s'::bytea,'e'::bytea,'r'::bytea);
+  EXCEPTION WHEN SQLSTATE '22023' THEN denegada:=true;
+  END;
+  IF NOT denegada THEN RAISE EXCEPTION 'material con clave ausente aceptado: %',mal->>'clave'; END IF;
+ END LOOP;
 END $casos$;
 COMMIT;
 RESET SESSION AUTHORIZATION;
