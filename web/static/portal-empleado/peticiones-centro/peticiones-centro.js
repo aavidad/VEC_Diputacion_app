@@ -81,6 +81,10 @@ const TEXTO = Object.freeze({
   rrhhBandeja: "Abrir bandeja de expedientes",
   rrhhSinPeticiones: "No hay peticiones disponibles para Recursos Humanos.",
   rrhhError: "No se pudo completar el registro en RRHH.",
+  accesoDenegado: "Acceso denegado. Se han retirado los datos de esta vista; las actuaciones ya registradas permanecen en el servidor.",
+  lecturaFallida: "No se pudo verificar el acceso por un fallo temporal. Se han retirado los datos de esta vista. Reintente la consulta antes de continuar.",
+  operacionConfirmadaOculta: "La operación se registró, pero ahora no se puede consultar su recibo desde esta vista.",
+  operacionInciertaOculta: "Hay una operación cuyo resultado sigue sin confirmarse. No inicie otra; consulte con RRHH si el acceso no se recupera.",
 });
 const MENSAJES = Object.freeze({
   ...MENSAJES_CONTRATACION_TEMPORAL_ES,
@@ -149,9 +153,15 @@ export async function pedir(ruta, { method = "GET", cuerpo, signal } = {}) {
       headers: cuerpo === undefined ? {} : { "Content-Type": "application/json; charset=utf-8" },
       body: cuerpo === undefined ? undefined : JSON.stringify(cuerpo),
     });
+    if (esDenegacion({ status: respuesta.status })) {
+      throw Object.assign(new Error(TEXTO.accesoDenegado), { status: respuesta.status });
+    }
     const texto = await leerCuerpoLimitado(respuesta);
     let data = null;
-    try { data = texto ? JSON.parse(texto) : null; } catch { throw Object.assign(new Error(TEXTO.error), { indeterminado: true }); }
+    try { data = texto ? JSON.parse(texto) : null; } catch {
+      if (!respuesta.ok) throw Object.assign(new Error(TEXTO.error), { status: respuesta.status });
+      throw Object.assign(new Error(TEXTO.error), { indeterminado: true });
+    }
     if (!respuesta.ok) throw Object.assign(new Error(data?.error?.codigo || TEXTO.error), { status: respuesta.status, payload: data });
     return data?.data;
   } catch (error) {
@@ -167,6 +177,12 @@ export async function pedir(ruta, { method = "GET", cuerpo, signal } = {}) {
 function estadoBase(catalogos, borrador, extra = {}) {
   return { disponible: true, ocupado: false, fase: "edicion", borrador, catalogos,
     errores: {}, mensaje_clave: "estado_disponible", tipo_mensaje: "informacion", ...extra };
+}
+
+function esDenegacion(error) { return [401, 403].includes(error?.status); }
+
+function vistaSinDatos(cabecera, modo, mensaje, accionRecargar) {
+  return `${cabecera}<section class="pc-panel pc-detalle" role="alert"><h2>${esc(modo === "denegado" ? "Acceso denegado" : "Consulta no disponible")}</h2><p>${esc(mensaje)}</p>${modo === "sin_verificar" ? `<div class="pc-acciones"><button type="button" class="boton-secundario" data-accion="${esc(accionRecargar)}">${esc("Reintentar consulta")}</button></div>` : ""}</section>`;
 }
 
 function fecha(valor, hora = false) {
@@ -256,6 +272,7 @@ export function renderizarPeticionesCentroRRHH({ peticiones = [], entrega = null
   const peticion = entrega?.peticion;
   const cabecera = `<section class="pc-cabecera"><p class="sobrelinea">${esc(TEXTO.rrhhSobrelinea)}</p><h1>${esc(TEXTO.rrhhTitulo)}</h1><p>${esc(TEXTO.rrhhDescripcion)}</p><div class="pc-etiquetas"><span class="pc-etiqueta">${esc(TEXTO.ficticio)}</span></div></section>`;
   const error = mensaje ? `<p class="pc-error" role="alert">${esc(mensaje)}</p>` : "";
+  if (modo === "denegado" || modo === "sin_verificar") return vistaSinDatos(cabecera, modo, mensaje, "recargar-rrhh");
   if (modo === "confirmar") return `${cabecera}${error}<section class="pc-panel pc-detalle"><h2>${esc(TEXTO.rrhhConfirmar)}</h2>${detallePeticion(peticion, null)}<p class="pc-aviso">${esc(TEXTO.rrhhAviso)}</p><label class="pc-confirmacion"><input type="checkbox" name="confirmacion-alta-rrhh"${confirmado ? " checked" : ""}> ${esc(TEXTO.rrhhConfirmacion)}</label><div class="pc-acciones"><button type="button" class="boton-secundario" data-accion="cancelar-alta-rrhh">${esc(TEXTO.cancelar)}</button><button type="button" class="boton-primario" data-accion="confirmar-alta-rrhh">${esc(TEXTO.rrhhConfirmar)}</button></div></section>`;
   if (modo === "pendiente") return `${cabecera}<section class="pc-panel pc-pendiente" role="status"><h2>${esc(TEXTO.estadoPendiente)}</h2><p>${esc(TEXTO.rrhhAviso)}</p><div class="pc-acciones"><button type="button" class="boton-primario" data-accion="reintentar-alta-rrhh">${esc("Reintentar la misma operación")}</button></div></section>`;
   const detalle = `<aside class="pc-panel pc-detalle"><h2>${esc(TEXTO.detalle)}</h2>${detallePeticion(peticion, null)}${entrega?.recibo_alta && !recibo ? reciboAltaRRHHHTML(entrega.recibo_alta) : ""}${["pendiente", "preparada"].includes(entrega?.estado_entrega) ? `<div class="pc-acciones"><button type="button" class="boton-primario" data-accion="abrir-alta-rrhh">${esc(entrega.estado_entrega === "preparada" ? TEXTO.rrhhCompletar : TEXTO.rrhhConfirmar)}</button></div>` : ""}</aside>`;
@@ -271,7 +288,7 @@ export async function registrarAltaRRHH(cliente, comando) {
       || !Number.isFinite(Date.parse(recibo.confirmada_en))) throw new Error(TEXTO.rrhhError);
     return resultado;
   } catch (error) {
-    if ([400, 403, 409].includes(error?.status)) throw error;
+    if ([400, 401, 403, 409].includes(error?.status)) throw error;
     throw Object.assign(new Error(TEXTO.estadoPendiente), { indeterminado: true });
   }
 }
@@ -289,6 +306,10 @@ function formularioHTML(contexto, estado, revision) {
 export function renderizarPeticionCentro({ contexto, peticiones = [], peticion = null, modo = "bandeja", estado = null, recibo = null, mensaje = "", motivo = "", confirmado = false } = {}) {
   const actor = contexto?.actor;
   const esSolicitante = actor?.puede_presentar && !actor?.puede_ratificar;
+  if (modo === "denegado" || modo === "sin_verificar") {
+    const cabeceraSegura = `<section class="pc-cabecera"><p class="sobrelinea">${esc(TEXTO.sobrelinea)}</p><h1>${esc(TEXTO.titulo)}</h1></section>`;
+    return vistaSinDatos(cabeceraSegura, modo, mensaje, "recargar");
+  }
   const cabecera = `<section class="pc-cabecera"><p class="sobrelinea">${esc(TEXTO.sobrelinea)}</p><h1>${esc(TEXTO.titulo)}</h1><p>${esc(TEXTO.descripcion)}</p><div class="pc-etiquetas"><span class="pc-etiqueta">${esc(TEXTO.ficticio)}</span><span class="pc-etiqueta">${esc(TEXTO.pendienteEntrada)}</span></div><p>${esc(TEXTO.identidadAviso)}</p><p>${esc(actor?.nombre || "—")} · ${esc(actor?.cargo || "—")} · ${esc(actor?.centro || "—")}</p></section>`;
   const error = mensaje ? `<p class="pc-error" role="alert">${esc(mensaje)}</p>` : "";
   if (modo === "formulario") return `${cabecera}${error}${formularioHTML(contexto, estado, false)}`;
@@ -311,7 +332,7 @@ export async function registrarOperacionPeticionCentro(cliente, comando, actorRe
   } catch (error) {
     // Solo un rechazo explícito permite descartar la clave. Transporte, lectura
     // o recibo inválido no prueban que PostgreSQL no haya confirmado.
-    if ([400, 403, 409].includes(error?.status)) throw error;
+    if ([400, 401, 403, 409].includes(error?.status)) throw error;
     throw Object.assign(new Error(TEXTO.estadoPendiente), { indeterminado: true });
   }
 }
@@ -320,6 +341,12 @@ export async function iniciarPeticionesCentroRRHH({ raiz = document.querySelecto
   if (!raiz) throw new TypeError("falta la raíz de la aplicación");
   let peticiones = []; let entrega = null; let modo = "bandeja"; let recibo = null; let mensaje = "";
   let ocupado = false; let operacionPendiente = null; let confirmado = false;
+  const retirarDatos = (error) => {
+    const confirmada = Boolean(recibo);
+    peticiones = []; entrega = null; recibo = null; confirmado = false;
+    modo = esDenegacion(error) ? "denegado" : "sin_verificar";
+    mensaje = `${modo === "denegado" ? TEXTO.accesoDenegado : TEXTO.lecturaFallida}${confirmada ? ` ${TEXTO.operacionConfirmadaOculta}` : ""}${operacionPendiente ? ` ${TEXTO.operacionInciertaOculta}` : ""}`;
+  };
   const dibujar = () => {
     raiz.innerHTML = renderizarPeticionesCentroRRHH({ peticiones, entrega, modo, confirmado, recibo, mensaje });
     raiz.setAttribute("aria-busy", String(ocupado));
@@ -335,8 +362,9 @@ export async function iniciarPeticionesCentroRRHH({ raiz = document.querySelecto
           || !["pendiente", "preparada", "confirmada"].includes(item.estado_entrega))) throw new Error(TEXTO.rrhhError);
       peticiones = bandeja.peticiones;
       entrega = peticiones.find((item) => item.peticion.referencia === entrega?.peticion?.referencia) || peticiones[0] || null;
+      if (modo === "denegado" || modo === "sin_verificar") modo = "bandeja";
       return true;
-    } catch (error) { mensaje = [401, 403].includes(error?.status) ? "Acceso reservado a Recursos Humanos." : TEXTO.rrhhError; return false; }
+    } catch (error) { retirarDatos(error); return false; }
     finally { if (!posterior) ocupado = false; dibujar(); }
   };
   const ejecutar = async (comando) => {
@@ -346,16 +374,20 @@ export async function iniciarPeticionesCentroRRHH({ raiz = document.querySelecto
       const resultado = await registrarAltaRRHH(cliente, comando);
       recibo = resultado.recibo_alta; entrega = { peticion: resultado.peticion, estado_entrega: resultado.estado_entrega, recibo_alta: resultado.recibo_alta };
       modo = "bandeja"; operacionPendiente = null;
-      // El recibo válido prevalece aunque falle la posterior lectura de bandeja.
-      if (!await cargar({ posterior: true })) mensaje = TEXTO.bandejaNoActualizada;
+      // La respuesta confirma el alta; una lectura posterior fallida retira
+      // el recibo de la vista e informa de que el registro sigue en el servidor.
+      await cargar({ posterior: true });
     } catch (error) {
-      if (error.indeterminado) { operacionPendiente = comando; modo = "pendiente"; mensaje = TEXTO.estadoPendiente; }
+      if (esDenegacion(error)) retirarDatos(error);
+      else if (error.indeterminado) { operacionPendiente = comando; modo = "pendiente"; mensaje = TEXTO.estadoPendiente; }
       else { modo = "bandeja"; mensaje = error.status === 409 ? TEXTO.conflicto : TEXTO.rrhhError; }
     } finally { ocupado = false; dibujar(); }
   };
   raiz.addEventListener("click", async (event) => {
     const control = event.target.closest?.("[data-accion], [data-seleccionar-rrhh]");
-    if (!control || ocupado || (operacionPendiente && control.dataset.accion !== "reintentar-alta-rrhh")) return;
+    if (!control || ocupado || modo === "denegado"
+      || (modo === "sin_verificar" && control.dataset.accion !== "recargar-rrhh")
+      || (operacionPendiente && control.dataset.accion !== "reintentar-alta-rrhh")) return;
     event.preventDefault();
     if (control.dataset.seleccionarRrhh) { entrega = peticiones.find((item) => item.peticion.referencia === control.dataset.seleccionarRrhh) || null; recibo = null; dibujar(); return; }
     if (control.dataset.accion === "recargar-rrhh") { await cargar(); return; }
@@ -381,6 +413,13 @@ export async function iniciarPeticionCentro({ raiz = document.querySelector("#ap
   let contexto; let peticiones = []; let peticion = null; let modo = "bandeja";
   let estado = null; let recibo = null; let mensaje = "";
   let ocupado = false; let operacionPendiente = null; let motivo = ""; let confirmado = false;
+  const retirarDatos = (error) => {
+    const confirmada = Boolean(recibo);
+    contexto = undefined; peticiones = []; peticion = null; estado = null; recibo = null;
+    motivo = ""; confirmado = false;
+    modo = esDenegacion(error) ? "denegado" : "sin_verificar";
+    mensaje = `${modo === "denegado" ? TEXTO.accesoDenegado : TEXTO.lecturaFallida}${confirmada ? ` ${TEXTO.operacionConfirmadaOculta}` : ""}${operacionPendiente ? ` ${TEXTO.operacionInciertaOculta}` : ""}`;
+  };
   const dibujar = () => {
     raiz.innerHTML = renderizarPeticionCentro({ contexto, peticiones, peticion, modo, estado, recibo, mensaje, motivo, confirmado });
     raiz.setAttribute("aria-busy", String(ocupado));
@@ -406,10 +445,9 @@ export async function iniciarPeticionCentro({ raiz = document.querySelector("#ap
       validarCatalogosAlta(nuevo.catalogos);
       contexto = nuevo;
       await cargarBandeja();
+      if (modo === "denegado" || modo === "sin_verificar") modo = "bandeja";
     } catch (error) {
-      mensaje = [401, 403].includes(error?.status)
-        ? "Acceso reservado al certificado de prueba del solicitante o del ratificador del centro. El certificado de RRHH no sustituye estas identidades."
-        : TEXTO.error;
+      retirarDatos(error);
     } finally { ocupado = false; dibujar(); }
   };
   const ejecutar = async (comando) => {
@@ -421,9 +459,11 @@ export async function iniciarPeticionCentro({ raiz = document.querySelector("#ap
       operacionPendiente = null; modo = "bandeja";
       // El fallo de una consulta posterior nunca convierte un recibo válido en
       // escritura pendiente ni invita a registrar otra vez.
-      try { await cargarBandeja(); } catch { mensaje = TEXTO.bandejaNoActualizada; }
+      try { await cargarBandeja(); } catch (error) { retirarDatos(error); }
     } catch (error) {
-      if (error.indeterminado) {
+      if (esDenegacion(error)) {
+        retirarDatos(error);
+      } else if (error.indeterminado) {
         operacionPendiente = cuerpo; modo = "pendiente"; mensaje = TEXTO.estadoPendiente;
       } else {
         operacionPendiente = null;
@@ -431,14 +471,16 @@ export async function iniciarPeticionCentro({ raiz = document.querySelector("#ap
         mensaje = error.status === 409 ? TEXTO.conflicto : TEXTO.error;
         if (error.status === 409) {
           modo = "bandeja";
-          try { await cargarBandeja(); } catch { mensaje = TEXTO.error; }
+          try { await cargarBandeja(); } catch (lecturaError) { retirarDatos(lecturaError); }
         }
       }
     } finally { ocupado = false; dibujar(); }
   };
   raiz.addEventListener("click", async (event) => {
     const control = event.target.closest?.("[data-accion], [data-seleccionar], [data-ct-accion], [data-ct-enfocar]");
-    if (!control || ocupado || (operacionPendiente && control.dataset.accion !== "reintentar")) return;
+    if (!control || ocupado || modo === "denegado"
+      || (modo === "sin_verificar" && control.dataset.accion !== "recargar")
+      || (operacionPendiente && control.dataset.accion !== "reintentar")) return;
     event.preventDefault();
     if (control.dataset.ctEnfocar) { raiz.querySelector(`#ct-${control.dataset.ctEnfocar}`)?.focus(); return; }
     const accion = control.dataset.accion || ({ volver: "editar", confirmar: "confirmar-presentar" })[control.dataset.ctAccion];
@@ -470,7 +512,7 @@ export async function iniciarPeticionCentro({ raiz = document.querySelector("#ap
   raiz.addEventListener("submit", (event) => {
     if (!event.target.matches("[data-ct-form]")) return;
     event.preventDefault();
-    if (ocupado || operacionPendiente) return;
+    if (ocupado || operacionPendiente || !contexto || ["denegado", "sin_verificar"].includes(modo)) return;
     const borrador = extraerBorradorPeticionCentro(event.target);
     const validacion = validarBorradorAlta(borrador, contexto.catalogos);
     estado = { ...estadoBase(contexto.catalogos, borrador), errores: validacion.errores, fase: validacion.valido ? "revision" : "edicion" };
@@ -480,7 +522,8 @@ export async function iniciarPeticionCentro({ raiz = document.querySelector("#ap
   raiz.addEventListener("change", (event) => {
     const campo = event.target.name;
     const formulario = event.target.closest?.("[data-ct-form]");
-    if (ocupado || operacionPendiente || !formulario || !["centro_ref", "categoria_ref", "rc_existe"].includes(campo)) return;
+    if (ocupado || operacionPendiente || !contexto || ["denegado", "sin_verificar"].includes(modo)
+      || !formulario || !["centro_ref", "categoria_ref", "rc_existe"].includes(campo)) return;
     const borrador = extraerBorradorPeticionCentro(formulario);
     if (campo === "centro_ref") borrador.contacto_ref = "";
     if (campo === "categoria_ref") borrador.grupo_subgrupo = "";
