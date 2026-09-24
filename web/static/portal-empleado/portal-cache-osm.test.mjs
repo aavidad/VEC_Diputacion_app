@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const raiz = new URL("./", import.meta.url);
-const version = "20260924-osm-base-v1";
+const version = "20260924-osm-base-v2";
 const dietas = "modulos/dietas/";
 
 test("OSM renueva cada consumidor immutable desde la entrada C hasta mapa e idiomas", async () => {
@@ -19,6 +19,8 @@ test("OSM renueva cada consumidor immutable desde la entrada C hasta mapa e idio
     [`${dietas}vista-itinerario.js`, "./mapa-ruta.js", null, 1],
     [`${dietas}vista-itinerario.js`, "./i18n-d4.js", "20260924-dietas-d1d2d4", 1],
     [`${dietas}vista-acceso-papeles.js`, "./i18n-d1.js", "20260924-dietas-d1d2d4", 1],
+    [`${dietas}i18n.js`, "./i18n-borradores.js", "20260924-dietas-d1d2d4", 1],
+    [`${dietas}vista-borradores-propios.js`, "./i18n-borradores.js", "20260924-dietas-d1d2d4", 1],
     ...["mapa-ruta.js", "vista-recorridos.js", "vista-itinerario.js", "vista-borradores-propios.js", "i18n-d1.js", "i18n-d4.js"]
       .map((padre) => [`${dietas}${padre}`, "./i18n.js", "20260924-dietas-d1d2d4", 1]),
   ];
@@ -34,12 +36,12 @@ test("OSM renueva cada consumidor immutable desde la entrada C hasta mapa e idio
   }
 });
 
-test("OSM incorpora el estilo de ayudas F1 y conserva el catálogo de borradores", async () => {
+test("OSM incorpora el estilo de ayudas F1 y renueva el catálogo de estado vacío", async () => {
   const html = await readFile(new URL("index.html", raiz), "utf8");
   const borradores = await readFile(new URL(`${dietas}vista-borradores-propios.js`, raiz), "utf8");
   assert.match(html, /dietas\/dietas\.css\?v=20260924-dietas-ayuda-icono-v1/u);
   assert.match(html, /portal\.css\?v=20260924-f2-salto-movil-v3/u);
-  assert.match(borradores, /i18n-borradores\.js\?v=20260924-dietas-d1d2d4/u);
+  assert.match(borradores, /i18n-borradores\.js\?v=20260924-osm-base-v2/u);
 });
 
 test("el mapa combinado descarga consumidores nuevos también después del corrector de ayudas F1", async () => {
@@ -53,4 +55,16 @@ test("el mapa combinado descarga consumidores nuevos también después del corre
     assert.equal(codigo.split(`${recurso}?v=${version}`).length - 1, cantidad, recurso);
     assert.ok(!codigo.includes(`${recurso}?v=${previa}`), `${padre}: no usa bytes de F1 anteriores al mapa`);
   }
+});
+
+test("la cadena final no pide módulos previos a la corrección Leaflet ni al estado vacío", async () => {
+  const padres = ["index.html", "portal.js", "portal-modulos-coordinador.js",
+    ...["i18n.js", "i18n-d1.js", "i18n-d4.js", "mapa-ruta.js", "vista-acceso-papeles.js",
+      "vista-borradores-propios.js", "vista-itinerario.js", "vista-recorridos.js"].map((nombre) => dietas + nombre)];
+  for (const padre of padres) {
+    const codigo = await readFile(new URL(padre, raiz), "utf8");
+    assert.doesNotMatch(codigo, /\.js\?v=20260924-(?:osm-base-v1|web-c-ayuda-v[456]|dietas-ayuda-sin-guia-v[12])["']/u, padre);
+  }
+  const html = await readFile(new URL("index.html", raiz), "utf8");
+  assert.match(html, /dietas\/dietas\.css\?v=20260924-dietas-ayuda-icono-v1/u);
 });
