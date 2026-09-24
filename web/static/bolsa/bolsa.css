@@ -1,16 +1,4 @@
 .portal-bolsa-publico {
-  --bg: var(--portal-fondo);
-  --surface: var(--portal-superficie);
-  --surface-muted: var(--portal-superficie-alterna);
-  --surface-raised: var(--portal-cabecera-panel);
-  --text: var(--portal-tinta);
-  --muted: var(--portal-muted);
-  --muted-strong: var(--portal-tinta);
-  --line: var(--portal-borde);
-  --focus: var(--portal-foco);
-  --brand: var(--portal-acento);
-  --brand-soft: var(--portal-azul-100);
-  --shadow: var(--portal-sombra);
   min-height: 100vh;
   background: var(--bg);
   color: var(--text);
@@ -35,9 +23,9 @@
   top: 0;
   height: 100vh;
   overflow-y: auto;
-  border-right: 1px solid var(--portal-azul-800);
-  background: var(--portal-azul-950);
-  color: var(--portal-texto-inverso);
+  border-right: 1px solid #28577f;
+  background: #07365e;
+  color: #fff;
 }
 
 [hidden] {
@@ -77,7 +65,7 @@
   display: block;
   padding: 18px;
   border-bottom: 1px solid rgba(255, 255, 255, .16);
-  color: var(--portal-texto-inverso);
+  color: #fff;
   text-decoration: none;
 }
 
@@ -90,7 +78,7 @@
   padding: 5px 7px;
   border: 1px solid rgba(255, 255, 255, .34);
   border-radius: var(--radius);
-  background: var(--portal-superficie);
+  background: #fff;
   object-fit: contain;
 }
 
@@ -101,15 +89,15 @@
 
 .marca-publica small {
   margin-top: 3px;
-  color: var(--portal-lateral-muted);
+  color: #d5e6f5;
 }
 
 .alcance-zona-publica {
   margin: 14px;
   padding: 12px;
-  border: 1px solid var(--portal-azul-700);
+  border: 1px solid #4383ad;
   border-radius: var(--radius);
-  background: var(--portal-azul-800);
+  background: #0b496f;
 }
 
 .alcance-zona-publica strong,
@@ -119,7 +107,7 @@
 
 .alcance-zona-publica span {
   margin-top: 4px;
-  color: var(--portal-lateral-muted);
+  color: #d8eaf7;
   font-size: .78rem;
   line-height: 1.4;
 }
@@ -130,7 +118,7 @@
 
 .navegacion-publica > p {
   margin: 12px 8px 7px;
-  color: var(--portal-lateral-muted);
+  color: #aac9e0;
   font-size: .72rem;
   font-weight: 800;
   letter-spacing: .06em;
@@ -145,7 +133,7 @@
   margin: 3px 0;
   padding: 8px 10px;
   border-radius: var(--radius);
-  color: var(--portal-texto-inverso);
+  color: #eaf5fc;
   text-decoration: none;
 }
 
@@ -156,19 +144,19 @@
   height: 28px;
   place-items: center;
   border-radius: 50%;
-  background: var(--portal-azul-800);
+  background: #1f6493;
   font-size: .76rem;
   font-weight: 800;
 }
 
 .navegacion-publica a:hover,
 .navegacion-publica a:focus-visible {
-  background: var(--portal-azul-800);
+  background: #0d527d;
 }
 
 .navegacion-publica a[aria-current="page"] {
-  background: var(--portal-azul-700);
-  box-shadow: inset 4px 0 0 var(--portal-azul-100);
+  background: #0868bd;
+  box-shadow: inset 4px 0 0 #72c7ff;
   font-weight: 750;
 }
 
@@ -202,10 +190,10 @@
 .paginacion button {
   min-height: 44px;
   padding: 8px 12px;
-  border: 1px solid var(--portal-borde);
+  border: 1px solid #cbd5e1;
   border-radius: var(--radius);
-  background: var(--portal-superficie);
-  color: var(--portal-tinta);
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  color: #1e293b;
   cursor: pointer;
   font-weight: 650;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
@@ -216,8 +204,8 @@
 .boton-secundario:hover,
 .boton-icono:hover,
 .paginacion button:hover {
-  background: var(--portal-superficie-alterna);
-  border-color: var(--portal-acento);
+  background: #f1f5f9;
+  border-color: #94a3b8;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
@@ -327,10 +315,10 @@
 .boton-primario {
   min-height: 44px;
   padding: 8px 16px;
-  border: 1px solid var(--portal-azul-800);
+  border: 1px solid #07365e;
   border-radius: var(--radius);
-  background: var(--portal-azul-800);
-  color: var(--portal-texto-inverso);
+  background: linear-gradient(180deg, #0b4870 0%, #07365e 100%);
+  color: #fff;
   cursor: pointer;
   font-weight: 760;
   box-shadow: 0 1px 3px rgba(7, 54, 94, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.18);
@@ -338,12 +326,12 @@
 }
 
 .boton-primario:hover {
-  background: var(--portal-azul-700);
+  background: linear-gradient(180deg, #0d5483 0%, #083c68 100%);
   box-shadow: 0 2px 5px rgba(7, 54, 94, 0.35);
 }
 
 .boton-primario:active {
-  background: var(--portal-azul-950);
+  background: linear-gradient(180deg, #07365e 0%, #052a4a 100%);
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.25);
 }
 
@@ -413,10 +401,10 @@
 .tarjeta-convocatoria {
   margin-top: 10px;
   padding: 16px;
-  border: 1px solid var(--portal-borde);
+  border: 1px solid #cbd5e1;
   border-left: 4px solid var(--procedure);
   border-radius: var(--radius);
-  background: var(--portal-superficie);
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   transition: box-shadow 0.15s ease, border-color 0.15s ease;
 }
