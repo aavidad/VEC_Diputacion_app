@@ -90,7 +90,7 @@ test("el aviso de demostración solo puede mostrarse tras confirmación de la fu
   assert.match(html, /<details id="ayuda-filtro-categoria"[^>]*><summary aria-label="Ayuda sobre categorías con procesos publicados" title="Ayuda sobre categorías con procesos publicados"><span aria-hidden="true">\?<\/span><\/summary>/);
   assert.match(javascript, /fuente\?\.demostracion === true/);
   assert.match(javascript, /inicioInstitucional\.href = esDemostracion \? "\/presentacion\/" : "\/bolsa\/"/);
-  assert.match(javascript, /Volver al selector de recorridos de la presentación/);
+  assert.match(javascript, /t\("volver_presentacion"\)/);
 });
 
 test("ambas páginas cargan tema positivo y activos públicos versionados", () => {
@@ -166,10 +166,10 @@ test("el directorio reserva anchura legible a los títulos y no repite la catego
     css,
     /\.categoria-directorio\s*>\s*\.enlace-detalle\s*\{[^}]*white-space:\s*nowrap;/s,
   );
-  assert.match(javascript, /texto\("a", "Ver procesos", "enlace-detalle"\)/);
+  assert.match(javascript, /texto\("a", t\("ver_procesos"\), "enlace-detalle"\)/);
   assert.match(
     javascript,
-    /setAttribute\("aria-label", `Ver procesos de \$\{categoria\.etiqueta\}`\)/,
+    /setAttribute\("aria-label", t\("ver_procesos_de", \{ categoria: categoria\.etiqueta \}\)\)/,
   );
   assert.doesNotMatch(
     javascript,
