@@ -3,6 +3,7 @@ import { access, readFile } from "node:fs/promises";
 import test from "node:test";
 
 const version = "20260924-f2-shell-v1";
+const versionTemaBase = "20260924-f2-tema-base-v2";
 const versionCache = "20260924-f2-cache-v2";
 const versionCachePersonal = "20260924-f2-cache-v3";
 const versionPersonalInterno = "20260924-p1-personal-interno-v2";
@@ -30,7 +31,7 @@ test("una carga con caché caliente solicita CSS F2 y entrada JS con URL nueva",
   ]);
   for (const [recurso, versionAntigua] of previo) {
     assert.equal(versionDe(html, `/portal-empleado/${recurso}`),
-      recurso === "portal.js" ? versionPersonalInterno : version);
+      recurso === "portal.js" ? versionPersonalInterno : recurso === "portal.css" ? versionTemaBase : version);
     assert.notEqual(versionDe(html, `/portal-empleado/${recurso}`), versionAntigua);
   }
   for (const recurso of ["portal-baremacion.css", "portal-contratos.css", "portal-convocatorias.css",
@@ -39,7 +40,32 @@ test("una carga con caché caliente solicita CSS F2 y entrada JS con URL nueva",
     assert.equal(versionDe(html, `/portal-empleado/${recurso}`), version);
     await access(new URL(recurso, raiz));
   }
-  assert.equal(versionDe(html, "/comun/tema-vec.css"), version);
+  assert.equal(versionDe(html, "/comun/tema-vec.css"), versionTemaBase);
+});
+
+test("la caché immutable del tema anterior descarga ambas hojas de estilo renovadas", async () => {
+  const html = await readFile(new URL("index.html", raiz), "utf8");
+  const recursos = [
+    ["/portal-empleado/portal.css", new URL("portal.css", raiz)],
+    ["/comun/tema-vec.css", new URL("../comun/tema-vec.css", raiz)],
+  ];
+  const cache = new Map(recursos.map(([ruta]) =>
+    [`${ruta}?v=${version}`, `/* respuesta immutable anterior: ${ruta} */`]));
+  const descargas = new Set();
+  for (const [ruta, archivo] of recursos) {
+    const versiones = versionesDe(html, ruta);
+    assert.deepEqual(versiones, [versionTemaBase], `${ruta}: URL de tema única y renovada`);
+    const urlAntigua = `${ruta}?v=${version}`;
+    const urlNueva = `${ruta}?v=${versionTemaBase}`;
+    assert.ok(cache.has(urlAntigua), `${ruta}: la caché antigua está precargada`);
+    assert.ok(!html.includes(urlAntigua), `${ruta}: HTML no solicita la URL antigua`);
+    if (!cache.has(urlNueva)) {
+      cache.set(urlNueva, await readFile(archivo, "utf8"));
+      descargas.add(urlNueva);
+    }
+  }
+  assert.deepEqual(descargas, new Set(recursos.map(([ruta]) => `${ruta}?v=${versionTemaBase}`)),
+    "las dos hojas se vuelven a solicitar con URL nueva");
 });
 
 test("el grafo JS propio llega desde HTML a los consumidores F2 con versiones nuevas", async () => {
