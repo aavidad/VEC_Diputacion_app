@@ -34,7 +34,7 @@ huella() {
   psql_c -At -c "SET ROLE vec_prueba_calendarios_lector; SELECT md5(string_agg(v::text, '|' ORDER BY v.id)) FROM vec_calendarios.versiones_vigentes_v1(2026, ARRAY['nacional','autonomico','local','local','centro','centro','centro','centro'], ARRAY['es','es-an','municipio:ine:18087','municipio:sintetico:a','centro-530','centro-520','centro-102','centro-752'], now()) v"
 }
 
-docker run -d --name "$container" -e POSTGRES_HOST_AUTH_METHOD=trust "$imagen" >/dev/null
+docker run -d --name "$container" -p 127.0.0.1::5432 -e POSTGRES_HOST_AUTH_METHOD=trust "$imagen" >/dev/null
 esperar
 for f in "$roles_dir"/roles_up.sql "$roles_dir"/roles_down.sql "$mig_dir"/*.sql "$base_dir"/casos.sql; do
   docker cp "$f" "$container:/tmp/$(basename "$f")"
@@ -71,5 +71,12 @@ esperar
 despues=$(huella)
 if [[ -z "$antes" || "$antes" != "$despues" ]]; then
   echo "ERROR: la lectura cambia tras reiniciar ($antes / $despues)" >&2; exit 1
+fi
+if [[ "${VEC_CALENDARIOS_PRUEBA_GO:-}" == 1 ]]; then
+  echo 'PG18: adaptador Go con el login lector tras el reinicio'
+  puerto=$(docker port "$container" 5432/tcp | head -n1 | sed 's/.*://')
+  repo_dir=$(CDPATH= cd -- "$base_dir/../../../.." && pwd)
+  (cd "$repo_dir" && VEC_CALENDARIOS_TEST_PG_URL="postgres://vec_prueba_calendarios_lector@127.0.0.1:$puerto/postgres?sslmode=disable" \
+    go test -count=1 -run TestRepositorioPostgreSQLReal -v ./internal/modules/calendarios/adapters/postgres/ | grep -E '^(--- |ok|FAIL)')
 fi
 echo "OK: Calendarios en PostgreSQL ${imagen#postgres:} desechable; huella $antes estable tras reinicio"
