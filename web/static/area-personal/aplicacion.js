@@ -1,6 +1,6 @@
 import { escaparAtributo, escaparHTML, listaDatos } from "./vistas/comunes.js";
 import { MOTIVOS_PAUSA_DISPONIBILIDAD } from "./contrato.js";
-import { traducir } from "./i18n.js";
+import { textosErrorCargaAreaPersonal, traducir } from "./i18n.js";
 import {
   renderizarConvocatorias, renderizarDetalleConvocatoria, renderizarInicio,
 } from "./vistas/inicio-convocatorias.js";
@@ -153,11 +153,12 @@ function notificar(mensaje) {
   setTimeout(() => aviso.remove(), 4_500);
 }
 
+export function renderizarErrorCargaAreaPersonal(error) {
+  const textos = textosErrorCargaAreaPersonal(error); const boton = textos.reintentar ? `<button type="button" class="boton-primario" data-accion="reintentar">${escaparHTML(textos.reintentar)}</button>` : "";
+  return `<section class="estado-error" role="alert"><h2>${escaparHTML(textos.titulo)}</h2><p>${escaparHTML(textos.detalle)}</p><p>${escaparHTML(textos.garantia)}</p>${boton}</section>`;
+}
 function mostrarError(estado, error) {
-  porId("estado-carga").hidden = true;
-  const autenticacion = error?.codigo === "autenticacion_requerida";
-  const acceso = error?.codigo === "acceso_denegado";
-  porId("espacio-trabajo").innerHTML = `<section class="estado-error" role="alert"><h2>${autenticacion ? "Identifíquese para consultar su bolsa" : acceso ? "No tiene acceso a esta área personal" : "No se pudo cargar el área personal"}</h2><p>${escaparHTML(autenticacion ? "Use su DNIe o certificado para continuar. Identificarse con certificado no firma documentos." : error instanceof Error ? error.message : "Servicio no disponible.")}</p><p>${acceso ? "No se muestran datos de otra persona." : "No se muestran datos aparentes y no se ha realizado ninguna operación."}</p>${acceso ? "" : '<button type="button" class="boton-primario" data-accion="reintentar">Reintentar conexión segura</button>'}</section>`;
+  porId("estado-carga").hidden = true; porId("titulo-vista").textContent = traducir("areaPersonal.estado.error.titulo"); porId("espacio-trabajo").innerHTML = renderizarErrorCargaAreaPersonal(error);
   estado.error = error;
 }
 
@@ -662,7 +663,7 @@ function conectarEventos(estado) {
 }
 
 async function cargar(estado) {
-  porId("estado-carga").hidden = false;
+  const reintento = document.activeElement?.dataset.accion === "reintentar"; porId("estado-carga").hidden = false;
   porId("estado-carga").className = "estado-carga";
   porId("estado-carga").innerHTML = '<span aria-hidden="true"></span>Cargando información autorizada…';
   porId("espacio-trabajo").replaceChildren();
@@ -682,7 +683,7 @@ async function cargar(estado) {
     estado.error = null;
     renderizar(estado);
   } catch (error) {
-    mostrarError(estado, error);
+    mostrarError(estado, error); if (reintento) porId("espacio-trabajo").querySelector('[data-accion="reintentar"]')?.focus();
   }
 }
 
