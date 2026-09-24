@@ -610,3 +610,54 @@ test("una respuesta de otra bolsa no se presenta como posición de la solicitada
   assert.equal(elementos.cuerpoTablaLista.innerHTML, "");
   assert.equal(ctrl.estado.bolsaSeleccionada, null);
 });
+
+test("las ayudas generadas muestran solo interrogación y conservan nombre accesible localizado", async () => {
+  let alCargar;
+  let ayudaPrivacidad;
+  let ayudaFormato;
+  const introduccion = { textContent: "Introducción" };
+  const aviso = { textContent: "Privacidad" };
+  const textoFormato = { textContent: "Formato" };
+  const cabecera = {
+    querySelector: () => introduccion,
+    after(nodo) { ayudaPrivacidad = nodo; },
+  };
+  const entrada = { after(nodo) { ayudaFormato = nodo; } };
+  const documento = {
+    querySelector(selector) {
+      if (selector === ".cabecera-seccion-publica") return cabecera;
+      if (selector === ".aviso-privacidad-publica") return aviso;
+      if (selector === ".campo-documento .ayuda-busqueda-doc:not([id])") return textoFormato;
+      if (selector === ".campo-documento input") return entrada;
+      return null;
+    },
+    createElement(tag) {
+      return {
+        tagName: tag.toUpperCase(),
+        atributos: {},
+        hijos: [],
+        setAttribute(nombre, valor) { this.atributos[nombre] = valor; },
+        append(...nodos) { this.hijos.push(...nodos); },
+      };
+    },
+    getElementById() { return null; },
+    addEventListener(tipo, receptor) { if (tipo === "DOMContentLoaded") alCargar = receptor; },
+  };
+  globalThis.document = documento;
+  try {
+    await import("./lista-bolsas.js?prueba-ayuda-interrogacion-v3");
+    alCargar();
+  } finally {
+    delete globalThis.document;
+  }
+  const privacidad = ayudaPrivacidad.hijos[0];
+  const formato = ayudaFormato.hijos[0];
+  assert.equal(privacidad.textContent, "?");
+  assert.equal(privacidad.atributos["aria-label"], "Ayuda y privacidad de la consulta");
+  assert.equal(privacidad.title, "Ayuda y privacidad de la consulta");
+  assert.equal(formato.textContent, "?");
+  assert.equal(formato.atributos["aria-label"], "Formato de búsqueda");
+  assert.equal(formato.title, "Formato de búsqueda");
+  assert.deepEqual(ayudaPrivacidad.hijos.slice(1), [introduccion, aviso]);
+  assert.deepEqual(ayudaFormato.hijos.slice(1), [textoFormato]);
+});

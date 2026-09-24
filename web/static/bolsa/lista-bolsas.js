@@ -411,7 +411,9 @@ function prepararAyudaListas(documento) {
   const ayuda = documento.createElement("details");
   ayuda.className = "ayuda-listas-publica";
   const resumen = documento.createElement("summary");
-  resumen.textContent = `${t("ayuda_privacidad_listas")}  ?`;
+  resumen.textContent = "?";
+  resumen.setAttribute("aria-label", t("ayuda_privacidad_listas"));
+  resumen.title = t("ayuda_privacidad_listas");
   ayuda.append(resumen, introduccion, aviso);
   cabecera.after(ayuda);
 
@@ -420,7 +422,9 @@ function prepararAyudaListas(documento) {
     const ayudaFormato = documento.createElement("details");
     ayudaFormato.className = "ayuda-formato-lista";
     const resumenFormato = documento.createElement("summary");
-    resumenFormato.textContent = `${t("ayuda_documento_lista")}  ?`;
+    resumenFormato.textContent = "?";
+    resumenFormato.setAttribute("aria-label", t("ayuda_documento_lista"));
+    resumenFormato.title = t("ayuda_documento_lista");
     ayudaFormato.append(resumenFormato, textoFormato);
     documento.querySelector(".campo-documento input")?.after(ayudaFormato);
   }
