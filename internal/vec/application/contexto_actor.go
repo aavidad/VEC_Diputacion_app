@@ -80,6 +80,15 @@ func NuevoServicioContextoActorProductivoV2ConAlcance(
 	}, nil
 }
 
+// Alcance devuelve las proyecciones que la composicion fijo para este
+// servicio; permite a la composicion comprobar su propia declaracion.
+func (s *ServicioContextoActor) Alcance() domain.AlcanceProyeccionesContextoActor {
+	if s == nil {
+		return domain.AlcanceProyeccionesContextoActor{}
+	}
+	return s.alcance
+}
+
 func (s *ServicioContextoActor) Resolver(
 	ctx context.Context,
 	solicitud domain.SolicitudContextoActor,
