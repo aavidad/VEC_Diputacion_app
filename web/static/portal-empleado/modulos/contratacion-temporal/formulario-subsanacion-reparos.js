@@ -1,36 +1,40 @@
-import { MAXIMO_ARCHIVO_RECUPERACION_SUBSANACION, serializarDatosRecuperacionSubsanacion, validarDatosRecuperacionSubsanacion, validarReciboSubsanacionReparos, validarSolicitudSubsanacionReparos } from "./cliente-http-subsanacion-reparos.js";
+import { MAXIMO_ARCHIVO_RECUPERACION_SUBSANACION, serializarDatosRecuperacionSubsanacion, validarDatosRecuperacionSubsanacion, validarReciboSubsanacionReparos, validarSolicitudSubsanacionReparos, validarVersionesRecuperacionSubsanacion } from "./cliente-http-subsanacion-reparos.js";
 
 const REF = /^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$/u;
 const escapar = (v) => String(v ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
 function contextoValido(c) { return c && Object.getPrototypeOf(c) === Object.prototype && Object.keys(c).length === 2 && REF.test(c.expediente_ref) && Number.isSafeInteger(c.version_esperada) && c.version_esperada > 0; }
 function indeterminado(error) { try { return error?.resultadoIndeterminado !== false; } catch { return true; } }
-function intencionValida(valor, contexto) {
+function intencionValida(valor, contexto, versionesRecuperacionAnteriores) {
   if (!valor || Object.getPrototypeOf(valor) !== Object.prototype
     || Object.keys(valor).length !== 2 || !Object.hasOwn(valor, "solicitud")
     || !Object.hasOwn(valor, "incierta") || typeof valor.incierta !== "boolean") throw new TypeError("intención de subsanación no válida");
   const solicitud = validarSolicitudSubsanacionReparos(valor.solicitud);
-  if (solicitud.expediente_ref !== contexto.expediente_ref || solicitud.version_esperada !== contexto.version_esperada) throw new TypeError("intención ajena al expediente de subsanación");
+  if (solicitud.expediente_ref !== contexto.expediente_ref
+    || (solicitud.version_esperada !== contexto.version_esperada
+      && (!valor.incierta || !versionesRecuperacionAnteriores.includes(solicitud.version_esperada)))) throw new TypeError("intención ajena al expediente de subsanación");
   return Object.freeze({ solicitud, incierta: valor.incierta });
 }
 
-export function montarFormularioSubsanacionReparos({ raiz, cliente, contexto, reciboConfirmado = null, intencionInicial = null, soloImportar = false, traducir, confirmarOperacion = () => false, generarClaveIdempotencia = () => globalThis.crypto?.randomUUID?.(), anunciar = () => {}, alConfirmar = () => {}, alCambiarIntencion, alDenegacion } = {}) {
+export function montarFormularioSubsanacionReparos({ raiz, cliente, contexto, reciboConfirmado = null, intencionInicial = null, soloImportar = false, versionesRecuperacionAnteriores = [], traducir, confirmarOperacion = () => false, generarClaveIdempotencia = () => globalThis.crypto?.randomUUID?.(), anunciar = () => {}, alConfirmar = () => {}, alCambiarIntencion, alDenegacion } = {}) {
   if (!raiz || typeof raiz.addEventListener !== "function" || typeof raiz.removeEventListener !== "function" || typeof raiz.contains !== "function" || typeof raiz.querySelector !== "function" || typeof raiz.replaceChildren !== "function" || !contextoValido(contexto) || typeof soloImportar !== "boolean" || typeof cliente?.registrarSubsanacionReparos !== "function" || typeof traducir !== "function" || typeof confirmarOperacion !== "function" || typeof generarClaveIdempotencia !== "function" || typeof anunciar !== "function" || typeof alConfirmar !== "function" || typeof alCambiarIntencion !== "function" || typeof alDenegacion !== "function") throw new TypeError("dependencias de subsanación no válidas");
   contexto = Object.freeze({ expediente_ref: contexto.expediente_ref, version_esperada: contexto.version_esperada });
-  const intencion = intencionInicial === null ? null : intencionValida(intencionInicial, contexto);
+  versionesRecuperacionAnteriores = validarVersionesRecuperacionSubsanacion(contexto, versionesRecuperacionAnteriores);
+  const intencion = intencionInicial === null ? null : intencionValida(intencionInicial, contexto, versionesRecuperacionAnteriores);
   let reciboInicial = null;
   if (reciboConfirmado !== null) {
     if (!reciboConfirmado || Object.getPrototypeOf(reciboConfirmado) !== Object.prototype
       || !contextoValido(reciboConfirmado.contexto)) throw new TypeError("recibo confirmado de subsanación no válido");
     reciboInicial = validarReciboSubsanacionReparos(reciboConfirmado.recibo, reciboConfirmado.contexto);
     if (reciboInicial.expediente_ref !== contexto.expediente_ref
-      || ![reciboConfirmado.contexto.version_esperada, reciboInicial.version_resultante].includes(contexto.version_esperada)) throw new TypeError("recibo ajeno al contexto de subsanación");
+      || (![reciboConfirmado.contexto.version_esperada, reciboInicial.version_resultante].includes(contexto.version_esperada)
+        && !versionesRecuperacionAnteriores.includes(reciboConfirmado.contexto.version_esperada))) throw new TypeError("recibo ajeno al contexto de subsanación");
   }
   if (reciboInicial && intencion) throw new TypeError("recibo e intención pendientes simultáneos");
   let montado = true, controlador = null, solicitud = intencion?.solicitud ?? null;
   const urls = new Set();
   const estado = { observaciones: "", recibo: reciboInicial, ocupado: false, incierta: intencion?.incierta ?? false, denegado: false, descargaIniciada: false, mensaje: reciboInicial ? "subsanacion_confirmada" : intencion?.incierta ? "subsanacion_indeterminada" : intencion ? "subsanacion_preparada" : soloImportar ? "subsanacion_importacion_lista" : "subsanacion_lista", tono: reciboInicial ? "exito" : intencion?.incierta ? "error" : "informacion" };
   function contenidoPendiente(t) {
-    return `<section class="ct-alcance" data-ct-subsanacion-indeterminada aria-labelledby="ct-subsanacion-recuperacion-titulo"><h3 id="ct-subsanacion-recuperacion-titulo">${escapar(t(estado.incierta ? "subsanacion_recuperacion_titulo" : "subsanacion_preparacion_titulo"))}</h3><p>${escapar(t(estado.incierta ? "subsanacion_recuperacion_ayuda" : "subsanacion_preparacion_ayuda"))}</p><p><strong>${escapar(t("subsanacion_contenido_original"))}</strong></p><blockquote>${escapar(solicitud.observaciones)}</blockquote><p class="ct-ayuda">${escapar(t("subsanacion_archivo_advertencia"))}</p><div class="ct-acciones"><button class="boton-secundario" type="button" data-ct-subsanacion-guardar ${estado.ocupado ? "disabled" : ""}>${escapar(t("subsanacion_guardar_archivo"))}</button><button class="boton-primario" type="button" ${estado.incierta ? "data-ct-subsanacion-recuperar" : "data-ct-subsanacion-enviar"} ${estado.ocupado || (!estado.incierta && !estado.descargaIniciada) ? "disabled" : ""}>${escapar(t(estado.incierta ? "subsanacion_recuperar" : "subsanacion_enviar_preparada"))}</button></div></section>`;
+    return `<section class="ct-alcance" data-ct-subsanacion-indeterminada aria-labelledby="ct-subsanacion-recuperacion-titulo"><h3 id="ct-subsanacion-recuperacion-titulo">${escapar(t(estado.incierta ? "subsanacion_recuperacion_titulo" : "subsanacion_preparacion_titulo"))}</h3><p>${escapar(t(estado.incierta ? "subsanacion_recuperacion_ayuda" : "subsanacion_preparacion_ayuda"))}</p><p><strong>${escapar(t("subsanacion_contenido_original"))}</strong></p><blockquote>${escapar(solicitud.observaciones)}</blockquote>${solicitud.version_esperada !== contexto.version_esperada ? `<p class="ct-ayuda">${escapar(t("subsanacion_version_original"))}: ${solicitud.version_esperada}</p>` : ""}<p class="ct-ayuda">${escapar(t("subsanacion_archivo_advertencia"))}</p><div class="ct-acciones"><button class="boton-secundario" type="button" data-ct-subsanacion-guardar ${estado.ocupado ? "disabled" : ""}>${escapar(t("subsanacion_guardar_archivo"))}</button><button class="boton-primario" type="button" ${estado.incierta ? "data-ct-subsanacion-recuperar" : "data-ct-subsanacion-enviar"} ${estado.ocupado || (!estado.incierta && !estado.descargaIniciada) ? "disabled" : ""}>${escapar(t(estado.incierta ? "subsanacion_recuperar" : "subsanacion_enviar_preparada"))}</button></div></section>`;
   }
   function contenidoInicial(t) {
     const alta = soloImportar ? "" : `<form data-ct-subsanacion-form novalidate><label class="ct-campo" for="ct-subsanacion-observaciones"><span>${escapar(t("subsanacion_observaciones"))}</span><textarea id="ct-subsanacion-observaciones" name="observaciones" rows="5" maxlength="2000" required ${estado.ocupado ? "disabled" : ""}>${escapar(estado.observaciones)}</textarea><small>${escapar(t("subsanacion_ayuda"))}</small></label><button class="boton-primario" type="submit" ${estado.ocupado ? "disabled" : ""}>${escapar(t("subsanacion_confirmar"))}</button></form>`;
@@ -93,7 +97,7 @@ export function montarFormularioSubsanacionReparos({ raiz, cliente, contexto, re
       const texto = await archivo.text();
       if (!montado) return;
       if (new TextEncoder().encode(texto).byteLength > MAXIMO_ARCHIVO_RECUPERACION_SUBSANACION) throw new TypeError("archivo demasiado grande");
-      const cargada = validarDatosRecuperacionSubsanacion(JSON.parse(texto), contexto).solicitud;
+      const cargada = validarDatosRecuperacionSubsanacion(JSON.parse(texto), contexto, versionesRecuperacionAnteriores).solicitud;
       if (solicitud) throw new TypeError("intención pendiente");
       solicitud = cargada;
       if (!conservarIntencion(true)) { solicitud = null; throw new TypeError("intención no conservada"); }
@@ -118,7 +122,8 @@ export function montarFormularioSubsanacionReparos({ raiz, cliente, contexto, re
       estado.recibo = validarReciboSubsanacionReparos(respuesta, solicitudOriginal);
       estado.mensaje = "subsanacion_confirmada"; estado.tono = "exito";
       try {
-        const actualizacion = alConfirmar(estado.recibo, contexto);
+        const contextoOriginal = Object.freeze({ expediente_ref: solicitudOriginal.expediente_ref, version_esperada: solicitudOriginal.version_esperada });
+        const actualizacion = alConfirmar(estado.recibo, contextoOriginal);
         if (actualizacion && typeof actualizacion.then === "function") void actualizacion.catch(() => {});
         if (alCambiarIntencion(null) !== true) throw new TypeError("intención confirmada no liberada");
       } catch { estado.mensaje = "subsanacion_actualizacion_pendiente"; estado.tono = "error"; }
