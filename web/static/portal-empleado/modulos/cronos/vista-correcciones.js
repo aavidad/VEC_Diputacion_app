@@ -1,4 +1,4 @@
-import { crearTraductorCronos, MENSAJES_CRONOS_ES } from "./i18n.js?v=20260924-f2-web2";
+import { crearTraductorCronos, MENSAJES_CRONOS_ES } from "./i18n.js?v=20260924-cronos-integrado-v1";
 import { MENSAJES_CRONOS_C5_ES } from "./i18n-c5.js?v=20260924-c5-web1";
 
 const ESTADOS = new Set(["no_configurado", "cargando", "vacio", "disponible", "error", "denegado"]);
