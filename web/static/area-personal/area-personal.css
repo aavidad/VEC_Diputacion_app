@@ -1,20 +1,19 @@
-/* Adaptador visual: el shell común aporta --portal-* cuando su montaje esté
-   habilitado. Los valores de respaldo mantienen utilizable esta superficie. */
+/* Adaptador visual: el tema común antecede a esta hoja y gobierna los colores. */
 body.area-personal-app {
-  --ap-azul-950: var(--portal-azul-950, #052b52); --ap-azul-900: var(--portal-azul-900, #073866);
-  --ap-azul-800: var(--portal-azul-800, #0b4b82); --ap-azul-700: var(--portal-azul-700, #075fca);
-  --ap-azul-100: var(--portal-azul-100, #eaf3ff); --ap-tinta: var(--portal-tinta, #10213b);
-  --ap-muted: var(--portal-muted, #56677f); --ap-borde: var(--portal-borde, #d6e0ec);
-  --ap-fondo: var(--portal-fondo, #f3f6fa); --ap-superficie: var(--portal-superficie, #ffffff);
-  --ap-superficie-alterna: var(--portal-superficie-alterna, #f8fafc); --ap-cabecera-panel: var(--portal-cabecera-panel, #f0f5fb);
-  --ap-neutro-suave: var(--portal-neutro-suave, #edf2f7); --ap-verde: var(--portal-exito, #14783a);
-  --ap-verde-suave: var(--portal-exito-suave, #e8f7ed); --ap-rojo: var(--portal-peligro, #a91f32);
-  --ap-rojo-suave: var(--portal-peligro-suave, #fff0f2); --ap-ambar: var(--portal-aviso, #875000);
-  --ap-ambar-suave: var(--portal-aviso-suave, #fff4d6); --ap-violeta: var(--portal-violeta, #6741b9);
-  --ap-violeta-suave: var(--portal-violeta-suave, #f2edff); --ap-cian: var(--portal-cian-fuerte, #087d94);
-  --ap-cian-suave: var(--portal-cian-suave, #e8f8fb); --ap-sombra: var(--portal-sombra-sm, 0 8px 24px rgba(18, 45, 77, 0.08));
-  --ap-radio: var(--portal-radio-lg, 8px); --ap-texto-inverso: var(--portal-texto-inverso, #ffffff);
-  --ap-lateral-muted: var(--portal-lateral-muted, #d6e8f8); --ap-lateral: 284px;
+  --ap-azul-950: var(--portal-azul-950); --ap-azul-900: var(--portal-azul-900);
+  --ap-azul-800: var(--portal-azul-800); --ap-azul-700: var(--portal-azul-700);
+  --ap-azul-100: var(--portal-azul-100); --ap-tinta: var(--portal-tinta);
+  --ap-muted: var(--portal-muted); --ap-borde: var(--portal-borde);
+  --ap-fondo: var(--portal-fondo); --ap-superficie: var(--portal-superficie);
+  --ap-superficie-alterna: var(--portal-superficie-alterna); --ap-cabecera-panel: var(--portal-cabecera-panel);
+  --ap-neutro-suave: var(--portal-neutro-suave); --ap-verde: var(--portal-exito);
+  --ap-verde-suave: var(--portal-exito-suave); --ap-rojo: var(--portal-peligro);
+  --ap-rojo-suave: var(--portal-peligro-suave); --ap-ambar: var(--portal-aviso);
+  --ap-ambar-suave: var(--portal-aviso-suave); --ap-violeta: var(--portal-violeta);
+  --ap-violeta-suave: var(--portal-violeta-suave); --ap-cian: var(--portal-cian-fuerte);
+  --ap-cian-suave: var(--portal-cian-suave); --ap-sombra: var(--portal-sombra-sm);
+  --ap-radio: var(--portal-radio-lg); --ap-texto-inverso: var(--portal-texto-inverso);
+  --ap-lateral-muted: var(--portal-lateral-muted); --ap-lateral: 284px;
 }
 .area-personal-app .oportunidades { --portal-fondo: var(--ap-fondo); --portal-superficie: var(--ap-superficie); --portal-superficie-alterna: var(--ap-superficie-alterna); --portal-cabecera-panel: var(--ap-cabecera-panel); --portal-tinta: var(--ap-tinta); --portal-muted: var(--ap-muted); --portal-borde: var(--ap-borde); --portal-azul-700: var(--ap-azul-700); --portal-exito: var(--ap-verde); --portal-exito-suave: var(--ap-verde-suave); --portal-peligro: var(--ap-rojo); --portal-peligro-suave: var(--ap-rojo-suave); --portal-violeta: var(--ap-violeta); --portal-violeta-suave: var(--ap-violeta-suave); --portal-neutro-suave: var(--ap-neutro-suave); --portal-sombra-sm: var(--ap-sombra); --portal-radio-lg: var(--ap-radio); }
 * { box-sizing: border-box; }
@@ -30,21 +29,6 @@ body.area-personal-app {
   line-height: 1.5;
 }
 html[data-texto-grande="true"] { font-size: 125%; }
-body.area-personal-app[data-contraste="true"] {
-  --ap-azul-950: #001c38; --ap-azul-900: #002a54;
-  --ap-azul-800: #003c78; --ap-azul-700: #004fb8;
-  --ap-azul-100: #d7e6fc; --ap-tinta: #000;
-  --ap-muted: #263140; --ap-borde: #69768a;
-  --ap-fondo: #e8edf4;
-  --ap-superficie: #fff;
-  --ap-superficie-alterna: #e1e9f2;
-  --ap-cabecera-panel: #d6e3f1;
-  --ap-neutro-suave: #dce5ef;
-  --ap-violeta: #51329c;
-  --ap-violeta-suave: #e5dcf8;
-  --ap-sombra: 0 0 0 1px var(--ap-borde);
-  --ap-lateral-muted: #fff;
-}
 button, input, select, textarea { font: inherit; } input[type="checkbox"], input[type="radio"] { accent-color: var(--ap-azul-700); }
 small { font-size: .8125rem; }
 button, a { touch-action: manipulation; }
