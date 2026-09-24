@@ -17,9 +17,16 @@ function documento() {
         disabled: false,
         textContent: "",
         innerHTML: "",
+        firstChild: { textContent: "" },
         querySelectorAll: () => [],
         setAttribute() {},
-        focus() { this.enFoco = true; },
+        contains(node) {
+          return node === this || (this === obtener("#state") && node === obtener("#retry"));
+        },
+        focus() {
+          this.enFoco = true;
+          document.activeElement = this;
+        },
       });
     }
     return elementos.get(selector);
@@ -114,6 +121,31 @@ test("GET denegado no muestra datos; un reintento recupera filtros y foco sin PO
     assert.equal(filtro.enFoco, true);
     assert.deepEqual(llamadas.map(({ url }) => url), [API_ORGANIZACION, API_ORGANIZACION]);
     assert.ok(llamadas.every(({ options }) => !options.method || options.method === "GET"));
+  } finally {
+    globalThis.document = anterior;
+  }
+});
+
+test("un GET tardío no roba el foco movido fuera del reintento", async () => {
+  const anterior = globalThis.document;
+  globalThis.document = documento();
+  try {
+    let resolver;
+    let intento = 0;
+    const cliente = crearCliente(async () => {
+      intento++;
+      if (intento === 1) return { ok: false, status: 503 };
+      return new Promise((resolve) => { resolver = resolve; });
+    });
+    await iniciarOrganizacion(cliente);
+    const reintento = document.querySelector("#retry");
+    const carga = reintento.onclick();
+    const volver = document.querySelector(".org-back");
+    volver.focus();
+    resolver({ ok: true, json: async () => catalogo() });
+    await carga;
+    assert.equal(document.activeElement, volver);
+    assert.equal(document.querySelector("#filter-text").enFoco, undefined);
   } finally {
     globalThis.document = anterior;
   }

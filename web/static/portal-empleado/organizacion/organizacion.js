@@ -494,7 +494,8 @@ export function iniciarOrganizacion(client = crearCliente()) {
   };
   filtroTexto.oninput = render;
   filtroTipo.onchange = render;
-  const cargar = async () => {
+  const cargar = async (botonReintento) => {
+    const focoInicial = document.activeElement;
     data = undefined;
     actualizarFiltros();
     document.querySelector("#new-unit").hidden = true;
@@ -504,21 +505,31 @@ export function iniciarOrganizacion(client = crearCliente()) {
     editor.hidden = true;
     state.hidden = false;
     state.className = "org-state";
-    state.textContent = TEXTOS.loading;
+    if (botonReintento) {
+      state.firstChild.textContent = TEXTOS.loading + " ";
+      botonReintento.textContent = TEXTOS.loading;
+      botonReintento.setAttribute("aria-disabled", "true");
+      botonReintento.onclick = null;
+    } else {
+      state.textContent = TEXTOS.loading;
+    }
     try {
       actualizarCatalogo(await client.obtener());
       actualizarFiltros();
+      const devolverFoco = botonReintento && state.contains(document.activeElement);
       render();
+      if (devolverFoco) filtroTexto.focus();
     } catch (err) {
+      const devolverFoco = botonReintento
+        ? state.contains(document.activeElement)
+        : document.activeElement === focoInicial;
       state.className = "org-state error";
       state.innerHTML =
         esc(TEXTOS.error) +
         ` <button type="button" id="retry">${TEXTOS.retry}</button>`;
-      document.querySelector("#retry").onclick = async () => {
-        await cargar();
-        if (data) filtroTexto.focus();
-      };
-      document.querySelector("#retry").focus();
+      const reintento = document.querySelector("#retry");
+      reintento.onclick = () => cargar(reintento);
+      if (devolverFoco) reintento.focus();
     }
   };
   return cargar();
