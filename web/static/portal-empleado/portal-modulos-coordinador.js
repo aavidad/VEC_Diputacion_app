@@ -97,11 +97,11 @@ const CARGADORES_PRESENTACION_PREDETERMINADOS = Object.freeze({
     const [contrato, clienteCategorias, vistaCategorias, clienteRPT, vistaRPT, clienteEstructura, vistaEstructura, ficha] = await Promise.all([
       import("./modulos/personal/contrato.js?v=20260920-personal-catalogo-v1"),
       import("./modulos/personal/cliente-http-categorias.js?v=20260920-personal-catalogo-v1"),
-      import("./modulos/personal/vista.js?v=20260920-personal-catalogo-v1"),
+      import("./modulos/personal/vista.js?v=20260924-f2-cache-v3"),
       import("./modulos/personal/cliente-http-rpt-publica.js?v=20260920-personal-rpt-publica-v3"),
       import("./modulos/personal/vista-rpt-publica.js?v=20260920-personal-rpt-publica-v3"),
       import("./modulos/personal/cliente-http-estructura-organizativa-publica.js?v=20260920-personal-estructura-v1"),
-      import("./modulos/personal/vista-estructura-organizativa-publica.js?v=20260920-personal-estructura-v1"),
+      import("./modulos/personal/vista-estructura-organizativa-publica.js?v=20260924-f2-cache-v3"),
       import("./modulos/personal/vista-ficha-integral.js?v=20260924-f2-shell-v1"),
     ]);
     return Object.freeze({ contrato, clienteCategorias, vistaCategorias, clienteRPT, vistaRPT, clienteEstructura, vistaEstructura, ficha });
@@ -150,11 +150,11 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
     const [contrato, cliente, vista, clienteRPT, vistaRPT, clienteEstructura, vistaEstructura, ficha] = await Promise.all([
       import("./modulos/personal/contrato.js?v=20260920-personal-catalogo-v1"),
       import("./modulos/personal/cliente-http-categorias.js?v=20260920-personal-catalogo-v1"),
-      import("./modulos/personal/vista.js?v=20260920-personal-catalogo-v1"),
+      import("./modulos/personal/vista.js?v=20260924-f2-cache-v3"),
       import("./modulos/personal/cliente-http-rpt-publica.js?v=20260920-personal-rpt-publica-v3"),
       import("./modulos/personal/vista-rpt-publica.js?v=20260920-personal-rpt-publica-v3"),
       import("./modulos/personal/cliente-http-estructura-organizativa-publica.js?v=20260920-personal-estructura-v1"),
-      import("./modulos/personal/vista-estructura-organizativa-publica.js?v=20260920-personal-estructura-v1"),
+      import("./modulos/personal/vista-estructura-organizativa-publica.js?v=20260924-f2-cache-v3"),
       import("./modulos/personal/vista-ficha-integral.js?v=20260924-f2-shell-v1"),
     ]);
     return Object.freeze({ contrato, cliente, vista, clienteCategorias: cliente, vistaCategorias: vista,
