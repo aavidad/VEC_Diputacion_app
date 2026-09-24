@@ -1,6 +1,6 @@
 \set ON_ERROR_STOP on
--- Se ejecuta tras preparar_asignacion_dietas_000011.sql y 000011 en PG18 aislado.
--- El rol dedicado nace en 000011; los LOGIN sintéticos reciben solo ese grupo.
+-- Se ejecuta tras preparar_asignacion_dietas_000012.sql y 000012 en PG18 aislado.
+-- El rol dedicado nace en 000012; los LOGIN sintéticos reciben solo ese grupo.
 GRANT vec_personal_d7_ejecutor TO vec_prueba_d7_personal
  WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
 GRANT USAGE ON SCHEMA vec_prueba_d7 TO vec_personal_d7_ejecutor;

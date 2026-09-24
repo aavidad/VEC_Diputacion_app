@@ -1,5 +1,5 @@
 \set ON_ERROR_STOP on
--- Focal de Personal 000013 con AD3 TEST-ONLY. No acredita concesión real.
+-- Focal de Personal 000014 con AD3 TEST-ONLY. No acredita concesión real.
 BEGIN;
 SET LOCAL ROLE vec_personal_propietario;
 SELECT set_config('vec.dietas.persona_ref','per_abcdefghijklmnopqrstuv',true);

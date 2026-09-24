@@ -7,7 +7,7 @@ SET LOCAL search_path=pg_catalog;
 SET LOCAL timezone='UTC';
 SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='30s';
-SELECT pg_advisory_xact_lock(hashtextextended('vec_personal:migracion:000013:competencias-asignacion-dietas:v1',0));
+SELECT pg_advisory_xact_lock(hashtextextended('vec_personal:migracion:000014:competencias-asignacion-dietas:v1',0));
 
 DO $pre$
 BEGIN
@@ -21,7 +21,7 @@ BEGIN
     OR NOT has_function_privilege('vec_personal_propietario','vec_autorizacion_atestada_v3.registrar_y_consumir_competencias_asignacion_dietas_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
     OR to_regclass('vec_personal.recibo_competencias_asignacion_dietas') IS NOT NULL
     OR to_regprocedure('vec_personal.consultar_competencias_asignacion_dietas_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL
- THEN RAISE EXCEPTION 'Personal 000013: falta D7/AD3 o preimagen incompatible' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'Personal 000014: falta D7/AD3 o preimagen incompatible' USING ERRCODE='55000'; END IF;
 END $pre$;
 
 -- La política solo expone filas candidatas al propietario. La función vuelve

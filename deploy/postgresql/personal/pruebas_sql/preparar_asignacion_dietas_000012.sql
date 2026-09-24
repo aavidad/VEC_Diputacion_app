@@ -1,8 +1,8 @@
 \set ON_ERROR_STOP on
--- Sólo para PostgreSQL 18 efímero. La composición Personal 000010 y AD3-52
--- aún no están en el árbol: esta preimagen mínima no se instala ni sustituye
+-- Sólo para PostgreSQL 18 efímero. Las fachadas AD3-59 no se instalan aquí:
+-- esta preimagen mínima no sustituye
 -- sus contratos. Las fachadas AD3 nominales TEST-ONLY permiten aislar las
--- guardas, ACL, recibos e historia de 000011; 000010 real no se simula.
+-- guardas, ACL, recibos e historia de 000012; sin simular Personal 000010a.
 CREATE SCHEMA vec_autorizacion_atestada_v3;
 GRANT USAGE ON SCHEMA vec_autorizacion_atestada_v3 TO vec_personal_propietario;
 CREATE TABLE vec_autorizacion_atestada_v3.d7_consumo_prueba (
@@ -44,7 +44,7 @@ ALTER FUNCTION vec_autorizacion_atestada_v3.registrar_y_consumir_correccion_asig
 ALTER FUNCTION vec_autorizacion_atestada_v3.registrar_y_consumir_correccion_grupo_dieta_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) OWNER TO vec_personal_propietario;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA vec_autorizacion_atestada_v3 TO vec_personal_propietario;
 
--- 000009 aporta únicamente la relación. La alta inicial la ejerce 000011.
+-- 000009 aporta únicamente la relación. La alta inicial la ejerce 000012.
 BEGIN;
 SET LOCAL ROLE vec_personal_propietario;
 SELECT set_config('vec.dietas.persona_ref','per_abcdefghijklmnopqrstuv',true);

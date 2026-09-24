@@ -7,7 +7,7 @@ SET LOCAL statement_timeout = '30s';
 SET LOCAL row_security = off;
 
 SELECT pg_catalog.pg_advisory_xact_lock(
-    pg_catalog.hashtextextended('vec_personal:migracion:000012:auditoria_frontera_asignacion_dietas', 0)
+    pg_catalog.hashtextextended('vec_personal:migracion:000013:auditoria_frontera_asignacion_dietas', 0)
 );
 
 DO $precondicion$

@@ -18,9 +18,9 @@ en Git. No usar `SET ROLE` ni añadir miembros a las cuentas de aplicación.
 ## Puertas y secuencia
 
 Requiere PostgreSQL 18, `postgres`, F4 `v3` activa y exactamente ocho LOGIN F4,
-Personal 000011/000012 instaladas y revisadas, las cuatro fachadas de asignación
+Personal 000012/000013 instaladas y revisadas, las cuatro fachadas de asignación
 y la fachada de auditoría con ACL positiva de su grupo exacto. `vec_personal_d7_ejecutor`
-es un grupo mínimo creado por 000011: las cuatro fachadas D7 son sus únicas
+es un grupo mínimo creado por 000012: las cuatro fachadas D7 son sus únicas
 funciones permitidas. Este paquete añade `CONNECT` al grupo al preparar.
 Inventaría las ACL y propiedades de ambos grupos y exige una lista positiva:
 `CONNECT` en `postgres`, `USAGE` en `vec_personal` y solo las cinco fachadas

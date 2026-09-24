@@ -49,7 +49,7 @@ BEGIN
     OR NOT has_function_privilege('vec_dietas_propietario','vec_autorizacion_atestada_v3.registrar_y_consumir_dietas_circuito_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
     OR NOT has_function_privilege('vec_dietas_propietario','vec_autorizacion_atestada_v3.registrar_y_consumir_dietas_bandeja_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
     OR NOT has_function_privilege('vec_dietas_propietario','vec_autorizacion_atestada_v3.registrar_y_consumir_dietas_prelectura_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
- THEN RAISE EXCEPTION 'Dietas 000007: faltan 000006, Personal-11 o AD3-52, o ya hay circuito sin cola' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'Dietas 000007: faltan 000006, Personal-12 o AD3-59, o ya hay circuito sin cola' USING ERRCODE='55000'; END IF;
 END $pre$;
 
 -- Un registro de cola por estado de trabajo. Las versiones anteriores quedan

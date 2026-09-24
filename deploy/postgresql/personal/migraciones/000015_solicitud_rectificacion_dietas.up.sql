@@ -7,7 +7,7 @@ SET LOCAL search_path=pg_catalog;
 SET LOCAL timezone='UTC';
 SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='30s';
-SELECT pg_advisory_xact_lock(hashtextextended('vec_personal:migracion:000014:rectificacion-dietas:v1',0));
+SELECT pg_advisory_xact_lock(hashtextextended('vec_personal:migracion:000015:rectificacion-dietas:v1',0));
 DO $pre$
 BEGIN
  IF current_user<>'vec_personal_propietario'
@@ -22,7 +22,7 @@ BEGIN
     OR to_regclass('vec_personal.solicitud_rectificacion_dietas') IS NOT NULL
     OR NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='vec_personal_d7_ejecutor' AND NOT rolcanlogin AND NOT rolsuper AND NOT rolbypassrls)
     OR NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='vec_dietas_propietario' AND NOT rolcanlogin AND NOT rolsuper AND NOT rolbypassrls)
- THEN RAISE EXCEPTION 'Personal 000014: preimagen incompatible' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'Personal 000015: preimagen incompatible' USING ERRCODE='55000'; END IF;
 END $pre$;
 
 CREATE TABLE vec_personal.solicitud_rectificacion_dietas (

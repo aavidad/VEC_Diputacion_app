@@ -4,11 +4,11 @@ BEGIN;
 SET LOCAL search_path=pg_catalog;
 SET LOCAL lock_timeout='5s';
 SET LOCAL row_security=off;
-SELECT pg_advisory_xact_lock(hashtextextended('vec_personal:migracion:000014:rectificacion-dietas:v1',0));
+SELECT pg_advisory_xact_lock(hashtextextended('vec_personal:migracion:000015:rectificacion-dietas:v1',0));
 DO $pre$
 BEGIN
  IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=session_user AND rolsuper)
- THEN RAISE EXCEPTION 'Personal 000014 DOWN requiere DBA' USING ERRCODE='42501'; END IF;
+ THEN RAISE EXCEPTION 'Personal 000015 DOWN requiere DBA' USING ERRCODE='42501'; END IF;
 END $pre$;
 LOCK TABLE vec_personal.solicitud_rectificacion_dietas,
  vec_personal.evento_rectificacion_dietas,
@@ -20,7 +20,7 @@ BEGIN
     OR EXISTS(SELECT 1 FROM vec_personal.evento_rectificacion_dietas)
     OR EXISTS(SELECT 1 FROM vec_personal.auditoria_frontera_rectificacion_dietas)
     OR EXISTS(SELECT 1 FROM vec_personal.recibo_consulta_competentes_rectificacion_dietas)
- THEN RAISE EXCEPTION 'Personal 000014 DOWN protege historia' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'Personal 000015 DOWN protege historia' USING ERRCODE='55000'; END IF;
 END $historia$;
 SET LOCAL ROLE vec_personal_propietario;
 DROP FUNCTION vec_personal.solicitar_rectificacion_dietas_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) RESTRICT;

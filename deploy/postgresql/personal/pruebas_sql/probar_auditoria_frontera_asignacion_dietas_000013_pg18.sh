@@ -22,37 +22,37 @@ psql_dba -c 'SELECT 1' >/dev/null
 
 for source in \
   "$repo_dir/deploy/postgresql/personal/roles_up.sql" \
-  "$repo_dir/deploy/postgresql/personal/migraciones/000012_auditoria_frontera_asignacion_dietas.up.sql" \
-  "$repo_dir/deploy/postgresql/personal/migraciones/000012_auditoria_frontera_asignacion_dietas.down.sql" \
-  "$base_dir/auditoria_frontera_asignacion_dietas_000012.sql" \
-  "$base_dir/auditoria_frontera_asignacion_dietas_000012_login.sql" \
-  "$base_dir/auditoria_frontera_asignacion_dietas_000012_extra.sql"; do
+  "$repo_dir/deploy/postgresql/personal/migraciones/000013_auditoria_frontera_asignacion_dietas.up.sql" \
+  "$repo_dir/deploy/postgresql/personal/migraciones/000013_auditoria_frontera_asignacion_dietas.down.sql" \
+  "$base_dir/auditoria_frontera_asignacion_dietas_000013.sql" \
+  "$base_dir/auditoria_frontera_asignacion_dietas_000013_login.sql" \
+  "$base_dir/auditoria_frontera_asignacion_dietas_000013_extra.sql"; do
   docker cp "$source" "$container:/tmp/$(basename "$source")"
 done
 
 psql_file postgres /tmp/roles_up.sql
-if psql_file postgres /tmp/000012_auditoria_frontera_asignacion_dietas.up.sql >/dev/null 2>&1; then
-  echo 'Personal 000012 aceptó ausencia de 000011' >&2; exit 1
+if psql_file postgres /tmp/000013_auditoria_frontera_asignacion_dietas.up.sql >/dev/null 2>&1; then
+  echo 'Personal 000013 aceptó ausencia de 000012' >&2; exit 1
 fi
 [[ "$(psql_dba -c "SELECT NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='vec_personal_registrador_frontera')")" == t ]]
 psql_dba <<'SQL' >/dev/null
 SET ROLE vec_personal_propietario;
--- Fachada 000011 mínima para este ensayo focal de la migración 000012.
+-- Fachada 000012 mínima para este ensayo focal de la migración 000013.
 CREATE FUNCTION vec_personal.consultar_asignacion_dietas_v1(
   text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)
 RETURNS boolean LANGUAGE sql AS 'SELECT true';
 SQL
 docker exec "$container" sed 's/^COMMIT;$/ROLLBACK;/' \
-  /tmp/000012_auditoria_frontera_asignacion_dietas.up.sql \
+  /tmp/000013_auditoria_frontera_asignacion_dietas.up.sql \
   | psql_dba >/dev/null
 [[ "$(psql_dba -c "SELECT to_regclass('vec_personal.auditoria_frontera_asignacion_dietas') IS NULL AND NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='vec_personal_registrador_frontera')")" == t ]]
 
-psql_file postgres /tmp/000012_auditoria_frontera_asignacion_dietas.up.sql
-psql_file postgres /tmp/000012_auditoria_frontera_asignacion_dietas.down.sql
+psql_file postgres /tmp/000013_auditoria_frontera_asignacion_dietas.up.sql
+psql_file postgres /tmp/000013_auditoria_frontera_asignacion_dietas.down.sql
 [[ "$(psql_dba -c "SELECT to_regclass('vec_personal.auditoria_frontera_asignacion_dietas') IS NULL AND NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='vec_personal_registrador_frontera')")" == t ]]
-psql_file postgres /tmp/000012_auditoria_frontera_asignacion_dietas.up.sql
+psql_file postgres /tmp/000013_auditoria_frontera_asignacion_dietas.up.sql
 
-psql_file postgres /tmp/auditoria_frontera_asignacion_dietas_000012.sql
+psql_file postgres /tmp/auditoria_frontera_asignacion_dietas_000013.sql
 psql_dba <<'SQL' >/dev/null
 BEGIN;
 SET LOCAL ROLE vec_personal_propietario;
@@ -72,8 +72,8 @@ END
 $prueba$;
 ROLLBACK;
 SQL
-psql_file vec_personal_auditoria_prueba /tmp/auditoria_frontera_asignacion_dietas_000012_login.sql
-psql_file vec_personal_auditoria_extra /tmp/auditoria_frontera_asignacion_dietas_000012_extra.sql
+psql_file vec_personal_auditoria_prueba /tmp/auditoria_frontera_asignacion_dietas_000013_login.sql
+psql_file vec_personal_auditoria_extra /tmp/auditoria_frontera_asignacion_dietas_000013_extra.sql
 psql_dba <<'SQL' >/dev/null
 DO $prueba$
 BEGIN
@@ -106,8 +106,8 @@ END
 $prueba$;
 SQL
 psql_dba -c 'REVOKE vec_personal_registrador_frontera FROM vec_personal_auditoria_prueba,vec_personal_auditoria_extra' >/dev/null
-if psql_file postgres /tmp/000012_auditoria_frontera_asignacion_dietas.down.sql >/dev/null 2>&1; then
-  echo 'Personal 000012 DOWN eliminó historia' >&2; exit 1
+if psql_file postgres /tmp/000013_auditoria_frontera_asignacion_dietas.down.sql >/dev/null 2>&1; then
+  echo 'Personal 000013 DOWN eliminó historia' >&2; exit 1
 fi
 [[ "$(psql_dba -c "SELECT count(*) FROM vec_personal.auditoria_frontera_asignacion_dietas")" == 12 ]]
-echo 'OK: Personal 000012, PG18 desechable; rollback/UP/DOWN vacío, rol y ACL, 12 eventos HTTP, recurso opcional preselector/metodo, guardas, inmutabilidad y DOWN con historia.'
+echo 'OK: Personal 000013, PG18 desechable; rollback/UP/DOWN vacío, rol y ACL, 12 eventos HTTP, recurso opcional preselector/metodo, guardas, inmutabilidad y DOWN con historia.'

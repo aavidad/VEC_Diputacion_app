@@ -25,7 +25,7 @@ BEGIN
     OR NOT has_function_privilege('vec_personal_registrador_frontera',frontera,'EXECUTE')
     OR EXISTS(SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) x
       WHERE p.oid IN (solicitud,consulta,resuelve,confirma,competente,frontera,interno) AND x.grantee=0)
- THEN RAISE EXCEPTION 'ACL rectificación 000014 abierta' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'ACL rectificación 000015 abierta' USING ERRCODE='55000'; END IF;
 END $acl$;
 
 CREATE ROLE vec_prueba_d7c_frontera NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;

@@ -4,11 +4,11 @@ BEGIN;
 SET LOCAL row_security=off;
 SET LOCAL search_path=pg_catalog;
 SET LOCAL lock_timeout='5s';
-SELECT pg_advisory_xact_lock(hashtextextended('vec_personal:migracion:000011:asignacion-dietas:v1',0));
+SELECT pg_advisory_xact_lock(hashtextextended('vec_personal:migracion:000012:asignacion-dietas:v1',0));
 DO $pre$
 BEGIN
  IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=session_user AND rolsuper)
- THEN RAISE EXCEPTION 'Personal 000011 DOWN requiere migrador superusuario' USING ERRCODE='42501'; END IF;
+ THEN RAISE EXCEPTION 'Personal 000012 DOWN requiere migrador superusuario' USING ERRCODE='42501'; END IF;
 END $pre$;
 LOCK TABLE vec_personal.asignacion_dietas,
  vec_personal.recibo_asignacion_dietas,
@@ -48,7 +48,7 @@ BEGIN
           'vec_personal'::regnamespace,
           'vec_autorizacion_atestada_v3'::regnamespace)
         AND p.prosrc LIKE '%revalidar_asignacion_dietas_v1%')
- THEN RAISE EXCEPTION 'Personal 000011 DOWN protege historia o consumidor'
+ THEN RAISE EXCEPTION 'Personal 000012 DOWN protege historia o consumidor'
       USING ERRCODE='55000'; END IF;
 END $historia$;
 REVOKE EXECUTE ON FUNCTION

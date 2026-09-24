@@ -1,5 +1,5 @@
 \set ON_ERROR_STOP on
--- D7. Instalar después de 000009, las cuatro fachadas AD3 nominales y la preimagen de composición 000010.
+-- D7. Instalar tras Base 000010–000011, Composición 000010a y las cuatro fachadas AD3-59.
 -- La alta inicial v1 consume autorización propia y referencias explícitas; no
 -- crea datos de asignación desde una sesión, un cargo ni una relación inferida.
 BEGIN;
@@ -7,12 +7,12 @@ SET LOCAL search_path=pg_catalog;
 SET LOCAL timezone='UTC';
 SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='30s';
-SELECT pg_advisory_xact_lock(hashtextextended('vec_personal:migracion:000011:asignacion-dietas:v1',0));
+SELECT pg_advisory_xact_lock(hashtextextended('vec_personal:migracion:000012:asignacion-dietas:v1',0));
 DO $rol$
 BEGIN
  IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=session_user AND rolsuper)
     OR EXISTS(SELECT 1 FROM pg_roles WHERE rolname='vec_personal_d7_ejecutor')
- THEN RAISE EXCEPTION 'Personal 000011: rol D7 preexistente o migrador no autorizado'
+ THEN RAISE EXCEPTION 'Personal 000012: rol D7 preexistente o migrador no autorizado'
       USING ERRCODE='55000'; END IF;
 END $rol$;
 CREATE ROLE vec_personal_d7_ejecutor
@@ -39,7 +39,7 @@ BEGIN
     OR NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='vec_dietas_ejecutor' AND NOT rolcanlogin AND NOT rolsuper AND NOT rolbypassrls)
     OR NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='vec_personal_ejecutor' AND NOT rolcanlogin AND NOT rolsuper AND NOT rolbypassrls)
     OR NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='vec_personal_d7_ejecutor' AND NOT rolcanlogin AND NOT rolsuper AND NOT rolbypassrls)
- THEN RAISE EXCEPTION 'Personal 000011: falta postimagen AD3 nominal o estado incompatible' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'Personal 000012: falta postimagen AD3 nominal o estado incompatible' USING ERRCODE='55000'; END IF;
 END $pre$;
 
 CREATE TABLE vec_personal.recibo_asignacion_dietas (

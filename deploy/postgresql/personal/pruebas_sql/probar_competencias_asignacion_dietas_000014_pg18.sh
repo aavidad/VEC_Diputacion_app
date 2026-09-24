@@ -3,7 +3,7 @@ set -euo pipefail
 
 base_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 repo_dir=$(CDPATH= cd -- "$base_dir/../../../.." && pwd)
-container="vec-personal-d7b-000013-$RANDOM"
+container="vec-personal-d7b-000014-$RANDOM"
 fixture_pre=$(mktemp)
 fixture_post=$(mktemp)
 cleanup() {
@@ -26,18 +26,18 @@ if [[ "$ready" != true ]]; then docker logs "$container" >&2 || true; exit 1; fi
 
 docker cp "$repo_dir/deploy/postgresql/personal/roles_up.sql" "$container:/tmp/personal_roles_up.sql"
 docker cp "$repo_dir/deploy/postgresql/dietas_borradores/roles_up.sql" "$container:/tmp/dietas_roles_up.sql"
-sed '/^CREATE SCHEMA vec_prueba_d7;/,$d' "$base_dir/preparar_asignacion_dietas_000011.sql" > "$fixture_pre"
-sed -n '/^CREATE SCHEMA vec_prueba_d7;/,$p' "$base_dir/preparar_asignacion_dietas_000011.sql" > "$fixture_post"
-docker cp "$fixture_pre" "$container:/tmp/preparar_000011_pre.sql"
-docker cp "$fixture_post" "$container:/tmp/preparar_000011_post.sql"
+sed '/^CREATE SCHEMA vec_prueba_d7;/,$d' "$base_dir/preparar_asignacion_dietas_000012.sql" > "$fixture_pre"
+sed -n '/^CREATE SCHEMA vec_prueba_d7;/,$p' "$base_dir/preparar_asignacion_dietas_000012.sql" > "$fixture_post"
+docker cp "$fixture_pre" "$container:/tmp/preparar_000012_pre.sql"
+docker cp "$fixture_post" "$container:/tmp/preparar_000012_post.sql"
 for source in \
   "$repo_dir/deploy/postgresql/personal/migraciones/000007_relacion_empleado_dietas.up.sql" \
   "$repo_dir/deploy/postgresql/personal/migraciones/000009_asignacion_dietas.up.sql" \
-  "$repo_dir/deploy/postgresql/personal/migraciones/000011_asignacion_dietas.up.sql" \
-  "$base_dir/preparar_competencias_asignacion_dietas_000013.sql" \
-  "$repo_dir/deploy/postgresql/personal/migraciones/000013_competencias_asignacion_dietas.up.sql" \
-  "$base_dir/competencias_asignacion_dietas_000013.sql" \
-  "$repo_dir/deploy/postgresql/personal/migraciones/000013_competencias_asignacion_dietas.down.sql"; do
+  "$repo_dir/deploy/postgresql/personal/migraciones/000012_asignacion_dietas.up.sql" \
+  "$base_dir/preparar_competencias_asignacion_dietas_000014.sql" \
+  "$repo_dir/deploy/postgresql/personal/migraciones/000014_competencias_asignacion_dietas.up.sql" \
+  "$base_dir/competencias_asignacion_dietas_000014.sql" \
+  "$repo_dir/deploy/postgresql/personal/migraciones/000014_competencias_asignacion_dietas.down.sql"; do
   docker cp "$source" "$container:/tmp/$(basename "$source")"
 done
 
@@ -45,20 +45,20 @@ psql_file /tmp/personal_roles_up.sql
 psql_file /tmp/dietas_roles_up.sql
 psql_file /tmp/000007_relacion_empleado_dietas.up.sql
 psql_file /tmp/000009_asignacion_dietas.up.sql
-psql_file /tmp/preparar_000011_pre.sql
-psql_file /tmp/000011_asignacion_dietas.up.sql
-psql_file /tmp/preparar_000011_post.sql
-psql_file /tmp/preparar_competencias_asignacion_dietas_000013.sql
-psql_file /tmp/000013_competencias_asignacion_dietas.up.sql
-psql_file /tmp/000013_competencias_asignacion_dietas.down.sql
-psql_file /tmp/000013_competencias_asignacion_dietas.up.sql
-psql_file /tmp/competencias_asignacion_dietas_000013.sql
+psql_file /tmp/preparar_000012_pre.sql
+psql_file /tmp/000012_asignacion_dietas.up.sql
+psql_file /tmp/preparar_000012_post.sql
+psql_file /tmp/preparar_competencias_asignacion_dietas_000014.sql
+psql_file /tmp/000014_competencias_asignacion_dietas.up.sql
+psql_file /tmp/000014_competencias_asignacion_dietas.down.sql
+psql_file /tmp/000014_competencias_asignacion_dietas.up.sql
+psql_file /tmp/competencias_asignacion_dietas_000014.sql
 
 # DOWN con historia debe fallar; PostgreSQL deja intacta la migración.
-if psql_file /tmp/000013_competencias_asignacion_dietas.down.sql >/dev/null 2>&1; then
-  echo 'ERROR: DOWN de 000013 destruyó historia' >&2
+if psql_file /tmp/000014_competencias_asignacion_dietas.down.sql >/dev/null 2>&1; then
+  echo 'ERROR: DOWN de 000014 destruyó historia' >&2
   exit 1
 fi
 docker exec "$container" psql -X -qAt -v ON_ERROR_STOP=1 -U postgres -d postgres \
   -c "SELECT CASE WHEN to_regprocedure('vec_personal.consultar_competencias_asignacion_dietas_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL AND (SELECT count(*) FROM vec_personal.recibo_competencias_asignacion_dietas)=3 THEN 'ok' ELSE 'no' END" | grep -qx ok
-echo 'OK: Personal 000013 PG18 efímero, AD3 stub TEST-ONLY, competencia actual/obsoleta, ACL, recibos y DOWN protegido.'
+echo 'OK: Personal 000014 PG18 efímero, AD3 stub TEST-ONLY, competencia actual/obsoleta, ACL, recibos y DOWN protegido.'

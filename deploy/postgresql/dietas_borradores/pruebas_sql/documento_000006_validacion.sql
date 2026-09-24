@@ -6,7 +6,7 @@ SET LOCAL search_path=pg_catalog;
 DO $prueba$
 DECLARE sin_vehiculo jsonb; con_vehiculo jsonb; resultado jsonb;
         calculo jsonb; comando jsonb; comando_vacio jsonb; gasto jsonb;
-        tramo_dieta jsonb; linea_dieta jsonb; material text;
+        tramo_dieta jsonb; linea_dieta jsonb; material text; regla jsonb;
 BEGIN
  material:='{"esquema":"vec.dietas.borrador-operacion.v2","operacion":"editar","recurso_ref":"dco_DDDDDDDDDDDDDDDDDDDDDD","identidad":{"persona_ref":"per_AAAAAAAAAAAAAAAAAAAAAA","empleado_ref":"emp_BBBBBBBBBBBBBBBBBBBBBB","relacion_ref":"rel_CCCCCCCCCCCCCCCCCCCCCC","unidad_ref":"U1","relacion_version":1},"huella_semantica":"prueba","comando":{"clave_idempotencia":"clave_0000000000000001","version_esperada":1,"relacion_ref":"rel_CCCCCCCCCCCCCCCCCCCCCC"},"referencia":"dco_DDDDDDDDDDDDDDDDDDDDDD"}';
  IF vec_dietas.huella_semantica_mutacion_v2(material)
@@ -33,6 +33,9 @@ BEGIN
   RAISE EXCEPTION 'D4: ajuste sin motivo aceptado'; END IF;
 
  calculo:='{"procedencia":"sin_vehiculo_propio","version_grafo":"no_aplica","motor":"no_aplica","version_tarifa":"provisional:rd462:20260923","rotulo":"PROVISIONAL · pendiente de confirmación por RRHH","hora_inicio":"08:00","hora_fin":"12:00","kilometros":"0.0000","eur_por_km":"0.2600","importe_kilometraje_centimos":0,"tramos_ruta":[],"opciones_dieta":[{"grupo":1,"calculo":{"tramos":[],"manutencion_centimos":0,"alojamiento_tope_centimos":0,"total_maximo_orientativo_centimos":0,"version_tarifa_ref":"provisional:rd462:20260923","rotulo":"PROVISIONAL · pendiente de confirmación por RRHH"}},{"grupo":2,"calculo":{"tramos":[],"manutencion_centimos":0,"alojamiento_tope_centimos":0,"total_maximo_orientativo_centimos":0,"version_tarifa_ref":"provisional:rd462:20260923","rotulo":"PROVISIONAL · pendiente de confirmación por RRHH"}},{"grupo":3,"calculo":{"tramos":[],"manutencion_centimos":0,"alojamiento_tope_centimos":0,"total_maximo_orientativo_centimos":0,"version_tarifa_ref":"provisional:rd462:20260923","rotulo":"PROVISIONAL · pendiente de confirmación por RRHH"}}]}'::jsonb;
+ -- El cálculo lleva la regla de devengo publicada en el catálogo de 000006.
+ regla:=vec_dietas.consultar_regla_devengo_dietas_v1('provisional:rd462:20260923',DATE '2026-09-23','ES','nacional_ordinaria');
+ calculo:=calculo||jsonb_build_object('regla_ref',regla->>'regla_ref','regla_huella_sha256',regla->>'huella_sha256');
  comando:=jsonb_build_object('fecha_inicio','2026-09-23','fecha_fin','2026-09-23',
   'hora_inicio','08:00','hora_fin','12:00','codigos_ruta',jsonb_build_array('GR1','GR2'),
   'vehiculo_propio',false,'rutas','[]'::jsonb,'asignacion',jsonb_build_object('grupo_dieta',2),

@@ -1,6 +1,6 @@
 \set ON_ERROR_STOP on
 -- D7: auditoría mínima y segregada de rechazos HTTP de Personal. Se instala
--- después de 000011; la identidad LOGIN nominal se aprovisiona fuera de Git.
+-- después de 000012; la identidad LOGIN nominal se aprovisiona fuera de Git.
 BEGIN;
 SET LOCAL search_path = pg_catalog;
 SET LOCAL timezone = 'UTC';
@@ -8,7 +8,7 @@ SET LOCAL lock_timeout = '5s';
 SET LOCAL statement_timeout = '30s';
 
 SELECT pg_catalog.pg_advisory_xact_lock(
-    pg_catalog.hashtextextended('vec_personal:migracion:000012:auditoria_frontera_asignacion_dietas', 0)
+    pg_catalog.hashtextextended('vec_personal:migracion:000013:auditoria_frontera_asignacion_dietas', 0)
 );
 
 DO $preparar_rol$
@@ -28,7 +28,7 @@ BEGIN
         'vec_personal.registrar_auditoria_frontera_asignacion_dietas_v1(text,text,text,text,text,text,text,smallint)'
       ) IS NOT NULL THEN
         RAISE EXCEPTION USING ERRCODE = '55000',
-            MESSAGE = 'Personal 000012 requiere DBA, 000011 y preimagen sin auditoria de frontera';
+            MESSAGE = 'Personal 000013 requiere DBA, 000012 y preimagen sin auditoria de frontera';
     END IF;
 
     CREATE ROLE vec_personal_registrador_frontera

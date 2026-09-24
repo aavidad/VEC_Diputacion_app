@@ -20,7 +20,7 @@ BEGIN
     OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_dietas_documento_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
     OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_dietas_documento_consulta_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
     OR to_regprocedure('vec_personal.revalidar_asignacion_dietas_v1(text,text,text,text,bigint,smallint,text,text,text,date)') IS NULL
- THEN RAISE EXCEPTION 'Dietas 000006: faltan preimagen, AD3-52 o Personal-11' USING ERRCODE='55000'; END IF;
+ THEN RAISE EXCEPTION 'Dietas 000006: faltan preimagen, AD3-59 o Personal-12' USING ERRCODE='55000'; END IF;
 END $pre$;
 LOCK TABLE vec_dietas.borrador_comision IN SHARE ROW EXCLUSIVE MODE;
 

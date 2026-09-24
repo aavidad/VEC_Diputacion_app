@@ -25,7 +25,7 @@ BEGIN
        OR has_sequence_privilege('vec_personal_registrador_frontera', 'vec_personal.auditoria_frontera_asignacion_dietas_evento_id_seq', 'USAGE')
        OR NOT EXISTS (SELECT 1 FROM pg_proc p WHERE p.oid = to_regprocedure(firma)
                        AND p.prosecdef AND p.provolatile = 'v')
-    THEN RAISE EXCEPTION 'Personal 000012: estructura o ACL inesperadas'; END IF;
+    THEN RAISE EXCEPTION 'Personal 000013: estructura o ACL inesperadas'; END IF;
 END
 $prueba$;
 
