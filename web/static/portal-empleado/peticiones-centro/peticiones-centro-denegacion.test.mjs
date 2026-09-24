@@ -19,7 +19,8 @@ function raizFalsa() {
     innerHTML: "",
     manejadores,
     setAttribute() {},
-    querySelector() { return { checked: true }; },
+    insertAdjacentHTML(_posicion, contenido) { this.innerHTML = contenido + this.innerHTML; },
+    querySelector() { return { checked: true, value: "Motivo privado sintético" }; },
     querySelectorAll() { return []; },
     addEventListener(tipo, manejador) { manejadores.set(tipo, manejador); },
     async pulsar(dataset) {
@@ -150,4 +151,70 @@ test("RRHH informa del alta confirmada si la lectura posterior queda denegada, s
   assert.match(raiz.innerHTML, /La operación se registró/);
   assert.match(raiz.innerHTML, /Acceso denegado/);
   verificarSinDatos(raiz);
+});
+
+test("centro descarta el comando incierto tras POST 503 y reintento 403", async () => {
+  const raiz = raizFalsa();
+  const ratificable = { ...peticion, version: 1, estado: "pendiente_ratificacion" };
+  const ratificador = { ...contexto, actor: { ...contexto.actor, puede_presentar: false, puede_ratificar: true } };
+  const llamadas = [];
+  let post = 0;
+  let antesDeSalir;
+  const anterior = globalThis.addEventListener;
+  globalThis.addEventListener = (tipo, manejador) => { if (tipo === "beforeunload") antesDeSalir = manejador; };
+  const cliente = async (ruta, opciones) => {
+    llamadas.push([ruta, opciones?.method || "GET"]);
+    if (opciones?.method === "POST") throw { status: ++post === 1 ? 503 : 403 };
+    return ruta.endsWith("/contexto") ? ratificador : { peticiones: [ratificable] };
+  };
+  try {
+    const vista = await iniciarPeticionCentro({ raiz, cliente });
+    await raiz.pulsar({ seleccionar: ratificable.referencia });
+    await raiz.pulsar({ accion: "abrir-ratificacion" });
+    await raiz.pulsar({ accion: "confirmar-ratificar" });
+    assert.match(raiz.innerHTML, /Reintentar la misma operación/);
+    let intercepciones = 0;
+    antesDeSalir({ preventDefault() { intercepciones += 1; }, returnValue: undefined });
+    assert.equal(intercepciones, 1);
+    await raiz.pulsar({ accion: "reintentar" });
+    verificarSinDatos(raiz);
+    assert.match(raiz.innerHTML, /resultado sigue sin confirmarse/);
+    assert.doesNotMatch(raiz.innerHTML, /Motivo privado sintético/);
+    antesDeSalir({ preventDefault() { intercepciones += 1; }, returnValue: undefined });
+    assert.equal(intercepciones, 1);
+    const previas = llamadas.length;
+    await vista.recargar();
+    assert.equal(llamadas.length, previas + 2);
+    assert.match(raiz.innerHTML, /Resultado pendiente de comprobación/);
+    verificarSinDatos(raiz);
+    await raiz.pulsar({ accion: "confirmar-ratificar" });
+    await raiz.pulsar({ accion: "reintentar" });
+    assert.equal(post, 2);
+  } finally { globalThis.addEventListener = anterior; }
+});
+
+test("RRHH descarta el comando incierto tras POST 503 y reintento 401", async () => {
+  const raiz = raizFalsa();
+  const llamadas = [];
+  let post = 0;
+  const cliente = async (ruta, opciones) => {
+    llamadas.push([ruta, opciones?.method || "GET"]);
+    if (opciones?.method === "POST") throw { status: ++post === 1 ? 503 : 401 };
+    return { limite: 50, peticiones: [entrega] };
+  };
+  const vista = await iniciarPeticionesCentroRRHH({ raiz, cliente });
+  await raiz.pulsar({ accion: "abrir-alta-rrhh" });
+  await raiz.pulsar({ accion: "confirmar-alta-rrhh" });
+  assert.match(raiz.innerHTML, /Reintentar la misma operación/);
+  await raiz.pulsar({ accion: "reintentar-alta-rrhh" });
+  verificarSinDatos(raiz);
+  assert.match(raiz.innerHTML, /resultado sigue sin confirmarse/);
+  const previas = llamadas.length;
+  await vista.recargar();
+  assert.equal(llamadas.length, previas + 1);
+  assert.match(raiz.innerHTML, /Resultado pendiente de comprobación/);
+  verificarSinDatos(raiz);
+  await raiz.pulsar({ accion: "confirmar-alta-rrhh" });
+  await raiz.pulsar({ accion: "reintentar-alta-rrhh" });
+  assert.equal(post, 2);
 });
