@@ -6,6 +6,7 @@ import { montarFormularioCobertura } from "./formulario-cobertura.js";
 const EXPEDIENTE = "expediente:ct:prueba:cobertura:eleccion";
 const CLAVE = "11111111-1111-4111-8111-111111111111";
 const MOTIVO = `motivo.${"a".repeat(32)}`;
+const MOTIVO_OTRA_VIA = `motivo.${"b".repeat(32)}`;
 
 function propuesta() {
   const evaluacion = {
@@ -18,10 +19,13 @@ function propuesta() {
     esquema: "vec.contratacion-temporal.propuesta-cobertura.v1",
     estado: "viable",
     via_recomendada: "bolsa_vigente",
-    evaluaciones: [evaluacion, { ...evaluacion, via_clave: "oferta_sae", prioridad: 2 }],
-    motivos_alternativa: [{
-      clave: MOTIVO, via_clave: "oferta_sae", etiqueta_i18n: "motivo_sae",
-    }],
+    evaluaciones: [evaluacion,
+      { ...evaluacion, via_clave: "oferta_sae", prioridad: 2 },
+      { ...evaluacion, via_clave: "nueva_convocatoria_bolsa", prioridad: 3 }],
+    motivos_alternativa: [
+      { clave: MOTIVO, via_clave: "oferta_sae", etiqueta_i18n: "motivo_sae" },
+      { clave: MOTIVO_OTRA_VIA, via_clave: "nueva_convocatoria_bolsa", etiqueta_i18n: "motivo_nueva" },
+    ],
     identidad_semantica: {
       referencia: `propuesta-cobertura-semantica:sha256:${huella}`,
       huella_sha256: huella,
@@ -73,6 +77,8 @@ function raizDOM() {
           value: /value="([^"]+)"/u.exec(tag)?.[1],
           checked: /\schecked(?:\s|>)/u.test(tag),
           disabled: /\sdisabled(?:\s|>)/u.test(tag),
+          closest(selector) { return selector === "[name=via_elegida]" ? this : null; },
+          focus() {}, scrollIntoView() {},
         }));
       opciones = [...html.matchAll(/<option\b[^>]*>/gu)]
         .map(([tag]) => ({
@@ -85,15 +91,25 @@ function raizDOM() {
     removeEventListener(tipo, manejar) {
       if (eventos.get(tipo) === manejar) eventos.delete(tipo);
     },
-    querySelector() { return null; },
+    querySelector(selector) {
+      if (selector === "[name=motivo_clave]") {
+        return { value: opciones.find((item) => item.selected)?.value ?? "" };
+      }
+      if (selector === "[name=via_elegida]:checked") {
+        return radios.find((item) => item.checked) ?? null;
+      }
+      return null;
+    },
     contains(elemento) {
       return elemento === formulario
+        || radios.includes(elemento)
         || html.includes(`data-ct-cobertura-accion="${elemento?.dataset?.ctCoberturaAccion}"`);
     },
     replaceChildren() { this.innerHTML = ""; },
     elegirVia(via) {
       assert.ok(radios.some((item) => item.value === via && !item.disabled));
       radios.forEach((item) => { item.checked = item.value === via; });
+      eventos.get("change")?.({ target: radios.find((item) => item.checked) });
     },
     elegirMotivo(motivo) {
       assert.ok(opciones.some((item) => item.value === motivo));
@@ -132,7 +148,7 @@ async function montar(raiz, decidirCobertura, confirmarOperacion = () => true) {
     contexto: { expediente_ref: EXPEDIENTE, version_esperada: 2 },
     generarClaveIdempotencia: () => CLAVE,
     confirmarOperacion,
-    mensajes: { motivo_sae: "Elección de SAE" },
+    mensajes: { motivo_sae: "Elección de SAE", motivo_nueva: "Nueva convocatoria" },
   });
   await Promise.resolve();
   await Promise.resolve();
@@ -148,13 +164,6 @@ test("vía alternativa sobrevive al error y el reintento envía una decisión ex
     return recibo();
   }, () => { confirmaciones += 1; return true; });
 
-  raiz.elegirMotivo(MOTIVO);
-  await raiz.enviar();
-  assert.equal(raiz.motivoMarcado(), MOTIVO);
-  assert.equal(confirmaciones, 0);
-  assert.equal(decisiones.length, 0);
-
-  raiz.elegirMotivo("");
   raiz.elegirVia("oferta_sae");
   await raiz.enviar();
   assert.equal(raiz.viaMarcada(), "oferta_sae");
@@ -175,6 +184,42 @@ test("vía alternativa sobrevive al error y el reintento envía una decisión ex
     motivo_clave: MOTIVO,
   });
   assert.match(raiz.innerHTML, /data-ct-cobertura-recibo/u);
+  desmontar();
+});
+
+test("al cambiar de vía descarta el motivo cruzado y conserva el de la misma vía", async () => {
+  const raiz = raizDOM();
+  const decisiones = [];
+  let confirmaciones = 0;
+  const desmontar = await montar(raiz, async (solicitud) => {
+    decisiones.push(solicitud);
+    return recibo();
+  }, () => { confirmaciones += 1; return true; });
+
+  raiz.elegirVia("oferta_sae");
+  raiz.elegirMotivo(MOTIVO);
+  raiz.elegirVia("oferta_sae");
+  assert.equal(raiz.motivoMarcado(), MOTIVO, "la misma vía conserva su motivo");
+
+  raiz.elegirVia("nueva_convocatoria_bolsa");
+  assert.equal(raiz.viaMarcada(), "nueva_convocatoria_bolsa");
+  assert.equal(raiz.motivoMarcado(), "");
+  assert.doesNotMatch(raiz.innerHTML, new RegExp(`value="${MOTIVO}"`, "u"));
+  assert.match(raiz.innerHTML, new RegExp(`value="${MOTIVO_OTRA_VIA}"`, "u"));
+  await raiz.enviar();
+  assert.equal(raiz.viaMarcada(), "nueva_convocatoria_bolsa");
+  assert.equal(raiz.motivoMarcado(), "");
+  assert.doesNotMatch(raiz.innerHTML, new RegExp(`value="${MOTIVO}"`, "u"));
+  assert.equal(confirmaciones, 0);
+  assert.equal(decisiones.length, 0);
+
+  raiz.elegirVia("oferta_sae");
+  assert.equal(raiz.motivoMarcado(), "", "volver a la vía anterior exige elegir de nuevo");
+  raiz.elegirMotivo(MOTIVO);
+  await raiz.enviar();
+  assert.deepEqual(decisiones.map(({ via_elegida, motivo_clave }) => ({
+    via_elegida, motivo_clave,
+  })), [{ via_elegida: "oferta_sae", motivo_clave: MOTIVO }]);
   desmontar();
 });
 
