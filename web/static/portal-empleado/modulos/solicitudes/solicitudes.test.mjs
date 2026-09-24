@@ -34,6 +34,7 @@ function raizFalsa() {
 }
 const tick = () => new Promise((resolver) => setImmediate(resolver));
 const objetivo = (atributo, valor = "") => ({ closest: (selector) => selector === `[${atributo}]` ? { dataset: { solicitudesDetalle: valor } } : null });
+const objetivoTab = (pestana) => ({ closest: (selector) => selector === "[data-solicitudes-tab]" ? { dataset: { solicitudesTab: pestana } } : null });
 
 test("vista carga el catálogo i18n con URL F2 inmutable", async () => {
   const vista = await readFile(new URL("vista.js", import.meta.url), "utf8");
@@ -115,6 +116,54 @@ test("de la bandeja se abre la ficha seleccionada y se vuelve con foco al listad
   assert.match(raiz.innerHTML, /Reconocimiento/);
   raiz.eventos.get("click")({ target: objetivo("data-solicitudes-volver") });
   assert.equal(raiz.focos.at(-1), "detalle:SOL-002");
+});
+
+test("clic y flechas, Home y End conservan foco en la pestaña seleccionada", async () => {
+  const raiz = raizFalsa();
+  const montada = montarVistaSolicitudes({ raiz, fuente: { consultar: () => datos } });
+  await tick();
+  raiz.eventos.get("click")({ target: objetivoTab("nueva") });
+  assert.match(raiz.innerHTML, /aria-labelledby="solicitudes-tab-nueva"/);
+  assert.equal(raiz.focos.at(-1), '[data-solicitudes-tab="nueva"]');
+  const tecla = (desde, key, destino) => {
+    let evitado = false;
+    raiz.eventos.get("keydown")({ target: objetivoTab(desde), key, preventDefault() { evitado = true; } });
+    assert.equal(evitado, true);
+    assert.match(raiz.innerHTML, new RegExp(`aria-labelledby="solicitudes-tab-${destino}"`));
+    assert.equal(raiz.focos.at(-1), `[data-solicitudes-tab="${destino}"]`);
+  };
+  tecla("nueva", "ArrowRight", "seguimiento");
+  tecla("seguimiento", "Home", "bandeja");
+  tecla("bandeja", "End", "certificados");
+  tecla("certificados", "ArrowLeft", "seguimiento");
+  tecla("seguimiento", "ArrowLeft", "nueva");
+  montada.desmontar();
+  assert.equal(raiz.eventos.size, 0);
+  assert.equal(raiz.innerHTML, "");
+});
+
+test("cambiar pestaña en denegación conserva foco sin mostrar datos", async () => {
+  const raiz = raizFalsa();
+  montarVistaSolicitudes({ raiz, fuente: { consultar: () => ({ ...datos, estado: "denegado" }) } });
+  await tick();
+  raiz.eventos.get("click")({ target: objetivoTab("certificados") });
+  assert.equal(raiz.focos.at(-1), '[data-solicitudes-tab="certificados"]');
+  assert.doesNotMatch(raiz.innerHTML, /SOL-001|Períodos reconocidos|Servicios previos/);
+});
+
+test("respuesta asíncrona conserva foco en la pestaña activa sin revelar denegados", async () => {
+  const raiz = raizFalsa();
+  let resolver;
+  raiz.ownerDocument = { activeElement: null };
+  raiz.contains = () => true;
+  montarVistaSolicitudes({ raiz, fuente: { consultar: () => new Promise((resuelve) => { resolver = resuelve; }) } });
+  await tick();
+  raiz.eventos.get("click")({ target: objetivoTab("certificados") });
+  raiz.ownerDocument.activeElement = objetivoTab("certificados");
+  resolver({ ...datos, estado: "denegado" });
+  await tick();
+  assert.equal(raiz.focos.at(-1), '[data-solicitudes-tab="certificados"]');
+  assert.doesNotMatch(raiz.innerHTML, /SOL-001|Períodos reconocidos|Servicios previos/);
 });
 
 test("estados expresos no filtran filas, mientras vacío conserva catálogos", async () => {

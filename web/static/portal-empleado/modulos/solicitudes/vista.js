@@ -102,8 +102,17 @@ export function montarVistaSolicitudes({ raiz, fuente, anunciar = () => {}, regi
   const controlador = new AbortController();
   let activa = true;
   let estado = { pestana: "bandeja", busqueda: "", filtro: "todos", seleccionada: "", situacion: fuente ? "cargando" : "no_configurado", datos: {} };
-  const pintar = () => { if (activa) raiz.innerHTML = renderizarSolicitudes(estado, mensajes); };
-  const cambiarPestana = (pestana, foco = false) => { if (!PESTANAS.includes(pestana)) return; estado = { ...estado, pestana }; pintar(); if (foco) raiz.querySelector?.(`[data-solicitudes-tab="${pestana}"]`)?.focus?.(); anunciar(t("anuncio_seccion", { seccion: t(pestana) }), "informacion"); };
+  const pintar = ({ conservarFoco = true } = {}) => {
+    if (!activa) return;
+    const activo = raiz.ownerDocument?.activeElement;
+    const dentro = conservarFoco && activo && raiz.contains?.(activo);
+    const pestanaEnFoco = dentro ? activo.closest?.("[data-solicitudes-tab]")?.dataset.solicitudesTab : "";
+    const panelEnFoco = dentro && activo.id === "solicitudes-panel-actual";
+    raiz.innerHTML = renderizarSolicitudes(estado, mensajes);
+    if (PESTANAS.includes(pestanaEnFoco)) raiz.querySelector?.(`[data-solicitudes-tab="${pestanaEnFoco}"]`)?.focus?.();
+    else if (panelEnFoco) raiz.querySelector?.("#solicitudes-panel-actual")?.focus?.();
+  };
+  const cambiarPestana = (pestana) => { if (!activa || !PESTANAS.includes(pestana)) return; estado = { ...estado, pestana }; pintar({ conservarFoco: false }); raiz.querySelector?.(`[data-solicitudes-tab="${pestana}"]`)?.focus?.(); anunciar(t("anuncio_seccion", { seccion: t(pestana) }), "informacion"); };
   const alClick = (evento) => {
     if (evento.target?.closest?.("[data-solicitudes-volver]")) {
       cambiarPestana("bandeja");
@@ -134,7 +143,7 @@ export function montarVistaSolicitudes({ raiz, fuente, anunciar = () => {}, regi
     evento.preventDefault();
     const indice = PESTANAS.indexOf(tab.dataset.solicitudesTab);
     const siguiente = evento.key === "Home" ? 0 : evento.key === "End" ? PESTANAS.length - 1 : (indice + (evento.key === "ArrowRight" ? 1 : -1) + PESTANAS.length) % PESTANAS.length;
-    cambiarPestana(PESTANAS[siguiente], true);
+    cambiarPestana(PESTANAS[siguiente]);
   };
   pintar();
   raiz.addEventListener("click", alClick);
