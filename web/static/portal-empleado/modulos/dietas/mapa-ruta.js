@@ -11,7 +11,7 @@ import {
   PLANTILLA_TESELAS_OSM_INTERNA,
   validarGeometriaRutaDietas,
 } from "./contrato.js";
-import { MENSAJES_DIETAS_ES, crearTraductorDietas } from "./i18n.js?v=20260924-osm-base-v1";
+import { MENSAJES_DIETAS_ES, crearTraductorDietas } from "./i18n.js?v=20260924-osm-base-v2";
 
 function validarDescriptorMapa(descriptor) {
   if (!descriptor || typeof descriptor !== "object" || Array.isArray(descriptor)
