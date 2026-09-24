@@ -20,6 +20,8 @@ COPY --chown=app:app config ./config
 COPY --chown=app:app internal ./internal
 COPY --chown=app:app locales ./locales
 COPY --chown=app:app web ./web
+# Solo vec-interno enlaza PKCS#11 para HMAC con clave no exportable; las otras
+# superficies conservan sus binarios sin CGO.
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
   -trimpath \
   -ldflags="-s -w" \
@@ -30,7 +32,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
   -ldflags="-s -w" \
   -o /src/bin/vec-publico \
   ./cmd/vec-publico \
-  && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+  && CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build \
   -trimpath \
   -ldflags="-s -w" \
   -o /src/bin/vec-interno \

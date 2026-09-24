@@ -41,6 +41,7 @@ while IFS= read -r paquete; do
 			github.com/jackc/pgx/v5/pgxpool | \
 			github.com/jackc/puddle/v2 | \
 			github.com/jackc/puddle/v2/internal/genstack | \
+			github.com/miekg/pkcs11 | \
 			github.com/veraison/go-cose | \
 			github.com/x448/float16 | \
 			golang.org/x/sync/semaphore | \
@@ -61,6 +62,8 @@ while IFS= read -r paquete; do
 			"${modulo}/config" | \
 			"${modulo}/internal/app/composicion/interna" | \
 			"${modulo}/internal/app/composicion/interna/contrataciontemporal" | \
+			"${modulo}/internal/app/composicion/internactproveedores" | \
+			"${modulo}/internal/app/composicion/internagobierno" | \
 			"${modulo}/internal/app/incorporacionejercicio" | \
 			"${modulo}/internal/app/server" | \
 			"${modulo}/internal/modules/administracion" | \
@@ -92,8 +95,10 @@ while IFS= read -r paquete; do
 			"${modulo}/internal/vec/adapters/httpseguridad" | \
 			"${modulo}/internal/vec/adapters/httpseguridad/postgres" | \
 			"${modulo}/internal/vec/adapters/postgres" | \
+			"${modulo}/internal/vec/adapters/seguridad" | \
 			"${modulo}/internal/vec/adapters/seguridad/confianzaatestacion" | \
 			"${modulo}/internal/vec/adapters/seguridad/verificacioncose" | \
+			"${modulo}/internal/vec/adapters/seudonimizacionpkcs11" | \
 			"${modulo}/internal/vec/application" | \
 			"${modulo}/internal/vec/canonico/almacen" | \
 			"${modulo}/internal/vec/canonico/documental" | \
@@ -119,6 +124,8 @@ for obligatoria in \
 	"${modulo}/config" \
 	"${modulo}/internal/app/composicion/interna" \
 	"${modulo}/internal/app/composicion/interna/contrataciontemporal" \
+	"${modulo}/internal/app/composicion/internactproveedores" \
+	"${modulo}/internal/app/composicion/internagobierno" \
 	"${modulo}/internal/app/server" \
 	"${modulo}/internal/modules/contrataciontemporal/adapters/postgres" \
 	"${modulo}/internal/vec/adapters/contextoactor/postgres" \
@@ -126,6 +133,7 @@ for obligatoria in \
 	"${modulo}/internal/vec/adapters/httpseguridad" \
 	"${modulo}/internal/vec/adapters/httpseguridad/postgres" \
 	"${modulo}/internal/vec/adapters/postgres" \
+	"${modulo}/internal/vec/adapters/seudonimizacionpkcs11" \
 	"${modulo}/internal/vec/adapters/seguridad/verificacioncose" \
 	"${modulo}/internal/vec/application" \
 	"${modulo}/internal/vec/domain"; do
