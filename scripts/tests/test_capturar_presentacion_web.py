@@ -2,10 +2,8 @@ from __future__ import annotations
 
 import ast
 import unittest
-from collections import Counter
 from dataclasses import replace
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
 
 from scripts import capturar_presentacion_web as capturador
 from scripts.revision_web import auditoria as auditoria_revision
@@ -97,242 +95,29 @@ class AuditoriaColumnasOperativasTests(unittest.TestCase):
 
 
 class ManifiestoRevisionWebTests(unittest.TestCase):
-    def test_cubre_todas_las_vistas_y_tamanos_acordados(self) -> None:
-        por_superficie = Counter(vista.superficie for vista in capturador.MANIFIESTO_VISTAS)
+    def test_campana_solo_cubre_consulta_publica_servida(self) -> None:
+        self.assertEqual(set(capturador.SUPERFICIES), {"portal-publico"})
         self.assertEqual(
-            por_superficie,
-            {
-                "portal-publico": 1,
-                "area-aspirante": 14,
-                "gestion-rrhh": 29,
-            },
+            [(escenario.clave, escenario.ruta) for escenario in capturador.MANIFIESTO],
+            [
+                ("publico-convocatorias", "/bolsa/"),
+                ("publico-ficha-convocatoria", "/bolsa/"),
+            ],
         )
+        self.assertEqual(len(capturador.MANIFIESTO_VISTAS), 1)
+        self.assertEqual(len(capturador.MANIFIESTO_FLUJOS), 1)
+        self.assertFalse(any(escenario.requiere_demo for escenario in capturador.MANIFIESTO_FLUJOS))
         self.assertEqual(
             {(tamano.ancho, tamano.alto) for tamano in capturador.TAMANOS_VISTA},
             {(1440, 1000), (1024, 900), (390, 844)},
         )
         self.assertEqual(capturador.validar_manifiesto(), [])
 
-    def test_vistas_aspirante_son_exhaustivas_y_el_detalle_es_determinista(self) -> None:
-        vistas = {
-            vista.clave.removeprefix("aspirante-"): vista
-            for vista in capturador.MANIFIESTO_VISTAS
-            if vista.superficie == "area-aspirante"
-        }
-        self.assertEqual(set(vistas), {
-            "inicio", "convocatorias", "convocatoria", "perfil", "meritos",
-            "solicitud", "autobaremacion", "seguimiento", "llamamientos",
-            "subsanaciones", "alegaciones", "mensajes", "certificados", "ayuda",
-        })
-        self.assertIn("id=DEMO-CONV-001", vistas["convocatoria"].ruta)
-
-    def test_vistas_rrhh_coinciden_con_el_menu_final(self) -> None:
-        rutas = {
-            vista.clave.removeprefix("rrhh-")
-            for vista in capturador.MANIFIESTO_VISTAS
-            if vista.superficie == "gestion-rrhh"
-            and vista.clave not in {"rrhh-cronos", "rrhh-dietas", "rrhh-personal-presentacion"}
-            and not vista.clave.startswith("rrhh-presentacion-")
-        }
-        self.assertEqual(rutas, set(capturador.RUTAS_MENU_RRHH))
-        self.assertIn("reglas", rutas)
-        self.assertIn("consulta", rutas)
-
-    def test_cronos_y_dietas_se_auditan_como_modulos_internos_en_tres_tamanos(self) -> None:
-        modulos = {
-            vista.clave: vista
-            for vista in capturador.MANIFIESTO_VISTAS
-            if vista.clave in {"rrhh-cronos", "rrhh-dietas"}
-        }
-        self.assertEqual(set(modulos), {"rrhh-cronos", "rrhh-dietas"})
-        self.assertTrue(all("perfil=funcionario" in vista.ruta for vista in modulos.values()))
-        self.assertEqual(modulos["rrhh-cronos"].ruta.rsplit("#", 1)[-1], "cronos")
-        self.assertEqual(modulos["rrhh-dietas"].ruta.rsplit("#", 1)[-1], "dietas")
-        self.assertEqual(len(capturador.TAMANOS_VISTA), 3)
-        for clave, vista in modulos.items():
-            with self.subTest(modulo=clave):
-                self.assertEqual(vista.superficie, "gestion-rrhh")
-                self.assertIn("perfil=funcionario", vista.ruta)
-                self.assertEqual(len(vista.selectores_menu), 2)
-
-    def test_modulos_nuevos_y_personal_declaran_limite_visual_pendiente(self) -> None:
-        vistas = {
-            vista.clave: vista
-            for vista in capturador.MANIFIESTO_VISTAS
-            if vista.clave.startswith("rrhh-presentacion-") or vista.clave == "rrhh-personal-presentacion"
-        }
-        esperadas = {
-            "rrhh-personal-presentacion": ("personal", "Personal · consulta informativa"),
-            "rrhh-presentacion-nominas": ("nominas-empleado", "Nóminas y retribuciones"),
-            "rrhh-presentacion-solicitudes": ("solicitudes-empleado", "Solicitudes y certificados"),
-            "rrhh-presentacion-meritos": ("meritos-empleado", "Méritos y formación"),
-            "rrhh-presentacion-comunicaciones": ("comunicaciones-empleado", "Comunicaciones"),
-            "rrhh-presentacion-documentos": ("documentos-empleado", "Documentos y firma"),
-            "rrhh-presentacion-aprobaciones": ("aprobaciones-empleado", "Aprobaciones y portafirmas"),
-            "rrhh-presentacion-auditoria": ("auditoria-empleado", "Auditoría"),
-            "rrhh-presentacion-administracion": ("administracion-empleado", "Administración y configuración"),
-        }
-        self.assertEqual(set(vistas), set(esperadas))
-        for clave, (hash_esperado, titulo) in esperadas.items():
-            with self.subTest(vista=clave):
-                vista = vistas[clave]
-                perfil = "funcionario" if clave == "rrhh-personal-presentacion" else "administrador"
-                self.assertIn(f"perfil={perfil}", vista.ruta)
-                self.assertEqual(vista.ruta.rsplit("#", 1)[-1], hash_esperado)
-                self.assertEqual(vista.titulo_esperado, titulo)
-                self.assertIn(".estado-entrega--pendiente", vista.selectores_listos)
-                self.assertEqual(len(vista.selectores_menu), 2)
-                if clave != "rrhh-personal-presentacion":
-                    self.assertIn(f'data-vista="{hash_esperado}"', vista.selector_menu_actual)
-
-    def test_vistas_bolsa_y_laminas_empleado_no_comparten_hash(self) -> None:
-        vistas = {vista.clave: vista for vista in capturador.MANIFIESTO_VISTAS}
-        for clave in ("solicitudes", "meritos", "documentos", "comunicaciones", "auditoria"):
-            with self.subTest(vista=clave):
-                bolsa = vistas[f"rrhh-{clave}"]
-                empleado = vistas[f"rrhh-presentacion-{clave}"]
-                self.assertEqual(bolsa.ruta.rsplit("#", 1)[-1], f"bolsa/{clave}")
-                self.assertEqual(empleado.ruta.rsplit("#", 1)[-1], f"{clave}-empleado")
-                self.assertNotEqual(bolsa.ruta, empleado.ruta)
-
-    def test_personal_abre_la_proyeccion_rpt_sin_afirmar_una_escritura(self) -> None:
-        flujo = next(
-            flujo for flujo in capturador.MANIFIESTO_FLUJOS
-            if flujo.clave == "rrhh-personal-rpt-publica"
-        )
-        self.assertTrue(flujo.requiere_demo)
-        self.assertIn("perfil=funcionario", flujo.ruta)
-        self.assertEqual(
-            [(paso.accion, paso.selector) for paso in flujo.pasos],
-            [
-                ("clic", '[data-personal-ficha-tab="catalogos"]'),
-                ("esperar", "[data-personal-rpt-publica]"),
-                ("clic", '[data-personal-rpt-publica-vista="puestos"]'),
-                ("esperar", "[data-personal-rpt-publica] caption"),
-                ("esperar", "[data-personal-rpt-publica]"),
-            ],
-        )
-        self.assertTrue(all(paso.accion != "clic-confirmando" for paso in flujo.pasos))
-        self.assertEqual(
-            [paso.texto_esperado for paso in flujo.pasos],
-            ["", "Relación de Puestos", "", "Tabla de puestos RPT", "842 puestos · 1.714 dotaciones"],
-        )
-
-    def test_toda_ruta_privada_usa_presentacion_rrhh(self) -> None:
-        for escenario in capturador.MANIFIESTO:
-            superficie = capturador.SUPERFICIES[escenario.superficie]
-            if not superficie.privada:
-                continue
-            consulta = parse_qs(urlparse(escenario.ruta).query)
-            self.assertEqual(consulta.get("presentacion"), ["rrhh"], escenario.clave)
-
-    def test_flujos_se_distinguen_y_cubren_interacciones_demo(self) -> None:
-        self.assertEqual(len(capturador.MANIFIESTO_FLUJOS), 24)
-        claves = {flujo.clave for flujo in capturador.MANIFIESTO_FLUJOS}
-        self.assertTrue({
-            "publico-ficha-convocatoria",
-            "aspirante-convocatoria-abierta",
-            "aspirante-confirmacion-demo",
-            "aspirante-recibo-demo",
-            "rrhh-borrador-abierto",
-            "rrhh-recibo-demo",
-            "rrhh-dietas-ruta-real",
-            "rrhh-personal-rpt-publica",
-            "rrhh-perfil-tecnico-restringido",
-            "funcionario-autoservicio-restringido",
-            "aspirante-menu-movil-abierto",
-            "rrhh-menu-movil-abierto",
-            "rrhh-menu-bolsa-movil-abierto",
-        }.issubset(claves))
-        for flujo in capturador.MANIFIESTO_FLUJOS:
-            self.assertEqual(flujo.tipo, "flujo")
-            self.assertTrue(flujo.pasos)
-        privados = [flujo for flujo in capturador.MANIFIESTO_FLUJOS if flujo.requiere_demo]
-        self.assertTrue(privados)
-        self.assertTrue(all(capturador.SUPERFICIES[flujo.superficie].privada for flujo in privados))
-
-        tecnico = next(
-            flujo for flujo in capturador.MANIFIESTO_FLUJOS
-            if flujo.clave == "rrhh-perfil-tecnico-restringido"
-        )
-        self.assertIn("perfil=tecnico", tecnico.ruta)
-        self.assertIn("DEMO-PERFIL-TECNICO-RRHH-01", tecnico.pasos[0].selector)
-        self.assertEqual(
-            [paso.accion for paso in tecnico.pasos],
-            [
-                "esperar", "esperar-habilitado", "esperar-deshabilitado",
-                "esperar-deshabilitado", "esperar-deshabilitado",
-            ],
-        )
-
-    def test_funcionario_y_tecnico_aplican_minimo_privilegio_en_vista_directa(self) -> None:
-        por_clave = {flujo.clave: flujo for flujo in capturador.MANIFIESTO_FLUJOS}
-        funcionario = por_clave["funcionario-autoservicio-restringido"]
-        tecnico = por_clave["rrhh-perfil-tecnico-restringido"]
-        self.assertIn("perfil=funcionario", funcionario.ruta)
-        self.assertIn("DEMO-PERFIL-FUNCIONARIO-01", funcionario.pasos[0].selector)
-        self.assertEqual(
-            [(paso.accion, paso.selector) for paso in funcionario.pasos[1:]],
-            [
-                ("esperar-deshabilitado", '[data-modulo-portal="bolsa"]'),
-                ("esperar-habilitado", '[data-modulo-portal="cronos"][data-vista="cronos"]'),
-                ("esperar-habilitado", '[data-modulo-portal="dietas"][data-vista="dietas"]'),
-            ],
-        )
-        self.assertIn("perfil=tecnico", tecnico.ruta)
-        self.assertIn(
-            ("esperar-habilitado", '[data-modulo-portal="bolsa"][data-vista="resumen"]'),
-            [(paso.accion, paso.selector) for paso in tecnico.pasos],
-        )
-        self.assertTrue(all(
-            paso.accion == "esperar-deshabilitado"
-            for paso in tecnico.pasos[2:]
-        ))
-
-    def test_operaciones_rrhh_representativas_exigen_perfil_y_recibo_demo(self) -> None:
-        self.assertEqual(len(capturador.FLUJOS_RRHH_CON_RECIBO), 11)
-        vistas = {flujo.ruta.rsplit("/", 1)[-1] for flujo in capturador.FLUJOS_RRHH_CON_RECIBO}
-        self.assertEqual(vistas, {
-            "convocatorias", "solicitudes", "meritos", "reglas", "importacion",
-            "llamamientos", "contratos", "comunicaciones", "estadisticas",
-            "configuracion", "alegaciones",
-        })
-        for flujo in capturador.FLUJOS_RRHH_CON_RECIBO:
-            with self.subTest(flujo=flujo.clave):
-                self.assertTrue(flujo.requiere_demo)
-                self.assertIn("perfil=administrador", flujo.ruta)
-                if flujo.clave == "rrhh-llamamiento-recibo-demo":
-                    self.assertEqual(
-                        [paso.accion for paso in flujo.pasos],
-                        ["clic", "esperar", "clic", "esperar", "clic", "clic-confirmando", "esperar", "esperar"],
-                    )
-                    self.assertEqual(flujo.pasos[0].selector, '[data-accion="solicitar-propuesta"]')
-                    self.assertEqual(flujo.pasos[5].selector, '[data-accion="preparar-llamamiento-demo"]')
-                    self.assertEqual(flujo.pasos[6].texto_esperado, "DEMO-REC")
-                    self.assertEqual(flujo.pasos[7].texto_esperado, "DEMO-LLA-045")
-                else:
-                    self.assertEqual(
-                        [paso.accion for paso in flujo.pasos],
-                        ["clic-confirmando", "esperar", "esperar"],
-                    )
-                    self.assertIn('[data-accion="operacion-presentacion"]', flujo.pasos[0].selector)
-                    self.assertEqual(flujo.pasos[1].texto_esperado, "DEMO-REC")
-                    self.assertRegex(flujo.pasos[2].texto_esperado, r"^DEMO-")
-
-    def test_flujos_de_menu_dejan_capturable_el_estado_abierto(self) -> None:
-        por_clave = {flujo.clave: flujo for flujo in capturador.MANIFIESTO_FLUJOS}
-        aspirante = por_clave["aspirante-menu-movil-abierto"]
-        rrhh = por_clave["rrhh-menu-movil-abierto"]
-        bolsa = por_clave["rrhh-menu-bolsa-movil-abierto"]
-        self.assertEqual(aspirante.pasos[0].accion, "abrir-menu")
-        self.assertEqual(rrhh.pasos[0].accion, "abrir-menu")
-        self.assertEqual(bolsa.pasos[0].accion, "abrir-menu")
-        self.assertEqual(bolsa.pasos[1].accion, "abrir-menu")
-        self.assertEqual(bolsa.pasos[1].selector, '[data-grupo-bolsa="auditoria"]')
-        self.assertEqual(bolsa.pasos[2].selector, "#submenu-auditoria")
-        self.assertIn("perfil=administrador", rrhh.ruta)
-        self.assertIn("perfil=administrador", bolsa.ruta)
-        self.assertIn("#bolsa/resumen", bolsa.ruta)
+    def test_ficha_publica_requiere_detalle_visible(self) -> None:
+        flujo = capturador.MANIFIESTO_FLUJOS[0]
+        self.assertEqual(flujo.tipo, "flujo")
+        self.assertEqual([paso.accion for paso in flujo.pasos], ["clic", "esperar", "enfocar"])
+        self.assertIn("#contenido-detalle:not([hidden])", flujo.pasos[1].selector)
 
     def test_detecta_duplicados_del_manifiesto_sin_navegador(self) -> None:
         original = capturador.MANIFIESTO_VISTAS[0]
