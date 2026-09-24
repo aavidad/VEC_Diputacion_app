@@ -43,8 +43,10 @@ export function montarFormularioResolucionFormalizacion({
   const estadoLegible = (estado) => estado === "registrada" ? "Registrada" : "Recibo recuperado";
   const validacionLegible = () => "Validación manual de ejercicio sintético";
 
-  function pintar(mensaje = "", focoCorreccion = false) {
+  function pintar(mensaje = "", enfocarEstado = false) {
     if (!montado) return;
+    const documento = raiz.ownerDocument ?? globalThis.document;
+    const focoPropio = enfocarEstado && documento?.activeElement && raiz.contains?.(documento.activeElement);
     const v = valores;
     const camposRecibo = ["esquema", "estado", "tipo_validacion", "expediente_ref", "propuesta_ref", "resolucion_formalizacion_ref", "documento_resolucion_ref",
       "documento_resolucion_version", "documento_resolucion_sha256", "version_resultante",
@@ -82,12 +84,37 @@ export function montarFormularioResolucionFormalizacion({
         <div class="ct-acciones"><button class="boton-primario" type="submit"${ocupado ? " disabled" : ""}>
           ${texto(solicitudPendiente ? "reintentar" : "registrar")}</button></div>
       </form>`}
-      <p role="status" aria-live="polite">${texto(mensaje || (recibo ? "historico" : "pendiente"))}</p>
+      <p data-ct-rf-estado role="status" aria-live="polite" tabindex="-1">${texto(mensaje || (recibo ? "historico" : "pendiente"))}</p>
     </section>`;
-    const documento = raiz.ownerDocument ?? globalThis.document;
-    if (focoCorreccion && documento && documento.activeElement === documento.body) {
-      raiz.querySelector?.("[name=numero_resolucion]")?.focus?.();
-    }
+    if (focoPropio) raiz.querySelector?.("[data-ct-rf-estado]")?.focus?.();
+  }
+
+  function actualizarEstado(mensaje, pendiente = false) {
+    const estado = raiz.querySelector?.("[data-ct-rf-estado]");
+    const formulario = raiz.querySelector?.("[data-ct-resolucion-formalizacion-form]");
+    if (!estado || !formulario) { pintar(mensaje); return; }
+    estado.textContent = t("resolucion_formalizacion_" + mensaje);
+    formulario.setAttribute("aria-busy", String(pendiente));
+    const boton = formulario.querySelector('button[type="submit"]');
+    if (boton) boton.setAttribute("aria-disabled", String(pendiente));
+  }
+
+  function primerControlInvalido(formulario) {
+    const controles = formulario.elements;
+    const textoValido = (valor, maximo) => valor.length > 0 && valor.length <= maximo
+      && valor.normalize("NFC") === valor && valor.trim() === valor
+      && !/[\u0000-\u001f\u007f-\u009f]/u.test(valor);
+    const fechaValida = /^\d{4}-\d{2}-\d{2}$/u.test(valores.fecha_resolucion)
+      && Number.isFinite(Date.parse(`${valores.fecha_resolucion}T00:00:00Z`));
+    const casos = [
+      ["numero_resolucion", !textoValido(valores.numero_resolucion, 80)],
+      ["fecha_resolucion", !fechaValida],
+      ["motivo", !textoValido(valores.motivo, 2000)],
+      ["confirma_revision_propuesta", !valores.confirma_revision_propuesta],
+      ["confirma_ejercicio_manual", !valores.confirma_ejercicio_manual],
+    ];
+    const primero = casos.find(([, invalido]) => invalido)?.[0];
+    return primero ? controles[primero] : null;
   }
 
   function capturar(formulario) {
@@ -106,7 +133,7 @@ export function montarFormularioResolucionFormalizacion({
   async function recuperarConflicto(signal) {
     // Lectura de historia, no confirmación del material posiblemente divergente.
     // Ni un GET v7 vacío ni un fallo de lectura liberan esta clave para editar.
-    pintar("conflicto_consultando");
+    actualizarEstado("conflicto_consultando", true);
     try {
       if (!montado || signal.aborted) return "incierta";
       const resultado = await cliente.prepararResolucionFormalizacion(contexto.expediente_ref, { signal });
@@ -136,7 +163,8 @@ export function montarFormularioResolucionFormalizacion({
         });
       } catch {
         solicitudPendiente = null;
-        pintar("validacion");
+        actualizarEstado("validacion");
+        (primerControlInvalido(evento.target) ?? raiz.querySelector?.("[data-ct-rf-estado]"))?.focus?.();
         return;
       }
     }
@@ -150,16 +178,15 @@ export function montarFormularioResolucionFormalizacion({
     } catch { /* Una confirmación fallida no inicia el POST. */ }
     if (!confirmado) {
       if (!recuperando) solicitudPendiente = null;
-      pintar(recuperando ? "recuperacion_cancelada" : "cancelada");
+      actualizarEstado(recuperando ? "recuperacion_cancelada" : "cancelada");
       return;
     }
     if (!montado) return;
     let mensaje = "";
-    let focoCorreccion = false;
     let respuestaRecibida = false;
     ocupado = true;
     controlador = new AbortController();
-    pintar("enviando");
+    actualizarEstado("enviando", true);
     try {
       const respuesta = await cliente.registrarResolucionFormalizacion(solicitudPendiente, {
         signal: controlador.signal,
@@ -179,7 +206,6 @@ export function montarFormularioResolucionFormalizacion({
         solicitudPendiente = null;
         reintentoInmutable = false;
         mensaje = "rechazada";
-        focoCorreccion = true;
       } else {
         reintentoInmutable = true;
         mensaje = "incierta";
@@ -187,7 +213,7 @@ export function montarFormularioResolucionFormalizacion({
     } finally {
       ocupado = false;
       controlador = null;
-      pintar(mensaje, focoCorreccion);
+      pintar(mensaje, true);
     }
   }
 
