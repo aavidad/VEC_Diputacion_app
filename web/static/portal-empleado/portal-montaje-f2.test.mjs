@@ -32,6 +32,11 @@ const recursosPublicosConsumidos = [
   "static/bolsa/i18n-publica.js",
   "static/area-personal/i18n.js",
 ];
+const recursosOportunidadesPreparados = [
+  "static/comun/oportunidades/vista.js",
+  "static/comun/oportunidades/i18n.js",
+  "static/comun/oportunidades/oportunidades.css",
+];
 
 test("el montaje F2 declara una sola vez sus recursos internos reales", async () => {
   const manifiesto = (await readFile(new URL("interno.manifest", raizWeb), "utf8")).trim().split(/\r?\n/u);
@@ -71,17 +76,29 @@ test("los estilos F2 cargan una vez tras sus bases y todos están empaquetados",
   }
 });
 
-test("el producto incluye los activos F2 consumidos y excluye otros módulos sin montaje", async () => {
-  const texto = await readFile(new URL("produccion.manifest", raizWeb), "utf8");
+test("el producto incluye los activos F2 y solo prepara oportunidades en la composición integrada", async () => {
+  const [texto, textoPublico, textoInterno] = await Promise.all([
+    readFile(new URL("produccion.manifest", raizWeb), "utf8"),
+    readFile(new URL("publico.manifest", raizWeb), "utf8"),
+    readFile(new URL("interno.manifest", raizWeb), "utf8"),
+  ]);
   const entradas = texto.trim().split(/\r?\n/u);
   const manifiesto = new Set(entradas);
+  const publico = new Set(textoPublico.trim().split(/\r?\n/u));
+  const interno = new Set(textoInterno.trim().split(/\r?\n/u));
   assert.equal(manifiesto.size, entradas.length, "el manifiesto productivo no admite duplicados");
-  for (const ruta of [...necesarios, ...recursosPublicosConsumidos]) {
+  for (const ruta of [...necesarios, ...recursosPublicosConsumidos, ...recursosOportunidadesPreparados]) {
     assert.ok(manifiesto.has(ruta), `${ruta} debe figurar en producto`);
     await access(new URL(ruta, raizWeb));
   }
-  for (const ruta of ["static/comun/oportunidades/i18n.js"]) {
-    assert.ok(!manifiesto.has(ruta), `${ruta} no tiene consumidor F2`);
+  for (const ruta of recursosOportunidadesPreparados) {
+    assert.ok(!publico.has(ruta), `${ruta} no debe figurar en público`);
+    assert.ok(!interno.has(ruta), `${ruta} no debe figurar en interno`);
+  }
+  for (const ruta of ["static/comun/oportunidades/vista.test.mjs"]) {
+    assert.ok(!manifiesto.has(ruta), `${ruta} no debe figurar en producto`);
+    assert.ok(!publico.has(ruta), `${ruta} no debe figurar en público`);
+    assert.ok(!interno.has(ruta), `${ruta} no debe figurar en interno`);
   }
 });
 
