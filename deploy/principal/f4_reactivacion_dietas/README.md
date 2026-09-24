@@ -6,7 +6,7 @@ Paquete administrativo para la vertical **crear, listar y obtener una comisión 
 
 1. PR25 y PR26 deben estar integradas y publicadas en la base que sirve el portal. Confirmar hashes y binario. No usar este paquete con otra versión del código.
 2. Mantener el selector `VEC_DIETAS_BORRADORES_ENABLED` apagado y drenar la aplicación: **cero sesiones** de los ocho LOGIN durante inventario, ensayo y confirmación. Impedir conexiones nuevas externamente hasta terminar el `COMMIT`. `ALTER ROLE` no termina sesiones existentes.
-3. Inventariar privadamente el puntero P6 `v2` revocado, sus huellas `v1`/`v2`, rol/control V3, membresías, ACL y sesiones. La posible novena cuenta `vec_dietas_r1d_auditoria_frontera_desarrollo` detiene F4; no se le concede LOGIN por inferencia. Un LOGIN ajeno con ruta a los grupos técnicos también detiene la transacción. Si la vigencia original ha caducado, se necesita una nueva decisión de autoridad, no extender fechas en este guion.
+3. Inventariar privadamente el puntero P6 `v2` revocado, sus huellas `v1`/`v2`, rol/control V3, rutas de membresía ascendentes y descendentes, propietarios, ACL directas y concesiones a `PUBLIC`, y sesiones. La posible novena cuenta `vec_dietas_r1d_auditoria_frontera_desarrollo` detiene F4; no se le concede LOGIN por inferencia. Un LOGIN ajeno con ruta a los grupos técnicos, un grupo que herede otro rol, una cuenta/grupo propietario o ACL `PUBLIC` en la base o esquemas/objetos VEC detienen la transacción. Si la vigencia original ha caducado, se necesita una nueva decisión de autoridad, no extender fechas en este guion.
 4. Usar PostgreSQL 18, base `postgres`, DBA por socket local y directorio de evidencia privado externo a Git, modo `0700`. El runner acepta el transporte de contenedor `VEC_F4_POSTGRES_CONTAINER`, `VEC_F4_PG_SOCKET_DIR`, `VEC_F4_PG_PORT` o el servicio local `PGSERVICE`, `PGSERVICEFILE`, `PGPASSFILE` privados. Sigue el protocolo de P6 sin DSN ni contraseña en argumentos o salida. **No ejecutar el preparador R1D** ni reaplicar migraciones instaladas.
 
 ## Ensayo y confirmación SQL
@@ -19,7 +19,7 @@ bash deploy/principal/f4_reactivacion_dietas/ejecutar.sh --rollback
 VEC_F4_APLICAR=SI-F4-REVISADO bash deploy/principal/f4_reactivacion_dietas/ejecutar.sh --commit
 ```
 
-Cada llamada inventaría de nuevo. Revisar los JSON privados y cotejar la preimagen antes de confirmar. `--rollback` debe conservar el puntero P6 `v2`, ocho NOLOGIN y toda la historia. `--commit` exige `v3` activa, ocho LOGIN, huella canónica nueva y versiones `v1`/`v2` intactas. Una repetición se rechaza sin escritura; tras pérdida de respuesta, consultar inventario y puntero antes de decidir cualquier acción. La credencial privada de cada cuenta se conserva: F4 no la rota ni genera otra.
+Cada llamada inventaría de nuevo. Revisar los JSON privados y cotejar la preimagen antes de confirmar. La transacción exige exactamente **un puntero global** al rol Dietas bajo bloqueo de tabla antes de habilitar LOGIN. `--rollback` debe conservar el puntero P6 `v2`, ocho NOLOGIN y toda la historia. `--commit` exige `v3` activa, ocho LOGIN, huella canónica nueva y versiones `v1`/`v2` intactas. Una repetición se rechaza sin escritura; tras pérdida de respuesta, consultar inventario y puntero antes de decidir cualquier acción. La credencial privada de cada cuenta se conserva: F4 no la rota ni genera otra.
 
 ## Única aceptación funcional
 
@@ -44,4 +44,4 @@ La retirada crea `v4` revocada y vuelve las ocho cuentas a NOLOGIN; preserva `v1
 
 ## Evidencia local
 
-`go test ./deploy/principal/f4_reactivacion_dietas`, `shellcheck` y `bash -n` cubren plan y scripts. `probar_pg18.sh` usa `postgres:18.4` desechable sin red con estructura V3 y datos sintéticos: P6 previo, ROLLBACK, COMMIT, repetición denegada, ACL/novena cuenta/huella alteradas, conexión rechazada antes y positiva después, retirada `v4` y testigos CT/Bolsa conservados. Ejemplo: `VEC_F4_TEST_BASE=<directorio_privado_0700> bash deploy/principal/f4_reactivacion_dietas/probar_pg18.sh`.
+`go test ./deploy/principal/f4_reactivacion_dietas`, `shellcheck` y `bash -n` cubren plan y scripts. `probar_pg18.sh` usa `postgres:18.4` desechable sin red con estructura V3 y datos sintéticos: P6 previo, ROLLBACK, COMMIT, repetición denegada, ACL/novena cuenta/huella/sesión alteradas, ascenso a `pg_read_all_data`, propiedad y `PUBLIC` inesperados, y segundo puntero con intento de `COMMIT` rechazados antes de LOGIN; conexión rechazada antes y positiva después, retirada `v4` y testigos CT/Bolsa conservados. Ejemplo: `VEC_F4_TEST_BASE=<directorio_privado_0700> bash deploy/principal/f4_reactivacion_dietas/probar_pg18.sh`.

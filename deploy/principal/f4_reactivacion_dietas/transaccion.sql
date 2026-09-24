@@ -50,15 +50,26 @@ BEGIN
     ('vec_dietas_r1d_dietas_desarrollo','vec_dietas_ejecutor'),
     ('vec_dietas_r1d_personal_desarrollo','vec_dietas_ejecutor')
    )
-   SELECT 1 FROM esperados e LEFT JOIN pg_roles r ON r.rolname=e.nombre
-   WHERE r.oid IS NULL OR r.rolcanlogin OR r.rolsuper OR r.rolcreatedb
+   SELECT 1 FROM esperados e
+   LEFT JOIN pg_roles r ON r.rolname=e.nombre
+   LEFT JOIN pg_roles g ON g.rolname=e.grupo
+   WHERE r.oid IS NULL OR g.oid IS NULL OR r.rolcanlogin OR r.rolsuper OR r.rolcreatedb
       OR r.rolcreaterole OR NOT r.rolinherit OR r.rolreplication OR r.rolbypassrls
       OR r.rolconnlimit<>-1 OR r.rolvaliduntil IS NOT NULL
       OR NOT has_database_privilege(r.oid,current_database(),'CONNECT')
+      OR has_database_privilege(r.oid,current_database(),'CREATE')
+      OR has_database_privilege(r.oid,current_database(),'TEMP')
+      OR g.rolcanlogin OR g.rolsuper OR g.rolcreatedb OR g.rolcreaterole
+      OR g.rolreplication OR g.rolbypassrls
       OR (SELECT count(*) FROM pg_auth_members m WHERE m.member=r.oid)<>1
       OR (SELECT count(*) FROM pg_auth_members m WHERE m.roleid=r.oid)<>0
+      -- Los grupos técnicos terminales no pueden heredar pg_read_all_data,
+      -- un propietario u otro rol superior, ni permitir SET ROLE hacia él.
+      OR EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member=g.oid)
       OR EXISTS (SELECT 1 FROM pg_shdepend d WHERE d.refclassid='pg_authid'::regclass
                    AND d.refobjid=r.oid AND d.deptype='a')
+      OR EXISTS (SELECT 1 FROM pg_shdepend d WHERE d.refclassid='pg_authid'::regclass
+                   AND d.refobjid IN (r.oid,g.oid) AND d.deptype='o')
       OR NOT EXISTS (SELECT 1 FROM pg_auth_members m JOIN pg_roles g ON g.oid=m.roleid
          WHERE m.member=r.oid AND g.rolname=e.grupo AND NOT m.admin_option
            AND m.inherit_option AND NOT m.set_option)
@@ -78,6 +89,23 @@ BEGIN
      AND pg_has_role(l.oid,g.oid,'MEMBER')) THEN
    RAISE EXCEPTION 'LOGIN ajeno conserva ruta a grupo Dietas' USING ERRCODE='55000';
  END IF;
+ -- La preimagen permitida no concede derechos a PUBLIC en la base ni en
+ -- esquemas/objetos VEC. Un GRANT PUBLIC reabriría acceso de cualquiera de
+ -- estos LOGIN aunque su membresía nominal permanezca intacta.
+ IF EXISTS (SELECT 1 FROM pg_database d,
+      LATERAL aclexplode(coalesce(d.datacl,acldefault('d',d.datdba))) acl
+      WHERE d.datname=current_database() AND acl.grantee=0)
+    OR EXISTS (SELECT 1 FROM pg_namespace n,
+      LATERAL aclexplode(coalesce(n.nspacl,acldefault('n',n.nspowner))) acl
+      WHERE left(n.nspname,4)='vec_' AND acl.grantee=0)
+    OR EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace,
+      LATERAL aclexplode(coalesce(c.relacl,acldefault((CASE WHEN c.relkind='S' THEN 'S' ELSE 'r' END)::"char",c.relowner))) acl
+      WHERE left(n.nspname,4)='vec_' AND c.relkind IN ('r','p','v','m','S','f') AND acl.grantee=0)
+    OR EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace,
+      LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) acl
+      WHERE left(n.nspname,4)='vec_' AND acl.grantee=0) THEN
+   RAISE EXCEPTION 'ACL PUBLIC fuera de preimagen F4 permitida' USING ERRCODE='55000';
+ END IF;
  PERFORM pg_stat_clear_snapshot();
  IF EXISTS (SELECT 1 FROM pg_stat_activity WHERE usename ~ '^vec_dietas_r1d_.*_desarrollo$') THEN
    RAISE EXCEPTION 'F4 requiere cero sesiones Dietas' USING ERRCODE='55000';
@@ -85,13 +113,23 @@ BEGIN
 END $pre$;
 
 SET LOCAL ROLE vec_autorizacion_propietario;
+-- Bloquea la creación/avance concurrente de otro puntero Dietas antes de
+-- comprobar la unicidad global y antes de habilitar los LOGIN.
+LOCK TABLE vec_autorizacion.asignacion_perfil_actual IN SHARE ROW EXCLUSIVE MODE;
 DO $activar$
 DECLARE v jsonb; anterior vec_autorizacion.asignacion_perfil%ROWTYPE;
  original vec_autorizacion.asignacion_perfil%ROWTYPE;
  puntero vec_autorizacion.asignacion_perfil_actual%ROWTYPE;
- nueva jsonb; filas integer;
+ nueva jsonb; filas integer; punteros integer;
 BEGIN
  SELECT dato INTO STRICT v FROM f4_plan;
+ SELECT count(*) INTO punteros FROM vec_autorizacion.asignacion_perfil_actual p
+ JOIN vec_autorizacion.asignacion_perfil a ON a.asignacion_ref=p.asignacion_ref
+ JOIN vec_autorizacion.version_rol r ON r.version_rol_ref=a.version_rol_ref
+ WHERE r.rol_id='dietas_r1d_provisional';
+ IF punteros<>1 THEN
+   RAISE EXCEPTION 'F4 requiere un unico puntero Dietas global antes de LOGIN' USING ERRCODE='55000';
+ END IF;
  SELECT * INTO STRICT puntero FROM vec_autorizacion.asignacion_perfil_actual
   WHERE perfil_activo_ref=v->'documento'->>'perfil_activo_ref' FOR UPDATE;
  SELECT * INTO STRICT anterior FROM vec_autorizacion.asignacion_perfil

@@ -90,6 +90,66 @@ if run_f4 --rollback > "$test_dir/acl.out" 2> "$test_dir/acl.err"; then
 fi
 psql_admin -c 'REVOKE CONNECT ON DATABASE postgres FROM vec_dietas_r1d_dietas_desarrollo' >/dev/null
 
+# La cuenta conserva una sola arista, pero su grupo asciende a un rol potente.
+psql_admin -c 'GRANT pg_read_all_data TO vec_dietas_ejecutor WITH ADMIN FALSE, INHERIT TRUE, SET TRUE' >/dev/null
+[[ "$(psql_admin -c "SELECT pg_has_role('vec_dietas_r1d_dietas_desarrollo','pg_read_all_data','USAGE')")" == t ]] || exit 1
+if run_f4 --rollback > "$test_dir/ascenso-privilegiado.out" 2> "$test_dir/ascenso-privilegiado.err"; then
+  echo 'ascenso técnico a pg_read_all_data aceptado' >&2; exit 1
+fi
+rg -q 'cuentas F4 con atributos, ACL o membresias inesperadas' "$test_dir/ascenso-privilegiado.err" || exit 1
+psql_admin -c 'REVOKE pg_read_all_data FROM vec_dietas_ejecutor' >/dev/null
+
+# Una cuenta o grupo propietario obtiene privilegios que no pasan por ACL.
+psql_admin -c 'CREATE SCHEMA f4_objeto_ajeno AUTHORIZATION vec_dietas_ejecutor' >/dev/null
+[[ "$(psql_admin -c "SELECT count(*) FROM pg_shdepend d JOIN pg_roles r ON r.oid=d.refobjid WHERE d.refclassid='pg_authid'::regclass AND d.deptype='o' AND r.rolname='vec_dietas_ejecutor'")" == 1 ]] || exit 1
+if run_f4 --rollback > "$test_dir/propiedad.out" 2> "$test_dir/propiedad.err"; then
+  echo 'objeto propiedad de grupo técnico aceptado' >&2; exit 1
+fi
+rg -q 'cuentas F4 con atributos, ACL o membresias inesperadas' "$test_dir/propiedad.err" || exit 1
+psql_admin -c 'DROP SCHEMA f4_objeto_ajeno' >/dev/null
+
+# PUBLIC puede conceder acceso aunque las ocho membresías sean nominales.
+psql_admin -c 'GRANT USAGE ON SCHEMA vec_autorizacion TO PUBLIC; GRANT EXECUTE ON FUNCTION vec_autorizacion.obtener_instantanea(text,text) TO PUBLIC' >/dev/null
+[[ "$(psql_admin -c "SELECT has_schema_privilege('vec_dietas_r1d_dietas_desarrollo','vec_autorizacion','USAGE') AND has_function_privilege('vec_dietas_r1d_dietas_desarrollo','vec_autorizacion.obtener_instantanea(text,text)','EXECUTE')")" == t ]] || exit 1
+if run_f4 --rollback > "$test_dir/public.out" 2> "$test_dir/public.err"; then
+  echo 'ACL PUBLIC V3 inesperada aceptada' >&2; exit 1
+fi
+rg -q 'ACL PUBLIC fuera de preimagen F4 permitida' "$test_dir/public.err" || exit 1
+psql_admin -c 'REVOKE USAGE ON SCHEMA vec_autorizacion FROM PUBLIC; REVOKE EXECUTE ON FUNCTION vec_autorizacion.obtener_instantanea(text,text) FROM PUBLIC' >/dev/null
+
+# Una segunda asignación Dietas puede no aparecer en preimagen.sql; debe
+# abortar dentro de la transacción, antes de los ocho ALTER ROLE LOGIN.
+psql_admin <<'SQL' >/dev/null
+BEGIN;
+SET LOCAL ROLE vec_autorizacion_propietario;
+INSERT INTO vec_autorizacion.asignacion_perfil
+(asignacion_ref,asignacion_id,version,perfil_activo_ref,principal_id,version_rol_ref,huella_sha256,emitida_en,documento)
+SELECT 'asignacion:dietas_r1d_segundo:v1','dietas_r1d_segundo',1,'prf_segundo','per_segundo',
+ version_rol_ref,repeat('0',64),emitida_en,
+ jsonb_set(jsonb_set(jsonb_set(documento,'{asignacion_id}','"dietas_r1d_segundo"'::jsonb),
+   '{perfil_activo_ref}','"prf_segundo"'::jsonb),'{principal_id}','"per_segundo"'::jsonb)
+FROM vec_autorizacion.asignacion_perfil WHERE asignacion_ref='asignacion:dietas_r1d_0123456789abcdef:v1';
+INSERT INTO vec_autorizacion.asignacion_perfil_actual
+(perfil_activo_ref,asignacion_ref,actualizada_en,actualizada_por,acto_ref)
+VALUES ('prf_segundo','asignacion:dietas_r1d_segundo:v1',clock_timestamp(),'actor:fixture','acto:fixture:segundo');
+COMMIT;
+SQL
+if run_f4 --commit > "$test_dir/segundo-puntero.out" 2> "$test_dir/segundo-puntero.err"; then
+  echo 'segundo puntero Dietas aceptado' >&2; exit 1
+fi
+rg -q 'F4 requiere un unico puntero Dietas global antes de LOGIN' "$test_dir/segundo-puntero.err" || exit 1
+[[ "$(psql_admin -c "SELECT (SELECT count(*) FROM pg_roles WHERE rolname ~ '^vec_dietas_r1d_.*_desarrollo$' AND rolcanlogin)||'|'||(SELECT version FROM vec_autorizacion.asignacion_perfil a JOIN vec_autorizacion.asignacion_perfil_actual p USING(asignacion_ref) WHERE a.asignacion_id='dietas_r1d_0123456789abcdef')")" == '0|2' ]] || {
+  echo 'segundo puntero dejo LOGIN o avance F4' >&2; exit 1;
+}
+psql_admin <<'SQL' >/dev/null
+ALTER TABLE vec_autorizacion.asignacion_perfil_actual DISABLE TRIGGER USER;
+ALTER TABLE vec_autorizacion.asignacion_perfil DISABLE TRIGGER USER;
+DELETE FROM vec_autorizacion.asignacion_perfil_actual WHERE perfil_activo_ref='prf_segundo';
+DELETE FROM vec_autorizacion.asignacion_perfil WHERE asignacion_ref='asignacion:dietas_r1d_segundo:v1';
+ALTER TABLE vec_autorizacion.asignacion_perfil ENABLE TRIGGER USER;
+ALTER TABLE vec_autorizacion.asignacion_perfil_actual ENABLE TRIGGER USER;
+SQL
+
 # El noveno LOGIN que el preparador histórico podía crear no se absorbe.
 psql_admin -c 'CREATE ROLE vec_dietas_r1d_auditoria_frontera_desarrollo LOGIN' >/dev/null
 if run_f4 --rollback > "$test_dir/noveno.out" 2> "$test_dir/noveno.err"; then
@@ -158,4 +218,4 @@ if docker exec -u root "$container" psql -Xq -h 127.0.0.1 -U vec_dietas_r1d_diet
 fi
 resultado="$(psql_admin -c "SELECT count(*)||'|'||(SELECT a.version||':'||(a.documento->>'estado') FROM vec_autorizacion.asignacion_perfil_actual p JOIN vec_autorizacion.asignacion_perfil a USING(asignacion_ref))||'|'||(SELECT count(*) FROM pg_roles WHERE rolname ~ '^vec_dietas_r1d_.*_desarrollo$' AND rolcanlogin)||'|'||(SELECT n FROM vec_ct_sentinel.control)||'|'||(SELECT n FROM vec_bolsa_sentinel.control) FROM vec_autorizacion.asignacion_perfil WHERE asignacion_id='dietas_r1d_0123456789abcdef'")"
 [[ "$resultado" == '4|4:revocada|0|7|11' ]] || { echo 'postcondicion retirada F4 PG18 fallida' >&2; exit 1; }
-echo "PG18 F4 ROLLBACK/COMMIT/reentrada, ACL y preimagen negativa, ocho LOGIN, retirada v4 y testigos CT/Bolsa OK"
+echo "PG18 F4 ROLLBACK/COMMIT/reentrada, ascenso/propiedad/PUBLIC/segundo puntero negativos, ocho LOGIN, retirada v4 y testigos CT/Bolsa OK"
