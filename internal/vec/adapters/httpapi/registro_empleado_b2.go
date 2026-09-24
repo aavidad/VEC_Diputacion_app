@@ -115,8 +115,12 @@ func (h *handlerRegistroEmpleadoB2) ServeHTTP(w http.ResponseWriter, r *http.Req
 		}
 		return
 	}
-	if actor.Validar() != nil || (h.vacantes && organismo == "") {
+	if actor.Validar() != nil {
 		responderRegistroEmpleadoB2(w, http.StatusServiceUnavailable, "servicio_no_disponible", nil)
+		return
+	}
+	if organismo == "" {
+		h.denegar(w, r.Context(), http.StatusForbidden, "acceso_denegado", actor.Principal.ID)
 		return
 	}
 	if h.vacantes {
@@ -134,7 +138,7 @@ func (h *handlerRegistroEmpleadoB2) ServeHTTP(w http.ResponseWriter, r *http.Req
 		responderRegistroEmpleadoB2(w, http.StatusOK, "", map[string]any{"data": map[string]any{"pagina": resultado.Pagina, "evidencia": resultado.Evidencia}})
 		return
 	}
-	solicitud := personaldomain.SolicitudFichaEmpleadoB2{Actor: actor, EmpleadoRef: empleadoRef, Corte: personaldomain.CorteEmpleadoB2{VigenteEn: filtro.vigenteEn, ConocidoEn: filtro.conocidoEn}}
+	solicitud := personaldomain.SolicitudFichaEmpleadoB2{Actor: actor, OrganismoRef: organismo, EmpleadoRef: empleadoRef, Corte: personaldomain.CorteEmpleadoB2{VigenteEn: filtro.vigenteEn, ConocidoEn: filtro.conocidoEn}}
 	resultado, err := h.consulta.ConsultarFicha(r.Context(), solicitud)
 	if err != nil {
 		h.errorConsulta(w, r.Context(), actor.Principal.ID, err)

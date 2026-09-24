@@ -144,7 +144,7 @@ func TestRegistroEmpleadoB2HTTPPropagaSoloContextoServidor(t *testing.T) {
 	r.Header.Set("X-VEC-Subject", "otro_actor")
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, r)
-	if w.Code != 404 || c.llamadas != 1 || c.ficha.Actor.Principal.ID != actor.Principal.ID || c.ficha.EmpleadoRef != empRefRegistroEmpleadoB2Prueba {
+	if w.Code != 404 || c.llamadas != 1 || c.ficha.Actor.Principal.ID != actor.Principal.ID || c.ficha.EmpleadoRef != empRefRegistroEmpleadoB2Prueba || c.ficha.OrganismoRef != "org_prueba" {
 		t.Fatalf("estado=%d solicitud=%+v", w.Code, c.ficha)
 	}
 	c.err = personaldomain.ErrRegistroEmpleadoB2Denegado
@@ -182,11 +182,11 @@ func TestRegistroEmpleadoB2HTTPNoPublicaResultadoSinAcreditar(t *testing.T) {
 
 func TestRegistroEmpleadoB2HTTPPublicaFichaMinimaAcreditada(t *testing.T) {
 	actor := actorOrganizacionHistoricaPrueba(t)
-	a := &autoridadRegistroEmpleadoB2Prueba{actor: actor}
+	a := &autoridadRegistroEmpleadoB2Prueba{actor: actor, organismo: "org_prueba"}
 	instante := time.Date(2026, 9, 25, 10, 0, 0, 0, time.UTC)
 	c := &consultorRegistroEmpleadoB2Prueba{resultadoFicha: personalports.ResultadoFichaEmpleadoB2{
 		Ficha: personaldomain.FichaEmpleadoB2{
-			EmpleadoRef: empRefRegistroEmpleadoB2Prueba, PersonaRef: "per_bbbbbbbbbbbbbbbbbbbbbb",
+			EmpleadoRef: empRefRegistroEmpleadoB2Prueba, OrganismoRef: "org_prueba", PersonaRef: "per_bbbbbbbbbbbbbbbbbbbbbb",
 			Corte: personaldomain.CorteEmpleadoB2{VigenteEn: "2026-09-25", ConocidoEn: instante}, Version: 1,
 			Relaciones: []personaldomain.RelacionRegistroEmpleadoB2{}, Ocupaciones: []personaldomain.OcupacionEmpleadoB2{},
 			Situaciones: []personaldomain.SituacionEmpleadoB2{}, Servicios: []personaldomain.ServicioReconocidoB2{},
@@ -201,8 +201,14 @@ func TestRegistroEmpleadoB2HTTPPublicaFichaMinimaAcreditada(t *testing.T) {
 	}
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, PrefijoFichaEmpleadoB2+empRefRegistroEmpleadoB2Prueba+"?"+queryRegistroEmpleadoB2Prueba, nil))
-	if w.Code != 200 || !strings.Contains(w.Body.String(), `"ficha"`) || !strings.Contains(w.Body.String(), `"empleado_ref"`) || strings.Contains(w.Body.String(), `"actor_ref"`) {
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"ficha"`) || !strings.Contains(w.Body.String(), `"empleado_ref"`) || !strings.Contains(w.Body.String(), `"organismo_ref":"org_prueba"`) || strings.Contains(w.Body.String(), `"actor_ref"`) {
 		t.Fatalf("respuesta=%d cuerpo=%s", w.Code, w.Body.String())
+	}
+	c.resultadoFicha.Ficha.OrganismoRef = "org_ajeno"
+	w = httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, PrefijoFichaEmpleadoB2+empRefRegistroEmpleadoB2Prueba+"?"+queryRegistroEmpleadoB2Prueba, nil))
+	if w.Code != 503 || strings.Contains(w.Body.String(), "org_ajeno") {
+		t.Fatalf("respuesta de otro organismo=%d %s", w.Code, w.Body.String())
 	}
 }
 
@@ -220,5 +226,25 @@ func TestRegistroEmpleadoB2HTTPCoberturaNoAcreditadaEsDistintaDeCaida(t *testing
 	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, RutaVacantesEmpleadoB2+"?"+queryRegistroEmpleadoB2Prueba, nil))
 	if w.Code != 503 || !strings.Contains(w.Body.String(), `"codigo":"servicio_no_disponible"`) {
 		t.Fatalf("dependencia=%d %s", w.Code, w.Body.String())
+	}
+}
+
+func TestRegistroEmpleadoB2HTTPFichaDeniegaOrganismoAusenteYAjeno(t *testing.T) {
+	actor := actorOrganizacionHistoricaPrueba(t)
+	a := &autoridadRegistroEmpleadoB2Prueba{actor: actor}
+	c, audit := &consultorRegistroEmpleadoB2Prueba{}, &auditorRegistroEmpleadoB2Prueba{}
+	h, _ := NewHandlerFichaEmpleadoB2(a, c, audit)
+	ruta := PrefijoFichaEmpleadoB2 + empRefRegistroEmpleadoB2Prueba + "?" + queryRegistroEmpleadoB2Prueba
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, ruta, nil))
+	if w.Code != 403 || c.llamadas != 0 || len(audit.ordenes) != 1 || strings.Contains(w.Body.String(), empRefRegistroEmpleadoB2Prueba) {
+		t.Fatalf("sin organismo=%d consultas=%d auditoria=%+v", w.Code, c.llamadas, audit.ordenes)
+	}
+	a.organismo = "org_ajeno"
+	c.err = personaldomain.ErrRegistroEmpleadoB2Denegado
+	w = httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, ruta, nil))
+	if w.Code != 403 || c.llamadas != 1 || c.ficha.OrganismoRef != "org_ajeno" || len(audit.ordenes) != 2 || strings.Contains(w.Body.String(), empRefRegistroEmpleadoB2Prueba) {
+		t.Fatalf("ajeno=%d consulta=%+v auditoria=%+v", w.Code, c.ficha, audit.ordenes)
 	}
 }

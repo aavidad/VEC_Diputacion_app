@@ -222,8 +222,12 @@ func (h *handlerActosRegistroEmpleadoB2) ServeHTTP(w http.ResponseWriter, r *htt
 		responderRegistroEmpleadoB2(w, http.StatusServiceUnavailable, "servicio_no_disponible", nil)
 		return
 	}
+	if organismo == "" {
+		h.denegar(w, r.Context(), http.StatusForbidden, "acceso_denegado", ruta, actor.Principal.ID)
+		return
+	}
 	if h.hecho {
-		solicitud, err := solicitudHechoEmpleadoB2(entradaHecho, clave, actor)
+		solicitud, err := solicitudHechoEmpleadoB2(entradaHecho, clave, organismo, actor)
 		if err != nil {
 			responderRegistroEmpleadoB2(w, http.StatusBadRequest, "peticion_no_valida", nil)
 			return
@@ -318,7 +322,7 @@ func solicitudAltaEmpleadoB2(e entradaAltaEmpleadoB2, clave string, actor vecdom
 	}
 	return s, nil
 }
-func solicitudHechoEmpleadoB2(e entradaHechoEmpleadoB2, clave string, actor vecdomain.ContextoActor) (personaldomain.SolicitudHechoEmpleadoB2, error) {
+func solicitudHechoEmpleadoB2(e entradaHechoEmpleadoB2, clave, organismo string, actor vecdomain.ContextoActor) (personaldomain.SolicitudHechoEmpleadoB2, error) {
 	var s personaldomain.SolicitudHechoEmpleadoB2
 	desde, err := personaldomain.NuevaFechaCivil(e.VigenteDesde)
 	if err != nil {
@@ -337,7 +341,7 @@ func solicitudHechoEmpleadoB2(e entradaHechoEmpleadoB2, clave string, actor vecd
 		}
 	}
 	s = personaldomain.SolicitudHechoEmpleadoB2{
-		Tipo: e.Tipo, EmpleadoRef: e.EmpleadoRef, RelacionRef: e.RelacionRef, RevisionEsperada: e.RevisionEsperada, RelacionVersionEsperada: e.RelacionVersionEsperada,
+		Tipo: e.Tipo, OrganismoRef: organismo, EmpleadoRef: e.EmpleadoRef, RelacionRef: e.RelacionRef, RevisionEsperada: e.RevisionEsperada, RelacionVersionEsperada: e.RelacionVersionEsperada,
 		UnidadRef: e.UnidadRef, RegimenRef: e.RegimenRef, ModalidadRef: e.ModalidadRef, Estado: e.Estado,
 		PlazaRef: e.PlazaRef, PuestoRef: e.PuestoRef, ClaseRef: e.ClaseRef, VersionPlazaRef: e.VersionPlazaRef, VersionPuestoRef: e.VersionPuestoRef,
 		PeriodoDesde: periodoDesde, PeriodoHasta: periodoHasta, DiasReconocidos: e.DiasReconocidos, VigenteDesde: desde, VigenteHasta: hasta,

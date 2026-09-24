@@ -78,7 +78,7 @@ func TestRegistroEmpleadoB2HTTPPostAltaYReplay(t *testing.T) {
 }
 
 func TestRegistroEmpleadoB2HTTPPostHechoYConflicto(t *testing.T) {
-	a := &autoridadRegistroEmpleadoB2Prueba{actor: actorOrganizacionHistoricaPrueba(t)}
+	a := &autoridadRegistroEmpleadoB2Prueba{actor: actorOrganizacionHistoricaPrueba(t), organismo: "org_prueba"}
 	o := &operadorActosRegistroEmpleadoB2Prueba{recibo: reciboRegistroEmpleadoB2Prueba("relacion"), acceso: accesoRegistroEmpleadoB2Prueba()}
 	h, err := NewHandlerHechosEmpleadoB2(a, o, &auditorRegistroEmpleadoB2Prueba{})
 	if err != nil {
@@ -86,7 +86,7 @@ func TestRegistroEmpleadoB2HTTPPostHechoYConflicto(t *testing.T) {
 	}
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, peticionPostRegistroEmpleadoB2(RutaHechosEmpleadoB2, hechoJSONRegistroEmpleadoB2Prueba))
-	if w.Code != 201 || o.hecho.Tipo != "relacion" || o.hecho.RelacionRef != "" || o.hecho.RevisionEsperada != 1 || o.hecho.Actor.Principal.ID != a.actor.Principal.ID {
+	if w.Code != 201 || o.hecho.Tipo != "relacion" || o.hecho.RelacionRef != "" || o.hecho.RevisionEsperada != 1 || o.hecho.OrganismoRef != "org_prueba" || o.hecho.Actor.Principal.ID != a.actor.Principal.ID {
 		t.Fatalf("hecho estado=%d solicitud=%+v cuerpo=%s", w.Code, o.hecho, w.Body.String())
 	}
 	o.err = personaldomain.ErrRegistroEmpleadoB2Conflicto
@@ -149,5 +149,34 @@ func TestRegistroEmpleadoB2HTTPPostDeniegaYAudita(t *testing.T) {
 	h.ServeHTTP(w, peticionPostRegistroEmpleadoB2(RutaAltaEmpleadoB2, altaJSONRegistroEmpleadoB2Prueba))
 	if w.Code != 503 {
 		t.Fatalf("fallo auditoria=%d", w.Code)
+	}
+}
+
+func TestRegistroEmpleadoB2HTTPHechoDeniegaOrganismoAusenteYAjeno(t *testing.T) {
+	a := &autoridadRegistroEmpleadoB2Prueba{actor: actorOrganizacionHistoricaPrueba(t)}
+	o, audit := &operadorActosRegistroEmpleadoB2Prueba{}, &auditorRegistroEmpleadoB2Prueba{}
+	h, _ := NewHandlerHechosEmpleadoB2(a, o, audit)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, peticionPostRegistroEmpleadoB2(RutaHechosEmpleadoB2, hechoJSONRegistroEmpleadoB2Prueba))
+	if w.Code != 403 || o.llamadas != 0 || len(audit.ordenes) != 1 || strings.Contains(w.Body.String(), empRefRegistroEmpleadoB2Prueba) {
+		t.Fatalf("sin organismo=%d llamadas=%d auditoria=%+v", w.Code, o.llamadas, audit.ordenes)
+	}
+	a.organismo = "org_ajeno"
+	o.err = personaldomain.ErrRegistroEmpleadoB2Denegado
+	w = httptest.NewRecorder()
+	h.ServeHTTP(w, peticionPostRegistroEmpleadoB2(RutaHechosEmpleadoB2, hechoJSONRegistroEmpleadoB2Prueba))
+	if w.Code != 403 || o.llamadas != 1 || o.hecho.OrganismoRef != "org_ajeno" || len(audit.ordenes) != 2 || strings.Contains(w.Body.String(), empRefRegistroEmpleadoB2Prueba) {
+		t.Fatalf("ajeno=%d orden=%+v auditoria=%+v", w.Code, o.hecho, audit.ordenes)
+	}
+}
+
+func TestRegistroEmpleadoB2HTTPAltaPersonaObjetivoNoAcreditadaEsOpaca(t *testing.T) {
+	a := &autoridadRegistroEmpleadoB2Prueba{actor: actorOrganizacionHistoricaPrueba(t), organismo: "org_prueba"}
+	o, audit := &operadorActosRegistroEmpleadoB2Prueba{err: personaldomain.ErrRegistroEmpleadoB2Denegado}, &auditorRegistroEmpleadoB2Prueba{}
+	h, _ := NewHandlerAltaEmpleadoB2(a, o, audit)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, peticionPostRegistroEmpleadoB2(RutaAltaEmpleadoB2, altaJSONRegistroEmpleadoB2Prueba))
+	if w.Code != 403 || o.llamadas != 1 || len(audit.ordenes) != 1 || strings.Contains(w.Body.String(), "per_bbbbbbbbbbbbbbbbbbbbbb") || strings.Contains(w.Body.String(), "B1") {
+		t.Fatalf("objetivo no acreditado=%d cuerpo=%s auditoria=%+v", w.Code, w.Body.String(), audit.ordenes)
 	}
 }
