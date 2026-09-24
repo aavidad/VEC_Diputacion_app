@@ -8,6 +8,7 @@ PKCS#11: la clave privada personal nunca entra en este proceso ni en Git.
 from __future__ import annotations
 
 import argparse
+import ctypes as c
 from datetime import datetime, timezone
 import fcntl
 import hashlib
@@ -21,6 +22,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from urllib.parse import urlsplit
 from urllib.parse import quote, urlencode
 
 
@@ -96,7 +98,10 @@ V3_FUNCTIONS = {
         "vec_contratacion_temporal.consultar_cuadro_rrhh_atestado_v1(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_cuadro_rrhh_v1,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)",
         "vec_contratacion_temporal.consultar_detalle_rrhh_atestado_v1(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_detalle_rrhh_v1,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)",
     ],
-    "gobierno_v3": "vec_autorizacion_atestada_v3.comprobar_material_emision_interna_v1(jsonb)",
+    "gobierno_v3": [
+        "vec_autorizacion_atestada_v3.comprobar_material_emision_interna_v1(jsonb)",
+        "vec_autorizacion_atestada_v3.leer_configuracion_interna_v1(jsonb)",
+    ],
 }
 
 
@@ -787,6 +792,244 @@ def hmac_token(root: Path, args: argparse.Namespace) -> None:
     print("Clave HMAC SHA256 no exportable verificada dentro del token; metadatos privados escritos")
 
 
+def mensaje_hmac_identidad(metadata: dict, proposito: str, identificador: str) -> bytes:
+    """Mismos seis campos y longitudes big-endian que mensajeCanonico de Go."""
+    partes = ("vec.identidad.hmac-sha256.v1", metadata["dominio_ref"],
+              metadata["espacio_identidad"], str(metadata["clave_version"]),
+              proposito, identificador)
+    if len(identificador.encode("utf-8")) > 4096:
+        fail("identificador de identidad demasiado largo")
+    return b"".join(len(parte.encode("utf-8")).to_bytes(4, "big") + parte.encode("utf-8")
+                    for parte in partes)
+
+
+def firmar_alias_hmac(metadata: dict, pin: bytearray, cuenta: str, sujeto: str) -> tuple[bytes, bytes]:
+    """Firma en el token; CKA_VALUE nunca se consulta ni sale del proveedor."""
+    import pkcs11_hmac as p
+
+    module = Path(metadata["modulo"])
+    if not module.is_absolute() or module.is_symlink() or not module.is_file():
+        fail("módulo PKCS#11 HMAC ausente o inseguro")
+    lib = c.CDLL(str(module))
+    lib.C_Initialize.argtypes = [c.c_void_p]
+    lib.C_Initialize.restype = p.CK
+    lib.C_Finalize.argtypes = [c.c_void_p]
+    lib.C_Finalize.restype = p.CK
+    lib.C_GetSlotList.argtypes = [p.BOOL, c.POINTER(p.CK), c.POINTER(p.CK)]
+    lib.C_GetSlotList.restype = p.CK
+    lib.C_GetTokenInfo.argtypes = [p.CK, c.c_void_p]
+    lib.C_GetTokenInfo.restype = p.CK
+    lib.C_OpenSession.argtypes = [p.CK, p.CK, c.c_void_p, c.c_void_p, c.POINTER(p.CK)]
+    lib.C_OpenSession.restype = p.CK
+    lib.C_CloseSession.argtypes = [p.CK]
+    lib.C_CloseSession.restype = p.CK
+    lib.C_Login.argtypes = [p.CK, p.CK, c.c_void_p, p.CK]
+    lib.C_Login.restype = p.CK
+    lib.C_Logout.argtypes = [p.CK]
+    lib.C_Logout.restype = p.CK
+    lib.C_FindObjectsInit.argtypes = [p.CK, c.POINTER(p.Attribute), p.CK]
+    lib.C_FindObjectsInit.restype = p.CK
+    lib.C_FindObjects.argtypes = [p.CK, c.POINTER(p.CK), p.CK, c.POINTER(p.CK)]
+    lib.C_FindObjects.restype = p.CK
+    lib.C_FindObjectsFinal.argtypes = [p.CK]
+    lib.C_FindObjectsFinal.restype = p.CK
+    lib.C_GetAttributeValue.argtypes = [p.CK, p.CK, c.POINTER(p.Attribute), p.CK]
+    lib.C_GetAttributeValue.restype = p.CK
+    lib.C_SignInit.argtypes = [p.CK, c.POINTER(p.Mechanism), p.CK]
+    lib.C_SignInit.restype = p.CK
+    lib.C_Sign.argtypes = [p.CK, c.c_void_p, p.CK, c.c_void_p, c.POINTER(p.CK)]
+    lib.C_Sign.restype = p.CK
+    p.check(lib.C_Initialize(None), "inicializar")
+    session = None
+    logged = False
+    try:
+        count = p.CK()
+        p.check(lib.C_GetSlotList(p.BOOL(1), None, c.byref(count)), "enumerar tokens")
+        if not 1 <= count.value <= 64:
+            fail("número de tokens PKCS#11 inválido")
+        slots = (p.CK * count.value)()
+        p.check(lib.C_GetSlotList(p.BOOL(1), slots, c.byref(count)), "leer tokens")
+        selected = []
+        for slot in slots[:count.value]:
+            raw = c.create_string_buffer(256)
+            p.check(lib.C_GetTokenInfo(slot, raw), "leer token")
+            if (raw.raw[:32].decode("ascii", errors="ignore").strip() == metadata["token_label"] and
+                raw.raw[80:96].decode("ascii", errors="ignore").strip() == metadata["token_serial"]):
+                selected.append(slot)
+        if len(selected) != 1:
+            fail("token HMAC ausente o ambiguo")
+        handle = p.CK()
+        p.check(lib.C_OpenSession(selected[0], p.CKF_SERIAL_SESSION, None, None,
+                                  c.byref(handle)), "abrir sesión")
+        session = handle.value
+        pin_buffer = c.create_string_buffer(bytes(pin), len(pin))
+        try:
+            result = lib.C_Login(session, p.CKU_USER, pin_buffer, len(pin))
+        finally:
+            c.memset(pin_buffer, 0, len(pin_buffer))
+        if result not in (p.CKR_OK, p.CKR_USER_ALREADY_LOGGED_IN):
+            p.check(result, "PIN")
+        logged = result == p.CKR_OK
+        search, keep = p._attributes([(0x000, p.CK(p.CKO_SECRET_KEY)),
+                                       (0x102, bytes.fromhex(metadata["objeto_id_hex"]))])
+        p.check(lib.C_FindObjectsInit(session, search, len(search)), "buscar clave")
+        try:
+            found = (p.CK * 2)()
+            found_count = p.CK()
+            p.check(lib.C_FindObjects(session, found, 2, c.byref(found_count)), "enumerar claves")
+        finally:
+            p.check(lib.C_FindObjectsFinal(session), "cerrar búsqueda")
+        if found_count.value != 1:
+            fail("clave HMAC ausente o ambigua")
+        key = found[0]
+        for kind, expected in ((0x000, p.CKO_SECRET_KEY), (0x100, p.CKK_GENERIC_SECRET)):
+            value = p.CK()
+            attr, retained = p._attr(kind, value)
+            p.check(lib.C_GetAttributeValue(session, key, c.byref(attr), 1), "verificar tipo de clave")
+            if value.value != expected:
+                fail("tipo de clave HMAC incompatible")
+        for kind, expected in ((0x001, 1), (0x002, 1), (0x103, 1), (0x108, 1),
+                               (0x162, 0), (0x163, 1), (0x164, 1), (0x165, 1)):
+            value = p.BOOL()
+            attr, retained = p._attr(kind, value)
+            p.check(lib.C_GetAttributeValue(session, key, c.byref(attr), 1), "verificar clave")
+            if value.value != expected:
+                fail("atributos de clave HMAC incompatibles")
+        size = p.CK()
+        attr, retained = p._attr(0x161, size)
+        p.check(lib.C_GetAttributeValue(session, key, c.byref(attr), 1), "verificar longitud")
+        if size.value < 32:
+            fail("clave HMAC demasiado corta")
+        signatures = []
+        for purpose, identifier in (("cuenta", cuenta), ("sujeto", sujeto)):
+            message = bytearray(mensaje_hmac_identidad(metadata, purpose, identifier))
+            try:
+                source = (c.c_ubyte * len(message)).from_buffer(message)
+                result = c.create_string_buffer(32)
+                result_len = p.CK(32)
+                mechanism = p.Mechanism(p.CKM_SHA256_HMAC, None, 0)
+                p.check(lib.C_SignInit(session, c.byref(mechanism), key), "habilitar HMAC")
+                p.check(lib.C_Sign(session, source, len(message), result,
+                                   c.byref(result_len)), "firmar identidad")
+                if result_len.value != 32 or result.raw == bytes(32):
+                    fail("huella HMAC inválida")
+                signatures.append(result.raw)
+            finally:
+                c.memset(source, 0, len(message))
+        if signatures[0] == signatures[1]:
+            fail("huellas de cuenta y sujeto coinciden")
+        return signatures[0], signatures[1]
+    finally:
+        if session is not None:
+            if logged:
+                lib.C_Logout(session)
+            lib.C_CloseSession(session)
+        lib.C_Finalize(None)
+
+
+def sql_alias_hmac(operacion: str, cuenta: str, metadata: dict,
+                   huella_cuenta: bytes, huella_sujeto: bytes, finish: str) -> str:
+    if finish not in ("ROLLBACK", "COMMIT"):
+        fail("fin de transacción inválido")
+    coordinates = (sql_quote(metadata["dominio_ref"]), sql_quote(metadata["clave_id"]),
+                   metadata["clave_version"])
+    return f"""BEGIN ISOLATION LEVEL SERIALIZABLE;
+SET LOCAL ROLE vec_identidad_sesiones_v1_propietario;
+SET LOCAL search_path = pg_catalog;
+SET LOCAL lock_timeout = '5s';
+SET LOCAL statement_timeout = '15s';
+LOCK TABLE vec_identidad_sesiones_v1.alias_hmac_cuenta IN SHARE ROW EXCLUSIVE MODE;
+DO $alias$ BEGIN
+  IF EXISTS (
+    SELECT 1 FROM vec_identidad_sesiones_v1.alias_hmac_cuenta AS a
+    WHERE a.esquema_hmac='vec.identidad.hmac-sha256.v1'
+      AND a.dominio_hmac_ref={coordinates[0]} AND a.clave_hmac_id={coordinates[1]}
+      AND a.clave_hmac_version={coordinates[2]}
+      AND (a.cuenta_id_hmac=decode('{huella_cuenta.hex()}','hex')
+        OR a.sujeto_id_hmac=decode('{huella_sujeto.hex()}','hex')
+        OR a.cuenta_ref={sql_quote(cuenta)})
+      AND NOT (a.cuenta_ref={sql_quote(cuenta)}
+        AND a.cuenta_id_hmac=decode('{huella_cuenta.hex()}','hex')
+        AND a.sujeto_id_hmac=decode('{huella_sujeto.hex()}','hex'))
+  ) THEN RAISE EXCEPTION 'alias HMAC cruzado' USING ERRCODE='55000'; END IF;
+  IF vec_identidad_sesiones_v1.registrar_alias_hmac_cuenta_v1(
+    {sql_quote(operacion)}, {sql_quote(cuenta)}, 'vec.identidad.hmac-sha256.v1',
+    {coordinates[0]}, {coordinates[1]}, {coordinates[2]},
+    decode('{huella_cuenta.hex()}','hex'), decode('{huella_sujeto.hex()}','hex')
+  ) IS DISTINCT FROM {sql_quote(cuenta)} THEN
+    RAISE EXCEPTION 'alias HMAC rechazado por Identidad' USING ERRCODE='55000';
+  END IF;
+END $alias$;
+{finish};"""
+
+
+def registrar_alias_hmac(root: Path, args: argparse.Namespace) -> None:
+    if not re.fullmatch(r"per_[a-z0-9_]{22,128}", args.subject_id) or \
+       not re.fullmatch(r"cta_[a-z0-9_]{22,128}", args.external_account_id) or \
+       not re.fullmatch(r"cta_[a-z0-9_]{22,128}", args.internal_account_ref) or \
+       args.external_account_id == args.internal_account_ref:
+        fail("referencias de alias inválidas o coincidentes")
+    if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]{0,62}", args.database) or \
+       not re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]{0,62}", args.admin_user):
+        fail("base o usuario administrativo inválidos")
+    identity = root / "identidad"
+    certs = json.loads(read_private(identity / "certificados.json"))
+    contexts = json.loads(read_private(identity / "contextos.json"))
+    if certs.get("version") != 1 or not isinstance(certs.get("certificados"), list) or \
+       contexts.get("version") != 1 or not isinstance(contexts.get("contextos"), list):
+        fail("registro local de identidad incompatible")
+    if not any(c.get("activo") is True and c.get("sujeto_id") == args.subject_id and
+               c.get("cuenta_id") == args.external_account_id for c in certs["certificados"]):
+        fail("certificado activo no vinculado a cuenta y sujeto indicados")
+    if not any(c.get("cuenta_ref") == args.internal_account_ref for c in contexts["contextos"]):
+        fail("cuenta interna ausente del selector nominal")
+    if any(c.get("cuenta_ref") == args.external_account_id for c in contexts["contextos"]):
+        fail("cuenta externa usada como cuenta interna")
+    metadata = json.loads(read_private(identity / "hmac.json"))
+    expected = {"version", "modulo", "token_label", "token_serial", "objeto_id_hex",
+                "clave_id", "clave_version", "dominio_ref", "espacio_identidad", "pin_fichero"}
+    if not isinstance(metadata, dict) or set(metadata) != expected or metadata["version"] != 1 or \
+       any(not isinstance(metadata[key], str) for key in expected - {"version", "clave_version"}) or \
+       not re.fullmatch(r"[0-9a-f]{16,64}", metadata["objeto_id_hex"]) or \
+       not isinstance(metadata["clave_version"], int) or isinstance(metadata["clave_version"], bool) or \
+       not 1 <= metadata["clave_version"] <= 9223372036854775807 or \
+       not re.fullmatch(r"idh_[A-Za-z0-9_-]{22,128}", metadata["dominio_ref"]) or \
+       not re.fullmatch(r"[!-~]{1,128}", metadata["clave_id"]) or \
+       not re.fullmatch(r"[!-~]{1,32}", metadata["token_label"]) or \
+       not re.fullmatch(r"[!-~]{1,32}", metadata["token_serial"]):
+        fail("coordenadas HMAC privadas inválidas")
+    space = metadata["espacio_identidad"]
+    parsed = urlsplit(space)
+    if len(space) > 512 or parsed.scheme.lower() != "https" or not parsed.netloc or \
+       parsed.username or parsed.password or parsed.query or parsed.fragment or \
+       not re.fullmatch(r"[!-~]+", space):
+        fail("espacio de identidad HMAC inválido")
+    pin_path = identity / "hmac.pin"
+    if metadata["pin_fichero"] != str(pin_path):
+        fail("ruta de PIN HMAC incompatible")
+    pin = bytearray(read_private(pin_path))
+    if pin.endswith(b"\n"):
+        pin.pop()
+    if not 1 <= len(pin) <= 256 or any(byte < 0x21 or byte > 0x7e for byte in pin):
+        fail("PIN HMAC inválido")
+    try:
+        cuenta_hmac, sujeto_hmac = firmar_alias_hmac(metadata, pin,
+                                                     args.external_account_id, args.subject_id)
+    finally:
+        for index in range(len(pin)):
+            pin[index] = 0
+    operation = "opr_" + hashlib.sha256(
+        b"vec.identidad.alias-hmac.v1\0" + args.internal_account_ref.encode() + b"\0" +
+        metadata["dominio_ref"].encode() + b"\0" + metadata["clave_id"].encode() + b"\0" +
+        str(metadata["clave_version"]).encode() + b"\0" + cuenta_hmac + sujeto_hmac
+    ).hexdigest()
+    for finish in ("ROLLBACK", "COMMIT"):
+        psql(sql_alias_hmac(operation, args.internal_account_ref, metadata,
+                           cuenta_hmac, sujeto_hmac, finish), args.pg_container,
+             args.container_engine, args.database, args.admin_user)
+    print("Alias HMAC de Identidad cotejado y registrado; operación idempotente")
+
+
 def runtime_env(root: Path, args: argparse.Namespace) -> None:
     if not re.fullmatch(r"[A-Za-z0-9.:-]{3,128}", args.listen) or \
        not re.fullmatch(r"[A-Za-z0-9.-]{1,253}", args.server_name):
@@ -937,6 +1180,14 @@ def main() -> None:
     hmac.add_argument("--domain-ref", required=True)
     hmac.add_argument("--identity-space", required=True)
     hmac.add_argument("--pin-file", required=True)
+    alias = commands.add_parser("alias-hmac")
+    alias.add_argument("--subject-id", required=True)
+    alias.add_argument("--external-account-id", required=True)
+    alias.add_argument("--internal-account-ref", required=True)
+    alias.add_argument("--database", required=True)
+    alias.add_argument("--admin-user", required=True)
+    alias.add_argument("--pg-container")
+    alias.add_argument("--container-engine", choices=("docker", "podman"), default="docker")
     env = commands.add_parser("runtime-env")
     env.add_argument("--listen", required=True)
     env.add_argument("--allowed-cidrs", required=True)
@@ -978,6 +1229,8 @@ def main() -> None:
             policy(root, args)
         elif args.command == "hmac-token":
             hmac_token(root, args)
+        elif args.command == "alias-hmac":
+            registrar_alias_hmac(root, args)
         elif args.command == "runtime-env":
             runtime_env(root, args)
 
