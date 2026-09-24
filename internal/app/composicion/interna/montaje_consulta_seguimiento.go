@@ -49,10 +49,11 @@ func obtenerProveedoresConsultaSeguimiento(context.Context, Configuracion) (prov
 }
 
 type puenteConsultaSeguimiento struct {
-	extractor extractorAsercionInstitucional
-	api       http.Handler
-	auditoria vecports.RegistradorAuditoriaFronteraRutaExacta
-	fachada   atomic.Pointer[FachadaIdentidadOffline]
+	extractor    extractorAsercionInstitucional
+	api          http.Handler
+	auditoria    vecports.RegistradorAuditoriaFronteraRutaExacta
+	fachada      atomic.Pointer[FachadaIdentidadOffline]
+	limiteCuerpo int64
 }
 
 const plazoAuditoriaDenegacionSeguimiento = 250 * time.Millisecond
@@ -71,21 +72,28 @@ func (p *puenteConsultaSeguimiento) ServeHTTP(w http.ResponseWriter, r *http.Req
 		responderPuenteSeguimiento(w, http.StatusNotFound)
 		return
 	}
-	asercion, err := p.extractor.ExtraerAsercionProtegida(r)
+	preparada, err := httpseguridad.PrepararPeticionAsercionPasarela(r, p.limiteCuerpo)
+	if err != nil {
+		p.auditarAutenticacionRequerida(r.Context())
+		responderPuenteSeguimiento(w, http.StatusUnauthorized)
+		return
+	}
+	defer preparada.Body.Close()
+	asercion, err := p.extractor.ExtraerAsercionProtegida(preparada)
 	if err != nil || len(asercion) == 0 {
 		clear(asercion)
-		p.auditarAutenticacionRequerida(r.Context())
+		p.auditarAutenticacionRequerida(preparada.Context())
 		responderPuenteSeguimiento(w, http.StatusUnauthorized)
 		return
 	}
 	defer clear(asercion)
-	ctx, err := p.fachada.Load().AutenticarYVincular(r.Context(), asercion)
+	ctx, err := p.fachada.Load().AutenticarYVincular(preparada.Context(), asercion)
 	if err != nil || ctx == nil {
-		p.auditarAutenticacionRequerida(r.Context())
+		p.auditarAutenticacionRequerida(preparada.Context())
 		responderPuenteSeguimiento(w, http.StatusUnauthorized)
 		return
 	}
-	p.api.ServeHTTP(w, r.WithContext(ctx))
+	p.api.ServeHTTP(w, preparada.WithContext(ctx))
 }
 
 func (p *puenteConsultaSeguimiento) auditarAutenticacionRequerida(ctx context.Context) {
@@ -164,7 +172,8 @@ func componerConsultaSeguimiento(ctx context.Context, cfg Configuracion, p prove
 	if err != nil {
 		return nil, ErrAPIInternaNoDisponible
 	}
-	puente := &puenteConsultaSeguimiento{extractor: p.extractor, api: api, auditoria: p.auditoriaRutas}
+	limiteCuerpo := min(cfg.normalizar().MaximoBytesPeticion, int64(1<<20))
+	puente := &puenteConsultaSeguimiento{extractor: p.extractor, api: api, auditoria: p.auditoriaRutas, limiteCuerpo: limiteCuerpo}
 	servidor, err := construirServidorInterno(cfg, puente)
 	if err != nil {
 		return nil, err
