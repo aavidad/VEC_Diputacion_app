@@ -196,7 +196,9 @@ func TestImportacionOrganizacionHTTPJSONYClaveEstrictos(t *testing.T) {
 		{"clave duplicada", base, func(r *http.Request) {
 			r.Header["Idempotency-Key"] = []string{claveImportacionHTTPPrueba, claveImportacionHTTPPrueba}
 		}},
-		{"clave no v4", base, func(r *http.Request) { r.Header.Set("Idempotency-Key", strings.Replace(claveImportacionHTTPPrueba, "-4c80-", "-1c80-", 1)) }},
+		{"clave no v4", base, func(r *http.Request) {
+			r.Header.Set("Idempotency-Key", strings.Replace(claveImportacionHTTPPrueba, "-4c80-", "-1c80-", 1))
+		}},
 		{"organismo cliente", append([]byte(`{"organismo_ref":"org:otra",`), base[1:]...), nil},
 		{"organismo cliente con mayusculas", append([]byte(`{"Organismo_Ref":"org:otra",`), base[1:]...), nil},
 		{"organismo en manifiesto", bytes.Replace(base, []byte(`"tipo":"rpt"`), []byte(`"organismo_ref":"org:otra","tipo":"rpt"`), 1), nil},
