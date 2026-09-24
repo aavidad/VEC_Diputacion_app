@@ -337,6 +337,19 @@
     overflow-y: auto;
     overscroll-behavior-y: contain;
   }
+
+  .acceso-presentacion {
+    background:
+      radial-gradient(circle 115px at calc(100% - 37px) calc(100% - 29px),
+        transparent 0 77px,
+        color-mix(in srgb, var(--portal-acento) 16%, transparent) 77px 115px,
+        transparent 115px),
+      var(--portal-azul-950);
+  }
+
+  .acceso-presentacion::after {
+    display: none;
+  }
 }
 
 @media (max-width: 880px) {
