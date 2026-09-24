@@ -59,6 +59,12 @@ func (c Config) DSNBolsaAuditoriaFronteraSeparado() (string, error) {
 // dsnsPostgreSQLConfigurados mantiene el inventario privado de credenciales
 // que ya tienen autoridad en VEC. Incluir configuraciones parciales evita que
 // una URL añadida para Bolsa se convierta en vía de reutilización.
+func (c Config) dsnsPostgreSQLConfiguradosSinContacto() []string {
+	copia := c
+	copia.ContactoUsuarioPostgreSQL = ConfiguracionPostgreSQLContactoUsuario{}
+	return copia.dsnsPostgreSQLConfigurados()
+}
+
 func (c Config) dsnsPostgreSQLConfigurados() []string {
 	resultado := c.dsnsPostgreSQLConfiguradosSinDietas()
 	for _, dsn := range []string{c.DietasBorradoresPostgreSQL.dsnDietas, c.DietasBorradoresPostgreSQL.dsnPersonal} {
@@ -78,6 +84,10 @@ func (c Config) dsnsPostgreSQLConfiguradosSinDietas() []string {
 		c.BolsaBorradoresPostgreSQL.dsnEjecutorConsulta,
 		c.BolsaBorradoresPostgreSQL.dsnProyectorGobierno,
 		c.BolsaBorradoresPostgreSQL.dsnVerificadorRecibo,
+		c.ContactoUsuarioPostgreSQL.dsnWriter,
+		c.ContactoUsuarioPostgreSQL.dsnReader,
+		c.ContactoUsuarioPostgreSQL.dsnFuente,
+		c.ContactoUsuarioPostgreSQL.dsnMotivos,
 	} {
 		if dsn = strings.TrimSpace(dsn); dsn != "" {
 			resultado = append(resultado, dsn)

@@ -21,11 +21,23 @@ type SolicitudRegistroContactoUsuario struct {
 
 // PreparacionRegistroContactoUsuario fija los bytes exactos que autoriza V3.
 // No contiene ni referencia al valor claro ni al agregado ContactoUsuario.
+// HuellaSolicitudContactoUsuario es HMAC versionado de la dirección y la
+// versión esperada. Solo cruza fronteras autorizadas; no es un hash público.
+type HuellaSolicitudContactoUsuario struct {
+	ClaveRef        string
+	ValorHMACSHA256 string
+}
+
+type DerivadorHuellasContactoUsuario interface {
+	DerivarHuellasContactoUsuario(context.Context, string, uint64, string) ([]HuellaSolicitudContactoUsuario, error)
+}
+
 type PreparacionRegistroContactoUsuario struct {
 	SujetoRef       string
 	VersionEsperada uint64
 	VersionNueva    uint64
 	Sobre           SobreContactoUsuario
+	HuellasReplay   []HuellaSolicitudContactoUsuario
 	Auditoria       domain.AuditEntry
 	FinalidadRef    string
 	Audiencia       string
@@ -43,10 +55,27 @@ type OrdenRegistroContactoUsuario struct {
 	Material    ExportacionMaterialConsumoAutorizacionAtestadaV3
 }
 
+// EvidenciaAuditoriaCentralContactoUsuario conserva la respuesta central
+// original. Signature pertenece a la cadena central y NO firma estos bytes
+// JSON ni la AuditEntry preparada. HuellaJSONSHA256 sólo protege el transporte;
+// verificar la cadena exige el registro canónico y su ancla en la autoridad.
+type EvidenciaAuditoriaCentralContactoUsuario struct {
+	JSONOriginal     []byte
+	Referencia       string
+	HuellaJSONSHA256 string
+}
+
+// ReciboContactoUsuario mantiene separados el resultado central original y
+// la preparación previa. Los datos de consumo proceden de la misma transacción
+// autoritativa que registra el contacto y su evidencia central.
 type ReciboContactoUsuario struct {
-	SujetoRef string
-	Version   uint64
-	Auditoria domain.AuditEntry
+	ReplayConfirmado    bool
+	HuellaOriginal      HuellaSolicitudContactoUsuario
+	SujetoRef           string
+	Version             uint64
+	ConsumoRef          string
+	ConsumoHuellaSHA256 string
+	EvidenciaCentral    EvidenciaAuditoriaCentralContactoUsuario
 }
 
 type SobreContactoUsuario struct {
@@ -78,6 +107,32 @@ type AutorizadorContactoUsuario interface {
 
 type RegistroContactoUsuario interface {
 	GuardarContactoUsuario(context.Context, OrdenRegistroContactoUsuario) (ReciboContactoUsuario, error)
+}
+
+// ReferenciaAltaContactoUsuario llega del recibo durable del registro propio.
+// La composición debe comprobar ese recibo con su autoridad antes de invocar
+// contacto. OperacionRef nunca procede de un campo libre de HTTP.
+type ReferenciaAltaContactoUsuario struct {
+	OperacionRef string
+	PersonaRef   string
+}
+
+// ConfirmacionAltaContactoUsuario sólo es verdadera tras la transición durable
+// del registro propio. El recibo de contacto por sí solo no completa el alta.
+type ConfirmacionAltaContactoUsuario struct {
+	OperacionRef string
+	PersonaRef   string
+	Version      uint64
+	ReciboRef    string
+	EvidenciaRef string
+	Confirmado   bool
+}
+
+// ConfirmadorAltaContactoUsuario pertenece al registro propio. Debe comprobar
+// su operación, persona y recibo de contacto, revalidar la autoridad y persistir
+// la transición pendiente_contacto -> alta_completa con replay idempotente.
+type ConfirmadorAltaContactoUsuario interface {
+	ConfirmarAltaConContacto(context.Context, ReferenciaAltaContactoUsuario, ReciboContactoUsuario) (ConfirmacionAltaContactoUsuario, error)
 }
 
 // SolicitudAccesoContactoUsuario sigue siendo la frontera de lectura. El

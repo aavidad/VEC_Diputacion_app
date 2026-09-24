@@ -370,6 +370,12 @@ func nuevasRutasContratacionTemporalDesarrollo(
 			ClavePolitica:      "politica-bolsa-mi-bolsa", ClaveCapacidad: "capacidad-bolsa-mi-bolsa-consultar",
 		})
 	}
+	if cfg.ContactoUsuarioPostgreSQL.Configurada() {
+		candidato := resolvedorDesarrollo.candidatoBolsa
+		if candidato != nil && perfilActivoSeguridadComunValido(candidato.perfilRef) {
+			declaracionesFrontera = append(declaracionesFrontera, descriptoresFronterasContactoPropioDesarrollo(candidato.perfilRef)...)
+		}
+	}
 	var soporteBolsaCatalogo *soporteSesionBorradorBolsaDesarrollo
 	if debeComponerBorradorLlamamientoDesarrollo(cfg) {
 		soporteBolsaCatalogo, err = nuevoSoporteSesionBorradorBolsaDesarrollo(cfg.DevelopmentMaterialDir, alta.soporte, reloj.Ahora())
@@ -588,6 +594,21 @@ func nuevasRutasContratacionTemporalDesarrollo(
 		}
 		rutas = append(rutas, vechttp.RutaExacta{Ruta: bolsapersonal.RutaMiBolsa, Manejador: miBolsa})
 	}
+	cerrarContacto := func() {}
+	cerrarContactoPendiente := true
+	defer func() {
+		if cerrarContactoPendiente {
+			cerrarContacto()
+		}
+	}()
+	if cfg.ContactoUsuarioPostgreSQL.Configurada() {
+		rutasContacto, cierre := intentarRutasContactoPropioDesarrollo(func() ([]vechttp.RutaExacta, func(), error) {
+			return nuevasRutasContactoPropioDesarrollo(context.Background(), cfg, resolvedorDesarrollo.candidatoBolsa, dependencias, &alta, consultasRRHH.identidad, catalogoFronteras)
+		})
+		cerrarContacto = cierre
+		rutas = append(rutas, rutasContacto...)
+	}
+
 	autoridad := &autoridadConsultasContratacionTemporalDesarrollo{
 		sello:                                    sello,
 		resolvedor:                               resolvedorDesarrollo,
@@ -606,12 +627,14 @@ func nuevasRutasContratacionTemporalDesarrollo(
 		return nil, nil, nil, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 	}
 	dependencias.cerrar = func() {
+		cerrarContacto()
 		cerrarBorrador()
 		cerrarIncorporacion()
 		consultasRRHH.cerrar()
 		coberturaReal.cerrar()
 		alta.cerrar()
 	}
+	cerrarContactoPendiente = false
 	cerrarCobertura = false
 	cerrarAlta = false
 	cerrarBorradorPendiente = false

@@ -159,6 +159,7 @@ type Config struct {
 	DietasBorradoresEnabled                     string
 	DietasBorradoresPostgreSQL                  ConfiguracionDietasBorradores
 	BolsaAuditoriaFronteraPostgreSQL            ConfiguracionPostgreSQLBolsaAuditoriaFrontera
+	ContactoUsuarioPostgreSQL                   ConfiguracionPostgreSQLContactoUsuario
 	BolsaImportacionConvocaPostgreSQL           ConfiguracionPostgreSQLImportacionConvoca
 	ContratacionTemporalPostgreSQL              ConfiguracionPostgreSQLContratacionTemporal
 }
@@ -233,6 +234,12 @@ func Load() Config {
 			dsnDietas:   envFirst(EnvDietasBorradoresDatabaseURL),
 			dsnPersonal: envFirst(EnvDietasPersonalRelacionesDatabaseURL),
 		},
+		ContactoUsuarioPostgreSQL: NuevaConfiguracionPostgreSQLContactoUsuario(
+			envFirst(EnvContactoUsuarioWriterDatabaseURL),
+			envFirst(EnvContactoUsuarioReaderDatabaseURL),
+			envFirst(EnvContactoUsuarioFuenteDatabaseURL),
+			envFirst(EnvContactoUsuarioMotivosDatabaseURL),
+		),
 		BolsaAuditoriaFronteraPostgreSQL: ConfiguracionPostgreSQLBolsaAuditoriaFrontera{
 			dsn: envFirst(EnvBolsaAuditoriaFronteraDatabaseURL),
 		},

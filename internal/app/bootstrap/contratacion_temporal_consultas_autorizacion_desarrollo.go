@@ -87,10 +87,9 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 		r.Context(), r,
 	)
 	validoRuta := principalContratacionTemporalDesarrolloValidoParaRuta(principal, r.URL.Path)
-	if r.URL.Path == bolsapersonal.RutaMiBolsa {
+	if r.URL.Path == bolsapersonal.RutaMiBolsa || rutaContactoPropioDesarrollo(r.URL.Path) {
 		validoRuta = m.autoridad.resolvedor.principalCandidatoBolsaValido(principal)
-	}
-	if protegidaComun && !protegidaCT {
+	} else if protegidaComun && !protegidaCT {
 		validoRuta = principalContratacionTemporalDesarrolloValido(principal)
 	}
 	if (rutaConsultaRRHHContratacionTemporalDesarrollo(r.URL.Path) || r.URL.Path == httpinterno.RutaEstadisticasRRHH) && len(m.autoridad.resolvedor.lectoresRRHH) != 0 {

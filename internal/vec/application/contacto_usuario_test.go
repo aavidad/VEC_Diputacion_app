@@ -10,7 +10,10 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
+	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -23,6 +26,13 @@ import (
 
 // Gobierno y persistencia son dobles sintéticos. Se reutiliza el entorno V3
 // legítimo; PDP, atestador, COSE, confianza y emisor de material son reales.
+type derivadorHuellasContactoPrueba struct{}
+
+func (derivadorHuellasContactoPrueba) DerivarHuellasContactoUsuario(_ context.Context, sujeto string, version uint64, correo string) ([]ports.HuellaSolicitudContactoUsuario, error) {
+	h := sha256.Sum256([]byte("solo-prueba\x00" + sujeto + "\x00" + strconv.FormatUint(version, 10) + "\x00" + correo))
+	return []ports.HuellaSolicitudContactoUsuario{{ClaveRef: "clave:prueba:contacto:g1", ValorHMACSHA256: hex.EncodeToString(h[:])}}, nil
+}
+
 type entornoContacto struct {
 	*entornoAutorizacionSolicitudV3Prueba
 	servicio  *ServicioContactoUsuario
@@ -130,19 +140,55 @@ func (protectorContactoPrueba) ConContactoUsuarioDescifrado(_ context.Context, s
 type registroContactoPrueba struct {
 	orden    ports.OrdenRegistroContactoUsuario
 	llamadas int
+	err      error
 }
 
 func (r *registroContactoPrueba) GuardarContactoUsuario(_ context.Context, o ports.OrdenRegistroContactoUsuario) (ports.ReciboContactoUsuario, error) {
 	r.llamadas++
 	r.orden = o
-	a := clonarAuditoria(o.Preparacion.Auditoria)
-	a.AuthorizationRef = o.Material.ResumenCapacidad().DecisionRef()
-	a.ID = "aud_prueba"
-	a.Seq = 1
-	a.Signature = "firma:prueba"
-	a.IntegrityAlgorithm = "ed25519"
-	return ports.ReciboContactoUsuario{SujetoRef: o.Preparacion.SujetoRef, Version: o.Preparacion.VersionNueva, Auditoria: a}, nil
+	if r.err != nil {
+		return ports.ReciboContactoUsuario{}, r.err
+	}
+	return reciboCentralContactoFuente(o)
 }
+
+// Fixture de CONTRATO, no ejecución PostgreSQL: forma completa de
+// auditoria_json_v1 (T13/1) y transformación entrada de T13/6. Los identificadores
+// de cadena/consumo son sintéticos; no se afirma verificar la cadena con ellos.
+// A diferencia del antiguo doble, nunca devuelve ni reetiqueta una AuditEntry.
+func reciboCentralContactoFuente(o ports.OrdenRegistroContactoUsuario) (ports.ReciboContactoUsuario, error) {
+	p := o.Preparacion
+	a := p.Auditoria
+	h := sha256.Sum256(p.PayloadNegocio)
+	material := hex.EncodeToString(h[:])
+	recurso, err := p.Recurso.HuellaContextoAutorizacionSHA256()
+	if err != nil {
+		return ports.ReciboContactoUsuario{}, err
+	}
+	consumo := strings.Repeat("b", 64)
+	consumoRef := "aud_v3_" + consumo[:32]
+	ref := "acc_" + strings.Repeat("c", 40)
+	central := map[string]any{
+		"id": ref, "seq": 1, "integrity_algorithm": "sha256-chain-v1", "prev_signature": strings.Repeat("0", 64), "signature": strings.Repeat("9", 64),
+		"actor_id": a.ActorID, "actor_profile": a.ActorProfile, "actor_roles": a.ActorRoles, "represented_subject_id": "",
+		"auth_method": string(a.AuthMethod), "auth_assurance": string(a.AuthAssurance), "authorization_ref": o.Material.ResumenCapacidad().DecisionRef(),
+		"purpose": a.Purpose, "action": a.Action, "module_id": a.ModuleID, "subject_ref": a.SubjectRef, "object_version": a.ObjectVersion,
+		"expediente_ref": "", "document_ref": "", "rule_ref": "", "reason": "", "result": "permitido", "before_hash": "", "after_hash": material,
+		"correlation_ref": a.CorrelationRef, "metadata": map[string]string{"consumo_ref": consumoRef, "consumo_huella_sha256": consumo, "material_sha256": material, "contexto_recurso_sha256": recurso},
+		"occurred_at": a.OccurredAt.UTC().Format("2006-01-02T15:04:05.000000Z"),
+	}
+	original, err := json.MarshalIndent(central, "", " ")
+	if err != nil {
+		return ports.ReciboContactoUsuario{}, err
+	}
+	huella := sha256.Sum256(original)
+	huellaReplay := ports.HuellaSolicitudContactoUsuario{}
+	if len(p.HuellasReplay) > 0 {
+		huellaReplay = p.HuellasReplay[0]
+	}
+	return ports.ReciboContactoUsuario{SujetoRef: p.SujetoRef, Version: p.VersionNueva, HuellaOriginal: huellaReplay, ConsumoRef: consumoRef, ConsumoHuellaSHA256: consumo, EvidenciaCentral: ports.EvidenciaAuditoriaCentralContactoUsuario{JSONOriginal: original, Referencia: ref, HuellaJSONSHA256: hex.EncodeToString(huella[:])}}, nil
+}
+
 func contactoExigir(t *testing.T, err error) {
 	t.Helper()
 	if err != nil {
@@ -185,7 +231,7 @@ func nuevoEntornoContacto(t *testing.T) *entornoContacto {
 	e.emisor = &emisorContactoObservado{real: real}
 	correlacion, err := base.Correlacion.ValorCanonico()
 	contactoExigir(t, err)
-	e.servicio, err = NuevoServicioContactoUsuario(auditorContactoPrueba{e.ahora, base.Finalidad, correlacion}, protectorContactoPrueba{}, e.emisor, e.registro)
+	e.servicio, err = NuevoServicioContactoUsuario(auditorContactoPrueba{e.ahora, base.Finalidad, correlacion}, protectorContactoPrueba{}, e.emisor, e.registro, derivadorHuellasContactoPrueba{})
 	contactoExigir(t, err)
 	e.servicio.ahora = func() time.Time { return e.ahora }
 	c, err := domain.NuevoContactoUsuario(e.resultado.Contexto.PersonaRef, "persona@prueba.local", 1)
@@ -197,7 +243,9 @@ func TestContactoGuardarConEmisorV3RealYCorreoCifrado(t *testing.T) {
 	e := nuevoEntornoContacto(t)
 	recibo, err := e.servicio.Guardar(context.Background(), e.solicitud)
 	contactoExigir(t, err)
-	if e.registro.orden.Preparacion.Auditoria.AuthorizationRef != "" || recibo.Auditoria.AuthorizationRef != e.emisor.material.ResumenCapacidad().DecisionRef() || recibo.Auditoria.AuthorizationRef == "" {
+	var central proyeccionCentralContacto
+	contactoExigir(t, json.Unmarshal(recibo.EvidenciaCentral.JSONOriginal, &central))
+	if e.registro.orden.Preparacion.Auditoria.AuthorizationRef != "" || central.AuthorizationRef != e.emisor.material.ResumenCapacidad().DecisionRef() || central.AuthorizationRef == "" || central.Result != "permitido" {
 		t.Fatal("la auditoría anticipó o perdió la decisión real")
 	}
 	p := e.registro.orden.Preparacion
@@ -213,6 +261,15 @@ func TestContactoGuardarConEmisorV3RealYCorreoCifrado(t *testing.T) {
 		}
 		return nil
 	}))
+}
+
+func TestContactoGuardarPropagaCommitInciertoSinFabricarRecibo(t *testing.T) {
+	e := nuevoEntornoContacto(t)
+	e.registro.err = ErrContactoUsuarioCommitIncierto
+	r, err := e.servicio.Guardar(context.Background(), e.solicitud)
+	if !errors.Is(err, ErrContactoUsuarioCommitIncierto) || !reflect.DeepEqual(r, ports.ReciboContactoUsuario{}) || e.registro.llamadas != 1 {
+		t.Fatal("una confirmación incierta no puede convertirse en recibo ni denegación")
+	}
 }
 func TestContactoGuardarRechazaRecursoFirmadoDistinto(t *testing.T) {
 	for _, campo := range []string{"material_sha256", "contacto_sujeto_ref", "contacto_finalidad_ref", "contacto_version", "modulo", "finalidad", "accion"} {
@@ -383,4 +440,200 @@ func (generadorContactoAleatorio) NuevaReferenciaDecisionAutorizacion() (string,
 	b := make([]byte, 16)
 	_, err := rand.Read(b)
 	return "dec_" + hex.EncodeToString(b), err
+}
+
+func TestContactoReciboCentralConservaOriginalYCotejaTransformacionT13(t *testing.T) {
+	e := nuevoEntornoContacto(t)
+	recibo, err := e.servicio.Guardar(context.Background(), e.solicitud)
+	contactoExigir(t, err)
+	original, err := reciboCentralContactoFuente(e.registro.orden)
+	contactoExigir(t, err)
+	if !bytes.Equal(recibo.EvidenciaCentral.JSONOriginal, original.EvidenciaCentral.JSONOriginal) {
+		t.Fatal("evidencia central normalizada o reinterpretada")
+	}
+	// El transporte conserva incluso espacios y campos vacíos de la respuesta.
+	if !bytes.Contains(recibo.EvidenciaCentral.JSONOriginal, []byte("\n ")) || !bytes.Contains(recibo.EvidenciaCentral.JSONOriginal, []byte(`"represented_subject_id": ""`)) {
+		t.Fatal("original perdido")
+	}
+	p := e.registro.orden.Preparacion
+	decision := e.emisor.material.ResumenCapacidad().DecisionRef()
+	for _, caso := range []string{"resultado_accepted", "actor", "version", "decision", "material", "consumo", "recurso", "ausente", "extra", "duplicada", "duplicada_metadata", "null", "huella", "referencia", "firma_malformada", "mayuscula"} {
+		t.Run(caso, func(t *testing.T) {
+			r := recibo
+			r.EvidenciaCentral.JSONOriginal = bytes.Clone(recibo.EvidenciaCentral.JSONOriginal)
+			var campos map[string]any
+			contactoExigir(t, json.Unmarshal(r.EvidenciaCentral.JSONOriginal, &campos))
+			meta := campos["metadata"].(map[string]any)
+			switch caso {
+			case "resultado_accepted":
+				campos["result"] = "accepted"
+			case "actor":
+				campos["actor_id"] = "hmac-sha256:otro:" + strings.Repeat("a", 64)
+			case "version":
+				campos["object_version"] = 2
+			case "decision":
+				campos["authorization_ref"] = "dec_otra"
+			case "material":
+				campos["after_hash"] = strings.Repeat("1", 64)
+			case "consumo":
+				meta["consumo_huella_sha256"] = strings.Repeat("1", 64)
+			case "recurso":
+				meta["contexto_recurso_sha256"] = strings.Repeat("1", 64)
+			case "ausente":
+				delete(campos, "reason")
+			case "extra":
+				campos["sobra"] = ""
+			case "null":
+				campos["reason"] = nil
+			case "referencia":
+				r.EvidenciaCentral.Referencia = "acc_" + strings.Repeat("d", 40)
+			case "firma_malformada":
+				campos["signature"] = "firma:no-central"
+			case "mayuscula":
+				campos["ID"] = campos["id"]
+				delete(campos, "id")
+			}
+			r.EvidenciaCentral.JSONOriginal, err = json.Marshal(campos)
+			contactoExigir(t, err)
+			if caso == "duplicada" {
+				r.EvidenciaCentral.JSONOriginal = append([]byte(`{"result":"permitido",`), r.EvidenciaCentral.JSONOriginal[1:]...)
+			}
+			if caso == "duplicada_metadata" {
+				r.EvidenciaCentral.JSONOriginal = bytes.Replace(r.EvidenciaCentral.JSONOriginal, []byte(`"metadata":{`), []byte(`"metadata":{"material_sha256":"otra",`), 1)
+			}
+			h := sha256.Sum256(r.EvidenciaCentral.JSONOriginal)
+			r.EvidenciaCentral.HuellaJSONSHA256 = hex.EncodeToString(h[:])
+			if caso == "huella" {
+				r.EvidenciaCentral.HuellaJSONSHA256 = strings.Repeat("0", 64)
+			}
+			if reciboValido(r, p, decision) {
+				t.Fatal("evidencia central ajena aceptada")
+			}
+		})
+	}
+}
+
+func TestContactoValidadoresCentralesAntesDeConfirmarRegistroYLectura(t *testing.T) {
+	e := nuevoEntornoContacto(t)
+	_, err := e.servicio.Guardar(context.Background(), e.solicitud)
+	contactoExigir(t, err)
+	r, err := reciboCentralContactoFuente(e.registro.orden)
+	contactoExigir(t, err)
+	evidencia, err := ValidarEvidenciaCentralRegistroContactoUsuario(r.EvidenciaCentral.JSONOriginal, e.registro.orden.Preparacion, e.emisor.material.ResumenCapacidad().DecisionRef(), r.ConsumoRef, r.ConsumoHuellaSHA256)
+	contactoExigir(t, err)
+	if !bytes.Equal(evidencia.JSONOriginal, r.EvidenciaCentral.JSONOriginal) {
+		t.Fatal("registro perdió original")
+	}
+	s := accesoContacto(t, e)
+	// T13/6 aplica la misma transformación central al audit y negocio de consulta.
+	lectura, err := reciboCentralContactoFuente(ports.OrdenRegistroContactoUsuario{Preparacion: ports.PreparacionRegistroContactoUsuario{SujetoRef: s.SujetoRef, VersionNueva: s.Version, Auditoria: s.Auditoria, PayloadNegocio: s.PayloadNegocio, Recurso: s.Recurso}, Material: s.Material})
+	contactoExigir(t, err)
+	evidencia, err = ValidarEvidenciaCentralConsultaContactoUsuario(lectura.EvidenciaCentral.JSONOriginal, s, lectura.ConsumoRef, lectura.ConsumoHuellaSHA256)
+	contactoExigir(t, err)
+	if !bytes.Equal(evidencia.JSONOriginal, lectura.EvidenciaCentral.JSONOriginal) {
+		t.Fatal("lectura perdió original")
+	}
+	for _, caso := range []string{"parcial", "otra_operacion", "actor", "sujeto", "version", "finalidad", "correlacion", "consumo", "recurso", "metadata"} {
+		t.Run(caso, func(t *testing.T) {
+			original := bytes.Clone(lectura.EvidenciaCentral.JSONOriginal)
+			var c map[string]any
+			contactoExigir(t, json.Unmarshal(original, &c))
+			switch caso {
+			case "parcial":
+				c = map[string]any{"id": lectura.EvidenciaCentral.Referencia, "result": "permitido"}
+			case "otra_operacion":
+				c["authorization_ref"] = "dec_otra"
+			case "actor":
+				c["actor_id"] = "otro"
+			case "sujeto":
+				c["subject_ref"] = "per_otra"
+			case "version":
+				c["object_version"] = 2
+			case "finalidad":
+				c["purpose"] = "otra"
+			case "correlacion":
+				c["correlation_ref"] = "otra"
+			case "consumo":
+				c["metadata"].(map[string]any)["consumo_ref"] = "aud_v3_otro"
+			case "recurso":
+				c["metadata"].(map[string]any)["contexto_recurso_sha256"] = strings.Repeat("1", 64)
+			case "metadata":
+				c["metadata"] = map[string]any{}
+			}
+			original, err = json.Marshal(c)
+			contactoExigir(t, err)
+			if _, err := ValidarEvidenciaCentralConsultaContactoUsuario(original, s, lectura.ConsumoRef, lectura.ConsumoHuellaSHA256); err == nil {
+				t.Fatal("consulta central desligada aceptada")
+			}
+		})
+	}
+}
+
+func TestContactoConstructorConservaRelojNativoCanonicoParaVinculoV2(t *testing.T) {
+	e := nuevoEntornoContacto(t)
+	// Nueva instancia normal: no se sustituye ni inyecta s.ahora. El emisor V3
+	// real del entorno conserva su prueba positiva separada con fecha fija.
+	s, err := NuevoServicioContactoUsuario(e.servicio.auditoria, e.servicio.protector, e.servicio.autorizador, e.servicio.registro, e.servicio.huellas)
+	contactoExigir(t, err)
+	ahora := s.ahora()
+	if ahora.Location() != time.UTC || ahora.Nanosecond()%1000 != 0 {
+		t.Fatal("reloj nativo fuera del contrato UTC/microsegundos")
+	}
+	resultado := resultadoContextoAutorizacionV3AlternativoPrueba(t, ahora)
+	solicitudContexto := solicitudServicioContextoActorPrueba()
+	solicitudContexto.PerfilActivoRef = resultado.Contexto.PerfilActivoRef
+	autenticacion := domain.AutenticacionRevalidadaV1{
+		AutenticacionRef:             referenciaServicioContextoActorPrueba("aut_", "a"),
+		AutenticacionHuellaSHA256:    strings.Repeat("1", 64),
+		AsercionRef:                  referenciaServicioContextoActorPrueba("ase_", "s"),
+		SesionRef:                    referenciaServicioContextoActorPrueba("ses_", "e"),
+		ControlSesionRef:             referenciaServicioContextoActorPrueba("cse_", "c"),
+		ControlSesionRevision:        2,
+		ControlSesionHuellaSHA256:    strings.Repeat("2", 64),
+		CuentaRef:                    solicitudContexto.Cuenta.CuentaRef,
+		CuentaOrdinariaRef:           solicitudContexto.Cuenta.CuentaRef,
+		Superficie:                   domain.SuperficieAutenticacionInternaCorporativaV1,
+		MetodoObservado:              solicitudContexto.Cuenta.Metodo,
+		GarantiaObservada:            solicitudContexto.Cuenta.Garantia,
+		PoliticaGarantiaRef:          referenciaServicioContextoActorPrueba("pga_", "g"),
+		PoliticaGarantiaHuellaSHA256: strings.Repeat("3", 64),
+		AutenticacionVerificadaEn:    ahora.Add(-10 * time.Minute),
+		SesionEmitidaEn:              ahora.Add(-9 * time.Minute),
+		SesionRevalidadaEn:           ahora.Add(-3 * time.Minute),
+		SesionValidaHasta:            ahora.Add(20 * time.Minute),
+	}
+	vinculo, err := domain.CrearVinculoAutenticacionActorV2(context.Background(), &revalidadorVinculoAplicacionAdversarial{resultado: autenticacion}, domain.SolicitudRevalidacionAutenticacionActorV1{AutenticacionRef: autenticacion.AutenticacionRef, SesionRef: autenticacion.SesionRef}, resolutorContextoAutorizacionV3Prueba{resultado: resultado}, solicitudContexto, &relojAutorizacionServicioPrueba{ahora: ahora})
+	contactoExigir(t, err)
+	base := e.solicitud.SolicitudBase
+	base.VinculoAutenticacionActor = vinculo
+	nominal, err := domain.NuevaSolicitudAutorizacionLigadaV3(base)
+	contactoExigir(t, err)
+	if !contextoContactoValido(nominal, resultado, resultado.Contexto, s.ahora()) {
+		t.Fatal("reloj del constructor no alcanza la validación nominal del servicio")
+	}
+	// La aceptación anterior depende del contrato, no de relajar el dominio.
+	if vinculo.VigenteEn(ahora.Add(time.Nanosecond), resultado) || vinculo.VigenteEn(ahora.In(time.FixedZone("local-prueba", 3600)), resultado) {
+		t.Fatal("el dominio admitió un instante no canónico")
+	}
+}
+
+func TestReciboReplayMismoMaterialYClaveHistorica(t *testing.T) {
+	e := nuevoEntornoContacto(t)
+	original, err := e.servicio.Guardar(context.Background(), e.solicitud)
+	contactoExigir(t, err)
+	p := clonarPreparacion(e.registro.orden.Preparacion)
+	p.Auditoria.CorrelationRef = "correlacion:reintento:distinta"
+	repetido := original
+	repetido.ReplayConfirmado = true
+	if !reciboGuardadoValido(repetido, p, "decision:fresca:no-usada") {
+		t.Fatal("mismo material no recuperó recibo original")
+	}
+	p.HuellasReplay = []ports.HuellaSolicitudContactoUsuario{{ClaveRef: "clave:prueba:contacto:g2", ValorHMACSHA256: strings.Repeat("a", 64)}, original.HuellaOriginal}
+	if !reciboGuardadoValido(repetido, p, "decision:fresca:no-usada") {
+		t.Fatal("rotación con clave histórica retenida no recuperó")
+	}
+	p.HuellasReplay = p.HuellasReplay[:1]
+	if reciboGuardadoValido(repetido, p, "decision:fresca:no-usada") {
+		t.Fatal("correo cambiado aceptó recibo ajeno")
+	}
 }
