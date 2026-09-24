@@ -56,6 +56,23 @@ test("Verificar carga la hoja común antes de su CSS versionado y conserva el co
   assert.match(html, /no acredita autenticidad, registro ni firma/);
 });
 
+test("el patrón HTML admite las mismas referencias bajo RegExp v de Chromium", () => {
+  const campo = /<input id="referencia"[^>]+>/.exec(html)?.[0];
+  assert.ok(campo, "Falta el campo de referencia");
+  const patron = /\bpattern="([^"]+)"/.exec(campo)?.[1];
+  assert.ok(patron, "Falta el patrón HTML");
+  const regex = new RegExp(`^(?:${patron})$`, "v");
+  const minimo = Number(/\bminlength="(\d+)"/.exec(campo)?.[1]);
+  const maximo = Number(/\bmaxlength="(\d+)"/.exec(campo)?.[1]);
+  const valida = (referencia) => referencia.length >= minimo && referencia.length <= maximo && regex.test(referencia);
+  for (const referencia of ["ABCDEFGH", "SINTETICO-REC-0001", "A._:-123", "A" + "a".repeat(79)]) {
+    assert.equal(valida(referencia), true, referencia);
+  }
+  for (const referencia of ["ABCDEFG", "-ABCDEFG", "A/B/CDEF", "A\\B-CDEF", "A B-CDEF", "A" + "a".repeat(80)]) {
+    assert.equal(valida(referencia), false, referencia);
+  }
+});
+
 test("los controles, resultados y aviso DEMO heredan tokens y admiten alto contraste", () => {
   assert.doesNotMatch(css, /#[\da-f]{3,8}\b|\brgba?\(/i, "No debe haber colores locales fijos");
   assert.doesNotMatch(css, /--portal-[\w-]+\s*:/, "La paleta solo se define en la hoja común");
