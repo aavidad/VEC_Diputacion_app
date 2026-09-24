@@ -1,3 +1,5 @@
+import { traducirVerificar } from "./i18n.js?v=20260924-cotejo-espera-i18n-v1";
+
 const RUTA_COTEJO_PUBLICO = "/api/publico/documentos/cotejo";
 const formulario = document.getElementById("formulario-cotejo");
 const entrada = document.getElementById("referencia");
@@ -80,7 +82,7 @@ async function comprobar(evento) {
       operacion,
       new Promise((_, rechazar) => {
         temporizador = setTimeout(() => {
-          rechazar(new Error("El servicio tarda demasiado en responder. Puede volver a comprobar la referencia."));
+          rechazar(new Error(traducirVerificar("tiempo_espera")));
           controlador.abort();
         }, TIEMPO_MAX_COTEJO_MS);
       }),

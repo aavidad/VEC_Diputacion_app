@@ -2,8 +2,12 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
+import { traducirVerificar } from "./i18n.js?v=20260924-cotejo-espera-i18n-v1";
 
-const codigo = await readFile(new URL("./verificar.js", import.meta.url), "utf8");
+const codigoFuente = await readFile(new URL("./verificar.js", import.meta.url), "utf8");
+const importacionI18n = 'import { traducirVerificar } from "./i18n.js?v=20260924-cotejo-espera-i18n-v1";\n\n';
+assert.ok(codigoFuente.startsWith(importacionI18n));
+const codigo = codigoFuente.slice(importacionI18n.length);
 
 function diferida() {
   let resolver;
@@ -35,6 +39,7 @@ function entorno() {
         "resultado-cotejo": resultado, "aviso-presentacion": { hidden: true } }[id];
     } },
     window: { location: { search: "" } },
+    traducirVerificar,
     URLSearchParams,
     AbortController,
     setTimeout(callback, demora) {
@@ -71,6 +76,14 @@ function respuestaValida(referencia) {
     referencia, estado: "disponible", alcance: "público",
   } }) };
 }
+
+test("el aviso de espera procede del catálogo de cotejo cargado por el controlador", () => {
+  assert.equal(traducirVerificar("tiempo_espera"),
+    "El servicio tarda demasiado en responder. Puede volver a comprobar la referencia.");
+  assert.throws(() => traducirVerificar("clave_ajena"), /desconocida/);
+  assert.match(codigo, /traducirVerificar\("tiempo_espera"\)/);
+  assert.doesNotMatch(codigo, /new Error\("El servicio tarda demasiado/);
+});
 
 test("una petición pendiente vence, libera el formulario y permite reintentar sin perder la referencia", async () => {
   const pagina = entorno();
