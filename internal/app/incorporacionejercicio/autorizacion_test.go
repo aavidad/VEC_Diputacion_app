@@ -150,7 +150,7 @@ func autoridadEntorno(t *testing.T, operaciones ...autoridadOperacion) *autorida
 	c, aut, sc := autoridadFixtureContexto(t, e.ahora, "a", marcaPerfil)
 	e.reval = autoridadRevalidadorDoble{resultado: aut}
 	motivo := core.ReferenciaEntradaCatalogo{CatalogoID: "motivos_autorizacion", CatalogoVersion: 2, CatalogoHuellaSHA256: strings.Repeat("d", 64), EntradaClave: "motivo_11111111111111111111111111111111"}
-	e.fuente = autoridadFuenteDoble{p: PeticionAutoridad{Autenticacion: core.SolicitudRevalidacionAutenticacionActorV1{AutenticacionRef: aut.AutenticacionRef, SesionRef: aut.SesionRef}, Contexto: sc, PreparacionCT: ct.PreparacionSeguimientoConfirmacionIncorporacion{OrganizacionRef: "organizacion:ejercicio:personal", UnidadRef: "ref:" + strings.Repeat("e", 64), ActorRef: "actor:ejercicio:rrhh", CorrelacionRef: "correlacion:ejercicio:ct"}, MotivoAlta: motivo, MotivoLectura: motivo}}
+	e.fuente = autoridadFuenteDoble{p: PeticionAutoridad{Autenticacion: core.SolicitudRevalidacionAutenticacionActorV1{AutenticacionRef: aut.AutenticacionRef, SesionRef: aut.SesionRef}, Contexto: sc, PreparacionCT: ct.PreparacionSeguimientoConfirmacionIncorporacion{OrganizacionRef: "organizacion:ejercicio:personal", UnidadRef: "ref:" + strings.Repeat("e", 64), ActorRef: c.Resultado.Contexto.PersonaRef, CorrelacionRef: "correlacion:ejercicio:ct"}, MotivoAlta: motivo, MotivoLectura: motivo}}
 	v, _ := c.Vinculo.Datos()
 	rol := core.VersionRol{RolID: "rrhh_ejercicio", Version: 1, Nombre: "Prueba no productiva", Estado: core.EstadoVersionRolPublicada, PublicadaPor: "seguridad:ejercicio", PublicadaEn: e.ahora.Add(-time.Hour)}
 	for _, op := range []autoridadOperacion{autoridadAlta, autoridadLectura, autoridadCT} {
