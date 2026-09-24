@@ -11,6 +11,7 @@ static/portal-empleado/ayudante-tramites.css
 static/portal-empleado/identidad/contexto-actor.js
 static/portal-empleado/index.html
 static/portal-empleado/organizacion/index.html
+static/portal-empleado/organizacion/historico.js
 static/portal-empleado/organizacion/organizacion.js
 static/portal-empleado/organizacion/organizacion.css
 static/portal-empleado/peticiones-centro/index.html
