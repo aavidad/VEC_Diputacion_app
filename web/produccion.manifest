@@ -52,6 +52,10 @@ static/portal-empleado/organizacion/index.html
 static/portal-empleado/organizacion/historico.js
 static/portal-empleado/organizacion/organizacion.js
 static/portal-empleado/organizacion/organizacion.css
+static/portal-empleado/calendarios/index.html
+static/portal-empleado/calendarios/calendarios.js
+static/portal-empleado/calendarios/calendarios.css
+static/portal-empleado/calendarios/i18n.js
 static/portal-empleado/peticiones-centro/index.html
 static/portal-empleado/peticiones-centro/peticiones-centro.js
 static/portal-empleado/peticiones-centro/peticiones-centro.css
