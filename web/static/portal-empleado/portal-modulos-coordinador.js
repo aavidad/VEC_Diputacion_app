@@ -147,18 +147,14 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
     return Object.freeze({ contrato, cliente, presentador, vista, adaptador });
   },
   personal: async () => {
-    const [contrato, cliente, vista, clienteRPT, vistaRPT, clienteEstructura, vistaEstructura, ficha] = await Promise.all([
+    const [contrato, cliente, vista, ficha] = await Promise.all([
       import("./modulos/personal/contrato.js?v=20260920-personal-catalogo-v1"),
       import("./modulos/personal/cliente-http-categorias.js?v=20260920-personal-catalogo-v1"),
       import("./modulos/personal/vista.js?v=20260924-f2-cache-v3"),
-      import("./modulos/personal/cliente-http-rpt-publica.js?v=20260920-personal-rpt-publica-v3"),
-      import("./modulos/personal/vista-rpt-publica.js?v=20260920-personal-rpt-publica-v3"),
-      import("./modulos/personal/cliente-http-estructura-organizativa-publica.js?v=20260920-personal-estructura-v1"),
-      import("./modulos/personal/vista-estructura-organizativa-publica.js?v=20260924-f2-cache-v3"),
       import("./modulos/personal/vista-ficha-integral.js?v=20260924-f2-shell-v1"),
     ]);
     return Object.freeze({ contrato, cliente, vista, clienteCategorias: cliente, vistaCategorias: vista,
-      clienteRPT, vistaRPT, clienteEstructura, vistaEstructura, ficha });
+      ficha });
   },
   dietas: async () => {
     const [contrato, vista, mapa, calculador, recorridos, clienteBorradores] = await Promise.all([
@@ -606,7 +602,7 @@ export function crearCoordinadorModulosPortal({
           throw new TypeError("vista de Personal no disponible");
         }
         personal = typeof recursos.ficha?.montarVistaFichaIntegralPersonal === "function"
-          ? componerPersonalVisible(recursos, entorno)
+          ? componerPersonalVisible(recursos, entorno, { catalogosPublicos: false })
           : Object.freeze({
             cliente: recursos.cliente.crearClienteHTTPCategoriasPersonal({
               fetchImpl: typeof entorno.fetch === "function" ? entorno.fetch.bind(entorno) : undefined,
