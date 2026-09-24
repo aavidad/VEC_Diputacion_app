@@ -54,6 +54,8 @@ jobs:
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '20'
+      - name: Aprovisionar el ZIP OSM de la Release publica
+        run: scripts/aprovisionar_cartografia_osm.sh
       - name: Puerta de calidad
         run: scripts/verificar_calidad.sh
       # El conductor O3a V5 (runner endurecido) queda fuera del CI por la
@@ -68,6 +70,10 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Aprovisionar el ZIP OSM de la Release publica
+        run: scripts/aprovisionar_cartografia_osm.sh
+      - name: Verificar ZIP e indice OSM antes de empaquetar
+        run: scripts/verificar_manifiestos_superficies_web.sh
       - name: Construir las superficies productivas separadas
         run: |
           docker build --target runtime-publico -t vec-ci-publico:revision .

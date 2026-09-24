@@ -26,6 +26,7 @@ limpiar() {
 }
 trap limpiar EXIT INT TERM
 
+scripts/aprovisionar_cartografia_osm.sh
 docker build --target runtime -t "$imagen_produccion" .
 docker build --target runtime-presentacion -t "$imagen_presentacion" .
 docker build --target runtime-cartografia-presentacion -t "$imagen_cartografia" .
