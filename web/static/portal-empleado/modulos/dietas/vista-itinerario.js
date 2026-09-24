@@ -204,7 +204,7 @@ function crearResumenAlternativas(documento, modelo, traducir, borradorAlternati
       elemento(documento, "span", formatoMinutos(alternativa.duracion_minutos)));
     lista.append(fila);
   });
-  const ayuda = elemento(documento, "p", traducir("d4_alternativa_ayuda"));
+  const ayuda = elemento(documento, "p", traducir("d4_alternativa_estado"));
   ayuda.className = "dietas-itinerario-aviso";
   const controles = elemento(documento, "div");
   controles.className = "dietas-ruta-paradas";
@@ -227,7 +227,7 @@ function crearResumenAlternativas(documento, modelo, traducir, borradorAlternati
   motivo.value = borradorAlternativa?.motivo ?? modelo.motivo_alternativa;
   motivo.setAttribute("aria-describedby", "dietas-itinerario-motivo-ayuda");
   motivoEtiqueta.append(motivo);
-  const motivoAyuda = elemento(documento, "small", traducir("d4_motivo_alternativa_ayuda"));
+  const motivoAyuda = elemento(documento, "small", traducir("d4_motivo_alternativa_etiqueta"));
   motivoAyuda.id = "dietas-itinerario-motivo-ayuda";
   const boton = elemento(documento, "button", traducir("d4_previsualizar"));
   boton.type = "button";

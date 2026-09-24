@@ -159,6 +159,11 @@ test("expone avisos, alternativas y tramos del cálculo orientativo sin exponer 
     "DEMO · Ruta orientativa no liquidable.");
   assert.equal(contenedor.querySelector("[data-itinerario-aviso-sin-efectos]").textContent,
     "Sin efectos administrativos/reales.");
+  const motivo = contenedor.querySelector("[data-itinerario-motivo-alternativa]");
+  const descriptor = contenedor.querySelectorAll("small").find((nodo) => nodo.id === motivo.attrs["aria-describedby"]);
+  assert.equal(descriptor?.textContent, "Motivo obligatorio (8–500 caracteres)");
+  assert.ok(contenedor.querySelectorAll("p").some((nodo) => nodo.textContent === "Previsualización sin guardar ni generar importe"));
+  assert.ok(!contenedor.querySelectorAll("p").some((nodo) => /Puede previsualizar otra alternativa/u.test(nodo.textContent)));
   const alternativas = contenedor.querySelectorAll("[data-itinerario-alternativa]");
   assert.equal(alternativas.length, 3);
   assert.match(alternativas[0].children[0].textContent, /Ruta OSRM interna · primera alternativa/u);
