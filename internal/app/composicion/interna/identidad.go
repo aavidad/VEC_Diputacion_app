@@ -5,7 +5,9 @@ import (
 	"errors"
 	"reflect"
 
+	inc "vec-diputacion-granada/internal/app/incorporacionejercicio"
 	"vec-diputacion-granada/internal/vec/adapters/httpseguridad"
+	vec "vec-diputacion-granada/internal/vec/domain"
 )
 
 var ErrIdentidadOfflineNoDisponible = errors.New(
@@ -141,3 +143,37 @@ func interfazNulaIdentidadOffline(valor any) bool {
 		return false
 	}
 }
+
+// fuenteAutoridadIdentidadVinculada obliga a que la petición F1 proceda de la
+// misma sesión institucional ligada al canal C4. El proveedor F1 resuelve el
+// perfil y los ámbitos registrados; esta guarda impide cambiar la cuenta o
+// sesión al construir la autoridad V3 de la consulta.
+type fuenteAutoridadIdentidadVinculada struct {
+	identidad *httpseguridad.ServicioIdentidad
+	siguiente inc.FuentePeticionAutoridad
+}
+
+func (f fuenteAutoridadIdentidadVinculada) PeticionVerificada(ctx context.Context) (inc.PeticionAutoridad, error) {
+	vacia := inc.PeticionAutoridad{}
+	if f.identidad == nil || interfazNulaIdentidadOffline(f.siguiente) || ctx == nil {
+		return vacia, inc.ErrAutoridadAplicacion
+	}
+	cuenta, auditoria, err := f.identidad.ExtraerCapsulaIdentidadPeticion(ctx)
+	if err != nil || cuenta.Validar() != nil || cuenta.Garantia != vec.AuthAssuranceHigh ||
+		auditoria.Superficie() != httpseguridad.SuperficieInternaCorporativa ||
+		auditoria.ControlSesionEstado() != httpseguridad.EstadoControlSesionActiva ||
+		auditoria.CuentaRef() != cuenta.CuentaRef ||
+		auditoria.MetodoObservado() != cuenta.Metodo ||
+		auditoria.Garantia() != cuenta.Garantia {
+		return vacia, inc.ErrAutoridadAplicacion
+	}
+	peticion, err := f.siguiente.PeticionVerificada(ctx)
+	if err != nil || ctx.Err() != nil || peticion.Autenticacion.AutenticacionRef != auditoria.AutenticacionRef() ||
+		peticion.Autenticacion.SesionRef != auditoria.SesionRef() ||
+		peticion.Contexto.Cuenta != cuenta || peticion.Contexto.Validar() != nil {
+		return vacia, inc.ErrAutoridadAplicacion
+	}
+	return peticion, nil
+}
+
+var _ inc.FuentePeticionAutoridad = fuenteAutoridadIdentidadVinculada{}
