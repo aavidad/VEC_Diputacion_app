@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { crearControladorContactoPropio, capturarCorreoEnviado, montarContactoPropio } from "./contacto-propio.js";
-import { crearClienteOperacionesContactoPropio, RUTAS_OPERACIONES_CONTACTO } from "./cliente-http.js?v=20260924-f2-b11-v1";
+import { crearClienteOperacionesContactoPropio, RUTAS_OPERACIONES_CONTACTO } from "./cliente-http.js?v=20260924-f2-b11-v2";
 import { textoContactoPropio } from "./i18n-contacto-propio.js";
 import { traducir } from "./i18n.js";
 
@@ -33,12 +33,25 @@ function contenedorDOM() {
 }
 const autorizado = { capacidad: true, version: 7 };
 
+test("Perfil sin capacidad positiva muestra no configurado y no consulta ni habilita Contacto", () => {
+  let llamadas = 0;
+  const contenedor = contenedorDOM();
+  const vista = montarContactoPropio({ contenedor, fetchImpl: async () => { llamadas += 1; } });
+  const [formulario] = contenedor.children;
+  const [, acciones, estado] = formulario.children;
+  assert.match(estado.textContent, /no configurado/iu);
+  assert.equal(acciones.children.every((boton) => boton.disabled), true);
+  assert.equal(llamadas, 0);
+  assert.equal(vista.controlador.autorizado, false);
+  vista.destruir();
+});
+
 test("Contacto y arranque comparten la URL versionada del cliente HTTP", async () => {
   const [contacto, arranque] = await Promise.all([
     readFile(new URL("./contacto-propio.js", import.meta.url), "utf8"),
     readFile(new URL("./arranque.js", import.meta.url), "utf8"),
   ]);
-  const ruta = "./cliente-http.js?v=20260924-f2-b11-v1";
+  const ruta = "./cliente-http.js?v=20260924-f2-b11-v2";
   assert.ok(contacto.includes(ruta));
   assert.ok(arranque.includes(ruta));
 });
@@ -170,6 +183,49 @@ test("403 posterior a lista y detalle 200 borra datos y bloquea el controlador",
   assert.equal(denegaciones, 1);
   await assert.rejects(() => c.cargar(), (e) => e.codigo === "acceso_denegado");
   assert.equal(s.peticiones.length, 3);
+});
+
+test("401/403/404 vacíos o HTML purgan lista, detalle, recibo y capacidad antes de leer el cuerpo", async () => {
+  for (const [status, codigo] of [[401, "autenticacion_requerida"], [403, "acceso_denegado"], [404, "no_encontrada"]]) {
+    for (const cuerpo of ["", "<html>denegado</html>"]) {
+      let llamadas = 0; let cuerpoLeido = false; let denegaciones = 0;
+      const fetchImpl = async (_ruta, opciones) => {
+        llamadas += 1;
+        if (llamadas === 1) return respuesta(200, { operaciones: [confirmado()] });
+        if (llamadas === 2) return respuesta(200, confirmado());
+        assert.equal(opciones.credentials, "omit");
+        return { status, headers: { get: () => cuerpo ? "text/html" : null }, text: async () => { cuerpoLeido = true; return cuerpo; } };
+      };
+      const c = crearControladorContactoPropio({ autorizacionServidor: autorizado, fetchImpl, alDenegar: () => { denegaciones += 1; } });
+      await c.cargar();
+      await c.seleccionar(REF);
+      assert.equal(c.seleccion.recibo_ref, "recibo-original");
+      await assert.rejects(() => c.cargar(), (error) => error.codigo === codigo && error.estado === status);
+      assert.equal(cuerpoLeido, false);
+      assert.equal(c.autorizado, false);
+      assert.equal(c.seleccion, null);
+      assert.deepEqual(c.operaciones, []);
+      assert.equal(denegaciones, 1);
+      assert.doesNotMatch(JSON.stringify({ operaciones: c.operaciones, seleccion: c.seleccion, aviso: c.aviso }), /recibo-original/u);
+      await assert.rejects(() => c.cargar(), (error) => error.codigo === "acceso_denegado");
+      assert.equal(llamadas, 3);
+    }
+  }
+});
+
+test("denegación posterior oculta también el recibo previo del montaje", async () => {
+  const s = servidor([[200, { operaciones: [confirmado()] }], [200, confirmado()], [403, { codigo: "acceso_denegado" }]]);
+  const c = crearControladorContactoPropio({ autorizacionServidor: autorizado, fetchImpl: s.fetchImpl });
+  await c.cargar(); await c.seleccionar(REF);
+  const contenedor = contenedorDOM();
+  const vista = montarContactoPropio({ contenedor, controlador: c, reciboAnterior: { reciboRef: "recibo-vigente", version: 8 } });
+  const situacion = contenedor.children[2];
+  assert.equal(situacion.hidden, undefined);
+  await assert.rejects(() => c.cargar(), (error) => error.codigo === "acceso_denegado");
+  assert.equal(situacion.hidden, true);
+  assert.equal(situacion.children[1].children[1].children.length, 0);
+  assert.match(contenedor.children[0].children[2].textContent, /permiso/iu);
+  vista.destruir();
 });
 
 test("409 con consulta automática 403 o 404 borra recibo y no mantiene autorización", async () => {

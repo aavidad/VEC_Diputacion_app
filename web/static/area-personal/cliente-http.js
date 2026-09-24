@@ -9,6 +9,7 @@ export const RUTAS_OPERACIONES_CONTACTO = Object.freeze(Object.fromEntries(
 ));
 const MAXIMO_JSON_BYTES = 512 * 1024;
 const MAXIMO_SOLICITUD_BYTES = 64 * 1024;
+const DENEGACIONES_CONTACTO = Object.freeze({ 401: "autenticacion_requerida", 403: "acceso_denegado", 404: "no_encontrada" });
 const ACCIONES = Object.freeze({
   actualizar_contacto: ["PUT", "/api/vec/personas/mi-perfil/contacto"],
   incorporar_merito: ["POST", "/api/vec/bolsa/mi-expediente/meritos"],
@@ -93,7 +94,10 @@ export function crearClienteOperacionesContactoPropio({ fetchImpl = globalThis.f
       throw new ErrorOperacionContacto("servicio_no_disponible");
     }
     const estado = respuesta?.status;
-    if (![200, 201, 400, 403, 404, 409, 503].includes(estado)) {
+    if (Object.hasOwn(DENEGACIONES_CONTACTO, estado)) {
+      throw new ErrorOperacionContacto(DENEGACIONES_CONTACTO[estado], estado);
+    }
+    if (![200, 201, 400, 409, 503].includes(estado)) {
       throw new ErrorOperacionContacto("servicio_no_disponible", estado);
     }
     let dato;
@@ -101,7 +105,7 @@ export function crearClienteOperacionesContactoPropio({ fetchImpl = globalThis.f
     catch { throw new ErrorOperacionContacto("respuesta_incompatible", estado); }
     if (![200, 201].includes(estado)) {
       const admitidos = {
-        400: ["peticion_invalida"], 403: ["acceso_denegado"], 404: ["no_encontrada"],
+        400: ["peticion_invalida"],
         409: ["conflicto", "operacion_preparada"], 503: ["confirmacion_incierta", "servicio_no_disponible"],
       };
       const codigo = admitidos[estado]?.includes(dato?.codigo) ? dato.codigo : "respuesta_incompatible";
@@ -213,11 +217,11 @@ export function crearClienteHTTPAreaPersonal({ fetchImpl = globalThis.fetch } = 
     let respuesta;
     try {
       respuesta = await fetchImpl(ruta, {
-        credentials: "same-origin",
         cache: "no-store",
         redirect: "error",
         referrerPolicy: "no-referrer",
         ...opciones,
+        credentials: "omit",
       });
     } catch (error) {
       throw new ErrorClienteAreaPersonal("servicio_no_disponible", "No se pudo establecer una conexión segura con el servicio.", error);
@@ -233,13 +237,10 @@ export function crearClienteHTTPAreaPersonal({ fetchImpl = globalThis.fetch } = 
   }
 
   async function cargarContactoPropio({ signal } = {}) {
-    const respuesta = await fetchImpl(RUTA_CONTACTO_PROPIO, {
-      method: "GET", credentials: "omit", cache: "no-store", redirect: "error",
-      referrerPolicy: "no-referrer", headers: { Accept: "application/json" }, signal,
-    });
-    if (respuesta.status === 403 || respuesta.status === 404) return null;
-    if (respuesta.status !== 200) throw new ErrorClienteAreaPersonal("servicio_no_disponible", mensajeHTTP(respuesta.status));
-    const estado = await leerJSONAcotado(respuesta);
+    const estado = await solicitar(RUTA_CONTACTO_PROPIO, {
+      method: "GET", headers: { Accept: "application/json" }, signal,
+    }, [200]);
+    if (estado?.capacidad !== true) return null;
     if (!estado || typeof estado !== "object" || Array.isArray(estado)
       || typeof estado.encontrado !== "boolean" || !Number.isSafeInteger(estado.version)
       || estado.version < 0 || estado.encontrado !== (estado.version > 0)) {
@@ -247,18 +248,15 @@ export function crearClienteHTTPAreaPersonal({ fetchImpl = globalThis.fetch } = 
     }
     let recibo = null;
     if (estado.encontrado) {
-      const r = await fetchImpl(RUTA_RECIBO_CONTACTO_PROPIO, {
-        method: "POST", credentials: "omit", cache: "no-store", redirect: "error",
-        referrerPolicy: "no-referrer", headers: { Accept: "application/json", "Content-Type": "application/json" },
+      const recibido = await solicitar(RUTA_RECIBO_CONTACTO_PROPIO, {
+        method: "POST", headers: { Accept: "application/json", "Content-Type": "application/json" },
         body: JSON.stringify({ version: estado.version }), signal,
-      });
-      if (r.status !== 200) throw new ErrorClienteAreaPersonal("recibo_no_disponible", "No se pudo recuperar el recibo del contacto.");
-      const recibido = await leerJSONAcotado(r);
+      }, [200]);
       if (!recibido || typeof recibido.recibo_ref !== "string" || !recibido.recibo_ref
         || recibido.version !== estado.version) throw new ErrorClienteAreaPersonal("respuesta_incompatible", "El recibo del contacto no coincide.");
       recibo = Object.freeze({ reciboRef: recibido.recibo_ref, version: recibido.version });
     }
-    return Object.freeze({ autorizacion: Object.freeze({ capacidad: true, version: estado.version, consultarRecibo: true }), recibo });
+    return Object.freeze({ autorizacion: Object.freeze({ capacidad: true, version: estado.version, consultarRecibo: estado.encontrado }), recibo });
   }
 
   async function cargar() {

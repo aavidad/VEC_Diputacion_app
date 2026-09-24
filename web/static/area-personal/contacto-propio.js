@@ -1,4 +1,4 @@
-import { crearClienteOperacionesContactoPropio, ErrorOperacionContacto, referenciaOperacionContactoValida } from "./cliente-http.js?v=20260924-f2-b11-v1";
+import { crearClienteOperacionesContactoPropio, ErrorOperacionContacto, referenciaOperacionContactoValida } from "./cliente-http.js?v=20260924-f2-b11-v2";
 import { textoContactoPropio as t } from "./i18n-contacto-propio.js";
 
 export function capturarCorreoEnviado(entrada) { return String(entrada?.value ?? "").trim(); }
@@ -10,13 +10,13 @@ function autorizado(contexto) {
 
 function errorVisible(error) {
   if (error?.codigo === "peticion_invalida") return t("errorEntrada");
-  if (error?.codigo === "acceso_denegado" || error?.codigo === "no_encontrada") return t("errorPermiso");
+  if (["autenticacion_requerida", "acceso_denegado", "no_encontrada"].includes(error?.codigo)) return t("errorPermiso");
   if (error?.codigo === "operacion_preparada") return t("conflictoPreparada");
   if (error?.codigo === "conflicto") return t("conflicto");
   if (error?.codigo === "confirmacion_incierta") return t("confirmacionIncierta");
   return t("errorServicio");
 }
-const esDenegacion = (error) => ["acceso_denegado", "no_encontrada"].includes(error?.codigo);
+const esDenegacion = (error) => ["autenticacion_requerida", "acceso_denegado", "no_encontrada"].includes(error?.codigo);
 
 export function crearControladorContactoPropio({ autorizacionServidor = null, fetchImpl = globalThis.fetch,
   presentacion = false, clienteOperaciones = null, alConfirmar = null, alDenegar = null } = {}) {
@@ -37,7 +37,7 @@ export function crearControladorContactoPropio({ autorizacionServidor = null, fe
   const emitir = () => { if (activo) for (const fn of suscriptores) fn(); };
   const decir = (texto, tipo = "info") => { if (!activo || denegado) return; aviso = texto; tipoAviso = tipo; emitir(); };
   const limpiar = () => { operaciones = []; siguienteDesde = ""; seleccion = null; cargado = false; version = 0; generacion++; };
-  const bloquear = () => { if (!activo || denegado) return; denegado = true; limpiar(); aviso = t("errorPermiso"); tipoAviso = "error"; alDenegar?.(); emitir(); };
+  const bloquear = () => { if (!activo || denegado) return; denegado = true; limpiar(); autorizacionServidor = null; aviso = t("errorPermiso"); tipoAviso = "error"; alDenegar?.(); emitir(); };
   const exigir = () => { if (!activo || denegado || !autorizado(autorizacionServidor) || presentacion) throw new ErrorOperacionContacto("acceso_denegado", 403); };
   const actualizar = (op) => {
     if (!activo || denegado) return;
@@ -202,7 +202,7 @@ export function crearControladorContactoPropio({ autorizacionServidor = null, fe
     get seleccion() { return seleccion; }, get aviso() { return aviso; }, get tipoAviso() { return tipoAviso; },
     cargar, seleccionar, preparar, confirmar, cancelar,
     suscribir(fn) { suscriptores.add(fn); return () => suscriptores.delete(fn); },
-    destruir() { if (!activo) return; activo = false; for (const aborto of abortos) aborto.abort(); abortos.clear(); limpiar(); aviso = ""; suscriptores.clear(); },
+    destruir() { if (!activo) return; activo = false; for (const aborto of abortos) aborto.abort(); abortos.clear(); limpiar(); autorizacionServidor = null; aviso = ""; suscriptores.clear(); },
   });
 }
 
@@ -257,7 +257,7 @@ export function montarContactoPropio({ contenedor, autorizacionServidor = null, 
     const op = controlador.seleccion;
     if (controlador.cargado || op || !controlador.autorizado) confirmacionVigente = null;
     const habilitado = controlador.autorizado && !controlador.ocupado;
-    if (!controlador.autorizado) { entrada.value = ""; verRecibo.replaceChildren(); situacion.hidden = true; }
+    if (!controlador.autorizado) { entrada.value = ""; reciboAnterior = null; verRecibo.replaceChildren(); situacion.hidden = true; }
     entrada.disabled = !habilitado;
     preparar.disabled = !habilitado || Boolean(controlador.operaciones.find((item) => item.estado === "preparada"));
     confirmar.hidden = op?.estado !== "preparada";
@@ -265,7 +265,7 @@ export function montarContactoPropio({ contenedor, autorizacionServidor = null, 
     confirmar.disabled = !habilitado; cancelar.disabled = !habilitado;
     actualizar.disabled = !habilitado; mas.hidden = !controlador.siguienteDesde; mas.disabled = !habilitado;
     const confirmacionVisible = controlador.autorizado && !op && controlador.tipoAviso !== "error" && confirmacionVigente?.reciboRef;
-    estado.textContent = !controlador.autorizado ? t("sinAutorizacion")
+    estado.textContent = !controlador.autorizado ? controlador.tipoAviso === "error" ? controlador.aviso : t("noConfigurado")
       : confirmacionVisible ? t("correcto", { recibo: confirmacionVigente.reciboRef })
         : controlador.aviso || t("seleccionExplicita");
     estado.className = `nota ${confirmacionVisible ? "contacto-exito" : controlador.tipoAviso === "error" ? "error" : controlador.tipoAviso === "aviso" ? "aviso" : ""}`.trim();

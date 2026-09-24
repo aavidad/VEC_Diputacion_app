@@ -1,5 +1,5 @@
 import { esModoPresentacion } from "./contrato.js";
-import { iniciarAreaPersonal } from "./aplicacion.js?v=20260924-f2-b15-area-v2";
+import { iniciarAreaPersonal } from "./aplicacion.js?v=20260924-f2-b15-area-v3";
 import { iniciarI18nAreaPersonal, traducir } from "./i18n.js";
 
 await iniciarI18nAreaPersonal();
@@ -15,7 +15,7 @@ async function resolverCliente() {
       presentacionSolicitada: true,
     };
   }
-  const { crearClienteHTTPAreaPersonal } = await import("./cliente-http.js?v=20260924-f2-b11-v1");
+  const { crearClienteHTTPAreaPersonal } = await import("./cliente-http.js?v=20260924-f2-b11-v2");
   return { cliente: crearClienteHTTPAreaPersonal(), presentacionSolicitada: false };
 }
 
