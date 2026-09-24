@@ -36,7 +36,7 @@ def verificar_servidor_presentacion(
     context = browser.new_context(service_workers="block")
     try:
         respuesta = context.request.get(
-            construir_url(url_base, "/presentacion/", permitir_red_privada),
+            construir_url(url_base, "/bolsa/", permitir_red_privada),
             timeout=timeout_ms,
             fail_on_status_code=False,
         )

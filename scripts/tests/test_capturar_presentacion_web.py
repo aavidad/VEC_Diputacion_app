@@ -102,7 +102,6 @@ class ManifiestoRevisionWebTests(unittest.TestCase):
         self.assertEqual(
             por_superficie,
             {
-                "lanzador": 1,
                 "portal-publico": 1,
                 "area-aspirante": 14,
                 "gestion-rrhh": 29,
@@ -113,11 +112,6 @@ class ManifiestoRevisionWebTests(unittest.TestCase):
             {(1440, 1000), (1024, 900), (390, 844)},
         )
         self.assertEqual(capturador.validar_manifiesto(), [])
-        lanzador = next(
-            vista for vista in capturador.MANIFIESTO_VISTAS
-            if vista.clave == "lanzador-recorrido"
-        )
-        self.assertEqual(lanzador.titulo_esperado, "Demostración funcional del portal")
 
     def test_vistas_aspirante_son_exhaustivas_y_el_detalle_es_determinista(self) -> None:
         vistas = {
@@ -233,7 +227,7 @@ class ManifiestoRevisionWebTests(unittest.TestCase):
             self.assertEqual(consulta.get("presentacion"), ["rrhh"], escenario.clave)
 
     def test_flujos_se_distinguen_y_cubren_interacciones_demo(self) -> None:
-        self.assertEqual(len(capturador.MANIFIESTO_FLUJOS), 26)
+        self.assertEqual(len(capturador.MANIFIESTO_FLUJOS), 24)
         claves = {flujo.clave for flujo in capturador.MANIFIESTO_FLUJOS}
         self.assertTrue({
             "publico-ficha-convocatoria",
@@ -246,8 +240,6 @@ class ManifiestoRevisionWebTests(unittest.TestCase):
             "rrhh-personal-rpt-publica",
             "rrhh-perfil-tecnico-restringido",
             "funcionario-autoservicio-restringido",
-            "administrador-selector-perfiles-abierto",
-            "aspirante-selector-perfiles-abierto",
             "aspirante-menu-movil-abierto",
             "rrhh-menu-movil-abierto",
             "rrhh-menu-bolsa-movil-abierto",
@@ -271,47 +263,6 @@ class ManifiestoRevisionWebTests(unittest.TestCase):
                 "esperar", "esperar-habilitado", "esperar-deshabilitado",
                 "esperar-deshabilitado", "esperar-deshabilitado",
             ],
-        )
-
-    def test_selector_cubre_cuatro_rutas_desde_admin_y_aspirante_en_tres_tamanos(self) -> None:
-        por_clave = {flujo.clave: flujo for flujo in capturador.MANIFIESTO_FLUJOS}
-        selectores = {
-            clave: por_clave[clave]
-            for clave in (
-                "administrador-selector-perfiles-abierto",
-                "aspirante-selector-perfiles-abierto",
-            )
-        }
-        perfiles_esperados = {"usuario_externo", "funcionario", "tecnico", "administrador"}
-        rutas_esperadas = {
-            "/area-personal/?presentacion=rrhh&vista=inicio",
-            "/portal-empleado/?presentacion=rrhh&perfil=funcionario#portal",
-            "/portal-empleado/?presentacion=rrhh&perfil=tecnico#portal",
-            "/portal-empleado/?presentacion=rrhh&perfil=administrador#portal",
-        }
-        for clave, flujo in selectores.items():
-            with self.subTest(flujo=clave):
-                self.assertTrue(flujo.requiere_demo)
-                self.assertEqual(len(flujo.pasos), 6)
-                self.assertEqual(flujo.pasos[0].accion, "clic")
-                self.assertIn("data-selector-perfil", flujo.pasos[0].selector)
-                self.assertEqual(flujo.pasos[1].accion, "esperar")
-                self.assertIn(":not([hidden])", flujo.pasos[1].selector)
-                controles = flujo.pasos[2:]
-                perfiles = {
-                    selector.split('data-perfil-presentacion="', 1)[1].split('"', 1)[0]
-                    for selector in (paso.selector for paso in controles)
-                }
-                rutas = {
-                    selector.split('href="', 1)[1].rsplit('"]', 1)[0]
-                    for selector in (paso.selector for paso in controles)
-                }
-                self.assertEqual(perfiles, perfiles_esperados)
-                self.assertEqual(rutas, rutas_esperadas)
-        self.assertEqual(
-            len(selectores) * len(capturador.TAMANOS_VISTA),
-            6,
-            "los dos selectores se capturan en escritorio, portátil y móvil",
         )
 
     def test_funcionario_y_tecnico_aplican_minimo_privilegio_en_vista_directa(self) -> None:
@@ -448,12 +399,12 @@ class HelpersRevisionWebTests(unittest.TestCase):
         base = {
             "clave": "uno",
             "nombre": "Escenario",
-            "superficie": "lanzador",
-            "nombre_superficie": "Lanzador",
+            "superficie": "portal-publico",
+            "nombre_superficie": "Portal público",
             "ruta": "/",
             "url": "http://localhost/",
             "tamano": {"clave": "movil", "nombre": "Móvil", "ancho": 390, "alto": 844},
-            "captura": "capturas/movil/vista/lanzador/uno.png",
+            "captura": "capturas/movil/vista/portal-publico/uno.png",
             "alcance_captura": "pagina-completa",
             "duracion_ms": 5,
             "metricas": {},

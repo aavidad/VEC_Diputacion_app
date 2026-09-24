@@ -95,16 +95,6 @@ RUTAS_MENU_RRHH = (
 )
 
 SUPERFICIES: dict[str, Superficie] = {
-    "lanzador": Superficie(
-        clave="lanzador",
-        nombre="Lanzador",
-        selector_contenedor_menu=None,
-        selectores_menu=(
-            'a[href="/bolsa/"]',
-            'a[href^="/area-personal/"]',
-            'a[href^="/portal-empleado/"]',
-        ),
-    ),
     "portal-publico": Superficie(
         clave="portal-publico",
         nombre="Portal público",
@@ -259,11 +249,6 @@ def _vista_personal_presentacion_rrhh() -> Vista:
 
 
 MANIFIESTO_VISTAS: tuple[Vista, ...] = (
-    Vista(
-        clave="lanzador-recorrido", nombre="Recorrido de presentación", superficie="lanzador",
-        ruta="/presentacion/", selector_titulo="h1",
-        titulo_esperado="Demostración funcional del portal", selectores_listos=("#contenido-principal",),
-    ),
     Vista(
         clave="publico-convocatorias", nombre="Consulta pública", superficie="portal-publico",
         ruta="/bolsa/", selector_titulo="#titulo-portal",
@@ -425,41 +410,6 @@ MANIFIESTO_FLUJOS: tuple[Flujo, ...] = (
                PasoInteraccion("esperar-habilitado", '[data-modulo-portal="dietas"][data-vista="dietas"]')),
         selector_menu_actual='[data-vista="portal"]',
         selectores_menu=('[data-vista="portal"]', '[data-vista="cronos"]', '[data-vista="dietas"]'),
-        requiere_demo=True,
-    ),
-    Flujo(
-        clave="administrador-selector-perfiles-abierto", nombre="Selector de perfiles desde Administración",
-        superficie="gestion-rrhh",
-        ruta="/portal-empleado/?presentacion=rrhh&perfil=administrador#portal",
-        selector_titulo="#titulo-vista", titulo_esperado="Portal del Empleado",
-        selectores_listos=(".aviso-presentacion:not([hidden])", "#espacio-trabajo > :first-child"),
-        pasos=(
-            PasoInteraccion("clic", '#sesion-visible[data-selector-perfil="true"]'),
-            PasoInteraccion("esperar", '#selector-perfiles-panel-administrador:not([hidden])', "Cambiar punto de vista"),
-            PasoInteraccion("esperar", 'a[data-perfil-presentacion="usuario_externo"][href="/area-personal/?presentacion=rrhh&vista=inicio"]', "Usuario externo"),
-            PasoInteraccion("esperar", 'a[data-perfil-presentacion="funcionario"][href="/portal-empleado/?presentacion=rrhh&perfil=funcionario#portal"]', "Funcionario"),
-            PasoInteraccion("esperar", 'a[data-perfil-presentacion="tecnico"][href="/portal-empleado/?presentacion=rrhh&perfil=tecnico#portal"]', "Técnico de RRHH"),
-            PasoInteraccion("esperar", 'a[data-perfil-presentacion="administrador"][href="/portal-empleado/?presentacion=rrhh&perfil=administrador#portal"]', "Administrador"),
-        ),
-        selector_menu_actual='[data-vista="portal"]',
-        selectores_menu=('[data-vista="portal"]', '[data-vista="resumen"]'),
-        requiere_demo=True,
-    ),
-    Flujo(
-        clave="aspirante-selector-perfiles-abierto", nombre="Selector de perfiles desde el área aspirante",
-        superficie="area-aspirante",
-        ruta="/area-personal/?presentacion=rrhh&vista=inicio",
-        selector_titulo="#titulo-vista", titulo_esperado="Inicio y plazos",
-        selectores_listos=("#aviso-presentacion:not([hidden])", "#espacio-trabajo > :first-child"),
-        pasos=(
-            PasoInteraccion("clic", '.sesion-usuario[data-selector-perfil="true"]'),
-            PasoInteraccion("esperar", '#selector-perfiles-panel-usuario-externo:not([hidden])', "Cambiar punto de vista"),
-            PasoInteraccion("esperar", 'a[data-perfil-presentacion="usuario_externo"][href="/area-personal/?presentacion=rrhh&vista=inicio"]', "Usuario externo"),
-            PasoInteraccion("esperar", 'a[data-perfil-presentacion="funcionario"][href="/portal-empleado/?presentacion=rrhh&perfil=funcionario#portal"]', "Funcionario"),
-            PasoInteraccion("esperar", 'a[data-perfil-presentacion="tecnico"][href="/portal-empleado/?presentacion=rrhh&perfil=tecnico#portal"]', "Técnico de RRHH"),
-            PasoInteraccion("esperar", 'a[data-perfil-presentacion="administrador"][href="/portal-empleado/?presentacion=rrhh&perfil=administrador#portal"]', "Administrador"),
-        ),
-        selector_menu_actual='[data-ruta="inicio"]',
         requiere_demo=True,
     ),
     Flujo(

@@ -119,19 +119,19 @@ def main() -> int:
     estado_get, _, _ = solicitar(base, "/api/presentacion/cartografia/rutas")
     estado_zoom, _, _ = solicitar(base, "/tiles/osm/15/16056/12734.png")
     estado_privado, _, _ = solicitar(base, "/api/vec/session")
-    estado_lanzador, cabeceras_lanzador, cuerpo_lanzador = solicitar(
-        base, "/presentacion/",
+    estado_portal, cabeceras_portal, cuerpo_portal = solicitar(
+        base, "/bolsa/",
     )
     estado_cookie, cabeceras_cookie, cuerpo_cookie = solicitar(
-        base, "/presentacion/", cabeceras_extra={"Cookie": "sesion=no-admitida"},
+        base, "/bolsa/", cabeceras_extra={"Cookie": "sesion=no-admitida"},
     )
     exigir(estado_get == 403, f"GET cartográfico inesperado: {estado_get}")
     exigir(estado_zoom == 404, f"zoom no autorizado inesperado: {estado_zoom}")
     exigir(estado_privado == 404, f"API privada inesperada: {estado_privado}")
-    exigir(estado_lanzador == 200, f"lanzador inesperado: {estado_lanzador}")
+    exigir(estado_portal == 200, f"consulta pública inesperada: {estado_portal}")
     exigir(estado_cookie == 200, f"cookie ambiental no neutralizada: {estado_cookie}")
-    exigir(cuerpo_cookie == cuerpo_lanzador, "una cookie ambiental alteró el lanzador")
-    exigir(not cabeceras_lanzador.get("Set-Cookie"), "el lanzador emitió una cookie")
+    exigir(cuerpo_cookie == cuerpo_portal, "una cookie ambiental alteró la consulta pública")
+    exigir(not cabeceras_portal.get("Set-Cookie"), "la consulta pública emitió una cookie")
     exigir(not cabeceras_cookie.get("Set-Cookie"), "el borde respondió con una cookie")
 
     print("Smoke de cartografía real de la presentación superado.")

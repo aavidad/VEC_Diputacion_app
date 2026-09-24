@@ -130,11 +130,9 @@ func TestPresentacionSoloExponeSuperficiesEnumeradas(t *testing.T) {
 		ruta      string
 		contenido string
 	}{
-		{"/presentacion/", "Recorrido de presentación"},
 		{"/area-personal/", "Mi área personal"},
 		{"/portal-empleado/", "Portal del Empleado"},
 		{"/portal-empleado/datos-presentacion.js", "ADAPTADOR EXCLUSIVO DE PRESENTACIÓN RRHH"},
-		{"/portal-empleado/portal-presentacion-adaptador.js", "Adaptador volátil y sustituible"},
 		{"/bolsa/", "Bolsa"},
 		{"/api/publico/bolsa/convocatorias", "presentacion.publica.v1"},
 		{"/livez", `"status":"ok"`},
@@ -163,6 +161,7 @@ func TestPresentacionSoloExponeSuperficiesEnumeradas(t *testing.T) {
 	}
 
 	for _, ruta := range []string{
+		"/presentacion/", "/presentacion/index.html", "/presentacion/temas/",
 		"/app.js", "/config/config.go", "/data/demo/convocatorias_publicas.demo.json",
 		"/api/vec/session", "/api/demo", "/candidates", "/desconocido",
 	} {
@@ -174,7 +173,7 @@ func TestPresentacionSoloExponeSuperficiesEnumeradas(t *testing.T) {
 	}
 }
 
-func TestLauncherPresentacionEnlazaLosTresPuntosDeVistaSinEscaparAllowlist(t *testing.T) {
+func TestRaizPresentacionRedirigeAConsultaPublicaSinEscaparAllowlist(t *testing.T) {
 	servidor, err := NewHTTPServerPresentacion(configuracionPresentacionValida(), http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	}))
@@ -183,20 +182,8 @@ func TestLauncherPresentacionEnlazaLosTresPuntosDeVistaSinEscaparAllowlist(t *te
 	}
 	recRaiz := httptest.NewRecorder()
 	servidor.Handler.ServeHTTP(recRaiz, peticionServidorPrueba(http.MethodGet, "/", nil))
-	if recRaiz.Code != http.StatusMovedPermanently || recRaiz.Header().Get("Location") != "/presentacion/" {
+	if recRaiz.Code != http.StatusMovedPermanently || recRaiz.Header().Get("Location") != "/bolsa/" {
 		t.Fatalf("raiz = %d Location=%q", recRaiz.Code, recRaiz.Header().Get("Location"))
-	}
-	rec := httptest.NewRecorder()
-	servidor.Handler.ServeHTTP(rec, peticionServidorPrueba(http.MethodGet, "/presentacion/", nil))
-	for _, enlace := range []string{
-		`href="/bolsa/"`,
-		`href="/area-personal/?presentacion=rrhh"`,
-		`href="/portal-empleado/?presentacion=rrhh&amp;perfil=tecnico#portal"`,
-		`href="/portal-empleado/?presentacion=rrhh&amp;perfil=administrador#portal"`,
-	} {
-		if !strings.Contains(rec.Body.String(), enlace) {
-			t.Errorf("launcher sin %s", enlace)
-		}
 	}
 
 	recAPI := httptest.NewRecorder()
@@ -223,7 +210,7 @@ func TestPresentacionHEADNoEntregaCuerpo(t *testing.T) {
 	for _, prueba := range []struct {
 		ruta   string
 		estado int
-	}{{"/presentacion/", http.StatusOK}, {"/area-personal/", http.StatusOK}, {"/portal-empleado/", http.StatusOK}, {"/bolsa/", http.StatusOK}, {"/livez", http.StatusOK}, {"/readyz", http.StatusServiceUnavailable}, {"/healthz", http.StatusServiceUnavailable}} {
+	}{{"/presentacion/", http.StatusNotFound}, {"/area-personal/", http.StatusOK}, {"/portal-empleado/", http.StatusOK}, {"/bolsa/", http.StatusOK}, {"/livez", http.StatusOK}, {"/readyz", http.StatusServiceUnavailable}, {"/healthz", http.StatusServiceUnavailable}} {
 		rec := httptest.NewRecorder()
 		servidor.Handler.ServeHTTP(rec, peticionServidorPrueba(http.MethodHead, prueba.ruta, nil))
 		if rec.Code != prueba.estado || rec.Body.Len() != 0 {
@@ -238,7 +225,7 @@ func TestPresentacionEsSoloLecturaYRechazaCredencialesAmbientales(t *testing.T) 
 		t.Fatal(err)
 	}
 	for _, ruta := range []string{
-		"/presentacion/", "/area-personal/", "/portal-empleado/", "/bolsa/", "/api/publico/consulta",
+		"/area-personal/", "/portal-empleado/", "/bolsa/", "/api/publico/consulta",
 		"/bolsa/documentos/bases-operario-demo.html", "/bolsa/documentos/bases-operario-demo.pdf",
 	} {
 		rec := httptest.NewRecorder()
@@ -248,7 +235,7 @@ func TestPresentacionEsSoloLecturaYRechazaCredencialesAmbientales(t *testing.T) 
 		}
 	}
 	for _, cabecera := range []string{"Cookie", "Authorization", "Proxy-Authorization", "X-VEC-Subject", "X-Forwarded-For"} {
-		peticion := peticionServidorPrueba(http.MethodGet, "/presentacion/", nil)
+		peticion := peticionServidorPrueba(http.MethodGet, "/bolsa/", nil)
 		peticion.Header[cabecera] = []string{"valor"}
 		rec := httptest.NewRecorder()
 		servidor.Handler.ServeHTTP(rec, peticion)
@@ -270,7 +257,7 @@ func TestHandlerPresentacionDirectoFallaCerradoSinGuardas(t *testing.T) {
 		handler := NewHandlerPresentacionWithConfig(cfg, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			t.Fatal("la API no debe recibir peticiones")
 		}))
-		for _, ruta := range []string{"/", "/presentacion/", "/portal-empleado/datos-presentacion.js", "/api/publico/consulta"} {
+		for _, ruta := range []string{"/", "/bolsa/", "/portal-empleado/datos-presentacion.js", "/api/publico/consulta"} {
 			rec := httptest.NewRecorder()
 			handler.ServeHTTP(rec, peticionServidorPrueba(http.MethodGet, ruta, nil))
 			if rec.Code != http.StatusServiceUnavailable {
@@ -284,7 +271,7 @@ func TestCabeceraTecnicaSoloLaEmiteElHandlerPresentacionValidado(t *testing.T) {
 	valida := configuracionPresentacionValida()
 	presentacion := NewHandlerPresentacionWithConfig(valida, http.NotFoundHandler())
 	recPresentacion := httptest.NewRecorder()
-	presentacion.ServeHTTP(recPresentacion, peticionServidorPrueba(http.MethodGet, "/presentacion/", nil))
+	presentacion.ServeHTTP(recPresentacion, peticionServidorPrueba(http.MethodGet, "/bolsa/", nil))
 	if got := recPresentacion.Header().Get(cabeceraModoPresentacion); got != valorModoPresentacion {
 		t.Fatalf("cabecera de presentacion = %q; se esperaba %q", got, valorModoPresentacion)
 	}
@@ -293,7 +280,7 @@ func TestCabeceraTecnicaSoloLaEmiteElHandlerPresentacionValidado(t *testing.T) {
 	invalidada.RRHHPresentationGuardTwo = ""
 	recInvalidada := httptest.NewRecorder()
 	NewHandlerPresentacionWithConfig(invalidada, http.NotFoundHandler()).ServeHTTP(
-		recInvalidada, peticionServidorPrueba(http.MethodGet, "/presentacion/", nil),
+		recInvalidada, peticionServidorPrueba(http.MethodGet, "/bolsa/", nil),
 	)
 	if got := recInvalidada.Header().Get(cabeceraModoPresentacion); got != "" {
 		t.Fatalf("handler de presentacion invalidado emitio la marca %q", got)
