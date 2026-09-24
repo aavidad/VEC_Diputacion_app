@@ -31,7 +31,7 @@ test("la consulta y su ayuda están traducidas y sus imports no usan la versión
   assert.match(borradores, /i18n\.js\?v=20260924-dietas-d1d2d4/u);
   assert.match(borradores, /i18n-borradores\.js\?v=20260924-dietas-d1d2d4/u);
   assert.doesNotMatch(borradores, /(?:i18n|i18n-borradores)\.js\?v=20260924-f2-consulta-v1/u);
-  assert.match(recorridos, /vista-borradores-propios\.js\?v=20260924-dietas-d1d2d4/u);
+  assert.match(recorridos, /vista-borradores-propios\.js\?v=20260924-dietas-recuperacion-v2/u);
   assert.doesNotMatch(recorridos, /vista-borradores-propios\.js\?v=20260924-f2-consulta-v1/u);
 });
 

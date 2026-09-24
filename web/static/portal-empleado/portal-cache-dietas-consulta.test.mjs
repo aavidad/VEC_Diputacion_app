@@ -3,8 +3,8 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const raiz = new URL("./", import.meta.url);
-const versionEntradaNueva = "20260924-web-c-v1";
-const versionVistaNueva = "20260924-dietas-d1d2d4";
+const versionEntradaNueva = "20260924-web-c-v2";
+const versionVistaNueva = "20260924-dietas-recuperacion-v2";
 const versionAnteriorEntrada = "20260924-f2-dietas-consulta-v2";
 const versionAnteriorDietas = "20260924-f2-dietas-consulta-v2";
 
@@ -47,7 +47,7 @@ test("la consulta Dietas atraviesa caché caliente desde HTML hasta ambos cargad
     assert.equal(cache.get(url), codigo);
   }
   assert.doesNotMatch(coordinador, /modulos\/dietas\/vista-recorridos\.js\?v=20260924-f2-shell-v1/u);
-  assert.match(vista, /vista-borradores-propios\.js\?v=20260924-dietas-d1d2d4/u);
+  assert.match(vista, /vista-borradores-propios\.js\?v=20260924-dietas-recuperacion-v2/u);
   assert.doesNotMatch(vista, /vista-borradores-propios\.js\?v=20260924-f2-consulta-v1/u);
   assert.match(html, /portal\.css\?v=20260924-f2-salto-movil-v3/u);
   assert.match(html, /tema-vec\.css\?v=20260924-f2-tema-base-v2/u);

@@ -4,7 +4,9 @@ import test from "node:test";
 import { PLANTILLA_TESELAS_OSM_INTERNA } from "./modulos/dietas/contrato.js";
 
 const raiz = new URL("./", import.meta.url);
-const entrada = "20260924-web-c-v1";
+const vistasC = "20260924-web-c-v1";
+const recuperacion = "20260924-dietas-recuperacion-v2";
+const entrada = "20260924-web-c-v2";
 const cronos = "20260924-cronos-integrado-v1";
 const dietas = "20260924-dietas-d1d2d4";
 const versiones = (codigo, recurso) => [...codigo.matchAll(new RegExp(`${recurso.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\?v=([^"']+)`, "gu"))].map((m) => m[1]);
@@ -19,12 +21,12 @@ test("capa C no reutiliza los consumidores previos de B con caché immutable", a
     [coordinador, "./modulos/cronos/vista.js", "20260924-f2-shell-v1", cronos, 1],
     [coordinador, "./modulos/cronos/vista-recorridos.js", "20260924-cronos-ayuda-v1", cronos, 2],
     [coordinador, "./modulos/cronos/i18n.js", "20260924-f2-web2", cronos, 1],
-    [coordinador, "./modulos/dietas/vista-recorridos.js", "20260924-f2-consulta-v2", dietas, 2],
+    [coordinador, "./modulos/dietas/vista-recorridos.js", "20260924-f2-consulta-v2", recuperacion, 2],
     [coordinador, "./modulos/dietas/vista-itinerario.js", "20260923-dietas-r1", dietas, 2],
-    [coordinador, "./modulos/personal/vista-ficha-integral.js", "20260924-f2-shell-v1", entrada, 2],
-    [coordinador, "./modulos/personal/vista-rpt-publica.js", "20260920-personal-rpt-publica-v3", entrada, 1],
-    [coordinador, "./modulos/personal/vista-estructura-organizativa-publica.js", "20260924-f2-cache-v3", entrada, 1],
-    [coordinador, "./modulos/nominas/vista.js", "20260924-f2-shell-v1", entrada, 1],
+    [coordinador, "./modulos/personal/vista-ficha-integral.js", "20260924-f2-shell-v1", vistasC, 2],
+    [coordinador, "./modulos/personal/vista-rpt-publica.js", "20260920-personal-rpt-publica-v3", vistasC, 1],
+    [coordinador, "./modulos/personal/vista-estructura-organizativa-publica.js", "20260924-f2-cache-v3", vistasC, 1],
+    [coordinador, "./modulos/nominas/vista.js", "20260924-f2-shell-v1", vistasC, 1],
     [html, "/portal-empleado/modulos/cronos/permisos.css", "20260924-cronos-ayuda-v1", cronos, 1],
     [html, "/portal-empleado/modulos/dietas/dietas.css", "20260924-f2-shell-v1", dietas, 1],
   ];
@@ -53,4 +55,25 @@ test("capa C empaqueta las hojas nuevas y conserva los recursos del mapa OSM", a
   const mapa = await readFile(new URL("modulos/dietas/mapa-ruta.js", raiz), "utf8");
   assert.match(mapa, /OpenStreetMap/u);
   assert.equal(PLANTILLA_TESELAS_OSM_INTERNA, "/tiles/osm/{z}/{x}/{y}.png");
+});
+
+test("el corrector Dietas descarga de nuevo la cadena que tenía C inicial", async () => {
+  const [html, portal, coordinador, recorridos] = await Promise.all([
+    readFile(new URL("index.html", raiz), "utf8"),
+    readFile(new URL("portal.js", raiz), "utf8"),
+    readFile(new URL("portal-modulos-coordinador.js", raiz), "utf8"),
+    readFile(new URL("modulos/dietas/vista-recorridos.js", raiz), "utf8"),
+  ]);
+  const aristas = [
+    [html, "/portal-empleado/portal.js", "20260924-web-c-v1", entrada, 1],
+    [portal, "./portal-modulos-coordinador.js", "20260924-web-c-v1", entrada, 1],
+    [coordinador, "./modulos/dietas/vista-recorridos.js", "20260924-dietas-d1d2d4", recuperacion, 2],
+    [recorridos, "./vista-borradores-propios.js", "20260924-dietas-d1d2d4", recuperacion, 1],
+  ];
+  const cache = new Map(aristas.map(([, ruta, previa]) => [`${ruta}?v=${previa}`, "versión anterior"]));
+  for (const [codigo, ruta, previa, nueva, cantidad] of aristas) {
+    assert.deepEqual(versiones(codigo, ruta), Array(cantidad).fill(nueva));
+    assert.ok(!codigo.includes(`${ruta}?v=${previa}`));
+    assert.ok(!cache.has(`${ruta}?v=${nueva}`));
+  }
 });
