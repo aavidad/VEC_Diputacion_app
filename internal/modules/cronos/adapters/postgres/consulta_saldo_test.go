@@ -1,23 +1,11 @@
 package postgres
 
 import (
-	"context"
 	"errors"
 	"testing"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"vec-diputacion-granada/internal/modules/cronos/ports"
 )
-
-func TestConsultaSaldoNoAbreLecturaSinConsumidorNominal(t *testing.T) {
-	if r, err := NuevoRepositorioConsultaSaldo(&pgxpool.Pool{}); r != nil || !errors.Is(err, ports.ErrDependenciaNoDisponible) {
-		t.Fatal(r, err)
-	}
-	var r RepositorioConsultaSaldo
-	if _, err := r.ConsultarFuenteSaldo(context.Background(), ports.OrdenConsultaSaldo{}, "emp_test", "2026-09-21", "2026-09-21", "Europe/Madrid"); !errors.Is(err, ports.ErrDependenciaNoDisponible) {
-		t.Fatal(err)
-	}
-}
 
 func TestDecodificarFuenteSaldoInternaConOrigenNoAcreditado(t *testing.T) {
 	bruto := []byte(`{"empleado_ref":"emp_test","desde":"2026-09-24","hasta":"2026-09-24","zona_horaria":"Europe/Madrid","completo":true,"jornadas":[{"programacion_ref":"p1","fecha":"2026-09-24","turno_ref":"turno1","politica_version_ref":"v1","fuente_ref":"f1","zona_horaria":"Europe/Madrid","minutos_previstos":0,"version":1}],"marcajes":[{"marcaje_ref":"m1","movimiento":"entrada","instante_utc":"2026-09-24T06:00:00Z","canal":{"politica_version_ref":"v1","canal_ref":"c1","origen_ref":"o1","calidad_ref":"q1"},"tipo_origen":null}],"movimientos_saldo":[{"fecha":"2026-09-24","tipo":"previsto","delta_microsegundos":0,"fuentes":["p1/v1"]}]}`)

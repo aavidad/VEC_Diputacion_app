@@ -7,6 +7,7 @@ import (
 
 	"vec-diputacion-granada/internal/modules/cronos/domain"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
+	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
 var ErrConsultaSaldoInvalida = errors.New("cronos consulta de saldo invalida")
@@ -49,9 +50,20 @@ type MovimientoSaldo struct {
 	Fuentes            []string
 }
 
+// ProveedorMaterialConsultaSaldoPropio es la autoridad nominal V3 de la
+// lectura del saldo propio. Recibe material construido por el servidor.
+type ProveedorMaterialConsultaSaldoPropio interface {
+	ProveerMaterialConsultaSaldoPropio(context.Context, domain.MaterialConsultaSaldoPropio) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error)
+}
+
 // OrdenConsultaSaldo is built by the trusted identity boundary from the
 // registered actor context. A raw employee reference is never authority.
-type OrdenConsultaSaldo struct{ contexto vecdomain.ContextoActor }
+// The durable reader requires the nominal V3 provider; an order without it
+// can only be served by in-memory test adapters.
+type OrdenConsultaSaldo struct {
+	contexto  vecdomain.ContextoActor
+	proveedor ProveedorMaterialConsultaSaldoPropio
+}
 
 func NuevaOrdenConsultaSaldo(contexto vecdomain.ContextoActor) (OrdenConsultaSaldo, error) {
 	if contexto.Validar() != nil {
@@ -62,6 +74,27 @@ func NuevaOrdenConsultaSaldo(contexto vecdomain.ContextoActor) (OrdenConsultaSal
 		return OrdenConsultaSaldo{}, ErrConsultaSaldoInvalida
 	}
 	return OrdenConsultaSaldo{contexto: copia}, nil
+}
+
+// NuevaOrdenConsultaSaldoAutorizada liga el contexto registrado al proveedor
+// V3 de la misma petición. Sin proveedor no hay orden.
+func NuevaOrdenConsultaSaldoAutorizada(contexto vecdomain.ContextoActor, proveedor ProveedorMaterialConsultaSaldoPropio) (OrdenConsultaSaldo, error) {
+	if dependenciaRemotaNula(proveedor) {
+		return OrdenConsultaSaldo{}, ErrDependenciaNoDisponible
+	}
+	orden, err := NuevaOrdenConsultaSaldo(contexto)
+	if err != nil {
+		return OrdenConsultaSaldo{}, err
+	}
+	orden.proveedor = proveedor
+	return orden, nil
+}
+
+func (o OrdenConsultaSaldo) ProveedorMaterial() ProveedorMaterialConsultaSaldoPropio {
+	if dependenciaRemotaNula(o.proveedor) {
+		return nil
+	}
+	return o.proveedor
 }
 
 func (o OrdenConsultaSaldo) ContextoActor() (vecdomain.ContextoActor, error) {

@@ -9,21 +9,62 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"vec-diputacion-granada/internal/modules/cronos/application"
 	"vec-diputacion-granada/internal/modules/cronos/domain"
 	"vec-diputacion-granada/internal/modules/cronos/ports"
+	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
 
-// RepositorioConsultaSaldo is deliberately unavailable until a nominal
-// authorization consumer can audit and read Cronos in one durable boundary.
-// The internal SQL projection has no EXECUTE grant for the application role.
-type RepositorioConsultaSaldo struct{}
-
-func NuevoRepositorioConsultaSaldo(_ *pgxpool.Pool) (*RepositorioConsultaSaldo, error) {
-	return nil, ports.ErrDependenciaNoDisponible
+// RepositorioConsultaSaldo lee el libro de saldo de la persona con un LOGIN
+// que sólo hereda vec_cronos_v1_ejecutor. Cada lectura obtiene una decisión
+// V3 nueva (AD3-53) que cronos_v1 000007 consume, audita y usa para fijar la
+// RLS en la misma transacción que lee.
+type RepositorioConsultaSaldo struct {
+	db iniciadorMarcaje
 }
 
-func (*RepositorioConsultaSaldo) ConsultarFuenteSaldo(context.Context, ports.OrdenConsultaSaldo, string, string, string, string) (ports.FuenteSaldo, error) {
-	return ports.FuenteSaldo{}, ports.ErrDependenciaNoDisponible
+func NuevoRepositorioConsultaSaldo(pool *pgxpool.Pool) (*RepositorioConsultaSaldo, error) {
+	if pool == nil {
+		return nil, ports.ErrDependenciaNoDisponible
+	}
+	return &RepositorioConsultaSaldo{db: pool}, nil
+}
+
+func (r *RepositorioConsultaSaldo) ConsultarFuenteSaldo(ctx context.Context, orden ports.OrdenConsultaSaldo, empleado, desde, hasta, zona string) (ports.FuenteSaldo, error) {
+	if r == nil || r.db == nil || ctx == nil {
+		return ports.FuenteSaldo{}, ports.ErrDependenciaNoDisponible
+	}
+	actor, err := orden.ContextoActor()
+	proveedor := orden.ProveedorMaterial()
+	if err != nil || proveedor == nil {
+		return ports.FuenteSaldo{}, ports.ErrDependenciaNoDisponible
+	}
+	empleados, err := actor.Referencias(vecdomain.TipoReferenciaContextoActorEmpleado)
+	if err != nil || len(empleados) != 1 || empleados[0] != empleado {
+		return ports.FuenteSaldo{}, ports.ErrDependenciaNoDisponible
+	}
+	material := domain.MaterialConsultaSaldoPropio{ActorRef: actor.PersonaRef, PerfilRef: actor.PerfilActivoRef, EmpleadoRef: empleado, Desde: desde, Hasta: hasta, ZonaHoraria: zona}
+	canonico, err := material.Canonico()
+	if err != nil {
+		return ports.FuenteSaldo{}, ports.ErrConsultaSaldoInvalida
+	}
+	recurso, err := application.RecursoConsultaSaldoPropio(material)
+	if err != nil {
+		return ports.FuenteSaldo{}, ports.ErrDependenciaNoDisponible
+	}
+	v3, err := proveedor.ProveerMaterialConsultaSaldoPropio(ctx, material)
+	if err != nil {
+		return ports.FuenteSaldo{}, errorProveedorV3(ctx, err)
+	}
+	if !resumenV3Ligado(v3, application.AudienciaConsultaSaldoPropio, application.AccionConsultarSaldoPropio, recurso) {
+		return ports.FuenteSaldo{}, ports.ErrDependenciaNoDisponible
+	}
+	bruto, err := ejecutarLecturaV3(ctx, r.db, consultaSaldoPropio, canonico, v3)
+	if err != nil {
+		return ports.FuenteSaldo{}, err
+	}
+	defer clear(bruto)
+	return decodificarFuenteSaldoInterna(bruto)
 }
 
 var _ ports.RepositorioConsultaSaldo = (*RepositorioConsultaSaldo)(nil)
@@ -82,7 +123,7 @@ func decodificarFuenteSaldoInterna(bruto []byte) (ports.FuenteSaldo, error) {
 		f.Jornadas = append(f.Jornadas, ports.JornadaPrevista{Fecha: j.Fecha, TurnoRef: j.TurnoRef, PoliticaVersionRef: j.PoliticaVersionRef, MinutosPrevistos: j.MinutosPrevistos})
 	}
 	for _, m := range sql.Marcajes {
-		f.Marcajes = append(f.Marcajes, ports.MarcajeSaldo{MarcajeRef: m.MarcajeRef, Movimiento: domain.PunchKind(m.Movimiento), InstanteUTC: m.InstanteUTC, Canal: ports.CanalSaldo{PoliticaVersionRef: m.Canal.PoliticaVersionRef, CanalRef: m.Canal.CanalRef, OrigenRef: m.Canal.OrigenRef, CalidadRef: m.Canal.CalidadRef}, OrigenRef: m.Canal.OrigenRef, TipoOrigen: m.TipoOrigen})
+		f.Marcajes = append(f.Marcajes, ports.MarcajeSaldo{MarcajeRef: m.MarcajeRef, Movimiento: domain.PunchKind(m.Movimiento), InstanteUTC: m.InstanteUTC.UTC(), Canal: ports.CanalSaldo{PoliticaVersionRef: m.Canal.PoliticaVersionRef, CanalRef: m.Canal.CanalRef, OrigenRef: m.Canal.OrigenRef, CalidadRef: m.Canal.CalidadRef}, OrigenRef: m.Canal.OrigenRef, TipoOrigen: m.TipoOrigen})
 	}
 	for _, m := range sql.MovimientosSaldo {
 		f.MovimientosSaldo = append(f.MovimientosSaldo, ports.MovimientoSaldo{Fecha: m.Fecha, Tipo: m.Tipo, DeltaMicrosegundos: m.DeltaMicrosegundos, Fuentes: m.Fuentes})

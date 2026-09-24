@@ -76,6 +76,13 @@ type ProveedorMaterialRecuperacionMarcajeRemoto interface {
 	ProveerMaterialRecuperacionMarcajeRemoto(context.Context, domain.MaterialRecuperacionMarcajeRemoto) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error)
 }
 
+// ProveedorMaterialDisponibilidadMarcajeRemoto emite la decisión V3 de
+// LECTURA del estado remoto propio para la identidad de la petición en curso.
+// El repositorio durable la consume junto a la lectura; sin ella falla cerrado.
+type ProveedorMaterialDisponibilidadMarcajeRemoto interface {
+	ProveerMaterialDisponibilidadMarcajeRemoto(context.Context, domain.MaterialDisponibilidadMarcajeRemoto) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error)
+}
+
 type OrdenLecturaMarcajeRemoto struct {
 	actor     vecdomain.ContextoActor
 	proveedor ProveedorMaterialRecuperacionMarcajeRemoto

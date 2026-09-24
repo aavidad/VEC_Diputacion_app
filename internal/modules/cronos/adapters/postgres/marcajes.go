@@ -20,20 +20,28 @@ import (
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
+// Las dos funciones durables admitidas. La consulta nunca se compone con
+// datos de la petición: sólo se elige entre estas constantes.
+const (
+	consultaMarcajePropio = `SELECT vec_cronos_v1.registrar_marcaje_propio_v1($1,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11)`
+	consultaMarcajeRemoto = `SELECT vec_cronos_v1.registrar_marcaje_remoto_v1($1,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11)`
+)
+
 type RepositorioMarcajes struct {
 	db        iniciadorMarcaje
 	auditoria ports.RegistroResultadoEjecucionMarcaje
+	consulta  string
 }
 
 func NuevoRepositorioMarcajes(pool *pgxpool.Pool, auditoria ports.RegistroResultadoEjecucionMarcaje) (*RepositorioMarcajes, error) {
 	if pool == nil || auditoria == nil {
 		return nil, ports.ErrDependenciaNoDisponible
 	}
-	return &RepositorioMarcajes{db: pool, auditoria: auditoria}, nil
+	return &RepositorioMarcajes{db: pool, auditoria: auditoria, consulta: consultaMarcajePropio}, nil
 }
 
 func (r *RepositorioMarcajes) RegistrarOriginalAutorizado(ctx context.Context, original domain.MarcajeOriginal, material domain.MaterialAutorizacionMarcajePropio, v3 vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) (ports.ReciboMarcajePropio, error) {
-	if r == nil || r.db == nil || r.auditoria == nil || ctx == nil || original.Validate() != nil || material.Validar() != nil || v3.ValidarEstructura() != nil || original.EmpleadoRef != material.EmpleadoRef || original.ClaveOperacion != material.ClaveOperacion || original.Movimiento != material.Movimiento || !original.InstanteUTC.Equal(material.InstanteUTC) || original.CanalAcreditado != material.Canal {
+	if r == nil || r.db == nil || r.auditoria == nil || r.consulta == "" || ctx == nil || original.Validate() != nil || material.Validar() != nil || v3.ValidarEstructura() != nil || original.EmpleadoRef != material.EmpleadoRef || original.ClaveOperacion != material.ClaveOperacion || original.Movimiento != material.Movimiento || !original.InstanteUTC.Equal(material.InstanteUTC) || original.CanalAcreditado != material.Canal {
 		return ports.ReciboMarcajePropio{}, ports.ErrDependenciaNoDisponible
 	}
 	canonico, err := material.Canonico()
@@ -56,7 +64,7 @@ func (r *RepositorioMarcajes) RegistrarOriginalAutorizado(ctx context.Context, o
 			return ports.ReciboMarcajePropio{}, errorSeguro(ctx, err)
 		}
 		var bruto []byte
-		err := tx.QueryRow(ctx, `SELECT vec_cronos_v1.registrar_marcaje_propio_v1($1,$2,$3,$4,$5,$6::numeric,$7::numeric,$8,$9,$10,$11)`, string(canonico), secretos[0], secretos[1], secretos[2], secretos[3], v3.PersonaVersion(), v3.PerfilVersion(), secretos[4], secretos[5], secretos[6], secretos[7]).Scan(&bruto)
+		err := tx.QueryRow(ctx, r.consulta, string(canonico), secretos[0], secretos[1], secretos[2], secretos[3], v3.PersonaVersion(), v3.PerfilVersion(), secretos[4], secretos[5], secretos[6], secretos[7]).Scan(&bruto)
 		defer clear(bruto)
 		if err != nil {
 			return ports.ReciboMarcajePropio{}, errorSeguro(ctx, err)
@@ -81,6 +89,12 @@ func errorSeguro(ctx context.Context, err error) error {
 		switch pg.Code {
 		case "PC002":
 			return ports.ErrClaveOperacionEnConflicto
+		case "PC004":
+			return ports.ErrTeletrabajoNoAutorizado
+		case "PC005":
+			return ports.ErrMovimientoRemotoNoPermitido
+		case "PC006":
+			return ports.ErrContinuidadMarcajeNoConfirmada
 		case "PC003", "42501":
 			return ports.ErrDependenciaNoDisponible
 		}

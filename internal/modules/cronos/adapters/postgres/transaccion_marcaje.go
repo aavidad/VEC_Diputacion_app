@@ -39,7 +39,8 @@ func (r *RepositorioMarcajes) ejecutarTransaccionMarcaje(ctx context.Context, ev
 			return ports.ReciboMarcajePropio{}, r.auditarFallo(ctx, evento, "resultado_indeterminado", "rollback", ports.ErrResultadoMarcajeIndeterminado)
 		}
 		causa := "persistencia"
-		if errors.Is(err, ports.ErrClaveOperacionEnConflicto) {
+		if errors.Is(err, ports.ErrClaveOperacionEnConflicto) || errors.Is(err, ports.ErrMovimientoRemotoNoPermitido) ||
+			errors.Is(err, ports.ErrContinuidadMarcajeNoConfirmada) || errors.Is(err, ports.ErrTeletrabajoNoAutorizado) {
 			causa = "conflicto"
 		} else if errors.Is(err, errReciboMarcajeInvalido) {
 			causa = "recibo_invalido"
