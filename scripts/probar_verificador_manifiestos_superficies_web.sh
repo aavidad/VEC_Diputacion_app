@@ -18,6 +18,19 @@ restaurar() {
 }
 trap 'restaurar; rm -rf "${temporal}"' EXIT
 
+scripts/verificar_manifiestos_superficies_web.sh >"${temporal}/salida" 2>&1
+
+grep -Fvx 'static/verificar/i18n.js' "${temporal}/publico.manifest" >web/publico.manifest
+if scripts/verificar_manifiestos_superficies_web.sh >"${temporal}/salida" 2>&1; then
+	printf 'El verificador acepto la ausencia del catalogo publico de Verificar.\n' >&2
+	exit 1
+fi
+grep -Fq 'Falta recurso publico obligatorio: static/verificar/i18n.js' "${temporal}/salida" || {
+	cat "${temporal}/salida" >&2
+	exit 1
+}
+restaurar
+
 printf '%s\n' 'static/portal-empleado/index.html' >>web/publico.manifest
 if scripts/verificar_manifiestos_superficies_web.sh >"${temporal}/salida" 2>&1; then
 	printf 'El verificador acepto un recurso interno en la superficie publica.\n' >&2
@@ -50,5 +63,12 @@ grep -Fq 'traduccion interna no canonica' "${temporal}/salida" || {
 	exit 1
 }
 restaurar
+
+for manifiesto in publico.manifest interno.manifest interno.locales.manifest; do
+	cmp -s "web/${manifiesto}" "${temporal}/${manifiesto}" || {
+		printf 'La autoprueba no restauro exactamente %s.\n' "${manifiesto}" >&2
+		exit 1
+	}
+done
 
 printf 'Autoprueba negativa de manifiestos web superada.\n'
