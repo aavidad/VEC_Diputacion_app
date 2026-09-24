@@ -73,6 +73,13 @@ test("la entrada de listas conduce a la consulta pública B10", () => {
   assert.doesNotMatch(menu, /href="\/api\//);
 });
 
+test("el menú de ambas páginas presenta solo interrogación para la ayuda", () => {
+  const listas = readFileSync(join(directorio, "listas.html"), "utf8");
+  assert.match(menu, /<a href="#ayuda-publica" aria-label="Ayuda pública" title="Ayuda pública"><span aria-hidden="true">\?<\/span><\/a>/);
+  assert.match(listas, /<a href="\/bolsa\/#ayuda-publica" aria-label="Ayuda pública" title="Ayuda pública">\?<\/a>/);
+  assert.doesNotMatch(menu, /<span aria-hidden="true">5<\/span> Ayuda pública/);
+});
+
 test("el aviso de demostración solo puede mostrarse tras confirmación de la fuente", () => {
   assert.match(html, /<h1 id="titulo-portal">Bolsas y procesos selectivos<\/h1>/);
   assert.match(html, /id="aviso-demostracion"[^>]*\bhidden>/);
