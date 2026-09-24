@@ -221,7 +221,11 @@ function adaptarPreparacionCierreSinCese(dto, consulta) {
       motivos: Object.freeze(motivos),
     });
   }
-  return Object.freeze({ estado_actual: dto.estado_actual, preparada_en: dto.preparada_en, preparacion });
+  return Object.freeze({
+    expediente_ref: dto.expediente_ref, seguimiento_ref: dto.seguimiento_ref,
+    version_actual: dto.version_actual, estado_actual: dto.estado_actual,
+    preparada_en: dto.preparada_en, preparacion,
+  });
 }
 
 export function crearClienteHTTPContratacionTemporal(configuracion = {}) {

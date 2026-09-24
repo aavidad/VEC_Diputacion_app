@@ -47,7 +47,9 @@ test("GET posterior confirmado actualiza el estado y conserva recibo e intenció
   const x = raiz();
   montarFormularioCierreAdministrativo({ raiz: x, cliente: { async cerrar() { return r; } }, preparacion: p,
     estadoActual: "vigente", confirmarOperacion: () => true, generarClaveIdempotencia: () => id,
-    alConfirmar: async () => ({ estadoActual: "cerrado" }) });
+    alConfirmar: async () => ({ expediente_ref: p.expediente_ref, seguimiento_ref: p.seguimiento_ref,
+      version_actual: r.version_seguimiento, estado_actual: "cerrado",
+      preparada_en: "2026-09-12T19:16:48.462825Z", preparacion: null }) });
   await x.preparar(); await x.continuar();
   assert.match(x.innerHTML, /Estado actual del seguimiento: Cerrado/u);
   assert.match(x.innerHTML, /recibo:1/u); assert.match(x.innerHTML, /Guardar datos de recuperación/u);
