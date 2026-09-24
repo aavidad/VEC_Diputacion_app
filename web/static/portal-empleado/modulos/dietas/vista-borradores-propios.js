@@ -193,10 +193,11 @@ export function montarVistaBorradoresPropios(
   }
   function purgarLecturasDenegadas() {
     // Un 401/403 invalida toda la proyección obtenida por GET, incluida la
-    // página que permitió abrir el detalle. Sólo sobrevive un POST confirmado.
+    // página que permitió abrir el detalle. Sólo sobrevive el último recibo
+    // confirmado; las claves anteriores siguen ligadas a su contenido.
     for (const [contenido, operacion] of operaciones) {
       if (operacion.item && contenido !== ultimoAlta?.contenido)
-        operaciones.set(contenido, { clave: operacion.clave });
+        operaciones.set(contenido, { clave: operacion.clave, confirmada: true });
     }
     cursores = [undefined];
     indicePagina = 0;
@@ -752,7 +753,11 @@ export function montarVistaBorradoresPropios(
       pintar();
       return;
     }
-    operaciones.set(contenido, { clave, incierta: operacion?.incierta === true });
+    operaciones.set(contenido, {
+      clave,
+      incierta: operacion?.incierta === true,
+      confirmada: operacion?.confirmada === true,
+    });
     const solicitud = { clave_idempotencia: clave, ...base };
     controlador = new AbortController();
     const signal = controlador.signal;
@@ -762,7 +767,7 @@ export function montarVistaBorradoresPropios(
     try {
       const item = await cliente.crear(solicitud, { signal });
       if (!activaAhora() || signal.aborted) return;
-      operaciones.set(contenido, { clave, item });
+      operaciones.set(contenido, { clave, item, confirmada: true });
       ultimoAlta = { contenido, item };
       altaConfirmada = true;
       const resumenLocal = formularioPersistente?.querySelector?.("[data-dietas-borrador-preparacion]");
@@ -787,8 +792,9 @@ export function montarVistaBorradoresPropios(
       if (!activaAhora() || signal.aborted) return;
       // Un 403 posterior no aclara si un intento previo de esta intención
       // quedó registrado. Conservar su clave hasta confirmar o desmontar.
-      if (error?.resultadoIndeterminado) operaciones.set(contenido, { clave, incierta: true });
-      else if (!operacion?.incierta) operaciones.delete(contenido);
+      if (error?.resultadoIndeterminado)
+        operaciones.set(contenido, { clave, incierta: true, confirmada: operacion?.confirmada === true });
+      else if (!operacion?.incierta && !operacion?.confirmada) operaciones.delete(contenido);
       if (["autenticacion_requerida", "acceso_denegado"].includes(error?.codigo)) {
         purgarLecturasDenegadas();
         estado = { ...estado, errorLista: true, errorListaClave: errorClave(error) };

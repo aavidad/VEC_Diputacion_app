@@ -1207,6 +1207,88 @@ test("un POST denegado conserva solo el último recibo confirmado por POST", asy
   }
 });
 
+test("HTTP conserva la clave de un alta confirmada tras purga y 403; 503 recupera sin duplicar", async () => {
+  const contenedor = raiz();
+  const privado = {
+    comision: { ...item.comision, motivo: "Motivo privado GET", codigos_ruta: ["18087", "18003"] },
+    recibo: { ...item.recibo, referencia: `rcd_${"p".repeat(22)}`, registrado_en: "2026-09-20T10:00:00.123456Z" },
+  };
+  const operacionesServidor = new Map();
+  const altasPorMotivo = new Map();
+  const solicitudes = [];
+  let autorizada = true;
+  let siguienteClave = 0;
+  const json = (cuerpo, estado) => new Response(JSON.stringify(cuerpo), {
+    status: estado, headers: { "Content-Type": "application/json; charset=utf-8" },
+  });
+  const cliente = crearClienteBorradoresDietasHTTP({ fetchImpl: async (ruta, opciones) => {
+    if (opciones.method === "GET")
+      return ruta.includes("?limit=") ? json({ items: [privado], siguiente_cursor: "cursor-privado" }, 200) : json(privado, 200);
+    const solicitud = JSON.parse(opciones.body);
+    solicitudes.push(solicitud);
+    if (!autorizada) return json({ error: "dietas.error.acceso_denegado" }, 403);
+    const anterior = operacionesServidor.get(solicitud.clave_idempotencia);
+    if (anterior) return json({ ...anterior, recibo: { ...anterior.recibo, repeticion: true } }, 200);
+    const numero = operacionesServidor.size + 1;
+    const creado = {
+      comision: {
+        referencia: `dco_${String(numero).padStart(22, "0")}`, estado: "borrador",
+        fecha_inicio: solicitud.fecha_inicio, fecha_fin: solicitud.fecha_fin,
+        motivo: solicitud.motivo, codigos_ruta: solicitud.codigos_ruta,
+        relacion_ref: "rel_1234567890123456789012",
+      },
+      recibo: {
+        referencia: `rcd_${String(numero).padStart(22, "0")}`, version: 1,
+        registrado_en: "2026-09-20T10:00:00.123456Z", repeticion: false,
+      },
+    };
+    operacionesServidor.set(solicitud.clave_idempotencia, creado);
+    altasPorMotivo.set(solicitud.motivo, (altasPorMotivo.get(solicitud.motivo) || 0) + 1);
+    if (solicitud.motivo === "D") return json({ error: "dietas.error.resultado_incierto" }, 503);
+    return json(creado, 201);
+  } });
+  const vista = montarVistaBorradoresPropios(contenedor, {
+    cliente, generarClaveIdempotencia: () => `clave-operacion-${String(++siguienteClave).padStart(4, "0")}`,
+  });
+  await new Promise((resolver) => setImmediate(resolver));
+  const panel = contenedor.querySelector("[data-dietas-borradores-propios]");
+  await panel.listeners.click({ target: contenedor.querySelector("[data-dietas-borrador-detalle]") });
+  assert.match(textoVisible(contenedor), /Motivo privado GET/u);
+  const form = contenedor.querySelector("[data-dietas-borrador-form]");
+  form.checkValidity = () => true;
+  const datos = { fecha_inicio: "2026-09-20", fecha_fin: "2026-09-21", motivo: "A",
+    hora_inicio: "09:00", hora_fin: "18:00", origen_codigo: "18087", destino_codigo: "18003" };
+  const FormDataOriginal = globalThis.FormData;
+  globalThis.FormData = class { get(nombre) { return datos[nombre] ?? null; } };
+  const enviar = () => panel.listeners.submit({ target: form, preventDefault() {} });
+  try {
+    await panel.listeners.click({ target: form.querySelector("[data-dietas-parada-anadir]") });
+    form.querySelectorAll("select").find((selector) => selector.name === "parada_codigo").value = "18175";
+    await enviar(); // A: 201.
+    datos.motivo = "B"; await enviar(); // B: 201.
+    autorizada = false;
+    datos.motivo = "C"; await enviar(); // C: 403 y purga.
+    assert.doesNotMatch(textoVisible(contenedor), /Motivo privado GET|rcd_pppppppppppppppppppppp/u);
+    assert.equal(contenedor.querySelector("[data-dietas-borrador-detalle]"), null);
+    assert.equal(contenedor.querySelector("[data-dietas-borrador-pagina]"), null);
+    assert.match(textoVisible(contenedor), /rcd_0000000000000000000002/u);
+    datos.motivo = "A"; await enviar(); // A: 403; conserva la clave ya confirmada.
+    autorizada = true;
+    await enviar(); // A: 200 replay.
+    const clavesA = solicitudes.filter((solicitud) => solicitud.motivo === "A")
+      .map((solicitud) => solicitud.clave_idempotencia);
+    assert.deepEqual(clavesA, Array(3).fill("clave-operacion-0001"));
+    assert.equal(altasPorMotivo.get("A"), 1);
+    assert.match(textoVisible(contenedor), /recuperado sin crear otro borrador/u);
+    datos.motivo = "D"; await enviar(); // D: 503 tras confirmar en servidor.
+    assert.match(textoVisible(contenedor), /No se ha podido confirmar/u);
+    await enviar(); // D: 200 replay con la misma clave.
+    assert.deepEqual(solicitudes.filter((solicitud) => solicitud.motivo === "D")
+      .map((solicitud) => solicitud.clave_idempotencia), Array(2).fill("clave-operacion-0004"));
+    assert.equal(altasPorMotivo.get("D"), 1);
+  } finally { globalThis.FormData = FormDataOriginal; vista.desmontar(); }
+});
+
 test("un GET pendiente bloquea Guardar y Revisar sin iniciar otra creación", async () => {
   const contenedor = raiz();
   let resolver;
