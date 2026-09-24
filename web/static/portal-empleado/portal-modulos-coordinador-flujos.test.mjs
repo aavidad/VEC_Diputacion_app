@@ -669,10 +669,10 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
   const versionPersonalInterno = "20260924-p1-personal-interno-v2";
   const versionPersonalEstados = "20260924-f2-personal-estados-v4";
   const versionCronosPermisos = "20260924-f2-cronos-permisos-v2";
-  const versionDietasShell = "20260924-web-c-ayuda-v6";
+  const versionDietasShell = "20260924-web-c-ayuda-v7";
   const versionVistasC = "20260924-web-c-v1";
   const versionDietasRecuperacion = "20260924-dietas-recuperacion-v3";
-  const versionDietasVista = "20260924-dietas-ayuda-sin-guia-v2";
+  const versionDietasVista = "20260924-dietas-preparacion-sin-guia-v3";
   const versionCarga = "20260923-p4-estado-modulos-v1";
   const versionModuloBolsa = "20260924-integracion-b7-v1";
   const versionSubsanacion = "20260924-web-subsanacion-v1";
@@ -693,6 +693,7 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
     "utf8",
   );
   assert.match(portal, new RegExp(`portal-modulos-coordinador\\.js\\?v=${versionDietasShell}`));
+  assert.doesNotMatch(portal, /portal-modulos-coordinador\.js\?v=20260924-web-c-ayuda-v6/u);
   assert.doesNotMatch(portal, /portal-modulos-coordinador\.js\?v=20260924-web-c-ayuda-v5/u);
   assert.doesNotMatch(portal, /portal-modulos-coordinador\.js\?v=20260924-web-c-ayuda-v4/u);
   assert.doesNotMatch(portal, /portal-modulos-coordinador\.js\?v=20260924-web-c-v3/u);
@@ -720,6 +721,7 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
   }
   assert.doesNotMatch(coordinador, new RegExp(`modulos/personal/vista\\.js\\?v=${versionCachePersonal}`));
   assert.match(html, new RegExp(`portal\\.js\\?v=${versionDietasShell}`));
+  assert.doesNotMatch(html, /portal\.js\?v=20260924-web-c-ayuda-v6/u);
   assert.doesNotMatch(html, /portal\.js\?v=20260924-web-c-ayuda-v5/u);
   assert.doesNotMatch(html, /portal\.js\?v=20260924-web-c-ayuda-v4/u);
   assert.doesNotMatch(html, /portal\.js\?v=20260924-web-c-v3/u);
@@ -740,6 +742,7 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
   assert.match(coordinador, new RegExp(`modulos/dietas/vista-itinerario\\.js\\?v=${versionDietas}`));
   assert.doesNotMatch(coordinador, /modulos\/dietas\/vista-itinerario\.js\?v=20260924-dietas-ayuda-icono-v1/u);
   assert.equal([...coordinador.matchAll(new RegExp(`modulos/dietas/vista-recorridos\\.js\\?v=${versionDietasVista}`, "g"))].length, 2);
+  assert.doesNotMatch(coordinador, /modulos\/dietas\/vista-recorridos\.js\?v=20260924-dietas-ayuda-sin-guia-v2/u);
   assert.doesNotMatch(coordinador, /modulos\/dietas\/vista-recorridos\.js\?v=20260924-dietas-ayuda-sin-guia-v1/u);
   assert.doesNotMatch(coordinador, /modulos\/dietas\/vista-recorridos\.js\?v=20260924-dietas-ayuda-icono-v1/u);
   assert.doesNotMatch(coordinador, new RegExp(`modulos/dietas/vista-recorridos\\.js\\?v=${versionDietasRecuperacion}`));

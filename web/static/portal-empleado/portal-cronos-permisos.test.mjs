@@ -136,8 +136,10 @@ test("el cargador interno nominal y el manifiesto contienen el recorrido sin nue
   assert.match(manifiesto, /static\/portal-empleado\/modulos\/cronos\/vista-recorridos\.js/u);
   assert.match(manifiesto, /static\/portal-empleado\/modulos\/cronos\/permisos\.css/u);
   assert.match(manifiesto, /static\/portal-empleado\/modulos\/cronos\/i18n-permisos\.js/u);
-  assert.match(portal, /portal-modulos-coordinador\.js\?v=20260924-web-c-ayuda-v6/u);
-  assert.match(html, /portal\.js\?v=20260924-web-c-ayuda-v6/u);
+  assert.match(portal, /portal-modulos-coordinador\.js\?v=20260924-web-c-ayuda-v7/u);
+  assert.match(html, /portal\.js\?v=20260924-web-c-ayuda-v7/u);
+  assert.doesNotMatch(portal, /portal-modulos-coordinador\.js\?v=20260924-web-c-ayuda-v6/u);
+  assert.doesNotMatch(html, /portal\.js\?v=20260924-web-c-ayuda-v6/u);
   assert.doesNotMatch(portal, /portal-modulos-coordinador\.js\?v=20260924-web-c-ayuda-v5/u);
   assert.doesNotMatch(html, /portal\.js\?v=20260924-web-c-ayuda-v5/u);
   assert.doesNotMatch(portal, /portal-modulos-coordinador\.js\?v=20260924-web-c-ayuda-v4/u);
