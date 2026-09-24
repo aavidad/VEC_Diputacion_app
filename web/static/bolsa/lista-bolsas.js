@@ -77,7 +77,7 @@ export function crearControladorListaBolsas({
 
   function enfocarResultadoReintento(cargando, destino) {
     if (!destino?.focus || cargando?.ownerDocument?.activeElement !== cargando) return;
-    destino.tabIndex = -1;
+    if (destino.tabIndex < 0 && !destino.hasAttribute?.("tabindex")) destino.tabIndex = -1;
     destino.focus();
   }
 
