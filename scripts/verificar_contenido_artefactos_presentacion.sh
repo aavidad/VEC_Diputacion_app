@@ -77,7 +77,6 @@ done
 
 for ruta in \
   app/web/static/presentacion/index.html \
-  app/web/static/area-personal/adaptador-presentacion.js \
   app/web/static/portal-empleado/datos-presentacion.js \
   app/web/static/portal-empleado/portal-presentacion-adaptador.js \
   app/web/static/bolsa/documentos/bases-demo.css \
