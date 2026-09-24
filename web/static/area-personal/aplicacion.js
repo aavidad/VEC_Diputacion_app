@@ -1,6 +1,7 @@
 import { escaparAtributo, escaparHTML, listaDatos } from "./vistas/comunes.js";
 import { MOTIVOS_PAUSA_DISPONIBILIDAD } from "./contrato.js";
-import { traducir } from "./i18n.js";
+import { textosErrorCargaAreaPersonal, traducir } from "./i18n.js";
+import { montarVistaOportunidades } from "../comun/oportunidades/vista.js?v=20260924-f2-b15-area-v1";
 import {
   renderizarConvocatorias, renderizarDetalleConvocatoria, renderizarInicio,
 } from "./vistas/inicio-convocatorias.js";
@@ -11,6 +12,7 @@ import {
   renderizarAlegaciones, renderizarLlamamientos, renderizarSeguimiento, renderizarSubsanaciones,
 } from "./vistas/seguimiento-tramites.js";
 import { renderizarAyuda, renderizarCertificados, renderizarMensajes } from "./vistas/comunicaciones-ayuda.js";
+import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js";
 import {
   aplicarPasoSolicitud, crearPayloadBorrador, crearProgresoSolicitud,
   declaracionFinalConfirmada, localizarSolicitudEdicion,
@@ -21,6 +23,7 @@ const MOTIVO_PAUSA_PREDETERMINADO = MOTIVOS_PAUSA_DISPONIBILIDAD[0];
 const RUTAS = Object.freeze({
   inicio: ["areaPersonal.rutas.inicio", renderizarInicio],
   convocatorias: ["areaPersonal.rutas.convocatorias", renderizarConvocatorias],
+  oportunidades: ["areaPersonal.rutas.oportunidades", () => '<div id="oportunidades-montaje"></div>'],
   convocatoria: ["areaPersonal.rutas.convocatoria", renderizarDetalleConvocatoria],
   perfil: ["areaPersonal.rutas.perfil", renderizarPerfil],
   meritos: ["areaPersonal.rutas.meritos", renderizarMeritos],
@@ -53,8 +56,18 @@ const TITULOS_OPERACION = Object.freeze({
   solicitar_descarga: "Preparar descarga",
 });
 
-const porId = (id) => document.getElementById(id);
+export function conservarResultadoContactoPropio(estado, { reciboRef, version, correo }) {
+  estado.contactoPropio = { ...estado.contactoPropio, version };
+  estado.contactoPropioRecibo = { reciboRef, version };
+  estado.datos = structuredClone(estado.datos);
+  estado.datos.perfil.correo = correo;
+}
+export function excluirCorreoDeActualizacionContacto(payload) {
+  const { correo: _correo, ...sinCorreo } = payload;
+  return sinCorreo;
+}
 
+const porId = (id) => document.getElementById(id);
 export function esOrigenSinteticoODesarrollo(meta = {}) {
   if (meta === null || typeof meta !== "object") return false;
   return [meta.origen, meta.entorno].filter((declaracion) => typeof declaracion === "string")
@@ -153,11 +166,12 @@ function notificar(mensaje) {
   setTimeout(() => aviso.remove(), 4_500);
 }
 
+export function renderizarErrorCargaAreaPersonal(error) {
+  const textos = textosErrorCargaAreaPersonal(error); const boton = textos.reintentar ? `<button type="button" class="boton-primario" data-accion="reintentar">${escaparHTML(textos.reintentar)}</button>` : "";
+  return `<section class="estado-error" role="alert"><h2>${escaparHTML(textos.titulo)}</h2><p>${escaparHTML(textos.detalle)}</p><p>${escaparHTML(textos.garantia)}</p>${boton}</section>`;
+}
 function mostrarError(estado, error) {
-  porId("estado-carga").hidden = true;
-  const autenticacion = error?.codigo === "autenticacion_requerida";
-  const acceso = error?.codigo === "acceso_denegado";
-  porId("espacio-trabajo").innerHTML = `<section class="estado-error" role="alert"><h2>${autenticacion ? "Identifíquese para consultar su bolsa" : acceso ? "No tiene acceso a esta área personal" : "No se pudo cargar el área personal"}</h2><p>${escaparHTML(autenticacion ? "Use su DNIe o certificado para continuar. Identificarse con certificado no firma documentos." : error instanceof Error ? error.message : "Servicio no disponible.")}</p><p>${acceso ? "No se muestran datos de otra persona." : "No se muestran datos aparentes y no se ha realizado ninguna operación."}</p>${acceso ? "" : '<button type="button" class="boton-primario" data-accion="reintentar">Reintentar conexión segura</button>'}</section>`;
+  porId("estado-carga").hidden = true; porId("titulo-vista").textContent = traducir("areaPersonal.estado.error.titulo"); porId("espacio-trabajo").innerHTML = renderizarErrorCargaAreaPersonal(error);
   estado.error = error;
 }
 
@@ -200,14 +214,78 @@ function actualizarShell(estado) {
   contadorMensajes.hidden = datos.resumen.mensajes_no_leidos === 0;
 }
 
-function renderizar(estado, { enfocar = false } = {}) {
+function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {}) {
   if (!estado.datos) return;
+  estado.desmontarOportunidades?.();
+  estado.desmontarOportunidades = null;
+  estado.destruirContactoPropio?.();
+  estado.destruirContactoPropio = null;
+  estado.controladorContactoPropio = null;
+  if (estado.vista !== "perfil" && estado.abortContactoPropio) {
+    estado.abortContactoPropio.abort();
+    estado.abortContactoPropio = null;
+    estado.cargandoContactoPropio = false;
+  }
+  if (estado.vista !== "perfil") Object.assign(estado, { contactoPropio: null, contactoPropioRecibo: null, contactoPropioCargado: false });
   estado.vista = RUTAS[estado.vista] ? estado.vista : "inicio";
   actualizarShell(estado);
   porId("estado-carga").hidden = true;
   porId("espacio-trabajo").innerHTML = RUTAS[estado.vista][1](estado.datos, estado);
+  if (estado.vista === "oportunidades") {
+    // La bandeja actual no aporta una evaluación B15 autorizada: no derivarla de convocatorias DEMO.
+    const vista = montarVistaOportunidades({ raiz: porId("oportunidades-montaje"), anunciar });
+    estado.desmontarOportunidades = vista.desmontar;
+  }
   actualizarEnlacesNavegacion(estado);
   aplicarCapacidadesVisibles(estado);
+  if (estado.vista === "perfil" && !estado.contactoPropioCargado && !estado.cargandoContactoPropio
+    && typeof estado.cliente.cargarContactoPropio === "function") {
+    estado.cargandoContactoPropio = true;
+    const controlador = new AbortController();
+    estado.abortContactoPropio = controlador;
+    estado.cliente.cargarContactoPropio({ signal: controlador.signal }).then((respuesta) => {
+      if (controlador.signal.aborted || estado.vista !== "perfil") return;
+      estado.contactoPropio = respuesta?.autorizacion ?? null;
+      estado.contactoPropioRecibo = respuesta?.recibo ?? null;
+      estado.contactoPropioCargado = true;
+      estado.controladorContactoPropio = null;
+      renderizar(estado);
+    }).catch(() => {
+      if (controlador.signal.aborted || estado.vista !== "perfil") return;
+      estado.contactoPropioCargado = true;
+      estado.contactoPropio = null;
+      notificar("No se pudo comprobar el contacto propio. Recargue para reintentar.");
+    }).finally(() => {
+      if (estado.abortContactoPropio === controlador) estado.abortContactoPropio = null;
+      estado.cargandoContactoPropio = false;
+    });
+  }
+  if (estado.vista === "perfil") {
+    estado.controladorContactoPropio ??= crearControladorContactoPropio({
+      autorizacionServidor: estado.contactoPropio,
+      fetchImpl: estado.fetchImpl,
+      presentacion: estado.presentacionSolicitada || estado.datos.meta.presentacion === true,
+      alConfirmar: (resultado) => {
+        conservarResultadoContactoPropio(estado, resultado);
+        if (estado.vista === "perfil") renderizar(estado, { confirmacionContacto: resultado });
+      },
+      alDenegar: () => {
+        Object.assign(estado, { contactoPropio: null, contactoPropioRecibo: null });
+      },
+    });
+    const montajeContacto = montarContactoPropio({
+      contenedor: porId("contacto-propio"),
+      correo: "",
+      autorizacionServidor: estado.contactoPropio,
+      fetchImpl: estado.fetchImpl,
+      presentacion: estado.presentacionSolicitada || estado.datos.meta.presentacion === true,
+      reciboAnterior: estado.contactoPropioRecibo, confirmacionReciente: confirmacionContacto,
+      enfocarConfirmacion: Boolean(confirmacionContacto),
+      controlador: estado.controladorContactoPropio,
+    });
+    estado.destruirContactoPropio = montajeContacto?.destruir ?? null;
+  }
+
   if (enfocar) {
     porId("contenido-principal").focus({ preventScroll: true });
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -447,13 +525,12 @@ function leerPantalla(estado) {
   notificar("Lectura por voz iniciada. Pulse Esc o cambie de página para detenerla.");
 }
 
-function alternarPreferencia(accion, boton) {
+function alternarPreferencia(accion) {
   const atributo = accion === "alternar-texto" ? "textoGrande" : "contraste";
   const destino = accion === "alternar-texto" ? document.documentElement : document.body;
   const activo = destino.dataset[atributo] !== "true";
   destino.dataset[atributo] = String(activo);
   document.querySelectorAll(`[data-accion="${accion}"]`).forEach((control) => control.setAttribute("aria-pressed", String(activo)));
-  boton?.blur();
   anunciar(activo ? "Preferencia visual activada." : "Preferencia visual desactivada.");
 }
 
@@ -461,7 +538,7 @@ function atenderAccion(estado, boton) {
   const accion = boton.dataset.accion;
   if (accion === "alternar-menu") return alternarMenu();
   if (accion === "cerrar-menu") return cerrarMenu({ restaurarFoco: true });
-  if (accion === "alternar-texto" || accion === "alternar-contraste") return alternarPreferencia(accion, boton);
+  if (accion === "alternar-texto" || accion === "alternar-contraste") return alternarPreferencia(accion);
   if (accion === "leer-pantalla") return leerPantalla(estado);
   if (accion === "ver-sesion") return verSesion(estado);
   if (accion === "descargar-recibo") return void descargarRecibo(estado);
@@ -600,7 +677,9 @@ function conectarEventos(estado) {
         anunciar("Operación no disponible.");
         return;
       }
-      const payload = formularioAObjeto(formulario);
+      const payloadInicial = formularioAObjeto(formulario);
+      const payload = formulario.dataset.operacion === "actualizar_contacto"
+        ? excluirCorreoDeActualizacionContacto(payloadInicial) : payloadInicial;
       if (formulario.dataset.operacion === "cambiar_disponibilidad") {
         const disponible = payload.disponible === "true" || payload.disponible === true;
         if (disponible) {
@@ -662,7 +741,7 @@ function conectarEventos(estado) {
 }
 
 async function cargar(estado) {
-  porId("estado-carga").hidden = false;
+  const reintento = document.activeElement?.dataset.accion === "reintentar"; porId("estado-carga").hidden = false;
   porId("estado-carga").className = "estado-carga";
   porId("estado-carga").innerHTML = '<span aria-hidden="true"></span>Cargando información autorizada…';
   porId("espacio-trabajo").replaceChildren();
@@ -682,11 +761,11 @@ async function cargar(estado) {
     estado.error = null;
     renderizar(estado);
   } catch (error) {
-    mostrarError(estado, error);
+    mostrarError(estado, error); if (reintento) porId("espacio-trabajo").querySelector('[data-accion="reintentar"]')?.focus();
   }
 }
 
-export async function iniciarAreaPersonal({ cliente, descargarReciboPDF = null, presentacionSolicitada = false } = {}) {
+export async function iniciarAreaPersonal({ cliente, descargarReciboPDF = null, presentacionSolicitada = false, contactoPropio = null, fetchImpl = globalThis.fetch } = {}) {
   if (!cliente || typeof cliente.cargar !== "function" || typeof cliente.ejecutar !== "function") {
     throw new TypeError("El cliente inyectado no respeta el contrato del área personal.");
   }
@@ -708,6 +787,15 @@ export async function iniciarAreaPersonal({ cliente, descargarReciboPDF = null, 
     errorPasoSolicitud: "",
     operacionPendiente: null,
     ultimoRecibo: null,
+    contactoPropio,
+    contactoPropioCargado: contactoPropio !== null,
+    cargandoContactoPropio: false,
+    abortContactoPropio: null,
+    contactoPropioRecibo: null,
+    controladorContactoPropio: null,
+    destruirContactoPropio: null,
+    desmontarOportunidades: null,
+    fetchImpl,
     participaciones: [],
     paginaParticipaciones: 1,
     fuenteBolsa: "real",
