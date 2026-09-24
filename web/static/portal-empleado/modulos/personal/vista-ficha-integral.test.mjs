@@ -32,9 +32,14 @@ test("la portada no fabrica persona, relación, curso, fichaje ni nómina", () =
   const raiz = raizFalsa(); montarVistaFichaIntegralPersonal({ raiz }); const ficha = raiz.querySelector("[data-personal-ficha-integral]");
   assert.ok(ficha); assert.equal(tab(ficha, "tiempo").textContent, "Tiempo");
   assert.match(texto(ficha), /Abra un apartado para consultar su fuente propia/);
+  assert.match(texto(ficha), /No se muestran nombre, empleado, puesto/);
   assert.equal(nodos(ficha).filter((n) => n.dataset.personalFichaEstado === "no_configurado").length, 6);
   assert.doesNotMatch(texto(ficha), /Antonio López|Funcionario de carrera|Junio 2026|Nómina orientativa/);
-  assert.equal(raiz.querySelector("[data-personal-ficha-ayuda]").tagName, "details");
+  const ayuda = raiz.querySelector("[data-personal-ficha-ayuda]");
+  assert.equal(ayuda.tagName, "details");
+  assert.equal(ayuda.children[0].tagName, "summary");
+  assert.equal(ayuda.children[0].textContent, "?");
+  assert.equal(ayuda.children[0].atributos.get("aria-label"), "? Ayuda sobre esta ficha");
   assert.ok(nodos(ficha).filter((n) => n.dataset.personalFichaDestino).every((n) => n.disabled));
 });
 
@@ -45,6 +50,7 @@ test("cada apartado se consulta solo al abrirlo y conserva procedencia sin refer
     tiempo: { consultarPropios() { throw new Error("no debe abrirse"); } },
   } });
   const ficha = raiz.querySelector("[data-personal-ficha-integral]"); assert.equal(llamadas.length, 0);
+  assert.doesNotMatch(texto(ficha), /No se muestran nombre, empleado, puesto/);
   tab(ficha, "servicios").listeners.get("click")(); await completar();
   assert.equal(llamadas.length, 1); assert.deepEqual(Object.keys(llamadas[0]), ["signal"]);
   assert.match(texto(ficha), /Fuente: Personal/); assert.match(texto(ficha), /Reconocido/); assert.match(texto(ficha), /1 ene 2020/);
