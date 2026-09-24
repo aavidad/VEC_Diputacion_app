@@ -6,6 +6,13 @@
   background: var(--portal-fondo);
 }
 
+.cronos-saldo-conectado .cronos-encabezado .cronos-boton-ayuda,
+.cronos-movimientos-conectado .cronos-encabezado .cronos-boton-ayuda {
+  width: 30px;
+  height: 30px;
+  justify-self: end;
+}
+
 .cronos-saldo-conectado .rejilla-kpi {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   margin: 0;
@@ -100,6 +107,12 @@
 }
 
 @media (max-width: 800px) {
+  .cronos-saldo-conectado .cronos-encabezado,
+  .cronos-movimientos-conectado .cronos-encabezado {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
   .cronos-saldo-conectado .rejilla-kpi {
     grid-template-columns: minmax(0, 1fr);
   }
