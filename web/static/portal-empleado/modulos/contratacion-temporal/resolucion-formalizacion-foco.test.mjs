@@ -132,6 +132,7 @@ test("rechazo determinado anuncia el estado si el foco sigue dentro; desmontar i
   // El navegador no permite modificar un textarea readOnly mientras la petición está en vuelo.
   if (!formulario.elements.motivo.readOnly) formulario.elements.motivo.value = "Corrección prematura";
   assert.equal(formulario.elements.motivo.value, "Revisión manual");
+  assert.equal(formulario.elements.clave_idempotencia.value, enviados[0].clave_idempotencia);
   assert.equal(formulario.elements.confirma_revision_propuesta.disabled, true);
   assert.equal(formulario.boton.disabled, true);
   rechazar(Object.assign(new Error("rechazada"), { envelopeValido: true, resultadoIndeterminado: false }));
@@ -140,6 +141,7 @@ test("rechazo determinado anuncia el estado si el foco sigue dentro; desmontar i
   assert.equal(raiz._formulario, formulario);
   assert.equal(formulario.elements.numero_resolucion.value, "R-24/2026");
   assert.equal(formulario.elements.motivo.value, "Revisión manual");
+  assert.equal(formulario.elements.clave_idempotencia.value, enviados[0].clave_idempotencia);
   assert.equal(formulario.elements.motivo.readOnly, false);
   assert.equal(formulario.elements.confirma_revision_propuesta.disabled, false);
   assert.equal(formulario.boton.disabled, false);
@@ -157,8 +159,8 @@ test("rechazo determinado anuncia el estado si el foco sigue dentro; desmontar i
   assert.equal(raiz.innerHTML, "");
 });
 
-test("409 congela campos nativos y el reintento conserva el cuerpo y la clave", async () => {
-  const { raiz } = raizDOM(); const enviados = [];
+test("409 congela campos nativos y el reintento conserva el cuerpo y la clave visible", async () => {
+  const { raiz, documento } = raizDOM(); const enviados = [];
   montar(raiz, {
     registrarResolucionFormalizacion(solicitud) {
       enviados.push(solicitud);
@@ -169,12 +171,38 @@ test("409 congela campos nativos y el reintento conserva el cuerpo y la clave", 
   });
   const formulario = raiz._formulario;
   rellenar(formulario);
+  formulario.boton.focus();
   await raiz.enviar();
   assert.equal(raiz._formulario, formulario);
+  assert.equal(documento.activeElement, raiz._estado);
   assert.equal(formulario.grupo.disabled, true);
   assert.equal(formulario.boton.disabled, false);
   assert.match(formulario.boton.textContent, /Reintentar/u);
   assert.equal(formulario.elements.motivo.value, "Revisión manual");
+  assert.equal(formulario.elements.clave_idempotencia.value, enviados[0].clave_idempotencia);
+  await raiz.enviar();
+  assert.deepEqual(enviados[1], enviados[0]);
+  assert.match(raiz.innerHTML, /recibo:ct:foco/u);
+});
+
+test("503 indeterminado mantiene la clave visible y el reintento exacto sin reemplazar controles", async () => {
+  const { raiz, documento } = raizDOM(); const enviados = [];
+  montar(raiz, { registrarResolucionFormalizacion(solicitud) {
+    enviados.push(solicitud);
+    if (enviados.length === 1) return Promise.reject(Object.assign(new Error("503"), {
+      estado: 503, envelopeValido: true, resultadoIndeterminado: true,
+    }));
+    return Promise.resolve(recibo);
+  } });
+  const formulario = raiz._formulario;
+  rellenar(formulario);
+  formulario.boton.focus();
+  await raiz.enviar();
+  assert.equal(raiz._formulario, formulario);
+  assert.equal(documento.activeElement, raiz._estado);
+  assert.equal(formulario.grupo.disabled, true);
+  assert.equal(formulario.boton.disabled, false);
+  assert.equal(formulario.elements.clave_idempotencia.value, enviados[0].clave_idempotencia);
   await raiz.enviar();
   assert.deepEqual(enviados[1], enviados[0]);
   assert.match(raiz.innerHTML, /recibo:ct:foco/u);
