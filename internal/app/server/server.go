@@ -205,6 +205,10 @@ func NewHandlerInternoWithConfig(cfg config.Config, api http.Handler) http.Handl
 }
 
 func NewHandlerInternoWithConfigConComprobadorDisponibilidad(cfg config.Config, api http.Handler, comprobador ComprobadorDisponibilidad) http.Handler {
+	return newHandlerInternoConHashTeselasOSM(cfg, api, comprobador, sha256ZIPTeselasOSM)
+}
+
+func newHandlerInternoConHashTeselasOSM(cfg config.Config, api http.Handler, comprobador ComprobadorDisponibilidad, hashZIP string) http.Handler {
 	cfg = cfg.Normalize()
 	if api == nil {
 		api = http.NotFoundHandler()
@@ -217,6 +221,7 @@ func NewHandlerInternoWithConfigConComprobadorDisponibilidad(cfg config.Config, 
 	registrarRutasDisponibilidad(mux, comprobador)
 	mux.Handle("/portal-empleado", soloLecturaHTTP(redireccionDirectorio("portal-empleado/")))
 	mux.Handle("/portal-empleado/", soloLecturaHTTP(estaticos))
+	registrarTeselasOSMConHash(mux, hashZIP)
 	registrarActivosCompartidos(mux, estaticos)
 	mux.Handle("/locales/", soloLecturaHTTP(localeHandler()))
 	mux.Handle("/api/vec", api)
