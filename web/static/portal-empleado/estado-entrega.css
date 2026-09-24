@@ -15,7 +15,7 @@
 
 .estado-entrega--conectado { --estado-entrega-acento: var(--portal-exito, #237a3b); }
 .estado-entrega--pendiente { --estado-entrega-acento: var(--portal-aviso, #9b5d00); }
-.estado-entrega--bloqueado { --estado-entrega-acento: var(--portal-error, #aa2435); }
+.estado-entrega--bloqueado { --estado-entrega-acento: var(--portal-peligro, #ba2737); }
 
 .estado-entrega__cabecera {
   display: flex;
