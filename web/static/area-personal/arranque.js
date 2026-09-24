@@ -1,6 +1,6 @@
 import { esModoPresentacion } from "./contrato.js";
-import { iniciarAreaPersonal } from "./aplicacion.js";
-import { iniciarI18nAreaPersonal } from "./i18n.js";
+import { iniciarAreaPersonal } from "./aplicacion.js?v=20260924-f2-b15-area-v4";
+import { iniciarI18nAreaPersonal, traducir } from "./i18n.js";
 
 await iniciarI18nAreaPersonal();
 
@@ -15,7 +15,7 @@ async function resolverCliente() {
       presentacionSolicitada: true,
     };
   }
-  const { crearClienteHTTPAreaPersonal } = await import("./cliente-http.js?v=20260718-1");
+  const { crearClienteHTTPAreaPersonal } = await import("./cliente-http.js?v=20260924-f2-b11-v2");
   return { cliente: crearClienteHTTPAreaPersonal(), presentacionSolicitada: false };
 }
 
@@ -29,16 +29,16 @@ try {
       perfilActivo: "usuario_externo",
     });
   }
-} catch (error) {
+} catch {
   const carga = document.getElementById("estado-carga");
   if (carga) {
     carga.className = "estado-error";
     const titulo = document.createElement("h2");
-    titulo.textContent = "No se pudo iniciar el área personal";
+    titulo.textContent = traducir("areaPersonal.estado.error.titulo");
     const detalle = document.createElement("p");
-    detalle.textContent = error instanceof Error ? error.message : "Error de inicialización.";
+    detalle.textContent = traducir("areaPersonal.estado.error.detalle");
     const garantia = document.createElement("p");
-    garantia.textContent = "No se ha realizado ninguna operación.";
+    garantia.textContent = traducir("areaPersonal.estado.error.carga.garantia");
     carga.replaceChildren(titulo, detalle, garantia);
   }
 }

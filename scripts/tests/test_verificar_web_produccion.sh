@@ -12,7 +12,7 @@ crear_arbol_valido() {
   mkdir -p \
     "$temporal/web/static/acceso/locales" \
     "$temporal/web/static/assets" \
-    "$temporal/web/static/area-personal" \
+    "$temporal/web/static/area-personal/locales" \
     "$temporal/web/static/bolsa" \
     "$temporal/web/static/comun/oportunidades" \
     "$temporal/web/static/portal-empleado/modulos/contratacion-temporal" \
@@ -22,6 +22,7 @@ crear_arbol_valido() {
   printf '%s\n' 'body { color: #111; }' >"$temporal/web/static/acceso/acceso.css"
   printf '%s\n' 'export const acceso = true;' >"$temporal/web/static/acceso/acceso-i18n.js"
   printf '%s\n' '{"acceso":"Acceso"}' >"$temporal/web/static/acceso/locales/es.json"
+  printf '%s\n' '{"areaPersonal.rutas.inicio":"Inicio y plazos"}' >"$temporal/web/static/area-personal/locales/es.json"
   printf '%s\n' '<svg xmlns="http://www.w3.org/2000/svg"/>' >"$temporal/web/static/favicon.svg"
   printf '%s\n' '<svg xmlns="http://www.w3.org/2000/svg"/>' >"$temporal/web/static/assets/logo-diputacion-granada.svg"
   printf '%s\n' 'export const iniciar = true;' >"$temporal/web/static/bolsa/bolsa.js"
@@ -38,6 +39,7 @@ crear_arbol_valido() {
     static/acceso/acceso.css \
     static/acceso/acceso-i18n.js \
     static/acceso/locales/es.json \
+    static/area-personal/locales/es.json \
     static/assets/logo-diputacion-granada.svg \
     static/bolsa/bolsa.js \
     static/comun/tema-vec.css \
@@ -122,12 +124,16 @@ crear_arbol_valido
 printf '%s\n' 'export const neutral = true;' >"$temporal/web/static/bolsa/neutral.js"
 debe_fallar "un JavaScript neutral no enumerado"
 
-# Enumerarlos no autoriza otros JSON ni alias del único asset permitido.
+# Enumerarlos no autoriza otros JSON ni alias de los catálogos permitidos.
 for ruta_json in \
+  static/area-personal/locales/otro.json \
+  static/area-personal/locales/es.JSON \
+  static/area-personal/otro/es.json \
   static/portal-empleado/modulos/contratacion-temporal/otra.json \
   static/portal-empleado/modulos/contratacion-temporal/formalizacion-desarrollo.JSON \
   static/bolsa/formalizacion-desarrollo.json; do
   crear_arbol_valido
+  mkdir -p "$(dirname "$temporal/web/$ruta_json")"
   cp web/static/portal-empleado/modulos/contratacion-temporal/formalizacion-desarrollo.json "$temporal/web/$ruta_json"
   printf '%s\n' "$ruta_json" >>"$temporal/manifiesto"
   cp "$temporal/manifiesto" "$temporal/web/produccion.manifest"
