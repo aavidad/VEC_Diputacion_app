@@ -301,13 +301,16 @@ def source_context(profile_bback: str) -> dict:
 
 
 def employee(person: str) -> str | None:
-    rows = query(f"""SELECT v.referencia FROM vec_contexto_actor_v1.vinculo_referencia_actual a
-      JOIN vec_contexto_actor_v1.vinculo_referencia_versiones v USING(vinculo_ref,version)
-      WHERE v.persona_ref={sql_literal(person)} AND v.tipo='empleado' AND v.estado='activo'
-        AND clock_timestamp()>=v.vigente_desde AND clock_timestamp()<v.vigente_hasta;""")
-    if len(rows) > 1:
-        fail("la identidad tiene varios vínculos de empleado; requiere selección acreditada")
-    return rows[0] if rows else None
+    # El empleado canónico procede de la proyección gobernada de Personal
+    # (000016); ContextoActor 000007 cerró los punteros de empleado del núcleo.
+    rows = query(f"""SELECT resultado || '|' || coalesce(empleado_ref,'')
+      FROM vec_personal.resolver_empleado_canonico_persona_v1({sql_literal(person)},clock_timestamp());""")
+    if len(rows) != 1:
+        fail("Personal no devolvió una clase de proyección persona-empleado")
+    resultado, emp = rows[0].split("|", 1)
+    if resultado == "ambiguo":
+        fail("la identidad tiene varios empleados canónicos en Personal; requiere resolución RRHH")
+    return emp if resultado == "empleado" else None
 
 
 def existing_relation(person: str, emp: str) -> dict | None:
@@ -436,13 +439,6 @@ def provision_context_personal(state: dict) -> None:
       INSERT INTO vec_contexto_actor_v1.vinculo_contexto_actual VALUES ({sql_literal(state['context_link'])},1)
         ON CONFLICT DO NOTHING;
     """
-    if state["employee_link_new"]:
-        first += f"""INSERT INTO vec_contexto_actor_v1.vinculo_referencia_versiones VALUES
-          ({sql_literal(state['employee_link'])},1,{sql_literal(person)},'empleado',{sql_literal(employee)},
-           {source_sql},'activo',clock_timestamp()-interval '1 hour',{sql_literal(expiry)}::timestamptz)
-          ON CONFLICT DO NOTHING;
-        INSERT INTO vec_contexto_actor_v1.vinculo_referencia_actual VALUES ({sql_literal(state['employee_link'])},1)
-          ON CONFLICT DO NOTHING;"""
     first += f"""DO $check$ BEGIN
       IF NOT EXISTS(SELECT 1 FROM vec_contexto_actor_v1.perfil_actual a JOIN vec_contexto_actor_v1.perfil_versiones v USING(perfil_ref,version)
         WHERE a.perfil_ref={sql_literal(profile)} AND v.persona_ref={sql_literal(person)} AND v.estado='activo')
@@ -464,6 +460,19 @@ def provision_context_personal(state: dict) -> None:
       SET LOCAL lock_timeout='5s';
       SELECT set_config('vec.dietas.persona_ref',{sql_literal(person)},true);
     """
+    if state["employee_link_new"]:
+        # Proyección sintética persona→empleado publicada en Personal (nunca en
+        # el núcleo). Idempotente: una segunda ejecución no la republica.
+        projection = ref("pep_", person, state["certificate_sha256"], "empleado-dietas")
+        second += f"""DO $proyeccion$ BEGIN
+          IF NOT EXISTS(SELECT 1 FROM vec_personal.proyeccion_empleado_persona_historia h
+            WHERE h.proyeccion_ref={sql_literal(projection)}) THEN
+            PERFORM vec_personal.publicar_proyeccion_empleado_persona_v1({sql_literal(projection)},1,
+              {sql_literal(person)},{sql_literal(employee)},'activa',clock_timestamp()-interval '1 hour',
+              {sql_literal(expiry)}::timestamptz,NULL,{sql_literal(context['procedencia'])},
+              {int(context['procedencia_version'])},{sql_literal(context['procedencia_huella'])});
+          END IF;
+        END $proyeccion$;"""
     if state["relation_new"]:
         second += f"""INSERT INTO vec_personal.relacion_empleado_dietas
           (relacion_ref,persona_ref,empleado_ref,unidad_ref,estado,desde,hasta,version,procedencia_acto_ref,fuente_ref,fuente_version)
