@@ -40,9 +40,9 @@ BEGIN
  END IF;
  previo:=replace(replace(actual,nuevo,viejo),retorno_nuevo,retorno);
  EXECUTE previo;
- IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE oid=f AND octet_length(prosrc)=18350
+ IF NOT EXISTS (SELECT 1 FROM pg_proc WHERE oid=f AND octet_length(prosrc)=18515
    AND encode(sha256(convert_to(prosrc,'UTF8')),'hex')=
-       'd7973e804e74528b752ad73c2720198e783dddddc0da82615ecaa2a05eca6c27') THEN
+       '38e12724f1addf6dbec363394f941641369bfb4dd8906eeb3f469eb243266073') THEN
    RAISE EXCEPTION 'Personal 000010a DOWN: función previa no restaurada' USING ERRCODE='55000';
  END IF;
 END $retirada$;

@@ -66,8 +66,8 @@ BEGIN
       AND prorettype='boolean'::regtype AND provolatile='v')
     OR NOT EXISTS (SELECT 1 FROM pg_proc WHERE oid=f AND proowner=current_user::regrole
       AND prosecdef AND provolatile='v' AND prorettype='jsonb'::regtype
-      AND octet_length(prosrc)=18350
-      AND encode(sha256(convert_to(prosrc,'UTF8')),'hex')='d7973e804e74528b752ad73c2720198e783dddddc0da82615ecaa2a05eca6c27'
+      AND octet_length(prosrc)=18515
+      AND encode(sha256(convert_to(prosrc,'UTF8')),'hex')='38e12724f1addf6dbec363394f941641369bfb4dd8906eeb3f469eb243266073'
       AND obj_description(oid,'pg_proc')='Personal000005:lector_incorporacion:v2:ambitos_org_unidad') THEN
    RAISE EXCEPTION 'Personal 000010a: lector previo incompatible' USING ERRCODE='55000';
  END IF;

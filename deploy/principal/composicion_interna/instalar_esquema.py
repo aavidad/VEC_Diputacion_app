@@ -77,7 +77,9 @@ END $preimagen$;"""]
             fail("fuente canónica de migración ausente")
         contents = path.read_bytes()
         hashes[relative] = hashlib.sha256(contents).hexdigest()
-        sql += [f"-- INICIO {relative}", body(contents), f"-- FIN {relative}"]
+        # Cada delta fija su propio SET LOCAL ROLE; se restituye el administrador
+        # antes del siguiente para que ninguno herede la identidad del anterior.
+        sql += [f"-- INICIO {relative}", body(contents), "RESET ROLE;", f"-- FIN {relative}"]
     sql.append(finish + ";")
     return "\n".join(sql), hashes
 
