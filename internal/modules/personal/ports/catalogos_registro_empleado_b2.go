@@ -33,6 +33,7 @@ type EvidenciaCatalogoEmpleadoB2 struct {
 }
 
 type ResultadoConsultaCatalogoEmpleadoB2 struct {
+	OrganismoRef    string                                     `json:"organismo_ref"`
 	Entradas        []domain.EntradaCatalogoRegistroEmpleadoB2 `json:"entradas"`
 	CursorSiguiente *CursorCatalogoEmpleadoB2                  `json:"cursor_siguiente"`
 	Evidencia       EvidenciaCatalogoEmpleadoB2                `json:"evidencia"`

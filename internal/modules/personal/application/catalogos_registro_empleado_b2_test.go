@@ -85,6 +85,29 @@ func TestCatalogoEmpleadoConsultaExigeFiltroNominalYPaginacionCoherente(t *testi
 	}
 }
 
+func TestCatalogoEmpleadoConsultaVaciaConservaOrganismoServidor(t *testing.T) {
+	s := domain.SolicitudConsultaCatalogoEmpleadoB2{OrganismoRef: "organismo:dipgra", Tipo: "modalidad", Limite: 50, Actor: solicitudP(t).Actor}
+	m, err := domain.NuevoMaterialConsultaCatalogoEmpleadoB2(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := &autorizadorCatalogoPrueba{a: exportacionCatalogoPrueba(t, m, "consultar", m.Recurso().Referencia)}
+	evidencia := ports.EvidenciaCatalogoEmpleadoB2{DecisionRef: "dec_prueba", AuditoriaRef: "aud_consulta", ConsumoHuellaSHA256: strings.Repeat("a", 64), EfectoRef: m.Recurso().Referencia, ConsultadaEn: time.Date(2026, 9, 20, 10, 0, 1, 0, time.UTC)}
+	repo := &repoCatalogoPrueba{consulta: ports.ResultadoConsultaCatalogoEmpleadoB2{OrganismoRef: "organismo:otro", Entradas: []domain.EntradaCatalogoRegistroEmpleadoB2{}, Evidencia: evidencia}}
+	servicio, err := NuevoServicioCatalogosRegistroEmpleadoB2(a, repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := servicio.Consultar(context.Background(), s); !errors.Is(err, domain.ErrRegistroEmpleadoB2NoDisponible) {
+		t.Fatalf("resultado vacío de otro organismo aceptado: %v", err)
+	}
+	repo.consulta.OrganismoRef = s.OrganismoRef
+	resultado, err := servicio.Consultar(context.Background(), s)
+	if err != nil || resultado.OrganismoRef != s.OrganismoRef || len(resultado.Entradas) != 0 {
+		t.Fatalf("consulta vacía sin ámbito explícito: resultado=%+v, err=%v", resultado, err)
+	}
+}
+
 type autorizadorCatalogoPrueba struct {
 	a vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3
 	n int
@@ -97,11 +120,13 @@ func (p *autorizadorCatalogoPrueba) AutorizarCatalogoRegistroEmpleadoB2(_ contex
 
 type repoCatalogoPrueba struct {
 	resultado ports.ResultadoCambioCatalogoEmpleadoB2
+	consulta  ports.ResultadoConsultaCatalogoEmpleadoB2
 	n         int
 }
 
 func (p *repoCatalogoPrueba) ConsultarRRHH(context.Context, ports.OrdenCatalogoEmpleadoB2) (ports.ResultadoConsultaCatalogoEmpleadoB2, error) {
-	return ports.ResultadoConsultaCatalogoEmpleadoB2{}, nil
+	p.n++
+	return p.consulta, nil
 }
 func (p *repoCatalogoPrueba) CambiarRRHH(_ context.Context, _ ports.OrdenCatalogoEmpleadoB2) (ports.ResultadoCambioCatalogoEmpleadoB2, error) {
 	p.n++

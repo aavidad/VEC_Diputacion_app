@@ -110,7 +110,7 @@ func accionAudienciaCatalogoEmpleadoB2(operacion string) (string, string) {
 }
 
 func consultaCatalogoEmpleadoB2Valida(m domain.MaterialCatalogoEmpleadoB2, a vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, r ports.ResultadoConsultaCatalogoEmpleadoB2) bool {
-	if len(r.Entradas) > m.Limite() || len(r.Entradas) > 100 {
+	if r.OrganismoRef != m.OrganismoRef() || len(r.Entradas) > m.Limite() || len(r.Entradas) > 100 {
 		return false
 	}
 	capacidad := a.ResumenCapacidad()
