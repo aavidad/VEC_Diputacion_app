@@ -14,7 +14,7 @@ test("el HTML y los módulos cambiados usan URLs nuevas bajo caché inmutable", 
     readFile(new URL("../comun/oportunidades/vista.js", import.meta.url), "utf8"),
   ]);
   const versionCSS = "20260924-f2-b15-area-v1";
-  const versionPadre = "20260924-f2-b15-area-v2";
+  const versionPadre = "20260924-f2-b15-area-v3";
   for (const ruta of ["/area-personal/area-personal.css", "/comun/oportunidades/oportunidades.css"]) {
     assert.ok(html.includes(`${ruta}?v=${versionCSS}`), ruta);
   }
@@ -25,22 +25,27 @@ test("el HTML y los módulos cambiados usan URLs nuevas bajo caché inmutable", 
   assert.doesNotMatch(`${arranque}\n${aplicacion}`, /\.\/i18n\.js\?v=/);
   assert.ok(aplicacion.includes(`../comun/oportunidades/vista.js?v=${versionCSS}`));
   assert.match(vista, /\.\/i18n\.js\?v=20260924-f2-web2/);
-  assert.match(arranque, /\.\/cliente-http\.js\?v=20260924-f2-b11-v1/);
+  assert.match(arranque, /\.\/cliente-http\.js\?v=20260924-f2-b11-v2/);
 });
 
-test("una caché antigua v1 no puede sustituir los padres v2 del montaje", async () => {
-  const [html, arranque] = await Promise.all([
+test("una caché antigua v1 o v2 no puede sustituir los padres v3 del montaje", async () => {
+  const [html, arranque, contacto] = await Promise.all([
     readFile(new URL("./index.html", import.meta.url), "utf8"),
     readFile(new URL("./arranque.js", import.meta.url), "utf8"),
+    readFile(new URL("./contacto-propio.js", import.meta.url), "utf8"),
   ]);
-  const antiguo = "20260924-f2-b15-area-v1";
-  const nuevo = "20260924-f2-b15-area-v2";
+  const nuevo = "20260924-f2-b15-area-v3";
   const padre = new URL(html.match(/src="(\/area-personal\/arranque\.js\?v=[^"]+)"/)?.[1] ?? "", "https://vec.example");
   const hijo = new URL(arranque.match(/from "(\.\/aplicacion\.js\?v=[^"]+)"/)?.[1] ?? "", padre);
   assert.equal(padre.searchParams.get("v"), nuevo);
   assert.equal(hijo.searchParams.get("v"), nuevo);
-  assert.notEqual(padre.href, `https://vec.example/area-personal/arranque.js?v=${antiguo}`);
-  assert.notEqual(hijo.href, `https://vec.example/area-personal/aplicacion.js?v=${antiguo}`);
+  for (const antiguo of ["20260924-f2-b15-area-v1", "20260924-f2-b15-area-v2"]) {
+    assert.notEqual(padre.href, `https://vec.example/area-personal/arranque.js?v=${antiguo}`);
+    assert.notEqual(hijo.href, `https://vec.example/area-personal/aplicacion.js?v=${antiguo}`);
+  }
+  assert.doesNotMatch(`${arranque}\n${contacto}`, /cliente-http\.js\?v=20260924-f2-b11-v1/);
+  assert.match(arranque, /cliente-http\.js\?v=20260924-f2-b11-v2/);
+  assert.match(contacto, /cliente-http\.js\?v=20260924-f2-b11-v2/);
 });
 
 test("un fallo de arranque usa i18n genérico y no expone su causa", async () => {

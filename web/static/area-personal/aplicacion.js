@@ -221,12 +221,7 @@ function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {
   estado.destruirContactoPropio?.();
   estado.destruirContactoPropio = null;
   estado.controladorContactoPropio = null;
-  if (estado.vista !== "perfil" && estado.abortContactoPropio) {
-    estado.abortContactoPropio.abort();
-    estado.abortContactoPropio = null;
-    estado.cargandoContactoPropio = false;
-  }
-  if (estado.vista !== "perfil") Object.assign(estado, { contactoPropio: null, contactoPropioRecibo: null, contactoPropioCargado: false });
+  if (estado.vista !== "perfil") Object.assign(estado, { contactoPropio: null, contactoPropioRecibo: null });
   estado.vista = RUTAS[estado.vista] ? estado.vista : "inicio";
   actualizarShell(estado);
   porId("estado-carga").hidden = true;
@@ -238,28 +233,6 @@ function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {
   }
   actualizarEnlacesNavegacion(estado);
   aplicarCapacidadesVisibles(estado);
-  if (estado.vista === "perfil" && !estado.contactoPropioCargado && !estado.cargandoContactoPropio
-    && typeof estado.cliente.cargarContactoPropio === "function") {
-    estado.cargandoContactoPropio = true;
-    const controlador = new AbortController();
-    estado.abortContactoPropio = controlador;
-    estado.cliente.cargarContactoPropio({ signal: controlador.signal }).then((respuesta) => {
-      if (controlador.signal.aborted || estado.vista !== "perfil") return;
-      estado.contactoPropio = respuesta?.autorizacion ?? null;
-      estado.contactoPropioRecibo = respuesta?.recibo ?? null;
-      estado.contactoPropioCargado = true;
-      estado.controladorContactoPropio = null;
-      renderizar(estado);
-    }).catch(() => {
-      if (controlador.signal.aborted || estado.vista !== "perfil") return;
-      estado.contactoPropioCargado = true;
-      estado.contactoPropio = null;
-      notificar("No se pudo comprobar el contacto propio. Recargue para reintentar.");
-    }).finally(() => {
-      if (estado.abortContactoPropio === controlador) estado.abortContactoPropio = null;
-      estado.cargandoContactoPropio = false;
-    });
-  }
   if (estado.vista === "perfil") {
     estado.controladorContactoPropio ??= crearControladorContactoPropio({
       autorizacionServidor: estado.contactoPropio,
@@ -765,7 +738,7 @@ async function cargar(estado) {
   }
 }
 
-export async function iniciarAreaPersonal({ cliente, descargarReciboPDF = null, presentacionSolicitada = false, contactoPropio = null, fetchImpl = globalThis.fetch } = {}) {
+export async function iniciarAreaPersonal({ cliente, descargarReciboPDF = null, presentacionSolicitada = false, fetchImpl = globalThis.fetch } = {}) {
   if (!cliente || typeof cliente.cargar !== "function" || typeof cliente.ejecutar !== "function") {
     throw new TypeError("El cliente inyectado no respeta el contrato del área personal.");
   }
@@ -787,10 +760,7 @@ export async function iniciarAreaPersonal({ cliente, descargarReciboPDF = null, 
     errorPasoSolicitud: "",
     operacionPendiente: null,
     ultimoRecibo: null,
-    contactoPropio,
-    contactoPropioCargado: contactoPropio !== null,
-    cargandoContactoPropio: false,
-    abortContactoPropio: null,
+    contactoPropio: null,
     contactoPropioRecibo: null,
     controladorContactoPropio: null,
     destruirContactoPropio: null,

@@ -131,9 +131,10 @@ test("una acción real exige confirmación, idempotencia y recibo productivo", a
   });
   assert.equal(resultado.recibo.presentacion, false);
   assert.equal(peticion.ruta, "/api/vec/bolsa/mis-solicitudes/borrador");
-  assert.equal(peticion.opciones.credentials, "same-origin");
+  assert.equal(peticion.opciones.credentials, "omit");
   assert.match(peticion.opciones.headers["X-Idempotency-Key"], /^WEB-[0-9a-f-]{36}$/u);
   assert.equal(peticion.opciones.headers.Authorization, undefined);
+  assert.equal(peticion.opciones.headers.Cookie, undefined);
 });
 
 test("una respuesta no JSON o excesiva falla cerrada", async () => {
@@ -156,7 +157,7 @@ test("recargar contacto consulta versión y recibo originales desde servidor", a
   const cliente = crearClienteHTTPAreaPersonal({ fetchImpl: async (ruta, opciones) => {
     peticiones.push({ ruta, opciones });
     return peticiones.length === 1
-      ? respuestaJSON({ encontrado: true, version: 3 })
+      ? respuestaJSON({ capacidad: true, encontrado: true, version: 3 })
       : respuestaJSON({ recibo_ref: "acc_1234567890123456789012345678901234567890", version: 3 });
   } });
   const recibido = await cliente.cargarContactoPropio();
@@ -173,15 +174,39 @@ test("recargar contacto consulta versión y recibo originales desde servidor", a
 test("contacto denegado no presenta capacidad ni consulta recibo", async () => {
   let llamadas = 0;
   const cliente = crearClienteHTTPAreaPersonal({ fetchImpl: async () => { llamadas += 1; return respuestaJSON({}, 403); } });
+  await assert.rejects(() => cliente.cargarContactoPropio(), (error) => error.codigo === "acceso_denegado");
+  assert.equal(llamadas, 1);
+});
+
+test("GET contacto sin capacidad positiva no habilita escritura ni consulta recibo", async () => {
+  let llamadas = 0;
+  const cliente = crearClienteHTTPAreaPersonal({ fetchImpl: async () => {
+    llamadas += 1;
+    return respuestaJSON({ encontrado: true, version: 3 });
+  } });
   assert.equal(await cliente.cargarContactoPropio(), null);
   assert.equal(llamadas, 1);
 });
+
+for (const [status, codigo] of [[401, "autenticacion_requerida"], [403, "acceso_denegado"], [404, "recurso_no_encontrado"]]) {
+  test(`GET contacto ${status} clasifica denegación antes de leer HTML o cuerpo vacío`, async () => {
+    for (const cuerpo of ["<html>denegado</html>", ""]) {
+      let leido = false;
+      const cliente = crearClienteHTTPAreaPersonal({ fetchImpl: async () => ({
+        status, headers: { get: () => cuerpo ? "text/html" : null },
+        text: async () => { leido = true; return cuerpo; },
+      }) });
+      await assert.rejects(() => cliente.cargarContactoPropio(), (error) => error.codigo === codigo);
+      assert.equal(leido, false);
+    }
+  });
+}
 
 test("versión sin recibo coincidente no confirma contacto", async () => {
   let llamadas = 0;
   const cliente = crearClienteHTTPAreaPersonal({ fetchImpl: async () => {
     llamadas += 1;
-    return llamadas === 1 ? respuestaJSON({ encontrado: true, version: 2 }) : respuestaJSON({ recibo_ref: "acc_otra", version: 1 });
+    return llamadas === 1 ? respuestaJSON({ capacidad: true, encontrado: true, version: 2 }) : respuestaJSON({ recibo_ref: "acc_otra", version: 1 });
   } });
   await assert.rejects(() => cliente.cargarContactoPropio(), (error) => error.codigo === "respuesta_incompatible");
 });
