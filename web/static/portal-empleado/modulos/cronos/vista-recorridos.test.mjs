@@ -32,6 +32,15 @@ test("el catálogo ausente deshabilita tipo, fechas, aclaración y registro", ()
   assert.match(html, /id="cronos-permisos-paso-2-titulo" tabindex="-1"/u);
 });
 
+test("la ayuda mantiene el control nativo y el foco sin marcador adicional", async () => {
+  const html = renderizarRecorridosCronos();
+  const css = await readFile(new URL("permisos.css", directorio), "utf8");
+  assert.match(html, /<details class="cronos-permisos-ayuda"><summary aria-label="\? Ayuda para esta solicitud">\?<\/summary>/u);
+  assert.match(css, /\.cronos-permisos-ayuda summary\s*\{[^}]*list-style:\s*none;/u);
+  assert.match(css, /\.cronos-permisos-ayuda summary::-webkit-details-marker\s*\{\s*display:\s*none;\s*\}/u);
+  assert.match(css, /\.cronos-permisos-ayuda summary:focus-visible\s*\{[^}]*outline:\s*3px solid var\(--portal-cian\);/u);
+});
+
 test("los tres pasos son una explicación local y el envío se impide", () => {
   const listeners = new Map();
   const pasos = [1, 2, 3].map((numero) => ({ dataset: { cronosPaso: String(numero) }, hidden: numero !== 1 }));

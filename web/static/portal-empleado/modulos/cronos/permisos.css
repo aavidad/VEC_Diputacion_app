@@ -12,7 +12,8 @@
 .cronos-permisos-paso h5:focus { outline: 3px solid var(--portal-cian); outline-offset: 3px; }
 .cronos-recorridos .cronos-recorrido-etapas [role="tab"]:focus-visible { outline: 3px solid var(--portal-cian); outline-offset: 2px; }
 .cronos-permisos-ayuda { margin: 0 0 12px; color: var(--portal-azul-700); font-size: .76rem; }
-.cronos-permisos-ayuda summary { width: fit-content; cursor: pointer; font-weight: 700; }
+.cronos-permisos-ayuda summary { width: fit-content; cursor: pointer; font-weight: 700; list-style: none; }
+.cronos-permisos-ayuda summary::-webkit-details-marker { display: none; }
 .cronos-permisos-ayuda summary:focus-visible { outline: 3px solid var(--portal-cian); outline-offset: 2px; }
 .cronos-permisos-ayuda p { padding: 9px; margin: 7px 0 0; border-radius: var(--portal-radio); background: var(--portal-superficie-alterna); color: var(--portal-tinta); }
 .cronos-permisos-paso label { display: grid; gap: 4px; margin: 0 0 11px; color: var(--portal-muted); font-size: .8rem; font-weight: 700; }
