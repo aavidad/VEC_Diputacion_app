@@ -27,7 +27,8 @@ test("el catálogo ausente deshabilita tipo, fechas, aclaración y registro", ()
   assert.match(html, /Registrar solicitud<\/button>/u);
   assert.match(html, /disabled aria-disabled="true" title="Registro deshabilitado: faltan catálogo versionado, vínculo de empleado y servicio autorizado\."/u);
   assert.match(html, /Catálogo de permisos no disponible: tipo, cuantía, cómputo, responsable y justificante/u);
-  assert.match(html, /<details class="cronos-permisos-ayuda"><summary>\? Ayuda para esta solicitud<\/summary>/u);
+  assert.match(html, /<details class="cronos-permisos-ayuda"><summary aria-label="\? Ayuda para esta solicitud">\?<\/summary><p>El recorrido tendrá tipo y fechas/u);
+  assert.doesNotMatch(html, /<details class="cronos-permisos-ayuda" open|<summary[^>]*tabindex="-1"/u);
   assert.match(html, /id="cronos-permisos-paso-2-titulo" tabindex="-1"/u);
 });
 
