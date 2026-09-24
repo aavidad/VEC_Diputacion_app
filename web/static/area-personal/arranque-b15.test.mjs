@@ -13,17 +13,18 @@ test("el HTML y los módulos cambiados usan URLs nuevas bajo caché inmutable", 
     readFile(new URL("./aplicacion.js", import.meta.url), "utf8"),
     readFile(new URL("../comun/oportunidades/vista.js", import.meta.url), "utf8"),
   ]);
-  const versionCSS = "20260924-f2-b15-area-v1";
+  const versionCSSArea = "20260924-f2-area-tema-v2";
+  const versionCSSOportunidades = "20260924-f2-b15-area-v1";
   const versionPadre = "20260924-f2-b15-area-v4";
-  for (const ruta of ["/area-personal/area-personal.css", "/comun/oportunidades/oportunidades.css"]) {
-    assert.ok(html.includes(`${ruta}?v=${versionCSS}`), ruta);
-  }
+  assert.ok(html.includes(`/area-personal/area-personal.css?v=${versionCSSArea}`));
+  assert.ok(html.includes(`/comun/oportunidades/oportunidades.css?v=${versionCSSOportunidades}`));
+  assert.ok(!html.includes(`/area-personal/area-personal.css?v=${versionCSSOportunidades}`), "no reutilizar CSS anterior con caché inmutable");
   assert.ok(html.includes(`/area-personal/arranque.js?v=${versionPadre}`));
   assert.ok(arranque.includes(`./aplicacion.js?v=${versionPadre}`));
   assert.ok(arranque.includes('from "./i18n.js"'));
   assert.ok(aplicacion.includes('from "./i18n.js"'));
   assert.doesNotMatch(`${arranque}\n${aplicacion}`, /\.\/i18n\.js\?v=/);
-  assert.ok(aplicacion.includes(`../comun/oportunidades/vista.js?v=${versionCSS}`));
+  assert.ok(aplicacion.includes(`../comun/oportunidades/vista.js?v=${versionCSSOportunidades}`));
   assert.match(vista, /\.\/i18n\.js\?v=20260924-f2-web2/);
   assert.match(arranque, /\.\/cliente-http\.js\?v=20260924-f2-b11-v2/);
 });
