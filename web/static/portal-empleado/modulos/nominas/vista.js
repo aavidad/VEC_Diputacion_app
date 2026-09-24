@@ -65,8 +65,26 @@ export function montarVistaNominas({ raiz, anunciar = () => {}, registrarDesmont
   contenedor.dataset.nominas = "";
   const cabecera = elemento(doc, "header", undefined, "nominas-cabecera");
   cabecera.append(elemento(doc, "h2", t("titulo")), elemento(doc, "p", t("descripcion")));
-  const ayuda = elemento(doc, "details", undefined, "nominas-ayuda");
-  ayuda.append(elemento(doc, "summary", t("ayuda")), elemento(doc, "p", t("ayuda_texto")));
+  const ayuda = elemento(doc, "div", undefined, "nominas-ayuda");
+  const botonAyuda = elemento(doc, "button", "?", "boton boton-secundario nominas-ayuda-boton");
+  botonAyuda.type = "button";
+  botonAyuda.setAttribute("aria-label", t("ayuda"));
+  botonAyuda.setAttribute("aria-expanded", "false");
+  const ayudaTexto = elemento(doc, "p", t("ayuda_texto"));
+  ayudaTexto.id = `nominas-ayuda-${++siguienteDetalleId}`;
+  ayudaTexto.hidden = true;
+  botonAyuda.setAttribute("aria-controls", ayudaTexto.id);
+  botonAyuda.addEventListener("click", () => {
+    ayudaTexto.hidden = !ayudaTexto.hidden;
+    botonAyuda.setAttribute("aria-expanded", String(!ayudaTexto.hidden));
+  });
+  botonAyuda.addEventListener("keydown", (evento) => {
+    if (evento.key !== "Escape" || ayudaTexto.hidden) return;
+    ayudaTexto.hidden = true;
+    botonAyuda.setAttribute("aria-expanded", "false");
+    botonAyuda.focus({ preventScroll: true });
+  });
+  ayuda.append(botonAyuda, ayudaTexto);
   cabecera.append(ayuda);
   const estadoVisible = elemento(doc, "div", undefined, "nominas-estado");
   estadoVisible.setAttribute("role", "status");
@@ -122,7 +140,7 @@ export function montarVistaNominas({ raiz, anunciar = () => {}, registrarDesmont
   }
 
   function pintarDetalle() {
-    const recibo = estado === "disponible" ? recibos.find((r) => r.referencia === seleccion) : null;
+    const recibo = estado === "disponible" ? recibos.find((r) => r.referencia === seleccion && (!periodo || r.periodo === periodo)) : null;
     detalle.seccion.hidden = !recibo;
     detalle.cuerpo.replaceChildren();
     if (!recibo) return;
@@ -150,7 +168,7 @@ export function montarVistaNominas({ raiz, anunciar = () => {}, registrarDesmont
       descarga.setAttribute("aria-busy", "true");
       try {
         const archivo = await validarDocumento(await fuente.descargar(recibo.referencia, { signal: senal }), doc.defaultView);
-        if (!activa || peticion !== secuencia || senal?.aborted || seleccion !== recibo.referencia) return;
+        if (!activa || peticion !== secuencia || senal?.aborted || seleccion !== recibo.referencia || (periodo && recibo.periodo !== periodo)) return;
         const url = doc.defaultView.URL.createObjectURL(archivo.contenido);
         urlsTemporales.add(url);
         const enlace = elemento(doc, "a");
