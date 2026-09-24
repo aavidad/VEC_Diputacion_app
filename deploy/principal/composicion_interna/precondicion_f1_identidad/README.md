@@ -35,7 +35,11 @@ amplía el alcance automáticamente.
 La transacción retira las cuatro concesiones de desarrollo y USAGE PUBLIC de
 los 187 tipos de fila, ejecuta el selector y la fachada, restaura las cuatro
 concesiones con sus opciones, compara todo el subgrafo con la preimagen y
-comprueba privilegios efectivos del selector y del consumidor antes de COMMIT.
+comprueba privilegios efectivos del selector y del consumidor. Captura además
+el inventario de ACL y punteros dentro de la misma transacción: antes del
+COMMIT exige que la postimagen completa coincida con la preimagen excepto por
+la retirada de PUBLIC en los 187 tipos y la aparición del selector/fachada.
+Si falla cualquiera de esas comparaciones, PostgreSQL revierte la transacción.
 El primer recorrido termina con ROLLBACK y compara otra vez el inventario.
 
 ```bash
@@ -116,10 +120,14 @@ python3 "$SCRIPT" --mode commit --database "$BASE" --admin-user "$ADMIN" \
 ```
 
 La copia y la restauración comprobada deben corresponder a la misma preimagen;
-si cambia el inventario, repetirlas. Tras COMMIT, el informe confirma que las
-cuatro membresías volvieron exactamente, no queda USAGE PUBLIC en tipos fila y
-selector/fachada existen. Una versión exacta modificada del procedimiento o de
-sus migraciones reabre las dos revisiones E10.
+si cambia el inventario, repetirlas. Las comprobaciones de ACL, membresías,
+privilegios efectivos y punteros se cierran **antes de COMMIT**; el informe
+posterior es una auditoría adicional. Un acuse de COMMIT seguido de fallo de
+lectura o diferencia posterior produce `resultado: indeterminado` y salida 2,
+sin describir el efecto como rechazado: detener reintentos y reconciliar en
+solo lectura la presencia de selector/fachada, ACL y membresías. Una versión
+exacta modificada del procedimiento o de sus migraciones reabre las dos
+revisiones E10.
 
 ## Ensayo disponible
 
@@ -143,3 +151,9 @@ El dump sintético tuvo SHA256
 ambos CHECK restaurados dieron 0 filas inválidas. Este ensayo muestra una vía
 de corrección que conserva la fila; no determina que el defecto real tenga esa
 causa ni sustituye la restauración integral de globals, ACL, secretos e historia.
+
+La comparación transaccional del inventario también se probó en PostgreSQL
+18.4 con dos instantáneas sintéticas: una transición exacta emitió
+`VERIFICACION_PRECIERRE_OK` dentro de ROLLBACK; una membresía distinta provocó
+error antes del cierre. Una prueba focal simula el acuse de COMMIT y un fallo
+de lectura posterior y comprueba el informe `indeterminado`.

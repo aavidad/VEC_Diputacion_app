@@ -1,7 +1,11 @@
 import importlib.util
+import hashlib
+import json
 from pathlib import Path
+import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 
 FILE = Path(__file__).with_name("precondicion.py")
@@ -42,6 +46,46 @@ class PrecondicionTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 module.exigir_ruta_privada(link / "informe.json")
             module.exigir_ruta_privada(root / "informe.json")
+
+    def test_lectura_posterior_fallida_con_comit_acusado_es_indeterminada(self):
+        inventory = {"membresias": [], "tipos_public": [],
+                     "selector_existente": False, "fachada_existente": False,
+                     "acl_public": [], "base": "sintetica"}
+        digest = hashlib.sha256(json.dumps(
+            inventory, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+        _, rol_hash = module.migracion_sin_transaccion(module.ROL)
+        _, identidad_hash = module.migracion_sin_transaccion(module.IDENTIDAD)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            report = root / "resultado.json"
+            proof = root / "restauracion.json"
+            rollback = root / "ensayo.json"
+            proof.write_text(json.dumps({
+                "verified": True, "source_database": "sintetica",
+                "source_inventory_sha256": digest, "restore_exit_zero": True,
+                "check_validated": True, "backup_sha256": "a" * 64,
+                "restore_manifest_sha256": "b" * 64,
+            }))
+            rollback.write_text(json.dumps({
+                "resultado": "ensayo revertido", "inventario_sha256": digest,
+                "migraciones_sha256": {module.ROL.name: rol_hash,
+                                        module.IDENTIDAD.name: identidad_hash},
+            }))
+            argv = ["precondicion.py", "--mode", "commit", "--database", "sintetica",
+                    "--report", str(report), "--expected-inventory-sha256", digest,
+                    "--restoration-evidence", str(proof), "--rollback-report", str(rollback)]
+            with patch.object(sys, "argv", argv), patch.object(
+                module, "ejecutar", side_effect=[json.dumps(inventory),
+                  "VERIFICACION_PRECIERRE_OK\nCOMMIT_CONFIRMADO",
+                  RuntimeError("lectura posterior fallida")]
+            ) as fake:
+                with self.assertRaises(module.EstadoIndeterminado):
+                    module.main()
+            self.assertEqual(fake.call_count, 3)
+            self.assertIn("VERIFICACION_PRECIERRE_OK", fake.call_args_list[1].args[1])
+            self.assertLess(fake.call_args_list[1].args[1].index("VERIFICACION_PRECIERRE_OK"),
+                            fake.call_args_list[1].args[1].index("COMMIT;"))
+            self.assertEqual(json.loads(report.read_text())["resultado"], "indeterminado")
 
 
 if __name__ == "__main__":

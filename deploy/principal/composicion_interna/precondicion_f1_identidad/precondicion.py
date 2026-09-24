@@ -118,6 +118,11 @@ WITH roles AS (
  FROM pg_catalog.pg_tablespace s,
  LATERAL pg_catalog.aclexplode(s.spcacl) a WHERE a.grantee=0
  UNION ALL
+ SELECT 'lenguaje', l.lanname
+ FROM pg_catalog.pg_language l,
+ LATERAL pg_catalog.aclexplode(l.lanacl) a
+ WHERE l.oid>=16384 AND a.grantee=0
+ UNION ALL
  SELECT 'parametro', p.parname
  FROM pg_catalog.pg_parameter_acl p,
  LATERAL pg_catalog.aclexplode(p.paracl) a WHERE a.grantee=0
@@ -136,7 +141,7 @@ SELECT pg_catalog.jsonb_build_object(
  'selector_existente',pg_catalog.to_regrole('vec_contexto_actor_corporativo_rrhh_selector') IS NOT NULL,
  'fachada_existente',pg_catalog.to_regprocedure(
   'vec_identidad_sesiones_v1.revalidar_contexto_corporativo_rrhh_v1(text,text)') IS NOT NULL
-)::text;
+)::text AS inventario_json;
 """
 
 
@@ -290,8 +295,36 @@ BEGIN
        'EXECUTE')
  THEN RAISE EXCEPTION 'privilegios efectivos inesperados después de restaurar grafo'; END IF;
 END $restaurar$;
-SELECT 'VERIFICACION_POSTERIOR_OK';
 """
+
+
+POST_ASSERT = r"""
+DO $inventario_final$
+DECLARE anterior jsonb;
+DECLARE posterior jsonb;
+DECLARE esperado jsonb;
+DECLARE acl_sin_tipos jsonb;
+BEGIN
+ SELECT inventario_json::jsonb INTO STRICT anterior FROM vec_pre_inventario;
+ SELECT inventario_json::jsonb INTO STRICT posterior FROM vec_post_inventario;
+ SELECT coalesce(jsonb_agg(item ORDER BY item->>'clase',item->>'objeto'),'[]'::jsonb)
+   INTO acl_sin_tipos
+   FROM pg_catalog.jsonb_array_elements(anterior->'acl_public') AS item
+  WHERE item->>'clase'<>'tipo';
+ esperado := pg_catalog.jsonb_set(anterior,'{tipos_public}','[]'::jsonb);
+ esperado := pg_catalog.jsonb_set(esperado,'{acl_public}',acl_sin_tipos);
+ esperado := pg_catalog.jsonb_set(esperado,'{selector_existente}','true'::jsonb);
+ esperado := pg_catalog.jsonb_set(esperado,'{fachada_existente}','true'::jsonb);
+ IF posterior IS DISTINCT FROM esperado THEN
+   RAISE EXCEPTION 'inventario completo de ACL, membresías o punteros distinto antes del cierre';
+ END IF;
+END $inventario_final$;
+SELECT 'VERIFICACION_PRECIERRE_OK';
+"""
+
+
+class EstadoIndeterminado(RuntimeError):
+    """La transacción pudo confirmarse; hace falta reconciliación de solo lectura."""
 
 
 def ejecutar(args: argparse.Namespace, sql: str) -> str:
@@ -315,6 +348,16 @@ def escribir_informe(path: Path, report: dict) -> None:
         os.fchmod(target.fileno(), 0o600)
         json.dump(report, target, indent=2, ensure_ascii=False, sort_keys=True)
         target.write("\n")
+
+
+def estado_indeterminado(path: Path, report: dict, motivo: str) -> None:
+    report["resultado"] = "indeterminado"
+    report["motivo"] = motivo
+    try:
+        escribir_informe(path, report)
+    except OSError:
+        pass
+    raise EstadoIndeterminado(motivo)
 
 
 def exigir_ruta_privada(path: Path) -> None:
@@ -414,25 +457,59 @@ def main() -> int:
         report["migraciones_sha256"] = {ROL.name: rol_hash, IDENTIDAD.name: identidad_hash}
         if args.mode == "commit" and rollback.get("migraciones_sha256") != report["migraciones_sha256"]:
             raise ValueError("el ensayo usó otros bytes de las migraciones")
-        tail = "COMMIT;" if args.mode == "commit" else "ROLLBACK;"
-        script = "BEGIN;\n" + PREPARAR + "\n" + rol_sql + "\n" + identidad_sql
-        script += "\n" + FINALIZAR + "\n" + tail + "\n"
-        out = ejecutar(args, script)
-        if "VERIFICACION_POSTERIOR_OK" not in out:
-            raise RuntimeError("falta marcador de verificación anterior al cierre")
-        posterior = json.loads(ejecutar(args, INVENTARIO))
+        pre_json = json.dumps(inventory, sort_keys=True, separators=(",", ":"))
+        pre_hex = pre_json.encode("utf-8").hex()
+        pre_assert = f"""DO $preimagen_externa$ BEGIN
+ IF (SELECT inventario_json::jsonb FROM vec_pre_inventario)
+    IS DISTINCT FROM pg_catalog.convert_from(
+      pg_catalog.decode('{pre_hex}','hex'),'UTF8')::jsonb
+ THEN RAISE EXCEPTION 'preimagen transaccional distinta del inventario revisado'; END IF;
+END $preimagen_externa$;\n"""
+        tail = "COMMIT;\nSELECT 'COMMIT_CONFIRMADO';" if args.mode == "commit" else \
+            "ROLLBACK;\nSELECT 'ROLLBACK_CONFIRMADO';"
+        script = ("BEGIN;\nCREATE TEMP TABLE vec_pre_inventario ON COMMIT DROP AS\n"
+                  + INVENTARIO + "\n" + pre_assert + PREPARAR + "\n" + rol_sql
+                  + "\n" + identidad_sql + "\n" + FINALIZAR
+                  + "\nCREATE TEMP TABLE vec_post_inventario ON COMMIT DROP AS\n"
+                  + INVENTARIO + "\n" + POST_ASSERT + "\n" + tail + "\n")
+        try:
+            out = ejecutar(args, script)
+        except RuntimeError as exc:
+            if args.mode == "commit":
+                estado_indeterminado(args.report, report,
+                                    "falló la sesión que pudo enviar COMMIT; reconciliar el estado de la base")
+            raise exc
+        cierre = "COMMIT_CONFIRMADO" if args.mode == "commit" else "ROLLBACK_CONFIRMADO"
+        if "VERIFICACION_PRECIERRE_OK" not in out or cierre not in out:
+            if args.mode == "commit":
+                estado_indeterminado(args.report, report,
+                                    "falta acuse de verificación o COMMIT; reconciliar el estado de la base")
+            raise RuntimeError("falta acuse de verificación o ROLLBACK")
+        try:
+            posterior = json.loads(ejecutar(args, INVENTARIO))
+        except (RuntimeError, ValueError, json.JSONDecodeError):
+            if args.mode == "commit":
+                estado_indeterminado(args.report, report,
+                                    "COMMIT acusado; falló lectura posterior de auditoría")
+            raise
         if args.mode == "rollback" and posterior != inventory:
             raise RuntimeError("ROLLBACK no restituyó el inventario exacto")
         if args.mode == "commit" and (
-                posterior["membresias"] != inventory["membresias"]
-                or posterior["tipos_public"]
-                or not posterior["selector_existente"]
-                or not posterior["fachada_existente"]):
-            raise RuntimeError("postimagen confirmada distinta de la esperada")
+                posterior.get("membresias") != inventory["membresias"]
+                or posterior.get("tipos_public") != []
+                or posterior.get("selector_existente") is not True
+                or posterior.get("fachada_existente") is not True):
+            estado_indeterminado(args.report, report,
+                                "COMMIT acusado; lectura posterior difiere de la verificación transaccional")
         report["postinventario_sha256"] = hashlib.sha256(
             json.dumps(posterior, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
         report["resultado"] = "confirmado" if args.mode == "commit" else "ensayo revertido"
-    escribir_informe(args.report, report)
+    try:
+        escribir_informe(args.report, report)
+    except OSError:
+        if args.mode == "commit" and report["resultado"] == "confirmado":
+            raise EstadoIndeterminado("COMMIT acusado; no pudo persistirse el informe final")
+        raise
     print(json.dumps({"modo": args.mode, "resultado": report["resultado"],
                       "inventario_sha256": inventory_hash}))
     return 0
@@ -441,6 +518,9 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         sys.exit(main())
+    except EstadoIndeterminado as exc:
+        print(f"estado indeterminado: {exc}", file=sys.stderr)
+        sys.exit(2)
     except (OSError, ValueError, RuntimeError, json.JSONDecodeError) as exc:
         print(f"precondición rechazada: {exc}", file=sys.stderr)
         sys.exit(1)
