@@ -1476,6 +1476,65 @@
   box-shadow: var(--portal-sombra-sm);
 }
 
+.modulo-dietas.dietas-recorridos .dietas-recorridos-acceso {
+  min-width: 0;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio-lg);
+  background: var(--portal-superficie);
+  box-shadow: var(--portal-sombra-sm);
+}
+
+.modulo-dietas.dietas-recorridos .dietas-recorridos-acceso > summary {
+  padding: .75rem 1rem;
+  color: var(--portal-azul-800);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.modulo-dietas.dietas-recorridos .dietas-recorridos-acceso > summary:focus-visible {
+  outline: 2px solid var(--portal-azul-700);
+  outline-offset: -2px;
+}
+
+.modulo-dietas.dietas-recorridos .dietas-recorridos-acceso > [data-dietas-area-acceso] {
+  max-height: min(46vh, 26rem);
+  overflow: auto;
+  overscroll-behavior: contain;
+  border-top: 1px solid var(--portal-borde);
+}
+
+.modulo-dietas.dietas-recorridos .dietas-acceso-papeles {
+  padding: 1rem;
+  background: var(--portal-fondo);
+}
+
+.modulo-dietas.dietas-recorridos .dietas-acceso-papeles .rejilla-modulos {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin-top: 1rem;
+}
+
+.modulo-dietas.dietas-recorridos .dietas-acceso-papeles .tarjeta-modulo {
+  min-height: 10rem;
+}
+
+.modulo-dietas .dietas-vehiculo-propio {
+  padding: .75rem 1rem;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio);
+  background: var(--portal-superficie-alterna);
+}
+
+.modulo-dietas .dietas-vehiculo-propio p {
+  margin: .3rem 0 0;
+  color: var(--portal-muted);
+}
+
+@media (max-width: 1199px) {
+  .modulo-dietas.dietas-recorridos .dietas-acceso-papeles .rejilla-modulos {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .modulo-dietas.dietas-recorridos .dietas-recorridos-pasos button {
   min-height: 2.75rem;
   padding-inline: .85rem;
@@ -1628,6 +1687,7 @@
 @media (max-width: 760px) {
   .modulo-dietas.dietas-recorridos { padding: .5rem; }
   .modulo-dietas.dietas-recorridos .dietas-recorridos-pasos { grid-template-columns: 1fr; }
+  .modulo-dietas.dietas-recorridos .dietas-acceso-papeles .rejilla-modulos { grid-template-columns: 1fr; }
   .modulo-dietas.dietas-recorridos .dietas-recorridos-cabecera-acciones { justify-content: flex-start; }
   .modulo-dietas.dietas-recorridos .dietas-recorridos-revision { padding: .5rem; }
 }

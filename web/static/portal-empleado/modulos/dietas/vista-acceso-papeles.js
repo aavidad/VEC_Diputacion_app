@@ -1,4 +1,4 @@
-import { crearTraductorD1Dietas } from "./i18n-d1.js";
+import { crearTraductorD1Dietas } from "./i18n-d1.js?v=20260924-dietas-d1d2d4";
 
 const PAPELES = Object.freeze([
   Object.freeze({ codigo: "empleado", nombre: "d1_empleado", tarea: "d1_empleado_tarea" }),
@@ -32,7 +32,7 @@ export function montarVistaAccesoPapelesDietas(contenedor, {
   const documento = contenedor.ownerDocument;
   const t = crearTraductorD1Dietas(traducir);
   const raiz = nodo(documento, "section");
-  raiz.className = "modulo-dietas dietas-recorridos";
+  raiz.className = "modulo-dietas dietas-acceso-papeles";
   raiz.dataset.dietasAccesoPapeles = "";
   raiz.setAttribute("aria-label", t("d1_titulo"));
 
