@@ -280,26 +280,61 @@ rm -f /tmp/vec_p7_$$_*
 [[ $exitos == 1 ]] || fallo "concurrencia devolvió respuestas distintas ($exitos)"
 ok 'misma operación concurrente: un registro, una respuesta'
 
-# Concurrencia 2: revocación en curso mientras se resuelve. La resolución
-# espera el bloqueo de Personal antes del reloj; si firma con la versión
-# anterior, la acreditación posterior en su instante autoritativo la anula.
-oca_r=$(nueva_ref)
-( admin_valor "BEGIN; SET LOCAL ROLE vec_personal_propietario;
-    SELECT version FROM vec_personal.publicar_proyeccion_empleado_persona_v1('pep_sintetica_alcance_e4_00000000000001',2,'$P',
-      'emp_sintetico_alcance_e4_00000000000001','revocada',date_trunc('day',clock_timestamp())-interval '1 day',
+revocar_lento() { # pep emp: revoca la versión 2 y duerme 2 s antes de COMMIT
+  admin_valor "BEGIN; SET LOCAL ROLE vec_personal_propietario;
+    SELECT version FROM vec_personal.publicar_proyeccion_empleado_persona_v1('$1',2,'$P',
+      '$2','revocada',date_trunc('day',clock_timestamp())-interval '1 day',
       date_trunc('day',clock_timestamp())+interval '400 days','error_material','prc_personal_sintetica_p7_0000000000001',1,repeat('c',64));
-    SELECT pg_sleep(2); COMMIT;" >/dev/null ) &
+    SELECT pg_sleep(2); COMMIT;" >/dev/null
+}
+# Concurrencia 2: revocación en curso mientras se resuelve. La instantánea
+# SERIALIZABLE de la resolución es anterior al COMMIT de la revocación: tras
+# esperar el consultivo, la generación de Personal fuerza 40001; nunca firma
+# con la versión revocada.
+oca_r=$(nueva_ref)
+( revocar_lento pep_sintetica_alcance_e4_00000000000001 emp_sintetico_alcance_e4_00000000000001 ) &
 sleep 0.7
 rc=$(resolver p '{empleado}' "$oca_r" || true)
 wait
 if [[ $rc == *'|'* ]]; then
   [[ -z $(acreditar "$oca_r") ]] || fallo 'firma concurrente con versión revocada siguió acreditándose'
   ok 'revocación concurrente: firmado antes, uso posterior anulado'
+elif [[ $rc == *'could not serialize'* ]]; then
+  [[ $(admin_valor "SELECT count(*) FROM vec_contexto_actor_v1.registros_contexto WHERE operacion_ref='oca_$oca_r'") == 0 ]] \
+    || fallo 'resolución con 40001 dejó registro'
+  salida=$(resolver p '{empleado}' "$oca_r" || true)
+  exigir_error 'reintento tras 40001' 'sin empleado canonico' "$salida"
+  ok 'revocación concurrente: resolución con instantánea previa da 40001 y el reintento deniega'
 else
   exigir_error 'revocación concurrente' 'sin empleado canonico' "$rc"
   ok 'revocación concurrente: resolución posterior deniega'
 fi
 exigir_ct 'tras concurrencia'
+
+# Concurrencia 3 (E10 P1): acreditación concurrente con la revocación. La
+# acreditación toma su instantánea mientras la revocación duerme sin
+# confirmar, espera el consultivo y no puede devolver un instante válido
+# posterior a la revocación ya confirmada: 40001 o denegación.
+publicar pep_sintetica_alcance_e6_00000000000001 1 emp_sintetico_alcance_e6_00000000000001 activa
+oca_a=$(nueva_ref)
+ra=$(resolver p '{empleado}' "$oca_a") || fallo "empleado e6: $ra"
+[[ -n $(acreditar "$oca_a") ]] || fallo 'acreditación de e6 antes de revocar'
+( revocar_lento pep_sintetica_alcance_e6_00000000000001 emp_sintetico_alcance_e6_00000000000001 ) &
+sleep 0.7
+ac=$(acreditar "$oca_a" 2>&1 || true)
+wait
+[[ $(admin_valor "SELECT estado FROM vec_personal.proyeccion_empleado_persona_historia
+  WHERE proyeccion_ref='pep_sintetica_alcance_e6_00000000000001' ORDER BY version DESC LIMIT 1") == revocada ]] \
+  || fallo 'la revocación lenta de e6 no se confirmó'
+if [[ $ac == *'could not serialize'* ]]; then
+  ok 'acreditación concurrente con revocación: 40001'
+elif [[ -z $ac ]]; then
+  ok 'acreditación concurrente con revocación: denegada'
+else
+  fallo "acreditación concurrente devolvió un instante tras la revocación: $ac"
+fi
+[[ -z $(acreditar "$oca_a") ]] || fallo 'reintento de acreditación tras revocar e6'
+exigir_ct 'tras acreditación concurrente'
 
 # Subdecisión: no hay altas nuevas de punteros de empleado; los existentes
 # conservan historia y admiten versiones nuevas.

@@ -19,6 +19,13 @@
 --   reconciliación y acreditar_uso lo reconstruyen exactamente.
 -- * acreditar_uso vuelve a consultar Personal en su instante autoritativo:
 --   revocación, baja, caducidad o cambio de versión anulan el uso posterior.
+-- * Instantánea obsoleta: resolutor y acreditación son SERIALIZABLE y la
+--   historia de Personal es de solo adición, así que esperar al publicador en
+--   el consultivo no basta (se leería el estado anterior a una revocación ya
+--   confirmada). Ambos llaman antes del reloj a la barrera de Personal
+--   vec_personal.bloquear_generacion_proyeccion_empleado_persona_v1, que toma
+--   con FOR SHARE la generación de la persona: una publicación confirmada
+--   después de la instantánea devuelve 40001 y el llamante reintenta.
 --
 -- Subdecisión (consenso 25/09/2026): se cierran las altas nuevas de punteros
 -- vinculo_referencia de tipo empleado en el núcleo. Los existentes se conservan
@@ -40,7 +47,7 @@ SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
   'vec_contexto_actor_v1:migracion:alcance_proyecciones:v1',0));
 DO $preimagen$
 DECLARE
-  r oid; c oid; a oid; e oid; pe oid;
+  r oid; c oid; a oid; e oid; pe oid; pb oid;
   propietario oid := 'vec_contexto_actor_v1_propietario'::regrole;
   runtime oid := 'vec_contexto_actor_v1_runtime'::regrole;
   personal oid := pg_catalog.to_regrole('vec_personal_propietario');
@@ -55,6 +62,7 @@ BEGIN
   a := pg_catalog.to_regprocedure('vec_contexto_actor_v1.acreditar_uso_registro_contexto_actor_v2(text,text,text,text,text,text,numeric,text,numeric,text,numeric,text,numeric,text,text,timestamptz,timestamptz)');
   e := pg_catalog.to_regprocedure('vec_contexto_actor_v1.exigir_runtime_contexto_actor_v1()');
   pe := pg_catalog.to_regprocedure('vec_personal.resolver_empleado_canonico_persona_v1(text,timestamptz)');
+  pb := pg_catalog.to_regprocedure('vec_personal.bloquear_generacion_proyeccion_empleado_persona_v1(text)');
   IF r IS NULL OR c IS NULL OR a IS NULL OR e IS NULL OR consumidor IS NULL
      OR pg_catalog.to_regprocedure('vec_contexto_actor_v1.resolver_y_registrar_contexto_actor_v2(text,text,text,text,text,text,timestamptz,text[])') IS NOT NULL
      OR pg_catalog.to_regprocedure('vec_contexto_actor_v1.reconciliar_contexto_actor_v2(text,text,text,text,text,text,timestamptz,text[])') IS NOT NULL
@@ -95,18 +103,21 @@ BEGIN
   END IF;
   -- Contrato de Personal 000016: función exacta, propia de Personal, sin
   -- consumidores concedidos todavía.
-  IF personal IS NULL OR pe IS NULL
+  IF personal IS NULL OR pe IS NULL OR pb IS NULL
      OR (SELECT pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(prosrc,'UTF8')),'hex')
            FROM pg_catalog.pg_proc WHERE oid=pe) <> 'ee33f00aee1cfdacfad434125265f8c407c9679cd6e11da9a8dd31355db2d52a'
+     OR (SELECT pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(prosrc,'UTF8')),'hex')
+           FROM pg_catalog.pg_proc WHERE oid=pb) <> '1b2438dceb621d1095db73871fe64e9aa1ced15f8bb1cefe0cb58fdbdd41c739'
      OR EXISTS (
-       SELECT 1 FROM pg_catalog.pg_proc p WHERE p.oid=pe
+       SELECT 1 FROM pg_catalog.pg_proc p WHERE p.oid IN (pe,pb)
          AND (p.proowner <> personal OR NOT p.prosecdef
               OR p.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog','row_security=on']::text[]
               OR EXISTS (
                 SELECT 1 FROM pg_catalog.aclexplode(coalesce(p.proacl,
                   pg_catalog.acldefault('f',p.proowner))) acl
                 WHERE acl.grantee <> personal)))
-     OR pg_catalog.has_function_privilege(propietario,pe,'EXECUTE') THEN
+     OR pg_catalog.has_function_privilege(propietario,pe,'EXECUTE')
+     OR pg_catalog.has_function_privilege(propietario,pb,'EXECUTE') THEN
     RAISE EXCEPTION 'contrato Personal 000016 ausente o divergente' USING ERRCODE='55000';
   END IF;
 END
@@ -114,12 +125,15 @@ $preimagen$;
 
 -- Concesión nominal mínima de Personal: solo el propietario de ContextoActor,
 -- que ejecuta el resolutor y la acreditación como SECURITY DEFINER, puede
--- invocar la lectura gobernada. Ni runtime ni PUBLIC la reciben.
+-- invocar la lectura gobernada y su barrera. Ni runtime ni PUBLIC las reciben.
 SET LOCAL ROLE vec_personal_propietario;
 SET LOCAL search_path = pg_catalog;
 REVOKE ALL ON FUNCTION vec_personal.resolver_empleado_canonico_persona_v1(text,timestamptz) FROM PUBLIC;
+REVOKE ALL ON FUNCTION vec_personal.bloquear_generacion_proyeccion_empleado_persona_v1(text) FROM PUBLIC;
 GRANT USAGE ON SCHEMA vec_personal TO vec_contexto_actor_v1_propietario;
 GRANT EXECUTE ON FUNCTION vec_personal.resolver_empleado_canonico_persona_v1(text,timestamptz)
+  TO vec_contexto_actor_v1_propietario;
+GRANT EXECUTE ON FUNCTION vec_personal.bloquear_generacion_proyeccion_empleado_persona_v1(text)
   TO vec_contexto_actor_v1_propietario;
 RESET ROLE;
 
@@ -278,15 +292,16 @@ BEGIN
        JOIN vec_contexto_actor_v1.vinculo_contexto_versiones vv USING (vinculo_ref,version)
        WHERE vv.cuenta_ref=p_cuenta_ref AND vv.perfil_ref=p_perfil_ref
      ) ORDER BY ra.vinculo_ref FOR UPDATE OF ra;
-    -- La lectura de Personal toma su propio bloqueo compartido por persona; se
-    -- adquiere aquí, antes del reloj, igual que los punteros del núcleo.
+    -- Barrera de Personal antes del reloj y antes de leer su historia:
+    -- consultivo compartido por persona y generación FOR SHARE. Una
+    -- publicación confirmada tras la instantánea SERIALIZABLE provoca 40001.
     IF pide_empleado THEN
         SELECT pv.persona_ref INTO persona_perfil
           FROM vec_contexto_actor_v1.perfil_actual pa
           JOIN vec_contexto_actor_v1.perfil_versiones pv USING (perfil_ref,version)
          WHERE pa.perfil_ref=p_perfil_ref;
         IF persona_perfil IS NOT NULL THEN
-            PERFORM 1 FROM vec_contexto_actor_v1.proyeccion_empleado_personal_v2(persona_perfil,p_solicitado_en);
+            PERFORM vec_personal.bloquear_generacion_proyeccion_empleado_persona_v1(persona_perfil);
         END IF;
     END IF;
 
@@ -748,10 +763,11 @@ BEGIN
      WHERE control_id = true
      FOR SHARE;
 
-    -- Bloqueo compartido de Personal por persona antes del reloj.
+    -- Barrera de Personal antes del reloj: el consultivo solo ordena frente
+    -- al publicador; la generación FOR SHARE impide acreditar con la
+    -- instantánea anterior a una publicación ya confirmada (40001).
     IF pide_empleado THEN
-        PERFORM 1 FROM vec_contexto_actor_v1.proyeccion_empleado_personal_v2(
-            p_persona_ref, p_emitida_en);
+        PERFORM vec_personal.bloquear_generacion_proyeccion_empleado_persona_v1(p_persona_ref);
     END IF;
 
     ahora := pg_catalog.clock_timestamp();
@@ -1121,14 +1137,17 @@ $inventario$;
 DO $postimagen$
 DECLARE runtime oid := 'vec_contexto_actor_v1_runtime'::regrole;
         pe oid := 'vec_personal.resolver_empleado_canonico_persona_v1(text,timestamptz)'::regprocedure;
+        pb oid := 'vec_personal.bloquear_generacion_proyeccion_empleado_persona_v1(text)'::regprocedure;
 BEGIN
     IF (SELECT count(*) FROM pg_catalog.pg_proc p
           WHERE p.pronamespace = 'vec_contexto_actor_v1'::regnamespace
             AND pg_catalog.has_function_privilege(runtime, p.oid, 'EXECUTE')) <> 5
        OR pg_catalog.has_function_privilege(runtime, pe, 'EXECUTE')
+       OR pg_catalog.has_function_privilege(runtime, pb, 'EXECUTE')
        OR NOT pg_catalog.has_function_privilege('vec_contexto_actor_v1_propietario', pe, 'EXECUTE')
+       OR NOT pg_catalog.has_function_privilege('vec_contexto_actor_v1_propietario', pb, 'EXECUTE')
        OR EXISTS (SELECT 1 FROM pg_catalog.pg_proc p, pg_catalog.aclexplode(p.proacl) acl
-                   WHERE p.oid = pe AND acl.grantee = 0) THEN
+                   WHERE p.oid IN (pe, pb) AND acl.grantee = 0) THEN
         RAISE EXCEPTION 'postimagen ContextoActor 000007 divergente' USING ERRCODE='55000';
     END IF;
 END
