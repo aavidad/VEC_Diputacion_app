@@ -308,9 +308,9 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
   async function seleccionarTodoElFiltro(estados) {
     invalidarSeleccionMasiva();
     const flujo = estado.filtrosBolsa?.nuevo_llamamiento;
-    if (!flujo || flujo.paso !== 2) return;
+    if (!flujo || flujo.paso !== 2 || flujo.acceso_denegado) return;
     if (!estados.length) {
-      flujo.error = "Seleccione al menos un estado antes de consultar la bolsa.";
+      flujo.error = traducirBolsaInterna("b7_estados_obligatorios");
       renderizar();
       documento.querySelector("[data-b7-seleccion-error]")?.focus?.();
       return;
@@ -350,10 +350,27 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
       flujo.ordenSeleccion = {};
       flujo.totalElegibles = null;
       flujo.seleccion_total = false;
-      flujo.error = resultado.status === 403 ? "Permiso denegado al consultar candidatos. No se ha seleccionado nadie." : resultado.status === 409 ? resultado.mensaje : `No se pudo completar la consulta: ${resultado.mensaje || "error de lectura"}`;
+      flujo.error = [401, 403].includes(resultado.status) ? traducirBolsaInterna("b7_seleccion_denegada") : resultado.status === 409 ? resultado.mensaje : traducirBolsaInterna("b7_consulta_fallida", { motivo: resultado.mensaje || traducirBolsaInterna("b7_error_lectura") });
+      if ([401, 403].includes(resultado.status)) retirarCandidatosDenegados(flujo.error);
     }
     renderizar();
     documento.querySelector(resultado.ok ? '[data-bolsa-accion="b7-seleccionar-todas"]' : '[data-b7-seleccion-error]')?.focus?.();
+  }
+  function retirarCandidatosDenegados(mensaje) {
+    invalidarSeleccionMasiva();
+    // Una lectura anterior no puede restaurar datos tras perder autorización.
+    for (const clave of ["candidatos", "contactos"]) {
+      controladoresLectura.get(clave)?.abort();
+      controladoresLectura.delete(clave);
+    }
+    estado.modalFicha?.controladorOperaciones?.abort();
+    estado.modalFicha = null;
+    estado.modalContactos = null;
+    estado.modalLlamar = null;
+    estado.modalResultado = null;
+    const flujo = estado.filtrosBolsa?.nuevo_llamamiento;
+    if (flujo) flujo.acceso_denegado = true;
+    estado.datosCandidatos = { carga: "denegado", datos: null, error: mensaje };
   }
   const controladorOperacionesB8 = crearControladorOperacionesSituacion({
     estado,
@@ -427,7 +444,8 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
   function cancelarPeticiones() {
     // El POST de emisión no es cancelable: conservar su flujo permite recuperar
     // el recibo al volver a Bolsa aunque se abandone la vista durante la espera.
-    if (!estado.filtrosBolsa?.nuevo_llamamiento?.enviando) invalidarSeleccionMasiva();
+    const flujo = estado.filtrosBolsa?.nuevo_llamamiento;
+    if (!flujo?.enviando && !flujo?.clave_idempotencia) invalidarSeleccionMasiva();
     estado.modalFicha?.controladorOperaciones?.abort();
     for (const controlador of controladoresLectura.values()) controlador.abort();
     controladoresLectura.clear();
@@ -436,7 +454,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
 
   function sincronizarPaginaB7(formulario) {
     const flujo = estado.filtrosBolsa?.nuevo_llamamiento;
-    if (!flujo || !formulario || flujo.consultando) return;
+    if (!flujo || !formulario || flujo.consultando || flujo.acceso_denegado) return;
     const visibles = (estado.datosCandidatos?.datos?.candidatos || []).filter((candidata) => flujo.estados.includes(candidata.estado_clave) && Number.isSafeInteger(candidata.orden));
     const pagina = Math.max(0, Math.min(Number(flujo.pagina) || 0, Math.max(0, Math.ceil(visibles.length / 6) - 1)));
     const presentes = visibles.slice(pagina * 6, pagina * 6 + 6);
@@ -491,8 +509,9 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     terminarLectura("candidatos", controlador);
     if (res.ok) {
       estado.datosCandidatos = { carga: "listo", datos: res.datos, error: "" };
-    } else if (res.status === 403) {
-      estado.datosCandidatos = { carga: "denegado", datos: null, error: res.mensaje };
+      if (estado.filtrosBolsa?.nuevo_llamamiento) estado.filtrosBolsa.nuevo_llamamiento.acceso_denegado = false;
+    } else if ([401, 403].includes(res.status)) {
+      retirarCandidatosDenegados(res.mensaje);
     } else {
       estado.datosCandidatos = { carga: "error", datos: null, error: res.mensaje };
     }
@@ -769,7 +788,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
       } else if (accion === "b7-revisar-configuracion") {
         evento.preventDefault();
         const flujo = estado.filtrosBolsa?.nuevo_llamamiento;
-        if (!flujo || flujo.enviando) return;
+        if (!flujo || flujo.enviando || flujo.acceso_denegado) return;
         flujo.paso = 3;
         renderizar();
       } else if (accion === "b7-volver-seleccion") {
@@ -799,29 +818,30 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
       if (paso2) {
         evento.preventDefault(); const datos = new FormData(paso2);
         const flujo = estado.filtrosBolsa.nuevo_llamamiento;
-        if (flujo.consultando) return;
+        if (flujo.consultando || flujo.acceso_denegado) return;
         const estados = datos.getAll("estado").map(String);
         if (flujo.seleccion_total && estados.join("|") !== flujo.estados.join("|")) {
           invalidarSeleccionMasiva();
-          flujo.error = "Los estados cambiaron. Vuelva a seleccionar los candidatos.";
+          flujo.error = traducirBolsaInterna("b7_estados_cambiados");
           renderizar(); return;
         }
         if (!flujo.seleccion_total) sincronizarPaginaB7(paso2);
         const seleccion = [...flujo.participaciones];
         if (!seleccion.length) { estado.filtrosBolsa.nuevo_llamamiento.error = "Seleccione al menos un candidato."; renderizar(); return; }
-        if (seleccion.length > 100) { flujo.error = "El límite por envío es de 100 candidatos."; renderizar(); return; }
+        if (seleccion.length > 100) { flujo.error = traducirBolsaInterna("b7_limite_envio"); renderizar(); return; }
         Object.assign(flujo, { paso: 3, estados, participaciones: seleccion, error: "", seleccion_total: false }); renderizar(); return;
       }
       const paso3 = evento.target?.closest?.('[data-bolsa-form="b7-paso3"]');
       if (paso3) {
         evento.preventDefault(); const datos = new FormData(paso3); const get = n => String(datos.get(n)||"").trim();
         const flujo = estado.filtrosBolsa.nuevo_llamamiento;
+        if (flujo.acceso_denegado) return;
         const configuracion = { referencia:get("referencia"), descripcion:get("descripcion"), categoria:get("categoria"), centro:get("centro"), modalidad:get("modalidad"), fecha_inicio:get("fecha_inicio"), plazo:get("plazo"), plantilla_version:get("plantilla_version"), asunto:get("asunto"), cuerpo:"" };
         configuracion.cuerpo = `${get("cuerpo")}\n\nReferencia: ${configuracion.referencia}\nCategoría: ${configuracion.categoria}\nCentro: ${configuracion.centro}\nModalidad: ${configuracion.modalidad}\nFecha prevista: ${configuracion.fecha_inicio}\nPlazo provisional: ${configuracion.plazo}`;
         flujo.cuerpoBorrador = get("cuerpo");
         flujo.configuracion = configuracion;
         if (configuracion.cuerpo.length > 4000) {
-          flujo.error = "El texto final del correo supera 4000 caracteres. Reduzca el mensaje antes de continuar.";
+          flujo.error = traducirBolsaInterna("b7_cuerpo_excesivo");
           renderizar(); return;
         }
         flujo.error = "";
@@ -832,9 +852,9 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
       const paso4 = evento.target?.closest?.('[data-bolsa-form="b7-paso4"]');
       if (paso4) {
         evento.preventDefault(); const datos = new FormData(paso4); const flujo=estado.filtrosBolsa.nuevo_llamamiento;
-        if (!datos.get("confirmacion") || flujo.enviando || flujo.recibo) return;
+        if (!datos.get("confirmacion") || flujo.enviando || flujo.recibo || flujo.acceso_denegado) return;
         if (!flujo.participaciones?.length || flujo.participaciones.length > 100 || Number(paso4.dataset.cantidad) !== flujo.participaciones.length) {
-          flujo.error = "La selección ha cambiado. Revise el número de candidatos antes de confirmar.";
+          flujo.error = traducirBolsaInterna("b7_seleccion_cambiada");
           renderizar(); return;
         }
         flujo.enviando=true; flujo.error=""; flujo.error_422=false; flujo.clave_idempotencia ||= globalThis.crypto?.randomUUID?.() || `llamamiento-${Date.now()}-${Math.random().toString(16).slice(2)}`; renderizar();
@@ -851,7 +871,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
             flujo.llamamiento_ref = "";
             flujo.clave_idempotencia = "";
             flujo.error_422 = true;
-            flujo.error = "El servidor rechazó la emisión (422). Revise la configuración o actualice la selección según la bolsa vigente.";
+            flujo.error = traducirBolsaInterna("b7_emision_rechazada");
           } else {
             flujo.error = res.mensaje;
           }

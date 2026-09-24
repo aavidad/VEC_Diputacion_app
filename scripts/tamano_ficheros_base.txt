@@ -90,6 +90,6 @@
 829 web/static/portal-empleado/portal-modulos-coordinador.test.mjs
 928 web/static/portal-empleado/portal-componentes.css
 950 web/static/portal-empleado/portal.js
-1027 web/static/portal-empleado/portal-bolsas-api.js
+1047 web/static/portal-empleado/portal-bolsas-api.js
 824 web/static/portal-empleado/portal-panel-interno.js
 3053 web/static/styles.css

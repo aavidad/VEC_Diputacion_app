@@ -67,6 +67,15 @@ export const traducirPortal = crearTraductorPortal();
 
 /** Textos comunes de las vistas internas de Bolsa. */
 export const MENSAJES_BOLSA_INTERNA_ES = Object.freeze({
+  b7_seleccion_denegada: "Permiso denegado al consultar candidatos. Se han retirado los datos y la selección.",
+  b7_consulta_fallida: "No se pudo completar la consulta: {motivo}",
+  b7_error_lectura: "error de lectura",
+  b7_estados_obligatorios: "Seleccione al menos un estado antes de consultar la bolsa.",
+  b7_estados_cambiados: "Los estados cambiaron. Vuelva a seleccionar los candidatos.",
+  b7_limite_envio: "El límite por envío es de 100 candidatos.",
+  b7_cuerpo_excesivo: "El texto final del correo supera 4000 caracteres. Reduzca el mensaje antes de continuar.",
+  b7_seleccion_cambiada: "La selección ha cambiado. Revise el número de candidatos antes de confirmar.",
+  b7_emision_rechazada: "El servidor rechazó la emisión (422). Revise la configuración o actualice la selección según la bolsa vigente.",
   boton_perfil_sin_permiso: "El perfil de presentación no permite esta operación",
   boton_capacidad_no_conectada: "Capacidad de servidor no conectada",
   tabla_sin_registros: "No hay registros para los filtros aplicados.",
