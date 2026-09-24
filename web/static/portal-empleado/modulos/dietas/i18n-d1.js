@@ -1,4 +1,4 @@
-import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260924-osm-base-v2";
+import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260924-osm-base-v3";
 
 /** Extensión D1 del catálogo común de Dietas. */
 export const MENSAJES_D1_DIETAS_ES = Object.freeze(Object.fromEntries([

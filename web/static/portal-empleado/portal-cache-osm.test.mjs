@@ -3,13 +3,18 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const raiz = new URL("./", import.meta.url);
-const version = "20260924-osm-base-v2";
+const version = "20260924-osm-base-v3";
 const dietas = "modulos/dietas/";
 
 test("OSM renueva cada consumidor immutable desde la entrada C hasta mapa e idiomas", async () => {
   const aristas = [
     ["index.html", "/portal-empleado/portal.js", "20260924-web-c-v3", 1],
     ["portal.js", "./portal-modulos-coordinador.js", "20260924-web-c-v3", 1],
+    ["portal.js", "./ayuda-contenido.js", "20260917-ayuda-contratacion", 1],
+    ["portal.js", "./ayudante-tramites.js", "20260920-ayudante-tramites-v1", 1],
+    ["ayudante-tramites.js", "./ayuda-contenido.js", null, 1],
+    [`${dietas}i18n.js`, "./i18n-revision.js", "20260924-f2-web2", 1],
+    [`${dietas}vista-recorridos.js`, "./i18n-revision.js", null, 1],
     ["portal-modulos-coordinador.js", `./${dietas}mapa-ruta.js`, "20260923-dietas-r1", 2],
     ["portal-modulos-coordinador.js", `./${dietas}vista-itinerario.js`, "20260924-dietas-d1d2d4", 2],
     ["portal-modulos-coordinador.js", `./${dietas}vista-recorridos.js`, "20260924-dietas-recuperacion-v3", 2],
@@ -41,7 +46,7 @@ test("OSM incorpora el estilo de ayudas F1 y renueva el catálogo de estado vac�
   const borradores = await readFile(new URL(`${dietas}vista-borradores-propios.js`, raiz), "utf8");
   assert.match(html, /dietas\/dietas\.css\?v=20260924-dietas-ayuda-icono-v1/u);
   assert.match(html, /portal\.css\?v=20260924-f2-salto-movil-v3/u);
-  assert.match(borradores, /i18n-borradores\.js\?v=20260924-osm-base-v2/u);
+  assert.match(borradores, /i18n-borradores\.js\?v=20260924-osm-base-v3/u);
 });
 
 test("el mapa combinado descarga consumidores nuevos también después del corrector de ayudas F1", async () => {
@@ -58,12 +63,12 @@ test("el mapa combinado descarga consumidores nuevos también después del corre
 });
 
 test("la cadena final no pide módulos previos a la corrección Leaflet ni al estado vacío", async () => {
-  const padres = ["index.html", "portal.js", "portal-modulos-coordinador.js",
+  const padres = ["index.html", "portal.js", "portal-modulos-coordinador.js", "ayudante-tramites.js",
     ...["i18n.js", "i18n-d1.js", "i18n-d4.js", "mapa-ruta.js", "vista-acceso-papeles.js",
       "vista-borradores-propios.js", "vista-itinerario.js", "vista-recorridos.js"].map((nombre) => dietas + nombre)];
   for (const padre of padres) {
     const codigo = await readFile(new URL(padre, raiz), "utf8");
-    assert.doesNotMatch(codigo, /\.js\?v=20260924-(?:osm-base-v1|web-c-ayuda-v[4567]|dietas-ayuda-sin-guia-v[12]|dietas-preparacion-sin-guia-v3)["']/u, padre);
+    assert.doesNotMatch(codigo, /\.js\?v=20260924-(?:osm-base-v[12]|web-c-ayuda-v[4567]|dietas-ayuda-sin-guia-v[12]|dietas-preparacion-sin-guia-v3)["']/u, padre);
   }
   const html = await readFile(new URL("index.html", raiz), "utf8");
   assert.match(html, /dietas\/dietas\.css\?v=20260924-dietas-ayuda-icono-v1/u);

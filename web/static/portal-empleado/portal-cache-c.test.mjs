@@ -6,10 +6,10 @@ import { PLANTILLA_TESELAS_OSM_INTERNA } from "./modulos/dietas/contrato.js";
 const raiz = new URL("./", import.meta.url);
 const vistasC = "20260924-web-c-v1";
 const recuperacion = "20260924-dietas-recuperacion-v3";
-const entrada = "20260924-osm-base-v2";
+const entrada = "20260924-osm-base-v3";
 const cronos = "20260924-cronos-integrado-v1";
 const dietas = "20260924-dietas-ayuda-icono-v1";
-const sinGuia = "20260924-osm-base-v2";
+const sinGuia = "20260924-osm-base-v3";
 const versiones = (codigo, recurso) => [...codigo.matchAll(new RegExp(`${recurso.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\?v=([^"']+)`, "gu"))].map((m) => m[1]);
 
 test("capa C no reutiliza los consumidores previos de B con caché immutable", async () => {

@@ -1,4 +1,4 @@
-import { crearTraductorD1Dietas } from "./i18n-d1.js?v=20260924-osm-base-v2";
+import { crearTraductorD1Dietas } from "./i18n-d1.js?v=20260924-osm-base-v3";
 
 const PAPELES = Object.freeze([
   Object.freeze({ codigo: "empleado", nombre: "d1_empleado", tarea: "d1_empleado_tarea" }),

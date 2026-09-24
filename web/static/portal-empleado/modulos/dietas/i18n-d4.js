@@ -1,4 +1,4 @@
-import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260924-osm-base-v2";
+import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260924-osm-base-v3";
 
 /** Textos del corte D4; las claves anteriores siguen en el catálogo común. */
 export const MENSAJES_DIETAS_D4_ES = Object.freeze({ ...Object.fromEntries([

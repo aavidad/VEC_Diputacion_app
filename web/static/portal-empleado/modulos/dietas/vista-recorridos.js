@@ -1,8 +1,8 @@
-import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260924-osm-base-v2";
-import { crearTraductorRevisionDietas } from "./i18n-revision.js";
-import { montarVistaBorradoresPropios } from "./vista-borradores-propios.js?v=20260924-osm-base-v2";
-import { montarVistaAccesoPapelesDietas } from "./vista-acceso-papeles.js?v=20260924-osm-base-v2";
-import { montarMapaInicialGranadaDietas } from "./mapa-ruta.js?v=20260924-osm-base-v2";
+import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260924-osm-base-v3";
+import { crearTraductorRevisionDietas } from "./i18n-revision.js?v=20260924-osm-base-v3";
+import { montarVistaBorradoresPropios } from "./vista-borradores-propios.js?v=20260924-osm-base-v3";
+import { montarVistaAccesoPapelesDietas } from "./vista-acceso-papeles.js?v=20260924-osm-base-v3";
+import { montarMapaInicialGranadaDietas } from "./mapa-ruta.js?v=20260924-osm-base-v3";
 
 const ETAPAS = Object.freeze([
   ["solicitante", "recorridos_solicitante"],

@@ -1,4 +1,4 @@
-import { TRAMITES_AYUDANTE_PORTAL } from "./ayuda-contenido.js";
+import { TRAMITES_AYUDANTE_PORTAL } from "./ayuda-contenido.js?v=20260924-osm-base-v3";
 
 const TEXTO = Object.freeze({
   titulo: "Ayudante de trámites",
