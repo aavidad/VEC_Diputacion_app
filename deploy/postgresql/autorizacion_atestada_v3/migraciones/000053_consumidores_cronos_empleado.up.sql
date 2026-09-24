@@ -6,6 +6,11 @@
 -- propio. Sustituye al AD3-51 de la rama trabajo/cronos-r1, que nunca se
 -- integró porque su número coincide con la organización histórica de la Base.
 -- Orden: roles de cronos_v1 000001, esta migración y después cronos_v1 000002.
+-- Instalación en serie: AD3-53 y AD3-59 (Dietas) reescriben el mismo núcleo
+-- y admiten cualquier orden entre sí, pero se instalan en serie, nunca en
+-- paralelo. Ambas toman el consultivo común vec_autorizacion_atestada_v3:nucleo
+-- antes de leer la preimagen del núcleo, de modo que la segunda espera a que la
+-- primera confirme y lee ya su resultado.
 BEGIN;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
 SET LOCAL search_path=pg_catalog;
@@ -13,6 +18,7 @@ SET LOCAL timezone='UTC';
 SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='30s';
 SELECT pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:migracion:000053',0));
+SELECT pg_advisory_xact_lock(hashtextextended('vec_autorizacion_atestada_v3:nucleo',0));
 DO $nucleo$
 DECLARE f oid:='vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
  original text; nuevo text; actual text; meta jsonb; deps jsonb; acl aclitem[]; propietario oid; config text[]; definidora boolean;
