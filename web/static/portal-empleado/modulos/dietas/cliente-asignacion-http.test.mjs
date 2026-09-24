@@ -58,3 +58,17 @@ test("503 de Personal cierra asignación y abortar evita presentar respuesta tar
   } });
   await assert.rejects(() => tardio.obtener(relacion, unidad, "2026-09-24", { signal: controlador.signal }), /cancelada/u);
 });
+
+test("no ofrece alta ni corrección de asignación mientras Base no publique validadores competentes", async () => {
+  const metodos = [];
+  const cliente = crearClienteAsignacionDietasHTTP({ fetchImpl: async (_ruta, opciones) => {
+    metodos.push(opciones.method);
+    return respuesta(asignacion);
+  } });
+  assert.deepEqual(Object.keys(cliente).sort(), ["obtener", "obtenerRelaciones"]);
+  await cliente.obtener(relacion, unidad, "2026-09-24");
+  assert.deepEqual(metodos, ["GET"]);
+  const { readFile } = await import("node:fs/promises");
+  const fuente = await readFile(new URL("./cliente-asignacion-http.js", import.meta.url), "utf8");
+  assert.doesNotMatch(fuente, /method:\s*"(?:POST|PUT)"/u);
+});
