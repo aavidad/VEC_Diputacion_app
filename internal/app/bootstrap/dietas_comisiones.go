@@ -234,6 +234,10 @@ func (a *autoridadComisionesDietasDesarrollo) proteger(siguiente http.Handler) h
 			return
 		}
 		vinculo, resultado, err := a.base.resolverSesion(r.Context(), r, &capsulaRutasDietasDesarrollo{autoridad: a.base, peticion: r, cuenta: cuenta, instante: ahora})
+		if motivo := motivoEmpleadoDietas(err); motivo != "" {
+			a.denegarConMotivo(w, r, motivo)
+			return
+		}
 		if err != nil {
 			a.denegar(w, r, http.StatusServiceUnavailable, "")
 			return
@@ -390,6 +394,20 @@ func (a *autoridadComisionesDietasDesarrollo) registrarDenegacionPersonal(ctx co
 	ctxAuditoria, cancelar := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
 	defer cancelar()
 	return a.registradorPersonal.RegistrarAuditoriaFronteraAsignacionDietas(ctxAuditoria, orden)
+}
+
+// denegarConMotivo audita el 403 y devuelve solo el código cerrado del
+// motivo; la sesión no llegó a acreditar actor, así que no se atribuye.
+func (a *autoridadComisionesDietasDesarrollo) denegarConMotivo(w http.ResponseWriter, r *http.Request, motivo string) {
+	if a.registrarDenegacion(r.Context(), r.URL.Path, r.Method, http.StatusForbidden, "") != nil {
+		responderDenegacionComisionesDietas(w, http.StatusServiceUnavailable)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	responderDenegacionComisionesDietas(w, http.StatusForbidden)
+	_ = json.NewEncoder(w).Encode(struct {
+		Codigo string `json:"codigo"`
+	}{Codigo: motivo})
 }
 
 func responderDenegacionComisionesDietas(w http.ResponseWriter, estado int) {

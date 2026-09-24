@@ -361,6 +361,24 @@ func (a *autoridadRutasDietasDesarrollo) AutorizarPeticionRutaDietas(ctx context
 	return nil
 }
 
+// Motivos cerrados con que Dietas deniega a quien no tiene exactamente un
+// empleado canónico en Personal. El código viaja al cliente para explicarlo.
+var (
+	errEmpleadoDietasAusente = errors.New("dietas: sin empleado canónico")
+	errEmpleadoDietasAmbiguo = errors.New("dietas: empleado canónico ambiguo")
+)
+
+// motivoEmpleadoDietas traduce esos motivos al código público de la respuesta.
+func motivoEmpleadoDietas(err error) string {
+	switch {
+	case errors.Is(err, errEmpleadoDietasAusente):
+		return "empleado_no_disponible"
+	case errors.Is(err, errEmpleadoDietasAmbiguo):
+		return "empleado_ambiguo"
+	}
+	return ""
+}
+
 func (a *autoridadRutasDietasDesarrollo) resolverSesion(ctx context.Context, r *http.Request, capsula *capsulaRutasDietasDesarrollo) (core.VinculoAutenticacionActorV2, core.ResultadoContextoActorRegistradoV2, error) {
 	vacio := core.VinculoAutenticacionActorV2{}
 	resultadoVacio := core.ResultadoContextoActorRegistradoV2{}
@@ -391,6 +409,14 @@ func (a *autoridadRutasDietasDesarrollo) resolverSesion(ctx context.Context, r *
 	revalidador := revalidadorSesionConsultaRRHHDesarrollo{delegado: a.revalidador, alta: alta, confirmacion: confirmacion, reloj: a.reloj, superficie: httpseguridad.SuperficieInternaCorporativa}
 	vinculo, resultado, e := core.CrearVinculoAutenticacionActorV2ConResultado(ctx, revalidador, core.SolicitudRevalidacionAutenticacionActorV1{AutenticacionRef: confirmacion.AutenticacionRef, SesionRef: confirmacion.SesionRef}, a.contextos, core.SolicitudContextoActor{Cuenta: core.CuentaAutenticadaContextoActor{CuentaRef: cuenta.CuentaRef, Metodo: core.AuthMethodCertificate, Garantia: core.AuthAssuranceHigh}, PerfilActivoRef: cuenta.PerfilRef}, a.reloj)
 	if e != nil {
+		// Dietas pide el empleado canónico: su ausencia o ambigüedad es una
+		// denegación con motivo, no una indisponibilidad del servicio.
+		switch {
+		case errors.Is(e, vp.ErrProyeccionEmpleadoContextoActorAusente):
+			return vacio, resultadoVacio, errors.Join(httpapi.ErrRutaDietasDenegada, errEmpleadoDietasAusente)
+		case errors.Is(e, vp.ErrProyeccionEmpleadoContextoActorAmbigua):
+			return vacio, resultadoVacio, errors.Join(httpapi.ErrRutaDietasDenegada, errEmpleadoDietasAmbiguo)
+		}
 		return vacio, resultadoVacio, httpapi.ErrRutaDietasDenegada
 	}
 	datos, e := vinculo.Datos()
