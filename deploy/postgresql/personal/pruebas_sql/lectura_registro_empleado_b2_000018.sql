@@ -31,6 +31,17 @@ BEGIN
  SELECT count(*) INTO n FROM pg_policies WHERE schemaname='vec_personal'
    AND tablename='recibo_lectura_registro_empleado_b2' AND roles=ARRAY['vec_personal_propietario']::name[];
  IF n<>1 THEN RAISE EXCEPTION 'lectura B2: política de recibo incompatible'; END IF;
+ -- 000018 puede instalarse antes de 000020, pero no servir una ficha parcial.
+ IF to_regprocedure('vec_personal.validar_entrada_registro_empleado_v1(text,text,text,integer,date)') IS NOT NULL THEN
+  SELECT count(*) INTO n FROM pg_attribute a
+   WHERE a.attrelid IN ('vec_personal.relacion_servicio_historia'::regclass,
+       'vec_personal.ocupacion_empleado_historia'::regclass,
+       'vec_personal.situacion_empleado_historia'::regclass,
+       'vec_personal.servicio_reconocido_historia'::regclass)
+     AND a.attname='catalogo_snapshot' AND NOT a.attisdropped
+     AND a.atttypid='jsonb'::regtype AND a.attnotnull;
+  IF n<>4 THEN RAISE EXCEPTION 'lectura B2: catálogo incompleto'; END IF;
+ END IF;
  FOR v IN SELECT unnest(ARRAY['relacion_servicio_historia','ocupacion_empleado_historia',
    'situacion_empleado_historia','servicio_reconocido_historia','cobertura_ocupaciones_historia',
    'plaza_plantilla_historia','puesto_rpt_historia']) AS nombre LOOP
@@ -52,5 +63,22 @@ BEGIN
   PERFORM vec_personal.consultar_vacantes_rrhh_v1(NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
   RAISE EXCEPTION 'lectura B2: vacantes sin autorización';
  EXCEPTION WHEN SQLSTATE '42501' THEN NULL; END;
+END $test$;
+-- Selector de otro organismo sin concesión ligada: respuesta opaca y cero recibos.
+-- La prueba positiva con V3 firmado y dos relaciones de organismos distintos
+-- pertenece al recorrido integrado; aquí no se sustituye AD3 por un doble.
+DO $test$
+DECLARE antes bigint; despues bigint;
+ m text:='{"esquema":"vec.personal.registro-empleado-b2.consulta.v1","operacion":"ficha","empleado_ref":"emp_AAAAAAAAAAAAAAAAAAAAAA","organismo_ref":"org_ajeno","vigente_en":"2026-09-01","conocido_en":"2026-09-01T00:00:00.000000Z","limite":0,"cursor":"","actor_ref":"per_AAAAAAAAAAAAAAAAAAAAAA","contexto_actor_ref":"vca_AAAAAAAAAAAAAAAAAAAAAA","contexto_version":1,"cuenta_ref":"cta_AAAAAAAAAAAAAAAAAAAAAA","cuenta_version":1,"perfil_ref":"prf_AAAAAAAAAAAAAAAAAAAAAA","perfil_version":1,"persona_ref":"per_AAAAAAAAAAAAAAAAAAAAAA","persona_version":1}';
+ vacio bytea:=convert_to('{}','UTF8');
+BEGIN
+ SELECT count(*) INTO antes FROM vec_personal.recibo_lectura_registro_empleado_b2;
+ BEGIN
+  PERFORM vec_personal.consultar_registro_empleado_rrhh_v1(m,vacio,vacio,vacio,vacio,
+    1,1,vacio,vacio,vacio,vacio);
+  RAISE EXCEPTION 'lectura B2: organismo ajeno obtuvo ficha';
+ EXCEPTION WHEN SQLSTATE '42501' THEN NULL; END;
+ SELECT count(*) INTO despues FROM vec_personal.recibo_lectura_registro_empleado_b2;
+ IF despues<>antes THEN RAISE EXCEPTION 'lectura B2: organismo ajeno dejó recibo'; END IF;
 END $test$;
 ROLLBACK;

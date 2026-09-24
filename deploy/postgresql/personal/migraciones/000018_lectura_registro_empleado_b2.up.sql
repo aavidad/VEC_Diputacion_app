@@ -79,6 +79,18 @@ BEGIN
     OR p_payload IS NULL OR p_sobre IS NULL OR p_evidencia IS NULL OR p_raiz IS NULL THEN
    RAISE EXCEPTION 'consulta B2 denegada' USING ERRCODE='42501';
  END IF;
+ -- 000018 se instala antes de 000020. La lectura permanece cerrada hasta
+ -- que las cuatro historias tengan el snapshot publicado de su acto.
+ IF pg_catalog.to_regprocedure('vec_personal.validar_entrada_registro_empleado_v1(text,text,text,integer,date)') IS NULL
+    OR (SELECT count(*) FROM pg_catalog.pg_attribute a
+        WHERE a.attrelid IN ('vec_personal.relacion_servicio_historia'::regclass,
+          'vec_personal.ocupacion_empleado_historia'::regclass,
+          'vec_personal.situacion_empleado_historia'::regclass,
+          'vec_personal.servicio_reconocido_historia'::regclass)
+          AND a.attname='catalogo_snapshot' AND NOT a.attisdropped
+          AND a.atttypid='jsonb'::regtype AND a.attnotnull)<>4 THEN
+  RAISE EXCEPTION 'catálogo de Personal no instalado' USING ERRCODE='42501';
+ END IF;
  BEGIN
   m:=p_material::jsonb; d:=convert_from(p_decision,'UTF8')::jsonb;
   c:=convert_from(p_capacidad,'UTF8')::jsonb;
@@ -120,12 +132,13 @@ BEGIN
   RAISE EXCEPTION 'material B2 incompatible' USING ERRCODE='42501';
  END IF;
  IF p_operacion='ficha' THEN
-  IF empleado !~ '^emp_[A-Za-z0-9_-]{22,128}$' OR organismo<>'' OR limite<>0 OR cursor<>'' THEN
+  IF empleado !~ '^emp_[A-Za-z0-9_-]{22,128}$'
+     OR organismo !~ '^[a-z][a-z0-9_:-]{2,159}$' OR limite<>0 OR cursor<>'' THEN
    RAISE EXCEPTION 'selector de ficha inválido' USING ERRCODE='22023'; END IF;
   selector:=empleado; accion:='personal.registro_empleado.ficha.consultar';
   audiencia:='vec_personal.registro_empleado.ficha.v1';tipo:='registro_empleado_rrhh';
   finalidad:='consultar_ficha_empleado';
-  campos:='["corte","eficacia_administrativa","empleado_ref","evidencia","firma_oficial","ocupaciones","persona_ref","relaciones","servicios","situaciones","version"]'::jsonb;
+  campos:='["corte","eficacia_administrativa","empleado_ref","evidencia","firma_oficial","ocupaciones","organismo_ref","persona_ref","relaciones","servicios","situaciones","version"]'::jsonb;
  ELSE
   IF empleado<>'' OR organismo !~ '^[a-z][a-z0-9_:-]{2,159}$' OR limite NOT BETWEEN 1 AND 100
      OR cursor !~ '^(|p_[1-9][0-9]{0,6}_[0-9a-f]{64})$' THEN
@@ -149,7 +162,8 @@ BEGIN
   RAISE EXCEPTION 'material B2 no canónico' USING ERRCODE='22023'; END IF;
  material_sha:=encode(sha256(convert_to(p_material,'UTF8')),'hex');
  contexto_canon:='{"ambitos":{'||CASE WHEN p_operacion='ficha' THEN
-  '"empleado_ref":'||to_jsonb(empleado)::text ELSE '"organismo_ref":'||to_jsonb(organismo)::text END||
+  '"empleado_ref":'||to_jsonb(empleado)::text||',"organismo_ref":'||to_jsonb(organismo)::text
+  ELSE '"organismo_ref":'||to_jsonb(organismo)::text END||
   '},"atributos":{"conocido_en":'||to_jsonb(m->>'conocido_en')::text||
   ',"material_sha256":"'||material_sha||'","operacion":'||to_jsonb(p_operacion)::text||
   ',"vigente_en":'||to_jsonb(m->>'vigente_en')::text||'}}';
@@ -181,41 +195,45 @@ BEGIN
   SELECT count(DISTINCT r.persona_ref),min(r.persona_ref)
     INTO n,persona
    FROM (SELECT DISTINCT ON (relacion_ref) * FROM vec_personal.relacion_servicio_historia
-         WHERE empleado_ref=empleado AND conocido_desde<=conocido
+         WHERE empleado_ref=empleado AND organismo_ref=organismo AND conocido_desde<=conocido
          ORDER BY relacion_ref,conocido_desde DESC,revision DESC) r;
   IF n=0 THEN RAISE EXCEPTION 'empleado no encontrado' USING ERRCODE='P7404'; END IF;
   IF n<>1 THEN RAISE EXCEPTION 'empleado ambiguo' USING ERRCODE='55000'; END IF;
   SELECT coalesce(jsonb_agg(jsonb_build_object('relacion_ref',r.relacion_ref,'unidad_ref',r.unidad_ref,
     'organismo_ref',r.organismo_ref,'regimen_ref',r.regimen_ref,'modalidad_ref',r.modalidad_ref,
-    'estado',r.estado,'traza',vec_personal.traza_registro_empleado_b2_v1(r.vigente_desde,r.vigente_hasta,
+    'estado',r.estado,'catalogo_snapshot',r.catalogo_snapshot,
+    'traza',vec_personal.traza_registro_empleado_b2_v1(r.vigente_desde,r.vigente_hasta,
        r.conocido_desde,r.revision,r.acto_ref,r.fuente_ref,r.fuente_version))
        ORDER BY r.relacion_ref,r.revision),'[]'::jsonb)
     INTO relaciones FROM vec_personal.relacion_servicio_historia r
-    WHERE r.empleado_ref=empleado AND r.conocido_desde<=conocido;
+    WHERE r.empleado_ref=empleado AND r.organismo_ref=organismo AND r.conocido_desde<=conocido;
   SELECT coalesce(jsonb_agg(jsonb_build_object('ocupacion_ref',o.ocupacion_ref,
     'relacion_ref',o.relacion_ref,'plaza_ref',o.plaza_ref::text,
     'puesto_ref',coalesce(o.puesto_ref::text,''),'unidad_ref',o.unidad_ref,
     'modalidad_ref',o.modalidad_ref,'clase',o.clase,'estado',o.estado,
+    'catalogo_snapshot',o.catalogo_snapshot,
     'traza',vec_personal.traza_registro_empleado_b2_v1(o.vigente_desde,o.vigente_hasta,
       o.conocido_desde,o.revision,o.acto_ref,o.fuente_ref,o.fuente_version))
       ORDER BY o.ocupacion_ref,o.revision),'[]'::jsonb)
    INTO ocupaciones FROM vec_personal.ocupacion_empleado_historia o
-   WHERE o.empleado_ref=empleado AND o.conocido_desde<=conocido;
+   WHERE o.empleado_ref=empleado AND o.organismo_ref=organismo AND o.conocido_desde<=conocido;
   SELECT coalesce(jsonb_agg(jsonb_build_object('situacion_ref',s.situacion_ref,'relacion_ref',s.relacion_ref,
     'codigo_ref',s.situacion_codigo,'estado',s.estado,
+    'catalogo_snapshot',s.catalogo_snapshot,
     'traza',vec_personal.traza_registro_empleado_b2_v1(s.vigente_desde,s.vigente_hasta,
       s.conocido_desde,s.revision,s.acto_ref,s.fuente_ref,s.fuente_version))
       ORDER BY s.situacion_ref,s.revision),'[]'::jsonb)
    INTO situaciones FROM vec_personal.situacion_empleado_historia s
-   WHERE s.empleado_ref=empleado AND s.conocido_desde<=conocido;
+   WHERE s.empleado_ref=empleado AND s.organismo_ref=organismo AND s.conocido_desde<=conocido;
   SELECT coalesce(jsonb_agg(jsonb_build_object('servicio_ref',s.servicio_ref,'relacion_ref',s.relacion_ref,
-    'estado',s.estado,'clase_ref',s.clase_ref,'periodo_desde',s.periodo_desde::text,
+    'estado',s.estado,'clase_ref',s.clase_ref,'catalogo_snapshot',s.catalogo_snapshot,
+    'periodo_desde',s.periodo_desde::text,
     'periodo_hasta',s.periodo_hasta::text,'dias_reconocidos',s.dias_reconocidos,
     'traza',vec_personal.traza_registro_empleado_b2_v1(s.vigente_desde,s.vigente_hasta,
       s.conocido_desde,s.revision,s.acto_ref,s.fuente_ref,s.fuente_version))
       ORDER BY s.servicio_ref,s.revision),'[]'::jsonb)
    INTO servicios FROM vec_personal.servicio_reconocido_historia s
-   WHERE s.empleado_ref=empleado AND s.conocido_desde<=conocido;
+   WHERE s.empleado_ref=empleado AND s.organismo_ref=organismo AND s.conocido_desde<=conocido;
   IF jsonb_array_length(relaciones)>200 OR jsonb_array_length(ocupaciones)>200
     OR jsonb_array_length(situaciones)>200 OR jsonb_array_length(servicios)>200 THEN
    RAISE EXCEPTION 'ficha B2 excede límite' USING ERRCODE='54000'; END IF;
@@ -224,7 +242,7 @@ BEGIN
   -- Versión de foto: cardinalidad de hechos inmutables conocidos, monótona al
   -- añadir otra relación v1 o una revisión. No es versión de un acto jurídico.
   version_ficha:=cardinalidad;
-  ficha:=jsonb_build_object('empleado_ref',empleado,'persona_ref',persona,
+  ficha:=jsonb_build_object('empleado_ref',empleado,'organismo_ref',organismo,'persona_ref',persona,
    'corte',jsonb_build_object('vigente_en',fecha::text,'conocido_en',m->>'conocido_en'),
    'version',version_ficha,'eficacia_administrativa',false,'firma_oficial',false,
    'relaciones',relaciones,'ocupaciones',ocupaciones,
