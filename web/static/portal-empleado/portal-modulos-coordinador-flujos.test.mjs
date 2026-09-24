@@ -660,6 +660,7 @@ test("el coordinador no autentica ni conserva estado en el navegador", async () 
 
 test("el cache busting de módulos avanza en cascada hasta el HTML", async () => {
   const versionShellF2 = "20260924-f2-shell-v1";
+  const versionTemaBase = "20260924-f2-tema-base-v2";
   const versionCacheF2 = "20260924-f2-cache-v2";
   const versionCachePersonal = "20260924-f2-cache-v3";
   const versionPersonalInterno = "20260924-p1-personal-interno-v2";
@@ -697,7 +698,8 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
   assert.match(html, new RegExp(`portal\\.js\\?v=${versionPersonalInterno}`));
   assert.match(html, new RegExp(`portal-modulos\\.css\\?v=${versionEstilos}`));
   assert.match(html, new RegExp(`portal-flujos\\.css\\?v=${versionFlujos}`));
-  assert.match(html, new RegExp(`portal\\.css\\?v=${versionShellF2}`));
+  assert.match(html, new RegExp(`portal\\.css\\?v=${versionTemaBase}`));
+  assert.doesNotMatch(html, new RegExp(`portal\\.css\\?v=${versionShellF2}`));
   assert.match(html, new RegExp(`expedientes-operativo\\.css\\?v=${versionShellF2}`));
   assert.match(coordinador, new RegExp(`modulos/cronos/vista-recorridos\\.js\\?v=${versionCronos}`));
   assert.match(coordinador, new RegExp(`modulos/dietas/vista-itinerario\\.js\\?v=${versionDietas}`));
