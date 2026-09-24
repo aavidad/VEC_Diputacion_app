@@ -1,6 +1,7 @@
 import { escaparAtributo, escaparHTML, listaDatos } from "./vistas/comunes.js";
 import { MOTIVOS_PAUSA_DISPONIBILIDAD } from "./contrato.js";
 import { textosErrorCargaAreaPersonal, traducir } from "./i18n.js";
+import { montarVistaOportunidades } from "../comun/oportunidades/vista.js?v=20260924-f2-b15-area-v1";
 import {
   renderizarConvocatorias, renderizarDetalleConvocatoria, renderizarInicio,
 } from "./vistas/inicio-convocatorias.js";
@@ -11,6 +12,7 @@ import {
   renderizarAlegaciones, renderizarLlamamientos, renderizarSeguimiento, renderizarSubsanaciones,
 } from "./vistas/seguimiento-tramites.js";
 import { renderizarAyuda, renderizarCertificados, renderizarMensajes } from "./vistas/comunicaciones-ayuda.js";
+import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js";
 import {
   aplicarPasoSolicitud, crearPayloadBorrador, crearProgresoSolicitud,
   declaracionFinalConfirmada, localizarSolicitudEdicion,
@@ -21,6 +23,7 @@ const MOTIVO_PAUSA_PREDETERMINADO = MOTIVOS_PAUSA_DISPONIBILIDAD[0];
 const RUTAS = Object.freeze({
   inicio: ["areaPersonal.rutas.inicio", renderizarInicio],
   convocatorias: ["areaPersonal.rutas.convocatorias", renderizarConvocatorias],
+  oportunidades: ["areaPersonal.rutas.oportunidades", () => '<div id="oportunidades-montaje"></div>'],
   convocatoria: ["areaPersonal.rutas.convocatoria", renderizarDetalleConvocatoria],
   perfil: ["areaPersonal.rutas.perfil", renderizarPerfil],
   meritos: ["areaPersonal.rutas.meritos", renderizarMeritos],
@@ -53,8 +56,18 @@ const TITULOS_OPERACION = Object.freeze({
   solicitar_descarga: "Preparar descarga",
 });
 
-const porId = (id) => document.getElementById(id);
+export function conservarResultadoContactoPropio(estado, { reciboRef, version, correo }) {
+  estado.contactoPropio = { ...estado.contactoPropio, version };
+  estado.contactoPropioRecibo = { reciboRef, version };
+  estado.datos = structuredClone(estado.datos);
+  estado.datos.perfil.correo = correo;
+}
+export function excluirCorreoDeActualizacionContacto(payload) {
+  const { correo: _correo, ...sinCorreo } = payload;
+  return sinCorreo;
+}
 
+const porId = (id) => document.getElementById(id);
 export function esOrigenSinteticoODesarrollo(meta = {}) {
   if (meta === null || typeof meta !== "object") return false;
   return [meta.origen, meta.entorno].filter((declaracion) => typeof declaracion === "string")
@@ -162,12 +175,12 @@ function mostrarError(estado, error) {
   estado.error = error;
 }
 
-function datosMinimosMiBolsa(consulta) {
+export function datosMinimosMiBolsa(consulta) {
   return Object.freeze({
     meta: { presentacion: false, origen: "GET /api/vec/bolsa/mi-bolsa", generado_en: consulta.consultada_en },
-    sesion: { nombre_visible: "Candidato identificado", iniciales: "CI", metodo: "DNIe o certificado", persona_ref: "candidato:identificado" },
+    sesion: { nombre_visible: traducir("areaPersonal.miBolsa.identidad.noFacilitada"), iniciales: "—", metodo: traducir("areaPersonal.miBolsa.identidad.metodoNoFacilitado"), persona_ref: null },
     resumen: { acciones_pendientes: 0, convocatorias_abiertas: 0, solicitudes_activas: 0, mensajes_no_leidos: 0, puntuacion_provisional: 0 },
-    perfil: { referencia: "perfil:pendiente", nombre_visible: "Pendiente de integración", identificador_visible: "Pendiente de integración", correo: "Pendiente de integración", telefono: "Pendiente de integración", domicilio: "Pendiente de integración", estado_verificacion: "Pendiente de integración" },
+    perfil: { referencia: null, nombre_visible: traducir("areaPersonal.miBolsa.identidad.noFacilitada"), identificador_visible: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), correo: "Pendiente de integración", telefono: "Pendiente de integración", domicilio: "Pendiente de integración", estado_verificacion: "Pendiente de integración" },
     plazos: [], convocatorias: [], meritos: [], solicitudes: [], baremo: [], llamamientos: [], subsanaciones: [], alegaciones: [], mensajes: [], certificados: [], documentos: [], actividad: [], ayuda: [], contratos: [],
     disponibilidad: { disponible: false, estado: "Pendiente de integración" }, capacidades: {},
   });
@@ -201,14 +214,51 @@ function actualizarShell(estado) {
   contadorMensajes.hidden = datos.resumen.mensajes_no_leidos === 0;
 }
 
-function renderizar(estado, { enfocar = false } = {}) {
+function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {}) {
   if (!estado.datos) return;
+  estado.desmontarOportunidades?.();
+  estado.desmontarOportunidades = null;
+  estado.destruirContactoPropio?.();
+  estado.destruirContactoPropio = null;
+  estado.controladorContactoPropio = null;
+  if (estado.vista !== "perfil") Object.assign(estado, { contactoPropio: null, contactoPropioRecibo: null });
   estado.vista = RUTAS[estado.vista] ? estado.vista : "inicio";
   actualizarShell(estado);
   porId("estado-carga").hidden = true;
   porId("espacio-trabajo").innerHTML = RUTAS[estado.vista][1](estado.datos, estado);
+  if (estado.vista === "oportunidades") {
+    // La bandeja actual no aporta una evaluación B15 autorizada: no derivarla de convocatorias DEMO.
+    const vista = montarVistaOportunidades({ raiz: porId("oportunidades-montaje"), anunciar });
+    estado.desmontarOportunidades = vista.desmontar;
+  }
   actualizarEnlacesNavegacion(estado);
   aplicarCapacidadesVisibles(estado);
+  if (estado.vista === "perfil") {
+    estado.controladorContactoPropio ??= crearControladorContactoPropio({
+      autorizacionServidor: estado.contactoPropio,
+      fetchImpl: estado.fetchImpl,
+      presentacion: estado.presentacionSolicitada || estado.datos.meta.presentacion === true,
+      alConfirmar: (resultado) => {
+        conservarResultadoContactoPropio(estado, resultado);
+        if (estado.vista === "perfil") renderizar(estado, { confirmacionContacto: resultado });
+      },
+      alDenegar: () => {
+        Object.assign(estado, { contactoPropio: null, contactoPropioRecibo: null });
+      },
+    });
+    const montajeContacto = montarContactoPropio({
+      contenedor: porId("contacto-propio"),
+      correo: "",
+      autorizacionServidor: estado.contactoPropio,
+      fetchImpl: estado.fetchImpl,
+      presentacion: estado.presentacionSolicitada || estado.datos.meta.presentacion === true,
+      reciboAnterior: estado.contactoPropioRecibo, confirmacionReciente: confirmacionContacto,
+      enfocarConfirmacion: Boolean(confirmacionContacto),
+      controlador: estado.controladorContactoPropio,
+    });
+    estado.destruirContactoPropio = montajeContacto?.destruir ?? null;
+  }
+
   if (enfocar) {
     porId("contenido-principal").focus({ preventScroll: true });
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -270,7 +320,10 @@ function mostrarDetalle(titulo, contenido) {
 
 function verSesion(estado) {
   const sesion = estado.datos.sesion;
-  mostrarDetalle("Identidad y contexto de sesión", `${listaDatos([["Persona", escaparHTML(sesion.nombre_visible)], ["Referencia", escaparHTML(sesion.persona_ref)], ["Método", escaparHTML(sesion.metodo)], ["Origen", escaparHTML(estado.datos.meta.origen)]])}<p class="nota ${estado.datos.meta.presentacion ? "demo" : ""}">${estado.datos.meta.presentacion ? "Identidad sintética. No existe autenticación, certificado ni persona real." : "La autoridad efectiva se comprueba en el servidor para cada operación."}</p>`);
+  const campos = [["Persona", escaparHTML(sesion.nombre_visible)],
+    ...(sesion.persona_ref ? [["Referencia", escaparHTML(sesion.persona_ref)]] : []),
+    ["Método", escaparHTML(sesion.metodo)], ["Origen", escaparHTML(estado.datos.meta.origen)]];
+  mostrarDetalle("Identidad y contexto de sesión", `${listaDatos(campos)}<p class="nota ${estado.datos.meta.presentacion ? "demo" : ""}">${estado.datos.meta.presentacion ? "Identidad sintética. No existe autenticación, certificado ni persona real." : "La autoridad efectiva se comprueba en el servidor para cada operación."}</p>`);
 }
 
 function verDocumento(estado, id) {
@@ -448,13 +501,12 @@ function leerPantalla(estado) {
   notificar("Lectura por voz iniciada. Pulse Esc o cambie de página para detenerla.");
 }
 
-function alternarPreferencia(accion, boton) {
+function alternarPreferencia(accion) {
   const atributo = accion === "alternar-texto" ? "textoGrande" : "contraste";
   const destino = accion === "alternar-texto" ? document.documentElement : document.body;
   const activo = destino.dataset[atributo] !== "true";
   destino.dataset[atributo] = String(activo);
   document.querySelectorAll(`[data-accion="${accion}"]`).forEach((control) => control.setAttribute("aria-pressed", String(activo)));
-  boton?.blur();
   anunciar(activo ? "Preferencia visual activada." : "Preferencia visual desactivada.");
 }
 
@@ -462,7 +514,7 @@ function atenderAccion(estado, boton) {
   const accion = boton.dataset.accion;
   if (accion === "alternar-menu") return alternarMenu();
   if (accion === "cerrar-menu") return cerrarMenu({ restaurarFoco: true });
-  if (accion === "alternar-texto" || accion === "alternar-contraste") return alternarPreferencia(accion, boton);
+  if (accion === "alternar-texto" || accion === "alternar-contraste") return alternarPreferencia(accion);
   if (accion === "leer-pantalla") return leerPantalla(estado);
   if (accion === "ver-sesion") return verSesion(estado);
   if (accion === "descargar-recibo") return void descargarRecibo(estado);
@@ -601,7 +653,9 @@ function conectarEventos(estado) {
         anunciar("Operación no disponible.");
         return;
       }
-      const payload = formularioAObjeto(formulario);
+      const payloadInicial = formularioAObjeto(formulario);
+      const payload = formulario.dataset.operacion === "actualizar_contacto"
+        ? excluirCorreoDeActualizacionContacto(payloadInicial) : payloadInicial;
       if (formulario.dataset.operacion === "cambiar_disponibilidad") {
         const disponible = payload.disponible === "true" || payload.disponible === true;
         if (disponible) {
@@ -687,7 +741,7 @@ async function cargar(estado) {
   }
 }
 
-export async function iniciarAreaPersonal({ cliente, descargarReciboPDF = null, presentacionSolicitada = false } = {}) {
+export async function iniciarAreaPersonal({ cliente, descargarReciboPDF = null, presentacionSolicitada = false, fetchImpl = globalThis.fetch } = {}) {
   if (!cliente || typeof cliente.cargar !== "function" || typeof cliente.ejecutar !== "function") {
     throw new TypeError("El cliente inyectado no respeta el contrato del área personal.");
   }
@@ -709,6 +763,12 @@ export async function iniciarAreaPersonal({ cliente, descargarReciboPDF = null, 
     errorPasoSolicitud: "",
     operacionPendiente: null,
     ultimoRecibo: null,
+    contactoPropio: null,
+    contactoPropioRecibo: null,
+    controladorContactoPropio: null,
+    destruirContactoPropio: null,
+    desmontarOportunidades: null,
+    fetchImpl,
     participaciones: [],
     paginaParticipaciones: 1,
     fuenteBolsa: "real",
