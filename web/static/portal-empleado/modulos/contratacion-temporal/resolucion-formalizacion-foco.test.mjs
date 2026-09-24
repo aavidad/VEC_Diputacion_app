@@ -37,8 +37,12 @@ function raizDOM() {
           "numero_resolucion", "fecha_resolucion", "motivo", "confirma_revision_propuesta",
           "confirma_ejercicio_manual", "clave_idempotencia",
         ].map((nombre) => [nombre, { ...nodo(), value: "", checked: false }])),
-        querySelector(selector) { return selector === 'button[type="submit"]' ? this.boton : null; },
-        boton: nodo(),
+        querySelector(selector) {
+          if (selector === 'button[type="submit"]') return this.boton;
+          if (selector === "fieldset") return this.grupo;
+          return null;
+        },
+        boton: nodo(), grupo: nodo(),
       } : null;
     },
     addEventListener(tipo, accion) { eventos.set(tipo, accion); },
@@ -99,7 +103,10 @@ test("respuesta tardía no recupera el foco externo; el recibo válido sigue vis
   raiz._formulario.boton.focus();
   const vuelo = raiz.enviar();
   assert.equal(raiz._formulario["aria-busy"], "true");
-  assert.equal(documento.activeElement, raiz._formulario.boton);
+  assert.equal(raiz._formulario.elements.motivo.readOnly, true);
+  assert.equal(raiz._formulario.elements.confirma_ejercicio_manual.disabled, true);
+  assert.equal(raiz._formulario.boton.disabled, true);
+  assert.equal(documento.activeElement, raiz._estado);
   const externo = { focus() { documento.activeElement = this; } };
   externo.focus();
   terminar(recibo);
@@ -113,26 +120,62 @@ test("respuesta tardía no recupera el foco externo; el recibo válido sigue vis
 
 test("rechazo determinado anuncia el estado si el foco sigue dentro; desmontar impide recuperarlo", async () => {
   const { raiz, documento } = raizDOM();
-  let rechazar;
-  const desmontar = montar(raiz, { registrarResolucionFormalizacion() {
+  let rechazar; const enviados = [];
+  const desmontar = montar(raiz, { registrarResolucionFormalizacion(solicitud) {
+    enviados.push(solicitud);
     return new Promise((_resolver, rechazo) => { rechazar = rechazo; });
   } });
   rellenar(raiz._formulario);
+  const formulario = raiz._formulario;
   raiz._formulario.boton.focus();
   const vuelo = raiz.enviar();
+  // El navegador no permite modificar un textarea readOnly mientras la petición está en vuelo.
+  if (!formulario.elements.motivo.readOnly) formulario.elements.motivo.value = "Corrección prematura";
+  assert.equal(formulario.elements.motivo.value, "Revisión manual");
+  assert.equal(formulario.elements.confirma_revision_propuesta.disabled, true);
+  assert.equal(formulario.boton.disabled, true);
   rechazar(Object.assign(new Error("rechazada"), { envelopeValido: true, resultadoIndeterminado: false }));
   await vuelo;
   assert.equal(documento.activeElement, raiz._estado);
-  assert.match(raiz.innerHTML, /R-24\/2026/u);
-  assert.match(raiz.innerHTML, /Revisión manual/u);
+  assert.equal(raiz._formulario, formulario);
+  assert.equal(formulario.elements.numero_resolucion.value, "R-24/2026");
+  assert.equal(formulario.elements.motivo.value, "Revisión manual");
+  assert.equal(formulario.elements.motivo.readOnly, false);
+  assert.equal(formulario.elements.confirma_revision_propuesta.disabled, false);
+  assert.equal(formulario.boton.disabled, false);
 
-  rellenar(raiz._formulario);
+  formulario.elements.motivo.value = "Corrección tras 422";
   raiz._formulario.boton.focus();
   const otroVuelo = raiz.enviar();
+  assert.equal(enviados[1].motivo, "Corrección tras 422");
+  assert.equal(enviados[1].clave_idempotencia, enviados[0].clave_idempotencia);
   desmontar();
   const focoTrasDesmontar = documento.activeElement;
   rechazar(Object.assign(new Error("tardía"), { envelopeValido: true, resultadoIndeterminado: false }));
   await otroVuelo;
   assert.equal(documento.activeElement, focoTrasDesmontar);
   assert.equal(raiz.innerHTML, "");
+});
+
+test("409 congela campos nativos y el reintento conserva el cuerpo y la clave", async () => {
+  const { raiz } = raizDOM(); const enviados = [];
+  montar(raiz, {
+    registrarResolucionFormalizacion(solicitud) {
+      enviados.push(solicitud);
+      if (enviados.length === 1) return Promise.reject(Object.assign(new Error("409"), { estado: 409 }));
+      return Promise.resolve(recibo);
+    },
+    prepararResolucionFormalizacion: async () => preparacion,
+  });
+  const formulario = raiz._formulario;
+  rellenar(formulario);
+  await raiz.enviar();
+  assert.equal(raiz._formulario, formulario);
+  assert.equal(formulario.grupo.disabled, true);
+  assert.equal(formulario.boton.disabled, false);
+  assert.match(formulario.boton.textContent, /Reintentar/u);
+  assert.equal(formulario.elements.motivo.value, "Revisión manual");
+  await raiz.enviar();
+  assert.deepEqual(enviados[1], enviados[0]);
+  assert.match(raiz.innerHTML, /recibo:ct:foco/u);
 });
