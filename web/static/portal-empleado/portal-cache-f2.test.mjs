@@ -11,6 +11,7 @@ const versionCachePersonal = "20260924-f2-cache-v3";
 const versionPersonalInterno = "20260924-p1-personal-interno-v2";
 const versionPersonalEstados = "20260924-f2-personal-estados-v4";
 const versionCronosPermisos = "20260924-f2-cronos-permisos-v2";
+const versionCronosAyuda = "20260924-cronos-ayuda-v1";
 const versionDietasShell = "20260924-web-integrada-v1";
 const versionDietasVista = "20260924-f2-consulta-v2";
 const versionIntegracion = "20260924-web-integrada-v1";
@@ -127,7 +128,7 @@ test("la caché immutable previa no retiene el catálogo i18n ni los consumidore
     ["portal-borradores-ui.js", ["20260921-avisos-r5-v1", versionCache]],
     ["portal-borradores-acceso.js", ["20260721-acceso-real-v2", versionCache]],
     ["portal-i18n.js", ["20260721-acceso-real-v2", "20260923-p4-reintento-v2", version, versionCache]],
-    ["modulos/cronos/vista-recorridos.js", ["20260920-cronos-bandeja-v2"]],
+    ["modulos/cronos/vista-recorridos.js", ["20260920-cronos-bandeja-v2", versionCache]],
     ["modulos/dietas/vista-recorridos.js", [version, "20260924-f2-dietas-consulta-v2"]],
     ["modulos/personal/vista.js", ["20260920-personal-catalogo-v1", versionCachePersonal]],
     ["modulos/personal/cliente-http-categorias.js", ["20260920-personal-catalogo-v1"]],
@@ -183,7 +184,7 @@ test("la caché immutable previa no retiene el catálogo i18n ni los consumidore
         "modulos/cronos/vista-recorridos.js", "modulos/dietas/vista-recorridos.js"].includes(hijo) ? 2 : 1,
         `${padre} → ${hijo}: número de aristas`);
       const versionEsperada = padre === "index.html" || hijo === "portal-modulos-coordinador.js"
-        ? versionDietasShell : hijo === "modulos/dietas/vista-recorridos.js" ? versionDietasVista : [
+        ? versionDietasShell : hijo === "modulos/cronos/vista-recorridos.js" ? versionCronosAyuda : hijo === "modulos/dietas/vista-recorridos.js" ? versionDietasVista : [
         "portal-catalogo-modulos.js", "portal-inicio.js", "portal-eventos.js",
         "portal-borradores-ui.js", "portal-borradores-acceso.js", "portal-i18n.js"].includes(hijo)
         ? versionCronosPermisos
@@ -245,4 +246,13 @@ test("la recuperación de subsanación renueva toda la cadena immutable y ambas 
     assert.ok(!codigo.includes(`${ruta}?v=${previa}`));
     assert.ok(!cache.has(`${ruta}?v=${ruta.endsWith("vista-expedientes.js") ? nueva : versionIntegracion}`), "la vista anterior no sustituye los bytes nuevos");
   }
+});
+
+test("la ayuda de Cronos renueva las dos importaciones y la hoja de permisos", async () => {
+  const html = await readFile(new URL("index.html", raiz), "utf8");
+  const coordinador = await readFile(new URL("portal-modulos-coordinador.js", raiz), "utf8");
+  assert.deepEqual(versionesDe(coordinador, "./modulos/cronos/vista-recorridos.js"), [versionCronosAyuda, versionCronosAyuda]);
+  assert.equal(versionDe(html, "/portal-empleado/modulos/cronos/permisos.css"), versionCronosAyuda);
+  assert.ok(!coordinador.includes("cronos/vista-recorridos.js?v=20260924-f2-cache-v2"));
+  assert.ok(!html.includes("cronos/permisos.css?v=20260924-f2-shell-v1"));
 });

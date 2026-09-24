@@ -79,7 +79,7 @@ const CARGADORES_PRESENTACION_PREDETERMINADOS = Object.freeze({
   cronos: async () => {
     const [contrato, recorridos] = await Promise.all([
       import("./modulos/cronos/contrato.js"),
-      import("./modulos/cronos/vista-recorridos.js?v=20260924-f2-cache-v2"),
+      import("./modulos/cronos/vista-recorridos.js?v=20260924-cronos-ayuda-v1"),
     ]);
     return Object.freeze({ contrato, recorridos });
   },
@@ -136,7 +136,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   cronos: async () => {
     const [vista, recorridos, i18n] = await Promise.all([
       import("./modulos/cronos/vista.js?v=20260924-f2-shell-v1"),
-      import("./modulos/cronos/vista-recorridos.js?v=20260924-f2-cache-v2"),
+      import("./modulos/cronos/vista-recorridos.js?v=20260924-cronos-ayuda-v1"),
       import("./modulos/cronos/i18n.js?v=20260924-f2-web2"),
     ]);
     return Object.freeze({ vista, recorridos, i18n });

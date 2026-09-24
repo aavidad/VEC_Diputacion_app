@@ -131,7 +131,7 @@ test("el cargador interno nominal y el manifiesto contienen el recorrido sin nue
   ]);
   const cargadorInterno = coordinador.split("const CARGADORES_INTERNOS_PREDETERMINADOS =")[1]
     .split("function capacidadesDietas")[0];
-  assert.match(cargadorInterno, /import\("\.\/modulos\/cronos\/vista-recorridos\.js\?v=20260924-f2-cache-v2"\)/u);
+  assert.match(cargadorInterno, /import\("\.\/modulos\/cronos\/vista-recorridos\.js\?v=20260924-cronos-ayuda-v1"\)/u);
   assert.match(cargadorInterno, /import\("\.\/modulos\/cronos\/i18n\.js\?v=20260924-f2-web2"\)/u);
   assert.match(manifiesto, /static\/portal-empleado\/modulos\/cronos\/vista-recorridos\.js/u);
   assert.match(manifiesto, /static\/portal-empleado\/modulos\/cronos\/permisos\.css/u);
