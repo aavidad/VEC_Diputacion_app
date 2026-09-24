@@ -103,12 +103,13 @@ test("ambas páginas cargan tema positivo y activos públicos versionados", () =
     for (const activo of ["tema-vec.css", "bolsa_adaptable.css", "i18n-publica.js"]) {
       assert.match(pagina, new RegExp(`${activo.replaceAll(".", "\\.")}\\?v=20260924-bolsa-publica-final`));
     }
-    assert.match(pagina, /bolsa\.css\?v=20260924-bolsa-ayuda-v3/);
-    assert.doesNotMatch(pagina, /bolsa\.css\?v=20260924-bolsa-publica-final/);
+    assert.match(pagina, /bolsa\.css\?v=20260924-bolsa-sin-inline-v4/);
+    assert.doesNotMatch(pagina, /bolsa\.css\?v=20260924-bolsa-ayuda-v3/);
+    assert.doesNotMatch(pagina, /<style\b|\sstyle=/i);
   }
-  assert.match(listas, /listas\.css\?v=20260924-bolsa-ayuda-v3/);
+  assert.match(listas, /listas\.css\?v=20260924-bolsa-sin-inline-v4/);
   assert.match(listas, /lista-bolsas\.js\?v=20260924-bolsa-ayuda-v3/);
-  assert.doesNotMatch(listas, /listas\.css\?v=20260924-bolsa-publica-ayuda-v2|lista-bolsas\.js\?v=20260924-bolsa-publica-final/);
+  assert.doesNotMatch(listas, /listas\.css\?v=20260924-bolsa-ayuda-v3|lista-bolsas\.js\?v=20260924-bolsa-publica-final/);
   assert.match(html, /bolsa\.js\?v=20260924-bolsa-publica-final/);
   assert.match(css, /--bolsa-bg:\s*var\(--portal-fondo, var\(--bg\)\)/);
   assert.match(css, /\.portal-bolsa-publico\.alto-contraste \.navegacion-publica a\[aria-current="page"\]/);

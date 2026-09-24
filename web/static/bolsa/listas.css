@@ -153,6 +153,7 @@
   font: 1rem ui-monospace, SFMono-Regular, Consolas, monospace;
 }
 .ayuda-busqueda-doc { margin: 5px 0 0; color: var(--bolsa-muted-strong); font-size: .8rem; line-height: 1.4; }
+.ayuda-busqueda-doc--error { color: var(--bolsa-danger); }
 .ayuda-formato-lista { margin-top: 5px; color: var(--bolsa-muted-strong); font-size: .8rem; }
 .ayuda-formato-lista summary {
   display: inline-grid;
