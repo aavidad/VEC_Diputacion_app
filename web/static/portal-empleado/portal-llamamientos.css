@@ -9,12 +9,12 @@
   gap: 12px;
   margin: -4px 0 12px;
   padding: 8px 12px;
-  border: 1px solid #cbd8e8;
-  border-radius: 6px;
-  background: #f7faff;
-  color: #344b66;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio);
+  background: var(--portal-azul-100);
+  color: var(--portal-tinta);
   font-size: 0.7rem;
-  box-shadow: 0 3px 9px rgba(19, 48, 82, 0.09);
+  box-shadow: var(--portal-sombra-sm);
 }
 
 .resumen-necesidad { position: sticky; top: 76px; }
@@ -36,9 +36,9 @@
 .resumen-errores {
   padding: 10px 12px;
   border: 2px solid var(--portal-peligro);
-  border-radius: 6px;
-  background: #fff4f4;
-  color: #762626;
+  border-radius: var(--portal-radio);
+  background: var(--portal-peligro-suave);
+  color: var(--portal-peligro);
   font-size: 0.74rem;
 }
 
@@ -48,9 +48,9 @@
 .recibo-llamamiento {
   margin: 0 14px 14px;
   padding: 14px;
-  border: 2px solid #68a977;
-  border-radius: 8px;
-  background: #f2fbf4;
+  border: 2px solid var(--portal-exito);
+  border-radius: var(--portal-radio-lg);
+  background: var(--portal-exito-suave);
 }
 
 .recibo-llamamiento h3,
@@ -66,9 +66,9 @@
 .recibo-llamamiento dl > div {
   min-width: 0;
   padding: 9px;
-  border: 1px solid #b8d9c0;
-  border-radius: 5px;
-  background: #fff;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio-md);
+  background: var(--portal-superficie);
 }
 
 .recibo-llamamiento dt { color: var(--portal-muted); font-size: 0.65rem; }
