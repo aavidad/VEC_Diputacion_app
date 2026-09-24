@@ -43,9 +43,20 @@ test("acceso carga el tema común versionado antes de su hoja local", () => {
   assert.deepEqual(estilos, [
     "/styles.css?v=20260715-theme",
     "/comun/tema-vec.css?v=20260924-f2-tema-base-v2",
-    "/acceso/acceso.css?v=20260924-f1-acceso-ayuda-v2",
+    "/acceso/acceso.css?v=20260924-f1-acceso-scroll-v2",
   ]);
+  assert.doesNotMatch(html, /\/acceso\/acceso\.css\?v=20260924-f1-acceso-ayuda-v2/u);
   assert.match(html, /<script type="module" src="\/acceso\/acceso-i18n\.js\?v=20260924-f1-acceso-ayuda-v1"><\/script>/u);
+});
+
+test("escritorio encierra el desplazamiento en el marco y móvil conserva flujo natural", () => {
+  const escritorio = /@media \(min-width: 881px\)\s*\{([^]*?)\n\}/u.exec(acceso)?.[1];
+  assert.ok(escritorio, "falta diseño de escritorio");
+  assert.match(escritorio, /\.acceso-publico\s*\{[^}]*height:\s*100vh;[^}]*overflow-y:\s*hidden;/u);
+  assert.match(escritorio, /\.acceso-principal\s*\{[^}]*min-height:\s*0;[^}]*grid-template-rows:\s*minmax\(0, 1fr\);/u);
+  assert.match(escritorio, /\.acceso-marco\s*\{[^}]*height:\s*100%;[^}]*min-height:\s*0;/u);
+  assert.match(escritorio, /\.acceso-presentacion,\s*\.acceso-panel\s*\{[^}]*overflow-y:\s*auto;/u);
+  assert.doesNotMatch(/@media \(max-width: 880px\)\s*\{([^]*?)\n\}/u.exec(acceso)?.[1] ?? "", /overflow-y:\s*hidden|height:\s*100vh/u);
 });
 
 test("el texto de ayuda no aparece hasta activar el único botón ?", async () => {
