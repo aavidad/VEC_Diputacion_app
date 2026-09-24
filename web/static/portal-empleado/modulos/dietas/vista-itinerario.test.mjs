@@ -64,6 +64,9 @@ test("mantiene visible un mapa corporativo pendiente sin inventar catálogo ni g
   const r = raiz();
   const vista = montarVistaItinerarioPendienteDietas({ raiz: r });
   const contenedor = r.querySelector("[data-dietas-itinerario]");
+  const ayuda = contenedor.querySelector("[data-accion=\"ayuda\"]");
+  assert.equal(ayuda.textContent, "?");
+  assert.equal(ayuda.attrs["aria-label"], `${MENSAJES_DIETAS_ES.recorridos_abrir_ayuda} · ${MENSAJES_DIETAS_ES.ruta_del_dia}`);
   const mapa = contenedor.querySelector("[data-dietas-mapa-pendiente]");
   assert.ok(mapa);
   assert.equal(mapa.querySelector("[data-dietas-mapa-canvas]").dataset.modoMapa, "pendiente_calculo_autorizado");
@@ -83,6 +86,12 @@ test("consulta el puerto OSRM inyectado, muestra catálogo y desmonta el mapa", 
     visorRuta: { montar({ descriptor }) { mapas.push(descriptor); return { desmontar() { mapaDesmontado = true; } }; } },
   });
   const contenedor = r.querySelector("[data-dietas-itinerario]");
+  const ayuda = contenedor.querySelector("[data-accion=\"ayuda\"]");
+  assert.equal(ayuda.textContent, "?");
+  assert.equal(ayuda.attrs["aria-label"], `${MENSAJES_DIETAS_ES.recorridos_abrir_ayuda} · ${MENSAJES_DIETAS_ES.ruta_del_dia}`);
+  const llamadasAntesAyuda = llamadas.length;
+  await clicar(contenedor, '[data-accion="ayuda"]');
+  assert.equal(llamadas.length, llamadasAntesAyuda, "abrir ayuda no calcula rutas");
   assert.equal(contenedor.querySelector("[data-itinerario-catalogo]"), null);
   assert.equal(
     contenedor.querySelector("[data-dietas-mapa-centro]").children[0].textContent,
