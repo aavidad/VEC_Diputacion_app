@@ -52,8 +52,14 @@ export function crearRenderizadorBorradores({
         </section>`;
     }
     if (estado.faseLista === FASE_ERROR) {
+      // La comprobación de opciones debe seguir concediendo consulta. Una
+      // denegación o un fallo de esa comprobación elimina las opciones.
+      const reciboConfirmado = estado.recibo && estado.opciones?.capacidades?.consultar === true
+        && estado.errorLista && ![401, 403].includes(estado.errorLista.estadoHTTP)
+        ? renderRecibo() : "";
       return `
         ${renderError(estado.errorLista, "Servicio de borradores no disponible")}
+        ${reciboConfirmado}
         <section class="panel"><div class="cuerpo-panel vacio-controlado">
           <p><strong>La bandeja no puede operar sin el backend autenticado.</strong></p>
           <p>No se muestran borradores ficticios ni una copia local alternativa.</p>

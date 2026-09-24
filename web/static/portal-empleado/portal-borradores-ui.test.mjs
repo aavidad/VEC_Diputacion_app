@@ -498,6 +498,69 @@ test("un alta confirmada conserva recibo aunque falle la lectura posterior", asy
   assert.doesNotMatch(html, /data-borrador-form="editor"/);
 });
 
+test("tras revalidar opciones, un fallo transitorio de lista conserva el recibo confirmado", async () => {
+  let consultas = 0;
+  const cliente = crearDobleCliente({
+    listar: async () => {
+      consultas += 1;
+      if (consultas === 3) throw new Error("fallo transitorio del listado");
+      return structuredClone(lista());
+    },
+  });
+  const { superficie } = crearSuperficie({ cliente });
+  assert.equal(await superficie.activar(), true);
+  cambiar(superficie, "contenido_editable.titulo", "Título confirmado");
+  assert.equal(await superficie.guardar(), true);
+  assert.match(superficie.renderizar(), /transaccion:borrador:2026:17/);
+  superficie.desmontar();
+  assert.equal(await superficie.activar(), false);
+  assert.equal(superficie.obtenerAcceso().estado, "disponible");
+  const html = superficie.renderizar();
+  assert.match(html, /La bandeja no puede operar sin el backend autenticado/);
+  assert.match(html, /Guardado confirmado/);
+  assert.match(html, /transaccion:borrador:2026:17/);
+  assert.doesNotMatch(html, /data-borrador-form="editor"/);
+});
+
+test("un fallo al revalidar opciones oculta el recibo anterior", async () => {
+  let comprobaciones = 0;
+  const cliente = crearDobleCliente({
+    obtenerOpciones: async () => {
+      comprobaciones += 1;
+      if (comprobaciones === 2) throw new Error("opciones no disponibles");
+      return structuredClone(opciones());
+    },
+  });
+  const { superficie } = crearSuperficie({ cliente });
+  assert.equal(await superficie.activar(), true);
+  cambiar(superficie, "contenido_editable.titulo", "Título confirmado");
+  assert.equal(await superficie.guardar(), true);
+  superficie.desmontar();
+  assert.equal(await superficie.activar(), false);
+  assert.equal(superficie.obtenerAcceso().estado, "error");
+  assert.doesNotMatch(superficie.renderizar(), /Recibo administrativo|transaccion:borrador:2026:17/);
+});
+
+for (const estadoHTTP of [401, 403]) {
+  test(`un ${estadoHTTP} al revalidar opciones retira el recibo confirmado`, async () => {
+    let comprobaciones = 0;
+    const cliente = crearDobleCliente({
+      obtenerOpciones: async () => {
+        comprobaciones += 1;
+        if (comprobaciones === 2) throw errorAcceso(estadoHTTP, "opciones");
+        return structuredClone(opciones());
+      },
+    });
+    const { superficie } = crearSuperficie({ cliente });
+    assert.equal(await superficie.activar(), true);
+    cambiar(superficie, "contenido_editable.titulo", "Título confirmado");
+    assert.equal(await superficie.guardar(), true);
+    superficie.desmontar();
+    assert.equal(await superficie.activar(), false);
+    afirmarRevocada(superficie);
+  });
+}
+
 function errorAcceso(estadoHTTP, camino) {
   return new ErrorAPIBorradores(`Acceso retirado en ${camino}.`, estadoHTTP, undefined, {
     codigo: `acceso_retirado_${camino}`,
