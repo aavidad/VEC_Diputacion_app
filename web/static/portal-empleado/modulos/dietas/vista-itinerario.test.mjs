@@ -67,6 +67,8 @@ test("mantiene visible un mapa corporativo pendiente sin inventar catálogo ni g
   const mapa = contenedor.querySelector("[data-dietas-mapa-pendiente]");
   assert.ok(mapa);
   assert.equal(mapa.querySelector("[data-dietas-mapa-canvas]").dataset.modoMapa, "pendiente_calculo_autorizado");
+  assert.equal(mapa.querySelector("[data-dietas-mapa-canvas]").attrs["aria-label"],
+    MENSAJES_DIETAS_ES.mapa_pendiente_titulo);
   assert.equal(mapa.querySelector("[data-dietas-mapa-centro]").textContent, "");
   assert.equal(mapa.querySelector("[data-dietas-mapa-centro]").children[0].textContent, "Granada");
   assert.match(mapa.querySelector("[data-dietas-mapa-estado]").textContent, /Pendiente de cálculo autorizado/u);
@@ -98,6 +100,9 @@ test("consulta el puerto OSRM inyectado, muestra catálogo y desmonta el mapa", 
   assert.equal(llamadas[0].opciones.method, "POST");
   assert.equal(llamadas[0].opciones.credentials, "omit");
   assert.ok(mapas.length === 1, JSON.stringify(avisos));
+  assert.equal(contenedor.querySelector("[data-dietas-mapa-ref]")
+    .querySelector("[data-dietas-mapa-canvas]").attrs["aria-label"],
+    MENSAJES_DIETAS_ES.mapa_region_accesible);
   assert.equal(mapas[0].geometria.liquidable, false);
   assert.equal(mapas[0].geometria.origen, "osrm_interno");
   assert.ok(avisos.some(([mensaje]) => /calculada por el puerto interno/u.test(mensaje)));
@@ -111,18 +116,20 @@ test("preselecciona el centro sintético asociado y no cae al primer punto si no
   await montarVistaItinerarioDietas({
     raiz: r,
     calculador: crearCalculador([]),
+    mensajes: { ...MENSAJES_DIETAS_ES, ruta_salida: "Centro asignado de salida" },
     visorRuta: { montar() { return { desmontar() {} }; } },
     centroSalidaAsociado: { etiqueta: "Sede provincial · Granada", localidad: "Granada" },
   });
   const salida = r.querySelector('[data-itinerario-parada="0"]');
   assert.equal(salida.value, undefined);
   assert.equal(salida.children.find((opcion) => opcion.selected).textContent,
-    "Sede provincial · Granada (centro asociado)");
+    "Sede provincial · Granada (Centro asignado de salida)");
 
   const sinCoincidencia = raiz();
   await montarVistaItinerarioDietas({
     raiz: sinCoincidencia,
     calculador: crearCalculador([]),
+    mensajes: { ...MENSAJES_DIETAS_ES, ruta_seleccionar_localidad: "Elija localidad" },
     visorRuta: { montar() { return { desmontar() {} }; } },
     centroSalidaAsociado: { etiqueta: "Centro no resuelto · Fuera de catálogo", localidad: "Fuera de catálogo" },
   });
@@ -130,6 +137,7 @@ test("preselecciona el centro sintético asociado y no cae al primer punto si no
   assert.equal(salidaPendiente.children[0].value, "");
   assert.equal(salidaPendiente.children[0].selected, true);
   assert.match(salidaPendiente.children[0].textContent, /Centro no resuelto/u);
+  assert.match(salidaPendiente.children[0].textContent, /Elija localidad/u);
   assert.equal(sinCoincidencia.querySelector("[data-itinerario-calcular]").disabled, true);
 });
 

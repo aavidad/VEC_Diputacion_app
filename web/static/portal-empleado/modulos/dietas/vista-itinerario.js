@@ -69,7 +69,7 @@ function crearMapaPendiente(documento, traducir) {
   lienzo.dataset.dietasMapaCanvas = "";
   lienzo.dataset.modoMapa = "pendiente_calculo_autorizado";
   lienzo.setAttribute("role", "region");
-  lienzo.setAttribute("aria-label", traducir("mapa_region_accesible"));
+  lienzo.setAttribute("aria-label", traducir("mapa_pendiente_titulo"));
   const centro = elemento(documento, "div");
   centro.className = "dietas-mapa-centro-inicial";
   centro.dataset.dietasMapaCentro = "granada";
@@ -118,7 +118,7 @@ function crearSelectorParada(documento, modelo, codigo, indice, traducir) {
   const centroAsociado = esSalida ? modelo.centro_salida_asociado : null;
   if (esSalida && !codigo) {
     const opcionVacia = elemento(documento, "option", centroAsociado?.etiqueta
-      ? `${centroAsociado.etiqueta} · seleccione una localidad`
+      ? `${centroAsociado.etiqueta} · ${traducir("ruta_seleccionar_localidad")}`
       : traducir("ruta_seleccionar_localidad"));
     opcionVacia.value = "";
     opcionVacia.selected = true;
@@ -127,7 +127,7 @@ function crearSelectorParada(documento, modelo, codigo, indice, traducir) {
   modelo.catalogo.puntos.forEach((punto) => {
     const esCentroAsociado = esSalida && centroAsociado?.codigo === punto.codigo;
     const opcion = elemento(documento, "option", esCentroAsociado
-      ? `${centroAsociado.etiqueta} (centro asociado)` : punto.nombre);
+      ? `${centroAsociado.etiqueta} (${traducir("ruta_salida")})` : punto.nombre);
     opcion.value = punto.codigo;
     opcion.selected = punto.codigo === codigo;
     selector.append(opcion);
