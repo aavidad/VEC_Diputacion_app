@@ -112,8 +112,6 @@ test("cambiar situación B2 envía idempotencia y conserva el recibo", async () 
   assert.match(observada.url, /\/bolsa:01\/candidatos\/participacion:01\/situacion$/);
 });
 import { crearPresentadorPanelInterno } from "./portal-panel-interno.js";
-import { crearFuenteLecturaBolsasPresentacion } from "./portal-presentacion-adaptador.js";
-import { obtenerDatosPresentacion } from "./datos-presentacion.js";
 const rutaDemoJson = new URL("../../../data/demo/bolsa/v1.bolsas-demo.json", import.meta.url);
 const demoJsonRaw = JSON.parse(await readFile(rutaDemoJson, "utf8"));
 /**
