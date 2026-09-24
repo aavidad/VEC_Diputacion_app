@@ -89,14 +89,36 @@ export function montarFormularioResolucionFormalizacion({
     if (focoPropio) raiz.querySelector?.("[data-ct-rf-estado]")?.focus?.();
   }
 
-  function actualizarEstado(mensaje, pendiente = false) {
+  function actualizarEstado(mensaje, enfocarEstado = false) {
+    if (!montado) return;
     const estado = raiz.querySelector?.("[data-ct-rf-estado]");
     const formulario = raiz.querySelector?.("[data-ct-resolucion-formalizacion-form]");
-    if (!estado || !formulario) { pintar(mensaje); return; }
-    estado.textContent = t("resolucion_formalizacion_" + mensaje);
-    formulario.setAttribute("aria-busy", String(pendiente));
+    if (!estado || !formulario) { pintar(mensaje, enfocarEstado); return; }
+    const controles = formulario.elements;
     const boton = formulario.querySelector('button[type="submit"]');
-    if (boton) boton.setAttribute("aria-disabled", String(pendiente));
+    const documento = raiz.ownerDocument ?? globalThis.document;
+    const activo = documento?.activeElement;
+    const editables = [controles.numero_resolucion, controles.fecha_resolucion, controles.motivo,
+      controles.confirma_revision_propuesta, controles.confirma_ejercicio_manual];
+    if ((enfocarEstado && raiz.contains?.(activo))
+      || (ocupado && [boton, controles.confirma_revision_propuesta,
+        controles.confirma_ejercicio_manual].includes(activo))
+      || (reintentoInmutable && editables.includes(activo))) estado.focus?.();
+    estado.textContent = t("resolucion_formalizacion_" + mensaje);
+    formulario.setAttribute("aria-busy", String(ocupado));
+    for (const campo of [controles.numero_resolucion, controles.fecha_resolucion, controles.motivo]) {
+      campo.readOnly = ocupado;
+    }
+    for (const campo of [controles.confirma_revision_propuesta, controles.confirma_ejercicio_manual]) {
+      campo.disabled = ocupado;
+    }
+    const grupo = formulario.querySelector("fieldset");
+    if (grupo) grupo.disabled = reintentoInmutable;
+    if (boton) {
+      boton.disabled = ocupado;
+      boton.setAttribute("aria-disabled", String(ocupado));
+      boton.textContent = t("resolucion_formalizacion_" + (solicitudPendiente ? "reintentar" : "registrar"));
+    }
   }
 
   function primerControlInvalido(formulario) {
@@ -133,7 +155,7 @@ export function montarFormularioResolucionFormalizacion({
   async function recuperarConflicto(signal) {
     // Lectura de historia, no confirmación del material posiblemente divergente.
     // Ni un GET v7 vacío ni un fallo de lectura liberan esta clave para editar.
-    actualizarEstado("conflicto_consultando", true);
+    actualizarEstado("conflicto_consultando");
     try {
       if (!montado || signal.aborted) return "incierta";
       const resultado = await cliente.prepararResolucionFormalizacion(contexto.expediente_ref, { signal });
@@ -186,7 +208,7 @@ export function montarFormularioResolucionFormalizacion({
     let respuestaRecibida = false;
     ocupado = true;
     controlador = new AbortController();
-    actualizarEstado("enviando", true);
+    actualizarEstado("enviando");
     try {
       const respuesta = await cliente.registrarResolucionFormalizacion(solicitudPendiente, {
         signal: controlador.signal,
@@ -213,7 +235,8 @@ export function montarFormularioResolucionFormalizacion({
     } finally {
       ocupado = false;
       controlador = null;
-      pintar(mensaje, true);
+      if (recibo) pintar(mensaje, true);
+      else actualizarEstado(mensaje, true);
     }
   }
 
