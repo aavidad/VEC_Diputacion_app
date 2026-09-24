@@ -145,6 +145,9 @@ var referenciaRutaComisionDietas = regexp.MustCompile(`^dco_[A-Za-z0-9_-]{22,128
 var referenciaRutaRelacionPersonalDietas = regexp.MustCompile(`^rel_[A-Za-z0-9_-]{22,128}$`)
 
 func metodoComisionesDietasValido(ruta, metodo string) bool {
+	if escrituraAsignacionDietas(ruta, metodo) && !escrituraAsignacionDietasAbierta(catalogoValidadoresCompetentesAsignacionDietas) {
+		return false
+	}
 	if ruta == personalhttp.RutaRelacionesDietas {
 		return metodo == http.MethodGet
 	}

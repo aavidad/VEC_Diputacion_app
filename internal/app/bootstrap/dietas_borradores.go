@@ -126,12 +126,11 @@ func componerBorradoresDietas(d dependenciasBorradoresDietas) ([]vechttp.RutaExa
 		ctx := context.WithValue(r.Context(), claveCacheSeguridadComunDesarrollo{}, &cacheSeguridadComunDesarrollo{})
 		manejadorAsignacion.ServeHTTP(w, r.WithContext(ctx))
 	})
-	return []vechttp.RutaExacta{
-			{Ruta: dietashttp.RutaBorradores, Manejador: ruta},
-			{Ruta: personalhttp.RutaRelacionesDietas, Manejador: rutaRelaciones},
-			{Ruta: personalhttp.RutaAsignacionesDietas, Manejador: rutaAsignacion},
-		}, []vechttp.RutaColeccion{
-			{Prefijo: dietashttp.RutaBorradores, Manejador: ruta},
-			{Prefijo: personalhttp.RutaAsignacionesDietas, Manejador: rutaAsignacion},
-		}, nil
+	exactasAsignacion, coleccionesAsignacion := rutasAsignacionDietas(rutaAsignacion, catalogoValidadoresCompetentesAsignacionDietas)
+	exactas := append([]vechttp.RutaExacta{
+		{Ruta: dietashttp.RutaBorradores, Manejador: ruta},
+		{Ruta: personalhttp.RutaRelacionesDietas, Manejador: rutaRelaciones},
+	}, exactasAsignacion...)
+	colecciones := append([]vechttp.RutaColeccion{{Prefijo: dietashttp.RutaBorradores, Manejador: ruta}}, coleccionesAsignacion...)
+	return exactas, colecciones, nil
 }

@@ -145,9 +145,9 @@ func TestFronteraComisionesDietasNoDelegaNiSirveSinSesion(t *testing.T) {
 		{dietashttp.RutaBorradores, http.MethodDelete, false},
 		{"/api/vec/personal/relaciones-dietas", http.MethodGet, true},
 		{"/api/vec/personal/relaciones-dietas", http.MethodPost, false},
-		{"/api/vec/personal/asignaciones-dietas", http.MethodPost, true},
+		{"/api/vec/personal/asignaciones-dietas", http.MethodPost, false},
 		{"/api/vec/personal/asignaciones-dietas/rel_aaaaaaaaaaaaaaaaaaaaaa", http.MethodGet, true},
-		{"/api/vec/personal/asignaciones-dietas/rel_aaaaaaaaaaaaaaaaaaaaaa", http.MethodPut, true},
+		{"/api/vec/personal/asignaciones-dietas/rel_aaaaaaaaaaaaaaaaaaaaaa", http.MethodPut, false},
 		{"/api/vec/personal/asignaciones-dietas/rel_aaaaaaaaaaaaaaaaaaaaaa/grupo", http.MethodPut, true},
 		{"/api/vec/personal/asignaciones-dietas/rel_aaaaaaaaaaaaaaaaaaaaaa/grupo", http.MethodGet, false},
 	} {
