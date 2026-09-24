@@ -29,6 +29,18 @@ func escrituraAsignacionDietasAbierta(catalogo string) bool {
 	return strings.TrimSpace(catalogo) != ""
 }
 
+// emisorAsignacionDietasMontable indica si la composición crea el emisor V3 de
+// una audiencia. Los de alta inicial y corrección completa D7 solo se montan
+// con el catálogo abierto; cerrado, ninguna acción puede obtener su material.
+func emisorAsignacionDietasMontable(audiencia, catalogo string) bool {
+	switch audiencia {
+	case audienciaConsumoRegistrarAsignacionDietas, audienciaConsumoCorregirAsignacionDietas:
+		return escrituraAsignacionDietasAbierta(catalogo)
+	default:
+		return true
+	}
+}
+
 // escrituraAsignacionDietas identifica una petición de alta o de
 // corrección completa de la asignación D7, ya sea por ruta exacta o colección.
 func escrituraAsignacionDietas(ruta, metodo string) bool {

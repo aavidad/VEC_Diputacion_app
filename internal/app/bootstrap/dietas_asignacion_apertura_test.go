@@ -74,3 +74,17 @@ func TestAsignacionDietasEscrituraSeAbreSoloConCatalogo(t *testing.T) {
 		t.Fatal("catálogo en blanco abrió la escritura")
 	}
 }
+
+// Los emisores V3 de alta inicial y corrección completa siguen a la bandera:
+// cerrada no se montan; el resto de audiencias de Dietas y D7 no dependen de ella.
+func TestAsignacionDietasEmisoresEscrituraSoloConCatalogo(t *testing.T) {
+	cerradas := map[string]bool{audienciaConsumoRegistrarAsignacionDietas: true, audienciaConsumoCorregirAsignacionDietas: true}
+	for _, descriptor := range descriptoresMaterialDietasDesarrollo() {
+		if got := emisorAsignacionDietasMontable(descriptor.Audiencia, catalogoValidadoresCompetentesAsignacionDietas); got == cerradas[descriptor.Audiencia] {
+			t.Fatalf("%s montable=%t con la bandera cerrada", descriptor.Audiencia, got)
+		}
+		if !emisorAsignacionDietasMontable(descriptor.Audiencia, "catalogo:base:validadores-competentes:v1") {
+			t.Fatalf("%s no se monta con el catálogo abierto", descriptor.Audiencia)
+		}
+	}
+}

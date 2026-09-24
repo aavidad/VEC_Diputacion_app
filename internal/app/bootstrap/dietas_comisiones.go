@@ -625,6 +625,9 @@ func nuevasComisionesDietasDesarrollo(cfg config.Config, resolvedor vechttp.Demo
 	}
 	emisores := make(map[string]emisorMaterialDietasDesarrollo)
 	for _, descriptor := range descriptoresMaterialDietasDesarrollo() {
+		if !emisorAsignacionDietasMontable(descriptor.Audiencia, catalogoValidadoresCompetentesAsignacionDietas) {
+			continue
+		}
 		p := material.adicionales[descriptor.Audiencia]
 		emisor, e := nuevoEmisorMaterialRenovableCTDesarrollo(autorizador, p)
 		if e != nil {
@@ -641,6 +644,12 @@ func nuevasComisionesDietasDesarrollo(cfg config.Config, resolvedor vechttp.Demo
 		"personal.asignacion_dietas.registrar_inicial": emisores[audienciaConsumoRegistrarAsignacionDietas],
 		"personal.asignacion_dietas.corregir":          emisores[audienciaConsumoCorregirAsignacionDietas],
 		"personal.asignacion_dietas.grupo_corregir":    emisores[audienciaConsumoCorregirGrupoDietas],
+	}
+	// Alta y corrección completa D7 solo tienen emisor con el catálogo abierto.
+	for accion, emisor := range emisoresPorAccion {
+		if emisor == nil {
+			delete(emisoresPorAccion, accion)
+		}
 	}
 	nonce, err := nonceRutasDietas()
 	if err != nil {
