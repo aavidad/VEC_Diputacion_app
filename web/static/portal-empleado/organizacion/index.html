@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <title>Organización · Portal del Empleado</title>
+    <title data-i18n="documentTitle"></title>
     <link rel="stylesheet" href="/styles.css" />
     <link rel="stylesheet" href="/portal-empleado/portal.css" />
     <link rel="stylesheet" href="/portal-empleado/portal-componentes.css" />
@@ -17,40 +17,73 @@
         <div>
           <div class="org-kicker" data-i18n="eyebrow"></div>
           <h1 data-i18n="title"></h1>
-          <p class="org-intro" data-i18n="intro"></p>
         </div>
-        <a class="org-back" href="/portal-empleado/" data-i18n="back"></a>
+        <div class="org-top-actions">
+          <details class="org-help">
+            <summary data-i18n="helpOpen"></summary>
+            <div class="org-help-content">
+              <p data-i18n="intro"></p>
+              <strong data-i18n="noticeTitle"></strong>
+              <p data-i18n="notice"></p>
+              <p id="provenance"></p>
+              <p data-i18n="note"></p>
+              <p data-i18n="editorHelper"></p>
+              <dl class="org-meta">
+                <div><dt data-i18n="catalogId"></dt><dd id="catalog-id">—</dd></div>
+                <div><dt data-i18n="version"></dt><dd id="catalog-version">—</dd></div>
+                <div><dt data-i18n="fingerprint"></dt><dd id="catalog-hash">—</dd></div>
+                <div><dt data-i18n="status"></dt><dd id="catalog-status">—</dd></div>
+              </dl>
+            </div>
+          </details>
+          <a class="org-back" href="/portal-empleado/" data-i18n="back"></a>
+        </div>
       </div>
-      <section class="org-notice" aria-label="Estado del módulo">
-        <strong data-i18n="noticeTitle"></strong>
-        <p data-i18n="notice"></p>
-        <details>
-          <summary data-i18n="provenanceDetail"></summary>
-          <p id="provenance"></p>
-        </details>
+      <nav class="org-tabs" role="tablist" data-i18n-label="tabsLabel">
+        <button type="button" role="tab" id="tab-history" class="org-tab" aria-controls="history-panel" aria-selected="true" data-i18n="historyTab"></button>
+        <button type="button" role="tab" id="tab-catalog" class="org-tab" aria-controls="catalog-panel" aria-selected="false" data-i18n="catalogTab" tabindex="-1"></button>
+      </nav>
+      <section class="org-panel org-history" role="tabpanel" id="history-panel" aria-labelledby="tab-history">
+        <div class="org-panel-heading">
+          <h2 id="history-title" data-i18n="historyTitle"></h2>
+          <span class="org-pill" id="history-authorization" aria-live="polite"></span>
+        </div>
+        <div class="org-panel-body">
+          <form id="history-form" class="org-history-form">
+            <label><span data-i18n="historyUnit"></span><select id="history-unit" disabled><option value="" data-i18n="historyChooseUnit"></option></select></label>
+            <label><span data-i18n="historyValidDate"></span><input id="history-valid-date" type="text" inputmode="numeric" autocomplete="off" maxlength="10" required data-i18n-placeholder="historyDateFormat" /></label>
+            <label><span data-i18n="historyKnownAt"></span><input id="history-known-at" type="text" inputmode="numeric" autocomplete="off" maxlength="16" required data-i18n-placeholder="historyDateTimeFormat" /></label>
+            <label><span data-i18n="historyVersionRPT"></span><input id="history-version-rpt" type="text" maxlength="160" autocomplete="off" /></label>
+            <label><span data-i18n="historyVersionPlantilla"></span><input id="history-version-plantilla" type="text" maxlength="160" autocomplete="off" /></label>
+            <button type="submit" id="history-search" disabled data-i18n="historySearch"></button>
+          </form>
+          <div id="history-state" class="org-state" role="status" aria-live="polite"></div>
+          <div id="history-results" class="org-history-results" hidden>
+            <div class="org-history-scope" data-i18n="historyPageScope"></div>
+            <div class="org-history-summary">
+              <div class="org-history-kpis" id="history-coverage"></div>
+              <div class="org-history-meta" id="history-meta"></div>
+            </div>
+            <div class="org-history-list-head">
+              <label for="history-kind" data-i18n="historyKind"></label>
+              <select id="history-kind">
+                <option value="unidades" data-i18n="historyUnits"></option>
+                <option value="puestos_tipo" data-i18n="historyTypes"></option>
+                <option value="dotaciones" data-i18n="historyAllocations"></option>
+                <option value="plazas" data-i18n="historyPlazas"></option>
+                <option value="puestos_individuales" data-i18n="historyPosts"></option>
+                <option value="vinculos" data-i18n="historyLinks"></option>
+              </select>
+              <span id="history-count" aria-live="polite"></span>
+            </div>
+            <div id="history-table-wrap" class="org-table-wrap" tabindex="0">
+              <table><caption id="history-caption"></caption><thead id="history-head"></thead><tbody id="history-rows"></tbody></table>
+            </div>
+            <div class="org-history-footer"><button type="button" id="history-more" class="org-secondary" hidden data-i18n="historyMore"></button></div>
+          </div>
+        </div>
       </section>
-      <details class="org-trazabilidad">
-        <summary data-i18n="traceability"></summary>
-        <dl class="org-meta" aria-label="Metadatos del catálogo">
-          <div>
-            <dt data-i18n="catalogId"></dt>
-            <dd id="catalog-id">—</dd>
-          </div>
-          <div>
-            <dt data-i18n="version"></dt>
-            <dd id="catalog-version">—</dd>
-          </div>
-          <div>
-            <dt data-i18n="fingerprint"></dt>
-            <dd id="catalog-hash">—</dd>
-          </div>
-          <div>
-            <dt data-i18n="status"></dt>
-            <dd id="catalog-status">—</dd>
-          </div>
-        </dl>
-      </details>
-      <section class="org-panel" aria-labelledby="table-title">
+      <section class="org-panel" role="tabpanel" id="catalog-panel" aria-labelledby="tab-catalog" hidden>
         <div class="org-panel-heading">
           <h2 id="table-title" data-i18n="tableTitle"></h2>
           <button type="button" id="new-unit" data-i18n="newUnit" hidden></button>
@@ -105,7 +138,6 @@
             data-i18n="sourceLink"
           ></a>
         </p>
-        <p class="org-note" data-i18n="note"></p>
       </section>
       <section
         class="org-panel org-editor"
@@ -114,7 +146,6 @@
         hidden
       >
         <h2 id="editor-title" data-i18n="editorTitle"></h2>
-        <p class="org-helper" data-i18n="editorHelper"></p>
         <form id="unit-form">
           <input id="unit-key" type="hidden" />
           <div class="org-form-grid">
