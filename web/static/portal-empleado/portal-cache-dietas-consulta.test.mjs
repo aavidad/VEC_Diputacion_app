@@ -33,12 +33,12 @@ test("Dietas interno atraviesa una caché caliente con sus clientes reales", asy
 
   const cargadorInterno = coordinador.split("const CARGADORES_INTERNOS_PREDETERMINADOS =")[1]
     .split("function componerModuloAislado")[0];
-  for (const recurso of [
-    "vista-recorridos.js", "cliente-borradores-http.js", "cliente-asignacion-http.js",
-    "calculador-rutas-http.js", "mapa-ruta.js",
-  ]) {
+  for (const recurso of ["cliente-borradores-http.js", "cliente-asignacion-http.js", "calculador-rutas-http.js"]) {
     assert.deepEqual(versiones(cargadorInterno, `./modulos/dietas/${recurso}`), [VERSION_MONTAJE], recurso);
   }
+  // Textos de pantalla renovados: la vista y el mapa cambian de URL en cascada.
+  const vistaVigente = exigirVersiones(cargadorInterno, "./modulos/dietas/vista-recorridos.js", posterior(VERSION_MONTAJE));
+  exigirVersiones(cargadorInterno, "./modulos/dietas/mapa-ruta.js", posterior(VERSION_MONTAJE));
   assert.doesNotMatch(cargadorInterno, /vista-itinerario|adaptador-presentacion|datos-presentacion|calculador-rutas-presentacion/u);
   assert.doesNotMatch(recorridos, /vista-itinerario\.js|montarMapaInicialGranadaDietas/u);
 
@@ -53,6 +53,6 @@ test("Dietas interno atraviesa una caché caliente con sus clientes reales", asy
   for (const recurso of [
     `/portal-empleado/portal.js?v=${entrada[0]}`,
     `/portal-empleado/portal-modulos-coordinador.js?v=${shell[0]}`,
-    `/portal-empleado/modulos/dietas/vista-recorridos.js?v=${VERSION_MONTAJE}`,
+    `/portal-empleado/modulos/dietas/vista-recorridos.js?v=${vistaVigente}`,
   ]) assert.equal(cacheAntigua.has(recurso), false, recurso);
 });

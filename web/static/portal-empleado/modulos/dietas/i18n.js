@@ -1,4 +1,4 @@
-import { MENSAJES_BORRADORES_ES } from "./i18n-borradores.js?v=20260925-dietas-montaje-v1";
+import { MENSAJES_BORRADORES_ES } from "./i18n-borradores.js?v=20260925-dietas-montaje-v2";
 import { MENSAJES_REVISION_DIETAS_ES } from "./i18n-revision.js?v=20260925-dietas-montaje-v1";
 import { MENSAJES_CIRCUITO_DIETAS_ES } from "./i18n-circuito.js?v=20260925-dietas-montaje-v1";
 import { MENSAJES_RECTIFICACION_DIETAS_ES } from "./i18n-rectificacion-dietas.js?v=20260925-dietas-montaje-v1";
@@ -68,7 +68,7 @@ export const MENSAJES_DIETAS_ES = Object.freeze({
   borradores_propios_destino: "Destino",
   borradores_propios_elegir_localidad: "Seleccione una localidad",
   borradores_propios_calculo: "Cálculo orientativo guardado",
-  borradores_propios_km: "Distancia OSRM",
+  borradores_propios_km: "Distancia por carretera",
   borradores_propios_importe_km: "Importe por km",
   borradores_propios_tramos_ruta: "Tramos de la ruta",
   borradores_propios_grupo_pendiente: "Grupo personal pendiente de acreditar: se muestran los tres importes provisionales, sin elegir uno para usted.",

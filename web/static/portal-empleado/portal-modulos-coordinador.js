@@ -153,11 +153,11 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   dietas: async () => {
     const [contrato, recorridos, clienteBorradores, clienteAsignacion, calculador, mapa] = await Promise.all([
       import("./modulos/dietas/contrato.js"),
-      import("./modulos/dietas/vista-recorridos.js?v=20260925-dietas-montaje-v1"),
+      import("./modulos/dietas/vista-recorridos.js?v=20260925-dietas-montaje-v2"),
       import("./modulos/dietas/cliente-borradores-http.js?v=20260925-dietas-montaje-v1"),
       import("./modulos/dietas/cliente-asignacion-http.js?v=20260925-dietas-montaje-v1"),
       import("./modulos/dietas/calculador-rutas-http.js?v=20260925-dietas-montaje-v1"),
-      import("./modulos/dietas/mapa-ruta.js?v=20260925-dietas-montaje-v1"),
+      import("./modulos/dietas/mapa-ruta.js?v=20260925-dietas-montaje-v2"),
     ]);
     return Object.freeze({ contrato, recorridos, clienteBorradores, clienteAsignacion, calculador, mapa });
   },

@@ -1,4 +1,4 @@
-import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260925-dietas-montaje-v1";
+import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260925-dietas-montaje-v2";
 
 import { MENSAJES_CIRCUITO_DIETAS_ES } from "./i18n-circuito.js?v=20260925-dietas-montaje-v1";
 export { MENSAJES_CIRCUITO_DIETAS_ES } from "./i18n-circuito.js?v=20260925-dietas-montaje-v1";

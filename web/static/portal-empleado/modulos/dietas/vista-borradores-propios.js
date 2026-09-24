@@ -1,6 +1,6 @@
-import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260925-dietas-montaje-v1";
-import { crearTraductorBorradoresDietas } from "./i18n-borradores.js?v=20260925-dietas-montaje-v1";
-import { montarVistaMapaComisionDietas } from "./vista-mapa-comision.js?v=20260925-dietas-montaje-v1";
+import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260925-dietas-montaje-v2";
+import { crearTraductorBorradoresDietas } from "./i18n-borradores.js?v=20260925-dietas-montaje-v2";
+import { montarVistaMapaComisionDietas } from "./vista-mapa-comision.js?v=20260925-dietas-montaje-v2";
 import { montarVistaRectificacionDietas } from "./vista-rectificacion-dietas.js?v=20260925-dietas-montaje-v1";
 
 const MAXIMO_LOCALIDADES = 12;
@@ -1094,7 +1094,17 @@ export function montarVistaBorradoresPropios(
   }
   function resumenCalculo(calculo, documentoComision) {
     const resumen=nodo(documento,"section"); resumen.className="dietas-comision-calculo";
-    resumen.append(nodo(documento,"h4",traducir("borradores_propios_calculo")));
+    const tituloCalculo = nodo(documento,"h4",traducir("borradores_propios_calculo"));
+    if (documentoComision) {
+      // La advertencia de total no definitivo es ayuda: se abre desde «?».
+      const cabeceraCalculo = nodo(documento, "div"); cabeceraCalculo.className = "dietas-comision-bloque-cabecera";
+      const ayudaTotal = nodo(documento, "details"); ayudaTotal.className = "dietas-borradores-ayuda";
+      const abrirAyudaTotal = nodo(documento, "summary", "?");
+      abrirAyudaTotal.setAttribute("aria-label", traducir("recorridos_abrir_ayuda"));
+      ayudaTotal.append(abrirAyudaTotal, nodo(documento, "p", tBorradores("comision_total_no_definitivo")));
+      cabeceraCalculo.append(tituloCalculo, ayudaTotal);
+      resumen.append(cabeceraCalculo);
+    } else resumen.append(tituloCalculo);
     const cifras=nodo(documento,"div"); cifras.className="dietas-comision-cifras";
     [[traducir("borradores_propios_km"),`${Number(calculo.kilometros).toLocaleString("es-ES",{maximumFractionDigits:1})} km`],
       [traducir("borradores_propios_importe_km"),euros(calculo.importe_kilometraje_centimos)]].forEach(([titulo,valor])=>{
@@ -1157,7 +1167,6 @@ export function montarVistaBorradoresPropios(
       otros.forEach((linea) => listaOtros.append(nodo(documento, "li", `${linea.concepto} · ${euros(linea.importe_centimos)}`)));
       bloqueOtros.append(listaOtros);
       resumen.append(bloqueOtros);
-      resumen.append(nodo(documento, "p", tBorradores("comision_total_no_definitivo")));
     } else if (!asignacionVerificada()) resumen.append(nodo(documento, "p", tBorradores("comision_total_sin_grupo")));
     return resumen;
   }

@@ -534,6 +534,27 @@ test("muestra km, importe y tramos provisionales de la comisión recuperada", as
   vista.desmontar();
 });
 
+test("el total no definitivo del documento se lee desde la ayuda «?» del cálculo", async () => {
+  const conDocumento = { ...item, comision: { ...item.comision, codigos_ruta: ["18087", "18003"], calculo: {
+    rotulo: "PROVISIONAL", version_tarifa: "provisional:rd462:20260923", version_grafo: "grafo:prueba",
+    kilometros: "12.0000", importe_kilometraje_centimos: 312,
+    tramos_ruta: [{ origen_codigo: "18087", destino_codigo: "18003", kilometros: "12.0000" }], opciones_dieta: [] },
+  documento: { grupo_dieta: 2, manutencion_centimos: 2500, alojamiento_tope_centimos: 0, kilometraje_centimos: 312,
+    otros_centimos: 0, total_orientativo_centimos: 2812, lineas: [] } } };
+  const contenedor = raiz();
+  const vista = montarVistaBorradoresPropios(contenedor, { cliente: { listar: async () => ({ items: [conDocumento] }),
+    obtener: async () => conDocumento, crear: async () => conDocumento } });
+  await Promise.resolve(); await Promise.resolve();
+  await contenedor.querySelector("[data-dietas-borradores-propios]").listeners.click({
+    target: contenedor.querySelector("[data-dietas-borrador-detalle]") });
+  const aviso = /El total definitivo queda pendiente/u;
+  const ayudas = contenedor.querySelectorAll("details").filter((nodo) => aviso.test(textoVisible(nodo)));
+  assert.equal(ayudas.length, 1);
+  assert.equal(ayudas[0].className, "dietas-borradores-ayuda");
+  assert.equal(ayudas[0].children[0].textContent, "?");
+  assert.equal(contenedor.querySelectorAll("p").filter((nodo) => aviso.test(nodo.textContent)).length, 1);
+  vista.desmontar();
+});
 test("conserva el recibo si el GET posterior al alta resulta denegado y no repite el POST", async () => {
   const contenedor = raiz();
   let lecturas = 0;

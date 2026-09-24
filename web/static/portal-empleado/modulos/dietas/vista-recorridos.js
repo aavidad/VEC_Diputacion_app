@@ -1,7 +1,7 @@
-import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260925-dietas-montaje-v1";
-import { montarVistaBorradoresPropios } from "./vista-borradores-propios.js?v=20260925-dietas-montaje-v1";
-import { montarVistaBandejaCircuitoDietas } from "./vista-bandeja-circuito.js?v=20260925-dietas-montaje-v1";
-import { montarVistaRectificacionAdminDietas } from "./vista-rectificacion-admin.js?v=20260925-dietas-montaje-v1";
+import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260925-dietas-montaje-v2";
+import { montarVistaBorradoresPropios } from "./vista-borradores-propios.js?v=20260925-dietas-montaje-v2";
+import { montarVistaBandejaCircuitoDietas } from "./vista-bandeja-circuito.js?v=20260925-dietas-montaje-v2";
+import { montarVistaRectificacionAdminDietas } from "./vista-rectificacion-admin.js?v=20260925-dietas-montaje-v2";
 
 const ETAPAS = Object.freeze([
   ["solicitante", "recorridos_solicitante"],
