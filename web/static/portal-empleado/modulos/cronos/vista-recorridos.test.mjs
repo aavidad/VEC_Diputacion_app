@@ -123,3 +123,60 @@ test("los textos inyectables se escapan", () => {
   assert.doesNotMatch(html, /<img/u);
   assert.match(html, /&lt;img src=x onerror=&quot;alert\(1\)&quot;&gt;/u);
 });
+
+test("las hojas del empleado se alcanzan y se desmontan al cambiar de apartado o rol", () => {
+  const html = renderizarRecorridosCronos();
+  for (const apartado of ["solicitudes", "catalogo", "correcciones", "notificaciones"]) {
+    assert.match(html, new RegExp(`data-cronos-apartado="${apartado}"`));
+    assert.match(html, new RegExp(`id="cronos-apartado-${apartado}"`));
+  }
+  const escuchas = new Map();
+  const hijos = [];
+  const crearNodo = () => {
+    const control = () => ({ value: "", textContent: "", disabled: false, hidden: true, addEventListener() {}, removeEventListener() {}, focus() {} });
+    const controles = Object.fromEntries([
+      '[name="fecha"]', '[name="texto"]', "[data-cronos-notificacion-contador]", "[data-cronos-notificacion-revisar]",
+      "[data-cronos-notificacion-revision]", "[data-cronos-notificacion-fecha]", "[data-cronos-notificacion-texto]",
+      "#cronos-notificaciones-revision-titulo",
+    ].map((selector) => [selector, control()]));
+    return { dataset: {}, innerHTML: "", addEventListener() {}, removeEventListener() {}, remove() { this.eliminado = true; }, querySelector(selector) { return controles[selector] || null; } };
+  };
+  const documento = { createElement: crearNodo };
+  const destinos = Object.fromEntries(["catalogo", "correcciones", "notificaciones"].map((clave) => [clave, {
+    ownerDocument: documento, append(nodo) { hijos.push({ clave, nodo }); },
+  }]));
+  const apartados = ["solicitudes", "catalogo", "correcciones", "notificaciones"].map((clave) => ({
+    dataset: { cronosApartado: clave }, atributos: {}, setAttribute(nombre, valor) { this.atributos[nombre] = valor; },
+  }));
+  const paneles = apartados.map((apartado) => ({ id: `cronos-apartado-${apartado.dataset.cronosApartado}`, hidden: apartado.dataset.cronosApartado !== "solicitudes" }));
+  const roles = ["cronos-persona", "cronos-responsable"].map((clave) => ({ dataset: { cronosRol: clave }, setAttribute() {} }));
+  const etapas = roles.map((rol) => ({ id: rol.dataset.cronosRol, hidden: rol.dataset.cronosRol !== "cronos-persona" }));
+  const contenedor = {
+    dataset: {}, innerHTML: "", addEventListener(tipo, fn) { escuchas.set(tipo, fn); }, removeEventListener(tipo) { escuchas.delete(tipo); }, remove() {},
+    querySelectorAll(selector) {
+      if (selector === "[data-cronos-apartado]") return apartados;
+      if (selector === "[id^='cronos-apartado-']") return paneles;
+      if (selector === "[data-cronos-rol]") return roles;
+      if (selector === ".cronos-recorrido-etapa") return etapas;
+      return [];
+    },
+    querySelector(selector) { return destinos[selector.match(/^\[data-cronos-hoja="(.*)"\]$/u)?.[1]] || null; },
+  };
+  documento.createElement = () => { documento.createElement = crearNodo; return contenedor; };
+  const vista = montarVistaRecorridosCronos({ raiz: { ownerDocument: documento, append() {} } });
+  const clic = (selector, nodo) => escuchas.get("click")({ target: { closest: (buscado) => buscado === selector ? nodo : null } });
+  clic("[data-cronos-apartado]", apartados[1]);
+  assert.match(hijos.at(-1).nodo.innerHTML, /Tipos de permisos observados/u);
+  assert.equal(paneles[1].hidden, false);
+  clic("[data-cronos-apartado]", apartados[2]);
+  assert.equal(hijos.at(-2).nodo.eliminado, true);
+  assert.match(hijos.at(-1).nodo.innerHTML, /Olvido de marcaje/u);
+  clic("[data-cronos-apartado]", apartados[3]);
+  assert.equal(hijos.at(-2).nodo.eliminado, true);
+  assert.match(hijos.at(-1).nodo.innerHTML, /Notificaciones a RRHH/u);
+  clic("[data-cronos-rol]", roles[1]);
+  assert.equal(hijos.at(-1).nodo.eliminado, true);
+  assert.equal(paneles[0].hidden, false);
+  vista.desmontar();
+  assert.equal(escuchas.size, 0);
+});

@@ -1,4 +1,9 @@
 /* Complemento del recorrido de permisos; consume el tema y los paneles comunes. */
+.cronos-apartados { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 16px; padding: 8px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-lg); background: var(--portal-superficie-alterna); }
+.cronos-apartados [role="tab"] { min-height: 40px; padding: 8px 12px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio); background: var(--portal-superficie); color: var(--portal-azul-700); font: inherit; font-size: .83rem; font-weight: 700; cursor: pointer; }
+.cronos-apartados [role="tab"][aria-selected="true"] { border-color: var(--portal-azul-700); background: var(--portal-azul-700); color: var(--portal-superficie); }
+.cronos-apartados [role="tab"]:focus-visible { outline: 3px solid var(--portal-cian); outline-offset: 2px; }
+.cronos-recorridos [role="tabpanel"][hidden] { display: none; }
 .cronos-permisos-pasos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 16px 0 12px; margin: 0; list-style: none; }
 .cronos-permisos-pasos li { display: flex; align-items: center; gap: 8px; min-width: 0; color: var(--portal-muted); font-size: .76rem; font-weight: 700; }
 .cronos-permisos-pasos li::before { content: attr(data-paso); display: grid; place-items: center; flex: 0 0 26px; height: 26px; border: 1px solid var(--portal-borde); border-radius: 50%; background: var(--portal-superficie); color: var(--portal-azul-700); }

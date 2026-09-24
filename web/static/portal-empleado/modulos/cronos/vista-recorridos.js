@@ -1,5 +1,8 @@
-import { crearTraductorCronos, MENSAJES_CRONOS_ES } from "./i18n.js?v=20260924-f2-web2";
+import { crearTraductorCronos, MENSAJES_CRONOS_ES } from "./i18n.js?v=20260924-cronos-integrado-v1";
 import { MENSAJES_CRONOS_PERMISOS_ES } from "./i18n-permisos.js?v=20260924-f2-web2";
+import { montarCatalogoPermisosCronos } from "./vista-catalogo-permisos.js?v=20260924-cronos-integrado-v1";
+import { montarVistaCorreccionesCronos } from "./vista-correcciones.js?v=20260924-cronos-integrado-v1";
+import { montarVistaNotificacionesCronos } from "./vista-notificaciones.js?v=20260924-cronos-integrado-v1";
 
 function escaparHTML(valor) {
   return String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;")
@@ -62,12 +65,21 @@ function formularioPermisos(t) {
 export function renderizarRecorridosCronos({ mensajes = MENSAJES_CRONOS_ES } = {}) {
   const traducir = crearTraductorRecorridos(mensajes);
   const t = (clave) => escaparHTML(traducir(clave));
-  const persona = `<section class="cronos-recorrido-etapa" id="cronos-persona" aria-labelledby="cronos-persona-titulo"><header><p class="sobrelinea">${t("recorridos_persona")}</p><h3 id="cronos-persona-titulo">${t("presentacion_persona_titulo")}</h3><p>${t("permisos_no_configurado_detalle")}</p></header><div class="cronos-recorrido-rejilla">
+  const persona = `<section class="cronos-recorrido-etapa" id="cronos-persona" aria-labelledby="cronos-persona-titulo"><header><p class="sobrelinea">${t("recorridos_persona")}</p><h3 id="cronos-persona-titulo">${t("presentacion_persona_titulo")}</h3><p>${t("permisos_no_configurado_detalle")}</p></header>
+    <nav class="cronos-apartados" role="tablist" aria-label="${t("presentacion_persona_titulo")}">
+      <button type="button" role="tab" data-cronos-apartado="solicitudes" aria-controls="cronos-apartado-solicitudes" aria-selected="true" tabindex="0">${t("apartado_solicitudes")}</button>
+      <button type="button" role="tab" data-cronos-apartado="catalogo" aria-controls="cronos-apartado-catalogo" aria-selected="false" tabindex="-1">${t("apartado_catalogo")}</button>
+      <button type="button" role="tab" data-cronos-apartado="correcciones" aria-controls="cronos-apartado-correcciones" aria-selected="false" tabindex="-1">${t("apartado_correcciones")}</button>
+      <button type="button" role="tab" data-cronos-apartado="notificaciones" aria-controls="cronos-apartado-notificaciones" aria-selected="false" tabindex="-1">${t("apartado_notificaciones")}</button>
+    </nav><div class="cronos-recorrido-rejilla" id="cronos-apartado-solicitudes" role="tabpanel" aria-label="${t("apartado_solicitudes")}">
     ${panel(t, "presentacion_solicitudes", `<div class="cronos-cabecera-bandeja"><button type="button" class="boton-secundario" data-cronos-alta aria-expanded="false" aria-controls="cronos-permisos-alta">${t("permisos_ver_pasos")}</button></div>${formularioPermisos(t)}${vacio(t)}`, "cronos-recorrido-panel-ancho cronos-panel-principal")}
     ${panel(t, "presentacion_jornada", vacio(t))}
     ${panel(t, "presentacion_movimientos", vacio(t))}
     ${panel(t, "presentacion_permisos", vacio(t))}
-  </div></section>`;
+    </div><div id="cronos-apartado-catalogo" role="tabpanel" aria-label="${t("apartado_catalogo")}" data-cronos-hoja="catalogo" hidden></div>
+    <div id="cronos-apartado-correcciones" role="tabpanel" aria-label="${t("apartado_correcciones")}" data-cronos-hoja="correcciones" hidden></div>
+    <div id="cronos-apartado-notificaciones" role="tabpanel" aria-label="${t("apartado_notificaciones")}" data-cronos-hoja="notificaciones" hidden></div>
+  </section>`;
   const responsable = `<section class="cronos-recorrido-etapa" id="cronos-responsable" aria-labelledby="cronos-responsable-titulo" hidden><header><p class="sobrelinea">${t("recorridos_responsable")}</p><h3 id="cronos-responsable-titulo">${t("presentacion_responsable_titulo")}</h3><p>${t("permisos_no_configurado_detalle")}</p></header><div class="cronos-recorrido-rejilla">
     ${panel(t, "presentacion_bandeja", vacio(t), "cronos-recorrido-panel-ancho")}
   </div></section>`;
@@ -86,6 +98,27 @@ export function montarVistaRecorridosCronos({ raiz, anunciar = () => {}, registr
   contenedor.innerHTML = renderizarRecorridosCronos({ mensajes });
   raiz.append(contenedor);
   let pasoActual = 1;
+  let apartadoActual = "solicitudes";
+  let hoja;
+  const limpiarHoja = () => { hoja?.desmontar(); hoja = undefined; };
+  const activarApartado = (apartado) => {
+    if (!new Set(["solicitudes", "catalogo", "correcciones", "notificaciones"]).has(apartado)) return;
+    if (apartado === apartadoActual) return;
+    limpiarHoja();
+    apartadoActual = apartado;
+    contenedor.querySelectorAll?.("[data-cronos-apartado]").forEach((nodo) => {
+      const activo = nodo.dataset.cronosApartado === apartado;
+      nodo.setAttribute("aria-selected", String(activo));
+      nodo.setAttribute("tabindex", activo ? "0" : "-1");
+    });
+    contenedor.querySelectorAll?.("[id^='cronos-apartado-']").forEach((nodo) => { nodo.hidden = nodo.id !== `cronos-apartado-${apartado}`; });
+    if (apartado === "solicitudes") return;
+    const destino = contenedor.querySelector?.(`[data-cronos-hoja="${apartado}"]`);
+    if (!destino) return;
+    if (apartado === "catalogo") hoja = montarCatalogoPermisosCronos({ raiz: destino });
+    if (apartado === "correcciones") hoja = montarVistaCorreccionesCronos({ raiz: destino, estado: "no_configurado", mensajes });
+    if (apartado === "notificaciones") hoja = montarVistaNotificacionesCronos({ raiz: destino, anunciar, mensajes });
+  };
   const mostrarPaso = (numero) => {
     pasoActual = numero;
     contenedor.querySelectorAll?.("[data-cronos-paso]").forEach((nodo) => { nodo.hidden = Number(nodo.dataset.cronosPaso) !== numero; });
@@ -97,6 +130,10 @@ export function montarVistaRecorridosCronos({ raiz, anunciar = () => {}, registr
     contenedor.querySelector?.(`#cronos-permisos-paso-${numero}-titulo`)?.focus?.();
   };
   const activarRol = (rol) => {
+    if (rol.dataset.cronosRol !== "cronos-persona") {
+      limpiarHoja();
+      activarApartado("solicitudes");
+    }
     contenedor.querySelectorAll?.("[data-cronos-rol]").forEach((nodo) => {
       const activo = nodo === rol;
       nodo.setAttribute("aria-selected", String(activo));
@@ -106,6 +143,8 @@ export function montarVistaRecorridosCronos({ raiz, anunciar = () => {}, registr
     contenedor.querySelector?.(`#${rol.dataset.cronosRol}`)?.scrollIntoView?.({ block: "start", behavior: "smooth" });
   };
   const cambiar = (evento) => {
+    const apartado = evento.target?.closest?.("[data-cronos-apartado]");
+    if (apartado) { activarApartado(apartado.dataset.cronosApartado); return; }
     if (evento.target?.closest?.("[data-cronos-paso-siguiente]")) { mostrarPaso(Math.min(3, pasoActual + 1)); return; }
     if (evento.target?.closest?.("[data-cronos-paso-anterior]")) { mostrarPaso(Math.max(1, pasoActual - 1)); return; }
     const alta = evento.target?.closest?.("[data-cronos-alta]");
@@ -121,6 +160,18 @@ export function montarVistaRecorridosCronos({ raiz, anunciar = () => {}, registr
     if (rol) activarRol(rol);
   };
   const teclado = (evento) => {
+    const apartado = evento.target?.closest?.("[data-cronos-apartado]");
+    if (apartado && ["ArrowLeft", "ArrowRight", "Home", "End"].includes(evento.key)) {
+      const apartados = [...(contenedor.querySelectorAll?.("[data-cronos-apartado]") || [])];
+      const indice = apartados.indexOf(apartado);
+      if (indice < 0 || !apartados.length) return;
+      evento.preventDefault();
+      const siguiente = evento.key === "Home" ? 0 : evento.key === "End" ? apartados.length - 1
+        : (indice + (evento.key === "ArrowRight" ? 1 : -1) + apartados.length) % apartados.length;
+      activarApartado(apartados[siguiente].dataset.cronosApartado);
+      apartados[siguiente].focus?.();
+      return;
+    }
     const rol = evento.target?.closest?.("[data-cronos-rol]");
     if (!rol || !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].includes(evento.key)) return;
     const roles = [...(contenedor.querySelectorAll?.("[data-cronos-rol]") || [])];
@@ -140,6 +191,7 @@ export function montarVistaRecorridosCronos({ raiz, anunciar = () => {}, registr
   const desmontar = () => {
     if (!activa) return;
     activa = false;
+    limpiarHoja();
     contenedor.removeEventListener?.("click", cambiar);
     contenedor.removeEventListener?.("keydown", teclado);
     contenedor.removeEventListener?.("submit", impedirEnvio);

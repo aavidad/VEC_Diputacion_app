@@ -111,6 +111,30 @@ test("Jornada se monta y desmonta sin listeners ni efectos", () => {
   assert.throws(() => vista.actualizar({ estado: "cargando" }), /desmontada/);
 });
 
+test("Jornada inserta el calendario civil y retira sus oyentes al actualizar y salir", () => {
+  const creados = [];
+  const destino = { ownerDocument: null, append(nodo) { this.ultimo = nodo; } };
+  const documento = { createElement() {
+    const nodo = { dataset: {}, innerHTML: "", oyentes: new Map(), addEventListener(tipo, fn) { this.oyentes.set(tipo, fn); },
+      removeEventListener(tipo) { this.oyentes.delete(tipo); }, remove() { this.eliminado = true; },
+      querySelector(selector) { return selector === "[data-cronos-calendario-raiz]" ? destino : null; } };
+    creados.push(nodo);
+    return nodo;
+  } };
+  destino.ownerDocument = documento;
+  const vista = montarJornadaCronos({ raiz: { ownerDocument: documento, append() {} } });
+  assert.match(creados[1].innerHTML, /Calendario civil/u);
+  assert.match(creados[1].innerHTML, /Calendario laboral no configurado/u);
+  assert.equal(creados[1].oyentes.size, 2);
+  vista.actualizar({ estado: "error" });
+  assert.equal(creados[1].eliminado, true);
+  assert.equal(creados[1].oyentes.size, 0);
+  assert.match(creados[2].innerHTML, /Calendario civil/u);
+  vista.desmontar();
+  assert.equal(creados[2].eliminado, true);
+  assert.equal(creados[2].oyentes.size, 0);
+});
+
 function contextoPresentacion() {
   return crearContextoActorPresentacionDesdeSesion({
     actor_ref: "DEMO-PERFIL-FUNCIONARIO-01",
