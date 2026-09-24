@@ -56,6 +56,72 @@
   min-width: 0;
 }
 
+.cronos-jornada-periodo-formulario {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: var(--portal-espacio-3);
+}
+
+.cronos-jornada-periodo-formulario label {
+  display: grid;
+  gap: var(--portal-espacio-1);
+  min-width: min(180px, 100%);
+  color: var(--portal-muted);
+  font-size: .82rem;
+}
+
+.cronos-jornada-periodo-formulario select,
+.cronos-jornada-periodo-formulario input {
+  width: 100%;
+  min-width: 0;
+  padding: var(--portal-espacio-2);
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio);
+  background: var(--portal-superficie);
+  color: var(--portal-tinta);
+  font: inherit;
+}
+
+.cronos-jornada-periodo-formulario :is(select, input, button):focus-visible {
+  outline: 3px solid var(--portal-azul-700);
+  outline-offset: 2px;
+}
+
+.cronos-jornada-periodo-formulario [hidden],
+.cronos-jornada-periodo-error[hidden] { display: none; }
+
+.cronos-jornada-periodo-error {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--portal-peligro);
+}
+
+.cronos-jornada-seleccion-estado {
+  display: grid;
+  gap: var(--portal-espacio-3);
+}
+
+.cronos-jornada-seleccion-estado p { margin: 0; }
+
+.cronos-jornada-seleccion-estado dl {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--portal-espacio-2);
+  margin: 0;
+}
+
+.cronos-jornada-seleccion-estado dl div {
+  min-width: 0;
+  padding: var(--portal-espacio-3);
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio);
+  background: var(--portal-superficie-alterna);
+}
+
+.cronos-jornada-seleccion-estado dt { color: var(--portal-muted); }
+.cronos-jornada-seleccion-estado dd { margin: var(--portal-espacio-1) 0 0; font-weight: 600; }
+
 .cronos-jornada-lateral {
   display: grid;
   align-content: start;
@@ -119,6 +185,7 @@
 
 @media (max-width: 720px) {
   .cronos-jornada-indicadores { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cronos-jornada-seleccion-estado dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .cronos-jornada-lateral { grid-template-columns: minmax(0, 1fr); }
   .cronos-jornada-panel .cronos-tabla-contenedor { max-height: 280px; }
 }
@@ -126,6 +193,9 @@
 @media (max-width: 420px) {
   .cronos-jornada-encabezado { flex-direction: column; }
   .cronos-jornada-indicadores { grid-template-columns: minmax(0, 1fr); }
+  .cronos-jornada-periodo-formulario label,
+  .cronos-jornada-periodo-formulario button { width: 100%; }
+  .cronos-jornada-seleccion-estado dl { grid-template-columns: minmax(0, 1fr); }
 }
 
 .cronos-encabezado {

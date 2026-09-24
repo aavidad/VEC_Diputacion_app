@@ -27,6 +27,14 @@ export const MENSAJES_BORRADORES_ES = Object.freeze({
   borradores_propios_edicion_pendiente: "Editar borrador registrado",
   borradores_propios_envio_pendiente: "Enviar a revisión",
   borradores_propios_pais_no_registrado: "No consta como campo separado en el registro actual",
+  borradores_propios_paradas_titulo: "Paradas intermedias (hasta 10)",
+  borradores_propios_paradas_ayuda: "Ordene el itinerario desde el origen hasta el destino, con un máximo de 12 localidades distintas. Revisar muestra la secuencia sin registrarla. El regreso, si procede, requiere una comisión o ruta separada; este itinerario no supone ida y vuelta.",
+  borradores_propios_parada_numero: "Parada {numero}",
+  borradores_propios_parada_anadir: "Añadir parada",
+  borradores_propios_parada_subir: "Subir parada",
+  borradores_propios_parada_bajar: "Bajar parada",
+  borradores_propios_parada_quitar: "Quitar parada",
+  borradores_propios_paradas_distintas: "Seleccione entre 2 y 12 localidades distintas en todo el itinerario.",
 });
 
 export function crearTraductorBorradoresDietas(traducirBase) {

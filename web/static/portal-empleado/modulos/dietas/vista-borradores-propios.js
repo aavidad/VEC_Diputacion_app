@@ -1,11 +1,12 @@
-import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260924-osm-base-v3";
-import { crearTraductorBorradoresDietas } from "./i18n-borradores.js?v=20260924-osm-base-v3";
+import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260924-web-paradas-periodos-v1";
+import { crearTraductorBorradoresDietas } from "./i18n-borradores.js?v=20260924-web-paradas-periodos-v1";
 import { obtenerCatalogoRutasProvincial } from "./catalogo-rutas-provincial.js";
 
 // El catálogo público incluye núcleos NGMEP aún pendientes de importación.
 // El alta calculada sólo ofrece municipios INE presentes en ambos contratos.
 const PUNTOS_RUTA = obtenerCatalogoRutasProvincial().puntos.filter((punto) => /^\d{5}$/u.test(punto.codigo));
 const NOMBRES_RUTA = new Map(PUNTOS_RUTA.map((punto) => [punto.codigo, punto.nombre]));
+const MAXIMO_LOCALIDADES = 12;
 
 function nodo(documento, etiqueta, texto = "") {
   const resultado = documento.createElement(etiqueta);
@@ -178,7 +179,7 @@ export function montarVistaBorradoresPropios(
     estado = { ...estado, items: [], detalle: null, detalleOrigen: null };
     raiz.removeEventListener("submit", enviar);
     raiz.removeEventListener("click", clic);
-    raiz.removeEventListener("change", cambiarRelacion);
+    raiz.removeEventListener("change", cambiarFormulario);
     raiz.removeEventListener("input", invalidarPreparacion);
     retirar(contenedor, raiz);
   };
@@ -192,7 +193,12 @@ export function montarVistaBorradoresPropios(
   }
   function purgarLecturasDenegadas() {
     // Un 401/403 invalida toda la proyección obtenida por GET, incluida la
-    // página que permitió abrir el detalle. Sólo sobrevive un POST confirmado.
+    // página que permitió abrir el detalle. Sólo sobrevive el último recibo
+    // confirmado; las claves anteriores siguen ligadas a su contenido.
+    for (const [contenido, operacion] of operaciones) {
+      if (operacion.item && contenido !== ultimoAlta?.contenido)
+        operaciones.set(contenido, { clave: operacion.clave, confirmada: true });
+    }
     cursores = [undefined];
     indicePagina = 0;
     siguienteCursor = undefined;
@@ -224,6 +230,18 @@ export function montarVistaBorradoresPropios(
       PUNTOS_RUTA.forEach((punto) => { const opcion=nodo(documento,"option",punto.nombre); opcion.value=punto.codigo; selector.append(opcion); });
       etiqueta.append(selector); return etiqueta;
     };
+    const paradas = nodo(documento, "section");
+    paradas.className = "dietas-borradores-paradas";
+    paradas.dataset.dietasParadas = "";
+    const tituloParadas = nodo(documento, "h4", tBorradores("borradores_propios_paradas_titulo"));
+    const listaParadas = nodo(documento, "ol");
+    listaParadas.dataset.dietasParadasLista = "";
+    const anadirParada = nodo(documento, "button", tBorradores("borradores_propios_parada_anadir"));
+    anadirParada.type = "button";
+    anadirParada.className = "boton-secundario";
+    anadirParada.dataset.dietasParadaAnadir = "";
+    anadirParada.disabled = !conectada;
+    paradas.append(tituloParadas, listaParadas, anadirParada);
     const boton = nodo(
       documento,
       "button",
@@ -274,6 +292,7 @@ export function montarVistaBorradoresPropios(
     const abrirAyuda = nodo(documento, "summary", "?");
     abrirAyuda.setAttribute("aria-label", traducir("recorridos_abrir_ayuda"));
     ayuda.append(abrirAyuda, nodo(documento,"p",traducir("borradores_propios_ruta_ayuda")));
+    ayuda.append(nodo(documento, "p", tBorradores("borradores_propios_paradas_ayuda")));
     ayuda.append(nodo(documento, "p", tBorradores("borradores_propios_preparacion_ayuda")));
     ayuda.append(nodo(documento, "p", tBorradores("borradores_propios_ya_registrado_ayuda")));
     const pais = campo("pais", "borradores_propios_pais", "text", false);
@@ -287,6 +306,7 @@ export function montarVistaBorradoresPropios(
       campo("hora_fin", "borradores_propios_hora_fin", "time"),
       motivo,
       puntoRuta("origen_codigo","borradores_propios_origen"),
+      paradas,
       puntoRuta("destino_codigo","borradores_propios_destino"),
       pais,
       ...(selectorRelacion ? [selectorRelacion] : []),
@@ -307,6 +327,60 @@ export function montarVistaBorradoresPropios(
       });
     }
     return form;
+  }
+  function valoresParadas(form) {
+    return Array.from(form.querySelectorAll("select"))
+      .filter((selector) => selector.name === "parada_codigo")
+      .map((selector) => selector.value || "");
+  }
+  function pintarParadas(form, valores, focoIndice = -1) {
+    const lista = form.querySelector("[data-dietas-paradas-lista]");
+    if (!lista) return;
+    lista.replaceChildren(...valores.map((valor, indice) => {
+      const fila = nodo(documento, "li");
+      const etiqueta = nodo(documento, "label", tBorradores("borradores_propios_parada_numero", { numero: indice + 1 }));
+      const selector = nodo(documento, "select");
+      selector.name = "parada_codigo";
+      selector.required = true;
+      const inicial = nodo(documento, "option", traducir("borradores_propios_elegir_localidad"));
+      inicial.value = "";
+      selector.append(inicial);
+      PUNTOS_RUTA.forEach((punto) => {
+        const opcion = nodo(documento, "option", punto.nombre);
+        opcion.value = punto.codigo;
+        selector.append(opcion);
+      });
+      selector.value = valor;
+      etiqueta.append(selector);
+      const acciones = nodo(documento, "div");
+      acciones.className = "dietas-borradores-parada-acciones";
+      [
+        ["dietasParadaSubir", "borradores_propios_parada_subir", indice === 0],
+        ["dietasParadaBajar", "borradores_propios_parada_bajar", indice === valores.length - 1],
+        ["dietasParadaQuitar", "borradores_propios_parada_quitar", false],
+      ].forEach(([atributo, clave, bloqueado]) => {
+        const boton = nodo(documento, "button", tBorradores(clave));
+        boton.type = "button";
+        boton.className = "boton-secundario";
+        boton.dataset[atributo] = String(indice);
+        boton.disabled = bloqueado || !conectada || controlador !== null;
+        boton.setAttribute("aria-label", `${tBorradores(clave)}: ${tBorradores("borradores_propios_parada_numero", { numero: indice + 1 })}`);
+        acciones.append(boton);
+      });
+      fila.append(etiqueta, acciones);
+      return fila;
+    }));
+    const anadir = form.querySelector("[data-dietas-parada-anadir]");
+    if (anadir) anadir.disabled = !conectada || controlador !== null || valores.length >= MAXIMO_LOCALIDADES - 2;
+    if (focoIndice >= 0) enfocar(lista.querySelectorAll("select")[focoIndice] || anadir);
+  }
+  function codigosRuta(form, datos) {
+    return [String(datos.get("origen_codigo") || ""), ...valoresParadas(form), String(datos.get("destino_codigo") || "")];
+  }
+  function rutaValida(codigos) {
+    return codigos.length >= 2 && codigos.length <= MAXIMO_LOCALIDADES &&
+      codigos.every((codigo) => NOMBRES_RUTA.has(codigo)) &&
+      new Set(codigos).size === codigos.length;
   }
   function recibo(item) {
     const seccion = nodo(documento, "section");
@@ -547,6 +621,19 @@ export function montarVistaBorradoresPropios(
       const boton = formularioPersistente.querySelector(selector);
       if (boton) boton.disabled = controlesBloqueados;
     }
+    if (formularioPersistente) {
+      const anadir = formularioPersistente.querySelector("[data-dietas-parada-anadir]");
+      if (anadir) anadir.disabled = controlesBloqueados || valoresParadas(formularioPersistente).length >= MAXIMO_LOCALIDADES - 2;
+      const totalParadas = valoresParadas(formularioPersistente).length;
+      Array.from(formularioPersistente.querySelectorAll("button")).filter((boton) =>
+        boton.dataset.dietasParadaSubir !== undefined || boton.dataset.dietasParadaBajar !== undefined || boton.dataset.dietasParadaQuitar !== undefined,
+      ).forEach((boton) => {
+        const subir = boton.dataset.dietasParadaSubir !== undefined;
+        const bajar = boton.dataset.dietasParadaBajar !== undefined;
+        const indice = Number(subir ? boton.dataset.dietasParadaSubir : bajar ? boton.dataset.dietasParadaBajar : boton.dataset.dietasParadaQuitar);
+        boton.disabled = controlesBloqueados || (subir && indice === 0) || (bajar && indice === totalParadas - 1);
+      });
+    }
     avisoPersistente.textContent = tBorradores(estado.mensaje);
     avisoPersistente.dataset.tono = estado.tono;
     avisoPersistente.className = `estado-chip ${estado.tono === "error" ? "peligro" : estado.tono === "exito" ? "exito" : estado.tono === "aviso" ? "aviso" : "info"}`;
@@ -636,7 +723,7 @@ export function montarVistaBorradoresPropios(
         : {}),
       hora_inicio: String(datos.get("hora_inicio")||""),
       hora_fin: String(datos.get("hora_fin")||""),
-      codigos_ruta: [String(datos.get("origen_codigo")||""),String(datos.get("destino_codigo")||"")],
+      codigos_ruta: codigosRuta(form, datos),
     };
     if (base.relacion_ref && !relaciones.includes(base.relacion_ref)) {
       mensaje("borradores_propios_error_relacion", "aviso");
@@ -649,7 +736,7 @@ export function montarVistaBorradoresPropios(
       pintar();
       return;
     }
-    if (base.codigos_ruta[0] === base.codigos_ruta[1]) { mensaje("borradores_propios_ruta_distinta","aviso"); pintar(); return; }
+    if (!rutaValida(base.codigos_ruta)) { mensaje("borradores_propios_paradas_distintas","aviso"); pintar(); return; }
     const contenido = claveContenido(base);
     const operacion = operaciones.get(contenido);
     if (operacion?.item) {
@@ -666,7 +753,11 @@ export function montarVistaBorradoresPropios(
       pintar();
       return;
     }
-    operaciones.set(contenido, { clave });
+    operaciones.set(contenido, {
+      clave,
+      incierta: operacion?.incierta === true,
+      confirmada: operacion?.confirmada === true,
+    });
     const solicitud = { clave_idempotencia: clave, ...base };
     controlador = new AbortController();
     const signal = controlador.signal;
@@ -676,7 +767,7 @@ export function montarVistaBorradoresPropios(
     try {
       const item = await cliente.crear(solicitud, { signal });
       if (!activaAhora() || signal.aborted) return;
-      operaciones.set(contenido, { clave, item });
+      operaciones.set(contenido, { clave, item, confirmada: true });
       ultimoAlta = { contenido, item };
       altaConfirmada = true;
       const resumenLocal = formularioPersistente?.querySelector?.("[data-dietas-borrador-preparacion]");
@@ -701,6 +792,13 @@ export function montarVistaBorradoresPropios(
       if (!activaAhora() || signal.aborted) return;
       // Un 403 posterior no aclara si un intento previo de esta intención
       // quedó registrado. Conservar su clave hasta confirmar o desmontar.
+      if (error?.resultadoIndeterminado)
+        operaciones.set(contenido, { clave, incierta: true, confirmada: operacion?.confirmada === true });
+      else if (!operacion?.incierta && !operacion?.confirmada) operaciones.delete(contenido);
+      if (["autenticacion_requerida", "acceso_denegado"].includes(error?.codigo)) {
+        purgarLecturasDenegadas();
+        estado = { ...estado, errorLista: true, errorListaClave: errorClave(error) };
+      }
       mensaje(errorClave(error, "crear"), "error");
     } finally {
       if (controlador?.signal === signal) controlador = null;
@@ -722,6 +820,28 @@ export function montarVistaBorradoresPropios(
     if (resumen) resumen.hidden = true;
   }
   async function clic(evento) {
+    const accionParada = ["dietasParadaAnadir", "dietasParadaSubir", "dietasParadaBajar", "dietasParadaQuitar"]
+      .map((atributo) => [atributo, evento.target?.closest?.(`[data-${atributo.replace(/[A-Z]/gu, (letra) => `-${letra.toLowerCase()}`)}]`)])
+      .find(([, boton]) => boton);
+    if (accionParada && activaAhora() && conectada && !controlador && !accionParada[1].disabled) {
+      const form = accionParada[1].closest("[data-dietas-borrador-form]");
+      const valores = valoresParadas(form);
+      const [accion, boton] = accionParada;
+      const indice = Number(boton.dataset[accion]);
+      let focoIndice = -1;
+      if (accion === "dietasParadaAnadir" && valores.length < MAXIMO_LOCALIDADES - 2) {
+        valores.push(""); focoIndice = valores.length - 1;
+      } else if (accion === "dietasParadaSubir" && indice > 0 && indice < valores.length) {
+        [valores[indice - 1], valores[indice]] = [valores[indice], valores[indice - 1]]; focoIndice = indice - 1;
+      } else if (accion === "dietasParadaBajar" && indice >= 0 && indice < valores.length - 1) {
+        [valores[indice], valores[indice + 1]] = [valores[indice + 1], valores[indice]]; focoIndice = indice + 1;
+      } else if (accion === "dietasParadaQuitar" && indice >= 0 && indice < valores.length) {
+        valores.splice(indice, 1); focoIndice = valores.length ? Math.min(indice, valores.length - 1) : 0;
+      } else return;
+      pintarParadas(form, valores, focoIndice);
+      invalidarPreparacion({ target: form });
+      return;
+    }
     const revisar = evento.target?.closest?.("[data-dietas-borrador-revisar]");
     if (revisar && activaAhora() && !controlador && conectada) {
       const form = revisar.closest("[data-dietas-borrador-form]");
@@ -731,20 +851,19 @@ export function montarVistaBorradoresPropios(
       const fin = String(datos.get("fecha_fin") || "");
       const horaInicio = String(datos.get("hora_inicio") || "");
       const horaFin = String(datos.get("hora_fin") || "");
-      const origen = String(datos.get("origen_codigo") || "");
-      const destino = String(datos.get("destino_codigo") || "");
+      const codigos = codigosRuta(form, datos);
       if (fin < inicio || (fin === inicio && horaFin <= horaInicio)) {
         mensaje("borradores_propios_fechas_invalidas", "aviso"); pintar(); enfocar(avisoPersistente); return;
       }
-      if (origen === destino) {
-        mensaje("borradores_propios_ruta_distinta", "aviso"); pintar(); enfocar(avisoPersistente); return;
+      if (!rutaValida(codigos)) {
+        mensaje("borradores_propios_paradas_distintas", "aviso"); pintar(); enfocar(avisoPersistente); return;
       }
       const resumen = form.querySelector("[data-dietas-borrador-preparacion]");
       resumen.replaceChildren(
         nodo(documento, "h4", tBorradores("borradores_propios_preparacion_titulo")),
         nodo(documento, "p", `${inicio} ${horaInicio} → ${fin} ${horaFin}`),
         nodo(documento, "p", String(datos.get("motivo") || "").trim()),
-        nodo(documento, "p", rutaLegible([origen, destino], tBorradores)),
+        nodo(documento, "p", rutaLegible(codigos, tBorradores)),
         nodo(documento, "p", `${tBorradores("borradores_propios_pais")}: ${tBorradores("borradores_propios_pais_espana")}`),
       );
       resumen.hidden = false;
@@ -828,9 +947,13 @@ export function montarVistaBorradoresPropios(
     estado = { ...estado, items: [], detalle: null, detalleOrigen: null };
     cargar();
   }
+  function cambiarFormulario(evento) {
+    invalidarPreparacion(evento);
+    cambiarRelacion(evento);
+  }
   raiz.addEventListener("submit", enviar);
   raiz.addEventListener("click", clic);
-  raiz.addEventListener("change", cambiarRelacion);
+  raiz.addEventListener("change", cambiarFormulario);
   raiz.addEventListener("input", invalidarPreparacion);
   pintar();
   cargar();

@@ -6,10 +6,11 @@ import { PLANTILLA_TESELAS_OSM_INTERNA } from "./modulos/dietas/contrato.js";
 const raiz = new URL("./", import.meta.url);
 const vistasC = "20260924-web-c-v1";
 const recuperacion = "20260924-dietas-recuperacion-v3";
-const entrada = "20260924-osm-base-v3";
+const entrada = "20260924-web-paradas-periodos-v1";
 const cronos = "20260924-cronos-integrado-v1";
+const cronosVista = "20260924-web-paradas-periodos-v1";
 const dietas = "20260924-dietas-ayuda-icono-v1";
-const sinGuia = "20260924-osm-base-v3";
+const sinGuia = "20260924-web-paradas-periodos-v1";
 const versiones = (codigo, recurso) => [...codigo.matchAll(new RegExp(`${recurso.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\?v=([^"']+)`, "gu"))].map((m) => m[1]);
 
 test("capa C no reutiliza los consumidores previos de B con caché immutable", async () => {
@@ -19,9 +20,9 @@ test("capa C no reutiliza los consumidores previos de B con caché immutable", a
   const aristas = [
     [html, "/portal-empleado/portal.js", "20260924-web-integrada-v2", entrada, 1],
     [portal, "./portal-modulos-coordinador.js", "20260924-web-integrada-v2", entrada, 1],
-    [coordinador, "./modulos/cronos/vista.js", "20260924-f2-shell-v1", cronos, 1],
-    [coordinador, "./modulos/cronos/vista-recorridos.js", "20260924-cronos-ayuda-v1", cronos, 2],
-    [coordinador, "./modulos/cronos/i18n.js", "20260924-f2-web2", cronos, 1],
+    [coordinador, "./modulos/cronos/vista.js", "20260924-f2-shell-v1", cronosVista, 1],
+    [coordinador, "./modulos/cronos/vista-recorridos.js", "20260924-cronos-ayuda-v1", cronosVista, 2],
+    [coordinador, "./modulos/cronos/i18n.js", "20260924-f2-web2", cronosVista, 1],
     [coordinador, "./modulos/dietas/vista-recorridos.js", "20260924-f2-consulta-v2", sinGuia, 2],
     [coordinador, "./modulos/dietas/vista-itinerario.js", "20260923-dietas-r1", sinGuia, 2],
     [coordinador, "./modulos/personal/vista-ficha-integral.js", "20260924-f2-shell-v1", vistasC, 2],

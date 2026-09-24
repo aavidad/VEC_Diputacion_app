@@ -158,6 +158,101 @@ test("conserva el formulario y sus datos al recuperar la lista y la ficha", asyn
   vista.desmontar();
 });
 
+test("añade, reordena y quita paradas para revisar y enviar la secuencia completa", async () => {
+  const contenedor = raiz();
+  const solicitudes = [];
+  const vista = montarVistaBorradoresPropios(contenedor, {
+    cliente: { listar: async () => ({ items: [] }), obtener: async () => item,
+      crear: async (solicitud) => { solicitudes.push(solicitud); return item; } },
+    generarClaveIdempotencia: () => "operacion-paradas-20260924",
+  });
+  await Promise.resolve(); await Promise.resolve();
+  const panel = contenedor.querySelector("[data-dietas-borradores-propios]");
+  const form = contenedor.querySelector("[data-dietas-borrador-form]");
+  form.checkValidity = () => true;
+  const datos = { fecha_inicio: "2026-09-20", fecha_fin: "2026-09-21", motivo: "Visita",
+    hora_inicio: "09:00", hora_fin: "18:00", origen_codigo: "18087", destino_codigo: "18003" };
+  const original = globalThis.FormData;
+  globalThis.FormData = class { get(nombre) { return datos[nombre] ?? null; } };
+  try {
+    await panel.listeners.click({ target: form.querySelector("[data-dietas-parada-anadir]") });
+    await panel.listeners.click({ target: form.querySelector("[data-dietas-parada-anadir]") });
+    let paradas = form.querySelectorAll("select").filter((nodo) => nodo.name === "parada_codigo");
+    assert.equal(paradas.length, 2);
+    paradas[0].value = "18175";
+    paradas[1].value = "18061";
+    await panel.listeners.click({ target: form.querySelectorAll("[data-dietas-parada-subir]")[1] });
+    paradas = form.querySelectorAll("select").filter((nodo) => nodo.name === "parada_codigo");
+    assert.deepEqual(paradas.map((nodo) => nodo.value), ["18061", "18175"]);
+    await panel.listeners.click({ target: form.querySelector("[data-dietas-borrador-revisar]") });
+    assert.equal(solicitudes.length, 0);
+    assert.match(textoVisible(form.querySelector("[data-dietas-borrador-preparacion]")), /Granada → .* → .* → Albolote/u);
+    await panel.listeners.click({ target: form.querySelectorAll("[data-dietas-parada-quitar]")[1] });
+    await panel.listeners.submit({ target: form, preventDefault() {} });
+    assert.deepEqual(solicitudes[0].codigos_ruta, ["18087", "18061", "18003"]);
+  } finally { globalThis.FormData = original; vista.desmontar(); }
+});
+
+test("limita a doce localidades y bloquea una parada repetida antes de POST", async () => {
+  const contenedor = raiz(); let escrituras = 0;
+  const vista = montarVistaBorradoresPropios(contenedor, {
+    cliente: { listar: async () => ({ items: [] }), obtener: async () => item,
+      crear: async () => { escrituras++; return item; } },
+  });
+  await Promise.resolve(); await Promise.resolve();
+  const panel = contenedor.querySelector("[data-dietas-borradores-propios]");
+  const form = contenedor.querySelector("[data-dietas-borrador-form]"); form.checkValidity = () => true;
+  const datos = { fecha_inicio: "2026-09-20", fecha_fin: "2026-09-21", motivo: "Visita",
+    hora_inicio: "09:00", hora_fin: "18:00", origen_codigo: "18087", destino_codigo: "18003" };
+  const original = globalThis.FormData;
+  globalThis.FormData = class { get(nombre) { return datos[nombre] ?? null; } };
+  try {
+    for (let i = 0; i < 11; i++) await panel.listeners.click({ target: form.querySelector("[data-dietas-parada-anadir]") });
+    const paradas = form.querySelectorAll("select").filter((nodo) => nodo.name === "parada_codigo");
+    assert.equal(paradas.length, 10);
+    assert.equal(form.querySelector("[data-dietas-parada-anadir]").disabled, true);
+    const disponibles = paradas[0].children.map((opcion) => opcion.value)
+      .filter((codigo) => codigo && codigo !== "18087" && codigo !== "18003");
+    paradas.forEach((parada, indice) => { parada.value = disponibles[indice]; });
+    paradas[0].value = "18087";
+    await panel.listeners.submit({ target: form, preventDefault() {} });
+    assert.equal(escrituras, 0);
+    assert.match(textoVisible(contenedor), /localidades distintas/u);
+  } finally { globalThis.FormData = original; vista.desmontar(); }
+});
+
+test("un 503 con paradas conserva orden, contenido y clave en el reintento", async () => {
+  const contenedor = raiz(); const solicitudes = [];
+  const vista = montarVistaBorradoresPropios(contenedor, {
+    generarClaveIdempotencia: () => "operacion-paradas-503-20260924",
+    cliente: { listar: async () => ({ items: [] }), obtener: async () => item,
+      crear: async (solicitud) => {
+        solicitudes.push(solicitud);
+        if (solicitudes.length === 1) {
+          const error = new Error("servicio no disponible"); error.resultadoIndeterminado = true; throw error;
+        }
+        return item;
+      } },
+  });
+  await Promise.resolve(); await Promise.resolve();
+  const panel = contenedor.querySelector("[data-dietas-borradores-propios]");
+  const form = contenedor.querySelector("[data-dietas-borrador-form]"); form.checkValidity = () => true;
+  const datos = { fecha_inicio: "2026-09-20", fecha_fin: "2026-09-21", motivo: "Visita",
+    hora_inicio: "09:00", hora_fin: "18:00", origen_codigo: "18087", destino_codigo: "18003" };
+  const original = globalThis.FormData;
+  globalThis.FormData = class { get(nombre) { return datos[nombre] ?? null; } };
+  try {
+    await panel.listeners.click({ target: form.querySelector("[data-dietas-parada-anadir]") });
+    form.querySelectorAll("select").find((nodo) => nodo.name === "parada_codigo").value = "18175";
+    await panel.listeners.submit({ target: form, preventDefault() {} });
+    assert.equal(contenedor.querySelector("[data-dietas-borrador-recibo]"), null);
+    await panel.listeners.submit({ target: form, preventDefault() {} });
+    assert.deepEqual(solicitudes[0], solicitudes[1]);
+    assert.deepEqual(solicitudes[1].codigos_ruta, ["18087", "18175", "18003"]);
+    assert.equal(solicitudes[1].clave_idempotencia, "operacion-paradas-503-20260924");
+  } finally { globalThis.FormData = original; vista.desmontar(); }
+});
+
 test("pagina con el cursor real del cliente y vuelve a la primera página", async () => {
   const contenedor = raiz();
   const consultas = [];
@@ -995,6 +1090,203 @@ test("401 y 403 de detalle purgan filas, ficha y cursor con o sin ficha previa",
       vista.desmontar();
     }
   }
+});
+
+test("401 y 403 de POST purgan la lista, ficha y cursor obtenidos por GET", async () => {
+  for (const codigo of ["autenticacion_requerida", "acceso_denegado"]) {
+    const contenedor = raiz();
+    const privado = {
+      comision: { ...item.comision, motivo: `Motivo privado ${codigo}`, fecha_inicio: "2026-10-31" },
+      recibo: { ...item.recibo, referencia: "rcd_privado_1234567890123456789012" },
+    };
+    const consultas = [];
+    const solicitudes = [];
+    const vista = montarVistaBorradoresPropios(contenedor, {
+      generarClaveIdempotencia: () => `clave-post-${codigo}`,
+      cliente: {
+        listar: async (consulta) => {
+          consultas.push(consulta);
+          return consultas.length === 1
+            ? { items: [privado], siguiente_cursor: "cursor-privado" }
+            : { items: [] };
+        },
+        obtener: async () => privado,
+        crear: async (solicitud) => {
+          solicitudes.push(solicitud);
+          const error = new Error("denegado"); error.codigo = codigo; throw error;
+        },
+      },
+    });
+    await Promise.resolve(); await Promise.resolve();
+    const panel = contenedor.querySelector("[data-dietas-borradores-propios]");
+    await panel.listeners.click({ target: contenedor.querySelector("[data-dietas-borrador-detalle]") });
+    const form = contenedor.querySelector("[data-dietas-borrador-form]");
+    form.checkValidity = () => true;
+    const datos = { fecha_inicio: "2026-09-20", fecha_fin: "2026-09-21", motivo: "Nueva comisión",
+      hora_inicio: "09:00", hora_fin: "18:00", origen_codigo: "18087", destino_codigo: "18003" };
+    const FormDataOriginal = globalThis.FormData;
+    globalThis.FormData = class { get(nombre) { return datos[nombre] ?? null; } };
+    try {
+      await panel.listeners.click({ target: form.querySelector("[data-dietas-parada-anadir]") });
+      form.querySelectorAll("select").find((selector) => selector.name === "parada_codigo").value = "18175";
+      await panel.listeners.submit({ target: form, preventDefault() {} });
+      assert.deepEqual(solicitudes[0].codigos_ruta, ["18087", "18175", "18003"]);
+      const visible = textoVisible(contenedor);
+      const fechaPrivada = new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeZone: "UTC" })
+        .format(new Date(`${privado.comision.fecha_inicio}T00:00:00Z`));
+      for (const dato of [privado.comision.motivo, fechaPrivada, privado.comision.referencia, privado.recibo.referencia])
+        assert.ok(!visible.includes(dato), `${codigo}: permanece ${dato}`);
+      assert.equal(contenedor.querySelector("[data-dietas-borrador-detalle]"), null);
+      assert.equal(contenedor.querySelector("[data-dietas-borrador-pagina]"), null);
+      assert.equal(contenedor.querySelector("[data-dietas-borrador-recibo]"), null);
+      assert.equal(contenedor.querySelector("[data-dietas-borradores-vacio]"), null);
+      assert.equal(contenedor.querySelector("[data-dietas-borradores-estado]").dataset.tono, "error");
+      assert.match(visible, codigo === "autenticacion_requerida"
+        ? /Debe identificarse de nuevo/u : /No tiene permiso para crear un borrador/u);
+      await panel.listeners.click({ target: contenedor.querySelector("[data-dietas-borrador-consultar-registrados]") });
+      assert.deepEqual(consultas[1], { limit: 6 });
+    } finally { globalThis.FormData = FormDataOriginal; vista.desmontar(); }
+  }
+});
+
+test("un POST denegado conserva solo el último recibo confirmado por POST", async () => {
+  for (const codigo of ["autenticacion_requerida", "acceso_denegado"]) {
+    const contenedor = raiz();
+    const alta = {
+      comision: { ...item.comision, referencia: "dco_confirmada_1234567890123456789012", motivo: "Alta confirmada" },
+      recibo: { ...item.recibo, referencia: "rcd_confirmado_1234567890123456789012" },
+    };
+    const altaPosterior = {
+      comision: { ...item.comision, referencia: "dco_posterior_1234567890123456789012", motivo: "Alta posterior" },
+      recibo: { ...item.recibo, referencia: "rcd_posterior_1234567890123456789012" },
+    };
+    const privado = {
+      comision: { ...item.comision, motivo: "Motivo solo por GET" },
+      recibo: { ...item.recibo, referencia: "rcd_solo_get_1234567890123456789012" },
+    };
+    let escrituras = 0;
+    const vista = montarVistaBorradoresPropios(contenedor, {
+      cliente: {
+        listar: async () => ({ items: [privado] }),
+        obtener: async () => privado,
+        crear: async () => {
+          escrituras += 1;
+          if (escrituras === 1) return alta;
+          if (escrituras === 2) return altaPosterior;
+          const error = new Error("denegado"); error.codigo = codigo; throw error;
+        },
+      },
+    });
+    await Promise.resolve(); await Promise.resolve();
+    const panel = contenedor.querySelector("[data-dietas-borradores-propios]");
+    const form = contenedor.querySelector("[data-dietas-borrador-form]");
+    form.checkValidity = () => true;
+    const datos = { fecha_inicio: "2026-09-20", fecha_fin: "2026-09-21", motivo: "Primera comisión",
+      hora_inicio: "09:00", hora_fin: "18:00", origen_codigo: "18087", destino_codigo: "18003" };
+    const FormDataOriginal = globalThis.FormData;
+    globalThis.FormData = class { get(nombre) { return datos[nombre] ?? null; } };
+    try {
+      await panel.listeners.submit({ target: form, preventDefault() {} });
+      await panel.listeners.click({ target: contenedor.querySelector("[data-dietas-borrador-detalle]") });
+      assert.match(textoVisible(contenedor), /Motivo solo por GET/u);
+      datos.motivo = "Segunda comisión";
+      await panel.listeners.submit({ target: form, preventDefault() {} });
+      datos.motivo = "Tercera comisión";
+      await panel.listeners.submit({ target: form, preventDefault() {} });
+      const visible = textoVisible(contenedor);
+      assert.equal(escrituras, 3);
+      assert.match(visible, /rcd_posterior_1234567890123456789012/u);
+      assert.doesNotMatch(visible, /Motivo solo por GET|rcd_solo_get_1234567890123456789012|rcd_confirmado_1234567890123456789012/u);
+      assert.equal(contenedor.querySelector("[data-dietas-borrador-detalle]"), null);
+      assert.equal(contenedor.querySelector("[data-dietas-borradores-estado]").dataset.tono, "error");
+      datos.motivo = "Primera comisión";
+      await panel.listeners.submit({ target: form, preventDefault() {} });
+      assert.equal(escrituras, 4, "el recibo anterior exige volver a consultar al servidor");
+      assert.doesNotMatch(textoVisible(contenedor), /rcd_confirmado_1234567890123456789012/u);
+    } finally { globalThis.FormData = FormDataOriginal; vista.desmontar(); }
+  }
+});
+
+test("HTTP conserva la clave de un alta confirmada tras purga y 403; 503 recupera sin duplicar", async () => {
+  const contenedor = raiz();
+  const privado = {
+    comision: { ...item.comision, motivo: "Motivo privado GET", codigos_ruta: ["18087", "18003"] },
+    recibo: { ...item.recibo, referencia: `rcd_${"p".repeat(22)}`, registrado_en: "2026-09-20T10:00:00.123456Z" },
+  };
+  const operacionesServidor = new Map();
+  const altasPorMotivo = new Map();
+  const solicitudes = [];
+  let autorizada = true;
+  let siguienteClave = 0;
+  const json = (cuerpo, estado) => new Response(JSON.stringify(cuerpo), {
+    status: estado, headers: { "Content-Type": "application/json; charset=utf-8" },
+  });
+  const cliente = crearClienteBorradoresDietasHTTP({ fetchImpl: async (ruta, opciones) => {
+    if (opciones.method === "GET")
+      return ruta.includes("?limit=") ? json({ items: [privado], siguiente_cursor: "cursor-privado" }, 200) : json(privado, 200);
+    const solicitud = JSON.parse(opciones.body);
+    solicitudes.push(solicitud);
+    if (!autorizada) return json({ error: "dietas.error.acceso_denegado" }, 403);
+    const anterior = operacionesServidor.get(solicitud.clave_idempotencia);
+    if (anterior) return json({ ...anterior, recibo: { ...anterior.recibo, repeticion: true } }, 200);
+    const numero = operacionesServidor.size + 1;
+    const creado = {
+      comision: {
+        referencia: `dco_${String(numero).padStart(22, "0")}`, estado: "borrador",
+        fecha_inicio: solicitud.fecha_inicio, fecha_fin: solicitud.fecha_fin,
+        motivo: solicitud.motivo, codigos_ruta: solicitud.codigos_ruta,
+        relacion_ref: "rel_1234567890123456789012",
+      },
+      recibo: {
+        referencia: `rcd_${String(numero).padStart(22, "0")}`, version: 1,
+        registrado_en: "2026-09-20T10:00:00.123456Z", repeticion: false,
+      },
+    };
+    operacionesServidor.set(solicitud.clave_idempotencia, creado);
+    altasPorMotivo.set(solicitud.motivo, (altasPorMotivo.get(solicitud.motivo) || 0) + 1);
+    if (solicitud.motivo === "D") return json({ error: "dietas.error.resultado_incierto" }, 503);
+    return json(creado, 201);
+  } });
+  const vista = montarVistaBorradoresPropios(contenedor, {
+    cliente, generarClaveIdempotencia: () => `clave-operacion-${String(++siguienteClave).padStart(4, "0")}`,
+  });
+  await new Promise((resolver) => setImmediate(resolver));
+  const panel = contenedor.querySelector("[data-dietas-borradores-propios]");
+  await panel.listeners.click({ target: contenedor.querySelector("[data-dietas-borrador-detalle]") });
+  assert.match(textoVisible(contenedor), /Motivo privado GET/u);
+  const form = contenedor.querySelector("[data-dietas-borrador-form]");
+  form.checkValidity = () => true;
+  const datos = { fecha_inicio: "2026-09-20", fecha_fin: "2026-09-21", motivo: "A",
+    hora_inicio: "09:00", hora_fin: "18:00", origen_codigo: "18087", destino_codigo: "18003" };
+  const FormDataOriginal = globalThis.FormData;
+  globalThis.FormData = class { get(nombre) { return datos[nombre] ?? null; } };
+  const enviar = () => panel.listeners.submit({ target: form, preventDefault() {} });
+  try {
+    await panel.listeners.click({ target: form.querySelector("[data-dietas-parada-anadir]") });
+    form.querySelectorAll("select").find((selector) => selector.name === "parada_codigo").value = "18175";
+    await enviar(); // A: 201.
+    datos.motivo = "B"; await enviar(); // B: 201.
+    autorizada = false;
+    datos.motivo = "C"; await enviar(); // C: 403 y purga.
+    assert.doesNotMatch(textoVisible(contenedor), /Motivo privado GET|rcd_pppppppppppppppppppppp/u);
+    assert.equal(contenedor.querySelector("[data-dietas-borrador-detalle]"), null);
+    assert.equal(contenedor.querySelector("[data-dietas-borrador-pagina]"), null);
+    assert.match(textoVisible(contenedor), /rcd_0000000000000000000002/u);
+    datos.motivo = "A"; await enviar(); // A: 403; conserva la clave ya confirmada.
+    autorizada = true;
+    await enviar(); // A: 200 replay.
+    const clavesA = solicitudes.filter((solicitud) => solicitud.motivo === "A")
+      .map((solicitud) => solicitud.clave_idempotencia);
+    assert.deepEqual(clavesA, Array(3).fill("clave-operacion-0001"));
+    assert.equal(altasPorMotivo.get("A"), 1);
+    assert.match(textoVisible(contenedor), /recuperado sin crear otro borrador/u);
+    datos.motivo = "D"; await enviar(); // D: 503 tras confirmar en servidor.
+    assert.match(textoVisible(contenedor), /No se ha podido confirmar/u);
+    await enviar(); // D: 200 replay con la misma clave.
+    assert.deepEqual(solicitudes.filter((solicitud) => solicitud.motivo === "D")
+      .map((solicitud) => solicitud.clave_idempotencia), Array(2).fill("clave-operacion-0004"));
+    assert.equal(altasPorMotivo.get("D"), 1);
+  } finally { globalThis.FormData = FormDataOriginal; vista.desmontar(); }
 });
 
 test("un GET pendiente bloquea Guardar y Revisar sin iniciar otra creación", async () => {
