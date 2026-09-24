@@ -31,7 +31,7 @@ function formularioPermisos(t) {
     <div class="cronos-permisos-rejilla"><form class="cronos-permisos-formulario" data-cronos-permisos-formulario>
       <section class="cronos-permisos-paso" data-cronos-paso="1" aria-labelledby="cronos-permisos-paso-1-titulo">
         <h5 id="cronos-permisos-paso-1-titulo" tabindex="-1">${t("permisos_paso_1")}</h5>
-        <details class="cronos-permisos-ayuda"><summary>${t("permisos_ayuda")}</summary><p>${t("permisos_ayuda_contenido")}</p></details>
+        <details class="cronos-permisos-ayuda"><summary aria-label="${t("permisos_ayuda")}">?</summary><p>${t("permisos_ayuda_contenido")}</p></details>
         <label>${t("presentacion_form_tipo")}<select name="tipo" disabled aria-disabled="true" title="${t("permisos_no_configurado")}"><option value="">${t("permisos_no_configurado")}</option></select></label>
         <p class="cronos-permisos-nota">${t("permisos_catalogo_ausente")}</p>
         <label>${t("permisos_desde")}<input type="date" name="desde" disabled aria-disabled="true" title="${t("permisos_no_configurado")}"></label>
