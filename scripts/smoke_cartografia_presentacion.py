@@ -60,12 +60,10 @@ def exigir(condicion: bool, mensaje: str) -> None:
 
 def main() -> int:
     base = base_autorizada()
-    estado, cabeceras, portada = solicitar(
-        base, "/portal-empleado/?presentacion=rrhh&perfil=administrador",
-    )
-    exigir(estado == 200, f"portal HTTP {estado}")
+    estado, cabeceras, portada = solicitar(base, "/bolsa/")
+    exigir(estado == 200, f"consulta pública HTTP {estado}")
     exigir(cabeceras.get("X-Vec-Modo-Presentacion") == "aislada-sintetica-v1", "falta marca de presentación")
-    exigir(b"Presentaci" in portada and b"portal" in portada.lower(), "portada RRHH inesperada")
+    exigir(b"Bolsa" in portada and b"portal" in portada.lower(), "portada pública inesperada")
 
     estado, _, convocatorias = solicitar(base, "/api/publico/bolsa/convocatorias")
     exigir(estado == 200, f"consulta pública HTTP {estado}")
@@ -119,6 +117,12 @@ def main() -> int:
     estado_get, _, _ = solicitar(base, "/api/presentacion/cartografia/rutas")
     estado_zoom, _, _ = solicitar(base, "/tiles/osm/15/16056/12734.png")
     estado_privado, _, _ = solicitar(base, "/api/vec/session")
+    for ruta_cerrada in (
+        "/area-personal/", "/area-personal/aplicacion.js",
+        "/portal-empleado/", "/portal-empleado/portal.js",
+    ):
+        estado_cerrado, _, _ = solicitar(base, ruta_cerrada)
+        exigir(estado_cerrado == 404, f"superficie sin API expuesta: {ruta_cerrada} HTTP {estado_cerrado}")
     estado_portal, cabeceras_portal, cuerpo_portal = solicitar(
         base, "/bolsa/",
     )
