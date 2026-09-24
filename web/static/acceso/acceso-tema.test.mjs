@@ -43,8 +43,21 @@ test("acceso carga el tema común versionado antes de su hoja local", () => {
   assert.deepEqual(estilos, [
     "/styles.css?v=20260715-theme",
     "/comun/tema-vec.css?v=20260924-f2-tema-base-v2",
-    "/acceso/acceso.css?v=20260924-f1-acceso-tema-v1",
+    "/acceso/acceso.css?v=20260924-f1-acceso-ayuda-v2",
   ]);
+  assert.match(html, /<script type="module" src="\/acceso\/acceso-i18n\.js\?v=20260924-f1-acceso-ayuda-v1"><\/script>/u);
+});
+
+test("el texto de ayuda no aparece hasta activar el único botón ?", async () => {
+  const catalogo = JSON.parse(await readFile(new URL("./locales/es.json", import.meta.url), "utf8"));
+  assert.match(html, /<button[^>]*id="boton-ayuda-acceso"[^>]*aria-expanded="false"[^>]*aria-controls="acceso-autorizacion"[^>]*>\?<\/button>/u);
+  assert.match(html, /<p[^>]*id="acceso-autorizacion"[^>]*hidden[^>]*data-i18n="acceso\.ayuda"[^>]*>/u);
+  assert.equal((html.match(/id="boton-ayuda-acceso"/gu) ?? []).length, 1);
+  assert.equal((html.match(/aria-controls="acceso-autorizacion"/gu) ?? []).length, 1);
+  assert.equal(catalogo["acceso.ayuda.boton"], "Información sobre identidad y autorización");
+  assert.ok(catalogo["acceso.ayuda"].includes("no conceden acceso por sí solos"));
+  assert.doesNotMatch(html, /aria-describedby="[^"]*acceso-autorizacion/u);
+  assert.match(acceso, /\.acceso-ayuda\[hidden\]\s*\{\s*display:\s*none;/u);
 });
 
 test("acceso solo consume tokens cromáticos declarados por la autoridad común", () => {

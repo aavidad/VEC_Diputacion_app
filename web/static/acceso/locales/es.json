@@ -22,6 +22,7 @@
   "acceso.metodo.dnie.titulo": "DNIe",
   "acceso.metodo.dnie.descripcion": "No disponible mientras falte la configuración de identidad.",
   "acceso.metodo.pendiente": "No disponible",
+  "acceso.ayuda.boton": "Información sobre identidad y autorización",
   "acceso.ayuda": "No introduzca credenciales ni identificadores. Un certificado o DNIe válidos no conceden acceso por sí solos; cuando el servicio esté configurado, VEC comprobará la autorización aplicable.",
   "acceso.pie": "Diputación de Granada · Ventanilla electrónica corporativa"
 }
