@@ -1,5 +1,5 @@
 import { esModoPresentacion } from "./contrato.js";
-import { iniciarAreaPersonal } from "./aplicacion.js?v=20260924-f2-b15-area-v3";
+import { iniciarAreaPersonal } from "./aplicacion.js?v=20260924-f2-b15-area-v4";
 import { iniciarI18nAreaPersonal, traducir } from "./i18n.js";
 
 await iniciarI18nAreaPersonal();

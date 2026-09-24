@@ -14,7 +14,7 @@ test("el HTML y los módulos cambiados usan URLs nuevas bajo caché inmutable", 
     readFile(new URL("../comun/oportunidades/vista.js", import.meta.url), "utf8"),
   ]);
   const versionCSS = "20260924-f2-b15-area-v1";
-  const versionPadre = "20260924-f2-b15-area-v3";
+  const versionPadre = "20260924-f2-b15-area-v4";
   for (const ruta of ["/area-personal/area-personal.css", "/comun/oportunidades/oportunidades.css"]) {
     assert.ok(html.includes(`${ruta}?v=${versionCSS}`), ruta);
   }
@@ -28,18 +28,18 @@ test("el HTML y los módulos cambiados usan URLs nuevas bajo caché inmutable", 
   assert.match(arranque, /\.\/cliente-http\.js\?v=20260924-f2-b11-v2/);
 });
 
-test("una caché antigua v1 o v2 no puede sustituir los padres v3 del montaje", async () => {
+test("una caché antigua v1-v3 no puede sustituir los padres v4 del montaje", async () => {
   const [html, arranque, contacto] = await Promise.all([
     readFile(new URL("./index.html", import.meta.url), "utf8"),
     readFile(new URL("./arranque.js", import.meta.url), "utf8"),
     readFile(new URL("./contacto-propio.js", import.meta.url), "utf8"),
   ]);
-  const nuevo = "20260924-f2-b15-area-v3";
+  const nuevo = "20260924-f2-b15-area-v4";
   const padre = new URL(html.match(/src="(\/area-personal\/arranque\.js\?v=[^"]+)"/)?.[1] ?? "", "https://vec.example");
   const hijo = new URL(arranque.match(/from "(\.\/aplicacion\.js\?v=[^"]+)"/)?.[1] ?? "", padre);
   assert.equal(padre.searchParams.get("v"), nuevo);
   assert.equal(hijo.searchParams.get("v"), nuevo);
-  for (const antiguo of ["20260924-f2-b15-area-v1", "20260924-f2-b15-area-v2"]) {
+  for (const antiguo of ["20260924-f2-b15-area-v1", "20260924-f2-b15-area-v2", "20260924-f2-b15-area-v3"]) {
     assert.notEqual(padre.href, `https://vec.example/area-personal/arranque.js?v=${antiguo}`);
     assert.notEqual(hijo.href, `https://vec.example/area-personal/aplicacion.js?v=${antiguo}`);
   }
