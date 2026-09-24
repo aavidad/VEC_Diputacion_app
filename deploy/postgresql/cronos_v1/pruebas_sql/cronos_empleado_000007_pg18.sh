@@ -106,4 +106,20 @@ comprobar "$conteo" "$antes" 'mismas filas tras reiniciar'
 comprobar "SELECT (d->>'referencia')||'|'||(d->>'replay') FROM prueba.recuperar('$A','clave-remota-0001','entrada','n-rec-5') d" "$ref|true" 'mismo recibo tras reiniciar' login_cronos_prueba
 comprobar "SELECT (d->>'referencia')||'|'||(d->>'replay') FROM prueba.fichar('$A','clave-remota-0001','entrada','n-fichar-9') d" "$ref|true" 'replay tras reiniciar sin duplicar' login_cronos_prueba
 comprobar "SELECT count(*) FROM vec_cronos_v1.marcaje_original" 1 'un único hecho tras reiniciar'
+
+# Semántica real del bloqueo de teletrabajo en SERIALIZABLE: un fichaje cuya
+# instantánea precede a la confirmación de una revocación se registra y SSI lo
+# ordena como «fichaje antes que revocación»; uno iniciado después se rechaza.
+run -c 'CREATE EXTENSION IF NOT EXISTS dblink' >/dev/null
+revocar="BEGIN; SET LOCAL ROLE vec_cronos_v1_propietario; SELECT set_config('vec.cronos.empleado_ref','$A',true); INSERT INTO vec_cronos_v1.teletrabajo_revocacion VALUES ('revocacion:cronos:sintetica-a','teletrabajo:cronos:sintetico-a','$A',clock_timestamp()-interval '1 minute','resolucion:sintetica:rev-a','per_RRRRRRRRRRRRRRRRRRRRRR','auditoria:sintetica:rev-a',clock_timestamp()); COMMIT;"
+docker exec -i "$container" psql -X -q -v ON_ERROR_STOP=1 -U postgres -d postgres >/dev/null <<SQL
+BEGIN ISOLATION LEVEL SERIALIZABLE;
+SELECT count(*) FROM vec_cronos_v1.teletrabajo_revocacion;
+SELECT dblink_exec('dbname=postgres user=postgres', \$r\$$revocar\$r\$);
+SET LOCAL ROLE login_cronos_prueba;
+SELECT prueba.fichar('$A','clave-remota-0004','salida','n-fichar-10');
+COMMIT;
+SQL
+comprobar "SELECT count(*)||'|'||(SELECT count(*) FROM vec_cronos_v1.teletrabajo_revocacion) FROM vec_cronos_v1.marcaje_original WHERE movimiento='salida'" '1|1' 'fichaje con instantánea previa a la revocación: orden fichaje antes que revocación'
+comprobar "SELECT prueba.espera_error(\$\$SELECT prueba.fichar('$A','clave-remota-0005','entrada','n-fichar-11')\$\$,'PC004')" 'OK PC004' 'fichaje iniciado tras la revocación rechazado' login_cronos_prueba
 printf 'PG18.4: cronos_v1 000007 verificado con fachadas AD3-53 DE PRUEBA; no acredita la cadena V3 real.\n'

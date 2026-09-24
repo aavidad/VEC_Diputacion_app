@@ -444,7 +444,13 @@ BEGIN
    END IF;
    RETURN previa.recibo_json||jsonb_build_object('replay',true);
  END IF;
- -- Serializa con altas y revocaciones de teletrabajo de la misma persona.
+ -- Espera a que terminen altas y revocaciones de teletrabajo en curso de la
+ -- misma persona, pero NO las serializa: el adaptador abre SERIALIZABLE y la
+ -- instantánea se toma antes de este bloqueo, así que una revocación que RRHH
+ -- confirme después de que el fichaje empezara no es visible aquí. SSI admite
+ -- esa ejecución como el orden «fichaje antes que revocación» (el fichaje se
+ -- trata como anterior a la confirmación de RRHH); todo fichaje iniciado
+ -- después de la confirmación sí la ve y se rechaza. Lo ensaya el arnés PG18.
  PERFORM pg_advisory_xact_lock(hashtextextended('vec_cronos_v1:teletrabajo:'||(m->>'empleado_ref'),0));
  SELECT * INTO tele FROM vec_cronos_v1.teletrabajo_en_v1(m->>'empleado_ref',instante);
  IF tele.autorizacion_ref IS NULL THEN
