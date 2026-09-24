@@ -38,7 +38,7 @@
 .cronos-calendario-meses {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 215px), 1fr));
-  gap: var(--portal-espacio-3);
+  gap: var(--portal-espacio-4);
   max-height: min(62vh, 620px);
   min-width: 0;
   overflow: auto;
@@ -47,20 +47,19 @@
 
 .cronos-calendario-mes {
   min-width: 0;
-  padding: var(--portal-espacio-2);
+  padding: var(--portal-espacio-3);
   border: 1px solid var(--portal-borde);
   border-radius: var(--portal-radio-lg);
   background: var(--portal-superficie);
-  box-shadow: var(--portal-sombra-sm);
 }
 
 .cronos-calendario-mes h4 {
   margin: 0 0 var(--portal-espacio-2);
-  padding: var(--portal-espacio-2);
-  border-radius: var(--portal-radio);
-  background: var(--portal-superficie-alterna);
-  color: var(--portal-azul-950);
-  font-size: .85rem;
+  padding: var(--portal-espacio-1) var(--portal-espacio-2) var(--portal-espacio-2);
+  border-bottom: 1px solid var(--portal-borde);
+  color: var(--portal-tinta);
+  font-size: .9375rem;
+  font-weight: 600;
   text-transform: capitalize;
 }
 
@@ -73,8 +72,8 @@
 
 .cronos-calendario-mes th {
   color: var(--portal-muted);
-  font-size: .67rem;
-  font-weight: 650;
+  font-size: .8125rem;
+  font-weight: 600;
 }
 
 .cronos-calendario-mes abbr {
@@ -82,24 +81,26 @@
 }
 
 .cronos-calendario-mes td {
-  height: 30px;
+  height: 32px;
   padding: 1px;
 }
 
 .cronos-calendario-mes td button {
   width: 100%;
-  min-height: 28px;
+  min-height: 30px;
   border: 1px solid transparent;
   border-radius: var(--portal-radio);
   background: var(--portal-superficie);
   color: var(--portal-tinta);
   cursor: pointer;
   font: inherit;
-  font-size: .75rem;
+  font-size: .8125rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .cronos-calendario-mes td button[data-dia-civil="fin-semana"] {
-  background: var(--portal-superficie-alterna);
+  background: var(--portal-neutro-suave);
+  color: var(--portal-muted);
 }
 
 .cronos-calendario-mes td button:hover {
@@ -110,7 +111,7 @@
   border-color: var(--portal-azul-700);
   background: var(--portal-azul-100);
   color: var(--portal-azul-950);
-  font-weight: 750;
+  font-weight: 600;
 }
 
 .cronos-calendario-mes td button:focus-visible,
@@ -134,8 +135,8 @@
   padding: var(--portal-espacio-3);
   border: 1px solid var(--portal-borde);
   border-radius: var(--portal-radio-lg);
-  background: var(--portal-superficie-alterna);
-  font-size: .75rem;
+  background: var(--portal-superficie);
+  font-size: .875rem;
 }
 
 .cronos-calendario-seleccion strong {
@@ -146,11 +147,11 @@
 .cronos-calendario-aviso {
   margin: 0;
   padding: var(--portal-espacio-3);
-  border-left: 4px solid var(--portal-aviso);
+  border-left: 3px solid var(--portal-aviso);
   border-radius: var(--portal-radio);
   background: var(--portal-aviso-suave);
   color: var(--portal-tinta);
-  font-size: .78rem;
+  font-size: .8125rem;
 }
 
 @media (max-width: 700px) {

@@ -30,7 +30,7 @@ test("la vista de borradores conserva el contrato visual de paneles, lista y acc
 test("Mis comisiones usa tokens compartidos y scroll interno en escritorio", () => {
   assert.doesNotMatch(corte, /#[0-9a-fA-F]{3,8}\b/u);
   assert.match(corte, /background: var\(--portal-fondo\)/u);
-  assert.match(corte, /background: var\(--portal-cabecera-panel\)/u);
+  assert.match(corte, /background: var\(--portal-superficie\)/u);
   assert.match(corte, /@media \(min-width: 1024px\)/u);
   assert.match(corte, /\.modulo-dietas\.dietas-borradores-propios\s*\{[^}]*overflow: hidden/su);
   assert.match(corte, /\.dietas-borradores-propios \.dietas-borradores-lista,[^}]*overflow: auto/su);

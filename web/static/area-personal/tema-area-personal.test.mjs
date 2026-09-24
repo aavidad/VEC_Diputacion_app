@@ -49,7 +49,7 @@ test("el área personal carga el tema permitido antes de sus alias y sin activos
   }
   assert.doesNotMatch(alias, /#[0-9a-f]{3,8}\b/i, "los alias no fijan otra paleta");
   assert.match(css, /\.ap-navegacion > a:hover, \.ap-navegacion > a\[aria-current="page"\][^}]*background: var\(--ap-azul-700\)/s);
-  assert.match(css, /\.panel > header[^}]*background:var\(--ap-cabecera-panel\)/s);
+  assert.match(css, /\.panel > header[^}]*background:var\(--ap-superficie\)/s);
   assert.match(css, /input\[type="checkbox"\], input\[type="radio"\] \{ accent-color: var\(--ap-azul-700\)/);
 });
 
