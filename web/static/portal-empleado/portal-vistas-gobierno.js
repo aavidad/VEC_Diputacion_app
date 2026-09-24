@@ -14,9 +14,17 @@ export function crearVistasGobierno(u) {
   function instanteUTC(valor) {
     const texto = String(valor ?? "");
     if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(texto)) return e(fecha());
+    const fechaFuente = texto.slice(0, 10);
+    const calendario = new Date(`${fechaFuente}T00:00:00Z`);
+    if (!Number.isFinite(calendario.getTime()) || calendario.toISOString().slice(0, 10) !== fechaFuente
+      || Number(texto.slice(11, 13)) > 23 || Number(texto.slice(14, 16)) > 59
+      || Number(texto.slice(17, 19)) > 59) return e(fecha());
     const instante = new Date(texto);
     if (!Number.isFinite(instante.getTime())) return e(fecha());
-    return `<time datetime="${e(instante.toISOString())}">${e(fecha(instante.toISOString().slice(0, 16)))} UTC</time>`;
+    const legible = new Intl.DateTimeFormat("es-ES", {
+      dateStyle: "short", timeStyle: "short", timeZone: "UTC",
+    }).format(instante);
+    return `<time datetime="${e(instante.toISOString())}">${e(legible)} UTC</time>`;
   }
 
   function renderizarEstadisticas(datos) {

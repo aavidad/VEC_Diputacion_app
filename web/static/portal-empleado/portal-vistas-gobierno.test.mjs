@@ -41,6 +41,22 @@ test("auditoría muestra hora UTC legible y cuenta los eventos sin recibo que ex
   assert.match(salida, /<span class="estado-chip aviso">Sin recibo<\/span>/);
 });
 
+test("la hora UTC no cambia en el salto al horario de verano de Madrid", () => {
+  const datos = structuredClone(obtenerDatosPresentacion());
+  datos.auditoria_eventos[0].instante = "2026-03-29T02:30:00Z";
+  const salida = crearVistasGobierno(utilidades()).renderizarAuditoria(datos);
+  assert.match(salida, /<time datetime="2026-03-29T02:30:00\.000Z">29\/3\/26, 2:30 UTC<\/time>/);
+  assert.doesNotMatch(salida, />29\/3\/26, 3:30 UTC</);
+});
+
+test("una fecha imposible no se normaliza a otro día", () => {
+  const datos = structuredClone(obtenerDatosPresentacion());
+  datos.auditoria_eventos[0].instante = "2026-02-31T10:00:00Z";
+  const salida = crearVistasGobierno(utilidades()).renderizarAuditoria(datos);
+  assert.match(salida, /<td data-columna="fecha">Sin fecha<\/td>/);
+  assert.doesNotMatch(salida, /2026-02-31|3\/3\/26, 10:00 UTC/);
+});
+
 test("tablas vacías de gobierno siguen visibles, enfocables y con columnas de estado", () => {
   const datos = structuredClone(obtenerDatosPresentacion());
   datos.bolsas = [];
