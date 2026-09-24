@@ -1,5 +1,5 @@
-import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260924-f2-web2";
-import { crearTraductorBorradoresDietas } from "./i18n-borradores.js?v=20260924-f2-web2";
+import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260924-f2-consulta-v2";
+import { crearTraductorBorradoresDietas } from "./i18n-borradores.js?v=20260924-f2-consulta-v2";
 import { obtenerCatalogoRutasProvincial } from "./catalogo-rutas-provincial.js";
 
 // El catálogo público incluye núcleos NGMEP aún pendientes de importación.
@@ -130,6 +130,10 @@ export function montarVistaBorradoresPropios(
       ? { preventScroll: true }
       : undefined,
   );
+  const focoSigueEnConsulta = (origen) => {
+    const actual = documento.activeElement;
+    return !actual || actual === origen || actual === documento.body;
+  };
   const relaciones = referenciasRelacionAutorizadas(relacionesAutorizadas);
   const raiz = nodo(documento, "section");
   raiz.className = "modulo-dietas dietas-borradores-propios";
@@ -158,6 +162,7 @@ export function montarVistaBorradoresPropios(
       : "borradores_propios_pendiente_conexion",
     tono: "informacion",
     detalle: null,
+    detalleOrigen: null,
     errorLista: false,
     errorListaClave: null,
   };
@@ -307,8 +312,26 @@ export function montarVistaBorradoresPropios(
     seccion.setAttribute("tabindex", "-1");
     const cabecera = nodo(documento, "div");
     cabecera.className = "cabecera-panel";
-    cabecera.append(nodo(documento, "h3", traducir("borradores_propios_listado")));
-    seccion.append(cabecera);
+    const consultar = nodo(documento, "button", tBorradores("borradores_propios_consultar_registrados"));
+    consultar.type = "button";
+    consultar.className = "boton-secundario";
+    consultar.dataset.dietasBorradorRecargar = "";
+    consultar.dataset.dietasBorradorConsultarRegistrados = "";
+    consultar.disabled = !conectada || controlador !== null || (relaciones.length > 1 && !relacionSeleccionada);
+    if (!conectada) consultar.title = traducir("borradores_propios_pendiente_conexion");
+    else if (relaciones.length > 1 && !relacionSeleccionada) consultar.title = traducir("borradores_propios_error_relacion");
+    cabecera.append(nodo(documento, "h3", traducir("borradores_propios_listado")), consultar);
+    const ayuda = nodo(documento, "details");
+    ayuda.className = "dietas-borradores-ayuda";
+    ayuda.dataset.dietasBorradoresAyuda = "";
+    ayuda.open = false;
+    const resumenAyuda = nodo(documento, "summary", "?");
+    resumenAyuda.setAttribute("aria-label", traducir("recorridos_abrir_ayuda"));
+    ayuda.append(resumenAyuda, nodo(documento, "p", tBorradores("borradores_propios_consulta_ayuda")));
+    const bandaAyuda = nodo(documento, "div");
+    bandaAyuda.className = "cabecera-panel";
+    bandaAyuda.append(ayuda);
+    seccion.append(cabecera, bandaAyuda);
     const cuerpo = nodo(documento, "div");
     cuerpo.className = "cuerpo-panel";
     seccion.append(cuerpo);
@@ -328,13 +351,6 @@ export function montarVistaBorradoresPropios(
       const fallo = nodo(documento, "p", tBorradores(estado.errorListaClave || estado.mensaje));
       fallo.className = "dietas-borradores-indicacion dietas-borradores-indicacion-error";
       cuerpo.append(fallo);
-      if (relaciones.length < 2 || relacionSeleccionada) {
-        const reintentar = nodo(documento, "button", traducir("borradores_propios_reintentar_consulta"));
-        reintentar.type = "button";
-        reintentar.className = "boton-secundario";
-        reintentar.dataset.dietasBorradorRecargar = "";
-        cuerpo.append(reintentar);
-      }
       return seccion;
     }
     if (!estado.items.length) {
@@ -485,7 +501,7 @@ export function montarVistaBorradoresPropios(
     listaPersistente.replaceChildren(listado());
     fichaPersistente.replaceChildren(detalle());
   }
-  async function cargar(conservarMensaje = false) {
+  async function cargar(conservarMensaje = false, consultaExplicita = false) {
     if (!conectada) {
       pintar();
       return;
@@ -519,16 +535,33 @@ export function montarVistaBorradoresPropios(
         items: pagina.items,
         errorLista: false,
         errorListaClave: null,
-        mensaje: conservarMensaje ? estado.mensaje : "borradores_propios_listado",
+        mensaje: conservarMensaje ? estado.mensaje : consultaExplicita
+          ? (pagina.items.length ? "borradores_propios_consulta_registrados" : "borradores_propios_consulta_registrados_vacia")
+          : "borradores_propios_listado",
         tono: conservarMensaje ? estado.tono : "informacion",
       };
       siguienteCursor = pagina.siguiente_cursor;
+      if (consultaExplicita) {
+        try { anunciar(tBorradores(estado.mensaje), "informacion"); } catch {}
+      }
     } catch (error) {
       if (!activaAhora() || signal.aborted) return;
       const claveError = conservarMensaje
         ? (error?.codigo === "acceso_denegado" ? "borradores_propios_creado_listado_denegado" : "borradores_propios_creado_listado_no_actualizado")
         : errorClave(error);
-      estado = { ...estado, carga: false, errorLista: true, errorListaClave: claveError, items: [] };
+      const denegada = error?.codigo === "autenticacion_requerida" || error?.codigo === "acceso_denegado";
+      const retirarFichaGET = denegada && estado.detalleOrigen === "get";
+      estado = {
+        ...estado,
+        carga: false,
+        errorLista: true,
+        errorListaClave: claveError,
+        items: [],
+        ...(retirarFichaGET ? {
+          detalle: ultimoAlta?.item ?? null,
+          detalleOrigen: ultimoAlta ? "post" : null,
+        } : {}),
+      };
       mensaje(claveError, conservarMensaje ? "aviso" : "error");
     } finally {
       if (controlador?.signal === signal) controlador = null;
@@ -570,7 +603,7 @@ export function montarVistaBorradoresPropios(
     if (base.codigos_ruta[0] === base.codigos_ruta[1]) { mensaje("borradores_propios_ruta_distinta","aviso"); pintar(); return; }
     const contenido = claveContenido(base);
     if (ultimoAlta?.contenido === contenido) {
-      estado = { ...estado, detalle: ultimoAlta.item };
+      estado = { ...estado, detalle: ultimoAlta.item, detalleOrigen: "post" };
       mensaje("borradores_propios_ya_registrado", "exito");
       pintar();
       enfocarRecibo();
@@ -604,6 +637,7 @@ export function montarVistaBorradoresPropios(
       estado = {
         ...estado,
         detalle: item,
+        detalleOrigen: "post",
         errorLista: false,
       };
       mensaje(
@@ -635,10 +669,15 @@ export function montarVistaBorradoresPropios(
     enfocar(reciboActual);
   }
   async function clic(evento) {
-    const recargar = evento.target?.closest?.("[data-dietas-borrador-recargar]");
-    if (recargar && activaAhora() && !controlador) {
-      await cargar();
-      enfocar(listaPersistente?.querySelector?.("[data-dietas-borradores-listado]"));
+    const consultar = evento.target?.closest?.("[data-dietas-borrador-consultar-registrados]");
+    if (consultar && activaAhora() && !controlador && !consultar.disabled) {
+      cursores = [undefined];
+      indicePagina = 0;
+      siguienteCursor = undefined;
+      mensaje("borradores_propios_consultando_registrados");
+      await cargar(false, true);
+      if (activaAhora() && focoSigueEnConsulta(consultar))
+        enfocar(listaPersistente?.querySelector?.("[data-dietas-borrador-consultar-registrados]"));
       return;
     }
     const pagina = evento.target?.closest?.("[data-dietas-borrador-pagina]");
@@ -647,11 +686,11 @@ export function montarVistaBorradoresPropios(
         cursores = [...cursores.slice(0, indicePagina + 1), siguienteCursor];
         indicePagina += 1;
         await cargar();
-        enfocar(listaPersistente?.querySelector?.("[data-dietas-borradores-listado]"));
+        if (activaAhora() && focoSigueEnConsulta(pagina)) enfocar(listaPersistente?.querySelector?.("[data-dietas-borradores-listado]"));
       } else if (pagina.dataset.dietasBorradorPagina === "anterior" && indicePagina > 0) {
         indicePagina -= 1;
         await cargar();
-        enfocar(listaPersistente?.querySelector?.("[data-dietas-borradores-listado]"));
+        if (activaAhora() && focoSigueEnConsulta(pagina)) enfocar(listaPersistente?.querySelector?.("[data-dietas-borradores-listado]"));
       }
       return;
     }
@@ -669,7 +708,7 @@ export function montarVistaBorradoresPropios(
         relacion_ref: boton.dataset.dietasBorradorRelacion || undefined,
       });
       if (!activaAhora() || signal.aborted) return;
-      estado = { ...estado, detalle: item };
+      estado = { ...estado, detalle: item, detalleOrigen: "get" };
       detalleActualizado = true;
       mensaje("borradores_propios_detalle");
     } catch (error) {
@@ -699,7 +738,7 @@ export function montarVistaBorradoresPropios(
     cursores = [undefined];
     indicePagina = 0;
     siguienteCursor = undefined;
-    estado = { ...estado, items: [], detalle: null };
+    estado = { ...estado, items: [], detalle: null, detalleOrigen: null };
     cargar();
   }
   raiz.addEventListener("submit", enviar);

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
   crearTraductorPortal,
@@ -22,6 +23,19 @@ test("un catálogo incompleto o una clave no gobernada fallan cerrados", () => {
   assert.throws(() => crearTraductorPortal({}), /incompleto/);
   const traducir = crearTraductorPortal();
   assert.throws(() => traducir("texto_improvisado"), /desconocida/);
+});
+
+test("Cronos toma migas y títulos de Jornada y Permisos del catálogo común", async () => {
+  const traducir = crearTraductorPortal();
+  assert.equal(traducir("cronos_miga"), "Portal del Empleado → Cronos");
+  assert.equal(traducir("cronos_jornada_titulo"), "Cronos · jornada y fichajes");
+  assert.equal(traducir("cronos_permisos_miga"), "Portal del Empleado → Cronos → Permisos");
+  assert.equal(traducir("cronos_permisos_titulo"), "Cronos · permisos y ausencias");
+  const portal = await readFile(new URL("portal.js", import.meta.url), "utf8");
+  for (const clave of ["cronos_miga", "cronos_jornada_titulo", "cronos_permisos_miga", "cronos_permisos_titulo"]) {
+    assert.match(portal, new RegExp(`traducirPortal\\("${clave}"\\)`, "u"));
+  }
+  assert.doesNotMatch(portal, /"Portal del Empleado → Cronos(?: → Permisos)?"|"Cronos · (?:jornada y fichajes|permisos y ausencias)"/u);
 });
 
 test("Bolsa interna usa catálogo común y formatos es-ES para textos y valores", async () => {

@@ -4,10 +4,16 @@ import test from "node:test";
 
 const version = "20260924-f2-shell-v1";
 const versionTemaBase = "20260924-f2-tema-base-v2";
+const versionSaltoMovil = "20260924-f2-salto-movil-v3";
+const versionSaltoMovilAnterior = "20260924-f2-salto-movil-v2";
 const versionCache = "20260924-f2-cache-v2";
 const versionCachePersonal = "20260924-f2-cache-v3";
 const versionPersonalInterno = "20260924-p1-personal-interno-v2";
-const versionIntegracion = "20260924-web-subsanacion-v1";
+const versionPersonalEstados = "20260924-f2-personal-estados-v4";
+const versionCronosPermisos = "20260924-f2-cronos-permisos-v2";
+const versionDietasShell = "20260924-web-integrada-v1";
+const versionDietasVista = "20260924-f2-consulta-v2";
+const versionIntegracion = "20260924-web-integrada-v1";
 const raiz = new URL("./", import.meta.url);
 
 function versionesDe(codigo, recurso) {
@@ -32,7 +38,7 @@ test("una carga con caché caliente solicita CSS F2 y entrada JS con URL nueva",
   ]);
   for (const [recurso, versionAntigua] of previo) {
     assert.equal(versionDe(html, `/portal-empleado/${recurso}`),
-      recurso === "portal.js" ? versionIntegracion : recurso === "portal.css" ? versionTemaBase : version);
+      recurso === "portal.js" ? versionDietasShell : recurso === "portal.css" ? versionSaltoMovil : version);
     assert.notEqual(versionDe(html, `/portal-empleado/${recurso}`), versionAntigua);
   }
   for (const recurso of ["portal-baremacion.css", "portal-contratos.css", "portal-convocatorias.css",
@@ -50,14 +56,17 @@ test("la caché immutable del tema anterior descarga ambas hojas de estilo renov
     ["/portal-empleado/portal.css", new URL("portal.css", raiz)],
     ["/comun/tema-vec.css", new URL("../comun/tema-vec.css", raiz)],
   ];
-  const cache = new Map(recursos.map(([ruta]) =>
-    [`${ruta}?v=${version}`, `/* respuesta immutable anterior: ${ruta} */`]));
+  const cache = new Map(recursos.map(([ruta]) => {
+    const versionAnterior = ruta.endsWith("/portal.css") ? versionSaltoMovilAnterior : version;
+    return [`${ruta}?v=${versionAnterior}`, `/* respuesta immutable anterior: ${ruta} */`];
+  }));
   const descargas = new Set();
   for (const [ruta, archivo] of recursos) {
     const versiones = versionesDe(html, ruta);
-    assert.deepEqual(versiones, [versionTemaBase], `${ruta}: URL de tema única y renovada`);
-    const urlAntigua = `${ruta}?v=${version}`;
-    const urlNueva = `${ruta}?v=${versionTemaBase}`;
+    const versionEsperada = ruta.endsWith("/portal.css") ? versionSaltoMovil : versionTemaBase;
+    assert.deepEqual(versiones, [versionEsperada], `${ruta}: URL de estilo única y renovada`);
+    const urlAntigua = `${ruta}?v=${ruta.endsWith("/portal.css") ? versionSaltoMovilAnterior : version}`;
+    const urlNueva = `${ruta}?v=${versionEsperada}`;
     assert.ok(cache.has(urlAntigua), `${ruta}: la caché antigua está precargada`);
     assert.ok(!html.includes(urlAntigua), `${ruta}: HTML no solicita la URL antigua`);
     if (!cache.has(urlNueva)) {
@@ -65,8 +74,15 @@ test("la caché immutable del tema anterior descarga ambas hojas de estilo renov
       descargas.add(urlNueva);
     }
   }
-  assert.deepEqual(descargas, new Set(recursos.map(([ruta]) => `${ruta}?v=${versionTemaBase}`)),
+  assert.deepEqual(descargas, new Set(recursos.map(([ruta]) =>
+    `${ruta}?v=${ruta.endsWith("/portal.css") ? versionSaltoMovil : versionTemaBase}`)),
     "las dos hojas se vuelven a solicitar con URL nueva");
+  assert.ok(!html.includes(`/portal-empleado/portal.css?v=${versionTemaBase}`),
+    "el HTML deja de solicitar la versión anterior de portal.css");
+  assert.ok(!html.includes("/portal-empleado/portal.css?v=20260924-f2-salto-movil-v1"),
+    "el HTML deja de solicitar la primera versión del salto móvil");
+  assert.ok(!html.includes(`/portal-empleado/portal.css?v=${versionSaltoMovilAnterior}`),
+    "el HTML deja de solicitar la versión de salto móvil que movía el menú");
 });
 
 test("el grafo JS propio llega desde HTML a los consumidores F2 con versiones nuevas", async () => {
@@ -76,8 +92,12 @@ test("el grafo JS propio llega desde HTML a los consumidores F2 con versiones nu
     readFile(new URL("portal-modulos-coordinador.js", raiz), "utf8"),
     readFile(new URL("modulos/dietas/vista-recorridos.js", raiz), "utf8"),
   ]);
-  assert.equal(versionDe(html, "/portal-empleado/portal.js"), versionIntegracion);
-  assert.equal(versionDe(portal, "./portal-modulos-coordinador.js"), versionIntegracion);
+  assert.equal(versionDe(html, "/portal-empleado/portal.js"), versionDietasShell);
+  assert.equal(versionDe(portal, "./portal-modulos-coordinador.js"), versionDietasShell);
+  assert.notEqual(versionDe(html, "/portal-empleado/portal.js"), "20260924-f2-cronos-permisos-v1");
+  assert.notEqual(versionDe(portal, "./portal-modulos-coordinador.js"), "20260924-f2-cronos-permisos-v1");
+  assert.notEqual(versionDe(html, "/portal-empleado/portal.js"), versionPersonalEstados);
+  assert.notEqual(versionDe(portal, "./portal-modulos-coordinador.js"), versionPersonalEstados);
   for (const recurso of ["portal-menu-bolsa.js",
     "portal-vistas-baremacion.js", "portal-vistas-convocatorias.js", "portal-vistas-operaciones.js",
     "modulos/seleccion/inscripciones/vista.js", "modulos/seleccion/pruebas/vista.js",
@@ -85,28 +105,31 @@ test("el grafo JS propio llega desde HTML a los consumidores F2 con versiones nu
     assert.equal(versionDe(portal, `./${recurso}`), version, recurso);
     await access(new URL(recurso, raiz));
   }
-  for (const recurso of ["modulos/cronos/vista.js", "modulos/dietas/vista-recorridos.js",
+  for (const recurso of ["modulos/cronos/vista.js",
     "modulos/dietas/cliente-borradores-http.js", "modulos/personal/vista-ficha-integral.js",
     "modulos/nominas/vista.js", "modulos/solicitudes/vista.js", "modulos/meritos/vista.js",
     "modulos/comunicaciones/vista.js", "modulos/documentos/vista.js", "modulos/aprobaciones/vista.js"]) {
     assert.equal(versionDe(coordinador, `./${recurso}`), version, recurso);
     await access(new URL(recurso, raiz));
   }
-  assert.equal(versionDe(dietas, "./vista-borradores-propios.js"), version);
+  assert.deepEqual(versionesDe(coordinador, "./modulos/dietas/vista-recorridos.js"),
+    [versionDietasVista, versionDietasVista]);
+  assert.equal(versionDe(dietas, "./vista-borradores-propios.js"), versionDietasVista);
 });
 
 test("la caché immutable previa no retiene el catálogo i18n ni los consumidores F2", async () => {
   const versionesPrevias = new Map([
-    ["portal.js", [version, versionCache, versionCachePersonal, "20260924-p1-personal-interno-v1"]],
-    ["portal-modulos-coordinador.js", [version, versionCache, versionCachePersonal, "20260924-p1-personal-interno-v1"]],
-    ["portal-catalogo-modulos.js", ["20260906-acceso-certificado-v1"]],
-    ["portal-inicio.js", ["20260923-p4-reintento-v2"]],
-    ["portal-eventos.js", ["20260721-acceso-real-v2"]],
-    ["portal-borradores-ui.js", ["20260921-avisos-r5-v1"]],
-    ["portal-borradores-acceso.js", ["20260721-acceso-real-v2"]],
-    ["portal-i18n.js", ["20260721-acceso-real-v2", "20260923-p4-reintento-v2", version]],
+    ["portal.js", [version, versionCache, versionCachePersonal, "20260924-p1-personal-interno-v1", versionPersonalInterno, versionPersonalEstados, "20260924-f2-cronos-permisos-v1", versionCronosPermisos, "20260924-f2-dietas-consulta-v2"]],
+    ["portal-modulos-coordinador.js", [version, versionCache, versionCachePersonal, "20260924-p1-personal-interno-v1", versionPersonalInterno, versionPersonalEstados, "20260924-f2-cronos-permisos-v1", versionCronosPermisos, "20260924-f2-dietas-consulta-v2"]],
+    ["portal-catalogo-modulos.js", ["20260906-acceso-certificado-v1", versionCache]],
+    ["portal-inicio.js", ["20260923-p4-reintento-v2", versionCache]],
+    ["portal-eventos.js", ["20260721-acceso-real-v2", versionCache]],
+    ["portal-borradores-ui.js", ["20260921-avisos-r5-v1", versionCache]],
+    ["portal-borradores-acceso.js", ["20260721-acceso-real-v2", versionCache]],
+    ["portal-i18n.js", ["20260721-acceso-real-v2", "20260923-p4-reintento-v2", version, versionCache]],
     ["modulos/cronos/vista-recorridos.js", ["20260920-cronos-bandeja-v2"]],
-    ["modulos/personal/vista.js", ["20260920-personal-catalogo-v1"]],
+    ["modulos/dietas/vista-recorridos.js", [version, "20260924-f2-dietas-consulta-v2"]],
+    ["modulos/personal/vista.js", ["20260920-personal-catalogo-v1", versionCachePersonal]],
     ["modulos/personal/cliente-http-categorias.js", ["20260920-personal-catalogo-v1"]],
     ["modulos/personal/vista-estructura-organizativa-publica.js", ["20260920-personal-estructura-v1"]],
   ]);
@@ -135,8 +158,8 @@ test("la caché immutable previa no retiene el catálogo i18n ni los consumidore
     ["index.html", ["portal.js"]],
     ["portal.js", ["portal-modulos-coordinador.js", "portal-inicio.js", "portal-eventos.js",
       "portal-borradores-ui.js", "portal-i18n.js"]],
-    ["portal-modulos-coordinador.js", ["portal-catalogo-modulos.js", "portal-i18n.js",
-      "modulos/cronos/vista-recorridos.js", "modulos/personal/vista.js",
+    ["portal-modulos-coordinador.js", ["portal-catalogo-modulos.js", "portal-inicio.js", "portal-i18n.js",
+      "modulos/cronos/vista-recorridos.js", "modulos/dietas/vista-recorridos.js", "modulos/personal/vista.js",
       "modulos/personal/cliente-http-categorias.js",
       "modulos/personal/vista-estructura-organizativa-publica.js"]],
     ["portal-catalogo-modulos.js", ["portal-i18n.js"]],
@@ -156,10 +179,17 @@ test("la caché immutable previa no retiene el catálogo i18n ni los consumidore
       const ruta = padre === "index.html" ? `/portal-empleado/${hijo}` : `./${hijo}`;
       const versionesHijo = versionesDe(codigo, ruta);
       const personal = padre === "portal-modulos-coordinador.js" && hijo.startsWith("modulos/personal/");
-      assert.equal(versionesHijo.length, ["modulos/personal/vista.js", "modulos/personal/cliente-http-categorias.js"].includes(hijo) ? 2 : 1,
+      assert.equal(versionesHijo.length, ["modulos/personal/vista.js", "modulos/personal/cliente-http-categorias.js",
+        "modulos/cronos/vista-recorridos.js", "modulos/dietas/vista-recorridos.js"].includes(hijo) ? 2 : 1,
         `${padre} → ${hijo}: número de aristas`);
-      const versionEsperada = padre === "index.html" || hijo === "portal-modulos-coordinador.js" ? versionIntegracion : hijo === "modulos/personal/cliente-http-categorias.js"
-        ? versionPersonalInterno : personal ? versionCachePersonal : versionCache;
+      const versionEsperada = padre === "index.html" || hijo === "portal-modulos-coordinador.js"
+        ? versionDietasShell : hijo === "modulos/dietas/vista-recorridos.js" ? versionDietasVista : [
+        "portal-catalogo-modulos.js", "portal-inicio.js", "portal-eventos.js",
+        "portal-borradores-ui.js", "portal-borradores-acceso.js", "portal-i18n.js"].includes(hijo)
+        ? versionCronosPermisos
+        : hijo === "modulos/personal/vista.js" ? versionPersonalEstados
+        : hijo === "modulos/personal/cliente-http-categorias.js" ? versionPersonalInterno
+        : personal ? versionCachePersonal : versionCache;
       for (const versionHijo of versionesHijo) {
         assert.equal(versionHijo, versionEsperada, `${padre} → ${hijo}`);
         const url = `/portal-empleado/${hijo}?v=${versionHijo}`;
@@ -169,6 +199,7 @@ test("la caché immutable previa no retiene el catálogo i18n ni los consumidore
   }
   assert.deepEqual(hitsPrevios, [], "ninguna URL immutable antigua se recupera de caché");
   assert.ok(descargas.has(`/portal-empleado/modulos/personal/cliente-http-categorias.js?v=${versionPersonalInterno}`));
+  assert.ok(descargas.has(`/portal-empleado/modulos/dietas/vista-recorridos.js?v=${versionDietasVista}`));
   assert.equal(descargas.size, versionesPrevias.size, "todos los recursos cambiados se descargan de nuevo");
 });
 
@@ -210,8 +241,8 @@ test("la recuperación de subsanación renueva toda la cadena immutable y ambas 
   ];
   const cache = new Map(pasos.map(([, ruta, previa]) => [`${ruta}?v=${previa}`, "módulo anterior"]));
   for (const [codigo, ruta, previa, cantidad] of pasos) {
-    assert.deepEqual(versionesDe(codigo, ruta), Array(cantidad).fill(nueva));
+    assert.deepEqual(versionesDe(codigo, ruta), Array(cantidad).fill(ruta.endsWith("vista-expedientes.js") ? nueva : versionIntegracion));
     assert.ok(!codigo.includes(`${ruta}?v=${previa}`));
-    assert.ok(!cache.has(`${ruta}?v=${nueva}`), "la vista anterior no sustituye los bytes nuevos");
+    assert.ok(!cache.has(`${ruta}?v=${ruta.endsWith("vista-expedientes.js") ? nueva : versionIntegracion}`), "la vista anterior no sustituye los bytes nuevos");
   }
 });

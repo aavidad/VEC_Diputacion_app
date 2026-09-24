@@ -13,9 +13,9 @@ import {
 import {
   cargarCatalogoModulosInterno,
   renderizarNavegacionModulos,
-} from "./portal-catalogo-modulos.js?v=20260924-f2-cache-v2";
-import { traducirPortal } from "./portal-i18n.js?v=20260924-f2-cache-v2";
-import { calcularMetricasCuadro, tramitesParaInicio } from "./portal-inicio.js";
+} from "./portal-catalogo-modulos.js?v=20260924-f2-cronos-permisos-v2";
+import { traducirPortal } from "./portal-i18n.js?v=20260924-f2-cronos-permisos-v2";
+import { calcularMetricasCuadro, tramitesParaInicio } from "./portal-inicio.js?v=20260924-f2-cronos-permisos-v2";
 import {
   componerCronosVisible,
   componerDietasInternas,
@@ -89,7 +89,7 @@ const CARGADORES_PRESENTACION_PREDETERMINADOS = Object.freeze({
       import("./modulos/dietas/vista-itinerario.js?v=20260923-dietas-r1"),
       import("./modulos/dietas/mapa-ruta.js?v=20260923-dietas-r1"),
       import("./modulos/dietas/calculador-rutas-presentacion-osrm.js"),
-      import("./modulos/dietas/vista-recorridos.js?v=20260924-f2-shell-v1"),
+      import("./modulos/dietas/vista-recorridos.js?v=20260924-f2-consulta-v2"),
     ]);
     return Object.freeze({ contrato, vista, mapa, calculador, recorridos });
   },
@@ -97,7 +97,7 @@ const CARGADORES_PRESENTACION_PREDETERMINADOS = Object.freeze({
     const [contrato, clienteCategorias, vistaCategorias, clienteRPT, vistaRPT, clienteEstructura, vistaEstructura, ficha] = await Promise.all([
       import("./modulos/personal/contrato.js?v=20260920-personal-catalogo-v1"),
       import("./modulos/personal/cliente-http-categorias.js?v=20260924-p1-personal-interno-v2"),
-      import("./modulos/personal/vista.js?v=20260924-f2-cache-v3"),
+      import("./modulos/personal/vista.js?v=20260924-f2-personal-estados-v4"),
       import("./modulos/personal/cliente-http-rpt-publica.js?v=20260920-personal-rpt-publica-v3"),
       import("./modulos/personal/vista-rpt-publica.js?v=20260920-personal-rpt-publica-v3"),
       import("./modulos/personal/cliente-http-estructura-organizativa-publica.js?v=20260920-personal-estructura-v1"),
@@ -133,9 +133,14 @@ const CARGADORES_PRESENTACION_PREDETERMINADOS = Object.freeze({
 });
 
 const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
-  cronos: async () => Object.freeze({
-    vista: await import("./modulos/cronos/vista.js?v=20260924-f2-shell-v1"),
-  }),
+  cronos: async () => {
+    const [vista, recorridos, i18n] = await Promise.all([
+      import("./modulos/cronos/vista.js?v=20260924-f2-shell-v1"),
+      import("./modulos/cronos/vista-recorridos.js?v=20260924-f2-cache-v2"),
+      import("./modulos/cronos/i18n.js?v=20260924-f2-web2"),
+    ]);
+    return Object.freeze({ vista, recorridos, i18n });
+  },
   contratacion_temporal: async () => {
     const [contrato, cliente, presentador, vista, adaptador] = await Promise.all([
       import("./modulos/contratacion-temporal/contrato.js"),
@@ -150,7 +155,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
     const [contrato, cliente, vista, ficha] = await Promise.all([
       import("./modulos/personal/contrato.js?v=20260920-personal-catalogo-v1"),
       import("./modulos/personal/cliente-http-categorias.js?v=20260924-p1-personal-interno-v2"),
-      import("./modulos/personal/vista.js?v=20260924-f2-cache-v3"),
+      import("./modulos/personal/vista.js?v=20260924-f2-personal-estados-v4"),
       import("./modulos/personal/vista-ficha-integral.js?v=20260924-f2-shell-v1"),
     ]);
     return Object.freeze({ contrato, cliente, vista, clienteCategorias: cliente, vistaCategorias: vista,
@@ -162,7 +167,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       import("./modulos/dietas/vista-itinerario.js?v=20260923-dietas-r1"),
       import("./modulos/dietas/mapa-ruta.js?v=20260923-dietas-r1"),
       import("./modulos/dietas/calculador-rutas-http.js"),
-      import("./modulos/dietas/vista-recorridos.js?v=20260924-f2-shell-v1"),
+      import("./modulos/dietas/vista-recorridos.js?v=20260924-f2-consulta-v2"),
       import("./modulos/dietas/cliente-borradores-http.js?v=20260924-f2-shell-v1"),
     ]);
     return Object.freeze({ contrato, vista, mapa, calculador, recorridos, clienteBorradores });
@@ -194,7 +199,7 @@ function componerVistaPresentacionAislada(carga, exportacion) {
   return Object.freeze({ montar: carga.recursos.vista[exportacion] });
 }
 
-export const VISTAS_MODULOS_PERSONALES = Object.freeze(new Set(["cronos", "dietas", "personal"]));
+export const VISTAS_MODULOS_PERSONALES = Object.freeze(new Set(["cronos", "cronos-permisos", "dietas", "personal"]));
 const VISTAS_MODULO_BOLSA = Object.freeze(new Set(VISTAS_INTERNAS_BOLSA));
 export const VISTAS_MODULOS_CONECTADOS = Object.freeze(new Set([
   "contratacion-temporal", ...VISTAS_MODULOS_PERSONALES,
@@ -204,6 +209,7 @@ export function moduloDeVistaPortal(vista) {
   if (vista === "portal") return "portal";
   if (vista === "contratacion-temporal") return "contratacion_temporal";
   if (vista === "personal") return CLAVE_PERSONAL;
+  if (vista === "cronos-permisos") return "cronos";
   if (VISTAS_MODULOS_PERSONALES.has(vista)) return vista;
   if (VISTAS_PRESENTACION_VISUALES.has(vista)) return CLAVE_POR_VISTA_PRESENTACION[vista];
   if (VISTAS_MODULO_BOLSA.has(vista)) return "bolsa";
@@ -582,8 +588,16 @@ export function crearCoordinadorModulosPortal({
           "cronos", limiteCargaModularMs, temporizadores,
         );
         if (carga !== secuenciaCarga) throw new Error("carga interna sustituida");
-        if (typeof recursos?.vista?.montarJornadaCronos !== "function") throw new TypeError("jornada de Cronos no disponible");
-        cronos = Object.freeze({ montar: recursos.vista.montarJornadaCronos });
+        if (typeof recursos?.vista?.montarJornadaCronos !== "function"
+          || typeof recursos?.recorridos?.montarVistaRecorridosCronos !== "function"
+          || typeof recursos?.i18n?.crearTraductorCronos !== "function") {
+          throw new TypeError("vistas de Cronos no disponibles");
+        }
+        cronos = Object.freeze({
+          montar: recursos.vista.montarJornadaCronos,
+          montarPermisos: recursos.recorridos.montarVistaRecorridosCronos,
+          traducir: recursos.i18n.crearTraductorCronos(),
+        });
       } catch {
         cronos = undefined;
       }
@@ -665,6 +679,8 @@ export function crearCoordinadorModulosPortal({
       return composicion?.contratacionTemporal !== undefined;
     }
     if (vista === "cronos") return composicion?.cronos !== undefined;
+    if (vista === "cronos-permisos") return !presentacionActiva
+      && typeof composicion?.cronos?.montarPermisos === "function";
     if (vista === "dietas") return composicion?.dietas !== undefined;
     if (vista === "personal") return composicion?.personal !== undefined;
     const clavePresentacion = CLAVE_POR_VISTA_PRESENTACION[vista];
@@ -867,18 +883,36 @@ export function crearCoordinadorModulosPortal({
       return true;
     }
 
-    if (vista === "cronos") {
+    if (vista === "cronos" || vista === "cronos-permisos") {
       if (typeof composicion.cronos.montar === "function") {
         raiz.replaceChildren();
-        const modulo = await composicion.cronos.montar({ raiz, anunciar,
+        let navegacion = null;
+        if (!presentacionActiva) {
+          const t = composicion.cronos.traducir;
+          navegacion = raiz.ownerDocument.createElement("nav");
+          navegacion.className = "panel";
+          navegacion.setAttribute("aria-label", t("navegacion_etiqueta"));
+          navegacion.dataset.cronosSubvistas = "";
+          navegacion.innerHTML = `<div class="cabecera-panel"><h3>${escaparHTML(t("navegacion_etiqueta"))}</h3></div>
+            <div class="cuerpo-panel">
+              <button type="button" class="boton-secundario" data-vista="cronos"${vista === "cronos" ? ' aria-current="page"' : ""}>${escaparHTML(t("jornada_titulo"))}</button>
+              <button type="button" class="boton-secundario" data-vista="cronos-permisos"${vista === "cronos-permisos" ? ' aria-current="page"' : ""}>${escaparHTML(t("navegacion_permisos"))}</button>
+            </div>`;
+          raiz.append(navegacion);
+        }
+        desmontarVista = () => navegacion?.remove();
+        const montarCronos = vista === "cronos-permisos"
+          ? composicion.cronos.montarPermisos : composicion.cronos.montar;
+        const modulo = await montarCronos({ raiz, anunciar,
           ...(!presentacionActiva ? { estado: "no_configurado" } : {}),
           registrarDesmontar: (limpiar) => {
-            if (montaje !== secuenciaMontaje) { limpiar(); return; }
-            desmontarVista = limpiar;
+            const retirar = () => { limpiar(); navegacion?.remove(); };
+            if (montaje !== secuenciaMontaje) { retirar(); return; }
+            desmontarVista = retirar;
           },
         });
-        if (montaje !== secuenciaMontaje) { modulo.desmontar(); return false; }
-        desmontarVista = modulo.desmontar;
+        if (montaje !== secuenciaMontaje) { modulo.desmontar(); navegacion?.remove(); return false; }
+        desmontarVista = () => { modulo.desmontar(); navegacion?.remove(); };
         return true;
       }
       raiz.innerHTML = composicion.cronos.renderizar();

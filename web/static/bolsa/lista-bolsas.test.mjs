@@ -22,6 +22,15 @@ const datasetDemo = JSON.parse(
   readFileSync(join(rutaRaiz, "data/demo/bolsa/v1.bolsas-demo.json"), "utf8")
 );
 
+function nodoConFoco(documento, atributos = {}) {
+  return {
+    hidden: false,
+    ownerDocument: documento,
+    focus() { documento.activeElement = this; },
+    ...atributos,
+  };
+}
+
 // Mapeo canónico de estados de demo al catálogo SituacionParticipacionBolsa
 function mapearEstadoBolsa(estadoOrigen) {
   switch (estadoOrigen) {
@@ -506,6 +515,160 @@ test("error de lista pública redacta datos del servidor y permite reintentar un
   assert.match(elementos.cuerpoTablaLista.innerHTML, /\*\*\*/);
 });
 
+test("reintentar bolsas enfocado pasa por carga y termina en error o éxito visible", async () => {
+  const documento = { activeElement: null };
+  const titulo = nodoConFoco(documento);
+  const tituloError = nodoConFoco(documento);
+  const cargando = nodoConFoco(documento, { hidden: true });
+  const error = nodoConFoco(documento, { hidden: true, querySelector: () => tituloError });
+  let reintentar;
+  const boton = nodoConFoco(documento, { addEventListener(_tipo, fn) { reintentar = fn; } });
+  const elementos = {
+    seccionBolsas: { hidden: false, addEventListener() {}, querySelector: () => titulo },
+    seccionLista: { hidden: true },
+    bolsasCargando: cargando,
+    bolsasError: error,
+    bolsasVacio: { hidden: true },
+    cuerpoTablaBolsas: { innerHTML: "" },
+    botonReintentarBolsas: boton,
+  };
+  let intentos = 0;
+  const ctrl = crearControladorListaBolsas({
+    elementos,
+    ventana: null,
+    api: {
+      consultarBolsasPublicas: async () => {
+        if (++intentos <= 2) throw new Error("fallo transitorio");
+        return generarFixtureBolsasPublicas().data;
+      },
+    },
+  });
+  ctrl.instalar();
+  await new Promise((resolver) => setImmediate(resolver));
+  assert.equal(error.hidden, false);
+  boton.focus();
+  reintentar();
+  assert.equal(documento.activeElement, cargando);
+  await new Promise((resolver) => setImmediate(resolver));
+  assert.equal(documento.activeElement, tituloError);
+  assert.equal(error.hidden, false);
+  boton.focus();
+  reintentar();
+  assert.equal(documento.activeElement, cargando);
+  await new Promise((resolver) => setImmediate(resolver));
+  assert.equal(documento.activeElement, titulo);
+  assert.equal(cargando.hidden, true);
+  assert.equal(error.hidden, true);
+});
+
+test("reintento de lista conserva URL y cursor y mueve foco solo desde la carga", async () => {
+  const bolsaRef = "bolsa:sintetico:administrativo";
+  const documento = { activeElement: null };
+  const tituloError = nodoConFoco(documento);
+  const tituloLista = nodoConFoco(documento);
+  const cargando = nodoConFoco(documento, { hidden: true });
+  const error = nodoConFoco(documento, { hidden: true, querySelector: () => tituloError });
+  const tabla = nodoConFoco(documento);
+  let reintentar;
+  const boton = nodoConFoco(documento, { addEventListener(_tipo, fn) { reintentar = fn; } });
+  const elementos = {
+    seccionBolsas: { hidden: false, addEventListener() {} }, seccionLista: { hidden: true },
+    bolsasCargando: { hidden: true }, bolsasError: { hidden: true }, bolsasVacio: { hidden: true },
+    cuerpoTablaBolsas: { innerHTML: "" },
+    listaCargando: cargando, listaError: error, listaVacio: { hidden: true },
+    mensajeErrorLista: { textContent: "" },
+    infoBolsaActiva: { innerHTML: "", querySelector: () => tituloLista },
+    cuerpoTablaLista: { innerHTML: "", closest: () => tabla },
+    contenedorPaginacion: { hidden: true },
+    botonSiguiente: { dataset: {}, disabled: false, addEventListener() {} },
+    botonReintentarLista: boton,
+  };
+  let href = `https://vec.test/bolsa/listas.html?bolsa=${bolsaRef}`;
+  let pushes = 0;
+  let reemplazos = 0;
+  const ventana = {
+    location: { get href() { return href; }, get search() { return new URL(href).search; } },
+    history: {
+      pushState() { pushes++; },
+      replaceState(_estado, _titulo, url) { reemplazos++; href = url; },
+    },
+    addEventListener() {},
+  };
+  let intentos = 0;
+  const ctrl = crearControladorListaBolsas({
+    elementos, ventana,
+    api: {
+      consultarBolsasPublicas: async () => ({ bolsas: [] }),
+      consultarListaBolsaPublica: async () => {
+        if (++intentos < 3) throw new Error("fallo transitorio");
+        return generarFixtureListaPublica(bolsaRef).data;
+      },
+    },
+  });
+  ctrl.instalar();
+  await new Promise((resolver) => setImmediate(resolver));
+  assert.equal(error.hidden, false);
+  boton.focus();
+  reintentar();
+  assert.equal(documento.activeElement, cargando);
+  await new Promise((resolver) => setImmediate(resolver));
+  assert.equal(documento.activeElement, tituloError);
+  assert.equal(error.hidden, false);
+  boton.focus();
+  reintentar();
+  assert.equal(documento.activeElement, cargando);
+  await new Promise((resolver) => setImmediate(resolver));
+  assert.equal(documento.activeElement, tituloLista);
+  assert.equal(error.hidden, true);
+  assert.equal(ctrl.estado.cursorSolicitado, "");
+  assert.equal(pushes, 0);
+  assert.equal(reemplazos, 1);
+  assert.match(href, /bolsa=bolsa%3Asintetico%3Aadministrativo/);
+});
+
+test("reintento no recupera foco si se eligió otro control durante la carga", async () => {
+  const bolsaRef = "bolsa:sintetico:administrativo";
+  const documento = { activeElement: null };
+  const otroControl = nodoConFoco(documento);
+  const cargando = nodoConFoco(documento, { hidden: true });
+  const titulo = nodoConFoco(documento);
+  let reintentar;
+  let resolver;
+  let intentos = 0;
+  const elementos = {
+    seccionBolsas: { hidden: false, addEventListener() {} }, seccionLista: { hidden: true },
+    bolsasCargando: { hidden: true }, bolsasError: { hidden: true }, bolsasVacio: { hidden: true },
+    cuerpoTablaBolsas: { innerHTML: "" },
+    listaCargando: cargando, listaError: { hidden: true }, listaVacio: { hidden: true },
+    infoBolsaActiva: { innerHTML: "", querySelector: () => titulo },
+    cuerpoTablaLista: { innerHTML: "", closest: () => nodoConFoco(documento) },
+    botonReintentarLista: nodoConFoco(documento, { addEventListener(_tipo, fn) { reintentar = fn; } }),
+    contenedorPaginacion: { hidden: true },
+  };
+  const ventana = {
+    location: { href: `https://vec.test/bolsa/listas.html?bolsa=${bolsaRef}`, search: `?bolsa=${bolsaRef}` },
+    history: { replaceState() {} }, addEventListener() {},
+  };
+  const ctrl = crearControladorListaBolsas({
+    elementos, ventana,
+    api: {
+      consultarBolsasPublicas: async () => ({ bolsas: [] }),
+      consultarListaBolsaPublica: () => ++intentos === 1
+        ? Promise.reject(new Error("fallo inicial"))
+        : new Promise((resuelve) => { resolver = resuelve; }),
+    },
+  });
+  ctrl.instalar();
+  await new Promise((resuelve) => setImmediate(resuelve));
+  elementos.botonReintentarLista.focus();
+  reintentar();
+  assert.equal(documento.activeElement, cargando);
+  otroControl.focus();
+  resolver(generarFixtureListaPublica(bolsaRef).data);
+  await new Promise((resuelve) => setImmediate(resuelve));
+  assert.equal(documento.activeElement, otroControl);
+});
+
 test("al cambiar de bolsa, un fallo no deja visible la posición ni el filtro anteriores", async () => {
   const refAnterior = "bolsa:sintetico:administrativo";
   const refNueva = "bolsa:sintetico:otra";
@@ -548,6 +711,10 @@ test("al cambiar de bolsa, un fallo no deja visible la posición ni el filtro an
 test("un error al cargar la página siguiente conserva las posiciones y reintenta el mismo cursor", async () => {
   const bolsaRef = "bolsa:sintetico:administrativo";
   const base = generarFixtureListaPublica(bolsaRef).data;
+  const documento = { activeElement: null };
+  const cargando = nodoConFoco(documento, { hidden: true });
+  const tabla = nodoConFoco(documento, { hidden: true, tabIndex: 0, hasAttribute: (nombre) => nombre === "tabindex" });
+  const botonReintentar = nodoConFoco(documento, { addEventListener(_tipo, fn) { reintentar = fn; } });
   const cursores = [];
   let siguiente;
   let reintentar;
@@ -555,11 +722,11 @@ test("un error al cargar la página siguiente conserva las posiciones y reintent
     seccionBolsas: { hidden: false, addEventListener() {} }, seccionLista: { hidden: true },
     bolsasCargando: { hidden: true }, bolsasError: { hidden: true }, bolsasVacio: { hidden: true },
     cuerpoTablaBolsas: { innerHTML: "" },
-    listaCargando: { hidden: true }, listaError: { hidden: true }, listaVacio: { hidden: true },
+    listaCargando: cargando, listaError: { hidden: true }, listaVacio: { hidden: true },
     mensajeErrorLista: { textContent: "" }, infoBolsaActiva: { innerHTML: "" },
-    cuerpoTablaLista: { innerHTML: "" }, contenedorPaginacion: { hidden: true },
+    cuerpoTablaLista: { innerHTML: "", closest: () => tabla }, contenedorPaginacion: { hidden: true },
     botonSiguiente: { dataset: {}, disabled: false, addEventListener(_tipo, fn) { siguiente = fn; } },
-    botonReintentarLista: { addEventListener(_tipo, fn) { reintentar = fn; } },
+    botonReintentarLista: botonReintentar,
   };
   const ventana = {
     location: { href: `https://vec.test/bolsa/listas.html?bolsa=${bolsaRef}`, search: `?bolsa=${bolsaRef}` },
@@ -584,11 +751,15 @@ test("un error al cargar la página siguiente conserva las posiciones y reintent
   assert.equal(elementos.listaError.hidden, false);
   assert.equal(ctrl.estado.posiciones.length, 2);
   assert.equal(ctrl.estado.cursorSolicitado, "cursor:pagina:2");
+  botonReintentar.focus();
   reintentar();
+  assert.equal(documento.activeElement, cargando);
   await new Promise((resolver) => setImmediate(resolver));
   assert.deepEqual(cursores, ["", "cursor:pagina:2", "cursor:pagina:2"]);
   assert.equal(ctrl.estado.posiciones.length, 4);
   assert.equal(elementos.listaError.hidden, true);
+  assert.equal(documento.activeElement, tabla);
+  assert.equal(tabla.tabIndex, 0, "la tabla debe seguir en el orden de Tab tras el reintento");
 });
 
 test("una respuesta de otra bolsa no se presenta como posición de la solicitada", async () => {
