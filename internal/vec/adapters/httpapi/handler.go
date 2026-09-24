@@ -11,7 +11,6 @@ import (
 	adminmodule "vec-diputacion-granada/internal/modules/administracion"
 	bolsamodule "vec-diputacion-granada/internal/modules/bolsa"
 	cronosmodule "vec-diputacion-granada/internal/modules/cronos"
-	dietasmodule "vec-diputacion-granada/internal/modules/dietas"
 	personalmodule "vec-diputacion-granada/internal/modules/personal"
 	"vec-diputacion-granada/internal/vec/application"
 	"vec-diputacion-granada/internal/vec/domain"
@@ -398,22 +397,6 @@ func actionForPath(path string) (moduleAction, bool) {
 			action:     cronosmodule.ActionReviewLeaveAndHoliday,
 			subjectRef: "cronos-permiso-demo",
 			eventType:  "vec.module.cronos.leave.executed",
-		},
-		"dietas": {
-			key:        "dietas",
-			moduleID:   dietasmodule.ModuleID,
-			permission: dietasmodule.PermissionApprovalManage,
-			action:     dietasmodule.ActionReviewTravelExpense,
-			subjectRef: "dietas-comision-demo",
-			eventType:  "vec.module.dietas.action.executed",
-		},
-		"rutas": {
-			key:        "rutas",
-			moduleID:   dietasmodule.ModuleID,
-			permission: dietasmodule.PermissionRouteManage,
-			action:     dietasmodule.ActionReviewRouteKM,
-			subjectRef: "dietas-ruta-demo",
-			eventType:  "vec.module.dietas.route.executed",
 		},
 		"bolsa": {
 			key:        "bolsa",

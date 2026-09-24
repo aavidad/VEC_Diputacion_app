@@ -1,11 +1,8 @@
-import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260925-aspecto-v1";
-import { crearTraductorBorradoresDietas } from "./i18n-borradores.js?v=20260924-web-paradas-periodos-v1";
-import { obtenerCatalogoRutasProvincial } from "./catalogo-rutas-provincial.js";
+import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260925-dietas-montaje-v2";
+import { crearTraductorBorradoresDietas } from "./i18n-borradores.js?v=20260925-dietas-montaje-v2";
+import { montarVistaMapaComisionDietas } from "./vista-mapa-comision.js?v=20260925-dietas-montaje-v2";
+import { montarVistaRectificacionDietas } from "./vista-rectificacion-dietas.js?v=20260925-dietas-montaje-v1";
 
-// El catálogo público incluye núcleos NGMEP aún pendientes de importación.
-// El alta calculada sólo ofrece municipios INE presentes en ambos contratos.
-const PUNTOS_RUTA = obtenerCatalogoRutasProvincial().puntos.filter((punto) => /^\d{5}$/u.test(punto.codigo));
-const NOMBRES_RUTA = new Map(PUNTOS_RUTA.map((punto) => [punto.codigo, punto.nombre]));
 const MAXIMO_LOCALIDADES = 12;
 
 function nodo(documento, etiqueta, texto = "") {
@@ -34,24 +31,41 @@ function claveContenido(solicitud) {
     solicitud.relacion_ref,
   ]);
 }
+// Estados que Dietas y su circuito devuelven, con su rótulo y su tono.
+const ESTADOS_COMISION = Object.freeze({
+  borrador: ["comision_estado_borrador", "info"],
+  eliminado: ["comision_estado_eliminado", "aviso"],
+  enviado_pendiente_revision: ["comision_estado_enviado", "exito"],
+  devuelta: ["circuito_estado_devuelta", "aviso"],
+  pendiente_autorizacion: ["circuito_estado_pendiente_autorizacion", "exito"],
+  pendiente_liquidacion: ["circuito_estado_pendiente_liquidacion", "exito"],
+  pendiente_fiscalizacion: ["circuito_estado_pendiente_fiscalizacion", "exito"],
+  fiscalizada: ["circuito_estado_fiscalizada", "exito"],
+});
+const MOTIVOS_RELACIONES = new Set(["empleado_no_disponible", "empleado_ambiguo"]);
 function euros(centimos) { return new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(centimos / 100); }
-function rutaLegible(codigos, traducir) {
+function rutaLegible(codigos, traducir, nombres = new Map()) {
   return codigos.length
-    ? codigos.map((codigo) => NOMBRES_RUTA.get(codigo) || codigo).join(" → ")
+    ? codigos.map((codigo) => nombres.get(codigo) || codigo).join(" → ")
     : traducir("borradores_propios_ruta_no_declarada");
 }
 function referenciasRelacionAutorizadas(valores) {
   if (!Array.isArray(valores))
     throw new TypeError("relaciones autorizadas de Dietas no válidas");
-  const referencias = valores.map((valor) => {
+  const referencias = valores.map((entrada) => {
+    const valor = typeof entrada === "string" ? entrada : entrada?.relacion_ref;
     if (
       typeof valor !== "string" ||
       !/^rel_[A-Za-z0-9_-]{22,128}$/u.test(valor)
     )
       throw new TypeError("relaciones autorizadas de Dietas no válidas");
-    return valor;
+    const unidad = typeof entrada === "string" ? undefined : entrada?.unidad_ref;
+    if (unidad !== undefined && (typeof unidad !== "string" || unidad.length < 1 || unidad.length > 256 ||
+        unidad.trim() !== unidad || /[\x00-\x1f\x7f]/u.test(unidad)))
+      throw new TypeError("unidad autorizada de Dietas no válida");
+    return Object.freeze({ relacion_ref: valor, unidad_ref: unidad });
   });
-  if (new Set(referencias).size !== referencias.length)
+  if (new Set(referencias.map((entrada) => entrada.relacion_ref)).size !== referencias.length)
     throw new TypeError("relaciones autorizadas de Dietas no válidas");
   return Object.freeze(referencias);
 }
@@ -97,11 +111,22 @@ export function montarVistaBorradoresPropios(
   contenedor,
   {
     cliente,
+    clienteAsignacion,
+    clienteRectificacion,
+    calculadorRuta,
+    visorRuta,
+    catalogoProyectado = [],
     traducir = crearTraductorDietas(MENSAJES_DIETAS_ES),
     anunciar = () => {},
+    confirmarOperacion = (texto) => globalThis.confirm?.(texto) === true,
     generarClaveIdempotencia = () => globalThis.crypto?.randomUUID?.(),
     registrarDesmontar,
     formularioInicialmenteVisible = true,
+    estadoRelaciones = "disponible",
+    // Código cerrado con que Personal denegó las relaciones (sin empleado
+    // canónico o con varios); solo cambia el mensaje, no reabre acciones.
+    motivoRelaciones,
+    fechaReferenciaPersonal,
     // Sólo la composición que haya consultado una fuente autorizada puede
     // aportar estas referencias opacas. Esta vista no deduce ni fabrica una.
     relacionesAutorizadas = [],
@@ -115,10 +140,24 @@ export function montarVistaBorradoresPropios(
       (typeof cliente?.crear !== "function" ||
         typeof cliente?.listar !== "function" ||
         typeof cliente?.obtener !== "function")) ||
+    (clienteAsignacion !== undefined && typeof clienteAsignacion?.obtener !== "function") ||
+    (clienteRectificacion !== undefined &&
+      (typeof clienteRectificacion?.consultar !== "function" || typeof clienteRectificacion?.solicitar !== "function")) ||
+    !Array.isArray(catalogoProyectado) || catalogoProyectado.length > 500 ||
+    catalogoProyectado.some((punto) => typeof punto?.codigo !== "string" ||
+      !/^[A-Za-z0-9][A-Za-z0-9._:-]{1,63}$/u.test(punto.codigo) || typeof punto?.nombre !== "string" || !punto.nombre) ||
+    ((calculadorRuta !== undefined || visorRuta !== undefined) &&
+      (typeof calculadorRuta?.obtenerCatalogo !== "function" || typeof calculadorRuta?.calcular !== "function" ||
+       typeof visorRuta?.montar !== "function")) ||
     typeof traducir !== "function" ||
     typeof anunciar !== "function" ||
+    typeof confirmarOperacion !== "function" ||
     typeof generarClaveIdempotencia !== "function" ||
     typeof formularioInicialmenteVisible !== "boolean" ||
+    !["disponible", "no_disponible"].includes(estadoRelaciones) ||
+    (motivoRelaciones !== undefined && (estadoRelaciones !== "no_disponible" ||
+      !MOTIVOS_RELACIONES.has(motivoRelaciones))) ||
+    (fechaReferenciaPersonal !== undefined && !/^\d{4}-\d{2}-\d{2}$/u.test(fechaReferenciaPersonal)) ||
     (registrarDesmontar !== undefined &&
       typeof registrarDesmontar !== "function")
   ) {
@@ -135,7 +174,11 @@ export function montarVistaBorradoresPropios(
     const actual = documento.activeElement;
     return !actual || actual === origen || actual === documento.body;
   };
-  const relaciones = referenciasRelacionAutorizadas(relacionesAutorizadas);
+  const entradasRelacion = referenciasRelacionAutorizadas(relacionesAutorizadas);
+  const relaciones = Object.freeze(entradasRelacion.map((entrada) => entrada.relacion_ref));
+  const unidadesAutorizadas = new Map(entradasRelacion.map((entrada) => [entrada.relacion_ref, entrada.unidad_ref]));
+  let puntosRuta = calculadorRuta ? [] : catalogoProyectado;
+  let nombresRuta = new Map(puntosRuta.map((punto) => [punto.codigo, punto.nombre]));
   const raiz = nodo(documento, "section");
   raiz.className = "modulo-dietas dietas-borradores-propios";
   raiz.dataset.dietasBorradoresPropios = "";
@@ -152,6 +195,27 @@ export function montarVistaBorradoresPropios(
   const operaciones = new Map();
   let ultimoAlta = null;
   let formularioVisible = formularioInicialmenteVisible;
+  let nivelDetalle = "medio";
+  let edicion = null;
+  let intentoEdicion = null;
+  const intentosAccion = new Map();
+  let asignacion = null;
+  let asignacionFecha = null;
+  let asignacionMensaje = "comision_asignacion_pendiente";
+  let controladorAsignacion = null;
+  let vistaRectificacion = null;
+  let rectificacionClave = null;
+  let rectificacionContenedor = null;
+  let reciboRectificacionConfirmado = null;
+  let mapaVista = null;
+  let montajeMapa = null;
+  let controladorCatalogo = null;
+  let calculoCabeceraFirma = null;
+  const rutasCalculadas = new Map();
+  const metadatosOtros = new WeakMap();
+  const asignacionVerificada = () => asignacion?.verificada === true &&
+    asignacion?.relacion_ref === estado.detalle?.comision.relacion_ref &&
+    asignacionFecha === fechaReferenciaPersonal;
   let cursores = [undefined];
   let indicePagina = 0;
   let siguienteCursor = undefined;
@@ -174,7 +238,12 @@ export function montarVistaBorradoresPropios(
     if (!activa) return;
     activa = false;
     controlador?.abort();
+    controladorAsignacion?.abort();
+    vistaRectificacion?.desmontar();
+    mapaVista?.desmontar();
+    controladorCatalogo?.abort();
     operaciones.clear();
+    intentosAccion.clear();
     ultimoAlta = null;
     estado = { ...estado, items: [], detalle: null, detalleOrigen: null };
     raiz.removeEventListener("submit", enviar);
@@ -191,6 +260,36 @@ export function montarVistaBorradoresPropios(
       anunciar(tBorradores(clave), tono);
     } catch {}
   }
+  async function consultarAsignacion(item) {
+    controladorAsignacion?.abort();
+    controladorAsignacion = null;
+    asignacion = null;
+    asignacionFecha = null;
+    const unidad = unidadesAutorizadas.get(item?.comision?.relacion_ref);
+    if (!item || !unidad || !clienteAsignacion || !fechaReferenciaPersonal || estadoRelaciones !== "disponible") {
+      asignacionMensaje = "comision_asignacion_pendiente";
+      if (activaAhora()) pintar();
+      return;
+    }
+    asignacionMensaje = "borradores_propios_cargando";
+    controladorAsignacion = new AbortController();
+    const signal = controladorAsignacion.signal;
+    if (activaAhora()) pintar();
+    try {
+      const resultado = await clienteAsignacion.obtener(item.comision.relacion_ref, unidad,
+        fechaReferenciaPersonal, { signal });
+      if (!activaAhora() || signal.aborted || estado.detalle?.comision.referencia !== item.comision.referencia) return;
+      asignacion = resultado;
+      asignacionFecha = fechaReferenciaPersonal;
+      asignacionMensaje = "comision_asignacion_verificada";
+    } catch (error) {
+      if (!activaAhora() || signal.aborted) return;
+      asignacionMensaje = error?.codigo === "no_encontrada" ? "comision_asignacion_sin_datos" : "comision_asignacion_error";
+    } finally {
+      if (controladorAsignacion?.signal === signal) controladorAsignacion = null;
+      if (activaAhora()) pintar();
+    }
+  }
   function purgarLecturasDenegadas() {
     // Un 401/403 invalida toda la proyección obtenida por GET, incluida la
     // página que permitió abrir el detalle. Sólo sobrevive el último recibo
@@ -202,6 +301,13 @@ export function montarVistaBorradoresPropios(
     cursores = [undefined];
     indicePagina = 0;
     siguienteCursor = undefined;
+    asignacion = null;
+    controladorAsignacion?.abort();
+    edicion = null;
+    intentoEdicion = null;
+    formularioVisible = false;
+    calculoCabeceraFirma = null;
+    rutasCalculadas.clear();
     estado = {
       ...estado,
       items: [],
@@ -223,11 +329,51 @@ export function montarVistaBorradoresPropios(
       return label;
     };
     const motivo = campo("motivo", "borradores_propios_motivo");
+    const etiquetaNivel = nodo(documento, "label", traducir("recorridos_nivel_detalle"));
+    const nivel = nodo(documento, "select");
+    nivel.name = "nivel_detalle";
+    [["bajo", "recorridos_nivel_bajo"], ["medio", "recorridos_nivel_medio"], ["alto", "recorridos_nivel_alto"]].forEach(([valor, clave]) => {
+      const opcion = nodo(documento, "option", traducir(clave)); opcion.value = valor; nivel.append(opcion);
+    });
+    nivel.value = nivelDetalle;
+    etiquetaNivel.append(nivel);
+    const ayudaNivel = nodo(documento, "details");
+    ayudaNivel.className = "dietas-borradores-ayuda";
+    const resumenNivel = nodo(documento, "summary", "?");
+    resumenNivel.setAttribute("aria-label", traducir("recorridos_abrir_ayuda"));
+    ayudaNivel.append(resumenNivel, nodo(documento, "p", tBorradores("comision_nivel_ayuda")));
+    const aceptacion = nodo(documento, "section");
+    aceptacion.className = "dietas-comision-aceptacion";
+    aceptacion.dataset.dietasAceptacion = "";
+    aceptacion.hidden = true;
+    const cabeceraAceptacion = nodo(documento, "div");
+    cabeceraAceptacion.className = "dietas-comision-bloque-cabecera";
+    cabeceraAceptacion.append(nodo(documento, "h4", tBorradores("comision_aceptacion_titulo")));
+    const ayudaAceptacion = nodo(documento, "details");
+    ayudaAceptacion.className = "dietas-borradores-ayuda";
+    const resumenAceptacion = nodo(documento, "summary", "?");
+    resumenAceptacion.setAttribute("aria-label", traducir("recorridos_abrir_ayuda"));
+    ayudaAceptacion.append(resumenAceptacion, nodo(documento, "p", tBorradores("comision_aceptacion_ayuda")));
+    cabeceraAceptacion.append(ayudaAceptacion);
+    const grupoAceptacion = nodo(documento, "p");
+    grupoAceptacion.dataset.dietasAceptacionGrupo = "";
+    const etiquetaModo = nodo(documento, "label", tBorradores("comision_aceptacion_titulo"));
+    const modo = nodo(documento, "select");
+    modo.name = "modo_tramos";
+    [["todos", "comision_aceptacion_todos"], ["uno", "comision_aceptacion_uno"]].forEach(([valor, clave]) => {
+      const opcion = nodo(documento, "option", tBorradores(clave)); opcion.value = valor; modo.append(opcion);
+    });
+    etiquetaModo.append(modo);
+    const etiquetaIndice = nodo(documento, "label", tBorradores("comision_aceptacion_indice"));
+    const indice = nodo(documento, "select");
+    indice.name = "tramo_indice";
+    etiquetaIndice.append(indice);
+    aceptacion.append(cabeceraAceptacion, grupoAceptacion, etiquetaModo, etiquetaIndice);
     const puntoRuta = (nombre, clave) => {
       const etiqueta = nodo(documento, "label", traducir(clave));
       const selector = nodo(documento, "select"); selector.name = nombre; selector.required = true;
       const inicial = nodo(documento, "option", traducir("borradores_propios_elegir_localidad")); inicial.value = ""; selector.append(inicial);
-      PUNTOS_RUTA.forEach((punto) => { const opcion=nodo(documento,"option",punto.nombre); opcion.value=punto.codigo; selector.append(opcion); });
+      puntosRuta.forEach((punto) => { const opcion=nodo(documento,"option",punto.nombre); opcion.value=punto.codigo; selector.append(opcion); });
       etiqueta.append(selector); return etiqueta;
     };
     const paradas = nodo(documento, "section");
@@ -242,6 +388,34 @@ export function montarVistaBorradoresPropios(
     anadirParada.dataset.dietasParadaAnadir = "";
     anadirParada.disabled = !conectada;
     paradas.append(tituloParadas, listaParadas, anadirParada);
+    const calcularRuta = nodo(documento, "button", tBorradores("comision_calcular_ruta"));
+    calcularRuta.type = "button";
+    calcularRuta.className = "boton-secundario";
+    calcularRuta.dataset.dietasCalcularRuta = "";
+    calcularRuta.disabled = !calculadorRuta;
+    const mapaRaiz = nodo(documento, "div");
+    mapaRaiz.className = "dietas-comision-mapa-raiz";
+    mapaRaiz.dataset.dietasComisionMapaRaiz = "";
+    const etiquetaVehiculo = nodo(documento, "label", tBorradores("comision_vehiculo_propio"));
+    const vehiculo = nodo(documento, "select");
+    vehiculo.name = "vehiculo_propio";
+    vehiculo.dataset.dietasVehiculoPropio = "";
+    [["", "comision_vehiculo_elegir"], ["si", "comision_vehiculo_si"], ["no", "comision_vehiculo_no"]].forEach(([valor, clave]) => {
+      const opcion = nodo(documento, "option", tBorradores(clave)); opcion.value = valor; vehiculo.append(opcion);
+    });
+    vehiculo.disabled = true;
+    vehiculo.title = tBorradores("comision_otros_primero_guardar");
+    etiquetaVehiculo.append(vehiculo);
+    const rutasVehiculo = nodo(documento, "section");
+    rutasVehiculo.className = "dietas-comision-rutas-vehiculo";
+    rutasVehiculo.dataset.dietasRutasVehiculo = "";
+    rutasVehiculo.append(nodo(documento, "h5", tBorradores("comision_rutas_titulo")));
+    const listaRutas = nodo(documento, "div");
+    listaRutas.dataset.dietasRutasLista = "";
+    const anadirRuta = nodo(documento, "button", tBorradores("comision_ruta_anadir"));
+    anadirRuta.type = "button"; anadirRuta.className = "boton-secundario";
+    anadirRuta.dataset.dietasRutaAnadir = ""; anadirRuta.disabled = true;
+    rutasVehiculo.append(listaRutas, anadirRuta);
     const boton = nodo(
       documento,
       "button",
@@ -287,6 +461,18 @@ export function montarVistaBorradoresPropios(
     cabecera.append(nodo(documento,"h3",traducir("borradores_propios_nuevo")));
     const campos = nodo(documento, "div");
     campos.className = "cuerpo-panel dietas-borradores-campos";
+    const tituloBloque = (clave, ayudaClave) => {
+      const cabeceraBloque = nodo(documento, "div");
+      cabeceraBloque.className = "dietas-comision-bloque-cabecera";
+      cabeceraBloque.append(nodo(documento, "h4", tBorradores(clave)));
+      const detalles = nodo(documento, "details");
+      detalles.className = "dietas-borradores-ayuda";
+      const abrir = nodo(documento, "summary", "?");
+      abrir.setAttribute("aria-label", traducir("recorridos_abrir_ayuda"));
+      detalles.append(abrir, nodo(documento, "p", tBorradores(ayudaClave)));
+      cabeceraBloque.append(detalles);
+      return cabeceraBloque;
+    };
     const ayuda = nodo(documento, "details");
     ayuda.className = "dietas-borradores-ayuda";
     const abrirAyuda = nodo(documento, "summary", "?");
@@ -295,23 +481,61 @@ export function montarVistaBorradoresPropios(
     ayuda.append(nodo(documento, "p", tBorradores("borradores_propios_paradas_ayuda")));
     ayuda.append(nodo(documento, "p", tBorradores("borradores_propios_preparacion_ayuda")));
     ayuda.append(nodo(documento, "p", tBorradores("borradores_propios_ya_registrado_ayuda")));
-    const pais = campo("pais", "borradores_propios_pais", "text", false);
-    const paisValor = pais.querySelector("input");
-    paisValor.value = tBorradores("borradores_propios_pais_espana");
-    paisValor.readOnly = true;
+    const pais = nodo(documento, "label", tBorradores("borradores_propios_pais"));
+    const paisValor = nodo(documento, "select");
+    paisValor.name = "pais";
+    paisValor.dataset.dietasPais = "";
+    [["ES", "borradores_propios_pais_espana"], ["OTRO", "comision_pais_otro"]].forEach(([valor, clave]) => {
+      const opcion = nodo(documento, "option", tBorradores(clave)); opcion.value = valor; paisValor.append(opcion);
+    });
+    paisValor.value = "ES";
+    pais.append(paisValor);
+    const nombrePais = campo("pais_otro", "comision_pais_nombre", "text", false);
+    nombrePais.dataset.dietasPaisOtro = "";
+    nombrePais.hidden = true;
+    const estadoPais = nodo(documento, "p", tBorradores("comision_pais_sin_calculo"));
+    estadoPais.dataset.dietasPaisSinCalculo = "";
+    estadoPais.hidden = true;
+    estadoPais.setAttribute("role", "status");
     campos.append(
+      ayuda,
+      tituloBloque("comision_bloque_dietas", "comision_bloque_dietas_ayuda"),
       campo("fecha_inicio", "borradores_propios_fecha_inicio", "date"),
       campo("hora_inicio", "borradores_propios_hora_inicio", "time"),
       campo("fecha_fin", "borradores_propios_fecha_fin", "date"),
       campo("hora_fin", "borradores_propios_hora_fin", "time"),
       motivo,
+      etiquetaNivel,
+      ayudaNivel,
+      aceptacion,
+      tituloBloque("comision_bloque_kilometraje", "comision_bloque_kilometraje_ayuda"),
       puntoRuta("origen_codigo","borradores_propios_origen"),
       paradas,
       puntoRuta("destino_codigo","borradores_propios_destino"),
+      calcularRuta,
+      mapaRaiz,
+      etiquetaVehiculo,
+      rutasVehiculo,
       pais,
+      nombrePais,
+      estadoPais,
       ...(selectorRelacion ? [selectorRelacion] : []),
-      ayuda,
     );
+    const otros = nodo(documento, "section");
+    otros.className = "dietas-comision-otros";
+    otros.dataset.dietasOtros = "";
+    otros.append(tituloBloque("comision_bloque_otros", "comision_bloque_otros_ayuda"));
+    const listaOtros = nodo(documento, "div");
+    listaOtros.dataset.dietasOtrosLista = "";
+    const anadirOtro = nodo(documento, "button", tBorradores("comision_otros_anadir"));
+    anadirOtro.type = "button";
+    anadirOtro.className = "boton-secundario";
+    anadirOtro.dataset.dietasOtroAnadir = "";
+    anadirOtro.disabled = true;
+    const indicacionOtros = nodo(documento, "p", tBorradores("comision_otros_primero_guardar"));
+    indicacionOtros.dataset.dietasOtrosIndicacion = "";
+    otros.append(listaOtros, indicacionOtros, anadirOtro);
+    campos.append(otros);
     const acciones = nodo(documento, "div");
     acciones.className = "dietas-borradores-acciones";
     acciones.append(revisar, boton);
@@ -327,6 +551,40 @@ export function montarVistaBorradoresPropios(
       });
     }
     return form;
+  }
+  async function cargarCatalogoRuta() {
+    if (!calculadorRuta) return;
+    controladorCatalogo?.abort();
+    controladorCatalogo = new AbortController();
+    const signal = controladorCatalogo.signal;
+    try {
+      const catalogo = await calculadorRuta.obtenerCatalogo({ signal });
+      if (!activaAhora() || signal.aborted || !Array.isArray(catalogo?.puntos)) return;
+      puntosRuta = catalogo.puntos;
+      nombresRuta = new Map(puntosRuta.map((punto) => [punto.codigo, punto.nombre]));
+      const controles = formularioPersistente.querySelectorAll("select").filter((selector) =>
+        ["origen_codigo", "destino_codigo", "parada_codigo"].includes(selector.name));
+      controles.forEach((selector) => {
+        const anterior = selector.value;
+        const inicial = nodo(documento, "option", traducir("borradores_propios_elegir_localidad"));
+        inicial.value = "";
+        selector.replaceChildren(inicial, ...puntosRuta.map((punto) => {
+          const opcion = nodo(documento, "option", punto.nombre);
+          opcion.value = punto.codigo;
+          return opcion;
+        }));
+        selector.value = nombresRuta.has(anterior) ? anterior : "";
+      });
+      pintar();
+    } catch {
+      if (!activaAhora() || signal.aborted) return;
+      puntosRuta = [];
+      nombresRuta = new Map();
+      mensaje("ruta_error_servicio", "error");
+      pintar();
+    } finally {
+      if (controladorCatalogo?.signal === signal) controladorCatalogo = null;
+    }
   }
   function valoresParadas(form) {
     return Array.from(form.querySelectorAll("select"))
@@ -345,7 +603,7 @@ export function montarVistaBorradoresPropios(
       const inicial = nodo(documento, "option", traducir("borradores_propios_elegir_localidad"));
       inicial.value = "";
       selector.append(inicial);
-      PUNTOS_RUTA.forEach((punto) => {
+      puntosRuta.forEach((punto) => {
         const opcion = nodo(documento, "option", punto.nombre);
         opcion.value = punto.codigo;
         selector.append(opcion);
@@ -372,14 +630,212 @@ export function montarVistaBorradoresPropios(
     }));
     const anadir = form.querySelector("[data-dietas-parada-anadir]");
     if (anadir) anadir.disabled = !conectada || controlador !== null || valores.length >= MAXIMO_LOCALIDADES - 2;
+    mapaVista?.establecerCodigos([]);
+    calculoCabeceraFirma = null;
     if (focoIndice >= 0) enfocar(lista.querySelectorAll("select")[focoIndice] || anadir);
+  }
+  function nuevaLineaOtro(valor = {}) {
+    const fila = nodo(documento, "div");
+    fila.className = "dietas-comision-otro-linea";
+    fila.dataset.dietasOtroLinea = "";
+    const campo = (nombre, clave, tipo = "text") => {
+      const etiqueta = nodo(documento, "label", tBorradores(clave));
+      const entrada = nodo(documento, "input");
+      entrada.name = nombre;
+      entrada.type = tipo;
+      entrada.required = true;
+      entrada.value = valor[nombre] ?? "";
+      etiqueta.append(entrada);
+      return etiqueta;
+    };
+    const etiquetaTipo = nodo(documento, "label", tBorradores("comision_otros_tipo"));
+    const tipo = nodo(documento, "select");
+    tipo.name = "tipo";
+    [["otro_medio", "comision_otros_medio"], ["otro_gasto", "comision_otros_gasto"]].forEach(([codigo, clave]) => {
+      const opcion = nodo(documento, "option", tBorradores(clave));
+      opcion.value = codigo;
+      tipo.append(opcion);
+    });
+    tipo.value = valor.tipo || "otro_gasto";
+    etiquetaTipo.append(tipo);
+    const importe = campo("importe", "comision_otros_importe");
+    importe.querySelector("input").inputMode = "decimal";
+    const quitar = nodo(documento, "button", tBorradores("comision_otros_quitar"));
+    quitar.type = "button";
+    quitar.className = "boton-secundario";
+    quitar.dataset.dietasOtroQuitar = "";
+    fila.append(etiquetaTipo, campo("concepto", "comision_otros_concepto"), importe, quitar);
+    if (valor.justificante_ref && valor.justificante_sha256)
+      metadatosOtros.set(fila, { justificante_ref: valor.justificante_ref, justificante_sha256: valor.justificante_sha256 });
+    return fila;
+  }
+  function selectorLocalidad(nombre, clave, valor = "", variables = {}) {
+    const etiqueta = nodo(documento, "label", tBorradores(clave, variables));
+    const selector = nodo(documento, "select");
+    selector.name = nombre;
+    selector.required = true;
+    const inicial = nodo(documento, "option", traducir("borradores_propios_elegir_localidad"));
+    inicial.value = ""; selector.append(inicial);
+    puntosRuta.forEach((punto) => { const opcion = nodo(documento, "option", punto.nombre); opcion.value = punto.codigo; selector.append(opcion); });
+    selector.value = valor;
+    etiqueta.append(selector);
+    return etiqueta;
+  }
+  function nuevaRutaVehiculo(valor = {}) {
+    const fila = nodo(documento, "section");
+    fila.className = "dietas-comision-ruta-vehiculo";
+    fila.dataset.dietasRutaLinea = "";
+    const cabecera = nodo(documento, "div");
+    cabecera.className = "cabecera-panel";
+    cabecera.append(nodo(documento, "h6", tBorradores("comision_ruta_numero", { numero: 1 })));
+    const quitar = nodo(documento, "button", tBorradores("comision_ruta_quitar"));
+    quitar.type = "button"; quitar.className = "boton-secundario"; quitar.dataset.dietasRutaQuitar = "";
+    cabecera.append(quitar);
+    const cuerpo = nodo(documento, "div");
+    cuerpo.className = "cuerpo-panel dietas-comision-ruta-campos";
+    const codigos = valor.codigos_ruta || [];
+    const paradas = nodo(documento, "div");
+    paradas.dataset.dietasRutaParadas = "";
+    const listaParadas = nodo(documento, "div");
+    listaParadas.dataset.dietasRutaParadasLista = "";
+    const anadirParada = nodo(documento, "button", tBorradores("borradores_propios_parada_anadir"));
+    anadirParada.type = "button"; anadirParada.className = "boton-secundario";
+    anadirParada.dataset.dietasRutaParadaAnadir = "";
+    paradas.append(listaParadas, anadirParada);
+    const ajuste = nodo(documento, "label", tBorradores("comision_ajuste_km"));
+    const valorAjuste = nodo(documento, "input");
+    valorAjuste.name = "ajuste_kilometros"; valorAjuste.type = "text"; valorAjuste.inputMode = "decimal";
+    valorAjuste.value = valor.ajuste_kilometros || "0.0000"; valorAjuste.required = true;
+    ajuste.append(valorAjuste);
+    const motivo = nodo(documento, "label", tBorradores("comision_motivo_ajuste"));
+    const motivoEntrada = nodo(documento, "input");
+    motivoEntrada.name = "motivo_ajuste"; motivoEntrada.type = "text";
+    motivoEntrada.value = valor.motivo_ajuste || "";
+    motivo.append(motivoEntrada);
+    const calcular = nodo(documento, "button", tBorradores("comision_ruta_calcular"));
+    calcular.type = "button"; calcular.className = "boton-secundario";
+    calcular.dataset.dietasRutaCalcular = "";
+    const estado = nodo(documento, "p", tBorradores("comision_ruta_pendiente"));
+    estado.dataset.dietasRutaEstado = "";
+    estado.setAttribute("role", "status");
+    cuerpo.append(selectorLocalidad("ruta_origen_codigo", "borradores_propios_origen", codigos[0] || ""),
+      paradas, selectorLocalidad("ruta_destino_codigo", "borradores_propios_destino", codigos.at(-1) || ""),
+      ajuste, motivo, calcular, estado);
+    fila.append(cabecera, cuerpo);
+    pintarParadasRuta(fila, codigos.slice(1, -1));
+    return fila;
+  }
+  function pintarParadasRuta(fila, valores) {
+    const lista = fila.querySelector("[data-dietas-ruta-paradas-lista]");
+    lista.replaceChildren(...valores.map((codigo, indice) => {
+      const grupo = nodo(documento, "div");
+      grupo.className = "dietas-comision-ruta-parada";
+      grupo.append(selectorLocalidad("ruta_parada_codigo", "borradores_propios_parada_numero", codigo, { numero: indice + 1 }));
+      const acciones = nodo(documento, "div");
+      [["dietasRutaParadaSubir", "borradores_propios_parada_subir", indice === 0],
+        ["dietasRutaParadaBajar", "borradores_propios_parada_bajar", indice === valores.length - 1],
+        ["dietasRutaParadaQuitar", "borradores_propios_parada_quitar", false]].forEach(([atributo, clave, bloqueado]) => {
+        const boton = nodo(documento, "button", tBorradores(clave));
+        boton.type = "button"; boton.className = "boton-secundario";
+        boton.dataset[atributo] = String(indice); boton.disabled = bloqueado;
+        acciones.append(boton);
+      });
+      grupo.append(acciones);
+      return grupo;
+    }));
+    const anadir = fila.querySelector("[data-dietas-ruta-parada-anadir]");
+    if (anadir) anadir.disabled = valores.length >= 10;
+  }
+  function codigosRutaVehiculo(fila) {
+    const valor = (nombre) => fila.querySelectorAll("select").find((selector) => selector.name === nombre)?.value || "";
+    return [valor("ruta_origen_codigo"),
+      ...fila.querySelectorAll("select").filter((selector) => selector.name === "ruta_parada_codigo").map((selector) => selector.value || ""),
+      valor("ruta_destino_codigo")];
+  }
+  function rutasDesdeFormulario(form) {
+    const vehiculo = form.querySelector("[data-dietas-vehiculo-propio]")?.value;
+    if (vehiculo === "no") return { vehiculo_propio: false, rutas: [] };
+    if (vehiculo !== "si") throw new TypeError("vehículo propio sin confirmar");
+    const filas = form.querySelectorAll("[data-dietas-ruta-linea]");
+    if (filas.length < 1 || filas.length > 8) throw new TypeError("rutas no válidas");
+    const rutas = filas.map((fila) => {
+      const codigos = codigosRutaVehiculo(fila);
+      if (!rutaValida(codigos) || !rutasCalculadas.has(JSON.stringify(codigos))) throw new TypeError("ruta no calculada");
+      const ajuste = fila.querySelectorAll("input").find((entrada) => entrada.name === "ajuste_kilometros")?.value || "";
+      const motivo = String(fila.querySelectorAll("input").find((entrada) => entrada.name === "motivo_ajuste")?.value || "").trim();
+      if (!/^-?(?:0|[1-9]\d{0,3})\.\d{4}$/u.test(ajuste) || Math.abs(Number(ajuste)) > 1000 ||
+          ajuste === "-0.0000" ||
+          (Number(ajuste) === 0 ? motivo !== "" : motivo.length < 3 || motivo.length > 500))
+        throw new TypeError("ajuste no válido");
+      return { codigos_ruta: codigos, ajuste_kilometros: ajuste, motivo_ajuste: motivo };
+    });
+    return { vehiculo_propio: true, rutas };
+  }
+  function pintarAceptacion(item) {
+    const seccion = formularioPersistente.querySelector("[data-dietas-aceptacion]");
+    if (!seccion || !asignacionVerificada() || !item?.comision.calculo) return;
+    const grupo = asignacion.grupo_dieta;
+    const tramos = item.comision.calculo.opciones_dieta[grupo - 1]?.calculo.tramos || [];
+    const rotuloGrupo = seccion.querySelector("[data-dietas-aceptacion-grupo]");
+    rotuloGrupo.textContent = `${traducir("borradores_propios_grupo")} ${grupo} · ${item.comision.calculo.rotulo}`;
+    const modo = seccion.querySelectorAll("select").find((selector) => selector.name === "modo_tramos");
+    const indice = seccion.querySelectorAll("select").find((selector) => selector.name === "tramo_indice");
+    indice.replaceChildren(...tramos.map((tramo, posicion) => {
+      const opcion = nodo(documento, "option", `${fechaLegible(tramo.fecha)} · ${tramo.tipo === "manutencion" ?
+        traducir("borradores_propios_manutencion") : traducir("borradores_propios_alojamiento_tope")} · ${euros(tramo.importe_centimos)}`);
+      opcion.value = String(posicion);
+      return opcion;
+    }));
+    const aceptados = item.comision.documento?.tramos_aceptados;
+    modo.value = tramos.length > 1 && aceptados?.length === 1 ? "uno" : "todos";
+    modo.disabled = tramos.length < 2;
+    indice.value = String(aceptados?.length === 1 ? aceptados[0] : 0);
+    const etiquetaIndice = indice.closest("label");
+    if (etiquetaIndice) etiquetaIndice.hidden = modo.value !== "uno" || tramos.length === 0;
+    seccion.hidden = false;
+    if (tramos.length === 0) rotuloGrupo.textContent += ` · ${tBorradores("comision_aceptacion_sin_tramos")}`;
+  }
+  function tramosAceptadosDesdeFormulario(form) {
+    if (!edicion || !asignacionVerificada()) throw new TypeError("grupo de Dietas no acreditado");
+    const tramos = edicion.comision.calculo?.opciones_dieta?.[asignacion.grupo_dieta - 1]?.calculo?.tramos;
+    if (!Array.isArray(tramos)) throw new TypeError("tramos de Dietas no disponibles");
+    if (tramos.length === 0) return [];
+    const modo = form.querySelectorAll("select").find((selector) => selector.name === "modo_tramos")?.value;
+    if (modo === "todos") return tramos.map((_tramo, indice) => indice);
+    const elegido = Number(form.querySelectorAll("select").find((selector) => selector.name === "tramo_indice")?.value);
+    if (modo !== "uno" || !Number.isSafeInteger(elegido) || elegido < 0 || elegido >= tramos.length)
+      throw new TypeError("tramo de Dietas no seleccionado");
+    return [elegido];
+  }
+  function renumerarRutas(form) {
+    form.querySelectorAll("[data-dietas-ruta-linea]").forEach((fila, indice) => {
+      const titulo = fila.querySelector("h6");
+      if (titulo) titulo.textContent = tBorradores("comision_ruta_numero", { numero: indice + 1 });
+    });
+  }
+  function otrosDesdeFormulario(form) {
+    const filas = form.querySelectorAll("[data-dietas-otro-linea]");
+    return Array.from(filas).map((fila) => {
+      const valor = (nombre) => String(fila.querySelectorAll("input").find((entrada) => entrada.name === nombre)?.value || "").trim();
+      const eurosTexto = valor("importe").replace(",", ".");
+      if (!/^(?:0|[1-9]\d{0,5})(?:\.\d{1,2})?$/u.test(eurosTexto)) throw new TypeError("importe no válido");
+      const [enteros, decimales = ""] = eurosTexto.split(".");
+      const custodia = metadatosOtros.get(fila);
+      return {
+        tipo: fila.querySelector("select")?.value,
+        concepto: valor("concepto"),
+        importe_centimos: Number(enteros) * 100 + Number(decimales.padEnd(2, "0")),
+        justificante_ref: custodia?.justificante_ref || "",
+        justificante_sha256: custodia?.justificante_sha256 || "",
+      };
+    });
   }
   function codigosRuta(form, datos) {
     return [String(datos.get("origen_codigo") || ""), ...valoresParadas(form), String(datos.get("destino_codigo") || "")];
   }
   function rutaValida(codigos) {
     return codigos.length >= 2 && codigos.length <= MAXIMO_LOCALIDADES &&
-      codigos.every((codigo) => NOMBRES_RUTA.has(codigo)) &&
+      codigos.every((codigo) => nombresRuta.has(codigo)) &&
       new Set(codigos).size === codigos.length;
   }
   function recibo(item) {
@@ -482,7 +938,7 @@ export function montarVistaBorradoresPropios(
       const boton = nodo(
         documento,
         "button",
-        `${fechaLegible(item.comision.fecha_inicio)} · ${item.comision.motivo}`,
+        `${item.comision.numero_documento || tBorradores("comision_documento_fecha", { fecha: fechaLegible(item.comision.fecha_inicio) })} · ${item.comision.motivo}`,
       );
       boton.type = "button";
       boton.className = "enlace-tabla";
@@ -496,7 +952,14 @@ export function montarVistaBorradoresPropios(
         boton.setAttribute("aria-current", "true");
       li.append(
         boton,
-        (() => { const estadoBorrador = nodo(documento, "span", traducir("borradores_propios_estado_borrador")); estadoBorrador.className = "estado-chip info"; return estadoBorrador; })(),
+        ...(item.comision.fecha_apertura ? [nodo(documento, "small", `${tBorradores("comision_fecha_apertura")}: ${fechaLegible(item.comision.fecha_apertura, true)}`)] : []),
+        (() => {
+          const [clave, tono] = ESTADOS_COMISION[item.comision.estado] || ["comision_estado_borrador", "info"];
+          const chip = nodo(documento, "span", tBorradores(clave));
+          chip.className = `estado-chip ${tono}`;
+          chip.dataset.dietasEstadoComision = item.comision.estado;
+          return chip;
+        })(),
       );
       ul.append(li);
     });
@@ -538,6 +1001,9 @@ export function montarVistaBorradoresPropios(
     }
     const datos = nodo(documento, "dl");
     [
+      ["comision_numero_documento", item.comision.numero_documento ||
+        tBorradores("comision_documento_fecha", { fecha: fechaLegible(item.comision.fecha_inicio) })],
+      ...(item.comision.fecha_apertura ? [["comision_fecha_apertura", fechaLegible(item.comision.fecha_apertura, true)]] : []),
       ["borradores_propios_referencia", item.comision.referencia],
       [
         "borradores_propios_fecha_inicio",
@@ -545,8 +1011,8 @@ export function montarVistaBorradoresPropios(
       ],
       ["borradores_propios_fecha_fin", fechaLegible(item.comision.fecha_fin)],
       ["borradores_propios_motivo", item.comision.motivo],
-      ["borradores_propios_ruta", rutaLegible(item.comision.codigos_ruta, tBorradores)],
-      ["borradores_propios_pais", tBorradores("borradores_propios_pais_no_registrado")],
+      ["borradores_propios_ruta", rutaLegible(item.comision.codigos_ruta, tBorradores, nombresRuta)],
+      ["borradores_propios_pais", tBorradores("comision_pais_es_registrado")],
     ].forEach(([etiqueta, valor]) => {
       const fila = nodo(documento, "div");
       fila.append(
@@ -556,44 +1022,152 @@ export function montarVistaBorradoresPropios(
       datos.append(fila);
     });
     cuerpo.append(datos);
-    const limite = nodo(documento, "p", tBorradores("borradores_propios_registrado_limite"));
-    limite.className = "dietas-borradores-indicacion";
-    cuerpo.append(limite);
+    const panelAsignacion = nodo(documento, "section");
+    panelAsignacion.className = "dietas-comision-asignacion";
+    const cabeceraAsignacion = nodo(documento, "div");
+    cabeceraAsignacion.className = "cabecera-panel";
+    cabeceraAsignacion.append(nodo(documento, "h4", tBorradores("comision_asignacion_titulo")));
+    panelAsignacion.append(cabeceraAsignacion);
+    const cuerpoAsignacion = nodo(documento, "div");
+    cuerpoAsignacion.className = "cuerpo-panel";
+    if (asignacionVerificada()) {
+      const aviso = nodo(documento, "p", tBorradores("comision_asignacion_verificada"));
+      aviso.className = "estado-chip exito";
+      cuerpoAsignacion.append(aviso);
+      const metadatos = nodo(documento, "dl");
+      [["comision_asignacion_centro", asignacion.centro_ref],
+        ["comision_asignacion_unidad", asignacion.unidad_ref],
+        ["comision_asignacion_administrativo", asignacion.administrativo_persona_ref],
+        ["comision_asignacion_responsable", asignacion.responsable_persona_ref]].forEach(([clave, referencia]) => {
+        const fila = nodo(documento, "div");
+        fila.append(nodo(documento, "dt", tBorradores(clave)),
+          nodo(documento, "dd", tBorradores("comision_asignacion_nombre_no_disponible")),
+          nodo(documento, "small", referencia));
+        metadatos.append(fila);
+      });
+      const grupo = nodo(documento, "div");
+      grupo.append(nodo(documento, "dt", tBorradores("comision_asignacion_grupo")),
+        nodo(documento, "dd", String(asignacion.grupo_dieta)));
+      metadatos.append(grupo);
+      cuerpoAsignacion.append(metadatos);
+    } else cuerpoAsignacion.append(nodo(documento, "p", tBorradores(asignacionMensaje)));
+    if (clienteRectificacion && !asignacionVerificada()) {
+      const corregir = nodo(documento, "button", tBorradores("comision_asignacion_corregir"));
+      corregir.type = "button";
+      corregir.className = "boton-secundario";
+      corregir.disabled = true;
+      corregir.title = tBorradores("comision_asignacion_corregir_pendiente");
+      cuerpoAsignacion.append(corregir);
+    }
+    if (reciboRectificacionConfirmado?.relacion_ref === item.comision.relacion_ref) {
+      const reciboSolicitud = nodo(documento, "p", tBorradores("comision_rectificacion_recibo", {
+        recibo: reciboRectificacionConfirmado.recibo_ref,
+      }));
+      reciboSolicitud.className = "estado-chip exito";
+      reciboSolicitud.setAttribute("role", "status");
+      cuerpoAsignacion.append(reciboSolicitud);
+    }
+    panelAsignacion.append(cuerpoAsignacion);
+    cuerpo.append(panelAsignacion);
     const acciones = nodo(documento, "div");
     acciones.className = "dietas-borradores-acciones";
-    ["borradores_propios_edicion_pendiente", "borradores_propios_envio_pendiente"].forEach((clave) => {
+    const esBorrador = item.comision.estado === "borrador";
+    [["comision_editar", "dietasBorradorEditar", "editar"],
+      ["comision_eliminar", "dietasBorradorEliminar", "eliminar"],
+      ["comision_enviar", "dietasBorradorEnviar", "enviar"]].forEach(([clave, atributo, metodo]) => {
       const boton = nodo(documento, "button", tBorradores(clave));
       boton.type = "button";
-      boton.disabled = true;
-      boton.title = tBorradores("borradores_propios_registrado_limite");
+      boton.className = metodo === "enviar" ? "boton-primario" : "boton-secundario";
+      boton.dataset[atributo] = item.comision.referencia;
+      boton.disabled = !esBorrador || estadoRelaciones === "no_disponible" || typeof cliente?.[metodo] !== "function" || controlador !== null ||
+        (metodo !== "eliminar" && !asignacionVerificada()) ||
+        (metodo === "editar" && !item.comision.calculo) ||
+        (metodo === "enviar" && !item.comision.documento);
+      if (boton.disabled) boton.title = tBorradores(metodo === "enviar" && !item.comision.documento
+        ? "comision_envio_sin_documento" : "comision_accion_no_disponible");
       acciones.append(boton);
     });
     cuerpo.append(acciones);
-    if (item.comision.calculo) cuerpo.append(resumenCalculo(item.comision.calculo));
+    if (item.comision.calculo) cuerpo.append(resumenCalculo(item.comision.calculo, item.comision.documento));
     cuerpo.append(recibo(item));
     return seccion;
   }
-  function resumenCalculo(calculo) {
+  function resumenCalculo(calculo, documentoComision) {
     const resumen=nodo(documento,"section"); resumen.className="dietas-comision-calculo";
-    resumen.append(nodo(documento,"h4",traducir("borradores_propios_calculo")));
+    const tituloCalculo = nodo(documento,"h4",traducir("borradores_propios_calculo"));
+    if (documentoComision) {
+      // La advertencia de total no definitivo es ayuda: se abre desde «?».
+      const cabeceraCalculo = nodo(documento, "div"); cabeceraCalculo.className = "dietas-comision-bloque-cabecera";
+      const ayudaTotal = nodo(documento, "details"); ayudaTotal.className = "dietas-borradores-ayuda";
+      const abrirAyudaTotal = nodo(documento, "summary", "?");
+      abrirAyudaTotal.setAttribute("aria-label", traducir("recorridos_abrir_ayuda"));
+      ayudaTotal.append(abrirAyudaTotal, nodo(documento, "p", tBorradores("comision_total_no_definitivo")));
+      cabeceraCalculo.append(tituloCalculo, ayudaTotal);
+      resumen.append(cabeceraCalculo);
+    } else resumen.append(tituloCalculo);
     const cifras=nodo(documento,"div"); cifras.className="dietas-comision-cifras";
     [[traducir("borradores_propios_km"),`${Number(calculo.kilometros).toLocaleString("es-ES",{maximumFractionDigits:1})} km`],
       [traducir("borradores_propios_importe_km"),euros(calculo.importe_kilometraje_centimos)]].forEach(([titulo,valor])=>{
         const tarjeta=nodo(documento,"article"); tarjeta.className="tarjeta-kpi";
         tarjeta.append(nodo(documento,"small",titulo),nodo(documento,"strong",valor)); cifras.append(tarjeta);
       });
-    resumen.append(cifras,nodo(documento,"p",`${calculo.rotulo} · ${calculo.version_tarifa} · ${calculo.version_grafo}`));
+    resumen.append(cifras,nodo(documento,"p",nivelDetalle === "alto"
+      ? `${calculo.rotulo} · ${calculo.version_tarifa} · ${calculo.version_grafo}` : calculo.rotulo));
     const ruta=nodo(documento,"ol"); ruta.className="dietas-comision-tramos-ruta";
-    calculo.tramos_ruta.forEach((tramo)=>ruta.append(nodo(documento,"li",`${NOMBRES_RUTA.get(tramo.origen_codigo)||tramo.origen_codigo} → ${NOMBRES_RUTA.get(tramo.destino_codigo)||tramo.destino_codigo} · ${Number(tramo.kilometros).toLocaleString("es-ES",{maximumFractionDigits:1})} km`)));
-    resumen.append(nodo(documento,"h5",traducir("borradores_propios_tramos_ruta")),ruta);
-    const aviso=nodo(documento,"p",traducir("borradores_propios_grupo_pendiente")); aviso.className="estado-chip aviso"; resumen.append(aviso);
-    calculo.opciones_dieta.forEach((opcion)=>{
+    if (calculo.rutas?.length) {
+      calculo.rutas.forEach((rutaCalculada, indice) => ruta.append(nodo(documento, "li",
+        `${tBorradores("comision_ruta_numero", { numero: indice + 1 })}: ${rutaLegible(rutaCalculada.codigos_ruta, tBorradores, nombresRuta)} · ${tBorradores("comision_km_base")} ${rutaCalculada.kilometros_base} km · ${tBorradores("comision_km_ajuste")} ${rutaCalculada.ajuste_kilometros} km · ${tBorradores("comision_km_final")} ${rutaCalculada.kilometros_finales} km · ${euros(rutaCalculada.importe_centimos)}`)));
+    } else calculo.tramos_ruta.forEach((tramo)=>ruta.append(nodo(documento,"li",`${nombresRuta.get(tramo.origen_codigo)||tramo.origen_codigo} → ${nombresRuta.get(tramo.destino_codigo)||tramo.destino_codigo} · ${Number(tramo.kilometros).toLocaleString("es-ES",{maximumFractionDigits:1})} km`)));
+    if (nivelDetalle !== "bajo") resumen.append(nodo(documento,"h5",traducir("borradores_propios_tramos_ruta")),ruta);
+    if (!asignacionVerificada() && !documentoComision) {
+      const aviso=nodo(documento,"p",traducir("borradores_propios_grupo_pendiente")); aviso.className="estado-chip aviso"; resumen.append(aviso);
+    }
+    const opcionesVisibles = documentoComision ? [] : asignacionVerificada()
+      ? calculo.opciones_dieta.filter((opcion) => opcion.grupo === asignacion.grupo_dieta)
+      : calculo.opciones_dieta;
+    if (nivelDetalle !== "bajo") opcionesVisibles.forEach((opcion)=>{
       const bloque=nodo(documento,"section"); bloque.className="dietas-comision-grupo";
       bloque.append(nodo(documento,"h5",`${traducir("borradores_propios_grupo")} ${opcion.grupo} · ${euros(opcion.calculo.total_maximo_orientativo_centimos)}`));
       const lista=nodo(documento,"ul");
       opcion.calculo.tramos.forEach((tramo)=>lista.append(nodo(documento,"li",`${fechaLegible(tramo.fecha)} · ${tramo.tipo==="manutencion"?traducir("borradores_propios_manutencion"):traducir("borradores_propios_alojamiento_tope")} ${tramo.porcentaje}% · ${euros(tramo.importe_centimos)}`)));
-      bloque.append(lista); resumen.append(bloque);
+      if (nivelDetalle === "alto") bloque.append(lista);
+      resumen.append(bloque);
     });
+    if (documentoComision) {
+      const dietaCentimos = documentoComision.manutencion_centimos + documentoComision.alojamiento_tope_centimos;
+      const categorias = nodo(documento, "div"); categorias.className = "dietas-comision-cifras";
+      [["comision_total_dietas", dietaCentimos], ["comision_total_km", documentoComision.kilometraje_centimos],
+        ["comision_total_otros", documentoComision.otros_centimos],
+        ["comision_total_provisional", documentoComision.total_orientativo_centimos]].forEach(([clave, importe]) => {
+        const tarjeta = nodo(documento, "article"); tarjeta.className = "tarjeta-kpi";
+        tarjeta.append(nodo(documento, "small", tBorradores(clave)), nodo(documento, "strong", euros(importe)));
+        categorias.append(tarjeta);
+      });
+      resumen.append(categorias);
+      const grupoDocumento = nodo(documento, "p", `${tBorradores("comision_grupo_documento")}: ${documentoComision.grupo_dieta}`);
+      grupoDocumento.className = "estado-chip info";
+      resumen.append(grupoDocumento);
+      if (nivelDetalle !== "bajo") {
+        const aceptados = nodo(documento, "section"); aceptados.className = "dietas-comision-grupo";
+        aceptados.append(nodo(documento, "h5", tBorradores("comision_tramos_aceptados")));
+        if (nivelDetalle === "alto") {
+          const lista = nodo(documento, "ul");
+          documentoComision.lineas.filter((linea) => linea.tipo === "dieta").forEach((linea) =>
+            lista.append(nodo(documento, "li", `${fechaLegible(linea.fecha)} · ${linea.concepto === "manutencion" ?
+              traducir("borradores_propios_manutencion") : traducir("borradores_propios_alojamiento_tope")} · ${euros(linea.importe_centimos)}`)));
+          aceptados.append(lista);
+        }
+        resumen.append(aceptados);
+      }
+      const otros = documentoComision.lineas.filter((linea) => linea.tipo === "otro_medio" || linea.tipo === "otro_gasto");
+      const bloqueOtros = nodo(documento, "section");
+      bloqueOtros.className = "dietas-comision-grupo";
+      bloqueOtros.append(nodo(documento, "h5", tBorradores("comision_bloque_otros")));
+      const listaOtros = nodo(documento, "ul");
+      otros.forEach((linea) => listaOtros.append(nodo(documento, "li", `${linea.concepto} · ${euros(linea.importe_centimos)}`)));
+      bloqueOtros.append(listaOtros);
+      resumen.append(bloqueOtros);
+    } else if (!asignacionVerificada()) resumen.append(nodo(documento, "p", tBorradores("comision_total_sin_grupo")));
     return resumen;
   }
   function pintar() {
@@ -612,19 +1186,56 @@ export function montarVistaBorradoresPropios(
       principal.append(listaPersistente, formularioPersistente);
       fichaPersistente = nodo(documento, "div");
       fichaPersistente.className = "dietas-borradores-lateral";
+      rectificacionContenedor = nodo(documento, "div");
+      rectificacionContenedor.className = "dietas-borradores-rectificacion";
       espacio.append(principal, fichaPersistente);
       raiz.append(nodo(documento, "h2", formularioInicialmenteVisible
         ? traducir("borradores_propios_titulo")
         : tBorradores("borradores_propios_titulo_registrados")), avisoPersistente, espacio);
+      if (calculadorRuta && visorRuta) {
+        const mapaRaiz = formularioPersistente.querySelector("[data-dietas-comision-mapa-raiz]");
+        montajeMapa = montarVistaMapaComisionDietas({ raiz: mapaRaiz, calculador: calculadorRuta,
+          visorRuta, anunciar: (texto, tono) => anunciar(texto, tono) }).then((vista) => {
+          if (!activaAhora()) { vista.desmontar(); return null; }
+          mapaVista = vista;
+          return vista;
+        }, () => null);
+        void cargarCatalogoRuta();
+      }
     }
     raiz.dataset.formularioVisible = String(formularioVisible);
     formularioPersistente.hidden = !formularioVisible;
-    const controlesBloqueados = !conectada || controlador !== null || (relaciones.length > 1 && !relacionSeleccionada);
-    for (const selector of ["[data-dietas-borrador-guardar]", "[data-dietas-borrador-revisar]"]) {
+    const extranjero = formularioPersistente.querySelector("[data-dietas-pais]")?.value === "OTRO";
+    const paisOtro = formularioPersistente.querySelector("[data-dietas-pais-otro]");
+    const estadoPais = formularioPersistente.querySelector("[data-dietas-pais-sin-calculo]");
+    if (paisOtro) paisOtro.hidden = !extranjero;
+    if (estadoPais) estadoPais.hidden = !extranjero;
+    formularioPersistente.querySelectorAll("select").filter((selector) =>
+      ["origen_codigo", "destino_codigo", "parada_codigo"].includes(selector.name)).forEach((selector) => { selector.required = !extranjero; });
+    const botonGuardar = formularioPersistente.querySelector("[data-dietas-borrador-guardar]");
+    if (botonGuardar) botonGuardar.textContent = tBorradores(edicion ? "comision_editar" : "borradores_propios_guardar");
+    const controlesBloqueados = !conectada || controlador !== null || estadoRelaciones === "no_disponible" || (relaciones.length > 1 && !relacionSeleccionada);
+    for (const selector of ["[data-dietas-borrador-guardar]", "[data-dietas-borrador-revisar]", "[data-dietas-calcular-ruta]"]) {
       const boton = formularioPersistente.querySelector(selector);
-      if (boton) boton.disabled = controlesBloqueados;
+      if (boton) boton.disabled = controlesBloqueados || extranjero || (selector === "[data-dietas-calcular-ruta]" && !calculadorRuta);
     }
     if (formularioPersistente) {
+      const vehiculo = formularioPersistente.querySelector("[data-dietas-vehiculo-propio]");
+      if (vehiculo) vehiculo.disabled = controlesBloqueados || !edicion || typeof cliente?.editar !== "function";
+      const rutasVehiculo = formularioPersistente.querySelector("[data-dietas-rutas-vehiculo]");
+      if (rutasVehiculo) rutasVehiculo.hidden = vehiculo?.value !== "si";
+      const anadirRuta = formularioPersistente.querySelector("[data-dietas-ruta-anadir]");
+      if (anadirRuta) anadirRuta.disabled = controlesBloqueados || !edicion || vehiculo?.value !== "si" || formularioPersistente.querySelectorAll("[data-dietas-ruta-linea]").length >= 8;
+      const seccionAceptacion = formularioPersistente.querySelector("[data-dietas-aceptacion]");
+      if (seccionAceptacion) seccionAceptacion.hidden = !(edicion && asignacionVerificada());
+      const modoAceptacion = formularioPersistente.querySelectorAll("select").find((selector) => selector.name === "modo_tramos");
+      const indiceAceptacion = formularioPersistente.querySelectorAll("select").find((selector) => selector.name === "tramo_indice");
+      const etiquetaIndice = indiceAceptacion?.closest("label");
+      if (etiquetaIndice) etiquetaIndice.hidden = modoAceptacion?.value !== "uno";
+      const anadirOtro = formularioPersistente.querySelector("[data-dietas-otro-anadir]");
+      if (anadirOtro) anadirOtro.disabled = controlesBloqueados || !edicion || typeof cliente?.editar !== "function" || formularioPersistente.querySelectorAll("[data-dietas-otro-linea]").length >= 32;
+      const indicacionOtros = formularioPersistente.querySelector("[data-dietas-otros-indicacion]");
+      if (indicacionOtros) indicacionOtros.hidden = Boolean(edicion);
       const anadir = formularioPersistente.querySelector("[data-dietas-parada-anadir]");
       if (anadir) anadir.disabled = controlesBloqueados || valoresParadas(formularioPersistente).length >= MAXIMO_LOCALIDADES - 2;
       const totalParadas = valoresParadas(formularioPersistente).length;
@@ -637,12 +1248,32 @@ export function montarVistaBorradoresPropios(
         boton.disabled = controlesBloqueados || (subir && indice === 0) || (bajar && indice === totalParadas - 1);
       });
     }
-    avisoPersistente.textContent = tBorradores(estado.mensaje);
+    avisoPersistente.textContent = tBorradores(estadoRelaciones === "no_disponible"
+      ? (motivoRelaciones ? `comision_${motivoRelaciones}` : "comision_relaciones_no_disponibles") : estado.mensaje);
     avisoPersistente.dataset.tono = estado.tono;
     avisoPersistente.className = `estado-chip ${estado.tono === "error" ? "peligro" : estado.tono === "exito" ? "exito" : estado.tono === "aviso" ? "aviso" : "info"}`;
     avisoPersistente.setAttribute("role", estado.tono === "error" ? "alert" : "status");
     listaPersistente.replaceChildren(listado());
-    fichaPersistente.replaceChildren(detalle());
+    fichaPersistente.replaceChildren(detalle(), rectificacionContenedor);
+    const claveRectificacion = asignacionVerificada() && clienteRectificacion
+      ? `${asignacion.asignacion_ref}:${asignacion.version}:${asignacion.fecha_referencia}` : null;
+    if (claveRectificacion !== rectificacionClave) {
+      vistaRectificacion?.desmontar();
+      vistaRectificacion = null;
+      rectificacionClave = claveRectificacion;
+      rectificacionContenedor.replaceChildren();
+      if (claveRectificacion) {
+        try {
+          vistaRectificacion = montarVistaRectificacionDietas(rectificacionContenedor, {
+            cliente: clienteRectificacion, asignacion,
+            alConfirmar: (resultado) => {
+              reciboRectificacionConfirmado = { ...resultado, relacion_ref: asignacion.relacion_ref };
+              if (estado.detalle) void consultarAsignacion(estado.detalle);
+            },
+          });
+        } catch { rectificacionClave = null; }
+      }
+    }
   }
   async function cargar(conservarMensaje = false, consultaExplicita = false) {
     if (!conectada) {
@@ -711,7 +1342,10 @@ export function montarVistaBorradoresPropios(
     const form = evento.target?.closest?.("[data-dietas-borrador-form]");
     if (!form || !activaAhora()) return;
     evento.preventDefault();
-    if (!conectada || controlador || (relaciones.length > 1 && !relacionSeleccionada)) return;
+    if (!conectada || controlador || estadoRelaciones === "no_disponible" || (relaciones.length > 1 && !relacionSeleccionada)) return;
+    if (form.querySelector("[data-dietas-pais]")?.value !== "ES") {
+      mensaje("comision_pais_sin_calculo", "aviso"); pintar(); return;
+    }
     if (!form.checkValidity?.()) {
       form.reportValidity?.();
       return;
@@ -740,6 +1374,56 @@ export function montarVistaBorradoresPropios(
       return;
     }
     if (!rutaValida(base.codigos_ruta)) { mensaje("borradores_propios_paradas_distintas","aviso"); pintar(); return; }
+    if (calculadorRuta && calculoCabeceraFirma !== JSON.stringify(base.codigos_ruta)) {
+      mensaje("ruta_calcular_antes_guardar", "aviso"); pintar(); return;
+    }
+    if (edicion) {
+      let otros;
+      try { otros = otrosDesdeFormulario(form); }
+      catch { mensaje("comision_otros_error", "aviso"); pintar(); return; }
+      if (otros.some((linea) => linea.importe_centimos < 1 || linea.concepto.length < 3)) {
+        mensaje("comision_otros_error", "aviso"); pintar(); return;
+      }
+      let transporte;
+      try { transporte = rutasDesdeFormulario(form); }
+      catch { mensaje("comision_ajuste_error", "aviso"); pintar(); return; }
+      let tramosAceptados;
+      try { tramosAceptados = tramosAceptadosDesdeFormulario(form); }
+      catch { mensaje("comision_aceptacion_error", "aviso"); pintar(); return; }
+      const contenido = JSON.stringify([edicion.comision.referencia, edicion.recibo.version, base, otros, transporte, tramosAceptados]);
+      const clave = intentoEdicion?.contenido === contenido ? intentoEdicion.clave : generarClaveIdempotencia();
+      if (!clave) { mensaje("borradores_propios_error", "error"); pintar(); return; }
+      intentoEdicion = { contenido, clave };
+      controlador = new AbortController();
+      const signal = controlador.signal;
+      mensaje("comision_actividad"); pintar();
+      try {
+        const item = await cliente.editar(edicion.comision.referencia, {
+          ...base, relacion_ref: edicion.comision.relacion_ref,
+          otros, ...transporte, tramos_aceptados: tramosAceptados,
+          version_tarifa_aceptada: edicion.comision.calculo.version_tarifa,
+          version_esperada: edicion.recibo.version, clave_idempotencia: clave,
+        }, { signal });
+        if (!activaAhora() || signal.aborted) return;
+        edicion = null;
+        intentoEdicion = null;
+        estado = { ...estado, detalle: item, detalleOrigen: "put" };
+        void consultarAsignacion(item);
+        formularioVisible = false;
+        mensaje("comision_edicion_guardada", "exito");
+        cursores = [undefined]; indicePagina = 0; siguienteCursor = undefined;
+        await cargar(true);
+      } catch (error) {
+        if (!activaAhora() || signal.aborted) return;
+        if (error?.codigo === "conflicto_version") intentoEdicion = null;
+        if (["autenticacion_requerida", "acceso_denegado"].includes(error?.codigo)) purgarLecturasDenegadas();
+        mensaje(error?.codigo === "conflicto_version" ? "comision_conflicto_version" : errorClave(error), "error");
+      } finally {
+        if (controlador?.signal === signal) controlador = null;
+        if (activaAhora()) { pintar(); if (!edicion) enfocarRecibo(); }
+      }
+      return;
+    }
     const contenido = claveContenido(base);
     const operacion = operaciones.get(contenido);
     if (operacion?.item) {
@@ -781,6 +1465,7 @@ export function montarVistaBorradoresPropios(
         detalleOrigen: "post",
         errorLista: false,
       };
+      void consultarAsignacion(item);
       mensaje(
         item.recibo.repeticion
           ? "borradores_propios_repeticion"
@@ -821,8 +1506,168 @@ export function montarVistaBorradoresPropios(
     if (!evento.target?.closest?.("[data-dietas-borrador-form]")) return;
     const resumen = formularioPersistente?.querySelector?.("[data-dietas-borrador-preparacion]");
     if (resumen) resumen.hidden = true;
+    if (["origen_codigo", "destino_codigo", "parada_codigo"].includes(evento.target?.name)) {
+      const form = formularioPersistente;
+      const datos = new FormData(form);
+      const codigos = codigosRuta(form, datos);
+      mapaVista?.establecerCodigos(rutaValida(codigos) ? codigos : []);
+      calculoCabeceraFirma = null;
+    }
+    if (["ruta_origen_codigo", "ruta_destino_codigo", "ruta_parada_codigo"].includes(evento.target?.name)) {
+      const fila = evento.target.closest("[data-dietas-ruta-linea]");
+      const estadoRuta = fila?.querySelector("[data-dietas-ruta-estado]");
+      if (estadoRuta) estadoRuta.textContent = tBorradores("comision_ruta_pendiente");
+    }
+  }
+  function abrirEdicion() {
+    const item = estado.detalle;
+    if (!item || item.comision.estado !== "borrador" || estadoRelaciones === "no_disponible" ||
+        !asignacionVerificada() || !item.comision.calculo || typeof cliente?.editar !== "function") return;
+    edicion = item;
+    intentoEdicion = null;
+    formularioVisible = true;
+    const form = formularioPersistente;
+    const valores = {
+      fecha_inicio: item.comision.fecha_inicio,
+      fecha_fin: item.comision.fecha_fin,
+      hora_inicio: item.comision.calculo?.hora_inicio || "",
+      hora_fin: item.comision.calculo?.hora_fin || "",
+      motivo: item.comision.motivo,
+      origen_codigo: item.comision.codigos_ruta[0] || "",
+      destino_codigo: item.comision.codigos_ruta.at(-1) || "",
+      relacion_ref: item.comision.relacion_ref,
+    };
+    form.querySelectorAll("input").concat(form.querySelectorAll("select")).forEach((control) => {
+      if (Object.hasOwn(valores, control.name)) control.value = valores[control.name];
+    });
+    pintarParadas(form, item.comision.codigos_ruta.slice(1, -1));
+    const listaOtros = form.querySelector("[data-dietas-otros-lista]");
+    const lineas = item.comision.documento?.lineas?.filter((linea) => ["otro_medio", "otro_gasto"].includes(linea.tipo)) || [];
+    listaOtros?.replaceChildren(...lineas.map((linea) => nuevaLineaOtro({
+      ...linea, importe: (linea.importe_centimos / 100).toFixed(2).replace(".", ","),
+    })));
+    const vehiculo = form.querySelector("[data-dietas-vehiculo-propio]");
+    if (vehiculo) vehiculo.value = item.comision.vehiculo_propio === true ? "si" :
+      item.comision.vehiculo_propio === false ? "no" : "";
+    const listaRutas = form.querySelector("[data-dietas-rutas-lista]");
+    listaRutas?.replaceChildren(...(item.comision.rutas || []).map(nuevaRutaVehiculo));
+    rutasCalculadas.clear();
+    pintarAceptacion(item);
+    pintar();
+    enfocar(form.querySelector("input"));
+  }
+  async function ejecutarAccionComision(accion) {
+    const item = estado.detalle;
+    if (!item || item.comision.estado !== "borrador" || estadoRelaciones === "no_disponible" || typeof cliente?.[accion] !== "function" ||
+        (accion === "enviar" && (!asignacionVerificada() || !item.comision.documento)) || controlador) return;
+    const confirmada = await confirmarOperacion(tBorradores(accion === "enviar" ? "comision_confirmar_enviar" : "comision_confirmar_eliminar"));
+    if (!confirmada || !activaAhora()) return;
+    const intento = `${accion}:${item.comision.referencia}:${item.recibo.version}`;
+    const clave = intentosAccion.get(intento) || generarClaveIdempotencia();
+    if (!clave) { mensaje("borradores_propios_error", "error"); pintar(); return; }
+    intentosAccion.set(intento, clave);
+    controlador = new AbortController();
+    const signal = controlador.signal;
+    mensaje("comision_actividad"); pintar();
+    try {
+      const resultado = await cliente[accion](item.comision.referencia, {
+        clave_idempotencia: clave,
+        version_esperada: item.recibo.version,
+        relacion_ref: item.comision.relacion_ref,
+      }, { signal });
+      if (!activaAhora() || signal.aborted) return;
+      intentosAccion.delete(intento);
+      estado = { ...estado, detalle: resultado, detalleOrigen: "post" };
+      void consultarAsignacion(resultado);
+      mensaje(accion === "enviar" ? "comision_envio_confirmado" : "comision_eliminacion_confirmada", "exito");
+      cursores = [undefined]; indicePagina = 0; siguienteCursor = undefined;
+      await cargar(true);
+    } catch (error) {
+      if (!activaAhora() || signal.aborted) return;
+      if (!error?.resultadoIndeterminado) intentosAccion.delete(intento);
+      if (["autenticacion_requerida", "acceso_denegado"].includes(error?.codigo)) purgarLecturasDenegadas();
+      mensaje(error?.codigo === "conflicto_version" ? "comision_conflicto_version" : errorClave(error), "error");
+    } finally {
+      if (controlador?.signal === signal) controlador = null;
+      if (activaAhora()) pintar();
+    }
   }
   async function clic(evento) {
+    const anadirRuta = evento.target?.closest?.("[data-dietas-ruta-anadir]");
+    if (anadirRuta && edicion && !controlador && !anadirRuta.disabled) {
+      const lista = formularioPersistente.querySelector("[data-dietas-rutas-lista]");
+      if (lista.querySelectorAll("[data-dietas-ruta-linea]").length < 8) {
+        const fila = nuevaRutaVehiculo(); lista.append(fila); renumerarRutas(formularioPersistente);
+        enfocar(fila.querySelector("select")); pintar();
+      }
+      return;
+    }
+    const quitarRuta = evento.target?.closest?.("[data-dietas-ruta-quitar]");
+    if (quitarRuta && edicion && !controlador) {
+      quitarRuta.closest("[data-dietas-ruta-linea]")?.remove();
+      renumerarRutas(formularioPersistente); pintar(); return;
+    }
+    const accionParadaRuta = ["dietasRutaParadaAnadir", "dietasRutaParadaSubir", "dietasRutaParadaBajar", "dietasRutaParadaQuitar"]
+      .map((atributo) => [atributo, evento.target?.closest?.(`[data-${atributo.replace(/[A-Z]/gu, (letra) => `-${letra.toLowerCase()}`)}]`)])
+      .find(([, boton]) => boton);
+    if (accionParadaRuta && edicion && !controlador && !accionParadaRuta[1].disabled) {
+      const fila = accionParadaRuta[1].closest("[data-dietas-ruta-linea]");
+      const valores = fila.querySelectorAll("select").filter((selector) => selector.name === "ruta_parada_codigo").map((selector) => selector.value || "");
+      const [accion, boton] = accionParadaRuta;
+      const indice = Number(boton.dataset[accion]);
+      if (accion === "dietasRutaParadaAnadir" && valores.length < 10) valores.push("");
+      else if (accion === "dietasRutaParadaSubir" && indice > 0 && indice < valores.length) [valores[indice - 1], valores[indice]] = [valores[indice], valores[indice - 1]];
+      else if (accion === "dietasRutaParadaBajar" && indice >= 0 && indice < valores.length - 1) [valores[indice], valores[indice + 1]] = [valores[indice + 1], valores[indice]];
+      else if (accion === "dietasRutaParadaQuitar" && indice >= 0 && indice < valores.length) valores.splice(indice, 1);
+      else return;
+      pintarParadasRuta(fila, valores);
+      fila.querySelector("[data-dietas-ruta-estado]").textContent = tBorradores("comision_ruta_pendiente");
+      return;
+    }
+    const calcularRutaVehiculo = evento.target?.closest?.("[data-dietas-ruta-calcular]");
+    if (calcularRutaVehiculo && edicion && calculadorRuta && !controlador) {
+      const fila = calcularRutaVehiculo.closest("[data-dietas-ruta-linea]");
+      const codigos = codigosRutaVehiculo(fila);
+      if (!rutaValida(codigos)) { mensaje("borradores_propios_paradas_distintas", "aviso"); pintar(); return; }
+      try {
+        const mapa = mapaVista || await montajeMapa;
+        if (!mapa) throw new Error("mapa no disponible");
+        mapa.establecerCodigos(codigos);
+        const calculo = await mapa.calcular();
+        if (calculo) {
+          rutasCalculadas.set(JSON.stringify(codigos), calculo);
+          fila.querySelector("[data-dietas-ruta-estado]").textContent = tBorradores("comision_ruta_calculada");
+        }
+      } catch { mensaje("ruta_error_servicio", "error"); pintar(); }
+      return;
+    }
+    const calcular = evento.target?.closest?.("[data-dietas-calcular-ruta]");
+    if (calcular && !calcular.disabled && calculadorRuta && !controlador && activaAhora()) {
+      const form = calcular.closest("[data-dietas-borrador-form]");
+      const codigos = codigosRuta(form, new FormData(form));
+      if (!rutaValida(codigos)) { mensaje("borradores_propios_paradas_distintas", "aviso"); pintar(); return; }
+      try {
+        const mapa = mapaVista || await montajeMapa;
+        if (!mapa) throw new Error("mapa no disponible");
+        mapa.establecerCodigos(codigos);
+        const calculo = await mapa.calcular();
+        if (calculo) calculoCabeceraFirma = JSON.stringify(codigos);
+      } catch { mensaje("ruta_error_servicio", "error"); pintar(); }
+      return;
+    }
+    const anadirOtro = evento.target?.closest?.("[data-dietas-otro-anadir]");
+    if (anadirOtro && edicion && !controlador && !anadirOtro.disabled) {
+      const lista = formularioPersistente.querySelector("[data-dietas-otros-lista]");
+      if (lista.querySelectorAll("[data-dietas-otro-linea]").length < 32) {
+        const fila = nuevaLineaOtro(); lista.append(fila); enfocar(fila.querySelector("input")); pintar();
+      }
+      return;
+    }
+    const quitarOtro = evento.target?.closest?.("[data-dietas-otro-quitar]");
+    if (quitarOtro && edicion && !controlador) { quitarOtro.closest("[data-dietas-otro-linea]")?.remove(); pintar(); return; }
+    if (evento.target?.closest?.("[data-dietas-borrador-editar]") && !controlador) { abrirEdicion(); return; }
+    if (evento.target?.closest?.("[data-dietas-borrador-eliminar]")) { await ejecutarAccionComision("eliminar"); return; }
+    if (evento.target?.closest?.("[data-dietas-borrador-enviar]")) { await ejecutarAccionComision("enviar"); return; }
     const accionParada = ["dietasParadaAnadir", "dietasParadaSubir", "dietasParadaBajar", "dietasParadaQuitar"]
       .map((atributo) => [atributo, evento.target?.closest?.(`[data-${atributo.replace(/[A-Z]/gu, (letra) => `-${letra.toLowerCase()}`)}]`)])
       .find(([, boton]) => boton);
@@ -846,7 +1691,7 @@ export function montarVistaBorradoresPropios(
       return;
     }
     const revisar = evento.target?.closest?.("[data-dietas-borrador-revisar]");
-    if (revisar && activaAhora() && !controlador && conectada) {
+    if (revisar && !revisar.disabled && activaAhora() && !controlador && conectada) {
       const form = revisar.closest("[data-dietas-borrador-form]");
       if (!form?.checkValidity?.()) { form?.reportValidity?.(); return; }
       const datos = new FormData(form);
@@ -866,7 +1711,7 @@ export function montarVistaBorradoresPropios(
         nodo(documento, "h4", tBorradores("borradores_propios_preparacion_titulo")),
         nodo(documento, "p", `${inicio} ${horaInicio} → ${fin} ${horaFin}`),
         nodo(documento, "p", String(datos.get("motivo") || "").trim()),
-        nodo(documento, "p", rutaLegible(codigos, tBorradores)),
+        nodo(documento, "p", rutaLegible(codigos, tBorradores, nombresRuta)),
         nodo(documento, "p", `${tBorradores("borradores_propios_pais")}: ${tBorradores("borradores_propios_pais_espana")}`),
       );
       resumen.hidden = false;
@@ -912,7 +1757,13 @@ export function montarVistaBorradoresPropios(
         relacion_ref: boton.dataset.dietasBorradorRelacion || undefined,
       });
       if (!activaAhora() || signal.aborted) return;
+      edicion = null;
+      intentoEdicion = null;
+      formularioVisible = false;
+      calculoCabeceraFirma = null;
+      rutasCalculadas.clear();
       estado = { ...estado, detalle: item, detalleOrigen: "get" };
+      void consultarAsignacion(item);
       detalleActualizado = true;
       mensaje("borradores_propios_detalle");
     } catch (error) {
@@ -947,12 +1798,28 @@ export function montarVistaBorradoresPropios(
     cursores = [undefined];
     indicePagina = 0;
     siguienteCursor = undefined;
+    edicion = null;
+    intentoEdicion = null;
+    formularioVisible = false;
+    asignacion = null;
+    controladorAsignacion?.abort();
     estado = { ...estado, items: [], detalle: null, detalleOrigen: null };
     cargar();
   }
   function cambiarFormulario(evento) {
     invalidarPreparacion(evento);
     cambiarRelacion(evento);
+    if (evento.target?.name === "vehiculo_propio" || evento.target?.name === "pais") {
+      if (evento.target?.name === "pais" && evento.target.value !== "ES") {
+        calculoCabeceraFirma = null;
+        mapaVista?.establecerCodigos([]);
+      }
+      pintar();
+    }
+    if (evento.target?.name === "nivel_detalle" && ["bajo", "medio", "alto"].includes(evento.target.value)) {
+      nivelDetalle = evento.target.value;
+      pintar();
+    }
   }
   raiz.addEventListener("submit", enviar);
   raiz.addEventListener("click", clic);

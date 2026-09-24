@@ -12,27 +12,42 @@ var ErrComisionBorradorInvalida = errors.New("dietas: comision borrador invalida
 var (
 	referenciaComision = regexp.MustCompile(`^dco_[A-Za-z0-9_-]{22,128}$`)
 	codigoRuta         = regexp.MustCompile(`^[A-Za-z0-9:_-]{1,64}$`)
+	numeroDocumento    = regexp.MustCompile(`^VEC-D-[0-9]{4}-[0-9]{6,18}$`)
 )
 
-// ComisionBorrador es una declaración de comisión. No contiene cuantías,
-// kilometraje reconocido, tarifa, validación, liquidación ni pago.
+// ComisionBorrador conserva la declaración y, desde v2, el cálculo orientativo
+// versionado del servidor. Ningún importe acredita liquidación ni pago.
 type ComisionBorrador struct {
-	Referencia  string           `json:"referencia"`
-	Estado      string           `json:"estado"`
-	FechaInicio string           `json:"fecha_inicio"`
-	FechaFin    string           `json:"fecha_fin"`
-	Motivo      string           `json:"motivo"`
-	CodigosRuta []string         `json:"codigos_ruta"`
-	RelacionRef string           `json:"relacion_ref"`
-	Calculo     *CalculoComision `json:"calculo,omitempty"`
+	Referencia      string                   `json:"referencia"`
+	NumeroDocumento string                   `json:"numero_documento,omitempty"`
+	FechaApertura   string                   `json:"fecha_apertura,omitempty"`
+	Version         uint64                   `json:"version,omitempty"`
+	Estado          string                   `json:"estado"`
+	FechaInicio     string                   `json:"fecha_inicio"`
+	FechaFin        string                   `json:"fecha_fin"`
+	Motivo          string                   `json:"motivo"`
+	CodigosRuta     []string                 `json:"codigos_ruta"`
+	RelacionRef     string                   `json:"relacion_ref"`
+	CentroRef       string                   `json:"centro_ref,omitempty"`
+	UnidadRef       string                   `json:"unidad_ref,omitempty"`
+	Calculo         *CalculoComision         `json:"calculo,omitempty"`
+	Documento       *DocumentoComision       `json:"documento,omitempty"`
+	VehiculoPropio  *bool                    `json:"vehiculo_propio,omitempty"`
+	Rutas           *[]RutaDeclaradaComision `json:"rutas,omitempty"`
 }
 
 func (c ComisionBorrador) Validar() error {
-	if !referenciaComision.MatchString(c.Referencia) || c.Estado != "borrador" ||
+	if !referenciaComision.MatchString(c.Referencia) || (c.Estado != "borrador" && c.Estado != "eliminado" && c.Estado != "enviado_pendiente_revision" && c.Estado != "devuelta" && c.Estado != "pendiente_autorizacion" && c.Estado != "pendiente_liquidacion" && c.Estado != "pendiente_fiscalizacion" && c.Estado != "fiscalizada") ||
 		!fechaCivilValida(c.FechaInicio) || !fechaCivilValida(c.FechaFin) ||
 		c.FechaInicio > c.FechaFin || len(c.Motivo) < 3 || len(c.Motivo) > 600 ||
 		!textoVisible(c.Motivo) || !referenciaRelacionValida(c.RelacionRef) ||
 		len(c.CodigosRuta) > 16 {
+		return ErrComisionBorradorInvalida
+	}
+	if (c.NumeroDocumento != "" || c.FechaApertura != "") && (!numeroDocumento.MatchString(c.NumeroDocumento) || !fechaAperturaValida(c.FechaApertura)) {
+		return ErrComisionBorradorInvalida
+	}
+	if c.Version >= 2 && (c.NumeroDocumento == "" || c.FechaApertura == "") {
 		return ErrComisionBorradorInvalida
 	}
 	vistos := map[string]bool{}
@@ -42,10 +57,22 @@ func (c ComisionBorrador) Validar() error {
 		}
 		vistos[codigo] = true
 	}
-	if c.Calculo != nil && c.Calculo.Validar(c.CodigosRuta) != nil {
+	if c.Documento != nil {
+		if c.Version < 2 || c.CentroRef == "" || c.UnidadRef == "" || c.Calculo == nil || c.VehiculoPropio == nil || c.Rutas == nil || c.Documento.VehiculoPropio != *c.VehiculoPropio || c.Calculo.ValidarDocumento(c.CodigosRuta, *c.Rutas, *c.VehiculoPropio) != nil || c.Documento.Validar(*c.Calculo, c.CodigosRuta) != nil {
+			return ErrComisionBorradorInvalida
+		}
+	} else if c.Calculo != nil && c.Calculo.Validar(c.CodigosRuta) != nil {
+		return ErrComisionBorradorInvalida
+	}
+	if c.Estado == "enviado_pendiente_revision" && c.Documento == nil {
 		return ErrComisionBorradorInvalida
 	}
 	return nil
+}
+
+func fechaAperturaValida(s string) bool {
+	t, err := time.Parse("2006-01-02T15:04:05.000000Z", s)
+	return err == nil && t.Location() == time.UTC && t.Format("2006-01-02T15:04:05.000000Z") == s
 }
 
 func NuevaComisionBorrador(referencia, inicio, fin, motivo, relacion string, codigos []string) (ComisionBorrador, error) {

@@ -232,8 +232,10 @@ func Load() Config {
 		DietasBorradoresEnabled: envFirst(EnvDietasBorradoresEnabled),
 		CronosEmpleadoEnabled:   envFirst(EnvCronosEmpleadoEnabled),
 		DietasBorradoresPostgreSQL: ConfiguracionDietasBorradores{
-			dsnDietas:   envFirst(EnvDietasBorradoresDatabaseURL),
-			dsnPersonal: envFirst(EnvDietasPersonalRelacionesDatabaseURL),
+			dsnDietas:             envFirst(EnvDietasBorradoresDatabaseURL),
+			dsnPersonal:           envFirst(EnvDietasPersonalRelacionesDatabaseURL),
+			dsnAsignacionPersonal: envFirst(EnvDietasPersonalAsignacionDatabaseURL),
+			dsnAuditoriaPersonal:  envFirst(EnvDietasPersonalAuditoriaFronteraDatabaseURL),
 		},
 		BolsaAuditoriaFronteraPostgreSQL: ConfiguracionPostgreSQLBolsaAuditoriaFrontera{
 			dsn: envFirst(EnvBolsaAuditoriaFronteraDatabaseURL),

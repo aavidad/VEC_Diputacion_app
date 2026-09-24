@@ -111,7 +111,13 @@ func seleccionSolicitud(s dietasports.SolicitudOperacionBorrador, fecha personal
 		// vigente; nunca elegimos una entre varias por orden o por nombre.
 		return f, s.RelacionRef, nil
 	}
-	if s.Operacion != dietasports.OperacionConsultarBorrador {
+	if s.Operacion == dietasports.OperacionEditarBorrador {
+		if s.RelacionRef != s.Editar.RelacionRef {
+			return "", "", dietasports.ErrRelacionNoValida
+		}
+		return fecha, s.RelacionRef, nil
+	}
+	if s.Operacion != dietasports.OperacionConsultarBorrador && s.Operacion != dietasports.OperacionConsultarDocumento && s.Operacion != dietasports.OperacionBorrarBorrador && s.Operacion != dietasports.OperacionEnviarBorrador {
 		return "", "", dietasports.ErrRelacionNoValida
 	}
 	// Una lista sin relación nunca escoge una de varias: Personal devuelve la
@@ -146,6 +152,21 @@ func sellosIguales(a, b dietasports.RevalidacionRelacionPersonal) bool { return 
 func contratoSolicitud(s dietasports.SolicitudOperacionBorrador) (string, string, string) {
 	if s.Operacion == dietasports.OperacionCrearBorrador {
 		return dietasapp.AccionCrearBorradorPropio, dietasapp.RecursoMisBorradores, dietasapp.FinalidadCrearBorradorPropio
+	}
+	if s.Operacion == dietasports.OperacionEditarBorrador {
+		return dietasapp.AccionEditarBorradorPropio, s.Referencia, dietasapp.FinalidadEditarBorradorPropio
+	}
+	if s.Operacion == dietasports.OperacionBorrarBorrador {
+		return dietasapp.AccionBorrarBorradorPropio, s.Referencia, dietasapp.FinalidadBorrarBorradorPropio
+	}
+	if s.Operacion == dietasports.OperacionEnviarBorrador {
+		return dietasapp.AccionEnviarBorradorPropio, s.Referencia, dietasapp.FinalidadEnviarBorradorPropio
+	}
+	if s.Operacion == dietasports.OperacionConsultarDocumento {
+		if s.Referencia != "" {
+			return dietasapp.AccionConsultarDocumentoPropio, s.Referencia, dietasapp.FinalidadConsultarDocumentoPropio
+		}
+		return dietasapp.AccionConsultarDocumentoPropio, dietasapp.RecursoMisBorradores, dietasapp.FinalidadConsultarDocumentoPropio
 	}
 	if s.Referencia != "" {
 		return dietasapp.AccionConsultarBorradorPropio, s.Referencia, dietasapp.FinalidadConsultarBorradorPropio
