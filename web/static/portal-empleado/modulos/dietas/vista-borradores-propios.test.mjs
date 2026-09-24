@@ -1028,3 +1028,52 @@ test("A incierta, B válida y vuelta a A reutilizan la clave de A sin duplicar B
     assert.ok(contenedor.querySelector("[data-dietas-borrador-recibo]"));
   } finally { globalThis.FormData = FormDataOriginal; vista.desmontar(); }
 });
+
+test("A incierta conserva su clave tras un 403 posterior y no duplica B al reautorizar", async () => {
+  const contenedor = raiz();
+  const solicitudes = [];
+  let secuencia = 0;
+  const vista = montarVistaBorradoresPropios(contenedor, {
+    generarClaveIdempotencia: () => `operacion-clave-${String(++secuencia).padStart(4, "0")}`,
+    cliente: {
+      listar: async () => ({ items: [] }),
+      obtener: async () => item,
+      crear: async (solicitud) => {
+        solicitudes.push(solicitud);
+        if (solicitudes.length === 1) {
+          const error = new Error("503 incierto"); error.codigo = "resultado_incierto";
+          error.resultadoIndeterminado = true; throw error;
+        }
+        if (solicitudes.length === 2) {
+          const error = new Error("403 tras el reintento"); error.codigo = "acceso_denegado";
+          error.resultadoIndeterminado = false; throw error;
+        }
+        return { ...item, comision: { ...item.comision, motivo: solicitud.motivo } };
+      },
+    },
+  });
+  await Promise.resolve(); await Promise.resolve();
+  const panel = contenedor.querySelector("[data-dietas-borradores-propios]");
+  const form = contenedor.querySelector("[data-dietas-borrador-form]");
+  form.checkValidity = () => true;
+  const datos = { fecha_inicio: "2026-09-20", fecha_fin: "2026-09-21", motivo: "A",
+    hora_inicio: "09:00", hora_fin: "18:00", origen_codigo: "18087", destino_codigo: "18003" };
+  const FormDataOriginal = globalThis.FormData;
+  globalThis.FormData = class { get(nombre) { return datos[nombre] ?? null; } };
+  try {
+    await panel.listeners.submit({ target: form, preventDefault() {} });
+    await panel.listeners.submit({ target: form, preventDefault() {} });
+    assert.equal(contenedor.querySelector("[data-dietas-borrador-recibo]"), null);
+    datos.motivo = "B";
+    await panel.listeners.submit({ target: form, preventDefault() {} });
+    datos.motivo = "A";
+    await panel.listeners.submit({ target: form, preventDefault() {} });
+    datos.motivo = "B";
+    await panel.listeners.submit({ target: form, preventDefault() {} });
+    assert.deepEqual(solicitudes.map(({ clave_idempotencia, motivo }) => [clave_idempotencia, motivo]), [
+      ["operacion-clave-0001", "A"], ["operacion-clave-0001", "A"],
+      ["operacion-clave-0002", "B"], ["operacion-clave-0001", "A"],
+    ]);
+    assert.equal(secuencia, 2);
+  } finally { globalThis.FormData = FormDataOriginal; vista.desmontar(); }
+});

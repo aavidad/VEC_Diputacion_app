@@ -146,7 +146,7 @@ export function montarVistaBorradoresPropios(
   let avisoPersistente = null;
   let listaPersistente = null;
   let fichaPersistente = null;
-  // La clave de una creación incierta pertenece a su contenido exacto. Otra
+  // La clave de toda intención enviada pertenece a su contenido exacto. Otra
   // comisión puede prepararse sin perder la recuperación de la primera.
   const operaciones = new Map();
   let ultimoAlta = null;
@@ -698,7 +698,8 @@ export function montarVistaBorradoresPropios(
       await cargar(true);
     } catch (error) {
       if (!activaAhora() || signal.aborted) return;
-      if (!error?.resultadoIndeterminado) operaciones.delete(contenido);
+      // Un 403 posterior no aclara si un intento previo de esta intención
+      // quedó registrado. Conservar su clave hasta confirmar o desmontar.
       mensaje(errorClave(error, "crear"), "error");
     } finally {
       if (controlador?.signal === signal) controlador = null;
