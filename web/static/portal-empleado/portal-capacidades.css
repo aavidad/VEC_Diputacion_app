@@ -4,8 +4,6 @@ body.portal-empleado-app {
   font-size: 1rem;
 }
 
-.navegacion-bolsa .enlace-lateral,
-.tabla-datos,
 .campo input,
 .campo select,
 .campo textarea,
@@ -17,15 +15,9 @@ body.portal-empleado-app {
   font-size: 0.875rem;
 }
 
-.tabla-datos th,
 .campo > span,
-.grupo-campo legend,
-.campo small,
-.estado-chip,
-.insignia,
-.cabecera-panel p,
-.detalle-lista span {
-  font-size: 0.78rem;
+.grupo-campo legend {
+  font-size: 0.8125rem;
 }
 
 .panel-separado {
@@ -43,14 +35,14 @@ body.portal-empleado-app {
   padding: 14px;
   border: 1px solid var(--portal-borde);
   border-radius: var(--portal-radio);
-  background: #fbfcfe;
+  background: var(--portal-superficie-alterna);
 }
 
 .formulario-gobernado legend {
   padding: 0 7px;
   color: var(--portal-tinta);
-  font-size: 0.8rem;
-  font-weight: 850;
+  font-size: 0.875rem;
+  font-weight: 600;
 }
 
 .rejilla-formulario {
@@ -61,7 +53,7 @@ body.portal-empleado-app {
 
 .campo small {
   color: var(--portal-muted);
-  font-size: 0.68rem;
+  font-size: 0.8125rem;
   line-height: 1.4;
 }
 
@@ -106,20 +98,6 @@ body.portal-empleado-app {
 
 .recibo-presentacion .nota-seguridad {
   margin-top: 0;
-}
-
-.navegacion-bolsa .titulo-navegacion:not(:first-child) {
-  margin-top: 15px;
-  padding-top: 10px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.navegacion-bolsa .enlace-lateral {
-  min-height: 44px;
-}
-
-.navegacion-bolsa .numero-menu {
-  border-radius: 7px;
 }
 
 button,
@@ -202,4 +180,264 @@ button:disabled {
   a.boton-secundario:active {
     filter: none;
   }
+}
+
+/*
+ * Pantallas de Bolsa: cuadro de mando (B12), estadísticas y candidatos (B5).
+ * Heredan tabla, KPI y estados comunes; aquí solo se compacta y se retiran
+ * pastillas que no son estados.
+ */
+.tabla-datos .enlace-tabla > strong {
+  font-weight: inherit;
+}
+
+.panel:has(.enlace-tabla[data-accion="ver-bolsa"]) > .cabecera-panel > .estado-chip,
+.panel:has(.tabla-datos--candidatos) > .cabecera-panel > .estado-chip,
+.panel[data-bolsa-b5-destino] > .cabecera-panel > .estado-chip {
+  min-height: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--portal-muted);
+  font-size: 0.8125rem;
+  font-weight: 400;
+}
+
+.panel:has(.enlace-tabla[data-accion="ver-bolsa"]) > .cabecera-panel > .estado-chip::before,
+.panel[data-bolsa-b5-destino] > .cabecera-panel > .estado-chip::before {
+  display: none;
+}
+
+.panel:has(.enlace-tabla[data-accion="ver-bolsa"]) .tabla-datos th,
+.panel:has(.enlace-tabla[data-accion="ver-bolsa"]) .tabla-datos td {
+  padding: 10px 8px;
+}
+
+.panel:has(.enlace-tabla[data-accion="ver-bolsa"]) .tabla-datos th:first-child,
+.panel:has(.enlace-tabla[data-accion="ver-bolsa"]) .tabla-datos td:first-child {
+  padding-left: 20px;
+}
+
+.panel:has(.enlace-tabla[data-accion="ver-bolsa"]) .tabla-datos th:last-child,
+.panel:has(.enlace-tabla[data-accion="ver-bolsa"]) .tabla-datos td:last-child {
+  padding-right: 20px;
+}
+
+.panel:has(.enlace-tabla[data-accion="ver-bolsa"]) .tabla-datos th {
+  line-height: 1.3;
+  vertical-align: bottom;
+  white-space: normal;
+}
+
+/* La vigencia puede partir línea para que la última cifra quepa a 1440 px. */
+.panel:has(#titulo-cuadro-b12) .tabla-datos td:nth-child(3) {
+  min-width: 6.5rem;
+  white-space: normal;
+}
+
+.panel:has(.enlace-tabla[data-accion="ver-bolsa"]) .tabla-datos .enlace-tabla {
+  padding: 0;
+  text-align: left;
+}
+
+.panel:has(.enlace-tabla[data-accion="ver-bolsa"]) .tabla-datos td > small {
+  color: var(--portal-muted);
+  font-size: 0.8125rem;
+}
+
+.panel:has(.enlace-tabla[data-accion="ver-bolsa"]) .tabla-datos td > button.estado-chip {
+  padding-inline: 0;
+}
+
+/* Cifras a la derecha: en el cuadro desde «Total»; en estadísticas desde «Total». */
+.panel:has(#titulo-cuadro-b12) .tabla-datos :is(th, td):nth-child(n + 4),
+.panel-separado:has(.enlace-tabla[data-accion="ver-bolsa"]) .tabla-datos :is(th, td):nth-child(n + 3) {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* Tipo de lista y llamamientos en curso son datos, no estados: texto llano. */
+.panel:has(#titulo-cuadro-b12) .tabla-datos td:is(:nth-child(2), :nth-child(5)) > .estado-chip {
+  min-height: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--portal-tinta);
+  font-size: inherit;
+  font-weight: 400;
+}
+
+.panel:has(#titulo-cuadro-b12) .tabla-datos td:is(:nth-child(2), :nth-child(5)) > .estado-chip::before {
+  display: none;
+}
+
+/* Estadísticas: desglose como leyenda con punto de color, sin pastillas. */
+.estadisticas-resumen h4 {
+  color: var(--portal-muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.estadisticas-resumen .lista-chips {
+  display: grid;
+  gap: 6px;
+}
+
+.estadisticas-resumen .lista-chips .estado-chip {
+  justify-self: start;
+  min-height: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--portal-tinta);
+  font-size: 0.875rem;
+  font-weight: 400;
+  white-space: normal;
+}
+
+.estadisticas-resumen .lista-chips .estado-chip > strong {
+  min-width: 3ch;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.estadisticas-resumen .estado-chip::before { width: 8px; height: 8px; flex-basis: 8px; background: var(--portal-muted); }
+.estadisticas-resumen .estado-chip.exito::before { background: var(--portal-exito); }
+.estadisticas-resumen .estado-chip.info::before { background: var(--portal-azul-700); }
+.estadisticas-resumen .estado-chip.peligro::before { background: var(--portal-peligro); }
+
+/* Candidatos (B5): pestañas, contadores compactos y filtros en línea. */
+.distribucion-llamamiento nav.acciones-vista[role="tablist"] {
+  justify-content: flex-start;
+  gap: 4px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--portal-borde);
+}
+
+nav.acciones-vista[role="tablist"] > [role="tab"] {
+  min-height: 40px;
+  margin-bottom: -1px;
+  padding: 8px 14px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--portal-muted);
+  font-weight: 600;
+}
+
+nav.acciones-vista[role="tablist"] > [role="tab"]:hover {
+  color: var(--portal-azul-700);
+}
+
+nav.acciones-vista[role="tablist"] > [role="tab"][aria-selected="true"] {
+  border-bottom-color: var(--portal-azul-700);
+  color: var(--portal-azul-700);
+}
+
+.kpi-candidatos {
+  gap: 8px;
+}
+
+.kpi-candidatos .tarjeta-kpi {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 10px 10px 10px 13px;
+  border: 1px solid var(--portal-borde);
+  box-shadow: inset 3px 0 0 var(--kpi-tono, var(--portal-muted));
+}
+
+.kpi-candidatos .tarjeta-kpi.kpi--exito { --kpi-tono: var(--portal-exito); }
+.kpi-candidatos .tarjeta-kpi.kpi--advertencia { --kpi-tono: var(--portal-aviso); }
+.kpi-candidatos .tarjeta-kpi.kpi--peligro { --kpi-tono: var(--portal-peligro); }
+
+.kpi-candidatos .tarjeta-kpi > span:last-child {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.kpi-candidatos .tarjeta-kpi .icono-kpi {
+  display: none;
+}
+
+.kpi-candidatos .etiqueta-kpi {
+  font-size: 0.8125rem;
+  line-height: 1.3;
+}
+
+.kpi-candidatos .valor-kpi {
+  margin: auto 0 0;
+  padding-top: 2px;
+  font-size: 1.25rem;
+}
+
+.kpi-candidatos .tarjeta-kpi[aria-pressed="true"] {
+  border-color: var(--portal-azul-700);
+  outline: 0;
+  background: var(--portal-azul-100);
+  box-shadow: inset 3px 0 0 var(--kpi-tono, var(--portal-muted)), inset 0 0 0 1px var(--portal-azul-700);
+}
+
+.barra-filtros-bolsa.barra-filtros-estadisticas {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) minmax(180px, 1.5fr) auto;
+  align-items: end;
+  gap: 12px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.barra-filtros-bolsa.barra-filtros-estadisticas .campo-filtro {
+  min-width: 0;
+  gap: 6px;
+}
+
+.barra-filtros-bolsa.barra-filtros-estadisticas .campo-filtro label {
+  color: var(--portal-muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.barra-filtros-bolsa.barra-filtros-estadisticas .campo-filtro :is(select, input) {
+  min-height: 40px;
+  padding: 8px 12px;
+  border-radius: var(--portal-radio);
+  font-size: 0.875rem;
+}
+
+.barra-filtros-bolsa.barra-filtros-estadisticas .acciones-filtro button {
+  min-height: 40px;
+}
+
+.tabla-datos--candidatos .enlace-tabla {
+  padding: 0;
+  text-align: left;
+}
+
+.tabla-datos--candidatos th {
+  line-height: 1.3;
+  vertical-align: bottom;
+  white-space: normal;
+}
+
+.tabla-datos--candidatos td:nth-child(2) {
+  min-width: 10rem;
+}
+
+@media (max-width: 1100px) {
+  .rejilla-kpi.kpi-candidatos { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+@media (max-width: 600px) {
+  .rejilla-kpi.kpi-candidatos { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+  .barra-filtros-bolsa.barra-filtros-estadisticas {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 360px) {
+  .rejilla-kpi.kpi-candidatos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

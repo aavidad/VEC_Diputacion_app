@@ -1,5 +1,6 @@
 /**
- * Presentador del contrato agregado del panel interno de Bolsa y vistas B12 y B5.
+ * Presentador del contrato agregado del panel interno de Bolsa, del cuadro de bolsas
+ * y de la lista de candidatos.
  *
  * Conoce `vec.bolsa.panel.interno.v1`, `vec.bolsa.rrhh.bolsas.v1` y `vec.bolsa.rrhh.candidatos.v1`.
  * Los datos proceden de los contratos conectados; una fuente no configurada se presenta como tal.
@@ -7,8 +8,9 @@
  * sin acceder al DOM global.
  */
 import { traducirBolsaInterna, traducirPortal } from "./portal-i18n.js";
-import { renderizarBloqueAvisos } from "./portal-bolsas-avisos.js?v=20260923-pweb17-v1";
+import { renderizarBloqueAvisos } from "./portal-bolsas-avisos.js?v=20260925-aspecto-v1";
 import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260923-pweb14-v1";
+import { icono } from "../comun/iconos-vec.js?v=20260925-aspecto-v1";
 const ESQUEMA_PANEL_INTERNO = "vec.bolsa.panel.interno.v1";
 const ESTADOS_BOLSA = Object.freeze(["disponible", "no_disponible", "trabajando", "pendiente_incorporacion", "renuncia", "excluido", "disponible_desde"]);
 export function crearPresentadorPanelInterno(dependencias) {
@@ -56,12 +58,23 @@ export function crearPresentadorPanelInterno(dependencias) {
     }
     return true;
   }
-  function tarjetaKPI(sigla, valor, etiqueta) {
+  function tarjetaKPI(nombreIcono, valor, etiqueta) {
     return `
       <article class="tarjeta-kpi">
-        <span class="icono-kpi" aria-hidden="true">${escaparHTML(sigla)}</span>
+        <span class="icono-kpi" aria-hidden="true">${icono(nombreIcono)}</span>
         <div><strong class="valor-kpi">${escaparHTML(valor)}</strong><span class="etiqueta-kpi">${escaparHTML(etiqueta)}</span></div>
       </article>`;
+  }
+  function pastillaPendienteRRHH() {
+    return `<span class="estado-chip advertencia">${escaparHTML(traducirPortal("panel_pendiente_rrhh"))}</span>`;
+  }
+  // El rótulo de la política llega del servidor; si marca una regla aún provisional se
+  // resume en la pastilla común, sin arrastrar referencias internas a la pantalla.
+  function rotuloPoliticaOrden(rotulo) {
+    const texto = String(rotulo || "").trim();
+    if (!texto) return "";
+    if (/pendiente|provisional/iu.test(texto)) return `<p>${pastillaPendienteRRHH()}</p>`;
+    return `<p><strong>${escaparHTML(texto)}</strong></p>`;
   }
   function etiquetaClave(clave) {
     const texto = String(clave || "").replaceAll(/[._-]+/g, " ").trim();
@@ -83,16 +96,16 @@ export function crearPresentadorPanelInterno(dependencias) {
   function etiquetaEstadoEstadistica(estado) { return etiquetaEstadoBolsa(estado); }
   function renderizarEstadisticasBolsa() {
     const estadoEstadisticas = typeof obtenerDatosEstadisticas === "function" ? obtenerDatosEstadisticas() : null;
-    const cabecera = encabezadoVista("Gestión interna de Bolsas", "Estadísticas", "Indicadores agregados del ámbito autorizado. Las cifras por bolsa abren la lista B5 con el filtro correspondiente.", '<button type="button" class="boton-secundario" data-vista="resumen">Volver al cuadro</button>');
-    if (!estadoEstadisticas || estadoEstadisticas.carga === "cargando") return `${cabecera}<section class="panel"><div class="cuerpo-panel vacio-controlado" role="status" aria-busy="true"><p><strong>Cargando estadísticas de Bolsa…</strong></p><p>Consultando el contrato agregado autorizado.</p></div></section>`;
+    const cabecera = encabezadoVista("", "Estadísticas", "", '<button type="button" class="boton-secundario" data-vista="resumen">Volver al cuadro</button>');
+    if (!estadoEstadisticas || estadoEstadisticas.carga === "cargando") return `${cabecera}<section class="panel"><div class="cuerpo-panel vacio-controlado" role="status" aria-busy="true"><p><strong>Cargando estadísticas de Bolsa…</strong></p></div></section>`;
     if (estadoEstadisticas.carga === "denegado" || estadoEstadisticas.carga === "error") return `${cabecera}<section class="panel"><div class="cuerpo-panel vacio-controlado" role="alert"><p><strong>${estadoEstadisticas.carga === "denegado" ? "Acceso denegado" : "No se pudieron cargar las estadísticas"}</strong></p><p>${escaparHTML(estadoEstadisticas.error || "La sesión no puede consultar esta información.")}</p>${estadoEstadisticas.carga === "error" ? '<button type="button" class="boton-secundario" data-bolsa-accion="reintentar-estadisticas">Reintentar</button>' : ""}</div></section>`;
     const datos = estadoEstadisticas.datos;
-    const tarjetas = [["BOL", datos.bolsas.total, "Bolsas"], ["VIG", datos.bolsas.vigentes, "Vigentes"], ["SUS", datos.bolsas.sustituidas, "Sustituidas"], ["PER", datos.personas.total, "Personas"], ["LLA", datos.llamamientos.total, "Llamamientos"]];
+    const tarjetas = [["bolsas", datos.bolsas.total, "Bolsas"], ["correcto", datos.bolsas.vigentes, "Vigentes"], ["en_curso", datos.bolsas.sustituidas, "Sustituidas"], ["personas", datos.personas.total, "Personas"], ["llamamiento", datos.llamamientos.total, "Llamamientos"]];
     const resumenEstados = Object.entries(datos.personas.por_estado).map(([estado, total]) => `<span class="estado-chip ${claseEstadoEstadistica(estado)}"><strong>${numero(total)}</strong> ${escaparHTML(etiquetaEstadoEstadistica(estado))}</span>`).join("");
     const resumenCanales = Object.entries(datos.llamamientos.por_canal).map(([canal, total]) => `<span class="estado-chip info"><strong>${numero(total)}</strong> ${escaparHTML(etiquetaClave(canal))}</span>`).join("") || '<span class="estado-chip neutro">Sin desglose por canal</span>';
     const resumenResultados = Object.entries(datos.llamamientos.por_resultado).map(([resultado, total]) => `<span class="estado-chip neutro"><strong>${numero(total)}</strong> ${escaparHTML(etiquetaClave(resultado))}</span>`).join("") || '<span class="estado-chip neutro">Sin desglose por resultado</span>';
-    const filas = datos.por_bolsa.map((bolsa) => `<tr><td><button type="button" class="enlace-tabla" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsa.bolsa_ref)}"><strong>${escaparHTML(bolsa.categoria)}</strong></button><br><small>${escaparHTML(etiquetaClave(bolsa.tipo_lista))}</small></td><td><span class="estado-chip ${bolsa.vigente ? "exito" : "neutro"}">${bolsa.vigente ? "Vigente" : "Sustituida"}</span></td><td><button type="button" class="enlace-tabla" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsa.bolsa_ref)}" aria-label="Abrir ${numero(bolsa.total)} personas en B5">${numero(bolsa.total)}</button></td>${ESTADOS_BOLSA.map((estado) => `<td><button type="button" class="estado-chip ${claseEstadoEstadistica(estado)}" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsa.bolsa_ref)}" data-estado="${escaparHTML(estado)}" aria-label="Abrir ${numero(bolsa.por_estado[estado])} personas ${escaparHTML(etiquetaEstadoEstadistica(estado).toLocaleLowerCase("es-ES"))} en B5">${numero(bolsa.por_estado[estado])}</button></td>`).join("")}</tr>`).join("");
-    return `${cabecera}<div class="rejilla-kpi" aria-label="Totales de Bolsa">${tarjetas.map(([sigla, valor, etiqueta]) => tarjetaKPI(sigla, numero(valor), etiqueta)).join("")}</div><section class="panel panel-separado"><div class="cabecera-panel"><div><h3>Personas y llamamientos</h3><p>Desglose agregado recibido sin completar datos ausentes.</p></div><time datetime="${escaparHTML(datos.generado_en)}">Actualizado ${escaparHTML(instanteVisible(datos.generado_en))}</time></div><div class="cuerpo-panel estadisticas-resumen"><div><h4>Situación de personas</h4><div class="lista-chips">${resumenEstados}</div></div><div><h4>Canal de llamamiento</h4><div class="lista-chips">${resumenCanales}</div></div><div><h4>Resultado de llamamiento</h4><div class="lista-chips">${resumenResultados}</div></div></div></section><section class="panel panel-separado"><div class="cabecera-panel"><div><h3>Desglose por bolsa</h3><p>Seleccione una cifra para abrir B5 con esa bolsa y situación.</p></div><span class="estado-chip info">${numero(datos.por_bolsa.length)} bolsas</span></div><div class="tabla-contenedor"><table class="tabla-datos"><caption>Personas por bolsa y situación</caption><thead><tr><th scope="col">Bolsa</th><th scope="col">Vigencia</th><th scope="col">Total</th>${ESTADOS_BOLSA.map((estado) => `<th scope="col">${escaparHTML(etiquetaEstadoEstadistica(estado))}</th>`).join("")}</tr></thead><tbody>${filas || '<tr><td colspan="10" class="vacio-controlado">La fuente no ha devuelto bolsas para este ámbito.</td></tr>'}</tbody></table></div></section>`;
+    const filas = datos.por_bolsa.map((bolsa) => `<tr><td><button type="button" class="enlace-tabla" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsa.bolsa_ref)}"><strong>${escaparHTML(bolsa.categoria)}</strong></button><br><small>${escaparHTML(etiquetaClave(bolsa.tipo_lista))}</small></td><td><span class="estado-chip ${bolsa.vigente ? "exito" : "neutro"}">${bolsa.vigente ? "Vigente" : "Sustituida"}</span></td><td><button type="button" class="enlace-tabla" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsa.bolsa_ref)}" aria-label="Abrir las ${numero(bolsa.total)} personas de ${escaparHTML(bolsa.categoria)} en la lista de candidatos">${numero(bolsa.total)}</button></td>${ESTADOS_BOLSA.map((estado) => `<td><button type="button" class="estado-chip ${claseEstadoEstadistica(estado)}" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(bolsa.bolsa_ref)}" data-estado="${escaparHTML(estado)}" aria-label="Abrir ${numero(bolsa.por_estado[estado])} personas ${escaparHTML(etiquetaEstadoEstadistica(estado).toLocaleLowerCase("es-ES"))} de ${escaparHTML(bolsa.categoria)} en la lista de candidatos">${numero(bolsa.por_estado[estado])}</button></td>`).join("")}</tr>`).join("");
+    return `${cabecera}<div class="rejilla-kpi" aria-label="Totales de Bolsa">${tarjetas.map(([sigla, valor, etiqueta]) => tarjetaKPI(sigla, numero(valor), etiqueta)).join("")}</div><section class="panel panel-separado"><div class="cabecera-panel"><h3>Personas y llamamientos</h3><time datetime="${escaparHTML(datos.generado_en)}">Actualizado ${escaparHTML(instanteVisible(datos.generado_en))}</time></div><div class="cuerpo-panel estadisticas-resumen"><div><h4>Situación de personas</h4><div class="lista-chips">${resumenEstados}</div></div><div><h4>Canal de llamamiento</h4><div class="lista-chips">${resumenCanales}</div></div><div><h4>Resultado de llamamiento</h4><div class="lista-chips">${resumenResultados}</div></div></div></section><section class="panel panel-separado"><div class="cabecera-panel"><h3>Desglose por bolsa</h3></div><div class="tabla-contenedor"><table class="tabla-datos"><caption>Personas por bolsa y situación</caption><thead><tr><th scope="col">Bolsa</th><th scope="col">Vigencia</th><th scope="col">Total</th>${ESTADOS_BOLSA.map((estado) => `<th scope="col">${escaparHTML(etiquetaEstadoEstadistica(estado))}</th>`).join("")}</tr></thead><tbody>${filas || '<tr><td colspan="10" class="vacio-controlado">La fuente no ha devuelto bolsas para este ámbito.</td></tr>'}</tbody></table></div></section>`;
   }
   function instanteVisible(instante) {
     if (!instante || String(instante).startsWith("0001-01-01")) return "Sin fecha límite";
@@ -171,12 +184,11 @@ export function crearPresentadorPanelInterno(dependencias) {
       return `
         <section class="panel" aria-labelledby="titulo-cuadro-b12">
           <div class="cabecera-panel">
-            <h3 id="titulo-cuadro-b12">Bolsas de trabajo (Cuadro B12)</h3>
+            <h3 id="titulo-cuadro-b12">Bolsas de trabajo</h3>
             <span class="estado-chip neutro">Consultando…</span>
           </div>
           <div class="cuerpo-panel vacio-controlado" role="status" aria-busy="true">
             <p><strong>Cargando bolsas de trabajo…</strong></p>
-            <p>Consultando la disponibilidad y el desglose de aspirantes en el ámbito autorizado.</p>
           </div>
         </section>`;
     }
@@ -184,7 +196,7 @@ export function crearPresentadorPanelInterno(dependencias) {
       return `
         <section class="panel" aria-labelledby="titulo-cuadro-b12">
           <div class="cabecera-panel">
-            <h3 id="titulo-cuadro-b12">Bolsas de trabajo (Cuadro B12)</h3>
+            <h3 id="titulo-cuadro-b12">Bolsas de trabajo</h3>
             <span class="estado-chip peligro">Error de carga</span>
           </div>
           <div class="cuerpo-panel vacio-controlado" role="alert">
@@ -200,7 +212,7 @@ export function crearPresentadorPanelInterno(dependencias) {
       return `
         <section class="panel" aria-labelledby="titulo-cuadro-b12">
           <div class="cabecera-panel">
-            <h3 id="titulo-cuadro-b12">Bolsas de trabajo (Cuadro B12)</h3>
+            <h3 id="titulo-cuadro-b12">Bolsas de trabajo</h3>
             <span class="estado-chip peligro">Acceso denegado</span>
           </div>
           <div class="cuerpo-panel vacio-controlado" role="alert">
@@ -214,8 +226,7 @@ export function crearPresentadorPanelInterno(dependencias) {
       return `
         <section class="panel" aria-labelledby="titulo-cuadro-b12">
           <div class="cabecera-panel">
-            <h3 id="titulo-cuadro-b12">Bolsas de trabajo (Cuadro B12)</h3>
-            <span class="estado-chip neutro">0 registros</span>
+            <h3 id="titulo-cuadro-b12">Bolsas de trabajo</h3>
           </div>
           <div class="cuerpo-panel vacio-controlado" role="status">
             <p><strong>No hay bolsas de trabajo activas</strong></p>
@@ -247,18 +258,17 @@ export function crearPresentadorPanelInterno(dependencias) {
     return `
       <section class="panel" aria-labelledby="titulo-cuadro-b12">
         <div class="cabecera-panel">
-          <h3 id="titulo-cuadro-b12">Bolsas de trabajo activas (Cuadro B12)</h3>
-          <span class="estado-chip info">${numero(bolsas.length)} bolsas</span>
+          <h3 id="titulo-cuadro-b12">Bolsas de trabajo activas</h3>
         </div>
-        <div class="rejilla-kpi cuadro-b12-kpi" aria-label="Resumen del Cuadro B12">
-          <article class="tarjeta-kpi"><span class="icono-kpi" aria-hidden="true">▣</span><div><span class="etiqueta-kpi">Bolsas visibles</span><strong class="valor-kpi">${numero(bolsas.length)}</strong></div></article>
-          <article class="tarjeta-kpi"><span class="icono-kpi" aria-hidden="true">♙</span><div><span class="etiqueta-kpi">Aspirantes</span><strong class="valor-kpi">${numero(totalAspirantes)}</strong></div></article>
-          <article class="tarjeta-kpi kpi--exito"><span class="icono-kpi" aria-hidden="true">✓</span><div><span class="etiqueta-kpi">Disponibles</span><strong class="valor-kpi">${numero(totalDisponibles)}</strong></div></article>
-          <article class="tarjeta-kpi kpi--advertencia"><span class="icono-kpi" aria-hidden="true">!</span><div><span class="etiqueta-kpi">Personas en renuncia</span><strong class="valor-kpi">${numero(totalPersonasEnRenuncia)}</strong></div></article>
+        <div class="rejilla-kpi cuadro-b12-kpi" aria-label="Resumen de las bolsas de trabajo">
+          <article class="tarjeta-kpi"><span class="icono-kpi" aria-hidden="true">${icono("bolsas")}</span><div><span class="etiqueta-kpi">Bolsas visibles</span><strong class="valor-kpi">${numero(bolsas.length)}</strong></div></article>
+          <article class="tarjeta-kpi"><span class="icono-kpi" aria-hidden="true">${icono("personas")}</span><div><span class="etiqueta-kpi">Aspirantes</span><strong class="valor-kpi">${numero(totalAspirantes)}</strong></div></article>
+          <article class="tarjeta-kpi kpi--exito"><span class="icono-kpi" aria-hidden="true">${icono("persona_ok")}</span><div><span class="etiqueta-kpi">Disponibles</span><strong class="valor-kpi">${numero(totalDisponibles)}</strong></div></article>
+          <article class="tarjeta-kpi kpi--advertencia"><span class="icono-kpi" aria-hidden="true">${icono("persona_baja")}</span><div><span class="etiqueta-kpi">Personas en renuncia</span><strong class="valor-kpi">${numero(totalPersonasEnRenuncia)}</strong></div></article>
         </div>
         <div class="tabla-contenedor">
           <table class="tabla-datos">
-            <caption>Cuadro B12: Bolsas de trabajo y distribución de aspirantes por situación</caption>
+            <caption>Bolsas de trabajo y distribución de aspirantes por situación</caption>
             <thead>
               <tr>
                 <th scope="col">Bolsa / Categoría</th>
@@ -284,19 +294,18 @@ export function crearPresentadorPanelInterno(dependencias) {
   function renderizarResumen(datos) {
     const i = datos.indicadores;
     const indicadoresConectados = [
-      ["BOL", i.bolsas_activas, "Bolsas activas"],
-      ["LLA", i.llamamientos_pendientes, "Llamamientos pendientes"],
-      ["CUR", i.llamamientos_en_curso, "Llamamientos en curso"],
-      ["DOC", i.documentos_pendientes_firma, "Documentos pendientes de firma"],
-      ["INC", i.incidencias_abiertas, "Incidencias abiertas"],
+      ["bolsas", i.bolsas_activas, "Bolsas activas"],
+      ["llamamiento", i.llamamientos_pendientes, "Llamamientos pendientes"],
+      ["en_curso", i.llamamientos_en_curso, "Llamamientos en curso"],
+      ["documento", i.documentos_pendientes_firma, "Documentos pendientes de firma"],
+      ["alerta", i.incidencias_abiertas, "Incidencias abiertas"],
     ];
     return `
-      ${encabezadoVista("Gestión interna de Bolsas", "Cuadro de mando", "Datos conectados, agregados y autorizados del ámbito interno. El contrato no contiene datos personales ni habilita acciones administrativas.", '<button type="button" class="boton-secundario" data-accion="imprimir">Imprimir resumen</button>')}
-      <section class="nota-seguridad" aria-label="${escaparHTML(traducirPortal("panel_alcance_aria"))}">${escaparHTML(traducirPortal("panel_alcance_lectura"))}</section>
+      ${encabezadoVista("", "Cuadro de mando", "", '<button type="button" class="boton-secundario" data-accion="imprimir">Imprimir resumen</button>')}
       <div class="rejilla-kpi" aria-label="Indicadores operativos de Bolsa">
         ${indicadoresConectados.map(([sigla, valor, etiqueta]) => tarjetaKPI(sigla, numero(valor), etiqueta)).join("")}
       </div>
-      <div class="rejilla-cuadro-mando" aria-label="Resumen operativo conectado">
+      <div class="rejilla-cuadro-mando" aria-label="Resumen operativo">
         <div class="columna-cuadro">
           ${renderizarCuadroB12()}
           <section class="panel"><div class="cabecera-panel"><h3>Convocatorias del ámbito autorizado</h3><span class="estado-chip info">${numero(datos.convocatorias.length)} registros</span></div><div class="tabla-contenedor"><table class="tabla-datos"><caption>Convocatorias agregadas devueltas por el panel interno</caption><thead><tr><th scope="col">Referencia</th><th scope="col">Categoría</th><th scope="col">Estado</th><th scope="col">Cierre de plazo</th><th scope="col">Solicitudes</th><th scope="col">Pendientes</th></tr></thead><tbody>${filasConvocatorias(datos)}</tbody></table></div></section>
@@ -310,10 +319,9 @@ export function crearPresentadorPanelInterno(dependencias) {
   function renderizarConvocatorias(datos) {
     const i = datos.indicadores;
     return `
-      ${encabezadoVista("Proyección interna autorizada", "Convocatorias", "Consulta de convocatorias agregadas. La edición, las bases y la publicación todavía no están conectadas a esta superficie web.", '<button type="button" class="boton-secundario" data-vista="resumen">Volver al cuadro de mando</button>')}
-      <section class="nota-pendiente">Modo de solo lectura: el contrato real no incluye expedientes de elaboración ni concede capacidad para modificarlos.</section>
-      <div class="rejilla-kpi">${tarjetaKPI("BOR", numero(i.convocatorias_borrador), "Borrador")}${tarjetaKPI("REV", numero(i.convocatorias_revision), "En revisión")}${tarjetaKPI("FIR", numero(i.convocatorias_pendientes_firma), "Pendientes de firma")}${tarjetaKPI("PUB", numero(i.convocatorias_publicadas), "Publicadas")}</div>
-      <section class="panel"><div class="cabecera-panel"><h3>Convocatorias del ámbito autorizado</h3><span class="estado-chip info">${numero(datos.convocatorias.length)} registros</span></div><div class="tabla-contenedor"><table class="tabla-datos"><caption>Convocatorias agregadas en modo de solo lectura</caption><thead><tr><th scope="col">Referencia</th><th scope="col">Categoría</th><th scope="col">Estado</th><th scope="col">Cierre de plazo</th><th scope="col">Solicitudes</th><th scope="col">Pendientes</th></tr></thead><tbody>${filasConvocatorias(datos)}</tbody></table></div></section>`;
+      ${encabezadoVista("", "Convocatorias", "", '<button type="button" class="boton-secundario" data-vista="resumen">Volver al cuadro de mando</button>')}
+      <div class="rejilla-kpi">${tarjetaKPI("documento", numero(i.convocatorias_borrador), "Borrador")}${tarjetaKPI("en_curso", numero(i.convocatorias_revision), "En revisión")}${tarjetaKPI("contrato", numero(i.convocatorias_pendientes_firma), "Pendientes de firma")}${tarjetaKPI("correcto", numero(i.convocatorias_publicadas), "Publicadas")}</div>
+      <section class="panel"><div class="cabecera-panel"><h3>Convocatorias del ámbito autorizado</h3><span class="estado-chip info">${numero(datos.convocatorias.length)} registros</span></div><div class="tabla-contenedor"><table class="tabla-datos"><caption>Convocatorias del ámbito autorizado</caption><thead><tr><th scope="col">Referencia</th><th scope="col">Categoría</th><th scope="col">Estado</th><th scope="col">Cierre de plazo</th><th scope="col">Solicitudes</th><th scope="col">Pendientes</th></tr></thead><tbody>${filasConvocatorias(datos)}</tbody></table></div></section>`;
   }
   function renderizarNuevoLlamamiento(bolsa, candidatos, flujo, fuente = {}) {
     const paso = Math.max(1, Math.min(4, Number(flujo.paso) || 1));
@@ -337,7 +345,7 @@ export function crearPresentadorPanelInterno(dependencias) {
     }
     if(paso===3) contenido=`<form class="panel" data-bolsa-form="b7-paso3"><div class="cabecera-panel"><h3>3. ${t("panel_b7_paso_configurar")}</h3></div><div class="cuerpo-panel rejilla-formulario"><p class="nota-seguridad campo-ancho" role="note"><strong>${t("panel_b7_mensaje_comun")}</strong></p><label>${t("panel_b7_referencia")}<input name="referencia" required minlength="2" maxlength="160" value="${escaparHTML(flujo.configuracion?.referencia||"")}"></label><label>${t("panel_b7_categoria")}<input name="categoria" required value="${escaparHTML(flujo.configuracion?.categoria||bolsa.categoria)}"></label><label>${t("panel_b7_centro")}<input name="centro" required minlength="2" maxlength="200" value="${escaparHTML(flujo.configuracion?.centro||"")}"></label><label>${t("panel_b7_modalidad")}<select name="modalidad" required>${["Sustitución", "Vacante", "Programa temporal", "Acumulación de tareas"].map((modalidad) => `<option value="${escaparHTML(modalidad)}" ${flujo.configuracion?.modalidad === modalidad ? "selected" : ""}>${t(({"Sustitución":"panel_b7_modalidad_sustitucion","Vacante":"panel_b7_modalidad_vacante","Programa temporal":"panel_b7_modalidad_programa","Acumulación de tareas":"panel_b7_modalidad_acumulacion"})[modalidad])}</option>`).join("")}</select></label><label>${t("panel_b7_fecha_inicio")}<input type="date" name="fecha_inicio" required value="${escaparHTML(flujo.configuracion?.fecha_inicio||"")}"></label><label>${t("panel_b7_canal")}<input value="${t("panel_b7_canal_correo")}" readonly></label><label class="campo-ancho">${t("panel_b7_plazo_indicado")}<input name="plazo" required minlength="2" maxlength="160" value="${escaparHTML(plazoEditable)}"></label><p class="nota-pendiente campo-ancho" role="note">${t("panel_b7_plazo_ayuda")}</p><label class="campo-ancho">${t("panel_b7_descripcion_campo")}<textarea name="descripcion" required minlength="2" maxlength="1000">${escaparHTML(flujo.configuracion?.descripcion||"")}</textarea></label><label>${t("panel_b7_plantilla")}<input name="plantilla_version" value="bolsa-llamamiento-v1" readonly></label><label>${t("panel_b7_asunto")}<input name="asunto" required value="${escaparHTML(flujo.configuracion?.asunto||traducirPortal("panel_b7_asunto_defecto", { categoria: bolsa.categoria }))}"></label><label class="campo-ancho">${t("panel_b7_texto_correo")}<textarea name="cuerpo" required maxlength="4000">${escaparHTML(flujo.cuerpoBorrador||traducirPortal("panel_b7_cuerpo_defecto"))}</textarea></label><p class="nota-integracion campo-ancho">${t("panel_b7_correo_limite")}</p>${flujo.error?`<p role="alert" class="mensaje-error campo-ancho">${escaparHTML(flujo.error)}</p>`:""}<button type="submit" class="boton-primario">${t("panel_b7_revisar")}</button></div></form>`;
     if(paso===4){const c=flujo.configuracion||{};const revisionRequerida=flujo.revision_obligatoria===true;contenido=`<section class="panel"><div class="cabecera-panel"><h3>4. ${t("panel_b7_paso_revisar")}</h3><span class="estado-chip advertencia">${t("panel_b7_confirmacion_pendiente")}</span></div><div class="cuerpo-panel"><dl class="resumen-expediente"><div class="fila-resumen"><dt>${t("panel_b7_necesidad")}</dt><dd>${escaparHTML(c.referencia)}</dd></div><div class="fila-resumen"><dt>${t("panel_b7_centro_modalidad")}</dt><dd>${escaparHTML(c.centro)} · ${escaparHTML(c.modalidad)}</dd></div><div class="fila-resumen"><dt>${t("panel_b7_candidatos")}</dt><dd>${t("panel_b7_seleccionados", { cantidad: numero(flujo.participaciones?.length||0) })}${flujo.totalElegibles > (flujo.participaciones?.length||0) ? `${t("panel_b7_de_elegibles", { cantidad: numero(flujo.totalElegibles) })}` : ""}${t("panel_b7_orden_preferencia")}</dd></div><div class="fila-resumen"><dt>${t("panel_b7_canal")}</dt><dd>${t("panel_b7_canal_detalle")}</dd></div><div class="fila-resumen"><dt>${t("panel_b7_plazo")}</dt><dd>${escaparHTML(c.plazo)}</dd></div></dl><form data-bolsa-form="b7-paso4" data-cantidad="${numero(flujo.participaciones?.length||0)}"><label><input type="checkbox" name="confirmacion" required> ${t("panel_b7_confirmar", { cantidad: numero(flujo.participaciones?.length||0) })}</label><button type="submit" class="boton-primario" ${flujo.enviando||flujo.recibo||revisionRequerida?"disabled":""}${revisionRequerida?` aria-describedby="b7-motivo-revision" aria-label="${t("panel_b7_revision_requerida")}"`:""}>${flujo.enviando?t("panel_b7_enviando"):flujo.recibo?t("panel_b7_emitido"):revisionRequerida?t("panel_b7_revision_pendiente"):t("panel_b7_emitir")}</button></form>${revisionRequerida?`<p id="b7-motivo-revision" class="nota-pendiente" role="status">${t("panel_b7_revision_requerida")}</p>`:""}${flujo.error?`<p role="alert" tabindex="-1" data-b7-emision-error class="mensaje-error">${escaparHTML(flujo.error)}</p>`:""}${flujo.error_422?`<div><button type="button" class="boton-secundario" data-bolsa-accion="b7-revisar-configuracion">${t("panel_b7_revisar_configuracion")}</button> <button type="button" class="boton-secundario" data-bolsa-accion="b7-volver-seleccion">${t("panel_b7_actualizar_seleccion")}</button></div>`:""}${flujo.recibo?`<section class="mensaje-exito" tabindex="-1" data-b7-recibo><strong>${t("panel_b7_llamamiento_ref", { referencia: flujo.llamamiento_ref })}</strong><br>${t("panel_b7_estado_emitido")}<br>${t("panel_b7_recibo")} <code>${escaparHTML(flujo.recibo)}</code> · <button type="button" class="boton-secundario" data-bolsa-accion="ver-historico-b7">${t("panel_b7_abrir_historico")}</button></section>`:""}</div></section>`}
-    return `${encabezadoVista(traducirPortal("panel_b7_titulo_area"),traducirPortal("panel_b7_titulo"),traducirPortal("panel_b7_descripcion"),`<button type="button" class="boton-secundario" data-bolsa-accion="cancelar-b7" ${flujo.enviando?"disabled":""}>${flujo.enviando?t("panel_b7_envio_curso"):t("panel_b7_cancelar")}</button>`)}${rail}<div class="distribucion-llamamiento"><div>${contenido}</div>${resumen}</div>`;
+    return `${encabezadoVista("",traducirPortal("panel_b7_titulo"),"",`<button type="button" class="boton-secundario" data-bolsa-accion="cancelar-b7" ${flujo.enviando?"disabled":""}>${flujo.enviando?t("panel_b7_envio_curso"):t("panel_b7_cancelar")}</button>`)}${rail}<div class="distribucion-llamamiento"><div>${contenido}</div>${resumen}</div>`;
   }
   function renderizarCandidatosBolsa() {
     const estadoCandidatos = typeof obtenerDatosCandidatosBolsa === "function"
@@ -350,7 +358,7 @@ export function crearPresentadorPanelInterno(dependencias) {
     const accionesEncabezado = '<button type="button" class="boton-secundario" data-vista="resumen">Volver al cuadro</button>';
     if (!estadoCandidatos) {
       return `
-        ${encabezadoVista("Gestión interna de Bolsas", "Candidatos de la bolsa", "Consulta ordenada de aspirantes y situación de disponibilidad.", accionesEncabezado)}
+        ${encabezadoVista("", "Candidatos de la bolsa", "", accionesEncabezado)}
         <section class="panel" data-bolsa-b5-destino="true" tabindex="-1">
           <div class="cuerpo-panel vacio-controlado" role="alert">
             <p><strong>${escaparHTML(traducirPortal("panel_fuente_no_configurada_titulo"))}</strong></p>
@@ -360,17 +368,16 @@ export function crearPresentadorPanelInterno(dependencias) {
     }
     if (estadoCandidatos.carga === "cargando") {
       return `
-        ${encabezadoVista("Gestión interna de Bolsas", "Candidatos de la bolsa", "Consulta ordenada de aspirantes y situación de disponibilidad.", accionesEncabezado)}
+        ${encabezadoVista("", "Candidatos de la bolsa", "", accionesEncabezado)}
         <section class="panel" data-bolsa-b5-destino="true" tabindex="-1">
           <div class="cuerpo-panel vacio-controlado" role="status" aria-busy="true">
             <p><strong>Cargando lista de candidatos…</strong></p>
-            <p>Obteniendo las candidaturas y llamamientos de la bolsa seleccionada.</p>
           </div>
         </section>`;
     }
     if (estadoCandidatos.carga === "error") {
       return `
-        ${encabezadoVista("Gestión interna de Bolsas", "Candidatos de la bolsa", "Consulta ordenada de aspirantes y situación de disponibilidad.", accionesEncabezado)}
+        ${encabezadoVista("", "Candidatos de la bolsa", "", accionesEncabezado)}
         <section class="panel" data-bolsa-b5-destino="true" tabindex="-1">
           <div class="cuerpo-panel vacio-controlado" role="alert">
             <p><strong>Error al consultar candidatos</strong></p>
@@ -384,7 +391,7 @@ export function crearPresentadorPanelInterno(dependencias) {
     }
     if (estadoCandidatos.carga === "denegado") {
       return `
-        ${encabezadoVista("Gestión interna de Bolsas", "Candidatos de la bolsa", "Consulta ordenada de aspirantes y situación de disponibilidad.", accionesEncabezado)}
+        ${encabezadoVista("", "Candidatos de la bolsa", "", accionesEncabezado)}
         <section class="panel" data-bolsa-b5-destino="true" tabindex="-1">
           <div class="cuerpo-panel vacio-controlado" role="alert">
             <p><strong>Acceso denegado</strong></p>
@@ -405,9 +412,6 @@ export function crearPresentadorPanelInterno(dependencias) {
     const cursorSiguiente = estadoCandidatos.datos?.cursor_siguiente || "";
     if (filtrosActuales.nuevo_llamamiento) return renderizarNuevoLlamamiento(bolsa, candidatos, filtrosActuales.nuevo_llamamiento, estadoCandidatos.datos);
     const tituloBolsa = bolsa ? `Candidatos: ${bolsa.categoria}` : "Candidatos de la bolsa";
-    const descripcionBolsa = bolsa
-      ? `${bolsa.categoria_clave} · Lista ${bolsa.tipo_lista} · Total: ${numero(bolsa.total)} aspirantes`
-      : "Consulta ordenada de aspirantes y situación de disponibilidad.";
     const opcionesEstado = [
       ["", "Todos los estados"],
       ["disponible", "Disponible"],
@@ -428,11 +432,11 @@ export function crearPresentadorPanelInterno(dependencias) {
     const formularioFiltros = `
       <form class="barra-filtros-bolsa barra-filtros-estadisticas" data-bolsa-form="filtros" role="search" aria-label="Filtros de candidatos">
         <div class="campo-filtro">
-          <label for="filtro-bolsa-estado">Situación:</label>
+          <label for="filtro-bolsa-estado">Situación</label>
           <select id="filtro-bolsa-estado" name="estado">${opcionesEstado}</select>
         </div>
         <div class="campo-filtro">
-          <label for="filtro-bolsa-texto">Buscar:</label>
+          <label for="filtro-bolsa-texto">Buscar</label>
           <input type="search" id="filtro-bolsa-texto" name="texto" value="${escaparHTML(filtrosActuales.texto || "")}" placeholder="Nombre o documento…">
         </div>
         <div class="acciones-filtro">
@@ -480,7 +484,6 @@ export function crearPresentadorPanelInterno(dependencias) {
             <button type="button" class="boton-secundario boton-ancho" data-bolsa-accion="cambiar-pestana" data-pestana="historico">Consultar historial de contactos</button>
             <button type="button" class="boton-primario boton-ancho" data-bolsa-accion="iniciar-b7">Nuevo llamamiento</button>
             <button type="button" class="boton-secundario boton-ancho" disabled aria-disabled="true" title="Pendiente de RRHH">Registrar resultado</button>
-            <p><small>${escaparHTML(traducirPortal("panel_b7_alcance_resumen"))}</small></p>
           </div>`;
     const bolsas = typeof obtenerDatosBolsas === "function"
       ? obtenerDatosBolsas()?.datos?.bolsas || []
@@ -514,7 +517,7 @@ export function crearPresentadorPanelInterno(dependencias) {
             <div class="fila-resumen"><dt>Tipo</dt><dd>${escaparHTML(etiquetaClave(bolsa.politica_orden.tipo_lista))}</dd></div>
             <div class="fila-resumen"><dt>Reposición</dt><dd>${escaparHTML(etiquetaClave(bolsa.politica_orden.reposicion))}</dd></div>
             <div class="fila-resumen"><dt>Versión y vigencia</dt><dd>v${numero(bolsa.politica_orden.version)} · ${escaparHTML(fechaVisible(bolsa.politica_orden.vigente_desde))}</dd></div>
-          </dl><p class="nota-pendiente"><strong>${escaparHTML(bolsa.politica_orden.rotulo)}</strong></p></div>
+          </dl>${rotuloPoliticaOrden(bolsa.politica_orden.rotulo)}</div>
         </section>
         ${avisoSustitucion}
         <section class="panel">
@@ -539,16 +542,14 @@ export function crearPresentadorPanelInterno(dependencias) {
     const pestanas = `<nav class="acciones-vista" role="tablist" aria-label="Vistas de la bolsa"><button type="button" class="boton-secundario" role="tab" aria-selected="${pestana === "candidatos"}" data-bolsa-accion="cambiar-pestana" data-pestana="candidatos">Candidatos</button><button type="button" class="boton-secundario" role="tab" aria-selected="${pestana === "historico"}" data-bolsa-accion="cambiar-pestana" data-pestana="historico">Histórico de llamamientos</button></nav>`;
     const contenidoHistorico = `<section class="panel" data-bolsa-b5-destino="true" tabindex="-1"><div class="cabecera-panel"><h3>${traducirBolsaInterna("contacto_historico_titulo")}</h3><span class="estado-chip info">${numero(llamadas.length)} registros</span></div><div class="tabla-contenedor"><table class="tabla-datos"><caption>${traducirBolsaInterna("contacto_historico_descripcion")}</caption><thead><tr><th scope="col">Fecha</th><th scope="col">Candidato</th><th scope="col">Tipo</th><th scope="col">Resultado</th><th scope="col">Actor</th><th scope="col">Contacto</th></tr></thead><tbody>${tablaHistorico}</tbody></table></div>${navegacionHistorico}</section>`;
     return `
-      ${encabezadoVista("Gestión interna de Bolsas", tituloBolsa, descripcionBolsa, accionesEncabezado)}
-      <section class="nota-seguridad" role="note"><strong>${escaparHTML(traducirPortal("panel_operaciones_conectadas"))}</strong> ${escaparHTML(traducirPortal("panel_b7_operaciones_conectadas"))}</section>
+      ${encabezadoVista("", tituloBolsa, "", accionesEncabezado)}
       ${reciboFichaFuera}
       <div class="distribucion-llamamiento">
         <div>
           ${pestanas}
           ${pestana === "historico" ? contenidoHistorico : `<section class="panel" data-bolsa-b5-destino="true" tabindex="-1">
             <div class="cabecera-panel">
-              <h3>Filtros y ordenación de aspirantes (Vista B5)</h3>
-              <span class="estado-chip info">${numero(candidatos.length)} en esta página</span>
+              <h3>Situación de los candidatos</h3>
             </div>
             <div class="cuerpo-panel"><div class="rejilla-kpi kpi-candidatos" aria-label="Contadores por situación">${contadoresEstado}</div></div>
             <div class="cuerpo-panel">${formularioFiltros}</div>
@@ -593,7 +594,7 @@ export function crearPresentadorPanelInterno(dependencias) {
     }[candidato.estado_clave] || [];
     const cambio = modal.cambioSituacion ? `
       <form data-bolsa-form="cambio-situacion" data-participacion-ref="${escaparHTML(candidato.participacion_ref)}">
-        <p><small>Transiciones provisionales hasta respuesta de RRHH a las dudas 13 y 18.</small></p>
+        <p>${pastillaPendienteRRHH()}</p>
         <label>Destino <select name="situacion" required><option value="">Seleccionar estado</option>${destinos.map((d) => `<option value="${d}">${escaparHTML(etiquetaClave(d))}</option>`).join("")}</select></label>
         <label data-bolsa-fecha-disponible>Fecha de disponibilidad <input type="datetime-local" name="fecha_disponible"></label>
         <label>Motivo <textarea name="motivo" required maxlength="1000"></textarea></label>
@@ -700,7 +701,7 @@ export function crearPresentadorPanelInterno(dependencias) {
       <div class="modal-fondo" role="dialog" aria-modal="true" aria-labelledby="titulo-modal-llamar">
         <div class="modal-contenido">
           <div class="cabecera-panel">
-            <h3 id="titulo-modal-llamar">Nuevo llamamiento (B7): ${escaparHTML(modal.nombreVisible || modal.participacionRef)}</h3>
+            <h3 id="titulo-modal-llamar">Nuevo llamamiento: ${escaparHTML(modal.nombreVisible || modal.participacionRef)}</h3>
             <button type="button" class="boton-cerrar" data-bolsa-accion="cerrar-llamar" aria-label="Cerrar">×</button>
           </div>
           <div class="cuerpo-panel">
@@ -752,7 +753,7 @@ export function crearPresentadorPanelInterno(dependencias) {
       <div class="modal-fondo" role="dialog" aria-modal="true" aria-labelledby="titulo-modal-resultado">
         <div class="modal-contenido">
           <div class="cabecera-panel">
-            <h3 id="titulo-modal-resultado">Registrar resultado de llamamiento (B3)</h3>
+            <h3 id="titulo-modal-resultado">Registrar resultado de llamamiento</h3>
             <button type="button" class="boton-cerrar" data-bolsa-accion="cerrar-resultado" aria-label="Cerrar">×</button>
           </div>
           <div class="cuerpo-panel">
@@ -789,8 +790,8 @@ export function crearPresentadorPanelInterno(dependencias) {
   }
   function renderizarNoConectada(vista) {
     return `
-      ${encabezadoVista("Contrato real de alcance mínimo", tituloVista(vista), "Esta sección no está disponible con el contrato interno actualmente conectado.", '<button type="button" class="boton-secundario" data-vista="resumen">Volver al cuadro de mando</button>')}
-      <section class="panel"><div class="cuerpo-panel vacio-controlado"><p><strong>Funcionalidad no conectada</strong></p><p>El servidor solo ha acreditado indicadores agregados, convocatorias y actuaciones pendientes. No se muestran valores cero, tablas vacías ni controles aparentes para datos que no han sido proporcionados.</p></div></section>`;
+      ${encabezadoVista("", tituloVista(vista), "", '<button type="button" class="boton-secundario" data-vista="resumen">Volver al cuadro de mando</button>')}
+      <section class="panel"><div class="cuerpo-panel vacio-controlado"><p><strong>Sección todavía no disponible</strong></p></div></section>`;
   }
   function renderizarVista(vista) {
     if (!esActivo()) throw new Error("el presentador requiere un panel interno válido");
@@ -801,7 +802,7 @@ export function crearPresentadorPanelInterno(dependencias) {
     if (vista === "estadisticas") return renderizarEstadisticasBolsa();
     return renderizarNoConectada(vista);
   }
-  // Sin panel agregado compuesto, las bolsas constituidas (B12/B5) se muestran
+  // Sin panel agregado compuesto, el cuadro de bolsas y la lista de candidatos se muestran
   // igualmente: tienen su propia API y no dependen de los indicadores.
   function renderizarSoloBolsas(vista) {
     if (vista === "bolsa-candidatos") return renderizarCandidatosBolsa();

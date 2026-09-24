@@ -1,5 +1,5 @@
-import { MENSAJES_CRONOS_ES } from "./i18n.js?v=20260924-web-paradas-periodos-v1";
-import { MENSAJES_CRONOS_C9_ES } from "./i18n-c9.js?v=20260924-cronos-integrado-v1";
+import { MENSAJES_CRONOS_ES } from "./i18n.js?v=20260925-aspecto-v1";
+import { MENSAJES_CRONOS_C9_ES } from "./i18n-c9.js?v=20260925-aspecto-v1";
 
 const MAXIMO_TEXTO = 512;
 
@@ -30,7 +30,7 @@ export function renderizarVistaNotificacionesCronos({ mensajes } = {}) {
   const t = (clave, variables) => escaparHTML(traducir(clave, variables));
   return `<section class="cronos-notificaciones" aria-labelledby="cronos-notificaciones-titulo" data-estado-entrega="sin_enviar">
     <article class="panel cronos-notificaciones-panel">
-      <header class="cabecera-panel"><div><h3 id="cronos-notificaciones-titulo">${t("notificaciones_titulo")}</h3><p>${t("notificaciones_descripcion")}</p></div><span class="estado-chip neutro">${t("notificaciones_estado")}</span></header>
+      <header class="cabecera-panel"><div><h3 id="cronos-notificaciones-titulo">${t("notificaciones_titulo")}</h3></div><span class="estado-chip neutro">${t("notificaciones_estado")}</span></header>
       <div class="cuerpo-panel"><p class="cronos-notificaciones-aviso" role="status">${t("notificaciones_estado_detalle")}</p>
         <form data-cronos-notificacion-form novalidate><div class="cronos-notificaciones-campos">
           <label>${t("notificaciones_tipo")}<select disabled aria-disabled="true" title="${t("notificaciones_tipo_pendiente")}"><option>${t("notificaciones_tipo_pendiente")}</option></select></label>

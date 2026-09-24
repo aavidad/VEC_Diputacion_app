@@ -64,7 +64,7 @@ test("Jornada permite elegir escala y rango, y distingue un periodo sin proyecci
     capacidades: [CAPACIDAD_CONSULTAR_HORARIO, CAPACIDAD_CONSULTAR_FICHAJES], seleccion,
   });
   assert.match(html, /Semana del 21\/09\/2026 al 27\/09\/2026/);
-  assert.match(html, /Falta una proyección autorizada para el periodo seleccionado/);
+  assert.match(html, /No hay datos de jornada para el periodo seleccionado/);
   assert.match(html, /Jornada teórica.*Tiempo trabajado.*Permisos.*Saldo/s);
   assert.doesNotMatch(html, /tabla-cronos-jornada|Jornada diaria|08:01|DEMO-REC-FIC-1900/);
   for (const [tipo, esperado] of [
@@ -75,7 +75,7 @@ test("Jornada permite elegir escala y rango, y distingue un periodo sin proyecci
   }
   const denegado = renderizarJornadaCronos({ estado: "denegado", seleccion });
   assert.match(denegado, /Acceso denegado/);
-  assert.doesNotMatch(denegado, /Falta una proyección autorizada|data-cronos-form-periodo/);
+  assert.doesNotMatch(denegado, /No hay datos de jornada para el periodo|data-cronos-form-periodo/);
 });
 
 test("La selección rechaza fechas imposibles y rangos invertidos", () => {
@@ -132,7 +132,7 @@ test("La selección conserva la denegación de una proyección real sin capacida
   assert.match(html, /data-estado="denegado"/);
   assert.match(html, /Acceso denegado/);
   assert.match(html, /data-cronos-jornada-resultado tabindex="-1"/);
-  assert.doesNotMatch(html, /Servicio pendiente|Falta una proyección autorizada|data-cronos-form-periodo/);
+  assert.doesNotMatch(html, /Servicio pendiente|No hay datos de jornada para el periodo|data-cronos-form-periodo/);
 
   let contenedor;
   let focos = 0;

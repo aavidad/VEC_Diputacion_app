@@ -1,4 +1,4 @@
-import { exigirSinPresentacion, iniciarAreaPersonal } from "./aplicacion.js?v=20260924-rescate-area-v7";
+import { exigirSinPresentacion, iniciarAreaPersonal } from "./aplicacion.js?v=20260925-aspecto-v1";
 import { iniciarI18nAreaPersonal, traducir } from "./i18n.js";
 
 await iniciarI18nAreaPersonal();

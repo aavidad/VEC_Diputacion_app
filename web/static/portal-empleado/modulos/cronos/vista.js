@@ -9,8 +9,8 @@ import {
   validarCapacidadesCronos,
   validarDatosCronos,
 } from "./contrato.js?v=20260924-f2-web2";
-import { crearTraductorCronos, MENSAJES_CRONOS_ES } from "./i18n.js?v=20260924-web-paradas-periodos-v1";
-import { montarCalendarioCivilCronos } from "./vista-calendario.js?v=20260924-web-paradas-periodos-v1";
+import { crearTraductorCronos, MENSAJES_CRONOS_ES } from "./i18n.js?v=20260925-aspecto-v1";
+import { montarCalendarioCivilCronos } from "./vista-calendario.js?v=20260925-aspecto-v1";
 
 function escaparHTML(valor) {
   return String(valor ?? "")
@@ -158,7 +158,7 @@ function etiquetaSeleccionPeriodo(seleccion, t, locale) {
 function formularioPeriodoJornada(seleccion, t) {
   const tipo = seleccion?.tipo || "dia";
   return `<section class="panel cronos-jornada-panel cronos-jornada-periodo" aria-labelledby="cronos-jornada-periodo-titulo">
-    <header class="cabecera-panel"><div><h4 id="cronos-jornada-periodo-titulo">${escaparHTML(t("jornada_periodo_titulo"))}</h4><p>${escaparHTML(t("jornada_periodo_descripcion"))}</p></div></header>
+    <header class="cabecera-panel"><div><h4 id="cronos-jornada-periodo-titulo">${escaparHTML(t("jornada_periodo_titulo"))}</h4></div></header>
     <form class="cuerpo-panel cronos-jornada-periodo-formulario" data-cronos-form-periodo>
       <label>${escaparHTML(t("jornada_periodo_escala"))}<select name="tipo" data-cronos-periodo-tipo>
         ${["dia", "semana", "mes", "anio", "periodo"].map((opcion) => `<option value="${opcion}"${opcion === tipo ? " selected" : ""}>${escaparHTML(t(`jornada_periodo_${opcion}`))}</option>`).join("")}
@@ -248,11 +248,11 @@ export function renderizarJornadaCronos({
   </div>` : `<section class="panel cronos-jornada-panel" aria-labelledby="cronos-jornada-sin-datos"><header class="cabecera-panel"><h4 id="cronos-jornada-sin-datos">${escaparHTML(estadoVisible)}</h4></header><div class="cuerpo-panel" role="status" data-cronos-jornada-resultado tabindex="-1">${escaparHTML(descripcionEstado)}</div></section>`;
 
   return `<section class="cronos-jornada cronos-area" data-cronos-jornada data-estado="${estado}" aria-labelledby="cronos-jornada-titulo"${estado === "cargando" ? ' aria-busy="true"' : ""}>
-    <header class="cronos-jornada-encabezado"><div><p class="sobrelinea">${escaparHTML(t("sobrelinea"))}</p><h3 id="cronos-jornada-titulo">${escaparHTML(t("jornada_titulo"))}</h3><p>${escaparHTML(t("jornada_descripcion"))}</p></div><span class="cronos-estado cronos-estado-${estado === "disponible" ? "exito" : "aviso"}" role="status">${escaparHTML(estadoVisible)}</span></header>
+    <header class="cronos-jornada-encabezado"><div><p class="sobrelinea">${escaparHTML(t("sobrelinea"))}</p><h3 id="cronos-jornada-titulo">${escaparHTML(t("jornada_titulo"))}</h3></div><span class="cronos-estado cronos-estado-${estado === "disponible" ? "exito" : "aviso"}" role="status">${escaparHTML(estadoVisible)}</span></header>
     ${estado === "disponible" ? `<p class="cronos-jornada-fuente">${escaparHTML(t("jornada_fuente_servicio", { fecha: instanteVisible(vista.actualizado_en, locale, zonaHoraria).completo }))}</p>` : ""}
     ${estado === "denegado" ? "" : formularioPeriodoJornada(seleccion, t)}
     ${saldos}${contenido}
-    <div class="cronos-jornada-acciones"><button type="button" class="boton-primario" disabled aria-disabled="true" title="${escaparHTML(t("jornada_accion_bloqueada"))}">${escaparHTML(t("accion_entrada"))}</button><button type="button" class="boton-secundario" disabled aria-disabled="true" title="${escaparHTML(t("jornada_accion_bloqueada"))}">${escaparHTML(t("accion_salida"))}</button><span>${escaparHTML(t("jornada_accion_bloqueada"))}</span></div>
+    <div class="cronos-jornada-acciones"><button type="button" class="boton-primario" disabled aria-disabled="true" title="${escaparHTML(t("jornada_accion_bloqueada"))}">${escaparHTML(t("accion_entrada"))}</button><button type="button" class="boton-secundario" disabled aria-disabled="true" title="${escaparHTML(t("jornada_accion_bloqueada"))}">${escaparHTML(t("accion_salida"))}</button></div>
     <div data-cronos-calendario-raiz></div>
   </section>`;
 }

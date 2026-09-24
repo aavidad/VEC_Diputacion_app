@@ -3,7 +3,7 @@
 /* Colores del raíl según RRHH: gris pendiente, azul en curso, verde completado,
    rojo incidencia y amarillo espera de otro departamento. */
 .ct-exp-progreso li.ct-fase-completado {
-  background: var(--portal-exito-suave);
+  background: transparent;
   color: var(--portal-exito);
 }
 
@@ -18,7 +18,7 @@
 }
 
 .ct-exp-progreso li.ct-fase-espera {
-  background: var(--portal-aviso-suave);
+  background: transparent;
   color: var(--portal-aviso);
 }
 
@@ -29,18 +29,18 @@
 }
 
 .ct-exp-progreso li.ct-fase-incidencia {
-  background: var(--portal-peligro-suave);
+  background: transparent;
   color: var(--portal-peligro);
 }
 
 .ct-exp-progreso li.ct-fase-incidencia .ct-exp-numero-fase {
   border-color: var(--portal-peligro);
-  background: var(--portal-superficie);
+  background: var(--portal-peligro-suave);
   color: var(--portal-peligro);
 }
 
 .ct-exp-progreso li.ct-fase-pendiente {
-  background: var(--portal-fondo);
+  background: transparent;
   color: var(--portal-muted);
 }
 
@@ -51,8 +51,8 @@
 }
 
 .ct-exp-progreso li.ct-fase-en_curso {
-  background: var(--portal-azul-100);
-  color: var(--portal-azul-900);
+  background: transparent;
+  color: var(--portal-azul-700);
 }
 
 .ct-exp-progreso li.ct-fase-en_curso .ct-exp-numero-fase {
@@ -67,11 +67,9 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px 18px;
-  margin: 0 0 14px;
-  padding: 14px 16px;
-  border: 1px solid var(--portal-aviso);
-  border-left: 6px solid var(--portal-aviso);
-  border-radius: var(--portal-radio);
+  margin: 0 0 16px;
+  padding: 16px 20px;
+  border-radius: var(--portal-radio-lg);
   background: var(--portal-aviso-suave);
 }
 
@@ -84,6 +82,7 @@
   margin: 0 0 4px;
   color: var(--portal-aviso);
   font-size: 1rem;
+  font-weight: 600;
 }
 
 .ct-exp-incidencia p {
@@ -119,25 +118,20 @@
 
 .ct-exp-fase-boton:hover,
 .ct-exp-fase-boton[aria-pressed="true"] {
-  border-color: currentColor;
-  background: rgba(255, 255, 255, 0.55);
+  border-color: var(--portal-borde);
+  background: var(--portal-superficie-alterna);
 }
 
 .ct-exp-fase-panel {
   color: var(--portal-tinta);
-  margin: 12px 0 0;
-  padding: 16px 18px;
+  margin: 16px 0 0;
+  padding: 20px 24px;
   border: 1px solid var(--portal-borde);
-  border-left-width: 6px;
-  border-radius: var(--portal-radio);
+  border-radius: var(--portal-radio-lg);
   background: var(--portal-superficie);
+  box-shadow: var(--portal-sombra-sm);
+  text-decoration: none;
 }
-
-.ct-exp-fase-panel.ct-fase-completado { border-left-color: var(--portal-exito); }
-.ct-exp-fase-panel.ct-fase-espera { border-left-color: var(--portal-aviso); }
-.ct-exp-fase-panel.ct-fase-incidencia { border-left-color: var(--portal-peligro); }
-.ct-exp-fase-panel.ct-fase-pendiente { border-left-color: var(--portal-borde); }
-.ct-exp-fase-panel.ct-fase-en_curso { border-left-color: var(--portal-azul-700); }
 
 .ct-exp-fase-panel-cabecera {
   display: flex;
@@ -149,7 +143,8 @@
 
 .ct-exp-fase-panel-cabecera h3 {
   margin: 2px 0;
-  font-size: 1.15rem;
+  font-size: 1.125rem;
+  font-weight: 600;
 }
 
 .ct-exp-fase-panel-cabecera p {
@@ -164,11 +159,10 @@
 }
 
 .ct-exp-fase-panel h4 {
-  margin: 16px 0 8px;
-  color: var(--portal-muted);
-  font-size: 0.78rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  margin: 20px 0 8px;
+  color: var(--portal-tinta);
+  font-size: 0.875rem;
+  font-weight: 600;
 }
 
 .ct-exp-fase-datos {
@@ -180,29 +174,27 @@
 
 .ct-exp-fase-datos > div {
   padding: 10px 12px;
-  border: 1px solid var(--portal-borde);
   border-radius: var(--portal-radio-md);
-  background: var(--portal-fondo);
+  background: var(--portal-superficie-alterna);
 }
 
 .ct-exp-fase-datos dt {
-  margin: 0 0 3px;
+  margin: 0 0 4px;
   color: var(--portal-muted);
-  font-size: 0.78rem;
-  font-weight: 750;
+  font-size: 0.8125rem;
+  font-weight: 400;
 }
 
 .ct-exp-fase-datos dd {
   margin: 0;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .ct-exp-incidencia-reparo {
   margin: 4px 0 8px;
   padding: 8px 12px;
-  border-left: 4px solid var(--portal-aviso);
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.7);
+  border-radius: var(--portal-radio);
+  background: var(--portal-superficie);
   color: var(--portal-tinta);
   font-style: italic;
 }
@@ -212,11 +204,9 @@
 }
 
 .ct-exp-firma-pendiente {
-  margin: 0 0 14px;
-  padding: 14px 16px;
-  border: 1px solid var(--portal-borde);
-  border-left: 6px solid var(--portal-aviso);
-  border-radius: var(--portal-radio);
+  margin: 0 0 16px;
+  padding: 16px 20px;
+  border-radius: var(--portal-radio-lg);
   background: var(--portal-aviso-suave);
 }
 

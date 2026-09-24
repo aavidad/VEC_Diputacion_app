@@ -9,7 +9,7 @@ const directorio = new URL("./", import.meta.url);
 test("Cronos sin fuente muestra no_configurado y no proyecta personas ni saldos sintéticos", () => {
   const html = renderizarRecorridosCronos();
   assert.match(html, /data-estado-entrega="no_configurado"/);
-  assert.match(html, /No hay una fuente de Cronos conectada ni catálogo de permisos gobernado y versionado/u);
+  assert.match(html, /Cronos todavía no tiene datos de permisos conectados\./u);
   for (const id of ["cronos-persona", "cronos-responsable", "cronos-rrhh"]) assert.match(html, new RegExp(`id="${id}"`));
   assert.match(html, /id="cronos-responsable"[^>]+hidden/u);
   assert.match(html, /id="cronos-rrhh"[^>]+hidden/u);
@@ -25,8 +25,8 @@ test("el catálogo ausente deshabilita tipo, fechas, aclaración y registro", ()
     assert.match(html, new RegExp(`name="${campo}"[^>]*disabled aria-disabled="true"`, "u"));
   }
   assert.match(html, /Registrar solicitud<\/button>/u);
-  assert.match(html, /disabled aria-disabled="true" title="Registro deshabilitado: faltan catálogo versionado, vínculo de empleado y servicio autorizado\."/u);
-  assert.match(html, /Catálogo de permisos no disponible: tipo, cuantía, cómputo, responsable y justificante/u);
+  assert.match(html, /disabled aria-disabled="true" title="El registro de solicitudes todavía no está disponible\."/u);
+  assert.match(html, /Catálogo de permisos no disponible\./u);
   assert.match(html, /<details class="cronos-permisos-ayuda"><summary aria-label="\? Ayuda para esta solicitud">\?<\/summary><p>El recorrido tendrá tipo y fechas/u);
   assert.doesNotMatch(html, /<details class="cronos-permisos-ayuda" open|<summary[^>]*tabindex="-1"/u);
   assert.match(html, /id="cronos-permisos-paso-2-titulo" tabindex="-1"/u);

@@ -12,4 +12,5 @@ func registrarActivosCompartidos(mux *http.ServeMux, estaticos http.Handler) {
 	mux.Handle("/assets/logo-diputacion-granada.svg", soloLecturaHTTP(estaticos))
 	mux.Handle("/comun/tema-vec.css", soloLecturaHTTP(estaticos))
 	mux.Handle("/comun/tema-vec.js", soloLecturaHTTP(estaticos))
+	mux.Handle("/comun/iconos-vec.js", soloLecturaHTTP(estaticos))
 }

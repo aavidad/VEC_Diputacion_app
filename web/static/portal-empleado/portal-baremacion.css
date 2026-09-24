@@ -45,7 +45,7 @@
   color: var(--portal-tinta);
   font: inherit;
   font-size: .76rem;
-  font-weight: 700;
+  font-weight: 600;
   text-align: left;
   cursor: pointer;
 }
@@ -70,7 +70,7 @@
   border-radius: 50%;
   background: var(--portal-superficie);
   color: var(--portal-azul-700);
-  font-weight: 800;
+  font-weight: 600;
   cursor: pointer;
   list-style: none;
 }
@@ -107,7 +107,7 @@
   padding: 9px 14px;
   color: var(--portal-azul-700);
   font-size: .8rem;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
 }
 .baremacion-decision summary:focus-visible {
@@ -153,7 +153,7 @@
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
-.baremacion-pendiente { color: var(--portal-aviso); font-weight: 700; }
+.baremacion-pendiente { color: var(--portal-aviso); font-weight: 600; }
 .baremacion-acciones {
   display: flex;
   flex-wrap: wrap;

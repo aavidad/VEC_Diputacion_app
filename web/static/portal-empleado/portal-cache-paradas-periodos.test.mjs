@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
 const raiz = new URL("./", import.meta.url);
 const version = "20260924-web-paradas-periodos-v1";
@@ -54,12 +55,14 @@ test("la caché de PR25 solicita de nuevo las paradas, los periodos y sus hojas"
   for (const [padre, recurso, previa, cantidad] of aristas) {
     const base = new URL(padre, raiz);
     const vieja = new URL(`${recurso}?v=${previa}`, base).href;
-    const versionEsperada = padre === "index.html" && recurso === "/portal-empleado/portal.js"
-      ? versionEntradaAyuda : version;
-    const nueva = new URL(`${recurso}?v=${versionEsperada}`, base).href;
+    // i18n-borradores.js conserva la versión de PR25; el resto se renovó
+    // después y solo exige una URL posterior, única en cada importador.
+    const versionEsperada = recurso === "./i18n-borradores.js" ? version
+      : posterior(padre === "index.html" && recurso === "/portal-empleado/portal.js" ? versionEntradaAyuda : version);
     cache.set(vieja, "bytes PR25");
     const codigo = await readFile(base, "utf8");
-    assert.deepEqual(rutas(codigo, recurso), Array(cantidad).fill(versionEsperada), `${padre} → ${recurso}`);
+    const vigente = exigirVersiones(codigo, recurso, versionEsperada, cantidad);
+    const nueva = new URL(`${recurso}?v=${vigente}`, base).href;
     assert.ok(!cache.has(nueva), `${recurso}: evita la caché previa`);
     pedidos.add(nueva);
   }

@@ -1,5 +1,5 @@
-import { crearTraductorCronos, MENSAJES_CRONOS_ES } from "./i18n.js?v=20260924-web-paradas-periodos-v1";
-import { MENSAJES_CRONOS_C5_ES } from "./i18n-c5.js?v=20260924-c5-web1";
+import { crearTraductorCronos, MENSAJES_CRONOS_ES } from "./i18n.js?v=20260925-aspecto-v1";
+import { MENSAJES_CRONOS_C5_ES } from "./i18n-c5.js?v=20260925-aspecto-v1";
 
 const ESTADOS = new Set(["no_configurado", "cargando", "vacio", "disponible", "error", "denegado"]);
 const MOVIMIENTOS = new Set(["entrada", "salida", "inicio_pausa", "fin_pausa"]);
@@ -53,7 +53,7 @@ export function renderizarCorreccionesCronos({ fichajes = [], estado = "no_confi
   const estadoOriginal = estado === "disponible" && visibles.length === 0 ? "c5_original_vacio"
     : estado === "disponible" ? "" : `c5_original_${estado === "no_configurado" ? "no_disponible" : estado}`;
   return `<section class="cronos-c5 panel" data-cronos-c5-estado="${estado}" aria-labelledby="cronos-c5-titulo">
-    <header class="cabecera-panel"><div><h3 id="cronos-c5-titulo">${e("c5_titulo")}</h3><p>${e("c5_descripcion")}</p></div><span class="cronos-c5-estado" role="status">${e("c5_estado_local")}</span></header>
+    <header class="cabecera-panel"><div><h3 id="cronos-c5-titulo">${e("c5_titulo")}</h3></div><span class="cronos-c5-estado" role="status">${e("c5_estado_local")}</span></header>
     <div class="cuerpo-panel"><p class="cronos-c5-limite" role="status">${e("c5_limite")}</p>
       <div class="cronos-c5-rejilla"><form class="cronos-c5-formulario" data-cronos-c5-formulario novalidate>
         <label>${e("c5_fecha")}<input name="fecha" type="date" autocomplete="off"></label>

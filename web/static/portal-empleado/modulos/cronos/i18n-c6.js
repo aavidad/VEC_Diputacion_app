@@ -1,7 +1,6 @@
 /** Nombres observados en WCronos; no constituyen un catálogo aprobado de VEC. */
 export const MENSAJES_CRONOS_C6_ES = Object.freeze({
   titulo: "Tipos de permisos observados",
-  subtitulo: "Referencia provisional de la aplicación anterior. RRHH debe confirmar el catálogo y sus reglas antes de usarlo para solicitudes.",
   provisional: "A confirmar por RRHH",
   buscar: "Buscar un tipo de permiso",
   buscar_ayuda: "La búsqueda consulta solo los nombres de esta referencia local.",
@@ -17,7 +16,7 @@ export const MENSAJES_CRONOS_C6_ES = Object.freeze({
   autorizador: "Quién autoriza",
   justificante: "Justificante exigido",
   pendiente: "Pendiente de confirmación por RRHH",
-  aviso: "Esta referencia no muestra saldos personales, no calcula derechos y no habilita la solicitud de permisos.",
+  aviso: "Esta referencia no habilita la solicitud de permisos.",
   tipo_asistencia_examenes: "Asistencia a exámenes",
   tipo_asuntos_propios: "Asuntos propios",
   tipo_dias_trienios: "Bolsa de días por trienios",

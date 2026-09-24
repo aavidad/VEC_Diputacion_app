@@ -1,8 +1,7 @@
-/** Navegación funcional 1–10 de Bolsa sobre el tema común del portal. */
-.navegacion-bolsa {
-  padding-bottom: 10px;
-}
-
+/**
+ * Navegación funcional 1–10 de Bolsa. Las categorías heredan tamaño, ritmo y
+ * estados de `.enlace-lateral` (portal.css); aquí solo se añade el desplegable.
+ */
 .grupo-menu-bolsa {
   margin: 0;
   padding: 0;
@@ -10,45 +9,20 @@
 
 .categoria-menu-bolsa {
   min-width: 0;
-  min-height: 46px;
-  padding-block: 6px;
-  font-size: 0.79rem;
-  line-height: 1.3;
-}
-
-.categoria-menu-bolsa .numero-menu {
-  border-radius: 50%;
-}
-
-.categoria-menu-bolsa:has(> .etiqueta-menu) {
-  grid-template-columns: 30px minmax(0, 1fr);
-}
-
-.categoria-menu-bolsa > .etiqueta-menu {
-  grid-column: 2;
-  justify-self: start;
-  margin-top: -4px;
 }
 
 .categoria-menu-bolsa[data-categoria-activa="true"] {
-  border-left-color: #58a8ff;
-  background: rgba(4, 104, 223, 0.5);
-  color: #fff;
+  background: var(--portal-azul-700);
+  color: var(--portal-texto-inverso);
+}
+
+/* El número azul no se pierde sobre la fila activa, del mismo azul. */
+.categoria-menu-bolsa[data-categoria-activa="true"] .numero-menu.tono-azul {
+  box-shadow: 0 0 0 2px var(--portal-texto-inverso);
 }
 
 .categoria-menu-bolsa.categoria-menu-pendiente:disabled {
   cursor: not-allowed;
-  opacity: 0.72;
-}
-
-.categoria-menu-bolsa .etiqueta-pendiente {
-  grid-column: 2;
-  justify-self: start;
-  margin-top: -2px;
-  border-color: rgba(255, 217, 126, 0.52);
-  background: rgba(125, 82, 0, 0.32);
-  color: #ffe5a7;
-  text-transform: none;
 }
 
 .marca-expansion {
@@ -56,10 +30,9 @@
   width: 22px;
   height: 22px;
   place-items: center;
-  color: #dcecff;
+  color: var(--portal-lateral-muted);
   font-size: 1rem;
   line-height: 1;
-  transform: rotate(0deg);
   transition: transform 150ms ease;
 }
 
@@ -67,9 +40,10 @@
   transform: rotate(180deg);
 }
 
+/* Sub-entradas: mismo tipo de letra que el menú, sangradas bajo el texto de la categoría. */
 .submenu-bolsa {
-  padding: 2px 0 5px;
-  background: rgba(0, 20, 43, 0.2);
+  border-bottom: 1px solid var(--portal-lateral-separador);
+  background: var(--portal-lateral-hover);
 }
 
 .submenu-bolsa[hidden] {
@@ -78,82 +52,48 @@
 
 .enlace-submenu {
   min-width: 0;
-  min-height: 36px;
-  grid-template-columns: 8px minmax(0, 1fr);
-  gap: 8px;
-  padding: 5px 14px 5px 51px;
-  color: #d9e9f8;
-  font-size: 0.73rem;
-  line-height: 1.3;
+  min-height: 42px;
+  grid-template-columns: minmax(0, 1fr);
+  padding: 9px 18px 9px 64px;
+  border-bottom: 0;
+  color: var(--portal-lateral-muted);
+  font-size: 0.875rem;
 }
 
-.enlace-submenu::before {
-  content: "";
-  width: 6px;
-  height: 6px;
-  border: 1px solid currentColor;
-  border-radius: 50%;
-  opacity: 0.8;
+.enlace-submenu:hover:not(:disabled) {
+  color: var(--portal-texto-inverso);
 }
 
-.enlace-submenu:hover:not(:disabled),
-.enlace-submenu[aria-current="page"] {
-  background: rgba(4, 104, 223, 0.58);
+.enlace-submenu[aria-current="page"],
+.enlace-submenu[aria-current="page"]:hover {
+  background: var(--portal-azul-700);
+  color: var(--portal-texto-inverso);
+  font-weight: 600;
 }
 
 .categoria-menu-bolsa:focus-visible,
 .enlace-submenu:focus-visible {
   position: relative;
   z-index: 1;
-  outline: 3px solid #fff;
+  outline: 3px solid var(--portal-texto-inverso);
   outline-offset: -3px;
 }
 
-.enlace-submenu[aria-current="page"]::before {
-  background: #fff;
-  opacity: 1;
-}
-
-body[data-contraste="true"] .categoria-menu-bolsa[data-categoria-activa="true"] {
+body[data-contraste="true"] .categoria-menu-bolsa[data-categoria-activa="true"],
+body[data-contraste="true"] .enlace-submenu[aria-current="page"] {
   outline: 2px solid currentColor;
   outline-offset: -3px;
 }
 
-body[data-contraste="true"] .categoria-menu-bolsa .etiqueta-pendiente {
-  border-color: currentColor;
-  background: transparent;
-  color: currentColor;
-}
-
 @media (max-width: 1040px) {
-  .categoria-menu-bolsa {
-    min-height: 44px;
-    font-size: 0.74rem;
-  }
-
-  .categoria-menu-bolsa .etiqueta-pendiente {
-    font-size: 0.67rem;
-  }
-
   .enlace-submenu {
-    padding-left: 43px;
-    font-size: 0.7rem;
+    padding-left: 56px;
   }
 }
 
 @media (max-width: 780px) {
-  .categoria-menu-bolsa {
-    min-height: 48px;
-    font-size: 0.8rem;
-  }
-
-  .categoria-menu-bolsa .etiqueta-pendiente {
-    font-size: 0.7rem;
-  }
-
   .enlace-submenu {
-    min-height: 40px;
-    font-size: 0.76rem;
+    min-height: 44px;
     overflow-wrap: anywhere;
   }
 }
@@ -171,11 +111,5 @@ body[data-contraste="true"] .categoria-menu-bolsa .etiqueta-pendiente {
     background: Canvas;
     color: CanvasText;
     forced-color-adjust: auto;
-  }
-
-  .categoria-menu-bolsa .etiqueta-pendiente {
-    border-color: GrayText;
-    background: Canvas;
-    color: GrayText;
   }
 }

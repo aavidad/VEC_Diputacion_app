@@ -1,9 +1,8 @@
 /** Extensión del catálogo común de Cronos para el apartado C5. */
 export const MENSAJES_CRONOS_C5_ES = Object.freeze({
   c5_titulo: "Olvido de marcaje",
-  c5_descripcion: "Prepare los datos de una corrección para su revisión.",
   c5_estado_local: "Preparación local · sin registrar",
-  c5_limite: "El envío de correcciones no está configurado. Lo escrito aquí no se guarda ni llega al responsable.",
+  c5_limite: "El envío de correcciones todavía no está disponible; lo escrito no se guarda.",
   c5_ayuda: "La solicitud deberá ser validada por el responsable. El marcaje original se conservará y la corrección quedará relacionada con él.",
   c5_fecha: "Fecha del olvido",
   c5_tipo: "Tipo de marcaje propuesto",

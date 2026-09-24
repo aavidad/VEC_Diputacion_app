@@ -205,7 +205,7 @@ test("la modalidad ausente se rotula con precisión y los metadatos ausentes se 
     }],
   }, filtros: { texto: "", estado: "", fase: "" } }, t);
   assert.match(html, /title="La consulta de la bandeja no devuelve la modalidad de este expediente\.">—<\/td>/u);
-  assert.match(html, /— en Modalidad: la consulta de la bandeja aún no devuelve ese dato/u);
+  assert.doesNotMatch(html, /ct-exp-nota-tabla|en Modalidad: la consulta/u);
   const ficha = html.match(/<tr class="ct-exp-fila-resumen"[\s\S]*?<\/tr>/u)?.[0];
   assert.ok(ficha);
   assert.doesNotMatch(ficha, /ct-exp-resumen-datos[\s\S]*?<div>/u);
@@ -927,7 +927,8 @@ test("HTML escapa contenido, bloquea históricos y expone semántica accesible",
   assert.match(htmlComponente, /<nav class="ct-exp-tareas" aria-label=/);
   assert.match(htmlComponente, /<details class="ct-exp-detalle-tecnico">/);
   assert.doesNotMatch(htmlComponente, /<details class="ct-exp-detalle-tecnico" open/);
-  assert.match(htmlComponente, /Metadatos técnicos del expediente/);
+  assert.match(htmlComponente, /<summary>Referencias<\/summary>/);
+  assert.doesNotMatch(htmlComponente, /Metadatos técnicos/);
 });
 
 test("el identificador completo puede envolver y los paneles vacíos no ocultan auditoría", async () => {
@@ -941,7 +942,8 @@ test("el identificador completo puede envolver y los paneles vacíos no ocultan 
   });
   const estado = estadoVista(expediente, "");
   const html = renderizarModuloContratacionTemporal(estado);
-  assert.ok(html.includes(`<h3>${expediente.numero_visible}</h3>`));
+  // El identificador técnico se abrevia a prefijo y seis caracteres; el completo queda en el título.
+  assert.ok(html.includes(`<h3><span title="${expediente.numero_visible}">2026/CT-bbbbbb…</span></h3>`));
   assert.match(html, /ct-exp-cabecera-expediente/u);
   assert.doesNotMatch(html, /class="ct-exp-(?:progreso|tareas|tramitacion)"/u);
   const auditoria = validarAuditoriaContratacionTemporal(

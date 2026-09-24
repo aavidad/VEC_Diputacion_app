@@ -4,10 +4,10 @@
  * Solo consume el catálogo y el puerto de rutas inyectado. No conoce gastos,
  * borradores, aprobaciones, liquidaciones, recibos ni pagos.
  */
-import { MENSAJES_DIETAS_ES } from "./i18n.js?v=20260924-web-paradas-periodos-v1";
-import { crearTraductorDietasD4 } from "./i18n-d4.js?v=20260924-web-paradas-periodos-v1";
+import { MENSAJES_DIETAS_ES } from "./i18n.js?v=20260925-aspecto-v1";
+import { crearTraductorDietasD4 } from "./i18n-d4.js?v=20260925-aspecto-v1";
 import { crearPresentadorRutasDietas } from "./presentador-rutas.js";
-import { ESTILOS_TRAMO_RUTA_DIETAS } from "./mapa-ruta.js?v=20260924-web-paradas-periodos-v1";
+import { ESTILOS_TRAMO_RUTA_DIETAS } from "./mapa-ruta.js?v=20260925-aspecto-v1";
 
 function elemento(documento, etiqueta, texto = "") {
   const nodo = documento.createElement(etiqueta);

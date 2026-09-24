@@ -183,7 +183,7 @@ test("B7 muestra página local, consulta pendiente, límite y confirmación de c
     obtenerEstadoCandidatos: () => ({ nuevo_llamamiento: flujo }),
   });
   let html = presentador.renderizarVista("bolsa-candidatos");
-  assert.match(html, /1 ocupan turno en esta página/);
+  assert.match(html, /1 con turno/);
   assert.match(html, /aria-busy="true"/);
   assert.match(html, /Seleccionar todas las que cumplen el filtro<\/button>/);
   assert.match(html, /aria-label="Ayuda sobre el límite de selección">\?<\/summary>/);

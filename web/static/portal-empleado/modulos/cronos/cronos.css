@@ -5,7 +5,11 @@
 .cronos-area {
   display: grid;
   min-width: 0;
-  gap: 14px;
+  gap: 20px;
+}
+
+.cronos-area:not(:first-child) {
+  margin-top: 20px;
 }
 
 /* Jornada propia: la misma gramática visual del portal, con tabla acotada. */
@@ -23,20 +27,21 @@
 
 .cronos-jornada-encabezado h3 {
   margin: 0;
-  color: var(--portal-azul-950);
-  font-size: 1.4rem;
+  color: var(--portal-tinta);
+  font-size: 1.25rem;
+  font-weight: 600;
 }
 
 .cronos-jornada-encabezado p:last-child,
 .cronos-jornada-fuente {
   margin: 2px 0 0;
   color: var(--portal-muted);
-  font-size: .78rem;
+  font-size: .8125rem;
 }
 
 .cronos-jornada-fuente {
   padding: var(--portal-espacio-2) var(--portal-espacio-3);
-  border-left: 4px solid var(--portal-cian);
+  border-left: 3px solid var(--portal-cian);
   border-radius: var(--portal-radio);
   background: var(--portal-superficie-alterna);
 }
@@ -138,13 +143,14 @@
 .cronos-jornada-calendario-pendiente p {
   margin: 0;
   color: var(--portal-muted);
-  font-size: .75rem;
+  font-size: .8125rem;
 }
 
 .cronos-jornada-panel .cabecera-panel h4 {
   margin: 0;
-  color: var(--portal-azul-950);
-  font-size: 1rem;
+  color: var(--portal-tinta);
+  font-size: 1.125rem;
+  font-weight: 600;
 }
 
 .cronos-jornada-panel .cronos-tabla-contenedor {
@@ -166,7 +172,7 @@
 
 .cronos-jornada-acciones span {
   color: var(--portal-muted);
-  font-size: .75rem;
+  font-size: .8125rem;
 }
 
 .cronos-jornada-acciones button:disabled {
@@ -207,14 +213,15 @@
 
 .cronos-encabezado h2 {
   margin: 1px 0 4px;
-  font-size: 1.55rem;
+  font-size: 1.25rem;
+  font-weight: 600;
 }
 
 .cronos-encabezado p:not(.sobrelinea) {
   max-width: 760px;
   margin: 0;
   color: var(--portal-muted);
-  font-size: 0.82rem;
+  font-size: .82rem;
 }
 
 .cronos-encabezado-estado {
@@ -222,31 +229,31 @@
   justify-items: end;
   gap: 5px;
   color: var(--portal-muted);
-  font-size: 0.68rem;
+  font-size: .8125rem;
 }
 
 .cronos-distintivo-demo {
   display: inline-flex;
   min-height: 26px;
   align-items: center;
-  padding: 3px 9px;
-  border: 1px solid var(--portal-aviso);
+  padding: 2px 10px;
+  border: 0;
   border-radius: 999px;
   background: var(--portal-aviso-suave);
   color: var(--portal-aviso);
-  font-weight: 850;
+  font-weight: 600;
 }
 
 .cronos-frontera {
   display: grid;
   grid-template-columns: minmax(220px, 0.8fr) minmax(260px, 1.2fr) minmax(260px, 1.2fr);
   gap: 12px;
-  padding: 11px 13px;
+  padding: 12px 16px;
   border: 1px solid var(--portal-borde);
-  border-left: 4px solid var(--portal-cian);
+  border-left: 3px solid var(--portal-cian);
   border-radius: var(--portal-radio);
   background: var(--portal-superficie);
-  font-size: 0.74rem;
+  font-size: .8125rem;
 }
 
 .cronos-frontera div,
@@ -272,31 +279,35 @@
 }
 
 .cronos-navegacion button {
-  padding: 7px 10px;
+  min-height: 36px;
+  padding: 6px 14px;
   border: 0;
-  border-radius: 5px;
+  border-radius: var(--portal-radio);
   background: transparent;
   color: var(--portal-azul-700);
   cursor: pointer;
-  font-size: 0.73rem;
-  font-weight: 780;
+  font-size: .8125rem;
+  font-weight: 600;
   text-decoration: none;
 }
 
-.cronos-navegacion button:hover {
+.cronos-navegacion button:hover,
+.cronos-navegacion button[aria-current="page"],
+.cronos-navegacion button[aria-selected="true"],
+.cronos-navegacion button[aria-pressed="true"] {
   background: var(--portal-azul-100);
 }
 
 .cronos-boton-tabla {
-  min-height: 30px;
-  padding: 4px 8px;
+  min-height: 32px;
+  padding: 4px 12px;
   border: 1px solid var(--portal-borde);
-  border-radius: 5px;
+  border-radius: var(--portal-radio);
   background: var(--portal-superficie);
   color: var(--portal-azul-700);
   cursor: pointer;
-  font-size: 0.65rem;
-  font-weight: 760;
+  font-size: .8125rem;
+  font-weight: 600;
 }
 
 .cronos-boton-tabla:disabled {
@@ -308,16 +319,17 @@
 .cronos-indicadores {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 10px;
+  gap: 16px;
 }
 
 .cronos-indicador {
+  --cronos-indicador-tinta: var(--portal-azul-700);
   min-width: 0;
-  padding: 11px 12px;
+  padding: 16px 20px;
   border: 1px solid var(--portal-borde);
-  border-top: 3px solid var(--portal-azul-600);
-  border-radius: var(--portal-radio);
+  border-radius: var(--portal-radio-lg);
   background: var(--portal-superficie);
+  box-shadow: var(--portal-sombra-sm);
 }
 
 .cronos-indicador > span,
@@ -329,36 +341,38 @@
 .cronos-indicador > span {
   min-height: 2.1em;
   color: var(--portal-muted);
-  font-size: 0.67rem;
-  font-weight: 760;
+  font-size: .8125rem;
+  font-weight: 600;
 }
 
 .cronos-indicador > strong {
-  margin: 3px 0;
-  font-size: 1.18rem;
+  margin: 4px 0 2px;
+  color: var(--cronos-indicador-tinta);
+  font-size: 1.5rem;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
 .cronos-indicador > small {
   color: var(--portal-muted);
-  font-size: 0.63rem;
+  font-size: .8125rem;
 }
 
-.cronos-indicador-exito { border-top-color: var(--portal-exito); }
-.cronos-indicador-aviso { border-top-color: var(--portal-aviso); }
+.cronos-indicador-exito { --cronos-indicador-tinta: var(--portal-exito); }
+.cronos-indicador-aviso { --cronos-indicador-tinta: var(--portal-aviso); }
 
 .cronos-rejilla-principal {
   display: grid;
   min-width: 0;
   grid-template-columns: minmax(0, 2fr) minmax(280px, 0.72fr);
-  gap: 14px;
+  gap: 20px;
 }
 
 .cronos-rejilla-secundaria {
   display: grid;
   min-width: 0;
   grid-template-columns: minmax(360px, 0.85fr) minmax(0, 1.4fr);
-  gap: 14px;
+  gap: 20px;
 }
 
 .cronos-panel {
@@ -386,8 +400,8 @@
   background: var(--portal-superficie);
   color: var(--portal-azul-700);
   cursor: pointer;
-  font-size: 0.67rem;
-  font-weight: 800;
+  font-size: .8125rem;
+  font-weight: 600;
 }
 
 .cronos-boton-ayuda:hover,
@@ -404,7 +418,7 @@
 .cronos-limite-compacto {
   margin: 3px 0 0;
   color: var(--portal-muted);
-  font-size: 0.7rem;
+  font-size: .8125rem;
 }
 
 .cronos-acciones,
@@ -417,9 +431,9 @@
 
 .cronos-acciones button,
 .cronos-formulario-acciones button {
-  min-height: 34px;
-  padding: 6px 10px;
-  font-size: 0.7rem;
+  min-height: 36px;
+  padding: 6px 14px;
+  font-size: .8125rem;
 }
 
 .cronos-tabla-contenedor {
@@ -431,7 +445,7 @@
   width: 100%;
   min-width: 640px;
   border-collapse: collapse;
-  font-size: 0.72rem;
+  font-size: .875rem;
 }
 
 .cronos-tabla caption {
@@ -448,7 +462,8 @@
 
 .cronos-tabla th,
 .cronos-tabla td {
-  padding: 8px 10px;
+  height: 52px;
+  padding: 10px 16px;
   border-bottom: 1px solid var(--portal-borde);
   text-align: left;
   vertical-align: middle;
@@ -459,10 +474,10 @@
   position: sticky;
   z-index: 1;
   top: 0;
-  background: var(--portal-fondo);
-  color: var(--portal-tinta);
-  font-size: 0.65rem;
-  font-weight: 850;
+  background: var(--portal-superficie);
+  color: var(--portal-muted);
+  font-size: .8125rem;
+  font-weight: 600;
 }
 
 .cronos-tabla tbody tr:last-child > * {
@@ -470,55 +485,52 @@
 }
 
 .cronos-tabla tbody tr:hover {
-  background: var(--portal-azul-100);
+  background: var(--portal-superficie-alterna);
 }
 
 .cronos-tabla code {
   color: var(--portal-muted);
-  font-size: 0.67rem;
+  font-size: .8125rem;
 }
 
 .cronos-estado {
   display: inline-flex;
-  min-height: 23px;
+  min-height: 24px;
   align-items: center;
-  padding: 2px 7px;
-  border: 1px solid var(--portal-borde);
+  padding: 2px 10px;
+  border: 0;
   border-radius: 999px;
-  background: var(--portal-fondo);
+  background: var(--portal-neutro-suave);
   color: var(--portal-muted);
-  font-size: 0.63rem;
-  font-weight: 790;
+  font-size: .8125rem;
+  font-weight: 600;
 }
 
 .cronos-estado-exito {
-  border-color: var(--portal-exito);
   background: var(--portal-exito-suave);
   color: var(--portal-exito);
 }
 
 .cronos-estado-aviso {
-  border-color: var(--portal-aviso);
   background: var(--portal-aviso-suave);
   color: var(--portal-aviso);
 }
 
 .cronos-estado-peligro {
-  border-color: var(--portal-peligro);
   background: var(--portal-peligro-suave);
   color: var(--portal-peligro);
 }
 
 .cronos-resumen-datos {
   margin: 0;
-  padding: 4px 14px 10px;
+  padding: 4px 20px 12px;
 }
 
 .cronos-resumen-datos div {
   display: grid;
   grid-template-columns: minmax(115px, 0.75fr) minmax(0, 1.25fr);
   gap: 8px;
-  padding: 9px 0;
+  padding: 10px 0;
   border-bottom: 1px solid var(--portal-borde);
 }
 
@@ -528,21 +540,21 @@
 
 .cronos-resumen-datos dt {
   color: var(--portal-muted);
-  font-size: 0.68rem;
-  font-weight: 780;
+  font-size: .8125rem;
+  font-weight: 600;
 }
 
 .cronos-resumen-datos dd {
   margin: 0;
-  font-size: 0.72rem;
-  font-weight: 700;
+  font-size: .875rem;
+  font-weight: 600;
 }
 
 .cronos-formulario {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 11px;
-  padding: 14px;
+  gap: 12px 16px;
+  padding: 20px;
 }
 
 .cronos-formulario label {
@@ -551,21 +563,21 @@
   gap: 5px;
   min-width: 0;
   color: var(--portal-tinta);
-  font-size: 0.69rem;
-  font-weight: 780;
+  font-size: .8125rem;
+  font-weight: 600;
 }
 
 .cronos-formulario input,
 .cronos-formulario select,
 .cronos-formulario textarea {
   width: 100%;
-  min-height: 38px;
-  padding: 7px 9px;
+  min-height: 40px;
+  padding: 8px 12px;
   border: 1px solid var(--portal-borde);
-  border-radius: 5px;
+  border-radius: var(--portal-radio);
   background: var(--portal-superficie);
   color: var(--portal-tinta);
-  font-size: 0.74rem;
+  font-size: .875rem;
 }
 
 .cronos-formulario textarea {
@@ -575,7 +587,7 @@
 
 .cronos-formulario small {
   color: var(--portal-muted);
-  font-size: 0.62rem;
+  font-size: .8125rem;
   font-weight: 500;
 }
 
@@ -590,17 +602,17 @@
 
 .cronos-recibos h4 {
   margin: 0;
-  padding: 11px 14px 7px;
-  font-size: 0.75rem;
+  padding: 12px 20px 8px;
+  font-size: .8125rem;
 }
 
 .cronos-mensaje,
 .cronos-acceso-denegado,
 .cronos-vacio {
   margin: 0;
-  padding: 13px 14px;
+  padding: 16px 20px;
   color: var(--portal-muted);
-  font-size: 0.72rem;
+  font-size: .875rem;
 }
 
 .cronos-mensaje:empty {
@@ -678,61 +690,64 @@
 
 /* Recorrido sin datos: la estructura es visible antes de conectar Cronos. */
 .cronos-recorridos { gap: 16px; }
-.cronos-recorrido-pendiente { align-self: start; padding: 6px 10px; border: 1px solid var(--portal-aviso); border-radius: 999px; background: var(--portal-aviso-suave); color: var(--portal-aviso); font-size: .72rem; font-weight: 800; }
-.cronos-recorrido-conexion, .cronos-recorrido-privacidad { padding: 12px 14px; border: 1px solid var(--portal-borde); border-left: 4px solid var(--portal-aviso); border-radius: var(--portal-radio); background: var(--portal-superficie); color: var(--portal-muted); font-size: .76rem; }
+.cronos-recorrido-pendiente { align-self: start; padding: 2px 10px; border: 0; border-radius: 999px; background: var(--portal-aviso-suave); color: var(--portal-aviso); font-size: .8125rem; font-weight: 600; }
+.cronos-recorrido-conexion, .cronos-recorrido-privacidad { padding: 12px 14px; border: 1px solid var(--portal-borde); border-left: 3px solid var(--portal-aviso); border-radius: var(--portal-radio); background: var(--portal-superficie); color: var(--portal-muted); font-size: .8125rem; }
 .cronos-recorrido-conexion p, .cronos-recorrido-privacidad { margin: 5px 0 0; }
 .cronos-recorrido-etapas, .cronos-recorrido-rejilla { display: grid; gap: 10px; }
 .cronos-recorrido-etapas { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.cronos-recorrido-etapas button { min-width: 0; min-height: 88px; padding: 11px; border: 1px solid var(--portal-borde); border-top: 3px solid var(--portal-cian); border-radius: var(--portal-radio); background: var(--portal-superficie); color: inherit; text-align: left; cursor: pointer; }
-.cronos-recorrido-etapas button[aria-selected="true"] { background: var(--portal-azul-100); outline: 2px solid var(--portal-cian); outline-offset: -2px; }
+.cronos-recorrido-etapas button { min-width: 0; min-height: 88px; padding: 11px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-lg); background: var(--portal-superficie); color: inherit; text-align: left; cursor: pointer; }
+.cronos-recorrido-etapas button[aria-selected="true"] { background: var(--portal-azul-100); outline: 2px solid var(--portal-azul-700); outline-offset: -2px; }
 .cronos-recorrido-etapas strong, .cronos-recorrido-etapas span { display: block; }
-.cronos-recorrido-etapas span { margin-top: 5px; color: var(--portal-muted); font-size: .69rem; }
+.cronos-recorrido-etapas span { margin-top: 5px; color: var(--portal-muted); font-size: .8125rem; }
 .cronos-recorrido-etapa { scroll-margin-top: 14px; padding-top: 4px; }
-.cronos-recorrido-etapa > header h3 { margin: 1px 0 10px; font-size: 1.06rem; }
+.cronos-recorrido-etapa > header h3 { margin: 1px 0 12px; font-size: 1.125rem; font-weight: 600; }
 .cronos-recorrido-rejilla { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.cronos-recorrido-panel { min-width: 0; padding: 13px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio); background: var(--portal-superficie); }
+.cronos-recorrido-panel { min-width: 0; padding: 20px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-lg); background: var(--portal-superficie); box-shadow: var(--portal-sombra-sm); }
 .cronos-recorrido-panel h4, .cronos-recorrido-panel p { margin: 0; }
-.cronos-recorrido-panel h4 { font-size: .84rem; }
-.cronos-panel-principal { padding: 0; overflow: hidden; }
-.cronos-panel-principal > h4 { padding: 14px 14px 0; }
-.cronos-cabecera-bandeja { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; padding: 0 14px 12px; }
-.cronos-alta { padding: 0 14px 14px; border-top: 1px solid var(--portal-borde); background: var(--portal-fondo); }
+.cronos-recorrido-panel h4 { font-size: 1.125rem; font-weight: 600; }
+.cronos-panel-principal { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; padding: 0; overflow: hidden; }
+.cronos-panel-principal > * { grid-column: 1 / -1; }
+.cronos-panel-principal > h4 { grid-column: 1; padding: 20px 20px 16px; }
+.cronos-panel-principal > .cronos-cabecera-bandeja { grid-column: 2; }
+.cronos-panel-principal > .cronos-recorrido-vacio { margin: 0 20px 20px !important; }
+.cronos-cabecera-bandeja { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; padding: 12px 20px; }
+.cronos-alta { padding: 0 20px 20px; border-top: 1px solid var(--portal-borde); background: var(--portal-fondo); }
 .cronos-alta[hidden], .cronos-fila-detalle[hidden], .cronos-recorrido-etapa[hidden] { display: none; }
-.cronos-referencia { padding: 0; border: 0; background: transparent; color: var(--portal-azul-700); font: inherit; font-weight: 800; text-align: left; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.cronos-referencia { padding: 0; border: 0; background: transparent; color: var(--portal-azul-700); font: inherit; font-weight: 600; text-align: left; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .cronos-referencia[aria-expanded="true"] { color: var(--portal-tinta); text-decoration-thickness: 2px; }
 .cronos-fila-detalle > td { padding: 0 14px 14px; background: var(--portal-fondo); white-space: normal; }
 .cronos-presentacion-ficha-inline { max-width: 760px; margin: 0; }
-.cronos-recorrido-panel > p { margin-top: 4px; color: var(--portal-muted); font-size: .72rem; }
-.cronos-recorrido-vacio, .cronos-recorrido-aviso { margin-top: 11px !important; padding: 9px; border-radius: 5px; background: var(--portal-fondo); }
+.cronos-recorrido-panel > p { margin-top: 4px; color: var(--portal-muted); font-size: .8125rem; }
+.cronos-recorrido-vacio, .cronos-recorrido-aviso { margin-top: 12px !important; padding: 12px 16px; border-radius: var(--portal-radio); background: var(--portal-superficie-alterna); color: var(--portal-muted); }
 .cronos-recorrido-filtros { display: flex; flex-wrap: wrap; gap: 6px; margin: 11px 0 0; }
-.cronos-recorrido-filtros button { min-height: 34px; padding: 5px 9px; border: 1px solid var(--portal-borde); border-radius: 5px; background: var(--portal-superficie); color: var(--portal-azul-700); font-weight: 700; }
+.cronos-recorrido-filtros button { min-height: 34px; padding: 5px 9px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio); background: var(--portal-superficie); color: var(--portal-azul-700); font-weight: 600; }
 .cronos-recorrido-filtros button[aria-pressed="true"] { border-color: var(--portal-cian); background: var(--portal-azul-100); }
 .cronos-recorrido-formulario { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; margin-top: 11px; }
-.cronos-recorrido-formulario label { display: grid; gap: 4px; color: var(--portal-muted); font-size: .7rem; font-weight: 720; }
+.cronos-recorrido-formulario label { display: grid; gap: 4px; color: var(--portal-muted); font-size: .8125rem; font-weight: 600; }
 .cronos-recorrido-formulario textarea { min-height: 54px; resize: vertical; }
 .cronos-recorrido-formulario textarea, .cronos-recorrido-formulario label:has(textarea), .cronos-recorrido-aviso, .cronos-recorrido-formulario button { grid-column: 1 / -1; }
-.cronos-recorrido-formulario input, .cronos-recorrido-formulario textarea, .cronos-recorrido-formulario select { min-height: 34px; box-sizing: border-box; border: 1px solid var(--portal-borde); border-radius: 5px; background: var(--portal-fondo); color: var(--portal-muted); }
+.cronos-recorrido-formulario input, .cronos-recorrido-formulario textarea, .cronos-recorrido-formulario select { min-height: 34px; box-sizing: border-box; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio); background: var(--portal-fondo); color: var(--portal-muted); }
 .cronos-recorrido-formulario button { justify-self: start; opacity: .72; cursor: not-allowed; }
 @media (max-width: 720px) { .cronos-recorrido-etapas, .cronos-recorrido-rejilla, .cronos-recorrido-formulario { grid-template-columns: minmax(0, 1fr); } .cronos-recorrido-pendiente { justify-self: start; } }
 
 /* Superficie densa de presentación RRHH; hereda tema, no duplica navegación. */
 .cronos-recorrido-panel-ancho { grid-column: 1 / -1; }
 .cronos-presentacion-datos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px 12px; margin: 12px 0 2px; }
-.cronos-presentacion-datos strong { font-size: 1.16rem; font-variant-numeric: tabular-nums; }
-.cronos-presentacion-datos span { color: var(--portal-muted); font-size: .66rem; }
+.cronos-presentacion-datos strong { font-size: 1.5rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.cronos-presentacion-datos span { color: var(--portal-muted); font-size: .8125rem; }
 .cronos-saldo-aviso { color: var(--portal-aviso); }
 .cronos-mini-calendario { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; margin-top: 12px; text-align: center; }
-.cronos-mini-calendario span { color: var(--portal-muted); font-size: .65rem; font-weight: 800; }
-.cronos-mini-calendario b { padding: 8px 2px; border-radius: 5px; background: var(--portal-fondo); font-size: .75rem; }
+.cronos-mini-calendario span { color: var(--portal-muted); font-size: .8125rem; font-weight: 600; }
+.cronos-mini-calendario b { padding: 8px 2px; border-radius: var(--portal-radio); background: var(--portal-fondo); font-size: .8125rem; }
 .cronos-mini-calendario .cronos-dia-activo { background: var(--portal-azul-100); color: var(--portal-azul-700); outline: 1px solid var(--portal-cian); }
-.cronos-recorrido-nota { margin: 10px 0 0; color: var(--portal-muted); font-size: .7rem; }
+.cronos-recorrido-nota { margin: 10px 0 0; color: var(--portal-muted); font-size: .8125rem; }
 .cronos-lista-mensajes { display: grid; gap: 8px; padding: 0; margin: 12px 0; list-style: none; }
-.cronos-lista-mensajes li { display: grid; gap: 2px; padding: 9px; border-left: 3px solid var(--portal-cian); background: var(--portal-fondo); font-size: .71rem; }
+.cronos-lista-mensajes li { display: grid; gap: 2px; padding: 9px; border-left: 3px solid var(--portal-cian); background: var(--portal-fondo); font-size: .8125rem; }
 .cronos-lista-mensajes span { color: var(--portal-muted); }
 .cronos-presentacion-ficha { margin: 12px 0; }
 .cronos-presentacion-ficha div { display: grid; grid-template-columns: minmax(120px, .5fr) minmax(0, 1fr); gap: 9px; padding: 8px 0; border-bottom: 1px solid var(--portal-borde); }
-.cronos-presentacion-ficha dt { color: var(--portal-muted); font-size: .67rem; font-weight: 800; }
-.cronos-presentacion-ficha dd { margin: 0; font-size: .72rem; }
+.cronos-presentacion-ficha dt { color: var(--portal-muted); font-size: .8125rem; font-weight: 600; }
+.cronos-presentacion-ficha dd { margin: 0; font-size: .8125rem; }
 .cronos-recorrido-tabla [data-cronos-fila] { cursor: pointer; }
 .cronos-recorrido-tabla [data-cronos-fila][aria-selected="true"] { background: var(--portal-azul-100); outline: 2px solid var(--portal-cian); outline-offset: -2px; }
 .cronos-recorrido-tabla [data-cronos-fila]:focus-visible { outline: 3px solid var(--portal-cian); outline-offset: -3px; }

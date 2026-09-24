@@ -20,7 +20,7 @@
 }
 
 .dietas-borradores-propios .dietas-listado > .cuerpo-panel > .dietas-borradores-indicacion-error {
-  border-inline-start: 4px solid var(--portal-peligro);
+  border-inline-start: 3px solid var(--portal-peligro);
   color: var(--portal-tinta);
 }
 

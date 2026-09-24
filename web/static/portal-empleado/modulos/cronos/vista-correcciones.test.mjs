@@ -7,7 +7,7 @@ test("C5 prepara fecha, hora, original, motivo y revisión sin simular un regist
   const html = renderizarCorreccionesCronos();
   for (const nombre of ["fecha", "hora", "tipo", "original", "motivo"]) assert.match(html, new RegExp(`name="${nombre}"`, "u"));
   assert.match(html, /Preparación local · sin registrar/u);
-  assert.match(html, /Lo escrito aquí no se guarda ni llega al responsable/u);
+  assert.match(html, /lo escrito no se guarda/u);
   assert.match(html, /El marcaje original se conservará/u);
   assert.match(html, /Enviar para validación<\/button>/u);
   assert.match(html, /disabled aria-disabled="true" title="Acción deshabilitada/u);
