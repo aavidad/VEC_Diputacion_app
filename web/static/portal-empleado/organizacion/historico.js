@@ -202,7 +202,7 @@ export function iniciarHistorico(cliente = crearClienteHistorico(), montaje = MO
   buscar("#history-known-at").value = `${fechaHoy} ${hora}:${minuto}`;
   buscar("#history-search").disabled = false;
   state.textContent = t("historyReady");
-  buscar("#history-authorization").textContent = t("historyPending");
+  buscar("#history-autorizacion").textContent = t("historyPending");
   let filtros, datos, controlador, secuencia = 0;
   const renderizar = () => {
     if (!datos) return;
@@ -218,7 +218,7 @@ export function iniciarHistorico(cliente = crearClienteHistorico(), montaje = MO
   const pintarResultado = () => {
     results.hidden = false;
     buscar("#history-panel").classList.toggle("has-data", SECCIONES.some((clave) => datos.pagina[clave].length > 0));
-    buscar("#history-authorization").textContent = t("historyReadOnly");
+    buscar("#history-autorizacion").textContent = t("historyReadOnly");
     state.hidden = false;
     state.className = "solo-lectura";
     state.textContent = t("historyLoaded");
@@ -266,7 +266,7 @@ export function iniciarHistorico(cliente = crearClienteHistorico(), montaje = MO
       if (actual !== secuencia) return;
       results.hidden = true;
       buscar("#history-panel").classList.remove("has-data");
-      buscar("#history-authorization").textContent = error.status === 401 || error.status === 403 ? t("historyDeniedPill") : t("historyPending");
+      buscar("#history-autorizacion").textContent = error.status === 401 || error.status === 403 ? t("historyDeniedPill") : t("historyPending");
       state.className = "org-state error";
       state.textContent = error.status === 401 || error.status === 403 ? t("historyDenied") : t("historyError");
     } finally {
@@ -286,7 +286,7 @@ export function iniciarHistorico(cliente = crearClienteHistorico(), montaje = MO
     } catch {
       results.hidden = true;
       buscar("#history-panel").classList.remove("has-data");
-      buscar("#history-authorization").textContent = t("historyPending");
+      buscar("#history-autorizacion").textContent = t("historyPending");
       state.hidden = false;
       state.className = "org-state error";
       state.textContent = t("historyInvalid");
