@@ -7,7 +7,7 @@ import {
 
 function datosBase() {
   return {
-    meta: { presentacion: true },
+    meta: { presentacion: false },
     resumen: { mensajes_no_leidos: 0 },
     preferencias_notificacion: {},
     mensajes: [],
@@ -32,18 +32,19 @@ test("mensajes distingue bandeja vacía, error de datos y canales no conectados"
 test("certificados vacíos o no disponibles no se presentan como oficiales", () => {
   const vacia = renderizarCertificados(datosBase());
   assert.match(vacia, /No hay certificados disponibles/u);
-  assert.match(vacia, /No contiene firma o sello oficial/u);
-  assert.match(vacia, /ni acredita entrega/u);
+  assert.match(vacia, /solo podrá presentarse como oficial cuando incluya firma o sello, CSV\/QR verificable/u);
+  assert.doesNotMatch(vacia, /DEMO|demostración/u);
 
   const error = renderizarCertificados({ ...datosBase(), certificados: null });
   assert.match(error, /No se pueden mostrar los certificados/u);
 
   const disponible = renderizarCertificados({
     ...datosBase(),
-    certificados: [{ id: "DEMO-CER-001", tipo: "Certificado", descripcion: "Documento sintético", estado: "Disponible", formatos: "PDF, ODT" }],
+    certificados: [{ id: "CER-001", tipo: "Certificado", descripcion: "Documento sintético", estado: "Disponible", formatos: "PDF, ODT" }],
   });
-  assert.match(disponible, /Preparar certificado DEMO/u);
-  assert.match(disponible, /Referencia técnica: DEMO-CER-001/u);
+  assert.match(disponible, /Solicitar certificado/u);
+  assert.match(disponible, /<option>PDF<\/option><option>ODT<\/option>/u);
+  assert.match(disponible, /Referencia técnica: CER-001/u);
   assert.doesNotMatch(disponible, /Generar certificado/u);
 });
 
@@ -52,6 +53,8 @@ test("ayuda conserva la guía textual y jerarquía accesible sin audio ajeno", (
   assert.match(ayuda, /Sin coincidencias/u);
   assert.match(ayuda, /<section aria-labelledby="titulo-guia-ayuda"><h4 id="titulo-guia-ayuda">Leer esta ayuda<\/h4>/u);
   assert.match(ayuda, /Esta guía explica el área personal de Bolsa/u);
+  assert.match(ayuda, /depende de la confirmación del servicio autorizado/u);
+  assert.doesNotMatch(ayuda, /DEMO|demostración/u);
   assert.match(ayuda, /<aside aria-label="Opciones y canales de ayuda">/u);
   assert.doesNotMatch(ayuda, /<audio\b|ayuda-llamamiento-bolsa\.mp3/u);
   assert.doesNotMatch(ayuda, /https?:\/\//u);

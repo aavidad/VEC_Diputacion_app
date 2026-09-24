@@ -132,7 +132,6 @@ func TestPresentacionSoloExponeSuperficiesEnumeradas(t *testing.T) {
 	}{
 		{"/presentacion/", "Recorrido de presentación"},
 		{"/area-personal/", "Mi área personal"},
-		{"/area-personal/adaptador-presentacion.js", "Adaptador efímero y exclusivo de presentación"},
 		{"/portal-empleado/", "Portal del Empleado"},
 		{"/portal-empleado/datos-presentacion.js", "ADAPTADOR EXCLUSIVO DE PRESENTACIÓN RRHH"},
 		{"/portal-empleado/portal-presentacion-adaptador.js", "Adaptador volátil y sustituible"},

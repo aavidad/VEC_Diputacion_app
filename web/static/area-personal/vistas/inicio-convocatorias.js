@@ -43,9 +43,8 @@ export function renderizarConvocatorias(datos, estado) {
       && (filtroCategoria === "Todas" || item.categoria === filtroCategoria);
   });
   const tarjetas = resultados.map((convocatoria) => {
-    const permiteSolicitud = convocatoria.estado === "Plazo abierto" || (datos.meta.presentacion && convocatoria.recorrido_demo === true);
-    const etiquetaSolicitud = datos.meta.presentacion && convocatoria.recorrido_demo === true ? "Simular solicitud DEMO" : "Iniciar solicitud";
-    return `<article class="tarjeta-convocatoria"><div><div class="metadatos"><span>${escaparHTML(convocatoria.cve_bop || convocatoria.referencia)}</span>${chip(convocatoria.estado)}<span>${escaparHTML(convocatoria.categoria)}</span></div><h3>${escaparHTML(convocatoria.titulo)}</h3><p>${escaparHTML(convocatoria.descripcion)}</p><div class="metadatos"><strong>${escaparHTML(convocatoria.plazo)}</strong>${convocatoria.publicada_en ? `<span>Publicada el ${escaparHTML(convocatoria.publicada_en)}</span>` : ""}</div></div><div class="fila-acciones"><button type="button" class="boton-secundario" data-accion="abrir-convocatoria" data-id="${escaparAtributo(convocatoria.id)}">Ver detalle y requisitos</button>${permiteSolicitud ? `<button type="button" class="boton-primario" data-accion="iniciar-solicitud" data-id="${escaparAtributo(convocatoria.id)}">${escaparHTML(etiquetaSolicitud)}</button>` : ""}</div></article>`;
+    const permiteSolicitud = convocatoria.estado === "Plazo abierto";
+    return `<article class="tarjeta-convocatoria"><div><div class="metadatos"><span>${escaparHTML(convocatoria.cve_bop || convocatoria.referencia)}</span>${chip(convocatoria.estado)}<span>${escaparHTML(convocatoria.categoria)}</span></div><h3>${escaparHTML(convocatoria.titulo)}</h3><p>${escaparHTML(convocatoria.descripcion)}</p><div class="metadatos"><strong>${escaparHTML(convocatoria.plazo)}</strong>${convocatoria.publicada_en ? `<span>Publicada el ${escaparHTML(convocatoria.publicada_en)}</span>` : ""}</div></div><div class="fila-acciones"><button type="button" class="boton-secundario" data-accion="abrir-convocatoria" data-id="${escaparAtributo(convocatoria.id)}">Ver detalle y requisitos</button>${permiteSolicitud ? `<button type="button" class="boton-primario" data-accion="iniciar-solicitud" data-id="${escaparAtributo(convocatoria.id)}">Iniciar solicitud</button>` : ""}</div></article>`;
   }).join("");
 
   return `${encabezadoVista("Convocatorias y procesos selectivos", "Consulte bases, requisitos, plazos y estado antes de iniciar una solicitud.")}
@@ -61,12 +60,11 @@ export function renderizarDetalleConvocatoria(datos, estado) {
       : { titulo: String(documento), aviso: "Documento público de la convocatoria", url: "" };
     const accion = descriptor.url
       ? `<a class="boton-secundario" href="${escaparAtributo(descriptor.url)}" target="_blank" rel="noopener">Abrir ${escaparHTML(descriptor.formato || "documento")}</a>`
-      : botonOperacion("solicitar_descarga", datos.meta.presentacion ? "Preparar descarga DEMO" : "Descargar", { id: convocatoria.id, clase: "boton-secundario", descripcion: `Preparar descarga de ${descriptor.titulo}` });
+      : botonOperacion("solicitar_descarga", "Descargar", { id: convocatoria.id, clase: "boton-secundario", descripcion: `Preparar descarga de ${descriptor.titulo}` });
     return `<li><span class="fecha-bloque" aria-hidden="true">${indice + 1}</span><span><strong>${escaparHTML(descriptor.titulo)}</strong><small>${escaparHTML(descriptor.aviso || "Documento público de la convocatoria")}</small></span>${accion}</li>`;
   }).join("");
-  const permiteSolicitud = convocatoria.estado === "Plazo abierto" || (datos.meta.presentacion && convocatoria.recorrido_demo === true);
-  const etiquetaSolicitud = datos.meta.presentacion && convocatoria.recorrido_demo === true ? "Simular solicitud DEMO" : "Iniciar solicitud";
-  const acciones = `<button type="button" class="boton-secundario" data-accion="volver-convocatorias">Volver al listado</button>${permiteSolicitud ? `<button type="button" class="boton-primario" data-accion="iniciar-solicitud" data-id="${escaparAtributo(convocatoria.id)}">${escaparHTML(etiquetaSolicitud)}</button>` : ""}`;
+  const permiteSolicitud = convocatoria.estado === "Plazo abierto";
+  const acciones = `<button type="button" class="boton-secundario" data-accion="volver-convocatorias">Volver al listado</button>${permiteSolicitud ? `<button type="button" class="boton-primario" data-accion="iniciar-solicitud" data-id="${escaparAtributo(convocatoria.id)}">Iniciar solicitud</button>` : ""}`;
   return `${encabezadoVista(convocatoria.titulo, convocatoria.referencia, acciones)}
     <div class="rejilla-principal"><div>
       ${panel("Resumen de la convocatoria", convocatoria.descripcion, listaDatos([

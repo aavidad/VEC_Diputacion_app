@@ -17,11 +17,10 @@ export function renderizarMensajes(datos) {
 }
 
 export function renderizarCertificados(datos) {
-  const demo = datos.meta?.presentacion === true;
   const listaCertificados = Array.isArray(datos.certificados) ? datos.certificados : null;
   const certificados = (listaCertificados || []).map((item) => {
-    const formatos = demo ? ["PDF"] : item.formatos.split(/, | o /);
-    return `<article class="panel"><header><div><h3>${escaparHTML(item.tipo)}</h3><p><small>Referencia técnica: ${escaparHTML(item.id)}</small></p></div>${chip(item.estado)}</header><div class="panel-contenido"><p>${escaparHTML(item.descripcion)}</p><form class="fila-acciones" data-operacion="solicitar_certificado" data-id="${escaparAtributo(item.id)}"><div class="campo"><label for="formato-${escaparAtributo(item.id)}">${demo ? "Formato disponible en la demo" : "Formato"}</label><select id="formato-${escaparAtributo(item.id)}" name="formato">${formatos.map((formato) => `<option>${escaparHTML(formato)}</option>`).join("")}</select></div><button type="submit" class="boton-primario">${demo ? "Preparar certificado DEMO" : "Solicitar certificado"}</button></form></div></article>`;
+    const formatos = item.formatos.split(/, | o /);
+    return `<article class="panel"><header><div><h3>${escaparHTML(item.tipo)}</h3><p><small>Referencia técnica: ${escaparHTML(item.id)}</small></p></div>${chip(item.estado)}</header><div class="panel-contenido"><p>${escaparHTML(item.descripcion)}</p><form class="fila-acciones" data-operacion="solicitar_certificado" data-id="${escaparAtributo(item.id)}"><div class="campo"><label for="formato-${escaparAtributo(item.id)}">Formato</label><select id="formato-${escaparAtributo(item.id)}" name="formato">${formatos.map((formato) => `<option>${escaparHTML(formato)}</option>`).join("")}</select></div><button type="submit" class="boton-primario">Solicitar certificado</button></form></div></article>`;
   }).join("");
   const filas = (Array.isArray(datos.documentos) ? datos.documentos : []).map((item) => [
     `<strong>${escaparHTML(item.nombre)}</strong><small>${escaparHTML(item.id)}</small>`, escaparHTML(item.tipo),
@@ -29,7 +28,7 @@ export function renderizarCertificados(datos) {
     `<div class="acciones-tabla">${botonOperacion("solicitar_descarga", "Descargar", { id: item.id, clase: "boton-secundario", descripcion: `Preparar descarga de ${item.nombre}` })}</div>`,
   ]);
   return `${encabezadoVista("Certificados y descargas", "Obtenga documentos en formatos configurados y consulte su procedencia.")}
-    <p class="nota aviso">${demo ? "Esta demostración genera un PDF real identificado sin ambigüedad como DEMO y sin validez administrativa. No contiene firma o sello oficial, CSV/QR verificable ni acredita entrega. La emisión definitiva incorporará versión y, cuando corresponda, vigencia o revocación." : "Un certificado solo podrá presentarse como oficial cuando incluya firma o sello, CSV/QR verificable, versión y, cuando corresponda, vigencia o revocación."}</p>
+    <p class="nota aviso">Un certificado solo podrá presentarse como oficial cuando incluya firma o sello, CSV/QR verificable, versión y, cuando corresponda, vigencia o revocación.</p>
     <div class="rejilla-dos">${listaCertificados === null ? '<p class="nota error" role="alert"><strong>No se pueden mostrar los certificados.</strong> Inténtelo de nuevo cuando el servicio autorizado esté disponible.</p>' : certificados || estadoVacio("No hay certificados disponibles", "No se ha preparado ningún certificado para esta identidad.")}</div>
     ${panel("Mis documentos", "Descargas autorizadas asociadas a la identidad", tabla({ descripcion: "Documentación disponible para la persona interesada", columnas: ["Documento", "Tipo", "Fecha", "Estado", "Acción"], filas }))}`;
 }
@@ -39,14 +38,14 @@ export function renderizarAyuda(datos, estado = {}) {
   const ayuda = Array.isArray(datos.ayuda) ? datos.ayuda : null;
   const preguntas = (ayuda || []).filter((item) => !termino || `${item.pregunta} ${item.respuesta}`.toLowerCase().includes(termino));
   const faq = ayuda === null ? '<p class="nota error" role="alert"><strong>La ayuda no está disponible.</strong> No se ha enviado información a ningún servicio externo.</p>' : preguntas.map((item) => `<details><summary>${escaparHTML(item.pregunta)}</summary><p>${escaparHTML(item.respuesta)}</p></details>`).join("") || estadoVacio("Sin coincidencias", "Pruebe con otras palabras o borre la búsqueda.");
-  const transcripcion = `${traducir("areaPersonal.ayuda.guia.texto")} ${traducir(datos.meta?.presentacion === true ? "areaPersonal.ayuda.guia.limiteSintetico" : "areaPersonal.ayuda.guia.limiteServicio")}`;
+  const transcripcion = `${traducir("areaPersonal.ayuda.guia.texto")} ${traducir("areaPersonal.ayuda.guia.limiteServicio")}`;
   return `${encabezadoVista("Ayuda y accesibilidad", traducir("areaPersonal.ayuda.descripcion"), `<button type="button" class="boton-primario" data-accion="leer-pantalla">Leer esta página</button>`)}
     <div class="rejilla-principal"><div>
       ${panel("Buscar en la ayuda", "Respuestas sobre inscripción, méritos, baremo y llamamientos", `<form id="busqueda-ayuda" data-accion="buscar-ayuda"><div class="campo"><label for="consulta-ayuda">¿Qué necesita saber?</label><input id="consulta-ayuda" name="consulta" type="search" value="${escaparAtributo(estado.consultaAyuda || "")}" placeholder="Ejemplo: presentar una subsanación"></div><button type="submit" class="boton-primario">Buscar</button></form><div class="resultado-ayuda">${faq}</div>`)}
       ${panel(traducir("areaPersonal.ayuda.guia.titulo"), traducir("areaPersonal.ayuda.guia.subtitulo"), `<section aria-labelledby="titulo-guia-ayuda"><h4 id="titulo-guia-ayuda">${escaparHTML(traducir("areaPersonal.ayuda.guia.encabezado"))}</h4><p>${escaparHTML(transcripcion)}</p></section>`)}
     </div><aside aria-label="Opciones y canales de ayuda">
       ${panel("Opciones de visualización", "Se aplican solo durante esta visita", `<div class="fila-acciones"><button type="button" class="boton-secundario" data-accion="alternar-texto">Aumentar texto</button><button type="button" class="boton-secundario" data-accion="alternar-contraste">Alto contraste</button><button type="button" class="boton-secundario" data-accion="leer-pantalla">Lectura por voz</button></div><p>La interfaz admite teclado, ampliación del navegador, lectura de pantalla y reducción de movimiento.</p>`)}
-      ${panel("Canales de soporte", "Ayuda sin exponer datos personales", `<dl class="dato-lista"><dt>Asistente</dt><dd>Consultas públicas sobre plazos, requisitos y uso del portal.</dd><dt>Soporte técnico</dt><dd>${datos.meta?.presentacion === true ? "Referencia sintética: DEMO-AYUDA-001" : "Canal autorizado indicado por el servicio"}</dd><dt>Protección de datos</dt><dd>Información de derechos y tratamiento en el aviso aplicable.</dd></dl><p class="nota">No incluya documentación personal en consultas generales de ayuda.</p>`)}
+      ${panel("Canales de soporte", "Ayuda sin exponer datos personales", `<dl class="dato-lista"><dt>Asistente</dt><dd>Consultas públicas sobre plazos, requisitos y uso del portal.</dd><dt>Soporte técnico</dt><dd>Canal autorizado indicado por el servicio</dd><dt>Protección de datos</dt><dd>Información de derechos y tratamiento en el aviso aplicable.</dd></dl><p class="nota">No incluya documentación personal en consultas generales de ayuda.</p>`)}
       ${panel("Navegación rápida", "Recorridos habituales", `<div class="fila-acciones">${enlaceRuta("convocatorias", "Inscribirme", "enlace-boton")}${enlaceRuta("meritos", "Aportar méritos", "enlace-boton")}${enlaceRuta("llamamientos", "Responder llamamiento", "enlace-boton")}</div>`)}
     </aside></div>`;
 }
