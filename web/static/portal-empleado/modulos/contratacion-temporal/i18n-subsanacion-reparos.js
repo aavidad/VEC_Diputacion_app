@@ -8,6 +8,7 @@ export const MENSAJES_SUBSANACION_REPAROS_ES = Object.freeze({
   subsanacion_confirmacion: "Se registrará la subsanación y el expediente continuará en el circuito de reparos. No aprueba la fiscalización.",
   subsanacion_preparacion_titulo: "Subsanación preparada",
   subsanacion_contenido_original: "Observaciones originales bloqueadas",
+  subsanacion_version_original: "Versión de la operación recuperada",
   subsanacion_preparacion_ayuda: "Descargue el archivo de recuperación antes de enviar. La descarga inicia en este navegador; compruebe que puede conservar el archivo.",
   subsanacion_preparada: "La operación está preparada y aún no se ha enviado.",
   subsanacion_enviar_preparada: "Enviar subsanación preparada",

@@ -13,7 +13,7 @@ function archivo(texto, size = new TextEncoder().encode(texto).byteLength) {
   return { size, text: async () => texto };
 }
 
-function escenario({ respuestas = [], intencionInicial = null, soloImportar = false, guardar = () => true } = {}) {
+function escenario({ respuestas = [], intencionInicial = null, reciboConfirmado = null, soloImportar = false, contextoActual = contexto, versionesRecuperacionAnteriores = [], guardar = () => true } = {}) {
   const eventos = new Map(), peticiones = [], cambios = [], confirmaciones = [];
   const enlaces = [];
   const raiz = {
@@ -29,7 +29,7 @@ function escenario({ respuestas = [], intencionInicial = null, soloImportar = fa
     replaceChildren() { this.innerHTML = ""; },
   };
   const desmontar = montarFormularioSubsanacionReparos({
-    raiz, contexto, intencionInicial, soloImportar,
+    raiz, contexto: contextoActual, intencionInicial, reciboConfirmado, soloImportar, versionesRecuperacionAnteriores,
     traducir: (claveTexto) => textos[claveTexto] ?? claveTexto,
     confirmarOperacion: () => true,
     generarClaveIdempotencia: () => solicitud.clave_idempotencia,
@@ -157,4 +157,61 @@ test("reentrada con intención inicial usa el DTO antiguo sin generar otra clave
   assert.deepEqual(x.peticiones, [solicitud]);
   assert.deepEqual(x.confirmaciones, [{ confirmado: recibo, contextoOriginal: contexto }]);
   x.desmontar();
+});
+
+test("v9 autorizado recupera archivo v6 solo si su hito figura en versiones anteriores", async () => {
+  const contextoActual = { ...contexto, version_esperada: 9 };
+  const texto = serializarDatosRecuperacionSubsanacion(solicitud);
+  const x = escenario({ contextoActual, versionesRecuperacionAnteriores: Object.freeze([6]), respuestas: [recibo] });
+  assert.match(x.raiz.innerHTML, /data-ct-subsanacion-form/u, "el reparo nuevo v9 puede prepararse antes de importar");
+  await x.importar(archivo(texto));
+  assert.equal(x.peticiones.length, 0);
+  assert.deepEqual(x.cambios[0], { solicitud, incierta: true });
+  assert.doesNotMatch(x.raiz.innerHTML, /data-ct-subsanacion-form/u, "importar bloquea el alta v9");
+  assert.match(x.raiz.innerHTML, /data-ct-subsanacion-recuperar/u);
+  await x.recuperar();
+  assert.deepEqual(x.peticiones, [solicitud]);
+  assert.deepEqual(x.confirmaciones, [{ confirmado: recibo, contextoOriginal: contexto }]);
+  assert.equal(x.cambios.at(-1), null);
+  x.desmontar();
+});
+
+test("v9 rechaza archivo de versión no listada, expediente ajeno y campos extra", async () => {
+  const contextoActual = { ...contexto, version_esperada: 9 };
+  const x = escenario({ contextoActual, versionesRecuperacionAnteriores: Object.freeze([6]) });
+  const datos = JSON.parse(serializarDatosRecuperacionSubsanacion(solicitud));
+  for (const alterado of [
+    { ...datos, solicitud: { ...solicitud, version_esperada: 5 } },
+    { ...datos, solicitud: { ...solicitud, expediente_ref: "expediente:ajeno" } },
+    { ...datos, solicitud: { ...solicitud, actor_ref: "actor:ajeno" } },
+    { ...datos, recibo_ref: "recibo:falso" },
+  ]) {
+    await x.importar(archivo(JSON.stringify(alterado)));
+    assert.equal(x.peticiones.length, 0);
+    assert.equal(x.cambios.length, 0);
+    assert.match(x.raiz.innerHTML, /data-ct-subsanacion-form/u);
+  }
+  x.desmontar();
+});
+
+test("intención histórica v6 requiere incierta=true y versión autorizada en v9", () => {
+  const contextoActual = { ...contexto, version_esperada: 9 };
+  assert.throws(() => escenario({ contextoActual, intencionInicial: { solicitud, incierta: false }, versionesRecuperacionAnteriores: [6] }));
+  assert.throws(() => escenario({ contextoActual, intencionInicial: { solicitud, incierta: true }, versionesRecuperacionAnteriores: [] }));
+  const x = escenario({ contextoActual, intencionInicial: { solicitud, incierta: true }, versionesRecuperacionAnteriores: Object.freeze([6]) });
+  assert.doesNotMatch(x.raiz.innerHTML, /data-ct-subsanacion-form/u);
+  assert.match(x.raiz.innerHTML, /data-ct-subsanacion-recuperar/u);
+  x.desmontar();
+});
+
+test("recibo histórico v7 remonta en v9 autorizado y lista de versiones es cerrada", () => {
+  const contextoActual = { ...contexto, version_esperada: 9 };
+  const x = escenario({ contextoActual, versionesRecuperacionAnteriores: Object.freeze([6]), reciboConfirmado: { recibo, contexto } });
+  assert.match(x.raiz.innerHTML, /data-ct-subsanacion-recibo/u);
+  assert.doesNotMatch(x.raiz.innerHTML, /data-ct-subsanacion-form/u);
+  x.desmontar();
+  for (const versiones of [[6, 6], [9], [10], [0], ["6"], "6"]) {
+    assert.throws(() => escenario({ contextoActual, versionesRecuperacionAnteriores: versiones }));
+  }
+  assert.throws(() => escenario({ contextoActual, reciboConfirmado: { recibo, contexto } }));
 });
