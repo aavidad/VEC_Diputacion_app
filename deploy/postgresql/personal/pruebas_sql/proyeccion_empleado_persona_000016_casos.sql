@@ -113,13 +113,29 @@ SELECT pg_temp.exigir(NOT EXISTS (
   SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a
    WHERE p.pronamespace = 'vec_personal'::regnamespace
      AND p.proname IN ('publicar_proyeccion_empleado_persona_v1','resolver_empleado_canonico_persona_v1',
-                       'validar_version_proyeccion_empleado_v1','rechazar_mutacion_proyeccion_empleado_v1')
+                       'validar_version_proyeccion_empleado_v1','rechazar_mutacion_proyeccion_empleado_v1',
+                       'bloquear_generacion_proyeccion_empleado_persona_v1')
      AND a.grantee <> p.proowner), 'EXECUTE solo propietario');
 SELECT pg_temp.exigir(NOT has_table_privilege('vec_personal_ejecutor','vec_personal.proyeccion_empleado_persona_historia','SELECT'), 'ejecutor sin SELECT');
-SELECT pg_temp.exigir((SELECT relrowsecurity AND relforcerowsecurity FROM pg_class
-  WHERE oid = 'vec_personal.proyeccion_empleado_persona_historia'::regclass), 'RLS forzada');
+SELECT pg_temp.exigir(NOT has_table_privilege('vec_personal_ejecutor','vec_personal.proyeccion_empleado_persona_control','SELECT'), 'ejecutor sin SELECT de control');
+SELECT pg_temp.exigir((SELECT bool_and(relrowsecurity AND relforcerowsecurity) FROM pg_class
+  WHERE oid IN ('vec_personal.proyeccion_empleado_persona_historia'::regclass,
+                'vec_personal.proyeccion_empleado_persona_control'::regclass)), 'RLS forzada');
 SELECT pg_temp.exigir((SELECT bool_and(prosecdef AND proconfig @> ARRAY['search_path=pg_catalog']) FROM pg_proc
   WHERE oid IN ('vec_personal.publicar_proyeccion_empleado_persona_v1(text,bigint,text,text,text,timestamptz,timestamptz,text,text,bigint,text)'::regprocedure,
-                'vec_personal.resolver_empleado_canonico_persona_v1(text,timestamptz)'::regprocedure)), 'SECURITY DEFINER con search_path fijo');
+                'vec_personal.resolver_empleado_canonico_persona_v1(text,timestamptz)'::regprocedure,
+                'vec_personal.bloquear_generacion_proyeccion_empleado_persona_v1(text)'::regprocedure)), 'SECURITY DEFINER con search_path fijo');
+-- Generación por persona: avanza una vez por publicación nueva (no por
+-- reenvío idempotente ni por rechazo) y la barrera la devuelve.
+SELECT pg_temp.exigir((SELECT count(*) FROM vec_personal.proyeccion_empleado_persona_control) = 6
+  AND NOT EXISTS (
+    SELECT 1 FROM vec_personal.proyeccion_empleado_persona_control c
+     WHERE c.generacion <> (SELECT count(*) FROM vec_personal.proyeccion_empleado_persona_historia h
+                             WHERE h.persona_ref = c.persona_ref)), 'generación = publicaciones');
+SELECT pg_temp.exigir(vec_personal.bloquear_generacion_proyeccion_empleado_persona_v1('per_sintetica_noactiva_000000000000001') = 3, 'barrera devuelve generación');
+SELECT pg_temp.exigir(vec_personal.bloquear_generacion_proyeccion_empleado_persona_v1('per_sintetica_sin_empleado_0000000001') = 0, 'barrera sin publicaciones');
+SELECT pg_temp.rechaza($q$SELECT vec_personal.bloquear_generacion_proyeccion_empleado_persona_v1('dni_12345678Z')$q$, '22023', 'barrera selector civil');
+SELECT pg_temp.rechaza($q$DELETE FROM vec_personal.proyeccion_empleado_persona_control$q$, '55000', 'delete control');
+SELECT pg_temp.rechaza($q$TRUNCATE vec_personal.proyeccion_empleado_persona_control$q$, '55000', 'truncate control');
 SELECT pg_temp.exigir((SELECT count(*) FROM vec_personal.proyeccion_empleado_persona_historia) = 11, 'historia completa');
 \echo 'Personal 000016: casos de proyección persona-empleado OK'

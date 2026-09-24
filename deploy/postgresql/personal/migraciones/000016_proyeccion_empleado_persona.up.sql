@@ -16,6 +16,17 @@
 -- resolutor de contexto de actor la recibirá en su propia migración nominal
 -- cuando Dirección fije cómo incorpora la proyección (véase el informe del
 -- corte). La publicación queda reservada al propietario de Personal.
+--
+-- Generación por persona. La historia es de solo adición: un lector
+-- SERIALIZABLE con instantánea anterior a una publicación ya confirmada no
+-- choca con ninguna fila y leería el estado previo aunque haya esperado al
+-- publicador en el bloqueo consultivo. Por eso cada publicación nueva avanza,
+-- en su misma transacción, una fila de control por persona; el lector la toma
+-- con FOR SHARE mediante bloquear_generacion_proyeccion_empleado_persona_v1
+-- antes de leer la historia: si la versión de la fila la confirmó alguien
+-- después de su instantánea, PostgreSQL devuelve 40001 y el lector reintenta.
+-- Sin fila (persona nunca publicada) no hay nada que avanzar: una primera
+-- publicación concurrente solo puede verse como sin_empleado, que deniega.
 BEGIN;
 SET LOCAL ROLE vec_personal_propietario;
 SET LOCAL search_path = pg_catalog;
@@ -31,6 +42,8 @@ BEGIN
     OR to_regprocedure('vec_personal.rechazar_mutacion_proyeccion_empleado_v1()') IS NOT NULL
     OR to_regprocedure('vec_personal.publicar_proyeccion_empleado_persona_v1(text,bigint,text,text,text,timestamptz,timestamptz,text,text,bigint,text)') IS NOT NULL
     OR to_regprocedure('vec_personal.resolver_empleado_canonico_persona_v1(text,timestamptz)') IS NOT NULL
+    OR to_regclass('vec_personal.proyeccion_empleado_persona_control') IS NOT NULL
+    OR to_regprocedure('vec_personal.bloquear_generacion_proyeccion_empleado_persona_v1(text)') IS NOT NULL
     OR NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='vec_personal_ejecutor'
                      AND NOT rolcanlogin AND NOT rolsuper AND NOT rolbypassrls)
     OR NOT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname='vec_personal'
@@ -112,6 +125,22 @@ CREATE POLICY propietario_interno ON vec_personal.proyeccion_empleado_persona_hi
  FOR ALL TO vec_personal_propietario USING (true) WITH CHECK (true);
 REVOKE ALL ON TABLE vec_personal.proyeccion_empleado_persona_historia FROM PUBLIC,vec_personal_ejecutor;
 
+-- Generación por persona: una fila por persona con alguna publicación; solo la
+-- avanza publicar_proyeccion_empleado_persona_v1. Nunca se borra.
+CREATE TABLE vec_personal.proyeccion_empleado_persona_control (
+ persona_ref text PRIMARY KEY CHECK (persona_ref ~ '^per_[A-Za-z0-9_-]{22,128}$'),
+ generacion bigint NOT NULL CHECK (generacion > 0)
+);
+CREATE TRIGGER control_no_borrable BEFORE DELETE ON vec_personal.proyeccion_empleado_persona_control
+ FOR EACH ROW EXECUTE FUNCTION vec_personal.rechazar_mutacion_proyeccion_empleado_v1();
+CREATE TRIGGER no_truncar BEFORE TRUNCATE ON vec_personal.proyeccion_empleado_persona_control
+ FOR EACH STATEMENT EXECUTE FUNCTION vec_personal.rechazar_mutacion_proyeccion_empleado_v1();
+ALTER TABLE vec_personal.proyeccion_empleado_persona_control ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_personal.proyeccion_empleado_persona_control FORCE ROW LEVEL SECURITY;
+CREATE POLICY propietario_interno ON vec_personal.proyeccion_empleado_persona_control
+ FOR ALL TO vec_personal_propietario USING (true) WITH CHECK (true);
+REVOKE ALL ON TABLE vec_personal.proyeccion_empleado_persona_control FROM PUBLIC,vec_personal_ejecutor;
+
 -- Publicación idempotente: la misma versión con idéntico contenido devuelve la
 -- fila existente; con contenido distinto se rechaza sin tocar la historia.
 -- Sin EXECUTE para nadie salvo su propietario: la usa la carga gobernada de
@@ -143,7 +172,6 @@ BEGIN
    RETURN QUERY SELECT existente.proyeccion_ref, existente.version, existente.registrada_en;
    RETURN;
  END IF;
- RETURN QUERY
  INSERT INTO vec_personal.proyeccion_empleado_persona_historia AS h (
    proyeccion_ref, version, persona_ref, empleado_ref, estado, motivo,
    vigente_desde, vigente_hasta, procedencia_acto_ref, procedencia_ref,
@@ -152,7 +180,12 @@ BEGIN
    p_proyeccion_ref, p_version, p_persona_ref, p_empleado_ref, p_estado, p_motivo,
    p_vigente_desde, p_vigente_hasta, 'personal:proyeccion-empleado:publicacion',
    p_procedencia_ref, p_procedencia_version, p_procedencia_huella_sha256, clock_timestamp()
- ) RETURNING h.proyeccion_ref, h.version, h.registrada_en;
+ ) RETURNING h.* INTO existente;
+ -- Misma transacción: la generación de la persona avanza con la publicación.
+ INSERT INTO vec_personal.proyeccion_empleado_persona_control AS c (persona_ref, generacion)
+ VALUES (existente.persona_ref, 1)
+ ON CONFLICT (persona_ref) DO UPDATE SET generacion = c.generacion + 1;
+ RETURN QUERY SELECT existente.proyeccion_ref, existente.version, existente.registrada_en;
 END $fn$;
 REVOKE ALL ON FUNCTION vec_personal.publicar_proyeccion_empleado_persona_v1(text,bigint,text,text,text,timestamptz,timestamptz,text,text,bigint,text) FROM PUBLIC,vec_personal_ejecutor;
 
@@ -206,6 +239,26 @@ BEGIN
  END IF;
 END $fn$;
 REVOKE ALL ON FUNCTION vec_personal.resolver_empleado_canonico_persona_v1(text,timestamptz) FROM PUBLIC,vec_personal_ejecutor;
+-- Barrera de lectores SERIALIZABLE: bloqueo consultivo compartido de la
+-- persona (mismo orden que el publicador: consultivo antes que fila) y fila
+-- de generación con FOR SHARE. Si una publicación confirmada después de la
+-- instantánea del llamante avanzó la fila, falla con 40001. Devuelve la
+-- generación observada, o 0 si la persona nunca se publicó. Se concede
+-- nominalmente a su consumidor en la migración de éste.
+CREATE FUNCTION vec_personal.bloquear_generacion_proyeccion_empleado_persona_v1(p_persona_ref text)
+RETURNS bigint
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET row_security=on AS $fn$
+DECLARE g bigint;
+BEGIN
+ IF p_persona_ref IS NULL OR p_persona_ref !~ '^per_[A-Za-z0-9_-]{22,128}$' THEN
+   RAISE EXCEPTION 'solicitud de proyección persona-empleado inválida' USING ERRCODE='22023';
+ END IF;
+ PERFORM pg_advisory_xact_lock_shared(hashtextextended('vec_personal:proyeccion-empleado:persona:'||p_persona_ref,0));
+ SELECT c.generacion INTO g FROM vec_personal.proyeccion_empleado_persona_control c
+  WHERE c.persona_ref = p_persona_ref FOR SHARE;
+ RETURN coalesce(g, 0);
+END $fn$;
+REVOKE ALL ON FUNCTION vec_personal.bloquear_generacion_proyeccion_empleado_persona_v1(text) FROM PUBLIC,vec_personal_ejecutor;
 COMMENT ON FUNCTION vec_personal.resolver_empleado_canonico_persona_v1(text,timestamptz) IS
  'Proyección gobernada persona->empleado de Personal: sin_empleado, empleado o ambiguo; nunca elige. Sin consumidor concedido todavía.';
 COMMIT;
