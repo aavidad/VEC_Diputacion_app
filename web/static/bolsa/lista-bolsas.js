@@ -69,7 +69,19 @@ export function crearControladorListaBolsas({
     if (campos) campos.disabled = !habilitada;
   }
 
-  async function cargarBolsas() {
+  function enfocarDuranteReintento(cargando, reintentoEnfocado) {
+    if (!reintentoEnfocado || !cargando?.focus) return;
+    cargando.tabIndex = -1;
+    cargando.focus();
+  }
+
+  function enfocarResultadoReintento(cargando, destino) {
+    if (!destino?.focus || cargando?.ownerDocument?.activeElement !== cargando) return;
+    destino.tabIndex = -1;
+    destino.focus();
+  }
+
+  async function cargarBolsas({ reintentoEnfocado = false } = {}) {
     const secuencia = ++estado.secuenciaConsulta;
     estado.cargando = true;
     elementos.seccionBolsas?.setAttribute?.("aria-busy", "true");
@@ -80,27 +92,31 @@ export function crearControladorListaBolsas({
     elementos.bolsasVacio.hidden = true;
     if (elementos.cuerpoTablaBolsas) elementos.cuerpoTablaBolsas.innerHTML = "";
     mostrarTabla(elementos.cuerpoTablaBolsas, false);
+    enfocarDuranteReintento(elementos.bolsasCargando, reintentoEnfocado);
 
     try {
       const respuesta = await api.consultarBolsasPublicas();
       if (secuencia !== estado.secuenciaConsulta) return;
       estado.bolsas = respuesta.bolsas;
-      elementos.bolsasCargando.hidden = true;
-
       if (estado.bolsas.length === 0) {
         elementos.bolsasVacio.hidden = false;
+        enfocarResultadoReintento(elementos.bolsasCargando, elementos.bolsasVacio?.querySelector?.("h3"));
+        elementos.bolsasCargando.hidden = true;
         return;
       }
 
       renderizarTablaBolsas(estado.bolsas);
       mostrarTabla(elementos.cuerpoTablaBolsas, true);
+      enfocarResultadoReintento(elementos.bolsasCargando, elementos.seccionBolsas?.querySelector?.("h2"));
+      elementos.bolsasCargando.hidden = true;
     } catch (err) {
       if (secuencia !== estado.secuenciaConsulta) return;
-      elementos.bolsasCargando.hidden = true;
       elementos.bolsasError.hidden = false;
       if (elementos.mensajeErrorBolsas) {
         elementos.mensajeErrorBolsas.textContent = mensajeError(err, "error_bolsas");
       }
+      enfocarResultadoReintento(elementos.bolsasCargando, elementos.bolsasError?.querySelector?.("h3"));
+      elementos.bolsasCargando.hidden = true;
     } finally {
       if (secuencia === estado.secuenciaConsulta) {
         estado.cargando = false;
@@ -127,7 +143,7 @@ export function crearControladorListaBolsas({
     `).join("");
   }
 
-  async function seleccionarBolsa(bolsaRef, documento = "", cursor = "", { historial = "push" } = {}) {
+  async function seleccionarBolsa(bolsaRef, documento = "", cursor = "", { historial = "push", reintentoEnfocado = false } = {}) {
     const secuencia = ++estado.secuenciaConsulta;
     const documentoSeguro = PATRON_DOCUMENTO_ENMASCARADO.test(documento) ? documento : "";
     estado.cargando = true;
@@ -143,6 +159,7 @@ export function crearControladorListaBolsas({
     if (elementos.botonSiguiente) elementos.botonSiguiente.disabled = true;
 
     elementos.listaCargando.hidden = false;
+    enfocarDuranteReintento(elementos.listaCargando, reintentoEnfocado);
     if (!cursor) {
       estado.bolsaSeleccionada = null;
       estado.posiciones = [];
@@ -173,7 +190,6 @@ export function crearControladorListaBolsas({
         estado.posiciones = respuesta.posiciones;
       }
 
-      elementos.listaCargando.hidden = true;
       renderizarDetalleBolsa(estado.bolsaSeleccionada);
       renderizarTablaLista(estado.posiciones);
       mostrarTabla(elementos.cuerpoTablaLista, estado.posiciones.length > 0);
@@ -185,22 +201,32 @@ export function crearControladorListaBolsas({
 
       actualizarPaginacion();
       actualizarURL(bolsaRef, documentoSeguro, historial);
-      if (!cursor && historial === "push") {
+      if (reintentoEnfocado) {
+        const destino = estado.posiciones.length === 0
+          ? elementos.listaVacio?.querySelector?.("h3")
+          : cursor
+            ? elementos.cuerpoTablaLista?.closest?.(".tabla-contenedor-accesible")
+            : elementos.infoBolsaActiva?.querySelector?.("h2");
+        enfocarResultadoReintento(elementos.listaCargando, destino ?? elementos.botonVolverBolsas);
+      } else if (!cursor && historial === "push") {
         const titulo = elementos.infoBolsaActiva?.querySelector?.("h2");
         titulo?.focus?.();
       }
+      elementos.listaCargando.hidden = true;
     } catch (err) {
       if (secuencia !== estado.secuenciaConsulta) return;
-      elementos.listaCargando.hidden = true;
       elementos.listaError.hidden = false;
       if (elementos.mensajeErrorLista) {
         elementos.mensajeErrorLista.textContent = mensajeError(err, "error_lista");
       }
       const tituloError = elementos.listaError?.querySelector?.("h3");
-      if (tituloError && !cursor && historial === "push") {
+      if (reintentoEnfocado) {
+        enfocarResultadoReintento(elementos.listaCargando, tituloError ?? elementos.botonVolverBolsas);
+      } else if (tituloError && !cursor && historial === "push") {
         tituloError.tabIndex = -1;
         tituloError.focus();
       }
+      elementos.listaCargando.hidden = true;
     } finally {
       if (secuencia === estado.secuenciaConsulta) {
         estado.cargando = false;
@@ -365,13 +391,20 @@ export function crearControladorListaBolsas({
     }
 
     if (elementos.botonReintentarBolsas) {
-      elementos.botonReintentarBolsas.addEventListener("click", cargarBolsas);
+      elementos.botonReintentarBolsas.addEventListener("click", () => {
+        const boton = elementos.botonReintentarBolsas;
+        void cargarBolsas({ reintentoEnfocado: boton.ownerDocument?.activeElement === boton });
+      });
     }
 
     if (elementos.botonReintentarLista) {
       elementos.botonReintentarLista.addEventListener("click", () => {
         if (estado.bolsaRefSolicitada) {
-          seleccionarBolsa(estado.bolsaRefSolicitada, estado.filtroDocumento, estado.cursorSolicitado, { historial: "replace" });
+          const boton = elementos.botonReintentarLista;
+          void seleccionarBolsa(estado.bolsaRefSolicitada, estado.filtroDocumento, estado.cursorSolicitado, {
+            historial: "replace",
+            reintentoEnfocado: boton.ownerDocument?.activeElement === boton,
+          });
         }
       });
     }
