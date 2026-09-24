@@ -119,20 +119,23 @@ func (a *auditoriaDenegacionSeguimientoPrueba) RegistrarAuditoriaFronteraRutaExa
 
 func TestPuenteSeguimientoAuditaDenegacionSinDelegarNiExponerDatos(t *testing.T) {
 	for _, caso := range []struct {
-		nombre   string
-		asercion []byte
-		err      error
+		nombre    string
+		asercion  []byte
+		err       error
+		cancelada bool
 	}{
 		{nombre: "extraccion", err: errors.New("detalle privado del proveedor")},
 		{nombre: "autenticacion", asercion: []byte("asercion-privada-sintetica")},
+		{nombre: "contexto cancelado", cancelada: true},
 	} {
 		t.Run(caso.nombre, func(t *testing.T) {
 			extractor := &extractorAsercionSeguimientoPrueba{asercion: caso.asercion, err: caso.err}
 			auditoria := &auditoriaDenegacionSeguimientoPrueba{}
 			llamadasAPI := 0
 			puente := &puenteConsultaSeguimiento{
-				extractor: extractor,
-				auditoria: auditoria,
+				extractor:    extractor,
+				auditoria:    auditoria,
+				limiteCuerpo: 1024,
 				api: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 					llamadasAPI++
 					_, _ = w.Write([]byte("dato-protegido"))
@@ -140,7 +143,10 @@ func TestPuenteSeguimientoAuditaDenegacionSinDelegarNiExponerDatos(t *testing.T)
 			}
 			puente.fachada.Store(&FachadaIdentidadOffline{})
 			ctx, cancelar := context.WithCancel(context.Background())
-			cancelar()
+			defer cancelar()
+			if caso.cancelada {
+				cancelar()
+			}
 			ruta := httpct.RutaConsultaSeguimientoV2 + "?secreto=valor-privado"
 			respuesta := httptest.NewRecorder()
 			puente.ServeHTTP(respuesta, httptest.NewRequest(http.MethodGet, ruta, strings.NewReader("cuerpo-privado")).WithContext(ctx))
@@ -148,7 +154,11 @@ func TestPuenteSeguimientoAuditaDenegacionSinDelegarNiExponerDatos(t *testing.T)
 				respuesta.Header().Get("Cache-Control") != "no-store" {
 				t.Fatalf("denegación: estado=%d cuerpo=%q llamadasAPI=%d", respuesta.Code, respuesta.Body.String(), llamadasAPI)
 			}
-			if extractor.llamadas != 1 || len(auditoria.ordenes) != 1 || !auditoria.contextoVivo || !auditoria.plazoAcotado {
+			esperadas := 1
+			if caso.cancelada {
+				esperadas = 0
+			}
+			if extractor.llamadas != esperadas || len(auditoria.ordenes) != 1 || !auditoria.contextoVivo || !auditoria.plazoAcotado {
 				t.Fatalf("auditoría: extracciones=%d órdenes=%d contextoVivo=%t plazoAcotado=%t", extractor.llamadas, len(auditoria.ordenes), auditoria.contextoVivo, auditoria.plazoAcotado)
 			}
 			orden := auditoria.ordenes[0]
