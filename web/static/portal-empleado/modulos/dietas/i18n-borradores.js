@@ -10,6 +10,10 @@ export const MENSAJES_BORRADORES_ES = Object.freeze({
   borradores_propios_consulta_denegada: "No tiene permiso para consultar sus borradores de Dietas.",
   borradores_propios_creacion_denegada: "No tiene permiso para crear un borrador de Dietas.",
   borradores_propios_autenticacion_requerida: "Debe identificarse de nuevo para consultar o crear borradores de Dietas.",
+  borradores_propios_consultar_registrados: "Consultar borradores registrados",
+  borradores_propios_consultando_registrados: "Consultando sus borradores registrados…",
+  borradores_propios_consulta_registrados: "Consulta actualizada. Elija un borrador para ver su recibo. La lista no confirma el resultado de una solicitud anterior.",
+  borradores_propios_consulta_registrados_vacia: "No hay borradores registrados en esta consulta. Esto no confirma el resultado de una solicitud anterior.",
 });
 
 export function crearTraductorBorradoresDietas(traducirBase) {

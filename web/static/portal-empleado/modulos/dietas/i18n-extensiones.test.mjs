@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFile } from "node:fs/promises";
 import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js";
 import { crearTraductorBorradoresDietas } from "./i18n-borradores.js";
 import { crearTraductorRevisionDietas } from "./i18n-revision.js";
@@ -13,4 +14,21 @@ test("las claves nuevas pertenecen al catálogo común y respetan el traductor i
   assert.equal(crearTraductorBorradoresDietas(traducir)(claveBorrador), "Registered drafts");
   assert.equal(crearTraductorRevisionDietas(traducir)(claveRevision), "My commissions");
   assert.equal(crearTraductorDietas()(claveBorrador), MENSAJES_DIETAS_ES[claveBorrador]);
+});
+
+test("la consulta explícita está traducida y sus imports no usan la versión anterior", async () => {
+  const clave = "borradores_propios_consultar_registrados";
+  assert.equal(crearTraductorDietas()(clave), "Consultar borradores registrados");
+  const [comun, borradores, recorridos] = await Promise.all([
+    readFile(new URL("./i18n.js", import.meta.url), "utf8"),
+    readFile(new URL("./vista-borradores-propios.js", import.meta.url), "utf8"),
+    readFile(new URL("./vista-recorridos.js", import.meta.url), "utf8"),
+  ]);
+  assert.match(comun, /i18n-borradores\.js\?v=20260924-f2-consulta-v1/u);
+  assert.doesNotMatch(comun, /i18n-borradores\.js\?v=20260924-f2-web2/u);
+  assert.match(borradores, /i18n\.js\?v=20260924-f2-consulta-v1/u);
+  assert.match(borradores, /i18n-borradores\.js\?v=20260924-f2-consulta-v1/u);
+  assert.doesNotMatch(borradores, /(?:i18n|i18n-borradores)\.js\?v=20260924-f2-web2/u);
+  assert.match(recorridos, /vista-borradores-propios\.js\?v=20260924-f2-consulta-v1/u);
+  assert.doesNotMatch(recorridos, /vista-borradores-propios\.js\?v=20260924-f2-shell-v1/u);
 });
