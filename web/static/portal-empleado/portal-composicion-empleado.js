@@ -9,16 +9,41 @@ export function componerDietasInternas(recursos, entorno) {
   if (!recursos?.contrato || typeof recursos.contrato !== "object"
     || typeof recursos?.clienteBorradores?.crearClienteBorradoresDietasHTTP !== "function"
     || typeof recursos?.clienteAsignacion?.crearClienteAsignacionDietasHTTP !== "function"
+    || typeof recursos?.calculador?.crearCalculadorRutasDietasHTTP !== "function"
+    || typeof recursos?.mapa?.crearVisorRutaDietas !== "function"
     || typeof recursos?.recorridos?.montarVistaRecorridosDietas !== "function"
     || typeof entorno?.fetch !== "function") return undefined;
   const fetchImpl = entorno.fetch.bind(entorno);
   const clienteBorradores = recursos.clienteBorradores.crearClienteBorradoresDietasHTTP({ fetchImpl });
   const clienteAsignacion = recursos.clienteAsignacion.crearClienteAsignacionDietasHTTP({ fetchImpl });
+  // Catálogo y ruta por carretera los autoriza el servidor en cada petición;
+  // las teselas son las propias del mismo origen, sin proveedor externo.
+  const calculadorRuta = recursos.calculador.crearCalculadorRutasDietasHTTP({ fetchImpl });
+  const visorRuta = recursos.mapa.crearVisorRutaDietas({ entorno, permitirTeselas: true });
   return Object.freeze({
     clienteBorradores, clienteAsignacion,
-    montar: ({ raiz, anunciar, registrarDesmontar }) => recursos.recorridos.montarVistaRecorridosDietas(raiz, {
-      clienteBorradores, clienteAsignacion, anunciar, registrarDesmontar,
-    }),
+    montar: async ({ raiz, anunciar, registrarDesmontar }) => {
+      // Personal acredita las relaciones antes de montar. Si el portal
+      // abandona la vista mientras llega la respuesta, no se monta nada.
+      const cancelacion = new AbortController();
+      let vigente = true;
+      registrarDesmontar?.(() => { vigente = false; cancelacion.abort(); });
+      let relaciones = { relacionesAutorizadas: [], fechaReferenciaPersonal: undefined,
+        estadoRelaciones: "no_disponible", motivoRelaciones: undefined };
+      try {
+        const respuesta = await clienteAsignacion.obtenerRelaciones({ signal: cancelacion.signal });
+        relaciones = { relacionesAutorizadas: respuesta.relaciones_autorizadas,
+          fechaReferenciaPersonal: respuesta.fecha_referencia, estadoRelaciones: "disponible", motivoRelaciones: undefined };
+      } catch (error) {
+        if (["empleado_no_disponible", "empleado_ambiguo"].includes(error?.codigo))
+          relaciones = { ...relaciones, motivoRelaciones: error.codigo };
+      }
+      if (!vigente) return Object.freeze({ desmontar() {} });
+      return recursos.recorridos.montarVistaRecorridosDietas(raiz, {
+        clienteBorradores, clienteAsignacion, calculadorRuta, visorRuta, ...relaciones,
+        anunciar, registrarDesmontar,
+      });
+    },
   });
 }
 

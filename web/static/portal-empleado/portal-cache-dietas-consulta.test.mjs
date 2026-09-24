@@ -4,7 +4,9 @@ import test from "node:test";
 import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
 const raiz = new URL("./", import.meta.url);
-const VERSION_MONTAJE = "20260924-dietas-montaje-v1";
+const VERSION_MONTAJE = "20260925-dietas-montaje-v1";
+// Última versión publicada en main de la entrada, el shell y la vista.
+const PUBLICADA = "20260925-aspecto-v1";
 
 function versiones(codigo, recurso) {
   const escapado = recurso.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
@@ -25,6 +27,9 @@ test("Dietas interno atraviesa una caché caliente con sus clientes reales", asy
   assert.equal(shell.length, 1);
   assert.notEqual(entrada[0], "20260924-rescate-web-v4", "HTML sirve un portal.js nuevo");
   assert.notEqual(shell[0], "20260924-web-paradas-periodos-v1", "portal.js sirve el shell nuevo");
+  assert.notEqual(entrada[0], PUBLICADA, "HTML no reutiliza el portal.js publicado");
+  assert.notEqual(shell[0], PUBLICADA, "portal.js no reutiliza el shell publicado");
+  assert.deepEqual(versiones(coordinador, "./portal-composicion-empleado.js"), [VERSION_MONTAJE]);
 
   const cargadorInterno = coordinador.split("const CARGADORES_INTERNOS_PREDETERMINADOS =")[1]
     .split("function componerModuloAislado")[0];
@@ -41,6 +46,9 @@ test("Dietas interno atraviesa una caché caliente con sus clientes reales", asy
     ["/portal-empleado/portal.js?v=20260924-rescate-web-v4", "portal antiguo"],
     ["/portal-empleado/portal-modulos-coordinador.js?v=20260924-web-paradas-periodos-v1", "shell antiguo"],
     ["/portal-empleado/modulos/dietas/vista-recorridos.js?v=20260924-web-paradas-periodos-v1", "vista antigua"],
+    [`/portal-empleado/portal.js?v=${PUBLICADA}`, "portal publicado"],
+    [`/portal-empleado/portal-modulos-coordinador.js?v=${PUBLICADA}`, "shell publicado"],
+    [`/portal-empleado/modulos/dietas/vista-recorridos.js?v=${PUBLICADA}`, "vista publicada"],
   ]);
   for (const recurso of [
     `/portal-empleado/portal.js?v=${entrada[0]}`,

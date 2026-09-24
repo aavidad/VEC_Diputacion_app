@@ -199,7 +199,7 @@
 .dietas-borradores-propios .dietas-comision-asignacion dl { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; margin: 0; }
 .dietas-borradores-propios .dietas-comision-asignacion dl > div { min-width: 0; padding: 8px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio); background: var(--portal-superficie-alterna); }
 .dietas-borradores-propios .dietas-comision-asignacion dt { color: var(--portal-muted); font-size: .8rem; }
-.dietas-borradores-propios .dietas-comision-asignacion dd { margin: 4px 0; font-weight: 650; }
+.dietas-borradores-propios .dietas-comision-asignacion dd { margin: 4px 0; font-weight: 600; }
 .dietas-borradores-propios .dietas-comision-asignacion small { display: block; overflow-wrap: anywhere; color: var(--portal-muted); }
 
 .dietas-borradores-propios .dietas-borradores-rectificacion { min-width: 0; }

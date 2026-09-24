@@ -1,7 +1,7 @@
-import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260924-web-paradas-periodos-v1";
+import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260925-dietas-montaje-v1";
 
-import { MENSAJES_CIRCUITO_DIETAS_ES } from "./i18n-circuito.js";
-export { MENSAJES_CIRCUITO_DIETAS_ES } from "./i18n-circuito.js";
+import { MENSAJES_CIRCUITO_DIETAS_ES } from "./i18n-circuito.js?v=20260925-dietas-montaje-v1";
+export { MENSAJES_CIRCUITO_DIETAS_ES } from "./i18n-circuito.js?v=20260925-dietas-montaje-v1";
 
 const ETAPAS = Object.freeze(["revision", "autorizacion", "liquidacion", "fiscalizacion"]);
 const nodo = (documento, etiqueta, texto = "") => { const resultado = documento.createElement(etiqueta); if (texto) resultado.textContent = texto; return resultado; };

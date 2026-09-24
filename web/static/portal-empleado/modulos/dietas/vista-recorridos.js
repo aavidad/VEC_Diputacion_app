@@ -1,7 +1,7 @@
-import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js";
-import { montarVistaBorradoresPropios } from "./vista-borradores-propios.js";
-import { montarVistaBandejaCircuitoDietas } from "./vista-bandeja-circuito.js";
-import { montarVistaRectificacionAdminDietas } from "./vista-rectificacion-admin.js";
+import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260925-dietas-montaje-v1";
+import { montarVistaBorradoresPropios } from "./vista-borradores-propios.js?v=20260925-dietas-montaje-v1";
+import { montarVistaBandejaCircuitoDietas } from "./vista-bandeja-circuito.js?v=20260925-dietas-montaje-v1";
+import { montarVistaRectificacionAdminDietas } from "./vista-rectificacion-admin.js?v=20260925-dietas-montaje-v1";
 
 const ETAPAS = Object.freeze([
   ["solicitante", "recorridos_solicitante"],
@@ -18,7 +18,11 @@ const nodo = (documento, etiqueta, texto = "") => {
 };
 const montada = (contenedor, raiz) => contenedor.querySelector?.("[data-dietas-recorridos]") === raiz;
 
-/** Reúne el recorrido propio y las bandejas autorizadas del circuito de Dietas. */
+/**
+ * Reúne el recorrido propio y las bandejas del circuito de Dietas. Solo se
+ * ofrecen las etapas cuyo cliente ha compuesto el portal; sin ninguna, la
+ * persona ve únicamente sus documentos, sin pasos que no puede abrir.
+ */
 export function montarVistaRecorridosDietas(contenedor, {
   clienteBorradores,
   clienteAsignacion,
@@ -31,6 +35,7 @@ export function montarVistaRecorridosDietas(contenedor, {
   relacionesAutorizadas = [],
   fechaReferenciaPersonal,
   estadoRelaciones = "disponible",
+  motivoRelaciones,
   traducir = crearTraductorDietas(MENSAJES_DIETAS_ES),
   anunciar = () => {},
   registrarDesmontar,
@@ -52,10 +57,13 @@ export function montarVistaRecorridosDietas(contenedor, {
   const cabecera = nodo(documento, "header");
   cabecera.className = "dietas-recorridos-cabecera panel";
   cabecera.append(nodo(documento, "h2", traducir("titulo")));
+  const etapasDisponibles = ETAPAS.filter(([codigo]) => codigo === "solicitante" ||
+    (codigo === "rectificacion_admin" ? Boolean(clienteRectificacionAdmin) : Boolean(clienteCircuito)));
   const pasos = nodo(documento, "nav");
   pasos.className = "dietas-recorridos-pasos";
   pasos.setAttribute("aria-label", traducir("recorridos_roles"));
-  ETAPAS.forEach(([codigo, clave], indice) => {
+  pasos.hidden = etapasDisponibles.length < 2;
+  etapasDisponibles.forEach(([codigo, clave], indice) => {
     const boton = nodo(documento, "button", `${indice + 1}. ${traducir(clave)}`);
     boton.type = "button";
     boton.dataset.dietasCambiarEtapa = codigo;
@@ -75,8 +83,9 @@ export function montarVistaRecorridosDietas(contenedor, {
   abrir.dataset.dietasAbrirNuevaComision = "";
   abrir.setAttribute("aria-expanded", "false");
   abrir.disabled = !clienteBorradores || estadoRelaciones === "no_disponible";
-  if (abrir.disabled) abrir.title = traducir(estadoRelaciones === "no_disponible" ?
-    "comision_relaciones_no_disponibles" : "borradores_propios_pendiente_conexion");
+  if (abrir.disabled) abrir.title = traducir(estadoRelaciones !== "no_disponible"
+    ? "borradores_propios_pendiente_conexion"
+    : motivoRelaciones ? `comision_${motivoRelaciones}` : "comision_relaciones_no_disponibles");
   cabeceraPropia.append(tituloPropio, abrir);
   const areaBorradores = nodo(documento, "div");
   areaBorradores.dataset.dietasAreaBorradores = "";
@@ -89,11 +98,11 @@ export function montarVistaRecorridosDietas(contenedor, {
   areaCircuito.dataset.dietasAreaCircuito = "";
   panelCircuito.append(areaCircuito);
   cuerpo.append(panelPropio, panelCircuito);
-  raiz.append(cabecera, pasos, cuerpo);
+  raiz.append(cabecera, ...(pasos.hidden ? [] : [pasos]), cuerpo);
 
   const vistaBorradores = montarVistaBorradoresPropios(areaBorradores, {
     cliente: clienteBorradores, clienteAsignacion, clienteRectificacion, calculadorRuta, visorRuta,
-    relacionesAutorizadas, fechaReferenciaPersonal, estadoRelaciones,
+    relacionesAutorizadas, fechaReferenciaPersonal, estadoRelaciones, motivoRelaciones,
     traducir, anunciar, formularioInicialmenteVisible: false,
   });
   const formulario = areaBorradores.querySelector?.("[data-dietas-borrador-form]");
@@ -123,10 +132,6 @@ export function montarVistaRecorridosDietas(contenedor, {
       vistaCircuito = montarVistaBandejaCircuitoDietas(areaCircuito, {
         cliente: clienteCircuito, traducir, anunciar, etapaInicial: siguiente,
       });
-    } else if (siguiente !== "solicitante") {
-      const aviso = nodo(documento, "p", traducir("recorridos_pendiente_conexion"));
-      aviso.setAttribute("role", "status");
-      areaCircuito.append(aviso);
     }
     pintar();
   }
@@ -140,7 +145,7 @@ export function montarVistaRecorridosDietas(contenedor, {
       return;
     }
     const botonEtapa = evento.target?.closest?.("[data-dietas-cambiar-etapa]");
-    if (!botonEtapa || !activa || !ETAPAS.some(([codigo]) => codigo === botonEtapa.dataset.dietasCambiarEtapa)) return;
+    if (!botonEtapa || !activa || !etapasDisponibles.some(([codigo]) => codigo === botonEtapa.dataset.dietasCambiarEtapa)) return;
     seleccionarEtapa(botonEtapa.dataset.dietasCambiarEtapa);
     botonEtapa.focus?.();
   }

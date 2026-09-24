@@ -36,7 +36,6 @@ export const MENSAJES_CIRCUITO_DIETAS_ES = Object.freeze({
   circuito_recibo: "Decisión registrada. Recibo {referencia}, versión {version}, {fecha}.",
   circuito_recibo_repetido: "Recuperada la decisión registrada. Recibo {referencia}, versión {version}, {fecha}.",
   circuito_siguiente: "Mostrar más",
-  circuito_sin_valor: "Sin dato",
   circuito_estado_enviado_pendiente_revision: "Pendiente de revisión",
   circuito_estado_pendiente_autorizacion: "Pendiente de autorización",
   circuito_estado_pendiente_liquidacion: "Pendiente de liquidación",

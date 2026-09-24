@@ -98,7 +98,7 @@ test("los catálogos públicos y F2 responden a imports o scripts existentes", a
     ["static/portal-empleado/portal-i18n-contratos.js", ["static/portal-empleado/portal-vistas-operaciones.js"]],
     ["static/portal-empleado/modulos/cronos/i18n-permisos.js", ["static/portal-empleado/modulos/cronos/vista-recorridos.js"]],
     ["static/portal-empleado/modulos/dietas/i18n-borradores.js", ["static/portal-empleado/modulos/dietas/vista-borradores-propios.js"]],
-    ["static/portal-empleado/modulos/dietas/i18n-revision.js", ["static/portal-empleado/modulos/dietas/vista-recorridos.js"]],
+    ["static/portal-empleado/modulos/dietas/i18n-revision.js", ["static/portal-empleado/modulos/dietas/i18n.js"]],
   ]);
   for (const [recurso, origenes] of consumidores) {
     for (const origen of origenes) {

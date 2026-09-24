@@ -15,54 +15,92 @@ test("Cronos solo compone el recorrido visible y falla cerrado sin él", () => {
   }), undefined);
 });
 
-test("Dietas interna inyecta ambos clientes HTTP sin derivados de presentación", () => {
+function recursosDietas(llamadas, { cliente, asignacion, calculador, visor, montar }) {
+  return {
+    contrato: Object.freeze({}),
+    clienteBorradores: { crearClienteBorradoresDietasHTTP(entrada) { llamadas.push(["cliente", entrada]); return cliente; } },
+    clienteAsignacion: { crearClienteAsignacionDietasHTTP(entrada) { llamadas.push(["asignacion", entrada]); return asignacion; } },
+    // El calculador solo recibe el transporte: la autorización de rutas vive en el servidor.
+    calculador: { crearCalculadorRutasDietasHTTP(entrada) {
+      assert.deepEqual(Object.keys(entrada), ["fetchImpl"]);
+      llamadas.push(["calculador", entrada]); return calculador;
+    } },
+    mapa: { crearVisorRutaDietas(entrada) {
+      assert.equal(entrada.permitirTeselas, true);
+      llamadas.push(["visor", entrada]); return visor;
+    } },
+    recorridos: { montarVistaRecorridosDietas(raiz, entrada) {
+      llamadas.push(["recorridos", raiz, entrada]);
+      return montar?.() ?? Object.freeze({ desmontar() {} });
+    } },
+  };
+}
+
+test("Dietas interna inyecta clientes HTTP, ruta, mapa y relaciones acreditadas por Personal", async () => {
   const llamadas = [];
   const cliente = Object.freeze({ listar() {}, crear() {} });
-  const asignacion = Object.freeze({ obtener() {} });
-  const dietas = componerDietasInternas({
-    contrato: Object.freeze({}),
-    clienteBorradores: {
-      crearClienteBorradoresDietasHTTP(entrada) {
-        llamadas.push(["cliente", entrada]);
-        return cliente;
-      },
-    },
-    clienteAsignacion: {
-      crearClienteAsignacionDietasHTTP(entrada) {
-        llamadas.push(["asignacion", entrada]);
-        return asignacion;
-      },
-    },
-    recorridos: {
-      montarVistaRecorridosDietas(raiz, entrada) {
-        llamadas.push(["recorridos", raiz, entrada]);
-        return Object.freeze({ desmontar() {} });
-      },
-    },
-    calculador: { crearCalculadorRutasDietasHTTP() { assert.fail("no debe derivar ContextoActor"); } },
-  }, { fetch() {} });
-
+  const relaciones = Object.freeze([{ relacion_ref: `rel_${"a".repeat(22)}`, unidad_ref: "U1", version: 1 }]);
+  const asignacion = Object.freeze({ obtener() {}, async obtenerRelaciones({ signal }) {
+    assert.equal(signal.aborted, false);
+    return { relaciones_autorizadas: relaciones, fecha_referencia: "2026-09-25" };
+  } });
+  const calculador = Object.freeze({ obtenerCatalogo() {}, calcular() {} });
+  const visor = Object.freeze({ montar() {} });
+  const dietas = componerDietasInternas(recursosDietas(llamadas, { cliente, asignacion, calculador, visor }), { fetch() {} });
   assert.strictEqual(dietas.clienteBorradores, cliente);
   assert.strictEqual(dietas.clienteAsignacion, asignacion);
-  assert.equal(typeof llamadas[0][1].fetchImpl, "function");
-  assert.equal(typeof llamadas[1][1].fetchImpl, "function");
-  const resultado = dietas.montar({ raiz: "raiz", anunciar: () => {}, registrarDesmontar: () => {} });
+  assert.deepEqual(llamadas.map(([tipo]) => tipo), ["cliente", "asignacion", "calculador", "visor"]);
+  llamadas.slice(0, 3).forEach(([, entrada]) => assert.equal(typeof entrada.fetchImpl, "function"));
+  const resultado = await dietas.montar({ raiz: "raiz", anunciar: () => {}, registrarDesmontar: () => {} });
   assert.equal(typeof resultado.desmontar, "function");
-  assert.strictEqual(llamadas[2][2].clienteBorradores, cliente);
-  assert.strictEqual(llamadas[2][2].clienteAsignacion, asignacion);
-  assert.equal(Object.hasOwn(llamadas[2][2], "montarItinerario"), false);
+  const [, raiz, entrada] = llamadas.at(-1);
+  assert.equal(raiz, "raiz");
+  assert.strictEqual(entrada.clienteBorradores, cliente);
+  assert.strictEqual(entrada.clienteAsignacion, asignacion);
+  assert.strictEqual(entrada.calculadorRuta, calculador);
+  assert.strictEqual(entrada.visorRuta, visor);
+  assert.strictEqual(entrada.relacionesAutorizadas, relaciones);
+  assert.equal(entrada.fechaReferenciaPersonal, "2026-09-25");
+  assert.equal(entrada.estadoRelaciones, "disponible");
+  assert.equal(entrada.motivoRelaciones, undefined);
+  assert.equal(Object.hasOwn(entrada, "montarItinerario"), false);
 });
 
-test("Dietas interna falla cerrada sin asignación o transporte inyectado", () => {
-  const recursos = {
-    contrato: Object.freeze({}),
-    clienteBorradores: { crearClienteBorradoresDietasHTTP() { return {}; } },
-    recorridos: { montarVistaRecorridosDietas() { return { desmontar() {} }; } },
-  };
-  assert.equal(componerDietasInternas(recursos, { fetch() {} }), undefined);
-  assert.equal(componerDietasInternas({ ...recursos, clienteAsignacion: {
-    crearClienteAsignacionDietasHTTP() { return {}; },
-  } }, {}), undefined);
+test("Dietas interna conserva el motivo de Personal y no monta si el portal ya salió", async () => {
+  for (const [codigo, motivo] of [["empleado_no_disponible", "empleado_no_disponible"], ["empleado_ambiguo", "empleado_ambiguo"], ["acceso_denegado", undefined]]) {
+    const llamadas = [];
+    const asignacion = { obtener() {}, async obtenerRelaciones() { throw Object.assign(new Error("denegada"), { codigo }); } };
+    const dietas = componerDietasInternas(recursosDietas(llamadas, { cliente: {}, asignacion, calculador: {}, visor: {} }), { fetch() {} });
+    await dietas.montar({ raiz: "raiz", anunciar: () => {}, registrarDesmontar: () => {} });
+    const entrada = llamadas.at(-1)[2];
+    assert.equal(entrada.estadoRelaciones, "no_disponible");
+    assert.deepEqual(entrada.relacionesAutorizadas, []);
+    assert.equal(entrada.motivoRelaciones, motivo);
+  }
+  const llamadas = [];
+  let salir;
+  let senal;
+  const asignacion = { obtener() {}, obtenerRelaciones({ signal }) {
+    senal = signal;
+    return new Promise((resolver) => { signal.addEventListener("abort", () => resolver({ relaciones_autorizadas: [], fecha_referencia: "2026-09-25" })); });
+  } };
+  const dietas = componerDietasInternas(recursosDietas(llamadas, { cliente: {}, asignacion, calculador: {}, visor: {} }), { fetch() {} });
+  const montaje = dietas.montar({ raiz: "raiz", anunciar: () => {}, registrarDesmontar: (limpiar) => { salir ??= limpiar; } });
+  salir();
+  const resultado = await montaje;
+  assert.equal(senal.aborted, true);
+  assert.equal(llamadas.some(([tipo]) => tipo === "recorridos"), false);
+  assert.equal(typeof resultado.desmontar, "function");
+});
+
+test("Dietas interna falla cerrada sin asignación, ruta, mapa o transporte inyectado", () => {
+  const completos = recursosDietas([], { cliente: {}, asignacion: {}, calculador: {}, visor: {} });
+  assert.notEqual(componerDietasInternas(completos, { fetch() {} }), undefined);
+  for (const falta of ["clienteAsignacion", "calculador", "mapa", "recorridos"]) {
+    const { [falta]: _omitido, ...recursos } = completos;
+    assert.equal(componerDietasInternas(recursos, { fetch() {} }), undefined, falta);
+  }
+  assert.equal(componerDietasInternas(completos, {}), undefined);
 });
 
 test("Personal monta ficha antes de crear catálogos y limpia registros tempranos y tardíos una sola vez", async () => {

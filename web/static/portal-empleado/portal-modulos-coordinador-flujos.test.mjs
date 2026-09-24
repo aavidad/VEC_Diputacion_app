@@ -569,7 +569,10 @@ test("el coordinador no autentica ni conserva estado en el navegador", async () 
   assert.doesNotMatch(fuente, /calculador-rutas-presentacion-osrm\.js/);
   assert.doesNotMatch(fuente, /import\("\.\/modulos\/dietas\/calculador-rutas-presentacion\.js"\)/);
   assert.doesNotMatch(fuente, /versionGrafo|granada-buffer-osrm-v/u);
-  assert.doesNotMatch(empleado, /datos-sinteticos-rrhh|crearVisorRutaDietas/u);
+  assert.doesNotMatch(empleado, /datos-sinteticos-rrhh/u);
+  // El visor de Dietas solo pide teselas del mismo origen: ningún proveedor externo.
+  assert.match(empleado, /crearVisorRutaDietas\(\{ entorno, permitirTeselas: true \}\)/u);
+  assert.doesNotMatch(empleado, /https?:\/\//u);
   assert.match(estilos, /data-modulo-catalogo="bolsa"/);
   assert.match(estilos, /data-modulo-catalogo="cronos"/);
   assert.match(estilos, /data-modulo-catalogo="dietas"/);
@@ -592,7 +595,8 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
   const versionEntradaAyuda = "20260924-rescate-web-v4";
   const versionVistasC = "20260924-web-c-v1";
   const versionDietasRecuperacion = "20260924-dietas-recuperacion-v3";
-  const versionDietasVista = "20260924-dietas-montaje-v1";
+  const versionDietasVista = "20260924-web-paradas-periodos-v1";
+  const versionPublicada = "20260925-aspecto-v1";
   const versionCarga = "20260923-p4-estado-modulos-v1";
   const versionModuloBolsa = "20260924-rescate-web-v4";
   const versionSubsanacion = "20260924-web-subsanacion-v1";
@@ -654,16 +658,20 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
   assert.doesNotMatch(html, /portal\.css\?v=20260924-f2-salto-movil-v1/u);
   assert.doesNotMatch(html, /portal\.css\?v=20260924-f2-salto-movil-v2/u);
   assert.doesNotMatch(html, new RegExp(`portal\\.css\\?v=${versionShellF2}`));
-  assert.match(html, new RegExp(`expedientes-operativo\\.css\\?v=${versionShellF2}`));
-  assert.match(coordinador, new RegExp(`modulos/cronos/vista-recorridos\\.js\\?v=${versionCronos}`));
+  exigirRenovado(html, "/portal-empleado/modulos/contratacion-temporal/expedientes-operativo.css", versionShellF2);
+  exigirRenovado(coordinador, "./modulos/cronos/vista-recorridos.js", versionCronos);
+  // Dietas solo tiene montaje interno: un cargador, renovado respecto a lo publicado.
   assert.doesNotMatch(coordinador, /modulos\/dietas\/vista-itinerario\.js/u);
-  assert.equal([...coordinador.matchAll(new RegExp(`modulos/dietas/vista-recorridos\\.js\\?v=${versionDietasVista}`, "g"))].length, 1);
-  assert.match(coordinador, new RegExp(`modulos/dietas/cliente-asignacion-http\\.js\\?v=${versionDietasVista}`));
+  const versionDietasMontaje = exigirVersiones(coordinador, "./modulos/dietas/vista-recorridos.js", posterior(versionDietasVista), 1);
+  assert.notEqual(versionDietasMontaje, versionPublicada);
+  for (const cliente of ["cliente-borradores-http", "cliente-asignacion-http", "calculador-rutas-http", "mapa-ruta"])
+    exigirVersiones(coordinador, `./modulos/dietas/${cliente}.js`, versionDietasMontaje, 1);
   assert.doesNotMatch(coordinador, /modulos\/dietas\/vista-recorridos\.js\?v=20260924-dietas-ayuda-sin-guia-v1/u);
   assert.doesNotMatch(coordinador, /modulos\/dietas\/vista-recorridos\.js\?v=20260924-dietas-ayuda-icono-v1/u);
   assert.doesNotMatch(coordinador, new RegExp(`modulos/dietas/vista-recorridos\\.js\\?v=${versionDietasRecuperacion}`));
   assert.doesNotMatch(coordinador, /modulos\/dietas\/vista-recorridos\.js\?v=20260924-f2-dietas-consulta-v2/u);
   assert.doesNotMatch(coordinador, new RegExp(`modulos/dietas/vista-recorridos\\.js\\?v=${versionShellF2}`));
   exigirRenovado(html, "/portal-empleado/modulos/cronos/cronos.css", versionCronos);
-  exigirRenovado(html, "/portal-empleado/modulos/dietas/dietas.css", versionDietasCSS);
+  exigirRenovado(html, "/portal-empleado/modulos/dietas/dietas.css", [versionDietasCSS, versionPublicada]);
+  exigirRenovado(html, "/portal-empleado/modulos/dietas/borradores-propios.css", versionPublicada);
 });

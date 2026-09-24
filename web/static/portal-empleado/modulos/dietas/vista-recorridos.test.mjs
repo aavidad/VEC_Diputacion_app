@@ -48,7 +48,8 @@ test("Dietas monta el recorrido interno y abre el formulario real sin itinerario
   assert.equal(formulario.hidden, true);
   assert.equal(contenedor.querySelector("[data-dietas-area-itinerario]"), null);
   assert.equal(contenedor.querySelector("[data-dietas-mapa-pendiente]"), null);
-  assert.equal(panel.querySelectorAll("[data-dietas-cambiar-etapa]").length, 6);
+  // Sin clientes de circuito solo existe el recorrido propio: no hay pasos que no se puedan abrir.
+  assert.equal(panel.querySelectorAll("[data-dietas-cambiar-etapa]").length, 0);
   await panel.listeners.click({ target: panel.querySelector("[data-dietas-abrir-nueva-comision]") });
   assert.equal(formulario.hidden, false);
   assert.equal(panel.querySelector("[data-dietas-abrir-nueva-comision]").attrs["aria-expanded"], "true");
@@ -86,6 +87,8 @@ test("al cambiar de bandeja o salir aborta lecturas pendientes y no conserva una
   };
   const vista = montarVistaRecorridosDietas(contenedor, { clienteBorradores: clienteBorradores(), clienteCircuito });
   const panel = contenedor.querySelector("[data-dietas-recorridos]");
+  assert.deepEqual(panel.querySelectorAll("[data-dietas-cambiar-etapa]").map((boton) => boton.dataset.dietasCambiarEtapa),
+    ["solicitante", "revision", "autorizacion", "liquidacion", "fiscalizacion"]);
   await panel.listeners.click({ target: panel.querySelector('[data-dietas-cambiar-etapa="revision"]') });
   assert.equal(consultas.length, 1);
   assert.ok(panel.querySelector("[data-dietas-bandeja-circuito]"));
@@ -95,4 +98,25 @@ test("al cambiar de bandeja o salir aborta lecturas pendientes y no conserva una
   vista.desmontar();
   assert.equal(consultas[1].aborted, true);
   assert.equal(contenedor.querySelector("[data-dietas-recorridos]"), null);
+});
+
+test("la lista muestra el estado real y el motivo de Personal cierra el alta", async () => {
+  const contenedor = raiz();
+  const enviado = { ...item, comision: { ...item.comision, estado: "enviado_pendiente_revision" } };
+  const vista = montarVistaRecorridosDietas(contenedor, {
+    clienteBorradores: { ...clienteBorradores(), listar: async () => ({ items: [enviado] }) },
+    estadoRelaciones: "no_disponible", motivoRelaciones: "empleado_no_disponible",
+  });
+  await Promise.resolve(); await Promise.resolve();
+  const chip = contenedor.querySelector("[data-dietas-estado-comision]");
+  assert.equal(chip.dataset.dietasEstadoComision, "enviado_pendiente_revision");
+  assert.equal(chip.textContent, "Enviada a revisión");
+  const abrir = contenedor.querySelector("[data-dietas-abrir-nueva-comision]");
+  assert.equal(abrir.disabled, true);
+  assert.match(abrir.title, /No consta un empleado vigente/u);
+  assert.match(texto(contenedor), /No consta un empleado vigente asociado a su usuario/u);
+  assert.throws(() => montarVistaRecorridosDietas(raiz(), {
+    clienteBorradores: clienteBorradores(), estadoRelaciones: "disponible", motivoRelaciones: "empleado_no_disponible",
+  }), TypeError);
+  vista.desmontar();
 });

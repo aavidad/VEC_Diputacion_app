@@ -1,5 +1,6 @@
 const RUTA_ASIGNACION = "/api/vec/personal/asignaciones-dietas";
 const MAXIMO_RESPUESTA = 64 * 1024;
+const MOTIVOS_EMPLEADO = new Set(["empleado_no_disponible", "empleado_ambiguo"]);
 const referencia = (valor, prefijo) => typeof valor === "string" &&
   new RegExp(`^${prefijo}[A-Za-z0-9_-]{22,128}$`, "u").test(valor);
 const textoRef = (valor, maximo) => typeof valor === "string" && valor.length >= 1 &&
@@ -70,14 +71,20 @@ export function crearClienteAsignacionDietasHTTP({ fetchImpl = globalThis.fetch 
       credentials: "same-origin", mode: "same-origin", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer", signal });
     if (signal?.aborted) throw new Error("operación cancelada");
     if (!respuesta || respuesta.redirected) throw new Error("respuesta de Personal incompatible");
-    const cuerpo = await leerJSON(respuesta, signal);
     if (respuesta.status !== 200 || respuesta.ok !== true) {
       const error = new Error("consulta de Personal no disponible");
       error.codigo = respuesta.status === 401 ? "autenticacion_requerida" :
         respuesta.status === 403 ? "acceso_denegado" : respuesta.status === 404 ? "no_encontrada" : "no_disponible";
+      // Un 403 puede traer el motivo cerrado de la falta de empleado canónico.
+      if (respuesta.status === 403) {
+        try {
+          const motivo = (await leerJSON(respuesta, signal))?.codigo;
+          if (MOTIVOS_EMPLEADO.has(motivo)) error.codigo = motivo;
+        } catch { /* Sin cuerpo legible se conserva la denegación genérica. */ }
+      }
       throw error;
     }
-    return cuerpo;
+    return leerJSON(respuesta, signal);
   }
   return Object.freeze({
     async obtenerRelaciones({ signal } = {}) {

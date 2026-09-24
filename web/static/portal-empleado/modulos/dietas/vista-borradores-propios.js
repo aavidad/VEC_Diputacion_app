@@ -1,7 +1,7 @@
-import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260925-aspecto-v1";
-import { crearTraductorBorradoresDietas } from "./i18n-borradores.js?v=20260924-web-paradas-periodos-v1";
-import { montarVistaMapaComisionDietas } from "./vista-mapa-comision.js";
-import { montarVistaRectificacionDietas } from "./vista-rectificacion-dietas.js";
+import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260925-dietas-montaje-v1";
+import { crearTraductorBorradoresDietas } from "./i18n-borradores.js?v=20260925-dietas-montaje-v1";
+import { montarVistaMapaComisionDietas } from "./vista-mapa-comision.js?v=20260925-dietas-montaje-v1";
+import { montarVistaRectificacionDietas } from "./vista-rectificacion-dietas.js?v=20260925-dietas-montaje-v1";
 
 const MAXIMO_LOCALIDADES = 12;
 
@@ -31,6 +31,18 @@ function claveContenido(solicitud) {
     solicitud.relacion_ref,
   ]);
 }
+// Estados que Dietas y su circuito devuelven, con su rótulo y su tono.
+const ESTADOS_COMISION = Object.freeze({
+  borrador: ["comision_estado_borrador", "info"],
+  eliminado: ["comision_estado_eliminado", "aviso"],
+  enviado_pendiente_revision: ["comision_estado_enviado", "exito"],
+  devuelta: ["circuito_estado_devuelta", "aviso"],
+  pendiente_autorizacion: ["circuito_estado_pendiente_autorizacion", "exito"],
+  pendiente_liquidacion: ["circuito_estado_pendiente_liquidacion", "exito"],
+  pendiente_fiscalizacion: ["circuito_estado_pendiente_fiscalizacion", "exito"],
+  fiscalizada: ["circuito_estado_fiscalizada", "exito"],
+});
+const MOTIVOS_RELACIONES = new Set(["empleado_no_disponible", "empleado_ambiguo"]);
 function euros(centimos) { return new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(centimos / 100); }
 function rutaLegible(codigos, traducir, nombres = new Map()) {
   return codigos.length
@@ -111,6 +123,9 @@ export function montarVistaBorradoresPropios(
     registrarDesmontar,
     formularioInicialmenteVisible = true,
     estadoRelaciones = "disponible",
+    // Código cerrado con que Personal denegó las relaciones (sin empleado
+    // canónico o con varios); solo cambia el mensaje, no reabre acciones.
+    motivoRelaciones,
     fechaReferenciaPersonal,
     // Sólo la composición que haya consultado una fuente autorizada puede
     // aportar estas referencias opacas. Esta vista no deduce ni fabrica una.
@@ -140,6 +155,8 @@ export function montarVistaBorradoresPropios(
     typeof generarClaveIdempotencia !== "function" ||
     typeof formularioInicialmenteVisible !== "boolean" ||
     !["disponible", "no_disponible"].includes(estadoRelaciones) ||
+    (motivoRelaciones !== undefined && (estadoRelaciones !== "no_disponible" ||
+      !MOTIVOS_RELACIONES.has(motivoRelaciones))) ||
     (fechaReferenciaPersonal !== undefined && !/^\d{4}-\d{2}-\d{2}$/u.test(fechaReferenciaPersonal)) ||
     (registrarDesmontar !== undefined &&
       typeof registrarDesmontar !== "function")
@@ -936,7 +953,13 @@ export function montarVistaBorradoresPropios(
       li.append(
         boton,
         ...(item.comision.fecha_apertura ? [nodo(documento, "small", `${tBorradores("comision_fecha_apertura")}: ${fechaLegible(item.comision.fecha_apertura, true)}`)] : []),
-        (() => { const estadoBorrador = nodo(documento, "span", traducir("borradores_propios_estado_borrador")); estadoBorrador.className = "estado-chip info"; return estadoBorrador; })(),
+        (() => {
+          const [clave, tono] = ESTADOS_COMISION[item.comision.estado] || ["comision_estado_borrador", "info"];
+          const chip = nodo(documento, "span", tBorradores(clave));
+          chip.className = `estado-chip ${tono}`;
+          chip.dataset.dietasEstadoComision = item.comision.estado;
+          return chip;
+        })(),
       );
       ul.append(li);
     });
@@ -1028,7 +1051,7 @@ export function montarVistaBorradoresPropios(
       metadatos.append(grupo);
       cuerpoAsignacion.append(metadatos);
     } else cuerpoAsignacion.append(nodo(documento, "p", tBorradores(asignacionMensaje)));
-    if (!clienteRectificacion || !asignacionVerificada()) {
+    if (clienteRectificacion && !asignacionVerificada()) {
       const corregir = nodo(documento, "button", tBorradores("comision_asignacion_corregir"));
       corregir.type = "button";
       corregir.className = "boton-secundario";
@@ -1216,7 +1239,8 @@ export function montarVistaBorradoresPropios(
         boton.disabled = controlesBloqueados || (subir && indice === 0) || (bajar && indice === totalParadas - 1);
       });
     }
-    avisoPersistente.textContent = tBorradores(estadoRelaciones === "no_disponible" ? "comision_relaciones_no_disponibles" : estado.mensaje);
+    avisoPersistente.textContent = tBorradores(estadoRelaciones === "no_disponible"
+      ? (motivoRelaciones ? `comision_${motivoRelaciones}` : "comision_relaciones_no_disponibles") : estado.mensaje);
     avisoPersistente.dataset.tono = estado.tono;
     avisoPersistente.className = `estado-chip ${estado.tono === "error" ? "peligro" : estado.tono === "exito" ? "exito" : estado.tono === "aviso" ? "aviso" : "info"}`;
     avisoPersistente.setAttribute("role", estado.tono === "error" ? "alert" : "status");
