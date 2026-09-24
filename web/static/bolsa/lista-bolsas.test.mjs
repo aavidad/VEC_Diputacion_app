@@ -713,7 +713,7 @@ test("un error al cargar la página siguiente conserva las posiciones y reintent
   const base = generarFixtureListaPublica(bolsaRef).data;
   const documento = { activeElement: null };
   const cargando = nodoConFoco(documento, { hidden: true });
-  const tabla = nodoConFoco(documento, { hidden: true });
+  const tabla = nodoConFoco(documento, { hidden: true, tabIndex: 0, hasAttribute: (nombre) => nombre === "tabindex" });
   const botonReintentar = nodoConFoco(documento, { addEventListener(_tipo, fn) { reintentar = fn; } });
   const cursores = [];
   let siguiente;
@@ -759,6 +759,7 @@ test("un error al cargar la página siguiente conserva las posiciones y reintent
   assert.equal(ctrl.estado.posiciones.length, 4);
   assert.equal(elementos.listaError.hidden, true);
   assert.equal(documento.activeElement, tabla);
+  assert.equal(tabla.tabIndex, 0, "la tabla debe seguir en el orden de Tab tras el reintento");
 });
 
 test("una respuesta de otra bolsa no se presenta como posición de la solicitada", async () => {
