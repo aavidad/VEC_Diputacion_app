@@ -4,6 +4,7 @@ import test from "node:test";
 
 const raiz = new URL("./", import.meta.url);
 const versionNueva = "20260924-f2-personal-estados-v4";
+const versionEntrada = "20260924-f2-cronos-permisos-v1";
 const versionI18n = "20260924-personal-interno-estados-v1";
 
 function versiones(codigo, recurso) {
@@ -15,6 +16,8 @@ test("una caché caliente descarga el grafo renovado hasta Personal i18n", async
   const cache = new Map([
     ["/portal-empleado/portal.js?v=20260924-p1-personal-interno-v2", "/* portal anterior */"],
     ["/portal-empleado/portal-modulos-coordinador.js?v=20260924-p1-personal-interno-v2", "/* coordinador anterior */"],
+    [`/portal-empleado/portal.js?v=${versionNueva}`, "/* portal anterior de Personal */"],
+    [`/portal-empleado/portal-modulos-coordinador.js?v=${versionNueva}`, "/* coordinador anterior de Personal */"],
     ["/portal-empleado/modulos/personal/vista.js?v=20260924-f2-cache-v3", "/* vista anterior */"],
     ["/portal-empleado/modulos/personal/i18n.js?v=20260924-f2-web2", "/* i18n anterior */"],
   ]);
@@ -32,10 +35,10 @@ test("una caché caliente descarga el grafo renovado hasta Personal i18n", async
   }
 
   const html = await readFile(new URL("index.html", raiz), "utf8");
-  assert.deepEqual(versiones(html, "/portal-empleado/portal.js"), [versionNueva]);
-  const portal = await cargar("portal.js", versionNueva);
-  assert.deepEqual(versiones(portal, "./portal-modulos-coordinador.js"), [versionNueva]);
-  const coordinador = await cargar("portal-modulos-coordinador.js", versionNueva);
+  assert.deepEqual(versiones(html, "/portal-empleado/portal.js"), [versionEntrada]);
+  const portal = await cargar("portal.js", versionEntrada);
+  assert.deepEqual(versiones(portal, "./portal-modulos-coordinador.js"), [versionEntrada]);
+  const coordinador = await cargar("portal-modulos-coordinador.js", versionEntrada);
   assert.deepEqual(versiones(coordinador, "./modulos/personal/vista.js"), [versionNueva, versionNueva],
     "presentación e interno usan la misma vista renovada");
   const vista = await cargar("modulos/personal/vista.js", versionNueva);
@@ -43,8 +46,8 @@ test("una caché caliente descarga el grafo renovado hasta Personal i18n", async
   await cargar("modulos/personal/i18n.js", versionI18n);
 
   assert.deepEqual(descargas, new Set([
-    `/portal-empleado/portal.js?v=${versionNueva}`,
-    `/portal-empleado/portal-modulos-coordinador.js?v=${versionNueva}`,
+    `/portal-empleado/portal.js?v=${versionEntrada}`,
+    `/portal-empleado/portal-modulos-coordinador.js?v=${versionEntrada}`,
     `/portal-empleado/modulos/personal/vista.js?v=${versionNueva}`,
     `/portal-empleado/modulos/personal/i18n.js?v=${versionI18n}`,
   ]));

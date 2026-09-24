@@ -13,7 +13,7 @@ import { crearVistasBaremacion } from "./portal-vistas-baremacion.js?v=20260924-
 import { crearVistaReglas } from "./portal-vistas-reglas.js?v=20260720-pulido-escritorio-v2";
 import { crearVistasOperaciones } from "./portal-vistas-operaciones.js?v=20260924-f2-shell-v1";
 import { crearVistasGobierno } from "./portal-vistas-gobierno.js?v=20260718-formularios-v2";
-import { crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, VISTAS_MODULOS_PERSONALES, VISTAS_PRESENTACION_VISUALES } from "./portal-modulos-coordinador.js?v=20260924-f2-personal-estados-v4";
+import { crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, VISTAS_MODULOS_PERSONALES, VISTAS_PRESENTACION_VISUALES } from "./portal-modulos-coordinador.js?v=20260924-f2-cronos-permisos-v1";
 import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260924-f2-cache-v2";
 import { accesoBolsaEfectivo, instalarMenuBolsa, resumenAccesosModulos, sincronizarMenuBolsa, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260924-f2-shell-v1";
 import { traducirPortal } from "./portal-i18n.js?v=20260924-f2-cache-v2";
@@ -114,7 +114,8 @@ const TITULOS = Object.freeze({
   comunicaciones: ["Portal del Empleado → Bolsas de trabajo", "Correo y mensajería"],
   auditoria: ["Portal del Empleado → Bolsas de trabajo", "Auditoría y trazabilidad"],
   configuracion: ["Portal del Empleado → Bolsas de trabajo", "Configuración y roles"],
-  cronos: ["Portal del Empleado → Cronos", "Cronos · jornada, fichajes y permisos"],
+  cronos: ["Portal del Empleado → Cronos", "Cronos · jornada y fichajes"],
+  "cronos-permisos": ["Portal del Empleado → Cronos → Permisos", "Cronos · permisos y ausencias"],
   dietas: ["Portal del Empleado → Dietas", "Dietas y comisiones de servicio"],
   personal: ["Portal del Empleado → Personal", "Personal · consulta informativa"],
   "bolsa-candidatos": ["Portal del Empleado → Bolsas de trabajo", "Candidatos de la bolsa"],

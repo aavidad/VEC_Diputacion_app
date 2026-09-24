@@ -534,9 +534,12 @@ test("el paquete interno de Personal no solicita recursos RPT ni estructura púb
 
 test("Cronos interno solo se compone desde el catálogo y deja la jornada sin fichaje", async () => {
   const { montarJornadaCronos } = await import("./modulos/cronos/vista.js");
+  const { montarVistaRecorridosCronos } = await import("./modulos/cronos/vista-recorridos.js");
+  const { crearTraductorCronos } = await import("./modulos/cronos/i18n.js");
   const cargadoresInternos = {
     contratacion_temporal: async () => { throw new Error("no debe cargar CT"); },
-    cronos: async () => ({ vista: { montarJornadaCronos } }),
+    cronos: async () => ({ vista: { montarJornadaCronos },
+      recorridos: { montarVistaRecorridosCronos }, i18n: { crearTraductorCronos } }),
   };
   const coordinador = crearCoordinadorModulosPortal({ escaparHTML: String,
     cargarCatalogoInterno: async () => [{ clave: "cronos" }], cargadoresInternos });

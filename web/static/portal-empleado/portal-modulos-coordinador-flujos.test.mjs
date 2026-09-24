@@ -316,9 +316,11 @@ test("las rutas estables no mezclan el submenú de Bolsa con los módulos person
   assert.equal(rutaDeVistaPortal("portal"), "#portal");
   assert.equal(rutaDeVistaPortal("resumen"), "#bolsa/resumen");
   assert.equal(rutaDeVistaPortal("cronos"), "#cronos");
+  assert.equal(rutaDeVistaPortal("cronos-permisos"), "#cronos-permisos");
   assert.equal(rutaDeVistaPortal("dietas"), "#dietas");
   assert.equal(moduloDeVistaPortal("convocatorias"), "bolsa");
   assert.equal(moduloDeVistaPortal("cronos"), "cronos");
+  assert.equal(moduloDeVistaPortal("cronos-permisos"), "cronos");
   assert.equal(moduloDeVistaPortal("vista-no-registrada"), "");
   assert.equal(rutaDeVistaPortal("vista-no-registrada"), "#portal");
 });
@@ -665,6 +667,7 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
   const versionCachePersonal = "20260924-f2-cache-v3";
   const versionPersonalInterno = "20260924-p1-personal-interno-v2";
   const versionPersonalEstados = "20260924-f2-personal-estados-v4";
+  const versionCronosPermisos = "20260924-f2-cronos-permisos-v1";
   const versionCarga = "20260923-p4-estado-modulos-v1";
   const versionModuloBolsa = "20260923-pweb13-b8-v1";
   const versionClientePersonal = versionPersonalInterno;
@@ -682,7 +685,8 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
     new URL("portal-modulos-coordinador.js", import.meta.url),
     "utf8",
   );
-  assert.match(portal, new RegExp(`portal-modulos-coordinador\\.js\\?v=${versionPersonalEstados}`));
+  assert.match(portal, new RegExp(`portal-modulos-coordinador\\.js\\?v=${versionCronosPermisos}`));
+  assert.doesNotMatch(portal, new RegExp(`portal-modulos-coordinador\\.js\\?v=${versionPersonalEstados}`));
   assert.doesNotMatch(portal, new RegExp(`portal-modulos-coordinador\\.js\\?v=${versionPersonalInterno}`));
   assert.match(coordinador, new RegExp(`portal-modulos-carga\\.js\\?v=${versionCarga}`));
   assert.match(portal, new RegExp(`portal-bolsas-api\\.js\\?v=${versionModuloBolsa}`));
@@ -698,7 +702,8 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
     assert.equal([...coordinador.matchAll(expresion)].length, montajes, vista);
   }
   assert.doesNotMatch(coordinador, new RegExp(`modulos/personal/vista\\.js\\?v=${versionCachePersonal}`));
-  assert.match(html, new RegExp(`portal\\.js\\?v=${versionPersonalEstados}`));
+  assert.match(html, new RegExp(`portal\\.js\\?v=${versionCronosPermisos}`));
+  assert.doesNotMatch(html, new RegExp(`portal\\.js\\?v=${versionPersonalEstados}`));
   assert.doesNotMatch(html, new RegExp(`portal\\.js\\?v=${versionPersonalInterno}`));
   assert.match(html, new RegExp(`portal-modulos\\.css\\?v=${versionEstilos}`));
   assert.match(html, new RegExp(`portal-flujos\\.css\\?v=${versionFlujos}`));
