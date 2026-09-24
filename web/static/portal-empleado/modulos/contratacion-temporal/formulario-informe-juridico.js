@@ -307,14 +307,22 @@ export function montarFormularioInformeJuridico(configuracion = {}) {
       mensaje_clave: "informe_historial_cargando", tipo_mensaje: "informacion",
     };
     repintar("[data-ct-informe-historial]");
+    const regionReintento = raizActual.querySelector("[data-ct-informe-historial]");
     const tarea = (async () => {
       try {
         await cargarHistorial(recibo, controlador.signal);
       } finally {
         controlador = null;
         vuelo = null;
-        if (montado) repintar(estado.historialError
-          ? "[data-ct-informe-historial-error]" : "[data-ct-informe-historial]");
+        if (montado) {
+          const focoEnReintento = regionReintento
+            && raizActual.querySelector("[data-ct-informe-historial]") === regionReintento
+            && regionReintento.contains(raizActual.ownerDocument?.activeElement);
+          repintar(focoEnReintento
+            ? estado.historialError
+              ? "[data-ct-informe-historial-error]" : "[data-ct-informe-historial]"
+            : "");
+        }
       }
     })();
     vuelo = tarea;
