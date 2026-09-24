@@ -3,7 +3,8 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const raiz = new URL("./", import.meta.url);
-const version = "20260924-osm-base-v3";
+const version = "20260924-web-paradas-periodos-v1";
+const versionOSM = "20260924-osm-base-v3";
 const dietas = "modulos/dietas/";
 
 test("OSM renueva cada consumidor immutable desde la entrada C hasta mapa e idiomas", async () => {
@@ -33,7 +34,9 @@ test("OSM renueva cada consumidor immutable desde la entrada C hasta mapa e idio
     const codigo = await readFile(new URL(padre, raiz), "utf8");
     const literal = recurso.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const urls = [...codigo.matchAll(new RegExp(`${literal}(?:\\?v=[^"']+)?(?=["'])`, "gu"))].map(([url]) => url);
-    assert.deepEqual(urls, Array(cantidad).fill(`${recurso}?v=${version}`), `${padre} → ${recurso}`);
+    const esperada = ["./ayuda-contenido.js", "./ayudante-tramites.js", "./i18n-revision.js"].includes(recurso)
+      ? versionOSM : version;
+    assert.deepEqual(urls, Array(cantidad).fill(`${recurso}?v=${esperada}`), `${padre} → ${recurso}`);
     const vieja = new URL(`${recurso}${anterior ? `?v=${anterior}` : ""}`, new URL(padre, raiz)).href;
     for (const url of urls) {
       assert.notEqual(new URL(url, new URL(padre, raiz)).href, vieja, "una respuesta anterior en caché no sirve el nuevo consumidor");
@@ -46,7 +49,7 @@ test("OSM incorpora el estilo de ayudas F1 y renueva el catálogo de estado vac�
   const borradores = await readFile(new URL(`${dietas}vista-borradores-propios.js`, raiz), "utf8");
   assert.match(html, /dietas\/dietas\.css\?v=20260924-dietas-ayuda-icono-v1/u);
   assert.match(html, /portal\.css\?v=20260924-f2-salto-movil-v3/u);
-  assert.match(borradores, /i18n-borradores\.js\?v=20260924-osm-base-v3/u);
+  assert.match(borradores, /i18n-borradores\.js\?v=20260924-web-paradas-periodos-v1/u);
 });
 
 test("el mapa combinado descarga consumidores nuevos también después del corrector de ayudas F1", async () => {

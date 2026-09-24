@@ -12,12 +12,13 @@ const versionPersonalInterno = "20260924-p1-personal-interno-v2";
 const versionPersonalEstados = "20260924-f2-personal-estados-v4";
 const versionCronosPermisos = "20260924-f2-cronos-permisos-v2";
 const versionCronosAyuda = "20260924-cronos-integrado-v1";
-const versionDietasShell = "20260924-osm-base-v3";
+const versionCronosVista = "20260924-web-paradas-periodos-v1";
+const versionDietasShell = "20260924-web-paradas-periodos-v1";
 const versionDietasIcono = "20260924-dietas-ayuda-icono-v1";
-const versionDietasVista = "20260924-osm-base-v3";
+const versionDietasVista = "20260924-web-paradas-periodos-v1";
 const versionVistasC = "20260924-web-c-v1";
 const versionDietasRecuperacion = "20260924-dietas-recuperacion-v3";
-const versionIntegracion = "20260924-osm-base-v3";
+const versionIntegracion = "20260924-web-paradas-periodos-v1";
 const raiz = new URL("./", import.meta.url);
 
 function versionesDe(codigo, recurso) {
@@ -42,7 +43,7 @@ test("una carga con caché caliente solicita CSS F2 y entrada JS con URL nueva",
   ]);
   for (const [recurso, versionAntigua] of previo) {
     assert.equal(versionDe(html, `/portal-empleado/${recurso}`),
-      recurso === "portal.js" ? versionDietasShell : recurso === "portal.css" ? versionSaltoMovil : recurso === "modulos/dietas/dietas.css" ? versionDietasIcono : version);
+      recurso === "portal.js" ? versionDietasShell : recurso === "portal.css" ? versionSaltoMovil : recurso === "modulos/cronos/cronos.css" ? versionCronosVista : recurso === "modulos/dietas/dietas.css" ? versionDietasIcono : version);
     assert.notEqual(versionDe(html, `/portal-empleado/${recurso}`), versionAntigua);
   }
   for (const recurso of ["portal-baremacion.css", "portal-contratos.css", "portal-convocatorias.css",
@@ -113,7 +114,7 @@ test("el grafo JS propio llega desde HTML a los consumidores F2 con versiones nu
     "modulos/dietas/cliente-borradores-http.js", "modulos/personal/vista-ficha-integral.js",
     "modulos/nominas/vista.js", "modulos/solicitudes/vista.js", "modulos/meritos/vista.js",
     "modulos/comunicaciones/vista.js", "modulos/documentos/vista.js", "modulos/aprobaciones/vista.js"]) {
-    assert.equal(versionDe(coordinador, `./${recurso}`), recurso === "modulos/cronos/vista.js" ? versionCronosAyuda : ["modulos/personal/vista-ficha-integral.js", "modulos/nominas/vista.js"].includes(recurso) ? versionVistasC : version, recurso);
+    assert.equal(versionDe(coordinador, `./${recurso}`), recurso === "modulos/cronos/vista.js" ? versionCronosVista : ["modulos/personal/vista-ficha-integral.js", "modulos/nominas/vista.js"].includes(recurso) ? versionVistasC : version, recurso);
     await access(new URL(recurso, raiz));
   }
   assert.deepEqual(versionesDe(coordinador, "./modulos/dietas/vista-recorridos.js"),
@@ -190,7 +191,7 @@ test("la caché immutable previa no retiene el catálogo i18n ni los consumidore
         "modulos/cronos/vista-recorridos.js", "modulos/dietas/vista-recorridos.js", "modulos/dietas/vista-itinerario.js"].includes(hijo) ? 2 : 1,
         `${padre} → ${hijo}: número de aristas`);
       const versionEsperada = padre === "index.html" || hijo === "portal-modulos-coordinador.js"
-        ? versionDietasShell : hijo === "modulos/cronos/vista-recorridos.js" ? versionCronosAyuda : ["modulos/dietas/vista-recorridos.js", "modulos/dietas/vista-itinerario.js"].includes(hijo) ? versionDietasVista : [
+        ? versionDietasShell : hijo === "modulos/cronos/vista-recorridos.js" ? versionCronosVista : ["modulos/dietas/vista-recorridos.js", "modulos/dietas/vista-itinerario.js"].includes(hijo) ? versionDietasVista : [
         "portal-catalogo-modulos.js", "portal-inicio.js", "portal-eventos.js",
         "portal-borradores-ui.js", "portal-borradores-acceso.js", "portal-i18n.js"].includes(hijo)
         ? versionCronosPermisos
@@ -269,7 +270,7 @@ test("la ayuda de Cronos renueva las dos importaciones y la hoja de permisos", a
   assert.ok(!portal.includes("portal-modulos-coordinador.js?v=20260924-web-integrada-v1"));
   assert.ok(!cacheAnterior.has(`portal.js?v=${versionIntegracion}`));
   assert.ok(!cacheAnterior.has(`portal-modulos-coordinador.js?v=${versionIntegracion}`));
-  assert.deepEqual(versionesDe(coordinador, "./modulos/cronos/vista-recorridos.js"), [versionCronosAyuda, versionCronosAyuda]);
+  assert.deepEqual(versionesDe(coordinador, "./modulos/cronos/vista-recorridos.js"), [versionCronosVista, versionCronosVista]);
   assert.equal(versionDe(html, "/portal-empleado/modulos/cronos/permisos.css"), versionCronosAyuda);
   assert.ok(!coordinador.includes("cronos/vista-recorridos.js?v=20260924-f2-cache-v2"));
   assert.ok(!html.includes("cronos/permisos.css?v=20260924-f2-shell-v1"));

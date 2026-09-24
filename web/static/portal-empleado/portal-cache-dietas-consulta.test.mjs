@@ -3,8 +3,8 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const raiz = new URL("./", import.meta.url);
-const versionEntradaNueva = "20260924-osm-base-v3";
-const versionVistaNueva = "20260924-osm-base-v3";
+const versionEntradaNueva = "20260924-web-paradas-periodos-v1";
+const versionVistaNueva = "20260924-web-paradas-periodos-v1";
 const versionAnteriorEntrada = "20260924-web-c-ayuda-v5";
 const versionAnteriorRecorridos = "20260924-dietas-ayuda-sin-guia-v1";
 const versionAnteriorItinerario = "20260924-dietas-ayuda-icono-v1";
@@ -68,7 +68,7 @@ test("la consulta Dietas atraviesa caché caliente desde HTML hasta ambos cargad
   assert.deepEqual(versiones(html, "/portal-empleado/modulos/dietas/dietas.css"), [versionAnteriorItinerario]);
   assert.ok(cache.has(`/portal-empleado/modulos/dietas/dietas.css?v=${versionAnteriorItinerario}`));
   assert.ok(!borradores.includes("./i18n-borradores.js?v=20260924-dietas-d1d2d4"));
-  assert.match(vista, /vista-borradores-propios\.js\?v=20260924-osm-base-v3/u);
+  assert.match(vista, /vista-borradores-propios\.js\?v=20260924-web-paradas-periodos-v1/u);
   assert.doesNotMatch(vista, /vista-borradores-propios\.js\?v=20260924-dietas-ayuda-sin-guia-v1/u);
   assert.doesNotMatch(vista, /vista-borradores-propios\.js\?v=20260924-dietas-recuperacion-v3/u);
   assert.doesNotMatch(vista, /vista-borradores-propios\.js\?v=20260924-f2-consulta-v1/u);

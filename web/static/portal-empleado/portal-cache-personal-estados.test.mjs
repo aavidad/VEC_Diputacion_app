@@ -4,7 +4,7 @@ import test from "node:test";
 
 const raiz = new URL("./", import.meta.url);
 const versionNueva = "20260924-f2-personal-estados-v4";
-const versionEntrada = "20260924-osm-base-v3";
+const versionEntrada = "20260924-web-paradas-periodos-v1";
 const versionI18n = "20260924-personal-interno-estados-v1";
 
 function versiones(codigo, recurso) {
