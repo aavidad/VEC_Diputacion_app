@@ -96,7 +96,7 @@ export const MENSAJES_PERSONAL_ES = Object.freeze({
   registro_b2_registrado_en: "Registrado el {fecha}",
   registro_b2_formulario_invalido: "Complete los campos de la actuación.",
   registro_b2_acto_denegado: "No dispone de permiso para registrar esta actuación.",
-  registro_b2_acto_conflicto: "La ficha cambió. Consulte la versión actual antes de revisar de nuevo.",
+  registro_b2_acto_conflicto: "Los datos seleccionados han cambiado. Actualice y vuelva a revisar la operación.",
   registro_b2_acto_error: "No se pudo registrar la actuación.",
   registro_b2_acto_incierto: "No se pudo confirmar el resultado. Reintente la misma actuación con la misma clave.",
   registro_b2_reintentar_exacto: "Reintentar exactamente",

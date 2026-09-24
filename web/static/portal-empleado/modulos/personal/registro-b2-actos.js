@@ -10,6 +10,7 @@ function opcionesValidas(catalogos) {
   return catalogos && typeof catalogos === "object" && OPCIONES.every((clave) => Array.isArray(catalogos[clave]) &&
     catalogos[clave].length <= 200 && catalogos[clave].every((v) => v && typeof v.ref === "string" && v.ref.length > 0 && v.ref.length <= 160 && typeof v.denominacion === "string" && v.denominacion.length > 0 && v.denominacion.length <= 240)) &&
     ["organismos", "unidades", "regimenes", "modalidades", "actos", "fuentes"].every((clave) => catalogos[clave].length > 0) &&
+    ["regimenes", "modalidades", "situaciones", "clasesServicio"].every((clave) => catalogos[clave].every((v) => Number.isSafeInteger(v.version) && v.version >= 1 && v.estado === "publicada")) &&
     catalogos.fuentes.every((v) => Number.isSafeInteger(v.version) && v.version >= 1 && /^[a-f0-9]{64}$/u.test(v.huella_sha256)) &&
     [...catalogos.plazas, ...catalogos.puestos].every((v) => typeof v.version_ref === "string" && v.version_ref.length > 0);
 }
@@ -42,6 +43,7 @@ export function montarActosRegistroB2({ raiz, cliente, catalogos, personaRef = "
   let tipo = tipos[0];
   const obtener = (clave) => campos.get(clave)?.value || "";
   const opcion = (grupo, valor) => catalogos[grupo].find((item) => item.ref === valor);
+  const versionado = (grupo, valor) => { const elegido = opcion(grupo, valor); return elegido?.estado === "publicada" && Number.isSafeInteger(elegido.version) && elegido.version >= 1 ? { ref: elegido.ref, version: elegido.version } : null; };
   const fila = (clave, etiqueta, control) => { const label = nodo(d, "label", t(etiqueta)); label.append(control); control.dataset.registroB2Campo = clave; campos.set(clave, control); etiquetas.set(clave, t(etiqueta)); return label; };
   const seleccionar = (clave, etiqueta, lista, requerido = true) => {
     const select = nodo(d, "select"); select.required = requerido;
@@ -71,6 +73,7 @@ export function montarActosRegistroB2({ raiz, cliente, catalogos, personaRef = "
       errorCliente && error.estado === 409 ? "registro_b2_acto_conflicto" :
       errorCliente && error.codigo === "resultado_incierto" ? "registro_b2_acto_incierto" : "registro_b2_acto_error";
     if (clave === "registro_b2_acto_incierto") fase = "incierto";
+    else if (clave === "registro_b2_acto_conflicto") { fase = "conflicto"; pendiente = null; contenedor.replaceChildren(); }
     else { fase = "edicion"; pendiente = null; }
     pintarMensaje(clave, true);
     if (fase === "incierto") { reintentarNodo = nodo(d, "button", t("registro_b2_reintentar_exacto")); reintentarNodo.type = "button"; reintentarNodo.addEventListener("click", confirmar); contenedor.append(reintentarNodo); }
@@ -101,23 +104,33 @@ export function montarActosRegistroB2({ raiz, cliente, catalogos, personaRef = "
     const base = { vigente_desde: obtener("vigente_desde"), acto_ref: obtener("acto"), fuente_ref: fuente.ref, fuente_version: fuente.version, fuente_huella_sha256: fuente.huella_sha256 };
     if (obtener("vigente_hasta")) base.vigente_hasta = obtener("vigente_hasta");
     let cuerpo;
-    if (tipo === "alta") cuerpo = { persona_ref: personaRef, organismo_ref: obtener("organismo"), unidad_ref: obtener("unidad"), regimen_ref: obtener("regimen"), modalidad_ref: obtener("modalidad"), ...base };
+    if (tipo === "alta") {
+      const regimen = versionado("regimenes", obtener("regimen")); const modalidad = versionado("modalidades", obtener("modalidad"));
+      if (!regimen || !modalidad) { pintarMensaje("registro_b2_formulario_invalido", true); return; }
+      cuerpo = { persona_ref: personaRef, organismo_ref: obtener("organismo"), unidad_ref: obtener("unidad"), regimen, modalidad, ...base };
+    }
     else {
-      cuerpo = { tipo: tipo === "revision_relacion" ? "relacion" : tipo, empleado_ref: empleadoRef, revision_esperada: ficha.version, relacion_version_esperada: 0, ...base };
+      cuerpo = { tipo: tipo === "revision_relacion" ? "relacion" : tipo, empleado_ref: empleadoRef, revision_esperada: 1, relacion_version_esperada: 0, ...base };
       if (tipo !== "relacion") {
         const relacion = relacionesActuales().find((r) => r.relacion_ref === obtener("relacion"));
         if (!relacion || !Number.isSafeInteger(relacion.traza?.version) || relacion.traza.version < 1) { pintarMensaje("registro_b2_formulario_invalido", true); return; }
         cuerpo.relacion_ref = relacion.relacion_ref; cuerpo.relacion_version_esperada = relacion.traza.version;
+        if (tipo === "revision_relacion") cuerpo.revision_esperada = relacion.traza.version + 1;
       }
-      if (tipo === "relacion" || tipo === "revision_relacion") Object.assign(cuerpo, { unidad_ref: obtener("unidad"), regimen_ref: obtener("regimen"), modalidad_ref: obtener("modalidad"), estado: obtener("estado") });
+      if (tipo === "relacion" || tipo === "revision_relacion") {
+        const regimen = versionado("regimenes", obtener("regimen")); const modalidad = versionado("modalidades", obtener("modalidad"));
+        if (!regimen || !modalidad) { pintarMensaje("registro_b2_formulario_invalido", true); return; }
+        Object.assign(cuerpo, { unidad_ref: obtener("unidad"), regimen, modalidad, estado: obtener("estado") });
+      }
       if (tipo === "ocupacion") {
         const plaza = opcion("plazas", obtener("plaza")); const puesto = opcion("puestos", obtener("puesto"));
-        if (!plaza?.version_ref) { pintarMensaje("registro_b2_formulario_invalido", true); return; }
-        Object.assign(cuerpo, { plaza_ref: plaza.ref, unidad_ref: obtener("unidad"), modalidad_ref: obtener("modalidad"), clase_ref: obtener("clase"), version_plaza_ref: plaza.version_ref });
+        const modalidad = versionado("modalidades", obtener("modalidad"));
+        if (!plaza?.version_ref || !modalidad) { pintarMensaje("registro_b2_formulario_invalido", true); return; }
+        Object.assign(cuerpo, { plaza_ref: plaza.ref, unidad_ref: obtener("unidad"), modalidad, clase_ocupacion: obtener("clase"), version_plaza_ref: plaza.version_ref });
         if (puesto) { cuerpo.puesto_ref = puesto.ref; if (puesto.version_ref) cuerpo.version_puesto_ref = puesto.version_ref; }
       }
-      if (tipo === "situacion") cuerpo.clase_ref = obtener("situacion");
-      if (tipo === "servicio") Object.assign(cuerpo, { clase_ref: obtener("clase_servicio"), estado: obtener("estado"), periodo_desde: obtener("periodo_desde"), periodo_hasta: obtener("periodo_hasta"), dias_reconocidos: Number(obtener("dias_reconocidos")) });
+      if (tipo === "situacion") { const situacion = versionado("situaciones", obtener("situacion")); if (!situacion) { pintarMensaje("registro_b2_formulario_invalido", true); return; } cuerpo.situacion = situacion; }
+      if (tipo === "servicio") { const claseServicio = versionado("clasesServicio", obtener("clase_servicio")); if (!claseServicio) { pintarMensaje("registro_b2_formulario_invalido", true); return; } Object.assign(cuerpo, { clase_servicio: claseServicio, estado: obtener("estado"), periodo_desde: obtener("periodo_desde"), periodo_hasta: obtener("periodo_hasta"), dias_reconocidos: Number(obtener("dias_reconocidos")) }); }
     }
     pendiente = Object.freeze({ tipo, cuerpo: Object.freeze(cuerpo), clave: globalThis.crypto.randomUUID() });
     valoresBorrador = new Map([...campos].map(([clave, control]) => [clave, control.value]));

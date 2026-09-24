@@ -9,22 +9,29 @@ export class ErrorRegistroB2 extends Error {
   }
 }
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
-const CAMPOS_ALTA = new Set(["persona_ref", "organismo_ref", "unidad_ref", "regimen_ref", "modalidad_ref", "vigente_desde", "vigente_hasta", "acto_ref", "fuente_ref", "fuente_version", "fuente_huella_sha256"]);
-const CAMPOS_HECHO = new Set(["tipo", "empleado_ref", "relacion_ref", "revision_esperada", "relacion_version_esperada", "unidad_ref", "regimen_ref", "modalidad_ref", "estado", "plaza_ref", "puesto_ref", "clase_ref", "version_plaza_ref", "version_puesto_ref", "periodo_desde", "periodo_hasta", "dias_reconocidos", "vigente_desde", "vigente_hasta", "acto_ref", "fuente_ref", "fuente_version", "fuente_huella_sha256"]);
+const CAMPOS_ALTA = new Set(["persona_ref", "organismo_ref", "unidad_ref", "regimen", "modalidad", "vigente_desde", "vigente_hasta", "acto_ref", "fuente_ref", "fuente_version", "fuente_huella_sha256"]);
+const CAMPOS_HECHO = new Set(["tipo", "empleado_ref", "relacion_ref", "revision_esperada", "relacion_version_esperada", "unidad_ref", "regimen", "modalidad", "estado", "plaza_ref", "puesto_ref", "situacion", "clase_servicio", "clase_ocupacion", "version_plaza_ref", "version_puesto_ref", "periodo_desde", "periodo_hasta", "dias_reconocidos", "vigente_desde", "vigente_hasta", "acto_ref", "fuente_ref", "fuente_version", "fuente_huella_sha256"]);
+function catalogoVersionado(valor) { return valor && typeof valor === "object" && !Array.isArray(valor) && Object.keys(valor).length === 2 && /^[a-z][a-z0-9_:-]{2,159}$/u.test(valor.ref) && Number.isSafeInteger(valor.version) && valor.version >= 1 && valor.version <= 2147483647; }
 function validarCuerpo(cuerpo, campos, clave) {
   if (!cuerpo || typeof cuerpo !== "object" || Array.isArray(cuerpo) || Object.keys(cuerpo).some((campo) => !campos.has(campo)) ||
       !UUID_V4.test(clave) || !fechaCivil(cuerpo.vigente_desde) || (cuerpo.vigente_hasta !== undefined && !fechaCivil(cuerpo.vigente_hasta)) ||
       typeof cuerpo.acto_ref !== "string" || !cuerpo.acto_ref || typeof cuerpo.fuente_ref !== "string" || !cuerpo.fuente_ref ||
       !Number.isSafeInteger(cuerpo.fuente_version) || cuerpo.fuente_version < 1 || !/^[a-f0-9]{64}$/u.test(cuerpo.fuente_huella_sha256)) throw new TypeError("acto de Registro de Personal no válido");
   if (campos === CAMPOS_ALTA && (typeof cuerpo.persona_ref !== "string" || !/^per_[A-Za-z0-9_-]{22,128}$/u.test(cuerpo.persona_ref) ||
-      !["organismo_ref", "unidad_ref", "regimen_ref", "modalidad_ref"].every((campo) => typeof cuerpo[campo] === "string" && cuerpo[campo]))) throw new TypeError("alta de empleado no válida");
+      !["organismo_ref", "unidad_ref"].every((campo) => typeof cuerpo[campo] === "string" && cuerpo[campo]) ||
+      !catalogoVersionado(cuerpo.regimen) || !catalogoVersionado(cuerpo.modalidad))) throw new TypeError("alta de empleado no válida");
   const nuevaRelacion = cuerpo.relacion_version_esperada === 0 && (cuerpo.relacion_ref === undefined || cuerpo.relacion_ref === "");
   const revisionRelacion = cuerpo.relacion_version_esperada >= 1 && /^rel_[A-Za-z0-9_-]{22,128}$/u.test(cuerpo.relacion_ref);
   if (campos === CAMPOS_HECHO && (!["relacion", "ocupacion", "servicio", "situacion"].includes(cuerpo.tipo) ||
       !/^emp_[A-Za-z0-9_-]{22,128}$/u.test(cuerpo.empleado_ref) || !Number.isSafeInteger(cuerpo.revision_esperada) || cuerpo.revision_esperada < 1 ||
       !Number.isSafeInteger(cuerpo.relacion_version_esperada) || cuerpo.relacion_version_esperada < (cuerpo.tipo === "relacion" ? 0 : 1) ||
       (cuerpo.tipo !== "relacion" && !/^rel_[A-Za-z0-9_-]{22,128}$/u.test(cuerpo.relacion_ref)) ||
-      (cuerpo.tipo === "relacion" && !nuevaRelacion && !revisionRelacion))) throw new TypeError("hecho de empleado no válido");
+      (cuerpo.tipo === "relacion" && !nuevaRelacion && !revisionRelacion) ||
+      (["relacion", "ocupacion"].includes(cuerpo.tipo) && !catalogoVersionado(cuerpo.modalidad)) ||
+      (cuerpo.tipo === "relacion" && !catalogoVersionado(cuerpo.regimen)) ||
+      (cuerpo.tipo === "situacion" && !catalogoVersionado(cuerpo.situacion)) ||
+      (cuerpo.tipo === "servicio" && !catalogoVersionado(cuerpo.clase_servicio)) ||
+      (cuerpo.tipo === "ocupacion" && !["titular", "provisional", "temporal", "reserva"].includes(cuerpo.clase_ocupacion)))) throw new TypeError("hecho de empleado no válido");
   return JSON.stringify(cuerpo);
 }
 function fechaCivil(valor) { if (typeof valor !== "string" || !/^\d{4}-\d{2}-\d{2}$/u.test(valor)) return false; const fecha = new Date(`${valor}T12:00:00Z`); return Number.isFinite(fecha.getTime()) && fecha.toISOString().slice(0, 10) === valor; }

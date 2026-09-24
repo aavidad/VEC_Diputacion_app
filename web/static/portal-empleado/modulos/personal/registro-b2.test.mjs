@@ -28,7 +28,7 @@ const relacion = (ref) => ({ relacion_ref: ref, unidad_ref: "unidad-uno", estado
 const opcion = (ref, denominacion, otros = {}) => ({ ref, denominacion, ...otros });
 const catalogos = {
   organismos: [opcion("org_sintetico", "Organismo sintético")], unidades: [opcion("unidad_sintetica", "Unidad sintética")],
-  regimenes: [opcion("regimen_sintetico", "Régimen sintético")], modalidades: [opcion("modalidad_sintetica", "Modalidad sintética")],
+  regimenes: [opcion("regimen_sintetico", "Régimen sintético", { version: 1, estado: "publicada" })], modalidades: [opcion("modalidad_sintetica", "Modalidad sintética", { version: 2, estado: "publicada" })],
   plazas: [opcion("plaza_sintetica", "Plaza sintética", { version_ref: "version_plaza_sintetica" })], puestos: [],
   situaciones: [], clasesServicio: [], actos: [opcion("acto_sintetico", "Acto sintético")],
   fuentes: [opcion("fuente_sintetica", "Fuente sintética", { version: 1, huella_sha256: "a".repeat(64) })],
@@ -109,6 +109,10 @@ test("la pestaña de actuaciones solo aparece con objetivo y catálogos autoriza
   montarRegistroB2({ raiz, cliente, catalogos });
   assert.equal(buscar(raiz, (n) => n.dataset.registroB2Tab === "actos"), undefined);
   assert.equal(accionesRegistroB2Disponibles({ cliente, catalogos, personaRef: "per_aaaaaaaaaaaaaaaaaaaaaa" }), true);
+  const sinVersion = { ...catalogos, regimenes: [opcion("regimen_sintetico", "Régimen sintético", { estado: "publicada" })] };
+  const retirada = { ...catalogos, modalidades: [opcion("modalidad_sintetica", "Modalidad retirada", { version: 2, estado: "retirada" })] };
+  assert.equal(accionesRegistroB2Disponibles({ cliente, catalogos: sinVersion, personaRef: "per_aaaaaaaaaaaaaaaaaaaaaa" }), false);
+  assert.equal(accionesRegistroB2Disponibles({ cliente, catalogos: retirada, personaRef: "per_aaaaaaaaaaaaaaaaaaaaaa" }), false);
 });
 
 test("el alta revisada conserva cuerpo y clave en reintento incierto y muestra recibo confirmado", async () => {
@@ -133,7 +137,7 @@ test("el alta revisada conserva cuerpo y clave en reintento incierto y muestra r
 
 test("POST de alta envía solo campos gobernados, sin cookies, y exige recibo no eficaz", async () => {
   const peticiones = []; const idempotencia = "123e4567-e89b-42d3-a456-426614174000";
-  const cuerpo = { persona_ref: "per_aaaaaaaaaaaaaaaaaaaaaa", organismo_ref: "org_sintetico", unidad_ref: "unidad_sintetica", regimen_ref: "regimen_sintetico", modalidad_ref: "modalidad_sintetica", vigente_desde: "2026-09-25", acto_ref: "acto_sintetico", fuente_ref: "fuente_sintetica", fuente_version: 1, fuente_huella_sha256: "a".repeat(64) };
+  const cuerpo = { persona_ref: "per_aaaaaaaaaaaaaaaaaaaaaa", organismo_ref: "org_sintetico", unidad_ref: "unidad_sintetica", regimen: { ref: "regimen_sintetico", version: 1 }, modalidad: { ref: "modalidad_sintetica", version: 2 }, vigente_desde: "2026-09-25", acto_ref: "acto_sintetico", fuente_ref: "fuente_sintetica", fuente_version: 1, fuente_huella_sha256: "a".repeat(64) };
   const recibo = { recibo_ref: `perrec_${"a".repeat(32)}`, empleado_ref: "emp_aaaaaaaaaaaaaaaaaaaaaa", relacion_ref: "rel_bbbbbbbbbbbbbbbbbbbbbb", proyeccion_ref: "pep_cccccccccccccccccccccc", tipo: "alta", version: 1, registrado_en: "2026-09-25T10:00:00Z", decision_ref: "decision_sintetica", efecto_ref: "efecto_sintetico", consumo_huella_sha256: "a".repeat(64), auditoria_ref: "auditoria_sintetica", eficacia_administrativa: false, firma_oficial: false };
   const acceso_actual = { decision_ref: "decision_actual", efecto_ref: "efecto_actual", consumo_huella_sha256: "b".repeat(64), auditoria_ref: "auditoria_actual", consultada_en: "2026-09-25T10:01:00Z", estado_replay: "registrado" };
   const cliente = crearClienteRegistroB2({ fetchImpl: async (url, opciones) => { peticiones.push([url, opciones]); return new Response(JSON.stringify({ data: { recibo, acceso_actual } }), { status: 201, headers: { "content-type": "application/json; charset=utf-8" } }); } });
@@ -142,6 +146,7 @@ test("POST de alta envía solo campos gobernados, sin cookies, y exige recibo no
   assert.equal(peticiones[0][1].credentials, "omit");
   assert.equal(peticiones[0][1].headers["Idempotency-Key"], idempotencia);
   assert.deepEqual(JSON.parse(peticiones[0][1].body), cuerpo);
+  await assert.rejects(cliente.registrarAlta({ ...cuerpo, regimen: undefined, regimen_ref: "regimen_sintetico" }, { claveIdempotencia: idempotencia }), TypeError);
   const repetido = crearClienteRegistroB2({ fetchImpl: async () => new Response(JSON.stringify({ data: { recibo, acceso_actual: { ...acceso_actual, estado_replay: "replay", decision_ref: "decision_relectura" } } }), { status: 200, headers: { "content-type": "application/json; charset=utf-8" } }) });
   const replay = await repetido.registrarAlta(cuerpo, { claveIdempotencia: idempotencia });
   assert.deepEqual(replay.recibo, recibo);
@@ -164,7 +169,10 @@ test("la ocupación exige relación explícita y versión de la plaza autorizada
   buscar(raiz, (n) => n.textContent === "Confirmar registro").listeners.get("click")(); await completar();
   assert.equal(enviado.relacion_ref, "rel_aaaaaaaaaaaaaaaaaaaaaa");
   assert.equal(enviado.relacion_version_esperada, 1);
+  assert.equal(enviado.revision_esperada, 1);
   assert.equal(enviado.version_plaza_ref, "version_plaza_sintetica");
+  assert.deepEqual(enviado.modalidad, { ref: "modalidad_sintetica", version: 2 });
+  assert.equal(enviado.clase_ocupacion, "titular");
   assert.equal(Object.hasOwn(enviado, "ocupacion_ref"), false);
 });
 
@@ -180,4 +188,19 @@ test("la revisión de relación conserva su referencia y exige versión explíci
   assert.equal(enviado.tipo, "relacion");
   assert.equal(enviado.relacion_ref, "rel_aaaaaaaaaaaaaaaaaaaaaa");
   assert.equal(enviado.relacion_version_esperada, 1);
+  assert.equal(enviado.revision_esperada, 2);
+  assert.deepEqual(enviado.regimen, { ref: "regimen_sintetico", version: 1 });
+});
+
+test("el conflicto de catálogo o revisión retira el formulario pendiente", async () => {
+  const raiz = raizFalsa();
+  const cliente = { registrarAlta() { throw new ErrorRegistroB2("acto_rechazado", 409); }, registrarHecho() {} };
+  montarActosRegistroB2({ raiz, cliente, catalogos, personaRef: "per_aaaaaaaaaaaaaaaaaaaaaa" });
+  const campos = Object.fromEntries(nodos(raiz).filter((n) => n.dataset.registroB2Campo).map((n) => [n.dataset.registroB2Campo, n]));
+  for (const [clave, valor] of Object.entries({ organismo: "org_sintetico", unidad: "unidad_sintetica", regimen: "regimen_sintetico", modalidad: "modalidad_sintetica", vigente_desde: "2026-09-25", acto: "acto_sintetico", fuente: "fuente_sintetica" })) campos[clave].value = valor;
+  buscar(raiz, (n) => n.tagName === "form").listeners.get("submit")({ preventDefault() {} });
+  buscar(raiz, (n) => n.textContent === "Confirmar registro").listeners.get("click")(); await completar();
+  assert.match(texto(raiz), /Los datos seleccionados han cambiado/);
+  assert.equal(buscar(raiz, (n) => n.tagName === "form"), undefined);
+  assert.equal(buscar(raiz, (n) => n.textContent === "Confirmar registro"), undefined);
 });
