@@ -1,11 +1,11 @@
-import { exigirSinPresentacion, iniciarAreaPersonal } from "./aplicacion.js?v=20260925-aspecto-v1";
+import { exigirParametrosConocidos, iniciarAreaPersonal } from "./aplicacion.js?v=20260925-sin-demo-v1";
 import { iniciarI18nAreaPersonal, traducir } from "./i18n.js";
 
 await iniciarI18nAreaPersonal();
 
 async function resolverCliente() {
-  exigirSinPresentacion(new URLSearchParams(window.location.search));
-  const { crearClienteHTTPAreaPersonal } = await import("./cliente-http.js?v=20260924-f2-b11-v2");
+  exigirParametrosConocidos(new URLSearchParams(window.location.search));
+  const { crearClienteHTTPAreaPersonal } = await import("./cliente-http.js?v=20260925-sin-demo-v1");
   return { cliente: crearClienteHTTPAreaPersonal() };
 }
 

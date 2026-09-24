@@ -5,6 +5,7 @@ import { renderizarErrorCargaAreaPersonal } from "./aplicacion.js";
 import { iniciarI18nAreaPersonal, traducir } from "./i18n.js";
 import { textoContactoPropio } from "./i18n-contacto-propio.js";
 import { tabla } from "./vistas/comunes.js";
+import { exigirRenovado } from "../portal-empleado/versiones-cache.test-helper.mjs";
 
 test("el HTML y los módulos cambiados usan URLs nuevas bajo caché inmutable", async () => {
   const [html, arranque, aplicacion, vista] = await Promise.all([
@@ -15,8 +16,8 @@ test("el HTML y los módulos cambiados usan URLs nuevas bajo caché inmutable", 
   ]);
   // Versiones publicadas antes del último cambio de la hoja y del montaje: la
   // caché immutable las conserva, así que el HTML debe pedir otra URL.
-  const versionCSSAreaAnterior = "20260924-f2-area-tema-v2";
-  const versionPadreAnterior = "20260924-rescate-area-v7";
+  const versionCSSAreaAnterior = "20260925-aspecto-v1";
+  const versionPadreAnterior = "20260925-aspecto-v1";
   const versionCSSArea = html.match(/\/area-personal\/area-personal\.css\?v=([\w.-]+)"/)?.[1];
   const versionCSSOportunidades = "20260924-f2-b15-area-v1";
   const versionPadre = html.match(/\/area-personal\/arranque\.js\?v=([\w.-]+)"/)?.[1];
@@ -32,7 +33,7 @@ test("el HTML y los módulos cambiados usan URLs nuevas bajo caché inmutable", 
   assert.doesNotMatch(`${arranque}\n${aplicacion}`, /\.\/i18n\.js\?v=/);
   assert.ok(aplicacion.includes(`../comun/oportunidades/vista.js?v=${versionCSSOportunidades}`));
   assert.match(vista, /\.\/i18n\.js\?v=20260924-f2-web2/);
-  assert.match(arranque, /\.\/cliente-http\.js\?v=20260924-f2-b11-v2/);
+  exigirRenovado(arranque, "./cliente-http.js", ["20260924-f2-b11-v1", "20260924-f2-b11-v2"]);
 });
 
 test("una caché antigua v1-v5 no puede sustituir los padres v6 del montaje", async () => {
@@ -46,13 +47,11 @@ test("una caché antigua v1-v5 no puede sustituir los padres v6 del montaje", as
   const hijo = new URL(arranque.match(/from "(\.\/aplicacion\.js\?v=[^"]+)"/)?.[1] ?? "", padre);
   assert.equal(padre.searchParams.get("v"), nuevo);
   assert.equal(hijo.searchParams.get("v"), nuevo);
-  for (const antiguo of ["20260924-f2-b15-area-v1", "20260924-f2-b15-area-v2", "20260924-f2-b15-area-v3", "20260924-f2-b15-area-v4", "20260924-rescate-area-v5", "20260924-rescate-area-v6", "20260924-rescate-area-v7"]) {
+  for (const antiguo of ["20260924-f2-b15-area-v1", "20260924-f2-b15-area-v2", "20260924-f2-b15-area-v3", "20260924-f2-b15-area-v4", "20260924-rescate-area-v5", "20260924-rescate-area-v6", "20260924-rescate-area-v7", "20260925-aspecto-v1"]) {
     assert.notEqual(padre.href, `https://vec.example/area-personal/arranque.js?v=${antiguo}`);
     assert.notEqual(hijo.href, `https://vec.example/area-personal/aplicacion.js?v=${antiguo}`);
   }
-  assert.doesNotMatch(`${arranque}\n${contacto}`, /cliente-http\.js\?v=20260924-f2-b11-v1/);
-  assert.match(arranque, /cliente-http\.js\?v=20260924-f2-b11-v2/);
-  assert.match(contacto, /cliente-http\.js\?v=20260924-f2-b11-v2/);
+  exigirRenovado([arranque, contacto], "./cliente-http.js", ["20260924-f2-b11-v1", "20260924-f2-b11-v2"]);
 });
 
 test("un fallo de arranque usa i18n genérico y no expone su causa", async () => {

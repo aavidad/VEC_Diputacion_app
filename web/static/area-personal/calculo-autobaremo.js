@@ -1,5 +1,5 @@
 /**
- * Regla única de cálculo visual para el adaptador de presentación.
+ * Regla única de cálculo visual del autobaremo en el área personal.
  *
  * Los conceptos vinculados a un mérito solo se incluyen si la persona lo ha
  * seleccionado. Los conceptos obtenidos de oficio por la convocatoria se
