@@ -1,10 +1,18 @@
 /** Vista de consulta de gobierno y versionado del motor de reglas. */
+import { traducirBolsaInterna } from "./portal-i18n.js";
 
 export function crearVistaReglas(u) {
   const { escaparHTML: e, numero, fecha, chip, tabla, kpi, encabezadoVista,
     avisoPresentacion, fuentePresentacion, esPresentacion, botonOperacion, campo } = u;
-  function normalizarEstado(estado = {}) {
-    const fase = estado.fase || estado.carga || "listo";
+  function normalizarEstado(estado = {}, datos = {}) {
+    const fase = estado.fase || estado.carga;
+    if (!fase) {
+      // El consumidor todavía no transmite el resultado de consulta. Las filas
+      // recibidas sí se pueden presentar, pero un objeto vacío no acredita vacío.
+      return (Array.isArray(datos.reglas) && datos.reglas.length > 0)
+        || (Array.isArray(datos.criterios_baremo) && datos.criterios_baremo.length > 0)
+        ? "listo" : "sin_evidencia";
+    }
     return ["cargando", "error", "denegado", "listo"].includes(fase) ? fase : "error";
   }
   function renderizarEstadoNoDisponible(fase, detalle) {
@@ -12,6 +20,7 @@ export function crearVistaReglas(u) {
       cargando: ["Cargando versiones de reglas…", "La consulta interna sigue pendiente de respuesta."],
       error: ["No se pudieron consultar las reglas", detalle || "Revise la conexión autorizada e inténtelo de nuevo."],
       denegado: ["Acceso a reglas denegado", "No se han mostrado versiones ni criterios porque falta una concesión vigente y exacta."],
+      sin_evidencia: [traducirBolsaInterna("fuente_real_no_conectada"), traducirBolsaInterna("detalle_funcionalidad_no_conectada")],
     }[fase];
     return `${encabezadoVista("Gobierno del motor", "Reglas, versiones y configuración", "Consulta interna de versiones gobernadas.")}
       <section class="panel"><div class="cuerpo-panel vacio-controlado" role="status" aria-live="polite">
@@ -32,15 +41,13 @@ export function crearVistaReglas(u) {
     </form>`;
   }
   function renderizarReglas(datos = {}, estado = {}) {
-    const fase = normalizarEstado(estado);
+    const fase = normalizarEstado(estado, datos);
     if (fase !== "listo") return renderizarEstadoNoDisponible(fase, estado.detalle || estado.error);
     const reglas = Array.isArray(datos.reglas) ? datos.reglas : [];
     const criterios = Array.isArray(datos.criterios_baremo) ? datos.criterios_baremo : [];
     const publicadas = reglas.filter((item) => /publicada/i.test(item.estado)).length;
     const enValidacion = reglas.filter((item) => /validación|revisión/i.test(item.estado)).length;
-    const reglaActiva = reglas.find((item) => /publicada/i.test(item.estado)) || reglas[0] || {};
-    const criterioActivo = criterios.find((item) => item.version === reglaActiva.version) || criterios[0] || {};
-    const contextoCriterios = [reglaActiva.ambito, criterioActivo.version || reglaActiva.version].filter(Boolean).join(" · ") || "Sin versión seleccionada";
+    const objetivoBorrador = criterios[0]?.id || reglas[0]?.version || "reglas-no-conectadas";
     const versiones = reglas.map((item) => [
       `<strong>${e(item.nombre)}</strong>`, e(item.ambito), e(item.version), e(fecha(item.vigencia)),
       chip(item.estado), e(item.procedencia || "Procedencia no aportada"),
@@ -70,7 +77,7 @@ export function crearVistaReglas(u) {
         </aside>
       </div>
       <section class="panel panel-separado">
-        <div class="cabecera-panel"><div><h3>Catálogo de criterios de la versión seleccionada</h3><p>Vista de consulta previa a cualquier cálculo de baremación.</p></div><span class="estado-chip violeta">${e(contextoCriterios)}</span></div>
+        <div class="cabecera-panel"><div><h3>Configuración de criterios</h3><p>Vista de consulta previa a cualquier cálculo de baremación.</p></div></div>
         ${tabla({
           titulo: "Configuración de criterios",
           cabeceras: ["Criterio", "Bloque", "Descripción", "Fórmula", "Máximo", "Versión", "Estado"],
@@ -81,7 +88,7 @@ export function crearVistaReglas(u) {
       </section>
       <section class="panel panel-separado" aria-label="Edición de reglas no disponible">
         <div class="cabecera-panel"><div><h3>Preparar la siguiente versión</h3><p>Disponible cuando exista el circuito HTTP autorizado y compuesto.</p></div>${fuentePresentacion()}</div>
-        ${typeof esPresentacion === "function" && esPresentacion() ? renderizarEdicionPresentacion(criterioActivo.id || reglaActiva.version || "reglas-no-conectadas") : renderizarEdicionNoConectada(criterioActivo.id || reglaActiva.version || "reglas-no-conectadas")}
+        ${typeof esPresentacion === "function" && esPresentacion() ? renderizarEdicionPresentacion(objetivoBorrador) : renderizarEdicionNoConectada(objetivoBorrador)}
       </section>`;
   }
   return Object.freeze({ renderizarReglas });
