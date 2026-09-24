@@ -6,7 +6,7 @@ SET timezone='UTC';
 
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='vec_prueba_calendarios_lector') THEN
-    CREATE ROLE vec_prueba_calendarios_lector LOGIN NOINHERIT;
+    CREATE ROLE vec_prueba_calendarios_lector LOGIN INHERIT;
     GRANT vec_calendarios_lector TO vec_prueba_calendarios_lector WITH INHERIT TRUE, SET FALSE;
     CREATE ROLE vec_prueba_calendarios_ajeno LOGIN;
   END IF;
