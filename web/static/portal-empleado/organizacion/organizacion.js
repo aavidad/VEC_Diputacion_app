@@ -5,71 +5,10 @@ export const FUENTE_RPT =
 export const ESQUEMA_ORGANIZACION = "personal.estructura_organizativa.v1";
 export const LIMITE_UNIDADES = 1000;
 export const LIMITE_RESPUESTA = 512 * 1024;
-export const TEXTOS = Object.freeze({
-  eyebrow: "Organización de referencia · Preparación",
-  title: "Organización de referencia en preparación",
-  intro:
-    "Consulta y mantenimiento de la estructura organizativa de referencia para Recursos Humanos.",
-  back: "Volver al Portal del Empleado",
-  provenanceDetail: "Procedencia y alcance de los datos",
-  traceability: "Versión y trazabilidad del catálogo",
-  noticeTitle: "Procedencia del catálogo",
-  notice:
-    "La edición prepara un cambio de catálogo; no acredita ocupantes, dependencia funcional ni permisos de ratificación.",
-  catalogId: "Catálogo",
-  version: "Versión",
-  revision: "Revisión",
-  fingerprint: "Huella SHA-256",
-  status: "Estado",
-  tableTitle: "Unidades organizativas",
-  filterText: "Filtrar por texto",
-  filterType: "Filtrar por tipo",
-  allTypes: "Todos los tipos",
-  delegacion: "Agrupación",
-  centro: "Centro",
-  puesto: "Puesto de responsabilidad",
-  tableCaption: "Unidades de la versión consultada",
-  type: "Tipo",
-  code: "Código / clave",
-  name: "Denominación",
-  adscription: "Adscripción",
-  page: "Página PDF",
-  actions: "Acciones",
-  newUnit: "Nueva unidad",
-  edit: "Editar",
-  localChange: "Cambio local",
-  sourceLabel: "Fuente declarada:",
-  sourceLink: "Consultar transparencia",
-  note: "Las claves nuevas son técnicas y no identifican personas ni inventan códigos oficiales.",
-  loading: "Cargando organización…",
-  error: "No se pudo cargar la organización.",
-  retry: "Reintentar",
-  empty: "No hay unidades que coincidan con los filtros.",
-  count: "{visible} de {total} unidades",
-  draft: "Borrador",
-  editorTitle: "Preparar alta o edición",
-  editorHelper:
-    "Este formulario guarda nombre, tipo y adscripción. Revisa el resumen antes de confirmar; no habilita ratificación.",
-  label: "Denominación",
-  parent: "Adscripción (padre)",
-  noParent: "Sin adscripción",
-  reason: "Motivo",
-  cancel: "Cancelar",
-  review: "Revisar cambio",
-  confirm: "Confirmar cambio",
-  saving: "Guardando…",
-  retryExact: "Reintentar el mismo cambio",
-  reloadReview: "Recargar y revisar de nuevo",
-  conflict:
-    "El catálogo cambió. El formulario se conserva; recarga antes de confirmar.",
-  uncertain:
-    "No se pudo saber si el cambio quedó registrado. Conserva la misma clave y cuerpo para reintentar.",
-  saved: "Cambio registrado",
-  receiptRef: "Referencia",
-  receiptDate: "Fecha",
-  reloadError: "El recibo se conserva, pero no se pudo recargar el catálogo.",
-  rejected: "Cambio rechazado sin guardar. Revisa los datos, la adscripción y tus permisos antes de volver a confirmar.",
-});
+import { crearTraductorPersonal } from "../modulos/personal/i18n.js";
+import { iniciarHistorico, iniciarImportacion, iniciarPestanasOrganizacion } from "./historico.js";
+const traducirOrganizacion = crearTraductorPersonal();
+
 const TYPES = new Set(["delegacion", "centro", "puesto_responsabilidad"]);
 const esc = (v) =>
   String(v ?? "")
@@ -217,9 +156,9 @@ export function crearCliente(fetchImpl = globalThis.fetch, timeoutMs = 10000) {
 }
 const tipoTexto = (t) =>
   ({
-    delegacion: TEXTOS.delegacion,
-    centro: TEXTOS.centro,
-    puesto_responsabilidad: TEXTOS.puesto,
+    delegacion: traducirOrganizacion("organizacion_delegacion"),
+    centro: traducirOrganizacion("organizacion_centro"),
+    puesto_responsabilidad: traducirOrganizacion("organizacion_puesto"),
   })[t];
 const normalizar = (v) =>
   String(v ?? "")
@@ -292,9 +231,15 @@ export function crearEstadoFormulario() {
 function mostrarTextos() {
   document
     .querySelectorAll("[data-i18n]")
-    .forEach((e) => (e.textContent = TEXTOS[e.dataset.i18n] ?? ""));
+    .forEach((e) => (e.textContent = traducirOrganizacion("organizacion_" + e.dataset.i18n)));
+  document.querySelectorAll("[data-i18n-label]").forEach((e) =>
+    e.setAttribute("aria-label", traducirOrganizacion("organizacion_" + e.dataset.i18nLabel)),
+  );
+  document.querySelectorAll("[data-i18n-placeholder]").forEach((e) =>
+    e.setAttribute("placeholder", traducirOrganizacion("organizacion_" + e.dataset.i18nPlaceholder)),
+  );
 }
-export function iniciarOrganizacion(client = crearCliente()) {
+export function iniciarOrganizacion(client = crearCliente(), historico = null, importacion = null, pestanas = null) {
   mostrarTextos();
   document.querySelector("#source-link").href = FUENTE_RPT;
   const state = document.querySelector("#state"),
@@ -304,6 +249,7 @@ export function iniciarOrganizacion(client = crearCliente()) {
     operacion = crearEstadoFormulario(),
     filtroTexto = document.querySelector("#filter-text"),
     filtroTipo = document.querySelector("#filter-type");
+  pestanas?.establecerBloqueo(() => operacion.consultar().bloqueado || Boolean(importacion?.bloqueado()));
   let data;
   const actualizarFiltros = () => {
     filtroTexto.disabled = !data;
@@ -331,15 +277,16 @@ export function iniciarOrganizacion(client = crearCliente()) {
   };
   const actualizarCatalogo = (nuevo) => {
     data = nuevo;
+    historico?.establecerUnidades(data.unidades);
     document.querySelector("#catalog-id").textContent = data.catalogo_id;
     document.querySelector("#catalog-version").textContent =
       data.catalogo_version;
     document.querySelector("#catalog-hash").textContent =
       data.catalogo_huella_sha256;
     document.querySelector("#catalog-status").textContent =
-      TEXTOS.draft +
+      traducirOrganizacion("organizacion_draft") +
       (Number.isInteger(data.catalogo_revision)
-        ? " · " + TEXTOS.revision + " " + data.catalogo_revision
+        ? " · " + traducirOrganizacion("organizacion_revision") + " " + data.catalogo_revision
         : "");
     document.querySelector("#provenance").textContent = data.descripcion;
     document.querySelector("#source-ref").textContent = data.fuente_ref;
@@ -353,18 +300,19 @@ export function iniciarOrganizacion(client = crearCliente()) {
         filtroTexto.value,
         filtroTipo.value,
       );
-    document.querySelector("#result-count").textContent = TEXTOS.count
-      .replace("{visible}", vs.length)
-      .replace("{total}", data.unidades.length);
+    document.querySelector("#result-count").textContent = traducirOrganizacion("organizacion_count", {
+      visible: new Intl.NumberFormat("es-ES").format(vs.length),
+      total: new Intl.NumberFormat("es-ES").format(data.unidades.length),
+    });
     document.querySelector("#rows").innerHTML = vs
       .map(
         (u) =>
-          `<tr><td>${esc(tipoTexto(u.tipo))}</td><td>${esc(u.codigo_fuente ?? u.clave)}</td><td>${esc(u.etiqueta)}${u.modificada_localmente ? `<br><span class="org-local-change">${TEXTOS.localChange}</span>` : ""}</td><td>${esc(padres.get(u.adscripcion_clave) ?? "—")}</td><td>${esc(u.pagina_fuente ?? "—")}</td><td>${data.edicion_habilitada ? `<button type="button" class="edit-unit" data-key="${esc(u.clave)}">${TEXTOS.edit}</button>` : "—"}</td></tr>`,
+          `<tr><td>${esc(tipoTexto(u.tipo))}</td><td>${esc(u.codigo_fuente ?? u.clave)}</td><td>${esc(u.etiqueta)}${u.modificada_localmente ? `<br><span class="org-local-change">${traducirOrganizacion("organizacion_localChange")}</span>` : ""}</td><td>${esc(padres.get(u.adscripcion_clave) ?? "—")}</td><td>${esc(u.pagina_fuente ?? "—")}</td><td>${data.edicion_habilitada ? `<button type="button" class="edit-unit" data-key="${esc(u.clave)}">${traducirOrganizacion("organizacion_edit")}</button>` : "—"}</td></tr>`,
       )
       .join("");
     document.querySelector("#table-wrap").hidden = false;
     state.hidden = vs.length > 0;
-    state.textContent = vs.length ? "" : TEXTOS.empty;
+    state.textContent = vs.length ? "" : traducirOrganizacion("organizacion_empty");
     document
       .querySelectorAll(".edit-unit")
       .forEach((b) => (b.onclick = () => abrir(b.dataset.key)));
@@ -379,7 +327,7 @@ export function iniciarOrganizacion(client = crearCliente()) {
     document.querySelector("#unit-reason").value = "";
     const p = document.querySelector("#unit-parent");
     p.innerHTML =
-      `<option value="">${TEXTOS.noParent}</option>` +
+      `<option value="">${traducirOrganizacion("organizacion_noParent")}</option>` +
       data.unidades
         .filter((x) => x.clave !== key)
         .map(
@@ -388,6 +336,7 @@ export function iniciarOrganizacion(client = crearCliente()) {
         .join("");
     p.value = u?.adscripcion_clave ?? "";
     document.querySelector("#review").hidden = true;
+    document.querySelector("#catalog-panel").hidden = true;
     editor.hidden = false;
     editor.scrollIntoView({ block: "start" });
     document.querySelector("#unit-label").focus();
@@ -418,13 +367,13 @@ export function iniciarOrganizacion(client = crearCliente()) {
     if (!bodyPendiente) return;
     document.querySelector("#unit-key").value = key;
     const review = document.querySelector("#review");
-    review.innerHTML = `<strong>${TEXTOS.confirm}</strong><p>${esc(u.etiqueta)} · ${esc(tipoTexto(u.tipo))} · ${esc(u.adscripcion_clave || TEXTOS.noParent)}</p><p>${esc(motivo)}</p><button type="button" id="confirm-change">${TEXTOS.confirm}</button>`;
+    review.innerHTML = `<strong>${traducirOrganizacion("organizacion_confirm")}</strong><p>${esc(u.etiqueta)} · ${esc(tipoTexto(u.tipo))} · ${esc(u.adscripcion_clave || traducirOrganizacion("organizacion_noParent"))}</p><p>${esc(motivo)}</p><button type="button" id="confirm-change">${traducirOrganizacion("organizacion_confirm")}</button>`;
     review.hidden = false;
     actualizarBloqueos();
   };
   const mostrarRecibo = (x) => {
     out.className = "org-state success";
-    out.innerHTML = `<strong>${TEXTOS.saved}</strong><p class="org-receipt">${TEXTOS.revision} ${esc(x.catalogo_revision)} · ${TEXTOS.receiptDate}: ${esc(x.registrado_en)} · ${TEXTOS.receiptRef}: ${esc(x.recibo_ref)}</p>`;
+    out.innerHTML = `<strong>${traducirOrganizacion("organizacion_saved")}</strong><p class="org-receipt">${traducirOrganizacion("organizacion_revision")} ${esc(x.catalogo_revision)} · ${traducirOrganizacion("organizacion_receiptDate")}: ${esc(x.registrado_en)} · ${traducirOrganizacion("organizacion_receiptRef")}: ${esc(x.recibo_ref)}</p>`;
   };
   const recargarRevision = async () => {
     const button = document.querySelector("#reload-review");
@@ -436,7 +385,7 @@ export function iniciarOrganizacion(client = crearCliente()) {
       out.hidden = true;
     } catch {
       button.disabled = false;
-      out.firstChild.textContent = TEXTOS.error + " ";
+      out.firstChild.textContent = traducirOrganizacion("organizacion_error") + " ";
     }
     actualizarBloqueos();
   };
@@ -445,7 +394,7 @@ export function iniciarOrganizacion(client = crearCliente()) {
     if (!bodyPendiente) return;
     out.hidden = false;
     out.className = "org-state";
-    out.textContent = TEXTOS.saving;
+    out.textContent = traducirOrganizacion("organizacion_saving");
     actualizarBloqueos();
     try {
       const x = await client.guardar(bodyPendiente);
@@ -459,22 +408,22 @@ export function iniciarOrganizacion(client = crearCliente()) {
         actualizarCatalogo(await client.obtener());
         render();
       } catch {
-        out.insertAdjacentText("beforeend", ` — ${TEXTOS.reloadError}`);
+        out.insertAdjacentText("beforeend", ` — ${traducirOrganizacion("organizacion_reloadError")}`);
       }
     } catch (err) {
       out.className = "org-state error";
       if (err.conflicto) {
         operacion.marcarConflicto();
         document.querySelector("#review").hidden = true;
-        out.innerHTML = `${esc(TEXTOS.conflict)} <button type="button" id="reload-review">${TEXTOS.reloadReview}</button>`;
+        out.innerHTML = `${esc(traducirOrganizacion("organizacion_conflict"))} <button type="button" id="reload-review">${traducirOrganizacion("organizacion_reloadReview")}</button>`;
         document.querySelector("#reload-review").onclick = recargarRevision;
       } else if (err.rechazado) {
         operacion.marcarRechazo();
         document.querySelector("#review").hidden = true;
-        out.textContent = TEXTOS.rejected;
+        out.textContent = traducirOrganizacion("organizacion_rejected");
       } else {
         operacion.marcarIncierto();
-        out.innerHTML = `${esc(TEXTOS.uncertain)} <button type="button" id="retry-change">${TEXTOS.retryExact}</button>`;
+        out.innerHTML = `${esc(traducirOrganizacion("organizacion_uncertain"))} <button type="button" id="retry-change">${traducirOrganizacion("organizacion_retryExact")}</button>`;
         document.querySelector("#retry-change").onclick = enviar;
       }
       actualizarBloqueos();
@@ -486,6 +435,7 @@ export function iniciarOrganizacion(client = crearCliente()) {
   document.querySelector("#cancel-edit").onclick = () => {
     if (operacion.consultar().bloqueado) return;
     editor.hidden = true;
+    document.querySelector("#catalog-panel").hidden = false;
   };
   document.querySelector("#new-unit").onclick = () => {
     if (operacion.consultar().bloqueado) return;
@@ -506,12 +456,12 @@ export function iniciarOrganizacion(client = crearCliente()) {
     state.hidden = false;
     state.className = "org-state";
     if (botonReintento) {
-      state.firstChild.textContent = TEXTOS.loading + " ";
-      botonReintento.textContent = TEXTOS.loading;
+      state.firstChild.textContent = traducirOrganizacion("organizacion_loading") + " ";
+      botonReintento.textContent = traducirOrganizacion("organizacion_loading");
       botonReintento.setAttribute("aria-disabled", "true");
       botonReintento.onclick = null;
     } else {
-      state.textContent = TEXTOS.loading;
+      state.textContent = traducirOrganizacion("organizacion_loading");
     }
     try {
       actualizarCatalogo(await client.obtener());
@@ -525,8 +475,8 @@ export function iniciarOrganizacion(client = crearCliente()) {
         : document.activeElement === focoInicial;
       state.className = "org-state error";
       state.innerHTML =
-        esc(TEXTOS.error) +
-        ` <button type="button" id="retry">${TEXTOS.retry}</button>`;
+        esc(traducirOrganizacion("organizacion_error")) +
+        ` <button type="button" id="retry">${traducirOrganizacion("organizacion_retry")}</button>`;
       const reintento = document.querySelector("#retry");
       reintento.onclick = () => cargar(reintento);
       if (devolverFoco) reintento.focus();
@@ -534,4 +484,7 @@ export function iniciarOrganizacion(client = crearCliente()) {
   };
   return cargar();
 }
-if (typeof document !== "undefined") iniciarOrganizacion();
+if (typeof document !== "undefined") {
+  const pestanas = iniciarPestanasOrganizacion();
+  iniciarOrganizacion(crearCliente(), iniciarHistorico(), iniciarImportacion(), pestanas);
+}

@@ -1,4 +1,4 @@
-import { crearTraductorPersonal } from "./i18n.js?v=20260924-f2-web2";
+import { crearTraductorPersonal } from "./i18n.js?v=20260925-organizacion-historica-v1";
 
 const PESTANAS = Object.freeze([
   ["ficha", "ficha_tab_ficha"], ["relaciones", "ficha_tab_relaciones"],
