@@ -1,0 +1,82 @@
+import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js";
+import { validarReferenciaExpedienteSeguimiento } from "./contrato-seguimiento-incorporacion.js";
+import { crearTraductorContratacionTemporal } from "./i18n.js";
+import { renderizarConsultaSeguimientoIncorporacion } from "./seguimiento-incorporacion.js";
+
+export function montarConsultaSeguimientoInterno({ documento, cliente, mensajes = {} } = {}) {
+  const formulario = documento?.querySelector?.("[data-ct-consulta-form]");
+  const entrada = documento?.querySelector?.("#ct-consulta-expediente");
+  const estado = documento?.querySelector?.("[data-ct-consulta-estado]");
+  const panel = documento?.querySelector?.("[data-ct-consulta-resultado-panel]");
+  const resultado = documento?.querySelector?.("[data-ct-consulta-resultado]");
+  if (!formulario || !entrada || !estado || !panel || !resultado
+    || typeof cliente?.consultar !== "function") throw new TypeError("consulta interna no disponible");
+  const t = crearTraductorContratacionTemporal(mensajes);
+  for (const nodo of documento.querySelectorAll("[data-ct-copia]")) {
+    nodo.textContent = t(nodo.getAttribute("data-ct-copia"));
+  }
+  documento.title = t("consulta_seguimiento_pagina_titulo");
+  let controlador = null, secuencia = 0, montado = true;
+  const limpiar = (clave) => {
+    resultado.replaceChildren();
+    panel.hidden = true;
+    estado.textContent = t(clave);
+  };
+  const cancelar = () => {
+    ++secuencia;
+    controlador?.abort();
+    controlador = null;
+  };
+  const alEntrada = () => {
+    cancelar();
+    limpiar("consulta_seguimiento_sin_seleccion");
+  };
+  async function alEnviar(evento) {
+    evento.preventDefault();
+    cancelar();
+    let expedienteRef;
+    try {
+      expedienteRef = validarReferenciaExpedienteSeguimiento(entrada.value.trim());
+    } catch {
+      limpiar("consulta_seguimiento_referencia_invalida");
+      entrada.focus();
+      return;
+    }
+    const actual = new AbortController();
+    controlador = actual;
+    const turno = secuencia;
+    limpiar("consulta_seguimiento_cargando");
+    try {
+      const vista = await cliente.consultar(expedienteRef, { signal: actual.signal });
+      if (!montado || actual.signal.aborted || secuencia !== turno) return;
+      const contenido = renderizarConsultaSeguimientoIncorporacion(vista, expedienteRef, { mensajes });
+      resultado.innerHTML = contenido;
+      panel.hidden = false;
+      estado.textContent = "";
+    } catch (error) {
+      if (!montado || actual.signal.aborted || secuencia !== turno) return;
+      limpiar(error?.estado === 503
+        ? "consulta_seguimiento_no_disponible"
+        : "consulta_seguimiento_sin_datos");
+    } finally {
+      if (controlador === actual) controlador = null;
+    }
+  }
+  formulario.addEventListener("submit", alEnviar);
+  entrada.addEventListener("input", alEntrada);
+  limpiar("consulta_seguimiento_sin_seleccion");
+  return () => {
+    montado = false;
+    cancelar();
+    formulario.removeEventListener("submit", alEnviar);
+    entrada.removeEventListener("input", alEntrada);
+    limpiar("consulta_seguimiento_sin_seleccion");
+  };
+}
+
+if (globalThis.document) {
+  montarConsultaSeguimientoInterno({
+    documento: globalThis.document,
+    cliente: crearClienteHTTPContratacionTemporal().seguimientoIncorporacion,
+  });
+}

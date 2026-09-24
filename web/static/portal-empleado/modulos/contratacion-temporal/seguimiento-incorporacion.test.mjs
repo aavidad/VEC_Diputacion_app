@@ -52,6 +52,7 @@ test("i18n: el seguimiento conserva sus sobrescrituras escapadas", () => {
     raiz, recibo, mensajes: { seguimiento_incorporacion_titulo: "<seguimiento>" }, cliente: { async consultar() {} },
   });
   assert.match(raiz.innerHTML, /&lt;seguimiento&gt;/u);
+  assert.doesNotMatch(raiz.innerHTML, /ct-ayuda|seguimiento_incorporacion_alcance/u);
   destruir();
 });
 
