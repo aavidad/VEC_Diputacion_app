@@ -3,20 +3,36 @@ package server
 import (
 	"archive/zip"
 	"bytes"
+	"encoding/binary"
+	"errors"
+	"image/png"
 	"io"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 const (
 	nombreZIPTeselasOSM = "granada-base-20260719-z8-z12.zip"
 	maxBytesTeselaOSM   = 1024 * 1024
 	maxBytesZIPOSM      = 2 * 1024 * 1024 * 1024
+	maxEntradasZIPOSM   = 4096
+	maxDirectorioZIPOSM = 1024 * 1024
+	maxConcurrentesOSM  = 16
 )
 
 var firmaPNGTeselaOSM = []byte{137, 80, 78, 71, 13, 10, 26, 10}
+
+var errZIPTeselasOSMInvalido = errors.New("archivo de teselas no válido")
+
+type indiceTeselasOSM struct {
+	mu       sync.Mutex
+	archivo  *os.File // El índice conserva el ReaderAt hasta terminar el proceso.
+	entradas map[string]*zip.File
+	cupos    chan struct{}
+}
 
 // registrarTeselasOSM publica sólo el mapa base, sin geometrías ni datos de
 // Dietas. La frontera HTTP interna ya protege este listener; la ruta pública
@@ -26,24 +42,30 @@ func registrarTeselasOSM(mux *http.ServeMux) {
 }
 
 func manejadorTeselasOSM() http.Handler {
+	indice := &indiceTeselasOSM{cupos: make(chan struct{}, maxConcurrentesOSM)}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		entrada, valida := entradaTeselaOSM(r.URL.Path)
 		if !valida {
 			http.NotFound(w, r)
 			return
 		}
-		archivo, err := abrirZIPTeselasOSM()
+		select {
+		case indice.cupos <- struct{}{}:
+			defer func() { <-indice.cupos }()
+		default:
+			http.Error(w, "service unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		archivo, err := indice.obtener(entrada)
 		if err != nil {
 			http.NotFound(w, r)
 			return
 		}
-		defer archivo.Close()
-		lector, err := zip.NewReader(archivo, tamanoArchivo(archivo))
-		if err != nil {
+		if archivo == nil {
 			http.NotFound(w, r)
 			return
 		}
-		contenido, ok := leerEntradaTeselaOSM(lector, entrada)
+		contenido, ok := leerEntradaTeselaOSM(archivo)
 		if !ok {
 			http.NotFound(w, r)
 			return
@@ -56,6 +78,101 @@ func manejadorTeselasOSM() http.Handler {
 			_, _ = w.Write(contenido)
 		}
 	})
+}
+
+func (indice *indiceTeselasOSM) obtener(nombre string) (*zip.File, error) {
+	indice.mu.Lock()
+	defer indice.mu.Unlock()
+	if indice.entradas == nil {
+		archivo, err := abrirZIPTeselasOSM()
+		if err != nil {
+			return nil, err
+		}
+		info, err := archivo.Stat()
+		if err != nil {
+			_ = archivo.Close()
+			return nil, err
+		}
+		cantidad, err := validarDirectorioZIPTeselasOSM(archivo, info.Size())
+		if err != nil {
+			_ = archivo.Close()
+			return nil, err
+		}
+		lector, err := zip.NewReader(archivo, info.Size())
+		if err != nil || len(lector.File) != cantidad {
+			_ = archivo.Close()
+			return nil, errZIPTeselasOSMInvalido
+		}
+		entradas := make(map[string]*zip.File, cantidad)
+		for _, entrada := range lector.File {
+			if _, duplicada := entradas[entrada.Name]; duplicada {
+				_ = archivo.Close()
+				return nil, errZIPTeselasOSMInvalido
+			}
+			entradas[entrada.Name] = entrada
+		}
+		indice.archivo = archivo
+		indice.entradas = entradas
+	}
+	return indice.entradas[nombre], nil
+}
+
+// Valida el EOCD y recorre la cabecera central sin construir el índice ZIP.
+// Rechaza ZIP64, multidisco, contadores falsos y directorios excesivos antes
+// de que archive/zip asigne memoria proporcional al número de entradas.
+func validarDirectorioZIPTeselasOSM(archivo *os.File, tamano int64) (int, error) {
+	if tamano < 22 || tamano > maxBytesZIPOSM {
+		return 0, errZIPTeselasOSMInvalido
+	}
+	longitud := tamano
+	if longitud > 22+65535 {
+		longitud = 22 + 65535
+	}
+	cola := make([]byte, longitud)
+	if _, err := archivo.ReadAt(cola, tamano-longitud); err != nil {
+		return 0, err
+	}
+	for i := len(cola) - 22; i >= 0; i-- {
+		if binary.LittleEndian.Uint32(cola[i:]) != 0x06054b50 ||
+			i+22+int(binary.LittleEndian.Uint16(cola[i+20:])) != len(cola) {
+			continue
+		}
+		eocd := cola[i : i+22]
+		cantidad := int(binary.LittleEndian.Uint16(eocd[10:]))
+		tamanoCentral := int64(binary.LittleEndian.Uint32(eocd[12:]))
+		inicioCentral := int64(binary.LittleEndian.Uint32(eocd[16:]))
+		posEOCD := tamano - longitud + int64(i)
+		if binary.LittleEndian.Uint16(eocd[4:]) != 0 ||
+			binary.LittleEndian.Uint16(eocd[6:]) != 0 ||
+			binary.LittleEndian.Uint16(eocd[8:]) != uint16(cantidad) ||
+			cantidad == 0 || cantidad > maxEntradasZIPOSM ||
+			tamanoCentral <= 0 || tamanoCentral > maxDirectorioZIPOSM ||
+			inicioCentral < 0 || inicioCentral+tamanoCentral != posEOCD {
+			return 0, errZIPTeselasOSMInvalido
+		}
+		pos := inicioCentral
+		var cabecera [46]byte
+		for j := 0; j < cantidad; j++ {
+			if pos+int64(len(cabecera)) > posEOCD {
+				return 0, errZIPTeselasOSMInvalido
+			}
+			if _, err := archivo.ReadAt(cabecera[:], pos); err != nil || binary.LittleEndian.Uint32(cabecera[:]) != 0x02014b50 {
+				return 0, errZIPTeselasOSMInvalido
+			}
+			pos += int64(len(cabecera)) +
+				int64(binary.LittleEndian.Uint16(cabecera[28:])) +
+				int64(binary.LittleEndian.Uint16(cabecera[30:])) +
+				int64(binary.LittleEndian.Uint16(cabecera[32:]))
+			if pos > posEOCD {
+				return 0, errZIPTeselasOSMInvalido
+			}
+		}
+		if pos != posEOCD {
+			return 0, errZIPTeselasOSMInvalido
+		}
+		return cantidad, nil
+	}
+	return 0, errZIPTeselasOSMInvalido
 }
 
 func entradaTeselaOSM(ruta string) (string, bool) {
@@ -137,26 +254,8 @@ func abrirDirectorioOSMSinEnlace(raiz *os.Root, nombre string) (*os.Root, error)
 	return raiz.OpenRoot(nombre)
 }
 
-func tamanoArchivo(archivo *os.File) int64 {
-	info, err := archivo.Stat()
-	if err != nil {
-		return 0
-	}
-	return info.Size()
-}
-
-func leerEntradaTeselaOSM(lector *zip.Reader, nombre string) ([]byte, bool) {
-	var encontrada *zip.File
-	for _, entrada := range lector.File {
-		if entrada.Name != nombre {
-			continue
-		}
-		if encontrada != nil || !entrada.FileInfo().Mode().IsRegular() || entrada.UncompressedSize64 > maxBytesTeselaOSM {
-			return nil, false
-		}
-		encontrada = entrada
-	}
-	if encontrada == nil {
+func leerEntradaTeselaOSM(encontrada *zip.File) ([]byte, bool) {
+	if !encontrada.FileInfo().Mode().IsRegular() || encontrada.UncompressedSize64 > maxBytesTeselaOSM {
 		return nil, false
 	}
 	archivo, err := encontrada.Open()
@@ -166,6 +265,14 @@ func leerEntradaTeselaOSM(lector *zip.Reader, nombre string) ([]byte, bool) {
 	defer archivo.Close()
 	contenido, err := io.ReadAll(io.LimitReader(archivo, maxBytesTeselaOSM+1))
 	if err != nil || len(contenido) > maxBytesTeselaOSM || !bytes.HasPrefix(contenido, firmaPNGTeselaOSM) {
+		return nil, false
+	}
+	cfg, err := png.DecodeConfig(bytes.NewReader(contenido))
+	if err != nil || cfg.Width != 256 || cfg.Height != 256 {
+		return nil, false
+	}
+	lectorPNG := bytes.NewReader(contenido)
+	if _, err := png.Decode(lectorPNG); err != nil || lectorPNG.Len() != 0 {
 		return nil, false
 	}
 	return contenido, true
