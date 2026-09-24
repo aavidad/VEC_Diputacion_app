@@ -22,8 +22,8 @@ test("el tema común separa lienzo, panel y cabecera también en alto contraste"
 });
 
 test("tablas, KPI y estados consumen colores semánticos comunes", () => {
-  assert.match(componentes, /tbody tr:nth-child\(even\)[\s\S]*var\(--portal-superficie-alterna\)/u);
-  assert.match(componentes, /tbody tr \{ height: 44px; \}/u);
+  assert.match(componentes, /tbody tr:hover \{\s*background: var\(--portal-superficie-alterna\)/u);
+  assert.match(componentes, /tbody tr \{ height: 54px; \}/u);
   assert.match(componentes, /tbody tr:focus-within/u);
   assert.match(componentes, /\.icono-kpi[\s\S]*border-radius:/u);
   assert.match(componentes, /\.estado-chip::before[\s\S]*background: currentColor/u);

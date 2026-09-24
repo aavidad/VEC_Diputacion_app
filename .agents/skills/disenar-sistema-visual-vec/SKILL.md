@@ -5,7 +5,7 @@ description: Diseña o unifica pantallas web de VEC con el sistema visual corpor
 
 # Diseñar el sistema visual VEC
 
-**Aspecto concreto** (superficies, separación de apartados, tablas, fichas, KPI y estados): lo fija la skill `aspecto-vec` con la maqueta `fotos/image004.png` como referencia. Aplicar las dos juntas.
+**Aspecto concreto** (menú, cabecera, tarjetas, tablas, KPI, estados y ritmo): lo fija la skill `aspecto-vec` con las maquetas de RRHH como referencia. Aplicar las dos juntas.
 
 Mantener una sola gramática visual para todos los módulos. El color puede variar
 por tema; la estructura, los estados, la densidad, la navegación y la respuesta

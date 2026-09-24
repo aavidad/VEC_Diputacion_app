@@ -14,37 +14,31 @@
 
 .cabecera-panel {
   display: flex;
-  min-height: 48px;
+  min-height: 60px;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 10px 15px;
+  padding: 14px 20px;
   border-bottom: 1px solid var(--portal-borde);
-  background: var(--portal-cabecera-panel);
+  background: var(--portal-superficie);
 }
 
-.cabecera-panel h3 {
-  margin: 0;
-  font-size: 1.03rem;
-  font-weight: 720;
-  color: var(--portal-azul-950);
-}
-
+.cabecera-panel h3,
 .cabecera-panel h2 {
   margin: 0;
-  font-size: 1.03rem;
-  font-weight: 720;
-  color: var(--portal-azul-950);
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--portal-tinta);
 }
 
 .cabecera-panel p {
   margin: 2px 0 0;
   color: var(--portal-muted);
-  font-size: 0.72rem;
+  font-size: 0.8rem;
 }
 
 .cuerpo-panel {
-  padding: 13px 14px;
+  padding: 18px 20px;
 }
 
 .rejilla-modulos {
@@ -128,25 +122,25 @@
 .rejilla-kpi {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 10px;
-  margin-bottom: 12px;
+  gap: 16px;
+  margin-bottom: 20px;
 }
 
 .tarjeta-kpi {
   display: grid;
-  min-height: 106px;
-  grid-template-columns: 46px minmax(0, 1fr);
+  min-height: 112px;
+  grid-template-columns: 52px minmax(0, 1fr);
   align-items: center;
-  gap: 11px;
-  padding: 13px;
+  gap: 16px;
+  padding: 18px 20px;
 }
 
 .icono-kpi {
   display: grid;
-  width: 46px;
-  height: 46px;
+  width: 52px;
+  height: 52px;
   place-items: center;
-  border-radius: 12px;
+  border-radius: 14px;
   background: var(--portal-azul-100);
   color: var(--portal-azul-700);
   font-size: 0.76rem;
@@ -161,21 +155,18 @@
 .valor-kpi {
   display: block;
   margin-bottom: 2px;
-  font-size: 1.25rem;
+  font-size: 1.7rem;
   font-variant-numeric: tabular-nums;
-  font-weight: 760;
-  color: var(--portal-azul-700);
+  font-weight: 600;
+  line-height: 1.15;
+  color: var(--portal-tinta);
 }
 
-.tarjeta-kpi:nth-child(2) .valor-kpi { color: var(--portal-exito); }
-.tarjeta-kpi:nth-child(3) .valor-kpi { color: var(--portal-aviso); }
-.tarjeta-kpi:nth-child(4) .valor-kpi { color: var(--portal-violeta); }
-.tarjeta-kpi:nth-child(5) .valor-kpi { color: var(--portal-cian-fuerte); }
 
 .etiqueta-kpi {
   display: block;
   color: var(--portal-muted);
-  font-size: 0.75rem;
+  font-size: 0.86rem;
 }
 
 .tarjeta-kpi.kpi--exito .icono-kpi { background: var(--portal-exito-suave); color: var(--portal-exito); }
@@ -409,7 +400,7 @@
 .tabla-datos {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.78rem;
+  font-size: 0.87rem;
 }
 
 .tabla-datos caption {
@@ -422,8 +413,8 @@
 
 .tabla-datos th,
 .tabla-datos td {
-  min-height: 44px;
-  padding: 9px 12px;
+  min-height: 52px;
+  padding: 12px 16px;
   border-bottom: 1px solid var(--portal-borde);
   text-align: left;
   vertical-align: middle;
@@ -431,19 +422,14 @@
 }
 
 .tabla-datos th {
-  background: var(--portal-cabecera-panel);
-  color: var(--portal-azul-950);
-  font-size: 0.7rem;
-  font-weight: 760;
+  background: var(--portal-superficie);
+  color: var(--portal-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
   border-bottom: 1px solid var(--portal-borde);
-  letter-spacing: 0.02em;
 }
 
-.tabla-datos tbody tr:nth-child(even) {
-  background: var(--portal-superficie-alterna);
-}
-
-.tabla-datos tbody tr { height: 44px; }
+.tabla-datos tbody tr { height: 54px; }
 
 .tabla-datos tbody tr:focus-within { background: var(--portal-azul-100); }
 .tabla-datos [data-tipo="numero"],
@@ -453,7 +439,10 @@
   border-bottom: 0;
 }
 
-.tabla-datos tbody tr:hover,
+.tabla-datos tbody tr:hover {
+  background: var(--portal-superficie-alterna);
+}
+
 .tabla-datos tbody tr[aria-selected="true"] {
   background: var(--portal-azul-100);
 }
@@ -559,8 +548,34 @@
   color: var(--portal-azul-700);
   cursor: pointer;
   font: inherit;
-  font-weight: 760;
+  font-weight: 600;
   text-decoration: none;
+}
+
+.enlace-tabla:hover {
+  text-decoration: underline;
+}
+
+/* Una cifra de tabla que abre su lista es un enlace coloreado, no una pastilla. */
+.tabla-datos td > button.estado-chip {
+  min-height: 0;
+  padding: 2px 4px;
+  background: transparent;
+  font-size: 0.92rem;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.tabla-datos td > button.estado-chip::before {
+  display: none;
+}
+
+.tabla-datos td > button.estado-chip:hover {
+  text-decoration: underline;
+}
+
+.tabla-datos td > button.estado-chip.neutro {
+  color: var(--portal-tinta);
 }
 
 .barra-cobertura {
@@ -644,16 +659,16 @@
 .insignia,
 .estado-chip {
   display: inline-flex;
-  min-height: 23px;
+  min-height: 24px;
   align-items: center;
   padding: 2px 10px;
-  gap: 5px;
-  border: 1px solid var(--portal-aviso);
+  gap: 6px;
+  border: 1px solid transparent;
   border-radius: 999px;
   background: var(--portal-aviso-suave);
   color: var(--portal-aviso);
-  font-size: 0.68rem;
-  font-weight: 720;
+  font-size: 0.78rem;
+  font-weight: 600;
   white-space: nowrap;
   letter-spacing: 0.01em;
 }
@@ -668,11 +683,11 @@
   content: "";
 }
 
-.estado-chip.exito { border-color: var(--portal-exito); background: var(--portal-exito-suave); color: var(--portal-exito); }
-.estado-chip.info { border-color: var(--portal-azul-700); background: var(--portal-azul-100); color: var(--portal-azul-700); }
-.estado-chip.peligro { border-color: var(--portal-peligro); background: var(--portal-peligro-suave); color: var(--portal-peligro); }
-.estado-chip.neutro { border-color: var(--portal-muted); background: var(--portal-neutro-suave); color: var(--portal-muted); }
-.estado-chip.violeta { border-color: var(--portal-violeta); background: var(--portal-violeta-suave); color: var(--portal-violeta); }
+.estado-chip.exito { background: var(--portal-exito-suave); color: var(--portal-exito); }
+.estado-chip.info { background: var(--portal-azul-100); color: var(--portal-azul-700); }
+.estado-chip.peligro { background: var(--portal-peligro-suave); color: var(--portal-peligro); }
+.estado-chip.neutro { background: var(--portal-neutro-suave); color: var(--portal-muted); }
+.estado-chip.violeta { background: var(--portal-violeta-suave); color: var(--portal-violeta); }
 
 .elemento-actividad {
   grid-template-columns: 10px minmax(0, 1fr);

@@ -494,7 +494,7 @@ test("la ayuda configurable usa FAQ y guía textual veraz", () => {
 test("la cabecera usa el logo institucional local, dimensionado y sin hotlink", async () => {
   assert.match(html, /data-identidad-institucional="diputacion-granada"/);
   assert.match(html, /src="\/assets\/logo-diputacion-granada\.svg" width="250" height="84" alt="Diputación de Granada"/);
-  assert.match(estilosBase, /\.logo-institucional[\s\S]{0,260}width: min\(100%, 214px\)[\s\S]{0,160}height: auto/);
+  assert.match(estilosBase, /\.logo-institucional[\s\S]{0,260}width: min\(100%, 190px\)[\s\S]{0,160}height: auto/);
   assert.doesNotMatch(html, /<img[^>]+src="https?:/i);
   const rutaLogo = new URL("../assets/logo-diputacion-granada.svg", directorio);
   assert.ok((await stat(rutaLogo)).size > 10_000);
