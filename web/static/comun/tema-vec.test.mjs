@@ -27,13 +27,15 @@ function contraste(a, b) {
   return (claro + 0.05) / (oscuro + 0.05);
 }
 
-const base = tokens(portal, ":root");
+const base = tokens(tema, ":root");
 const granate = tokens(tema, 'html[data-tema="granate"]');
-const altoContraste = tokens(portal, 'body.portal-empleado-app[data-contraste="true"]');
+const altoContraste = tokens(tema, "body.alto-contraste");
 
 test("catálogo F2 cerrado: institucional heredado y granate cromático", () => {
   assert.deepEqual([...tema.matchAll(/html\[data-tema="([^"]+)"\]/g)].map((m) => m[1]), ["granate"]);
-  assert.match(portal, /--portal-fondo:\s*#eaf1f8/);
+  assert.match(tema, /--portal-fondo:\s*#eaf1f8/);
+  assert.match(portal, /^\/\*[^]*?\*\/\s*@import url\("\.\.\/comun\/tema-vec\.css"\);/);
+  assert.doesNotMatch(portal, /--portal-[\w-]+:\s*[^;]+;/);
   assert.ok(Object.keys(granate).every((clave) => clave in base));
   assert.deepEqual(Object.keys(granate).filter((clave) => /exito|aviso|peligro|violeta|cian|naranja/.test(clave)), []);
   assert.doesNotMatch(tema, /@import|url\(|(?:^|[;{]\s*)(?:display|position|grid-template|padding|margin|width|height|font-size)\s*:/im);
@@ -53,6 +55,7 @@ test("lienzo tintado, panel claro y texto/foco legibles en ambas paletas", () =>
 });
 
 test("alto contraste prevalece sobre todos los colores de paleta", () => {
+  assert.match(tema, /body\[data-contraste="true"\],\s*body\.alto-contraste \{/);
   for (const clave of Object.keys(granate)) {
     assert.ok(clave in altoContraste, `${clave} debe prevalecer`);
   }
