@@ -363,7 +363,16 @@ test("permite consultar itinerario sin cliente de borradores y mantiene cerrado 
   await Promise.resolve();
   assert.equal(montajes, 1);
   assert.equal(raiz.querySelector("[data-dietas-borrador-form]").hidden, true);
-  assert.match(textoVisible(raiz.querySelector("[data-dietas-nueva-comision]")), /guardar una comisión requiere el servicio de borradores autorizado/u);
+  const aviso = raiz.querySelector("[data-dietas-nueva-comision]").querySelector("p");
+  assert.equal(aviso.textContent, "Registro de comisiones no disponible.");
+  assert.equal(aviso.attrs.role, "status");
+  assert.doesNotMatch(abrir.title, /Puede explorar|Puede abrir/u);
+  const ayuda = raiz.querySelector('[data-dietas-panel-etapa="solicitante"]')
+    .querySelectorAll("details").find((nodo) => nodo.className === "dietas-recorridos-ayuda");
+  assert.ok(ayuda);
+  assert.equal(ayuda.querySelector("summary").textContent, "?");
+  assert.match(textoVisible(ayuda), /Puede explorar la zona del itinerario/u);
+  assert.match(textoVisible(ayuda), /guardar una comisión requiere el servicio de borradores autorizado/u);
   assert.match(textoVisible(raiz.querySelector("[data-dietas-nueva-comision]")), /Cerrar itinerario/u);
   vista.desmontar();
 });

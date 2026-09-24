@@ -2,7 +2,8 @@
 export const MENSAJES_BORRADORES_ES = Object.freeze({
   borradores_propios_titulo_registrados: "Borradores registrados",
   borradores_propios_estado_sin_seleccion: "Ningún borrador seleccionado.",
-  borradores_propios_ya_registrado: "Este borrador ya se registró. Consulte su recibo o cambie los datos para iniciar otro.",
+  borradores_propios_ya_registrado: "Este borrador ya se registró.",
+  borradores_propios_ya_registrado_ayuda: "Consulte su recibo o cambie los datos para iniciar otro.",
   borradores_propios_detalle_no_actualizado: "No se ha podido actualizar el detalle. Se conserva el último recibo obtenido.",
   borradores_propios_detalle_denegado: "No tiene permiso para consultar este detalle. Se conserva el último recibo obtenido.",
   borradores_propios_creado_listado_denegado: "Borrador registrado. No tiene permiso para actualizar la bandeja; conserve el recibo y no vuelva a crear el borrador.",

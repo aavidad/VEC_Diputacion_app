@@ -6,14 +6,14 @@ export const MENSAJES_REVISION_DIETAS_ES = Object.freeze({
   revision_titulo: "Revisión de comisión",
   revision_instruccion: "Seleccione un borrador para comprobar sus datos y el recibo conservado.",
   revision_ayuda_propia: "La consulta muestra únicamente sus borradores autorizados. El cálculo es orientativo; enviar a revisión y adjuntar justificantes requieren sus servicios propios.",
-  revision_ayuda_sin_cliente: "Puede abrir la zona del itinerario. El mapa y el cálculo dependen de sus servicios autorizados; consultar y guardar comisiones requiere el servicio de borradores.",
+  revision_ayuda_sin_cliente: "Puede explorar la zona del itinerario; guardar una comisión requiere el servicio de borradores autorizado. El mapa y el cálculo dependen de sus servicios autorizados.",
   revision_ayuda_circuito: "Las vistas de jefatura y gestión describen el circuito pendiente. No muestran solicitudes personales ni ejecutan decisiones hasta disponer de consulta y autorización propias.",
   revision_jefatura_sin_servicio: "La bandeja y las decisiones de jefatura aún no están conectadas al servicio autorizado.",
   revision_gestion_sin_servicio: "La liquidación, fiscalización y consulta de pago aún no están conectadas al circuito económico autorizado.",
   revision_accion_sin_servicio: "Acción pendiente del servicio autorizado",
   revision_explorar_itinerario: "Explorar itinerario",
   revision_cerrar_itinerario: "Cerrar itinerario",
-  revision_itinerario_sin_registro: "Puede explorar la zona del itinerario; guardar una comisión requiere el servicio de borradores autorizado.",
+  revision_itinerario_sin_registro: "Registro de comisiones no disponible.",
 });
 
 export function crearTraductorRevisionDietas(traducirBase) {

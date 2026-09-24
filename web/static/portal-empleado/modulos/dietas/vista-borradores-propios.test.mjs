@@ -272,6 +272,47 @@ test("un POST incierto reintenta el mismo material y la misma clave sin inventar
   }
 });
 
+test("al guardar otra vez el mismo borrador confirma el recibo y reserva la instrucción para ?", async () => {
+  const contenedor = raiz();
+  let escrituras = 0;
+  const vista = montarVistaBorradoresPropios(contenedor, {
+    cliente: {
+      listar: async () => ({ items: [] }),
+      obtener: async () => item,
+      crear: async () => { escrituras += 1; return item; },
+    },
+    generarClaveIdempotencia: () => "operacion-confirmada",
+  });
+  await Promise.resolve();
+  await Promise.resolve();
+  const form = contenedor.querySelector("[data-dietas-borrador-form]");
+  form.checkValidity = () => true;
+  const datos = {
+    fecha_inicio: "2026-09-20", fecha_fin: "2026-09-21", motivo: "Visita",
+    hora_inicio: "09:00", hora_fin: "18:00", origen_codigo: "18087", destino_codigo: "18003",
+  };
+  const FormDataOriginal = globalThis.FormData;
+  globalThis.FormData = class { get(nombre) { return datos[nombre] ?? null; } };
+  try {
+    const panel = contenedor.querySelector("[data-dietas-borradores-propios]");
+    await panel.listeners.submit({ target: form, preventDefault() {} });
+    await panel.listeners.submit({ target: form, preventDefault() {} });
+    assert.equal(escrituras, 1);
+    assert.equal(contenedor.querySelector("[data-dietas-borradores-estado]").textContent,
+      "Este borrador ya se registró.");
+    assert.match(textoVisible(contenedor.querySelector("[data-dietas-borrador-recibo]")),
+      /rcd_1234567890123456789012/u);
+    const ayuda = form.querySelectorAll("details").find((nodo) => nodo.className === "dietas-borradores-ayuda");
+    assert.ok(ayuda);
+    assert.equal(Boolean(ayuda.open), false);
+    assert.equal(ayuda.querySelector("summary").textContent, "?");
+    assert.match(textoVisible(ayuda), /Consulte su recibo o cambie los datos para iniciar otro/u);
+  } finally {
+    globalThis.FormData = FormDataOriginal;
+    vista.desmontar();
+  }
+});
+
 test("la vista conserva la clave si el POST real responde 201 sin recibo válido", async () => {
   const contenedor = raiz();
   const solicitudes = [];

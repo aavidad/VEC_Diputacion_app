@@ -275,6 +275,7 @@ export function montarVistaBorradoresPropios(
     abrirAyuda.setAttribute("aria-label", traducir("recorridos_abrir_ayuda"));
     ayuda.append(abrirAyuda, nodo(documento,"p",traducir("borradores_propios_ruta_ayuda")));
     ayuda.append(nodo(documento, "p", tBorradores("borradores_propios_preparacion_ayuda")));
+    ayuda.append(nodo(documento, "p", tBorradores("borradores_propios_ya_registrado_ayuda")));
     const pais = campo("pais", "borradores_propios_pais", "text", false);
     const paisValor = pais.querySelector("input");
     paisValor.value = tBorradores("borradores_propios_pais_espana");
