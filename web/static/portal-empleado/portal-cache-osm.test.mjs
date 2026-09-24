@@ -63,7 +63,7 @@ test("la cadena final no pide módulos previos a la corrección Leaflet ni al es
       "vista-borradores-propios.js", "vista-itinerario.js", "vista-recorridos.js"].map((nombre) => dietas + nombre)];
   for (const padre of padres) {
     const codigo = await readFile(new URL(padre, raiz), "utf8");
-    assert.doesNotMatch(codigo, /\.js\?v=20260924-(?:osm-base-v1|web-c-ayuda-v[456]|dietas-ayuda-sin-guia-v[12])["']/u, padre);
+    assert.doesNotMatch(codigo, /\.js\?v=20260924-(?:osm-base-v1|web-c-ayuda-v[4567]|dietas-ayuda-sin-guia-v[12]|dietas-preparacion-sin-guia-v3)["']/u, padre);
   }
   const html = await readFile(new URL("index.html", raiz), "utf8");
   assert.match(html, /dietas\/dietas\.css\?v=20260924-dietas-ayuda-icono-v1/u);

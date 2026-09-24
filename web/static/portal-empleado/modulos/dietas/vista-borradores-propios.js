@@ -745,7 +745,6 @@ export function montarVistaBorradoresPropios(
         nodo(documento, "p", String(datos.get("motivo") || "").trim()),
         nodo(documento, "p", rutaLegible([origen, destino], tBorradores)),
         nodo(documento, "p", `${tBorradores("borradores_propios_pais")}: ${tBorradores("borradores_propios_pais_espana")}`),
-        nodo(documento, "p", tBorradores("borradores_propios_preparacion_editable")),
       );
       resumen.hidden = false;
       enfocar(resumen);

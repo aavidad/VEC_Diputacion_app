@@ -869,7 +869,8 @@ test("la preparación local muestra país y se puede revisar sin crear un expedi
     assert.equal(pais.readOnly, true);
     await panel.listeners.click({ target: form.querySelector("[data-dietas-borrador-revisar]") });
     const resumen = form.querySelector("[data-dietas-borrador-preparacion]");
-    assert.match(textoVisible(resumen), /Visita.*España/u);
+    assert.match(textoVisible(resumen), /Preparación local sin registrar.*Visita.*España/u);
+    assert.doesNotMatch(textoVisible(resumen), /Puede seguir editando los campos antes de crear el borrador/u);
     assert.equal(escrituras, 0);
     assert.equal(contenedor.querySelector("[data-dietas-borrador-recibo]"), null);
     datos.motivo = "Visita corregida";
