@@ -26,9 +26,9 @@ type ManejadoresCronos struct {
 	RecuperacionRemota *httpinterno.ManejadorRecuperacionMarcajeRemoto
 }
 
-// PrepararManejadoresCronos no registra rutas. Su montaje sólo corresponde a
-// la raíz interna cuando F1, la lectura nominal y el puente V3 entre bases
-// estén acreditados. Un error deja las dos capacidades sin publicar.
+// PrepararManejadoresCronos no registra rutas: las monta la frontera de
+// cronos_empleado.go sólo cuando identidad, ContextoActor {empleado}, emisor
+// V3 y PostgreSQL están compuestos. Un error deja las capacidades sin publicar.
 func PrepararManejadoresCronos(d DependenciasManejadoresCronos) (ManejadoresCronos, error) {
 	saldo, err := httpinterno.NuevoManejadorSaldoPropio(d.ConsultaSaldo, d.ResolverSaldo)
 	if err != nil {

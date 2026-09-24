@@ -391,11 +391,24 @@ func (a *autoridadRutasDietasDesarrollo) resolverSesion(ctx context.Context, r *
 	revalidador := revalidadorSesionConsultaRRHHDesarrollo{delegado: a.revalidador, alta: alta, confirmacion: confirmacion, reloj: a.reloj, superficie: httpseguridad.SuperficieInternaCorporativa}
 	vinculo, resultado, e := core.CrearVinculoAutenticacionActorV2ConResultado(ctx, revalidador, core.SolicitudRevalidacionAutenticacionActorV1{AutenticacionRef: confirmacion.AutenticacionRef, SesionRef: confirmacion.SesionRef}, a.contextos, core.SolicitudContextoActor{Cuenta: core.CuentaAutenticadaContextoActor{CuentaRef: cuenta.CuentaRef, Metodo: core.AuthMethodCertificate, Garantia: core.AuthAssuranceHigh}, PerfilActivoRef: cuenta.PerfilRef}, a.reloj)
 	if e != nil {
-		return vacio, resultadoVacio, httpapi.ErrRutaDietasDenegada
+		// Sólo los dos motivos cerrados de la proyección {empleado} salen de
+		// aquí para explicar la denegación; cualquier otra causa sigue opaca.
+		return vacio, resultadoVacio, errors.Join(httpapi.ErrRutaDietasDenegada, motivoProyeccionEmpleadoContextoActor(e))
 	}
 	datos, e := vinculo.Datos()
 	if e != nil || datos.CuentaRef != cuenta.CuentaRef || datos.PerfilActivoRef != cuenta.PerfilRef || datos.CuentaPrivilegiada || datos.Superficie != core.SuperficieAutenticacionInternaCorporativaV1 || !vinculo.VigenteEn(a.reloj.Ahora(), resultado) {
 		return vacio, resultadoVacio, httpapi.ErrRutaDietasDenegada
 	}
 	return vinculo, resultado, nil
+}
+
+func motivoProyeccionEmpleadoContextoActor(err error) error {
+	switch {
+	case errors.Is(err, vp.ErrProyeccionEmpleadoContextoActorAusente):
+		return vp.ErrProyeccionEmpleadoContextoActorAusente
+	case errors.Is(err, vp.ErrProyeccionEmpleadoContextoActorAmbigua):
+		return vp.ErrProyeccionEmpleadoContextoActorAmbigua
+	default:
+		return nil
+	}
 }
