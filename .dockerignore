@@ -29,6 +29,9 @@ Peticion.pdf
 deploy/osrm-granada/data
 config/rpt_positions_import.json
 
+# El ZIP OSM de web/cartografia se aprovisiona y verifica antes del build.
+# Debe entrar en el contexto para que los manifiestos internos lo copien.
+
 # Cachés, bases y artefactos locales.
 **/__pycache__
 **/*.pyc

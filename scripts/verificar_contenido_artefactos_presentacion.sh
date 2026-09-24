@@ -26,6 +26,7 @@ limpiar() {
 }
 trap limpiar EXIT INT TERM
 
+scripts/aprovisionar_cartografia_osm.sh
 docker build --target runtime -t "$imagen_produccion" .
 docker build --target runtime-presentacion -t "$imagen_presentacion" .
 docker build --target runtime-cartografia-presentacion -t "$imagen_cartografia" .
@@ -46,6 +47,14 @@ if grep -Ei 'app/web/.*presentacion|app/web/.*demo|(^|/)data/demo/|\.demo\.json$
 fi
 
 scripts/verificar_web_produccion.sh "$contenido_produccion/app/web"
+
+# La copia historica se sirve solo desde los artefactos internos o productivos.
+# La presentacion dispone de un mediador cartografico propio y no recibe el ZIP.
+if grep -Eq '^app/web/cartografia(/|$)' "$inventario_presentacion" ||
+   [ -e "$contenido_presentacion/app/web/cartografia" ]; then
+  echo "ERROR: el artefacto de presentacion contiene la cartografia historica productiva" >&2
+  exit 1
+fi
 
 for raiz in "$contenido_produccion" "$contenido_presentacion" "$contenido_cartografia"
 do

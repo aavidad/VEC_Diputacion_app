@@ -16,6 +16,7 @@ export function crearGestorDescargaBorradorRRHH({
   esMontada = () => true,
 } = {}) {
   let descargaInforme = null;
+  let controlesDescargaInforme = null;
   let accionDescargaInforme = null;
   let formatoDescargaInforme = null;
   let urlInforme = null;
@@ -28,16 +29,25 @@ export function crearGestorDescargaBorradorRRHH({
     urlInforme = null;
   }
 
+  function restaurarControlesDescarga({ botones, cancelaciones, reintentos }) {
+    botones.forEach((control) => { control.disabled = false; });
+    cancelaciones.forEach((control) => { control.disabled = true; });
+    reintentos.forEach((control) => { control.disabled = control.hidden !== false; });
+  }
+
   function cancelarDescargaInforme() {
     const activa = descargaInforme !== null;
+    const controles = controlesDescargaInforme;
     const accion = accionDescargaInforme;
     const formato = formatoDescargaInforme;
     descargaInforme?.abort();
     descargaInforme = null;
+    controlesDescargaInforme = null;
     accionDescargaInforme = null;
     formatoDescargaInforme = null;
     liberarURLInforme();
     if (activa && accion) actualizarResultadoDescarga(accion.replace("descargar-", ""), "descarga_cancelada", true, formato);
+    if (activa && controles && esMontada()) restaurarControlesDescarga(controles);
     return activa;
   }
 
@@ -88,6 +98,7 @@ export function crearGestorDescargaBorradorRRHH({
     )] : [];
     const controlador = new AbortController();
     descargaInforme = controlador;
+    controlesDescargaInforme = { botones, cancelaciones, reintentos };
     accionDescargaInforme = accionDocumento;
     formatoDescargaInforme = formato;
     botones.forEach((control) => { control.disabled = true; });
@@ -132,12 +143,11 @@ export function crearGestorDescargaBorradorRRHH({
     } finally {
       if (descargaInforme === controlador) {
         descargaInforme = null;
+        controlesDescargaInforme = null;
         accionDescargaInforme = null;
         formatoDescargaInforme = null;
+        restaurarControlesDescarga({ botones, cancelaciones, reintentos });
       }
-      botones.forEach((control) => { control.disabled = false; });
-      cancelaciones.forEach((control) => { control.disabled = true; });
-      reintentos.forEach((control) => { control.disabled = control.hidden !== false; });
     }
   }
 

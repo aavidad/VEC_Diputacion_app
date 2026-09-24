@@ -7,8 +7,9 @@
     <meta name="robots" content="noindex,nofollow">
     <title>Comprobación de documentos · Diputación de Granada</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="/verificar/verificar.css?v=20260719-cotejo-v1">
-    <script type="module" src="/verificar/verificar.js?v=20260719-cotejo-v1"></script>
+    <link rel="stylesheet" href="/comun/tema-vec.css?v=20260924-f2-tema-base-v2">
+    <link rel="stylesheet" href="/verificar/verificar.css?v=20260924-f2-tema-verificar-v1">
+    <script type="module" src="/verificar/verificar.js?v=20260924-cotejo-espera-i18n-v3"></script>
   </head>
   <body>
     <a class="salto" href="#contenido">Saltar al contenido principal</a>
@@ -26,7 +27,7 @@
         <form id="formulario-cotejo">
           <label for="referencia">Referencia de comprobación</label>
           <div class="campo-accion">
-            <input id="referencia" name="referencia" type="text" minlength="8" maxlength="80" pattern="[A-Za-z0-9][A-Za-z0-9._:-]+" autocomplete="off" spellcheck="false" required>
+            <input id="referencia" name="referencia" type="text" minlength="8" maxlength="80" pattern="[A-Za-z0-9][A-Za-z0-9._:\-]+" autocomplete="off" spellcheck="false" required>
             <button type="submit">Comprobar</button>
           </div>
         </form>

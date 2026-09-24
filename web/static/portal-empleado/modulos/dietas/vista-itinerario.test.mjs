@@ -64,6 +64,9 @@ test("mantiene visible un mapa corporativo pendiente sin inventar catálogo ni g
   const r = raiz();
   const vista = montarVistaItinerarioPendienteDietas({ raiz: r });
   const contenedor = r.querySelector("[data-dietas-itinerario]");
+  const ayuda = contenedor.querySelector("[data-accion=\"ayuda\"]");
+  assert.equal(ayuda.textContent, "?");
+  assert.equal(ayuda.attrs["aria-label"], `${MENSAJES_DIETAS_ES.recorridos_abrir_ayuda} · ${MENSAJES_DIETAS_ES.ruta_del_dia}`);
   const mapa = contenedor.querySelector("[data-dietas-mapa-pendiente]");
   assert.ok(mapa);
   assert.equal(mapa.querySelector("[data-dietas-mapa-canvas]").dataset.modoMapa, "pendiente_calculo_autorizado");
@@ -83,6 +86,12 @@ test("consulta el puerto OSRM inyectado, muestra catálogo y desmonta el mapa", 
     visorRuta: { montar({ descriptor }) { mapas.push(descriptor); return { desmontar() { mapaDesmontado = true; } }; } },
   });
   const contenedor = r.querySelector("[data-dietas-itinerario]");
+  const ayuda = contenedor.querySelector("[data-accion=\"ayuda\"]");
+  assert.equal(ayuda.textContent, "?");
+  assert.equal(ayuda.attrs["aria-label"], `${MENSAJES_DIETAS_ES.recorridos_abrir_ayuda} · ${MENSAJES_DIETAS_ES.ruta_del_dia}`);
+  const llamadasAntesAyuda = llamadas.length;
+  await clicar(contenedor, '[data-accion="ayuda"]');
+  assert.equal(llamadas.length, llamadasAntesAyuda, "abrir ayuda no calcula rutas");
   assert.equal(contenedor.querySelector("[data-itinerario-catalogo]"), null);
   assert.equal(
     contenedor.querySelector("[data-dietas-mapa-centro]").children[0].textContent,
@@ -150,6 +159,11 @@ test("expone avisos, alternativas y tramos del cálculo orientativo sin exponer 
     "DEMO · Ruta orientativa no liquidable.");
   assert.equal(contenedor.querySelector("[data-itinerario-aviso-sin-efectos]").textContent,
     "Sin efectos administrativos/reales.");
+  const motivo = contenedor.querySelector("[data-itinerario-motivo-alternativa]");
+  const descriptor = contenedor.querySelectorAll("small").find((nodo) => nodo.id === motivo.attrs["aria-describedby"]);
+  assert.equal(descriptor?.textContent, "Motivo obligatorio (8–500 caracteres)");
+  assert.ok(contenedor.querySelectorAll("p").some((nodo) => nodo.textContent === "Previsualización sin guardar ni generar importe"));
+  assert.ok(!contenedor.querySelectorAll("p").some((nodo) => /Puede previsualizar otra alternativa/u.test(nodo.textContent)));
   const alternativas = contenedor.querySelectorAll("[data-itinerario-alternativa]");
   assert.equal(alternativas.length, 3);
   assert.match(alternativas[0].children[0].textContent, /Ruta OSRM interna · primera alternativa/u);
@@ -161,11 +175,68 @@ test("expone avisos, alternativas y tramos del cálculo orientativo sin exponer 
   assert.equal(tramos[0].children[0].textContent, "Granada → Motril");
   assert.equal(tramos[0].children[1].textContent, "70,4 km");
   assert.equal(tramos[0].children[2].textContent, "55 min");
+  assert.equal(tramos[0].children[3].textContent, "Sin ajuste");
+  assert.equal(tramos[0].children[4].textContent, "Pendiente de contrato");
+  assert.ok(contenedor.querySelectorAll("p").some((nodo) => /no modifican kilómetros ni importes/u.test(nodo.textContent)));
+  assert.match(contenedor.querySelector("[data-itinerario-vehiculo]").children[0].textContent,
+    /Vehículo propio pendiente/u);
+  assert.match(contenedor.querySelector("[data-itinerario-vehiculo]").children[1].textContent,
+    /no registra el medio de transporte/u);
   const region = contenedor.querySelector("[data-itinerario-tramo]").parent.parent.parent;
   assert.equal(region.attrs.role, "region");
   assert.equal(region.attrs.tabindex, "0");
   const fuente = await (await import("node:fs/promises")).readFile(new URL("vista-itinerario.js", import.meta.url), "utf8");
-  assert.doesNotMatch(fuente, /latitud|longitud|coordinates|seleccionarAlternativa|ajustarTramo/u);
+  assert.doesNotMatch(fuente, /latitud|longitud|coordinates|ajustarTramo/u);
+});
+
+test("previsualiza otra ruta OSRM con motivo y conserva el mapa interno sin efecto económico", async () => {
+  const llamadas = []; const mapas = []; const r = raiz();
+  const base = respuestaOSRM().routes[0];
+  const respuesta = { ...respuestaOSRM(), routes: [
+    base,
+    { ...base, distance: 142_000, duration: 6_720 },
+  ] };
+  await montarVistaItinerarioDietas({
+    raiz: r,
+    calculador: crearCalculador(llamadas, respuesta),
+    visorRuta: { montar({ descriptor }) { mapas.push(descriptor); return { desmontar() {} }; } },
+  });
+  const contenedor = r.querySelector("[data-dietas-itinerario]");
+  await clicar(contenedor, "[data-itinerario-calcular]");
+  const selector = contenedor.querySelector("[data-itinerario-elegir-alternativa]");
+  selector.value = contenedor.querySelectorAll("[data-itinerario-alternativa]")[1].dataset.itinerarioAlternativa;
+  const motivo = contenedor.querySelector("[data-itinerario-motivo-alternativa]");
+  motivo.value = "Corte de tráfico acreditado";
+  await clicar(contenedor, "[data-itinerario-previsualizar]");
+  const alternativas = contenedor.querySelectorAll("[data-itinerario-alternativa]");
+  assert.equal(alternativas[1].dataset.itinerarioSeleccionada, "");
+  assert.equal(contenedor.querySelector("[data-itinerario-motivo-alternativa]").value, motivo.value);
+  assert.equal(mapas.length, 2);
+  assert.equal(mapas[1].proveedor, "openstreetmap");
+  assert.equal(mapas[1].plantilla_teselas, "/tiles/osm/{z}/{x}/{y}.png");
+  assert.equal(mapas[1].geometria.origen, "osrm_interno");
+  assert.equal(llamadas.length, 1);
+  assert.ok(contenedor.querySelectorAll("p").some((nodo) => /Sin importe por kilómetro/u.test(nodo.textContent)));
+});
+
+test("una ruta distinta sin motivo válido no altera la alternativa ni el mapa", async () => {
+  const r = raiz(); const mapas = [];
+  const base = respuestaOSRM().routes[0];
+  await montarVistaItinerarioDietas({
+    raiz: r,
+    calculador: crearCalculador([], { ...respuestaOSRM(), routes: [base, { ...base, distance: 142_000 }] }),
+    visorRuta: { montar({ descriptor }) { mapas.push(descriptor); return { desmontar() {} }; } },
+  });
+  const contenedor = r.querySelector("[data-dietas-itinerario]");
+  await clicar(contenedor, "[data-itinerario-calcular]");
+  contenedor.querySelector("[data-itinerario-elegir-alternativa]").value =
+    contenedor.querySelectorAll("[data-itinerario-alternativa]")[1].dataset.itinerarioAlternativa;
+  contenedor.querySelector("[data-itinerario-motivo-alternativa]").value = "Corto";
+  await clicar(contenedor, "[data-itinerario-previsualizar]");
+  assert.match(contenedor.querySelector("[data-itinerario-error]").textContent, /entre 8 y 500 caracteres/u);
+  assert.equal(contenedor.querySelectorAll("[data-itinerario-alternativa]")[0].dataset.itinerarioSeleccionada, "");
+  assert.equal(contenedor.querySelector("[data-itinerario-motivo-alternativa]").value, "Corto");
+  assert.equal(mapas.at(-1).geometria.origen, "osrm_interno");
 });
 
 test("cancela el cálculo al desmontar y no sustituye una vista posterior", async () => {

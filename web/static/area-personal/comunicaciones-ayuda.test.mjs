@@ -47,14 +47,13 @@ test("certificados vacíos o no disponibles no se presentan como oficiales", () 
   assert.doesNotMatch(disponible, /Generar certificado/u);
 });
 
-test("ayuda conserva audio, transcripción y jerarquía accesible sin servicio externo", () => {
+test("ayuda conserva la guía textual y jerarquía accesible sin audio ajeno", () => {
   const ayuda = renderizarAyuda(datosBase(), { consultaAyuda: "sin resultado" });
   assert.match(ayuda, /Sin coincidencias/u);
-  assert.match(ayuda, /<h4 id="titulo-audio-ayuda">Escuchar esta ayuda<\/h4>/u);
-  assert.match(ayuda, /<audio[^>]*lang="es"[^>]*aria-describedby="transcripcion-ayuda"/u);
-  assert.match(ayuda, /<details id="transcripcion-ayuda">/u);
+  assert.match(ayuda, /<section aria-labelledby="titulo-guia-ayuda"><h4 id="titulo-guia-ayuda">Leer esta ayuda<\/h4>/u);
+  assert.match(ayuda, /Esta guía explica el área personal de Bolsa/u);
   assert.match(ayuda, /<aside aria-label="Opciones y canales de ayuda">/u);
-  assert.match(ayuda, /Referencia técnica secundaria: audio local de ayuda/u);
+  assert.doesNotMatch(ayuda, /<audio\b|ayuda-llamamiento-bolsa\.mp3/u);
   assert.doesNotMatch(ayuda, /https?:\/\//u);
 
   const error = renderizarAyuda({ ...datosBase(), ayuda: null });

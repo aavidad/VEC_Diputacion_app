@@ -11,14 +11,6 @@ import { PATRON_DOCUMENTO_ENMASCARADO } from "./contrato-publico-bolsas.js";
 
 const t = globalThis.VECBolsaI18n?.t || ((clave) => clave);
 
-const ETIQUETAS_ESTADO = Object.freeze({
-  disponible: "Disponible",
-  ocupado: "Ocupado / Nombrado",
-  no_disponible: "No disponible (pausa)",
-  excluido: "Excluido",
-  renuncia_pendiente: "Renuncia en trámite",
-});
-
 function escaparHTML(valor) {
   return String(valor ?? "")
     .replace(/&/g, "&amp;")
@@ -29,12 +21,12 @@ function escaparHTML(valor) {
 }
 
 function formatoFecha(iso) {
-  if (!iso) return "—";
+  if (!iso) return t("dato_no_disponible");
   try {
     const d = new Date(iso);
-    return isNaN(d.getTime()) ? String(iso) : d.toLocaleDateString("es-ES", { dateStyle: "medium" });
+    return isNaN(d.getTime()) ? t("dato_no_disponible") : d.toLocaleDateString("es-ES", { dateStyle: "medium" });
   } catch {
-    return String(iso);
+    return t("dato_no_disponible");
   }
 }
 
@@ -50,62 +42,86 @@ export function crearControladorListaBolsas({
     hayMas: false,
     cursorSiguiente: null,
     filtroDocumento: "",
+    bolsaRefSolicitada: "",
+    cursorSolicitado: "",
     cargando: false,
     secuenciaConsulta: 0,
   };
 
-  function mostrarPanel(panelAMostrar) {
-    const paneles = [
-      elementos.seccionBolsas,
-      elementos.seccionLista,
-      elementos.bolsasCargando,
-      elementos.bolsasError,
-      elementos.bolsasVacio,
-      elementos.listaCargando,
-      elementos.listaError,
-      elementos.listaVacio,
-    ];
-    for (const p of paneles) {
-      if (p) p.hidden = true;
-    }
-    if (panelAMostrar) panelAMostrar.hidden = false;
-  }
-
   function etiquetaEstado(clave) {
-    return ETIQUETAS_ESTADO[clave] || clave;
+    return t(clave);
   }
 
-  async function cargarBolsas() {
+  function mensajeError(error, alcance) {
+    if (error?.status === 401 || error?.status === 403) return t(`${alcance}_denegado`);
+    if (alcance === "error_bolsas" && error?.status === 404) return t("consulta_no_disponible");
+    if (alcance === "error_lista" && error?.status === 404) return t("error_lista_no_encontrada");
+    return t(alcance);
+  }
+
+  function mostrarTabla(cuerpo, visible) {
+    const contenedor = cuerpo?.closest?.(".tabla-contenedor-accesible");
+    if (contenedor) contenedor.hidden = !visible;
+  }
+
+  function habilitarBusqueda(habilitada) {
+    const campos = elementos.formularioBusqueda?.querySelector?.("fieldset");
+    if (campos) campos.disabled = !habilitada;
+  }
+
+  function enfocarDuranteReintento(cargando, reintentoEnfocado) {
+    if (!reintentoEnfocado || !cargando?.focus) return;
+    cargando.tabIndex = -1;
+    cargando.focus();
+  }
+
+  function enfocarResultadoReintento(cargando, destino) {
+    if (!destino?.focus || cargando?.ownerDocument?.activeElement !== cargando) return;
+    if (destino.tabIndex < 0 && !destino.hasAttribute?.("tabindex")) destino.tabIndex = -1;
+    destino.focus();
+  }
+
+  async function cargarBolsas({ reintentoEnfocado = false } = {}) {
     const secuencia = ++estado.secuenciaConsulta;
     estado.cargando = true;
+    elementos.seccionBolsas?.setAttribute?.("aria-busy", "true");
     elementos.seccionBolsas.hidden = false;
     elementos.seccionLista.hidden = true;
     elementos.bolsasCargando.hidden = false;
     elementos.bolsasError.hidden = true;
     elementos.bolsasVacio.hidden = true;
     if (elementos.cuerpoTablaBolsas) elementos.cuerpoTablaBolsas.innerHTML = "";
+    mostrarTabla(elementos.cuerpoTablaBolsas, false);
+    enfocarDuranteReintento(elementos.bolsasCargando, reintentoEnfocado);
 
     try {
       const respuesta = await api.consultarBolsasPublicas();
       if (secuencia !== estado.secuenciaConsulta) return;
       estado.bolsas = respuesta.bolsas;
-      elementos.bolsasCargando.hidden = true;
-
       if (estado.bolsas.length === 0) {
         elementos.bolsasVacio.hidden = false;
+        enfocarResultadoReintento(elementos.bolsasCargando, elementos.bolsasVacio?.querySelector?.("h3"));
+        elementos.bolsasCargando.hidden = true;
         return;
       }
 
       renderizarTablaBolsas(estado.bolsas);
+      mostrarTabla(elementos.cuerpoTablaBolsas, true);
+      enfocarResultadoReintento(elementos.bolsasCargando, elementos.seccionBolsas?.querySelector?.("h2"));
+      elementos.bolsasCargando.hidden = true;
     } catch (err) {
       if (secuencia !== estado.secuenciaConsulta) return;
-      elementos.bolsasCargando.hidden = true;
       elementos.bolsasError.hidden = false;
       if (elementos.mensajeErrorBolsas) {
-        elementos.mensajeErrorBolsas.textContent = err.message || t("error_bolsas");
+        elementos.mensajeErrorBolsas.textContent = mensajeError(err, "error_bolsas");
       }
+      enfocarResultadoReintento(elementos.bolsasCargando, elementos.bolsasError?.querySelector?.("h3"));
+      elementos.bolsasCargando.hidden = true;
     } finally {
-      estado.cargando = false;
+      if (secuencia === estado.secuenciaConsulta) {
+        estado.cargando = false;
+        elementos.seccionBolsas?.removeAttribute?.("aria-busy");
+      }
     }
   }
 
@@ -120,35 +136,49 @@ export function crearControladorListaBolsas({
         <td><strong>${Number(b.total || 0).toLocaleString("es-ES")}</strong></td>
         <td>
           <button type="button" class="boton-secundario" data-accion="ver-bolsa" data-bolsa-ref="${escaparHTML(b.bolsa_ref)}">
-            Consultar lista
+            ${escaparHTML(t("consultar_lista"))}
           </button>
         </td>
       </tr>
     `).join("");
   }
 
-  async function seleccionarBolsa(bolsaRef, documento = "", cursor = "", { historial = "push" } = {}) {
+  async function seleccionarBolsa(bolsaRef, documento = "", cursor = "", { historial = "push", reintentoEnfocado = false } = {}) {
     const secuencia = ++estado.secuenciaConsulta;
+    const documentoSeguro = PATRON_DOCUMENTO_ENMASCARADO.test(documento) ? documento : "";
     estado.cargando = true;
-    estado.filtroDocumento = documento;
+    estado.filtroDocumento = documentoSeguro;
+    estado.bolsaRefSolicitada = bolsaRef;
+    estado.cursorSolicitado = cursor;
+    elementos.seccionLista?.setAttribute?.("aria-busy", "true");
     elementos.seccionBolsas.hidden = true;
     elementos.seccionLista.hidden = false;
     elementos.listaError.hidden = true;
     elementos.listaVacio.hidden = true;
+    if (elementos.contenedorPaginacion) elementos.contenedorPaginacion.hidden = true;
+    if (elementos.botonSiguiente) elementos.botonSiguiente.disabled = true;
 
+    elementos.listaCargando.hidden = false;
+    enfocarDuranteReintento(elementos.listaCargando, reintentoEnfocado);
     if (!cursor) {
+      estado.bolsaSeleccionada = null;
       estado.posiciones = [];
+      if (elementos.inputDocumento) elementos.inputDocumento.value = documentoSeguro;
+      if (elementos.errorDocumento) elementos.errorDocumento.hidden = true;
+      if (elementos.infoBolsaActiva) elementos.infoBolsaActiva.innerHTML = "";
       if (elementos.cuerpoTablaLista) elementos.cuerpoTablaLista.innerHTML = "";
-      elementos.listaCargando.hidden = false;
+      mostrarTabla(elementos.cuerpoTablaLista, false);
+      habilitarBusqueda(false);
     }
 
     try {
       const respuesta = await api.consultarListaBolsaPublica({
         bolsa_ref: bolsaRef,
-        documento,
+        documento: documentoSeguro,
         cursor,
       });
       if (secuencia !== estado.secuenciaConsulta) return;
+      if (respuesta.bolsa?.bolsa_ref !== bolsaRef) throw new Error("La lista pública no corresponde a la bolsa solicitada");
 
       estado.bolsaSeleccionada = respuesta.bolsa;
       estado.hayMas = respuesta.hay_mas;
@@ -160,25 +190,49 @@ export function crearControladorListaBolsas({
         estado.posiciones = respuesta.posiciones;
       }
 
-      elementos.listaCargando.hidden = true;
       renderizarDetalleBolsa(estado.bolsaSeleccionada);
       renderizarTablaLista(estado.posiciones);
+      mostrarTabla(elementos.cuerpoTablaLista, estado.posiciones.length > 0);
+      habilitarBusqueda(true);
 
       if (estado.posiciones.length === 0) {
         elementos.listaVacio.hidden = false;
       }
 
       actualizarPaginacion();
-      actualizarURL(bolsaRef, documento, historial);
+      actualizarURL(bolsaRef, documentoSeguro, historial);
+      if (reintentoEnfocado) {
+        const destino = estado.posiciones.length === 0
+          ? elementos.listaVacio?.querySelector?.("h3")
+          : cursor
+            ? elementos.cuerpoTablaLista?.closest?.(".tabla-contenedor-accesible")
+            : elementos.infoBolsaActiva?.querySelector?.("h2");
+        enfocarResultadoReintento(elementos.listaCargando, destino ?? elementos.botonVolverBolsas);
+      } else if (!cursor && historial === "push") {
+        const titulo = elementos.infoBolsaActiva?.querySelector?.("h2");
+        titulo?.focus?.();
+      }
+      elementos.listaCargando.hidden = true;
     } catch (err) {
       if (secuencia !== estado.secuenciaConsulta) return;
-      elementos.listaCargando.hidden = true;
       elementos.listaError.hidden = false;
       if (elementos.mensajeErrorLista) {
-        elementos.mensajeErrorLista.textContent = err.message || t("error_lista");
+        elementos.mensajeErrorLista.textContent = mensajeError(err, "error_lista");
       }
+      const tituloError = elementos.listaError?.querySelector?.("h3");
+      if (reintentoEnfocado) {
+        enfocarResultadoReintento(elementos.listaCargando, tituloError ?? elementos.botonVolverBolsas);
+      } else if (tituloError && !cursor && historial === "push") {
+        tituloError.tabIndex = -1;
+        tituloError.focus();
+      }
+      elementos.listaCargando.hidden = true;
     } finally {
-      estado.cargando = false;
+      if (secuencia === estado.secuenciaConsulta) {
+        estado.cargando = false;
+        elementos.seccionLista?.removeAttribute?.("aria-busy");
+        if (elementos.botonSiguiente) elementos.botonSiguiente.disabled = false;
+      }
     }
   }
 
@@ -186,12 +240,12 @@ export function crearControladorListaBolsas({
     if (!elementos.infoBolsaActiva || !bolsa) return;
     elementos.infoBolsaActiva.innerHTML = `
       <div class="tarjeta-bolsa-activa__info">
-        <h2>${escaparHTML(bolsa.categoria)}</h2>
+        <h2 tabindex="-1">${escaparHTML(bolsa.categoria)}</h2>
         <div class="tarjeta-bolsa-activa__meta">
-          <span><strong>Grupos:</strong> ${escaparHTML((bolsa.grupos || []).join(", "))}</span>
-          <span><strong>Tipo:</strong> ${escaparHTML(bolsa.tipo_lista)}</span>
-          <span><strong>Vigente desde:</strong> ${escaparHTML(formatoFecha(bolsa.vigente_desde))}</span>
-          <span><strong>Total aspirantes:</strong> ${Number(bolsa.total || 0).toLocaleString("es-ES")}</span>
+          <span><strong>${escaparHTML(t("grupos"))}:</strong> ${escaparHTML((bolsa.grupos || []).join(", "))}</span>
+          <span><strong>${escaparHTML(t("tipo_lista"))}:</strong> ${escaparHTML(bolsa.tipo_lista)}</span>
+          <span><strong>${escaparHTML(t("vigente_desde"))}:</strong> ${escaparHTML(formatoFecha(bolsa.vigente_desde))}</span>
+          <span><strong>${escaparHTML(t("total_aspirantes"))}:</strong> ${Number(bolsa.total || 0).toLocaleString("es-ES")}</span>
         </div>
       </div>
     `;
@@ -251,21 +305,33 @@ export function crearControladorListaBolsas({
     estado.bolsaSeleccionada = null;
     estado.posiciones = [];
     estado.filtroDocumento = "";
+    estado.bolsaRefSolicitada = "";
+    estado.cursorSolicitado = "";
     if (elementos.inputDocumento) elementos.inputDocumento.value = "";
     if (elementos.errorDocumento) elementos.errorDocumento.hidden = true;
     ++estado.secuenciaConsulta;
     actualizarURL("", "", "push");
     cargarBolsas();
+    const titulo = elementos.seccionBolsas?.querySelector?.("h2");
+    if (titulo) {
+      titulo.tabIndex = -1;
+      titulo.focus();
+    }
   }
 
   function restaurarDesdeURL() {
     if (!ventana?.location) return cargarBolsas();
     const parametros = new URLSearchParams(ventana.location.search);
     const bolsaRef = parametros.get("bolsa");
-    const documento = parametros.get("documento") || "";
-    if (!bolsaRef) return volverAListadoDesdeHistorial();
+    const documentoURL = parametros.get("documento") || "";
+    const documento = PATRON_DOCUMENTO_ENMASCARADO.test(documentoURL) ? documentoURL : "";
+    if (!bolsaRef) {
+      if (documentoURL) actualizarURL("", "", "replace");
+      return volverAListadoDesdeHistorial();
+    }
+    if (documentoURL && !documento) actualizarURL(bolsaRef, "", "replace");
     if (elementos.inputDocumento) {
-      elementos.inputDocumento.value = PATRON_DOCUMENTO_ENMASCARADO.test(documento) ? documento : "";
+      elementos.inputDocumento.value = documento;
     }
     return seleccionarBolsa(bolsaRef, documento, "", { historial: "replace" });
   }
@@ -275,6 +341,8 @@ export function crearControladorListaBolsas({
     estado.bolsaSeleccionada = null;
     estado.posiciones = [];
     estado.filtroDocumento = "";
+    estado.bolsaRefSolicitada = "";
+    estado.cursorSolicitado = "";
     if (elementos.inputDocumento) elementos.inputDocumento.value = "";
     if (elementos.errorDocumento) elementos.errorDocumento.hidden = true;
     return cargarBolsas();
@@ -323,13 +391,20 @@ export function crearControladorListaBolsas({
     }
 
     if (elementos.botonReintentarBolsas) {
-      elementos.botonReintentarBolsas.addEventListener("click", cargarBolsas);
+      elementos.botonReintentarBolsas.addEventListener("click", () => {
+        const boton = elementos.botonReintentarBolsas;
+        void cargarBolsas({ reintentoEnfocado: boton.ownerDocument?.activeElement === boton });
+      });
     }
 
     if (elementos.botonReintentarLista) {
       elementos.botonReintentarLista.addEventListener("click", () => {
-        if (estado.bolsaSeleccionada) {
-          seleccionarBolsa(estado.bolsaSeleccionada.bolsa_ref, estado.filtroDocumento, "", { historial: "replace" });
+        if (estado.bolsaRefSolicitada) {
+          const boton = elementos.botonReintentarLista;
+          void seleccionarBolsa(estado.bolsaRefSolicitada, estado.filtroDocumento, estado.cursorSolicitado, {
+            historial: "replace",
+            reintentoEnfocado: boton.ownerDocument?.activeElement === boton,
+          });
         }
       });
     }
@@ -361,9 +436,37 @@ export function crearControladorListaBolsas({
   });
 }
 
+function prepararAyudaListas(documento) {
+  const cabecera = documento.querySelector?.(".cabecera-seccion-publica");
+  const introduccion = cabecera?.querySelector?.("p:not(.eyebrow)");
+  const aviso = documento.querySelector?.(".aviso-privacidad-publica");
+  if (!cabecera || !introduccion || !aviso) return;
+  const ayuda = documento.createElement("details");
+  ayuda.className = "ayuda-listas-publica";
+  const resumen = documento.createElement("summary");
+  resumen.textContent = "?";
+  resumen.setAttribute("aria-label", t("ayuda_privacidad_listas"));
+  resumen.title = t("ayuda_privacidad_listas");
+  ayuda.append(resumen, introduccion, aviso);
+  cabecera.after(ayuda);
+
+  const textoFormato = documento.querySelector?.(".campo-documento .ayuda-busqueda-doc:not([id])");
+  if (textoFormato) {
+    const ayudaFormato = documento.createElement("details");
+    ayudaFormato.className = "ayuda-formato-lista";
+    const resumenFormato = documento.createElement("summary");
+    resumenFormato.textContent = "?";
+    resumenFormato.setAttribute("aria-label", t("ayuda_documento_lista"));
+    resumenFormato.title = t("ayuda_documento_lista");
+    ayudaFormato.append(resumenFormato, textoFormato);
+    documento.querySelector(".campo-documento input")?.after(ayudaFormato);
+  }
+}
+
 // Inicialización automática al cargar el documento
 if (typeof document !== "undefined") {
   document.addEventListener("DOMContentLoaded", () => {
+    prepararAyudaListas(document);
     const porId = (id) => document.getElementById(id);
     const elementos = {
       seccionBolsas: porId("seccion-bolsas"),

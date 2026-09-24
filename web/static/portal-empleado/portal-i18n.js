@@ -1,5 +1,10 @@
+import { MENSAJES_AYUDA_PORTAL_ES } from "./portal-i18n-ayuda.js?v=20260924-ayuda-i18n-v1";
+import { MENSAJES_PANEL_INTERNO_ES } from "./portal-panel-interno-i18n.js?v=20260924-ayuda-panel-i18n-v4";
+
 /** Catálogo común de los estados del shell y del acceso a Borradores. */
 export const MENSAJES_PORTAL_ES = Object.freeze({
+  ...MENSAJES_AYUDA_PORTAL_ES,
+  ...MENSAJES_PANEL_INTERNO_ES,
   contexto_portal_titulo: "Portal interno",
   contexto_portal_descripcion: "Identidad personal no mostrada",
   contexto_portal_accesible: "Portal interno. Identidad personal no mostrada",
@@ -26,6 +31,12 @@ export const MENSAJES_PORTAL_ES = Object.freeze({
   titulo_error_catalogo_modulos: "No se pudieron comprobar los módulos",
   error_catalogo_modulos: "El catálogo interno de módulos no está disponible. Reintente la comprobación.",
   personal_catalogo_profesional: "Catálogo profesional de Personal",
+  cronos_miga: "Portal del Empleado → Cronos",
+  cronos_jornada_titulo: "Cronos · jornada y fichajes",
+  cronos_permisos_miga: "Portal del Empleado → Cronos → Permisos",
+  cronos_permisos_titulo: "Cronos · permisos y ausencias",
+  contratos_consulta_etiqueta: "Consulta",
+  contratos_consulta_estado: "Fuente de contratos sin configurar · altas, ceses y reincorporaciones pendientes",
   descripcion_superficie_no_montada: "No se pudo montar la superficie solicitada.",
   contratacion_temporal_encabezado: "Contratación temporal",
   contratacion_temporal_miga: "Portal del Empleado → Contratación temporal",
@@ -34,6 +45,8 @@ export const MENSAJES_PORTAL_ES = Object.freeze({
     "La composición real de Contratación temporal todavía no está disponible en este portal.",
   contratacion_temporal_aviso_no_disponible: "Esta vista no monta el módulo ni habilita sus operaciones.",
   accion_volver_portal: "Volver al portal",
+  accion_ir_inicio_portal: "Ir al inicio del Portal del Empleado",
+  operacion_no_compuesta: "Esta operación permanece deshabilitada hasta que su comando de servidor esté compuesto y autorizado.",
   accion_entrar: "Entrar",
   accion_reintentar: "Reintentar",
   paginacion_marco_etiqueta: "Paginación de la tabla",
@@ -61,6 +74,15 @@ export const traducirPortal = crearTraductorPortal();
 
 /** Textos comunes de las vistas internas de Bolsa. */
 export const MENSAJES_BOLSA_INTERNA_ES = Object.freeze({
+  b7_seleccion_denegada: "Permiso denegado al consultar candidatos. Se han retirado los datos y la selección.",
+  b7_consulta_fallida: "No se pudo completar la consulta: {motivo}",
+  b7_error_lectura: "error de lectura",
+  b7_estados_obligatorios: "Seleccione al menos un estado antes de consultar la bolsa.",
+  b7_estados_cambiados: "Los estados cambiaron. Vuelva a seleccionar los candidatos.",
+  b7_limite_envio: "El límite por envío es de 100 candidatos.",
+  b7_cuerpo_excesivo: "El texto final del correo supera 4000 caracteres. Reduzca el mensaje antes de continuar.",
+  b7_seleccion_cambiada: "La selección ha cambiado. Revise el número de candidatos antes de confirmar.",
+  b7_emision_rechazada: "El servidor rechazó la emisión (422). Revise la configuración o actualice la selección según la bolsa vigente.",
   boton_perfil_sin_permiso: "El perfil de presentación no permite esta operación",
   boton_capacidad_no_conectada: "Capacidad de servidor no conectada",
   tabla_sin_registros: "No hay registros para los filtros aplicados.",

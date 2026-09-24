@@ -117,6 +117,11 @@ func TestManifiestoWebProductivoSoloEnumeraRutasServidas(t *testing.T) {
 		if rutaFuente == "produccion.manifest" {
 			continue
 		}
+		if rutaFuente == "cartografia/granada-base-20260719-z8-z12.zip" ||
+			rutaFuente == "cartografia/granada-base-20260719-z8-z12.json" {
+			// Contenido empaquetado para la ruta OSM; no es recurso HTTP estatico.
+			continue
+		}
 		if !strings.HasPrefix(rutaFuente, "static/") {
 			t.Fatalf("ruta de manifiesto no canonica: %q", rutaFuente)
 		}
@@ -579,7 +584,7 @@ func TestSuperficiePublicaExponeSoloSuListaPositiva(t *testing.T) {
 		{ruta: "/portal-empleado/portal.js", estado: http.StatusSeeOther},
 		{ruta: "/assets/", estado: http.StatusNotFound},
 		{ruta: "/portal-empleado/assets/", estado: http.StatusSeeOther},
-		{ruta: "/portal-empleado/assets/ayuda-llamamiento-bolsa.mp3", estado: http.StatusSeeOther},
+		{ruta: "/portal-empleado/portal-i18n-ayuda.js", estado: http.StatusSeeOther},
 		{ruta: "/api", estado: http.StatusNotFound},
 		{ruta: "/api/vec", estado: http.StatusUnauthorized},
 		{ruta: "/api/vec/session", estado: http.StatusUnauthorized},

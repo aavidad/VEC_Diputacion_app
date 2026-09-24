@@ -141,15 +141,26 @@ export function montarSeguimientoIncorporacion({ raiz, cliente, recibo, mensajes
 
   function pintar() {
     if (!activo) return;
+    const botonAnterior = raiz.querySelector?.("[data-ct-seguimiento-consultar]");
+    const estadoAnterior = raiz.querySelector?.("[data-ct-seguimiento-estado-consulta]");
+    const focoActual = raiz.ownerDocument?.activeElement ?? globalThis.document?.activeElement;
     const cargando = estado === "cargando";
+    const destinoFoco = raiz.isConnected === false ? null
+      : cargando && botonAnterior && focoActual === botonAnterior ? "estado"
+        : !cargando && ((estadoAnterior && focoActual === estadoAnterior)
+          || (botonAnterior && focoActual === botonAnterior)) ? "boton" : null;
     const contenido = estado === "listo" ? renderizarSeguimiento(datos, t, fechas)
       : estado === "error" ? `<p role="status">${escapar(t("seguimiento_incorporacion_error"))}</p>` : "";
     raiz.innerHTML = `<section data-ct-seguimiento-incorporacion>
       <h3>${escapar(t("seguimiento_incorporacion_titulo"))}</h3>
       <p><strong>${escapar(t("seguimiento_incorporacion_recibo"))}:</strong> <code>${escapar(reciboConfirmado?.recibo_ref ?? "—")}</code></p>
       <button type="button" class="boton-secundario" data-ct-seguimiento-consultar${cargando || !reciboConfirmado ? " disabled" : ""}>${escapar(t("seguimiento_incorporacion_consultar"))}</button>
-      <p role="status" aria-live="polite">${cargando ? escapar(t("seguimiento_incorporacion_cargando")) : ""}</p>
+      <p data-ct-seguimiento-estado-consulta role="status" aria-live="polite" tabindex="-1">${cargando ? escapar(t("seguimiento_incorporacion_cargando")) : ""}</p>
       ${!reciboConfirmado ? `<p role="status">${escapar(t("seguimiento_incorporacion_sin_recibo"))}</p>` : contenido}</section>`;
+    if (destinoFoco && activo && raiz.isConnected !== false) {
+      raiz.querySelector?.(destinoFoco === "estado"
+        ? "[data-ct-seguimiento-estado-consulta]" : "[data-ct-seguimiento-consultar]")?.focus?.();
+    }
   }
 
   async function consultar(evento) {

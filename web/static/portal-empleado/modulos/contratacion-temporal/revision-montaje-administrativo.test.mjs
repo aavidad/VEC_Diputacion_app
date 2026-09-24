@@ -168,8 +168,10 @@ test("montaje: tras el POST confirmado relee sólo cierre y presenta su estado p
     cierre: async () => {
       lecturas++;
       return lecturas === 1
-        ? { estado_actual: "vigente", preparada_en: "2026-09-12T10:00:00Z", preparacion: { expediente_ref, seguimiento_ref: recibo.seguimiento_ref, version_esperada: 1, motivos: ["sin_cese"] } }
-        : { estado_actual: "cerrado", preparada_en: "2026-09-12T10:01:00Z", preparacion: null };
+        ? { expediente_ref, seguimiento_ref: recibo.seguimiento_ref, version_actual: 1,
+          estado_actual: "vigente", preparada_en: "2026-09-12T10:00:00Z", preparacion: { expediente_ref, seguimiento_ref: recibo.seguimiento_ref, version_esperada: 1, motivos: ["sin_cese"] } }
+        : { expediente_ref, seguimiento_ref: recibo.seguimiento_ref, version_actual: 2,
+          estado_actual: "cerrado", preparada_en: "2026-09-12T10:01:00Z", preparacion: null };
     },
     cerrar: async () => { cierres++; return { recibo_ref: "recibo:cierre:2", version_seguimiento: 2 }; },
     registrar: async () => { assert.fail("no debe anotar"); },

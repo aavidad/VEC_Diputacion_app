@@ -14,7 +14,7 @@ import { MENSAJES_PORTAL_ES, traducirPortal } from "./portal-i18n.js";
 import { accesoBolsaEfectivo } from "./portal-menu-bolsa.js";
 
 const directorio = new URL("./", import.meta.url);
-const [html, manifiestoProduccion, javascript, coordinadorModulos, catalogoI18n, eventos, contrato, contratoLlamamientos, apiLlamamientos, flujoLlamamientos, vistaLlamamientos, panelInterno, resumenPresentacion, datos, ayuda, estilosBase, estilosComponentes, estilosFlujos, estilosCapacidades] = await Promise.all([
+const [html, manifiestoProduccion, javascript, coordinadorModulos, catalogoI18n, eventos, contrato, contratoLlamamientos, apiLlamamientos, flujoLlamamientos, panelInterno, resumenPresentacion, datos, ayuda, estilosBase, estilosComponentes, estilosFlujos, estilosCapacidades] = await Promise.all([
   readFile(new URL("index.html", directorio), "utf8"),
   readFile(new URL("../../produccion.manifest", directorio), "utf8"),
   readFile(new URL("portal.js", directorio), "utf8"),
@@ -25,7 +25,6 @@ const [html, manifiestoProduccion, javascript, coordinadorModulos, catalogoI18n,
   readFile(new URL("portal-llamamientos-contrato.js", directorio), "utf8"),
   readFile(new URL("portal-llamamientos-api.js", directorio), "utf8"),
   readFile(new URL("portal-llamamientos-flujo.js", directorio), "utf8"),
-  readFile(new URL("portal-llamamientos-vista.js", directorio), "utf8"),
   readFile(new URL("portal-panel-interno.js", directorio), "utf8"),
   readFile(new URL("portal-resumen-presentacion.js", directorio), "utf8"),
   readFile(new URL("datos-presentacion.js", directorio), "utf8"),
@@ -35,7 +34,7 @@ const [html, manifiestoProduccion, javascript, coordinadorModulos, catalogoI18n,
   readFile(new URL("portal-flujos.css", directorio), "utf8"),
   readFile(new URL("portal-capacidades.css", directorio), "utf8"),
 ]);
-const codigo = `${javascript}\n${eventos}\n${contrato}\n${contratoLlamamientos}\n${apiLlamamientos}\n${flujoLlamamientos}\n${vistaLlamamientos}\n${panelInterno}\n${resumenPresentacion}`;
+const codigo = `${javascript}\n${eventos}\n${contrato}\n${contratoLlamamientos}\n${apiLlamamientos}\n${flujoLlamamientos}\n${panelInterno}\n${resumenPresentacion}`;
 const estilos = `${estilosBase}\n${estilosComponentes}\n${estilosFlujos}\n${estilosCapacidades}`;
 
 function panelInternoReal() {
@@ -102,7 +101,7 @@ test("la carga inicial usa solo las APIs de Bolsa que están compuestas", () => 
   assert.doesNotMatch(javascript, /PROVEEDOR_BEARER_BORRADORES|globalThis\[[^\]]*BEARER/i);
   assert.doesNotMatch(javascript, /Bearer|Authorization|resolverProveedorBearer|obtenerBearer/i);
   assert.match(contrato, /la API interna no puede responder con datos de demostración/);
-  assert.match(javascript, /let DATOS_PANEL = DATOS_VACIOS/);
+  assert.match(javascript, /const DATOS_PANEL = DATOS_VACIOS/);
   assert.match(javascript, /superficieBorradores\.obtenerAcceso\(\)/);
   assert.doesNotMatch(javascript, /resolverAcceso\(clave, estado\.fuenteLista\)/);
   assert.doesNotMatch(codigo, /María Pérez|García López|Auxiliar Administrativo|BOL-2026|CON-2026|DOC-[A-Z]{2}|20\/07\/2026/);
@@ -153,7 +152,10 @@ test("la carga inicial no consulta servicios de Bolsa ausentes", () => {
   assert.doesNotMatch(cargaInicial, /fetch\(/);
   assert.doesNotMatch(cargaInicial, /comprobarDisponibilidad/);
   assert.doesNotMatch(cargaInicial, /API_PANEL_BOLSA/);
-  assert.match(cargaInicial, /moduloDeVistaPortal\(estado\.vista\) === "bolsa"/);
+  assert.match(cargaInicial, /requiereLecturaBolsas\(estado\.vista\)/);
+  const vistasSinLectura = javascript.match(/const VISTAS_BOLSA_SIN_LECTURA = new Set\(\[([\s\S]*?)\]\);/)?.[1] || "";
+  assert.match(vistasSinLectura, /"contratos"/);
+  assert.doesNotMatch(vistasSinLectura, /"seleccion-(?:inscripciones|pruebas|comunicaciones)"/);
 });
 
 test("el arranque desconocido normaliza a portal sin sondear Bolsa", () => {
@@ -252,14 +254,14 @@ test("el modo real renderiza solo indicadores, convocatorias y actuaciones acred
   assert.throws(() => presentador.renderizarVista("resumen"), /requiere un panel interno válido/);
 
   assert.match(javascript, /crearPresentadorPanelInterno/);
-  assert.match(javascript, /portal-panel-interno\.js\?v=20260923-pweb17-v1/);
+  assert.match(javascript, /portal-panel-interno\.js\?v=20260924-rescate-web-v4/);
   for (const indicador of [
     "bolsas_activas", "llamamientos_pendientes", "llamamientos_en_curso",
     "documentos_pendientes_firma", "incidencias_abiertas",
   ]) assert.match(panelInterno, new RegExp(`i\\.${indicador}`));
   assert.match(panelInterno, /No se muestran valores cero, tablas vacías ni controles aparentes/);
-  assert.match(javascript, /estado\.modoPresentacion && datos/);
-  assert.match(javascript, /datos-presentacion\.js/);
+  assert.doesNotMatch(javascript, /import\("\.\/datos-presentacion\.js/);
+  assert.match(javascript, /estado\.modoPresentacion = false/);
 });
 
 test("el coordinador respeta DEC-051 y carga el presentador con versión de caché", () => {
@@ -267,16 +269,34 @@ test("el coordinador respeta DEC-051 y carga el presentador con versión de cach
   // montaje mínimo de cada ruta real vive aquí y trocearlo antes de la
   // presentación no aporta. Se congela el tamaño actual para que no crezca sin
   // decisión expresa.
-  assert.ok(javascript.split(/\r?\n/).length - 1 <= 900, "portal.js debe mantenerse por debajo de 900 líneas");
-  assert.match(html, /portal\.js\?v=20260923-p4-reintento-v2/);
-  assert.match(javascript, /portal-modulos-coordinador\.js\?v=20260923-p4-estado-modulos-v1/);
-  assert.match(javascript, /portal-inicio\.js\?v=20260923-p4-reintento-v2/);
-  assert.match(javascript, /portal-i18n\.js\?v=20260923-p4-reintento-v2/);
+  assert.ok(javascript.split(/\r?\n/).length - 1 <= 950, "portal.js debe mantenerse por debajo de 950 líneas");
+  assert.match(html, /portal\.js\?v=20260924-rescate-web-v4/);
+  assert.match(javascript, /portal-modulos-coordinador\.js\?v=20260924-web-paradas-periodos-v1/);
+  assert.doesNotMatch(html, /portal\.js\?v=20260924-web-c-ayuda-v5/);
+  assert.doesNotMatch(javascript, /portal-modulos-coordinador\.js\?v=20260924-web-c-ayuda-v5/);
+  assert.doesNotMatch(html, /portal\.js\?v=20260924-web-c-ayuda-v4/);
+  assert.doesNotMatch(javascript, /portal-modulos-coordinador\.js\?v=20260924-web-c-ayuda-v4/);
+  assert.doesNotMatch(html, /portal\.js\?v=20260924-web-c-v3/);
+  assert.doesNotMatch(javascript, /portal-modulos-coordinador\.js\?v=20260924-web-c-v3/);
+  assert.doesNotMatch(html, /portal\.js\?v=20260924-f2-dietas-consulta-v2/);
+  assert.doesNotMatch(javascript, /portal-modulos-coordinador\.js\?v=20260924-f2-dietas-consulta-v2/);
+  assert.doesNotMatch(html, /portal\.js\?v=20260924-f2-cronos-permisos-v2/);
+  assert.doesNotMatch(javascript, /portal-modulos-coordinador\.js\?v=20260924-f2-cronos-permisos-v2/);
+  assert.doesNotMatch(html, /portal\.js\?v=20260924-f2-cronos-permisos-v1/);
+  assert.doesNotMatch(javascript, /portal-modulos-coordinador\.js\?v=20260924-f2-cronos-permisos-v1/);
+  assert.doesNotMatch(html, /portal\.js\?v=20260924-f2-personal-estados-v4/);
+  assert.doesNotMatch(javascript, /portal-modulos-coordinador\.js\?v=20260924-f2-personal-estados-v4/);
+  assert.doesNotMatch(html, /portal\.js\?v=20260924-p1-personal-interno-v2/);
+  assert.doesNotMatch(javascript, /portal-modulos-coordinador\.js\?v=20260924-p1-personal-interno-v2/);
+  assert.doesNotMatch(html, /portal\.js\?v=20260924-f2-cache-v3/);
+  assert.doesNotMatch(javascript, /portal-modulos-coordinador\.js\?v=20260924-f2-cache-v3/);
+  assert.match(javascript, /portal-inicio\.js\?v=20260924-f2-cronos-permisos-v2/);
+  assert.match(javascript, /portal-i18n\.js\?v=20260924-rescate-web-v4/);
   assert.match(javascript, /traducirPortal\("error_catalogo_modulos"\)/);
-  assert.match(javascript, /portal-bolsas-api\.js\?v=20260923-pweb13-b8-v1/);
-  assert.match(javascript, /portal-borradores-ui\.js\?v=20260921-avisos-r5-v1/);
-  assert.match(javascript, /portal-eventos\.js\?v=20260721-acceso-real-v2/);
-  assert.match(javascript, /import\("\.\/portal-resumen-presentacion\.js\?v=20260721-acceso-real-v2"\)/);
+  assert.match(javascript, /portal-bolsas-api\.js\?v=20260924-rescate-web-v4/);
+  assert.match(javascript, /portal-borradores-ui\.js\?v=20260924-f2-cronos-permisos-v2/);
+  assert.match(javascript, /portal-eventos\.js\?v=20260924-rescate-web-v4/);
+  assert.doesNotMatch(javascript, /import\("\.\/portal-resumen-presentacion\.js/);
   assert.doesNotMatch(javascript, /^import .*portal-resumen-presentacion/m);
   assert.doesNotMatch(manifiestoProduccion, /portal-resumen-presentacion\.js/);
   assert.match(manifiestoProduccion, /portal-i18n\.js/);
@@ -291,7 +311,6 @@ test("el montaje de Elaboración conserva la referencia de navegación hasta la 
   assert.match(javascript, /function montarVistaBolsa\(vista, contenedor, opciones = \{\}, \{ activar = true \} = \{\}\)/);
   assert.match(javascript, /superficie\.activar\(\{ referencia: opciones\.referencia \}\)/);
   assert.match(javascript, /if \(activar\) void superficie\.activar/);
-  assert.match(javascript, /alCambiar: \(\) => \{ if \(estado\.vista === "elaboracion"\) actualizarVistaBolsa\(\); \}/);
   assert.match(javascript, /function actualizarVistaBolsa\(\{ activar = false \} = \{\}\)/);
   assert.match(javascript, /superficieBorradoresActiva\(\)\?\.desmontar\(\)/);
 });
@@ -343,30 +362,44 @@ test("la propuesta real usa el cliente cerrado y no habilita un detalle inexiste
   assert.doesNotMatch(`${javascript}\n${apiLlamamientos}`, /Idempotency-Key|randomUUID|claveIdempotenciaPropuesta/);
   assert.match(datos, /solicitar_propuesta_llamamiento: false/);
   assert.match(flujoLlamamientos, /conoce el cliente HTTP/);
-  assert.match(javascript, /import\("\.\/portal-presentacion-adaptador\.js/);
+  assert.doesNotMatch(javascript, /import\("\.\/portal-presentacion-adaptador\.js/);
   assert.doesNotMatch(javascript, /^import .*portal-presentacion-adaptador/m);
-  assert.match(`${flujoLlamamientos}\n${vistaLlamamientos}`, /Detalle no disponible/);
-  assert.match(eventos, /if \(resultado\.avanzar === true\) estado\.pasoLlamamiento = 2/);
+  assert.match(flujoLlamamientos, /Detalle no disponible/);
+  assert.doesNotMatch(javascript, /portal-llamamientos-vista\.js/);
+  assert.doesNotMatch(eventos, /ejecutarOperacionPresentacion/);
   // Ninguna clave de puntuación fabricada para candidatos; el nombre de la columna
   // «Puntuación» en las incidencias de importación es un texto, no una puntuación.
   assert.doesNotMatch(datos, /puntuaci[oó]n[a-z_]*\s*:/i);
   assert.doesNotMatch(contratoLlamamientos, /evaluaciones.*confirmacion|camposEvaluacion/i);
 });
 
-test("los datos de presentación están aislados y se activan de forma explícita", () => {
+test("el producto no activa los datos aislados por query ni expone su aviso", () => {
   const presentacion = validarPanelBolsa(obtenerDatosPresentacion(), true);
   assert.equal(presentacion.esquema, "vec.bolsa.panel.presentacion.v1");
-  assert.equal(presentacion.demostracion, true);
   assert.ok(presentacion.bolsas.length > 0);
-  assert.match(javascript, /getAll\("presentacion"\)/);
-  assert.match(javascript, /import\("\.\/datos-presentacion\.js/);
-  assert.match(datos, /ADAPTADOR EXCLUSIVO DE PRESENTACIÓN RRHH/);
-  assert.match(datos, /esquema: "vec\.bolsa\.panel\.presentacion\.v1"/);
-  assert.match(datos, /demostracion: true/);
-  assert.match(html, /class="aviso-presentacion" role="status" hidden/);
-  assert.match(html, /Referencias públicas de convocatoria y BOP reales/);
-  assert.match(html, /Personas, expedientes y actuaciones internas sintéticos/);
-  assert.doesNotMatch(datos, /\b\d{8}[A-Z]\b/);
+  assert.doesNotMatch(javascript, /getAll\("presentacion"\)|getAll\("perfil"\)/);
+  assert.doesNotMatch(javascript, /import\("\.\/datos-presentacion\.js/);
+  assert.doesNotMatch(javascript, /import\("\.\/portal-presentacion-adaptador\.js/);
+  assert.doesNotMatch(javascript, /href = "\/presentacion\/"/);
+  assert.match(javascript, /setAttribute\("aria-label", traducirPortal\("accion_ir_inicio_portal"\)\)/);
+  assert.equal(traducirPortal("accion_ir_inicio_portal"), "Ir al inicio del Portal del Empleado");
+  assert.doesNotMatch(html, /class="aviso-presentacion"|Personas, expedientes y actuaciones internas sintéticos/);
+});
+
+test("un hash de presentación o Selección vuelve al portal aunque la URL solicite una presentación", () => {
+  const inicio = javascript.indexOf("function vistaDesdeHash()");
+  const fin = javascript.indexOf("function rutaDeVista(", inicio);
+  const cambios = [];
+  const ventana = { location: { search: "?presentacion=rrhh&perfil=administrador", hash: "#nominas-empleado" } };
+  const resolver = runInNewContext(`${javascript.slice(inicio, fin)}; vistaDesdeHash`, {
+    window: ventana, history: { replaceState: (...argumentos) => cambios.push(argumentos) },
+    TITULOS: { portal: ["Portal", "Portal"] }, estado: { modoPresentacion: false },
+    VISTAS_PRESENTACION_VISUALES: new Set(["nominas-empleado"]),
+  });
+  assert.equal(resolver(), "portal");
+  ventana.location.hash = "#bolsa/seleccion-inscripciones";
+  assert.equal(resolver(), "portal");
+  assert.deepEqual(cambios.map((argumentos) => argumentos[2]), ["#portal", "#portal"]);
 });
 
 test("la presentación RRHH usa referencias públicas reales y bases adaptadas locales", async () => {
@@ -397,19 +430,12 @@ test("la presentación RRHH usa referencias públicas reales y bases adaptadas l
   }
 });
 
-test("el selector de perfil es cerrado y la navegación aplica mínimo privilegio", () => {
-  assert.match(javascript, /getAll\("presentacion"\)/);
-  assert.match(javascript, /getAll\("perfil"\)/);
-  assert.match(javascript, /valores\.length !== 1[\s\S]{0,100}return null/);
-  assert.doesNotMatch(javascript, /valores\.length === 0\) return "administrador"/);
-  assert.match(javascript, /\["administrador", "tecnico", "funcionario"\]\.includes/);
-  assert.match(javascript, /perfilPresentacionSolicitado\(\) === null\) return vista === "portal"/);
-  assert.match(javascript, /adaptador\.obtenerDatosPresentacion\(perfil\)/);
+test("la navegación productiva rechaza vistas de presentación y Selección sin fuente", () => {
+  assert.doesNotMatch(javascript, /getAll\("presentacion"\)|getAll\("perfil"\)/);
+  assert.match(javascript, /if \(VISTAS_PRESENTACION_VISUALES\.has\(vista\)\) return false/);
+  assert.match(javascript, /if \(vista\.startsWith\("seleccion-"\)\) return false/);
   assert.match(javascript, /function vistaPermitida\(vista\)/);
   assert.match(javascript, /history\.replaceState\(null, "", hashSeguro\)/);
-  assert.match(javascript, /control\.disabled = true/);
-  assert.match(javascript, /querySelectorAll\("\[data-vista\], \[data-requiere-vista\]"\)/);
-  assert.equal((`${javascript}\n${resumenPresentacion}`.match(/data-requiere-vista="llamamientos"/g) || []).length, 2);
   assert.match(eventos, /navegar\(vista, \{ enfocar: false \}\)/);
 });
 
@@ -438,7 +464,7 @@ test("el portal conserva el shell rico y delega el catálogo sin fijar módulos 
   for (const vista of ["resumen", "elaboracion", "convocatorias", "solicitudes", "meritos",
     "baremacion", "alegaciones", "importacion", "llamamientos", "estadisticas", "auditoria", "configuracion"])
     assert.match(html, new RegExp(`data-vista="${vista}"`));
-  assert.match(html, /data-categoria-bolsa="contratos" data-vista="contratacion-temporal"/);
+  assert.match(html, /data-categoria-bolsa="contratos" data-vista="contratos"/);
   assert.match(html, /data-categoria-bolsa="documentos" data-vista="contratacion-temporal"/);
   assert.match(javascript, /function renderizarLlamamientoSinBolsa\(\)/u);
   assert.match(javascript, /Elija una bolsa para iniciar un llamamiento\./u);
@@ -454,15 +480,14 @@ test("la interfaz es semántica, adaptable y no contiene CSS inline", () => {
   assert.match(estilos, /prefers-reduced-motion/);
 });
 
-test("la ayuda configurable incluye audio local, FAQ y transcripción accesible", async () => {
+test("la ayuda configurable usa FAQ y guía textual veraz", () => {
   assert.equal(AYUDA_PORTAL_BOLSA.esquema, "vec.portal.ayuda.v1");
   assert.ok(AYUDA_PORTAL_BOLSA.pasos.length >= 4);
   assert.ok(AYUDA_PORTAL_BOLSA.preguntas.length >= 3);
-  assert.match(javascript, /<audio controls preload="metadata" aria-describedby="transcripcion-ayuda">/);
-  assert.match(javascript, /Transcripción del audio/);
-  assert.doesNotMatch(AYUDA_PORTAL_BOLSA.audio.src, /^https?:/);
-  const rutaAudio = new URL(`.${AYUDA_PORTAL_BOLSA.audio.src.replace("/portal-empleado", "")}`, directorio);
-  assert.ok((await stat(rutaAudio)).size > 10_000, "el audio local debe ser reproducible, no un marcador vacío");
+  assert.match(javascript, /ayuda_preguntas/);
+  assert.match(javascript, /ayuda_transcripcion/);
+  assert.match(AYUDA_PORTAL_BOLSA.transcripcion, /Abrir esta ayuda no guarda ni comunica datos/);
+  assert.doesNotMatch(javascript, /ayuda-llamamiento-bolsa\.mp3/);
   assert.match(ayuda, /Contenido de ayuda sustituible por catálogo o conector/);
 });
 

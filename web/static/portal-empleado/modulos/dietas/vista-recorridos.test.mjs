@@ -3,6 +3,7 @@ import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { montarVistaBorradoresPropios } from "./vista-borradores-propios.js";
 import { montarVistaRecorridosDietas } from "./vista-recorridos.js";
+import { MENSAJES_REVISION_DIETAS_ES } from "./i18n-revision.js";
 import { MENSAJES_DIETAS_ES } from "./i18n.js";
 
 const claveDatos = (atributo) =>
@@ -78,8 +79,25 @@ function crearRaiz() {
   };
   return new Nodo(documento, "root");
 }
+function textoVisible(nodo) {
+  return [nodo.textContent, ...nodo.children.map(textoVisible)].join(" ");
+}
 
-test("la superficie visible conserva las tres etapas y deja las acciones no conectadas deshabilitadas", async () => {
+const item = Object.freeze({
+  comision: {
+    referencia: "dco_1234567890123456789012", estado: "borrador",
+    fecha_inicio: "2026-09-20", fecha_fin: "2026-09-21", motivo: "Reunión",
+    codigos_ruta: [], relacion_ref: "rel_1234567890123456789012",
+  },
+  recibo: { referencia: "rcd_1234567890123456789012", version: 1, registrado_en: "2026-09-20T10:00:00Z", repeticion: false },
+});
+const cliente = Object.freeze({
+  listar: async () => ({ items: [item] }),
+  obtener: async () => item,
+  crear: async () => item,
+});
+
+test("la superficie visible conserva las tres etapas sin expedientes sintéticos ni acciones no conectadas", async () => {
   const fuente = await readFile(
     new URL("vista-recorridos.js", import.meta.url),
     "utf8",
@@ -90,7 +108,8 @@ test("la superficie visible conserva las tres etapas y deja las acciones no cone
   assert.match(fuente, /recorridos_gestion/u);
   assert.match(fuente, /boton\.disabled = true/u);
   assert.match(fuente, /montarItinerario/u);
-  assert.match(fuente, /obtenerAtlasSinteticoRRHH/u);
+  assert.doesNotMatch(fuente, /COMISIONES_PRESENTACION|obtenerAtlasSinteticoRRHH/u);
+  assert.match(fuente, /formularioInicialmenteVisible: false/u);
   assert.doesNotMatch(fuente, /recorridos_titulo_presentacion/u);
   assert.doesNotMatch(fuente, /dietasResumenEtapa|dietas-recorridos-lateral/u);
   assert.doesNotMatch(fuente, /recorridos_limite_operativo/u);
@@ -99,14 +118,12 @@ test("la superficie visible conserva las tres etapas y deja las acciones no cone
   assert.doesNotMatch(fuente, /localStorage|sessionStorage|indexedDB|document\.cookie/u);
 });
 
-test("los indicadores reutilizan las tarjetas KPI corporativas", async () => {
+test("la revisión reutiliza la consulta propia y textos del catálogo", async () => {
   const fuente = await readFile(new URL("vista-recorridos.js", import.meta.url), "utf8");
-  assert.match(fuente, /rejilla-kpi dietas-kpi/u);
-  assert.match(fuente, /tarjeta-kpi/u);
-  assert.match(fuente, /icono-kpi/u);
-  assert.match(fuente, /valor-kpi/u);
-  assert.match(fuente, /etiqueta-kpi/u);
-  assert.doesNotMatch(fuente, /dietas-presentacion-kpis/u);
+  assert.match(fuente, /montarVistaBorradoresPropios/u);
+  assert.match(fuente, /crearTraductorRevisionDietas/u);
+  assert.equal(MENSAJES_REVISION_DIETAS_ES.revision_titulo, "Revisión de comisión");
+  assert.doesNotMatch(fuente, /localStorage|sessionStorage|indexedDB|document\.cookie/u);
 });
 
 test("el formulario propio no recurre a memoria web ni presenta éxito sin respuesta", async () => {
@@ -157,6 +174,7 @@ test("navega por las tres etapas sin convertir el selector en autorización", ()
     '[data-dietas-panel-etapa="solicitante"]',
   );
   assert.equal(solicitante.hidden, false);
+  assert.equal(raiz.querySelector("[data-dietas-abrir-nueva-comision]").disabled, true);
   raiz.listeners.click({
     target: raiz.querySelector('[data-dietas-cambiar-etapa="jefatura"]'),
   });
@@ -177,40 +195,114 @@ test("navega por las tres etapas sin convertir el selector en autorización", ()
   vista.desmontar();
 });
 
-test("selecciona localmente otra comisión sin habilitar efectos", () => {
+test("las cabeceras de solicitante y revisión no muestran instrucciones fuera de la ayuda ?", () => {
+  for (const clienteBorradores of [undefined, cliente]) {
+    const contenedor = crearRaiz();
+    const vista = montarVistaRecorridosDietas(contenedor, { clienteBorradores });
+    const panel = contenedor.querySelector('[data-dietas-panel-etapa="solicitante"]');
+    const titulos = panel.children[0].children[0];
+    const cabeceraRevision = panel.querySelector("[data-dietas-revision-comision]").children[0];
+    assert.equal(titulos.querySelectorAll("p").length, 0);
+    assert.equal(cabeceraRevision.querySelectorAll("p").length, 0);
+    assert.match(textoVisible(titulos), /Mis comisiones/u);
+    assert.match(textoVisible(cabeceraRevision), /Revisión de comisión/u);
+    assert.ok(panel.querySelector("summary"), "la ayuda contextual permanece disponible");
+    const ficha = panel.querySelector("[data-dietas-borrador-ficha]");
+    assert.equal(ficha.attrs["aria-label"], "Detalle del borrador");
+    assert.equal(ficha.querySelector("p").textContent, "Ningún borrador seleccionado.");
+    if (!clienteBorradores) {
+      assert.match(textoVisible(panel.querySelector("[data-dietas-borradores-propios]")), /pendiente de conexión/u);
+    }
+    vista.desmontar();
+  }
+});
+
+test("el recorrido monta los cinco papeles cerrados y los retira al desmontar", () => {
   const contenedor = crearRaiz();
   const vista = montarVistaRecorridosDietas(contenedor);
+  const acceso = contenedor.querySelector("[data-dietas-acceso]");
+  assert.ok(acceso);
+  assert.equal(acceso.querySelectorAll("[data-dietas-papel]").length, 5);
+  assert.ok(acceso.querySelectorAll("[data-dietas-estado-papel]").every((estado) =>
+    estado.dataset.dietasEstadoPapel === "no_configurado"));
+  assert.equal(acceso.querySelectorAll("button").length, 0);
+  vista.desmontar();
+  assert.equal(contenedor.querySelector("[data-dietas-acceso]"), null);
+});
+
+test("las ayudas del recorrido muestran solo ? y conservan nombre accesible y contenido desplegable", async () => {
+  const llamadas = [];
+  const contenedor = crearRaiz();
+  const vista = montarVistaRecorridosDietas(contenedor, {
+    clienteBorradores: {
+      listar: async () => { llamadas.push("GET lista"); return { items: [] }; },
+      obtener: async () => { llamadas.push("GET detalle"); return item; },
+      crear: async () => { llamadas.push("POST"); return item; },
+    },
+  });
+  await Promise.resolve();
+  await Promise.resolve();
   const raiz = contenedor.querySelector("[data-dietas-recorridos]");
-  assert.equal(
-    raiz.querySelectorAll("[data-dietas-detalle-fila]").every((fila) => fila.hidden),
-    true,
-  );
-  raiz.listeners.click({ target: raiz.querySelector('[data-dietas-seleccionar-comision="DIE-2026-0091"]') });
-  const filaDetalle = raiz.querySelector('[data-dietas-detalle-fila="DIE-2026-0091"]');
-  assert.equal(filaDetalle.hidden, false);
-  assert.equal(
-    raiz.querySelectorAll("[data-dietas-detalle-fila]").filter((fila) => !fila.hidden).length,
-    1,
-  );
-  assert.equal(filaDetalle.parent.children.indexOf(filaDetalle) > 0, true);
-  raiz.listeners.click({ target: raiz.querySelector('[data-dietas-seleccionar-comision="DIE-2026-0091"]') });
-  assert.equal(filaDetalle.hidden, true);
-  assert.equal(raiz.querySelectorAll("button").some((boton) => boton.disabled), true);
+  const ayudas = ["solicitante", "jefatura", "gestion"].map((etapa) => {
+    const panel = raiz.querySelector(`[data-dietas-panel-etapa="${etapa}"]`);
+    const ayudasPanel = panel.querySelectorAll("details").filter((nodo) => nodo.className === "dietas-recorridos-ayuda");
+    assert.equal(ayudasPanel.length, 1, `ayuda propia de ${etapa}`);
+    return ayudasPanel[0];
+  });
+  assert.equal(ayudas.length, 3);
+  const contextos = [MENSAJES_REVISION_DIETAS_ES.revision_mis_comisiones,
+    MENSAJES_DIETAS_ES.recorridos_jefatura, MENSAJES_DIETAS_ES.recorridos_gestion];
+  for (const [indice, detalle] of ayudas.entries()) {
+    const resumen = detalle.querySelector("summary");
+    assert.equal(resumen.textContent, "?");
+    assert.equal(resumen.attrs["aria-label"], `${MENSAJES_DIETAS_ES.recorridos_abrir_ayuda} · ${contextos[indice]}`);
+    assert.ok(detalle.querySelector("p").textContent.length > 0);
+  }
+  const antes = [...llamadas];
+  raiz.listeners.click({ target: ayudas[0].querySelector("summary") });
+  assert.deepEqual(llamadas, antes, "abrir ayuda no dispara consulta ni escritura");
   vista.desmontar();
 });
 
-test("distingue visualmente borrador, pendiente y liquidada", () => {
+test("el marcador nativo de summary queda oculto solo en la ayuda de recorridos", async () => {
+  const css = await readFile(new URL("dietas.css", import.meta.url), "utf8");
+  assert.match(css, /\.modulo-dietas\.dietas-recorridos \.dietas-recorridos-ayuda summary\s*\{[^}]*list-style:\s*none\s*;/u);
+  assert.match(css, /\.modulo-dietas\.dietas-recorridos \.dietas-recorridos-ayuda summary::-webkit-details-marker\s*\{[^}]*display:\s*none\s*;/u);
+  assert.match(css, /\.modulo-dietas :focus-visible\s*\{[^}]*outline:/u);
+  assert.match(css, /@media \(forced-colors: active\)\s*\{\s*\.modulo-dietas\.dietas-recorridos \.dietas-recorridos-ayuda summary\s*\{[^}]*color:\s*ButtonText\s*;[^}]*border-color:\s*ButtonText\s*;/u);
+});
+
+test("consulta un borrador mediante GET propio y presenta su recibo real", async () => {
+  const contenedor = crearRaiz();
+  const llamadas = [];
+  const vista = montarVistaRecorridosDietas(contenedor, {
+    clienteBorradores: {
+      listar: async () => { llamadas.push("listar"); return { items: [item] }; },
+      obtener: async () => { llamadas.push("obtener"); return item; },
+      crear: async () => item,
+    },
+  });
+  await Promise.resolve();
+  await Promise.resolve();
+  const raiz = contenedor.querySelector("[data-dietas-recorridos]");
+  const boton = raiz.querySelector('[data-dietas-borrador-detalle="dco_1234567890123456789012"]');
+  assert.ok(boton);
+  await raiz.querySelector("[data-dietas-borradores-propios]").listeners.click({ target: boton });
+  assert.deepEqual(llamadas, ["listar", "obtener"]);
+  assert.match(textoVisible(raiz), /rcd_1234567890123456789012/u);
+  assert.equal(raiz.querySelector("[data-dietas-nueva-comision]").hidden, true);
+  vista.desmontar();
+});
+
+test("jefatura y gestión indican la falta de conector sin mostrar aprobaciones ni pagos", () => {
   const contenedor = crearRaiz();
   const vista = montarVistaRecorridosDietas(contenedor);
-  const clases = contenedor.querySelectorAll("span")
-    .filter((nodo) => nodo.className?.includes("estado-chip"))
-    .map((nodo) => nodo.className);
-  assert.ok(clases.some((clase) => clase.includes("aviso")));
-  assert.ok(clases.some((clase) => clase.includes("info")));
-  assert.ok(clases.some((clase) => clase.includes("exito")));
-  assert.equal(MENSAJES_DIETAS_ES.recorridos_kpi_declarado, "Importe declarado");
-  assert.equal(MENSAJES_DIETAS_ES.recorridos_kpi_pago, "Liquidadas");
-  assert.equal(MENSAJES_DIETAS_ES.recorridos_total_ejemplo, "Total declarado");
+  for (const etapa of ["jefatura", "gestion"]) {
+    const panel = contenedor.querySelector(`[data-dietas-panel-etapa="${etapa}"]`);
+    assert.match(textoVisible(panel), /no están conectadas/u);
+    assert.ok(panel.querySelectorAll("button").every((boton) => boton.disabled));
+  }
+  assert.doesNotMatch(textoVisible(contenedor), /DIE-2026-|Liquidada|61,88 €/u);
   vista.desmontar();
 });
 
@@ -223,6 +315,7 @@ test("mantiene rutas e itinerario ocultos hasta abrir una nueva comisión", asyn
   let montajes = 0;
   let limpiezas = 0;
   const vista = montarVistaRecorridosDietas(contenedor, {
+    clienteBorradores: cliente,
     montarItinerario: (area) => {
       montajes += 1;
       areaMapa = area;
@@ -239,14 +332,12 @@ test("mantiene rutas e itinerario ocultos hasta abrir una nueva comisión", asyn
   await Promise.resolve();
   assert.equal(nueva.hidden, false);
   assert.equal(montajes, 1);
-  assert.ok(
-    nueva.children.indexOf(areaMapa) <
-      nueva.children.indexOf(nueva.querySelector("[data-dietas-area-borradores]")),
-    "el itinerario debe aparecer antes que los borradores",
-  );
+  assert.equal(nueva.querySelector("[data-dietas-area-itinerario]"), areaMapa);
+  assert.equal(raiz.querySelector("[data-dietas-borrador-form]").hidden, false);
   assert.equal(contenedor.querySelector("[data-cargando]"), null);
   raiz.listeners.click({ target: raiz.querySelector("[data-dietas-cerrar-nueva-comision]") });
   assert.equal(nueva.hidden, true);
+  assert.equal(raiz.querySelector("[data-dietas-borrador-form]").hidden, true);
   assert.equal(limpiezas, 1, "cerrar libera el itinerario ya montado");
   raiz.listeners.click({
     target: raiz.querySelector("[data-dietas-abrir-nueva-comision]"),
@@ -256,11 +347,42 @@ test("mantiene rutas e itinerario ocultos hasta abrir una nueva comisión", asyn
   vista.desmontar();
 });
 
+test("permite consultar itinerario sin cliente de borradores y mantiene cerrado el registro", async () => {
+  const contenedor = crearRaiz();
+  let montajes = 0;
+  const vista = montarVistaRecorridosDietas(contenedor, {
+    montarItinerario: () => { montajes += 1; return { desmontar() {} }; },
+  });
+  const raiz = contenedor.querySelector("[data-dietas-recorridos]");
+  const abrir = raiz.querySelector("[data-dietas-abrir-nueva-comision]");
+  assert.equal(abrir.disabled, false);
+  assert.match(abrir.textContent, /Explorar itinerario/);
+  assert.equal(abrir.attrs["aria-controls"], "dietas-recorridos-nueva");
+  assert.match(raiz.querySelector("[data-dietas-borradores-estado]").textContent, /pendiente de conexión/u);
+  raiz.listeners.click({ target: abrir });
+  await Promise.resolve();
+  assert.equal(montajes, 1);
+  assert.equal(raiz.querySelector("[data-dietas-borrador-form]").hidden, true);
+  const aviso = raiz.querySelector("[data-dietas-nueva-comision]").querySelector("p");
+  assert.equal(aviso.textContent, "Registro de comisiones no disponible.");
+  assert.equal(aviso.attrs.role, "status");
+  assert.doesNotMatch(abrir.title, /Puede explorar|Puede abrir/u);
+  const ayuda = raiz.querySelector('[data-dietas-panel-etapa="solicitante"]')
+    .querySelectorAll("details").find((nodo) => nodo.className === "dietas-recorridos-ayuda");
+  assert.ok(ayuda);
+  assert.equal(ayuda.querySelector("summary").textContent, "?");
+  assert.match(textoVisible(ayuda), /Puede explorar la zona del itinerario/u);
+  assert.match(textoVisible(ayuda), /guardar una comisión requiere el servicio de borradores autorizado/u);
+  assert.match(textoVisible(raiz.querySelector("[data-dietas-nueva-comision]")), /Cerrar itinerario/u);
+  vista.desmontar();
+});
+
 test("no recupera un itinerario de una apertura cerrada al reabrir", async () => {
   const contenedor = crearRaiz();
   const pendientes = [];
   let limpiezas = 0;
   const vista = montarVistaRecorridosDietas(contenedor, {
+    clienteBorradores: cliente,
     montarItinerario: () => new Promise((resolve) => pendientes.push(resolve)),
   });
   const raiz = contenedor.querySelector("[data-dietas-recorridos]");
@@ -286,6 +408,7 @@ test("desmonta un itinerario asíncrono que resuelve después de abandonar la vi
     resolver = resolve;
   });
   const vista = montarVistaRecorridosDietas(contenedor, {
+    clienteBorradores: cliente,
     montarItinerario: () => pendiente,
   });
   const raiz = contenedor.querySelector("[data-dietas-recorridos]");

@@ -226,7 +226,7 @@ export function crearGestorIncorporacion({
               seguimiento_ref: preparacion.recibo.seguimiento_ref,
             }, { signal: controlador.signal });
             if (!vigenteMontaje()) return;
-            if (trasConfirmacion) return { estadoActual: cierre.estado_actual };
+            if (trasConfirmacion) return cierre;
             desmontarCierre?.();
             desmontarCierre = null;
             bloqueCierre.replaceChildren();

@@ -1,0 +1,159 @@
+.cronos-calendario {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.cronos-calendario .cabecera-panel {
+  gap: var(--portal-espacio-3);
+}
+
+.cronos-calendario .cabecera-panel h3 {
+  margin: 0;
+}
+
+.cronos-calendario-cuerpo {
+  display: grid;
+  gap: var(--portal-espacio-3);
+  min-width: 0;
+}
+
+.cronos-calendario-navegacion {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--portal-espacio-3);
+}
+
+.cronos-calendario-navegacion strong {
+  min-width: 4ch;
+  text-align: center;
+  font-size: 1.1rem;
+}
+
+.cronos-calendario-navegacion button {
+  min-width: 36px;
+  min-height: 36px;
+}
+
+.cronos-calendario-meses {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 215px), 1fr));
+  gap: var(--portal-espacio-3);
+  max-height: min(62vh, 620px);
+  min-width: 0;
+  overflow: auto;
+  scrollbar-gutter: stable;
+}
+
+.cronos-calendario-mes {
+  min-width: 0;
+  padding: var(--portal-espacio-2);
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio-lg);
+  background: var(--portal-superficie);
+  box-shadow: var(--portal-sombra-sm);
+}
+
+.cronos-calendario-mes h4 {
+  margin: 0 0 var(--portal-espacio-2);
+  padding: var(--portal-espacio-2);
+  border-radius: var(--portal-radio);
+  background: var(--portal-superficie-alterna);
+  color: var(--portal-azul-950);
+  font-size: .85rem;
+  text-transform: capitalize;
+}
+
+.cronos-calendario-mes table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  text-align: center;
+}
+
+.cronos-calendario-mes th {
+  color: var(--portal-muted);
+  font-size: .67rem;
+  font-weight: 650;
+}
+
+.cronos-calendario-mes abbr {
+  text-decoration: none;
+}
+
+.cronos-calendario-mes td {
+  height: 30px;
+  padding: 1px;
+}
+
+.cronos-calendario-mes td button {
+  width: 100%;
+  min-height: 28px;
+  border: 1px solid transparent;
+  border-radius: var(--portal-radio);
+  background: var(--portal-superficie);
+  color: var(--portal-tinta);
+  cursor: pointer;
+  font: inherit;
+  font-size: .75rem;
+}
+
+.cronos-calendario-mes td button[data-dia-civil="fin-semana"] {
+  background: var(--portal-superficie-alterna);
+}
+
+.cronos-calendario-mes td button:hover {
+  border-color: var(--portal-azul-700);
+}
+
+.cronos-calendario-mes td button[aria-pressed="true"] {
+  border-color: var(--portal-azul-700);
+  background: var(--portal-azul-100);
+  color: var(--portal-azul-950);
+  font-weight: 750;
+}
+
+.cronos-calendario-mes td button:focus-visible,
+.cronos-calendario-navegacion button:focus-visible {
+  outline: 3px solid var(--portal-cian);
+  outline-offset: 2px;
+}
+
+.cronos-calendario-pie {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--portal-espacio-3);
+}
+
+.cronos-calendario-seleccion,
+.cronos-calendario-leyenda {
+  display: grid;
+  align-content: start;
+  gap: var(--portal-espacio-2);
+  min-width: 0;
+  padding: var(--portal-espacio-3);
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio-lg);
+  background: var(--portal-superficie-alterna);
+  font-size: .75rem;
+}
+
+.cronos-calendario-seleccion strong {
+  color: var(--portal-azul-950);
+  font-size: .95rem;
+}
+
+.cronos-calendario-aviso {
+  margin: 0;
+  padding: var(--portal-espacio-3);
+  border-left: 4px solid var(--portal-aviso);
+  border-radius: var(--portal-radio);
+  background: var(--portal-aviso-suave);
+  color: var(--portal-tinta);
+  font-size: .78rem;
+}
+
+@media (max-width: 700px) {
+  .cronos-calendario-meses { max-height: none; }
+  .cronos-calendario-pie { grid-template-columns: minmax(0, 1fr); }
+}
