@@ -271,8 +271,10 @@ test("el coordinador respeta DEC-051 y carga el presentador con versión de cach
   // presentación no aporta. Se congela el tamaño actual para que no crezca sin
   // decisión expresa.
   assert.ok(javascript.split(/\r?\n/).length - 1 <= 950, "portal.js debe mantenerse por debajo de 950 líneas");
-  assert.match(html, /portal\.js\?v=20260924-f2-cache-v3/);
-  assert.match(javascript, /portal-modulos-coordinador\.js\?v=20260924-f2-cache-v3/);
+  assert.match(html, /portal\.js\?v=20260924-p1-personal-interno-v2/);
+  assert.match(javascript, /portal-modulos-coordinador\.js\?v=20260924-p1-personal-interno-v2/);
+  assert.doesNotMatch(html, /portal\.js\?v=20260924-f2-cache-v3/);
+  assert.doesNotMatch(javascript, /portal-modulos-coordinador\.js\?v=20260924-f2-cache-v3/);
   assert.match(javascript, /portal-inicio\.js\?v=20260924-f2-cache-v2/);
   assert.match(javascript, /portal-i18n\.js\?v=20260924-f2-cache-v2/);
   assert.match(javascript, /traducirPortal\("error_catalogo_modulos"\)/);
