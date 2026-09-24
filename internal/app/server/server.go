@@ -217,6 +217,7 @@ func NewHandlerInternoWithConfigConComprobadorDisponibilidad(cfg config.Config, 
 	registrarRutasDisponibilidad(mux, comprobador)
 	mux.Handle("/portal-empleado", soloLecturaHTTP(redireccionDirectorio("portal-empleado/")))
 	mux.Handle("/portal-empleado/", soloLecturaHTTP(estaticos))
+	registrarTeselasOSM(mux)
 	registrarActivosCompartidos(mux, estaticos)
 	mux.Handle("/locales/", soloLecturaHTTP(localeHandler()))
 	mux.Handle("/api/vec", api)

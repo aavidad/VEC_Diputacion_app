@@ -38,6 +38,7 @@ func NewHandlerWithConfigConComprobadorDisponibilidad(cfg config.Config, api htt
 	registrarDirectorioAplicacion(mux, estaticos, "area-personal")
 	registrarDirectorioAplicacion(mux, estaticos, "portal-empleado")
 	registrarDirectorioAplicacion(mux, estaticos, "verificar")
+	registrarTeselasOSM(mux)
 	registrarActivosCompartidos(mux, estaticos)
 	for _, ruta := range []string{
 		"/comun/oportunidades/vista.js",
