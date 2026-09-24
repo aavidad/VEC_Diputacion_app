@@ -16,6 +16,7 @@ const respaldo = Object.freeze({
   "areaPersonal.capacidad.noHabilitada": "{operacion} no está habilitada para la identidad y el expediente actuales.", "areaPersonal.capacidad.accionNoReconocida": "La acción no está reconocida por esta superficie.", "areaPersonal.capacidad.operacionNoDisponible": "Operación no disponible.", "areaPersonal.documento.noDisponible": "El documento solicitado no está disponible en el ámbito actual.",
   "areaPersonal.miBolsa.situacion.titulo": "Última situación registrada de mi participación",
   "areaPersonal.miBolsa.ordenInicial": "Mi número de orden inicial", "areaPersonal.miBolsa.vigenciaBolsa": "Vigencia de la bolsa",
+  "areaPersonal.miBolsa.identidad.noFacilitada": "Identidad no facilitada", "areaPersonal.miBolsa.identidad.metodoNoFacilitado": "Método no facilitado", "areaPersonal.miBolsa.identidad.valorNoFacilitado": "No facilitado",
   "areaPersonal.miBolsa.situacion.sinDato": "La situación actual de esta participación aún no está disponible en Mi bolsa.",
   "areaPersonal.miBolsa.situacion.estado": "Estado", "areaPersonal.miBolsa.situacion.desde": "Desde", "areaPersonal.miBolsa.situacion.hasta": "Hasta",
   "areaPersonal.miBolsa.situacion.sinFin": "Sin fecha de fin registrada", "areaPersonal.miBolsa.situacion.fechaDisponible": "Fecha de disponibilidad indicada",
