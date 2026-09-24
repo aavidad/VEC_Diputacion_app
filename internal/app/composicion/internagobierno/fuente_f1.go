@@ -112,6 +112,9 @@ func (f *FuenteF1) ResolverContexto(ctx context.Context) (ct.ContextoAutorizacio
 		!f.reloj.Ahora().Before(f.politica.RetiradaEn) {
 		return ct.ContextoAutorizacionAltaV3{}, ErrGobiernoInternoNoDisponible
 	}
+	// La cuenta y el perfil pueden ser coherentes en F1 aunque el certificado
+	// pertenezca a otra persona. Identidad coteja el sujeto autenticado con la
+	// persona resuelta por F1 antes de entregar el contexto al detalle/V3.
 	if err := f.identidad.ExigirSujetoPersonaCertificadoTemporal(ctx, datos.PrincipalID); err != nil {
 		return ct.ContextoAutorizacionAltaV3{}, ErrGobiernoInternoNoDisponible
 	}
@@ -155,6 +158,8 @@ func (f *FuenteF1) PeticionVerificada(ctx context.Context) (inc.PeticionAutorida
 		!f.reloj.Ahora().Before(f.politica.RetiradaEn) {
 		return vacia, ErrGobiernoInternoNoDisponible
 	}
+	// Sin este cotejo, un certificado personal A con cuenta F1 de B pasaría
+	// las dos validaciones por separado y recibiría autoridad de B.
 	if err := f.identidad.ExigirSujetoPersonaCertificadoTemporal(ctx, datos.PrincipalID); err != nil {
 		return vacia, ErrGobiernoInternoNoDisponible
 	}
