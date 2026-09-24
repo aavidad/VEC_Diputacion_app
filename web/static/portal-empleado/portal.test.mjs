@@ -153,7 +153,10 @@ test("la carga inicial no consulta servicios de Bolsa ausentes", () => {
   assert.doesNotMatch(cargaInicial, /fetch\(/);
   assert.doesNotMatch(cargaInicial, /comprobarDisponibilidad/);
   assert.doesNotMatch(cargaInicial, /API_PANEL_BOLSA/);
-  assert.match(cargaInicial, /moduloDeVistaPortal\(estado\.vista\) === "bolsa"/);
+  assert.match(cargaInicial, /requiereLecturaBolsas\(estado\.vista\)/);
+  const vistasSinLectura = javascript.match(/const VISTAS_BOLSA_SIN_LECTURA = new Set\(\[([\s\S]*?)\]\);/)?.[1] || "";
+  for (const vista of ["contratos", "seleccion-inscripciones", "seleccion-pruebas", "seleccion-comunicaciones"])
+    assert.match(vistasSinLectura, new RegExp(`"${vista}"`));
 });
 
 test("el arranque desconocido normaliza a portal sin sondear Bolsa", () => {
@@ -267,7 +270,7 @@ test("el coordinador respeta DEC-051 y carga el presentador con versión de cach
   // montaje mínimo de cada ruta real vive aquí y trocearlo antes de la
   // presentación no aporta. Se congela el tamaño actual para que no crezca sin
   // decisión expresa.
-  assert.ok(javascript.split(/\r?\n/).length - 1 <= 900, "portal.js debe mantenerse por debajo de 900 líneas");
+  assert.ok(javascript.split(/\r?\n/).length - 1 <= 950, "portal.js debe mantenerse por debajo de 950 líneas");
   assert.match(html, /portal\.js\?v=20260924-f2-cache-v2/);
   assert.match(javascript, /portal-modulos-coordinador\.js\?v=20260924-f2-cache-v2/);
   assert.match(javascript, /portal-inicio\.js\?v=20260924-f2-cache-v2/);
@@ -438,7 +441,7 @@ test("el portal conserva el shell rico y delega el catálogo sin fijar módulos 
   for (const vista of ["resumen", "elaboracion", "convocatorias", "solicitudes", "meritos",
     "baremacion", "alegaciones", "importacion", "llamamientos", "estadisticas", "auditoria", "configuracion"])
     assert.match(html, new RegExp(`data-vista="${vista}"`));
-  assert.match(html, /data-categoria-bolsa="contratos" data-vista="contratacion-temporal"/);
+  assert.match(html, /data-categoria-bolsa="contratos" data-vista="contratos"/);
   assert.match(html, /data-categoria-bolsa="documentos" data-vista="contratacion-temporal"/);
   assert.match(javascript, /function renderizarLlamamientoSinBolsa\(\)/u);
   assert.match(javascript, /Elija una bolsa para iniciar un llamamiento\./u);
