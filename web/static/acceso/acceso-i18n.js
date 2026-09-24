@@ -50,6 +50,31 @@ export async function iniciarI18nAcceso(documento = document, fetcher = fetch, i
   return idioma;
 }
 
-if (typeof document !== "undefined" && typeof fetch === "function") {
-  void iniciarI18nAcceso();
+export function montarAyudaAcceso(documento = globalThis.document) {
+  const boton = documento?.getElementById?.("boton-ayuda-acceso");
+  const contenido = documento?.getElementById?.("acceso-autorizacion");
+  if (!boton || !contenido || boton.getAttribute("aria-controls") !== contenido.id) return false;
+
+  contenido.hidden = true;
+  boton.setAttribute("aria-expanded", "false");
+  boton.addEventListener("click", () => {
+    const abrir = contenido.hidden;
+    contenido.hidden = !abrir;
+    boton.setAttribute("aria-expanded", String(abrir));
+    if (abrir) contenido.focus();
+    else boton.focus();
+  });
+  documento.addEventListener("keydown", (evento) => {
+    if (evento.key !== "Escape" || contenido.hidden) return;
+    evento.preventDefault();
+    contenido.hidden = true;
+    boton.setAttribute("aria-expanded", "false");
+    boton.focus();
+  });
+  return true;
+}
+
+if (typeof document !== "undefined") {
+  montarAyudaAcceso();
+  if (typeof fetch === "function") void iniciarI18nAcceso();
 }

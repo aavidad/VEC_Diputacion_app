@@ -8,8 +8,9 @@ import {
   tieneCapacidadCronos,
   validarCapacidadesCronos,
   validarDatosCronos,
-} from "./contrato.js";
-import { crearTraductorCronos, MENSAJES_CRONOS_ES } from "./i18n.js";
+} from "./contrato.js?v=20260924-f2-web2";
+import { crearTraductorCronos, MENSAJES_CRONOS_ES } from "./i18n.js?v=20260924-cronos-integrado-v1";
+import { montarCalendarioCivilCronos } from "./vista-calendario.js?v=20260924-cronos-integrado-v1";
 
 function escaparHTML(valor) {
   return String(valor ?? "")
@@ -108,6 +109,118 @@ function botonDescargaRecibo(referencia, disponible, t) {
 function botonAyuda(t, asunto) {
   const etiqueta = t("abrir_ayuda", { asunto });
   return `<button type="button" class="cronos-boton-ayuda" data-accion="ayuda" aria-label="${escaparHTML(etiqueta)}" title="${escaparHTML(etiqueta)}"><span aria-hidden="true">?</span><span class="cronos-boton-ayuda-texto">${escaparHTML(t("ayuda"))}</span></button>`;
+}
+
+const ESTADOS_JORNADA = new Set(["cargando", "disponible", "vacio", "no_configurado", "denegado", "error"]);
+
+function estadoJornadaConFuente(estado, contextoActor, datos) {
+  if (estado !== "disponible") return estado;
+  return contextoActor?.demostracion === false && datos?.demostracion === false
+    ? "disponible" : "no_configurado";
+}
+
+/**
+ * Superficie de Jornada para el montaje del portal. El llamador solo puede
+ * indicar "disponible" después de recibir una proyección propia de Cronos.
+ * Esta vista no consulta servicios ni habilita un efecto de fichaje.
+ */
+export function renderizarJornadaCronos({
+  estado = "no_configurado", contextoActor, capacidades = [], datos,
+  mensajes = MENSAJES_CRONOS_ES, locale = "es-ES", zonaHoraria = "Europe/Madrid",
+} = {}) {
+  if (!ESTADOS_JORNADA.has(estado)) throw new Error("estado de jornada de Cronos no válido");
+  estado = estadoJornadaConFuente(estado, contextoActor, datos);
+  const t = crearTraductorCronos(mensajes);
+  let vista;
+  let puedeConsultarFichajes = false;
+  let puedeConsultarHorario = false;
+  if (estado === "disponible") {
+    const contexto = exigirContextoActorCronos(contextoActor);
+    const concedidas = validarCapacidadesCronos(capacidades);
+    puedeConsultarFichajes = tieneCapacidadCronos(concedidas, CAPACIDAD_CONSULTAR_FICHAJES);
+    puedeConsultarHorario = tieneCapacidadCronos(concedidas, CAPACIDAD_CONSULTAR_HORARIO);
+    if (!puedeConsultarFichajes && !puedeConsultarHorario) estado = "denegado";
+    else vista = validarDatosCronos(datos, contexto);
+  }
+  const estadoVisible = t(`jornada_estado_${estado}`);
+  const descripcionEstado = t(`jornada_descripcion_${estado}`);
+  const resumen = vista?.resumen;
+  const perfil = vista?.perfil_jornada;
+  const fichajes = puedeConsultarFichajes ? vista.fichajes : [];
+  const filas = fichajes.slice(0, 12).map((item) => {
+    const instante = instanteVisible(item.instante, locale, zonaHoraria);
+    return [
+      escaparHTML(instante.fecha), escaparHTML(instante.hora),
+      escaparHTML(t(`movimiento_${item.tipo_clave}`)), escaparHTML(item.canal),
+      chip(item.estado_clave, t),
+    ];
+  });
+  const saldos = estado === "disponible" ? `<div class="cronos-jornada-indicadores rejilla-kpi" aria-label="${escaparHTML(t("resumen_etiqueta"))}">
+    ${indicador(t("indicador_jornada"), puedeConsultarHorario ? resumen.teoricas_hoy : "—", puedeConsultarHorario ? vista.periodo : t("sin_permiso"))}
+    ${indicador(t("indicador_trabajado"), puedeConsultarFichajes ? resumen.trabajadas_hoy : "—", puedeConsultarFichajes ? t("nota_movimientos") : t("sin_permiso"), puedeConsultarFichajes ? "exito" : "informacion")}
+    ${indicador(t("indicador_saldo_dia"), puedeConsultarFichajes ? resumen.saldo_hoy : "—", puedeConsultarFichajes ? t("nota_calculo") : t("sin_permiso"), puedeConsultarFichajes ? "aviso" : "informacion")}
+    ${indicador(t("indicador_saldo_periodo"), puedeConsultarFichajes ? resumen.saldo_periodo : "—", puedeConsultarFichajes ? t("nota_acumulado") : t("sin_permiso"))}
+  </div>` : "";
+  const contenido = estado === "disponible" ? `<div class="cronos-jornada-rejilla">
+    <section class="panel cronos-jornada-panel" aria-labelledby="cronos-jornada-movimientos">
+      <header class="cabecera-panel"><div><h4 id="cronos-jornada-movimientos">${escaparHTML(t("jornada_movimientos"))}</h4><p>${escaparHTML(t("jornada_movimientos_detalle"))}</p></div>${botonAyuda(t, t("jornada_movimientos"))}</header>
+      ${puedeConsultarFichajes ? tabla({ id: "tabla-cronos-jornada", titulo: t("jornada_tabla"), cabeceras: [t("cab_fecha"), t("cab_hora"), t("cab_movimiento"), t("cab_canal"), t("cab_estado")], filas, vacio: t("fichajes_vacio") }) : `<p class="cronos-acceso-denegado" role="status">${escaparHTML(t("fichajes_denegado"))}</p>`}
+    </section>
+    <div class="cronos-jornada-lateral">
+      <aside class="panel cronos-jornada-panel" aria-labelledby="cronos-jornada-perfil">
+        <header class="cabecera-panel"><div><h4 id="cronos-jornada-perfil">${escaparHTML(t("horario_titulo"))}</h4><p>${escaparHTML(t("horario_descripcion"))}</p></div>${botonAyuda(t, t("horario_titulo"))}</header>
+        ${puedeConsultarHorario ? `<dl class="cronos-resumen-datos"><div><dt>${escaparHTML(t("perfil"))}</dt><dd>${escaparHTML(perfil.nombre)}</dd></div><div><dt>${escaparHTML(t("jornada_diaria"))}</dt><dd>${escaparHTML(perfil.jornada_diaria)}</dd></div><div><dt>${escaparHTML(t("ventana_entrada"))}</dt><dd>${escaparHTML(perfil.ventana_entrada)}</dd></div><div><dt>${escaparHTML(t("tramo_obligatorio"))}</dt><dd>${escaparHTML(perfil.tramo_obligatorio)}</dd></div></dl>` : `<p class="cronos-acceso-denegado" role="status">${escaparHTML(t("horario_denegado"))}</p>`}
+      </aside>
+      <aside class="panel cronos-jornada-panel" aria-labelledby="cronos-jornada-calendario">
+        <header class="cabecera-panel"><div><h4 id="cronos-jornada-calendario">${escaparHTML(t("jornada_calendario_titulo"))}</h4><p>${escaparHTML(t("jornada_calendario_fuente"))}</p></div>${botonAyuda(t, t("jornada_calendario_titulo"))}</header>
+        <div class="cuerpo-panel cronos-jornada-calendario-pendiente" role="status"><span class="cronos-estado cronos-estado-aviso">${escaparHTML(t("jornada_estado_no_configurado"))}</span><p>${escaparHTML(t("jornada_calendario_pendiente"))}</p></div>
+      </aside>
+    </div>
+  </div>` : `<section class="panel cronos-jornada-panel" aria-labelledby="cronos-jornada-sin-datos"><header class="cabecera-panel"><h4 id="cronos-jornada-sin-datos">${escaparHTML(estadoVisible)}</h4></header><div class="cuerpo-panel" role="status">${escaparHTML(descripcionEstado)}</div></section>`;
+
+  return `<section class="cronos-jornada cronos-area" data-cronos-jornada data-estado="${estado}" aria-labelledby="cronos-jornada-titulo"${estado === "cargando" ? ' aria-busy="true"' : ""}>
+    <header class="cronos-jornada-encabezado"><div><p class="sobrelinea">${escaparHTML(t("sobrelinea"))}</p><h3 id="cronos-jornada-titulo">${escaparHTML(t("jornada_titulo"))}</h3><p>${escaparHTML(t("jornada_descripcion"))}</p></div><span class="cronos-estado cronos-estado-${estado === "disponible" ? "exito" : "aviso"}" role="status">${escaparHTML(estadoVisible)}</span></header>
+    ${estado === "disponible" ? `<p class="cronos-jornada-fuente">${escaparHTML(t("jornada_fuente_servicio", { fecha: instanteVisible(vista.actualizado_en, locale, zonaHoraria).completo }))}</p>` : ""}
+    ${saldos}${contenido}
+    <div class="cronos-jornada-acciones"><button type="button" class="boton-primario" disabled aria-disabled="true" title="${escaparHTML(t("jornada_accion_bloqueada"))}">${escaparHTML(t("accion_entrada"))}</button><button type="button" class="boton-secundario" disabled aria-disabled="true" title="${escaparHTML(t("jornada_accion_bloqueada"))}">${escaparHTML(t("accion_salida"))}</button><span>${escaparHTML(t("jornada_accion_bloqueada"))}</span></div>
+    <div data-cronos-calendario-raiz></div>
+  </section>`;
+}
+
+/** Montaje sin efectos ni listeners; el coordinador conserva la consulta y el desmontaje. */
+export function montarJornadaCronos({ raiz, registrarDesmontar, anunciar = () => {}, ...proyeccion } = {}) {
+  if (!raiz?.append || !raiz.ownerDocument?.createElement
+    || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function")
+    || typeof anunciar !== "function") throw new TypeError("raíz de jornada de Cronos no válida");
+  const contenedor = raiz.ownerDocument.createElement("div");
+  contenedor.dataset.cronosJornadaMontaje = "";
+  contenedor.innerHTML = renderizarJornadaCronos(proyeccion);
+  raiz.append(contenedor);
+  let activo = true;
+  let calendario;
+  const montarCalendario = () => {
+    const destino = contenedor.querySelector?.("[data-cronos-calendario-raiz]");
+    if (destino) calendario = montarCalendarioCivilCronos({ raiz: destino, anunciar });
+  };
+  montarCalendario();
+  const actualizar = (siguiente) => {
+    if (!activo) throw new Error("jornada de Cronos desmontada");
+    const html = renderizarJornadaCronos(siguiente);
+    calendario?.desmontar();
+    calendario = undefined;
+    contenedor.innerHTML = html;
+    montarCalendario();
+    const estadoVisible = estadoJornadaConFuente(siguiente?.estado ?? "no_configurado", siguiente?.contextoActor, siguiente?.datos);
+    anunciar(crearTraductorCronos(siguiente?.mensajes)(`jornada_estado_${estadoVisible}`));
+  };
+  const desmontar = () => {
+    if (!activo) return;
+    activo = false;
+    calendario?.desmontar();
+    contenedor.remove();
+  };
+  registrarDesmontar?.(desmontar);
+  return Object.freeze({ actualizar, desmontar });
 }
 
 export function renderizarAreaCronos({

@@ -7,7 +7,7 @@ import { crearContextoActorPresentacionDesdeSesion } from "../../identidad/prese
 import { crearAdaptadorContratacionTemporalPresentacion } from "./adaptador-presentacion.js";
 import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js";
 import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js";
-import { renderizarCuadro, renderizarExpediente } from "./componentes-expedientes.js";
+import { renderizarCuadro, renderizarDocumentos, renderizarExpediente } from "./componentes-expedientes.js";
 import {
   CAPACIDADES_CONTRATACION_TEMPORAL as CAP,
   validarAuditoriaContratacionTemporal,
@@ -47,6 +47,69 @@ function adaptador(perfil = "administrador") {
 function presentadorDe(fuente, capacidades = fuente.capacidades) {
   return crearPresentadorExpedientesContratacionTemporal({ fuente, capacidades });
 }
+
+test("la continuidad real abre el índice documental sin fingir envío GINPIX ni consulta B11", () => {
+  const expediente = { ...crearExpedienteContratacionTemporalPresentacion(),
+    demostracion: false, version: 8 };
+  const estado = { vista: "expediente", carga: "listo", expediente,
+    expediente_ref: expediente.expediente_ref, tarea_ref: expediente.tareas[0].tarea_ref,
+    navegacion: { documentos: true }, ocupado: false,
+    actualizacion_pendiente: false, resultado_indeterminado: false };
+  const t = crearTraductorExpedientesContratacion();
+  const html = renderizarExpediente(estado, t, "es-ES", "Europe/Madrid");
+
+  assert.match(html, /Documentos y continuidad de la incorporación/u);
+  assert.match(html, /data-ct-exp-vista="documentos">Consultar documentos del expediente/u);
+  assert.match(html, /recibo de incorporación confirmado/u);
+  assert.doesNotMatch(html, /data-ct-ficha-ginpix-descargar|data-ct-seguimiento-consultar|ginpix\.enviar/u);
+  assert.doesNotMatch(renderizarExpediente({ ...estado, navegacion: { documentos: false } }, t, "es-ES", "Europe/Madrid"), /ct-exp-continuidad/u);
+  assert.doesNotMatch(renderizarExpediente({ ...estado, expediente: { ...expediente, version: 7 } }, t, "es-ES", "Europe/Madrid"), /ct-exp-continuidad/u);
+});
+
+test("documentos explica ficha manual y seguimiento con textos inyectados escapados", () => {
+  const expediente = { ...crearExpedienteContratacionTemporalPresentacion(),
+    demostracion: false, version: 8 };
+  const t = crearTraductorExpedientesContratacion({
+    continuidad_documentos_ficha_limite: "Sin transmisión <externa>",
+  });
+  const html = renderizarDocumentos({ expediente, documentos: { documentos: [] } }, t);
+
+  assert.match(html, /Ficha manual para GINPIX/u);
+  assert.match(html, /Sin transmisión &lt;externa&gt;/u);
+  assert.match(html, /Seguimiento de la incorporación/u);
+  assert.match(html, /El seguimiento original se consulta desde el mismo recibo/u);
+  assert.match(html, /data-ct-exp-vista="expediente">Expediente/u);
+  assert.doesNotMatch(html, /<externa>|data-ct-ficha-ginpix-descargar|data-ct-seguimiento-consultar/u);
+});
+
+test("el índice documental mantiene el regreso al expediente y explica el estado vacío", () => {
+  const expediente = crearExpedienteContratacionTemporalPresentacion();
+  const t = crearTraductorExpedientesContratacion();
+  const html = renderizarDocumentos({ expediente, documentos: { documentos: [] } }, t);
+
+  assert.match(html, /class="panel ct-exp-documentos" aria-labelledby="ct-exp-documentos-titulo"/u);
+  assert.match(html, /class="cabecera-panel ct-exp-subcabecera ct-exp-documentos-cabecera"/u);
+  assert.match(html, /id="ct-exp-documentos-titulo" tabindex="-1"/u);
+  assert.match(html, /data-ct-exp-vista="expediente">Expediente<\/button>/u);
+  assert.match(html, /role="status">No hay datos disponibles en este panel\.<\/p>/u);
+  assert.doesNotMatch(html, /<table/u);
+  assert.doesNotMatch(html, /data-ct-ficha-ginpix-descargar|data-ct-exp-efecto="[^"]*ginpix\.enviar/u);
+});
+
+test("el índice documental conserva cada estado y escapa referencias en la tabla", () => {
+  const expediente = crearExpedienteContratacionTemporalPresentacion();
+  const t = crearTraductorExpedientesContratacion();
+  const html = renderizarDocumentos({ expediente, documentos: { documentos: [{
+    titulo: "Ficha <GINPIX>", documento_ref: "documento:<interno>", tipo: "JSON",
+    version: 1, estado: "Preparado", firma: "Sin firma", fecha: "24/09/2026",
+    descarga_disponible: true,
+  }] } }, t);
+
+  assert.match(html, /Ficha &lt;GINPIX&gt;<small><code>documento:&lt;interno&gt;<\/code><\/small>/u);
+  assert.match(html, /Preparado<\/td><td>Sin firma<\/td>/u);
+  assert.match(html, /Descarga pendiente de conectar/u);
+  assert.doesNotMatch(html, /<GINPIX>|data-ct-ficha-ginpix-descargar/u);
+});
 
 test("el listado precede al trabajo auxiliar y cada expediente ofrece un resumen inicial cerrado", async () => {
   const fuente = adaptador();
@@ -355,21 +418,29 @@ function expedienteConAccionSinteticaDisponible() {
 }
 
 test("el espacio operativo separa tareas y distribución en paneles legibles", async () => {
-  const [estilos, tema] = await Promise.all([
+  const [estilos, portal, tema] = await Promise.all([
     readFile(new URL("./expedientes-operativo.css", import.meta.url), "utf8"),
     readFile(new URL("../../portal.css", import.meta.url), "utf8"),
+    readFile(new URL("../../../comun/tema-vec.css", import.meta.url), "utf8"),
   ]);
   assert.match(
     estilos,
     /\.ct-exp-mis-tareas,\s*\n\.ct-exp-distribucion\s*\{[\s\S]*border:[^;]+;[\s\S]*background:/u,
   );
   assert.match(estilos, /\.ct-exp-operativo\s*\{[\s\S]*grid-template-columns:/u);
+  assert.match(portal, /^\s*@import\s+url\(\s*["']\.\.\/comun\/tema-vec\.css["']\s*\)\s*;/mu);
+  const base = tema.match(/:root\s*\{([^}]*)\}/u)?.[1];
+  assert.ok(base, "el tema común debe declarar sus tokens base en :root");
   for (const token of [
     "--portal-espacio-1", "--portal-espacio-2", "--portal-espacio-3",
     "--portal-espacio-4", "--portal-radio-md", "--portal-radio-lg",
     "--portal-sombra-sm", "--portal-tinta-suave",
   ]) {
-    assert.match(tema, new RegExp(`${token}:`), `${token} debe proceder del tema común`);
+    const declaracion = new RegExp(`^[ \\t]*${token}[ \\t]*:`, "gmu");
+    assert.equal([...base.matchAll(declaracion)].length, 1,
+      `${token} debe tener una sola definición base en el tema común`);
+    assert.doesNotMatch(portal, declaracion,
+      `${token} no debe redefinirse en portal.css`);
   }
 });
 

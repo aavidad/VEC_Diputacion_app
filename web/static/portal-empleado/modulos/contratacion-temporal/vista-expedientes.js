@@ -290,6 +290,7 @@ export async function montarModuloContratacionTemporal({
     gestorIncorporacion.retirar();
     gestorTramitacion.retirarComponentes();
     const estado = presentador.obtenerEstado();
+    if (estado.carga === "denegado") gestorTramitacion.invalidarSubsanacionPorDenegacion();
     raiz.innerHTML = renderizarModuloContratacionTemporal(estado, {
       mensajes,
       locale,
@@ -302,6 +303,7 @@ export async function montarModuloContratacionTemporal({
       fiscalizacionDisponible,
       subsanacionDisponible,
       reciboSubsanacionConfirmado: gestorTramitacion.obtenerReciboSubsanacionConfirmado(),
+      recuperacionSubsanacionPendiente: gestorTramitacion.tieneIntencionSubsanacionParaEstado(estado),
       reciboFiscalizacionConfirmado: gestorTramitacion.obtenerReciboFiscalizacionConfirmado(),
       reciboAsignacionConfirmado: gestorTramitacion.obtenerReciboAsignacionConfirmado(),
       llamamientoDisponible,

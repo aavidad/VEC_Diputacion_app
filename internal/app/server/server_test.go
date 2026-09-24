@@ -117,6 +117,11 @@ func TestManifiestoWebProductivoSoloEnumeraRutasServidas(t *testing.T) {
 		if rutaFuente == "produccion.manifest" {
 			continue
 		}
+		if rutaFuente == "cartografia/granada-base-20260719-z8-z12.zip" ||
+			rutaFuente == "cartografia/granada-base-20260719-z8-z12.json" {
+			// Contenido empaquetado para la ruta OSM; no es recurso HTTP estatico.
+			continue
+		}
 		if !strings.HasPrefix(rutaFuente, "static/") {
 			t.Fatalf("ruta de manifiesto no canonica: %q", rutaFuente)
 		}

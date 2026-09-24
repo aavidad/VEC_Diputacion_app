@@ -132,7 +132,10 @@ function renderizarHistorial(estado, t, formateador, mensajes) {
     contenido = `<p role="status">${escaparHTML(t("informe_historial_cargando"))}</p>`;
   } else if (estado.historialError) {
     contenido = `<p data-ct-informe-historial-error role="alert" tabindex="-1">${
-  escaparHTML(t("informe_historial_no_disponible"))}</p>`;
+  escaparHTML(t("informe_historial_no_disponible"))}</p>
+      <div class="ct-acciones"><button class="boton-secundario" type="button"
+        data-ct-informe-accion="reintentar-historial">${
+  escaparHTML(t("informe_historial_reintentar"))}</button></div>`;
   } else if (estado.historial?.length === 0) {
     contenido = `<p>${escaparHTML(t("informe_historial_vacio"))}</p>`;
   } else {
@@ -159,7 +162,7 @@ function renderizarHistorial(estado, t, formateador, mensajes) {
       </table>
     </div>`;
   }
-  return `<section class="ct-bloque" data-ct-informe-historial
+  return `<section class="ct-bloque" data-ct-informe-historial tabindex="-1"
     aria-labelledby="ct-informe-historial-titulo">
     <h3 id="ct-informe-historial-titulo">${escaparHTML(t("informe_historial_titulo"))}</h3>
     <p>${escaparHTML(t("informe_historial_descripcion"))}</p>${contenido}
@@ -277,18 +280,53 @@ export function montarFormularioInformeJuridico(configuracion = {}) {
         || ultimoHito?.fase_destino !== "informe_juridico") {
         throw new TypeError("historial no ligado al recibo de informe jurídico");
       }
-      if (!montado) return;
+      if (!montado || signal.aborted) return;
       estado = {
         ...estado, historial: Object.freeze([...detalle.hitos]),
         historialCargando: false, historialError: false,
+        mensaje_clave: "informe_estado_confirmado", tipo_mensaje: "exito",
       };
     } catch {
-      if (!montado) return;
+      if (!montado || signal.aborted) return;
       estado = {
         ...estado, historial: null, historialCargando: false, historialError: true,
         mensaje_clave: "informe_estado_historial_no_disponible", tipo_mensaje: "aviso",
       };
     }
+  }
+
+  function reintentarHistorial() {
+    if (!montado || vuelo !== null || estado.historialCargando
+      || !estado.recibo || !estado.historialError) {
+      return vuelo ?? Promise.resolve(null);
+    }
+    const recibo = estado.recibo;
+    controlador = new AbortController();
+    estado = {
+      ...estado, historialCargando: true, historialError: false,
+      mensaje_clave: "informe_historial_cargando", tipo_mensaje: "informacion",
+    };
+    repintar("[data-ct-informe-historial]");
+    const regionReintento = raizActual.querySelector("[data-ct-informe-historial]");
+    const tarea = (async () => {
+      try {
+        await cargarHistorial(recibo, controlador.signal);
+      } finally {
+        controlador = null;
+        vuelo = null;
+        if (montado) {
+          const focoEnReintento = regionReintento
+            && raizActual.querySelector("[data-ct-informe-historial]") === regionReintento
+            && regionReintento.contains(raizActual.ownerDocument?.activeElement);
+          repintar(focoEnReintento
+            ? estado.historialError
+              ? "[data-ct-informe-historial-error]" : "[data-ct-informe-historial]"
+            : "");
+        }
+      }
+    })();
+    vuelo = tarea;
+    return tarea;
   }
 
   function enviar(recurriendo = false) {
@@ -380,8 +418,12 @@ export function montarFormularioInformeJuridico(configuracion = {}) {
 
   function alPulsar(evento) {
     const control = evento.target?.closest?.("[data-ct-informe-accion]");
-    if (!control || !raizActual.contains(control)
-      || control.dataset.ctInformeAccion !== "recuperar") return undefined;
+    if (!control || !raizActual.contains(control)) return undefined;
+    if (control.dataset.ctInformeAccion === "reintentar-historial") {
+      evento.preventDefault();
+      return reintentarHistorial();
+    }
+    if (control.dataset.ctInformeAccion !== "recuperar") return undefined;
     evento.preventDefault();
     return solicitudActual === null ? Promise.resolve(null) : enviar(true);
   }

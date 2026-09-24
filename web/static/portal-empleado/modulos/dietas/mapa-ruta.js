@@ -11,7 +11,7 @@ import {
   PLANTILLA_TESELAS_OSM_INTERNA,
   validarGeometriaRutaDietas,
 } from "./contrato.js";
-import { MENSAJES_DIETAS_ES, crearTraductorDietas } from "./i18n.js";
+import { MENSAJES_DIETAS_ES, crearTraductorDietas } from "./i18n.js?v=20260924-osm-base-v3";
 
 function validarDescriptorMapa(descriptor) {
   if (!descriptor || typeof descriptor !== "object" || Array.isArray(descriptor)
@@ -46,6 +46,8 @@ const MAXIMO_ERRORES_TESELA = 3;
 const TIEMPO_ESPERA_TESELAS_MS = 7_000;
 const CENTRO_INICIAL_GRANADA = Object.freeze([37.1773, -3.5986]);
 const ZOOM_INICIAL_GRANADA = 12;
+const ZOOM_MINIMO_CARTOGRAFIA_HISTORICA = 8;
+const ZOOM_MAXIMO_CARTOGRAFIA_HISTORICA = 12;
 export const ESTILOS_TRAMO_RUTA_DIETAS = Object.freeze([
   Object.freeze({ color: "#155e75", patron: "Línea continua", dashArray: undefined }),
   Object.freeze({ color: "#9a3412", patron: "Línea discontinua", dashArray: "10 7" }),
@@ -60,7 +62,7 @@ export const ESTILOS_TRAMO_RUTA_DIETAS = Object.freeze([
   Object.freeze({ color: "#0f766e", patron: "Trazo separado", dashArray: "8 8" }),
 ]);
 
-function mostrarMapaNoDisponible(lienzo, estado, atribucion, t) {
+function mostrarMapaNoDisponible(lienzo, estado, atribucion, t, focoEstabaEnMapa = false) {
   if (lienzo) {
     lienzo.replaceChildren?.();
     if (lienzo.dataset) delete lienzo.dataset.modoMapa;
@@ -76,7 +78,13 @@ function mostrarMapaNoDisponible(lienzo, estado, atribucion, t) {
     }
   }
   if (atribucion) atribucion.hidden = true;
-  if (estado) estado.textContent = t("mapa_nota_no_disponible");
+  if (estado) {
+    estado.textContent = t("mapa_nota_no_disponible");
+    if (focoEstabaEnMapa) {
+      estado.setAttribute?.("tabindex", "-1");
+      estado.focus?.({ preventScroll: true });
+    }
+  }
   return resultadoNoDisponible();
 }
 
@@ -91,6 +99,70 @@ function traducirControlesZoom(lienzo, t) {
     const etiqueta = t(clave);
     control.setAttribute("title", etiqueta);
     control.setAttribute("aria-label", etiqueta);
+  });
+}
+
+function mostrarAtribucionLeaflet(mapa, visible) {
+  const control = mapa?.attributionControl?.getContainer?.();
+  if (control) control.hidden = !visible;
+}
+
+function aplazarHastaSalirDeLeaflet(entorno, tarea) {
+  const encolar = typeof entorno?.queueMicrotask === "function"
+    ? entorno.queueMicrotask.bind(entorno) : globalThis.queueMicrotask.bind(globalThis);
+  encolar(tarea);
+}
+
+/** Leaflet emite `load` incluso si alguna tesela visible terminó en error. */
+function observarTeselas(capa, entorno, tiempoEsperaMs, { alCargar, alFallar }) {
+  const programar = typeof entorno?.setTimeout === "function"
+    ? entorno.setTimeout.bind(entorno) : globalThis.setTimeout.bind(globalThis);
+  const cancelar = typeof entorno?.clearTimeout === "function"
+    ? entorno.clearTimeout.bind(entorno) : globalThis.clearTimeout.bind(globalThis);
+  let temporizador = null;
+  let activo = true;
+  let primeraCarga = false;
+  let errores = 0;
+  const limpiarTemporizador = () => {
+    if (temporizador !== null) cancelar(temporizador);
+    temporizador = null;
+  };
+  const detener = () => {
+    if (!activo) return;
+    activo = false;
+    limpiarTemporizador();
+    capa.off?.("loading", alIniciarCarga);
+    capa.off?.("load", alTerminarCarga);
+    capa.off?.("tileerror", alFallarTesela);
+  };
+  const fallar = (dentroDeEventoLeaflet = false) => {
+    if (!activo) return;
+    detener();
+    alFallar(dentroDeEventoLeaflet);
+  };
+  const esperar = () => {
+    if (activo && temporizador === null) temporizador = programar(() => fallar(), tiempoEsperaMs);
+  };
+  function alIniciarCarga() { esperar(); }
+  function alTerminarCarga() {
+    if (!activo) return;
+    if (errores > 0) { fallar(true); return; }
+    limpiarTemporizador();
+    primeraCarga = true;
+    alCargar();
+  }
+  function alFallarTesela() {
+    if (!activo) return;
+    errores += 1;
+    esperar();
+    if (errores >= MAXIMO_ERRORES_TESELA) fallar(true);
+  }
+  capa.on("loading", alIniciarCarga);
+  capa.on("load", alTerminarCarga);
+  capa.on("tileerror", alFallarTesela);
+  return Object.freeze({
+    esperarPrimeraCarga() { if (!primeraCarga) esperar(); },
+    detener,
   });
 }
 
@@ -119,80 +191,79 @@ export function montarMapaInicialGranadaDietas({
 
   let mapa = null;
   let capaTeselas = null;
-  let temporizador = null;
-  let terminado = false;
+  let observador = null;
   let desmontado = false;
-  let erroresTesela = 0;
+  let retiradaProgramada = false;
   let modo = "mapa_cargando";
-  const programar = typeof entorno?.setTimeout === "function"
-    ? entorno.setTimeout.bind(entorno) : globalThis.setTimeout.bind(globalThis);
-  const cancelar = typeof entorno?.clearTimeout === "function"
-    ? entorno.clearTimeout.bind(entorno) : globalThis.clearTimeout.bind(globalThis);
-  const limpiarTemporizador = () => {
-    if (temporizador !== null) cancelar(temporizador);
-    temporizador = null;
-  };
-  const retirarEscuchas = () => {
-    capaTeselas?.off?.("load", alCargarTeselas);
-    capaTeselas?.off?.("tileerror", alFallarTesela);
-  };
-  const noDisponible = () => {
-    if (terminado || desmontado) return;
-    terminado = true;
+  const noDisponible = (dentroDeEventoLeaflet = false) => {
+    if (desmontado || modo === "mapa_no_disponible") return;
     modo = "mapa_no_disponible";
-    limpiarTemporizador();
-    retirarEscuchas();
-    mapa?.remove?.();
-    mapa = null;
-    mostrarMapaNoDisponible(lienzo, estado, null, t);
+    observador?.detener();
+    const focoEstabaEnMapa = Boolean(lienzo.contains?.(lienzo.ownerDocument?.activeElement));
+    if (estado) estado.textContent = t("mapa_nota_no_disponible");
+    mostrarAtribucionLeaflet(mapa, false);
+    const retirar = () => {
+      mapa?.remove?.();
+      mapa = null;
+      if (!desmontado) mostrarMapaNoDisponible(lienzo, estado, null, t, focoEstabaEnMapa);
+    };
+    if (dentroDeEventoLeaflet) {
+      // GridLayer._tileReady sigue usando _map tras emitir tileerror/load.
+      // TileLayer ignora onload tardíos cuando remove() limpia su _map.
+      retiradaProgramada = true;
+      aplazarHastaSalirDeLeaflet(entorno, retirar);
+    } else {
+      retirar();
+    }
   };
   function alCargarTeselas() {
-    if (terminado || desmontado) return;
-    terminado = true;
+    if (desmontado) return;
     modo = "openstreetmap_interno";
-    limpiarTemporizador();
-    retirarEscuchas();
+    mostrarAtribucionLeaflet(mapa, true);
     lienzo.dataset.modoMapa = modo;
     if (estado) estado.textContent = t("mapa_nota_osm_interno");
-  }
-  function alFallarTesela() {
-    if (terminado || desmontado) return;
-    erroresTesela += 1;
-    if (erroresTesela >= MAXIMO_ERRORES_TESELA) noDisponible();
   }
   try {
     lienzo.replaceChildren();
     lienzo.dataset.modoMapa = modo;
-    mapa = entorno.L.map(lienzo, { scrollWheelZoom: false, attributionControl: true });
+    if (estado) estado.textContent = t("mapa_cargando_interno");
+    mapa = entorno.L.map(lienzo, {
+      scrollWheelZoom: false, attributionControl: true,
+      minZoom: ZOOM_MINIMO_CARTOGRAFIA_HISTORICA,
+      maxZoom: ZOOM_MAXIMO_CARTOGRAFIA_HISTORICA,
+    });
     traducirControlesZoom(lienzo, t);
     mapa.attributionControl?.setPrefix?.(false);
+    mostrarAtribucionLeaflet(mapa, false);
     capaTeselas = entorno.L.tileLayer(PLANTILLA_TESELAS_OSM_INTERNA, {
-      maxNativeZoom: 14,
-      maxZoom: 14,
+      minZoom: ZOOM_MINIMO_CARTOGRAFIA_HISTORICA,
+      maxNativeZoom: ZOOM_MAXIMO_CARTOGRAFIA_HISTORICA,
+      maxZoom: ZOOM_MAXIMO_CARTOGRAFIA_HISTORICA,
       attribution: ATRIBUCION_OSM_INTERNA,
     });
     if (!capaTeselas || typeof capaTeselas.on !== "function" || typeof capaTeselas.addTo !== "function") {
       throw new TypeError("capa de teselas interna no observable");
     }
-    capaTeselas.on("load", alCargarTeselas);
-    capaTeselas.on("tileerror", alFallarTesela);
+    observador = observarTeselas(capaTeselas, entorno, tiempoEsperaMs, {
+      alCargar: alCargarTeselas, alFallar: noDisponible,
+    });
     capaTeselas.addTo(mapa);
     mapa.setView?.(CENTRO_INICIAL_GRANADA, ZOOM_INICIAL_GRANADA);
-    temporizador = programar(noDisponible, tiempoEsperaMs);
+    observador.esperarPrimeraCarga();
     return Object.freeze({
       get modo() { return modo; },
       desmontar() {
         if (desmontado) return;
         desmontado = true;
-        limpiarTemporizador();
-        retirarEscuchas();
-        mapa?.remove?.();
-        mapa = null;
+        observador?.detener();
+        if (!retiradaProgramada) {
+          mapa?.remove?.();
+          mapa = null;
+        }
       },
     });
   } catch {
-    limpiarTemporizador();
-    retirarEscuchas();
+    observador?.detener();
     mapa?.remove?.();
     return mostrarMapaNoDisponible(lienzo, estado, null, t);
   }
@@ -232,46 +303,35 @@ export function crearVisorRutaDietas({
 
       let mapa = null;
       let capaTeselas = null;
-      let temporizador = null;
+      let observador = null;
       let modo = "mapa_cargando";
-      let terminado = false;
       let desmontado = false;
-      let erroresTesela = 0;
-      const programar = typeof entorno?.setTimeout === "function"
-        ? entorno.setTimeout.bind(entorno) : globalThis.setTimeout.bind(globalThis);
-      const cancelarTemporizador = typeof entorno?.clearTimeout === "function"
-        ? entorno.clearTimeout.bind(entorno) : globalThis.clearTimeout.bind(globalThis);
-      const retirarEscuchas = () => {
-        capaTeselas?.off?.("load", alCargarTeselas);
-        capaTeselas?.off?.("tileerror", alFallarTesela);
-      };
-      const limpiarTemporizador = () => {
-        if (temporizador !== null) cancelarTemporizador(temporizador);
-        temporizador = null;
-      };
-      const declararNoDisponible = () => {
-        if (terminado || desmontado) return;
-        terminado = true;
+      let retiradaProgramada = false;
+      const declararNoDisponible = (dentroDeEventoLeaflet = false) => {
+        if (desmontado || modo === "mapa_no_disponible") return;
         modo = "mapa_no_disponible";
-        limpiarTemporizador();
-        retirarEscuchas();
-        mapa?.remove?.();
-        mapa = null;
-        mostrarMapaNoDisponible(lienzo, estado, atribucion, t);
+        observador?.detener();
+        const focoEstabaEnMapa = Boolean(lienzo.contains?.(lienzo.ownerDocument?.activeElement));
+        if (estado) estado.textContent = t("mapa_nota_no_disponible");
+        mostrarAtribucionLeaflet(mapa, false);
+        const retirar = () => {
+          mapa?.remove?.();
+          mapa = null;
+          if (!desmontado) mostrarMapaNoDisponible(lienzo, estado, atribucion, t, focoEstabaEnMapa);
+        };
+        if (dentroDeEventoLeaflet) {
+          retiradaProgramada = true;
+          aplazarHastaSalirDeLeaflet(entorno, retirar);
+        } else {
+          retirar();
+        }
       };
       function alCargarTeselas() {
-        if (terminado || desmontado) return;
-        terminado = true;
+        if (desmontado) return;
         modo = "openstreetmap_interno";
-        limpiarTemporizador();
-        retirarEscuchas();
+        mostrarAtribucionLeaflet(mapa, true);
         lienzo.dataset.modoMapa = "openstreetmap_interno";
         if (estado) estado.textContent = t("mapa_nota_osm_interno");
-      }
-      function alFallarTesela() {
-        if (terminado || desmontado) return;
-        erroresTesela += 1;
-        if (erroresTesela >= MAXIMO_ERRORES_TESELA) declararNoDisponible();
       }
       try {
         lienzo.replaceChildren();
@@ -281,20 +341,25 @@ export function crearVisorRutaDietas({
         mapa = entorno.L.map(lienzo, {
           scrollWheelZoom: false,
           attributionControl: true,
+          minZoom: ZOOM_MINIMO_CARTOGRAFIA_HISTORICA,
+          maxZoom: ZOOM_MAXIMO_CARTOGRAFIA_HISTORICA,
         });
         traducirControlesZoom(lienzo, t);
         mapa.attributionControl?.setPrefix?.(false);
+        mostrarAtribucionLeaflet(mapa, false);
         capaTeselas = entorno.L.tileLayer(PLANTILLA_TESELAS_OSM_INTERNA, {
-          maxNativeZoom: 14,
-          maxZoom: 14,
+          minZoom: ZOOM_MINIMO_CARTOGRAFIA_HISTORICA,
+          maxNativeZoom: ZOOM_MAXIMO_CARTOGRAFIA_HISTORICA,
+          maxZoom: ZOOM_MAXIMO_CARTOGRAFIA_HISTORICA,
           attribution: ATRIBUCION_OSM_INTERNA,
         });
         if (!capaTeselas || typeof capaTeselas.on !== "function"
           || typeof capaTeselas.addTo !== "function") {
           throw new TypeError("capa de teselas interna no observable");
         }
-        capaTeselas.on("load", alCargarTeselas);
-        capaTeselas.on("tileerror", alFallarTesela);
+        observador = observarTeselas(capaTeselas, entorno, tiempoEsperaMs, {
+          alCargar: alCargarTeselas, alFallar: declararNoDisponible,
+        });
         capaTeselas.addTo(mapa);
         const tramosGeometricos = datos.geometria.tramos || [{ trazado: datos.geometria.trazado }];
         const lineas = tramosGeometricos.map((tramo, indice) => {
@@ -339,23 +404,21 @@ export function crearVisorRutaDietas({
           atribucion.textContent = "© OpenStreetMap contributors · © OpenMapTiles · servido en red interna";
           atribucion.hidden = true;
         }
-        if (!terminado) {
-          temporizador = programar(declararNoDisponible, tiempoEsperaMs);
-        }
+        observador.esperarPrimeraCarga();
         return Object.freeze({
           get modo() { return modo; },
           desmontar() {
             if (desmontado) return;
             desmontado = true;
-            limpiarTemporizador();
-            retirarEscuchas();
-            mapa?.remove?.();
-            mapa = null;
+            observador?.detener();
+            if (!retiradaProgramada) {
+              mapa?.remove?.();
+              mapa = null;
+            }
           },
         });
       } catch {
-        limpiarTemporizador();
-        retirarEscuchas();
+        observador?.detener();
         mapa?.remove?.();
         mapa = null;
         return mostrarMapaNoDisponible(lienzo, estado, atribucion, t);

@@ -32,6 +32,11 @@ var (
 	ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible = errors.New(
 		"vec: registro de denegaciones de autorizacion ligada V3 no disponible",
 	)
+	// ErrDenegacionExplicitaAutorizacionLigadaV3 solo identifica una decision
+	// negativa valida cuyo registro durable de denegacion ya termino con exito.
+	ErrDenegacionExplicitaAutorizacionLigadaV3 = errors.New(
+		"vec: denegacion explicita de autorizacion ligada V3 registrada",
+	)
 	ErrSerializacionRegistroAutorizacionLigadaV3Prohibida = errors.New(
 		"vec: serializacion de registro de autorizacion ligada V3 prohibida",
 	)

@@ -2,6 +2,8 @@ package application
 
 import (
 	"context"
+	"crypto/subtle"
+	"errors"
 	"strings"
 	"time"
 
@@ -250,7 +252,7 @@ func prepararRegistroCompuestoSolicitudLigadaV3(
 		return domain.DecisionAutorizacionLigadaV3{}, vacia,
 			nuevoErrorServicioAutorizacionLigadaV3(
 				domain.ErrAutorizacionDenegada, domain.ErrSolicitudAutorizacionInvalida,
-				sanearErrorDependenciaAutorizacionLigadaV3(err), ctx.Err(),
+				sanearErrorDependenciaPreparacionV3(err), ctx.Err(),
 			)
 	}
 	if err := ctx.Err(); err != nil {
@@ -271,7 +273,7 @@ func prepararRegistroCompuestoSolicitudLigadaV3(
 		return domain.DecisionAutorizacionLigadaV3{}, vacia,
 			nuevoErrorServicioAutorizacionLigadaV3(
 				domain.ErrAutorizacionDenegada, ports.ErrFuenteAutorizacionNoDisponible,
-				sanearErrorDependenciaAutorizacionLigadaV3(err), ctx.Err(),
+				sanearErrorDependenciaPreparacionV3(err), ctx.Err(),
 			)
 	}
 	if err := ctx.Err(); err != nil {
@@ -292,7 +294,7 @@ func prepararRegistroCompuestoSolicitudLigadaV3(
 		return domain.DecisionAutorizacionLigadaV3{}, vacia,
 			nuevoErrorServicioAutorizacionLigadaV3(
 				domain.ErrAutorizacionDenegada, domain.ErrConfiguracionAccesoInvalida,
-				sanearErrorDependenciaAutorizacionLigadaV3(err),
+				sanearErrorDependenciaPreparacionV3(err),
 			)
 	}
 	if err := ctx.Err(); err != nil {
@@ -349,22 +351,57 @@ func registrarDenegacionSolicitudLigadaV3(
 	error,
 ) {
 	vacia := ports.OrdenRegistroConcesionCandidataAutorizacionLigadaV3{}
-	if _, err := orden.Datos(); err != nil {
+	datosOrden, err := orden.Datos()
+	if err != nil {
 		return decision, vacia,
 			nuevoErrorServicioAutorizacionLigadaV3(domain.ErrAutorizacionDenegada, err)
+	}
+	concedida, _, errResultado := decision.Resultado()
+	huellaDecision, errHuella := domain.HuellaSHA256DecisionAutorizacionV3(decision)
+	huellaOrden, errHuellaOrden := domain.HuellaSHA256DecisionAutorizacionV3(datosOrden.Decision)
+	if errResultado != nil || concedida || decision.ValidarPara(datosOrden.Solicitud) != nil ||
+		errHuella != nil || errHuellaOrden != nil ||
+		subtle.ConstantTimeCompare([]byte(huellaDecision), []byte(huellaOrden)) != 1 {
+		return decision, vacia, nuevoErrorServicioAutorizacionLigadaV3(
+			domain.ErrAutorizacionDenegada, domain.ErrDecisionAutorizacionLigadaV3Invalida,
+		)
 	}
 	if err := ctx.Err(); err != nil {
 		return decision, vacia,
 			nuevoErrorServicioAutorizacionLigadaV3(domain.ErrAutorizacionDenegada, err)
 	}
 	if err := registro.RegistrarDenegacionAutorizacionLigadaV3(ctx, orden); err != nil {
+		// Una dependencia no puede fabricar la clasificacion de denegacion
+		// explicita devolviendo nuestro centinela como causa de su fallo.
 		return decision, vacia, nuevoErrorServicioAutorizacionLigadaV3(
 			domain.ErrAutorizacionDenegada,
 			ports.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible,
-			sanearErrorDependenciaAutorizacionLigadaV3(err), ctx.Err(),
+			sanearErrorDependenciaPreparacionV3(err), ctx.Err(),
 		)
 	}
-	return decision, vacia, domain.ErrAutorizacionDenegada
+	if err := ctx.Err(); err != nil {
+		return decision, vacia,
+			nuevoErrorServicioAutorizacionLigadaV3(domain.ErrAutorizacionDenegada, err)
+	}
+	return decision, vacia, nuevoErrorServicioAutorizacionLigadaV3(
+		domain.ErrAutorizacionDenegada,
+		ports.ErrDenegacionExplicitaAutorizacionLigadaV3,
+	)
+}
+
+func sanearErrorDependenciaPreparacionV3(err error) error {
+	if errors.Is(err, ports.ErrDenegacionExplicitaAutorizacionLigadaV3) {
+		// Las dependencias no pueden introducir el centinela por Unwrap.
+		switch {
+		case errors.Is(err, context.Canceled):
+			return context.Canceled
+		case errors.Is(err, context.DeadlineExceeded):
+			return context.DeadlineExceeded
+		default:
+			return nil
+		}
+	}
+	return sanearErrorDependenciaAutorizacionLigadaV3(err)
 }
 
 func preparacionSolicitudLigadaV3Invalida() (

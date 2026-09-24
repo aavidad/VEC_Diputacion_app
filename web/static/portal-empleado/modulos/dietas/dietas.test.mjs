@@ -348,8 +348,9 @@ test("el visor activa únicamente OpenStreetMap interno y nunca simula un mapa s
   assert.match(estado.textContent, /Cargando/u);
   assert.equal(plantilla, "/tiles/osm/{z}/{x}/{y}.png");
   assert.equal(opcionesTeselas.attribution, ATRIBUCION_OSM_INTERNA);
-  assert.equal(opcionesTeselas.maxNativeZoom, 14);
-  assert.equal(opcionesTeselas.maxZoom, 14);
+  assert.equal(opcionesTeselas.minZoom, 8);
+  assert.equal(opcionesTeselas.maxNativeZoom, 12);
+  assert.equal(opcionesTeselas.maxZoom, 12);
   assert.equal(prefijoAtribucion, false);
   assert.deepEqual(atributosAcercar, { title: "Acercar el mapa", "aria-label": "Acercar el mapa" });
   assert.deepEqual(atributosAlejar, { title: "Alejar el mapa", "aria-label": "Alejar el mapa" });
@@ -397,7 +398,7 @@ test("el mapa previo se centra en Granada con teselas internas y no dibuja itine
   montaje.desmontar();
 });
 
-test("el visor no declara éxito y se retira ante errores de tesela o timeout", () => {
+test("el visor no declara éxito y se retira ante errores de tesela o timeout", async () => {
   const descriptor = structuredClone(presentador().obtenerModelo().seleccionada.mapa_ruta);
   descriptor.geometria.origen = "osrm_interno";
   const crearEscenario = () => {
@@ -449,6 +450,7 @@ test("el visor no declara éxito y se retira ante errores de tesela o timeout", 
   conErrores.eventos.get("tileerror")();
   assert.equal(conErrores.montaje.modo, "mapa_no_disponible");
   assert.match(conErrores.estado.textContent, /no está disponible/u);
+  await Promise.resolve(); // Leaflet completa _tileReady antes de retirar el mapa.
   assert.equal(conErrores.retiradas(), 1);
 
   const conTimeout = crearEscenario();

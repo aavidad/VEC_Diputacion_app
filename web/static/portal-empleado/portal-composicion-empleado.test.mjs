@@ -103,7 +103,7 @@ test("Personal monta ficha antes de crear catálogos y limpia registros temprano
   let montarCatalogos;
   let desmontajeFicha = 0;
   const personal = componerPersonalVisible({
-    ficha: { montarVistaFichaIntegralPersonal(entrada) { montarCatalogos = entrada.montarCatalogos; return { desmontar() { desmontajeFicha += 1; } }; } },
+    ficha: { montarVistaFichaIntegralPersonal(entrada) { assert.deepEqual(entrada.fuentes, {}); montarCatalogos = entrada.montarCatalogos; return { desmontar() { desmontajeFicha += 1; } }; } },
     clienteCategorias: { crearClienteHTTPCategoriasPersonal() { clientes.push("categorias"); return {}; } },
     clienteRPT: { crearClienteHTTPRPTPublica() { clientes.push("rpt"); return {}; } },
     clienteEstructura: { crearClienteHTTPEstructuraOrganizativaPublica() { clientes.push("estructura"); return {}; } },

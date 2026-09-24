@@ -64,7 +64,7 @@ export function crearClienteHTTPCategoriasPersonal({ fetchImpl = globalThis.fetc
       const externo = validarSignal(opciones.signal); const parametros = new URLSearchParams({ q: consulta.q, area: consulta.area, limit: String(consulta.limit), offset: String(consulta.offset) });
       const respuesta = await ejecutarConPlazo(async (signal) => {
         let resultado;
-        try { resultado = await fetchImpl(`${RUTA_CATEGORIAS_PROFESIONALES}?${parametros.toString()}`, { method: "GET", credentials: "same-origin", mode: "same-origin", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer", signal }); } catch { throw error("red_no_disponible"); }
+        try { resultado = await fetchImpl(`${RUTA_CATEGORIAS_PROFESIONALES}?${parametros.toString()}`, { method: "GET", credentials: "omit", mode: "same-origin", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer", signal }); } catch { throw error("red_no_disponible"); }
         if (!resultado || resultado.redirected === true || resultado.status !== 200 || resultado.ok !== true) { await cancelarRespuesta(resultado); throw error("estado_no_valido", resultado?.status || 0); }
         const tipo = resultado.headers?.get?.("content-type"); if (typeof tipo !== "string" || !/^application\/json(?:\s*;\s*charset\s*=\s*utf-8)?$/iu.test(tipo)) { await cancelarRespuesta(resultado); throw error("tipo_respuesta_no_valido", resultado.status); }
         return leerJSONAcotado(resultado, signal);

@@ -90,6 +90,23 @@ func (e *EmisorMaterialAutorizacionAtestadaV3) EmitirMaterialAutorizacionAtestad
 		solicitud,
 		resultadoExacto,
 	)
+	if errors.Is(err, ports.ErrDenegacionExplicitaAutorizacionLigadaV3) {
+		if ctx.Err() == nil &&
+			!errors.Is(err, context.Canceled) &&
+			!errors.Is(err, context.DeadlineExceeded) &&
+			!errors.Is(err, ports.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible) &&
+			errors.Is(err, domain.ErrAutorizacionDenegada) &&
+			validarDenegacionEmisionMaterialV3(
+				solicitud, decision, confirmacion, motivo, resultadoExacto,
+			) == nil {
+			return decisionVacia, confirmacionVacia, nil, errors.Join(
+				errEmisionMaterialAutorizacionAtestadaV3NoDisponible,
+				ports.ErrDenegacionExplicitaAutorizacionLigadaV3,
+			)
+		}
+		return decisionVacia, confirmacionVacia, nil,
+			nuevoErrorEmisionMaterialAutorizacionAtestadaV3(err, ctx.Err())
+	}
 	if validarConcesionEmisionMaterialV3(
 		solicitud,
 		decision,
@@ -153,6 +170,26 @@ func (e *EmisorMaterialAutorizacionAtestadaV3) EmitirMaterialAutorizacionAtestad
 		return decision, confirmacion, nil, nuevoErrorEmisionMaterialAutorizacionAtestadaV3(err)
 	}
 	return decision, confirmacion, material, nil
+}
+
+func validarDenegacionEmisionMaterialV3(
+	solicitud domain.SolicitudAutorizacionLigadaV3,
+	decision domain.DecisionAutorizacionLigadaV3,
+	confirmacion ports.ConfirmacionRegistroConcesionAutorizacionLigadaV3,
+	motivo domain.ReferenciaEntradaCatalogo,
+	resultado domain.ResultadoContextoActorRegistradoV2,
+) error {
+	concedida, codigo, err := decision.Resultado()
+	if err != nil || concedida || codigo == "concedida" ||
+		decision.ValidarPara(solicitud) != nil || confirmacion.Validar() == nil {
+		return errEmisionMaterialAutorizacionAtestadaV3NoDisponible
+	}
+	if _, err := ports.NuevaOrdenRegistroDenegacionAutorizacionLigadaV3(
+		solicitud, decision, motivo, resultado,
+	); err != nil {
+		return errEmisionMaterialAutorizacionAtestadaV3NoDisponible
+	}
+	return nil
 }
 
 func validarConcesionEmisionMaterialV3(

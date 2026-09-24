@@ -1,14 +1,21 @@
-# Entorno privado de la principal para `main@48e64f84`
+# Entorno privado de la principal
 
-## Activar Dietas
+## Preparación histórica de Dietas R1D
 
-Con `main` desplegada, ejecutar **como el usuario del servicio** en cidonia:
+Este procedimiento describe la preparación anterior a P6. **No volver a ejecutarlo
+para reactivar Dietas**: la asignación quedó revocada y los ocho LOGIN están en
+`NOLOGIN`. Una futura activación F4 requiere otro procedimiento revisado y una
+nueva versión de la asignación.
+
+En el corte anterior, con `main` desplegada, se ejecutaba como el usuario del
+servicio en cidonia:
 
 ```bash
 VEC_DEVELOPMENT_MATERIAL_DIR=<material privado> python3 deploy/principal/preparar_dietas_desarrollo.py
 ```
 
-El script es idempotente (fechas de la política fijadas en su estado privado) y ensaya cada paso con `ROLLBACK` antes de confirmarlo:
+El script era idempotente en aquel corte (fechas de la política fijadas en su
+estado privado) y ensayaba cada paso con `ROLLBACK` antes de confirmarlo:
 instala `04_dietas_migraciones.sh` si falta; crea ocho LOGIN nominales con
 credenciales privadas; da a la identidad sintética del certificado cliente de
 la demo (la de Bolsa/B-BACK) un perfil Dietas, una relación y asignación de
@@ -26,11 +33,31 @@ configuración movería el puntero único y dejaría sin firma a CT y Bolsa.
 Si el contenedor OSRM no es inequívoco, el script se detiene antes de escribir y
 pide `VEC_DIETAS_OSRM_URL=http://IP:PUERTO`.
 
-Volver atrás: restaurar las tres copias `*.antes-dietas-r1d` sobre
-`arrancar_app.sh` y sus variantes y rearrancar. La historia SQL, la relación
+La reversión histórica del selector consistía en restaurar las tres copias
+`*.antes-dietas-r1d` sobre `arrancar_app.sh` y sus variantes y rearrancar.
+La historia SQL, la relación
 sintética y el material privado se conservan; no ejecutar migraciones `DOWN`.
-También siguen vigentes el rol y la asignación RBAC de Dietas y los ocho LOGIN;
-sin el selector activo no se usan (desarrollo).
+Esta descripción de reversión del selector conserva la historia del corte
+anterior; ya no describe las capacidades de acceso tras P6.
+
+### Retirada P6 ejecutada en cidonia (24/09/2026)
+
+El paquete versionado en [`p6_retirada_dietas/`](p6_retirada_dietas/README.md)
+se revisó dos veces sobre el mismo hash, pasó PostgreSQL 18 aislado y la puerta
+de calidad antes de fusionarse en `main`. Dirección comunicó que en cidonia
+inventarió la preimagen, ensayó `ROLLBACK` y confirmó `COMMIT`: quedó una
+asignación n+1 **revocada** y los ocho LOGIN Dietas en `NOLOGIN`, sin borrar las
+versiones anteriores. Dirección comunicó un barrido Chrome 5/5 por el portal,
+sin respuestas HTTP 400 o superiores ni errores JavaScript. La
+evidencia de ejecución se conserva por el canal privado, fuera de Git.
+
+La comunicación de ese corte todavía no acredita por separado cero sesiones
+residuales, el rechazo de una conexión nueva con cada LOGIN, la denegación de
+una autorización antigua por revalidación V3 ni una regresión funcional
+específica de Contratación/Bolsa. Esas comprobaciones se registran cuando
+Dirección comunique su resultado. Un barrido del portal no las sustituye.
+No ejecutar `DOWN`, repetir el preparador histórico ni reactivar LOGIN a partir
+de esta anotación.
 
 
 El inventario canónico de `config/` contiene 18 variables `VEC_*_DATABASE_URL`.

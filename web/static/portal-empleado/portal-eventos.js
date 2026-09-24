@@ -5,7 +5,7 @@
  * negocio. Las acciones sin comando de servidor compuesto permanecen
  * informativas y nunca producen efectos administrativos en el navegador.
  */
-import { traducirPortal } from "./portal-i18n.js?v=20260721-acceso-real-v2";
+import { traducirPortal } from "./portal-i18n.js?v=20260924-f2-cronos-permisos-v2";
 import { validarAvisosPortal } from "./portal-contrato.js";
 
 const NOMBRES_CAMPOS_OPERACION = new Set([
