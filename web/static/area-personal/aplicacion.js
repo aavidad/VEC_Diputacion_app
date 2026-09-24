@@ -178,9 +178,9 @@ function mostrarError(estado, error) {
 export function datosMinimosMiBolsa(consulta) {
   return Object.freeze({
     meta: { presentacion: false, origen: "GET /api/vec/bolsa/mi-bolsa", generado_en: consulta.consultada_en },
-    sesion: { nombre_visible: "Identidad no facilitada", iniciales: "—", metodo: "Método no facilitado", persona_ref: null },
+    sesion: { nombre_visible: traducir("areaPersonal.miBolsa.identidad.noFacilitada"), iniciales: "—", metodo: traducir("areaPersonal.miBolsa.identidad.metodoNoFacilitado"), persona_ref: null },
     resumen: { acciones_pendientes: 0, convocatorias_abiertas: 0, solicitudes_activas: 0, mensajes_no_leidos: 0, puntuacion_provisional: 0 },
-    perfil: { referencia: null, nombre_visible: "Identidad no facilitada", identificador_visible: "No facilitado", correo: "Pendiente de integración", telefono: "Pendiente de integración", domicilio: "Pendiente de integración", estado_verificacion: "Pendiente de integración" },
+    perfil: { referencia: null, nombre_visible: traducir("areaPersonal.miBolsa.identidad.noFacilitada"), identificador_visible: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), correo: "Pendiente de integración", telefono: "Pendiente de integración", domicilio: "Pendiente de integración", estado_verificacion: "Pendiente de integración" },
     plazos: [], convocatorias: [], meritos: [], solicitudes: [], baremo: [], llamamientos: [], subsanaciones: [], alegaciones: [], mensajes: [], certificados: [], documentos: [], actividad: [], ayuda: [], contratos: [],
     disponibilidad: { disponible: false, estado: "Pendiente de integración" }, capacidades: {},
   });
