@@ -2,6 +2,7 @@ import { crearTraductorDocumentos } from "./i18n.js?v=20260924-f2-web2";
 
 const ESTADOS = new Set(["no_configurado", "cargando", "disponible", "vacio", "denegado", "error"]);
 const FIRMA = new Set(["borrador", "pendiente_firma", "firmado"]);
+const ACCION_DESCARGA = "documentos.descargar_original";
 const FORMATOS_DESCARGA = Object.freeze({
   "application/pdf": [".pdf"],
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
@@ -39,11 +40,26 @@ function fechaValida(valor) {
   return fecha;
 }
 
+function permisoDescargaExacto(permiso, ref, version) {
+  return permiso !== null && typeof permiso === "object" && !Array.isArray(permiso)
+    && Object.hasOwn(permiso, "accion") && permiso.accion === ACCION_DESCARGA
+    && Object.hasOwn(permiso, "recurso_ref") && permiso.recurso_ref === ref
+    && Object.hasOwn(permiso, "version") && permiso.version === version
+    && Object.hasOwn(permiso, "concedido") && permiso.concedido === true;
+}
+
+function permisoDenegado() {
+  const error = new Error("permiso de descarga no confirmado");
+  error.codigo = "permiso_denegado";
+  return error;
+}
+
 /**
  * Contrato de lectura: {estado, origen, actualizado_en?, documentos: [{ref,
  * titulo, tipo, version, estado_firma, firma?, huella?, custodia?, antivirus?,
- * descargable?}]}. Una marca "firmado" sola no acredita firma; custodia exige
- * recibo y descarga exige además antivirus limpio y permiso confirmado.
+ * descargable?, permiso_descarga?}]}. permiso_descarga lo emite la fuente para
+ * acción, referencia y versión exactas. Una marca "firmado" sola no acredita
+ * firma; custodia exige recibo y descarga exige antivirus limpio y permiso.
  */
 export function validarRespuestaDocumentos(respuesta) {
   if (!respuesta || typeof respuesta !== "object" || !["disponible", "vacio", "denegado"].includes(respuesta.estado)) {
@@ -71,7 +87,8 @@ export function validarRespuestaDocumentos(respuesta) {
       firmaRef: firmaValidada ? item.firma.referencia.trim() : null,
       custodia: custodiaConfirmada ? item.custodia.recibo_ref.trim() : null,
       huella,
-      descargable: item.descargable === true && item.antivirus === "limpio",
+      descargable: item.descargable === true && item.antivirus === "limpio"
+        && permisoDescargaExacto(item.permiso_descarga, ref, item.version),
     });
   });
   if (respuesta.estado === "vacio" && documentos.length) throw new TypeError("consulta documental contradictoria");
@@ -96,6 +113,17 @@ export function validarArchivoDescarga(archivo) {
   return { contenido: archivo.contenido, nombre, tipo: archivo.tipo };
 }
 
+/** Revalida en la fuente antes de pedir bytes; el conector debe hacerlo otra vez al servirlos. */
+export async function obtenerArchivoDescargaAutorizada(fuente, item, { signal, vigente = () => true } = {}) {
+  if (!item?.descargable || typeof fuente?.confirmarPermisoDescarga !== "function"
+    || typeof fuente?.descargar !== "function" || typeof vigente !== "function" || signal?.aborted || !vigente()) {
+    throw permisoDenegado();
+  }
+  const permiso = await fuente.confirmarPermisoDescarga(item.ref, { version: item.version, signal });
+  if (signal?.aborted || !vigente() || !permisoDescargaExacto(permiso, item.ref, item.version)) throw permisoDenegado();
+  return validarArchivoDescarga(await fuente.descargar(item.ref, { version: item.version, signal }));
+}
+
 function filaDato(documento, titulo, valor) {
   const fila = nodo(documento, "div");
   fila.append(nodo(documento, "dt", titulo), nodo(documento, "dd", valor));
@@ -104,9 +132,11 @@ function filaDato(documento, titulo, valor) {
 
 /**
  * fuente.listar({signal}) consulta documentos ya autorizados para el actor.
- * fuente.descargar(ref, {signal}) devuelve {contenido: Uint8Array, nombre, tipo}
+ * fuente.confirmarPermisoDescarga(ref,{version,signal}) obtiene decisión fresca.
+ * fuente.descargar(ref, {version,signal}) devuelve {contenido: Uint8Array, nombre, tipo}
  * del original autorizado. El módulo crea una descarga local de esos bytes.
- * La vista nunca crea permisos, originales, firmas ni recibos de custodia.
+ * El conector debe revalidar autorización al servir el original; esta vista
+ * nunca crea permisos, originales, firmas ni recibos de custodia.
  */
 export function montarVistaDocumentos({ raiz, anunciar = () => {}, registrarDesmontar, fuente } = {}) {
   const t = crearTraductorDocumentos();
@@ -207,7 +237,7 @@ export function montarVistaDocumentos({ raiz, anunciar = () => {}, registrarDesm
     const resumen = [
       ["borrador", consultar ? String(documentos.filter((item) => item.firma === "borrador").length) : t("valor_sin_fuente"), "nota_borrador"],
       ["firmado", consultar ? String(documentos.filter((item) => item.firma === "firmado").length) : t("valor_sin_fuente"), "nota_firmado"],
-      ["descarga", consultar ? String(documentos.filter((item) => item.descargable && typeof fuente?.descargar === "function").length) : t("valor_sin_fuente"), "nota_descarga"],
+      ["descarga", consultar ? String(documentos.filter((item) => item.descargable && typeof fuente?.confirmarPermisoDescarga === "function" && typeof fuente?.descargar === "function").length) : t("valor_sin_fuente"), "nota_descarga"],
       ["custodia", consultar ? String(documentos.filter((item) => item.custodia).length) : t("valor_sin_fuente"), "nota_custodia"],
     ];
     indicadores.replaceChildren(...resumen.map(([titulo, valor, nota]) => {
@@ -292,7 +322,8 @@ export function montarVistaDocumentos({ raiz, anunciar = () => {}, registrarDesm
     } else {
       [["version", "version_sin_fuente"], ["firma", "firma_sin_evidencia"], ["huella", "huella_sin_fuente"], ["conservacion", "custodia_sin_fuente"]].forEach(([clave, valor]) => metadatos.append(filaDato(documento, t(clave), t(valor))));
     }
-    descargar.disabled = !seleccionado?.descargable || typeof fuente?.descargar !== "function" || descargando;
+    descargar.disabled = !seleccionado?.descargable || typeof fuente?.confirmarPermisoDescarga !== "function"
+      || typeof fuente?.descargar !== "function" || descargando;
     const motivo = seleccionado?.descargable ? t("descarga_sin_conector") : t("descargar_motivo");
     descargar.title = descargar.disabled ? motivo : t("descarga_autorizada");
     descargar.setAttribute("aria-label", `${t("descargar")}. ${descargar.title}`);
@@ -343,16 +374,20 @@ export function montarVistaDocumentos({ raiz, anunciar = () => {}, registrarDesm
     anunciar(filtro ? t("filtro_aplicado") : t("filtro_eliminado"), "informacion");
   });
   descargar.addEventListener("click", async () => {
-    if (!activa || descargar.disabled || !seleccionado || typeof fuente?.descargar !== "function") return;
-    const ref = seleccionado.ref;
+    const item = seleccionado;
+    if (!activa || descargar.disabled || !item?.descargable
+      || typeof fuente?.confirmarPermisoDescarga !== "function" || typeof fuente?.descargar !== "function") return;
+    const ref = item.ref;
     const actual = secuencia;
     const signal = controlador?.signal;
+    const vigente = () => activa && actual === secuencia && !signal?.aborted
+      && seleccionado?.ref === ref && seleccionado?.version === item.version;
     descargando = true;
     descargar.disabled = true;
     descargaEstado.textContent = t("descarga_en_curso");
     try {
-      const archivo = validarArchivoDescarga(await fuente.descargar(ref, { signal }));
-      if (!activa || actual !== secuencia || signal?.aborted || seleccionado?.ref !== ref) return;
+      const archivo = await obtenerArchivoDescargaAutorizada(fuente, item, { signal, vigente });
+      if (!vigente()) return;
       const entorno = documento.defaultView;
       if (!documento.body || !entorno?.Blob || !entorno.URL?.createObjectURL) throw new TypeError("descarga no disponible");
       const url = entorno.URL.createObjectURL(new entorno.Blob([archivo.contenido], { type: archivo.tipo }));
@@ -366,10 +401,11 @@ export function montarVistaDocumentos({ raiz, anunciar = () => {}, registrarDesm
       entorno.setTimeout(() => { entorno.URL.revokeObjectURL(url); urls.delete(url); }, 0);
       descargaEstado.textContent = t("descarga_iniciada");
       anunciar(t("descarga_iniciada"), "informacion");
-    } catch {
-      if (!activa || actual !== secuencia || signal?.aborted || seleccionado?.ref !== ref) return;
-      descargaEstado.textContent = t("descarga_error");
-      anunciar(t("descarga_error"), "error");
+    } catch (error) {
+      if (!vigente()) return;
+      const mensaje = t(error?.codigo === "permiso_denegado" ? "descargar_motivo" : "descarga_error");
+      descargaEstado.textContent = mensaje;
+      anunciar(mensaje, "error");
     } finally {
       descargando = false;
       if (activa) pintarFicha();

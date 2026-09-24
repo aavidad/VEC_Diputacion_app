@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { MENSAJES_DOCUMENTOS_ES, crearTraductorDocumentos } from "./i18n.js";
-import { validarArchivoDescarga, validarRespuestaDocumentos } from "./vista.js";
+import { obtenerArchivoDescargaAutorizada, validarArchivoDescarga, validarRespuestaDocumentos } from "./vista.js";
 
 const directorio = new URL("./", import.meta.url);
 const [vista, css] = await Promise.all([
@@ -24,6 +24,7 @@ function entrada(cambios = {}) {
     estado_firma: "firmado", firma: { validada: true, referencia: "firma-1" },
     custodia: { confirmada: true, recibo_ref: "custodia-1" },
     antivirus: "limpio", descargable: true,
+    permiso_descarga: { accion: "documentos.descargar_original", recurso_ref: "doc-1", version: 2, concedido: true },
     ...cambios,
   };
 }
@@ -50,6 +51,35 @@ test("normaliza firma, custodia y descarga solo con sus evidencias independiente
   assert.equal(validarRespuestaDocumentos(respuesta([entrada({ estado_firma: "borrador" })])).documentos[0].firma, "borrador");
 });
 
+test("deniega descarga cuando el DTO no aporta permiso positivo para esa referencia", () => {
+  const [sinPermiso] = validarRespuestaDocumentos(respuesta([entrada({ permiso_descarga: undefined })])).documentos;
+  assert.equal(sinPermiso.descargable, false);
+  for (const permiso of [
+    { accion: "documentos.descargar_original", recurso_ref: "otro-doc", version: 2, concedido: true },
+    { accion: "documentos.descargar_original", recurso_ref: "doc-1", version: 3, concedido: true },
+    { accion: "documentos.leer", recurso_ref: "doc-1", version: 2, concedido: true },
+    { accion: "documentos.descargar_original", recurso_ref: "doc-1", version: 2, concedido: false },
+  ]) {
+    assert.equal(validarRespuestaDocumentos(respuesta([entrada({ permiso_descarga: permiso })])).documentos[0].descargable, false);
+  }
+});
+
+test("la revalidación denegada o cruzada impide pedir los bytes", async () => {
+  const [item] = validarRespuestaDocumentos(respuesta([entrada()])).documentos;
+  let descargas = 0;
+  const fuente = {
+    async confirmarPermisoDescarga() { return { accion: "documentos.descargar_original", recurso_ref: "otro-doc", version: 2, concedido: true }; },
+    async descargar() { descargas++; return { contenido: new Uint8Array([37, 80, 68, 70]), nombre: "informe.pdf", tipo: "application/pdf" }; },
+  };
+  await assert.rejects(obtenerArchivoDescargaAutorizada(fuente, item), /permiso de descarga/);
+  assert.equal(descargas, 0);
+  fuente.confirmarPermisoDescarga = async () => ({ accion: "documentos.descargar_original", recurso_ref: "doc-1", version: 2, concedido: true });
+  await assert.rejects(obtenerArchivoDescargaAutorizada(fuente, item, { vigente: () => false }), /permiso de descarga/);
+  assert.equal(descargas, 0);
+  assert.equal((await obtenerArchivoDescargaAutorizada(fuente, item)).nombre, "informe.pdf");
+  assert.equal(descargas, 1);
+});
+
 test("denegación, vacío y datos inválidos no producen filas documentales", () => {
   assert.deepEqual(validarRespuestaDocumentos({ estado: "denegado" }).documentos, []);
   assert.equal(validarRespuestaDocumentos({ estado: "vacio", origen: "Fuente autorizada", documentos: [] }).estado, "vacio");
@@ -73,9 +103,9 @@ test("la descarga exige bytes del original, nombre seguro y formato admitido", (
 test("el montaje admite fuente inyectada y conserva no_configurado sin ella", () => {
   assert.match(vista, /export function montarVistaDocumentos/u);
   assert.match(vista, /fuente\.listar\(\{ signal:/u);
-  assert.ok(vista.includes("fuente.descargar(ref, { signal })"));
-  assert.match(vista, /validarArchivoDescarga\(await fuente\.descargar/u);
-  assert.match(vista, /actual !== secuencia \|\| signal\?\.aborted \|\| seleccionado\?\.ref !== ref/u);
+  assert.ok(vista.includes("fuente.confirmarPermisoDescarga(item.ref, { version: item.version, signal })"));
+  assert.ok(vista.includes("fuente.descargar(item.ref, { version: item.version, signal })"));
+  assert.match(vista, /obtenerArchivoDescargaAutorizada\(fuente, item, \{ signal, vigente \}\)/u);
   assert.match(vista, /URL\.createObjectURL/u);
   assert.match(vista, /let estado = "no_configurado"/u);
   assert.match(vista, /registrarDesmontar\?\.\(desmontar\)/u);
