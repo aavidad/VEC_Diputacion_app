@@ -6,10 +6,14 @@ import { montarVistaRecorridosCronos, renderizarRecorridosCronos } from "./vista
 
 const directorio = new URL("./", import.meta.url);
 
-test("Cronos sin fuente muestra no_configurado y no proyecta personas ni saldos sintéticos", () => {
+test("Cronos sin servicio presenta no configurado y no proyecta personas ni saldos sintéticos", () => {
   const html = renderizarRecorridosCronos();
   assert.match(html, /data-estado-entrega="no_configurado"/);
+<<<<<<< HEAD
   assert.match(html, /Cronos todavía no tiene datos de permisos conectados\./u);
+=======
+  assert.match(html, /Servicio de Cronos no disponible/u);
+>>>>>>> b6ae6c62 (Cronos: retira presentación volátil y catálogo compilado)
   for (const id of ["cronos-persona", "cronos-responsable", "cronos-rrhh"]) assert.match(html, new RegExp(`id="${id}"`));
   assert.match(html, /id="cronos-responsable"[^>]+hidden/u);
   assert.match(html, /id="cronos-rrhh"[^>]+hidden/u);
@@ -17,13 +21,12 @@ test("Cronos sin fuente muestra no_configurado y no proyecta personas ni saldos 
   assert.doesNotMatch(html, /<tbody>|data-cronos-detalle=|data-cronos-control=/u);
 });
 
-test("el catálogo ausente deshabilita tipo, fechas, aclaración y registro", () => {
+test("la estructura conserva etapas y hojas sin formularios ni acciones inertes", () => {
   const html = renderizarRecorridosCronos();
-  assert.match(html, /data-cronos-alta-panel hidden/u);
-  assert.match(html, /<select name="tipo" disabled aria-disabled="true"[^>]*><option value="">No configurado<\/option><\/select>/u);
-  for (const campo of ["desde", "hasta", "observacion", "documento_ref"]) {
-    assert.match(html, new RegExp(`name="${campo}"[^>]*disabled aria-disabled="true"`, "u"));
+  for (const titulo of ["Solicitudes", "Jornada y fichaje", "Movimientos e incidencias", "Permisos y licencias", "Bandeja de equipo", "Revisión de incidencias"]) {
+    assert.match(html, new RegExp(titulo, "u"));
   }
+<<<<<<< HEAD
   assert.match(html, /Registrar solicitud<\/button>/u);
   assert.match(html, /disabled aria-disabled="true" title="El registro de solicitudes todavía no está disponible\."/u);
   assert.match(html, /Catálogo de permisos no disponible\./u);
@@ -68,6 +71,10 @@ test("los tres pasos son una explicación local y el envío se impide", () => {
   assert.equal(impedido, true);
   vista.desmontar();
   assert.equal(listeners.size, 0);
+=======
+  assert.doesNotMatch(html, /<form|<input|<select|<textarea|data-cronos-alta|data-cronos-paso|<details|cronos-recorrido-privacidad/u);
+  assert.doesNotMatch(html, /Recorrido visual|Jornada, movimientos, calendario|Esta pantalla no solicita/u);
+>>>>>>> b6ae6c62 (Cronos: retira presentación volátil y catálogo compilado)
 });
 
 test("la navegación de roles es local y no concede permisos", () => {
@@ -119,7 +126,7 @@ test("el montaje no accede a red, ubicación ni almacenamiento", async () => {
 });
 
 test("los textos inyectables se escapan", () => {
-  const html = renderizarRecorridosCronos({ mensajes: { ...MENSAJES_CRONOS_ES, presentacion_titulo: '<img src=x onerror="alert(1)">' } });
+  const html = renderizarRecorridosCronos({ mensajes: { ...MENSAJES_CRONOS_ES, recorridos_titulo: '<img src=x onerror="alert(1)">' } });
   assert.doesNotMatch(html, /<img/u);
   assert.match(html, /&lt;img src=x onerror=&quot;alert\(1\)&quot;&gt;/u);
 });
@@ -166,7 +173,9 @@ test("las hojas del empleado se alcanzan y se desmontan al cambiar de apartado o
   const vista = montarVistaRecorridosCronos({ raiz: { ownerDocument: documento, append() {} } });
   const clic = (selector, nodo) => escuchas.get("click")({ target: { closest: (buscado) => buscado === selector ? nodo : null } });
   clic("[data-cronos-apartado]", apartados[1]);
-  assert.match(hijos.at(-1).nodo.innerHTML, /Tipos de permisos observados/u);
+  assert.match(hijos.at(-1).nodo.innerHTML, /data-cronos-c6-estado="no_configurado"/u);
+  assert.match(hijos.at(-1).nodo.innerHTML, /Catálogo de permisos no disponible\./u);
+  assert.doesNotMatch(hijos.at(-1).nodo.innerHTML, /Asuntos propios|Vacaciones|tipo_asuntos_propios/u);
   assert.equal(paneles[1].hidden, false);
   clic("[data-cronos-apartado]", apartados[2]);
   assert.equal(hijos.at(-2).nodo.eliminado, true);

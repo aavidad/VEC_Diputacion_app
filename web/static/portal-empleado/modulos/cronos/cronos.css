@@ -232,6 +232,7 @@
   font-size: .8125rem;
 }
 
+<<<<<<< HEAD
 .cronos-distintivo-demo {
   display: inline-flex;
   min-height: 26px;
@@ -244,6 +245,8 @@
   font-weight: 600;
 }
 
+=======
+>>>>>>> b6ae6c62 (Cronos: retira presentación volátil y catálogo compilado)
 .cronos-frontera {
   display: grid;
   grid-template-columns: minmax(220px, 0.8fr) minmax(260px, 1.2fr) minmax(260px, 1.2fr);
@@ -704,6 +707,7 @@
 .cronos-recorrido-rejilla { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .cronos-recorrido-panel { min-width: 0; padding: 20px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-lg); background: var(--portal-superficie); box-shadow: var(--portal-sombra-sm); }
 .cronos-recorrido-panel h4, .cronos-recorrido-panel p { margin: 0; }
+<<<<<<< HEAD
 .cronos-recorrido-panel h4 { font-size: 1.125rem; font-weight: 600; }
 .cronos-panel-principal { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; padding: 0; overflow: hidden; }
 .cronos-panel-principal > * { grid-column: 1 / -1; }
@@ -729,9 +733,18 @@
 .cronos-recorrido-formulario input, .cronos-recorrido-formulario textarea, .cronos-recorrido-formulario select { min-height: 34px; box-sizing: border-box; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio); background: var(--portal-fondo); color: var(--portal-muted); }
 .cronos-recorrido-formulario button { justify-self: start; opacity: .72; cursor: not-allowed; }
 @media (max-width: 720px) { .cronos-recorrido-etapas, .cronos-recorrido-rejilla, .cronos-recorrido-formulario { grid-template-columns: minmax(0, 1fr); } .cronos-recorrido-pendiente { justify-self: start; } }
+=======
+.cronos-recorrido-panel h4 { font-size: .84rem; }
+.cronos-panel-principal { padding: 0; overflow: hidden; }
+.cronos-panel-principal > h4 { padding: 14px 14px 0; }
+.cronos-recorrido-etapa[hidden] { display: none; }
+.cronos-recorrido-panel > p { margin-top: 4px; color: var(--portal-muted); font-size: .72rem; }
+.cronos-recorrido-vacio { margin-top: 11px !important; padding: 9px; border-radius: 5px; background: var(--portal-fondo); }
+@media (max-width: 720px) { .cronos-recorrido-etapas, .cronos-recorrido-rejilla { grid-template-columns: minmax(0, 1fr); } .cronos-recorrido-pendiente { justify-self: start; } }
+>>>>>>> b6ae6c62 (Cronos: retira presentación volátil y catálogo compilado)
 
-/* Superficie densa de presentación RRHH; hereda tema, no duplica navegación. */
 .cronos-recorrido-panel-ancho { grid-column: 1 / -1; }
+<<<<<<< HEAD
 .cronos-presentacion-datos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px 12px; margin: 12px 0 2px; }
 .cronos-presentacion-datos strong { font-size: 1.5rem; font-weight: 600; font-variant-numeric: tabular-nums; }
 .cronos-presentacion-datos span { color: var(--portal-muted); font-size: .8125rem; }
@@ -752,3 +765,6 @@
 .cronos-recorrido-tabla [data-cronos-fila][aria-selected="true"] { background: var(--portal-azul-100); outline: 2px solid var(--portal-cian); outline-offset: -2px; }
 .cronos-recorrido-tabla [data-cronos-fila]:focus-visible { outline: 3px solid var(--portal-cian); outline-offset: -3px; }
 @media (max-width: 720px) { .cronos-presentacion-datos { grid-template-columns: 1fr; } .cronos-presentacion-ficha div { grid-template-columns: 1fr; gap: 3px; } .cronos-recorrido-panel-ancho { grid-column: auto; } }
+=======
+@media (max-width: 720px) { .cronos-recorrido-panel-ancho { grid-column: auto; } }
+>>>>>>> b6ae6c62 (Cronos: retira presentación volátil y catálogo compilado)

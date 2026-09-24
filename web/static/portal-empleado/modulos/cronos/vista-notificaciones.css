@@ -1,9 +1,9 @@
-/* C9 usa paneles y colores del tema común; la fecha y el texto son locales. */
 .cronos-notificaciones { display: grid; gap: var(--portal-espacio-4); min-width: 0; align-content: start; }
-.cronos-notificaciones .cabecera-panel { align-items: start; }
-.cronos-notificaciones .cabecera-panel .estado-chip { flex: 0 0 auto; }
-.cronos-notificaciones .cuerpo-panel { display: grid; gap: var(--portal-espacio-3); }
+.cronos-notificaciones .cabecera-panel { gap: var(--portal-espacio-3); }
+.cronos-notificaciones .cabecera-panel h3 { margin: 0; }
+.cronos-notificaciones .cuerpo-panel { display: grid; justify-items: start; gap: var(--portal-espacio-3); }
 .cronos-notificaciones .cuerpo-panel > p { margin: 0; }
+<<<<<<< HEAD
 .cronos-notificaciones-aviso, .cronos-notificaciones-limite { border-left: 3px solid var(--portal-aviso); border-radius: var(--portal-radio); background: var(--portal-aviso-suave); padding: var(--portal-espacio-3); }
 .cronos-notificaciones-campos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--portal-espacio-3); }
 .cronos-notificaciones label { display: grid; gap: var(--portal-espacio-1); min-width: 0; color: var(--portal-muted); font-size: .8125rem; font-weight: 600; }
@@ -30,3 +30,9 @@
   .cronos-notificaciones-campos { grid-template-columns: minmax(0, 1fr); }
   .cronos-notificaciones .cabecera-panel { flex-wrap: wrap; }
 }
+=======
+.cronos-notificaciones-motivo { color: var(--portal-muted); font-size: .8rem; }
+.cronos-notificaciones button:disabled { cursor: not-allowed; }
+.cronos-notificaciones button:focus-visible { outline: 3px solid var(--portal-cian); outline-offset: 2px; }
+@media (max-width: 720px) { .cronos-notificaciones .cabecera-panel { flex-wrap: wrap; } }
+>>>>>>> b6ae6c62 (Cronos: retira presentación volátil y catálogo compilado)
