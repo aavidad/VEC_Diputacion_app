@@ -228,7 +228,7 @@ test("B7 conserva selección y permite revisar configuración tras un 422 genér
     intentos += 1;
     if (intentos === 1) return { status: 422, json: async () => ({ error: { codigo: "emision_invalida" } }) };
     const huella = "b".repeat(64);
-    return { status: 201, json: async () => ({ data: { llamamiento_ref: `llamamiento:${huella}`, recibo_ref: `recibo:llamamiento:${huella}`, bolsa_ref: "bolsa:01", estado: "emitido_pendiente_respuesta", participaciones: ["participacion:001"], configuracion, emitido_en: "2026-09-23T10:00:00Z", reutilizada: false } }) };
+    return { status: 201, json: async () => ({ data: { llamamiento_ref: `llamamiento:${huella}`, recibo_ref: `recibo:llamamiento:${huella}`, bolsa_ref: "bolsa:01", estado: "emitido_pendiente_respuesta", participaciones: ["participacion:001"], configuracion: enviado.configuracion, emitido_en: "2026-09-23T10:00:00Z", reutilizada: false } }) };
   };
   try {
     const flujo = { paso: 4, estados: ["disponible"], participaciones: ["participacion:001"], configuracion, recibo: "", error: "" };
@@ -242,6 +242,17 @@ test("B7 conserva selección y permite revisar configuración tras un 422 genér
     assert.equal(flujo.recibo, "");
     assert.match(flujo.error, /revise la configuraci[oó]n|actualice la selecci[oó]n/i);
     assert.equal(flujo.error_422, true);
+    assert.equal(flujo.revision_obligatoria, true);
+    escuchas.submit({ preventDefault() {}, target: { closest(selector) { return selector === '[data-bolsa-form="b7-paso4"]' ? form : null; } } });
+    await new Promise(setImmediate);
+    assert.equal(intentos, 1, "el segundo clic sin revisión no emite otro comando");
+    escuchas.click({ preventDefault() {}, target: { closest(selector) { return selector === "[data-bolsa-accion]" ? { dataset: { bolsaAccion: "b7-revisar-configuracion" } } : null; } } });
+    assert.equal(flujo.paso, 3);
+    const campos = { ...configuracion, asunto: "Llamamiento revisado", cuerpo: "Texto revisado", confirmacion: "on" };
+    globalThis.FormData = class { get(clave) { return campos[clave] ?? null; } };
+    escuchas.submit({ preventDefault() {}, target: { closest(selector) { return selector === '[data-bolsa-form="b7-paso3"]' ? form : null; } } });
+    assert.equal(flujo.paso, 4);
+    assert.equal(flujo.revision_obligatoria, false);
     escuchas.submit({ preventDefault() {}, target: { closest(selector) { return selector === '[data-bolsa-form="b7-paso4"]' ? form : null; } } });
     await new Promise(setImmediate);
     assert.equal(intentos, 2);

@@ -130,15 +130,15 @@ test("B7 recupera con la misma clave un 503 posterior al commit aunque se cancel
   } finally { globalThis.fetch = fetchOriginal; restaurar(); }
 });
 
-for (const status of [400, 409]) test(`B7 libera la clave tras rechazo definitivo ${status} y exige revisión antes de otra emisión`, async () => {
+for (const status of [400, 409, 422]) test(`B7 libera la clave tras rechazo definitivo ${status} y exige revisión antes de otra emisión`, async () => {
   const restaurar = simularFormData();
   const fetchOriginal = globalThis.fetch;
   const envios = [];
-  const huella = (status === 400 ? "d" : "e").repeat(64);
+  const huella = (status === 400 ? "d" : status === 409 ? "e" : "f").repeat(64);
   globalThis.fetch = async (_url, opciones) => {
     envios.push({ cuerpo: opciones.body, clave: opciones.headers["Idempotency-Key"] });
     if (envios.length === 1) return { status, json: async () => ({
-      error: { codigo: status === 409 ? "clave_divergente" : "solicitud_invalida" },
+      error: { codigo: status === 409 ? "clave_divergente" : status === 422 ? "emision_invalida" : "solicitud_invalida" },
     }) };
     const peticion = JSON.parse(opciones.body);
     return { status: 201, json: async () => ({ data: {
@@ -154,7 +154,10 @@ for (const status of [400, 409]) test(`B7 libera la clave tras rechazo definitiv
     assert.equal(envios.length, 1);
     assert.equal(app.flujo.clave_idempotencia, "");
     assert.equal(app.flujo.revision_obligatoria, true);
-    assert.match(app.html(), status === 400 ? /rechazó los datos del llamamiento \(400\)/ : /clave ya corresponde a otro llamamiento/);
+    assert.match(app.html(), status === 400 ? /rechazó los datos del llamamiento \(400\)/ :
+      status === 409 ? /clave ya corresponde a otro llamamiento/ : /rechazó la emisión \(422\)/);
+    assert.match(app.html(), /class="boton-primario" disabled aria-describedby="b7-motivo-revision"/);
+    assert.match(app.html(), /id="b7-motivo-revision"[^>]*>Revise la configuración o actualice la selección/);
     assert.match(app.html(), /data-bolsa-accion="b7-revisar-configuracion"/);
     assert.match(app.html(), /data-bolsa-accion="b7-volver-seleccion"/);
     app.submit(4);
@@ -167,11 +170,34 @@ for (const status of [400, 409]) test(`B7 libera la clave tras rechazo definitiv
     app.submit(3);
     assert.equal(app.flujo.paso, 4);
     assert.equal(app.flujo.revision_obligatoria, false);
+    assert.doesNotMatch(app.html(), /aria-describedby="b7-motivo-revision"/);
     app.submit(4); await esperar();
     assert.equal(envios.length, 2);
     assert.notEqual(envios[1].clave, envios[0].clave);
     assert.notEqual(envios[1].cuerpo, envios[0].cuerpo);
     assert.equal(app.flujo.recibo, `recibo:llamamiento:${huella}`);
+  } finally { globalThis.fetch = fetchOriginal; restaurar(); }
+});
+
+test("B7 permite actualizar la selección tras 422 sin repetir el POST rechazado", async () => {
+  const restaurar = simularFormData();
+  const fetchOriginal = globalThis.fetch;
+  let posts = 0;
+  globalThis.fetch = async () => {
+    posts += 1;
+    return { status: 422, json: async () => ({ error: { codigo: "emision_invalida" } }) };
+  };
+  try {
+    const app = montar({ paso: 4, fuente: async () => ({ ok: true, datos }) });
+    app.submit(4); await esperar();
+    assert.equal(app.flujo.revision_obligatoria, true);
+    app.click("b7-volver-seleccion"); await esperar();
+    assert.equal(app.flujo.paso, 2);
+    assert.deepEqual(app.flujo.participaciones, []);
+    assert.equal(posts, 1);
+    app.submit(2);
+    assert.equal(app.flujo.paso, 3);
+    assert.equal(app.flujo.revision_obligatoria, false);
   } finally { globalThis.fetch = fetchOriginal; restaurar(); }
 });
 

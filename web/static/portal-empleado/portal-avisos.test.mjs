@@ -94,7 +94,7 @@ test("Avisos permanece visible en móvil y ambos activos avanzan de caché", () 
   assert.match(movil, /\.acciones-cabecera \.boton-avisos\s*\{[\s\S]*min-width:\s*38px/);
   assert.doesNotMatch(movil, /\.boton-avisos\s*\{\s*display:\s*none/);
   assert.match(html, /portal-flujos\.css\?v=20260923-pweb16-v1/);
-  assert.match(html, /portal\.js\?v=20260924-rescate-web-v3/);
+  assert.match(html, /portal\.js\?v=20260924-rescate-web-v4/);
   assert.doesNotMatch(html, /portal\.js\?v=20260924-web-c-ayuda-v5/);
   assert.doesNotMatch(html, /portal\.js\?v=20260924-web-c-ayuda-v4/);
   assert.doesNotMatch(html, /portal\.js\?v=20260924-web-c-v3/);

@@ -935,7 +935,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
             flujo.llamamiento_ref = "";
             flujo.clave_idempotencia = "";
             flujo.error_422 = true;
-            flujo.revision_obligatoria = res.status !== 422;
+            flujo.revision_obligatoria = true;
             flujo.error = res.status === 422 ? traducirBolsaInterna("b7_emision_rechazada")
               : res.status === 400 ? traducirPortal("panel_b7_solicitud_rechazada")
               : res.mensaje;

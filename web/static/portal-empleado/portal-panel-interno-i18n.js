@@ -90,6 +90,8 @@ export const MENSAJES_PANEL_INTERNO_ES = Object.freeze({
   panel_b7_enviando: "Enviando…",
   panel_b7_emitido: "Emitido",
   panel_b7_emitir: "Emitir llamamiento",
+  panel_b7_revision_pendiente: "Revisión necesaria",
+  panel_b7_revision_requerida: "Revise la configuración o actualice la selección antes de emitir otro llamamiento.",
   panel_b7_revisar_configuracion: "Revisar configuración",
   panel_b7_actualizar_seleccion: "Actualizar selección",
   panel_b7_llamamiento_ref: "Llamamiento {referencia}",

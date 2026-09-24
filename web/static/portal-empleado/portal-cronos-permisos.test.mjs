@@ -137,7 +137,7 @@ test("el cargador interno nominal y el manifiesto contienen el recorrido sin nue
   assert.match(manifiesto, /static\/portal-empleado\/modulos\/cronos\/permisos\.css/u);
   assert.match(manifiesto, /static\/portal-empleado\/modulos\/cronos\/i18n-permisos\.js/u);
   assert.match(portal, /portal-modulos-coordinador\.js\?v=20260924-web-paradas-periodos-v1/u);
-  assert.match(html, /portal\.js\?v=20260924-rescate-web-v3/u);
+  assert.match(html, /portal\.js\?v=20260924-rescate-web-v4/u);
   assert.doesNotMatch(portal, /portal-modulos-coordinador\.js\?v=20260924-web-c-ayuda-v5/u);
   assert.doesNotMatch(html, /portal\.js\?v=20260924-web-c-ayuda-v5/u);
   assert.doesNotMatch(portal, /portal-modulos-coordinador\.js\?v=20260924-web-c-ayuda-v4/u);
@@ -148,7 +148,7 @@ test("el cargador interno nominal y el manifiesto contienen el recorrido sin nue
   assert.doesNotMatch(html, /portal\.js\?v=20260924-f2-dietas-consulta-v2/u);
   assert.doesNotMatch(portal, /portal-modulos-coordinador\.js\?v=20260924-f2-cronos-permisos-v2/u);
   assert.doesNotMatch(html, /portal\.js\?v=20260924-f2-cronos-permisos-v2/u);
-  assert.match(portal, /portal-i18n\.js\?v=20260924-rescate-web-v3/u);
+  assert.match(portal, /portal-i18n\.js\?v=20260924-rescate-web-v4/u);
   assert.match(coordinador, /portal-i18n\.js\?v=20260924-f2-cronos-permisos-v2/u);
   assert.doesNotMatch(html, /data-vista="cronos-permisos"/u);
 });
