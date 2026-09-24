@@ -304,13 +304,27 @@ revocar_lento() { # pep emp: revoca la versión 2 y duerme 2 s antes de COMMIT
       date_trunc('day',clock_timestamp())+interval '400 days','error_material','prc_personal_sintetica_p7_0000000000001',1,repeat('c',64));
     SELECT pg_sleep(2); COMMIT;" >/dev/null
 }
+# Espera, sin plazo fijo, a que el publicador tenga concedido el consultivo
+# exclusivo de la persona P (clave de 64 bits: classid alto, objid bajo).
+esperar_consultivo_publicador() {
+  local _
+  for _ in $(seq 1 200); do
+    [[ $(admin_valor "SELECT EXISTS (SELECT 1 FROM pg_locks l,
+        LATERAL (SELECT hashtextextended('vec_personal:proyeccion-empleado:persona:$P',0) AS k) c
+       WHERE l.locktype='advisory' AND l.granted AND l.mode='ExclusiveLock' AND l.objsubid=1
+         AND l.database=(SELECT oid FROM pg_database WHERE datname=current_database())
+         AND l.classid::int8=((c.k>>32) & 4294967295) AND l.objid::int8=(c.k & 4294967295))") == t ]] && return 0
+    sleep 0.05
+  done
+  fallo 'el publicador no obtuvo el consultivo de la persona'
+}
 # Concurrencia 2: revocación en curso mientras se resuelve. La instantánea
 # SERIALIZABLE de la resolución es anterior al COMMIT de la revocación: tras
 # esperar el consultivo, la generación de Personal fuerza 40001; nunca firma
 # con la versión revocada.
 oca_r=$(nueva_ref)
 ( revocar_lento pep_sintetica_alcance_e4_00000000000001 emp_sintetico_alcance_e4_00000000000001 ) &
-sleep 0.7
+esperar_consultivo_publicador
 rc=$(resolver p '{empleado}' "$oca_r" || true)
 wait
 if [[ $rc == *'|'* ]]; then
@@ -337,7 +351,7 @@ oca_a=$(nueva_ref)
 ra=$(resolver p '{empleado}' "$oca_a") || fallo "empleado e6: $ra"
 [[ -n $(acreditar "$oca_a") ]] || fallo 'acreditación de e6 antes de revocar'
 ( revocar_lento pep_sintetica_alcance_e6_00000000000001 emp_sintetico_alcance_e6_00000000000001 ) &
-sleep 0.7
+esperar_consultivo_publicador
 ac=$(acreditar "$oca_a" 2>&1 || true)
 wait
 [[ $(admin_valor "SELECT estado FROM vec_personal.proyeccion_empleado_persona_historia

@@ -12,10 +12,10 @@
 -- varios. Una versión no activa o revocada deja de ser efectiva, pero no anula
 -- nada: equivale a «sin empleado» para quien consulte.
 --
--- Todavía sin consumidor: ninguna función se concede a un rol runtime. El
--- resolutor de contexto de actor la recibirá en su propia migración nominal
--- cuando Dirección fije cómo incorpora la proyección (véase el informe del
--- corte). La publicación queda reservada al propietario de Personal.
+-- Ninguna función se concede aquí ni a un rol runtime. La lectura gobernada y
+-- su barrera se conceden nominalmente a su único consumidor, el propietario de
+-- ContextoActor, en la migración de éste (ContextoActor 000007). La
+-- publicación queda reservada al propietario de Personal.
 --
 -- Generación por persona. La historia es de solo adición: un lector
 -- SERIALIZABLE con instantánea anterior a una publicación ya confirmada no
@@ -264,5 +264,5 @@ BEGIN
 END $fn$;
 REVOKE ALL ON FUNCTION vec_personal.bloquear_generacion_proyeccion_empleado_persona_v1(text) FROM PUBLIC,vec_personal_ejecutor;
 COMMENT ON FUNCTION vec_personal.resolver_empleado_canonico_persona_v1(text,timestamptz) IS
- 'Proyección gobernada persona->empleado de Personal: sin_empleado, empleado o ambiguo; nunca elige. Sin consumidor concedido todavía.';
+ 'Proyección gobernada persona->empleado de Personal: sin_empleado, empleado o ambiguo; nunca elige. Único consumidor: el propietario de ContextoActor, concedido en ContextoActor 000007.';
 COMMIT;
