@@ -1,7 +1,26 @@
 import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js";
+import { RUTA_SEGUIMIENTO_INCORPORACION } from "./cliente-http-seguimiento-incorporacion.js";
 import { validarReferenciaExpedienteSeguimiento } from "./contrato-seguimiento-incorporacion.js";
 import { crearTraductorContratacionTemporal } from "./i18n.js";
 import { renderizarConsultaSeguimientoIncorporacion } from "./seguimiento-incorporacion.js";
+
+// Este listener usa certificado TLS personal. El navegador presenta el
+// certificado aunque fetch omita las credenciales web de ambiente.
+export function crearClienteConsultaSeguimientoInterno(fetchImpl = globalThis.fetch) {
+  if (typeof fetchImpl !== "function") throw new TypeError("transporte de consulta no disponible");
+  const fetchSinCredencialesWeb = (ruta, opciones) => {
+    if (typeof ruta !== "string" || !ruta.startsWith(`${RUTA_SEGUIMIENTO_INCORPORACION}?expediente_ref=`)
+      || ruta.includes("&") || opciones?.method !== "GET") {
+      throw new TypeError("ruta de consulta interna no permitida");
+    }
+    const cabeceras = new Headers(opciones.headers);
+    if ([...cabeceras.keys()].some((nombre) => nombre !== "accept")) {
+      throw new TypeError("cabeceras de consulta interna no permitidas");
+    }
+    return fetchImpl(ruta, { ...opciones, credentials: "omit" });
+  };
+  return crearClienteHTTPContratacionTemporal({ fetchImpl: fetchSinCredencialesWeb }).seguimientoIncorporacion;
+}
 
 export function montarConsultaSeguimientoInterno({ documento, cliente, mensajes = {} } = {}) {
   const formulario = documento?.querySelector?.("[data-ct-consulta-form]");
@@ -77,6 +96,6 @@ export function montarConsultaSeguimientoInterno({ documento, cliente, mensajes 
 if (globalThis.document) {
   montarConsultaSeguimientoInterno({
     documento: globalThis.document,
-    cliente: crearClienteHTTPContratacionTemporal().seguimientoIncorporacion,
+    cliente: crearClienteConsultaSeguimientoInterno(),
   });
 }

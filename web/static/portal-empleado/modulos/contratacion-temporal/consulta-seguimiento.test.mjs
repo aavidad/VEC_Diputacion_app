@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { montarConsultaSeguimientoInterno } from "./consulta-seguimiento.js";
+import { crearClienteConsultaSeguimientoInterno, montarConsultaSeguimientoInterno } from "./consulta-seguimiento.js";
 
 const expedienteRef = "expediente:ct:consulta";
 function vista(ref = expedienteRef) {
@@ -40,6 +40,44 @@ function documentoPrueba() {
     cambiar: () => eventos.get("input:input")(),
   };
 }
+
+test("consulta interna omite credenciales web y no lee cookies ni almacenamiento", async () => {
+  const ui = documentoPrueba();
+  Object.defineProperty(ui.documento, "cookie", { get() { throw new Error("cookie leída"); } });
+  const anteriores = new Map();
+  for (const nombre of ["localStorage", "sessionStorage", "indexedDB"]) {
+    anteriores.set(nombre, Object.getOwnPropertyDescriptor(globalThis, nombre));
+    Object.defineProperty(globalThis, nombre, { configurable: true, get() { throw new Error(`${nombre} leído`); } });
+  }
+  const efectivas = [];
+  try {
+    const cliente = crearClienteConsultaSeguimientoInterno(async (ruta, opciones) => {
+      efectivas.push({ ruta, opciones });
+      if (opciones.credentials !== "omit" || opciones.headers.has("cookie")
+        || opciones.headers.has("authorization")) throw new Error("credencial web enviada");
+      return new Response(JSON.stringify({ data: vista() }), {
+        headers: { "content-type": "application/json; charset=utf-8" },
+      });
+    });
+    const destruir = montarConsultaSeguimientoInterno({ documento: ui.documento, cliente });
+    ui.entrada.value = expedienteRef;
+    await ui.enviar();
+    assert.equal(efectivas.length, 1);
+    assert.equal(efectivas[0].ruta,
+      `/api/vec/contratacion-temporal/incorporaciones-ejercicio/seguimiento?expediente_ref=${encodeURIComponent(expedienteRef)}`);
+    assert.equal(efectivas[0].opciones.method, "GET");
+    assert.equal(efectivas[0].opciones.body, undefined);
+    assert.equal(efectivas[0].opciones.cache, "no-store");
+    assert.deepEqual([...efectivas[0].opciones.headers.keys()], ["accept"]);
+    assert.equal(ui.panel.hidden, false);
+    destruir();
+  } finally {
+    for (const [nombre, descriptor] of anteriores) {
+      if (descriptor) Object.defineProperty(globalThis, nombre, descriptor);
+      else delete globalThis[nombre];
+    }
+  }
+});
 
 test("consulta interna valida referencia, pinta el GET y borra datos al cambiar expediente", async () => {
   const ui = documentoPrueba();
