@@ -68,6 +68,9 @@ static/portal-empleado/modulos/dietas/contrato.js
 static/portal-empleado/modulos/dietas/dietas.css
 static/portal-empleado/modulos/dietas/borradores-propios.css
 static/portal-empleado/modulos/dietas/i18n-borradores.js
+static/portal-empleado/modulos/dietas/i18n-d1.js
+static/portal-empleado/modulos/dietas/i18n-d4.js
+static/portal-empleado/modulos/dietas/vista-acceso-papeles.js
 static/portal-empleado/modulos/dietas/i18n.js
 static/portal-empleado/modulos/dietas/i18n-revision.js
 static/portal-empleado/modulos/dietas/mapa-ruta.js
