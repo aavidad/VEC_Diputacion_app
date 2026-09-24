@@ -47,9 +47,10 @@ func (c CorteEmpleadoB2) Validar() error {
 }
 
 type SolicitudFichaEmpleadoB2 struct {
-	EmpleadoRef string
-	Corte       CorteEmpleadoB2
-	Actor       core.ContextoActor
+	EmpleadoRef  string
+	OrganismoRef string
+	Corte        CorteEmpleadoB2
+	Actor        core.ContextoActor
 }
 
 type SolicitudVacantesB2 struct {
@@ -75,10 +76,10 @@ type MaterialConsultaRegistroEmpleadoB2 struct {
 }
 
 func NuevoMaterialFichaEmpleadoB2(s SolicitudFichaEmpleadoB2) (MaterialConsultaRegistroEmpleadoB2, error) {
-	if !ReferenciaEmpleadoValida(s.EmpleadoRef) || s.Corte.Validar() != nil || s.Actor.Validar() != nil {
+	if !ReferenciaEmpleadoValida(s.EmpleadoRef) || !patronReferenciaB2.MatchString(s.OrganismoRef) || s.Corte.Validar() != nil || s.Actor.Validar() != nil {
 		return MaterialConsultaRegistroEmpleadoB2{}, ErrRegistroEmpleadoB2Invalido
 	}
-	return nuevoMaterialConsultaB2("ficha", s.EmpleadoRef, "", s.Corte, 0, "", s.Actor)
+	return nuevoMaterialConsultaB2("ficha", s.EmpleadoRef, s.OrganismoRef, s.Corte, 0, "", s.Actor)
 }
 
 func NuevoMaterialVacantesB2(s SolicitudVacantesB2) (MaterialConsultaRegistroEmpleadoB2, error) {
@@ -232,6 +233,7 @@ type ServicioReconocidoB2 struct {
 }
 type FichaEmpleadoB2 struct {
 	EmpleadoRef            string                       `json:"empleado_ref"`
+	OrganismoRef           string                       `json:"organismo_ref"`
 	PersonaRef             string                       `json:"persona_ref"`
 	EficaciaAdministrativa bool                         `json:"eficacia_administrativa"`
 	FirmaOficial           bool                         `json:"firma_oficial"`
@@ -244,13 +246,13 @@ type FichaEmpleadoB2 struct {
 }
 
 func (f FichaEmpleadoB2) ValidarPara(m MaterialConsultaRegistroEmpleadoB2) error {
-	if m.Operacion() != "ficha" || f.EmpleadoRef != m.EmpleadoRef() || !ReferenciaPersonaValida(f.PersonaRef) || f.EficaciaAdministrativa || f.FirmaOficial || !corteRegistroB2Igual(f.Corte, m.Corte()) || f.Version < 1 ||
+	if m.Operacion() != "ficha" || f.EmpleadoRef != m.EmpleadoRef() || f.OrganismoRef != m.OrganismoRef() || !ReferenciaPersonaValida(f.PersonaRef) || f.EficaciaAdministrativa || f.FirmaOficial || !corteRegistroB2Igual(f.Corte, m.Corte()) || f.Version < 1 ||
 		len(f.Relaciones) > 200 || len(f.Ocupaciones) > 200 || len(f.Situaciones) > 200 || len(f.Servicios) > 200 {
 		return ErrRegistroEmpleadoB2Invalido
 	}
 	ids := map[string]struct{}{}
 	for _, r := range f.Relaciones {
-		if !ReferenciaRelacionValida(r.RelacionRef) || !patronReferenciaB2.MatchString(r.UnidadRef) || !patronReferenciaB2.MatchString(r.OrganismoRef) || !patronReferenciaB2.MatchString(r.RegimenRef) || !patronReferenciaB2.MatchString(r.ModalidadRef) || !estadoRelacionB2Valido(r.Estado) || r.Traza.ValidarEn(f.Corte) != nil || repetidoB2(ids, r.RelacionRef+":"+strconv.FormatInt(r.Traza.Version, 10)) {
+		if !ReferenciaRelacionValida(r.RelacionRef) || !patronReferenciaB2.MatchString(r.UnidadRef) || r.OrganismoRef != f.OrganismoRef || !patronReferenciaB2.MatchString(r.RegimenRef) || !patronReferenciaB2.MatchString(r.ModalidadRef) || !estadoRelacionB2Valido(r.Estado) || r.Traza.ValidarEn(f.Corte) != nil || repetidoB2(ids, r.RelacionRef+":"+strconv.FormatInt(r.Traza.Version, 10)) {
 			return ErrRegistroEmpleadoB2Invalido
 		}
 	}

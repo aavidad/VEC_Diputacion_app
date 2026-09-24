@@ -46,6 +46,7 @@ type SolicitudAltaEmpleadoB2 struct {
 type SolicitudHechoEmpleadoB2 struct {
 	Tipo                    string
 	EmpleadoRef             string
+	OrganismoRef            string
 	RelacionRef             string
 	RevisionEsperada        int64
 	RelacionVersionEsperada int64
@@ -82,7 +83,7 @@ func NuevoMaterialAltaEmpleadoB2(s SolicitudAltaEmpleadoB2) (MaterialActoRegistr
 		s.Procedencia.Validar() != nil || s.Actor.Validar() != nil {
 		return MaterialActoRegistroEmpleadoB2{}, ErrRegistroEmpleadoB2Invalido
 	}
-	return nuevoMaterialActoB2("alta", s.PersonaRef, s.Actor, struct {
+	return nuevoMaterialActoB2("alta", s.PersonaRef, s.OrganismoRef, s.Actor, struct {
 		Esquema         string                    `json:"esquema"`
 		Operacion       string                    `json:"operacion"`
 		PersonaRef      string                    `json:"persona_ref"`
@@ -99,15 +100,16 @@ func NuevoMaterialAltaEmpleadoB2(s SolicitudAltaEmpleadoB2) (MaterialActoRegistr
 }
 
 func NuevoMaterialHechoEmpleadoB2(s SolicitudHechoEmpleadoB2) (MaterialActoRegistroEmpleadoB2, error) {
-	if !ReferenciaEmpleadoValida(s.EmpleadoRef) || s.RevisionEsperada < 1 || !intervaloActoB2Valido(s.VigenteDesde, s.VigenteHasta) ||
+	if !ReferenciaEmpleadoValida(s.EmpleadoRef) || !patronReferenciaB2.MatchString(s.OrganismoRef) || s.RevisionEsperada < 1 || !intervaloActoB2Valido(s.VigenteDesde, s.VigenteHasta) ||
 		s.Procedencia.Validar() != nil || s.Actor.Validar() != nil || !hechoRegistroB2Valido(s) {
 		return MaterialActoRegistroEmpleadoB2{}, ErrRegistroEmpleadoB2Invalido
 	}
-	return nuevoMaterialActoB2("hecho", s.EmpleadoRef, s.Actor, struct {
+	return nuevoMaterialActoB2("hecho", s.EmpleadoRef, s.OrganismoRef, s.Actor, struct {
 		Esquema                 string                    `json:"esquema"`
 		Operacion               string                    `json:"operacion"`
 		Tipo                    string                    `json:"tipo"`
 		EmpleadoRef             string                    `json:"empleado_ref"`
+		OrganismoRef            string                    `json:"organismo_ref"`
 		RelacionRef             string                    `json:"relacion_ref"`
 		RevisionEsperada        int64                     `json:"revision_esperada"`
 		RelacionVersionEsperada int64                     `json:"relacion_version_esperada"`
@@ -127,7 +129,7 @@ func NuevoMaterialHechoEmpleadoB2(s SolicitudHechoEmpleadoB2) (MaterialActoRegis
 		VigenteHasta            string                    `json:"vigente_hasta"`
 		Procedencia             ProcedenciaActoEmpleadoB2 `json:"procedencia"`
 		Actor                   identidadActoB2           `json:"actor"`
-	}{"vec.personal.registro-empleado-b2.hecho.v1", "hecho", s.Tipo, s.EmpleadoRef, s.RelacionRef, s.RevisionEsperada, s.RelacionVersionEsperada, s.UnidadRef, s.RegimenRef, s.ModalidadRef, s.Estado, s.PlazaRef, s.PuestoRef, s.ClaseRef, s.VersionPlazaRef, s.VersionPuestoRef, s.PeriodoDesde.Texto(), s.PeriodoHasta.Texto(), s.DiasReconocidos, s.VigenteDesde.Texto(), s.VigenteHasta.Texto(), s.Procedencia, identidadActoRegistroB2(s.Actor)})
+	}{"vec.personal.registro-empleado-b2.hecho.v1", "hecho", s.Tipo, s.EmpleadoRef, s.OrganismoRef, s.RelacionRef, s.RevisionEsperada, s.RelacionVersionEsperada, s.UnidadRef, s.RegimenRef, s.ModalidadRef, s.Estado, s.PlazaRef, s.PuestoRef, s.ClaseRef, s.VersionPlazaRef, s.VersionPuestoRef, s.PeriodoDesde.Texto(), s.PeriodoHasta.Texto(), s.DiasReconocidos, s.VigenteDesde.Texto(), s.VigenteHasta.Texto(), s.Procedencia, identidadActoRegistroB2(s.Actor)})
 }
 
 type identidadActoB2 struct {
@@ -145,7 +147,7 @@ type identidadActoB2 struct {
 func identidadActoRegistroB2(a core.ContextoActor) identidadActoB2 {
 	return identidadActoB2{a.Principal.ID, a.Instantanea.VinculoRef, a.Instantanea.VinculoVersion, a.Instantanea.CuentaRef, a.Instantanea.CuentaVersion, a.PerfilActivoRef, a.Instantanea.PerfilVersion, a.PersonaRef, a.Instantanea.PersonaVersion}
 }
-func nuevoMaterialActoB2(tipo, ref string, actor core.ContextoActor, obj any) (MaterialActoRegistroEmpleadoB2, error) {
+func nuevoMaterialActoB2(tipo, ref, organismo string, actor core.ContextoActor, obj any) (MaterialActoRegistroEmpleadoB2, error) {
 	actor, err := actor.Clonar()
 	if err != nil {
 		return MaterialActoRegistroEmpleadoB2{}, ErrRegistroEmpleadoB2Invalido
@@ -159,7 +161,7 @@ func nuevoMaterialActoB2(tipo, ref string, actor core.ContextoActor, obj any) (M
 	if tipo == "hecho" {
 		accionTipo = "hecho_empleado_rrhh"
 	}
-	recurso := core.RecursoAutorizable{Referencia: ref, ModuloID: "personal", Tipo: accionTipo, Ambitos: map[string]string{"objetivo_ref": ref}, Atributos: map[string]string{"operacion": tipo, "material_sha256": hex.EncodeToString(suma[:])}}
+	recurso := core.RecursoAutorizable{Referencia: ref, ModuloID: "personal", Tipo: accionTipo, Ambitos: map[string]string{"objetivo_ref": ref, "organismo_ref": organismo}, Atributos: map[string]string{"operacion": tipo, "material_sha256": hex.EncodeToString(suma[:])}}
 	if _, err = recurso.HuellaContextoAutorizacionSHA256(); err != nil {
 		return MaterialActoRegistroEmpleadoB2{}, ErrRegistroEmpleadoB2Invalido
 	}

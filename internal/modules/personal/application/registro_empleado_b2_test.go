@@ -13,13 +13,29 @@ import (
 func TestRegistroB2ObjetivoRRHHIndependienteDelActor(t *testing.T) {
 	actor := solicitudP(t).Actor
 	fecha, _ := domain.NuevaFechaCivil("2026-09-20")
-	s := domain.SolicitudFichaEmpleadoB2{EmpleadoRef: "emp_" + strings.Repeat("z", 24), Corte: domain.CorteEmpleadoB2{VigenteEn: fecha, ConocidoEn: time.Date(2026, 9, 20, 10, 0, 0, 0, time.UTC)}, Actor: actor}
+	s := domain.SolicitudFichaEmpleadoB2{EmpleadoRef: "emp_" + strings.Repeat("z", 24), OrganismoRef: "organismo:dipgra", Corte: domain.CorteEmpleadoB2{VigenteEn: fecha, ConocidoEn: time.Date(2026, 9, 20, 10, 0, 0, 0, time.UTC)}, Actor: actor}
 	m, err := domain.NuevoMaterialFichaEmpleadoB2(s)
 	if err != nil || m.Recurso().Referencia != s.EmpleadoRef || m.Recurso().Ambitos["empleado_ref"] != s.EmpleadoRef || bytes.Contains(m.Canonico(), []byte(`"empleado_ref":"emp_`+strings.Repeat("a", 24)+`"`)) {
 		t.Fatalf("objetivo RRHH o material: %v", err)
 	}
-	if _, ok := m.Recurso().Ambitos["organismo_ref"]; ok {
-		t.Fatal("ambito vacio")
+	if m.Recurso().Ambitos["organismo_ref"] != s.OrganismoRef {
+		t.Fatal("ambito organizativo ausente")
+	}
+	sinOrganismo := s
+	sinOrganismo.OrganismoRef = ""
+	if _, err := domain.NuevoMaterialFichaEmpleadoB2(sinOrganismo); !errors.Is(err, domain.ErrRegistroEmpleadoB2Invalido) {
+		t.Fatal("ficha sin organismo servidor")
+	}
+	otro := s
+	otro.OrganismoRef = "organismo:otro"
+	mOtro, err := domain.NuevoMaterialFichaEmpleadoB2(otro)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h1, _ := m.HuellaSHA256()
+	h2, _ := mOtro.HuellaSHA256()
+	if h1 == h2 {
+		t.Fatal("organismo no ligado a V3")
 	}
 	// Cambiar el objeto del llamante no puede alterar material ni concesión.
 	s.Actor.Instantanea.Vinculos[0].Referencia = "emp_" + strings.Repeat("q", 24)
@@ -55,7 +71,7 @@ func TestRegistroB2AltaLigaPersonaObjetivoYRelacionExplicita(t *testing.T) {
 	if err != nil || m.Recurso().Referencia != s.PersonaRef || !bytes.Contains(m.Canonico(), []byte(`"persona_ref":"`+s.PersonaRef+`"`)) || bytes.Contains(m.Canonico(), []byte("acreditacion_persona_ref")) {
 		t.Fatalf("objetivo no ligado o prelectura B1 indebida: %v", err)
 	}
-	h := domain.SolicitudHechoEmpleadoB2{Tipo: "ocupacion", EmpleadoRef: "emp_" + strings.Repeat("a", 24), RevisionEsperada: 1, UnidadRef: "unidad:uno", ModalidadRef: "modalidad:uno", ClaseRef: "temporal", PlazaRef: "11111111-1111-4111-8111-111111111111", VersionPlazaRef: "plantilla:uno", VigenteDesde: fecha, Procedencia: procedencia, Actor: actor}
+	h := domain.SolicitudHechoEmpleadoB2{Tipo: "ocupacion", EmpleadoRef: "emp_" + strings.Repeat("a", 24), OrganismoRef: "organismo:dipgra", RevisionEsperada: 1, UnidadRef: "unidad:uno", ModalidadRef: "modalidad:uno", ClaseRef: "temporal", PlazaRef: "11111111-1111-4111-8111-111111111111", VersionPlazaRef: "plantilla:uno", VigenteDesde: fecha, Procedencia: procedencia, Actor: actor}
 	if _, err := domain.NuevoMaterialHechoEmpleadoB2(h); !errors.Is(err, domain.ErrRegistroEmpleadoB2Invalido) {
 		t.Fatal("ocupacion sin relacion elegida")
 	}
@@ -74,7 +90,23 @@ func TestRegistroB2AltaLigaPersonaObjetivoYRelacionExplicita(t *testing.T) {
 		t.Fatal("revision sin CAS de relacion")
 	}
 	h.RelacionVersionEsperada = 1
-	if _, err := domain.NuevoMaterialHechoEmpleadoB2(h); err != nil {
+	mHecho, err := domain.NuevoMaterialHechoEmpleadoB2(h)
+	if err != nil {
 		t.Fatalf("revision explicita: %v", err)
+	}
+	hOtro := h
+	hOtro.OrganismoRef = "organismo:otro"
+	mOtroHecho, err := domain.NuevoMaterialHechoEmpleadoB2(hOtro)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hashHecho, _ := mHecho.HuellaSHA256()
+	hashOtroHecho, _ := mOtroHecho.HuellaSHA256()
+	if hashHecho == hashOtroHecho || mHecho.Recurso().Ambitos["organismo_ref"] != h.OrganismoRef {
+		t.Fatal("organismo de hecho no ligado a V3")
+	}
+	h.OrganismoRef = ""
+	if _, err := domain.NuevoMaterialHechoEmpleadoB2(h); !errors.Is(err, domain.ErrRegistroEmpleadoB2Invalido) {
+		t.Fatal("hecho sin organismo servidor")
 	}
 }
