@@ -79,17 +79,17 @@ const CARGADORES_PRESENTACION_PREDETERMINADOS = Object.freeze({
   cronos: async () => {
     const [contrato, recorridos] = await Promise.all([
       import("./modulos/cronos/contrato.js"),
-      import("./modulos/cronos/vista-recorridos.js?v=20260924-cronos-ayuda-v1"),
+      import("./modulos/cronos/vista-recorridos.js?v=20260924-cronos-integrado-v1"),
     ]);
     return Object.freeze({ contrato, recorridos });
   },
   dietas: async () => {
     const [contrato, vista, mapa, calculador, recorridos] = await Promise.all([
       import("./modulos/dietas/contrato.js"),
-      import("./modulos/dietas/vista-itinerario.js?v=20260923-dietas-r1"),
+      import("./modulos/dietas/vista-itinerario.js?v=20260924-dietas-d1d2d4"),
       import("./modulos/dietas/mapa-ruta.js?v=20260923-dietas-r1"),
       import("./modulos/dietas/calculador-rutas-presentacion-osrm.js"),
-      import("./modulos/dietas/vista-recorridos.js?v=20260924-f2-consulta-v2"),
+      import("./modulos/dietas/vista-recorridos.js?v=20260924-dietas-d1d2d4"),
     ]);
     return Object.freeze({ contrato, vista, mapa, calculador, recorridos });
   },
@@ -99,15 +99,15 @@ const CARGADORES_PRESENTACION_PREDETERMINADOS = Object.freeze({
       import("./modulos/personal/cliente-http-categorias.js?v=20260924-p1-personal-interno-v2"),
       import("./modulos/personal/vista.js?v=20260924-f2-personal-estados-v4"),
       import("./modulos/personal/cliente-http-rpt-publica.js?v=20260920-personal-rpt-publica-v3"),
-      import("./modulos/personal/vista-rpt-publica.js?v=20260920-personal-rpt-publica-v3"),
+      import("./modulos/personal/vista-rpt-publica.js?v=20260924-web-c-v1"),
       import("./modulos/personal/cliente-http-estructura-organizativa-publica.js?v=20260920-personal-estructura-v1"),
-      import("./modulos/personal/vista-estructura-organizativa-publica.js?v=20260924-f2-cache-v3"),
-      import("./modulos/personal/vista-ficha-integral.js?v=20260924-f2-shell-v1"),
+      import("./modulos/personal/vista-estructura-organizativa-publica.js?v=20260924-web-c-v1"),
+      import("./modulos/personal/vista-ficha-integral.js?v=20260924-web-c-v1"),
     ]);
     return Object.freeze({ contrato, clienteCategorias, vistaCategorias, clienteRPT, vistaRPT, clienteEstructura, vistaEstructura, ficha });
   },
   nominas: async () => Object.freeze({
-    vista: await import("./modulos/nominas/vista.js?v=20260924-f2-shell-v1"),
+    vista: await import("./modulos/nominas/vista.js?v=20260924-web-c-v1"),
   }),
   solicitudes: async () => Object.freeze({
     vista: await import("./modulos/solicitudes/vista.js?v=20260924-f2-shell-v1"),
@@ -135,9 +135,9 @@ const CARGADORES_PRESENTACION_PREDETERMINADOS = Object.freeze({
 const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   cronos: async () => {
     const [vista, recorridos, i18n] = await Promise.all([
-      import("./modulos/cronos/vista.js?v=20260924-f2-shell-v1"),
-      import("./modulos/cronos/vista-recorridos.js?v=20260924-cronos-ayuda-v1"),
-      import("./modulos/cronos/i18n.js?v=20260924-f2-web2"),
+      import("./modulos/cronos/vista.js?v=20260924-cronos-integrado-v1"),
+      import("./modulos/cronos/vista-recorridos.js?v=20260924-cronos-integrado-v1"),
+      import("./modulos/cronos/i18n.js?v=20260924-cronos-integrado-v1"),
     ]);
     return Object.freeze({ vista, recorridos, i18n });
   },
@@ -156,7 +156,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       import("./modulos/personal/contrato.js?v=20260920-personal-catalogo-v1"),
       import("./modulos/personal/cliente-http-categorias.js?v=20260924-p1-personal-interno-v2"),
       import("./modulos/personal/vista.js?v=20260924-f2-personal-estados-v4"),
-      import("./modulos/personal/vista-ficha-integral.js?v=20260924-f2-shell-v1"),
+      import("./modulos/personal/vista-ficha-integral.js?v=20260924-web-c-v1"),
     ]);
     return Object.freeze({ contrato, cliente, vista, clienteCategorias: cliente, vistaCategorias: vista,
       ficha });
@@ -164,10 +164,10 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   dietas: async () => {
     const [contrato, vista, mapa, calculador, recorridos, clienteBorradores] = await Promise.all([
       import("./modulos/dietas/contrato.js"),
-      import("./modulos/dietas/vista-itinerario.js?v=20260923-dietas-r1"),
+      import("./modulos/dietas/vista-itinerario.js?v=20260924-dietas-d1d2d4"),
       import("./modulos/dietas/mapa-ruta.js?v=20260923-dietas-r1"),
       import("./modulos/dietas/calculador-rutas-http.js"),
-      import("./modulos/dietas/vista-recorridos.js?v=20260924-f2-consulta-v2"),
+      import("./modulos/dietas/vista-recorridos.js?v=20260924-dietas-d1d2d4"),
       import("./modulos/dietas/cliente-borradores-http.js?v=20260924-f2-shell-v1"),
     ]);
     return Object.freeze({ contrato, vista, mapa, calculador, recorridos, clienteBorradores });
