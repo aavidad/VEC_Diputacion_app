@@ -123,7 +123,6 @@ export function montarFormularioSubsanacionReparos({ raiz, cliente, contexto, re
         if (alCambiarIntencion(null) !== true) throw new TypeError("intención confirmada no liberada");
       } catch { estado.mensaje = "subsanacion_actualizacion_pendiente"; estado.tono = "error"; }
     } catch (error) {
-      if (!montado) return;
       if (error?.estado === 401 || error?.estado === 403) {
         try { alDenegacion(); } catch {}
         solicitud = null; estado.observaciones = "";
@@ -131,6 +130,7 @@ export function montarFormularioSubsanacionReparos({ raiz, cliente, contexto, re
         estado.mensaje = "subsanacion_sin_permiso"; estado.tono = "error";
         return;
       }
+      if (!montado) return;
       estado.incierta = true;
       estado.mensaje = !indeterminado(error) ? "subsanacion_recuperacion_no_confirmada" : "subsanacion_indeterminada";
       estado.tono = "error";

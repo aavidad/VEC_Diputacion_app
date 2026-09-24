@@ -164,6 +164,25 @@ test("un resultado tardío tras desmontar no enfoca ni anuncia", async () => {
   assert.equal(x.anuncios.length, 0);
 });
 
+test("401/403 tardío purga el gestor aun tras desmontar, sin pintar en la instancia antigua", async () => {
+  for (const estado of [401, 403]) {
+    let rechazar;
+    const pendiente = new Promise((_, reject) => { rechazar = reject; });
+    const x = escenario([pendiente]);
+    const envio = x.iniciar();
+    assert.equal(x.intenciones.at(-1)?.incierta, true);
+    x.desmontar();
+    const denegacion = new Error("autorización revocada");
+    Object.assign(denegacion, { estado, envelopeValido: true, resultadoIndeterminado: false });
+    rechazar(denegacion);
+    await envio;
+    assert.deepEqual(x.denegaciones, ["purgar"]);
+    assert.equal(x.raiz.innerHTML, "");
+    assert.equal(x.anuncios.length, 0);
+    assert.equal(x.documento.activeElement, x.documento.body);
+  }
+});
+
 test("rechazo del reintento no borra la incertidumbre original", async () => {
   const fallo = new Error("sin respuesta fiable"); fallo.estado = 503;
   const rechazo = new Error("conflicto");
