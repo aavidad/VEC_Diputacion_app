@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { crearCalculadorRutasDietasPresentacionOSRM } from "./calculador-rutas-presentacion-osrm.js";
 import { CAPACIDAD_CONSULTAR_RUTA } from "./contrato.js";
-import { MENSAJES_DIETAS_ES } from "./i18n.js";
+import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js";
 import { montarVistaItinerarioDietas, montarVistaItinerarioPendienteDietas } from "./vista-itinerario.js";
 import { obtenerDatosPresentacion } from "../../datos-presentacion.js";
 import { crearContextoActorPresentacionDesdeSesion } from "../../identidad/presentacion.js";
@@ -112,18 +112,19 @@ test("consulta el puerto OSRM inyectado, muestra catálogo y desmonta el mapa", 
 });
 
 test("preselecciona el centro sintético asociado y no cae al primer punto si no está en el catálogo", async () => {
+  assert.equal(crearTraductorDietas()("ruta_centro_asociado"), "centro asociado");
   const r = raiz();
   await montarVistaItinerarioDietas({
     raiz: r,
     calculador: crearCalculador([]),
-    mensajes: { ...MENSAJES_DIETAS_ES, ruta_salida: "Centro asignado de salida" },
+    mensajes: { ...MENSAJES_DIETAS_ES, ruta_centro_asociado: "centro vinculado" },
     visorRuta: { montar() { return { desmontar() {} }; } },
     centroSalidaAsociado: { etiqueta: "Sede provincial · Granada", localidad: "Granada" },
   });
   const salida = r.querySelector('[data-itinerario-parada="0"]');
   assert.equal(salida.value, undefined);
   assert.equal(salida.children.find((opcion) => opcion.selected).textContent,
-    "Sede provincial · Granada (Centro asignado de salida)");
+    "Sede provincial · Granada (centro vinculado)");
 
   const sinCoincidencia = raiz();
   await montarVistaItinerarioDietas({

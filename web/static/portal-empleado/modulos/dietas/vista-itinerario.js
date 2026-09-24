@@ -127,7 +127,7 @@ function crearSelectorParada(documento, modelo, codigo, indice, traducir) {
   modelo.catalogo.puntos.forEach((punto) => {
     const esCentroAsociado = esSalida && centroAsociado?.codigo === punto.codigo;
     const opcion = elemento(documento, "option", esCentroAsociado
-      ? `${centroAsociado.etiqueta} (${traducir("ruta_salida")})` : punto.nombre);
+      ? `${centroAsociado.etiqueta} (${traducir("ruta_centro_asociado")})` : punto.nombre);
     opcion.value = punto.codigo;
     opcion.selected = punto.codigo === codigo;
     selector.append(opcion);

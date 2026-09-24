@@ -95,6 +95,7 @@ export const MENSAJES_DIETAS_ES = Object.freeze({
   ruta_catalogo_parcial: "Catálogo parcial",
   ruta_seleccionar_localidad: "Seleccionar localidad",
   ruta_salida: "Centro de salida",
+  ruta_centro_asociado: "centro asociado",
   ruta_destino_final: "Ruta {numero} · regreso o destino final",
   ruta_parada_intermedia: "Parada {numero}",
   ruta_etapa: "Ruta {numero} · destino",
