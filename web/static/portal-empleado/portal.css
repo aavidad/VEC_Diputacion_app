@@ -1,52 +1,5 @@
-:root {
-  --portal-azul-950: #062d56;
-  --portal-azul-900: #073b6c;
-  --portal-azul-800: #0b4a80;
-  --portal-azul-700: #075fca;
-  --portal-azul-600: #0b6ee7;
-  --portal-azul-100: #e9f2ff;
-  --portal-acento: var(--portal-azul-700);
-  --portal-foco: var(--portal-azul-700);
-  --portal-texto-inverso: #ffffff;
-  --portal-lateral-muted: #b7cde0;
-  --portal-tinta: #10213b;
-  --portal-muted: #586985;
-  --portal-borde: #c9d7e6;
-  --portal-fondo: #eaf1f8;
-  --portal-superficie: #ffffff;
-  --portal-superficie-alterna: #f0f5fb;
-  --portal-cabecera-panel: #e8f0f9;
-  --portal-exito: #147a36;
-  --portal-exito-suave: #eaf8ee;
-  --portal-aviso: #9a5c00;
-  --portal-aviso-suave: #fff5d9;
-  --portal-peligro: #ba2737;
-  --portal-peligro-suave: #fff0f1;
-  --portal-violeta: #7451cf;
-  --portal-violeta-suave: #f2ecff;
-  --portal-neutro-suave: #edf2f7;
-  --portal-cian: #078aa5;
-  --portal-cian-fuerte: #08717d;
-  --portal-cian-suave: #e7f8fa;
-  --portal-naranja: #b34705;
-  --portal-naranja-suave: #fff0e7;
-  --portal-oliva: #4e7838;
-  --portal-turquesa: #006f77;
-  --portal-morado: #895ad7;
-  --portal-sombra: 0 3px 12px rgba(27, 51, 82, 0.06);
-  --portal-sombra-sm: 0 1px 4px rgba(27, 51, 82, 0.06);
-  --portal-sombra-color: rgb(6 45 86 / 15%);
-  --portal-radio: 6px;
-  --portal-radio-md: 5px;
-  --portal-radio-lg: 8px;
-  --portal-espacio-1: 4px;
-  --portal-espacio-2: 8px;
-  --portal-espacio-3: 12px;
-  --portal-espacio-4: 16px;
-  --portal-espacio-5: 24px;
-  --portal-tinta-suave: var(--portal-muted);
-  --portal-lateral: 274px;
-}
+/* Las vistas que cargan solo portal.css comparten la misma autoridad visual. */
+@import url("../comun/tema-vec.css");
 
 * {
   box-sizing: border-box;
@@ -76,40 +29,6 @@ body.portal-empleado-app::before {
 
 html[data-texto-grande="true"] {
   font-size: 125%;
-}
-
-body.portal-empleado-app[data-contraste="true"] {
-  --portal-azul-950: #001d3b;
-  --portal-azul-900: #002a54;
-  --portal-azul-800: #003c78;
-  --portal-azul-100: #d7e6fc;
-  --portal-acento: var(--portal-azul-700);
-  --portal-foco: var(--portal-azul-700);
-  --portal-azul-700: #004fc4;
-  --portal-azul-600: #005de8;
-  --portal-tinta: #000000;
-  --portal-muted: #26303d;
-  --portal-borde: #687588;
-  --portal-fondo: #e8edf4;
-  --portal-superficie: #ffffff;
-  --portal-superficie-alterna: #e1e9f2;
-  --portal-cabecera-panel: #d6e3f1;
-  --portal-violeta-suave: #e5dcf8;
-  --portal-neutro-suave: #dce5ef;
-  --portal-exito: #0b5f2d;
-  --portal-aviso: #6a4100;
-  --portal-peligro: #8a1022;
-  --portal-texto-inverso: #ffffff;
-  --portal-lateral-muted: #ffffff;
-  --portal-violeta: #483082;
-  --portal-cian-fuerte: #00536c;
-  --portal-naranja: #823600;
-  --portal-oliva: #345523;
-  --portal-turquesa: #004d52;
-  --portal-morado: #5e348f;
-  --portal-sombra-color: rgb(0 0 0 / 35%);
-  --portal-sombra: 0 0 0 1px var(--portal-borde);
-  --portal-sombra-sm: 0 0 0 1px var(--portal-borde);
 }
 
 button,
