@@ -1,5 +1,5 @@
-import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260924-f2-consulta-v1";
-import { crearTraductorBorradoresDietas } from "./i18n-borradores.js?v=20260924-f2-consulta-v1";
+import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260924-f2-consulta-v2";
+import { crearTraductorBorradoresDietas } from "./i18n-borradores.js?v=20260924-f2-consulta-v2";
 import { obtenerCatalogoRutasProvincial } from "./catalogo-rutas-provincial.js";
 
 // El catálogo público incluye núcleos NGMEP aún pendientes de importación.
@@ -321,7 +321,17 @@ export function montarVistaBorradoresPropios(
     if (!conectada) consultar.title = traducir("borradores_propios_pendiente_conexion");
     else if (relaciones.length > 1 && !relacionSeleccionada) consultar.title = traducir("borradores_propios_error_relacion");
     cabecera.append(nodo(documento, "h3", traducir("borradores_propios_listado")), consultar);
-    seccion.append(cabecera);
+    const ayuda = nodo(documento, "details");
+    ayuda.className = "dietas-borradores-ayuda";
+    ayuda.dataset.dietasBorradoresAyuda = "";
+    ayuda.open = false;
+    const resumenAyuda = nodo(documento, "summary", "?");
+    resumenAyuda.setAttribute("aria-label", traducir("recorridos_abrir_ayuda"));
+    ayuda.append(resumenAyuda, nodo(documento, "p", tBorradores("borradores_propios_consulta_ayuda")));
+    const bandaAyuda = nodo(documento, "div");
+    bandaAyuda.className = "cabecera-panel";
+    bandaAyuda.append(ayuda);
+    seccion.append(cabecera, bandaAyuda);
     const cuerpo = nodo(documento, "div");
     cuerpo.className = "cuerpo-panel";
     seccion.append(cuerpo);

@@ -1,6 +1,6 @@
 import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js";
 import { crearTraductorRevisionDietas } from "./i18n-revision.js";
-import { montarVistaBorradoresPropios } from "./vista-borradores-propios.js?v=20260924-f2-consulta-v1";
+import { montarVistaBorradoresPropios } from "./vista-borradores-propios.js?v=20260924-f2-consulta-v2";
 import { montarMapaInicialGranadaDietas } from "./mapa-ruta.js";
 
 const ETAPAS = Object.freeze([

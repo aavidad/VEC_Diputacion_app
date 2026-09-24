@@ -12,8 +12,9 @@ export const MENSAJES_BORRADORES_ES = Object.freeze({
   borradores_propios_autenticacion_requerida: "Debe identificarse de nuevo para consultar o crear borradores de Dietas.",
   borradores_propios_consultar_registrados: "Consultar borradores registrados",
   borradores_propios_consultando_registrados: "Consultando sus borradores registrados…",
-  borradores_propios_consulta_registrados: "Consulta actualizada. Elija un borrador para ver su recibo. La lista no confirma el resultado de una solicitud anterior.",
-  borradores_propios_consulta_registrados_vacia: "No hay borradores registrados en esta consulta. Esto no confirma el resultado de una solicitud anterior.",
+  borradores_propios_consulta_registrados: "Borradores consultados. La lista no confirma altas anteriores.",
+  borradores_propios_consulta_registrados_vacia: "Sin borradores en esta consulta. La lista no confirma altas anteriores.",
+  borradores_propios_consulta_ayuda: "Si una creación quedó sin confirmar, consulte la lista. Elija un borrador para ver su recibo. Que aparezca en la lista no demuestra que corresponda a aquel intento; no cree otro solo para comprobarlo.",
 });
 
 export function crearTraductorBorradoresDietas(traducirBase) {

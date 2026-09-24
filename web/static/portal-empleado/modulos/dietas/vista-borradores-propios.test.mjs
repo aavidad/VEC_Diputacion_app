@@ -643,7 +643,15 @@ test("tras desmontar un POST incierto consulta la lista sin repetirlo y abre sol
   await panel.listeners.click({ target: consultar });
   assert.deepEqual(llamadas.listar.at(-1), { limit: 6 });
   assert.equal(llamadas.crear.length, 1);
-  assert.match(segundoContenedor.querySelector("[data-dietas-borradores-estado]").textContent, /La lista no confirma el resultado/u);
+  assert.match(segundoContenedor.querySelector("[data-dietas-borradores-estado]").textContent, /La lista no confirma altas anteriores/u);
+  assert.doesNotMatch(segundoContenedor.querySelector("[data-dietas-borradores-estado]").textContent, /Elija un borrador|aquel intento/u);
+  const ayuda = segundoContenedor.querySelector("[data-dietas-borradores-ayuda]");
+  assert.equal(ayuda.open, false);
+  assert.match(textoVisible(ayuda), /Elija un borrador para ver su recibo/u);
+  assert.equal(ayuda.querySelector("summary").attrs["aria-label"], "? Ayuda");
+  const lecturasAntesAyuda = llamadas.listar.length;
+  await panel.listeners.click({ target: ayuda.querySelector("summary") });
+  assert.equal(llamadas.listar.length, lecturasAntesAyuda);
   assert.equal(segundoContenedor.querySelector("[data-dietas-borrador-recibo]"), null);
   assert.equal(segundoContenedor.ownerDocument.activeElement.dataset.dietasBorradorConsultarRegistrados, "");
   const elegir = segundoContenedor.querySelector("[data-dietas-borrador-detalle]");
@@ -688,7 +696,8 @@ test("Consultar borradores reinicia el cursor y distingue lista vacía, 401, 403
     assert.ok(contenedor.querySelector("[data-dietas-borrador-consultar-registrados]"));
     if (caso === "vacia") {
       assert.ok(contenedor.querySelector("[data-dietas-borradores-vacio]"));
-      assert.match(textoVisible(contenedor), /Esto no confirma el resultado de una solicitud anterior/u);
+      assert.match(contenedor.querySelector("[data-dietas-borradores-estado]").textContent, /La lista no confirma altas anteriores/u);
+      assert.equal(contenedor.querySelector("[data-dietas-borradores-ayuda]").open, false);
     } else {
       assert.equal(contenedor.querySelector("[data-dietas-borradores-vacio]"), null);
       assert.equal(contenedor.querySelector("[data-dietas-borradores-estado]").dataset.tono, "error");
@@ -749,6 +758,9 @@ test("una denegación 401/403 retira el recibo elegido por GET", async () => {
     assert.ok(contenedor.querySelector("[data-dietas-borrador-recibo]"));
     await panel.listeners.click({ target: contenedor.querySelector("[data-dietas-borrador-consultar-registrados]") });
     assert.equal(contenedor.querySelector("[data-dietas-borrador-recibo]"), null);
+    const ayuda = contenedor.querySelector("[data-dietas-borradores-ayuda]");
+    assert.equal(ayuda.open, false);
+    assert.equal(ayuda.querySelector("summary").attrs["aria-label"], "? Ayuda");
     assert.equal(escrituras, 0);
     assert.equal(contenedor.querySelector("[data-dietas-borradores-estado]").dataset.tono, "error");
     vista.desmontar();
