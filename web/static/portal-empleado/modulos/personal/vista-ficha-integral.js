@@ -31,7 +31,8 @@ function panel(d, titulo, contenido, clase = "") {
 function mensaje(d, texto, tipo = "status") { const p = nodo(d, "p", texto); p.className = "personal-ficha-mensaje"; p.setAttribute("role", tipo); return p; }
 function ayuda(d, t) {
   const detalles = nodo(d, "details"); detalles.className = "ayuda-contextual"; detalles.dataset.personalFichaAyuda = "";
-  detalles.append(nodo(d, "summary", t("ficha_abrir_ayuda")), nodo(d, "p", t("ficha_ayuda"))); return detalles;
+  const abrir = nodo(d, "summary", "?"); abrir.setAttribute("aria-label", t("ficha_abrir_ayuda"));
+  detalles.append(abrir, nodo(d, "p", t("ficha_ayuda"))); return detalles;
 }
 function accesos(d, t, navegarModulo, destinosDisponibles) {
   const acciones = nodo(d, "div"); acciones.className = "acciones-fila personal-ficha-accesos";
@@ -53,7 +54,10 @@ function portada(d, t, navegarModulo, destinosDisponibles, estados) {
     const estado = nodo(d, "span", t(ETIQUETAS_ESTADO[estados[clave]])); estado.className = "personal-ficha-estado";
     ficha.append(nodo(d, "strong", t(BLOQUES[clave].titulo)), estado); bloques.append(ficha);
   }
-  return [panel(d, t("ficha_resumen"), [mensaje(d, t("ficha_fuente_pendiente")), bloques], "personal-ficha-panel-ancho"),
+  const resumen = [mensaje(d, t("ficha_fuente_pendiente"))];
+  if (Object.values(estados).every((estado) => estado === "no_configurado")) resumen.push(mensaje(d, t("ficha_sin_datos")));
+  resumen.push(bloques);
+  return [panel(d, t("ficha_resumen"), resumen, "personal-ficha-panel-ancho"),
     panel(d, t("ficha_accesos_titulo"), [nodo(d, "p", t("ficha_accesos_ayuda")), accesos(d, t, navegarModulo, destinosDisponibles)], "personal-ficha-panel-ancho")];
 }
 function validarResultado(resultado, bloque) {
