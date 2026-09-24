@@ -14,7 +14,7 @@ crear_arbol_valido() {
     "$temporal/web/static/assets" \
     "$temporal/web/static/area-personal" \
     "$temporal/web/static/bolsa" \
-    "$temporal/web/static/comun" \
+    "$temporal/web/static/comun/oportunidades" \
     "$temporal/web/static/portal-empleado/modulos/contratacion-temporal" \
     "$temporal/web/static/verificar"
   printf '%s\n' 'body { color: #111; }' >"$temporal/web/static/styles.css"
@@ -27,6 +27,9 @@ crear_arbol_valido() {
   printf '%s\n' 'export const iniciar = true;' >"$temporal/web/static/bolsa/bolsa.js"
   printf '%s\n' 'body { color: #111; }' >"$temporal/web/static/comun/tema-vec.css"
   printf '%s\n' 'export const tema = true;' >"$temporal/web/static/comun/tema-vec.js"
+  printf '%s\n' 'export const vista = true;' >"$temporal/web/static/comun/oportunidades/vista.js"
+  printf '%s\n' 'export const i18n = true;' >"$temporal/web/static/comun/oportunidades/i18n.js"
+  printf '%s\n' 'body { color: #111; }' >"$temporal/web/static/comun/oportunidades/oportunidades.css"
   cp web/static/portal-empleado/modulos/contratacion-temporal/formalizacion-desarrollo.json \
     "$temporal/web/static/portal-empleado/modulos/contratacion-temporal/formalizacion-desarrollo.json"
   printf '%s\n' \
@@ -39,6 +42,9 @@ crear_arbol_valido() {
     static/bolsa/bolsa.js \
     static/comun/tema-vec.css \
     static/comun/tema-vec.js \
+    static/comun/oportunidades/vista.js \
+    static/comun/oportunidades/i18n.js \
+    static/comun/oportunidades/oportunidades.css \
     static/favicon.svg \
     static/portal-empleado/modulos/contratacion-temporal/formalizacion-desarrollo.json \
     static/styles.css >"$temporal/manifiesto"
@@ -62,6 +68,16 @@ for extension in css js; do
   cp "$temporal/manifiesto" "$temporal/web/produccion.manifest"
   debe_fallar "otro activo comun .$extension enumerado"
 done
+
+crear_arbol_valido
+printf '%s\n' 'export const extra = true;' >"$temporal/web/static/comun/oportunidades/extra.js"
+printf '%s\n' 'static/comun/oportunidades/extra.js' >>"$temporal/manifiesto"
+cp "$temporal/manifiesto" "$temporal/web/produccion.manifest"
+debe_fallar "un cuarto archivo de oportunidades enumerado"
+
+crear_arbol_valido
+printf '%s\n' 'export const extra = true;' >"$temporal/web/static/comun/oportunidades/extra.js"
+debe_fallar "un cuarto archivo de oportunidades sin enumerar"
 
 crear_arbol_valido
 printf '%s\n' 'export const extra = true;' >"$temporal/web/static/acceso/extra.js"

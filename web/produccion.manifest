@@ -32,6 +32,9 @@ static/bolsa/listas.css
 static/bolsa/listas.html
 static/comun/tema-vec.css
 static/comun/tema-vec.js
+static/comun/oportunidades/vista.js
+static/comun/oportunidades/i18n.js
+static/comun/oportunidades/oportunidades.css
 static/favicon.svg
 static/portal-empleado/assets/ayuda-llamamiento-bolsa.mp3
 static/assets/logo-diputacion-granada.svg

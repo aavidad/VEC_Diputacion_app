@@ -15,6 +15,9 @@ func TestStaticHandlerProduccionSirveActivosConsumidosF2(t *testing.T) {
 	rutas := []string{
 		"/comun/tema-vec.css",
 		"/comun/tema-vec.js",
+		"/comun/oportunidades/vista.js",
+		"/comun/oportunidades/i18n.js",
+		"/comun/oportunidades/oportunidades.css",
 		"/portal-empleado/modulos/administracion/vista-apariencia.js",
 		"/portal-empleado/portal-i18n-baremacion.js",
 		"/portal-empleado/portal-i18n-contratos.js",
@@ -97,7 +100,7 @@ func TestStaticHandlerProduccionDeniegaRecursosAjenoF2YMetodosDeEscritura(t *tes
 		})
 	}
 	for _, ruta := range []string{
-		"/comun/oportunidades/i18n.js",
+		"/comun/oportunidades/vista.test.mjs",
 		"/portal-empleado/modulos/seleccion/inscripciones/inscripciones.test.mjs",
 		"/comun/tema-vec.test.mjs",
 	} {

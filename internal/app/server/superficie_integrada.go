@@ -39,6 +39,13 @@ func NewHandlerWithConfigConComprobadorDisponibilidad(cfg config.Config, api htt
 	registrarDirectorioAplicacion(mux, estaticos, "portal-empleado")
 	registrarDirectorioAplicacion(mux, estaticos, "verificar")
 	registrarActivosCompartidos(mux, estaticos)
+	for _, ruta := range []string{
+		"/comun/oportunidades/vista.js",
+		"/comun/oportunidades/i18n.js",
+		"/comun/oportunidades/oportunidades.css",
+	} {
+		mux.Handle(ruta, soloLecturaHTTP(estaticos))
+	}
 	mux.Handle("/locales/", soloLecturaHTTP(localeHandler()))
 	mux.Handle(cfg.APIBasePath, api)
 	mux.Handle(cfg.APIBasePath+"/", api)
