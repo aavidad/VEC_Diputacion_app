@@ -31,32 +31,33 @@ func (c *consultorCapacidadPrueba) QueryRow(
 func TestManifiestosCapacidadIdentidadSonCerradosYExactos(t *testing.T) {
 	casos := []struct {
 		capacidad string
-		funciones [2]string
+		funciones []string
 	}{
 		{
 			capacidad: capacidadProvisionar,
-			funciones: [2]string{
+			funciones: []string{
 				"vec_identidad_sesiones_v1.provisionar_cuenta_v1(text,text,text,text,bigint,bytea,bytea,boolean,bytea)",
 				"vec_identidad_sesiones_v1.registrar_alias_hmac_cuenta_v1(text,text,text,text,text,bigint,bytea,bytea)",
 			},
 		},
 		{
 			capacidad: capacidadRegistrar,
-			funciones: [2]string{
+			funciones: []string{
 				"vec_identidad_sesiones_v1.registrar_sesion_v1(text,text,text,text,bigint,bytea,bytea,bytea,bytea,bytea,boolean,text,text,text,text,timestamptz,timestamptz,timestamptz,text,text)",
 				"vec_identidad_sesiones_v1.reconciliar_registro_sesion_v1(text,text,text,text,bigint,bytea,bytea,bytea,bytea,bytea,boolean,text,text,text,text,timestamptz,timestamptz,timestamptz,text,text)",
 			},
 		},
 		{
 			capacidad: capacidadRevalidar,
-			funciones: [2]string{
+			funciones: []string{
 				"vec_identidad_sesiones_v1.revalidar_sesion_y_cuentas_v1(text,text,text,text,text,text,boolean,text,text,text,text,text,timestamptz,timestamptz,text,text,text,text,timestamptz,timestamptz)",
 				"vec_identidad_sesiones_v1.revalidar_autenticacion_actor_v1(text,text)",
+				"vec_identidad_sesiones_v1.coincide_politica_certificado_desarrollo_v1(text,text,timestamptz)",
 			},
 		},
 		{
 			capacidad: capacidadRevocar,
-			funciones: [2]string{
+			funciones: []string{
 				"vec_identidad_sesiones_v1.cambiar_estado_cuenta_v1(text,text,text,text)",
 				"vec_identidad_sesiones_v1.revocar_sesion_v1(text,text,text,text)",
 			},
@@ -67,15 +68,21 @@ func TestManifiestosCapacidadIdentidadSonCerradosYExactos(t *testing.T) {
 			manifiesto, encontrado := manifiestoParaCapacidad(caso.capacidad)
 			if !encontrado || !manifiesto.valido() ||
 				manifiesto.grupo != caso.capacidad ||
-				manifiesto.funciones != caso.funciones {
+				!reflect.DeepEqual(manifiesto.funciones, caso.funciones) {
 				t.Fatalf("manifiesto inesperado: %#v, encontrado=%t", manifiesto, encontrado)
 			}
 			firmas := manifiesto.firmasFunciones()
 			firmas[0] = "mutada"
-			if manifiesto.funciones != caso.funciones {
+			if !reflect.DeepEqual(manifiesto.funciones, caso.funciones) {
 				t.Fatal("el manifiesto expuso almacenamiento mutable")
 			}
 		})
+	}
+	if (manifiestoCapacidadIdentidad{grupo: capacidadRevalidar, funciones: []string{"a", "b"}}).valido() ||
+		(manifiestoCapacidadIdentidad{grupo: capacidadRevalidar, funciones: []string{"a", "b", "b"}}).valido() ||
+		(manifiestoCapacidadIdentidad{grupo: capacidadRevalidar, funciones: []string{"a", "b", "c", "d"}}).valido() ||
+		(manifiestoCapacidadIdentidad{grupo: capacidadRegistrar, funciones: []string{"a", "b", "c"}}).valido() {
+		t.Fatal("un manifiesto incompleto, duplicado o excedido fue aceptado")
 	}
 
 	for _, capacidad := range []string{"", "vec_identidad_sesiones_v1_otra"} {
@@ -137,7 +144,7 @@ func TestAcreditacionCapacidadExigeIdentidadYPerfilExactos(t *testing.T) {
 		"pg_catalog.aclexplode", "pg_catalog.pg_default_acl",
 		"pg_catalog.pg_policy", "pg_catalog.pg_db_role_setting",
 		"login.rolconfig IS NULL", "grupo.rolconfig IS NULL",
-		"dependencia.deptype = 'a'", "count(*) = 4",
+		"dependencia.deptype = 'a'", "count(*) = 2 + pg_catalog.cardinality($2::text[])",
 		"acl.privilege_type = 'CONNECT'", "acl.privilege_type = 'USAGE'",
 		"acl.privilege_type = 'EXECUTE'", "NOT acl.is_grantable",
 		"pg_catalog.to_regprocedure", "pg_catalog.unnest($2::text[])",
