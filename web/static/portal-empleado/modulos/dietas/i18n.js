@@ -216,7 +216,7 @@ export const MENSAJES_DIETAS_ES = Object.freeze({
   mapa_nota_fallback: "La ruta de demostración no se representa como un mapa real.",
   mapa_nota_osrm_local: "Geometría calculada por el OSRM interno; los kilómetros son orientativos y no aplican una tarifa. Cargando teselas de la red interna.",
   mapa_nota_no_disponible: "El mapa interno no está disponible. No se muestra ninguna simulación cartográfica.",
-  mapa_nota_osm_interno: "OpenStreetMap cargado desde teselas servidas en la red interna.",
+  mapa_nota_osm_interno: "OpenStreetMap cargado desde teselas servidas en la red interna. Fuente cartográfica histórica; aún no se ha acreditado la cobertura completa de la provincia y su franja de 15 km.",
   mapa_zoom_acercar: "Acercar el mapa",
   mapa_zoom_alejar: "Alejar el mapa",
   documento_anual_titulo: "Resumen anual de Dietas {anio}",

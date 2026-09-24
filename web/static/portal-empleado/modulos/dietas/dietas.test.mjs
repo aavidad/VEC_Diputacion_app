@@ -348,8 +348,9 @@ test("el visor activa únicamente OpenStreetMap interno y nunca simula un mapa s
   assert.match(estado.textContent, /Cargando/u);
   assert.equal(plantilla, "/tiles/osm/{z}/{x}/{y}.png");
   assert.equal(opcionesTeselas.attribution, ATRIBUCION_OSM_INTERNA);
-  assert.equal(opcionesTeselas.maxNativeZoom, 14);
-  assert.equal(opcionesTeselas.maxZoom, 14);
+  assert.equal(opcionesTeselas.minZoom, 8);
+  assert.equal(opcionesTeselas.maxNativeZoom, 12);
+  assert.equal(opcionesTeselas.maxZoom, 12);
   assert.equal(prefijoAtribucion, false);
   assert.deepEqual(atributosAcercar, { title: "Acercar el mapa", "aria-label": "Acercar el mapa" });
   assert.deepEqual(atributosAlejar, { title: "Alejar el mapa", "aria-label": "Alejar el mapa" });
