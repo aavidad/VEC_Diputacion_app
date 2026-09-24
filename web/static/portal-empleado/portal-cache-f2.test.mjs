@@ -7,6 +7,7 @@ const versionTemaBase = "20260924-f2-tema-base-v2";
 const versionCache = "20260924-f2-cache-v2";
 const versionCachePersonal = "20260924-f2-cache-v3";
 const versionPersonalInterno = "20260924-p1-personal-interno-v2";
+const versionPersonalEstados = "20260924-f2-personal-estados-v4";
 const raiz = new URL("./", import.meta.url);
 
 function versionesDe(codigo, recurso) {
@@ -31,7 +32,7 @@ test("una carga con caché caliente solicita CSS F2 y entrada JS con URL nueva",
   ]);
   for (const [recurso, versionAntigua] of previo) {
     assert.equal(versionDe(html, `/portal-empleado/${recurso}`),
-      recurso === "portal.js" ? versionPersonalInterno : recurso === "portal.css" ? versionTemaBase : version);
+      recurso === "portal.js" ? versionPersonalEstados : recurso === "portal.css" ? versionTemaBase : version);
     assert.notEqual(versionDe(html, `/portal-empleado/${recurso}`), versionAntigua);
   }
   for (const recurso of ["portal-baremacion.css", "portal-contratos.css", "portal-convocatorias.css",
@@ -75,8 +76,8 @@ test("el grafo JS propio llega desde HTML a los consumidores F2 con versiones nu
     readFile(new URL("portal-modulos-coordinador.js", raiz), "utf8"),
     readFile(new URL("modulos/dietas/vista-recorridos.js", raiz), "utf8"),
   ]);
-  assert.equal(versionDe(html, "/portal-empleado/portal.js"), versionPersonalInterno);
-  assert.equal(versionDe(portal, "./portal-modulos-coordinador.js"), versionPersonalInterno);
+  assert.equal(versionDe(html, "/portal-empleado/portal.js"), versionPersonalEstados);
+  assert.equal(versionDe(portal, "./portal-modulos-coordinador.js"), versionPersonalEstados);
   for (const recurso of ["portal-menu-bolsa.js",
     "portal-vistas-baremacion.js", "portal-vistas-convocatorias.js", "portal-vistas-operaciones.js",
     "modulos/seleccion/inscripciones/vista.js", "modulos/seleccion/pruebas/vista.js",
@@ -96,8 +97,8 @@ test("el grafo JS propio llega desde HTML a los consumidores F2 con versiones nu
 
 test("la caché immutable previa no retiene el catálogo i18n ni los consumidores F2", async () => {
   const versionesPrevias = new Map([
-    ["portal.js", [version, versionCache, versionCachePersonal, "20260924-p1-personal-interno-v1"]],
-    ["portal-modulos-coordinador.js", [version, versionCache, versionCachePersonal, "20260924-p1-personal-interno-v1"]],
+    ["portal.js", [version, versionCache, versionCachePersonal, "20260924-p1-personal-interno-v1", versionPersonalInterno]],
+    ["portal-modulos-coordinador.js", [version, versionCache, versionCachePersonal, "20260924-p1-personal-interno-v1", versionPersonalInterno]],
     ["portal-catalogo-modulos.js", ["20260906-acceso-certificado-v1"]],
     ["portal-inicio.js", ["20260923-p4-reintento-v2"]],
     ["portal-eventos.js", ["20260721-acceso-real-v2"]],
@@ -105,7 +106,7 @@ test("la caché immutable previa no retiene el catálogo i18n ni los consumidore
     ["portal-borradores-acceso.js", ["20260721-acceso-real-v2"]],
     ["portal-i18n.js", ["20260721-acceso-real-v2", "20260923-p4-reintento-v2", version]],
     ["modulos/cronos/vista-recorridos.js", ["20260920-cronos-bandeja-v2"]],
-    ["modulos/personal/vista.js", ["20260920-personal-catalogo-v1"]],
+    ["modulos/personal/vista.js", ["20260920-personal-catalogo-v1", versionCachePersonal]],
     ["modulos/personal/cliente-http-categorias.js", ["20260920-personal-catalogo-v1"]],
     ["modulos/personal/vista-estructura-organizativa-publica.js", ["20260920-personal-estructura-v1"]],
   ]);
@@ -158,8 +159,9 @@ test("la caché immutable previa no retiene el catálogo i18n ni los consumidore
       assert.equal(versionesHijo.length, ["modulos/personal/vista.js", "modulos/personal/cliente-http-categorias.js"].includes(hijo) ? 2 : 1,
         `${padre} → ${hijo}: número de aristas`);
       const versionEsperada = padre === "index.html" || hijo === "portal-modulos-coordinador.js"
-        || hijo === "modulos/personal/cliente-http-categorias.js"
-        ? versionPersonalInterno : personal ? versionCachePersonal : versionCache;
+        || hijo === "modulos/personal/vista.js" ? versionPersonalEstados
+        : hijo === "modulos/personal/cliente-http-categorias.js" ? versionPersonalInterno
+        : personal ? versionCachePersonal : versionCache;
       for (const versionHijo of versionesHijo) {
         assert.equal(versionHijo, versionEsperada, `${padre} → ${hijo}`);
         const url = `/portal-empleado/${hijo}?v=${versionHijo}`;
