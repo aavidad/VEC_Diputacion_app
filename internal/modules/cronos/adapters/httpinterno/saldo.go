@@ -100,6 +100,10 @@ func responderErrorAccesoCronos(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, ports.ErrDependenciaNoDisponible):
 		errorJSON(w, http.StatusServiceUnavailable, "no_disponible")
+	case errors.Is(err, ports.ErrEmpleadoNoAcreditado):
+		errorJSON(w, http.StatusForbidden, "sin_empleado")
+	case errors.Is(err, ports.ErrEmpleadoAmbiguo):
+		errorJSON(w, http.StatusForbidden, "empleado_ambiguo")
 	case errors.Is(err, ErrAutenticacionCronosRequerida),
 		errors.Is(err, httpseguridad.ErrAsercionAusente),
 		errors.Is(err, httpseguridad.ErrAsercionNoValida),

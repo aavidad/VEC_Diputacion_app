@@ -135,3 +135,15 @@ func TestSaldoPropioRechazaParametrosNoCanonicosAntesDeResolver(t *testing.T) {
 		}
 	}
 }
+
+func TestSaldoPropioDeniegaSinEmpleadoConMotivo(t *testing.T) {
+	for err, codigo := range map[error]string{ports.ErrEmpleadoNoAcreditado: "sin_empleado", ports.ErrEmpleadoAmbiguo: "empleado_ambiguo"} {
+		caso := &casoSaldoPrueba{}
+		h, _ := NuevoManejadorSaldoPropio(caso, &resolverSaldoPrueba{err: err})
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, RutaConsultarSaldoPropio+"?periodo=hoy", nil))
+		if w.Code != http.StatusForbidden || caso.llamadas != 0 || !strings.Contains(w.Body.String(), `"`+codigo+`"`) {
+			t.Fatalf("%s: %d %s", codigo, w.Code, w.Body.String())
+		}
+	}
+}

@@ -8,6 +8,13 @@ import (
 
 var ErrDenegacionFronteraNoRegistrada = errors.New("cronos denegacion de frontera no registrada")
 
+// La persona no tiene exactamente un empleado canónico vigente. Deniega con
+// motivo; nunca se elige uno ni se deduce de la cuenta o del certificado.
+var (
+	ErrEmpleadoNoAcreditado = errors.New("cronos persona sin empleado canonico")
+	ErrEmpleadoAmbiguo      = errors.New("cronos persona con empleado ambiguo")
+)
+
 // Motivos cerrados de una denegación antes de alcanzar el caso de uso. No
 // transportan identidades, certificados ni datos de la petición.
 const (
