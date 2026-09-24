@@ -64,6 +64,17 @@ type relojRutasDietas struct{}
 
 func (relojRutasDietas) Ahora() time.Time { return time.Now().UTC().Truncate(time.Microsecond) }
 
+// servicioContextoActorDietas compone la resolución de actor de Dietas con el
+// alcance {empleado}: Dietas exige el empleado canónico que proyecta Personal
+// y deniega sin él o con varios. CT y el resto conservan el alcance vacío.
+func servicioContextoActorDietas(resolutor vp.ResolutorRegistroContextoActorV2, reloj vp.Reloj) (*vecapp.ServicioContextoActor, error) {
+	alcance, err := core.NuevoAlcanceProyeccionesContextoActor(core.ProyeccionContextoActorEmpleado)
+	if err != nil {
+		return nil, err
+	}
+	return vecapp.NuevoServicioContextoActorProductivoV2ConAlcance(resolutor, contextopg.NuevoGeneradorOperacionContextoActorV2Criptografico(), reloj, alcance)
+}
+
 type servicioAccesoRutasDietas interface {
 	AutorizarYConsumirAccesoRutas(context.Context, dp.SolicitudAccesoRutasDietas) (dp.ReciboAccesoRutasDietas, error)
 }
@@ -190,7 +201,7 @@ func nuevasRutasDietasDesarrollo(cfg config.Config, resolvedor httpapi.DemoIdent
 		return nil, vacio, httpapi.ErrRutaDietasNoDisponible
 	}
 	reloj := relojRutasDietas{}
-	servicioContexto, e := vecapp.NuevoServicioContextoActorProductivoV2(resolutor, contextopg.NuevoGeneradorOperacionContextoActorV2Criptografico(), reloj)
+	servicioContexto, e := servicioContextoActorDietas(resolutor, reloj)
 	if e != nil {
 		return nil, vacio, httpapi.ErrRutaDietasNoDisponible
 	}

@@ -20,6 +20,9 @@ type ServicioContextoActor struct {
 	generador ports.GeneradorOperacionContextoActorV2
 	fuente    ports.FuenteContextoActor
 	reloj     ports.Reloj
+	// alcance lo fija la composicion al construir el servicio; ninguna
+	// peticion puede ampliarlo ni reducirlo.
+	alcance domain.AlcanceProyeccionesContextoActor
 }
 
 type modoServicioContextoActor uint8
@@ -52,14 +55,38 @@ func NuevoServicioContextoActorProductivoV2(
 	generador ports.GeneradorOperacionContextoActorV2,
 	reloj ports.Reloj,
 ) (*ServicioContextoActor, error) {
+	return NuevoServicioContextoActorProductivoV2ConAlcance(
+		resolutor, generador, reloj, domain.AlcanceProyeccionesContextoActor{},
+	)
+}
+
+// NuevoServicioContextoActorProductivoV2ConAlcance compone el servicio para
+// un consumidor que exige proyecciones concretas (p. ej. Dietas, {empleado}).
+// Toda resolucion de este servicio pide exactamente ese alcance y el recibo
+// debe demostrarlo.
+func NuevoServicioContextoActorProductivoV2ConAlcance(
+	resolutor ports.ResolutorRegistroContextoActorV2,
+	generador ports.GeneradorOperacionContextoActorV2,
+	reloj ports.Reloj,
+	alcance domain.AlcanceProyeccionesContextoActor,
+) (*ServicioContextoActor, error) {
 	if dependenciaContextoActorNula(resolutor) || dependenciaContextoActorNula(generador) ||
 		dependenciaContextoActorNula(reloj) {
 		return nil, domain.ErrContextoActorInvalido
 	}
 	return &ServicioContextoActor{
 		modo: modoServicioContextoActorProductivoV2, resolutor: resolutor,
-		generador: generador, reloj: reloj,
+		generador: generador, reloj: reloj, alcance: alcance,
 	}, nil
+}
+
+// Alcance devuelve las proyecciones que la composicion fijo para este
+// servicio; permite a la composicion comprobar su propia declaracion.
+func (s *ServicioContextoActor) Alcance() domain.AlcanceProyeccionesContextoActor {
+	if s == nil {
+		return domain.AlcanceProyeccionesContextoActor{}
+	}
+	return s.alcance
 }
 
 func (s *ServicioContextoActor) Resolver(
@@ -143,6 +170,7 @@ func (s *ServicioContextoActor) resolverYRegistrarProductivoV2(
 	}
 	solicitudRegistro := ports.SolicitudResolucionRegistroContextoActorV2{
 		OperacionRef: operacionRef, Contexto: solicitud, SolicitadoEn: instante,
+		Proyecciones: s.alcance,
 	}
 	if solicitudRegistro.Validar() != nil {
 		return ports.ConfirmacionRegistroContextoActorV2{}, errorResolucionContextoActor(nil)
@@ -151,6 +179,16 @@ func (s *ServicioContextoActor) resolverYRegistrarProductivoV2(
 	if err != nil {
 		if contextoErr := ctx.Err(); contextoErr != nil {
 			return ports.ConfirmacionRegistroContextoActorV2{}, errorResolucionContextoActor(contextoErr)
+		}
+		// Los dos motivos cerrados de la proyeccion pedida se conservan para
+		// que el consumidor explique la denegacion; el resto sigue opaco.
+		for _, motivo := range []error{
+			ports.ErrProyeccionEmpleadoContextoActorAusente,
+			ports.ErrProyeccionEmpleadoContextoActorAmbigua,
+		} {
+			if s.alcance.IncluyeEmpleado() && errors.Is(err, motivo) {
+				return ports.ConfirmacionRegistroContextoActorV2{}, errorResolucionContextoActor(motivo)
+			}
 		}
 		return ports.ConfirmacionRegistroContextoActorV2{},
 			errorResolucionContextoActor(ports.ErrResolutorRegistroContextoActorNoDisponible)

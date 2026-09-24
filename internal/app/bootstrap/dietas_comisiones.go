@@ -389,7 +389,7 @@ func nuevasComisionesDietasDesarrollo(cfg config.Config, resolvedor vechttp.Demo
 		return nil, errComposicionDietasEn()
 	}
 	reloj := relojRutasDietas{}
-	servicioContexto, err := vecapp.NuevoServicioContextoActorProductivoV2(resolutor, contextopg.NuevoGeneradorOperacionContextoActorV2Criptografico(), reloj)
+	servicioContexto, err := servicioContextoActorDietas(resolutor, reloj)
 	if err != nil {
 		return nil, errComposicionDietasEn()
 	}
