@@ -5,6 +5,11 @@ import test from "node:test";
 const leer = (nombre) => readFileSync(new URL(nombre, import.meta.url), "utf8");
 const estilos = leer("portal-llamamientos.css");
 const tema = leer("portal.css");
+const importacionTema = tema.match(/@import\s+url\("([^"]+)"\)/)?.[1];
+if (importacionTema) assert.equal(importacionTema, "../comun/tema-vec.css");
+const tokens = importacionTema
+  ? readFileSync(new URL(importacionTema, new URL("portal.css", import.meta.url)), "utf8")
+  : tema;
 const portal = leer("index.html");
 
 function luminancia(hex) {
@@ -27,22 +32,26 @@ test("llamamientos montado consume solo colores del tema común", () => {
   assert.match(estilos, /\.recibo-llamamiento\s*\{[^}]*border: 2px solid var\(--portal-exito\);[^}]*background: var\(--portal-exito-suave\)/);
   assert.doesNotMatch(estilos, /#[\da-f]{3,8}\b|(?:rgb|hsl)a?\(/i);
 
-  const definidos = new Set([...tema.matchAll(/(--portal-[\w-]+)\s*:/g)].map((coincidencia) => coincidencia[1]));
+  const definidos = new Set([...tokens.matchAll(/(--portal-[\w-]+)\s*:/g)].map((coincidencia) => coincidencia[1]));
   const usados = [...estilos.matchAll(/var\((--portal-[\w-]+)(?:,\s*[^)]+)?\)/g)];
   assert.deepEqual(usados.filter((uso) => !definidos.has(uso[1]) && !uso[0].includes(","))
     .map((uso) => uso[1]), []);
 });
 
-test("texto de estado y error conserva contraste AA con tema normal y alto contraste", () => {
-  const raiz = tema.match(/^:root\s*\{([^}]+)\}/)?.[1];
+test("texto de estado y error conserva contraste AA en los temas comunes", () => {
+  const raiz = tokens.match(/:root\s*\{([^}]+)\}/)?.[1];
   assert.ok(raiz, "existe tema base");
   const normal = Object.fromEntries([...raiz.matchAll(/(--portal-[\w-]+):\s*(#[\da-f]{6})/gi)]
     .map((coincidencia) => [coincidencia[1], coincidencia[2]]));
-  const alto = tema.match(/body\.portal-empleado-app\[data-contraste="true"\]\s*\{([^}]+)\}/)?.[1];
+  const granate = tokens.match(/html\[data-tema="granate"\]\s*\{([^}]+)\}/)?.[1];
+  const alto = tokens.match(/body(?:\.portal-empleado-app)?\[data-contraste="true"\][^{]*\{([^}]+)\}/)?.[1];
   assert.ok(alto, "existe variante común de alto contraste");
   const sobrescrituras = Object.fromEntries([...alto.matchAll(/(--portal-[\w-]+):\s*(#[\da-f]{6})/gi)]
     .map((coincidencia) => [coincidencia[1], coincidencia[2]]));
-  for (const colores of [normal, { ...normal, ...sobrescrituras }]) {
+  const varianteGranate = granate ? Object.fromEntries([...granate.matchAll(/(--portal-[\w-]+):\s*(#[\da-f]{6})/gi)]
+    .map((coincidencia) => [coincidencia[1], coincidencia[2]])) : null;
+  for (const colores of [normal, ...(varianteGranate ? [{ ...normal, ...varianteGranate }] : []),
+    { ...normal, ...sobrescrituras }]) {
     assert.ok(contraste(colores["--portal-tinta"], colores["--portal-azul-100"]) >= 4.5);
     assert.ok(contraste(colores["--portal-peligro"], colores["--portal-peligro-suave"]) >= 4.5);
     assert.ok(contraste(colores["--portal-tinta"], colores["--portal-exito-suave"]) >= 4.5);
