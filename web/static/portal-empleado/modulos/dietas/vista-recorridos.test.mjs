@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { montarVistaBorradoresPropios } from "./vista-borradores-propios.js";
 import { montarVistaRecorridosDietas } from "./vista-recorridos.js";
 import { MENSAJES_REVISION_DIETAS_ES } from "./i18n-revision.js";
+import { MENSAJES_DIETAS_ES } from "./i18n.js";
 
 const claveDatos = (atributo) =>
   atributo.slice(5).replace(/-([a-z])/g, (_m, letra) => letra.toUpperCase());
@@ -205,6 +206,48 @@ test("el recorrido monta los cinco papeles cerrados y los retira al desmontar", 
   assert.equal(acceso.querySelectorAll("button").length, 0);
   vista.desmontar();
   assert.equal(contenedor.querySelector("[data-dietas-acceso]"), null);
+});
+
+test("las ayudas del recorrido muestran solo ? y conservan nombre accesible y contenido desplegable", async () => {
+  const llamadas = [];
+  const contenedor = crearRaiz();
+  const vista = montarVistaRecorridosDietas(contenedor, {
+    clienteBorradores: {
+      listar: async () => { llamadas.push("GET lista"); return { items: [] }; },
+      obtener: async () => { llamadas.push("GET detalle"); return item; },
+      crear: async () => { llamadas.push("POST"); return item; },
+    },
+  });
+  await Promise.resolve();
+  await Promise.resolve();
+  const raiz = contenedor.querySelector("[data-dietas-recorridos]");
+  const ayudas = ["solicitante", "jefatura", "gestion"].map((etapa) => {
+    const panel = raiz.querySelector(`[data-dietas-panel-etapa="${etapa}"]`);
+    const ayudasPanel = panel.querySelectorAll("details").filter((nodo) => nodo.className === "dietas-recorridos-ayuda");
+    assert.equal(ayudasPanel.length, 1, `ayuda propia de ${etapa}`);
+    return ayudasPanel[0];
+  });
+  assert.equal(ayudas.length, 3);
+  const contextos = [MENSAJES_REVISION_DIETAS_ES.revision_mis_comisiones,
+    MENSAJES_DIETAS_ES.recorridos_jefatura, MENSAJES_DIETAS_ES.recorridos_gestion];
+  for (const [indice, detalle] of ayudas.entries()) {
+    const resumen = detalle.querySelector("summary");
+    assert.equal(resumen.textContent, "?");
+    assert.equal(resumen.attrs["aria-label"], `${MENSAJES_DIETAS_ES.recorridos_abrir_ayuda} · ${contextos[indice]}`);
+    assert.ok(detalle.querySelector("p").textContent.length > 0);
+  }
+  const antes = [...llamadas];
+  raiz.listeners.click({ target: ayudas[0].querySelector("summary") });
+  assert.deepEqual(llamadas, antes, "abrir ayuda no dispara consulta ni escritura");
+  vista.desmontar();
+});
+
+test("el marcador nativo de summary queda oculto solo en la ayuda de recorridos", async () => {
+  const css = await readFile(new URL("dietas.css", import.meta.url), "utf8");
+  assert.match(css, /\.modulo-dietas\.dietas-recorridos \.dietas-recorridos-ayuda summary\s*\{[^}]*list-style:\s*none\s*;/u);
+  assert.match(css, /\.modulo-dietas\.dietas-recorridos \.dietas-recorridos-ayuda summary::-webkit-details-marker\s*\{[^}]*display:\s*none\s*;/u);
+  assert.match(css, /\.modulo-dietas :focus-visible\s*\{[^}]*outline:/u);
+  assert.match(css, /@media \(forced-colors: active\)\s*\{\s*\.modulo-dietas\.dietas-recorridos \.dietas-recorridos-ayuda summary\s*\{[^}]*color:\s*ButtonText\s*;[^}]*border-color:\s*ButtonText\s*;/u);
 });
 
 test("consulta un borrador mediante GET propio y presenta su recibo real", async () => {

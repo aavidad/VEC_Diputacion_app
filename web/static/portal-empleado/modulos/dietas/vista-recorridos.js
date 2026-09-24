@@ -20,10 +20,12 @@ function retirar(contenedor, raiz) {
   if (typeof raiz.remove === "function") raiz.remove();
   else contenedor.removeChild?.(raiz);
 }
-function ayuda(documento, t, clave) {
+function ayuda(documento, t, clave, contexto) {
   const detalles = nodo(documento, "details");
   detalles.className = "dietas-recorridos-ayuda";
-  detalles.append(nodo(documento, "summary", t("recorridos_abrir_ayuda")), nodo(documento, "p", t(clave)));
+  const resumen = nodo(documento, "summary", "?");
+  resumen.setAttribute("aria-label", `${t("recorridos_abrir_ayuda")} · ${t(contexto)}`);
+  detalles.append(resumen, nodo(documento, "p", t(clave)));
   return detalles;
 }
 function panelPendiente(documento, t, etapa, titulo, descripcion, acciones) {
@@ -32,7 +34,7 @@ function panelPendiente(documento, t, etapa, titulo, descripcion, acciones) {
   panel.dataset.dietasPanelEtapa = etapa;
   const cabecera = nodo(documento, "div");
   cabecera.className = "cabecera-panel";
-  cabecera.append(nodo(documento, "h2", t(titulo)), ayuda(documento, t, "revision_ayuda_circuito"));
+  cabecera.append(nodo(documento, "h2", t(titulo)), ayuda(documento, t, "revision_ayuda_circuito", titulo));
   const cuerpo = nodo(documento, "div");
   cuerpo.className = "cuerpo-panel";
   const aviso = nodo(documento, "p", t(descripcion));
@@ -71,7 +73,7 @@ function panelSolicitante(documento, t, areaBorradores, areaItinerario, puedeCre
   if (!puedeCrear) abrir.title = areaItinerario ? t("revision_itinerario_sin_registro") : t("borradores_propios_pendiente_conexion");
   abrir.setAttribute("aria-expanded", "false");
   abrir.setAttribute("aria-controls", puedeCrear ? "dietas-recorridos-nueva dietas-recorridos-formulario" : "dietas-recorridos-nueva");
-  acciones.append(ayuda(documento, t, puedeCrear ? "revision_ayuda_propia" : "revision_ayuda_sin_cliente"), abrir);
+  acciones.append(ayuda(documento, t, puedeCrear ? "revision_ayuda_propia" : "revision_ayuda_sin_cliente", "revision_mis_comisiones"), abrir);
   cabecera.append(titulos, acciones);
   const nueva = nodo(documento, "section");
   nueva.className = "dietas-nueva-comision";

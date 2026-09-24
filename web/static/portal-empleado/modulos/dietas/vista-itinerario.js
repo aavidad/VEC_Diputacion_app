@@ -95,9 +95,10 @@ function crearCabeceraItinerario(documento, traducir) {
   const cabecera = elemento(documento, "div");
   cabecera.className = "cabecera-panel";
   const titulo = elemento(documento, "h2", traducir("ruta_del_dia"));
-  const ayuda = elemento(documento, "button", traducir("recorridos_abrir_ayuda"));
+  const ayuda = elemento(documento, "button", "?");
   ayuda.type = "button";
   ayuda.className = "boton-terciario";
+  ayuda.setAttribute("aria-label", `${traducir("recorridos_abrir_ayuda")} · ${traducir("ruta_del_dia")}`);
   // El shell ya abre el ayudante de trámites y contiene los pasos de Dietas.
   ayuda.dataset.accion = "ayuda";
   cabecera.append(titulo, ayuda);
