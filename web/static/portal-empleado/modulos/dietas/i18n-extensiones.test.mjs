@@ -17,8 +17,8 @@ test("las claves nuevas pertenecen al catálogo común y respetan el traductor i
 });
 
 test("la consulta y su ayuda están traducidas y sus imports no usan la versión anterior", async () => {
-  const clave = "borradores_propios_consultar_registrados";
-  assert.equal(crearTraductorDietas()(clave), "Consultar borradores registrados");
+  const claveConsulta = "borradores_propios_consultar_registrados";
+  assert.equal(crearTraductorDietas()(claveConsulta), "Consultar borradores registrados");
   assert.match(crearTraductorDietas()("borradores_propios_consulta_registrados"), /La lista no confirma altas anteriores/u);
   assert.match(crearTraductorDietas()("borradores_propios_consulta_ayuda"), /Elija un borrador para ver su recibo/u);
   const [comun, borradores, recorridos] = await Promise.all([

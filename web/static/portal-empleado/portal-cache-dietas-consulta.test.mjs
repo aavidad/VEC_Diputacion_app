@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const raiz = new URL("./", import.meta.url);
-const versionEntradaNueva = "20260924-f2-dietas-consulta-v3";
+const versionEntradaNueva = "20260924-web-integrada-v1";
 const versionVistaNueva = "20260924-f2-consulta-v2";
 const versionAnteriorEntrada = "20260924-f2-dietas-consulta-v2";
 const versionAnteriorDietas = "20260924-f2-dietas-consulta-v2";
