@@ -5,8 +5,8 @@ import { PLANTILLA_TESELAS_OSM_INTERNA } from "./modulos/dietas/contrato.js";
 
 const raiz = new URL("./", import.meta.url);
 const vistasC = "20260924-web-c-v1";
-const recuperacion = "20260924-dietas-recuperacion-v2";
-const entrada = "20260924-web-c-v2";
+const recuperacion = "20260924-dietas-recuperacion-v3";
+const entrada = "20260924-web-c-v3";
 const cronos = "20260924-cronos-integrado-v1";
 const dietas = "20260924-dietas-d1d2d4";
 const versiones = (codigo, recurso) => [...codigo.matchAll(new RegExp(`${recurso.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\?v=([^"']+)`, "gu"))].map((m) => m[1]);
@@ -70,6 +70,12 @@ test("el corrector Dietas descarga de nuevo la cadena que tenía C inicial", asy
     [coordinador, "./modulos/dietas/vista-recorridos.js", "20260924-dietas-d1d2d4", recuperacion, 2],
     [recorridos, "./vista-borradores-propios.js", "20260924-dietas-d1d2d4", recuperacion, 1],
   ];
+  for (const [codigo, ruta, anterior] of [
+    [html, "/portal-empleado/portal.js", "20260924-web-c-v2"],
+    [portal, "./portal-modulos-coordinador.js", "20260924-web-c-v2"],
+    [coordinador, "./modulos/dietas/vista-recorridos.js", "20260924-dietas-recuperacion-v2"],
+    [recorridos, "./vista-borradores-propios.js", "20260924-dietas-recuperacion-v2"],
+  ]) assert.ok(!codigo.includes(`${ruta}?v=${anterior}`), "no conserva el corrector intermedio");
   const cache = new Map(aristas.map(([, ruta, previa]) => [`${ruta}?v=${previa}`, "versión anterior"]));
   for (const [codigo, ruta, previa, nueva, cantidad] of aristas) {
     assert.deepEqual(versiones(codigo, ruta), Array(cantidad).fill(nueva));
