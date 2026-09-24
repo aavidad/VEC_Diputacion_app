@@ -12,11 +12,11 @@ const versionPersonalInterno = "20260924-p1-personal-interno-v2";
 const versionPersonalEstados = "20260924-f2-personal-estados-v4";
 const versionCronosPermisos = "20260924-f2-cronos-permisos-v2";
 const versionCronosAyuda = "20260924-cronos-integrado-v1";
-const versionDietasShell = "20260924-web-c-v3";
-const versionDietasVista = "20260924-dietas-d1d2d4";
+const versionDietasShell = "20260924-web-c-ayuda-v4";
+const versionDietasVista = "20260924-dietas-ayuda-icono-v1";
 const versionVistasC = "20260924-web-c-v1";
 const versionDietasRecuperacion = "20260924-dietas-recuperacion-v3";
-const versionIntegracion = "20260924-web-c-v3";
+const versionIntegracion = "20260924-web-c-ayuda-v4";
 const raiz = new URL("./", import.meta.url);
 
 function versionesDe(codigo, recurso) {
@@ -116,14 +116,14 @@ test("el grafo JS propio llega desde HTML a los consumidores F2 con versiones nu
     await access(new URL(recurso, raiz));
   }
   assert.deepEqual(versionesDe(coordinador, "./modulos/dietas/vista-recorridos.js"),
-    [versionDietasRecuperacion, versionDietasRecuperacion]);
+    [versionDietasVista, versionDietasVista]);
   assert.equal(versionDe(dietas, "./vista-borradores-propios.js"), versionDietasRecuperacion);
 });
 
 test("la caché immutable previa no retiene el catálogo i18n ni los consumidores F2", async () => {
   const versionesPrevias = new Map([
-    ["portal.js", ["20260924-web-integrada-v1", version, versionCache, versionCachePersonal, "20260924-p1-personal-interno-v1", versionPersonalInterno, versionPersonalEstados, "20260924-f2-cronos-permisos-v1", versionCronosPermisos, "20260924-f2-dietas-consulta-v2"]],
-    ["portal-modulos-coordinador.js", ["20260924-web-integrada-v1", version, versionCache, versionCachePersonal, "20260924-p1-personal-interno-v1", versionPersonalInterno, versionPersonalEstados, "20260924-f2-cronos-permisos-v1", versionCronosPermisos, "20260924-f2-dietas-consulta-v2"]],
+    ["portal.js", ["20260924-web-integrada-v1", version, versionCache, versionCachePersonal, "20260924-p1-personal-interno-v1", versionPersonalInterno, versionPersonalEstados, "20260924-f2-cronos-permisos-v1", versionCronosPermisos, "20260924-f2-dietas-consulta-v2", "20260924-web-c-v3"]],
+    ["portal-modulos-coordinador.js", ["20260924-web-integrada-v1", version, versionCache, versionCachePersonal, "20260924-p1-personal-interno-v1", versionPersonalInterno, versionPersonalEstados, "20260924-f2-cronos-permisos-v1", versionCronosPermisos, "20260924-f2-dietas-consulta-v2", "20260924-web-c-v3"]],
     ["portal-catalogo-modulos.js", ["20260906-acceso-certificado-v1", versionCache]],
     ["portal-inicio.js", ["20260923-p4-reintento-v2", versionCache]],
     ["portal-eventos.js", ["20260721-acceso-real-v2", versionCache]],
@@ -131,7 +131,7 @@ test("la caché immutable previa no retiene el catálogo i18n ni los consumidore
     ["portal-borradores-acceso.js", ["20260721-acceso-real-v2", versionCache]],
     ["portal-i18n.js", ["20260721-acceso-real-v2", "20260923-p4-reintento-v2", version, versionCache]],
     ["modulos/cronos/vista-recorridos.js", ["20260920-cronos-bandeja-v2", versionCache]],
-    ["modulos/dietas/vista-recorridos.js", [version, "20260924-f2-dietas-consulta-v2"]],
+    ["modulos/dietas/vista-recorridos.js", [version, "20260924-f2-dietas-consulta-v2", versionDietasRecuperacion]],
     ["modulos/personal/vista.js", ["20260920-personal-catalogo-v1", versionCachePersonal]],
     ["modulos/personal/cliente-http-categorias.js", ["20260920-personal-catalogo-v1"]],
     ["modulos/personal/vista-estructura-organizativa-publica.js", ["20260920-personal-estructura-v1"]],
@@ -186,7 +186,7 @@ test("la caché immutable previa no retiene el catálogo i18n ni los consumidore
         "modulos/cronos/vista-recorridos.js", "modulos/dietas/vista-recorridos.js"].includes(hijo) ? 2 : 1,
         `${padre} → ${hijo}: número de aristas`);
       const versionEsperada = padre === "index.html" || hijo === "portal-modulos-coordinador.js"
-        ? versionDietasShell : hijo === "modulos/cronos/vista-recorridos.js" ? versionCronosAyuda : hijo === "modulos/dietas/vista-recorridos.js" ? versionDietasRecuperacion : [
+        ? versionDietasShell : hijo === "modulos/cronos/vista-recorridos.js" ? versionCronosAyuda : hijo === "modulos/dietas/vista-recorridos.js" ? versionDietasVista : [
         "portal-catalogo-modulos.js", "portal-inicio.js", "portal-eventos.js",
         "portal-borradores-ui.js", "portal-borradores-acceso.js", "portal-i18n.js"].includes(hijo)
         ? versionCronosPermisos
@@ -202,7 +202,7 @@ test("la caché immutable previa no retiene el catálogo i18n ni los consumidore
   }
   assert.deepEqual(hitsPrevios, [], "ninguna URL immutable antigua se recupera de caché");
   assert.ok(descargas.has(`/portal-empleado/modulos/personal/cliente-http-categorias.js?v=${versionPersonalInterno}`));
-  assert.ok(descargas.has(`/portal-empleado/modulos/dietas/vista-recorridos.js?v=${versionDietasRecuperacion}`));
+  assert.ok(descargas.has(`/portal-empleado/modulos/dietas/vista-recorridos.js?v=${versionDietasVista}`));
   assert.equal(descargas.size, versionesPrevias.size, "todos los recursos cambiados se descargan de nuevo");
 });
 
