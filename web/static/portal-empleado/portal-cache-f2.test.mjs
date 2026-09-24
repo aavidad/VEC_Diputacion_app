@@ -12,9 +12,9 @@ const versionPersonalInterno = "20260924-p1-personal-interno-v2";
 const versionPersonalEstados = "20260924-f2-personal-estados-v4";
 const versionCronosPermisos = "20260924-f2-cronos-permisos-v2";
 const versionCronosAyuda = "20260924-cronos-ayuda-v1";
-const versionDietasShell = "20260924-web-integrada-v1";
+const versionDietasShell = "20260924-web-integrada-v2";
 const versionDietasVista = "20260924-f2-consulta-v2";
-const versionIntegracion = "20260924-web-integrada-v1";
+const versionIntegracion = "20260924-web-integrada-v2";
 const raiz = new URL("./", import.meta.url);
 
 function versionesDe(codigo, recurso) {
@@ -120,8 +120,8 @@ test("el grafo JS propio llega desde HTML a los consumidores F2 con versiones nu
 
 test("la caché immutable previa no retiene el catálogo i18n ni los consumidores F2", async () => {
   const versionesPrevias = new Map([
-    ["portal.js", [version, versionCache, versionCachePersonal, "20260924-p1-personal-interno-v1", versionPersonalInterno, versionPersonalEstados, "20260924-f2-cronos-permisos-v1", versionCronosPermisos, "20260924-f2-dietas-consulta-v2"]],
-    ["portal-modulos-coordinador.js", [version, versionCache, versionCachePersonal, "20260924-p1-personal-interno-v1", versionPersonalInterno, versionPersonalEstados, "20260924-f2-cronos-permisos-v1", versionCronosPermisos, "20260924-f2-dietas-consulta-v2"]],
+    ["portal.js", ["20260924-web-integrada-v1", version, versionCache, versionCachePersonal, "20260924-p1-personal-interno-v1", versionPersonalInterno, versionPersonalEstados, "20260924-f2-cronos-permisos-v1", versionCronosPermisos, "20260924-f2-dietas-consulta-v2"]],
+    ["portal-modulos-coordinador.js", ["20260924-web-integrada-v1", version, versionCache, versionCachePersonal, "20260924-p1-personal-interno-v1", versionPersonalInterno, versionPersonalEstados, "20260924-f2-cronos-permisos-v1", versionCronosPermisos, "20260924-f2-dietas-consulta-v2"]],
     ["portal-catalogo-modulos.js", ["20260906-acceso-certificado-v1", versionCache]],
     ["portal-inicio.js", ["20260923-p4-reintento-v2", versionCache]],
     ["portal-eventos.js", ["20260721-acceso-real-v2", versionCache]],
@@ -251,6 +251,17 @@ test("la recuperación de subsanación renueva toda la cadena immutable y ambas 
 test("la ayuda de Cronos renueva las dos importaciones y la hoja de permisos", async () => {
   const html = await readFile(new URL("index.html", raiz), "utf8");
   const coordinador = await readFile(new URL("portal-modulos-coordinador.js", raiz), "utf8");
+  const portal = await readFile(new URL("portal.js", raiz), "utf8");
+  const cacheAnterior = new Map([
+    ["portal.js?v=20260924-web-integrada-v1", "entrada anterior"],
+    ["portal-modulos-coordinador.js?v=20260924-web-integrada-v1", "coordinador anterior"],
+  ]);
+  assert.equal(versionDe(html, "/portal-empleado/portal.js"), versionIntegracion);
+  assert.equal(versionDe(portal, "./portal-modulos-coordinador.js"), versionIntegracion);
+  assert.ok(!html.includes("portal.js?v=20260924-web-integrada-v1"));
+  assert.ok(!portal.includes("portal-modulos-coordinador.js?v=20260924-web-integrada-v1"));
+  assert.ok(!cacheAnterior.has(`portal.js?v=${versionIntegracion}`));
+  assert.ok(!cacheAnterior.has(`portal-modulos-coordinador.js?v=${versionIntegracion}`));
   assert.deepEqual(versionesDe(coordinador, "./modulos/cronos/vista-recorridos.js"), [versionCronosAyuda, versionCronosAyuda]);
   assert.equal(versionDe(html, "/portal-empleado/modulos/cronos/permisos.css"), versionCronosAyuda);
   assert.ok(!coordinador.includes("cronos/vista-recorridos.js?v=20260924-f2-cache-v2"));
