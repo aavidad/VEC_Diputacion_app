@@ -330,7 +330,20 @@
   text-underline-offset: 2px;
 }
 
-.ayuda-inline summary { color: var(--bolsa-brand); cursor: pointer; font-weight: 680; }
+.ayuda-inline summary {
+  display: inline-grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid var(--bolsa-line);
+  border-radius: 50%;
+  background: var(--bolsa-brand-soft);
+  color: var(--bolsa-brand);
+  cursor: pointer;
+  font-weight: 700;
+  list-style: none;
+}
+.ayuda-inline summary::-webkit-details-marker { display: none; }
 .ayuda-inline p { margin: 6px 0 0; }
 .ayuda-inline summary:focus-visible,
 .ayuda-publica summary:focus-visible { outline: 3px solid var(--bolsa-focus); outline-offset: 2px; }

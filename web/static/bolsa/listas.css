@@ -30,15 +30,19 @@
 }
 .ayuda-listas-publica { margin: -8px 0 16px; color: var(--bolsa-muted-strong); font-size: .88rem; }
 .ayuda-listas-publica summary {
-  width: fit-content;
-  padding: 5px 9px;
+  display: inline-grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
   border: 1px solid var(--bolsa-line);
-  border-radius: var(--bolsa-radius);
-  background: var(--bolsa-surface);
+  border-radius: 50%;
+  background: var(--bolsa-brand-soft);
   color: var(--bolsa-brand);
   cursor: pointer;
   font-weight: 700;
+  list-style: none;
 }
+.ayuda-listas-publica summary::-webkit-details-marker { display: none; }
 .ayuda-listas-publica > p { max-width: 85ch; line-height: 1.5; }
 .ayuda-listas-publica[open] > p { margin: 12px 0; }
 .ayuda-listas-publica .aviso-privacidad-publica { margin: 12px 0 0; }
