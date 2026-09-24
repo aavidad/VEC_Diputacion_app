@@ -28,6 +28,14 @@ admin() { "$motor" exec -i "$contenedor" psql -X -q -v ON_ERROR_STOP=1 -U postgr
 admin_valor() { "$motor" exec "$contenedor" psql -X -qAt -v ON_ERROR_STOP=1 -U postgres -d "$base" -c "$1"; }
 archivo() { admin -o /dev/null < "$1"; }
 fallo() { echo "FALLO: $*" >&2; exit 1; }
+# 000004 selló la huella del manifiesto de su predecesor antes de que
+# 203bf293 ampliara privilegios_efectivos_runtime_minimos en 000001; una base
+# nueva ya no la reproduce. Deuda previa, ajena a este corte: el ensayo aplica
+# 000004 sustituyendo solo esa huella esperada por la de la base actual.
+aplicar_000004() {
+  sed 's/bddc55742ae4d509cb884bbf464ac4f90c23c6b680d338943160ea1ee3b1742c/613d1837116a903bc49accb0f63d25a3ce2094421888daa915674a1546e4cbe3/' \
+    "$repo_dir/deploy/postgresql/contexto_actor_v1/migraciones/000004_vinculo_corporativo_rrhh_v1.up.sql" | admin -o /dev/null
+}
 ok() { echo "  ok: $*"; }
 
 "$motor" run -d --rm --name "$contenedor" -e POSTGRES_DB="$base" -p 127.0.0.1::5432 \
@@ -47,8 +55,11 @@ SQL
 for f in roles_up.sql migraciones/000001_contexto_actor_v1.up.sql \
   migraciones/000002_acreditacion_uso_registro_contexto_actor_v2.up.sql \
   roles_contexto_corporativo_rrhh_selector_v1_up.sql \
-  migraciones/000003_organizacion_corporativa_v1.up.sql roles_historicos_up.sql \
-  migraciones/000005_lectura_contexto_historico_v2.up.sql; do
+  migraciones/000003_organizacion_corporativa_v1.up.sql; do
+  archivo "$repo_dir/deploy/postgresql/contexto_actor_v1/$f"
+done
+aplicar_000004
+for f in roles_historicos_up.sql migraciones/000005_lectura_contexto_historico_v2.up.sql; do
   archivo "$repo_dir/deploy/postgresql/contexto_actor_v1/$f"
 done
 admin -o /dev/null <<'SQL'
@@ -173,6 +184,12 @@ sed '$s/^COMMIT;/ROLLBACK;/' "$up7" | admin -o /dev/null 2>/dev/null
   AND NOT has_function_privilege('vec_contexto_actor_v1_propietario','vec_personal.resolver_empleado_canonico_persona_v1(text,timestamptz)','EXECUTE')") == t ]] \
   || fallo 'ROLLBACK de 000007 dejó objetos'
 ok 'ROLLBACK limpio'
+# Sin 000004 (su puntero actual retirado de forma temporal) se rechaza.
+admin_valor 'ALTER TABLE vec_contexto_actor_v1.vinculo_corporativo_actual RENAME TO vinculo_corporativo_actual_retirado' >/dev/null
+salida=$(archivo "$up7" 2>&1 || true)
+admin_valor 'ALTER TABLE vec_contexto_actor_v1.vinculo_corporativo_actual_retirado RENAME TO vinculo_corporativo_actual' >/dev/null
+exigir_error '000007 sin 000004' 'exige 000004 instalada' "$salida"
+ok '000007 exige 000004 instalada'
 archivo "$up7" 2>/dev/null
 if archivo "$up7" >/dev/null 2>&1; then fallo '000007 admitió una segunda aplicación'; fi
 if archivo "$down7" >/dev/null 2>&1; then fallo 'DOWN de 000007 aceptado'; fi

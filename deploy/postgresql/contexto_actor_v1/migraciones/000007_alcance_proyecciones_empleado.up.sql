@@ -41,6 +41,19 @@
 --     contratacion_temporal/pruebas_sql/fixture_contexto_actor_b_o3.sql.
 -- Los punteros existentes en cada base se enumeran con NOTICE al aplicar.
 --
+-- Orden obligatorio de instalación: 000001, 000002, 000003, 000004, 000005,
+-- 000006 y, con Personal 000016 ya instalada, 000007. 000004 (vínculo
+-- corporativo RRHH) no puede aplicarse después de 000007, así que esta
+-- preimagen exige sus objetos (historia, puntero actual con sus
+-- disparadores de generación y la unicidad de actor que añade) y rechaza la
+-- instalación si falta.
+--
+-- Deuda para una 000008: el lector histórico leer_contexto_original_v2
+-- (000005, línea ~206) exige vinculo_ref 'vin_' en cada vínculo del canon y
+-- no reconstruye la entrada 'pep_' de Personal. Los registros resueltos con
+-- alcance {empleado} fallan cerrado en esa lectura (22023) en lugar de
+-- reconstruirse; los de alcance vacío no cambian.
+--
 -- DOWN prohibido: las funciones sustituidas firman recibos con historia.
 BEGIN;
 SET LOCAL search_path = pg_catalog;
@@ -71,6 +84,24 @@ BEGIN
      OR pg_catalog.to_regprocedure('vec_contexto_actor_v1.proyeccion_empleado_personal_v2(text,timestamptz)') IS NOT NULL
      OR pg_catalog.to_regprocedure('vec_contexto_actor_v1.rechazar_alta_puntero_empleado_v2()') IS NOT NULL THEN
     RAISE EXCEPTION 'falta postimagen ContextoActor 000006 o 000007 ya aplicada' USING ERRCODE='55000';
+  END IF;
+  -- 000004 instalada: no puede aplicarse después de esta migración.
+  IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_class
+                  WHERE oid = pg_catalog.to_regclass('vec_contexto_actor_v1.vinculo_corporativo_versiones')
+                    AND relkind = 'r' AND relowner = propietario AND relforcerowsecurity)
+     OR NOT EXISTS (SELECT 1 FROM pg_catalog.pg_class
+                  WHERE oid = pg_catalog.to_regclass('vec_contexto_actor_v1.vinculo_corporativo_actual')
+                    AND relkind = 'r' AND relowner = propietario AND relforcerowsecurity)
+     OR (SELECT count(*) FROM pg_catalog.pg_trigger t
+          WHERE t.tgrelid = pg_catalog.to_regclass('vec_contexto_actor_v1.vinculo_corporativo_actual')
+            AND NOT t.tgisinternal
+            AND t.tgname IN ('serializar_mutacion_punteros_actuales_v2',
+                             'avanzar_generacion_punteros_actuales_v2',
+                             'puntero_actual_no_truncable_v2')) <> 3
+     OR NOT EXISTS (SELECT 1 FROM pg_catalog.pg_constraint
+                  WHERE conrelid = 'vec_contexto_actor_v1.vinculo_contexto_versiones'::regclass
+                    AND conname = 'vinculo_contexto_versiones_actor_uq' AND contype = 'u') THEN
+    RAISE EXCEPTION 'ContextoActor 000007 exige 000004 instalada antes' USING ERRCODE='55000';
   END IF;
   -- Postimagen exacta de 000006 (y de las funciones heredadas que se sustituyen).
   IF (SELECT pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(prosrc,'UTF8')),'hex')
