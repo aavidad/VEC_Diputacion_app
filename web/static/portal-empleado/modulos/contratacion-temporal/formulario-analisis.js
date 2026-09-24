@@ -15,12 +15,14 @@ const PATRON_JORNADA = /^(?:[1-9][0-9]{0,3}|10000)$/u;
 // exacto). La persona la escribe en horas y minutos semanales; la referencia
 // de jornada completa es provisional hasta que RRHH la confirme.
 export const MINUTOS_JORNADA_COMPLETA = 37 * 60 + 30;
-const PATRON_HORAS = /^(?:[0-9]|[1-9][0-9])$/u;
-const PATRON_MINUTOS = /^(?:[0-9]|[1-5][0-9])$/u;
+const PATRON_ENTERO_DECIMAL = /^[0-9]+$/u;
 
 export function diezmilesimasDesdeHorasMinutos(horas, minutos) {
-  if (!PATRON_HORAS.test(horas) || !PATRON_MINUTOS.test(minutos)) return "";
-  const total = Number(horas) * 60 + Number(minutos);
+  if (!PATRON_ENTERO_DECIMAL.test(horas) || !PATRON_ENTERO_DECIMAL.test(minutos)) return "";
+  const cantidadHoras = Number(horas);
+  const cantidadMinutos = Number(minutos);
+  if (cantidadHoras > 37 || cantidadMinutos > 59) return "";
+  const total = cantidadHoras * 60 + cantidadMinutos;
   if (total < 1 || total > MINUTOS_JORNADA_COMPLETA) return "";
   return String(Math.max(1, Math.round(total * 10000 / MINUTOS_JORNADA_COMPLETA)));
 }
@@ -30,7 +32,8 @@ function jornadaDesdeFormulario(datos) {
   const minutos = String(datos.get("jornada_minutos") ?? "").trim();
   const original = String(datos.get("jornada_original") ?? "");
   const previa = horasMinutosDesdeDiezmilesimas(original);
-  if (PATRON_JORNADA.test(original) && String(Number(horas)) === previa.horas
+  if (PATRON_JORNADA.test(original) && diezmilesimasDesdeHorasMinutos(horas, minutos) !== ""
+    && String(Number(horas)) === previa.horas
     && String(Number(minutos)) === previa.minutos && horas !== "" && minutos !== "") return original;
   return diezmilesimasDesdeHorasMinutos(horas, minutos);
 }
