@@ -117,11 +117,23 @@ func (a *autoridadCronosEmpleadoDesarrollo) ServeHTTP(w http.ResponseWriter, r *
 		return
 	}
 	manejador, publicada := a.rutas[r.URL.Path]
-	if !publicada || r.URL.RawPath != "" {
+	publicada = publicada && r.URL.RawPath == ""
+	// Sin cadena mTLS verificada no hay identidad acreditada: se responde sin
+	// auditoría durable para que un anónimo no pueda amplificar escrituras en
+	// denegacion_frontera. Solo se auditan denegaciones con identidad TLS.
+	if r.TLS == nil || len(r.TLS.VerifiedChains) == 0 || len(r.TLS.VerifiedChains[0]) == 0 {
+		if !publicada {
+			responderDenegacionCronosEmpleado(w, http.StatusNotFound, "no_disponible")
+			return
+		}
+		responderDenegacionCronosEmpleado(w, http.StatusUnauthorized, "autenticacion_requerida")
+		return
+	}
+	if !publicada {
 		a.denegar(w, r, http.StatusNotFound, cronosports.MotivoFronteraAccesoDenegado, "no_disponible", "")
 		return
 	}
-	if a.base == nil || r.TLS == nil || len(r.TLS.VerifiedChains) == 0 || len(r.TLS.VerifiedChains[0]) == 0 || r.Header.Get("Cookie") != "" || r.Header.Get("Authorization") != "" {
+	if a.base == nil || r.Header.Get("Cookie") != "" || r.Header.Get("Authorization") != "" {
 		a.denegar(w, r, http.StatusUnauthorized, cronosports.MotivoFronteraAutenticacion, "autenticacion_requerida", "")
 		return
 	}

@@ -225,8 +225,29 @@ func TestCronosEmpleadoFronteraMTLSDeniegaConMotivoYAudita(t *testing.T) {
 	}
 	sinTLS := httptest.NewRecorder()
 	auditoria.err = nil
+	previas := len(auditoria.ordenes)
 	componerRaizConCronosEmpleado(raiz, autoridad).ServeHTTP(sinTLS, httptest.NewRequest(http.MethodGet, cronoshttp.RutaConsultarSaldoPropio, nil))
 	if sinTLS.Code != http.StatusUnauthorized || !strings.Contains(sinTLS.Body.String(), "autenticacion_requerida") {
 		t.Fatal("sin mTLS no denegado", sinTLS.Code)
 	}
+	// Un anónimo sin mTLS no escribe en la auditoría durable, ni en rutas
+	// publicadas ni en rutas inexistentes bajo el prefijo.
+	for i := 0; i < 3; i++ {
+		anonimo := httptest.NewRecorder()
+		componerRaizConCronosEmpleado(raiz, autoridad).ServeHTTP(anonimo, httptest.NewRequest(http.MethodPost, prefijoRutasCronosEmpleado+"inexistente", nil))
+		if anonimo.Code != http.StatusNotFound || !strings.Contains(anonimo.Body.String(), "no_disponible") {
+			t.Fatal("ruta no publicada anónima no denegada", anonimo.Code)
+		}
+	}
+	if len(auditoria.ordenes) != previas {
+		t.Fatalf("peticiones anónimas escribieron auditoría: %d > %d", len(auditoria.ordenes), previas)
+	}
+	// Con identidad TLS acreditada la ruta no publicada sí se audita, y si la
+	// auditoría no confirma la respuesta es 503.
+	auditoria.err = errors.New("auditor caído")
+	pedir(prefijoRutasCronosEmpleado+"inexistente", http.StatusServiceUnavailable, "no_disponible")
+	if len(auditoria.ordenes) != previas+1 || auditoria.ordenes[previas].Ruta != "otra" {
+		t.Fatalf("denegación acreditada sin intento de auditoría: %+v", auditoria.ordenes)
+	}
+	auditoria.err = nil
 }
