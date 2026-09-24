@@ -1092,6 +1092,121 @@ test("401 y 403 de detalle purgan filas, ficha y cursor con o sin ficha previa",
   }
 });
 
+test("401 y 403 de POST purgan la lista, ficha y cursor obtenidos por GET", async () => {
+  for (const codigo of ["autenticacion_requerida", "acceso_denegado"]) {
+    const contenedor = raiz();
+    const privado = {
+      comision: { ...item.comision, motivo: `Motivo privado ${codigo}`, fecha_inicio: "2026-10-31" },
+      recibo: { ...item.recibo, referencia: "rcd_privado_1234567890123456789012" },
+    };
+    const consultas = [];
+    const solicitudes = [];
+    const vista = montarVistaBorradoresPropios(contenedor, {
+      generarClaveIdempotencia: () => `clave-post-${codigo}`,
+      cliente: {
+        listar: async (consulta) => {
+          consultas.push(consulta);
+          return consultas.length === 1
+            ? { items: [privado], siguiente_cursor: "cursor-privado" }
+            : { items: [] };
+        },
+        obtener: async () => privado,
+        crear: async (solicitud) => {
+          solicitudes.push(solicitud);
+          const error = new Error("denegado"); error.codigo = codigo; throw error;
+        },
+      },
+    });
+    await Promise.resolve(); await Promise.resolve();
+    const panel = contenedor.querySelector("[data-dietas-borradores-propios]");
+    await panel.listeners.click({ target: contenedor.querySelector("[data-dietas-borrador-detalle]") });
+    const form = contenedor.querySelector("[data-dietas-borrador-form]");
+    form.checkValidity = () => true;
+    const datos = { fecha_inicio: "2026-09-20", fecha_fin: "2026-09-21", motivo: "Nueva comisión",
+      hora_inicio: "09:00", hora_fin: "18:00", origen_codigo: "18087", destino_codigo: "18003" };
+    const FormDataOriginal = globalThis.FormData;
+    globalThis.FormData = class { get(nombre) { return datos[nombre] ?? null; } };
+    try {
+      await panel.listeners.click({ target: form.querySelector("[data-dietas-parada-anadir]") });
+      form.querySelectorAll("select").find((selector) => selector.name === "parada_codigo").value = "18175";
+      await panel.listeners.submit({ target: form, preventDefault() {} });
+      assert.deepEqual(solicitudes[0].codigos_ruta, ["18087", "18175", "18003"]);
+      const visible = textoVisible(contenedor);
+      const fechaPrivada = new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeZone: "UTC" })
+        .format(new Date(`${privado.comision.fecha_inicio}T00:00:00Z`));
+      for (const dato of [privado.comision.motivo, fechaPrivada, privado.comision.referencia, privado.recibo.referencia])
+        assert.ok(!visible.includes(dato), `${codigo}: permanece ${dato}`);
+      assert.equal(contenedor.querySelector("[data-dietas-borrador-detalle]"), null);
+      assert.equal(contenedor.querySelector("[data-dietas-borrador-pagina]"), null);
+      assert.equal(contenedor.querySelector("[data-dietas-borrador-recibo]"), null);
+      assert.equal(contenedor.querySelector("[data-dietas-borradores-vacio]"), null);
+      assert.equal(contenedor.querySelector("[data-dietas-borradores-estado]").dataset.tono, "error");
+      assert.match(visible, codigo === "autenticacion_requerida"
+        ? /Debe identificarse de nuevo/u : /No tiene permiso para crear un borrador/u);
+      await panel.listeners.click({ target: contenedor.querySelector("[data-dietas-borrador-consultar-registrados]") });
+      assert.deepEqual(consultas[1], { limit: 6 });
+    } finally { globalThis.FormData = FormDataOriginal; vista.desmontar(); }
+  }
+});
+
+test("un POST denegado conserva solo el último recibo confirmado por POST", async () => {
+  for (const codigo of ["autenticacion_requerida", "acceso_denegado"]) {
+    const contenedor = raiz();
+    const alta = {
+      comision: { ...item.comision, referencia: "dco_confirmada_1234567890123456789012", motivo: "Alta confirmada" },
+      recibo: { ...item.recibo, referencia: "rcd_confirmado_1234567890123456789012" },
+    };
+    const altaPosterior = {
+      comision: { ...item.comision, referencia: "dco_posterior_1234567890123456789012", motivo: "Alta posterior" },
+      recibo: { ...item.recibo, referencia: "rcd_posterior_1234567890123456789012" },
+    };
+    const privado = {
+      comision: { ...item.comision, motivo: "Motivo solo por GET" },
+      recibo: { ...item.recibo, referencia: "rcd_solo_get_1234567890123456789012" },
+    };
+    let escrituras = 0;
+    const vista = montarVistaBorradoresPropios(contenedor, {
+      cliente: {
+        listar: async () => ({ items: [privado] }),
+        obtener: async () => privado,
+        crear: async () => {
+          escrituras += 1;
+          if (escrituras === 1) return alta;
+          if (escrituras === 2) return altaPosterior;
+          const error = new Error("denegado"); error.codigo = codigo; throw error;
+        },
+      },
+    });
+    await Promise.resolve(); await Promise.resolve();
+    const panel = contenedor.querySelector("[data-dietas-borradores-propios]");
+    const form = contenedor.querySelector("[data-dietas-borrador-form]");
+    form.checkValidity = () => true;
+    const datos = { fecha_inicio: "2026-09-20", fecha_fin: "2026-09-21", motivo: "Primera comisión",
+      hora_inicio: "09:00", hora_fin: "18:00", origen_codigo: "18087", destino_codigo: "18003" };
+    const FormDataOriginal = globalThis.FormData;
+    globalThis.FormData = class { get(nombre) { return datos[nombre] ?? null; } };
+    try {
+      await panel.listeners.submit({ target: form, preventDefault() {} });
+      await panel.listeners.click({ target: contenedor.querySelector("[data-dietas-borrador-detalle]") });
+      assert.match(textoVisible(contenedor), /Motivo solo por GET/u);
+      datos.motivo = "Segunda comisión";
+      await panel.listeners.submit({ target: form, preventDefault() {} });
+      datos.motivo = "Tercera comisión";
+      await panel.listeners.submit({ target: form, preventDefault() {} });
+      const visible = textoVisible(contenedor);
+      assert.equal(escrituras, 3);
+      assert.match(visible, /rcd_posterior_1234567890123456789012/u);
+      assert.doesNotMatch(visible, /Motivo solo por GET|rcd_solo_get_1234567890123456789012|rcd_confirmado_1234567890123456789012/u);
+      assert.equal(contenedor.querySelector("[data-dietas-borrador-detalle]"), null);
+      assert.equal(contenedor.querySelector("[data-dietas-borradores-estado]").dataset.tono, "error");
+      datos.motivo = "Primera comisión";
+      await panel.listeners.submit({ target: form, preventDefault() {} });
+      assert.equal(escrituras, 4, "el recibo anterior exige volver a consultar al servidor");
+      assert.doesNotMatch(textoVisible(contenedor), /rcd_confirmado_1234567890123456789012/u);
+    } finally { globalThis.FormData = FormDataOriginal; vista.desmontar(); }
+  }
+});
+
 test("un GET pendiente bloquea Guardar y Revisar sin iniciar otra creación", async () => {
   const contenedor = raiz();
   let resolver;

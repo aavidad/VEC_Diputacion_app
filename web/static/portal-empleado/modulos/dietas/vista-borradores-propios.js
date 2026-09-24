@@ -194,6 +194,10 @@ export function montarVistaBorradoresPropios(
   function purgarLecturasDenegadas() {
     // Un 401/403 invalida toda la proyección obtenida por GET, incluida la
     // página que permitió abrir el detalle. Sólo sobrevive un POST confirmado.
+    for (const [contenido, operacion] of operaciones) {
+      if (operacion.item && contenido !== ultimoAlta?.contenido)
+        operaciones.set(contenido, { clave: operacion.clave });
+    }
     cursores = [undefined];
     indicePagina = 0;
     siguienteCursor = undefined;
@@ -748,7 +752,7 @@ export function montarVistaBorradoresPropios(
       pintar();
       return;
     }
-    operaciones.set(contenido, { clave });
+    operaciones.set(contenido, { clave, incierta: operacion?.incierta === true });
     const solicitud = { clave_idempotencia: clave, ...base };
     controlador = new AbortController();
     const signal = controlador.signal;
@@ -783,6 +787,12 @@ export function montarVistaBorradoresPropios(
       if (!activaAhora() || signal.aborted) return;
       // Un 403 posterior no aclara si un intento previo de esta intención
       // quedó registrado. Conservar su clave hasta confirmar o desmontar.
+      if (error?.resultadoIndeterminado) operaciones.set(contenido, { clave, incierta: true });
+      else if (!operacion?.incierta) operaciones.delete(contenido);
+      if (["autenticacion_requerida", "acceso_denegado"].includes(error?.codigo)) {
+        purgarLecturasDenegadas();
+        estado = { ...estado, errorLista: true, errorListaClave: errorClave(error) };
+      }
       mensaje(errorClave(error, "crear"), "error");
     } finally {
       if (controlador?.signal === signal) controlador = null;
