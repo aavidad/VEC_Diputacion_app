@@ -146,7 +146,9 @@ export function montarVistaBorradoresPropios(
   let avisoPersistente = null;
   let listaPersistente = null;
   let fichaPersistente = null;
-  let pendiente = null;
+  // La clave de una creación incierta pertenece a su contenido exacto. Otra
+  // comisión puede prepararse sin perder la recuperación de la primera.
+  const operaciones = new Map();
   let ultimoAlta = null;
   let formularioVisible = formularioInicialmenteVisible;
   let cursores = [undefined];
@@ -171,6 +173,9 @@ export function montarVistaBorradoresPropios(
     if (!activa) return;
     activa = false;
     controlador?.abort();
+    operaciones.clear();
+    ultimoAlta = null;
+    estado = { ...estado, items: [], detalle: null, detalleOrigen: null };
     raiz.removeEventListener("submit", enviar);
     raiz.removeEventListener("click", clic);
     raiz.removeEventListener("change", cambiarRelacion);
@@ -184,6 +189,19 @@ export function montarVistaBorradoresPropios(
     try {
       anunciar(tBorradores(clave), tono);
     } catch {}
+  }
+  function purgarLecturasDenegadas() {
+    // Un 401/403 invalida toda la proyección obtenida por GET, incluida la
+    // página que permitió abrir el detalle. Sólo sobrevive un POST confirmado.
+    cursores = [undefined];
+    indicePagina = 0;
+    siguienteCursor = undefined;
+    estado = {
+      ...estado,
+      items: [],
+      detalle: ultimoAlta?.item ?? null,
+      detalleOrigen: ultimoAlta ? "post" : null,
+    };
   }
   function formulario() {
     const form = nodo(documento, "form");
@@ -213,6 +231,7 @@ export function montarVistaBorradoresPropios(
     );
     boton.type = "submit";
     boton.className = "boton-primario";
+    boton.dataset.dietasBorradorGuardar = "";
     boton.disabled = controlador !== null;
     const revisar = nodo(documento, "button", tBorradores("borradores_propios_revisar"));
     revisar.type = "button";
@@ -522,8 +541,11 @@ export function montarVistaBorradoresPropios(
     }
     raiz.dataset.formularioVisible = String(formularioVisible);
     formularioPersistente.hidden = !formularioVisible;
-    const botonGuardar = formularioPersistente.querySelector('button');
-    if (botonGuardar) botonGuardar.disabled = !conectada || controlador !== null || (relaciones.length > 1 && !relacionSeleccionada);
+    const controlesBloqueados = !conectada || controlador !== null || (relaciones.length > 1 && !relacionSeleccionada);
+    for (const selector of ["[data-dietas-borrador-guardar]", "[data-dietas-borrador-revisar]"]) {
+      const boton = formularioPersistente.querySelector(selector);
+      if (boton) boton.disabled = controlesBloqueados;
+    }
     avisoPersistente.textContent = tBorradores(estado.mensaje);
     avisoPersistente.dataset.tono = estado.tono;
     avisoPersistente.className = `estado-chip ${estado.tono === "error" ? "peligro" : estado.tono === "exito" ? "exito" : estado.tono === "aviso" ? "aviso" : "info"}`;
@@ -580,17 +602,13 @@ export function montarVistaBorradoresPropios(
         ? (error?.codigo === "acceso_denegado" ? "borradores_propios_creado_listado_denegado" : "borradores_propios_creado_listado_no_actualizado")
         : errorClave(error);
       const denegada = error?.codigo === "autenticacion_requerida" || error?.codigo === "acceso_denegado";
-      const retirarFichaGET = denegada && estado.detalleOrigen === "get";
+      if (denegada) purgarLecturasDenegadas();
       estado = {
         ...estado,
         carga: false,
         errorLista: true,
         errorListaClave: claveError,
         items: [],
-        ...(retirarFichaGET ? {
-          detalle: ultimoAlta?.item ?? null,
-          detalleOrigen: ultimoAlta ? "post" : null,
-        } : {}),
       };
       mensaje(claveError, conservarMensaje ? "aviso" : "error");
     } finally {
@@ -632,26 +650,22 @@ export function montarVistaBorradoresPropios(
     }
     if (base.codigos_ruta[0] === base.codigos_ruta[1]) { mensaje("borradores_propios_ruta_distinta","aviso"); pintar(); return; }
     const contenido = claveContenido(base);
-    if (ultimoAlta?.contenido === contenido) {
-      estado = { ...estado, detalle: ultimoAlta.item, detalleOrigen: "post" };
+    const operacion = operaciones.get(contenido);
+    if (operacion?.item) {
+      ultimoAlta = { contenido, item: operacion.item };
+      estado = { ...estado, detalle: operacion.item, detalleOrigen: "post" };
       mensaje("borradores_propios_ya_registrado", "exito");
       pintar();
       enfocarRecibo();
       return;
     }
-    if (pendiente && pendiente.contenido !== contenido) {
-      pendiente = null;
-      mensaje("borradores_propios_cambio_intencion", "aviso");
-      pintar();
-      return;
-    }
-    const clave = pendiente?.clave || generarClaveIdempotencia();
+    const clave = operacion?.clave || generarClaveIdempotencia();
     if (typeof clave !== "string" || !clave) {
       mensaje("borradores_propios_error", "error");
       pintar();
       return;
     }
-    pendiente = { clave, contenido };
+    operaciones.set(contenido, { clave });
     const solicitud = { clave_idempotencia: clave, ...base };
     controlador = new AbortController();
     const signal = controlador.signal;
@@ -661,7 +675,7 @@ export function montarVistaBorradoresPropios(
     try {
       const item = await cliente.crear(solicitud, { signal });
       if (!activaAhora() || signal.aborted) return;
-      pendiente = null;
+      operaciones.set(contenido, { clave, item });
       ultimoAlta = { contenido, item };
       altaConfirmada = true;
       const resumenLocal = formularioPersistente?.querySelector?.("[data-dietas-borrador-preparacion]");
@@ -684,7 +698,7 @@ export function montarVistaBorradoresPropios(
       await cargar(true);
     } catch (error) {
       if (!activaAhora() || signal.aborted) return;
-      if (!error?.resultadoIndeterminado) pendiente = null;
+      if (!error?.resultadoIndeterminado) operaciones.delete(contenido);
       mensaje(errorClave(error, "crear"), "error");
     } finally {
       if (controlador?.signal === signal) controlador = null;
@@ -780,10 +794,12 @@ export function montarVistaBorradoresPropios(
       mensaje("borradores_propios_detalle");
     } catch (error) {
       if (!activaAhora() || signal.aborted) return;
-      if (["autenticacion_requerida", "acceso_denegado"].includes(error?.codigo) && estado.detalleOrigen === "get") {
-        estado = { ...estado, detalle: ultimoAlta?.item ?? null, detalleOrigen: ultimoAlta ? "post" : null };
+      const denegada = ["autenticacion_requerida", "acceso_denegado"].includes(error?.codigo);
+      if (denegada) {
+        purgarLecturasDenegadas();
+        estado = { ...estado, errorLista: true, errorListaClave: errorClave(error) };
       }
-      mensaje(estado.detalle
+      mensaje(denegada ? errorClave(error) : estado.detalle
         ? (error?.codigo === "acceso_denegado" ? "borradores_propios_detalle_denegado" : "borradores_propios_detalle_no_actualizado")
         : errorClave(error), "error");
     } finally {

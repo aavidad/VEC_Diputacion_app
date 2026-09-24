@@ -774,6 +774,7 @@ test("la denegación posterior a otra ficha conserva solo el recibo de un POST c
     recibo: { ...item.recibo, referencia: "rcd_abcdefghijklmnopqrstuv" },
   };
   let lecturas = 0;
+  let detalles = 0;
   const vista = montarVistaBorradoresPropios(contenedor, {
     cliente: {
       listar: async () => {
@@ -781,7 +782,11 @@ test("la denegación posterior a otra ficha conserva solo el recibo de un POST c
         if (lecturas < 3) return { items: [item] };
         const error = new Error("denegado"); error.codigo = "acceso_denegado"; throw error;
       },
-      obtener: async () => item,
+      obtener: async () => {
+        detalles += 1;
+        if (detalles === 1) return item;
+        const error = new Error("denegado"); error.codigo = "acceso_denegado"; throw error;
+      },
       crear: async () => alta,
     },
   });
@@ -800,6 +805,10 @@ test("la denegación posterior a otra ficha conserva solo el recibo de un POST c
     await panel.listeners.submit({ target: form, preventDefault() {} });
     await panel.listeners.click({ target: contenedor.querySelector("[data-dietas-borrador-detalle]") });
     assert.match(textoVisible(contenedor.querySelector("[data-dietas-borrador-recibo]")), /rcd_1234567890123456789012/u);
+    await panel.listeners.click({ target: contenedor.querySelector("[data-dietas-borrador-detalle]") });
+    assert.equal(contenedor.querySelector("[data-dietas-borrador-detalle]"), null);
+    assert.doesNotMatch(textoVisible(contenedor), /Reunión/u);
+    assert.match(textoVisible(contenedor.querySelector("[data-dietas-borrador-recibo]")), /rcd_abcdefghijklmnopqrstuv/u);
     await panel.listeners.click({ target: contenedor.querySelector("[data-dietas-borrador-consultar-registrados]") });
     const recibo = textoVisible(contenedor.querySelector("[data-dietas-borrador-recibo]"));
     assert.match(recibo, /rcd_abcdefghijklmnopqrstuv/u);
@@ -888,4 +897,134 @@ test("la denegación de detalle elimina una ficha GET anterior", async () => {
   await panel.listeners.click({ target: contenedor.querySelector("[data-dietas-borrador-detalle]") });
   assert.equal(contenedor.querySelector("[data-dietas-borrador-recibo]"), null);
   vista.desmontar();
+});
+
+test("401 y 403 de detalle purgan filas, ficha y cursor con o sin ficha previa", async () => {
+  for (const codigo of ["autenticacion_requerida", "acceso_denegado"]) {
+    for (const fichaPrevia of [false, true]) {
+      const contenedor = raiz();
+      const privado = {
+        comision: { ...item.comision, motivo: `Motivo privado ${codigo}`, fecha_inicio: "2026-10-31" },
+        recibo: { ...item.recibo, referencia: "rcd_privado_1234567890123456789012" },
+      };
+      const consultas = [];
+      let detalles = 0;
+      let escrituras = 0;
+      const vista = montarVistaBorradoresPropios(contenedor, {
+        cliente: {
+          listar: async (consulta) => {
+            consultas.push(consulta);
+            return consultas.length === 1
+              ? { items: [privado], siguiente_cursor: "cursor-privado" }
+              : { items: [] };
+          },
+          obtener: async () => {
+            detalles += 1;
+            if (fichaPrevia && detalles === 1) return privado;
+            const error = new Error("denegado"); error.codigo = codigo; throw error;
+          },
+          crear: async () => { escrituras += 1; return privado; },
+        },
+      });
+      await Promise.resolve(); await Promise.resolve();
+      const panel = contenedor.querySelector("[data-dietas-borradores-propios]");
+      const fechaVisible = new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeZone: "UTC" })
+        .format(new Date(`${privado.comision.fecha_inicio}T00:00:00Z`));
+      assert.ok(textoVisible(contenedor).includes(privado.comision.motivo));
+      assert.ok(textoVisible(contenedor).includes(fechaVisible));
+      assert.ok(contenedor.querySelector('[data-dietas-borrador-pagina="siguiente"]'));
+      if (fichaPrevia)
+        await panel.listeners.click({ target: contenedor.querySelector("[data-dietas-borrador-detalle]") });
+      if (fichaPrevia) {
+        assert.ok(textoVisible(contenedor).includes(privado.comision.referencia));
+        assert.ok(textoVisible(contenedor).includes(privado.recibo.referencia));
+      }
+      await panel.listeners.click({ target: contenedor.querySelector("[data-dietas-borrador-detalle]") });
+      const visible = textoVisible(contenedor);
+      for (const dato of [privado.comision.motivo, fechaVisible, privado.comision.referencia, privado.recibo.referencia])
+        assert.ok(!visible.includes(dato), `${codigo}: permanece ${dato}`);
+      assert.equal(contenedor.querySelector("[data-dietas-borrador-detalle]"), null);
+      assert.equal(contenedor.querySelector("[data-dietas-borrador-pagina]"), null);
+      assert.equal(contenedor.querySelector("[data-dietas-borrador-recibo]"), null);
+      assert.equal(contenedor.querySelector("[data-dietas-borradores-estado]").dataset.tono, "error");
+      await panel.listeners.click({ target: contenedor.querySelector("[data-dietas-borrador-consultar-registrados]") });
+      assert.equal(Object.hasOwn(consultas[1], "cursor"), false, "el reintento empieza sin cursor anterior");
+      assert.equal(escrituras, 0);
+      vista.desmontar();
+    }
+  }
+});
+
+test("un GET pendiente bloquea Guardar y Revisar sin iniciar otra creación", async () => {
+  const contenedor = raiz();
+  let resolver;
+  let consultas = 0;
+  let escrituras = 0;
+  const vista = montarVistaBorradoresPropios(contenedor, {
+    cliente: {
+      listar: async () => {
+        consultas += 1;
+        if (consultas === 1) return { items: [] };
+        return new Promise((resuelve) => { resolver = resuelve; });
+      },
+      obtener: async () => item,
+      crear: async () => { escrituras += 1; return item; },
+    },
+  });
+  await Promise.resolve(); await Promise.resolve();
+  const panel = contenedor.querySelector("[data-dietas-borradores-propios]");
+  const form = contenedor.querySelector("[data-dietas-borrador-form]");
+  form.checkValidity = () => true;
+  const consulta = panel.listeners.click({ target: contenedor.querySelector("[data-dietas-borrador-consultar-registrados]") });
+  assert.equal(form.querySelector("[data-dietas-borrador-guardar]").disabled, true);
+  assert.equal(form.querySelector("[data-dietas-borrador-revisar]").disabled, true);
+  await panel.listeners.submit({ target: form, preventDefault() {} });
+  assert.equal(escrituras, 0);
+  resolver({ items: [] });
+  await consulta;
+  assert.equal(form.querySelector("[data-dietas-borrador-guardar]").disabled, false);
+  assert.equal(form.querySelector("[data-dietas-borrador-revisar]").disabled, false);
+  vista.desmontar();
+});
+
+test("A incierta, B válida y vuelta a A reutilizan la clave de A sin duplicar B", async () => {
+  const contenedor = raiz();
+  const solicitudes = [];
+  let secuencia = 0;
+  const vista = montarVistaBorradoresPropios(contenedor, {
+    generarClaveIdempotencia: () => `clave-${++secuencia}`,
+    cliente: {
+      listar: async () => ({ items: [] }),
+      obtener: async () => item,
+      crear: async (solicitud) => {
+        solicitudes.push(solicitud);
+        if (solicitudes.length === 1) {
+          const error = new Error("respuesta incierta"); error.resultadoIndeterminado = true; throw error;
+        }
+        return { ...item, comision: { ...item.comision, motivo: solicitud.motivo } };
+      },
+    },
+  });
+  await Promise.resolve(); await Promise.resolve();
+  const panel = contenedor.querySelector("[data-dietas-borradores-propios]");
+  const form = contenedor.querySelector("[data-dietas-borrador-form]");
+  form.checkValidity = () => true;
+  const datos = { fecha_inicio: "2026-09-20", fecha_fin: "2026-09-21", motivo: "A",
+    hora_inicio: "09:00", hora_fin: "18:00", origen_codigo: "18087", destino_codigo: "18003" };
+  const FormDataOriginal = globalThis.FormData;
+  globalThis.FormData = class { get(nombre) { return datos[nombre] ?? null; } };
+  try {
+    await panel.listeners.submit({ target: form, preventDefault() {} });
+    datos.motivo = "B";
+    await panel.listeners.submit({ target: form, preventDefault() {} });
+    datos.motivo = "A";
+    await panel.listeners.submit({ target: form, preventDefault() {} });
+    datos.motivo = "B";
+    await panel.listeners.submit({ target: form, preventDefault() {} });
+    assert.deepEqual(solicitudes.map(({ clave_idempotencia, motivo }) => [clave_idempotencia, motivo]), [
+      ["clave-1", "A"], ["clave-2", "B"], ["clave-1", "A"],
+    ]);
+    assert.equal(secuencia, 2);
+    assert.ok(contenedor.querySelector("[data-dietas-borrador-recibo]"));
+  } finally { globalThis.FormData = FormDataOriginal; vista.desmontar(); }
 });
