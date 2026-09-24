@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="/comun/tema-vec.css?v=20260924-bolsa-publica-final">
   <link rel="stylesheet" href="/bolsa/bolsa.css?v=20260924-bolsa-publica-final">
   <link rel="stylesheet" href="/bolsa/bolsa_adaptable.css?v=20260924-bolsa-publica-final">
-  <link rel="stylesheet" href="/bolsa/listas.css?v=20260924-bolsa-publica-final">
+  <link rel="stylesheet" href="/bolsa/listas.css?v=20260924-bolsa-publica-ayuda-v2">
   <script type="module" src="/bolsa/contrato-publico-bolsas.js"></script>
   <script src="/bolsa/i18n-publica.js?v=20260924-bolsa-publica-final" defer></script>
   <script type="module" src="/bolsa/lista-bolsas-api.js"></script>
@@ -117,7 +117,7 @@
               <legend>Buscar aspirante en esta bolsa</legend>
               <div class="fila-busqueda">
                 <div class="campo-documento">
-                  <label for="filtro-documento">Documento enmascarado (formato ***1234**):</label>
+                  <label for="filtro-documento">Documento enmascarado:</label>
                   <input
                     type="text"
                     id="filtro-documento"
@@ -128,7 +128,10 @@
                     spellcheck="false"
                   >
                   <p id="error-formato-documento" class="ayuda-busqueda-doc" style="color: var(--danger);" hidden></p>
-                  <p class="ayuda-busqueda-doc">Introduzca únicamente los 4 dígitos centrales rodeados de asteriscos. No introduzca nombres ni letras del DNI.</p>
+                  <details class="ayuda-formato-lista">
+                    <summary aria-label="Formato del documento enmascarado" title="Formato del documento enmascarado"><span aria-hidden="true">?</span></summary>
+                    <p id="ayuda-formato-documento" class="ayuda-busqueda-doc">Introduzca únicamente los 4 dígitos centrales rodeados de asteriscos. No introduzca nombres ni letras del DNI.</p>
+                  </details>
                 </div>
                 <div class="acciones-busqueda">
                   <button type="submit" class="boton-primario">Consultar</button>
