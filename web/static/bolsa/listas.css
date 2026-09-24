@@ -19,23 +19,23 @@
 .cabecera-seccion-publica { margin-bottom: 16px; }
 .cabecera-seccion-publica h1 {
   margin: 6px 0 8px;
-  color: var(--text);
+  color: var(--bolsa-text);
   font-size: clamp(1.35rem, 2vw, 1.55rem);
 }
 .cabecera-seccion-publica p {
   max-width: 85ch;
   margin: 0;
-  color: var(--muted-strong);
+  color: var(--bolsa-muted-strong);
   line-height: 1.45;
 }
-.ayuda-listas-publica { margin: -8px 0 16px; color: var(--muted-strong); font-size: .88rem; }
+.ayuda-listas-publica { margin: -8px 0 16px; color: var(--bolsa-muted-strong); font-size: .88rem; }
 .ayuda-listas-publica summary {
   width: fit-content;
   padding: 5px 9px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface);
-  color: var(--brand);
+  border: 1px solid var(--bolsa-line);
+  border-radius: var(--bolsa-radius);
+  background: var(--bolsa-surface);
+  color: var(--bolsa-brand);
   cursor: pointer;
   font-weight: 700;
 }
@@ -46,11 +46,11 @@
 .aviso-privacidad-publica {
   margin-bottom: 16px;
   padding: 12px 16px;
-  border: 1px solid var(--line);
-  border-left: 4px solid var(--document);
-  border-radius: var(--radius);
-  background: var(--document-soft);
-  color: var(--text);
+  border: 1px solid var(--bolsa-line);
+  border-left: 4px solid var(--bolsa-document);
+  border-radius: var(--bolsa-radius);
+  background: var(--bolsa-document-soft);
+  color: var(--bolsa-text);
   font-size: .9rem;
 }
 
@@ -61,36 +61,36 @@
   flex-direction: column;
   min-height: 0;
   padding: 16px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface);
-  box-shadow: var(--shadow);
+  border: 1px solid var(--bolsa-line);
+  border-radius: var(--bolsa-radius);
+  background: var(--bolsa-surface);
+  box-shadow: var(--bolsa-shadow);
 }
 #seccion-bolsas > h2 { margin: 0 0 4px; font-size: 1.08rem; }
-#seccion-bolsas > p { margin: 0 0 12px; color: var(--muted-strong); }
+#seccion-bolsas > p { margin: 0 0 12px; color: var(--bolsa-muted-strong); }
 #seccion-lista > p { margin: 0 0 12px; }
 
 .panel-estado {
   margin: 8px 0 16px;
   padding: 20px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface-muted);
-  color: var(--muted-strong);
+  border: 1px solid var(--bolsa-line);
+  border-radius: var(--bolsa-radius);
+  background: var(--bolsa-surface-muted);
+  color: var(--bolsa-muted-strong);
   text-align: center;
 }
-.panel-estado h3 { margin: 0 0 6px; color: var(--text); }
+.panel-estado h3 { margin: 0 0 6px; color: var(--bolsa-text); }
 .panel-estado p { margin: 0 0 12px; }
-.panel-estado--error { border-color: var(--danger); background: var(--danger-soft); }
-.panel-estado--error h3 { color: var(--danger); }
-.panel-estado--vacio { border-color: var(--line-strong); }
+.panel-estado--error { border-color: var(--bolsa-danger); background: var(--bolsa-danger-soft); }
+.panel-estado--error h3 { color: var(--bolsa-danger); }
+.panel-estado--vacio { border-color: var(--bolsa-line-strong); }
 .indicador-carga-spinner {
   display: inline-block;
   width: 20px;
   height: 20px;
   margin-right: 8px;
-  border: 3px solid var(--line);
-  border-top-color: var(--brand);
+  border: 3px solid var(--bolsa-line);
+  border-top-color: var(--bolsa-brand);
   border-radius: 50%;
   animation: girar .8s linear infinite;
   vertical-align: middle;
@@ -100,14 +100,15 @@
 .tarjeta-bolsa-activa {
   margin-bottom: 16px;
   padding: 14px 16px;
-  border: 1px solid var(--line);
-  border-left: 4px solid var(--procedure);
-  border-radius: var(--radius);
-  background: var(--surface-muted);
+  border: 1px solid var(--bolsa-line);
+  border-left: 4px solid var(--bolsa-procedure);
+  border-radius: var(--bolsa-radius);
+  background: var(--bolsa-surface-muted);
 }
+#info-bolsa-activa:empty { display: none; }
 .tarjeta-bolsa-activa__info h2 {
   margin: 0 0 10px;
-  color: var(--text);
+  color: var(--bolsa-text);
   font-size: 1.14rem;
 }
 .tarjeta-bolsa-activa__info { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
@@ -117,39 +118,39 @@
   display: inline-flex;
   gap: 4px;
   padding: 5px 8px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface);
-  color: var(--muted-strong);
+  border: 1px solid var(--bolsa-line);
+  border-radius: var(--bolsa-radius);
+  background: var(--bolsa-surface);
+  color: var(--bolsa-muted-strong);
   font-size: .85rem;
 }
-.tarjeta-bolsa-activa__meta strong { color: var(--text); }
+.tarjeta-bolsa-activa__meta strong { color: var(--bolsa-text); }
 
 .formulario-busqueda-lista {
   margin-bottom: 16px;
   padding: 14px 16px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface-muted);
+  border: 1px solid var(--bolsa-line);
+  border-radius: var(--bolsa-radius);
+  background: var(--bolsa-surface-muted);
 }
 .formulario-busqueda-lista fieldset { margin: 0; padding: 0; border: 0; }
-.formulario-busqueda-lista legend { margin-bottom: 8px; color: var(--text); font-weight: 700; }
+.formulario-busqueda-lista legend { margin-bottom: 8px; color: var(--bolsa-text); font-weight: 700; }
 .fila-busqueda { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
 .campo-documento { flex: 1 1 240px; }
-.campo-documento label { display: block; margin-bottom: 5px; color: var(--muted-strong); font-size: .85rem; font-weight: 650; }
+.campo-documento label { display: block; margin-bottom: 5px; color: var(--bolsa-muted-strong); font-size: .85rem; font-weight: 650; }
 .campo-documento input {
   width: 100%;
   min-height: 44px;
   padding: 8px 12px;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius);
-  background: var(--surface);
-  color: var(--text);
+  border: 1px solid var(--bolsa-line-strong);
+  border-radius: var(--bolsa-radius);
+  background: var(--bolsa-surface);
+  color: var(--bolsa-text);
   font: 1rem ui-monospace, SFMono-Regular, Consolas, monospace;
 }
-.ayuda-busqueda-doc { margin: 5px 0 0; color: var(--muted-strong); font-size: .8rem; line-height: 1.4; }
-.ayuda-formato-lista { margin-top: 5px; color: var(--muted-strong); font-size: .8rem; }
-.ayuda-formato-lista summary { width: fit-content; color: var(--brand); cursor: pointer; font-weight: 650; }
+.ayuda-busqueda-doc { margin: 5px 0 0; color: var(--bolsa-muted-strong); font-size: .8rem; line-height: 1.4; }
+.ayuda-formato-lista { margin-top: 5px; color: var(--bolsa-muted-strong); font-size: .8rem; }
+.ayuda-formato-lista summary { width: fit-content; color: var(--bolsa-brand); cursor: pointer; font-weight: 650; }
 .acciones-busqueda { display: flex; gap: 8px; }
 
 .tabla-contenedor-accesible {
@@ -157,17 +158,17 @@
   min-height: 130px;
   overflow-x: auto;
   overflow-y: auto;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface);
+  border: 1px solid var(--bolsa-line);
+  border-radius: var(--bolsa-radius);
+  background: var(--bolsa-surface);
 }
 .tabla-listas-publica { width: 100%; min-width: 600px; border-collapse: collapse; text-align: left; font-size: .9rem; }
 #seccion-lista .tabla-listas-publica { min-width: 360px; }
 .tabla-listas-publica caption {
   padding: 11px 14px;
-  border-bottom: 1px solid var(--line);
-  background: var(--surface-muted);
-  color: var(--text);
+  border-bottom: 1px solid var(--bolsa-line);
+  background: var(--bolsa-surface-muted);
+  color: var(--bolsa-text);
   font-weight: 700;
   text-align: left;
 }
@@ -176,24 +177,24 @@
   top: 0;
   z-index: 1;
   padding: 10px 12px;
-  border-bottom: 1px solid var(--line-strong);
-  background: var(--surface-muted);
-  color: var(--text);
+  border-bottom: 1px solid var(--bolsa-line-strong);
+  background: var(--bolsa-surface-muted);
+  color: var(--bolsa-text);
   font-weight: 700;
   white-space: nowrap;
 }
 .tabla-listas-publica td {
   padding: 9px 12px;
   height: 46px;
-  border-bottom: 1px solid var(--line);
-  color: var(--muted-strong);
+  border-bottom: 1px solid var(--bolsa-line);
+  color: var(--bolsa-muted-strong);
   vertical-align: middle;
 }
-.tabla-listas-publica tbody tr:nth-child(even) { background: var(--surface-muted); }
-.tabla-listas-publica tbody tr:hover { background: var(--brand-soft); }
-.tabla-listas-publica tbody tr:focus-within { outline: 2px solid var(--focus); outline-offset: -2px; }
+.tabla-listas-publica tbody tr:nth-child(even) { background: var(--bolsa-surface-muted); }
+.tabla-listas-publica tbody tr:hover { background: var(--bolsa-brand-soft); }
+.tabla-listas-publica tbody tr:focus-within { outline: 2px solid var(--bolsa-focus); outline-offset: -2px; }
 .tabla-listas-publica tr:last-child td { border-bottom: 0; }
-.tabla-listas-publica td:first-child strong { color: var(--brand); }
+.tabla-listas-publica td:first-child strong { color: var(--bolsa-brand); }
 .tabla-listas-publica td:nth-last-child(2):not(:first-child) { font-variant-numeric: tabular-nums; }
 
 .estado-chip-publico {
@@ -202,23 +203,23 @@
   gap: 6px;
   padding: 4px 9px;
   border-radius: 999px;
-  background: var(--audit-soft);
-  color: var(--audit);
+  background: var(--bolsa-audit-soft);
+  color: var(--bolsa-audit);
   font-size: .8rem;
   font-weight: 700;
   white-space: nowrap;
 }
 .estado-chip-publico::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
-.estado-chip-publico--disponible { background: var(--success-soft); color: var(--success); }
-.estado-chip-publico--ocupado { background: var(--brand-soft); color: var(--brand); }
+.estado-chip-publico--disponible { background: var(--bolsa-success-soft); color: var(--bolsa-success); }
+.estado-chip-publico--ocupado { background: var(--bolsa-brand-soft); color: var(--bolsa-brand); }
 .estado-chip-publico--no_disponible,
-.estado-chip-publico--renuncia_pendiente { background: var(--notice-soft); color: var(--notice); }
-.estado-chip-publico--excluido { background: var(--danger-soft); color: var(--danger); }
+.estado-chip-publico--renuncia_pendiente { background: var(--bolsa-notice-soft); color: var(--bolsa-notice); }
+.estado-chip-publico--excluido { background: var(--bolsa-danger-soft); color: var(--bolsa-danger); }
 .paginacion-lista-publica { display: flex; justify-content: center; margin-top: 12px; }
 
 .contenedor-listas :is(button, input, .tabla-contenedor-accesible, h2, summary):focus-visible,
 .ayuda-listas-publica summary:focus-visible {
-  outline: 3px solid var(--focus);
+  outline: 3px solid var(--bolsa-focus);
   outline-offset: 2px;
 }
 .contenedor-listas button:disabled { cursor: progress; opacity: .65; }
