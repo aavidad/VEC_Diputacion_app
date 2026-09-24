@@ -28,6 +28,7 @@
               <p id="provenance"></p>
               <p data-i18n="note"></p>
               <p data-i18n="editorHelper"></p>
+              <p data-i18n="importHelp"></p>
               <dl class="org-meta">
                 <div><dt data-i18n="catalogId"></dt><dd id="catalog-id">—</dd></div>
                 <div><dt data-i18n="version"></dt><dd id="catalog-version">—</dd></div>
@@ -41,6 +42,7 @@
       </div>
       <nav class="org-tabs" role="tablist" data-i18n-label="tabsLabel">
         <button type="button" role="tab" id="tab-history" class="org-tab" aria-controls="history-panel" aria-selected="true" data-i18n="historyTab"></button>
+        <button type="button" role="tab" id="tab-import" class="org-tab" aria-controls="import-panel" aria-selected="false" data-i18n="importTab" tabindex="-1"></button>
         <button type="button" role="tab" id="tab-catalog" class="org-tab" aria-controls="catalog-panel" aria-selected="false" data-i18n="catalogTab" tabindex="-1"></button>
       </nav>
       <section class="org-panel org-history" role="tabpanel" id="history-panel" aria-labelledby="tab-history">
@@ -81,6 +83,42 @@
             </div>
             <div class="org-history-footer"><button type="button" id="history-more" class="org-secondary" hidden data-i18n="historyMore"></button></div>
           </div>
+        </div>
+      </section>
+      <section class="org-panel org-import" role="tabpanel" id="import-panel" aria-labelledby="tab-import" hidden>
+        <div class="org-panel-heading">
+          <h2 data-i18n="importTitle"></h2>
+          <span class="org-pill" id="import-stage" aria-live="polite"></span>
+        </div>
+        <div class="org-import-body">
+          <section class="org-import-step" aria-labelledby="import-prepare-title">
+            <div class="org-step-heading"><span class="org-step-number" aria-hidden="true">1</span><h3 id="import-prepare-title" data-i18n="importPrepareTitle"></h3></div>
+            <div class="org-import-controls">
+              <input id="import-file" type="file" accept=".json,application/json" hidden />
+              <button type="button" id="choose-import" class="org-secondary" data-i18n="importChoosePackage"></button>
+              <span id="import-file-name" class="org-file-name" aria-live="polite"></span>
+            </div>
+            <div id="import-preview" class="org-import-preview" hidden></div>
+            <div class="org-actions"><button type="button" id="import-prepare" disabled data-i18n="importPrepareAction"></button></div>
+          </section>
+          <section class="org-import-step" aria-labelledby="import-conciliate-title">
+            <div class="org-step-heading"><span class="org-step-number" aria-hidden="true">2</span><h3 id="import-conciliate-title" data-i18n="importConciliateTitle"></h3></div>
+            <div class="org-import-controls">
+              <input id="decisions-file" type="file" accept=".json,application/json" hidden />
+              <button type="button" id="choose-decisions" class="org-secondary" disabled data-i18n="importChooseDecisions"></button>
+              <span id="decisions-file-name" class="org-file-name" aria-live="polite"></span>
+            </div>
+            <div id="decisions-preview" class="org-import-preview" hidden></div>
+            <div class="org-actions"><button type="button" id="import-conciliate" disabled data-i18n="importConciliateAction"></button></div>
+          </section>
+          <section class="org-import-step" aria-labelledby="import-publish-title">
+            <div class="org-step-heading"><span class="org-step-number" aria-hidden="true">3</span><h3 id="import-publish-title" data-i18n="importPublishTitle"></h3></div>
+            <div class="org-actions"><button type="button" id="import-publish" disabled aria-describedby="import-publish-reason" data-i18n="importPublishAction"></button></div>
+            <p id="import-publish-reason" class="org-import-limit" data-i18n="importPublishBlocked"></p>
+          </section>
+          <div id="import-review" class="org-import-review" hidden></div>
+          <div id="import-state" class="org-state" role="status" aria-live="polite"></div>
+          <div id="import-receipts" class="org-import-receipts" aria-live="polite"></div>
         </div>
       </section>
       <section class="org-panel" role="tabpanel" id="catalog-panel" aria-labelledby="tab-catalog" hidden>

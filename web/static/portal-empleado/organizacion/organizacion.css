@@ -422,3 +422,26 @@ tbody tr:focus-within { outline: 2px solid var(--portal-foco); outline-offset: -
   .org-history.has-data { overflow: visible; }
   .org-history.has-data .org-table-wrap { min-height: 280px; max-height: 420px; overflow: auto; }
 }
+.org-import-body { min-height: 0; display: flex; flex-direction: column; gap: 12px; padding: 16px 18px; overflow: auto; }
+.org-import-step { border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-lg); background: var(--portal-superficie); box-shadow: var(--portal-sombra-sm); padding: 14px 16px; }
+.org-import-step:nth-child(even) { background: var(--portal-superficie-alterna); }
+.org-step-heading { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.org-step-heading h3 { margin: 0; color: var(--portal-azul-950); font-size: 1rem; }
+.org-step-number { display: grid; place-items: center; width: 28px; height: 28px; flex: none; border-radius: 50%; background: var(--portal-azul-700); color: var(--portal-texto-inverso); font-weight: 800; }
+.org-import-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.org-file-name { color: var(--portal-muted); font-size: .82rem; overflow-wrap: anywhere; }
+.org-import-preview { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+.org-import-preview > span { padding: 8px 10px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-md); background: var(--portal-superficie); overflow-wrap: anywhere; font-size: .8rem; }
+.org-import-step .org-actions { margin-top: 12px; }
+.org-import-limit { margin: 8px 0 0; color: var(--portal-aviso); font-size: .82rem; }
+#import-publish:disabled { opacity: 1; color: var(--portal-muted); background: var(--portal-neutro-suave); border-color: var(--portal-borde); box-shadow: none; }
+.org-import-receipts { display: grid; gap: 8px; }
+.org-import-receipts > div { border-left: 4px solid var(--portal-exito); border-radius: var(--portal-radio-md); background: var(--portal-exito-suave); padding: 10px 12px; overflow-wrap: anywhere; }
+.org-import-review { border: 2px solid var(--portal-aviso); border-radius: var(--portal-radio-md); background: var(--portal-aviso-suave); padding: 12px; }
+.org-import-review .org-actions { justify-content: flex-start; }
+@media (max-width: 700px) {
+  .org-import { overflow: visible; }
+  .org-import-body { overflow: visible; padding: 12px; }
+  .org-import-preview { grid-template-columns: 1fr; }
+  .org-import-controls > button { width: 100%; }
+}
