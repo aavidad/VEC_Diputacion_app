@@ -112,19 +112,20 @@ test("el mapa base espera teselas internas y no declara completa la cobertura hi
   assert.equal(caso.retiradas(), 1);
 });
 
-test("un error parcial inicial impide declarar cargado un mapa incompleto", () => {
+test("un error parcial inicial impide declarar cargado un mapa incompleto", async () => {
   const caso = escenarioMapa();
   const montaje = montarMapaInicialGranadaDietas({ raiz: caso.raiz, entorno: caso.entorno, permitirTeselas: true });
   caso.eventos.get("tileerror")();
   caso.eventos.get("load")();
   assert.equal(montaje.modo, "mapa_no_disponible");
+  await Promise.resolve();
   assert.equal(caso.retiradas(), 1);
   assert.equal(caso.atribucionLeaflet.hidden, true);
   assert.equal(caso.avisos[0].role, "status");
   assert.match(caso.estado.textContent, /no está disponible/u);
 });
 
-test("el mapa base sigue vigilando teselas después de cargar y se retira si faltan al moverlo", () => {
+test("el mapa base sigue vigilando teselas después de cargar y se retira si faltan al moverlo", async () => {
   const caso = escenarioMapa();
   const montaje = montarMapaInicialGranadaDietas({ raiz: caso.raiz, entorno: caso.entorno, permitirTeselas: true });
   caso.eventos.get("load")();
@@ -132,6 +133,7 @@ test("el mapa base sigue vigilando teselas después de cargar y se retira si fal
   caso.eventos.get("tileerror")();
   caso.eventos.get("load")();
   assert.equal(montaje.modo, "mapa_no_disponible");
+  await Promise.resolve();
   assert.equal(caso.retiradas(), 1);
   assert.equal(caso.eventos.has("tileerror"), false);
 });
@@ -164,7 +166,7 @@ test("al retirar el mapa devuelve el foco del control de zoom al aviso accesible
   assert.equal(recibioFoco, true);
 });
 
-test("el visor de ruta acreditada también observa los fallos posteriores sin sustituir la geometría", () => {
+test("el visor de ruta acreditada también observa los fallos posteriores sin sustituir la geometría", async () => {
   const caso = escenarioMapa();
   const montaje = crearVisorRutaDietas({ entorno: caso.entorno, permitirTeselas: true })
     .montar({ raiz: caso.raiz, descriptor: descriptorOSRM() });
@@ -177,5 +179,56 @@ test("el visor de ruta acreditada también observa los fallos posteriores sin su
   caso.eventos.get("load")();
   assert.equal(montaje.modo, "mapa_no_disponible");
   assert.equal(caso.atribucionAlternativa.hidden, true);
+  await Promise.resolve();
   assert.equal(caso.retiradas(), 1);
+});
+
+test("un 404 durante la carga y dos imágenes tardías no desmontan Leaflet dentro de su callback", async () => {
+  const caso = escenarioMapa();
+  const montaje = montarMapaInicialGranadaDietas({ raiz: caso.raiz, entorno: caso.entorno, permitirTeselas: true });
+  const tileReady404 = () => {
+    caso.eventos.get("tileerror")();
+    caso.eventos.get("load")();
+    // Leaflet 1.9.4 continúa leyendo _map._fadeAnimated tras emitir load.
+    if (caso.retiradas() !== 0) throw new TypeError("Cannot read properties of null (reading '_fadeAnimated')");
+  };
+  assert.doesNotThrow(tileReady404);
+  assert.equal(montaje.modo, "mapa_no_disponible");
+  assert.match(caso.estado.textContent, /no está disponible/u);
+  await Promise.resolve();
+  assert.equal(caso.retiradas(), 1);
+  const onloadTardio = () => {
+    // TileLayer._tileReady comprueba _map y sale sin invocar GridLayer.
+    if (caso.retiradas() === 0) caso.eventos.get("load")?.();
+  };
+  assert.doesNotThrow(onloadTardio);
+  await new Promise((resolver) => setTimeout(resolver, 0));
+  assert.doesNotThrow(onloadTardio);
+  assert.equal(caso.retiradas(), 1);
+});
+
+test("salir de la vista con teselas pendientes desactiva escuchas y onload tardíos", async () => {
+  const caso = escenarioMapa();
+  const montaje = montarMapaInicialGranadaDietas({ raiz: caso.raiz, entorno: caso.entorno, permitirTeselas: true });
+  const onloadPendiente = caso.eventos.get("load");
+  montaje.desmontar();
+  assert.equal(caso.retiradas(), 1);
+  assert.equal(caso.eventos.size, 0);
+  assert.doesNotThrow(onloadPendiente);
+  await new Promise((resolver) => setTimeout(resolver, 0));
+  assert.doesNotThrow(onloadPendiente);
+  assert.equal(caso.retiradas(), 1);
+});
+
+test("salir tras un error antes de la microtarea retira una sola vez y no reabre el aviso", async () => {
+  const caso = escenarioMapa();
+  const montaje = montarMapaInicialGranadaDietas({ raiz: caso.raiz, entorno: caso.entorno, permitirTeselas: true });
+  caso.eventos.get("tileerror")();
+  caso.eventos.get("load")();
+  assert.equal(montaje.modo, "mapa_no_disponible");
+  assert.equal(caso.retiradas(), 0);
+  montaje.desmontar();
+  await Promise.resolve();
+  assert.equal(caso.retiradas(), 1);
+  assert.equal(caso.avisos.length, 0);
 });
