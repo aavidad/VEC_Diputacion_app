@@ -22,16 +22,9 @@ const (
 	PermissionLiquidationInbox   = "dietas.bandeja.liquidacion.consultar"
 	PermissionAuditInbox         = "dietas.bandeja.fiscalizacion.consultar"
 
-	// Compatibilidad de la API heredada mientras se retira su acción DEMO.
-	// Ninguno se anuncia como permiso del módulo interno.
-	PermissionExpenseRead     = "dietas.gasto.read"
-	PermissionExpenseManage   = "dietas.gasto.manage"
-	PermissionRouteRead       = "dietas.ruta.read"
-	PermissionRouteManage     = "dietas.ruta.manage"
-	PermissionApprovalManage  = "dietas.aprobacion.manage"
-	PermissionAudit           = "dietas.audit.read"
-	ActionReviewTravelExpense = "dietas.comision.review"
-	ActionReviewRouteKM       = "dietas.ruta.km.review"
+	// Permiso de la ruta por carretera de Cartografía; no se anuncia como
+	// permiso del módulo interno.
+	PermissionRouteRead = "dietas.ruta.read"
 )
 
 func Manifest() domain.ModuleManifest {

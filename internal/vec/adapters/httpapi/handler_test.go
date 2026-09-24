@@ -205,8 +205,8 @@ func TestAccionesGenericasDietasRetiradasNoProducenEfectos(t *testing.T) {
 	for _, caso := range []struct {
 		ruta, permiso, referencia, evento string
 	}{
-		{"/modules/dietas/action", dietasmodule.PermissionApprovalManage, "dietas-comision-demo", "vec.module.dietas.action.executed"},
-		{"/modules/rutas/action", dietasmodule.PermissionRouteManage, "dietas-ruta-demo", "vec.module.dietas.route.executed"},
+		{"/modules/dietas/action", "dietas.aprobacion.manage", "dietas-comision-demo", "vec.module.dietas.action.executed"},
+		{"/modules/rutas/action", "dietas.ruta.manage", "dietas-ruta-demo", "vec.module.dietas.route.executed"},
 	} {
 		t.Run(caso.ruta, func(t *testing.T) {
 			rec := httptest.NewRecorder()
@@ -579,7 +579,7 @@ func TestSessionUsesConfiguredRolesForExternalIdentity(t *testing.T) {
 		personalmodule.PermissionEmployeeManage,
 		personalmodule.PermissionPayrollRead,
 		cronosmodule.PermissionTimeRead,
-		dietasmodule.PermissionExpenseRead,
+		"dietas.gasto.read",
 		adminmodule.PermissionRolesManage,
 	} {
 		if strings.Contains(body, prohibido) {
