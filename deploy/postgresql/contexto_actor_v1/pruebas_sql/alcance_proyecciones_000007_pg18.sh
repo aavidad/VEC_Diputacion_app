@@ -399,12 +399,26 @@ salida=$(version_puntero $vin_l 4 empleado $emp_l activo vigente_desde "vigente_
 exigir_error 'reactivación de empleado revocado' "$cerrada" "$salida"
 salida=$(version_puntero $vin_l 4 candidato can_sintetico_alcance_l_00000000000001 activo vigente_desde vigente_hasta ROLLBACK) \
   || fallo "puntero de tipo candidato rechazado: $salida"
+# El puntero actual no retrocede a una versión activa anterior (v1 o v2) ni
+# se rehace con DELETE+INSERT sobre ella.
+puntero_retrocede() { # sentencias
+  admin -c "BEGIN; SET LOCAL ROLE vec_contexto_actor_v1_propietario; $1 COMMIT;" 2>&1
+}
+for v in 1 2; do
+  salida=$(puntero_retrocede "UPDATE vec_contexto_actor_v1.vinculo_referencia_actual SET version=$v WHERE vinculo_ref='$vin_l';" || true)
+  exigir_error "retroceso del puntero a v$v" 'puntero empleado cerrado' "$salida"
+done
+salida=$(puntero_retrocede "DELETE FROM vec_contexto_actor_v1.vinculo_referencia_actual WHERE vinculo_ref='$vin_l';
+  INSERT INTO vec_contexto_actor_v1.vinculo_referencia_actual VALUES ('$vin_l',1);" || true)
+exigir_error 'puntero reinsertado en v1' 'puntero empleado cerrado' "$salida"
+[[ $(admin_valor "SELECT version FROM vec_contexto_actor_v1.vinculo_referencia_actual WHERE vinculo_ref='$vin_l'") == 3 ]] \
+  || fallo 'el puntero heredado retrocedió'
 [[ $(admin_valor "SELECT count(*) FROM vec_contexto_actor_v1.vinculo_referencia_versiones WHERE vinculo_ref='$vin_l'") == 3 ]] || fallo 'historia del puntero heredado'
 [[ $(admin_valor "SELECT count(*) FROM vec_contexto_actor_v1.vinculo_referencia_versiones WHERE vinculo_ref='$vin_c'") == 1 ]] || fallo 'historia del candidato'
 ref_l=$(resolver l '{}') || fallo "L tras revocar su puntero: $ref_l"
 [[ $ref_l != *'"tipo":"empleado"'* ]] || fallo 'puntero heredado revocado sigue en el contexto'
 exigir_ct 'tras cerrar el puntero heredado'
-ok 'alta y reapertura de puntero empleado cerradas; el heredado solo se recorta o revoca'
+ok 'alta, reapertura y retroceso de puntero empleado cerrados; el heredado solo se recorta o revoca'
 
 # Recuperación tras reinicio: registros, replay e historia intactos.
 publicar pep_sintetica_alcance_e5_00000000000001 1 emp_sintetico_alcance_e5_00000000000001 activa

@@ -31,7 +31,10 @@
 -- vinculo_referencia de tipo empleado en el núcleo. Los existentes se conservan
 -- (no se borran ni se revocan aquí) y solo admiten versiones nuevas que los
 -- revoquen o recorten su vigencia; un candidato no pasa a empleado y un
--- empleado revocado no se reactiva. Los de candidato no cambian. Inventario de altas en el repositorio a esta fecha:
+-- empleado revocado no se reactiva. El puntero actual de un empleado solo
+-- señala la última versión de su vinculo_ref: no retrocede a una versión
+-- activa anterior. Los de candidato no cambian. Inventario de altas en el
+-- repositorio a esta fecha:
 --   - deploy/principal/preparar_dietas_desarrollo.py (employee_link: la vía del
 --     incidente del 23/09; debe publicar en Personal en su lugar);
 --   - fixtures sintéticos de prueba que crean emp_ antes de esta migración:
@@ -82,7 +85,8 @@ BEGIN
      OR pg_catalog.to_regprocedure('vec_contexto_actor_v1.reconciliar_contexto_actor_v2(text,text,text,text,text,text,timestamptz,text[])') IS NOT NULL
      OR pg_catalog.to_regprocedure('vec_contexto_actor_v1.alcance_registro_contexto_v2(bytea)') IS NOT NULL
      OR pg_catalog.to_regprocedure('vec_contexto_actor_v1.proyeccion_empleado_personal_v2(text,timestamptz)') IS NOT NULL
-     OR pg_catalog.to_regprocedure('vec_contexto_actor_v1.rechazar_alta_puntero_empleado_v2()') IS NOT NULL THEN
+     OR pg_catalog.to_regprocedure('vec_contexto_actor_v1.rechazar_alta_puntero_empleado_v2()') IS NOT NULL
+     OR pg_catalog.to_regprocedure('vec_contexto_actor_v1.rechazar_retroceso_puntero_empleado_v2()') IS NOT NULL THEN
     RAISE EXCEPTION 'falta postimagen ContextoActor 000006 o 000007 ya aplicada' USING ERRCODE='55000';
   END IF;
   -- 000004 instalada: no puede aplicarse después de esta migración.
@@ -1171,6 +1175,41 @@ REVOKE ALL ON FUNCTION vec_contexto_actor_v1.rechazar_alta_puntero_empleado_v2()
 CREATE TRIGGER alta_puntero_empleado_cerrada_v2
     BEFORE INSERT ON vec_contexto_actor_v1.vinculo_referencia_versiones
     FOR EACH ROW EXECUTE FUNCTION vec_contexto_actor_v1.rechazar_alta_puntero_empleado_v2();
+
+-- El cierre anterior se eludiría moviendo el puntero actual hacia atrás (v1
+-- activa con v2 revocada ya en la historia). Cuando la versión apuntada es de
+-- empleado, el puntero solo puede señalar la última versión de su vinculo_ref
+-- y, en UPDATE, ni cambiar de vinculo_ref ni retroceder. Las versiones de
+-- candidato no se examinan. Mismo consultivo que el disparador de versiones y
+-- lectura de lo confirmado tras él.
+CREATE FUNCTION vec_contexto_actor_v1.rechazar_retroceso_puntero_empleado_v2()
+RETURNS trigger LANGUAGE plpgsql VOLATILE SECURITY INVOKER SET search_path = pg_catalog AS $f$
+DECLARE tipo_apuntado text; ultima numeric;
+BEGIN
+    SELECT v.tipo INTO tipo_apuntado
+      FROM vec_contexto_actor_v1.vinculo_referencia_versiones v
+     WHERE v.vinculo_ref = NEW.vinculo_ref AND v.version = NEW.version;
+    IF tipo_apuntado IS DISTINCT FROM 'empleado' THEN
+        RETURN NEW;
+    END IF;
+    PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
+      'vec_contexto_actor_v1:puntero_empleado:' || NEW.vinculo_ref,0));
+    SELECT max(v.version) INTO ultima
+      FROM vec_contexto_actor_v1.vinculo_referencia_versiones v
+     WHERE v.vinculo_ref = NEW.vinculo_ref;
+    IF NEW.version IS DISTINCT FROM ultima
+       OR (TG_OP = 'UPDATE' AND (NEW.vinculo_ref <> OLD.vinculo_ref
+                                 OR NEW.version < OLD.version)) THEN
+        RAISE EXCEPTION USING ERRCODE = '55000',
+            MESSAGE = 'puntero empleado cerrado: solo su ultima version';
+    END IF;
+    RETURN NEW;
+END
+$f$;
+REVOKE ALL ON FUNCTION vec_contexto_actor_v1.rechazar_retroceso_puntero_empleado_v2() FROM PUBLIC;
+CREATE TRIGGER puntero_empleado_ultima_version_v2
+    BEFORE INSERT OR UPDATE ON vec_contexto_actor_v1.vinculo_referencia_actual
+    FOR EACH ROW EXECUTE FUNCTION vec_contexto_actor_v1.rechazar_retroceso_puntero_empleado_v2();
 
 -- Inventario de los punteros de empleado ya existentes en esta base. Solo
 -- referencias opacas y estado actual; no se modifican.
