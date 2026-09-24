@@ -1,5 +1,13 @@
 # Permiso temporal de consulta CT para vec-interno
 
+**Condición de uso:** instalar primero AUTH-14 y conservar el cotejo F1 exacto
+de referencia, huella y retirada de la política antes del PDP de vec-interno.
+AUTH-14 limita la lectura de esta versión de rol al LOGIN nominal de la fuente
+de vec-interno; el PDP V3 genérico compara el nivel `sustancial` y por sí mismo
+no coteja la política de garantía. La comprobación F1 de la CLI es una
+precondición de aprovisionamiento; AUTH-14 no acredita por sí sola que las
+funciones de registro y consumo revaliden esa política.
+
 Ejecutar **antes** de arrancar vec-interno, solo por la administración del entorno
 de desarrollo. La persona, cuenta y perfil deben estar vinculados y activos en
 F1. El perfil es propio del lector interno y aparece en el material privado de
@@ -22,11 +30,10 @@ publican este permiso al arrancar ni por operación.
 
 La concesión V3 comprueba el nivel `sustancial`; el factor concreto queda
 ligado en la frontera F1 de vec-interno, que coteja referencia, huella y
-retirada de la política por petición **antes de llamar al PDP**. El perfil no debe aparecer en la
-configuración de ningún otro canal: un canal que reutilizara ese perfil y
-presentara otra autenticación sustancial podría invocar la concesión V3.
-Todo consumidor adicional necesita un guard equivalente sobre el vínculo F1,
-la política de garantía y su retirada.
+retirada de la política por petición **antes de llamar al PDP**. El perfil no
+debe aparecer en la configuración de otro canal. AUTH-14 deniega la lectura
+de su rol a otros LOGIN de fuente; todo consumidor adicional requiere un guard
+equivalente sobre el vínculo F1, la política de garantía y su retirada.
 La política restrictiva V3 actual solo filtra recurso, no el identificador de
 política de autenticación, por lo que no cerraría ese cruce. El procedimiento
 administrativo verifica que la misma persona conserve otro perfil RRHH de
