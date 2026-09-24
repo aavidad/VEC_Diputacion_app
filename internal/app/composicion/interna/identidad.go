@@ -40,9 +40,8 @@ func NuevaFachadaIdentidadOffline(
 }
 
 // Autenticar consume exclusivamente la capacidad de canal emitida por C4 en
-// el contexto y una asercion protegida. Exigir la superficie interna obliga al
-// ServicioIdentidad ya validado a aplicar Kerberos mas certificado, dos grupos
-// criptograficos y garantia alta.
+// el contexto y una asercion protegida. ServicioIdentidad aplica la politica
+// de la superficie interna ya validada, incluida su retirada temporal.
 func (f *FachadaIdentidadOffline) Autenticar(
 	ctx context.Context,
 	asercionProtegida []byte,
@@ -149,8 +148,9 @@ func interfazNulaIdentidadOffline(valor any) bool {
 // perfil y los ámbitos registrados; esta guarda impide cambiar la cuenta o
 // sesión al construir la autoridad V3 de la consulta.
 type fuenteAutoridadIdentidadVinculada struct {
-	identidad *httpseguridad.ServicioIdentidad
-	siguiente inc.FuentePeticionAutoridad
+	identidad                     *httpseguridad.ServicioIdentidad
+	siguiente                     inc.FuentePeticionAutoridad
+	desarrolloCertificadoPersonal bool
 }
 
 func (f fuenteAutoridadIdentidadVinculada) PeticionVerificada(ctx context.Context) (inc.PeticionAutoridad, error) {
@@ -159,7 +159,11 @@ func (f fuenteAutoridadIdentidadVinculada) PeticionVerificada(ctx context.Contex
 		return vacia, inc.ErrAutoridadAplicacion
 	}
 	cuenta, auditoria, err := f.identidad.ExtraerCapsulaIdentidadPeticion(ctx)
-	if err != nil || cuenta.Validar() != nil || cuenta.Garantia != vec.AuthAssuranceHigh ||
+	garantiaEsperada := vec.AuthAssuranceHigh
+	if f.desarrolloCertificadoPersonal {
+		garantiaEsperada = vec.AuthAssuranceSubstantial
+	}
+	if err != nil || cuenta.Validar() != nil || cuenta.Garantia != garantiaEsperada ||
 		auditoria.Superficie() != httpseguridad.SuperficieInternaCorporativa ||
 		auditoria.ControlSesionEstado() != httpseguridad.EstadoControlSesionActiva ||
 		auditoria.CuentaRef() != cuenta.CuentaRef ||

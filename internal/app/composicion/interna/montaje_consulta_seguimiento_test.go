@@ -46,6 +46,29 @@ func TestNuevaAplicacionSeguimientoNoAbreSinProveedorInstitucional(t *testing.T)
 	_ = comprobacion.Close()
 }
 
+func TestNuevaAplicacionSeguimientoNoAbreSiFaltaMaterialPrivado(t *testing.T) {
+	reserva, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	direccion := reserva.Addr().String()
+	_ = reserva.Close()
+	cfg := configuracionInternaValidaPrueba()
+	cfg.DireccionEscucha = direccion
+	cfg.RedesPermitidas = []string{"127.0.0.0/8"}
+	cfg.RetiradaPoliticaInternaEn = time.Now().UTC().Add(24 * time.Hour).Truncate(time.Second)
+	t.Setenv(EnvMaterialInterno, t.TempDir())
+	aplicacion, err := NuevaAplicacion(context.Background(), cfg)
+	if aplicacion != nil || !errors.Is(err, ErrDependenciasProductivasNoDisponibles) {
+		t.Fatalf("arranque incompleto = (%v, %v)", aplicacion, err)
+	}
+	comprobacion, err := net.Listen("tcp", direccion)
+	if err != nil {
+		t.Fatalf("el arranque fallido reservó puerto: %v", err)
+	}
+	_ = comprobacion.Close()
+}
+
 type recursoSeguimientoPrueba struct {
 	propiedad atomic.Bool
 	cierres   atomic.Int32

@@ -680,6 +680,8 @@ type intercambioTLSIdentidadOfflinePrueba struct {
 	estadoCliente  tls.ConnectionState
 	raicesClientes *x509.CertPool
 	nombreServidor string
+	autoridad      *x509.Certificate
+	claveAutoridad ed25519.PrivateKey
 }
 
 func nuevoManejadorC4IdentidadOfflinePrueba(
@@ -729,7 +731,7 @@ func nuevoIntercambioTLSIdentidadOfflinePrueba(
 	plantillaCA := &x509.Certificate{
 		SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "CA identidad offline"},
 		NotBefore: ahora.Add(-time.Hour), NotAfter: ahora.Add(time.Hour), IsCA: true,
-		BasicConstraintsValid: true, KeyUsage: x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature,
+		BasicConstraintsValid: true, KeyUsage: x509.KeyUsageCertSign | x509.KeyUsageCRLSign | x509.KeyUsageDigitalSignature,
 	}
 	derCA, err := x509.CreateCertificate(rand.Reader, plantillaCA, plantillaCA, claveCA.Public(), claveCA)
 	if err != nil {
@@ -795,5 +797,6 @@ func nuevoIntercambioTLSIdentidadOfflinePrueba(
 		estadoServidor: servidor.ConnectionState(),
 		estadoCliente:  cliente.ConnectionState(),
 		raicesClientes: raices, nombreServidor: "servidor.identidad.test",
+		autoridad: certificadoCA, claveAutoridad: claveCA,
 	}
 }

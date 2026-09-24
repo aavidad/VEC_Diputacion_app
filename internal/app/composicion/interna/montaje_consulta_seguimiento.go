@@ -16,36 +16,30 @@ import (
 	httpct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	"vec-diputacion-granada/internal/vec/adapters/httpapi"
 	"vec-diputacion-granada/internal/vec/adapters/httpseguridad"
-	vecapp "vec-diputacion-granada/internal/vec/application"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
-// El transporte exacto de la aserción lo proporcionará la pasarela
-// institucional. La raíz no elige cabeceras ni acepta Bearer o certificados
-// reenviados como identidad de una persona.
+// El adaptador de certificado mTLS directo emite una aserción firmada por
+// petición desde el handshake verificado. No acepta Bearer, cabeceras de
+// identidad del navegador ni certificados reenviados.
 type extractorAsercionInstitucional interface {
 	ExtraerAsercionProtegida(*http.Request) ([]byte, error)
 }
 
-// El cargador transfiere la propiedad de los once pools y recursos auxiliares
-// a la aplicación. ConfiguracionV2 incluye la fuente F1 registrada, la cadena
-// V3 y los roles PostgreSQL verificados por su dueño.
+// El cargador transfiere los once pools y recursos auxiliares a la aplicación.
+// ConfiguracionV2 incluye F1 registrado, V3 y roles PostgreSQL acreditados.
 type proveedoresConsultaSeguimiento struct {
 	identidad       *httpseguridad.ServicioIdentidad
 	extractor       extractorAsercionInstitucional
-	servicioVEC     *vecapp.Service
 	autoridadRutas  httpapi.AutoridadRutasExactas
 	auditoriaRutas  vecports.RegistradorAuditoriaFronteraRutaExacta
 	configuracionV2 inc.ConfiguracionServidorV2PostgreSQL
 	recursos        []recursoCerrableAplicacionInterna
 }
 
-// Falta el contrato institucional de emisor, transporte, claves y revocación.
-// Ningún dato ambiental o certificado del proxy puede completar estos puertos.
-func obtenerProveedoresConsultaSeguimiento(context.Context, Configuracion) (proveedoresConsultaSeguimiento, error) {
-	return proveedoresConsultaSeguimiento{}, &ErrorDependenciasFaltantes{
-		faltantes: append([]Dependencia(nil), dependenciasConsultaSeguimiento[:]...),
-	}
+// La carga exige que todas las autoridades estén presentes antes de abrir red.
+func obtenerProveedoresConsultaSeguimiento(ctx context.Context, cfg Configuracion) (proveedoresConsultaSeguimiento, error) {
+	return cargarProveedoresGobernados(ctx, cfg)
 }
 
 type puenteConsultaSeguimiento struct {
@@ -132,7 +126,7 @@ func responderPuenteSeguimiento(w http.ResponseWriter, estado int) {
 }
 
 func nuevaAPIConsultaSeguimiento(p proveedoresConsultaSeguimiento, s *inc.ServidorV2PostgreSQL) (http.Handler, error) {
-	if p.servicioVEC == nil || interfazNulaIdentidadOffline(p.autoridadRutas) ||
+	if interfazNulaIdentidadOffline(p.autoridadRutas) ||
 		interfazNulaIdentidadOffline(p.auditoriaRutas) || s == nil {
 		return nil, ErrAPIInternaNoDisponible
 	}
@@ -140,11 +134,7 @@ func nuevaAPIConsultaSeguimiento(p proveedoresConsultaSeguimiento, s *inc.Servid
 	if err != nil || ruta.Ruta != httpct.RutaConsultaSeguimientoV2 || manejadorNulo(ruta.Manejador) {
 		return nil, ErrAPIInternaNoDisponible
 	}
-	return httpapi.NewHandlerWithOptions(p.servicioVEC, httpapi.HandlerOptions{
-		RutasExactas:                             []httpapi.RutaExacta{ruta},
-		AutoridadRutasExactas:                    p.autoridadRutas,
-		RegistradorAuditoriaFronteraRutasExactas: p.auditoriaRutas,
-	})
+	return httpapi.NewHandlerSoloRutasExactas([]httpapi.RutaExacta{ruta}, p.autoridadRutas, p.auditoriaRutas)
 }
 
 func componerConsultaSeguimiento(ctx context.Context, cfg Configuracion, p proveedoresConsultaSeguimiento) (*AplicacionInterna, error) {
@@ -155,7 +145,7 @@ func componerConsultaSeguimiento(ctx context.Context, cfg Configuracion, p prove
 		}
 	}()
 	if ctx == nil || ctx.Err() != nil || cfg.Validar() != nil || p.identidad == nil ||
-		interfazNulaIdentidadOffline(p.extractor) || p.servicioVEC == nil ||
+		interfazNulaIdentidadOffline(p.extractor) ||
 		interfazNulaIdentidadOffline(p.autoridadRutas) ||
 		interfazNulaIdentidadOffline(p.auditoriaRutas) ||
 		interfazNulaIdentidadOffline(p.configuracionV2.FuenteAutoridad) {
@@ -163,6 +153,7 @@ func componerConsultaSeguimiento(ctx context.Context, cfg Configuracion, p prove
 	}
 	p.configuracionV2.FuenteAutoridad = fuenteAutoridadIdentidadVinculada{
 		identidad: p.identidad, siguiente: p.configuracionV2.FuenteAutoridad,
+		desarrolloCertificadoPersonal: !cfg.RetiradaPoliticaInternaEn.IsZero(),
 	}
 	servidorV2, err := inc.NuevoServidorV2PostgreSQL(p.configuracionV2)
 	if err != nil {
