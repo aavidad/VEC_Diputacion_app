@@ -23,6 +23,21 @@ type ProcedenciaActoEmpleadoB2 struct {
 	IdempotenciaRef    string `json:"idempotencia_ref"`
 }
 
+// EntradaCatalogoEmpleadoB2 identifica exactamente la versión publicada que
+// Personal volverá a validar dentro de la transacción del acto.
+type EntradaCatalogoEmpleadoB2 struct {
+	Ref     string `json:"ref"`
+	Version int64  `json:"version"`
+}
+
+func (e EntradaCatalogoEmpleadoB2) Validar() error {
+	if !patronReferenciaB2.MatchString(e.Ref) || e.Version < 1 || e.Version > 2147483647 {
+		return ErrRegistroEmpleadoB2Invalido
+	}
+	return nil
+}
+func (e EntradaCatalogoEmpleadoB2) Vacia() bool { return e.Ref == "" && e.Version == 0 }
+
 func (p ProcedenciaActoEmpleadoB2) Validar() error {
 	if !patronReferenciaB2.MatchString(p.ActoRef) || !patronReferenciaB2.MatchString(p.FuenteRef) || p.FuenteVersion < 1 ||
 		!huellaRegistroDominioB2Valida(p.FuenteHuellaSHA256) || !patronUUIDRegistroB2.MatchString(p.IdempotenciaRef) {
@@ -35,8 +50,8 @@ type SolicitudAltaEmpleadoB2 struct {
 	PersonaRef   string
 	OrganismoRef string
 	UnidadRef    string
-	RegimenRef   string
-	ModalidadRef string
+	Regimen      EntradaCatalogoEmpleadoB2
+	Modalidad    EntradaCatalogoEmpleadoB2
 	VigenteDesde FechaCivil
 	VigenteHasta FechaCivil
 	Procedencia  ProcedenciaActoEmpleadoB2
@@ -51,12 +66,14 @@ type SolicitudHechoEmpleadoB2 struct {
 	RevisionEsperada        int64
 	RelacionVersionEsperada int64
 	UnidadRef               string
-	RegimenRef              string
-	ModalidadRef            string
+	Regimen                 EntradaCatalogoEmpleadoB2
+	Modalidad               EntradaCatalogoEmpleadoB2
+	Situacion               EntradaCatalogoEmpleadoB2
+	ClaseServicio           EntradaCatalogoEmpleadoB2
+	ClaseOcupacion          string
 	Estado                  string
 	PlazaRef                string
 	PuestoRef               string
-	ClaseRef                string
 	VersionPlazaRef         string
 	VersionPuestoRef        string
 	PeriodoDesde            FechaCivil
@@ -78,8 +95,8 @@ type MaterialActoRegistroEmpleadoB2 struct {
 
 func NuevoMaterialAltaEmpleadoB2(s SolicitudAltaEmpleadoB2) (MaterialActoRegistroEmpleadoB2, error) {
 	if !ReferenciaPersonaValida(s.PersonaRef) || !patronReferenciaB2.MatchString(s.OrganismoRef) ||
-		!patronReferenciaB2.MatchString(s.UnidadRef) || !patronReferenciaB2.MatchString(s.RegimenRef) ||
-		!patronReferenciaB2.MatchString(s.ModalidadRef) || !intervaloActoB2Valido(s.VigenteDesde, s.VigenteHasta) ||
+		!patronReferenciaB2.MatchString(s.UnidadRef) || s.Regimen.Validar() != nil ||
+		s.Modalidad.Validar() != nil || !intervaloActoB2Valido(s.VigenteDesde, s.VigenteHasta) ||
 		s.Procedencia.Validar() != nil || s.Actor.Validar() != nil {
 		return MaterialActoRegistroEmpleadoB2{}, ErrRegistroEmpleadoB2Invalido
 	}
@@ -89,14 +106,14 @@ func NuevoMaterialAltaEmpleadoB2(s SolicitudAltaEmpleadoB2) (MaterialActoRegistr
 		PersonaRef      string                    `json:"persona_ref"`
 		OrganismoRef    string                    `json:"organismo_ref"`
 		UnidadRef       string                    `json:"unidad_ref"`
-		RegimenRef      string                    `json:"regimen_ref"`
-		ModalidadRef    string                    `json:"modalidad_ref"`
+		Regimen         EntradaCatalogoEmpleadoB2 `json:"regimen"`
+		Modalidad       EntradaCatalogoEmpleadoB2 `json:"modalidad"`
 		VigenteDesde    string                    `json:"vigente_desde"`
 		VigenteHasta    string                    `json:"vigente_hasta"`
 		VersionEsperada int64                     `json:"version_esperada"`
 		Procedencia     ProcedenciaActoEmpleadoB2 `json:"procedencia"`
 		Actor           identidadActoB2           `json:"actor"`
-	}{"vec.personal.registro-empleado-b2.alta.v1", "alta", s.PersonaRef, s.OrganismoRef, s.UnidadRef, s.RegimenRef, s.ModalidadRef, s.VigenteDesde.Texto(), s.VigenteHasta.Texto(), 0, s.Procedencia, identidadActoRegistroB2(s.Actor)})
+	}{"vec.personal.registro-empleado-b2.alta.v1", "alta", s.PersonaRef, s.OrganismoRef, s.UnidadRef, s.Regimen, s.Modalidad, s.VigenteDesde.Texto(), s.VigenteHasta.Texto(), 0, s.Procedencia, identidadActoRegistroB2(s.Actor)})
 }
 
 func NuevoMaterialHechoEmpleadoB2(s SolicitudHechoEmpleadoB2) (MaterialActoRegistroEmpleadoB2, error) {
@@ -114,12 +131,14 @@ func NuevoMaterialHechoEmpleadoB2(s SolicitudHechoEmpleadoB2) (MaterialActoRegis
 		RevisionEsperada        int64                     `json:"revision_esperada"`
 		RelacionVersionEsperada int64                     `json:"relacion_version_esperada"`
 		UnidadRef               string                    `json:"unidad_ref"`
-		RegimenRef              string                    `json:"regimen_ref"`
-		ModalidadRef            string                    `json:"modalidad_ref"`
+		Regimen                 EntradaCatalogoEmpleadoB2 `json:"regimen"`
+		Modalidad               EntradaCatalogoEmpleadoB2 `json:"modalidad"`
+		Situacion               EntradaCatalogoEmpleadoB2 `json:"situacion"`
+		ClaseServicio           EntradaCatalogoEmpleadoB2 `json:"clase_servicio"`
+		ClaseOcupacion          string                    `json:"clase_ocupacion"`
 		Estado                  string                    `json:"estado"`
 		PlazaRef                string                    `json:"plaza_ref"`
 		PuestoRef               string                    `json:"puesto_ref"`
-		ClaseRef                string                    `json:"clase_ref"`
 		VersionPlazaRef         string                    `json:"version_plaza_ref"`
 		VersionPuestoRef        string                    `json:"version_puesto_ref"`
 		PeriodoDesde            string                    `json:"periodo_desde"`
@@ -129,7 +148,7 @@ func NuevoMaterialHechoEmpleadoB2(s SolicitudHechoEmpleadoB2) (MaterialActoRegis
 		VigenteHasta            string                    `json:"vigente_hasta"`
 		Procedencia             ProcedenciaActoEmpleadoB2 `json:"procedencia"`
 		Actor                   identidadActoB2           `json:"actor"`
-	}{"vec.personal.registro-empleado-b2.hecho.v1", "hecho", s.Tipo, s.EmpleadoRef, s.OrganismoRef, s.RelacionRef, s.RevisionEsperada, s.RelacionVersionEsperada, s.UnidadRef, s.RegimenRef, s.ModalidadRef, s.Estado, s.PlazaRef, s.PuestoRef, s.ClaseRef, s.VersionPlazaRef, s.VersionPuestoRef, s.PeriodoDesde.Texto(), s.PeriodoHasta.Texto(), s.DiasReconocidos, s.VigenteDesde.Texto(), s.VigenteHasta.Texto(), s.Procedencia, identidadActoRegistroB2(s.Actor)})
+	}{"vec.personal.registro-empleado-b2.hecho.v1", "hecho", s.Tipo, s.EmpleadoRef, s.OrganismoRef, s.RelacionRef, s.RevisionEsperada, s.RelacionVersionEsperada, s.UnidadRef, s.Regimen, s.Modalidad, s.Situacion, s.ClaseServicio, s.ClaseOcupacion, s.Estado, s.PlazaRef, s.PuestoRef, s.VersionPlazaRef, s.VersionPuestoRef, s.PeriodoDesde.Texto(), s.PeriodoHasta.Texto(), s.DiasReconocidos, s.VigenteDesde.Texto(), s.VigenteHasta.Texto(), s.Procedencia, identidadActoRegistroB2(s.Actor)})
 }
 
 type identidadActoB2 struct {
@@ -203,18 +222,18 @@ func hechoRegistroB2Valido(s SolicitudHechoEmpleadoB2) bool {
 		return false
 	}
 	if s.Tipo == "relacion" {
-		return ((s.RelacionRef == "" && s.RelacionVersionEsperada == 0) || (ReferenciaRelacionValida(s.RelacionRef) && s.RelacionVersionEsperada >= 1)) && patronReferenciaB2.MatchString(s.UnidadRef) && patronReferenciaB2.MatchString(s.RegimenRef) && patronReferenciaB2.MatchString(s.ModalidadRef) && estadoRelacionB2Valido(s.Estado)
+		return ((s.RelacionRef == "" && s.RelacionVersionEsperada == 0) || (ReferenciaRelacionValida(s.RelacionRef) && s.RelacionVersionEsperada >= 1)) && patronReferenciaB2.MatchString(s.UnidadRef) && s.Regimen.Validar() == nil && s.Modalidad.Validar() == nil && s.Situacion.Vacia() && s.ClaseServicio.Vacia() && s.ClaseOcupacion == "" && estadoRelacionB2Valido(s.Estado)
 	}
 	if !ReferenciaRelacionValida(s.RelacionRef) || s.RelacionVersionEsperada < 1 {
 		return false
 	}
 	switch s.Tipo {
 	case "ocupacion":
-		return referenciaOrganizacionB2Valida(s.PlazaRef) && (s.PuestoRef == "" || referenciaOrganizacionB2Valida(s.PuestoRef)) && patronReferenciaB2.MatchString(s.UnidadRef) && patronReferenciaB2.MatchString(s.ModalidadRef) && (s.ClaseRef == "titular" || s.ClaseRef == "provisional" || s.ClaseRef == "temporal" || s.ClaseRef == "reserva") && patronReferenciaB2.MatchString(s.VersionPlazaRef)
+		return s.Regimen.Vacia() && s.Modalidad.Validar() == nil && s.Situacion.Vacia() && s.ClaseServicio.Vacia() && referenciaOrganizacionB2Valida(s.PlazaRef) && (s.PuestoRef == "" || referenciaOrganizacionB2Valida(s.PuestoRef)) && patronReferenciaB2.MatchString(s.UnidadRef) && (s.ClaseOcupacion == "titular" || s.ClaseOcupacion == "provisional" || s.ClaseOcupacion == "temporal" || s.ClaseOcupacion == "reserva") && patronReferenciaB2.MatchString(s.VersionPlazaRef)
 	case "servicio":
-		return patronReferenciaB2.MatchString(s.ClaseRef) && s.PeriodoDesde.Validar() == nil && s.PeriodoHasta.Validar() == nil && s.PeriodoDesde.AntesDe(s.PeriodoHasta) && s.DiasReconocidos >= 0 && (s.Estado == "declarado" || s.Estado == "comprobado" || s.Estado == "reconocido")
+		return s.Regimen.Vacia() && s.Modalidad.Vacia() && s.Situacion.Vacia() && s.ClaseServicio.Validar() == nil && s.ClaseOcupacion == "" && s.PeriodoDesde.Validar() == nil && s.PeriodoHasta.Validar() == nil && s.PeriodoDesde.AntesDe(s.PeriodoHasta) && s.DiasReconocidos >= 0 && (s.Estado == "declarado" || s.Estado == "comprobado" || s.Estado == "reconocido")
 	case "situacion":
-		return patronReferenciaB2.MatchString(s.ClaseRef)
+		return s.Regimen.Vacia() && s.Modalidad.Vacia() && s.Situacion.Validar() == nil && s.ClaseServicio.Vacia() && s.ClaseOcupacion == "" && (s.Estado == "vigente" || s.Estado == "finalizada" || s.Estado == "rectificada")
 	}
 	return false
 }

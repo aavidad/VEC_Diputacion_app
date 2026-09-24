@@ -181,6 +181,32 @@ type TrazaEmpleadoB2 struct {
 	FuenteVersion int64      `json:"fuente_version"`
 }
 
+// SnapshotCatalogoEmpleadoB2 conserva la entrada publicada que rigió el acto;
+// una retirada posterior no altera la historia del empleado.
+type SnapshotEntradaCatalogoEmpleadoB2 struct {
+	OrganismoRef string     `json:"organismo_ref"`
+	Tipo         string     `json:"tipo"`
+	Ref          string     `json:"ref"`
+	Version      int64      `json:"version"`
+	Revision     int64      `json:"revision"`
+	Denominacion string     `json:"denominacion"`
+	HuellaSHA256 string     `json:"huella_sha256"`
+	VigenteDesde FechaCivil `json:"vigente_desde"`
+	VigenteHasta FechaCivil `json:"vigente_hasta"`
+	Estado       string     `json:"estado"`
+}
+
+func (s SnapshotEntradaCatalogoEmpleadoB2) validar(tipo, organismo, ref string, en FechaCivil) bool {
+	return s.OrganismoRef == organismo && s.Tipo == tipo && s.Ref == ref && patronReferenciaB2.MatchString(s.Ref) && s.Version >= 1 && s.Version <= 2147483647 && s.Revision >= 1 && s.Estado == "publicada" && s.VigenteDesde.Validar() == nil && (s.VigenteHasta == "" || (s.VigenteHasta.Validar() == nil && s.VigenteDesde.AntesDe(s.VigenteHasta))) && !en.AntesDe(s.VigenteDesde) && (s.VigenteHasta == "" || en.AntesDe(s.VigenteHasta)) && huellaRegistroDominioB2Valida(s.HuellaSHA256) && len(s.Denominacion) > 0 && len(s.Denominacion) <= 256
+}
+
+type SnapshotCatalogoEmpleadoB2 struct {
+	Regimen       *SnapshotEntradaCatalogoEmpleadoB2 `json:"regimen,omitempty"`
+	Modalidad     *SnapshotEntradaCatalogoEmpleadoB2 `json:"modalidad,omitempty"`
+	Situacion     *SnapshotEntradaCatalogoEmpleadoB2 `json:"situacion,omitempty"`
+	ClaseServicio *SnapshotEntradaCatalogoEmpleadoB2 `json:"clase_servicio,omitempty"`
+}
+
 func (t TrazaEmpleadoB2) ValidarEn(c CorteEmpleadoB2) error {
 	if t.Desde.Validar() != nil || (t.Hasta != "" && (t.Hasta.Validar() != nil || !t.Desde.AntesDe(t.Hasta))) ||
 		!instanteRegistroB2Valido(t.RegistradaEn) || t.RegistradaEn.After(c.ConocidoEn) || t.Version < 1 ||
@@ -191,45 +217,49 @@ func (t TrazaEmpleadoB2) ValidarEn(c CorteEmpleadoB2) error {
 }
 
 type RelacionRegistroEmpleadoB2 struct {
-	RelacionRef        string          `json:"relacion_ref"`
-	UnidadRef          string          `json:"unidad_ref"`
-	OrganismoRef       string          `json:"organismo_ref"`
-	RegimenRef         string          `json:"regimen_ref"`
-	ModalidadRef       string          `json:"modalidad_ref"`
-	UnidadDenominacion string          `json:"unidad_denominacion,omitempty"`
-	Estado             string          `json:"estado"`
-	Traza              TrazaEmpleadoB2 `json:"traza"`
+	RelacionRef        string                     `json:"relacion_ref"`
+	UnidadRef          string                     `json:"unidad_ref"`
+	OrganismoRef       string                     `json:"organismo_ref"`
+	RegimenRef         string                     `json:"regimen_ref"`
+	ModalidadRef       string                     `json:"modalidad_ref"`
+	CatalogoSnapshot   SnapshotCatalogoEmpleadoB2 `json:"catalogo_snapshot"`
+	UnidadDenominacion string                     `json:"unidad_denominacion,omitempty"`
+	Estado             string                     `json:"estado"`
+	Traza              TrazaEmpleadoB2            `json:"traza"`
 }
 type OcupacionEmpleadoB2 struct {
-	OcupacionRef       string          `json:"ocupacion_ref"`
-	RelacionRef        string          `json:"relacion_ref"`
-	PlazaRef           string          `json:"plaza_ref"`
-	PuestoRef          string          `json:"puesto_ref"`
-	UnidadRef          string          `json:"unidad_ref"`
-	UnidadDenominacion string          `json:"unidad_denominacion,omitempty"`
-	PuestoDenominacion string          `json:"puesto_denominacion,omitempty"`
-	CodigoPlazaFuente  string          `json:"codigo_plaza_fuente,omitempty"`
-	ModalidadRef       string          `json:"modalidad_ref"`
-	Clase              string          `json:"clase"`
-	Estado             string          `json:"estado"`
-	Traza              TrazaEmpleadoB2 `json:"traza"`
+	OcupacionRef       string                     `json:"ocupacion_ref"`
+	RelacionRef        string                     `json:"relacion_ref"`
+	PlazaRef           string                     `json:"plaza_ref"`
+	PuestoRef          string                     `json:"puesto_ref"`
+	UnidadRef          string                     `json:"unidad_ref"`
+	UnidadDenominacion string                     `json:"unidad_denominacion,omitempty"`
+	PuestoDenominacion string                     `json:"puesto_denominacion,omitempty"`
+	CodigoPlazaFuente  string                     `json:"codigo_plaza_fuente,omitempty"`
+	ModalidadRef       string                     `json:"modalidad_ref"`
+	CatalogoSnapshot   SnapshotCatalogoEmpleadoB2 `json:"catalogo_snapshot"`
+	Clase              string                     `json:"clase"`
+	Estado             string                     `json:"estado"`
+	Traza              TrazaEmpleadoB2            `json:"traza"`
 }
 type SituacionEmpleadoB2 struct {
-	SituacionRef string          `json:"situacion_ref"`
-	RelacionRef  string          `json:"relacion_ref"`
-	CodigoRef    string          `json:"codigo_ref"`
-	Estado       string          `json:"estado"`
-	Traza        TrazaEmpleadoB2 `json:"traza"`
+	SituacionRef     string                     `json:"situacion_ref"`
+	RelacionRef      string                     `json:"relacion_ref"`
+	CodigoRef        string                     `json:"codigo_ref"`
+	CatalogoSnapshot SnapshotCatalogoEmpleadoB2 `json:"catalogo_snapshot"`
+	Estado           string                     `json:"estado"`
+	Traza            TrazaEmpleadoB2            `json:"traza"`
 }
 type ServicioReconocidoB2 struct {
-	ServicioRef     string          `json:"servicio_ref"`
-	RelacionRef     string          `json:"relacion_ref"`
-	Estado          string          `json:"estado"`
-	ClaseRef        string          `json:"clase_ref"`
-	PeriodoDesde    FechaCivil      `json:"periodo_desde"`
-	PeriodoHasta    FechaCivil      `json:"periodo_hasta"`
-	DiasReconocidos int64           `json:"dias_reconocidos"`
-	Traza           TrazaEmpleadoB2 `json:"traza"`
+	ServicioRef      string                     `json:"servicio_ref"`
+	RelacionRef      string                     `json:"relacion_ref"`
+	Estado           string                     `json:"estado"`
+	ClaseRef         string                     `json:"clase_ref"`
+	CatalogoSnapshot SnapshotCatalogoEmpleadoB2 `json:"catalogo_snapshot"`
+	PeriodoDesde     FechaCivil                 `json:"periodo_desde"`
+	PeriodoHasta     FechaCivil                 `json:"periodo_hasta"`
+	DiasReconocidos  int64                      `json:"dias_reconocidos"`
+	Traza            TrazaEmpleadoB2            `json:"traza"`
 }
 type FichaEmpleadoB2 struct {
 	EmpleadoRef            string                       `json:"empleado_ref"`
@@ -252,22 +282,22 @@ func (f FichaEmpleadoB2) ValidarPara(m MaterialConsultaRegistroEmpleadoB2) error
 	}
 	ids := map[string]struct{}{}
 	for _, r := range f.Relaciones {
-		if !ReferenciaRelacionValida(r.RelacionRef) || !patronReferenciaB2.MatchString(r.UnidadRef) || r.OrganismoRef != f.OrganismoRef || !patronReferenciaB2.MatchString(r.RegimenRef) || !patronReferenciaB2.MatchString(r.ModalidadRef) || !estadoRelacionB2Valido(r.Estado) || r.Traza.ValidarEn(f.Corte) != nil || repetidoB2(ids, r.RelacionRef+":"+strconv.FormatInt(r.Traza.Version, 10)) {
+		if !ReferenciaRelacionValida(r.RelacionRef) || !patronReferenciaB2.MatchString(r.UnidadRef) || r.OrganismoRef != f.OrganismoRef || !patronReferenciaB2.MatchString(r.RegimenRef) || !patronReferenciaB2.MatchString(r.ModalidadRef) || !estadoRelacionB2Valido(r.Estado) || r.Traza.ValidarEn(f.Corte) != nil || r.CatalogoSnapshot.Regimen == nil || r.CatalogoSnapshot.Modalidad == nil || r.CatalogoSnapshot.Situacion != nil || r.CatalogoSnapshot.ClaseServicio != nil || !r.CatalogoSnapshot.Regimen.validar("regimen", f.OrganismoRef, r.RegimenRef, r.Traza.Desde) || !r.CatalogoSnapshot.Modalidad.validar("modalidad", f.OrganismoRef, r.ModalidadRef, r.Traza.Desde) || repetidoB2(ids, r.RelacionRef+":"+strconv.FormatInt(r.Traza.Version, 10)) {
 			return ErrRegistroEmpleadoB2Invalido
 		}
 	}
 	for _, o := range f.Ocupaciones {
-		if !patronReferenciaB2.MatchString(o.OcupacionRef) || !ReferenciaRelacionValida(o.RelacionRef) || !referenciaOrganizacionB2Valida(o.PlazaRef) || (o.PuestoRef != "" && !referenciaOrganizacionB2Valida(o.PuestoRef)) || !patronReferenciaB2.MatchString(o.UnidadRef) || !patronReferenciaB2.MatchString(o.ModalidadRef) || (o.Clase != "titular" && o.Clase != "provisional" && o.Clase != "temporal" && o.Clase != "reserva") || (o.Estado != "vigente" && o.Estado != "finalizada") || o.Traza.ValidarEn(f.Corte) != nil {
+		if !patronReferenciaB2.MatchString(o.OcupacionRef) || !ReferenciaRelacionValida(o.RelacionRef) || !referenciaOrganizacionB2Valida(o.PlazaRef) || (o.PuestoRef != "" && !referenciaOrganizacionB2Valida(o.PuestoRef)) || !patronReferenciaB2.MatchString(o.UnidadRef) || !patronReferenciaB2.MatchString(o.ModalidadRef) || (o.Clase != "titular" && o.Clase != "provisional" && o.Clase != "temporal" && o.Clase != "reserva") || (o.Estado != "vigente" && o.Estado != "finalizada") || o.Traza.ValidarEn(f.Corte) != nil || o.CatalogoSnapshot.Regimen != nil || o.CatalogoSnapshot.Modalidad == nil || o.CatalogoSnapshot.Situacion != nil || o.CatalogoSnapshot.ClaseServicio != nil || !o.CatalogoSnapshot.Modalidad.validar("modalidad", f.OrganismoRef, o.ModalidadRef, o.Traza.Desde) {
 			return ErrRegistroEmpleadoB2Invalido
 		}
 	}
 	for _, s := range f.Situaciones {
-		if !patronReferenciaB2.MatchString(s.SituacionRef) || !ReferenciaRelacionValida(s.RelacionRef) || !patronReferenciaB2.MatchString(s.CodigoRef) || (s.Estado != "vigente" && s.Estado != "finalizada" && s.Estado != "rectificada") || s.Traza.ValidarEn(f.Corte) != nil {
+		if !patronReferenciaB2.MatchString(s.SituacionRef) || !ReferenciaRelacionValida(s.RelacionRef) || !patronReferenciaB2.MatchString(s.CodigoRef) || (s.Estado != "vigente" && s.Estado != "finalizada" && s.Estado != "rectificada") || s.Traza.ValidarEn(f.Corte) != nil || s.CatalogoSnapshot.Regimen != nil || s.CatalogoSnapshot.Modalidad != nil || s.CatalogoSnapshot.Situacion == nil || s.CatalogoSnapshot.ClaseServicio != nil || !s.CatalogoSnapshot.Situacion.validar("situacion", f.OrganismoRef, s.CodigoRef, s.Traza.Desde) {
 			return ErrRegistroEmpleadoB2Invalido
 		}
 	}
 	for _, s := range f.Servicios {
-		if !patronReferenciaB2.MatchString(s.ServicioRef) || !ReferenciaRelacionValida(s.RelacionRef) || (s.Estado != "declarado" && s.Estado != "comprobado" && s.Estado != "reconocido") || !patronReferenciaB2.MatchString(s.ClaseRef) || s.PeriodoDesde.Validar() != nil || s.PeriodoHasta.Validar() != nil || s.PeriodoHasta.AntesDe(s.PeriodoDesde) || s.DiasReconocidos < 0 || s.Traza.ValidarEn(f.Corte) != nil {
+		if !patronReferenciaB2.MatchString(s.ServicioRef) || !ReferenciaRelacionValida(s.RelacionRef) || (s.Estado != "declarado" && s.Estado != "comprobado" && s.Estado != "reconocido") || !patronReferenciaB2.MatchString(s.ClaseRef) || s.PeriodoDesde.Validar() != nil || s.PeriodoHasta.Validar() != nil || s.PeriodoHasta.AntesDe(s.PeriodoDesde) || s.DiasReconocidos < 0 || s.Traza.ValidarEn(f.Corte) != nil || s.CatalogoSnapshot.Regimen != nil || s.CatalogoSnapshot.Modalidad != nil || s.CatalogoSnapshot.Situacion != nil || s.CatalogoSnapshot.ClaseServicio == nil || !s.CatalogoSnapshot.ClaseServicio.validar("clase_servicio", f.OrganismoRef, s.ClaseRef, s.Traza.Desde) {
 			return ErrRegistroEmpleadoB2Invalido
 		}
 	}
