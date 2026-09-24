@@ -18,11 +18,13 @@ function validarCuerpo(cuerpo, campos, clave) {
       !Number.isSafeInteger(cuerpo.fuente_version) || cuerpo.fuente_version < 1 || !/^[a-f0-9]{64}$/u.test(cuerpo.fuente_huella_sha256)) throw new TypeError("acto de Registro de Personal no válido");
   if (campos === CAMPOS_ALTA && (typeof cuerpo.persona_ref !== "string" || !/^per_[A-Za-z0-9_-]{22,128}$/u.test(cuerpo.persona_ref) ||
       !["organismo_ref", "unidad_ref", "regimen_ref", "modalidad_ref"].every((campo) => typeof cuerpo[campo] === "string" && cuerpo[campo]))) throw new TypeError("alta de empleado no válida");
+  const nuevaRelacion = cuerpo.relacion_version_esperada === 0 && (cuerpo.relacion_ref === undefined || cuerpo.relacion_ref === "");
+  const revisionRelacion = cuerpo.relacion_version_esperada >= 1 && /^rel_[A-Za-z0-9_-]{22,128}$/u.test(cuerpo.relacion_ref);
   if (campos === CAMPOS_HECHO && (!["relacion", "ocupacion", "servicio", "situacion"].includes(cuerpo.tipo) ||
       !/^emp_[A-Za-z0-9_-]{22,128}$/u.test(cuerpo.empleado_ref) || !Number.isSafeInteger(cuerpo.revision_esperada) || cuerpo.revision_esperada < 1 ||
       !Number.isSafeInteger(cuerpo.relacion_version_esperada) || cuerpo.relacion_version_esperada < (cuerpo.tipo === "relacion" ? 0 : 1) ||
       (cuerpo.tipo !== "relacion" && !/^rel_[A-Za-z0-9_-]{22,128}$/u.test(cuerpo.relacion_ref)) ||
-      (cuerpo.tipo === "relacion" && (cuerpo.relacion_version_esperada !== 0 || (cuerpo.relacion_ref !== undefined && cuerpo.relacion_ref !== ""))))) throw new TypeError("hecho de empleado no válido");
+      (cuerpo.tipo === "relacion" && !nuevaRelacion && !revisionRelacion))) throw new TypeError("hecho de empleado no válido");
   return JSON.stringify(cuerpo);
 }
 function fechaCivil(valor) { if (typeof valor !== "string" || !/^\d{4}-\d{2}-\d{2}$/u.test(valor)) return false; const fecha = new Date(`${valor}T12:00:00Z`); return Number.isFinite(fecha.getTime()) && fecha.toISOString().slice(0, 10) === valor; }

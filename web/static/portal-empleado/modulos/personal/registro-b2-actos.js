@@ -3,7 +3,7 @@ import { ErrorRegistroB2 } from "./registro-b2-cliente.js?v=20260925-b2-registro
 
 const EMPLEADO = /^emp_[A-Za-z0-9_-]{22,128}$/u;
 const PERSONA = /^per_[A-Za-z0-9_-]{22,128}$/u;
-const TIPOS = Object.freeze({ alta: "registro_b2_alta", relacion: "registro_b2_nueva_relacion", ocupacion: "registro_b2_nueva_ocupacion", situacion: "registro_b2_nueva_situacion", servicio: "registro_b2_nuevo_servicio" });
+const TIPOS = Object.freeze({ alta: "registro_b2_alta", relacion: "registro_b2_nueva_relacion", revision_relacion: "registro_b2_revisar_relacion", ocupacion: "registro_b2_nueva_ocupacion", situacion: "registro_b2_nueva_situacion", servicio: "registro_b2_nuevo_servicio" });
 const OPCIONES = Object.freeze(["organismos", "unidades", "regimenes", "modalidades", "plazas", "puestos", "situaciones", "clasesServicio", "actos", "fuentes"]);
 function nodo(d, etiqueta, texto) { const n = d.createElement(etiqueta); if (texto !== undefined) n.textContent = texto; return n; }
 function opcionesValidas(catalogos) {
@@ -33,6 +33,7 @@ export function montarActosRegistroB2({ raiz, cliente, catalogos, personaRef = "
   if (PERSONA.test(personaRef)) tipos.push("alta");
   if (EMPLEADO.test(empleadoRef) && Number.isSafeInteger(ficha?.version) && ficha.version > 0) {
     tipos.push("relacion");
+    if (Array.isArray(ficha.relaciones) && ficha.relaciones.length) tipos.push("revision_relacion");
     if (Array.isArray(ficha.relaciones) && ficha.relaciones.length && catalogos.plazas.length) tipos.push("ocupacion");
     if (Array.isArray(ficha.relaciones) && ficha.relaciones.length && catalogos.situaciones.length) tipos.push("situacion");
     if (Array.isArray(ficha.relaciones) && ficha.relaciones.length && catalogos.clasesServicio.length) tipos.push("servicio");
@@ -102,13 +103,13 @@ export function montarActosRegistroB2({ raiz, cliente, catalogos, personaRef = "
     let cuerpo;
     if (tipo === "alta") cuerpo = { persona_ref: personaRef, organismo_ref: obtener("organismo"), unidad_ref: obtener("unidad"), regimen_ref: obtener("regimen"), modalidad_ref: obtener("modalidad"), ...base };
     else {
-      cuerpo = { tipo, empleado_ref: empleadoRef, revision_esperada: ficha.version, relacion_version_esperada: 0, ...base };
+      cuerpo = { tipo: tipo === "revision_relacion" ? "relacion" : tipo, empleado_ref: empleadoRef, revision_esperada: ficha.version, relacion_version_esperada: 0, ...base };
       if (tipo !== "relacion") {
         const relacion = relacionesActuales().find((r) => r.relacion_ref === obtener("relacion"));
         if (!relacion || !Number.isSafeInteger(relacion.traza?.version) || relacion.traza.version < 1) { pintarMensaje("registro_b2_formulario_invalido", true); return; }
         cuerpo.relacion_ref = relacion.relacion_ref; cuerpo.relacion_version_esperada = relacion.traza.version;
       }
-      if (tipo === "relacion") Object.assign(cuerpo, { unidad_ref: obtener("unidad"), regimen_ref: obtener("regimen"), modalidad_ref: obtener("modalidad"), estado: obtener("estado") });
+      if (tipo === "relacion" || tipo === "revision_relacion") Object.assign(cuerpo, { unidad_ref: obtener("unidad"), regimen_ref: obtener("regimen"), modalidad_ref: obtener("modalidad"), estado: obtener("estado") });
       if (tipo === "ocupacion") {
         const plaza = opcion("plazas", obtener("plaza")); const puesto = opcion("puestos", obtener("puesto"));
         if (!plaza?.version_ref) { pintarMensaje("registro_b2_formulario_invalido", true); return; }
@@ -147,10 +148,10 @@ export function montarActosRegistroB2({ raiz, cliente, catalogos, personaRef = "
       form.append(estado(d, t("registro_b2_persona")));
       form.append(seleccionar("organismo", "registro_b2_organismo", catalogos.organismos));
     } else if (tipo !== "relacion") form.append(seleccionar("relacion", "registro_b2_relacion", relaciones()));
-    if (["alta", "relacion", "ocupacion"].includes(tipo)) form.append(seleccionar("unidad", "registro_b2_unidad", catalogos.unidades));
-    if (["alta", "relacion"].includes(tipo)) form.append(seleccionar("regimen", "registro_b2_regimen", catalogos.regimenes));
-    if (["alta", "relacion", "ocupacion"].includes(tipo)) form.append(seleccionar("modalidad", "registro_b2_modalidad", catalogos.modalidades));
-    if (tipo === "relacion") form.append(enumerado("estado", "registro_b2_estado", [["vigente", "registro_b2_estado_vigente"], ["suspendida", "registro_b2_estado_suspendida"], ["finalizada", "registro_b2_estado_finalizada"]]));
+    if (["alta", "relacion", "revision_relacion", "ocupacion"].includes(tipo)) form.append(seleccionar("unidad", "registro_b2_unidad", catalogos.unidades));
+    if (["alta", "relacion", "revision_relacion"].includes(tipo)) form.append(seleccionar("regimen", "registro_b2_regimen", catalogos.regimenes));
+    if (["alta", "relacion", "revision_relacion", "ocupacion"].includes(tipo)) form.append(seleccionar("modalidad", "registro_b2_modalidad", catalogos.modalidades));
+    if (tipo === "relacion" || tipo === "revision_relacion") form.append(enumerado("estado", "registro_b2_estado", [["vigente", "registro_b2_estado_vigente"], ["suspendida", "registro_b2_estado_suspendida"], ["finalizada", "registro_b2_estado_finalizada"]]));
     if (tipo === "ocupacion") { form.append(seleccionar("plaza", "registro_b2_plaza", catalogos.plazas)); form.append(seleccionar("puesto", "registro_b2_puesto", catalogos.puestos, false)); form.append(enumerado("clase", "registro_b2_clase", [["titular", "registro_b2_clase_titular"], ["provisional", "registro_b2_clase_provisional"], ["temporal", "registro_b2_clase_temporal"], ["reserva", "registro_b2_clase_reserva"]])); }
     if (tipo === "situacion") form.append(seleccionar("situacion", "registro_b2_situacion", catalogos.situaciones));
     if (tipo === "servicio") { form.append(seleccionar("clase_servicio", "registro_b2_clase_servicio", catalogos.clasesServicio)); form.append(enumerado("estado", "registro_b2_estado", [["declarado", "registro_b2_estado_declarado"], ["comprobado", "registro_b2_estado_comprobado"], ["reconocido", "registro_b2_estado_reconocido"]])); form.append(entrada("periodo_desde", "registro_b2_periodo_inicio")); form.append(entrada("periodo_hasta", "registro_b2_periodo_fin")); form.append(entrada("dias_reconocidos", "registro_b2_dias_reconocidos", "number")); }

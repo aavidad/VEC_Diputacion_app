@@ -70,6 +70,7 @@ export const MENSAJES_PERSONAL_ES = Object.freeze({
   registro_b2_actuaciones: "Actuaciones",
   registro_b2_alta: "Alta de empleado",
   registro_b2_nueva_relacion: "Nueva relación de servicio",
+  registro_b2_revisar_relacion: "Revisar relación de servicio",
   registro_b2_nueva_ocupacion: "Registrar ocupación",
   registro_b2_nueva_situacion: "Registrar situación",
   registro_b2_nuevo_servicio: "Registrar servicios",

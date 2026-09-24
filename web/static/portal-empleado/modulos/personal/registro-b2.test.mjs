@@ -167,3 +167,17 @@ test("la ocupación exige relación explícita y versión de la plaza autorizada
   assert.equal(enviado.version_plaza_ref, "version_plaza_sintetica");
   assert.equal(Object.hasOwn(enviado, "ocupacion_ref"), false);
 });
+
+test("la revisión de relación conserva su referencia y exige versión explícita", async () => {
+  const raiz = raizFalsa(); let enviado;
+  const cliente = { registrarAlta() {}, registrarHecho(cuerpo) { enviado = cuerpo; return { recibo: { recibo_ref: "recibo_sintetico", registrado_en: "2026-09-25T10:00:00Z" }, accesoActual: { estado_replay: "registrado" } }; } };
+  montarActosRegistroB2({ raiz, cliente, catalogos, empleadoRef: "emp_aaaaaaaaaaaaaaaaaaaaaa", ficha: ficha([relacion("rel_aaaaaaaaaaaaaaaaaaaaaa")]).ficha });
+  const tipo = buscar(raiz, (n) => n.dataset.registroB2Campo === "tipo"); tipo.value = "revision_relacion"; tipo.listeners.get("change")();
+  const campos = Object.fromEntries(nodos(raiz).filter((n) => n.dataset.registroB2Campo).map((n) => [n.dataset.registroB2Campo, n]));
+  for (const [clave, valor] of Object.entries({ relacion: "rel_aaaaaaaaaaaaaaaaaaaaaa", unidad: "unidad_sintetica", regimen: "regimen_sintetico", modalidad: "modalidad_sintetica", estado: "suspendida", vigente_desde: "2026-09-25", acto: "acto_sintetico", fuente: "fuente_sintetica" })) campos[clave].value = valor;
+  buscar(raiz, (n) => n.tagName === "form").listeners.get("submit")({ preventDefault() {} });
+  buscar(raiz, (n) => n.textContent === "Confirmar registro").listeners.get("click")(); await completar();
+  assert.equal(enviado.tipo, "relacion");
+  assert.equal(enviado.relacion_ref, "rel_aaaaaaaaaaaaaaaaaaaaaa");
+  assert.equal(enviado.relacion_version_esperada, 1);
+});
