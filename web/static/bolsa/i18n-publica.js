@@ -21,6 +21,21 @@
     error_lista: "Error al consultar la lista",
     documento_formato: "El documento debe tener formato ***1234** (3 asteriscos, 4 dígitos y 2 asteriscos).",
     consultar_lista: "Consultar lista",
+    disponible: "Disponible",
+    ocupado: "Ocupado / Nombrado",
+    no_disponible: "No disponible (pausa)",
+    excluido: "Excluido",
+    renuncia_pendiente: "Renuncia en trámite",
+    dato_no_disponible: "No consta",
+    grupos: "Grupos",
+    tipo_lista: "Tipo de lista",
+    vigente_desde: "Vigente desde",
+    total_aspirantes: "Aspirantes",
+    error_bolsas_denegado: "La consulta pública de bolsas no está disponible para este acceso.",
+    error_lista_denegado: "La consulta pública de esta lista no está disponible para este acceso.",
+    error_lista_no_encontrada: "La bolsa solicitada no está disponible para consulta pública.",
+    ayuda_privacidad_listas: "Ayuda y privacidad de la consulta",
+    ayuda_documento_lista: "Formato de búsqueda",
   });
   function t(clave, variables = {}) {
     const plantilla = mensajes[clave];

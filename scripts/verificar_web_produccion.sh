@@ -28,7 +28,7 @@ if ! cmp -s "$inventario_esperado" "$inventario_real"; then
   exit 1
 fi
 
-if grep -Ev '^(produccion[.]manifest|static/(area-personal|bolsa|portal-empleado|verificar)/[^/].*|static/assets/logo-diputacion-granada[.]svg|static/(styles[.]css|favicon[.]svg))$' "$inventario_esperado" | grep -q .; then
+if grep -Ev '^(produccion[.]manifest|static/(area-personal|bolsa|portal-empleado|verificar)/[^/].*|static/acceso/(index[.]html|acceso[.]css|acceso-i18n[.]js|locales/es[.]json)|static/assets/logo-diputacion-granada[.]svg|static/comun/tema-vec[.](css|js)|static/comun/oportunidades/(vista[.]js|i18n[.]js|oportunidades[.]css)|static/(styles[.]css|favicon[.]svg))$' "$inventario_esperado" | grep -q .; then
   echo "ERROR: el manifiesto contiene una ruta fuera de las superficies permitidas" >&2
   exit 1
 fi
@@ -62,7 +62,7 @@ if find "$estaticos" -type f \( \
   -iname '*presentacion*' -o -iname '*demo*' -o -iname '*fixture*' -o \
   -iname '*.test.js' -o -iname '*.test.mjs' -o \
   -iname '*.md' -o -iname '*.markdown' -o \
-  \( -iname '*.json' ! -path "$estaticos/portal-empleado/modulos/contratacion-temporal/formalizacion-desarrollo.json" \) -o \
+  \( -iname '*.json' ! -path "$estaticos/portal-empleado/modulos/contratacion-temporal/formalizacion-desarrollo.json" ! -path "$estaticos/acceso/locales/es.json" \) -o \
   -iname '*.jsonl' -o -iname '*.ndjson' -o \
   -iname '*.csv' -o -iname '*.tsv' -o -iname '*.db' -o \
   -iname '*.sqlite' -o -iname '*.sqlite3' -o -iname '*.pem' -o -iname '*.key' \

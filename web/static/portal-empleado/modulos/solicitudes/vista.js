@@ -1,48 +1,169 @@
-import { renderizarEstadoEntrega } from "../../estado-entrega.js";
-import { obtenerAtlasSinteticoRRHH, TEXTO_DATOS_FICTICIOS_RRHH } from "../../datos-sinteticos-rrhh.js";
-import { DATOS_SOLICITUDES_PRESENTACION } from "./datos-presentacion.js";
-import { crearTraductorSolicitudes, MENSAJES_SOLICITUDES_ES } from "./i18n.js";
+import { crearTraductorSolicitudes, MENSAJES_SOLICITUDES_ES } from "./i18n.js?v=20260924-f2-web2";
 
-const ESCAPAR = (valor) => String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
-const ESTADOS = Object.freeze(["Todos los estados", "En revisión", "Pendiente de subsanación", "Registrada", "Finalizada"]);
 const PESTANAS = Object.freeze(["bandeja", "nueva", "seguimiento", "certificados"]);
+const SITUACIONES = new Set(["cargando", "disponible", "vacio", "no_configurado", "denegado", "error"]);
+const ESTADOS = Object.freeze(["registrada", "en_revision", "pendiente_subsanacion", "finalizada"]);
+const escapar = (valor) => String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
+const texto = (valor, t) => valor === undefined || valor === null || String(valor).trim() === "" ? t("sin_dato") : String(valor);
+const lista = (valor) => Array.isArray(valor) ? valor : [];
+const referencia = (item) => String(item?.referencia ?? item?.id ?? "");
+const titulo = (item) => item?.titulo ?? item?.tipo;
+const claveEstado = (item) => typeof item?.estado === "string" && ESTADOS.includes(item.estado) ? item.estado : "no_disponible";
+const chip = (item, t) => `<span class="solicitudes-chip solicitudes-chip--${claveEstado(item)}">${escapar(t(`estado_${claveEstado(item)}`))}</span>`;
+function fecha(valor, t) {
+  if (typeof valor !== "string" || !/^\d{4}-\d\d-\d\d(?:T.*)?$/.test(valor)) return t("sin_dato");
+  const instante = new Date(valor.length === 10 ? `${valor}T12:00:00Z` : valor);
+  return Number.isNaN(instante.getTime()) ? t("sin_dato") : new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Madrid" }).format(instante);
+}
+const ayuda = (clave, t) => `<details class="solicitudes-ayuda"><summary aria-label="${escapar(t(clave))}" title="${escapar(t(clave))}">?</summary><p>${escapar(t(clave))}</p></details>`;
+const botonPendiente = (clave, motivo, t) => `<div class="solicitudes-accion-pendiente"><button type="button" disabled aria-disabled="true" title="${escapar(t(motivo))}">${escapar(t(clave))}</button><small>${escapar(t(motivo))}</small></div>`;
 
-function claseEstado(estado) { return estado === "Finalizada" ? "exito" : estado.includes("Pendiente") ? "aviso" : ""; }
-function boton(texto, atributo, valor, { deshabilitado = false, ayuda = "" } = {}) { return `<button type="button" ${atributo}="${ESCAPAR(valor)}"${deshabilitado ? ` disabled aria-disabled="true" title="${ESCAPAR(ayuda)}"` : ""}>${ESCAPAR(texto)}</button>`; }
-function ayudaContextual(texto) { return `<details class="solicitudes-ayuda"><summary aria-label="Ayuda del trámite" title="Ayuda">?</summary><p>${ESCAPAR(texto)}</p></details>`; }
-
-function estadoEntrega() {
-  return renderizarEstadoEntrega({ estado: "visual_pendiente_backend", resumen: "La bandeja y el asistente son una demostración navegable con datos sintéticos; no producen registros ni documentos.", pendientes: ["Backend: API de trámites y consulta de estados", "Registro: alta idempotente y recibo", "Documentos: repositorio y controles de aportación", "Firma: firma electrónica y verificación", "Notificación: avisos y constancia de entrega", "Auditoría: trazabilidad de lecturas y efectos"], fuente: { etiqueta: "Datos sintéticos de presentación" }, conexion: "Sin llamadas de red, cookies ni almacenamiento web" });
+function estadoConsulta(situacion, t) {
+  const detalle = situacion === "disponible" ? "ayuda_estado" : `detalle_${situacion}`;
+  return `<div class="solicitudes-estado solicitudes-estado--${situacion}" role="status"><strong>${escapar(t(`estado_${situacion}`))}</strong><span>${escapar(t(detalle))}</span></div>`;
+}
+function resumen(datos, situacion, t) {
+  const tramites = lista(datos.tramites);
+  const disponible = situacion === "disponible" || situacion === "vacio";
+  const valores = [
+    ["resumen_total", tramites.length, "●"],
+    ["resumen_activos", tramites.filter((item) => ["registrada", "en_revision"].includes(claveEstado(item))).length, "◔"],
+    ["resumen_subsanaciones", tramites.filter((item) => claveEstado(item) === "pendiente_subsanacion").length, "!"],
+    ["resumen_finalizados", tramites.filter((item) => claveEstado(item) === "finalizada").length, "✓"],
+  ];
+  return `<section class="solicitudes-resumen rejilla-kpi" aria-label="${escapar(t("resumen_total"))}">${valores.map(([clave, numero, icono]) => `<article class="tarjeta-kpi solicitudes-kpi"><span class="icono-kpi" aria-hidden="true">${icono}</span><span class="solicitudes-kpi-texto"><span>${escapar(t(clave))}</span><strong class="valor-kpi">${disponible ? numero : escapar(t("kpi_sin_fuente"))}</strong><small>${escapar(disponible ? t("kpi_fuente") : t(`estado_${situacion}`))}</small></span></article>`).join("")}</section>`;
+}
+function bandeja(datos, estado, t) {
+  const busqueda = estado.busqueda.trim().toLocaleLowerCase("es");
+  const filtrados = lista(datos.tramites).filter((item) => (estado.filtro === "todos" || claveEstado(item) === estado.filtro)
+    && `${referencia(item)} ${titulo(item) ?? ""}`.toLocaleLowerCase("es").includes(busqueda));
+  const cabeceras = ["referencia", "tramite", "fecha", "unidad", "estado", "accion"];
+  return `<section class="solicitudes-panel panel" aria-labelledby="solicitudes-bandeja-titulo"><header class="cabecera-panel solicitudes-panel-cabecera"><div><h3 id="solicitudes-bandeja-titulo">${escapar(t("bandeja_titulo"))}</h3><p>${escapar(t("bandeja_subtitulo"))}</p></div>${ayuda("ayuda_estado", t)}</header><div class="cuerpo-panel solicitudes-panel-cuerpo"><form class="solicitudes-filtros" data-solicitudes-filtros><label>${escapar(t("buscar"))}<input name="busqueda" value="${escapar(estado.busqueda)}" maxlength="80" autocomplete="off"></label><label>${escapar(t("filtrar"))}<select name="estado"><option value="todos"${estado.filtro === "todos" ? " selected" : ""}>${escapar(t("todos"))}</option>${ESTADOS.map((clave) => `<option value="${clave}"${estado.filtro === clave ? " selected" : ""}>${escapar(t(`estado_${clave}`))}</option>`).join("")}</select></label></form><div class="solicitudes-tabla-wrap" role="region" tabindex="0" aria-label="${escapar(t("region_bandeja"))}"><table class="solicitudes-tabla"><caption>${escapar(t("tabla_tramites"))}</caption><thead><tr>${cabeceras.map((clave) => `<th scope="col">${escapar(t(clave))}</th>`).join("")}</tr></thead><tbody>${filtrados.length ? filtrados.map((item) => `<tr class="solicitudes-fila solicitudes-fila--${claveEstado(item)}"><th scope="row"><button type="button" class="solicitudes-enlace" data-solicitudes-detalle="${escapar(referencia(item))}">${escapar(referencia(item))}</button></th><td>${escapar(texto(titulo(item), t))}</td><td>${escapar(fecha(item.fecha, t))}</td><td>${escapar(texto(item.unidad, t))}</td><td>${chip(item, t)}</td><td><button type="button" data-solicitudes-detalle="${escapar(referencia(item))}">${escapar(t("ver"))}</button></td></tr>`).join("") : `<tr><td colspan="6" class="solicitudes-vacio">${escapar(t("sin_resultados"))}</td></tr>`}</tbody></table></div></div></section>`;
+}
+function nueva(datos, t) {
+  const catalogo = lista(datos.catalogo);
+  return `<section class="solicitudes-panel panel" aria-labelledby="solicitudes-nueva-titulo"><header class="cabecera-panel solicitudes-panel-cabecera"><div><h3 id="solicitudes-nueva-titulo">${escapar(t("nueva_titulo"))}</h3><p>${escapar(t("nueva_subtitulo"))}</p></div>${ayuda("nueva_ayuda", t)}</header><div class="cuerpo-panel solicitudes-tarjetas">${catalogo.length ? catalogo.map((item) => `<article class="solicitudes-tarjeta"><span class="solicitudes-chip">${escapar(texto(item.categoria, t))}</span><h4>${escapar(texto(titulo(item), t))}</h4><p>${escapar(texto(item.descripcion, t))}</p>${botonPendiente("iniciar", "iniciar_motivo", t)}</article>`).join("") : `<p class="solicitudes-vacio">${escapar(t("nueva_vacio"))}</p>`}</div></section>`;
+}
+function seguimiento(datos, estado, t) {
+  const item = lista(datos.tramites).find((tramite) => referencia(tramite) === estado.seleccionada);
+  const historial = lista(item?.historial);
+  const volver = `<button type="button" class="solicitudes-volver" data-solicitudes-volver>${escapar(t("volver_bandeja"))}</button>`;
+  const ficha = item
+    ? `${volver}<div class="solicitudes-ficha">
+      <dl>
+        <div><dt>${escapar(t("referencia"))}</dt><dd>${escapar(referencia(item))}</dd></div>
+        <div><dt>${escapar(t("tramite"))}</dt><dd>${escapar(texto(titulo(item), t))}</dd></div>
+        <div><dt>${escapar(t("fecha"))}</dt><dd>${escapar(fecha(item.fecha, t))}</dd></div>
+        <div><dt>${escapar(t("estado"))}</dt><dd>${chip(item, t)}</dd></div>
+        <div><dt>${escapar(t("unidad"))}</dt><dd>${escapar(texto(item.unidad, t))}</dd></div>
+        <div><dt>${escapar(t("hito_actual"))}</dt><dd>${escapar(texto(item.paso, t))}</dd></div>
+      </dl>
+      <div class="solicitudes-ficha-descripcion">
+        <h4>${escapar(t("descripcion"))}</h4><p>${escapar(texto(item.descripcion, t))}</p>
+        ${item.siguienteAccion ? `<p><strong>${escapar(t("siguiente_accion"))}:</strong> ${escapar(item.siguienteAccion)}</p>` : ""}
+      </div>
+    </div>
+    <div class="solicitudes-historial"><h4>${escapar(t("historial"))}</h4>
+      ${historial.length ? `<ol>${historial.map((hito) => `<li><time>${escapar(fecha(hito.fecha, t))}</time><strong>${escapar(texto(hito.titulo, t))}</strong>${hito.detalle ? `<span>${escapar(hito.detalle)}</span>` : ""}</li>`).join("")}</ol>` : `<p>${escapar(t("historial_vacio"))}</p>`}
+    </div>${botonPendiente("aportar", "aportar_motivo", t)}`
+    : `<p class="solicitudes-vacio">${escapar(t("seguimiento_vacio"))}</p>`;
+  return `<section class="solicitudes-panel panel solicitudes-detalle" aria-labelledby="solicitudes-seguimiento-titulo">
+    <header class="cabecera-panel solicitudes-panel-cabecera"><div><h3 id="solicitudes-seguimiento-titulo">${escapar(t("seguimiento_titulo"))}</h3><p>${escapar(t("seguimiento_ayuda"))}</p></div>${ayuda("seguimiento_ayuda", t)}</header>
+    <div class="cuerpo-panel">${ficha}</div>
+  </section>`;
+}
+function certificados(datos, t) {
+  const items = lista(datos.certificados);
+  const cabeceras = ["tipo", "alcance", "situacion", "accion"];
+  return `<section class="solicitudes-panel panel" aria-labelledby="solicitudes-certificados-titulo"><header class="cabecera-panel solicitudes-panel-cabecera"><div><h3 id="solicitudes-certificados-titulo">${escapar(t("certificados_titulo"))}</h3><p>${escapar(t("certificados_subtitulo"))}</p></div>${ayuda("certificados_ayuda", t)}</header><div class="cuerpo-panel">${items.length ? `<div class="solicitudes-tabla-wrap" role="region" tabindex="0" aria-label="${escapar(t("tabla_certificados"))}"><table class="solicitudes-tabla"><caption>${escapar(t("tabla_certificados"))}</caption><thead><tr>${cabeceras.map((clave) => `<th scope="col">${escapar(t(clave))}</th>`).join("")}</tr></thead><tbody>${items.map((item) => `<tr><th scope="row">${escapar(texto(item.tipo, t))}</th><td>${escapar(texto(item.alcance, t))}</td><td>${escapar(texto(item.situacion, t))}</td><td>${botonPendiente("emitir", "emitir_motivo", t)}</td></tr>`).join("")}</tbody></table></div>` : `<p class="solicitudes-vacio">${escapar(t("certificados_vacio"))}</p>`}</div></section>`;
 }
 
-function renderizarBandeja(estado, t) {
-  const atlas = obtenerAtlasSinteticoRRHH();
-  const filas = DATOS_SOLICITUDES_PRESENTACION.tramites.filter((item) => (estado.filtro === ESTADOS[0] || item.estado === estado.filtro) && `${item.id} ${item.tipo}`.toLocaleLowerCase("es").includes(estado.busqueda.toLocaleLowerCase("es")));
-  return `<section class="solicitudes-panel" aria-labelledby="solicitudes-bandeja-titulo"><div class="solicitudes-panel-cabecera"><div><h3 id="solicitudes-bandeja-titulo">Bandeja de trámites</h3><p>Vista personal de solicitudes y su estado de tramitación.</p></div>${boton(t("nueva"), "data-solicitudes-tab", "nueva")}</div><form class="solicitudes-filtros" data-solicitudes-filtros><label>${t("buscar")}<input name="busqueda" value="${ESCAPAR(estado.busqueda)}" maxlength="80"></label><label>${t("filtrar")}<select name="estado">${ESTADOS.map((item) => `<option${estado.filtro === item ? " selected" : ""}>${ESCAPAR(item)}</option>`).join("")}</select></label></form><div class="solicitudes-tabla-wrap" role="region" tabindex="0" aria-label="Bandeja de trámites"><table class="solicitudes-tabla"><caption>Trámites de ${ESCAPAR(atlas.persona_principal.nombre_visible)}</caption><thead><tr><th scope="col">Referencia</th><th scope="col">Trámite</th><th scope="col">Fecha</th><th scope="col">Unidad</th><th scope="col">Estado</th><th scope="col">Acción</th></tr></thead><tbody>${filas.length ? filas.map((item) => `<tr><th scope="row"><code>${ESCAPAR(item.id)}</code></th><td>${ESCAPAR(item.tipo)}</td><td>${ESCAPAR(item.fecha)}</td><td>${ESCAPAR(item.unidad)}</td><td><span class="solicitudes-chip solicitudes-chip--${claseEstado(item.estado)}">${ESCAPAR(item.estado)}</span></td><td>${boton(t("ver"), "data-solicitudes-detalle", item.id)}</td></tr>`).join("") : `<tr><td colspan="6" class="solicitudes-vacio">No hay trámites que coincidan con el filtro.</td></tr>`}</tbody></table></div></section>`;
-}
-
-function renderizarNueva() { return `<section class="solicitudes-panel" aria-labelledby="solicitudes-nueva-titulo"><div class="solicitudes-panel-cabecera"><h3 id="solicitudes-nueva-titulo">Nueva solicitud</h3>${ayudaContextual("Elija un trámite, complete los datos exigidos y revise el registro. Esta superficie no registra ni envía solicitudes.")}</div><div class="solicitudes-rejilla"><div class="solicitudes-tarjetas">${DATOS_SOLICITUDES_PRESENTACION.catalogo.map((item) => `<article class="solicitudes-tarjeta"><span class="solicitudes-chip">${ESCAPAR(item.etiqueta)}</span><h4>${ESCAPAR(item.titulo)}</h4><p>${ESCAPAR(item.texto)}</p>${boton("Elegir trámite", "data-solicitudes-tramite", item.id)}</article>`).join("")}</div></div><section class="solicitudes-tarjeta" aria-labelledby="solicitudes-formulario-titulo"><div class="solicitudes-panel-cabecera"><h4 id="solicitudes-formulario-titulo">Formulario y documentación</h4>${ayudaContextual("Cada procedimiento define sus campos y documentos. La aportación exige repositorio documental, controles de seguridad, registro y auditoría.")}</div><form class="solicitudes-formulario" aria-describedby="solicitudes-formulario-ayuda"><label>Asunto<input value="Reconocimiento de servicios previos" disabled></label><label>Unidad destinataria<select disabled><option>Servicio de Personal</option></select></label><label class="ancho">Exposición<textarea rows="3" disabled>Información pendiente de completar en el trámite real.</textarea></label><label class="ancho">Documento justificativo<input type="file" disabled></label><p id="solicitudes-formulario-ayuda" class="solicitudes-accion-pendiente">Sin registro, envío ni efecto administrativo.</p><div class="ancho">${boton("Registrar y enviar solicitud", "data-solicitudes-accion", "registrar", { deshabilitado: true, ayuda: "Pendiente de backend, autorización, registro, documentos, notificación y auditoría." })}</div></form></section></section>`; }
-
-function renderizarSeguimiento(estado) { const item = DATOS_SOLICITUDES_PRESENTACION.tramites.find((tramite) => tramite.id === estado.seleccionada) || DATOS_SOLICITUDES_PRESENTACION.tramites[0]; return `<section class="solicitudes-panel solicitudes-detalle" aria-labelledby="solicitudes-seguimiento-titulo"><div class="solicitudes-panel-cabecera"><h3 id="solicitudes-seguimiento-titulo">Seguimiento del trámite</h3>${ayudaContextual("Las fechas y estados son sintéticos. El expediente real deberá devolver su historia, evidencias y la persona o unidad autorizada para actuar.")}</div><dl><div><dt>Referencia</dt><dd><code>${ESCAPAR(item.id)}</code></dd></div><div><dt>Estado</dt><dd><span class="solicitudes-chip solicitudes-chip--${claseEstado(item.estado)}">${ESCAPAR(item.estado)}</span></dd></div><div><dt>Unidad responsable</dt><dd>${ESCAPAR(item.unidad)}</dd></div><div><dt>Hito actual</dt><dd>${ESCAPAR(item.paso)}</dd></div></dl><article class="solicitudes-tarjeta"><h4>${ESCAPAR(item.tipo)}</h4><p>${ESCAPAR(item.descripcion)}</p></article>${boton("Aportar documento", "data-solicitudes-accion", "adjuntar", { deshabilitado: true, ayuda: "Pendiente de repositorio documental, antivirus, autorización y registro." })}</section>`; }
-
-function renderizarCertificados() { return `<section class="solicitudes-panel" aria-labelledby="solicitudes-certificados-titulo"><div><h3 id="solicitudes-certificados-titulo">Certificados</h3><p>Consulta de tipos habituales. Ninguno de estos documentos ha sido generado, firmado o descargado.</p></div><div class="solicitudes-tabla-wrap" role="region" tabindex="0" aria-label="Certificados disponibles"><table class="solicitudes-tabla"><caption>Certificados personales</caption><thead><tr><th scope="col">Tipo</th><th scope="col">Alcance</th><th scope="col">Situación</th><th scope="col">Acción</th></tr></thead><tbody>${DATOS_SOLICITUDES_PRESENTACION.certificados.map((item) => `<tr><th scope="row">${ESCAPAR(item.tipo)}</th><td>${ESCAPAR(item.alcance)}</td><td>${ESCAPAR(item.estado)}</td><td>${boton("Emitir / descargar", "data-solicitudes-accion", item.referencia, { deshabilitado: true, ayuda: "Pendiente de datos fuente, generación, firma, custodia y descarga del original." })}</td></tr>`).join("")}</tbody></table></div></section>`; }
-
+/** Solo presentación. Datos es la respuesta ya autorizada de la fuente inyectada. */
 export function renderizarSolicitudes(estado = {}, mensajes = MENSAJES_SOLICITUDES_ES) {
-  const atlas = obtenerAtlasSinteticoRRHH(); const t = crearTraductorSolicitudes(mensajes); const actual = PESTANAS.includes(estado.pestana) ? estado.pestana : "bandeja";
-  const seguro = { pestana: actual, busqueda: String(estado.busqueda || ""), filtro: ESTADOS.includes(estado.filtro) ? estado.filtro : ESTADOS[0], seleccionada: String(estado.seleccionada || DATOS_SOLICITUDES_PRESENTACION.tramites[0].id) };
-  const pendientes = DATOS_SOLICITUDES_PRESENTACION.tramites.filter((item) => item.estado !== "Finalizada").length;
-  const contenido = { bandeja: renderizarBandeja, nueva: renderizarNueva, seguimiento: renderizarSeguimiento, certificados: renderizarCertificados }[actual](seguro, t);
-  return `<section class="solicitudes-modulo" data-solicitudes-modulo><header class="solicitudes-cabecera"><div><p class="solicitudes-sobrelinea">${ESCAPAR(t("sobrelinea"))}</p><h2>${ESCAPAR(t("titulo"))}</h2><p>${ESCAPAR(t("descripcion"))}</p></div><span class="solicitudes-demo">${ESCAPAR(TEXTO_DATOS_FICTICIOS_RRHH)}</span></header>${estadoEntrega()}<section class="solicitudes-resumen" aria-label="Resumen de trámites"><article class="solicitudes-kpi"><span>Persona de demostración</span><strong>${ESCAPAR(atlas.persona_principal.nombre_visible)}</strong><small>Actualizado: ${ESCAPAR(DATOS_SOLICITUDES_PRESENTACION.actualizado)}</small></article><article class="solicitudes-kpi"><span>Trámites activos</span><strong>${pendientes}</strong><small>Datos sintéticos</small></article><article class="solicitudes-kpi"><span>Subsanaciones</span><strong>1</strong><small>Sin aviso real</small></article><article class="solicitudes-kpi"><span>Certificados</span><strong>${DATOS_SOLICITUDES_PRESENTACION.certificados.length}</strong><small>Sin emisión real</small></article></section><nav class="solicitudes-pestanas" role="tablist" aria-label="Secciones de solicitudes">${PESTANAS.map((clave) => `<button type="button" role="tab" data-solicitudes-tab="${clave}" aria-selected="${clave === actual}" tabindex="${clave === actual ? "0" : "-1"}">${ESCAPAR(t(clave === "nueva" ? "nueva" : clave))}</button>`).join("")}</nav><div role="tabpanel" class="solicitudes-contenido">${contenido}</div></section>`;
+  const t = crearTraductorSolicitudes(mensajes);
+  const situacion = SITUACIONES.has(estado.situacion) ? estado.situacion : "no_configurado";
+  const datos = situacion === "disponible" && estado.datos && typeof estado.datos === "object" ? estado.datos
+    : situacion === "vacio" && estado.datos && typeof estado.datos === "object"
+      ? { tramites: [], catalogo: lista(estado.datos.catalogo), certificados: lista(estado.datos.certificados) }
+      : {};
+  const pestana = PESTANAS.includes(estado.pestana) ? estado.pestana : "bandeja";
+  const seguro = { busqueda: String(estado.busqueda ?? ""), filtro: ESTADOS.includes(estado.filtro) ? estado.filtro : "todos", seleccionada: situacion === "disponible" ? String(estado.seleccionada ?? "") : "" };
+  const contenido = pestana === "bandeja" ? bandeja(datos, seguro, t)
+    : pestana === "nueva" ? nueva(datos, t)
+      : pestana === "seguimiento" ? seguimiento(datos, seguro, t)
+        : certificados(datos, t);
+  return `<section class="solicitudes-modulo" data-solicitudes-modulo><header class="solicitudes-cabecera"><p class="solicitudes-sobrelinea">${escapar(t("sobrelinea"))}</p><h2>${escapar(t("titulo"))}</h2><p>${escapar(t("descripcion_cabecera"))}</p></header>${estadoConsulta(situacion, t)}${resumen(datos, situacion, t)}<nav class="solicitudes-pestanas" role="tablist" aria-label="${escapar(t("navegacion"))}">${PESTANAS.map((clave) => `<button type="button" role="tab" id="solicitudes-tab-${clave}" data-solicitudes-tab="${clave}" aria-selected="${clave === pestana}" tabindex="${clave === pestana ? "0" : "-1"}" aria-controls="solicitudes-panel-actual">${escapar(t(clave))}</button>`).join("")}</nav><div id="solicitudes-panel-actual" role="tabpanel" tabindex="0" aria-labelledby="solicitudes-tab-${pestana}" class="solicitudes-contenido">${contenido}</div></section>`;
 }
 
-/** Montaje local, sin peticiones ni persistencia, destinado al coordinador del portal. */
-export function montarVistaSolicitudes({ raiz, anunciar = () => {}, registrarDesmontar } = {}) {
-  if (!raiz?.replaceChildren || typeof anunciar !== "function" || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function")) throw new TypeError("vista de solicitudes no disponible");
-  let activa = true; let estado = { pestana: "bandeja", busqueda: "", filtro: ESTADOS[0], seleccionada: DATOS_SOLICITUDES_PRESENTACION.tramites[0].id };
-  const pintar = () => { if (activa) raiz.innerHTML = renderizarSolicitudes(estado); };
-  const alClick = (evento) => { const botonTab = evento.target?.closest?.("[data-solicitudes-tab]"); if (botonTab) { estado = { ...estado, pestana: botonTab.dataset.solicitudesTab }; pintar(); return; } const detalle = evento.target?.closest?.("[data-solicitudes-detalle]"); if (detalle) { estado = { ...estado, seleccionada: detalle.dataset.solicitudesDetalle, pestana: "seguimiento" }; pintar(); return; } const tramite = evento.target?.closest?.("[data-solicitudes-tramite]"); if (tramite) { estado = { ...estado, pestana: "nueva" }; anunciar(`Demostración: seleccionado ${tramite.textContent.trim()}. El registro permanece pendiente de conexión.`, "informacion"); } };
-  const alCambio = (evento) => { const formulario = evento.target?.closest?.("[data-solicitudes-filtros]"); if (!formulario) return; estado = { ...estado, busqueda: formulario.elements.busqueda.value, filtro: formulario.elements.estado.value }; pintar(); };
-  pintar(); raiz.addEventListener("click", alClick); raiz.addEventListener("input", alCambio); raiz.addEventListener("change", alCambio);
-  const desmontar = () => { if (!activa) return; activa = false; raiz.removeEventListener("click", alClick); raiz.removeEventListener("input", alCambio); raiz.removeEventListener("change", alCambio); raiz.replaceChildren(); };
-  registrarDesmontar?.(desmontar); return Object.freeze({ desmontar });
+/** Montaje de consulta. fuente.consultar({ signal }) devuelve datos ya autorizados. */
+export function montarVistaSolicitudes({ raiz, fuente, anunciar = () => {}, registrarDesmontar, mensajes = MENSAJES_SOLICITUDES_ES } = {}) {
+  if (!raiz?.replaceChildren || typeof anunciar !== "function" || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function") || (fuente !== undefined && typeof fuente?.consultar !== "function")) throw new TypeError("vista de solicitudes no disponible");
+  const t = crearTraductorSolicitudes(mensajes);
+  const controlador = new AbortController();
+  let activa = true;
+  let estado = { pestana: "bandeja", busqueda: "", filtro: "todos", seleccionada: "", situacion: fuente ? "cargando" : "no_configurado", datos: {} };
+  const pintar = ({ conservarFoco = true } = {}) => {
+    if (!activa) return;
+    const activo = raiz.ownerDocument?.activeElement;
+    const dentro = conservarFoco && activo && raiz.contains?.(activo);
+    const pestanaEnFoco = dentro ? activo.closest?.("[data-solicitudes-tab]")?.dataset.solicitudesTab : "";
+    const panelEnFoco = dentro && activo.id === "solicitudes-panel-actual";
+    raiz.innerHTML = renderizarSolicitudes(estado, mensajes);
+    if (PESTANAS.includes(pestanaEnFoco)) raiz.querySelector?.(`[data-solicitudes-tab="${pestanaEnFoco}"]`)?.focus?.();
+    else if (panelEnFoco) raiz.querySelector?.("#solicitudes-panel-actual")?.focus?.();
+  };
+  const cambiarPestana = (pestana) => { if (!activa || !PESTANAS.includes(pestana)) return; estado = { ...estado, pestana }; pintar({ conservarFoco: false }); raiz.querySelector?.(`[data-solicitudes-tab="${pestana}"]`)?.focus?.(); anunciar(t("anuncio_seccion", { seccion: t(pestana) }), "informacion"); };
+  const alClick = (evento) => {
+    if (evento.target?.closest?.("[data-solicitudes-volver]")) {
+      cambiarPestana("bandeja");
+      const seleccion = [...(raiz.querySelectorAll?.("[data-solicitudes-detalle]") ?? [])]
+        .find((boton) => boton.dataset.solicitudesDetalle === estado.seleccionada);
+      (seleccion ?? raiz.querySelector?.('[data-solicitudes-tab="bandeja"]'))?.focus?.();
+      return;
+    }
+    const tab = evento.target?.closest?.("[data-solicitudes-tab]");
+    if (tab) { cambiarPestana(tab.dataset.solicitudesTab); return; }
+    const detalle = evento.target?.closest?.("[data-solicitudes-detalle]");
+    if (detalle && estado.situacion === "disponible" && lista(estado.datos.tramites).some((item) => referencia(item) === detalle.dataset.solicitudesDetalle)) {
+      estado = { ...estado, seleccionada: detalle.dataset.solicitudesDetalle, pestana: "seguimiento" };
+      pintar(); raiz.querySelector?.("#solicitudes-panel-actual")?.focus?.();
+      anunciar(t("anuncio_detalle", { referencia: estado.seleccionada }), "informacion");
+    }
+  };
+  const aplicarFiltros = (formulario) => {
+    if (!formulario?.elements) return;
+    estado = { ...estado, busqueda: formulario.elements.busqueda.value, filtro: formulario.elements.estado.value };
+    pintar();
+  };
+  const alCambio = (evento) => { if (evento.target?.closest?.("[data-solicitudes-filtros]")) aplicarFiltros(evento.target.closest("form")); };
+  const alSubmit = (evento) => { if (!evento.target?.matches?.("[data-solicitudes-filtros]")) return; evento.preventDefault(); aplicarFiltros(evento.target); };
+  const alTecla = (evento) => {
+    const tab = evento.target?.closest?.("[data-solicitudes-tab]");
+    if (!tab || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(evento.key)) return;
+    evento.preventDefault();
+    const indice = PESTANAS.indexOf(tab.dataset.solicitudesTab);
+    const siguiente = evento.key === "Home" ? 0 : evento.key === "End" ? PESTANAS.length - 1 : (indice + (evento.key === "ArrowRight" ? 1 : -1) + PESTANAS.length) % PESTANAS.length;
+    cambiarPestana(PESTANAS[siguiente]);
+  };
+  pintar();
+  raiz.addEventListener("click", alClick);
+  raiz.addEventListener("change", alCambio);
+  raiz.addEventListener("submit", alSubmit);
+  raiz.addEventListener("keydown", alTecla);
+  if (fuente) Promise.resolve().then(() => fuente.consultar({ signal: controlador.signal })).then((respuesta) => {
+    if (!activa) return;
+    if (respuesta?.estado === "denegado" || respuesta?.estado === "no_configurado" || respuesta?.estado === "error") {
+      estado = { ...estado, situacion: respuesta.estado, datos: {}, seleccionada: "" };
+      pintar();
+      return;
+    }
+    if (respuesta?.estado !== undefined && !["disponible", "vacio"].includes(respuesta.estado)) throw new TypeError("estado de solicitudes inválido");
+    if (!respuesta || !Array.isArray(respuesta.tramites) || respuesta.tramites.some((item) => !item || typeof item !== "object" || !referencia(item).trim())) throw new TypeError("respuesta de solicitudes inválida");
+    const datos = { tramites: respuesta.tramites, catalogo: lista(respuesta.catalogo), certificados: lista(respuesta.certificados) };
+    estado = { ...estado, datos, situacion: respuesta.estado === "vacio" || !datos.tramites.length ? "vacio" : "disponible" };
+    pintar();
+  }).catch(() => { if (!activa || controlador.signal.aborted) return; estado = { ...estado, situacion: "error", datos: {} }; pintar(); });
+  const desmontar = () => { if (!activa) return; activa = false; controlador.abort(); raiz.removeEventListener("click", alClick); raiz.removeEventListener("change", alCambio); raiz.removeEventListener("submit", alSubmit); raiz.removeEventListener("keydown", alTecla); raiz.replaceChildren(); };
+  registrarDesmontar?.(desmontar);
+  return Object.freeze({ desmontar });
 }

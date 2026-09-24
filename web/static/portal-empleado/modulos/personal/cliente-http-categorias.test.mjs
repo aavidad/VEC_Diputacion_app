@@ -11,7 +11,7 @@ test("el cliente usa la ruta, filtros y protección same-origin exactos", async 
   const cliente = crearClienteHTTPCategoriasPersonal({ fetchImpl: async (...argumentos) => { llamadas.push(argumentos); return respuesta(sobre({ items: [sinDescripcion] })); } });
   const salida = await cliente.listarCategorias({ q: "técnico", area: "administracion_general", limit: 25, offset: 0 });
   assert.equal(salida.items[0].clave, "administrativo"); assert.equal(salida.items[0].descripcion, ""); assert.equal(llamadas[0][0], "/api/vec/personal/categories?q=t%C3%A9cnico&area=administracion_general&limit=25&offset=0");
-  assert.deepEqual({ ...llamadas[0][1], signal: undefined }, { method: "GET", credentials: "same-origin", mode: "same-origin", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer", signal: undefined }); assert.equal(llamadas[0][1].signal.aborted, false);
+  assert.deepEqual({ ...llamadas[0][1], signal: undefined }, { method: "GET", credentials: "omit", mode: "same-origin", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer", signal: undefined }); assert.equal(llamadas[0][1].signal.aborted, false);
 });
 
 test("401, 403, 5xx y sobres incompatibles no exponen filas", async () => {

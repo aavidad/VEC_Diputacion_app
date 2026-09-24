@@ -9,11 +9,13 @@ static/bolsa/bolsa_adaptable.css
 static/bolsa/contrato-publico-bolsas.js
 static/bolsa/contrato-v1.js
 static/bolsa/favicon.svg
+static/bolsa/i18n-publica.js
 static/bolsa/index.html
 static/bolsa/lista-bolsas-api.js
 static/bolsa/lista-bolsas.js
 static/bolsa/listas.css
 static/bolsa/listas.html
+static/comun/tema-vec.css
 static/favicon.svg
 static/styles.css
 static/verificar/index.html

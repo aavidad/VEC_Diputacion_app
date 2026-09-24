@@ -10,21 +10,41 @@ trap limpiar EXIT INT TERM
 crear_arbol_valido() {
   rm -rf "$temporal/web"
   mkdir -p \
+    "$temporal/web/static/acceso/locales" \
     "$temporal/web/static/assets" \
     "$temporal/web/static/area-personal" \
     "$temporal/web/static/bolsa" \
+    "$temporal/web/static/comun/oportunidades" \
     "$temporal/web/static/portal-empleado/modulos/contratacion-temporal" \
     "$temporal/web/static/verificar"
   printf '%s\n' 'body { color: #111; }' >"$temporal/web/static/styles.css"
+  printf '%s\n' '<!doctype html><html lang="es"></html>' >"$temporal/web/static/acceso/index.html"
+  printf '%s\n' 'body { color: #111; }' >"$temporal/web/static/acceso/acceso.css"
+  printf '%s\n' 'export const acceso = true;' >"$temporal/web/static/acceso/acceso-i18n.js"
+  printf '%s\n' '{"acceso":"Acceso"}' >"$temporal/web/static/acceso/locales/es.json"
   printf '%s\n' '<svg xmlns="http://www.w3.org/2000/svg"/>' >"$temporal/web/static/favicon.svg"
   printf '%s\n' '<svg xmlns="http://www.w3.org/2000/svg"/>' >"$temporal/web/static/assets/logo-diputacion-granada.svg"
   printf '%s\n' 'export const iniciar = true;' >"$temporal/web/static/bolsa/bolsa.js"
+  printf '%s\n' 'body { color: #111; }' >"$temporal/web/static/comun/tema-vec.css"
+  printf '%s\n' 'export const tema = true;' >"$temporal/web/static/comun/tema-vec.js"
+  printf '%s\n' 'export const vista = true;' >"$temporal/web/static/comun/oportunidades/vista.js"
+  printf '%s\n' 'export const i18n = true;' >"$temporal/web/static/comun/oportunidades/i18n.js"
+  printf '%s\n' 'body { color: #111; }' >"$temporal/web/static/comun/oportunidades/oportunidades.css"
   cp web/static/portal-empleado/modulos/contratacion-temporal/formalizacion-desarrollo.json \
     "$temporal/web/static/portal-empleado/modulos/contratacion-temporal/formalizacion-desarrollo.json"
   printf '%s\n' \
     produccion.manifest \
+    static/acceso/index.html \
+    static/acceso/acceso.css \
+    static/acceso/acceso-i18n.js \
+    static/acceso/locales/es.json \
     static/assets/logo-diputacion-granada.svg \
     static/bolsa/bolsa.js \
+    static/comun/tema-vec.css \
+    static/comun/tema-vec.js \
+    static/comun/oportunidades/vista.js \
+    static/comun/oportunidades/i18n.js \
+    static/comun/oportunidades/oportunidades.css \
     static/favicon.svg \
     static/portal-empleado/modulos/contratacion-temporal/formalizacion-desarrollo.json \
     static/styles.css >"$temporal/manifiesto"
@@ -41,6 +61,37 @@ debe_fallar() {
 crear_arbol_valido
 scripts/verificar_web_produccion.sh "$temporal/web" "$temporal/manifiesto" >/dev/null
 
+for extension in css js; do
+  crear_arbol_valido
+  printf '%s\n' 'contenido ajeno' >"$temporal/web/static/comun/otro.$extension"
+  printf '%s\n' "static/comun/otro.$extension" >>"$temporal/manifiesto"
+  cp "$temporal/manifiesto" "$temporal/web/produccion.manifest"
+  debe_fallar "otro activo comun .$extension enumerado"
+done
+
+crear_arbol_valido
+printf '%s\n' 'export const extra = true;' >"$temporal/web/static/comun/oportunidades/extra.js"
+printf '%s\n' 'static/comun/oportunidades/extra.js' >>"$temporal/manifiesto"
+cp "$temporal/manifiesto" "$temporal/web/produccion.manifest"
+debe_fallar "un cuarto archivo de oportunidades enumerado"
+
+crear_arbol_valido
+printf '%s\n' 'export const extra = true;' >"$temporal/web/static/comun/oportunidades/extra.js"
+debe_fallar "un cuarto archivo de oportunidades sin enumerar"
+
+crear_arbol_valido
+printf '%s\n' 'export const extra = true;' >"$temporal/web/static/acceso/extra.js"
+printf '%s\n' 'static/acceso/extra.js' >>"$temporal/manifiesto"
+cp "$temporal/manifiesto" "$temporal/web/produccion.manifest"
+debe_fallar "otro activo de acceso enumerado"
+
+crear_arbol_valido
+printf '%s\n' '{"otro":"No autorizado"}' >"$temporal/web/static/acceso/locales/otro.json"
+printf '%s\n' 'static/acceso/locales/otro.json' >>"$temporal/manifiesto"
+cp "$temporal/manifiesto" "$temporal/web/produccion.manifest"
+debe_fallar "otro catalogo de acceso enumerado"
+
+crear_arbol_valido
 printf '%s\n' '<svg xmlns="http://www.w3.org/2000/svg"/>' >"$temporal/web/static/assets/logo-no-autorizado.svg"
 printf '%s\n' 'static/assets/logo-no-autorizado.svg' >>"$temporal/manifiesto"
 cp "$temporal/manifiesto" "$temporal/web/produccion.manifest"

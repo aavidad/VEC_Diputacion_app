@@ -1,3 +1,6 @@
+import { MENSAJES_BORRADORES_ES } from "./i18n-borradores.js?v=20260924-f2-web2";
+import { MENSAJES_REVISION_DIETAS_ES } from "./i18n-revision.js?v=20260924-f2-web2";
+
 /** Catálogo completo de textos propios de la superficie Dietas. */
 export const MENSAJES_DIETAS_ES = Object.freeze({
   estado_todos: "Todos",
@@ -251,14 +254,20 @@ export const MENSAJES_DIETAS_ES = Object.freeze({
   borradores_propios_cargando: "Cargando sus borradores…",
   borradores_propios_vacio: "Todavía no hay borradores propios.",
   borradores_propios_listado: "Borradores propios registrados",
+  borradores_propios_pagina_anterior: "Anterior",
+  borradores_propios_pagina_siguiente: "Siguiente",
+  borradores_propios_mostrando: "Mostrando {inicio} a {fin}",
+  borradores_propios_reintentar_consulta: "Reintentar consulta",
   borradores_propios_detalle: "Detalle del borrador",
   borradores_propios_seleccionar: "Ver detalle",
   borradores_propios_recibo_titulo: "Borrador registrado",
   borradores_propios_recibo_referencia: "Recibo",
   borradores_propios_recibo_version: "Versión",
   borradores_propios_recibo_fecha: "Registrado",
+  borradores_propios_recibo_instante_exacto: "Fecha exacta del recibo",
   borradores_propios_repeticion: "La solicitud anterior se ha recuperado sin crear otro borrador.",
   borradores_propios_creado: "El borrador se ha registrado.",
+  borradores_propios_creado_listado_no_actualizado: "Borrador registrado; no se ha podido actualizar la bandeja. Consulte de nuevo la lista, sin volver a crear el borrador.",
   borradores_propios_enviando: "Registrando el borrador…",
   borradores_propios_error: "No se ha podido completar la operación. Revise los datos e inténtelo de nuevo.",
   borradores_propios_error_acceso: "No tiene permiso para consultar o crear sus borradores de Dietas.",
@@ -370,6 +379,8 @@ export const MENSAJES_DIETAS_ES = Object.freeze({
   recorridos_gastos_ayuda: "Dietas, kilometraje, otros gastos y justificantes se muestran como declaración de ejemplo; no aplican una regla aprobada.",
   recorridos_adjuntar_justificante: "Adjuntar justificante",
   recorridos_incidencia: "Incidencia",
+  ...MENSAJES_BORRADORES_ES,
+  ...MENSAJES_REVISION_DIETAS_ES,
 });
 
 const CLAVES = Object.freeze(Object.keys(MENSAJES_DIETAS_ES));

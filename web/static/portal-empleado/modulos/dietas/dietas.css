@@ -1121,3 +1121,513 @@
 @media (max-width: 640px) {
   .modulo-dietas .dietas-detalle > dl { grid-template-columns: minmax(0,1fr); }
 }
+
+/* Mis comisiones: la bandeja y la ficha usan el mismo marco del portal. */
+.modulo-dietas.dietas-borradores-propios {
+  min-width: 0;
+  background: var(--portal-fondo);
+}
+
+.modulo-dietas.dietas-borradores-propios > h2 {
+  margin: 0;
+  color: var(--portal-azul-950);
+  font-size: clamp(1.35rem, 2vw, 1.5rem);
+}
+
+.dietas-borradores-propios > [data-dietas-borradores-estado] {
+  max-width: 100%;
+  margin: 0;
+  padding: .65rem .85rem;
+  border: 1px solid var(--portal-borde);
+  border-inline-start: .25rem solid var(--portal-azul-700);
+  border-radius: var(--portal-radio);
+  background: var(--portal-azul-100);
+  font-size: .85rem;
+  white-space: normal;
+}
+
+.dietas-borradores-propios > [data-dietas-borradores-estado].aviso {
+  border-inline-start-color: var(--portal-aviso);
+  background: var(--portal-aviso-suave);
+}
+
+.dietas-borradores-propios > [data-dietas-borradores-estado].peligro {
+  border-inline-start-color: var(--portal-peligro);
+  background: var(--portal-peligro-suave);
+}
+
+.dietas-borradores-propios > [data-dietas-borradores-estado].exito {
+  border-inline-start-color: var(--portal-exito);
+  background: var(--portal-exito-suave);
+}
+
+.dietas-borradores-propios .dietas-borradores-espacio {
+  display: grid;
+  min-width: 0;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1.65fr) minmax(18rem, 1fr);
+  align-items: stretch;
+}
+
+.dietas-borradores-propios .dietas-borradores-principal,
+.dietas-borradores-propios .dietas-borradores-lateral {
+  display: grid;
+  min-width: 0;
+  gap: 16px;
+  align-content: start;
+}
+
+.dietas-borradores-propios .dietas-listado,
+.dietas-borradores-propios .dietas-detalle,
+.dietas-borradores-propios .dietas-comision-formulario {
+  min-width: 0;
+  padding: 0;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio-lg);
+  background: var(--portal-superficie);
+  box-shadow: var(--portal-sombra-sm);
+  overflow: hidden;
+}
+
+.dietas-borradores-propios .dietas-listado > .cabecera-panel,
+.dietas-borradores-propios .dietas-detalle > .cabecera-panel,
+.dietas-borradores-propios .dietas-comision-formulario > .cabecera-panel {
+  margin: 0;
+  border-top: 0;
+  border-bottom: 1px solid var(--portal-borde);
+  background: var(--portal-cabecera-panel);
+}
+
+.dietas-borradores-propios .dietas-listado > .cabecera-panel h3,
+.dietas-borradores-propios .dietas-detalle > .cabecera-panel h3,
+.dietas-borradores-propios .dietas-comision-formulario > .cabecera-panel h3 {
+  margin: 0;
+  color: var(--portal-azul-950);
+  font-size: 1.05rem;
+  font-weight: 720;
+}
+
+.dietas-borradores-propios .cuerpo-panel {
+  min-width: 0;
+}
+
+.dietas-borradores-propios .dietas-listado > .cuerpo-panel > p,
+.dietas-borradores-propios .dietas-detalle > .cuerpo-panel > p {
+  margin: 0;
+  padding: 13px 14px;
+  color: var(--portal-muted);
+}
+
+.dietas-borradores-propios .dietas-listado > .cuerpo-panel {
+  padding: 0;
+}
+
+.dietas-borradores-propios .dietas-borradores-lista {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dietas-borradores-propios .dietas-borradores-fila {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border-inline-start: 4px solid var(--portal-azul-700);
+  border-bottom: 1px solid var(--portal-borde);
+  background: var(--portal-superficie);
+}
+
+.dietas-borradores-propios .dietas-borradores-fila:nth-child(even) {
+  background: var(--portal-superficie-alterna);
+}
+
+.dietas-borradores-propios .dietas-borradores-fila:hover,
+.dietas-borradores-propios .dietas-borradores-fila:focus-within {
+  background: var(--portal-azul-100);
+}
+
+.dietas-borradores-propios .dietas-borradores-fila .enlace-tabla {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-align: start;
+}
+
+.dietas-borradores-propios .dietas-borradores-fila .estado-chip {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.dietas-borradores-propios .dietas-borradores-paginacion {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--portal-borde);
+  background: var(--portal-superficie-alterna);
+  color: var(--portal-muted);
+  font-size: .8rem;
+}
+
+.dietas-borradores-propios .dietas-borradores-paginacion button {
+  min-height: 32px;
+}
+
+.dietas-borradores-propios .dietas-comision-formulario {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.dietas-borradores-propios .dietas-comision-formulario[hidden] {
+  display: none;
+}
+
+.dietas-borradores-propios .dietas-borradores-campos {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+}
+
+.dietas-borradores-propios .dietas-borradores-campos > label,
+.dietas-borradores-propios .dietas-borradores-campos > p {
+  min-width: 0;
+  margin: 0;
+}
+
+.dietas-borradores-propios .dietas-borradores-ayuda {
+  grid-column: 1 / -1;
+  color: var(--portal-muted);
+  font-size: .8rem;
+}
+
+.dietas-borradores-propios .dietas-borradores-ayuda summary {
+  display: inline-grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border: 1px solid var(--portal-borde);
+  border-radius: 50%;
+  color: var(--portal-azul-700);
+  cursor: pointer;
+  font-weight: 750;
+}
+
+.dietas-borradores-propios .dietas-borradores-ayuda p {
+  margin: 8px 0 0;
+}
+
+.dietas-borradores-propios .dietas-borradores-campos > p {
+  grid-column: 1 / -1;
+  color: var(--portal-muted);
+  font-size: .8rem;
+}
+
+.dietas-borradores-propios .dietas-borradores-acciones {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 12px 14px;
+  border-top: 1px solid var(--portal-borde);
+}
+
+.dietas-borradores-propios .dietas-detalle > .cuerpo-panel > dl,
+.dietas-borradores-propios .dietas-recibo dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.dietas-borradores-propios .dietas-detalle > .cuerpo-panel > dl > div,
+.dietas-borradores-propios .dietas-recibo dl > div {
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio);
+  background: var(--portal-superficie-alterna);
+}
+
+.dietas-borradores-propios .dietas-detalle dd,
+.dietas-borradores-propios .dietas-recibo dd {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.dietas-borradores-propios .dietas-recibo {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  border-radius: var(--portal-radio-lg);
+  box-shadow: var(--portal-sombra-sm);
+}
+
+.dietas-borradores-propios .dietas-recibo > strong {
+  color: var(--portal-azul-950);
+  font-size: 1.05rem;
+}
+
+@media (min-width: 1024px) {
+  .modulo-dietas.dietas-borradores-propios {
+    height: 100%;
+    min-height: 0;
+    grid-template-rows: auto auto minmax(0, 1fr);
+    overflow: hidden;
+  }
+
+  .dietas-borradores-propios .dietas-borradores-espacio,
+  .dietas-borradores-propios .dietas-borradores-principal,
+  .dietas-borradores-propios .dietas-borradores-lateral {
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .dietas-borradores-propios .dietas-borradores-principal {
+    grid-template-rows: minmax(12rem, .9fr) minmax(15rem, 1.1fr);
+  }
+
+  .dietas-borradores-propios .dietas-borradores-lateral {
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .dietas-borradores-propios .dietas-listado,
+  .dietas-borradores-propios .dietas-detalle,
+  .dietas-borradores-propios .dietas-comision-formulario {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .dietas-borradores-propios .dietas-listado > .cabecera-panel,
+  .dietas-borradores-propios .dietas-detalle > .cabecera-panel,
+  .dietas-borradores-propios .dietas-comision-formulario > .cabecera-panel,
+  .dietas-borradores-propios .dietas-borradores-acciones {
+    flex: 0 0 auto;
+  }
+
+  .dietas-borradores-propios .dietas-listado > .cuerpo-panel {
+    display: grid;
+    min-height: 0;
+    flex: 1 1 auto;
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+
+  .dietas-borradores-propios .dietas-borradores-lista,
+  .dietas-borradores-propios .dietas-detalle > .cuerpo-panel,
+  .dietas-borradores-propios .dietas-borradores-campos {
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+
+  .dietas-borradores-propios .dietas-borradores-campos {
+    flex: 1 1 auto;
+  }
+}
+
+@media (max-width: 1199px) {
+  .dietas-borradores-propios .dietas-borradores-campos {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dietas-borradores-propios .dietas-borradores-campos > p {
+    grid-column: 1;
+  }
+}
+
+@media (max-width: 1023px) {
+  .dietas-borradores-propios .dietas-borradores-espacio {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 520px) {
+  .dietas-borradores-propios .dietas-borradores-fila {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .dietas-borradores-propios .dietas-detalle > .cuerpo-panel > dl,
+  .dietas-borradores-propios .dietas-recibo dl {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Revisión de comisión: bandeja propia visible y fases sin servicio explícitas. */
+.modulo-dietas.dietas-recorridos {
+  min-width: 0;
+  padding: 1rem;
+  background: var(--portal-fondo);
+}
+
+.modulo-dietas.dietas-recorridos .dietas-recorridos-pasos {
+  gap: 0;
+  padding: .35rem;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio-lg);
+  background: var(--portal-superficie);
+  box-shadow: var(--portal-sombra-sm);
+}
+
+.modulo-dietas.dietas-recorridos .dietas-recorridos-pasos button {
+  min-height: 2.75rem;
+  padding-inline: .85rem;
+}
+
+.modulo-dietas.dietas-recorridos .dietas-recorridos-principal > :not(h3):not(p:first-of-type) {
+  margin-inline: 0;
+}
+
+.modulo-dietas.dietas-recorridos .dietas-recorridos-cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem 1rem;
+  padding: 1rem 1.15rem;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio-lg);
+  background: var(--portal-superficie);
+  box-shadow: var(--portal-sombra-sm);
+}
+
+.modulo-dietas.dietas-recorridos .dietas-recorridos-cabecera h2 {
+  margin: 0;
+  color: var(--portal-azul-950);
+  font-size: clamp(1.35rem, 2vw, 1.5rem);
+}
+
+.modulo-dietas.dietas-recorridos .dietas-recorridos-cabecera p {
+  margin: .25rem 0 0;
+  color: var(--portal-muted);
+  font-size: .875rem;
+}
+
+.modulo-dietas.dietas-recorridos .dietas-recorridos-cabecera-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: .75rem;
+}
+
+.modulo-dietas.dietas-recorridos .dietas-recorridos-ayuda {
+  position: relative;
+  max-width: 26rem;
+  color: var(--portal-muted);
+  font-size: .84rem;
+}
+
+.modulo-dietas.dietas-recorridos .dietas-recorridos-ayuda summary {
+  cursor: pointer;
+  color: var(--portal-azul-700);
+  font-weight: 700;
+}
+
+.modulo-dietas.dietas-recorridos .dietas-recorridos-ayuda p {
+  margin: .4rem 0 0;
+  padding: .65rem;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio);
+  background: var(--portal-superficie-alterna);
+}
+
+.modulo-dietas.dietas-recorridos .dietas-recorridos-revision {
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio-lg);
+  background: var(--portal-superficie);
+  box-shadow: var(--portal-sombra-sm);
+}
+
+.modulo-dietas.dietas-recorridos [data-dietas-borradores-propios] > h2 {
+  display: none;
+}
+
+.modulo-dietas.dietas-recorridos .dietas-recorridos-revision-cabecera {
+  margin: 0 0 1rem;
+  padding: .8rem 1rem;
+  border-bottom: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio) var(--portal-radio) 0 0;
+  background: var(--portal-superficie-alterna);
+}
+
+.modulo-dietas.dietas-recorridos .dietas-recorridos-revision-cabecera h3,
+.modulo-dietas.dietas-recorridos .dietas-recorridos-revision-cabecera p {
+  margin: 0;
+}
+
+.modulo-dietas.dietas-recorridos .dietas-recorridos-revision-cabecera h3 {
+  color: var(--portal-azul-950);
+  font-size: 1.05rem;
+}
+
+.modulo-dietas.dietas-recorridos .dietas-recorridos-revision-cabecera p {
+  margin-top: .25rem;
+  color: var(--portal-muted);
+  font-size: .84rem;
+}
+
+.modulo-dietas.dietas-recorridos .dietas-recorridos-pendiente .cabecera-panel,
+.modulo-dietas.dietas-recorridos .dietas-nueva-comision .cabecera-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  padding: .8rem 1rem;
+  background: var(--portal-superficie-alterna);
+}
+
+.modulo-dietas.dietas-recorridos .dietas-recorridos-pendiente h2,
+.modulo-dietas.dietas-recorridos .dietas-nueva-comision h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.modulo-dietas.dietas-recorridos .dietas-recorridos-pendiente .cuerpo-panel {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.modulo-dietas.dietas-recorridos .dietas-recorridos-pendiente .acciones-vista {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+}
+
+.modulo-dietas.dietas-recorridos .dietas-recorridos-pendiente button:disabled {
+  cursor: not-allowed;
+}
+
+.modulo-dietas.dietas-recorridos .dietas-nueva-comision {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: var(--portal-superficie);
+  box-shadow: var(--portal-sombra-sm);
+}
+
+.modulo-dietas.dietas-recorridos .dietas-nueva-comision > [data-dietas-area-itinerario] {
+  min-width: 0;
+  padding: 1rem;
+}
+
+.modulo-dietas.dietas-recorridos .dietas-recorridos-aviso-registro {
+  margin: 1rem 1rem 0;
+}
+
+@media (max-width: 760px) {
+  .modulo-dietas.dietas-recorridos { padding: .5rem; }
+  .modulo-dietas.dietas-recorridos .dietas-recorridos-pasos { grid-template-columns: 1fr; }
+  .modulo-dietas.dietas-recorridos .dietas-recorridos-cabecera-acciones { justify-content: flex-start; }
+  .modulo-dietas.dietas-recorridos .dietas-recorridos-revision { padding: .5rem; }
+}

@@ -659,15 +659,16 @@ test("el coordinador no autentica ni conserva estado en el navegador", async () 
 });
 
 test("el cache busting de módulos avanza en cascada hasta el HTML", async () => {
-  const versionCoordinador = "20260923-p4-estado-modulos-v1";
-  const versionPortal = "20260923-p4-reintento-v2";
+  const versionShellF2 = "20260924-f2-shell-v1";
+  const versionTemaBase = "20260924-f2-tema-base-v2";
+  const versionCacheF2 = "20260924-f2-cache-v2";
+  const versionCachePersonal = "20260924-f2-cache-v3";
+  const versionPersonalInterno = "20260924-p1-personal-interno-v2";
+  const versionCarga = "20260923-p4-estado-modulos-v1";
   const versionModuloBolsa = "20260923-pweb13-b8-v1";
-  const versionI18n = "20260920-personal-catalogo-v1";
-  const versionI18nPortal = "20260923-p4-reintento-v2";
-  const versionCatalogo = "20260906-acceso-certificado-v1";
-  const versionTema = "20260923-pweb17-v1";
-  const versionTemaCT = "20260918-botones-v1";
-  const versionCronos = "20260920-cronos-bandeja-v2";
+  const versionClientePersonal = versionPersonalInterno;
+  const versionCatalogo = versionCacheF2;
+  const versionCronos = versionCacheF2;
   const versionDietas = "20260923-dietas-r1";
   const versionRPT = "20260920-personal-rpt-publica-v3";
   const versionEstilos = "20260920-personal-rpt-publica-v3";
@@ -680,23 +681,29 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
     new URL("portal-modulos-coordinador.js", import.meta.url),
     "utf8",
   );
-  assert.match(portal, new RegExp(`portal-modulos-coordinador\\.js\\?v=${versionCoordinador}`));
-  assert.match(coordinador, new RegExp(`portal-modulos-carga\\.js\\?v=${versionCoordinador}`));
+  assert.match(portal, new RegExp(`portal-modulos-coordinador\\.js\\?v=${versionPersonalInterno}`));
+  assert.match(coordinador, new RegExp(`portal-modulos-carga\\.js\\?v=${versionCarga}`));
   assert.match(portal, new RegExp(`portal-bolsas-api\\.js\\?v=${versionModuloBolsa}`));
-  assert.match(portal, new RegExp(`portal-i18n\\.js\\?v=${versionI18nPortal}`));
+  assert.match(portal, new RegExp(`portal-i18n\\.js\\?v=${versionCacheF2}`));
   assert.match(coordinador, new RegExp(`portal-catalogo-modulos\\.js\\?v=${versionCatalogo}`));
-  assert.match(coordinador, new RegExp(`portal-i18n\\.js\\?v=${versionI18n}`));
-  assert.match(coordinador, new RegExp(`modulos/personal/cliente-http-categorias\\.js\\?v=${versionI18n}`));
+  assert.match(coordinador, new RegExp(`portal-i18n\\.js\\?v=${versionCacheF2}`));
+  const clientePersonal = new RegExp(`modulos/personal/cliente-http-categorias\\.js\\?v=${versionClientePersonal}`, "g");
+  assert.equal([...coordinador.matchAll(clientePersonal)].length, 2);
   assert.match(coordinador, new RegExp(`modulos/personal/cliente-http-rpt-publica\\.js\\?v=${versionRPT}`));
   assert.match(coordinador, new RegExp(`modulos/personal/vista-rpt-publica\\.js\\?v=${versionRPT}`));
-  assert.match(html, new RegExp(`portal\\.js\\?v=${versionPortal}`));
+  for (const [vista, montajes] of [["vista.js", 2], ["vista-estructura-organizativa-publica.js", 1]]) {
+    const expresion = new RegExp(`modulos/personal/${vista.replaceAll(".", "\\.")}\\?v=${versionCachePersonal}`, "g");
+    assert.equal([...coordinador.matchAll(expresion)].length, montajes, vista);
+  }
+  assert.match(html, new RegExp(`portal\\.js\\?v=${versionPersonalInterno}`));
   assert.match(html, new RegExp(`portal-modulos\\.css\\?v=${versionEstilos}`));
   assert.match(html, new RegExp(`portal-flujos\\.css\\?v=${versionFlujos}`));
-  assert.match(html, new RegExp(`portal\\.css\\?v=${versionTema}`));
-  assert.match(html, new RegExp(`expedientes-operativo\\.css\\?v=${versionTemaCT}`));
+  assert.match(html, new RegExp(`portal\\.css\\?v=${versionTemaBase}`));
+  assert.doesNotMatch(html, new RegExp(`portal\\.css\\?v=${versionShellF2}`));
+  assert.match(html, new RegExp(`expedientes-operativo\\.css\\?v=${versionShellF2}`));
   assert.match(coordinador, new RegExp(`modulos/cronos/vista-recorridos\\.js\\?v=${versionCronos}`));
   assert.match(coordinador, new RegExp(`modulos/dietas/vista-itinerario\\.js\\?v=${versionDietas}`));
-  assert.match(coordinador, new RegExp(`modulos/dietas/vista-recorridos\\.js\\?v=${versionDietas}`));
-  assert.match(html, new RegExp(`modulos/cronos/cronos\\.css\\?v=${versionCronos}`));
-  assert.match(html, new RegExp(`modulos/dietas/dietas\\.css\\?v=${versionDietas}`));
+  assert.match(coordinador, new RegExp(`modulos/dietas/vista-recorridos\\.js\\?v=${versionShellF2}`));
+  assert.match(html, new RegExp(`modulos/cronos/cronos\\.css\\?v=${versionShellF2}`));
+  assert.match(html, new RegExp(`modulos/dietas/dietas\\.css\\?v=${versionShellF2}`));
 });

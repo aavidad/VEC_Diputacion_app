@@ -8,6 +8,126 @@
   gap: 14px;
 }
 
+/* Jornada propia: la misma gramática visual del portal, con tabla acotada. */
+.cronos-jornada {
+  align-content: start;
+  gap: var(--portal-espacio-3);
+}
+
+.cronos-jornada-encabezado {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--portal-espacio-4);
+}
+
+.cronos-jornada-encabezado h3 {
+  margin: 0;
+  color: var(--portal-azul-950);
+  font-size: 1.4rem;
+}
+
+.cronos-jornada-encabezado p:last-child,
+.cronos-jornada-fuente {
+  margin: 2px 0 0;
+  color: var(--portal-muted);
+  font-size: .78rem;
+}
+
+.cronos-jornada-fuente {
+  padding: var(--portal-espacio-2) var(--portal-espacio-3);
+  border-left: 4px solid var(--portal-cian);
+  border-radius: var(--portal-radio);
+  background: var(--portal-superficie-alterna);
+}
+
+.cronos-jornada-indicadores {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.cronos-jornada-rejilla {
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(250px, .8fr);
+  gap: var(--portal-espacio-4);
+  min-width: 0;
+}
+
+.cronos-jornada-panel {
+  min-width: 0;
+}
+
+.cronos-jornada-lateral {
+  display: grid;
+  align-content: start;
+  gap: var(--portal-espacio-3);
+  min-width: 0;
+}
+
+.cronos-jornada-calendario-pendiente {
+  display: grid;
+  justify-items: start;
+  gap: var(--portal-espacio-2);
+}
+
+.cronos-jornada-calendario-pendiente p {
+  margin: 0;
+  color: var(--portal-muted);
+  font-size: .75rem;
+}
+
+.cronos-jornada-panel .cabecera-panel h4 {
+  margin: 0;
+  color: var(--portal-azul-950);
+  font-size: 1rem;
+}
+
+.cronos-jornada-panel .cronos-tabla-contenedor {
+  max-height: 280px;
+  overflow: auto;
+}
+
+.cronos-jornada-acciones {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--portal-espacio-2);
+  padding: var(--portal-espacio-3) var(--portal-espacio-4);
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio-lg);
+  background: var(--portal-superficie);
+  box-shadow: var(--portal-sombra-sm);
+}
+
+.cronos-jornada-acciones span {
+  color: var(--portal-muted);
+  font-size: .75rem;
+}
+
+.cronos-jornada-acciones button:disabled {
+  border-color: var(--portal-borde);
+  background: var(--portal-neutro-suave);
+  color: var(--portal-muted);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+@media (max-width: 1024px) {
+  .cronos-jornada-rejilla { grid-template-columns: minmax(0, 1fr); }
+  .cronos-jornada-lateral { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cronos-jornada-panel .cronos-tabla-contenedor { max-height: 210px; }
+}
+
+@media (max-width: 720px) {
+  .cronos-jornada-indicadores { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cronos-jornada-lateral { grid-template-columns: minmax(0, 1fr); }
+  .cronos-jornada-panel .cronos-tabla-contenedor { max-height: 280px; }
+}
+
+@media (max-width: 420px) {
+  .cronos-jornada-encabezado { flex-direction: column; }
+  .cronos-jornada-indicadores { grid-template-columns: minmax(0, 1fr); }
+}
+
 .cronos-encabezado {
   display: flex;
   align-items: flex-start;
