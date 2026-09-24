@@ -1,63 +1,34 @@
-# Integración de Cronos en el Portal del Empleado
+# Estado de integración de Cronos en el Portal del Empleado
 
-La vista, el contrato y el presentador son definitivos. No conocen `fetch`,
-cookies, almacenamiento del navegador ni usuarios propios. La identidad procede
-de la misma sesión interna que ya utiliza Bolsa y todas las operaciones fallan
-cerradas si falta una capacidad explícita.
+El portal interno registra Cronos y monta una vista de Jornada sin datos cuando
+no recibe una proyección propia autorizada. La vista conserva estados de carga,
+vacío, denegación y error; no ofrece controles de fichaje genérico. El
+contrato de Jornada valida la referencia del actor de la sesión compartida, las
+capacidades declaradas y el envelope `vec.cronos.area-personal.v1`. Una capacidad
+en el navegador solo gobierna la presentación: la autorización del efecto
+pertenece al servidor.
 
-## Cableado del portal
+El recorrido de Permisos, sus hojas de catálogo, correcciones y notificaciones
+son superficies separadas. El coordinador las monta sin inventar solicitudes,
+saldos ni responsables. Su comportamiento y textos están en
+`vista-recorridos.js` e `i18n.js`.
 
-1. Cargar `cronos.css` desde la plantilla común.
-2. Cuando la vista principal sea `cronos`, entregar sin clonar el mismo
-   `ContextoActor` validado que consumen Bolsa y Dietas, junto con las
-   capacidades de Cronos como argumento separado.
-3. Obtener el envelope `vec.cronos.area-personal.v1` desde el adaptador de API.
-4. Crear `crearPresentadorCronos({ contextoActor, capacidades, datos, ejecutor,
-   descargarRecibo, mensajes })`, escribir
-   `presentador.renderizar()` en `#espacio-trabajo` e instalar la delegación con
-   `presentador.instalarEventos({ raiz, alCambiar, anunciar })`.
-5. Desmontar los eventos con la función devuelta al abandonar el módulo.
+## Pendiente de composición
 
-El `ejecutor` recibe `(comando, { identidad, datos })`. Los comandos son:
+- La API de Jornada no está montada en el coordinador. La vista no recibe aún el
+  envelope validado de un servicio interno ni registra fichajes.
+- Existen clientes HTTP y vistas de saldo propio y marcaje remoto, pero aún no
+  están montados en el coordinador ni acreditados con un recorrido completo.
+- El marcaje desde el portal se limitará al circuito remoto que acredite
+  teletrabajo vigente para esa persona y periodo en el servidor.
+- Falta vincular y probar navegador → identidad y autorización → caso de uso →
+  PostgreSQL → recibo recuperable, incluida la recuperación tras reiniciar
+  aplicación y base. No se atribuye esta evidencia a las pruebas de contrato.
+- La obtención del empleado y de la jornada corresponde al servidor; el
+  navegador no elegirá otra persona ni deducirá su vínculo de la cuenta.
+- La emisión o descarga de recibos debe proceder del servicio documental
+  autorizado. Este módulo no genera PDF local ni una ruta de cotejo simulada.
 
-- `{ tipo: "registrar_fichaje", movimiento: "entrada" | "salida" |
-  "inicio_pausa" | "fin_pausa" }`.
-- `{ tipo: "solicitar_permiso", permiso_id, desde, hasta, cantidad, motivo,
-  documento_ref }`.
-
-La navegación interna usa `data-cronos-destino` y desplazamiento local; no
-escribe el `hash`, que pertenece al router del portal. El catálogo `i18n.js`
-contiene todo el texto de interfaz. Estados y movimientos llegan como códigos
-canónicos y se traducen exclusivamente al renderizar.
-
-Los fichajes, eventos y recibos transportan siempre `instante` ISO-8601 UTC. La
-vista los localiza con `Intl.DateTimeFormat` en `Europe/Madrid` y muestra la
-zona; una fecha/hora ya formateada nunca es fuente de verdad.
-
-Las solicitudes conservan `desde`/`hasta` como fechas civiles ISO `AAAA-MM-DD`.
-Las cantidades usan la unidad base del dominio: días enteros para `dia` y
-minutos enteros para `minuto`; la vista transforma los minutos a `HH:MM h`.
-
-El servidor debe resolver la relación entre `actor_ref` y persona empleada. El
-navegador nunca envía un identificador de otra persona.
-
-## Presentación descartable
-
-Solo estos archivos son de presentación y deben excluirse de la imagen de
-producción:
-
-- `datos-presentacion.js`
-- `adaptador-presentacion.js`
-
-Se sustituyen, respectivamente, por la consulta a la API interna y su puerto de
-comandos. La vista no cambia. Las operaciones de presentación son volátiles y
-los recibos comienzan por `DEMO-`.
-
-## Documentos
-
-Cada botón «Descargar recibo» prepara mediante `prepararDescriptorRecibo` el
-mismo contrato institucional que Dietas y lo entrega a la dependencia
-`descargarRecibo(descriptor)`. El descriptor contiene referencia opaca, logo,
-marca DEMO cuando procede y QR de cotejo sin identidad ni otros datos sensibles.
-La composición transforma el descriptor en PDF; Cronos no genera el PDF ni el
-QR ni abre una descarga por su cuenta.
+Los instantes se muestran en `Europe/Madrid` a partir de UTC y las fechas civiles
+se mantienen como fechas. La vista escapa los datos recibidos y usa el catálogo
+i18n compartido. No conserva operaciones ni credenciales en almacenamiento web.

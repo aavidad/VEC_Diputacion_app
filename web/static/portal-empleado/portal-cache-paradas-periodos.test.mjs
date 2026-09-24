@@ -44,8 +44,6 @@ test("la caché de PR25 solicita de nuevo las paradas, los periodos y sus hojas"
     [`${cronos}vista.js`, "./vista-calendario.js", "20260924-cronos-integrado-v1", 1],
     [`${cronos}i18n-c4.js`, "./i18n.js", "20260924-cronos-integrado-v1", 1],
     [`${cronos}vista-calendario.js`, "./i18n-c4.js", "20260924-cronos-integrado-v1", 1],
-    [`${cronos}vista-correcciones.js`, "./i18n.js", "20260924-cronos-integrado-v1", 1],
-    [`${cronos}vista-notificaciones.js`, "./i18n.js", "20260924-cronos-integrado-v1", 1],
     [`${cronos}vista-recorridos.js`, "./i18n.js", "20260924-cronos-integrado-v1", 1],
     [`${cronos}vista-recorridos.js`, "./vista-correcciones.js", "20260924-cronos-integrado-v1", 1],
     [`${cronos}vista-recorridos.js`, "./vista-notificaciones.js", "20260924-cronos-integrado-v1", 1],

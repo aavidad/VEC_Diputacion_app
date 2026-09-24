@@ -7,12 +7,8 @@ export const MENSAJES_CRONOS_C4_ES = Object.freeze({
   calendario_mes: "{mes} de {anio}",
   calendario_dia: "{fecha}",
   calendario_seleccion: "Fecha seleccionada",
-  calendario_natural: "Día natural",
-  calendario_fin_semana: "Fin de semana",
-  calendario_leyenda: "Leyenda",
-  calendario_leyenda_dia: "Fecha civil seleccionable",
-  calendario_leyenda_fin_semana: "Sábado y domingo",
   calendario_estado: "Calendario laboral no configurado",
+  calendario_estado_detalle: "Ausencias y calendario laboral no disponibles.",
 });
 
 const CLAVES_C4 = Object.freeze(Object.keys(MENSAJES_CRONOS_C4_ES));
