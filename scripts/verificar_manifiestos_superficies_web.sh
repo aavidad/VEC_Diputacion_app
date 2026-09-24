@@ -65,6 +65,7 @@ for requerida in \
 	static/bolsa/index.html \
 	static/verificar/index.html \
 	static/assets/logo-diputacion-granada.svg \
+	static/comun/tema-vec.css \
 	static/styles.css \
 	static/favicon.svg; do
 	grep -Fxq "${requerida}" "${publico}" || fallar "Falta recurso publico obligatorio: ${requerida}"
@@ -85,6 +86,7 @@ temporales+=("${compartidos}" "${esperados}")
 LC_ALL=C comm -12 "${publico}" "${interno}" >"${compartidos}"
 printf '%s\n' \
 	static/assets/logo-diputacion-granada.svg \
+	static/comun/tema-vec.css \
 	static/favicon.svg \
 	static/styles.css | LC_ALL=C sort >"${esperados}"
 if ! cmp -s "${compartidos}" "${esperados}"; then
