@@ -377,6 +377,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   informe_historial_cargando: "Recuperando el historial actualizado.",
   informe_historial_no_disponible:
     "El historial no se pudo recuperar. El informe y su recibo permanecen confirmados y visibles.",
+  informe_historial_reintentar: "Reintentar consulta del historial",
   informe_historial_vacio: "El expediente no contiene hitos visibles.",
   informe_historial_tabla: "Historial persistido del expediente",
   informe_historial_secuencia: "Secuencia",
