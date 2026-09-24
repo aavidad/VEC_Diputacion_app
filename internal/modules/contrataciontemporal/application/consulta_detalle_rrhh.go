@@ -112,3 +112,35 @@ func (s *ServicioConsultaDetalleRRHH) Consultar(
 	}
 	return detalle.Clonar(), nil
 }
+
+// ResumenConsultaSeguimientoRRHH limita la salida del modulo a los dos campos
+// que necesita la consulta de seguimiento. La organizacion y unidad se
+// comprueban dentro de Contratacion temporal y nunca cruzan al consumidor.
+type ResumenConsultaSeguimientoRRHH struct {
+	ExpedienteRef     string `json:"expediente_ref"`
+	VersionExpediente uint64 `json:"version_expediente"`
+}
+
+func (s *ServicioConsultaDetalleRRHH) ConsultarResumenSeguimiento(
+	ctx context.Context, solicitud ports.SolicitudDetalleRRHH, organizacionRef, unidadRef string,
+) (ResumenConsultaSeguimientoRRHH, error) {
+	if !domain.ReferenciaOpacaValida(organizacionRef) || !domain.ReferenciaOpacaValida(unidadRef) {
+		return ResumenConsultaSeguimientoRRHH{}, ErrSolicitudConsultaRRHHInvalida
+	}
+	// Consultar consume la misma capacidad V3 y el mismo recibo durable que el
+	// detalle nominal; solo esta proyeccion abandona la frontera del modulo.
+	detalle, err := s.Consultar(ctx, solicitud)
+	if err != nil {
+		return ResumenConsultaSeguimientoRRHH{}, err
+	}
+	if err := errorContextoConsultaRRHH(ctx); err != nil {
+		return ResumenConsultaSeguimientoRRHH{}, err
+	}
+	if detalle.Resumen.OrganizacionRef != organizacionRef || detalle.Resumen.UnidadRef != unidadRef {
+		return ResumenConsultaSeguimientoRRHH{}, ErrConsultaRRHHNoObservable
+	}
+	return ResumenConsultaSeguimientoRRHH{
+		ExpedienteRef:     detalle.Resumen.ExpedienteRef,
+		VersionExpediente: detalle.Resumen.Version,
+	}, nil
+}

@@ -3,6 +3,7 @@ package incorporacionejercicio
 import (
 	"context"
 	hist "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/historiaincorporacion"
+	appct "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	dom "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	"vec-diputacion-granada/internal/modules/personal/adapters/fuenteejercicio"
@@ -49,6 +50,7 @@ type FuentePlanesPreparacionV2 interface {
 // jamás a una proyección recibida del navegador ni a un lector técnico suelto.
 type ConsultaDetallePreparacionV2 interface {
 	Consultar(context.Context, ct.SolicitudDetalleRRHH) (ct.DetalleExpedienteRRHH, error)
+	ConsultarResumenSeguimiento(context.Context, ct.SolicitudDetalleRRHH, string, string) (appct.ResumenConsultaSeguimientoRRHH, error)
 }
 type LectorInicialPreparacionV2 interface {
 	LeerPreparacionInicial(context.Context, string, string, string) (dom.PublicacionDefinicionSeguimiento, dom.EstadoPersistidoSeguimiento, uint64, error)
