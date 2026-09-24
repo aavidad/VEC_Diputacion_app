@@ -106,6 +106,7 @@ export function montarFormularioResolucionFormalizacion({
       || (reintentoInmutable && editables.includes(activo))) estado.focus?.();
     estado.textContent = t("resolucion_formalizacion_" + mensaje);
     formulario.setAttribute("aria-busy", String(ocupado));
+    controles.clave_idempotencia.value = valores.clave_idempotencia;
     for (const campo of [controles.numero_resolucion, controles.fecha_resolucion, controles.motivo]) {
       campo.readOnly = ocupado;
     }
