@@ -270,9 +270,9 @@ export function crearGestorTramitacion({
     const intencion = intencionesSubsanacion.get(contexto.expediente_ref);
     if (!intencion) return null;
     const versionOriginal = intencion.solicitud.version_esperada;
-    if (contexto.version_esperada === versionOriginal) return intencion;
-    return contexto.version_esperada === versionOriginal + 1
-      && subsanacionRegistradaEnEstado(estado, contexto) ? intencion : null;
+    // Una lectura autorizada puede avanzar varias versiones mientras el POST
+    // original sigue incierto. Esa lectura no libera su clave ni sus datos.
+    return contexto.version_esperada >= versionOriginal ? intencion : null;
   }
 
   function subsanacionRegistradaEnEstado(estado, contexto = contextoSubsanacionDesdeEstado(estado)) {
@@ -281,6 +281,17 @@ export function crearGestorTramitacion({
     return ultimoHito?.accion_clave === "contratacion_temporal.subsanacion_reparos.registrar"
       && ultimoHito.version_expediente === contexto.version_esperada
       && ultimoHito.secuencia === contexto.version_esperada;
+  }
+
+  function versionesRecuperacionAnteriores(estado, contexto) {
+    const versiones = (estado.expediente?.historial ?? [])
+      .filter((hito) => hito.accion_clave === "contratacion_temporal.subsanacion_reparos.registrar"
+        && Number.isSafeInteger(hito.version_expediente)
+        && hito.version_expediente === hito.secuencia
+        && hito.version_expediente > 1
+        && hito.version_expediente <= contexto.version_esperada)
+      .map((hito) => hito.version_expediente - 1);
+    return Object.freeze([...new Set(versiones)]);
   }
 
   function montarSubsanacionDesdeExpedienteActual() {
@@ -302,24 +313,35 @@ export function crearGestorTramitacion({
       version_esperada: intencionInicial?.solicitud.version_esperada
         ?? contextoActual.version_esperada - 1,
     }) : contextoActual;
+    const versionesAnteriores = Object.freeze(versionesRecuperacionAnteriores(estado, contextoActual)
+      .filter((version) => version < contexto.version_esperada));
     try {
       desmontarSubsanacion = montarFormularioSubsanacionReparos({
         raiz: contenedor, cliente: clienteSubsanacion, contexto,
         traducir: crearTraductorContratacionTemporal(mensajes), confirmarOperacion,
         anunciar, reciboConfirmado, intencionInicial, soloImportar,
-        alDenegacion: invalidarSubsanacionPorDenegacion,
+        versionesRecuperacionAnteriores: versionesAnteriores,
+        alDenegacion: () => {
+          invalidarSubsanacionPorDenegacion();
+          // Una denegación de un POST antiguo puede llegar después de navegar.
+          // Retirar el formulario activo elimina también su copia local del DTO.
+          const panelActual = raiz.querySelector("[data-ct-exp-subsanacion]")
+            ?? raiz.querySelector("[data-ct-exp-recuperar-archivo]");
+          if (esMontada() && panelActual && panelActual !== contenedor) repintar();
+        },
         alCambiarIntencion: (intencion) => {
           if (intencion === null) {
             // El formulario confirma antes de retirar la intención. Un aborto o
             // un error nunca pueden hacer perder la clave de recuperación.
-            return recibosSubsanacion.get(contexto.expediente_ref)?.contexto.version_esperada
-              === contexto.version_esperada;
+            return !intencionesSubsanacion.has(contexto.expediente_ref)
+              && recibosSubsanacion.has(contexto.expediente_ref);
           }
           if (!intencion || typeof intencion.incierta !== "boolean") return false;
           try {
             const solicitud = validarSolicitudSubsanacionReparos(intencion.solicitud);
             if (solicitud.expediente_ref !== contexto.expediente_ref
-              || solicitud.version_esperada !== contexto.version_esperada) return false;
+              || (solicitud.version_esperada !== contexto.version_esperada
+                && !(intencion.incierta && versionesAnteriores.includes(solicitud.version_esperada)))) return false;
             const anterior = intencionesSubsanacion.get(contexto.expediente_ref);
             if (anterior && (anterior.solicitud.version_esperada !== solicitud.version_esperada
               || anterior.solicitud.clave_idempotencia !== solicitud.clave_idempotencia
@@ -379,6 +401,9 @@ export function crearGestorTramitacion({
       const actualizado = presentador.obtenerEstado().expediente;
       if (actualizado?.expediente_ref !== contextoOriginal.expediente_ref
         || actualizado.version < recibo.version_resultante) { avisarPendiente(); return; }
+      // Un reparo posterior no debe borrar el recibo recién recuperado al
+      // repintar: la actuación nueva se abrirá al volver al expediente.
+      if (actualizado.version > recibo.version_resultante) return;
       repintar("[data-ct-subsanacion-recibo]");
     } catch {
       avisarPendiente();

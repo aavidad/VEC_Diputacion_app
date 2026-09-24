@@ -12,11 +12,15 @@ function detalle(ref, version) {
   return {
     expediente_ref: ref, demostracion: false, version, numero_visible: ref,
     flujo_ref: "flujo:ct:general", flujo_version: 1, flujo_huella: "a".repeat(64),
-    cabecera: [], fases: [], tareas: [], historial: version === 7 ? [{
-      secuencia: 7, version_expediente: 7, accion_clave: ACCION,
-      fecha: "24 sept 2026", fase: "Subsanación", accion: "Subsanación registrada",
-      estado: "Incidencia", estado_clave: "incidencia",
-    }] : [],
+    cabecera: [], fases: [], tareas: [], historial: version >= 7 ? [
+      { secuencia: 7, version_expediente: 7, accion_clave: ACCION,
+        fecha: "24 sept 2026", fase: "Subsanación", accion: "Subsanación registrada",
+        estado: "Incidencia", estado_clave: "incidencia" },
+      ...(version > 7 ? [{ secuencia: version, version_expediente: version,
+        accion_clave: "registrar_fiscalizacion", fecha: "24 sept 2026",
+        fase: "Fiscalización", accion: "Nuevo reparo",
+        estado: "Incidencia", estado_clave: "incidencia" }] : []),
+    ] : [],
   };
 }
 
@@ -267,5 +271,93 @@ test("403 del POST purga intención y datos visibles antes de cambiar de identid
     assert.match(x.dom.panel().innerHTML, /data-ct-subsanacion-form/u);
     assert.doesNotMatch(x.dom.panel().innerHTML, /data-ct-subsanacion-recuperar/u);
     assert.equal(peticiones.length, 1);
+  } finally { x.desmontar(); }
+});
+
+test("un reparo nuevo v9 mantiene visible el replay de la intención incierta v6", async () => {
+  const peticiones = [];
+  const x = escenario({ registrarSubsanacionReparos: async (solicitud) => {
+    peticiones.push(solicitud);
+    if (peticiones.length === 1) throw Object.assign(new Error("sin respuesta"), { estado: 503 });
+    return recibo(solicitud);
+  } });
+  try {
+    await x.dom.panel().activar("submit", "[data-ct-subsanacion-form]");
+    await x.dom.panel().activar("click", "[data-ct-subsanacion-guardar]");
+    await x.dom.panel().activar("click", "[data-ct-subsanacion-enviar]");
+    const original = peticiones[0];
+    x.navegar(B);
+    x.navegar(A, 9);
+    assert.match(x.dom.raiz.innerHTML, /data-ct-exp-subsanacion/u);
+    assert.match(x.dom.panel().innerHTML, /data-ct-subsanacion-recuperar/u);
+    assert.doesNotMatch(x.dom.panel().innerHTML, /data-ct-subsanacion-form/u);
+    await x.dom.panel().activar("click", "[data-ct-subsanacion-recuperar]");
+    await turno();
+    assert.deepEqual(peticiones, [original, original]);
+    assert.match(x.dom.panel().innerHTML, /data-ct-subsanacion-recibo/u);
+  } finally { x.desmontar(); }
+});
+
+test("403 tardío de A desmontada purga intención antes de volver desde B", async () => {
+  const peticiones = [];
+  let rechazarPrimera;
+  const pendiente = new Promise((_, rechazar) => { rechazarPrimera = rechazar; });
+  const x = escenario({ registrarSubsanacionReparos: (solicitud) => {
+    peticiones.push(solicitud);
+    return pendiente;
+  } });
+  try {
+    const panelA = x.dom.panel();
+    await panelA.activar("submit", "[data-ct-subsanacion-form]");
+    await panelA.activar("click", "[data-ct-subsanacion-guardar]");
+    const envio = panelA.activar("click", "[data-ct-subsanacion-enviar]");
+    assert.equal(peticiones.length, 1);
+    x.navegar(B);
+    await x.dom.panel().activar("submit", "[data-ct-subsanacion-form]");
+    assert.match(x.dom.panel().innerHTML, /data-ct-subsanacion-guardar/u);
+    rechazarPrimera(Object.assign(new Error("privado"), { estado: 403, envelopeValido: true }));
+    await envio;
+    assert.match(x.dom.panel().innerHTML, /data-ct-subsanacion-form/u);
+    assert.doesNotMatch(x.dom.panel().innerHTML,
+      /data-ct-subsanacion-guardar|Corrección conservada para A/u);
+    x.navegar(A);
+    assert.match(x.dom.panel().innerHTML, /data-ct-subsanacion-form/u);
+    assert.doesNotMatch(x.dom.panel().innerHTML, /data-ct-subsanacion-recuperar|Corrección conservada para A/u);
+    assert.equal(peticiones.length, 1);
+  } finally { x.desmontar(); }
+});
+
+test("archivo v6 tras recarga y reparo v9 solo habilita replay manual del DTO original", async () => {
+  const peticiones = [];
+  const x = escenario({ registrarSubsanacionReparos: async (solicitud) => {
+    peticiones.push(solicitud);
+    return recibo(solicitud);
+  } });
+  const solicitud = {
+    expediente_ref: A, version_esperada: 6,
+    clave_idempotencia: "123e4567-e89b-42d3-a456-426614174000",
+    observaciones: "Corrección v6 conservada en archivo.",
+  };
+  const archivo = (dto) => {
+    const texto = JSON.stringify({
+      esquema: "vec.contratacion-temporal.subsanacion-recuperacion.v1", solicitud: dto,
+    });
+    return { size: new TextEncoder().encode(texto).byteLength, text: async () => texto };
+  };
+  try {
+    x.navegar(A, 9);
+    await x.dom.panel().importar(archivo({ ...solicitud, expediente_ref: B }));
+    assert.doesNotMatch(x.dom.panel().innerHTML, /data-ct-subsanacion-recuperar/u);
+    await x.dom.panel().importar(archivo({ ...solicitud, version_esperada: 5 }));
+    assert.doesNotMatch(x.dom.panel().innerHTML, /data-ct-subsanacion-recuperar/u);
+    await x.dom.panel().importar(archivo(solicitud));
+    assert.match(x.dom.panel().innerHTML, /data-ct-subsanacion-recuperar/u);
+    assert.doesNotMatch(x.dom.panel().innerHTML,
+      /data-ct-subsanacion-form|data-ct-subsanacion-enviar/u);
+    assert.equal(peticiones.length, 0);
+    await x.dom.panel().activar("click", "[data-ct-subsanacion-recuperar]");
+    await turno();
+    assert.deepEqual(peticiones, [solicitud]);
+    assert.match(x.dom.panel().innerHTML, /data-ct-subsanacion-recibo/u);
   } finally { x.desmontar(); }
 });
