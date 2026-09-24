@@ -4,6 +4,8 @@ import test from "node:test";
 
 const version = "20260924-f2-shell-v1";
 const versionTemaBase = "20260924-f2-tema-base-v2";
+const versionSaltoMovil = "20260924-f2-salto-movil-v3";
+const versionSaltoMovilAnterior = "20260924-f2-salto-movil-v2";
 const versionCache = "20260924-f2-cache-v2";
 const versionCachePersonal = "20260924-f2-cache-v3";
 const versionPersonalInterno = "20260924-p1-personal-interno-v2";
@@ -33,7 +35,7 @@ test("una carga con caché caliente solicita CSS F2 y entrada JS con URL nueva",
   ]);
   for (const [recurso, versionAntigua] of previo) {
     assert.equal(versionDe(html, `/portal-empleado/${recurso}`),
-      recurso === "portal.js" ? versionCronosPermisos : recurso === "portal.css" ? versionTemaBase : version);
+      recurso === "portal.js" ? versionCronosPermisos : recurso === "portal.css" ? versionSaltoMovil : version);
     assert.notEqual(versionDe(html, `/portal-empleado/${recurso}`), versionAntigua);
   }
   for (const recurso of ["portal-baremacion.css", "portal-contratos.css", "portal-convocatorias.css",
@@ -51,14 +53,17 @@ test("la caché immutable del tema anterior descarga ambas hojas de estilo renov
     ["/portal-empleado/portal.css", new URL("portal.css", raiz)],
     ["/comun/tema-vec.css", new URL("../comun/tema-vec.css", raiz)],
   ];
-  const cache = new Map(recursos.map(([ruta]) =>
-    [`${ruta}?v=${version}`, `/* respuesta immutable anterior: ${ruta} */`]));
+  const cache = new Map(recursos.map(([ruta]) => {
+    const versionAnterior = ruta.endsWith("/portal.css") ? versionSaltoMovilAnterior : version;
+    return [`${ruta}?v=${versionAnterior}`, `/* respuesta immutable anterior: ${ruta} */`];
+  }));
   const descargas = new Set();
   for (const [ruta, archivo] of recursos) {
     const versiones = versionesDe(html, ruta);
-    assert.deepEqual(versiones, [versionTemaBase], `${ruta}: URL de tema única y renovada`);
-    const urlAntigua = `${ruta}?v=${version}`;
-    const urlNueva = `${ruta}?v=${versionTemaBase}`;
+    const versionEsperada = ruta.endsWith("/portal.css") ? versionSaltoMovil : versionTemaBase;
+    assert.deepEqual(versiones, [versionEsperada], `${ruta}: URL de estilo única y renovada`);
+    const urlAntigua = `${ruta}?v=${ruta.endsWith("/portal.css") ? versionSaltoMovilAnterior : version}`;
+    const urlNueva = `${ruta}?v=${versionEsperada}`;
     assert.ok(cache.has(urlAntigua), `${ruta}: la caché antigua está precargada`);
     assert.ok(!html.includes(urlAntigua), `${ruta}: HTML no solicita la URL antigua`);
     if (!cache.has(urlNueva)) {
@@ -66,8 +71,15 @@ test("la caché immutable del tema anterior descarga ambas hojas de estilo renov
       descargas.add(urlNueva);
     }
   }
-  assert.deepEqual(descargas, new Set(recursos.map(([ruta]) => `${ruta}?v=${versionTemaBase}`)),
+  assert.deepEqual(descargas, new Set(recursos.map(([ruta]) =>
+    `${ruta}?v=${ruta.endsWith("/portal.css") ? versionSaltoMovil : versionTemaBase}`)),
     "las dos hojas se vuelven a solicitar con URL nueva");
+  assert.ok(!html.includes(`/portal-empleado/portal.css?v=${versionTemaBase}`),
+    "el HTML deja de solicitar la versión anterior de portal.css");
+  assert.ok(!html.includes("/portal-empleado/portal.css?v=20260924-f2-salto-movil-v1"),
+    "el HTML deja de solicitar la primera versión del salto móvil");
+  assert.ok(!html.includes(`/portal-empleado/portal.css?v=${versionSaltoMovilAnterior}`),
+    "el HTML deja de solicitar la versión de salto móvil que movía el menú");
 });
 
 test("el grafo JS propio llega desde HTML a los consumidores F2 con versiones nuevas", async () => {

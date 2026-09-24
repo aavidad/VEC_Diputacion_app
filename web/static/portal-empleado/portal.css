@@ -69,6 +69,17 @@ a:focus-visible,
   transform: none;
 }
 
+@media (max-width: 520px) {
+  .salto-contenido:focus {
+    position: absolute;
+    display: block;
+    top: 112px;
+    left: 8px;
+    width: max-content;
+    max-width: calc(100% - 16px);
+  }
+}
+
 .solo-lectura {
   position: absolute !important;
   width: 1px !important;
