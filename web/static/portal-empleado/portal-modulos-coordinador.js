@@ -13,8 +13,8 @@ import {
 import {
   cargarCatalogoModulosInterno,
   renderizarNavegacionModulos,
-} from "./portal-catalogo-modulos.js?v=20260906-acceso-certificado-v1";
-import { traducirPortal } from "./portal-i18n.js?v=20260924-f2-shell-v1";
+} from "./portal-catalogo-modulos.js?v=20260924-f2-cache-v2";
+import { traducirPortal } from "./portal-i18n.js?v=20260924-f2-cache-v2";
 import { calcularMetricasCuadro, tramitesParaInicio } from "./portal-inicio.js";
 import {
   componerCronosVisible,
@@ -79,7 +79,7 @@ const CARGADORES_PRESENTACION_PREDETERMINADOS = Object.freeze({
   cronos: async () => {
     const [contrato, recorridos] = await Promise.all([
       import("./modulos/cronos/contrato.js"),
-      import("./modulos/cronos/vista-recorridos.js?v=20260920-cronos-bandeja-v2"),
+      import("./modulos/cronos/vista-recorridos.js?v=20260924-f2-cache-v2"),
     ]);
     return Object.freeze({ contrato, recorridos });
   },
