@@ -18,6 +18,10 @@ test("las claves nuevas pertenecen al catálogo común y respetan el traductor i
 
 test("la consulta y su ayuda están traducidas y sus imports no usan la versión anterior", async () => {
   const claveConsulta = "borradores_propios_consultar_registrados";
+  const claveEstado = "borradores_propios_estado_sin_seleccion";
+  assert.equal(MENSAJES_DIETAS_ES[claveEstado], "Ningún borrador seleccionado.");
+  assert.equal(crearTraductorBorradoresDietas((clave) => clave)(claveEstado), "Ningún borrador seleccionado.");
+  assert.equal(crearTraductorBorradoresDietas(crearTraductorDietas())(claveEstado), "Ningún borrador seleccionado.");
   assert.equal(crearTraductorDietas()(claveConsulta), "Consultar borradores registrados");
   assert.match(crearTraductorDietas()("borradores_propios_consulta_registrados"), /La lista no confirma altas anteriores/u);
   assert.match(crearTraductorDietas()("borradores_propios_consulta_ayuda"), /Elija un borrador para ver su recibo/u);

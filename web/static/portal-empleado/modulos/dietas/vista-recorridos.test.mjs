@@ -195,6 +195,28 @@ test("navega por las tres etapas sin convertir el selector en autorización", ()
   vista.desmontar();
 });
 
+test("las cabeceras de solicitante y revisión no muestran instrucciones fuera de la ayuda ?", () => {
+  for (const clienteBorradores of [undefined, cliente]) {
+    const contenedor = crearRaiz();
+    const vista = montarVistaRecorridosDietas(contenedor, { clienteBorradores });
+    const panel = contenedor.querySelector('[data-dietas-panel-etapa="solicitante"]');
+    const titulos = panel.children[0].children[0];
+    const cabeceraRevision = panel.querySelector("[data-dietas-revision-comision]").children[0];
+    assert.equal(titulos.querySelectorAll("p").length, 0);
+    assert.equal(cabeceraRevision.querySelectorAll("p").length, 0);
+    assert.match(textoVisible(titulos), /Mis comisiones/u);
+    assert.match(textoVisible(cabeceraRevision), /Revisión de comisión/u);
+    assert.ok(panel.querySelector("summary"), "la ayuda contextual permanece disponible");
+    const ficha = panel.querySelector("[data-dietas-borrador-ficha]");
+    assert.equal(ficha.attrs["aria-label"], "Detalle del borrador");
+    assert.equal(ficha.querySelector("p").textContent, "Ningún borrador seleccionado.");
+    if (!clienteBorradores) {
+      assert.match(textoVisible(panel.querySelector("[data-dietas-borradores-propios]")), /pendiente de conexión/u);
+    }
+    vista.desmontar();
+  }
+});
+
 test("el recorrido monta los cinco papeles cerrados y los retira al desmontar", () => {
   const contenedor = crearRaiz();
   const vista = montarVistaRecorridosDietas(contenedor);
@@ -336,7 +358,7 @@ test("permite consultar itinerario sin cliente de borradores y mantiene cerrado 
   assert.equal(abrir.disabled, false);
   assert.match(abrir.textContent, /Explorar itinerario/);
   assert.equal(abrir.attrs["aria-controls"], "dietas-recorridos-nueva");
-  assert.match(textoVisible(raiz.querySelector('[data-dietas-panel-etapa="solicitante"]')), /Consultar y registrar comisiones requiere el servicio autorizado/u);
+  assert.match(raiz.querySelector("[data-dietas-borradores-estado]").textContent, /pendiente de conexión/u);
   raiz.listeners.click({ target: abrir });
   await Promise.resolve();
   assert.equal(montajes, 1);

@@ -454,7 +454,7 @@ export function montarVistaBorradoresPropios(
     const item = estado.detalle;
     if (!item) {
       cuerpo.append(
-        nodo(documento, "p", traducir("borradores_propios_sin_detalle")),
+        nodo(documento, "p", tBorradores("borradores_propios_estado_sin_seleccion")),
       );
       return seccion;
     }
