@@ -175,12 +175,12 @@ function mostrarError(estado, error) {
   estado.error = error;
 }
 
-function datosMinimosMiBolsa(consulta) {
+export function datosMinimosMiBolsa(consulta) {
   return Object.freeze({
     meta: { presentacion: false, origen: "GET /api/vec/bolsa/mi-bolsa", generado_en: consulta.consultada_en },
-    sesion: { nombre_visible: "Candidato identificado", iniciales: "CI", metodo: "DNIe o certificado", persona_ref: "candidato:identificado" },
+    sesion: { nombre_visible: "Identidad no facilitada", iniciales: "—", metodo: "Método no facilitado", persona_ref: null },
     resumen: { acciones_pendientes: 0, convocatorias_abiertas: 0, solicitudes_activas: 0, mensajes_no_leidos: 0, puntuacion_provisional: 0 },
-    perfil: { referencia: "perfil:pendiente", nombre_visible: "Pendiente de integración", identificador_visible: "Pendiente de integración", correo: "Pendiente de integración", telefono: "Pendiente de integración", domicilio: "Pendiente de integración", estado_verificacion: "Pendiente de integración" },
+    perfil: { referencia: null, nombre_visible: "Identidad no facilitada", identificador_visible: "No facilitado", correo: "Pendiente de integración", telefono: "Pendiente de integración", domicilio: "Pendiente de integración", estado_verificacion: "Pendiente de integración" },
     plazos: [], convocatorias: [], meritos: [], solicitudes: [], baremo: [], llamamientos: [], subsanaciones: [], alegaciones: [], mensajes: [], certificados: [], documentos: [], actividad: [], ayuda: [], contratos: [],
     disponibilidad: { disponible: false, estado: "Pendiente de integración" }, capacidades: {},
   });
@@ -320,7 +320,10 @@ function mostrarDetalle(titulo, contenido) {
 
 function verSesion(estado) {
   const sesion = estado.datos.sesion;
-  mostrarDetalle("Identidad y contexto de sesión", `${listaDatos([["Persona", escaparHTML(sesion.nombre_visible)], ["Referencia", escaparHTML(sesion.persona_ref)], ["Método", escaparHTML(sesion.metodo)], ["Origen", escaparHTML(estado.datos.meta.origen)]])}<p class="nota ${estado.datos.meta.presentacion ? "demo" : ""}">${estado.datos.meta.presentacion ? "Identidad sintética. No existe autenticación, certificado ni persona real." : "La autoridad efectiva se comprueba en el servidor para cada operación."}</p>`);
+  const campos = [["Persona", escaparHTML(sesion.nombre_visible)],
+    ...(sesion.persona_ref ? [["Referencia", escaparHTML(sesion.persona_ref)]] : []),
+    ["Método", escaparHTML(sesion.metodo)], ["Origen", escaparHTML(estado.datos.meta.origen)]];
+  mostrarDetalle("Identidad y contexto de sesión", `${listaDatos(campos)}<p class="nota ${estado.datos.meta.presentacion ? "demo" : ""}">${estado.datos.meta.presentacion ? "Identidad sintética. No existe autenticación, certificado ni persona real." : "La autoridad efectiva se comprueba en el servidor para cada operación."}</p>`);
 }
 
 function verDocumento(estado, id) {
