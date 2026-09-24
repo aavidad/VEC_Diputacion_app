@@ -7,6 +7,7 @@ import { montarFormularioCobertura } from "./formulario-cobertura.js";
 import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js";
 import { montarFormularioInformeJuridico } from "./formulario-informe-juridico.js";
 import { montarFormularioSubsanacionReparos } from "./formulario-subsanacion-reparos.js";
+import { validarReciboSubsanacionReparos, validarSolicitudSubsanacionReparos } from "./cliente-http-subsanacion-reparos.js";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js";
 import { crearTraductorContratacionTemporal } from "./i18n.js";
 import { crearPresentadorAltaContratacionTemporal } from "./presentador.js";
@@ -56,12 +57,18 @@ export function crearGestorTramitacion({
   let desmontarInformeJuridico = null;
   let desmontarFiscalizacion = null;
   let desmontarSubsanacion = null;
-  let reciboSubsanacionConfirmado = null;
+  const intencionesSubsanacion = new Map();
+  const recibosSubsanacion = new Map();
   let reciboFiscalizacionConfirmado = null;
   let reciboAsignacionConfirmado = null;
   let sesionAnalisis = null;
   const desmontarEstadosMontaje = new Set();
   const estadosMontajePorContenedor = new Map();
+
+  function invalidarSubsanacionPorDenegacion() {
+    intencionesSubsanacion.clear();
+    recibosSubsanacion.clear();
+  }
 
   function mostrarErrorMontaje(contenedor, etapa, reintentar) {
     if (!esMontada() || !contenedor || typeof reintentar !== "function") return;
@@ -258,19 +265,72 @@ export function crearGestorTramitacion({
     }));
   }
 
+  function intencionSubsanacionParaEstado(estado, contexto = contextoSubsanacionDesdeEstado(estado)) {
+    if (!contexto) return null;
+    const intencion = intencionesSubsanacion.get(contexto.expediente_ref);
+    if (!intencion) return null;
+    const versionOriginal = intencion.solicitud.version_esperada;
+    if (contexto.version_esperada === versionOriginal) return intencion;
+    return contexto.version_esperada === versionOriginal + 1
+      && subsanacionRegistradaEnEstado(estado, contexto) ? intencion : null;
+  }
+
+  function subsanacionRegistradaEnEstado(estado, contexto = contextoSubsanacionDesdeEstado(estado)) {
+    if (!contexto || contexto.version_esperada <= 1) return false;
+    const ultimoHito = estado.expediente?.historial?.at(-1);
+    return ultimoHito?.accion_clave === "contratacion_temporal.subsanacion_reparos.registrar"
+      && ultimoHito.version_expediente === contexto.version_esperada
+      && ultimoHito.secuencia === contexto.version_esperada;
+  }
+
   function montarSubsanacionDesdeExpedienteActual() {
     if (!esMontada() || !subsanacionDisponible || desmontarSubsanacion !== null) return;
-    const contexto = contextoSubsanacionDesdeEstado(presentador.obtenerEstado());
-    const contenedor = raiz.querySelector("[data-ct-exp-subsanacion]");
-    if (!contexto || !contenedor) return;
-    const reciboConfirmado = reciboSubsanacionConfirmado?.recibo?.expediente_ref === contexto.expediente_ref
-      && [reciboSubsanacionConfirmado.contexto.version_esperada, reciboSubsanacionConfirmado.recibo.version_resultante].includes(contexto.version_esperada)
-      ? reciboSubsanacionConfirmado : null;
+    const estado = presentador.obtenerEstado();
+    const contextoActual = contextoSubsanacionDesdeEstado(estado);
+    const contenedor = raiz.querySelector("[data-ct-exp-subsanacion]")
+      ?? raiz.querySelector("[data-ct-exp-recuperar-archivo]");
+    if (!contextoActual || !contenedor) return;
+    const intencionInicial = intencionSubsanacionParaEstado(estado, contextoActual);
+    const reciboGuardado = recibosSubsanacion.get(contextoActual.expediente_ref);
+    const reciboConfirmado = reciboGuardado
+      && [reciboGuardado.contexto.version_esperada, reciboGuardado.recibo.version_resultante].includes(contextoActual.version_esperada)
+      ? reciboGuardado : null;
+    const soloImportar = !intencionInicial && !reciboConfirmado
+      && subsanacionRegistradaEnEstado(estado, contextoActual);
+    const contexto = intencionInicial || soloImportar ? Object.freeze({
+      expediente_ref: contextoActual.expediente_ref,
+      version_esperada: intencionInicial?.solicitud.version_esperada
+        ?? contextoActual.version_esperada - 1,
+    }) : contextoActual;
     try {
       desmontarSubsanacion = montarFormularioSubsanacionReparos({
         raiz: contenedor, cliente: clienteSubsanacion, contexto,
         traducir: crearTraductorContratacionTemporal(mensajes), confirmarOperacion,
-        anunciar, reciboConfirmado,
+        anunciar, reciboConfirmado, intencionInicial, soloImportar,
+        alDenegacion: invalidarSubsanacionPorDenegacion,
+        alCambiarIntencion: (intencion) => {
+          if (intencion === null) {
+            // El formulario confirma antes de retirar la intención. Un aborto o
+            // un error nunca pueden hacer perder la clave de recuperación.
+            return recibosSubsanacion.get(contexto.expediente_ref)?.contexto.version_esperada
+              === contexto.version_esperada;
+          }
+          if (!intencion || typeof intencion.incierta !== "boolean") return false;
+          try {
+            const solicitud = validarSolicitudSubsanacionReparos(intencion.solicitud);
+            if (solicitud.expediente_ref !== contexto.expediente_ref
+              || solicitud.version_esperada !== contexto.version_esperada) return false;
+            const anterior = intencionesSubsanacion.get(contexto.expediente_ref);
+            if (anterior && (anterior.solicitud.version_esperada !== solicitud.version_esperada
+              || anterior.solicitud.clave_idempotencia !== solicitud.clave_idempotencia
+              || anterior.solicitud.observaciones !== solicitud.observaciones
+              || (anterior.incierta && !intencion.incierta))) return false;
+            intencionesSubsanacion.set(contexto.expediente_ref, Object.freeze({
+              solicitud, incierta: intencion.incierta,
+            }));
+            return true;
+          } catch { return false; }
+        },
         alConfirmar: refrescarDetalleTrasSubsanacion,
       });
     } catch {
@@ -283,13 +343,25 @@ export function crearGestorTramitacion({
   async function refrescarDetalleTrasSubsanacion(recibo, contextoOriginal) {
     if (!esMontada() || recibo?.expediente_ref !== contextoOriginal?.expediente_ref
       || recibo.version_resultante <= contextoOriginal.version_esperada) return;
-    reciboSubsanacionConfirmado = Object.freeze({ recibo, contexto: contextoOriginal });
+    const intencion = intencionesSubsanacion.get(contextoOriginal.expediente_ref);
+    if (!intencion || intencion.solicitud.version_esperada !== contextoOriginal.version_esperada) return;
+    let validado;
+    try { validado = validarReciboSubsanacionReparos(recibo, intencion.solicitud); }
+    catch { return; }
+    recibosSubsanacion.set(contextoOriginal.expediente_ref, Object.freeze({
+      recibo: validado,
+      contexto: Object.freeze({ expediente_ref: contextoOriginal.expediente_ref,
+        version_esperada: contextoOriginal.version_esperada }),
+    }));
+    intencionesSubsanacion.delete(contextoOriginal.expediente_ref);
     const seleccionado = presentador.obtenerEstado();
     if (seleccionado.vista !== "expediente"
       || seleccionado.expediente?.expediente_ref !== contextoOriginal.expediente_ref) return;
-    const panel = raiz.querySelector("[data-ct-exp-subsanacion]");
+    const panel = raiz.querySelector("[data-ct-exp-subsanacion]")
+      ?? raiz.querySelector("[data-ct-exp-recuperar-archivo]");
     const sigueSeleccionado = () => esMontada() && panel !== null
-      && raiz.querySelector("[data-ct-exp-subsanacion]") === panel;
+      && (raiz.querySelector("[data-ct-exp-subsanacion]")
+        ?? raiz.querySelector("[data-ct-exp-recuperar-archivo]")) === panel;
     const avisarPendiente = () => {
       if (sigueSeleccionado()) anunciar(
         crearTraductorContratacionTemporal(mensajes)("subsanacion_actualizacion_pendiente"), "aviso",
@@ -677,7 +749,12 @@ export function crearGestorTramitacion({
       retirarAlta();
       retirarAnalisis();
     },
-    obtenerReciboSubsanacionConfirmado: () => reciboSubsanacionConfirmado,
+    obtenerReciboSubsanacionConfirmado: (estado = presentador.obtenerEstado()) => {
+      const contexto = contextoSubsanacionDesdeEstado(estado);
+      return contexto ? recibosSubsanacion.get(contexto.expediente_ref) ?? null : null;
+    },
+    tieneIntencionSubsanacionParaEstado: (estado) => intencionSubsanacionParaEstado(estado) !== null,
+    invalidarSubsanacionPorDenegacion,
     obtenerReciboFiscalizacionConfirmado: () => reciboFiscalizacionConfirmado,
     obtenerReciboAsignacionConfirmado: () => reciboAsignacionConfirmado,
   });

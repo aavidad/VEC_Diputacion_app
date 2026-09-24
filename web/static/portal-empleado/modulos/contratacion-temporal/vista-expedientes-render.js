@@ -313,6 +313,7 @@ export function renderizarModuloContratacionTemporal(estado, {
   fiscalizacionDisponible = false,
   subsanacionDisponible = false,
   reciboSubsanacionConfirmado = null,
+  recuperacionSubsanacionPendiente = false,
   reciboFiscalizacionConfirmado = null,
   llamamientoDisponible = false,
   resolucionFormalizacionDisponible = false,
@@ -388,6 +389,7 @@ export function renderizarModuloContratacionTemporal(estado, {
       && reciboSubsanacionConfirmado?.recibo?.expediente_ref === contextoSubsanacion.expediente_ref
       && reciboSubsanacionConfirmado.recibo.version_resultante === contextoSubsanacion.version_esperada;
     const subsanacionRegistrada = contextoSubsanacion !== null && !conservarReciboSubsanacion
+      && !recuperacionSubsanacionPendiente
       && ultimoHito?.accion_clave === "contratacion_temporal.subsanacion_reparos.registrar"
       && ultimoHito.version_expediente === contextoSubsanacion.version_esperada
       && ultimoHito.secuencia === contextoSubsanacion.version_esperada;
@@ -402,7 +404,7 @@ export function renderizarModuloContratacionTemporal(estado, {
       : ""}${fiscalizacionDisponible && (contextoInforme || contextoFiscalizacion)
       ? '<div data-ct-exp-fiscalizacion></div>'
       : ""}${subsanacionRegistrada
-      ? `<p class="ct-exp-mensaje ct-tono-informacion" role="status">${escaparHTML(t("subsanacion_registrada_pendiente_fiscalizacion"))}</p>`
+      ? `<p class="ct-exp-mensaje ct-tono-informacion" role="status">${escaparHTML(t("subsanacion_registrada_pendiente_fiscalizacion"))}</p><div data-ct-exp-recuperar-archivo></div>`
       : contextoSubsanacion ? '<div data-ct-exp-subsanacion></div>' : ""}${resolucionFormalizacionDisponible ? '<div data-ct-exp-resolucion-formalizacion></div>' : ""}
       ${incorporacionEjercicioDisponible ? '<div data-ct-exp-incorporacion-ejercicio></div>' : ""}`;
   } else if (estado.vista === "documentos") {
