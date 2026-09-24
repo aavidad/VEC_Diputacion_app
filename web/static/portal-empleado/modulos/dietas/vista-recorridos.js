@@ -1,6 +1,6 @@
 import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260924-dietas-ayuda-sin-guia-v2";
 import { crearTraductorRevisionDietas } from "./i18n-revision.js";
-import { montarVistaBorradoresPropios } from "./vista-borradores-propios.js?v=20260924-dietas-ayuda-sin-guia-v2";
+import { montarVistaBorradoresPropios } from "./vista-borradores-propios.js?v=20260924-dietas-preparacion-sin-guia-v3";
 import { montarVistaAccesoPapelesDietas } from "./vista-acceso-papeles.js?v=20260924-dietas-ayuda-sin-guia-v2";
 import { montarMapaInicialGranadaDietas } from "./mapa-ruta.js";
 

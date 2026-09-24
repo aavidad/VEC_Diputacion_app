@@ -33,7 +33,8 @@ test("la consulta y su ayuda están traducidas y sus imports no usan la versión
   assert.match(comun, /i18n-borradores\.js\?v=20260924-dietas-ayuda-sin-guia-v2/u);
   assert.match(borradores, /i18n\.js\?v=20260924-dietas-ayuda-sin-guia-v2/u);
   assert.match(borradores, /i18n-borradores\.js\?v=20260924-dietas-ayuda-sin-guia-v2/u);
-  assert.match(recorridos, /vista-borradores-propios\.js\?v=20260924-dietas-ayuda-sin-guia-v2/u);
+  assert.match(recorridos, /vista-borradores-propios\.js\?v=20260924-dietas-preparacion-sin-guia-v3/u);
+  assert.doesNotMatch(recorridos, /vista-borradores-propios\.js\?v=20260924-dietas-ayuda-sin-guia-v2/u);
   for (const fuente of [comun, borradores, recorridos])
     assert.doesNotMatch(fuente, /\?v=20260924-dietas-d1d2d4|\?v=20260924-dietas-ayuda-sin-guia-v1/u);
 });
