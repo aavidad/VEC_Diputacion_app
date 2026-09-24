@@ -1,8 +1,13 @@
+import { traducirVerificar } from "./i18n.js?v=20260924-cotejo-espera-i18n-v1";
+
 const RUTA_COTEJO_PUBLICO = "/api/publico/documentos/cotejo";
 const formulario = document.getElementById("formulario-cotejo");
 const entrada = document.getElementById("referencia");
 const resultado = document.getElementById("resultado-cotejo");
 const avisoPresentacion = document.getElementById("aviso-presentacion");
+const TIEMPO_MAX_COTEJO_MS = 12000;
+let intentoActual = 0;
+let controladorActual;
 
 function parametrosCerrados() {
   const parametros = new URLSearchParams(window.location.search);
@@ -37,7 +42,7 @@ function pintar(respuesta, presentacion) {
     : `<strong>No se ha podido acreditar el documento</strong><p>${escaparHTML(respuesta?.mensaje || "La referencia no consta como vigente o el servicio no está disponible.")}</p>`;
 }
 
-async function cotejar(referencia, presentacion) {
+async function cotejar(referencia, presentacion, signal) {
   if (!referenciaValida(referencia)) throw new Error("La referencia no respeta el formato admitido.");
   if (presentacion) {
     const adaptador = await import("./adaptador-presentacion.js?v=20260719-cotejo-v1");
@@ -46,6 +51,7 @@ async function cotejar(referencia, presentacion) {
   const respuesta = await fetch(RUTA_COTEJO_PUBLICO, {
     method: "POST",
     credentials: "omit",
+    signal,
     headers: { Accept: "application/json", "Content-Type": "application/json" },
     body: JSON.stringify({ esquema: "vec.documentos.cotejo.publico.solicitud.v1", referencia }),
   });
@@ -60,16 +66,38 @@ async function comprobar(evento) {
   evento?.preventDefault();
   const referencia = entrada.value.trim();
   const boton = formulario.querySelector("button[type='submit']");
+  const presentacion = parametrosCerrados().presentacion;
+  const intento = ++intentoActual;
+  controladorActual?.abort();
+  const controlador = new AbortController();
+  controladorActual = controlador;
+  let temporizador;
   boton.disabled = true;
   resultado.hidden = false;
   resultado.removeAttribute("data-estado");
   resultado.textContent = "Comprobando la referencia…";
   try {
-    pintar(await cotejar(referencia, parametrosCerrados().presentacion), parametrosCerrados().presentacion);
+    const operacion = cotejar(referencia, presentacion, controlador.signal);
+    const respuesta = presentacion ? await operacion : await Promise.race([
+      operacion,
+      new Promise((_, rechazar) => {
+        temporizador = setTimeout(() => {
+          rechazar(new Error(traducirVerificar("tiempo_espera")));
+          controlador.abort();
+        }, TIEMPO_MAX_COTEJO_MS);
+      }),
+    ]);
+    if (intento === intentoActual) pintar(respuesta, presentacion);
   } catch (error) {
-    pintar({ valido: false, mensaje: error instanceof Error ? error.message : "No se pudo completar la comprobación." });
+    if (intento === intentoActual) {
+      pintar({ valido: false, mensaje: error instanceof Error ? error.message : "No se pudo completar la comprobación." });
+    }
   } finally {
-    boton.disabled = false;
+    clearTimeout(temporizador);
+    if (intento === intentoActual) {
+      controladorActual = undefined;
+      boton.disabled = false;
+    }
   }
 }
 
