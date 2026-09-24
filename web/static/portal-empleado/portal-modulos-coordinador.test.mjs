@@ -474,7 +474,12 @@ test("Personal de presentación conserva categorías E24, RPT y estructura públ
   assert.ok(raiz.querySelector("[data-personal-estructura-organizativa-publica]"));
   assert.equal(llamadas.length, 3);
   assert.deepEqual(new Set(llamadas.map(({ ruta }) => ruta)), new Set(["/api/vec/personal/categories?q=&area=&limit=25&offset=0", "/api/vec/personal/rpt-publica?q=&limit=25&offset=0", "/api/vec/personal/estructura-organizativa-publica"]));
-  llamadas.forEach(({ opciones }) => { assert.equal(opciones.method, "GET"); assert.equal(opciones.credentials, "same-origin"); assert.equal(opciones.redirect, "error"); assert.equal(Object.hasOwn(opciones, "headers"), false); });
+  llamadas.forEach(({ ruta, opciones }) => {
+    assert.equal(opciones.method, "GET");
+    assert.equal(opciones.credentials, ruta.startsWith("/api/vec/personal/categories") ? "omit" : "same-origin");
+    assert.equal(opciones.redirect, "error");
+    assert.equal(Object.hasOwn(opciones, "headers"), false);
+  });
 });
 
 test("el cargador interno predeterminado de Personal monta la ficha sin cargar catálogos al entrar", async () => {
