@@ -84,6 +84,17 @@ test("la tarjeta anuncia la comprobación sin ofrecer una ruta prematura", () =>
   assert.doesNotMatch(html, /data-vista=/);
 });
 
+test("una vista vacía o con solo espacios no habilita la tarjeta", () => {
+  for (const vista of ["", "  "]) {
+    const html = renderizar({ disponible: true, vista, estado: "disponible", etiqueta: "Borradores disponibles" });
+    assert.match(html, /data-estado-conexion="no-conectado"/);
+    assert.match(html, /<button[^>]+disabled>No disponible<\/button>/);
+    assert.match(html, /estado-proximamente[^>]*>No habilitado/);
+    assert.doesNotMatch(html, /Borradores disponibles/);
+    assert.doesNotMatch(html, /data-vista=/);
+  }
+});
+
 test("la tarjeta diferencia denegación de error técnico y solo este permite reintentar", () => {
   const denegado = renderizar({
     disponible: false,
@@ -250,7 +261,8 @@ test("G10: la vista de inicio para RRHH conserva cuadro y accesos, y expone el c
   // 3 accesos directos requeridos
   assert.match(html, /data-vista="contratacion-temporal" data-ct-exp-vista="cuadro">Cuadro de mando<\/button>/);
   assert.match(html, /data-vista="contratacion-temporal" data-ct-exp-vista="alta">Nueva petición<\/button>/);
-  assert.match(html, /data-accion="ayuda">Ayuda<\/button>/);
+  assert.match(html, /data-accion="ayuda" aria-label="Ayuda">\?<\/button>/);
+  assert.doesNotMatch(html, />Ayuda<\/button>/);
 
   // 3 cifras leídas del cuadro
   assert.match(html, /data-metrica="en_tramitacion"[^>]*>[\s\S]*?<strong class="metrica-valor">5<\/strong>/);
@@ -282,7 +294,7 @@ test("el inicio de RRHH muestra los trece módulos y conserva la advertencia ám
   assert.equal((html.match(/>Ver recorrido<\/button>/g) || []).length, claves.length);
 });
 
-test("el inicio de RRHH lista los trámites recientes con incidencias primero y abre cada expediente", () => {
+test("el inicio de RRHH lista las incidencias primero y abre cada expediente", () => {
   const cuadro = { expedientes: [
     { expediente_ref: "expediente:ct:a", numero_visible: "2026/CT-000001", centro: "DEPORTES", categoria: "Operario/a", fase_actual: "Solicitud", estado_clave: "en_curso", estado: "En tramitación" },
     { expediente_ref: "expediente:ct:b", numero_visible: "2026/CT-000002", centro: "CULTURA", categoria: "Técnico/a", fase_actual: "Fiscalización", estado_clave: "incidencia", estado: "Con incidencia" },
@@ -299,8 +311,38 @@ test("el inicio de RRHH lista los trámites recientes con incidencias primero y 
     obtenerMetricasCuadro: () => null,
     obtenerTramitesInicio: () => tramites,
   })();
-  assert.match(html, /Trámites recientes/);
+  assert.match(html, /aria-label="Trámites"/);
+  assert.doesNotMatch(html, /Trámites recientes/);
   assert.match(html, /data-vista="contratacion-temporal" data-ct-exp-abrir-inicio="expediente:ct:b"/);
   assert.match(html, /class="ct-exp-chip ct-fase-incidencia">Con incidencia</);
   assert.match(html, /2026\/CT-000002[\s\S]*2026\/CT-000001/);
+});
+
+test("un listado no cargado no se anuncia como vacío, pero un array vacío sí", () => {
+  const vista = (tramites) => crearVistaInicioPortal({
+    encabezadoVista: () => "",
+    escaparHTML,
+    obtenerCatalogo: () => [],
+    resolverAcceso: () => ({ disponible: true, vista: "bolsa" }),
+    esPerfilRRHH: () => true,
+    obtenerTramitesInicio: () => tramites,
+  })();
+  assert.match(vista(null), /class="portal-rrhh-resumen-vacio" role="status">No disponible/);
+  assert.doesNotMatch(vista(null), /No hay trámites que mostrar/);
+  assert.match(vista([]), /No hay trámites que mostrar/);
+});
+
+test("los trámites se ordenan por fecha dentro de cada prioridad sin alterar la fuente", () => {
+  const expedientes = [
+    { expediente_ref: "normal-antiguo", estado_clave: "en_curso", fecha_solicitud: "2026-09-01T10:00:00Z" },
+    { expediente_ref: "incidencia-antigua", estado_clave: "incidencia", fecha_solicitud: "2026-09-03T10:00:00Z" },
+    { expediente_ref: "normal-reciente", estado_clave: "en_curso", fecha_solicitud: "2026-09-08T10:00:00Z" },
+    { expediente_ref: "incidencia-reciente", estado_clave: "incidencia", fecha_solicitud: "08/09/2026" },
+    { expediente_ref: "sin-fecha", estado_clave: "en_curso", fecha_solicitud: "sin fecha" },
+  ];
+  const originales = expedientes.map((expediente) => expediente.expediente_ref);
+  assert.deepEqual(tramitesParaInicio({ expedientes }).map((expediente) => expediente.expediente_ref), [
+    "incidencia-reciente", "incidencia-antigua", "normal-reciente", "normal-antiguo", "sin-fecha",
+  ]);
+  assert.deepEqual(expedientes.map((expediente) => expediente.expediente_ref), originales);
 });

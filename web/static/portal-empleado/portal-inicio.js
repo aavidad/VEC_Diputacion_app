@@ -45,21 +45,35 @@ export function calcularMetricasCuadro(cuadro) {
   };
 }
 
-// Trámites que RRHH debe ver nada más entrar: primero los que tienen
-// incidencia, después los más recientes; cada fila abre su expediente.
+// Trámites que RRHH debe ver nada más entrar: primero las incidencias y,
+// dentro de cada grupo, los más recientes; cada fila abre su expediente.
 const MAXIMO_TRAMITES_INICIO = 8;
 
 export function tramitesParaInicio(cuadro, maximo = MAXIMO_TRAMITES_INICIO) {
   const expedientes = Array.isArray(cuadro?.expedientes) ? cuadro.expedientes : [];
-  const orden = (e) => (String(e.estado_clave || "") === "incidencia" ? 0 : 1);
-  return [...expedientes].sort((a, b) => orden(a) - orden(b)).slice(0, maximo);
+  const prioridad = (e) => (e?.estado_clave === "incidencia" ? 0 : 1);
+  const instante = (e) => {
+    const fecha = e?.fecha_solicitud;
+    if (typeof fecha !== "string") return Number.NEGATIVE_INFINITY;
+    const local = fecha.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    const normalizada = local ? `${local[3]}-${local[2]}-${local[1]}` : fecha;
+    const valor = Date.parse(normalizada);
+    return Number.isFinite(valor) ? valor : Number.NEGATIVE_INFINITY;
+  };
+  return [...expedientes]
+    .sort((a, b) => prioridad(a) - prioridad(b)
+      || (instante(a) === instante(b) ? 0 : instante(b) - instante(a)))
+    .slice(0, maximo);
 }
 
-function renderizarTramitesInicio(tramites, escaparHTML) {
-  if (!Array.isArray(tramites) || tramites.length === 0) {
+function renderizarTramitesInicio(tramites, escaparHTML, traducir) {
+  if (!Array.isArray(tramites)) {
+    return `<p class="portal-rrhh-resumen-vacio" role="status">${escaparHTML(traducir("estado_modulo_no_disponible"))}</p>`;
+  }
+  if (tramites.length === 0) {
     return `<p class="portal-rrhh-resumen-vacio">No hay trámites que mostrar.</p>`;
   }
-  return `<div class="tabla-contenedor" tabindex="0" role="region" aria-label="Trámites recientes">
+  return `<div class="tabla-contenedor" tabindex="0" role="region" aria-label="Trámites">
       <table class="tabla-datos portal-rrhh-tramites">
         <thead><tr><th scope="col">Expediente</th><th scope="col">Centro</th><th scope="col">Categoría</th><th scope="col">Fase</th><th scope="col">Estado</th></tr></thead>
         <tbody>${tramites.map((e) => `<tr>
@@ -136,7 +150,7 @@ export function crearVistaInicioPortal({
           <div class="portal-rrhh-accesos" aria-label="Accesos directos">
             <button type="button" class="boton-primario" data-vista="contratacion-temporal" data-ct-exp-vista="cuadro">Cuadro de mando</button>
             <button type="button" class="boton-secundario" data-vista="contratacion-temporal" data-ct-exp-vista="alta">Nueva petición</button>
-            <button type="button" class="boton-secundario" data-accion="ayuda">Ayuda</button>
+            <button type="button" class="boton-secundario" data-accion="ayuda" aria-label="Ayuda">?</button>
           </div>
           <section class="portal-rrhh-resumen" aria-label="Resumen de expedientes">
             <div class="cabecera-panel">
@@ -144,12 +158,12 @@ export function crearVistaInicioPortal({
             </div>
             ${resumen}
           </section>
-          <section class="portal-rrhh-tramites-seccion" aria-label="Trámites recientes">
+          <section class="portal-rrhh-tramites-seccion" aria-label="Trámites">
             <div class="cabecera-panel">
-              <h3>Trámites recientes</h3>
+              <h3>Trámites</h3>
               <button type="button" class="boton-terciario" data-vista="contratacion-temporal" data-ct-exp-vista="cuadro">Ver todos</button>
             </div>
-            ${renderizarTramitesInicio(obtenerTramitesInicio?.(), escaparHTML)}
+            ${renderizarTramitesInicio(obtenerTramitesInicio?.(), escaparHTML, traducir)}
           </section>
         </section>
         <section class="portal-rrhh-todos-modulos" aria-labelledby="portal-rrhh-todos-modulos-titulo">
@@ -185,7 +199,8 @@ export function crearVistaInicioPortal({
 }
 
 function renderizarModulo(modulo, acceso, escaparHTML, traducir) {
-  const habilitado = acceso?.disponible === true && typeof acceso?.vista === "string";
+  const rutaValida = typeof acceso?.vista === "string" && acceso.vista.trim() !== "";
+  const habilitado = acceso?.disponible === true && rutaValida;
   const fase = habilitado ? "disponible" : acceso?.estado;
   const etiquetaAcceso = typeof acceso?.etiqueta === "string" && acceso.etiqueta.trim() !== ""
     ? acceso.etiqueta
@@ -194,9 +209,11 @@ function renderizarModulo(modulo, acceso, escaparHTML, traducir) {
   // recorrido visual o a un adaptador compuesto. La tarjeta lo deja visible,
   // sin deducirlo de un menú ni convertir una pantalla en una conexión real.
   const presentacion = habilitado && acceso?.presentacion === true;
-  const estado = etiquetaAcceso || (habilitado
-    ? traducir("estado_modulo_disponible_perfil")
-    : traducir("estado_modulo_no_habilitado"));
+  const estado = acceso?.disponible === true && !rutaValida
+    ? traducir("estado_modulo_no_habilitado")
+    : (etiquetaAcceso || (habilitado
+      ? traducir("estado_modulo_disponible_perfil")
+      : traducir("estado_modulo_no_habilitado")));
   const comprobando = fase === "cargando";
   const reintentar = fase === "error" && acceso?.reintentar === true;
   const etiquetaAccion = typeof acceso?.accion_etiqueta === "string" && acceso.accion_etiqueta.trim() !== ""
