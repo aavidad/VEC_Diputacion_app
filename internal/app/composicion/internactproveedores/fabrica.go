@@ -45,16 +45,18 @@ type Configuracion struct {
 // Proveedores conserva la propiedad de los pools y la devuelve al montaje.
 // No instala SQL, claves, asignaciones ni gobierno al arrancar.
 type Proveedores struct {
-	Cadena         *inc.CadenaAutorizacionAplicacion
-	Detalle        *appct.ServicioConsultaDetalleRRHH
-	Planes         []byte
-	TernaPlanes    ct.ReferenciaVersionadaPersonalRPT
-	FuentePersonal []byte
-	TernaPersonal  fuenteejercicio.TernaEsperada
-	pools          []*pgxpool.Pool
-	motivos        *pgct.PoolResolucionMotivosRRHHPostgreSQL
-	consultas      *pgct.PoolConsultasRRHHPostgreSQL
-	firmante       *firmanteV3
+	Cadena          *inc.CadenaAutorizacionAplicacion
+	Detalle         *appct.ServicioConsultaDetalleRRHH
+	Planes          []byte
+	TernaPlanes     ct.ReferenciaVersionadaPersonalRPT
+	FuentePersonal  []byte
+	TernaPersonal   fuenteejercicio.TernaEsperada
+	pools           []*pgxpool.Pool
+	motivos         *pgct.PoolResolucionMotivosRRHHPostgreSQL
+	consultas       *pgct.PoolConsultasRRHHPostgreSQL
+	firmante        *firmanteV3
+	pdp             *app.ServicioAutorizacionSolicitudLigadaV3
+	catalogoMotivos string
 }
 
 func (p *Proveedores) Cerrar() {
@@ -79,6 +81,8 @@ func (p *Proveedores) Cerrar() {
 		clear(p.firmante.privada)
 		p.firmante = nil
 	}
+	p.pdp = nil
+	p.catalogoMotivos = ""
 	clear(p.Planes)
 	clear(p.FuentePersonal)
 	p.Planes = nil
@@ -182,6 +186,8 @@ func Construir(ctx context.Context, c Configuracion) (Proveedores, error) {
 	if e != nil {
 		return fallo()
 	}
+	salida.pdp = pdp
+	salida.catalogoMotivos = m.CatalogoMotivos
 	salida.Cadena, e = inc.NuevaCadenaAutorizacionAplicacion(pdp, atestador, verificador, emisiones)
 	if e != nil {
 		return fallo()
