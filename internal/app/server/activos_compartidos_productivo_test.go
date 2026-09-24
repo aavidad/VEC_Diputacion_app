@@ -15,6 +15,7 @@ func TestStaticHandlerProduccionSirveActivosConsumidosF2(t *testing.T) {
 	rutas := []string{
 		"/comun/tema-vec.css",
 		"/comun/tema-vec.js",
+		"/comun/iconos-vec.js",
 		"/comun/oportunidades/vista.js",
 		"/comun/oportunidades/i18n.js",
 		"/comun/oportunidades/oportunidades.css",
