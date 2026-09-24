@@ -1,8 +1,8 @@
-import { MENSAJES_BORRADORES_ES } from "./i18n-borradores.js?v=20260925-dietas-montaje-v2";
-import { MENSAJES_REVISION_DIETAS_ES } from "./i18n-revision.js?v=20260925-dietas-montaje-v1";
-import { MENSAJES_CIRCUITO_DIETAS_ES } from "./i18n-circuito.js?v=20260925-dietas-montaje-v1";
-import { MENSAJES_RECTIFICACION_DIETAS_ES } from "./i18n-rectificacion-dietas.js?v=20260925-dietas-montaje-v1";
-import { MENSAJES_RECTIFICACION_ADMIN_ES } from "./i18n-rectificacion-admin.js?v=20260925-dietas-montaje-v1";
+import { MENSAJES_BORRADORES_ES } from "./i18n-borradores.js?v=20260925-tanda-v1";
+import { MENSAJES_REVISION_DIETAS_ES } from "./i18n-revision.js?v=20260925-tanda-v1";
+import { MENSAJES_CIRCUITO_DIETAS_ES } from "./i18n-circuito.js?v=20260925-tanda-v1";
+import { MENSAJES_RECTIFICACION_DIETAS_ES } from "./i18n-rectificacion-dietas.js?v=20260925-tanda-v1";
+import { MENSAJES_RECTIFICACION_ADMIN_ES } from "./i18n-rectificacion-admin.js?v=20260925-tanda-v1";
 
 /** Catálogo completo de textos propios de la superficie Dietas. */
 export const MENSAJES_DIETAS_ES = Object.freeze({
@@ -61,7 +61,7 @@ export const MENSAJES_DIETAS_ES = Object.freeze({
   borradores_propios_fecha_fin: "Fecha de fin",
   borradores_propios_motivo: "Motivo de la comisión",
   borradores_propios_ruta: "Ruta",
-  borradores_propios_ruta_ayuda: "La distancia y el importe provisional se calculan con la OSRM interna al guardar el borrador.",
+  borradores_propios_ruta_ayuda: "La distancia y el importe provisional se calculan con el cálculo por carretera interno al guardar el borrador.",
   borradores_propios_hora_inicio: "Hora de salida",
   borradores_propios_hora_fin: "Hora de regreso",
   borradores_propios_origen: "Origen",

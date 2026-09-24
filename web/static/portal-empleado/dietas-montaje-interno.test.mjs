@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { crearCoordinadorModulosPortal } from "./portal-modulos-coordinador.js";
+import { versionDe } from "./versiones-cache.test-helper.mjs";
 
 test("el catálogo interno monta Dietas con clientes HTTP, ruta y mapa, sin dependencias demo", async () => {
   const recibidas = [];
@@ -66,7 +67,7 @@ test("el cargador interno importa la ruta real y ningún dato de presentación",
   const interno = coordinador.split("const CARGADORES_INTERNOS_PREDETERMINADOS =")[1]
     .split("function componerModuloAislado")[0];
   for (const recurso of ["cliente-borradores-http", "cliente-asignacion-http", "calculador-rutas-http", "mapa-ruta"])
-    assert.match(interno, new RegExp(`${recurso}\\.js\\?v=20260925-dietas-montaje-v\\d+`, "u"), recurso);
+    assert.ok(versionDe(interno, `./modulos/dietas/${recurso}.js`), recurso);
   assert.doesNotMatch(interno, /calculador-rutas-presentacion|vista-itinerario|datos-presentacion|adaptador-presentacion/u);
   assert.doesNotMatch(composicion, /datos-sinteticos-rrhh|componerDietasVisible|centroSalidaSintetico/u);
 });

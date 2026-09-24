@@ -5,9 +5,9 @@ import {
   tieneCapacidadCronos,
   validarCapacidadesCronos,
   validarDatosCronos,
-} from "./contrato.js?v=20260924-f2-web2";
-import { crearTraductorCronos, MENSAJES_CRONOS_ES } from "./i18n.js?v=20260925-aspecto-v1";
-import { montarCalendarioCivilCronos } from "./vista-calendario.js?v=20260925-aspecto-v1";
+} from "./contrato.js?v=20260925-tanda-v1";
+import { crearTraductorCronos, MENSAJES_CRONOS_ES } from "./i18n.js?v=20260925-tanda-v1";
+import { montarCalendarioCivilCronos } from "./vista-calendario.js?v=20260925-tanda-v1";
 
 function escaparHTML(valor) {
   return String(valor ?? "")

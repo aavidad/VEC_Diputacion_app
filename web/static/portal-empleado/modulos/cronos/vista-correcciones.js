@@ -1,4 +1,4 @@
-import { MENSAJES_CRONOS_C5_ES } from "./i18n-c5.js?v=20260924-c5-web1";
+import { MENSAJES_CRONOS_C5_ES } from "./i18n-c5.js?v=20260925-tanda-v1";
 
 const ESTADOS = new Set(["no_configurado", "cargando", "vacio", "disponible", "error", "denegado"]);
 

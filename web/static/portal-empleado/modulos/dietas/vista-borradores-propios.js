@@ -1,7 +1,7 @@
-import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260925-dietas-montaje-v2";
-import { crearTraductorBorradoresDietas } from "./i18n-borradores.js?v=20260925-dietas-montaje-v2";
-import { montarVistaMapaComisionDietas } from "./vista-mapa-comision.js?v=20260925-dietas-montaje-v2";
-import { montarVistaRectificacionDietas } from "./vista-rectificacion-dietas.js?v=20260925-dietas-montaje-v1";
+import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260925-tanda-v1";
+import { crearTraductorBorradoresDietas } from "./i18n-borradores.js?v=20260925-tanda-v1";
+import { montarVistaMapaComisionDietas } from "./vista-mapa-comision.js?v=20260925-tanda-v1";
+import { montarVistaRectificacionDietas } from "./vista-rectificacion-dietas.js?v=20260925-tanda-v1";
 
 const MAXIMO_LOCALIDADES = 12;
 

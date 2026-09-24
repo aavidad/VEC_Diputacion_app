@@ -1,4 +1,4 @@
-import { MENSAJES_CRONOS_C9_ES } from "./i18n-c9.js?v=20260924-cronos-integrado-v1";
+import { MENSAJES_CRONOS_C9_ES } from "./i18n-c9.js?v=20260925-tanda-v1";
 
 function escaparHTML(valor) {
   return String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;")

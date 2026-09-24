@@ -18,7 +18,7 @@ test("las instrucciones de alternativas y motivo D4 se consultan en el ayudante 
   clic({ ayudanteTramite: "dietas-ruta" });
   assert.doesNotMatch(contenedor.innerHTML, /Puede previsualizar otra alternativa/u);
   clic({}, "data-ayudante-siguiente");
-  assert.match(contenedor.innerHTML, /Puede previsualizar otra alternativa OSRM/u);
+  assert.match(contenedor.innerHTML, /Puede previsualizar otra alternativa del cálculo por carretera interno/u);
   assert.match(contenedor.innerHTML, /Escriba entre 8 y 500 caracteres/u);
   assert.match(contenedor.innerHTML, /no se guardan ni generan importe/u);
   assert.equal(navegaciones, 0, "consultar las instrucciones no navega ni ejecuta el trámite");

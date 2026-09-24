@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
+import { exigirVersiones, posterior, versionDe } from "./versiones-cache.test-helper.mjs";
 
 const raiz = new URL("./", import.meta.url);
 const VERSION_MONTAJE = "20260925-dietas-montaje-v1";
@@ -29,12 +29,14 @@ test("Dietas interno atraviesa una caché caliente con sus clientes reales", asy
   assert.notEqual(shell[0], "20260924-web-paradas-periodos-v1", "portal.js sirve el shell nuevo");
   assert.notEqual(entrada[0], PUBLICADA, "HTML no reutiliza el portal.js publicado");
   assert.notEqual(shell[0], PUBLICADA, "portal.js no reutiliza el shell publicado");
-  assert.deepEqual(versiones(coordinador, "./portal-composicion-empleado.js"), [VERSION_MONTAJE]);
+  // Recursos nuevos del montaje: una sola URL versionada por importador.
+  versionDe(coordinador, "./portal-composicion-empleado.js");
 
   const cargadorInterno = coordinador.split("const CARGADORES_INTERNOS_PREDETERMINADOS =")[1]
     .split("function componerModuloAislado")[0];
   for (const recurso of ["cliente-borradores-http.js", "cliente-asignacion-http.js", "calculador-rutas-http.js"]) {
-    assert.deepEqual(versiones(cargadorInterno, `./modulos/dietas/${recurso}`), [VERSION_MONTAJE], recurso);
+    assert.equal(versiones(cargadorInterno, `./modulos/dietas/${recurso}`).length, 1, recurso);
+    versionDe(cargadorInterno, `./modulos/dietas/${recurso}`);
   }
   // Textos de pantalla renovados: la vista y el mapa cambian de URL en cascada.
   const vistaVigente = exigirVersiones(cargadorInterno, "./modulos/dietas/vista-recorridos.js", posterior(VERSION_MONTAJE));

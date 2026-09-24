@@ -1,4 +1,4 @@
-import { MENSAJES_RECTIFICACION_DIETAS_ES } from "./i18n-rectificacion-dietas.js?v=20260925-dietas-montaje-v1";
+import { MENSAJES_RECTIFICACION_DIETAS_ES } from "./i18n-rectificacion-dietas.js?v=20260925-tanda-v1";
 
 const CAMPOS = [
   ["centro_ref", "rectificacion_centro"], ["unidad_ref", "rectificacion_unidad"],

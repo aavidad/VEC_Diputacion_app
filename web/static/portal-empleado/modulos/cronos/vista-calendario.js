@@ -1,4 +1,4 @@
-import { crearTraductorCronosC4, MENSAJES_CRONOS_C4_ES } from "./i18n-c4.js?v=20260925-aspecto-v1";
+import { crearTraductorCronosC4, MENSAJES_CRONOS_C4_ES } from "./i18n-c4.js?v=20260925-tanda-v1";
 
 const ANIO_MINIMO = 1900;
 const ANIO_MAXIMO = 2100;

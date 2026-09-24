@@ -61,7 +61,7 @@ export const MENSAJES_AYUDA_PORTAL_ES = Object.freeze({
   ayuda_contenido_059: "Persona solicitante.",
   ayuda_contenido_060: "Una ruta orientativa no acredita kilometraje ni autoriza pago.",
   ayuda_contenido_061: "Revisar el resultado",
-  ayuda_contenido_062: "Puede previsualizar otra alternativa OSRM. La elección y su motivo solo cambian esta vista; no se guardan ni generan importe. Escriba entre 8 y 500 caracteres para previsualizar una ruta distinta de la recomendada.",
+  ayuda_contenido_062: "Puede previsualizar otra alternativa del cálculo por carretera interno. La elección y su motivo solo cambian esta vista; no se guardan ni generan importe. Escriba entre 8 y 500 caracteres para previsualizar una ruta distinta de la recomendada.",
   ayuda_contenido_063: "Identificar la información que deberá verificarse en el expediente.",
   ayuda_contenido_064: "Motivo documentado de cualquier ajuste.",
   ayuda_contenido_065: "Se muestra una estimación técnica separada del trámite.",

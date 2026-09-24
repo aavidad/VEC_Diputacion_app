@@ -56,7 +56,7 @@ export const MENSAJES_BORRADORES_ES = Object.freeze({
   comision_numero_documento: "Documento",
   comision_fecha_apertura: "Abierto",
   comision_documento_fecha: "Comisión del {fecha}",
-  comision_bloque_kilometraje_ayuda: "La ruta se calcula en la red interna con OSRM. El importe por kilómetro y cualquier ajuste requieren una versión y una justificación conservadas en el expediente.",
+  comision_bloque_kilometraje_ayuda: "La ruta se calcula con el cálculo por carretera interno. El importe por kilómetro y cualquier ajuste requieren una versión y una justificación conservadas en el expediente.",
   comision_bloque_otros_ayuda: "Describa cada medio o gasto y su importe. La descripción no acredita un justificante documental ni una liquidación.",
   comision_vehiculo_propio: "Vehículo propio",
   comision_vehiculo_si: "Sí",

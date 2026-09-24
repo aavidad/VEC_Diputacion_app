@@ -13,14 +13,14 @@ import {
 import {
   cargarCatalogoModulosInterno,
   renderizarNavegacionModulos,
-} from "./portal-catalogo-modulos.js?v=20260925-aspecto-v1";
-import { traducirPortal } from "./portal-i18n.js?v=20260925-aspecto-v1";
-import { calcularMetricasCuadro, tramitesParaInicio } from "./portal-inicio.js?v=20260925-aspecto-v1";
+} from "./portal-catalogo-modulos.js?v=20260925-tanda-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260925-tanda-v1";
+import { calcularMetricasCuadro, tramitesParaInicio } from "./portal-inicio.js?v=20260925-tanda-v1";
 import {
   componerCronosVisible,
   componerDietasInternas,
   componerPersonalVisible,
-} from "./portal-composicion-empleado.js?v=20260925-dietas-montaje-v1";
+} from "./portal-composicion-empleado.js?v=20260925-tanda-v1";
 import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260924-f2-shell-v1";
 import {
   CLAVES_CARGA_MODULAR,
@@ -78,7 +78,7 @@ const CARGADORES_PRESENTACION_PREDETERMINADOS = Object.freeze({
   cronos: async () => {
     const [contrato, recorridos] = await Promise.all([
       import("./modulos/cronos/contrato.js"),
-      import("./modulos/cronos/vista-recorridos.js?v=20260925-aspecto-v1"),
+      import("./modulos/cronos/vista-recorridos.js?v=20260925-tanda-v1"),
     ]);
     return Object.freeze({ contrato, recorridos });
   },
@@ -124,9 +124,9 @@ const CARGADORES_PRESENTACION_PREDETERMINADOS = Object.freeze({
 const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   cronos: async () => {
     const [vista, recorridos, i18n] = await Promise.all([
-      import("./modulos/cronos/vista.js?v=20260925-aspecto-v1"),
-      import("./modulos/cronos/vista-recorridos.js?v=20260925-aspecto-v1"),
-      import("./modulos/cronos/i18n.js?v=20260925-aspecto-v1"),
+      import("./modulos/cronos/vista.js?v=20260925-tanda-v1"),
+      import("./modulos/cronos/vista-recorridos.js?v=20260925-tanda-v1"),
+      import("./modulos/cronos/i18n.js?v=20260925-tanda-v1"),
     ]);
     return Object.freeze({ vista, recorridos, i18n });
   },
@@ -153,11 +153,11 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   dietas: async () => {
     const [contrato, recorridos, clienteBorradores, clienteAsignacion, calculador, mapa] = await Promise.all([
       import("./modulos/dietas/contrato.js"),
-      import("./modulos/dietas/vista-recorridos.js?v=20260925-dietas-montaje-v2"),
-      import("./modulos/dietas/cliente-borradores-http.js?v=20260925-dietas-montaje-v1"),
-      import("./modulos/dietas/cliente-asignacion-http.js?v=20260925-dietas-montaje-v1"),
-      import("./modulos/dietas/calculador-rutas-http.js?v=20260925-dietas-montaje-v1"),
-      import("./modulos/dietas/mapa-ruta.js?v=20260925-dietas-montaje-v2"),
+      import("./modulos/dietas/vista-recorridos.js?v=20260925-tanda-v1"),
+      import("./modulos/dietas/cliente-borradores-http.js?v=20260925-tanda-v1"),
+      import("./modulos/dietas/cliente-asignacion-http.js?v=20260925-tanda-v1"),
+      import("./modulos/dietas/calculador-rutas-http.js?v=20260925-tanda-v1"),
+      import("./modulos/dietas/mapa-ruta.js?v=20260925-tanda-v1"),
     ]);
     return Object.freeze({ contrato, recorridos, clienteBorradores, clienteAsignacion, calculador, mapa });
   },
