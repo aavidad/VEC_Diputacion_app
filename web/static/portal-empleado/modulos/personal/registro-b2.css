@@ -1,0 +1,257 @@
+.personal-registro-b2 {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+  gap: var(--portal-espacio-4);
+}
+
+.personal-registro-b2 .cabecera-vista {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--portal-espacio-3);
+}
+
+.personal-registro-b2 .cabecera-vista h2 {
+  margin: 0;
+  margin-right: auto;
+}
+
+.personal-registro-b2-ayuda {
+  position: relative;
+}
+
+.personal-registro-b2-ayuda > summary {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio);
+  background: var(--portal-superficie);
+  color: var(--portal-azul-700);
+  cursor: pointer;
+  font-weight: 600;
+  list-style: none;
+}
+
+.personal-registro-b2-ayuda > summary::-webkit-details-marker { display: none; }
+.personal-registro-b2-ayuda > summary:focus-visible,
+.personal-registro-b2 :is(button, input):focus-visible,
+.personal-registro-b2 .tabla-contenedor:focus-visible {
+  outline: 3px solid var(--portal-azul-700);
+  outline-offset: 2px;
+}
+
+.personal-registro-b2-ayuda[open] > div {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(360px, calc(100vw - 32px));
+  padding: var(--portal-espacio-4);
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio-lg);
+  background: var(--portal-superficie);
+  box-shadow: var(--portal-sombra-sm);
+  color: var(--portal-tinta);
+}
+
+.personal-registro-b2-ayuda p { margin: 0; }
+
+.personal-registro-b2-pestanas {
+  display: flex;
+  min-width: 0;
+  gap: var(--portal-espacio-1);
+  padding: var(--portal-espacio-1);
+  overflow-x: auto;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio-lg);
+  background: var(--portal-superficie);
+  box-shadow: var(--portal-sombra-sm);
+}
+
+.personal-registro-b2-pestanas button {
+  flex: 0 0 auto;
+  min-height: 40px;
+  padding: var(--portal-espacio-2) var(--portal-espacio-3);
+  border: 1px solid transparent;
+  border-radius: var(--portal-radio);
+  background: transparent;
+  color: var(--portal-azul-950);
+  cursor: pointer;
+  font: inherit;
+  font-size: .88rem;
+  font-weight: 600;
+}
+
+.personal-registro-b2-pestanas button[aria-selected="true"] {
+  border-color: var(--portal-borde);
+  background: var(--portal-azul-100);
+  box-shadow: inset 0 -3px var(--portal-azul-700);
+}
+
+.personal-registro-b2-contenido {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  align-content: start;
+  gap: var(--portal-espacio-4);
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.personal-registro-b2-resumen {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--portal-espacio-2) var(--portal-espacio-4);
+}
+
+.personal-registro-b2-resumen h3 { margin: 0; font-size: 1.1rem; }
+.personal-registro-b2-resumen p { margin: 0; color: var(--portal-muted); font-size: .83rem; }
+
+.personal-registro-b2-grupos {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--portal-espacio-4);
+  align-items: start;
+}
+
+.personal-registro-b2-grupos .panel { min-width: 0; }
+.personal-registro-b2-grupos .cabecera-panel { min-height: 54px; }
+.personal-registro-b2-grupos .cuerpo-panel { min-width: 0; padding: 0; }
+.personal-registro-b2 .tabla-contenedor { min-width: 0; max-height: 360px; overflow: auto; }
+.personal-registro-b2 .tabla-datos { min-width: 560px; }
+.personal-registro-b2 .tabla-datos :is(th, td) { vertical-align: top; }
+.personal-registro-b2 .tabla-datos th { white-space: nowrap; }
+.personal-registro-b2 .tabla-datos td { overflow-wrap: anywhere; }
+.personal-registro-b2 .tabla-datos tbody tr:hover { background: var(--portal-azul-100); }
+
+.personal-registro-b2-estado {
+  margin: 0;
+  padding: var(--portal-espacio-4);
+  color: var(--portal-muted);
+}
+
+.personal-registro-b2-estado[role="alert"] { color: var(--portal-peligro); }
+
+.personal-registro-b2-toolbar {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: var(--portal-espacio-3);
+  padding: var(--portal-espacio-3) var(--portal-espacio-4);
+  border-bottom: 1px solid var(--portal-borde);
+}
+
+.personal-registro-b2-toolbar label { display: grid; gap: var(--portal-espacio-1); color: var(--portal-muted); font-size: .82rem; }
+.personal-registro-b2-toolbar input {
+  min-height: 40px;
+  padding: var(--portal-espacio-2) var(--portal-espacio-3);
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio);
+  background: var(--portal-superficie);
+  color: var(--portal-tinta);
+  font: inherit;
+}
+.personal-registro-b2-toolbar select {
+  min-height: 40px;
+  padding: var(--portal-espacio-2) var(--portal-espacio-3);
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio);
+  background: var(--portal-superficie);
+  color: var(--portal-tinta);
+  font: inherit;
+}
+.personal-registro-b2-toolbar button,
+.personal-registro-b2-paginacion button {
+  min-height: 40px;
+  padding: var(--portal-espacio-2) var(--portal-espacio-3);
+  border: 1px solid var(--portal-azul-700);
+  border-radius: var(--portal-radio);
+  background: var(--portal-azul-700);
+  color: var(--portal-superficie);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+}
+.personal-registro-b2-paginacion button:disabled { opacity: .5; cursor: not-allowed; }
+.personal-registro-b2-paginacion {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--portal-espacio-2);
+  padding: var(--portal-espacio-3) var(--portal-espacio-4);
+  border-top: 1px solid var(--portal-borde);
+}
+
+.personal-registro-b2-actos { min-width: 0; }
+.personal-registro-b2-formulario {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: end;
+  gap: var(--portal-espacio-3);
+}
+.personal-registro-b2-formulario label {
+  display: grid;
+  min-width: 0;
+  gap: var(--portal-espacio-1);
+  color: var(--portal-muted);
+  font-size: .82rem;
+}
+.personal-registro-b2-formulario :is(input, select) {
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  padding: var(--portal-espacio-2) var(--portal-espacio-3);
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio);
+  background: var(--portal-superficie);
+  color: var(--portal-tinta);
+  font: inherit;
+}
+.personal-registro-b2-formulario > button,
+.personal-registro-b2-acciones button {
+  min-height: 40px;
+  padding: var(--portal-espacio-2) var(--portal-espacio-3);
+  border: 1px solid var(--portal-azul-700);
+  border-radius: var(--portal-radio);
+  background: var(--portal-azul-700);
+  color: var(--portal-superficie);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+}
+.personal-registro-b2-formulario > button { grid-column: 1 / -1; justify-self: end; }
+.personal-registro-b2-revision { display: grid; gap: var(--portal-espacio-3); }
+.personal-registro-b2-revision > div:not(.personal-registro-b2-acciones) {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--portal-espacio-3);
+  border-bottom: 1px solid var(--portal-borde);
+  padding-bottom: var(--portal-espacio-2);
+}
+.personal-registro-b2-revision span { color: var(--portal-muted); }
+.personal-registro-b2-revision strong { text-align: right; font-weight: 600; }
+.personal-registro-b2-acciones { display: flex; justify-content: flex-end; gap: var(--portal-espacio-2); }
+.personal-registro-b2-acciones button:first-child { background: var(--portal-superficie); color: var(--portal-azul-700); }
+
+@media (max-width: 1024px) {
+  .personal-registro-b2-formulario { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (min-width: 1024px) {
+  .personal-registro-b2 { height: 100%; overflow: hidden; }
+}
+
+@media (max-width: 760px) {
+  .personal-registro-b2 { grid-template-rows: auto auto auto auto; }
+  .personal-registro-b2-contenido { overflow: visible; }
+  .personal-registro-b2-grupos { grid-template-columns: minmax(0, 1fr); }
+  .personal-registro-b2-formulario { grid-template-columns: minmax(0, 1fr); }
+  .personal-registro-b2 .tabla-contenedor { max-height: none; }
+}
