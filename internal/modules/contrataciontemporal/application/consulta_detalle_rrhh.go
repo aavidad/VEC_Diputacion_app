@@ -124,9 +124,6 @@ type ResumenConsultaSeguimientoRRHH struct {
 func (s *ServicioConsultaDetalleRRHH) ConsultarResumenSeguimiento(
 	ctx context.Context, solicitud ports.SolicitudDetalleRRHH, organizacionRef, unidadRef string,
 ) (ResumenConsultaSeguimientoRRHH, error) {
-	if !domain.ReferenciaOpacaValida(organizacionRef) || !domain.ReferenciaOpacaValida(unidadRef) {
-		return ResumenConsultaSeguimientoRRHH{}, ErrSolicitudConsultaRRHHInvalida
-	}
 	// Consultar consume la misma capacidad V3 y el mismo recibo durable que el
 	// detalle nominal; solo esta proyeccion abandona la frontera del modulo.
 	detalle, err := s.Consultar(ctx, solicitud)
