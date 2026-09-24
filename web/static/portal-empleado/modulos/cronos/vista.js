@@ -112,6 +112,64 @@ function botonAyuda(t, asunto) {
 }
 
 const ESTADOS_JORNADA = new Set(["cargando", "disponible", "vacio", "no_configurado", "denegado", "error"]);
+const TIPOS_PERIODO_JORNADA = new Set(["dia", "semana", "mes", "anio", "periodo"]);
+
+function fechaPeriodoValida(valor) {
+  return typeof valor === "string" && /^\d{4}-\d{2}-\d{2}$/.test(valor)
+    && Number.isFinite(Date.parse(`${valor}T12:00:00Z`))
+    && new Date(`${valor}T12:00:00Z`).toISOString().slice(0, 10) === valor;
+}
+
+/** Valida solo el intervalo civil elegido; el saldo lo proporciona Cronos. */
+export function validarSeleccionPeriodoCronos(seleccion) {
+  if (!seleccion || !TIPOS_PERIODO_JORNADA.has(seleccion.tipo)
+    || !fechaPeriodoValida(seleccion.desde)) throw new Error("tipo o fecha de periodo no válidos");
+  if (seleccion.tipo === "periodo" && (!fechaPeriodoValida(seleccion.hasta) || seleccion.hasta < seleccion.desde)) {
+    throw new Error("rango de periodo no válido");
+  }
+  return Object.freeze({
+    tipo: seleccion.tipo,
+    desde: seleccion.desde,
+    ...(seleccion.tipo === "periodo" ? { hasta: seleccion.hasta } : {}),
+  });
+}
+
+function etiquetaSeleccionPeriodo(seleccion, t, locale) {
+  const fecha = (valor, opciones = { day: "2-digit", month: "2-digit", year: "numeric" }) =>
+    new Intl.DateTimeFormat(locale, { timeZone: "UTC", ...opciones }).format(new Date(`${valor}T12:00:00Z`));
+  if (seleccion.tipo === "dia") return t("jornada_periodo_dia_visible", { fecha: fecha(seleccion.desde) });
+  if (seleccion.tipo === "mes") return t("jornada_periodo_mes_visible", {
+    fecha: fecha(seleccion.desde, { month: "long", year: "numeric" }),
+  });
+  if (seleccion.tipo === "anio") return t("jornada_periodo_anio_visible", { anio: seleccion.desde.slice(0, 4) });
+  if (seleccion.tipo === "periodo") return t("jornada_periodo_rango_visible", {
+    desde: fecha(seleccion.desde), hasta: fecha(seleccion.hasta),
+  });
+  const origen = new Date(`${seleccion.desde}T12:00:00Z`);
+  const lunes = new Date(origen);
+  lunes.setUTCDate(origen.getUTCDate() - (origen.getUTCDay() + 6) % 7);
+  const domingo = new Date(lunes);
+  domingo.setUTCDate(lunes.getUTCDate() + 6);
+  return t("jornada_periodo_semana_visible", {
+    desde: fecha(lunes.toISOString().slice(0, 10)), hasta: fecha(domingo.toISOString().slice(0, 10)),
+  });
+}
+
+function formularioPeriodoJornada(seleccion, t) {
+  const tipo = seleccion?.tipo || "dia";
+  return `<section class="panel cronos-jornada-panel cronos-jornada-periodo" aria-labelledby="cronos-jornada-periodo-titulo">
+    <header class="cabecera-panel"><div><h4 id="cronos-jornada-periodo-titulo">${escaparHTML(t("jornada_periodo_titulo"))}</h4><p>${escaparHTML(t("jornada_periodo_descripcion"))}</p></div></header>
+    <form class="cuerpo-panel cronos-jornada-periodo-formulario" data-cronos-form-periodo>
+      <label>${escaparHTML(t("jornada_periodo_escala"))}<select name="tipo" data-cronos-periodo-tipo>
+        ${["dia", "semana", "mes", "anio", "periodo"].map((opcion) => `<option value="${opcion}"${opcion === tipo ? " selected" : ""}>${escaparHTML(t(`jornada_periodo_${opcion}`))}</option>`).join("")}
+      </select></label>
+      <label>${escaparHTML(t("jornada_periodo_fecha"))}<input type="date" name="desde" required value="${escaparHTML(seleccion?.desde || "")}"></label>
+      <label data-cronos-periodo-hasta${tipo === "periodo" ? "" : " hidden"}>${escaparHTML(t("jornada_periodo_hasta"))}<input type="date" name="hasta"${tipo === "periodo" ? " required" : ""} value="${escaparHTML(seleccion?.hasta || "")}"></label>
+      <button type="submit" class="boton-secundario">${escaparHTML(t("jornada_periodo_consultar"))}</button>
+      <p class="cronos-jornada-periodo-error" data-cronos-periodo-error role="alert" hidden></p>
+    </form>
+  </section>`;
+}
 
 function estadoJornadaConFuente(estado, contextoActor, datos) {
   if (estado !== "disponible") return estado;
@@ -125,11 +183,13 @@ function estadoJornadaConFuente(estado, contextoActor, datos) {
  * Esta vista no consulta servicios ni habilita un efecto de fichaje.
  */
 export function renderizarJornadaCronos({
-  estado = "no_configurado", contextoActor, capacidades = [], datos,
+  estado = "no_configurado", contextoActor, capacidades = [], datos, seleccion,
   mensajes = MENSAJES_CRONOS_ES, locale = "es-ES", zonaHoraria = "Europe/Madrid",
 } = {}) {
   if (!ESTADOS_JORNADA.has(estado)) throw new Error("estado de jornada de Cronos no válido");
+  if (seleccion) seleccion = validarSeleccionPeriodoCronos(seleccion);
   estado = estadoJornadaConFuente(estado, contextoActor, datos);
+  if (seleccion && estado === "disponible") estado = "no_configurado";
   const t = crearTraductorCronos(mensajes);
   let vista;
   let puedeConsultarFichajes = false;
@@ -161,7 +221,7 @@ export function renderizarJornadaCronos({
     ${indicador(t("indicador_saldo_dia"), puedeConsultarFichajes ? resumen.saldo_hoy : "—", puedeConsultarFichajes ? t("nota_calculo") : t("sin_permiso"), puedeConsultarFichajes ? "aviso" : "informacion")}
     ${indicador(t("indicador_saldo_periodo"), puedeConsultarFichajes ? resumen.saldo_periodo : "—", puedeConsultarFichajes ? t("nota_acumulado") : t("sin_permiso"))}
   </div>` : "";
-  const contenido = estado === "disponible" ? `<div class="cronos-jornada-rejilla">
+  const contenido = seleccion && ["no_configurado", "vacio"].includes(estado) ? `<section class="panel cronos-jornada-panel" aria-labelledby="cronos-jornada-seleccion-titulo"><header class="cabecera-panel"><h4 id="cronos-jornada-seleccion-titulo">${escaparHTML(etiquetaSeleccionPeriodo(seleccion, t, locale))}</h4></header><div class="cuerpo-panel cronos-jornada-seleccion-estado" role="status" data-cronos-periodo-resultado tabindex="-1"><p>${escaparHTML(t("jornada_periodo_sin_proyeccion"))}</p><dl>${["teorica", "trabajado", "permisos", "saldo"].map((clave) => `<div><dt>${escaparHTML(t(`jornada_periodo_desglose_${clave}`))}</dt><dd>${escaparHTML(t("jornada_periodo_dato_pendiente"))}</dd></div>`).join("")}</dl></div></section>` : estado === "disponible" ? `<div class="cronos-jornada-rejilla">
     <section class="panel cronos-jornada-panel" aria-labelledby="cronos-jornada-movimientos">
       <header class="cabecera-panel"><div><h4 id="cronos-jornada-movimientos">${escaparHTML(t("jornada_movimientos"))}</h4><p>${escaparHTML(t("jornada_movimientos_detalle"))}</p></div>${botonAyuda(t, t("jornada_movimientos"))}</header>
       ${puedeConsultarFichajes ? tabla({ id: "tabla-cronos-jornada", titulo: t("jornada_tabla"), cabeceras: [t("cab_fecha"), t("cab_hora"), t("cab_movimiento"), t("cab_canal"), t("cab_estado")], filas, vacio: t("fichajes_vacio") }) : `<p class="cronos-acceso-denegado" role="status">${escaparHTML(t("fichajes_denegado"))}</p>`}
@@ -181,6 +241,7 @@ export function renderizarJornadaCronos({
   return `<section class="cronos-jornada cronos-area" data-cronos-jornada data-estado="${estado}" aria-labelledby="cronos-jornada-titulo"${estado === "cargando" ? ' aria-busy="true"' : ""}>
     <header class="cronos-jornada-encabezado"><div><p class="sobrelinea">${escaparHTML(t("sobrelinea"))}</p><h3 id="cronos-jornada-titulo">${escaparHTML(t("jornada_titulo"))}</h3><p>${escaparHTML(t("jornada_descripcion"))}</p></div><span class="cronos-estado cronos-estado-${estado === "disponible" ? "exito" : "aviso"}" role="status">${escaparHTML(estadoVisible)}</span></header>
     ${estado === "disponible" ? `<p class="cronos-jornada-fuente">${escaparHTML(t("jornada_fuente_servicio", { fecha: instanteVisible(vista.actualizado_en, locale, zonaHoraria).completo }))}</p>` : ""}
+    ${estado === "denegado" ? "" : formularioPeriodoJornada(seleccion, t)}
     ${saldos}${contenido}
     <div class="cronos-jornada-acciones"><button type="button" class="boton-primario" disabled aria-disabled="true" title="${escaparHTML(t("jornada_accion_bloqueada"))}">${escaparHTML(t("accion_entrada"))}</button><button type="button" class="boton-secundario" disabled aria-disabled="true" title="${escaparHTML(t("jornada_accion_bloqueada"))}">${escaparHTML(t("accion_salida"))}</button><span>${escaparHTML(t("jornada_accion_bloqueada"))}</span></div>
     <div data-cronos-calendario-raiz></div>
@@ -198,6 +259,40 @@ export function montarJornadaCronos({ raiz, registrarDesmontar, anunciar = () =>
   raiz.append(contenedor);
   let activo = true;
   let calendario;
+  let seleccion;
+  const t = crearTraductorCronos(proyeccion.mensajes);
+  const cambiarEscala = (evento) => {
+    if (!evento.target?.matches?.("[data-cronos-periodo-tipo]")) return;
+    const form = evento.target.closest("[data-cronos-form-periodo]");
+    const campoHasta = form?.querySelector("[data-cronos-periodo-hasta]");
+    if (!campoHasta) return;
+    const esRango = evento.target.value === "periodo";
+    campoHasta.hidden = !esRango;
+    const entradaHasta = campoHasta.querySelector("input");
+    if (entradaHasta) entradaHasta.required = esRango;
+  };
+  const elegirPeriodo = (evento) => {
+    if (!evento.target?.matches?.("[data-cronos-form-periodo]")) return;
+    evento.preventDefault();
+    const form = evento.target;
+    const valor = (nombre) => form.elements.namedItem(nombre)?.value || "";
+    let nuevaSeleccion;
+    try {
+      nuevaSeleccion = validarSeleccionPeriodoCronos({ tipo: valor("tipo"), desde: valor("desde"), hasta: valor("hasta") });
+    } catch {
+      const error = form.querySelector("[data-cronos-periodo-error]");
+      if (error) { error.textContent = t("jornada_periodo_error"); error.hidden = false; }
+      form.elements.namedItem(valor("tipo") === "periodo" && valor("hasta") < valor("desde") ? "hasta" : "desde")?.focus?.();
+      anunciar(t("jornada_periodo_error"));
+      return;
+    }
+    seleccion = nuevaSeleccion;
+    actualizar(proyeccion);
+    contenedor.querySelector?.("[data-cronos-periodo-resultado]")?.focus?.();
+    anunciar(etiquetaSeleccionPeriodo(seleccion, t, proyeccion.locale || "es-ES"));
+  };
+  contenedor.addEventListener?.("change", cambiarEscala);
+  contenedor.addEventListener?.("submit", elegirPeriodo);
   const montarCalendario = () => {
     const destino = contenedor.querySelector?.("[data-cronos-calendario-raiz]");
     if (destino) calendario = montarCalendarioCivilCronos({ raiz: destino, anunciar });
@@ -205,18 +300,22 @@ export function montarJornadaCronos({ raiz, registrarDesmontar, anunciar = () =>
   montarCalendario();
   const actualizar = (siguiente) => {
     if (!activo) throw new Error("jornada de Cronos desmontada");
-    const html = renderizarJornadaCronos(siguiente);
+    proyeccion = siguiente;
+    const html = renderizarJornadaCronos({ ...siguiente, seleccion });
     calendario?.desmontar();
     calendario = undefined;
     contenedor.innerHTML = html;
     montarCalendario();
-    const estadoVisible = estadoJornadaConFuente(siguiente?.estado ?? "no_configurado", siguiente?.contextoActor, siguiente?.datos);
+    let estadoVisible = estadoJornadaConFuente(siguiente?.estado ?? "no_configurado", siguiente?.contextoActor, siguiente?.datos);
+    if (seleccion && estadoVisible === "disponible") estadoVisible = "no_configurado";
     anunciar(crearTraductorCronos(siguiente?.mensajes)(`jornada_estado_${estadoVisible}`));
   };
   const desmontar = () => {
     if (!activo) return;
     activo = false;
     calendario?.desmontar();
+    contenedor.removeEventListener?.("change", cambiarEscala);
+    contenedor.removeEventListener?.("submit", elegirPeriodo);
     contenedor.remove();
   };
   registrarDesmontar?.(desmontar);
