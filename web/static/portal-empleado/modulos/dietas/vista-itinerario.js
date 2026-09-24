@@ -4,7 +4,8 @@
  * Solo consume el catálogo y el puerto de rutas inyectado. No conoce gastos,
  * borradores, aprobaciones, liquidaciones, recibos ni pagos.
  */
-import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js";
+import { MENSAJES_DIETAS_ES } from "./i18n.js";
+import { crearTraductorDietasD4 } from "./i18n-d4.js";
 import { crearPresentadorRutasDietas } from "./presentador-rutas.js";
 import { ESTILOS_TRAMO_RUTA_DIETAS } from "./mapa-ruta.js";
 
@@ -175,7 +176,7 @@ function formatoMinutos(valor) {
   return new Intl.NumberFormat("es-ES", { style: "unit", unit: "minute", unitDisplay: "short" }).format(valor);
 }
 
-function crearResumenAlternativas(documento, modelo, traducir) {
+function crearResumenAlternativas(documento, modelo, traducir, borradorAlternativa) {
   const seccion = elemento(documento, "section");
   seccion.className = "dietas-itinerario-alternativas";
   seccion.setAttribute("aria-labelledby", "dietas-itinerario-alternativas-titulo");
@@ -202,7 +203,37 @@ function crearResumenAlternativas(documento, modelo, traducir) {
       elemento(documento, "span", formatoMinutos(alternativa.duracion_minutos)));
     lista.append(fila);
   });
-  seccion.append(titulo, lista);
+  const ayuda = elemento(documento, "p", traducir("d4_alternativa_ayuda"));
+  ayuda.className = "dietas-itinerario-aviso";
+  const controles = elemento(documento, "div");
+  controles.className = "dietas-ruta-paradas";
+  const etiqueta = elemento(documento, "label", traducir("ruta_alternativas"));
+  const selector = elemento(documento, "select");
+  selector.dataset.itinerarioElegirAlternativa = "";
+  modelo.alternativas.forEach((alternativa) => {
+    const opcion = elemento(documento, "option",
+      `${textoAlternativa(alternativa, traducir)} · ${formatoKilometros(alternativa.kilometros)} · ${formatoMinutos(alternativa.duracion_minutos)}`);
+    opcion.value = alternativa.referencia;
+    opcion.selected = alternativa.referencia === (borradorAlternativa?.referencia || modelo.alternativa_ref);
+    selector.append(opcion);
+  });
+  etiqueta.append(selector);
+  const motivoEtiqueta = elemento(documento, "label", traducir("ruta_motivo_alternativa"));
+  const motivo = elemento(documento, "textarea");
+  motivo.dataset.itinerarioMotivoAlternativa = "";
+  motivo.maxLength = 500;
+  motivo.rows = 2;
+  motivo.value = borradorAlternativa?.motivo ?? modelo.motivo_alternativa;
+  motivo.setAttribute("aria-describedby", "dietas-itinerario-motivo-ayuda");
+  motivoEtiqueta.append(motivo);
+  const motivoAyuda = elemento(documento, "small", traducir("d4_motivo_alternativa_ayuda"));
+  motivoAyuda.id = "dietas-itinerario-motivo-ayuda";
+  const boton = elemento(documento, "button", traducir("d4_previsualizar"));
+  boton.type = "button";
+  boton.className = "boton-secundario";
+  boton.dataset.itinerarioPrevisualizar = "";
+  controles.append(etiqueta, motivoEtiqueta, motivoAyuda, boton);
+  seccion.append(titulo, ayuda, lista, controles);
   return seccion;
 }
 
@@ -222,7 +253,8 @@ function crearTablaTramos(documento, modelo, traducir) {
   const caption = elemento(documento, "caption", traducir("ruta_tramos_seleccionados"));
   const cabecera = elemento(documento, "thead");
   const filaCabecera = elemento(documento, "tr");
-  [["ruta_origen_destino", ""], ["ruta_distancia", "numero"], ["ruta_tiempo", "numero"]].forEach(([clave, clase]) => {
+  [["ruta_origen_destino", ""], ["ruta_distancia", "numero"], ["ruta_tiempo", "numero"],
+    ["ruta_ajuste_km", "numero"], ["ruta_motivo_ajuste", ""]].forEach(([clave, clase]) => {
     const celda = elemento(documento, "th", traducir(clave));
     celda.setAttribute("scope", "col");
     if (clase) celda.className = clase;
@@ -239,12 +271,14 @@ function crearTablaTramos(documento, modelo, traducir) {
     kilometros.className = "numero";
     const minutos = elemento(documento, "td", formatoMinutos(tramo.duracion_minutos));
     minutos.className = "numero";
-    fila.append(recorrido, kilometros, minutos);
+    const ajuste = elemento(documento, "td", traducir("d4_km_sin_ajuste"));
+    const motivo = elemento(documento, "td", traducir("d4_ajuste_no_disponible"));
+    fila.append(recorrido, kilometros, minutos, ajuste, motivo);
     cuerpo.append(fila);
   });
   tabla.append(caption, cabecera, cuerpo);
   desplazamiento.append(tabla);
-  seccion.append(titulo, desplazamiento);
+  seccion.append(titulo, desplazamiento, elemento(documento, "p", traducir("d4_ajustes_pendientes")));
   return seccion;
 }
 
@@ -265,7 +299,7 @@ export async function montarVistaItinerarioDietas({
   const documento = raiz.ownerDocument;
   if (!documento?.createElement) throw new TypeError("documento de itinerario no disponible");
 
-  const traducir = crearTraductorDietas(mensajes);
+  const traducir = crearTraductorDietasD4(mensajes);
   const contenedor = elemento(documento, "div");
   contenedor.className = "modulo-dietas";
   contenedor.dataset.dietasItinerario = "";
@@ -276,6 +310,7 @@ export async function montarVistaItinerarioDietas({
   let visorActivo = null;
   let presentador = null;
   let errorVisible = "";
+  let borradorAlternativa = null;
   const activaAhora = () => activa && sigueMontada(raiz, contenedor);
   const pararMapa = () => { visorActivo?.desmontar?.(); visorActivo = null; };
   const desmontar = () => {
@@ -326,6 +361,13 @@ export async function montarVistaItinerarioDietas({
       return;
     }
     const modelo = presentador.obtenerModelo();
+    const vehiculo = elemento(documento, "div");
+    vehiculo.className = "dietas-vehiculo-propio";
+    vehiculo.dataset.itinerarioVehiculo = "";
+    vehiculo.append(
+      elemento(documento, "strong", traducir("d4_vehiculo_pendiente")),
+      elemento(documento, "p", traducir("d4_vehiculo_ayuda")),
+    );
     const paradas = elemento(documento, "div");
     paradas.className = "dietas-ruta-paradas";
     modelo.paradas.forEach((codigo, indice) => paradas.append(
@@ -340,7 +382,7 @@ export async function montarVistaItinerarioDietas({
     calcular.className = "boton-primario";
     calcular.dataset.itinerarioCalcular = "";
     calcular.disabled = controlador !== null || modelo.paradas.some((parada) => !parada);
-    panel.append(paradas, anadir, calcular);
+    panel.append(vehiculo, paradas, anadir, calcular);
     if (errorVisible) {
       const alerta = elemento(documento, "p", errorVisible);
       alerta.dataset.itinerarioError = "";
@@ -365,8 +407,9 @@ export async function montarVistaItinerarioDietas({
         })),
         elemento(documento, "p", `${traducir("ruta_km_base")}: ${formatoKilometros(modelo.kilometros_base)}`),
         elemento(documento, "p", `${traducir("ruta_duracion")}: ${formatoMinutos(modelo.duracion_minutos)}`),
+        elemento(documento, "p", traducir("d4_sin_importe")),
       );
-      resultado.append(crearResumenAlternativas(documento, modelo, traducir));
+      resultado.append(crearResumenAlternativas(documento, modelo, traducir, borradorAlternativa));
       resultado.append(crearTablaTramos(documento, modelo, traducir));
       const mapa = crearMapa(documento, modelo, traducir);
       if (mapa) resultado.append(mapa);
@@ -382,15 +425,18 @@ export async function montarVistaItinerarioDietas({
     contenedor.append(panel);
   }
 
-  function aplicar(operacion) {
+  function aplicar(operacion, claveError = "ruta_error_operacion") {
+    let correcta = false;
     try {
       errorVisible = "";
       operacion();
+      correcta = true;
     } catch {
-      errorVisible = traducir("ruta_error_operacion");
+      errorVisible = traducir(claveError);
       anunciar(errorVisible, "error");
     }
     pintar();
+    return correcta;
   }
   function cambio(evento) {
     const selector = evento.target.closest?.("[data-itinerario-parada]");
@@ -408,6 +454,21 @@ export async function montarVistaItinerarioDietas({
     presentador.establecerParada(destino, actual);
   }
   async function clic(evento) {
+    const previsualizar = evento.target.closest?.("[data-itinerario-previsualizar]");
+    if (previsualizar && presentador && !controlador) {
+      const selector = contenedor.querySelector("[data-itinerario-elegir-alternativa]");
+      const motivo = contenedor.querySelector("[data-itinerario-motivo-alternativa]");
+      borradorAlternativa = { referencia: selector.value, motivo: motivo.value };
+      const correcta = aplicar(
+        () => presentador.seleccionarAlternativa(selector.value, motivo.value),
+        "d4_motivo_alternativa_error",
+      );
+      if (correcta) borradorAlternativa = null;
+      (correcta
+        ? contenedor.querySelector("[data-itinerario-elegir-alternativa]")
+        : contenedor.querySelector("[data-itinerario-motivo-alternativa]"))?.focus?.();
+      return;
+    }
     const anadir = evento.target.closest?.("[data-itinerario-anadir-parada]");
     if (anadir && presentador && !controlador) {
       aplicar(() => presentador.agregarParada());
@@ -464,7 +525,7 @@ export function montarVistaItinerarioPendienteDietas({
   }
   const documento = raiz.ownerDocument;
   if (!documento?.createElement) throw new TypeError("documento de itinerario no disponible");
-  const traducir = crearTraductorDietas(mensajes);
+  const traducir = crearTraductorDietasD4(mensajes);
   const contenedor = elemento(documento, "div");
   contenedor.className = "modulo-dietas";
   contenedor.dataset.dietasItinerario = "";
