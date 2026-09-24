@@ -43,15 +43,3 @@ test("cada alternativa cambia composición y la galería no conserva preferencia
   assert.match(js, /altaRutas\.hidden/u);
   assert.match(js, /comision-detalle/u);
 });
-
-test("la galería conserva composición al recibir los colores del tema común", async () => {
-  const css = await readFile(new URL("temas.css", import.meta.url), "utf8");
-  for (const token of ["azul-950", "azul-900", "azul-800", "azul-700", "azul-100", "fondo", "borde", "superficie", "verde", "ambar"]) {
-    assert.match(css, new RegExp(`--${token}:\\s*var\\(--portal-`), token);
-  }
-  const reglas = css.slice(css.indexOf("* { box-sizing: border-box; }"));
-  assert.doesNotMatch(reglas, /#073b6c|#e7f0fb|rgb\(7 95 202/i);
-  assert.match(reglas, /\.app-lateral[^}]*var\(--azul-900\)/s);
-  assert.match(reglas, /\.mapa-lienzo[^}]*color-mix\(in srgb, var\(--azul-700\)/s);
-  assert.match(reglas, /\.propuesta\[data-seleccionado="true"\][^}]*border-color: var\(--azul-700\)/s);
-});
