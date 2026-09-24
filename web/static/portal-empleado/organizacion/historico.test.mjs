@@ -189,3 +189,12 @@ test("B3 mantiene publicar inhabilitado sin acreditación observable", () => {
   assert.match(html, /id="import-publish" disabled aria-describedby="import-publish-reason"/);
   assert.match(html, /id="import-publish-reason"[^>]+data-i18n="importPublishBlocked"/);
 });
+
+test("los textos explicativos de publicación y alcance viven en la ayuda tras ?", () => {
+  const html = readFileSync(new URL("./index.html", import.meta.url), "utf8");
+  const ayuda = html.match(/<details class="org-help">([\s\S]*?)<\/details>/)?.[1];
+  for (const clave of ["importPublishBlocked", "historyPageScope", "importHelp"]) {
+    assert.match(ayuda, new RegExp(`data-i18n="${clave}"`), clave);
+    assert.equal((html.match(new RegExp(`data-i18n="${clave}"`, "g")) ?? []).length, 1, clave);
+  }
+});

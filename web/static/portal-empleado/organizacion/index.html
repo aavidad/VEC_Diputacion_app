@@ -28,7 +28,9 @@
               <p id="provenance"></p>
               <p data-i18n="note"></p>
               <p data-i18n="editorHelper"></p>
-              <p data-i18n="importHelp"></p>
+              <p data-i18n="historyPageScope" data-org-requiere="history" hidden></p>
+              <p data-i18n="importHelp" data-org-requiere="import" hidden></p>
+              <p id="import-publish-reason" data-i18n="importPublishBlocked" data-org-requiere="import" hidden></p>
               <dl class="org-meta">
                 <div><dt data-i18n="catalogId"></dt><dd id="catalog-id">—</dd></div>
                 <div><dt data-i18n="version"></dt><dd id="catalog-version">—</dd></div>
@@ -40,12 +42,15 @@
           <a class="org-back" href="/portal-empleado/" data-i18n="back"></a>
         </div>
       </div>
-      <nav class="org-tabs" role="tablist" data-i18n-label="tabsLabel">
-        <button type="button" role="tab" id="tab-history" class="org-tab" aria-controls="history-panel" aria-selected="true" data-i18n="historyTab"></button>
-        <button type="button" role="tab" id="tab-import" class="org-tab" aria-controls="import-panel" aria-selected="false" data-i18n="importTab" tabindex="-1"></button>
-        <button type="button" role="tab" id="tab-catalog" class="org-tab" aria-controls="catalog-panel" aria-selected="false" data-i18n="catalogTab" tabindex="-1"></button>
+      <!-- El catálogo es la vista por defecto. Histórico e importación solo se
+           muestran cuando MONTAJE_ORGANIZACION_HISTORICA (historico.js) declara
+           sus rutas compuestas; hasta entonces permanecen ocultos. -->
+      <nav class="org-tabs" role="tablist" data-i18n-label="tabsLabel" hidden>
+        <button type="button" role="tab" id="tab-catalog" class="org-tab" aria-controls="catalog-panel" aria-selected="true" data-i18n="catalogTab"></button>
+        <button type="button" role="tab" id="tab-history" class="org-tab" aria-controls="history-panel" aria-selected="false" data-i18n="historyTab" tabindex="-1" hidden></button>
+        <button type="button" role="tab" id="tab-import" class="org-tab" aria-controls="import-panel" aria-selected="false" data-i18n="importTab" tabindex="-1" hidden></button>
       </nav>
-      <section class="org-panel org-history" role="tabpanel" id="history-panel" aria-labelledby="tab-history">
+      <section class="org-panel org-history" role="tabpanel" id="history-panel" aria-labelledby="tab-history" hidden>
         <div class="org-panel-heading">
           <h2 id="history-title" data-i18n="historyTitle"></h2>
           <span class="org-pill" id="history-authorization" aria-live="polite"></span>
@@ -61,7 +66,6 @@
           </form>
           <div id="history-state" class="org-state" role="status" aria-live="polite"></div>
           <div id="history-results" class="org-history-results" hidden>
-            <div class="org-history-scope" data-i18n="historyPageScope"></div>
             <div class="org-history-summary">
               <div class="org-history-kpis" id="history-coverage"></div>
               <div class="org-history-meta" id="history-meta"></div>
@@ -114,14 +118,13 @@
           <section class="org-import-step" aria-labelledby="import-publish-title">
             <div class="org-step-heading"><span class="org-step-number" aria-hidden="true">3</span><h3 id="import-publish-title" data-i18n="importPublishTitle"></h3></div>
             <div class="org-actions"><button type="button" id="import-publish" disabled aria-describedby="import-publish-reason" data-i18n="importPublishAction"></button></div>
-            <p id="import-publish-reason" class="org-import-limit" data-i18n="importPublishBlocked"></p>
           </section>
           <div id="import-review" class="org-import-review" hidden></div>
           <div id="import-state" class="org-state" role="status" aria-live="polite"></div>
           <div id="import-receipts" class="org-import-receipts" aria-live="polite"></div>
         </div>
       </section>
-      <section class="org-panel" role="tabpanel" id="catalog-panel" aria-labelledby="tab-catalog" hidden>
+      <section class="org-panel" role="tabpanel" id="catalog-panel" aria-labelledby="tab-catalog">
         <div class="org-panel-heading">
           <h2 id="table-title" data-i18n="tableTitle"></h2>
           <button type="button" id="new-unit" data-i18n="newUnit" hidden></button>

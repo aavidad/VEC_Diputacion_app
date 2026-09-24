@@ -116,22 +116,35 @@ const columnas = {
   vinculos: [["historyPlazaCode", (f) => f.plaza_id], ["historyPostCode", (f) => f.puesto_id], ["historySource", (f) => f.traza.fuente_ref]],
 };
 
-export function iniciarHistorico(cliente = crearClienteHistorico()) {
-  if (!document.getElementById?.("history-form")) return null;
+/**
+ * Rutas compuestas en la raíz para esta pantalla. Solo el montaje las activa:
+ * una prueba Go de `internal/app/server` exige que cada bandera coincida con la
+ * composición real de su handler. Mientras sean `false`, el catálogo es la
+ * única vista y las pestañas de histórico e importación no se ofrecen, porque
+ * abrirían contra una ruta inexistente.
+ */
+export const MONTAJE_ORGANIZACION_HISTORICA = Object.freeze({ consulta: false, importacion: false });
+
+/**
+ * Prepara las pestañas: el catálogo es la vista por defecto y cada pestaña
+ * adicional solo aparece si su ruta está montada. Con una sola vista la barra
+ * de pestañas no se muestra.
+ */
+export function iniciarPestanasOrganizacion(montaje = MONTAJE_ORGANIZACION_HISTORICA) {
   const buscar = (selector) => document.querySelector(selector);
-  const form = buscar("#history-form"), state = buscar("#history-state"), results = buscar("#history-results");
-  const unidad = buscar("#history-unit"), tipo = buscar("#history-kind"), more = buscar("#history-more");
-  const hoy = new Date();
-  const fechaHoy = `${String(hoy.getUTCDate()).padStart(2, "0")}/${String(hoy.getUTCMonth() + 1).padStart(2, "0")}/${hoy.getUTCFullYear()}`;
-  buscar("#history-valid-date").value = fechaHoy;
-  buscar("#history-known-at").value = `${fechaHoy} ${String(hoy.getUTCHours()).padStart(2, "0")}:${String(hoy.getUTCMinutes()).padStart(2, "0")}`;
-  buscar("#history-search").disabled = false;
-  state.textContent = t("historyReady");
-  buscar("#history-authorization").textContent = t("historyPending");
-  let filtros, datos, controlador, secuencia = 0, navegacionBloqueada = () => false;
-  const pestanas = ["history", "import", "catalog"];
+  const barra = buscar(".org-tabs");
+  if (!barra) return null;
+  const opcionales = { history: montaje.consulta === true, import: montaje.importacion === true };
+  const pestanas = ["catalog", ...Object.keys(opcionales).filter((clave) => opcionales[clave])];
+  for (const [clave, activa] of Object.entries(opcionales)) {
+    buscar(`#tab-${clave}`).hidden = !activa;
+    if (!activa) buscar(`#${clave}-panel`).hidden = true;
+    for (const nodo of document.querySelectorAll(`[data-org-requiere="${clave}"]`)) nodo.hidden = !activa;
+  }
+  barra.hidden = pestanas.length < 2;
+  let navegacionBloqueada = () => false;
   const seleccionar = (nombre, enfocar = false) => {
-    if (navegacionBloqueada()) return;
+    if (!pestanas.includes(nombre) || navegacionBloqueada()) return;
     for (const clave of pestanas) {
       const activo = clave === nombre, tab = buscar(`#tab-${clave}`), panel = buscar(`#${clave}-panel`);
       tab.setAttribute("aria-selected", String(activo));
@@ -142,7 +155,7 @@ export function iniciarHistorico(cliente = crearClienteHistorico()) {
     buscar("#editor").hidden = true;
   };
   for (const nombre of pestanas) buscar(`#tab-${nombre}`).onclick = () => seleccionar(nombre);
-  buscar(".org-tabs").onkeydown = (evento) => {
+  barra.onkeydown = (evento) => {
     if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(evento.key)) return;
     evento.preventDefault();
     const actual = pestanas.findIndex((clave) => buscar(`#tab-${clave}`).getAttribute("aria-selected") === "true");
@@ -150,6 +163,26 @@ export function iniciarHistorico(cliente = crearClienteHistorico()) {
       (actual + (evento.key === "ArrowRight" ? 1 : pestanas.length - 1)) % pestanas.length;
     seleccionar(pestanas[indice], true);
   };
+  return {
+    pestanas,
+    seleccionar,
+    establecerBloqueo(comprobar) { navegacionBloqueada = comprobar; },
+  };
+}
+
+export function iniciarHistorico(cliente = crearClienteHistorico(), montaje = MONTAJE_ORGANIZACION_HISTORICA) {
+  if (montaje.consulta !== true || !document.getElementById?.("history-form")) return null;
+  const buscar = (selector) => document.querySelector(selector);
+  const form = buscar("#history-form"), state = buscar("#history-state"), results = buscar("#history-results");
+  const unidad = buscar("#history-unit"), tipo = buscar("#history-kind"), more = buscar("#history-more");
+  const hoy = new Date();
+  const fechaHoy = `${String(hoy.getUTCDate()).padStart(2, "0")}/${String(hoy.getUTCMonth() + 1).padStart(2, "0")}/${hoy.getUTCFullYear()}`;
+  buscar("#history-valid-date").value = fechaHoy;
+  buscar("#history-known-at").value = `${fechaHoy} ${String(hoy.getUTCHours()).padStart(2, "0")}:${String(hoy.getUTCMinutes()).padStart(2, "0")}`;
+  buscar("#history-search").disabled = false;
+  state.textContent = t("historyReady");
+  buscar("#history-authorization").textContent = t("historyPending");
+  let filtros, datos, controlador, secuencia = 0;
   const renderizar = () => {
     if (!datos) return;
     const filas = datos.pagina[tipo.value], cabeceras = columnas[tipo.value];
@@ -242,7 +275,6 @@ export function iniciarHistorico(cliente = crearClienteHistorico()) {
   };
   more.onclick = () => { if (datos?.pagina.cursor_siguiente) void consultar(datos.pagina.cursor_siguiente); };
   return {
-    establecerBloqueo(comprobar) { navegacionBloqueada = comprobar; },
     establecerUnidades(unidades) {
       const actual = unidad.value;
       unidad.innerHTML = `<option value="">${esc(t("historyChooseUnit"))}</option>` +
@@ -250,7 +282,6 @@ export function iniciarHistorico(cliente = crearClienteHistorico()) {
       unidad.value = unidades.some((u) => u.clave === actual) ? actual : "";
       unidad.disabled = false;
     },
-    seleccionar,
   };
 }
 
@@ -426,8 +457,8 @@ async function leerArchivoImportacion(archivo) {
   };
 }
 
-export function iniciarImportacion(cliente = crearClienteImportacion()) {
-  if (!document.getElementById?.("import-panel")) return null;
+export function iniciarImportacion(cliente = crearClienteImportacion(), montaje = MONTAJE_ORGANIZACION_HISTORICA) {
+  if (montaje.importacion !== true || !document.getElementById?.("import-panel")) return null;
   const q = (selector) => document.querySelector(selector);
   const panel = q("#import-panel"), estado = q("#import-state"), revision = q("#import-review");
   const paqueteInput = q("#import-file"), decisionesInput = q("#decisions-file");

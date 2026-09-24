@@ -6,7 +6,7 @@ export const ESQUEMA_ORGANIZACION = "personal.estructura_organizativa.v1";
 export const LIMITE_UNIDADES = 1000;
 export const LIMITE_RESPUESTA = 512 * 1024;
 import { crearTraductorPersonal } from "../modulos/personal/i18n.js";
-import { iniciarHistorico, iniciarImportacion } from "./historico.js";
+import { iniciarHistorico, iniciarImportacion, iniciarPestanasOrganizacion } from "./historico.js";
 const traducirOrganizacion = crearTraductorPersonal();
 
 const TYPES = new Set(["delegacion", "centro", "puesto_responsabilidad"]);
@@ -239,7 +239,7 @@ function mostrarTextos() {
     e.setAttribute("placeholder", traducirOrganizacion("organizacion_" + e.dataset.i18nPlaceholder)),
   );
 }
-export function iniciarOrganizacion(client = crearCliente(), historico = null, importacion = null) {
+export function iniciarOrganizacion(client = crearCliente(), historico = null, importacion = null, pestanas = null) {
   mostrarTextos();
   document.querySelector("#source-link").href = FUENTE_RPT;
   const state = document.querySelector("#state"),
@@ -249,7 +249,7 @@ export function iniciarOrganizacion(client = crearCliente(), historico = null, i
     operacion = crearEstadoFormulario(),
     filtroTexto = document.querySelector("#filter-text"),
     filtroTipo = document.querySelector("#filter-type");
-  historico?.establecerBloqueo(() => operacion.consultar().bloqueado || importacion?.bloqueado());
+  pestanas?.establecerBloqueo(() => operacion.consultar().bloqueado || Boolean(importacion?.bloqueado()));
   let data;
   const actualizarFiltros = () => {
     filtroTexto.disabled = !data;
@@ -484,4 +484,7 @@ export function iniciarOrganizacion(client = crearCliente(), historico = null, i
   };
   return cargar();
 }
-if (typeof document !== "undefined") iniciarOrganizacion(crearCliente(), iniciarHistorico(), iniciarImportacion());
+if (typeof document !== "undefined") {
+  const pestanas = iniciarPestanasOrganizacion();
+  iniciarOrganizacion(crearCliente(), iniciarHistorico(), iniciarImportacion(), pestanas);
+}
