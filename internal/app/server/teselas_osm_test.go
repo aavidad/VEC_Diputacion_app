@@ -3,7 +3,9 @@ package server
 import (
 	"archive/zip"
 	"bytes"
+	"crypto/sha256"
 	"encoding/binary"
+	"encoding/hex"
 	"image"
 	"image/color"
 	"image/png"
@@ -58,6 +60,21 @@ func pngTeselaOSMPrueba(t *testing.T) []byte {
 	return salida.Bytes()
 }
 
+func hashZIPTeselasOSMPrueba(t *testing.T, ruta string) string {
+	t.Helper()
+	contenido, err := os.ReadFile(ruta)
+	if err != nil {
+		t.Fatal(err)
+	}
+	suma := sha256.Sum256(contenido)
+	return hex.EncodeToString(suma[:])
+}
+
+func handlerInternoTeselasOSMPrueba(t *testing.T, ruta string) http.Handler {
+	t.Helper()
+	return newHandlerInternoConHashTeselasOSM(config.Config{}, http.NotFoundHandler(), nil, hashZIPTeselasOSMPrueba(t, ruta))
+}
+
 func TestTeselasOSMInternoIntegradoYPublico(t *testing.T) {
 	contenido := pngTeselaOSMPrueba(t)
 	rutaZIP := crearZIPTeselasOSMPrueba(t, contenido, "tiles/8/125/99.png")
@@ -67,8 +84,8 @@ func TestTeselasOSMInternoIntegradoYPublico(t *testing.T) {
 		handler http.Handler
 		estado  int
 	}{
-		{"interna", NewHandlerInternoWithConfig(config.Config{}, http.NotFoundHandler()), http.StatusOK},
-		{"integrada", NewHandlerWithConfig(config.Config{}, http.NotFoundHandler()), http.StatusOK},
+		{"interna", handlerInternoTeselasOSMPrueba(t, rutaZIP), http.StatusOK},
+		{"integrada", newHandlerIntegradoConHashTeselasOSM(config.Config{}, http.NotFoundHandler(), nil, hashZIPTeselasOSMPrueba(t, rutaZIP)), http.StatusOK},
 		{"publica", NewHandlerPublicoWithConfig(config.Config{}, http.NotFoundHandler()), http.StatusNotFound},
 	} {
 		for _, metodo := range []string{http.MethodGet, http.MethodHead} {
@@ -107,7 +124,7 @@ func TestTeselasOSMInternoIntegradoYPublico(t *testing.T) {
 func TestTeselasOSMRechazaMetodoRutaYArchivoAusente(t *testing.T) {
 	rutaZIP := crearZIPTeselasOSMPrueba(t, pngTeselaOSMPrueba(t), "tiles/8/125/99.png")
 	t.Chdir(filepath.Dir(filepath.Dir(filepath.Dir(rutaZIP))))
-	handler := NewHandlerInternoWithConfig(config.Config{}, http.NotFoundHandler())
+	handler := handlerInternoTeselasOSMPrueba(t, rutaZIP)
 	for _, caso := range []struct {
 		metodo, ruta string
 		estado       int
@@ -149,7 +166,7 @@ func TestTeselasOSMRechazaMetodoRutaYArchivoAusente(t *testing.T) {
 func TestTeselasOSMRechazaZIPEnlaceYContenidoNoPNG(t *testing.T) {
 	rutaZIP := crearZIPTeselasOSMPrueba(t, []byte("contenido ajeno"), "tiles/8/125/99.png")
 	t.Chdir(filepath.Dir(filepath.Dir(filepath.Dir(rutaZIP))))
-	handler := NewHandlerInternoWithConfig(config.Config{}, http.NotFoundHandler())
+	handler := handlerInternoTeselasOSMPrueba(t, rutaZIP)
 	consultar := func() int {
 		respuesta := httptest.NewRecorder()
 		handler.ServeHTTP(respuesta, peticionServidorPrueba(http.MethodGet, "/tiles/osm/8/125/99.png", nil))
@@ -165,6 +182,7 @@ func TestTeselasOSMRechazaZIPEnlaceYContenidoNoPNG(t *testing.T) {
 	if err := os.Symlink(otraRuta, rutaZIP); err != nil {
 		t.Fatal(err)
 	}
+	handler = newHandlerInternoConHashTeselasOSM(config.Config{}, http.NotFoundHandler(), nil, hashZIPTeselasOSMPrueba(t, otraRuta))
 	if estado := consultar(); estado != http.StatusNotFound {
 		t.Fatalf("ZIP simbólico = %d", estado)
 	}
@@ -181,7 +199,7 @@ func TestTeselasOSMRechazaDirectorioCartografiaSimbolico(t *testing.T) {
 	}
 	t.Chdir(proyecto)
 	respuesta := httptest.NewRecorder()
-	NewHandlerInternoWithConfig(config.Config{}, http.NotFoundHandler()).ServeHTTP(
+	handlerInternoTeselasOSMPrueba(t, rutaZIP).ServeHTTP(
 		respuesta, peticionServidorPrueba(http.MethodGet, "/tiles/osm/8/125/99.png", nil),
 	)
 	if respuesta.Code != http.StatusNotFound {
@@ -205,7 +223,7 @@ func TestTeselasOSMRechazaPNGTruncadoYCorrupto(t *testing.T) {
 			rutaZIP := crearZIPTeselasOSMPrueba(t, caso.contenido(t), "tiles/8/125/99.png")
 			t.Chdir(filepath.Dir(filepath.Dir(filepath.Dir(rutaZIP))))
 			respuesta := httptest.NewRecorder()
-			NewHandlerInternoWithConfig(config.Config{}, http.NotFoundHandler()).ServeHTTP(
+			handlerInternoTeselasOSMPrueba(t, rutaZIP).ServeHTTP(
 				respuesta, peticionServidorPrueba(http.MethodGet, "/tiles/osm/8/125/99.png", nil),
 			)
 			if respuesta.Code != http.StatusNotFound {
@@ -249,7 +267,7 @@ func TestTeselasOSMRechazaZIPConExcesoDeEntradas(t *testing.T) {
 	}
 	t.Chdir(filepath.Dir(filepath.Dir(filepath.Dir(rutaZIP))))
 	respuesta := httptest.NewRecorder()
-	NewHandlerInternoWithConfig(config.Config{}, http.NotFoundHandler()).ServeHTTP(
+	handlerInternoTeselasOSMPrueba(t, rutaZIP).ServeHTTP(
 		respuesta, peticionServidorPrueba(http.MethodGet, "/tiles/osm/8/125/99.png", nil),
 	)
 	if respuesta.Code != http.StatusNotFound {
@@ -307,10 +325,89 @@ func TestTeselasOSMRechazaContadorCentralZIPFalso(t *testing.T) {
 	}
 }
 
+func TestTeselasOSMRechazaEOCDInteriorAntesDeAnalizarZIP(t *testing.T) {
+	var base bytes.Buffer
+	escritor := zip.NewWriter(&base)
+	for i := 0; i < maxEntradasZIPOSM+1; i++ {
+		nombre := "extra/" + strconv.Itoa(i)
+		if i == 0 {
+			nombre = "tiles/8/125/99.png"
+		}
+		entrada, err := escritor.Create(nombre)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if i == 0 {
+			if _, err := entrada.Write(pngTeselaOSMPrueba(t)); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	if err := escritor.Close(); err != nil {
+		t.Fatal(err)
+	}
+	datosBase := base.Bytes()
+	finalBase := datosBase[len(datosBase)-22:]
+	if binary.LittleEndian.Uint32(finalBase) != 0x06054b50 {
+		t.Fatal("fixture ZIP sin EOCD normal")
+	}
+	inicioCentral := int(binary.LittleEndian.Uint32(finalBase[16:]))
+	primeraCentral := datosBase[inicioCentral:]
+	if binary.LittleEndian.Uint32(primeraCentral) != 0x02014b50 {
+		t.Fatal("fixture ZIP sin cabecera central")
+	}
+	longitudPrimera := 46 +
+		int(binary.LittleEndian.Uint16(primeraCentral[28:])) +
+		int(binary.LittleEndian.Uint16(primeraCentral[30:])) +
+		int(binary.LittleEndian.Uint16(primeraCentral[32:]))
+	datos := append([]byte(nil), datosBase...)
+	datos = append(datos, primeraCentral[:longitudPrimera]...)
+	var finalExterior [22]byte
+	binary.LittleEndian.PutUint32(finalExterior[:], 0x06054b50)
+	binary.LittleEndian.PutUint16(finalExterior[8:], 1)
+	binary.LittleEndian.PutUint16(finalExterior[10:], 1)
+	binary.LittleEndian.PutUint32(finalExterior[12:], uint32(longitudPrimera))
+	binary.LittleEndian.PutUint32(finalExterior[16:], uint32(len(datosBase)))
+	binary.LittleEndian.PutUint16(finalExterior[20:], 23)
+	datos = append(datos, finalExterior[:]...)
+	datos = append(datos, finalBase...)
+	datos = append(datos, 0) // El EOCD interior no termina en EOF.
+	// Go elige el final interior con 4097 entradas; el final exterior parece
+	// tener una sola y fue la evasión reproducida por ambas revisiones R2.
+	lector, err := zip.NewReader(bytes.NewReader(datos), int64(len(datos)))
+	if err != nil || len(lector.File) != maxEntradasZIPOSM+1 {
+		t.Fatalf("fixture adversarial no reproduce la elección de Go: %v, entradas=%d", err, len(lector.File))
+	}
+	directorio := filepath.Join(t.TempDir(), "web", "cartografia")
+	if err := os.MkdirAll(directorio, 0700); err != nil {
+		t.Fatal(err)
+	}
+	rutaZIP := filepath.Join(directorio, nombreZIPTeselasOSM)
+	if err := os.WriteFile(rutaZIP, datos, 0600); err != nil {
+		t.Fatal(err)
+	}
+	archivo, err := os.Open(rutaZIP)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer archivo.Close()
+	if contenido, err := leerZIPTeselasOSMValidado(archivo, int64(len(datos)), sha256ZIPTeselasOSM); err == nil || contenido != nil {
+		t.Fatal("el ZIP manipulado alcanzó el parser pese a no tener el SHA-256 fijado")
+	}
+	t.Chdir(filepath.Dir(filepath.Dir(filepath.Dir(rutaZIP))))
+	respuesta := httptest.NewRecorder()
+	NewHandlerInternoWithConfig(config.Config{}, http.NotFoundHandler()).ServeHTTP(
+		respuesta, peticionServidorPrueba(http.MethodGet, "/tiles/osm/8/125/99.png", nil),
+	)
+	if respuesta.Code != http.StatusNotFound {
+		t.Fatalf("ZIP con EOCD ambiguo = %d; esperado 404", respuesta.Code)
+	}
+}
+
 func TestTeselasOSMConsultasConcurrentesAcotadas(t *testing.T) {
 	rutaZIP := crearZIPTeselasOSMPrueba(t, pngTeselaOSMPrueba(t), "tiles/8/125/99.png")
 	t.Chdir(filepath.Dir(filepath.Dir(filepath.Dir(rutaZIP))))
-	handler := NewHandlerInternoWithConfig(config.Config{}, http.NotFoundHandler())
+	handler := handlerInternoTeselasOSMPrueba(t, rutaZIP)
 	const solicitudes = 32
 	inicio := make(chan struct{})
 	estados := make(chan int, solicitudes)
@@ -340,5 +437,29 @@ func TestTeselasOSMConsultasConcurrentesAcotadas(t *testing.T) {
 	}
 	if exitos == 0 {
 		t.Fatal("ninguna consulta concurrente pudo cargar el mapa")
+	}
+}
+
+func TestTeselasOSMZIPHistoricoSiEstaInstalado(t *testing.T) {
+	proyecto := os.Getenv("VEC_TEST_OSM_PROJECT")
+	if proyecto == "" {
+		proyecto = "../../.."
+	}
+	rutaZIP := filepath.Join(proyecto, "web", "cartografia", nombreZIPTeselasOSM)
+	if _, err := os.Stat(rutaZIP); os.IsNotExist(err) {
+		t.Skip("el ZIP histórico se empaqueta en otra rama")
+	} else if err != nil {
+		t.Fatal(err)
+	}
+	if got := hashZIPTeselasOSMPrueba(t, rutaZIP); got != sha256ZIPTeselasOSM {
+		t.Fatalf("SHA-256 histórico = %s; no coincide con el fijado", got)
+	}
+	t.Chdir(proyecto)
+	respuesta := httptest.NewRecorder()
+	NewHandlerInternoWithConfig(config.Config{}, http.NotFoundHandler()).ServeHTTP(
+		respuesta, peticionServidorPrueba(http.MethodGet, "/tiles/osm/10/498/394.png", nil),
+	)
+	if respuesta.Code != http.StatusOK || respuesta.Header().Get("Content-Type") != "image/png" {
+		t.Fatalf("tesela histórica = %d, tipo %q; esperado 200 image/png", respuesta.Code, respuesta.Header().Get("Content-Type"))
 	}
 }

@@ -3,7 +3,8 @@ package server
 import (
 	"archive/zip"
 	"bytes"
-	"encoding/binary"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"image/png"
 	"io"
@@ -16,10 +17,10 @@ import (
 
 const (
 	nombreZIPTeselasOSM = "granada-base-20260719-z8-z12.zip"
+	sha256ZIPTeselasOSM = "0f0d78212832493c424699a42847069ae24b8b3717917780c4d64444aa250165"
 	maxBytesTeselaOSM   = 1024 * 1024
-	maxBytesZIPOSM      = 2 * 1024 * 1024 * 1024
+	maxBytesZIPOSM      = 32 * 1024 * 1024
 	maxEntradasZIPOSM   = 4096
-	maxDirectorioZIPOSM = 1024 * 1024
 	maxConcurrentesOSM  = 16
 )
 
@@ -28,21 +29,23 @@ var firmaPNGTeselaOSM = []byte{137, 80, 78, 71, 13, 10, 26, 10}
 var errZIPTeselasOSMInvalido = errors.New("archivo de teselas no válido")
 
 type indiceTeselasOSM struct {
-	mu       sync.Mutex
-	archivo  *os.File // El índice conserva el ReaderAt hasta terminar el proceso.
-	entradas map[string]*zip.File
-	cupos    chan struct{}
+	mu           sync.Mutex
+	datos        []byte // Inmutables: mismo contenido validado que consume archive/zip.
+	entradas     map[string]*zip.File
+	errorCarga   error
+	hashEsperado string
+	cupos        chan struct{}
 }
 
 // registrarTeselasOSM publica sólo el mapa base, sin geometrías ni datos de
 // Dietas. La frontera HTTP interna ya protege este listener; la ruta pública
 // no se registra. El ZIP es un artefacto fijo y no se toma de la petición.
-func registrarTeselasOSM(mux *http.ServeMux) {
-	mux.Handle("/tiles/osm/", soloLecturaHTTP(suprimirCuerpoHEAD(manejadorTeselasOSM())))
+func registrarTeselasOSMConHash(mux *http.ServeMux, hashZIP string) {
+	mux.Handle("/tiles/osm/", soloLecturaHTTP(suprimirCuerpoHEAD(manejadorTeselasOSMConHash(hashZIP))))
 }
 
-func manejadorTeselasOSM() http.Handler {
-	indice := &indiceTeselasOSM{cupos: make(chan struct{}, maxConcurrentesOSM)}
+func manejadorTeselasOSMConHash(hashZIP string) http.Handler {
+	indice := &indiceTeselasOSM{hashEsperado: hashZIP, cupos: make(chan struct{}, maxConcurrentesOSM)}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		entrada, valida := entradaTeselaOSM(r.URL.Path)
 		if !valida {
@@ -83,96 +86,59 @@ func manejadorTeselasOSM() http.Handler {
 func (indice *indiceTeselasOSM) obtener(nombre string) (*zip.File, error) {
 	indice.mu.Lock()
 	defer indice.mu.Unlock()
+	if indice.errorCarga != nil {
+		return nil, indice.errorCarga
+	}
 	if indice.entradas == nil {
 		archivo, err := abrirZIPTeselasOSM()
 		if err != nil {
 			return nil, err
 		}
+		defer archivo.Close()
 		info, err := archivo.Stat()
 		if err != nil {
-			_ = archivo.Close()
 			return nil, err
 		}
-		cantidad, err := validarDirectorioZIPTeselasOSM(archivo, info.Size())
+		datos, err := leerZIPTeselasOSMValidado(archivo, info.Size(), indice.hashEsperado)
 		if err != nil {
-			_ = archivo.Close()
+			indice.errorCarga = err
 			return nil, err
 		}
-		lector, err := zip.NewReader(archivo, info.Size())
-		if err != nil || len(lector.File) != cantidad {
-			_ = archivo.Close()
+		lector, err := zip.NewReader(bytes.NewReader(datos), int64(len(datos)))
+		if err != nil || len(lector.File) == 0 || len(lector.File) > maxEntradasZIPOSM {
+			indice.errorCarga = errZIPTeselasOSMInvalido
 			return nil, errZIPTeselasOSMInvalido
 		}
-		entradas := make(map[string]*zip.File, cantidad)
+		entradas := make(map[string]*zip.File, len(lector.File))
 		for _, entrada := range lector.File {
 			if _, duplicada := entradas[entrada.Name]; duplicada {
-				_ = archivo.Close()
+				indice.errorCarga = errZIPTeselasOSMInvalido
 				return nil, errZIPTeselasOSMInvalido
 			}
 			entradas[entrada.Name] = entrada
 		}
-		indice.archivo = archivo
+		indice.datos = datos
 		indice.entradas = entradas
 	}
 	return indice.entradas[nombre], nil
 }
 
-// Valida el EOCD y recorre la cabecera central sin construir el índice ZIP.
-// Rechaza ZIP64, multidisco, contadores falsos y directorios excesivos antes
-// de que archive/zip asigne memoria proporcional al número de entradas.
-func validarDirectorioZIPTeselasOSM(archivo *os.File, tamano int64) (int, error) {
+// El hash fijo se comprueba sobre los mismos bytes que leerá archive/zip.
+// Ningún ZIP alterado, incluido uno con finales EOCD ambiguos, alcanza el
+// parser ni puede provocar asignaciones proporcionales a entradas falsas.
+func leerZIPTeselasOSMValidado(archivo *os.File, tamano int64, hashEsperado string) ([]byte, error) {
 	if tamano < 22 || tamano > maxBytesZIPOSM {
-		return 0, errZIPTeselasOSMInvalido
+		return nil, errZIPTeselasOSMInvalido
 	}
-	longitud := tamano
-	if longitud > 22+65535 {
-		longitud = 22 + 65535
+	datos := make([]byte, int(tamano))
+	if _, err := archivo.ReadAt(datos, 0); err != nil {
+		return nil, err
 	}
-	cola := make([]byte, longitud)
-	if _, err := archivo.ReadAt(cola, tamano-longitud); err != nil {
-		return 0, err
+	suma := sha256.Sum256(datos)
+	if hex.EncodeToString(suma[:]) != hashEsperado {
+		return nil, errZIPTeselasOSMInvalido
 	}
-	for i := len(cola) - 22; i >= 0; i-- {
-		if binary.LittleEndian.Uint32(cola[i:]) != 0x06054b50 ||
-			i+22+int(binary.LittleEndian.Uint16(cola[i+20:])) != len(cola) {
-			continue
-		}
-		eocd := cola[i : i+22]
-		cantidad := int(binary.LittleEndian.Uint16(eocd[10:]))
-		tamanoCentral := int64(binary.LittleEndian.Uint32(eocd[12:]))
-		inicioCentral := int64(binary.LittleEndian.Uint32(eocd[16:]))
-		posEOCD := tamano - longitud + int64(i)
-		if binary.LittleEndian.Uint16(eocd[4:]) != 0 ||
-			binary.LittleEndian.Uint16(eocd[6:]) != 0 ||
-			binary.LittleEndian.Uint16(eocd[8:]) != uint16(cantidad) ||
-			cantidad == 0 || cantidad > maxEntradasZIPOSM ||
-			tamanoCentral <= 0 || tamanoCentral > maxDirectorioZIPOSM ||
-			inicioCentral < 0 || inicioCentral+tamanoCentral != posEOCD {
-			return 0, errZIPTeselasOSMInvalido
-		}
-		pos := inicioCentral
-		var cabecera [46]byte
-		for j := 0; j < cantidad; j++ {
-			if pos+int64(len(cabecera)) > posEOCD {
-				return 0, errZIPTeselasOSMInvalido
-			}
-			if _, err := archivo.ReadAt(cabecera[:], pos); err != nil || binary.LittleEndian.Uint32(cabecera[:]) != 0x02014b50 {
-				return 0, errZIPTeselasOSMInvalido
-			}
-			pos += int64(len(cabecera)) +
-				int64(binary.LittleEndian.Uint16(cabecera[28:])) +
-				int64(binary.LittleEndian.Uint16(cabecera[30:])) +
-				int64(binary.LittleEndian.Uint16(cabecera[32:]))
-			if pos > posEOCD {
-				return 0, errZIPTeselasOSMInvalido
-			}
-		}
-		if pos != posEOCD {
-			return 0, errZIPTeselasOSMInvalido
-		}
-		return cantidad, nil
-	}
-	return 0, errZIPTeselasOSMInvalido
+	return datos, nil
 }
 
 func entradaTeselaOSM(ruta string) (string, bool) {
