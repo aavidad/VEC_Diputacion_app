@@ -50,6 +50,7 @@ const respaldo = Object.freeze({
   "areaPersonal.contacto.guardarTelefonoDomicilio": "Revisar y guardar teléfono y domicilio",
   "areaPersonal.contacto.preparando": "Guardando correo…",
   "areaPersonal.contacto.sinAutorizacion": "El correo no se puede actualizar porque el servicio no ha aportado permiso expreso y versión vigente.",
+  "areaPersonal.contacto.noConfigurado": "Contacto propio no configurado: el servicio no ha aportado permiso expreso y versión vigente. No se consultará el historial ni se enviarán cambios.",
   "areaPersonal.contacto.correcto": "Correo de contacto guardado. Referencia de recibo: {recibo}.",
   "areaPersonal.contacto.correctoAnterior": "Recibo de un guardado anterior: {recibo}. No acredita el resultado de otro intento.",
   "areaPersonal.contacto.errorEntrada": "Revise el correo de contacto antes de enviarlo.",
