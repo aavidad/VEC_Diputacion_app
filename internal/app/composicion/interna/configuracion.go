@@ -28,6 +28,7 @@ const (
 	EnvEmisorIdentidadInterna  = "VEC_INTERNO_IDENTITY_ISSUER"
 	EnvHuellasProxyTLSInternas = "VEC_INTERNO_PROXY_TLS_SHA256"
 	EnvIdentidadesSANProxy     = "VEC_INTERNO_PROXY_SAN_IDENTITIES"
+	EnvRetiradaPoliticaInterna = "VEC_INTERNO_CERT_POLICY_EXPIRES_AT"
 )
 
 var (
@@ -43,8 +44,8 @@ const (
 )
 
 // Configuracion contiene solo transporte, limite de red y politica de
-// identidad de la superficie interna. No contiene DSN, claves KMS/TSA ni
-// credenciales: C5/C6 deberan inyectar proveedores ya construidos.
+// identidad de la superficie interna. DSN y claves permanecen en el material
+// privado que lee el cargador de proveedores.
 type Configuracion struct {
 	DireccionEscucha     string
 	RedesPermitidas      []string
@@ -55,14 +56,16 @@ type Configuracion struct {
 	MaximoBytesCabeceras int
 	MaximoBytesPeticion  int64
 
-	CertificadoServidorTLS string
-	ClaveServidorTLS       string
-	AutoridadClientesTLS   string
-	NombreServidorTLS      string
-	Audiencia              string
-	EmisorIdentidad        string
-	HuellasProxyTLS        []string
-	IdentidadesSANProxy    []string
+	CertificadoServidorTLS    string
+	ClaveServidorTLS          string
+	AutoridadClientesTLS      string
+	NombreServidorTLS         string
+	Audiencia                 string
+	EmisorIdentidad           string
+	HuellasProxyTLS           []string
+	IdentidadesSANProxy       []string
+	RetiradaPoliticaInternaEn time.Time
+	retiradaPoliticaInvalida  bool
 
 	SelectorPerfilHeredado        string
 	SelectorAutenticacionHeredado string
@@ -76,24 +79,32 @@ type Configuracion struct {
 // globales heredados se observan unicamente para rechazarlos; nunca seleccionan
 // un proveedor de la superficie interna.
 func CargarConfiguracion() Configuracion {
+	textoRetirada := valorEntorno(EnvRetiradaPoliticaInterna)
+	var retirada time.Time
+	var errorRetirada error
+	if textoRetirada != "" {
+		retirada, errorRetirada = time.Parse(time.RFC3339, textoRetirada)
+	}
 	return Configuracion{
-		DireccionEscucha:       valorEntorno(EnvDireccionEscuchaInterna),
-		RedesPermitidas:        listaEntorno(EnvRedesPermitidasInternas),
-		TiempoCabeceras:        config.DefaultReadHeaderLimit,
-		TiempoLectura:          config.DefaultReadTimeout,
-		TiempoEscritura:        config.DefaultWriteTimeout,
-		TiempoInactividad:      config.DefaultIdleTimeout,
-		MaximoBytesCabeceras:   config.DefaultMaxHeaderBytes,
-		MaximoBytesPeticion:    config.DefaultMaxRequestBodyBytes,
-		CertificadoServidorTLS: valorEntorno(EnvCertificadoTLSInterno),
-		ClaveServidorTLS:       valorEntorno(EnvClaveTLSInterna),
-		AutoridadClientesTLS:   valorEntorno(EnvAutoridadClientesTLS),
-		NombreServidorTLS:      valorEntorno(EnvNombreServidorTLS),
-		Audiencia:              valorEntorno(EnvAudienciaInterna),
-		EmisorIdentidad:        valorEntorno(EnvEmisorIdentidadInterna),
-		HuellasProxyTLS:        listaEntorno(EnvHuellasProxyTLSInternas),
-		IdentidadesSANProxy:    listaEntorno(EnvIdentidadesSANProxy),
-		SelectorPerfilHeredado: valorEntorno(config.EnvExecutionProfile),
+		DireccionEscucha:          valorEntorno(EnvDireccionEscuchaInterna),
+		RedesPermitidas:           listaEntorno(EnvRedesPermitidasInternas),
+		TiempoCabeceras:           config.DefaultReadHeaderLimit,
+		TiempoLectura:             config.DefaultReadTimeout,
+		TiempoEscritura:           config.DefaultWriteTimeout,
+		TiempoInactividad:         config.DefaultIdleTimeout,
+		MaximoBytesCabeceras:      config.DefaultMaxHeaderBytes,
+		MaximoBytesPeticion:       config.DefaultMaxRequestBodyBytes,
+		CertificadoServidorTLS:    valorEntorno(EnvCertificadoTLSInterno),
+		ClaveServidorTLS:          valorEntorno(EnvClaveTLSInterna),
+		AutoridadClientesTLS:      valorEntorno(EnvAutoridadClientesTLS),
+		NombreServidorTLS:         valorEntorno(EnvNombreServidorTLS),
+		Audiencia:                 valorEntorno(EnvAudienciaInterna),
+		EmisorIdentidad:           valorEntorno(EnvEmisorIdentidadInterna),
+		HuellasProxyTLS:           listaEntorno(EnvHuellasProxyTLSInternas),
+		IdentidadesSANProxy:       listaEntorno(EnvIdentidadesSANProxy),
+		RetiradaPoliticaInternaEn: retirada,
+		retiradaPoliticaInvalida:  errorRetirada != nil,
+		SelectorPerfilHeredado:    valorEntorno(config.EnvExecutionProfile),
 		SelectorAutenticacionHeredado: primerValorEntorno(
 			config.EnvAuthMode,
 			config.LegacyEnvAuthMode,
@@ -112,10 +123,12 @@ func CargarConfiguracion() Configuracion {
 	}.normalizar()
 }
 
-// Validar exige una configuracion productiva cerrada y la politica corporativa
-// Kerberos+certificado ya fijada por el contrato de superficies.
+// Validar exige una configuracion cerrada y una politica de superficie vigente.
 func (cfg Configuracion) Validar() error {
 	cfg = cfg.normalizar()
+	if cfg.retiradaPoliticaInvalida {
+		return ErrConfiguracionInternaInvalida
+	}
 	if cfg.SelectorPerfilHeredado != "" &&
 		cfg.SelectorPerfilHeredado != config.ExecutionProfileProduction {
 		return ErrSelectorHeredadoProhibido
@@ -178,7 +191,7 @@ func (cfg Configuracion) normalizar() Configuracion {
 }
 
 func (cfg Configuracion) configuracionSuperficie() httpseguridad.ConfiguracionSuperficie {
-	return httpseguridad.ConfiguracionSuperficie{
+	c := httpseguridad.ConfiguracionSuperficie{
 		Superficie:                          httpseguridad.SuperficieInternaCorporativa,
 		ZonaRed:                             httpseguridad.ZonaRedInterna,
 		DireccionEscucha:                    cfg.DireccionEscucha,
@@ -196,6 +209,16 @@ func (cfg Configuracion) configuracionSuperficie() httpseguridad.ConfiguracionSu
 		MinimoGruposCriptograficosDistintos: 2,
 		GarantiaMinima:                      dominiovec.AuthAssuranceHigh,
 	}
+	if !cfg.RetiradaPoliticaInternaEn.IsZero() {
+		c.PoliticaInterna = httpseguridad.PoliticaInternaDesarrolloCertificadoPersonal
+		c.RetiradaPoliticaInternaEn = cfg.RetiradaPoliticaInternaEn
+		c.MetodosAdmitidos = []httpseguridad.MetodoAutenticacion{httpseguridad.MetodoCertificado}
+		c.FactoresRequeridos = []httpseguridad.MetodoAutenticacion{httpseguridad.MetodoCertificado}
+		c.MinimoFactoresVerificados = 1
+		c.MinimoGruposCriptograficosDistintos = 1
+		c.GarantiaMinima = dominiovec.AuthAssuranceSubstantial
+	}
+	return c
 }
 
 func validarReferenciasTLS(cfg Configuracion) error {

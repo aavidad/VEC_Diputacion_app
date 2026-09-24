@@ -17,15 +17,14 @@ func (a Autorizacion) validar(m Material, ahora time.Time) error {
 	if err != nil {
 		return ErrDenegada
 	}
-	return validarAutorizacionLectura(a, m.contexto, m.preparadoEn, r, Audiencia, ahora)
+	return validarAutorizacionLectura(a, m.contexto, m.preparadoEn, r, Audiencia, nil, ahora)
 }
 
 // Compartido por contratos versionados: cada llamador fija recurso y audiencia,
 // nunca se deducen de la autorización recibida.
-func validarAutorizacionLectura(a Autorizacion, contexto ct.ContextoAutorizacionAltaV3, preparadoEn time.Time, r core.RecursoAutorizable, audiencia string, ahora time.Time) error {
+func validarAutorizacionLectura(a Autorizacion, contexto ct.ContextoAutorizacionAltaV3, preparadoEn time.Time, r core.RecursoAutorizable, audiencia string, politica *PoliticaConsultaV2, ahora time.Time) error {
 	v, ev := contexto.Vinculo.Datos()
-	if ev != nil || v.GarantiaObservada != core.AuthAssuranceHigh ||
-		(v.Superficie != core.SuperficieAutenticacionInternaCorporativaV1 && v.Superficie != core.SuperficieAutenticacionAdministracionPrivilegiadaV1) ||
+	if ev != nil || !garantiaLecturaAdmitida(v, audiencia, politica, ahora) ||
 		!ctdomain.InstanteUTCCanonico(ahora) || !ctdomain.InstanteUTCCanonico(preparadoEn) || ahora.Before(preparadoEn) ||
 		contexto.ValidarPara(ct.SolicitudResolverContextoAutorizacionAltaV3{AutenticacionRef: v.AutenticacionRef, SesionRef: v.SesionRef, PerfilRef: v.PerfilActivoRef}, ahora) != nil ||
 		a.Exportacion.ValidarEstructura() != nil || a.Decision.ValidarPara(a.Solicitud) != nil {
@@ -63,4 +62,15 @@ func validarAutorizacionLectura(a Autorizacion, contexto ct.ContextoAutorizacion
 		return ErrDenegada
 	}
 	return nil
+}
+
+func garantiaLecturaAdmitida(v core.DatosVinculoAutenticacionActorV2, audiencia string, politica *PoliticaConsultaV2, ahora time.Time) bool {
+	if audiencia != Audiencia && audiencia != AudienciaV2 {
+		return false
+	}
+	if v.GarantiaObservada == core.AuthAssuranceHigh {
+		return v.Superficie == core.SuperficieAutenticacionInternaCorporativaV1 ||
+			v.Superficie == core.SuperficieAutenticacionAdministracionPrivilegiadaV1
+	}
+	return audiencia == AudienciaV2 && politica != nil && politica.admite(v, ahora)
 }

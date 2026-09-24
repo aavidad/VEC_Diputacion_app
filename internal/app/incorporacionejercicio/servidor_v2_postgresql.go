@@ -26,8 +26,11 @@ type ConfiguracionServidorV2PostgreSQL struct {
 	Cadena          *CadenaAutorizacionAplicacion
 	Correlador      GeneradorCorrelacionAutoridad
 	Preparacion     ConfiguracionPreparacionDurableV2PostgreSQL
-	AltaPersonal    *pgxpool.Pool
-	RegistroCT      *pgxpool.Pool
+	// PoliticaConsultaDesarrollo permite solo lectura sustancial en la superficie
+	// interna cuando coincide el dictamen de Identidad y sigue vigente.
+	PoliticaConsultaDesarrollo *PoliticaConsultaDesarrollo
+	AltaPersonal               *pgxpool.Pool
+	RegistroCT                 *pgxpool.Pool
 }
 
 // ServidorV2PostgreSQL sólo retiene configuración inmutable. No retiene
@@ -50,6 +53,13 @@ func NuevoServidorV2PostgreSQL(c ConfiguracionServidorV2PostgreSQL) (*ServidorV2
 	x := c.Preparacion
 	if validarConfiguracionPreparacionV2PostgreSQL(x) != nil {
 		return nil, f
+	}
+	if c.PoliticaConsultaDesarrollo != nil {
+		if !c.PoliticaConsultaDesarrollo.validaEn(x.Reloj.Ahora()) {
+			return nil, f
+		}
+		p := *c.PoliticaConsultaDesarrollo
+		c.PoliticaConsultaDesarrollo = &p
 	}
 	if _, err := NuevaFuentePlanesPreparacionV2(x.Planes, x.TernaPlanes); err != nil {
 		return nil, f
@@ -84,12 +94,19 @@ func (s *ServidorV2PostgreSQL) NuevaPeticion(ctx context.Context) (*PeticionV2Po
 		return nil, err
 	}
 	c := s.c
-	a, err := NuevaAutoridadAplicacion(ctx, c.FuenteAutoridad, c.Revalidador, c.Resolutor, c.Cadena, c.Correlador, c.Preparacion.Reloj)
+	var a *AutoridadAplicacion
+	var err error
+	if c.PoliticaConsultaDesarrollo == nil {
+		a, err = NuevaAutoridadAplicacion(ctx, c.FuenteAutoridad, c.Revalidador, c.Resolutor, c.Cadena, c.Correlador, c.Preparacion.Reloj)
+	} else {
+		a, err = NuevaAutoridadAplicacionConsulta(ctx, c.FuenteAutoridad, c.Revalidador, c.Resolutor, c.Cadena, c.Correlador, c.Preparacion.Reloj, *c.PoliticaConsultaDesarrollo)
+	}
 	if err != nil {
 		return nil, errorAutoridadPreparacion(ctx, err)
 	}
 	x := c.Preparacion
 	x.Autoridad = a
+	x.PoliticaConsultaDesarrollo = c.PoliticaConsultaDesarrollo
 	p, err := NuevoPreparadorDurableV2PostgreSQL(x)
 	if err != nil {
 		return nil, fallo(ctx, err)
@@ -117,6 +134,9 @@ func (p *PeticionV2PostgreSQL) Confirmar(ctx context.Context, i ct.IntencionInco
 	if err := ctx.Err(); err != nil {
 		return cero, err
 	}
+	if !p.autoridad.admiteEfectos() {
+		return cero, ct.ErrComposicionIncorporacionAplicacion
+	}
 	if i.Validar() != nil {
 		return cero, ct.ErrIntencionIncorporacionAplicacion
 	}
@@ -128,6 +148,9 @@ func (p *PeticionV2PostgreSQL) Confirmar(ctx context.Context, i ct.IntencionInco
 }
 
 func (p *PeticionV2PostgreSQL) servicioConfirmacion() (*Servicio, error) {
+	if p == nil || p.autoridad == nil || !p.autoridad.admiteEfectos() {
+		return nil, ct.ErrComposicionIncorporacionAplicacion
+	}
 	c := p.servidor.c
 	reloj := c.Preparacion.Reloj
 	// Se reutilizan las instancias lectoras propietarias de esta petición; no

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <title>Contratación temporal</title>
+    <link rel="stylesheet" href="/portal-empleado/portal.css">
+    <link rel="stylesheet" href="/portal-empleado/portal-componentes.css">
+    <link rel="stylesheet" href="/portal-empleado/modulos/contratacion-temporal/consulta-seguimiento.css">
+    <script type="module" src="/portal-empleado/modulos/contratacion-temporal/consulta-seguimiento.js"></script>
+  </head>
+  <body class="portal-empleado-app ct-consulta-pagina">
+    <a class="salto-contenido" href="#contenido-principal" data-ct-copia="consulta_seguimiento_pagina_titulo"></a>
+    <header class="ct-consulta-cabecera">
+      <div class="ct-consulta-marca">
+        <img src="/assets/logo-diputacion-granada.svg" width="176" height="59" alt="Diputación de Granada">
+        <span data-ct-copia="consulta_seguimiento_pagina_contexto"></span>
+      </div>
+      <a class="boton-secundario" href="/portal-empleado/" data-ct-copia="consulta_seguimiento_volver"></a>
+    </header>
+    <main id="contenido-principal" class="ct-consulta-contenido">
+      <div class="ct-consulta-titulo">
+        <p data-ct-copia="consulta_seguimiento_pagina_contexto"></p>
+        <h1 data-ct-copia="consulta_seguimiento_pagina_titulo"></h1>
+      </div>
+      <section class="panel" aria-labelledby="ct-consulta-seleccion-titulo">
+        <div class="cabecera-panel"><h2 id="ct-consulta-seleccion-titulo" data-ct-copia="consulta_seguimiento_seleccion_titulo"></h2></div>
+        <div class="cuerpo-panel">
+          <form data-ct-consulta-form novalidate>
+            <label for="ct-consulta-expediente" data-ct-copia="consulta_seguimiento_referencia"></label>
+            <div class="ct-consulta-controles">
+              <input id="ct-consulta-expediente" name="expediente_ref" required minlength="3" maxlength="160" autocomplete="off" spellcheck="false">
+              <button class="boton-primario" type="submit" data-ct-copia="consulta_seguimiento_consultar"></button>
+            </div>
+          </form>
+          <p class="ct-consulta-estado" data-ct-consulta-estado role="status" aria-live="polite"></p>
+        </div>
+      </section>
+      <section class="panel" data-ct-consulta-resultado-panel aria-labelledby="ct-consulta-resultado-titulo" hidden>
+        <div class="cabecera-panel">
+          <h2 id="ct-consulta-resultado-titulo" data-ct-copia="consulta_seguimiento_resultado_titulo"></h2>
+          <span class="ct-consulta-lectura" data-ct-copia="consulta_seguimiento_lectura"></span>
+        </div>
+        <div class="cuerpo-panel" data-ct-consulta-resultado></div>
+      </section>
+    </main>
+  </body>
+</html>

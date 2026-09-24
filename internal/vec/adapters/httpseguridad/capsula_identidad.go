@@ -7,6 +7,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync/atomic"
 
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
@@ -185,4 +186,52 @@ func (s *ServicioIdentidad) ExtraerCapsulaIdentidadPeticion(
 		return dominiovec.CuentaAutenticadaContextoActor{}, ContextoAuditoriaAutenticada{}, ErrSesionNoValida
 	}
 	return vinculada.capsula.datos(ctx, s, vinculada.canalVinculadoRef)
+}
+
+// ExigirSujetoPersonaCertificadoTemporal coteja la persona resuelta por F1 con
+// el sujeto autenticado del certificado personal de la peticion. No proyecta
+// ese sujeto fuera de identidad ni acepta un localizador enviado por HTTP.
+func (s *ServicioIdentidad) ExigirSujetoPersonaCertificadoTemporal(ctx context.Context, personaRef string) error {
+	if s == nil || ctx == nil || s.configuracion.PoliticaInterna != PoliticaInternaDesarrolloCertificadoPersonal ||
+		!referenciaPersonaF1Canonica(personaRef) {
+		return ErrSesionNoValida
+	}
+	if _, _, err := s.ExtraerCapsulaIdentidadPeticion(ctx); err != nil {
+		return ErrSesionNoValida
+	}
+	vinculada, ok := ctx.Value(claveCapsulaIdentidad{}).(capsulaIdentidadVinculada)
+	if !ok || vinculada.capsula.servicio != s || vinculada.capsula.estado == nil ||
+		!vinculada.capsula.estado.vinculada.Load() {
+		return ErrSesionNoValida
+	}
+	estado := vinculada.capsula.identidad.estado
+	if estado.superficie != SuperficieInternaCorporativa || estado.metodoPrimario != MetodoCertificado ||
+		estado.garantia != dominiovec.AuthAssuranceSubstantial ||
+		estado.acrVerificado != ACRCertificadoPersonalDesarrolloProtegido ||
+		len(estado.factores) != 1 || estado.factores[0].Metodo != MetodoCertificado ||
+		!referenciaPersonaF1Canonica(estado.sujetoID) ||
+		estado.factores[0].SujetoVinculadoID != estado.sujetoID {
+		return ErrSesionNoValida
+	}
+	sujeto := sha256.Sum256([]byte(estado.sujetoID))
+	persona := sha256.Sum256([]byte(personaRef))
+	if subtle.ConstantTimeCompare(sujeto[:], persona[:]) != 1 || ctx.Err() != nil {
+		return ErrSesionNoValida
+	}
+	return nil
+}
+
+func referenciaPersonaF1Canonica(valor string) bool {
+	if !strings.HasPrefix(valor, "per_") || len(valor) < len("per_")+22 || len(valor) > len("per_")+128 {
+		return false
+	}
+	for indice := len("per_"); indice < len(valor); indice++ {
+		caracter := valor[indice]
+		if (caracter >= 'a' && caracter <= 'z') || (caracter >= 'A' && caracter <= 'Z') ||
+			(caracter >= '0' && caracter <= '9') || caracter == '_' || caracter == '-' {
+			continue
+		}
+		return false
+	}
+	return true
 }

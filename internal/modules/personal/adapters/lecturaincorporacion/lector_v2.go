@@ -8,6 +8,7 @@ import (
 
 	ctdomain "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	"vec-diputacion-granada/internal/vec/adapters/httpseguridad"
 	core "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -23,6 +24,41 @@ const (
 type MaterialV2 struct {
 	base      Material
 	unidadRef string
+	politica  *PoliticaConsultaV2
+}
+
+// PoliticaConsultaV2 es una copia de la política gobernada que aporta la
+// composición. Sólo habilita la lectura con garantía sustancial en desarrollo;
+// la concesión y el consumo V3 siguen siendo obligatorios.
+type PoliticaConsultaV2 struct {
+	Tipo         httpseguridad.PoliticaInterna
+	Referencia   string
+	HuellaSHA256 string
+	RetiradaEn   time.Time
+}
+
+func (p PoliticaConsultaV2) validaEn(ahora time.Time) bool {
+	if p.Tipo != httpseguridad.PoliticaInternaDesarrolloCertificadoPersonal ||
+		!ctdomain.InstanteUTCCanonico(ahora) ||
+		len(p.Referencia) < 26 || len(p.Referencia) > 132 || !strings.HasPrefix(p.Referencia, "pga_") ||
+		!huellaSHA256.MatchString(p.HuellaSHA256) || strings.Trim(p.HuellaSHA256, "0") == "" ||
+		p.RetiradaEn.Location() != time.UTC || p.RetiradaEn.Nanosecond() != 0 ||
+		!p.RetiradaEn.After(ahora) {
+		return false
+	}
+	for _, c := range p.Referencia[4:] {
+		if (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && (c < '0' || c > '9') && c != '_' && c != '-' {
+			return false
+		}
+	}
+	return true
+}
+
+func (p PoliticaConsultaV2) admite(v core.DatosVinculoAutenticacionActorV2, ahora time.Time) bool {
+	return p.validaEn(ahora) && v.Superficie == core.SuperficieAutenticacionInternaCorporativaV1 &&
+		v.MetodoObservado == core.AuthMethodCertificate && v.GarantiaObservada == core.AuthAssuranceSubstantial &&
+		!v.CuentaPrivilegiada && v.PoliticaGarantiaRef == p.Referencia &&
+		v.PoliticaGarantiaHuellaSHA256 == p.HuellaSHA256
 }
 
 func NuevoMaterialV2(selector Selector, unidadRef string, contexto ct.ContextoAutorizacionAltaV3, ahora time.Time) (MaterialV2, error) {
@@ -34,6 +70,29 @@ func NuevoMaterialV2(selector Selector, unidadRef string, contexto ct.ContextoAu
 		return MaterialV2{}, err
 	}
 	return MaterialV2{base: base, unidadRef: unidadRef}, nil
+}
+
+// NuevoMaterialV2ConPolitica recibe la copia de composición, nunca valores de
+// una petición. La política debe seguir vigente al validar y consumir la orden.
+func NuevoMaterialV2ConPolitica(selector Selector, unidadRef string, contexto ct.ContextoAutorizacionAltaV3, ahora time.Time, politica PoliticaConsultaV2) (MaterialV2, error) {
+	if !unidadLecturaV2Valida(unidadRef) || !selector.validar() || !ctdomain.InstanteUTCCanonico(ahora) || !politica.validaEn(ahora) {
+		return MaterialV2{}, ErrDenegada
+	}
+	v, err := contexto.Vinculo.Datos()
+	if err != nil || !politica.admite(v, ahora) ||
+		contexto.ValidarPara(ct.SolicitudResolverContextoAutorizacionAltaV3{
+			AutenticacionRef: v.AutenticacionRef, SesionRef: v.SesionRef, PerfilRef: v.PerfilActivoRef,
+		}, ahora) != nil {
+		return MaterialV2{}, ErrDenegada
+	}
+	r, err := contexto.Resultado.Clonar()
+	if err != nil {
+		return MaterialV2{}, ErrDenegada
+	}
+	p := politica
+	return MaterialV2{base: Material{selector: selector, contexto: ct.ContextoAutorizacionAltaV3{
+		Vinculo: contexto.Vinculo, Resultado: r,
+	}, preparadoEn: ahora}, unidadRef: unidadRef, politica: &p}, nil
 }
 
 func unidadLecturaV2Valida(ref string) bool {
@@ -106,6 +165,7 @@ type ConsumidorV2 struct {
 	proveedor   ProveedorV2
 	transaccion TransaccionLecturaV2
 	reloj       Reloj
+	politica    *PoliticaConsultaV2
 }
 
 func dependenciaV2Nula(v any) bool {
@@ -124,7 +184,17 @@ func NuevoV2(proveedor ProveedorV2, transaccion TransaccionLecturaV2, reloj Relo
 	if dependenciaV2Nula(proveedor) || dependenciaV2Nula(transaccion) || dependenciaV2Nula(reloj) {
 		return nil, ErrNoDisponible
 	}
-	return &ConsumidorV2{proveedor, transaccion, reloj}, nil
+	return &ConsumidorV2{proveedor: proveedor, transaccion: transaccion, reloj: reloj}, nil
+}
+
+func NuevoV2ConPolitica(proveedor ProveedorV2, transaccion TransaccionLecturaV2, reloj Reloj, politica PoliticaConsultaV2) (*ConsumidorV2, error) {
+	c, err := NuevoV2(proveedor, transaccion, reloj)
+	if err != nil || !politica.validaEn(reloj.Ahora()) {
+		return nil, ErrNoDisponible
+	}
+	p := politica
+	c.politica = &p
+	return c, nil
 }
 func (c *ConsumidorV2) Leer(ctx context.Context, selector Selector, unidadRef string, contexto ct.ContextoAutorizacionAltaV3) (Resultado, error) {
 	var cero Resultado
@@ -141,7 +211,13 @@ func (c *ConsumidorV2) Leer(ctx context.Context, selector Selector, unidadRef st
 	if err := ctx.Err(); err != nil {
 		return cero, err
 	}
-	m, err := NuevoMaterialV2(selector, unidadRef, contexto, antes)
+	var m MaterialV2
+	var err error
+	if c.politica == nil {
+		m, err = NuevoMaterialV2(selector, unidadRef, contexto, antes)
+	} else {
+		m, err = NuevoMaterialV2ConPolitica(selector, unidadRef, contexto, antes, *c.politica)
+	}
 	if err != nil {
 		return cero, ErrDenegada
 	}
