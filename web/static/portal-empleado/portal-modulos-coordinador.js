@@ -79,17 +79,17 @@ const CARGADORES_PRESENTACION_PREDETERMINADOS = Object.freeze({
   cronos: async () => {
     const [contrato, recorridos] = await Promise.all([
       import("./modulos/cronos/contrato.js"),
-      import("./modulos/cronos/vista-recorridos.js?v=20260924-cronos-integrado-v1"),
+      import("./modulos/cronos/vista-recorridos.js?v=20260924-web-paradas-periodos-v1"),
     ]);
     return Object.freeze({ contrato, recorridos });
   },
   dietas: async () => {
     const [contrato, vista, mapa, calculador, recorridos] = await Promise.all([
       import("./modulos/dietas/contrato.js"),
-      import("./modulos/dietas/vista-itinerario.js?v=20260924-osm-base-v3"),
-      import("./modulos/dietas/mapa-ruta.js?v=20260924-osm-base-v3"),
+      import("./modulos/dietas/vista-itinerario.js?v=20260924-web-paradas-periodos-v1"),
+      import("./modulos/dietas/mapa-ruta.js?v=20260924-web-paradas-periodos-v1"),
       import("./modulos/dietas/calculador-rutas-presentacion-osrm.js"),
-      import("./modulos/dietas/vista-recorridos.js?v=20260924-osm-base-v3"),
+      import("./modulos/dietas/vista-recorridos.js?v=20260924-web-paradas-periodos-v1"),
     ]);
     return Object.freeze({ contrato, vista, mapa, calculador, recorridos });
   },
@@ -135,9 +135,9 @@ const CARGADORES_PRESENTACION_PREDETERMINADOS = Object.freeze({
 const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   cronos: async () => {
     const [vista, recorridos, i18n] = await Promise.all([
-      import("./modulos/cronos/vista.js?v=20260924-cronos-integrado-v1"),
-      import("./modulos/cronos/vista-recorridos.js?v=20260924-cronos-integrado-v1"),
-      import("./modulos/cronos/i18n.js?v=20260924-cronos-integrado-v1"),
+      import("./modulos/cronos/vista.js?v=20260924-web-paradas-periodos-v1"),
+      import("./modulos/cronos/vista-recorridos.js?v=20260924-web-paradas-periodos-v1"),
+      import("./modulos/cronos/i18n.js?v=20260924-web-paradas-periodos-v1"),
     ]);
     return Object.freeze({ vista, recorridos, i18n });
   },
@@ -164,10 +164,10 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   dietas: async () => {
     const [contrato, vista, mapa, calculador, recorridos, clienteBorradores] = await Promise.all([
       import("./modulos/dietas/contrato.js"),
-      import("./modulos/dietas/vista-itinerario.js?v=20260924-osm-base-v3"),
-      import("./modulos/dietas/mapa-ruta.js?v=20260924-osm-base-v3"),
+      import("./modulos/dietas/vista-itinerario.js?v=20260924-web-paradas-periodos-v1"),
+      import("./modulos/dietas/mapa-ruta.js?v=20260924-web-paradas-periodos-v1"),
       import("./modulos/dietas/calculador-rutas-http.js"),
-      import("./modulos/dietas/vista-recorridos.js?v=20260924-osm-base-v3"),
+      import("./modulos/dietas/vista-recorridos.js?v=20260924-web-paradas-periodos-v1"),
       import("./modulos/dietas/cliente-borradores-http.js?v=20260924-f2-shell-v1"),
     ]);
     return Object.freeze({ contrato, vista, mapa, calculador, recorridos, clienteBorradores });

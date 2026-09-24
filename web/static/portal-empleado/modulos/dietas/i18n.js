@@ -1,4 +1,4 @@
-import { MENSAJES_BORRADORES_ES } from "./i18n-borradores.js?v=20260924-osm-base-v3";
+import { MENSAJES_BORRADORES_ES } from "./i18n-borradores.js?v=20260924-web-paradas-periodos-v1";
 import { MENSAJES_REVISION_DIETAS_ES } from "./i18n-revision.js?v=20260924-osm-base-v3";
 
 /** Catálogo completo de textos propios de la superficie Dietas. */
