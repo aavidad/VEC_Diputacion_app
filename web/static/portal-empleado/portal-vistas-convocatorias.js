@@ -65,7 +65,7 @@ export function crearVistasConvocatorias(u) {
     return `
       ${encabezadoVista("Expediente electrónico de selección", "Convocatorias, bases y calendario", "Configuración completa y versionada de una Bolsa antes de firma, publicación y apertura.", botonOperacion("Nueva convocatoria", "crear-convocatoria", "DEMO-BOL-NUEVA", "boton-primario"))}
       ${avisoPresentacion("Los formularios y estados son los definitivos; durante la presentación solo cambia una copia volátil y cada actuación genera un recibo DEMO.")}
-      <div class="rejilla-kpi">${kpi("BOR", numero(datos.elaboraciones.filter((x) => x.estado === "Borrador").length), "Borradores")}${kpi("REV", numero(datos.elaboraciones.filter((x) => /revisión/i.test(x.estado)).length), "En revisión")}${kpi("FIR", "2", "Circuitos pendientes")}${kpi("PUB", numero(datos.elaboraciones.filter((x) => /publicada/i.test(x.estado)).length), "Publicadas")}</div>
+      <div class="rejilla-kpi">${kpi("BOR", numero(datos.elaboraciones.filter((x) => x.estado === "Borrador").length), "Borradores")}${kpi("REV", numero(datos.elaboraciones.filter((x) => /revisión/i.test(x.estado)).length), "En revisión")}${kpi("FIR", "—", `Circuitos pendientes · ${traducirBolsaInterna("fuente_real_no_conectada")}`)}${kpi("PUB", numero(datos.elaboraciones.filter((x) => /publicada/i.test(x.estado)).length), "Publicadas")}</div>
       <div class="rejilla-elaboracion">
         <section class="panel">
           <div class="cabecera-panel"><div><h3>Expedientes de convocatoria</h3><p>Seleccione uno para editar su configuración.</p></div>${fuentePresentacion()}</div>

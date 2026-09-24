@@ -25,8 +25,10 @@ test("convocatorias y admisión expresan carga, denegación, error y vacío sin 
   const carga = vistas.renderizarConvocatorias(datos, { fuenteLista: false });
   assert.match(carga, /Cargando convocatorias/);
   assert.match(carga, /role="status"/);
+  assert.doesNotMatch(carga, /Circuitos pendientes/);
   const convocatoriasVacias = vistas.renderizarConvocatorias(datos, { fuenteLista: true });
   assert.match(convocatoriasVacias, /0 convocatorias encontradas/);
+  assert.match(convocatoriasVacias, /— Circuitos pendientes · Fuente real no conectada/);
 
   const denegado = vistas.renderizarSolicitudes(datos, { fuenteLista: true, datosBolsas: { carga: "denegado" } });
   assert.match(denegado, /Acceso denegado/);
@@ -47,4 +49,23 @@ test("convocatorias y admisión expresan carga, denegación, error y vacío sin 
   assert.match(vacio, /data-operacion="publicar-lista-provisional"/);
   const conSolicitud = vistas.renderizarSolicitudes({ ...datos, solicitudes: [{ id: "SOL-1", persona_ref: "PER-1", convocatoria: "CNV-1", registrada: "hoy", requisitos: "1/1", subsanacion: "No", estado: "Pendiente de revisión" }] }, { fuenteLista: true });
   assert.match(conSolicitud, /data-operacion="admitir-solicitud"/);
+});
+
+test("la vista de elaboración no deduce circuitos de firmas generales ni de los expedientes", () => {
+  const conExpedientes = {
+    ...datos,
+    indicadores: { firmas_pendientes: 73 },
+    elaboraciones: [
+      { id: "DEMO-1", nombre: "Convocatoria A", expediente: "EXP-1", fase: "Revisión", reglas: "v1", estado: "En revisión", responsable: "Unidad DEMO" },
+      { id: "DEMO-2", nombre: "Convocatoria B", expediente: "EXP-2", fase: "Borrador", reglas: "v1", estado: "Borrador", responsable: "Unidad DEMO" },
+    ],
+  };
+  const salidaPresentacion = vistas.renderizarConvocatorias(conExpedientes, { fuenteLista: true, modoPresentacion: true });
+  assert.match(salidaPresentacion, /1 Borradores/);
+  assert.match(salidaPresentacion, /1 En revisión/);
+  assert.match(salidaPresentacion, /— Circuitos pendientes · Fuente real no conectada/);
+  assert.doesNotMatch(salidaPresentacion, /2 Circuitos pendientes|73 Circuitos pendientes/);
+
+  const salidaSinPresentacion = vistas.renderizarConvocatorias(conExpedientes, { fuenteLista: true, modoPresentacion: false });
+  assert.match(salidaSinPresentacion, /— Circuitos pendientes · Fuente real no conectada/);
 });
