@@ -20,8 +20,10 @@
 -- Generación por persona. La historia es de solo adición: un lector
 -- SERIALIZABLE con instantánea anterior a una publicación ya confirmada no
 -- choca con ninguna fila y leería el estado previo aunque haya esperado al
--- publicador en el bloqueo consultivo. Por eso cada publicación nueva avanza,
--- en su misma transacción, una fila de control por persona; el lector la toma
+-- publicador en el bloqueo consultivo. Por eso cada versión nueva de la
+-- historia avanza, en el mismo disparador que valida su continuidad (y por
+-- tanto también si se inserta sin pasar por la publicación), una fila de
+-- control por persona; el lector la toma
 -- con FOR SHARE mediante bloquear_generacion_proyeccion_empleado_persona_v1
 -- antes de leer la historia: si la versión de la fila la confirmó alguien
 -- después de su instantánea, PostgreSQL devuelve 40001 y el lector reintenta.
@@ -87,7 +89,9 @@ CREATE INDEX proyeccion_empleado_empleado_idx
 
 -- Serializa por persona y por empleado (orden fijo: persona, empleado) y exige
 -- continuidad: versión anterior +1, misma pareja, nada después de revocada y
--- un emp_ nunca proyectado a dos personas ni por dos proyecciones.
+-- un emp_ nunca proyectado a dos personas ni por dos proyecciones. Avanza la
+-- generación de la persona en la misma sentencia: toda inserción en la
+-- historia, venga o no de la publicación, la ve la barrera de lectores.
 CREATE FUNCTION vec_personal.validar_version_proyeccion_empleado_v1() RETURNS trigger
 LANGUAGE plpgsql VOLATILE SECURITY INVOKER SET search_path=pg_catalog AS $fn$
 DECLARE previa record;
@@ -109,6 +113,9 @@ BEGIN
        OR NEW.persona_ref <> previa.persona_ref OR NEW.empleado_ref <> previa.empleado_ref THEN
    RAISE EXCEPTION 'versión de proyección persona-empleado no admisible' USING ERRCODE='23505';
  END IF;
+ INSERT INTO vec_personal.proyeccion_empleado_persona_control AS c (persona_ref, generacion)
+ VALUES (NEW.persona_ref, 1)
+ ON CONFLICT (persona_ref) DO UPDATE SET generacion = c.generacion + 1;
  RETURN NEW;
 END $fn$;
 REVOKE ALL ON FUNCTION vec_personal.validar_version_proyeccion_empleado_v1() FROM PUBLIC,vec_personal_ejecutor;
@@ -125,8 +132,8 @@ CREATE POLICY propietario_interno ON vec_personal.proyeccion_empleado_persona_hi
  FOR ALL TO vec_personal_propietario USING (true) WITH CHECK (true);
 REVOKE ALL ON TABLE vec_personal.proyeccion_empleado_persona_historia FROM PUBLIC,vec_personal_ejecutor;
 
--- Generación por persona: una fila por persona con alguna publicación; solo la
--- avanza publicar_proyeccion_empleado_persona_v1. Nunca se borra.
+-- Generación por persona: una fila por persona con alguna versión en la
+-- historia; solo la avanza el disparador version_continua. Nunca se borra.
 CREATE TABLE vec_personal.proyeccion_empleado_persona_control (
  persona_ref text PRIMARY KEY CHECK (persona_ref ~ '^per_[A-Za-z0-9_-]{22,128}$'),
  generacion bigint NOT NULL CHECK (generacion > 0)
@@ -181,10 +188,7 @@ BEGIN
    p_vigente_desde, p_vigente_hasta, 'personal:proyeccion-empleado:publicacion',
    p_procedencia_ref, p_procedencia_version, p_procedencia_huella_sha256, clock_timestamp()
  ) RETURNING h.* INTO existente;
- -- Misma transacción: la generación de la persona avanza con la publicación.
- INSERT INTO vec_personal.proyeccion_empleado_persona_control AS c (persona_ref, generacion)
- VALUES (existente.persona_ref, 1)
- ON CONFLICT (persona_ref) DO UPDATE SET generacion = c.generacion + 1;
+ -- La generación de la persona la avanza el disparador version_continua.
  RETURN QUERY SELECT existente.proyeccion_ref, existente.version, existente.registrada_en;
 END $fn$;
 REVOKE ALL ON FUNCTION vec_personal.publicar_proyeccion_empleado_persona_v1(text,bigint,text,text,text,timestamptz,timestamptz,text,text,bigint,text) FROM PUBLIC,vec_personal_ejecutor;

@@ -125,9 +125,21 @@ SELECT pg_temp.exigir((SELECT bool_and(prosecdef AND proconfig @> ARRAY['search_
   WHERE oid IN ('vec_personal.publicar_proyeccion_empleado_persona_v1(text,bigint,text,text,text,timestamptz,timestamptz,text,text,bigint,text)'::regprocedure,
                 'vec_personal.resolver_empleado_canonico_persona_v1(text,timestamptz)'::regprocedure,
                 'vec_personal.bloquear_generacion_proyeccion_empleado_persona_v1(text)'::regprocedure)), 'SECURITY DEFINER con search_path fijo');
--- Generación por persona: avanza una vez por publicación nueva (no por
--- reenvío idempotente ni por rechazo) y la barrera la devuelve.
-SELECT pg_temp.exigir((SELECT count(*) FROM vec_personal.proyeccion_empleado_persona_control) = 6
+-- Inserción directa en la historia (posible al propietario) sin pasar por la
+-- publicación: también avanza la generación que ve la barrera.
+SET ROLE vec_personal_propietario;
+INSERT INTO vec_personal.proyeccion_empleado_persona_historia (
+  proyeccion_ref, version, persona_ref, empleado_ref, estado, motivo, vigente_desde, vigente_hasta,
+  procedencia_acto_ref, procedencia_ref, procedencia_version, procedencia_huella_sha256, registrada_en)
+VALUES ('pep_sintetica_directa_0000000000000001', 1, 'per_sintetica_directa_000000000000001',
+  'emp_sintetico_directo_0000000000000001', 'activa', NULL, clock_timestamp() - interval '1 day',
+  clock_timestamp() + interval '365 days', 'personal:proyeccion-empleado:directa',
+  'prc_personal_sintetica_00000000000001', 1, repeat('b',64), clock_timestamp());
+RESET ROLE;
+SELECT pg_temp.exigir(vec_personal.bloquear_generacion_proyeccion_empleado_persona_v1('per_sintetica_directa_000000000000001') = 1, 'inserción directa avanza generación');
+-- Generación por persona: avanza una vez por versión nueva de la historia (no
+-- por reenvío idempotente ni por rechazo) y la barrera la devuelve.
+SELECT pg_temp.exigir((SELECT count(*) FROM vec_personal.proyeccion_empleado_persona_control) = 7
   AND NOT EXISTS (
     SELECT 1 FROM vec_personal.proyeccion_empleado_persona_control c
      WHERE c.generacion <> (SELECT count(*) FROM vec_personal.proyeccion_empleado_persona_historia h
@@ -137,5 +149,5 @@ SELECT pg_temp.exigir(vec_personal.bloquear_generacion_proyeccion_empleado_perso
 SELECT pg_temp.rechaza($q$SELECT vec_personal.bloquear_generacion_proyeccion_empleado_persona_v1('dni_12345678Z')$q$, '22023', 'barrera selector civil');
 SELECT pg_temp.rechaza($q$DELETE FROM vec_personal.proyeccion_empleado_persona_control$q$, '55000', 'delete control');
 SELECT pg_temp.rechaza($q$TRUNCATE vec_personal.proyeccion_empleado_persona_control$q$, '55000', 'truncate control');
-SELECT pg_temp.exigir((SELECT count(*) FROM vec_personal.proyeccion_empleado_persona_historia) = 11, 'historia completa');
+SELECT pg_temp.exigir((SELECT count(*) FROM vec_personal.proyeccion_empleado_persona_historia) = 12, 'historia completa');
 \echo 'Personal 000016: casos de proyección persona-empleado OK'

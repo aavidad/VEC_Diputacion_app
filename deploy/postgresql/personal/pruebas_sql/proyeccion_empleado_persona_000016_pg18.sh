@@ -89,6 +89,55 @@ archivo "$repo_dir/deploy/postgresql/personal/migraciones/000016_proyeccion_empl
 archivo "$repo_dir/deploy/postgresql/personal/migraciones/000016_proyeccion_empleado_persona.up.sql"
 admin -o /dev/null < "$base_dir/proyeccion_empleado_persona_000016_casos.sql"
 
+# Barrera frente a una inserción directa en la historia (sin la publicación):
+# el lector SERIALIZABLE toma su instantánea (consultivo 778 como señal), la
+# versión 2 se inserta y confirma directamente (consultivo 777 como señal) y
+# la barrera debe devolver 40001; nunca la generación anterior.
+per_d=per_sintetica_directa_barrera_0000001
+pep_d=pep_sintetica_directa_barrera_0000001
+emp_d=emp_sintetico_directo_barrera_0000001
+fila_directa() { # version
+  echo "INSERT INTO vec_personal.proyeccion_empleado_persona_historia (
+    proyeccion_ref, version, persona_ref, empleado_ref, estado, motivo, vigente_desde, vigente_hasta,
+    procedencia_acto_ref, procedencia_ref, procedencia_version, procedencia_huella_sha256, registrada_en)
+    VALUES ('$pep_d',$1,'$per_d','$emp_d','activa',NULL,clock_timestamp()-interval '1 day',
+    clock_timestamp()+interval '1 day','personal:proyeccion-empleado:directa',
+    'prc_personal_sintetica_ct_0000000000001',1,repeat('c',64),clock_timestamp());"
+}
+admin_valor "BEGIN; SET LOCAL ROLE vec_personal_propietario; $(fila_directa 1) COMMIT;" >/dev/null
+consultivo_concedido() { # clave
+  [[ $(admin_valor "SELECT EXISTS (SELECT 1 FROM pg_locks WHERE locktype='advisory' AND granted
+    AND objsubid=1 AND classid=0 AND objid=$1)") == t ]]
+}
+esperar_consultivo() { # clave
+  for _ in $(seq 1 200); do consultivo_concedido "$1" && return 0; sleep 0.05; done
+  fallo "consultivo $1 no concedido"
+}
+lector=$(mktemp)
+admin_valor "BEGIN ISOLATION LEVEL SERIALIZABLE;
+  SELECT pg_advisory_xact_lock(778);
+  DO \$e\$ BEGIN
+    WHILE NOT EXISTS (SELECT 1 FROM pg_locks WHERE locktype='advisory' AND granted
+                        AND objsubid=1 AND classid=0 AND objid=777) LOOP
+      PERFORM pg_sleep(0.05);
+    END LOOP;
+  END \$e\$;
+  SELECT vec_personal.bloquear_generacion_proyeccion_empleado_persona_v1('$per_d');
+  COMMIT;" >"$lector" 2>&1 &
+lector_pid=$!
+esperar_consultivo 778
+admin_valor "BEGIN; SET LOCAL ROLE vec_personal_propietario; $(fila_directa 2) COMMIT;
+  SELECT pg_advisory_lock(777); SELECT pg_sleep(3);" >/dev/null &
+senal_pid=$!
+wait "$lector_pid" || true
+wait "$senal_pid"
+salida_lector=$(cat "$lector"); rm -f "$lector"
+[[ $salida_lector == *'could not serialize'* ]] \
+  || fallo "la barrera no vio la inserción directa: $salida_lector"
+[[ $(admin_valor "SELECT vec_personal.bloquear_generacion_proyeccion_empleado_persona_v1('$per_d')") == 2 ]] \
+  || fallo 'la inserción directa no avanzó la generación'
+echo 'Barrera: inserción directa en la historia confirmada tras la instantánea da 40001'
+
 # ---------------------------------------------------------------------------
 # Regresión del incidente sobre el resolutor ContextoActor V2 real.
 # Persona de RRHH sintética con contexto CT y un candidato de Bolsa activo.
@@ -228,10 +277,10 @@ echo '  000007: alta de puntero de empleado del núcleo cerrada'
 # Persistencia tras reinicio y DOWN no destructivo con historia.
 docker restart "$contenedor" >/dev/null
 esperar
-[[ $(admin_valor "SELECT count(*) FROM vec_personal.proyeccion_empleado_persona_historia") == 15 ]] || fallo 'historia tras reinicio'
+[[ $(admin_valor "SELECT count(*) FROM vec_personal.proyeccion_empleado_persona_historia") == 18 ]] || fallo 'historia tras reinicio'
 [[ $(clase_personal) == sin_empleado ]] || fallo 'estado tras reinicio'
 if archivo "$repo_dir/deploy/postgresql/personal/migraciones/000016_proyeccion_empleado_persona.down.sql" >/dev/null 2>&1; then
   fallo 'DOWN borró una proyección con historia'
 fi
-[[ $(admin_valor "SELECT count(*) FROM vec_personal.proyeccion_empleado_persona_historia") == 15 ]] || fallo 'DOWN alteró historia'
+[[ $(admin_valor "SELECT count(*) FROM vec_personal.proyeccion_empleado_persona_historia") == 18 ]] || fallo 'DOWN alteró historia'
 printf 'PG18.4: Personal 000016 ROLLBACK limpio, COMMIT, casos, ACL/RLS, regresión CT del incidente (000006/000007), reinicio y DOWN cerrado con historia OK.\n'
