@@ -4,7 +4,7 @@ import test from "node:test";
 
 const raiz = new URL("./", import.meta.url);
 const versionNueva = "20260924-f2-personal-estados-v4";
-const versionEntrada = "20260924-f2-cronos-permisos-v2";
+const versionEntrada = "20260924-f2-dietas-consulta-v2";
 const versionI18n = "20260924-personal-interno-estados-v1";
 
 function versiones(codigo, recurso) {
@@ -20,6 +20,8 @@ test("una caché caliente descarga el grafo renovado hasta Personal i18n", async
     [`/portal-empleado/portal-modulos-coordinador.js?v=${versionNueva}`, "/* coordinador anterior de Personal */"],
     ["/portal-empleado/portal.js?v=20260924-f2-cronos-permisos-v1", "/* portal anterior de Cronos */"],
     ["/portal-empleado/portal-modulos-coordinador.js?v=20260924-f2-cronos-permisos-v1", "/* coordinador anterior de Cronos */"],
+    ["/portal-empleado/portal.js?v=20260924-f2-cronos-permisos-v2", "/* portal anterior de Cronos */"],
+    ["/portal-empleado/portal-modulos-coordinador.js?v=20260924-f2-cronos-permisos-v2", "/* coordinador anterior de Cronos */"],
     ["/portal-empleado/modulos/personal/vista.js?v=20260924-f2-cache-v3", "/* vista anterior */"],
     ["/portal-empleado/modulos/personal/i18n.js?v=20260924-f2-web2", "/* i18n anterior */"],
   ]);

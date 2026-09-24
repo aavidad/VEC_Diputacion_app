@@ -202,7 +202,8 @@ test("los estilos están aislados, cacheados y cubren 1040, 780 y móvil", async
     readFile(new URL("portal-vistas-utilidades.js", import.meta.url), "utf8"),
   ]);
   assert.match(html, /portal-llamamientos\.css\?v=20260719-asistente-llamamientos-v2/);
-  assert.match(html, /portal\.js\?v=20260924-f2-cronos-permisos-v2/);
+  assert.match(html, /portal\.js\?v=20260924-f2-dietas-consulta-v2/);
+  assert.doesNotMatch(html, /portal\.js\?v=20260924-f2-cronos-permisos-v2/);
   assert.doesNotMatch(html, /portal\.js\?v=20260924-f2-cronos-permisos-v1/);
   assert.doesNotMatch(html, /portal\.js\?v=20260924-f2-personal-estados-v4/);
   assert.doesNotMatch(html, /portal\.js\?v=20260924-p1-personal-interno-v2/);

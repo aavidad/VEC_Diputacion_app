@@ -11,6 +11,7 @@ const versionCachePersonal = "20260924-f2-cache-v3";
 const versionPersonalInterno = "20260924-p1-personal-interno-v2";
 const versionPersonalEstados = "20260924-f2-personal-estados-v4";
 const versionCronosPermisos = "20260924-f2-cronos-permisos-v2";
+const versionDietasConsulta = "20260924-f2-dietas-consulta-v2";
 const raiz = new URL("./", import.meta.url);
 
 function versionesDe(codigo, recurso) {
@@ -35,7 +36,7 @@ test("una carga con caché caliente solicita CSS F2 y entrada JS con URL nueva",
   ]);
   for (const [recurso, versionAntigua] of previo) {
     assert.equal(versionDe(html, `/portal-empleado/${recurso}`),
-      recurso === "portal.js" ? versionCronosPermisos : recurso === "portal.css" ? versionSaltoMovil : version);
+      recurso === "portal.js" ? versionDietasConsulta : recurso === "portal.css" ? versionSaltoMovil : version);
     assert.notEqual(versionDe(html, `/portal-empleado/${recurso}`), versionAntigua);
   }
   for (const recurso of ["portal-baremacion.css", "portal-contratos.css", "portal-convocatorias.css",
@@ -89,8 +90,8 @@ test("el grafo JS propio llega desde HTML a los consumidores F2 con versiones nu
     readFile(new URL("portal-modulos-coordinador.js", raiz), "utf8"),
     readFile(new URL("modulos/dietas/vista-recorridos.js", raiz), "utf8"),
   ]);
-  assert.equal(versionDe(html, "/portal-empleado/portal.js"), versionCronosPermisos);
-  assert.equal(versionDe(portal, "./portal-modulos-coordinador.js"), versionCronosPermisos);
+  assert.equal(versionDe(html, "/portal-empleado/portal.js"), versionDietasConsulta);
+  assert.equal(versionDe(portal, "./portal-modulos-coordinador.js"), versionDietasConsulta);
   assert.notEqual(versionDe(html, "/portal-empleado/portal.js"), "20260924-f2-cronos-permisos-v1");
   assert.notEqual(versionDe(portal, "./portal-modulos-coordinador.js"), "20260924-f2-cronos-permisos-v1");
   assert.notEqual(versionDe(html, "/portal-empleado/portal.js"), versionPersonalEstados);
@@ -102,20 +103,22 @@ test("el grafo JS propio llega desde HTML a los consumidores F2 con versiones nu
     assert.equal(versionDe(portal, `./${recurso}`), version, recurso);
     await access(new URL(recurso, raiz));
   }
-  for (const recurso of ["modulos/cronos/vista.js", "modulos/dietas/vista-recorridos.js",
+  for (const recurso of ["modulos/cronos/vista.js",
     "modulos/dietas/cliente-borradores-http.js", "modulos/personal/vista-ficha-integral.js",
     "modulos/nominas/vista.js", "modulos/solicitudes/vista.js", "modulos/meritos/vista.js",
     "modulos/comunicaciones/vista.js", "modulos/documentos/vista.js", "modulos/aprobaciones/vista.js"]) {
     assert.equal(versionDe(coordinador, `./${recurso}`), version, recurso);
     await access(new URL(recurso, raiz));
   }
-  assert.equal(versionDe(dietas, "./vista-borradores-propios.js"), version);
+  assert.deepEqual(versionesDe(coordinador, "./modulos/dietas/vista-recorridos.js"),
+    [versionDietasConsulta, versionDietasConsulta]);
+  assert.equal(versionDe(dietas, "./vista-borradores-propios.js"), "20260924-f2-consulta-v1");
 });
 
 test("la caché immutable previa no retiene el catálogo i18n ni los consumidores F2", async () => {
   const versionesPrevias = new Map([
-    ["portal.js", [version, versionCache, versionCachePersonal, "20260924-p1-personal-interno-v1", versionPersonalInterno, versionPersonalEstados, "20260924-f2-cronos-permisos-v1"]],
-    ["portal-modulos-coordinador.js", [version, versionCache, versionCachePersonal, "20260924-p1-personal-interno-v1", versionPersonalInterno, versionPersonalEstados, "20260924-f2-cronos-permisos-v1"]],
+    ["portal.js", [version, versionCache, versionCachePersonal, "20260924-p1-personal-interno-v1", versionPersonalInterno, versionPersonalEstados, "20260924-f2-cronos-permisos-v1", versionCronosPermisos]],
+    ["portal-modulos-coordinador.js", [version, versionCache, versionCachePersonal, "20260924-p1-personal-interno-v1", versionPersonalInterno, versionPersonalEstados, "20260924-f2-cronos-permisos-v1", versionCronosPermisos]],
     ["portal-catalogo-modulos.js", ["20260906-acceso-certificado-v1", versionCache]],
     ["portal-inicio.js", ["20260923-p4-reintento-v2", versionCache]],
     ["portal-eventos.js", ["20260721-acceso-real-v2", versionCache]],
@@ -123,6 +126,7 @@ test("la caché immutable previa no retiene el catálogo i18n ni los consumidore
     ["portal-borradores-acceso.js", ["20260721-acceso-real-v2", versionCache]],
     ["portal-i18n.js", ["20260721-acceso-real-v2", "20260923-p4-reintento-v2", version, versionCache]],
     ["modulos/cronos/vista-recorridos.js", ["20260920-cronos-bandeja-v2"]],
+    ["modulos/dietas/vista-recorridos.js", [version]],
     ["modulos/personal/vista.js", ["20260920-personal-catalogo-v1", versionCachePersonal]],
     ["modulos/personal/cliente-http-categorias.js", ["20260920-personal-catalogo-v1"]],
     ["modulos/personal/vista-estructura-organizativa-publica.js", ["20260920-personal-estructura-v1"]],
@@ -153,7 +157,7 @@ test("la caché immutable previa no retiene el catálogo i18n ni los consumidore
     ["portal.js", ["portal-modulos-coordinador.js", "portal-inicio.js", "portal-eventos.js",
       "portal-borradores-ui.js", "portal-i18n.js"]],
     ["portal-modulos-coordinador.js", ["portal-catalogo-modulos.js", "portal-inicio.js", "portal-i18n.js",
-      "modulos/cronos/vista-recorridos.js", "modulos/personal/vista.js",
+      "modulos/cronos/vista-recorridos.js", "modulos/dietas/vista-recorridos.js", "modulos/personal/vista.js",
       "modulos/personal/cliente-http-categorias.js",
       "modulos/personal/vista-estructura-organizativa-publica.js"]],
     ["portal-catalogo-modulos.js", ["portal-i18n.js"]],
@@ -174,9 +178,10 @@ test("la caché immutable previa no retiene el catálogo i18n ni los consumidore
       const versionesHijo = versionesDe(codigo, ruta);
       const personal = padre === "portal-modulos-coordinador.js" && hijo.startsWith("modulos/personal/");
       assert.equal(versionesHijo.length, ["modulos/personal/vista.js", "modulos/personal/cliente-http-categorias.js",
-        "modulos/cronos/vista-recorridos.js"].includes(hijo) ? 2 : 1,
+        "modulos/cronos/vista-recorridos.js", "modulos/dietas/vista-recorridos.js"].includes(hijo) ? 2 : 1,
         `${padre} → ${hijo}: número de aristas`);
       const versionEsperada = padre === "index.html" || ["portal-modulos-coordinador.js",
+        "modulos/dietas/vista-recorridos.js"].includes(hijo) ? versionDietasConsulta : [
         "portal-catalogo-modulos.js", "portal-inicio.js", "portal-eventos.js",
         "portal-borradores-ui.js", "portal-borradores-acceso.js", "portal-i18n.js"].includes(hijo)
         ? versionCronosPermisos
@@ -192,5 +197,6 @@ test("la caché immutable previa no retiene el catálogo i18n ni los consumidore
   }
   assert.deepEqual(hitsPrevios, [], "ninguna URL immutable antigua se recupera de caché");
   assert.ok(descargas.has(`/portal-empleado/modulos/personal/cliente-http-categorias.js?v=${versionPersonalInterno}`));
+  assert.ok(descargas.has(`/portal-empleado/modulos/dietas/vista-recorridos.js?v=${versionDietasConsulta}`));
   assert.equal(descargas.size, versionesPrevias.size, "todos los recursos cambiados se descargan de nuevo");
 });
