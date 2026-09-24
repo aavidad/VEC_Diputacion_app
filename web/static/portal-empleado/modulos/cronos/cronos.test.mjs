@@ -123,6 +123,52 @@ test("El formulario aplica la selección y retira sus oyentes al desmontar", () 
   assert.equal(contenedor.oyentes.size, 0);
 });
 
+test("La selección conserva la denegación de una proyección real sin capacidades", () => {
+  const contexto = contextoReal();
+  const datos = datosRealesPara(contexto);
+  const seleccion = validarSeleccionPeriodoCronos({ tipo: "semana", desde: "2026-09-24" });
+  const proyeccion = { estado: "disponible", contextoActor: contexto, datos, capacidades: [] };
+  const html = renderizarJornadaCronos({ ...proyeccion, seleccion });
+  assert.match(html, /data-estado="denegado"/);
+  assert.match(html, /Acceso denegado/);
+  assert.match(html, /data-cronos-jornada-resultado tabindex="-1"/);
+  assert.doesNotMatch(html, /Servicio pendiente|Falta una proyección autorizada|data-cronos-form-periodo/);
+
+  let contenedor;
+  let focos = 0;
+  let focoDenegado = 0;
+  const documento = { activeElement: {}, createElement: () => {
+    contenedor = { dataset: {}, innerHTML: "", oyentes: new Map(),
+      addEventListener(tipo, fn) { this.oyentes.set(tipo, fn); },
+      removeEventListener(tipo) { this.oyentes.delete(tipo); },
+      contains: () => true,
+      querySelector(selector) {
+        if (selector.includes("data-cronos-periodo-resultado") && this.innerHTML.includes("data-cronos-periodo-resultado")) {
+          return { focus() { focos += 1; } };
+        }
+        if (selector.includes("data-cronos-jornada-resultado") && this.innerHTML.includes('data-estado="denegado"')) {
+          return { focus() { focoDenegado += 1; } };
+        }
+        return null;
+      },
+      remove() {},
+    };
+    return contenedor;
+  } };
+  const raiz = { ownerDocument: documento, append() {} };
+  const anuncios = [];
+  const vista = montarJornadaCronos({ raiz, anunciar: (mensaje) => anuncios.push(mensaje) });
+  const controles = new Map(Object.entries({ tipo: { value: "semana" }, desde: { value: "2026-09-24" }, hasta: { value: "" } }));
+  const formulario = { matches: () => true, elements: { namedItem: (nombre) => controles.get(nombre) } };
+  contenedor.oyentes.get("submit")({ target: formulario, preventDefault() {} });
+  assert.ok(focos >= 1);
+  vista.actualizar(proyeccion);
+  assert.match(contenedor.innerHTML, /data-estado="denegado"/);
+  assert.equal(focoDenegado, 1);
+  assert.equal(anuncios.at(-1), "Acceso denegado");
+  vista.desmontar();
+});
+
 test("Jornada disponible exige proyección propia y oculta bloques sin capacidad", () => {
   const contexto = contextoReal();
   const datos = datosRealesPara(contexto);
