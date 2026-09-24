@@ -100,4 +100,6 @@ Estamos completando los recorridos funcionales de VEC. Necesitamos concretar est
 
 44. **Nivel de detalle en el cálculo de dietas.** La aplicación actual ofrece calcular las dietas con nivel de detalle «bajo», «medio» o «alto». ¿Qué significa cada nivel, quién lo elige y qué efecto tiene en el importe o en la justificación exigida?
 
+45. **Contacto para llamar a aspirantes que aún no han entrado en VEC.** Los aspirantes de las bolsas importadas de CONVOCA no tienen todavía alta en VEC, así que VEC no tiene un contacto propio de ellos confirmado por la persona. ¿Podemos usar el correo y el teléfono que figuran en CONVOCA para enviarles el aviso de llamamiento hasta que registren su contacto en VEC? Si es así, ¿con qué base y durante cuánto tiempo, y quién responde de que esos datos siguen siendo exactos? Si no, ¿cómo se les avisa mientras tanto (por ejemplo, por teléfono desde RRHH)? Recordamos que el aviso por correo no es una notificación administrativa: de él no se deducen plazos ni renuncias.
+
 Para las integraciones, agradeceríamos también el contacto de **Informática responsable del portafirmas, RC/costes, GINPIX, identidad corporativa, certificados y revocación**, que pueda facilitarnos la documentación técnica y el acceso a pruebas.
