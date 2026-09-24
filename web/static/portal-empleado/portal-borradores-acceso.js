@@ -1,5 +1,5 @@
 import { ErrorAPIBorradores } from "./portal-borradores-api.js";
-import { traducirPortal } from "./portal-i18n.js?v=20260721-acceso-real-v2";
+import { traducirPortal } from "./portal-i18n.js?v=20260924-f2-cache-v2";
 
 const FASE_INICIAL = "inicial";
 const FASE_COMPROBANDO = "comprobando";

@@ -3,6 +3,7 @@ import { access, readFile } from "node:fs/promises";
 import test from "node:test";
 
 const version = "20260924-f2-shell-v1";
+const versionCache = "20260924-f2-cache-v2";
 const raiz = new URL("./", import.meta.url);
 
 function versionDe(codigo, recurso) {
@@ -22,7 +23,8 @@ test("una carga con caché caliente solicita CSS F2 y entrada JS con URL nueva",
     ["modulos/contratacion-temporal/expedientes-operativo.css", "20260918-botones-v1"],
   ]);
   for (const [recurso, versionAntigua] of previo) {
-    assert.equal(versionDe(html, `/portal-empleado/${recurso}`), version);
+    assert.equal(versionDe(html, `/portal-empleado/${recurso}`),
+      recurso === "portal.js" ? versionCache : version);
     assert.notEqual(versionDe(html, `/portal-empleado/${recurso}`), versionAntigua);
   }
   for (const recurso of ["portal-baremacion.css", "portal-contratos.css", "portal-convocatorias.css",
@@ -41,8 +43,9 @@ test("el grafo JS propio llega desde HTML a los consumidores F2 con versiones nu
     readFile(new URL("portal-modulos-coordinador.js", raiz), "utf8"),
     readFile(new URL("modulos/dietas/vista-recorridos.js", raiz), "utf8"),
   ]);
-  assert.equal(versionDe(html, "/portal-empleado/portal.js"), version);
-  for (const recurso of ["portal-modulos-coordinador.js", "portal-menu-bolsa.js",
+  assert.equal(versionDe(html, "/portal-empleado/portal.js"), versionCache);
+  assert.equal(versionDe(portal, "./portal-modulos-coordinador.js"), versionCache);
+  for (const recurso of ["portal-menu-bolsa.js",
     "portal-vistas-baremacion.js", "portal-vistas-convocatorias.js", "portal-vistas-operaciones.js",
     "modulos/seleccion/inscripciones/vista.js", "modulos/seleccion/pruebas/vista.js",
     "modulos/seleccion/comunicaciones/vista.js"]) {
@@ -57,4 +60,68 @@ test("el grafo JS propio llega desde HTML a los consumidores F2 con versiones nu
     await access(new URL(recurso, raiz));
   }
   assert.equal(versionDe(dietas, "./vista-borradores-propios.js"), version);
+});
+
+test("la caché immutable previa no retiene el catálogo i18n ni los consumidores F2", async () => {
+  const versionesPrevias = new Map([
+    ["portal.js", [version]],
+    ["portal-modulos-coordinador.js", [version]],
+    ["portal-catalogo-modulos.js", ["20260906-acceso-certificado-v1"]],
+    ["portal-inicio.js", ["20260923-p4-reintento-v2"]],
+    ["portal-eventos.js", ["20260721-acceso-real-v2"]],
+    ["portal-borradores-ui.js", ["20260921-avisos-r5-v1"]],
+    ["portal-borradores-acceso.js", ["20260721-acceso-real-v2"]],
+    ["portal-i18n.js", ["20260721-acceso-real-v2", "20260923-p4-reintento-v2", version]],
+    ["modulos/cronos/vista-recorridos.js", ["20260920-cronos-bandeja-v2"]],
+  ]);
+  const cache = new Map();
+  for (const [recurso, versiones] of versionesPrevias) {
+    for (const previa of versiones) {
+      const url = `/portal-empleado/${recurso}?v=${previa}`;
+      cache.set(url, `/* respuesta immutable antigua: ${url} */`);
+    }
+  }
+  const urlsPrevias = new Set(cache.keys());
+  const hitsPrevios = [];
+  const descargas = new Set();
+  async function cargar(url) {
+    if (cache.has(url)) {
+      if (urlsPrevias.has(url)) hitsPrevios.push(url);
+      return cache.get(url);
+    }
+    const ruta = url.split("?", 1)[0].replace(/^\/portal-empleado\//u, "");
+    const codigo = await readFile(new URL(ruta, raiz), "utf8");
+    cache.set(url, codigo);
+    descargas.add(url);
+    return codigo;
+  }
+  const aristas = new Map([
+    ["index.html", ["portal.js"]],
+    ["portal.js", ["portal-modulos-coordinador.js", "portal-inicio.js", "portal-eventos.js",
+      "portal-borradores-ui.js", "portal-i18n.js"]],
+    ["portal-modulos-coordinador.js", ["portal-catalogo-modulos.js", "portal-i18n.js",
+      "modulos/cronos/vista-recorridos.js"]],
+    ["portal-catalogo-modulos.js", ["portal-i18n.js"]],
+    ["portal-inicio.js", ["portal-i18n.js"]],
+    ["portal-eventos.js", ["portal-i18n.js"]],
+    ["portal-borradores-ui.js", ["portal-borradores-acceso.js", "portal-i18n.js"]],
+    ["portal-borradores-acceso.js", ["portal-i18n.js"]],
+  ]);
+  const html = await readFile(new URL("index.html", raiz), "utf8"); // HTML: no-store.
+  const pendientes = [["index.html", html]];
+  const visitados = new Set();
+  while (pendientes.length > 0) {
+    const [padre, codigo] = pendientes.shift();
+    if (visitados.has(padre)) continue;
+    visitados.add(padre);
+    for (const hijo of aristas.get(padre) || []) {
+      const ruta = padre === "index.html" ? `/portal-empleado/${hijo}` : `./${hijo}`;
+      const versionHijo = versionDe(codigo, ruta);
+      assert.equal(versionHijo, versionCache, `${padre} → ${hijo}`);
+      const url = `/portal-empleado/${hijo}?v=${versionHijo}`;
+      pendientes.push([hijo, await cargar(url)]);
+    }
+  }
+  assert.deepEqual(hitsPrevios, [], "ninguna URL immutable antigua se recupera de caché");
+  assert.equal(descargas.size, versionesPrevias.size, "los nueve recursos cambiados se descargan de nuevo");
 });

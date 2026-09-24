@@ -1,4 +1,4 @@
-import { crearControladorPortal } from "./portal-eventos.js?v=20260721-acceso-real-v2";
+import { crearControladorPortal } from "./portal-eventos.js?v=20260924-f2-cache-v2";
 import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20260923-pweb17-v1";
 import { extraerDatosEnvelopeCanonico, validarPanelBolsa } from "./portal-contrato.js?v=20260717-panel-interno-v1";
 import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?v=20260718-llamamientos-v1";
@@ -6,17 +6,17 @@ import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flu
 import { crearAsistenteLlamamientos } from "./portal-llamamientos-vista.js?v=20260719-asistente-llamamientos-v2";
 import { AYUDA_PORTAL_BOLSA, detectarContextoContratacionTemporal, obtenerAyudaContratacionTemporal, renderizarAyudaContratacionTemporal } from "./ayuda-contenido.js?v=20260917-ayuda-contratacion";
 import { crearAyudanteTramites } from "./ayudante-tramites.js?v=20260920-ayudante-tramites-v1";
-import { crearSuperficieBorradoresPortal, instalarDeeplinkAvisosBorradores } from "./portal-borradores-ui.js?v=20260921-avisos-r5-v1";
+import { crearSuperficieBorradoresPortal, instalarDeeplinkAvisosBorradores } from "./portal-borradores-ui.js?v=20260924-f2-cache-v2";
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20260720-pulido-escritorio-v2";
 import { crearVistasConvocatorias } from "./portal-vistas-convocatorias.js?v=20260924-f2-shell-v1";
 import { crearVistasBaremacion } from "./portal-vistas-baremacion.js?v=20260924-f2-shell-v1";
 import { crearVistaReglas } from "./portal-vistas-reglas.js?v=20260720-pulido-escritorio-v2";
 import { crearVistasOperaciones } from "./portal-vistas-operaciones.js?v=20260924-f2-shell-v1";
 import { crearVistasGobierno } from "./portal-vistas-gobierno.js?v=20260718-formularios-v2";
-import { crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, VISTAS_MODULOS_PERSONALES, VISTAS_PRESENTACION_VISUALES } from "./portal-modulos-coordinador.js?v=20260924-f2-shell-v1";
-import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260923-p4-reintento-v2";
+import { crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, VISTAS_MODULOS_PERSONALES, VISTAS_PRESENTACION_VISUALES } from "./portal-modulos-coordinador.js?v=20260924-f2-cache-v2";
+import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260924-f2-cache-v2";
 import { accesoBolsaEfectivo, instalarMenuBolsa, resumenAccesosModulos, sincronizarMenuBolsa, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260924-f2-shell-v1";
-import { traducirPortal } from "./portal-i18n.js?v=20260924-f2-shell-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260924-f2-cache-v2";
 import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20260923-pweb13-b8-v1";
 import { montarVistaInscripciones } from "./modulos/seleccion/inscripciones/vista.js?v=20260924-f2-shell-v1";
 import { montarVistaPruebas } from "./modulos/seleccion/pruebas/vista.js?v=20260924-f2-shell-v1";
