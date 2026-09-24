@@ -27,7 +27,7 @@ test("tablas, KPI y estados consumen colores semánticos comunes", () => {
   assert.match(componentes, /tbody tr:focus-within/u);
   assert.match(componentes, /\.icono-kpi[\s\S]*border-radius:/u);
   assert.match(componentes, /\.estado-chip::before[\s\S]*background: currentColor/u);
-  assert.match(expedientes, /\.ct-exp-indicador::before[\s\S]*border-radius: 50%/u);
+  assert.match(expedientes, /\.ct-exp-indicador::before \{[^}]*border-radius: 14px/u);
   assert.doesNotMatch(expedientes, /#[0-9a-fA-F]{3,8}\b/u);
 });
 

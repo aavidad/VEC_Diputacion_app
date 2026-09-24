@@ -39,7 +39,7 @@
   background: var(--bolsa-brand-soft);
   color: var(--bolsa-brand);
   cursor: pointer;
-  font-weight: 700;
+  font-weight: 600;
   list-style: none;
 }
 .ayuda-listas-publica summary::-webkit-details-marker { display: none; }
@@ -138,10 +138,10 @@
   background: var(--bolsa-surface-muted);
 }
 .formulario-busqueda-lista fieldset { margin: 0; padding: 0; border: 0; }
-.formulario-busqueda-lista legend { margin-bottom: 8px; color: var(--bolsa-text); font-weight: 700; }
+.formulario-busqueda-lista legend { margin-bottom: 8px; color: var(--bolsa-text); font-weight: 600; }
 .fila-busqueda { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
 .campo-documento { flex: 1 1 240px; }
-.campo-documento label { display: block; margin-bottom: 5px; color: var(--bolsa-muted-strong); font-size: .85rem; font-weight: 650; }
+.campo-documento label { display: block; margin-bottom: 5px; color: var(--bolsa-muted-strong); font-size: .85rem; font-weight: 600; }
 .campo-documento input {
   width: 100%;
   min-height: 44px;
@@ -165,7 +165,7 @@
   background: var(--bolsa-brand-soft);
   color: var(--bolsa-brand);
   cursor: pointer;
-  font-weight: 700;
+  font-weight: 600;
   list-style: none;
 }
 .ayuda-formato-lista summary::-webkit-details-marker { display: none; }
@@ -187,7 +187,7 @@
   border-bottom: 1px solid var(--bolsa-line);
   background: var(--bolsa-surface-muted);
   color: var(--bolsa-text);
-  font-weight: 700;
+  font-weight: 600;
   text-align: left;
 }
 .tabla-listas-publica th {
@@ -198,7 +198,7 @@
   border-bottom: 1px solid var(--bolsa-line-strong);
   background: var(--bolsa-surface-muted);
   color: var(--bolsa-text);
-  font-weight: 700;
+  font-weight: 600;
   white-space: nowrap;
 }
 .tabla-listas-publica td {
@@ -224,7 +224,7 @@
   background: var(--bolsa-audit-soft);
   color: var(--bolsa-audit);
   font-size: .8rem;
-  font-weight: 700;
+  font-weight: 600;
   white-space: nowrap;
 }
 .estado-chip-publico::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }

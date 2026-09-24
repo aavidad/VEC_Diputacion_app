@@ -223,7 +223,7 @@ test("el menú conserva mínimo privilegio, adaptación y ausencia de estado amb
   assert.match(codigoPortal, /if \(vista\.startsWith\("seleccion-"\)\) return false/);
   assert.match(estilos, /@media \(max-width: 1040px\)/);
   assert.match(estilos, /@media \(max-width: 780px\)/);
-  assert.match(estilos, /\.categoria-menu-bolsa \.numero-menu\s*\{[^}]*border-radius:\s*50%/);
+  assert.doesNotMatch(estilos, /#[0-9a-f]{3,8}\b|rgba?\(/i);
   assert.match(estilos, /@media \(forced-colors: active\)/);
   assert.match(estilos, /prefers-reduced-motion/);
   assert.match(estilos, /\.enlace-submenu:focus-visible/);
