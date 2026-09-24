@@ -123,6 +123,9 @@ export function montarSeguimientoIncorporacion({ raiz, cliente, recibo, mensajes
 
   function pintar() {
     if (!activo) return;
+    const botonAnterior = raiz.querySelector?.("[data-ct-seguimiento-consultar]");
+    const focoActual = raiz.ownerDocument?.activeElement ?? globalThis.document?.activeElement;
+    const restituirFoco = raiz.isConnected !== false && botonAnterior && focoActual === botonAnterior;
     const cargando = estado === "cargando";
     const contenido = estado === "listo" ? renderizarSeguimiento(datos, t, fechas)
       : estado === "error" ? `<p role="status">${escapar(t("seguimiento_incorporacion_error"))}</p>` : "";
@@ -130,9 +133,12 @@ export function montarSeguimientoIncorporacion({ raiz, cliente, recibo, mensajes
       <h3>${escapar(t("seguimiento_incorporacion_titulo"))}</h3>
       <p class="ct-ayuda">${escapar(t("seguimiento_incorporacion_alcance"))}</p>
       <p><strong>${escapar(t("seguimiento_incorporacion_recibo"))}:</strong> <code>${escapar(reciboConfirmado?.recibo_ref ?? "—")}</code></p>
-      <button type="button" class="boton-secundario" data-ct-seguimiento-consultar${cargando || !reciboConfirmado ? " disabled" : ""}>${escapar(t("seguimiento_incorporacion_consultar"))}</button>
+      <button type="button" class="boton-secundario" data-ct-seguimiento-consultar${!reciboConfirmado ? " disabled" : cargando ? ' aria-disabled="true"' : ""}>${escapar(t("seguimiento_incorporacion_consultar"))}</button>
       <p role="status" aria-live="polite">${cargando ? escapar(t("seguimiento_incorporacion_cargando")) : ""}</p>
       ${!reciboConfirmado ? `<p role="status">${escapar(t("seguimiento_incorporacion_sin_recibo"))}</p>` : contenido}</section>`;
+    if (restituirFoco && activo && raiz.isConnected !== false) {
+      raiz.querySelector?.("[data-ct-seguimiento-consultar]")?.focus?.();
+    }
   }
 
   async function consultar(evento) {
