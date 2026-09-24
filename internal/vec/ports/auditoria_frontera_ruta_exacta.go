@@ -8,6 +8,7 @@ import (
 )
 
 const SuperficieAuditoriaFronteraRutaExactaContratacionTemporal = "api.contratacion_temporal.ruta_exacta"
+const SuperficieAuditoriaFronteraRutaExactaPersonal = "api.personal.registro_empleado.ruta_exacta"
 
 var ErrOrdenAuditoriaFronteraRutaExactaInvalida = errors.New(
 	"vec ports: orden de auditoria de frontera de ruta exacta invalida",
@@ -37,12 +38,40 @@ func (o OrdenAuditoriaFronteraRutaExacta) Validar() error {
 	if !correlacionAuditoriaFronteraRutaExactaValida(o.CorrelacionRef) ||
 		(o.Motivo != MotivoAuditoriaFronteraRutaExactaAutenticacionRequerida &&
 			o.Motivo != MotivoAuditoriaFronteraRutaExactaAccesoDenegado) ||
-		o.Superficie != SuperficieAuditoriaFronteraRutaExactaContratacionTemporal ||
-		!rutaAuditoriaFronteraRutaExactaValida(o.Ruta) ||
+		!rutaAuditoriaFronteraRutaExactaValidaParaSuperficie(o.Superficie, o.Ruta) ||
 		(o.ActorRef != "" && !referenciaActorAuditoriaFronteraRutaExactaValida(o.ActorRef)) {
 		return ErrOrdenAuditoriaFronteraRutaExactaInvalida
 	}
 	return nil
+}
+
+func rutaAuditoriaFronteraRutaExactaValidaParaSuperficie(superficie, ruta string) bool {
+	switch superficie {
+	case SuperficieAuditoriaFronteraRutaExactaContratacionTemporal:
+		return rutaAuditoriaFronteraRutaExactaValida(ruta)
+	case SuperficieAuditoriaFronteraRutaExactaPersonal:
+		if ruta == "/api/vec/personal/vacantes" || ruta == "/api/vec/personal/empleados" ||
+			ruta == "/api/vec/personal/hechos" || ruta == "/api/vec/personal/empleados/{emp_ref}" {
+			return true
+		}
+		const prefijo = "/api/vec/personal/empleados/"
+		if !strings.HasPrefix(ruta, prefijo) || len(ruta) > 512 || strings.ContainsAny(ruta, "?#%\\") {
+			return false
+		}
+		referencia := strings.TrimPrefix(ruta, prefijo)
+		if len(referencia) < len("emp_")+22 || len(referencia) > len("emp_")+128 || !strings.HasPrefix(referencia, "emp_") {
+			return false
+		}
+		for _, caracter := range referencia[4:] {
+			if (caracter < 'a' || caracter > 'z') && (caracter < 'A' || caracter > 'Z') &&
+				(caracter < '0' || caracter > '9') && caracter != '_' && caracter != '-' {
+				return false
+			}
+		}
+		return true
+	default:
+		return false
+	}
 }
 
 func correlacionAuditoriaFronteraRutaExactaValida(valor string) bool {
