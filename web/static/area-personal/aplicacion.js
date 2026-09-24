@@ -1,6 +1,6 @@
 import { escaparAtributo, escaparHTML, listaDatos } from "./vistas/comunes.js";
 import { MOTIVOS_PAUSA_DISPONIBILIDAD } from "./contrato.js";
-import { textosErrorCargaAreaPersonal, traducir } from "./i18n.js?v=20260924-f2-b15-area-v1";
+import { textosErrorCargaAreaPersonal, traducir } from "./i18n.js";
 import { montarVistaOportunidades } from "../comun/oportunidades/vista.js?v=20260924-f2-b15-area-v1";
 import {
   renderizarConvocatorias, renderizarDetalleConvocatoria, renderizarInicio,

@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { renderizarErrorCargaAreaPersonal } from "./aplicacion.js";
-import { iniciarI18nAreaPersonal, traducir } from "./i18n.js?v=20260924-f2-b15-area-v1";
+import { iniciarI18nAreaPersonal, traducir } from "./i18n.js";
 
 const prefijo = "areaPersonal.estado.error.";
 
