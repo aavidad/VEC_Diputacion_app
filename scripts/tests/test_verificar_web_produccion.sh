@@ -10,6 +10,7 @@ trap limpiar EXIT INT TERM
 crear_arbol_valido() {
   rm -rf "$temporal/web"
   mkdir -p \
+    "$temporal/web/cartografia" \
     "$temporal/web/static/acceso/locales" \
     "$temporal/web/static/assets" \
     "$temporal/web/static/area-personal/locales" \
@@ -33,8 +34,12 @@ crear_arbol_valido() {
   printf '%s\n' 'body { color: #111; }' >"$temporal/web/static/comun/oportunidades/oportunidades.css"
   cp web/static/portal-empleado/modulos/contratacion-temporal/formalizacion-desarrollo.json \
     "$temporal/web/static/portal-empleado/modulos/contratacion-temporal/formalizacion-desarrollo.json"
+  cp web/cartografia/granada-base-20260719-z8-z12.zip "$temporal/web/cartografia/"
+  cp web/cartografia/granada-base-20260719-z8-z12.json "$temporal/web/cartografia/"
   printf '%s\n' \
     produccion.manifest \
+    cartografia/granada-base-20260719-z8-z12.zip \
+    cartografia/granada-base-20260719-z8-z12.json \
     static/acceso/index.html \
     static/acceso/acceso.css \
     static/acceso/acceso-i18n.js \
@@ -62,6 +67,35 @@ debe_fallar() {
 
 crear_arbol_valido
 scripts/verificar_web_produccion.sh "$temporal/web" "$temporal/manifiesto" >/dev/null
+
+crear_arbol_valido
+cp "$temporal/web/cartografia/granada-base-20260719-z8-z12.zip" "$temporal/web/cartografia/no-autorizado.zip"
+printf '%s\n' cartografia/no-autorizado.zip >>"$temporal/manifiesto"
+cp "$temporal/manifiesto" "$temporal/web/produccion.manifest"
+debe_fallar "un ZIP cartografico adicional"
+
+crear_arbol_valido
+rm "$temporal/web/cartografia/granada-base-20260719-z8-z12.zip"
+debe_fallar "la ausencia del ZIP declarado"
+
+crear_arbol_valido
+printf '%s\n' cartografia/granada-base-20260719-z8-z12.zip >>"$temporal/manifiesto"
+cp "$temporal/manifiesto" "$temporal/web/produccion.manifest"
+debe_fallar "la ruta del ZIP duplicada"
+
+crear_arbol_valido
+rm "$temporal/web/cartografia/granada-base-20260719-z8-z12.zip"
+ln -s "$(pwd)/web/cartografia/granada-base-20260719-z8-z12.zip" \
+  "$temporal/web/cartografia/granada-base-20260719-z8-z12.zip"
+debe_fallar "un enlace simbolico del ZIP"
+
+crear_arbol_valido
+printf 'corrupto' >"$temporal/web/cartografia/granada-base-20260719-z8-z12.zip"
+debe_fallar "un ZIP que no coincide con su indice"
+
+crear_arbol_valido
+printf '{"sha256_zip":"otro"}\n' >"$temporal/web/cartografia/granada-base-20260719-z8-z12.json"
+debe_fallar "un indice que no coincide con el ZIP"
 
 for extension in css js; do
   crear_arbol_valido
