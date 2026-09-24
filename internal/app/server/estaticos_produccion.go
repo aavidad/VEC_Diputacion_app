@@ -16,10 +16,25 @@ func cargarRutasWebProduccion() map[string]struct{} {
 	if err != nil {
 		return map[string]struct{}{}
 	}
+	return rutasHTTPDesdeManifiestoWeb(contenido)
+}
+
+func rutasHTTPDesdeManifiestoWeb(contenido []byte) map[string]struct{} {
 	rutas := make(map[string]struct{})
+	empaquetados := make(map[string]struct{}, 2)
 	for _, linea := range strings.Split(string(contenido), "\n") {
 		rutaFuente := strings.TrimSpace(linea)
 		if rutaFuente == "" || rutaFuente == "produccion.manifest" {
+			continue
+		}
+		// El ZIP y su indice son recursos del artefacto para la ruta OSM
+		// autorizada. No se convierten en rutas estaticas del navegador.
+		if rutaFuente == "cartografia/granada-base-20260719-z8-z12.zip" ||
+			rutaFuente == "cartografia/granada-base-20260719-z8-z12.json" {
+			if _, duplicada := empaquetados[rutaFuente]; duplicada {
+				return map[string]struct{}{}
+			}
+			empaquetados[rutaFuente] = struct{}{}
 			continue
 		}
 		if filepath.IsAbs(rutaFuente) || strings.Contains(rutaFuente, "..") ||

@@ -38,6 +38,28 @@ for catalogo in static/bolsa/i18n-publica.js static/verificar/i18n.js; do
 done
 restaurar
 
+printf '%s\n' 'cartografia/granada-base-20260719-z8-z12.zip' >>web/publico.manifest
+if scripts/verificar_manifiestos_superficies_web.sh >"${temporal}/salida" 2>&1; then
+	printf 'El verificador acepto el ZIP cartografico en la superficie publica.\n' >&2
+	exit 1
+fi
+grep -Fq 'superficie publica incorpora cartografia' "${temporal}/salida" || {
+	cat "${temporal}/salida" >&2
+	exit 1
+}
+restaurar
+
+printf '%s\n' 'cartografia/granada-base-20260719-z8-z12.zip' >>web/interno.manifest
+if scripts/verificar_manifiestos_superficies_web.sh >"${temporal}/salida" 2>&1; then
+	printf 'El verificador acepto el ZIP cartografico duplicado.\n' >&2
+	exit 1
+fi
+grep -Fq 'rutas duplicadas' "${temporal}/salida" || {
+	cat "${temporal}/salida" >&2
+	exit 1
+}
+restaurar
+
 printf '%s\n' 'static/portal-empleado/index.html' >>web/publico.manifest
 if scripts/verificar_manifiestos_superficies_web.sh >"${temporal}/salida" 2>&1; then
 	printf 'El verificador acepto un recurso interno en la superficie publica.\n' >&2
