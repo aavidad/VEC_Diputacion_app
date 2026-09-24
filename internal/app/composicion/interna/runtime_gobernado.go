@@ -11,6 +11,9 @@ import (
 	"vec-diputacion-granada/internal/app/composicion/internactproveedores"
 	"vec-diputacion-granada/internal/app/composicion/internagobierno"
 	inc "vec-diputacion-granada/internal/app/incorporacionejercicio"
+	personalpg "vec-diputacion-granada/internal/modules/personal/adapters/postgres"
+	personalapp "vec-diputacion-granada/internal/modules/personal/application"
+	"vec-diputacion-granada/internal/vec/adapters/httpapi"
 	"vec-diputacion-granada/internal/vec/adapters/httpseguridad"
 	seguridad "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	"vec-diputacion-granada/internal/vec/adapters/seudonimizacionpkcs11"
@@ -28,6 +31,7 @@ type recursoGobiernoInterno struct {
 	pools       PoolsIdentidadInterna
 	hmac        *seudonimizacionpkcs11.Conector
 	ct          *internactproveedores.Proveedores
+	personalB2  interface{ Cerrar() }
 	propiedad   atomic.Bool
 	unaVez      sync.Once
 	errorCierre error
@@ -49,6 +53,9 @@ func (r *recursoGobiernoInterno) cerrarSinPropiedad() error {
 		return nil
 	}
 	r.unaVez.Do(func() {
+		if r.personalB2 != nil {
+			r.personalB2.Cerrar()
+		}
 		if r.ct != nil {
 			r.ct.Cerrar()
 		}
@@ -182,9 +189,58 @@ func cargarProveedoresGobernados(ctx context.Context, cfg Configuracion) (provee
 	configuracionV2.Preparacion.TernaPersonal = recursos.ct.TernaPersonal
 	configuracionV2.Preparacion.Reloj = reloj
 	configuracionV2.PoliticaConsultaDesarrollo = &politica
+	if err := acreditarPoolPersonalB2(ctx, configuracionV2.AltaPersonal, materialCT.AltaPersonal.Login); err != nil {
+		return vacio, ErrDependenciasProductivasNoDisponibles
+	}
+	materialPersonalB2, err := internactproveedores.CargarMaterialPersonalB2(directorio)
+	if err != nil {
+		return vacio, ErrDependenciasProductivasNoDisponibles
+	}
+	defer materialPersonalB2.Cerrar()
+	proveedorPersonalB2, err := internactproveedores.ConstruirPersonalB2(ctx,
+		internactproveedores.ConfiguracionPersonalB2{
+			Material: materialPersonalB2, Base: recursos.ct, Fuente: fuenteF1, Reloj: reloj,
+		})
+	if err != nil {
+		return vacio, ErrDependenciasProductivasNoDisponibles
+	}
+	recursos.personalB2 = proveedorPersonalB2
+	repositorioPersonalB2, err := personalpg.NuevoRepositorioRegistroEmpleadoB2PostgreSQL(configuracionV2.AltaPersonal)
+	if err != nil {
+		return vacio, ErrDependenciasProductivasNoDisponibles
+	}
+	consultaPersonalB2, err := personalapp.NuevoServicioRegistroEmpleadoB2(proveedorPersonalB2, repositorioPersonalB2)
+	if err != nil {
+		return vacio, ErrDependenciasProductivasNoDisponibles
+	}
+	actosPersonalB2, err := personalapp.NuevoServicioActosRegistroEmpleadoB2(proveedorPersonalB2, repositorioPersonalB2)
+	if err != nil {
+		return vacio, ErrDependenciasProductivasNoDisponibles
+	}
+	autoridadPersonalB2 := internactproveedores.AutoridadContextoRegistroEmpleadoB2{Fuente: fuenteF1}
+	auditorPersonalB2 := internactproveedores.AuditorDenegacionRegistroEmpleadoB2{Registrador: auditoria}
+	fichaPersonalB2, err := httpapi.NewHandlerFichaEmpleadoB2(autoridadPersonalB2, consultaPersonalB2, auditorPersonalB2)
+	if err != nil {
+		return vacio, ErrDependenciasProductivasNoDisponibles
+	}
+	vacantesPersonalB2, err := httpapi.NewHandlerVacantesEmpleadoB2(autoridadPersonalB2, consultaPersonalB2, auditorPersonalB2)
+	if err != nil {
+		return vacio, ErrDependenciasProductivasNoDisponibles
+	}
+	altaPersonalB2, err := httpapi.NewHandlerAltaEmpleadoB2(autoridadPersonalB2, actosPersonalB2, auditorPersonalB2)
+	if err != nil {
+		return vacio, ErrDependenciasProductivasNoDisponibles
+	}
+	hechoPersonalB2, err := httpapi.NewHandlerHechosEmpleadoB2(autoridadPersonalB2, actosPersonalB2, auditorPersonalB2)
+	if err != nil {
+		return vacio, ErrDependenciasProductivasNoDisponibles
+	}
 	salida := proveedoresConsultaSeguimiento{
 		identidad: identidad, extractor: extractor,
 		autoridadRutas: autoridadRuta, auditoriaRutas: auditoria,
+		vincularPersonalB2: fuenteF1.VincularContextoPersonalB2,
+		fichaPersonalB2:    fichaPersonalB2, vacantesPersonalB2: vacantesPersonalB2,
+		altaPersonalB2: altaPersonalB2, hechoPersonalB2: hechoPersonalB2,
 		configuracionV2: configuracionV2,
 		recursos:        []recursoCerrableAplicacionInterna{recursos},
 	}
