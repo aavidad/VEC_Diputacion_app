@@ -39,6 +39,23 @@ func TestSelectorHistoricoExigeDosCortesYLimite(t *testing.T) {
 	}
 }
 
+func TestSelectorHistoricoAceptaClavesDelCatalogoOrganizativo(t *testing.T) {
+	for _, clave := range []string{"", "centro-520", "delegacion-0", "puesto-0"} {
+		s := selectorHistoricoPrueba()
+		s.UnidadClave = clave
+		if err := s.Validar(); err != nil {
+			t.Fatalf("clave de catalogo %q: %v", clave, err)
+		}
+	}
+	for _, clave := range []string{"centro 520", "Centro-520", "centro-*", " centro-520", "centro-520/otra", "centro-" + strings.Repeat("x", 160)} {
+		s := selectorHistoricoPrueba()
+		s.UnidadClave = clave
+		if !errors.Is(s.Validar(), ErrConsultaOrganizacionHistoricaInvalida) {
+			t.Fatalf("acepto clave no canonica %q", clave)
+		}
+	}
+}
+
 func TestTrazaHistoricaDistingueEfectosDeConocimiento(t *testing.T) {
 	s := selectorHistoricoPrueba()
 	desde, _ := NuevaFechaCivil("2024-01-01")
