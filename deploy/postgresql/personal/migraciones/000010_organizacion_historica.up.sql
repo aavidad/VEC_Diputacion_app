@@ -46,6 +46,7 @@ CREATE TABLE vec_personal.org_nodo_historia (
  catalogo_entrada_clave text NOT NULL CHECK (catalogo_entrada_clave~'^[a-z][a-z0-9_:-]{2,159}$'),
  denominacion text NOT NULL CHECK (length(denominacion) BETWEEN 1 AND 300 AND denominacion !~ '[[:cntrl:]]'),
  centro_padre_ref uuid,
+ retirado boolean NOT NULL DEFAULT false,
  vigente_desde date NOT NULL,
  vigente_hasta date,
  conocido_desde timestamptz(6) NOT NULL,
@@ -69,6 +70,7 @@ CREATE TABLE vec_personal.version_rpt_historia (
  codigo_version_fuente text NOT NULL CHECK(length(codigo_version_fuente) BETWEEN 1 AND 160),
  estado text NOT NULL CHECK(estado IN ('preparacion','reconciliada','aprobada','publicada','sustituida','retirada')),
  aprobada_en date, publicada_en date,
+ retirado boolean NOT NULL DEFAULT false,
  vigente_desde date NOT NULL, vigente_hasta date,
  conocido_desde timestamptz(6) NOT NULL,
  version_previa_ref uuid,
@@ -91,6 +93,7 @@ CREATE TABLE vec_personal.version_plantilla_historia (
  codigo_version_fuente text NOT NULL CHECK(length(codigo_version_fuente) BETWEEN 1 AND 160),
  estado text NOT NULL CHECK(estado IN ('preparacion','reconciliada','aprobada','publicada','sustituida','retirada')),
  aprobada_en date, publicada_en date,
+ retirado boolean NOT NULL DEFAULT false,
  vigente_desde date NOT NULL, vigente_hasta date,
  conocido_desde timestamptz(6) NOT NULL,
  version_previa_ref uuid,
@@ -118,6 +121,7 @@ CREATE TABLE vec_personal.puesto_tipo_historia (
  regimen_ref text CHECK(regimen_ref IS NULL OR length(regimen_ref) BETWEEN 1 AND 160),
  forma_provision_ref text CHECK(forma_provision_ref IS NULL OR length(forma_provision_ref) BETWEEN 1 AND 160),
  nivel_destino integer CHECK(nivel_destino BETWEEN 1 AND 30),
+ retirado boolean NOT NULL DEFAULT false,
  vigente_desde date NOT NULL, vigente_hasta date,
  conocido_desde timestamptz(6) NOT NULL,
  fuente_ref text NOT NULL CHECK(fuente_ref~'^[a-z][a-z0-9_:-]{2,159}$'),
@@ -139,6 +143,7 @@ CREATE TABLE vec_personal.dotacion_rpt_historia (
  tipo_ref uuid NOT NULL, tipo_revision integer NOT NULL,
  cantidad integer NOT NULL CHECK(cantidad BETWEEN 1 AND 100000),
  reconciliacion text NOT NULL CHECK(reconciliacion IN ('pendiente','parcial','reconciliada')),
+ retirado boolean NOT NULL DEFAULT false,
  vigente_desde date NOT NULL, vigente_hasta date,
  conocido_desde timestamptz(6) NOT NULL,
  fuente_ref text NOT NULL CHECK(fuente_ref~'^[a-z][a-z0-9_:-]{2,159}$'),
@@ -160,6 +165,7 @@ CREATE TABLE vec_personal.plaza_plantilla_historia (
  clasificacion_ref text NOT NULL CHECK(length(clasificacion_ref) BETWEEN 1 AND 160),
  estado_estructural text NOT NULL CHECK(estado_estructural IN ('vigente','amortizada')),
  dotacion_presupuestaria text NOT NULL CHECK(dotacion_presupuestaria IN ('acreditada','no_acreditada','desconocida')),
+ retirado boolean NOT NULL DEFAULT false,
  vigente_desde date NOT NULL, vigente_hasta date,
  conocido_desde timestamptz(6) NOT NULL,
  fuente_ref text NOT NULL CHECK(fuente_ref~'^[a-z][a-z0-9_:-]{2,159}$'),
@@ -180,6 +186,7 @@ CREATE TABLE vec_personal.puesto_rpt_historia (
  tipo_ref uuid NOT NULL, tipo_revision integer NOT NULL,
  codigo_puesto_fuente text NOT NULL CHECK(length(codigo_puesto_fuente) BETWEEN 1 AND 128 AND codigo_puesto_fuente=btrim(codigo_puesto_fuente) AND codigo_puesto_fuente !~ '[[:cntrl:]]'),
  estado_estructural text NOT NULL CHECK(estado_estructural IN ('vigente','suprimido')),
+ retirado boolean NOT NULL DEFAULT false,
  vigente_desde date NOT NULL, vigente_hasta date,
  conocido_desde timestamptz(6) NOT NULL,
  fuente_ref text NOT NULL CHECK(fuente_ref~'^[a-z][a-z0-9_:-]{2,159}$'),
@@ -200,6 +207,7 @@ CREATE TABLE vec_personal.vinculo_plaza_puesto_historia (
  plaza_ref uuid NOT NULL, plaza_revision integer NOT NULL,
  puesto_ref uuid NOT NULL, puesto_revision integer NOT NULL,
  estado text NOT NULL CHECK(estado IN ('confirmado','pendiente_reconciliacion','terminado')),
+ retirado boolean NOT NULL DEFAULT false,
  vigente_desde date NOT NULL, vigente_hasta date,
  conocido_desde timestamptz(6) NOT NULL,
  fuente_ref text NOT NULL CHECK(fuente_ref~'^[a-z][a-z0-9_:-]{2,159}$'),
@@ -224,6 +232,46 @@ CREATE TABLE vec_personal.recibo_consulta_organizacion (
  cardinalidad integer NOT NULL CHECK(cardinalidad BETWEEN 0 AND 100),
  consultada_en timestamptz(6) NOT NULL
 );
+-- Una versión oficial no puede retroceder a preparación por una revisión
+-- posterior del mismo ID. Las nuevas versiones efectivas usan otro version_ref
+-- o una revisión con estado no regresivo y fecha de efectos explícita.
+CREATE FUNCTION vec_personal.validar_revision_instrumento_organizacion_v1() RETURNS trigger
+LANGUAGE plpgsql VOLATILE SECURITY INVOKER SET search_path=pg_catalog AS $fn$
+DECLARE anterior record; tabla text; encontrados integer;
+BEGIN
+ IF TG_TABLE_SCHEMA<>'vec_personal' OR TG_TABLE_NAME NOT IN ('version_rpt_historia','version_plantilla_historia') THEN
+  RAISE EXCEPTION 'instrumento de organización desconocido' USING ERRCODE='55000';
+ END IF;
+ tabla:=format('vec_personal.%I',TG_TABLE_NAME);
+ EXECUTE format('SELECT revision,organismo_ref,estado,conocido_desde FROM %s WHERE version_ref=$1 ORDER BY revision DESC LIMIT 1',tabla)
+  INTO anterior USING NEW.version_ref;
+ GET DIAGNOSTICS encontrados = ROW_COUNT;
+ IF encontrados=0 THEN
+  IF NEW.revision<>1 THEN RAISE EXCEPTION 'primera revisión de instrumento inválida' USING ERRCODE='55000'; END IF;
+ ELSE
+  IF NEW.revision<>anterior.revision+1 OR NEW.organismo_ref IS DISTINCT FROM anterior.organismo_ref
+     OR NEW.conocido_desde<=anterior.conocido_desde
+     OR NOT (CASE anterior.estado
+       WHEN 'preparacion' THEN NEW.estado IN ('preparacion','reconciliada','aprobada','publicada','retirada')
+       WHEN 'reconciliada' THEN NEW.estado IN ('reconciliada','aprobada','publicada','retirada')
+       WHEN 'aprobada' THEN NEW.estado IN ('aprobada','publicada','retirada')
+       WHEN 'publicada' THEN NEW.estado IN ('publicada','sustituida','retirada')
+       WHEN 'sustituida' THEN NEW.estado IN ('sustituida','retirada')
+       ELSE false END) THEN
+   RAISE EXCEPTION 'regresión o discontinuidad de instrumento' USING ERRCODE='55000';
+  END IF;
+ END IF;
+ IF NEW.retirado AND NEW.estado<>'retirada' THEN
+  RAISE EXCEPTION 'retirada de instrumento sin estado retirado' USING ERRCODE='55000';
+ END IF;
+ RETURN NEW;
+END $fn$;
+REVOKE ALL ON FUNCTION vec_personal.validar_revision_instrumento_organizacion_v1() FROM PUBLIC,vec_personal_ejecutor;
+CREATE TRIGGER revision_no_regresiva BEFORE INSERT ON vec_personal.version_rpt_historia
+ FOR EACH ROW EXECUTE FUNCTION vec_personal.validar_revision_instrumento_organizacion_v1();
+CREATE TRIGGER revision_no_regresiva BEFORE INSERT ON vec_personal.version_plantilla_historia
+ FOR EACH ROW EXECUTE FUNCTION vec_personal.validar_revision_instrumento_organizacion_v1();
+
 DO $cerrar$
 DECLARE t text;
 BEGIN
@@ -352,16 +400,16 @@ BEGIN
   SELECT count(*),min('rpt:'||version_ref::text) INTO v_n,v_rpt
    FROM (SELECT DISTINCT ON (version_ref) * FROM vec_personal.version_rpt_historia
       WHERE organismo_ref=v_organismo AND conocido_desde<=v_conocido
+        AND vigente_desde<=v_fecha AND (vigente_hasta IS NULL OR v_fecha<vigente_hasta)
       ORDER BY version_ref,conocido_desde DESC,revision DESC) r
-   WHERE vigente_desde<=v_fecha AND (vigente_hasta IS NULL OR v_fecha<vigente_hasta)
-     AND estado IN ('aprobada','publicada','sustituida');
+   WHERE NOT retirado AND estado IN ('aprobada','publicada','sustituida');
  ELSE
   SELECT count(*),min('rpt:'||version_ref::text) INTO v_n,v_rpt
    FROM (SELECT DISTINCT ON (version_ref) * FROM vec_personal.version_rpt_historia
       WHERE organismo_ref=v_organismo AND version_ref=v_rpt_uuid AND conocido_desde<=v_conocido
+        AND vigente_desde<=v_fecha AND (vigente_hasta IS NULL OR v_fecha<vigente_hasta)
       ORDER BY version_ref,conocido_desde DESC,revision DESC) r
-   WHERE vigente_desde<=v_fecha AND (vigente_hasta IS NULL OR v_fecha<vigente_hasta)
-     AND estado IN ('aprobada','publicada','sustituida');
+   WHERE NOT retirado AND estado IN ('aprobada','publicada','sustituida');
  END IF;
  IF v_n>1 THEN RAISE EXCEPTION 'versiones RPT superpuestas' USING ERRCODE='55000'; END IF;
  v_rpt:=coalesce(v_rpt,'');
@@ -370,16 +418,16 @@ BEGIN
   SELECT count(*),min('plantilla:'||version_ref::text) INTO v_n,v_plantilla
    FROM (SELECT DISTINCT ON (version_ref) * FROM vec_personal.version_plantilla_historia
       WHERE organismo_ref=v_organismo AND conocido_desde<=v_conocido
+        AND vigente_desde<=v_fecha AND (vigente_hasta IS NULL OR v_fecha<vigente_hasta)
       ORDER BY version_ref,conocido_desde DESC,revision DESC) p
-   WHERE vigente_desde<=v_fecha AND (vigente_hasta IS NULL OR v_fecha<vigente_hasta)
-     AND estado IN ('aprobada','publicada','sustituida');
+   WHERE NOT retirado AND estado IN ('aprobada','publicada','sustituida');
  ELSE
   SELECT count(*),min('plantilla:'||version_ref::text) INTO v_n,v_plantilla
    FROM (SELECT DISTINCT ON (version_ref) * FROM vec_personal.version_plantilla_historia
       WHERE organismo_ref=v_organismo AND version_ref=v_plantilla_uuid AND conocido_desde<=v_conocido
+        AND vigente_desde<=v_fecha AND (vigente_hasta IS NULL OR v_fecha<vigente_hasta)
       ORDER BY version_ref,conocido_desde DESC,revision DESC) p
-   WHERE vigente_desde<=v_fecha AND (vigente_hasta IS NULL OR v_fecha<vigente_hasta)
-     AND estado IN ('aprobada','publicada','sustituida');
+   WHERE NOT retirado AND estado IN ('aprobada','publicada','sustituida');
  END IF;
  IF v_n>1 THEN RAISE EXCEPTION 'versiones de plantilla superpuestas' USING ERRCODE='55000'; END IF;
  v_plantilla:=coalesce(v_plantilla,'');
@@ -399,12 +447,15 @@ SELECT 'unidades'::text AS clase, 'orgunidad:'||h.nodo_ref::text AS id,
    h.conocido_desde,h.conocido_hasta),'catalogo_id',h.catalogo_ref,'catalogo_version',h.catalogo_version,'catalogo_revision',h.catalogo_revision,'clave_catalogo',h.catalogo_entrada_clave,'padre_id',CASE WHEN h.centro_padre_ref IS NULL THEN '' ELSE 'orgunidad:'||h.centro_padre_ref::text END,'tipo',h.clase,'etiqueta',h.denominacion) AS objeto
  FROM (SELECT DISTINCT ON (nodo_ref) x.*,
     (SELECT min(k.conocido_desde) FROM vec_personal.org_nodo_historia k
-     WHERE k.nodo_ref=x.nodo_ref AND k.conocido_desde>x.conocido_desde) AS conocido_hasta
+     WHERE k.nodo_ref=x.nodo_ref AND k.conocido_desde>x.conocido_desde
+       AND k.conocido_desde<=v_conocido
+       AND k.vigente_desde<=v_fecha AND (k.vigente_hasta IS NULL OR v_fecha<k.vigente_hasta)) AS conocido_hasta
    FROM vec_personal.org_nodo_historia x
-   WHERE x.organismo_ref=v_organismo AND (v_unidad='' OR x.unidad_ref=v_unidad)
+   WHERE x.organismo_ref=v_organismo
      AND x.conocido_desde<=v_conocido
+     AND x.vigente_desde<=v_fecha AND (x.vigente_hasta IS NULL OR v_fecha<x.vigente_hasta)
    ORDER BY nodo_ref,conocido_desde DESC,revision DESC) h
- WHERE h.vigente_desde<=v_fecha AND (h.vigente_hasta IS NULL OR v_fecha<h.vigente_hasta)
+ WHERE NOT h.retirado AND (v_unidad='' OR h.unidad_ref=v_unidad)
 
  UNION ALL
 SELECT 'puestos_tipo'::text AS clase, 'ptipo:'||h.tipo_ref::text AS id,
@@ -413,12 +464,15 @@ SELECT 'puestos_tipo'::text AS clase, 'ptipo:'||h.tipo_ref::text AS id,
    h.conocido_desde,h.conocido_hasta),'version_rpt_ref',v_rpt,'codigo_fuente',h.codigo_fila_fuente,'unidad_id',h.unidad_ref,'denominacion',h.denominacion,'clasificacion_ref',h.clasificacion_ref) AS objeto
  FROM (SELECT DISTINCT ON (tipo_ref) x.*,
     (SELECT min(k.conocido_desde) FROM vec_personal.puesto_tipo_historia k
-     WHERE k.tipo_ref=x.tipo_ref AND k.conocido_desde>x.conocido_desde) AS conocido_hasta
+     WHERE k.tipo_ref=x.tipo_ref AND k.conocido_desde>x.conocido_desde
+       AND k.conocido_desde<=v_conocido
+       AND k.vigente_desde<=v_fecha AND (k.vigente_hasta IS NULL OR v_fecha<k.vigente_hasta)) AS conocido_hasta
    FROM vec_personal.puesto_tipo_historia x
-   WHERE x.organismo_ref=v_organismo AND (v_unidad='' OR x.unidad_ref=v_unidad)
+   WHERE x.organismo_ref=v_organismo
      AND x.conocido_desde<=v_conocido
+     AND x.vigente_desde<=v_fecha AND (x.vigente_hasta IS NULL OR v_fecha<x.vigente_hasta)
    ORDER BY tipo_ref,conocido_desde DESC,revision DESC) h
- WHERE h.vigente_desde<=v_fecha AND (h.vigente_hasta IS NULL OR v_fecha<h.vigente_hasta)
+ WHERE NOT h.retirado AND (v_unidad='' OR h.unidad_ref=v_unidad)
  AND v_rpt<>'' AND h.rpt_version_ref=v_rpt_uuid
  UNION ALL
 SELECT 'dotaciones'::text AS clase, 'dotacion:'||h.dotacion_ref::text AS id,
@@ -427,12 +481,15 @@ SELECT 'dotaciones'::text AS clase, 'dotacion:'||h.dotacion_ref::text AS id,
    h.conocido_desde,h.conocido_hasta),'version_rpt_ref',v_rpt,'puesto_tipo_id','ptipo:'||h.tipo_ref::text,'cantidad',h.cantidad) AS objeto
  FROM (SELECT DISTINCT ON (dotacion_ref) x.*,
     (SELECT min(k.conocido_desde) FROM vec_personal.dotacion_rpt_historia k
-     WHERE k.dotacion_ref=x.dotacion_ref AND k.conocido_desde>x.conocido_desde) AS conocido_hasta
+     WHERE k.dotacion_ref=x.dotacion_ref AND k.conocido_desde>x.conocido_desde
+       AND k.conocido_desde<=v_conocido
+       AND k.vigente_desde<=v_fecha AND (k.vigente_hasta IS NULL OR v_fecha<k.vigente_hasta)) AS conocido_hasta
    FROM vec_personal.dotacion_rpt_historia x
-   WHERE x.organismo_ref=v_organismo AND (v_unidad='' OR x.unidad_ref=v_unidad)
+   WHERE x.organismo_ref=v_organismo
      AND x.conocido_desde<=v_conocido
+     AND x.vigente_desde<=v_fecha AND (x.vigente_hasta IS NULL OR v_fecha<x.vigente_hasta)
    ORDER BY dotacion_ref,conocido_desde DESC,revision DESC) h
- WHERE h.vigente_desde<=v_fecha AND (h.vigente_hasta IS NULL OR v_fecha<h.vigente_hasta)
+ WHERE NOT h.retirado AND (v_unidad='' OR h.unidad_ref=v_unidad)
  AND v_rpt<>'' AND EXISTS (SELECT 1 FROM vec_personal.puesto_tipo_historia t WHERE t.tipo_ref=h.tipo_ref AND t.revision=h.tipo_revision AND t.rpt_version_ref=v_rpt_uuid)
  UNION ALL
 SELECT 'plazas'::text AS clase, 'plaza:'||h.plaza_ref::text AS id,
@@ -441,12 +498,15 @@ SELECT 'plazas'::text AS clase, 'plaza:'||h.plaza_ref::text AS id,
    h.conocido_desde,h.conocido_hasta),'version_plantilla_ref',v_plantilla,'codigo_fuente',h.codigo_plaza_fuente,'clasificacion_ref',h.clasificacion_ref,'unidad_id',h.unidad_ref,'estado_estructural',h.estado_estructural) AS objeto
  FROM (SELECT DISTINCT ON (plaza_ref) x.*,
     (SELECT min(k.conocido_desde) FROM vec_personal.plaza_plantilla_historia k
-     WHERE k.plaza_ref=x.plaza_ref AND k.conocido_desde>x.conocido_desde) AS conocido_hasta
+     WHERE k.plaza_ref=x.plaza_ref AND k.conocido_desde>x.conocido_desde
+       AND k.conocido_desde<=v_conocido
+       AND k.vigente_desde<=v_fecha AND (k.vigente_hasta IS NULL OR v_fecha<k.vigente_hasta)) AS conocido_hasta
    FROM vec_personal.plaza_plantilla_historia x
-   WHERE x.organismo_ref=v_organismo AND (v_unidad='' OR x.unidad_ref=v_unidad)
+   WHERE x.organismo_ref=v_organismo
      AND x.conocido_desde<=v_conocido
+     AND x.vigente_desde<=v_fecha AND (x.vigente_hasta IS NULL OR v_fecha<x.vigente_hasta)
    ORDER BY plaza_ref,conocido_desde DESC,revision DESC) h
- WHERE h.vigente_desde<=v_fecha AND (h.vigente_hasta IS NULL OR v_fecha<h.vigente_hasta)
+ WHERE NOT h.retirado AND (v_unidad='' OR h.unidad_ref=v_unidad)
  AND v_plantilla<>'' AND h.plantilla_version_ref=v_plantilla_uuid
  UNION ALL
 SELECT 'puestos_individuales'::text AS clase, 'puesto:'||h.puesto_ref::text AS id,
@@ -455,12 +515,15 @@ SELECT 'puestos_individuales'::text AS clase, 'puesto:'||h.puesto_ref::text AS i
    h.conocido_desde,h.conocido_hasta),'version_rpt_ref',v_rpt,'codigo_fuente',h.codigo_puesto_fuente,'puesto_tipo_id','ptipo:'||h.tipo_ref::text,'unidad_id',h.unidad_ref,'estado_estructural',h.estado_estructural) AS objeto
  FROM (SELECT DISTINCT ON (puesto_ref) x.*,
     (SELECT min(k.conocido_desde) FROM vec_personal.puesto_rpt_historia k
-     WHERE k.puesto_ref=x.puesto_ref AND k.conocido_desde>x.conocido_desde) AS conocido_hasta
+     WHERE k.puesto_ref=x.puesto_ref AND k.conocido_desde>x.conocido_desde
+       AND k.conocido_desde<=v_conocido
+       AND k.vigente_desde<=v_fecha AND (k.vigente_hasta IS NULL OR v_fecha<k.vigente_hasta)) AS conocido_hasta
    FROM vec_personal.puesto_rpt_historia x
-   WHERE x.organismo_ref=v_organismo AND (v_unidad='' OR x.unidad_ref=v_unidad)
+   WHERE x.organismo_ref=v_organismo
      AND x.conocido_desde<=v_conocido
+     AND x.vigente_desde<=v_fecha AND (x.vigente_hasta IS NULL OR v_fecha<x.vigente_hasta)
    ORDER BY puesto_ref,conocido_desde DESC,revision DESC) h
- WHERE h.vigente_desde<=v_fecha AND (h.vigente_hasta IS NULL OR v_fecha<h.vigente_hasta)
+ WHERE NOT h.retirado AND (v_unidad='' OR h.unidad_ref=v_unidad)
  AND v_rpt<>'' AND EXISTS (SELECT 1 FROM vec_personal.puesto_tipo_historia t WHERE t.tipo_ref=h.tipo_ref AND t.revision=h.tipo_revision AND t.rpt_version_ref=v_rpt_uuid)
  UNION ALL
 SELECT 'vinculos'::text AS clase, 'vinculo:'||h.vinculo_ref::text AS id,
@@ -469,12 +532,15 @@ SELECT 'vinculos'::text AS clase, 'vinculo:'||h.vinculo_ref::text AS id,
    h.conocido_desde,h.conocido_hasta),'plaza_id','plaza:'||h.plaza_ref::text,'puesto_id','puesto:'||h.puesto_ref::text) AS objeto
  FROM (SELECT DISTINCT ON (vinculo_ref) x.*,
     (SELECT min(k.conocido_desde) FROM vec_personal.vinculo_plaza_puesto_historia k
-     WHERE k.vinculo_ref=x.vinculo_ref AND k.conocido_desde>x.conocido_desde) AS conocido_hasta
+     WHERE k.vinculo_ref=x.vinculo_ref AND k.conocido_desde>x.conocido_desde
+       AND k.conocido_desde<=v_conocido
+       AND k.vigente_desde<=v_fecha AND (k.vigente_hasta IS NULL OR v_fecha<k.vigente_hasta)) AS conocido_hasta
    FROM vec_personal.vinculo_plaza_puesto_historia x
-   WHERE x.organismo_ref=v_organismo AND (v_unidad='' OR x.unidad_ref=v_unidad)
+   WHERE x.organismo_ref=v_organismo
      AND x.conocido_desde<=v_conocido
+     AND x.vigente_desde<=v_fecha AND (x.vigente_hasta IS NULL OR v_fecha<x.vigente_hasta)
    ORDER BY vinculo_ref,conocido_desde DESC,revision DESC) h
- WHERE h.vigente_desde<=v_fecha AND (h.vigente_hasta IS NULL OR v_fecha<h.vigente_hasta)
+ WHERE NOT h.retirado AND (v_unidad='' OR h.unidad_ref=v_unidad)
  AND v_rpt<>'' AND v_plantilla<>'' AND EXISTS (SELECT 1 FROM vec_personal.plaza_plantilla_historia p WHERE p.plaza_ref=h.plaza_ref AND p.revision=h.plaza_revision AND p.plantilla_version_ref=v_plantilla_uuid) AND EXISTS (SELECT 1 FROM vec_personal.puesto_rpt_historia t JOIN vec_personal.puesto_tipo_historia pt ON pt.tipo_ref=t.tipo_ref AND pt.revision=t.tipo_revision WHERE t.puesto_ref=h.puesto_ref AND t.revision=h.puesto_revision AND pt.rpt_version_ref=v_rpt_uuid)
  ), pagina AS (
   SELECT clase,id,objeto FROM hechos ORDER BY clase,id

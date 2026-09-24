@@ -72,6 +72,24 @@ BEGIN
  IF r->>'revision_nueva'<>'2' OR r->>'estado'<>'conciliada' THEN
   RAISE EXCEPTION 'conciliación inesperada: %',r;
  END IF;
+ -- Un cambio del documento dentro del mismo lote exige rectificación expresa;
+ -- reatestar otro material no puede mutar el manifiesto preparado.
+ m:=jsonb_set(m::jsonb,'{revision_esperada}','2'::jsonb)::text;
+ m:=jsonb_set(m::jsonb,'{clave_idempotencia}',to_jsonb('cccccccc-cccc-4ccc-8ccc-cccccccccccc'::text))::text;
+ m:=jsonb_set(m::jsonb,'{manifiesto,documento_ref}',to_jsonb('documento:ajeno'::text),true)::text;
+ canon:='{"ambitos":{"organismo_ref":"org:prueba"},"atributos":{"fase":"conciliar","fuente_ref":"fuente:prueba","lote_ref":"'||v_ref||'","material_sha256":"'||encode(sha256(convert_to(m,'UTF8')),'hex')||'"}}';
+ h:=encode(sha256(convert_to(canon,'UTF8')),'hex');
+ d:=jsonb_set(d,'{decision_ref}','"decision:manifiesto-ajeno"'::jsonb);
+ d:=jsonb_set(d,'{contexto_recurso_huella_sha256}',to_jsonb(h));
+ c:=jsonb_set(c,'{huella_efecto_sha256}',to_jsonb(h));
+ denegada:=false;
+ BEGIN
+  PERFORM vec_personal.ejecutar_importacion_organizacion_v1(m,NULL,convert_to(c::text,'UTF8'),
+   convert_to(d::text,'UTF8'),'m'::bytea,'x'::bytea,1,1,'p'::bytea,'s'::bytea,'e'::bytea,'r'::bytea);
+ EXCEPTION WHEN SQLSTATE 'P0112' THEN denegada:=true;
+ END;
+ IF NOT denegada THEN RAISE EXCEPTION 'manifiesto ajeno conciliado'; END IF;
+ denegada:=false;
  d:=jsonb_set(d,'{accion}','"personal.organizacion_historica.publicar"'::jsonb);
  d:=jsonb_set(d,'{finalidad}','"publicar_organizacion_historica"'::jsonb);
  BEGIN

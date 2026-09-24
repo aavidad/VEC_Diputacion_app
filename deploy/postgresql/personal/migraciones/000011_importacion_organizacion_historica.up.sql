@@ -209,7 +209,7 @@ BEGIN
      OR prev.version_fuente_revision IS DISTINCT FROM (mf->>'version_revision')::integer
      OR prev.catalogo_unidades IS DISTINCT FROM mf->'catalogo_unidades'
      OR prev.catalogo_clasificaciones IS DISTINCT FROM mf->'catalogo_clasificaciones'
-     OR prev.manifiesto->>'tipo' IS DISTINCT FROM mf->>'tipo' THEN
+     OR prev.manifiesto IS DISTINCT FROM mf THEN
    RAISE EXCEPTION 'lote de importación ha cambiado' USING ERRCODE='P0112';
   END IF;
   IF EXISTS (SELECT 1 FROM jsonb_array_elements(nuevas) x WHERE jsonb_typeof(x)<>'object'
