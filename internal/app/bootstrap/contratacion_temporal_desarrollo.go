@@ -543,13 +543,6 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	if respuestaRecibidaReal != nil {
 		rutas = append(rutas, vechttp.RutaExacta{Ruta: httpinterno.RutaRegistroRespuestaRecibida, Manejador: respuestaRecibidaReal})
 	}
-	if cfg.BolsaDemoPath != "" {
-		rutasAreaPersonal, err := nuevasRutasAreaPersonalBolsaDesarrollo(cfg)
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		rutas = append(rutas, rutasAreaPersonal...)
-	}
 	rutasBorrador := []vechttp.RutaExacta(nil)
 	coleccionesBorrador := []vechttp.RutaColeccion(nil)
 	// Instancia única construida antes de las sesiones CT y Bolsa.

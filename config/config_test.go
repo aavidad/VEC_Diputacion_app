@@ -95,16 +95,6 @@ func TestLoadCargaPerfilDesarrolloSinHeredarloDeBolsa(t *testing.T) {
 	}
 }
 
-func TestLoadConservaRutaExplicitaDelDatasetBolsaDeDemostracion(t *testing.T) {
-	t.Setenv(EnvBolsaDemoPath, " /datos/bolsa-demo.json ")
-	if obtenida := Load().BolsaDemoPath; obtenida != "/datos/bolsa-demo.json" {
-		t.Fatalf("ruta del dataset=%q", obtenida)
-	}
-	if obtenida := (Config{}).Normalize().BolsaDemoPath; obtenida != "" {
-		t.Fatalf("ruta ausente=%q; no debe inventarse un dataset", obtenida)
-	}
-}
-
 func TestPerfilDesarrolloDerivaSoloSusRutasLocalesYNoSeActivaPorVariableHeredada(t *testing.T) {
 	t.Setenv(LegacyEnvAuthMode, AuthModeDevelopment)
 	heredada := Load()
