@@ -117,7 +117,9 @@ func normalizarErrorRegistroEmpleadoB2(ctx context.Context, err error) error {
 		return context.DeadlineExceeded
 	}
 	var pg *pgconn.PgError
-	if errors.As(err, &pg) && pg.Code == "42501" {
+	// P0002 procede de la acreditación B1 del objetivo dentro del acto SQL.
+	// Ausencia, revocación y caducidad tienen la misma salida opaca.
+	if errors.As(err, &pg) && (pg.Code == "42501" || pg.Code == "P0002") {
 		return errRegistroEmpleadoB2Denegado
 	}
 	if errors.As(err, &pg) && pg.Code == "22023" {

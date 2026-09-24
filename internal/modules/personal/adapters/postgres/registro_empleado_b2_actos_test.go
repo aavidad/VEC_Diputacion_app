@@ -122,6 +122,21 @@ func TestRegistroEmpleadoB2AltaTraduceColision(t *testing.T) {
 	}
 }
 
+func TestRegistroEmpleadoB2AltaObjetivoNoAcreditadoDeniegaSinDetalle(t *testing.T) {
+	m := materialAltaB2Prueba(t)
+	a := atestacionActoB2Prueba(t, m, domain.AccionAltaEmpleadoB2, domain.AudienciaAltaEmpleadoB2)
+	for _, caso := range []string{"ausente", "revocada", "caducada"} {
+		t.Run(caso, func(t *testing.T) {
+			tx := &txP{errQ: &pgconn.PgError{Code: "P0002", Message: "persona " + caso + " con identificador privado"}}
+			r, _ := nuevoRepositorioRegistroEmpleadoB2PostgreSQL(&poolP{tx: tx})
+			_, err := r.RegistrarEmpleadoRRHH(context.Background(), ports.OrdenAltaEmpleadoB2{Material: m, Autorizacion: a})
+			if !errors.Is(err, domain.ErrRegistroEmpleadoB2Denegado) || err.Error() != domain.ErrRegistroEmpleadoB2Denegado.Error() || tx.commits != 0 || tx.rollbacks != 1 {
+				t.Fatal("acreditación B1 revelada o confirmada", err)
+			}
+		})
+	}
+}
+
 func TestRegistroEmpleadoB2ReplayConservaFechaOriginal(t *testing.T) {
 	m := materialAltaB2Prueba(t)
 	a := atestacionActoB2Prueba(t, m, domain.AccionAltaEmpleadoB2, domain.AudienciaAltaEmpleadoB2)
