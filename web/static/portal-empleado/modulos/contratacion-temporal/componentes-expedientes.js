@@ -3,6 +3,7 @@
 import "./atajos-incidencia.js";
 import "./fases-expediente.js";
 import { CAPACIDADES_CONTRATACION_TEMPORAL, versionPropuestaDocumentalValida } from "./contrato-expedientes.js";
+import { icono } from "../../../comun/iconos-vec.js?v=20260924-aspecto-ct-v1";
 
 export function escaparHTML(valor) {
   return String(valor ?? "")
@@ -67,6 +68,39 @@ function esNumeroVisibleLegible(numero) {
   return /^\d{4}\/CT-\d+$/u.test(String(numero ?? ""));
 }
 
+// Algunos expedientes aún se numeran con el identificador técnico completo
+// («2026/CT-8c17ba0b…»); en pantalla se abrevia a prefijo y seis caracteres.
+export function numeroExpedienteVisible(numero) {
+  const texto = String(numero ?? "");
+  const tecnico = /^(\d{4}\/CT-)([0-9a-f]{12,})$/iu.exec(texto);
+  return tecnico ? `${tecnico[1]}${tecnico[2].slice(0, 6)}…` : texto;
+}
+
+function numeroExpedienteHTML(numero) {
+  const visible = numeroExpedienteVisible(numero);
+  return visible === String(numero ?? "") ? escaparHTML(visible)
+    : `<span title="${escaparHTML(numero)}">${escaparHTML(visible)}</span>`;
+}
+
+// Icono de cada indicador por su clave; si llega otra, se deduce del tono.
+const ICONOS_INDICADOR = Object.freeze({
+  total: "expediente", pendientes: "pendiente", en_curso: "en_curso",
+  tramitacion: "en_curso", incidencias: "alerta", completados: "correcto",
+});
+const ICONOS_TONO = Object.freeze({ exito: "correcto", aviso: "pendiente", peligro: "alerta" });
+const CLASES_TONO_KPI = Object.freeze({
+  exito: " kpi--exito", aviso: " kpi--advertencia", peligro: " kpi--peligro",
+});
+
+function renderizarIndicador(indicador) {
+  const nombre = ICONOS_INDICADOR[indicador.clave] ?? ICONOS_TONO[indicador.tono] ?? "expediente";
+  return `<article class="tarjeta-kpi${CLASES_TONO_KPI[indicador.tono] ?? ""}" data-ct-exp-indicador="${escaparHTML(indicador.clave ?? "")}">
+      <span class="icono-kpi">${icono(nombre)}</span>
+      <div><strong class="valor-kpi">${escaparHTML(indicador.valor)}</strong>
+      <span class="etiqueta-kpi">${escaparHTML(indicador.etiqueta)}</span></div>
+    </article>`;
+}
+
 const FASES_BANDEJA = [
   ["solicitud", "etiqueta_fase_solicitud"],
   ["analisis_rrhh", "etiqueta_fase_analisis_rrhh"],
@@ -112,20 +146,17 @@ function renderizarTrabajoOperativo(cuadro, t) {
   const primero = expedientesNoCompletados[0]
     ?? (esDemostracion ? cuadro.expedientes[0] : undefined);
   const titulo = esDemostracion ? t("trabajo_titulo") : t("bandeja_titulo");
-  const descripcion = esDemostracion ? t("trabajo_descripcion") : t("bandeja_descripcion");
   const tituloExpedientes = esDemostracion ? t("mis_tareas") : t("bandeja_expedientes");
   const tituloDistribucion = esDemostracion
     ? t("distribucion_fases") : t("bandeja_distribucion_fases");
   return `<section class="ct-exp-operativo" aria-labelledby="ct-exp-operativo-titulo">
     <header>
-      <p class="sobrelinea">${escaparHTML(t("trabajo_sobrelinea"))}</p>
       <h3 id="ct-exp-operativo-titulo">${escaparHTML(titulo)}</h3>
-      <p>${escaparHTML(descripcion)}</p>
     </header>
     <article class="ct-exp-mis-tareas">
       <h4>${escaparHTML(tituloExpedientes)}</h4>
       <ul>${expedientesNoCompletados.map((expediente) => `<li>
-        <span><strong>${escaparHTML(expediente.numero_visible)}</strong>
+        <span><strong>${numeroExpedienteHTML(expediente.numero_visible)}</strong>
           <small>${escaparHTML(expediente.categoria)} · ${escaparHTML(expediente.fase_actual)} · ${escaparHTML(expediente.estado)}</small>
         </span>
         <button type="button" class="boton-terciario"
@@ -166,10 +197,7 @@ export function renderizarCuadro(estado, t) {
   ])).entries()].map(([clave, etiqueta]) => ({ clave, etiqueta }))
     .sort((a, b) => a.etiqueta.localeCompare(b.etiqueta, "es"));
   const indicadores = `<section class="ct-exp-indicadores" aria-label="${escaparHTML(t(cuadro.paginacion ? "indicadores_pagina" : "indicadores"))}">
-    ${cuadro.indicadores.map((indicador) => `<article class="ct-exp-indicador ct-tono-${escaparHTML(indicador.tono)}">
-      <span>${escaparHTML(cuadro.paginacion ? t("indicador_ambito_pagina", { indicador: indicador.etiqueta }) : indicador.etiqueta)}</span>
-      <strong>${escaparHTML(indicador.valor)}</strong>
-    </article>`).join("")}
+    ${cuadro.indicadores.map(renderizarIndicador).join("")}
   </section>`;
   const filtros = `<form class="ct-exp-filtros" data-ct-exp-filtros aria-label="${escaparHTML(t("filtros"))}">
     <label>
@@ -211,7 +239,7 @@ export function renderizarCuadro(estado, t) {
     return `<tr class="ct-exp-fila" data-ct-fase="${escaparHTML(fase)}">
     <th scope="row"><button type="button" class="enlace-tabla" id="${escaparHTML(controlId)}"
       data-ct-exp-resumen aria-controls="${escaparHTML(resumenId)}" aria-expanded="false"
-      aria-label="${escaparHTML(t("resumen_fila", { expediente: expediente.numero_visible }))}">${escaparHTML(expediente.numero_visible)}</button></th>
+      aria-label="${escaparHTML(t("resumen_fila", { expediente: numeroExpedienteVisible(expediente.numero_visible) }))}">${numeroExpedienteHTML(expediente.numero_visible)}</button></th>
     <td${centro.referencia ? ` title="${escaparHTML(centro.referencia)}"` : ""}>${escaparHTML(centro.etiqueta)}</td>
     <td>${escaparHTML(expediente.categoria)}</td>
     <td${modalidadAusente ? ` title="${escaparHTML(t("modalidad_no_informada_bandeja"))}"` : ""}>${escaparHTML(expediente.modalidad)}</td>
@@ -223,7 +251,7 @@ export function renderizarCuadro(estado, t) {
   <tr class="ct-exp-fila-resumen" id="${escaparHTML(resumenId)}" data-ct-fase="${escaparHTML(fase)}" data-ct-exp-resumen-fila
     aria-labelledby="${escaparHTML(controlId)}" hidden>
     <td colspan="8">
-      <section aria-label="${escaparHTML(t("resumen_fila", { expediente: expediente.numero_visible }))}">
+      <section aria-label="${escaparHTML(t("resumen_fila", { expediente: numeroExpedienteVisible(expediente.numero_visible) }))}">
         ${progreso}
         <dl class="ct-exp-resumen-datos">
           ${fechaSolicitud ? `<div><dt>${escaparHTML(t("resumen_fecha_solicitud"))}</dt><dd>${escaparHTML(fechaSolicitud)}</dd></div>` : ""}
@@ -234,10 +262,22 @@ export function renderizarCuadro(estado, t) {
     </td>
   </tr>`;
   }).join("");
+  // La paginación común del marco reparte las filas de una sola página. La del
+  // servidor solo aparece cuando hay otra página o hay que reiniciar la consulta;
+  // entonces va junto a la tabla y el marco la usa en lugar de la suya.
+  const paginacionRemota = cuadro.paginacion && (cuadro.paginacion.pagina > 1
+    || Boolean(cuadro.paginacion.cursor_siguiente)
+    || estado.paginacion_requiere_reinicio === true || estado.carga === "error");
+  const paginacion = paginacionRemota ? `<nav class="ct-exp-paginacion" aria-label="${escaparHTML(t("paginacion"))}">
+    <span>${escaparHTML(t("pagina_actual", { pagina: cuadro.paginacion.pagina }))}</span>
+    <button type="button" class="boton-secundario" data-ct-exp-pagina="primera"
+      ${cuadro.paginacion.pagina === 1 && !estado.paginacion_requiere_reinicio && estado.carga !== "error" ? "disabled" : ""}>${escaparHTML(t("pagina_primera"))}</button>
+    <button type="button" class="boton-secundario" data-ct-exp-pagina="siguiente"
+      ${cuadro.paginacion.cursor_siguiente && !estado.paginacion_requiere_reinicio && estado.carga !== "error" ? "" : "disabled"}>${escaparHTML(t("pagina_siguiente"))}</button>
+  </nav>` : "";
   const tabla = `<section class="panel ct-exp-listado">
     <div class="cabecera-panel">
       <h3>${escaparHTML(t("tabla_expedientes"))}</h3>
-      <span class="estado-chip info">${escaparHTML(t(cuadro.paginacion ? "resultados_pagina" : "resultados", { total: cuadro.expedientes.length }))}</span>
     </div>
     <div class="tabla-contenedor tabla-contenedor--prioritaria" tabindex="0">
       <table class="tabla-datos tabla-datos--prioritaria">
@@ -255,20 +295,11 @@ export function renderizarCuadro(estado, t) {
         <tbody>${filas}</tbody>
       </table>
     </div>
-    ${cuadro.expedientes.some((expediente) => expediente.modalidad === "—")
-    ? `<p class="ct-exp-nota-tabla">${escaparHTML(t("modalidad_nota_bandeja"))}</p>` : ""}
+    ${paginacion}
   </section>`;
-  const paginacion = cuadro.paginacion ? `<nav class="ct-exp-paginacion" aria-label="${escaparHTML(t("paginacion"))}">
-    <span>${escaparHTML(t("pagina_actual", { pagina: cuadro.paginacion.pagina }))}</span>
-    <button type="button" class="boton-secundario" data-ct-exp-pagina="primera"
-      ${cuadro.paginacion.pagina === 1 && !estado.paginacion_requiere_reinicio && estado.carga !== "error" ? "disabled" : ""}>${escaparHTML(t("pagina_primera"))}</button>
-    <button type="button" class="boton-secundario" data-ct-exp-pagina="siguiente"
-      ${cuadro.paginacion.cursor_siguiente && !estado.paginacion_requiere_reinicio && estado.carga !== "error" ? "" : "disabled"}>${escaparHTML(t("pagina_siguiente"))}</button>
-  </nav>` : "";
   const trabajoOperativo = renderizarTrabajoOperativo(cuadro, t);
-  const organizacion = `<p><a class="boton-secundario" href="/portal-empleado/organizacion/" target="_blank" rel="noopener">${escaparHTML(t("organizacion_referencia"))}</a> <a class="boton-secundario" href="/portal-empleado/peticiones-centro/?vista=rrhh" target="_blank" rel="noopener">${escaparHTML(t("peticiones_centros_rrhh"))}</a></p>`;
-  return `${indicadores}${organizacion}${filtros}${estado.carga === "vacio"
-    ? renderizarEstadoCarga(estado, t) : `${tabla}${paginacion}`}${trabajoOperativo}`;
+  return `${indicadores}${filtros}${estado.carga === "vacio"
+    ? renderizarEstadoCarga(estado, t) : tabla}${trabajoOperativo}`;
 }
 
 // La incidencia se explica con lo que el detalle ya trae: la fase marcada, el
@@ -409,7 +440,7 @@ function renderizarCabecera(expediente, t, informeDisponible = false) {
   return `<section class="ct-exp-cabecera-expediente">
     <div>
       <p class="sobrelinea">${escaparHTML(t("expediente_etiqueta"))}</p>
-      <h3>${escaparHTML(expediente.numero_visible)}</h3>
+      <h3>${numeroExpedienteHTML(expediente.numero_visible)}</h3>
       <details class="ct-exp-detalle-tecnico">
         <summary>${escaparHTML(t("metadatos_tecnicos"))}</summary>
         <dl class="ct-exp-flujo">
@@ -614,8 +645,6 @@ function renderizarTarea(
     </dl>
     ${montarAnalisis ? '<div data-ct-exp-analisis></div>' : `<form data-ct-exp-tarea-form aria-label="${escaparHTML(t("formulario_tarea", { tarea: tarea.etiqueta }))}">
       ${editable ? "" : `<p class="ct-exp-solo-lectura">${escaparHTML(t("tarea_solo_lectura"))}</p>`}
-      ${tarea.paneles.some((panel) => panel.campos.some(({ obligatorio }) => obligatorio))
-    ? `<p class="ct-exp-obligatorios">${escaparHTML(t("campos_obligatorios"))}</p>` : ""}
       <div class="ct-exp-paneles">${tarea.paneles.map((panel) => (
         renderizarPanel(panel, t, editable)
       )).join("")}</div>

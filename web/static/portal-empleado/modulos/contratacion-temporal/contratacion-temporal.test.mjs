@@ -671,7 +671,9 @@ test("la estructura permite teclado, etiquetas, errores asociados y anuncios ari
   assert.ok((html.match(/<fieldset/g) || []).length >= 5);
   assert.ok((html.match(/<legend/g) || []).length >= 5);
   assert.match(html, /aria-live="polite"/);
-  assert.match(html, /Los campos marcados con \* son obligatorios\./);
+  // El asterisco y el atributo nativo required bastan; sin leyenda ni ayudas bajo los campos.
+  assert.doesNotMatch(html, /Los campos marcados con \* son obligatorios\./);
+  assert.doesNotMatch(html, /-ayuda"/);
   assert.doesNotMatch(html, /aria-required="true"/);
   assert.match(html, /id="ct-detalle-contador"/);
   assert.doesNotMatch(html, /(?:detalle|observaciones)"[^>]+maxlength="4000"/);
@@ -689,7 +691,7 @@ test("la estructura permite teclado, etiquetas, errores asociados y anuncios ari
   const htmlErrores = renderizarAltaContratacionTemporal(conErrores.obtenerEstado());
   assert.match(htmlErrores, /role="alert"[^>]+aria-live="assertive"/);
   assert.match(htmlErrores, /aria-invalid="true"/);
-  assert.match(htmlErrores, /aria-describedby="ct-centro_ref-ayuda ct-centro_ref-error"/);
+  assert.match(htmlErrores, /aria-describedby="ct-centro_ref-error"/);
   const htmlErroresGrupos = renderizarAltaContratacionTemporal({
     ...conErrores.obtenerEstado(),
     errores: {
@@ -700,11 +702,11 @@ test("la estructura permite teclado, etiquetas, errores asociados y anuncios ari
   });
   assert.match(
     htmlErroresGrupos,
-    /id="ct-rc_existe"[^>]+aria-describedby="ct-rc_existe-ayuda ct-rc_existe-error"[^>]+aria-invalid="true"/,
+    /id="ct-rc_existe"[^>]+aria-describedby="ct-rc_existe-error"[^>]+aria-invalid="true"/,
   );
   assert.match(
     htmlErroresGrupos,
-    /id="ct-documentos_adjuntos"[^>]+aria-describedby="ct-documentos_adjuntos-ayuda ct-documentos_adjuntos-error"[^>]+aria-invalid="true"/,
+    /id="ct-documentos_adjuntos"[^>]+aria-describedby="ct-documentos_adjuntos-error"[^>]+aria-invalid="true"/,
   );
 });
 

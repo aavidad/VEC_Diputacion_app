@@ -235,11 +235,8 @@ export function montarFormularioInformeJuridico(configuracion = {}) {
     raizActual.innerHTML = `<section class="ct-alta" data-ct-informe
       aria-labelledby="ct-informe-titulo">
       <header class="ct-cabecera"><div>
-        <p class="sobrelinea">${escaparHTML(t("informe_sobrelinea"))}</p>
         <h2 id="ct-informe-titulo">${escaparHTML(t("informe_titulo"))}</h2>
-        <p>${escaparHTML(t("informe_descripcion"))}</p>
-      </div><aside class="ct-alcance" aria-label="${escaparHTML(t("informe_alcance_etiqueta"))}">${
-  escaparHTML(t("informe_alcance"))}</aside></header>
+      </div></header>
       <div class="ct-estado ct-estado-${escaparHTML(estado.tipo_mensaje)}"
         data-ct-informe-estado role="status" aria-live="polite"
         aria-atomic="true" tabindex="-1"><strong>${escaparHTML(t(estado.mensaje_clave))}</strong></div>

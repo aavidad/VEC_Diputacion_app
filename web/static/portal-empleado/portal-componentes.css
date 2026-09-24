@@ -147,6 +147,8 @@
   font-weight: 900;
 }
 
+.icono-kpi svg { width: 26px; height: 26px; }
+
 .tarjeta-kpi:nth-child(2) .icono-kpi { background: var(--portal-exito-suave); color: var(--portal-exito); }
 .tarjeta-kpi:nth-child(3) .icono-kpi { background: var(--portal-naranja-suave); color: var(--portal-naranja); }
 .tarjeta-kpi:nth-child(4) .icono-kpi { background: var(--portal-violeta-suave); color: var(--portal-violeta); }

@@ -41,7 +41,7 @@ export function montarVistaAccesoPapelesDietas(contenedor, {
   const cabecera = nodo(documento, "div");
   cabecera.className = "cabecera-panel";
   const titulos = nodo(documento, "div");
-  titulos.append(nodo(documento, "h2", t("d1_titulo")), nodo(documento, "p", t("d1_subtitulo")));
+  titulos.append(nodo(documento, "h2", t("d1_titulo")));
   const ayuda = nodo(documento, "details");
   ayuda.className = "dietas-recorridos-ayuda";
   const abrirAyuda = nodo(documento, "summary", "?");

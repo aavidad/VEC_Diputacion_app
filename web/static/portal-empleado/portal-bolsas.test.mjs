@@ -492,10 +492,10 @@ test("presentadorPanelInterno renderiza el Cuadro B12 en resumen con sus columna
     obtenerDatosBolsas: () => estadoBolsas,
   });
   const htmlListo = presentador.renderizarVista("resumen");
-  assert.match(htmlListo, /Cuadro B12/);
-  assert.match(htmlListo, /Bolsas de trabajo activas \(Cuadro B12\)/);
-  assert.match(htmlListo, /12 bolsas/);
-  assert.match(htmlListo, /Resumen del Cuadro B12/);
+  assert.match(htmlListo, /<h3 id="titulo-cuadro-b12">Bolsas de trabajo activas<\/h3>/);
+  assert.match(htmlListo, /aria-label="Resumen de las bolsas de trabajo"/);
+  assert.doesNotMatch(htmlListo, /B12|B5|12 bolsas|Datos conectados/);
+  assert.match(htmlListo, /<span class="icono-kpi" aria-hidden="true"><svg/);
   assert.match(htmlListo, /Bolsas visibles/);
   assert.match(htmlListo, /Aspirantes/);
   assert.match(htmlListo, /Disponibles/);
@@ -555,8 +555,9 @@ test("presentadorPanelInterno renderiza Vista B5 de candidatos con filtros, chip
     obtenerEstadoCandidatos: () => filtrosBolsa,
   });
   const htmlB5 = presentador.renderizarVista("bolsa-candidatos");
-  assert.match(htmlB5, /Vista B5/);
-  assert.match(htmlB5, /Filtros y ordenación de aspirantes/);
+  assert.doesNotMatch(htmlB5, /Vista B5|en esta página|Operaciones conectadas|dudas/);
+  assert.match(htmlB5, /Situación de los candidatos/);
+  assert.match(htmlB5, /<label for="filtro-bolsa-estado">Situación<\/label>/);
   assert.match(htmlB5, /data-bolsa-form="filtros"/);
   assert.match(htmlB5, /Volver al cuadro/);
   assert.match(htmlB5, /Claudio/);
@@ -568,12 +569,11 @@ test("presentadorPanelInterno renderiza Vista B5 de candidatos con filtros, chip
   assert.match(htmlB5, /Consultar historial de contactos/);
   assert.match(htmlB5, /Nuevo llamamiento/);
   assert.match(htmlB5, /Registrar resultado/);
-  assert.match(htmlB5, /El llamamiento se registra con recibo/);
   assert.match(htmlB5, /data-bolsa-accion="iniciar-b7"/);
   assert.match(htmlB5, /title="Pendiente de RRHH"/);
   assert.match(htmlB5, /Criterios de orden/);
   assert.match(htmlB5, /Puntuación descendente; desempate estable por nº del acta/);
-  assert.match(htmlB5, /Provisional, pendiente de RRHH \(dudas 13–14\)/);
+  assert.match(htmlB5, /<span class="estado-chip advertencia">Pendiente de RRHH<\/span>/);
   filtrosBolsa = { ...filtrosBolsa, pestana: "historico" };
   const htmlHistorico = presentador.renderizarVista("bolsa-candidatos");
   assert.match(htmlHistorico, /Histórico de contactos y llamamientos/);
@@ -732,7 +732,8 @@ test("P-WEB-08 presenta estadísticas y enlaza cada cifra por bolsa con B5", () 
   const estadisticas = validarRespuestaEstadisticas({ data: { esquema: ESQUEMA_ESTADISTICAS, generado_en: "2026-09-23T08:00:00Z", bolsas: { total: 1, vigentes: 1, sustituidas: 0 }, personas: { total: 2, por_estado: { disponible: 1, no_disponible: 0, trabajando: 1, pendiente_incorporacion: 0, renuncia: 0, excluido: 0, disponible_desde: 0 } }, llamamientos: { total: 1, por_canal: { correo: 1 }, por_resultado: { pendiente: 1 } }, por_bolsa: [{ bolsa_ref: "bolsa:01", categoria: "Auxiliar", tipo_lista: "ordinaria", vigente: true, total: 2, por_estado: { disponible: 1, no_disponible: 0, trabajando: 1, pendiente_incorporacion: 0, renuncia: 0, excluido: 0, disponible_desde: 0 } }] } });
   const presentador = crearPresentadorPanelInterno({ claseEstado: (c) => c, encabezadoVista: (_s, t, d, a = "") => `<header><h2>${t}</h2><p>${d}</p>${a}</header>`, escaparHTML: (v) => String(v ?? ""), numero: (n) => String(n ?? 0), obtenerDatosPanel: () => ({ esquema: "vec.bolsa.panel.interno.v1" }), tituloVista: (v) => v, obtenerDatosEstadisticas: () => ({ carga: "listo", datos: estadisticas, error: "" }) });
   const html = presentador.renderizarVista("estadisticas");
-  assert.match(html, /Indicadores agregados del ámbito autorizado/);
+  assert.doesNotMatch(html, /B5|Seleccione una cifra|Desglose agregado|1 bolsas/);
+  assert.match(html, /aria-label="Abrir 1 personas disponibles de Auxiliar en la lista de candidatos"/);
   assert.match(html, /data-accion="ver-bolsa" data-bolsa-ref="bolsa:01" data-estado="disponible"/);
   assert.match(html, /Personas y llamamientos/);
 });

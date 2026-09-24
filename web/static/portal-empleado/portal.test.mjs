@@ -236,9 +236,9 @@ test("el modo real renderiza solo indicadores, convocatorias y actuaciones acred
   assert.match(resumen, /120/);
   assert.match(resumen, /act_0123456789abcdef/);
   assert.match(resumen, /Prueba de lectura/);
-  assert.match(resumen, /Datos conectados en modo de solo lectura/);
+  assert.doesNotMatch(resumen, /Datos conectados|Cuadro B12|>BOL<|>LLA</);
   assert.match(resumen, /class="rejilla-cuadro-mando"/);
-  assert.ok(resumen.indexOf("Cuadro B12") < resumen.indexOf("Convocatorias del ámbito autorizado"));
+  assert.ok(resumen.indexOf("Llamamientos pendientes") < resumen.indexOf("Convocatorias del ámbito autorizado"));
   assert.ok(resumen.indexOf("Convocatorias del ámbito autorizado") < resumen.indexOf("Actuaciones pendientes"));
   assert.ok(resumen.indexOf("Actuaciones pendientes") < resumen.indexOf("Prueba de lectura"));
   for (const etiqueta of [
@@ -247,7 +247,9 @@ test("el modo real renderiza solo indicadores, convocatorias y actuaciones acred
   ]) assert.match(resumen, new RegExp(etiqueta));
   assert.doesNotMatch(resumen, /Bolsas suspendidas|Bolsas agotadas|Convocatorias en borrador/);
   assert.doesNotMatch(resumen, /Nuevo llamamiento|actividad|gráfico/i);
-  assert.match(presentador.renderizarVista("contratos"), /Funcionalidad no conectada/);
+  const noConectada = presentador.renderizarVista("contratos");
+  assert.match(noConectada, /Sección todavía no disponible/);
+  assert.doesNotMatch(noConectada, /<table|valor-kpi|<input|<select/);
 
   fuente = validarPanelBolsa(obtenerDatosPresentacion(), true);
   assert.equal(presentador.esActivo(), false);
@@ -259,7 +261,6 @@ test("el modo real renderiza solo indicadores, convocatorias y actuaciones acred
     "bolsas_activas", "llamamientos_pendientes", "llamamientos_en_curso",
     "documentos_pendientes_firma", "incidencias_abiertas",
   ]) assert.match(panelInterno, new RegExp(`i\\.${indicador}`));
-  assert.match(panelInterno, /No se muestran valores cero, tablas vacías ni controles aparentes/);
   assert.doesNotMatch(javascript, /import\("\.\/datos-presentacion\.js/);
   assert.match(javascript, /estado\.modoPresentacion = false/);
 });

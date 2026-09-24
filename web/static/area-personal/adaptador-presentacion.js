@@ -55,7 +55,7 @@ const BASE_PRESENTACION = {
     telefono: "000 000 000",
     domicilio: "Domicilio sintético sin localización real",
     estado_verificacion: "Identidad simulada · Contacto pendiente de revisión",
-    provincia: "Granada (dato sintético)",
+    provincia: "Granada",
     idioma: "Castellano",
     canales: ["Correo de demostración", "Aviso interno"],
   },

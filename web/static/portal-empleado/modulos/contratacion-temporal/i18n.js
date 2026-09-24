@@ -23,12 +23,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   "contratacion_temporal.fase.incorporacion": "Incorporación",
   "contratacion_temporal.fase.seguimiento": "Seguimiento",
   ...MENSAJES_SUBSANACION_REPAROS_ES,
-  sobrelinea: "Contratación temporal · Solicitud del centro",
   titulo: "Nueva solicitud de contratación temporal",
-  descripcion:
-    "Registre la necesidad del centro. La solicitud pasará a revisión de RRHH después de su confirmación.",
-  alcance:
-    "Esta pantalla registra el alta inicial. No valida la retención de crédito ni decide la vía de cobertura.",
   progreso_etiqueta: "Progreso del alta",
   progreso_datos: "Datos",
   progreso_revision: "Revisión",
@@ -52,47 +47,31 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   errores_titulo: "Revise los campos indicados",
   errores_descripcion: "La solicitud no está lista para pasar a revisión.",
   campo_obligatorio: "Campo obligatorio",
-  campos_obligatorios: "Los campos marcados con * son obligatorios.",
   seleccionar: "Seleccione una opción",
   centro_leyenda: "Centro y necesidad",
   centro_ref: "Centro solicitante",
-  centro_ayuda: "Centro obtenido del catálogo interno vigente.",
   contacto_ref: "Persona responsable referenciada",
-  contacto_ayuda:
-    "Referencia interna asociada al centro. No introduzca nombre, correo, DNI ni otros datos personales.",
   categoria_ref: "Categoría",
-  categoria_ayuda: "Categoría obtenida del catálogo interno.",
   grupo_subgrupo: "Grupo o subgrupo",
-  grupo_ayuda: "Grupo asociado a la categoría seleccionada.",
   motivo_clave: "Motivo",
-  motivo_ayuda: "Motivo gobernado por el catálogo vigente.",
   detalle_periodo_leyenda: "Detalle y periodo previsto",
   detalle: "Detalle de la necesidad",
-  detalle_ayuda: "Explique la necesidad administrativa sin incluir datos personales innecesarios.",
   contador_caracteres: "{actual} de {maximo} caracteres",
   inicio: "Fecha prevista de inicio",
   fin: "Fecha prevista de fin",
-  periodo_ayuda: "El periodo previsto no puede superar cien años civiles.",
   observaciones: "Observaciones",
-  observaciones_ayuda: "Información complementaria necesaria para tramitar la solicitud.",
   rc_leyenda: "Retención de crédito",
   rc_existe: "¿Existe retención de crédito?",
   si: "Sí",
   no: "No",
-  rc_aviso:
-    "La declaración aportada por el centro no sustituye la validación presupuestaria posterior de RRHH.",
   rc_numero: "Número o referencia de RC",
   rc_fecha: "Fecha de RC",
   rc_importe: "Importe exacto",
-  rc_importe_ayuda:
-    "Euros con dos decimales. Máximo 9.223.372.036.854,77 €. Se enviará como céntimos enteros y moneda EUR.",
   rc_importe_placeholder: "0,00",
   moneda_eur: "EUR",
   rc_documento_ref: "Documento de RC incorporado",
   documentos_leyenda: "Documentación incorporada",
   documentos_adjuntos: "Documentos adjuntos",
-  documentos_ayuda:
-    "Seleccione solo referencias ya incorporadas al expediente documental. Esta pantalla no sube archivos.",
   documentos_vacios: "No hay documentos incorporados disponibles.",
   revisar: "Revisar solicitud",
   volver_editar: "Volver a editar",
@@ -142,14 +121,8 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   error_rc_residual: "Si no existe RC, sus datos asociados deben quedar vacíos.",
   error_adjuntos: "Seleccione como máximo 64 documentos válidos y sin duplicados.",
   error_generico: "El valor no es válido.",
-  analisis_sobrelinea: "Contratación temporal · Análisis de RRHH",
   analisis_titulo_registrar: "Registrar análisis de RRHH",
   analisis_titulo_rectificar: "Rectificar análisis de RRHH",
-  analisis_descripcion:
-    "Revise los datos del análisis antes de registrarlo.",
-  analisis_alcance_etiqueta: "Alcance de la operación",
-  analisis_alcance:
-    "Este paso registra el análisis de RRHH; no formaliza la contratación.",
   analisis_estado_listo: "El análisis está preparado para su revisión.",
   analisis_estado_solo_lectura: "La rectificación está disponible solo para consulta.",
   analisis_estado_validacion: "Revise los campos indicados antes de continuar.",
@@ -165,32 +138,19 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   analisis_estado_error: "No se pudo confirmar el análisis.",
   analisis_campos_leyenda: "Datos del análisis",
   analisis_modalidad: "Modalidad",
-  analisis_modalidad_ayuda: "Modalidad procedente del catálogo vigente.",
   analisis_categoria: "Categoría profesional",
-  analisis_categoria_ayuda: "Seleccione la categoría correspondiente.",
   analisis_grupo: "Grupo o subgrupo",
-  analisis_grupo_ayuda: "Seleccione el grupo correspondiente a la categoría.",
   analisis_causa: "Causa",
-  analisis_causa_ayuda: "Causa procedente del catálogo vigente.",
   analisis_inicio: "Fecha de inicio",
   analisis_fin: "Fecha de fin",
-  analisis_periodo_ayuda:
-    "Indique las fechas previstas. El fin no puede ser anterior al inicio.",
   analisis_jornada: "Jornada contratada (media semanal)",
   analisis_jornada_horas: "Horas",
   analisis_jornada_minutos: "Minutos",
-  analisis_jornada_ayuda:
-    "Media semanal en cómputo anual. Con turnos, las semanas que superan la media se reflejan en el cuadrante, no aquí. Jornada completa de referencia: 37 h 30 min (provisional, a confirmar por RRHH).",
+  analisis_jornada_ayuda: "Jornada completa: 37 h 30 min.",
   analisis_jornada_equivalencia: "Equivale a {porcentaje} de la jornada completa.",
   analisis_entrada_rc: "Retención de crédito (RC)",
-  analisis_entrada_rc_ayuda:
-    "Seleccione la RC disponible para este expediente.",
   analisis_observaciones: "Observaciones",
-  analisis_observaciones_ayuda:
-    "Añada la información necesaria para el análisis (máximo 4.000 caracteres).",
   analisis_motivo_rectificacion: "Motivo de la rectificación",
-  analisis_motivo_rectificacion_ayuda:
-    "Seleccione un motivo disponible para rectificar.",
   analisis_registrar: "Registrar análisis",
   analisis_rectificar: "Rectificar análisis",
   analisis_rectificacion_configuracion_pendiente_titulo: "Rectificación no disponible",
@@ -223,13 +183,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   analisis_recibo_version: "Versión resultante",
   analisis_recibo_referencia: "Referencia del recibo",
   analisis_recibo_fecha: "Fecha de confirmación",
-  cobertura_sobrelinea: "Contratación temporal · Vía de cobertura",
   cobertura_titulo: "Decidir la vía de cobertura",
-  cobertura_descripcion:
-    "Revise la propuesta calculada con el análisis confirmado antes de aplicar la decisión.",
-  cobertura_alcance_etiqueta: "Alcance de la decisión",
-  cobertura_alcance:
-    "La propuesta, la identidad, la autorización y la persistencia proceden del servidor.",
   cobertura_estado_cargando: "Calculando la propuesta de cobertura.",
   cobertura_estado_lista: "La propuesta de cobertura está preparada para su confirmación.",
   cobertura_estado_sin_via: "No existe una vía de cobertura viable.",
@@ -256,8 +210,6 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   cobertura_via_oferta_sae: "Oferta SAE",
   cobertura_via_nueva_convocatoria_bolsa: "Nueva convocatoria de Bolsa",
   cobertura_via_elegida: "Vía elegida por RRHH",
-  cobertura_via_ayuda:
-    "Seleccione expresamente una vía viable.",
   cobertura_motivo_alternativa: "Motivo gobernado para una vía alternativa",
   "contratacion_temporal.cobertura.motivo.eleccion_procedimiento_rrhh":
     "Elección del procedimiento de cobertura por RRHH",
@@ -269,8 +221,6 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   cobertura_evaluacion_incompleta: "Incompleta",
   cobertura_evaluacion_conflictiva: "Con conflictos",
   cobertura_evaluacion_no_viable: "No viable",
-  cobertura_confirmacion_ayuda:
-    "Confirme solo después de comprobar que la vía recomendada corresponde a este expediente.",
   cobertura_confirmar: "Confirmar vía de cobertura",
   cobertura_confirmacion_advertencia:
     "Esta acción registrará la decisión y avanzará el expediente a asignación de unidad.",
@@ -290,13 +240,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   cobertura_recibo_referencia: "Referencia del recibo",
   cobertura_recibo_decision: "Referencia de la decisión",
   cobertura_recibo_fecha: "Fecha de confirmación",
-  asignacion_sobrelinea: "Contratación temporal · Asignación de unidad",
   asignacion_titulo: "Asignar expediente a la unidad responsable",
-  asignacion_descripcion:
-    "Revise el destino sintético y confirme la asignación del expediente.",
-  asignacion_alcance_etiqueta: "Alcance de la asignación",
-  asignacion_alcance:
-    "La identidad, la organización, la autorización y la persistencia proceden del servidor.",
   asignacion_estado_lista: "La asignación está preparada para su confirmación.",
   asignacion_estado_enviando: "Registrando una única asignación. Espere la confirmación.",
   asignacion_estado_recuperando: "Recuperando la asignación original con la misma clave.",
@@ -310,10 +254,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   asignacion_estado_error: "No se pudo preparar una solicitud de asignación válida.",
   asignacion_destino_leyenda: "Destino de la asignación",
   asignacion_unidad: "Unidad responsable",
-  asignacion_unidad_ayuda: "Unidad sintética cerrada para este recorrido de desarrollo.",
   asignacion_responsable: "Responsable referenciado",
-  asignacion_responsable_ayuda:
-    "Referencia opaca sintética; no contiene nombre, correo ni documento identificativo.",
   asignacion_confirmacion:
     "He comprobado el expediente, la unidad y la referencia responsable.",
   asignacion_resumen: "Expediente {expediente}, versión actual {version}.",
@@ -332,13 +273,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   asignacion_recibo_version: "Versión resultante",
   asignacion_recibo_referencia: "Referencia del recibo",
   asignacion_recibo_fecha: "Fecha de confirmación",
-  informe_sobrelinea: "Contratación temporal · Informe jurídico",
   informe_titulo: "Preparar informe jurídico",
-  informe_descripcion:
-    "Genere el documento de desarrollo a partir del expediente asignado y de sus datos gobernados.",
-  informe_alcance_etiqueta: "Alcance del informe",
-  informe_alcance:
-    "El contenido, la identidad, la autorización y la persistencia proceden del servidor.",
   informe_estado_listo: "El informe jurídico está preparado para su confirmación.",
   informe_estado_enviando: "Preparando un único informe jurídico. Espere la confirmación.",
   informe_estado_recuperando: "Recuperando el informe original con la misma clave.",
@@ -395,16 +330,8 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   informe_historial_fase: "Fase de origen y destino",
   informe_historial_estado: "Estado de origen y destino",
   informe_historial_fecha: "Fecha",
-  fiscalizacion_sobrelinea: "Contratación temporal · Fiscalización",
   fiscalizacion_titulo: "Registrar resultado de fiscalización",
   fiscalizacion_titulo_tras_subsanacion: "Nueva fiscalización tras subsanación",
-  fiscalizacion_descripcion:
-    "Revise el expediente y registre el resultado comunicado por Intervención.",
-  fiscalizacion_descripcion_tras_subsanacion:
-    "Registre el nuevo resultado comunicado por Intervención después de la subsanación autorizada. El servidor comprueba la elegibilidad y el permiso al confirmar.",
-  fiscalizacion_alcance_etiqueta: "Alcance del registro",
-  fiscalizacion_alcance:
-    "El actor, la unidad, la autorización, la transición y la persistencia proceden del servidor.",
   fiscalizacion_estado_lista: "El resultado de fiscalización está preparado para su registro.",
   fiscalizacion_estado_enviando: "Registrando un único resultado. Espere la confirmación.",
   fiscalizacion_estado_recuperando:
@@ -436,8 +363,6 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   fiscalizacion_informe_registrado: "Registrado en la versión {version}",
   fiscalizacion_subsanacion_registrada: "Registrada en la versión {version}",
   fiscalizacion_resultado_leyenda: "Resultado comunicado por Intervención",
-  fiscalizacion_resultado_ayuda:
-    "El resultado determina si el expediente continúa o vuelve para subsanación.",
   fiscalizacion_resultado_favorable: "Favorable",
   fiscalizacion_resultado_favorable_con_observaciones: "Favorable con observaciones",
   fiscalizacion_resultado_desfavorable: "Desfavorable",

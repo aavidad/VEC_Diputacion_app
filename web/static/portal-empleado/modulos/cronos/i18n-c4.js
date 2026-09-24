@@ -2,20 +2,17 @@ import { crearTraductorCronos, MENSAJES_CRONOS_ES } from "./i18n.js?v=20260924-w
 
 export const MENSAJES_CRONOS_C4_ES = Object.freeze({
   calendario_civil_titulo: "Calendario civil",
-  calendario_civil_descripcion: "Seleccione una fecha para consultarla. Esta cuadrícula solo muestra días naturales.",
   calendario_anterior: "Año anterior",
   calendario_siguiente: "Año siguiente",
   calendario_mes: "{mes} de {anio}",
   calendario_dia: "{fecha}",
   calendario_seleccion: "Fecha seleccionada",
   calendario_natural: "Día natural",
-  calendario_fin_semana: "Sábado o domingo (dato civil)",
+  calendario_fin_semana: "Fin de semana",
   calendario_leyenda: "Leyenda",
   calendario_leyenda_dia: "Fecha civil seleccionable",
-  calendario_leyenda_fin_semana: "Sábado y domingo: clasificación civil, sin efecto laboral inferido",
+  calendario_leyenda_fin_semana: "Sábado y domingo",
   calendario_estado: "Calendario laboral no configurado",
-  calendario_estado_detalle: "No constan aquí festivos, apertura del centro, jornada individual ni versiones oficiales. La fecha elegida no determina si es hábil o laborable.",
-  calendario_fuente: "Pendiente de la fuente autorizada de Calendarios para la organización, centro y periodo.",
 });
 
 const CLAVES_C4 = Object.freeze(Object.keys(MENSAJES_CRONOS_C4_ES));

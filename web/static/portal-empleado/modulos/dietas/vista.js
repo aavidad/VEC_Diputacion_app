@@ -1,4 +1,5 @@
 import { crearPresentadorDietas } from "./presentador.js";
+import { icono } from "../../../comun/iconos-vec.js?v=20260924-aspecto-v1";
 import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js";
 import { CODIGO_ERROR_SERVICIO_RUTAS_DIETAS } from "./contrato.js";
 
@@ -281,11 +282,11 @@ export function renderizarDietas(modelo, {
   return `<div class="modulo-dietas" data-modulo="dietas">
     ${cabecera}${identidad}${alcanceDemo}
     <div class="rejilla-kpi dietas-kpi" aria-label="${escaparHTML(t("resumen_dietas"))}">
-      <article class="tarjeta-kpi"><span class="icono-kpi" aria-hidden="true">EXP</span><div><strong class="valor-kpi">${numero(modelo.resumen.expedientes)}</strong><span class="etiqueta-kpi">${escaparHTML(t("indicador_expedientes"))}</span></div></article>
-      <article class="tarjeta-kpi"><span class="icono-kpi" aria-hidden="true">PEN</span><div><strong class="valor-kpi">${numero(modelo.resumen.pendientes)}</strong><span class="etiqueta-kpi">${escaparHTML(t("indicador_pendientes"))}</span></div></article>
-      <article class="tarjeta-kpi"><span class="icono-kpi" aria-hidden="true">KM</span><div><strong class="valor-kpi">${modelo.capacidades.consultarRutas ? numero(modelo.resumen.kilometros, 1) : escaparHTML(t("sin_capacidad"))}</strong><span class="etiqueta-kpi">${escaparHTML(t("indicador_kilometros"))}</span></div></article>
-      <article class="tarjeta-kpi"><span class="icono-kpi" aria-hidden="true">DEV</span><div><strong class="valor-kpi">${euros(modelo.resumen.total_euros)}</strong><span class="etiqueta-kpi">${escaparHTML(t("indicador_devengado", { demo: modelo.demostracion ? " DEMO" : "" }))}</span></div></article>
-      <article class="tarjeta-kpi"><span class="icono-kpi" aria-hidden="true">PAG</span><div><strong class="valor-kpi">${euros(modelo.resumen.pagado_euros)}</strong><span class="etiqueta-kpi">${escaparHTML(t("indicador_pagado", { demo: modelo.demostracion ? " DEMO" : "" }))}</span></div></article>
+      <article class="tarjeta-kpi"><span class="icono-kpi" aria-hidden="true">${icono("expediente")}</span><div><strong class="valor-kpi">${numero(modelo.resumen.expedientes)}</strong><span class="etiqueta-kpi">${escaparHTML(t("indicador_expedientes"))}</span></div></article>
+      <article class="tarjeta-kpi"><span class="icono-kpi" aria-hidden="true">${icono("pendiente")}</span><div><strong class="valor-kpi">${numero(modelo.resumen.pendientes)}</strong><span class="etiqueta-kpi">${escaparHTML(t("indicador_pendientes"))}</span></div></article>
+      <article class="tarjeta-kpi"><span class="icono-kpi" aria-hidden="true">${icono("ruta")}</span><div><strong class="valor-kpi">${modelo.capacidades.consultarRutas ? numero(modelo.resumen.kilometros, 1) : escaparHTML(t("sin_capacidad"))}</strong><span class="etiqueta-kpi">${escaparHTML(t("indicador_kilometros"))}</span></div></article>
+      <article class="tarjeta-kpi"><span class="icono-kpi" aria-hidden="true">${icono("euro")}</span><div><strong class="valor-kpi">${euros(modelo.resumen.total_euros)}</strong><span class="etiqueta-kpi">${escaparHTML(t("indicador_devengado", { demo: modelo.demostracion ? " DEMO" : "" }))}</span></div></article>
+      <article class="tarjeta-kpi"><span class="icono-kpi" aria-hidden="true">${icono("correcto")}</span><div><strong class="valor-kpi">${euros(modelo.resumen.pagado_euros)}</strong><span class="etiqueta-kpi">${escaparHTML(t("indicador_pagado", { demo: modelo.demostracion ? " DEMO" : "" }))}</span></div></article>
     </div>
     ${recibo ? `<section class="dietas-recibo" role="status" tabindex="-1" data-dietas-recibo><strong>${escaparHTML(traducirCodigo(t, CLAVES_RESULTADO, recibo.resultado))}</strong><span>${escaparHTML(t("recibo_estado", { referencia: recibo.referencia, actor: recibo.actor_ref, efectos: recibo.efectos_reales === false ? t("sin_efectos") : "" }))}</span></section>` : '<div class="dietas-anuncio" role="status" aria-live="polite" data-dietas-anuncio></div>'}
     ${modelo.capacidades.gestionarGastos && modelo.capacidades.gestionarRutas ? renderizarFormulario(modelo, t, errorRuta) : ""}

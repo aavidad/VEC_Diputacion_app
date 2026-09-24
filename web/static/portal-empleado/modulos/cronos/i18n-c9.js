@@ -1,7 +1,6 @@
 /** Extensión del catálogo común de Cronos para la preparación local C9. */
 export const MENSAJES_CRONOS_C9_ES = Object.freeze({
   notificaciones_titulo: "Notificaciones a RRHH",
-  notificaciones_descripcion: "Prepare una comunicación sobre una fecha concreta. Todavía no se puede enviar.",
   notificaciones_estado: "Sin enviar",
   notificaciones_estado_detalle: "Borrador local: se perderá al salir de esta pantalla.",
   notificaciones_tipo: "Tipo de notificación",

@@ -86,20 +86,22 @@ test("las diez categorías reproducen la jerarquía funcional facilitada por RRH
     [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
   );
   for (const texto of [
-    "Gestión de bolsas y candidatos", "Llamamientos automáticos según bases y Reglamento",
-    "Contratos, ceses y reincorporaciones", "Motor de reglas configurable",
-    "Portal de consulta para candidatos", "Cuadro de mando para dirección",
-    "Estadísticas y explotación de datos", "Generación y firma de documentos",
-    "Correo y mensajería", "Auditoría, trazabilidad y control",
-  ]) assert.match(html, new RegExp(texto));
+    "Bolsas y candidatos", "Llamamientos automáticos",
+    "Contratos, ceses y reincorporaciones", "Reglas y baremación",
+    "Consulta de candidatos", "Cuadro de mando",
+    "Estadísticas", "Documentos y firma",
+    "Correo y mensajería", "Auditoría y control",
+  ]) assert.match(html, new RegExp(`<span>${texto}</span>`));
+  // Rótulos de negocio, sin referencias internas ni dudas pendientes en el menú.
+  assert.doesNotMatch(html, /\bB(5|6|7|12)\b|dudas? 1\d|relay/u);
 });
 
 test("las entradas con recorrido real describen su alcance concreto", () => {
   for (const texto of [
-    "B7 desde cada bolsa · correo de pruebas · orden provisional (dudas 13–14)",
+    "Se inician desde cada bolsa · orden de llamamiento pendiente de RRHH",
     "Fuente de contratos sin configurar · altas, ceses y reincorporaciones pendientes",
-    "Borradores PDF en Contratación temporal · portafirmas pendiente de integración",
-    "Correo operativo con relay de pruebas · correo corporativo y SMS pendientes",
+    "Borradores PDF en Contratación temporal · portafirmas pendiente",
+    "Correo desde cada bolsa · buzón corporativo y SMS pendientes",
   ]) assert.ok(html.includes(texto), texto);
   assert.doesNotMatch(html, /Pendiente: sin servicio autorizado/u);
   for (const categoria of ["llamamientos", "contratos", "documentos", "comunicaciones"]) {

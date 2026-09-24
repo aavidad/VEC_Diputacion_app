@@ -218,7 +218,10 @@ test("la vista usa controles gobernados, etiquetas, ayudas y regiones vivas", ()
 
   assert.match(raiz.raiz.innerHTML, /<form data-ct-analisis-form novalidate>/u);
   assert.match(raiz.raiz.innerHTML, /<label for="ct-analisis-modalidad_clave">/u);
-  assert.match(raiz.raiz.innerHTML, /aria-describedby="ct-analisis-modalidad_clave-ayuda"/u);
+  // Sin ayudas bajo cada campo: solo la jornada conserva su referencia de 37 h 30 min.
+  assert.doesNotMatch(raiz.raiz.innerHTML, /ct-analisis-modalidad_clave-ayuda|campos marcados/u);
+  assert.match(raiz.raiz.innerHTML, /aria-describedby="ct-analisis-porcentaje_jornada-ayuda"/u);
+  assert.doesNotMatch(raiz.raiz.innerHTML, /provisional|no formaliza|Contratación temporal ·/u);
   assert.match(raiz.raiz.innerHTML, /role="status" aria-live="polite"/u);
   assert.match(raiz.raiz.innerHTML, /&lt;img src=x onerror=privado&gt;/u);
   assert.doesNotMatch(raiz.raiz.innerHTML, /<img|name="(?:identidad|organizacion|perfil|autorizacion)"/u);

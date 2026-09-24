@@ -1,15 +1,15 @@
 import {
-  botonOperacion, chip, encabezadoVista, enlaceRuta, escaparAtributo, escaparHTML,
-  formatoPuntos, listaDatos, notaDemostracion, panel, tabla,
+  botonOperacion, chip, cifraResumen, encabezadoVista, enlaceRuta, escaparAtributo, escaparHTML,
+  formatoPuntos, listaDatos, panel, tabla,
 } from "./comunes.js";
 
 export function renderizarInicio(datos) {
   const cifras = [
-    [datos.resumen.acciones_pendientes, "Acciones pendientes", "Revise plazos y comunicaciones", "aviso"],
-    [datos.resumen.convocatorias_abiertas, "Convocatorias abiertas", "Procesos disponibles ahora", ""],
-    [datos.resumen.solicitudes_activas, "Solicitudes activas", "En tramitación o revisión", "exito"],
-    [formatoPuntos(datos.resumen.puntuacion_provisional), "Puntos provisionales", "Sujeto a revisión técnica", "merito"],
-  ].map(([valor, etiqueta, ayuda, clase]) => `<article class="cifra-resumen ${clase}"><span>${escaparHTML(etiqueta)}</span><strong>${escaparHTML(valor)}</strong><small>${escaparHTML(ayuda)}</small></article>`).join("");
+    [datos.resumen.acciones_pendientes, "Acciones pendientes", "Revise plazos y comunicaciones", "aviso", "pendiente"],
+    [datos.resumen.convocatorias_abiertas, "Convocatorias abiertas", "Procesos disponibles ahora", "", "documento"],
+    [datos.resumen.solicitudes_activas, "Solicitudes activas", "En tramitación o revisión", "exito", "expediente"],
+    [formatoPuntos(datos.resumen.puntuacion_provisional), "Puntos provisionales", "Sujeto a revisión técnica", "merito", "grafico"],
+  ].map(([valor, etiqueta, ayuda, clase, nombreIcono]) => cifraResumen(valor, etiqueta, ayuda, { clase, nombreIcono })).join("");
 
   const plazos = datos.plazos.map((plazo) => `<li><span class="fecha-bloque">${escaparHTML(plazo.dia)}<small>${escaparHTML(plazo.mes)}</small></span><span><strong>${escaparHTML(plazo.titulo)}</strong><small>${escaparHTML(plazo.detalle)}</small></span>${enlaceRuta(plazo.ruta, "Abrir", "enlace-boton")}</li>`).join("");
   const acciones = datos.mensajes.filter((mensaje) => mensaje.estado === "No leído").slice(0, 3).map((mensaje) => `<li><span class="fecha-bloque" aria-hidden="true">!</span><span><strong>${escaparHTML(mensaje.asunto)}</strong><small>${escaparHTML(mensaje.resumen)}</small></span>${enlaceRuta(mensaje.ruta, "Atender", "enlace-boton")}</li>`).join("");
@@ -22,7 +22,6 @@ export function renderizarInicio(datos) {
   const actividad = datos.actividad.slice(0, 4).map((item) => `<li><span class="fecha-bloque" aria-hidden="true">·</span><span><strong>${escaparHTML(item.titulo)}</strong><small>${escaparHTML(item.detalle)}</small><small>${escaparHTML(item.actor)}</small></span><small>${escaparHTML(item.fecha)}</small></li>`).join("");
 
   return `${encabezadoVista("Qué necesita su atención", "Plazos, acciones y estado de sus procesos en un único espacio.", enlaceRuta("convocatorias", "Ver convocatorias", "boton-primario"))}
-    ${datos.meta.presentacion ? notaDemostracion() : ""}
     <section class="resumen-cifras" aria-label="Resumen personal">${cifras}</section>
     <div class="rejilla-principal"><div>
       ${panel("Próximos plazos", "Fechas calculadas para sus procesos", `<ul class="lista-plazos">${plazos}</ul>`, { estado: `${datos.plazos.length} plazos` })}

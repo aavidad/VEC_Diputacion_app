@@ -1,7 +1,5 @@
 export const MENSAJES_SUBSANACION_REPAROS_ES = Object.freeze({
-  subsanacion_sobrelinea: "Contratación temporal · Subsanación de reparo",
   subsanacion_titulo: "Registrar subsanación",
-  subsanacion_descripcion: "Documente la corrección del reparo vigente. El servidor conserva el expediente en subsanación; esta acción no aprueba la fiscalización.",
   subsanacion_observaciones: "Observaciones de la corrección",
   subsanacion_ayuda: "Incluya solo la información administrativa necesaria, sin datos personales innecesarios.",
   subsanacion_confirmar: "Preparar subsanación",

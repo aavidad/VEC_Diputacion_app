@@ -46,7 +46,7 @@ export function renderizarCatalogoPermisosCronos({ consulta = "", mensajes = MEN
       <div class="cronos-c6-detalle"><p>${texto(t("ver_detalle"))}</p><dl>${CAMPOS.map(campo).join("")}<div><dt>${texto(t("procedencia"))}</dt><dd>${texto(t("procedencia_valor"))}</dd></div></dl></div>
     </details></li>`).join("");
   return `<section class="panel cronos-c6" aria-labelledby="cronos-c6-titulo" data-cronos-c6-catalogo="provisional">
-    <header class="cabecera-panel"><div><h3 id="cronos-c6-titulo">${texto(t("titulo"))}</h3><p>${texto(t("subtitulo"))}</p></div><span class="cronos-c6-estado">${texto(t("provisional"))}</span></header>
+    <header class="cabecera-panel"><div><h3 id="cronos-c6-titulo">${texto(t("titulo"))}</h3></div><span class="cronos-c6-estado">${texto(t("provisional"))}</span></header>
     <div class="cuerpo-panel"><label class="cronos-c6-busqueda" for="cronos-c6-buscar"><span>${texto(t("buscar"))}</span><input id="cronos-c6-buscar" type="search" maxlength="120" autocomplete="off" value="${texto(String(consulta).slice(0, 120))}" data-cronos-c6-buscar aria-describedby="cronos-c6-ayuda"></label>
       <p id="cronos-c6-ayuda" class="cronos-c6-ayuda">${texto(t("buscar_ayuda"))}</p>
       <p class="cronos-c6-resultados" data-cronos-c6-resultados role="status">${texto(t("resultados", { cantidad }))}</p>

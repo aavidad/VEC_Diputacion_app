@@ -28,12 +28,13 @@ function mensajeError(t, codigo) {
 
 function atributosAccesibles(estado, campo, descripcionesAdicionales = []) {
   const error = estado.errores[campo];
+  // Sin textos de ayuda bajo los campos: describen el control solo el contador y el error.
   const descritos = [
-    `ct-${campo}-ayuda`,
     ...descripcionesAdicionales,
     ...(error ? [`ct-${campo}-error`] : []),
   ];
-  return `aria-describedby="${descritos.join(" ")}"${error ? ' aria-invalid="true"' : ""}`;
+  return `${descritos.length ? `aria-describedby="${descritos.join(" ")}"` : ""}${
+    error ? ' aria-invalid="true"' : ""}`;
 }
 
 function errorCampo(estado, campo, t) {
@@ -41,10 +42,6 @@ function errorCampo(estado, campo, t) {
   return codigo
     ? `<span class="ct-error-campo" id="ct-${campo}-error">${escaparHTML(mensajeError(t, codigo))}</span>`
     : "";
-}
-
-function ayudaCampo(campo, texto) {
-  return `<small id="ct-${campo}-ayuda">${escaparHTML(texto)}</small>`;
 }
 
 function opcionesReferencia(opciones, seleccion, t) {
@@ -113,13 +110,8 @@ function pasos(estado, t) {
 function cabecera(estado, t) {
   return `<header class="ct-cabecera">
     <div>
-      <p class="sobrelinea">${escaparHTML(t("sobrelinea"))}</p>
       <h2 id="ct-alta-titulo">${escaparHTML(t("titulo"))}</h2>
-      <p>${escaparHTML(t("descripcion"))}</p>
     </div>
-    <aside class="ct-alcance" aria-label="${escaparHTML(t("sobrelinea"))}">
-      ${escaparHTML(t("alcance"))}
-    </aside>
   </header>
   ${pasos(estado, t)}
   <div class="ct-estado ct-estado-${escaparHTML(estado.tipo_mensaje)}"
@@ -130,7 +122,7 @@ function cabecera(estado, t) {
 }
 
 function campoSeleccion({
-  estado, t, campo, etiqueta, ayuda, opciones, deshabilitado,
+  estado, t, campo, etiqueta, opciones, deshabilitado,
 }) {
   return `<div class="ct-campo">
     <label for="ct-${campo}">${escaparHTML(etiqueta)} <b aria-hidden="true">*</b></label>
@@ -138,7 +130,6 @@ function campoSeleccion({
       ${atributosAccesibles(estado, campo)}${deshabilitado ? " disabled" : ""}>
       ${opciones}
     </select>
-    ${ayudaCampo(campo, ayuda)}
     ${errorCampo(estado, campo, t)}
   </div>`;
 }
@@ -154,7 +145,6 @@ function camposCentro(estado, t, deshabilitado) {
     t,
     campo: "centro_ref",
     etiqueta: t("centro_ref"),
-    ayuda: t("centro_ayuda"),
     opciones: opcionesReferencia(estado.catalogos.centros, estado.borrador.centro_ref, t),
     deshabilitado,
   })}
@@ -163,7 +153,6 @@ function camposCentro(estado, t, deshabilitado) {
     t,
     campo: "contacto_ref",
     etiqueta: t("contacto_ref"),
-    ayuda: t("contacto_ayuda"),
     opciones: opcionesReferencia(centro?.contactos ?? [], estado.borrador.contacto_ref, t),
     deshabilitado: deshabilitado || !centro,
   })}
@@ -172,7 +161,6 @@ function camposCentro(estado, t, deshabilitado) {
     t,
     campo: "categoria_ref",
     etiqueta: t("categoria_ref"),
-    ayuda: t("categoria_ayuda"),
     opciones: opcionesReferencia(
       estado.catalogos.categorias,
       estado.borrador.categoria_ref,
@@ -185,7 +173,6 @@ function camposCentro(estado, t, deshabilitado) {
     t,
     campo: "grupo_subgrupo",
     etiqueta: t("grupo_subgrupo"),
-    ayuda: t("grupo_ayuda"),
     opciones: opcionesClave(
       categoria?.grupos_subgrupos ?? [],
       estado.borrador.grupo_subgrupo,
@@ -198,7 +185,6 @@ function camposCentro(estado, t, deshabilitado) {
     t,
     campo: "motivo_clave",
     etiqueta: t("motivo_clave"),
-    ayuda: t("motivo_ayuda"),
     opciones: opcionesClave(estado.catalogos.motivos, estado.borrador.motivo_clave, t),
     deshabilitado,
   })}
@@ -216,7 +202,6 @@ function camposDetalle(estado, t, deshabilitado) {
         <textarea id="ct-detalle" name="detalle" required rows="5"
           ${atributosAccesibles(estado, "detalle", ["ct-detalle-contador"])}`
     + `${deshabilitado ? " disabled" : ""}>${escaparHTML(estado.borrador.detalle)}</textarea>
-        ${ayudaCampo("detalle", t("detalle_ayuda"))}
         <small class="ct-contador" id="ct-detalle-contador" data-ct-contador="detalle">`
     + `${escaparHTML(t("contador_caracteres", {
       actual: [...estado.borrador.detalle].length,
@@ -229,7 +214,6 @@ function camposDetalle(estado, t, deshabilitado) {
         <input id="ct-inicio" name="inicio" type="date" required
           value="${escaparHTML(estado.borrador.inicio)}"
           ${atributosAccesibles(estado, "inicio")}${deshabilitado ? " disabled" : ""}>
-        ${ayudaCampo("inicio", t("inicio"))}
         ${errorCampo(estado, "inicio", t)}
       </div>
       <div class="ct-campo">
@@ -237,7 +221,6 @@ function camposDetalle(estado, t, deshabilitado) {
         <input id="ct-fin" name="fin" type="date" required
           value="${escaparHTML(estado.borrador.fin)}"
           ${atributosAccesibles(estado, "fin")}${deshabilitado ? " disabled" : ""}>
-        ${ayudaCampo("fin", t("periodo_ayuda"))}
         ${errorCampo(estado, "fin", t)}
       </div>
       <div class="ct-campo ct-campo-ancho">
@@ -249,7 +232,6 @@ function camposDetalle(estado, t, deshabilitado) {
     ["ct-observaciones-contador"],
   )}`
     + `${deshabilitado ? " disabled" : ""}>${escaparHTML(estado.borrador.observaciones)}</textarea>
-        ${ayudaCampo("observaciones", t("observaciones_ayuda"))}
         <small class="ct-contador" id="ct-observaciones-contador"
           data-ct-contador="observaciones">`
     + `${escaparHTML(t("contador_caracteres", {
@@ -267,7 +249,6 @@ function camposRC(estado, t, deshabilitado) {
   const controlesDeshabilitados = deshabilitado || !activa;
   return `<fieldset class="ct-bloque">
     <legend>${escaparHTML(t("rc_leyenda"))}</legend>
-    <p class="ct-aviso" id="ct-rc_existe-ayuda">${escaparHTML(t("rc_aviso"))}</p>
     <fieldset class="ct-radios" id="ct-rc_existe" tabindex="-1"
       ${atributosAccesibles(estado, "rc_existe")}>
       <legend>${escaparHTML(t("rc_existe"))} <b aria-hidden="true">*</b></legend>
@@ -284,7 +265,6 @@ function camposRC(estado, t, deshabilitado) {
           value="${escaparHTML(estado.borrador.rc_numero)}" required
           ${atributosAccesibles(estado, "rc_numero")}`
     + `${controlesDeshabilitados ? " disabled" : ""}>
-        ${ayudaCampo("rc_numero", t("rc_numero"))}
         ${errorCampo(estado, "rc_numero", t)}
       </div>
       <div class="ct-campo">
@@ -293,7 +273,6 @@ function camposRC(estado, t, deshabilitado) {
           value="${escaparHTML(estado.borrador.rc_fecha)}" required
           ${atributosAccesibles(estado, "rc_fecha")}`
     + `${controlesDeshabilitados ? " disabled" : ""}>
-        ${ayudaCampo("rc_fecha", t("rc_fecha"))}
         ${errorCampo(estado, "rc_fecha", t)}
       </div>
       <div class="ct-campo">
@@ -303,7 +282,6 @@ function camposRC(estado, t, deshabilitado) {
           placeholder="${escaparHTML(t("rc_importe_placeholder"))}" required
           ${atributosAccesibles(estado, "rc_importe")}`
     + `${controlesDeshabilitados ? " disabled" : ""}>
-        ${ayudaCampo("rc_importe", t("rc_importe_ayuda"))}
         ${errorCampo(estado, "rc_importe", t)}
       </div>
       ${campoSeleccion({
@@ -311,7 +289,6 @@ function camposRC(estado, t, deshabilitado) {
     t,
     campo: "rc_documento_ref",
     etiqueta: t("rc_documento_ref"),
-    ayuda: t("documentos_ayuda"),
     opciones: opcionesReferencia(
       estado.catalogos.documentos,
       estado.borrador.rc_documento_ref,
@@ -338,7 +315,6 @@ function camposDocumentos(estado, t, deshabilitado) {
   return `<fieldset class="ct-bloque" id="ct-documentos_adjuntos" tabindex="-1"
     ${atributosAccesibles(estado, "documentos_adjuntos")}>
     <legend>${escaparHTML(t("documentos_leyenda"))}</legend>
-    <p id="ct-documentos_adjuntos-ayuda">${escaparHTML(t("documentos_ayuda"))}</p>
     ${opciones}
     ${errorCampo(estado, "documentos_adjuntos", t)}
   </fieldset>`;
@@ -348,7 +324,6 @@ function formulario(estado, t) {
   const deshabilitado = !estado.disponible || estado.ocupado;
   return `${resumenErrores(estado, t)}
   <form class="ct-formulario" data-ct-form novalidate>
-    <p class="ct-obligatorios">${escaparHTML(t("campos_obligatorios"))}</p>
     ${camposCentro(estado, t, deshabilitado)}
     ${camposDetalle(estado, t, deshabilitado)}
     ${camposRC(estado, t, deshabilitado)}

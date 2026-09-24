@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { renderizarCuadro } from "../modulos/contratacion-temporal/componentes-expedientes.js";
+import { renderizarCabeceraModulo } from "../modulos/contratacion-temporal/vista-expedientes-render.js";
 import {
   API_ORGANIZACION,
   API_CAMBIOS,
@@ -195,8 +196,10 @@ test("la consulta de organización es accesible desde el cuadro real, sin adapta
     },
     (clave) => clave,
   );
-  assert.match(html, /href="\/portal-empleado\/organizacion\/"/);
-  assert.match(html, /organizacion_referencia/);
+  // El enlace es una acción de la cabecera de la bandeja, a la derecha del título.
+  const cabecera = renderizarCabeceraModulo({ vista: "cuadro" }, (clave) => clave);
+  assert.match(cabecera, /href="\/portal-empleado\/organizacion\/"/);
+  assert.match(cabecera, /organizacion_referencia/);
   assert.doesNotMatch(html, /ct-exp-operativo-titulo/);
 });
 test("valida envelope, tipos y límites de organización", () => {

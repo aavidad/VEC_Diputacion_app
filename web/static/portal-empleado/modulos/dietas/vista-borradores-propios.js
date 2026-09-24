@@ -430,7 +430,6 @@ export function montarVistaBorradoresPropios(
     consultar.disabled = !conectada || controlador !== null || (relaciones.length > 1 && !relacionSeleccionada);
     if (!conectada) consultar.title = traducir("borradores_propios_pendiente_conexion");
     else if (relaciones.length > 1 && !relacionSeleccionada) consultar.title = traducir("borradores_propios_error_relacion");
-    cabecera.append(nodo(documento, "h3", traducir("borradores_propios_listado")), consultar);
     const ayuda = nodo(documento, "details");
     ayuda.className = "dietas-borradores-ayuda";
     ayuda.dataset.dietasBorradoresAyuda = "";
@@ -438,10 +437,12 @@ export function montarVistaBorradoresPropios(
     const resumenAyuda = nodo(documento, "summary", "?");
     resumenAyuda.setAttribute("aria-label", traducir("recorridos_abrir_ayuda"));
     ayuda.append(resumenAyuda, nodo(documento, "p", tBorradores("borradores_propios_consulta_ayuda")));
-    const bandaAyuda = nodo(documento, "div");
-    bandaAyuda.className = "cabecera-panel";
-    bandaAyuda.append(ayuda);
-    seccion.append(cabecera, bandaAyuda);
+    // El «?» comparte la cabecera con la acción, como en el resto de paneles del portal.
+    const accionesCabecera = nodo(documento, "div");
+    accionesCabecera.className = "dietas-recorridos-cabecera-acciones";
+    accionesCabecera.append(ayuda, consultar);
+    cabecera.append(nodo(documento, "h3", traducir("borradores_propios_listado")), accionesCabecera);
+    seccion.append(cabecera);
     const cuerpo = nodo(documento, "div");
     cuerpo.className = "cuerpo-panel";
     seccion.append(cuerpo);
@@ -458,6 +459,8 @@ export function montarVistaBorradoresPropios(
       return seccion;
     }
     if (estado.errorLista) {
+      // El aviso del panel ya muestra este mismo error; no se repite dentro de la lista.
+      if ((estado.errorListaClave || estado.mensaje) === estado.mensaje) return seccion;
       const fallo = nodo(documento, "p", tBorradores(estado.errorListaClave || estado.mensaje));
       fallo.className = "dietas-borradores-indicacion dietas-borradores-indicacion-error";
       cuerpo.append(fallo);

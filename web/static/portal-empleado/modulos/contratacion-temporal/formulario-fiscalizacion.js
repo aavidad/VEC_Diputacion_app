@@ -114,9 +114,8 @@ function renderizarFormulario(estado, t) {
     ${estado.validacionError ? `<p data-ct-fiscalizacion-error role="alert" tabindex="-1">${
   escaparHTML(t("fiscalizacion_estado_validacion"))}</p>` : ""}
     <fieldset><legend>${escaparHTML(t("fiscalizacion_resultado_leyenda"))}</legend>
-      <p id="ct-fiscalizacion-resultado-ayuda">${escaparHTML(t("fiscalizacion_resultado_ayuda"))}</p>
       ${RESULTADOS.map((resultado) => `<label><input name="resultado" type="radio"
-        value="${resultado}" required aria-describedby="ct-fiscalizacion-resultado-ayuda"${
+        value="${resultado}" required${
   estado.resultado === resultado ? " checked" : ""}> ${
   escaparHTML(etiquetaResultado(resultado, t))}</label>`).join("")}
     </fieldset>
@@ -244,14 +243,9 @@ export function montarFormularioFiscalizacion(configuracion = {}) {
     raizActual.innerHTML = `<section class="ct-alta" data-ct-fiscalizacion
       aria-labelledby="ct-fiscalizacion-titulo">
       <header class="ct-cabecera"><div>
-        <p class="sobrelinea">${escaparHTML(t("fiscalizacion_sobrelinea"))}</p>
         <h2 id="ct-fiscalizacion-titulo">${escaparHTML(t(contexto.fase_clave === "subsanacion_unidad"
           ? "fiscalizacion_titulo_tras_subsanacion" : "fiscalizacion_titulo"))}</h2>
-        <p>${escaparHTML(t(contexto.fase_clave === "subsanacion_unidad"
-          ? "fiscalizacion_descripcion_tras_subsanacion" : "fiscalizacion_descripcion"))}</p>
-      </div><aside class="ct-alcance" aria-label="${
-  escaparHTML(t("fiscalizacion_alcance_etiqueta"))}">${
-  escaparHTML(t("fiscalizacion_alcance"))}</aside></header>
+      </div></header>
       ${renderizarContexto(contexto, t)}
       <div class="ct-estado ct-estado-${escaparHTML(estado.tipo_mensaje)}"
         data-ct-fiscalizacion-estado role="${estado.tipo_mensaje === "error" ? "alert" : "status"}"

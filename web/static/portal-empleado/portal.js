@@ -85,10 +85,10 @@ const TITULOS = Object.freeze({
   importacion: ["Portal del Empleado → Bolsas de trabajo", "Importación Convoca"],
   llamamientos: ["Portal del Empleado → Bolsas de trabajo → Llamamientos", "Nuevo llamamiento"],
   contratos: ["Portal del Empleado → Bolsas de trabajo", "Contratos, ceses y reincorporaciones"],
-  reglas: ["Portal del Empleado → Bolsas de trabajo", "Motor de reglas configurable"],
+  reglas: ["Portal del Empleado → Bolsas de trabajo", "Reglas y versiones"],
   consulta: ["Portal del Empleado → Bolsas de trabajo", "Consulta segura para candidatos"],
-  estadisticas: ["Portal del Empleado → Bolsas de trabajo", "Estadísticas y explotación de datos"],
-  documentos: ["Portal del Empleado → Bolsas de trabajo", "Generación y firma de documentos"],
+  estadisticas: ["Portal del Empleado → Bolsas de trabajo", "Estadísticas"],
+  documentos: ["Portal del Empleado → Bolsas de trabajo", "Documentos y firma"],
   comunicaciones: ["Portal del Empleado → Bolsas de trabajo", "Correo y mensajería"],
   auditoria: ["Portal del Empleado → Bolsas de trabajo", "Auditoría y trazabilidad"],
   configuracion: ["Portal del Empleado → Bolsas de trabajo", "Configuración y roles"],
@@ -274,7 +274,7 @@ function actualizarSesionVisible() {
 async function cargarFuenteDatos() {
   estado.errorFuente = "";
   await coordinadorModulos.cargarInterno().catch(() => { estado.errorFuente = traducirPortal("error_catalogo_modulos"); });
-  // Borradores comprueba su API al abrir la vista. B12/B5 usa su propia API compuesta.
+  // Borradores comprueba su API al abrir la vista. El cuadro de bolsas usa su propia API compuesta.
   if (requiereLecturaBolsas(estado.vista)) void controladorBolsas.cargarBolsas();
   actualizarNavegacionModulos();
 }
@@ -408,14 +408,9 @@ function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } =
 }
 
 function renderizarLlamamientoSinBolsa() {
-  return `${encabezadoVista(
-    "Gestión interna de Bolsas",
-    "Nuevo llamamiento",
-    "El llamamiento se inicia desde una bolsa concreta para conservar el orden B6 y su ámbito autorizado.",
-  )}
+  return `${encabezadoVista("", "Nuevo llamamiento", "")}
     <section class="panel"><div class="cuerpo-panel vacio-controlado" role="status">
       <p><strong>Elija una bolsa para iniciar un llamamiento.</strong></p>
-      <p>El orden del reglamento sigue provisional hasta resolver las dudas 13–14. El correo usa el relay de pruebas, no un buzón corporativo.</p>
       <div class="acciones-vista"><a class="boton-primario" href="#bolsa/resumen">Ir al cuadro de bolsas</a></div>
     </div></section>`;
 }
@@ -522,13 +517,13 @@ function renderizarContratacionTemporalNoDisponible() {
     </section>`;
 }
 
+// La sobrelínea y la descripción se aceptan por compatibilidad con las vistas que aún las
+// pasan, pero no se pintan: el título ya está en la cabecera y la explicación vive tras «?».
 function encabezadoVista(sobrelinea, titulo, descripcion, acciones = "") {
   return `
     <header class="encabezado-vista">
       <div>
-        <p class="sobrelinea">${escaparHTML(sobrelinea)}</p>
         <h2>${escaparHTML(titulo)}</h2>
-        <p>${escaparHTML(descripcion)}</p>
       </div>
       ${acciones ? `<div class="acciones-vista">${acciones}</div>` : ""}
     </header>`;

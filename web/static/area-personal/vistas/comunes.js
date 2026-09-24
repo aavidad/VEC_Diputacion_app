@@ -1,4 +1,5 @@
 import { traducir } from "../i18n.js";
+import { icono } from "../../comun/iconos-vec.js?v=20260924-aspecto-v1";
 
 export function escaparHTML(valor) {
   return String(valor ?? "")
@@ -27,7 +28,7 @@ export function chip(estado) {
 }
 
 export function encabezadoVista(titulo, descripcion, acciones = "") {
-  return `<header class="encabezado-vista"><div><h2>${escaparHTML(titulo)}</h2><p>${escaparHTML(descripcion)}</p></div>${acciones ? `<div class="fila-acciones">${acciones}</div>` : ""}</header>`;
+  return `<header class="encabezado-vista"><div><h2>${escaparHTML(titulo)}</h2>${descripcion ? `<p>${escaparHTML(descripcion)}</p>` : ""}</div>${acciones ? `<div class="fila-acciones">${acciones}</div>` : ""}</header>`;
 }
 
 export function enlaceRuta(ruta, etiqueta, clase = "enlace-boton", extras = "") {
@@ -64,6 +65,7 @@ export function estadoVacio(titulo, detalle, accion = "") {
   return `<div class="estado-vacio"><strong>${escaparHTML(titulo)}</strong><p>${escaparHTML(detalle)}</p>${accion}</div>`;
 }
 
-export function notaDemostracion() {
-  return `<p class="nota demo">${escaparHTML(traducir("areaPersonal.demo.nota"))}</p>`;
+/** Indicador del resumen: icono en cuadro tintado, rótulo, valor y aclaración breve. */
+export function cifraResumen(valor, etiqueta, aclaracion, { clase = "", nombreIcono = "generico" } = {}) {
+  return `<article class="cifra-resumen ${escaparAtributo(clase)}"><span class="icono-cifra">${icono(nombreIcono)}</span><div><span>${escaparHTML(etiqueta)}</span><strong>${escaparHTML(valor)}</strong><small>${escaparHTML(aclaracion)}</small></div></article>`;
 }
