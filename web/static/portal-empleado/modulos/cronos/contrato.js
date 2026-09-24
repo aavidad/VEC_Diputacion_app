@@ -17,12 +17,12 @@ const CAPACIDADES_RECONOCIDAS = new Set([
 ]);
 
 const CLAVES_DATOS = Object.freeze([
-  "esquema", "demostracion", "actor_ref", "periodo", "actualizado_en",
+  "esquema", "actor_ref", "periodo", "actualizado_en",
   "perfil_jornada", "resumen", "fichajes", "saldos", "solicitudes", "historial",
 ]);
 const ESTADOS_REGISTRO = new Set([
-  "registrado", "revisado", "simulado", "saldo_demo", "pendiente_responsable",
-  "aprobado", "disfrutado", "calculado", "preparado_no_registrado", "sin_registrar",
+  "registrado", "revisado", "pendiente_responsable",
+  "aprobado", "disfrutado", "calculado",
 ]);
 const TIPOS_FICHAJE = new Set(["entrada", "salida", "inicio_pausa", "fin_pausa"]);
 const UNIDADES_PERMISO = new Set(["dia", "minuto"]);
@@ -135,10 +135,7 @@ export function validarDatosCronos(datos, contextoActor) {
     || CLAVES_DATOS.some((clave) => !Object.hasOwn(datos, clave))) {
     throw new Error("datos de Cronos no respetan el contrato cerrado");
   }
-  if (typeof datos.demostracion !== "boolean") throw new Error("origen de datos de Cronos no válido");
-  if (datos.demostracion !== contexto.demostracion) {
-    throw new Error("el origen de los datos no coincide con el contexto compartido");
-  }
+  if (contexto.demostracion !== false) throw new Error("Cronos requiere una sesión interna autenticada");
   if (referenciaOpaca(datos.actor_ref, "referencia de sujeto") !== contexto.actor.actor_ref) {
     throw new Error("los datos de Cronos no pertenecen al actor de la sesión");
   }
@@ -147,7 +144,6 @@ export function validarDatosCronos(datos, contextoActor) {
   }
   const validado = {
     esquema: datos.esquema,
-    demostracion: datos.demostracion,
     actor_ref: contexto.actor.actor_ref,
     periodo: cadena(datos.periodo, "periodo", 80),
     actualizado_en: instanteUTC(datos.actualizado_en, "fecha de actualización"),
