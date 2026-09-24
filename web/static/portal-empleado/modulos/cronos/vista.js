@@ -177,6 +177,20 @@ function estadoJornadaConFuente(estado, contextoActor, datos) {
     ? "disponible" : "no_configurado";
 }
 
+function resolverEstadoJornada(estado, contextoActor, capacidades, datos, seleccion) {
+  const conFuente = estadoJornadaConFuente(estado, contextoActor, datos);
+  if (conFuente !== "disponible") return { estado: conFuente };
+  const contexto = exigirContextoActorCronos(contextoActor);
+  const concedidas = validarCapacidadesCronos(capacidades);
+  const puedeConsultarFichajes = tieneCapacidadCronos(concedidas, CAPACIDAD_CONSULTAR_FICHAJES);
+  const puedeConsultarHorario = tieneCapacidadCronos(concedidas, CAPACIDAD_CONSULTAR_HORARIO);
+  if (!puedeConsultarFichajes && !puedeConsultarHorario) return { estado: "denegado" };
+  return {
+    estado: seleccion ? "no_configurado" : "disponible",
+    contexto, puedeConsultarFichajes, puedeConsultarHorario,
+  };
+}
+
 /**
  * Superficie de Jornada para el montaje del portal. El llamador solo puede
  * indicar "disponible" después de recibir una proyección propia de Cronos.
@@ -188,19 +202,14 @@ export function renderizarJornadaCronos({
 } = {}) {
   if (!ESTADOS_JORNADA.has(estado)) throw new Error("estado de jornada de Cronos no válido");
   if (seleccion) seleccion = validarSeleccionPeriodoCronos(seleccion);
-  estado = estadoJornadaConFuente(estado, contextoActor, datos);
-  if (seleccion && estado === "disponible") estado = "no_configurado";
+  const resolucion = resolverEstadoJornada(estado, contextoActor, capacidades, datos, seleccion);
+  estado = resolucion.estado;
   const t = crearTraductorCronos(mensajes);
   let vista;
-  let puedeConsultarFichajes = false;
-  let puedeConsultarHorario = false;
+  const puedeConsultarFichajes = estado === "disponible" && resolucion.puedeConsultarFichajes;
+  const puedeConsultarHorario = estado === "disponible" && resolucion.puedeConsultarHorario;
   if (estado === "disponible") {
-    const contexto = exigirContextoActorCronos(contextoActor);
-    const concedidas = validarCapacidadesCronos(capacidades);
-    puedeConsultarFichajes = tieneCapacidadCronos(concedidas, CAPACIDAD_CONSULTAR_FICHAJES);
-    puedeConsultarHorario = tieneCapacidadCronos(concedidas, CAPACIDAD_CONSULTAR_HORARIO);
-    if (!puedeConsultarFichajes && !puedeConsultarHorario) estado = "denegado";
-    else vista = validarDatosCronos(datos, contexto);
+    vista = validarDatosCronos(datos, resolucion.contexto);
   }
   const estadoVisible = t(`jornada_estado_${estado}`);
   const descripcionEstado = t(`jornada_descripcion_${estado}`);
@@ -236,7 +245,7 @@ export function renderizarJornadaCronos({
         <div class="cuerpo-panel cronos-jornada-calendario-pendiente" role="status"><span class="cronos-estado cronos-estado-aviso">${escaparHTML(t("jornada_estado_no_configurado"))}</span><p>${escaparHTML(t("jornada_calendario_pendiente"))}</p></div>
       </aside>
     </div>
-  </div>` : `<section class="panel cronos-jornada-panel" aria-labelledby="cronos-jornada-sin-datos"><header class="cabecera-panel"><h4 id="cronos-jornada-sin-datos">${escaparHTML(estadoVisible)}</h4></header><div class="cuerpo-panel" role="status">${escaparHTML(descripcionEstado)}</div></section>`;
+  </div>` : `<section class="panel cronos-jornada-panel" aria-labelledby="cronos-jornada-sin-datos"><header class="cabecera-panel"><h4 id="cronos-jornada-sin-datos">${escaparHTML(estadoVisible)}</h4></header><div class="cuerpo-panel" role="status" data-cronos-jornada-resultado tabindex="-1">${escaparHTML(descripcionEstado)}</div></section>`;
 
   return `<section class="cronos-jornada cronos-area" data-cronos-jornada data-estado="${estado}" aria-labelledby="cronos-jornada-titulo"${estado === "cargando" ? ' aria-busy="true"' : ""}>
     <header class="cronos-jornada-encabezado"><div><p class="sobrelinea">${escaparHTML(t("sobrelinea"))}</p><h3 id="cronos-jornada-titulo">${escaparHTML(t("jornada_titulo"))}</h3><p>${escaparHTML(t("jornada_descripcion"))}</p></div><span class="cronos-estado cronos-estado-${estado === "disponible" ? "exito" : "aviso"}" role="status">${escaparHTML(estadoVisible)}</span></header>
@@ -288,8 +297,13 @@ export function montarJornadaCronos({ raiz, registrarDesmontar, anunciar = () =>
     }
     seleccion = nuevaSeleccion;
     actualizar(proyeccion);
-    contenedor.querySelector?.("[data-cronos-periodo-resultado]")?.focus?.();
-    anunciar(etiquetaSeleccionPeriodo(seleccion, t, proyeccion.locale || "es-ES"));
+    contenedor.querySelector?.("[data-cronos-periodo-resultado], [data-cronos-jornada-resultado]")?.focus?.();
+    if (resolverEstadoJornada(
+      proyeccion.estado ?? "no_configurado", proyeccion.contextoActor,
+      proyeccion.capacidades ?? [], proyeccion.datos, seleccion,
+    ).estado !== "denegado") {
+      anunciar(etiquetaSeleccionPeriodo(seleccion, t, proyeccion.locale || "es-ES"));
+    }
   };
   contenedor.addEventListener?.("change", cambiarEscala);
   contenedor.addEventListener?.("submit", elegirPeriodo);
@@ -300,14 +314,18 @@ export function montarJornadaCronos({ raiz, registrarDesmontar, anunciar = () =>
   montarCalendario();
   const actualizar = (siguiente) => {
     if (!activo) throw new Error("jornada de Cronos desmontada");
+    const focoDentro = contenedor.contains?.(raiz.ownerDocument.activeElement) ?? false;
     proyeccion = siguiente;
     const html = renderizarJornadaCronos({ ...siguiente, seleccion });
     calendario?.desmontar();
     calendario = undefined;
     contenedor.innerHTML = html;
     montarCalendario();
-    let estadoVisible = estadoJornadaConFuente(siguiente?.estado ?? "no_configurado", siguiente?.contextoActor, siguiente?.datos);
-    if (seleccion && estadoVisible === "disponible") estadoVisible = "no_configurado";
+    if (focoDentro) contenedor.querySelector?.("[data-cronos-periodo-resultado], [data-cronos-jornada-resultado]")?.focus?.();
+    const estadoVisible = resolverEstadoJornada(
+      siguiente?.estado ?? "no_configurado", siguiente?.contextoActor,
+      siguiente?.capacidades ?? [], siguiente?.datos, seleccion,
+    ).estado;
     anunciar(crearTraductorCronos(siguiente?.mensajes)(`jornada_estado_${estadoVisible}`));
   };
   const desmontar = () => {
