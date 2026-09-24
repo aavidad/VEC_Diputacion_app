@@ -5,8 +5,8 @@ import { PLANTILLA_TESELAS_OSM_INTERNA } from "./modulos/dietas/contrato.js";
 
 const raiz = new URL("./", import.meta.url);
 const vistasC = "20260924-web-c-v1";
-const recuperacion = "20260924-dietas-recuperacion-v3";
-const entrada = "20260924-web-c-v3";
+const recuperacion = "20260924-osm-base-v1";
+const entrada = "20260924-osm-base-v1";
 const cronos = "20260924-cronos-integrado-v1";
 const dietas = "20260924-dietas-d1d2d4";
 const versiones = (codigo, recurso) => [...codigo.matchAll(new RegExp(`${recurso.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\?v=([^"']+)`, "gu"))].map((m) => m[1]);
@@ -22,7 +22,7 @@ test("capa C no reutiliza los consumidores previos de B con caché immutable", a
     [coordinador, "./modulos/cronos/vista-recorridos.js", "20260924-cronos-ayuda-v1", cronos, 2],
     [coordinador, "./modulos/cronos/i18n.js", "20260924-f2-web2", cronos, 1],
     [coordinador, "./modulos/dietas/vista-recorridos.js", "20260924-f2-consulta-v2", recuperacion, 2],
-    [coordinador, "./modulos/dietas/vista-itinerario.js", "20260923-dietas-r1", dietas, 2],
+    [coordinador, "./modulos/dietas/vista-itinerario.js", "20260923-dietas-r1", recuperacion, 2],
     [coordinador, "./modulos/personal/vista-ficha-integral.js", "20260924-f2-shell-v1", vistasC, 2],
     [coordinador, "./modulos/personal/vista-rpt-publica.js", "20260920-personal-rpt-publica-v3", vistasC, 1],
     [coordinador, "./modulos/personal/vista-estructura-organizativa-publica.js", "20260924-f2-cache-v3", vistasC, 1],

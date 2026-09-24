@@ -12,11 +12,11 @@ const versionPersonalInterno = "20260924-p1-personal-interno-v2";
 const versionPersonalEstados = "20260924-f2-personal-estados-v4";
 const versionCronosPermisos = "20260924-f2-cronos-permisos-v2";
 const versionCronosAyuda = "20260924-cronos-integrado-v1";
-const versionDietasShell = "20260924-web-c-v3";
+const versionDietasShell = "20260924-osm-base-v1";
 const versionDietasVista = "20260924-dietas-d1d2d4";
 const versionVistasC = "20260924-web-c-v1";
-const versionDietasRecuperacion = "20260924-dietas-recuperacion-v3";
-const versionIntegracion = "20260924-web-c-v3";
+const versionDietasRecuperacion = "20260924-osm-base-v1";
+const versionIntegracion = "20260924-osm-base-v1";
 const raiz = new URL("./", import.meta.url);
 
 function versionesDe(codigo, recurso) {
