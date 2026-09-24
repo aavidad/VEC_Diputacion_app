@@ -52,6 +52,7 @@
 1034 internal/vec/adapters/postgres/confianzadocumental/servicio_test.go
 999 internal/vec/adapters/seguridad/carga_directa.go
 1405 internal/vec/adapters/seguridad/carga_directa_test.go
+826 internal/vec/adapters/seguridad/confianzaatestacion/emision_material_v3_test.go
 1533 internal/vec/application/cargas_documentales.go
 1514 internal/vec/application/cargas_documentales_test.go
 907 internal/vec/application/cotejo_transiciones_test.go
@@ -64,6 +65,7 @@
 1464 internal/vec/domain/pagos_test.go
 861 internal/vec/ports/almacen_objetos_carga_test.go
 1206 internal/vec/ports/almacen_objetos.go
+802 internal/vec/ports/autorizacion_solicitud_ligada_v3.go
 1154 internal/vec/ports/ejecucion_componentes_documentales_atestada.go
 1010 internal/vec/ports/ejecucion_componentes_documentales_atestada_test.go
 3975 internal/vec/ports/ejecuciones_documentales_v3.go
