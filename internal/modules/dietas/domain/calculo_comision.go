@@ -14,18 +14,39 @@ var decimalTarifa = regexp.MustCompile(`^0\.[0-9]{4}$`)
 // Las tres opciones de dieta no eligen el grupo de la persona: esa autoridad
 // pertenece a Personal y se conectará en el siguiente corte.
 type CalculoComision struct {
-	Procedencia                string                `json:"procedencia"`
-	VersionGrafo               string                `json:"version_grafo"`
-	Motor                      string                `json:"motor"`
-	VersionTarifa              string                `json:"version_tarifa"`
-	Rotulo                     string                `json:"rotulo"`
-	HoraInicio                 string                `json:"hora_inicio"`
-	HoraFin                    string                `json:"hora_fin"`
-	Kilometros                 string                `json:"kilometros"`
-	EURPorKM                   string                `json:"eur_por_km"`
-	ImporteKilometrajeCentimos int64                 `json:"importe_kilometraje_centimos"`
-	TramosRuta                 []TramoRutaComision   `json:"tramos_ruta"`
-	OpcionesDieta              []OpcionDietaComision `json:"opciones_dieta"`
+	Procedencia                string                  `json:"procedencia"`
+	VersionGrafo               string                  `json:"version_grafo"`
+	Motor                      string                  `json:"motor"`
+	VersionTarifa              string                  `json:"version_tarifa"`
+	Rotulo                     string                  `json:"rotulo"`
+	ReglaRef                   string                  `json:"regla_ref,omitempty"`
+	ReglaHuellaSHA256          string                  `json:"regla_huella_sha256,omitempty"`
+	HoraInicio                 string                  `json:"hora_inicio"`
+	HoraFin                    string                  `json:"hora_fin"`
+	Kilometros                 string                  `json:"kilometros"`
+	EURPorKM                   string                  `json:"eur_por_km"`
+	ImporteKilometrajeCentimos int64                   `json:"importe_kilometraje_centimos"`
+	TramosRuta                 []TramoRutaComision     `json:"tramos_ruta"`
+	OpcionesDieta              []OpcionDietaComision   `json:"opciones_dieta"`
+	VehiculoPropio             bool                    `json:"vehiculo_propio,omitempty"`
+	Rutas                      []RutaCalculadaComision `json:"rutas,omitempty"`
+}
+
+type RutaDeclaradaComision struct {
+	CodigosRuta      []string `json:"codigos_ruta"`
+	AjusteKilometros string   `json:"ajuste_kilometros"`
+	MotivoAjuste     string   `json:"motivo_ajuste"`
+}
+
+type RutaCalculadaComision struct {
+	CodigosRuta       []string            `json:"codigos_ruta"`
+	VersionGrafo      string              `json:"version_grafo"`
+	TramosRuta        []TramoRutaComision `json:"tramos_ruta"`
+	KilometrosBase    string              `json:"kilometros_base"`
+	AjusteKilometros  string              `json:"ajuste_kilometros"`
+	MotivoAjuste      string              `json:"motivo_ajuste"`
+	KilometrosFinales string              `json:"kilometros_finales"`
+	ImporteCentimos   int64               `json:"importe_centimos"`
 }
 
 type TramoRutaComision struct {
@@ -70,7 +91,23 @@ func (c CalculoComision) Validar(codigos []string) error {
 	if err != nil || errTarifa != nil || total != km || c.ImporteKilometrajeCentimos != (km*tarifa+500000)/1000000 {
 		return ErrCalculoComisionInvalido
 	}
+	return c.validarOpciones()
+}
+
+func (c CalculoComision) validarOpciones() error {
+	if (c.ReglaRef == "") != (c.ReglaHuellaSHA256 == "") {
+		return ErrCalculoComisionInvalido
+	}
+	if c.ReglaRef != "" && (!referenciaReglaProvisional.MatchString(c.ReglaRef) || !huellaReglaProvisional.MatchString(c.ReglaHuellaSHA256)) {
+		return ErrCalculoComisionInvalido
+	}
+	if len(c.OpcionesDieta) != 3 {
+		return ErrCalculoComisionInvalido
+	}
 	for i, opcion := range c.OpcionesDieta {
+		if c.ReglaRef != "" && (opcion.Calculo.ReglaRef != c.ReglaRef || opcion.Calculo.ReglaHuellaSHA256 != c.ReglaHuellaSHA256) {
+			return ErrCalculoComisionInvalido
+		}
 		if opcion.Grupo != i+1 || opcion.Calculo.VersionTarifaRef != c.VersionTarifa || opcion.Calculo.Rotulo != c.Rotulo ||
 			opcion.Calculo.TotalMaximoOrientativo != opcion.Calculo.ManutencionCentimos+opcion.Calculo.AlojamientoTopeCentimos || len(opcion.Calculo.Tramos) > 62 {
 			return ErrCalculoComisionInvalido

@@ -17,9 +17,12 @@ import (
 	dietasports "vec-diputacion-granada/internal/modules/dietas/ports"
 )
 
-const crearORecuperarBorradorSQL = `SELECT vec_dietas.crear_o_recuperar_comision_calculada_v1($1::text,$2::bytea,$3::bytea,$4::bytea,$5::bytea,$6::numeric,$7::numeric,$8::bytea,$9::bytea,$10::bytea,$11::bytea)`
+const crearORecuperarBorradorSQL = `SELECT vec_dietas.crear_o_recuperar_comision_catalogada_v2($1::text,$2::bytea,$3::bytea,$4::bytea,$5::bytea,$6::numeric,$7::numeric,$8::bytea,$9::bytea,$10::bytea,$11::bytea)`
 const recuperarComisionPorClaveSQL = `SELECT vec_dietas.recuperar_comision_por_clave_v1($1::text,$2::bytea,$3::bytea,$4::bytea,$5::bytea,$6::numeric,$7::numeric,$8::bytea,$9::bytea,$10::bytea,$11::bytea)`
 const consultarBorradoresSQL = `SELECT vec_dietas.consultar_comisiones_calculadas_v1($1::text,$2::bytea,$3::bytea,$4::bytea,$5::bytea,$6::numeric,$7::numeric,$8::bytea,$9::bytea,$10::bytea,$11::bytea)`
+const mutarComisionPropiaSQL = `SELECT vec_dietas.mutar_comision_propia_v2($1::text,$2::bytea,$3::bytea,$4::bytea,$5::bytea,$6::numeric,$7::numeric,$8::bytea,$9::bytea,$10::bytea,$11::bytea)`
+const recuperarMutacionPorClaveSQL = `SELECT vec_dietas.recuperar_mutacion_por_clave_v2($1::text,$2::bytea,$3::bytea,$4::bytea,$5::bytea,$6::numeric,$7::numeric,$8::bytea,$9::bytea,$10::bytea,$11::bytea)`
+const consultarComisionesPropiasSQL = `SELECT vec_dietas.consultar_comisiones_propias_v2($1::text,$2::bytea,$3::bytea,$4::bytea,$5::bytea,$6::numeric,$7::numeric,$8::bytea,$9::bytea,$10::bytea,$11::bytea)`
 
 var referenciaReciboBorrador = regexp.MustCompile(`^rcd_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 var referenciaCursorComision = regexp.MustCompile(`^dco_[A-Za-z0-9_-]{22,128}$`)
@@ -40,6 +43,7 @@ type RepositorioBorradorComisionPostgreSQL struct {
 }
 
 var _ dietasports.RepositorioBorradorComision = (*RepositorioBorradorComisionPostgreSQL)(nil)
+var _ dietasports.RepositorioMutacionComision = (*RepositorioBorradorComisionPostgreSQL)(nil)
 
 func NuevoRepositorioBorradorComisionPostgreSQL(pool *pgxpool.Pool) (*RepositorioBorradorComisionPostgreSQL, error) {
 	if pool == nil {
@@ -163,6 +167,10 @@ func (r *RepositorioBorradorComisionPostgreSQL) ejecutar(ctx context.Context, id
 }
 
 func (r *RepositorioBorradorComisionPostgreSQL) ejecutarBruto(ctx context.Context, identidad dietasports.IdentidadEfectivaBorrador, funcion string, consulta []byte, destino *[]byte) (err error) {
+	return r.ejecutarBrutoConModo(ctx, identidad, funcion, consulta, destino, funcion == crearORecuperarBorradorSQL)
+}
+
+func (r *RepositorioBorradorComisionPostgreSQL) ejecutarBrutoConModo(ctx context.Context, identidad dietasports.IdentidadEfectivaBorrador, funcion string, consulta []byte, destino *[]byte, escritura bool) (err error) {
 	if err = r.valido(ctx); err != nil {
 		return err
 	}
@@ -171,9 +179,13 @@ func (r *RepositorioBorradorComisionPostgreSQL) ejecutarBruto(ctx context.Contex
 	}
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
 	if err != nil {
-		return errorNoDisponible(ctx, err, funcion == crearORecuperarBorradorSQL)
+		return errorNoDisponible(ctx, err, escritura)
 	}
-	defer func() { _ = tx.Rollback(ctx) }()
+	defer func() {
+		rollbackCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		_ = tx.Rollback(rollbackCtx)
+	}()
 	argumentos, err := argumentosAD3(identidad.Autorizacion.Material)
 	if err != nil {
 		return dietasports.ErrAccesoBorradorDenegado
@@ -182,13 +194,13 @@ func (r *RepositorioBorradorComisionPostgreSQL) ejecutarBruto(ctx context.Contex
 	err = tx.QueryRow(ctx, funcion, string(consulta), argumentos.capacidad, argumentos.decision, argumentos.motivo, argumentos.contexto, argumentos.personaVersion, argumentos.perfilVersion, argumentos.payload, argumentos.sobre, argumentos.evidencia, argumentos.raiz).Scan(&salida)
 	argumentos.limpiar()
 	if err != nil {
-		return normalizarErrorBorrador(ctx, err, funcion == crearORecuperarBorradorSQL)
+		return normalizarErrorBorrador(ctx, err, escritura)
 	}
 	if err = ctx.Err(); err != nil {
 		return err
 	}
 	if err = tx.Commit(ctx); err != nil {
-		return errorNoDisponible(ctx, err, funcion == crearORecuperarBorradorSQL)
+		return errorNoDisponible(ctx, err, escritura)
 	}
 	*destino = append((*destino)[:0], salida...)
 	return nil
@@ -317,6 +329,8 @@ func normalizarErrorBorrador(ctx context.Context, err error, escritura bool) err
 		return dietasports.ErrAccesoBorradorDenegado
 	case "PD004":
 		return dietasports.ErrComisionNoEncontrada
+	case "PD005":
+		return dietasports.ErrVersionComisionConflicto
 	}
 	return errorNoDisponible(ctx, err, escritura)
 }

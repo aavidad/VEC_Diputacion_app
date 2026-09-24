@@ -141,6 +141,36 @@ func TestResolutorContextoActorPostgreSQLConfirmaCanonicoEnSerializable(t *testi
 	}
 }
 
+func TestResolutorContextoActorPostgreSQLConservaCandidatoYEmpleadoParaDietas(t *testing.T) {
+	solicitud, fila := solicitudYFilaContextoActorV2(t)
+	tx := &txContextoActorDoble{filas: []pgx.Row{fila}}
+	pool := &poolContextoActorDoble{transacciones: []*txContextoActorDoble{tx}}
+	adaptador, err := nuevoResolutorRegistroContextoActorPostgreSQLV2(
+		pool, bytes.NewReader(bytes.Repeat([]byte{0x55}, bytesAleatoriosReferenciaContextoActorV2)),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	confirmacion, err := adaptador.ResolverYRegistrarContextoActorV2(context.Background(), solicitud)
+	if err != nil || confirmacion.ValidarParaProductiva(solicitud) != nil {
+		t.Fatalf("contexto con candidato y empleado rechazado: %v", err)
+	}
+	candidato, err := confirmacion.Contexto.Referencias(domain.TipoReferenciaContextoActorCandidato)
+	if err != nil || len(candidato) != 1 || candidato[0] != "can_"+strings.Repeat("f", 24) {
+		t.Fatalf("el vínculo CT se perdió: %v, %v", candidato, err)
+	}
+	empleado, err := confirmacion.Contexto.Referencias(domain.TipoReferenciaContextoActorEmpleado)
+	if err != nil || len(empleado) != 1 || empleado[0] != "emp_"+strings.Repeat("h", 24) {
+		t.Fatalf("el vínculo Dietas se perdió: %v, %v", empleado, err)
+	}
+	manifiesto, err := domain.RehidratarManifiestoProcedenciaContextoActorV1(confirmacion.ManifiestoProcedenciaCanonico)
+	if err != nil || len(manifiesto.Vinculos) != 2 ||
+		manifiesto.Vinculos[0].Tipo != domain.TipoReferenciaContextoActorCandidato ||
+		manifiesto.Vinculos[1].Tipo != domain.TipoReferenciaContextoActorEmpleado {
+		t.Fatalf("procedencia de los dos vínculos divergente: %#v, %v", manifiesto.Vinculos, err)
+	}
+}
+
 func TestResolutorContextoActorPostgreSQLReconciliaCommitAmbiguoExacto(t *testing.T) {
 	solicitud, fila := solicitudYFilaContextoActorV2(t)
 	primera := &txContextoActorDoble{filas: []pgx.Row{fila}, errCommit: errors.New("commit ambiguo")}
@@ -323,11 +353,18 @@ func solicitudYFilaContextoActorV2(t *testing.T) (ports.SolicitudResolucionRegis
 		PersonaRef: ref("per_", "c"), PersonaVersion: 4,
 		PerfilActivoRef: ref("prf_", "d"), PerfilVersion: 5,
 		Estado: domain.EstadoVinculoContextoActorActivo, VigenteDesde: desde, VigenteHasta: hasta,
-		Vinculos: []domain.VinculoReferenciaContextoActor{{
-			VinculoRef: ref("vin_", "e"), Version: 6,
-			Tipo: domain.TipoReferenciaContextoActorCandidato, Referencia: ref("can_", "f"),
-			Estado: domain.EstadoVinculoContextoActorActivo, VigenteDesde: desde, VigenteHasta: hasta,
-		}},
+		Vinculos: []domain.VinculoReferenciaContextoActor{
+			{
+				VinculoRef: ref("vin_", "e"), Version: 6,
+				Tipo: domain.TipoReferenciaContextoActorCandidato, Referencia: ref("can_", "f"),
+				Estado: domain.EstadoVinculoContextoActorActivo, VigenteDesde: desde, VigenteHasta: hasta,
+			},
+			{
+				VinculoRef: ref("vin_", "g"), Version: 2,
+				Tipo: domain.TipoReferenciaContextoActorEmpleado, Referencia: ref("emp_", "h"),
+				Estado: domain.EstadoVinculoContextoActorActivo, VigenteDesde: desde, VigenteHasta: hasta,
+			},
+		},
 	}
 	contexto, err := domain.NuevoContextoActor(cuenta, instantanea, resuelto)
 	if err != nil {
@@ -364,12 +401,20 @@ func solicitudYFilaContextoActorV2(t *testing.T) (ports.SolicitudResolucionRegis
 			VinculoRef: instantanea.VinculoRef, Version: instantanea.VinculoVersion,
 			AcreditacionProcedenciaComponenteContextoActorV1: acreditacion(1),
 		},
-		Vinculos: []domain.ProcedenciaVinculoReferenciaContextoActorV1{{
-			VinculoRef: instantanea.Vinculos[0].VinculoRef,
-			Version:    instantanea.Vinculos[0].Version, Tipo: instantanea.Vinculos[0].Tipo,
-			Referencia: instantanea.Vinculos[0].Referencia,
-			AcreditacionProcedenciaComponenteContextoActorV1: acreditacion(1),
-		}},
+		Vinculos: []domain.ProcedenciaVinculoReferenciaContextoActorV1{
+			{
+				VinculoRef: instantanea.Vinculos[0].VinculoRef,
+				Version:    instantanea.Vinculos[0].Version, Tipo: instantanea.Vinculos[0].Tipo,
+				Referencia: instantanea.Vinculos[0].Referencia,
+				AcreditacionProcedenciaComponenteContextoActorV1: acreditacion(1),
+			},
+			{
+				VinculoRef: instantanea.Vinculos[1].VinculoRef,
+				Version:    instantanea.Vinculos[1].Version, Tipo: instantanea.Vinculos[1].Tipo,
+				Referencia: instantanea.Vinculos[1].Referencia,
+				AcreditacionProcedenciaComponenteContextoActorV1: acreditacion(1),
+			},
+		},
 	}
 	representacionManifiesto, err := manifiesto.RepresentacionCanonicaV1()
 	if err != nil {

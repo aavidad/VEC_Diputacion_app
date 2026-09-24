@@ -46,7 +46,7 @@ function calculoValido({ demostracion, motor, origenGeometria }) {
   };
 }
 
-test("el contrato permite OSRM real sin efectos en DEMO e impide toda mezcla insegura", () => {
+test("el contrato solo admite OSRM interno real y rechaza geometría sintética", () => {
   const demo = calculoValido({
     demostracion: true,
     motor: "simulacion_osrm_demo",
@@ -57,33 +57,33 @@ test("el contrato permite OSRM real sin efectos en DEMO e impide toda mezcla ins
     motor: "osrm_interno",
     origenGeometria: "osrm_interno",
   });
-  assert.equal(validarCalculoRutaDietas(demo).demostracion, true);
   assert.equal(validarCalculoRutaDietas(producto).demostracion, false);
+  assert.throws(() => validarCalculoRutaDietas(demo), /calculo de ruta no valido/u);
 
   const demoConMotorProducto = structuredClone(demo);
   demoConMotorProducto.motor = "osrm_interno";
   demoConMotorProducto.alternativas[0].geometria.origen = "osrm_interno";
-  assert.equal(validarCalculoRutaDietas(demoConMotorProducto).demostracion, true);
+  assert.throws(() => validarCalculoRutaDietas(demoConMotorProducto), /calculo de ruta no valido/u);
 
   const productoConMotorDemo = structuredClone(producto);
   productoConMotorDemo.motor = "simulacion_osrm_demo";
   assert.throws(
     () => validarCalculoRutaDietas(productoConMotorDemo),
-    /motor de ruta no corresponde al entorno/u,
+    /calculo de ruta no valido/u,
   );
 
   const demoConGeometriaProducto = structuredClone(demo);
   demoConGeometriaProducto.alternativas[0].geometria.origen = "osrm_interno";
   assert.throws(
     () => validarCalculoRutaDietas(demoConGeometriaProducto),
-    /geometria de ruta no corresponde al entorno/u,
+    /calculo de ruta no valido/u,
   );
 
   const productoConGeometriaDemo = structuredClone(producto);
   productoConGeometriaDemo.alternativas[0].geometria.origen = "sintetica_demo";
   assert.throws(
     () => validarCalculoRutaDietas(productoConGeometriaDemo),
-    /geometria de ruta no corresponde al entorno/u,
+    /geometria de ruta/u,
   );
 });
 

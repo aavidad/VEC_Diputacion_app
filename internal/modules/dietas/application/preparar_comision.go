@@ -10,10 +10,9 @@ import (
 	"vec-diputacion-granada/internal/modules/dietas/ports"
 )
 
-const VersionTarifaComisionProvisional = "provisional:rd462:20260923"
-
 type LectorTarifasComision interface {
 	Consultar(context.Context, string, int, string, time.Time) (domain.TarifaComisionProvisional, error)
+	ConsultarRegla(context.Context, string, time.Time) (domain.ReglaDevengoProvisional, error)
 }
 
 // PreparadorComision sólo toma códigos de localidad y tiempos del navegador.
@@ -74,8 +73,13 @@ func (p *PreparadorComision) Preparar(ctx context.Context, s ports.SolicitudCrea
 	if len(ruta.Alternativas) != 1 || len(ruta.Alternativas[0].Tramos) != len(coords)-1 || ruta.Motor != "osrm_on_premise" || ruta.VersionGrafo == "" {
 		return s, ports.ErrRespuestaMotorRutasInvalida
 	}
-	fechaTarifa := time.Date(inicio.Year(), inicio.Month(), inicio.Day(), 0, 0, 0, 0, time.UTC)
-	calculo := domain.CalculoComision{Procedencia: "osrm_interno", VersionGrafo: ruta.VersionGrafo, Motor: "OSRM", VersionTarifa: VersionTarifaComisionProvisional, Rotulo: domain.RotuloTarifaProvisional, HoraInicio: s.HoraInicio, HoraFin: s.HoraFin, TramosRuta: make([]domain.TramoRutaComision, 0, len(coords)-1), OpcionesDieta: make([]domain.OpcionDietaComision, 0, 3)}
+	fechaLocal := inicio.In(zona)
+	fechaTarifa := time.Date(fechaLocal.Year(), fechaLocal.Month(), fechaLocal.Day(), 0, 0, 0, 0, time.UTC)
+	regla, err := p.tarifas.ConsultarRegla(ctx, "", fechaTarifa)
+	if err != nil || regla.Validar() != nil {
+		return s, domain.ErrTramosProvisionalesNoDisponibles
+	}
+	calculo := domain.CalculoComision{Procedencia: "osrm_interno", VersionGrafo: ruta.VersionGrafo, Motor: "OSRM", VersionTarifa: regla.VersionTarifaRef, Rotulo: domain.RotuloTarifaProvisional, ReglaRef: regla.ReglaRef, ReglaHuellaSHA256: regla.HuellaSHA256, HoraInicio: s.HoraInicio, HoraFin: s.HoraFin, TramosRuta: make([]domain.TramoRutaComision, 0, len(coords)-1), OpcionesDieta: make([]domain.OpcionDietaComision, 0, 3)}
 	var total int64
 	for i, tramo := range ruta.Alternativas[0].Tramos {
 		if !finitePositive(tramo.DistanciaMetros) {
@@ -90,11 +94,11 @@ func (p *PreparadorComision) Preparar(ctx context.Context, s ports.SolicitudCrea
 	}
 	calculo.Kilometros = decimal4Comision(total)
 	for grupo := 1; grupo <= 3; grupo++ {
-		tarifa, e := p.tarifas.Consultar(ctx, VersionTarifaComisionProvisional, grupo, "automovil", fechaTarifa)
+		tarifa, e := p.tarifas.Consultar(ctx, regla.VersionTarifaRef, grupo, "automovil", fechaTarifa)
 		if e != nil || tarifa.Dieta.VersionRef != calculo.VersionTarifa {
 			return s, domain.ErrTramosProvisionalesNoDisponibles
 		}
-		t, e := domain.CalcularTramosNacionalesProvisionales(inicio, fin, zona, tarifa.Dieta)
+		t, e := domain.CalcularTramosNacionalesProvisionales(inicio, fin, zona, tarifa.Dieta, regla)
 		if e != nil {
 			return s, e
 		}

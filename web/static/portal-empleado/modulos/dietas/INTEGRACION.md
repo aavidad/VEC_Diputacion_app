@@ -1,154 +1,90 @@
-# Integración del módulo Dietas
+# Dietas en el Portal del Empleado
 
-Dietas comparte la identidad resuelta por el núcleo del Portal del Empleado. El
-módulo no autentica, no mantiene usuarios propios y no usa cookies ni
-almacenamiento del navegador. Debe recibir la misma instancia validada de
-`ContextoActor` que usan el resto de módulos internos.
+La vista interna se monta con `montarVistaRecorridosDietas` de
+`vista-recorridos.js`. Recibe clientes HTTP inyectados por la composición del
+portal. La identidad, la relación de servicio y la competencia se resuelven y
+revalidan en el servidor; el navegador no envía actor, perfil, persona ni unidad
+como autoridad libre. Todos los clientes usan el mismo origen, no crean cookies
+ni emplean almacenamiento web.
 
-## Composición
+## Montaje
 
 ```js
-const adaptador = crearAdaptadorDietasPresentacion({
-  contextoActor,
-  capacidades,
-});
-
-const calculadorRuta = crearCalculadorRutasDietasPresentacionOSRM({
-  contextoActor,
-  capacidades,
-  fetchImpl,
-});
-
-const modulo = await montarModuloDietas({
-  raiz,
-  contextoActor,
-  capacidades,
-  adaptador,
+montarVistaRecorridosDietas(raiz, {
+  clienteBorradores,
+  clienteAsignacion,
+  clienteRectificacion,
+  clienteCircuito,
+  clienteRectificacionAdmin,
+  clienteCatalogoCompetente, // solo cuando Personal publique catálogo autorizado
   calculadorRuta,
-  descargarRecibo,
   visorRuta,
-  confirmarOperacion,
+  relacionesAutorizadas,    // GET Personal /relaciones-dietas
+  fechaReferenciaPersonal,  // fecha de esa misma respuesta
+  estadoRelaciones,
+  traducir,
   anunciar,
+  registrarDesmontar,
 });
 ```
 
-Los nombres de capacidades se exportan desde `contrato.js`. La ausencia de una
-capacidad implica denegación; no se infieren permisos a partir del rol ni de la
-interfaz.
+`clienteBorradores` usa `/api/vec/dietas/comisiones` para alta, consulta,
+edición, borrado lógico y envío. POST crea cabecera v1; PUT conserva documento
+v2 con vehículo propio, rutas independientes, ajustes motivados, otros conceptos
+y aceptación de uno o todos los tramos del grupo acreditado por Personal. Cada
+mutación se confirma exclusivamente con su recibo. `numero_documento` y
+`fecha_apertura` proceden de PostgreSQL y son la identificación visible cuando
+la proyección v2 los entrega.
 
-## Puertos
+`clienteAsignacion` consulta primero
+`GET /api/vec/personal/relaciones-dietas`; la composición pasa el par
+`relacion_ref`/`unidad_ref` y su `fecha_referencia` sin inferirlos de otros
+datos. La vista consulta la asignación D7 propia mediante ese par. Si falta la
+proyección o falla Personal, edición dependiente del grupo y envío quedan
+cerrados. Los nombres de centro, unidad y validadores no se inventan a partir
+de referencias; se presentan como no disponibles hasta que Personal proyecte
+etiquetas autorizadas.
 
-- `adaptador.obtenerDatos()`: devuelve el panel conforme a
-  `vec.dietas.portal.v1`, ya proyectado para el actor y sus capacidades.
-- `adaptador.ejecutar(comando)`: acepta `crear_borrador` y
-  `enviar_validacion`, y devuelve el nuevo panel. El adaptador productivo debe
-  aplicar autorización y control de concurrencia también en servidor.
-- `calculadorRuta.obtenerCatalogo()`: devuelve el catálogo territorial conforme
-  a `vec.dietas.catalogo-rutas.v1`. El DTO público no contiene coordenadas.
-- `calculadorRuta.calcular(solicitud)`: recibe
-  `vec.dietas.solicitud-ruta.v1` y devuelve
-  `vec.dietas.calculo-ruta.v1`, con entre una y tres alternativas y sus tramos.
-  La vista nunca llama directamente a OSRM.
-- `confirmarOperacion(descriptor)`: muestra la confirmación institucional y
-  resuelve exclusivamente con `true` cuando la persona confirma.
-- `descargarRecibo(descriptor)`: entrega al conector documental el descriptor
-  `vec.documentos.recibo.dietas.v1` o el resumen anual
-  `vec.documentos.resumen-anual.dietas.v1`. El QR contiene solo una referencia
-  opaca de cotejo, nunca datos personales.
-- `visorRuta.montar({ raiz, descriptor })`: recibe geometría ya autorizada y
-  solo admite OpenStreetMap servido en la red interna mediante
-  `/tiles/osm/{z}/{x}/{y}.png`. El navegador no llama a OSRM, geocodificadores,
-  teselas públicas ni otros terceros. La composición activa Leaflet únicamente
-  cuando el proxy de teselas del mismo origen está desplegado y la geometría
-  declara origen `osrm_interno`; una geometría sintética falla cerrada sin
-  solicitar teselas. El visor no
-  declara éxito hasta recibir `load` de la capa; los errores reiterados o el
-  timeout muestran un aviso accesible y retiran el mapa. Un fallo nunca produce
-  una representación simulada ni convierte geometría en kilometraje liquidable.
-- `anunciar(mensaje, nivel)`: comunica resultados o errores mediante el sistema
-  común de avisos del portal.
+`clienteRectificacion` consulta y solicita rectificación textual D7c, sin
+conceder al empleado edición directa de la asignación. La vista conserva el
+recibo y refresca la asignación vigente tras confirmar o recuperar una
+solicitud. La bandeja administrativa usa otro cliente y autorización propia;
+confirmar una corrección requiere además el catálogo competente autorizado de
+centros y personas. Sin ese catálogo, la confirmación queda deshabilitada.
 
-`desmontar()` elimina manejadores y contenido al abandonar el módulo.
+`clienteCircuito` consulta bandejas por revisión, autorización, liquidación y
+fiscalización y envía decisiones con motivo cuando se devuelve. Cada etapa
+exige permiso V3 propio; mostrar una pestaña no concede acceso. Una comisión
+fiscalizada no se presenta como pagada.
 
-## Límite de la demostración
+## Ruta y mapa
 
-`datos-presentacion.js` y `adaptador-presentacion.js` aportan expedientes
-sintéticos, memoria volátil y recibos marcados sin efectos administrativos. El
-catálogo provincial vive en el módulo neutral `catalogo-rutas-provincial.js` y
-lo reutilizan ambos calculadores sin dependencia entre ellos. La composición
-final no usa el cálculo simulado: delega en
-`calculador-rutas-presentacion-osrm.js` y en el mediador Go mediante un POST de
-ruta fija y del mismo origen. El grafo y las teselas son reales; el resultado
-continúa marcado como DEMO y no liquidable. No se usan cookies, almacenamiento
-local ni destinos de red configurables por el navegador. La vista, los
-presentadores, el contrato, el catálogo i18n y los estilos son reutilizables en
-producción.
+`crearCalculadorRutasDietasHTTP` consume `GET /api/vec/dietas/route-catalog`
+y `POST /api/vec/dietas/road-route`. El formulario ofrece un itinerario
+principal con hasta diez paradas y, en edición con vehículo propio, hasta ocho
+rutas independientes con el mismo máximo por ruta. El componente
+`vista-mapa-comision.js` valida la geometría OSRM interna de los códigos exactos
+antes de permitir guardar y cancela peticiones al cambiar de ruta o desmontar.
+`crearVisorRutaDietas({ permitirTeselas: true })` pide teselas únicamente a
+`/tiles/osm/{z}/{x}/{y}.png` del mismo origen. El servidor recalcula el
+documento antes de persistir importes y conserva la versión del grafo.
 
-La versión del grafo no se fija ni se configura en el frontend. El mediador
-inserta `data_version`; el adaptador exige su forma canónica, rechaza ausencia o
-contradicción con `graph_version` y la incorpora a la huella SHA-256 y al modelo.
-Cambiar el grafo sólo requiere activar otra versión gobernada del despliegue.
+El país España usa la tabla nacional provisional del corte. Elegir otro país
+muestra que falta cálculo gobernado y deshabilita guardar; no aplica la tarifa
+española como sustitución. El nivel de detalle bajo, medio o alto modifica
+solo el desglose visible, nunca el grupo, la tarifa o el resultado de la API.
+El documento v2 muestra el total orientativo singular del grupo acreditado,
+separando dietas, kilometraje y otros conceptos; no lo presenta como
+liquidación.
 
-Para producción se sustituye el adaptador de presentación por uno autenticado
-contra la API interna. No se modifican la vista ni sus rutas. El nuevo adaptador
-debe garantizar, como mínimo:
+Otros medios y otros gastos reciben descripción e importe. No se pide al
+empleado escribir una referencia o huella documental. Cuando exista custodia
+autorizada, el servidor podrá conservar su referencia y SHA-256 como pareja;
+la descripción por sí sola no acredita un fichero.
 
-1. autorización de cada consulta y comando por capacidad y ámbito;
-2. titularidad del expediente o habilitación administrativa expresa;
-3. recálculo y validación en servidor de importes, rutas, alternativa elegida,
-   motivos de desvío, ajustes por tramo, estados y transiciones;
-4. idempotencia o versión esperada en operaciones mutables;
-5. recibo probatorio y auditoría antes de confirmar el éxito;
-6. ausencia de localizaciones en respuestas sin `dietas.ruta.read`.
+## Comprobación
 
-El adaptador productivo del puerto de rutas debe delegar en la API interna (el
-backend dispone del cálculo `POST /api/vec/dietas/road-route`), que aplica RBAC,
-consulta OSRM dentro de la red corporativa y devuelve geometría ya proyectada
-según `dietas.ruta.read`. El servidor debe conservar la versión del motor y la
-referencia opaca del cálculo, recalcular antes de liquidar y auditar actor,
-idempotencia, alternativa, justificación y ajustes. El cliente HTTP usa
-`credentials: "omit"`: no envía cookies, certificados cliente ni credenciales
-HTTP del navegador. En consecuencia, no usa `globalThis.fetch` implícitamente y
-exige un cliente inyectado por el futuro conector de identidad nativo o por una
-mediación corporativa autenticada sin cookies. Kerberos/SPNEGO o mTLS **no se
-presuponen transportados por Fetch**. Hasta que Sistemas valide y suministre ese
-conector, la composición productiva permanece bloqueada y falla cerrada. El
-servidor vuelve a autorizar cada operación. Si la proyección territorial no
-está disponible, falla sólo la herramienta de rutas: el listado y detalle de
-Dietas permanecen operativos.
-
-Leaflet 1.9.4 se sirve desde el propio portal como dependencia fijada, con
-licencia, procedencia y huellas verificables. El perfil Docker de presentación
-publica las teselas importadas en la ruta anterior y activa expresamente el
-visor. La atribución enlazada de OpenStreetMap y OpenMapTiles aparece una sola
-vez dentro del mapa real.
-
-La descarga productiva debe usar el servicio documental común de servidor:
-generación, firma/sello cuando proceda, custodia, auditoría y cotejo por `POST`.
-La ruta estática con `presentacion=rrhh` y el generador PDF del navegador existen
-solo en DEMO.
-
-## Sustitución de adaptadores
-
-| Función | Presentación | Producción |
-|---|---|---|
-| Expedientes y comandos | `adaptador-presentacion.js`, memoria volátil | API interna autorizada, persistencia y recibo probatorio |
-| Catálogo y ruta | catálogo provincial + OSRM interno real, no liquidable | catálogo autoritativo + API/OSRM internos; nunca cálculo en la vista |
-| Mapa | Leaflet local + teselas OSM internas reales | Leaflet local + `/tiles/osm/`; sin CDN ni salida a Internet |
-| PDF anual y recibos | generador común del navegador, marca DEMO | servicio documental de servidor, firma/custodia/cotejo |
-
-La vista, el presentador, el contrato, i18n y los estilos no cambian al efectuar
-estas sustituciones.
-
-## Verificación
-
-```sh
-node --test web/static/portal-empleado/modulos/dietas/*.test.mjs
-deploy/osm-tiles-granada/tests/probar_contrato.sh
-docker compose --profile presentacion config --quiet
-```
-
-Las pruebas cubren identidad compartida, mínimo privilegio, aislamiento de
-rutas, límites y versión del grafo, estados canónicos, acciones volátiles,
-recibos verificables sin datos personales, i18n, accesibilidad, diseño
-adaptable y separación de datos de prueba.
+Las pruebas Node del directorio cubren clientes, ruta, mapa, formulario,
+aceptación, recibos, cancelación y bandejas. La comprobación de PostgreSQL,
+autorización V3 y navegador corresponde al corte integrado y se documenta
+fuera de este archivo.

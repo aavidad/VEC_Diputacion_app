@@ -62,6 +62,19 @@ func TestIntegracionPostgreSQLContextoActorV2(t *testing.T) {
 		len(confirmacion.Contexto.Principal.Roles) != 0 || len(confirmacion.Contexto.Principal.Permissions) != 0 {
 		t.Fatal("el snapshot no fue completo o incorporo claims prohibidos")
 	}
+	candidatos, err := confirmacion.Contexto.Referencias(domain.TipoReferenciaContextoActorCandidato)
+	if err != nil || len(candidatos) != 1 || candidatos[0] != "can_sintetico_ffffffffffffffffffffffff" {
+		t.Fatalf("el vínculo CT no llegó desde PostgreSQL: %v, %v", candidatos, err)
+	}
+	empleados, err := confirmacion.Contexto.Referencias(domain.TipoReferenciaContextoActorEmpleado)
+	if err != nil || len(empleados) != 1 || empleados[0] != "emp_sintetico_hhhhhhhhhhhhhhhhhhhhhhhh" {
+		t.Fatalf("el vínculo empleado para Dietas no llegó desde PostgreSQL: %v, %v", empleados, err)
+	}
+	if len(manifiesto.Vinculos) != 2 ||
+		manifiesto.Vinculos[0].Referencia != candidatos[0] ||
+		manifiesto.Vinculos[1].Referencia != empleados[0] {
+		t.Fatalf("procedencia CT/Dietas no corresponde al snapshot: %#v", manifiesto.Vinculos)
+	}
 
 	// La misma operacion y solicitud recuperan el recibo ya confirmado aunque
 	// la invocacion nueva haya generado material rca_ provisional distinto.

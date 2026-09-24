@@ -316,14 +316,19 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	}
 	dependencias.catalogoMaterial = catalogoMaterial
 	if dietasBorradoresSolicitadas(cfg.DietasBorradoresEnabled) {
-		var dietas [3]*proveedorMaterialAltaContratacionTemporalDesarrollo
-		for i, audiencia := range []string{audienciaConsumoPersonalDietasDesarrollo, audienciaConsumoCrearDietasDesarrollo, audienciaConsumoConsultarDietasDesarrollo} {
-			dietas[i], err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, audiencia)
+		proveedoresDietas := make(map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo)
+		for _, descriptor := range descriptoresMaterialDietasDesarrollo() {
+			proveedoresDietas[descriptor.Audiencia], err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, descriptor.Audiencia)
 			if err != nil {
 				return vacias, err
 			}
 		}
-		dependencias.materialDietas = materialDietasDesdeCTDesarrollo{personal: dietas[0], crear: dietas[1], consultar: dietas[2]}
+		dependencias.materialDietas = materialDietasDesdeCTDesarrollo{
+			personal:    proveedoresDietas[audienciaConsumoPersonalDietasDesarrollo],
+			crear:       proveedoresDietas[audienciaConsumoCrearDietasDesarrollo],
+			consultar:   proveedoresDietas[audienciaConsumoConsultarDietasDesarrollo],
+			adicionales: proveedoresDietas,
+		}
 	}
 	proveedor, err := nuevoProveedorMaterialAltaContratacionTemporalDesarrollo(
 		material, soporte, reloj,

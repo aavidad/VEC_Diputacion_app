@@ -1,8 +1,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { montarVistaBorradoresPropios } from "./vista-borradores-propios.js";
+import { montarVistaBorradoresPropios as montarVistaConPuerto } from "./vista-borradores-propios.js";
 import { crearClienteBorradoresDietasHTTP } from "./cliente-borradores-http.js";
+
+const catalogoProyectado = [
+  { codigo: "18087", nombre: "Granada" }, { codigo: "18003", nombre: "Albolote" },
+  { codigo: "18061", nombre: "Chimeneas" }, { codigo: "18175", nombre: "Santa Fe" },
+  ...Array.from({ length: 15 }, (_valor, indice) => ({ codigo: String(18001 + indice).padStart(5, "0"), nombre: `Municipio ${indice + 1}` }))
+    .filter((punto) => punto.codigo !== "18003"),
+];
+const montarVistaBorradoresPropios = (contenedor, opciones = {}) =>
+  montarVistaConPuerto(contenedor, { catalogoProyectado, ...opciones });
 
 const claveDatos = (atributo) =>
   atributo.slice(5).replace(/-([a-z])/g, (_m, letra) => letra.toUpperCase());
@@ -1000,9 +1009,15 @@ test("la preparación local muestra país y se puede revisar sin crear un expedi
   globalThis.FormData = class { get(nombre) { return datos[nombre] ?? null; } };
   try {
     const panel = contenedor.querySelector("[data-dietas-borradores-propios]");
-    const pais = form.querySelectorAll("input").find((campo) => campo.name === "pais");
-    assert.equal(pais.value, "España");
-    assert.equal(pais.readOnly, true);
+    const pais = form.querySelector("[data-dietas-pais]");
+    assert.equal(pais.value, "ES");
+    pais.value = "OTRO";
+    panel.listeners.change({ target: pais });
+    assert.equal(form.querySelector("[data-dietas-borrador-guardar]").disabled, true);
+    assert.equal(form.querySelector("[data-dietas-pais-sin-calculo]").hidden, false);
+    assert.equal(form.querySelectorAll("select").find((campo) => campo.name === "origen_codigo").required, false);
+    pais.value = "ES";
+    panel.listeners.change({ target: pais });
     await panel.listeners.click({ target: form.querySelector("[data-dietas-borrador-revisar]") });
     const resumen = form.querySelector("[data-dietas-borrador-preparacion]");
     assert.match(textoVisible(resumen), /Preparación local sin registrar.*Visita.*España/u);
@@ -1410,4 +1425,56 @@ test("A incierta conserva su clave tras un 403 posterior y no duplica B al reaut
     ]);
     assert.equal(secuencia, 2);
   } finally { globalThis.FormData = FormDataOriginal; vista.desmontar(); }
+});
+
+test("editar D3 usa grupo acreditado para aceptar tramos y D4 sin vehículo conserva otros gastos sin custodia inventada", async () => {
+  const calculado = { ...item, comision: { ...item.comision,
+    codigos_ruta: ["18087", "18003"], calculo: {
+      rotulo: "PROVISIONAL · pendiente de confirmación por RRHH", version_tarifa: "provisional:rd462:20260923",
+      version_grafo: "grafo:prueba", hora_inicio: "09:00", hora_fin: "18:00", kilometros: "12.0000",
+      importe_kilometraje_centimos: 312, tramos_ruta: [{ origen_codigo: "18087", destino_codigo: "18003", kilometros: "12.0000" }],
+      opciones_dieta: [1, 2, 3].map((grupo) => ({ grupo, calculo: { total_maximo_orientativo_centimos: 1000,
+        tramos: [{ fecha: "2026-09-20", tipo: "manutencion", porcentaje: 50, importe_centimos: 500 },
+          { fecha: "2026-09-21", tipo: "alojamiento", porcentaje: 100, importe_centimos: 500 }] } })),
+    },
+  } };
+  const contenedor = raiz(); const peticiones = [];
+  const vista = montarVistaBorradoresPropios(contenedor, {
+    relacionesAutorizadas: [{ relacion_ref: item.comision.relacion_ref, unidad_ref: "unidad:uno" }],
+    fechaReferenciaPersonal: "2026-09-24",
+    clienteAsignacion: { obtener: async () => ({ verificada: true, asignacion_ref: "ads_1234567890123456789012",
+      relacion_ref: item.comision.relacion_ref, unidad_ref: "unidad:uno", fecha_referencia: "2026-09-24",
+      centro_ref: "centro:uno", administrativo_persona_ref: "per_aaaaaaaaaaaaaaaaaaaaaa",
+      responsable_persona_ref: "per_bbbbbbbbbbbbbbbbbbbbbb", grupo_dieta: 2, version: 1 }) },
+    cliente: { listar: async () => ({ items: [calculado] }), obtener: async () => calculado,
+      crear: async () => calculado, editar: async (_ref, entrada) => { peticiones.push(entrada); return calculado; } },
+    generarClaveIdempotencia: () => "editar-comision-aceptada-20260924",
+  });
+  await Promise.resolve(); await Promise.resolve();
+  const panel = contenedor.querySelector("[data-dietas-borradores-propios]");
+  await panel.listeners.click({ target: contenedor.querySelector("[data-dietas-borrador-detalle]") });
+  await Promise.resolve(); await Promise.resolve();
+  const editar = contenedor.querySelector("[data-dietas-borrador-editar]");
+  assert.equal(editar.disabled, false);
+  await panel.listeners.click({ target: editar });
+  const form = contenedor.querySelector("[data-dietas-borrador-form]"); form.checkValidity = () => true;
+  form.querySelector("[data-dietas-vehiculo-propio]").value = "no";
+  await panel.listeners.click({ target: form.querySelector("[data-dietas-otro-anadir]") });
+  const filaOtro = form.querySelector("[data-dietas-otro-linea]");
+  filaOtro.querySelectorAll("input").find((entrada) => entrada.name === "concepto").value = "Aparcamiento";
+  filaOtro.querySelectorAll("input").find((entrada) => entrada.name === "importe").value = "2,50";
+  const datos = { fecha_inicio: "2026-09-20", fecha_fin: "2026-09-21", motivo: "Visita",
+    hora_inicio: "09:00", hora_fin: "18:00", origen_codigo: "18087", destino_codigo: "18003" };
+  const original = globalThis.FormData;
+  globalThis.FormData = class { get(nombre) { return datos[nombre] ?? null; } };
+  try {
+    await panel.listeners.submit({ target: form, preventDefault() {} });
+    assert.equal(peticiones.length, 1);
+    assert.equal(peticiones[0].vehiculo_propio, false);
+    assert.deepEqual(peticiones[0].rutas, []);
+    assert.deepEqual(peticiones[0].tramos_aceptados, [0, 1]);
+    assert.equal(peticiones[0].version_tarifa_aceptada, "provisional:rd462:20260923");
+    assert.deepEqual(peticiones[0].otros, [{ tipo: "otro_gasto", concepto: "Aparcamiento",
+      importe_centimos: 250, justificante_ref: "", justificante_sha256: "" }]);
+  } finally { globalThis.FormData = original; vista.desmontar(); }
 });

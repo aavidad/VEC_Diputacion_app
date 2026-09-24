@@ -10,12 +10,20 @@ const (
 	SuperficieAuditoriaFronteraComision = "api.dietas.comisiones"
 	RutaAuditoriaFronteraComision       = "/api/vec/dietas/comisiones"
 	RutaAuditoriaFronteraDetalle        = "/api/vec/dietas/comisiones/detalle"
+	RutaAuditoriaFronteraEnvio          = "/api/vec/dietas/comisiones/enviar"
+	RutaAuditoriaFronteraCircuito       = "/api/vec/dietas/comisiones/circuito"
 	MotivoFronteraAutenticacion         = "autenticacion_requerida"
 	MotivoFronteraAccesoDenegado        = "acceso_denegado"
 	MotivoFronteraDependencia           = "dependencia_no_disponible"
 	AccionFronteraListar                = "listar"
 	AccionFronteraCrear                 = "crear"
 	AccionFronteraConsultarDetalle      = "consultar_detalle"
+	AccionFronteraEditar                = "editar"
+	AccionFronteraBorrar                = "borrar"
+	AccionFronteraEnviar                = "enviar"
+	AccionFronteraConsultarBandeja      = "consultar_bandeja"
+	AccionFronteraDecidir               = "decidir"
+	AccionFronteraPreleer               = "preleer"
 	AccionFronteraMetodoNoAdmitido      = "metodo_no_admitido"
 )
 
@@ -38,8 +46,9 @@ func (o OrdenAuditoriaFronteraComision) Validar() error {
 		}
 	}
 	if (o.Motivo != MotivoFronteraAutenticacion && o.Motivo != MotivoFronteraAccesoDenegado && o.Motivo != MotivoFronteraDependencia) ||
-		(o.Ruta != RutaAuditoriaFronteraComision && o.Ruta != RutaAuditoriaFronteraDetalle) ||
-		(o.Accion != AccionFronteraListar && o.Accion != AccionFronteraCrear && o.Accion != AccionFronteraConsultarDetalle && o.Accion != AccionFronteraMetodoNoAdmitido) ||
+		(o.Ruta != RutaAuditoriaFronteraComision && o.Ruta != RutaAuditoriaFronteraDetalle && o.Ruta != RutaAuditoriaFronteraEnvio && o.Ruta != RutaAuditoriaFronteraCircuito) ||
+		(o.Accion != AccionFronteraListar && o.Accion != AccionFronteraCrear && o.Accion != AccionFronteraConsultarDetalle && o.Accion != AccionFronteraEditar && o.Accion != AccionFronteraBorrar && o.Accion != AccionFronteraEnviar && o.Accion != AccionFronteraConsultarBandeja && o.Accion != AccionFronteraDecidir && o.Accion != AccionFronteraPreleer && o.Accion != AccionFronteraMetodoNoAdmitido) ||
+		!accionRutaFronteraValida(o.Ruta, o.Accion) ||
 		len(o.ActorRef) > 512 || (o.Motivo == MotivoFronteraAutenticacion && o.ActorRef != "") {
 		return ErrAuditoriaFronteraComisionInvalida
 	}
@@ -49,6 +58,24 @@ func (o OrdenAuditoriaFronteraComision) Validar() error {
 		}
 	}
 	return nil
+}
+
+func accionRutaFronteraValida(ruta, accion string) bool {
+	if accion == AccionFronteraMetodoNoAdmitido {
+		return true
+	}
+	switch ruta {
+	case RutaAuditoriaFronteraComision:
+		return accion == AccionFronteraListar || accion == AccionFronteraCrear
+	case RutaAuditoriaFronteraDetalle:
+		return accion == AccionFronteraConsultarDetalle || accion == AccionFronteraEditar || accion == AccionFronteraBorrar
+	case RutaAuditoriaFronteraEnvio:
+		return accion == AccionFronteraEnviar
+	case RutaAuditoriaFronteraCircuito:
+		return accion == AccionFronteraConsultarBandeja || accion == AccionFronteraDecidir || accion == AccionFronteraPreleer
+	default:
+		return false
+	}
 }
 
 func soloHexMinuscula(s string) bool {

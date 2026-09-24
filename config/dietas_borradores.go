@@ -11,9 +11,11 @@ const (
 	// EnvDietasBorradoresEnabled es un selector deliberado, no un permiso. Sólo
 	// admite los literales canónicos "true" y "false"; la ausencia equivale a
 	// apagado. Evitamos que un 1/yes copiado de otro despliegue abra Dietas.
-	EnvDietasBorradoresEnabled             = "VEC_DIETAS_BORRADORES_ENABLED"
-	EnvDietasBorradoresDatabaseURL         = "VEC_DIETAS_BORRADORES_DATABASE_URL"
-	EnvDietasPersonalRelacionesDatabaseURL = "VEC_DIETAS_PERSONAL_RELACIONES_DATABASE_URL"
+	EnvDietasBorradoresEnabled                    = "VEC_DIETAS_BORRADORES_ENABLED"
+	EnvDietasBorradoresDatabaseURL                = "VEC_DIETAS_BORRADORES_DATABASE_URL"
+	EnvDietasPersonalRelacionesDatabaseURL        = "VEC_DIETAS_PERSONAL_RELACIONES_DATABASE_URL"
+	EnvDietasPersonalAsignacionDatabaseURL        = "VEC_DIETAS_PERSONAL_ASIGNACION_DATABASE_URL"
+	EnvDietasPersonalAuditoriaFronteraDatabaseURL = "VEC_DIETAS_PERSONAL_AUDITORIA_FRONTERA_DATABASE_URL"
 )
 
 var (
@@ -23,22 +25,34 @@ var (
 	ErrConfiguracionDietasBorradoresActivacion = errors.New("config: activacion de borradores de dietas incompleta o fuera del perfil de desarrollo")
 )
 
-// ConfiguracionDietasBorradores pertenece exclusivamente a la raiz de
-// composicion. Cada DSN corresponde a una identidad tecnica nominal: Dietas,
-// Personal, registro y revalidacion de sesion, contexto, fuente/registro de
-// PDP y catalogo historico de motivos. No incluye persona, empleado, permisos
-// ni material de identidad y sus representaciones se redactan siempre.
+// ConfiguracionDietasBorradores pertenece exclusivamente a la raíz de
+// composición. Separa el ejecutor Dietas, la lectura de relaciones Personal,
+// el ejecutor de asignaciones Personal y su auditoría de frontera. Las demás
+// autoridades de sesión y V3 se configuran fuera de estos DSN. No contiene
+// personas ni material de identidad y siempre redacta sus representaciones.
 type ConfiguracionDietasBorradores struct {
-	dsnDietas   string
-	dsnPersonal string
+	dsnDietas             string
+	dsnPersonal           string
+	dsnAsignacionPersonal string
+	dsnAuditoriaPersonal  string
 }
 
 func NuevaConfiguracionDietasBorradores(
 	dsnDietas, dsnPersonal string,
+	dsnPersonalAdicional ...string,
 ) (ConfiguracionDietasBorradores, error) {
+	if len(dsnPersonalAdicional) > 2 {
+		return ConfiguracionDietasBorradores{}, ErrConfiguracionDietasBorradoresIncompleta
+	}
 	c := ConfiguracionDietasBorradores{
 		dsnDietas: dsnDietas, dsnPersonal: dsnPersonal,
 	}.normalizar()
+	if len(dsnPersonalAdicional) > 0 {
+		c.dsnAsignacionPersonal = strings.TrimSpace(dsnPersonalAdicional[0])
+	}
+	if len(dsnPersonalAdicional) > 1 {
+		c.dsnAuditoriaPersonal = strings.TrimSpace(dsnPersonalAdicional[1])
+	}
 	if err := c.Validar(); err != nil {
 		return ConfiguracionDietasBorradores{}, err
 	}
@@ -56,7 +70,48 @@ func (c ConfiguracionDietasBorradores) Validar() error {
 	if conexionPostgreSQLComparteLogin(dsns[0], dsns[1]) {
 		return ErrConfiguracionDietasBorradoresNoSeparada
 	}
+	if c.dsnAsignacionPersonal != "" && (conexionPostgreSQLComparteLogin(c.dsnAsignacionPersonal, dsns[0]) || conexionPostgreSQLComparteLogin(c.dsnAsignacionPersonal, dsns[1])) {
+		return ErrConfiguracionDietasBorradoresNoSeparada
+	}
+	for _, previo := range []string{dsns[0], dsns[1], c.dsnAsignacionPersonal} {
+		if c.dsnAuditoriaPersonal != "" && conexionPostgreSQLComparteLogin(c.dsnAuditoriaPersonal, previo) {
+			return ErrConfiguracionDietasBorradoresNoSeparada
+		}
+	}
 	return nil
+}
+
+func (c ConfiguracionDietasBorradores) validarCompleta() error {
+	c = c.normalizar()
+	if err := c.Validar(); err != nil {
+		return err
+	}
+	if c.dsnAsignacionPersonal == "" || c.dsnAuditoriaPersonal == "" {
+		return ErrConfiguracionDietasBorradoresIncompleta
+	}
+	return nil
+}
+
+// DSNAsignacionPersonal entrega solo la identidad técnica propia de Personal.
+// La activación completa exige este tercer login, separado de Dietas y de la
+// consulta de relaciones.
+func (c ConfiguracionDietasBorradores) DSNAsignacionPersonal() (string, error) {
+	c = c.normalizar()
+	if err := c.Validar(); err != nil {
+		return "", err
+	}
+	if c.dsnAsignacionPersonal == "" {
+		return "", ErrConfiguracionDietasBorradoresIncompleta
+	}
+	return c.dsnAsignacionPersonal, nil
+}
+
+func (c ConfiguracionDietasBorradores) DSNAuditoriaPersonal() (string, error) {
+	c = c.normalizar()
+	if err := c.validarCompleta(); err != nil {
+		return "", err
+	}
+	return c.dsnAuditoriaPersonal, nil
 }
 
 // DSNSeparados solo expone secretos a la composicion después de comprobar que
@@ -87,10 +142,10 @@ func (c Config) DietasBorradoresDesarrolloActivos() (bool, error) {
 		if !c.DevelopmentEnabledByDoubleKey() {
 			return false, ErrConfiguracionDietasBorradoresActivacion
 		}
-		if err := c.DietasBorradoresPostgreSQL.Validar(); err != nil {
+		if err := c.DietasBorradoresPostgreSQL.validarCompleta(); err != nil {
 			return false, fmt.Errorf("%w: %v", ErrConfiguracionDietasBorradoresActivacion, err)
 		}
-		for _, propio := range []string{c.DietasBorradoresPostgreSQL.dsnDietas, c.DietasBorradoresPostgreSQL.dsnPersonal} {
+		for _, propio := range []string{c.DietasBorradoresPostgreSQL.dsnDietas, c.DietasBorradoresPostgreSQL.dsnPersonal, c.DietasBorradoresPostgreSQL.dsnAsignacionPersonal, c.DietasBorradoresPostgreSQL.dsnAuditoriaPersonal} {
 			for _, ajeno := range c.dsnsPostgreSQLConfiguradosSinDietas() {
 				if conexionPostgreSQLComparteLogin(propio, ajeno) {
 					return false, ErrConfiguracionDietasBorradoresNoSeparada
@@ -106,6 +161,8 @@ func (c Config) DietasBorradoresDesarrolloActivos() (bool, error) {
 func (c ConfiguracionDietasBorradores) normalizar() ConfiguracionDietasBorradores {
 	c.dsnDietas = strings.TrimSpace(c.dsnDietas)
 	c.dsnPersonal = strings.TrimSpace(c.dsnPersonal)
+	c.dsnAsignacionPersonal = strings.TrimSpace(c.dsnAsignacionPersonal)
+	c.dsnAuditoriaPersonal = strings.TrimSpace(c.dsnAuditoriaPersonal)
 	return c
 }
 
