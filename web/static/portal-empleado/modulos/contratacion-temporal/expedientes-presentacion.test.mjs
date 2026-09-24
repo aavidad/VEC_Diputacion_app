@@ -418,21 +418,29 @@ function expedienteConAccionSinteticaDisponible() {
 }
 
 test("el espacio operativo separa tareas y distribución en paneles legibles", async () => {
-  const [estilos, tema] = await Promise.all([
+  const [estilos, portal, tema] = await Promise.all([
     readFile(new URL("./expedientes-operativo.css", import.meta.url), "utf8"),
     readFile(new URL("../../portal.css", import.meta.url), "utf8"),
+    readFile(new URL("../../../comun/tema-vec.css", import.meta.url), "utf8"),
   ]);
   assert.match(
     estilos,
     /\.ct-exp-mis-tareas,\s*\n\.ct-exp-distribucion\s*\{[\s\S]*border:[^;]+;[\s\S]*background:/u,
   );
   assert.match(estilos, /\.ct-exp-operativo\s*\{[\s\S]*grid-template-columns:/u);
+  assert.match(portal, /^\s*@import\s+url\(\s*["']\.\.\/comun\/tema-vec\.css["']\s*\)\s*;/mu);
+  const base = tema.match(/:root\s*\{([^}]*)\}/u)?.[1];
+  assert.ok(base, "el tema común debe declarar sus tokens base en :root");
   for (const token of [
     "--portal-espacio-1", "--portal-espacio-2", "--portal-espacio-3",
     "--portal-espacio-4", "--portal-radio-md", "--portal-radio-lg",
     "--portal-sombra-sm", "--portal-tinta-suave",
   ]) {
-    assert.match(tema, new RegExp(`${token}:`), `${token} debe proceder del tema común`);
+    const declaracion = new RegExp(`^[ \\t]*${token}[ \\t]*:`, "gmu");
+    assert.equal([...base.matchAll(declaracion)].length, 1,
+      `${token} debe tener una sola definición base en el tema común`);
+    assert.doesNotMatch(portal, declaracion,
+      `${token} no debe redefinirse en portal.css`);
   }
 });
 
