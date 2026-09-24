@@ -707,9 +707,7 @@ test("el contrato DOM es accesible, adaptable y no conecta storage ni presentaci
   assert.match(estilos, /\.espacio-borradores/);
   assert.match(estilos, /@media \(max-width: 1040px\)[\s\S]*\.espacio-borradores/);
   assert.match(estilos, /@media \(max-width: 780px\)[\s\S]*\.campos-editor-dos/);
-  assert.match(portal, /const superficie = estado\.modoPresentacion \? superficieBorradoresPresentacion : superficieBorradores/);
-  assert.match(portal, /crearClienteImpl: \(\) => moduloBorradores\.crearClienteBorradoresPresentacion\(\)/);
-  assert.match(portal, /import\("\.\/portal-borradores-demo-cliente\.js/);
-  assert.doesNotMatch(portal, /^import .*portal-borradores-demo-cliente/m,
-    "el adaptador DEMO debe poder excluirse físicamente de producción");
+  assert.match(portal, /const superficie = superficieBorradores/);
+  assert.doesNotMatch(portal, /crearClienteImpl: \(\) => moduloBorradores\.crearClienteBorradoresPresentacion\(\)/);
+  assert.doesNotMatch(portal, /import\("\.\/portal-borradores-demo-cliente\.js/);
 });

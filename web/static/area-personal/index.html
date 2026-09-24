@@ -1,22 +1,18 @@
 <!doctype html>
-<html lang="es">
+<html lang="es" data-tema="institucional">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light">
-    <meta name="theme-color" content="#073866">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <title>Mi área personal · Bolsas de trabajo</title>
-    <link rel="stylesheet" href="/area-personal/area-personal.css?v=20260718-1">
-    <script type="module" src="/area-personal/arranque.js?v=20260720-pulido-escritorio-v2"></script>
+    <link rel="stylesheet" href="/comun/tema-vec.css?v=20260924-f2-tema-base-v2">
+    <link rel="stylesheet" href="/area-personal/area-personal.css?v=20260924-f2-area-tema-v2">
+    <link rel="stylesheet" href="/comun/oportunidades/oportunidades.css?v=20260924-f2-b15-area-v1">
+    <script type="module" src="/area-personal/arranque.js?v=20260924-rescate-area-v7"></script>
   </head>
   <body class="area-personal-app">
     <a class="salto-contenido" href="#contenido-principal">Saltar al contenido principal</a>
-
-    <div class="aviso-presentacion" id="aviso-presentacion" role="status" hidden>
-      <strong>MODO DEMOSTRACIÓN</strong>
-      <span>Referencias BOP y fechas de publicación reales · Identidad, expedientes y operaciones sintéticos · Sin validez administrativa</span>
-    </div>
 
     <div class="ap-shell">
       <aside class="ap-lateral" id="navegacion-lateral" aria-label="Navegación del área personal">
@@ -31,6 +27,7 @@
           <p>Resumen</p>
           <a href="?vista=inicio" data-ruta="inicio"><svg aria-hidden="true"><use href="#icono-inicio"></use></svg><span>Inicio y plazos</span></a>
           <a href="?vista=convocatorias" data-ruta="convocatorias"><svg aria-hidden="true"><use href="#icono-convocatoria"></use></svg><span>Convocatorias</span></a>
+          <a href="?vista=oportunidades" data-ruta="oportunidades"><svg aria-hidden="true"><use href="#icono-convocatoria"></use></svg><span data-i18n="areaPersonal.rutas.oportunidades">Oportunidades para ti</span></a>
 
           <p>Mi información</p>
           <a href="?vista=perfil" data-ruta="perfil"><svg aria-hidden="true"><use href="#icono-persona"></use></svg><span>Perfil y contacto</span></a>
@@ -98,7 +95,7 @@
       <form method="dialog" id="formulario-confirmacion">
         <header><span class="marca-paso" aria-hidden="true">!</span><div><p>Confirmación necesaria</p><h2 id="titulo-confirmacion">Confirmar acción</h2></div></header>
         <div id="contenido-confirmacion" class="contenido-dialogo"></div>
-        <footer><button type="submit" value="cancelar" class="boton-secundario">Cancelar</button><button type="submit" value="confirmar" class="boton-primario">Confirmar demostración</button></footer>
+        <footer><button type="submit" value="cancelar" class="boton-secundario">Cancelar</button><button type="submit" value="confirmar" class="boton-primario">Confirmar operación</button></footer>
       </form>
     </dialog>
 

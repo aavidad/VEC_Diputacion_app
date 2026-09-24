@@ -5,7 +5,7 @@ import test from "node:test";
 const raiz = new URL("./", import.meta.url);
 const leer = (ruta) => readFile(new URL(ruta, raiz), "utf8");
 const [tema, componentes, expedientes, vista, pagina] = await Promise.all([
-  leer("portal.css"),
+  leer("../comun/tema-vec.css"),
   leer("portal-componentes.css"),
   leer("modulos/contratacion-temporal/expedientes.css"),
   leer("modulos/contratacion-temporal/componentes-expedientes.js"),

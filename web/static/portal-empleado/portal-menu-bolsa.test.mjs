@@ -97,7 +97,7 @@ test("las diez categorías reproducen la jerarquía funcional facilitada por RRH
 test("las entradas con recorrido real describen su alcance concreto", () => {
   for (const texto of [
     "B7 desde cada bolsa · correo de pruebas · orden provisional (dudas 13–14)",
-    "La tramitación está en Contratación temporal · ceses y reincorporaciones pendientes",
+    "Fuente de contratos sin configurar · altas, ceses y reincorporaciones pendientes",
     "Borradores PDF en Contratación temporal · portafirmas pendiente de integración",
     "Correo operativo con relay de pruebas · correo corporativo y SMS pendientes",
   ]) assert.ok(html.includes(texto), texto);
@@ -106,11 +106,11 @@ test("las entradas con recorrido real describen su alcance concreto", () => {
     const entrada = html.match(new RegExp(`<button[^>]*data-categoria-bolsa="${categoria}"[^>]*>`, "u"))?.[0] || "";
     assert.doesNotMatch(entrada, /disabled|aria-disabled/u);
   }
-  assert.match(html, /data-categoria-bolsa="contratos" data-vista="contratacion-temporal"/u);
+  assert.match(html, /data-categoria-bolsa="contratos" data-vista="contratos"/u);
   assert.match(html, /data-categoria-bolsa="documentos" data-vista="contratacion-temporal"/u);
 });
 
-test("ninguna ruta de la gestión actual desaparece al agrupar el menú", () => {
+test("el menú agrupa solo las rutas de gestión con superficie conservada", () => {
   const vistas = [
     "resumen", "elaboracion", "convocatorias", "solicitudes", "meritos", "baremacion",
     "alegaciones", "importacion", "llamamientos", "contratos", "documentos",
@@ -124,15 +124,21 @@ test("ninguna ruta de la gestión actual desaparece al agrupar el menú", () => 
   assert.deepEqual([...vistasMapeadas].sort(), [...vistas].sort());
   assert.equal(vistasEnPlantilla.length, 17);
   assert.deepEqual([...vistasEnPlantilla].filter((vista) => vistas.includes(vista)).sort(), [
-    ...vistas.filter((vista) => !["contratos", "documentos", "comunicaciones"].includes(vista)),
+    ...vistas.filter((vista) => !["documentos", "comunicaciones"].includes(vista)),
     "llamamientos",
   ].sort());
-  assert.equal(vistasEnPlantilla.filter((vista) => vista === "contratacion-temporal").length, 2);
+  assert.equal(vistasEnPlantilla.filter((vista) => vista === "contratacion-temporal").length, 1);
   assert.equal(vistasEnPlantilla.filter((vista) => vista === "llamamientos").length, 2);
   assert.equal(categoriaDeVistaBolsa("convocatorias"), "bolsas-candidatos");
   assert.equal(categoriaDeVistaBolsa("baremacion"), "reglas");
   assert.equal(categoriaDeVistaBolsa("configuracion"), "auditoria");
   assert.equal(categoriaDeVistaBolsa("cronos"), "");
+  for (const vista of ["seleccion-inscripciones", "seleccion-pruebas", "seleccion-comunicaciones"]) {
+    assert.equal(categoriaDeVistaBolsa(vista), "");
+    assert.equal(vistaBolsaPendienteNoCompuesta(vista), false);
+    assert.equal(VISTAS_INTERNAS_BOLSA.includes(vista), false);
+    assert.equal(vistasEnPlantilla.includes(vista), false);
+  }
 });
 
 test("B5 completa las dieciocho vistas internas sin duplicar su enlace", () => {
@@ -214,7 +220,7 @@ test("el menú conserva mínimo privilegio, adaptación y ausencia de estado amb
   assert.doesNotMatch(codigoMenu, /textContent|innerText|dataset\.vista|navegar\(|fetch\(|location\.|history\./);
   assert.match(codigoMenu, /closest\?\.\("\[data-grupo-bolsa\]"\)/);
   assert.match(codigoPortal, /function vistaPermitida\(vista\)/);
-  assert.match(codigoPortal, /control\.disabled = true/);
+  assert.match(codigoPortal, /if \(vista\.startsWith\("seleccion-"\)\) return false/);
   assert.match(estilos, /@media \(max-width: 1040px\)/);
   assert.match(estilos, /@media \(max-width: 780px\)/);
   assert.match(estilos, /\.categoria-menu-bolsa \.numero-menu\s*\{[^}]*border-radius:\s*50%/);
@@ -242,7 +248,7 @@ test("accesoBolsaEfectivo abre el cuadro cuando hay bolsas reales aunque los bor
 // lector de pantalla mediante aria-describedby.
 test("las etiquetas visibles del menú son cortas y la descripción completa es accesible", () => {
   for (const categoria of ["llamamientos", "contratos", "documentos", "comunicaciones"]) {
-    const visible = html.match(new RegExp(`<span class="etiqueta-menu" aria-hidden="true">([^<]*)</span><span class="solo-lectura" id="estado-menu-${categoria}">`, "u"));
+    const visible = html.match(new RegExp(`<span class="etiqueta-menu" aria-hidden="true"[^>]*>([^<]*)</span><span class="solo-lectura" id="estado-menu-${categoria}"[^>]*>`, "u"));
     assert.ok(visible, `falta la etiqueta corta de ${categoria}`);
     assert.ok(visible[1].length <= 20, `etiqueta visible demasiado larga en ${categoria}: ${visible[1]}`);
   }

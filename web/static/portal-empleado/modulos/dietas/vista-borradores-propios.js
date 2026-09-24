@@ -1,10 +1,12 @@
-import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js";
+import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260924-web-paradas-periodos-v1";
+import { crearTraductorBorradoresDietas } from "./i18n-borradores.js?v=20260924-web-paradas-periodos-v1";
 import { obtenerCatalogoRutasProvincial } from "./catalogo-rutas-provincial.js";
 
 // El catálogo público incluye núcleos NGMEP aún pendientes de importación.
 // El alta calculada sólo ofrece municipios INE presentes en ambos contratos.
 const PUNTOS_RUTA = obtenerCatalogoRutasProvincial().puntos.filter((punto) => /^\d{5}$/u.test(punto.codigo));
 const NOMBRES_RUTA = new Map(PUNTOS_RUTA.map((punto) => [punto.codigo, punto.nombre]));
+const MAXIMO_LOCALIDADES = 12;
 
 function nodo(documento, etiqueta, texto = "") {
   const resultado = documento.createElement(etiqueta);
@@ -33,6 +35,11 @@ function claveContenido(solicitud) {
   ]);
 }
 function euros(centimos) { return new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(centimos / 100); }
+function rutaLegible(codigos, traducir) {
+  return codigos.length
+    ? codigos.map((codigo) => NOMBRES_RUTA.get(codigo) || codigo).join(" → ")
+    : traducir("borradores_propios_ruta_no_declarada");
+}
 function referenciasRelacionAutorizadas(valores) {
   if (!Array.isArray(valores))
     throw new TypeError("relaciones autorizadas de Dietas no válidas");
@@ -63,9 +70,13 @@ function fechaLegible(valor, conHora = false) {
       ).format(fecha)
     : "—";
 }
-function errorClave(error) {
+function errorClave(error, accion = "consulta") {
+  if (error?.codigo === "autenticacion_requerida")
+    return "borradores_propios_autenticacion_requerida";
   if (error?.codigo === "acceso_denegado")
-    return "borradores_propios_error_acceso";
+    return accion === "crear"
+      ? "borradores_propios_creacion_denegada"
+      : "borradores_propios_consulta_denegada";
   if (
     [
       "relacion_ambigua",
@@ -90,6 +101,7 @@ export function montarVistaBorradoresPropios(
     anunciar = () => {},
     generarClaveIdempotencia = () => globalThis.crypto?.randomUUID?.(),
     registrarDesmontar,
+    formularioInicialmenteVisible = true,
     // Sólo la composición que haya consultado una fuente autorizada puede
     // aportar estas referencias opacas. Esta vista no deduce ni fabrica una.
     relacionesAutorizadas = [],
@@ -106,22 +118,43 @@ export function montarVistaBorradoresPropios(
     typeof traducir !== "function" ||
     typeof anunciar !== "function" ||
     typeof generarClaveIdempotencia !== "function" ||
+    typeof formularioInicialmenteVisible !== "boolean" ||
     (registrarDesmontar !== undefined &&
       typeof registrarDesmontar !== "function")
   ) {
     throw new TypeError("vista de borradores propios de Dietas no disponible");
   }
   const documento = contenedor.ownerDocument;
+  const tBorradores = crearTraductorBorradoresDietas(traducir);
+  const enfocar = (elemento) => elemento?.focus?.(
+    (documento.defaultView?.innerWidth ?? 1440) >= 1024
+      ? { preventScroll: true }
+      : undefined,
+  );
+  const focoSigueEnConsulta = (origen) => {
+    const actual = documento.activeElement;
+    return !actual || actual === origen || actual === documento.body;
+  };
   const relaciones = referenciasRelacionAutorizadas(relacionesAutorizadas);
   const raiz = nodo(documento, "section");
-  raiz.className = "modulo-dietas";
+  raiz.className = "modulo-dietas dietas-borradores-propios";
   raiz.dataset.dietasBorradoresPropios = "";
   contenedor.append(raiz);
   const conectada = cliente !== undefined;
   let activa = true;
   let controlador = null;
-  let pendiente = null;
-  let seleccionada = null;
+  let formularioPersistente = null;
+  let avisoPersistente = null;
+  let listaPersistente = null;
+  let fichaPersistente = null;
+  // La clave de toda intención enviada pertenece a su contenido exacto. Otra
+  // comisión puede prepararse sin perder la recuperación de la primera.
+  const operaciones = new Map();
+  let ultimoAlta = null;
+  let formularioVisible = formularioInicialmenteVisible;
+  let cursores = [undefined];
+  let indicePagina = 0;
+  let siguienteCursor = undefined;
   let relacionSeleccionada =
     relaciones.length === 1 ? relaciones[0] : undefined;
   let estado = {
@@ -132,15 +165,22 @@ export function montarVistaBorradoresPropios(
       : "borradores_propios_pendiente_conexion",
     tono: "informacion",
     detalle: null,
+    detalleOrigen: null,
+    errorLista: false,
+    errorListaClave: null,
   };
   const activaAhora = () => activa && montada(contenedor, raiz);
   const desmontar = () => {
     if (!activa) return;
     activa = false;
     controlador?.abort();
+    operaciones.clear();
+    ultimoAlta = null;
+    estado = { ...estado, items: [], detalle: null, detalleOrigen: null };
     raiz.removeEventListener("submit", enviar);
     raiz.removeEventListener("click", clic);
-    raiz.removeEventListener("change", cambiarRelacion);
+    raiz.removeEventListener("change", cambiarFormulario);
+    raiz.removeEventListener("input", invalidarPreparacion);
     retirar(contenedor, raiz);
   };
   registrarDesmontar?.(desmontar);
@@ -148,8 +188,26 @@ export function montarVistaBorradoresPropios(
   function mensaje(clave, tono = "informacion") {
     estado = { ...estado, mensaje: clave, tono };
     try {
-      anunciar(traducir(clave), tono);
+      anunciar(tBorradores(clave), tono);
     } catch {}
+  }
+  function purgarLecturasDenegadas() {
+    // Un 401/403 invalida toda la proyección obtenida por GET, incluida la
+    // página que permitió abrir el detalle. Sólo sobrevive el último recibo
+    // confirmado; las claves anteriores siguen ligadas a su contenido.
+    for (const [contenido, operacion] of operaciones) {
+      if (operacion.item && contenido !== ultimoAlta?.contenido)
+        operaciones.set(contenido, { clave: operacion.clave, confirmada: true });
+    }
+    cursores = [undefined];
+    indicePagina = 0;
+    siguienteCursor = undefined;
+    estado = {
+      ...estado,
+      items: [],
+      detalle: ultimoAlta?.item ?? null,
+      detalleOrigen: ultimoAlta ? "post" : null,
+    };
   }
   function formulario() {
     const form = nodo(documento, "form");
@@ -172,6 +230,18 @@ export function montarVistaBorradoresPropios(
       PUNTOS_RUTA.forEach((punto) => { const opcion=nodo(documento,"option",punto.nombre); opcion.value=punto.codigo; selector.append(opcion); });
       etiqueta.append(selector); return etiqueta;
     };
+    const paradas = nodo(documento, "section");
+    paradas.className = "dietas-borradores-paradas";
+    paradas.dataset.dietasParadas = "";
+    const tituloParadas = nodo(documento, "h4", tBorradores("borradores_propios_paradas_titulo"));
+    const listaParadas = nodo(documento, "ol");
+    listaParadas.dataset.dietasParadasLista = "";
+    const anadirParada = nodo(documento, "button", tBorradores("borradores_propios_parada_anadir"));
+    anadirParada.type = "button";
+    anadirParada.className = "boton-secundario";
+    anadirParada.dataset.dietasParadaAnadir = "";
+    anadirParada.disabled = !conectada;
+    paradas.append(tituloParadas, listaParadas, anadirParada);
     const boton = nodo(
       documento,
       "button",
@@ -179,7 +249,12 @@ export function montarVistaBorradoresPropios(
     );
     boton.type = "submit";
     boton.className = "boton-primario";
+    boton.dataset.dietasBorradorGuardar = "";
     boton.disabled = controlador !== null;
+    const revisar = nodo(documento, "button", tBorradores("borradores_propios_revisar"));
+    revisar.type = "button";
+    revisar.className = "boton-secundario";
+    revisar.dataset.dietasBorradorRevisar = "";
     const selectorRelacion = (() => {
       if (!relaciones.length) return null;
       const etiqueta = nodo(
@@ -207,25 +282,105 @@ export function montarVistaBorradoresPropios(
       etiqueta.append(selector);
       return etiqueta;
     })();
-    form.append(
-      nodo(documento,"h3",traducir("borradores_propios_nuevo")),
+    const cabecera = nodo(documento, "div");
+    cabecera.className = "cabecera-panel";
+    cabecera.append(nodo(documento,"h3",traducir("borradores_propios_nuevo")));
+    const campos = nodo(documento, "div");
+    campos.className = "cuerpo-panel dietas-borradores-campos";
+    const ayuda = nodo(documento, "details");
+    ayuda.className = "dietas-borradores-ayuda";
+    const abrirAyuda = nodo(documento, "summary", "?");
+    abrirAyuda.setAttribute("aria-label", traducir("recorridos_abrir_ayuda"));
+    ayuda.append(abrirAyuda, nodo(documento,"p",traducir("borradores_propios_ruta_ayuda")));
+    ayuda.append(nodo(documento, "p", tBorradores("borradores_propios_paradas_ayuda")));
+    ayuda.append(nodo(documento, "p", tBorradores("borradores_propios_preparacion_ayuda")));
+    ayuda.append(nodo(documento, "p", tBorradores("borradores_propios_ya_registrado_ayuda")));
+    const pais = campo("pais", "borradores_propios_pais", "text", false);
+    const paisValor = pais.querySelector("input");
+    paisValor.value = tBorradores("borradores_propios_pais_espana");
+    paisValor.readOnly = true;
+    campos.append(
       campo("fecha_inicio", "borradores_propios_fecha_inicio", "date"),
       campo("hora_inicio", "borradores_propios_hora_inicio", "time"),
       campo("fecha_fin", "borradores_propios_fecha_fin", "date"),
       campo("hora_fin", "borradores_propios_hora_fin", "time"),
       motivo,
       puntoRuta("origen_codigo","borradores_propios_origen"),
+      paradas,
       puntoRuta("destino_codigo","borradores_propios_destino"),
-      nodo(documento,"p",traducir("borradores_propios_ruta_ayuda")),
+      pais,
       ...(selectorRelacion ? [selectorRelacion] : []),
-      boton,
+      ayuda,
     );
+    const acciones = nodo(documento, "div");
+    acciones.className = "dietas-borradores-acciones";
+    acciones.append(revisar, boton);
+    const preparacion = nodo(documento, "section");
+    preparacion.dataset.dietasBorradorPreparacion = "";
+    preparacion.className = "dietas-comision-calculo";
+    preparacion.hidden = true;
+    preparacion.setAttribute("tabindex", "-1");
+    form.append(cabecera, campos, preparacion, acciones);
     if (!conectada) {
-      [...form.querySelectorAll("input"), ...form.querySelectorAll("select"), boton].forEach((control) => {
+      [...form.querySelectorAll("input"), ...form.querySelectorAll("select"), revisar, boton].forEach((control) => {
         control.disabled = true;
       });
     }
     return form;
+  }
+  function valoresParadas(form) {
+    return Array.from(form.querySelectorAll("select"))
+      .filter((selector) => selector.name === "parada_codigo")
+      .map((selector) => selector.value || "");
+  }
+  function pintarParadas(form, valores, focoIndice = -1) {
+    const lista = form.querySelector("[data-dietas-paradas-lista]");
+    if (!lista) return;
+    lista.replaceChildren(...valores.map((valor, indice) => {
+      const fila = nodo(documento, "li");
+      const etiqueta = nodo(documento, "label", tBorradores("borradores_propios_parada_numero", { numero: indice + 1 }));
+      const selector = nodo(documento, "select");
+      selector.name = "parada_codigo";
+      selector.required = true;
+      const inicial = nodo(documento, "option", traducir("borradores_propios_elegir_localidad"));
+      inicial.value = "";
+      selector.append(inicial);
+      PUNTOS_RUTA.forEach((punto) => {
+        const opcion = nodo(documento, "option", punto.nombre);
+        opcion.value = punto.codigo;
+        selector.append(opcion);
+      });
+      selector.value = valor;
+      etiqueta.append(selector);
+      const acciones = nodo(documento, "div");
+      acciones.className = "dietas-borradores-parada-acciones";
+      [
+        ["dietasParadaSubir", "borradores_propios_parada_subir", indice === 0],
+        ["dietasParadaBajar", "borradores_propios_parada_bajar", indice === valores.length - 1],
+        ["dietasParadaQuitar", "borradores_propios_parada_quitar", false],
+      ].forEach(([atributo, clave, bloqueado]) => {
+        const boton = nodo(documento, "button", tBorradores(clave));
+        boton.type = "button";
+        boton.className = "boton-secundario";
+        boton.dataset[atributo] = String(indice);
+        boton.disabled = bloqueado || !conectada || controlador !== null;
+        boton.setAttribute("aria-label", `${tBorradores(clave)}: ${tBorradores("borradores_propios_parada_numero", { numero: indice + 1 })}`);
+        acciones.append(boton);
+      });
+      fila.append(etiqueta, acciones);
+      return fila;
+    }));
+    const anadir = form.querySelector("[data-dietas-parada-anadir]");
+    if (anadir) anadir.disabled = !conectada || controlador !== null || valores.length >= MAXIMO_LOCALIDADES - 2;
+    if (focoIndice >= 0) enfocar(lista.querySelectorAll("select")[focoIndice] || anadir);
+  }
+  function codigosRuta(form, datos) {
+    return [String(datos.get("origen_codigo") || ""), ...valoresParadas(form), String(datos.get("destino_codigo") || "")];
+  }
+  function rutaValida(codigos) {
+    return codigos.length >= 2 && codigos.length <= MAXIMO_LOCALIDADES &&
+      codigos.every((codigo) => NOMBRES_RUTA.has(codigo)) &&
+      new Set(codigos).size === codigos.length;
   }
   function recibo(item) {
     const seccion = nodo(documento, "section");
@@ -244,6 +399,7 @@ export function montarVistaBorradoresPropios(
         "borradores_propios_recibo_fecha",
         fechaLegible(item.recibo.registrado_en, true),
       ],
+      ["borradores_propios_recibo_instante_exacto", item.recibo.registrado_en],
     ].forEach(([etiqueta, valor]) => {
       const fila = nodo(documento, "div");
       fila.append(
@@ -262,30 +418,64 @@ export function montarVistaBorradoresPropios(
   function listado() {
     const seccion = nodo(documento, "section");
     seccion.className = "panel dietas-listado";
-    seccion.append(
-      nodo(documento, "h3", traducir("borradores_propios_listado")),
-    );
+    seccion.dataset.dietasBorradoresListado = "";
+    seccion.setAttribute("tabindex", "-1");
+    const cabecera = nodo(documento, "div");
+    cabecera.className = "cabecera-panel";
+    const consultar = nodo(documento, "button", tBorradores("borradores_propios_consultar_registrados"));
+    consultar.type = "button";
+    consultar.className = "boton-secundario";
+    consultar.dataset.dietasBorradorRecargar = "";
+    consultar.dataset.dietasBorradorConsultarRegistrados = "";
+    consultar.disabled = !conectada || controlador !== null || (relaciones.length > 1 && !relacionSeleccionada);
+    if (!conectada) consultar.title = traducir("borradores_propios_pendiente_conexion");
+    else if (relaciones.length > 1 && !relacionSeleccionada) consultar.title = traducir("borradores_propios_error_relacion");
+    cabecera.append(nodo(documento, "h3", traducir("borradores_propios_listado")), consultar);
+    const ayuda = nodo(documento, "details");
+    ayuda.className = "dietas-borradores-ayuda";
+    ayuda.dataset.dietasBorradoresAyuda = "";
+    ayuda.open = false;
+    const resumenAyuda = nodo(documento, "summary", "?");
+    resumenAyuda.setAttribute("aria-label", traducir("recorridos_abrir_ayuda"));
+    ayuda.append(resumenAyuda, nodo(documento, "p", tBorradores("borradores_propios_consulta_ayuda")));
+    const bandaAyuda = nodo(documento, "div");
+    bandaAyuda.className = "cabecera-panel";
+    bandaAyuda.append(ayuda);
+    seccion.append(cabecera, bandaAyuda);
+    const cuerpo = nodo(documento, "div");
+    cuerpo.className = "cuerpo-panel";
+    seccion.append(cuerpo);
     if (!conectada) {
-      seccion.append(
+      cuerpo.append(
         nodo(documento, "p", traducir("borradores_propios_pendiente_conexion")),
       );
       return seccion;
     }
     if (estado.carga) {
-      seccion.append(
-        nodo(documento, "p", traducir("borradores_propios_cargando")),
-      );
+      const carga = nodo(documento, "p", traducir("borradores_propios_cargando"));
+      carga.className = "dietas-borradores-indicacion";
+      cuerpo.append(carga);
+      return seccion;
+    }
+    if (estado.errorLista) {
+      const fallo = nodo(documento, "p", tBorradores(estado.errorListaClave || estado.mensaje));
+      fallo.className = "dietas-borradores-indicacion dietas-borradores-indicacion-error";
+      cuerpo.append(fallo);
       return seccion;
     }
     if (!estado.items.length) {
       const vacio = nodo(documento, "p", traducir("borradores_propios_vacio"));
       vacio.dataset.dietasBorradoresVacio = "";
-      seccion.append(vacio);
+      vacio.className = "dietas-borradores-indicacion";
+      cuerpo.append(vacio);
       return seccion;
     }
     const ul = nodo(documento, "ul");
+    ul.className = "dietas-borradores-lista";
     estado.items.forEach((item) => {
       const li = nodo(documento, "li");
+      li.className = "dietas-borradores-fila";
+      li.dataset.seleccionado = String(estado.detalle?.comision.referencia === item.comision.referencia);
       const boton = nodo(
         documento,
         "button",
@@ -297,31 +487,49 @@ export function montarVistaBorradoresPropios(
       boton.dataset.dietasBorradorRelacion = item.comision.relacion_ref;
       boton.setAttribute(
         "aria-label",
-        `${traducir("borradores_propios_seleccionar")}: ${item.comision.referencia}`,
+        `${traducir("borradores_propios_seleccionar")}: ${item.comision.motivo}, ${fechaLegible(item.comision.fecha_inicio)}`,
       );
+      if (estado.detalle?.comision.referencia === item.comision.referencia)
+        boton.setAttribute("aria-current", "true");
       li.append(
         boton,
-        nodo(
-          documento,
-          "span",
-          ` · ${traducir("borradores_propios_estado_borrador")}`,
-        ),
+        (() => { const estadoBorrador = nodo(documento, "span", traducir("borradores_propios_estado_borrador")); estadoBorrador.className = "estado-chip info"; return estadoBorrador; })(),
       );
       ul.append(li);
     });
-    seccion.append(ul);
+    cuerpo.append(ul);
+    const paginacion = nodo(documento, "nav");
+    paginacion.className = "dietas-borradores-paginacion";
+    paginacion.setAttribute("aria-label", traducir("borradores_propios_listado"));
+    const anterior = nodo(documento, "button", traducir("borradores_propios_pagina_anterior"));
+    anterior.type = "button";
+    anterior.dataset.dietasBorradorPagina = "anterior";
+    anterior.disabled = indicePagina === 0;
+    const siguiente = nodo(documento, "button", traducir("borradores_propios_pagina_siguiente"));
+    siguiente.type = "button";
+    siguiente.dataset.dietasBorradorPagina = "siguiente";
+    siguiente.disabled = !siguienteCursor;
+    paginacion.append(anterior, nodo(documento, "span", traducir("borradores_propios_mostrando", { inicio: indicePagina * 6 + 1, fin: indicePagina * 6 + estado.items.length })), siguiente);
+    cuerpo.append(paginacion);
     return seccion;
   }
   function detalle() {
     const seccion = nodo(documento, "section");
     seccion.className = "panel dietas-detalle";
-    seccion.append(
-      nodo(documento, "h3", traducir("borradores_propios_detalle")),
-    );
+    seccion.dataset.dietasBorradorFicha = "";
+    seccion.setAttribute("tabindex", "-1");
+    seccion.setAttribute("aria-label", traducir("borradores_propios_detalle"));
+    const cabecera = nodo(documento, "div");
+    cabecera.className = "cabecera-panel";
+    cabecera.append(nodo(documento, "h3", traducir("borradores_propios_detalle")));
+    seccion.append(cabecera);
+    const cuerpo = nodo(documento, "div");
+    cuerpo.className = "cuerpo-panel";
+    seccion.append(cuerpo);
     const item = estado.detalle;
     if (!item) {
-      seccion.append(
-        nodo(documento, "p", traducir("borradores_propios_sin_detalle")),
+      cuerpo.append(
+        nodo(documento, "p", tBorradores("borradores_propios_estado_sin_seleccion")),
       );
       return seccion;
     }
@@ -334,7 +542,8 @@ export function montarVistaBorradoresPropios(
       ],
       ["borradores_propios_fecha_fin", fechaLegible(item.comision.fecha_fin)],
       ["borradores_propios_motivo", item.comision.motivo],
-      ["borradores_propios_ruta", item.comision.codigos_ruta.join(", ") || "—"],
+      ["borradores_propios_ruta", rutaLegible(item.comision.codigos_ruta, tBorradores)],
+      ["borradores_propios_pais", tBorradores("borradores_propios_pais_no_registrado")],
     ].forEach(([etiqueta, valor]) => {
       const fila = nodo(documento, "div");
       fila.append(
@@ -343,8 +552,22 @@ export function montarVistaBorradoresPropios(
       );
       datos.append(fila);
     });
-    seccion.append(datos);
-    if (item.comision.calculo) seccion.append(resumenCalculo(item.comision.calculo));
+    cuerpo.append(datos);
+    const limite = nodo(documento, "p", tBorradores("borradores_propios_registrado_limite"));
+    limite.className = "dietas-borradores-indicacion";
+    cuerpo.append(limite);
+    const acciones = nodo(documento, "div");
+    acciones.className = "dietas-borradores-acciones";
+    ["borradores_propios_edicion_pendiente", "borradores_propios_envio_pendiente"].forEach((clave) => {
+      const boton = nodo(documento, "button", tBorradores(clave));
+      boton.type = "button";
+      boton.disabled = true;
+      boton.title = tBorradores("borradores_propios_registrado_limite");
+      acciones.append(boton);
+    });
+    cuerpo.append(acciones);
+    if (item.comision.calculo) cuerpo.append(resumenCalculo(item.comision.calculo));
+    cuerpo.append(recibo(item));
     return seccion;
   }
   function resumenCalculo(calculo) {
@@ -365,43 +588,80 @@ export function montarVistaBorradoresPropios(
       const bloque=nodo(documento,"section"); bloque.className="dietas-comision-grupo";
       bloque.append(nodo(documento,"h5",`${traducir("borradores_propios_grupo")} ${opcion.grupo} · ${euros(opcion.calculo.total_maximo_orientativo_centimos)}`));
       const lista=nodo(documento,"ul");
-      opcion.calculo.tramos.forEach((tramo)=>lista.append(nodo(documento,"li",`${tramo.fecha} · ${tramo.tipo==="manutencion"?traducir("borradores_propios_manutencion"):traducir("borradores_propios_alojamiento_tope")} ${tramo.porcentaje}% · ${euros(tramo.importe_centimos)}`)));
+      opcion.calculo.tramos.forEach((tramo)=>lista.append(nodo(documento,"li",`${fechaLegible(tramo.fecha)} · ${tramo.tipo==="manutencion"?traducir("borradores_propios_manutencion"):traducir("borradores_propios_alojamiento_tope")} ${tramo.porcentaje}% · ${euros(tramo.importe_centimos)}`)));
       bloque.append(lista); resumen.append(bloque);
     });
     return resumen;
   }
   function pintar() {
     if (!activaAhora()) return;
-    raiz.replaceChildren(
-      nodo(documento, "h2", traducir("borradores_propios_titulo")),
-    );
-    const aviso = nodo(documento, "p", traducir(estado.mensaje));
-    aviso.dataset.dietasBorradoresEstado = "";
-    aviso.setAttribute("role", estado.tono === "error" ? "alert" : "status");
-    aviso.setAttribute("aria-live", "polite");
-    raiz.append(aviso, formulario(), listado(), detalle());
-    if (seleccionada) raiz.append(recibo(seleccionada));
+    if (!formularioPersistente) {
+      formularioPersistente = formulario();
+      avisoPersistente = nodo(documento, "p");
+      avisoPersistente.dataset.dietasBorradoresEstado = "";
+      avisoPersistente.setAttribute("aria-live", "polite");
+      avisoPersistente.setAttribute("tabindex", "-1");
+      const espacio = nodo(documento, "div");
+      espacio.className = "dietas-borradores-espacio";
+      const principal = nodo(documento, "div");
+      principal.className = "dietas-borradores-principal";
+      listaPersistente = nodo(documento, "div");
+      principal.append(listaPersistente, formularioPersistente);
+      fichaPersistente = nodo(documento, "div");
+      fichaPersistente.className = "dietas-borradores-lateral";
+      espacio.append(principal, fichaPersistente);
+      raiz.append(nodo(documento, "h2", formularioInicialmenteVisible
+        ? traducir("borradores_propios_titulo")
+        : tBorradores("borradores_propios_titulo_registrados")), avisoPersistente, espacio);
+    }
+    raiz.dataset.formularioVisible = String(formularioVisible);
+    formularioPersistente.hidden = !formularioVisible;
+    const controlesBloqueados = !conectada || controlador !== null || (relaciones.length > 1 && !relacionSeleccionada);
+    for (const selector of ["[data-dietas-borrador-guardar]", "[data-dietas-borrador-revisar]"]) {
+      const boton = formularioPersistente.querySelector(selector);
+      if (boton) boton.disabled = controlesBloqueados;
+    }
+    if (formularioPersistente) {
+      const anadir = formularioPersistente.querySelector("[data-dietas-parada-anadir]");
+      if (anadir) anadir.disabled = controlesBloqueados || valoresParadas(formularioPersistente).length >= MAXIMO_LOCALIDADES - 2;
+      const totalParadas = valoresParadas(formularioPersistente).length;
+      Array.from(formularioPersistente.querySelectorAll("button")).filter((boton) =>
+        boton.dataset.dietasParadaSubir !== undefined || boton.dataset.dietasParadaBajar !== undefined || boton.dataset.dietasParadaQuitar !== undefined,
+      ).forEach((boton) => {
+        const subir = boton.dataset.dietasParadaSubir !== undefined;
+        const bajar = boton.dataset.dietasParadaBajar !== undefined;
+        const indice = Number(subir ? boton.dataset.dietasParadaSubir : bajar ? boton.dataset.dietasParadaBajar : boton.dataset.dietasParadaQuitar);
+        boton.disabled = controlesBloqueados || (subir && indice === 0) || (bajar && indice === totalParadas - 1);
+      });
+    }
+    avisoPersistente.textContent = tBorradores(estado.mensaje);
+    avisoPersistente.dataset.tono = estado.tono;
+    avisoPersistente.className = `estado-chip ${estado.tono === "error" ? "peligro" : estado.tono === "exito" ? "exito" : estado.tono === "aviso" ? "aviso" : "info"}`;
+    avisoPersistente.setAttribute("role", estado.tono === "error" ? "alert" : "status");
+    listaPersistente.replaceChildren(listado());
+    fichaPersistente.replaceChildren(detalle());
   }
-  async function cargar() {
+  async function cargar(conservarMensaje = false, consultaExplicita = false) {
     if (!conectada) {
       pintar();
       return;
     }
     if (relaciones.length > 1 && !relacionSeleccionada) {
-      estado = { ...estado, carga: false, items: [], detalle: null };
+      estado = { ...estado, carga: false, items: [], detalle: null, errorLista: true, errorListaClave: "borradores_propios_error_relacion" };
       mensaje("borradores_propios_error_relacion", "aviso");
       pintar();
       return;
     }
     controlador?.abort();
     controlador = new AbortController();
-    estado = { ...estado, carga: true };
+    estado = { ...estado, carga: true, errorLista: false, errorListaClave: null };
     pintar();
     const signal = controlador.signal;
     try {
       const pagina = await cliente.listar(
         {
-          limit: 50,
+          limit: 6,
+          ...(cursores[indicePagina] ? { cursor: cursores[indicePagina] } : {}),
           ...(relacionSeleccionada
             ? { relacion_ref: relacionSeleccionada }
             : {}),
@@ -413,12 +673,32 @@ export function montarVistaBorradoresPropios(
         ...estado,
         carga: false,
         items: pagina.items,
-        mensaje: "borradores_propios_listado",
+        errorLista: false,
+        errorListaClave: null,
+        mensaje: conservarMensaje ? estado.mensaje : consultaExplicita
+          ? (pagina.items.length ? "borradores_propios_consulta_registrados" : "borradores_propios_consulta_registrados_vacia")
+          : "borradores_propios_listado",
+        tono: conservarMensaje ? estado.tono : "informacion",
       };
+      siguienteCursor = pagina.siguiente_cursor;
+      if (consultaExplicita) {
+        try { anunciar(tBorradores(estado.mensaje), "informacion"); } catch {}
+      }
     } catch (error) {
       if (!activaAhora() || signal.aborted) return;
-      estado = { ...estado, carga: false };
-      mensaje(errorClave(error), "error");
+      const claveError = conservarMensaje
+        ? (error?.codigo === "acceso_denegado" ? "borradores_propios_creado_listado_denegado" : "borradores_propios_creado_listado_no_actualizado")
+        : errorClave(error);
+      const denegada = error?.codigo === "autenticacion_requerida" || error?.codigo === "acceso_denegado";
+      if (denegada) purgarLecturasDenegadas();
+      estado = {
+        ...estado,
+        carga: false,
+        errorLista: true,
+        errorListaClave: claveError,
+        items: [],
+      };
+      mensaje(claveError, conservarMensaje ? "aviso" : "error");
     } finally {
       if (controlador?.signal === signal) controlador = null;
       if (activaAhora()) pintar();
@@ -428,6 +708,7 @@ export function montarVistaBorradoresPropios(
     const form = evento.target?.closest?.("[data-dietas-borrador-form]");
     if (!form || !activaAhora()) return;
     evento.preventDefault();
+    if (!conectada || controlador || (relaciones.length > 1 && !relacionSeleccionada)) return;
     if (!form.checkValidity?.()) {
       form.reportValidity?.();
       return;
@@ -442,43 +723,60 @@ export function montarVistaBorradoresPropios(
         : {}),
       hora_inicio: String(datos.get("hora_inicio")||""),
       hora_fin: String(datos.get("hora_fin")||""),
-      codigos_ruta: [String(datos.get("origen_codigo")||""),String(datos.get("destino_codigo")||"")],
+      codigos_ruta: codigosRuta(form, datos),
     };
-    if (base.codigos_ruta[0] === base.codigos_ruta[1]) { mensaje("borradores_propios_ruta_distinta","aviso"); pintar(); return; }
-    const contenido = claveContenido(base);
-    if (pendiente && pendiente.contenido !== contenido) {
-      pendiente = null;
-      mensaje("borradores_propios_cambio_intencion", "aviso");
+    if (base.relacion_ref && !relaciones.includes(base.relacion_ref)) {
+      mensaje("borradores_propios_error_relacion", "aviso");
       pintar();
       return;
     }
-    if (controlador) return;
-    const clave = pendiente?.clave || generarClaveIdempotencia();
+    if (base.fecha_fin < base.fecha_inicio ||
+        (base.fecha_fin === base.fecha_inicio && base.hora_fin <= base.hora_inicio)) {
+      mensaje("borradores_propios_fechas_invalidas", "aviso");
+      pintar();
+      return;
+    }
+    if (!rutaValida(base.codigos_ruta)) { mensaje("borradores_propios_paradas_distintas","aviso"); pintar(); return; }
+    const contenido = claveContenido(base);
+    const operacion = operaciones.get(contenido);
+    if (operacion?.item) {
+      ultimoAlta = { contenido, item: operacion.item };
+      estado = { ...estado, detalle: operacion.item, detalleOrigen: "post" };
+      mensaje("borradores_propios_ya_registrado", "exito");
+      pintar();
+      enfocarRecibo();
+      return;
+    }
+    const clave = operacion?.clave || generarClaveIdempotencia();
     if (typeof clave !== "string" || !clave) {
       mensaje("borradores_propios_error", "error");
       pintar();
       return;
     }
-    pendiente = { clave, contenido };
+    operaciones.set(contenido, {
+      clave,
+      incierta: operacion?.incierta === true,
+      confirmada: operacion?.confirmada === true,
+    });
     const solicitud = { clave_idempotencia: clave, ...base };
     controlador = new AbortController();
     const signal = controlador.signal;
+    let altaConfirmada = false;
     mensaje("borradores_propios_enviando");
     pintar();
     try {
       const item = await cliente.crear(solicitud, { signal });
       if (!activaAhora() || signal.aborted) return;
-      pendiente = null;
-      seleccionada = item;
+      operaciones.set(contenido, { clave, item, confirmada: true });
+      ultimoAlta = { contenido, item };
+      altaConfirmada = true;
+      const resumenLocal = formularioPersistente?.querySelector?.("[data-dietas-borrador-preparacion]");
+      if (resumenLocal) resumenLocal.hidden = true;
       estado = {
         ...estado,
         detalle: item,
-        items: [
-          item,
-          ...estado.items.filter(
-            (fila) => fila.comision.referencia !== item.comision.referencia,
-          ),
-        ],
+        detalleOrigen: "post",
+        errorLista: false,
       };
       mensaje(
         item.recibo.repeticion
@@ -486,21 +784,123 @@ export function montarVistaBorradoresPropios(
           : "borradores_propios_creado",
         "exito",
       );
+      cursores = [undefined];
+      indicePagina = 0;
+      siguienteCursor = undefined;
+      await cargar(true);
     } catch (error) {
       if (!activaAhora() || signal.aborted) return;
-      if (!error?.resultadoIndeterminado) pendiente = null;
-      mensaje(errorClave(error), "error");
+      // Un 403 posterior no aclara si un intento previo de esta intención
+      // quedó registrado. Conservar su clave hasta confirmar o desmontar.
+      if (error?.resultadoIndeterminado)
+        operaciones.set(contenido, { clave, incierta: true, confirmada: operacion?.confirmada === true });
+      else if (!operacion?.incierta && !operacion?.confirmada) operaciones.delete(contenido);
+      if (["autenticacion_requerida", "acceso_denegado"].includes(error?.codigo)) {
+        purgarLecturasDenegadas();
+        estado = { ...estado, errorLista: true, errorListaClave: errorClave(error) };
+      }
+      mensaje(errorClave(error, "crear"), "error");
     } finally {
       if (controlador?.signal === signal) controlador = null;
-      if (activaAhora()) pintar();
+      if (activaAhora()) {
+        pintar();
+        if (altaConfirmada) enfocarRecibo();
+      }
     }
   }
+  function enfocarRecibo() {
+    const reciboActual = fichaPersistente?.querySelector?.("[data-dietas-borrador-recibo]");
+    if (!reciboActual) return;
+    reciboActual.setAttribute("tabindex", "-1");
+    enfocar(reciboActual);
+  }
+  function invalidarPreparacion(evento) {
+    if (!evento.target?.closest?.("[data-dietas-borrador-form]")) return;
+    const resumen = formularioPersistente?.querySelector?.("[data-dietas-borrador-preparacion]");
+    if (resumen) resumen.hidden = true;
+  }
   async function clic(evento) {
+    const accionParada = ["dietasParadaAnadir", "dietasParadaSubir", "dietasParadaBajar", "dietasParadaQuitar"]
+      .map((atributo) => [atributo, evento.target?.closest?.(`[data-${atributo.replace(/[A-Z]/gu, (letra) => `-${letra.toLowerCase()}`)}]`)])
+      .find(([, boton]) => boton);
+    if (accionParada && activaAhora() && conectada && !controlador && !accionParada[1].disabled) {
+      const form = accionParada[1].closest("[data-dietas-borrador-form]");
+      const valores = valoresParadas(form);
+      const [accion, boton] = accionParada;
+      const indice = Number(boton.dataset[accion]);
+      let focoIndice = -1;
+      if (accion === "dietasParadaAnadir" && valores.length < MAXIMO_LOCALIDADES - 2) {
+        valores.push(""); focoIndice = valores.length - 1;
+      } else if (accion === "dietasParadaSubir" && indice > 0 && indice < valores.length) {
+        [valores[indice - 1], valores[indice]] = [valores[indice], valores[indice - 1]]; focoIndice = indice - 1;
+      } else if (accion === "dietasParadaBajar" && indice >= 0 && indice < valores.length - 1) {
+        [valores[indice], valores[indice + 1]] = [valores[indice + 1], valores[indice]]; focoIndice = indice + 1;
+      } else if (accion === "dietasParadaQuitar" && indice >= 0 && indice < valores.length) {
+        valores.splice(indice, 1); focoIndice = valores.length ? Math.min(indice, valores.length - 1) : 0;
+      } else return;
+      pintarParadas(form, valores, focoIndice);
+      invalidarPreparacion({ target: form });
+      return;
+    }
+    const revisar = evento.target?.closest?.("[data-dietas-borrador-revisar]");
+    if (revisar && activaAhora() && !controlador && conectada) {
+      const form = revisar.closest("[data-dietas-borrador-form]");
+      if (!form?.checkValidity?.()) { form?.reportValidity?.(); return; }
+      const datos = new FormData(form);
+      const inicio = String(datos.get("fecha_inicio") || "");
+      const fin = String(datos.get("fecha_fin") || "");
+      const horaInicio = String(datos.get("hora_inicio") || "");
+      const horaFin = String(datos.get("hora_fin") || "");
+      const codigos = codigosRuta(form, datos);
+      if (fin < inicio || (fin === inicio && horaFin <= horaInicio)) {
+        mensaje("borradores_propios_fechas_invalidas", "aviso"); pintar(); enfocar(avisoPersistente); return;
+      }
+      if (!rutaValida(codigos)) {
+        mensaje("borradores_propios_paradas_distintas", "aviso"); pintar(); enfocar(avisoPersistente); return;
+      }
+      const resumen = form.querySelector("[data-dietas-borrador-preparacion]");
+      resumen.replaceChildren(
+        nodo(documento, "h4", tBorradores("borradores_propios_preparacion_titulo")),
+        nodo(documento, "p", `${inicio} ${horaInicio} → ${fin} ${horaFin}`),
+        nodo(documento, "p", String(datos.get("motivo") || "").trim()),
+        nodo(documento, "p", rutaLegible(codigos, tBorradores)),
+        nodo(documento, "p", `${tBorradores("borradores_propios_pais")}: ${tBorradores("borradores_propios_pais_espana")}`),
+      );
+      resumen.hidden = false;
+      enfocar(resumen);
+      return;
+    }
+    const consultar = evento.target?.closest?.("[data-dietas-borrador-consultar-registrados]");
+    if (consultar && activaAhora() && !controlador && !consultar.disabled) {
+      cursores = [undefined];
+      indicePagina = 0;
+      siguienteCursor = undefined;
+      mensaje("borradores_propios_consultando_registrados");
+      await cargar(false, true);
+      if (activaAhora() && focoSigueEnConsulta(consultar))
+        enfocar(listaPersistente?.querySelector?.("[data-dietas-borrador-consultar-registrados]"));
+      return;
+    }
+    const pagina = evento.target?.closest?.("[data-dietas-borrador-pagina]");
+    if (pagina && activaAhora() && !controlador) {
+      if (pagina.dataset.dietasBorradorPagina === "siguiente" && siguienteCursor) {
+        cursores = [...cursores.slice(0, indicePagina + 1), siguienteCursor];
+        indicePagina += 1;
+        await cargar();
+        if (activaAhora() && focoSigueEnConsulta(pagina)) enfocar(listaPersistente?.querySelector?.("[data-dietas-borradores-listado]"));
+      } else if (pagina.dataset.dietasBorradorPagina === "anterior" && indicePagina > 0) {
+        indicePagina -= 1;
+        await cargar();
+        if (activaAhora() && focoSigueEnConsulta(pagina)) enfocar(listaPersistente?.querySelector?.("[data-dietas-borradores-listado]"));
+      }
+      return;
+    }
     const boton = evento.target?.closest?.("[data-dietas-borrador-detalle]");
     if (!boton || controlador || !activaAhora()) return;
     const referencia = boton.dataset.dietasBorradorDetalle;
     controlador = new AbortController();
     const signal = controlador.signal;
+    let detalleActualizado = false;
     mensaje("borradores_propios_cargando");
     pintar();
     try {
@@ -509,30 +909,66 @@ export function montarVistaBorradoresPropios(
         relacion_ref: boton.dataset.dietasBorradorRelacion || undefined,
       });
       if (!activaAhora() || signal.aborted) return;
-      estado = { ...estado, detalle: item };
+      estado = { ...estado, detalle: item, detalleOrigen: "get" };
+      detalleActualizado = true;
       mensaje("borradores_propios_detalle");
     } catch (error) {
       if (!activaAhora() || signal.aborted) return;
-      mensaje(errorClave(error), "error");
+      const denegada = ["autenticacion_requerida", "acceso_denegado"].includes(error?.codigo);
+      if (denegada) {
+        purgarLecturasDenegadas();
+        estado = { ...estado, errorLista: true, errorListaClave: errorClave(error) };
+      }
+      mensaje(denegada ? errorClave(error) : estado.detalle
+        ? (error?.codigo === "acceso_denegado" ? "borradores_propios_detalle_denegado" : "borradores_propios_detalle_no_actualizado")
+        : errorClave(error), "error");
     } finally {
       if (controlador?.signal === signal) controlador = null;
-      if (activaAhora()) pintar();
+      if (activaAhora()) {
+        pintar();
+        if (detalleActualizado) enfocar(fichaPersistente?.querySelector?.("[data-dietas-borrador-ficha]"));
+        else if (!signal.aborted) enfocar(avisoPersistente);
+      }
     }
   }
   function cambiarRelacion(evento) {
     const selector = evento.target?.closest?.('[name="relacion_ref"]');
     if (!selector || relaciones.length < 2 || !activaAhora()) return;
+    if (controlador) {
+      selector.value = relacionSeleccionada || "";
+      return;
+    }
     relacionSeleccionada = relaciones.includes(selector.value)
       ? selector.value
       : undefined;
-    seleccionada = null;
-    estado = { ...estado, items: [], detalle: null };
+    cursores = [undefined];
+    indicePagina = 0;
+    siguienteCursor = undefined;
+    estado = { ...estado, items: [], detalle: null, detalleOrigen: null };
     cargar();
+  }
+  function cambiarFormulario(evento) {
+    invalidarPreparacion(evento);
+    cambiarRelacion(evento);
   }
   raiz.addEventListener("submit", enviar);
   raiz.addEventListener("click", clic);
-  raiz.addEventListener("change", cambiarRelacion);
+  raiz.addEventListener("change", cambiarFormulario);
+  raiz.addEventListener("input", invalidarPreparacion);
   pintar();
   cargar();
-  return Object.freeze({ desmontar, recargar: cargar });
+  function abrirFormulario() {
+    if (!activaAhora()) return false;
+    formularioVisible = true;
+    pintar();
+    enfocar(formularioPersistente.querySelector("input"));
+    return true;
+  }
+  function cerrarFormulario() {
+    if (!activaAhora()) return false;
+    formularioVisible = false;
+    pintar();
+    return true;
+  }
+  return Object.freeze({ desmontar, recargar: cargar, abrirFormulario, cerrarFormulario });
 }

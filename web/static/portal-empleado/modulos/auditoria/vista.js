@@ -1,33 +1,87 @@
-import { renderizarEstadoEntrega } from "../../estado-entrega.js";
-import { EVENTOS_AUDITORIA_PRESENTACION, ESTADO_AUDITORIA_PRESENTACION, KPIS_AUDITORIA_PRESENTACION } from "./datos-presentacion.js";
-import { crearTraductorAuditoria } from "./i18n.js";
+import { crearTraductorAuditoria } from "./i18n.js?v=20260924-f2-web2";
 
-const VISTAS = Object.freeze(["todos", "accesos", "cambios", "autorizacion", "documentos", "conectores"]);
-function e(valor) { return String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;"); }
-function tono(resultado) { return resultado === "Correcto" ? "exito" : resultado === "Denegado" ? "peligro" : "aviso"; }
-function botonBloqueado(texto, motivo) { return `<button type="button" class="boton-secundario" disabled aria-disabled="true" title="${e(motivo)}">${e(texto)}</button>`; }
-function filtrar(estado) { return EVENTOS_AUDITORIA_PRESENTACION.filter((evento) => (estado.vista === "todos" || evento.vista === estado.vista) && (!estado.modulo || evento.modulo === estado.modulo) && (!estado.resultado || evento.resultado === estado.resultado) && (!estado.periodo || evento.instante.startsWith(estado.periodo))); }
-function tabla(eventos, seleccion, t) { return `<section class="panel auditoria-listado" aria-labelledby="auditoria-listado-titulo"><div class="cabecera-panel"><div><p class="sobrelinea">${e(t("muestra_navegable"))}</p><h3 id="auditoria-listado-titulo">${e(t("eventos_visibles"))}</h3></div><span class="estado-chip info">${e(t("contador_visibles", { visibles: eventos.length, total: EVENTOS_AUDITORIA_PRESENTACION.length }))}</span></div><div class="tabla-contenedor" tabindex="0" role="region" aria-label="${e(t("tabla_region"))}"><table class="tabla-datos"><caption>${e(t("tabla_caption"))}</caption><thead><tr><th scope="col">${e(t("instante"))}</th><th scope="col">${e(t("modulo"))}</th><th scope="col">${e(t("operacion"))}</th><th scope="col">${e(t("resultado"))}</th><th scope="col">${e(t("detalle"))}</th></tr></thead><tbody>${eventos.length ? eventos.map((evento) => `<tr data-seleccionada="${evento.id === seleccion ? "true" : "false"}"><td>${e(evento.instante)}</td><td>${e(evento.modulo)}</td><th scope="row">${e(evento.operacion)}</th><td><span class="estado-chip ${tono(evento.resultado)}">${e(evento.resultado)}</span></td><td><button type="button" class="enlace-tabla" data-auditoria-evento="${e(evento.id)}" ${evento.id === seleccion ? 'aria-current="true"' : ""}>${e(t("ver_muestra"))}</button></td></tr>`).join("") : `<tr><td colspan="5">${e(t("sin_resultados"))}</td></tr>`}</tbody></table></div></section>`; }
-function detalle(evento, t) { if (!evento) return `<aside class="panel auditoria-detalle"><h3>${e(t("detalle_no_disponible"))}</h3><p>${e(t("detalle_sin_seleccion"))}</p></aside>`; return `<aside class="panel auditoria-detalle" aria-labelledby="auditoria-detalle-titulo"><div class="cabecera-panel"><div><p class="sobrelinea">${e(t("detalle_seleccionado"))}</p><h3 id="auditoria-detalle-titulo" tabindex="-1">${e(evento.operacion)}</h3></div><span class="estado-chip ${tono(evento.resultado)}">${e(evento.resultado)}</span></div><div class="cuerpo-panel"><dl class="auditoria-ficha"><div><dt>${e(t("actor_enmascarado"))}</dt><dd>${e(evento.actor)}</dd></div><div><dt>${e(t("recurso"))}</dt><dd>${e(evento.recurso)}</dd></div><div><dt>${e(t("decision"))}</dt><dd>${e(evento.decision)}</dd></div><div><dt>${e(t("recibo"))}</dt><dd><code>${e(evento.recibo)}</code></dd></div><div><dt>${e(t("huella"))}</dt><dd><code>${e(evento.huella)}</code></dd></div><div><dt>${e(t("correlacion"))}</dt><dd><code>${e(evento.correlacion)}</code></dd></div></dl><p class="auditoria-aviso"><strong>${e(t("sin_validez_titulo"))}</strong> ${e(t("sin_validez_descripcion"))}</p><div class="acciones-vista">${botonBloqueado(t("verificar_evidencia"), t("verificar_evidencia_motivo"))}${botonBloqueado(t("abrir_dato_personal"), t("abrir_dato_personal_motivo"))}</div></div></aside>`; }
+function escapar(valor) {
+  return String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
+}
 
-/** Render puro de Auditoría: navegación y filtros locales sobre datos ficticios. */
-export function renderizarVistaAuditoria(estado = {}) {
+/** Presentación cerrada hasta disponer de una consulta autorizada de Auditoría. */
+export function renderizarVistaAuditoria({ estado = "no_configurado", ayudaAbierta = false } = {}) {
   const t = crearTraductorAuditoria();
-  const seguro = { vista: VISTAS.includes(estado.vista) ? estado.vista : "todos", modulo: typeof estado.modulo === "string" ? estado.modulo : "", operacion: typeof estado.operacion === "string" ? estado.operacion : "", resultado: typeof estado.resultado === "string" ? estado.resultado : "", periodo: typeof estado.periodo === "string" ? estado.periodo : "", seleccion: typeof estado.seleccion === "string" ? estado.seleccion : EVENTOS_AUDITORIA_PRESENTACION[0].id };
-  const eventos = filtrar(seguro); const seleccionado = eventos.find((evento) => evento.id === seguro.seleccion) || eventos[0]; const modulos = [...new Set(EVENTOS_AUDITORIA_PRESENTACION.map((evento) => evento.modulo))]; const resultados = [...new Set(EVENTOS_AUDITORIA_PRESENTACION.map((evento) => evento.resultado))];
-  const visibles = eventos.filter((evento) => !seguro.operacion || evento.operacion.toLocaleLowerCase("es").includes(seguro.operacion.toLocaleLowerCase("es")));
-  const detalleSeleccionado = visibles.find((evento) => evento.id === seguro.seleccion) || visibles[0];
-  return `<section class="modulo-auditoria" data-auditoria-vista><header class="cabecera-vista"><p class="sobrelinea">${e(t("sobrelinea"))}</p><h2>${e(t("titulo"))}</h2><p>${e(t("descripcion"))}</p></header>${renderizarEstadoEntrega(ESTADO_AUDITORIA_PRESENTACION)}<div class="auditoria-kpis">${KPIS_AUDITORIA_PRESENTACION.map((kpi) => `<article><span>${e(kpi.etiqueta)}</span><strong>${e(kpi.valor)}</strong><small>${e(kpi.nota)}</small></article>`).join("")}</div><nav class="auditoria-pestanas" aria-label="${e(t("vistas_aria"))}" role="tablist">${VISTAS.map((vista) => `<button type="button" role="tab" data-auditoria-vista-control="${vista}" aria-selected="${vista === seguro.vista}" ${vista === seguro.vista ? 'aria-current="page"' : ""}>${e(t(`vista_${vista}`))}</button>`).join("")}</nav><form class="auditoria-filtros" data-auditoria-filtros><label>${e(t("modulo"))}<select name="modulo"><option value="">${e(t("todos_modulos"))}</option>${modulos.map((valor) => `<option value="${e(valor)}" ${seguro.modulo === valor ? "selected" : ""}>${e(valor)}</option>`).join("")}</select></label><label>${e(t("operacion"))}<input name="operacion" value="${e(seguro.operacion)}" maxlength="80" placeholder="${e(t("filtrar_operacion"))}"></label><label>${e(t("resultado"))}<select name="resultado"><option value="">${e(t("todos_resultados"))}</option>${resultados.map((valor) => `<option value="${e(valor)}" ${seguro.resultado === valor ? "selected" : ""}>${e(valor)}</option>`).join("")}</select></label><label>${e(t("instante"))}<select name="periodo"><option value="">${e(t("todo_periodo"))}</option><option value="18/09/2026" ${seguro.periodo === "18/09/2026" ? "selected" : ""}>${e(t("periodo_18"))}</option><option value="17/09/2026" ${seguro.periodo === "17/09/2026" ? "selected" : ""}>${e(t("periodo_17"))}</option><option value="16/09/2026" ${seguro.periodo === "16/09/2026" ? "selected" : ""}>${e(t("periodo_16"))}</option></select></label><button type="submit" class="boton-secundario">${e(t("aplicar_filtros"))}</button></form><div class="auditoria-espacio">${tabla(visibles, detalleSeleccionado?.id, t)}${detalle(detalleSeleccionado, t)}</div><section class="panel auditoria-limites" aria-labelledby="auditoria-limites-titulo"><div class="cabecera-panel"><div><p class="sobrelinea">${e(t("acciones_reservadas"))}</p><h3 id="auditoria-limites-titulo">${e(t("exportacion_conservacion"))}</h3></div></div><div class="cuerpo-panel"><p>${e(t("limites_descripcion"))}</p><div class="acciones-vista">${botonBloqueado(t("exportar_resultados"), t("exportar_resultados_motivo"))}${botonBloqueado(t("conservar_eliminar"), t("conservar_eliminar_motivo"))}</div></div></section></section>`;
+  const denegado = estado === "denegado";
+  const tituloEstado = denegado ? t("estado_denegado") : t("estado_no_configurado");
+  const explicacionEstado = denegado ? t("denegado_descripcion") : t("no_configurado_descripcion");
+  const tono = denegado ? "peligro" : "aviso";
+
+  return `<section class="modulo-auditoria" data-auditoria-vista>
+    <header class="cabecera-vista auditoria-cabecera">
+      <div><p class="sobrelinea">${escapar(t("sobrelinea"))}</p><h2>${escapar(t("titulo"))}</h2><p>${escapar(t("descripcion"))}</p></div>
+      <button type="button" class="boton-secundario auditoria-ayuda-boton" data-auditoria-ayuda aria-controls="auditoria-ayuda" aria-expanded="${ayudaAbierta}" aria-label="${escapar(t("ayuda_aria"))}">?</button>
+    </header>
+    <section class="panel auditoria-estado" role="status" aria-labelledby="auditoria-estado-titulo">
+      <div class="cabecera-panel"><div><p class="sobrelinea">${escapar(t("estado_operativo"))}</p><h3 id="auditoria-estado-titulo">${escapar(tituloEstado)}</h3></div><span class="estado-chip ${tono}">${escapar(tituloEstado)}</span></div>
+      <div class="cuerpo-panel"><p>${escapar(explicacionEstado)}</p></div>
+    </section>
+    <section id="auditoria-ayuda" class="panel auditoria-ayuda" ${ayudaAbierta ? "" : "hidden"} aria-labelledby="auditoria-ayuda-titulo">
+      <div class="cabecera-panel"><h3 id="auditoria-ayuda-titulo">${escapar(t("ayuda_titulo"))}</h3></div>
+      <div class="cuerpo-panel"><p>${escapar(t("ayuda_alcance"))}</p><p>${escapar(t("ayuda_lectura"))}</p><p>${escapar(t("ayuda_segregacion"))}</p></div>
+    </section>
+    <div class="auditoria-espacio">
+      <section class="panel auditoria-consulta" aria-labelledby="auditoria-consulta-titulo">
+        <div class="cabecera-panel"><div><p class="sobrelinea">${escapar(t("consulta_sobrelinea"))}</p><h3 id="auditoria-consulta-titulo">${escapar(t("consulta_titulo"))}</h3><p>${escapar(t("consulta_subtitulo"))}</p></div></div>
+        <div class="cuerpo-panel">
+          <ol class="auditoria-condiciones" aria-label="${escapar(t("condiciones_aria"))}">
+            <li><span aria-hidden="true">1</span><strong>${escapar(t("condicion_competencia"))}</strong><small>${escapar(t("condicion_competencia_nota"))}</small></li>
+            <li><span aria-hidden="true">2</span><strong>${escapar(t("condicion_ambito"))}</strong><small>${escapar(t("condicion_ambito_nota"))}</small></li>
+            <li><span aria-hidden="true">3</span><strong>${escapar(t("condicion_lectura"))}</strong><small>${escapar(t("condicion_lectura_nota"))}</small></li>
+          </ol>
+          <form class="auditoria-filtros" aria-label="${escapar(t("filtros_aria"))}">
+            <label>${escapar(t("recurso_exacto"))}<input name="subject_ref" type="text" autocomplete="off" disabled aria-disabled="true" placeholder="${escapar(t("recurso_placeholder"))}"></label>
+            <label>${escapar(t("finalidad"))}<input name="finalidad" type="text" autocomplete="off" disabled aria-disabled="true" placeholder="${escapar(t("finalidad_placeholder"))}"></label>
+            <label>${escapar(t("periodo"))}<input name="periodo" type="text" autocomplete="off" disabled aria-disabled="true" placeholder="${escapar(t("periodo_placeholder"))}"></label>
+            <button type="button" class="boton-primario" disabled aria-disabled="true" title="${escapar(t("consulta_motivo"))}">${escapar(t("consultar"))}</button>
+          </form>
+          <p class="auditoria-aviso">${escapar(t("consulta_motivo"))}</p>
+        </div>
+      </section>
+      <aside class="panel auditoria-limites" aria-labelledby="auditoria-limites-titulo">
+        <div class="cabecera-panel"><div><p class="sobrelinea">${escapar(t("limites_sobrelinea"))}</p><h3 id="auditoria-limites-titulo">${escapar(t("limites_titulo"))}</h3></div></div>
+        <div class="cuerpo-panel"><ul><li>${escapar(t("limite_campos"))}</li><li>${escapar(t("limite_separacion"))}</li><li>${escapar(t("limite_exportacion"))}</li></ul>
+          <button type="button" class="boton-secundario" disabled aria-disabled="true" title="${escapar(t("exportar_motivo"))}">${escapar(t("exportar"))}</button>
+        </div>
+      </aside>
+    </div>
+    <section class="panel auditoria-resultados" aria-labelledby="auditoria-resultados-titulo">
+      <div class="cabecera-panel"><div><p class="sobrelinea">${escapar(t("resultados_sobrelinea"))}</p><h3 id="auditoria-resultados-titulo">${escapar(t("resultados_titulo"))}</h3></div><span class="estado-chip ${tono}">${escapar(tituloEstado)}</span></div>
+      <div class="cuerpo-panel auditoria-vacio"><span aria-hidden="true" class="auditoria-vacio-icono">∅</span><p><strong>${escapar(denegado ? t("sin_resultados_denegado") : t("sin_resultados"))}</strong></p><p>${escapar(t("sin_resultados_nota"))}</p></div>
+    </section>
+  </section>`;
 }
 
 export function montarVistaAuditoria({ raiz, anunciar = () => {}, registrarDesmontar } = {}) {
-  if (!raiz?.replaceChildren || typeof anunciar !== "function" || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function")) throw new TypeError("vista de Auditoría no disponible");
+  if (!raiz?.replaceChildren || typeof anunciar !== "function" ||
+    (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function")) {
+    throw new TypeError("vista de Auditoría no disponible");
+  }
   const t = crearTraductorAuditoria();
-  let activa = true; let estado = { vista: "todos", modulo: "", operacion: "", resultado: "", periodo: "", seleccion: EVENTOS_AUDITORIA_PRESENTACION[0].id };
-  const pintar = () => { if (activa) raiz.innerHTML = renderizarVistaAuditoria(estado); };
-  const pulsar = (evento) => { const vista = evento.target.closest?.("[data-auditoria-vista-control]"); const fila = evento.target.closest?.("[data-auditoria-evento]"); if (vista) { estado = { ...estado, vista: vista.dataset.auditoriaVistaControl, seleccion: EVENTOS_AUDITORIA_PRESENTACION[0].id }; pintar(); anunciar(t("anuncio_vista", { vista: t(`vista_${vista.dataset.auditoriaVistaControl}`) }), "info"); } if (fila) { estado = { ...estado, seleccion: fila.dataset.auditoriaEvento }; pintar(); raiz.querySelector("#auditoria-detalle-titulo")?.focus(); } };
-  const enviar = (evento) => { const formulario = evento.target.closest?.("[data-auditoria-filtros]"); if (!formulario) return; evento.preventDefault(); const datos = new FormData(formulario); estado = { ...estado, modulo: datos.get("modulo") || "", operacion: datos.get("operacion") || "", resultado: datos.get("resultado") || "", periodo: datos.get("periodo") || "" }; pintar(); anunciar(t("anuncio_filtros"), "info"); };
-  raiz.addEventListener("click", pulsar); raiz.addEventListener("submit", enviar); pintar();
-  const desmontar = () => { if (!activa) return; activa = false; raiz.removeEventListener("click", pulsar); raiz.removeEventListener("submit", enviar); raiz.replaceChildren(); };
-  registrarDesmontar?.(desmontar); return Object.freeze({ desmontar });
+  let activa = true;
+  let ayudaAbierta = false;
+  const pintar = () => { if (activa) raiz.innerHTML = renderizarVistaAuditoria({ ayudaAbierta }); };
+  const pulsar = (evento) => {
+    if (!evento.target.closest?.("[data-auditoria-ayuda]")) return;
+    ayudaAbierta = !ayudaAbierta;
+    pintar();
+    raiz.querySelector("[data-auditoria-ayuda]")?.focus();
+    anunciar(t(ayudaAbierta ? "ayuda_abierta" : "ayuda_cerrada"), "info");
+  };
+  raiz.addEventListener("click", pulsar);
+  pintar();
+  const desmontar = () => {
+    if (!activa) return;
+    activa = false;
+    raiz.removeEventListener("click", pulsar);
+    raiz.replaceChildren();
+  };
+  registrarDesmontar?.(desmontar);
+  return Object.freeze({ desmontar });
 }

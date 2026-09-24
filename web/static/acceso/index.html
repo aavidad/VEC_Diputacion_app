@@ -7,8 +7,9 @@
   <title data-i18n="acceso.titulo_pagina">Acceso a VEC | Diputación de Granada</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/styles.css?v=20260715-theme">
-  <link rel="stylesheet" href="/acceso/acceso.css?v=20260919-institucional">
-  <script type="module" src="/acceso/acceso-i18n.js"></script>
+  <link rel="stylesheet" href="/comun/tema-vec.css?v=20260924-f2-tema-base-v2">
+  <link rel="stylesheet" href="/acceso/acceso.css?v=20260924-f1-acceso-scroll-v3">
+  <script type="module" src="/acceso/acceso-i18n.js?v=20260924-f1-acceso-ayuda-v1"></script>
 </head>
 <body class="acceso-publico">
   <a class="salto-contenido" href="#contenido-principal" data-i18n="acceso.saltar_contenido">Saltar al contenido principal</a>
@@ -54,7 +55,7 @@
               <h3 data-i18n="acceso.metodo.clave.titulo">Cl@ve</h3>
               <p data-i18n="acceso.metodo.clave.descripcion">No disponible mientras falte la configuración de identidad.</p>
             </div>
-            <button type="button" disabled aria-describedby="estado-acceso acceso-autorizacion" data-i18n="acceso.metodo.pendiente">No disponible</button>
+            <button type="button" disabled aria-describedby="estado-acceso" data-i18n="acceso.metodo.pendiente">No disponible</button>
           </article>
 
           <article class="acceso-metodo acceso-metodo-certificado">
@@ -62,7 +63,7 @@
               <h3 data-i18n="acceso.metodo.certificado.titulo">Certificado digital</h3>
               <p data-i18n="acceso.metodo.certificado.descripcion">No disponible mientras falte la configuración de identidad.</p>
             </div>
-            <button type="button" disabled aria-describedby="estado-acceso acceso-autorizacion" data-i18n="acceso.metodo.pendiente">No disponible</button>
+            <button type="button" disabled aria-describedby="estado-acceso" data-i18n="acceso.metodo.pendiente">No disponible</button>
           </article>
 
           <article class="acceso-metodo acceso-metodo-dnie">
@@ -70,11 +71,12 @@
               <h3 data-i18n="acceso.metodo.dnie.titulo">DNIe</h3>
               <p data-i18n="acceso.metodo.dnie.descripcion">No disponible mientras falte la configuración de identidad.</p>
             </div>
-            <button type="button" disabled aria-describedby="estado-acceso acceso-autorizacion" data-i18n="acceso.metodo.pendiente">No disponible</button>
+            <button type="button" disabled aria-describedby="estado-acceso" data-i18n="acceso.metodo.pendiente">No disponible</button>
           </article>
         </section>
 
-        <p class="acceso-ayuda" id="acceso-autorizacion" data-i18n="acceso.ayuda">No introduzca credenciales ni identificadores. Un certificado o DNIe válidos no conceden acceso por sí solos; cuando el servicio esté configurado, VEC comprobará la autorización aplicable.</p>
+        <button type="button" class="acceso-ayuda-boton" id="boton-ayuda-acceso" aria-label="Información sobre identidad y autorización" data-i18n-atributo="aria-label:acceso.ayuda.boton" aria-expanded="false" aria-controls="acceso-autorizacion">?</button>
+        <p class="acceso-ayuda" id="acceso-autorizacion" tabindex="-1" hidden data-i18n="acceso.ayuda">No introduzca credenciales ni identificadores. Un certificado o DNIe válidos no conceden acceso por sí solos; cuando el servicio esté configurado, VEC comprobará la autorización aplicable.</p>
       </div>
     </section>
   </main>

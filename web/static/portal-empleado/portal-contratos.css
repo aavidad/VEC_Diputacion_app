@@ -1,0 +1,227 @@
+.contratos-vista {
+  display: grid;
+  gap: var(--portal-espacio-3);
+  min-width: 0;
+}
+
+.contratos-vista .nota-seguridad,
+.contratos-vista .nota-pendiente,
+.contratos-vista .panel {
+  margin: 0;
+}
+
+.contratos-vista .nota-seguridad,
+.contratos-vista .nota-pendiente {
+  padding: var(--portal-espacio-2) var(--portal-espacio-3);
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio-lg);
+  background: var(--portal-superficie);
+}
+
+.contratos-pasos {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--portal-espacio-2);
+  margin: 0;
+  padding: var(--portal-espacio-3);
+  list-style: none;
+}
+
+.contratos-paso {
+  display: grid;
+  grid-template-columns: 1.7rem minmax(0, 1fr);
+  align-content: start;
+  gap: var(--portal-espacio-2);
+  min-width: 0;
+  padding: var(--portal-espacio-2);
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio-lg);
+  background: var(--portal-superficie-alterna);
+}
+
+.contratos-paso-numero {
+  display: grid;
+  width: 1.7rem;
+  height: 1.7rem;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--portal-azul-700);
+  color: var(--portal-superficie);
+  font-size: .75rem;
+  font-weight: 800;
+}
+
+.contratos-paso strong,
+.contratos-paso small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.contratos-paso strong {
+  color: var(--portal-azul-950);
+  font-size: .76rem;
+  line-height: 1.25;
+}
+
+.contratos-paso small {
+  margin-top: var(--portal-espacio-1);
+  color: var(--portal-muted);
+  font-size: .7rem;
+  line-height: 1.3;
+}
+
+.contratos-secciones {
+  display: grid;
+  gap: var(--portal-espacio-2);
+  min-width: 0;
+}
+
+.contratos-seccion summary {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  gap: var(--portal-espacio-3);
+  padding: var(--portal-espacio-2) var(--portal-espacio-4);
+  background: var(--portal-cabecera-panel);
+  color: var(--portal-azul-950);
+  cursor: pointer;
+  list-style: none;
+}
+
+.contratos-seccion summary::-webkit-details-marker {
+  display: none;
+}
+
+.contratos-seccion summary:focus-visible {
+  outline: 3px solid var(--portal-azul-700);
+  outline-offset: -3px;
+}
+
+.contratos-seccion summary::before {
+  content: "▸";
+  color: var(--portal-azul-700);
+}
+
+.contratos-seccion[open] summary::before {
+  content: "▾";
+}
+
+.contratos-seccion[open] summary {
+  border-bottom: 1px solid var(--portal-borde);
+}
+
+.contratos-seccion summary strong {
+  font-size: 1rem;
+}
+
+.contratos-seccion summary .estado-chip {
+  margin-left: auto;
+}
+
+.contratos-seccion-descripcion {
+  margin: 0;
+  padding: var(--portal-espacio-2) var(--portal-espacio-4);
+  color: var(--portal-muted);
+  font-size: .76rem;
+}
+
+.contratos-panel-registros .tabla-contenedor {
+  max-height: 270px;
+  overflow: auto;
+}
+
+.contratos-panel-registros .tabla-datos {
+  min-width: 660px;
+}
+
+.contratos-panel-registros .tabla-datos td[data-columna="referencia"] {
+  border-left: 4px solid var(--portal-azul-700);
+}
+
+.contratos-referencia {
+  color: var(--portal-azul-700);
+}
+
+.contratos-fecha {
+  display: block;
+}
+
+.contratos-fecha-fin {
+  color: var(--portal-muted);
+}
+
+.contratos-fecha-fin::before {
+  content: "→ ";
+}
+
+.contratos-accion {
+  display: flex;
+  align-items: center;
+  gap: var(--portal-espacio-3);
+  min-width: 0;
+  padding: var(--portal-espacio-2) var(--portal-espacio-4);
+}
+
+.contratos-accion button {
+  min-width: 180px;
+  min-height: 36px;
+  opacity: 1;
+  color: var(--portal-muted);
+  cursor: not-allowed;
+}
+
+.contratos-accion small {
+  color: var(--portal-muted);
+  font-size: .72rem;
+}
+
+.contratos-ayuda {
+  justify-self: start;
+  max-width: 70ch;
+  color: var(--portal-muted);
+  font-size: .78rem;
+}
+
+.contratos-ayuda summary {
+  cursor: pointer;
+  color: var(--portal-azul-700);
+  font-weight: 700;
+}
+
+.contratos-ayuda p {
+  margin: var(--portal-espacio-2) 0 0;
+}
+
+@media (max-width: 1100px) {
+  .contratos-pasos {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .contratos-panel-circuito .cabecera-panel {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .contratos-pasos {
+    grid-template-columns: 1fr;
+  }
+
+  .contratos-paso {
+    grid-template-columns: 1.7rem minmax(0, 1fr) auto;
+  }
+
+  .contratos-seccion summary {
+    flex-wrap: wrap;
+  }
+
+  .contratos-accion {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .contratos-accion button {
+    width: 100%;
+  }
+}

@@ -83,17 +83,25 @@ function etiquetaVia(t, via) {
   return etiquetas[via] ? t(etiquetas[via]) : via;
 }
 
+function motivoPerteneceAVia(propuesta, via, motivo) {
+  return (propuesta.motivos_alternativa ?? []).some(
+    ({ clave, via_clave }) => clave === motivo && via_clave === via,
+  );
+}
+
 function renderizarPropuesta(propuesta, estado, t) {
-  const motivosUnicos = [...new Map((propuesta.motivos_alternativa ?? []).map(
-    (motivo) => [motivo.clave, motivo],
-  )).values()];
+  const motivosUnicos = [...new Map((propuesta.motivos_alternativa ?? [])
+    .filter(({ via_clave }) => via_clave === estado.via_elegida)
+    .map((motivo) => [motivo.clave, motivo])).values()];
   const motivos = motivosUnicos.map(({ clave, etiqueta_i18n }) =>
-    `<option value="${escaparHTML(clave)}">${escaparHTML(t(etiqueta_i18n))}</option>`,
+    `<option value="${escaparHTML(clave)}"${
+  estado.motivo_clave === clave ? " selected" : ""}>${escaparHTML(t(etiqueta_i18n))}</option>`,
   ).join("");
   const evaluaciones = propuesta.evaluaciones.map((evaluacion) => {
     const viable = evaluacion.estado === "viable";
     return `<label class="ct-opcion-cobertura" data-ct-cobertura-evaluacion="${escaparHTML(evaluacion.via_clave)}">
       <input type="radio" name="via_elegida" value="${escaparHTML(evaluacion.via_clave)}"${
+  viable && estado.via_elegida === evaluacion.via_clave ? " checked" : ""}${
   !viable || estado.ocupado ? " disabled" : ""}>
       <span>${escaparHTML(etiquetaVia(t, evaluacion.via_clave))}</span>
       <small>${escaparHTML(t(`cobertura_evaluacion_${evaluacion.estado}`))}</small>
@@ -205,6 +213,8 @@ export function montarFormularioCobertura(configuracion = {}) {
     ocupado: false,
     indeterminado: false,
     error: false,
+    via_elegida: "",
+    motivo_clave: "",
     mensaje_clave: "cobertura_estado_cargando",
     tipo_mensaje: "informacion",
   };
@@ -238,7 +248,7 @@ export function montarFormularioCobertura(configuracion = {}) {
     };
   }
 
-  function repintar(selectorFoco = "") {
+  function repintar(selectorFoco = "", anunciarEstado = true) {
     if (!montado) return;
     raizActual.innerHTML = `<section class="ct-alta" data-ct-cobertura
       aria-labelledby="ct-cobertura-titulo">
@@ -254,8 +264,10 @@ export function montarFormularioCobertura(configuracion = {}) {
       ${renderizarContenido(estado, contexto, t, formateador)}
     </section>`;
     if (selectorFoco) enfocar(selectorFoco);
-    try { anunciarActual(t(estado.mensaje_clave), estado.tipo_mensaje); } catch {
-      // La región viva sigue siendo la fuente visible y accesible del estado.
+    if (anunciarEstado) {
+      try { anunciarActual(t(estado.mensaje_clave), estado.tipo_mensaje); } catch {
+        // La región viva sigue siendo la fuente visible y accesible del estado.
+      }
     }
   }
 
@@ -321,6 +333,13 @@ export function montarFormularioCobertura(configuracion = {}) {
       return vuelo ?? Promise.resolve(null);
     }
     const viaElegida = formulario?.querySelector?.("[name=via_elegida]:checked")?.value ?? "";
+    const motivoClave = formulario?.querySelector?.("[name=motivo_clave]")?.value ?? "";
+    const motivoValido = motivoPerteneceAVia(estado.propuesta, viaElegida, motivoClave);
+    estado = {
+      ...estado,
+      via_elegida: viaElegida,
+      motivo_clave: motivoValido ? motivoClave : "",
+    };
     const evaluacion = estado.propuesta.evaluaciones.find(
       ({ via_clave, estado: estadoVia }) => via_clave === viaElegida && estadoVia === "viable",
     );
@@ -329,11 +348,7 @@ export function montarFormularioCobertura(configuracion = {}) {
       repintar("[data-ct-cobertura-estado]");
       return Promise.resolve(null);
     }
-    const motivoClave = formulario?.querySelector?.("[name=motivo_clave]")?.value ?? "";
-    if (viaElegida !== estado.propuesta.via_recomendada
-      && !(estado.propuesta.motivos_alternativa ?? []).some(
-        ({ clave, via_clave }) => clave === motivoClave && via_clave === viaElegida,
-      )) {
+    if (viaElegida !== estado.propuesta.via_recomendada && !motivoValido) {
       fijarError("cobertura_estado_motivo_obligatorio");
       repintar("[data-ct-cobertura-estado]");
       return Promise.resolve(null);
@@ -499,6 +514,24 @@ export function montarFormularioCobertura(configuracion = {}) {
     return confirmarDecision(formulario);
   }
 
+  function alCambiar(evento) {
+    const radio = evento.target?.closest?.("[name=via_elegida]");
+    if (!radio || !raizActual.contains(radio) || !montado || vuelo !== null
+      || estado.ocupado || estado.recibo || estado.indeterminado
+      || estado.propuesta?.estado !== "viable"
+      || !estado.propuesta.evaluaciones.some(
+        ({ via_clave, estado: estadoVia }) => via_clave === radio.value && estadoVia === "viable",
+      )) return;
+    const motivoActual = raizActual.querySelector("[name=motivo_clave]")?.value ?? "";
+    estado = {
+      ...estado,
+      via_elegida: radio.value,
+      motivo_clave: motivoPerteneceAVia(estado.propuesta, radio.value, motivoActual)
+        ? motivoActual : "",
+    };
+    repintar("[name=via_elegida]:checked", false);
+  }
+
   function alPulsar(evento) {
     const control = evento.target?.closest?.("[data-ct-cobertura-accion]");
     if (!control || !raizActual.contains(control)) return undefined;
@@ -513,6 +546,7 @@ export function montarFormularioCobertura(configuracion = {}) {
   }
 
   raizActual.addEventListener("submit", alEnviar);
+  raizActual.addEventListener("change", alCambiar);
   raizActual.addEventListener("click", alPulsar);
   repintar();
   void cargarPropuesta();
@@ -522,6 +556,7 @@ export function montarFormularioCobertura(configuracion = {}) {
     montado = false;
     controlador?.abort();
     raizActual.removeEventListener("submit", alEnviar);
+    raizActual.removeEventListener("change", alCambiar);
     raizActual.removeEventListener("click", alPulsar);
     raizActual.replaceChildren();
     estado = null;

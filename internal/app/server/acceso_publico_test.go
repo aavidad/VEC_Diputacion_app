@@ -201,10 +201,13 @@ func TestSuperficiePublicaExponeCatalogoEspanolLandingAcceso(t *testing.T) {
 	for _, marca := range []string{
 		"lang=\"es\"", "data-i18n-catalogo=\"/acceso/locales/es.json\"",
 		"data-i18n=\"acceso.titulo\"", "data-i18n=\"acceso.metodo.pendiente\"",
-		"src=\"/acceso/acceso-i18n.js\"",
+		"src=\"/acceso/acceso-i18n.js?v=20260924-f1-acceso-ayuda-v1\"",
 	} {
 		if !strings.Contains(landing.Body.String(), marca) {
 			t.Errorf("landing no declara extension i18n %q", marca)
 		}
+	}
+	if strings.Contains(landing.Body.String(), "src=\"/acceso/acceso-i18n.js\"") {
+		t.Error("landing conserva el import i18n sin version de cache")
 	}
 }

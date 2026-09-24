@@ -75,11 +75,11 @@ test("B7 emite por la ruta exacta con idempotencia y conserva el recibo", async 
   const salida = await emitirLlamamiento({
     bolsa_ref: "bolsa:01",
     participaciones: ["participacion:01"],
-    configuracion: { referencia: "NEC-01", descripcion: "Cobertura", categoria: "Auxiliar", centro: "Centro", modalidad: "Sustitución", fecha_inicio: "2026-10-01", plazo: "48 horas · pendiente de RRHH, dudas 1–3", plantilla_version: "bolsa-llamamiento-v1", asunto: "Llamamiento", cuerpo: "Texto" },
+    configuracion: { referencia: "NEC-01", descripcion: "Cobertura", categoria: "Auxiliar", centro: "Centro", modalidad: "Sustitución", fecha_inicio: "2026-10-01", plazo: "Hasta el 30 de septiembre, 14:00", plantilla_version: "bolsa-llamamiento-v1", asunto: "Llamamiento", cuerpo: "Texto" },
     clave_idempotencia: "b7-emision-0001",
   }, { fetchImpl: async (url, opciones) => {
     llamada = { url, opciones };
-    return { ok: true, status: 201, json: async () => ({ data: { recibo_ref: `recibo:llamamiento:${huella}`, llamamiento_ref: `llamamiento:${huella}`, bolsa_ref: "bolsa:01", estado: "emitido_pendiente_respuesta", participaciones: ["participacion:01"], configuracion: { referencia: "NEC-01", descripcion: "Cobertura", categoria: "Auxiliar", centro: "Centro", modalidad: "Sustitución", fecha_inicio: "2026-10-01", plazo: "48 horas · pendiente de RRHH, dudas 1–3", plantilla_version: "bolsa-llamamiento-v1", asunto: "Llamamiento", cuerpo: "Texto" }, emitido_en: "2026-09-22T12:00:00Z", reutilizada: false } }) };
+    return { ok: true, status: 201, json: async () => ({ data: { recibo_ref: `recibo:llamamiento:${huella}`, llamamiento_ref: `llamamiento:${huella}`, bolsa_ref: "bolsa:01", estado: "emitido_pendiente_respuesta", participaciones: ["participacion:01"], configuracion: { referencia: "NEC-01", descripcion: "Cobertura", categoria: "Auxiliar", centro: "Centro", modalidad: "Sustitución", fecha_inicio: "2026-10-01", plazo: "Hasta el 30 de septiembre, 14:00", plantilla_version: "bolsa-llamamiento-v1", asunto: "Llamamiento", cuerpo: "Texto" }, emitido_en: "2026-09-22T12:00:00Z", reutilizada: false } }) };
   }});
   assert.equal(salida.ok, true);
   assert.equal(salida.datos.recibo_ref, `recibo:llamamiento:${huella}`);
@@ -568,7 +568,7 @@ test("presentadorPanelInterno renderiza Vista B5 de candidatos con filtros, chip
   assert.match(htmlB5, /Consultar historial de contactos/);
   assert.match(htmlB5, /Nuevo llamamiento/);
   assert.match(htmlB5, /Registrar resultado/);
-  assert.match(htmlB5, /B7 emite por SMTP y deja recibo/);
+  assert.match(htmlB5, /El llamamiento se registra con recibo/);
   assert.match(htmlB5, /data-bolsa-accion="iniciar-b7"/);
   assert.match(htmlB5, /title="Pendiente de RRHH"/);
   assert.match(htmlB5, /Criterios de orden/);
@@ -714,12 +714,15 @@ test("B7 presenta cuatro pasos, paginación interna y controles de teclado nativ
   html = presentador.renderizarVista("bolsa-candidatos");
   assert.match(html, /3\. Configurar llamamiento/);
   assert.match(html, /El asunto y el texto son comunes a todas las personas seleccionadas/);
-  assert.match(html, /La personalización por persona está pendiente de desarrollo/);
-  assert.match(html, /pendiente de RRHH, dudas 1–3/);
+  assert.match(html, /No se ofrece personalización individual en este formulario/);
+  assert.match(html, /name="plazo" required minlength="2" maxlength="160" value=""/);
+  assert.match(html, /Plazo de respuesta indicado por RRHH/);
+  assert.match(html, /no presupone un plazo legal/);
+  assert.doesNotMatch(html, /48 horas|relay de desarrollo|value="Pendiente de definición por RRHH"/);
   assert.match(html, /bolsa-llamamiento-v1/);
   flujo.paso = 4;
   flujo.participaciones = [datos.candidatos.find((c) => c.estado_clave === "disponible").participacion_ref];
-  flujo.configuracion = { referencia: "NEC-01", centro: "Centro", modalidad: "Sustitución", plazo: "48 horas · pendiente de RRHH, dudas 1–3" };
+  flujo.configuracion = { referencia: "NEC-01", centro: "Centro", modalidad: "Sustitución", plazo: "Hasta el 30 de septiembre, 14:00" };
   html = presentador.renderizarVista("bolsa-candidatos");
   assert.match(html, /4\. Revisar y enviar/);
   assert.match(html, /name="confirmacion" required/);

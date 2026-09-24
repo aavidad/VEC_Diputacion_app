@@ -1,33 +1,31 @@
+import { traducirPortal } from "./portal-i18n.js?v=20260924-rescate-web-v4";
+
 /** Contenido de ayuda sustituible por catálogo o conector, sin lógica de negocio. */
 export const AYUDA_PORTAL_BOLSA = Object.freeze({
   esquema: "vec.portal.ayuda.v1",
-  titulo: "Ayuda para gestionar un llamamiento",
-  introduccion: "Recorrido breve por el flujo seguro basado en una necesidad de cobertura.",
+  titulo: traducirPortal("ayuda_contenido_001"),
+  introduccion: traducirPortal("ayuda_contenido_002"),
   pasos: Object.freeze([
-    "Elija una necesidad autorizada y revise puesto, destino, jornada y fecha límite.",
-    "Solicite al servidor la propuesta; el navegador no puede escoger personas.",
-    "Revise las evaluaciones minimizadas y las versiones de bolsa y reglas.",
-    "Configure plazo y canales, y compruebe el resumen antes de confirmar.",
+    traducirPortal("ayuda_contenido_259"),
+    traducirPortal("ayuda_contenido_260"),
+    traducirPortal("ayuda_contenido_261"),
+    traducirPortal("ayuda_contenido_262"),
   ]),
   preguntas: Object.freeze([
     Object.freeze({
-      pregunta: "¿Por qué no aparecen nombres ni documentos?",
-      respuesta: "La interfaz aplica minimización. El servidor conserva bajo autorización la relación entre la propuesta y las personas evaluadas.",
+      pregunta: traducirPortal("ayuda_contenido_003"),
+      respuesta: traducirPortal("ayuda_contenido_004"),
     }),
     Object.freeze({
-      pregunta: "¿La presentación realiza un llamamiento?",
-      respuesta: "No. La presentación muestra un recorrido sintético y no guarda, firma, comunica ni modifica expedientes.",
+      pregunta: traducirPortal("ayuda_contenido_005"),
+      respuesta: traducirPortal("ayuda_contenido_006"),
     }),
     Object.freeze({
-      pregunta: "¿Por qué puede aparecer una acción deshabilitada?",
-      respuesta: "La sesión no ha recibido una capacidad positiva o el comando de servidor todavía no está conectado.",
+      pregunta: traducirPortal("ayuda_contenido_007"),
+      respuesta: traducirPortal("ayuda_contenido_008"),
     }),
   ]),
-  audio: Object.freeze({
-    src: "/portal-empleado/assets/ayuda-llamamiento-bolsa.mp3",
-    tipo: "audio/mpeg",
-  }),
-  transcripcion: "Guía breve para gestionar un llamamiento de bolsa. Primero, elija una necesidad de cobertura autorizada y revise el puesto, destino, jornada y plazo. Segundo, solicite la propuesta. El servidor aplica la prelación y las reglas; el navegador no permite elegir personas. Tercero, revise las evaluaciones minimizadas y las versiones de bolsa y reglas, sin datos de identidad ni contacto. Cuarto, configure el plazo y los canales. Antes de confirmar, compruebe la necesidad, la propuesta y los recibos previstos. En la presentación no se guarda ni se envía nada. Si una acción aparece deshabilitada, su sesión no tiene la capacidad necesaria o el servicio aún no está conectado.",
+  transcripcion: traducirPortal("ayuda_contenido_009"),
 });
 
 /**
@@ -37,98 +35,98 @@ export const AYUDA_PORTAL_BOLSA = Object.freeze({
  */
 export const TRAMITES_AYUDANTE_PORTAL = Object.freeze([
   Object.freeze({
-    id: "dietas-crear-borrador", titulo: "Crear un borrador de dieta", modulo: "Dietas", vista: "dietas", selector: "[data-dietas-borradores-propios]",
-    resumen: "Prepare una comisión de servicio y sus gastos sin enviarla todavía.",
+    id: "dietas-crear-borrador", titulo: traducirPortal("ayuda_contenido_010"), modulo: traducirPortal("ayuda_contenido_011"), vista: "dietas", selector: "[data-dietas-borradores-propios]",
+    resumen: traducirPortal("ayuda_contenido_012"),
     pasos: Object.freeze([
-      Object.freeze({ selector: "[data-dietas-borradores-propios]", bloqueado: true, titulo: "Abrir Dietas", instruccion: "Entre en Dietas y localice sus borradores propios.", objetivo: "Trabajar sobre una comisión de servicio propia.", preparacion: "Tener el motivo y las fechas de la comisión.", resultado: "La zona de borradores queda visible.", actor: "Persona solicitante.", limite: "Cree un borrador propio para su posterior revisión. No acredita autorización, liquidación ni pago." }),
-      Object.freeze({ selector: "[data-dietas-recorridos]", bloqueado: true, titulo: "Completar gastos y recorrido", instruccion: "Añada los datos del desplazamiento, gastos y, si procede, la ruta orientativa.", objetivo: "Reunir la información que deberá revisar la jefatura.", preparacion: "Fechas, horas, localidades y justificantes que correspondan.", resultado: "El formulario muestra los campos pendientes de registro.", actor: "Persona solicitante.", limite: "Los importes y justificantes no se guardan ni liquidan mientras el conector siga pendiente." }),
-      Object.freeze({ selector: "[data-dietas-borradores-propios]", bloqueado: true, titulo: "Revisar antes de enviar", instruccion: "Compruebe el resumen y espere a que esté disponible el envío para validación.", objetivo: "Evitar enviar una comisión incompleta.", preparacion: "Todos los datos requeridos y los justificantes aplicables.", resultado: "Podrá identificar lo pendiente antes de un futuro envío.", actor: "Persona solicitante.", limite: "Enviar, validar y liquidar son efectos separados aún no conectados." }),
+      Object.freeze({ selector: "[data-dietas-borradores-propios]", bloqueado: true, titulo: traducirPortal("ayuda_contenido_013"), instruccion: traducirPortal("ayuda_contenido_014"), objetivo: traducirPortal("ayuda_contenido_015"), preparacion: traducirPortal("ayuda_contenido_016"), resultado: traducirPortal("ayuda_contenido_017"), actor: traducirPortal("ayuda_contenido_018"), limite: traducirPortal("ayuda_contenido_019") }),
+      Object.freeze({ selector: "[data-dietas-recorridos]", bloqueado: true, titulo: traducirPortal("ayuda_contenido_020"), instruccion: traducirPortal("ayuda_contenido_021"), objetivo: traducirPortal("ayuda_contenido_022"), preparacion: traducirPortal("ayuda_contenido_023"), resultado: traducirPortal("ayuda_contenido_024"), actor: traducirPortal("ayuda_contenido_025"), limite: traducirPortal("ayuda_contenido_026") }),
+      Object.freeze({ selector: "[data-dietas-borradores-propios]", bloqueado: true, titulo: traducirPortal("ayuda_contenido_027"), instruccion: traducirPortal("ayuda_contenido_028"), objetivo: traducirPortal("ayuda_contenido_029"), preparacion: traducirPortal("ayuda_contenido_030"), resultado: traducirPortal("ayuda_contenido_031"), actor: traducirPortal("ayuda_contenido_032"), limite: traducirPortal("ayuda_contenido_033") }),
     ]),
   }),
   Object.freeze({
-    id: "dietas-consultar-borrador", titulo: "Consultar un borrador de dieta", modulo: "Dietas", vista: "dietas", selector: "[data-dietas-borradores-propios]",
-    resumen: "Revise el estado y la información de una comisión sin cambiarla.",
+    id: "dietas-consultar-borrador", titulo: traducirPortal("ayuda_contenido_034"), modulo: traducirPortal("ayuda_contenido_035"), vista: "dietas", selector: "[data-dietas-borradores-propios]",
+    resumen: traducirPortal("ayuda_contenido_036"),
     pasos: Object.freeze([
-      Object.freeze({ selector: "[data-dietas-borradores-propios]", bloqueado: true, titulo: "Abrir Dietas", instruccion: "Acceda a Dietas y sitúese en el área de borradores propios.", objetivo: "Consultar únicamente comisiones del ámbito autorizado.", preparacion: "Disponer de acceso concedido al módulo.", resultado: "Se muestra la bandeja cuando exista una fuente conectada.", actor: "Persona solicitante.", limite: "La consulta real depende de la lectura autorizada de Dietas." }),
-      Object.freeze({ selector: "[data-dietas-borradores-propios]", bloqueado: true, titulo: "Localizar el borrador", instruccion: "Use la referencia y el estado cuando estén disponibles.", objetivo: "Distinguir borradores, revisiones y liquidaciones sin inferir su estado.", preparacion: "La referencia de la comisión si ya la tiene.", resultado: "Podrá abrir el detalle disponible.", actor: "Persona solicitante.", limite: "No se muestran datos ni estados inventados si la fuente no responde." }),
+      Object.freeze({ selector: "[data-dietas-borradores-propios]", bloqueado: true, titulo: traducirPortal("ayuda_contenido_037"), instruccion: traducirPortal("ayuda_contenido_038"), objetivo: traducirPortal("ayuda_contenido_039"), preparacion: traducirPortal("ayuda_contenido_040"), resultado: traducirPortal("ayuda_contenido_041"), actor: traducirPortal("ayuda_contenido_042"), limite: traducirPortal("ayuda_contenido_043") }),
+      Object.freeze({ selector: "[data-dietas-borradores-propios]", bloqueado: true, titulo: traducirPortal("ayuda_contenido_044"), instruccion: traducirPortal("ayuda_contenido_045"), objetivo: traducirPortal("ayuda_contenido_046"), preparacion: traducirPortal("ayuda_contenido_047"), resultado: traducirPortal("ayuda_contenido_048"), actor: traducirPortal("ayuda_contenido_049"), limite: traducirPortal("ayuda_contenido_050") }),
     ]),
   }),
   Object.freeze({
-    id: "dietas-ruta", titulo: "Preparar una ruta orientativa", modulo: "Dietas", vista: "dietas", selector: "[data-dietas-area-itinerario]",
-    resumen: "Calcule una orientación del trayecto sin convertirla en liquidación.",
+    id: "dietas-ruta", titulo: traducirPortal("ayuda_contenido_051"), modulo: traducirPortal("ayuda_contenido_052"), vista: "dietas", selector: "[data-dietas-area-itinerario]",
+    resumen: traducirPortal("ayuda_contenido_053"),
     pasos: Object.freeze([
-      Object.freeze({ selector: "[data-dietas-area-itinerario]", bloqueado: false, titulo: "Abrir el itinerario", instruccion: "Desde Dietas, desplácese al apartado de recorrido.", objetivo: "Preparar los puntos del desplazamiento.", preparacion: "Origen, destino y paradas necesarias.", resultado: "La herramienta de ruta queda disponible si el proveedor responde.", actor: "Persona solicitante.", limite: "Una ruta orientativa no acredita kilometraje ni autoriza pago." }),
-      Object.freeze({ selector: "[data-dietas-area-itinerario]", bloqueado: false, titulo: "Revisar el resultado", instruccion: "Compruebe los tramos y anote cualquier ajuste que deba justificarse.", objetivo: "Identificar la información que deberá verificarse en el expediente.", preparacion: "Motivo documentado de cualquier ajuste.", resultado: "Se muestra una estimación técnica separada del trámite.", actor: "Persona solicitante y, después, gestión.", limite: "La validación de kilómetros y la liquidación dependen de reglas y revisión posteriores." }),
+      Object.freeze({ selector: "[data-dietas-area-itinerario]", bloqueado: false, titulo: traducirPortal("ayuda_contenido_054"), instruccion: traducirPortal("ayuda_contenido_055"), objetivo: traducirPortal("ayuda_contenido_056"), preparacion: traducirPortal("ayuda_contenido_057"), resultado: traducirPortal("ayuda_contenido_058"), actor: traducirPortal("ayuda_contenido_059"), limite: traducirPortal("ayuda_contenido_060") }),
+      Object.freeze({ selector: "[data-dietas-area-itinerario]", bloqueado: false, titulo: traducirPortal("ayuda_contenido_061"), instruccion: traducirPortal("ayuda_contenido_062"), objetivo: traducirPortal("ayuda_contenido_063"), preparacion: traducirPortal("ayuda_contenido_064"), resultado: traducirPortal("ayuda_contenido_065"), actor: traducirPortal("ayuda_contenido_066"), limite: traducirPortal("ayuda_contenido_067") }),
     ]),
   }),
   Object.freeze({
-    id: "cronos-corregir-marcaje", titulo: "Solicitar corrección de marcaje", modulo: "Cronos", vista: "cronos", selector: "#cronos-persona",
-    resumen: "Prepare una petición de corrección para que la revise quien corresponda.",
+    id: "cronos-corregir-marcaje", titulo: traducirPortal("ayuda_contenido_068"), modulo: traducirPortal("ayuda_contenido_069"), vista: "cronos", selector: "#cronos-persona",
+    resumen: traducirPortal("ayuda_contenido_070"),
     pasos: Object.freeze([
-      Object.freeze({ selector: "#cronos-persona", bloqueado: true, titulo: "Abrir Cronos", instruccion: "Entre en Cronos y vaya al bloque de persona.", objetivo: "Consultar el recorrido de jornada y fichajes.", preparacion: "Fecha y descripción del incidente.", resultado: "El formulario de corrección queda localizado.", actor: "Persona solicitante.", limite: "El registro de marcaje todavía depende del servicio Cronos." }),
-      Object.freeze({ selector: "#cronos-correccion-ayuda", bloqueado: true, titulo: "Describir la incidencia", instruccion: "Indique la fecha y el detalle cuando el formulario esté conectado.", objetivo: "Dar a la jefatura la información mínima para revisar.", preparacion: "Un motivo claro y verificable.", resultado: "La solicitud podrá quedar preparada para validación.", actor: "Persona solicitante.", limite: "No se crea ninguna corrección ni recibo desde esta guía." }),
-      Object.freeze({ selector: "#cronos-responsable", bloqueado: true, titulo: "Esperar la revisión", instruccion: "Consulte la bandeja y el resultado cuando el servicio publique el estado.", objetivo: "Distinguir solicitud, revisión y resolución.", preparacion: "La solicitud registrada por el canal autorizado.", resultado: "El estado podrá reflejarse sin alterar el fichaje original.", actor: "Responsable y RRHH según competencia.", limite: "La aprobación no se infiere por pantalla ni por el acceso al menú." }),
+      Object.freeze({ selector: "#cronos-persona", bloqueado: true, titulo: traducirPortal("ayuda_contenido_071"), instruccion: traducirPortal("ayuda_contenido_072"), objetivo: traducirPortal("ayuda_contenido_073"), preparacion: traducirPortal("ayuda_contenido_074"), resultado: traducirPortal("ayuda_contenido_075"), actor: traducirPortal("ayuda_contenido_076"), limite: traducirPortal("ayuda_contenido_077") }),
+      Object.freeze({ selector: "#cronos-correccion-ayuda", bloqueado: true, titulo: traducirPortal("ayuda_contenido_078"), instruccion: traducirPortal("ayuda_contenido_079"), objetivo: traducirPortal("ayuda_contenido_080"), preparacion: traducirPortal("ayuda_contenido_081"), resultado: traducirPortal("ayuda_contenido_082"), actor: traducirPortal("ayuda_contenido_083"), limite: traducirPortal("ayuda_contenido_084") }),
+      Object.freeze({ selector: "#cronos-responsable", bloqueado: true, titulo: traducirPortal("ayuda_contenido_085"), instruccion: traducirPortal("ayuda_contenido_086"), objetivo: traducirPortal("ayuda_contenido_087"), preparacion: traducirPortal("ayuda_contenido_088"), resultado: traducirPortal("ayuda_contenido_089"), actor: traducirPortal("ayuda_contenido_090"), limite: traducirPortal("ayuda_contenido_091") }),
     ]),
   }),
   Object.freeze({
-    id: "cronos-solicitar-permiso", titulo: "Solicitar un permiso", modulo: "Cronos", vista: "cronos", selector: "#cronos-persona",
-    resumen: "Recorra la solicitud y su revisión sin asumir concesión.",
+    id: "cronos-solicitar-permiso", titulo: traducirPortal("ayuda_contenido_092"), modulo: traducirPortal("ayuda_contenido_093"), vista: "cronos", selector: "#cronos-persona",
+    resumen: traducirPortal("ayuda_contenido_094"),
     pasos: Object.freeze([
-      Object.freeze({ selector: "#cronos-persona", bloqueado: true, titulo: "Consultar permisos", instruccion: "Abra Cronos en el bloque de persona y revise el apartado de permisos.", objetivo: "Conocer qué información se requerirá para solicitarlo.", preparacion: "Tipo, fechas y documentación exigible.", resultado: "La estructura de solicitud queda visible.", actor: "Persona solicitante.", limite: "Los saldos y reglas aplicables requieren fuente Cronos autorizada." }),
-      Object.freeze({ selector: "#cronos-persona", bloqueado: true, titulo: "Presentar la solicitud", instruccion: "Complete los campos solo cuando el servicio habilite el formulario.", objetivo: "Registrar una petición trazable y revisable.", preparacion: "Datos completos y documentación permitida.", resultado: "La petición podrá entrar en la bandeja responsable.", actor: "Persona solicitante.", limite: "No se concede un permiso ni se adjuntan documentos desde la pantalla pendiente." }),
-      Object.freeze({ selector: "#cronos-responsable", bloqueado: true, titulo: "Seguir la decisión", instruccion: "Consulte el resultado de responsable o RRHH cuando esté publicado.", objetivo: "Conocer el estado sin confundir solicitud con concesión.", preparacion: "Una petición registrada.", resultado: "Se podrá consultar el estado y su explicación.", actor: "Responsable o RRHH.", limite: "La decisión exige competencia positiva y auditoría durable." }),
+      Object.freeze({ selector: "#cronos-persona", bloqueado: true, titulo: traducirPortal("ayuda_contenido_095"), instruccion: traducirPortal("ayuda_contenido_096"), objetivo: traducirPortal("ayuda_contenido_097"), preparacion: traducirPortal("ayuda_contenido_098"), resultado: traducirPortal("ayuda_contenido_099"), actor: traducirPortal("ayuda_contenido_100"), limite: traducirPortal("ayuda_contenido_101") }),
+      Object.freeze({ selector: "#cronos-persona", bloqueado: true, titulo: traducirPortal("ayuda_contenido_102"), instruccion: traducirPortal("ayuda_contenido_103"), objetivo: traducirPortal("ayuda_contenido_104"), preparacion: traducirPortal("ayuda_contenido_105"), resultado: traducirPortal("ayuda_contenido_106"), actor: traducirPortal("ayuda_contenido_107"), limite: traducirPortal("ayuda_contenido_108") }),
+      Object.freeze({ selector: "#cronos-responsable", bloqueado: true, titulo: traducirPortal("ayuda_contenido_109"), instruccion: traducirPortal("ayuda_contenido_110"), objetivo: traducirPortal("ayuda_contenido_111"), preparacion: traducirPortal("ayuda_contenido_112"), resultado: traducirPortal("ayuda_contenido_113"), actor: traducirPortal("ayuda_contenido_114"), limite: traducirPortal("ayuda_contenido_115") }),
     ]),
   }),
   Object.freeze({
-    id: "cronos-consultar-saldo", titulo: "Consultar saldo y movimientos", modulo: "Cronos", vista: "cronos", selector: "#cronos-persona",
-    resumen: "Vea dónde se presentarán saldo, movimientos y ausencias del periodo.",
+    id: "cronos-consultar-saldo", titulo: traducirPortal("ayuda_contenido_116"), modulo: traducirPortal("ayuda_contenido_117"), vista: "cronos", selector: "#cronos-persona",
+    resumen: traducirPortal("ayuda_contenido_118"),
     pasos: Object.freeze([
-      Object.freeze({ selector: "#cronos-persona", bloqueado: true, titulo: "Abrir el resumen", instruccion: "Entre en Cronos y seleccione el periodo de saldo o movimientos.", objetivo: "Consultar una vista personal autorizada.", preparacion: "Elegir el periodo que se quiere revisar.", resultado: "Se muestra el selector de periodo.", actor: "Persona solicitante.", limite: "No se muestran cifras sintéticas cuando aún falta la consulta real." }),
-      Object.freeze({ selector: "#cronos-persona", bloqueado: true, titulo: "Comprobar detalle", instruccion: "Revise movimientos, ausencias y calendario cuando la fuente esté disponible.", objetivo: "Separar el saldo de los eventos que lo explican.", preparacion: "Acceso concedido al ámbito personal.", resultado: "La información podrá consultarse sin modificarla.", actor: "Persona solicitante.", limite: "No se puede corregir un marcaje desde una consulta de saldo." }),
+      Object.freeze({ selector: "#cronos-persona", bloqueado: true, titulo: traducirPortal("ayuda_contenido_119"), instruccion: traducirPortal("ayuda_contenido_120"), objetivo: traducirPortal("ayuda_contenido_121"), preparacion: traducirPortal("ayuda_contenido_122"), resultado: traducirPortal("ayuda_contenido_123"), actor: traducirPortal("ayuda_contenido_124"), limite: traducirPortal("ayuda_contenido_125") }),
+      Object.freeze({ selector: "#cronos-persona", bloqueado: true, titulo: traducirPortal("ayuda_contenido_126"), instruccion: traducirPortal("ayuda_contenido_127"), objetivo: traducirPortal("ayuda_contenido_128"), preparacion: traducirPortal("ayuda_contenido_129"), resultado: traducirPortal("ayuda_contenido_130"), actor: traducirPortal("ayuda_contenido_131"), limite: traducirPortal("ayuda_contenido_132") }),
     ]),
   }),
   Object.freeze({
-    id: "personal-consultar-ficha", titulo: "Consultar mi ficha personal", modulo: "Personal", vista: "personal", selector: "[data-personal-ficha-integral]",
-    resumen: "Acceda a la ficha sin inventar relaciones, datos económicos ni documentos.",
+    id: "personal-consultar-ficha", titulo: traducirPortal("ayuda_contenido_133"), modulo: traducirPortal("ayuda_contenido_134"), vista: "personal", selector: "[data-personal-ficha-integral]",
+    resumen: traducirPortal("ayuda_contenido_135"),
     pasos: Object.freeze([
-      Object.freeze({ selector: '[data-personal-ficha-tab="ficha"]', activar: '[data-personal-ficha-tab="ficha"]', bloqueado: true, titulo: "Abrir Personal", instruccion: "Entre en Personal y manténgase en la pestaña Ficha.", objetivo: "Consultar la información personal que su ámbito permita.", preparacion: "Acceso interno con la concesión correspondiente.", resultado: "La ficha indica claramente si su fuente está pendiente.", actor: "Persona solicitante.", limite: "Una ficha vacía no confirma ni niega una relación de servicio." }),
-      Object.freeze({ selector: "[data-personal-ficha-integral]", bloqueado: true, titulo: "Consultar sin modificar", instruccion: "Revise los apartados disponibles y use Dietas o Cronos para sus datos propios.", objetivo: "Distinguir la ficha agregada de los datos propietarios de cada módulo.", preparacion: "Ninguna acción adicional.", resultado: "Podrá navegar a los módulos relacionados.", actor: "Persona solicitante.", limite: "La edición y descarga requieren contratos, permisos y recibos específicos." }),
+      Object.freeze({ selector: '[data-personal-ficha-tab="ficha"]', activar: '[data-personal-ficha-tab="ficha"]', bloqueado: true, titulo: traducirPortal("ayuda_contenido_136"), instruccion: traducirPortal("ayuda_contenido_137"), objetivo: traducirPortal("ayuda_contenido_138"), preparacion: traducirPortal("ayuda_contenido_139"), resultado: traducirPortal("ayuda_contenido_140"), actor: traducirPortal("ayuda_contenido_141"), limite: traducirPortal("ayuda_contenido_142") }),
+      Object.freeze({ selector: "[data-personal-ficha-integral]", bloqueado: true, titulo: traducirPortal("ayuda_contenido_143"), instruccion: traducirPortal("ayuda_contenido_144"), objetivo: traducirPortal("ayuda_contenido_145"), preparacion: traducirPortal("ayuda_contenido_146"), resultado: traducirPortal("ayuda_contenido_147"), actor: traducirPortal("ayuda_contenido_148"), limite: traducirPortal("ayuda_contenido_149") }),
     ]),
   }),
   Object.freeze({
-    id: "personal-relaciones", titulo: "Consultar relaciones y servicios", modulo: "Personal", vista: "personal", selector: '[data-personal-ficha-tab="relaciones"]', activar: '[data-personal-ficha-tab="relaciones"]',
-    resumen: "Localice relaciones y servicios reconocidos cuando las fuentes estén conectadas.",
+    id: "personal-relaciones", titulo: traducirPortal("ayuda_contenido_150"), modulo: traducirPortal("ayuda_contenido_151"), vista: "personal", selector: '[data-personal-ficha-tab="relaciones"]', activar: '[data-personal-ficha-tab="relaciones"]',
+    resumen: traducirPortal("ayuda_contenido_152"),
     pasos: Object.freeze([
-      Object.freeze({ selector: '[data-personal-ficha-tab="relaciones"]', activar: '[data-personal-ficha-tab="relaciones"]', bloqueado: true, titulo: "Abrir Relaciones", instruccion: "Entre en Personal y seleccione la pestaña Relaciones.", objetivo: "Consultar relaciones de servicio separadas de la identidad de acceso.", preparacion: "Acceso autorizado a los campos aplicables.", resultado: "Se abre la tabla de relaciones o su estado pendiente.", actor: "Persona solicitante o RRHH según ámbito.", limite: "No se deduce una relación de servicio a partir de una cuenta o certificado." }),
-      Object.freeze({ selector: '[data-personal-ficha-tab="servicios"]', activar: '[data-personal-ficha-tab="servicios"]', bloqueado: true, titulo: "Consultar Servicios", instruccion: "Cambie a la pestaña Servicios para consultar los reconocimientos disponibles.", objetivo: "Diferenciar servicios reconocidos de jornada, cursos o puntuación.", preparacion: "Fuente de Personal disponible.", resultado: "Se muestra la estructura de consulta correspondiente.", actor: "Persona solicitante o RRHH según ámbito.", limite: "Los datos se mantienen en Personal; la guía no crea ni valida antigüedad." }),
+      Object.freeze({ selector: '[data-personal-ficha-tab="relaciones"]', activar: '[data-personal-ficha-tab="relaciones"]', bloqueado: true, titulo: traducirPortal("ayuda_contenido_153"), instruccion: traducirPortal("ayuda_contenido_154"), objetivo: traducirPortal("ayuda_contenido_155"), preparacion: traducirPortal("ayuda_contenido_156"), resultado: traducirPortal("ayuda_contenido_157"), actor: traducirPortal("ayuda_contenido_158"), limite: traducirPortal("ayuda_contenido_159") }),
+      Object.freeze({ selector: '[data-personal-ficha-tab="servicios"]', activar: '[data-personal-ficha-tab="servicios"]', bloqueado: true, titulo: traducirPortal("ayuda_contenido_160"), instruccion: traducirPortal("ayuda_contenido_161"), objetivo: traducirPortal("ayuda_contenido_162"), preparacion: traducirPortal("ayuda_contenido_163"), resultado: traducirPortal("ayuda_contenido_164"), actor: traducirPortal("ayuda_contenido_165"), limite: traducirPortal("ayuda_contenido_166") }),
     ]),
   }),
   Object.freeze({
-    id: "personal-catalogos", titulo: "Consultar catálogos profesionales", modulo: "Personal", vista: "personal", selector: '[data-personal-ficha-tab="catalogos"]', activar: '[data-personal-ficha-tab="catalogos"]',
-    resumen: "Abra los catálogos públicos integrados desde Personal.",
+    id: "personal-catalogos", titulo: traducirPortal("ayuda_contenido_167"), modulo: traducirPortal("ayuda_contenido_168"), vista: "personal", selector: '[data-personal-ficha-tab="catalogos"]', activar: '[data-personal-ficha-tab="catalogos"]',
+    resumen: traducirPortal("ayuda_contenido_169"),
     pasos: Object.freeze([
-      Object.freeze({ selector: '[data-personal-ficha-tab="catalogos"]', activar: '[data-personal-ficha-tab="catalogos"]', bloqueado: false, titulo: "Abrir Catálogos", instruccion: "Entre en Personal y seleccione la pestaña Catálogos.", objetivo: "Consultar las referencias disponibles sin mezclar datos personales.", preparacion: "Acceso permitido a la consulta de catálogos.", resultado: "Se cargan los catálogos conectados al abrir la pestaña.", actor: "Persona solicitante, RRHH o jefatura según el catálogo.", limite: "Los catálogos no conceden por sí mismos permisos ni modifican puestos." }),
-      Object.freeze({ selector: "[data-personal-ficha-integral]", bloqueado: false, titulo: "Usar la referencia", instruccion: "Revise la información y vuelva al trámite que requiera esa referencia.", objetivo: "Preparar un trámite sin copiar ni alterar datos gobernados.", preparacion: "Identificar el catálogo que se necesita.", resultado: "La consulta queda separada de los efectos administrativos.", actor: "Quien tramite dentro de su competencia.", limite: "Las decisiones posteriores requieren su propio módulo y autorización." }),
+      Object.freeze({ selector: '[data-personal-ficha-tab="catalogos"]', activar: '[data-personal-ficha-tab="catalogos"]', bloqueado: false, titulo: traducirPortal("ayuda_contenido_170"), instruccion: traducirPortal("ayuda_contenido_171"), objetivo: traducirPortal("ayuda_contenido_172"), preparacion: traducirPortal("ayuda_contenido_173"), resultado: traducirPortal("ayuda_contenido_174"), actor: traducirPortal("ayuda_contenido_175"), limite: traducirPortal("ayuda_contenido_176") }),
+      Object.freeze({ selector: "[data-personal-ficha-integral]", bloqueado: false, titulo: traducirPortal("ayuda_contenido_177"), instruccion: traducirPortal("ayuda_contenido_178"), objetivo: traducirPortal("ayuda_contenido_179"), preparacion: traducirPortal("ayuda_contenido_180"), resultado: traducirPortal("ayuda_contenido_181"), actor: traducirPortal("ayuda_contenido_182"), limite: traducirPortal("ayuda_contenido_183") }),
     ]),
   }),
   Object.freeze({
-    id: "bolsa-consultar-candidatos", titulo: "Consultar una bolsa y sus candidatos", modulo: "Bolsa de trabajo", vista: "resumen", selector: "#titulo-cuadro-b12",
-    resumen: "Revise una bolsa constituida, sus filtros y la ficha de participación sin modificar datos.",
+    id: "bolsa-consultar-candidatos", titulo: traducirPortal("ayuda_contenido_184"), modulo: traducirPortal("ayuda_contenido_185"), vista: "resumen", selector: "#titulo-cuadro-b12",
+    resumen: traducirPortal("ayuda_contenido_186"),
     pasos: Object.freeze([
-      Object.freeze({ vista: "resumen", selector: "#titulo-cuadro-b12", bloqueado: false, titulo: "Abrir el cuadro de bolsas", instruccion: "Entre en el cuadro B12 y compruebe las bolsas activas disponibles en su ámbito.", objetivo: "Localizar una bolsa antes de consultar sus candidaturas.", preparacion: "Disponer de acceso concedido a la consulta interna de Bolsa.", resultado: "El cuadro muestra las bolsas devueltas por la fuente autorizada.", actor: "Personal de RRHH dentro de su ámbito.", limite: "La consulta no modifica la bolsa, sus candidaturas ni su orden." }),
-      Object.freeze({ vista: "resumen", selector: '[data-accion="ver-bolsa"][data-bolsa-ref]', bloqueado: false, titulo: "Abrir candidatos de la bolsa", instruccion: "Seleccione manualmente «Ver candidatos» en la bolsa que necesite consultar.", objetivo: "Acceder a la relación ordenada de una bolsa concreta.", preparacion: "Identificar la categoría o bolsa que corresponde a la necesidad.", resultado: "La aplicación abre los candidatos de la bolsa seleccionada.", actor: "Personal de RRHH dentro de su ámbito.", limite: "La guía no selecciona una bolsa ni ejecuta acciones por la persona usuaria." }),
-      Object.freeze({ vista: "bolsa-candidatos", selector: '[data-bolsa-form="filtros"]', bloqueado: false, titulo: "Filtrar la relación", instruccion: "Use los filtros disponibles para acotar la consulta por situación o texto.", objetivo: "Revisar candidatos sin alterar su disponibilidad ni su posición.", preparacion: "La bolsa debe haberse seleccionado en el paso anterior.", resultado: "La relación muestra los candidatos que cumplen los criterios de consulta.", actor: "Personal de RRHH dentro de su ámbito.", limite: "Los filtros solo consultan la proyección autorizada y no cambian datos de la bolsa." }),
-      Object.freeze({ vista: "bolsa-candidatos", selector: '[data-bolsa-accion="abrir-ficha"]', bloqueado: false, titulo: "Consultar una ficha", instruccion: "Abra «Ver ficha» del candidato que necesite revisar.", objetivo: "Consultar situación, orden y referencias de participación disponibles.", preparacion: "La relación de candidatos debe haberse cargado correctamente.", resultado: "La ficha muestra la información autorizada de esa participación.", actor: "Personal de RRHH dentro de su ámbito.", limite: "La ficha es de lectura y no habilita contacto, llamamiento ni resultado." }),
+      Object.freeze({ vista: "resumen", selector: "#titulo-cuadro-b12", bloqueado: false, titulo: traducirPortal("ayuda_contenido_187"), instruccion: traducirPortal("ayuda_contenido_188"), objetivo: traducirPortal("ayuda_contenido_189"), preparacion: traducirPortal("ayuda_contenido_190"), resultado: traducirPortal("ayuda_contenido_191"), actor: traducirPortal("ayuda_contenido_192"), limite: traducirPortal("ayuda_contenido_193") }),
+      Object.freeze({ vista: "resumen", selector: '[data-accion="ver-bolsa"][data-bolsa-ref]', bloqueado: false, titulo: traducirPortal("ayuda_contenido_194"), instruccion: traducirPortal("ayuda_contenido_195"), objetivo: traducirPortal("ayuda_contenido_196"), preparacion: traducirPortal("ayuda_contenido_197"), resultado: traducirPortal("ayuda_contenido_198"), actor: traducirPortal("ayuda_contenido_199"), limite: traducirPortal("ayuda_contenido_200") }),
+      Object.freeze({ vista: "bolsa-candidatos", selector: '[data-bolsa-form="filtros"]', bloqueado: false, titulo: traducirPortal("ayuda_contenido_201"), instruccion: traducirPortal("ayuda_contenido_202"), objetivo: traducirPortal("ayuda_contenido_203"), preparacion: traducirPortal("ayuda_contenido_204"), resultado: traducirPortal("ayuda_contenido_205"), actor: traducirPortal("ayuda_contenido_206"), limite: traducirPortal("ayuda_contenido_207") }),
+      Object.freeze({ vista: "bolsa-candidatos", selector: '[data-bolsa-accion="abrir-ficha"]', bloqueado: false, titulo: traducirPortal("ayuda_contenido_208"), instruccion: traducirPortal("ayuda_contenido_209"), objetivo: traducirPortal("ayuda_contenido_210"), preparacion: traducirPortal("ayuda_contenido_211"), resultado: traducirPortal("ayuda_contenido_212"), actor: traducirPortal("ayuda_contenido_213"), limite: traducirPortal("ayuda_contenido_214") }),
     ]),
   }),
   Object.freeze({
-    id: "bolsa-gestionar-llamamiento", titulo: "Gestionar un llamamiento", modulo: "Bolsa de trabajo", vista: "resumen", selector: "#titulo-cuadro-b12",
-    resumen: "Oriente la consulta previa; el contacto, la apertura y el resultado siguen detenidos hasta C23.",
+    id: "bolsa-gestionar-llamamiento", titulo: traducirPortal("ayuda_contenido_215"), modulo: traducirPortal("ayuda_contenido_216"), vista: "resumen", selector: "#titulo-cuadro-b12",
+    resumen: traducirPortal("ayuda_contenido_217"),
     pasos: Object.freeze([
-      Object.freeze({ vista: "resumen", selector: "#titulo-cuadro-b12", bloqueado: false, titulo: "Localizar la bolsa", instruccion: "Abra el cuadro B12 y revise la bolsa que corresponde a la necesidad.", objetivo: "Partir de una bolsa visible dentro del ámbito autorizado.", preparacion: "Disponer de la necesidad y de acceso positivo a la consulta.", resultado: "El cuadro de bolsas queda disponible para su revisión.", actor: "Personal de RRHH dentro de su ámbito.", limite: "Consultar el cuadro no inicia ni reserva un llamamiento." }),
-      Object.freeze({ vista: "resumen", selector: '[data-accion="ver-bolsa"][data-bolsa-ref]', bloqueado: false, titulo: "Abrir candidatos manualmente", instruccion: "Pulse manualmente «Ver candidatos» en la bolsa elegida.", objetivo: "Llegar a la relación ordenada sin que la guía decida la bolsa.", preparacion: "Confirmar que la bolsa seleccionada es la aplicable a la necesidad.", resultado: "La aplicación carga las candidaturas de la bolsa elegida.", actor: "Personal de RRHH dentro de su ámbito.", limite: "La guía no pulsa este control, no elige candidatos y no guarda ningún efecto." }),
-      Object.freeze({ vista: "bolsa-candidatos", selector: '[data-bolsa-form="filtros"]', bloqueado: false, titulo: "Revisar orden y disponibilidad", instruccion: "Aplique filtros de consulta y revise la situación de los candidatos devueltos.", objetivo: "Preparar una revisión administrativa sin inferir contacto ni aceptación.", preparacion: "La lista de la bolsa debe estar cargada desde la fuente autorizada.", resultado: "Queda visible la situación de cada participación consultada.", actor: "Personal de RRHH dentro de su ámbito.", limite: "La consulta no altera orden, disponibilidad, renuncias ni plazos." }),
-      Object.freeze({ vista: "bolsa-candidatos", selector: "[data-bolsa-c23-pendiente]", bloqueado: true, titulo: "Esperar la composición C23", instruccion: "Revise el límite de acciones disponible y continúe solo cuando C23 esté compuesto y autorizado.", objetivo: "Distinguir la consulta previa de contacto, apertura y registro de resultado.", preparacion: "Una política de RRHH aprobada y los contratos C23 de contacto y llamamiento compuestos.", resultado: "Cuando exista el circuito autorizado, se mostrarán acciones específicas con sus recibos.", actor: "RRHH con la competencia exacta para el efecto.", limite: "C23 sigue pendiente: no están compuestos el contacto, la apertura ni el resultado del llamamiento; la política de RRHH no se presume." }),
+      Object.freeze({ vista: "resumen", selector: "#titulo-cuadro-b12", bloqueado: false, titulo: traducirPortal("ayuda_contenido_218"), instruccion: traducirPortal("ayuda_contenido_219"), objetivo: traducirPortal("ayuda_contenido_220"), preparacion: traducirPortal("ayuda_contenido_221"), resultado: traducirPortal("ayuda_contenido_222"), actor: traducirPortal("ayuda_contenido_223"), limite: traducirPortal("ayuda_contenido_224") }),
+      Object.freeze({ vista: "resumen", selector: '[data-accion="ver-bolsa"][data-bolsa-ref]', bloqueado: false, titulo: traducirPortal("ayuda_contenido_225"), instruccion: traducirPortal("ayuda_contenido_226"), objetivo: traducirPortal("ayuda_contenido_227"), preparacion: traducirPortal("ayuda_contenido_228"), resultado: traducirPortal("ayuda_contenido_229"), actor: traducirPortal("ayuda_contenido_230"), limite: traducirPortal("ayuda_contenido_231") }),
+      Object.freeze({ vista: "bolsa-candidatos", selector: '[data-bolsa-form="filtros"]', bloqueado: false, titulo: traducirPortal("ayuda_contenido_232"), instruccion: traducirPortal("ayuda_contenido_233"), objetivo: traducirPortal("ayuda_contenido_234"), preparacion: traducirPortal("ayuda_contenido_235"), resultado: traducirPortal("ayuda_contenido_236"), actor: traducirPortal("ayuda_contenido_237"), limite: traducirPortal("ayuda_contenido_238") }),
+      Object.freeze({ vista: "bolsa-candidatos", selector: "[data-bolsa-c23-pendiente]", bloqueado: true, titulo: traducirPortal("ayuda_contenido_239"), instruccion: traducirPortal("ayuda_contenido_240"), objetivo: traducirPortal("ayuda_contenido_241"), preparacion: traducirPortal("ayuda_contenido_242"), resultado: traducirPortal("ayuda_contenido_243"), actor: traducirPortal("ayuda_contenido_244"), limite: traducirPortal("ayuda_contenido_245") }),
     ]),
   }),
 ]);
@@ -137,117 +135,117 @@ export const TRAMITES_AYUDANTE_PORTAL = Object.freeze([
 export const AYUDA_CONTRATACION_TEMPORAL = Object.freeze({
   vistas: Object.freeze({
     cuadro: Object.freeze({
-      titulo: "Ayuda — Cuadro de mando de contratación temporal",
+      titulo: traducirPortal("ayuda_contenido_246"),
       frases: Object.freeze([
-        "El cuadro de mando centraliza y organiza las solicitudes de contratación temporal del personal de la Diputación.",
-        "Permite consultar el estado de cada expediente, aplicar filtros por texto, estado o fase, y acceder a cada caso para continuar su tramitación.",
-        "Los criterios de priorización de las solicitudes y los plazos de respuesta están pendientes de definir por RRHH.",
+        traducirPortal("ayuda_contenido_263"),
+        traducirPortal("ayuda_contenido_264"),
+        traducirPortal("ayuda_contenido_265"),
       ]),
     }),
     alta: Object.freeze({
-      titulo: "Ayuda — Nueva petición de personal",
+      titulo: traducirPortal("ayuda_contenido_247"),
       frases: Object.freeze([
-        "Este formulario permite registrar una nueva solicitud de contratación temporal para cubrir una necesidad de personal.",
-        "Debe indicar el centro solicitante, la categoría profesional requerida, la jornada de trabajo prevista y la justificación del puesto.",
-        "Los requisitos de la memoria justificativa y los plazos para presentar peticiones están pendientes de definir por RRHH.",
+        traducirPortal("ayuda_contenido_266"),
+        traducirPortal("ayuda_contenido_267"),
+        traducirPortal("ayuda_contenido_268"),
       ]),
     }),
     expediente: Object.freeze({
-      titulo: "Ayuda — Detalle del expediente",
+      titulo: traducirPortal("ayuda_contenido_248"),
       frases: Object.freeze([
-        "Esta pantalla recoge la información completa del expediente de contratación temporal y su avance administrativo.",
-        "Permite examinar los antecedentes de la solicitud, consultar las fases del procedimiento y realizar las tareas disponibles.",
-        "Los plazos generales de tramitación y los requisitos particulares de cada etapa están pendientes de definir por RRHH.",
+        traducirPortal("ayuda_contenido_269"),
+        traducirPortal("ayuda_contenido_270"),
+        traducirPortal("ayuda_contenido_271"),
       ]),
     }),
     documentos: Object.freeze({
-      titulo: "Ayuda — Documentos del expediente",
+      titulo: traducirPortal("ayuda_contenido_249"),
       frases: Object.freeze([
-        "Esta pantalla reúne los borradores y documentos administrativos generados durante la tramitación del expediente.",
-        "Permite descargar los documentos en formatos estándar para su revisión antes de la firma.",
-        "La integración con el portafirmas oficial y los modelos definitivos de documentos están pendientes de definir por RRHH.",
+        traducirPortal("ayuda_contenido_272"),
+        traducirPortal("ayuda_contenido_273"),
+        traducirPortal("ayuda_contenido_274"),
       ]),
     }),
     auditoria: Object.freeze({
-      titulo: "Ayuda — Auditoría del expediente",
+      titulo: traducirPortal("ayuda_contenido_250"),
       frases: Object.freeze([
-        "Esta pantalla muestra la trazabilidad y el registro de todas las actuaciones realizadas sobre el expediente.",
-        "Permite verificar las acciones completadas, las fechas de cada hito y los cambios de fase registrados.",
-        "Los periodos de conservación de los registros de auditoría están pendientes de definir por RRHH.",
+        traducirPortal("ayuda_contenido_275"),
+        traducirPortal("ayuda_contenido_276"),
+        traducirPortal("ayuda_contenido_277"),
       ]),
     }),
   }),
   fases: Object.freeze({
     solicitud: Object.freeze({
       paso: 1,
-      titulo: "Ayuda — Paso 1: Solicitud",
+      titulo: traducirPortal("ayuda_contenido_251"),
       frases: Object.freeze([
-        "Esta pantalla muestra la solicitud inicial de contratación registrada por el centro proponente.",
-        "El personal técnico debe revisar los datos del puesto, la categoría solicitada y la retención de crédito antes de iniciar la tramitación.",
-        "Los plazos máximos para tramitar esta fase inicial y la documentación complementaria exigida están pendientes de definir por RRHH.",
+        traducirPortal("ayuda_contenido_278"),
+        traducirPortal("ayuda_contenido_279"),
+        traducirPortal("ayuda_contenido_280"),
       ]),
     }),
     analisis_rrhh: Object.freeze({
       paso: 2,
-      titulo: "Ayuda — Paso 2: Análisis RRHH",
+      titulo: traducirPortal("ayuda_contenido_252"),
       frases: Object.freeze([
-        "En esta pantalla se realiza el análisis técnico y jurídico de la necesidad de personal temporal.",
-        "Recursos Humanos revisa la modalidad de contratación adecuada, comprueba la dotación presupuestaria y registra sus observaciones.",
-        "Los criterios específicos de validación del gasto y los plazos de emisión del análisis están pendientes de definir por RRHH.",
+        traducirPortal("ayuda_contenido_281"),
+        traducirPortal("ayuda_contenido_282"),
+        traducirPortal("ayuda_contenido_283"),
       ]),
     }),
     gestion_bolsa: Object.freeze({
       paso: 3,
-      titulo: "Ayuda — Paso 3: Gestión de bolsa",
+      titulo: traducirPortal("ayuda_contenido_253"),
       frases: Object.freeze([
-        "En este paso se comprueba la cobertura del puesto a través de la bolsa de empleo y se asigna la unidad responsable.",
-        "El sistema verifica la vigencia de la bolsa y la existencia de personas candidatas disponibles para la categoría requerida.",
-        "El orden de prelación definitivo, los criterios de desempate y la gestión de bolsas supletorias están pendientes de definir por RRHH.",
+        traducirPortal("ayuda_contenido_284"),
+        traducirPortal("ayuda_contenido_285"),
+        traducirPortal("ayuda_contenido_286"),
       ]),
     }),
     fiscalizacion: Object.freeze({
       paso: 4,
-      titulo: "Ayuda — Paso 4: Fiscalización",
+      titulo: traducirPortal("ayuda_contenido_254"),
       frases: Object.freeze([
-        "Esta fase corresponde al control previo de legalidad y fiscalización del expediente por parte de Intervención.",
-        "Se prepara el informe jurídico preceptivo y, en caso de advertirse reparos u observaciones, se procede a su subsanación antes de continuar.",
-        "Los plazos para subsanar reparos y el circuito de firma electrónica del informe están pendientes de definir por RRHH.",
+        traducirPortal("ayuda_contenido_287"),
+        traducirPortal("ayuda_contenido_288"),
+        traducirPortal("ayuda_contenido_289"),
       ]),
     }),
     obtencion_candidato: Object.freeze({
       paso: 5,
-      titulo: "Ayuda — Paso 5: Obtención del candidato",
+      titulo: traducirPortal("ayuda_contenido_255"),
       frases: Object.freeze([
-        "En esta etapa se selecciona la persona candidata de la bolsa según el orden establecido y se tramita el llamamiento.",
-        "Quien gestiona el expediente debe emitir la comunicación correspondiente y registrar la acreditación de la notificación remitida.",
-        "El plazo de contestación para aceptar el puesto y las causas justificadas de renuncia están pendientes de definir por RRHH.",
+        traducirPortal("ayuda_contenido_290"),
+        traducirPortal("ayuda_contenido_291"),
+        traducirPortal("ayuda_contenido_292"),
       ]),
     }),
     nombramiento: Object.freeze({
       paso: 6,
-      titulo: "Ayuda — Paso 6: Nombramiento",
+      titulo: traducirPortal("ayuda_contenido_256"),
       frases: Object.freeze([
-        "Esta pantalla formaliza la resolución administrativa de nombramiento tras la aceptación de la persona candidata.",
-        "Se preparan los borradores de resolución y las notificaciones oficiales previas a la incorporación efectiva al puesto.",
-        "El circuito de validación en portafirmas y el modelo definitivo de nombramiento están pendientes de definir por RRHH.",
+        traducirPortal("ayuda_contenido_293"),
+        traducirPortal("ayuda_contenido_294"),
+        traducirPortal("ayuda_contenido_295"),
       ]),
     }),
     incorporacion: Object.freeze({
       paso: 7,
-      titulo: "Ayuda — Paso 7: Incorporación",
+      titulo: traducirPortal("ayuda_contenido_257"),
       frases: Object.freeze([
-        "En esta fase se registra la toma de posesión y la incorporación de la persona seleccionada en su centro de trabajo.",
-        "Se verifica la documentación acreditativa y se gestiona el alta de personal en los sistemas correspondientes.",
-        "La fecha límite para tomar posesión y el protocolo de acogida en el centro de destino están pendientes de definir por RRHH.",
+        traducirPortal("ayuda_contenido_296"),
+        traducirPortal("ayuda_contenido_297"),
+        traducirPortal("ayuda_contenido_298"),
       ]),
     }),
     seguimiento: Object.freeze({
       paso: 8,
-      titulo: "Ayuda — Paso 8: Seguimiento",
+      titulo: traducirPortal("ayuda_contenido_258"),
       frases: Object.freeze([
-        "Esta pantalla permite supervisar la evolución del contrato temporal y tramitar las incidencias que puedan presentarse durante el desempeño.",
-        "Se gestionan las posibles prórrogas del contrato, cambios en la jornada laboral o el cese administrativo al vencer la causa.",
-        "Las causas tasadas de prórroga y los criterios de evaluación del periodo de prueba están pendientes de definir por RRHH.",
+        traducirPortal("ayuda_contenido_299"),
+        traducirPortal("ayuda_contenido_300"),
+        traducirPortal("ayuda_contenido_301"),
       ]),
     }),
   }),
@@ -339,7 +337,7 @@ export function obtenerAyudaContratacionTemporal(vista = "cuadro", fase = null) 
 
 export function renderizarAyudaContratacionTemporal(ayuda, escapar = (s) => s) {
   if (!ayuda || !Array.isArray(ayuda.frases)) return "";
-  const contenido = `<section class="ayuda-contextual ayuda-contratacion-temporal">
+  const contenido = `<section class="ayuda-contextual ayuda-contratacion-temporal" tabindex="-1">
   <div class="ayuda-descripcion">
 ${ayuda.frases.map((frase) => `    <p>${escapar(frase)}</p>`).join("\n")}
   </div>

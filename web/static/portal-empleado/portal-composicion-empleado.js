@@ -87,11 +87,13 @@ export function componerDietasInternas(recursos, entorno) {
   });
 }
 
-export function componerPersonalVisible(recursos, entorno) {
+export function componerPersonalVisible(recursos, entorno, { catalogosPublicos = true } = {}) {
   const catalogos = [
     [recursos.clienteCategorias?.crearClienteHTTPCategoriasPersonal, recursos.vistaCategorias?.montarModuloPersonal],
-    [recursos.clienteRPT?.crearClienteHTTPRPTPublica, recursos.vistaRPT?.montarModuloRPTPublica],
-    [recursos.clienteEstructura?.crearClienteHTTPEstructuraOrganizativaPublica, recursos.vistaEstructura?.montarModuloEstructuraOrganizativaPublica],
+    ...(catalogosPublicos ? [
+      [recursos.clienteRPT?.crearClienteHTTPRPTPublica, recursos.vistaRPT?.montarModuloRPTPublica],
+      [recursos.clienteEstructura?.crearClienteHTTPEstructuraOrganizativaPublica, recursos.vistaEstructura?.montarModuloEstructuraOrganizativaPublica],
+    ] : []),
   ];
   if (catalogos.some(([cliente, vista]) => typeof cliente !== "function" || typeof vista !== "function")) return undefined;
   const montarCatalogos = async ({ raiz, anunciar, registrarDesmontar }) => {
@@ -132,7 +134,7 @@ export function componerPersonalVisible(recursos, entorno) {
   return Object.freeze({
     montar: recursos.ficha?.montarVistaFichaIntegralPersonal
       ? ({ raiz, anunciar, registrarDesmontar }) => recursos.ficha.montarVistaFichaIntegralPersonal({
-        raiz, anunciar, registrarDesmontar, montarCatalogos,
+        raiz, anunciar, registrarDesmontar, montarCatalogos, fuentes: {},
         navegarModulo: (modulo) => {
           if (["dietas", "cronos"].includes(modulo) && entorno.location) entorno.location.hash = `#${modulo}`;
         },

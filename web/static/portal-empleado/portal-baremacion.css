@@ -1,0 +1,195 @@
+/* S3–S7: composición del recorrido; superficies y colores proceden del tema común. */
+.baremacion-vista {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.baremacion-vista > .panel,
+.baremacion-vista > .rejilla-kpi,
+.baremacion-vista > .nota-pendiente,
+.baremacion-vista > .nota-seguridad { margin: 0; }
+
+.baremacion-recorrido {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.baremacion-recorrido li {
+  min-width: 0;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio-lg);
+  background: var(--portal-superficie);
+  box-shadow: var(--portal-sombra-sm);
+}
+
+.baremacion-recorrido li:has(button[aria-current="page"]) {
+  border-color: var(--portal-azul-700);
+  background: var(--portal-azul-100);
+}
+
+.baremacion-recorrido button {
+  display: flex;
+  width: 100%;
+  min-height: 38px;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: var(--portal-tinta);
+  font: inherit;
+  font-size: .76rem;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.baremacion-recorrido li span {
+  display: grid;
+  flex: 0 0 23px;
+  height: 23px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--portal-azul-100);
+  color: var(--portal-azul-700);
+}
+
+.baremacion-ayuda { position: relative; flex: 0 0 auto; }
+.baremacion-ayuda summary {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 1px solid var(--portal-borde);
+  border-radius: 50%;
+  background: var(--portal-superficie);
+  color: var(--portal-azul-700);
+  font-weight: 800;
+  cursor: pointer;
+  list-style: none;
+}
+.baremacion-ayuda summary::-webkit-details-marker { display: none; }
+.baremacion-ayuda summary:focus-visible,
+.baremacion-vista button:focus-visible,
+.baremacion-recorrido button:focus-visible,
+.baremacion-vista input:focus-visible,
+.baremacion-vista select:focus-visible {
+  outline: 3px solid var(--portal-azul-700);
+  outline-offset: 2px;
+}
+.baremacion-ayuda p {
+  position: absolute;
+  z-index: 5;
+  top: 30px;
+  right: 0;
+  width: min(340px, 76vw);
+  margin: 4px 0 0;
+  padding: 12px;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio-lg);
+  background: var(--portal-superficie);
+  box-shadow: var(--portal-sombra-sm);
+  color: var(--portal-tinta);
+  font-size: .82rem;
+  line-height: 1.4;
+}
+.baremacion-vista .panel:has(.baremacion-ayuda[open]) { overflow: visible; }
+
+.baremacion-kpi { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.baremacion-kpi .tarjeta-kpi { min-height: 72px; }
+.baremacion-decision summary {
+  padding: 9px 14px;
+  color: var(--portal-azul-700);
+  font-size: .8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.baremacion-decision summary:focus-visible {
+  outline: 3px solid var(--portal-azul-700);
+  outline-offset: -3px;
+}
+.baremacion-vista .barra-filtros {
+  display: grid;
+  grid-template-columns: minmax(170px, 1.5fr) repeat(2, minmax(145px, 1fr)) auto;
+  gap: 10px;
+  align-items: end;
+}
+.baremacion-vista .barra-filtros .campo { min-width: 0; }
+.baremacion-vista .barra-filtros input,
+.baremacion-vista .barra-filtros select { width: 100%; }
+.baremacion-vista .tabla-contenedor {
+  max-height: min(43vh, 420px);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.baremacion-vista .tabla-datos th { position: sticky; top: 0; z-index: 1; }
+.baremacion-vista .tabla-datos td small,
+.baremacion-vista .tabla-datos td strong { display: block; }
+.baremacion-vista .tabla-datos td small { color: var(--portal-muted); }
+.baremacion-tabla-ayuda { display: none; margin: 0; padding: 5px 12px; color: var(--portal-muted); font-size: .73rem; }
+.baremacion-resolucion { margin-bottom: 4px; color: var(--portal-muted); font-size: .75rem; }
+.baremacion-resolucion strong { color: var(--portal-tinta); }
+.baremacion-vista .tabla-datos tbody tr:nth-child(even) { background: var(--portal-superficie-alterna); }
+.baremacion-vista .tabla-datos tbody tr:hover { background: var(--portal-azul-100); }
+.baremacion-vista .tabla-datos--estado:has([data-columna="puntos"]) {
+  min-width: 72rem;
+  table-layout: auto;
+}
+.baremacion-vista .tabla-datos--estado:has([data-columna="registro"]) {
+  min-width: 65rem;
+  table-layout: auto;
+}
+.baremacion-vista .tabla-datos td[data-columna="acceso"] { min-width: 205px; }
+.baremacion-vista .tabla-datos td[data-columna="fuente"] { min-width: 165px; }
+.baremacion-vista .tabla-datos td[data-columna="puntos"] { min-width: 160px; }
+.baremacion-vista .tabla-datos :is(th, td)[data-columna="puntos"],
+.baremacion-vista .tabla-datos :is(th, td)[data-columna="total"] {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.baremacion-pendiente { color: var(--portal-aviso); font-weight: 700; }
+.baremacion-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 8px 14px;
+}
+.baremacion-vista .acciones-formulario { flex-wrap: wrap; }
+.baremacion-vista button[disabled] {
+  background: var(--portal-superficie-alterna);
+  border-color: var(--portal-borde);
+  color: var(--portal-muted);
+  box-shadow: none;
+  opacity: 1;
+  cursor: not-allowed;
+}
+
+@media (max-width: 1024px) {
+  .baremacion-vista { gap: 8px; }
+  .baremacion-vista .tabla-contenedor { max-height: 125px; }
+  .baremacion-vista .resumen-expediente { gap: 3px; }
+  .baremacion-vista .fila-resumen { padding-bottom: 3px; }
+  .baremacion-vista .cuerpo-panel { padding-block: 8px; }
+  .baremacion-vista .barra-filtros { grid-template-columns: minmax(170px, 1.5fr) repeat(2, minmax(120px, 1fr)) auto; }
+}
+@media (max-width: 900px) {
+  .baremacion-kpi { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .baremacion-vista .barra-filtros { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  .baremacion-recorrido { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .baremacion-kpi,
+  .baremacion-vista .barra-filtros { grid-template-columns: minmax(0, 1fr); }
+  .baremacion-vista .tabla-contenedor { max-width: 100%; }
+  .baremacion-vista .tabla-contenedor { max-height: min(43vh, 420px); }
+  .baremacion-acciones { justify-content: flex-start; }
+  .baremacion-tabla-ayuda { display: block; }
+}

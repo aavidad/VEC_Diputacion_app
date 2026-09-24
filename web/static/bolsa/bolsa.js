@@ -3,9 +3,14 @@
 (() => {
   const contratoPublicoV1 = globalThis.VECBolsaContratoV1;
   if (!contratoPublicoV1) throw new Error("validador del contrato público V1 no disponible");
+  const i18n = globalThis.VECBolsaI18n;
   const t = globalThis.VECBolsaI18n?.t || ((clave) => clave);
+  const formateadorNumero = new Intl.NumberFormat("es-ES");
+  const numero = i18n?.numero || ((valor) => formateadorNumero.format(valor));
+  const plural = i18n?.plural || ((clave, total) => t(`${clave}_${total === 1 ? "uno" : "otros"}`, { total: numero(total) }));
   const API = "/api/publico/bolsa/convocatorias";
   const API_CATEGORIAS = "/api/publico/bolsa/categorias";
+  const FUENTE_NO_CONFIGURADA = "fuente_publica_no_configurada";
   const TAMANO = 12;
   const porId = (id) => document.getElementById(id);
   const elementos = {
@@ -13,7 +18,7 @@
     categoria: porId("filtro-categoria"), estado: porId("filtro-estado"), plazo: porId("filtro-plazo"),
     limpiar: porId("limpiar-filtros"), reintentar: porId("reintentar-consulta"), listado: porId("lista-convocatorias"),
     panelListado: porId("panel-listado"), cargando: porId("estado-cargando"), error: porId("estado-error"), vacio: porId("estado-vacio"),
-    estadoConsulta: porId("estado-consulta"), revision: porId("revision-fuente"), avisoContenedor: porId("aviso-demostracion"), aviso: porId("texto-aviso-demostracion"),
+    estadoConsulta: porId("estado-consulta"), revision: porId("revision-fuente"),
     paginacion: porId("paginacion"), anterior: porId("pagina-anterior"), siguiente: porId("pagina-siguiente"), pagina: porId("pagina-actual"),
     panelDetalle: porId("panel-detalle"), tituloDetalle: porId("titulo-detalle"), cerrarDetalle: porId("cerrar-detalle"),
     detalleEspera: porId("detalle-espera"), detalleCargando: porId("detalle-cargando"), detalleError: porId("detalle-error"),
@@ -27,11 +32,10 @@
     errorDirectorio: porId("error-directorio-categorias"), vacioDirectorio: porId("vacio-directorio-categorias"),
     gruposDirectorio: porId("grupos-directorio-categorias"), reintentarDirectorio: porId("reintentar-directorio-categorias"),
     integridadCategorias: porId("integridad-catalogo-categorias"),
-    inicioInstitucional: porId("enlace-inicio-institucional"),
   };
   const estado = {
     pagina: 1, paginas: 0, convocatoria: "", categorias: [], controladorListado: null, controladorDetalle: null,
-    controladorCategorias: null, etiquetasArea: new Map(), fuentesDemostracion: { convocatorias: null, categorias: null }, avisosDemostracion: {},
+    controladorCategorias: null, etiquetasArea: new Map(),
     facetas: null,
   };
   const formatoFecha = new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" });
@@ -55,25 +59,7 @@
   function etiquetaArea(valor) {
     if (estado.etiquetasArea.has(valor)) return estado.etiquetasArea.get(valor);
     const limpio = String(valor || "").replace(/[_-]+/g, " ").trim();
-    return limpio ? limpio.charAt(0).toLocaleUpperCase("es") + limpio.slice(1) : "Área no indicada";
-  }
-
-  function actualizarAvisoDemostracion(origen, fuente) {
-    estado.fuentesDemostracion[origen] = fuente?.demostracion === true;
-    const aviso = String(fuente?.aviso || "").replace(/^DEMOSTRACI[ÓO]N\s*:?\s*/i, "").trim();
-    if (aviso) estado.avisosDemostracion[origen] = aviso;
-    const valores = Object.values(estado.fuentesDemostracion);
-    const esDemostracion = valores.some(Boolean);
-    elementos.avisoContenedor.hidden = valores.every((valor) => valor !== null) && !esDemostracion;
-    elementos.inicioInstitucional.href = esDemostracion ? "/presentacion/" : "/bolsa/";
-    elementos.inicioInstitucional.setAttribute("aria-label", esDemostracion
-      ? "Volver al selector de recorridos de la presentación"
-      : "Inicio de Bolsa y procesos selectivos");
-    const avisos = [...new Set(Object.values(estado.avisosDemostracion))];
-    if (esDemostracion) {
-      elementos.aviso.textContent = "Datos públicos reales de referencia; plazos y actuaciones rotulados DEMO son sintéticos y carecen de validez administrativa.";
-      elementos.aviso.title = avisos.join(" ");
-    }
+    return limpio ? limpio.charAt(0).toLocaleUpperCase("es") + limpio.slice(1) : t("area_no_indicada");
   }
 
   function etiqueta(valor) {
@@ -93,7 +79,7 @@
 
   function intervalo(plazo) {
     const contenedor = document.createElement("span");
-    contenedor.append("Desde ", fecha(plazo.abre_en), " hasta ", fecha(plazo.cierra_en));
+    contenedor.append(`${t("plazo_desde")} `, fecha(plazo.abre_en), ` ${t("plazo_hasta")} `, fecha(plazo.cierra_en));
     return contenedor;
   }
 
@@ -165,6 +151,7 @@
     if (!tipo.includes("application/json")) throw new Error("respuesta no JSON");
     const contenido = await respuesta.json();
     if (!respuesta.ok) throw new Error(contenido?.error?.codigo || "consulta fallida");
+    if (contenido?.fuente?.demostracion === true) throw new Error(FUENTE_NO_CONFIGURADA);
     return contenido;
   }
 
@@ -188,7 +175,7 @@
       const opcion = document.createElement("option");
       opcion.value = valor.clave;
       opcion.textContent = Number.isInteger(valor.numero_resultados) && valor.numero_resultados > 0
-        ? `${valor.etiqueta} (${valor.numero_resultados})`
+        ? t("opcion_con_numero", { etiqueta: valor.etiqueta, total: numero(valor.numero_resultados) })
         : valor.etiqueta;
       select.appendChild(opcion);
     });
@@ -197,8 +184,8 @@
       const opcionSeleccionada = document.createElement("option");
       opcionSeleccionada.value = seleccionado;
       opcionSeleccionada.textContent = categoria
-        ? `${categoria.etiqueta} (sin procesos publicados)`
-        : `Selección sin resultados: ${seleccionado}`;
+        ? t("categoria_sin_procesos", { categoria: categoria.etiqueta })
+        : t("seleccion_sin_resultados", { seleccionado });
       select.appendChild(opcionSeleccionada);
     }
     if ([...select.options].some((opcion) => opcion.value === seleccionado)) select.value = seleccionado;
@@ -210,10 +197,6 @@
     completarSelect(elementos.tipo, facetas.tipos, t("todos_tipos"));
     completarSelect(elementos.categoria, facetas.categorias, t("todas_categorias"));
     completarSelect(elementos.estado, facetas.estados, t("todos_estados"));
-  }
-
-  function cantidad(total, singular, plural) {
-    return `${total} ${total === 1 ? singular : plural}`;
   }
 
   function hrefDetalle(identificador) {
@@ -237,11 +220,11 @@
     articulo.appendChild(etiquetas);
     articulo.appendChild(texto("h3", convocatoria.titulo));
     articulo.appendChild(texto("p", convocatoria.resumen));
-    const publicacion = texto("p", `Publicada el ${fechaPublicacion(convocatoria.publicada_en)}`, "tarjeta-meta");
+    const publicacion = texto("p", "", "tarjeta-meta");
     const publicacionTiempo = document.createElement("time");
     publicacionTiempo.dateTime = convocatoria.publicada_en;
     publicacionTiempo.textContent = fechaPublicacion(convocatoria.publicada_en);
-    publicacion.replaceChildren("Publicada el ", publicacionTiempo);
+    publicacion.replaceChildren(`${t("publicada_el")} `, publicacionTiempo);
     articulo.appendChild(publicacion);
     if (convocatoria.plazo_destacado) {
       const plazo = document.createElement("div");
@@ -251,11 +234,11 @@
       articulo.appendChild(plazo);
     }
     articulo.appendChild(texto("p", [
-      cantidad(convocatoria.numero_requisitos, "requisito", "requisitos"),
-      cantidad(convocatoria.numero_documentos, "documento", "documentos"),
-      cantidad(convocatoria.numero_ayudas, "ayuda", "ayudas"),
+      plural("requisito", convocatoria.numero_requisitos),
+      plural("documento", convocatoria.numero_documentos),
+      plural("ayuda", convocatoria.numero_ayudas),
     ].join(" · "), "tarjeta-meta"));
-    const enlace = texto("a", "Consultar ficha pública", "enlace-detalle");
+    const enlace = texto("a", t("consultar_ficha"), "enlace-detalle");
     enlace.href = hrefDetalle(convocatoria.identificador_publico);
     enlace.addEventListener("click", (evento) => {
       if (!activacionSimpleEnlace(evento)) return;
@@ -270,11 +253,13 @@
   function renderizarListado(datos) {
     const categoriasPorConvocatoria = contratoPublicoV1.validarListado(datos);
     renderizarFacetas(datos.facetas);
-    actualizarAvisoDemostracion("convocatorias", datos.fuente);
-    elementos.revision.textContent = `Fuente ${datos.fuente.revision} · actualizada ${formatoFecha.format(new Date(datos.fuente.actualizada_en))}`;
+    elementos.revision.textContent = t("fuente_actualizada", {
+      revision: datos.fuente.revision,
+      fecha: formatoFecha.format(new Date(datos.fuente.actualizada_en)),
+    });
     estado.paginas = datos.paginacion.paginas;
     estado.pagina = datos.paginacion.pagina;
-    elementos.estadoConsulta.textContent = cantidad(datos.paginacion.total, "convocatoria encontrada", "convocatorias encontradas");
+    elementos.estadoConsulta.textContent = plural("convocatoria_encontrada", datos.paginacion.total);
     vaciar(elementos.listado);
     datos.convocatorias.forEach((convocatoria) => elementos.listado.appendChild(
       tarjetaConvocatoria(convocatoria, categoriasPorConvocatoria.get(convocatoria.identificador_publico)),
@@ -285,7 +270,7 @@
     }
     estadoListado("listo");
     elementos.paginacion.hidden = estado.paginas <= 1;
-    elementos.pagina.textContent = `Página ${estado.pagina} de ${estado.paginas}`;
+    elementos.pagina.textContent = t("pagina_de", { pagina: numero(estado.pagina), paginas: numero(estado.paginas) });
     elementos.anterior.disabled = estado.pagina <= 1;
     elementos.siguiente.disabled = estado.pagina >= estado.paginas;
   }
@@ -310,7 +295,7 @@
     } catch (error) {
       if (error.name === "AbortError") return;
       estadoListado("error");
-      elementos.estadoConsulta.textContent = t("consulta_no_disponible");
+      elementos.estadoConsulta.textContent = t(error.message === FUENTE_NO_CONFIGURADA ? "fuente_no_configurada" : "consulta_no_disponible");
     }
   }
 
@@ -353,7 +338,7 @@
       const item = document.createElement("li");
       item.appendChild(texto("h4", requisito.titulo));
       item.appendChild(texto("p", requisito.descripcion));
-      item.appendChild(texto("span", requisito.obligatorio ? "Obligatorio" : "No obligatorio", "etiqueta"));
+      item.appendChild(texto("span", requisito.obligatorio ? t("obligatorio") : t("no_obligatorio"), "etiqueta"));
       elementos.detalleRequisitos.appendChild(item);
     });
   }
@@ -367,7 +352,7 @@
     documentos.forEach((documento) => {
       const item = document.createElement("li");
       item.append(etiqueta(documento.tipo), texto("h4", documento.titulo), texto("p", documento.descripcion));
-      const enlace = texto("a", `Abrir ${documento.formato.toUpperCase()}: ${documento.titulo}`, "enlace-documento");
+      const enlace = texto("a", t("abrir_documento", { formato: documento.formato.toUpperCase(), titulo: documento.titulo }), "enlace-documento");
       enlace.href = documento.url;
       item.appendChild(enlace);
       elementos.detalleDocumentos.appendChild(item);
@@ -400,13 +385,13 @@
     const publicacionTiempo = document.createElement("time");
     publicacionTiempo.dateTime = convocatoria.publicada_en;
     publicacionTiempo.textContent = fechaPublicacion(convocatoria.publicada_en);
-    elementos.detallePublicacion.replaceChildren("Bases publicadas el ", publicacionTiempo);
+    elementos.detallePublicacion.replaceChildren(`${t("bases_publicadas_el")} `, publicacionTiempo);
     elementos.detalleDescripcion.textContent = datos.descripcion;
     renderizarPlazos(datos.plazos);
     renderizarRequisitos(datos.requisitos);
     renderizarDocumentos(datos.documentos);
     renderizarAyuda(datos.ayuda);
-    elementos.detalleIntegridad.textContent = `Versión ${convocatoria.version} · huella SHA-256 ${convocatoria.huella_sha256}`;
+    elementos.detalleIntegridad.textContent = t("version_huella", { version: convocatoria.version, huella: convocatoria.huella_sha256 });
     estadoDetalle("listo");
     document.querySelectorAll(".tarjeta-convocatoria").forEach((tarjeta) => tarjeta.setAttribute("aria-current", String(tarjeta.dataset.identificador === estado.convocatoria)));
   }
@@ -425,7 +410,7 @@
       if (moverFoco) elementos.tituloDetalle.focus?.();
     } catch (error) {
       if (error.name === "AbortError") return;
-      elementos.tituloDetalle.textContent = t("ficha_no_disponible");
+      elementos.tituloDetalle.textContent = t(error.message === FUENTE_NO_CONFIGURADA ? "fuente_no_configurada" : "ficha_no_disponible");
       estadoDetalle("error");
     }
   }
@@ -477,8 +462,8 @@
   function resumenConteo(categoria) {
     const procesos = Number(categoria.numero_convocatorias) || 0;
     const abiertos = Number(categoria.numero_plazos_abiertos) || 0;
-    const textoProcesos = `${procesos} ${procesos === 1 ? "proceso publicado" : "procesos publicados"}`;
-    const textoAbiertos = `${abiertos} ${abiertos === 1 ? "plazo abierto" : "plazos abiertos"}`;
+    const textoProcesos = plural("proceso_publicado", procesos);
+    const textoAbiertos = plural("plazo_abierto", abiertos);
     return `${textoProcesos} · ${textoAbiertos}`;
   }
 
@@ -502,8 +487,8 @@
     item.appendChild(contenido);
 
     if (Number(categoria.numero_convocatorias) > 0) {
-      const enlace = texto("a", "Ver procesos", "enlace-detalle");
-      enlace.setAttribute("aria-label", `Ver procesos de ${categoria.etiqueta}`);
+      const enlace = texto("a", t("ver_procesos"), "enlace-detalle");
+      enlace.setAttribute("aria-label", t("ver_procesos_de", { categoria: categoria.etiqueta }));
       enlace.href = `/bolsa/?categoria=${encodeURIComponent(categoria.clave)}`;
       enlace.addEventListener("click", (evento) => {
         if (!activacionSimpleEnlace(evento)) return;
@@ -512,7 +497,7 @@
       });
       item.appendChild(enlace);
     } else {
-      item.appendChild(texto("span", "Sin convocatorias publicadas actualmente", "categoria-directorio__sin-procesos"));
+      item.appendChild(texto("span", t("sin_convocatorias_publicadas"), "categoria-directorio__sin-procesos"));
     }
     return item;
   }
@@ -525,7 +510,7 @@
       if (!consulta) return true;
       return normalizarBusqueda([categoria.etiqueta, categoria.descripcion, categoria.clave].join(" ")).includes(consulta);
     });
-    elementos.estadoDirectorio.textContent = `${filtradas.length} de ${estado.categorias.length} categorías mostradas`;
+    elementos.estadoDirectorio.textContent = t("categorias_mostradas", { mostradas: numero(filtradas.length), total: numero(estado.categorias.length) });
     vaciar(elementos.gruposDirectorio);
     if (filtradas.length === 0) {
       mostrarEstadoDirectorio("vacio");
@@ -534,7 +519,7 @@
 
     const grupos = new Map();
     filtradas.forEach((categoria) => {
-      const areaCategoria = categoria.area || "Área no indicada";
+      const areaCategoria = categoria.area || t("area_no_indicada");
       if (!grupos.has(areaCategoria)) grupos.set(areaCategoria, []);
       grupos.get(areaCategoria).push(categoria);
     });
@@ -563,12 +548,17 @@
     }
     estado.categorias = datos.categorias.slice().sort((a, b) => (a.orden - b.orden) || a.etiqueta.localeCompare(b.etiqueta, "es"));
     estado.etiquetasArea = new Map(estado.categorias.map((categoria) => [categoria.area, categoria.area_etiqueta]));
-    actualizarAvisoDemostracion("categorias", datos.fuente);
     configurarAreasDirectorio(estado.categorias);
     const huella = String(datos.catalogo.huella_sha256 || "");
-    elementos.integridadCategorias.textContent = `Catálogo ${datos.catalogo.referencia} · versión ${datos.catalogo.version} · ${datos.catalogo.total} categorías · huella ${huella.slice(0, 16)}…`;
-    elementos.integridadCategorias.setAttribute("aria-label", `Catálogo ${datos.catalogo.referencia}, versión ${datos.catalogo.version}, ${datos.catalogo.total} categorías, huella SHA-256 ${huella}`);
-    elementos.integridadCategorias.title = `SHA-256 ${huella}`;
+    elementos.integridadCategorias.textContent = t("catalogo_resumen", {
+      referencia: datos.catalogo.referencia, version: numero(datos.catalogo.version),
+      total: numero(datos.catalogo.total), huella: huella.slice(0, 16),
+    });
+    elementos.integridadCategorias.setAttribute("aria-label", t("catalogo_resumen_aria", {
+      referencia: datos.catalogo.referencia, version: numero(datos.catalogo.version),
+      total: numero(datos.catalogo.total), huella,
+    }));
+    elementos.integridadCategorias.title = t("huella_sha256", { huella });
     if (estado.facetas) renderizarFacetas(estado.facetas);
     renderizarDirectorioFiltrado();
   }
@@ -577,14 +567,14 @@
     if (estado.controladorCategorias) estado.controladorCategorias.abort();
     estado.controladorCategorias = new AbortController();
     mostrarEstadoDirectorio("cargando");
-    elementos.estadoDirectorio.textContent = "Cargando el catálogo profesional…";
+    elementos.estadoDirectorio.textContent = t("cargando_catalogo");
     try {
       const datos = await obtenerJSON(API_CATEGORIAS, estado.controladorCategorias.signal);
       renderizarDirectorio(datos);
     } catch (error) {
       if (error.name === "AbortError") return;
       estado.categorias = [];
-      elementos.estadoDirectorio.textContent = "El directorio no está disponible.";
+      elementos.estadoDirectorio.textContent = t(error.message === FUENTE_NO_CONFIGURADA ? "fuente_no_configurada" : "directorio_no_disponible");
       mostrarEstadoDirectorio("error");
     }
   }

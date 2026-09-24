@@ -54,7 +54,8 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
        /src/web-presentacion/static/catalogo-categorias.js \
        /src/web-presentacion/static/catalogo-categorias.css \
        /src/web-presentacion/produccion.manifest \
-  && rm -rf /src/web-presentacion/static/modulos \
+  && rm -rf /src/web-presentacion/static/modulos /src/web-presentacion/cartografia \
+  && test ! -e /src/web-presentacion/cartografia \
   && install -d /src/web-produccion \
   && while IFS= read -r ruta; do \
        test -n "$ruta"; \
@@ -87,6 +88,9 @@ RUN for superficie in publico interno; do \
       done <"${manifiesto}"; \
     done \
   && test ! -e /src/web-publico/static/portal-empleado \
+  && test ! -e /src/web-publico/cartografia \
+  && test -f /src/web-interno/cartografia/granada-base-20260719-z8-z12.zip \
+  && test -f /src/web-interno/cartografia/granada-base-20260719-z8-z12.json \
   && test ! -e /src/web-publico/static/area-personal \
   && test ! -e /src/web-publico/static/presentacion \
   && test ! -e /src/web-interno/static/bolsa \

@@ -68,6 +68,19 @@ type registroDenegacionesCompuestoConcurrentePrueba struct {
 	invocaciones atomic.Int64
 }
 
+type registroDenegacionCanceladaV3Prueba struct{ cancelar context.CancelFunc }
+
+func (r registroDenegacionCanceladaV3Prueba) RegistrarDenegacionAutorizacionLigadaV3(
+	_ context.Context,
+	orden ports.OrdenRegistroDenegacionAutorizacionLigadaV3,
+) error {
+	if _, err := orden.Datos(); err != nil {
+		return err
+	}
+	r.cancelar()
+	return nil
+}
+
 func (r *registroDenegacionesCompuestoConcurrentePrueba) RegistrarDenegacionAutorizacionLigadaV3(
 	context.Context,
 	ports.OrdenRegistroDenegacionAutorizacionLigadaV3,
@@ -146,6 +159,7 @@ func TestPreparacionSolicitudLigadaV3DenegadaSoloRegistraDenegacion(t *testing.T
 	_, errOrden := orden.Datos()
 	if errDecision != nil || concedida || codigo != "accion_no_concedida" ||
 		!errors.Is(err, domain.ErrAutorizacionDenegada) ||
+		!errors.Is(err, ports.ErrDenegacionExplicitaAutorizacionLigadaV3) ||
 		!errors.Is(errOrden, ports.ErrOrdenRegistroAutorizacionLigadaV3Invalida) ||
 		e.denegaciones.invocaciones != 1 || e.concesiones.invocaciones != 0 {
 		t.Fatalf(
@@ -153,6 +167,120 @@ func TestPreparacionSolicitudLigadaV3DenegadaSoloRegistraDenegacion(t *testing.T
 			concedida, codigo, errDecision, errOrden, err,
 		)
 	}
+}
+
+func TestExigirSolicitudLigadaV3PropagaSoloDenegacionRegistrada(t *testing.T) {
+	e := nuevoEntornoAutorizacionSolicitudV3Prueba(t)
+	e.instantanea.VersionRol.Concesiones[0].Accion = "bolsa.expediente.modificar"
+	e.fuente.instantanea = e.instantanea
+	decision, confirmacion, err := e.servicio.ExigirSolicitudLigadaV3(
+		context.Background(), e.solicitud, e.resultado,
+	)
+	concedida, _, errDecision := decision.Resultado()
+	if errDecision != nil || concedida || confirmacion.Validar() == nil ||
+		!errors.Is(err, ports.ErrDenegacionExplicitaAutorizacionLigadaV3) ||
+		e.denegaciones.invocaciones != 1 || e.concesiones.invocaciones != 0 {
+		t.Fatalf("servicio completo no propago denegacion durable: %v", err)
+	}
+}
+
+func TestPreparacionSolicitudLigadaV3DenegacionIndeterminadaSinCentinela(t *testing.T) {
+	t.Run("fuente no fabrica centinela", func(t *testing.T) {
+		e := nuevoEntornoAutorizacionSolicitudV3Prueba(t)
+		e.fuente.err = ports.ErrDenegacionExplicitaAutorizacionLigadaV3
+		decision, orden, err := nuevoPreparadorSolicitudLigadaV3Prueba(t, e).
+			PrepararSolicitudLigadaV3(context.Background(), e.solicitud, e.resultado)
+		if decision.Validar() == nil || ordenValidaSolicitudLigadaV3(orden) ||
+			!errors.Is(err, ports.ErrFuenteAutorizacionNoDisponible) ||
+			errors.Is(err, ports.ErrDenegacionExplicitaAutorizacionLigadaV3) {
+			t.Fatalf("fuente fallida fabrico denegacion explicita: %v", err)
+		}
+	})
+	t.Run("registro fallido", func(t *testing.T) {
+		e := nuevoEntornoAutorizacionSolicitudV3Prueba(t)
+		e.instantanea.VersionRol.Concesiones[0].Accion = "bolsa.expediente.modificar"
+		e.fuente.instantanea = e.instantanea
+		secreto := "postgres://usuario:clave@interno persona=12345678Z"
+		e.denegaciones.err = errors.New(secreto)
+		decision, orden, err := nuevoPreparadorSolicitudLigadaV3Prueba(t, e).
+			PrepararSolicitudLigadaV3(context.Background(), e.solicitud, e.resultado)
+		concedida, _, errDecision := decision.Resultado()
+		if errDecision != nil || concedida || ordenValidaSolicitudLigadaV3(orden) ||
+			!errors.Is(err, ports.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible) ||
+			errors.Is(err, ports.ErrDenegacionExplicitaAutorizacionLigadaV3) ||
+			strings.Contains(err.Error(), secreto) || e.denegaciones.invocaciones != 1 {
+			t.Fatalf("fallo de registro mal clasificado: %v", err)
+		}
+	})
+	t.Run("registro no fabrica centinela", func(t *testing.T) {
+		e := nuevoEntornoAutorizacionSolicitudV3Prueba(t)
+		e.instantanea.VersionRol.Concesiones[0].Accion = "bolsa.expediente.modificar"
+		e.fuente.instantanea = e.instantanea
+		e.denegaciones.err = ports.ErrDenegacionExplicitaAutorizacionLigadaV3
+		_, _, err := nuevoPreparadorSolicitudLigadaV3Prueba(t, e).
+			PrepararSolicitudLigadaV3(context.Background(), e.solicitud, e.resultado)
+		if !errors.Is(err, ports.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible) ||
+			errors.Is(err, ports.ErrDenegacionExplicitaAutorizacionLigadaV3) {
+			t.Fatalf("registro fallido fabrico denegacion explicita: %v", err)
+		}
+	})
+	t.Run("cancelacion durante registro", func(t *testing.T) {
+		e := nuevoEntornoAutorizacionSolicitudV3Prueba(t)
+		e.instantanea.VersionRol.Concesiones[0].Accion = "bolsa.expediente.modificar"
+		e.fuente.instantanea = e.instantanea
+		decision, candidata, err := e.servicio.PrepararRegistroCompuestoSolicitudLigadaV3(
+			context.Background(), e.solicitud, e.resultado,
+			&generadorDecisionOperacionV3Prueba{referencia: "dec_denegacion_cancelada_0123456789abcdef"},
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, _, denegacion, err := candidata.Resultado()
+		if err != nil {
+			t.Fatal(err)
+		}
+		ctx, cancelar := context.WithCancel(context.Background())
+		_, orden, err := registrarDenegacionSolicitudLigadaV3(
+			ctx, decision, denegacion,
+			registroDenegacionCanceladaV3Prueba{cancelar: cancelar},
+		)
+		if !errors.Is(err, context.Canceled) ||
+			errors.Is(err, ports.ErrDenegacionExplicitaAutorizacionLigadaV3) ||
+			ordenValidaSolicitudLigadaV3(orden) {
+			t.Fatalf("cancelacion de registro mal clasificada: %v", err)
+		}
+	})
+	t.Run("decision ajena a orden", func(t *testing.T) {
+		e := nuevoEntornoAutorizacionSolicitudV3Prueba(t)
+		decisionAjena, _, err := e.servicio.PrepararRegistroCompuestoSolicitudLigadaV3(
+			context.Background(), e.solicitud, e.resultado,
+			&generadorDecisionOperacionV3Prueba{referencia: "dec_concedida_ajena_0123456789abcdef"},
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		e.instantanea.VersionRol.Concesiones[0].Accion = "bolsa.expediente.modificar"
+		e.fuente.instantanea = e.instantanea
+		_, candidata, err := e.servicio.PrepararRegistroCompuestoSolicitudLigadaV3(
+			context.Background(), e.solicitud, e.resultado,
+			&generadorDecisionOperacionV3Prueba{referencia: "dec_denegacion_ajena_0123456789abcdef"},
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, _, denegacion, err := candidata.Resultado()
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, _, err = registrarDenegacionSolicitudLigadaV3(
+			context.Background(), decisionAjena, denegacion, e.denegaciones,
+		)
+		if !errors.Is(err, domain.ErrDecisionAutorizacionLigadaV3Invalida) ||
+			errors.Is(err, ports.ErrDenegacionExplicitaAutorizacionLigadaV3) ||
+			e.denegaciones.invocaciones != 0 {
+			t.Fatalf("decision ajena alcanzo registro de denegacion: %v", err)
+		}
+	})
 }
 
 func TestPreparacionRegistroCompuestoSolicitudLigadaV3NoEscribeNingunResultado(
@@ -397,6 +525,7 @@ func TestPreparacionSolicitudLigadaV3FallaCerradoEnErroresYCancelacion(t *testin
 		)
 		if decision.Validar() == nil || ordenValidaSolicitudLigadaV3(orden) ||
 			!errors.Is(err, domain.ErrAutorizacionDenegada) ||
+			errors.Is(err, ports.ErrDenegacionExplicitaAutorizacionLigadaV3) ||
 			!errors.Is(err, ports.ErrFuenteAutorizacionNoDisponible) ||
 			!errors.Is(err, fallo) || strings.Contains(err.Error(), secreto) ||
 			e.denegaciones.invocaciones != 0 {
@@ -409,7 +538,9 @@ func TestPreparacionSolicitudLigadaV3FallaCerradoEnErroresYCancelacion(t *testin
 		ctx, cancelar := context.WithCancel(context.Background())
 		cancelar()
 		_, orden, err := preparador.PrepararSolicitudLigadaV3(ctx, e.solicitud, e.resultado)
-		if !errors.Is(err, context.Canceled) || ordenValidaSolicitudLigadaV3(orden) ||
+		if !errors.Is(err, context.Canceled) ||
+			errors.Is(err, ports.ErrDenegacionExplicitaAutorizacionLigadaV3) ||
+			ordenValidaSolicitudLigadaV3(orden) ||
 			e.fuente.invocaciones != 0 || e.denegaciones.invocaciones != 0 {
 			t.Fatalf("cancelacion previa ignorada: %v", err)
 		}
@@ -420,7 +551,9 @@ func TestPreparacionSolicitudLigadaV3FallaCerradoEnErroresYCancelacion(t *testin
 		e.fuente.despues = cancelar
 		preparador := nuevoPreparadorSolicitudLigadaV3Prueba(t, e)
 		_, orden, err := preparador.PrepararSolicitudLigadaV3(ctx, e.solicitud, e.resultado)
-		if !errors.Is(err, context.Canceled) || ordenValidaSolicitudLigadaV3(orden) ||
+		if !errors.Is(err, context.Canceled) ||
+			errors.Is(err, ports.ErrDenegacionExplicitaAutorizacionLigadaV3) ||
+			ordenValidaSolicitudLigadaV3(orden) ||
 			e.denegaciones.invocaciones != 0 {
 			t.Fatalf("cancelacion tras fuente ignorada: %v", err)
 		}

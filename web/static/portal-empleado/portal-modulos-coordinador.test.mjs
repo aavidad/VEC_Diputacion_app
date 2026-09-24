@@ -474,19 +474,89 @@ test("Personal de presentación conserva categorías E24, RPT y estructura públ
   assert.ok(raiz.querySelector("[data-personal-estructura-organizativa-publica]"));
   assert.equal(llamadas.length, 3);
   assert.deepEqual(new Set(llamadas.map(({ ruta }) => ruta)), new Set(["/api/vec/personal/categories?q=&area=&limit=25&offset=0", "/api/vec/personal/rpt-publica?q=&limit=25&offset=0", "/api/vec/personal/estructura-organizativa-publica"]));
-  llamadas.forEach(({ opciones }) => { assert.equal(opciones.method, "GET"); assert.equal(opciones.credentials, "same-origin"); assert.equal(opciones.redirect, "error"); assert.equal(Object.hasOwn(opciones, "headers"), false); });
+  llamadas.forEach(({ ruta, opciones }) => {
+    assert.equal(opciones.method, "GET");
+    assert.equal(opciones.credentials, ruta.startsWith("/api/vec/personal/categories") ? "omit" : "same-origin");
+    assert.equal(opciones.redirect, "error");
+    assert.equal(Object.hasOwn(opciones, "headers"), false);
+  });
 });
 
-test("el cargador interno predeterminado de Personal compone contrato, cliente y vista reales", async () => {
+test("el cargador interno predeterminado de Personal monta la ficha sin cargar catálogos al entrar", async () => {
   const categorias = { data: { categories: { items: null, total: 0, limit: 25, offset: 0, catalogo: { catalogo_id: "categorias-profesionales", catalogo_version: 1, catalogo_huella_sha256: "a".repeat(64) }, fuente: { revision: "demo-v1", actualizada_en: "2026-09-20T08:00:00Z", demostracion: true, aviso: "DEMOSTRACIÓN pendiente de validación RRHH." } } } };
+  const llamadas = [];
   const coordinador = crearCoordinadorModulosPortal({
     escaparHTML: String,
-    entorno: { fetch: async () => respuestaJSON(categorias) },
+    entorno: { fetch: async (ruta) => { llamadas.push(ruta); return respuestaJSON(categorias); } },
     cargarCatalogoInterno: async () => Object.freeze([{ clave: "personal" }]),
     cargadoresInternos: { contratacion_temporal: async () => { throw new Error("no debe cargar CT"); } },
   });
   await coordinador.cargarInterno(); assert.equal(coordinador.resolverAcceso("personal").etiqueta, "Catálogo profesional de Personal");
-  const raiz = raizDietasFalsa(); assert.equal(await coordinador.montarVista("personal", raiz), true); assert.ok(raiz.querySelector("[data-personal-categorias]"));
+  const raiz = raizDietasFalsa(); assert.equal(await coordinador.montarVista("personal", raiz), true);
+  assert.ok(raiz.querySelector("[data-personal-ficha-integral]"));
+  assert.equal(raiz.querySelector("[data-personal-categorias]"), null);
+  assert.equal(llamadas.length, 0);
+  assert.equal(raiz.querySelectorAll('[data-personal-ficha-estado="no_configurado"]').length, 6);
+  raiz.querySelector('[data-personal-ficha-tab="relaciones"]').listeners.click();
+  assert.equal(llamadas.length, 0);
+  raiz.querySelector('[data-personal-ficha-tab="catalogos"]').listeners.click();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(llamadas, ["/api/vec/personal/categories?q=&area=&limit=25&offset=0"]);
+  assert.ok(raiz.querySelector("[data-personal-categorias]"));
+  coordinador.desmontarVistaActual();
+  assert.equal(raiz.querySelector("[data-personal-ficha-integral]"), null);
+});
+
+test("el paquete interno de Personal no solicita recursos RPT ni estructura pública", async () => {
+  const [codigo, manifiesto] = await Promise.all([
+    readFile(new URL("portal-modulos-coordinador.js", import.meta.url), "utf8"),
+    readFile(new URL("../../interno.manifest", import.meta.url), "utf8"),
+  ]);
+  const presentacion = codigo.split("const CARGADORES_PRESENTACION_PREDETERMINADOS =")[1]
+    .split("const CARGADORES_INTERNOS_PREDETERMINADOS =")[0];
+  const interno = codigo.split("const CARGADORES_INTERNOS_PREDETERMINADOS =")[1]
+    .split("function capacidadesDietas")[0];
+  const personalInterno = interno.split("personal: async () => {")[1].split("dietas: async () => {")[0];
+  const recursosInternos = [...personalInterno.matchAll(/import\("\.\/modulos\/personal\/([^?"']+)/gu)]
+    .map((match) => match[1]);
+  assert.deepEqual(recursosInternos, ["contrato.js", "cliente-http-categorias.js",
+    "vista.js", "vista-ficha-integral.js"]);
+  for (const recurso of recursosInternos) {
+    assert.match(manifiesto, new RegExp(`static/portal-empleado/modulos/personal/${recurso.replaceAll(".", "\\.")}`, "u"));
+  }
+  for (const recurso of ["cliente-http-rpt-publica.js", "vista-rpt-publica.js",
+    "cliente-http-estructura-organizativa-publica.js", "vista-estructura-organizativa-publica.js"]) {
+    assert.match(presentacion, new RegExp(recurso.replaceAll(".", "\\."), "u"), recurso);
+    assert.doesNotMatch(interno, new RegExp(recurso.replaceAll(".", "\\."), "u"), recurso);
+    assert.doesNotMatch(manifiesto, new RegExp(recurso.replaceAll(".", "\\."), "u"), recurso);
+  }
+});
+
+test("Cronos interno solo se compone desde el catálogo y deja la jornada sin fichaje", async () => {
+  const { montarJornadaCronos } = await import("./modulos/cronos/vista.js");
+  const { montarVistaRecorridosCronos } = await import("./modulos/cronos/vista-recorridos.js");
+  const { crearTraductorCronos } = await import("./modulos/cronos/i18n.js");
+  const cargadoresInternos = {
+    contratacion_temporal: async () => { throw new Error("no debe cargar CT"); },
+    cronos: async () => ({ vista: { montarJornadaCronos },
+      recorridos: { montarVistaRecorridosCronos }, i18n: { crearTraductorCronos } }),
+  };
+  const coordinador = crearCoordinadorModulosPortal({ escaparHTML: String,
+    cargarCatalogoInterno: async () => [{ clave: "cronos" }], cargadoresInternos });
+  await coordinador.cargarInterno();
+  assert.equal(coordinador.resolverAcceso("cronos").disponible, true);
+  const raiz = raizDietasFalsa();
+  assert.equal(await coordinador.montarVista("cronos", raiz), true);
+  const montaje = raiz.querySelector("[data-cronos-jornada-montaje]");
+  assert.ok(montaje);
+  assert.match(montaje.innerHTML, /data-estado="no_configurado"/);
+  assert.equal((montaje.innerHTML.match(/disabled aria-disabled="true"/g) || []).length, 2);
+  coordinador.desmontarVistaActual();
+  assert.equal(raiz.querySelector("[data-cronos-jornada-montaje]"), null);
+  const sinCatalogo = crearCoordinadorModulosPortal({ escaparHTML: String,
+    cargarCatalogoInterno: async () => [], cargadoresInternos });
+  await sinCatalogo.cargarInterno();
+  assert.equal(sinCatalogo.resolverAcceso("cronos").disponible, false);
 });
 
 test("CT interno se activa solo después de una consulta autorizada", async () => {

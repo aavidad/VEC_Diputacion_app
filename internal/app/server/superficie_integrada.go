@@ -28,6 +28,10 @@ func NewHandlerWithConfig(cfg config.Config, api http.Handler) http.Handler {
 // NewHandlerWithConfigConComprobadorDisponibilidad conserva la superficie
 // integrada y permite a composiciones nuevas conectar su estado de readiness.
 func NewHandlerWithConfigConComprobadorDisponibilidad(cfg config.Config, api http.Handler, comprobador ComprobadorDisponibilidad) http.Handler {
+	return newHandlerIntegradoConHashTeselasOSM(cfg, api, comprobador, sha256ZIPTeselasOSM)
+}
+
+func newHandlerIntegradoConHashTeselasOSM(cfg config.Config, api http.Handler, comprobador ComprobadorDisponibilidad, hashZIP string) http.Handler {
 	cfg = cfg.Normalize()
 	api = limitRequestBody(api, cfg.MaxRequestBodyBytes)
 	api = normalizarAnuncioTrailersHTTP2Contratacion(api)
@@ -38,7 +42,15 @@ func NewHandlerWithConfigConComprobadorDisponibilidad(cfg config.Config, api htt
 	registrarDirectorioAplicacion(mux, estaticos, "area-personal")
 	registrarDirectorioAplicacion(mux, estaticos, "portal-empleado")
 	registrarDirectorioAplicacion(mux, estaticos, "verificar")
+	registrarTeselasOSMConHash(mux, hashZIP)
 	registrarActivosCompartidos(mux, estaticos)
+	for _, ruta := range []string{
+		"/comun/oportunidades/vista.js",
+		"/comun/oportunidades/i18n.js",
+		"/comun/oportunidades/oportunidades.css",
+	} {
+		mux.Handle(ruta, soloLecturaHTTP(estaticos))
+	}
 	mux.Handle("/locales/", soloLecturaHTTP(localeHandler()))
 	mux.Handle(cfg.APIBasePath, api)
 	mux.Handle(cfg.APIBasePath+"/", api)

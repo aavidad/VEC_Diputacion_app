@@ -1,19 +1,20 @@
 <!doctype html>
-<html lang="es">
+<html lang="es" data-tema="institucional">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Consulta pública del orden, situación y documento enmascarado en las bolsas de trabajo.">
   <title>Listas de contratación y bolsas de trabajo | Portal VEC</title>
   <link rel="icon" href="/bolsa/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/styles.css">
-  <link rel="stylesheet" href="/bolsa/bolsa.css">
-  <link rel="stylesheet" href="/bolsa/bolsa_adaptable.css">
-  <link rel="stylesheet" href="/bolsa/listas.css">
+  <link rel="stylesheet" href="/styles.css?v=20260715-theme">
+  <link rel="stylesheet" href="/comun/tema-vec.css?v=20260924-bolsa-publica-final">
+  <link rel="stylesheet" href="/bolsa/bolsa.css?v=20260924-bolsa-sin-inline-v4">
+  <link rel="stylesheet" href="/bolsa/bolsa_adaptable.css?v=20260924-bolsa-publica-final">
+  <link rel="stylesheet" href="/bolsa/listas.css?v=20260924-bolsa-sin-inline-v4">
   <script type="module" src="/bolsa/contrato-publico-bolsas.js"></script>
-  <script src="/bolsa/i18n-publica.js?v=20260920-publico-i18n-v1" defer></script>
+  <script src="/bolsa/i18n-publica.js?v=20260924-bolsa-i18n-v2" defer></script>
   <script type="module" src="/bolsa/lista-bolsas-api.js"></script>
-  <script type="module" src="/bolsa/lista-bolsas.js"></script>
+  <script type="module" src="/bolsa/lista-bolsas.js?v=20260924-b10-reintento-foco-v1"></script>
 </head>
 <body class="portal-bolsa-publico">
   <a class="salto-contenido" href="#contenido-principal">Saltar al contenido principal</a>
@@ -35,7 +36,7 @@
         <a href="/bolsa/#contenido-principal">Convocatorias</a>
         <a href="/bolsa/#directorio-categorias">Categorías profesionales</a>
         <a href="/bolsa/listas.html" aria-current="page">Listas de aspirantes</a>
-        <a href="/bolsa/#ayuda-publica">Ayuda pública</a>
+        <a href="/bolsa/#ayuda-publica" aria-label="Ayuda pública" title="Ayuda pública">?</a>
       </nav>
     </aside>
 
@@ -53,7 +54,7 @@
 
       <main id="contenido-principal" class="contenido-publico contenedor-listas" tabindex="-1">
         <header class="cabecera-seccion-publica">
-          <p class="eyebrow">Consulta pública de aspirantes (B10)</p>
+          <p class="eyebrow">Consulta pública de aspirantes</p>
           <h1>Listas de aspirantes en bolsas de trabajo</h1>
           <p>Consulte el orden, situación administrativa y documento enmascarado en cada bolsa de trabajo en vigor. Esta consulta es de acceso libre y no requiere certificado ni identificación.</p>
         </header>
@@ -102,7 +103,7 @@
         </section>
 
         <!-- SECCIÓN 2: LISTA DE ASPIRANTES DE LA BOLSA SELECCIONADA -->
-        <section id="seccion-lista" aria-labelledby="titulo-seccion-lista" hidden>
+        <section id="seccion-lista" aria-label="Lista de aspirantes de la bolsa seleccionada" hidden>
           <p>
             <button type="button" id="boton-volver-bolsas" class="boton-secundario">
               ← Volver a la relación de bolsas
@@ -116,7 +117,7 @@
               <legend>Buscar aspirante en esta bolsa</legend>
               <div class="fila-busqueda">
                 <div class="campo-documento">
-                  <label for="filtro-documento">Documento enmascarado (formato ***1234**):</label>
+                  <label for="filtro-documento">Documento enmascarado:</label>
                   <input
                     type="text"
                     id="filtro-documento"
@@ -126,8 +127,11 @@
                     autocomplete="off"
                     spellcheck="false"
                   >
-                  <p id="error-formato-documento" class="ayuda-busqueda-doc" style="color: var(--danger);" hidden></p>
-                  <p class="ayuda-busqueda-doc">Introduzca únicamente los 4 dígitos centrales rodeados de asteriscos. No introduzca nombres ni letras del DNI.</p>
+                  <p id="error-formato-documento" class="ayuda-busqueda-doc ayuda-busqueda-doc--error" hidden></p>
+                  <details class="ayuda-formato-lista">
+                    <summary aria-label="Formato del documento enmascarado" title="Formato del documento enmascarado"><span aria-hidden="true">?</span></summary>
+                    <p id="ayuda-formato-documento" class="ayuda-busqueda-doc">Introduzca únicamente los 4 dígitos centrales rodeados de asteriscos. No introduzca nombres ni letras del DNI.</p>
+                  </details>
                 </div>
                 <div class="acciones-busqueda">
                   <button type="submit" class="boton-primario">Consultar</button>
