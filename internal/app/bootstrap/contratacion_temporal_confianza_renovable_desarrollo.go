@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"vec-diputacion-granada/internal/app/composicion/gobiernov3lector"
 	confianza "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
 	core "vec-diputacion-granada/internal/vec/domain"
 	vp "vec-diputacion-granada/internal/vec/ports"
@@ -22,6 +23,8 @@ type fuenteConfianzaRenovableCTDesarrollo struct {
 	reloj    relojConfianzaCTDesarrollo
 	material materialAtestacionContratacionTemporalDesarrollo
 	actual   *confianza.ServicioConfianzaAtestacionAutorizacionV3
+	lector   *gobiernov3lector.Lector
+	leer     func(context.Context, materialAtestacionContratacionTemporalDesarrollo, time.Time) (materialAtestacionContratacionTemporalDesarrollo, error)
 	renovar  func(context.Context, materialAtestacionContratacionTemporalDesarrollo, time.Time) (materialAtestacionContratacionTemporalDesarrollo, error)
 }
 
@@ -41,10 +44,46 @@ func nuevaFuenteConfianzaRenovableCTDesarrollo(pool *pgxpool.Pool, m materialAte
 		publicadaEn: m.publicadaEn, expiraEn: m.expiraEn, validaDesde: m.validaDesde,
 		validaHasta: m.validaHasta, spki: append([]byte(nil), m.spki...), spkiHuella: m.spkiHuella,
 	}
-	return &fuenteConfianzaRenovableCTDesarrollo{reloj: reloj, material: publica, actual: servicio,
+	f := &fuenteConfianzaRenovableCTDesarrollo{reloj: reloj, material: publica, actual: servicio,
+		leer: func(ctx context.Context, anterior materialAtestacionContratacionTemporalDesarrollo, ahora time.Time) (materialAtestacionContratacionTemporalDesarrollo, error) {
+			var actual materialAtestacionContratacionTemporalDesarrollo
+			err := ejecutarTransaccionGobiernoCTDesarrollo(ctx, pool, func(tx pgx.Tx) error {
+				var e error
+				actual, e = leerConfiguracionRenovableCTDesarrollo(ctx, tx, anterior, ahora)
+				return e
+			})
+			return actual, err
+		},
 		renovar: func(ctx context.Context, anterior materialAtestacionContratacionTemporalDesarrollo, ahora time.Time) (materialAtestacionContratacionTemporalDesarrollo, error) {
 			return renovarConfiguracionConfianzaCTDesarrollo(ctx, pool, anterior, ahora)
-		}}, nil
+		}}
+	f.lector, err = f.nuevoLector()
+	if err != nil {
+		return nil, err
+	}
+	return f, nil
+}
+
+func publicacionConfianzaCT(m materialAtestacionContratacionTemporalDesarrollo) gobiernov3lector.Publicacion {
+	return gobiernov3lector.Publicacion{Revision: m.configuracionRef, Secuencia: m.configuracionOrden,
+		HuellaSHA256: m.configuracionHuella, PublicadaEn: m.publicadaEn, ExpiraEn: m.expiraEn}
+}
+
+func (f *fuenteConfianzaRenovableCTDesarrollo) nuevoLector() (*gobiernov3lector.Lector, error) {
+	return gobiernov3lector.Nuevo(publicacionConfianzaCT(f.material), f.material.raiz, f.reloj,
+		func(ctx context.Context, previa gobiernov3lector.Publicacion) (gobiernov3lector.Publicacion, error) {
+			if f.leer == nil {
+				return gobiernov3lector.Publicacion{}, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+			}
+			anterior := f.material
+			anterior.configuracionRef, anterior.configuracionOrden = previa.Revision, previa.Secuencia
+			anterior.configuracionHuella, anterior.publicadaEn, anterior.expiraEn = previa.HuellaSHA256, previa.PublicadaEn, previa.ExpiraEn
+			actual, err := f.leer(ctx, anterior, f.reloj.Ahora().UTC())
+			if err != nil {
+				return gobiernov3lector.Publicacion{}, err
+			}
+			return publicacionConfianzaCT(actual), nil
+		})
 }
 
 func (f *fuenteConfianzaRenovableCTDesarrollo) instantanea(ctx context.Context) (*confianza.ServicioConfianzaAtestacionAutorizacionV3, error) {
@@ -57,33 +96,34 @@ func (f *fuenteConfianzaRenovableCTDesarrollo) instantanea(ctx context.Context) 
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	if f.reloj == nil || f.actual == nil || f.renovar == nil {
+	if f.reloj == nil || f.lector == nil || f.leer == nil || f.renovar == nil {
 		return nil, fallo
 	}
 	ahora := f.reloj.Ahora().UTC()
 	if ahora.Before(f.material.publicadaEn) || ahora.Before(f.material.validaDesde) || !ahora.Before(f.material.validaHasta) {
 		return nil, fallo
 	}
-	if ahora.Before(f.material.expiraEn) {
-		return f.actual, nil
+	if !ahora.Before(f.material.expiraEn) {
+		// Único publicador: vec-server. La lectura posterior es separada y no
+		// adopta una publicación que no pueda volver a leer del gobierno.
+		if _, err := f.renovar(ctx, f.material, ahora); err != nil {
+			return nil, err
+		}
 	}
-	m, err := f.renovar(ctx, f.material, ahora)
+	servicio, publicada, err := f.lector.Leer(ctx)
 	if err != nil {
-		return nil, err
-	}
-	// El callback productivo sólo vuelve tras COMMIT; cualquier error mantiene
-	// la instantánea caducada. Un COMMIT ambiguo se resuelve leyendo de nuevo.
-	if m.configuracionOrden < f.material.configuracionOrden || m.claveID != f.material.claveID || m.claveVersion != f.material.claveVersion || m.spkiHuella != f.material.spkiHuella || ahora.Before(m.publicadaEn) || !ahora.Before(m.expiraEn) {
 		return nil, fallo
 	}
-	servicio, err := confianza.NuevoServicioConfianzaAtestacionAutorizacionV3(m.configuracion, f.reloj)
+	config, err := confianza.NuevaConfiguracionConfianzaAtestacionAutorizacionV3(publicada.Revision, publicada.Secuencia, publicada.PublicadaEn, publicada.ExpiraEn, f.material.raiz)
 	if err != nil {
 		return nil, fallo
 	}
 	if err = ctx.Err(); err != nil {
 		return nil, err
 	}
-	f.material = m
+	f.material.configuracionRef, f.material.configuracionOrden = publicada.Revision, publicada.Secuencia
+	f.material.configuracionHuella, f.material.publicadaEn, f.material.expiraEn = publicada.HuellaSHA256, publicada.PublicadaEn, publicada.ExpiraEn
+	f.material.configuracion = config
 	f.actual = servicio
 	return servicio, nil
 }
