@@ -12,11 +12,12 @@ const versionPersonalInterno = "20260924-p1-personal-interno-v2";
 const versionPersonalEstados = "20260924-f2-personal-estados-v4";
 const versionCronosPermisos = "20260924-f2-cronos-permisos-v2";
 const versionCronosAyuda = "20260924-cronos-integrado-v1";
-const versionDietasShell = "20260924-web-c-ayuda-v4";
-const versionDietasVista = "20260924-dietas-ayuda-icono-v1";
+const versionDietasShell = "20260924-web-c-ayuda-v5";
+const versionDietasIcono = "20260924-dietas-ayuda-icono-v1";
+const versionDietasVista = "20260924-dietas-ayuda-sin-guia-v1";
 const versionVistasC = "20260924-web-c-v1";
 const versionDietasRecuperacion = "20260924-dietas-recuperacion-v3";
-const versionIntegracion = "20260924-web-c-ayuda-v4";
+const versionIntegracion = "20260924-web-c-ayuda-v5";
 const raiz = new URL("./", import.meta.url);
 
 function versionesDe(codigo, recurso) {
@@ -41,7 +42,7 @@ test("una carga con caché caliente solicita CSS F2 y entrada JS con URL nueva",
   ]);
   for (const [recurso, versionAntigua] of previo) {
     assert.equal(versionDe(html, `/portal-empleado/${recurso}`),
-      recurso === "portal.js" ? versionDietasShell : recurso === "portal.css" ? versionSaltoMovil : recurso === "modulos/dietas/dietas.css" ? versionDietasVista : version);
+      recurso === "portal.js" ? versionDietasShell : recurso === "portal.css" ? versionSaltoMovil : recurso === "modulos/dietas/dietas.css" ? versionDietasIcono : version);
     assert.notEqual(versionDe(html, `/portal-empleado/${recurso}`), versionAntigua);
   }
   for (const recurso of ["portal-baremacion.css", "portal-contratos.css", "portal-convocatorias.css",
@@ -117,13 +118,13 @@ test("el grafo JS propio llega desde HTML a los consumidores F2 con versiones nu
   }
   assert.deepEqual(versionesDe(coordinador, "./modulos/dietas/vista-recorridos.js"),
     [versionDietasVista, versionDietasVista]);
-  assert.equal(versionDe(dietas, "./vista-borradores-propios.js"), versionDietasRecuperacion);
+  assert.equal(versionDe(dietas, "./vista-borradores-propios.js"), versionDietasVista);
 });
 
 test("la caché immutable previa no retiene el catálogo i18n ni los consumidores F2", async () => {
   const versionesPrevias = new Map([
-    ["portal.js", ["20260924-web-integrada-v1", version, versionCache, versionCachePersonal, "20260924-p1-personal-interno-v1", versionPersonalInterno, versionPersonalEstados, "20260924-f2-cronos-permisos-v1", versionCronosPermisos, "20260924-f2-dietas-consulta-v2", "20260924-web-c-v3"]],
-    ["portal-modulos-coordinador.js", ["20260924-web-integrada-v1", version, versionCache, versionCachePersonal, "20260924-p1-personal-interno-v1", versionPersonalInterno, versionPersonalEstados, "20260924-f2-cronos-permisos-v1", versionCronosPermisos, "20260924-f2-dietas-consulta-v2", "20260924-web-c-v3"]],
+    ["portal.js", ["20260924-web-integrada-v1", version, versionCache, versionCachePersonal, "20260924-p1-personal-interno-v1", versionPersonalInterno, versionPersonalEstados, "20260924-f2-cronos-permisos-v1", versionCronosPermisos, "20260924-f2-dietas-consulta-v2", "20260924-web-c-v3", "20260924-web-c-ayuda-v4"]],
+    ["portal-modulos-coordinador.js", ["20260924-web-integrada-v1", version, versionCache, versionCachePersonal, "20260924-p1-personal-interno-v1", versionPersonalInterno, versionPersonalEstados, "20260924-f2-cronos-permisos-v1", versionCronosPermisos, "20260924-f2-dietas-consulta-v2", "20260924-web-c-v3", "20260924-web-c-ayuda-v4"]],
     ["portal-catalogo-modulos.js", ["20260906-acceso-certificado-v1", versionCache]],
     ["portal-inicio.js", ["20260923-p4-reintento-v2", versionCache]],
     ["portal-eventos.js", ["20260721-acceso-real-v2", versionCache]],
@@ -131,7 +132,7 @@ test("la caché immutable previa no retiene el catálogo i18n ni los consumidore
     ["portal-borradores-acceso.js", ["20260721-acceso-real-v2", versionCache]],
     ["portal-i18n.js", ["20260721-acceso-real-v2", "20260923-p4-reintento-v2", version, versionCache]],
     ["modulos/cronos/vista-recorridos.js", ["20260920-cronos-bandeja-v2", versionCache]],
-    ["modulos/dietas/vista-recorridos.js", [version, "20260924-f2-dietas-consulta-v2", versionDietasRecuperacion]],
+    ["modulos/dietas/vista-recorridos.js", [version, "20260924-f2-dietas-consulta-v2", versionDietasRecuperacion, versionDietasIcono]],
     ["modulos/personal/vista.js", ["20260920-personal-catalogo-v1", versionCachePersonal]],
     ["modulos/personal/cliente-http-categorias.js", ["20260920-personal-catalogo-v1"]],
     ["modulos/personal/vista-estructura-organizativa-publica.js", ["20260920-personal-estructura-v1"]],
