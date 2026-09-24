@@ -86,6 +86,22 @@ test("la ayuda queda detrás de ? y la fuente DEMO sigue visible", async () => {
   modulo.desmontar();
 });
 
+test("el aviso DEMO usa la nota multilínea del tema en móvil", async () => {
+  const r = raiz();
+  const modulo = await montarModuloEstructuraOrganizativaPublica({ raiz: r, cliente: { async obtener() { return estructura(); } } });
+  const aviso = r.querySelector("[data-personal-estructura-aviso]");
+  const tema = readFileSync(new URL("../../portal.css", import.meta.url), "utf8");
+  const componentes = readFileSync(new URL("../../portal-componentes.css", import.meta.url), "utf8");
+  assert.equal(aviso.tagName, "p");
+  assert.equal(aviso.className, "nota-integracion");
+  assert.equal(aviso.atributos.get("role"), "note");
+  assert.match(aviso.textContent, /Fuente DEMO.*no acredita vigencia administrativa/u);
+  assert.match(tema, /\.nota-integracion\s*\{[^}]*background:\s*var\(--portal-aviso-suave\);[^}]*color:\s*var\(--portal-aviso\);/u);
+  assert.doesNotMatch(tema.match(/\.nota-integracion\s*\{[^}]*\}/u)?.[0], /white-space:\s*nowrap/u);
+  assert.match(componentes, /\.estado-chip\s*\{[^}]*white-space:\s*nowrap/u);
+  modulo.desmontar();
+});
+
 test("la tabla prioriza nombre y adscripción legible, conserva clave y scroll interno", async () => {
   const r = raiz();
   const modulo = await montarModuloEstructuraOrganizativaPublica({ raiz: r, cliente: { async obtener() { return estructura(); } } });

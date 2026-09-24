@@ -127,7 +127,9 @@ function pintar(raiz, contenedor, estado, t, pagina, cambiarPagina) {
   }
   const estructura = estado.estructura;
   const aviso = nodo(documento, "p", t("estructura_aviso"));
-  aviso.className = "estado-chip aviso";
+  aviso.className = "nota-integracion";
+  aviso.dataset.personalEstructuraAviso = "";
+  aviso.setAttribute("role", "note");
   const paginas = Math.ceil(estructura.unidades.length / FILAS_POR_PAGINA);
   const marco = nodo(documento, "div");
   marco.className = "marco-tabla-paginado";
