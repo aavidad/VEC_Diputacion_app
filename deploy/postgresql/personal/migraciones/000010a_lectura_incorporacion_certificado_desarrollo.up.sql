@@ -8,7 +8,7 @@ SET LOCAL statement_timeout='30s';
 SELECT pg_advisory_xact_lock(hashtextextended('vec_personal.dependencias.alta_ejercicio.v1',0));
 SELECT pg_advisory_xact_lock(hashtextextended('vec_personal:migracion:000010a:certificado-desarrollo',0));
 
--- BASE10 instala Organización/Personal antes de esta guarda. Su función y
+-- BASE10 y BASE11 instalan Organización/Personal antes de esta guarda. Su función y
 -- tabla tienen propietario/ACL propios; no se reescriben aquí.
 DO $base10$
 DECLARE t oid:=to_regclass('vec_personal.org_nodo_historia');
@@ -17,6 +17,8 @@ DECLARE t oid:=to_regclass('vec_personal.org_nodo_historia');
   e oid:='vec_personal_ejecutor'::regrole;
 BEGIN
  IF t IS NULL OR f IS NULL
+    OR to_regclass('vec_personal.importacion_organizacion_revision') IS NULL
+    OR to_regprocedure('vec_personal.ejecutar_importacion_organizacion_v1(text,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
     OR NOT EXISTS (SELECT 1 FROM pg_class WHERE oid=t AND relkind='r'
        AND relowner=o AND relrowsecurity AND relforcerowsecurity)
     OR (SELECT count(*) FROM pg_policy WHERE polrelid=t)<>1
@@ -36,9 +38,9 @@ BEGIN
        AND tgfoid='vec_personal.rechazar_mutacion_organizacion_v1()'::regprocedure)
     OR NOT EXISTS (SELECT 1 FROM pg_proc WHERE oid=f AND proowner=o
        AND prosecdef AND provolatile='v' AND prorettype='jsonb'::regtype
-       AND octet_length(prosrc)=19309
+       AND octet_length(prosrc)=20430
        AND encode(sha256(convert_to(prosrc,'UTF8')),'hex')=
-          '20edce9ff263652b13e30e08ee3288dccd68219cc6e1556ddddf17ce3aa2abd2'
+          '22b6ddf4ce19d01ea7440745043d4cd2a72c00e0960842c12b5fc618f11d32b5'
        AND obj_description(oid,'pg_proc')=
           'Consulta B3 con autorización V3 consumida y auditoría; historia estructural sin ocupaciones ni vacantes.')
     OR EXISTS (SELECT 1 FROM pg_proc p,
@@ -46,7 +48,7 @@ BEGIN
        WHERE p.oid=f AND (a.grantor<>o OR a.is_grantable
          OR a.privilege_type<>'EXECUTE' OR a.grantee NOT IN (o,e)))
     OR NOT has_function_privilege(e,f,'EXECUTE') THEN
-   RAISE EXCEPTION 'Personal 000010a: BASE10 ausente o alterada' USING ERRCODE='55000';
+   RAISE EXCEPTION 'Personal 000010a: BASE10/11 ausente o alterada' USING ERRCODE='55000';
  END IF;
 END $base10$;
 

@@ -157,7 +157,7 @@ no mostrar contraseñas. El estado de credenciales se conserva en
 `pools-state.json` antes de la transacción, para repetirla con los mismos LOGIN.
 
 En una base ya restaurada con preimagen canónica CT `000108`, Identidad
-`000005`, Personal BASE `000010`, AD3 y las ACL nominales intactas, el instalador
+`000005`, Personal BASE `000010`–`000011`, AD3 y las ACL nominales intactas, el instalador
 de deltas nuevos exige además Identidad `000004` y ausencia exacta de
 Contexto `000006`, Identidad `000006`, Personal `000010a`, CT identidad
 `000002` y AD3 `000050a`. Lee las fuentes `.up.sql` canónicas,
