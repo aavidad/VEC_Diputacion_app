@@ -110,20 +110,19 @@ test("las entradas con recorrido real describen su alcance concreto", () => {
   assert.match(html, /data-categoria-bolsa="documentos" data-vista="contratacion-temporal"/u);
 });
 
-test("ninguna ruta de la gestión actual desaparece al agrupar el menú", () => {
+test("el menú agrupa solo las rutas de gestión con superficie conservada", () => {
   const vistas = [
     "resumen", "elaboracion", "convocatorias", "solicitudes", "meritos", "baremacion",
     "alegaciones", "importacion", "llamamientos", "contratos", "documentos",
     "comunicaciones", "estadisticas", "auditoria", "configuracion", "reglas", "consulta",
-    "seleccion-inscripciones", "seleccion-pruebas", "seleccion-comunicaciones",
   ];
   const vistasMapeadas = Object.values(CATEGORIAS_MENU_BOLSA).flat();
   const fragmentoMenu = html.match(/<nav class="navegacion-bolsa"[\s\S]+?<\/nav>/)?.[0] || "";
   const vistasEnPlantilla = [...fragmentoMenu.matchAll(/data-vista="([a-z-]+)"/g)].map((item) => item[1]);
-  assert.equal(vistasMapeadas.length, 20);
-  assert.equal(new Set(vistasMapeadas).size, 20, "cada vista debe pertenecer a una sola categoría");
+  assert.equal(vistasMapeadas.length, 17);
+  assert.equal(new Set(vistasMapeadas).size, 17, "cada vista debe pertenecer a una sola categoría");
   assert.deepEqual([...vistasMapeadas].sort(), [...vistas].sort());
-  assert.equal(vistasEnPlantilla.length, 20);
+  assert.equal(vistasEnPlantilla.length, 17);
   assert.deepEqual([...vistasEnPlantilla].filter((vista) => vistas.includes(vista)).sort(), [
     ...vistas.filter((vista) => !["documentos", "comunicaciones"].includes(vista)),
     "llamamientos",
@@ -134,12 +133,18 @@ test("ninguna ruta de la gestión actual desaparece al agrupar el menú", () => 
   assert.equal(categoriaDeVistaBolsa("baremacion"), "reglas");
   assert.equal(categoriaDeVistaBolsa("configuracion"), "auditoria");
   assert.equal(categoriaDeVistaBolsa("cronos"), "");
+  for (const vista of ["seleccion-inscripciones", "seleccion-pruebas", "seleccion-comunicaciones"]) {
+    assert.equal(categoriaDeVistaBolsa(vista), "");
+    assert.equal(vistaBolsaPendienteNoCompuesta(vista), false);
+    assert.equal(VISTAS_INTERNAS_BOLSA.includes(vista), false);
+    assert.equal(vistasEnPlantilla.includes(vista), false);
+  }
 });
 
-test("B5 completa las veintiuna vistas internas sin duplicar su enlace", () => {
+test("B5 completa las dieciocho vistas internas sin duplicar su enlace", () => {
   const vistasMenu = Object.values(CATEGORIAS_MENU_BOLSA).flat();
-  assert.equal(vistasMenu.length, 20);
-  assert.equal(VISTAS_INTERNAS_BOLSA.length, 21);
+  assert.equal(vistasMenu.length, 17);
+  assert.equal(VISTAS_INTERNAS_BOLSA.length, 18);
   assert.equal(VISTAS_INTERNAS_BOLSA.filter((vista) => vista === VISTA_CANDIDATOS_BOLSA).length, 1);
   assert.equal(categoriaDeVistaBolsa(VISTA_CANDIDATOS_BOLSA), "bolsas-candidatos");
   assert.doesNotMatch(html.match(/<nav class="navegacion-bolsa"[\s\S]+?<\/nav>/)?.[0] || "", /data-vista="bolsa-candidatos"/);
@@ -215,7 +220,7 @@ test("el menú conserva mínimo privilegio, adaptación y ausencia de estado amb
   assert.doesNotMatch(codigoMenu, /textContent|innerText|dataset\.vista|navegar\(|fetch\(|location\.|history\./);
   assert.match(codigoMenu, /closest\?\.\("\[data-grupo-bolsa\]"\)/);
   assert.match(codigoPortal, /function vistaPermitida\(vista\)/);
-  assert.match(codigoPortal, /control\.disabled = true/);
+  assert.match(codigoPortal, /if \(vista\.startsWith\("seleccion-"\)\) return false/);
   assert.match(estilos, /@media \(max-width: 1040px\)/);
   assert.match(estilos, /@media \(max-width: 780px\)/);
   assert.match(estilos, /\.categoria-menu-bolsa \.numero-menu\s*\{[^}]*border-radius:\s*50%/);

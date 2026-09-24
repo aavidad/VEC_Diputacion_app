@@ -1,5 +1,10 @@
+import { MENSAJES_AYUDA_PORTAL_ES } from "./portal-i18n-ayuda.js?v=20260924-ayuda-i18n-v1";
+import { MENSAJES_PANEL_INTERNO_ES } from "./portal-panel-interno-i18n.js?v=20260924-ayuda-panel-i18n-v2";
+
 /** Catálogo común de los estados del shell y del acceso a Borradores. */
 export const MENSAJES_PORTAL_ES = Object.freeze({
+  ...MENSAJES_AYUDA_PORTAL_ES,
+  ...MENSAJES_PANEL_INTERNO_ES,
   contexto_portal_titulo: "Portal interno",
   contexto_portal_descripcion: "Identidad personal no mostrada",
   contexto_portal_accesible: "Portal interno. Identidad personal no mostrada",
@@ -30,10 +35,6 @@ export const MENSAJES_PORTAL_ES = Object.freeze({
   cronos_jornada_titulo: "Cronos · jornada y fichajes",
   cronos_permisos_miga: "Portal del Empleado → Cronos → Permisos",
   cronos_permisos_titulo: "Cronos · permisos y ausencias",
-  seleccion_miga: "Portal del Empleado → Bolsas de trabajo → Selección",
-  seleccion_inscripciones_titulo: "Inscripciones y subsanaciones",
-  seleccion_pruebas_titulo: "Pruebas y resultados",
-  seleccion_comunicaciones_titulo: "Comunicaciones de selección",
   contratos_consulta_etiqueta: "Consulta",
   contratos_consulta_estado: "Fuente de contratos sin configurar · altas, ceses y reincorporaciones pendientes",
   descripcion_superficie_no_montada: "No se pudo montar la superficie solicitada.",
@@ -44,6 +45,8 @@ export const MENSAJES_PORTAL_ES = Object.freeze({
     "La composición real de Contratación temporal todavía no está disponible en este portal.",
   contratacion_temporal_aviso_no_disponible: "Esta vista no monta el módulo ni habilita sus operaciones.",
   accion_volver_portal: "Volver al portal",
+  accion_ir_inicio_portal: "Ir al inicio del Portal del Empleado",
+  operacion_no_compuesta: "Esta operación permanece deshabilitada hasta que su comando de servidor esté compuesto y autorizado.",
   accion_entrar: "Entrar",
   accion_reintentar: "Reintentar",
   paginacion_marco_etiqueta: "Paginación de la tabla",

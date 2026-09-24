@@ -13,7 +13,7 @@ import {
   validarRespuestaContactos,
   validarRespuestaEstadisticas,
 } from "./portal-bolsas-contrato.js";
-import { traducirBolsaInterna } from "./portal-i18n.js";
+import { traducirBolsaInterna, traducirPortal } from "./portal-i18n.js";
 import { crearControladorOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260923-pweb13-b8-v1";
 import { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js";
 export { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js";
@@ -292,12 +292,24 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
   const controladoresLectura = new Map();
   let controladorSeleccionMasiva = null;
   let revisionSeleccionMasiva = 0;
+  // Custodia volátil del comando mientras el resultado de un POST puede ser incierto.
+  // La navegación cambia filtros y bolsa; nunca cambia esta clave ni este cuerpo.
+  let emisionB7 = null;
+  function restaurarComandoB7(registro) {
+    registro.flujo.participaciones = [...registro.comando.participaciones];
+    registro.flujo.configuracion = { ...registro.comando.configuracion };
+    registro.flujo.clave_idempotencia = registro.comando.clave_idempotencia;
+  }
+  const plazoIndicado = (valor) => {
+    const plazo = String(valor || "").trim();
+    return plazo.length > 0 && !/\bpendiente\b/i.test(plazo);
+  };
   function invalidarSeleccionMasiva() {
     revisionSeleccionMasiva += 1;
     controladorSeleccionMasiva?.abort();
     controladorSeleccionMasiva = null;
     const flujo = estado.filtrosBolsa?.nuevo_llamamiento;
-    if (flujo) {
+    if (flujo && flujo !== emisionB7?.flujo) {
       flujo.consultando = false;
       flujo.seleccion_total = false;
       flujo.participaciones = [];
@@ -450,6 +462,15 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     for (const controlador of controladoresLectura.values()) controlador.abort();
     controladoresLectura.clear();
     for (const clave of ["bolsas", "candidatos", "contactos"]) limpiarEstadoCarga(clave);
+  }
+
+  function suspenderLlamamientoB7() {
+    const flujo = estado.filtrosBolsa?.nuevo_llamamiento;
+    if (flujo && flujo !== emisionB7?.flujo) invalidarSeleccionMasiva();
+    if (flujo) {
+      const { nuevo_llamamiento: _omitido, ...resto } = estado.filtrosBolsa;
+      estado.filtrosBolsa = resto;
+    }
   }
 
   function sincronizarPaginaB7(formulario) {
@@ -742,6 +763,22 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
         cerrarResultado();
       } else if (accion === "iniciar-b7") {
         evento.preventDefault();
+        if (emisionB7) {
+          const bolsaOriginal = emisionB7.comando.bolsa_ref;
+          restaurarComandoB7(emisionB7);
+          const recargar = estado.bolsaSeleccionada !== bolsaOriginal ||
+            estado.datosCandidatos?.carga !== "listo" ||
+            estado.datosCandidatos?.datos?.bolsa?.bolsa_ref !== bolsaOriginal;
+          estado.filtrosBolsa = { ...estado.filtrosBolsa, estado: "", texto: "", nuevo_llamamiento: emisionB7.flujo };
+          emisionB7.flujo.paso = 4;
+          if (recargar) {
+            void cargarCandidatosBolsa(bolsaOriginal, { enfocarDestino: true });
+          } else {
+            renderizar();
+            documento.querySelector('[aria-current="step"]')?.focus?.();
+          }
+          return;
+        }
         if (estado.filtrosBolsa?.nuevo_llamamiento?.enviando) return;
         invalidarSeleccionMasiva();
         estado.filtrosBolsa = { ...estado.filtrosBolsa, estado: "", texto: "", nuevo_llamamiento: { paso: 1, estados: ["disponible"], participaciones: [], configuracion: null, error: "", recibo: "", seleccion_total: false, cursoresPagina: [""] } };
@@ -749,13 +786,12 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
         documento.querySelector('[aria-current="step"]')?.focus?.();
       } else if (accion === "cancelar-b7") {
         evento.preventDefault();
-        if (estado.filtrosBolsa?.nuevo_llamamiento?.enviando) return;
-        invalidarSeleccionMasiva();
-        const { nuevo_llamamiento: _omitido, ...resto } = estado.filtrosBolsa || {};
-        estado.filtrosBolsa = resto;
+        if (emisionB7?.flujo.recibo) emisionB7 = null;
+        suspenderLlamamientoB7();
         renderizar();
       } else if (accion === "ver-historico-b7") {
         evento.preventDefault();
+        if (emisionB7?.flujo.recibo) emisionB7 = null;
         invalidarSeleccionMasiva();
         estado.filtrosBolsa = { estado: "", texto: "", pestana: "historico", pagina_historico: 0 };
         void cargarCandidatosBolsa(estado.bolsaSeleccionada, { enfocarDestino: true });
@@ -788,13 +824,13 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
       } else if (accion === "b7-revisar-configuracion") {
         evento.preventDefault();
         const flujo = estado.filtrosBolsa?.nuevo_llamamiento;
-        if (!flujo || flujo.enviando || flujo.acceso_denegado) return;
+        if (!flujo || flujo.enviando || flujo.acceso_denegado || emisionB7?.flujo === flujo) return;
         flujo.paso = 3;
         renderizar();
       } else if (accion === "b7-volver-seleccion") {
         evento.preventDefault();
         const flujo = estado.filtrosBolsa?.nuevo_llamamiento;
-        if (!flujo || flujo.enviando) return;
+        if (!flujo || flujo.enviando || emisionB7?.flujo === flujo) return;
         invalidarSeleccionMasiva();
         flujo.paso = 2;
         flujo.error = "";
@@ -837,9 +873,13 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
         const flujo = estado.filtrosBolsa.nuevo_llamamiento;
         if (flujo.acceso_denegado) return;
         const configuracion = { referencia:get("referencia"), descripcion:get("descripcion"), categoria:get("categoria"), centro:get("centro"), modalidad:get("modalidad"), fecha_inicio:get("fecha_inicio"), plazo:get("plazo"), plantilla_version:get("plantilla_version"), asunto:get("asunto"), cuerpo:"" };
-        configuracion.cuerpo = `${get("cuerpo")}\n\nReferencia: ${configuracion.referencia}\nCategoría: ${configuracion.categoria}\nCentro: ${configuracion.centro}\nModalidad: ${configuracion.modalidad}\nFecha prevista: ${configuracion.fecha_inicio}\nPlazo provisional: ${configuracion.plazo}`;
         flujo.cuerpoBorrador = get("cuerpo");
         flujo.configuracion = configuracion;
+        if (!plazoIndicado(configuracion.plazo)) {
+          flujo.error = traducirPortal("panel_b7_plazo_error");
+          renderizar(); return;
+        }
+        configuracion.cuerpo = get("cuerpo") + traducirPortal("panel_b7_cuerpo_metadatos", configuracion);
         if (configuracion.cuerpo.length > 4000) {
           flujo.error = traducirBolsaInterna("b7_cuerpo_excesivo");
           renderizar(); return;
@@ -851,32 +891,63 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
       }
       const paso4 = evento.target?.closest?.('[data-bolsa-form="b7-paso4"]');
       if (paso4) {
-        evento.preventDefault(); const datos = new FormData(paso4); const flujo=estado.filtrosBolsa.nuevo_llamamiento;
-        if (!datos.get("confirmacion") || flujo.enviando || flujo.recibo || flujo.acceso_denegado) return;
-        if (!flujo.participaciones?.length || flujo.participaciones.length > 100 || Number(paso4.dataset.cantidad) !== flujo.participaciones.length) {
+        evento.preventDefault(); const datos = new FormData(paso4); const flujo=estado.filtrosBolsa?.nuevo_llamamiento;
+        if (!flujo || !datos.get("confirmacion") || flujo.enviando || flujo.recibo || flujo.acceso_denegado) return;
+        if (emisionB7 && emisionB7.flujo !== flujo) return;
+        if (emisionB7) restaurarComandoB7(emisionB7);
+        if (!emisionB7 && (!flujo.participaciones?.length || flujo.participaciones.length > 100 || Number(paso4.dataset.cantidad) !== flujo.participaciones.length)) {
           flujo.error = traducirBolsaInterna("b7_seleccion_cambiada");
           renderizar(); return;
         }
-        flujo.enviando=true; flujo.error=""; flujo.error_422=false; flujo.clave_idempotencia ||= globalThis.crypto?.randomUUID?.() || `llamamiento-${Date.now()}-${Math.random().toString(16).slice(2)}`; renderizar();
-        const revisionEmision = revisionSeleccionMasiva;
-        const bolsaEmision = estado.bolsaSeleccionada;
-        void emitirLlamamiento({ bolsa_ref:estado.bolsaSeleccionada, participaciones:flujo.participaciones, configuracion:flujo.configuracion, clave_idempotencia:flujo.clave_idempotencia }).then(res=>{
-          if (estado.filtrosBolsa?.nuevo_llamamiento !== flujo || estado.bolsaSeleccionada !== bolsaEmision || revisionSeleccionMasiva !== revisionEmision) return;
+        if (!emisionB7 && !plazoIndicado(flujo.configuracion?.plazo)) {
+          flujo.paso = 3;
+          flujo.error = traducirPortal("panel_b7_plazo_error");
+          renderizar(); return;
+        }
+        if (!emisionB7) {
+          flujo.clave_idempotencia ||= globalThis.crypto?.randomUUID?.() || `llamamiento-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+          emisionB7 = {
+            flujo,
+            comando: Object.freeze({
+              bolsa_ref: estado.bolsaSeleccionada,
+              participaciones: Object.freeze([...flujo.participaciones]),
+              configuracion: Object.freeze({ ...flujo.configuracion }),
+              clave_idempotencia: flujo.clave_idempotencia,
+            }),
+            estado: "incierto",
+          };
+        }
+        const registro = emisionB7;
+        flujo.enviando=true; flujo.error=""; flujo.error_422=false; registro.estado="enviando"; renderizar();
+        void emitirLlamamiento(registro.comando).then(res=>{
+          if (emisionB7 !== registro) return;
           flujo.enviando = false;
           if (res.ok) {
+            registro.estado = "confirmado";
             flujo.recibo = res.datos.recibo_ref;
             flujo.llamamiento_ref = res.datos.llamamiento_ref;
           } else if (res.status === 422) {
+            emisionB7 = null;
             flujo.recibo = "";
             flujo.llamamiento_ref = "";
             flujo.clave_idempotencia = "";
             flujo.error_422 = true;
             flujo.error = traducirBolsaInterna("b7_emision_rechazada");
-          } else {
+          } else if ([401, 403].includes(res.status)) {
+            registro.estado = "incierto";
+            flujo.acceso_denegado = true;
             flujo.error = res.mensaje;
+            if (estado.filtrosBolsa?.nuevo_llamamiento === flujo) {
+              estado.datosCandidatos = { carga: "denegado", datos: null, error: res.mensaje };
+            }
+          } else {
+            registro.estado = "incierto";
+            flujo.error = traducirPortal("panel_b7_resultado_incierto");
           }
-          renderizar();
-          documento.querySelector(res.ok ? "[data-b7-recibo]" : "[data-b7-emision-error]")?.focus?.();
+          if (estado.filtrosBolsa?.nuevo_llamamiento === flujo) {
+            renderizar();
+            documento.querySelector(res.ok ? "[data-b7-recibo]" : "[data-b7-emision-error]")?.focus?.();
+          }
         }); return;
       }
       const formFiltros = evento.target?.closest?.('[data-bolsa-form="filtros"]');
@@ -909,10 +980,17 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
         const comunicadoEn = valorComunicado
           ? (valorComunicado.includes("Z") ? valorComunicado : new Date(valorComunicado).toISOString())
           : new Date().toISOString();
-        const valorPlazo = datos.get("plazo_respuesta_hasta");
-        const plazoRespuestaHasta = valorPlazo
-          ? (valorPlazo.includes("Z") ? valorPlazo : (valorPlazo.includes("T") ? new Date(valorPlazo).toISOString() : `${valorPlazo}T23:59:59Z`))
-          : new Date(Date.now() + 48 * 3600 * 1000).toISOString();
+        const valorPlazo = String(datos.get("plazo_respuesta_hasta") || "").trim();
+        const fechaPlazo = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})?$/.test(valorPlazo)
+          ? new Date(valorPlazo) : null;
+        if (!fechaPlazo || Number.isNaN(fechaPlazo.getTime())) {
+          if (estado.modalLlamar) {
+            estado.modalLlamar.error = traducirPortal("panel_llamar_plazo_error");
+            renderizar();
+          }
+          return;
+        }
+        const plazoRespuestaHasta = fechaPlazo.toISOString();
         const anotacion = datos.get("anotacion") || "";
 
         if (estado.modalLlamar) {
@@ -1035,6 +1113,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
 
   return Object.freeze({
     cancelarPeticiones,
+    suspenderLlamamientoB7,
     cargarBolsas,
     cargarCandidatosBolsa,
     cargarEstadisticas,

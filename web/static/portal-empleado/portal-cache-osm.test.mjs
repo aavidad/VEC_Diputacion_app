@@ -4,6 +4,7 @@ import test from "node:test";
 
 const raiz = new URL("./", import.meta.url);
 const version = "20260924-web-paradas-periodos-v1";
+const versionAyuda = "20260924-rescate-web-v2";
 const versionOSM = "20260924-osm-base-v3";
 const dietas = "modulos/dietas/";
 
@@ -34,8 +35,8 @@ test("OSM renueva cada consumidor immutable desde la entrada C hasta mapa e idio
     const codigo = await readFile(new URL(padre, raiz), "utf8");
     const literal = recurso.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const urls = [...codigo.matchAll(new RegExp(`${literal}(?:\\?v=[^"']+)?(?=["'])`, "gu"))].map(([url]) => url);
-    const esperada = ["./ayuda-contenido.js", "./ayudante-tramites.js", "./i18n-revision.js"].includes(recurso)
-      ? versionOSM : version;
+    const esperada = padre === "index.html" || ["./ayuda-contenido.js", "./ayudante-tramites.js"].includes(recurso)
+      ? versionAyuda : recurso === "./i18n-revision.js" ? versionOSM : version;
     assert.deepEqual(urls, Array(cantidad).fill(`${recurso}?v=${esperada}`), `${padre} → ${recurso}`);
     const vieja = new URL(`${recurso}${anterior ? `?v=${anterior}` : ""}`, new URL(padre, raiz)).href;
     for (const url of urls) {
@@ -60,7 +61,8 @@ test("el mapa combinado descarga consumidores nuevos también después del corre
     ["portal-modulos-coordinador.js", `./${dietas}vista-recorridos.js`, "20260924-dietas-ayuda-icono-v1", 2],
   ]) {
     const codigo = await readFile(new URL(padre, raiz), "utf8");
-    assert.equal(codigo.split(`${recurso}?v=${version}`).length - 1, cantidad, recurso);
+    const esperada = padre === "index.html" ? versionAyuda : version;
+    assert.equal(codigo.split(`${recurso}?v=${esperada}`).length - 1, cantidad, recurso);
     assert.ok(!codigo.includes(`${recurso}?v=${previa}`), `${padre}: no usa bytes de F1 anteriores al mapa`);
   }
 });

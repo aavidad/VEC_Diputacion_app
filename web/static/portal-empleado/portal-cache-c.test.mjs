@@ -7,6 +7,7 @@ const raiz = new URL("./", import.meta.url);
 const vistasC = "20260924-web-c-v1";
 const recuperacion = "20260924-dietas-recuperacion-v3";
 const entrada = "20260924-web-paradas-periodos-v1";
+const entradaAyuda = "20260924-rescate-web-v2";
 const cronos = "20260924-cronos-integrado-v1";
 const cronosVista = "20260924-web-paradas-periodos-v1";
 const dietas = "20260924-dietas-ayuda-icono-v1";
@@ -18,7 +19,7 @@ test("capa C no reutiliza los consumidores previos de B con caché immutable", a
   const portal = await readFile(new URL("portal.js", raiz), "utf8");
   const coordinador = await readFile(new URL("portal-modulos-coordinador.js", raiz), "utf8");
   const aristas = [
-    [html, "/portal-empleado/portal.js", "20260924-web-integrada-v2", entrada, 1],
+    [html, "/portal-empleado/portal.js", "20260924-web-integrada-v2", entradaAyuda, 1],
     [portal, "./portal-modulos-coordinador.js", "20260924-web-integrada-v2", entrada, 1],
     [coordinador, "./modulos/cronos/vista.js", "20260924-f2-shell-v1", cronosVista, 1],
     [coordinador, "./modulos/cronos/vista-recorridos.js", "20260924-cronos-ayuda-v1", cronosVista, 2],
@@ -47,7 +48,7 @@ test("la ayuda de Dietas no reutiliza C v3 ni las vistas y CSS anteriores", asyn
     readFile(new URL("portal-modulos-coordinador.js", raiz), "utf8"),
   ]);
   const aristas = [
-    [html, "/portal-empleado/portal.js", "20260924-web-c-v3", entrada, 1],
+    [html, "/portal-empleado/portal.js", "20260924-web-c-v3", entradaAyuda, 1],
     [portal, "./portal-modulos-coordinador.js", "20260924-web-c-v3", entrada, 1],
     [coordinador, "./modulos/dietas/vista-itinerario.js", "20260924-dietas-d1d2d4", sinGuia, 2],
     [coordinador, "./modulos/dietas/vista-recorridos.js", recuperacion, sinGuia, 2],
@@ -88,7 +89,7 @@ test("el corrector Dietas descarga de nuevo la cadena que tenía C inicial", asy
     readFile(new URL("modulos/dietas/vista-recorridos.js", raiz), "utf8"),
   ]);
   const aristas = [
-    [html, "/portal-empleado/portal.js", "20260924-web-c-v1", entrada, 1],
+    [html, "/portal-empleado/portal.js", "20260924-web-c-v1", entradaAyuda, 1],
     [portal, "./portal-modulos-coordinador.js", "20260924-web-c-v1", entrada, 1],
     [coordinador, "./modulos/dietas/vista-recorridos.js", "20260924-dietas-d1d2d4", sinGuia, 2],
     [recorridos, "./vista-borradores-propios.js", "20260924-dietas-d1d2d4", sinGuia, 1],

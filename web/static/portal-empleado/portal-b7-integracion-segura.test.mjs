@@ -87,3 +87,121 @@ test("B7 conserva el comando y la clave tras navegar durante POST503 y reintenta
     assert.equal(app.flujo.recibo, `recibo:llamamiento:${huella}`);
   } finally { globalThis.fetch = fetchOriginal; restaurar(); }
 });
+
+test("B7 recupera con la misma clave un 503 posterior al commit aunque se cancele y reinicie", async () => {
+  const restaurar = simularFormData();
+  const fetchOriginal = globalThis.fetch;
+  const envios = [];
+  const huella = "b".repeat(64);
+  const confirmacion = { llamamiento_ref: `llamamiento:${huella}`, recibo_ref: `recibo:llamamiento:${huella}`,
+    bolsa_ref: "bolsa:01", estado: "emitido_pendiente_respuesta",
+    participaciones: [candidata.participacion_ref], configuracion, emitido_en: "2026-09-23T10:00:00Z",
+    reutilizada: true };
+  let commitSimulado = null;
+  globalThis.fetch = async (_url, opciones) => {
+    envios.push({ cuerpo: opciones.body, clave: opciones.headers["Idempotency-Key"] });
+    if (!commitSimulado) {
+      commitSimulado = { ...confirmacion, reutilizada: false };
+      return { status: 503, json: async () => ({ error: { codigo: "fallo_tras_commit" } }) };
+    }
+    assert.deepEqual(JSON.parse(opciones.body), JSON.parse(envios[0].cuerpo));
+    return { status: 200, json: async () => ({ data: confirmacion }) };
+  };
+  try {
+    const app = montar({ paso: 4 });
+    app.submit(4); await esperar();
+    assert.equal(envios.length, 1);
+    assert.equal(app.flujo.recibo, "");
+    assert.match(app.flujo.error, /resultado del registro es incierto/i);
+    app.click("cancelar-b7");
+    assert.equal(app.estado.filtrosBolsa.nuevo_llamamiento, undefined);
+    app.click("iniciar-b7");
+    assert.equal(app.estado.filtrosBolsa.nuevo_llamamiento, app.flujo);
+    assert.equal(app.flujo.paso, 4);
+    app.flujo.configuracion = { ...configuracion, asunto: "cambiado" };
+    app.flujo.participaciones = ["participacion:otra"];
+    app.submit(4); await esperar();
+    assert.equal(envios.length, 2);
+    assert.deepEqual(envios[1], envios[0]);
+    assert.deepEqual(app.flujo.participaciones, [candidata.participacion_ref]);
+    assert.equal(app.flujo.configuracion.asunto, configuracion.asunto);
+    assert.equal(app.flujo.recibo, confirmacion.recibo_ref);
+    assert.match(app.html(), new RegExp(confirmacion.recibo_ref));
+  } finally { globalThis.fetch = fetchOriginal; restaurar(); }
+});
+
+test("B7 conserva un 201 tardío tras abrir una ficha desde avisos B5", async () => {
+  const restaurar = simularFormData();
+  const fetchOriginal = globalThis.fetch;
+  let responder;
+  const huella = "c".repeat(64);
+  globalThis.fetch = async () => new Promise((resolver) => { responder = resolver; });
+  try {
+    const app = montar({ paso: 4, fuente: async () => ({ ok: true, datos }) });
+    app.submit(4);
+    app.controlador.suspenderLlamamientoB7();
+    app.estado.bolsaSeleccionada = "bolsa:otra";
+    app.estado.filtrosBolsa = { estado: "", texto: "" };
+    app.controlador.cancelarPeticiones();
+    assert.equal(app.estado.filtrosBolsa.nuevo_llamamiento, undefined);
+    responder({ status: 201, json: async () => ({ data: {
+      llamamiento_ref: `llamamiento:${huella}`, recibo_ref: `recibo:llamamiento:${huella}`,
+      bolsa_ref: "bolsa:01", estado: "emitido_pendiente_respuesta",
+      participaciones: [candidata.participacion_ref], configuracion,
+      emitido_en: "2026-09-23T10:00:00Z", reutilizada: false,
+    } }) });
+    await esperar();
+    assert.equal(app.flujo.recibo, `recibo:llamamiento:${huella}`);
+    app.click("iniciar-b7"); await esperar();
+    assert.equal(app.estado.bolsaSeleccionada, "bolsa:01");
+    assert.equal(app.estado.filtrosBolsa.nuevo_llamamiento, app.flujo);
+    assert.match(app.html(), new RegExp(`recibo:llamamiento:${huella}`));
+    app.submit(4);
+    assert.equal(app.flujo.enviando, false);
+  } finally { globalThis.fetch = fetchOriginal; restaurar(); }
+});
+
+test("B7 deniega la recuperación del comando si la nueva lectura devuelve 403", async () => {
+  const restaurar = simularFormData();
+  const fetchOriginal = globalThis.fetch;
+  let posts = 0;
+  globalThis.fetch = async () => {
+    posts += 1;
+    return { status: 503, json: async () => ({ error: { codigo: "no_disponible" } }) };
+  };
+  try {
+    const app = montar({ paso: 4, fuente: async () => ({ ok: false, status: 403, mensaje: "Denegado" }) });
+    app.submit(4); await esperar();
+    app.click("cancelar-b7");
+    app.estado.bolsaSeleccionada = "bolsa:otra";
+    app.estado.filtrosBolsa = { estado: "", texto: "" };
+    app.click("iniciar-b7"); await esperar();
+    assert.equal(app.estado.datosCandidatos.carga, "denegado");
+    assert.equal(app.estado.datosCandidatos.datos, null);
+    assert.equal(app.flujo.acceso_denegado, true);
+    assert.doesNotMatch(app.html(), /Nombre privado sintético|name="participacion"/);
+    app.submit(4);
+    assert.equal(posts, 1, "la lectura denegada impide el replay");
+  } finally { globalThis.fetch = fetchOriginal; restaurar(); }
+});
+
+test("B7 purga candidatos ante 403 del POST y conserva la clave incierta sin replay", async () => {
+  const restaurar = simularFormData();
+  const fetchOriginal = globalThis.fetch;
+  let posts = 0;
+  globalThis.fetch = async () => {
+    posts += 1;
+    return { status: 403, json: async () => ({ error: { codigo: "acceso_denegado" } }) };
+  };
+  try {
+    const app = montar({ paso: 4 });
+    app.submit(4); await esperar();
+    assert.equal(app.estado.datosCandidatos.carga, "denegado");
+    assert.equal(app.estado.datosCandidatos.datos, null);
+    assert.equal(app.flujo.acceso_denegado, true);
+    assert.ok(app.flujo.clave_idempotencia);
+    assert.doesNotMatch(app.html(), /Nombre privado sintético|name="participacion"/);
+    app.submit(4);
+    assert.equal(posts, 1);
+  } finally { globalThis.fetch = fetchOriginal; restaurar(); }
+});

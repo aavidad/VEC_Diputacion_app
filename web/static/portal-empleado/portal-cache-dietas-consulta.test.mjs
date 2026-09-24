@@ -3,7 +3,8 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const raiz = new URL("./", import.meta.url);
-const versionEntradaNueva = "20260924-web-paradas-periodos-v1";
+const versionEntradaNueva = "20260924-rescate-web-v2";
+const versionCoordinadorNuevo = "20260924-web-paradas-periodos-v1";
 const versionVistaNueva = "20260924-web-paradas-periodos-v1";
 const versionAnteriorEntrada = "20260924-web-c-ayuda-v5";
 const versionAnteriorRecorridos = "20260924-dietas-ayuda-sin-guia-v1";
@@ -26,7 +27,7 @@ test("la consulta Dietas atraviesa caché caliente desde HTML hasta ambos cargad
   ]);
   const aristas = [
     [html, "/portal-empleado/portal.js", [versionEntradaNueva], `/portal-empleado/portal.js?v=${versionAnteriorEntrada}`],
-    [portal, "./portal-modulos-coordinador.js", [versionEntradaNueva], `./portal-modulos-coordinador.js?v=${versionAnteriorEntrada}`],
+    [portal, "./portal-modulos-coordinador.js", [versionCoordinadorNuevo], `./portal-modulos-coordinador.js?v=${versionAnteriorEntrada}`],
     [coordinador, "./modulos/dietas/vista-recorridos.js", [versionVistaNueva, versionVistaNueva],
       `./modulos/dietas/vista-recorridos.js?v=${versionAnteriorRecorridos}`],
     [coordinador, "./modulos/dietas/vista-itinerario.js", [versionVistaNueva, versionVistaNueva],
@@ -53,7 +54,7 @@ test("la consulta Dietas atraviesa caché caliente desde HTML hasta ambos cargad
   ]);
   const actuales = new Map([
     [`/portal-empleado/portal.js?v=${versionEntradaNueva}`, portal],
-    [`/portal-empleado/portal-modulos-coordinador.js?v=${versionEntradaNueva}`, coordinador],
+    [`/portal-empleado/portal-modulos-coordinador.js?v=${versionCoordinadorNuevo}`, coordinador],
     [`/portal-empleado/modulos/dietas/vista-recorridos.js?v=${versionVistaNueva}`, vista],
     [`/portal-empleado/modulos/dietas/vista-itinerario.js?v=${versionVistaNueva}`, itinerario],
     [`/portal-empleado/modulos/dietas/vista-borradores-propios.js?v=${versionVistaNueva}`, borradores],

@@ -339,3 +339,43 @@ test("B7 bloquea antes de enviar un cuerpo que supera 4000 caracteres tras añad
     globalThis.FormData = FormDataOriginal;
   }
 });
+
+test("B7 exige el plazo indicado por RRHH antes de revisar o emitir", () => {
+  const escuchas = {};
+  const form3 = {};
+  const form4 = { dataset: { cantidad: "1" } };
+  const documento = { addEventListener(tipo, fn) { escuchas[tipo] = fn; } };
+  const FormDataOriginal = globalThis.FormData;
+  const campos = { referencia: "NEC-01", descripcion: "Cobertura", categoria: "Auxiliar",
+    centro: "Centro", modalidad: "Sustitución", fecha_inicio: "2026-10-01",
+    plazo: "", plantilla_version: "bolsa-llamamiento-v1", asunto: "Llamamiento",
+    cuerpo: "Mensaje", confirmacion: "true" };
+  globalThis.FormData = class { get(clave) { return campos[clave]; } };
+  try {
+    const flujo = { paso: 3, estados: ["disponible"], participaciones: ["participacion:001"], error: "" };
+    const estado = { bolsaSeleccionada: "bolsa:01", filtrosBolsa: { nuevo_llamamiento: flujo } };
+    crearControladorBolsas({ estado, renderizar: () => {}, navegar: () => {}, documento }).instalar();
+    const enviar = (paso, form) => escuchas.submit({ preventDefault() {},
+      target: { closest(selector) { return selector === `[data-bolsa-form="b7-paso${paso}"]` ? form : null; } } });
+    enviar(3, form3);
+    assert.equal(flujo.paso, 3);
+    assert.match(flujo.error, /Indique el plazo de respuesta/);
+    assert.equal(flujo.configuracion.plazo, "");
+    assert.equal(flujo.clave_idempotencia, undefined);
+    flujo.paso = 4;
+    enviar(4, form4);
+    assert.equal(flujo.paso, 3);
+    assert.equal(flujo.enviando, undefined);
+    assert.equal(flujo.clave_idempotencia, undefined);
+    campos.plazo = "Pendiente de definición por RRHH";
+    enviar(3, form3);
+    assert.equal(flujo.paso, 3);
+    assert.match(flujo.error, /Indique el plazo de respuesta/);
+    campos.plazo = "Hasta el 30 de septiembre, 14:00";
+    enviar(3, form3);
+    assert.equal(flujo.paso, 4);
+    assert.match(flujo.configuracion.cuerpo, /Plazo de respuesta: Hasta el 30 de septiembre, 14:00/);
+  } finally {
+    globalThis.FormData = FormDataOriginal;
+  }
+});

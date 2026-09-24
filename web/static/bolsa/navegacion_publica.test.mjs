@@ -53,7 +53,7 @@ test("la consulta pública es anónima y nunca envía credenciales ambientales",
   assert.doesNotMatch(javascript, /document\.cookie|Authorization|localStorage|sessionStorage/i);
 });
 
-test("las preferencias visuales de la demostración son volátiles", () => {
+test("las preferencias visuales públicas son volátiles", () => {
   assert.match(javascript, /function configurarPreferencia\(idBoton, clase\)/);
   assert.match(javascript, /classList\.toggle\(clase, activa\)/);
   assert.doesNotMatch(javascript, /Storage|getItem\(|setItem\(/);
@@ -80,17 +80,14 @@ test("el menú de ambas páginas presenta solo interrogación para la ayuda", ()
   assert.doesNotMatch(menu, /<span aria-hidden="true">5<\/span> Ayuda pública/);
 });
 
-test("el aviso de demostración solo puede mostrarse tras confirmación de la fuente", () => {
+test("la consulta pública rechaza fuentes sintéticas y conserva la navegación de Bolsa", () => {
   assert.match(html, /<h1 id="titulo-portal">Bolsas y procesos selectivos<\/h1>/);
-  assert.match(html, /id="aviso-demostracion"[^>]*\bhidden>/);
-  assert.match(html, /id="texto-aviso-demostracion"><\/span>/);
-  assert.match(css, /#aviso-demostracion:not\(\[hidden\]\):has\(#texto-aviso-demostracion:empty\)/);
-  assert.doesNotMatch(html, /id="alcance-datos-demo"/);
+  assert.doesNotMatch(html, /id="aviso-demostracion"|DEMOSTRACIÓN/);
   assert.match(html, /id="ayuda-publica"[^>]*>[\s\S]*?<details>[\s\S]*?<summary id="titulo-ayuda-publica" aria-label="Ayuda pública" title="Ayuda pública"[^>]*><span aria-hidden="true">\?<\/span><\/summary>/);
   assert.match(html, /<details id="ayuda-filtro-categoria"[^>]*><summary aria-label="Ayuda sobre categorías con procesos publicados" title="Ayuda sobre categorías con procesos publicados"><span aria-hidden="true">\?<\/span><\/summary>/);
-  assert.match(javascript, /fuente\?\.demostracion === true/);
-  assert.match(javascript, /inicioInstitucional\.href = esDemostracion \? "\/presentacion\/" : "\/bolsa\/"/);
-  assert.match(javascript, /t\("volver_presentacion"\)/);
+  assert.match(javascript, /if \(contenido\?\.fuente\?\.demostracion === true\) throw new Error\(FUENTE_NO_CONFIGURADA\)/);
+  assert.match(javascript, /t\(error\.message === FUENTE_NO_CONFIGURADA \? "fuente_no_configurada" : "consulta_no_disponible"\)/);
+  assert.doesNotMatch(javascript, /\/presentacion\/|actualizarAvisoDemostracion/);
 });
 
 test("ambas páginas cargan tema positivo y activos públicos versionados", () => {
@@ -103,7 +100,9 @@ test("ambas páginas cargan tema positivo y activos públicos versionados", () =
     for (const activo of ["tema-vec.css", "bolsa_adaptable.css"]) {
       assert.match(pagina, new RegExp(`${activo.replaceAll(".", "\\.")}\\?v=20260924-bolsa-publica-final`));
     }
-    assert.match(pagina, /i18n-publica\.js\?v=20260924-bolsa-i18n-v2/);
+    assert.match(pagina, pagina === html
+      ? /i18n-publica\.js\?v=20260924-rescate-bolsa-i18n-v3/
+      : /i18n-publica\.js\?v=20260924-bolsa-i18n-v2/);
     assert.doesNotMatch(pagina, /i18n-publica\.js\?v=20260924-bolsa-publica-final/);
     assert.match(pagina, /bolsa\.css\?v=20260924-bolsa-sin-inline-v4/);
     assert.doesNotMatch(pagina, /bolsa\.css\?v=20260924-bolsa-ayuda-v3/);
@@ -112,7 +111,8 @@ test("ambas páginas cargan tema positivo y activos públicos versionados", () =
   assert.match(listas, /listas\.css\?v=20260924-bolsa-sin-inline-v4/);
   assert.match(listas, /lista-bolsas\.js\?v=20260924-b10-reintento-foco-v1/);
   assert.doesNotMatch(listas, /listas\.css\?v=20260924-bolsa-ayuda-v3|lista-bolsas\.js\?v=20260924-(?:bolsa-ayuda-v3|bolsa-publica-final)/);
-  assert.match(html, /bolsa\.js\?v=20260924-bolsa-i18n-v2/);
+  assert.match(html, /bolsa\.js\?v=20260924-rescate-bolsa-v3/);
+  assert.doesNotMatch(html, /bolsa\.js\?v=20260924-bolsa-i18n-v2/);
   assert.doesNotMatch(html, /bolsa\.js\?v=20260924-bolsa-publica-final/);
   assert.match(css, /--bolsa-bg:\s*var\(--portal-fondo, var\(--bg\)\)/);
   assert.match(css, /\.portal-bolsa-publico\.alto-contraste \.navegacion-publica a\[aria-current="page"\]/);

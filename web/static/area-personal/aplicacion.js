@@ -74,6 +74,17 @@ export function esOrigenSinteticoODesarrollo(meta = {}) {
     .some((declaracion) => /\bsint(?:e|é)tic(?:o|a|os|as)?\b|\bdesarrollo\b/iu.test(declaracion));
 }
 
+export function exigirSinPresentacion(parametros) {
+  if (parametros.has("presentacion")) throw new TypeError("El modo de presentación no está disponible en el área personal.");
+}
+
+export function exigirDatosOperativos(datos) {
+  if (datos?.meta?.presentacion !== false || esOrigenSinteticoODesarrollo(datos.meta)) {
+    throw new TypeError("La fuente del área personal no está configurada para esta consulta.");
+  }
+  return datos;
+}
+
 function rutaDesdeURL() {
   const parametros = new URLSearchParams(window.location.search);
   const vista = parametros.get("vista") || "llamamientos";
@@ -98,7 +109,6 @@ function formularioAObjeto(formulario) {
 
 function crearURL(estado, vista, opciones = {}) {
   const url = new URL(window.location.pathname, window.location.origin);
-  if (estado.presentacionSolicitada) url.searchParams.set("presentacion", "rrhh");
   url.searchParams.set("vista", vista);
   if (opciones.id) url.searchParams.set("id", opciones.id);
   return `${url.pathname}${url.search}`;
@@ -107,15 +117,9 @@ function crearURL(estado, vista, opciones = {}) {
 function actualizarEnlacesNavegacion(estado) {
   const inicioInstitucional = porId("enlace-inicio-institucional");
   if (inicioInstitucional) {
-    if (estado.presentacionSolicitada) {
-      inicioInstitucional.setAttribute("href", "/presentacion/");
-      inicioInstitucional.removeAttribute("data-ruta");
-      inicioInstitucional.setAttribute("aria-label", "Volver al selector de recorridos de la presentación");
-    } else {
-      inicioInstitucional.dataset.ruta = "inicio";
-      inicioInstitucional.setAttribute("href", crearURL(estado, "inicio"));
-      inicioInstitucional.setAttribute("aria-label", "Ir al inicio del área personal");
-    }
+    inicioInstitucional.dataset.ruta = "inicio";
+    inicioInstitucional.setAttribute("href", crearURL(estado, "inicio"));
+    inicioInstitucional.setAttribute("aria-label", "Ir al inicio del área personal");
   }
   document.querySelectorAll("a[data-ruta]").forEach((enlace) => {
     if (enlace === inicioInstitucional) return;
@@ -186,18 +190,16 @@ export function datosMinimosMiBolsa(consulta) {
   });
 }
 
+function datosDeRespuesta(respuesta) {
+  return respuesta?.datos || (respuesta?.consulta ? datosMinimosMiBolsa(respuesta.consulta) : respuesta);
+}
+
 function actualizarShell(estado) {
   const { datos, vista } = estado;
   const titulo = traducir(RUTAS[vista][0]);
   document.title = `${titulo} · Mi área personal`;
   porId("titulo-vista").textContent = titulo;
   porId("migas-pan").textContent = vista === "inicio" ? "Mi área personal" : `Mi área personal → ${titulo}`;
-  const avisoPresentacion = porId("aviso-presentacion");
-  const datosSinteticos = datos.meta.presentacion === true || esOrigenSinteticoODesarrollo(datos.meta);
-  avisoPresentacion.hidden = !datosSinteticos;
-  if (datosSinteticos && datos.meta.presentacion !== true) {
-    avisoPresentacion.querySelector("strong").textContent = "PERFIL DE DESARROLLO · DATOS SINTÉTICOS";
-  }
   porId("avatar-sesion").textContent = datos.sesion.iniciales;
   porId("nombre-sesion").textContent = datos.sesion.nombre_visible;
   porId("perfil-sesion").textContent = datos.sesion.metodo;
@@ -227,7 +229,7 @@ function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {
   porId("estado-carga").hidden = true;
   porId("espacio-trabajo").innerHTML = RUTAS[estado.vista][1](estado.datos, estado);
   if (estado.vista === "oportunidades") {
-    // La bandeja actual no aporta una evaluación B15 autorizada: no derivarla de convocatorias DEMO.
+    // La bandeja actual no aporta una evaluación B15 autorizada: no derivarla de convocatorias.
     const vista = montarVistaOportunidades({ raiz: porId("oportunidades-montaje"), anunciar });
     estado.desmontarOportunidades = vista.desmontar;
   }
@@ -237,7 +239,7 @@ function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {
     estado.controladorContactoPropio ??= crearControladorContactoPropio({
       autorizacionServidor: estado.contactoPropio,
       fetchImpl: estado.fetchImpl,
-      presentacion: estado.presentacionSolicitada || estado.datos.meta.presentacion === true,
+      presentacion: false,
       alConfirmar: (resultado) => {
         conservarResultadoContactoPropio(estado, resultado);
         if (estado.vista === "perfil") renderizar(estado, { confirmacionContacto: resultado });
@@ -251,7 +253,7 @@ function renderizar(estado, { enfocar = false, confirmacionContacto = null } = {
       correo: "",
       autorizacionServidor: estado.contactoPropio,
       fetchImpl: estado.fetchImpl,
-      presentacion: estado.presentacionSolicitada || estado.datos.meta.presentacion === true,
+      presentacion: false,
       reciboAnterior: estado.contactoPropioRecibo, confirmacionReciente: confirmacionContacto,
       enfocarConfirmacion: Boolean(confirmacionContacto),
       controlador: estado.controladorContactoPropio,
@@ -320,10 +322,12 @@ function mostrarDetalle(titulo, contenido) {
 
 function verSesion(estado) {
   const sesion = estado.datos.sesion;
-  const campos = [["Persona", escaparHTML(sesion.nombre_visible)],
-    ...(sesion.persona_ref ? [["Referencia", escaparHTML(sesion.persona_ref)]] : []),
-    ["Método", escaparHTML(sesion.metodo)], ["Origen", escaparHTML(estado.datos.meta.origen)]];
-  mostrarDetalle("Identidad y contexto de sesión", `${listaDatos(campos)}<p class="nota ${estado.datos.meta.presentacion ? "demo" : ""}">${estado.datos.meta.presentacion ? "Identidad sintética. No existe autenticación, certificado ni persona real." : "La autoridad efectiva se comprueba en el servidor para cada operación."}</p>`);
+  const prefijoTraduccion = "areaPersonal.sesion.";
+  const campos = [[traducir(`${prefijoTraduccion}persona`), escaparHTML(sesion.nombre_visible)],
+    ...(sesion.persona_ref ? [[traducir(`${prefijoTraduccion}referencia`), escaparHTML(sesion.persona_ref)]] : []),
+    [traducir(`${prefijoTraduccion}metodo`), escaparHTML(sesion.metodo)],
+    [traducir(`${prefijoTraduccion}origen`), escaparHTML(estado.datos.meta.origen)]];
+  mostrarDetalle(traducir(`${prefijoTraduccion}titulo`), `${listaDatos(campos)}<p class="nota">${escaparHTML(traducir(`${prefijoTraduccion}autoridadServidor`))}</p>`);
 }
 
 function verDocumento(estado, id) {
@@ -349,9 +353,9 @@ function prepararOperacion(estado, operacion, {
   }
   estado.operacionPendiente = { operacion, payload: { ...payload, id }, descripcion, alCompletar };
   porId("titulo-confirmacion").textContent = TITULOS_OPERACION[operacion];
-  porId("contenido-confirmacion").innerHTML = `<p>${escaparHTML(descripcion || TITULOS_OPERACION[operacion])}</p><dl class="dato-lista"><dt>Acción</dt><dd>${escaparHTML(operacion)}</dd><dt>Objeto</dt><dd>${escaparHTML(id || "Expediente personal")}</dd><dt>Resultado esperado</dt><dd>${estado.datos.meta.presentacion ? "Recibo DEMO sin efectos administrativos" : "Confirmación emitida por el servicio autorizado"}</dd></dl><p class="nota ${estado.datos.meta.presentacion ? "demo" : "aviso"}">${estado.datos.meta.presentacion ? "Esta confirmación solo modifica el estado efímero de la demostración." : "El servidor volverá a comprobar identidad, permiso, estado e idempotencia."}</p>`;
+  porId("contenido-confirmacion").innerHTML = `<p>${escaparHTML(descripcion || TITULOS_OPERACION[operacion])}</p><dl class="dato-lista"><dt>Acción</dt><dd>${escaparHTML(operacion)}</dd><dt>Objeto</dt><dd>${escaparHTML(id || "Expediente personal")}</dd><dt>Resultado esperado</dt><dd>Confirmación emitida por el servicio autorizado</dd></dl><p class="nota aviso">El servidor volverá a comprobar identidad, permiso, estado e idempotencia.</p>`;
   const confirmar = porId("formulario-confirmacion").querySelector('[value="confirmar"]');
-  confirmar.textContent = estado.datos.meta.presentacion ? "Confirmar demostración" : "Confirmar operación";
+  confirmar.textContent = "Confirmar operación";
   porId("dialogo-confirmacion").showModal();
 }
 
@@ -366,9 +370,14 @@ async function ejecutarPendiente(estado) {
       confirmacion: true,
       capacidad: estado.datos.capacidades[pendiente.operacion] === true,
     });
+    if (resultado?.recibo?.presentacion !== false) {
+      throw new TypeError("El servicio no devolvió un recibo válido para el área personal.");
+    }
+    const datosActualizados = resultado.datos?.meta
+      ? exigirDatosOperativos(resultado.datos)
+      : exigirDatosOperativos(datosDeRespuesta(await estado.cliente.cargar()));
+    estado.datos = datosActualizados;
     estado.ultimoRecibo = resultado.recibo;
-    if (resultado.datos?.meta) estado.datos = resultado.datos;
-    else estado.datos = await estado.cliente.cargar();
     if (pendiente.alCompletar?.seleccionarBorrador === true) {
       const solicitud = localizarSolicitudEdicion(estado.datos, {
         solicitudId: pendiente.payload.id,
@@ -390,7 +399,8 @@ async function ejecutarPendiente(estado) {
 }
 
 function mostrarRecibo(estado, recibo) {
-  porId("contenido-recibo").innerHTML = `<div class="${recibo.presentacion ? "recibo-demo" : ""}"><p><strong>${escaparHTML(recibo.resultado)}</strong></p>${listaDatos([["Referencia", escaparHTML(recibo.referencia)], ["Acción", escaparHTML(recibo.accion)], ["Objetivo", escaparHTML(recibo.objetivo)], ["Fecha UTC", escaparHTML(recibo.fecha)], ["Actor", escaparHTML(recibo.actor)]])}<p>${escaparHTML(recibo.advertencia)}</p></div>`;
+  if (recibo?.presentacion !== false) throw new TypeError("El recibo no pertenece al área personal habilitada.");
+  porId("contenido-recibo").innerHTML = `<div><p><strong>${escaparHTML(recibo.resultado)}</strong></p>${listaDatos([["Referencia", escaparHTML(recibo.referencia)], ["Acción", escaparHTML(recibo.accion)], ["Objetivo", escaparHTML(recibo.objetivo)], ["Fecha UTC", escaparHTML(recibo.fecha)], ["Actor", escaparHTML(recibo.actor)]])}<p>${escaparHTML(recibo.advertencia)}</p></div>`;
   const botonDescarga = document.querySelector('[data-accion="descargar-recibo"]');
   if (botonDescarga) {
     botonDescarga.textContent = recibo.accion === "solicitar_certificado"
@@ -404,10 +414,8 @@ export function crearDescriptorPDFRecibo({ recibo, certificados = [], origen }) 
   if (!recibo || typeof recibo !== "object" || Array.isArray(recibo)) {
     throw new TypeError("El recibo documental no es válido.");
   }
+  if (recibo.presentacion !== false) throw new TypeError("El recibo de presentación no está admitido en esta superficie.");
   const esCertificado = recibo.accion === "solicitar_certificado";
-  if (recibo.presentacion === true && !/^DEMO-REC-\d{4,}$/u.test(String(recibo.referencia || ""))) {
-    throw new TypeError("La referencia de comprobación de la demostración no es opaca.");
-  }
   const certificado = esCertificado
     ? certificados.find((item) => item.id === recibo.objetivo)
     : null;
@@ -416,16 +424,13 @@ export function crearDescriptorPDFRecibo({ recibo, certificados = [], origen }) 
   }
   const urlVerificacion = new URL("/verificar/", origen);
   urlVerificacion.searchParams.set("ref", recibo.referencia);
-  if (recibo.presentacion) urlVerificacion.searchParams.set("presentacion", "rrhh");
   const prefijoArchivo = esCertificado ? "certificado" : "recibo";
   return Object.freeze({
     referencia: recibo.referencia,
     tipo_documento: esCertificado ? "CERTIFICADO" : "RECIBO DE ACTUACIÓN",
     titulo: certificado?.tipo || "Recibo de actuación del Portal de Recursos Humanos",
     subtitulo: "Diputación de Granada · Área de Recursos Humanos y Régimen Interior",
-    marca: recibo.presentacion
-      ? "DOCUMENTO DEMO · SIN EFECTOS ADMINISTRATIVOS"
-      : "Documento emitido por el sistema de gestión de Recursos Humanos",
+    marca: "Documento emitido por el sistema de gestión de Recursos Humanos",
     filas: Object.freeze([
       Object.freeze({ etiqueta: "Actuación", valor: recibo.accion }),
       Object.freeze({ etiqueta: "Resultado", valor: recibo.resultado }),
@@ -436,8 +441,8 @@ export function crearDescriptorPDFRecibo({ recibo, certificados = [], origen }) 
     comprobacion: Object.freeze({ qr_contenido: urlVerificacion.href }),
     nombre_archivo: `${prefijoArchivo}-${recibo.referencia.toLowerCase()}.pdf`,
     texto_certificacion: certificado
-      ? `La persona titular del órgano competente CERTIFICA que la Persona Aspirante de Demostración figura, en este escenario exclusivamente sintético, con la situación descrita en «${certificado.tipo}». La versión administrativa incorporará los datos acreditados, la firma o sello y el código seguro de verificación del expediente.`
-      : "Se deja constancia de la actuación indicada, su resultado y referencia de comprobación. En producción, este recibo se emitirá desde el expediente firmado y custodiado por el sistema autorizado.",
+      ? "La emisión del certificado corresponde al servicio documental autorizado y requiere su firma o sello verificable."
+      : "Se deja constancia de la actuación indicada, su resultado y referencia de comprobación. El servicio autorizado debe emitir y custodiar el recibo.",
   });
 }
 
@@ -469,36 +474,10 @@ async function descargarRecibo(estado) {
   }
 }
 
-function remitirALecturaLocal(estado, mensaje) {
-  notificar(mensaje);
-  anunciar("Lectura por voz no iniciada. Se abre la ayuda con audio local y transcripción.");
-  if (estado.vista !== "ayuda") navegar(estado, "ayuda");
-}
-
 function leerPantalla(estado) {
-  if (estado.datos?.meta?.presentacion !== true) {
-    remitirALecturaLocal(estado, "La lectura de expedientes privados requiere un conector y una política aprobados. Use el audio local y la transcripción de Ayuda.");
-    return;
-  }
-  const sintetizador = window.speechSynthesis;
-  if (!sintetizador || typeof window.SpeechSynthesisUtterance !== "function") {
-    remitirALecturaLocal(estado, "La síntesis local no está disponible. Use el audio local y la transcripción de Ayuda.");
-    return;
-  }
-  const voz = sintetizador.getVoices?.().find((candidata) => candidata?.localService === true
-    && /^es(?:-|$)/i.test(String(candidata.lang || "")));
-  if (!voz) {
-    remitirALecturaLocal(estado, "No hay una voz local en español. No se ha enviado texto a ningún servicio; use el audio local y la transcripción de Ayuda.");
-    return;
-  }
-  sintetizador.cancel();
-  const texto = porId("contenido-principal")?.innerText?.trim().slice(0, 12_000) || "No hay contenido para leer.";
-  const locucion = new SpeechSynthesisUtterance(texto);
-  locucion.lang = "es-ES";
-  locucion.voice = voz;
-  locucion.rate = 1;
-  sintetizador.speak(locucion);
-  notificar("Lectura por voz iniciada. Pulse Esc o cambie de página para detenerla.");
+  notificar("La lectura de expedientes privados requiere un conector y una política aprobados. Consulte la guía textual de Ayuda.");
+  anunciar("Lectura por voz no iniciada. Se abre la guía textual de Ayuda.");
+  if (estado.vista !== "ayuda") navegar(estado, "ayuda");
 }
 
 function alternarPreferencia(accion) {
@@ -634,9 +613,7 @@ function conectarEventos(estado) {
         const payload = crearPayloadBorrador(progreso, solicitud?.id || "");
         prepararOperacion(estado, "guardar_borrador", {
           id: solicitud?.id || "",
-          descripcion: estado.datos.meta.presentacion
-            ? "Guardar el borrador completo en memoria antes de pago, firma y registro"
-            : "Guardar el borrador completo antes de pago, firma y registro",
+          descripcion: "Guardar el borrador completo antes de pago, firma y registro",
           payload,
           alCompletar: { seleccionarBorrador: true, pasoSolicitud: 5 },
         });
@@ -723,15 +700,13 @@ async function cargar(estado) {
   porId("espacio-trabajo").replaceChildren();
   try {
     const respuesta = await estado.cliente.cargar();
-    const datos = respuesta?.datos || (respuesta?.consulta ? datosMinimosMiBolsa(respuesta.consulta) : respuesta);
-    if (datos.meta.presentacion !== estado.presentacionSolicitada) throw new Error("El origen recibido no coincide con el modo solicitado.");
-    estado.datos = datos;
+    const datos = datosDeRespuesta(respuesta);
+    estado.datos = exigirDatosOperativos(datos);
     estado.participaciones = respuesta?.consulta?.participaciones || [];
     estado.fuenteBolsa = respuesta?.fuente || "real";
     estado.causaBolsa = respuesta?.causa || "";
     if (!estado.convocatoriaSolicitud) {
-      estado.convocatoriaSolicitud = datos.convocatorias.find((item) => item.estado === "Plazo abierto"
-        || (datos.meta.presentacion && item.recorrido_demo === true))?.id || "";
+      estado.convocatoriaSolicitud = datos.convocatorias.find((item) => item.estado === "Plazo abierto")?.id || "";
       estado.progresoSolicitud = crearProgresoSolicitud(estado.convocatoriaSolicitud);
     }
     estado.error = null;
@@ -741,15 +716,15 @@ async function cargar(estado) {
   }
 }
 
-export async function iniciarAreaPersonal({ cliente, descargarReciboPDF = null, presentacionSolicitada = false, fetchImpl = globalThis.fetch } = {}) {
+export async function iniciarAreaPersonal({ cliente, descargarReciboPDF = null, fetchImpl = globalThis.fetch } = {}) {
   if (!cliente || typeof cliente.cargar !== "function" || typeof cliente.ejecutar !== "function") {
     throw new TypeError("El cliente inyectado no respeta el contrato del área personal.");
   }
   const parametros = new URLSearchParams(window.location.search);
+  exigirSinPresentacion(parametros);
   const estado = {
     cliente,
     descargarReciboPDF,
-    presentacionSolicitada,
     datos: null,
     vista: rutaDesdeURL(),
     filtros: { termino: "", estado: "Todas", categoria: "Todas" },
@@ -774,7 +749,6 @@ export async function iniciarAreaPersonal({ cliente, descargarReciboPDF = null, 
     fuenteBolsa: "real",
     causaBolsa: "",
   };
-  if (presentacionSolicitada) porId("aviso-presentacion").hidden = false;
   conectarEventos(estado);
   await cargar(estado);
   return estado;

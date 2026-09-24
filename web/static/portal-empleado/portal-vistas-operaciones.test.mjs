@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { obtenerDatosPresentacion } from "./datos-presentacion.js";
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js";
 import { crearVistasOperaciones } from "./portal-vistas-operaciones.js";
 import { crearTraductorContratos, MENSAJES_CONTRATOS_ES } from "./portal-i18n-contratos.js";
@@ -17,28 +16,19 @@ function utilidades() {
     numero: (valor) => String(valor ?? 0),
     claseEstado: () => "neutro",
     encabezadoVista: (_sobrelinea, titulo, descripcion, acciones = "") => `<h2>${titulo}</h2><p>${descripcion}</p>${acciones}`,
-    esPresentacion: () => true,
-    operacionPermitida: () => true,
   });
 }
 
-test("las vistas operativas rotulan el recorrido DEMO sin alterar sus comandos", () => {
+test("operaciones expone únicamente la consulta de contratos", () => {
   const vistas = crearVistasOperaciones(utilidades());
-  const datos = obtenerDatosPresentacion();
-  const llamamientos = vistas.renderizarLlamamientos(datos);
-  const contratos = vistas.renderizarContratos(datos);
-  const documentos = vistas.renderizarDocumentos(datos);
-  const comunicaciones = vistas.renderizarComunicaciones(datos);
-  assert.match(llamamientos, /Llamamientos DEMO/);
-  assert.match(llamamientos, /no fijan una regla ni un plazo operativo/);
-  assert.match(contratos, /no acredita por sí sola relación jurídica, cese ni incorporación/);
-  assert.match(documentos, /La autenticación no firma documentos y ningún borrador es oficial/);
-  assert.match(documentos, /Firmar DEMO · sin firma legal/);
-  assert.match(comunicaciones, /Un aviso no acredita envío, entrega, notificación ni acuse/);
+  assert.deepEqual(Object.keys(vistas), ["renderizarContratos"]);
+  assert.match(vistas.renderizarContratos({}), /No configurado/);
 });
 
-test("contratos sin fuente no incorpora las filas antiguas y no ofrece efectos volátiles", () => {
-  const html = crearVistasOperaciones(utilidades()).renderizarContratos(obtenerDatosPresentacion());
+test("contratos sin fuente ignora filas ajenas y no ofrece efectos volátiles", () => {
+  const html = crearVistasOperaciones(utilidades()).renderizarContratos({
+    contratos: [{ expediente: "EXP-LEGADO", acto: "Alta", bolsa: "Bolsa 1", estado: "Vigente" }],
+  });
   assert.match(html, /Una propuesta de llamamiento no acredita aceptación/);
   assert.match(html, /Solo Personal confirma la relación y la incorporación/);
   assert.match(html, /El borrador y la autenticación no son firma/);
@@ -46,7 +36,7 @@ test("contratos sin fuente no incorpora las filas antiguas y no ofrece efectos v
   assert.match(html, /El cese acreditado precede a la política de Bolsa/);
   assert.match(html, /No configurado/);
   assert.match(html, /No hay relaciones disponibles para mostrar/);
-  assert.doesNotMatch(html, /DEMO-CON-184|DEMO-CES-089|DEMO-REI-032/);
+  assert.doesNotMatch(html, /EXP-LEGADO/);
   assert.match(html, /tabindex="0" role="region"/);
   assert.match(html, /<summary>\? Ayuda sobre el circuito<\/summary>/);
   assert.equal((html.match(/name="contratos-recorrido"/g) || []).length, 3);
@@ -60,13 +50,14 @@ test("contratos sin fuente no incorpora las filas antiguas y no ofrece efectos v
 
 test("contratos conserva solo filas inyectadas con estado disponible y cierra los demás estados", () => {
   const vista = crearVistasOperaciones(utilidades());
-  const contratos = obtenerDatosPresentacion().contratos;
+  const contratos = [{ expediente: "EXP-1", acto: "Contrato", bolsa: "Bolsa 1",
+    inicio: "2026-09-24", fin: "2026-10-24", estado: "Vigente" }];
   const disponible = vista.renderizarContratos({ contratos_fuente: { estado: "disponible", registros: contratos } });
-  assert.match(disponible, /DEMO-CON-184/);
+  assert.match(disponible, /EXP-1/);
   assert.match(disponible, /Disponible/);
   for (const estado of ["cargando", "vacio", "denegado", "error", "no_configurado", "desconocido"]) {
     const html = vista.renderizarContratos({ contratos_fuente: { estado, registros: contratos } });
-    assert.doesNotMatch(html, /DEMO-CON-184/);
+    assert.doesNotMatch(html, /EXP-1/);
     assert.match(html, /No hay relaciones disponibles para mostrar/);
   }
   assert.match(vista.renderizarContratos({ contratos_fuente: { estado: "disponible", registros: [] } }), /Sin registros/);

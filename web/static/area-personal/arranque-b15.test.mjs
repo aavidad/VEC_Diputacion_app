@@ -15,7 +15,7 @@ test("el HTML y los módulos cambiados usan URLs nuevas bajo caché inmutable", 
   ]);
   const versionCSSArea = "20260924-f2-area-tema-v2";
   const versionCSSOportunidades = "20260924-f2-b15-area-v1";
-  const versionPadre = "20260924-f2-b15-area-v4";
+  const versionPadre = "20260924-rescate-area-v7";
   assert.ok(html.includes(`/area-personal/area-personal.css?v=${versionCSSArea}`));
   assert.ok(html.includes(`/comun/oportunidades/oportunidades.css?v=${versionCSSOportunidades}`));
   assert.ok(!html.includes(`/area-personal/area-personal.css?v=${versionCSSOportunidades}`), "no reutilizar CSS anterior con caché inmutable");
@@ -29,18 +29,18 @@ test("el HTML y los módulos cambiados usan URLs nuevas bajo caché inmutable", 
   assert.match(arranque, /\.\/cliente-http\.js\?v=20260924-f2-b11-v2/);
 });
 
-test("una caché antigua v1-v3 no puede sustituir los padres v4 del montaje", async () => {
+test("una caché antigua v1-v5 no puede sustituir los padres v6 del montaje", async () => {
   const [html, arranque, contacto] = await Promise.all([
     readFile(new URL("./index.html", import.meta.url), "utf8"),
     readFile(new URL("./arranque.js", import.meta.url), "utf8"),
     readFile(new URL("./contacto-propio.js", import.meta.url), "utf8"),
   ]);
-  const nuevo = "20260924-f2-b15-area-v4";
+  const nuevo = "20260924-rescate-area-v7";
   const padre = new URL(html.match(/src="(\/area-personal\/arranque\.js\?v=[^"]+)"/)?.[1] ?? "", "https://vec.example");
   const hijo = new URL(arranque.match(/from "(\.\/aplicacion\.js\?v=[^"]+)"/)?.[1] ?? "", padre);
   assert.equal(padre.searchParams.get("v"), nuevo);
   assert.equal(hijo.searchParams.get("v"), nuevo);
-  for (const antiguo of ["20260924-f2-b15-area-v1", "20260924-f2-b15-area-v2", "20260924-f2-b15-area-v3"]) {
+  for (const antiguo of ["20260924-f2-b15-area-v1", "20260924-f2-b15-area-v2", "20260924-f2-b15-area-v3", "20260924-f2-b15-area-v4", "20260924-rescate-area-v5", "20260924-rescate-area-v6"]) {
     assert.notEqual(padre.href, `https://vec.example/area-personal/arranque.js?v=${antiguo}`);
     assert.notEqual(hijo.href, `https://vec.example/area-personal/aplicacion.js?v=${antiguo}`);
   }

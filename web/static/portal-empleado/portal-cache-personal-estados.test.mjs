@@ -4,7 +4,8 @@ import test from "node:test";
 
 const raiz = new URL("./", import.meta.url);
 const versionNueva = "20260924-f2-personal-estados-v4";
-const versionEntrada = "20260924-web-paradas-periodos-v1";
+const versionEntrada = "20260924-rescate-web-v2";
+const versionCoordinador = "20260924-web-paradas-periodos-v1";
 const versionI18n = "20260924-personal-interno-estados-v1";
 
 function versiones(codigo, recurso) {
@@ -49,8 +50,8 @@ test("una caché caliente descarga el grafo renovado hasta Personal i18n", async
   const html = await readFile(new URL("index.html", raiz), "utf8");
   assert.deepEqual(versiones(html, "/portal-empleado/portal.js"), [versionEntrada]);
   const portal = await cargar("portal.js", versionEntrada);
-  assert.deepEqual(versiones(portal, "./portal-modulos-coordinador.js"), [versionEntrada]);
-  const coordinador = await cargar("portal-modulos-coordinador.js", versionEntrada);
+  assert.deepEqual(versiones(portal, "./portal-modulos-coordinador.js"), [versionCoordinador]);
+  const coordinador = await cargar("portal-modulos-coordinador.js", versionCoordinador);
   assert.deepEqual(versiones(coordinador, "./modulos/personal/vista.js"), [versionNueva, versionNueva],
     "presentación e interno usan la misma vista renovada");
   const vista = await cargar("modulos/personal/vista.js", versionNueva);
@@ -59,7 +60,7 @@ test("una caché caliente descarga el grafo renovado hasta Personal i18n", async
 
   assert.deepEqual(descargas, new Set([
     `/portal-empleado/portal.js?v=${versionEntrada}`,
-    `/portal-empleado/portal-modulos-coordinador.js?v=${versionEntrada}`,
+    `/portal-empleado/portal-modulos-coordinador.js?v=${versionCoordinador}`,
     `/portal-empleado/modulos/personal/vista.js?v=${versionNueva}`,
     `/portal-empleado/modulos/personal/i18n.js?v=${versionI18n}`,
   ]));

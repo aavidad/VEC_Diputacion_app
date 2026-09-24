@@ -4,6 +4,7 @@ import test from "node:test";
 
 const raiz = new URL("./", import.meta.url);
 const version = "20260924-web-paradas-periodos-v1";
+const versionEntradaAyuda = "20260924-rescate-web-v2";
 const dietas = "modulos/dietas/";
 const cronos = "modulos/cronos/";
 
@@ -53,10 +54,12 @@ test("la caché de PR25 solicita de nuevo las paradas, los periodos y sus hojas"
   for (const [padre, recurso, previa, cantidad] of aristas) {
     const base = new URL(padre, raiz);
     const vieja = new URL(`${recurso}?v=${previa}`, base).href;
-    const nueva = new URL(`${recurso}?v=${version}`, base).href;
+    const versionEsperada = padre === "index.html" && recurso === "/portal-empleado/portal.js"
+      ? versionEntradaAyuda : version;
+    const nueva = new URL(`${recurso}?v=${versionEsperada}`, base).href;
     cache.set(vieja, "bytes PR25");
     const codigo = await readFile(base, "utf8");
-    assert.deepEqual(rutas(codigo, recurso), Array(cantidad).fill(version), `${padre} → ${recurso}`);
+    assert.deepEqual(rutas(codigo, recurso), Array(cantidad).fill(versionEsperada), `${padre} → ${recurso}`);
     assert.ok(!cache.has(nueva), `${recurso}: evita la caché previa`);
     pedidos.add(nueva);
   }

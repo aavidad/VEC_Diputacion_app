@@ -10,6 +10,7 @@
   const plural = i18n?.plural || ((clave, total) => t(`${clave}_${total === 1 ? "uno" : "otros"}`, { total: numero(total) }));
   const API = "/api/publico/bolsa/convocatorias";
   const API_CATEGORIAS = "/api/publico/bolsa/categorias";
+  const FUENTE_NO_CONFIGURADA = "fuente_publica_no_configurada";
   const TAMANO = 12;
   const porId = (id) => document.getElementById(id);
   const elementos = {
@@ -17,7 +18,7 @@
     categoria: porId("filtro-categoria"), estado: porId("filtro-estado"), plazo: porId("filtro-plazo"),
     limpiar: porId("limpiar-filtros"), reintentar: porId("reintentar-consulta"), listado: porId("lista-convocatorias"),
     panelListado: porId("panel-listado"), cargando: porId("estado-cargando"), error: porId("estado-error"), vacio: porId("estado-vacio"),
-    estadoConsulta: porId("estado-consulta"), revision: porId("revision-fuente"), avisoContenedor: porId("aviso-demostracion"), aviso: porId("texto-aviso-demostracion"),
+    estadoConsulta: porId("estado-consulta"), revision: porId("revision-fuente"),
     paginacion: porId("paginacion"), anterior: porId("pagina-anterior"), siguiente: porId("pagina-siguiente"), pagina: porId("pagina-actual"),
     panelDetalle: porId("panel-detalle"), tituloDetalle: porId("titulo-detalle"), cerrarDetalle: porId("cerrar-detalle"),
     detalleEspera: porId("detalle-espera"), detalleCargando: porId("detalle-cargando"), detalleError: porId("detalle-error"),
@@ -31,11 +32,10 @@
     errorDirectorio: porId("error-directorio-categorias"), vacioDirectorio: porId("vacio-directorio-categorias"),
     gruposDirectorio: porId("grupos-directorio-categorias"), reintentarDirectorio: porId("reintentar-directorio-categorias"),
     integridadCategorias: porId("integridad-catalogo-categorias"),
-    inicioInstitucional: porId("enlace-inicio-institucional"),
   };
   const estado = {
     pagina: 1, paginas: 0, convocatoria: "", categorias: [], controladorListado: null, controladorDetalle: null,
-    controladorCategorias: null, etiquetasArea: new Map(), fuentesDemostracion: { convocatorias: null, categorias: null }, avisosDemostracion: {},
+    controladorCategorias: null, etiquetasArea: new Map(),
     facetas: null,
   };
   const formatoFecha = new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" });
@@ -60,24 +60,6 @@
     if (estado.etiquetasArea.has(valor)) return estado.etiquetasArea.get(valor);
     const limpio = String(valor || "").replace(/[_-]+/g, " ").trim();
     return limpio ? limpio.charAt(0).toLocaleUpperCase("es") + limpio.slice(1) : t("area_no_indicada");
-  }
-
-  function actualizarAvisoDemostracion(origen, fuente) {
-    estado.fuentesDemostracion[origen] = fuente?.demostracion === true;
-    const aviso = String(fuente?.aviso || "").replace(/^DEMOSTRACI[ÓO]N\s*:?\s*/i, "").trim();
-    if (aviso) estado.avisosDemostracion[origen] = aviso;
-    const valores = Object.values(estado.fuentesDemostracion);
-    const esDemostracion = valores.some(Boolean);
-    elementos.avisoContenedor.hidden = valores.every((valor) => valor !== null) && !esDemostracion;
-    elementos.inicioInstitucional.href = esDemostracion ? "/presentacion/" : "/bolsa/";
-    elementos.inicioInstitucional.setAttribute("aria-label", esDemostracion
-      ? t("volver_presentacion")
-      : t("inicio_bolsa"));
-    const avisos = [...new Set(Object.values(estado.avisosDemostracion))];
-    if (esDemostracion) {
-      elementos.aviso.textContent = t("demostracion_aviso");
-      elementos.aviso.title = avisos.join(" ");
-    }
   }
 
   function etiqueta(valor) {
@@ -169,6 +151,7 @@
     if (!tipo.includes("application/json")) throw new Error("respuesta no JSON");
     const contenido = await respuesta.json();
     if (!respuesta.ok) throw new Error(contenido?.error?.codigo || "consulta fallida");
+    if (contenido?.fuente?.demostracion === true) throw new Error(FUENTE_NO_CONFIGURADA);
     return contenido;
   }
 
@@ -270,7 +253,6 @@
   function renderizarListado(datos) {
     const categoriasPorConvocatoria = contratoPublicoV1.validarListado(datos);
     renderizarFacetas(datos.facetas);
-    actualizarAvisoDemostracion("convocatorias", datos.fuente);
     elementos.revision.textContent = t("fuente_actualizada", {
       revision: datos.fuente.revision,
       fecha: formatoFecha.format(new Date(datos.fuente.actualizada_en)),
@@ -313,7 +295,7 @@
     } catch (error) {
       if (error.name === "AbortError") return;
       estadoListado("error");
-      elementos.estadoConsulta.textContent = t("consulta_no_disponible");
+      elementos.estadoConsulta.textContent = t(error.message === FUENTE_NO_CONFIGURADA ? "fuente_no_configurada" : "consulta_no_disponible");
     }
   }
 
@@ -428,7 +410,7 @@
       if (moverFoco) elementos.tituloDetalle.focus?.();
     } catch (error) {
       if (error.name === "AbortError") return;
-      elementos.tituloDetalle.textContent = t("ficha_no_disponible");
+      elementos.tituloDetalle.textContent = t(error.message === FUENTE_NO_CONFIGURADA ? "fuente_no_configurada" : "ficha_no_disponible");
       estadoDetalle("error");
     }
   }
@@ -566,7 +548,6 @@
     }
     estado.categorias = datos.categorias.slice().sort((a, b) => (a.orden - b.orden) || a.etiqueta.localeCompare(b.etiqueta, "es"));
     estado.etiquetasArea = new Map(estado.categorias.map((categoria) => [categoria.area, categoria.area_etiqueta]));
-    actualizarAvisoDemostracion("categorias", datos.fuente);
     configurarAreasDirectorio(estado.categorias);
     const huella = String(datos.catalogo.huella_sha256 || "");
     elementos.integridadCategorias.textContent = t("catalogo_resumen", {
@@ -593,7 +574,7 @@
     } catch (error) {
       if (error.name === "AbortError") return;
       estado.categorias = [];
-      elementos.estadoDirectorio.textContent = t("directorio_no_disponible");
+      elementos.estadoDirectorio.textContent = t(error.message === FUENTE_NO_CONFIGURADA ? "fuente_no_configurada" : "directorio_no_disponible");
       mostrarEstadoDirectorio("error");
     }
   }

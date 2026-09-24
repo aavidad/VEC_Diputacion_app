@@ -40,16 +40,15 @@ test("las guías de Bolsa recorren B12 y B5 sin automatizar decisiones", () => {
   assert.match(consulta.pasos[1].instruccion, /manualmente/u);
 });
 
-test("la guía de llamamiento conserva el límite C23 y la política pendiente de RRHH", () => {
+test("la guía de llamamiento separa la consulta de los efectos autorizados", () => {
   const llamamiento = TRAMITES_AYUDANTE_PORTAL.find(({ id }) => id === "bolsa-gestionar-llamamiento");
   assert.ok(llamamiento);
   const ultimo = llamamiento.pasos.at(-1);
   assert.equal(ultimo.vista, "bolsa-candidatos");
   assert.equal(ultimo.selector, "[data-bolsa-c23-pendiente]");
   assert.equal(ultimo.bloqueado, true);
-  assert.match(ultimo.limite, /C23/u);
-  assert.match(ultimo.limite, /contacto, la apertura ni el resultado/u);
-  assert.match(ultimo.limite, /política de RRHH/u);
+  assert.match(ultimo.limite, /no acredita contacto, apertura ni resultado/u);
+  assert.match(ultimo.limite, /capacidad y su recibo/u);
   assert.equal(llamamiento.pasos.some((paso) => "activar" in paso), false);
 });
 

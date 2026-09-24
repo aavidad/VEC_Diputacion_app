@@ -32,7 +32,10 @@ function mensaje(d, texto, tipo = "status") { const p = nodo(d, "p", texto); p.c
 function ayuda(d, t) {
   const detalles = nodo(d, "details"); detalles.className = "ayuda-contextual"; detalles.dataset.personalFichaAyuda = "";
   const abrir = nodo(d, "summary", "?"); abrir.setAttribute("aria-label", t("ficha_abrir_ayuda"));
-  detalles.append(abrir, nodo(d, "p", t("ficha_ayuda"))); return detalles;
+  abrir.setAttribute("tabindex", "0");
+  const contexto = nodo(d, "p");
+  detalles.append(abrir, nodo(d, "p", t("ficha_ayuda")), contexto);
+  return { elemento: detalles, mostrar(clave) { detalles.open = false; contexto.textContent = clave ? t(clave) : ""; } };
 }
 function accesos(d, t, navegarModulo, destinosDisponibles) {
   const acciones = nodo(d, "div"); acciones.className = "acciones-fila personal-ficha-accesos";
@@ -58,7 +61,7 @@ function portada(d, t, navegarModulo, destinosDisponibles, estados) {
   if (Object.values(estados).every((estado) => estado === "no_configurado")) resumen.push(mensaje(d, t("ficha_sin_datos")));
   resumen.push(bloques);
   return [panel(d, t("ficha_resumen"), resumen, "personal-ficha-panel-ancho"),
-    panel(d, t("ficha_accesos_titulo"), [nodo(d, "p", t("ficha_accesos_ayuda")), accesos(d, t, navegarModulo, destinosDisponibles)], "personal-ficha-panel-ancho")];
+    panel(d, t("ficha_accesos_titulo"), [accesos(d, t, navegarModulo, destinosDisponibles)], "personal-ficha-panel-ancho")];
 }
 function validarResultado(resultado, bloque) {
   if (!resultado || typeof resultado !== "object" || !ESTADOS.has(resultado.estado)) throw new TypeError("respuesta de ficha no válida");
@@ -114,7 +117,7 @@ function tabla(d, t, bloque, items) {
   conjunto.append(indicacion, region); return conjunto;
 }
 function pintarBloque(d, principal, t, bloque, resultado) {
-  const definicion = BLOQUES[bloque]; const piezas = [nodo(d, "p", t(definicion.ayuda))];
+  const definicion = BLOQUES[bloque]; const piezas = [];
   if (resultado.estado === "disponible" || resultado.estado === "vacio") {
     const metadatos = nodo(d, "p", t("ficha_procedencia", { fuente: resultado.fuente, fecha: formatearFecha(resultado.actualizado_en) }));
     metadatos.className = "personal-ficha-procedencia"; piezas.push(metadatos);
@@ -147,7 +150,8 @@ export function montarVistaFichaIntegralPersonal({ raiz, anunciar = () => {}, re
   const desmontar = () => { if (!activa) return; activa = false; secuencia += 1; vuelo?.abort(); limpiar(); contenedor.remove?.(); };
   registrarDesmontar?.(desmontar);
   const cabecera = nodo(d, "header"); cabecera.className = "cabecera-vista";
-  cabecera.append(nodo(d, "p", t("ficha_sobrelinea")), nodo(d, "h2", t("ficha_titulo")), ayuda(d, t));
+  const ayudaFicha = ayuda(d, t);
+  cabecera.append(nodo(d, "p", t("ficha_sobrelinea")), nodo(d, "h2", t("ficha_titulo")), ayudaFicha.elemento);
   const tabs = nodo(d, "div"); tabs.className = "personal-ficha-pestanas"; tabs.setAttribute("role", "tablist"); tabs.setAttribute("aria-label", t("ficha_navegacion"));
   const principal = nodo(d, "div"); principal.className = "personal-ficha-principal"; principal.id = "personal-ficha-panel";
   principal.setAttribute("role", "tabpanel"); principal.setAttribute("tabindex", "0");
@@ -156,6 +160,7 @@ export function montarVistaFichaIntegralPersonal({ raiz, anunciar = () => {}, re
     if (actual === "catalogos") limpiar();
     if (vuelo && Object.hasOwn(estados, actual) && estados[actual] === "cargando") estados[actual] = "sin_consulta";
     secuencia += 1; vuelo?.abort(); vuelo = undefined; actual = clave;
+    ayudaFicha.mostrar(clave === "ficha" ? "ficha_accesos_ayuda" : BLOQUES[clave]?.ayuda);
     for (const [valor] of PESTANAS) {
       const tab = tabs.querySelector?.(`[data-personal-ficha-tab="${valor}"]`);
       tab?.setAttribute("aria-selected", String(valor === clave)); tab?.setAttribute("tabindex", valor === clave ? "0" : "-1");

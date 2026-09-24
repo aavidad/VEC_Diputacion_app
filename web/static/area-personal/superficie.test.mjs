@@ -5,13 +5,28 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { crearAdaptadorPresentacion } from "./adaptador-presentacion.js";
-import { esOrigenSinteticoODesarrollo } from "./aplicacion.js";
+import { esOrigenSinteticoODesarrollo, exigirDatosOperativos, exigirSinPresentacion } from "./aplicacion.js";
+import { iniciarI18nAreaPersonal, traducir } from "./i18n.js";
 import { renderizarConvocatorias, renderizarDetalleConvocatoria, renderizarInicio } from "./vistas/inicio-convocatorias.js";
 import { renderizarAutobaremacion, renderizarMeritos, renderizarPerfil, renderizarSolicitud } from "./vistas/perfil-meritos-solicitud.js";
 import { renderizarAlegaciones, renderizarLlamamientos, renderizarSeguimiento, renderizarSubsanaciones } from "./vistas/seguimiento-tramites.js";
 import { renderizarAyuda, renderizarCertificados, renderizarMensajes } from "./vistas/comunicaciones-ayuda.js";
 
 const RAIZ = dirname(fileURLToPath(import.meta.url));
+
+test("el diálogo de sesión usa el catálogo común para la autoridad del servidor", async () => {
+  const catalogo = JSON.parse(await readFile(join(RAIZ, "locales/es.json"), "utf8"));
+  const claves = ["titulo", "persona", "referencia", "metodo", "origen", "autoridadServidor"];
+  const copia = await import("./i18n.js?respaldo-dialogo-sesion");
+  for (const nombre of claves) {
+    const clave = `areaPersonal.sesion.${nombre}`;
+    assert.equal(copia.traducir(clave), catalogo[clave], clave);
+  }
+  await iniciarI18nAreaPersonal({ querySelectorAll: () => [] }, async () => ({ ok: true, json: async () => catalogo }));
+  for (const nombre of claves) assert.equal(traducir(`areaPersonal.sesion.${nombre}`), catalogo[`areaPersonal.sesion.${nombre}`]);
+  const aplicacion = await readFile(join(RAIZ, "aplicacion.js"), "utf8");
+  assert.match(aplicacion, /escaparHTML\(traducir\(`\$\{prefijoTraduccion\}autoridadServidor`\)\)/);
+});
 
 async function archivosEn(directorio) {
   const resultado = [];
@@ -23,12 +38,13 @@ async function archivosEn(directorio) {
   return resultado;
 }
 
-test("el launcher y el área personal comparten el selector único rrhh", async () => {
+test("el enlace histórico a presentación no activa esa modalidad en el producto", async () => {
   const launcher = await readFile(join(RAIZ, "../presentacion/index.html"), "utf8");
-  const contrato = await readFile(join(RAIZ, "contrato.js"), "utf8");
   assert.match(launcher, /\/area-personal\/\?presentacion=rrhh/u);
-  assert.match(contrato, /getAll\("presentacion"\)[\s\S]*selectores\.length === 1 && selectores\[0\] === "rrhh"/u);
-  assert.doesNotMatch(launcher, /area-personal\/\?presentacion=aspirante/u);
+  for (const consulta of ["presentacion=rrhh", "presentacion=aspirante", "presentacion="]) {
+    assert.throws(() => exigirSinPresentacion(new URLSearchParams(consulta)), /no está disponible/u);
+  }
+  assert.doesNotThrow(() => exigirSinPresentacion(new URLSearchParams("vista=llamamientos")));
 });
 
 test("la superficie cubre todos los recorridos solicitados y conserva semántica", async () => {
@@ -57,28 +73,29 @@ test("no hay estado de negocio persistido, cookies, credenciales ni red externa"
   }
 });
 
-test("la demo está aislada y el arranque normal solo compone HTTP", async () => {
+test("el arranque de producto solo compone HTTP y no importa adaptadores de presentación", async () => {
   const arranque = await readFile(join(RAIZ, "arranque.js"), "utf8");
   const aplicacion = await readFile(join(RAIZ, "aplicacion.js"), "utf8");
-  assert.match(arranque, /if \(presentacion\)[\s\S]*import\("\.\/adaptador-presentacion\.js/u);
-  assert.match(arranque, /if \(presentacion\)[\s\S]*import\("\.\.\/portal-empleado\/documentos\/descarga-recibos-presentacion\.js/u);
+  assert.match(arranque, /exigirSinPresentacion\(new URLSearchParams\(window\.location\.search\)\)/u);
+  assert.doesNotMatch(arranque, /adaptador-presentacion|descarga-recibos-presentacion|selector-perfiles/u);
   assert.match(arranque, /crearClienteHTTPAreaPersonal/u);
   assert.doesNotMatch(aplicacion, /adaptador-presentacion|cliente-http/u);
   assert.doesNotMatch(arranque, /innerHTML\s*=\s*`[^`]*error\.message/su);
   assert.match(arranque, /detalle\.textContent\s*=\s*traducir\("areaPersonal\.estado\.error\.detalle"\)/u);
   assert.doesNotMatch(arranque, /error\.message/u);
-  assert.match(await readFile(join(RAIZ, "index.html"), "utf8"), /id="aviso-presentacion" role="status" hidden/u);
-  assert.match(arranque, /if \(dependencias\.presentacionSolicitada\)[\s\S]*import\("\.\.\/presentacion\/selector-perfiles\.js/u);
-  assert.match(arranque, /perfilActivo: "usuario_externo"/u);
+  assert.doesNotMatch(await readFile(join(RAIZ, "index.html"), "utf8"), /id="aviso-presentacion"|Confirmar demostración/u);
   assert.doesNotMatch(await readFile(join(RAIZ, "index.html"), "utf8"), /selector-perfiles\.css/u);
 });
 
-test("el aviso identifica datos sintéticos o de desarrollo aunque no sea presentación", () => {
+test("el área rechaza datos sintéticos, de desarrollo o de presentación", () => {
   assert.equal(esOrigenSinteticoODesarrollo({ origen: "Dataset sintético" }), true);
   assert.equal(esOrigenSinteticoODesarrollo({ origen: "Perfil de desarrollo sin identidad de candidato" }), true);
   assert.equal(esOrigenSinteticoODesarrollo({ origen: "API interna", entorno: "desarrollo" }), true);
   assert.equal(esOrigenSinteticoODesarrollo({ origen: "API interna autenticada" }), false);
   assert.equal(esOrigenSinteticoODesarrollo(null), false);
+  assert.throws(() => exigirDatosOperativos({ meta: { presentacion: true, origen: "API interna" } }), /no está configurada/u);
+  assert.throws(() => exigirDatosOperativos({ meta: { presentacion: false, origen: "Dataset sintético" } }), /no está configurada/u);
+  assert.doesNotThrow(() => exigirDatosOperativos({ meta: { presentacion: false, origen: "API interna autenticada" } }));
 });
 
 test("las convocatorias del candidato reproducen el inventario público y aíslan la tramitación sintética", async () => {
@@ -196,19 +213,21 @@ test("el menú móvil gestiona foco, Escape y contención de teclado", async () 
   assert.match(aplicacion, /evento\.key !== "Escape"[\s\S]{0,220}cerrarMenu\(\{ restaurarFoco: true \}\)/);
 });
 
-test("la lectura por voz nunca expone un expediente a una voz remota", async () => {
+test("la lectura de expedientes remite a la guía textual sin sintetizar datos privados", async () => {
   const aplicacion = await readFile(join(RAIZ, "aplicacion.js"), "utf8");
   const inicio = aplicacion.indexOf("function leerPantalla(estado)");
   const fin = aplicacion.indexOf("function alternarPreferencia", inicio);
   const funcion = aplicacion.slice(inicio, fin);
   assert.ok(inicio >= 0 && fin > inicio, "debe existir la lectura gobernada");
-  assert.match(funcion, /meta\?\.presentacion !== true[\s\S]*conector y una política aprobados[\s\S]*return;/u);
-  assert.match(funcion, /localService === true[\s\S]*\^es\(\?:-\|\$\)\/i/u);
-  assert.match(funcion, /if \(!voz\)[\s\S]*No hay una voz local en español[\s\S]*return;/u);
-  assert.match(funcion, /locucion\.voice = voz/u);
-  assert.ok(funcion.indexOf("meta?.presentacion !== true") < funcion.indexOf("innerText"), "el bloqueo real debe preceder a la lectura del contenido");
-  const ayuda = await readFile(join(RAIZ, "vistas/comunicaciones-ayuda.js"), "utf8");
-  assert.match(ayuda, /<audio[\s\S]*ayuda-llamamiento-bolsa\.mp3[\s\S]*Leer la transcripción/u);
+  assert.match(funcion, /conector y una política aprobados[\s\S]*guía textual de Ayuda/u);
+  assert.doesNotMatch(funcion, /innerText|speechSynthesis|SpeechSynthesisUtterance/u);
+  const ayuda = renderizarAyuda({ meta: { presentacion: false }, ayuda: [] });
+  assert.match(ayuda, /Esta guía explica el área personal de Bolsa/u);
+  assert.match(ayuda, /Cada operación real depende de la confirmación del servicio autorizado/u);
+  assert.doesNotMatch(ayuda, /<audio\b|ayuda-llamamiento-bolsa\.mp3/u);
+  const ayudaSintetica = renderizarAyuda({ meta: { presentacion: true }, ayuda: [] });
+  assert.match(ayudaSintetica, /ningún acto tiene validez administrativa/u);
+  assert.doesNotMatch(ayudaSintetica, /Cada operación real|<audio\b|ayuda-llamamiento-bolsa\.mp3/u);
 });
 
 test("el registro final exige declaración y una referencia exacta de solicitud", async () => {
@@ -236,11 +255,11 @@ test("el registro final exige declaración y una referencia exacta de solicitud"
   assert.doesNotMatch(await readFile(join(RAIZ, "adaptador-presentacion.js"), "utf8"), /solicitudes\[0\]/u);
 });
 
-test("la composición conserva el modo en enlaces y bloquea capacidades antes del diálogo", async () => {
+test("la composición limita enlaces al área y bloquea capacidades antes del diálogo", async () => {
   const aplicacion = await readFile(join(RAIZ, "aplicacion.js"), "utf8");
   assert.match(aplicacion, /function actualizarEnlacesNavegacion\(estado\)[\s\S]*setAttribute\("href", crearURL\(estado/u);
-  assert.match(aplicacion, /if \(estado\.presentacionSolicitada\)[\s\S]*setAttribute\("href", "\/presentacion\/"\)[\s\S]*removeAttribute\("data-ruta"\)/u);
-  assert.match(aplicacion, /else \{[\s\S]*inicioInstitucional\.dataset\.ruta = "inicio"[\s\S]*crearURL\(estado, "inicio"\)/u);
+  assert.doesNotMatch(aplicacion, /\/presentacion\/|presentacionSolicitada/u);
+  assert.match(aplicacion, /inicioInstitucional\.dataset\.ruta = "inicio"[\s\S]*crearURL\(estado, "inicio"\)/u);
   assert.match(aplicacion, /function aplicarCapacidadesVisibles\(estado\)[\s\S]*estado\.datos\.capacidades\[operacion\] === true/u);
   assert.match(aplicacion, /function prepararOperacion[\s\S]*estado\.datos\.capacidades\[operacion\] !== true[\s\S]*Operación no disponible/u);
   assert.match(aplicacion, /\["Objetivo", escaparHTML\(recibo\.objetivo\)\]/u);

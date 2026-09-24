@@ -10,7 +10,7 @@ const portal = await readFile(new URL("./portal.js", import.meta.url), "utf8");
 test("el montaje de llamamientos incorpora el corte y lo desmonta al salir", () => {
   assert.match(portal, /crearSuperficieBorradorLlamamiento/);
   assert.match(portal, /vista === "llamamientos"[\s\S]{0,200}superficieBorradorLlamamiento\.desmontar/);
-  assert.match(portal, /llamamientos:[\s\S]{0,240}superficieBorradorLlamamiento\.renderizar/);
+  assert.match(portal, /if \(vista === "llamamientos"\) \{ superficieBorradorLlamamiento\.activar\(\);[\s\S]{0,160}superficieBorradorLlamamiento\.renderizar/);
 });
 
 test("la superficie muestra un formulario acotado y no afirma selección ni contacto", () => {

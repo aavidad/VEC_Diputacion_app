@@ -35,8 +35,6 @@ import {
 } from "./portal-bolsas-api.js";
 
 import { crearPresentadorPanelInterno } from "./portal-panel-interno.js";
-import { crearFuenteLecturaBolsasPresentacion } from "./portal-presentacion-adaptador.js";
-import { obtenerDatosPresentacion } from "./datos-presentacion.js";
 
 const rutaDemoJson = new URL("../../../data/demo/bolsa/v1.bolsas-demo.json", import.meta.url);
 const demoJsonRaw = JSON.parse(await readFile(rutaDemoJson, "utf8"));
@@ -440,7 +438,7 @@ test("interfaz B5: conecta el nuevo llamamiento y mantiene pendiente la respuest
   assert.doesNotMatch(html, /<th scope="col">Acciones<\/th>/);
   assert.match(html, /data-bolsa-accion="abrir-ficha"/);
   assert.match(html, /Operaciones conectadas/);
-  assert.match(html, /recibos recuperables/);
+  assert.match(html, /autorización, historia y recibos/);
   assert.match(html, /Consultar historial de contactos/);
   assert.match(html, /Nuevo llamamiento/);
   assert.match(html, /Registrar resultado/);
@@ -495,41 +493,47 @@ test("interfaz B5: conecta el nuevo llamamiento y mantiene pendiente la respuest
   assert.doesNotMatch(htmlConResultado, /Registrar resultado de llamamiento \(B3\)|data-bolsa-form="resultado"|resultado-clave/);
 });
 
-test("la presentación reutiliza B12/B5 con envelopes cerrados, filtros en memoria y contactos sintéticos", () => {
-  const fuente = crearFuenteLecturaBolsasPresentacion({
-    datosIniciales: obtenerDatosPresentacion("tecnico"),
-  });
-  const bolsas = fuente.consultarBolsas();
-  assert.equal(bolsas.ok, true);
-  assert.equal(bolsas.datos.bolsas.length, 6);
-
-  const bolsaRef = bolsas.datos.bolsas[0].bolsa_ref;
-  assert.equal(bolsaRef, "DEMO-BOL-AUXILIAR-ADMIN");
-  assert.equal(bolsas.datos.bolsas[0].tipo_lista, "rotatoria");
-  assert.equal(bolsas.datos.bolsas[0].politica_orden.provisional, true);
-  const disponibles = fuente.consultarCandidatosBolsa(bolsaRef, { estado: "disponible" });
-  assert.equal(disponibles.ok, true);
-  assert.equal(disponibles.datos.candidatos.length, 1);
-  assert.match(disponibles.datos.candidatos[0].documento_enmascarado, /^\*{3}\d{4}\*{2}$/);
-  assert.equal(disponibles.datos.candidatos[0].ultimo_llamamiento, null);
-
-  const vacio = fuente.consultarCandidatosBolsa(bolsaRef, { texto: "sin coincidencia" });
-  assert.equal(vacio.ok, true);
-  assert.equal(vacio.datos.candidatos.length, 0);
-
-  const historial = fuente.consultarContactosCandidato(bolsaRef, disponibles.datos.candidatos[0].participacion_ref);
-  assert.equal(historial.ok, true);
-  assert.deepEqual(historial.datos.contactos, []);
-
+test("sin fuente B5 configurada no ofrece candidaturas ni acciones de muestra", () => {
   const presentador = crearPresentadorPanelInterno({
-    claseEstado: () => "", encabezadoVista: (_s, t) => `<h2>${t}</h2>`, escaparHTML: (v) => String(v ?? ""),
-    numero: (n) => String(n ?? 0), obtenerDatosPanel: () => ({ esquema: "vec.bolsa.panel.interno.v1" }),
-    tituloVista: (v) => v, obtenerDatosCandidatosBolsa: () => ({ carga: "listo", datos: disponibles.datos, error: "" }),
-    obtenerEstadoCandidatos: () => ({ estado: "", texto: "" }), esLecturaPresentacion: () => true,
+    claseEstado: () => "", encabezadoVista: (_s, titulo) => `<h2>${titulo}</h2>`,
+    escaparHTML: (valor) => String(valor ?? ""), numero: (valor) => String(valor ?? 0),
+    obtenerDatosPanel: () => ({ esquema: "vec.bolsa.panel.interno.v1" }), tituloVista: (valor) => valor,
+    obtenerDatosCandidatosBolsa: () => null,
+    obtenerEstadoCandidatos: () => ({ estado: "", texto: "" }),
   });
   const html = presentador.renderizarVista("bolsa-candidatos");
-  assert.match(html, /Presentación sintética de solo lectura/);
-  assert.match(html, /Acciones pendientes de composición/);
-  assert.match(html, /abrir-ficha/);
-  assert.doesNotMatch(html, /abrir-contactos|abrir-llamar|abrir-resultado/);
+  assert.match(html, /Consulta no configurada/);
+  assert.match(html, /No hay una fuente autorizada/);
+  assert.doesNotMatch(html, /DEMO-BOL|Historial sintético|data-bolsa-accion="iniciar-b7"|data-bolsa-accion="abrir-ficha"/);
+});
+
+test("el formulario individual no inventa plazo ni envía POST si falta fecha y hora", () => {
+  const escuchas = {};
+  const form = { dataset: { participacionRef: "participacion:01" } };
+  const documento = { addEventListener(tipo, fn) { escuchas[tipo] = fn; } };
+  const FormDataOriginal = globalThis.FormData;
+  const fetchOriginal = globalThis.fetch;
+  const campos = { confirmacion: "true", canal: "correo",
+    comunicado_en: "2026-09-24T10:00", plazo_respuesta_hasta: "", anotacion: "" };
+  let posts = 0;
+  globalThis.FormData = class { get(clave) { return campos[clave]; } };
+  globalThis.fetch = async () => { posts += 1; throw new Error("POST inesperado"); };
+  try {
+    const estado = { bolsaSeleccionada: "bolsa:01", filtrosBolsa: {},
+      modalLlamar: { abierto: true, carga: "ocioso", error: "" } };
+    crearControladorBolsas({ estado, renderizar: () => {}, navegar: () => {}, documento }).instalar();
+    const submit = () => escuchas.submit({ preventDefault() {},
+      target: { closest(selector) { return selector === '[data-bolsa-form="llamar"]' ? form : null; } } });
+    submit();
+    assert.match(estado.modalLlamar.error, /fecha y hora válidas/);
+    assert.equal(estado.modalLlamar.carga, "ocioso");
+    assert.equal(posts, 0);
+    campos.plazo_respuesta_hasta = "2026-09-26";
+    submit();
+    assert.match(estado.modalLlamar.error, /fecha y hora válidas/);
+    assert.equal(posts, 0);
+  } finally {
+    globalThis.FormData = FormDataOriginal;
+    globalThis.fetch = fetchOriginal;
+  }
 });

@@ -670,11 +670,12 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
   const versionPersonalEstados = "20260924-f2-personal-estados-v4";
   const versionCronosPermisos = "20260924-f2-cronos-permisos-v2";
   const versionDietasShell = "20260924-web-paradas-periodos-v1";
+  const versionEntradaAyuda = "20260924-rescate-web-v2";
   const versionVistasC = "20260924-web-c-v1";
   const versionDietasRecuperacion = "20260924-dietas-recuperacion-v3";
   const versionDietasVista = "20260924-web-paradas-periodos-v1";
   const versionCarga = "20260923-p4-estado-modulos-v1";
-  const versionModuloBolsa = "20260924-integracion-b7-v1";
+  const versionModuloBolsa = "20260924-rescate-web-v2";
   const versionSubsanacion = "20260924-web-subsanacion-v1";
   const versionClientePersonal = versionPersonalInterno;
   const versionCatalogo = versionCronosPermisos;
@@ -703,8 +704,9 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
   assert.doesNotMatch(portal, new RegExp(`portal-modulos-coordinador\\.js\\?v=${versionPersonalInterno}`));
   assert.match(coordinador, new RegExp(`portal-modulos-carga\\.js\\?v=${versionCarga}`));
   assert.match(portal, new RegExp(`portal-bolsas-api\\.js\\?v=${versionModuloBolsa}`));
-  assert.match(portal, new RegExp(`portal-i18n\\.js\\?v=${versionCronosPermisos}`));
-  for (const recurso of ["portal-inicio", "portal-eventos", "portal-borradores-ui"]) {
+  assert.match(portal, new RegExp(`portal-i18n\\.js\\?v=${versionEntradaAyuda}`));
+  assert.match(portal, new RegExp(`portal-eventos\\.js\\?v=${versionEntradaAyuda}`));
+  for (const recurso of ["portal-inicio", "portal-borradores-ui"]) {
     assert.match(portal, new RegExp(`${recurso}\\.js\\?v=${versionCronosPermisos}`));
   }
   assert.match(coordinador, new RegExp(`portal-catalogo-modulos\\.js\\?v=${versionCatalogo}`));
@@ -719,7 +721,7 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
     assert.equal([...coordinador.matchAll(expresion)].length, montajes, vista);
   }
   assert.doesNotMatch(coordinador, new RegExp(`modulos/personal/vista\\.js\\?v=${versionCachePersonal}`));
-  assert.match(html, new RegExp(`portal\\.js\\?v=${versionDietasShell}`));
+  assert.match(html, new RegExp(`portal\\.js\\?v=${versionEntradaAyuda}`));
   assert.doesNotMatch(html, /portal\.js\?v=20260924-web-c-ayuda-v5/u);
   assert.doesNotMatch(html, /portal\.js\?v=20260924-web-c-ayuda-v4/u);
   assert.doesNotMatch(html, /portal\.js\?v=20260924-web-c-v3/u);

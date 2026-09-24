@@ -1,23 +1,24 @@
-import { TRAMITES_AYUDANTE_PORTAL } from "./ayuda-contenido.js?v=20260924-osm-base-v3";
+import { TRAMITES_AYUDANTE_PORTAL } from "./ayuda-contenido.js?v=20260924-rescate-web-v2";
+import { traducirPortal } from "./portal-i18n.js?v=20260924-rescate-web-v2";
 
 const TEXTO = Object.freeze({
-  titulo: "Ayudante de trámites",
-  introduccion: "Elija un trámite frecuente. La guía le lleva a la sección correspondiente y explica cada paso; no realiza trámites ni sustituye una decisión administrativa.",
-  elegir: "Trámites frecuentes",
-  pasos: "Pasos del trámite",
-  anterior: "Anterior",
-  siguiente: "Siguiente",
-  ir: "Ir al paso en la aplicación",
-  volver: "Volver a trámites",
-  detalle: "Explicar este paso",
-  ocultar: "Ocultar explicación",
-  objetivo: "Objetivo",
-  preparacion: "Antes de empezar",
-  resultado: "Resultado esperado",
-  actor: "Responsable",
-  limite: "Límite o dependencia",
-  aviso: "La guía no guarda datos, no solicita documentos y no produce efectos administrativos.",
-  pendiente: "Este paso queda detenido hasta que la dependencia indicada esté conectada y autorizada.",
+  titulo: traducirPortal("ayuda_contenido_302"),
+  introduccion: traducirPortal("ayuda_contenido_303"),
+  elegir: traducirPortal("ayuda_contenido_304"),
+  pasos: traducirPortal("ayuda_contenido_305"),
+  anterior: traducirPortal("ayuda_contenido_306"),
+  siguiente: traducirPortal("ayuda_contenido_307"),
+  ir: traducirPortal("ayuda_contenido_308"),
+  volver: traducirPortal("ayuda_contenido_309"),
+  detalle: traducirPortal("ayuda_contenido_310"),
+  ocultar: traducirPortal("ayuda_contenido_311"),
+  objetivo: traducirPortal("ayuda_contenido_312"),
+  preparacion: traducirPortal("ayuda_contenido_313"),
+  resultado: traducirPortal("ayuda_contenido_314"),
+  actor: traducirPortal("ayuda_contenido_315"),
+  limite: traducirPortal("ayuda_contenido_316"),
+  aviso: traducirPortal("ayuda_contenido_317"),
+  pendiente: traducirPortal("ayuda_contenido_318"),
 });
 
 function escaparHTML(valor) {
@@ -72,7 +73,7 @@ function renderizarLista(tramites, escapar) {
     <p class="ayudante-tramites-introduccion">${escapar(TEXTO.introduccion)}</p>
     <h3 id="ayudante-tramites-titulo">${escapar(TEXTO.elegir)}</h3>
     <ul class="ayudante-tramites-lista">${tramites.map((tramite) => `<li><button type="button" class="ayudante-tramite" data-ayudante-tramite="${escapar(tramite.id)}"><span>${escapar(tramite.titulo)}</span><small>${escapar(tramite.modulo)} · ${escapar(tramite.resumen)}</small></button></li>`).join("")}</ul>
-    <p class="ayudante-tramites-extension">Bolsa de trabajo y Contratación temporal mantienen su ayuda propia; su ampliación corresponde al recorrido de sus módulos.</p>
+    <p class="ayudante-tramites-extension">${escapar(traducirPortal("ayuda_extension"))}</p>
     <p class="ayudante-tramites-aviso">${escapar(TEXTO.aviso)}</p>
   </section>`;
 }
@@ -81,7 +82,7 @@ function renderizarPaso(tramite, indice, escapar, expandido = false) {
   const paso = resolverPaso(tramite, indice);
   const detalleId = `ayudante-detalle-${tramite.id}-${indice}`;
   return `<section class="ayudante-tramites" data-ayudante-tramites aria-labelledby="ayudante-paso-titulo">
-    <p class="sobrelinea">${escapar(tramite.modulo)} · ${escapar(`Paso ${indice + 1} de ${tramite.pasos.length}`)}</p>
+    <p class="sobrelinea">${escapar(tramite.modulo)} · ${escapar(traducirPortal("ayuda_paso_de", { actual: indice + 1, total: tramite.pasos.length }))}</p>
     <h3 id="ayudante-paso-titulo">${escapar(paso.titulo)}</h3>
     <p class="ayudante-tramites-instruccion">${escapar(paso.instruccion)}</p>
     <div class="ayudante-tramites-acciones">
@@ -135,9 +136,9 @@ export function crearAyudanteTramites({ escapar = escaparHTML, tramites = TRAMIT
       let tramite = null;
       let paso = 0;
       let detalle = false;
-      const pintar = () => {
+      const pintar = (selectorFoco = "[data-ayudante-tramite], [data-ayudante-ir]") => {
         contenedor.innerHTML = tramite ? renderizarPaso(tramite, paso, escapar, detalle) : renderizarLista(catalogo, escapar);
-        contenedor.querySelector("[data-ayudante-tramite], [data-ayudante-ir]")?.focus?.({ preventScroll: true });
+        contenedor.querySelector(selectorFoco)?.focus?.({ preventScroll: true });
       };
       const alPulsar = (evento) => {
         const boton = evento.target?.closest?.("[data-ayudante-tramite], [data-ayudante-anterior], [data-ayudante-siguiente], [data-ayudante-detalle], [data-ayudante-volver], [data-ayudante-ir]");
@@ -148,7 +149,7 @@ export function crearAyudanteTramites({ escapar = escaparHTML, tramites = TRAMIT
         if (!tramite) return;
         if (boton.hasAttribute("data-ayudante-anterior")) { paso -= 1; detalle = false; pintar(); return; }
         if (boton.hasAttribute("data-ayudante-siguiente")) { paso += 1; detalle = false; pintar(); return; }
-        if (boton.hasAttribute("data-ayudante-detalle")) { detalle = !detalle; pintar(); return; }
+        if (boton.hasAttribute("data-ayudante-detalle")) { detalle = !detalle; pintar("[data-ayudante-detalle]"); return; }
         if (boton.hasAttribute("data-ayudante-volver")) { tramite = null; paso = 0; detalle = false; pintar(); return; }
         if (boton.hasAttribute("data-ayudante-ir")) {
           const pasoActual = resolverPaso(tramite, paso);
@@ -159,6 +160,7 @@ export function crearAyudanteTramites({ escapar = escaparHTML, tramites = TRAMIT
         }
       };
       contenedor.addEventListener("click", alPulsar);
+      contenedor.querySelector("[data-ayudante-tramite]")?.focus?.({ preventScroll: true });
       return () => contenedor.removeEventListener("click", alPulsar);
     },
   };

@@ -584,7 +584,7 @@ func TestSuperficiePublicaExponeSoloSuListaPositiva(t *testing.T) {
 		{ruta: "/portal-empleado/portal.js", estado: http.StatusSeeOther},
 		{ruta: "/assets/", estado: http.StatusNotFound},
 		{ruta: "/portal-empleado/assets/", estado: http.StatusSeeOther},
-		{ruta: "/portal-empleado/assets/ayuda-llamamiento-bolsa.mp3", estado: http.StatusSeeOther},
+		{ruta: "/portal-empleado/portal-i18n-ayuda.js", estado: http.StatusSeeOther},
 		{ruta: "/api", estado: http.StatusNotFound},
 		{ruta: "/api/vec", estado: http.StatusUnauthorized},
 		{ruta: "/api/vec/session", estado: http.StatusUnauthorized},

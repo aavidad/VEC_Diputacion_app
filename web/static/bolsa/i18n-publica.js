@@ -1,11 +1,9 @@
 /** Catálogo común de las superficies públicas de Bolsa. Sin estado persistente. */
 (function registrarI18nPublico(raiz) {
   const mensajes = Object.freeze({
-    demostracion_aviso: "Datos públicos reales de referencia; plazos y actuaciones rotulados DEMO son sintéticos y carecen de validez administrativa.",
-    volver_presentacion: "Volver al selector de recorridos de la presentación",
-    inicio_bolsa: "Inicio de Bolsa y procesos selectivos",
     cargando_convocatorias: "Cargando convocatorias…",
     consulta_no_disponible: "La consulta no está disponible.",
+    fuente_no_configurada: "La fuente pública de Bolsa no está configurada para esta consulta.",
     ficha_no_disponible: "Ficha no disponible",
     seleccione_convocatoria: "Seleccione una convocatoria",
     todos_tipos: "Todos los tipos",

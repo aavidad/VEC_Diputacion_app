@@ -7,26 +7,13 @@ const necesarios = [
   "static/comun/tema-vec.css",
   "static/comun/tema-vec.js",
   "static/portal-empleado/modulos/administracion/vista-apariencia.js",
-  "static/portal-empleado/portal-i18n-baremacion.js",
   "static/portal-empleado/portal-i18n-contratos.js",
-  "static/portal-empleado/portal-i18n-convocatorias.js",
   "static/portal-empleado/modulos/cronos/i18n-permisos.js",
   "static/portal-empleado/modulos/dietas/i18n-borradores.js",
   "static/portal-empleado/modulos/dietas/i18n-revision.js",
-  "static/portal-empleado/portal-baremacion.css",
   "static/portal-empleado/portal-contratos.css",
-  "static/portal-empleado/portal-convocatorias.css",
   "static/portal-empleado/modulos/cronos/permisos.css",
   "static/portal-empleado/modulos/dietas/borradores-propios.css",
-  "static/portal-empleado/modulos/seleccion/inscripciones/vista.js",
-  "static/portal-empleado/modulos/seleccion/inscripciones/i18n.js",
-  "static/portal-empleado/modulos/seleccion/inscripciones/inscripciones.css",
-  "static/portal-empleado/modulos/seleccion/pruebas/vista.js",
-  "static/portal-empleado/modulos/seleccion/pruebas/i18n.js",
-  "static/portal-empleado/modulos/seleccion/pruebas/pruebas.css",
-  "static/portal-empleado/modulos/seleccion/comunicaciones/vista.js",
-  "static/portal-empleado/modulos/seleccion/comunicaciones/i18n.js",
-  "static/portal-empleado/modulos/seleccion/comunicaciones/comunicaciones.css",
 ];
 const recursosPublicosConsumidos = [
   "static/bolsa/i18n-publica.js",
@@ -62,7 +49,7 @@ test("los estilos F2 cargan una vez tras sus bases y todos están empaquetados",
   }
   const posicion = (ruta) => estilos.indexOf(ruta);
   assert.equal(posicion("/comun/tema-vec.css"), posicion("/portal-empleado/portal.css") + 1);
-  for (const nombre of ["baremacion", "contratos", "convocatorias"]) {
+  for (const nombre of ["contratos"]) {
     const ruta = `/portal-empleado/portal-${nombre}.css`;
     assert.notEqual(posicion(ruta), -1, `${ruta} debe estar enlazada`);
     assert.ok(posicion(ruta) > posicion("/portal-empleado/portal-menu-bolsa.css"));
@@ -108,9 +95,7 @@ test("los catálogos públicos y F2 responden a imports o scripts existentes", a
     ["static/area-personal/i18n.js", ["static/area-personal/arranque.js"]],
     ["static/comun/tema-vec.js", ["static/portal-empleado/modulos/administracion/vista-apariencia.js"]],
     ["static/portal-empleado/modulos/administracion/vista-apariencia.js", ["static/portal-empleado/modulos/administracion/vista.js"]],
-    ["static/portal-empleado/portal-i18n-baremacion.js", ["static/portal-empleado/portal-vistas-baremacion.js"]],
     ["static/portal-empleado/portal-i18n-contratos.js", ["static/portal-empleado/portal-vistas-operaciones.js"]],
-    ["static/portal-empleado/portal-i18n-convocatorias.js", ["static/portal-empleado/portal-vistas-convocatorias.js"]],
     ["static/portal-empleado/modulos/cronos/i18n-permisos.js", ["static/portal-empleado/modulos/cronos/vista-recorridos.js"]],
     ["static/portal-empleado/modulos/dietas/i18n-borradores.js", ["static/portal-empleado/modulos/dietas/vista-borradores-propios.js"]],
     ["static/portal-empleado/modulos/dietas/i18n-revision.js", ["static/portal-empleado/modulos/dietas/vista-recorridos.js"]],

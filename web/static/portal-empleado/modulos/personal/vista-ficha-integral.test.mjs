@@ -40,7 +40,33 @@ test("la portada no fabrica persona, relación, curso, fichaje ni nómina", () =
   assert.equal(ayuda.children[0].tagName, "summary");
   assert.equal(ayuda.children[0].textContent, "?");
   assert.equal(ayuda.children[0].atributos.get("aria-label"), "? Ayuda sobre esta ficha");
+  assert.equal(ayuda.children[0].atributos.get("tabindex"), "0");
+  assert.equal(ayuda.open, false);
   assert.ok(nodos(ficha).filter((n) => n.dataset.personalFichaDestino).every((n) => n.disabled));
+});
+
+test("la ayuda contextual permanece tras ? sin ocultar estados ni iniciar consultas", async () => {
+  const raiz = raizFalsa(); let consultas = 0; let navegaciones = 0;
+  montarVistaFichaIntegralPersonal({ raiz, navegarModulo: () => { navegaciones += 1; }, fuentes: {
+    servicios: { consultarPropios() { consultas += 1; return { estado: "vacio", fuente: "Personal", actualizado_en: "2026-09-24T08:00:00Z", items: [] }; } },
+  } });
+  const ficha = raiz.querySelector("[data-personal-ficha-integral]");
+  const ayuda = raiz.querySelector("[data-personal-ficha-ayuda]");
+  const principal = nodos(ficha).find((n) => n.className === "personal-ficha-principal");
+  assert.match(texto(ayuda), /La navegación no envía identificadores/);
+  assert.doesNotMatch(texto(principal), /La navegación no envía identificadores/);
+  ayuda.children[0].focus(); ayuda.open = true;
+  assert.equal(ayuda.children[0].enfocado, true);
+  assert.equal(consultas, 0); assert.equal(navegaciones, 0);
+  tab(ficha, "servicios").listeners.get("click")();
+  assert.equal(ayuda.open, false);
+  assert.match(texto(ayuda), /Periodos reconocidos, procedencia/);
+  assert.doesNotMatch(texto(principal), /Periodos reconocidos, procedencia/);
+  assert.match(texto(ficha), /Consultando este apartado/);
+  await completar();
+  assert.equal(consultas, 1);
+  assert.match(texto(ficha), /Fuente: Personal/);
+  assert.match(texto(ficha), /no devuelve registros/);
 });
 
 test("cada apartado se consulta solo al abrirlo y conserva procedencia sin referencias en la petición", async () => {
