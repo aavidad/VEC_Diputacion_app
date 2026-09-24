@@ -662,10 +662,10 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
   const versionShellF2 = "20260924-f2-shell-v1";
   const versionCacheF2 = "20260924-f2-cache-v2";
   const versionCachePersonal = "20260924-f2-cache-v3";
-  const versionPersonalInterno = "20260924-p1-personal-interno-v1";
+  const versionPersonalInterno = "20260924-p1-personal-interno-v2";
   const versionCarga = "20260923-p4-estado-modulos-v1";
   const versionModuloBolsa = "20260923-pweb13-b8-v1";
-  const versionI18n = "20260920-personal-catalogo-v1";
+  const versionClientePersonal = versionPersonalInterno;
   const versionCatalogo = versionCacheF2;
   const versionCronos = versionCacheF2;
   const versionDietas = "20260923-dietas-r1";
@@ -686,7 +686,8 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
   assert.match(portal, new RegExp(`portal-i18n\\.js\\?v=${versionCacheF2}`));
   assert.match(coordinador, new RegExp(`portal-catalogo-modulos\\.js\\?v=${versionCatalogo}`));
   assert.match(coordinador, new RegExp(`portal-i18n\\.js\\?v=${versionCacheF2}`));
-  assert.match(coordinador, new RegExp(`modulos/personal/cliente-http-categorias\\.js\\?v=${versionI18n}`));
+  const clientePersonal = new RegExp(`modulos/personal/cliente-http-categorias\\.js\\?v=${versionClientePersonal}`, "g");
+  assert.equal([...coordinador.matchAll(clientePersonal)].length, 2);
   assert.match(coordinador, new RegExp(`modulos/personal/cliente-http-rpt-publica\\.js\\?v=${versionRPT}`));
   assert.match(coordinador, new RegExp(`modulos/personal/vista-rpt-publica\\.js\\?v=${versionRPT}`));
   for (const [vista, montajes] of [["vista.js", 2], ["vista-estructura-organizativa-publica.js", 1]]) {

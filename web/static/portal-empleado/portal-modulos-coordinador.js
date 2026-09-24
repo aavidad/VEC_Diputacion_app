@@ -96,7 +96,7 @@ const CARGADORES_PRESENTACION_PREDETERMINADOS = Object.freeze({
   personal: async () => {
     const [contrato, clienteCategorias, vistaCategorias, clienteRPT, vistaRPT, clienteEstructura, vistaEstructura, ficha] = await Promise.all([
       import("./modulos/personal/contrato.js?v=20260920-personal-catalogo-v1"),
-      import("./modulos/personal/cliente-http-categorias.js?v=20260920-personal-catalogo-v1"),
+      import("./modulos/personal/cliente-http-categorias.js?v=20260924-p1-personal-interno-v2"),
       import("./modulos/personal/vista.js?v=20260924-f2-cache-v3"),
       import("./modulos/personal/cliente-http-rpt-publica.js?v=20260920-personal-rpt-publica-v3"),
       import("./modulos/personal/vista-rpt-publica.js?v=20260920-personal-rpt-publica-v3"),
@@ -149,7 +149,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   personal: async () => {
     const [contrato, cliente, vista, ficha] = await Promise.all([
       import("./modulos/personal/contrato.js?v=20260920-personal-catalogo-v1"),
-      import("./modulos/personal/cliente-http-categorias.js?v=20260920-personal-catalogo-v1"),
+      import("./modulos/personal/cliente-http-categorias.js?v=20260924-p1-personal-interno-v2"),
       import("./modulos/personal/vista.js?v=20260924-f2-cache-v3"),
       import("./modulos/personal/vista-ficha-integral.js?v=20260924-f2-shell-v1"),
     ]);
