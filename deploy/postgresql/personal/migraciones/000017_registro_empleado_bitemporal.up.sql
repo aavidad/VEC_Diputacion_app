@@ -197,10 +197,10 @@ LANGUAGE plpgsql VOLATILE SECURITY INVOKER SET search_path=pg_catalog AS $f$
 DECLARE clave text; ultima record;
 BEGIN
  clave:=CASE TG_TABLE_NAME
-   WHEN 'relacion_servicio_historia' THEN NEW.relacion_ref
-   WHEN 'ocupacion_empleado_historia' THEN NEW.ocupacion_ref
-   WHEN 'servicio_reconocido_historia' THEN NEW.servicio_ref
-   WHEN 'situacion_empleado_historia' THEN NEW.situacion_ref
+   WHEN 'relacion_servicio_historia' THEN to_jsonb(NEW)->>'relacion_ref'
+   WHEN 'ocupacion_empleado_historia' THEN to_jsonb(NEW)->>'ocupacion_ref'
+   WHEN 'servicio_reconocido_historia' THEN to_jsonb(NEW)->>'servicio_ref'
+   WHEN 'situacion_empleado_historia' THEN to_jsonb(NEW)->>'situacion_ref'
    ELSE NULL END;
  IF clave IS NULL THEN RAISE EXCEPTION 'historia desconocida' USING ERRCODE='55000'; END IF;
  PERFORM pg_advisory_xact_lock(hashtextextended('vec_personal:registro-b2:'||TG_TABLE_NAME||':'||clave,0));
