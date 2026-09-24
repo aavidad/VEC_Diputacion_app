@@ -31,6 +31,9 @@
 1525 deploy/postgresql/ejecucion_documental_v4/migraciones/000001_ejecucion_documental_v4.up.sql
 1059 deploy/postgresql/ejecucion_documental_v4/probar_integracion.sh
 1032 deploy/postgresql/identidad_sesiones_v1/migraciones/000002_operaciones_v1.up.sql
+1869 deploy/postgresql/identidad_sesiones_v1/migraciones/000006_politica_certificado_personal_desarrollo.up.sql
+982 deploy/principal/composicion_interna/aprovisionar.py
+802 internal/app/composicion/interna/identidad_test.go
 987 internal/app/incorporacionejercicio/servicio_test.go
 1303 internal/modules/bolsa/adapters/memory/baremacion_test.go
 849 internal/modules/bolsa/adapters/postgres/baremacion.go
@@ -44,7 +47,7 @@
 3888 internal/modules/bolsa/ports/idempotencia_semantica_baremacion_test.go
 1391 internal/vec/adapters/almacen/s3/almacen.go
 1158 internal/vec/adapters/almacen/s3/almacen_test.go
-1102 internal/vec/adapters/httpseguridad/identidad.go
+1128 internal/vec/adapters/httpseguridad/identidad.go
 1175 internal/vec/adapters/postgres/autorizacion_integracion_test.go
 1077 internal/vec/adapters/postgres/confianzadocumental/atestacion_autorizacion_pdp_v4_test.go
 897 internal/vec/adapters/postgres/confianzadocumental/capacidad_ejecucion_documental_v4.go

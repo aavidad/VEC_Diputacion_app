@@ -13,6 +13,7 @@ import (
 	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	pa "vec-diputacion-granada/internal/modules/personal/adapters/contrataciontemporal"
 	pl "vec-diputacion-granada/internal/modules/personal/adapters/lecturaincorporacion"
+	httpseguridad "vec-diputacion-granada/internal/vec/adapters/httpseguridad"
 	core "vec-diputacion-granada/internal/vec/domain"
 )
 
@@ -66,12 +67,17 @@ func autoridadFixtureContexto(
 	ahora time.Time,
 	marcaActor string,
 	marcaPerfil string,
+	garantias ...core.AuthAssurance,
 ) (ct.ContextoAutorizacionAltaV3, core.AutenticacionRevalidadaV1, core.SolicitudContextoActor) {
 	t.Helper()
+	garantia := core.AuthAssuranceHigh
+	if len(garantias) > 0 {
+		garantia = garantias[0]
+	}
 	cuenta := core.CuentaAutenticadaContextoActor{
 		CuentaRef: "cta_0123456789abcdefghijkl",
 		Metodo:    core.AuthMethodCertificate,
-		Garantia:  core.AuthAssuranceHigh,
+		Garantia:  garantia,
 	}
 	instantanea := core.InstantaneaContextoActor{
 		VinculoRef:      "vca_0123456789abcdefghijkl" + marcaActor + marcaPerfil,
@@ -220,6 +226,90 @@ func TestAutoridadAplicacionIdentidadCadaCampo(t *testing.T) {
 	r.SesionRevalidadaEn = ahora
 	if !autoridadAutenticacionExacta(r, v, ahora) {
 		t.Fatal("revalidacion fresca")
+	}
+}
+
+func TestAutoridadLecturaCertificadoDesarrolloAcotada(t *testing.T) {
+	e := autoridadEntorno(t)
+	c, autenticacion, solicitud := autoridadFixtureContexto(t, e.ahora, "a", "a", core.AuthAssuranceSubstantial)
+	e.reval.resultado = autenticacion
+	e.fuente.p.Contexto = solicitud
+	v, err := c.Vinculo.Datos()
+	autoridadExigir(t, err)
+	e.store.snapshot.AsignacionPerfil.PrincipalID = v.PrincipalID
+	e.store.snapshot.AsignacionPerfil.PerfilActivoRef = v.PerfilActivoRef
+	for i := range e.store.snapshot.VersionRol.Concesiones {
+		if e.store.snapshot.VersionRol.Concesiones[i].Accion == pl.Accion {
+			e.store.snapshot.VersionRol.Concesiones[i].GarantiaMinima = core.AuthAssuranceSubstantial
+		}
+	}
+	politica := PoliticaConsultaDesarrollo{Tipo: httpseguridad.PoliticaInternaDesarrolloCertificadoPersonal,
+		Referencia: autenticacion.PoliticaGarantiaRef, HuellaSHA256: autenticacion.PoliticaGarantiaHuellaSHA256,
+		RetiradaEn: e.ahora.Add(time.Hour)}
+	resolutor := autoridadContextoDoble{resultado: c.Resultado}
+	if a, err := NuevaAutoridadAplicacion(context.Background(), e.fuente, e.reval, resolutor, e.a.cadena, e.gen, e.reloj); a != nil || err == nil {
+		t.Fatal("constructor ordinario admitió garantía sustancial")
+	}
+	a, err := NuevaAutoridadAplicacionConsulta(context.Background(), e.fuente, e.reval, resolutor, e.a.cadena, e.gen, e.reloj, politica)
+	autoridadExigir(t, err)
+	e.a = a
+	m, err := pl.NuevoMaterialV2ConPolitica(autoridadSelector(e), e.fuente.p.PreparacionCT.UnidadRef, a.contexto, e.ahora,
+		pl.PoliticaConsultaV2{Tipo: politica.Tipo, Referencia: politica.Referencia, HuellaSHA256: politica.HuellaSHA256, RetiradaEn: politica.RetiradaEn})
+	autoridadExigir(t, err)
+	if _, err := a.AutorizarLecturaIncorporacionV2(context.Background(), m); err != nil {
+		t.Fatalf("lectura con V3 concedido y política vigente: %v", err)
+	}
+	registros := e.store.registros
+	if _, err := a.ResolverAutoridad(context.Background(), pa.PreparacionAlta{}); err == nil {
+		t.Fatal("resolución de alta admitida")
+	}
+	if _, err := a.AutorizarAlta(context.Background(), pa.MaterialAlta{}); err == nil {
+		t.Fatal("alta admitida")
+	}
+	if _, err := a.AutorizarConfirmacionIncorporacion(context.Background(), ct.MaterialConfirmacionIncorporacionV2{}); err == nil {
+		t.Fatal("confirmación admitida")
+	}
+	if e.store.registros != registros {
+		t.Fatal("escritura registró decisión")
+	}
+	for nombre, cambiar := range map[string]func(*PoliticaConsultaDesarrollo){
+		"referencia": func(p *PoliticaConsultaDesarrollo) { p.Referencia = "pga_otra23456789abcdefghijkl" },
+		"huella":     func(p *PoliticaConsultaDesarrollo) { p.HuellaSHA256 = strings.Repeat("a", 64) },
+		"retirada":   func(p *PoliticaConsultaDesarrollo) { p.RetiradaEn = e.ahora },
+		"tipo":       func(p *PoliticaConsultaDesarrollo) { p.Tipo = "otra" },
+	} {
+		t.Run(nombre, func(t *testing.T) {
+			otra := politica
+			cambiar(&otra)
+			x, err := NuevaAutoridadAplicacionConsulta(context.Background(), e.fuente, e.reval, resolutor, e.a.cadena, e.gen, e.reloj, otra)
+			if nombre == "referencia" || nombre == "huella" {
+				if x != nil || err == nil {
+					t.Fatal("política ajena admitida")
+				}
+			} else if x != nil || err == nil {
+				t.Fatal("política inválida admitida")
+			}
+		})
+	}
+	a.reloj = autoridadRelojDoble{instante: politica.RetiradaEn}
+	if _, err := a.AutorizarLecturaIncorporacionV2(context.Background(), m); err == nil {
+		t.Fatal("lectura posterior a retirada")
+	}
+}
+
+func TestAutoridadDerivaActorDesdeF1(t *testing.T) {
+	e := autoridadEntorno(t)
+	fuente := e.fuente
+	fuente.p.PreparacionCT.ActorRef = "actor:ajeno:injected"
+	a, err := NuevaAutoridadAplicacion(context.Background(), fuente, e.reval,
+		autoridadContextoDoble{resultado: e.a.contexto.Resultado}, e.a.cadena, e.gen, e.reloj)
+	autoridadExigir(t, err)
+	v, err := a.contexto.Vinculo.Datos()
+	autoridadExigir(t, err)
+	if a.PreparacionAutoridadCT().ActorRef != v.PrincipalID ||
+		a.PreparacionAutoridadCT().ActorRef != a.contexto.Resultado.Contexto.PersonaRef ||
+		a.PreparacionAutoridadCT().ActorRef == fuente.p.PreparacionCT.ActorRef {
+		t.Fatal("actor CT no procede exclusivamente de F1")
 	}
 }
 func TestAutoridadAplicacionFronteras(t *testing.T) {
