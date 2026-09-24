@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { obtenerDatosPresentacion } from "./datos-presentacion.js";
+import { exigirRenovado, exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 import { crearAdaptadorPresentacion } from "./portal-presentacion-adaptador.js";
 import {
   cargarCatalogoModulosInterno,
@@ -693,7 +694,9 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
     new URL("portal-modulos-coordinador.js", import.meta.url),
     "utf8",
   );
-  assert.match(portal, new RegExp(`portal-modulos-coordinador\\.js\\?v=${versionDietasShell}`));
+  // Los recursos cambiados después de su versión publicada exigen una URL
+  // posterior y única entre sus importadores; los demás conservan la exacta.
+  exigirRenovado(portal, "./portal-modulos-coordinador.js", versionDietasShell);
   assert.doesNotMatch(portal, /portal-modulos-coordinador\.js\?v=20260924-web-c-ayuda-v5/u);
   assert.doesNotMatch(portal, /portal-modulos-coordinador\.js\?v=20260924-web-c-ayuda-v4/u);
   assert.doesNotMatch(portal, /portal-modulos-coordinador\.js\?v=20260924-web-c-v3/u);
@@ -704,14 +707,11 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
   assert.doesNotMatch(portal, new RegExp(`portal-modulos-coordinador\\.js\\?v=${versionPersonalInterno}`));
   assert.match(coordinador, new RegExp(`portal-modulos-carga\\.js\\?v=${versionCarga}`));
   assert.match(portal, new RegExp(`portal-bolsas-api\\.js\\?v=${versionModuloBolsa}`));
-  assert.match(portal, new RegExp(`portal-i18n\\.js\\?v=${versionEntradaAyuda}`));
-  assert.match(portal, new RegExp(`portal-eventos\\.js\\?v=${versionEntradaAyuda}`));
-  for (const recurso of ["portal-inicio", "portal-borradores-ui"]) {
-    assert.match(portal, new RegExp(`${recurso}\\.js\\?v=${versionCronosPermisos}`));
-  }
-  assert.match(coordinador, new RegExp(`portal-catalogo-modulos\\.js\\?v=${versionCatalogo}`));
-  assert.match(coordinador, new RegExp(`portal-inicio\\.js\\?v=${versionCronosPermisos}`));
-  assert.match(coordinador, new RegExp(`portal-i18n\\.js\\?v=${versionCronosPermisos}`));
+  exigirRenovado([portal, coordinador], "./portal-i18n.js", [versionEntradaAyuda, versionCronosPermisos]);
+  exigirRenovado(portal, "./portal-eventos.js", versionEntradaAyuda);
+  exigirRenovado([portal, coordinador], "./portal-inicio.js", versionCronosPermisos);
+  exigirRenovado(portal, "./portal-borradores-ui.js", versionCronosPermisos);
+  exigirRenovado(coordinador, "./portal-catalogo-modulos.js", versionCatalogo);
   const clientePersonal = new RegExp(`modulos/personal/cliente-http-categorias\\.js\\?v=${versionClientePersonal}`, "g");
   assert.equal([...coordinador.matchAll(clientePersonal)].length, 2);
   assert.match(coordinador, new RegExp(`modulos/personal/cliente-http-rpt-publica\\.js\\?v=${versionRPT}`));
@@ -721,7 +721,7 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
     assert.equal([...coordinador.matchAll(expresion)].length, montajes, vista);
   }
   assert.doesNotMatch(coordinador, new RegExp(`modulos/personal/vista\\.js\\?v=${versionCachePersonal}`));
-  assert.match(html, new RegExp(`portal\\.js\\?v=${versionEntradaAyuda}`));
+  exigirRenovado(html, "/portal-empleado/portal.js", versionEntradaAyuda);
   assert.doesNotMatch(html, /portal\.js\?v=20260924-web-c-ayuda-v5/u);
   assert.doesNotMatch(html, /portal\.js\?v=20260924-web-c-ayuda-v4/u);
   assert.doesNotMatch(html, /portal\.js\?v=20260924-web-c-v3/u);
@@ -730,23 +730,23 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
   assert.doesNotMatch(html, /portal\.js\?v=20260924-f2-cronos-permisos-v1/u);
   assert.doesNotMatch(html, new RegExp(`portal\\.js\\?v=${versionPersonalEstados}`));
   assert.doesNotMatch(html, new RegExp(`portal\\.js\\?v=${versionPersonalInterno}`));
-  assert.match(html, new RegExp(`portal-modulos\\.css\\?v=${versionEstilos}`));
-  assert.match(html, new RegExp(`portal-flujos\\.css\\?v=${versionFlujos}`));
-  assert.match(html, new RegExp(`portal\\.css\\?v=${versionSaltoMovil}`));
+  exigirRenovado(html, "/portal-empleado/portal-modulos.css", versionEstilos);
+  exigirRenovado(html, "/portal-empleado/portal-flujos.css", versionFlujos);
+  exigirRenovado(html, "/portal-empleado/portal.css", versionSaltoMovil);
   assert.doesNotMatch(html, new RegExp(`portal\\.css\\?v=${versionTemaBase}`));
   assert.doesNotMatch(html, /portal\.css\?v=20260924-f2-salto-movil-v1/u);
   assert.doesNotMatch(html, /portal\.css\?v=20260924-f2-salto-movil-v2/u);
   assert.doesNotMatch(html, new RegExp(`portal\\.css\\?v=${versionShellF2}`));
-  assert.match(html, new RegExp(`expedientes-operativo\\.css\\?v=${versionShellF2}`));
-  assert.match(coordinador, new RegExp(`modulos/cronos/vista-recorridos\\.js\\?v=${versionCronos}`));
-  assert.match(coordinador, new RegExp(`modulos/dietas/vista-itinerario\\.js\\?v=${versionDietas}`));
+  exigirRenovado(html, "/portal-empleado/modulos/contratacion-temporal/expedientes-operativo.css", versionShellF2);
+  exigirRenovado(coordinador, "./modulos/cronos/vista-recorridos.js", versionCronos);
+  exigirRenovado(coordinador, "./modulos/dietas/vista-itinerario.js", versionDietas);
   assert.doesNotMatch(coordinador, /modulos\/dietas\/vista-itinerario\.js\?v=20260924-dietas-ayuda-icono-v1/u);
-  assert.equal([...coordinador.matchAll(new RegExp(`modulos/dietas/vista-recorridos\\.js\\?v=${versionDietasVista}`, "g"))].length, 2);
+  exigirVersiones(coordinador, "./modulos/dietas/vista-recorridos.js", posterior(versionDietasVista), 2);
   assert.doesNotMatch(coordinador, /modulos\/dietas\/vista-recorridos\.js\?v=20260924-dietas-ayuda-sin-guia-v1/u);
   assert.doesNotMatch(coordinador, /modulos\/dietas\/vista-recorridos\.js\?v=20260924-dietas-ayuda-icono-v1/u);
   assert.doesNotMatch(coordinador, new RegExp(`modulos/dietas/vista-recorridos\\.js\\?v=${versionDietasRecuperacion}`));
   assert.doesNotMatch(coordinador, /modulos\/dietas\/vista-recorridos\.js\?v=20260924-f2-dietas-consulta-v2/u);
   assert.doesNotMatch(coordinador, new RegExp(`modulos/dietas/vista-recorridos\\.js\\?v=${versionShellF2}`));
-  assert.match(html, new RegExp(`modulos/cronos/cronos\\.css\\?v=${versionCronos}`));
-  assert.match(html, new RegExp(`modulos/dietas/dietas\\.css\\?v=${versionDietasCSS}`));
+  exigirRenovado(html, "/portal-empleado/modulos/cronos/cronos.css", versionCronos);
+  exigirRenovado(html, "/portal-empleado/modulos/dietas/dietas.css", versionDietasCSS);
 });

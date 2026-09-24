@@ -1,4 +1,4 @@
-import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260924-web-paradas-periodos-v1";
+import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260925-aspecto-v1";
 import { crearTraductorBorradoresDietas } from "./i18n-borradores.js?v=20260924-web-paradas-periodos-v1";
 import { obtenerCatalogoRutasProvincial } from "./catalogo-rutas-provincial.js";
 

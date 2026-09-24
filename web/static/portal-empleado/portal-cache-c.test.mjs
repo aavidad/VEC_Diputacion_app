@@ -2,16 +2,19 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { PLANTILLA_TESELAS_OSM_INTERNA } from "./modulos/dietas/contrato.js";
+import { exigirVersiones, posterior } from "./versiones-cache.test-helper.mjs";
 
 const raiz = new URL("./", import.meta.url);
+// Recursos sin cambios desde C conservan su versión exacta; los renovados
+// después solo tienen que pedir una URL posterior a la publicada entonces.
 const vistasC = "20260924-web-c-v1";
 const recuperacion = "20260924-dietas-recuperacion-v3";
-const entrada = "20260924-web-paradas-periodos-v1";
-const entradaAyuda = "20260924-rescate-web-v4";
-const cronos = "20260924-cronos-integrado-v1";
-const cronosVista = "20260924-web-paradas-periodos-v1";
-const dietas = "20260924-dietas-ayuda-icono-v1";
-const sinGuia = "20260924-web-paradas-periodos-v1";
+const entrada = posterior("20260924-web-paradas-periodos-v1");
+const entradaAyuda = posterior("20260924-rescate-web-v4");
+const cronos = posterior("20260924-cronos-integrado-v1");
+const cronosVista = posterior("20260924-web-paradas-periodos-v1");
+const dietas = posterior("20260924-dietas-ayuda-icono-v1");
+const sinGuia = posterior("20260924-web-paradas-periodos-v1");
 const versiones = (codigo, recurso) => [...codigo.matchAll(new RegExp(`${recurso.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\?v=([^"']+)`, "gu"))].map((m) => m[1]);
 
 test("capa C no reutiliza los consumidores previos de B con caché immutable", async () => {
@@ -35,9 +38,9 @@ test("capa C no reutiliza los consumidores previos de B con caché immutable", a
   ];
   const cache = new Map(aristas.map(([, ruta, previa]) => [`${ruta}?v=${previa}`, "bytes anteriores"]));
   for (const [codigo, ruta, previa, nueva, cantidad] of aristas) {
-    assert.deepEqual(versiones(codigo, ruta), Array(cantidad).fill(nueva), ruta);
+    const vigente = exigirVersiones(codigo, ruta, nueva, cantidad);
     assert.ok(!codigo.includes(`${ruta}?v=${previa}`), `${ruta}: no conserva URL anterior`);
-    assert.ok(!cache.has(`${ruta}?v=${nueva}`), `${ruta}: necesita bytes nuevos`);
+    assert.ok(!cache.has(`${ruta}?v=${vigente}`), `${ruta}: necesita bytes nuevos`);
   }
 });
 
@@ -56,9 +59,9 @@ test("la ayuda de Dietas no reutiliza C v3 ni las vistas y CSS anteriores", asyn
   ];
   const cache = new Map(aristas.map(([, ruta, previa]) => [`${ruta}?v=${previa}`, "respuesta C antigua"]));
   for (const [codigo, ruta, previa, nueva, cantidad] of aristas) {
-    assert.deepEqual(versiones(codigo, ruta), Array(cantidad).fill(nueva), ruta);
+    const vigente = exigirVersiones(codigo, ruta, nueva, cantidad);
     assert.ok(!codigo.includes(`${ruta}?v=${previa}`), `${ruta}: no usa URL C anterior`);
-    assert.ok(!cache.has(`${ruta}?v=${nueva}`), `${ruta}: debe descargar bytes nuevos`);
+    assert.ok(!cache.has(`${ruta}?v=${vigente}`), `${ruta}: debe descargar bytes nuevos`);
   }
 });
 
@@ -74,7 +77,7 @@ test("capa C empaqueta las hojas nuevas y conserva los recursos del mapa OSM", a
   }
   const html = await readFile(new URL("index.html", raiz), "utf8");
   for (const nombre of ["vista-calendario", "vista-correcciones", "vista-catalogo-permisos", "vista-notificaciones"]) {
-    assert.deepEqual(versiones(html, `/portal-empleado/modulos/cronos/${nombre}.css`), [cronos]);
+    exigirVersiones(html, `/portal-empleado/modulos/cronos/${nombre}.css`, cronos);
   }
   const mapa = await readFile(new URL("modulos/dietas/mapa-ruta.js", raiz), "utf8");
   assert.match(mapa, /OpenStreetMap/u);
@@ -102,8 +105,8 @@ test("el corrector Dietas descarga de nuevo la cadena que tenía C inicial", asy
   ]) assert.ok(!codigo.includes(`${ruta}?v=${anterior}`), "no conserva el corrector intermedio");
   const cache = new Map(aristas.map(([, ruta, previa]) => [`${ruta}?v=${previa}`, "versión anterior"]));
   for (const [codigo, ruta, previa, nueva, cantidad] of aristas) {
-    assert.deepEqual(versiones(codigo, ruta), Array(cantidad).fill(nueva));
+    const vigente = exigirVersiones(codigo, ruta, nueva, cantidad);
     assert.ok(!codigo.includes(`${ruta}?v=${previa}`));
-    assert.ok(!cache.has(`${ruta}?v=${nueva}`));
+    assert.ok(!cache.has(`${ruta}?v=${vigente}`));
   }
 });

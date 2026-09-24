@@ -1,5 +1,5 @@
-import { MENSAJES_CRONOS_ES } from "./i18n.js?v=20260924-web-paradas-periodos-v1";
-import { MENSAJES_CRONOS_C9_ES } from "./i18n-c9.js?v=20260924-cronos-integrado-v1";
+import { MENSAJES_CRONOS_ES } from "./i18n.js?v=20260925-aspecto-v1";
+import { MENSAJES_CRONOS_C9_ES } from "./i18n-c9.js?v=20260925-aspecto-v1";
 
 const MAXIMO_TEXTO = 512;
 

@@ -1,4 +1,4 @@
-import { traducirPortal } from "./portal-i18n.js?v=20260924-rescate-web-v4";
+import { traducirPortal } from "./portal-i18n.js?v=20260925-aspecto-v1";
 
 /** Contenido de ayuda sustituible por catálogo o conector, sin lógica de negocio. */
 export const AYUDA_PORTAL_BOLSA = Object.freeze({

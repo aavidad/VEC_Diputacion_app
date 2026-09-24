@@ -1,4 +1,4 @@
-import { icono } from "../comun/iconos-vec.js?v=20260924-aspecto-iconos-v1";
+import { icono } from "../comun/iconos-vec.js?v=20260925-aspecto-v1";
 
 export const RUTA_AVISOS_BOLSA = "/api/vec/bolsa/avisos";
 export const ESQUEMA_AVISOS_BOLSA = "vec.bolsa.rrhh.avisos.v1";

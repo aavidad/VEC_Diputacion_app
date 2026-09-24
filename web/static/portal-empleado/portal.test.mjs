@@ -12,6 +12,7 @@ import { AYUDA_PORTAL_BOLSA } from "./ayuda-contenido.js";
 import { crearPresentadorPanelInterno } from "./portal-panel-interno.js";
 import { MENSAJES_PORTAL_ES, traducirPortal } from "./portal-i18n.js";
 import { accesoBolsaEfectivo } from "./portal-menu-bolsa.js";
+import { exigirRenovado } from "./versiones-cache.test-helper.mjs";
 
 const directorio = new URL("./", import.meta.url);
 const [html, manifiestoProduccion, javascript, coordinadorModulos, catalogoI18n, eventos, contrato, contratoLlamamientos, apiLlamamientos, flujoLlamamientos, panelInterno, resumenPresentacion, datos, ayuda, estilosBase, estilosComponentes, estilosFlujos, estilosCapacidades] = await Promise.all([
@@ -256,7 +257,7 @@ test("el modo real renderiza solo indicadores, convocatorias y actuaciones acred
   assert.throws(() => presentador.renderizarVista("resumen"), /requiere un panel interno válido/);
 
   assert.match(javascript, /crearPresentadorPanelInterno/);
-  assert.match(javascript, /portal-panel-interno\.js\?v=20260924-rescate-web-v4/);
+  exigirRenovado(javascript, "./portal-panel-interno.js", "20260924-rescate-web-v4");
   for (const indicador of [
     "bolsas_activas", "llamamientos_pendientes", "llamamientos_en_curso",
     "documentos_pendientes_firma", "incidencias_abiertas",
@@ -271,8 +272,10 @@ test("el coordinador respeta DEC-051 y carga el presentador con versión de cach
   // presentación no aporta. Se congela el tamaño actual para que no crezca sin
   // decisión expresa.
   assert.ok(javascript.split(/\r?\n/).length - 1 <= 950, "portal.js debe mantenerse por debajo de 950 líneas");
-  assert.match(html, /portal\.js\?v=20260924-rescate-web-v4/);
-  assert.match(javascript, /portal-modulos-coordinador\.js\?v=20260924-web-paradas-periodos-v1/);
+  // Entrada y coordinador cambiaron después de estas versiones publicadas:
+  // piden una URL nueva, única en cada importador.
+  exigirRenovado(html, "/portal-empleado/portal.js", "20260924-rescate-web-v4");
+  exigirRenovado(javascript, "./portal-modulos-coordinador.js", "20260924-web-paradas-periodos-v1");
   assert.doesNotMatch(html, /portal\.js\?v=20260924-web-c-ayuda-v5/);
   assert.doesNotMatch(javascript, /portal-modulos-coordinador\.js\?v=20260924-web-c-ayuda-v5/);
   assert.doesNotMatch(html, /portal\.js\?v=20260924-web-c-ayuda-v4/);
@@ -291,12 +294,12 @@ test("el coordinador respeta DEC-051 y carga el presentador con versión de cach
   assert.doesNotMatch(javascript, /portal-modulos-coordinador\.js\?v=20260924-p1-personal-interno-v2/);
   assert.doesNotMatch(html, /portal\.js\?v=20260924-f2-cache-v3/);
   assert.doesNotMatch(javascript, /portal-modulos-coordinador\.js\?v=20260924-f2-cache-v3/);
-  assert.match(javascript, /portal-inicio\.js\?v=20260924-f2-cronos-permisos-v2/);
-  assert.match(javascript, /portal-i18n\.js\?v=20260924-rescate-web-v4/);
+  exigirRenovado(javascript, "./portal-inicio.js", "20260924-f2-cronos-permisos-v2");
+  exigirRenovado(javascript, "./portal-i18n.js", "20260924-rescate-web-v4");
   assert.match(javascript, /traducirPortal\("error_catalogo_modulos"\)/);
   assert.match(javascript, /portal-bolsas-api\.js\?v=20260924-rescate-web-v4/);
-  assert.match(javascript, /portal-borradores-ui\.js\?v=20260924-f2-cronos-permisos-v2/);
-  assert.match(javascript, /portal-eventos\.js\?v=20260924-rescate-web-v4/);
+  exigirRenovado(javascript, "./portal-borradores-ui.js", "20260924-f2-cronos-permisos-v2");
+  exigirRenovado(javascript, "./portal-eventos.js", "20260924-rescate-web-v4");
   assert.doesNotMatch(javascript, /import\("\.\/portal-resumen-presentacion\.js/);
   assert.doesNotMatch(javascript, /^import .*portal-resumen-presentacion/m);
   assert.doesNotMatch(manifiestoProduccion, /portal-resumen-presentacion\.js/);

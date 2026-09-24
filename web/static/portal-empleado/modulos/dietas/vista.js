@@ -1,5 +1,5 @@
 import { crearPresentadorDietas } from "./presentador.js";
-import { icono } from "../../../comun/iconos-vec.js?v=20260924-aspecto-v1";
+import { icono } from "../../../comun/iconos-vec.js?v=20260925-aspecto-v1";
 import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js";
 import { CODIGO_ERROR_SERVICIO_RUTAS_DIETAS } from "./contrato.js";
 

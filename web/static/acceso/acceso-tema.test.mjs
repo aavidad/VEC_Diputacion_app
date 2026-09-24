@@ -40,11 +40,12 @@ function contraste(a, b) {
 
 test("acceso carga el tema común versionado antes de su hoja local", () => {
   const estilos = [...html.matchAll(/<link rel="stylesheet" href="([^"]+)"/gu)].map(([, href]) => href);
-  assert.deepEqual(estilos, [
-    "/styles.css?v=20260715-theme",
-    "/comun/tema-vec.css?v=20260924-f2-tema-base-v2",
-    "/acceso/acceso.css?v=20260924-f1-acceso-scroll-v3",
-  ]);
+  assert.deepEqual(estilos.map((href) => href.split("?", 1)[0]), ["/styles.css", "/comun/tema-vec.css", "/acceso/acceso.css"]);
+  assert.equal(estilos[0], "/styles.css?v=20260715-theme");
+  assert.equal(estilos[2], "/acceso/acceso.css?v=20260924-f1-acceso-scroll-v3");
+  // tema-vec.css cambió después de esta versión publicada: pide una URL nueva.
+  const versionTema = new URL(estilos[1], "https://vec.example").searchParams.get("v");
+  assert.ok(versionTema && versionTema !== "20260924-f2-tema-base-v2", "tema-vec.css renueva su URL");
   assert.doesNotMatch(html, /\/acceso\/acceso\.css\?v=20260924-f1-acceso-ayuda-v2/u);
   assert.doesNotMatch(html, /\/acceso\/acceso\.css\?v=20260924-f1-acceso-scroll-v2/u);
   assert.match(html, /<script type="module" src="\/acceso\/acceso-i18n\.js\?v=20260924-f1-acceso-ayuda-v1"><\/script>/u);

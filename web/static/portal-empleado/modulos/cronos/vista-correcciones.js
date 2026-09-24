@@ -1,5 +1,5 @@
-import { crearTraductorCronos, MENSAJES_CRONOS_ES } from "./i18n.js?v=20260924-web-paradas-periodos-v1";
-import { MENSAJES_CRONOS_C5_ES } from "./i18n-c5.js?v=20260924-c5-web1";
+import { crearTraductorCronos, MENSAJES_CRONOS_ES } from "./i18n.js?v=20260925-aspecto-v1";
+import { MENSAJES_CRONOS_C5_ES } from "./i18n-c5.js?v=20260925-aspecto-v1";
 
 const ESTADOS = new Set(["no_configurado", "cargando", "vacio", "disponible", "error", "denegado"]);
 const MOVIMIENTOS = new Set(["entrada", "salida", "inicio_pausa", "fin_pausa"]);

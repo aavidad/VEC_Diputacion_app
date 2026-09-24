@@ -1,4 +1,4 @@
-import { MENSAJES_CRONOS_C6_ES } from "./i18n-c6.js?v=20260924-cronos-integrado-v1";
+import { MENSAJES_CRONOS_C6_ES } from "./i18n-c6.js?v=20260925-aspecto-v1";
 
 const TIPOS = Object.freeze([
   "asistencia_examenes", "asuntos_propios", "dias_trienios", "dias_servicio",

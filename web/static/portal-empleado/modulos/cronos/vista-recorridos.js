@@ -1,8 +1,8 @@
-import { crearTraductorCronos, MENSAJES_CRONOS_ES } from "./i18n.js?v=20260924-web-paradas-periodos-v1";
-import { MENSAJES_CRONOS_PERMISOS_ES } from "./i18n-permisos.js?v=20260924-f2-web2";
-import { montarCatalogoPermisosCronos } from "./vista-catalogo-permisos.js?v=20260924-cronos-integrado-v1";
-import { montarVistaCorreccionesCronos } from "./vista-correcciones.js?v=20260924-web-paradas-periodos-v1";
-import { montarVistaNotificacionesCronos } from "./vista-notificaciones.js?v=20260924-web-paradas-periodos-v1";
+import { crearTraductorCronos, MENSAJES_CRONOS_ES } from "./i18n.js?v=20260925-aspecto-v1";
+import { MENSAJES_CRONOS_PERMISOS_ES } from "./i18n-permisos.js?v=20260925-aspecto-v1";
+import { montarCatalogoPermisosCronos } from "./vista-catalogo-permisos.js?v=20260925-aspecto-v1";
+import { montarVistaCorreccionesCronos } from "./vista-correcciones.js?v=20260925-aspecto-v1";
+import { montarVistaNotificacionesCronos } from "./vista-notificaciones.js?v=20260925-aspecto-v1";
 
 function escaparHTML(valor) {
   return String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;")

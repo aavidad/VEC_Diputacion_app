@@ -8,9 +8,9 @@
  * sin acceder al DOM global.
  */
 import { traducirBolsaInterna, traducirPortal } from "./portal-i18n.js";
-import { renderizarBloqueAvisos } from "./portal-bolsas-avisos.js?v=20260923-pweb17-v1";
+import { renderizarBloqueAvisos } from "./portal-bolsas-avisos.js?v=20260925-aspecto-v1";
 import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260923-pweb14-v1";
-import { icono } from "../comun/iconos-vec.js?v=20260924-aspecto-iconos-v1";
+import { icono } from "../comun/iconos-vec.js?v=20260925-aspecto-v1";
 const ESQUEMA_PANEL_INTERNO = "vec.bolsa.panel.interno.v1";
 const ESTADOS_BOLSA = Object.freeze(["disponible", "no_disponible", "trabajando", "pendiente_incorporacion", "renuncia", "excluido", "disponible_desde"]);
 export function crearPresentadorPanelInterno(dependencias) {
