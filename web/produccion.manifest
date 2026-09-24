@@ -14,6 +14,7 @@ static/area-personal/flujo-solicitud.js
 static/area-personal/i18n.js
 static/area-personal/i18n-contacto-propio.js
 static/area-personal/index.html
+static/area-personal/locales/es.json
 static/area-personal/vistas/comunes.js
 static/area-personal/vistas/comunicaciones-ayuda.js
 static/area-personal/vistas/inicio-convocatorias.js
