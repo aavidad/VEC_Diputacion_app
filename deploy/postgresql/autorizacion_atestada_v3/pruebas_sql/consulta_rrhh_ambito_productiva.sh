@@ -174,6 +174,79 @@ UPDATE vec_autorizacion_atestada_v3.control_cadena_auditoria
 COMMIT;
 SQL
 
+# Regresión de snapshot heredada: S1 conserva el lock de checkpoint y una
+# cadena todavía no confirmada. S2 arranca DOWN con default REPEATABLE READ,
+# obtiene su advisory lock y espera el lock de tabla. Al confirmar S1, S2
+# debe leer la historia reciente y denegar la reversión sin cambiar ACL/cuerpo.
+fifo="/tmp/vec_ad351_fifo_$$"
+espera=$(mktemp)
+resultado=$(mktemp)
+mkfifo "$fifo"
+(
+  cat <<'SQL'
+BEGIN;
+SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
+LOCK TABLE vec_autorizacion_atestada_v3.checkpoint_gobierno IN ROW EXCLUSIVE MODE;
+UPDATE vec_autorizacion_atestada_v3.control_cadena_auditoria
+   SET secuencia=1,cabeza_sha256=repeat('c',64) WHERE control_id;
+SELECT 'AD351_LOCK_HELD';
+SQL
+  read -r _ < "$fifo"
+  printf 'COMMIT;\n'
+) | docker exec -i "$contenedor" psql -v ON_ERROR_STOP=1 -U postgres -d postgres \
+  > "$espera" 2>&1 &
+pid_espera=$!
+listo=0
+for _ in {1..50}; do
+  if rg -q 'AD351_LOCK_HELD' "$espera"; then listo=1; break; fi
+  sleep 0.1
+done
+if [[ $listo -ne 1 ]]; then
+  cat "$espera" >&2
+  printf 'salir\n' > "$fifo"
+  wait "$pid_espera" || true
+  rm -f "$fifo" "$espera" "$resultado"
+  echo 'AD3-51: no se obtuvo el lock concurrente' >&2
+  exit 1
+fi
+(
+  printf "SET default_transaction_isolation='repeatable read';\n"
+  cat "$down"
+) | docker exec -i "$contenedor" psql -v ON_ERROR_STOP=1 -U postgres -d postgres \
+  > "$resultado" 2>&1 &
+pid_down=$!
+bloqueado=0
+for _ in {1..50}; do
+  en_espera=$(docker exec "$contenedor" psql -At -U postgres -d postgres -c \
+    "SELECT count(*) FROM pg_stat_activity WHERE pid<>pg_backend_pid() AND wait_event_type='Lock' AND query LIKE 'LOCK TABLE vec_autorizacion_atestada_v3.checkpoint_gobierno,%'")
+  if [[ $en_espera == 1 ]]; then bloqueado=1; break; fi
+  sleep 0.1
+done
+printf 'continuar\n' > "$fifo"
+wait "$pid_espera"
+set +e
+wait "$pid_down"
+estado_down=$?
+set -e
+if [[ $bloqueado -ne 1 || $estado_down -ne 3 ]] ||
+   ! rg -q 'DOWN rechazado por historia V3' "$resultado"; then
+  cat "$espera" "$resultado" >&2
+  rm -f "$fifo" "$espera" "$resultado"
+  echo 'AD3-51: carrera RR no quedó cerrada' >&2
+  exit 1
+fi
+rm -f "$fifo" "$espera" "$resultado"
+docker exec -i "$contenedor" psql -v ON_ERROR_STOP=1 -U postgres -d postgres \
+  < "$raiz/consulta_rrhh_ambito_productiva.sql"
+docker exec -i "$contenedor" psql -v ON_ERROR_STOP=1 -U postgres -d postgres <<'SQL'
+BEGIN;
+SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
+UPDATE vec_autorizacion_atestada_v3.control_cadena_auditoria
+   SET secuencia=0,cabeza_sha256=repeat('0',64) WHERE control_id;
+COMMIT;
+SQL
+echo 'AD3-51: RR concurrente confirmó historia mientras DOWN esperaba; reversión denegada'
+
 docker exec -i "$contenedor" psql -v ON_ERROR_STOP=1 -U postgres -d postgres \
   < "$down"
 docker exec -i "$contenedor" psql -v ON_ERROR_STOP=1 -U postgres -d postgres <<'SQL'

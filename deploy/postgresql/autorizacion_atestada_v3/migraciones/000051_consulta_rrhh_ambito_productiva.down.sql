@@ -2,6 +2,9 @@
 -- AD3-51: reversión solo si no existe historia V3. No usar sobre historia
 -- conservada: los locks bloquean consumos concurrentes hasta COMMIT/ROLLBACK.
 BEGIN;
+-- Bajo REPEATABLE READ heredado, el advisory lock fijaría una instantánea
+-- anterior a un consumo que confirma mientras esperamos LOCK TABLE.
+SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
 SET LOCAL search_path = pg_catalog;
 SET LOCAL timezone = 'UTC';
