@@ -7,6 +7,7 @@ const versionTemaBase = "20260924-f2-tema-base-v2";
 const versionCache = "20260924-f2-cache-v2";
 const versionCachePersonal = "20260924-f2-cache-v3";
 const versionPersonalInterno = "20260924-p1-personal-interno-v2";
+const versionIntegracion = "20260924-integracion-b7-v1";
 const raiz = new URL("./", import.meta.url);
 
 function versionesDe(codigo, recurso) {
@@ -31,7 +32,7 @@ test("una carga con caché caliente solicita CSS F2 y entrada JS con URL nueva",
   ]);
   for (const [recurso, versionAntigua] of previo) {
     assert.equal(versionDe(html, `/portal-empleado/${recurso}`),
-      recurso === "portal.js" ? versionPersonalInterno : recurso === "portal.css" ? versionTemaBase : version);
+      recurso === "portal.js" ? versionIntegracion : recurso === "portal.css" ? versionTemaBase : version);
     assert.notEqual(versionDe(html, `/portal-empleado/${recurso}`), versionAntigua);
   }
   for (const recurso of ["portal-baremacion.css", "portal-contratos.css", "portal-convocatorias.css",
@@ -75,7 +76,7 @@ test("el grafo JS propio llega desde HTML a los consumidores F2 con versiones nu
     readFile(new URL("portal-modulos-coordinador.js", raiz), "utf8"),
     readFile(new URL("modulos/dietas/vista-recorridos.js", raiz), "utf8"),
   ]);
-  assert.equal(versionDe(html, "/portal-empleado/portal.js"), versionPersonalInterno);
+  assert.equal(versionDe(html, "/portal-empleado/portal.js"), versionIntegracion);
   assert.equal(versionDe(portal, "./portal-modulos-coordinador.js"), versionPersonalInterno);
   for (const recurso of ["portal-menu-bolsa.js",
     "portal-vistas-baremacion.js", "portal-vistas-convocatorias.js", "portal-vistas-operaciones.js",
@@ -157,7 +158,7 @@ test("la caché immutable previa no retiene el catálogo i18n ni los consumidore
       const personal = padre === "portal-modulos-coordinador.js" && hijo.startsWith("modulos/personal/");
       assert.equal(versionesHijo.length, ["modulos/personal/vista.js", "modulos/personal/cliente-http-categorias.js"].includes(hijo) ? 2 : 1,
         `${padre} → ${hijo}: número de aristas`);
-      const versionEsperada = padre === "index.html" || hijo === "portal-modulos-coordinador.js"
+      const versionEsperada = padre === "index.html" ? versionIntegracion : hijo === "portal-modulos-coordinador.js"
         || hijo === "modulos/personal/cliente-http-categorias.js"
         ? versionPersonalInterno : personal ? versionCachePersonal : versionCache;
       for (const versionHijo of versionesHijo) {
@@ -170,4 +171,30 @@ test("la caché immutable previa no retiene el catálogo i18n ni los consumidore
   assert.deepEqual(hitsPrevios, [], "ninguna URL immutable antigua se recupera de caché");
   assert.ok(descargas.has(`/portal-empleado/modulos/personal/cliente-http-categorias.js?v=${versionPersonalInterno}`));
   assert.equal(descargas.size, versionesPrevias.size, "todos los recursos cambiados se descargan de nuevo");
+});
+
+test("la integración B7 renueva controlador y presentador desde la entrada HTML con caché caliente", async () => {
+  const html = await readFile(new URL("index.html", raiz), "utf8");
+  const portal = await readFile(new URL("portal.js", raiz), "utf8");
+  const versionAnteriorB7 = "20260923-pweb13-b8-v1";
+  const versionesAnteriores = new Map([
+    ["portal.js", "20260924-p1-personal-interno-v2"],
+    ["portal-bolsas-api.js", versionAnteriorB7],
+    ["portal-panel-interno.js", "20260923-pweb17-v1"],
+  ]);
+  const cache = new Map([...versionesAnteriores].map(([recurso, previa]) => [`${recurso}?v=${previa}`, "bytes antiguos"]));
+  const descargas = [];
+  for (const [recurso, previa] of versionesAnteriores) {
+    const codigo = recurso === "portal.js" ? html : portal;
+    const prefijo = recurso === "portal.js" ? "/portal-empleado/" : "./";
+    const nueva = versionDe(codigo, prefijo + recurso);
+    assert.equal(nueva, "20260924-integracion-b7-v1", recurso);
+    assert.notEqual(nueva, previa, recurso);
+    assert.ok(!codigo.includes(`${prefijo}${recurso}?v=${previa}`), `${recurso}: no queda URL antigua`);
+    const url = `${recurso}?v=${nueva}`;
+    assert.ok(!cache.has(url), `${recurso} debe solicitar nuevos bytes`);
+    cache.set(url, await readFile(new URL(recurso, raiz), "utf8"));
+    descargas.push(recurso);
+  }
+  assert.deepEqual(descargas, [...versionesAnteriores.keys()]);
 });

@@ -1,5 +1,5 @@
 import { crearControladorPortal } from "./portal-eventos.js?v=20260924-f2-cache-v2";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20260923-pweb17-v1";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20260924-integracion-b7-v1";
 import { extraerDatosEnvelopeCanonico, validarPanelBolsa } from "./portal-contrato.js?v=20260717-panel-interno-v1";
 import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?v=20260718-llamamientos-v1";
 import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20260718-llamamientos-v1";
@@ -17,7 +17,7 @@ import { crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, 
 import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260924-f2-cache-v2";
 import { accesoBolsaEfectivo, instalarMenuBolsa, resumenAccesosModulos, sincronizarMenuBolsa, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260924-f2-shell-v1";
 import { traducirPortal } from "./portal-i18n.js?v=20260924-f2-cache-v2";
-import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20260923-pweb13-b8-v1";
+import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20260924-integracion-b7-v1";
 import { montarVistaInscripciones } from "./modulos/seleccion/inscripciones/vista.js?v=20260924-f2-shell-v1";
 import { montarVistaPruebas } from "./modulos/seleccion/pruebas/vista.js?v=20260924-f2-shell-v1";
 import { montarVistaSeleccionComunicaciones } from "./modulos/seleccion/comunicaciones/vista.js?v=20260924-f2-shell-v1";
