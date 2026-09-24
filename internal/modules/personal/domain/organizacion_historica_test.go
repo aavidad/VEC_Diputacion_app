@@ -26,6 +26,8 @@ func TestSelectorHistoricoExigeDosCortesYLimite(t *testing.T) {
 		"submicrosegundo":    func(s *SelectorOrganizacionHistorica) { s.ConocidoEn = s.ConocidoEn.Add(time.Nanosecond) },
 		"organismo":          func(s *SelectorOrganizacionHistorica) { s.OrganismoRef = "" },
 		"unidad":             func(s *SelectorOrganizacionHistorica) { s.UnidadClave = "*" },
+		"unidad 129":         func(s *SelectorOrganizacionHistorica) { s.UnidadClave = "u" + strings.Repeat("x", 128) },
+		"organismo 129":      func(s *SelectorOrganizacionHistorica) { s.OrganismoRef = "o" + strings.Repeat("x", 128) },
 		"limite":             func(s *SelectorOrganizacionHistorica) { s.Limite = 101 },
 		"cursor":             func(s *SelectorOrganizacionHistorica) { s.Cursor = "a/b" },
 	} {
@@ -40,7 +42,7 @@ func TestSelectorHistoricoExigeDosCortesYLimite(t *testing.T) {
 }
 
 func TestSelectorHistoricoAceptaClavesDelCatalogoOrganizativo(t *testing.T) {
-	for _, clave := range []string{"", "centro-520", "delegacion-0", "puesto-0"} {
+	for _, clave := range []string{"", "centro-520", "delegacion-0", "puesto-0", "u" + strings.Repeat("x", 127)} {
 		s := selectorHistoricoPrueba()
 		s.UnidadClave = clave
 		if err := s.Validar(); err != nil {

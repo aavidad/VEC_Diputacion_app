@@ -224,7 +224,8 @@ CREATE INDEX vinculo_ambito_fecha_idx ON vec_personal.vinculo_plaza_puesto_histo
 CREATE TABLE vec_personal.recibo_consulta_organizacion (
  recibo_ref text PRIMARY KEY CHECK(recibo_ref~'^orgconsulta:[0-9a-f-]{36}$'),
  organismo_ref text NOT NULL CHECK(organismo_ref~'^[a-z][a-z0-9_:-]{2,127}$'),
- unidad_ref text NOT NULL CHECK(length(unidad_ref)<=128),
+ -- Mismo dominio que la función y las tablas de historia; '' = sin unidad.
+ unidad_ref text NOT NULL CHECK(unidad_ref='' OR unidad_ref~'^[a-z][a-z0-9_:-]{2,127}$'),
  material_sha256 text NOT NULL CHECK(material_sha256~'^[0-9a-f]{64}$'),
  decision_ref text NOT NULL CHECK(length(decision_ref) BETWEEN 1 AND 256),
  auditoria_ref text NOT NULL CHECK(length(auditoria_ref) BETWEEN 1 AND 256),
@@ -314,7 +315,7 @@ DECLARE
  v_limite integer; v_cursor text; v_offset integer:=0; v_base_sha text;
  v_material_sha text; v_contexto_sha text; v_contexto_canon text;
  v_n integer; v_mas boolean; v_arrays jsonb; v_cobertura jsonb;
- v_recibo text; v_ahora timestamptz(6); v_cursor_siguiente text;
+ v_recibo text; v_ahora timestamptz(6); v_cursor_siguiente text; v_valida_hasta timestamptz;
 BEGIN
  IF current_setting('transaction_isolation')<>'serializable'
     OR current_setting('transaction_read_only')<>'off'
@@ -335,6 +336,7 @@ BEGIN
   v_conocido:=(m->>'conocido_en')::timestamptz;
   v_limite:=(m->>'limite')::integer; v_cursor:=m->>'cursor';
   v_rpt:=m->>'version_rpt_ref'; v_plantilla:=m->>'version_plantilla_ref';
+  v_valida_hasta:=(d->>'valida_hasta')::timestamptz;
  EXCEPTION WHEN others THEN
   RAISE EXCEPTION 'material histórico inválido' USING ERRCODE='22023';
  END;
@@ -346,8 +348,8 @@ BEGIN
     OR m->>'esquema' IS DISTINCT FROM 'vec.personal.organizacion-historica.v1'
     OR v_organismo IS NULL OR v_unidad IS NULL OR v_fecha IS NULL OR v_conocido IS NULL
     OR v_limite IS NULL OR v_cursor IS NULL OR v_rpt IS NULL OR v_plantilla IS NULL
-    OR v_organismo !~ '^[a-z][a-z0-9_:-]{2,159}$'
-    OR (v_unidad<>'' AND v_unidad !~ '^[a-z][a-z0-9_:-]{2,159}$')
+    OR v_organismo !~ '^[a-z][a-z0-9_:-]{2,127}$'
+    OR (v_unidad<>'' AND v_unidad !~ '^[a-z][a-z0-9_:-]{2,127}$')
     OR v_fecha::text IS DISTINCT FROM m->>'vigente_en'
     OR to_char(v_conocido AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') IS DISTINCT FROM m->>'conocido_en'
     OR v_conocido>transaction_timestamp()
@@ -368,7 +370,8 @@ BEGIN
     OR d->'campos_permitidos' IS DISTINCT FROM '["dotaciones","plazas","puestos_individuales","puestos_tipo","unidades","vinculos"]'::jsonb
     OR d->'obligaciones' IS DISTINCT FROM '[]'::jsonb
     OR c->>'audiencia_consumo' IS DISTINCT FROM 'vec_personal.organizacion_historica.consultar.v1'
-    OR c->>'operacion' IS DISTINCT FROM d->>'accion' THEN
+    OR c->>'operacion' IS DISTINCT FROM d->>'accion'
+    OR v_valida_hasta IS NULL OR clock_timestamp()>=v_valida_hasta THEN
   RAISE EXCEPTION 'consulta histórica incompatible' USING ERRCODE='42501';
  END IF;
  v_material_sha:=encode(sha256(convert_to(p_material,'UTF8')),'hex');
@@ -557,7 +560,7 @@ SELECT 'vinculos'::text AS clase, 'vinculo:'||h.vinculo_ref::text AS id,
  INTO v_arrays,v_n,v_mas
  FROM (SELECT *,row_number() OVER (ORDER BY clase,id) AS posicion FROM pagina) z;
  v_ahora:=clock_timestamp();
- IF d->>'valida_hasta' IS NULL OR v_ahora >= (d->>'valida_hasta')::timestamptz THEN
+ IF v_ahora >= v_valida_hasta THEN
   RAISE EXCEPTION 'consulta histórica caducada' USING ERRCODE='42501';
  END IF;
  v_recibo:='orgconsulta:'||gen_random_uuid()::text;

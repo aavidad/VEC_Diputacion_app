@@ -55,6 +55,22 @@ BEGIN
  EXCEPTION WHEN insufficient_privilege THEN denegada:=true;
  END;
  IF NOT denegada THEN RAISE EXCEPTION 'selector divergente no denegado'; END IF;
+ -- Una unidad de 141 caracteres cumple el patrón pero supera el límite común
+ -- de tablas y recibo (128): se rechaza antes de consumir la autorización.
+ denegada:=false;
+ DECLARE ml text; cl text; hl text;
+ BEGIN
+  ml:=replace(m,'"unidad:uno"','"u'||repeat('x',140)||'"');
+  cl:=replace(replace(canon,'"unidad:uno"','"u'||repeat('x',140)||'"'),
+   encode(sha256(convert_to(m,'UTF8')),'hex'),encode(sha256(convert_to(ml,'UTF8')),'hex'));
+  hl:=encode(sha256(convert_to(cl,'UTF8')),'hex');
+  PERFORM vec_personal.consultar_organizacion_historica_v1(ml,
+   convert_to(jsonb_set(c,'{huella_efecto_sha256}',to_jsonb(hl))::text,'UTF8'),
+   convert_to(jsonb_set(d,'{contexto_recurso_huella_sha256}',to_jsonb(hl))::text,'UTF8'),
+   'm'::bytea,'x'::bytea,1,1,'p'::bytea,'s'::bytea,'e'::bytea,'r'::bytea);
+ EXCEPTION WHEN insufficient_privilege THEN denegada:=true;
+ END;
+ IF NOT denegada THEN RAISE EXCEPTION 'unidad fuera del límite común aceptada'; END IF;
  r:=vec_personal.consultar_organizacion_historica_v1(m,convert_to(c::text,'UTF8'),
   convert_to(d::text,'UTF8'),'m'::bytea,'x'::bytea,1,1,'p'::bytea,'s'::bytea,'e'::bytea,'r'::bytea);
  IF jsonb_array_length(r #> '{pagina,unidades}')<>1

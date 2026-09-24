@@ -17,8 +17,12 @@ var (
 	ErrConsultaOrganizacionHistoricaDenegada = errors.New("personal: consulta historica de organizacion denegada")
 	ErrOrganizacionHistoricaNoDisponible     = errors.New("personal: organizacion historica no disponible")
 	patronIDOrganizacionHistorica            = regexp.MustCompile(`^[a-z][a-z0-9_:-]{2,159}$`)
-	patronHuellaOrganizacionHistorica        = regexp.MustCompile(`^[a-f0-9]{64}$`)
-	patronCursorOrganizacionHistorica        = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
+	// Organismo y unidad comparten el límite de 128 de las tablas de historia,
+	// del recibo y de la función SQL; así no se consume una autorización para
+	// un selector que la persistencia rechazaría.
+	patronAmbitoOrganizacionHistorica = regexp.MustCompile(`^[a-z][a-z0-9_:-]{2,127}$`)
+	patronHuellaOrganizacionHistorica = regexp.MustCompile(`^[a-f0-9]{64}$`)
+	patronCursorOrganizacionHistorica = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
 )
 
 const (
@@ -42,8 +46,8 @@ type SelectorOrganizacionHistorica struct {
 }
 
 func (s SelectorOrganizacionHistorica) Validar() error {
-	if !patronIDOrganizacionHistorica.MatchString(s.OrganismoRef) ||
-		!referenciaHistoricaOpcional(s.UnidadClave) ||
+	if !patronAmbitoOrganizacionHistorica.MatchString(s.OrganismoRef) ||
+		(s.UnidadClave != "" && !patronAmbitoOrganizacionHistorica.MatchString(s.UnidadClave)) ||
 		s.VigenteEn.Validar() != nil || !instanteHistoricoValido(s.ConocidoEn) ||
 		(s.VersionRPTRef != "" && !patronIDOrganizacionHistorica.MatchString(s.VersionRPTRef)) ||
 		(s.VersionPlantillaRef != "" && !patronIDOrganizacionHistorica.MatchString(s.VersionPlantillaRef)) ||
@@ -226,9 +230,6 @@ func instanteHistoricoValido(t time.Time) bool {
 	return !t.IsZero() && offset == 0 && t.Nanosecond()%1000 == 0
 }
 
-func referenciaHistoricaOpcional(v string) bool {
-	return v == "" || patronIDOrganizacionHistorica.MatchString(v)
-}
 func cursorHistoricoValido(v string) bool {
 	return v == "" || (len(v) <= 256 && patronCursorOrganizacionHistorica.MatchString(v))
 }
