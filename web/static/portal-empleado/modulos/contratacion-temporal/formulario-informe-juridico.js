@@ -162,7 +162,7 @@ function renderizarHistorial(estado, t, formateador, mensajes) {
       </table>
     </div>`;
   }
-  return `<section class="ct-bloque" data-ct-informe-historial
+  return `<section class="ct-bloque" data-ct-informe-historial tabindex="-1"
     aria-labelledby="ct-informe-historial-titulo">
     <h3 id="ct-informe-historial-titulo">${escaparHTML(t("informe_historial_titulo"))}</h3>
     <p>${escaparHTML(t("informe_historial_descripcion"))}</p>${contenido}
