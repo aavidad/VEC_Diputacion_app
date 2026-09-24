@@ -108,6 +108,43 @@ fi
 rg -q 'cuentas F4 con atributos, ACL o membresias inesperadas' "$test_dir/propiedad.err" || exit 1
 psql_admin -c 'DROP SCHEMA f4_objeto_ajeno' >/dev/null
 
+# Concesión directa al GRUPO: deja la cuenta nominal intacta, pero abriría
+# lectura CT al cambiarla de NOLOGIN a LOGIN.
+psql_admin -c 'GRANT USAGE ON SCHEMA vec_ct_sentinel TO vec_dietas_ejecutor; GRANT SELECT ON vec_ct_sentinel.control TO vec_dietas_ejecutor' >/dev/null
+[[ "$(psql_admin -c "SELECT has_schema_privilege('vec_dietas_r1d_dietas_desarrollo','vec_ct_sentinel','USAGE') AND has_table_privilege('vec_dietas_r1d_dietas_desarrollo','vec_ct_sentinel.control','SELECT')")" == t ]] || exit 1
+if run_f4 --commit > "$test_dir/grupo-ct.out" 2> "$test_dir/grupo-ct.err"; then
+  echo 'ACL directa CT al grupo Dietas aceptada' >&2; exit 1
+fi
+rg -q 'ACL directa de grupo fuera de preimagen F4 permitida' "$test_dir/grupo-ct.err" || exit 1
+[[ "$(psql_admin -c "SELECT count(*) FROM pg_roles WHERE rolname ~ '^vec_dietas_r1d_.*_desarrollo$' AND rolcanlogin")" == 0 ]] || exit 1
+psql_admin -c 'REVOKE SELECT ON vec_ct_sentinel.control FROM vec_dietas_ejecutor; REVOKE USAGE ON SCHEMA vec_ct_sentinel FROM vec_dietas_ejecutor' >/dev/null
+
+# Incluso en un esquema ya conocido, una función SECURITY DEFINER nueva no
+# forma parte del ACL final permitido del ejecutor.
+psql_admin <<'SQL' >/dev/null
+BEGIN;
+SET LOCAL ROLE vec_autorizacion_propietario;
+CREATE FUNCTION vec_autorizacion.f4_funcion_ajena() RETURNS integer LANGUAGE sql SECURITY DEFINER AS 'SELECT 1';
+REVOKE ALL ON FUNCTION vec_autorizacion.f4_funcion_ajena() FROM PUBLIC;
+GRANT USAGE ON SCHEMA vec_autorizacion TO vec_dietas_ejecutor;
+GRANT EXECUTE ON FUNCTION vec_autorizacion.f4_funcion_ajena() TO vec_dietas_ejecutor;
+COMMIT;
+SQL
+[[ "$(psql_admin -c "SELECT has_schema_privilege('vec_dietas_r1d_dietas_desarrollo','vec_autorizacion','USAGE') AND has_function_privilege('vec_dietas_r1d_dietas_desarrollo','vec_autorizacion.f4_funcion_ajena()','EXECUTE')")" == t ]] || exit 1
+if run_f4 --commit > "$test_dir/grupo-funcion.out" 2> "$test_dir/grupo-funcion.err"; then
+  echo 'funcion ajena SECURITY DEFINER del grupo Dietas aceptada' >&2; exit 1
+fi
+rg -q 'ACL directa de grupo fuera de preimagen F4 permitida' "$test_dir/grupo-funcion.err" || exit 1
+[[ "$(psql_admin -c "SELECT count(*) FROM pg_roles WHERE rolname ~ '^vec_dietas_r1d_.*_desarrollo$' AND rolcanlogin")" == 0 ]] || exit 1
+psql_admin <<'SQL' >/dev/null
+BEGIN;
+SET LOCAL ROLE vec_autorizacion_propietario;
+REVOKE EXECUTE ON FUNCTION vec_autorizacion.f4_funcion_ajena() FROM vec_dietas_ejecutor;
+REVOKE USAGE ON SCHEMA vec_autorizacion FROM vec_dietas_ejecutor;
+DROP FUNCTION vec_autorizacion.f4_funcion_ajena();
+COMMIT;
+SQL
+
 # PUBLIC puede conceder acceso aunque las ocho membresías sean nominales.
 psql_admin -c 'GRANT USAGE ON SCHEMA vec_autorizacion TO PUBLIC; GRANT EXECUTE ON FUNCTION vec_autorizacion.obtener_instantanea(text,text) TO PUBLIC' >/dev/null
 [[ "$(psql_admin -c "SELECT has_schema_privilege('vec_dietas_r1d_dietas_desarrollo','vec_autorizacion','USAGE') AND has_function_privilege('vec_dietas_r1d_dietas_desarrollo','vec_autorizacion.obtener_instantanea(text,text)','EXECUTE')")" == t ]] || exit 1

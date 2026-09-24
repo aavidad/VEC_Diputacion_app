@@ -11,6 +11,51 @@ CREATE TEMP TABLE f4_plan (dato jsonb NOT NULL) ON COMMIT DROP;
 INSERT INTO f4_plan VALUES (convert_from(decode(:'f4_plan_b64','base64'),'UTF8')::jsonb);
 GRANT SELECT ON f4_plan TO vec_autorizacion_propietario;
 
+-- Lista positiva del estado FINAL de las migraciones instaladas; una entrada
+-- inexistente en un fixture reducido no se exige, pero ninguna concesion
+-- observada fuera de esta lista puede activarse por F4.
+CREATE TEMP TABLE f4_acl_permitida
+ (grupo text, clase oid, objeto oid, columna integer, privilegio text, grantable boolean)
+ ON COMMIT DROP;
+INSERT INTO f4_acl_permitida VALUES
+ ('vec_identidad_sesiones_v1_registrador','pg_database'::regclass,(SELECT oid FROM pg_database WHERE datname=current_database()),0,'CONNECT',false),
+ ('vec_identidad_sesiones_v1_revalidador','pg_database'::regclass,(SELECT oid FROM pg_database WHERE datname=current_database()),0,'CONNECT',false),
+ ('vec_contexto_actor_v1_runtime','pg_database'::regclass,(SELECT oid FROM pg_database WHERE datname=current_database()),0,'CONNECT',false),
+ ('vec_autorizacion_fuente','pg_database'::regclass,(SELECT oid FROM pg_database WHERE datname=current_database()),0,'CONNECT',false),
+ ('vec_autorizacion_registro','pg_database'::regclass,(SELECT oid FROM pg_database WHERE datname=current_database()),0,'CONNECT',false),
+ ('vec_autorizacion_motivos_evaluador','pg_database'::regclass,(SELECT oid FROM pg_database WHERE datname=current_database()),0,'CONNECT',false),
+ ('vec_dietas_ejecutor','pg_database'::regclass,(SELECT oid FROM pg_database WHERE datname=current_database()),0,'CONNECT',false),
+ ('vec_identidad_sesiones_v1_registrador','pg_namespace'::regclass,to_regnamespace('vec_identidad_sesiones_v1'),0,'USAGE',false),
+ ('vec_identidad_sesiones_v1_revalidador','pg_namespace'::regclass,to_regnamespace('vec_identidad_sesiones_v1'),0,'USAGE',false),
+ ('vec_contexto_actor_v1_runtime','pg_namespace'::regclass,to_regnamespace('vec_contexto_actor_v1'),0,'USAGE',false),
+ ('vec_autorizacion_fuente','pg_namespace'::regclass,to_regnamespace('vec_autorizacion'),0,'USAGE',false),
+ ('vec_autorizacion_registro','pg_namespace'::regclass,to_regnamespace('vec_autorizacion'),0,'USAGE',false),
+ ('vec_autorizacion_motivos_evaluador','pg_namespace'::regclass,to_regnamespace('vec_autorizacion'),0,'USAGE',false),
+ ('vec_dietas_ejecutor','pg_namespace'::regclass,to_regnamespace('vec_dietas'),0,'USAGE',false),
+ ('vec_dietas_ejecutor','pg_namespace'::regclass,to_regnamespace('vec_personal'),0,'USAGE',false),
+ ('vec_dietas_ejecutor','pg_namespace'::regclass,to_regnamespace('vec_autorizacion_atestada_v3'),0,'USAGE',false),
+ ('vec_dietas_ejecutor','pg_class'::regclass,to_regclass('vec_dietas.version_tarifa_provisional'),0,'SELECT',false),
+ ('vec_dietas_ejecutor','pg_class'::regclass,to_regclass('vec_dietas.importe_dieta_provisional'),0,'SELECT',false),
+ ('vec_dietas_ejecutor','pg_class'::regclass,to_regclass('vec_dietas.importe_km_provisional'),0,'SELECT',false),
+ ('vec_identidad_sesiones_v1_registrador','pg_proc'::regclass,to_regprocedure('vec_identidad_sesiones_v1.registrar_sesion_v1(text,text,text,text,bigint,bytea,bytea,bytea,bytea,bytea,boolean,text,text,text,text,timestamptz,timestamptz,timestamptz,text,text)'),0,'EXECUTE',false),
+ ('vec_identidad_sesiones_v1_registrador','pg_proc'::regclass,to_regprocedure('vec_identidad_sesiones_v1.reconciliar_registro_sesion_v1(text,text,text,text,bigint,bytea,bytea,bytea,bytea,bytea,boolean,text,text,text,text,timestamptz,timestamptz,timestamptz,text,text)'),0,'EXECUTE',false),
+ ('vec_identidad_sesiones_v1_revalidador','pg_proc'::regclass,to_regprocedure('vec_identidad_sesiones_v1.revalidar_sesion_y_cuentas_v1(text,text,text,text,text,text,boolean,text,text,text,text,text,timestamptz,timestamptz,text,text,text,text,timestamptz,timestamptz)'),0,'EXECUTE',false),
+ ('vec_identidad_sesiones_v1_revalidador','pg_proc'::regclass,to_regprocedure('vec_identidad_sesiones_v1.revalidar_autenticacion_actor_v1(text,text)'),0,'EXECUTE',false),
+ ('vec_contexto_actor_v1_runtime','pg_proc'::regclass,to_regprocedure('vec_contexto_actor_v1.acreditar_runtime_contexto_actor_v1()'),0,'EXECUTE',false),
+ ('vec_contexto_actor_v1_runtime','pg_proc'::regclass,to_regprocedure('vec_contexto_actor_v1.resolver_y_registrar_contexto_actor_v2(text,text,text,text,text,text,timestamptz)'),0,'EXECUTE',false),
+ ('vec_contexto_actor_v1_runtime','pg_proc'::regclass,to_regprocedure('vec_contexto_actor_v1.reconciliar_contexto_actor_v2(text,text,text,text,text,text,timestamptz)'),0,'EXECUTE',false),
+ ('vec_autorizacion_fuente','pg_proc'::regclass,to_regprocedure('vec_autorizacion.obtener_instantanea(text,text)'),0,'EXECUTE',false),
+ ('vec_autorizacion_registro','pg_proc'::regclass,to_regprocedure('vec_autorizacion.registrar_decision_si_vigente(jsonb)'),0,'EXECUTE',false),
+ ('vec_autorizacion_registro','pg_proc'::regclass,to_regprocedure('vec_autorizacion.registrar_decision_contexto_actor_v3(bytea,bytea,numeric,numeric)'),0,'EXECUTE',false),
+ ('vec_autorizacion_registro','pg_proc'::regclass,to_regprocedure('vec_autorizacion.leer_concesion_historica_contexto_actor_v3(bytea,bytea,numeric,numeric)'),0,'EXECUTE',false),
+ ('vec_autorizacion_motivos_evaluador','pg_proc'::regclass,to_regprocedure('vec_autorizacion.resolver_motivo_autorizacion_v2_historico(text,integer,text,text,timestamptz)'),0,'EXECUTE',false),
+ ('vec_autorizacion_motivos_evaluador','pg_proc'::regclass,to_regprocedure('vec_autorizacion.resolver_motivo_cobertura_historico_v1(text,integer,text,text,text,timestamptz)'),0,'EXECUTE',false),
+ ('vec_dietas_ejecutor','pg_proc'::regclass,to_regprocedure('vec_dietas.recuperar_comision_por_clave_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'),0,'EXECUTE',false),
+ ('vec_dietas_ejecutor','pg_proc'::regclass,to_regprocedure('vec_dietas.crear_o_recuperar_comision_calculada_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'),0,'EXECUTE',false),
+ ('vec_dietas_ejecutor','pg_proc'::regclass,to_regprocedure('vec_dietas.consultar_comisiones_calculadas_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'),0,'EXECUTE',false),
+ ('vec_dietas_ejecutor','pg_proc'::regclass,to_regprocedure('vec_personal.consultar_relaciones_propias_dietas_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'),0,'EXECUTE',false),
+ ('vec_dietas_ejecutor','pg_proc'::regclass,to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_acceso_rutas_dietas_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'),0,'EXECUTE',false);
+
 DO $pre$
 DECLARE v jsonb; n integer;
 BEGIN
@@ -88,6 +133,58 @@ BEGIN
        'vec_dietas_r1d_personal_desarrollo')
      AND pg_has_role(l.oid,g.oid,'MEMBER')) THEN
    RAISE EXCEPTION 'LOGIN ajeno conserva ruta a grupo Dietas' USING ERRCODE='55000';
+ END IF;
+ IF EXISTS (
+   WITH grupos AS (
+     SELECT oid,rolname FROM pg_roles WHERE rolname IN (
+       'vec_identidad_sesiones_v1_registrador','vec_identidad_sesiones_v1_revalidador',
+       'vec_contexto_actor_v1_runtime','vec_autorizacion_fuente','vec_autorizacion_registro',
+       'vec_autorizacion_motivos_evaluador','vec_dietas_ejecutor')
+   ), observadas AS (
+     SELECT g.rolname grupo,'pg_database'::regclass::oid clase,d.oid objeto,0 columna,
+            a.privilege_type::text privilegio,a.is_grantable grantable
+       FROM pg_database d,LATERAL aclexplode(coalesce(d.datacl,acldefault('d',d.datdba))) a
+       JOIN grupos g ON g.oid=a.grantee
+     UNION ALL
+     SELECT g.rolname,'pg_namespace'::regclass::oid,n.oid,0,a.privilege_type::text,a.is_grantable
+       FROM pg_namespace n,LATERAL aclexplode(coalesce(n.nspacl,acldefault('n',n.nspowner))) a
+       JOIN grupos g ON g.oid=a.grantee
+     UNION ALL
+     SELECT g.rolname,'pg_class'::regclass::oid,c.oid,0,a.privilege_type::text,a.is_grantable
+       FROM pg_class c,LATERAL aclexplode(coalesce(c.relacl,acldefault((CASE WHEN c.relkind='S' THEN 'S' ELSE 'r' END)::"char",c.relowner))) a
+       JOIN grupos g ON g.oid=a.grantee
+     UNION ALL
+     SELECT g.rolname,'pg_class'::regclass::oid,c.oid,x.attnum,a.privilege_type::text,a.is_grantable
+       FROM pg_attribute x JOIN pg_class c ON c.oid=x.attrelid,
+            LATERAL aclexplode(x.attacl) a
+       JOIN grupos g ON g.oid=a.grantee WHERE x.attnum>0
+     UNION ALL
+     SELECT g.rolname,'pg_proc'::regclass::oid,p.oid,0,a.privilege_type::text,a.is_grantable
+       FROM pg_proc p,LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+       JOIN grupos g ON g.oid=a.grantee
+     UNION ALL
+     SELECT g.rolname,'pg_type'::regclass::oid,t.oid,0,a.privilege_type::text,a.is_grantable
+       FROM pg_type t,LATERAL aclexplode(coalesce(t.typacl,acldefault('T',t.typowner))) a
+       JOIN grupos g ON g.oid=a.grantee
+   )
+   SELECT 1 FROM (
+     SELECT * FROM observadas
+     EXCEPT
+     SELECT grupo,clase,objeto,columna,privilegio,grantable
+       FROM f4_acl_permitida WHERE objeto IS NOT NULL
+   ) extras
+ ) OR EXISTS (
+   SELECT 1 FROM pg_shdepend d JOIN pg_roles g ON g.oid=d.refobjid
+   WHERE g.rolname IN (
+       'vec_identidad_sesiones_v1_registrador','vec_identidad_sesiones_v1_revalidador',
+       'vec_contexto_actor_v1_runtime','vec_autorizacion_fuente','vec_autorizacion_registro',
+       'vec_autorizacion_motivos_evaluador','vec_dietas_ejecutor')
+     AND d.refclassid='pg_authid'::regclass AND d.deptype='a'
+     AND (d.dbid NOT IN (0,(SELECT oid FROM pg_database WHERE datname=current_database()))
+       OR d.classid NOT IN ('pg_database'::regclass,'pg_namespace'::regclass,
+                           'pg_class'::regclass,'pg_proc'::regclass,'pg_type'::regclass))
+ ) THEN
+   RAISE EXCEPTION 'ACL directa de grupo fuera de preimagen F4 permitida' USING ERRCODE='55000';
  END IF;
  -- La preimagen permitida no concede derechos a PUBLIC en la base ni en
  -- esquemas/objetos VEC. Un GRANT PUBLIC reabriría acceso de cualquiera de
