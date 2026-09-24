@@ -82,7 +82,6 @@ do
 done
 
 for ruta in \
-  app/web/static/portal-empleado/datos-presentacion.js \
   app/web/static/bolsa/documentos/bases-demo.css \
   app/web/static/bolsa/documentos/bases-auxiliar-demo.html \
   app/web/static/bolsa/documentos/bases-auxiliar-demo.pdf \

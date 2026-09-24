@@ -223,16 +223,26 @@ func TestServerNormalizaEntradaBolsaSinBarraFinal(t *testing.T) {
 	}
 }
 
-func TestServerSirvePortalEmpleadoRRHHConPresentacionAislada(t *testing.T) {
+func TestServerPresentacionAisladaNoSirvePortalesSinAPI(t *testing.T) {
+	handler := NewHandlerPresentacionWithConfig(configuracionPresentacionValida(), http.NotFoundHandler())
+	for _, ruta := range []string{
+		"/area-personal/", "/area-personal/index.html", "/area-personal/aplicacion.js",
+		"/portal-empleado/", "/portal-empleado/index.html", "/portal-empleado/portal.css?v=1",
+		"/portal-empleado/portal.js?v=1", "/portal-empleado/datos-presentacion.js?v=1",
+	} {
+		for _, metodo := range []string{http.MethodGet, http.MethodHead} {
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, peticionServidorPrueba(metodo, ruta, nil))
+			if rec.Code != http.StatusNotFound || rec.Header().Get("Location") != "" || (metodo == http.MethodHead && rec.Body.Len() != 0) {
+				t.Fatalf("%s %s = %d Location=%q cuerpo=%q", metodo, ruta, rec.Code, rec.Header().Get("Location"), rec.Body.String())
+			}
+		}
+	}
+}
+
+func TestServerPresentacionAisladaConservaCotejo(t *testing.T) {
 	handler := NewHandlerPresentacionWithConfig(configuracionPresentacionValida(), http.NotFoundHandler())
 	for _, prueba := range []struct{ ruta, tipo, contenido string }{
-		{ruta: "/portal-empleado/", tipo: "text/html", contenido: "Portal del Empleado"},
-		{ruta: "/portal-empleado/portal.css?v=1", tipo: "text/css", contenido: ".portal-empleado-shell"},
-		{ruta: "/portal-empleado/portal-componentes.css?v=1", tipo: "text/css", contenido: ".tarjeta-modulo"},
-		{ruta: "/portal-empleado/portal-flujos.css?v=1", tipo: "text/css", contenido: ".barra-filtros"},
-		{ruta: "/portal-empleado/portal.js?v=1", tipo: "text/javascript", contenido: `const controladorBolsas = crearControladorBolsas({`},
-		{ruta: "/portal-empleado/portal-eventos.js?v=1", tipo: "text/javascript", contenido: "crearControladorPortal"},
-		{ruta: "/portal-empleado/datos-presentacion.js?v=1", tipo: "text/javascript", contenido: "ADAPTADOR EXCLUSIVO DE PRESENTACIÓN RRHH"},
 		{ruta: "/verificar/", tipo: "text/html", contenido: "Comprobación de documentos"},
 		{ruta: "/verificar/adaptador-presentacion.js?v=1", tipo: "text/javascript", contenido: "Adaptador local y no autoritativo"},
 	} {

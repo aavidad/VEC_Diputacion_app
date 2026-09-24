@@ -130,9 +130,6 @@ func TestPresentacionSoloExponeSuperficiesEnumeradas(t *testing.T) {
 		ruta      string
 		contenido string
 	}{
-		{"/area-personal/", "Mi área personal"},
-		{"/portal-empleado/", "Portal del Empleado"},
-		{"/portal-empleado/datos-presentacion.js", "ADAPTADOR EXCLUSIVO DE PRESENTACIÓN RRHH"},
 		{"/bolsa/", "Bolsa"},
 		{"/api/publico/bolsa/convocatorias", "presentacion.publica.v1"},
 		{"/livez", `"status":"ok"`},
@@ -162,6 +159,10 @@ func TestPresentacionSoloExponeSuperficiesEnumeradas(t *testing.T) {
 
 	for _, ruta := range []string{
 		"/presentacion/", "/presentacion/index.html", "/presentacion/temas/",
+		"/area-personal", "/area-personal/", "/area-personal/index.html",
+		"/area-personal/aplicacion.js", "/area-personal/adaptador-presentacion.js",
+		"/portal-empleado", "/portal-empleado/", "/portal-empleado/index.html",
+		"/portal-empleado/portal.css", "/portal-empleado/datos-presentacion.js",
 		"/app.js", "/config/config.go", "/data/demo/convocatorias_publicas.demo.json",
 		"/api/vec/session", "/api/demo", "/candidates", "/desconocido",
 	} {
@@ -210,7 +211,7 @@ func TestPresentacionHEADNoEntregaCuerpo(t *testing.T) {
 	for _, prueba := range []struct {
 		ruta   string
 		estado int
-	}{{"/presentacion/", http.StatusNotFound}, {"/area-personal/", http.StatusOK}, {"/portal-empleado/", http.StatusOK}, {"/bolsa/", http.StatusOK}, {"/livez", http.StatusOK}, {"/readyz", http.StatusServiceUnavailable}, {"/healthz", http.StatusServiceUnavailable}} {
+	}{{"/presentacion/", http.StatusNotFound}, {"/area-personal/", http.StatusNotFound}, {"/portal-empleado/", http.StatusNotFound}, {"/bolsa/", http.StatusOK}, {"/livez", http.StatusOK}, {"/readyz", http.StatusServiceUnavailable}, {"/healthz", http.StatusServiceUnavailable}} {
 		rec := httptest.NewRecorder()
 		servidor.Handler.ServeHTTP(rec, peticionServidorPrueba(http.MethodHead, prueba.ruta, nil))
 		if rec.Code != prueba.estado || rec.Body.Len() != 0 {
@@ -225,7 +226,7 @@ func TestPresentacionEsSoloLecturaYRechazaCredencialesAmbientales(t *testing.T) 
 		t.Fatal(err)
 	}
 	for _, ruta := range []string{
-		"/area-personal/", "/portal-empleado/", "/bolsa/", "/api/publico/consulta",
+		"/bolsa/", "/api/publico/consulta",
 		"/bolsa/documentos/bases-operario-demo.html", "/bolsa/documentos/bases-operario-demo.pdf",
 	} {
 		rec := httptest.NewRecorder()
@@ -257,7 +258,7 @@ func TestHandlerPresentacionDirectoFallaCerradoSinGuardas(t *testing.T) {
 		handler := NewHandlerPresentacionWithConfig(cfg, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			t.Fatal("la API no debe recibir peticiones")
 		}))
-		for _, ruta := range []string{"/", "/bolsa/", "/portal-empleado/datos-presentacion.js", "/api/publico/consulta"} {
+		for _, ruta := range []string{"/", "/bolsa/", "/api/publico/consulta"} {
 			rec := httptest.NewRecorder()
 			handler.ServeHTTP(rec, peticionServidorPrueba(http.MethodGet, ruta, nil))
 			if rec.Code != http.StatusServiceUnavailable {
