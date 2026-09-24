@@ -34,10 +34,23 @@ test("OSM renueva cada consumidor immutable desde la entrada C hasta mapa e idio
   }
 });
 
-test("OSM conserva versiones de estilos y catálogo de borradores sin cambios", async () => {
+test("OSM incorpora el estilo de ayudas F1 y conserva el catálogo de borradores", async () => {
   const html = await readFile(new URL("index.html", raiz), "utf8");
   const borradores = await readFile(new URL(`${dietas}vista-borradores-propios.js`, raiz), "utf8");
-  assert.match(html, /dietas\/dietas\.css\?v=20260924-dietas-d1d2d4/u);
+  assert.match(html, /dietas\/dietas\.css\?v=20260924-dietas-ayuda-icono-v1/u);
   assert.match(html, /portal\.css\?v=20260924-f2-salto-movil-v3/u);
   assert.match(borradores, /i18n-borradores\.js\?v=20260924-dietas-d1d2d4/u);
+});
+
+test("el mapa combinado descarga consumidores nuevos también después del corrector de ayudas F1", async () => {
+  for (const [padre, recurso, previa, cantidad] of [
+    ["index.html", "/portal-empleado/portal.js", "20260924-web-c-ayuda-v4", 1],
+    ["portal.js", "./portal-modulos-coordinador.js", "20260924-web-c-ayuda-v4", 1],
+    ["portal-modulos-coordinador.js", `./${dietas}vista-itinerario.js`, "20260924-dietas-ayuda-icono-v1", 2],
+    ["portal-modulos-coordinador.js", `./${dietas}vista-recorridos.js`, "20260924-dietas-ayuda-icono-v1", 2],
+  ]) {
+    const codigo = await readFile(new URL(padre, raiz), "utf8");
+    assert.equal(codigo.split(`${recurso}?v=${version}`).length - 1, cantidad, recurso);
+    assert.ok(!codigo.includes(`${recurso}?v=${previa}`), `${padre}: no usa bytes de F1 anteriores al mapa`);
+  }
 });

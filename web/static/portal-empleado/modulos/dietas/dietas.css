@@ -1585,9 +1585,28 @@
 }
 
 .modulo-dietas.dietas-recorridos .dietas-recorridos-ayuda summary {
+  display: inline-grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  list-style: none;
+  border: 1px solid var(--portal-borde);
+  border-radius: 50%;
+  background: var(--portal-superficie);
   cursor: pointer;
   color: var(--portal-azul-700);
   font-weight: 700;
+}
+
+.modulo-dietas.dietas-recorridos .dietas-recorridos-ayuda summary::-webkit-details-marker {
+  display: none;
+}
+
+@media (forced-colors: active) {
+  .modulo-dietas.dietas-recorridos .dietas-recorridos-ayuda summary {
+    color: ButtonText;
+    border-color: ButtonText;
+  }
 }
 
 .modulo-dietas.dietas-recorridos .dietas-recorridos-ayuda p {

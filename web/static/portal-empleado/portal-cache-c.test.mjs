@@ -8,7 +8,7 @@ const vistasC = "20260924-web-c-v1";
 const recuperacion = "20260924-osm-base-v1";
 const entrada = "20260924-osm-base-v1";
 const cronos = "20260924-cronos-integrado-v1";
-const dietas = "20260924-dietas-d1d2d4";
+const dietas = "20260924-dietas-ayuda-icono-v1";
 const versiones = (codigo, recurso) => [...codigo.matchAll(new RegExp(`${recurso.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\?v=([^"']+)`, "gu"))].map((m) => m[1]);
 
 test("capa C no reutiliza los consumidores previos de B con caché immutable", async () => {
@@ -35,6 +35,27 @@ test("capa C no reutiliza los consumidores previos de B con caché immutable", a
     assert.deepEqual(versiones(codigo, ruta), Array(cantidad).fill(nueva), ruta);
     assert.ok(!codigo.includes(`${ruta}?v=${previa}`), `${ruta}: no conserva URL anterior`);
     assert.ok(!cache.has(`${ruta}?v=${nueva}`), `${ruta}: necesita bytes nuevos`);
+  }
+});
+
+test("la ayuda de Dietas no reutiliza C v3 ni las vistas y CSS anteriores", async () => {
+  const [html, portal, coordinador] = await Promise.all([
+    readFile(new URL("index.html", raiz), "utf8"),
+    readFile(new URL("portal.js", raiz), "utf8"),
+    readFile(new URL("portal-modulos-coordinador.js", raiz), "utf8"),
+  ]);
+  const aristas = [
+    [html, "/portal-empleado/portal.js", "20260924-web-c-v3", entrada, 1],
+    [portal, "./portal-modulos-coordinador.js", "20260924-web-c-v3", entrada, 1],
+    [coordinador, "./modulos/dietas/vista-itinerario.js", "20260924-dietas-d1d2d4", recuperacion, 2],
+    [coordinador, "./modulos/dietas/vista-recorridos.js", "20260924-dietas-recuperacion-v3", recuperacion, 2],
+    [html, "/portal-empleado/modulos/dietas/dietas.css", "20260924-dietas-d1d2d4", dietas, 1],
+  ];
+  const cache = new Map(aristas.map(([, ruta, previa]) => [`${ruta}?v=${previa}`, "respuesta C antigua"]));
+  for (const [codigo, ruta, previa, nueva, cantidad] of aristas) {
+    assert.deepEqual(versiones(codigo, ruta), Array(cantidad).fill(nueva), ruta);
+    assert.ok(!codigo.includes(`${ruta}?v=${previa}`), `${ruta}: no usa URL C anterior`);
+    assert.ok(!cache.has(`${ruta}?v=${nueva}`), `${ruta}: debe descargar bytes nuevos`);
   }
 });
 

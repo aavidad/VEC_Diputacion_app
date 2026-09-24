@@ -5,8 +5,9 @@ import test from "node:test";
 const raiz = new URL("./", import.meta.url);
 const versionEntradaNueva = "20260924-osm-base-v1";
 const versionVistaNueva = "20260924-osm-base-v1";
-const versionAnteriorEntrada = "20260924-f2-dietas-consulta-v2";
-const versionAnteriorDietas = "20260924-f2-dietas-consulta-v2";
+const versionEstilosNueva = "20260924-dietas-ayuda-icono-v1";
+const versionAnteriorEntrada = "20260924-web-c-v3";
+const versionAnteriorDietas = "20260924-dietas-recuperacion-v3";
 
 function versiones(codigo, recurso) {
   const escapado = recurso.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -25,6 +26,10 @@ test("la consulta Dietas atraviesa caché caliente desde HTML hasta ambos cargad
     [portal, "./portal-modulos-coordinador.js", [versionEntradaNueva], `./portal-modulos-coordinador.js?v=${versionAnteriorEntrada}`],
     [coordinador, "./modulos/dietas/vista-recorridos.js", [versionVistaNueva, versionVistaNueva],
       `./modulos/dietas/vista-recorridos.js?v=${versionAnteriorDietas}`],
+    [coordinador, "./modulos/dietas/vista-itinerario.js", [versionVistaNueva, versionVistaNueva],
+      "./modulos/dietas/vista-itinerario.js?v=20260924-dietas-d1d2d4"],
+    [html, "/portal-empleado/modulos/dietas/dietas.css", [versionEstilosNueva],
+      "/portal-empleado/modulos/dietas/dietas.css?v=20260924-dietas-d1d2d4"],
   ];
   for (const [padre, recurso, esperado, urlAnterior] of aristas) {
     assert.deepEqual(versiones(padre, recurso), esperado, recurso);
@@ -35,11 +40,17 @@ test("la consulta Dietas atraviesa caché caliente desde HTML hasta ambos cargad
     [`/portal-empleado/portal.js?v=${versionAnteriorEntrada}`, "respuesta antigua"],
     [`/portal-empleado/portal-modulos-coordinador.js?v=${versionAnteriorEntrada}`, "respuesta antigua"],
     [`/portal-empleado/modulos/dietas/vista-recorridos.js?v=${versionAnteriorDietas}`, "respuesta antigua"],
+    ["/portal-empleado/modulos/dietas/vista-itinerario.js?v=20260924-dietas-d1d2d4", "respuesta antigua"],
+    ["/portal-empleado/modulos/dietas/dietas.css?v=20260924-dietas-d1d2d4", "respuesta antigua"],
   ]);
   const actuales = new Map([
     [`/portal-empleado/portal.js?v=${versionEntradaNueva}`, portal],
     [`/portal-empleado/portal-modulos-coordinador.js?v=${versionEntradaNueva}`, coordinador],
     [`/portal-empleado/modulos/dietas/vista-recorridos.js?v=${versionVistaNueva}`, vista],
+    [`/portal-empleado/modulos/dietas/vista-itinerario.js?v=${versionVistaNueva}`,
+      await readFile(new URL("modulos/dietas/vista-itinerario.js", raiz), "utf8")],
+    [`/portal-empleado/modulos/dietas/dietas.css?v=${versionEstilosNueva}`,
+      await readFile(new URL("modulos/dietas/dietas.css", raiz), "utf8")],
   ]);
   for (const [url, codigo] of actuales) {
     assert.ok(!cache.has(url), `${url}: caché antigua no intercepta la carga`);
