@@ -725,3 +725,104 @@ test("una consulta pendiente no modifica ni enfoca la vista desmontada", async (
   assert.equal(contenedor.querySelector("[data-dietas-borradores-propios]"), null);
   assert.equal(contenedor.ownerDocument.activeElement, null);
 });
+
+test("una denegación 401/403 retira el recibo elegido por GET", async () => {
+  for (const codigo of ["autenticacion_requerida", "acceso_denegado"]) {
+    const contenedor = raiz();
+    let lecturas = 0;
+    let escrituras = 0;
+    const vista = montarVistaBorradoresPropios(contenedor, {
+      cliente: {
+        listar: async () => {
+          lecturas += 1;
+          if (lecturas === 1) return { items: [item] };
+          const error = new Error("denegado"); error.codigo = codigo; throw error;
+        },
+        obtener: async () => item,
+        crear: async () => { escrituras += 1; return item; },
+      },
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+    const panel = contenedor.querySelector("[data-dietas-borradores-propios]");
+    await panel.listeners.click({ target: contenedor.querySelector("[data-dietas-borrador-detalle]") });
+    assert.ok(contenedor.querySelector("[data-dietas-borrador-recibo]"));
+    await panel.listeners.click({ target: contenedor.querySelector("[data-dietas-borrador-consultar-registrados]") });
+    assert.equal(contenedor.querySelector("[data-dietas-borrador-recibo]"), null);
+    assert.equal(escrituras, 0);
+    assert.equal(contenedor.querySelector("[data-dietas-borradores-estado]").dataset.tono, "error");
+    vista.desmontar();
+  }
+});
+
+test("la denegación posterior a otra ficha conserva solo el recibo de un POST confirmado", async () => {
+  const contenedor = raiz();
+  const alta = {
+    comision: { ...item.comision, referencia: "dco_abcdefghijklmnopqrstuv", motivo: "Alta confirmada" },
+    recibo: { ...item.recibo, referencia: "rcd_abcdefghijklmnopqrstuv" },
+  };
+  let lecturas = 0;
+  const vista = montarVistaBorradoresPropios(contenedor, {
+    cliente: {
+      listar: async () => {
+        lecturas += 1;
+        if (lecturas < 3) return { items: [item] };
+        const error = new Error("denegado"); error.codigo = "acceso_denegado"; throw error;
+      },
+      obtener: async () => item,
+      crear: async () => alta,
+    },
+  });
+  await Promise.resolve();
+  await Promise.resolve();
+  const form = contenedor.querySelector("[data-dietas-borrador-form]");
+  form.checkValidity = () => true;
+  const datos = {
+    fecha_inicio: "2026-09-20", fecha_fin: "2026-09-21", motivo: "Alta confirmada",
+    hora_inicio: "09:00", hora_fin: "18:00", origen_codigo: "18087", destino_codigo: "18003",
+  };
+  const FormDataOriginal = globalThis.FormData;
+  globalThis.FormData = class { get(nombre) { return datos[nombre] ?? null; } };
+  try {
+    const panel = contenedor.querySelector("[data-dietas-borradores-propios]");
+    await panel.listeners.submit({ target: form, preventDefault() {} });
+    await panel.listeners.click({ target: contenedor.querySelector("[data-dietas-borrador-detalle]") });
+    assert.match(textoVisible(contenedor.querySelector("[data-dietas-borrador-recibo]")), /rcd_1234567890123456789012/u);
+    await panel.listeners.click({ target: contenedor.querySelector("[data-dietas-borrador-consultar-registrados]") });
+    const recibo = textoVisible(contenedor.querySelector("[data-dietas-borrador-recibo]"));
+    assert.match(recibo, /rcd_abcdefghijklmnopqrstuv/u);
+    assert.doesNotMatch(recibo, /rcd_1234567890123456789012/u);
+  } finally {
+    globalThis.FormData = FormDataOriginal;
+    vista.desmontar();
+  }
+});
+
+test("una respuesta lenta no roba el foco que pasó del botón al formulario", async () => {
+  const contenedor = raiz();
+  let lecturas = 0;
+  let resolver;
+  const vista = montarVistaBorradoresPropios(contenedor, {
+    cliente: {
+      listar: async () => {
+        lecturas += 1;
+        if (lecturas === 1) return { items: [] };
+        return new Promise((resuelve) => { resolver = resuelve; });
+      },
+      obtener: async () => item,
+      crear: async () => item,
+    },
+  });
+  await Promise.resolve();
+  await Promise.resolve();
+  const panel = contenedor.querySelector("[data-dietas-borradores-propios]");
+  const consultar = contenedor.querySelector("[data-dietas-borrador-consultar-registrados]");
+  consultar.focus();
+  const peticion = panel.listeners.click({ target: consultar });
+  const campo = contenedor.querySelector("[data-dietas-borrador-form]").querySelector("input");
+  campo.focus();
+  resolver({ items: [item] });
+  await peticion;
+  assert.equal(contenedor.ownerDocument.activeElement, campo);
+  vista.desmontar();
+});
