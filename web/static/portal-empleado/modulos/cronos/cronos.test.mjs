@@ -88,6 +88,6 @@ test("la selección civil rechaza fechas imposibles y no finge un saldo", () => 
   const html = renderizarJornadaCronos({ estado: "disponible", contextoActor: actor,
     capacidades: [CAPACIDAD_CONSULTAR_HORARIO], datos: datos(actor), seleccion });
   assert.match(html, /Semana del 21\/09\/2026 al 27\/09\/2026/);
-  assert.match(html, /Falta una proyección autorizada para el periodo seleccionado/);
+  assert.match(html, new RegExp(MENSAJES_CRONOS_ES.jornada_periodo_sin_proyeccion.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.doesNotMatch(html, /tabla-cronos-jornada/);
 });
