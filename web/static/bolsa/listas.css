@@ -150,7 +150,20 @@
 }
 .ayuda-busqueda-doc { margin: 5px 0 0; color: var(--bolsa-muted-strong); font-size: .8rem; line-height: 1.4; }
 .ayuda-formato-lista { margin-top: 5px; color: var(--bolsa-muted-strong); font-size: .8rem; }
-.ayuda-formato-lista summary { width: fit-content; color: var(--bolsa-brand); cursor: pointer; font-weight: 650; }
+.ayuda-formato-lista summary {
+  display: inline-grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid var(--bolsa-line);
+  border-radius: 50%;
+  background: var(--bolsa-brand-soft);
+  color: var(--bolsa-brand);
+  cursor: pointer;
+  font-weight: 700;
+  list-style: none;
+}
+.ayuda-formato-lista summary::-webkit-details-marker { display: none; }
 .acciones-busqueda { display: flex; gap: 8px; }
 
 .tabla-contenedor-accesible {

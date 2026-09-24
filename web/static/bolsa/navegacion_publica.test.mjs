@@ -79,7 +79,7 @@ test("el aviso de demostración solo puede mostrarse tras confirmación de la fu
   assert.match(html, /id="texto-aviso-demostracion"><\/span>/);
   assert.match(css, /#aviso-demostracion:not\(\[hidden\]\):has\(#texto-aviso-demostracion:empty\)/);
   assert.doesNotMatch(html, /id="alcance-datos-demo"/);
-  assert.match(html, /id="ayuda-publica"[^>]*>[\s\S]*?<details>[\s\S]*?<summary id="titulo-ayuda-publica">Ayuda pública/);
+  assert.match(html, /id="ayuda-publica"[^>]*>[\s\S]*?<details>[\s\S]*?<summary id="titulo-ayuda-publica" aria-label="Ayuda pública" title="Ayuda pública"[^>]*><span aria-hidden="true">\?<\/span><\/summary>/);
   assert.match(html, /<details id="ayuda-filtro-categoria"/);
   assert.match(javascript, /fuente\?\.demostracion === true/);
   assert.match(javascript, /inicioInstitucional\.href = esDemostracion \? "\/presentacion\/" : "\/bolsa\/"/);
@@ -97,7 +97,7 @@ test("ambas páginas cargan tema positivo y activos públicos versionados", () =
       assert.match(pagina, new RegExp(`${activo.replaceAll(".", "\\.")}\\?v=20260924-bolsa-publica-final`));
     }
   }
-  assert.match(listas, /listas\.css\?v=20260924-bolsa-publica-final/);
+  assert.match(listas, /listas\.css\?v=20260924-bolsa-publica-ayuda-v2/);
   assert.match(listas, /lista-bolsas\.js\?v=20260924-bolsa-publica-final/);
   assert.match(html, /bolsa\.js\?v=20260924-bolsa-publica-final/);
   assert.match(css, /--bolsa-bg:\s*var\(--portal-fondo, var\(--bg\)\)/);
