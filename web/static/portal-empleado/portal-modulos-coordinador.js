@@ -13,9 +13,9 @@ import {
 import {
   cargarCatalogoModulosInterno,
   renderizarNavegacionModulos,
-} from "./portal-catalogo-modulos.js?v=20260924-f2-cache-v2";
-import { traducirPortal } from "./portal-i18n.js?v=20260924-f2-cache-v2";
-import { calcularMetricasCuadro, tramitesParaInicio } from "./portal-inicio.js";
+} from "./portal-catalogo-modulos.js?v=20260924-f2-cronos-permisos-v2";
+import { traducirPortal } from "./portal-i18n.js?v=20260924-f2-cronos-permisos-v2";
+import { calcularMetricasCuadro, tramitesParaInicio } from "./portal-inicio.js?v=20260924-f2-cronos-permisos-v2";
 import {
   componerCronosVisible,
   componerDietasInternas,

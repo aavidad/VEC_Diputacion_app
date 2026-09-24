@@ -47,7 +47,7 @@ test("la ruta de Permisos comparte Cronos y resuelve el hash directo sin inventa
   assert.equal(moduloDeVistaPortal("cronos-permisos"), "cronos");
   assert.equal(rutaDeVistaPortal("cronos-permisos"), "#cronos-permisos");
   const portal = await readFile(new URL("portal.js", import.meta.url), "utf8");
-  assert.match(portal, /"cronos-permisos": \["Portal del Empleado → Cronos → Permisos"/u);
+  assert.match(portal, /"cronos-permisos": \[traducirPortal\("cronos_permisos_miga"\), traducirPortal\("cronos_permisos_titulo"\)\]/u);
   const inicio = portal.indexOf("function vistaDesdeHash()");
   const fin = portal.indexOf("function rutaDeVista(vista)", inicio);
   assert.ok(inicio > 0 && fin > inicio);
@@ -136,7 +136,9 @@ test("el cargador interno nominal y el manifiesto contienen el recorrido sin nue
   assert.match(manifiesto, /static\/portal-empleado\/modulos\/cronos\/vista-recorridos\.js/u);
   assert.match(manifiesto, /static\/portal-empleado\/modulos\/cronos\/permisos\.css/u);
   assert.match(manifiesto, /static\/portal-empleado\/modulos\/cronos\/i18n-permisos\.js/u);
-  assert.match(portal, /portal-modulos-coordinador\.js\?v=20260924-f2-cronos-permisos-v1/u);
-  assert.match(html, /portal\.js\?v=20260924-f2-cronos-permisos-v1/u);
+  assert.match(portal, /portal-modulos-coordinador\.js\?v=20260924-f2-cronos-permisos-v2/u);
+  assert.match(html, /portal\.js\?v=20260924-f2-cronos-permisos-v2/u);
+  assert.match(portal, /portal-i18n\.js\?v=20260924-f2-cronos-permisos-v2/u);
+  assert.match(coordinador, /portal-i18n\.js\?v=20260924-f2-cronos-permisos-v2/u);
   assert.doesNotMatch(html, /data-vista="cronos-permisos"/u);
 });

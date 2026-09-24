@@ -8,7 +8,7 @@ const versionCache = "20260924-f2-cache-v2";
 const versionCachePersonal = "20260924-f2-cache-v3";
 const versionPersonalInterno = "20260924-p1-personal-interno-v2";
 const versionPersonalEstados = "20260924-f2-personal-estados-v4";
-const versionCronosPermisos = "20260924-f2-cronos-permisos-v1";
+const versionCronosPermisos = "20260924-f2-cronos-permisos-v2";
 const raiz = new URL("./", import.meta.url);
 
 function versionesDe(codigo, recurso) {
@@ -79,6 +79,8 @@ test("el grafo JS propio llega desde HTML a los consumidores F2 con versiones nu
   ]);
   assert.equal(versionDe(html, "/portal-empleado/portal.js"), versionCronosPermisos);
   assert.equal(versionDe(portal, "./portal-modulos-coordinador.js"), versionCronosPermisos);
+  assert.notEqual(versionDe(html, "/portal-empleado/portal.js"), "20260924-f2-cronos-permisos-v1");
+  assert.notEqual(versionDe(portal, "./portal-modulos-coordinador.js"), "20260924-f2-cronos-permisos-v1");
   assert.notEqual(versionDe(html, "/portal-empleado/portal.js"), versionPersonalEstados);
   assert.notEqual(versionDe(portal, "./portal-modulos-coordinador.js"), versionPersonalEstados);
   for (const recurso of ["portal-menu-bolsa.js",
@@ -100,14 +102,14 @@ test("el grafo JS propio llega desde HTML a los consumidores F2 con versiones nu
 
 test("la caché immutable previa no retiene el catálogo i18n ni los consumidores F2", async () => {
   const versionesPrevias = new Map([
-    ["portal.js", [version, versionCache, versionCachePersonal, "20260924-p1-personal-interno-v1", versionPersonalInterno, versionPersonalEstados]],
-    ["portal-modulos-coordinador.js", [version, versionCache, versionCachePersonal, "20260924-p1-personal-interno-v1", versionPersonalInterno, versionPersonalEstados]],
-    ["portal-catalogo-modulos.js", ["20260906-acceso-certificado-v1"]],
-    ["portal-inicio.js", ["20260923-p4-reintento-v2"]],
-    ["portal-eventos.js", ["20260721-acceso-real-v2"]],
-    ["portal-borradores-ui.js", ["20260921-avisos-r5-v1"]],
-    ["portal-borradores-acceso.js", ["20260721-acceso-real-v2"]],
-    ["portal-i18n.js", ["20260721-acceso-real-v2", "20260923-p4-reintento-v2", version]],
+    ["portal.js", [version, versionCache, versionCachePersonal, "20260924-p1-personal-interno-v1", versionPersonalInterno, versionPersonalEstados, "20260924-f2-cronos-permisos-v1"]],
+    ["portal-modulos-coordinador.js", [version, versionCache, versionCachePersonal, "20260924-p1-personal-interno-v1", versionPersonalInterno, versionPersonalEstados, "20260924-f2-cronos-permisos-v1"]],
+    ["portal-catalogo-modulos.js", ["20260906-acceso-certificado-v1", versionCache]],
+    ["portal-inicio.js", ["20260923-p4-reintento-v2", versionCache]],
+    ["portal-eventos.js", ["20260721-acceso-real-v2", versionCache]],
+    ["portal-borradores-ui.js", ["20260921-avisos-r5-v1", versionCache]],
+    ["portal-borradores-acceso.js", ["20260721-acceso-real-v2", versionCache]],
+    ["portal-i18n.js", ["20260721-acceso-real-v2", "20260923-p4-reintento-v2", version, versionCache]],
     ["modulos/cronos/vista-recorridos.js", ["20260920-cronos-bandeja-v2"]],
     ["modulos/personal/vista.js", ["20260920-personal-catalogo-v1", versionCachePersonal]],
     ["modulos/personal/cliente-http-categorias.js", ["20260920-personal-catalogo-v1"]],
@@ -138,7 +140,7 @@ test("la caché immutable previa no retiene el catálogo i18n ni los consumidore
     ["index.html", ["portal.js"]],
     ["portal.js", ["portal-modulos-coordinador.js", "portal-inicio.js", "portal-eventos.js",
       "portal-borradores-ui.js", "portal-i18n.js"]],
-    ["portal-modulos-coordinador.js", ["portal-catalogo-modulos.js", "portal-i18n.js",
+    ["portal-modulos-coordinador.js", ["portal-catalogo-modulos.js", "portal-inicio.js", "portal-i18n.js",
       "modulos/cronos/vista-recorridos.js", "modulos/personal/vista.js",
       "modulos/personal/cliente-http-categorias.js",
       "modulos/personal/vista-estructura-organizativa-publica.js"]],
@@ -162,7 +164,9 @@ test("la caché immutable previa no retiene el catálogo i18n ni los consumidore
       assert.equal(versionesHijo.length, ["modulos/personal/vista.js", "modulos/personal/cliente-http-categorias.js",
         "modulos/cronos/vista-recorridos.js"].includes(hijo) ? 2 : 1,
         `${padre} → ${hijo}: número de aristas`);
-      const versionEsperada = padre === "index.html" || hijo === "portal-modulos-coordinador.js"
+      const versionEsperada = padre === "index.html" || ["portal-modulos-coordinador.js",
+        "portal-catalogo-modulos.js", "portal-inicio.js", "portal-eventos.js",
+        "portal-borradores-ui.js", "portal-borradores-acceso.js", "portal-i18n.js"].includes(hijo)
         ? versionCronosPermisos
         : hijo === "modulos/personal/vista.js" ? versionPersonalEstados
         : hijo === "modulos/personal/cliente-http-categorias.js" ? versionPersonalInterno

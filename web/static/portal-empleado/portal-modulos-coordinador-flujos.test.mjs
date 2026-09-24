@@ -667,11 +667,11 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
   const versionCachePersonal = "20260924-f2-cache-v3";
   const versionPersonalInterno = "20260924-p1-personal-interno-v2";
   const versionPersonalEstados = "20260924-f2-personal-estados-v4";
-  const versionCronosPermisos = "20260924-f2-cronos-permisos-v1";
+  const versionCronosPermisos = "20260924-f2-cronos-permisos-v2";
   const versionCarga = "20260923-p4-estado-modulos-v1";
   const versionModuloBolsa = "20260923-pweb13-b8-v1";
   const versionClientePersonal = versionPersonalInterno;
-  const versionCatalogo = versionCacheF2;
+  const versionCatalogo = versionCronosPermisos;
   const versionCronos = versionCacheF2;
   const versionDietas = "20260923-dietas-r1";
   const versionRPT = "20260920-personal-rpt-publica-v3";
@@ -686,13 +686,18 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
     "utf8",
   );
   assert.match(portal, new RegExp(`portal-modulos-coordinador\\.js\\?v=${versionCronosPermisos}`));
+  assert.doesNotMatch(portal, /portal-modulos-coordinador\.js\?v=20260924-f2-cronos-permisos-v1/u);
   assert.doesNotMatch(portal, new RegExp(`portal-modulos-coordinador\\.js\\?v=${versionPersonalEstados}`));
   assert.doesNotMatch(portal, new RegExp(`portal-modulos-coordinador\\.js\\?v=${versionPersonalInterno}`));
   assert.match(coordinador, new RegExp(`portal-modulos-carga\\.js\\?v=${versionCarga}`));
   assert.match(portal, new RegExp(`portal-bolsas-api\\.js\\?v=${versionModuloBolsa}`));
-  assert.match(portal, new RegExp(`portal-i18n\\.js\\?v=${versionCacheF2}`));
+  assert.match(portal, new RegExp(`portal-i18n\\.js\\?v=${versionCronosPermisos}`));
+  for (const recurso of ["portal-inicio", "portal-eventos", "portal-borradores-ui"]) {
+    assert.match(portal, new RegExp(`${recurso}\\.js\\?v=${versionCronosPermisos}`));
+  }
   assert.match(coordinador, new RegExp(`portal-catalogo-modulos\\.js\\?v=${versionCatalogo}`));
-  assert.match(coordinador, new RegExp(`portal-i18n\\.js\\?v=${versionCacheF2}`));
+  assert.match(coordinador, new RegExp(`portal-inicio\\.js\\?v=${versionCronosPermisos}`));
+  assert.match(coordinador, new RegExp(`portal-i18n\\.js\\?v=${versionCronosPermisos}`));
   const clientePersonal = new RegExp(`modulos/personal/cliente-http-categorias\\.js\\?v=${versionClientePersonal}`, "g");
   assert.equal([...coordinador.matchAll(clientePersonal)].length, 2);
   assert.match(coordinador, new RegExp(`modulos/personal/cliente-http-rpt-publica\\.js\\?v=${versionRPT}`));
@@ -703,6 +708,7 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
   }
   assert.doesNotMatch(coordinador, new RegExp(`modulos/personal/vista\\.js\\?v=${versionCachePersonal}`));
   assert.match(html, new RegExp(`portal\\.js\\?v=${versionCronosPermisos}`));
+  assert.doesNotMatch(html, /portal\.js\?v=20260924-f2-cronos-permisos-v1/u);
   assert.doesNotMatch(html, new RegExp(`portal\\.js\\?v=${versionPersonalEstados}`));
   assert.doesNotMatch(html, new RegExp(`portal\\.js\\?v=${versionPersonalInterno}`));
   assert.match(html, new RegExp(`portal-modulos\\.css\\?v=${versionEstilos}`));
