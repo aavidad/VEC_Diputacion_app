@@ -209,7 +209,9 @@ test("cliente HTTP público: utiliza exclusivamente credentials: 'omit' y no con
 
   // Sin referencias a rutas autenticadas o internas
   assert.doesNotMatch(todoElCodigo, /\/api\/vec\b/);
-  assert.doesNotMatch(todoElCodigo, /\/portal-empleado\b/);
+  assert.doesNotMatch(`${codigoCliente}\n${codigoControlador}`, /\/portal-empleado\b/);
+  assert.match(codigoHTML, /<link rel="stylesheet" href="\/portal-empleado\/portal\.css\?v=20260924-f2-shell-v1">/);
+  assert.doesNotMatch(codigoHTML, /<(?:a|script)\b[^>]*(?:href|src)="\/portal-empleado\b/);
   assert.doesNotMatch(todoElCodigo, /\/area-personal\b/);
 });
 

@@ -16,6 +16,7 @@ const destinosPermitidos = [
   "#contenido-principal",
   "#filtros-convocatorias",
   "#directorio-categorias",
+  "/bolsa/listas.html",
   "#ayuda-publica",
 ];
 
@@ -63,6 +64,18 @@ test("la bolsa pública conserva una navegación lateral limitada a contenido p�
   const destinosPresentes = [...menu.matchAll(/<a\b[^>]*\bhref="([^"]+)"/g)].map((coincidencia) => coincidencia[1]);
   assert.deepEqual(destinosPresentes, destinosPermitidos);
   assert.doesNotMatch(menu, /Cronos|Nóminas|Dietas|Administración|Auditoría/);
+});
+
+test("la consulta de aspirantes es accesible desde Bolsa y comparte el tema corporativo", () => {
+  const listas = readFileSync(join(directorio, "listas.html"), "utf8");
+  for (const pagina of [html, listas]) {
+    assert.match(pagina, /href="\/portal-empleado\/portal\.css\?v=20260924-f2-shell-v1"/);
+    assert.match(pagina, /href="\/comun\/tema-vec\.css\?v=20260924-f2-shell-v1"/);
+    assert.match(pagina, /href="\/bolsa\/bolsa\.css\?v=20260924-f1-tema-publico-v1"/);
+  }
+  assert.match(menu, /href="\/bolsa\/listas\.html"/);
+  assert.match(css, /--bg:\s*var\(--portal-fondo\)/);
+  assert.match(css, /background:\s*var\(--portal-azul-950\)/);
 });
 
 test("la presentación identifica el origen real y devuelve al selector desde el logotipo", () => {
