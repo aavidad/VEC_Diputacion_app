@@ -133,43 +133,45 @@ func nuevoHandlerActosRegistroEmpleadoB2(a AutoridadContextoRegistroEmpleadoB2, 
 }
 
 type entradaAltaEmpleadoB2 struct {
-	PersonaRef         string `json:"persona_ref"`
-	OrganismoRef       string `json:"organismo_ref"`
-	UnidadRef          string `json:"unidad_ref"`
-	RegimenRef         string `json:"regimen_ref"`
-	ModalidadRef       string `json:"modalidad_ref"`
-	VigenteDesde       string `json:"vigente_desde"`
-	VigenteHasta       string `json:"vigente_hasta"`
-	ActoRef            string `json:"acto_ref"`
-	FuenteRef          string `json:"fuente_ref"`
-	FuenteVersion      int64  `json:"fuente_version"`
-	FuenteHuellaSHA256 string `json:"fuente_huella_sha256"`
+	PersonaRef         string                                   `json:"persona_ref"`
+	OrganismoRef       string                                   `json:"organismo_ref"`
+	UnidadRef          string                                   `json:"unidad_ref"`
+	Regimen            personaldomain.EntradaCatalogoEmpleadoB2 `json:"regimen"`
+	Modalidad          personaldomain.EntradaCatalogoEmpleadoB2 `json:"modalidad"`
+	VigenteDesde       string                                   `json:"vigente_desde"`
+	VigenteHasta       string                                   `json:"vigente_hasta"`
+	ActoRef            string                                   `json:"acto_ref"`
+	FuenteRef          string                                   `json:"fuente_ref"`
+	FuenteVersion      int64                                    `json:"fuente_version"`
+	FuenteHuellaSHA256 string                                   `json:"fuente_huella_sha256"`
 }
 
 type entradaHechoEmpleadoB2 struct {
-	Tipo                    string `json:"tipo"`
-	EmpleadoRef             string `json:"empleado_ref"`
-	RelacionRef             string `json:"relacion_ref"`
-	RevisionEsperada        int64  `json:"revision_esperada"`
-	RelacionVersionEsperada int64  `json:"relacion_version_esperada"`
-	UnidadRef               string `json:"unidad_ref"`
-	RegimenRef              string `json:"regimen_ref"`
-	ModalidadRef            string `json:"modalidad_ref"`
-	Estado                  string `json:"estado"`
-	PlazaRef                string `json:"plaza_ref"`
-	PuestoRef               string `json:"puesto_ref"`
-	ClaseRef                string `json:"clase_ref"`
-	VersionPlazaRef         string `json:"version_plaza_ref"`
-	VersionPuestoRef        string `json:"version_puesto_ref"`
-	PeriodoDesde            string `json:"periodo_desde"`
-	PeriodoHasta            string `json:"periodo_hasta"`
-	DiasReconocidos         int64  `json:"dias_reconocidos"`
-	VigenteDesde            string `json:"vigente_desde"`
-	VigenteHasta            string `json:"vigente_hasta"`
-	ActoRef                 string `json:"acto_ref"`
-	FuenteRef               string `json:"fuente_ref"`
-	FuenteVersion           int64  `json:"fuente_version"`
-	FuenteHuellaSHA256      string `json:"fuente_huella_sha256"`
+	Tipo                    string                                   `json:"tipo"`
+	EmpleadoRef             string                                   `json:"empleado_ref"`
+	RelacionRef             string                                   `json:"relacion_ref"`
+	RevisionEsperada        int64                                    `json:"revision_esperada"`
+	RelacionVersionEsperada int64                                    `json:"relacion_version_esperada"`
+	UnidadRef               string                                   `json:"unidad_ref"`
+	Regimen                 personaldomain.EntradaCatalogoEmpleadoB2 `json:"regimen"`
+	Modalidad               personaldomain.EntradaCatalogoEmpleadoB2 `json:"modalidad"`
+	Situacion               personaldomain.EntradaCatalogoEmpleadoB2 `json:"situacion"`
+	ClaseServicio           personaldomain.EntradaCatalogoEmpleadoB2 `json:"clase_servicio"`
+	ClaseOcupacion          string                                   `json:"clase_ocupacion"`
+	Estado                  string                                   `json:"estado"`
+	PlazaRef                string                                   `json:"plaza_ref"`
+	PuestoRef               string                                   `json:"puesto_ref"`
+	VersionPlazaRef         string                                   `json:"version_plaza_ref"`
+	VersionPuestoRef        string                                   `json:"version_puesto_ref"`
+	PeriodoDesde            string                                   `json:"periodo_desde"`
+	PeriodoHasta            string                                   `json:"periodo_hasta"`
+	DiasReconocidos         int64                                    `json:"dias_reconocidos"`
+	VigenteDesde            string                                   `json:"vigente_desde"`
+	VigenteHasta            string                                   `json:"vigente_hasta"`
+	ActoRef                 string                                   `json:"acto_ref"`
+	FuenteRef               string                                   `json:"fuente_ref"`
+	FuenteVersion           int64                                    `json:"fuente_version"`
+	FuenteHuellaSHA256      string                                   `json:"fuente_huella_sha256"`
 }
 
 func (h *handlerActosRegistroEmpleadoB2) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -312,7 +314,7 @@ func solicitudAltaEmpleadoB2(e entradaAltaEmpleadoB2, clave string, actor vecdom
 		}
 	}
 	s = personaldomain.SolicitudAltaEmpleadoB2{
-		PersonaRef: e.PersonaRef, OrganismoRef: e.OrganismoRef, UnidadRef: e.UnidadRef, RegimenRef: e.RegimenRef, ModalidadRef: e.ModalidadRef,
+		PersonaRef: e.PersonaRef, OrganismoRef: e.OrganismoRef, UnidadRef: e.UnidadRef, Regimen: e.Regimen, Modalidad: e.Modalidad,
 		VigenteDesde: desde, VigenteHasta: hasta, Procedencia: personaldomain.ProcedenciaActoEmpleadoB2{ActoRef: e.ActoRef, FuenteRef: e.FuenteRef, FuenteVersion: e.FuenteVersion, FuenteHuellaSHA256: e.FuenteHuellaSHA256, IdempotenciaRef: clave}, Actor: actor,
 	}
 	// Personal enlaza la persona B1 dentro de la transacción SQL. La
@@ -342,8 +344,8 @@ func solicitudHechoEmpleadoB2(e entradaHechoEmpleadoB2, clave, organismo string,
 	}
 	s = personaldomain.SolicitudHechoEmpleadoB2{
 		Tipo: e.Tipo, OrganismoRef: organismo, EmpleadoRef: e.EmpleadoRef, RelacionRef: e.RelacionRef, RevisionEsperada: e.RevisionEsperada, RelacionVersionEsperada: e.RelacionVersionEsperada,
-		UnidadRef: e.UnidadRef, RegimenRef: e.RegimenRef, ModalidadRef: e.ModalidadRef, Estado: e.Estado,
-		PlazaRef: e.PlazaRef, PuestoRef: e.PuestoRef, ClaseRef: e.ClaseRef, VersionPlazaRef: e.VersionPlazaRef, VersionPuestoRef: e.VersionPuestoRef,
+		UnidadRef: e.UnidadRef, Regimen: e.Regimen, Modalidad: e.Modalidad, Situacion: e.Situacion, ClaseServicio: e.ClaseServicio, ClaseOcupacion: e.ClaseOcupacion, Estado: e.Estado,
+		PlazaRef: e.PlazaRef, PuestoRef: e.PuestoRef, VersionPlazaRef: e.VersionPlazaRef, VersionPuestoRef: e.VersionPuestoRef,
 		PeriodoDesde: periodoDesde, PeriodoHasta: periodoHasta, DiasReconocidos: e.DiasReconocidos, VigenteDesde: desde, VigenteHasta: hasta,
 		Procedencia: personaldomain.ProcedenciaActoEmpleadoB2{ActoRef: e.ActoRef, FuenteRef: e.FuenteRef, FuenteVersion: e.FuenteVersion, FuenteHuellaSHA256: e.FuenteHuellaSHA256, IdempotenciaRef: clave}, Actor: actor,
 	}

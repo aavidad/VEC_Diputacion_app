@@ -34,8 +34,8 @@ func (o *operadorActosRegistroEmpleadoB2Prueba) RegistrarHecho(_ context.Context
 }
 
 const claveRegistroEmpleadoB2Prueba = "12345678-1234-4234-8234-123456789abc"
-const altaJSONRegistroEmpleadoB2Prueba = `{"persona_ref":"per_bbbbbbbbbbbbbbbbbbbbbb","organismo_ref":"org_prueba","unidad_ref":"uni_prueba","regimen_ref":"reg_prueba","modalidad_ref":"mod_prueba","vigente_desde":"2026-09-25","acto_ref":"acto_prueba","fuente_ref":"fuente_prueba","fuente_version":1,"fuente_huella_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}`
-const hechoJSONRegistroEmpleadoB2Prueba = `{"tipo":"relacion","empleado_ref":"emp_aaaaaaaaaaaaaaaaaaaaaa","revision_esperada":1,"unidad_ref":"uni_prueba","regimen_ref":"reg_prueba","modalidad_ref":"mod_prueba","estado":"vigente","vigente_desde":"2026-09-25","acto_ref":"acto_prueba","fuente_ref":"fuente_prueba","fuente_version":1,"fuente_huella_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}`
+const altaJSONRegistroEmpleadoB2Prueba = `{"persona_ref":"per_bbbbbbbbbbbbbbbbbbbbbb","organismo_ref":"org_prueba","unidad_ref":"uni_prueba","regimen":{"ref":"reg_prueba","version":1},"modalidad":{"ref":"mod_prueba","version":1},"vigente_desde":"2026-09-25","acto_ref":"acto_prueba","fuente_ref":"fuente_prueba","fuente_version":1,"fuente_huella_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}`
+const hechoJSONRegistroEmpleadoB2Prueba = `{"tipo":"relacion","empleado_ref":"emp_aaaaaaaaaaaaaaaaaaaaaa","revision_esperada":1,"unidad_ref":"uni_prueba","regimen":{"ref":"reg_prueba","version":1},"modalidad":{"ref":"mod_prueba","version":1},"estado":"vigente","vigente_desde":"2026-09-25","acto_ref":"acto_prueba","fuente_ref":"fuente_prueba","fuente_version":1,"fuente_huella_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}`
 
 func peticionPostRegistroEmpleadoB2(ruta, cuerpo string) *http.Request {
 	r := httptest.NewRequest(http.MethodPost, ruta, strings.NewReader(cuerpo))
@@ -178,5 +178,64 @@ func TestRegistroEmpleadoB2HTTPAltaPersonaObjetivoNoAcreditadaEsOpaca(t *testing
 	h.ServeHTTP(w, peticionPostRegistroEmpleadoB2(RutaAltaEmpleadoB2, altaJSONRegistroEmpleadoB2Prueba))
 	if w.Code != 403 || o.llamadas != 1 || len(audit.ordenes) != 1 || strings.Contains(w.Body.String(), "per_bbbbbbbbbbbbbbbbbbbbbb") || strings.Contains(w.Body.String(), "B1") {
 		t.Fatalf("objetivo no acreditado=%d cuerpo=%s auditoria=%+v", w.Code, w.Body.String(), audit.ordenes)
+	}
+}
+
+func TestRegistroEmpleadoB2HTTPCatalogosExigenVersionYRechazanTextoLibre(t *testing.T) {
+	for _, cuerpo := range []string{
+		strings.Replace(altaJSONRegistroEmpleadoB2Prueba, `"regimen":{"ref":"reg_prueba","version":1}`, `"regimen":{"ref":"reg_prueba"}`, 1),
+		strings.Replace(altaJSONRegistroEmpleadoB2Prueba, `"modalidad":{"ref":"mod_prueba","version":1}`, `"modalidad":{"ref":"mod_prueba","version":0}`, 1),
+		strings.Replace(altaJSONRegistroEmpleadoB2Prueba, `"regimen":{"ref":"reg_prueba","version":1}`, `"regimen":"reg_prueba"`, 1),
+		strings.Replace(altaJSONRegistroEmpleadoB2Prueba, `"regimen":{"ref":"reg_prueba","version":1}`, `"regimen":{"ref":"reg_prueba","version":1,"estado":"vigente"}`, 1),
+		strings.Replace(altaJSONRegistroEmpleadoB2Prueba, `"regimen":{"ref":"reg_prueba","version":1}`, `"regimen_ref":"reg_prueba"`, 1),
+	} {
+		a := &autoridadRegistroEmpleadoB2Prueba{actor: actorOrganizacionHistoricaPrueba(t), organismo: "org_prueba"}
+		o := &operadorActosRegistroEmpleadoB2Prueba{}
+		h, _ := NewHandlerAltaEmpleadoB2(a, o, &auditorRegistroEmpleadoB2Prueba{})
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, peticionPostRegistroEmpleadoB2(RutaAltaEmpleadoB2, cuerpo))
+		if w.Code != 400 || o.llamadas != 0 {
+			t.Fatalf("catálogo inválido=%d operador=%d cuerpo=%s", w.Code, o.llamadas, w.Body.String())
+		}
+	}
+}
+
+func TestRegistroEmpleadoB2HTTPHechosCatalogadosExactos(t *testing.T) {
+	const prefijo = `{"empleado_ref":"emp_aaaaaaaaaaaaaaaaaaaaaa","relacion_ref":"rel_bbbbbbbbbbbbbbbbbbbbbb","revision_esperada":1,"relacion_version_esperada":1,"vigente_desde":"2026-09-25","acto_ref":"acto_prueba","fuente_ref":"fuente_prueba","fuente_version":1,"fuente_huella_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",`
+	for _, caso := range []struct {
+		tipo, cuerpo string
+		valida       func(personaldomain.SolicitudHechoEmpleadoB2) bool
+	}{
+		{"ocupacion", prefijo + `"tipo":"ocupacion","plaza_ref":"plaza_prueba","unidad_ref":"uni_prueba","version_plaza_ref":"ver_prueba","modalidad":{"ref":"mod_prueba","version":3},"clase_ocupacion":"titular"}`, func(s personaldomain.SolicitudHechoEmpleadoB2) bool {
+			return s.Modalidad.Ref == "mod_prueba" && s.Modalidad.Version == 3 && s.ClaseOcupacion == "titular"
+		}},
+		{"servicio", prefijo + `"tipo":"servicio","clase_servicio":{"ref":"cls_prueba","version":4},"periodo_desde":"2025-01-01","periodo_hasta":"2025-02-01","dias_reconocidos":31,"estado":"reconocido"}`, func(s personaldomain.SolicitudHechoEmpleadoB2) bool {
+			return s.ClaseServicio.Ref == "cls_prueba" && s.ClaseServicio.Version == 4
+		}},
+		{"situacion", prefijo + `"tipo":"situacion","situacion":{"ref":"sit_prueba","version":2},"estado":"vigente"}`, func(s personaldomain.SolicitudHechoEmpleadoB2) bool {
+			return s.Situacion.Ref == "sit_prueba" && s.Situacion.Version == 2
+		}},
+	} {
+		t.Run(caso.tipo, func(t *testing.T) {
+			a := &autoridadRegistroEmpleadoB2Prueba{actor: actorOrganizacionHistoricaPrueba(t), organismo: "org_prueba"}
+			o := &operadorActosRegistroEmpleadoB2Prueba{err: personaldomain.ErrRegistroEmpleadoB2Conflicto}
+			h, _ := NewHandlerHechosEmpleadoB2(a, o, &auditorRegistroEmpleadoB2Prueba{})
+			w := httptest.NewRecorder()
+			h.ServeHTTP(w, peticionPostRegistroEmpleadoB2(RutaHechosEmpleadoB2, caso.cuerpo))
+			if w.Code != 409 || o.llamadas != 1 || o.hecho.Tipo != caso.tipo || !caso.valida(o.hecho) {
+				t.Fatalf("hecho=%d llamadas=%d orden=%+v", w.Code, o.llamadas, o.hecho)
+			}
+		})
+	}
+}
+
+func TestRegistroEmpleadoB2HTTPCatalogoRetiradoDevuelveConflictoNeutro(t *testing.T) {
+	a := &autoridadRegistroEmpleadoB2Prueba{actor: actorOrganizacionHistoricaPrueba(t), organismo: "org_prueba"}
+	o := &operadorActosRegistroEmpleadoB2Prueba{err: personaldomain.ErrRegistroEmpleadoB2Conflicto}
+	h, _ := NewHandlerAltaEmpleadoB2(a, o, &auditorRegistroEmpleadoB2Prueba{})
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, peticionPostRegistroEmpleadoB2(RutaAltaEmpleadoB2, altaJSONRegistroEmpleadoB2Prueba))
+	if w.Code != 409 || o.llamadas != 1 || !strings.Contains(w.Body.String(), `"codigo":"conflicto"`) || strings.Contains(w.Body.String(), "reg_prueba") {
+		t.Fatalf("conflicto catálogo=%d cuerpo=%s", w.Code, w.Body.String())
 	}
 }
