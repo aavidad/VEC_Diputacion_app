@@ -9,7 +9,8 @@ import {
   validarCapacidadesCronos,
   validarDatosCronos,
 } from "./contrato.js?v=20260924-f2-web2";
-import { crearTraductorCronos, MENSAJES_CRONOS_ES } from "./i18n.js?v=20260924-f2-web2";
+import { crearTraductorCronos, MENSAJES_CRONOS_ES } from "./i18n.js?v=20260924-cronos-integrado-v1";
+import { montarCalendarioCivilCronos } from "./vista-calendario.js?v=20260924-cronos-integrado-v1";
 
 function escaparHTML(valor) {
   return String(valor ?? "")
@@ -182,6 +183,7 @@ export function renderizarJornadaCronos({
     ${estado === "disponible" ? `<p class="cronos-jornada-fuente">${escaparHTML(t("jornada_fuente_servicio", { fecha: instanteVisible(vista.actualizado_en, locale, zonaHoraria).completo }))}</p>` : ""}
     ${saldos}${contenido}
     <div class="cronos-jornada-acciones"><button type="button" class="boton-primario" disabled aria-disabled="true" title="${escaparHTML(t("jornada_accion_bloqueada"))}">${escaparHTML(t("accion_entrada"))}</button><button type="button" class="boton-secundario" disabled aria-disabled="true" title="${escaparHTML(t("jornada_accion_bloqueada"))}">${escaparHTML(t("accion_salida"))}</button><span>${escaparHTML(t("jornada_accion_bloqueada"))}</span></div>
+    <div data-cronos-calendario-raiz></div>
   </section>`;
 }
 
@@ -195,15 +197,26 @@ export function montarJornadaCronos({ raiz, registrarDesmontar, anunciar = () =>
   contenedor.innerHTML = renderizarJornadaCronos(proyeccion);
   raiz.append(contenedor);
   let activo = true;
+  let calendario;
+  const montarCalendario = () => {
+    const destino = contenedor.querySelector?.("[data-cronos-calendario-raiz]");
+    if (destino) calendario = montarCalendarioCivilCronos({ raiz: destino, anunciar });
+  };
+  montarCalendario();
   const actualizar = (siguiente) => {
     if (!activo) throw new Error("jornada de Cronos desmontada");
-    contenedor.innerHTML = renderizarJornadaCronos(siguiente);
+    const html = renderizarJornadaCronos(siguiente);
+    calendario?.desmontar();
+    calendario = undefined;
+    contenedor.innerHTML = html;
+    montarCalendario();
     const estadoVisible = estadoJornadaConFuente(siguiente?.estado ?? "no_configurado", siguiente?.contextoActor, siguiente?.datos);
     anunciar(crearTraductorCronos(siguiente?.mensajes)(`jornada_estado_${estadoVisible}`));
   };
   const desmontar = () => {
     if (!activo) return;
     activo = false;
+    calendario?.desmontar();
     contenedor.remove();
   };
   registrarDesmontar?.(desmontar);
