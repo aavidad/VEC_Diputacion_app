@@ -18,6 +18,22 @@ restaurar() {
 }
 trap 'restaurar; rm -rf "${temporal}"' EXIT
 
+grep -Fxq 'static/bolsa/i18n-publica.js' web/publico.manifest || {
+	printf 'La autoprueba requiere el catalogo i18n publico en el manifiesto original.\n' >&2
+	exit 1
+}
+grep -Fxv 'static/bolsa/i18n-publica.js' web/publico.manifest >"${temporal}/publico-sin-i18n.manifest"
+cp "${temporal}/publico-sin-i18n.manifest" web/publico.manifest
+if scripts/verificar_manifiestos_superficies_web.sh >"${temporal}/salida" 2>&1; then
+	printf 'El verificador acepto la ausencia del catalogo i18n publico de Bolsa.\n' >&2
+	exit 1
+fi
+grep -Fxq 'Falta recurso publico obligatorio: static/bolsa/i18n-publica.js' "${temporal}/salida" || {
+	cat "${temporal}/salida" >&2
+	exit 1
+}
+restaurar
+
 printf '%s\n' 'static/portal-empleado/index.html' >>web/publico.manifest
 if scripts/verificar_manifiestos_superficies_web.sh >"${temporal}/salida" 2>&1; then
 	printf 'El verificador acepto un recurso interno en la superficie publica.\n' >&2
