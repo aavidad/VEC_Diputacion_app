@@ -1,6 +1,6 @@
 import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260924-dietas-d1d2d4";
 import { crearTraductorRevisionDietas } from "./i18n-revision.js";
-import { montarVistaBorradoresPropios } from "./vista-borradores-propios.js?v=20260924-dietas-recuperacion-v3";
+import { montarVistaBorradoresPropios } from "./vista-borradores-propios.js?v=20260924-dietas-ayuda-sin-guia-v1";
 import { montarVistaAccesoPapelesDietas } from "./vista-acceso-papeles.js?v=20260924-dietas-d1d2d4";
 import { montarMapaInicialGranadaDietas } from "./mapa-ruta.js";
 
@@ -62,7 +62,7 @@ function panelSolicitante(documento, t, areaBorradores, areaItinerario, puedeCre
   const cabecera = nodo(documento, "div");
   cabecera.className = "dietas-recorridos-cabecera panel";
   const titulos = nodo(documento, "div");
-  titulos.append(nodo(documento, "h2", t("revision_mis_comisiones")), nodo(documento, "p", t(puedeCrear ? "revision_subtitulo" : "revision_subtitulo_sin_cliente")));
+  titulos.append(nodo(documento, "h2", t("revision_mis_comisiones")));
   const acciones = nodo(documento, "div");
   acciones.className = "dietas-recorridos-cabecera-acciones";
   const abrir = nodo(documento, "button", puedeCrear ? t("nueva_comision", { demo: "" }) : t("revision_explorar_itinerario"));
@@ -102,7 +102,7 @@ function panelSolicitante(documento, t, areaBorradores, areaItinerario, puedeCre
   revision.dataset.dietasRevisionComision = "";
   const cabeceraRevision = nodo(documento, "div");
   cabeceraRevision.className = "dietas-recorridos-revision-cabecera";
-  cabeceraRevision.append(nodo(documento, "h3", t("revision_titulo")), nodo(documento, "p", t(puedeCrear ? "revision_instruccion" : "borradores_propios_pendiente_conexion")));
+  cabeceraRevision.append(nodo(documento, "h3", t("revision_titulo")));
   revision.append(cabeceraRevision, areaBorradores);
   panel.append(cabecera, nueva, revision);
   return panel;

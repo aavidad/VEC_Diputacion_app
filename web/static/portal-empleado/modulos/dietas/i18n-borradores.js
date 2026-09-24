@@ -1,6 +1,7 @@
 // Complemento del catálogo común de Dietas para la consulta de borradores propios.
 export const MENSAJES_BORRADORES_ES = Object.freeze({
   borradores_propios_titulo_registrados: "Borradores registrados",
+  borradores_propios_estado_sin_seleccion: "Ningún borrador seleccionado.",
   borradores_propios_ya_registrado: "Este borrador ya se registró. Consulte su recibo o cambie los datos para iniciar otro.",
   borradores_propios_detalle_no_actualizado: "No se ha podido actualizar el detalle. Se conserva el último recibo obtenido.",
   borradores_propios_detalle_denegado: "No tiene permiso para consultar este detalle. Se conserva el último recibo obtenido.",

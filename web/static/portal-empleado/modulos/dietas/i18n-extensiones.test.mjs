@@ -18,7 +18,11 @@ test("las claves nuevas pertenecen al catálogo común y respetan el traductor i
 
 test("la consulta y su ayuda están traducidas y sus imports no usan la versión anterior", async () => {
   const claveConsulta = "borradores_propios_consultar_registrados";
+  const claveEstado = "borradores_propios_estado_sin_seleccion";
   assert.equal(crearTraductorDietas()(claveConsulta), "Consultar borradores registrados");
+  assert.equal(MENSAJES_DIETAS_ES[claveEstado], "Ningún borrador seleccionado.");
+  assert.equal(crearTraductorBorradoresDietas((clave) => clave)(claveEstado), "Ningún borrador seleccionado.");
+  assert.equal(crearTraductorBorradoresDietas(crearTraductorDietas())(claveEstado), "Ningún borrador seleccionado.");
   assert.match(crearTraductorDietas()("borradores_propios_consulta_registrados"), /La lista no confirma altas anteriores/u);
   assert.match(crearTraductorDietas()("borradores_propios_consulta_ayuda"), /Elija un borrador para ver su recibo/u);
   const [comun, borradores, recorridos] = await Promise.all([
@@ -29,10 +33,10 @@ test("la consulta y su ayuda están traducidas y sus imports no usan la versión
   assert.match(comun, /i18n-borradores\.js\?v=20260924-dietas-d1d2d4/u);
   assert.doesNotMatch(comun, /i18n-borradores\.js\?v=20260924-f2-consulta-v1/u);
   assert.match(borradores, /i18n\.js\?v=20260924-dietas-d1d2d4/u);
-  assert.match(borradores, /i18n-borradores\.js\?v=20260924-dietas-d1d2d4/u);
-  assert.doesNotMatch(borradores, /(?:i18n|i18n-borradores)\.js\?v=20260924-f2-consulta-v1/u);
-  assert.match(recorridos, /vista-borradores-propios\.js\?v=20260924-dietas-recuperacion-v3/u);
-  assert.doesNotMatch(recorridos, /vista-borradores-propios\.js\?v=20260924-f2-consulta-v1/u);
+  assert.match(borradores, /i18n-borradores\.js\?v=20260924-dietas-ayuda-sin-guia-v1/u);
+  assert.doesNotMatch(borradores, /i18n-borradores\.js\?v=20260924-dietas-d1d2d4/u);
+  assert.match(recorridos, /vista-borradores-propios\.js\?v=20260924-dietas-ayuda-sin-guia-v1/u);
+  assert.doesNotMatch(recorridos, /vista-borradores-propios\.js\?v=20260924-dietas-recuperacion-v3/u);
 });
 
 test("D1 y D4 están en el catálogo común, con sus importaciones de versión renovadas", async () => {
