@@ -19,7 +19,6 @@ static/portal-empleado/peticiones-centro/peticiones-centro.css
 static/portal-empleado/modulos/cronos/contrato.js
 static/portal-empleado/modulos/cronos/cronos.css
 static/portal-empleado/modulos/cronos/permisos.css
-static/portal-empleado/modulos/cronos/documentos.js
 static/portal-empleado/modulos/cronos/i18n-c4.js
 static/portal-empleado/modulos/cronos/i18n-c5.js
 static/portal-empleado/modulos/cronos/i18n-c6.js
@@ -34,7 +33,6 @@ static/portal-empleado/modulos/cronos/vista-notificaciones.js
 static/portal-empleado/modulos/cronos/vista-notificaciones.css
 static/portal-empleado/modulos/cronos/i18n.js
 static/portal-empleado/modulos/cronos/i18n-permisos.js
-static/portal-empleado/modulos/cronos/presentador.js
 static/portal-empleado/modulos/cronos/vista.js
 static/portal-empleado/modulos/cronos/vista-recorridos.js
 static/portal-empleado/modulos/dietas/calculador-rutas-http.js
