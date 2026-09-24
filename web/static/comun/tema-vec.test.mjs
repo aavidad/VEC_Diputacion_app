@@ -33,7 +33,7 @@ const altoContraste = tokens(tema, "body.alto-contraste");
 
 test("catálogo F2 cerrado: institucional heredado y granate cromático", () => {
   assert.deepEqual([...tema.matchAll(/html\[data-tema="([^"]+)"\]/g)].map((m) => m[1]), ["granate"]);
-  assert.match(tema, /--portal-fondo:\s*#eaf1f8/);
+  assert.match(tema, /--portal-fondo:\s*#f2f5f9/);
   assert.match(portal, /^\/\*[^]*?\*\/\s*@import url\("\.\.\/comun\/tema-vec\.css"\);/);
   assert.doesNotMatch(portal, /--portal-[\w-]+:\s*[^;]+;/);
   assert.ok(Object.keys(granate).every((clave) => clave in base));

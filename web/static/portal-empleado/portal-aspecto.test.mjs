@@ -22,12 +22,12 @@ test("el tema común separa lienzo, panel y cabecera también en alto contraste"
 });
 
 test("tablas, KPI y estados consumen colores semánticos comunes", () => {
-  assert.match(componentes, /tbody tr:nth-child\(even\)[\s\S]*var\(--portal-superficie-alterna\)/u);
-  assert.match(componentes, /tbody tr \{ height: 44px; \}/u);
+  assert.match(componentes, /tbody tr:hover \{\s*background: var\(--portal-superficie-alterna\)/u);
+  assert.match(componentes, /tbody tr \{ height: 54px; \}/u);
   assert.match(componentes, /tbody tr:focus-within/u);
   assert.match(componentes, /\.icono-kpi[\s\S]*border-radius:/u);
   assert.match(componentes, /\.estado-chip::before[\s\S]*background: currentColor/u);
-  assert.match(expedientes, /\.ct-exp-indicador::before[\s\S]*border-radius: 50%/u);
+  assert.match(expedientes, /\.ct-exp-indicador::before \{[^}]*border-radius: 14px/u);
   assert.doesNotMatch(expedientes, /#[0-9a-fA-F]{3,8}\b/u);
 });
 
@@ -47,8 +47,8 @@ test("los módulos visuales revisados consumen tokens y no fijan hexadecimales",
   }
 });
 
-test("la bandeja conserva el detalle cerrado y explica una sola vez la modalidad ausente", () => {
-  assert.match(vista, /ct-exp-nota-tabla/u);
+test("la bandeja conserva el detalle cerrado y explica la modalidad ausente solo en su celda", () => {
+  assert.doesNotMatch(vista, /ct-exp-nota-tabla/u);
   assert.match(vista, /modalidadAusente \? ` title=/u);
   assert.match(expedientes, /\.ct-exp-numero,[\s\S]*\.ct-exp-fase,[\s\S]*white-space: nowrap/u);
   assert.match(pagina, /!fila\.hasAttribute\('data-ct-exp-resumen-fila'\)/u);

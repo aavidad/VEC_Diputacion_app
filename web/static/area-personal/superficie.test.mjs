@@ -287,7 +287,7 @@ test("la disponibilidad B8 no se simula mientras sigue pendiente de integración
   const datos = await adaptador.cargar();
 
   const htmlDisponible = renderizarLlamamientos(datos);
-  assert.match(htmlDisponible, /<strong>Pendiente de integración\.<\/strong> Esta información no la devuelve todavía Mi bolsa\./u);
+  assert.match(htmlDisponible, /Pausar o reactivar su disponibilidad todavía no se puede solicitar aquí\./u);
   assert.doesNotMatch(htmlDisponible, /data-operacion="cambiar_disponibilidad"|Ensayar pausa|Ensayar reactivación/u);
 });
 
@@ -297,9 +297,10 @@ test("el correo propio y los contratos vacíos son explícitos sin inventar fech
   datos.contratos = [];
   const html = renderizarLlamamientos(datos);
   assert.match(html, /Último resultado de correo/u);
-  assert.match(html, /No consta un resultado de correo B7/u);
+  assert.match(html, /No constan llamamientos por correo para estas participaciones\./u);
+  assert.doesNotMatch(html, /B7/u);
   assert.match(html, /Contratos/u);
-  assert.match(html, /Pendiente de integración/u);
+  assert.match(html, /Sin información de contratos\./u);
   const conLlamamientos = renderizarLlamamientos(await crearAdaptadorPresentacion().cargar());
   assert.doesNotMatch(conLlamamientos, /Comunicado el|Aceptar llamamiento/u);
 });

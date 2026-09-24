@@ -13,9 +13,15 @@ test("el HTML y los módulos cambiados usan URLs nuevas bajo caché inmutable", 
     readFile(new URL("./aplicacion.js", import.meta.url), "utf8"),
     readFile(new URL("../comun/oportunidades/vista.js", import.meta.url), "utf8"),
   ]);
-  const versionCSSArea = "20260924-f2-area-tema-v2";
+  // Versiones publicadas antes del último cambio de la hoja y del montaje: la
+  // caché immutable las conserva, así que el HTML debe pedir otra URL.
+  const versionCSSAreaAnterior = "20260924-f2-area-tema-v2";
+  const versionPadreAnterior = "20260924-rescate-area-v7";
+  const versionCSSArea = html.match(/\/area-personal\/area-personal\.css\?v=([\w.-]+)"/)?.[1];
   const versionCSSOportunidades = "20260924-f2-b15-area-v1";
-  const versionPadre = "20260924-rescate-area-v7";
+  const versionPadre = html.match(/\/area-personal\/arranque\.js\?v=([\w.-]+)"/)?.[1];
+  assert.ok(versionCSSArea && versionCSSArea !== versionCSSAreaAnterior, "area-personal.css renueva su URL");
+  assert.ok(versionPadre && versionPadre !== versionPadreAnterior, "el montaje renueva su URL");
   assert.ok(html.includes(`/area-personal/area-personal.css?v=${versionCSSArea}`));
   assert.ok(html.includes(`/comun/oportunidades/oportunidades.css?v=${versionCSSOportunidades}`));
   assert.ok(!html.includes(`/area-personal/area-personal.css?v=${versionCSSOportunidades}`), "no reutilizar CSS anterior con caché inmutable");
@@ -35,12 +41,12 @@ test("una caché antigua v1-v5 no puede sustituir los padres v6 del montaje", as
     readFile(new URL("./arranque.js", import.meta.url), "utf8"),
     readFile(new URL("./contacto-propio.js", import.meta.url), "utf8"),
   ]);
-  const nuevo = "20260924-rescate-area-v7";
+  const nuevo = html.match(/src="\/area-personal\/arranque\.js\?v=([\w.-]+)"/)?.[1];
   const padre = new URL(html.match(/src="(\/area-personal\/arranque\.js\?v=[^"]+)"/)?.[1] ?? "", "https://vec.example");
   const hijo = new URL(arranque.match(/from "(\.\/aplicacion\.js\?v=[^"]+)"/)?.[1] ?? "", padre);
   assert.equal(padre.searchParams.get("v"), nuevo);
   assert.equal(hijo.searchParams.get("v"), nuevo);
-  for (const antiguo of ["20260924-f2-b15-area-v1", "20260924-f2-b15-area-v2", "20260924-f2-b15-area-v3", "20260924-f2-b15-area-v4", "20260924-rescate-area-v5", "20260924-rescate-area-v6"]) {
+  for (const antiguo of ["20260924-f2-b15-area-v1", "20260924-f2-b15-area-v2", "20260924-f2-b15-area-v3", "20260924-f2-b15-area-v4", "20260924-rescate-area-v5", "20260924-rescate-area-v6", "20260924-rescate-area-v7"]) {
     assert.notEqual(padre.href, `https://vec.example/area-personal/arranque.js?v=${antiguo}`);
     assert.notEqual(hijo.href, `https://vec.example/area-personal/aplicacion.js?v=${antiguo}`);
   }

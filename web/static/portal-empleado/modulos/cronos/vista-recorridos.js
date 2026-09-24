@@ -1,8 +1,8 @@
-import { crearTraductorCronos, MENSAJES_CRONOS_ES } from "./i18n.js?v=20260924-web-paradas-periodos-v1";
-import { MENSAJES_CRONOS_PERMISOS_ES } from "./i18n-permisos.js?v=20260924-f2-web2";
-import { montarCatalogoPermisosCronos } from "./vista-catalogo-permisos.js?v=20260924-cronos-integrado-v1";
-import { montarVistaCorreccionesCronos } from "./vista-correcciones.js?v=20260924-web-paradas-periodos-v1";
-import { montarVistaNotificacionesCronos } from "./vista-notificaciones.js?v=20260924-web-paradas-periodos-v1";
+import { crearTraductorCronos, MENSAJES_CRONOS_ES } from "./i18n.js?v=20260925-aspecto-v1";
+import { MENSAJES_CRONOS_PERMISOS_ES } from "./i18n-permisos.js?v=20260925-aspecto-v1";
+import { montarCatalogoPermisosCronos } from "./vista-catalogo-permisos.js?v=20260925-aspecto-v1";
+import { montarVistaCorreccionesCronos } from "./vista-correcciones.js?v=20260925-aspecto-v1";
+import { montarVistaNotificacionesCronos } from "./vista-notificaciones.js?v=20260925-aspecto-v1";
 
 function escaparHTML(valor) {
   return String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;")
@@ -21,7 +21,7 @@ function panel(t, titulo, contenido, clase = "") {
 }
 
 function vacio(t) {
-  return `<p class="cronos-recorrido-vacio" role="status">${t("permisos_no_configurado_detalle")}</p>`;
+  return `<p class="cronos-recorrido-vacio">${t("permisos_sin_datos")}</p>`;
 }
 
 function formularioPermisos(t) {
@@ -86,7 +86,7 @@ export function renderizarRecorridosCronos({ mensajes = MENSAJES_CRONOS_ES } = {
   const rrhh = `<section class="cronos-recorrido-etapa" id="cronos-rrhh" aria-labelledby="cronos-rrhh-titulo" hidden><header><p class="sobrelinea">${t("recorridos_rrhh")}</p><h3 id="cronos-rrhh-titulo">${t("presentacion_rrhh_titulo")}</h3><p>${t("permisos_no_configurado_detalle")}</p></header><div class="cronos-recorrido-rejilla">
     ${panel(t, "presentacion_incidencias", vacio(t), "cronos-recorrido-panel-ancho")}
   </div></section>`;
-  return `<section class="cronos-area cronos-recorridos" data-estado-entrega="no_configurado" aria-labelledby="cronos-recorridos-titulo"><header class="cronos-encabezado"><div><p class="sobrelinea">${t("recorridos_sobrelinea")}</p><h2 id="cronos-recorridos-titulo">${t("presentacion_titulo")}</h2></div><span class="cronos-recorrido-pendiente" role="status">${t("permisos_no_configurado")}</span></header><nav class="cronos-recorrido-etapas" role="tablist" aria-label="${t("recorridos_etapas")}"><button type="button" role="tab" data-cronos-rol="cronos-persona" aria-controls="cronos-persona" aria-selected="true" tabindex="0"><strong>${t("recorridos_persona")}</strong><span>${t("presentacion_etapa_persona")}</span></button><button type="button" role="tab" data-cronos-rol="cronos-responsable" aria-controls="cronos-responsable" aria-selected="false" tabindex="-1"><strong>${t("recorridos_responsable")}</strong><span>${t("presentacion_etapa_responsable")}</span></button><button type="button" role="tab" data-cronos-rol="cronos-rrhh" aria-controls="cronos-rrhh" aria-selected="false" tabindex="-1"><strong>${t("recorridos_rrhh")}</strong><span>${t("presentacion_etapa_rrhh")}</span></button></nav>${persona}${responsable}${rrhh}<p class="cronos-recorrido-privacidad">${t("recorridos_nota_privacidad")}</p></section>`;
+  return `<section class="cronos-area cronos-recorridos" data-estado-entrega="no_configurado" aria-labelledby="cronos-recorridos-titulo"><header class="cronos-encabezado"><div><h2 id="cronos-recorridos-titulo">${t("presentacion_titulo")}</h2></div><span class="cronos-recorrido-pendiente" role="status">${t("permisos_no_configurado")}</span></header><nav class="cronos-recorrido-etapas" role="tablist" aria-label="${t("recorridos_etapas")}"><button type="button" role="tab" data-cronos-rol="cronos-persona" aria-controls="cronos-persona" aria-selected="true" tabindex="0"><strong>${t("recorridos_persona")}</strong><span>${t("presentacion_etapa_persona")}</span></button><button type="button" role="tab" data-cronos-rol="cronos-responsable" aria-controls="cronos-responsable" aria-selected="false" tabindex="-1"><strong>${t("recorridos_responsable")}</strong><span>${t("presentacion_etapa_responsable")}</span></button><button type="button" role="tab" data-cronos-rol="cronos-rrhh" aria-controls="cronos-rrhh" aria-selected="false" tabindex="-1"><strong>${t("recorridos_rrhh")}</strong><span>${t("presentacion_etapa_rrhh")}</span></button></nav>${persona}${responsable}${rrhh}</section>`;
 }
 
 export function montarVistaRecorridosCronos({ raiz, anunciar = () => {}, registrarDesmontar, mensajes = MENSAJES_CRONOS_ES } = {}) {

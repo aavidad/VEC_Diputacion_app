@@ -1,7 +1,7 @@
 .ct-alta {
   display: grid;
   min-width: 0;
-  gap: 14px;
+  gap: 20px;
   color: var(--portal-tinta);
 }
 
@@ -21,14 +21,13 @@
 .ct-cabecera {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(250px, 0.38fr);
-  gap: 18px;
+  gap: 20px;
   align-items: stretch;
-  padding: 18px 20px;
+  padding: 20px 24px;
   border: 1px solid var(--portal-borde);
-  border-top: 4px solid var(--portal-azul-700);
-  border-radius: var(--portal-radio);
+  border-radius: var(--portal-radio-lg);
   background: var(--portal-superficie);
-  box-shadow: var(--portal-sombra);
+  box-shadow: var(--portal-sombra-sm);
 }
 
 .ct-cabecera h2,
@@ -48,14 +47,12 @@
 .ct-alcance {
   display: flex;
   align-items: center;
-  padding: 12px 14px;
-  border: 1px solid var(--portal-borde);
-  border-left: 4px solid var(--portal-cian-fuerte);
-  border-radius: 6px;
+  padding: 12px 16px;
+  border-radius: var(--portal-radio);
   background: var(--portal-cian-suave);
   color: var(--portal-tinta);
-  font-size: 0.76rem;
-  font-weight: 690;
+  font-size: 0.8125rem;
+  font-weight: 400;
 }
 
 .ct-pasos {
@@ -77,17 +74,17 @@
   border-right: 0;
   background: var(--portal-superficie);
   color: var(--portal-muted);
-  font-size: 0.8rem;
-  font-weight: 760;
+  font-size: 0.8125rem;
+  font-weight: 600;
 }
 
 .ct-pasos li:first-child {
-  border-radius: 6px 0 0 6px;
+  border-radius: var(--portal-radio) 0 0 var(--portal-radio);
 }
 
 .ct-pasos li:last-child {
   border-right: 1px solid var(--portal-borde);
-  border-radius: 0 6px 6px 0;
+  border-radius: 0 var(--portal-radio) var(--portal-radio) 0;
 }
 
 .ct-pasos li > span {
@@ -119,36 +116,35 @@
 
 .ct-estado {
   display: flex;
-  min-height: 42px;
+  min-height: 40px;
   align-items: center;
   gap: 10px;
-  padding: 9px 12px;
+  padding: 8px 16px;
   border: 1px solid var(--portal-borde);
-  border-left-width: 4px;
-  border-radius: 6px;
+  border-radius: var(--portal-radio);
   background: var(--portal-superficie);
-  font-size: 0.8rem;
+  font-size: 0.875rem;
 }
 
 .ct-estado-informacion {
-  border-left-color: var(--portal-azul-700);
+  border-color: transparent;
   background: var(--portal-azul-100);
 }
 
 .ct-estado-aviso {
-  border-left-color: var(--portal-aviso);
+  border-color: transparent;
   background: var(--portal-aviso-suave);
   color: var(--portal-aviso);
 }
 
 .ct-estado-error {
-  border-left-color: var(--portal-peligro);
+  border-color: transparent;
   background: var(--portal-peligro-suave);
   color: var(--portal-peligro);
 }
 
 .ct-estado-exito {
-  border-left-color: var(--portal-exito);
+  border-color: transparent;
   background: var(--portal-exito-suave);
   color: var(--portal-tinta);
 }
@@ -158,14 +154,14 @@
 .ct-recibo {
   display: grid;
   min-width: 0;
-  gap: 13px;
+  gap: 16px;
 }
 
 .ct-obligatorios {
   margin: 0;
   color: var(--portal-muted);
-  font-size: 0.8rem;
-  font-weight: 650;
+  font-size: 0.8125rem;
+  font-weight: 400;
 }
 
 .ct-bloque,
@@ -173,42 +169,42 @@
 .ct-recibo {
   min-width: 0;
   margin: 0;
-  padding: 16px;
+  padding: 20px 24px;
   border: 1px solid var(--portal-borde);
-  border-radius: var(--portal-radio);
+  border-radius: var(--portal-radio-lg);
   background: var(--portal-superficie);
-  box-shadow: var(--portal-sombra);
+  box-shadow: var(--portal-sombra-sm);
 }
 
 .ct-bloque > legend,
 .ct-radios > legend {
-  padding: 0 7px;
+  padding: 0 6px;
   color: var(--portal-tinta);
-  font-size: 0.78rem;
-  font-weight: 830;
+  font-size: 0.875rem;
+  font-weight: 600;
 }
 
 .ct-bloque > p {
   margin: 0 0 12px;
   color: var(--portal-muted);
-  font-size: 0.8rem;
+  font-size: 0.8125rem;
 }
 
 .ct-campos {
   display: grid;
   min-width: 0;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 16px 20px;
 }
 
 .ct-campo {
   display: grid;
   min-width: 0;
   align-content: start;
-  gap: 5px;
+  gap: 6px;
   color: var(--portal-tinta);
-  font-size: 0.8rem;
-  font-weight: 760;
+  font-size: 0.8125rem;
+  font-weight: 600;
 }
 
 .ct-campo-jornada {
@@ -224,8 +220,9 @@
 .ct-jornada-entradas {
   display: grid;
   grid-template-columns: auto minmax(0, 6rem) auto minmax(0, 6rem);
-  gap: 8px;
+  gap: 8px 12px;
   align-items: center;
+  justify-content: start;
 }
 
 .ct-campo-ancho {
@@ -237,11 +234,14 @@
 .ct-campo textarea {
   width: 100%;
   min-height: 40px;
-  padding: 8px 10px;
+  padding: 8px 12px;
   border: 1px solid var(--portal-borde);
-  border-radius: 5px;
+  border-radius: var(--portal-radio);
   background: var(--portal-superficie);
   color: var(--portal-tinta);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 400;
 }
 
 .ct-campo textarea {
@@ -268,8 +268,8 @@
 .ct-campo small,
 .ct-contador {
   color: var(--portal-muted);
-  font-size: 0.8rem;
-  font-weight: 520;
+  font-size: 0.8125rem;
+  font-weight: 400;
 }
 
 .ct-contador {
@@ -278,14 +278,14 @@
 
 .ct-error-campo {
   color: var(--portal-peligro);
-  font-size: 0.8rem;
-  font-weight: 750;
+  font-size: 0.8125rem;
+  font-weight: 600;
 }
 
 .ct-resumen-errores {
-  padding: 12px 14px;
-  border: 2px solid var(--portal-peligro);
-  border-radius: 6px;
+  padding: 12px 16px;
+  border: 1px solid var(--portal-peligro);
+  border-radius: var(--portal-radio);
   background: var(--portal-peligro-suave);
   color: var(--portal-peligro);
 }
@@ -306,7 +306,7 @@
   background: transparent;
   color: inherit;
   cursor: pointer;
-  font-weight: 700;
+  font-weight: 600;
   text-align: left;
   text-decoration: underline;
 }
@@ -319,15 +319,15 @@
   margin: 0 0 12px;
   padding: 10px 12px;
   border: 1px solid var(--portal-borde);
-  border-radius: 5px;
+  border-radius: var(--portal-radio);
 }
 
 .ct-radios label {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.8rem;
-  font-weight: 740;
+  font-size: 0.875rem;
+  font-weight: 400;
 }
 
 .ct-radios input {
@@ -337,12 +337,12 @@
 }
 
 .ct-aviso {
-  padding: 10px 12px;
-  border-left: 4px solid var(--portal-aviso);
+  padding: 10px 16px;
+  border-radius: var(--portal-radio);
   background: var(--portal-aviso-suave);
   color: var(--portal-aviso);
-  font-size: 0.8rem;
-  font-weight: 650;
+  font-size: 0.8125rem;
+  font-weight: 600;
 }
 
 .ct-documentos {
@@ -356,13 +356,13 @@
   min-width: 0;
   grid-template-columns: 20px minmax(0, 1fr);
   gap: 2px 8px;
-  padding: 9px 10px;
+  padding: 10px 12px;
   border: 1px solid var(--portal-borde);
-  border-radius: 5px;
+  border-radius: var(--portal-radio);
   color: var(--portal-tinta);
   cursor: pointer;
-  font-size: 0.8rem;
-  font-weight: 700;
+  font-size: 0.875rem;
+  font-weight: 400;
 }
 
 .ct-documentos input {
@@ -380,10 +380,10 @@
 }
 
 .ct-vacio {
-  padding: 12px;
-  border: 1px dashed var(--portal-borde);
-  border-radius: 5px;
-  background: var(--portal-fondo);
+  padding: 12px 16px;
+  border-radius: var(--portal-radio);
+  background: var(--portal-superficie-alterna);
+  color: var(--portal-muted);
 }
 
 .ct-acciones {
@@ -393,16 +393,12 @@
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 9px;
-  padding: 12px;
+  gap: 8px;
+  padding: 12px 16px;
   border: 1px solid var(--portal-borde);
-  border-radius: 6px;
+  border-radius: var(--portal-radio-lg);
   background: var(--portal-superficie);
-  box-shadow: var(--portal-sombra);
-}
-
-.ct-acciones button {
-  min-height: 42px;
+  box-shadow: var(--portal-sombra-sm);
 }
 
 [data-ct-resolucion-formalizacion-form] .ct-acciones,
@@ -433,7 +429,7 @@
   margin: 0;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   border: 1px solid var(--portal-borde);
-  border-radius: 6px;
+  border-radius: var(--portal-radio);
   overflow: hidden;
 }
 
@@ -450,8 +446,8 @@
 .ct-resumen dt,
 .ct-recibo dt {
   color: var(--portal-muted);
-  font-size: 0.8rem;
-  font-weight: 760;
+  font-size: 0.8125rem;
+  font-weight: 400;
 }
 
 .ct-resumen dd,
@@ -459,8 +455,8 @@
   margin: 0;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
-  font-size: 0.8rem;
-  font-weight: 700;
+  font-size: 0.875rem;
+  font-weight: 600;
 }
 
 [data-ct-seguimiento-incorporacion] {
@@ -474,10 +470,9 @@
 }
 
 .ct-resumen-documentos {
-  padding: 12px;
-  border: 1px solid var(--portal-borde);
-  border-radius: 6px;
-  background: var(--portal-fondo);
+  padding: 12px 16px;
+  border-radius: var(--portal-radio);
+  background: var(--portal-superficie-alterna);
 }
 
 .ct-resumen-documentos h4,
@@ -493,7 +488,7 @@
 }
 
 .ct-recibo {
-  border-top: 5px solid var(--portal-exito);
+  background: var(--portal-exito-suave);
 }
 
 @media (max-width: 1180px) {
@@ -568,11 +563,11 @@
 .ct-llamamiento-resultado {
   display: grid;
   gap: 12px;
-  padding: 16px;
+  padding: 20px 24px;
   border: 1px solid var(--portal-borde);
-  border-left: 4px solid var(--portal-cian-fuerte);
-  border-radius: var(--portal-radio);
+  border-radius: var(--portal-radio-lg);
   background: var(--portal-superficie);
+  box-shadow: var(--portal-sombra-sm);
 }
 
 .ct-llamamiento-resultado h3,
@@ -582,7 +577,7 @@
 
 .ct-llamamiento-resultado > p {
   color: var(--portal-muted);
-  font-size: 0.78rem;
+  font-size: 0.8125rem;
 }
 
 .ct-llamamiento-resultado dl {
@@ -594,22 +589,22 @@
 
 .ct-llamamiento-resultado dl > div {
   min-width: 0;
-  padding: 10px;
-  border: 1px solid var(--portal-borde);
-  border-radius: 5px;
-  background: var(--portal-fondo);
+  padding: 10px 12px;
+  border-radius: var(--portal-radio);
+  background: var(--portal-superficie-alterna);
 }
 
 .ct-llamamiento-resultado dt {
   color: var(--portal-muted);
-  font-size: 0.7rem;
-  font-weight: 760;
+  font-size: 0.8125rem;
+  font-weight: 400;
 }
 
 .ct-llamamiento-resultado dd {
-  margin: 5px 0 0;
+  margin: 4px 0 0;
   overflow-wrap: anywhere;
-  font-size: 0.8rem;
+  font-size: 0.875rem;
+  font-weight: 600;
 }
 
 .ct-llamamiento .ct-llamamiento-paso {
@@ -623,7 +618,7 @@
 
 .ct-llamamiento summary {
   cursor: pointer;
-  font-weight: 700;
+  font-weight: 600;
   padding-block: 12px;
 }
 

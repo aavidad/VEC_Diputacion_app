@@ -1,15 +1,9 @@
-/** Textos del panel interno de Bolsa y del recorrido B7 para el catálogo común. */
+/** Textos del panel interno de Bolsa y del nuevo llamamiento para el catálogo común. */
 export const MENSAJES_PANEL_INTERNO_ES = Object.freeze({
-  panel_alcance_aria: "Alcance de los datos conectados",
-  panel_alcance_lectura: "Datos conectados en modo de solo lectura. Los indicadores, convocatorias y actuaciones proceden de la consulta autorizada; los datos ausentes no se completan.",
+  panel_pendiente_rrhh: "Pendiente de RRHH",
   panel_fuente_no_configurada_titulo: "Consulta no configurada",
   panel_fuente_no_configurada: "No hay una fuente autorizada de candidaturas para esta vista.",
-  panel_operaciones_conectadas: "Operaciones conectadas.",
-  panel_b7_alcance_resumen: "El llamamiento se registra con recibo. La entrega al buzón, la respuesta y la renuncia requieren comprobación o actuación posterior.",
-  panel_b7_operaciones_conectadas: "Los contactos y llamamientos registrados conservan autorización, historia y recibos. La entrega del correo y las respuestas requieren comprobación o actuación posterior.",
-  panel_b7_titulo_area: "Gestión interna de Bolsas",
   panel_b7_titulo: "Nuevo llamamiento",
-  panel_b7_descripcion: "Seleccione la bolsa y las candidaturas, revise el mensaje y confirme el registro del llamamiento.",
   panel_b7_paso_bolsa: "Seleccionar bolsa",
   panel_b7_paso_candidatos: "Seleccionar candidatos",
   panel_b7_paso_configurar: "Configurar llamamiento",
@@ -24,7 +18,7 @@ export const MENSAJES_PANEL_INTERNO_ES = Object.freeze({
   panel_b7_bolsa_constituida: "Bolsa constituida",
   panel_b7_bolsa_datos: "La bolsa contiene {total} personas, {disponibles} disponibles.",
   panel_b7_seleccionar_bolsa: "Seleccionar esta bolsa",
-  panel_b7_turno_pagina: "{cantidad} ocupan turno en esta página",
+  panel_b7_turno_pagina: "{cantidad} con turno",
   panel_b7_estados_incluir: "Estados a incluir",
   panel_b7_estado_disponible: "Disponible",
   panel_b7_estado_disponible_desde: "Disponible desde",

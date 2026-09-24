@@ -1,20 +1,20 @@
-import { crearControladorPortal } from "./portal-eventos.js?v=20260924-rescate-web-v4";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20260924-rescate-web-v4";
+import { crearControladorPortal } from "./portal-eventos.js?v=20260925-aspecto-v1";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20260925-aspecto-v1";
 import { extraerDatosEnvelopeCanonico } from "./portal-contrato.js?v=20260717-panel-interno-v1";
 import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?v=20260718-llamamientos-v1";
 import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20260718-llamamientos-v1";
-import { AYUDA_PORTAL_BOLSA, detectarContextoContratacionTemporal, obtenerAyudaContratacionTemporal, renderizarAyudaContratacionTemporal } from "./ayuda-contenido.js?v=20260924-rescate-web-v4";
-import { crearAyudanteTramites } from "./ayudante-tramites.js?v=20260924-rescate-web-v4";
-import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20260924-f2-cronos-permisos-v2";
+import { AYUDA_PORTAL_BOLSA, detectarContextoContratacionTemporal, obtenerAyudaContratacionTemporal, renderizarAyudaContratacionTemporal } from "./ayuda-contenido.js?v=20260925-aspecto-v1";
+import { crearAyudanteTramites } from "./ayudante-tramites.js?v=20260925-aspecto-v1";
+import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20260925-aspecto-v1";
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20260720-pulido-escritorio-v2";
 import { crearVistasOperaciones } from "./portal-vistas-operaciones.js?v=20260924-f2-shell-v1";
-import { crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, VISTAS_MODULOS_PERSONALES, VISTAS_PRESENTACION_VISUALES } from "./portal-modulos-coordinador.js?v=20260924-web-paradas-periodos-v1";
-import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260924-f2-cronos-permisos-v2";
+import { crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, VISTAS_MODULOS_PERSONALES, VISTAS_PRESENTACION_VISUALES } from "./portal-modulos-coordinador.js?v=20260925-aspecto-v1";
+import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260925-aspecto-v1";
 import { accesoBolsaEfectivo, instalarMenuBolsa, resumenAccesosModulos, sincronizarMenuBolsa, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260924-f2-shell-v1";
-import { traducirPortal } from "./portal-i18n.js?v=20260924-rescate-web-v4";
+import { traducirPortal } from "./portal-i18n.js?v=20260925-aspecto-v1";
 import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20260924-rescate-web-v4";
 import { crearSuperficieBorradorLlamamiento } from "./portal-borrador-llamamiento-ui.js?v=20260921-bback01-v1";
-import { consultarAvisosBolsa, manejarAccionAvisos } from "./portal-bolsas-avisos.js?v=20260923-pweb17-v1";
+import { consultarAvisosBolsa, manejarAccionAvisos } from "./portal-bolsas-avisos.js?v=20260925-aspecto-v1";
 const TAMANO_PAGINA_MARCO = 6; const tablasPaginadas = new WeakMap(); export function calcularPaginaMarco(total, paginaSolicitada, tamano = TAMANO_PAGINA_MARCO) { const cantidad = Number.isSafeInteger(total) && total > 0 ? total : 0; const medida = Number.isSafeInteger(tamano) && tamano > 0 ? tamano : TAMANO_PAGINA_MARCO; const paginas = Math.max(1, Math.ceil(cantidad / medida)); const pagina = Math.min(Math.max(Number.isSafeInteger(paginaSolicitada) ? paginaSolicitada : 1, 1), paginas); const inicio = cantidad === 0 ? 0 : ((pagina - 1) * medida) + 1; const fin = Math.min(pagina * medida, cantidad); return Object.freeze({ total: cantidad, tamano: medida, paginas, pagina, inicio, fin }); } function navegadorRemotoDeTabla(contenedor) { const padre = contenedor.parentElement; return padre?.querySelector(":scope > .ct-exp-paginacion, :scope > .paginacion-bolsa, :scope > nav[aria-label*='aginación'], :scope > nav[aria-label*='aginacion']") || null; } function botonesPaginaMarco(calculo) {
   const paginas = [1, calculo.pagina - 1, calculo.pagina, calculo.pagina + 1, calculo.paginas]
     .filter((pagina) => pagina >= 1 && pagina <= calculo.paginas)
@@ -85,10 +85,10 @@ const TITULOS = Object.freeze({
   importacion: ["Portal del Empleado → Bolsas de trabajo", "Importación Convoca"],
   llamamientos: ["Portal del Empleado → Bolsas de trabajo → Llamamientos", "Nuevo llamamiento"],
   contratos: ["Portal del Empleado → Bolsas de trabajo", "Contratos, ceses y reincorporaciones"],
-  reglas: ["Portal del Empleado → Bolsas de trabajo", "Motor de reglas configurable"],
+  reglas: ["Portal del Empleado → Bolsas de trabajo", "Reglas y versiones"],
   consulta: ["Portal del Empleado → Bolsas de trabajo", "Consulta segura para candidatos"],
-  estadisticas: ["Portal del Empleado → Bolsas de trabajo", "Estadísticas y explotación de datos"],
-  documentos: ["Portal del Empleado → Bolsas de trabajo", "Generación y firma de documentos"],
+  estadisticas: ["Portal del Empleado → Bolsas de trabajo", "Estadísticas"],
+  documentos: ["Portal del Empleado → Bolsas de trabajo", "Documentos y firma"],
   comunicaciones: ["Portal del Empleado → Bolsas de trabajo", "Correo y mensajería"],
   auditoria: ["Portal del Empleado → Bolsas de trabajo", "Auditoría y trazabilidad"],
   configuracion: ["Portal del Empleado → Bolsas de trabajo", "Configuración y roles"],
@@ -274,7 +274,7 @@ function actualizarSesionVisible() {
 async function cargarFuenteDatos() {
   estado.errorFuente = "";
   await coordinadorModulos.cargarInterno().catch(() => { estado.errorFuente = traducirPortal("error_catalogo_modulos"); });
-  // Borradores comprueba su API al abrir la vista. B12/B5 usa su propia API compuesta.
+  // Borradores comprueba su API al abrir la vista. El cuadro de bolsas usa su propia API compuesta.
   if (requiereLecturaBolsas(estado.vista)) void controladorBolsas.cargarBolsas();
   actualizarNavegacionModulos();
 }
@@ -408,14 +408,9 @@ function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } =
 }
 
 function renderizarLlamamientoSinBolsa() {
-  return `${encabezadoVista(
-    "Gestión interna de Bolsas",
-    "Nuevo llamamiento",
-    "El llamamiento se inicia desde una bolsa concreta para conservar el orden B6 y su ámbito autorizado.",
-  )}
+  return `${encabezadoVista("", "Nuevo llamamiento", "")}
     <section class="panel"><div class="cuerpo-panel vacio-controlado" role="status">
       <p><strong>Elija una bolsa para iniciar un llamamiento.</strong></p>
-      <p>El orden del reglamento sigue provisional hasta resolver las dudas 13–14. El correo usa el relay de pruebas, no un buzón corporativo.</p>
       <div class="acciones-vista"><a class="boton-primario" href="#bolsa/resumen">Ir al cuadro de bolsas</a></div>
     </div></section>`;
 }
@@ -522,13 +517,13 @@ function renderizarContratacionTemporalNoDisponible() {
     </section>`;
 }
 
+// La sobrelínea y la descripción se aceptan por compatibilidad con las vistas que aún las
+// pasan, pero no se pintan: el título ya está en la cabecera y la explicación vive tras «?».
 function encabezadoVista(sobrelinea, titulo, descripcion, acciones = "") {
   return `
     <header class="encabezado-vista">
       <div>
-        <p class="sobrelinea">${escaparHTML(sobrelinea)}</p>
         <h2>${escaparHTML(titulo)}</h2>
-        <p>${escaparHTML(descripcion)}</p>
       </div>
       ${acciones ? `<div class="acciones-vista">${acciones}</div>` : ""}
     </header>`;

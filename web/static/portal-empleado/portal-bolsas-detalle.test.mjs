@@ -437,8 +437,7 @@ test("interfaz B5: conecta el nuevo llamamiento y mantiene pendiente la respuest
   // El aspirante es el único control principal para abrir la ficha.
   assert.doesNotMatch(html, /<th scope="col">Acciones<\/th>/);
   assert.match(html, /data-bolsa-accion="abrir-ficha"/);
-  assert.match(html, /Operaciones conectadas/);
-  assert.match(html, /autorización, historia y recibos/);
+  assert.doesNotMatch(html, /Operaciones conectadas|Vista B5|en esta página/);
   assert.match(html, /Consultar historial de contactos/);
   assert.match(html, /Nuevo llamamiento/);
   assert.match(html, /Registrar resultado/);

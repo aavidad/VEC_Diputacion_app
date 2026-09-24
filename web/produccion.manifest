@@ -36,6 +36,7 @@ static/bolsa/lista-bolsas.js
 static/bolsa/listas.css
 static/bolsa/listas.html
 static/comun/tema-vec.css
+static/comun/iconos-vec.js
 static/comun/tema-vec.js
 static/comun/oportunidades/vista.js
 static/comun/oportunidades/i18n.js

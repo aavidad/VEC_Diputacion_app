@@ -1,107 +1,94 @@
-/** Identidad semántica de módulos dentro del tema común del portal. */
+/** Identidad semántica de módulos: cada módulo toma una tinta fuerte y su suave del tema. */
 .tarjeta-modulo[data-modulo-catalogo="bolsa"] {
-  --modulo-acento: #075fca;
-  --modulo-secundario: #5546b8;
-  --modulo-suave: #e9f2ff;
-  --modulo-borde: #8fbcf2;
+  --modulo-acento: var(--portal-azul-700);
+  --modulo-suave: var(--portal-azul-100);
+  --modulo-borde: var(--portal-borde);
 }
 
 .tarjeta-modulo[data-modulo-catalogo="contratacion_temporal"],
 [data-modulo="contratacion-temporal"] {
-  --modulo-acento: #0c5ea8;
-  --modulo-secundario: #157f71;
-  --modulo-suave: #e8f3fb;
-  --modulo-borde: #87b8dd;
+  --modulo-acento: var(--portal-azul-800);
+  --modulo-suave: var(--portal-azul-100);
+  --modulo-borde: var(--portal-borde);
 }
 
 .tarjeta-modulo[data-modulo-catalogo="cronos"] {
-  --modulo-acento: #07758d;
-  --modulo-secundario: #6746b5;
-  --modulo-suave: #e4f6f8;
-  --modulo-borde: #78c6d3;
+  --modulo-acento: var(--portal-cian-fuerte);
+  --modulo-suave: var(--portal-cian-suave);
+  --modulo-borde: var(--portal-borde);
 }
 
 .tarjeta-modulo[data-modulo-catalogo="dietas"] {
-  --modulo-acento: #18763a;
-  --modulo-secundario: #c35b08;
-  --modulo-suave: #e8f7ed;
-  --modulo-borde: #82c996;
+  --modulo-acento: var(--portal-exito);
+  --modulo-suave: var(--portal-exito-suave);
+  --modulo-borde: var(--portal-borde);
 }
 
 .tarjeta-modulo[data-modulo-catalogo="personal"] {
-  --modulo-acento: #6d3d91;
-  --modulo-secundario: #26736d;
-  --modulo-suave: #f3edf8;
-  --modulo-borde: #c9acd9;
+  --modulo-acento: var(--portal-violeta);
+  --modulo-suave: var(--portal-violeta-suave);
+  --modulo-borde: var(--portal-borde);
 }
 
 .tarjeta-modulo[data-modulo-catalogo="nominas"] {
-  --modulo-acento: #4d5f9d;
-  --modulo-secundario: #386f79;
-  --modulo-suave: #eef1fa;
-  --modulo-borde: #aab7df;
+  --modulo-acento: var(--portal-azul-900);
+  --modulo-suave: var(--portal-azul-100);
+  --modulo-borde: var(--portal-borde);
 }
 
 .tarjeta-modulo[data-modulo-catalogo="solicitudes"] {
-  --modulo-acento: #526b38;
-  --modulo-secundario: #7d5e18;
-  --modulo-suave: #f1f6e9;
-  --modulo-borde: #b6cb94;
+  --modulo-acento: var(--portal-oliva);
+  --modulo-suave: var(--portal-exito-suave);
+  --modulo-borde: var(--portal-borde);
 }
 
 .tarjeta-modulo[data-modulo-catalogo="meritos"] {
-  --modulo-acento: #9b4b2b;
-  --modulo-secundario: #7c4b94;
-  --modulo-suave: #fbf0ea;
-  --modulo-borde: #e4b8a8;
+  --modulo-acento: var(--portal-naranja);
+  --modulo-suave: var(--portal-naranja-suave);
+  --modulo-borde: var(--portal-borde);
 }
 
 .tarjeta-modulo[data-modulo-catalogo="comunicaciones"] {
-  --modulo-acento: #276d78;
-  --modulo-secundario: #3e5e9a;
-  --modulo-suave: #e9f5f5;
-  --modulo-borde: #9bcbd0;
+  --modulo-acento: var(--portal-turquesa);
+  --modulo-suave: var(--portal-cian-suave);
+  --modulo-borde: var(--portal-borde);
 }
 
 .tarjeta-modulo[data-modulo-catalogo="documentos"] {
-  --modulo-acento: #6d4d2b;
-  --modulo-secundario: #925d28;
-  --modulo-suave: #f8f1e8;
-  --modulo-borde: #d9bd9c;
+  --modulo-acento: var(--portal-aviso);
+  --modulo-suave: var(--portal-aviso-suave);
+  --modulo-borde: var(--portal-borde);
 }
 
 .tarjeta-modulo[data-modulo-catalogo="aprobaciones"] {
-  --modulo-acento: #5a4e99;
-  --modulo-secundario: #7c6176;
-  --modulo-suave: #f0effa;
-  --modulo-borde: #bdb7dd;
+  --modulo-acento: var(--portal-morado);
+  --modulo-suave: var(--portal-violeta-suave);
+  --modulo-borde: var(--portal-borde);
 }
 
 .tarjeta-modulo[data-modulo-catalogo="auditoria"] {
-  --modulo-acento: #485865;
-  --modulo-secundario: #346579;
-  --modulo-suave: #edf2f4;
-  --modulo-borde: #afc1c9;
+  --modulo-acento: var(--portal-muted);
+  --modulo-suave: var(--portal-neutro-suave);
+  --modulo-borde: var(--portal-borde);
 }
 
 .tarjeta-modulo[data-modulo-catalogo="administracion"] {
-  --modulo-acento: #614a4a;
-  --modulo-secundario: #7b6337;
-  --modulo-suave: #f6efed;
-  --modulo-borde: #d3b8b0;
+  --modulo-acento: var(--portal-tinta);
+  --modulo-suave: var(--portal-neutro-suave);
+  --modulo-borde: var(--portal-borde);
 }
 
 .tarjeta-modulo-habilitada[data-modulo-catalogo] {
-  border-color: var(--modulo-borde);
-  background: linear-gradient(155deg, var(--modulo-suave) 0, #fff 42%);
+  border-color: var(--portal-borde);
+  background: var(--portal-superficie);
 }
 
 .tarjeta-modulo-habilitada[data-modulo-catalogo]::before {
-  background: linear-gradient(90deg, var(--modulo-acento), var(--modulo-secundario));
+  background: var(--modulo-acento);
 }
 
 .tarjeta-modulo-habilitada[data-modulo-catalogo] .icono-modulo {
-  border: 1px solid color-mix(in srgb, var(--modulo-acento) 24%, #fff);
+  border: 0;
   background: var(--modulo-suave);
   color: var(--modulo-acento);
 }
@@ -117,69 +104,65 @@
 
 /* Una ruta de presentación es navegable, pero no equivale a un backend activo. */
 .tarjeta-modulo-presentacion {
-  border-color: #d6a34d;
-  background: linear-gradient(155deg, #fff8e8 0, #fff 48%);
+  border-color: var(--portal-borde);
+  background: var(--portal-superficie);
 }
 
 .tarjeta-modulo-presentacion::before {
-  background: linear-gradient(90deg, #9a6719, #d29a32);
+  background: var(--portal-aviso);
 }
 
 .tarjeta-modulo-presentacion .icono-modulo {
-  border-color: #e0b35e;
-  background: #fff6df;
-  color: #80530f;
+  border: 0;
+  background: var(--portal-aviso-suave);
+  color: var(--portal-aviso);
 }
 
 .estado-presentacion {
   display: inline-flex;
   align-items: center;
-  min-height: 1.75rem;
-  padding: .16rem .55rem;
-  border: 1px solid #d7a650;
+  min-height: 24px;
+  padding: 2px 10px;
   border-radius: 999px;
-  background: #fff5dc;
-  color: #704905;
-  font-weight: 650;
+  background: var(--portal-aviso-suave);
+  color: var(--portal-aviso);
+  font-size: 0.8125rem;
+  font-weight: 600;
   line-height: 1.25;
 }
 
 .tarjeta-modulo-presentacion .boton-secundario {
-  border-color: #9a6719;
-  color: #704905;
+  border-color: var(--portal-aviso);
+  color: var(--portal-aviso);
 }
 
-.enlace-lateral[data-modulo-portal="bolsa"] .indicador-menu { background: #236db8; }
-.enlace-lateral[data-modulo-portal="contratacion_temporal"] .indicador-menu { background: #0c5ea8; }
-.enlace-lateral[data-modulo-portal="cronos"] .indicador-menu { background: #07758d; }
-.enlace-lateral[data-modulo-portal="dietas"] .indicador-menu { background: #238248; }
-.enlace-lateral[data-modulo-portal="personal"] .indicador-menu { background: #6d3d91; }
-.enlace-lateral[data-modulo-portal="nominas"] .indicador-menu { background: #4d5f9d; }
-.enlace-lateral[data-modulo-portal="solicitudes"] .indicador-menu { background: #526b38; }
-.enlace-lateral[data-modulo-portal="meritos"] .indicador-menu { background: #9b4b2b; }
-.enlace-lateral[data-modulo-portal="comunicaciones"] .indicador-menu { background: #276d78; }
-.enlace-lateral[data-modulo-portal="documentos"] .indicador-menu { background: #6d4d2b; }
-.enlace-lateral[data-modulo-portal="aprobaciones"] .indicador-menu { background: #5a4e99; }
-.enlace-lateral[data-modulo-portal="auditoria"] .indicador-menu { background: #485865; }
-.enlace-lateral[data-modulo-portal="administracion"] .indicador-menu { background: #614a4a; }
+.enlace-lateral[data-modulo-portal="bolsa"] .indicador-menu { background: var(--portal-azul-700); }
+.enlace-lateral[data-modulo-portal="contratacion_temporal"] .indicador-menu { background: var(--portal-azul-800); }
+.enlace-lateral[data-modulo-portal="cronos"] .indicador-menu { background: var(--portal-cian-fuerte); }
+.enlace-lateral[data-modulo-portal="dietas"] .indicador-menu { background: var(--portal-exito); }
+.enlace-lateral[data-modulo-portal="personal"] .indicador-menu { background: var(--portal-violeta); }
+.enlace-lateral[data-modulo-portal="nominas"] .indicador-menu { background: var(--portal-azul-900); }
+.enlace-lateral[data-modulo-portal="solicitudes"] .indicador-menu { background: var(--portal-oliva); }
+.enlace-lateral[data-modulo-portal="meritos"] .indicador-menu { background: var(--portal-naranja); }
+.enlace-lateral[data-modulo-portal="comunicaciones"] .indicador-menu { background: var(--portal-turquesa); }
+.enlace-lateral[data-modulo-portal="documentos"] .indicador-menu { background: var(--portal-aviso); }
+.enlace-lateral[data-modulo-portal="aprobaciones"] .indicador-menu { background: var(--portal-morado); }
+.enlace-lateral[data-modulo-portal="auditoria"] .indicador-menu { background: var(--portal-muted); }
+.enlace-lateral[data-modulo-portal="administracion"] .indicador-menu { background: var(--portal-tinta); }
 
 .modulo-personal-resumen code { overflow-wrap: anywhere; }
 
-body[data-contraste="true"] .tarjeta-modulo-habilitada[data-modulo-catalogo] {
-  border-width: 2px;
-  background: #fff;
-}
-
+body[data-contraste="true"] .tarjeta-modulo-habilitada[data-modulo-catalogo],
 body[data-contraste="true"] .tarjeta-modulo-presentacion,
 body[data-contraste="true"] .estado-presentacion {
-  border-width: 2px;
-  background: #fff;
+  border: 2px solid currentColor;
+  background: var(--portal-superficie);
 }
 
 @media (max-width: 720px) {
   .tarjeta-modulo-presentacion .pie-tarjeta {
     align-items: stretch;
-    gap: .75rem;
+    gap: 12px;
   }
 
   .tarjeta-modulo-presentacion .boton-secundario {
@@ -200,6 +183,7 @@ body[data-contraste="true"] .estado-presentacion {
     color: CanvasText;
   }
 }
+
 .modulo-personal .rpt-huella {
   overflow-wrap: anywhere;
 }

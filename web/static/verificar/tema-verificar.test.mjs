@@ -47,10 +47,11 @@ const contrasteAlto = { ...granate, ...valores(tema, "body.alto-contraste") };
 
 test("Verificar carga la hoja común antes de su CSS versionado y conserva el cotejo público", () => {
   const hojas = [...html.matchAll(/<link rel="stylesheet" href="([^"]+)"/g)].map((coincidencia) => coincidencia[1]);
-  assert.deepEqual(hojas, [
-    "/comun/tema-vec.css?v=20260924-f2-tema-base-v2",
-    "/verificar/verificar.css?v=20260924-f2-tema-verificar-v1",
-  ]);
+  assert.deepEqual(hojas.map((href) => href.split("?", 1)[0]), ["/comun/tema-vec.css", "/verificar/verificar.css"]);
+  assert.equal(hojas[1], "/verificar/verificar.css?v=20260924-f2-tema-verificar-v1");
+  // tema-vec.css cambió después de esta versión publicada: pide una URL nueva.
+  const versionTema = new URL(hojas[0], "https://vec.example").searchParams.get("v");
+  assert.ok(versionTema && versionTema !== "20260924-f2-tema-base-v2", "tema-vec.css renueva su URL");
   assert.match(html, /<form id="formulario-cotejo">/);
   assert.match(html, /Resultado DEMO\./);
   assert.match(html, /no acredita autenticidad, registro ni firma/);

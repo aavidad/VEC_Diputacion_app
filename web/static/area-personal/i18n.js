@@ -4,7 +4,7 @@ const respaldo = Object.freeze({
   "areaPersonal.tabla.sinResultados": "Sin resultados", "areaPersonal.tabla.sinRegistros": "No hay registros para mostrar.",
   "areaPersonal.estado.error.titulo": "No se pudo cargar el área personal", "areaPersonal.estado.error.detalle": "Servicio no disponible.", "areaPersonal.estado.error.garantia": "No se muestran datos aparentes y no se ha realizado ninguna operación.", "areaPersonal.estado.error.reintentar": "Reintentar conexión segura",
   "areaPersonal.estado.error.autenticacion.titulo": "Identifíquese para consultar su bolsa",
-  "areaPersonal.estado.error.autenticacion.detalle": "Use su DNIe o certificado para continuar. Identificarse con certificado no firma documentos.",
+  "areaPersonal.estado.error.autenticacion.detalle": "Use su DNIe o certificado para continuar.",
   "areaPersonal.estado.error.acceso.titulo": "No tiene acceso a esta área personal",
   "areaPersonal.estado.error.acceso.detalle": "El servicio no ha autorizado esta consulta para su identidad.",
   "areaPersonal.estado.error.acceso.garantia": "No se muestran datos de otra persona.",
@@ -35,12 +35,13 @@ const respaldo = Object.freeze({
   "areaPersonal.miBolsa.situacion.explicacion.excluido": "Consta una exclusión registrada para esta participación.",
   "areaPersonal.miBolsa.situacion.explicacion.disponible_desde": "Consta una fecha indicada para recuperar disponibilidad; no acredita un llamamiento ni determina por sí sola los efectos legales.",
   "areaPersonal.miBolsa.disponibilidad.titulo": "Disponibilidad", "areaPersonal.miBolsa.disponibilidad.subtitulo": "Situación por participación",
-  "areaPersonal.miBolsa.disponibilidad.detalle": "Consulte arriba la situación de cada participación. Las acciones de pausa o reactivación aún no están habilitadas en Mi bolsa.",
+  "areaPersonal.miBolsa.disponibilidad.detalle": "Pausar o reactivar su disponibilidad todavía no se puede solicitar aquí.",
   "areaPersonal.miBolsa.llamamiento.titulo": "Último resultado de correo", "areaPersonal.miBolsa.llamamiento.subtitulo": "De mis llamamientos en Bolsa",
   "areaPersonal.miBolsa.llamamiento.bolsa": "Bolsa", "areaPersonal.miBolsa.llamamiento.categoria": "Categoría", "areaPersonal.miBolsa.llamamiento.fecha": "Emisión registrada", "areaPersonal.miBolsa.llamamiento.canal": "Canal", "areaPersonal.miBolsa.llamamiento.correo": "Correo",
   "areaPersonal.miBolsa.llamamiento.resultado": "Resultado", "areaPersonal.miBolsa.llamamiento.enviado": "Enviado", "areaPersonal.miBolsa.llamamiento.no_enviado": "No enviado",
   "areaPersonal.miBolsa.llamamiento.limite": "El resultado de envío no acredita recepción, respuesta ni plazo aprobado.",
-  "areaPersonal.miBolsa.llamamiento.sinDato": "No consta un resultado de correo B7 para estas participaciones. Esta consulta no muestra otros llamamientos o contactos.",
+  "areaPersonal.miBolsa.contratos.sinDato": "Sin información de contratos.",
+  "areaPersonal.miBolsa.llamamiento.sinDato": "No constan llamamientos por correo para estas participaciones.",
   "areaPersonal.contacto.titulo": "Datos de contacto",
   "areaPersonal.contacto.subtitulo": "Prepare y confirme el correo de forma independiente",
   "areaPersonal.contacto.tituloOtrosDatos": "Teléfono y domicilio",
@@ -93,7 +94,6 @@ const respaldo = Object.freeze({
   "areaPersonal.contacto.conflicto": "La versión o el estado cambió. Actualice las operaciones y recargue la página antes de continuar.",
   "areaPersonal.contacto.confirmacionIncierta": "La confirmación no tiene respuesta definitiva. Se consulta esta operación exacta; no se enviará otra confirmación automáticamente.",
   "areaPersonal.contacto.resultadoNoConfirmado": "La operación sigue preparada. Consulte su estado antes de decidir cómo continuar.",
-  "areaPersonal.demo.nota": "Recorrido de demostración. Los títulos, CVE y fechas de publicación BOP son referencias públicas reales. La identidad, los expedientes, los plazos operativos, las puntuaciones y todas las acciones son sintéticos; solo viven en memoria y generan recibos DEMO sin validez administrativa."
 });
 let catalogo = respaldo;
 export function traducir(clave, variables = {}) { const mensaje = catalogo[clave] ?? respaldo[clave] ?? clave; return mensaje.replace(/\{([a-z_]+)\}/giu, (_, nombre) => String(variables[nombre] ?? "")); }

@@ -6,6 +6,7 @@ import { AYUDA_PORTAL_BOLSA, AYUDA_CONTRATACION_TEMPORAL, TRAMITES_AYUDANTE_PORT
 import { MENSAJES_AYUDANTE_TRAMITES_ES, crearAyudanteTramites } from "./ayudante-tramites.js";
 import { MENSAJES_AYUDA_PORTAL_ES } from "./portal-i18n-ayuda.js";
 import { MENSAJES_PORTAL_ES, crearTraductorPortal, traducirPortal } from "./portal-i18n.js";
+import { exigirRenovado } from "./versiones-cache.test-helper.mjs";
 
 test("todo texto de la ayuda y del ayudante procede del catálogo común", () => {
   const valores = new Set(Object.values(MENSAJES_AYUDA_PORTAL_ES));
@@ -48,13 +49,13 @@ test("la cadena de módulos renueva caché hasta el HTML", async () => {
   const [html, portal, ayuda, ayudante, i18n] = await Promise.all([
     "index.html", "portal.js", "ayuda-contenido.js", "ayudante-tramites.js", "portal-i18n.js",
   ].map((nombre) => readFile(new URL(nombre, import.meta.url), "utf8")));
-  const version = "20260924-rescate-web-v4";
-  assert.match(html, new RegExp(`portal\\.js\\?v=${version}`));
-  for (const nombre of ["ayuda-contenido.js", "ayudante-tramites.js", "portal-i18n.js"])
-    assert.match(portal, new RegExp(`${nombre.replaceAll(".", "\\.")}\\?v=${version}`));
-  assert.match(ayuda, new RegExp(`portal-i18n\\.js\\?v=${version}`));
-  assert.match(ayudante, new RegExp(`portal-i18n\\.js\\?v=${version}`));
-  assert.match(ayudante, new RegExp(`ayuda-contenido\\.js\\?v=${version}`));
+  // Versión publicada de la cadena antes de su último cambio: cada eslabón
+  // cambiado pide una URL nueva, única entre todos sus importadores.
+  const anterior = "20260924-rescate-web-v4";
+  exigirRenovado(html, "/portal-empleado/portal.js", anterior);
+  exigirRenovado(portal, "./ayudante-tramites.js", anterior);
+  exigirRenovado([portal, ayudante], "./ayuda-contenido.js", anterior);
+  exigirRenovado([portal, ayuda, ayudante], "./portal-i18n.js", anterior);
   assert.match(i18n, /portal-i18n-ayuda\.js\?v=20260924-ayuda-i18n-v1/u);
-  assert.match(i18n, /portal-panel-interno-i18n\.js\?v=20260924-ayuda-panel-i18n-v4/u);
+  exigirRenovado(i18n, "./portal-panel-interno-i18n.js", "20260924-ayuda-panel-i18n-v4");
 });

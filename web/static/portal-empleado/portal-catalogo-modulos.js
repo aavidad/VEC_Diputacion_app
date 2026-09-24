@@ -6,7 +6,7 @@
  * adaptadores registrados, de modo que manifiesto y composición son decisiones
  * independientes y de mínimo privilegio.
  */
-import { traducirPortal } from "./portal-i18n.js?v=20260924-f2-cronos-permisos-v2";
+import { traducirPortal } from "./portal-i18n.js?v=20260925-aspecto-v1";
 
 const RUTA_MANIFIESTOS = "/api/vec/modules";
 const RUTA_TRADUCCIONES = "/locales/es.json";

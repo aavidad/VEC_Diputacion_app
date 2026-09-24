@@ -11,8 +11,8 @@ test("año civil completo, bisiesto y sin festivos ni jornada inferidos", () => 
   assert.equal([...bisiesto.matchAll(/data-cronos-cal-dia="\d{4}-\d{2}-\d{2}"/gu)].length, 366);
   assert.match(bisiesto, /data-cronos-cal-dia="2024-02-29"[^>]*aria-pressed="true"/u);
   assert.match(normal, /data-estado="no_configurado"/u);
-  assert.match(normal, /La fecha elegida no determina si es hábil o laborable/u);
-  assert.match(normal, /Sábado y domingo: clasificación civil, sin efecto laboral inferido/u);
+  assert.match(normal, /Calendario laboral no configurado/u);
+  assert.match(normal, /Sábado y domingo/u);
   assert.doesNotMatch(normal, /data-festivo|data-laborable|data-jornada-minutos|data-centro-abierto/u);
 });
 

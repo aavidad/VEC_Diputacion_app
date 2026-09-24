@@ -79,7 +79,7 @@ test("estilos responsivos a 390px garantizan lectura de arriba abajo sin solapam
   const css = await readFile(new URL("./expedientes-responsive.css", import.meta.url), "utf8");
 
   assert.match(css, /@media\s*\(max-width:\s*620px\)/u, "falta media query móvil");
-  assert.match(css, /\.ct-exp-cabecera-expediente\s*\{[^}]*padding:\s*10px\s+12px;/u);
+  assert.match(css, /\.ct-exp-cabecera-expediente\s*\{[^}]*padding:\s*16px;/u);
   assert.match(css, /\.ct-exp-cabecera-expediente\s+dt,\s*\.ct-exp-cabecera-expediente\s+dd\s*\{[^}]*overflow-wrap:\s*anywhere;/u);
   assert.match(css, /\.ct-exp-flujo\s+code\s*\{[^}]*overflow-wrap:\s*anywhere;/u);
 

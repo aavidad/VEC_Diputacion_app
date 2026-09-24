@@ -48,7 +48,7 @@
   background: var(--portal-azul-700);
   color: var(--portal-superficie);
   font-size: .75rem;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .contratos-paso strong,
@@ -185,7 +185,7 @@
 .contratos-ayuda summary {
   cursor: pointer;
   color: var(--portal-azul-700);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .contratos-ayuda p {

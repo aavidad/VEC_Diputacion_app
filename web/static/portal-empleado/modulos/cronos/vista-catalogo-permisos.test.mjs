@@ -17,7 +17,7 @@ test("la referencia reproduce tipos de la ficha sin cuantías ni saldos personal
     assert.ok(html.includes(`<dt>${campo}</dt><dd>Pendiente de confirmación por RRHH</dd>`), campo);
   }
   assert.match(html, /Ficha de requisitos de Cronos, 23\/09\/2026; nombres vistos en WCronos/u);
-  assert.match(html, /no muestra saldos personales, no calcula derechos y no habilita la solicitud/u);
+  assert.match(html, /no habilita la solicitud de permisos/u);
   assert.doesNotMatch(html, /6 días|30 h|22 días|saldo disponible|<form|<button|fetch\(/u);
 });
 

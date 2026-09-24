@@ -23,6 +23,7 @@ func TestActivosCompartidosTemaSoloSirveRutasExplicitasEnLectura(t *testing.T) {
 	}{
 		{ruta: "/comun/tema-vec.css", tipo: "text/css"},
 		{ruta: "/comun/tema-vec.js", tipo: "javascript"},
+		{ruta: "/comun/iconos-vec.js", tipo: "javascript"},
 	} {
 		esperado, err := os.ReadFile("../../../web/static" + recurso.ruta)
 		if err != nil {

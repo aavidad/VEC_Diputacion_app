@@ -308,9 +308,11 @@ function opciones(lista, campo, seleccion, t) {
   )].join("");
 }
 
-function atributosCampo(estado, campo) {
-  return `aria-describedby="ct-analisis-${campo}-ayuda${
-    estado.errores[campo] ? ` ct-analisis-${campo}-error` : ""}"${
+// Sin textos de ayuda bajo cada campo: solo el error, si lo hay, describe el control.
+function atributosCampo(estado, campo, ayuda = "") {
+  const descripcion = [ayuda, estado.errores[campo] ? `ct-analisis-${campo}-error` : ""]
+    .filter(Boolean).join(" ");
+  return `${descripcion ? `aria-describedby="${descripcion}"` : ""}${
     estado.errores[campo] ? ' aria-invalid="true"' : ""}`;
 }
 
@@ -318,24 +320,22 @@ function mensajeCampo(t, codigo) {
   return t(`analisis_error_${codigo}`);
 }
 
-function campoSeleccion(estado, t, campo, claveEtiqueta, claveAyuda, lista, propiedad) {
+function campoSeleccion(estado, t, campo, claveEtiqueta, lista, propiedad) {
   return `<div class="ct-campo">
     <label for="ct-analisis-${campo}">${escaparHTML(t(claveEtiqueta))} <b aria-hidden="true">*</b></label>
     <select id="ct-analisis-${campo}" name="${campo}" required ${atributosCampo(estado, campo)}>
       ${opciones(lista, propiedad, estado.borrador[campo], t)}
     </select>
-    <small id="ct-analisis-${campo}-ayuda">${escaparHTML(t(claveAyuda))}</small>
     ${estado.errores[campo] ? `<span class="ct-error-campo" id="ct-analisis-${campo}-error">${
       escaparHTML(mensajeCampo(t, estado.errores[campo]))}</span>` : ""}
   </div>`;
 }
 
-function campoEntrada(estado, t, campo, tipo, claveEtiqueta, claveAyuda, atributos = "") {
+function campoEntrada(estado, t, campo, tipo, claveEtiqueta, atributos = "") {
   return `<div class="ct-campo">
     <label for="ct-analisis-${campo}">${escaparHTML(t(claveEtiqueta))} <b aria-hidden="true">*</b></label>
     <input id="ct-analisis-${campo}" name="${campo}" type="${tipo}" required value="${
       escaparHTML(estado.borrador[campo])}" ${atributosCampo(estado, campo)} ${atributos}>
-    <small id="ct-analisis-${campo}-ayuda">${escaparHTML(t(claveAyuda))}</small>
     ${estado.errores[campo] ? `<span class="ct-error-campo" id="ct-analisis-${campo}-error">${
       escaparHTML(mensajeCampo(t, estado.errores[campo]))}</span>` : ""}
   </div>`;
@@ -349,7 +349,7 @@ function campoJornada(estado, t, formateadorJornada) {
   const equivalencia = PATRON_JORNADA.test(valor) ? t("analisis_jornada_equivalencia", {
     porcentaje: formateadorJornada.format(Number(valor) / 10000),
   }) : "";
-  const atributos = atributosCampo(estado, "porcentaje_jornada");
+  const atributos = atributosCampo(estado, "porcentaje_jornada", "ct-analisis-porcentaje_jornada-ayuda");
   // jornada_original conserva el valor exacto en diezmilésimas: si horas y
   // minutos no se tocan, se reenvía tal cual y no se redondea al minuto.
   const original = PATRON_JORNADA.test(valor)
@@ -368,11 +368,10 @@ function campoJornada(estado, t, formateadorJornada) {
   </fieldset>`;
 }
 
-function campoAreaTexto(estado, t, campo, id, claveEtiqueta, claveAyuda, maxlength = 4000) {
+function campoAreaTexto(estado, t, campo, id, claveEtiqueta, maxlength = 4000) {
   return `<div class="ct-campo">
     <label for="${id}">${escaparHTML(t(claveEtiqueta))}</label>
     <textarea id="${id}" name="${campo}" maxlength="${maxlength}" ${atributosCampo(estado, campo)}>${escaparHTML(estado.borrador[campo] ?? "")}</textarea>
-    <small id="ct-analisis-${campo}-ayuda">${escaparHTML(t(claveAyuda))}</small>
     ${estado.errores[campo] ? `<span class="ct-error-campo" id="ct-analisis-${campo}-error">${
       escaparHTML(mensajeCampo(t, estado.errores[campo]))}</span>` : ""}
   </div>`;
@@ -428,18 +427,17 @@ function renderizarContenido(estado, contexto, catalogos, t, formateador, format
   <form data-ct-analisis-form novalidate>
     <fieldset class="ct-bloque"${estado.ocupado ? " disabled" : ""}>
       <legend>${escaparHTML(t("analisis_campos_leyenda"))}</legend>
-      <p>${escaparHTML(t("campos_obligatorios"))}</p>
       <div class="ct-campos">
-        ${campoSeleccion(estado, t, "modalidad_clave", "analisis_modalidad", "analisis_modalidad_ayuda", catalogos.modalidades, "clave")}
-        ${campoSeleccion(estado, t, "categoria_ref", "analisis_categoria", "analisis_categoria_ayuda", catalogos.categorias, "referencia")}
-        ${campoSeleccion(estado, t, "grupo_subgrupo", "analisis_grupo", "analisis_grupo_ayuda", categoria?.grupos_subgrupos ?? [], "clave")}
-        ${campoSeleccion(estado, t, "causa_clave", "analisis_causa", "analisis_causa_ayuda", catalogos.causas, "clave")}
-        ${campoEntrada(estado, t, "inicio", "date", "analisis_inicio", "analisis_periodo_ayuda")}
-        ${campoEntrada(estado, t, "fin", "date", "analisis_fin", "analisis_periodo_ayuda")}
+        ${campoSeleccion(estado, t, "modalidad_clave", "analisis_modalidad", catalogos.modalidades, "clave")}
+        ${campoSeleccion(estado, t, "categoria_ref", "analisis_categoria", catalogos.categorias, "referencia")}
+        ${campoSeleccion(estado, t, "grupo_subgrupo", "analisis_grupo", categoria?.grupos_subgrupos ?? [], "clave")}
+        ${campoSeleccion(estado, t, "causa_clave", "analisis_causa", catalogos.causas, "clave")}
+        ${campoEntrada(estado, t, "inicio", "date", "analisis_inicio")}
+        ${campoEntrada(estado, t, "fin", "date", "analisis_fin")}
         ${campoJornada(estado, t, formateadorJornada)}
-        ${campoSeleccion(estado, t, "entrada_rc_referencia", "analisis_entrada_rc", "analisis_entrada_rc_ayuda", catalogos.entradas_rc, "referencia")}
-        ${rectificacion ? campoSeleccion(estado, t, "motivo_rectificacion_clave", "analisis_motivo_rectificacion", "analisis_motivo_rectificacion_ayuda", catalogos.motivos_rectificacion, "clave") : ""}
-        ${campoAreaTexto(estado, t, "observaciones", "analisis_observaciones", "analisis_observaciones", "analisis_observaciones_ayuda", 4000)}
+        ${campoSeleccion(estado, t, "entrada_rc_referencia", "analisis_entrada_rc", catalogos.entradas_rc, "referencia")}
+        ${rectificacion ? campoSeleccion(estado, t, "motivo_rectificacion_clave", "analisis_motivo_rectificacion", catalogos.motivos_rectificacion, "clave") : ""}
+        ${campoAreaTexto(estado, t, "observaciones", "analisis_observaciones", "analisis_observaciones", 4000)}
       </div>
     </fieldset>
     <div class="ct-acciones">${estado.ocupado
@@ -599,10 +597,8 @@ export function montarFormularioAnalisisRRHH(configuracion = {}) {
     const titulo = rectificacion ? "analisis_titulo_rectificar" : "analisis_titulo_registrar";
     raizActual.innerHTML = `<section class="ct-alta" data-ct-analisis
       aria-labelledby="ct-analisis-titulo">
-      <header class="ct-cabecera"><div><p class="sobrelinea">${escaparHTML(t("analisis_sobrelinea"))}</p>
-      <h2 id="ct-analisis-titulo">${escaparHTML(t(titulo))}</h2>
-      <p>${escaparHTML(t("analisis_descripcion"))}</p></div>
-      <aside class="ct-alcance" aria-label="${escaparHTML(t("analisis_alcance_etiqueta"))}">${escaparHTML(t("analisis_alcance"))}</aside></header>
+      <header class="ct-cabecera"><div>
+      <h2 id="ct-analisis-titulo">${escaparHTML(t(titulo))}</h2></div></header>
       <div class="ct-estado ct-estado-${escaparHTML(estado.tipo_mensaje)}" data-ct-analisis-estado
         role="status" aria-live="polite" aria-atomic="true" tabindex="-1">
         <strong>${escaparHTML(t(estado.mensaje_clave))}</strong></div>

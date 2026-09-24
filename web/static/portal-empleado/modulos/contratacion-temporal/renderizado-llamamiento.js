@@ -195,10 +195,8 @@ export function renderizarLlamamiento(estado, t, fecha) {
   return `<section class="ct-alta ct-llamamiento" data-ct-llamamiento
     aria-labelledby="ct-llamamiento-titulo">
     <header class="ct-cabecera"><div>
-      <p class="sobrelinea">${e(t("llamamiento_sobrelinea"))}</p>
       <h2 id="ct-llamamiento-titulo">${e(t("llamamiento_titulo"))}</h2>
-      <p>${e(t("llamamiento_descripcion"))}</p>
-    </div><aside class="ct-alcance">${e(t("llamamiento_alcance"))}</aside></header>
+    </div></header>
     <p class="ct-exp-mensaje ct-tono-informacion" data-ct-llamamiento-contexto>${e(t(
       estado.enlazado ? "llamamiento_contexto_enlazado" : "llamamiento_contexto_manual",
     ))}</p>

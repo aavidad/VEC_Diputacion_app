@@ -113,14 +113,13 @@ function renderizarPropuesta(propuesta, estado, t) {
     <p>${escaparHTML(t("cobertura_via_recomendada"))}: <strong>${escaparHTML(etiquetaVia(t, propuesta.via_recomendada))}</strong></p>
     <form data-ct-cobertura-form>
       <fieldset><legend>${escaparHTML(t("cobertura_via_elegida"))}</legend>
-        <p>${escaparHTML(t("cobertura_via_ayuda"))}</p>${evaluaciones}
+        ${evaluaciones}
       </fieldset>
       <label>${escaparHTML(t("cobertura_motivo_alternativa"))}
         <select name="motivo_clave"${estado.ocupado ? " disabled" : ""}>
           <option value="">${escaparHTML(t("seleccionar"))}</option>${motivos}
         </select>
       </label>
-      <p>${escaparHTML(t("cobertura_confirmacion_ayuda"))}</p>
       <div class="ct-acciones"><button class="boton-primario" type="submit"${
   estado.ocupado ? " disabled" : ""}>${escaparHTML(t("cobertura_confirmar"))}</button></div>
     </form>
@@ -253,11 +252,8 @@ export function montarFormularioCobertura(configuracion = {}) {
     raizActual.innerHTML = `<section class="ct-alta" data-ct-cobertura
       aria-labelledby="ct-cobertura-titulo">
       <header class="ct-cabecera"><div>
-        <p class="sobrelinea">${escaparHTML(t("cobertura_sobrelinea"))}</p>
         <h2 id="ct-cobertura-titulo">${escaparHTML(t("cobertura_titulo"))}</h2>
-        <p>${escaparHTML(t("cobertura_descripcion"))}</p>
-      </div><aside class="ct-alcance" aria-label="${escaparHTML(t("cobertura_alcance_etiqueta"))}">${
-  escaparHTML(t("cobertura_alcance"))}</aside></header>
+      </div></header>
       <div class="ct-estado ct-estado-${escaparHTML(estado.tipo_mensaje)}"
         data-ct-cobertura-estado role="status" aria-live="polite"
         aria-atomic="true" tabindex="-1"><strong>${escaparHTML(t(estado.mensaje_clave))}</strong></div>
