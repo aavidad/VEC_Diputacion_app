@@ -30,11 +30,33 @@ func (r *resolutorPrueba) ResolverIdentidadEfectivaBorrador(_ context.Context, s
 }
 
 type casoUsoPrueba struct {
-	creaciones, listas, detalles, recuperaciones int
-	resultado                                    dietasports.ResultadoBorradorComision
-	pagina                                       dietasports.PaginaBorradoresPropios
-	err                                          error
-	recuperada                                   bool
+	creaciones, listas, detalles, recuperaciones       int
+	recuperacionesEdicion, ediciones, borrados, envios int
+	resultado                                          dietasports.ResultadoBorradorComision
+	pagina                                             dietasports.PaginaBorradoresPropios
+	err                                                error
+	recuperada                                         bool
+	recuperadaEdicion                                  bool
+}
+
+func (c *casoUsoPrueba) RecuperarEdicionPorClave(_ context.Context, _ dietasports.IdentidadEfectivaBorrador, _ dietasports.SolicitudEditarComisionPropia) (dietasports.ResultadoBorradorComision, bool, error) {
+	c.recuperacionesEdicion++
+	return c.resultado, c.recuperadaEdicion, c.err
+}
+func (c *casoUsoPrueba) PrepararAsignacionEdicion(_ context.Context, _ dietasports.IdentidadEfectivaBorrador, s dietasports.SolicitudEditarComisionPropia) (dietasports.SolicitudEditarComisionPropia, error) {
+	return s, nil
+}
+func (c *casoUsoPrueba) EditarPropio(context.Context, dietasports.IdentidadEfectivaBorrador, dietasports.SolicitudEditarComisionPropia) (dietasports.ResultadoBorradorComision, error) {
+	c.ediciones++
+	return c.resultado, c.err
+}
+func (c *casoUsoPrueba) BorrarPropio(context.Context, dietasports.IdentidadEfectivaBorrador, dietasports.SolicitudMutacionComisionPropia) (dietasports.ResultadoBorradorComision, error) {
+	c.borrados++
+	return c.resultado, c.err
+}
+func (c *casoUsoPrueba) EnviarPropio(context.Context, dietasports.IdentidadEfectivaBorrador, dietasports.SolicitudMutacionComisionPropia) (dietasports.ResultadoBorradorComision, error) {
+	c.envios++
+	return c.resultado, c.err
 }
 
 func (c *casoUsoPrueba) RecuperarPorClave(_ context.Context, _ dietasports.IdentidadEfectivaBorrador, _ dietasports.SolicitudCrearBorradorPropio) (dietasports.ResultadoBorradorComision, bool, error) {
@@ -43,6 +65,37 @@ func (c *casoUsoPrueba) RecuperarPorClave(_ context.Context, _ dietasports.Ident
 }
 
 type preparadorBorradorPrueba struct{ llamadas int }
+
+func (p *preparadorBorradorPrueba) PrepararEdicion(_ context.Context, s dietasports.SolicitudEditarComisionPropia) (dietasports.SolicitudEditarComisionPropia, error) {
+	p.llamadas++
+	return s, nil
+}
+
+func TestEdicionExigeAutorizacionYRecuperaAntesDeCalcular(t *testing.T) {
+	r, c, p := &resolutorPrueba{}, &casoUsoPrueba{}, &preparadorBorradorPrueba{}
+	m, err := NuevoManejadorBorradoresConCalculo(r, c, p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cuerpo := `{"clave_idempotencia":"clave_idempotente_0001","version_esperada":1,"fecha_inicio":"2026-09-22","fecha_fin":"2026-09-22","motivo":"Visita técnica","codigos_ruta":["18087","18175"],"vehiculo_propio":false,"rutas":[],"tramos_aceptados":[0],"version_tarifa_aceptada":"provisional:rd462:20260923","otros":[]}`
+	enviar := func() int {
+		peticion := httptest.NewRequest(http.MethodPut, RutaBorradores+"/"+comisionPrueba, strings.NewReader(cuerpo))
+		peticion.Header.Set("Content-Type", "application/json; charset=utf-8")
+		peticion.Header.Set("Accept", "application/json")
+		respuesta := httptest.NewRecorder()
+		m.ServeHTTP(respuesta, peticion)
+		return respuesta.Code
+	}
+	r.err = dietasports.ErrAccesoBorradorDenegado
+	if estado := enviar(); estado != http.StatusForbidden || c.recuperacionesEdicion != 0 || p.llamadas != 0 {
+		t.Fatalf("sin autorización: %d %d %d", estado, c.recuperacionesEdicion, p.llamadas)
+	}
+	r.err = nil
+	c.recuperadaEdicion = true
+	if estado := enviar(); estado != http.StatusOK || c.recuperacionesEdicion != 1 || p.llamadas != 0 || c.ediciones != 0 {
+		t.Fatalf("replay: %d %d %d %d", estado, c.recuperacionesEdicion, p.llamadas, c.ediciones)
+	}
+}
 
 func (p *preparadorBorradorPrueba) Preparar(_ context.Context, s dietasports.SolicitudCrearBorradorPropio) (dietasports.SolicitudCrearBorradorPropio, error) {
 	p.llamadas++

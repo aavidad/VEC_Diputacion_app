@@ -1,10 +1,4 @@
-/** Contrato estable entre la superficie Dietas y cualquier adaptador. */
-
-import { exigirContextoParaModulo } from "../../identidad/contexto-actor.js";
-
-export const ESQUEMA_PANEL_DIETAS = "vec.dietas.portal.v1";
-export const ESQUEMA_RECIBO_DIETAS = "vec.documentos.recibo.dietas.v1";
-export const ESQUEMA_RESUMEN_ANUAL_DIETAS = "vec.documentos.resumen-anual.dietas.v1";
+/** Contrato de cartografía interna para Dietas. */
 export const ESQUEMA_GEOMETRIA_RUTA_DIETAS = "vec.dietas.geometria-ruta.v1";
 export const ESQUEMA_CATALOGO_RUTAS_DIETAS = "vec.dietas.catalogo-rutas.v1";
 export const ESQUEMA_SOLICITUD_RUTA_DIETAS = "vec.dietas.solicitud-ruta.v1";
@@ -13,12 +7,6 @@ export const PLANTILLA_TESELAS_OSM_INTERNA = "/tiles/osm/{z}/{x}/{y}.png";
 // Los enlaces de licencia sólo navegan por acción expresa: no generan ninguna
 // petición automática al montar el mapa ni al cargar las teselas internas.
 export const ATRIBUCION_OSM_INTERNA = "© <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\" rel=\"noopener noreferrer\">OpenStreetMap</a> contributors · © <a href=\"https://openmaptiles.org/\" target=\"_blank\" rel=\"noopener noreferrer\">OpenMapTiles</a> · servido en red interna";
-export const CAPACIDAD_CONSULTAR_GASTO = "dietas.gasto.read";
-export const CAPACIDAD_GESTIONAR_GASTO = "dietas.gasto.manage";
-export const CAPACIDAD_CONSULTAR_RUTA = "dietas.ruta.read";
-export const CAPACIDAD_GESTIONAR_RUTA = "dietas.ruta.manage";
-export const CAPACIDAD_GESTIONAR_APROBACION = "dietas.aprobacion.manage";
-export const CAPACIDAD_CONSULTAR_AUDITORIA = "dietas.audit.read";
 export const CODIGO_ERROR_SERVICIO_RUTAS_DIETAS = "servicio_rutas_no_disponible";
 
 export class ErrorServicioRutasDietas extends Error {
@@ -30,21 +18,6 @@ export class ErrorServicioRutasDietas extends Error {
   }
 }
 
-const CAPACIDADES_DIETAS = new Set([
-  CAPACIDAD_CONSULTAR_GASTO,
-  CAPACIDAD_GESTIONAR_GASTO,
-  CAPACIDAD_CONSULTAR_RUTA,
-  CAPACIDAD_GESTIONAR_RUTA,
-  CAPACIDAD_GESTIONAR_APROBACION,
-  CAPACIDAD_CONSULTAR_AUDITORIA,
-]);
-const ESTADOS_DIETAS = new Set([
-  "borrador", "pendiente_jefatura", "aprobada", "enviada_rrhh", "enviada_nomina", "pagada",
-]);
-const ETAPAS_DIETAS = new Set(["borrador", "jefatura", "aprobada", "rrhh", "nomina", "pagada"]);
-const SIGUIENTES_ACTUACIONES = new Set([
-  "remision_rrhh", "completar_enviar_validacion", "expediente_finalizado", "inclusion_nomina", "revision_jefatura",
-]);
 
 export function copiarDietas(valor) {
   return structuredClone(valor);
@@ -97,7 +70,7 @@ export function validarGeometriaRutaDietas(geometria, rutaEsperada = []) {
     ? ["esquema", "origen", "liquidable", "paradas", "trazado"]
     : ["esquema", "origen", "liquidable", "paradas", "trazado", "tramos"], "geometria de ruta de Dietas");
   if (geometria.esquema !== ESQUEMA_GEOMETRIA_RUTA_DIETAS
-    || !["sintetica_demo", "osrm_interno"].includes(geometria.origen)
+    || geometria.origen !== "osrm_interno"
     || geometria.liquidable !== false || !Array.isArray(geometria.paradas)
     || !Array.isArray(geometria.trazado) || geometria.paradas.length < 2
     || geometria.paradas.length > 12 || geometria.trazado.length < 2
@@ -150,7 +123,7 @@ export function validarCatalogoRutasDietas(catalogo) {
     throw new Error("catalogo provincial de rutas no valido");
   }
   clavesExactas(catalogo, ["esquema", "demostracion", "completo", "version", "puntos"], "catalogo provincial de rutas");
-  if (catalogo.esquema !== ESQUEMA_CATALOGO_RUTAS_DIETAS || typeof catalogo.demostracion !== "boolean"
+  if (catalogo.esquema !== ESQUEMA_CATALOGO_RUTAS_DIETAS || catalogo.demostracion !== false
     || typeof catalogo.completo !== "boolean" || !Array.isArray(catalogo.puntos)
     || catalogo.puntos.length < 2 || catalogo.puntos.length > 500) {
     throw new Error("catalogo provincial de rutas no valido");
@@ -195,21 +168,11 @@ export function validarCalculoRutaDietas(calculo, solicitudEsperada = null) {
   clavesExactas(calculo, [
     "esquema", "referencia", "demostracion", "liquidable", "motor", "version_grafo", "alternativas",
   ], "calculo de ruta");
-  if (calculo.esquema !== ESQUEMA_CALCULO_RUTA_DIETAS || typeof calculo.demostracion !== "boolean"
-    || calculo.liquidable !== false || !["simulacion_osrm_demo", "osrm_interno"].includes(calculo.motor)
+  if (calculo.esquema !== ESQUEMA_CALCULO_RUTA_DIETAS || calculo.demostracion !== false
+    || calculo.liquidable !== false || calculo.motor !== "osrm_interno"
     || !Array.isArray(calculo.alternativas) || calculo.alternativas.length < 1 || calculo.alternativas.length > 3) {
     throw new Error("calculo de ruta no valido");
   }
-  // `demostracion` expresa que el resultado carece de efectos administrativos,
-  // no que la cartografia deba ser ficticia. Una presentacion puede consultar
-  // el OSRM interno real manteniendo `liquidable: false`; producto, en cambio,
-  // nunca puede degradarse a una simulacion.
-  if (calculo.demostracion === false && calculo.motor !== "osrm_interno") {
-    throw new Error("el motor de ruta no corresponde al entorno del calculo");
-  }
-  const origenGeometriaEsperado = calculo.motor === "osrm_interno"
-    ? "osrm_interno"
-    : "sintetica_demo";
   codigoRuta(calculo.referencia, "referencia del calculo");
   texto(calculo.version_grafo, "version del grafo", 100);
   const solicitud = solicitudEsperada ? validarSolicitudRutaDietas(solicitudEsperada) : null;
@@ -255,97 +218,10 @@ export function validarCalculoRutaDietas(calculo, solicitudEsperada = null) {
     });
     const ruta = [alternativa.tramos[0].origen_nombre, ...alternativa.tramos.map((tramo) => tramo.destino_nombre)];
     const geometria = validarGeometriaRutaDietas(alternativa.geometria, ruta);
-    if (geometria.origen !== origenGeometriaEsperado) {
+    if (geometria.origen !== "osrm_interno") {
       throw new Error("la geometria de ruta no corresponde al entorno del calculo");
     }
   });
   if (recomendadas !== 1) throw new Error("el calculo debe contener una unica ruta recomendada");
   return congelarProfundo(copiarDietas(calculo));
-}
-
-export function exigirContextoActorDietas(contextoActor) {
-  return exigirContextoParaModulo(contextoActor, "dietas");
-}
-
-export function validarCapacidadesDietas(capacidades = []) {
-  if (!Array.isArray(capacidades) || capacidades.length > CAPACIDADES_DIETAS.size) {
-    throw new Error("capacidades de Dietas no validas");
-  }
-  const unicas = new Set();
-  for (const capacidad of capacidades) {
-    if (!CAPACIDADES_DIETAS.has(capacidad) || unicas.has(capacidad)) {
-      throw new Error("capacidad de Dietas no valida o repetida");
-    }
-    unicas.add(capacidad);
-  }
-  return Object.freeze([...unicas]);
-}
-
-export function tieneCapacidadDietas(capacidades, capacidad) {
-  return Array.isArray(capacidades) && capacidades.includes(capacidad);
-}
-
-export function validarPanelDietas(datos, titularEsperado = "", capacidadesEsperadas = null) {
-  if (!datos || typeof datos !== "object" || Array.isArray(datos)
-    || datos.esquema !== ESQUEMA_PANEL_DIETAS || !datos.origen || typeof datos.origen !== "object"
-    || !Array.isArray(datos.etapas) || !Array.isArray(datos.comisiones) || !datos.politica) {
-    throw new Error("panel de Dietas no valido");
-  }
-  if (datos.origen.demostracion === true && datos.origen.efectos_reales !== false) {
-    throw new Error("un panel demostrativo de Dietas no puede declarar efectos reales");
-  }
-  if (datos.borrador_inicial !== undefined
-    && (!datos.borrador_inicial || typeof datos.borrador_inicial !== "object" || Array.isArray(datos.borrador_inicial))) {
-    throw new Error("borrador inicial de Dietas no valido");
-  }
-  if (datos.etapas.length !== ETAPAS_DIETAS.size || datos.etapas.some((etapa) => !ETAPAS_DIETAS.has(etapa))) {
-    throw new Error("etapas de Dietas no validas");
-  }
-  const capacidades = capacidadesEsperadas === null ? null : validarCapacidadesDietas(capacidadesEsperadas);
-  const puedeConsultar = capacidades === null || tieneCapacidadDietas(capacidades, CAPACIDAD_CONSULTAR_GASTO);
-  const puedeConsultarRutas = capacidades === null || tieneCapacidadDietas(capacidades, CAPACIDAD_CONSULTAR_RUTA);
-  if (!puedeConsultar && datos.comisiones.length) {
-    throw new Error("el panel contiene expedientes sin capacidad de consulta");
-  }
-  const referencias = new Set();
-  for (const item of datos.comisiones) {
-    const referencia = texto(item?.referencia, "referencia de comision", 100);
-    if (referencias.has(referencia)) throw new Error("referencia de comision repetida");
-    referencias.add(referencia);
-    if (!Array.isArray(item.ruta) || !Array.isArray(item.historial)
-      || !ESTADOS_DIETAS.has(item.estado) || !SIGUIENTES_ACTUACIONES.has(item.siguiente_actuacion)) {
-      throw new Error("comision de Dietas incompleta");
-    }
-    if (titularEsperado && item.titular_ref !== titularEsperado) {
-      throw new Error("el panel de Dietas contiene un expediente ajeno al contexto de actor");
-    }
-    if (!puedeConsultarRutas && (item.ruta.length || item.kilometros !== null || item.kilometraje_euros !== null)) {
-      throw new Error("el panel contiene rutas sin capacidad de consulta");
-    }
-    if (puedeConsultarRutas && item.geometria_ruta !== null && item.geometria_ruta !== undefined) {
-      validarGeometriaRutaDietas(item.geometria_ruta, item.ruta);
-    }
-    if (!puedeConsultarRutas && item.geometria_ruta !== null) {
-      throw new Error("el panel contiene coordenadas sin capacidad de consulta");
-    }
-    if (item.historial.some((evento) => !ESTADOS_DIETAS.has(evento?.estado))) {
-      throw new Error("historial de Dietas no valido");
-    }
-  }
-  return copiarDietas(datos);
-}
-
-export function validarComandoDietas(comando) {
-  if (!comando || typeof comando !== "object" || Array.isArray(comando)) throw new Error("comando de Dietas no valido");
-  const tipo = texto(comando.tipo, "tipo de comando", 40);
-  if (tipo === "crear_borrador") {
-    if (!comando.campos || typeof comando.campos !== "object" || Array.isArray(comando.campos)) {
-      throw new Error("campos de comision no validos");
-    }
-    return Object.freeze({ tipo, campos: Object.freeze({ ...comando.campos }) });
-  }
-  if (tipo === "enviar_validacion") {
-    return Object.freeze({ tipo, referencia: texto(comando.referencia, "referencia", 100) });
-  }
-  throw new Error("comando de Dietas no permitido");
 }

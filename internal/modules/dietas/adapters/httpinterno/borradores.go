@@ -36,6 +36,20 @@ type ManejadorBorradores struct {
 	recuperador interface {
 		RecuperarPorClave(context.Context, dietasports.IdentidadEfectivaBorrador, dietasports.SolicitudCrearBorradorPropio) (dietasports.ResultadoBorradorComision, bool, error)
 	}
+	mutaciones         dietasapp.CasoUsoMutacionComision
+	consultasDocumento dietasapp.CasoUsoConsultaDocumento
+	preparadorEdicion  interface {
+		PrepararEdicion(context.Context, dietasports.SolicitudEditarComisionPropia) (dietasports.SolicitudEditarComisionPropia, error)
+	}
+	recuperadorEdicion interface {
+		RecuperarEdicionPorClave(context.Context, dietasports.IdentidadEfectivaBorrador, dietasports.SolicitudEditarComisionPropia) (dietasports.ResultadoBorradorComision, bool, error)
+	}
+	preparadorEnvio interface {
+		PrepararEnvio(context.Context, dietasports.IdentidadEfectivaBorrador, dietasports.SolicitudMutacionComisionPropia) (dietasports.SolicitudMutacionComisionPropia, error)
+	}
+	preparadorAsignacionEdicion interface {
+		PrepararAsignacionEdicion(context.Context, dietasports.IdentidadEfectivaBorrador, dietasports.SolicitudEditarComisionPropia) (dietasports.SolicitudEditarComisionPropia, error)
+	}
 }
 
 func NuevoManejadorBorradores(identidades dietasports.ResolutorIdentidadEfectivaBorrador, casoUso dietasapp.CasoUsoBorradorComision) (*ManejadorBorradores, error) {
@@ -63,6 +77,32 @@ func NuevoManejadorBorradoresConCalculo(identidades dietasports.ResolutorIdentid
 	}
 	m.preparador = preparador
 	m.recuperador = recuperador
+	if mutaciones, ok := casoUso.(dietasapp.CasoUsoMutacionComision); ok {
+		m.mutaciones = mutaciones
+	}
+	if consultasDocumento, ok := casoUso.(dietasapp.CasoUsoConsultaDocumento); ok {
+		m.consultasDocumento = consultasDocumento
+	}
+	if preparadorEdicion, ok := preparador.(interface {
+		PrepararEdicion(context.Context, dietasports.SolicitudEditarComisionPropia) (dietasports.SolicitudEditarComisionPropia, error)
+	}); ok {
+		m.preparadorEdicion = preparadorEdicion
+	}
+	if recuperadorEdicion, ok := casoUso.(interface {
+		RecuperarEdicionPorClave(context.Context, dietasports.IdentidadEfectivaBorrador, dietasports.SolicitudEditarComisionPropia) (dietasports.ResultadoBorradorComision, bool, error)
+	}); ok {
+		m.recuperadorEdicion = recuperadorEdicion
+	}
+	if preparadorEnvio, ok := casoUso.(interface {
+		PrepararEnvio(context.Context, dietasports.IdentidadEfectivaBorrador, dietasports.SolicitudMutacionComisionPropia) (dietasports.SolicitudMutacionComisionPropia, error)
+	}); ok {
+		m.preparadorEnvio = preparadorEnvio
+	}
+	if preparadorAsignacionEdicion, ok := casoUso.(interface {
+		PrepararAsignacionEdicion(context.Context, dietasports.IdentidadEfectivaBorrador, dietasports.SolicitudEditarComisionPropia) (dietasports.SolicitudEditarComisionPropia, error)
+	}); ok {
+		m.preparadorAsignacionEdicion = preparadorAsignacionEdicion
+	}
 	return m, nil
 }
 
@@ -73,6 +113,15 @@ func (m *ManejadorBorradores) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	}
 	if r.Header.Get("Cookie") != "" || r.Header.Get("X-Vec-Actor") != "" || r.Header.Get("X-Vec-Persona") != "" || r.Header.Get("X-Vec-Perfil") != "" {
 		responderError(w, http.StatusBadRequest, "peticion_invalida")
+		return
+	}
+	if strings.HasSuffix(r.URL.Path, "/enviar") && r.URL.EscapedPath() == r.URL.Path {
+		referencia := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, RutaBorradores+"/"), "/enviar")
+		if !strings.HasPrefix(r.URL.Path, RutaBorradores+"/") || !referenciaComisionHTTP.MatchString(referencia) {
+			responderError(w, http.StatusNotFound, "no_encontrada")
+			return
+		}
+		m.atenderEnvio(w, r, referencia)
 		return
 	}
 	referencia, detalle, valida := reconocerRuta(r.URL)
@@ -95,13 +144,26 @@ func (m *ManejadorBorradores) atenderColeccion(w http.ResponseWriter, r *http.Re
 			responderError(w, http.StatusBadRequest, "peticion_invalida")
 			return
 		}
-		solicitud := dietasports.SolicitudOperacionBorrador{Operacion: dietasports.OperacionConsultarBorrador, Consulta: consulta, RelacionRef: relacion}
+		operacion := dietasports.OperacionConsultarBorrador
+		if m.preparador != nil {
+			operacion = dietasports.OperacionConsultarDocumento
+		}
+		if operacion == dietasports.OperacionConsultarDocumento && m.consultasDocumento == nil {
+			responderError(w, http.StatusServiceUnavailable, "no_disponible")
+			return
+		}
+		solicitud := dietasports.SolicitudOperacionBorrador{Operacion: operacion, Consulta: consulta, RelacionRef: relacion}
 		identidad, err := m.identidades.ResolverIdentidadEfectivaBorrador(r.Context(), solicitud)
 		if err != nil {
 			responderErrorClasificado(w, err)
 			return
 		}
-		pagina, err := m.casoUso.ListarPropios(r.Context(), identidad, consulta)
+		var pagina dietasports.PaginaBorradoresPropios
+		if operacion == dietasports.OperacionConsultarDocumento {
+			pagina, err = m.consultasDocumento.ListarDocumentosPropios(r.Context(), identidad, consulta)
+		} else {
+			pagina, err = m.casoUso.ListarPropios(r.Context(), identidad, consulta)
+		}
 		if err != nil {
 			responderErrorClasificado(w, err)
 			return
@@ -205,10 +267,12 @@ type solicitudCrearJSON struct {
 }
 
 type reciboBorradorJSON struct {
-	Referencia   string `json:"referencia"`
-	Version      uint64 `json:"version"`
-	RegistradoEn string `json:"registrado_en"`
-	Repeticion   bool   `json:"repeticion"`
+	Referencia        string `json:"referencia"`
+	Version           uint64 `json:"version"`
+	RegistradoEn      string `json:"registrado_en"`
+	Repeticion        bool   `json:"repeticion"`
+	ReglaRef          string `json:"regla_ref,omitempty"`
+	ReglaHuellaSHA256 string `json:"regla_huella_sha256,omitempty"`
 }
 
 type resultadoBorradorJSON struct {
@@ -224,17 +288,27 @@ func resultadoAJSON(resultado dietasports.ResultadoBorradorComision) resultadoBo
 	return resultadoBorradorJSON{
 		Comision: comision,
 		Recibo: reciboBorradorJSON{
-			Referencia:   resultado.Recibo.Referencia,
-			Version:      resultado.Recibo.Version,
-			RegistradoEn: resultado.Recibo.RegistradoEn.UTC().Format("2006-01-02T15:04:05.000000Z"),
-			Repeticion:   resultado.Recibo.Repeticion,
+			Referencia:        resultado.Recibo.Referencia,
+			Version:           resultado.Recibo.Version,
+			RegistradoEn:      resultado.Recibo.RegistradoEn.UTC().Format("2006-01-02T15:04:05.000000Z"),
+			Repeticion:        resultado.Recibo.Repeticion,
+			ReglaRef:          resultado.Recibo.ReglaRef,
+			ReglaHuellaSHA256: resultado.Recibo.ReglaHuellaSHA256,
 		},
 	}
 }
 
 func (m *ManejadorBorradores) atenderDetalle(w http.ResponseWriter, r *http.Request, referencia string) {
+	if r.Method == http.MethodPut {
+		m.atenderEdicion(w, r, referencia)
+		return
+	}
+	if r.Method == http.MethodDelete {
+		m.atenderMutacion(w, r, referencia, false)
+		return
+	}
 	if r.Method != http.MethodGet {
-		w.Header().Set("Allow", "GET")
+		w.Header().Set("Allow", "GET, PUT, DELETE")
 		responderError(w, http.StatusMethodNotAllowed, "metodo_no_permitido")
 		return
 	}
@@ -252,18 +326,220 @@ func (m *ManejadorBorradores) atenderDetalle(w http.ResponseWriter, r *http.Requ
 		responderError(w, http.StatusBadRequest, "peticion_invalida")
 		return
 	}
-	solicitud := dietasports.SolicitudOperacionBorrador{Operacion: dietasports.OperacionConsultarBorrador, Referencia: referencia, RelacionRef: relacion}
+	operacion := dietasports.OperacionConsultarBorrador
+	if m.preparador != nil {
+		operacion = dietasports.OperacionConsultarDocumento
+	}
+	if operacion == dietasports.OperacionConsultarDocumento && m.consultasDocumento == nil {
+		responderError(w, http.StatusServiceUnavailable, "no_disponible")
+		return
+	}
+	solicitud := dietasports.SolicitudOperacionBorrador{Operacion: operacion, Referencia: referencia, RelacionRef: relacion}
 	identidad, err := m.identidades.ResolverIdentidadEfectivaBorrador(r.Context(), solicitud)
 	if err != nil {
 		responderErrorClasificado(w, err)
 		return
 	}
-	resultado, err := m.casoUso.ObtenerPropio(r.Context(), identidad, referencia)
+	var resultado dietasports.ResultadoBorradorComision
+	if operacion == dietasports.OperacionConsultarDocumento {
+		resultado, err = m.consultasDocumento.ObtenerDocumentoPropio(r.Context(), identidad, referencia)
+	} else {
+		resultado, err = m.casoUso.ObtenerPropio(r.Context(), identidad, referencia)
+	}
 	if err != nil {
 		responderErrorClasificado(w, err)
 		return
 	}
 	responderJSON(w, http.StatusOK, resultadoAJSON(resultado))
+}
+
+type editarDocumentoJSON struct {
+	ClaveIdempotencia     string                          `json:"clave_idempotencia"`
+	VersionEsperada       uint64                          `json:"version_esperada"`
+	RelacionRef           string                          `json:"relacion_ref"`
+	FechaInicio           string                          `json:"fecha_inicio"`
+	FechaFin              string                          `json:"fecha_fin"`
+	HoraInicio            string                          `json:"hora_inicio"`
+	HoraFin               string                          `json:"hora_fin"`
+	Motivo                string                          `json:"motivo"`
+	CodigosRuta           []string                        `json:"codigos_ruta"`
+	VehiculoPropio        *bool                           `json:"vehiculo_propio"`
+	Rutas                 *[]domain.RutaDeclaradaComision `json:"rutas"`
+	TramosAceptados       *[]int                          `json:"tramos_aceptados"`
+	VersionTarifaAceptada string                          `json:"version_tarifa_aceptada"`
+	Otros                 []domain.OtroGastoDeclarado     `json:"otros"`
+}
+type mutarDocumentoJSON struct {
+	ClaveIdempotencia string `json:"clave_idempotencia"`
+	VersionEsperada   uint64 `json:"version_esperada"`
+	RelacionRef       string `json:"relacion_ref"`
+}
+
+func (m *ManejadorBorradores) atenderEdicion(w http.ResponseWriter, r *http.Request, referencia string) {
+	if m.mutaciones == nil || m.preparadorEdicion == nil || m.recuperadorEdicion == nil || m.preparadorAsignacionEdicion == nil {
+		responderError(w, http.StatusServiceUnavailable, "no_disponible")
+		return
+	}
+	if r.URL.RawQuery != "" || r.URL.ForceQuery {
+		responderError(w, http.StatusBadRequest, "peticion_invalida")
+		return
+	}
+	var entrada editarDocumentoJSON
+	if err := decodificarSolicitud(w, r, &entrada); err != nil {
+		responderError(w, http.StatusBadRequest, "peticion_invalida")
+		return
+	}
+	if entrada.VehiculoPropio == nil || entrada.Rutas == nil || entrada.TramosAceptados == nil {
+		responderError(w, http.StatusBadRequest, "peticion_invalida")
+		return
+	}
+	s := dietasports.SolicitudEditarComisionPropia{Referencia: referencia, ClaveIdempotencia: entrada.ClaveIdempotencia, VersionEsperada: entrada.VersionEsperada, RelacionRef: entrada.RelacionRef, FechaInicio: entrada.FechaInicio, FechaFin: entrada.FechaFin, HoraInicio: entrada.HoraInicio, HoraFin: entrada.HoraFin, Motivo: entrada.Motivo, CodigosRuta: entrada.CodigosRuta, VehiculoPropio: *entrada.VehiculoPropio, Rutas: *entrada.Rutas, TramosAceptados: *entrada.TramosAceptados, VersionTarifaAceptada: entrada.VersionTarifaAceptada, Otros: entrada.Otros}
+	if s.HoraInicio == "" {
+		s.HoraInicio = "08:00"
+	}
+	if s.HoraFin == "" {
+		s.HoraFin = "18:00"
+	}
+	previa, err := dietasapp.NuevaSolicitudOperacionPrepararEdicion(s)
+	if err != nil {
+		responderErrorClasificado(w, err)
+		return
+	}
+	identidadPrevia, err := m.identidades.ResolverIdentidadEfectivaBorrador(r.Context(), previa)
+	if err != nil {
+		responderErrorClasificado(w, err)
+		return
+	}
+	if s.RelacionRef == "" {
+		s.RelacionRef = identidadPrevia.Relacion.RelacionRef
+		previa, err = dietasapp.NuevaSolicitudOperacionPrepararEdicion(s)
+		if err != nil {
+			responderErrorClasificado(w, err)
+			return
+		}
+		identidadPrevia, err = m.identidades.ResolverIdentidadEfectivaBorrador(r.Context(), previa)
+		if err != nil {
+			responderErrorClasificado(w, err)
+			return
+		}
+	}
+	recuperada, encontrada, err := m.recuperadorEdicion.RecuperarEdicionPorClave(r.Context(), identidadPrevia, s)
+	if err != nil {
+		responderErrorClasificado(w, err)
+		return
+	}
+	if encontrada {
+		responderJSON(w, http.StatusOK, resultadoAJSON(recuperada))
+		return
+	}
+	s, err = m.preparadorAsignacionEdicion.PrepararAsignacionEdicion(r.Context(), identidadPrevia, s)
+	if err != nil {
+		responderErrorClasificado(w, err)
+		return
+	}
+	s, err = m.preparadorEdicion.PrepararEdicion(r.Context(), s)
+	if err != nil {
+		responderErrorClasificado(w, err)
+		return
+	}
+	op, err := dietasapp.NuevaSolicitudOperacionEditarBorrador(s)
+	if err != nil {
+		responderErrorClasificado(w, err)
+		return
+	}
+	identidad, err := m.identidades.ResolverIdentidadEfectivaBorrador(r.Context(), op)
+	if err != nil {
+		responderErrorClasificado(w, err)
+		return
+	}
+	resultado, err := m.mutaciones.EditarPropio(r.Context(), identidad, s)
+	if err != nil {
+		responderErrorClasificado(w, err)
+		return
+	}
+	responderJSON(w, estadoMutacion(resultado), resultadoAJSON(resultado))
+}
+
+func (m *ManejadorBorradores) atenderEnvio(w http.ResponseWriter, r *http.Request, referencia string) {
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", "POST")
+		responderError(w, http.StatusMethodNotAllowed, "metodo_no_permitido")
+		return
+	}
+	m.atenderMutacion(w, r, referencia, true)
+}
+
+func (m *ManejadorBorradores) atenderMutacion(w http.ResponseWriter, r *http.Request, referencia string, enviar bool) {
+	if m.mutaciones == nil {
+		responderError(w, http.StatusServiceUnavailable, "no_disponible")
+		return
+	}
+	if enviar && m.preparadorEnvio == nil {
+		responderError(w, http.StatusServiceUnavailable, "no_disponible")
+		return
+	}
+	if r.URL.RawQuery != "" || r.URL.ForceQuery {
+		responderError(w, http.StatusBadRequest, "peticion_invalida")
+		return
+	}
+	var entrada mutarDocumentoJSON
+	if err := decodificarSolicitud(w, r, &entrada); err != nil {
+		responderError(w, http.StatusBadRequest, "peticion_invalida")
+		return
+	}
+	s := dietasports.SolicitudMutacionComisionPropia{Referencia: referencia, ClaveIdempotencia: entrada.ClaveIdempotencia, VersionEsperada: entrada.VersionEsperada, RelacionRef: entrada.RelacionRef}
+	opTipo := dietasports.OperacionBorrarBorrador
+	if enviar {
+		opTipo = dietasports.OperacionEnviarBorrador
+	}
+	op, err := dietasapp.NuevaSolicitudOperacionMutarBorrador(opTipo, s)
+	if err != nil {
+		responderErrorClasificado(w, err)
+		return
+	}
+	identidad, err := m.identidades.ResolverIdentidadEfectivaBorrador(r.Context(), op)
+	if err != nil {
+		responderErrorClasificado(w, err)
+		return
+	}
+	if s.RelacionRef == "" {
+		s.RelacionRef = identidad.Relacion.RelacionRef
+	}
+	if enviar {
+		s, err = m.preparadorEnvio.PrepararEnvio(r.Context(), identidad, s)
+		if err != nil {
+			responderErrorClasificado(w, err)
+			return
+		}
+	}
+	op, err = dietasapp.NuevaSolicitudOperacionMutarBorrador(opTipo, s)
+	if err != nil {
+		responderErrorClasificado(w, err)
+		return
+	}
+	identidad, err = m.identidades.ResolverIdentidadEfectivaBorrador(r.Context(), op)
+	if err != nil {
+		responderErrorClasificado(w, err)
+		return
+	}
+	var resultado dietasports.ResultadoBorradorComision
+	if enviar {
+		resultado, err = m.mutaciones.EnviarPropio(r.Context(), identidad, s)
+	} else {
+		resultado, err = m.mutaciones.BorrarPropio(r.Context(), identidad, s)
+	}
+	if err != nil {
+		responderErrorClasificado(w, err)
+		return
+	}
+	responderJSON(w, estadoMutacion(resultado), resultadoAJSON(resultado))
+}
+
+func estadoMutacion(resultado dietasports.ResultadoBorradorComision) int {
+	if resultado.Recibo.Repeticion {
+		return http.StatusOK
+	}
+	return http.StatusCreated
 }
 
 func reconocerRuta(u *url.URL) (string, bool, bool) {
@@ -347,6 +623,12 @@ func responderErrorClasificado(w http.ResponseWriter, err error) {
 		responderError(w, http.StatusNotFound, "no_encontrada")
 	case errors.Is(err, dietasports.ErrConflictoIdempotencia):
 		responderError(w, http.StatusConflict, "conflicto_idempotencia")
+	case errors.Is(err, dietasports.ErrVersionComisionConflicto):
+		responderError(w, http.StatusConflict, "conflicto_version")
+	case errors.Is(err, dietasports.ErrDocumentoNoDisponible):
+		responderError(w, http.StatusConflict, "documento_no_disponible")
+	case errors.Is(err, domain.ErrDocumentoComisionInvalido):
+		responderError(w, http.StatusBadRequest, "peticion_invalida")
 	case errors.Is(err, domain.ErrComisionBorradorInvalida):
 		responderError(w, http.StatusBadRequest, "peticion_invalida")
 	case errors.Is(err, dietasports.ErrResultadoBorradorIncierto):

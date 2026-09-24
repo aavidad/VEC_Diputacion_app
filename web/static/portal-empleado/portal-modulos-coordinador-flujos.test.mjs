@@ -289,7 +289,7 @@ test("la base de presentación pendiente termina en error sin habilitar ningún 
   assert.equal(coordinador.resolverAcceso("bolsa", true).disponible, false);
 });
 
-test("el funcionario comparte una sola identidad y compone Cronos, Dietas y Personal", async () => {
+test("la presentación mantiene Cronos y Personal y deja Dietas cerrado", async () => {
   const coordinador = crearCoordinador();
   const contextoBolsa = await coordinador.cargarPresentacion(
     obtenerDatosPresentacion("funcionario").sesion,
@@ -298,10 +298,11 @@ test("el funcionario comparte una sola identidad y compone Cronos, Dietas y Pers
   assert.equal(coordinador.obtenerContextoBolsa(), null);
   assert.equal(coordinador.resolverAcceso("bolsa", true).disponible, false);
   assert.equal(coordinador.resolverAcceso("cronos", true).disponible, true);
-  assert.equal(coordinador.resolverAcceso("dietas", true).disponible, true);
+  assert.equal(coordinador.resolverAcceso("dietas", true).disponible, false);
+  assert.equal(coordinador.resolverAcceso("dietas", true).estado, "no_disponible");
   assert.equal(coordinador.resolverAcceso("personal", true).disponible, true);
   const navegacion = coordinador.renderizarNavegacion(true, "portal", (vista) => ["cronos", "dietas", "personal"].includes(vista));
-  assert.equal((navegacion.match(/modulo-habilitado/g) || []).length, 3);
+  assert.equal((navegacion.match(/modulo-habilitado/g) || []).length, 2);
   assert.match(navegacion, /data-modulo-portal="bolsa"[^>]*disabled/u);
 });
 
@@ -417,7 +418,7 @@ test("Elaboración reserva el montaje pendiente antes de una reentrada y descart
   assert.deepEqual(abortadas, ["primera", "segunda"]);
 });
 
-test("Cronos y Dietas montan contenido administrativo y nunca dejan el área en blanco", async () => {
+test("Cronos se mantiene disponible y Dietas no monta una presentación sintética", async () => {
   const coordinador = crearCoordinador();
   await coordinador.cargarPresentacion(obtenerDatosPresentacion("funcionario").sesion);
   const raiz = raizDietasFalsa();
@@ -425,109 +426,26 @@ test("Cronos y Dietas montan contenido administrativo y nunca dejan el área en 
   const cronos = raiz.querySelector("[data-cronos-recorridos]");
   assert.ok(cronos);
   assert.match(cronos.innerHTML, /class="cronos-area/);
-  assert.match(cronos.innerHTML, /Movimientos/);
-  assert.doesNotMatch(cronos.innerHTML, /Descargar recibo/);
-  const raizDietas = raizDietasFalsa();
-  assert.equal(await coordinador.montarVista("dietas", raizDietas), true);
-  const recorridosDietas = raizDietas.querySelector("[data-dietas-recorridos]");
-  assert.equal(raizDietas.querySelector("[data-dietas-itinerario]"), null);
-  recorridosDietas.listeners.click({
-    target: recorridosDietas.querySelector("[data-dietas-abrir-nueva-comision]"),
-  });
-  await new Promise((resolver) => setImmediate(resolver));
-  assert.ok(raizDietas.querySelector("[data-dietas-itinerario]"));
-  assert.equal(raizDietas.querySelector("[data-itinerario-catalogo]"), null);
+  assert.equal(coordinador.vistaDisponible("dietas"), false);
+  assert.equal(await coordinador.montarVista("dietas", raizDietasFalsa()), false);
   coordinador.desmontarVistaActual();
 });
 
-test("Dietas calcula con el mediador OSRM real de presentación y nunca con simulación", async () => {
-  const llamadas = [];
-  const anuncios = [];
-  const coordinador = crearCoordinador({
-    fetchImpl: async (ruta, opciones) => {
-      llamadas.push({ ruta, opciones });
-      return respuestaJSON(respuestaOSRM());
-    },
-    anunciar: (mensaje, tipo) => anuncios.push({ mensaje, tipo }),
-  });
-  await coordinador.cargarPresentacion(obtenerDatosPresentacion("funcionario").sesion);
-  const raiz = raizDietasFalsa();
-  assert.equal(await coordinador.montarVista("dietas", raiz), true);
-
-  const recorridos = raiz.querySelector("[data-dietas-recorridos]");
-  recorridos.listeners.click({
-    target: recorridos.querySelector("[data-dietas-abrir-nueva-comision]"),
-  });
-  await new Promise((resolver) => setImmediate(resolver));
-
-  const contenedorDietas = raiz.querySelector("[data-dietas-itinerario]");
-  await contenedorDietas.listeners.click({
-    target: contenedorDietas.querySelector("[data-itinerario-calcular]"),
-  });
-  await new Promise((resolver) => setImmediate(resolver));
-
-  assert.equal(llamadas.length, 1);
-  assert.equal(llamadas[0].ruta, "/api/presentacion/cartografia/rutas");
-  assert.equal(llamadas[0].opciones.method, "POST");
-  assert.equal(llamadas[0].opciones.credentials, "omit");
-  assert.equal(llamadas[0].opciones.redirect, "error");
-  assert.deepEqual(JSON.parse(llamadas[0].opciones.body), {
-    coordinates: [
-      { lat: 37.17428891, lon: -3.59869101, name: "Granada" },
-      { lat: 36.74535308, lon: -3.52045559, name: "Motril" },
-      { lat: 37.17428891, lon: -3.59869101, name: "Granada" },
-    ],
-    alternatives: 3,
-  });
-  assert.ok(raiz.querySelector("[data-dietas-mapa-ref]"));
-  assert.ok(anuncios.some(({ mensaje }) => /calculada por el puerto interno/i.test(mensaje)));
-  coordinador.desmontarVistaActual();
-});
-
-test("una navegación aborta el catálogo Dietas pendiente sin publicar su montaje obsoleto", async () => {
-  let resolverCatalogo; let senalCatalogo;
-  const catalogoPendiente = new Promise((resolver) => { resolverCatalogo = resolver; });
-  const [identidad, catalogo, cronosContrato, cronosPresentador, cronosDatos, cronosAdaptador, documentos,
-    dietasContrato, dietaVista, personalVista, catalogoDietas] = await Promise.all([
+test("el cargador de Dietas de presentación no se invoca aunque esté disponible", async () => {
+  let cargasDietas = 0;
+  const [identidad, catalogo] = await Promise.all([
     import("./identidad/presentacion.js"), import("./portal-catalogo-presentacion.js"),
-    import("./modulos/cronos/contrato.js"), import("./modulos/cronos/presentador.js"),
-    import("./modulos/cronos/datos-presentacion.js"), import("./modulos/cronos/adaptador-presentacion.js"),
-    import("./documentos/descarga-recibos-presentacion.js"), import("./modulos/dietas/contrato.js"),
-    import("./modulos/dietas/vista-itinerario.js"), import("./modulos/personal/vista.js"),
-    import("./modulos/dietas/catalogo-rutas-provincial.js"),
   ]);
   const coordinador = crearCoordinadorModulosPortal({
     escaparHTML: String,
-    entorno: { location: { origin: "http://127.0.0.2:8081" }, fetch: async () => { throw new Error("no procede"); } },
     cargadoresPresentacion: {
       base: async () => Object.freeze({ identidad, catalogo }),
-      cronos: async () => Object.freeze({
-        contrato: cronosContrato, presentador: cronosPresentador, datos: cronosDatos,
-        adaptador: cronosAdaptador, documentos,
-      }),
-      dietas: async () => Object.freeze({
-        contrato: dietasContrato,
-        vista: dietaVista,
-        mapa: { crearVisorRutaDietas: () => ({ montar() { throw new Error("no debe montar mapa"); } }) },
-        calculador: { crearCalculadorRutasDietasPresentacionOSRM: () => ({
-          obtenerCatalogo({ signal }) { senalCatalogo = signal; return catalogoPendiente; },
-          calcular: async () => null,
-        }) },
-      }),
-      personal: async () => Object.freeze({ vista: personalVista }),
+      dietas: async () => { cargasDietas += 1; throw new Error("demo de Dietas prohibida"); },
     },
   });
   await coordinador.cargarPresentacion(obtenerDatosPresentacion("funcionario").sesion);
-  const raiz = raizDietasFalsa();
-  const montajeAnterior = coordinador.montarVista("dietas", raiz);
-  assert.ok(raiz.querySelector("[data-dietas-itinerario]"));
-  coordinador.desmontarVistaActual();
-  const ajeno = raiz.ownerDocument.createElement("section"); ajeno.dataset.ajeno = ""; raiz.append(ajeno);
-  resolverCatalogo(catalogoDietas.obtenerCatalogoRutasProvincial());
-  assert.equal(await montajeAnterior, false);
-  assert.equal(senalCatalogo.aborted, true);
-  assert.equal(raiz.querySelector("[data-ajeno]"), ajeno);
-  assert.equal(raiz.querySelector("[data-dietas-itinerario]"), null);
+  assert.equal(cargasDietas, 0);
+  assert.equal(coordinador.vistaDisponible("dietas"), false);
 });
 
 test("Dietas falla cerrada sin cliente HTTP y Cronos permanece disponible", async () => {
@@ -642,16 +560,16 @@ test("el coordinador no autentica ni conserva estado en el navegador", async () 
   assert.match(fuente, /composicion = null/);
   assert.match(fuente, /secuenciaCarga/);
   assert.match(empleado, /function componerCronosVisible/);
-  assert.match(fuente, /function capacidadesDietas/);
+  assert.match(fuente, /componerDietasInternas/);
   assert.doesNotMatch(fuente, /^import .*\/modulos\//mu);
   assert.doesNotMatch(fuente, /import\("\.\/modulos\/cronos\/datos-presentacion\.js/);
   assert.match(fuente, /import\("\.\/modulos\/cronos\/vista-recorridos\.js/);
-  assert.match(fuente, /import\("\.\/modulos\/dietas\/vista-itinerario\.js/);
+  assert.doesNotMatch(fuente, /import\("\.\/modulos\/dietas\/vista-itinerario\.js/);
   assert.doesNotMatch(fuente, /import\("\.\/modulos\/dietas\/adaptador-presentacion\.js/);
-  assert.match(fuente, /calculador-rutas-presentacion-osrm\.js/);
+  assert.doesNotMatch(fuente, /calculador-rutas-presentacion-osrm\.js/);
   assert.doesNotMatch(fuente, /import\("\.\/modulos\/dietas\/calculador-rutas-presentacion\.js"\)/);
   assert.doesNotMatch(fuente, /versionGrafo|granada-buffer-osrm-v/u);
-  assert.match(empleado, /recursos\.mapa\.crearVisorRutaDietas\(\{ entorno, permitirTeselas: true \}\)/);
+  assert.doesNotMatch(empleado, /datos-sinteticos-rrhh|crearVisorRutaDietas/u);
   assert.match(estilos, /data-modulo-catalogo="bolsa"/);
   assert.match(estilos, /data-modulo-catalogo="cronos"/);
   assert.match(estilos, /data-modulo-catalogo="dietas"/);
@@ -674,14 +592,13 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
   const versionEntradaAyuda = "20260924-rescate-web-v4";
   const versionVistasC = "20260924-web-c-v1";
   const versionDietasRecuperacion = "20260924-dietas-recuperacion-v3";
-  const versionDietasVista = "20260924-web-paradas-periodos-v1";
+  const versionDietasVista = "20260924-dietas-montaje-v1";
   const versionCarga = "20260923-p4-estado-modulos-v1";
   const versionModuloBolsa = "20260924-rescate-web-v4";
   const versionSubsanacion = "20260924-web-subsanacion-v1";
   const versionClientePersonal = versionPersonalInterno;
   const versionCatalogo = versionCronosPermisos;
   const versionCronos = "20260924-web-paradas-periodos-v1";
-  const versionDietas = "20260924-web-paradas-periodos-v1";
   const versionDietasCSS = "20260924-dietas-ayuda-icono-v1";
   const versionRPT = "20260920-personal-rpt-publica-v3";
   const versionEstilos = "20260920-personal-rpt-publica-v3";
@@ -737,11 +654,11 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
   assert.doesNotMatch(html, /portal\.css\?v=20260924-f2-salto-movil-v1/u);
   assert.doesNotMatch(html, /portal\.css\?v=20260924-f2-salto-movil-v2/u);
   assert.doesNotMatch(html, new RegExp(`portal\\.css\\?v=${versionShellF2}`));
-  exigirRenovado(html, "/portal-empleado/modulos/contratacion-temporal/expedientes-operativo.css", versionShellF2);
-  exigirRenovado(coordinador, "./modulos/cronos/vista-recorridos.js", versionCronos);
-  exigirRenovado(coordinador, "./modulos/dietas/vista-itinerario.js", versionDietas);
-  assert.doesNotMatch(coordinador, /modulos\/dietas\/vista-itinerario\.js\?v=20260924-dietas-ayuda-icono-v1/u);
-  exigirVersiones(coordinador, "./modulos/dietas/vista-recorridos.js", posterior(versionDietasVista), 2);
+  assert.match(html, new RegExp(`expedientes-operativo\\.css\\?v=${versionShellF2}`));
+  assert.match(coordinador, new RegExp(`modulos/cronos/vista-recorridos\\.js\\?v=${versionCronos}`));
+  assert.doesNotMatch(coordinador, /modulos\/dietas\/vista-itinerario\.js/u);
+  assert.equal([...coordinador.matchAll(new RegExp(`modulos/dietas/vista-recorridos\\.js\\?v=${versionDietasVista}`, "g"))].length, 1);
+  assert.match(coordinador, new RegExp(`modulos/dietas/cliente-asignacion-http\\.js\\?v=${versionDietasVista}`));
   assert.doesNotMatch(coordinador, /modulos\/dietas\/vista-recorridos\.js\?v=20260924-dietas-ayuda-sin-guia-v1/u);
   assert.doesNotMatch(coordinador, /modulos\/dietas\/vista-recorridos\.js\?v=20260924-dietas-ayuda-icono-v1/u);
   assert.doesNotMatch(coordinador, new RegExp(`modulos/dietas/vista-recorridos\\.js\\?v=${versionDietasRecuperacion}`));

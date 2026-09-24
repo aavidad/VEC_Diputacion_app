@@ -158,6 +158,8 @@ func TestRutasExactasNoAlteranCarcasaNiSePublicanEnDescubrimiento(
 	for _, esperada := range []string{
 		rutaAltaContratacionPrueba,
 		rutaPropuestaCoberturaPrueba,
+		"/api/vec/modules/dietas/action",
+		"/api/vec/modules/rutas/action",
 	} {
 		if ocurrencias(cuerpo.Datos.Rutas, esperada) != 0 {
 			t.Fatalf(

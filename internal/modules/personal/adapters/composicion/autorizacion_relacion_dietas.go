@@ -72,7 +72,10 @@ func (p *ProveedorAutorizacionRelacionDietas) AutorizarConsultaRelacionPropia(ct
 		return vacio, personalports.ErrRelacionEmpleadoNoDisponible
 	}
 	decision, confirmacion, exportador, err := p.emisor.EmitirMaterialAutorizacionAtestadaV3(ctx, solicitud, identidad.Resultado)
-	if err != nil || decision.ValidarPara(solicitud) != nil || dependenciaNula(exportador) {
+	if err != nil {
+		return vacio, clasificarErrorAutorizacionRelacionDietas(ctx, err)
+	}
+	if decision.ValidarPara(solicitud) != nil || dependenciaNula(exportador) {
 		return vacio, personalports.ErrRelacionEmpleadoNoDisponible
 	}
 	autorizacion, err := exportador.ExportarMaterialParaConsumidor()
@@ -80,6 +83,17 @@ func (p *ProveedorAutorizacionRelacionDietas) AutorizarConsultaRelacionPropia(ct
 		return vacio, personalports.ErrRelacionEmpleadoNoDisponible
 	}
 	return autorizacion, nil
+}
+
+func clasificarErrorAutorizacionRelacionDietas(ctx context.Context, err error) error {
+	if ctx != nil && ctx.Err() == nil &&
+		errors.Is(err, vecports.ErrDenegacionExplicitaAutorizacionLigadaV3) &&
+		!errors.Is(err, vecports.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible) &&
+		!errors.Is(err, context.Canceled) &&
+		!errors.Is(err, context.DeadlineExceeded) {
+		return personalports.ErrRelacionEmpleadoDenegada
+	}
+	return personalports.ErrRelacionEmpleadoNoDisponible
 }
 
 func dependenciaNula(valor any) bool {
