@@ -132,6 +132,57 @@ func TestRegistroEmpleadoB2RevierteFichaSinFormaExacta(t *testing.T) {
 	}
 }
 
+func TestRegistroEmpleadoB2ExigeSnapshotDeCatalogoPublicado(t *testing.T) {
+	o := ordenFichaB2Prueba(t)
+	var respuesta ports.ResultadoFichaEmpleadoB2
+	if err := json.Unmarshal(respuestaFichaB2Prueba(t, o), &respuesta); err != nil {
+		t.Fatal(err)
+	}
+	desde, _ := domain.NuevaFechaCivil("2026-09-01")
+	entrada := func(tipo, ref string) *domain.SnapshotEntradaCatalogoEmpleadoB2 {
+		return &domain.SnapshotEntradaCatalogoEmpleadoB2{
+			OrganismoRef: o.Material.OrganismoRef(), Tipo: tipo, Ref: ref, Version: 1, Revision: 1,
+			Denominacion: "Entrada sintética", HuellaSHA256: strings.Repeat("a", 64), VigenteDesde: desde, Estado: "publicada",
+		}
+	}
+	respuesta.Ficha.Relaciones = []domain.RelacionRegistroEmpleadoB2{{
+		RelacionRef: "rel_" + strings.Repeat("a", 24), UnidadRef: "uni:prueba", OrganismoRef: o.Material.OrganismoRef(),
+		RegimenRef: "reg:funcionario", ModalidadRef: "mod:interino", Estado: "vigente",
+		CatalogoSnapshot: domain.SnapshotCatalogoEmpleadoB2{
+			Regimen: entrada("regimen", "reg:funcionario"), Modalidad: entrada("modalidad", "mod:interino"),
+		},
+		Traza: domain.TrazaEmpleadoB2{Desde: desde, RegistradaEn: o.Material.Corte().ConocidoEn.Add(-time.Hour), Version: 1, ActoRef: "acto:prueba", FuenteRef: "fuente:prueba", FuenteVersion: 1},
+	}}
+	valido, _ := json.Marshal(respuesta)
+	if _, err := decodificarFichaEmpleadoB2(valido, o); err != nil {
+		t.Fatal("snapshot publicado válido rechazado", err)
+	}
+	var bruto map[string]json.RawMessage
+	if err := json.Unmarshal(valido, &bruto); err != nil {
+		t.Fatal(err)
+	}
+	var ficha map[string]json.RawMessage
+	if err := json.Unmarshal(bruto["ficha"], &ficha); err != nil {
+		t.Fatal(err)
+	}
+	var relaciones []map[string]json.RawMessage
+	if err := json.Unmarshal(ficha["relaciones"], &relaciones); err != nil {
+		t.Fatal(err)
+	}
+	delete(relaciones[0], "catalogo_snapshot")
+	ficha["relaciones"], _ = json.Marshal(relaciones)
+	bruto["ficha"], _ = json.Marshal(ficha)
+	sinSnapshot, _ := json.Marshal(bruto)
+	if _, err := decodificarFichaEmpleadoB2(sinSnapshot, o); err == nil {
+		t.Fatal("relación sin snapshot aceptada")
+	}
+	respuesta.Ficha.Relaciones[0].CatalogoSnapshot.Regimen.Estado = "retirada"
+	retirada, _ := json.Marshal(respuesta)
+	if _, err := decodificarFichaEmpleadoB2(retirada, o); err == nil {
+		t.Fatal("snapshot retirado aceptado")
+	}
+}
+
 func ordenVacantesB2Prueba(t *testing.T) ports.OrdenVacantesB2 {
 	t.Helper()
 	actor := ordenP(t).Material.Solicitud().Actor

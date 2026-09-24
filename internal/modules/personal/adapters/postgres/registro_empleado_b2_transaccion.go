@@ -131,7 +131,9 @@ func normalizarErrorRegistroEmpleadoB2(ctx context.Context, err error) error {
 	if errors.As(err, &pg) && pg.Code == "P7401" {
 		return errRegistroEmpleadoB2Cobertura
 	}
-	if errors.As(err, &pg) && pg.Code == "23505" {
+	// El catálogo B2 devuelve 23514 para versión ausente, retirada o fuera de
+	// vigencia. Todas estas causas comparten el mismo conflicto opaco.
+	if errors.As(err, &pg) && (pg.Code == "23505" || pg.Code == "23514") {
 		return errRegistroEmpleadoB2Conflicto
 	}
 	return errRegistroEmpleadoB2NoDisponible

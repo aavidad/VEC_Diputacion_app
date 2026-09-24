@@ -130,6 +130,9 @@ func formaRespuestaRegistroB2(bruto []byte, clave string) error {
 				return errRegistroEmpleadoB2NoDisponible
 			}
 		}
+		if !snapshotsRegistroEmpleadoB2Exactos(datos) {
+			return errRegistroEmpleadoB2NoDisponible
+		}
 	} else {
 		if !clavesRegistroB2(datos, []string{"organismo_ref", "corte", "limite", "cursor", "cobertura", "vacantes"}, []string{"cursor_siguiente"}) || len(datos["vacantes"]) == 0 || datos["vacantes"][0] != '[' {
 			return errRegistroEmpleadoB2NoDisponible
@@ -140,6 +143,41 @@ func formaRespuestaRegistroB2(bruto []byte, clave string) error {
 		return errRegistroEmpleadoB2NoDisponible
 	}
 	return nil
+}
+
+func snapshotsRegistroEmpleadoB2Exactos(datos map[string]json.RawMessage) bool {
+	for _, coleccion := range []struct {
+		nombre string
+		claves []string
+	}{
+		{"relaciones", []string{"regimen", "modalidad"}},
+		{"ocupaciones", []string{"modalidad"}},
+		{"situaciones", []string{"situacion"}},
+		{"servicios", []string{"clase_servicio"}},
+	} {
+		var registros []json.RawMessage
+		if json.Unmarshal(datos[coleccion.nombre], &registros) != nil {
+			return false
+		}
+		for _, bruto := range registros {
+			var registro map[string]json.RawMessage
+			if json.Unmarshal(bruto, &registro) != nil || registro == nil {
+				return false
+			}
+			var snapshot map[string]json.RawMessage
+			if json.Unmarshal(registro["catalogo_snapshot"], &snapshot) != nil || !clavesRegistroB2(snapshot, coleccion.claves, nil) {
+				return false
+			}
+			for _, clave := range coleccion.claves {
+				var entrada map[string]json.RawMessage
+				if json.Unmarshal(snapshot[clave], &entrada) != nil || !clavesRegistroB2(entrada,
+					[]string{"organismo_ref", "tipo", "ref", "version", "revision", "denominacion", "huella_sha256", "vigente_desde", "vigente_hasta", "estado"}, nil) {
+					return false
+				}
+			}
+		}
+	}
+	return true
 }
 
 func clavesRegistroB2(datos map[string]json.RawMessage, obligatorias, opcionales []string) bool {

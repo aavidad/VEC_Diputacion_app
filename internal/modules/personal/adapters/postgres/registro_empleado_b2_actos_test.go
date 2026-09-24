@@ -27,7 +27,10 @@ func materialAltaB2PruebaConOrganismo(t *testing.T, organismo string) domain.Mat
 	fecha, _ := domain.NuevaFechaCivil("2026-09-20")
 	persona := "per_" + strings.Repeat("a", 24)
 	s := domain.SolicitudAltaEmpleadoB2{
-		PersonaRef: persona, OrganismoRef: organismo, UnidadRef: "uni:prueba", RegimenRef: "reg:funcionario", ModalidadRef: "mod:interino", VigenteDesde: fecha, Actor: actor,
+		PersonaRef: persona, OrganismoRef: organismo, UnidadRef: "uni:prueba",
+		Regimen:      domain.EntradaCatalogoEmpleadoB2{Ref: "reg:funcionario", Version: 1},
+		Modalidad:    domain.EntradaCatalogoEmpleadoB2{Ref: "mod:interino", Version: 1},
+		VigenteDesde: fecha, Actor: actor,
 		Procedencia: domain.ProcedenciaActoEmpleadoB2{ActoRef: "acto:prueba", FuenteRef: "fuente:prueba", FuenteVersion: 1, FuenteHuellaSHA256: strings.Repeat("a", 64), IdempotenciaRef: "550e8400-e29b-41d4-a716-446655440000"},
 	}
 	m, err := domain.NuevoMaterialAltaEmpleadoB2(s)
@@ -81,6 +84,18 @@ func TestRegistroEmpleadoB2AltaConfirmaReciboNominal(t *testing.T) {
 	if err != nil || resultado.Recibo.Tipo != "alta" || tx.commits != 1 || tx.q[1] != registrarEmpleadoB2SQL || len(tx.a[0]) != 11 {
 		t.Fatal("alta nominal no confirmada", err)
 	}
+	var material struct {
+		Regimen      domain.EntradaCatalogoEmpleadoB2 `json:"regimen"`
+		Modalidad    domain.EntradaCatalogoEmpleadoB2 `json:"modalidad"`
+		RegimenRef   string                           `json:"regimen_ref"`
+		ModalidadRef string                           `json:"modalidad_ref"`
+	}
+	if err := json.Unmarshal([]byte(tx.a[0][0].(string)), &material); err != nil ||
+		material.Regimen != (domain.EntradaCatalogoEmpleadoB2{Ref: "reg:funcionario", Version: 1}) ||
+		material.Modalidad != (domain.EntradaCatalogoEmpleadoB2{Ref: "mod:interino", Version: 1}) ||
+		material.RegimenRef != "" || material.ModalidadRef != "" {
+		t.Fatal("alta perdió versión del catálogo", err)
+	}
 }
 
 func TestRegistroEmpleadoB2AltaRevierteReciboAjeno(t *testing.T) {
@@ -123,6 +138,21 @@ func TestRegistroEmpleadoB2AltaTraduceColision(t *testing.T) {
 	_, err := r.RegistrarEmpleadoRRHH(context.Background(), ports.OrdenAltaEmpleadoB2{Material: m, Autorizacion: a})
 	if !errors.Is(err, domain.ErrRegistroEmpleadoB2Conflicto) || tx.commits != 0 || tx.rollbacks != 1 || strings.Contains(err.Error(), "privado") {
 		t.Fatal("colisión no traducida", err)
+	}
+}
+
+func TestRegistroEmpleadoB2CatalogoNoAcreditadoEsConflictoOpaco(t *testing.T) {
+	m := materialAltaB2Prueba(t)
+	a := atestacionActoB2Prueba(t, m, domain.AccionAltaEmpleadoB2, domain.AudienciaAltaEmpleadoB2)
+	for _, causa := range []string{"ausente", "retirado", "fuera de vigencia", "versión ajena"} {
+		t.Run(causa, func(t *testing.T) {
+			tx := &txP{errQ: &pgconn.PgError{Code: "23514", Message: "catálogo " + causa + " con referencia privada"}}
+			r, _ := nuevoRepositorioRegistroEmpleadoB2PostgreSQL(&poolP{tx: tx})
+			_, err := r.RegistrarEmpleadoRRHH(context.Background(), ports.OrdenAltaEmpleadoB2{Material: m, Autorizacion: a})
+			if !errors.Is(err, domain.ErrRegistroEmpleadoB2Conflicto) || err.Error() != domain.ErrRegistroEmpleadoB2Conflicto.Error() || tx.commits != 0 || tx.rollbacks != 1 {
+				t.Fatal("estado del catálogo filtrado o transacción confirmada", err)
+			}
+		})
 	}
 }
 
@@ -180,7 +210,9 @@ func TestRegistroEmpleadoB2HechoUsaRelacionExplicita(t *testing.T) {
 	empleado := "emp_" + strings.Repeat("b", 24)
 	relacion := "rel_" + strings.Repeat("c", 24)
 	s := domain.SolicitudHechoEmpleadoB2{
-		Tipo: "situacion", EmpleadoRef: empleado, OrganismoRef: "organismo:dipgra", RelacionRef: relacion, RevisionEsperada: 1, RelacionVersionEsperada: 1, ClaseRef: "sit:servicio_activo", VigenteDesde: fecha, Actor: actor,
+		Tipo: "situacion", EmpleadoRef: empleado, OrganismoRef: "organismo:dipgra", RelacionRef: relacion, RevisionEsperada: 1, RelacionVersionEsperada: 1,
+		Situacion: domain.EntradaCatalogoEmpleadoB2{Ref: "sit:servicio_activo", Version: 1}, Estado: "vigente",
+		VigenteDesde: fecha, Actor: actor,
 		Procedencia: domain.ProcedenciaActoEmpleadoB2{ActoRef: "acto:prueba", FuenteRef: "fuente:prueba", FuenteVersion: 1, FuenteHuellaSHA256: strings.Repeat("a", 64), IdempotenciaRef: "550e8400-e29b-41d4-a716-446655440000"},
 	}
 	m, err := domain.NuevoMaterialHechoEmpleadoB2(s)
@@ -197,5 +229,48 @@ func TestRegistroEmpleadoB2HechoUsaRelacionExplicita(t *testing.T) {
 	resultado, err := r.RegistrarHechoEmpleadoRRHH(context.Background(), ports.OrdenHechoEmpleadoB2{Material: m, Autorizacion: a})
 	if err != nil || resultado.Recibo.RelacionRef != relacion || tx.commits != 1 || tx.q[1] != registrarHechoEmpleadoB2SQL {
 		t.Fatal("hecho sin relación explícita", err)
+	}
+	var material struct {
+		Situacion domain.EntradaCatalogoEmpleadoB2 `json:"situacion"`
+	}
+	if err := json.Unmarshal([]byte(tx.a[0][0].(string)), &material); err != nil ||
+		material.Situacion != (domain.EntradaCatalogoEmpleadoB2{Ref: "sit:servicio_activo", Version: 1}) {
+		t.Fatal("hecho perdió versión de situación", err)
+	}
+}
+
+func TestRegistroEmpleadoB2ServicioConClaseVersionada(t *testing.T) {
+	actor := ordenP(t).Material.Solicitud().Actor
+	desde, _ := domain.NuevaFechaCivil("2026-09-01")
+	hasta, _ := domain.NuevaFechaCivil("2026-09-20")
+	empleado := "emp_" + strings.Repeat("b", 24)
+	relacion := "rel_" + strings.Repeat("c", 24)
+	m, err := domain.NuevoMaterialHechoEmpleadoB2(domain.SolicitudHechoEmpleadoB2{
+		Tipo: "servicio", EmpleadoRef: empleado, OrganismoRef: "organismo:dipgra", RelacionRef: relacion,
+		RevisionEsperada: 1, RelacionVersionEsperada: 1, ClaseServicio: domain.EntradaCatalogoEmpleadoB2{Ref: "clase:servicio", Version: 2},
+		Estado: "reconocido", PeriodoDesde: desde, PeriodoHasta: hasta, DiasReconocidos: 19, VigenteDesde: hasta, Actor: actor,
+		Procedencia: domain.ProcedenciaActoEmpleadoB2{ActoRef: "acto:prueba", FuenteRef: "fuente:prueba", FuenteVersion: 1, FuenteHuellaSHA256: strings.Repeat("a", 64), IdempotenciaRef: "550e8400-e29b-41d4-a716-446655440001"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := atestacionActoB2Prueba(t, m, domain.AccionHechoEmpleadoB2, domain.AudienciaHechoEmpleadoB2)
+	instante := a.ResumenCapacidad().EmitidaEn().Add(time.Microsecond)
+	bruto, _ := json.Marshal(ports.ResultadoHechoEmpleadoB2{Recibo: ports.ReciboActoRegistroEmpleadoB2{
+		ReciboRef: "perrec_" + strings.Repeat("a", 32), EmpleadoRef: empleado, RelacionRef: relacion, HechoRef: "srv_" + strings.Repeat("d", 24), Tipo: "servicio", Version: 1,
+		RegistradoEn: instante, DecisionRef: a.ResumenCapacidad().DecisionRef(), EfectoRef: a.ResumenCapacidad().EfectoRef(), ConsumoHuellaSHA256: strings.Repeat("e", 64), AuditoriaRef: "auditoria:prueba",
+	}, AccesoActual: ports.AccesoActualRegistroEmpleadoB2{DecisionRef: a.ResumenCapacidad().DecisionRef(), EfectoRef: a.ResumenCapacidad().EfectoRef(), ConsumoHuellaSHA256: strings.Repeat("e", 64), AuditoriaRef: "auditoria:prueba", ConsultadaEn: instante, EstadoReplay: "registrado"}})
+	tx := &txP{fila: filaP{vals: []any{bruto}}}
+	r, _ := nuevoRepositorioRegistroEmpleadoB2PostgreSQL(&poolP{tx: tx})
+	_, err = r.RegistrarHechoEmpleadoRRHH(context.Background(), ports.OrdenHechoEmpleadoB2{Material: m, Autorizacion: a})
+	if err != nil || tx.commits != 1 {
+		t.Fatal("servicio versionado no confirmado", err)
+	}
+	var material struct {
+		ClaseServicio domain.EntradaCatalogoEmpleadoB2 `json:"clase_servicio"`
+	}
+	if err := json.Unmarshal([]byte(tx.a[0][0].(string)), &material); err != nil ||
+		material.ClaseServicio != (domain.EntradaCatalogoEmpleadoB2{Ref: "clase:servicio", Version: 2}) {
+		t.Fatal("se perdió la versión de clase de servicio", err)
 	}
 }
