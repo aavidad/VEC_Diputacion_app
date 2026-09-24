@@ -189,7 +189,24 @@ fallo_sql 'persona ausente' 'P0002' "BEGIN ISOLATION LEVEL SERIALIZABLE;
 fallo_sql 'referencia invalida' '22023' "BEGIN ISOLATION LEVEL SERIALIZABLE;
   SET LOCAL ROLE vec_personal_propietario;
   SELECT * FROM vec_contexto_actor_v1.acreditar_persona_tercero_v1('DNI123'); COMMIT;"
-ok 'vigencia, negativos de aislamiento y formato'
+caducada=per_sintetica_caducada_b2_000000000001
+no_autoritativa=per_sintetica_noautoritativa_b2_00000000001
+admin_valor "BEGIN; SET LOCAL ROLE vec_contexto_actor_v1_propietario;
+  INSERT INTO vec_contexto_actor_v1.procedencias VALUES
+    ('prc_sintetica_noautoritativa_b2_00001',1,repeat('b',64),'no_autoritativa');
+  INSERT INTO vec_contexto_actor_v1.persona_versiones VALUES
+    ('$caducada',1,'prc_maestra_sintetica_p7_000000000001',1,repeat('a',64),
+      'autoridad_maestra_acreditada','activo',clock_timestamp()-interval '3 hours',clock_timestamp()-interval '1 hour'),
+    ('$no_autoritativa',1,'prc_sintetica_noautoritativa_b2_00001',1,repeat('b',64),
+      'no_autoritativa','activo',clock_timestamp()-interval '1 hour',clock_timestamp()+interval '3 hours');
+  INSERT INTO vec_contexto_actor_v1.persona_actual VALUES
+    ('$caducada',1),('$no_autoritativa',1); COMMIT;" >/dev/null
+for caso in "$caducada" "$no_autoritativa"; do
+  fallo_sql "persona no acreditable $caso" 'P0002' "BEGIN ISOLATION LEVEL SERIALIZABLE;
+    SET LOCAL ROLE vec_personal_propietario;
+    SELECT * FROM vec_contexto_actor_v1.acreditar_persona_tercero_v1('$caso'); COMMIT;"
+done
+ok 'vigencia, autoridad, aislamiento y formato'
 
 # Snapshot anterior al COMMIT de revocacion: el control MVCC debe forzar 40001.
 salida_vieja=$(mktemp)
