@@ -112,6 +112,9 @@ func (f *FuenteF1) ResolverContexto(ctx context.Context) (ct.ContextoAutorizacio
 		!f.reloj.Ahora().Before(f.politica.RetiradaEn) {
 		return ct.ContextoAutorizacionAltaV3{}, ErrGobiernoInternoNoDisponible
 	}
+	if err := f.identidad.ExigirSujetoPersonaCertificadoTemporal(ctx, datos.PrincipalID); err != nil {
+		return ct.ContextoAutorizacionAltaV3{}, ErrGobiernoInternoNoDisponible
+	}
 	return ct.ContextoAutorizacionAltaV3{Vinculo: v, Resultado: resultado}, nil
 }
 
@@ -150,6 +153,9 @@ func (f *FuenteF1) PeticionVerificada(ctx context.Context) (inc.PeticionAutorida
 		datos.PoliticaGarantiaRef != f.politica.Referencia ||
 		datos.PoliticaGarantiaHuellaSHA256 != f.politica.HuellaSHA256 ||
 		!f.reloj.Ahora().Before(f.politica.RetiradaEn) {
+		return vacia, ErrGobiernoInternoNoDisponible
+	}
+	if err := f.identidad.ExigirSujetoPersonaCertificadoTemporal(ctx, datos.PrincipalID); err != nil {
 		return vacia, ErrGobiernoInternoNoDisponible
 	}
 	resultado := inc.PeticionAutoridad{
