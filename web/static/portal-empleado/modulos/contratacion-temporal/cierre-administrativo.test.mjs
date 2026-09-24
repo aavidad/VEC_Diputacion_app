@@ -20,7 +20,19 @@ test("cierre: la preparación GET queda ligada a expediente y seguimiento solici
     return respuesta({ data: preparacion });
   } });
   const resultado = await cliente.consultarPreparacionCierreSinCese({ expediente_ref, seguimiento_ref });
+  assert.equal(resultado.expediente_ref, expediente_ref);
+  assert.equal(resultado.seguimiento_ref, seguimiento_ref);
+  assert.equal(resultado.version_actual, 1);
+  assert.equal(resultado.estado_actual, "vigente");
   assert.deepEqual(resultado.preparacion, { expediente_ref, seguimiento_ref, version_esperada: 1, motivos: ["sin_cese"] });
+  const cerrado = crearClienteHTTPContratacionTemporal({ fetchImpl: async () => respuesta({ data: {
+    ...preparacion, version_actual: 2, estado_actual: "cerrado_administrativamente", acciones: [],
+  } }) });
+  assert.deepEqual(await cerrado.consultarPreparacionCierreSinCese({ expediente_ref, seguimiento_ref }), {
+    expediente_ref, seguimiento_ref, version_actual: 2,
+    estado_actual: "cerrado_administrativamente", preparada_en: preparacion.preparada_en,
+    preparacion: null,
+  });
   const cruzado = crearClienteHTTPContratacionTemporal({ fetchImpl: async () => respuesta({ data: { ...preparacion, seguimiento_ref: "seguimiento:ct:ajeno" } }) });
   await assert.rejects(cruzado.consultarPreparacionCierreSinCese({ expediente_ref, seguimiento_ref }));
 });
