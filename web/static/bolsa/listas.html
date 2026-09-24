@@ -1,19 +1,20 @@
 <!doctype html>
-<html lang="es">
+<html lang="es" data-tema="institucional">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Consulta pública del orden, situación y documento enmascarado en las bolsas de trabajo.">
   <title>Listas de contratación y bolsas de trabajo | Portal VEC</title>
   <link rel="icon" href="/bolsa/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/styles.css">
-  <link rel="stylesheet" href="/bolsa/bolsa.css">
-  <link rel="stylesheet" href="/bolsa/bolsa_adaptable.css">
-  <link rel="stylesheet" href="/bolsa/listas.css">
+  <link rel="stylesheet" href="/styles.css?v=20260715-theme">
+  <link rel="stylesheet" href="/comun/tema-vec.css?v=20260924-bolsa-publica-final">
+  <link rel="stylesheet" href="/bolsa/bolsa.css?v=20260924-bolsa-publica-final">
+  <link rel="stylesheet" href="/bolsa/bolsa_adaptable.css?v=20260924-bolsa-publica-final">
+  <link rel="stylesheet" href="/bolsa/listas.css?v=20260924-bolsa-publica-final">
   <script type="module" src="/bolsa/contrato-publico-bolsas.js"></script>
-  <script src="/bolsa/i18n-publica.js?v=20260920-publico-i18n-v1" defer></script>
+  <script src="/bolsa/i18n-publica.js?v=20260924-bolsa-publica-final" defer></script>
   <script type="module" src="/bolsa/lista-bolsas-api.js"></script>
-  <script type="module" src="/bolsa/lista-bolsas.js"></script>
+  <script type="module" src="/bolsa/lista-bolsas.js?v=20260924-bolsa-publica-final"></script>
 </head>
 <body class="portal-bolsa-publico">
   <a class="salto-contenido" href="#contenido-principal">Saltar al contenido principal</a>
@@ -53,7 +54,7 @@
 
       <main id="contenido-principal" class="contenido-publico contenedor-listas" tabindex="-1">
         <header class="cabecera-seccion-publica">
-          <p class="eyebrow">Consulta pública de aspirantes (B10)</p>
+          <p class="eyebrow">Consulta pública de aspirantes</p>
           <h1>Listas de aspirantes en bolsas de trabajo</h1>
           <p>Consulte el orden, situación administrativa y documento enmascarado en cada bolsa de trabajo en vigor. Esta consulta es de acceso libre y no requiere certificado ni identificación.</p>
         </header>
@@ -102,7 +103,7 @@
         </section>
 
         <!-- SECCIÓN 2: LISTA DE ASPIRANTES DE LA BOLSA SELECCIONADA -->
-        <section id="seccion-lista" aria-labelledby="titulo-seccion-lista" hidden>
+        <section id="seccion-lista" aria-label="Lista de aspirantes de la bolsa seleccionada" hidden>
           <p>
             <button type="button" id="boton-volver-bolsas" class="boton-secundario">
               ← Volver a la relación de bolsas

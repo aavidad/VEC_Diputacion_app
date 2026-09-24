@@ -373,6 +373,8 @@ test("interfaz pública: listas.html es accesible, semántica y sin textos demo 
   assert.match(html, /<table\b[^>]*\bclass="tabla-listas-publica"/);
   assert.match(html, /<caption>/);
   assert.match(html, /<th scope="col">/);
+  assert.match(html, /id="seccion-lista" aria-label="Lista de aspirantes de la bolsa seleccionada"/);
+  assert.doesNotMatch(html, /aria-labelledby="titulo-seccion-lista"/);
 
   // Enlace de salto
   assert.match(html, /<a class="salto-contenido" href="#contenido-principal">/);

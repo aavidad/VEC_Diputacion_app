@@ -73,12 +73,36 @@ test("la entrada de listas conduce a la consulta pública B10", () => {
   assert.doesNotMatch(menu, /href="\/api\//);
 });
 
-test("la presentación identifica el origen real y devuelve al selector desde el logotipo", () => {
+test("el aviso de demostración solo puede mostrarse tras confirmación de la fuente", () => {
   assert.match(html, /<h1 id="titulo-portal">Bolsas y procesos selectivos<\/h1>/);
-  assert.match(html, /Datos públicos reales de referencia; plazos y actuaciones rotulados DEMO son sintéticos/);
-  assert.match(html, /id="alcance-datos-demo"/);
+  assert.match(html, /id="aviso-demostracion"[^>]*\bhidden>/);
+  assert.match(html, /id="texto-aviso-demostracion"><\/span>/);
+  assert.match(css, /#aviso-demostracion:not\(\[hidden\]\):has\(#texto-aviso-demostracion:empty\)/);
+  assert.doesNotMatch(html, /id="alcance-datos-demo"/);
+  assert.match(html, /id="ayuda-publica"[^>]*>[\s\S]*?<details>[\s\S]*?<summary id="titulo-ayuda-publica">Ayuda pública/);
+  assert.match(html, /<details id="ayuda-filtro-categoria"/);
+  assert.match(javascript, /fuente\?\.demostracion === true/);
   assert.match(javascript, /inicioInstitucional\.href = esDemostracion \? "\/presentacion\/" : "\/bolsa\/"/);
   assert.match(javascript, /Volver al selector de recorridos de la presentación/);
+});
+
+test("ambas páginas cargan tema positivo y activos públicos versionados", () => {
+  const listas = readFileSync(join(directorio, "listas.html"), "utf8");
+  for (const pagina of [html, listas]) {
+    assert.match(pagina, /<html lang="es" data-tema="institucional">/);
+    assert.ok(pagina.indexOf("/styles.css") < pagina.indexOf("/comun/tema-vec.css"));
+    assert.ok(pagina.indexOf("/comun/tema-vec.css") < pagina.indexOf("/bolsa/bolsa.css"));
+    assert.doesNotMatch(pagina, /\/portal-empleado\/portal\.css/);
+    for (const activo of ["tema-vec.css", "bolsa.css", "bolsa_adaptable.css", "i18n-publica.js"]) {
+      assert.match(pagina, new RegExp(`${activo.replaceAll(".", "\\.")}\\?v=20260924-bolsa-publica-final`));
+    }
+  }
+  assert.match(listas, /listas\.css\?v=20260924-bolsa-publica-final/);
+  assert.match(listas, /lista-bolsas\.js\?v=20260924-bolsa-publica-final/);
+  assert.match(html, /bolsa\.js\?v=20260924-bolsa-publica-final/);
+  assert.match(css, /--bolsa-bg:\s*var\(--portal-fondo, var\(--bg\)\)/);
+  assert.match(css, /\.portal-bolsa-publico\.alto-contraste \.navegacion-publica a\[aria-current="page"\]/);
+  assert.doesNotMatch(css, /#[0-9a-f]{3,8}\b/i, "Bolsa no debe duplicar la paleta común");
 });
 
 test("todos los destinos del menú público existen en el documento", () => {

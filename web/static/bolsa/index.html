@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="es">
+<html lang="es" data-tema="institucional">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -7,11 +7,12 @@
   <title>Bolsa y procesos selectivos | Portal VEC</title>
   <link rel="icon" href="/bolsa/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/styles.css?v=20260715-theme">
-  <link rel="stylesheet" href="/bolsa/bolsa.css?v=20260720-pulido-escritorio-v2">
-  <link rel="stylesheet" href="/bolsa/bolsa_adaptable.css?v=20260719-abiertas-v1">
+  <link rel="stylesheet" href="/comun/tema-vec.css?v=20260924-bolsa-publica-final">
+  <link rel="stylesheet" href="/bolsa/bolsa.css?v=20260924-bolsa-publica-final">
+  <link rel="stylesheet" href="/bolsa/bolsa_adaptable.css?v=20260924-bolsa-publica-final">
   <script src="/bolsa/contrato-v1.js?v=20260919-contrato-publico-v1-runtime" defer></script>
-  <script src="/bolsa/i18n-publica.js?v=20260920-publico-i18n-v1" defer></script>
-  <script src="/bolsa/bolsa.js?v=20260919-contrato-publico-v1-runtime" defer></script>
+  <script src="/bolsa/i18n-publica.js?v=20260924-bolsa-publica-final" defer></script>
+  <script src="/bolsa/bolsa.js?v=20260924-bolsa-publica-final" defer></script>
 </head>
 <body class="portal-bolsa-publico">
   <a class="salto-contenido" href="#contenido-principal">Saltar al contenido principal</a>
@@ -50,17 +51,17 @@
         </nav>
       </header>
 
-      <div id="aviso-demostracion" class="aviso-demostracion" role="status">
+      <div id="aviso-demostracion" class="aviso-demostracion" role="status" hidden>
         <strong>DEMOSTRACIÓN</strong>
-        <span id="texto-aviso-demostracion">Datos públicos reales de referencia; plazos y actuaciones rotulados DEMO son sintéticos y carecen de validez administrativa.</span>
-        <a href="#alcance-datos-demo">Ver alcance</a>
+        <span id="texto-aviso-demostracion"></span>
+        <a href="#ayuda-publica">Ayuda pública</a>
       </div>
 
   <main id="contenido-principal" class="contenido-publico" tabindex="-1">
     <section class="presentacion-publica" aria-labelledby="titulo-portal">
       <p class="eyebrow">Consulta pública</p>
       <h1 id="titulo-portal">Bolsas y procesos selectivos</h1>
-      <p>Consulte el histórico público, sus fechas de publicación, requisitos y bases. Esta zona no muestra expedientes ni datos personales.</p>
+      <p>Consulta anónima de convocatorias, requisitos y bases publicados.</p>
     </section>
 
     <form id="filtros-convocatorias" class="panel-filtros" role="search" aria-label="Filtrar convocatorias">
@@ -75,7 +76,7 @@
       <div class="campo">
         <label for="filtro-categoria">Categoría</label>
         <select id="filtro-categoria" name="categoria" aria-describedby="ayuda-filtro-categoria"><option value="">Todas con procesos</option></select>
-        <p id="ayuda-filtro-categoria" class="ayuda-campo">Solo se muestran categorías con procesos publicados. <a href="#directorio-categorias">Consultar el directorio completo</a>.</p>
+        <details id="ayuda-filtro-categoria" class="ayuda-campo ayuda-inline"><summary>¿Qué categorías aparecen?</summary><p>Solo se muestran categorías con procesos publicados. <a href="#directorio-categorias">Consultar el directorio completo</a>.</p></details>
       </div>
       <div class="campo">
         <label for="filtro-estado">Estado</label>
@@ -187,33 +188,37 @@
       </div>
       <div id="grupos-directorio-categorias" class="grupos-directorio" aria-label="Categorías profesionales" hidden></div>
 
-      <p class="nota-suscripciones"><strong>Avisos por categoría:</strong> se configurarán desde el área personal autenticada, con consentimiento y justificante. Este portal público no guarda preferencias ni datos de contacto.</p>
     </section>
 
-    <section id="ayuda-publica" class="ayuda-publica" aria-labelledby="titulo-ayuda-publica">
-      <div>
-        <p class="eyebrow">Ayuda del portal público</p>
-        <h2 id="titulo-ayuda-publica" tabindex="-1">Cómo consultar una bolsa o proceso selectivo</h2>
-        <p>La información de esta zona es pública. No introduzca DNI, teléfonos, direcciones ni otros datos personales en el buscador.</p>
-      </div>
-      <div class="ayuda-publica__preguntas">
-        <details>
-          <summary>¿Cómo encuentro una convocatoria?</summary>
-          <p>Use el buscador o los filtros de tipo, categoría, estado y plazo. Después seleccione «Consultar ficha pública».</p>
-        </details>
-        <details>
-          <summary>¿Dónde están las bases y los requisitos?</summary>
-          <p>La ficha de cada convocatoria reúne sus plazos, requisitos, documentos públicos y respuestas específicas.</p>
-        </details>
-        <details>
-          <summary>¿Esta página permite presentar una solicitud?</summary>
-          <p>No. Esta es una consulta anónima. La presentación y firma se realizarán en el área personal autenticada cuando esté habilitada.</p>
-        </details>
-        <details id="alcance-datos-demo">
-          <summary>¿Qué datos son reales en esta demostración?</summary>
-          <p>Los títulos, categorías, fechas de publicación y referencias BOP proceden de fuentes públicas. Los plazos expresamente marcados como DEMO se han añadido únicamente para recorrer la presentación; los documentos adaptados y cualquier actuación simulada carecen de validez administrativa.</p>
-        </details>
-      </div>
+    <section id="ayuda-publica" class="ayuda-publica ayuda-publica--plegada" aria-labelledby="titulo-ayuda-publica">
+      <details>
+        <summary id="titulo-ayuda-publica">Ayuda pública <span aria-hidden="true">?</span></summary>
+        <div class="ayuda-publica__contenido">
+          <div>
+            <p class="eyebrow">Ayuda del portal público</p>
+            <h2>Cómo consultar una bolsa o proceso selectivo</h2>
+            <p>La información de esta zona es pública. No introduzca DNI, teléfonos, direcciones ni otros datos personales en el buscador.</p>
+          </div>
+          <div class="ayuda-publica__preguntas">
+            <details>
+              <summary>¿Cómo encuentro una convocatoria?</summary>
+              <p>Use el buscador o los filtros de tipo, categoría, estado y plazo. Después seleccione «Consultar ficha pública».</p>
+            </details>
+            <details>
+              <summary>¿Dónde están las bases y los requisitos?</summary>
+              <p>La ficha de cada convocatoria reúne sus plazos, requisitos, documentos públicos y respuestas específicas.</p>
+            </details>
+            <details>
+              <summary>¿Esta página permite presentar una solicitud?</summary>
+              <p>No. Esta es una consulta anónima. La presentación y firma se realizarán en el área personal autenticada cuando esté habilitada.</p>
+            </details>
+            <details>
+              <summary>¿Se guardan avisos o preferencias?</summary>
+              <p>Los avisos por categoría se configurarán desde el área personal autenticada, con consentimiento y justificante. Este portal público no guarda preferencias ni datos de contacto.</p>
+            </details>
+          </div>
+        </div>
+      </details>
     </section>
 
     <noscript><p class="estado-panel estado-error">Active JavaScript para consultar la API pública desde esta página. La API permanece disponible en <code>/api/publico/bolsa/convocatorias</code>.</p></noscript>
