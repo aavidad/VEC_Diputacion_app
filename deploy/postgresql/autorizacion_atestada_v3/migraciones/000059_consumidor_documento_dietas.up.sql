@@ -5,8 +5,8 @@
 -- Instalación en serie: AD3-53 (Cronos) y AD3-59 reescriben el mismo núcleo
 -- y admiten cualquier orden entre sí, pero se instalan en serie, nunca en
 -- paralelo. AD3-59 toma el consultivo común vec_autorizacion_atestada_v3:nucleo
--- antes de leer el núcleo; mientras AD3-53 no tome el mismo, el operador las
--- aplica una tras otra, confirmada la primera antes de lanzar la segunda.
+-- antes de leer el núcleo, igual que AD3-53; el operador las aplica aun así
+-- una tras otra, confirmada la primera antes de lanzar la segunda.
 BEGIN;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
 SET LOCAL search_path=pg_catalog;
