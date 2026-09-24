@@ -3,9 +3,10 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const raiz = new URL("./", import.meta.url);
-const versionNueva = "20260924-f2-dietas-consulta-v2";
-const versionAnteriorEntrada = "20260924-f2-cronos-permisos-v2";
-const versionAnteriorDietas = "20260924-f2-shell-v1";
+const versionEntradaNueva = "20260924-f2-dietas-consulta-v3";
+const versionVistaNueva = "20260924-f2-consulta-v2";
+const versionAnteriorEntrada = "20260924-f2-dietas-consulta-v2";
+const versionAnteriorDietas = "20260924-f2-dietas-consulta-v2";
 
 function versiones(codigo, recurso) {
   const escapado = recurso.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -20,9 +21,9 @@ test("la consulta Dietas atraviesa caché caliente desde HTML hasta ambos cargad
     readFile(new URL("modulos/dietas/vista-recorridos.js", raiz), "utf8"),
   ]);
   const aristas = [
-    [html, "/portal-empleado/portal.js", [versionNueva], `/portal-empleado/portal.js?v=${versionAnteriorEntrada}`],
-    [portal, "./portal-modulos-coordinador.js", [versionNueva], `./portal-modulos-coordinador.js?v=${versionAnteriorEntrada}`],
-    [coordinador, "./modulos/dietas/vista-recorridos.js", [versionNueva, versionNueva],
+    [html, "/portal-empleado/portal.js", [versionEntradaNueva], `/portal-empleado/portal.js?v=${versionAnteriorEntrada}`],
+    [portal, "./portal-modulos-coordinador.js", [versionEntradaNueva], `./portal-modulos-coordinador.js?v=${versionAnteriorEntrada}`],
+    [coordinador, "./modulos/dietas/vista-recorridos.js", [versionVistaNueva, versionVistaNueva],
       `./modulos/dietas/vista-recorridos.js?v=${versionAnteriorDietas}`],
   ];
   for (const [padre, recurso, esperado, urlAnterior] of aristas) {
@@ -36,16 +37,18 @@ test("la consulta Dietas atraviesa caché caliente desde HTML hasta ambos cargad
     [`/portal-empleado/modulos/dietas/vista-recorridos.js?v=${versionAnteriorDietas}`, "respuesta antigua"],
   ]);
   const actuales = new Map([
-    [`/portal-empleado/portal.js?v=${versionNueva}`, portal],
-    [`/portal-empleado/portal-modulos-coordinador.js?v=${versionNueva}`, coordinador],
-    [`/portal-empleado/modulos/dietas/vista-recorridos.js?v=${versionNueva}`, vista],
+    [`/portal-empleado/portal.js?v=${versionEntradaNueva}`, portal],
+    [`/portal-empleado/portal-modulos-coordinador.js?v=${versionEntradaNueva}`, coordinador],
+    [`/portal-empleado/modulos/dietas/vista-recorridos.js?v=${versionVistaNueva}`, vista],
   ]);
   for (const [url, codigo] of actuales) {
     assert.ok(!cache.has(url), `${url}: caché antigua no intercepta la carga`);
     cache.set(url, codigo);
     assert.equal(cache.get(url), codigo);
   }
-  assert.match(vista, /vista-borradores-propios\.js\?v=20260924-f2-consulta-v1/u);
+  assert.doesNotMatch(coordinador, /modulos\/dietas\/vista-recorridos\.js\?v=20260924-f2-shell-v1/u);
+  assert.match(vista, /vista-borradores-propios\.js\?v=20260924-f2-consulta-v2/u);
+  assert.doesNotMatch(vista, /vista-borradores-propios\.js\?v=20260924-f2-consulta-v1/u);
   assert.match(html, /portal\.css\?v=20260924-f2-salto-movil-v3/u);
   assert.match(html, /tema-vec\.css\?v=20260924-f2-tema-base-v2/u);
 });

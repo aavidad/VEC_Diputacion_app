@@ -89,7 +89,7 @@ const CARGADORES_PRESENTACION_PREDETERMINADOS = Object.freeze({
       import("./modulos/dietas/vista-itinerario.js?v=20260923-dietas-r1"),
       import("./modulos/dietas/mapa-ruta.js?v=20260923-dietas-r1"),
       import("./modulos/dietas/calculador-rutas-presentacion-osrm.js"),
-      import("./modulos/dietas/vista-recorridos.js?v=20260924-f2-dietas-consulta-v2"),
+      import("./modulos/dietas/vista-recorridos.js?v=20260924-f2-consulta-v2"),
     ]);
     return Object.freeze({ contrato, vista, mapa, calculador, recorridos });
   },
@@ -167,7 +167,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       import("./modulos/dietas/vista-itinerario.js?v=20260923-dietas-r1"),
       import("./modulos/dietas/mapa-ruta.js?v=20260923-dietas-r1"),
       import("./modulos/dietas/calculador-rutas-http.js"),
-      import("./modulos/dietas/vista-recorridos.js?v=20260924-f2-dietas-consulta-v2"),
+      import("./modulos/dietas/vista-recorridos.js?v=20260924-f2-consulta-v2"),
       import("./modulos/dietas/cliente-borradores-http.js?v=20260924-f2-shell-v1"),
     ]);
     return Object.freeze({ contrato, vista, mapa, calculador, recorridos, clienteBorradores });
