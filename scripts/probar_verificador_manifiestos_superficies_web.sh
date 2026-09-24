@@ -18,20 +18,24 @@ restaurar() {
 }
 trap 'restaurar; rm -rf "${temporal}"' EXIT
 
-grep -Fxq 'static/bolsa/i18n-publica.js' web/publico.manifest || {
-	printf 'La autoprueba requiere el catalogo i18n publico en el manifiesto original.\n' >&2
-	exit 1
-}
-grep -Fxv 'static/bolsa/i18n-publica.js' web/publico.manifest >"${temporal}/publico-sin-i18n.manifest"
-cp "${temporal}/publico-sin-i18n.manifest" web/publico.manifest
-if scripts/verificar_manifiestos_superficies_web.sh >"${temporal}/salida" 2>&1; then
-	printf 'El verificador acepto la ausencia del catalogo i18n publico de Bolsa.\n' >&2
-	exit 1
-fi
-grep -Fxq 'Falta recurso publico obligatorio: static/bolsa/i18n-publica.js' "${temporal}/salida" || {
-	cat "${temporal}/salida" >&2
-	exit 1
-}
+scripts/verificar_manifiestos_superficies_web.sh >"${temporal}/salida" 2>&1
+
+for catalogo in static/bolsa/i18n-publica.js static/verificar/i18n.js; do
+	grep -Fxq "${catalogo}" "${temporal}/publico.manifest" || {
+		printf 'La autoprueba requiere el catalogo i18n publico original: %s.\n' "${catalogo}" >&2
+		exit 1
+	}
+	grep -Fxv "${catalogo}" "${temporal}/publico.manifest" >web/publico.manifest
+	if scripts/verificar_manifiestos_superficies_web.sh >"${temporal}/salida" 2>&1; then
+		printf 'El verificador acepto la ausencia del catalogo i18n publico: %s.\n' "${catalogo}" >&2
+		exit 1
+	fi
+	grep -Fxq "Falta recurso publico obligatorio: ${catalogo}" "${temporal}/salida" || {
+		cat "${temporal}/salida" >&2
+		exit 1
+	}
+	restaurar
+done
 restaurar
 
 printf '%s\n' 'static/portal-empleado/index.html' >>web/publico.manifest
@@ -77,5 +81,12 @@ grep -Fq 'traduccion interna no canonica' "${temporal}/salida" || {
 	exit 1
 }
 restaurar
+
+for manifiesto in publico.manifest interno.manifest interno.locales.manifest; do
+	cmp -s "web/${manifiesto}" "${temporal}/${manifiesto}" || {
+		printf 'La autoprueba no restauro exactamente %s.\n' "${manifiesto}" >&2
+		exit 1
+	}
+done
 
 printf 'Autoprueba negativa de manifiestos web superada.\n'

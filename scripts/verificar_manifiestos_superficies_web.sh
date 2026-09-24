@@ -64,6 +64,7 @@ fi
 for requerida in \
 	static/bolsa/index.html \
 	static/bolsa/i18n-publica.js \
+	static/verificar/i18n.js \
 	static/verificar/index.html \
 	static/assets/logo-diputacion-granada.svg \
 	static/comun/tema-vec.css \

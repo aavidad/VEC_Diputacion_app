@@ -238,6 +238,7 @@ static/portal-empleado/vendor/leaflet-1.9.4/images/marker-shadow.png
 static/portal-empleado/vendor/leaflet-1.9.4/leaflet.css
 static/portal-empleado/vendor/leaflet-1.9.4/leaflet.js
 static/styles.css
+static/verificar/i18n.js
 static/verificar/index.html
 static/verificar/verificar.css
 static/verificar/verificar.js

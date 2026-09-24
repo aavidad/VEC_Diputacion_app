@@ -18,6 +18,7 @@ static/bolsa/listas.html
 static/comun/tema-vec.css
 static/favicon.svg
 static/styles.css
+static/verificar/i18n.js
 static/verificar/index.html
 static/verificar/verificar.css
 static/verificar/verificar.js
