@@ -123,6 +123,17 @@ function claseEstado(estado) {
   return estado === "vencida" || estado === "bloqueada" ? "peligro" : estado === "pendiente" ? "violeta" : "neutro";
 }
 
+/** Una lectura no confirmada no acredita recuentos, aunque queden filas previas en memoria. */
+export function calcularIndicadoresAprobaciones(estado, visibles) {
+  if (estado === "vacio") return Object.freeze({ pendientes: 0, altas: 0, modulos: 0 });
+  if (estado !== "disponible") return Object.freeze({ pendientes: null, altas: null, modulos: null });
+  return Object.freeze({
+    pendientes: visibles.length,
+    altas: visibles.filter((item) => item.prioridad === "alta").length,
+    modulos: new Set(visibles.map((item) => item.modulo)).size,
+  });
+}
+
 /**
  * Monta una bandeja de lectura. fuentePendientes.consultarPendientes({signal})
  * aporta solo resultados previamente autorizados para el actor y el ámbito.
@@ -198,17 +209,22 @@ export function montarVistaAprobaciones({ raiz, anunciar = () => {}, registrarDe
 
   function pintarIndicadores() {
     const lista = visibles();
+    const cifras = calcularIndicadoresAprobaciones(estado, lista);
+    const valor = (cantidad) => cantidad === null ? "—" : numero.format(cantidad);
+    const notaFuente = estado === "disponible" || estado === "vacio" ? t("consulta_lectura") : estado === "no_configurado" ? t("sin_fuente") : t("fuente_no_confirmada");
     const resumen = [
-      ["▤", t("pendientes_visibles"), numero.format(lista.length), estado === "disponible" ? t("consulta_lectura") : t("sin_fuente")],
-      ["!", t("alta_prioridad"), numero.format(lista.filter((item) => item.prioridad === "alta").length), t("segun_fuente")],
-      ["◫", t("circuitos"), numero.format(new Set(lista.map((item) => item.modulo)).size), t("consulta_lectura")],
+      ["▤", t("pendientes_visibles"), valor(cifras.pendientes), notaFuente],
+      ["!", t("alta_prioridad"), valor(cifras.altas), notaFuente],
+      ["◫", t("circuitos"), valor(cifras.modulos), notaFuente],
       ["◇", t("firma_multiple"), t("firma_no_verificada"), t("portafirmas_pendiente")],
     ];
     indicadores.replaceChildren(...resumen.map(([icono, nombre, valor, nota], indice) => {
       const tarjeta = crear(documento, "article", "", "tarjeta-kpi aprobaciones-kpi aprobaciones-kpi--" + indice);
       const simbolo = crear(documento, "span", icono, "icono-kpi");
       simbolo.setAttribute("aria-hidden", "true");
-      tarjeta.append(simbolo, crear(documento, "span", nombre), crear(documento, "strong", valor, "valor-kpi"), crear(documento, "small", nota));
+      const cifra = crear(documento, "strong", valor, "valor-kpi");
+      if (valor === "—") cifra.setAttribute("aria-label", t("sin_dato"));
+      tarjeta.append(simbolo, crear(documento, "span", nombre), cifra, crear(documento, "small", nota));
       return tarjeta;
     }));
   }
@@ -246,7 +262,7 @@ export function montarVistaAprobaciones({ raiz, anunciar = () => {}, registrarDe
       });
       cuerpo.append(tabla(documento, t("tabla_pendientes"), ["referencia", "circuito", "solicitante", "prioridad", "estado", "acciones"].map(t), filas));
     } else {
-      const clave = estado === "disponible" ? "sin_resultados" : "mensaje_" + estado;
+      const clave = estado === "disponible" ? "sin_resultados" : estado === "no_configurado" ? "sin_fuente" : "mensaje_" + estado;
       const mensaje = crear(documento, "p", t(clave), "aprobaciones-vacio");
       mensaje.setAttribute("role", estado === "error" || estado === "denegado" ? "alert" : "status");
       cuerpo.append(mensaje);

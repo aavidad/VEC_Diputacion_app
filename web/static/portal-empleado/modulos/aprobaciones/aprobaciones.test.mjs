@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { normalizarConsultaAprobaciones } from "./vista.js";
+import { calcularIndicadoresAprobaciones, normalizarConsultaAprobaciones } from "./vista.js";
 import { MENSAJES_APROBACIONES_ES, crearTraductorAprobaciones } from "./i18n.js?v=20260924-f2-web2";
 
 const pendiente = {
@@ -22,6 +22,13 @@ assert.throws(() => normalizarConsultaAprobaciones({ estado: "disponible", pendi
 assert.throws(() => normalizarConsultaAprobaciones({ estado: "disponible", pendientes: [{ ...pendiente, recibido: "ayer" }] }), /recibido/u);
 assert.throws(() => normalizarConsultaAprobaciones({ estado: "disponible", pendientes: [{ ...pendiente, plazo: "2026-02-30" }] }), /plazo/u);
 assert.throws(() => normalizarConsultaAprobaciones({ estado: "disponible", pendientes: [{ ...pendiente, evidencias: Array(11).fill("x") }] }), /evidencias/u);
+
+const cifraConfirmada = calcularIndicadoresAprobaciones("disponible", lectura.pendientes);
+assert.deepEqual(cifraConfirmada, { pendientes: 1, altas: 1, modulos: 1 });
+assert.deepEqual(calcularIndicadoresAprobaciones("vacio", lectura.pendientes), { pendientes: 0, altas: 0, modulos: 0 });
+for (const estado of ["no_configurado", "denegado", "error", "cargando"]) {
+  assert.deepEqual(calcularIndicadoresAprobaciones(estado, lectura.pendientes), { pendientes: null, altas: null, modulos: null });
+}
 
 const vista = await readFile(new URL("./vista.js", import.meta.url), "utf8");
 assert.match(vista, /from "\.\/i18n\.js\?v=20260924-f2-web2"/u);
