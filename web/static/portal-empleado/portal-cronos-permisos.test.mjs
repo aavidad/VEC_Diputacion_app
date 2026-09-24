@@ -83,15 +83,10 @@ test("Permisos exige catálogo Cronos; muestra recorrido inerte y limpia listene
   assert.match(recorrido.innerHTML, /id="cronos-persona"/u);
   assert.match(recorrido.innerHTML, /id="cronos-responsable"[^>]+hidden/u);
   assert.match(recorrido.innerHTML, /id="cronos-rrhh"[^>]+hidden/u);
-  for (const campo of ["tipo", "desde", "hasta", "observacion", "documento_ref"]) {
-    assert.match(recorrido.innerHTML, new RegExp(`name="${campo}"[^>]*disabled`, "u"));
-  }
-  assert.match(recorrido.innerHTML, /Registrar solicitud<\/button>/u);
+  assert.match(recorrido.innerHTML, /Servicio de Cronos no disponible\./u);
+  assert.doesNotMatch(recorrido.innerHTML, /<form|<select|<input|<textarea/u);
   assert.equal(recorrido.listeners.has("keydown"), true);
-  let impedido = false;
-  recorrido.listeners.get("submit")({ target: { matches: () => true },
-    preventDefault() { impedido = true; } });
-  assert.equal(impedido, true);
+  assert.equal(recorrido.listeners.has("click"), true);
   assert.deepEqual(consultas, [], "el montaje no consulta datos ni envía solicitudes");
   assert.equal(await coordinador.montarVista("cronos", raiz), true);
   assert.equal(recorrido.listeners.size, 0);

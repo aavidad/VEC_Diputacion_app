@@ -1,67 +1,37 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
-import {
-  filtrarCatalogoPermisosCronos,
-  montarCatalogoPermisosCronos,
-  renderizarCatalogoPermisosCronos,
-} from "./vista-catalogo-permisos.js";
-import { MENSAJES_CRONOS_C6_ES } from "./i18n-c6.js";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+import { montarCatalogoPermisosCronos, renderizarCatalogoPermisosCronos } from "./vista-catalogo-permisos.js";
 
-test("la referencia reproduce tipos de la ficha sin cuantías ni saldos personales", () => {
+test("C6 no compila tipos ni cuantías y conserva tabla vacía", () => {
   const html = renderizarCatalogoPermisosCronos();
-  assert.equal((html.match(/data-cronos-c6-tipo=/gu) || []).length, 25);
-  for (const nombre of ["Asistencia a exámenes", "Bolsa horaria por conciliación", "Horas de médico", "Vacaciones"]) {
-    assert.ok(html.includes(nombre), nombre);
-  }
-  for (const campo of ["Unidad", "Cómputo", "Máximo anual o mensual", "Mínimo", "Quién autoriza", "Justificante exigido"]) {
-    assert.ok(html.includes(`<dt>${campo}</dt><dd>Pendiente de confirmación por RRHH</dd>`), campo);
-  }
-  assert.match(html, /Ficha de requisitos de Cronos, 23\/09\/2026; nombres vistos en WCronos/u);
-  assert.match(html, /no habilita la solicitud de permisos/u);
-  assert.doesNotMatch(html, /6 días|30 h|22 días|saldo disponible|<form|<button|fetch\(/u);
+  assert.match(html, /data-cronos-c6-estado="no_configurado"/u);
+  assert.match(html, /<table>/u);
+  assert.match(html, /Catálogo de permisos no disponible/u);
+  assert.match(html, /Solicitud deshabilitada: catálogo y servicio no disponibles/u);
+  assert.match(html, /disabled aria-disabled="true" aria-describedby="cronos-c6-sin-solicitud"/u);
+  assert.doesNotMatch(html, /Asuntos propios|Vacaciones|<form|<input|data-cronos-c6-tipo/u);
 });
 
-test("la búsqueda admite tildes, muestra vacío y escapa texto del catálogo", () => {
-  assert.deepEqual(filtrarCatalogoPermisosCronos("meDIco"), ["horas_medico"]);
-  assert.deepEqual(filtrarCatalogoPermisosCronos("  SÁBADOS "), ["compensacion_sabados"]);
-  const html = renderizarCatalogoPermisosCronos({ consulta: 'nada"><script>' });
-  assert.match(html, /Tipos mostrados: 0/u);
-  assert.match(html, /data-cronos-c6-vacio role="status">No hay tipos/u);
-  assert.doesNotMatch(html, /<script>/u);
-  const modificado = renderizarCatalogoPermisosCronos({ mensajes: {
-    ...MENSAJES_CRONOS_C6_ES,
-    tipo_vacaciones: '<img src=x onerror="alert(1)">',
-  } });
-  assert.match(modificado, /&lt;img src=x onerror=&quot;alert\(1\)&quot;&gt;/u);
-  assert.doesNotMatch(modificado, /<img/u);
+test("el título se escapa y el montaje desmonta sin almacenamiento", () => {
+  const html = renderizarCatalogoPermisosCronos({ mensajes: { titulo: '<img src=x onerror="alert(1)">' } });
+  assert.match(html, /&lt;img src=x onerror=&quot;alert\(1\)&quot;&gt;/u);
+  assert.doesNotMatch(html, /<img/u);
+  const contenedor = { innerHTML: "", remove() { this.retirado = true; } };
+  let desmontar;
+  montarCatalogoPermisosCronos({
+    raiz: { ownerDocument: { createElement: () => contenedor }, append() {} },
+    registrarDesmontar: (fn) => { desmontar = fn; },
+  });
+  desmontar();
+  assert.equal(contenedor.retirado, true);
 });
 
-test("el montaje filtra localmente, conserva foco del campo y desmonta el oyente", () => {
-  const listeners = new Map();
-  const filas = [{ dataset: { cronosC6Tipo: "horas_medico" }, hidden: false }, { dataset: { cronosC6Tipo: "vacaciones" }, hidden: false }];
-  const estado = { textContent: "" };
-  const vacio = { hidden: true };
-  let retirado = false;
-  const contenedor = {
-    innerHTML: "",
-    addEventListener(tipo, fn) { listeners.set(tipo, fn); },
-    removeEventListener(tipo, fn) { if (listeners.get(tipo) === fn) listeners.delete(tipo); },
-    querySelectorAll(selector) { return selector === "[data-cronos-c6-tipo]" ? filas : []; },
-    querySelector(selector) { return selector === "[data-cronos-c6-resultados]" ? estado : selector === "[data-cronos-c6-vacio]" ? vacio : null; },
-    remove() { retirado = true; },
-  };
-  const raiz = { ownerDocument: { createElement() { return contenedor; } }, append(nodo) { assert.equal(nodo, contenedor); } };
-  let registrado;
-  const vista = montarCatalogoPermisosCronos({ raiz, registrarDesmontar(fn) { registrado = fn; } });
-  const campo = { value: "médico", matches(selector) { return selector === "[data-cronos-c6-buscar]"; } };
-  listeners.get("input")({ target: campo });
-  assert.deepEqual(filas.map((fila) => fila.hidden), [false, true]);
-  assert.equal(estado.textContent, "Tipos mostrados: 1");
-  campo.value = "inexistente";
-  listeners.get("input")({ target: campo });
-  assert.equal(vacio.hidden, false);
-  registrado();
-  vista.desmontar();
-  assert.equal(listeners.size, 0);
-  assert.equal(retirado, true);
+test("la fuente y el tema C6 no inventan lista local", async () => {
+  const fuente = await readFile(new URL("./vista-catalogo-permisos.js", import.meta.url), "utf8");
+  const i18n = await readFile(new URL("./i18n-c6.js", import.meta.url), "utf8");
+  const css = await readFile(new URL("./vista-catalogo-permisos.css", import.meta.url), "utf8");
+  assert.doesNotMatch(fuente + i18n, /tipo_asuntos_propios|TIPOS =|fetch\(|localStorage/u);
+  assert.match(css, /var\(--portal-superficie/u);
+  assert.doesNotMatch(css, /#[0-9a-fA-F]{3,8}\b/u);
 });

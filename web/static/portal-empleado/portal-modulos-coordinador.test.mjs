@@ -550,7 +550,7 @@ test("Cronos interno solo se compone desde el catálogo y deja la jornada sin fi
   const montaje = raiz.querySelector("[data-cronos-jornada-montaje]");
   assert.ok(montaje);
   assert.match(montaje.innerHTML, /data-estado="no_configurado"/);
-  assert.equal((montaje.innerHTML.match(/disabled aria-disabled="true"/g) || []).length, 2);
+  assert.doesNotMatch(montaje.innerHTML, /data-cronos-fichar|jornada-acciones/);
   coordinador.desmontarVistaActual();
   assert.equal(raiz.querySelector("[data-cronos-jornada-montaje]"), null);
   const sinCatalogo = crearCoordinadorModulosPortal({ escaparHTML: String,

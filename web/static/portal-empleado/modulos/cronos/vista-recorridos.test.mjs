@@ -6,10 +6,10 @@ import { montarVistaRecorridosCronos, renderizarRecorridosCronos } from "./vista
 
 const directorio = new URL("./", import.meta.url);
 
-test("Cronos sin fuente muestra no_configurado y no proyecta personas ni saldos sintéticos", () => {
+test("Cronos sin servicio presenta no configurado y no proyecta personas ni saldos sintéticos", () => {
   const html = renderizarRecorridosCronos();
   assert.match(html, /data-estado-entrega="no_configurado"/);
-  assert.match(html, /Cronos todavía no tiene datos de permisos conectados\./u);
+  assert.match(html, /Servicio de Cronos no disponible/u);
   for (const id of ["cronos-persona", "cronos-responsable", "cronos-rrhh"]) assert.match(html, new RegExp(`id="${id}"`));
   assert.match(html, /id="cronos-responsable"[^>]+hidden/u);
   assert.match(html, /id="cronos-rrhh"[^>]+hidden/u);
@@ -17,57 +17,13 @@ test("Cronos sin fuente muestra no_configurado y no proyecta personas ni saldos 
   assert.doesNotMatch(html, /<tbody>|data-cronos-detalle=|data-cronos-control=/u);
 });
 
-test("el catálogo ausente deshabilita tipo, fechas, aclaración y registro", () => {
+test("la estructura conserva etapas y hojas sin formularios ni acciones inertes", () => {
   const html = renderizarRecorridosCronos();
-  assert.match(html, /data-cronos-alta-panel hidden/u);
-  assert.match(html, /<select name="tipo" disabled aria-disabled="true"[^>]*><option value="">No configurado<\/option><\/select>/u);
-  for (const campo of ["desde", "hasta", "observacion", "documento_ref"]) {
-    assert.match(html, new RegExp(`name="${campo}"[^>]*disabled aria-disabled="true"`, "u"));
+  for (const titulo of ["Solicitudes", "Jornada y fichaje", "Movimientos e incidencias", "Permisos y licencias", "Bandeja de equipo", "Revisión de incidencias"]) {
+    assert.match(html, new RegExp(titulo, "u"));
   }
-  assert.match(html, /Registrar solicitud<\/button>/u);
-  assert.match(html, /disabled aria-disabled="true" title="El registro de solicitudes todavía no está disponible\."/u);
-  assert.match(html, /Catálogo de permisos no disponible\./u);
-  assert.match(html, /<details class="cronos-permisos-ayuda"><summary aria-label="\? Ayuda para esta solicitud">\?<\/summary><p>El recorrido tendrá tipo y fechas/u);
-  assert.doesNotMatch(html, /<details class="cronos-permisos-ayuda" open|<summary[^>]*tabindex="-1"/u);
-  assert.match(html, /id="cronos-permisos-paso-2-titulo" tabindex="-1"/u);
-});
-
-test("la ayuda mantiene el control nativo y el foco sin marcador adicional", async () => {
-  const html = renderizarRecorridosCronos();
-  const css = await readFile(new URL("permisos.css", directorio), "utf8");
-  assert.match(html, /<details class="cronos-permisos-ayuda"><summary aria-label="\? Ayuda para esta solicitud">\?<\/summary>/u);
-  assert.match(css, /\.cronos-permisos-ayuda summary\s*\{[^}]*list-style:\s*none;/u);
-  assert.match(css, /\.cronos-permisos-ayuda summary::-webkit-details-marker\s*\{\s*display:\s*none;\s*\}/u);
-  assert.match(css, /\.cronos-permisos-ayuda summary:focus-visible\s*\{[^}]*outline:\s*3px solid var\(--portal-cian\);/u);
-});
-
-test("los tres pasos son una explicación local y el envío se impide", () => {
-  const listeners = new Map();
-  const pasos = [1, 2, 3].map((numero) => ({ dataset: { cronosPaso: String(numero) }, hidden: numero !== 1 }));
-  const indicadores = [1, 2, 3].map((numero) => ({ dataset: { cronosPasoIndicador: String(numero) }, atributos: {}, setAttribute(nombre, valor) { this.atributos[nombre] = valor; }, removeAttribute(nombre) { delete this.atributos[nombre]; } }));
-  const alta = { atributos: { "aria-expanded": "false" }, getAttribute(nombre) { return this.atributos[nombre]; }, setAttribute(nombre, valor) { this.atributos[nombre] = valor; } };
-  const panelAlta = { hidden: true };
-  const titulos = [1, 2, 3].map(() => ({ focus() { this.enfocado = true; } }));
-  const contenedor = { dataset: {}, innerHTML: "", addEventListener(tipo, fn) { listeners.set(tipo, fn); }, removeEventListener(tipo) { listeners.delete(tipo); }, remove() {}, querySelectorAll(selector) { if (selector === "[data-cronos-paso]") return pasos; if (selector === "[data-cronos-paso-indicador]") return indicadores; return []; }, querySelector(selector) { if (selector === "[data-cronos-alta-panel]") return panelAlta; const paso = selector.match(/^#cronos-permisos-paso-(\d)-titulo$/u)?.[1]; return paso ? titulos[Number(paso) - 1] : null; } };
-  const raiz = { ownerDocument: { createElement: () => contenedor }, append() {} };
-  const vista = montarVistaRecorridosCronos({ raiz });
-  const objetivo = (selectorEsperado, nodo = {}) => ({ target: { closest: (selector) => selector === selectorEsperado ? nodo : null } });
-  listeners.get("click")(objetivo("[data-cronos-alta]", alta));
-  assert.equal(panelAlta.hidden, false);
-  listeners.get("click")(objetivo("[data-cronos-paso-siguiente]"));
-  assert.equal(pasos[1].hidden, false);
-  assert.equal(titulos[1].enfocado, true);
-  assert.equal(indicadores[0].atributos["data-estado"], "hecho");
-  assert.equal(indicadores[1].atributos["aria-current"], "step");
-  listeners.get("click")(objetivo("[data-cronos-paso-siguiente]"));
-  assert.equal(pasos[2].hidden, false);
-  listeners.get("click")(objetivo("[data-cronos-paso-anterior]"));
-  assert.equal(pasos[1].hidden, false);
-  let impedido = false;
-  listeners.get("submit")({ target: { matches: () => true }, preventDefault() { impedido = true; } });
-  assert.equal(impedido, true);
-  vista.desmontar();
-  assert.equal(listeners.size, 0);
+  assert.doesNotMatch(html, /<form|<input|<select|<textarea|data-cronos-alta|data-cronos-paso|<details|cronos-recorrido-privacidad/u);
+  assert.doesNotMatch(html, /Recorrido visual|Jornada, movimientos, calendario|Esta pantalla no solicita/u);
 });
 
 test("la navegación de roles es local y no concede permisos", () => {
@@ -119,7 +75,7 @@ test("el montaje no accede a red, ubicación ni almacenamiento", async () => {
 });
 
 test("los textos inyectables se escapan", () => {
-  const html = renderizarRecorridosCronos({ mensajes: { ...MENSAJES_CRONOS_ES, presentacion_titulo: '<img src=x onerror="alert(1)">' } });
+  const html = renderizarRecorridosCronos({ mensajes: { ...MENSAJES_CRONOS_ES, recorridos_titulo: '<img src=x onerror="alert(1)">' } });
   assert.doesNotMatch(html, /<img/u);
   assert.match(html, /&lt;img src=x onerror=&quot;alert\(1\)&quot;&gt;/u);
 });
@@ -166,7 +122,9 @@ test("las hojas del empleado se alcanzan y se desmontan al cambiar de apartado o
   const vista = montarVistaRecorridosCronos({ raiz: { ownerDocument: documento, append() {} } });
   const clic = (selector, nodo) => escuchas.get("click")({ target: { closest: (buscado) => buscado === selector ? nodo : null } });
   clic("[data-cronos-apartado]", apartados[1]);
-  assert.match(hijos.at(-1).nodo.innerHTML, /Tipos de permisos observados/u);
+  assert.match(hijos.at(-1).nodo.innerHTML, /data-cronos-c6-estado="no_configurado"/u);
+  assert.match(hijos.at(-1).nodo.innerHTML, /Catálogo de permisos no disponible\./u);
+  assert.doesNotMatch(hijos.at(-1).nodo.innerHTML, /Asuntos propios|Vacaciones|tipo_asuntos_propios/u);
   assert.equal(paneles[1].hidden, false);
   clic("[data-cronos-apartado]", apartados[2]);
   assert.equal(hijos.at(-2).nodo.eliminado, true);

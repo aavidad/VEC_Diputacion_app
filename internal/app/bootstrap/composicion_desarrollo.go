@@ -258,6 +258,17 @@ func NewHTTPServerDesarrolloWithConfig(
 		rutasContratacion = append(rutasContratacion, comisionesDietas.rutas...)
 		coleccionesBolsasRRHH = append(coleccionesBolsasRRHH, comisionesDietas.colecciones...)
 	}
+	cronosEmpleado, err := nuevasRutasCronosEmpleadoDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, autoridadContratacion.materialCronos)
+	if err != nil {
+		return nil, nil, err
+	}
+	if cronosEmpleado != nil {
+		defer func() {
+			if !completa {
+				cronosEmpleado.cerrar()
+			}
+		}()
+	}
 	autoridadExactas := vechttp.AutoridadRutasExactas(autoridadContratacion)
 	if comisionesDietas != nil {
 		autoridadExactas = autoridadExactasConDietas{delegada: autoridadContratacion, dietas: comisionesDietas}
@@ -283,7 +294,7 @@ func NewHTTPServerDesarrolloWithConfig(
 	if err != nil {
 		return nil, nil, err
 	}
-	servidor, err := server.NewHTTPServer(cfg, composeVECShellAPIConBolsasPublicas(vecAPI, publicaBolsaAPI, bolsasPublicas))
+	servidor, err := server.NewHTTPServer(cfg, componerRaizConCronosEmpleado(composeVECShellAPIConBolsasPublicas(vecAPI, publicaBolsaAPI, bolsasPublicas), cronosEmpleado))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -295,6 +306,9 @@ func NewHTTPServerDesarrolloWithConfig(
 	servidor.RegisterOnShutdown(cerrarDietas)
 	if comisionesDietas != nil {
 		servidor.RegisterOnShutdown(comisionesDietas.cerrar)
+	}
+	if cronosEmpleado != nil {
+		servidor.RegisterOnShutdown(cronosEmpleado.cerrar)
 	}
 	completa = true
 	return servidor, composicion, nil

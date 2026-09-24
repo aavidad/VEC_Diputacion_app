@@ -232,18 +232,6 @@
   font-size: .8125rem;
 }
 
-.cronos-distintivo-demo {
-  display: inline-flex;
-  min-height: 26px;
-  align-items: center;
-  padding: 2px 10px;
-  border: 0;
-  border-radius: 999px;
-  background: var(--portal-aviso-suave);
-  color: var(--portal-aviso);
-  font-weight: 600;
-}
-
 .cronos-frontera {
   display: grid;
   grid-template-columns: minmax(220px, 0.8fr) minmax(260px, 1.2fr) minmax(260px, 1.2fr);
@@ -704,51 +692,13 @@
 .cronos-recorrido-rejilla { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .cronos-recorrido-panel { min-width: 0; padding: 20px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-lg); background: var(--portal-superficie); box-shadow: var(--portal-sombra-sm); }
 .cronos-recorrido-panel h4, .cronos-recorrido-panel p { margin: 0; }
-.cronos-recorrido-panel h4 { font-size: 1.125rem; font-weight: 600; }
-.cronos-panel-principal { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; padding: 0; overflow: hidden; }
-.cronos-panel-principal > * { grid-column: 1 / -1; }
-.cronos-panel-principal > h4 { grid-column: 1; padding: 20px 20px 16px; }
-.cronos-panel-principal > .cronos-cabecera-bandeja { grid-column: 2; }
-.cronos-panel-principal > .cronos-recorrido-vacio { margin: 0 20px 20px !important; }
-.cronos-cabecera-bandeja { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; padding: 12px 20px; }
-.cronos-alta { padding: 0 20px 20px; border-top: 1px solid var(--portal-borde); background: var(--portal-fondo); }
-.cronos-alta[hidden], .cronos-fila-detalle[hidden], .cronos-recorrido-etapa[hidden] { display: none; }
-.cronos-referencia { padding: 0; border: 0; background: transparent; color: var(--portal-azul-700); font: inherit; font-weight: 600; text-align: left; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
-.cronos-referencia[aria-expanded="true"] { color: var(--portal-tinta); text-decoration-thickness: 2px; }
-.cronos-fila-detalle > td { padding: 0 14px 14px; background: var(--portal-fondo); white-space: normal; }
-.cronos-presentacion-ficha-inline { max-width: 760px; margin: 0; }
-.cronos-recorrido-panel > p { margin-top: 4px; color: var(--portal-muted); font-size: .8125rem; }
-.cronos-recorrido-vacio, .cronos-recorrido-aviso { margin-top: 12px !important; padding: 12px 16px; border-radius: var(--portal-radio); background: var(--portal-superficie-alterna); color: var(--portal-muted); }
-.cronos-recorrido-filtros { display: flex; flex-wrap: wrap; gap: 6px; margin: 11px 0 0; }
-.cronos-recorrido-filtros button { min-height: 34px; padding: 5px 9px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio); background: var(--portal-superficie); color: var(--portal-azul-700); font-weight: 600; }
-.cronos-recorrido-filtros button[aria-pressed="true"] { border-color: var(--portal-cian); background: var(--portal-azul-100); }
-.cronos-recorrido-formulario { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; margin-top: 11px; }
-.cronos-recorrido-formulario label { display: grid; gap: 4px; color: var(--portal-muted); font-size: .8125rem; font-weight: 600; }
-.cronos-recorrido-formulario textarea { min-height: 54px; resize: vertical; }
-.cronos-recorrido-formulario textarea, .cronos-recorrido-formulario label:has(textarea), .cronos-recorrido-aviso, .cronos-recorrido-formulario button { grid-column: 1 / -1; }
-.cronos-recorrido-formulario input, .cronos-recorrido-formulario textarea, .cronos-recorrido-formulario select { min-height: 34px; box-sizing: border-box; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio); background: var(--portal-fondo); color: var(--portal-muted); }
-.cronos-recorrido-formulario button { justify-self: start; opacity: .72; cursor: not-allowed; }
-@media (max-width: 720px) { .cronos-recorrido-etapas, .cronos-recorrido-rejilla, .cronos-recorrido-formulario { grid-template-columns: minmax(0, 1fr); } .cronos-recorrido-pendiente { justify-self: start; } }
+.cronos-recorrido-panel h4 { font-size: .84rem; }
+.cronos-panel-principal { padding: 0; overflow: hidden; }
+.cronos-panel-principal > h4 { padding: 14px 14px 0; }
+.cronos-recorrido-etapa[hidden] { display: none; }
+.cronos-recorrido-panel > p { margin-top: 4px; color: var(--portal-muted); font-size: .72rem; }
+.cronos-recorrido-vacio { margin-top: 11px !important; padding: 9px; border-radius: 5px; background: var(--portal-fondo); }
+@media (max-width: 720px) { .cronos-recorrido-etapas, .cronos-recorrido-rejilla { grid-template-columns: minmax(0, 1fr); } .cronos-recorrido-pendiente { justify-self: start; } }
 
-/* Superficie densa de presentación RRHH; hereda tema, no duplica navegación. */
 .cronos-recorrido-panel-ancho { grid-column: 1 / -1; }
-.cronos-presentacion-datos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px 12px; margin: 12px 0 2px; }
-.cronos-presentacion-datos strong { font-size: 1.5rem; font-weight: 600; font-variant-numeric: tabular-nums; }
-.cronos-presentacion-datos span { color: var(--portal-muted); font-size: .8125rem; }
-.cronos-saldo-aviso { color: var(--portal-aviso); }
-.cronos-mini-calendario { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; margin-top: 12px; text-align: center; }
-.cronos-mini-calendario span { color: var(--portal-muted); font-size: .8125rem; font-weight: 600; }
-.cronos-mini-calendario b { padding: 8px 2px; border-radius: var(--portal-radio); background: var(--portal-fondo); font-size: .8125rem; }
-.cronos-mini-calendario .cronos-dia-activo { background: var(--portal-azul-100); color: var(--portal-azul-700); outline: 1px solid var(--portal-cian); }
-.cronos-recorrido-nota { margin: 10px 0 0; color: var(--portal-muted); font-size: .8125rem; }
-.cronos-lista-mensajes { display: grid; gap: 8px; padding: 0; margin: 12px 0; list-style: none; }
-.cronos-lista-mensajes li { display: grid; gap: 2px; padding: 9px; border-left: 3px solid var(--portal-cian); background: var(--portal-fondo); font-size: .8125rem; }
-.cronos-lista-mensajes span { color: var(--portal-muted); }
-.cronos-presentacion-ficha { margin: 12px 0; }
-.cronos-presentacion-ficha div { display: grid; grid-template-columns: minmax(120px, .5fr) minmax(0, 1fr); gap: 9px; padding: 8px 0; border-bottom: 1px solid var(--portal-borde); }
-.cronos-presentacion-ficha dt { color: var(--portal-muted); font-size: .8125rem; font-weight: 600; }
-.cronos-presentacion-ficha dd { margin: 0; font-size: .8125rem; }
-.cronos-recorrido-tabla [data-cronos-fila] { cursor: pointer; }
-.cronos-recorrido-tabla [data-cronos-fila][aria-selected="true"] { background: var(--portal-azul-100); outline: 2px solid var(--portal-cian); outline-offset: -2px; }
-.cronos-recorrido-tabla [data-cronos-fila]:focus-visible { outline: 3px solid var(--portal-cian); outline-offset: -3px; }
-@media (max-width: 720px) { .cronos-presentacion-datos { grid-template-columns: 1fr; } .cronos-presentacion-ficha div { grid-template-columns: 1fr; gap: 3px; } .cronos-recorrido-panel-ancho { grid-column: auto; } }
+@media (max-width: 720px) { .cronos-recorrido-panel-ancho { grid-column: auto; } }

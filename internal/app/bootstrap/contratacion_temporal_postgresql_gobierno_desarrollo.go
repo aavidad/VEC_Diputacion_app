@@ -11,6 +11,7 @@ import (
 	postgrescontratacion "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	ctapplication "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	cronosapp "vec-diputacion-granada/internal/modules/cronos/application"
 	altapersonal "vec-diputacion-granada/internal/modules/personal/adapters/contrataciontemporal"
 	lecturapersonal "vec-diputacion-granada/internal/modules/personal/adapters/lecturaincorporacion"
 	confianzaatestacion "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
@@ -162,7 +163,7 @@ func gobiernoActualPostgreSQLContratacionTemporalDesarrolloEsPropio(
 		    AND pg_catalog.left(c.acto_ref,
 		        pg_catalog.length('acto:ct:desarrollo:clave-capacidad:'))=
 		        'acto:ct:desarrollo:clave-capacidad:'
-		    AND c.audiencia_consumo IN ($1,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22))
+		    AND c.audiencia_consumo IN ($1,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26))
 		AND EXISTS (
 		 SELECT 1
 		   FROM vec_autorizacion_atestada_v3.puntero_configuracion_actual p
@@ -213,6 +214,11 @@ func gobiernoActualPostgreSQLContratacionTemporalDesarrolloEsPropio(
 		audienciaConsumoPersonalDietasDesarrollo,
 		audienciaConsumoCrearDietasDesarrollo,
 		audienciaConsumoConsultarDietasDesarrollo,
+		// Cronos (persona empleada): una audiencia por acción, AD3-53.
+		cronosapp.AudienciaMarcajePropio,
+		cronosapp.AudienciaDisponibilidadMarcajeRemoto,
+		cronosapp.AudienciaRecuperacionMarcajeRemoto,
+		cronosapp.AudienciaConsultaSaldoPropio,
 	).Scan(&propio)
 	return propio, err
 }
@@ -243,7 +249,11 @@ func audienciaConsumoGobiernoPostgreSQLContratacionTemporalDesarrolloEsPropia(
 		puertosbolsa.AudienciaEmitirLlamamiento,
 		audienciaConsumoPersonalDietasDesarrollo,
 		audienciaConsumoCrearDietasDesarrollo,
-		audienciaConsumoConsultarDietasDesarrollo:
+		audienciaConsumoConsultarDietasDesarrollo,
+		cronosapp.AudienciaMarcajePropio,
+		cronosapp.AudienciaDisponibilidadMarcajeRemoto,
+		cronosapp.AudienciaRecuperacionMarcajeRemoto,
+		cronosapp.AudienciaConsultaSaldoPropio:
 		return true
 	default:
 		return false

@@ -487,12 +487,11 @@ test("Dietas calcula con el mediador OSRM real de presentación y nunca con simu
 test("una navegación aborta el catálogo Dietas pendiente sin publicar su montaje obsoleto", async () => {
   let resolverCatalogo; let senalCatalogo;
   const catalogoPendiente = new Promise((resolver) => { resolverCatalogo = resolver; });
-  const [identidad, catalogo, cronosContrato, cronosPresentador, cronosDatos, cronosAdaptador, documentos,
+  const [identidad, catalogo, cronosContrato, cronosRecorridos,
     dietasContrato, dietaVista, personalVista, catalogoDietas] = await Promise.all([
     import("./identidad/presentacion.js"), import("./portal-catalogo-presentacion.js"),
-    import("./modulos/cronos/contrato.js"), import("./modulos/cronos/presentador.js"),
-    import("./modulos/cronos/datos-presentacion.js"), import("./modulos/cronos/adaptador-presentacion.js"),
-    import("./documentos/descarga-recibos-presentacion.js"), import("./modulos/dietas/contrato.js"),
+    import("./modulos/cronos/contrato.js"), import("./modulos/cronos/vista-recorridos.js"),
+    import("./modulos/dietas/contrato.js"),
     import("./modulos/dietas/vista-itinerario.js"), import("./modulos/personal/vista.js"),
     import("./modulos/dietas/catalogo-rutas-provincial.js"),
   ]);
@@ -501,10 +500,7 @@ test("una navegación aborta el catálogo Dietas pendiente sin publicar su monta
     entorno: { location: { origin: "http://127.0.0.2:8081" }, fetch: async () => { throw new Error("no procede"); } },
     cargadoresPresentacion: {
       base: async () => Object.freeze({ identidad, catalogo }),
-      cronos: async () => Object.freeze({
-        contrato: cronosContrato, presentador: cronosPresentador, datos: cronosDatos,
-        adaptador: cronosAdaptador, documentos,
-      }),
+      cronos: async () => Object.freeze({ contrato: cronosContrato, recorridos: cronosRecorridos }),
       dietas: async () => Object.freeze({
         contrato: dietasContrato,
         vista: dietaVista,

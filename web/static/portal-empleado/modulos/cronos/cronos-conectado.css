@@ -1,0 +1,124 @@
+/* Vistas conectadas: las superficies y colores proceden del tema común. */
+.cronos-saldo-conectado,
+.cronos-movimientos-conectado {
+  min-width: 0;
+  min-height: 0;
+  background: var(--portal-fondo);
+}
+
+.cronos-saldo-conectado .cronos-encabezado .cronos-boton-ayuda,
+.cronos-movimientos-conectado .cronos-encabezado .cronos-boton-ayuda {
+  width: 30px;
+  height: 30px;
+  justify-self: end;
+}
+
+.cronos-saldo-conectado .rejilla-kpi {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+}
+
+.cronos-saldo-conectado .tarjeta-kpi {
+  min-width: 0;
+  min-height: 88px;
+}
+
+.cronos-saldo-conectado .valor-kpi {
+  font-variant-numeric: tabular-nums;
+}
+
+.cronos-saldo-conectado .cronos-navegacion,
+.cronos-movimientos-conectado .cronos-navegacion {
+  margin-bottom: 10px;
+  background: var(--portal-superficie-alterna);
+}
+
+.cronos-saldo-conectado .cronos-navegacion [aria-pressed="true"],
+.cronos-movimientos-conectado .cronos-navegacion [aria-pressed="true"] {
+  background: var(--portal-azul-700);
+  color: var(--portal-superficie);
+}
+
+.cronos-saldo-conectado .cronos-navegacion button:focus-visible,
+.cronos-movimientos-conectado .cronos-navegacion button:focus-visible {
+  outline: 2px solid var(--portal-azul-700);
+  outline-offset: 2px;
+}
+
+.cronos-saldo-conectado [data-cronos-saldo-rango],
+.cronos-movimientos-conectado [data-cronos-movimientos-rango] {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+  align-items: end;
+  gap: 12px;
+}
+
+.cronos-saldo-conectado [data-cronos-saldo-rango][hidden],
+.cronos-movimientos-conectado [data-cronos-movimientos-rango][hidden] {
+  display: none;
+}
+
+.cronos-saldo-conectado [data-cronos-saldo-rango] label,
+.cronos-movimientos-conectado [data-cronos-movimientos-rango] label {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+  color: var(--portal-muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.cronos-saldo-conectado [data-cronos-saldo-rango] input,
+.cronos-movimientos-conectado [data-cronos-movimientos-rango] input {
+  min-width: 0;
+  min-height: 38px;
+  padding: 7px 9px;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio);
+  background: var(--portal-superficie);
+  color: var(--portal-tinta);
+  font: inherit;
+}
+
+.cronos-saldo-conectado [data-cronos-saldo-rango] [role="alert"],
+.cronos-movimientos-conectado [data-cronos-movimientos-rango] [role="alert"] {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--portal-peligro);
+}
+
+.cronos-saldo-conectado .cronos-tabla-contenedor,
+.cronos-movimientos-conectado .cronos-tabla-contenedor {
+  max-height: min(48vh, 440px);
+  overflow: auto;
+}
+
+.cronos-saldo-conectado .cronos-tabla tbody tr:nth-child(even),
+.cronos-movimientos-conectado .cronos-tabla tbody tr:nth-child(even) {
+  background: var(--portal-superficie-alterna);
+}
+
+[data-cronos-remoto] .cronos-acciones {
+  justify-content: flex-start;
+}
+
+[data-cronos-remoto] .cronos-acciones button:disabled {
+  cursor: not-allowed;
+}
+
+@media (max-width: 800px) {
+  .cronos-saldo-conectado .cronos-encabezado,
+  .cronos-movimientos-conectado .cronos-encabezado {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .cronos-saldo-conectado .rejilla-kpi {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cronos-saldo-conectado [data-cronos-saldo-rango],
+  .cronos-movimientos-conectado [data-cronos-movimientos-rango] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
