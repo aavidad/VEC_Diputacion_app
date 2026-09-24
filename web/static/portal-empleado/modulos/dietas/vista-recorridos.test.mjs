@@ -194,6 +194,19 @@ test("navega por las tres etapas sin convertir el selector en autorización", ()
   vista.desmontar();
 });
 
+test("el recorrido monta los cinco papeles cerrados y los retira al desmontar", () => {
+  const contenedor = crearRaiz();
+  const vista = montarVistaRecorridosDietas(contenedor);
+  const acceso = contenedor.querySelector("[data-dietas-acceso]");
+  assert.ok(acceso);
+  assert.equal(acceso.querySelectorAll("[data-dietas-papel]").length, 5);
+  assert.ok(acceso.querySelectorAll("[data-dietas-estado-papel]").every((estado) =>
+    estado.dataset.dietasEstadoPapel === "no_configurado"));
+  assert.equal(acceso.querySelectorAll("button").length, 0);
+  vista.desmontar();
+  assert.equal(contenedor.querySelector("[data-dietas-acceso]"), null);
+});
+
 test("consulta un borrador mediante GET propio y presenta su recibo real", async () => {
   const contenedor = crearRaiz();
   const llamadas = [];

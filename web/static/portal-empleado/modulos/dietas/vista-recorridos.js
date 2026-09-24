@@ -1,6 +1,7 @@
-import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js";
+import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260924-dietas-d1d2d4";
 import { crearTraductorRevisionDietas } from "./i18n-revision.js";
-import { montarVistaBorradoresPropios } from "./vista-borradores-propios.js?v=20260924-f2-consulta-v2";
+import { montarVistaBorradoresPropios } from "./vista-borradores-propios.js?v=20260924-dietas-d1d2d4";
+import { montarVistaAccesoPapelesDietas } from "./vista-acceso-papeles.js?v=20260924-dietas-d1d2d4";
 import { montarMapaInicialGranadaDietas } from "./mapa-ruta.js";
 
 const ETAPAS = Object.freeze([
@@ -124,6 +125,16 @@ export function montarVistaRecorridosDietas(contenedor, {
   raiz.className = "modulo-dietas dietas-recorridos";
   raiz.dataset.dietasRecorridos = "";
   contenedor.replaceChildren(raiz);
+  const acceso = nodo(documento, "details");
+  acceso.className = "dietas-recorridos-acceso";
+  acceso.dataset.dietasAcceso = "";
+  acceso.append(nodo(documento, "summary", t("d1_titulo")));
+  const areaAcceso = nodo(documento, "div");
+  areaAcceso.dataset.dietasAreaAcceso = "";
+  acceso.append(areaAcceso);
+  // El recorrido no recibe una proyección de concesiones: los cinco papeles
+  // permanecen cerrados hasta que la composición autorizada la proporcione.
+  const vistaAcceso = montarVistaAccesoPapelesDietas(areaAcceso, { traducir: t });
   let activa = true;
   let etapa = "solicitante";
   let vistaBorradores;
@@ -196,7 +207,7 @@ export function montarVistaRecorridosDietas(contenedor, {
   const cuerpo = nodo(documento, "div");
   cuerpo.className = "dietas-recorridos-cuerpo";
   cuerpo.append(...paneles.values());
-  raiz.append(pasos, cuerpo);
+  raiz.append(acceso, pasos, cuerpo);
   function pintar() {
     if (!activa || !sigueMontada(contenedor, raiz)) return;
     paneles.forEach((panel, valor) => { panel.hidden = valor !== etapa; });
@@ -232,6 +243,7 @@ export function montarVistaRecorridosDietas(contenedor, {
     if (!activa) return;
     activa = false;
     raiz.removeEventListener("click", clic);
+    vistaAcceso.desmontar();
     vistaBorradores?.desmontar?.();
     detenerItinerario();
     retirar(contenedor, raiz);

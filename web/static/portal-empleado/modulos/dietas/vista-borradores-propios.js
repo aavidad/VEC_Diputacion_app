@@ -1,5 +1,5 @@
-import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260924-f2-consulta-v2";
-import { crearTraductorBorradoresDietas } from "./i18n-borradores.js?v=20260924-f2-consulta-v2";
+import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260924-dietas-d1d2d4";
+import { crearTraductorBorradoresDietas } from "./i18n-borradores.js?v=20260924-dietas-d1d2d4";
 import { obtenerCatalogoRutasProvincial } from "./catalogo-rutas-provincial.js";
 
 // El catálogo público incluye núcleos NGMEP aún pendientes de importación.
@@ -174,6 +174,7 @@ export function montarVistaBorradoresPropios(
     raiz.removeEventListener("submit", enviar);
     raiz.removeEventListener("click", clic);
     raiz.removeEventListener("change", cambiarRelacion);
+    raiz.removeEventListener("input", invalidarPreparacion);
     retirar(contenedor, raiz);
   };
   registrarDesmontar?.(desmontar);
@@ -213,6 +214,10 @@ export function montarVistaBorradoresPropios(
     boton.type = "submit";
     boton.className = "boton-primario";
     boton.disabled = controlador !== null;
+    const revisar = nodo(documento, "button", tBorradores("borradores_propios_revisar"));
+    revisar.type = "button";
+    revisar.className = "boton-secundario";
+    revisar.dataset.dietasBorradorRevisar = "";
     const selectorRelacion = (() => {
       if (!relaciones.length) return null;
       const etiqueta = nodo(
@@ -250,6 +255,11 @@ export function montarVistaBorradoresPropios(
     const abrirAyuda = nodo(documento, "summary", "?");
     abrirAyuda.setAttribute("aria-label", traducir("recorridos_abrir_ayuda"));
     ayuda.append(abrirAyuda, nodo(documento,"p",traducir("borradores_propios_ruta_ayuda")));
+    ayuda.append(nodo(documento, "p", tBorradores("borradores_propios_preparacion_ayuda")));
+    const pais = campo("pais", "borradores_propios_pais", "text", false);
+    const paisValor = pais.querySelector("input");
+    paisValor.value = tBorradores("borradores_propios_pais_espana");
+    paisValor.readOnly = true;
     campos.append(
       campo("fecha_inicio", "borradores_propios_fecha_inicio", "date"),
       campo("hora_inicio", "borradores_propios_hora_inicio", "time"),
@@ -258,15 +268,21 @@ export function montarVistaBorradoresPropios(
       motivo,
       puntoRuta("origen_codigo","borradores_propios_origen"),
       puntoRuta("destino_codigo","borradores_propios_destino"),
+      pais,
       ...(selectorRelacion ? [selectorRelacion] : []),
       ayuda,
     );
     const acciones = nodo(documento, "div");
     acciones.className = "dietas-borradores-acciones";
-    acciones.append(boton);
-    form.append(cabecera, campos, acciones);
+    acciones.append(revisar, boton);
+    const preparacion = nodo(documento, "section");
+    preparacion.dataset.dietasBorradorPreparacion = "";
+    preparacion.className = "dietas-comision-calculo";
+    preparacion.hidden = true;
+    preparacion.setAttribute("tabindex", "-1");
+    form.append(cabecera, campos, preparacion, acciones);
     if (!conectada) {
-      [...form.querySelectorAll("input"), ...form.querySelectorAll("select"), boton].forEach((control) => {
+      [...form.querySelectorAll("input"), ...form.querySelectorAll("select"), revisar, boton].forEach((control) => {
         control.disabled = true;
       });
     }
@@ -433,6 +449,7 @@ export function montarVistaBorradoresPropios(
       ["borradores_propios_fecha_fin", fechaLegible(item.comision.fecha_fin)],
       ["borradores_propios_motivo", item.comision.motivo],
       ["borradores_propios_ruta", rutaLegible(item.comision.codigos_ruta, tBorradores)],
+      ["borradores_propios_pais", tBorradores("borradores_propios_pais_no_registrado")],
     ].forEach(([etiqueta, valor]) => {
       const fila = nodo(documento, "div");
       fila.append(
@@ -442,6 +459,19 @@ export function montarVistaBorradoresPropios(
       datos.append(fila);
     });
     cuerpo.append(datos);
+    const limite = nodo(documento, "p", tBorradores("borradores_propios_registrado_limite"));
+    limite.className = "dietas-borradores-indicacion";
+    cuerpo.append(limite);
+    const acciones = nodo(documento, "div");
+    acciones.className = "dietas-borradores-acciones";
+    ["borradores_propios_edicion_pendiente", "borradores_propios_envio_pendiente"].forEach((clave) => {
+      const boton = nodo(documento, "button", tBorradores(clave));
+      boton.type = "button";
+      boton.disabled = true;
+      boton.title = tBorradores("borradores_propios_registrado_limite");
+      acciones.append(boton);
+    });
+    cuerpo.append(acciones);
     if (item.comision.calculo) cuerpo.append(resumenCalculo(item.comision.calculo));
     cuerpo.append(recibo(item));
     return seccion;
@@ -634,6 +664,8 @@ export function montarVistaBorradoresPropios(
       pendiente = null;
       ultimoAlta = { contenido, item };
       altaConfirmada = true;
+      const resumenLocal = formularioPersistente?.querySelector?.("[data-dietas-borrador-preparacion]");
+      if (resumenLocal) resumenLocal.hidden = true;
       estado = {
         ...estado,
         detalle: item,
@@ -668,7 +700,42 @@ export function montarVistaBorradoresPropios(
     reciboActual.setAttribute("tabindex", "-1");
     enfocar(reciboActual);
   }
+  function invalidarPreparacion(evento) {
+    if (!evento.target?.closest?.("[data-dietas-borrador-form]")) return;
+    const resumen = formularioPersistente?.querySelector?.("[data-dietas-borrador-preparacion]");
+    if (resumen) resumen.hidden = true;
+  }
   async function clic(evento) {
+    const revisar = evento.target?.closest?.("[data-dietas-borrador-revisar]");
+    if (revisar && activaAhora() && !controlador && conectada) {
+      const form = revisar.closest("[data-dietas-borrador-form]");
+      if (!form?.checkValidity?.()) { form?.reportValidity?.(); return; }
+      const datos = new FormData(form);
+      const inicio = String(datos.get("fecha_inicio") || "");
+      const fin = String(datos.get("fecha_fin") || "");
+      const horaInicio = String(datos.get("hora_inicio") || "");
+      const horaFin = String(datos.get("hora_fin") || "");
+      const origen = String(datos.get("origen_codigo") || "");
+      const destino = String(datos.get("destino_codigo") || "");
+      if (fin < inicio || (fin === inicio && horaFin <= horaInicio)) {
+        mensaje("borradores_propios_fechas_invalidas", "aviso"); pintar(); enfocar(avisoPersistente); return;
+      }
+      if (origen === destino) {
+        mensaje("borradores_propios_ruta_distinta", "aviso"); pintar(); enfocar(avisoPersistente); return;
+      }
+      const resumen = form.querySelector("[data-dietas-borrador-preparacion]");
+      resumen.replaceChildren(
+        nodo(documento, "h4", tBorradores("borradores_propios_preparacion_titulo")),
+        nodo(documento, "p", `${inicio} ${horaInicio} → ${fin} ${horaFin}`),
+        nodo(documento, "p", String(datos.get("motivo") || "").trim()),
+        nodo(documento, "p", rutaLegible([origen, destino], tBorradores)),
+        nodo(documento, "p", `${tBorradores("borradores_propios_pais")}: ${tBorradores("borradores_propios_pais_espana")}`),
+        nodo(documento, "p", tBorradores("borradores_propios_preparacion_editable")),
+      );
+      resumen.hidden = false;
+      enfocar(resumen);
+      return;
+    }
     const consultar = evento.target?.closest?.("[data-dietas-borrador-consultar-registrados]");
     if (consultar && activaAhora() && !controlador && !consultar.disabled) {
       cursores = [undefined];
@@ -713,6 +780,9 @@ export function montarVistaBorradoresPropios(
       mensaje("borradores_propios_detalle");
     } catch (error) {
       if (!activaAhora() || signal.aborted) return;
+      if (["autenticacion_requerida", "acceso_denegado"].includes(error?.codigo) && estado.detalleOrigen === "get") {
+        estado = { ...estado, detalle: ultimoAlta?.item ?? null, detalleOrigen: ultimoAlta ? "post" : null };
+      }
       mensaje(estado.detalle
         ? (error?.codigo === "acceso_denegado" ? "borradores_propios_detalle_denegado" : "borradores_propios_detalle_no_actualizado")
         : errorClave(error), "error");
@@ -744,6 +814,7 @@ export function montarVistaBorradoresPropios(
   raiz.addEventListener("submit", enviar);
   raiz.addEventListener("click", clic);
   raiz.addEventListener("change", cambiarRelacion);
+  raiz.addEventListener("input", invalidarPreparacion);
   pintar();
   cargar();
   function abrirFormulario() {

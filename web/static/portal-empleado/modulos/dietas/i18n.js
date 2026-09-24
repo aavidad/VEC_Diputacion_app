@@ -1,4 +1,4 @@
-import { MENSAJES_BORRADORES_ES } from "./i18n-borradores.js?v=20260924-f2-consulta-v2";
+import { MENSAJES_BORRADORES_ES } from "./i18n-borradores.js?v=20260924-dietas-d1d2d4";
 import { MENSAJES_REVISION_DIETAS_ES } from "./i18n-revision.js?v=20260924-f2-web2";
 
 /** Catálogo completo de textos propios de la superficie Dietas. */
@@ -379,6 +379,33 @@ export const MENSAJES_DIETAS_ES = Object.freeze({
   recorridos_gastos_ayuda: "Dietas, kilometraje, otros gastos y justificantes se muestran como declaración de ejemplo; no aplican una regla aprobada.",
   recorridos_adjuntar_justificante: "Adjuntar justificante",
   recorridos_incidencia: "Incidencia",
+  d1_titulo: "Acceso por papel",
+  d1_subtitulo: "Tareas previstas en el circuito de Dietas",
+  d1_limite: "El acceso a cada tarea requiere la identidad común de VEC y una concesión V3 positiva. Sin una proyección autorizada, los papeles se muestran como no configurados.",
+  d1_ayuda_etiqueta: "Ayuda sobre los papeles de Dietas",
+  d1_ayuda: "Los papeles describen responsabilidades del procedimiento. Esta vista no cambia de identidad ni concede permisos. Una tarea solo puede marcarse disponible tras una comprobación autorizada para la persona y el ámbito concretos.",
+  d1_estado_disponible: "Disponible",
+  d1_estado_no_configurado: "No configurado",
+  d1_empleado: "Empleado",
+  d1_empleado_tarea: "Preparar una comisión de servicio y consultar los borradores propios.",
+  d1_administrativo: "Administrativo del servicio",
+  d1_administrativo_tarea: "Revisar documentos enviados y devolverlos con motivo cuando corresponda.",
+  d1_responsable: "Responsable de centro",
+  d1_responsable_tarea: "Autorizar la comisión o devolverla con un motivo.",
+  d1_rrhh: "RRHH",
+  d1_rrhh_tarea: "Revisar importes y liquidar la comisión según las reglas aprobadas.",
+  d1_intervencion: "Intervención",
+  d1_intervencion_tarea: "Fiscalizar la liquidación o devolverla con un motivo.",
+  d4_vehiculo_pendiente: "Vehículo propio pendiente de confirmar",
+  d4_vehiculo_ayuda: "Esta consulta de ruta no registra el medio de transporte. El kilometraje de vehículo propio requiere una comisión y un contrato autorizado.",
+  d4_alternativa_ayuda: "Puede previsualizar otra alternativa OSRM. La elección y su motivo solo cambian esta vista; no se guardan ni generan importe.",
+  d4_previsualizar: "Previsualizar alternativa",
+  d4_motivo_alternativa_ayuda: "Escriba entre 8 y 500 caracteres para previsualizar una ruta distinta de la recomendada.",
+  d4_motivo_alternativa_error: "Indique un motivo de entre 8 y 500 caracteres para previsualizar esta alternativa.",
+  d4_ajustes_pendientes: "Los ajustes manuales requieren un contrato autorizado que conserve el motivo. Aquí no modifican kilómetros ni importes.",
+  d4_ajuste_no_disponible: "Pendiente de contrato",
+  d4_km_sin_ajuste: "Sin ajuste",
+  d4_sin_importe: "Sin importe por kilómetro aprobado o liquidación en esta consulta.",
   ...MENSAJES_BORRADORES_ES,
   ...MENSAJES_REVISION_DIETAS_ES,
 });

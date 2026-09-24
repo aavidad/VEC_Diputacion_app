@@ -15,6 +15,16 @@ export const MENSAJES_BORRADORES_ES = Object.freeze({
   borradores_propios_consulta_registrados: "Borradores consultados. La lista no confirma altas anteriores.",
   borradores_propios_consulta_registrados_vacia: "Sin borradores en esta consulta. La lista no confirma altas anteriores.",
   borradores_propios_consulta_ayuda: "Si una creación quedó sin confirmar, consulte la lista. Elija un borrador para ver su recibo. Que aparezca en la lista no demuestra que corresponda a aquel intento; no cree otro solo para comprobarlo.",
+  borradores_propios_pais: "País",
+  borradores_propios_pais_espana: "España",
+  borradores_propios_preparacion_ayuda: "Puede corregir los campos antes de registrar el borrador. El país se muestra por el catálogo provincial disponible; el servicio todavía no registra país por separado. Revisar no guarda ni envía datos.",
+  borradores_propios_revisar: "Revisar preparación",
+  borradores_propios_preparacion_titulo: "Preparación local sin registrar",
+  borradores_propios_preparacion_editable: "Puede seguir editando los campos antes de crear el borrador.",
+  borradores_propios_registrado_limite: "El borrador registrado solo puede consultarse. La edición y el envío requieren un servicio autorizado todavía no conectado.",
+  borradores_propios_edicion_pendiente: "Editar borrador registrado",
+  borradores_propios_envio_pendiente: "Enviar a revisión",
+  borradores_propios_pais_no_registrado: "No consta como campo separado en el registro actual",
 });
 
 export function crearTraductorBorradoresDietas(traducirBase) {
