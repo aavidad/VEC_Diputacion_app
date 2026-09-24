@@ -3,6 +3,15 @@ import { MENSAJES_LLAMAMIENTO_ES } from "./i18n-llamamiento.js";
 import { MENSAJES_SUBSANACION_REPAROS_ES } from "./i18n-subsanacion-reparos.js";
 
 export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
+  pc_acceso_denegado: "Acceso denegado. Se han retirado los datos de esta vista; las actuaciones ya registradas permanecen en el servidor.",
+  pc_lectura_fallida: "No se pudo verificar el acceso por un fallo temporal. Se han retirado los datos de esta vista. Reintente la consulta antes de continuar.",
+  pc_operacion_confirmada_oculta: "La operación se registró, pero ahora no se puede consultar su recibo desde esta vista.",
+  pc_operacion_incierta_oculta: "Hay una operación cuyo resultado sigue sin confirmarse. No inicie otra; consulte con RRHH si el acceso no se recupera.",
+  pc_operacion_incierta_verificada: "La consulta vuelve a responder, pero el resultado de la operación anterior sigue sin confirmarse. No repita el registro con otra clave o identidad; consulte con RRHH.",
+  pc_titulo_denegado: "Acceso denegado",
+  pc_titulo_incierto: "Resultado pendiente de comprobación",
+  pc_titulo_sin_consulta: "Consulta no disponible",
+  pc_reintentar_consulta: "Reintentar consulta",
   ...MENSAJES_LLAMAMIENTO_ES,
   "contratacion_temporal.flujo.rrhh": "Gestión de expedientes de personal temporal",
   "contratacion_temporal.fase.solicitud": "Solicitud",

@@ -9,7 +9,7 @@ import {
   renderizarFormularioPeticionCentro,
   renderizarRevisionPeticionCentro,
 } from "../modulos/contratacion-temporal/vista.js";
-import { MENSAJES_CONTRATACION_TEMPORAL_ES } from "../modulos/contratacion-temporal/i18n.js";
+import { MENSAJES_CONTRATACION_TEMPORAL_ES, crearTraductorContratacionTemporal } from "../modulos/contratacion-temporal/i18n.js";
 
 const RUTAS = Object.freeze({
   contexto: "/api/vec/contratacion-temporal/peticiones-centro/contexto",
@@ -19,6 +19,7 @@ const RUTAS = Object.freeze({
 });
 const MAX_BODY = 2 * 1024 * 1024;
 const TIMEOUT_MS = 15_000;
+const traducirCentro = crearTraductorContratacionTemporal();
 const TEXTO = Object.freeze({
   sobrelinea: "Contratación temporal · circuito previo",
   titulo: "Petición del centro y ratificación",
@@ -81,11 +82,11 @@ const TEXTO = Object.freeze({
   rrhhBandeja: "Abrir bandeja de expedientes",
   rrhhSinPeticiones: "No hay peticiones disponibles para Recursos Humanos.",
   rrhhError: "No se pudo completar el registro en RRHH.",
-  accesoDenegado: "Acceso denegado. Se han retirado los datos de esta vista; las actuaciones ya registradas permanecen en el servidor.",
-  lecturaFallida: "No se pudo verificar el acceso por un fallo temporal. Se han retirado los datos de esta vista. Reintente la consulta antes de continuar.",
-  operacionConfirmadaOculta: "La operación se registró, pero ahora no se puede consultar su recibo desde esta vista.",
-  operacionInciertaOculta: "Hay una operación cuyo resultado sigue sin confirmarse. No inicie otra; consulte con RRHH si el acceso no se recupera.",
-  operacionInciertaVerificada: "La consulta vuelve a responder, pero el resultado de la operación anterior sigue sin confirmarse. No repita el registro con otra clave o identidad; consulte con RRHH.",
+  accesoDenegado: traducirCentro("pc_acceso_denegado"),
+  lecturaFallida: traducirCentro("pc_lectura_fallida"),
+  operacionConfirmadaOculta: traducirCentro("pc_operacion_confirmada_oculta"),
+  operacionInciertaOculta: traducirCentro("pc_operacion_incierta_oculta"),
+  operacionInciertaVerificada: traducirCentro("pc_operacion_incierta_verificada"),
 });
 const MENSAJES = Object.freeze({
   ...MENSAJES_CONTRATACION_TEMPORAL_ES,
@@ -183,8 +184,8 @@ function estadoBase(catalogos, borrador, extra = {}) {
 function esDenegacion(error) { return [401, 403].includes(error?.status); }
 
 function vistaSinDatos(cabecera, modo, mensaje, accionRecargar) {
-  const titulo = modo === "denegado" ? "Acceso denegado" : modo === "resultado_incierto" ? "Resultado pendiente de comprobación" : "Consulta no disponible";
-  return `${cabecera}<section class="pc-panel pc-detalle" role="alert"><h2>${esc(titulo)}</h2><p>${esc(mensaje)}</p>${modo === "sin_verificar" ? `<div class="pc-acciones"><button type="button" class="boton-secundario" data-accion="${esc(accionRecargar)}">${esc("Reintentar consulta")}</button></div>` : ""}</section>`;
+  const titulo = traducirCentro(modo === "denegado" ? "pc_titulo_denegado" : modo === "resultado_incierto" ? "pc_titulo_incierto" : "pc_titulo_sin_consulta");
+  return `${cabecera}<section class="pc-panel pc-detalle" role="alert"><h2>${esc(titulo)}</h2><p>${esc(mensaje)}</p>${modo === "sin_verificar" ? `<div class="pc-acciones"><button type="button" class="boton-secundario" data-accion="${esc(accionRecargar)}">${esc(traducirCentro("pc_reintentar_consulta"))}</button></div>` : ""}</section>`;
 }
 
 function fecha(valor, hora = false) {
