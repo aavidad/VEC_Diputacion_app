@@ -29,8 +29,9 @@
 --
 -- Subdecisión (consenso 25/09/2026): se cierran las altas nuevas de punteros
 -- vinculo_referencia de tipo empleado en el núcleo. Los existentes se conservan
--- (no se borran ni se revocan aquí) y pueden recibir versiones nuevas; los de
--- candidato no cambian. Inventario de altas en el repositorio a esta fecha:
+-- (no se borran ni se revocan aquí) y solo admiten versiones nuevas que los
+-- revoquen o recorten su vigencia; un candidato no pasa a empleado y un
+-- empleado revocado no se reactiva. Los de candidato no cambian. Inventario de altas en el repositorio a esta fecha:
 --   - deploy/principal/preparar_dietas_desarrollo.py (employee_link: la vía del
 --     incidente del 23/09; debe publicar en Personal en su lugar);
 --   - fixtures sintéticos de prueba que crean emp_ antes de esta migración:
@@ -1091,17 +1092,46 @@ GRANT EXECUTE ON FUNCTION vec_contexto_actor_v1.resolver_y_registrar_contexto_ac
 GRANT EXECUTE ON FUNCTION vec_contexto_actor_v1.reconciliar_contexto_actor_v2(text,text,text,text,text,text,timestamptz,text[])
     TO vec_contexto_actor_v1_runtime;
 
--- Subdecisión: ninguna alta nueva de puntero de empleado en el núcleo. Las
--- versiones sucesivas de punteros existentes (p. ej. su revocación) siguen
--- admitidas para conservar y cerrar su historia.
+-- Subdecisión: ninguna alta nueva de puntero de empleado en el núcleo. Un
+-- puntero de empleado existente solo admite versiones que lo cierran: la
+-- última versión de su vinculo_ref ya debe ser de empleado, con la misma
+-- persona y referencia, y la nueva solo puede revocarlo o recortar su
+-- vigencia (ventana contenida en la anterior). Un candidato no pasa a
+-- empleado y un empleado revocado no se reactiva ni se reabre. Las filas de
+-- tipo candidato no se examinan. Se serializa por vinculo_ref; la comprobación
+-- lee lo confirmado tras el bloqueo (los mutadores del núcleo escriben en
+-- READ COMMITTED).
 CREATE FUNCTION vec_contexto_actor_v1.rechazar_alta_puntero_empleado_v2()
 RETURNS trigger LANGUAGE plpgsql VOLATILE SECURITY INVOKER SET search_path = pg_catalog AS $f$
+DECLARE previa record;
 BEGIN
-    IF NEW.tipo = 'empleado' AND NOT EXISTS (
-        SELECT 1 FROM vec_contexto_actor_v1.vinculo_referencia_versiones v
-         WHERE v.vinculo_ref = NEW.vinculo_ref) THEN
+    IF NEW.tipo <> 'empleado' THEN
+        RETURN NEW;
+    END IF;
+    PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
+      'vec_contexto_actor_v1:puntero_empleado:' || NEW.vinculo_ref,0));
+    SELECT v.version, v.persona_ref, v.tipo, v.referencia, v.estado,
+           v.vigente_desde, v.vigente_hasta
+      INTO previa
+      FROM vec_contexto_actor_v1.vinculo_referencia_versiones v
+     WHERE v.vinculo_ref = NEW.vinculo_ref
+     ORDER BY v.version DESC LIMIT 1;
+    IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '55000',
             MESSAGE = 'alta de puntero empleado cerrada: el empleado procede de Personal';
+    END IF;
+    IF NEW.version <= previa.version
+       OR previa.tipo <> 'empleado'
+       OR previa.persona_ref <> NEW.persona_ref
+       OR previa.referencia <> NEW.referencia
+       OR previa.estado <> 'activo'
+       OR NEW.vigente_desde < previa.vigente_desde
+       OR NEW.vigente_hasta > previa.vigente_hasta
+       OR NOT (NEW.estado = 'revocado'
+               OR NEW.vigente_desde > previa.vigente_desde
+               OR NEW.vigente_hasta < previa.vigente_hasta) THEN
+        RAISE EXCEPTION USING ERRCODE = '55000',
+            MESSAGE = 'version de puntero empleado cerrada: solo revocacion o recorte de vigencia';
     END IF;
     RETURN NEW;
 END

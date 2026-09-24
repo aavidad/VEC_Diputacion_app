@@ -344,20 +344,50 @@ salida=$(admin -c "BEGIN; SET LOCAL ROLE vec_contexto_actor_v1_propietario;
    'prc_maestra_sintetica_p7_000000000001',1,repeat('a',64),'autoridad_maestra_acreditada','activo',
    clock_timestamp()-interval '1 hour',clock_timestamp()+interval '2 hours'); COMMIT;" 2>&1 || true)
 exigir_error 'alta nueva de puntero empleado' 'alta de puntero empleado cerrada' "$salida"
-admin -o /dev/null <<SQL
-BEGIN;
-SET LOCAL ROLE vec_contexto_actor_v1_propietario;
-INSERT INTO vec_contexto_actor_v1.vinculo_referencia_versiones
-SELECT vinculo_ref,2,persona_ref,tipo,referencia,procedencia_ref,procedencia_version,procedencia_huella_sha256,
-       procedencia_autoridad,'revocado',vigente_desde,vigente_hasta
-  FROM vec_contexto_actor_v1.vinculo_referencia_versiones WHERE vinculo_ref='vin_sintetico_alcance_empleado_l_00001';
-UPDATE vec_contexto_actor_v1.vinculo_referencia_actual SET version=2 WHERE vinculo_ref='vin_sintetico_alcance_empleado_l_00001';
-COMMIT;
-SQL
-[[ $(admin_valor "SELECT count(*) FROM vec_contexto_actor_v1.vinculo_referencia_versiones WHERE vinculo_ref='vin_sintetico_alcance_empleado_l_00001'") == 2 ]] || fallo 'historia del puntero heredado'
+# version_puntero vinculo version tipo referencia estado desde_sql hasta_sql fin:
+# inserta una versión derivada de la última y termina con COMMIT o ROLLBACK.
+version_puntero() {
+  admin -c "BEGIN; SET LOCAL ROLE vec_contexto_actor_v1_propietario;
+  INSERT INTO vec_contexto_actor_v1.vinculo_referencia_versiones
+  SELECT vinculo_ref,$2,persona_ref,'$3','$4',procedencia_ref,procedencia_version,procedencia_huella_sha256,
+         procedencia_autoridad,'$5',$6,$7
+    FROM vec_contexto_actor_v1.vinculo_referencia_versiones
+   WHERE vinculo_ref='$1' ORDER BY version DESC LIMIT 1;
+  UPDATE vec_contexto_actor_v1.vinculo_referencia_actual SET version=$2 WHERE vinculo_ref='$1';
+  $8;" 2>&1
+}
+cerrada='version de puntero empleado cerrada'
+vin_l=vin_sintetico_alcance_empleado_l_00001; emp_l=emp_sintetico_alcance_l_00000000000001
+vin_c=vin_sintetico_alcance_candidato_p_0001; can_p=can_sintetico_alcance_p_00000000000001
+# Un candidato no pasa a empleado; sus versiones de candidato siguen admitidas.
+salida=$(version_puntero $vin_c 2 empleado emp_sintetico_alcance_nuevo_0000000001 activo vigente_desde vigente_hasta ROLLBACK || true)
+exigir_error 'candidato a empleado' "$cerrada" "$salida"
+salida=$(version_puntero $vin_c 2 candidato $can_p activo vigente_desde vigente_hasta ROLLBACK) \
+  || fallo "versión de candidato rechazada: $salida"
+# El empleado heredado no cambia de referencia, no amplía vigencia ni repite
+# versión activa sin recorte.
+salida=$(version_puntero $vin_l 2 empleado emp_sintetico_alcance_otro_000000000001 activo vigente_desde vigente_hasta ROLLBACK || true)
+exigir_error 'cambio de referencia' "$cerrada" "$salida"
+salida=$(version_puntero $vin_l 2 empleado $emp_l activo vigente_desde "vigente_hasta+interval '1 day'" ROLLBACK || true)
+exigir_error 'ampliación de vigencia' "$cerrada" "$salida"
+salida=$(version_puntero $vin_l 2 empleado $emp_l activo vigente_desde vigente_hasta ROLLBACK || true)
+exigir_error 'versión activa sin recorte' "$cerrada" "$salida"
+# Recorte de vigencia admitido y revocación admitida.
+salida=$(version_puntero $vin_l 2 empleado $emp_l activo vigente_desde "vigente_hasta-interval '1 minute'" COMMIT) \
+  || fallo "recorte de vigencia rechazado: $salida"
+salida=$(version_puntero $vin_l 3 empleado $emp_l revocado vigente_desde vigente_hasta COMMIT) \
+  || fallo "revocación rechazada: $salida"
+# Revocado es terminal: ni reactivación ni otra versión.
+salida=$(version_puntero $vin_l 4 empleado $emp_l activo vigente_desde "vigente_hasta-interval '1 minute'" ROLLBACK || true)
+exigir_error 'reactivación de empleado revocado' "$cerrada" "$salida"
+salida=$(version_puntero $vin_l 4 candidato can_sintetico_alcance_l_00000000000001 activo vigente_desde vigente_hasta ROLLBACK) \
+  || fallo "puntero de tipo candidato rechazado: $salida"
+[[ $(admin_valor "SELECT count(*) FROM vec_contexto_actor_v1.vinculo_referencia_versiones WHERE vinculo_ref='$vin_l'") == 3 ]] || fallo 'historia del puntero heredado'
+[[ $(admin_valor "SELECT count(*) FROM vec_contexto_actor_v1.vinculo_referencia_versiones WHERE vinculo_ref='$vin_c'") == 1 ]] || fallo 'historia del candidato'
 ref_l=$(resolver l '{}') || fallo "L tras revocar su puntero: $ref_l"
 [[ $ref_l != *'"tipo":"empleado"'* ]] || fallo 'puntero heredado revocado sigue en el contexto'
-ok 'alta de puntero empleado cerrada; el heredado conserva y amplía su historia'
+exigir_ct 'tras cerrar el puntero heredado'
+ok 'alta y reapertura de puntero empleado cerradas; el heredado solo se recorta o revoca'
 
 # Recuperación tras reinicio: registros, replay e historia intactos.
 publicar pep_sintetica_alcance_e5_00000000000001 1 emp_sintetico_alcance_e5_00000000000001 activa
