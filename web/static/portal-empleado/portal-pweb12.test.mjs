@@ -31,7 +31,8 @@ test("P-WEB-12 monta Avisos inmediatamente después del cuadro B12 y declara el 
   const html = presentador.renderizarSoloBolsas("resumen");
   assert.ok(html.indexOf("Cuadro B12") < html.indexOf("<h2>Avisos</h2>"));
   assert.match(html, /data-accion="abrir-ficha-b5"/);
-  assert.match(html, /Los tres años se calculan desde el histórico de situaciones de VEC, que empieza el 17\/09\/2026\./);
+  assert.match(html, /Provisional:<\/strong> Cómputo pendiente de RRHH\./);
+  assert.doesNotMatch(html, /17\/09\/2026/);
 });
 
 test("P-WEB-12 consulta Avisos una sola vez al montar y cancela al salir", () => {

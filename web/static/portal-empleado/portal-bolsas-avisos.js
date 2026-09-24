@@ -72,10 +72,10 @@ function filaAviso(aviso) {
 
 export function renderizarBloqueAvisos({ estado = "cargando", datos = null, error = "" } = {}) {
   const conteos = datos?.conteos
-    ? `<div class="avisos-bolsa-conteos" aria-label="Avisos por tipo"><span class="estado-chip advertencia">${datos.conteos.salto_orden} saltos de orden</span><span class="estado-chip info">${datos.conteos.tres_anos} tres años</span></div>`
+    ? `<div class="avisos-bolsa-conteos" aria-label="Avisos por tipo"><span class="estado-chip advertencia">${datos.conteos.salto_orden} ${datos.conteos.salto_orden === 1 ? "salto" : "saltos"} de orden</span><span class="estado-chip info">${datos.conteos.tres_anos} ${datos.conteos.tres_anos === 1 ? "aviso" : "avisos"} de tres años</span></div>`
     : "";
   const cabecera = `<div class="cabecera-panel"><div><p>Control interno</p><h2>Avisos</h2></div>${conteos}</div>`;
-  const nota = datos?.provisionalidad ? `<p class="avisos-bolsa-nota"><strong>Provisional:</strong> ${texto(datos.provisionalidad)}${datos.conteos.tres_anos === 0 ? " Los tres años se calculan desde el histórico de situaciones de VEC, que empieza el 17/09/2026." : ""}</p>` : "";
+  const nota = datos?.provisionalidad ? `<p class="avisos-bolsa-nota"><strong>Provisional:</strong> ${texto(datos.provisionalidad)}</p>` : "";
   if (estado === "cargando") return `<section class="panel avisos-bolsa" aria-busy="true" aria-live="polite">${cabecera}<div class="cuerpo-panel avisos-bolsa-vacio" role="status">Cargando avisos…</div></section>`;
   if (estado === "error") return `<section class="panel avisos-bolsa" aria-live="assertive">${cabecera}<div class="cuerpo-panel aviso aviso--error"><span>${texto(error || "No se pudieron cargar los avisos.")}</span><button type="button" data-accion="reintentar-avisos">Reintentar</button></div></section>`;
   if (!datos || datos.items.length === 0) return `<section class="panel avisos-bolsa" aria-live="polite">${cabecera}<div class="cuerpo-panel avisos-bolsa-vacio"><span class="avisos-bolsa-icono" aria-hidden="true">✓</span><span><strong>Sin avisos.</strong> No hay saltos de orden ni periodos de tres años detectados en el corte consultado.</span></div>${nota}</section>`;

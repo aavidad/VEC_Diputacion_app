@@ -16,17 +16,38 @@ const datos = {
 };
 
 test("renderiza carga, vacío, error y lista R10 con contadores y ficha B5", () => {
-  assert.match(renderizarBloqueAvisos(), /Cargando avisos/);
+  const carga = renderizarBloqueAvisos();
+  assert.match(carga, /Cargando avisos/);
+  assert.doesNotMatch(carga, /17\/09\/2026|Provisional:/);
   assert.match(renderizarBloqueAvisos({ estado: "error", error: "Fallo controlado" }), /Reintentar/);
-  assert.match(renderizarBloqueAvisos({ estado: "listo", datos: { ...datos, items: [], conteos: { salto_orden: 0, tres_anos: 0 }, paginacion: { ...datos.paginacion, desde: 0, hasta: 0, total: 0 } } }), /Sin avisos/);
+  const vacio = renderizarBloqueAvisos({ estado: "listo", datos: { ...datos, items: [], conteos: { salto_orden: 0, tres_anos: 0 }, paginacion: { ...datos.paginacion, desde: 0, hasta: 0, total: 0 } } });
+  assert.match(vacio, /Sin avisos/);
+  assert.match(vacio, /0 saltos de orden/);
+  assert.match(vacio, /0 avisos de tres años/);
+  assert.match(vacio, /Provisional:<\/strong> Cómputo legal de encadenamiento pendiente de RRHH/);
+  assert.doesNotMatch(vacio, /17\/09\/2026/);
   const html = renderizarBloqueAvisos({ estado: "listo", datos });
-  assert.match(html, /<div class="cabecera-panel">[\s\S]*<h2>Avisos<\/h2>[\s\S]*1 saltos de orden[\s\S]*1 tres años/);
+  assert.match(html, /<div class="cabecera-panel">[\s\S]*<h2>Avisos<\/h2>[\s\S]*1 salto de orden[\s\S]*1 aviso de tres años/);
   assert.match(html, /class="tabla-contenedor avisos-bolsa-lista" tabindex="0"/);
   assert.match(html, /Mostrando 1 a 2 de 2/);
   assert.match(html, /data-accion="abrir-ficha-b5"/);
   assert.match(html, /Cómputo legal de encadenamiento pendiente de RRHH/);
   assert.match(html, /class="avisos-bolsa-nota"/);
+  assert.doesNotMatch(html, /17\/09\/2026/);
   assert.doesNotMatch(html, /nombre|DNI|correo|teléfono/i);
+});
+
+test("los contadores en plural conservan la provisionalidad exacta del servidor", () => {
+  const provisionalidad = "Pendiente de revisión por RRHH; fuente sin fecha de inicio confirmada.";
+  const html = renderizarBloqueAvisos({ estado: "listo", datos: {
+    ...datos,
+    provisionalidad,
+    conteos: { salto_orden: 2, tres_anos: 3 },
+  } });
+  assert.match(html, /2 saltos de orden/);
+  assert.match(html, /3 avisos de tres años/);
+  assert.match(html, /Provisional:<\/strong> Pendiente de revisión por RRHH; fuente sin fecha de inicio confirmada\./);
+  assert.doesNotMatch(html, /17\/09\/2026/);
 });
 
 test("consulta sin credenciales web y valida el contrato", async () => {
