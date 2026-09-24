@@ -30,7 +30,7 @@ archivo() { admin -o /dev/null < "$1"; }
 fallo() { echo "FALLO: $*" >&2; exit 1; }
 ok() { echo "  ok: $*"; }
 
-"$motor" run -d --rm --name "$contenedor" -e POSTGRES_DB="$base" \
+"$motor" run -d --rm --name "$contenedor" -e POSTGRES_DB="$base" -p 127.0.0.1::5432 \
   -e POSTGRES_HOST_AUTH_METHOD=trust "$imagen" >/dev/null
 esperar
 [[ $(admin_valor "SELECT current_setting('server_version_num')") == 180004 ]] || fallo 'no es PostgreSQL 18.4'
@@ -339,4 +339,15 @@ despues=$(resolver p '{empleado}' "$oca_f" "'$solicitado'::timestamptz") || fall
 [[ $(reconciliar "$oca_f" '{empleado}') == 1 ]] || fallo 'reconciliación tras reinicio'
 exigir_ct 'tras reinicio'
 ok 'recuperación tras reinicio: replay, reconciliación y acreditación'
+
+# Adaptador Go real contra la misma base (P con empleado e5, L sin proyección).
+if command -v go >/dev/null 2>&1; then
+  puerto=$("$motor" port "$contenedor" 5432/tcp | sed -n 's/.*:\([0-9]*\)$/\1/p' | head -1)
+  salida_go=$(cd "$repo_dir" && VEC_CONTEXTO_ACTOR_ALCANCE_POSTGRES_DSN="postgres://vec_ca_runtime_p7@127.0.0.1:$puerto/$base?sslmode=disable" \
+    go test -count=1 -v -run TestIntegracionPostgreSQLAlcanceProyeccionesContextoActorV2 ./internal/vec/adapters/contextoactor/postgres/ 2>&1) \
+    || fallo "integración Go del adaptador con alcance: $salida_go"
+  [[ $salida_go == *'--- PASS: TestIntegracionPostgreSQLAlcanceProyeccionesContextoActorV2'* ]] || fallo "integración Go omitida: $salida_go"
+  exigir_ct 'tras la integración Go'
+  ok 'adaptador Go: {empleado}, replay, colisión de alcance, {} y ausencia con motivo'
+fi
 printf 'PG18.4: ContextoActor 000007 alcance {}/{empleado}, ACL, ausencia, ambigüedad, candidato+empleado, revocación, caducidad, replay, concurrencia, subdecisión y reinicio OK; CT sin cambios.\n'

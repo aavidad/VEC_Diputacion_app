@@ -19,6 +19,10 @@ import (
 	"vec-diputacion-granada/internal/vec/ports"
 )
 
+// Con alcance vacio se usan las firmas heredadas de siete argumentos, que
+// ContextoActor 000007 define como equivalentes a '{}': mismo SQL, mismos bytes
+// y ningun requisito de migracion nuevo para CT y el resto. Solo un alcance
+// con proyecciones usa las firmas de 000007 y, sin ellas, falla cerrado.
 const (
 	consultaResolverContextoActorV2 = `
 		SELECT operacion_ref, registro_contexto_ref,
@@ -36,6 +40,22 @@ const (
 		       autoridad_efectiva, resuelto_en
 		  FROM vec_contexto_actor_v1.reconciliar_contexto_actor_v2(
 		       $1, $2, $3, $4, $5, $6, $7)`
+	consultaResolverContextoActorV2Alcance = `
+		SELECT operacion_ref, registro_contexto_ref,
+		       representacion_canonica, huella_sha256,
+		       manifiesto_procedencia_canonico,
+		       manifiesto_procedencia_huella_sha256,
+		       autoridad_efectiva, resuelto_en
+		  FROM vec_contexto_actor_v1.resolver_y_registrar_contexto_actor_v2(
+		       $1, $2, $3, $4, $5, $6, $7, $8::text[])`
+	consultaReconciliarContextoActorV2Alcance = `
+		SELECT operacion_ref, registro_contexto_ref,
+		       representacion_canonica, huella_sha256,
+		       manifiesto_procedencia_canonico,
+		       manifiesto_procedencia_huella_sha256,
+		       autoridad_efectiva, resuelto_en
+		  FROM vec_contexto_actor_v1.reconciliar_contexto_actor_v2(
+		       $1, $2, $3, $4, $5, $6, $7, $8::text[])`
 )
 
 type iniciadorContextoActorPostgreSQL interface {
@@ -101,13 +121,22 @@ func (r *ResolutorRegistroContextoActorPostgreSQLV2) ResolverYRegistrarContextoA
 		return ports.ConfirmacionRegistroContextoActorV2{}, errorResolutorContextoActorPostgreSQL(ctx)
 	}
 	argumentos := argumentosContextoActorPostgreSQL(solicitud, reciboRef)
+	consultaResolver, consultaReconciliar := consultaResolverContextoActorV2, consultaReconciliarContextoActorV2
+	if !solicitud.Proyecciones.Vacio() {
+		consultaResolver, consultaReconciliar = consultaResolverContextoActorV2Alcance, consultaReconciliarContextoActorV2Alcance
+	}
 
 	// La unica repeticion permitida conserva operacion_ref y rca_. Se usa cuando
 	// la reconciliacion confirma ausencia tras un COMMIT fallido.
 	for intento := 0; intento < 2; intento++ {
-		respuesta, estado := r.ejecutar(ctx, consultaResolverContextoActorV2, argumentos)
+		respuesta, estado, denegacion := r.ejecutar(ctx, consultaResolver, argumentos)
 		if estado == estadoContextoActorConfirmado {
 			return confirmarRespuestaContextoActor(solicitud, respuesta)
+		}
+		if estado == estadoContextoActorDenegado {
+			return ports.ConfirmacionRegistroContextoActorV2{}, errors.Join(
+				ports.ErrResolutorRegistroContextoActorNoDisponible, denegacion,
+			)
 		}
 		if estado == estadoContextoActorReintentable {
 			continue
@@ -115,7 +144,7 @@ func (r *ResolutorRegistroContextoActorPostgreSQLV2) ResolverYRegistrarContextoA
 		if estado != estadoContextoActorCommitIncierto {
 			return ports.ConfirmacionRegistroContextoActorV2{}, errorResolutorContextoActorPostgreSQL(ctx)
 		}
-		reconciliada, estadoReconciliacion := r.reconciliar(ctx, argumentos)
+		reconciliada, estadoReconciliacion := r.reconciliar(ctx, consultaReconciliar, argumentos)
 		switch estadoReconciliacion {
 		case estadoContextoActorConfirmado:
 			if !respuestasContextoActorIguales(respuesta, reconciliada) {
@@ -139,6 +168,7 @@ const (
 	estadoContextoActorCommitIncierto
 	estadoContextoActorAusente
 	estadoContextoActorReintentable
+	estadoContextoActorDenegado
 )
 
 type respuestaContextoActorPostgreSQL struct {
@@ -155,26 +185,46 @@ func (r *ResolutorRegistroContextoActorPostgreSQLV2) ejecutar(
 	ctx context.Context,
 	consulta string,
 	argumentos []any,
-) (respuestaContextoActorPostgreSQL, estadoEjecucionContextoActor) {
+) (respuestaContextoActorPostgreSQL, estadoEjecucionContextoActor, error) {
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
 	if err != nil {
-		return respuestaContextoActorPostgreSQL{}, estadoContextoActorFallido
+		return respuestaContextoActorPostgreSQL{}, estadoContextoActorFallido, nil
 	}
 	defer revertirContextoActorPostgreSQL(tx)
 	if prepararTransaccionContextoActorPostgreSQL(ctx, tx) != nil {
-		return respuestaContextoActorPostgreSQL{}, estadoContextoActorFallido
+		return respuestaContextoActorPostgreSQL{}, estadoContextoActorFallido, nil
 	}
 	respuesta, err := consultarRespuestaContextoActor(ctx, tx, consulta, argumentos)
 	if err != nil {
-		if errorContextoActorPostgreSQLReintentable(err) {
-			return respuestaContextoActorPostgreSQL{}, estadoContextoActorReintentable
+		if denegacion := denegacionProyeccionContextoActorPostgreSQL(err); denegacion != nil {
+			return respuestaContextoActorPostgreSQL{}, estadoContextoActorDenegado, denegacion
 		}
-		return respuestaContextoActorPostgreSQL{}, estadoContextoActorFallido
+		if errorContextoActorPostgreSQLReintentable(err) {
+			return respuestaContextoActorPostgreSQL{}, estadoContextoActorReintentable, nil
+		}
+		return respuestaContextoActorPostgreSQL{}, estadoContextoActorFallido, nil
 	}
 	if err = tx.Commit(ctx); err != nil {
-		return respuesta, estadoContextoActorCommitIncierto
+		return respuesta, estadoContextoActorCommitIncierto, nil
 	}
-	return respuesta, estadoContextoActorConfirmado
+	return respuesta, estadoContextoActorConfirmado, nil
+}
+
+// denegacionProyeccionContextoActorPostgreSQL traduce los dos motivos cerrados
+// de 000007. Cualquier otro error conserva el tratamiento opaco.
+func denegacionProyeccionContextoActorPostgreSQL(err error) error {
+	var postgres *pgconn.PgError
+	if !errors.As(err, &postgres) {
+		return nil
+	}
+	switch postgres.Code {
+	case "PCA01":
+		return ports.ErrProyeccionEmpleadoContextoActorAusente
+	case "PCA02":
+		return ports.ErrProyeccionEmpleadoContextoActorAmbigua
+	default:
+		return nil
+	}
 }
 
 func errorContextoActorPostgreSQLReintentable(err error) bool {
@@ -192,6 +242,7 @@ func errorContextoActorPostgreSQLReintentable(err error) bool {
 
 func (r *ResolutorRegistroContextoActorPostgreSQLV2) reconciliar(
 	ctx context.Context,
+	consulta string,
 	argumentos []any,
 ) (respuestaContextoActorPostgreSQL, estadoEjecucionContextoActor) {
 	ctxReconciliacion, cancelar := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
@@ -210,7 +261,7 @@ func (r *ResolutorRegistroContextoActorPostgreSQLV2) reconciliar(
 		return respuestaContextoActorPostgreSQL{}, estadoContextoActorFallido
 	}
 	respuesta, err := consultarRespuestaContextoActor(
-		ctxReconciliacion, tx, consultaReconciliarContextoActorV2, argumentos,
+		ctxReconciliacion, tx, consulta, argumentos,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		if tx.Commit(ctxReconciliacion) != nil {
@@ -228,10 +279,18 @@ func argumentosContextoActorPostgreSQL(
 	s ports.SolicitudResolucionRegistroContextoActorV2,
 	reciboRef string,
 ) []any {
-	return []any{
+	argumentos := []any{
 		s.OperacionRef, reciboRef, s.Contexto.Cuenta.CuentaRef, s.Contexto.PerfilActivoRef,
 		string(s.Contexto.Cuenta.Metodo), string(s.Contexto.Cuenta.Garantia), s.SolicitadoEn,
 	}
+	if s.Proyecciones.Vacio() {
+		return argumentos
+	}
+	proyecciones := make([]string, 0, 1)
+	for _, proyeccion := range s.Proyecciones.Proyecciones() {
+		proyecciones = append(proyecciones, string(proyeccion))
+	}
+	return append(argumentos, proyecciones)
 }
 
 func consultarRespuestaContextoActor(

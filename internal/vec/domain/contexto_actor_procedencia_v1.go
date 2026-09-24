@@ -115,7 +115,7 @@ func (m ManifiestoProcedenciaContextoActorV1) Validar() error {
 		default:
 			return ErrManifiestoProcedenciaContextoActorV1Invalido
 		}
-		if !referenciaComponenteContextoActorV1Valida(vinculo.VinculoRef, "vin_") ||
+		if !prefijoVinculoReferenciaValido(vinculo.VinculoRef, vinculo.Tipo, referenciaComponenteContextoActorV1Valida) ||
 			vinculo.Version == 0 || !referenciaComponenteContextoActorV1Valida(vinculo.Referencia, prefijo) ||
 			!vinculo.AcreditacionProcedenciaComponenteContextoActorV1.validar(m.AutoridadEfectiva) {
 			return ErrManifiestoProcedenciaContextoActorV1Invalido
