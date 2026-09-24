@@ -1,4 +1,4 @@
-import { crearTraductorD1Dietas } from "./i18n-d1.js?v=20260924-dietas-d1d2d4";
+import { crearTraductorD1Dietas } from "./i18n-d1.js?v=20260924-dietas-ayuda-sin-guia-v2";
 
 const PAPELES = Object.freeze([
   Object.freeze({ codigo: "empleado", nombre: "d1_empleado", tarea: "d1_empleado_tarea" }),

@@ -4,8 +4,8 @@
  * Solo consume el catálogo y el puerto de rutas inyectado. No conoce gastos,
  * borradores, aprobaciones, liquidaciones, recibos ni pagos.
  */
-import { MENSAJES_DIETAS_ES } from "./i18n.js?v=20260924-dietas-d1d2d4";
-import { crearTraductorDietasD4 } from "./i18n-d4.js?v=20260924-dietas-d1d2d4";
+import { MENSAJES_DIETAS_ES } from "./i18n.js?v=20260924-dietas-ayuda-sin-guia-v2";
+import { crearTraductorDietasD4 } from "./i18n-d4.js?v=20260924-dietas-ayuda-sin-guia-v2";
 import { crearPresentadorRutasDietas } from "./presentador-rutas.js";
 import { ESTILOS_TRAMO_RUTA_DIETAS } from "./mapa-ruta.js";
 

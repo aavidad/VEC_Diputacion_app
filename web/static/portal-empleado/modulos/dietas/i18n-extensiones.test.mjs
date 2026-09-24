@@ -30,24 +30,31 @@ test("la consulta y su ayuda están traducidas y sus imports no usan la versión
     readFile(new URL("./vista-borradores-propios.js", import.meta.url), "utf8"),
     readFile(new URL("./vista-recorridos.js", import.meta.url), "utf8"),
   ]);
-  assert.match(comun, /i18n-borradores\.js\?v=20260924-dietas-d1d2d4/u);
-  assert.doesNotMatch(comun, /i18n-borradores\.js\?v=20260924-f2-consulta-v1/u);
-  assert.match(borradores, /i18n\.js\?v=20260924-dietas-d1d2d4/u);
-  assert.match(borradores, /i18n-borradores\.js\?v=20260924-dietas-ayuda-sin-guia-v1/u);
-  assert.doesNotMatch(borradores, /i18n-borradores\.js\?v=20260924-dietas-d1d2d4/u);
-  assert.match(recorridos, /vista-borradores-propios\.js\?v=20260924-dietas-ayuda-sin-guia-v1/u);
-  assert.doesNotMatch(recorridos, /vista-borradores-propios\.js\?v=20260924-dietas-recuperacion-v3/u);
+  assert.match(comun, /i18n-borradores\.js\?v=20260924-dietas-ayuda-sin-guia-v2/u);
+  assert.match(borradores, /i18n\.js\?v=20260924-dietas-ayuda-sin-guia-v2/u);
+  assert.match(borradores, /i18n-borradores\.js\?v=20260924-dietas-ayuda-sin-guia-v2/u);
+  assert.match(recorridos, /vista-borradores-propios\.js\?v=20260924-dietas-ayuda-sin-guia-v2/u);
+  for (const fuente of [comun, borradores, recorridos])
+    assert.doesNotMatch(fuente, /\?v=20260924-dietas-d1d2d4|\?v=20260924-dietas-ayuda-sin-guia-v1/u);
 });
 
 test("D1 y D4 están en el catálogo común, con sus importaciones de versión renovadas", async () => {
   for (const clave of ["d1_titulo", "d1_intervencion", "d4_vehiculo_pendiente", "d4_sin_importe"])
     assert.equal(crearTraductorDietas()(clave), MENSAJES_DIETAS_ES[clave]);
-  const [recorridos, papeles, itinerario] = await Promise.all([
+  const [recorridos, papeles, itinerario, d1, d4] = await Promise.all([
     readFile(new URL("./vista-recorridos.js", import.meta.url), "utf8"),
     readFile(new URL("./vista-acceso-papeles.js", import.meta.url), "utf8"),
     readFile(new URL("./vista-itinerario.js", import.meta.url), "utf8"),
+    readFile(new URL("./i18n-d1.js", import.meta.url), "utf8"),
+    readFile(new URL("./i18n-d4.js", import.meta.url), "utf8"),
   ]);
-  assert.match(recorridos, /vista-acceso-papeles\.js\?v=20260924-dietas-d1d2d4/u);
-  assert.match(papeles, /i18n-d1\.js\?v=20260924-dietas-d1d2d4/u);
-  assert.match(itinerario, /i18n-d4\.js\?v=20260924-dietas-d1d2d4/u);
+  assert.match(recorridos, /i18n\.js\?v=20260924-dietas-ayuda-sin-guia-v2/u);
+  assert.match(recorridos, /vista-acceso-papeles\.js\?v=20260924-dietas-ayuda-sin-guia-v2/u);
+  assert.match(papeles, /i18n-d1\.js\?v=20260924-dietas-ayuda-sin-guia-v2/u);
+  assert.match(itinerario, /i18n\.js\?v=20260924-dietas-ayuda-sin-guia-v2/u);
+  assert.match(itinerario, /i18n-d4\.js\?v=20260924-dietas-ayuda-sin-guia-v2/u);
+  for (const fuente of [d1, d4])
+    assert.match(fuente, /i18n\.js\?v=20260924-dietas-ayuda-sin-guia-v2/u);
+  for (const fuente of [recorridos, papeles, itinerario, d1, d4])
+    assert.doesNotMatch(fuente, /\?v=20260924-dietas-d1d2d4|\?v=20260924-dietas-ayuda-sin-guia-v1/u);
 });

@@ -1,5 +1,5 @@
-import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260924-dietas-d1d2d4";
-import { crearTraductorBorradoresDietas } from "./i18n-borradores.js?v=20260924-dietas-ayuda-sin-guia-v1";
+import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260924-dietas-ayuda-sin-guia-v2";
+import { crearTraductorBorradoresDietas } from "./i18n-borradores.js?v=20260924-dietas-ayuda-sin-guia-v2";
 import { obtenerCatalogoRutasProvincial } from "./catalogo-rutas-provincial.js";
 
 // El catálogo público incluye núcleos NGMEP aún pendientes de importación.
