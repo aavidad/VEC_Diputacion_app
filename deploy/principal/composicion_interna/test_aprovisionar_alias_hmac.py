@@ -15,6 +15,8 @@ import aprovisionar as app
 SUBJECT = "per_" + "a" * 24
 EXTERNAL = "cta_" + "b" * 24
 INTERNAL = "cta_" + "c" * 24
+PROFILE = "prf_" + "d" * 24
+ORGANIZATION = "organizacion:rrhh_ensayo"
 ROOT = Path("/material-de-prueba")
 
 
@@ -42,7 +44,8 @@ def private_files() -> dict[Path, bytes]:
         identity / "certificados.json": json.dumps({"version": 1, "certificados": [
             {"activo": True, "sujeto_id": SUBJECT, "cuenta_id": EXTERNAL}]}).encode(),
         identity / "contextos.json": json.dumps({"version": 1, "contextos": [
-            {"cuenta_ref": INTERNAL}]}).encode(),
+            {"cuenta_ref": INTERNAL, "perfil_ref": PROFILE,
+             "organizacion_ref": ORGANIZATION}]}).encode(),
         identity / "hmac.json": json.dumps(metadata()).encode(),
         identity / "hmac.pin": b"pin-de-prueba-123\n",
     }
@@ -85,10 +88,15 @@ class AliasHMACTest(unittest.TestCase):
         self.assertEqual(statements[:2], statements[2:])
         self.assertIn("registrar_alias_hmac_cuenta_v1", statements[1])
         self.assertIn("LOCK TABLE vec_identidad_sesiones_v1.alias_hmac_cuenta", statements[1])
+        self.assertIn("vinculo_corporativo_actual", statements[1])
+        self.assertIn("cv.persona_ref='" + SUBJECT + "'", statements[1])
+        self.assertIn("cv.perfil_ref='" + PROFILE + "'", statements[1])
+        self.assertLess(statements[1].index("DO $vinculo$"),
+                        statements[1].index("registrar_alias_hmac_cuenta_v1"))
         self.assertIn(account_digest.hex(), statements[1])
         self.assertIn(subject_digest.hex(), statements[1])
         self.assertNotIn(EXTERNAL, statements[1])
-        self.assertNotIn(SUBJECT, statements[1])
+        self.assertNotIn(SUBJECT, statements[1].split("DO $alias$")[1])
         self.assertNotIn("pin-de-prueba", statements[1])
 
     def test_cruce_local_impide_firma_y_sql(self) -> None:
@@ -116,7 +124,8 @@ class AliasHMACTest(unittest.TestCase):
         sql.assert_not_called()
 
     def test_cruce_sql_y_resultado_nulo_rechazan(self) -> None:
-        query = app.sql_alias_hmac("opr_" + "e" * 64, INTERNAL, metadata(),
+        query = app.sql_alias_hmac("opr_" + "e" * 64, INTERNAL, SUBJECT, PROFILE,
+                                   ORGANIZATION, metadata(),
                                    bytes.fromhex("11" * 32), bytes.fromhex("22" * 32),
                                    "COMMIT")
         self.assertIn("a.sujeto_id_hmac=decode", query)

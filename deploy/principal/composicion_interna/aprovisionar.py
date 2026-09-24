@@ -927,17 +927,72 @@ def firmar_alias_hmac(metadata: dict, pin: bytearray, cuenta: str, sujeto: str) 
         lib.C_Finalize(None)
 
 
-def sql_alias_hmac(operacion: str, cuenta: str, metadata: dict,
+def sql_alias_hmac(operacion: str, cuenta: str, sujeto: str, perfil: str,
+                   organizacion: str, metadata: dict,
                    huella_cuenta: bytes, huella_sujeto: bytes, finish: str) -> str:
     if finish not in ("ROLLBACK", "COMMIT"):
         fail("fin de transacción inválido")
     coordinates = (sql_quote(metadata["dominio_ref"]), sql_quote(metadata["clave_id"]),
                    metadata["clave_version"])
     return f"""BEGIN ISOLATION LEVEL SERIALIZABLE;
-SET LOCAL ROLE vec_identidad_sesiones_v1_propietario;
 SET LOCAL search_path = pg_catalog;
 SET LOCAL lock_timeout = '5s';
 SET LOCAL statement_timeout = '15s';
+SET LOCAL ROLE vec_contexto_actor_v1_propietario;
+DO $vinculo$ DECLARE ahora timestamptz := clock_timestamp(); BEGIN
+  PERFORM 1
+    FROM vec_contexto_actor_v1.vinculo_corporativo_actual AS ca
+    JOIN vec_contexto_actor_v1.vinculo_corporativo_versiones AS cv
+      ON cv.vinculo_corporativo_ref=ca.vinculo_corporativo_ref AND cv.version=ca.version
+     AND cv.cuenta_ref=ca.cuenta_ref AND cv.superficie=ca.superficie AND cv.uso=ca.uso
+    JOIN vec_contexto_actor_v1.proyeccion_cuenta_actual AS pca
+      ON pca.cuenta_ref=cv.cuenta_ref AND pca.version=cv.cuenta_version
+    JOIN vec_contexto_actor_v1.proyeccion_cuenta_versiones AS pc
+      ON pc.cuenta_ref=pca.cuenta_ref AND pc.version=pca.version
+    JOIN vec_contexto_actor_v1.persona_actual AS pea
+      ON pea.persona_ref=cv.persona_ref AND pea.version=cv.persona_version
+    JOIN vec_contexto_actor_v1.persona_versiones AS pe
+      ON pe.persona_ref=pea.persona_ref AND pe.version=pea.version
+    JOIN vec_contexto_actor_v1.perfil_actual AS pfa
+      ON pfa.perfil_ref=cv.perfil_ref AND pfa.version=cv.perfil_version
+    JOIN vec_contexto_actor_v1.perfil_versiones AS pf
+      ON pf.perfil_ref=pfa.perfil_ref AND pf.version=pfa.version
+    JOIN vec_contexto_actor_v1.vinculo_contexto_actual AS vca
+      ON vca.vinculo_ref=cv.vinculo_contexto_ref AND vca.version=cv.vinculo_contexto_version
+    JOIN vec_contexto_actor_v1.vinculo_contexto_versiones AS vc
+      ON vc.vinculo_ref=vca.vinculo_ref AND vc.version=vca.version
+    JOIN vec_contexto_actor_v1.organizacion_actual AS oa
+      ON oa.organizacion_ref=cv.organizacion_ref AND oa.version=cv.organizacion_version
+    JOIN vec_contexto_actor_v1.organizacion_versiones AS ov
+      ON ov.organizacion_ref=oa.organizacion_ref AND ov.version=oa.version
+   WHERE ca.cuenta_ref={sql_quote(cuenta)}
+     AND ca.superficie='interna_corporativa' AND ca.uso='consulta_rrhh'
+     AND cv.persona_ref={sql_quote(sujeto)} AND cv.perfil_ref={sql_quote(perfil)}
+     AND cv.organizacion_ref={sql_quote(organizacion)}
+     AND pf.persona_ref=cv.persona_ref
+     AND vc.cuenta_ref=cv.cuenta_ref AND vc.perfil_ref=cv.perfil_ref
+     AND vc.persona_ref=cv.persona_ref
+     AND cv.estado='activo' AND pc.estado='activo' AND pe.estado='activo'
+     AND pf.estado='activo' AND vc.estado='activo' AND ov.estado='activo'
+     AND cv.procedencia_autoridad='autoridad_maestra_acreditada'
+     AND pc.procedencia_autoridad='autoridad_maestra_acreditada'
+     AND pe.procedencia_autoridad='autoridad_maestra_acreditada'
+     AND pf.procedencia_autoridad='autoridad_maestra_acreditada'
+     AND vc.procedencia_autoridad='autoridad_maestra_acreditada'
+     AND ov.procedencia_autoridad='autoridad_maestra_acreditada'
+     AND ahora >= cv.vigente_desde AND ahora < cv.vigente_hasta
+     AND ahora >= pc.vigente_desde AND ahora < pc.vigente_hasta
+     AND ahora >= pe.vigente_desde AND ahora < pe.vigente_hasta
+     AND ahora >= pf.vigente_desde AND ahora < pf.vigente_hasta
+     AND ahora >= vc.vigente_desde AND ahora < vc.vigente_hasta
+     AND ahora >= ov.vigente_desde AND ahora < ov.vigente_hasta
+   FOR SHARE OF ca, pca, pea, pfa, vca, oa;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'vínculo F1 de persona, cuenta y perfil ausente o no vigente'
+      USING ERRCODE='55000';
+  END IF;
+END $vinculo$;
+SET LOCAL ROLE vec_identidad_sesiones_v1_propietario;
 LOCK TABLE vec_identidad_sesiones_v1.alias_hmac_cuenta IN SHARE ROW EXCLUSIVE MODE;
 DO $alias$ BEGIN
   IF EXISTS (
@@ -981,7 +1036,13 @@ def registrar_alias_hmac(root: Path, args: argparse.Namespace) -> None:
     if not any(c.get("activo") is True and c.get("sujeto_id") == args.subject_id and
                c.get("cuenta_id") == args.external_account_id for c in certs["certificados"]):
         fail("certificado activo no vinculado a cuenta y sujeto indicados")
-    if not any(c.get("cuenta_ref") == args.internal_account_ref for c in contexts["contextos"]):
+    selected = [c for c in contexts["contextos"]
+                if c.get("cuenta_ref") == args.internal_account_ref]
+    if len(selected) != 1 or not re.fullmatch(r"prf_[a-z0-9_]{22,128}",
+                                               selected[0].get("perfil_ref", "")) or \
+       not (re.fullmatch(r"ref:[0-9a-f]{64}", selected[0].get("organizacion_ref", "")) or
+            re.fullmatch(r"organizacion:[a-z0-9_:-]{4,128}",
+                         selected[0].get("organizacion_ref", ""))):
         fail("cuenta interna ausente del selector nominal")
     if any(c.get("cuenta_ref") == args.external_account_id for c in contexts["contextos"]):
         fail("cuenta externa usada como cuenta interna")
@@ -1024,7 +1085,8 @@ def registrar_alias_hmac(root: Path, args: argparse.Namespace) -> None:
         str(metadata["clave_version"]).encode() + b"\0" + cuenta_hmac + sujeto_hmac
     ).hexdigest()
     for finish in ("ROLLBACK", "COMMIT"):
-        psql(sql_alias_hmac(operation, args.internal_account_ref, metadata,
+        psql(sql_alias_hmac(operation, args.internal_account_ref, args.subject_id,
+                           selected[0]["perfil_ref"], selected[0]["organizacion_ref"], metadata,
                            cuenta_hmac, sujeto_hmac, finish), args.pg_container,
              args.container_engine, args.database, args.admin_user)
     print("Alias HMAC de Identidad cotejado y registrado; operación idempotente")

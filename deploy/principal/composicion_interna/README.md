@@ -127,13 +127,21 @@ comprueba el certificado activo, el selector de cuenta interna y las
 coordenadas exactas de `identidad/hmac.json`. Firma por PKCS#11 los mensajes
 canónicos de `cuenta` y `sujeto` que firma el conector Go: esquema, dominio,
 espacio de identidad, versión de clave, propósito e identificador, cada campo
-con longitud de cuatro bytes en orden de red. Solo las dos huellas llegan a
-PostgreSQL; el PIN y la clave no aparecen en argumentos, SQL ni salida.
+con longitud de cuatro bytes en orden de red. PostgreSQL recibe las dos
+huellas y las referencias opacas de F1 necesarias para el cotejo; la cuenta
+externa, el PIN y la clave no aparecen en SQL ni salida.
+En la misma transacción, antes del registro HMAC, coteja como propietario de
+ContextoActor el vínculo corporativo actual `consulta_rrhh`: persona del
+certificado, cuenta y perfil seleccionados, proyección de cuenta, persona,
+perfil, contexto y organización actuales, activos y vigentes. Bloquea sus
+punteros durante el registro en Identidad. Una cuenta interna de otra persona
+se rechaza aunque esté activa. Si falta ContextoActor `000004` o cualquiera
+de sus pruebas, el alias falla cerrado.
 La misma operación se ensaya con `ROLLBACK` y se confirma; al repetirla,
 Identidad devuelve la misma cuenta sin crear otro alias. Un alias que cruce
 cuenta externa, sujeto o cuenta interna bajo las mismas coordenadas se rechaza.
-La operación requiere un administrador de base autorizado a asumir el rol
-propietario de Identidad; no instala migraciones ni aprovisiona F1. Sin el
+La operación requiere un administrador de base autorizado a asumir los roles
+propietarios de ContextoActor e Identidad; no instala migraciones ni aprovisiona F1. Sin el
 alias la sesión termina en 401. `--unit-ref` admite la referencia
 opaca `ref:…` o la nominal `unidad:…` que ya usa el seguimiento CT.
 
