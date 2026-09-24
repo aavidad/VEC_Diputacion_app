@@ -666,6 +666,7 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
   const versionPersonalInterno = "20260924-p1-personal-interno-v2";
   const versionCarga = "20260923-p4-estado-modulos-v1";
   const versionModuloBolsa = "20260924-integracion-b7-v1";
+  const versionSubsanacion = "20260924-web-subsanacion-v1";
   const versionClientePersonal = versionPersonalInterno;
   const versionCatalogo = versionCacheF2;
   const versionCronos = versionCacheF2;
@@ -681,7 +682,7 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
     new URL("portal-modulos-coordinador.js", import.meta.url),
     "utf8",
   );
-  assert.match(portal, new RegExp(`portal-modulos-coordinador\\.js\\?v=${versionPersonalInterno}`));
+  assert.match(portal, new RegExp(`portal-modulos-coordinador\\.js\\?v=${versionSubsanacion}`));
   assert.match(coordinador, new RegExp(`portal-modulos-carga\\.js\\?v=${versionCarga}`));
   assert.match(portal, new RegExp(`portal-bolsas-api\\.js\\?v=${versionModuloBolsa}`));
   assert.match(portal, new RegExp(`portal-i18n\\.js\\?v=${versionCacheF2}`));
@@ -695,7 +696,7 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
     const expresion = new RegExp(`modulos/personal/${vista.replaceAll(".", "\\.")}\\?v=${versionCachePersonal}`, "g");
     assert.equal([...coordinador.matchAll(expresion)].length, montajes, vista);
   }
-  assert.match(html, new RegExp(`portal\\.js\\?v=${versionModuloBolsa}`));
+  assert.match(html, new RegExp(`portal\\.js\\?v=${versionSubsanacion}`));
   assert.match(html, new RegExp(`portal-modulos\\.css\\?v=${versionEstilos}`));
   assert.match(html, new RegExp(`portal-flujos\\.css\\?v=${versionFlujos}`));
   assert.match(html, new RegExp(`portal\\.css\\?v=${versionTemaBase}`));

@@ -7,7 +7,7 @@ const versionTemaBase = "20260924-f2-tema-base-v2";
 const versionCache = "20260924-f2-cache-v2";
 const versionCachePersonal = "20260924-f2-cache-v3";
 const versionPersonalInterno = "20260924-p1-personal-interno-v2";
-const versionIntegracion = "20260924-integracion-b7-v1";
+const versionIntegracion = "20260924-web-subsanacion-v1";
 const raiz = new URL("./", import.meta.url);
 
 function versionesDe(codigo, recurso) {
@@ -77,7 +77,7 @@ test("el grafo JS propio llega desde HTML a los consumidores F2 con versiones nu
     readFile(new URL("modulos/dietas/vista-recorridos.js", raiz), "utf8"),
   ]);
   assert.equal(versionDe(html, "/portal-empleado/portal.js"), versionIntegracion);
-  assert.equal(versionDe(portal, "./portal-modulos-coordinador.js"), versionPersonalInterno);
+  assert.equal(versionDe(portal, "./portal-modulos-coordinador.js"), versionIntegracion);
   for (const recurso of ["portal-menu-bolsa.js",
     "portal-vistas-baremacion.js", "portal-vistas-convocatorias.js", "portal-vistas-operaciones.js",
     "modulos/seleccion/inscripciones/vista.js", "modulos/seleccion/pruebas/vista.js",
@@ -158,8 +158,7 @@ test("la caché immutable previa no retiene el catálogo i18n ni los consumidore
       const personal = padre === "portal-modulos-coordinador.js" && hijo.startsWith("modulos/personal/");
       assert.equal(versionesHijo.length, ["modulos/personal/vista.js", "modulos/personal/cliente-http-categorias.js"].includes(hijo) ? 2 : 1,
         `${padre} → ${hijo}: número de aristas`);
-      const versionEsperada = padre === "index.html" ? versionIntegracion : hijo === "portal-modulos-coordinador.js"
-        || hijo === "modulos/personal/cliente-http-categorias.js"
+      const versionEsperada = padre === "index.html" || hijo === "portal-modulos-coordinador.js" ? versionIntegracion : hijo === "modulos/personal/cliente-http-categorias.js"
         ? versionPersonalInterno : personal ? versionCachePersonal : versionCache;
       for (const versionHijo of versionesHijo) {
         assert.equal(versionHijo, versionEsperada, `${padre} → ${hijo}`);
@@ -188,7 +187,7 @@ test("la integración B7 renueva controlador y presentador desde la entrada HTML
     const codigo = recurso === "portal.js" ? html : portal;
     const prefijo = recurso === "portal.js" ? "/portal-empleado/" : "./";
     const nueva = versionDe(codigo, prefijo + recurso);
-    assert.equal(nueva, "20260924-integracion-b7-v1", recurso);
+    assert.equal(nueva, recurso === "portal.js" ? versionIntegracion : "20260924-integracion-b7-v1", recurso);
     assert.notEqual(nueva, previa, recurso);
     assert.ok(!codigo.includes(`${prefijo}${recurso}?v=${previa}`), `${recurso}: no queda URL antigua`);
     const url = `${recurso}?v=${nueva}`;
@@ -197,4 +196,22 @@ test("la integración B7 renueva controlador y presentador desde la entrada HTML
     descargas.push(recurso);
   }
   assert.deepEqual(descargas, [...versionesAnteriores.keys()]);
+});
+
+test("la recuperación de subsanación renueva toda la cadena immutable y ambas entradas al módulo", async () => {
+  const nueva = "20260924-web-subsanacion-v1";
+  const html = await readFile(new URL("index.html", raiz), "utf8");
+  const portal = await readFile(new URL("portal.js", raiz), "utf8");
+  const coordinador = await readFile(new URL("portal-modulos-coordinador.js", raiz), "utf8");
+  const pasos = [
+    [html, "/portal-empleado/portal.js", "20260924-integracion-b7-v1", 1],
+    [portal, "./portal-modulos-coordinador.js", "20260924-p1-personal-interno-v2", 1],
+    [coordinador, "./modulos/contratacion-temporal/vista-expedientes.js", "20260923-pweb17-v1", 2],
+  ];
+  const cache = new Map(pasos.map(([, ruta, previa]) => [`${ruta}?v=${previa}`, "módulo anterior"]));
+  for (const [codigo, ruta, previa, cantidad] of pasos) {
+    assert.deepEqual(versionesDe(codigo, ruta), Array(cantidad).fill(nueva));
+    assert.ok(!codigo.includes(`${ruta}?v=${previa}`));
+    assert.ok(!cache.has(`${ruta}?v=${nueva}`), "la vista anterior no sustituye los bytes nuevos");
+  }
 });
