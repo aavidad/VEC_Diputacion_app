@@ -26,6 +26,7 @@ function raiz() {
     remove() { this.parent?.removeChild(this); }
     setAttribute(k, v) { this.atributos.set(k, String(v)); }
     addEventListener(tipo, listener) { this.listeners[tipo] = listener; }
+    focus() { this.ownerDocument.activeElement = this; }
     matches(selector) {
       const clave = selector.match(/^\[data-([a-z-]+)\]$/u)?.[1]?.replace(/-([a-z])/gu, (_m, l) => l.toUpperCase());
       return clave ? this.dataset[clave] !== undefined : this.tagName === selector;
@@ -89,17 +90,62 @@ test("la tabla prioriza nombre y adscripción legible, conserva clave y scroll i
   const r = raiz();
   const modulo = await montarModuloEstructuraOrganizativaPublica({ raiz: r, cliente: { async obtener() { return estructura(); } } });
   const vista = r.querySelector("[data-personal-estructura-organizativa-publica]");
-  const tabla = vista.children.find((n) => n.className === "tabla-contenedor");
+  const tabla = vista.querySelector("[data-personal-estructura-tabla]");
   assert.equal(tabla.atributos.get("role"), "region");
   assert.equal(tabla.atributos.get("tabindex"), "0");
   const cuerpo = tabla.querySelector("tbody");
-  assert.equal(cuerpo.children.length, 66);
-  const centro = cuerpo.children[14];
+  assert.equal(cuerpo.children.length, 10);
+  const claves = new Set();
+  const recoger = () => vista.querySelector("tbody").children.forEach((fila) =>
+    claves.add(fila.children.at(-1).children[0].textContent));
+  recoger();
+  assert.match(textoVisible(vista), /1 \/ 7/u);
+  const siguiente = vista.querySelector("[data-personal-estructura-siguiente]");
+  assert.equal(siguiente.textContent, "Siguiente");
+  siguiente.focus();
+  siguiente.listeners.click();
+  assert.equal(vista.querySelector("tbody").children.length, 10);
+  recoger();
+  assert.equal(r.ownerDocument.activeElement.dataset.personalEstructuraSiguiente, "");
+  const centro = vista.querySelector("tbody").children[4];
   assert.equal(centro.children[0].tagName, "th");
   assert.equal(centro.children[0].textContent, "Centro");
   assert.equal(centro.children[0].atributos.get("scope"), "row");
   assert.equal(centro.children[2].textContent, "Delegación");
   assert.equal(textoVisible(centro.children.at(-1)), " centro-0");
+  for (let pagina = 2; pagina < 7; pagina += 1) {
+    vista.querySelector("[data-personal-estructura-siguiente]").listeners.click();
+    recoger();
+  }
+  assert.equal(claves.size, 66);
+  assert.match(textoVisible(vista), /7 \/ 7/u);
+  assert.equal(vista.querySelector("tbody").children.length, 6);
+  assert.equal(vista.querySelector("[data-personal-estructura-siguiente]").disabled, true);
+  assert.equal(r.ownerDocument.activeElement.dataset.personalEstructuraAnterior, "");
+  vista.querySelector("[data-personal-estructura-anterior]").listeners.click();
+  assert.equal(vista.querySelector("tbody").children.length, 10);
+  modulo.desmontar();
+});
+
+test("mantiene abierta y enfocada la ayuda si termina la carga", async () => {
+  const r = raiz();
+  let resolver;
+  const montaje = montarModuloEstructuraOrganizativaPublica({ raiz: r, cliente: {
+    obtener: () => new Promise((resolve) => { resolver = resolve; }),
+  } });
+  const vista = r.querySelector("[data-personal-estructura-organizativa-publica]");
+  const ayuda = vista.querySelector("[data-personal-estructura-ayuda]");
+  ayuda.focus();
+  ayuda.listeners.click();
+  assert.equal(vista.querySelector("[data-personal-estructura-ayuda-contenido]").hidden, false);
+  resolver(estructura());
+  const modulo = await montaje;
+  const nuevoBoton = vista.querySelector("[data-personal-estructura-ayuda]");
+  assert.notEqual(nuevoBoton, ayuda);
+  assert.equal(nuevoBoton.atributos.get("aria-expanded"), "true");
+  assert.equal(vista.querySelector("[data-personal-estructura-ayuda-contenido]").hidden, false);
+  assert.equal(r.ownerDocument.activeElement, nuevoBoton);
+  assert.match(textoVisible(vista), /demo-v1/u);
   modulo.desmontar();
 });
 
