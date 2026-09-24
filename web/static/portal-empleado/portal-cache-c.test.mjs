@@ -6,10 +6,10 @@ import { PLANTILLA_TESELAS_OSM_INTERNA } from "./modulos/dietas/contrato.js";
 const raiz = new URL("./", import.meta.url);
 const vistasC = "20260924-web-c-v1";
 const recuperacion = "20260924-dietas-recuperacion-v3";
-const entrada = "20260924-web-c-ayuda-v5";
+const entrada = "20260924-web-c-ayuda-v6";
 const cronos = "20260924-cronos-integrado-v1";
 const dietas = "20260924-dietas-ayuda-icono-v1";
-const sinGuia = "20260924-dietas-ayuda-sin-guia-v1";
+const sinGuia = "20260924-dietas-ayuda-sin-guia-v2";
 const versiones = (codigo, recurso) => [...codigo.matchAll(new RegExp(`${recurso.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\?v=([^"']+)`, "gu"))].map((m) => m[1]);
 
 test("capa C no reutiliza los consumidores previos de B con caché immutable", async () => {
@@ -23,7 +23,7 @@ test("capa C no reutiliza los consumidores previos de B con caché immutable", a
     [coordinador, "./modulos/cronos/vista-recorridos.js", "20260924-cronos-ayuda-v1", cronos, 2],
     [coordinador, "./modulos/cronos/i18n.js", "20260924-f2-web2", cronos, 1],
     [coordinador, "./modulos/dietas/vista-recorridos.js", "20260924-f2-consulta-v2", sinGuia, 2],
-    [coordinador, "./modulos/dietas/vista-itinerario.js", "20260923-dietas-r1", dietas, 2],
+    [coordinador, "./modulos/dietas/vista-itinerario.js", "20260923-dietas-r1", sinGuia, 2],
     [coordinador, "./modulos/personal/vista-ficha-integral.js", "20260924-f2-shell-v1", vistasC, 2],
     [coordinador, "./modulos/personal/vista-rpt-publica.js", "20260920-personal-rpt-publica-v3", vistasC, 1],
     [coordinador, "./modulos/personal/vista-estructura-organizativa-publica.js", "20260924-f2-cache-v3", vistasC, 1],
@@ -48,7 +48,7 @@ test("la ayuda de Dietas no reutiliza C v3 ni las vistas y CSS anteriores", asyn
   const aristas = [
     [html, "/portal-empleado/portal.js", "20260924-web-c-v3", entrada, 1],
     [portal, "./portal-modulos-coordinador.js", "20260924-web-c-v3", entrada, 1],
-    [coordinador, "./modulos/dietas/vista-itinerario.js", "20260924-dietas-d1d2d4", dietas, 2],
+    [coordinador, "./modulos/dietas/vista-itinerario.js", "20260924-dietas-d1d2d4", sinGuia, 2],
     [coordinador, "./modulos/dietas/vista-recorridos.js", recuperacion, sinGuia, 2],
     [html, "/portal-empleado/modulos/dietas/dietas.css", "20260924-dietas-d1d2d4", dietas, 1],
   ];
