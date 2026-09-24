@@ -716,9 +716,9 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
   assert.equal([...coordinador.matchAll(clientePersonal)].length, 2);
   assert.match(coordinador, new RegExp(`modulos/personal/cliente-http-rpt-publica\\.js\\?v=${versionRPT}`));
   assert.match(coordinador, new RegExp(`modulos/personal/vista-rpt-publica\\.js\\?v=${versionVistasC}`));
+  // Vista y estructura de Personal se renovaron por el i18n de organización histórica.
   for (const [vista, montajes, versionVista] of [["vista.js", 2, versionPersonalEstados], ["vista-estructura-organizativa-publica.js", 1, versionVistasC]]) {
-    const expresion = new RegExp(`modulos/personal/${vista.replaceAll(".", "\\.")}\\?v=${versionVista}`, "g");
-    assert.equal([...coordinador.matchAll(expresion)].length, montajes, vista);
+    exigirVersiones(coordinador, `./modulos/personal/${vista}`, posterior(versionVista), montajes);
   }
   assert.doesNotMatch(coordinador, new RegExp(`modulos/personal/vista\\.js\\?v=${versionCachePersonal}`));
   exigirRenovado(html, "/portal-empleado/portal.js", versionEntradaAyuda);

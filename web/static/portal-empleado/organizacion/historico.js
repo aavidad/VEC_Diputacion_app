@@ -10,6 +10,27 @@ const NOMBRES = Object.freeze({
   unidades: "historyUnits", puestos_tipo: "historyTypes", dotaciones: "historyAllocations",
   plazas: "historyPlazas", puestos_individuales: "historyPosts", vinculos: "historyLinks",
 });
+const ZONA_CONOCIMIENTO = "Europe/Madrid";
+const partesMadrid = new Intl.DateTimeFormat("en-GB", {
+  timeZone: ZONA_CONOCIMIENTO, year: "numeric", month: "2-digit", day: "2-digit",
+  hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+});
+/** Devuelve `AAAA-MM-DDTHH:MM` del instante `ms` en hora de Madrid. */
+function localMadrid(ms) {
+  const p = Object.fromEntries(partesMadrid.formatToParts(new Date(ms)).map(({ type, value }) => [type, value]));
+  return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;
+}
+/**
+ * Convierte una hora civil de Madrid (`AAAA-MM-DDTHH:MM`) en su instante UTC.
+ * Una hora inexistente (salto de marzo) devuelve null; en la hora repetida de
+ * octubre se toma la primera aparición, la más antigua.
+ */
+export function instanteDesdeHoraMadrid(local) {
+  const base = Date.parse(`${local}:00Z`);
+  if (!Number.isFinite(base)) return null;
+  const candidatos = [2, 1, 0].map((horas) => base - horas * 3600000).filter((ms) => localMadrid(ms) === local);
+  return candidatos.length ? candidatos[0] : null;
+}
 const esc = (valor) => String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;")
   .replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 
@@ -78,13 +99,13 @@ export function filtrosHistoricos(campos) {
   if (new Date(`${vigente}T12:00:00Z`).toISOString().slice(0, 10) !== vigente) {
     throw new Error("fecha de efectos no válida");
   }
+  // «Conocido en» se escribe en hora de Madrid y viaja al servidor en UTC.
   const local = `${conocida[3]}-${conocida[2]}-${conocida[1]}T${conocida[4]}:${conocida[5]}`;
-  const instante = new Date(`${local}:00Z`);
-  if (!Number.isFinite(instante.getTime()) ||
-      instante.toISOString().slice(0, 16) !== local.slice(0, 16)) {
+  const instante = instanteDesdeHoraMadrid(local);
+  if (instante === null) {
     throw new Error("instante histórico no válido");
   }
-  const conocido = instante.toISOString().replace(/Z$/, "000Z");
+  const conocido = new Date(instante).toISOString().replace(/Z$/, "000Z");
   const filtro = {
     vigente_en: vigente,
     conocido_en: conocido,
@@ -96,8 +117,8 @@ export function filtrosHistoricos(campos) {
   return filtro;
 }
 
-const fechaUTC = (iso) => new Intl.DateTimeFormat("es-ES", {
-  dateStyle: "medium", timeStyle: "short", timeZone: "UTC", hourCycle: "h23",
+export const formatearConocidoEn = (iso) => new Intl.DateTimeFormat("es-ES", {
+  dateStyle: "medium", timeStyle: "short", timeZone: ZONA_CONOCIMIENTO, hourCycle: "h23",
 }).format(new Date(iso));
 const fechaCivil = (iso) => new Intl.DateTimeFormat("es-ES", {
   dateStyle: "medium", timeZone: "UTC",
@@ -175,10 +196,10 @@ export function iniciarHistorico(cliente = crearClienteHistorico(), montaje = MO
   const buscar = (selector) => document.querySelector(selector);
   const form = buscar("#history-form"), state = buscar("#history-state"), results = buscar("#history-results");
   const unidad = buscar("#history-unit"), tipo = buscar("#history-kind"), more = buscar("#history-more");
-  const hoy = new Date();
-  const fechaHoy = `${String(hoy.getUTCDate()).padStart(2, "0")}/${String(hoy.getUTCMonth() + 1).padStart(2, "0")}/${hoy.getUTCFullYear()}`;
+  const [, anio, mes, dia, hora, minuto] = /^(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d)$/.exec(localMadrid(Date.now()));
+  const fechaHoy = `${dia}/${mes}/${anio}`;
   buscar("#history-valid-date").value = fechaHoy;
-  buscar("#history-known-at").value = `${fechaHoy} ${String(hoy.getUTCHours()).padStart(2, "0")}:${String(hoy.getUTCMinutes()).padStart(2, "0")}`;
+  buscar("#history-known-at").value = `${fechaHoy} ${hora}:${minuto}`;
   buscar("#history-search").disabled = false;
   state.textContent = t("historyReady");
   buscar("#history-authorization").textContent = t("historyPending");
@@ -208,7 +229,7 @@ export function iniciarHistorico(cliente = crearClienteHistorico(), montaje = MO
     const rpt = dato(datos.pagina.version_rpt_ref), plantilla = dato(datos.pagina.version_plantilla_ref);
     buscar("#history-meta").innerHTML = [
       t("historyEffective", { fecha: fechaCivil(filtros.vigente_en) }),
-      t("historyKnown", { fecha: fechaUTC(filtros.conocido_en) }),
+      t("historyKnown", { fecha: formatearConocidoEn(filtros.conocido_en) }),
       t("historyRPT", { version: rpt }), t("historyPlantilla", { version: plantilla }),
       t("historyReceipt", { referencia: datos.evidencia.recibo_ref }),
     ].map((valor) => `<span>${esc(valor)}</span>`).join("");

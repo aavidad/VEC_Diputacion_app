@@ -3,7 +3,8 @@ import test from "node:test";
 import { readFileSync } from "node:fs";
 import { API_ORGANIZACION_HISTORICA, RUTAS_IMPORTACION, crearClienteHistorico, crearClienteImportacion,
   filtrosHistoricos, validarPaginaHistorica, validarPaqueteImportacion, validarDecisionesImportacion,
-  renderizarResumenImportacion, formatearRecuentoImportacion, formatearFechaReciboImportacion } from "./historico.js";
+  renderizarResumenImportacion, formatearRecuentoImportacion, formatearFechaReciboImportacion,
+  formatearConocidoEn, instanteDesdeHoraMadrid } from "./historico.js";
 import { MENSAJES_PERSONAL_ES, crearTraductorPersonal } from "../modulos/personal/i18n.js";
 
 const respuesta = () => ({
@@ -43,7 +44,8 @@ test("B3 envía GET autorizado sin organismo ni almacenamiento y conserva los do
     vigente_en: "31/12/2024", conocido_en: "25/09/2026 12:30",
     unidad_clave: "centro_1", version_rpt_ref: "rpt_2024", version_plantilla_ref: "",
   });
-  assert.equal(filtros.conocido_en, "2026-09-25T12:30:00.000000Z");
+  // 12:30 en Madrid (CEST, UTC+2) son las 10:30 UTC.
+  assert.equal(filtros.conocido_en, "2026-09-25T10:30:00.000000Z");
   await cliente.consultar(filtros);
   const url = new URL(llamada.url, "https://vec.local");
   assert.equal(url.pathname, API_ORGANIZACION_HISTORICA);
@@ -197,4 +199,22 @@ test("los textos explicativos de publicación y alcance viven en la ayuda tras ?
     assert.match(ayuda, new RegExp(`data-i18n="${clave}"`), clave);
     assert.equal((html.match(new RegExp(`data-i18n="${clave}"`, "g")) ?? []).length, 1, clave);
   }
+});
+
+test("«conocido en» se escribe y se muestra en hora de Madrid, no en UTC", () => {
+  // Invierno (CET, UTC+1) y verano (CEST, UTC+2).
+  assert.equal(filtrosHistoricos({ vigente_en: "15/01/2026", conocido_en: "15/01/2026 09:05" }).conocido_en,
+    "2026-01-15T08:05:00.000000Z");
+  assert.equal(filtrosHistoricos({ vigente_en: "15/07/2026", conocido_en: "15/07/2026 00:30" }).conocido_en,
+    "2026-07-14T22:30:00.000000Z");
+  // Hora inexistente del cambio de marzo y primera aparición de la repetida de octubre.
+  assert.equal(instanteDesdeHoraMadrid("2026-03-29T02:30"), null);
+  assert.throws(() => filtrosHistoricos({ vigente_en: "29/03/2026", conocido_en: "29/03/2026 02:30" }), /no válido/);
+  assert.equal(new Date(instanteDesdeHoraMadrid("2026-10-25T02:30")).toISOString(), "2026-10-25T00:30:00.000Z");
+  assert.equal(instanteDesdeHoraMadrid("2026-02-30T10:00"), null);
+  assert.match(formatearConocidoEn("2026-09-25T10:30:00.000000Z"), /12:30/);
+  assert.match(formatearConocidoEn("2026-01-15T08:05:00.000000Z"), /9:05/);
+  const t = crearTraductorPersonal();
+  assert.doesNotMatch(t("organizacion_historyKnownAt"), /UTC/);
+  assert.match(t("organizacion_historyKnown", { fecha: "x" }), /Europe\/Madrid/);
 });

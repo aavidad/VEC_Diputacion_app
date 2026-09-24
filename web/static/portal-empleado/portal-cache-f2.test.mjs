@@ -124,7 +124,7 @@ test("el grafo JS propio llega desde HTML a los consumidores F2 con versiones nu
     "modulos/dietas/cliente-borradores-http.js", "modulos/personal/vista-ficha-integral.js",
     "modulos/nominas/vista.js", "modulos/solicitudes/vista.js", "modulos/meritos/vista.js",
     "modulos/comunicaciones/vista.js", "modulos/documentos/vista.js", "modulos/aprobaciones/vista.js"]) {
-    exigirVersiones(coordinador, `./${recurso}`, recurso === "modulos/cronos/vista.js" ? posterior(versionCronosVista) : ["modulos/personal/vista-ficha-integral.js", "modulos/nominas/vista.js"].includes(recurso) ? versionVistasC : version,
+    exigirVersiones(coordinador, `./${recurso}`, recurso === "modulos/cronos/vista.js" ? posterior(versionCronosVista) : recurso === "modulos/personal/vista-ficha-integral.js" ? posterior(versionVistasC) : recurso === "modulos/nominas/vista.js" ? versionVistasC : version,
       Math.max(versionesDe(coordinador, `./${recurso}`).length, 1));
     await access(new URL(recurso, raiz));
   }
@@ -146,9 +146,9 @@ test("la caché immutable previa no retiene el catálogo i18n ni los consumidore
     ["modulos/cronos/vista-recorridos.js", ["20260920-cronos-bandeja-v2", versionCache, versionCronosVista]],
     ["modulos/dietas/vista-recorridos.js", [version, "20260924-f2-dietas-consulta-v2", versionDietasRecuperacion, versionDietasIcono, "20260924-dietas-ayuda-sin-guia-v1", versionDietasVista]],
     ["modulos/dietas/vista-itinerario.js", [versionDietasIcono, versionDietasVista]],
-    ["modulos/personal/vista.js", ["20260920-personal-catalogo-v1", versionCachePersonal]],
+    ["modulos/personal/vista.js", ["20260920-personal-catalogo-v1", versionCachePersonal, versionPersonalEstados]],
     ["modulos/personal/cliente-http-categorias.js", ["20260920-personal-catalogo-v1"]],
-    ["modulos/personal/vista-estructura-organizativa-publica.js", ["20260920-personal-estructura-v1"]],
+    ["modulos/personal/vista-estructura-organizativa-publica.js", ["20260920-personal-estructura-v1", versionVistasC]],
   ]);
   const cache = new Map();
   for (const [recurso, versiones] of versionesPrevias) {
@@ -206,9 +206,9 @@ test("la caché immutable previa no retiene el catálogo i18n ni los consumidore
         "portal-catalogo-modulos.js", "portal-inicio.js", "portal-eventos.js",
         "portal-borradores-ui.js", "portal-borradores-acceso.js", "portal-i18n.js"].includes(hijo)
         ? posterior(versionCronosPermisos)
-        : hijo === "modulos/personal/vista.js" ? versionPersonalEstados
+        : hijo === "modulos/personal/vista.js" ? posterior(versionPersonalEstados)
         : hijo === "modulos/personal/cliente-http-categorias.js" ? versionPersonalInterno
-        : hijo === "modulos/personal/vista-estructura-organizativa-publica.js" ? versionVistasC : personal ? versionCachePersonal : versionCache;
+        : hijo === "modulos/personal/vista-estructura-organizativa-publica.js" ? posterior(versionVistasC) : personal ? versionCachePersonal : versionCache;
       const versionHijoVigente = exigirVersiones(codigo, ruta, versionEsperada, versionesHijo.length);
       assert.ok(!vigentes.has(hijo) || vigentes.get(hijo) === versionHijoVigente,
         `${hijo}: todos sus importadores piden la misma URL`);
