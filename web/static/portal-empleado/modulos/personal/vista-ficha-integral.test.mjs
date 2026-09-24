@@ -114,15 +114,41 @@ test("cambiar de pestaña y desmontar aborta consultas sin pintar respuestas tar
 
 test("teclado y navegación a otros módulos no transportan identidad", () => {
   const raiz = raizFalsa(); const destinos = [];
-  montarVistaFichaIntegralPersonal({ raiz, navegarModulo: (...args) => destinos.push(args) }); const ficha = raiz.querySelector("[data-personal-ficha-integral]");
+  montarVistaFichaIntegralPersonal({ raiz, navegarModulo: (...args) => destinos.push(args), destinosDisponibles: { dietas: true } }); const ficha = raiz.querySelector("[data-personal-ficha-integral]");
   let prevenido = false; tab(ficha, "ficha").listeners.get("keydown")({ key: "ArrowRight", preventDefault() { prevenido = true; } });
   assert.equal(prevenido, true); assert.equal(tab(ficha, "relaciones").atributos.get("aria-selected"), "true"); assert.equal(tab(ficha, "relaciones").enfocado, true);
   tab(ficha, "relaciones").listeners.get("keydown")({ key: "End", preventDefault() {} });
   assert.equal(tab(ficha, "catalogos").atributos.get("aria-selected"), "true"); assert.equal(tab(ficha, "catalogos").enfocado, true);
   tab(ficha, "catalogos").listeners.get("keydown")({ key: "Home", preventDefault() {} });
   assert.equal(tab(ficha, "ficha").atributos.get("aria-selected"), "true"); assert.equal(tab(ficha, "ficha").enfocado, true);
-  tab(ficha, "ficha").listeners.get("click")(); nodos(ficha).find((n) => n.dataset.personalFichaDestino === "dietas").listeners.get("click")();
+  tab(ficha, "ficha").listeners.get("click")();
+  const dietas = nodos(ficha).find((n) => n.dataset.personalFichaDestino === "dietas");
+  const cronos = nodos(ficha).find((n) => n.dataset.personalFichaDestino === "cronos");
+  assert.equal(dietas.disabled, false); assert.equal(cronos.disabled, true);
+  dietas.listeners.get("click")(); cronos.listeners.get("click")();
   assert.deepEqual(destinos, [["dietas"]]);
+});
+
+test("un callback de navegación no habilita por sí solo Dietas ni Cronos", () => {
+  const raiz = raizFalsa(); const destinos = [];
+  montarVistaFichaIntegralPersonal({ raiz, navegarModulo: (destino) => destinos.push(destino) });
+  const ficha = raiz.querySelector("[data-personal-ficha-integral]");
+  for (const destino of ["dietas", "cronos"]) {
+    const boton = nodos(ficha).find((n) => n.dataset.personalFichaDestino === destino);
+    assert.equal(boton.disabled, true); assert.match(boton.title, /no está montada/i);
+    boton.listeners.get("click")();
+  }
+  assert.deepEqual(destinos, []);
+});
+
+test("disponibilidad heredada o no booleana no habilita destinos", () => {
+  const raiz = raizFalsa(); const destinos = [];
+  const destinosDisponibles = Object.create({ dietas: true }); destinosDisponibles.cronos = "true";
+  montarVistaFichaIntegralPersonal({ raiz, navegarModulo: (destino) => destinos.push(destino), destinosDisponibles });
+  const ficha = raiz.querySelector("[data-personal-ficha-integral]");
+  const botones = nodos(ficha).filter((n) => n.dataset.personalFichaDestino);
+  assert.ok(botones.every((boton) => boton.disabled && boton.atributos.get("aria-disabled") === "true"));
+  botones.forEach((boton) => boton.listeners.get("click")()); assert.deepEqual(destinos, []);
 });
 
 test("catálogos existentes se montan bajo demanda y se limpian al salir", async () => {
