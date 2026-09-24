@@ -294,16 +294,22 @@ function mostrarTextos() {
     .querySelectorAll("[data-i18n]")
     .forEach((e) => (e.textContent = TEXTOS[e.dataset.i18n] ?? ""));
 }
-function main() {
+export function iniciarOrganizacion(client = crearCliente()) {
   mostrarTextos();
   document.querySelector("#source-link").href = FUENTE_RPT;
   const state = document.querySelector("#state"),
-    client = crearCliente(),
     editor = document.querySelector("#editor"),
     form = document.querySelector("#unit-form"),
     out = document.querySelector("#save-state"),
-    operacion = crearEstadoFormulario();
+    operacion = crearEstadoFormulario(),
+    filtroTexto = document.querySelector("#filter-text"),
+    filtroTipo = document.querySelector("#filter-type");
   let data;
+  const actualizarFiltros = () => {
+    filtroTexto.disabled = !data;
+    filtroTipo.disabled = !data;
+  };
+  actualizarFiltros();
   const actualizarBloqueos = () => {
     const estado = operacion.consultar(),
       bloqueado = estado.bloqueado,
@@ -340,11 +346,12 @@ function main() {
     document.querySelector("#new-unit").hidden = !data.edicion_habilitada;
   };
   const render = () => {
+    if (!data) return;
     const padres = new Map(data.unidades.map((u) => [u.clave, u.etiqueta])),
       vs = filtrarUnidades(
         data.unidades,
-        document.querySelector("#filter-text").value,
-        document.querySelector("#filter-type").value,
+        filtroTexto.value,
+        filtroTipo.value,
       );
     document.querySelector("#result-count").textContent = TEXTOS.count
       .replace("{visible}", vs.length)
@@ -485,24 +492,35 @@ function main() {
     form.reset();
     abrir("");
   };
-  document.querySelector("#filter-text").oninput = render;
-  document.querySelector("#filter-type").onchange = render;
+  filtroTexto.oninput = render;
+  filtroTipo.onchange = render;
   const cargar = async () => {
+    data = undefined;
+    actualizarFiltros();
+    document.querySelector("#new-unit").hidden = true;
+    document.querySelector("#table-wrap").hidden = true;
+    document.querySelector("#rows").innerHTML = "";
+    document.querySelector("#result-count").textContent = "";
+    editor.hidden = true;
     state.hidden = false;
     state.className = "org-state";
     state.textContent = TEXTOS.loading;
     try {
       actualizarCatalogo(await client.obtener());
-      editor.hidden = true;
+      actualizarFiltros();
       render();
     } catch (err) {
       state.className = "org-state error";
       state.innerHTML =
         esc(TEXTOS.error) +
         ` <button type="button" id="retry">${TEXTOS.retry}</button>`;
-      document.querySelector("#retry").onclick = cargar;
+      document.querySelector("#retry").onclick = async () => {
+        await cargar();
+        if (data) filtroTexto.focus();
+      };
+      document.querySelector("#retry").focus();
     }
   };
-  cargar();
+  return cargar();
 }
-if (typeof document !== "undefined") main();
+if (typeof document !== "undefined") iniciarOrganizacion();
