@@ -50,7 +50,7 @@ func materialFichaB2Valido(m domain.MaterialConsultaRegistroEmpleadoB2, a vecpor
 	if m.Operacion() != "ficha" {
 		return false
 	}
-	reconstruido, err := domain.NuevoMaterialFichaEmpleadoB2(domain.SolicitudFichaEmpleadoB2{EmpleadoRef: m.EmpleadoRef(), Corte: m.Corte(), Actor: m.Actor()})
+	reconstruido, err := domain.NuevoMaterialFichaEmpleadoB2(domain.SolicitudFichaEmpleadoB2{EmpleadoRef: m.EmpleadoRef(), OrganismoRef: m.OrganismoRef(), Corte: m.Corte(), Actor: m.Actor()})
 	return err == nil && bytes.Equal(reconstruido.Canonico(), m.Canonico()) && autorizacionConsultaEmpleadoB2Valida(m, a, domain.AccionFichaEmpleadoB2, domain.AudienciaFichaEmpleadoB2)
 }
 
@@ -122,7 +122,7 @@ func formaRespuestaRegistroB2(bruto []byte, clave string) error {
 		return errRegistroEmpleadoB2NoDisponible
 	}
 	if clave == "ficha" {
-		if !clavesRegistroB2(datos, []string{"empleado_ref", "persona_ref", "corte", "version", "relaciones", "ocupaciones", "situaciones", "servicios", "eficacia_administrativa", "firma_oficial"}, nil) {
+		if !clavesRegistroB2(datos, []string{"empleado_ref", "organismo_ref", "persona_ref", "corte", "version", "relaciones", "ocupaciones", "situaciones", "servicios", "eficacia_administrativa", "firma_oficial"}, nil) {
 			return errRegistroEmpleadoB2NoDisponible
 		}
 		for _, nombre := range []string{"relaciones", "ocupaciones", "situaciones", "servicios"} {

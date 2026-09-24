@@ -25,7 +25,7 @@ func ordenFichaB2Prueba(t *testing.T) ports.OrdenFichaEmpleadoB2 {
 		t.Fatal(err)
 	}
 	instante := time.Date(2026, 9, 20, 10, 0, 0, 0, time.UTC)
-	m, err := domain.NuevoMaterialFichaEmpleadoB2(domain.SolicitudFichaEmpleadoB2{EmpleadoRef: "emp_" + strings.Repeat("a", 24), Corte: domain.CorteEmpleadoB2{VigenteEn: fecha, ConocidoEn: instante}, Actor: actor})
+	m, err := domain.NuevoMaterialFichaEmpleadoB2(domain.SolicitudFichaEmpleadoB2{EmpleadoRef: "emp_" + strings.Repeat("a", 24), OrganismoRef: "organismo:dipgra", Corte: domain.CorteEmpleadoB2{VigenteEn: fecha, ConocidoEn: instante}, Actor: actor})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,7 +56,7 @@ func respuestaFichaB2Prueba(t *testing.T, o ports.OrdenFichaEmpleadoB2) []byte {
 	t.Helper()
 	r := ports.ResultadoFichaEmpleadoB2{
 		Ficha: domain.FichaEmpleadoB2{
-			EmpleadoRef: o.Material.EmpleadoRef(), PersonaRef: o.Material.Actor().PersonaRef, Corte: o.Material.Corte(), Version: 1,
+			EmpleadoRef: o.Material.EmpleadoRef(), OrganismoRef: o.Material.OrganismoRef(), PersonaRef: o.Material.Actor().PersonaRef, Corte: o.Material.Corte(), Version: 1,
 			Relaciones: []domain.RelacionRegistroEmpleadoB2{}, Ocupaciones: []domain.OcupacionEmpleadoB2{}, Situaciones: []domain.SituacionEmpleadoB2{}, Servicios: []domain.ServicioReconocidoB2{},
 		},
 		Evidencia: ports.EvidenciaRegistroEmpleadoB2{ReciboRef: "recibo:prueba", DecisionRef: o.Autorizacion.ResumenCapacidad().DecisionRef(), EfectoRef: o.Material.EmpleadoRef(), ConsumoHuellaSHA256: strings.Repeat("a", 64), AuditoriaRef: "auditoria:prueba", ConsultadaEn: o.Material.Corte().ConocidoEn.Add(time.Microsecond)},
@@ -92,6 +92,23 @@ func TestRegistroEmpleadoB2NoEnviaAtestacionAjena(t *testing.T) {
 	}
 }
 
+func TestRegistroEmpleadoB2FichaDeniegaOrganismoAjenoAntesDeSQL(t *testing.T) {
+	o := ordenFichaB2Prueba(t)
+	materialAjeno, err := domain.NuevoMaterialFichaEmpleadoB2(domain.SolicitudFichaEmpleadoB2{
+		EmpleadoRef: o.Material.EmpleadoRef(), OrganismoRef: "organismo:ajeno", Corte: o.Material.Corte(), Actor: o.Material.Actor(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	o.Material = materialAjeno
+	pool := &poolP{tx: &txP{}}
+	r, _ := nuevoRepositorioRegistroEmpleadoB2PostgreSQL(pool)
+	_, err = r.ConsultarFichaRRHH(context.Background(), o)
+	if !errors.Is(err, domain.ErrRegistroEmpleadoB2Invalido) || pool.n != 0 {
+		t.Fatal("atestación de otro organismo llegó a SQL", err)
+	}
+}
+
 func TestRegistroEmpleadoB2RevierteFichaSinFormaExacta(t *testing.T) {
 	o := ordenFichaB2Prueba(t)
 	base := respuestaFichaB2Prueba(t, o)
@@ -100,6 +117,7 @@ func TestRegistroEmpleadoB2RevierteFichaSinFormaExacta(t *testing.T) {
 		"clave_desconocida": bytes.Replace(base, []byte(`"ficha":{`), []byte(`"ficha":{"intruso":true,`), 1),
 		"clave_duplicada":   bytes.Replace(base, []byte(`"ficha":{`), []byte(`"ficha":{"version":1,"version":1,`), 1),
 		"evidencia_ajena":   bytes.Replace(base, []byte(`"decision_ref":"dec_prueba"`), []byte(`"decision_ref":"dec_ajena"`), 1),
+		"organismo_ajeno":   bytes.Replace(base, []byte(`"organismo_ref":"organismo:dipgra"`), []byte(`"organismo_ref":"organismo:ajeno"`), 1),
 		"eficacia_omitida":  bytes.Replace(base, []byte(`"eficacia_administrativa":false,`), nil, 1),
 	}
 	for nombre, bruto := range casos {

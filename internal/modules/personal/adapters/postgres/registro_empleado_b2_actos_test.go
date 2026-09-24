@@ -18,12 +18,16 @@ import (
 )
 
 func materialAltaB2Prueba(t *testing.T) domain.MaterialActoRegistroEmpleadoB2 {
+	return materialAltaB2PruebaConOrganismo(t, "organismo:dipgra")
+}
+
+func materialAltaB2PruebaConOrganismo(t *testing.T, organismo string) domain.MaterialActoRegistroEmpleadoB2 {
 	t.Helper()
 	actor := ordenP(t).Material.Solicitud().Actor
 	fecha, _ := domain.NuevaFechaCivil("2026-09-20")
 	persona := "per_" + strings.Repeat("a", 24)
 	s := domain.SolicitudAltaEmpleadoB2{
-		PersonaRef: persona, OrganismoRef: "org:dipgra", UnidadRef: "uni:prueba", RegimenRef: "reg:funcionario", ModalidadRef: "mod:interino", VigenteDesde: fecha, Actor: actor,
+		PersonaRef: persona, OrganismoRef: organismo, UnidadRef: "uni:prueba", RegimenRef: "reg:funcionario", ModalidadRef: "mod:interino", VigenteDesde: fecha, Actor: actor,
 		Procedencia: domain.ProcedenciaActoEmpleadoB2{ActoRef: "acto:prueba", FuenteRef: "fuente:prueba", FuenteVersion: 1, FuenteHuellaSHA256: strings.Repeat("a", 64), IdempotenciaRef: "550e8400-e29b-41d4-a716-446655440000"},
 	}
 	m, err := domain.NuevoMaterialAltaEmpleadoB2(s)
@@ -122,6 +126,18 @@ func TestRegistroEmpleadoB2AltaTraduceColision(t *testing.T) {
 	}
 }
 
+func TestRegistroEmpleadoB2AltaNoEnviaOrganismoAjeno(t *testing.T) {
+	materialConcedido := materialAltaB2Prueba(t)
+	a := atestacionActoB2Prueba(t, materialConcedido, domain.AccionAltaEmpleadoB2, domain.AudienciaAltaEmpleadoB2)
+	materialAjeno := materialAltaB2PruebaConOrganismo(t, "organismo:ajeno")
+	pool := &poolP{tx: &txP{}}
+	r, _ := nuevoRepositorioRegistroEmpleadoB2PostgreSQL(pool)
+	_, err := r.RegistrarEmpleadoRRHH(context.Background(), ports.OrdenAltaEmpleadoB2{Material: materialAjeno, Autorizacion: a})
+	if !errors.Is(err, domain.ErrRegistroEmpleadoB2Invalido) || pool.n != 0 {
+		t.Fatal("atestación de alta de otro organismo llegó a SQL", err)
+	}
+}
+
 func TestRegistroEmpleadoB2AltaObjetivoNoAcreditadoDeniegaSinDetalle(t *testing.T) {
 	m := materialAltaB2Prueba(t)
 	a := atestacionActoB2Prueba(t, m, domain.AccionAltaEmpleadoB2, domain.AudienciaAltaEmpleadoB2)
@@ -164,7 +180,7 @@ func TestRegistroEmpleadoB2HechoUsaRelacionExplicita(t *testing.T) {
 	empleado := "emp_" + strings.Repeat("b", 24)
 	relacion := "rel_" + strings.Repeat("c", 24)
 	s := domain.SolicitudHechoEmpleadoB2{
-		Tipo: "situacion", EmpleadoRef: empleado, RelacionRef: relacion, RevisionEsperada: 1, RelacionVersionEsperada: 1, ClaseRef: "sit:servicio_activo", VigenteDesde: fecha, Actor: actor,
+		Tipo: "situacion", EmpleadoRef: empleado, OrganismoRef: "organismo:dipgra", RelacionRef: relacion, RevisionEsperada: 1, RelacionVersionEsperada: 1, ClaseRef: "sit:servicio_activo", VigenteDesde: fecha, Actor: actor,
 		Procedencia: domain.ProcedenciaActoEmpleadoB2{ActoRef: "acto:prueba", FuenteRef: "fuente:prueba", FuenteVersion: 1, FuenteHuellaSHA256: strings.Repeat("a", 64), IdempotenciaRef: "550e8400-e29b-41d4-a716-446655440000"},
 	}
 	m, err := domain.NuevoMaterialHechoEmpleadoB2(s)
