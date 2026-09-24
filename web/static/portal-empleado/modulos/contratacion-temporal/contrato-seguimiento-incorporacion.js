@@ -23,6 +23,10 @@ function registro(valor, campos) {
   return Object.fromEntries(campos.map((campo) => [campo, valor[campo]]));
 }
 function referencia(valor) { return typeof valor === "string" && REFERENCIA.test(valor); }
+export function validarReferenciaExpedienteSeguimiento(valor) {
+  if (!referencia(valor)) fallo();
+  return valor;
+}
 function clave(valor) { return typeof valor === "string" && CLAVE.test(valor); }
 function version(valor) { return Number.isSafeInteger(valor) && valor >= 1; }
 function envelope(valor) {

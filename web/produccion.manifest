@@ -103,6 +103,9 @@ static/portal-empleado/modulos/administracion/i18n.js
 static/portal-empleado/modulos/administracion/vista.js
 static/portal-empleado/modulos/contratacion-temporal/componentes-expedientes.js
 static/portal-empleado/modulos/contratacion-temporal/contratacion-temporal.css
+static/portal-empleado/modulos/contratacion-temporal/consulta-seguimiento.html
+static/portal-empleado/modulos/contratacion-temporal/consulta-seguimiento.js
+static/portal-empleado/modulos/contratacion-temporal/consulta-seguimiento.css
 static/portal-empleado/modulos/contratacion-temporal/contrato-expedientes.js
 static/portal-empleado/modulos/contratacion-temporal/contrato-analisis.js
 static/portal-empleado/modulos/contratacion-temporal/contrato.js
