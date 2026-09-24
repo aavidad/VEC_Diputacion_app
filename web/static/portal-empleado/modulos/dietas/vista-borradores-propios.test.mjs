@@ -838,3 +838,54 @@ test("una respuesta lenta no roba el foco que pasó del botón al formulario", a
   assert.equal(contenedor.ownerDocument.activeElement, campo);
   vista.desmontar();
 });
+
+test("la preparación local muestra país y se puede revisar sin crear un expediente", async () => {
+  const contenedor = raiz();
+  let escrituras = 0;
+  const vista = montarVistaBorradoresPropios(contenedor, {
+    cliente: { listar: async () => ({ items: [] }), obtener: async () => item,
+      crear: async () => { escrituras += 1; return item; } },
+  });
+  await Promise.resolve(); await Promise.resolve();
+  const form = contenedor.querySelector("[data-dietas-borrador-form]");
+  form.checkValidity = () => true;
+  const datos = { fecha_inicio: "2026-09-20", fecha_fin: "2026-09-21", motivo: "Visita",
+    hora_inicio: "09:00", hora_fin: "18:00", origen_codigo: "18087", destino_codigo: "18003" };
+  const FormDataOriginal = globalThis.FormData;
+  globalThis.FormData = class { get(nombre) { return datos[nombre] ?? null; } };
+  try {
+    const panel = contenedor.querySelector("[data-dietas-borradores-propios]");
+    const pais = form.querySelectorAll("input").find((campo) => campo.name === "pais");
+    assert.equal(pais.value, "España");
+    assert.equal(pais.readOnly, true);
+    await panel.listeners.click({ target: form.querySelector("[data-dietas-borrador-revisar]") });
+    const resumen = form.querySelector("[data-dietas-borrador-preparacion]");
+    assert.match(textoVisible(resumen), /Visita.*España/u);
+    assert.equal(escrituras, 0);
+    assert.equal(contenedor.querySelector("[data-dietas-borrador-recibo]"), null);
+    datos.motivo = "Visita corregida";
+    panel.listeners.input({ target: form.querySelector("input") });
+    assert.equal(resumen.hidden, true);
+    assert.equal(escrituras, 0);
+  } finally { globalThis.FormData = FormDataOriginal; vista.desmontar(); }
+});
+
+test("la denegación de detalle elimina una ficha GET anterior", async () => {
+  const contenedor = raiz();
+  let consultas = 0;
+  const vista = montarVistaBorradoresPropios(contenedor, {
+    cliente: { listar: async () => ({ items: [item] }), crear: async () => item,
+      obtener: async () => {
+        consultas += 1;
+        if (consultas === 1) return item;
+        const error = new Error("denegado"); error.codigo = "autenticacion_requerida"; throw error;
+      } },
+  });
+  await Promise.resolve(); await Promise.resolve();
+  const panel = contenedor.querySelector("[data-dietas-borradores-propios]");
+  await panel.listeners.click({ target: contenedor.querySelector("[data-dietas-borrador-detalle]") });
+  assert.ok(contenedor.querySelector("[data-dietas-borrador-recibo]"));
+  await panel.listeners.click({ target: contenedor.querySelector("[data-dietas-borrador-detalle]") });
+  assert.equal(contenedor.querySelector("[data-dietas-borrador-recibo]"), null);
+  vista.desmontar();
+});
