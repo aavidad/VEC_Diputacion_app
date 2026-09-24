@@ -35,14 +35,27 @@ const detalle = Object.freeze({
 
 function crearRaiz() {
   const eventos = new Map();
+  const ownerDocument = { activeElement: null };
+  const foco = { llamadas: 0, scrolls: 0 };
+  const regionHistorial = {
+    focus() { foco.llamadas += 1; ownerDocument.activeElement = this; },
+    scrollIntoView() { foco.scrolls += 1; },
+    contains(elemento) { return elemento === this; },
+  };
   return {
     innerHTML: "",
+    ownerDocument,
+    foco,
+    regionHistorial,
     addEventListener(nombre, funcion) { eventos.set(nombre, funcion); },
     removeEventListener(nombre, funcion) {
       if (eventos.get(nombre) === funcion) eventos.delete(nombre);
     },
     contains() { return true; },
-    querySelector() { return { focus() {}, scrollIntoView() {} }; },
+    querySelector(selector) {
+      return selector === "[data-ct-informe-historial]"
+        ? regionHistorial : { focus() {}, scrollIntoView() {} };
+    },
     replaceChildren() { this.innerHTML = ""; },
     enviar() {
       const formulario = {
@@ -116,6 +129,39 @@ test("informe confirmado, consulta de historial fallida y reintento conserva rec
   assert.match(raiz.innerHTML, /recibo:ct:informe:sintetico-001/u);
   assert.doesNotMatch(raiz.innerHTML, /data-ct-informe-historial-error/u);
   assert.doesNotMatch(raiz.innerHTML, /Recuperando el historial actualizado/u);
+  assert.equal(raiz.foco.llamadas, 2);
+  assert.equal(raiz.foco.scrolls, 2);
+  desmontar();
+});
+
+test("la consulta diferida no recupera foco ni desplaza si se pasó a otro expediente", async () => {
+  const raiz = crearRaiz();
+  let resolverReintento;
+  let posts = 0;
+  let consultas = 0;
+  const desmontar = montar(raiz, {
+    async prepararInformeJuridico() { posts += 1; return recibo; },
+    consultarDetalleRRHH() {
+      consultas += 1;
+      if (consultas === 1) return Promise.reject(new Error("red temporal"));
+      return new Promise((resolve) => { resolverReintento = resolve; });
+    },
+  });
+  await raiz.enviar();
+  const reintento = raiz.reintentar();
+  assert.equal(raiz.ownerDocument.activeElement, raiz.regionHistorial);
+  const focoAlIniciar = { ...raiz.foco };
+  const otroExpediente = { id: "otro-expediente" };
+  raiz.ownerDocument.activeElement = otroExpediente;
+
+  resolverReintento(detalle);
+  await reintento;
+  assert.equal(raiz.ownerDocument.activeElement, otroExpediente);
+  assert.deepEqual(raiz.foco, focoAlIniciar);
+  assert.match(raiz.innerHTML, /Historial persistido del expediente/u);
+  assert.match(raiz.innerHTML, /data-ct-informe-recibo/u);
+  assert.equal(posts, 1);
+  assert.equal(consultas, 2);
   desmontar();
 });
 
