@@ -14,7 +14,7 @@ Preparación manual (sólo una instancia desechable PG18/Go distinta de principa
       "pg_container":"vec-dietas-ensayo-pg18-20260924",
       "pg_host_port":15565,
       "portal_path":"/portal-empleado/",
-      "app_pid_file":"/home/alberto/.local/state/vec-dietas-ensayo/vec-server.pid"}
+      "app_pid_file":"~/.local/state/vec-dietas-ensayo/vec-server.pid"}
   2. Configurar ese servicio libpq en PGSERVICEFILE privado; el DSN y las
      credenciales nunca se pasan por argumentos ni se guardan en el informe.
   3. Exportar VEC_DIETAS_ENSAYO_CA, _CERT, _KEY, _CT_CERT, _CT_KEY y
@@ -107,7 +107,7 @@ def configurar() -> dict:
            ".." not in portal and "?" not in portal and "#" not in portal,
            "portal_path inválido")
     cfg["portal_path"] = portal
-    pid_file = Path(cfg.get("app_pid_file", ""))
+    pid_file = Path(cfg.get("app_pid_file", "")).expanduser()
     exigir(pid_file.parent == PRIVADO and pid_file.name.endswith(".pid"),
            "app_pid_file debe ser un PID de Go dentro del directorio aislado")
     cfg["app_pid_file"] = str(pid_file)
