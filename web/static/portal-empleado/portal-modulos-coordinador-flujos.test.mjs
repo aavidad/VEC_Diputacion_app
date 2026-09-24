@@ -664,6 +664,7 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
   const versionCacheF2 = "20260924-f2-cache-v2";
   const versionCachePersonal = "20260924-f2-cache-v3";
   const versionPersonalInterno = "20260924-p1-personal-interno-v2";
+  const versionPersonalEstados = "20260924-f2-personal-estados-v4";
   const versionCarga = "20260923-p4-estado-modulos-v1";
   const versionModuloBolsa = "20260923-pweb13-b8-v1";
   const versionClientePersonal = versionPersonalInterno;
@@ -681,7 +682,8 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
     new URL("portal-modulos-coordinador.js", import.meta.url),
     "utf8",
   );
-  assert.match(portal, new RegExp(`portal-modulos-coordinador\\.js\\?v=${versionPersonalInterno}`));
+  assert.match(portal, new RegExp(`portal-modulos-coordinador\\.js\\?v=${versionPersonalEstados}`));
+  assert.doesNotMatch(portal, new RegExp(`portal-modulos-coordinador\\.js\\?v=${versionPersonalInterno}`));
   assert.match(coordinador, new RegExp(`portal-modulos-carga\\.js\\?v=${versionCarga}`));
   assert.match(portal, new RegExp(`portal-bolsas-api\\.js\\?v=${versionModuloBolsa}`));
   assert.match(portal, new RegExp(`portal-i18n\\.js\\?v=${versionCacheF2}`));
@@ -691,11 +693,13 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
   assert.equal([...coordinador.matchAll(clientePersonal)].length, 2);
   assert.match(coordinador, new RegExp(`modulos/personal/cliente-http-rpt-publica\\.js\\?v=${versionRPT}`));
   assert.match(coordinador, new RegExp(`modulos/personal/vista-rpt-publica\\.js\\?v=${versionRPT}`));
-  for (const [vista, montajes] of [["vista.js", 2], ["vista-estructura-organizativa-publica.js", 1]]) {
-    const expresion = new RegExp(`modulos/personal/${vista.replaceAll(".", "\\.")}\\?v=${versionCachePersonal}`, "g");
+  for (const [vista, montajes, versionVista] of [["vista.js", 2, versionPersonalEstados], ["vista-estructura-organizativa-publica.js", 1, versionCachePersonal]]) {
+    const expresion = new RegExp(`modulos/personal/${vista.replaceAll(".", "\\.")}\\?v=${versionVista}`, "g");
     assert.equal([...coordinador.matchAll(expresion)].length, montajes, vista);
   }
-  assert.match(html, new RegExp(`portal\\.js\\?v=${versionPersonalInterno}`));
+  assert.doesNotMatch(coordinador, new RegExp(`modulos/personal/vista\\.js\\?v=${versionCachePersonal}`));
+  assert.match(html, new RegExp(`portal\\.js\\?v=${versionPersonalEstados}`));
+  assert.doesNotMatch(html, new RegExp(`portal\\.js\\?v=${versionPersonalInterno}`));
   assert.match(html, new RegExp(`portal-modulos\\.css\\?v=${versionEstilos}`));
   assert.match(html, new RegExp(`portal-flujos\\.css\\?v=${versionFlujos}`));
   assert.match(html, new RegExp(`portal\\.css\\?v=${versionTemaBase}`));
