@@ -43,7 +43,7 @@ body.portal-empleado-app {
   padding: 14px;
   border: 1px solid var(--portal-borde);
   border-radius: var(--portal-radio);
-  background: #fbfcfe;
+  background: var(--portal-superficie-alterna);
 }
 
 .formulario-gobernado legend {
