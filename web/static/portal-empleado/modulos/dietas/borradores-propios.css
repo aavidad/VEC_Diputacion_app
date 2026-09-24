@@ -43,6 +43,47 @@
   outline-offset: 2px;
 }
 
+.dietas-borradores-propios .dietas-borradores-paradas {
+  grid-column: 1 / -1;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio-lg);
+  background: var(--portal-superficie-alterna);
+}
+
+.dietas-borradores-propios .dietas-borradores-paradas h4 {
+  margin: 0 0 12px;
+}
+
+.dietas-borradores-propios .dietas-borradores-paradas ol {
+  display: grid;
+  gap: 12px;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.dietas-borradores-propios .dietas-borradores-paradas li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+  min-width: 0;
+}
+
+.dietas-borradores-propios .dietas-borradores-parada-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+@media (max-width: 520px) {
+  .dietas-borradores-propios .dietas-borradores-paradas li {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 @media (min-width: 1024px) {
   .dietas-borradores-propios[data-formulario-visible="false"] .dietas-borradores-principal {
     grid-template-rows: minmax(0, 1fr);

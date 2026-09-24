@@ -158,6 +158,101 @@ test("conserva el formulario y sus datos al recuperar la lista y la ficha", asyn
   vista.desmontar();
 });
 
+test("añade, reordena y quita paradas para revisar y enviar la secuencia completa", async () => {
+  const contenedor = raiz();
+  const solicitudes = [];
+  const vista = montarVistaBorradoresPropios(contenedor, {
+    cliente: { listar: async () => ({ items: [] }), obtener: async () => item,
+      crear: async (solicitud) => { solicitudes.push(solicitud); return item; } },
+    generarClaveIdempotencia: () => "operacion-paradas-20260924",
+  });
+  await Promise.resolve(); await Promise.resolve();
+  const panel = contenedor.querySelector("[data-dietas-borradores-propios]");
+  const form = contenedor.querySelector("[data-dietas-borrador-form]");
+  form.checkValidity = () => true;
+  const datos = { fecha_inicio: "2026-09-20", fecha_fin: "2026-09-21", motivo: "Visita",
+    hora_inicio: "09:00", hora_fin: "18:00", origen_codigo: "18087", destino_codigo: "18003" };
+  const original = globalThis.FormData;
+  globalThis.FormData = class { get(nombre) { return datos[nombre] ?? null; } };
+  try {
+    await panel.listeners.click({ target: form.querySelector("[data-dietas-parada-anadir]") });
+    await panel.listeners.click({ target: form.querySelector("[data-dietas-parada-anadir]") });
+    let paradas = form.querySelectorAll("select").filter((nodo) => nodo.name === "parada_codigo");
+    assert.equal(paradas.length, 2);
+    paradas[0].value = "18175";
+    paradas[1].value = "18061";
+    await panel.listeners.click({ target: form.querySelectorAll("[data-dietas-parada-subir]")[1] });
+    paradas = form.querySelectorAll("select").filter((nodo) => nodo.name === "parada_codigo");
+    assert.deepEqual(paradas.map((nodo) => nodo.value), ["18061", "18175"]);
+    await panel.listeners.click({ target: form.querySelector("[data-dietas-borrador-revisar]") });
+    assert.equal(solicitudes.length, 0);
+    assert.match(textoVisible(form.querySelector("[data-dietas-borrador-preparacion]")), /Granada → .* → .* → Albolote/u);
+    await panel.listeners.click({ target: form.querySelectorAll("[data-dietas-parada-quitar]")[1] });
+    await panel.listeners.submit({ target: form, preventDefault() {} });
+    assert.deepEqual(solicitudes[0].codigos_ruta, ["18087", "18061", "18003"]);
+  } finally { globalThis.FormData = original; vista.desmontar(); }
+});
+
+test("limita a doce localidades y bloquea una parada repetida antes de POST", async () => {
+  const contenedor = raiz(); let escrituras = 0;
+  const vista = montarVistaBorradoresPropios(contenedor, {
+    cliente: { listar: async () => ({ items: [] }), obtener: async () => item,
+      crear: async () => { escrituras++; return item; } },
+  });
+  await Promise.resolve(); await Promise.resolve();
+  const panel = contenedor.querySelector("[data-dietas-borradores-propios]");
+  const form = contenedor.querySelector("[data-dietas-borrador-form]"); form.checkValidity = () => true;
+  const datos = { fecha_inicio: "2026-09-20", fecha_fin: "2026-09-21", motivo: "Visita",
+    hora_inicio: "09:00", hora_fin: "18:00", origen_codigo: "18087", destino_codigo: "18003" };
+  const original = globalThis.FormData;
+  globalThis.FormData = class { get(nombre) { return datos[nombre] ?? null; } };
+  try {
+    for (let i = 0; i < 11; i++) await panel.listeners.click({ target: form.querySelector("[data-dietas-parada-anadir]") });
+    const paradas = form.querySelectorAll("select").filter((nodo) => nodo.name === "parada_codigo");
+    assert.equal(paradas.length, 10);
+    assert.equal(form.querySelector("[data-dietas-parada-anadir]").disabled, true);
+    const disponibles = paradas[0].children.map((opcion) => opcion.value)
+      .filter((codigo) => codigo && codigo !== "18087" && codigo !== "18003");
+    paradas.forEach((parada, indice) => { parada.value = disponibles[indice]; });
+    paradas[0].value = "18087";
+    await panel.listeners.submit({ target: form, preventDefault() {} });
+    assert.equal(escrituras, 0);
+    assert.match(textoVisible(contenedor), /localidades distintas/u);
+  } finally { globalThis.FormData = original; vista.desmontar(); }
+});
+
+test("un 503 con paradas conserva orden, contenido y clave en el reintento", async () => {
+  const contenedor = raiz(); const solicitudes = [];
+  const vista = montarVistaBorradoresPropios(contenedor, {
+    generarClaveIdempotencia: () => "operacion-paradas-503-20260924",
+    cliente: { listar: async () => ({ items: [] }), obtener: async () => item,
+      crear: async (solicitud) => {
+        solicitudes.push(solicitud);
+        if (solicitudes.length === 1) {
+          const error = new Error("servicio no disponible"); error.resultadoIndeterminado = true; throw error;
+        }
+        return item;
+      } },
+  });
+  await Promise.resolve(); await Promise.resolve();
+  const panel = contenedor.querySelector("[data-dietas-borradores-propios]");
+  const form = contenedor.querySelector("[data-dietas-borrador-form]"); form.checkValidity = () => true;
+  const datos = { fecha_inicio: "2026-09-20", fecha_fin: "2026-09-21", motivo: "Visita",
+    hora_inicio: "09:00", hora_fin: "18:00", origen_codigo: "18087", destino_codigo: "18003" };
+  const original = globalThis.FormData;
+  globalThis.FormData = class { get(nombre) { return datos[nombre] ?? null; } };
+  try {
+    await panel.listeners.click({ target: form.querySelector("[data-dietas-parada-anadir]") });
+    form.querySelectorAll("select").find((nodo) => nodo.name === "parada_codigo").value = "18175";
+    await panel.listeners.submit({ target: form, preventDefault() {} });
+    assert.equal(contenedor.querySelector("[data-dietas-borrador-recibo]"), null);
+    await panel.listeners.submit({ target: form, preventDefault() {} });
+    assert.deepEqual(solicitudes[0], solicitudes[1]);
+    assert.deepEqual(solicitudes[1].codigos_ruta, ["18087", "18175", "18003"]);
+    assert.equal(solicitudes[1].clave_idempotencia, "operacion-paradas-503-20260924");
+  } finally { globalThis.FormData = original; vista.desmontar(); }
+});
+
 test("pagina con el cursor real del cliente y vuelve a la primera página", async () => {
   const contenedor = raiz();
   const consultas = [];
