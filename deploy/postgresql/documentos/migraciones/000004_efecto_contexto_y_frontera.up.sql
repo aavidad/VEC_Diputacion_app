@@ -5,8 +5,10 @@
 --
 -- (1) consumir_v3_v1/v2 (000001/000002) ya exigen huella_efecto_sha256 =
 -- contexto_recurso_huella_sha256 = SHA-256 del contexto canónico
--- {"ambitos":{},"atributos":{"preimagen_sha256":"<hex>"}}; esta migración no
--- los reescribe: comprueba por huella SHA-256 que su cuerpo instalado es el
+-- {"ambitos":{"organizacion_ref":"organizacion:desarrollo:dipgra"},
+--  "atributos":{"preimagen_sha256":"<hex>"}} (sin espacios; el ámbito es
+-- ports.OrganizacionRefV3 en Go: una asignación AD3 exige al menos un
+-- ámbito y sin él ninguna cubriría el recurso); esta migración no los reescribe: comprueba por huella SHA-256 que su cuerpo instalado es el
 -- exacto de 000001/000002, que liga esa huella, y publica la misma
 -- expresión como función para las pruebas y el preflight.
 --
@@ -32,10 +34,10 @@ BEGIN
     -- ligadura, aborta la migración.
     OR (SELECT encode(sha256(convert_to(p.prosrc,'UTF8')),'hex') FROM pg_proc p WHERE p.oid=
         'vec_documentos.consumir_v3_v1(bytea,text,text,text,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure)
-       IS DISTINCT FROM '42fbad78031867af219766d9998166814b33c2d353a0b4570fac3c6e914f719d'
+       IS DISTINCT FROM '9b6ccfbde5eef15092e0b71356862a6919e15acd66144429b9b8ac31087797b9'
     OR (SELECT encode(sha256(convert_to(p.prosrc,'UTF8')),'hex') FROM pg_proc p WHERE p.oid=
         'vec_documentos.consumir_v3_v2(bytea,text,text,text,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure)
-       IS DISTINCT FROM '1376ed85a21a46c7805af86ea0a47c10d1adb58a96e4c7801953b57d7dc10b6f'
+       IS DISTINCT FROM 'eacf7e25f2281a8caac93dfcb9311ae5b752ac91b7623ecd77552cb4c804bc19'
  THEN RAISE EXCEPTION 'Documentos-4: preimagen incompatible' USING ERRCODE='55000'; END IF;
 END $pre$;
 
@@ -43,17 +45,19 @@ END $pre$;
 -- json.Marshal en Go para RecursoAutorizable.HuellaContextoAutorizacionSHA256).
 CREATE FUNCTION vec_documentos.huella_efecto_v1(p bytea) RETURNS text
 LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog AS $f$
- SELECT encode(sha256(convert_to('{"ambitos":{},"atributos":{"preimagen_sha256":"'||encode(sha256(p),'hex')||'"}}','UTF8')),'hex')
+ SELECT encode(sha256(convert_to('{"ambitos":{"organizacion_ref":"organizacion:desarrollo:dipgra"},"atributos":{"preimagen_sha256":"'||encode(sha256(p),'hex')||'"}}','UTF8')),'hex')
  $f$;
 
 -- (2) Denegaciones de la frontera HTTP: sin identidad, acceso denegado o
--- dependencia caída. Solo referencias opacas y valores cerrados; escribe el
+-- dependencia caída, en las rutas publicadas (consulta, descarga y registro
+-- externo) o en «otra». Solo referencias opacas y valores cerrados; escribe el
 -- auditor, nadie lee por esta vía y la historia es de solo adición.
 CREATE TABLE vec_documentos.denegacion_frontera (
  denegacion_ref text PRIMARY KEY,
  correlacion_ref text NOT NULL CHECK(correlacion_ref ~ '^corr_([0-9a-f]{32}|no_disponible)$'),
  motivo text NOT NULL CHECK(motivo IN ('autenticacion_requerida','acceso_denegado','dependencia')),
- ruta text NOT NULL CHECK(ruta IN ('/api/vec/documentos/expedientes/consultas','/api/vec/documentos/originales/descargas','otra')),
+ ruta text NOT NULL CHECK(ruta IN ('/api/vec/documentos/expedientes/consultas','/api/vec/documentos/originales/descargas',
+  '/api/vec/documentos/externos/registros','otra')),
  metodo text NOT NULL CHECK(metodo IN ('POST','otro')),
  actor_ref text CHECK(actor_ref IS NULL OR (length(actor_ref) BETWEEN 3 AND 256 AND actor_ref ~ '^[A-Za-z0-9:_-]+$')),
  registrada_en timestamptz(6) NOT NULL

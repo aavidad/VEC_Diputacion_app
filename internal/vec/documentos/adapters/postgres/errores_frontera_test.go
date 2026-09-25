@@ -56,6 +56,13 @@ func TestOrdenDenegacionFronteraCerrada(t *testing.T) {
 	if valida.Validar() != nil {
 		t.Fatal("orden válida rechazada")
 	}
+	for _, ruta := range []string{RutaFronteraDescarga, RutaFronteraRegistroExterno, RutaFronteraOtra} {
+		o := valida
+		o.Ruta = ruta
+		if o.Validar() != nil {
+			t.Fatalf("ruta cerrada %s rechazada", ruta)
+		}
+	}
 	for _, mutar := range []func(*OrdenDenegacionFrontera){
 		func(o *OrdenDenegacionFrontera) { o.Motivo = "texto libre" },
 		func(o *OrdenDenegacionFrontera) { o.Ruta = "/api/vec/documentos/otra" },
@@ -96,6 +103,11 @@ func TestRegistradorFronteraPG18(t *testing.T) {
 		Ruta: RutaFronteraDescarga, Metodo: "POST"}
 	if err := r.RegistrarDenegacion(ctx, orden); err != nil {
 		t.Fatalf("registro: %v", err)
+	}
+	externa := orden
+	externa.Ruta = RutaFronteraRegistroExterno
+	if err := r.RegistrarDenegacion(ctx, externa); err != nil {
+		t.Fatalf("registro de la ruta de registro externo: %v", err)
 	}
 	ejecutor := os.Getenv("VEC_DOCUMENTOS_PG18_DSN")
 	if ejecutor == "" {

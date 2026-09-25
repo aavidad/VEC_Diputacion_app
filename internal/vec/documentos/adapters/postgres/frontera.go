@@ -15,6 +15,7 @@ const (
 	MotivoFronteraDependencia   = "dependencia"
 	RutaFronteraConsulta        = "/api/vec/documentos/expedientes/consultas"
 	RutaFronteraDescarga        = "/api/vec/documentos/originales/descargas"
+	RutaFronteraRegistroExterno = "/api/vec/documentos/externos/registros"
 	RutaFronteraOtra            = "otra"
 )
 
@@ -38,7 +39,7 @@ func (o OrdenDenegacionFrontera) Validar() error {
 		return ErrOrdenFronteraInvalida
 	}
 	switch o.Ruta {
-	case RutaFronteraConsulta, RutaFronteraDescarga, RutaFronteraOtra:
+	case RutaFronteraConsulta, RutaFronteraDescarga, RutaFronteraRegistroExterno, RutaFronteraOtra:
 	default:
 		return ErrOrdenFronteraInvalida
 	}

@@ -38,8 +38,12 @@ El PDP V3 real fija `huella_efecto_sha256` y `contexto_recurso_huella_sha256`
 como SHA-256 del contexto canónico del recurso autorizado, no de la
 preimagen. `consumir_v3_v1/v2` (000001/000002, nunca instaladas, corregidas
 en su sitio) exigen esa huella del recurso
-`{"ambitos":{},"atributos":{"preimagen_sha256":"<hex>"}}`, que es la que
-construye `ports.RecursoV3` en Go. 000004 ya no las reescribe: comprueba
+`{"ambitos":{"organizacion_ref":"organizacion:desarrollo:dipgra"},"atributos":{"preimagen_sha256":"<hex>"}}`,
+que es la que construye `ports.RecursoV3` en Go. El ámbito de organización
+(`ports.OrganizacionRefV3`) es obligatorio: toda asignación AD3 declara al
+menos un ámbito y solo cubre recursos con las mismas claves, así que la
+asignación que conceda Documentos debe tener exactamente
+`organizacion_ref = organizacion:desarrollo:dipgra`. 000004 ya no las reescribe: comprueba
 antes de crear nada que el SHA-256 de su cuerpo instalado (`prosrc`)
 coincide con el de los cuerpos exactos de 000001/000002, que ligan esa huella,
 y publica la misma expresión como `huella_efecto_v1`. Si se corrige alguno de
