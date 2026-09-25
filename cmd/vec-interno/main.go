@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/app/composicion/interna"
 )
 
@@ -31,6 +32,11 @@ func main() {
 }
 
 func ejecutar() error {
+	// Esta raíz no compone reglas de ejemplo: declararlas es un error de
+	// despliegue y se rechaza en lugar de ignorarse.
+	if _, _, err := config.Load().ReglasEjemploDesarrollo(); err != nil {
+		return err
+	}
 	cfg := interna.CargarConfiguracion()
 	aplicacion, err := interna.NuevaAplicacion(context.Background(), cfg)
 	if err != nil {

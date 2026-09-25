@@ -94,6 +94,9 @@ func nuevoServidorHTTP(cfg config.Config, emisor vecports.EmisorIncidenciasTecni
 	if err := rechazarSelectoresPresentacionEnComposicionNormal(cfg); err != nil {
 		return nil, err
 	}
+	if err := rechazarReglasEjemploFueraDesarrollo(cfg); err != nil {
+		return nil, err
+	}
 	if err := rechazarTLSDesarrolloEnProduccion(cfg); err != nil {
 		return nil, err
 	}
@@ -144,6 +147,9 @@ func NewHTTPServerPublicoWithConfig(cfg config.Config) (*http.Server, error) {
 		return nil, err
 	}
 	if err := rechazarSelectoresPresentacionEnComposicionNormal(cfg); err != nil {
+		return nil, err
+	}
+	if err := rechazarReglasEjemploFueraDesarrollo(cfg); err != nil {
 		return nil, err
 	}
 	if err := rechazarTLSDesarrolloEnProduccion(cfg); err != nil {
