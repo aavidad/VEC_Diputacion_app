@@ -93,8 +93,10 @@ export function crearFuenteDocumentosHTTP({ expedienteRef = "", fetchImpl } = {}
       return pedir(RUTA_LISTA, { expediente_ref: expediente, cursor, limite: 50 }, { signal, maximo: MAX_JSON, fetchImpl });
     },
     async descargar(ref, { version, signal, mime, huella } = {}) {
-      if (!referencia(ref) || !Number.isSafeInteger(version) || version < 1 || version > 2147483647) throw fallo("referencia_invalida");
-      const { bytes, cabeceras } = await pedir(RUTA_DESCARGA, { documento_ref: ref, version }, { signal, maximo: MAX_ORIGINAL, binario: true, fetchImpl });
+      // La descarga liga documento, versión y expediente consultado: el
+      // servidor autoriza esa terna exacta, nunca solo el documento.
+      if (!referencia(expediente) || !referencia(ref) || !Number.isSafeInteger(version) || version < 1 || version > 2147483647) throw fallo("referencia_invalida");
+      const { bytes, cabeceras } = await pedir(RUTA_DESCARGA, { expediente_ref: expediente, documento_ref: ref, version }, { signal, maximo: MAX_ORIGINAL, binario: true, fetchImpl });
       const tipo = cabeceras.get("Content-Type")?.split(";", 1)[0]?.trim();
       const huellaRespuesta = cabeceras.get("X-Content-SHA256");
       if (tipo !== mime || !/^[0-9a-f]{64}$/iu.test(huellaRespuesta ?? "") || huellaRespuesta.toLowerCase() !== huella) throw fallo("respuesta_invalida");

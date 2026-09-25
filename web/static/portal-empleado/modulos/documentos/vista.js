@@ -1,5 +1,12 @@
-import { crearTraductorDocumentos } from "./i18n.js?v=20260925-b5-documentos-v1";
+import { crearTraductorDocumentos } from "./i18n.js?v=20260925-documentos-montaje-v1";
 
+// El servidor devuelve la clave del tipo documental catalogado, nunca su
+// referencia opaca; un tipo sin rótulo se muestra como documento genérico.
+const TIPOS = Object.freeze({
+  "dietas.comision.borrador.v1": "tipo_comision",
+  "dietas.justificante.v1": "tipo_justificante",
+  "contratacion_temporal.borrador.v1": "tipo_contratacion",
+});
 const MIME = new Set(["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]);
 const CUSTODIAS = new Set(["vec", "externa"]);
 const referencia = (v) => typeof v === "string" && (/^ref:[0-9a-f]{64}$/u.test(v) && !/^ref:0{64}$/u.test(v)
@@ -139,7 +146,7 @@ export function montarVistaDocumentos({ raiz, fuente, expedienteRef = "", anunci
     const tbody = elemento(doc, "tbody");
     for (const item of documentos) {
       const tr = elemento(doc, "tr");
-      for (const valor of [item.numero, t(item.tipo === "dietas.comision.borrador.v1" ? "tipo_comision" : "tipo_generico"), String(item.version)]) tr.append(elemento(doc, "td", valor));
+      for (const valor of [item.numero, t(Object.hasOwn(TIPOS, item.tipo) ? TIPOS[item.tipo] : "tipo_generico"), String(item.version)]) tr.append(elemento(doc, "td", valor));
       const firma = elemento(doc, "td");
       firma.append(elemento(doc, "span", t(`firma_${item.firma}`), `documentos-estado documentos-estado--${item.firma}`));
       tr.append(firma);

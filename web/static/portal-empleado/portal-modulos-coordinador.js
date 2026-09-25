@@ -27,8 +27,12 @@ import {
 
 const CLAVE_CONTRATACION_TEMPORAL = "contratacion_temporal";
 const CLAVE_PERSONAL = "personal";
+const CLAVE_DOCUMENTOS = "documentos";
+// «documentos» es también una sección de Bolsa; la vista del servicio común
+// de Documentos usa un nombre propio para no confundirse con ella.
+export const VISTA_DOCUMENTOS_EXPEDIENTE = "documentos-expediente";
 export const CLAVES_MODULOS_VEC_REGISTRADOS = Object.freeze([
-  CLAVE_PERSONAL, "cronos", "dietas", "bolsa",
+  CLAVE_PERSONAL, "cronos", "dietas", CLAVE_DOCUMENTOS, "bolsa",
   CLAVE_CONTRATACION_TEMPORAL, "administracion", "usuarios",
 ]);
 const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
@@ -90,12 +94,21 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
     ]);
     return Object.freeze({ contrato, recorridos, clienteBorradores, clienteAsignacion, calculador, mapa, clienteCircuito });
   },
+  // Consulta del expediente documental (RRHH). El servidor sólo publica el
+  // módulo cuando su montaje está compuesto; cada consulta la autoriza V3.
+  documentos: async () => {
+    const [vista, cliente] = await Promise.all([
+      import("./modulos/documentos/vista.js?v=20260925-documentos-montaje-v1"),
+      import("./modulos/documentos/cliente-http.js?v=20260925-documentos-montaje-v1"),
+    ]);
+    return Object.freeze({ vista, cliente });
+  },
 });
 
 export const VISTAS_MODULOS_PERSONALES = Object.freeze(new Set(["cronos", "cronos-permisos", "dietas", "personal", "personal-registro"]));
 const VISTAS_MODULO_BOLSA = Object.freeze(new Set(VISTAS_INTERNAS_BOLSA));
 export const VISTAS_MODULOS_CONECTADOS = Object.freeze(new Set([
-  "contratacion-temporal", ...VISTAS_MODULOS_PERSONALES,
+  "contratacion-temporal", VISTA_DOCUMENTOS_EXPEDIENTE, ...VISTAS_MODULOS_PERSONALES,
 ]));
 
 export function moduloDeVistaPortal(vista) {
@@ -103,6 +116,7 @@ export function moduloDeVistaPortal(vista) {
   if (vista === "contratacion-temporal") return "contratacion_temporal";
   if (vista === "personal" || vista === "personal-registro") return CLAVE_PERSONAL;
   if (vista === "cronos-permisos") return "cronos";
+  if (vista === VISTA_DOCUMENTOS_EXPEDIENTE) return CLAVE_DOCUMENTOS;
   if (VISTAS_MODULOS_PERSONALES.has(vista)) return vista;
   if (VISTAS_MODULO_BOLSA.has(vista)) return "bolsa";
   return "";
@@ -111,6 +125,7 @@ export function moduloDeVistaPortal(vista) {
 export function rutaDeVistaPortal(vista) {
   if (vista === "portal") return "#portal";
   if (vista === "contratacion-temporal") return "#contratacion-temporal";
+  if (vista === VISTA_DOCUMENTOS_EXPEDIENTE) return `#${VISTA_DOCUMENTOS_EXPEDIENTE}`;
   if (VISTAS_MODULOS_PERSONALES.has(vista)) return `#${vista}`;
   if (VISTAS_MODULO_BOLSA.has(vista)) return `#bolsa/${vista}`;
   return "#portal";
@@ -202,6 +217,7 @@ export function crearCoordinadorModulosPortal({
     let personal;
     let personalRegistro;
     let dietas;
+    let documentos;
     if (catalogo.some(({ clave }) => clave === CLAVE_CONTRATACION_TEMPORAL)) {
       try {
         const recursos = await cargarModuloConLimite(
@@ -404,11 +420,35 @@ export function crearCoordinadorModulosPortal({
         dietas = undefined;
       }
     }
+    if (catalogo.some(({ clave }) => clave === CLAVE_DOCUMENTOS)) {
+      try {
+        const recursos = await cargarModuloConLimite(
+          cargadoresInternos.documentos || CARGADORES_INTERNOS_PREDETERMINADOS.documentos,
+          CLAVE_DOCUMENTOS, limiteCargaModularMs, temporizadores,
+        );
+        if (carga !== secuenciaCarga) throw new Error("carga interna sustituida");
+        if (typeof recursos?.vista?.montarVistaDocumentos !== "function"
+          || typeof recursos?.cliente?.crearFuenteDocumentosHTTP !== "function"
+          || typeof entorno?.fetch !== "function") {
+          throw new TypeError("vista de Documentos no disponible");
+        }
+        const fetchImpl = entorno.fetch.bind(entorno);
+        documentos = Object.freeze({
+          montar: ({ raiz, anunciar: avisar, registrarDesmontar, expedienteRef }) => recursos.vista.montarVistaDocumentos({
+            raiz, anunciar: avisar, registrarDesmontar, expedienteRef,
+            fuente: recursos.cliente.crearFuenteDocumentosHTTP({ fetchImpl }),
+          }),
+        });
+      } catch {
+        documentos = undefined;
+      }
+    }
     if (carga !== secuenciaCarga) throw new Error("carga interna sustituida");
     composicion = Object.freeze({
       contratacionTemporal,
       cronos,
       dietas,
+      documentos,
       personal,
       personalRegistro,
       estadosModulos: Object.freeze({
@@ -416,6 +456,7 @@ export function crearCoordinadorModulosPortal({
           ? "no_disponible" : "disponible",
         cronos: cronos === undefined ? "no_disponible" : "disponible",
         dietas: dietas === undefined ? "no_disponible" : "disponible",
+        documentos: documentos === undefined ? "no_disponible" : "disponible",
         personal: personal === undefined ? "no_disponible" : "disponible",
       }),
     });
@@ -435,6 +476,7 @@ export function crearCoordinadorModulosPortal({
     if (vista === "cronos") return composicion?.cronos !== undefined;
     if (vista === "cronos-permisos") return typeof composicion?.cronos?.montarPermisos === "function";
     if (vista === "dietas") return composicion?.dietas !== undefined;
+    if (vista === VISTA_DOCUMENTOS_EXPEDIENTE) return composicion?.documentos !== undefined;
     if (vista === "personal") return composicion?.personal !== undefined;
     // Oferta de interfaz para el perfil RRHH; cada lectura la autoriza V3.
     if (vista === "personal-registro") return composicion?.personal !== undefined
@@ -469,6 +511,9 @@ export function crearCoordinadorModulosPortal({
     }
     if (clave === "dietas" && vistaDisponible("dietas")) {
       return Object.freeze({ disponible: true, vista: "dietas" });
+    }
+    if (clave === CLAVE_DOCUMENTOS && vistaDisponible(VISTA_DOCUMENTOS_EXPEDIENTE)) {
+      return Object.freeze({ disponible: true, vista: VISTA_DOCUMENTOS_EXPEDIENTE });
     }
     if (clave === CLAVE_PERSONAL && vistaDisponible("personal")) {
       return Object.freeze({ disponible: true, vista: "personal",
@@ -645,6 +690,22 @@ export function crearCoordinadorModulosPortal({
         return false;
       }
       desmontarVista = retirarEventos;
+      return true;
+    }
+
+    if (vista === VISTA_DOCUMENTOS_EXPEDIENTE) {
+      raiz.replaceChildren();
+      const moduloDocumentos = composicion.documentos.montar({
+        raiz, anunciar,
+        expedienteRef: typeof opciones?.expedienteRef === "string" ? opciones.expedienteRef : "",
+        registrarDesmontar: (limpiar) => {
+          if (typeof limpiar !== "function") throw new TypeError("limpieza de Documentos no válida");
+          if (montaje !== secuenciaMontaje) { limpiar(); return; }
+          desmontarVista = limpiar;
+        },
+      });
+      if (montaje !== secuenciaMontaje) { moduloDocumentos.desmontar(); return false; }
+      desmontarVista = moduloDocumentos.desmontar;
       return true;
     }
 

@@ -67,12 +67,17 @@ test("la descarga conserva los bytes originales y rechaza una huella alterada", 
   const bytes = new TextEncoder().encode("%PDF-1.7\noriginal");
   const huellaReal = createHash("sha256").update(bytes).digest("hex");
   const ref = "ref:" + "1".repeat(64);
-  const fetchImpl = async () => new Response(bytes, { status:200, headers:{
+  const cuerpos = [];
+  const fetchImpl = async (_ruta, opciones) => { cuerpos.push(JSON.parse(opciones.body)); return new Response(bytes, { status:200, headers:{
     "Content-Type":"application/pdf", "Content-Disposition":`attachment; filename="documento.pdf"`,
     "X-Content-SHA256":huellaReal,
-  } });
-  const fuente = crearFuenteDocumentosHTTP({ fetchImpl });
+  } }); };
+  const expediente = "ref:" + "2".repeat(64);
+  await assert.rejects(crearFuenteDocumentosHTTP({ fetchImpl }).descargar(ref, { version:1, mime:"application/pdf", huella:huellaReal }),
+    (error) => error.codigo === "referencia_invalida");
+  const fuente = crearFuenteDocumentosHTTP({ expedienteRef: expediente, fetchImpl });
   const original = await fuente.descargar(ref, { version:1, mime:"application/pdf", huella:huellaReal });
+  assert.deepEqual(cuerpos.at(-1), { expediente_ref: expediente, documento_ref: ref, version: 1 });
   assert.deepEqual(original.contenido,bytes);
   assert.equal(original.nombre,"documento.pdf");
   await assert.rejects(fuente.descargar(ref,{ version:1,mime:"application/pdf",huella:"a".repeat(64) }),

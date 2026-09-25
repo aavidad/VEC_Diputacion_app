@@ -201,6 +201,10 @@ transportes_mtls_revisados=(
 	# redirect error y no-referrer; actor y organismo los deriva el servidor.
 	static/portal-empleado/modulos/personal/registro-b2-cliente.js
 	static/portal-empleado/modulos/personal/registro-b2-catalogos-cliente.js
+	# Documentos (25/09): consulta del expediente documental por RRHH; POST a
+	# rutas internas fijas, same-origin, no-store, redirect error y no-referrer;
+	# actor y concesión V3 los deriva el servidor del mTLS.
+	static/portal-empleado/modulos/documentos/cliente-http.js
 )
 mapfile -t usos_mismo_origen < <(
 	grep -rliE 'credentials[[:space:]]*:[[:space:]]*["'"'"']same-origin' \

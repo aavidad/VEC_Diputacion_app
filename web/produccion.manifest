@@ -132,6 +132,7 @@ static/portal-empleado/modulos/personal/vista-estructura-organizativa-publica.js
 static/portal-empleado/estado-entrega.css
 static/portal-empleado/estado-entrega-i18n.js
 static/portal-empleado/estado-entrega.js
+static/portal-empleado/modulos/documentos/cliente-http.js
 static/portal-empleado/modulos/documentos/documentos.css
 static/portal-empleado/modulos/documentos/i18n.js
 static/portal-empleado/modulos/documentos/vista.js

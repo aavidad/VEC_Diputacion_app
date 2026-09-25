@@ -1,5 +1,6 @@
 export const MENSAJES_DOCUMENTOS_ES = Object.freeze({
   error_vista: "Documentos no disponible",
+  miga: "Portal del Empleado → Documentos",
   titulo: "Documentos del expediente",
   ayuda_etiqueta: "Ayuda sobre documentos",
   aclaracion_firma: "Pendiente de firma indica que aún no existe una firma acreditada. El número VEC es interno. Preparar una notificación no acredita su entrega. Un documento con custodia externa lo guarda otro sistema: VEC conserva su huella, no su contenido.",
@@ -27,6 +28,8 @@ export const MENSAJES_DOCUMENTOS_ES = Object.freeze({
   firma_pendiente_firma: "Pendiente de firma",
   firma_sin_acreditar: "Firma sin acreditar",
   tipo_comision: "Comisión de servicio",
+  tipo_justificante: "Justificante de comisión",
+  tipo_contratacion: "Documento de contratación temporal",
   tipo_generico: "Documento",
   descargar: "Descargar original",
   descargar_de: "Descargar original del documento {numero}",
