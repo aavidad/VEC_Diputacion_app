@@ -8,7 +8,7 @@
 import {
   cargarCatalogoModulosInterno,
   renderizarNavegacionModulos,
-} from "./portal-catalogo-modulos.js?v=20260925-tanda2-v1";
+} from "./portal-catalogo-modulos.js?v=20260925-catalogo-v1";
 import { traducirPortal } from "./portal-i18n.js?v=20260925-tanda2-v1";
 import { calcularMetricasCuadro, tramitesParaInicio } from "./portal-inicio.js?v=20260925-tanda2-v1";
 import {
