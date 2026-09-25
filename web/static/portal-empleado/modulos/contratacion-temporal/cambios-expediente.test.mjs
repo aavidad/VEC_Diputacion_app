@@ -7,8 +7,8 @@ import {
   crearTraductorCambiosExpediente, etiquetaRutaCambio, renderizarCambiosExpediente, renderizarTablaCambios, valorVisibleCambio,
 } from "./vista-expedientes-cambios.js";
 
-const huella = `sha256:${"a".repeat(64)}`;
-const cuerpo = (cambios) => ({ data: { esquema: ESQUEMA_CAMBIOS_EXPEDIENTE, expediente_ref: "expediente:ct:1", version_expediente: 3, cambios } });
+const protegido = "*protegido";
+const cuerpo = (cambios, recortado = false) => ({ data: { esquema: ESQUEMA_CAMBIOS_EXPEDIENTE, expediente_ref: "expediente:ct:1", version_expediente: 3, cambios, recortado } });
 const cambio = (extra = {}) => ({ version_expediente: 2, registrada_en: "2026-09-25T09:00:00.000000Z", origen_version: "analisis_o3", ruta: "solicitud.grupo_subgrupo", valor_anterior: "C2", valor_nuevo: "C1", ...extra });
 
 test("petición RRHH p.4: el cliente pide los cambios por la ruta del detalle con su Accept", async () => {
@@ -27,7 +27,7 @@ test("petición RRHH p.4: el cliente pide los cambios por la ruta del detalle co
 });
 
 test("petición RRHH p.4: el contrato rechaza campos, rutas u otro expediente", () => {
-  assert.equal(validarCambiosExpediente(cuerpo([cambio(), cambio({ version_expediente: 3, valor_anterior: null, valor_nuevo: huella })]), "expediente:ct:1").cambios.length, 2);
+  assert.equal(validarCambiosExpediente(cuerpo([cambio(), cambio({ version_expediente: 3, valor_anterior: null, valor_nuevo: protegido })]), "expediente:ct:1").cambios.length, 2);
   for (const malo of [
     cuerpo([cambio({ actor: "per_x" })]),
     cuerpo([cambio({ ruta: "solicitud..x" })]),
@@ -35,6 +35,8 @@ test("petición RRHH p.4: el contrato rechaza campos, rutas u otro expediente", 
     cuerpo([cambio({ valor_anterior: null, valor_nuevo: null })]),
     cuerpo([cambio({ valor_nuevo: "linea\nsalto" })]),
     { data: { ...cuerpo([]).data, expediente_ref: "expediente:ct:2" } },
+    { data: { ...cuerpo([]).data, recortado: "no" } },
+    { data: { esquema: ESQUEMA_CAMBIOS_EXPEDIENTE, expediente_ref: "expediente:ct:1", version_expediente: 3, cambios: [] } },
   ]) assert.throws(() => validarCambiosExpediente(malo, "expediente:ct:1"));
 });
 
@@ -43,12 +45,15 @@ test("petición RRHH p.4: la tabla muestra anterior y nuevo sin texto libre en c
   assert.equal(etiquetaRutaCambio("analisis.periodo.inicio", t), "Análisis · Período · Inicio");
   assert.equal(etiquetaRutaCambio("solicitud.documentos_adjuntos[0]", t), "Solicitud · documentos adjuntos 1");
   assert.equal(valorVisibleCambio(null, t), "—");
-  assert.match(valorVisibleCambio(huella, t), /^Texto protegido \(aaaaaaaaaaaa…\)$/u);
-  const html = renderizarTablaCambios(validarCambiosExpediente(cuerpo([cambio(), cambio({ version_expediente: 3, ruta: "analisis.observaciones", valor_anterior: null, valor_nuevo: huella })]), "expediente:ct:1"), t);
+  assert.equal(valorVisibleCambio(protegido, t), "Dato protegido (cambiado)");
+  const html = renderizarTablaCambios(validarCambiosExpediente(cuerpo([cambio(), cambio({ version_expediente: 3, ruta: "analisis.observaciones", valor_anterior: null, valor_nuevo: protegido })]), "expediente:ct:1"), t);
   assert.match(html, /<caption>Valor anterior y nuevo de cada campo cambiado, por versión<\/caption>/u);
   assert.match(html, /<th scope="row">Solicitud · Grupo\/Subgrupo<\/th><td>C2<\/td><td>C1<\/td>/u);
-  assert.match(html, /<th scope="row">Análisis · Observaciones<\/th><td>—<\/td><td>Texto protegido/u);
-  assert.doesNotMatch(html, new RegExp("a".repeat(64), "u"));
+  assert.match(html, /<th scope="row">Análisis · Observaciones<\/th><td>—<\/td><td>Dato protegido \(cambiado\)<\/td>/u);
+  assert.doesNotMatch(html, /\*protegido|hay más/u);
+  // Solo el indicador de la base anuncia el recorte, no el número de filas.
+  const recortado = renderizarTablaCambios(validarCambiosExpediente(cuerpo([cambio()], true), "expediente:ct:1"), t);
+  assert.match(recortado, /<p role="note">Se muestran los primeros 1 cambios; hay más\.<\/p>/u);
   assert.match(renderizarTablaCambios({ cambios: [] }, t), /No hay cambios de datos/u);
 });
 

@@ -37,6 +37,7 @@ type envoltorioCambiosExpedienteRRHH struct {
 		ExpedienteRef     string                     `json:"expediente_ref"`
 		VersionExpediente uint64                     `json:"version_expediente"`
 		Cambios           []cambioExpedienteRRHHJSON `json:"cambios"`
+		Recortado         bool                       `json:"recortado"`
 	} `json:"data"`
 }
 
@@ -86,6 +87,7 @@ func (h *manejadorConsultaDetalleRRHH) responderCambios(w http.ResponseWriter, r
 	salida.Data.Esquema = EsquemaCambiosExpedienteRRHH
 	salida.Data.ExpedienteRef = resultado.ExpedienteRef
 	salida.Data.VersionExpediente = resultado.VersionExpediente
+	salida.Data.Recortado = resultado.Recortado
 	salida.Data.Cambios = make([]cambioExpedienteRRHHJSON, 0, len(resultado.Cambios))
 	for _, c := range resultado.Cambios {
 		salida.Data.Cambios = append(salida.Data.Cambios, cambioExpedienteRRHHJSON{

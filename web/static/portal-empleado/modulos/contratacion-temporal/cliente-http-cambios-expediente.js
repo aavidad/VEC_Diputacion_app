@@ -24,7 +24,8 @@ function valor(v) {
 
 export function validarCambiosExpediente(cuerpo, expedienteRef) {
   const datos = cuerpo?.data;
-  if (!exactos(cuerpo, ["data"]) || !exactos(datos, ["esquema", "expediente_ref", "version_expediente", "cambios"])
+  if (!exactos(cuerpo, ["data"]) || !exactos(datos, ["esquema", "expediente_ref", "version_expediente", "cambios", "recortado"])
+    || typeof datos.recortado !== "boolean"
     || datos.esquema !== ESQUEMA_CAMBIOS_EXPEDIENTE || datos.expediente_ref !== expedienteRef
     || !Number.isSafeInteger(datos.version_expediente) || datos.version_expediente < 1
     || !Array.isArray(datos.cambios) || datos.cambios.length > MAXIMO_CAMBIOS) {

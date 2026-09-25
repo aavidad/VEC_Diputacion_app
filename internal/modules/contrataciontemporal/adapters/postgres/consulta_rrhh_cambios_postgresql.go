@@ -18,6 +18,7 @@ const consultaCambiosExpedienteRRHHPostgreSQL = `
 SELECT expediente_ref,
        version_expediente::bigint,
        cambios,
+       recortado,
        consumo_vec_huella_sha256,
        auditoria_vec_ref,
        auditoria_vec_huella_sha256,
@@ -101,7 +102,7 @@ func (s *SesionConsultaRRHHPostgreSQL) ConsultarCambiosYRegistrar(
 	var salida ports.ResultadoConsultaCambiosRRHH
 	return ejecutarConsultaRRHHEnTransaccion(ctx, s.pool,
 		consultaCambiosExpedienteRRHHPostgreSQL, args,
-		[]any{&salida.ExpedienteRef, &version, &documento,
+		[]any{&salida.ExpedienteRef, &version, &documento, &salida.Recortado,
 			&salida.ConsumoHuellaSHA256, &salida.AuditoriaRef,
 			&salida.AuditoriaHuellaSHA256, &salida.ConsumidaEn},
 		func() (ports.ResultadoConsultaCambiosRRHH, error) {

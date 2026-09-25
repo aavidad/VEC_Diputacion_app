@@ -27,5 +27,5 @@ DROP FUNCTION vec_contratacion_temporal.consultar_cambios_expediente_rrhh_atesta
     bytea, bytea, bytea, bytea
 ) RESTRICT;
 DROP FUNCTION vec_contratacion_temporal.hojas_instantanea_expediente_v1(jsonb) RESTRICT;
-DROP FUNCTION vec_contratacion_temporal.valor_traza_cambio_v1(jsonb) RESTRICT;
+DROP FUNCTION vec_contratacion_temporal.valor_traza_cambio_v1(text,jsonb) RESTRICT;
 COMMIT;

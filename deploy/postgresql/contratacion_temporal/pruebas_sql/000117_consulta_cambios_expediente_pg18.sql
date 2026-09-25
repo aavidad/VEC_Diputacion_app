@@ -139,8 +139,50 @@ INSERT INTO vec_contratacion_temporal.expediente_version_integral VALUES
  ('exp:ct117', 1, '{"version":1,"referencia":"exp:ct117","solicitud":{"detalle":"Texto libre con 600123456","grupo_subgrupo":"C2","centro_ref":"centro:ct117:1","fecha":"2027-02-01","vacio":"","cero":"0001-01-01T00:00:00Z","huella_sha256":"aa"},"actuaciones":[{"secuencia":1}],"actualizado_en":"2026-09-25T08:00:00Z"}', 'alta_o2', 'op:1', '2026-09-25 08:00:00+00'),
  ('exp:ct117', 2, '{"version":2,"referencia":"exp:ct117","solicitud":{"detalle":"Texto libre corregido","grupo_subgrupo":"C1","centro_ref":"centro:ct117:1","fecha":"2027-02-01T00:00:00Z","huella_sha256":"bb"},"analisis":{"porcentaje_jornada":10000,"causa_clave":"necesidad_temporal","observaciones":"Llamar al 958000000","periodo":{"inicio":"2027-01-01T00:00:00Z"},"actuacion_registro":{"secuencia":2}},"actuaciones":[{"secuencia":1},{"secuencia":2}]}', 'analisis_o3', 'op:2', '2026-09-25 09:00:00+00'),
  ('exp:ct117', 3, '{"version":3,"referencia":"exp:ct117","solicitud":{"detalle":"Texto libre corregido","grupo_subgrupo":"C1","centro_ref":"centro:ct117:2"},"analisis":{"porcentaje_jornada":5000,"causa_clave":"necesidad_temporal","observaciones":"Llamar al 958000000","periodo":{"inicio":"2027-01-01T00:00:00Z"}},"actuaciones":[{"secuencia":1},{"secuencia":2},{"secuencia":3}]}', 'cobertura_o4', 'op:3', '2026-09-25 10:00:00+00');
+-- Expediente con 600 cambios de código: la respuesta se recorta y lo indica.
+INSERT INTO vec_contratacion_temporal.publicacion_version_rrhh VALUES
+    ('exp:ct117b', 2, 2, 'org:ct117', 'cen:ct117', 'uni:actual');
+INSERT INTO vec_contratacion_temporal.expediente_version_integral
+SELECT 'exp:ct117b', 1, '{"version":1}'::jsonb, 'alta_o2', 'op:b1', timestamptz '2026-09-25 08:00:00+00'
+UNION ALL
+SELECT 'exp:ct117b', 2, pg_catalog.jsonb_build_object('version', 2, 'analisis',
+         pg_catalog.jsonb_object_agg(pg_catalog.format('c%s_clave', pg_catalog.lpad(i::text, 3, '0')), 'codigo_nuevo')),
+       'analisis_o3', 'op:b2', timestamptz '2026-09-25 09:00:00+00'
+  FROM pg_catalog.generate_series(1, 600) i;
 RESET ROLE;
 \ir ../migraciones/000117_consulta_cambios_expediente.up.sql
+
+-- Minimización por lista cerrada de campos: ningún identificador ni texto
+-- libre sale en claro, ni siquiera con forma de referencia o de código.
+DO $minimizacion$
+DECLARE r record;
+BEGIN
+    FOR r IN SELECT * FROM (VALUES
+        ('solicitud.persona_ref', '"dni:12345678Z"'::jsonb, '*protegido'),
+        ('solicitud.contacto_ref', '"tel:600123456"'::jsonb, '*protegido'),
+        ('solicitud.titular_ref', '"nif:B12345678"'::jsonb, '*protegido'),
+        ('solicitud.nombre', '"Lucía"'::jsonb, '*protegido'),
+        ('solicitud.estado', '"Lucía García"'::jsonb, '*protegido'),
+        ('solicitud.causa_clave', '"expediente_12345"'::jsonb, '*protegido'),
+        ('solicitud.detalle', '"Texto libre"'::jsonb, '*protegido'),
+        ('solicitud.telefono', '600123456'::jsonb, '*protegido'),
+        ('persona.fecha_nacimiento', '"1990-05-01"'::jsonb, '*protegido'),
+        ('solicitud.inicio', '"no es fecha"'::jsonb, '*protegido'),
+        ('solicitud.lista[2]', '"a"'::jsonb, '*protegido'),
+        ('solicitud.centro_ref', '"centro:ct117:1"'::jsonb, 'centro:ct117:1'),
+        ('solicitud.causa_clave', '"necesidad_temporal"'::jsonb, 'necesidad_temporal'),
+        ('coste_previsto.centimos', '123456'::jsonb, '123456'),
+        ('fiscalizacion.ginpix_numero', '"2027000123"'::jsonb, '2027000123'),
+        ('analisis.periodo.fin', '"2027-03-31"'::jsonb, '2027-03-31T00:00:00.000000Z'),
+        ('analisis.urgente', 'true'::jsonb, 'true')) AS t(ruta, valor, esperado)
+    LOOP
+        IF vec_contratacion_temporal.valor_traza_cambio_v1(r.ruta, r.valor) IS DISTINCT FROM r.esperado THEN
+            RAISE EXCEPTION 'CT117 minimización de % (%): %', r.ruta, r.valor,
+                vec_contratacion_temporal.valor_traza_cambio_v1(r.ruta, r.valor);
+        END IF;
+    END LOOP;
+END
+$minimizacion$;
 
 \connect postgres vec_ct117_runtime
 SET timezone='UTC';
@@ -194,6 +236,56 @@ SELECT decision.*,
        AS contexto_actor_bytes
 FROM decision;
 
+CREATE TEMP TABLE ct117_caso_b AS
+WITH entrada AS (
+    SELECT ROW('org:ct117','organizacion','org:ct117')::
+               vec_contratacion_temporal.alcance_consulta_rrhh_v1 AS alcance,
+           ROW('exp:ct117b',0)::
+               vec_contratacion_temporal.consulta_detalle_rrhh_v1 AS consulta
+), huella AS (
+    SELECT entrada.*,
+       pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(
+         '{"ambitos":{"ambito_ref":"org:ct117","clase_ambito":"organizacion",'
+         || '"organizacion_ref":"org:ct117"},"atributos":{"consulta_dominio":"'
+         || 'vec.contratacion_temporal.consulta_rrhh.detalle.v1'
+         || '","consulta_huella_sha256":"'
+         || pg_catalog.encode(pg_catalog.sha256(
+              vec_contratacion_temporal.canon_consulta_detalle_rrhh_v1(consulta)
+            ),'hex') || '"}}', 'UTF8')), 'hex') AS contexto_huella
+    FROM entrada
+), decision AS (
+    SELECT huella.*,
+       pg_catalog.convert_to(pg_catalog.jsonb_build_object(
+           'decision_ref','dec:ct117','principal_id','per:ct117',
+           'perfil_activo_ref','perfil:ct117','garantia_minima','alto',
+           'version_rol_ref','rol:rrhh_desarrollo:v1',
+           'accion','contratacion_temporal.expediente.consultar',
+           'modulo_id','contratacion_temporal',
+           'tipo_recurso','expediente_contratacion_temporal',
+           'finalidad','tramitacion_expediente_contratacion_temporal',
+           'recurso_ref','exp:ct117b',
+           'contexto_recurso_huella_sha256',contexto_huella,
+           'campos_permitidos','[]'::jsonb
+       )::text,'UTF8') AS decision_bytes
+    FROM huella
+)
+SELECT decision.*,
+   pg_catalog.convert_to(pg_catalog.jsonb_build_object(
+       'audiencia_consumo',
+       'vec_contratacion_temporal.consultar_detalle_rrhh_atestado.v1',
+       'operacion','contratacion_temporal.expediente.consultar',
+       'efecto_ref','exp:ct117b',
+       'huella_efecto_sha256',contexto_huella,
+       'huella_decision_sha256',
+       pg_catalog.encode(pg_catalog.sha256(decision_bytes),'hex'),
+       'relleno',pg_catalog.repeat('x',512)
+   )::text,'UTF8') AS capacidad_bytes,
+   pg_catalog.convert_to(pg_catalog.jsonb_build_object(
+       'principal_ref','per:ct117','perfil_activo_ref','perfil:ct117',
+       'persona_version','1','perfil_version','1')::text,'UTF8')
+       AS contexto_actor_bytes
+FROM decision;
+
 BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE;
 DO $probar$
 DECLARE v record; v_n integer; d bytea; c bytea; fallo boolean; caso integer;
@@ -209,22 +301,36 @@ BEGIN
     -- La publicación visible es la versión 2: la 3 no aparece.
     esperado := pg_catalog.jsonb_build_array(
       pg_catalog.jsonb_build_object('version_expediente',2,'registrada_en','2026-09-25T09:00:00.000000Z','origen_version','analisis_o3','operacion_ref','op:2','ruta','analisis.causa_clave','valor_anterior',NULL,'valor_nuevo','necesidad_temporal'),
-      pg_catalog.jsonb_build_object('version_expediente',2,'registrada_en','2026-09-25T09:00:00.000000Z','origen_version','analisis_o3','operacion_ref','op:2','ruta','analisis.observaciones','valor_anterior',NULL,'valor_nuevo','sha256:'||pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to('Llamar al 958000000','UTF8')),'hex')),
+      pg_catalog.jsonb_build_object('version_expediente',2,'registrada_en','2026-09-25T09:00:00.000000Z','origen_version','analisis_o3','operacion_ref','op:2','ruta','analisis.observaciones','valor_anterior',NULL,'valor_nuevo','*protegido'),
       pg_catalog.jsonb_build_object('version_expediente',2,'registrada_en','2026-09-25T09:00:00.000000Z','origen_version','analisis_o3','operacion_ref','op:2','ruta','analisis.periodo.inicio','valor_anterior',NULL,'valor_nuevo','2027-01-01T00:00:00.000000Z'),
       pg_catalog.jsonb_build_object('version_expediente',2,'registrada_en','2026-09-25T09:00:00.000000Z','origen_version','analisis_o3','operacion_ref','op:2','ruta','analisis.porcentaje_jornada','valor_anterior',NULL,'valor_nuevo','10000'),
-      pg_catalog.jsonb_build_object('version_expediente',2,'registrada_en','2026-09-25T09:00:00.000000Z','origen_version','analisis_o3','operacion_ref','op:2','ruta','solicitud.detalle','valor_anterior','sha256:'||pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to('Texto libre con 600123456','UTF8')),'hex'),'valor_nuevo','sha256:'||pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to('Texto libre corregido','UTF8')),'hex')),
+      pg_catalog.jsonb_build_object('version_expediente',2,'registrada_en','2026-09-25T09:00:00.000000Z','origen_version','analisis_o3','operacion_ref','op:2','ruta','solicitud.detalle','valor_anterior','*protegido','valor_nuevo','*protegido'),
       pg_catalog.jsonb_build_object('version_expediente',2,'registrada_en','2026-09-25T09:00:00.000000Z','origen_version','analisis_o3','operacion_ref','op:2','ruta','solicitud.grupo_subgrupo','valor_anterior','C2','valor_nuevo','C1'));
     IF v.expediente_ref <> 'exp:ct117' OR v.version_expediente <> 2
-       OR v.cambios IS DISTINCT FROM esperado
+       OR v.cambios IS DISTINCT FROM esperado OR v.recortado
        OR v.auditoria_vec_ref <> 'aud:ct117'
        OR v.consumo_vec_huella_sha256 <> pg_catalog.repeat('1',64) THEN
         RAISE EXCEPTION 'CT117 salida positiva incorrecta: %', v.cambios;
     END IF;
-    IF v.cambios::text ~ '600123456|958000000|Texto libre' THEN
+    IF v.cambios::text ~ '600123456|958000000|Texto libre|sha256:' THEN
         RAISE EXCEPTION 'CT117 expuso texto libre en claro';
     END IF;
     SELECT t.n INTO STRICT v_n FROM vec_contratacion_temporal.test_consumos t;
     IF v_n <> 1 THEN RAISE EXCEPTION 'CT117 consumo positivo incorrecto'; END IF;
+
+    -- 600 cambios: se entregan 500 y la respuesta indica el recorte.
+    SELECT * INTO STRICT v FROM ct117_caso_b;
+    SELECT * INTO STRICT v FROM vec_contratacion_temporal
+       .consultar_cambios_expediente_rrhh_atestado_v1(
+        v.alcance,v.consulta,v.capacidad_bytes,
+        v.decision_bytes,'\x01'::bytea,v.contexto_actor_bytes,
+        1,1,'\x01'::bytea,'\x01'::bytea,'\x01'::bytea,
+        pg_catalog.decode(pg_catalog.repeat('01',44),'hex'));
+    IF NOT v.recortado OR pg_catalog.jsonb_array_length(v.cambios) <> 500
+       OR v.cambios->0->>'ruta' <> 'analisis.c001_clave' OR v.cambios->499->>'ruta' <> 'analisis.c500_clave'
+       OR pg_catalog.octet_length(v.cambios::text) > 196608 THEN
+        RAISE EXCEPTION 'CT117 recorte incorrecto: % cambios, recortado %', pg_catalog.jsonb_array_length(v.cambios), v.recortado;
+    END IF;
 
     -- Campos limitados, garantía inferior o rol de seguimiento: rechazo
     -- antes de consumir. Otra organización: rechazo y consumo revertido.
@@ -253,7 +359,7 @@ BEGIN
         END;
         IF NOT fallo THEN RAISE EXCEPTION 'CT117 guarda incorrecta en caso %', caso; END IF;
         SELECT t.n INTO STRICT v_n FROM vec_contratacion_temporal.test_consumos t;
-        IF v_n <> 1 THEN RAISE EXCEPTION 'CT117 consumió en el caso rechazado %', caso; END IF;
+        IF v_n <> 2 THEN RAISE EXCEPTION 'CT117 consumió en el caso rechazado %', caso; END IF;
     END LOOP;
 
     -- Las funciones auxiliares y la historia no son accesibles directamente.
@@ -262,7 +368,7 @@ BEGIN
         PERFORM 1 FROM vec_contratacion_temporal.expediente_version_integral;
     EXCEPTION WHEN insufficient_privilege THEN fallo := true;
     END;
-    IF NOT fallo OR pg_catalog.has_function_privilege('vec_contratacion_temporal.valor_traza_cambio_v1(jsonb)','EXECUTE')
+    IF NOT fallo OR pg_catalog.has_function_privilege('vec_contratacion_temporal.valor_traza_cambio_v1(text,jsonb)','EXECUTE')
        OR pg_catalog.has_function_privilege('vec_contratacion_temporal.hojas_instantanea_expediente_v1(jsonb)','EXECUTE') THEN
         RAISE EXCEPTION 'CT117 abre la historia o sus auxiliares';
     END IF;

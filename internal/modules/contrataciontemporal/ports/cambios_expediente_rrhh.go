@@ -21,6 +21,12 @@ var (
 	patronOrigenCambioRRHH = regexp.MustCompile(`^[a-z][a-z0-9_]{1,63}$`)
 )
 
+// ValorCambioProtegidoRRHH es la marca con la que la base entrega el valor de
+// un campo fuera de la lista cerrada de campos visibles (texto libre, datos
+// personales): solo dice que cambió, sin huella. Dos valores protegidos
+// distintos llegan con la misma marca a ambos lados.
+const ValorCambioProtegidoRRHH = "*protegido"
+
 type CambioExpedienteRRHH struct {
 	VersionExpediente uint64
 	RegistradaEn      time.Time
@@ -32,9 +38,12 @@ type CambioExpedienteRRHH struct {
 }
 
 type ResultadoConsultaCambiosRRHH struct {
-	ExpedienteRef         string
-	VersionExpediente     uint64
-	Cambios               []CambioExpedienteRRHH
+	ExpedienteRef     string
+	VersionExpediente uint64
+	Cambios           []CambioExpedienteRRHH
+	// Recortado indica que había más cambios que los entregados (límite de
+	// filas o de tamaño de la respuesta).
+	Recortado             bool
 	ConsumoHuellaSHA256   string
 	AuditoriaRef          string
 	AuditoriaHuellaSHA256 string
@@ -86,7 +95,7 @@ func (r ResultadoConsultaCambiosRRHH) ValidarPara(orden OrdenConsultaDetalleRRHH
 			!domain.ReferenciaOpacaValida(c.OperacionRef) || len(c.Ruta) > 400 || !patronRutaCambioRRHH.MatchString(c.Ruta) ||
 			!valorCambioRRHHValido(c.ValorAnterior) || !valorCambioRRHHValido(c.ValorNuevo) ||
 			(c.ValorAnterior == nil && c.ValorNuevo == nil) ||
-			(c.ValorAnterior != nil && c.ValorNuevo != nil && *c.ValorAnterior == *c.ValorNuevo) {
+			(c.ValorAnterior != nil && c.ValorNuevo != nil && *c.ValorAnterior == *c.ValorNuevo && *c.ValorNuevo != ValorCambioProtegidoRRHH) {
 			return ErrResultadoConsultaRRHHNoConfiable
 		}
 		anterior = c.VersionExpediente

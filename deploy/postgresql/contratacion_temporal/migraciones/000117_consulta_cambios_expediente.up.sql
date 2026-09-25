@@ -17,17 +17,33 @@ SELECT pg_catalog.pg_advisory_xact_lock(
 -- alta, sin el rol de seguimiento) y mismo consumo AD3 'detalle' que la
 -- consulta mínima de 000109: no abre otro consumidor de autorización.
 --
--- Minimización: se muestran tal cual los números, booleanos, fechas (en una
--- forma canónica), referencias con espacio de nombres ('rc:...') y códigos
--- cortos sin cinco cifras seguidas; vacío y fecha cero cuentan como sin valor. Cualquier otro texto (observaciones, detalle libre, un
--- teléfono o un documento de identidad) sale solo como huella 'sha256:...'.
--- La IP o el equipo no se registran: pendientes de la política de seguridad.
+-- Minimización por lista cerrada de campos (la hoja de la ruta), no por la
+-- forma del valor: solo salen en claro los booleanos, las fechas de campos de
+-- fecha ('inicio', 'fin', 'desde', 'hasta', 'fecha*' salvo la de nacimiento,
+-- '*_en'), los números de gestión ('centimos', 'porcentaje_jornada',
+-- 'numero*', '*_numero', 'orden', 'plazas', 'dias', 'meses', 'horas'), los
+-- códigos de catálogo ('*_clave', 'estado', 'fase', 'resultado', 'moneda',
+-- 'tipo', 'modalidad', 'origen', 'grupo_subgrupo') y las referencias opacas
+-- con espacio de nombres ('*_ref', 'referencia') que no identifican a una
+-- persona (dni:, nif:, nie:, tel:, correo:, iban:, nss: y similares nunca).
+-- Además el valor debe tener la forma de su clase. Todo lo demás (texto
+-- libre, observaciones, nombres, teléfonos, documentos, un número fuera de la
+-- lista) sale como la marca «*protegido», sin huella: una huella sin sal de un
+-- dato de pocas posibilidades sería reversible. Vacío y fecha cero cuentan
+-- como sin valor. Es una invariante de protección de datos, no una regla de
+-- negocio: solo restringe. La IP o el equipo no se registran: pendientes de
+-- la política de seguridad.
+--
+-- Auditoría: la consulta consume la misma decisión 'detalle' que el detalle
+-- completo (no hay consumidor propio de «cambios» y no se abre otro), así que
+-- en la auditoría de AD3 ambas lecturas figuran como consulta del detalle del
+-- expediente; la respuesta de cambios nunca contiene más que el detalle.
 DO $prevalidacion$
 BEGIN
     IF pg_catalog.to_regprocedure(
         'vec_contratacion_temporal.consultar_cambios_expediente_rrhh_atestado_v1(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_detalle_rrhh_v1,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'
     ) IS NOT NULL
-    OR pg_catalog.to_regprocedure('vec_contratacion_temporal.valor_traza_cambio_v1(jsonb)') IS NOT NULL
+    OR pg_catalog.to_regprocedure('vec_contratacion_temporal.valor_traza_cambio_v1(text,jsonb)') IS NOT NULL
     OR pg_catalog.to_regprocedure(
         'vec_contratacion_temporal.consultar_resumen_seguimiento_rrhh_atestado_v1(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_detalle_rrhh_v1,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'
     ) IS NULL
@@ -41,7 +57,7 @@ BEGIN
 END
 $prevalidacion$;
 
-CREATE FUNCTION vec_contratacion_temporal.valor_traza_cambio_v1(p_valor jsonb)
+CREATE FUNCTION vec_contratacion_temporal.valor_traza_cambio_v1(p_ruta text, p_valor jsonb)
 RETURNS text
 LANGUAGE plpgsql
 STABLE
@@ -52,45 +68,80 @@ AS $funcion$
 DECLARE
     v_texto text;
     v_instante timestamptz;
+    -- La hoja: último nombre de la ruta, sin índices.
+    v_campo text := pg_catalog.lower(pg_catalog.substring(COALESCE(p_ruta, ''), '([A-Za-z_][A-Za-z0-9_]*)(\[[0-9]+\])*$'));
 BEGIN
     IF p_valor IS NULL OR pg_catalog.jsonb_typeof(p_valor) = 'null'
        OR p_valor IN ('[]'::jsonb, '{}'::jsonb, '""'::jsonb) THEN
         RETURN NULL;
     END IF;
-    IF pg_catalog.jsonb_typeof(p_valor) IN ('number', 'boolean') THEN
+    IF pg_catalog.jsonb_typeof(p_valor) = 'boolean' THEN
         RETURN p_valor #>> '{}';
     END IF;
-    IF pg_catalog.jsonb_typeof(p_valor) <> 'string' THEN
-        RETURN NULL;
+    IF pg_catalog.jsonb_typeof(p_valor) NOT IN ('number', 'string') OR v_campo IS NULL THEN
+        RETURN '*protegido';
     END IF;
     v_texto := p_valor #>> '{}';
-    -- Fechas: una sola forma canónica, para que un cambio de formato no
-    -- parezca un cambio de dato; el instante cero de Go es «sin valor».
-    IF v_texto ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}(T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,9})?(Z|[+-][0-9]{2}:[0-9]{2}))?$' THEN
-        BEGIN
-            v_instante := v_texto::timestamptz;
-        EXCEPTION WHEN OTHERS THEN
-            v_instante := NULL;
-        END;
-        IF v_instante IS NOT NULL THEN
-            IF pg_catalog.date_part('year', v_instante) <= 1 THEN
-                RETURN NULL;
+    -- El instante cero de Go es «sin valor» en cualquier campo.
+    IF v_texto ~ '^0001-01-01(T00:00:00(\.0+)?Z)?$' THEN
+        RETURN NULL;
+    END IF;
+    -- Fechas de campos de fecha: una sola forma canónica, para que un cambio
+    -- de formato no parezca un cambio de dato; el instante cero de Go es
+    -- «sin valor».
+    IF (v_campo IN ('inicio', 'fin', 'desde', 'hasta') OR v_campo LIKE '%\_en'
+        OR (v_campo LIKE 'fecha%' AND v_campo NOT LIKE '%nacimiento%') OR v_campo LIKE '%\_fecha') THEN
+        IF pg_catalog.jsonb_typeof(p_valor) = 'string'
+           AND v_texto ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}(T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,9})?(Z|[+-][0-9]{2}:[0-9]{2}))?$' THEN
+            BEGIN
+                v_instante := v_texto::timestamptz;
+            EXCEPTION WHEN OTHERS THEN
+                v_instante := NULL;
+            END;
+            IF v_instante IS NOT NULL THEN
+                IF pg_catalog.date_part('year', v_instante) <= 1 THEN
+                    RETURN NULL;
+                END IF;
+                RETURN pg_catalog.to_char(v_instante, 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"');
             END IF;
-            RETURN pg_catalog.to_char(v_instante, 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"');
         END IF;
+        RETURN '*protegido';
     END IF;
-    IF pg_catalog.octet_length(v_texto) <= 160 AND (
-           v_texto ~ '^[a-z][a-z0-9_.-]*(:[A-Za-z0-9_.#/-]+)+$'
-        OR (v_texto ~ '^[A-Za-z][A-Za-z0-9_.-]{0,79}$' AND v_texto !~ '[0-9]{5}')) THEN
-        RETURN v_texto;
+    -- Números de gestión: importes en céntimos, porcentajes, contadores y
+    -- números de registro, nunca un número de persona.
+    IF v_campo IN ('centimos', 'porcentaje_jornada', 'orden', 'plazas', 'dias', 'meses', 'horas')
+       OR v_campo LIKE 'numero%' OR v_campo LIKE '%\_numero' THEN
+        IF v_texto ~ '^-?[0-9]{1,20}(\.[0-9]{1,6})?$' THEN
+            RETURN v_texto;
+        END IF;
+        RETURN '*protegido';
     END IF;
-    RETURN 'sha256:' || pg_catalog.encode(pg_catalog.sha256(
-        pg_catalog.convert_to(v_texto, 'UTF8')), 'hex');
+    IF pg_catalog.jsonb_typeof(p_valor) <> 'string' THEN
+        RETURN '*protegido';
+    END IF;
+    -- Códigos de catálogo.
+    IF v_campo LIKE '%\_clave' OR v_campo IN ('estado', 'fase', 'resultado', 'moneda', 'tipo', 'modalidad', 'origen', 'grupo_subgrupo') THEN
+        IF v_texto ~ '^[A-Za-z][A-Za-z0-9_.-]{0,79}$' AND v_texto !~ '[0-9]{5}' THEN
+            RETURN v_texto;
+        END IF;
+        RETURN '*protegido';
+    END IF;
+    -- Referencias opacas con espacio de nombres que no identifican a nadie.
+    IF v_campo LIKE '%\_ref' OR v_campo = 'referencia' THEN
+        IF pg_catalog.octet_length(v_texto) <= 160
+           AND v_texto ~ '^[a-z][a-z0-9_.-]*(:[A-Za-z0-9_.#/-]+)+$'
+           AND pg_catalog.split_part(v_texto, ':', 1) NOT IN ('dni', 'nif', 'nie', 'cif', 'pasaporte', 'tel', 'telefono',
+               'movil', 'correo', 'email', 'mail', 'iban', 'cuenta', 'nss', 'naf', 'nombre', 'apellidos', 'domicilio', 'direccion') THEN
+            RETURN v_texto;
+        END IF;
+        RETURN '*protegido';
+    END IF;
+    RETURN '*protegido';
 END
 $funcion$;
-ALTER FUNCTION vec_contratacion_temporal.valor_traza_cambio_v1(jsonb)
+ALTER FUNCTION vec_contratacion_temporal.valor_traza_cambio_v1(text, jsonb)
     OWNER TO vec_contratacion_temporal_propietario;
-REVOKE ALL ON FUNCTION vec_contratacion_temporal.valor_traza_cambio_v1(jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION vec_contratacion_temporal.valor_traza_cambio_v1(text, jsonb) FROM PUBLIC;
 
 -- Hojas de una instantánea: ruta con puntos e índices, valor escalar.
 -- Se omite la contabilidad de la propia historia, ya visible como hitos o sin
@@ -152,6 +203,7 @@ RETURNS TABLE (
     expediente_ref text,
     version_expediente numeric,
     cambios jsonb,
+    recortado boolean,
     consumo_vec_huella_sha256 text,
     auditoria_vec_ref text,
     auditoria_vec_huella_sha256 text,
@@ -181,6 +233,7 @@ DECLARE
     v_corte_global numeric(20, 0);
     v_version numeric(20, 0);
     v_cambios jsonb;
+    v_recortado boolean;
 BEGIN
     SELECT * INTO v_login FROM pg_catalog.pg_roles
      WHERE rolname = SESSION_USER;
@@ -380,17 +433,17 @@ BEGIN
            WHEN 'unidad_gestion' THEN p.unidad_ref = p_alcance.ambito_ref
            ELSE false END;
 
-    -- Versiones consecutivas hasta la publicada; como mucho 500 cambios (cabe en la respuesta HTTP de 256 KiB).
-    SELECT COALESCE(pg_catalog.jsonb_agg(c ORDER BY c.version_expediente, c.ruta), '[]'::jsonb)
-      INTO v_cambios
-      FROM (
+    -- Versiones consecutivas hasta la publicada. Se entregan como mucho 500
+    -- cambios y como mucho 192 KiB de JSON acumulado (la respuesta HTTP
+    -- admite 256 KiB); si hay más, «recortado» lo indica.
+    WITH candidatos AS (
         SELECT n.version AS version_expediente,
                pg_catalog.to_char(n.registrada_en AT TIME ZONE 'UTC',
                    'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS registrada_en,
                n.origen_version, n.operacion_ref,
                d.ruta,
-               vec_contratacion_temporal.valor_traza_cambio_v1(d.anterior) AS valor_anterior,
-               vec_contratacion_temporal.valor_traza_cambio_v1(d.nuevo) AS valor_nuevo
+               vec_contratacion_temporal.valor_traza_cambio_v1(d.ruta, d.anterior) AS valor_anterior,
+               vec_contratacion_temporal.valor_traza_cambio_v1(d.ruta, d.nuevo) AS valor_nuevo
           FROM vec_contratacion_temporal.expediente_version_integral n
           JOIN vec_contratacion_temporal.expediente_version_integral a
             ON a.expediente_ref = n.expediente_ref AND a.version = n.version - 1
@@ -403,14 +456,27 @@ BEGIN
           ) d
          WHERE n.expediente_ref = p_consulta.expediente_ref
            AND n.version <= v_version
-           -- Un null explícito y un campo ausente no son un cambio visible.
-           AND vec_contratacion_temporal.valor_traza_cambio_v1(d.anterior)
-               IS DISTINCT FROM vec_contratacion_temporal.valor_traza_cambio_v1(d.nuevo)
          ORDER BY n.version, d.ruta
-         LIMIT 500
-      ) c;
+    ), visibles AS (
+        -- Un null explícito y un campo ausente, o dos formas de la misma
+        -- fecha, no son un cambio visible; dos valores protegidos distintos sí.
+        SELECT c.*, pg_catalog.row_number() OVER w AS n,
+               pg_catalog.sum(pg_catalog.octet_length(pg_catalog.to_jsonb(c)::text)) OVER w AS acumulado
+          FROM candidatos c
+         WHERE c.valor_anterior IS DISTINCT FROM c.valor_nuevo
+            OR c.valor_anterior = '*protegido'
+        WINDOW w AS (ORDER BY c.version_expediente, c.ruta)
+         ORDER BY c.version_expediente, c.ruta
+         LIMIT 501
+    )
+    SELECT COALESCE(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(v) - 'n' - 'acumulado'
+                        ORDER BY v.version_expediente, v.ruta)
+                        FILTER (WHERE v.n <= 500 AND v.acumulado <= 196608), '[]'::jsonb),
+           COALESCE(pg_catalog.bool_or(v.n > 500 OR v.acumulado > 196608), false)
+      INTO v_cambios, v_recortado
+      FROM visibles v;
 
-    RETURN QUERY SELECT p_consulta.expediente_ref, v_version::numeric, v_cambios,
+    RETURN QUERY SELECT p_consulta.expediente_ref, v_version::numeric, v_cambios, v_recortado,
         v_consumo.consumo_huella_sha256,
         v_consumo.auditoria_ref, v_consumo.auditoria_huella_sha256,
         v_consumo.consumida_en::timestamptz;

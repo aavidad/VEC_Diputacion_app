@@ -1,14 +1,14 @@
 /**
  * Petición RRHH p.4: sección «Cambios de datos» del detalle del expediente.
  * Se consulta solo a petición de la persona usuaria, porque cada consulta
- * consume una autorización y deja su auditoría. Los textos libres llegan como
- * huella: nunca se muestran en claro.
+ * consume una autorización y deja su auditoría. Los textos libres y los datos
+ * personales llegan como la marca «*protegido»: solo se sabe que cambiaron.
  */
 import { crearClienteHTTPCambiosExpediente } from "./cliente-http-cambios-expediente.js";
 import { MENSAJES_CAMBIOS_EXPEDIENTE_ES } from "./i18n-cambios-expediente.js";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js";
 
-const HUELLA = /^sha256:([0-9a-f]{64})$/u;
+const PROTEGIDO = "*protegido";
 const INSTANTE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$/u;
 
 function escapar(valor) {
@@ -39,8 +39,7 @@ export function etiquetaRutaCambio(ruta, t) {
 
 export function valorVisibleCambio(valor, t) {
   if (valor === null) return t("cambios_sin_valor");
-  const huella = HUELLA.exec(valor);
-  if (huella) return t("cambios_texto_protegido", { huella: `${huella[1].slice(0, 12)}…` });
+  if (valor === PROTEGIDO) return t("cambios_texto_protegido");
   if (INSTANTE.test(valor)) return fecha(valor);
   return valor;
 }
@@ -62,7 +61,7 @@ export function renderizarTablaCambios(resultado, t) {
   const cabecera = ["cambios_col_version", "cambios_col_fecha", "cambios_col_campo", "cambios_col_anterior", "cambios_col_nuevo"]
     .map((clave) => `<th scope="col">${escapar(t(clave))}</th>`).join("");
   const filas = resultado.cambios.map((c) => `<tr><td>${c.version_expediente}</td><td><time datetime="${escapar(c.registrada_en)}">${escapar(fecha(c.registrada_en))}</time></td><th scope="row">${escapar(etiquetaRutaCambio(c.ruta, t))}</th><td>${escapar(valorVisibleCambio(c.valor_anterior, t))}</td><td>${escapar(valorVisibleCambio(c.valor_nuevo, t))}</td></tr>`).join("");
-  const limite = resultado.cambios.length >= 500 ? `<p role="note">${escapar(t("cambios_limite", { total: resultado.cambios.length }))}</p>` : "";
+  const limite = resultado.recortado ? `<p role="note">${escapar(t("cambios_limite", { total: resultado.cambios.length }))}</p>` : "";
   return `<div class="tabla-contenedor" tabindex="0" role="region" aria-label="${escapar(t("cambios_titulo"))}"><table class="tabla-datos ct-exp-tabla-panel"><caption>${escapar(t("cambios_leyenda"))}</caption><thead><tr>${cabecera}</tr></thead><tbody>${filas}</tbody></table></div>${limite}`;
 }
 
