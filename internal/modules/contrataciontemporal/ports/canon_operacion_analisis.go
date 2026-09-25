@@ -96,6 +96,7 @@ func NuevasPreimagenesConsultaOperacionAnalisis(
 	semantica.texto(datos.ArtefactoRef)
 	semantica.texto(string(datos.MotivoRectificacion))
 	escribirDatosFuncionalesCanonicos(semantica, datos.DatosFuncionales)
+	escribirObservacionesIdempotencia(semantica, datos.DatosFuncionales.Observaciones)
 	bytesSemantica, err := semantica.resultado()
 	if err != nil {
 		return PreimagenesOperacionAnalisis{}, err
@@ -153,6 +154,7 @@ func NuevasPreimagenesOperacionAnalisis(
 		artefacto.DatosFuncionales,
 	)
 	escribirArtefactoCanonico(semantica, artefacto)
+	escribirObservacionesIdempotencia(semantica, artefacto.DatosFuncionales.Observaciones)
 	bytesSemantica, err := semantica.resultado()
 	if err != nil {
 		return PreimagenesOperacionAnalisis{}, err
@@ -282,6 +284,21 @@ func escribirDatosFuncionalesCanonicos(
 	canon.enteroSinSigno(uint64(datos.PorcentajeJornada))
 	canon.texto(datos.EntradaRC.Referencia)
 	canon.texto(datos.EntradaRC.HuellaSHA256)
+}
+
+// escribirObservacionesIdempotencia liga las observaciones del análisis a la
+// identidad semántica de la clave de idempotencia: repetir la misma clave con
+// otras observaciones es otro material y debe acabar en conflicto, no en el
+// recibo anterior. Solo se añaden cuando existen, de modo que las huellas de
+// las operaciones sin observaciones ya confirmadas no cambian. No entran en la
+// huella del artefacto, que se conserva tal como se publicó.
+func escribirObservacionesIdempotencia(
+	canon *canonOperacionAnalisis,
+	observaciones string,
+) {
+	if observaciones != "" {
+		canon.texto(observaciones)
+	}
 }
 
 func escribirArtefactoCanonico(

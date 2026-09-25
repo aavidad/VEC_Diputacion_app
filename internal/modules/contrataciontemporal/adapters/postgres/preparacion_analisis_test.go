@@ -495,3 +495,74 @@ func TestPreparacionAnalisisConservaIdentidadFuncionalAntesDeConfirmar(t *testin
 		t.Fatal("la reserva debe transportar solo identidad funcional sellada")
 	}
 }
+
+// La fila se localiza por el ámbito de la clave. Si ese recibo pertenece a
+// otros datos (misma clave, otro material), la consulta responde conflicto de
+// idempotencia y nunca devuelve el recibo anterior como si fuera un replay.
+func TestPreparadorOperacionAnalisisPostgreSQLConsultaClaveReutilizada(
+	t *testing.T,
+) {
+	expediente := expedienteInicialAnalisisPostgreSQLPrueba(t)
+	solicitud := solicitudAnalisisPostgreSQLPrueba(t, expediente)
+	datosPreparacion, err := preparacionAnalisisPostgreSQLPrueba(
+		t,
+		solicitud,
+		expediente,
+	).DatosPara(solicitud)
+	if err != nil {
+		t.Fatal(err)
+	}
+	casos := map[string]struct {
+		mutar    func(*ports.ReciboOperacionAnalisis)
+		esperado error
+	}{
+		"otros datos con la misma clave": {
+			mutar: func(r *ports.ReciboOperacionAnalisis) {
+				r.HuellaConsultaHMAC = strings.TrimRight(r.HuellaConsultaHMAC, "d") +
+					strings.Repeat("e", 64)
+			},
+			esperado: ports.ErrClaveIdempotenciaOperacionAnalisisUsada,
+		},
+		"otra versión con la misma clave": {
+			mutar: func(r *ports.ReciboOperacionAnalisis) {
+				r.VersionAnterior++
+				r.VersionResultante++
+				r.SecuenciaActuacion++
+			},
+			esperado: ports.ErrClaveIdempotenciaOperacionAnalisisUsada,
+		},
+		"recibo de otro ámbito": {
+			mutar: func(r *ports.ReciboOperacionAnalisis) {
+				r.AmbitoConsultaHMAC = strings.TrimRight(r.AmbitoConsultaHMAC, "a") +
+					strings.Repeat("f", 64)
+			},
+			esperado: ports.ErrPersistenciaOperacionAnalisisNoDisponible,
+		},
+	}
+	for nombre, caso := range casos {
+		t.Run(nombre, func(t *testing.T) {
+			recibo := reciboAnalisisPostgreSQLPrueba(datosPreparacion)
+			caso.mutar(&recibo)
+			contenido, err := json.Marshal(recibo)
+			if err != nil {
+				t.Fatal(err)
+			}
+			tx := &transaccionPreparacionPrueba{
+				fila: filaPreparacionPrueba{valores: []any{string(contenido)}},
+			}
+			preparador, err := nuevoPreparadorOperacionAnalisisPostgreSQL(
+				&iniciadorPreparacionPrueba{tx: tx},
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, existe, err := preparador.ConsultarOperacionAnalisisConfirmada(
+				context.Background(),
+				solicitud.IdentidadConsulta,
+			)
+			if existe || !errors.Is(err, caso.esperado) {
+				t.Fatalf("consulta = %t, %v; se esperaba %v", existe, err, caso.esperado)
+			}
+		})
+	}
+}

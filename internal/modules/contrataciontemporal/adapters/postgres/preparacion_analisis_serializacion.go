@@ -156,8 +156,17 @@ func reciboConsultaAnalisisSeguro(
 	contenido string,
 ) (ports.ReciboOperacionAnalisis, error) {
 	recibo, err := decodificarReciboConfirmacionAnalisis(contenido)
-	if err != nil ||
-		recibo.ValidarParaConsulta(solicitud) != nil {
+	if err != nil {
+		return ports.ReciboOperacionAnalisis{},
+			ports.ErrPersistenciaOperacionAnalisisNoDisponible
+	}
+	if recibo.ValidarParaConsulta(solicitud) != nil {
+		// La fila se localizó por el ámbito de la clave: si coincide el
+		// ámbito y no los datos, la clave se reutilizó con otro material.
+		if recibo.ReutilizaClaveConOtrosDatos(solicitud) {
+			return ports.ReciboOperacionAnalisis{},
+				ports.ErrClaveIdempotenciaOperacionAnalisisUsada
+		}
 		return ports.ReciboOperacionAnalisis{},
 			ports.ErrPersistenciaOperacionAnalisisNoDisponible
 	}

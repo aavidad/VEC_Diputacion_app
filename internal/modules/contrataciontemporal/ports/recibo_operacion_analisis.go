@@ -101,6 +101,19 @@ func (r ReciboOperacionAnalisis) ValidarParaConsulta(
 	return nil
 }
 
+// ReutilizaClaveConOtrosDatos indica que el recibo confirmado pertenece al
+// mismo ámbito de idempotencia que la consulta, pero no a sus mismos datos: la
+// clave se ha repetido con otro material. Debe responderse como conflicto,
+// nunca como replay ni como indisponibilidad.
+func (r ReciboOperacionAnalisis) ReutilizaClaveConOtrosDatos(
+	solicitud SolicitudConsultarOperacionAnalisisConfirmada,
+) bool {
+	return solicitud.Validar() == nil &&
+		solicitud.sellos.ContieneAmbito(r.AmbitoConsultaHMAC) &&
+		(!solicitud.coincideCoordenadas(r) ||
+			!solicitud.contienePar(r.AmbitoConsultaHMAC, r.HuellaConsultaHMAC))
+}
+
 func (r ReciboOperacionAnalisis) ValidarParaOrdenDentroDeTransaccion(
 	orden OrdenConfirmarOperacionAnalisis,
 ) error {
