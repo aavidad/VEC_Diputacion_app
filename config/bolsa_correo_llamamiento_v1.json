@@ -1,0 +1,33 @@
+{
+  "esquema": "vec.bolsa.catalogo_correo_llamamiento.v1",
+  "version": 1,
+  "plantilla_vigente": "bolsa-llamamiento-v2",
+  "plantillas": [
+    { "version": "bolsa-llamamiento-v1", "personalizada": false },
+    { "version": "bolsa-llamamiento-v2", "personalizada": true }
+  ],
+  "limite_caracteres": 4000,
+  "formato_fecha": "dd/mm/aaaa",
+  "zona_horaria": "Europe/Madrid",
+  "idioma_defecto": "es",
+  "textos_defecto": {
+    "es": {
+      "asunto": "Llamamiento de la bolsa de {bolsa}",
+      "cuerpo": "Estimado/a {nombre} {apellidos}:\n\nComo integrante de la bolsa de {bolsa}, en la que ocupa la posición {posicion}, se le comunica una necesidad de cobertura. La referencia, el centro, la modalidad y la fecha prevista figuran en este llamamiento.\n\nResponda por el cauce indicado por RRHH antes de que venza el plazo: {plazo}."
+    }
+  },
+  "marcadores": [
+    { "clave": "nombre", "fuente": "nombre" },
+    { "clave": "apellidos", "fuente": "apellidos" },
+    { "clave": "nombre_completo", "fuente": "nombre_completo" },
+    { "clave": "posicion", "fuente": "posicion" },
+    { "clave": "bolsa", "fuente": "bolsa" },
+    { "clave": "categoria", "fuente": "categoria" },
+    { "clave": "referencia", "fuente": "referencia" },
+    { "clave": "centro", "fuente": "centro" },
+    { "clave": "modalidad", "fuente": "modalidad" },
+    { "clave": "fecha_inicio", "fuente": "fecha_inicio" },
+    { "clave": "plazo", "fuente": "plazo" },
+    { "clave": "fecha_envio", "fuente": "fecha_envio" }
+  ]
+}

@@ -81,7 +81,7 @@ func (h *HandlerEmisionLlamamiento) ServeHTTP(w http.ResponseWriter, r *http.Req
 	}
 	out, err := h.operador.EmitirLlamamiento(r.Context(), q)
 	if err != nil {
-		responderErrorEmision(w, err)
+		responderErrorCorreoLlamamiento(w, err)
 		return
 	}
 	estado := 201

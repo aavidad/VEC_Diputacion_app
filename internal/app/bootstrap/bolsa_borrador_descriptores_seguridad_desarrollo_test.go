@@ -64,8 +64,8 @@ func TestDescriptoresBorradorLlamamientoBolsaFronterasExactas(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(fronteras) != 9 {
-		t.Fatalf("fronteras = %d, se esperan 9", len(fronteras))
+	if len(fronteras) != 11 {
+		t.Fatalf("fronteras = %d, se esperan 11", len(fronteras))
 	}
 	for _, frontera := range fronteras {
 		if len(frontera.PerfilesActivosRef) != 1 || frontera.PerfilesActivosRef[0] != "prf_bolsa_bback" {
@@ -105,6 +105,15 @@ func TestDescriptoresBorradorLlamamientoBolsaFronterasExactas(t *testing.T) {
 	}
 	if _, ok := catalogo.resolver(http.MethodPost, bolsahttp.RutaEmisionesLlamamiento); !ok {
 		t.Fatal("POST B7 no quedó declarado")
+	}
+	if _, ok := catalogo.resolver(http.MethodGet, bolsahttp.RutaPlantillaCorreoLlamamiento); !ok {
+		t.Fatal("GET de plantilla del correo B7 no quedó declarado")
+	}
+	if _, ok := catalogo.resolver(http.MethodPost, bolsahttp.RutaVistaPreviaCorreoLlamamiento); !ok {
+		t.Fatal("POST de vista previa del correo B7 no quedó declarado")
+	}
+	if _, ok := catalogo.resolver(http.MethodPost, bolsahttp.RutaPlantillaCorreoLlamamiento); ok {
+		t.Fatal("POST de plantilla del correo B7 no debe declararse")
 	}
 	if _, ok := catalogo.resolver(http.MethodGet, bolsahttp.RutaEmisionesLlamamiento); !ok {
 		t.Fatal("GET de recuperación B7 no quedó declarado")
