@@ -16,7 +16,8 @@ import (
 )
 
 // AnalizarArbol recorre los directorios bajo raiz y analiza cada fichero Go
-// de producción (sin _test.go, testdata ni código generado).
+// de producción (sin _test.go, testdata, código generado ni paquetes de
+// apoyo a pruebas).
 func AnalizarArbol(raiz string, directorios []string) ([]Hallazgo, error) {
 	var hallazgos []Hallazgo
 	for _, dir := range directorios {
@@ -44,7 +45,7 @@ func AnalizarArbol(raiz string, directorios []string) ([]Hallazgo, error) {
 			if err != nil {
 				return fmt.Errorf("analizar %s: %w", filepath.ToSlash(relativa), err)
 			}
-			if ast.IsGenerated(fichero) {
+			if ast.IsGenerated(fichero) || EsPaqueteDePruebas(fichero.Name.Name) {
 				return nil
 			}
 			hallazgos = append(hallazgos, AnalizarFichero(fset, fichero, filepath.ToSlash(relativa))...)
@@ -93,7 +94,9 @@ type Comparacion struct {
 }
 
 // Comparar contrasta los recuentos vigentes con la base. VS000 nunca se
-// hereda aunque aparezca en la base.
+// hereda aunque aparezca en la base. Sirve también para contrastar una base
+// nueva con la de referencia (rama base): lo que la nueva añada o aumente es
+// "nuevo".
 func Comparar(base, vigentes map[string]int) Comparacion {
 	var c Comparacion
 	for huella, n := range vigentes {
@@ -128,8 +131,9 @@ func Reducir(base, vigentes map[string]int) map[string]int {
 }
 
 const cabeceraBase = `# Línea base de tools/vecsilencio: fallos silenciosos heredados.
-# Formato: fichero:función:regla recuento. Solo puede decrecer; no editar a
-# mano para añadir. Regenerar con -actualizar-base tras corregir.
+# Formato: fichero:función:regla recuento. Solo puede decrecer: la puerta la
+# contrasta con la de la rama base. Reducir con -actualizar-base tras corregir.
+# (justificadas):MOTIVO:VSJ cuenta las directivas //vec:silencio-justificado.
 `
 
 // EscribirBase guarda las huellas bloqueantes ordenadas.

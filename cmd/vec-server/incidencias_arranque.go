@@ -12,6 +12,7 @@ import (
 	"vec-diputacion-granada/internal/app/server"
 	"vec-diputacion-granada/internal/vec/adapters/observabilidad"
 	"vec-diputacion-granada/internal/vec/domain"
+	"vec-diputacion-granada/internal/vec/ports"
 )
 
 // envEntornoSupervision declara el entorno de las incidencias técnicas. Solo
@@ -65,14 +66,14 @@ func revisionCompilada() string {
 // pendientes al terminar el servidor.
 const plazoCierreSupervision = 2 * time.Second
 
-// componerSupervisionServidor crea el emisor de incidencias técnicas del
-// servidor (JSON Lines hacia destino, recogido fuera del proceso), lo inyecta
-// en el middleware común de respuestas 5xx y pánicos y sanea el ErrorLog de
-// net/http hacia registro. Si el emisor no puede crearse, el servidor conserva
-// la contención y el saneamiento y el fallo queda en registro con texto fijo:
-// la supervisión nunca impide ni retrasa el arranque. Devuelve la función
-// idempotente que vacía y cierra el emisor.
-func componerSupervisionServidor(srv *http.Server, destino, registro io.Writer) func() {
+// crearEmisorServidor crea el emisor de incidencias técnicas del servidor
+// (JSON Lines hacia destino, recogido fuera del proceso) antes de componer la
+// aplicación, para inyectarlo por constructor en los adaptadores. Nunca
+// devuelve nil: si el emisor no puede crearse, el fallo queda en registro con
+// texto fijo y se usa el emisor nulo, de modo que la supervisión nunca impide
+// ni retrasa el arranque. Devuelve también la función que vacía y cierra el
+// emisor.
+func crearEmisorServidor(destino, registro io.Writer) (ports.EmisorIncidenciasTecnicas, func()) {
 	emisor, err := observabilidad.NuevoEmisorJSONLines(observabilidad.OpcionesEmisor{
 		Destino:        destino,
 		Entorno:        os.Getenv(envEntornoSupervision),
@@ -80,21 +81,36 @@ func componerSupervisionServidor(srv *http.Server, destino, registro io.Writer) 
 	})
 	if err != nil {
 		escribirRegistroFijo(registro, "vec-server: emisor de incidencias tecnicas no disponible\n")
-		server.SupervisarServidor(srv, nil, registro)
-		return func() {}
+		return ports.EmisorIncidenciasTecnicasNulo{}, func() {}
 	}
-	server.SupervisarServidor(srv, emisor, registro)
+	return emisor, func() {
+		ctx, cancelar := context.WithTimeout(context.Background(), plazoCierreSupervision)
+		defer cancelar()
+		if emisor.Cerrar(ctx) != nil {
+			escribirRegistroFijo(registro, "vec-server: incidencias tecnicas pendientes sin vaciar al cerrar\n")
+		}
+	}
+}
+
+// componerSupervisionServidor inyecta el emisor en el middleware común de
+// respuestas 5xx y pánicos y sanea el ErrorLog de net/http hacia registro.
+// Devuelve la función idempotente que vuelca el último grupo del ErrorLog y
+// después vacía y cierra el emisor; se registra también en el cierre
+// ordenado del servidor.
+func componerSupervisionServidor(srv *http.Server, emisor ports.EmisorIncidenciasTecnicas, cerrarEmisor func(), registro io.Writer) func() {
+	volcarErrorLog := server.SupervisarServidor(srv, emisor, registro)
 	var una sync.Once
 	cerrar := func() {
 		una.Do(func() {
-			ctx, cancelar := context.WithTimeout(context.Background(), plazoCierreSupervision)
-			defer cancelar()
-			if emisor.Cerrar(ctx) != nil {
-				escribirRegistroFijo(registro, "vec-server: incidencias tecnicas pendientes sin vaciar al cerrar\n")
+			volcarErrorLog()
+			if cerrarEmisor != nil {
+				cerrarEmisor()
 			}
 		})
 	}
-	srv.RegisterOnShutdown(cerrar)
+	if srv != nil {
+		srv.RegisterOnShutdown(cerrar)
+	}
 	return cerrar
 }
 

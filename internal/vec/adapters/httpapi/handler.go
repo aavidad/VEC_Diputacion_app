@@ -31,6 +31,7 @@ type Handler struct {
 	rutasColeccion                           []RutaColeccion
 	autoridadRutasExactas                    AutoridadRutasExactas
 	registradorAuditoriaFronteraRutasExactas ports.RegistradorAuditoriaFronteraRutaExacta
+	emisorIncidencias                        ports.EmisorIncidenciasTecnicas
 }
 
 type HandlerOptions struct {
@@ -51,6 +52,10 @@ type HandlerOptions struct {
 	RutasColeccion                           []RutaColeccion
 	AutoridadRutasExactas                    AutoridadRutasExactas
 	RegistradorAuditoriaFronteraRutasExactas ports.RegistradorAuditoriaFronteraRutaExacta
+	// EmisorIncidenciasTecnicas declara las incidencias técnicas específicas
+	// (catálogo de módulos, auditoría caída). Nil equivale al emisor nulo; la
+	// composición raíz de vec-server siempre aporta uno real.
+	EmisorIncidenciasTecnicas ports.EmisorIncidenciasTecnicas
 }
 
 // DemoIdentityResolver es el unico origen admitido para el modo fake. La
@@ -86,6 +91,7 @@ func NewHandlerSoloRutasExactas(
 		rutasExactas:                             declaradas,
 		autoridadRutasExactas:                    autoridad,
 		registradorAuditoriaFronteraRutasExactas: auditoria,
+		emisorIncidencias:                        ports.EmisorIncidenciasTecnicasNulo{},
 	}, nil
 }
 
@@ -128,7 +134,17 @@ func NewHandlerWithOptions(service *application.Service, options HandlerOptions)
 		rutasColeccion:                           rutasColeccion,
 		autoridadRutasExactas:                    options.AutoridadRutasExactas,
 		registradorAuditoriaFronteraRutasExactas: options.RegistradorAuditoriaFronteraRutasExactas,
+		emisorIncidencias:                        emisorIncidenciasOPorDefecto(options.EmisorIncidenciasTecnicas),
 	}, nil
+}
+
+// emisorIncidenciasOPorDefecto sustituye nil por el emisor nulo para que el
+// adaptador nunca compruebe nil en el camino de la petición.
+func emisorIncidenciasOPorDefecto(emisor ports.EmisorIncidenciasTecnicas) ports.EmisorIncidenciasTecnicas {
+	if emisor == nil {
+		return ports.EmisorIncidenciasTecnicasNulo{}
+	}
+	return emisor
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -471,7 +487,7 @@ func (h *Handler) responderFalloCatalogoModulos(w http.ResponseWriter, r *http.R
 		h.writeError(w, http.StatusForbidden, domain.ErrPermissionDenied.Error())
 		return
 	}
-	ports.EmitirIncidenciaTecnicaDesdeContexto(r.Context(), domain.SolicitudIncidenciaTecnica{
+	ports.EmitirIncidenciaTecnicaEnPeticion(r.Context(), h.emisorIncidencias, domain.SolicitudIncidenciaTecnica{
 		Codigo:     domain.IncidenciaCatalogoModulosInvalido,
 		Componente: domain.ComponenteIncidenciaCatalogoModulos,
 		Etapa:      domain.EtapaIncidenciaValidacion,
@@ -487,7 +503,7 @@ func (h *Handler) responderFalloRegistroAuditoria(w http.ResponseWriter, r *http
 		h.writeError(w, http.StatusForbidden, domain.ErrPermissionDenied.Error())
 		return
 	}
-	ports.EmitirIncidenciaTecnicaDesdeContexto(r.Context(), domain.SolicitudIncidenciaTecnica{
+	ports.EmitirIncidenciaTecnicaEnPeticion(r.Context(), h.emisorIncidencias, domain.SolicitudIncidenciaTecnica{
 		Codigo:     domain.IncidenciaAuditoriaNoRegistrada,
 		Componente: domain.ComponenteIncidenciaAuditoria,
 		Etapa:      domain.EtapaIncidenciaRegistro,

@@ -15,7 +15,14 @@ const (
 	ReglaErrorSilencioso       = "VS001"
 	ReglaRecoverSinRegistro    = "VS002"
 	Regla5xxSinEmisor          = "VS003"
+	// ReglaJustificacion no es una infracción: cuenta las directivas válidas
+	// por motivo, que como la línea base solo pueden decrecer.
+	ReglaJustificacion = "VSJ"
 )
+
+// ficheroJustificaciones agrupa las directivas en una huella por motivo,
+// independiente del fichero: mover una justificación no altera el recuento.
+const ficheroJustificaciones = "(justificadas)"
 
 // directivaJustificacion exime la línea en la que aparece o la siguiente.
 const directivaJustificacion = "//vec:silencio-justificado"
@@ -47,8 +54,12 @@ type Hallazgo struct {
 	Linea   int
 }
 
-// Huella devuelve fichero:función:regla.
+// Huella devuelve fichero:función:regla. Las justificaciones se agrupan
+// por motivo: (justificadas):MOTIVO:VSJ.
 func (h Hallazgo) Huella() string {
+	if h.Regla == ReglaJustificacion {
+		return ficheroJustificaciones + ":" + h.Funcion + ":" + h.Regla
+	}
 	return h.Fichero + ":" + h.Funcion + ":" + h.Regla
 }
 
@@ -67,8 +78,24 @@ var estados5xx = map[string]struct{}{
 	"StatusNetworkAuthenticationRequired": {},
 }
 
+// estados2xx son las constantes de net/http de éxito: una respuesta con
+// ellas no traduce el fallo al cliente.
+var estados2xx = map[string]struct{}{
+	"StatusOK": {}, "StatusCreated": {}, "StatusAccepted": {}, "StatusNonAuthoritativeInfo": {},
+	"StatusNoContent": {}, "StatusResetContent": {}, "StatusPartialContent": {},
+	"StatusMultiStatus": {}, "StatusAlreadyReported": {}, "StatusIMUsed": {},
+}
+
+// EsPaqueteDePruebas reconoce los paquetes de apoyo exclusivo a pruebas por
+// su nombre (pruebas, *prueba, *pruebas): la composición real no puede
+// importarlos y no forman parte de la superficie auditada.
+func EsPaqueteDePruebas(nombre string) bool {
+	return nombre == "pruebas" || strings.HasSuffix(nombre, "prueba") || strings.HasSuffix(nombre, "pruebas")
+}
+
 // AnalizarFichero aplica VS000–VS003 a un fichero ya analizado con
-// comentarios. ruta es la ruta relativa con barras normales.
+// comentarios y cuenta sus justificaciones (VSJ). ruta es la ruta relativa
+// con barras normales.
 func AnalizarFichero(fset *token.FileSet, fichero *ast.File, ruta string) []Hallazgo {
 	a := &analisis{fset: fset, ruta: ruta, justificadas: map[int]bool{}}
 	a.leerDirectivas(fichero)
@@ -76,12 +103,12 @@ func AnalizarFichero(fset *token.FileSet, fichero *ast.File, ruta string) []Hall
 		switch d := decl.(type) {
 		case *ast.FuncDecl:
 			if d.Body != nil {
-				a.analizarFuncion(nombreFuncion(d), d.Type, d.Body)
+				a.analizarFuncion(nombreFuncion(d), nuevoAmbito(nil, d.Recv, d.Type), d.Type, d.Body)
 			}
 		case *ast.GenDecl:
 			ast.Inspect(d, func(n ast.Node) bool {
 				if lit, ok := n.(*ast.FuncLit); ok {
-					a.analizarFuncion("(global)", lit.Type, lit.Body)
+					a.analizarFuncion("(global)", nuevoAmbito(nil, lit.Type), lit.Type, lit.Body)
 					return false
 				}
 				return true
@@ -89,6 +116,89 @@ func AnalizarFichero(fset *token.FileSet, fichero *ast.File, ruta string) []Hall
 		}
 	}
 	return a.hallazgos
+}
+
+// ambito reúne, sin información de tipos, los nombres de una función (y de
+// las que la contienen) declarados como http.ResponseWriter o como error.
+// Sin go/types no se conoce el tipo de `a, b := f()`: esas variables solo se
+// reconocen como error por su nombre (err, errX, xErr, xError).
+type ambito struct {
+	escritores map[string]bool
+	errores    map[string]bool
+}
+
+func nuevoAmbito(padre *ambito, listas ...any) *ambito {
+	a := &ambito{escritores: map[string]bool{}, errores: map[string]bool{}}
+	if padre != nil {
+		for n := range padre.escritores {
+			a.escritores[n] = true
+		}
+		for n := range padre.errores {
+			a.errores[n] = true
+		}
+	}
+	for _, l := range listas {
+		switch x := l.(type) {
+		case *ast.FieldList:
+			a.anotarCampos(x)
+		case *ast.FuncType:
+			if x != nil {
+				a.anotarCampos(x.Params)
+				a.anotarCampos(x.Results)
+			}
+		}
+	}
+	return a
+}
+
+func (a *ambito) anotarCampos(campos *ast.FieldList) {
+	if campos == nil {
+		return
+	}
+	for _, c := range campos.List {
+		for _, n := range c.Names {
+			a.anotarNombre(n.Name, c.Type)
+		}
+	}
+}
+
+func (a *ambito) anotarNombre(nombre string, tipo ast.Expr) {
+	switch {
+	case esTipoEscritorHTTP(tipo):
+		a.escritores[nombre] = true
+	case esTipoError(tipo):
+		a.errores[nombre] = true
+	}
+}
+
+// anotarDeclaraciones añade las `var x error` y `var w http.ResponseWriter`
+// del cuerpo, sin descender a funciones anónimas.
+func (a *ambito) anotarDeclaraciones(cuerpo *ast.BlockStmt) {
+	inspeccionarSinAnidadas(cuerpo, func(n ast.Node) {
+		if v, ok := n.(*ast.ValueSpec); ok && v.Type != nil {
+			for _, nombre := range v.Names {
+				a.anotarNombre(nombre.Name, v.Type)
+			}
+		}
+	})
+}
+
+func esTipoEscritorHTTP(tipo ast.Expr) bool {
+	sel, ok := tipo.(*ast.SelectorExpr)
+	if !ok {
+		return false
+	}
+	id, ok := sel.X.(*ast.Ident)
+	return ok && id.Name == "http" && sel.Sel.Name == "ResponseWriter"
+}
+
+func esTipoError(tipo ast.Expr) bool {
+	id, ok := tipo.(*ast.Ident)
+	return ok && id.Name == "error"
+}
+
+func (a *ambito) esError(nombre string) bool {
+	return nombreDeError(nombre) || a.errores[nombre]
 }
 
 type analisis struct {
@@ -114,6 +224,7 @@ func (a *analisis) leerDirectivas(fichero *ast.File) {
 				a.anotar("(directiva)", ReglaJustificacionInvalida, linea)
 				continue
 			}
+			a.anotar(campos[0], ReglaJustificacion, linea)
 			a.justificadas[linea] = true
 			a.justificadas[linea+1] = true
 		}
@@ -131,16 +242,17 @@ func (a *analisis) justificada(pos token.Pos) bool {
 // analizarFuncion recorre un cuerpo. Las funciones anónimas se analizan como
 // unidades propias (para VS002/VS003) pero se atribuyen a la declaración que
 // las contiene, de modo que la huella es estable.
-func (a *analisis) analizarFuncion(nombre string, tipo *ast.FuncType, cuerpo *ast.BlockStmt) {
+func (a *analisis) analizarFuncion(nombre string, amb *ambito, tipo *ast.FuncType, cuerpo *ast.BlockStmt) {
+	amb.anotarDeclaraciones(cuerpo)
 	a.revisarUnidad(nombre, cuerpo)
 	resultadosNombrados := tipo != nil && tipo.Results != nil && len(tipo.Results.List) > 0 && len(tipo.Results.List[0].Names) > 0
 	ast.Inspect(cuerpo, func(n ast.Node) bool {
 		switch x := n.(type) {
 		case *ast.FuncLit:
-			a.analizarFuncion(nombre, x.Type, x.Body)
+			a.analizarFuncion(nombre, nuevoAmbito(amb, x.Type), x.Type, x.Body)
 			return false
 		case *ast.IfStmt:
-			if a.errorSilencioso(x, resultadosNombrados) && !a.justificada(x.Pos()) {
+			if a.errorSilencioso(x, amb, resultadosNombrados) && !a.justificada(x.Pos()) {
 				a.anotar(nombre, ReglaErrorSilencioso, a.fset.Position(x.Pos()).Line)
 			}
 		}
@@ -168,17 +280,20 @@ func (a *analisis) revisarUnidad(nombre string, cuerpo *ast.BlockStmt) {
 	})
 }
 
-// errorSilencioso reconoce `if err != nil { ... }` cuyo bloque no usa el
-// error, no registra, no responde al cliente, no relanza y termina en un
-// retorno sin error (nil, false, literales, vacío) o en continue/break.
-func (a *analisis) errorSilencioso(si *ast.IfStmt, resultadosNombrados bool) bool {
-	nombre, ok := variableErrorComparadaConNil(si.Cond)
+// errorSilencioso reconoce `if err != nil { ... }` (también como término de
+// una disyunción `err != nil || …`) cuyo bloque no usa el error (`_ = err` no
+// cuenta), no registra, no responde al cliente con un estado de fallo, no
+// relanza y termina en un retorno sin error (nil, false, literales, vacío) o
+// en continue/break.
+func (a *analisis) errorSilencioso(si *ast.IfStmt, amb *ambito, resultadosNombrados bool) bool {
+	nombre, ok := variableErrorComparadaConNil(si.Cond, amb)
 	if !ok {
 		return false
 	}
 	cuerpo := si.Body
-	if referencia(cuerpo, nombre) || contieneLlamada(cuerpo, esLlamadaRegistro) ||
-		contieneLlamada(cuerpo, esPanico) || contieneLlamada(cuerpo, esRespuestaCliente) {
+	respondeCliente := func(llamada *ast.CallExpr) bool { return esRespuestaCliente(llamada, amb) }
+	if usaVariable(cuerpo, nombre) || contieneLlamada(cuerpo, esLlamadaRegistro) ||
+		contieneLlamada(cuerpo, esPanico) || contieneLlamada(cuerpo, respondeCliente) {
 		return false
 	}
 	if len(cuerpo.List) == 0 {
@@ -201,9 +316,23 @@ func (a *analisis) errorSilencioso(si *ast.IfStmt, resultadosNombrados bool) boo
 	return false
 }
 
-func variableErrorComparadaConNil(cond ast.Expr) (string, bool) {
+// variableErrorComparadaConNil devuelve la variable de error de `err != nil`
+// o de cualquier término de una disyunción que la contenga.
+func variableErrorComparadaConNil(cond ast.Expr, amb *ambito) (string, bool) {
+	if p, ok := cond.(*ast.ParenExpr); ok {
+		return variableErrorComparadaConNil(p.X, amb)
+	}
 	bin, ok := cond.(*ast.BinaryExpr)
-	if !ok || bin.Op != token.NEQ {
+	if !ok {
+		return "", false
+	}
+	if bin.Op == token.LOR {
+		if nombre, ok := variableErrorComparadaConNil(bin.X, amb); ok {
+			return nombre, true
+		}
+		return variableErrorComparadaConNil(bin.Y, amb)
+	}
+	if bin.Op != token.NEQ {
 		return "", false
 	}
 	x, y := bin.X, bin.Y
@@ -211,7 +340,7 @@ func variableErrorComparadaConNil(cond ast.Expr) (string, bool) {
 		x, y = y, x
 	}
 	id, ok := x.(*ast.Ident)
-	if !ok || !esNil(y) || !nombreDeError(id.Name) {
+	if !ok || !esNil(y) || !amb.esError(id.Name) {
 		return "", false
 	}
 	return id.Name, true
@@ -235,12 +364,18 @@ func nombreDeError(n string) bool {
 	return false
 }
 
+// esMotivoCerrado reconoce un motivo o error cerrado con nombre (Motivo*,
+// Err*): devolverlo propaga el fallo al llamante.
+func esMotivoCerrado(nombre string) bool {
+	return nombreDeError(nombre) || (strings.HasPrefix(nombre, "Motivo") && len(nombre) > len("Motivo"))
+}
+
 // resultadoInocuo es cierto para valores que no pueden transportar un error.
 // Una llamada no lo es: puede construir o propagar uno.
 func resultadoInocuo(e ast.Expr) bool {
 	switch x := e.(type) {
 	case *ast.Ident:
-		return !nombreDeError(x.Name)
+		return !esMotivoCerrado(x.Name)
 	case *ast.BasicLit:
 		return true
 	case *ast.CompositeLit:
@@ -248,22 +383,49 @@ func resultadoInocuo(e ast.Expr) bool {
 	case *ast.UnaryExpr:
 		return x.Op == token.AND && resultadoInocuo(x.X)
 	case *ast.SelectorExpr:
-		return !nombreDeError(x.Sel.Name)
+		return !esMotivoCerrado(x.Sel.Name)
 	case *ast.ParenExpr:
 		return resultadoInocuo(x.X)
 	}
 	return false
 }
 
-func referencia(n ast.Node, nombre string) bool {
+// usaVariable indica si n usa nombre. Un descarte explícito `_ = err` no es
+// atender el error y no cuenta.
+func usaVariable(n ast.Node, nombre string) bool {
 	encontrado := false
 	ast.Inspect(n, func(m ast.Node) bool {
+		if encontrado {
+			return false
+		}
+		if asignacion, ok := m.(*ast.AssignStmt); ok && soloDescarta(asignacion) {
+			return false
+		}
 		if id, ok := m.(*ast.Ident); ok && id.Name == nombre {
 			encontrado = true
 		}
 		return !encontrado
 	})
 	return encontrado
+}
+
+// soloDescarta reconoce `_ = x` (o `_, _ = x, y`) con identificadores
+// desnudos a la derecha.
+func soloDescarta(asignacion *ast.AssignStmt) bool {
+	if asignacion.Tok != token.ASSIGN {
+		return false
+	}
+	for _, izquierda := range asignacion.Lhs {
+		if id, ok := izquierda.(*ast.Ident); !ok || id.Name != "_" {
+			return false
+		}
+	}
+	for _, derecha := range asignacion.Rhs {
+		if _, ok := derecha.(*ast.Ident); !ok {
+			return false
+		}
+	}
+	return true
 }
 
 func contieneLlamada(n ast.Node, criterio func(*ast.CallExpr) bool) bool {
@@ -304,7 +466,7 @@ func nombreLlamada(llamada *ast.CallExpr) (receptor, nombre string) {
 }
 
 var metodosRegistro = map[string]struct{}{
-	"Emitir": {}, "EmitirIncidenciaTecnicaDesdeContexto": {},
+	"Emitir": {}, "EmitirIncidenciaTecnicaEnPeticion": {},
 	"Print": {}, "Printf": {}, "Println": {}, "Fatal": {}, "Fatalf": {}, "Fatalln": {},
 	"Panic": {}, "Panicf": {}, "Error": {}, "ErrorContext": {}, "Warn": {}, "WarnContext": {},
 	"Info": {}, "InfoContext": {}, "Log": {}, "LogAttrs": {},
@@ -337,14 +499,52 @@ func esPanico(llamada *ast.CallExpr) bool {
 
 // esRespuestaCliente reconoce la traducción del fallo a una respuesta HTTP:
 // el cliente recibe el resultado y los 5xx los declara el middleware común.
-func esRespuestaCliente(llamada *ast.CallExpr) bool {
+// Cuenta toda llamada que recibe un http.ResponseWriter del ámbito (p. ej.
+// m.denegar(w, …)) y las de nombre http.Error/NotFound/Redirect,
+// WriteHeader, write*, escribir* o responder*; ninguna libra si el estado que
+// recibe es, de forma determinable, 2xx.
+func esRespuestaCliente(llamada *ast.CallExpr, amb *ambito) bool {
+	if recibeEstado2xx(llamada) {
+		return false
+	}
 	receptor, nombre := nombreLlamada(llamada)
 	if receptor == "http" && (nombre == "Error" || nombre == "NotFound" || nombre == "Redirect") {
 		return true
 	}
 	minus := strings.ToLower(nombre)
-	return nombre == "WriteHeader" || strings.HasPrefix(minus, "write") ||
-		strings.HasPrefix(minus, "escribir") || strings.HasPrefix(minus, "responder")
+	if nombre == "WriteHeader" || strings.HasPrefix(minus, "write") ||
+		strings.HasPrefix(minus, "escribir") || strings.HasPrefix(minus, "responder") {
+		return true
+	}
+	if amb == nil {
+		return false
+	}
+	for _, arg := range llamada.Args {
+		if id, ok := arg.(*ast.Ident); ok && amb.escritores[id.Name] {
+			return true
+		}
+	}
+	return false
+}
+
+// recibeEstado2xx detecta un argumento que es un estado 2xx (constante de
+// net/http o literal).
+func recibeEstado2xx(llamada *ast.CallExpr) bool {
+	for _, arg := range llamada.Args {
+		switch x := arg.(type) {
+		case *ast.SelectorExpr:
+			if id, ok := x.X.(*ast.Ident); ok && id.Name == "http" {
+				if _, ok := estados2xx[x.Sel.Name]; ok {
+					return true
+				}
+			}
+		case *ast.BasicLit:
+			if v, err := strconv.Atoi(x.Value); x.Kind == token.INT && err == nil && v >= 200 && v <= 299 {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // escribeEstado5xx detecta una llamada que recibe un estado >= 500 como
@@ -359,7 +559,7 @@ func escribeEstado5xx(llamada *ast.CallExpr) bool {
 				}
 			}
 		case *ast.BasicLit:
-			if x.Kind == token.INT && esRespuestaCliente(llamada) {
+			if x.Kind == token.INT && esRespuestaCliente(llamada, nil) {
 				if v, err := strconv.Atoi(x.Value); err == nil && v >= 500 && v <= 599 {
 					return true
 				}

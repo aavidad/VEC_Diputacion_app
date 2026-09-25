@@ -7,6 +7,7 @@ import (
 	httpcartografia "vec-diputacion-granada/internal/modules/dietas/adapters/httpcartografia"
 	dietasosrm "vec-diputacion-granada/internal/modules/dietas/adapters/osrm"
 	dietasapp "vec-diputacion-granada/internal/modules/dietas/application"
+	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
 // nuevoCasoUsoCalculoRutas es la unica composicion del conector cartografico.
@@ -24,10 +25,10 @@ func nuevoCasoUsoCalculoRutas(cfg config.Config) (*dietasapp.ServicioCalculoRuta
 	return dietasapp.NuevoServicioCalculoRutas(motor)
 }
 
-func nuevoManejadorProductivoCalculoRutas(cfg config.Config) (http.Handler, error) {
+func nuevoManejadorProductivoCalculoRutas(cfg config.Config, emisor vecports.EmisorIncidenciasTecnicas) (http.Handler, error) {
 	casoUso, err := nuevoCasoUsoCalculoRutas(cfg)
 	if err != nil || casoUso == nil {
 		return nil, err
 	}
-	return httpcartografia.NuevoManejador(casoUso, httpcartografia.OpcionesManejador{EnvolverEnDatos: true})
+	return httpcartografia.NuevoManejador(casoUso, httpcartografia.OpcionesManejador{EnvolverEnDatos: true, EmisorIncidencias: emisor})
 }

@@ -3,11 +3,15 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"sync"
 	"testing"
+
+	"vec-diputacion-granada/config"
+	"vec-diputacion-granada/internal/app/bootstrap"
 )
 
 type bufferSincronizado struct {
@@ -34,7 +38,8 @@ func TestComponerSupervisionServidorRegistraRespuesta503SinDatosDeLaPeticion(t *
 	srv := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "servicio_no_disponible", http.StatusServiceUnavailable)
 	})}
-	cerrar := componerSupervisionServidor(srv, destino, registro)
+	emisor, cerrarEmisor := crearEmisorServidor(destino, registro)
+	cerrar := componerSupervisionServidor(srv, emisor, cerrarEmisor, registro)
 
 	respuesta := httptest.NewRecorder()
 	peticion := httptest.NewRequest(http.MethodGet, "/api/vec/personas/12345678Z?correo=ana@example.org", nil)
@@ -72,5 +77,22 @@ func TestComponerSupervisionServidorRegistraRespuesta503SinDatosDeLaPeticion(t *
 	}
 	if registro.String() != "" {
 		t.Fatalf("registro inesperado: %q", registro.String())
+	}
+}
+
+// P2-6: la composición de vec-server nunca entrega un emisor nil a la
+// aplicación, y la raíz supervisada rechaza nil.
+func TestCrearEmisorServidorNuncaDevuelveNil(t *testing.T) {
+	registro := &bufferSincronizado{}
+	emisor, cerrar := crearEmisorServidor(nil, registro)
+	if emisor == nil || cerrar == nil {
+		t.Fatal("emisor o cierre nil")
+	}
+	cerrar()
+	if !strings.Contains(registro.String(), "emisor de incidencias tecnicas no disponible") {
+		t.Fatalf("fallo del emisor sin registro: %q", registro.String())
+	}
+	if srv, err := bootstrap.NuevoServidorHTTPSupervisado(config.Config{}, nil); srv != nil || !errors.Is(err, bootstrap.ErrEmisorIncidenciasRequerido) {
+		t.Fatalf("la raíz supervisada aceptó un emisor nil: %v, %v", srv, err)
 	}
 }

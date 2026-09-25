@@ -56,7 +56,7 @@ func (auditoriaFallida) AppendAudit(context.Context, domain.AuditEntry) (domain.
 	return domain.AuditEntry{}, errSensiblePrueba
 }
 
-func nuevoHandlerConAlmacenes(t *testing.T, modulos ports.ModuleRegistryStore, auditoria ports.AuditStore, eventos ports.EventStore) *Handler {
+func nuevoHandlerConAlmacenes(t *testing.T, emisor ports.EmisorIncidenciasTecnicas, modulos ports.ModuleRegistryStore, auditoria ports.AuditStore, eventos ports.EventStore) *Handler {
 	t.Helper()
 	service, internal, err := application.NewServiceWithInternalOperations(modulos, auditoria, eventos)
 	if err != nil {
@@ -64,6 +64,7 @@ func nuevoHandlerConAlmacenes(t *testing.T, modulos ports.ModuleRegistryStore, a
 	}
 	handler, err := NewHandlerWithOptions(service, HandlerOptions{
 		InternalOperations: internal, AllowDemoIdentity: true, DemoIdentityResolver: resolvedorIdentidadPruebas{},
+		EmisorIncidenciasTecnicas: emisor,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -71,9 +72,12 @@ func nuevoHandlerConAlmacenes(t *testing.T, modulos ports.ModuleRegistryStore, a
 	return handler
 }
 
-func peticionConEmisor(metodo, ruta string, emisor ports.EmisorIncidenciasTecnicas) *http.Request {
+// peticionMarcada coloca la marca por petición que pone el middleware común y
+// devuelve la función que indica si el adaptador declaró un código específico.
+func peticionMarcada(metodo, ruta string) (*http.Request, func() bool) {
 	peticion := httptest.NewRequest(metodo, ruta, nil)
-	return peticion.WithContext(ports.ConEmisorIncidenciasTecnicas(peticion.Context(), emisor))
+	ctx, declarada := ports.ConMarcaIncidenciasPeticion(peticion.Context())
+	return peticion.WithContext(ctx), declarada
 }
 
 func comprobarSinTextoInterno(t *testing.T, cuerpo string) {
@@ -87,11 +91,15 @@ func comprobarSinTextoInterno(t *testing.T, cuerpo string) {
 
 func TestCatalogoModulosInvalidoRespondeCodigoFijoYDeclaraIncidencia(t *testing.T) {
 	store := memory.NewStore()
-	handler := nuevoHandlerConAlmacenes(t, registroModulosFallido{store}, store, store)
 	for _, ruta := range []string{"/api/vec/modules", "/api/vec/menu"} {
 		emisor := &emisorContextoPrueba{}
+		handler := nuevoHandlerConAlmacenes(t, emisor, registroModulosFallido{store}, store, store)
 		rec := httptest.NewRecorder()
-		handler.ServeHTTP(rec, peticionConEmisor(http.MethodGet, ruta, emisor))
+		peticion, declarada := peticionMarcada(http.MethodGet, ruta)
+		handler.ServeHTTP(rec, peticion)
+		if !declarada() {
+			t.Fatalf("%s: la petición no quedó marcada con la incidencia específica", ruta)
+		}
 		if rec.Code != http.StatusInternalServerError || strings.TrimSpace(rec.Body.String()) != `{"error":"catalogo_modulos_no_disponible"}` {
 			t.Fatalf("%s: %d %s", ruta, rec.Code, rec.Body.String())
 		}
@@ -105,13 +113,14 @@ func TestCatalogoModulosInvalidoRespondeCodigoFijoYDeclaraIncidencia(t *testing.
 
 func TestAccionDeModuloConAuditoriaCaidaResponde503YDeclaraIncidencia(t *testing.T) {
 	store := memory.NewStore()
-	handler := nuevoHandlerConAlmacenes(t, store, auditoriaFallida{store}, store)
+	emisor := &emisorContextoPrueba{}
+	handler := nuevoHandlerConAlmacenes(t, emisor, store, auditoriaFallida{store}, store)
 	if err := handler.internal.RegisterModule(context.Background(), adminmodule.Manifest()); err != nil {
 		t.Fatal(err)
 	}
-	emisor := &emisorContextoPrueba{}
 	rec := httptest.NewRecorder()
-	handler.ServeHTTP(rec, peticionConEmisor(http.MethodPost, "/api/vec/modules/administracion/action", emisor))
+	peticion, _ := peticionMarcada(http.MethodPost, "/api/vec/modules/administracion/action")
+	handler.ServeHTTP(rec, peticion)
 	if rec.Code != http.StatusServiceUnavailable || strings.TrimSpace(rec.Body.String()) != `{"error":"auditoria_no_disponible"}` {
 		t.Fatalf("respuesta: %d %s", rec.Code, rec.Body.String())
 	}
@@ -121,9 +130,9 @@ func TestAccionDeModuloConAuditoriaCaidaResponde503YDeclaraIncidencia(t *testing
 	}
 }
 
-func TestSinEmisorEnContextoLaRespuestaEsLaMisma(t *testing.T) {
+func TestSinEmisorLaRespuestaEsLaMisma(t *testing.T) {
 	store := memory.NewStore()
-	handler := nuevoHandlerConAlmacenes(t, registroModulosFallido{store}, store, store)
+	handler := nuevoHandlerConAlmacenes(t, nil, registroModulosFallido{store}, store, store)
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/vec/modules", nil))
 	if rec.Code != http.StatusInternalServerError || strings.TrimSpace(rec.Body.String()) != `{"error":"catalogo_modulos_no_disponible"}` {

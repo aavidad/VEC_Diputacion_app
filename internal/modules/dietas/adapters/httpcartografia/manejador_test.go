@@ -159,15 +159,18 @@ func TestManejadorDistingueEntradaMotorYRespuestaNoValida(t *testing.T) {
 	} {
 		t.Run(prueba.nombre, func(t *testing.T) {
 			calculador := &calculadorPrueba{error: errors.Join(prueba.error, errors.New("detalle-interno"))}
-			manejador, err := NuevoManejador(calculador, OpcionesManejador{})
+			emisor := &emisorIncidenciasCartografia{}
+			manejador, err := NuevoManejador(calculador, OpcionesManejador{EmisorIncidencias: emisor})
 			if err != nil {
 				t.Fatal(err)
 			}
-			emisor := &emisorIncidenciasCartografia{}
-			peticion := peticionRutaPrueba(`{"coordinates":[{"lat":37.1773,"lon":-3.5986},{"lat":37.2306,"lon":-3.6554}]}`)
-			peticion = peticion.WithContext(vecports.ConEmisorIncidenciasTecnicas(peticion.Context(), emisor))
+			ctx, especificaDeclarada := vecports.ConMarcaIncidenciasPeticion(context.Background())
+			peticion := peticionRutaPrueba(`{"coordinates":[{"lat":37.1773,"lon":-3.5986},{"lat":37.2306,"lon":-3.6554}]}`).WithContext(ctx)
 			respuesta := httptest.NewRecorder()
 			manejador.ServeHTTP(respuesta, peticion)
+			if especificaDeclarada() != (prueba.incidencias > 0) {
+				t.Fatalf("marca de incidencia específica = %v", especificaDeclarada())
+			}
 			if respuesta.Code != prueba.estado {
 				t.Fatalf("estado = %d: %s", respuesta.Code, respuesta.Body.String())
 			}

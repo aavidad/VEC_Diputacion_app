@@ -58,9 +58,57 @@ func TestVS001Negativos(t *testing.T) {
 	comprobar(t, `func l() bool {
 	//vec:silencio-justificado PREDICADO_VALIDACION el error significa no valido
 	if err := f(); err != nil { return false }
-	return true }`)
+	return true }`, "PREDICADO_VALIDACION:VSJ")
 	comprobar(t, `func m() bool { if err := f(); err != nil { return false } //vec:silencio-justificado HASH_INFALIBLE texto
-	return true }`)
+	return true }`, "HASH_INFALIBLE:VSJ")
+}
+
+// P2-9: falsos positivos que romperían ramas ajenas.
+func TestVS001PropagacionYRespuestaSinFiarseDelNombre(t *testing.T) {
+	// Motivo cerrado de otro paquete: se propaga al llamante.
+	comprobar(t, `func a() (T, ports.MotivoVerificacion) { if err := f(); err != nil { return cero, ports.MotivoNoDisponible }; return T{}, 0 }`)
+	comprobar(t, `func b() (T, error) { if err := f(); err != nil { return cero, ports.ErrNoDisponible }; return T{}, nil }`)
+	// Una llamada que recibe el http.ResponseWriter responde al cliente.
+	comprobar(t, `func (m *M) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if err := f(); err != nil { m.denegar(w, r, http.StatusServiceUnavailable, "x"); return } }`, "M.ServeHTTP:VS003")
+	comprobar(t, `func c(salida http.ResponseWriter) { go func() { if err := f(); err != nil { rechazar(salida); return } }() }`)
+	// Sin ResponseWriter, el mismo nombre no libra.
+	comprobar(t, `func d(x T) { if err := f(); err != nil { m.denegar(x); return } }`, "d:VS001")
+	// Un motivo no cerrado (texto, valor sin prefijo) no es propagación.
+	comprobar(t, `func e() (T, Motivo) { if err := f(); err != nil { return cero, motivoLocal }; return T{}, 0 }`, "e:VS001")
+}
+
+// P2-8: falsos negativos.
+func TestVS001FalsosNegativosCerrados(t *testing.T) {
+	// _ = err no atiende el error.
+	comprobar(t, `func a() bool { if err := f(); err != nil { _ = err; return false }; return true }`, "a:VS001")
+	comprobar(t, `func b() bool { if err := f(); err != nil { _ = g(err); return false }; return true }`)
+	// Disyunción con err != nil.
+	comprobar(t, `func c() bool { v, err := f(); if err != nil || !v.ok { return false }; return true }`, "c:VS001")
+	comprobar(t, `func d() bool { v, err := f(); if !v.ok || (nil != err) { return false }; return true }`, "d:VS001")
+	comprobar(t, `func e() error { v, err := f(); if err != nil || !v.ok { return err }; return nil }`)
+	// Nombre de error por tipo declarado.
+	comprobar(t, `func g(fallo error) bool { if fallo != nil { return false }; return true }`, "g:VS001")
+	comprobar(t, `func h() bool { var causa error; causa = f(); if causa != nil { return false }; return true }`, "h:VS001")
+	comprobar(t, `func i(fallo error) error { if fallo != nil { return fallo }; return nil }`)
+	// write*/responder* con estado 2xx determinable no libran.
+	comprobar(t, `func j(w http.ResponseWriter) { if err := f(); err != nil { writeJSON(w, http.StatusOK, nil); return } }`, "j:VS001")
+	comprobar(t, `func k(w http.ResponseWriter) { if err := f(); err != nil { responder(w, 204); return } }`, "k:VS001")
+	comprobar(t, `func l(w http.ResponseWriter) { if err := f(); err != nil { w.WriteHeader(http.StatusOK); return } }`, "l:VS001")
+	comprobar(t, `func m(w http.ResponseWriter, estado int) { if err := f(); err != nil { responder(w, estado); return } }`)
+}
+
+func TestPaquetesDeApoyoAPruebas(t *testing.T) {
+	for _, nombre := range []string{"pruebas", "servidorprueba", "doblespruebas"} {
+		if !EsPaqueteDePruebas(nombre) {
+			t.Fatalf("%s debería quedar fuera", nombre)
+		}
+	}
+	for _, nombre := range []string{"ports", "comprobaciones", "pruebaconcepto"} {
+		if EsPaqueteDePruebas(nombre) {
+			t.Fatalf("%s no es de apoyo a pruebas", nombre)
+		}
+	}
 }
 
 func TestVS000MotivoFueraDeLaLista(t *testing.T) {
@@ -82,7 +130,7 @@ func TestVS002(t *testing.T) {
 func TestVS003(t *testing.T) {
 	comprobar(t, `func a(w http.ResponseWriter) { w.WriteHeader(http.StatusServiceUnavailable) }`, "a:VS003")
 	comprobar(t, `func b(w http.ResponseWriter) { writeError(w, 502, "x") }`, "b:VS003")
-	comprobar(t, `func c(w http.ResponseWriter, r *http.Request) { ports.EmitirIncidenciaTecnicaDesdeContexto(r.Context(), s); w.WriteHeader(http.StatusInternalServerError) }`)
+	comprobar(t, `func c(w http.ResponseWriter, r *http.Request) { ports.EmitirIncidenciaTecnicaEnPeticion(r.Context(), e, s); w.WriteHeader(http.StatusInternalServerError) }`)
 	comprobar(t, `func d(w http.ResponseWriter) { w.WriteHeader(http.StatusNotFound) }`)
 }
 

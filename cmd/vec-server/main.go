@@ -67,12 +67,14 @@ func main() {
 		return
 	}
 	cfg := config.Load()
-	srv, err := bootstrap.NewHTTPServerWithConfig(cfg)
+	emisor, cerrarEmisor := crearEmisorServidor(os.Stdout, os.Stderr)
+	srv, err := bootstrap.NuevoServidorHTTPSupervisado(cfg, emisor)
 	if err != nil {
+		cerrarEmisor()
 		registrarFalloArranque(os.Stdout, domain.ComponenteIncidenciaComposicion, domain.EtapaIncidenciaComposicion)
 		log.Fatalf("bootstrap server: %v", err)
 	}
-	cerrarSupervision := componerSupervisionServidor(srv, os.Stdout, os.Stderr)
+	cerrarSupervision := componerSupervisionServidor(srv, emisor, cerrarEmisor, os.Stderr)
 
 	if cfg.TLSCertFile != "" || cfg.TLSKeyFile != "" {
 		if cfg.TLSCertFile == "" || cfg.TLSKeyFile == "" {

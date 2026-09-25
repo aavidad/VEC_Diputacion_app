@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"io"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -98,7 +99,7 @@ func TestSupervisarRespuestasSoloCuentaElPrimerEstadoFinal(t *testing.T) {
 func TestSupervisarRespuestasContienePanicoConRespuestaFija(t *testing.T) {
 	emisor := &emisorIncidenciasPrueba{}
 	manejador := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("X-Interna", "no-debe-salir")
+		w.Header().Set("Set-Cookie", "no-debe-salir")
 		panic("secreto 12345678Z postgres://usuario:clave@host/base")
 	})
 	respuesta := httptest.NewRecorder()
@@ -106,8 +107,8 @@ func TestSupervisarRespuestasContienePanicoConRespuestaFija(t *testing.T) {
 	if respuesta.Code != http.StatusInternalServerError || respuesta.Body.String() != cuerpoPanicoControlado {
 		t.Fatalf("respuesta tras pánico = %d %q", respuesta.Code, respuesta.Body.String())
 	}
-	if respuesta.Header().Get("X-Interna") != "" {
-		t.Fatal("la respuesta tras pánico conserva cabeceras del handler")
+	if respuesta.Header().Get("Set-Cookie") != "" {
+		t.Fatal("la respuesta tras pánico conserva la cookie del handler")
 	}
 	if got := emisor.codigos(); len(got) != 1 || got[0] != domain.IncidenciaPanicoControlado {
 		t.Fatalf("incidencias = %v, se esperaba PANICO_CONTROLADO sin HTTP_INTERNO_FALLIDO duplicada", got)
@@ -145,17 +146,100 @@ func TestSupervisarRespuestasRespetaErrAbortHandler(t *testing.T) {
 	SupervisarRespuestas(manejador, emisor).ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/", nil))
 }
 
-func TestSupervisarRespuestasPropagaElEmisorPorContexto(t *testing.T) {
+// P2-3: si el adaptador ya declaró un código específico en la petición, el
+// middleware no añade HTTP_INTERNO_FALLIDO por el mismo fallo.
+func TestSupervisarRespuestasNoDuplicaUnCodigoEspecifico(t *testing.T) {
 	emisor := &emisorIncidenciasPrueba{}
+	especifico := &emisorIncidenciasPrueba{}
 	manejador := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ports.EmitirIncidenciaTecnicaDesdeContexto(r.Context(), domain.SolicitudIncidenciaTecnica{
+		ports.EmitirIncidenciaTecnicaEnPeticion(r.Context(), especifico, domain.SolicitudIncidenciaTecnica{
 			Codigo: domain.IncidenciaCatalogoModulosInvalido, Componente: domain.ComponenteIncidenciaCatalogoModulos, Etapa: domain.EtapaIncidenciaValidacion,
 		})
 		w.WriteHeader(http.StatusInternalServerError)
 	})
 	SupervisarRespuestas(manejador, emisor).ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/", nil))
-	got := emisor.codigos()
-	if len(got) != 2 || got[0] != domain.IncidenciaCatalogoModulosInvalido || got[1] != domain.IncidenciaHTTPInternoFallido {
+	if got := especifico.codigos(); len(got) != 1 || got[0] != domain.IncidenciaCatalogoModulosInvalido {
+		t.Fatalf("incidencia específica = %v", got)
+	}
+	if got := emisor.codigos(); len(got) != 0 {
+		t.Fatalf("el middleware duplicó el fallo: %v", got)
+	}
+	// La marca es por petición: la siguiente sin código específico sí cuenta.
+	SupervisarRespuestas(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadGateway)
+	}), emisor).ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/", nil))
+	if got := emisor.codigos(); len(got) != 1 || got[0] != domain.IncidenciaHTTPInternoFallido {
+		t.Fatalf("incidencias = %v", got)
+	}
+}
+
+// P2-2: tras un pánico se conservan las cabeceras de seguridad y se retiran
+// cookies y cabeceras de contenido.
+func TestPanicoConservaCabecerasDeSeguridad(t *testing.T) {
+	seguridad := map[string]string{
+		"Content-Security-Policy":   "default-src 'none'",
+		"Strict-Transport-Security": "max-age=63072000",
+		"X-Frame-Options":           "DENY",
+		"Referrer-Policy":           "no-referrer",
+		"Permissions-Policy":        "camera=()",
+	}
+	manejador := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		for nombre, valor := range seguridad {
+			w.Header().Set(nombre, valor)
+		}
+		w.Header().Set("Set-Cookie", "sesion=secreta")
+		w.Header().Set("Content-Disposition", "attachment; filename=12345678Z.pdf")
+		w.Header().Set("Content-Type", "application/pdf")
+		w.Header().Set("Location", "/interna")
+		w.Header().Set(http.TrailerPrefix+"X-Huella", "x")
+		panic("x")
+	})
+	respuesta := httptest.NewRecorder()
+	SupervisarRespuestas(manejador, nil).ServeHTTP(respuesta, httptest.NewRequest(http.MethodGet, "/", nil))
+	for nombre, valor := range seguridad {
+		if respuesta.Header().Get(nombre) != valor {
+			t.Fatalf("cabecera de seguridad %s perdida: %q", nombre, respuesta.Header().Get(nombre))
+		}
+	}
+	for _, nombre := range []string{"Set-Cookie", "Content-Disposition", "Location", http.TrailerPrefix + "X-Huella"} {
+		if _, presente := respuesta.Header()[http.CanonicalHeaderKey(nombre)]; presente {
+			t.Fatalf("cabecera %s conservada tras el pánico", nombre)
+		}
+	}
+	if respuesta.Header().Get("Content-Type") != "application/json; charset=utf-8" || respuesta.Header().Get("Cache-Control") != "no-store" {
+		t.Fatalf("cabeceras de la respuesta fija: %v", respuesta.Header())
+	}
+}
+
+type escritorConReadFrom struct {
+	*httptest.ResponseRecorder
+	usado bool
+}
+
+func (e *escritorConReadFrom) ReadFrom(origen io.Reader) (int64, error) {
+	e.usado = true
+	return io.Copy(e.ResponseRecorder, origen)
+}
+
+// P2-1: el ResponseWriter supervisado conserva ReadFrom (sendfile).
+func TestEscritorSupervisadoConservaReadFrom(t *testing.T) {
+	destino := &escritorConReadFrom{ResponseRecorder: httptest.NewRecorder()}
+	emisor := &emisorIncidenciasPrueba{}
+	manejador := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		lector, ok := w.(io.ReaderFrom)
+		if !ok {
+			t.Error("el escritor supervisado no expone io.ReaderFrom")
+			return
+		}
+		if _, err := lector.ReadFrom(strings.NewReader("contenido")); err != nil {
+			t.Error(err)
+		}
+	})
+	SupervisarRespuestas(manejador, emisor).ServeHTTP(destino, httptest.NewRequest(http.MethodGet, "/", nil))
+	if !destino.usado || destino.Body.String() != "contenido" || destino.Code != http.StatusOK {
+		t.Fatalf("ReadFrom no delegado: usado=%v cuerpo=%q estado=%d", destino.usado, destino.Body.String(), destino.Code)
+	}
+	if got := emisor.codigos(); len(got) != 0 {
 		t.Fatalf("incidencias = %v", got)
 	}
 }
@@ -241,6 +325,89 @@ func TestErrorLogSaneadoAgrupaYContabiliza(t *testing.T) {
 	}
 	if got := emisor.codigos(); len(got) != 1 || got[0] != domain.IncidenciaPanicoControlado {
 		t.Fatalf("incidencias = %v", got)
+	}
+}
+
+// P2-4: el último grupo no se pierde: se vuelca al vencer el intervalo o al
+// cerrar, sin escribir con el mutex tomado.
+func TestErrorLogSaneadoVuelcaElUltimoGrupo(t *testing.T) {
+	var destino bytes.Buffer
+	escritor := nuevoEscritorErrorLogSaneado(&destino, nil)
+	instante := time.Date(2026, 9, 25, 10, 0, 0, 0, time.UTC)
+	escritor.ahora = func() time.Time { return instante }
+	var programados []func()
+	escritor.programar = func(espera time.Duration, f func()) *time.Timer {
+		if espera <= 0 || espera > intervaloEventoServidorSaneado {
+			t.Errorf("espera del volcado = %v", espera)
+		}
+		programados = append(programados, f)
+		return time.NewTimer(time.Hour)
+	}
+	registro := log.New(escritor, "", 0)
+	registro.Print("http: TLS handshake error from 198.51.100.7:4242: EOF")
+	registro.Print("http: TLS handshake error from 198.51.100.8:4242: EOF")
+	registro.Print("http: TLS handshake error from 198.51.100.9:4242: EOF")
+	if len(programados) != 1 {
+		t.Fatalf("volcados programados = %d", len(programados))
+	}
+	instante = instante.Add(intervaloEventoServidorSaneado)
+	programados[0]()
+	registro.Print("http: TLS handshake error from 198.51.100.7:4242: EOF")
+	registro.Print("http: TLS handshake error from 198.51.100.7:4242: EOF")
+	escritor.Cerrar()
+	escritor.Cerrar()
+	lineas := strings.Split(strings.TrimSpace(destino.String()), "\n")
+	esperadas := []string{
+		mensajeErrorLogEvento + " agrupados_previos=0",
+		mensajeErrorLogGrupo + " agrupados=2",
+		mensajeErrorLogGrupo + " agrupados=2",
+	}
+	if strings.Join(lineas, "|") != strings.Join(esperadas, "|") {
+		t.Fatalf("líneas = %q", lineas)
+	}
+	if strings.Contains(destino.String(), "198.51.100") {
+		t.Fatal("ErrorLog no saneado")
+	}
+}
+
+// escritorQueComprueba falla si se le escribe mientras el escritor saneado
+// tiene su mutex tomado.
+type escritorQueComprueba struct {
+	t        *testing.T
+	saneado  *escritorErrorLogSaneado
+	escritas int
+}
+
+func (e *escritorQueComprueba) Write(p []byte) (int, error) {
+	if e.saneado.mu.TryLock() {
+		e.saneado.mu.Unlock()
+	} else {
+		e.t.Error("escritura al destino con el mutex tomado")
+	}
+	e.escritas++
+	return len(p), nil
+}
+
+func TestErrorLogSaneadoNoEscribeConElMutexTomado(t *testing.T) {
+	destino := &escritorQueComprueba{t: t}
+	escritor := nuevoEscritorErrorLogSaneado(destino, nil)
+	destino.saneado = escritor
+	instante := time.Date(2026, 9, 25, 10, 0, 0, 0, time.UTC)
+	escritor.ahora = func() time.Time { return instante }
+	var volcar func()
+	escritor.programar = func(_ time.Duration, f func()) *time.Timer {
+		volcar = f
+		return time.NewTimer(time.Hour)
+	}
+	registro := log.New(escritor, "", 0)
+	registro.Print("http: TLS handshake error")
+	registro.Print("http: TLS handshake error")
+	volcar()
+	registro.Print("http: TLS handshake error")
+	escritor.Cerrar()
+	registro.Print("http: panic serving 198.51.100.7:4242: x")
+	if destino.escritas != 4 {
+		t.Fatalf("escritas = %d", destino.escritas)
 	}
 }
 

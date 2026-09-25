@@ -199,6 +199,17 @@ func NewHTTPServerDesarrolloWithConfig(
 	registro io.Writer,
 	incorporacion ...ConfiguracionIncorporacionDesarrollo,
 ) (*http.Server, *ComposicionSeguridadDesarrollo, error) {
+	return nuevoServidorDesarrollo(cfg, registro, vecports.EmisorIncidenciasTecnicasNulo{}, incorporacion...)
+}
+
+// nuevoServidorDesarrollo es NewHTTPServerDesarrolloWithConfig con el emisor
+// de incidencias técnicas de la composición raíz.
+func nuevoServidorDesarrollo(
+	cfg config.Config,
+	registro io.Writer,
+	emisor vecports.EmisorIncidenciasTecnicas,
+	incorporacion ...ConfiguracionIncorporacionDesarrollo,
+) (*http.Server, *ComposicionSeguridadDesarrollo, error) {
 	if len(incorporacion) > 1 {
 		return nil, nil, ErrComposicionDesarrolloIncompleta
 	}
@@ -284,7 +295,7 @@ func NewHTTPServerDesarrolloWithConfig(
 		autoridadExactas = autoridadExactasConDietas{delegada: autoridadContratacion, dietas: comisionesDietas}
 	}
 	vecAPI, err := newVECShellAPICompuestaConIdentidadYRutas(
-		cfg, resolvedor, categoriasPersonal, rutasContratacion, autoridadExactas,
+		cfg, emisor, resolvedor, categoriasPersonal, rutasContratacion, autoridadExactas,
 		autoridadContratacion.registradorAuditoriaFronteraRutasExactas, autoridadDietas, coleccionesBolsasRRHH...,
 	)
 	if err != nil {

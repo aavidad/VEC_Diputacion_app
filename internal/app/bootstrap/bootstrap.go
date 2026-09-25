@@ -60,7 +60,29 @@ func NewHTTPServer() (*http.Server, error) {
 	return NewHTTPServerWithConfig(config.Load())
 }
 
+// ErrEmisorIncidenciasRequerido rechaza una composición raíz sin emisor de
+// incidencias técnicas: un fallo declarado por un adaptador no puede
+// perderse porque la composición olvidó conectarlo.
+var ErrEmisorIncidenciasRequerido = errors.New("bootstrap: emisor de incidencias tecnicas requerido")
+
+// NewHTTPServerWithConfig compone el servidor sin supervisión técnica (emisor
+// nulo). Lo usan pruebas y raíces auxiliares; vec-server usa
+// NuevoServidorHTTPSupervisado.
 func NewHTTPServerWithConfig(cfg config.Config) (*http.Server, error) {
+	return nuevoServidorHTTP(cfg, vecports.EmisorIncidenciasTecnicasNulo{})
+}
+
+// NuevoServidorHTTPSupervisado compone el servidor de vec-server inyectando
+// el emisor de incidencias técnicas en los adaptadores que declaran códigos
+// específicos (API VEC, cartografía). Rechaza un emisor nil.
+func NuevoServidorHTTPSupervisado(cfg config.Config, emisor vecports.EmisorIncidenciasTecnicas) (*http.Server, error) {
+	if emisor == nil {
+		return nil, ErrEmisorIncidenciasRequerido
+	}
+	return nuevoServidorHTTP(cfg, emisor)
+}
+
+func nuevoServidorHTTP(cfg config.Config, emisor vecports.EmisorIncidenciasTecnicas) (*http.Server, error) {
 	cfg = cfg.Normalize()
 	if cfg.IncorporacionV2File != "" && !cfg.DevelopmentEnabledByDoubleKey() {
 		return nil, ErrActivacionDesarrolloInvalida
@@ -76,7 +98,7 @@ func NewHTTPServerWithConfig(cfg config.Config) (*http.Server, error) {
 	}
 	if cfg.ExecutionProfile == config.ExecutionProfileDevelopment || cfg.AuthMode == config.AuthModeDevelopment ||
 		cfg.DevelopmentGuard != "" || cfg.DevelopmentMaterialDir != "" {
-		servidor, _, err := NewHTTPServerDesarrolloWithConfig(cfg, os.Stderr)
+		servidor, _, err := nuevoServidorDesarrollo(cfg, os.Stderr, emisor)
 		return servidor, err
 	}
 	if err := validarModoAutenticacionIntegrado(cfg); err != nil {
@@ -85,7 +107,7 @@ func NewHTTPServerWithConfig(cfg config.Config) (*http.Server, error) {
 	if err := rechazarComposicionProductivaNoDisponible(cfg); err != nil {
 		return nil, err
 	}
-	api, err := NewDemoAPIWithConfig(cfg)
+	api, err := nuevaAPIDemo(cfg, emisor)
 	if err != nil {
 		return nil, err
 	}
@@ -152,6 +174,10 @@ func NewDemoAPI() (http.Handler, error) {
 }
 
 func NewDemoAPIWithConfig(cfg config.Config) (http.Handler, error) {
+	return nuevaAPIDemo(cfg, vecports.EmisorIncidenciasTecnicasNulo{})
+}
+
+func nuevaAPIDemo(cfg config.Config, emisor vecports.EmisorIncidenciasTecnicas) (http.Handler, error) {
 	cfg = cfg.Normalize()
 	if err := validarModoAutenticacionIntegrado(cfg); err != nil {
 		return nil, err
@@ -167,7 +193,7 @@ func NewDemoAPIWithConfig(cfg config.Config) (http.Handler, error) {
 	if err != nil {
 		return nil, err
 	}
-	vecAPI, err := newVECShellAPICompuesta(cfg, credencialesFake, categoriasPersonal)
+	vecAPI, err := newVECShellAPICompuesta(cfg, credencialesFake, categoriasPersonal, emisor)
 	if err != nil {
 		return nil, err
 	}
@@ -211,29 +237,35 @@ func newVECShellAPIWithConfig(cfg config.Config, credencialesFake *almacenCreden
 	if err != nil {
 		return nil, err
 	}
-	return newVECShellAPICompuesta(cfg, credencialesFake, categoriasPersonal)
+	return newVECShellAPICompuesta(cfg, credencialesFake, categoriasPersonal, vecports.EmisorIncidenciasTecnicasNulo{})
 }
 
 func newVECShellAPICompuesta(
 	cfg config.Config,
 	credencialesFake *almacenCredencialesFake,
 	categoriasPersonal *personalapp.ServicioConsultaCategoriasProfesionales,
+	emisor vecports.EmisorIncidenciasTecnicas,
 ) (http.Handler, error) {
-	return newVECShellAPICompuestaConIdentidad(cfg, credencialesFake, categoriasPersonal)
+	return newVECShellAPICompuestaConIdentidad(cfg, credencialesFake, categoriasPersonal, emisor)
 }
 
 func newVECShellAPICompuestaConIdentidad(
 	cfg config.Config,
 	resolvedorIdentidad vechttp.DemoIdentityResolver,
 	categoriasPersonal *personalapp.ServicioConsultaCategoriasProfesionales,
+	emisor vecports.EmisorIncidenciasTecnicas,
 ) (http.Handler, error) {
 	return newVECShellAPICompuestaConIdentidadYRutas(
-		cfg, resolvedorIdentidad, categoriasPersonal, nil, nil, nil, nil,
+		cfg, emisor, resolvedorIdentidad, categoriasPersonal, nil, nil, nil, nil,
 	)
 }
 
+// newVECShellAPICompuestaConIdentidadYRutas es el único punto que construye
+// la API VEC y su manejador cartográfico; exige el emisor de incidencias para
+// que ninguna composición lo pierda por omisión.
 func newVECShellAPICompuestaConIdentidadYRutas(
 	cfg config.Config,
+	emisor vecports.EmisorIncidenciasTecnicas,
 	resolvedorIdentidad vechttp.DemoIdentityResolver,
 	categoriasPersonal *personalapp.ServicioConsultaCategoriasProfesionales,
 	rutasExactas []vechttp.RutaExacta,
@@ -242,11 +274,14 @@ func newVECShellAPICompuestaConIdentidadYRutas(
 	autoridadRutasDietas vechttp.AutoridadPeticionRutasDietas,
 	rutasColeccion ...vechttp.RutaColeccion,
 ) (http.Handler, error) {
+	if emisor == nil {
+		return nil, ErrEmisorIncidenciasRequerido
+	}
 	personalCatalog, err := nuevoServicioCatalogoPersonal(cfg.PersonalCatalogPath)
 	if err != nil {
 		return nil, err
 	}
-	manejadorRutaDietas, err := nuevoManejadorProductivoCalculoRutas(cfg)
+	manejadorRutaDietas, err := nuevoManejadorProductivoCalculoRutas(cfg, emisor)
 	if err != nil {
 		return nil, err
 	}
@@ -281,6 +316,7 @@ func newVECShellAPICompuestaConIdentidadYRutas(
 		RutasColeccion:                           rutasColeccion,
 		AutoridadRutasExactas:                    autoridadRutasExactas,
 		RegistradorAuditoriaFronteraRutasExactas: registradorAuditoriaFronteraRutasExactas,
+		EmisorIncidenciasTecnicas:                emisor,
 	})
 }
 
