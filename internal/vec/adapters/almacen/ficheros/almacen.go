@@ -13,6 +13,8 @@
 //     el sistema de ficheros no las impone frente a un administrador del
 //     equipo. No cifra: el cifrado en reposo corresponde al volumen.
 //   - Un cerrojo flock serializa procesos que compartan el directorio.
+//   - Las rutas se forman con Join; no se usa openat/RESOLVE_BENEATH. Un
+//     proceso con el mismo uid podría sustituir un subdirectorio.
 package ficheros
 
 import (
@@ -47,6 +49,9 @@ const (
 	dirIdempotencia      = "idempotencia"
 	dirTemporal          = "tmp"
 	ficheroCerrojo       = ".cerrojo"
+	ficheroVolcados      = ".volcados"
+	maximoVolcados       = 16
+	volcadosPorDefecto   = 2
 )
 
 var (
@@ -61,6 +66,8 @@ type Configuracion struct {
 	Directorio              string
 	TamanoMaximo            int64
 	RetencionMinimaAdmitida time.Duration
+	// MaximoVolcadosConcurrentes limita temporales por instancia; cero usa 2.
+	MaximoVolcadosConcurrentes int
 }
 
 type Almacen struct {
@@ -71,6 +78,7 @@ type Almacen struct {
 	retencionMin time.Duration
 	reloj        ports.Reloj
 	cerrojo      *os.File
+	volcados     chan struct{}
 }
 
 var _ ports.AlmacenObjetos = (*Almacen)(nil)
@@ -79,7 +87,8 @@ var _ ports.AlmacenObjetos = (*Almacen)(nil)
 // ante cualquier permiso, propietario o enlace inesperado.
 func Nuevo(cfg Configuracion, reloj ports.Reloj) (*Almacen, error) {
 	if reloj == nil || reloj.Ahora().IsZero() || cfg.TamanoMaximo < 1 || cfg.TamanoMaximo > tamanoMaximoAbsoluto ||
-		cfg.RetencionMinimaAdmitida <= 0 || cfg.RetencionMinimaAdmitida%time.Microsecond != 0 {
+		cfg.RetencionMinimaAdmitida <= 0 || cfg.RetencionMinimaAdmitida%time.Microsecond != 0 ||
+		cfg.MaximoVolcadosConcurrentes < 0 || cfg.MaximoVolcadosConcurrentes > maximoVolcados {
 		return nil, ErrConfiguracionInvalida
 	}
 	if cfg.ConectorID == "" {
@@ -100,16 +109,16 @@ func Nuevo(cfg Configuracion, reloj ports.Reloj) (*Almacen, error) {
 			return nil, err
 		}
 	}
-	cerrojo, err := os.OpenFile(filepath.Join(cfg.Directorio, ficheroCerrojo), os.O_RDWR|os.O_CREATE|syscall.O_NOFOLLOW, 0o600)
+	cerrojo, err := prepararCerrojoYLimpiar(cfg.Directorio)
 	if err != nil {
-		return nil, ErrDirectorioInseguro
+		return nil, err
 	}
-	if info, err := cerrojo.Stat(); err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0o077 != 0 {
-		_ = cerrojo.Close()
-		return nil, ErrDirectorioInseguro
+	limite := cfg.MaximoVolcadosConcurrentes
+	if limite == 0 {
+		limite = volcadosPorDefecto
 	}
 	return &Almacen{conectorID: cfg.ConectorID, raiz: cfg.Directorio, tamanoMaximo: cfg.TamanoMaximo,
-		retencionMin: cfg.RetencionMinimaAdmitida, reloj: reloj, cerrojo: cerrojo}, nil
+		retencionMin: cfg.RetencionMinimaAdmitida, reloj: reloj, cerrojo: cerrojo, volcados: make(chan struct{}, limite)}, nil
 }
 
 // Cerrar libera el descriptor del cerrojo. El almacén no admite más uso.
@@ -413,50 +422,6 @@ func (a *Almacen) guardarIdempotencia(clave string, r registroIdempotencia) erro
 	return a.escribirAtomico(a.rutaIdempotencia(clave), raw)
 }
 
-// volcarContenido copia exactamente tamano bytes a un temporal, calcula la
-// huella y sincroniza. Devuelve la ruta temporal que el llamante debe
-// renombrar o borrar.
-func (a *Almacen) volcarContenido(ctx context.Context, origen io.Reader, tamano int64, huella string) (string, error) {
-	tmp, err := a.temporal()
-	if err != nil {
-		return "", err
-	}
-	nombre := tmp.Name()
-	fallo := func(e error) (string, error) {
-		_ = tmp.Close()
-		_ = os.Remove(nombre)
-		return "", e
-	}
-	h := sha256.New()
-	copiados, err := io.Copy(io.MultiWriter(tmp, h), io.LimitReader(lectorCancelable{ctx: ctx, r: origen}, tamano+1))
-	if ctx.Err() != nil {
-		return fallo(ctx.Err())
-	}
-	if err != nil {
-		return fallo(ports.ErrCapacidadAlmacenNoDisponible)
-	}
-	if copiados != tamano || hex.EncodeToString(h.Sum(nil)) != huella {
-		return fallo(ports.ErrIntegridadObjetoAlmacen)
-	}
-	if tmp.Sync() != nil || tmp.Close() != nil {
-		_ = os.Remove(nombre)
-		return "", ports.ErrCapacidadAlmacenNoDisponible
-	}
-	return nombre, nil
-}
-
-type lectorCancelable struct {
-	ctx context.Context
-	r   io.Reader
-}
-
-func (l lectorCancelable) Read(p []byte) (int, error) {
-	if err := l.ctx.Err(); err != nil {
-		return 0, err
-	}
-	return l.r.Read(p)
-}
-
 func contextoValido(ctx context.Context) error {
 	if ctx == nil {
 		return ports.ErrSolicitudAlmacenInvalida
@@ -478,7 +443,32 @@ func (a *Almacen) Escribir(ctx context.Context, solicitud ports.SolicitudEscribi
 	if solicitud.Tamano > a.tamanoMaximo {
 		return vacio, ports.ErrLimiteObjetoAlmacenExcedido
 	}
+	// Denegar antes de leer el contenido y repetir después del volcado, ya
+	// bajo el cerrojo exclusivo, porque la concesión puede vencer entretanto.
+	if err := solicitud.Contexto.ValidarParaEn(ports.AccionAlmacenEscribir, a.reloj.Ahora().UTC()); err != nil {
+		return vacio, err
+	}
+	select {
+	case a.volcados <- struct{}{}:
+	case <-ctx.Done():
+		return vacio, ctx.Err()
+	}
+	if err := contextoValido(ctx); err != nil {
+		<-a.volcados
+		return vacio, err
+	}
+	if err := solicitud.Contexto.ValidarParaEn(ports.AccionAlmacenEscribir, a.reloj.Ahora().UTC()); err != nil {
+		<-a.volcados
+		return vacio, err
+	}
+	liberarVolcado, err := a.cerrojoVolcado()
+	if err != nil {
+		<-a.volcados
+		return vacio, err
+	}
+	defer liberarVolcado()
 	temporal, err := a.volcarContenido(ctx, solicitud.Contenido, solicitud.Tamano, solicitud.HuellaSHA256)
+	<-a.volcados
 	if err != nil {
 		return vacio, err
 	}
