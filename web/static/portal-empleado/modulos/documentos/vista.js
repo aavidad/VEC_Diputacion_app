@@ -1,427 +1,216 @@
-import { crearTraductorDocumentos } from "./i18n.js?v=20260924-f2-web2";
+import { crearTraductorDocumentos } from "./i18n.js?v=20260925-documentos-web-v2";
 
-const ESTADOS = new Set(["no_configurado", "cargando", "disponible", "vacio", "denegado", "error"]);
-const FIRMA = new Set(["borrador", "pendiente_firma", "firmado"]);
-const ACCION_DESCARGA = "documentos.descargar_original";
-const FORMATOS_DESCARGA = Object.freeze({
-  "application/pdf": [".pdf"],
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
-  "image/png": [".png"],
-  "image/jpeg": [".jpg", ".jpeg"],
+// El servidor devuelve la clave del tipo documental catalogado, nunca su
+// referencia opaca; un tipo sin rótulo se muestra como documento genérico.
+const TIPOS = Object.freeze({
+  "dietas.comision.borrador.v1": "tipo_comision",
+  "dietas.justificante.v1": "tipo_justificante",
+  "contratacion_temporal.borrador.v1": "tipo_contratacion",
 });
-const fechaES = new Intl.DateTimeFormat("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" });
+const MIME = new Set(["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]);
+const CUSTODIAS = new Set(["vec", "externa"]);
+const referencia = (v) => typeof v === "string" && (/^ref:[0-9a-f]{64}$/u.test(v) && !/^ref:0{64}$/u.test(v)
+  || /^[a-z][a-z0-9_]{1,31}:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(v));
+const huellaValida = (v) => typeof v === "string" && /^[0-9a-f]{64}$/iu.test(v);
 
-function nodo(documento, etiqueta, texto = "", clase = "") {
-  const elemento = documento.createElement(etiqueta);
-  if (texto) elemento.textContent = texto;
-  if (clase) elemento.className = clase;
-  return elemento;
+function elemento(doc, tag, texto, clase) {
+  const nodo = doc.createElement(tag);
+  if (texto !== undefined) nodo.textContent = texto;
+  if (clase) nodo.className = clase;
+  return nodo;
 }
 
-function panel(documento, titulo, nota, clase = "") {
-  const seccion = nodo(documento, "section", "", `panel ${clase}`.trim());
-  const cabecera = nodo(documento, "header", "", "cabecera-panel");
-  const titulos = nodo(documento, "div");
-  titulos.append(nodo(documento, "h3", titulo), nodo(documento, "p", nota));
-  cabecera.append(titulos);
-  const cuerpo = nodo(documento, "div", "", "cuerpo-panel");
-  seccion.append(cabecera, cuerpo);
-  return { seccion, cuerpo };
-}
-
-function textoLimitado(valor, maximo) {
-  return typeof valor === "string" && valor.trim() && valor.length <= maximo ? valor.trim() : null;
-}
-
-function fechaValida(valor) {
-  if (valor === undefined || valor === null || valor === "") return null;
-  const fecha = new Date(valor);
-  if (Number.isNaN(fecha.getTime())) throw new TypeError("fecha documental inválida");
-  return fecha;
-}
-
-function permisoDescargaExacto(permiso, ref, version) {
-  return permiso !== null && typeof permiso === "object" && !Array.isArray(permiso)
-    && Object.hasOwn(permiso, "accion") && permiso.accion === ACCION_DESCARGA
-    && Object.hasOwn(permiso, "recurso_ref") && permiso.recurso_ref === ref
-    && Object.hasOwn(permiso, "version") && permiso.version === version
-    && Object.hasOwn(permiso, "concedido") && permiso.concedido === true;
-}
-
-function permisoDenegado() {
-  const error = new Error("permiso de descarga no confirmado");
-  error.codigo = "permiso_denegado";
-  return error;
-}
-
-/**
- * Contrato de lectura: {estado, origen, actualizado_en?, documentos: [{ref,
- * titulo, tipo, version, estado_firma, firma?, huella?, custodia?, antivirus?,
- * descargable?, permiso_descarga?}]}. permiso_descarga lo emite la fuente para
- * acción, referencia y versión exactas. Una marca "firmado" sola no acredita
- * firma; custodia exige recibo y descarga exige antivirus limpio y permiso.
- */
 export function validarRespuestaDocumentos(respuesta) {
-  if (!respuesta || typeof respuesta !== "object" || !["disponible", "vacio", "denegado"].includes(respuesta.estado)) {
-    throw new TypeError("respuesta documental inválida");
-  }
-  if (respuesta.estado === "denegado") return { estado: "denegado", documentos: [], origen: "", actualizado: null };
-  const origen = textoLimitado(respuesta.origen, 120);
-  if (!origen || !Array.isArray(respuesta.documentos) || respuesta.documentos.length > 100) throw new TypeError("fuente documental inválida");
-  const referencias = new Set();
-  const documentos = respuesta.documentos.map((item) => {
-    const ref = textoLimitado(item?.ref, 120);
-    const titulo = textoLimitado(item?.titulo, 180);
-    const tipo = textoLimitado(item?.tipo, 80);
-    if (!ref || referencias.has(ref) || !titulo || !tipo || !Number.isSafeInteger(item.version) || item.version < 1 || !FIRMA.has(item.estado_firma)) {
-      throw new TypeError("documento de consulta inválido");
-    }
-    referencias.add(ref);
-    const firmaValidada = item.estado_firma === "firmado" && item.firma?.validada === true && !!textoLimitado(item.firma.referencia, 120);
-    const custodiaConfirmada = item.custodia?.confirmada === true && !!textoLimitado(item.custodia.recibo_ref, 120);
-    const huella = typeof item.huella === "string" && /^[0-9a-f]{64}$/iu.test(item.huella) ? item.huella.toLowerCase() : null;
-    return Object.freeze({
-      ref, titulo, tipo, version: item.version,
-      fecha: fechaValida(item.fecha),
-      firma: firmaValidada ? "firmado" : item.estado_firma === "firmado" ? "sin_acreditar" : item.estado_firma,
-      firmaRef: firmaValidada ? item.firma.referencia.trim() : null,
-      custodia: custodiaConfirmada ? item.custodia.recibo_ref.trim() : null,
-      huella,
-      descargable: item.descargable === true && item.antivirus === "limpio"
-        && permisoDescargaExacto(item.permiso_descarga, ref, item.version),
-    });
+  if (!respuesta || !["disponible", "vacio", "denegado"].includes(respuesta.estado)) throw new TypeError("respuesta documental inválida");
+  if (respuesta.estado === "denegado") return Object.freeze({ estado: "denegado", documentos: [], siguienteCursor:"" });
+  if (!Array.isArray(respuesta.documentos) || respuesta.documentos.length > 100 ||
+      (respuesta.estado === "vacio" && respuesta.documentos.length !== 0) ||
+      (!respuesta.documentos.length && respuesta.siguiente_cursor) ||
+      (respuesta.siguiente_cursor && (typeof respuesta.siguiente_cursor !== "string" || respuesta.siguiente_cursor.length > 512 || /[\s\\/?%*]/u.test(respuesta.siguiente_cursor)))) throw new TypeError("lista documental inválida");
+  const vistos = new Set();
+  const documentos = respuesta.documentos.map((dato) => {
+    const ref = dato?.ref;
+    if (!referencia(ref) || vistos.has(ref) || !/^VEC-[0-9]{4}-[0-9]{1,12}$/u.test(dato.numero_vec) ||
+        typeof dato.tipo !== "string" || !dato.tipo.trim() || dato.tipo.length > 80 ||
+        !Number.isSafeInteger(dato.version) || dato.version < 1 ||
+        dato.estado_firma !== "pendiente_firma" || !CUSTODIAS.has(dato.custodia) ||
+        !huellaValida(dato.huella) || typeof dato.mime !== "string" ||
+        !(/^[a-z0-9.+-]+\/[a-z0-9.+-]+$/u.test(dato.mime) || (dato.custodia === "externa" && dato.mime === ""))) throw new TypeError("documento inválido");
+    vistos.add(ref);
+    // B5 no declara firma sin atestación verificable y confirmación durable.
+    const firma = dato.estado_firma;
+    return Object.freeze({ ref, numero: dato.numero_vec, tipo: dato.tipo.trim(), version: dato.version,
+      firma, huella: dato.huella.toLowerCase(), mime: dato.mime, custodia: dato.custodia,
+      // VEC solo entrega bytes que custodia; de un original externo muestra la huella.
+      descargable: dato.custodia === "vec" && dato.descargable === true && MIME.has(dato.mime) });
   });
-  if (respuesta.estado === "vacio" && documentos.length) throw new TypeError("consulta documental contradictoria");
-  return Object.freeze({
-    estado: documentos.length ? "disponible" : "vacio",
-    documentos,
-    origen,
-    actualizado: fechaValida(respuesta.actualizado_en),
-  });
+  return Object.freeze({ estado: documentos.length ? "disponible" : "vacio", documentos, siguienteCursor:respuesta.siguiente_cursor || "" });
 }
 
-/** El conector entrega bytes del original; no se aceptan URL ni HTML inyectados. */
 export function validarArchivoDescarga(archivo) {
-  const nombre = textoLimitado(archivo?.nombre, 160);
-  const extensiones = Object.hasOwn(FORMATOS_DESCARGA, archivo?.tipo) ? FORMATOS_DESCARGA[archivo.tipo] : [];
-  if (!archivo || typeof archivo !== "object" || !(archivo.contenido instanceof Uint8Array)
-    || archivo.contenido.byteLength < 1 || archivo.contenido.byteLength > 20 * 1024 * 1024
-    || !nombre || /[/\\\x00-\x1f\u202a-\u202e\u2066-\u2069]/iu.test(nombre)
-    || !extensiones.some((extension) => nombre.toLocaleLowerCase("es").endsWith(extension))) {
-    throw new TypeError("archivo documental inválido");
-  }
-  return { contenido: archivo.contenido, nombre, tipo: archivo.tipo };
+  if (!(archivo?.contenido instanceof Uint8Array) || archivo.contenido.length === 0 || archivo.contenido.length > 20 * 1024 * 1024 ||
+      !MIME.has(archivo.tipo) || typeof archivo.nombre !== "string" ||
+      !/^[A-Za-z0-9][A-Za-z0-9._-]{0,119}\.(pdf|docx)$/u.test(archivo.nombre) ||
+      (archivo.tipo === "application/pdf" && !archivo.nombre.endsWith(".pdf")) ||
+      (archivo.tipo !== "application/pdf" && !archivo.nombre.endsWith(".docx"))) throw new TypeError("original inválido");
+  return archivo;
 }
 
-/** Revalida en la fuente antes de pedir bytes; el conector debe hacerlo otra vez al servirlos. */
-export async function obtenerArchivoDescargaAutorizada(fuente, item, { signal, vigente = () => true } = {}) {
-  if (!item?.descargable || typeof fuente?.confirmarPermisoDescarga !== "function"
-    || typeof fuente?.descargar !== "function" || typeof vigente !== "function" || signal?.aborted || !vigente()) {
-    throw permisoDenegado();
-  }
-  const permiso = await fuente.confirmarPermisoDescarga(item.ref, { version: item.version, signal });
-  if (signal?.aborted || !vigente() || !permisoDescargaExacto(permiso, item.ref, item.version)) throw permisoDenegado();
-  return validarArchivoDescarga(await fuente.descargar(item.ref, { version: item.version, signal }));
-}
-
-function filaDato(documento, titulo, valor) {
-  const fila = nodo(documento, "div");
-  fila.append(nodo(documento, "dt", titulo), nodo(documento, "dd", valor));
-  return fila;
-}
-
-/**
- * fuente.listar({signal}) consulta documentos ya autorizados para el actor.
- * fuente.confirmarPermisoDescarga(ref,{version,signal}) obtiene decisión fresca.
- * fuente.descargar(ref, {version,signal}) devuelve {contenido: Uint8Array, nombre, tipo}
- * del original autorizado. El módulo crea una descarga local de esos bytes.
- * El conector debe revalidar autorización al servir el original; esta vista
- * nunca crea permisos, originales, firmas ni recibos de custodia.
- */
-export function montarVistaDocumentos({ raiz, anunciar = () => {}, registrarDesmontar, fuente } = {}) {
+export function montarVistaDocumentos({ raiz, fuente, expedienteRef = "", anunciar = () => {}, registrarDesmontar } = {}) {
   const t = crearTraductorDocumentos();
-  if (!raiz?.append || !raiz.ownerDocument?.createElement || typeof anunciar !== "function"
-    || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function")
-    || (fuente !== undefined && typeof fuente?.listar !== "function")) throw new TypeError(t("error_vista"));
-  const documento = raiz.ownerDocument;
-  let activa = true;
-  let controlador = null;
-  let secuencia = 0;
-  let estado = "no_configurado";
-  let documentos = [];
-  let seleccionado = null;
-  let filtro = "";
-  let origen = "";
-  let actualizado = null;
-  let descargando = false;
-  const urls = new Set();
-
-  const contenedor = nodo(documento, "section", "", "modulo-documentos");
-  contenedor.dataset.documentos = "";
-  const cabecera = nodo(documento, "header", "", "documentos-cabecera");
-  cabecera.append(nodo(documento, "p", t("sobrelinea"), "sobrelinea"), nodo(documento, "h2", t("titulo")), nodo(documento, "p", t("descripcion")));
-  const estadoVisible = nodo(documento, "div", "", "documentos-aviso");
-  estadoVisible.setAttribute("role", "status");
-  estadoVisible.setAttribute("aria-live", "polite");
-  cabecera.append(estadoVisible);
-  const indicadores = nodo(documento, "div", "", "documentos-indicadores");
-  const principal = nodo(documento, "div", "", "documentos-principal");
-  const listado = panel(documento, t("repositorio_titulo"), t("repositorio_nota"), "documentos-listado");
-  const ficha = panel(documento, t("ficha"), t("ficha_nota"), "documentos-ficha");
-  principal.append(listado.seccion, ficha.seccion);
-
-  const filtros = nodo(documento, "form", "", "documentos-filtros");
-  const etiqueta = nodo(documento, "label", t("filtro"));
-  const entrada = nodo(documento, "input");
-  entrada.type = "search";
-  entrada.name = "filtro";
-  entrada.placeholder = t("filtro_placeholder");
-  etiqueta.append(entrada);
-  const aplicar = nodo(documento, "button", t("aplicar_filtro"), "boton-primario");
-  aplicar.type = "submit";
-  filtros.append(etiqueta, aplicar);
-  const listadoContenido = nodo(documento, "div", "", "documentos-listado-contenido");
-  const tablaAyuda = nodo(documento, "p", t("tabla_desplazar"), "documentos-tabla-ayuda");
-  listado.cuerpo.append(filtros, tablaAyuda, listadoContenido);
-
-  const fichaTitulo = nodo(documento, "h4", "", "documentos-titulo-ficha");
-  fichaTitulo.tabIndex = -1;
-  const fichaDescripcion = nodo(documento, "p", "", "documentos-ficha-aviso");
-  const metadatos = nodo(documento, "dl", "", "documentos-metadatos");
-  const acciones = nodo(documento, "div", "", "documentos-acciones");
-  const accionesNoDisponibles = [["generar_version", "generar_motivo"], ["subir_original", "subir_motivo"], ["firmar", "firmar_motivo"], ["verificar", "verificar_motivo"], ["enviar", "enviar_motivo"]];
-  accionesNoDisponibles.forEach(([clave, motivo]) => {
-    const boton = nodo(documento, "button", t(clave), "documentos-accion");
-    boton.type = "button";
-    boton.disabled = true;
-    boton.title = t(motivo);
-    boton.setAttribute("aria-label", `${t(clave)}. ${t(motivo)}`);
-    acciones.append(boton);
-  });
-  const descargar = nodo(documento, "button", t("descargar"), "documentos-accion documentos-descargar");
-  descargar.type = "button";
-  acciones.append(descargar);
-  const descargaEstado = nodo(documento, "p", "", "documentos-descarga-estado");
-  descargaEstado.setAttribute("role", "status");
-  descargaEstado.setAttribute("aria-live", "polite");
-  ficha.cuerpo.append(fichaTitulo, fichaDescripcion, metadatos, nodo(documento, "h5", t("acciones_titulo")), acciones, descargaEstado);
-
-  const ayuda = nodo(documento, "details", "", "panel documentos-ayuda");
-  const pregunta = nodo(documento, "summary", t("ayuda_titulo"));
-  pregunta.setAttribute("aria-label", t("ayuda_etiqueta"));
-  const ayudaContenido = nodo(documento, "div", "", "cuerpo-panel");
-  ayudaContenido.append(nodo(documento, "p", t("aclaracion_firma")), nodo(documento, "h4", t("tipos_previstos")));
-  const tipos = nodo(documento, "ul", "", "documentos-tipos");
-  ["tipo_informe", "tipo_resolucion", "tipo_rc", "tipo_diligencia"].forEach((clave) => tipos.append(nodo(documento, "li", t(clave))));
-  ayudaContenido.append(tipos, nodo(documento, "h4", t("circuito_titulo")));
-  const pasos = nodo(documento, "ol", "", "documentos-pasos");
-  ["paso_1", "paso_2", "paso_3", "paso_4", "paso_5"].forEach((clave) => pasos.append(nodo(documento, "li", t(clave))));
-  ayudaContenido.append(pasos);
-  ayuda.append(pregunta, ayudaContenido);
-  contenedor.append(cabecera, indicadores, principal, ayuda);
+  if (!raiz?.ownerDocument?.createElement || typeof anunciar !== "function" ||
+      (fuente !== undefined && (typeof fuente.listar !== "function" || typeof fuente.descargar !== "function" || typeof fuente.seleccionarExpediente !== "function"))) throw new TypeError(t("error_vista"));
+  const doc = raiz.ownerDocument;
+  const contenedor = elemento(doc, "section", undefined, "modulo-documentos");
+  const cabecera = elemento(doc, "header", undefined, "documentos-cabecera");
+  const titulo = elemento(doc, "h2", t("titulo"));
+  const ayuda = elemento(doc, "details", undefined, "documentos-ayuda");
+  const ayudaBoton = elemento(doc, "summary", "?");
+  ayudaBoton.setAttribute("aria-label", t("ayuda_etiqueta"));
+  ayuda.append(ayudaBoton, elemento(doc, "p", t("aclaracion_firma")));
+  cabecera.append(titulo, ayuda);
+  const panel = elemento(doc, "section", undefined, "panel documentos-panel");
+  // La vista no pide referencias al usuario: solo se abre desde un expediente,
+  // que entrega la suya por navegación.
+  const expediente = referencia(expedienteRef) ? expedienteRef : "";
+  const estado = elemento(doc, "p", "", "documentos-estado-consulta");
+  estado.setAttribute("role", "status");
+  estado.setAttribute("aria-live", "polite");
+  const listado = elemento(doc, "div", undefined, "documentos-listado");
+  panel.append(estado, listado);
+  contenedor.append(cabecera, panel);
   raiz.append(contenedor);
 
-  function estadoFirma(item) { return t(`firma_${item.firma}`); }
-  function disponibles() {
-    return documentos.filter((item) => !filtro || `${item.titulo} ${item.tipo}`.toLocaleLowerCase("es").includes(filtro.toLocaleLowerCase("es")));
-  }
-  function pintarEstado() {
-    contenedor.dataset.estado = estado;
-    estadoVisible.replaceChildren(nodo(documento, "strong", t(`estado_${estado}`)), nodo(documento, "span", t(`explicacion_${estado}`)));
-    if (origen && ["disponible", "vacio"].includes(estado)) {
-      estadoVisible.append(nodo(documento, "small", `${t("fuente")}: ${origen}${actualizado ? ` · ${t("actualizado")}: ${fechaES.format(actualizado)}` : ""}`));
-    }
-  }
-  function pintarIndicadores() {
-    const consultar = estado === "disponible" || estado === "vacio";
-    const resumen = [
-      ["borrador", consultar ? String(documentos.filter((item) => item.firma === "borrador").length) : t("valor_sin_fuente"), "nota_borrador"],
-      ["firmado", consultar ? String(documentos.filter((item) => item.firma === "firmado").length) : t("valor_sin_fuente"), "nota_firmado"],
-      ["descarga", consultar ? String(documentos.filter((item) => item.descargable && typeof fuente?.confirmarPermisoDescarga === "function" && typeof fuente?.descargar === "function").length) : t("valor_sin_fuente"), "nota_descarga"],
-      ["custodia", consultar ? String(documentos.filter((item) => item.custodia).length) : t("valor_sin_fuente"), "nota_custodia"],
-    ];
-    indicadores.replaceChildren(...resumen.map(([titulo, valor, nota]) => {
-      const tarjeta = nodo(documento, "article", "", "documentos-indicador");
-      tarjeta.append(nodo(documento, "span", t(titulo)), nodo(documento, "strong", valor), nodo(documento, "small", t(nota)));
-      return tarjeta;
-    }));
-  }
-  function pintarListado() {
-    entrada.disabled = estado !== "disponible";
-    aplicar.disabled = estado !== "disponible";
-    listadoContenido.replaceChildren();
-    if (estado === "error" && fuente) {
-      const reintentar = nodo(documento, "button", t("reintentar"), "boton-secundario documentos-reintentar");
-      reintentar.type = "button";
-      reintentar.addEventListener("click", consultar);
-      listadoContenido.append(reintentar);
-    }
-    if (estado !== "disponible" || !disponibles().length) {
-      const vacio = nodo(documento, "div", "", "documentos-vacio");
-      vacio.setAttribute("role", "status");
-      vacio.append(nodo(documento, "strong", t(estado === "disponible" ? "sin_resultados" : `estado_${estado}`)), nodo(documento, "p", t(estado === "disponible" ? "filtro_sin_resultados" : `explicacion_${estado}`)));
-      listadoContenido.append(vacio);
-      return;
-    }
-    const region = nodo(documento, "div", "", "documentos-tabla");
-    region.tabIndex = 0;
-    region.setAttribute("role", "region");
-    region.setAttribute("aria-label", t("tabla_documentos"));
-    const tabla = nodo(documento, "table");
-    tabla.append(nodo(documento, "caption", t("tabla_documentos")));
-    const cabecera = nodo(documento, "thead");
-    const encabezado = nodo(documento, "tr");
-    ["col_documento", "col_tipo", "col_version", "col_firma", "col_accion"].forEach((clave) => {
-      const th = nodo(documento, "th", t(clave));
-      th.scope = "col";
-      encabezado.append(th);
-    });
-    cabecera.append(encabezado);
-    const cuerpo = nodo(documento, "tbody");
-    disponibles().forEach((item) => {
-      const fila = nodo(documento, "tr");
-      if (seleccionado?.ref === item.ref) fila.dataset.seleccionada = "true";
-      fila.append(nodo(documento, "td", item.titulo), nodo(documento, "td", item.tipo), nodo(documento, "td", String(item.version)));
-      const firma = nodo(documento, "td");
-      firma.append(nodo(documento, "span", estadoFirma(item), `documentos-estado documentos-estado--${item.firma}`));
-      fila.append(firma);
-      const accion = nodo(documento, "td");
-      const ver = nodo(documento, "button", t("ver_ficha"), "documentos-ver");
-      ver.type = "button";
-      ver.setAttribute("aria-label", t("ver_ficha_de", { titulo: item.titulo }));
-      ver.addEventListener("click", () => {
-        seleccionado = item;
-        descargaEstado.textContent = "";
-        pintarListado();
-        pintarFicha();
-        fichaTitulo.focus();
-        anunciar(t("ficha_seleccionada", { titulo: item.titulo }), "informacion");
-      });
-      accion.append(ver);
-      fila.append(accion);
-      cuerpo.append(fila);
-    });
-    tabla.append(cabecera, cuerpo);
-    region.append(tabla);
-    listadoContenido.append(region);
-  }
-  function pintarFicha() {
-    fichaTitulo.textContent = seleccionado ? seleccionado.titulo : t("ficha_vacia");
-    fichaDescripcion.textContent = seleccionado ? t("ficha_origen") : estado === "disponible" ? t("ficha_sin_seleccion") : t("ficha_sin_original");
-    metadatos.replaceChildren();
-    if (seleccionado) {
-      [
-        ["tipo", seleccionado.tipo], ["version", String(seleccionado.version)],
-        ["fecha", seleccionado.fecha ? fechaES.format(seleccionado.fecha) : t("dato_no_disponible")],
-        ["firma", estadoFirma(seleccionado)],
-        ["firma_ref", seleccionado.firmaRef || t("dato_no_disponible")],
-        ["huella", seleccionado.huella || t("dato_no_disponible")],
-        ["conservacion", seleccionado.custodia ? t("custodia_confirmada") : t("custodia_sin_fuente")],
-        ["custodia_ref", seleccionado.custodia || t("dato_no_disponible")],
-      ].forEach(([clave, valor]) => metadatos.append(filaDato(documento, t(clave), valor)));
-    } else {
-      [["version", "version_sin_fuente"], ["firma", "firma_sin_evidencia"], ["huella", "huella_sin_fuente"], ["conservacion", "custodia_sin_fuente"]].forEach(([clave, valor]) => metadatos.append(filaDato(documento, t(clave), t(valor))));
-    }
-    descargar.disabled = !seleccionado?.descargable || typeof fuente?.confirmarPermisoDescarga !== "function"
-      || typeof fuente?.descargar !== "function" || descargando;
-    const motivo = seleccionado?.descargable ? t("descarga_sin_conector") : t("descargar_motivo");
-    descargar.title = descargar.disabled ? motivo : t("descarga_autorizada");
-    descargar.setAttribute("aria-label", `${t("descargar")}. ${descargar.title}`);
-  }
-  function pintar() {
-    if (!activa || !ESTADOS.has(estado)) return;
-    pintarEstado();
-    pintarIndicadores();
-    pintarListado();
-    pintarFicha();
-  }
-  async function consultar() {
-    if (!activa || !fuente) return;
-    controlador?.abort();
-    controlador = new AbortController();
-    const actual = ++secuencia;
-    estado = "cargando";
-    documentos = [];
-    seleccionado = null;
-    filtro = "";
-    entrada.value = "";
-    origen = "";
-    actualizado = null;
-    descargaEstado.textContent = "";
-    pintar();
+  let activa = true;
+  let secuencia = 0;
+  let controlador = null;
+  let archivoEnCurso = false;
+  let paginaDocumentos = [];
+  let siguienteCursor = "";
+  const urls = new Set();
+  const mostrar = (clave) => { estado.textContent = t(clave); contenedor.dataset.estado = clave; };
+  const limpiar = () => listado.replaceChildren();
+  const valido = (numero, signal) => activa && numero === secuencia && !signal.aborted;
+
+  async function descargar(item) {
+    if (!fuente || archivoEnCurso || !item.descargable || !controlador) return;
+    const numero = secuencia;
+    const signal = controlador.signal;
+    archivoEnCurso = true;
+    mostrar("descargando");
     try {
-      const respuesta = validarRespuestaDocumentos(await fuente.listar({ signal: controlador.signal }));
-      if (!activa || actual !== secuencia || controlador.signal.aborted) return;
-      ({ estado, documentos, origen, actualizado } = respuesta);
-      seleccionado = documentos[0] ?? null;
-    } catch {
-      if (!activa || actual !== secuencia || controlador.signal.aborted) return;
-      estado = "error";
-    }
-    pintar();
-  }
-  filtros.addEventListener("submit", (evento) => {
-    evento.preventDefault();
-    if (estado !== "disponible") return;
-    filtro = entrada.value.trim();
-    const visibles = disponibles();
-    if (!visibles.includes(seleccionado)) {
-      seleccionado = visibles[0] ?? null;
-      descargaEstado.textContent = "";
-    }
-    pintarListado();
-    pintarFicha();
-    anunciar(filtro ? t("filtro_aplicado") : t("filtro_eliminado"), "informacion");
-  });
-  descargar.addEventListener("click", async () => {
-    const item = seleccionado;
-    if (!activa || descargar.disabled || !item?.descargable
-      || typeof fuente?.confirmarPermisoDescarga !== "function" || typeof fuente?.descargar !== "function") return;
-    const ref = item.ref;
-    const actual = secuencia;
-    const signal = controlador?.signal;
-    const vigente = () => activa && actual === secuencia && !signal?.aborted
-      && seleccionado?.ref === ref && seleccionado?.version === item.version;
-    descargando = true;
-    descargar.disabled = true;
-    descargaEstado.textContent = t("descarga_en_curso");
-    try {
-      const archivo = await obtenerArchivoDescargaAutorizada(fuente, item, { signal, vigente });
-      if (!vigente()) return;
-      const entorno = documento.defaultView;
-      if (!documento.body || !entorno?.Blob || !entorno.URL?.createObjectURL) throw new TypeError("descarga no disponible");
-      const url = entorno.URL.createObjectURL(new entorno.Blob([archivo.contenido], { type: archivo.tipo }));
+      const archivo = validarArchivoDescarga(await fuente.descargar(item.ref, { version: item.version, mime: item.mime, huella: item.huella, signal }));
+      if (!valido(numero, signal)) return;
+      if (!doc.defaultView?.Blob || !doc.defaultView.URL?.createObjectURL) throw new TypeError("descarga no disponible");
+      const url = doc.defaultView.URL.createObjectURL(new doc.defaultView.Blob([archivo.contenido], { type: archivo.tipo }));
       urls.add(url);
-      const enlace = nodo(documento, "a");
+      const enlace = elemento(doc, "a");
       enlace.href = url;
       enlace.download = archivo.nombre;
       enlace.hidden = true;
-      documento.body.append(enlace);
+      doc.body.append(enlace);
       try { enlace.click(); } finally { enlace.remove(); }
-      entorno.setTimeout(() => { entorno.URL.revokeObjectURL(url); urls.delete(url); }, 0);
-      descargaEstado.textContent = t("descarga_iniciada");
+      doc.defaultView.setTimeout(() => { doc.defaultView.URL.revokeObjectURL(url); urls.delete(url); }, 0);
+      mostrar("descarga_iniciada");
       anunciar(t("descarga_iniciada"), "informacion");
     } catch (error) {
-      if (!vigente()) return;
-      const mensaje = t(error?.codigo === "permiso_denegado" ? "descargar_motivo" : "descarga_error");
-      descargaEstado.textContent = mensaje;
-      anunciar(mensaje, "error");
-    } finally {
-      descargando = false;
-      if (activa) pintarFicha();
+      if (!valido(numero, signal)) return;
+      mostrar(error?.codigo === "denegado" ? "denegado" : "descarga_error");
+    } finally { archivoEnCurso = false; }
+  }
+
+  function pintar(documentos) {
+    limpiar();
+    if (!documentos.length) { mostrar("vacio"); return; }
+    const region = elemento(doc, "div", undefined, "documentos-tabla");
+    region.tabIndex = 0;
+    region.setAttribute("role", "region");
+    region.setAttribute("aria-label", t("tabla_documentos"));
+    const tabla = elemento(doc, "table");
+    const thead = elemento(doc, "thead");
+    const cab = elemento(doc, "tr");
+    for (const clave of ["col_documento", "col_tipo", "col_version", "col_firma", "col_accion"]) {
+      const th = elemento(doc, "th", t(clave)); th.scope = "col"; cab.append(th);
     }
-  });
+    thead.append(cab);
+    const tbody = elemento(doc, "tbody");
+    for (const item of documentos) {
+      const tr = elemento(doc, "tr");
+      for (const valor of [item.numero, t(Object.hasOwn(TIPOS, item.tipo) ? TIPOS[item.tipo] : "tipo_generico"), String(item.version)]) tr.append(elemento(doc, "td", valor));
+      const firma = elemento(doc, "td");
+      firma.append(elemento(doc, "span", t(`firma_${item.firma}`), `documentos-estado documentos-estado--${item.firma}`));
+      tr.append(firma);
+      const accion = elemento(doc, "td");
+      if (item.custodia === "externa") {
+        accion.append(elemento(doc, "span", t("custodia_externa"), "documentos-custodia-externa"), huellaVisible(item.huella));
+      } else if (item.descargable) {
+        const boton = elemento(doc, "button", t("descargar"), "boton-secundario documentos-descargar");
+        boton.type = "button";
+        boton.setAttribute("aria-label", t("descargar_de", { numero: item.numero }));
+        boton.addEventListener("click", () => descargar(item));
+        accion.append(boton);
+      }
+      tr.append(accion);
+      tbody.append(tr);
+    }
+    tabla.append(thead, tbody);
+    region.append(tabla);
+    listado.append(region);
+    if (siguienteCursor) {
+      const siguiente = elemento(doc, "button", t("cargar_mas"), "boton-secundario documentos-mas");
+      siguiente.type = "button";
+      siguiente.addEventListener("click", () => { void consultar(true); });
+      listado.append(siguiente);
+    }
+    mostrar("disponible");
+  }
+
+  // Huella abreviada visible; la completa, en un desplegable accesible por teclado.
+  function huellaVisible(huella) {
+    const detalle = elemento(doc, "details", undefined, "documentos-huella");
+    const resumen = elemento(doc, "summary", t("huella_abreviada", { huella: `${huella.slice(0, 12)}…` }));
+    const completa = elemento(doc, "code", huella, "documentos-huella-completa");
+    detalle.append(resumen, completa);
+    return detalle;
+  }
+
+  async function consultar(continuar = false) {
+    controlador?.abort();
+    controlador = new AbortController();
+    const signal = controlador.signal;
+    const numero = ++secuencia;
+    if (!continuar) { paginaDocumentos = []; siguienteCursor = ""; limpiar(); }
+    if (!fuente) { mostrar("no_configurado"); return; }
+    if (!expediente) { mostrar("sin_expediente"); return; }
+    mostrar("cargando");
+    try {
+      fuente.seleccionarExpediente(expediente);
+      const respuesta = validarRespuestaDocumentos(await fuente.listar({ signal, cursor: continuar ? siguienteCursor : "" }));
+      if (!valido(numero, signal)) return;
+      if (respuesta.estado === "denegado") { paginaDocumentos = []; siguienteCursor = ""; limpiar(); mostrar("denegado"); return; }
+      const vistos = new Set(paginaDocumentos.map((item) => item.ref));
+      if (respuesta.documentos.some((item) => vistos.has(item.ref)) ||
+          (continuar && respuesta.siguienteCursor === siguienteCursor)) throw new TypeError("paginación contradictoria");
+      paginaDocumentos = [...paginaDocumentos, ...respuesta.documentos];
+      siguienteCursor = respuesta.siguienteCursor;
+      pintar(paginaDocumentos);
+    } catch (error) {
+      if (!valido(numero, signal)) return;
+      paginaDocumentos = []; siguienteCursor = ""; limpiar();
+      mostrar(error?.codigo === "denegado" ? "denegado" : "error");
+    }
+  }
   function desmontar() {
     if (!activa) return;
     activa = false;
     ++secuencia;
     controlador?.abort();
-    for (const url of urls) documento.defaultView?.URL?.revokeObjectURL(url);
+    for (const url of urls) doc.defaultView?.URL?.revokeObjectURL(url);
     urls.clear();
     contenedor.remove();
   }
   registrarDesmontar?.(desmontar);
-  pintar();
-  if (fuente) void consultar();
-  return Object.freeze({ desmontar, consultar });
+  mostrar(!fuente ? "no_configurado" : expediente ? "cargando" : "sin_expediente");
+  if (expediente && fuente) void consultar();
+  return Object.freeze({ consultar: () => consultar(), desmontar });
 }

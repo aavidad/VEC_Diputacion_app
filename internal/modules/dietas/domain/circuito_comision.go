@@ -2,7 +2,6 @@ package domain
 
 import (
 	"errors"
-	"strings"
 	"time"
 )
 
@@ -72,7 +71,7 @@ func ResolverDecisionCircuito(estado string, etapa EtapaCircuito, decision Decis
 	if etapa.EstadoPendiente() == "" ||
 		(decision != DecisionAprobar && decision != DecisionDevolver) ||
 		actorRef == "" || solicitanteActorRef == "" ||
-		len(motivo) > 600 || !textoVisible(motivo) || motivo != strings.TrimSpace(motivo) ||
+		len(motivo) > 600 || !textoVisible(motivo) || !TextoSinBordes(motivo) ||
 		(decision == DecisionDevolver && len(motivo) < 3) {
 		return "", ErrDecisionCircuitoInvalida
 	}

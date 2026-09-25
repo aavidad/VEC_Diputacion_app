@@ -270,6 +270,41 @@ type solicitudSQL struct {
 	Version             int        `json:"version"`
 	PendienteJustificar bool       `json:"pendiente_justificar"`
 	SolicitadaEn        *time.Time `json:"solicitada_en"`
+	// Los añade cronos_v1 000010; sin ella faltan los dos.
+	Circuito            *string `json:"circuito"`
+	PendienteAsignacion *bool   `json:"pendiente_asignacion"`
+}
+
+// circuitoSolicitudPropia valida el circuito aplicado que devuelve 000010:
+// ausente del todo antes de 000010; si no, J-A o A, obligatorio mientras la
+// solicitud está viva (pendiente de RRHH sólo tras la jefatura) y pendiente
+// de asignación sólo en lo solicitado por J-A.
+func circuitoSolicitudPropia(s solicitudSQL) (domain.CircuitoPermiso, bool, bool) {
+	if s.PendienteAsignacion == nil {
+		return "", false, s.Circuito == nil
+	}
+	var c domain.CircuitoPermiso
+	if s.Circuito != nil {
+		c = domain.CircuitoPermiso(*s.Circuito)
+		if c != domain.CircuitoAdministracion && c != domain.CircuitoResponsableAdministracion {
+			return "", false, false
+		}
+	}
+	switch domain.EstadoSolicitudPermiso(s.Estado) {
+	case domain.EstadoPermisoSolicitado:
+		if c == "" || (*s.PendienteAsignacion && c != domain.CircuitoResponsableAdministracion) {
+			return "", false, false
+		}
+	case domain.EstadoPermisoPendienteAdministracion:
+		if c != domain.CircuitoResponsableAdministracion || *s.PendienteAsignacion {
+			return "", false, false
+		}
+	default:
+		if *s.PendienteAsignacion {
+			return "", false, false
+		}
+	}
+	return c, *s.PendienteAsignacion, true
 }
 
 func (r *RepositorioPermisosPropios) ConsultarPermisosPropios(ctx context.Context, orden ports.OrdenPermisosPropios, empleado string, anio int, zona string) (ports.FuentePermisosPropios, error) {
@@ -332,12 +367,14 @@ func (r *RepositorioPermisosPropios) ConsultarPermisosPropios(ctx context.Contex
 		f.Catalogo = append(f.Catalogo, ports.EntradaCatalogoPropio{Version: v, Solicitable: *c.Solicitable, Sintetico: *c.Sintetico})
 	}
 	for _, s := range sql.Solicitudes {
-		if s.SolicitadaEn == nil || s.Version < 1 {
+		circuito, pendienteAsignacion, ok := circuitoSolicitudPropia(s)
+		if s.SolicitadaEn == nil || s.Version < 1 || !ok {
 			return ports.FuentePermisosPropios{}, ports.ErrDependenciaNoDisponible
 		}
 		p := ports.SolicitudPermisoPropia{SolicitudRef: s.SolicitudRef, CatalogoVersionRef: s.CatalogoVersionRef, PermisoRef: s.PermisoRef,
 			Desde: s.Desde, Hasta: s.Hasta, Cantidad: s.Cantidad, Unidad: domain.LeaveUnit(s.Unidad), Estado: domain.EstadoSolicitudPermiso(s.Estado),
-			Version: s.Version, PendienteJustificar: s.PendienteJustificar, SolicitadaEnUTC: s.SolicitadaEn.UTC()}
+			Version: s.Version, PendienteJustificar: s.PendienteJustificar, SolicitadaEnUTC: s.SolicitadaEn.UTC(),
+			Circuito: circuito, PendienteAsignacion: pendienteAsignacion}
 		if s.HoraInicio != nil && s.HoraFin != nil {
 			p.HoraInicio, p.HoraFin = *s.HoraInicio, *s.HoraFin
 		}

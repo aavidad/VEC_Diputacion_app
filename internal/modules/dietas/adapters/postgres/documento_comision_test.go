@@ -167,3 +167,37 @@ func TestRecuperarEdicionAntesDeRecalcularNoCreaYExigeConcesionNueva(t *testing.
 		t.Fatalf("preconsulta presente: %#v encontrado=%v err=%v", got, encontrado, err)
 	}
 }
+
+// D6: la proyección 000010 añade la devolución vigente; el adaptador la
+// conserva y rechaza una devolución incoherente con el estado.
+func TestDecodificadorDocumentoConservaDevolucionYRechazaIncoherente(t *testing.T) {
+	salida := func(estado string, devolucion map[string]any) []byte {
+		var x map[string]any
+		if err := json.Unmarshal(salidaMutacionPrueba(t, estado, 4), &x); err != nil {
+			t.Fatal(err)
+		}
+		x["comision"].(map[string]any)["devolucion"] = devolucion
+		b, err := json.Marshal(x)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return b
+	}
+	valida := map[string]any{"etapa": "autorizacion", "motivo": "Falta el justificante del taxi", "version": 3, "devuelta_en": "2026-09-23T09:00:00.123456Z"}
+	for _, estado := range []string{"devuelta", "borrador"} {
+		got, err := decodificarResultadoDocumento(salida(estado, valida))
+		if err != nil || got.Comision.Devolucion == nil || got.Comision.Devolucion.Motivo != "Falta el justificante del taxi" || got.Comision.Devolucion.Version != 3 {
+			t.Fatalf("%s: devolución perdida: %#v %v", estado, got.Comision.Devolucion, err)
+		}
+	}
+	if _, err := decodificarResultadoDocumento(salidaMutacionPrueba(t, "pendiente_autorizacion", 4)); err != nil {
+		t.Fatalf("documento reenviado sin devolución: %v", err)
+	}
+	if _, err := decodificarResultadoDocumento(salida("pendiente_autorizacion", valida)); err == nil {
+		t.Fatal("devolución aceptada en un documento reenviado")
+	}
+	corta := map[string]any{"etapa": "autorizacion", "motivo": "no", "version": 3, "devuelta_en": "2026-09-23T09:00:00.123456Z"}
+	if _, err := decodificarResultadoDocumento(salida("devuelta", corta)); err == nil {
+		t.Fatal("devolución sin motivo suficiente aceptada")
+	}
+}

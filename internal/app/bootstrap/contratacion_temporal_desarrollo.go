@@ -61,6 +61,8 @@ type autoridadConsultasContratacionTemporalDesarrollo struct {
 	registradorAuditoriaFronteraRutasExactas puertosvec.RegistradorAuditoriaFronteraRutaExacta
 	materialDietas                           materialDietasDesdeCTDesarrollo
 	materialCronos                           materialCronosDesdeCTDesarrollo
+	materialDocumentos                       *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialPersonalFichaPropia              *proveedorMaterialAltaContratacionTemporalDesarrollo
 }
 
 type autorizadorLigadoContratacionTemporalDesarrollo interface {
@@ -596,6 +598,8 @@ func nuevasRutasContratacionTemporalDesarrollo(
 		registradorAuditoriaFronteraRutasExactas: alta.postgresql.registradorAuditoriaFrontera,
 		materialDietas:                           alta.postgresql.materialDietas,
 		materialCronos:                           alta.postgresql.materialCronos,
+		materialDocumentos:                       alta.postgresql.materialDocumentos,
+		materialPersonalFichaPropia:              alta.postgresql.materialPersonalFichaPropia,
 	}
 	if autoridad.registradorAuditoriaFronteraRutasExactas == nil {
 		return nil, nil, nil, errPostgreSQLContratacionTemporalDesarrolloNoDisponible

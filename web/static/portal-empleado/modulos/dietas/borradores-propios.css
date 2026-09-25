@@ -177,6 +177,31 @@
 
 .dietas-borradores-propios .dietas-comision-otro-linea input,
 .dietas-borradores-propios .dietas-comision-otro-linea select { width: 100%; min-width: 0; }
+.dietas-borradores-propios .dietas-comision-otro-linea > button { justify-self: start; align-self: end; }
+.dietas-borradores-propios .dietas-comision-otro-linea[data-dietas-otro-incompleta] { border-inline-start-color: var(--portal-aviso); }
+.dietas-borradores-propios .dietas-comision-otro-aviso {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: var(--portal-radio);
+  background: var(--portal-aviso-suave);
+  color: var(--portal-texto);
+}
+.dietas-borradores-propios .dietas-comision-otro-estado { grid-column: 1 / -1; margin: 0; color: var(--portal-muted); }
+.dietas-borradores-propios .dietas-comision-otro-linea [aria-invalid="true"] { border-color: var(--portal-aviso); }
+
+/* En escritorio cada gasto ocupa dos filas: qué, cuándo, para qué y cuánto;
+   después el justificante que queda en custodia de la persona. */
+@media (min-width: 1024px) {
+  .dietas-borradores-propios .dietas-comision-otro-linea {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr) minmax(0, 2fr) minmax(0, .8fr);
+  }
+  .dietas-borradores-propios .dietas-comision-otro-huella { grid-column: span 2; }
+}
+
+@media (max-width: 520px) {
+  .dietas-borradores-propios .dietas-comision-otro-linea { grid-template-columns: minmax(0, 1fr); }
+}
 
 .dietas-borradores-propios .dietas-comision-asignacion {
   margin: 16px 0;
@@ -201,6 +226,10 @@
 .dietas-borradores-propios .dietas-comision-asignacion dt { color: var(--portal-muted); font-size: .8rem; }
 .dietas-borradores-propios .dietas-comision-asignacion dd { margin: 4px 0; font-weight: 600; }
 .dietas-borradores-propios .dietas-comision-asignacion small { display: block; overflow-wrap: anywhere; color: var(--portal-muted); }
+
+.dietas-borradores-propios .dietas-comision-devolucion { border-inline-start: 3px solid var(--portal-aviso); }
+.dietas-borradores-propios .dietas-comision-devolucion .dietas-comision-devolucion-motivo { grid-column: 1 / -1; }
+.dietas-borradores-propios .dietas-comision-devolucion-motivo dd { font-weight: 400; overflow-wrap: anywhere; }
 
 .dietas-borradores-propios .dietas-borradores-rectificacion { min-width: 0; }
 .dietas-borradores-propios [data-dietas-rectificacion] { display: grid; gap: 12px; min-width: 0; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-lg); background: var(--portal-superficie); box-shadow: var(--portal-sombra-sm); overflow: hidden; }

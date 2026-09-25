@@ -215,6 +215,7 @@ func NewHTTPServerDesarrolloWithConfig(
 	if err != nil {
 		return nil, nil, err
 	}
+	consultasPersonal := nuevasConsultasPublicasPersonal(cfg, categoriasPersonal, registro)
 	rutasContratacion, autoridadContratacion, cerrarContratacion, err := nuevasRutasContratacionTemporalDesarrollo(
 		cfg, resolvedor, composicion.derivadorIdempotencia, composicion.emisorKMS, registro, incorporacion...,
 	)
@@ -279,9 +280,35 @@ func NewHTTPServerDesarrolloWithConfig(
 			}
 		}()
 	}
+	documentos, err := nuevosDocumentosDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, autoridadContratacion.materialDocumentos, registro)
+	if err != nil {
+		return nil, nil, err
+	}
+	if documentos != nil {
+		defer func() {
+			if !completa {
+				documentos.cerrar()
+			}
+		}()
+		rutasContratacion = append(rutasContratacion, documentos.rutas...)
+	}
+	personalEmpleado, err := nuevasRutasPersonalEmpleadoDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, autoridadContratacion.materialPersonalFichaPropia)
+	if err != nil {
+		return nil, nil, err
+	}
+	if personalEmpleado != nil {
+		defer func() {
+			if !completa {
+				personalEmpleado.cerrar()
+			}
+		}()
+	}
 	autoridadExactas := vechttp.AutoridadRutasExactas(autoridadContratacion)
 	if comisionesDietas != nil {
 		autoridadExactas = autoridadExactasConDietas{delegada: autoridadContratacion, dietas: comisionesDietas}
+	}
+	if documentos != nil {
+		autoridadExactas = autoridadExactasConDocumentos{delegada: autoridadExactas, documentos: documentos}
 	}
 	vecAPI, err := newVECShellAPICompuestaConIdentidadYRutas(
 		cfg, resolvedor, categoriasPersonal, rutasContratacion, autoridadExactas,
@@ -294,6 +321,9 @@ func NewHTTPServerDesarrolloWithConfig(
 	if comisionesDietas != nil {
 		vecAPI = comisionesDietas.proteger(vecAPI)
 	}
+	if documentos != nil {
+		vecAPI = documentos.proteger(vecAPI)
+	}
 	cfgPublica := cfg
 	cfgPublica.AuthMode = config.AuthModeDisabled
 	publicaBolsaAPI, err := publicatransitoria.NuevaAPIConCatalogos(cfgPublica, consultaCategorias)
@@ -304,7 +334,7 @@ func NewHTTPServerDesarrolloWithConfig(
 	if err != nil {
 		return nil, nil, err
 	}
-	servidor, err := server.NewHTTPServer(cfg, componerRaizConCronosEmpleado(composeVECShellAPIConBolsasPublicas(vecAPI, publicaBolsaAPI, bolsasPublicas), cronosEmpleado))
+	servidor, err := server.NewHTTPServer(cfg, componerRaizConPersonalPublico(componerRaizConPersonalEmpleado(componerRaizConCronosEmpleado(composeVECShellAPIConBolsasPublicas(vecAPI, publicaBolsaAPI, bolsasPublicas), cronosEmpleado), personalEmpleado), consultasPersonal))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -320,6 +350,12 @@ func NewHTTPServerDesarrolloWithConfig(
 	}
 	if cronosEmpleado != nil {
 		servidor.RegisterOnShutdown(cronosEmpleado.cerrar)
+	}
+	if documentos != nil {
+		servidor.RegisterOnShutdown(documentos.cerrar)
+	}
+	if personalEmpleado != nil {
+		servidor.RegisterOnShutdown(personalEmpleado.cerrar)
 	}
 	completa = true
 	return servidor, composicion, nil

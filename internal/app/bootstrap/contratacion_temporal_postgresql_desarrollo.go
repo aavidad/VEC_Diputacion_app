@@ -13,6 +13,7 @@ import (
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	postgrescontratacion "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	personaldomain "vec-diputacion-granada/internal/modules/personal/domain"
 	postgresvec "vec-diputacion-granada/internal/vec/adapters/postgres"
 	confianzaatestacion "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
 )
@@ -96,6 +97,8 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	proveedorMaterialResultadoCorreo  *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialDietas                    materialDietasDesdeCTDesarrollo
 	materialCronos                    materialCronosDesdeCTDesarrollo
+	materialDocumentos                *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialPersonalFichaPropia       *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialPersonalB2                [8]CapacidadPublicadaPersonalB2V3
 	detenerRenovacion                 func()
 	catalogoMaterial                  catalogoMaterialAutorizacionComunDesarrollo
@@ -319,6 +322,18 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	if cronosEmpleadoSolicitado(cfg.CronosEmpleadoEnabled) {
 		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialCronosDesarrollo()...)
 	}
+	if documentosSolicitados(cfg.DocumentosEnabled) {
+		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialDocumentosDesarrollo()...)
+	}
+	if cronosResolucionSolicitada(cfg.CronosEmpleadoEnabled, cfg.CronosResolucionEnabled) {
+		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialCronosResolucionDesarrollo()...)
+	}
+	if cronosNotificacionesSolicitadas(cfg.CronosEmpleadoEnabled, cfg.CronosNotificacionesEnabled) {
+		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialCronosNotificacionesDesarrollo()...)
+	}
+	if personalEmpleadoSolicitado(cfg.PersonalEmpleadoEnabled) {
+		descriptoresMaterial = append(descriptoresMaterial, descriptorMaterialFichaPropiaPersonalDesarrollo())
+	}
 	personalB2, err := cfg.PersonalB2GobiernoDesarrolloActivo()
 	if err != nil {
 		return vacias, err
@@ -355,6 +370,38 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			}
 		}
 		dependencias.materialCronos = materialCronosDesdeProveedores(cronos)
+		if cronosResolucionSolicitada(cfg.CronosEmpleadoEnabled, cfg.CronosResolucionEnabled) {
+			var resolucion [4]*proveedorMaterialAltaContratacionTemporalDesarrollo
+			for i, audiencia := range audienciasCronosResolucionDesarrollo() {
+				resolucion[i], err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, audiencia)
+				if err != nil {
+					return vacias, err
+				}
+			}
+			dependencias.materialCronos = dependencias.materialCronos.conResolucion(resolucion)
+		}
+		if cronosNotificacionesSolicitadas(cfg.CronosEmpleadoEnabled, cfg.CronosNotificacionesEnabled) {
+			var notificaciones [4]*proveedorMaterialAltaContratacionTemporalDesarrollo
+			for i, audiencia := range audienciasCronosNotificacionesDesarrollo() {
+				notificaciones[i], err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, audiencia)
+				if err != nil {
+					return vacias, err
+				}
+			}
+			dependencias.materialCronos = dependencias.materialCronos.conNotificaciones(notificaciones)
+		}
+	}
+	if documentosSolicitados(cfg.DocumentosEnabled) {
+		dependencias.materialDocumentos, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, descriptoresMaterialDocumentosDesarrollo()[0].Audiencia)
+		if err != nil {
+			return vacias, err
+		}
+	}
+	if personalEmpleadoSolicitado(cfg.PersonalEmpleadoEnabled) {
+		dependencias.materialPersonalFichaPropia, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, personaldomain.AudienciaFichaPropia)
+		if err != nil {
+			return vacias, err
+		}
 	}
 	if personalB2 {
 		// vec-server no consume B2: sólo publica sus claves para vec-interno.

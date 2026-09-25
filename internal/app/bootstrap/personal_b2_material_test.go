@@ -58,9 +58,10 @@ func TestDescriptoresPersonalB2DominiosSeparadosSinColision(t *testing.T) {
 	if len(b2) != 8 {
 		t.Fatal("B2 exige ocho descriptores")
 	}
-	todos := append(descriptoresPreviosPersonalB2Prueba(), b2...)
+	// La ficha propia de Personal convive con B2 en el mismo arranque.
+	todos := append(append(descriptoresPreviosPersonalB2Prueba(), b2...), descriptorMaterialFichaPropiaPersonalDesarrollo())
 	if _, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(todos); err != nil {
-		t.Fatalf("B2 colisiona con descriptores previos: %v", err)
+		t.Fatalf("B2 colisiona con descriptores previos o con la ficha propia: %v", err)
 	}
 	for _, d := range b2 {
 		if !strings.HasPrefix(d.Dominio, "vec.personal.registro-empleado.") || !strings.HasPrefix(d.Prefijo, "clave:capacidad:personal-b2-") || !strings.HasSuffix(d.Prefijo, ":") {
@@ -77,13 +78,17 @@ func TestDescriptoresPersonalB2DominiosSeparadosSinColision(t *testing.T) {
 }
 
 func TestDescriptoresPersonalB2ColisionRechazada(t *testing.T) {
-	previos := descriptoresPreviosPersonalB2Prueba()
+	previos := append(descriptoresPreviosPersonalB2Prueba(), descriptorMaterialFichaPropiaPersonalDesarrollo())
 	cronos := descriptoresMaterialCronosDesarrollo()[0]
+	ficha := descriptorMaterialFichaPropiaPersonalDesarrollo()
 	for i, d := range descriptoresMaterialPersonalB2Desarrollo() {
 		for nombre, alterado := range map[string]descriptorMaterialConsumidorV3Desarrollo{
-			"audiencia": {Audiencia: cronos.Audiencia, Dominio: d.Dominio, Prefijo: d.Prefijo, ProveedorNominal: d.ProveedorNominal},
-			"dominio":   {Audiencia: d.Audiencia, Dominio: cronos.Dominio, Prefijo: d.Prefijo, ProveedorNominal: d.ProveedorNominal},
-			"prefijo":   {Audiencia: d.Audiencia, Dominio: d.Dominio, Prefijo: cronos.Prefijo, ProveedorNominal: d.ProveedorNominal},
+			"audiencia":                    {Audiencia: cronos.Audiencia, Dominio: d.Dominio, Prefijo: d.Prefijo, ProveedorNominal: d.ProveedorNominal},
+			"dominio":                      {Audiencia: d.Audiencia, Dominio: cronos.Dominio, Prefijo: d.Prefijo, ProveedorNominal: d.ProveedorNominal},
+			"prefijo":                      {Audiencia: d.Audiencia, Dominio: d.Dominio, Prefijo: cronos.Prefijo, ProveedorNominal: d.ProveedorNominal},
+			"audiencia de la ficha propia": {Audiencia: ficha.Audiencia, Dominio: d.Dominio, Prefijo: d.Prefijo, ProveedorNominal: d.ProveedorNominal},
+			"dominio de la ficha propia":   {Audiencia: d.Audiencia, Dominio: ficha.Dominio, Prefijo: d.Prefijo, ProveedorNominal: d.ProveedorNominal},
+			"prefijo de la ficha propia":   {Audiencia: d.Audiencia, Dominio: d.Dominio, Prefijo: ficha.Prefijo, ProveedorNominal: d.ProveedorNominal},
 		} {
 			b2 := descriptoresMaterialPersonalB2Desarrollo()
 			b2[i] = alterado

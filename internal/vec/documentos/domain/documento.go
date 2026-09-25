@@ -11,6 +11,14 @@ var ErrDocumentoInvalido = errors.New("documentos: documento invalido")
 
 const EstadoFirmaPendienteProveedor = "pendiente_proveedor"
 
+// Custodia indica quien guarda los bytes. Con custodia VEC el original esta en
+// AlmacenObjetos y se puede descargar; con custodia externa VEC solo conserva
+// la referencia opaca del custodio y la huella, nunca el contenido.
+const (
+	CustodiaVEC     = "vec"
+	CustodiaExterna = "externa"
+)
+
 // Documento identifica una incorporacion administrativa; la identidad no se
 // deduce de la huella porque dos productores pueden conservar los mismos bytes.
 // NumeroVEC es numeracion interna y nunca acredita asiento registral general.
@@ -33,23 +41,73 @@ type Documento struct {
 	Proteccion           string
 	EstadoFirma          string
 	CreadoEn             time.Time
+	// Custodia es CustodiaVEC o CustodiaExterna. Con custodia externa,
+	// ObjetoRef y ObjetoVersion van vacios y CustodiaExternaRef identifica el
+	// original en su custodio; MIME y Tamano pueden no estar declarados.
+	Custodia           string
+	CustodiaExternaRef ReferenciaCustodiaExterna
 }
 
 func (d Documento) Validar() error {
 	if !ReferenciaOpacaValida(d.ID) || !NumeroVECValido(d.NumeroVEC) ||
 		!IdentificadorTecnicoValido(d.ModuloID) || !ReferenciaOpacaValida(d.ExpedienteRef) ||
 		!ReferenciaOpacaValida(d.TipoRef) || d.Version == 0 ||
-		!ReferenciaValida(d.ObjetoRef) || !ReferenciaValida(d.ObjetoVersion) ||
 		!ReferenciaOpacaValida(d.PoliticaRef) || d.VersionPolitica == 0 ||
 		!HuellaValida(d.HuellaSHA256) || !HuellaValida(d.HuellaPoliticaSHA256) ||
-		d.Tamano < 1 || d.MIME == "" || len(d.MIME) > 255 ||
-		strings.ContainsAny(d.MIME, "\r\n\x00") ||
 		d.EstadoFirma != EstadoFirmaPendienteProveedor ||
 		d.ConservacionHasta.IsZero() || d.CreadoEn.IsZero() ||
 		(d.Proteccion != "conservacion" && d.Proteccion != "bloqueo") {
 		return ErrDocumentoInvalido
 	}
+	switch d.Custodia {
+	case CustodiaVEC:
+		if !ReferenciaValida(d.ObjetoRef) || !ReferenciaValida(d.ObjetoVersion) ||
+			d.Tamano < 1 || !MIMEValido(d.MIME) || d.CustodiaExternaRef != (ReferenciaCustodiaExterna{}) {
+			return ErrDocumentoInvalido
+		}
+	case CustodiaExterna:
+		if d.ObjetoRef != "" || d.ObjetoVersion != "" || d.Tamano < 0 ||
+			(d.MIME != "" && !MIMEValido(d.MIME)) ||
+			d.CustodiaExternaRef.Validar() != nil || d.CustodiaExternaRef.HuellaSHA256 != d.HuellaSHA256 {
+			return ErrDocumentoInvalido
+		}
+	default:
+		return ErrDocumentoInvalido
+	}
 	return nil
+}
+
+// Descargable indica si VEC custodia los bytes y puede entregarlos.
+func (d Documento) Descargable() bool { return d.Custodia == CustodiaVEC }
+
+// ReferenciaCustodiaExterna es el contrato comun para un original que guarda
+// otro sistema: quien lo custodia, la referencia opaca que ese custodio da y
+// la huella SHA-256 de los bytes. Es lo que hoy anotan los justificantes de
+// Dietas, Bolsa o los correos de Contratacion. No acredita firma, registro ni
+// entrega, y VEC no recibe el contenido.
+type ReferenciaCustodiaExterna struct {
+	CustodioID   string
+	Referencia   string
+	HuellaSHA256 string
+}
+
+func (r ReferenciaCustodiaExterna) Validar() error {
+	if !IdentificadorTecnicoValido(r.CustodioID) || !ReferenciaCustodioValida(r.Referencia) || !HuellaValida(r.HuellaSHA256) {
+		return ErrDocumentoInvalido
+	}
+	return nil
+}
+
+var mimeValido = regexp.MustCompile(`^[a-z0-9.+-]+/[a-z0-9.+-]+$`)
+
+// MIMEValido admite un tipo/subtipo en minusculas, sin parametros.
+func MIMEValido(s string) bool { return len(s) >= 3 && len(s) <= 255 && mimeValido.MatchString(s) }
+
+// ReferenciaCustodioValida es mas estricta que ReferenciaValida: ademas de
+// imprimible y sin espacios, excluye rutas y comodines. Coincide con
+// vec_documentos.referencia_custodio_v1.
+func ReferenciaCustodioValida(s string) bool {
+	return ReferenciaValida(s) && !strings.ContainsAny(s, "/\\*?%")
 }
 
 func ReferenciaValida(s string) bool {

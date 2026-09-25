@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
 	"vec-diputacion-granada/internal/modules/personal/domain"
 )
 
@@ -88,5 +90,67 @@ func TestFuenteRechazaTamanoYTipoNoRegular(t *testing.T) {
 	}
 	if _, err := fuente.ObtenerRPTPublica(context.Background()); !errors.Is(err, domain.ErrRPTPublicaNoDisponible) {
 		t.Fatalf("enlace a tipo no regular = %v", err)
+	}
+}
+
+func TestFuenteConservaEnMemoriaElCatalogoValidadoMientrasNoCambieElFichero(t *testing.T) {
+	original, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "..", "data", "catalogos", "rpt", "v1.rpt-2026.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ruta := filepath.Join(t.TempDir(), "rpt.json")
+	if err := os.WriteFile(ruta, original, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	fuente, err := NuevaFuente(ruta)
+	if err != nil {
+		t.Fatal(err)
+	}
+	primero, err := fuente.ObtenerRPTPublica(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(ruta)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Mismo tamaño y misma fecha con otro contenido: si se releyera, la huella
+	// fallaría. Que siga respondiendo prueba que no se vuelve a leer.
+	if err := os.WriteFile(ruta, make([]byte, len(original)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(ruta, info.ModTime(), info.ModTime()); err != nil {
+		t.Fatal(err)
+	}
+	segundo, err := fuente.ObtenerRPTPublica(context.Background())
+	if err != nil {
+		t.Fatalf("catálogo en memoria = %v", err)
+	}
+	if len(segundo.Puestos) != len(primero.Puestos) || segundo.Fuente != primero.Fuente {
+		t.Fatalf("copia en memoria distinta")
+	}
+	// Cada consulta recibe su copia: modificarla no altera la memoria.
+	segundo.Puestos[0].Denominacion = "ALTERADA"
+	segundo.Categorias[0].Grupos[0] = "ALTERADO"
+	tercero, err := fuente.ObtenerRPTPublica(context.Background())
+	if err != nil || tercero.Puestos[0].Denominacion != primero.Puestos[0].Denominacion ||
+		tercero.Categorias[0].Grupos[0] != primero.Categorias[0].Grupos[0] {
+		t.Fatalf("la memoria compartió datos mutables: %v", err)
+	}
+	// Otra fecha de modificación obliga a validar de nuevo: el contenido falso
+	// ya no se acepta.
+	otra := info.ModTime().Add(time.Second)
+	if err := os.Chtimes(ruta, otra, otra); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fuente.ObtenerRPTPublica(context.Background()); !errors.Is(err, domain.ErrRPTPublicaNoDisponible) {
+		t.Fatalf("fichero cambiado = %v", err)
+	}
+	// Retirada la fuente, falla cerrada aunque hubiera memoria.
+	if err := os.Remove(ruta); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fuente.ObtenerRPTPublica(context.Background()); !errors.Is(err, domain.ErrRPTPublicaNoDisponible) {
+		t.Fatalf("fuente retirada = %v", err)
 	}
 }

@@ -1,5 +1,9 @@
 # D7: acceso técnico de Personal para Dietas
 
+> **Sustituido por [F4b](../f4b_acceso_dietas/README.md) (25/09/2026).** No consta
+> aplicado en la principal y no encaja con la composición actual de Dietas,
+> que necesita once cuentas. No aplicarlo junto con F4b.
+
 Paquete **aditivo e independiente de F4**. F4 mantiene exactamente sus ocho
 LOGIN `vec_dietas_r1d_*_desarrollo`; D7 crea dos cuentas nominales fuera de
 ese prefijo y después las activa. No instala migraciones, no modifica

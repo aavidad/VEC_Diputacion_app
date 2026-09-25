@@ -1,4 +1,4 @@
-import { crearTraductorPersonal } from "./i18n.js?v=20260925-b2-sin-refs-v1";
+import { crearTraductorPersonal } from "./i18n.js?v=20260925-personal-e10-v1";
 
 const PESTANAS = Object.freeze([
   ["ficha", "ficha_tab_ficha"], ["relaciones", "ficha_tab_relaciones"],
@@ -14,12 +14,14 @@ const BLOQUES = Object.freeze({
   economia: { titulo: "ficha_economia_titulo", ayuda: "ficha_economia_ayuda", columnas: [["documento", "ficha_cab_documento"], ["periodo", "ficha_cab_periodo"], ["estado", "ficha_cab_estado"]] },
   documentos: { titulo: "ficha_documentos_titulo", ayuda: "ficha_documentos_ayuda", columnas: [["documento", "ficha_cab_documento"], ["fecha", "ficha_cab_fecha"], ["estado", "ficha_cab_estado"]] },
 });
-const ESTADOS = new Set(["disponible", "vacio", "no_configurado", "denegado"]);
+const ESTADOS = new Set(["disponible", "vacio", "no_configurado", "denegado", "excede_limite"]);
+/** Longitud máxima de una celda; la misma que valida el cliente de la ficha propia. */
+export const LIMITE_TEXTO_CAMPO_FICHA = 300;
 const ETIQUETAS_ESTADO = Object.freeze({
   sin_consulta: "ficha_estado_sin_consulta", cargando: "ficha_estado_cargando",
   disponible: "ficha_estado_disponible", vacio: "ficha_estado_vacio",
   no_configurado: "ficha_estado_no_configurado", denegado: "ficha_estado_denegado",
-  error: "ficha_estado_error",
+  excede_limite: "ficha_estado_excede_limite", error: "ficha_estado_error",
 });
 
 function nodo(d, etiqueta, texto) { const n = d.createElement(etiqueta); if (texto !== undefined) n.textContent = texto; return n; }
@@ -49,19 +51,20 @@ function accesos(d, t, navegarModulo, destinosDisponibles) {
   }
   return acciones;
 }
-function portada(d, t, navegarModulo, destinosDisponibles, estados) {
+function portada(d, t, navegarModulo, destinosDisponibles, estados, visibles, ocultarSinFuente) {
+  const accesosPanel = panel(d, t("ficha_accesos_titulo"), [accesos(d, t, navegarModulo, destinosDisponibles)], "personal-ficha-panel-ancho");
+  if (ocultarSinFuente && visibles.length === 0) return [accesosPanel];
   const bloques = nodo(d, "div"); bloques.className = "personal-ficha-bloques";
-  for (const clave of Object.keys(BLOQUES)) {
+  for (const clave of visibles) {
     const ficha = nodo(d, "div"); ficha.className = "personal-ficha-bloque";
     ficha.dataset.personalFichaEstado = estados[clave];
     const estado = nodo(d, "span", t(ETIQUETAS_ESTADO[estados[clave]])); estado.className = "personal-ficha-estado";
     ficha.append(nodo(d, "strong", t(BLOQUES[clave].titulo)), estado); bloques.append(ficha);
   }
-  const resumen = [mensaje(d, t("ficha_fuente_pendiente"))];
-  if (Object.values(estados).every((estado) => estado === "no_configurado")) resumen.push(mensaje(d, t("ficha_sin_datos")));
+  const resumen = ocultarSinFuente ? [] : [mensaje(d, t("ficha_fuente_pendiente"))];
+  if (!ocultarSinFuente && Object.values(estados).every((estado) => estado === "no_configurado")) resumen.push(mensaje(d, t("ficha_sin_datos")));
   resumen.push(bloques);
-  return [panel(d, t("ficha_resumen"), resumen, "personal-ficha-panel-ancho"),
-    panel(d, t("ficha_accesos_titulo"), [accesos(d, t, navegarModulo, destinosDisponibles)], "personal-ficha-panel-ancho")];
+  return [panel(d, t("ficha_resumen"), resumen, "personal-ficha-panel-ancho"), accesosPanel];
 }
 function validarResultado(resultado, bloque) {
   if (!resultado || typeof resultado !== "object" || !ESTADOS.has(resultado.estado)) throw new TypeError("respuesta de ficha no válida");
@@ -69,14 +72,14 @@ function validarResultado(resultado, bloque) {
   if (typeof resultado.fuente !== "string" || !resultado.fuente.trim() || resultado.fuente.length > 160 ||
       typeof resultado.actualizado_en !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/u.test(resultado.actualizado_en) ||
       !Number.isFinite(Date.parse(resultado.actualizado_en)) ||
-      !Array.isArray(resultado.items) || resultado.items.length > 50 ||
+      !Array.isArray(resultado.items) || resultado.items.length > 200 ||
       (resultado.estado === "vacio" && resultado.items.length !== 0) || (resultado.estado === "disponible" && resultado.items.length === 0)) throw new TypeError("respuesta de ficha no válida");
   const columnas = BLOQUES[bloque].columnas.map(([campo]) => campo);
   const items = resultado.items.map((item) => {
     if (!item || typeof item !== "object") throw new TypeError("fila de ficha no válida");
     const visible = Object.fromEntries(columnas.map((campo) => {
       const valor = item[campo];
-      if (valor !== undefined && (typeof valor !== "string" || valor.length > 240)) throw new TypeError("campo de ficha no válido");
+      if (valor !== undefined && (typeof valor !== "string" || valor.length > LIMITE_TEXTO_CAMPO_FICHA)) throw new TypeError("campo de ficha no válido");
       return [campo, valor ?? ""];
     }));
     if (!Object.values(visible).some((valor) => valor.trim())) throw new TypeError("fila de ficha sin datos visibles");
@@ -123,7 +126,7 @@ function pintarBloque(d, principal, t, bloque, resultado) {
     metadatos.className = "personal-ficha-procedencia"; piezas.push(metadatos);
     piezas.push(resultado.estado === "vacio" ? mensaje(d, t("ficha_vacio")) : tabla(d, t, bloque, resultado.items));
   } else {
-    const clave = { cargando: "ficha_cargando", no_configurado: "ficha_no_configurado", denegado: "ficha_denegado", error: "ficha_error" }[resultado.estado];
+    const clave = { cargando: "ficha_cargando", no_configurado: "ficha_no_configurado", denegado: "ficha_denegado", excede_limite: "ficha_excede_limite", error: "ficha_error" }[resultado.estado];
     piezas.push(mensaje(d, t(clave), resultado.estado === "error" ? "alert" : "status"));
   }
   principal.replaceChildren(panel(d, t(definicion.titulo), piezas, "personal-ficha-panel-ancho"));
@@ -134,18 +137,23 @@ function pintarBloque(d, principal, t, bloque, resultado) {
  * cliente de servidor que resuelva la identidad y autorice los campos; la vista
  * nunca recibe ni envía referencias de persona o empleado. Bloques sin cliente
  * permanecen no configurados y se consultan solo al abrir su pestaña.
+ * Con `ocultarSinFuente` (portal real) los apartados sin cliente no se ofrecen,
+ * no se muestran textos explicativos y, si no queda ninguno, se abre Catálogos.
  */
-export function montarVistaFichaIntegralPersonal({ raiz, anunciar = () => {}, registrarDesmontar, montarCatalogos, navegarModulo, destinosDisponibles = {}, fuentes = {} } = {}) {
+export function montarVistaFichaIntegralPersonal({ raiz, anunciar = () => {}, registrarDesmontar, montarCatalogos, navegarModulo, destinosDisponibles = {}, fuentes = {}, ocultarSinFuente = false } = {}) {
   if (!raiz?.append || typeof anunciar !== "function" || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function") ||
       (montarCatalogos !== undefined && typeof montarCatalogos !== "function") ||
       (navegarModulo !== undefined && typeof navegarModulo !== "function") || !destinosDisponibles || typeof destinosDisponibles !== "object" || Array.isArray(destinosDisponibles) ||
-      !fuentes || typeof fuentes !== "object") throw new TypeError("vista ficha integral de Personal no disponible");
+      !fuentes || typeof fuentes !== "object" || typeof ocultarSinFuente !== "boolean") throw new TypeError("vista ficha integral de Personal no disponible");
   const d = raiz.ownerDocument; if (!d?.createElement) throw new TypeError("documento ficha integral de Personal no disponible");
   const t = crearTraductorPersonal(); const contenedor = nodo(d, "section"); contenedor.className = "modulo-personal";
   contenedor.dataset.personalFichaIntegral = ""; raiz.append(contenedor);
   const estados = Object.fromEntries(Object.keys(BLOQUES).map((clave) => [clave,
     Object.hasOwn(fuentes, clave) && typeof fuentes[clave]?.consultarPropios === "function" ? "sin_consulta" : "no_configurado"]));
-  let activa = true; let actual = "ficha"; let vuelo; let limpiarCatalogos; let secuencia = 0;
+  const visibles = Object.keys(BLOQUES).filter((clave) => !ocultarSinFuente || estados[clave] !== "no_configurado");
+  const pestanas = PESTANAS.filter(([clave]) => clave === "ficha" || visibles.includes(clave) || (clave === "catalogos" && (!ocultarSinFuente || montarCatalogos)));
+  let activa = true; let actual = ocultarSinFuente && visibles.length === 0 && montarCatalogos ? "catalogos" : "ficha";
+  let vuelo; let limpiarCatalogos; let secuencia = 0;
   const limpiar = () => { const fn = limpiarCatalogos; limpiarCatalogos = undefined; fn?.(); };
   const desmontar = () => { if (!activa) return; activa = false; secuencia += 1; vuelo?.abort(); limpiar(); contenedor.remove?.(); };
   registrarDesmontar?.(desmontar);
@@ -161,15 +169,15 @@ export function montarVistaFichaIntegralPersonal({ raiz, anunciar = () => {}, re
     if (vuelo && Object.hasOwn(estados, actual) && estados[actual] === "cargando") estados[actual] = "sin_consulta";
     secuencia += 1; vuelo?.abort(); vuelo = undefined; actual = clave;
     ayudaFicha.mostrar(clave === "ficha" ? "ficha_accesos_ayuda" : BLOQUES[clave]?.ayuda);
-    for (const [valor] of PESTANAS) {
+    for (const [valor] of pestanas) {
       const tab = tabs.querySelector?.(`[data-personal-ficha-tab="${valor}"]`);
       tab?.setAttribute("aria-selected", String(valor === clave)); tab?.setAttribute("tabindex", valor === clave ? "0" : "-1");
     }
     principal.setAttribute("aria-labelledby", `personal-ficha-tab-${clave}`);
-    if (clave === "ficha") { principal.replaceChildren(...portada(d, t, navegarModulo, destinosDisponibles, estados)); return; }
+    if (clave === "ficha") { principal.replaceChildren(...portada(d, t, navegarModulo, destinosDisponibles, estados, visibles, ocultarSinFuente)); return; }
     if (clave === "catalogos") {
       const hueco = nodo(d, "div"); hueco.dataset.personalFichaCatalogos = "";
-      principal.replaceChildren(panel(d, t("ficha_catalogos_titulo"), [nodo(d, "p", t("ficha_catalogos_completos")), hueco], "personal-ficha-panel-ancho"));
+      principal.replaceChildren(panel(d, t("ficha_catalogos_titulo"), ocultarSinFuente ? [hueco] : [nodo(d, "p", t("ficha_catalogos_completos")), hueco], "personal-ficha-panel-ancho"));
       if (!montarCatalogos) { hueco.append(mensaje(d, t("ficha_catalogos_pendiente"))); return; }
       const turno = secuencia;
       Promise.resolve().then(() => montarCatalogos({ raiz: hueco, anunciar, registrarDesmontar: (fn) => {
@@ -197,15 +205,15 @@ export function montarVistaFichaIntegralPersonal({ raiz, anunciar = () => {}, re
       pintarBloque(d, principal, t, clave, { estado: "error" }); anunciar(t("ficha_error"), "error");
     }).finally(() => { if (vuelo === controlador) vuelo = undefined; });
   };
-  PESTANAS.forEach(([clave, texto], indice) => {
+  pestanas.forEach(([clave, texto], indice) => {
     const tab = nodo(d, "button", t(texto)); tab.type = "button"; tab.id = `personal-ficha-tab-${clave}`;
     tab.dataset.personalFichaTab = clave; tab.setAttribute("role", "tab"); tab.setAttribute("aria-controls", principal.id);
     tab.addEventListener("click", () => pintar(clave));
     tab.addEventListener("keydown", (evento) => {
-      const salto = { ArrowRight: 1, ArrowLeft: -1, Home: -indice, End: PESTANAS.length - 1 - indice }[evento.key];
+      const salto = { ArrowRight: 1, ArrowLeft: -1, Home: -indice, End: pestanas.length - 1 - indice }[evento.key];
       if (salto === undefined) return; evento.preventDefault();
-      const destino = (indice + salto + PESTANAS.length) % PESTANAS.length;
-      pintar(PESTANAS[destino][0]); tabs.querySelector?.(`[data-personal-ficha-tab="${PESTANAS[destino][0]}"]`)?.focus?.();
+      const destino = (indice + salto + pestanas.length) % pestanas.length;
+      pintar(pestanas[destino][0]); tabs.querySelector?.(`[data-personal-ficha-tab="${pestanas[destino][0]}"]`)?.focus?.();
     }); tabs.append(tab);
   });
   contenedor.append(cabecera, tabs, principal); pintar(actual); return Object.freeze({ desmontar });

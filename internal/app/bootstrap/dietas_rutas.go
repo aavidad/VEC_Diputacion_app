@@ -259,6 +259,12 @@ func nuevasRutasDietasDesarrollo(cfg config.Config, resolvedor httpapi.DemoIdent
 	return a, cerrar, nil
 }
 
+// abrirPoolRutasDietas abre un pool nominal de desarrollo (TLS verificado,
+// LOGIN miembro exclusivo de un único rol NOLOGIN) y devuelve su usuario.
+// Pendiente: lo usan también Cronos (cronos_empleado.go) y la ficha propia
+// de Personal (personal_empleado.go), así que debería llamarse
+// abrirPoolFronteraDesarrollo y recibir su application_name. No se renombra
+// en este corte para no chocar con las ramas paralelas que lo llaman.
 func abrirPoolRutasDietas(ctx context.Context, dsn, rol string) (*pgxpool.Pool, string, error) {
 	fallo := httpapi.ErrRutaDietasNoDisponible
 	if dsn == "" {
@@ -286,7 +292,7 @@ func abrirPoolRutasDietas(ctx context.Context, dsn, rol string) (*pgxpool.Pool, 
 	e = pool.QueryRow(ctx, `SELECT session_user::text,
  session_user=current_user AND r.rolcanlogin AND r.rolinherit AND NOT(r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)
  AND (SELECT count(*)=1 FROM pg_catalog.pg_auth_members m WHERE m.member=r.oid)
- AND EXISTS(SELECT 1 FROM pg_catalog.pg_auth_members m JOIN pg_catalog.pg_roles g ON g.oid=m.roleid WHERE m.member=r.oid AND g.rolname=$1 AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option AND g.rolinherit = (g.rolname IN ('vec_autorizacion_fuente','vec_autorizacion_registro','vec_dietas_ejecutor')) AND NOT(g.rolcanlogin OR g.rolsuper OR g.rolcreatedb OR g.rolcreaterole OR g.rolreplication OR g.rolbypassrls)
+ AND EXISTS(SELECT 1 FROM pg_catalog.pg_auth_members m JOIN pg_catalog.pg_roles g ON g.oid=m.roleid WHERE m.member=r.oid AND g.rolname=$1 AND m.inherit_option AND NOT m.set_option AND NOT m.admin_option AND g.rolinherit = (g.rolname IN ('vec_autorizacion_fuente','vec_autorizacion_registro','vec_dietas_ejecutor','vec_personal_ejecutor','vec_personal_registrador_frontera')) AND NOT(g.rolcanlogin OR g.rolsuper OR g.rolcreatedb OR g.rolcreaterole OR g.rolreplication OR g.rolbypassrls)
  AND NOT EXISTS(SELECT 1 FROM pg_catalog.pg_auth_members superior WHERE superior.member=g.oid))
  FROM pg_catalog.pg_roles r WHERE r.rolname=session_user`, rol).Scan(&usuario, &valido)
 	if e != nil || !valido {

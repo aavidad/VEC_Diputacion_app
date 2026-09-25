@@ -29,6 +29,7 @@ var (
 	errRegistroEmpleadoB2Cobertura    = errors.New("personal: cobertura de vacantes no acreditada")
 	errRegistroEmpleadoB2Conflicto    = errors.New("personal: conflicto de registro")
 	errRegistroEmpleadoB2NoDisponible = errors.New("personal: registro no disponible")
+	errRegistroEmpleadoB2ExcedeLimite = errors.New("personal: respuesta de registro excede su límite")
 )
 
 type iniciadorRegistroEmpleadoB2 interface {
@@ -135,6 +136,11 @@ func normalizarErrorRegistroEmpleadoB2(ctx context.Context, err error) error {
 	// vigencia. Todas estas causas comparten el mismo conflicto opaco.
 	if errors.As(err, &pg) && (pg.Code == "23505" || pg.Code == "23514") {
 		return errRegistroEmpleadoB2Conflicto
+	}
+	// 54000: la función SQL rechaza una respuesta con más filas de las que
+	// admite su contrato (p. ej. ficha propia de más de 200 relaciones).
+	if errors.As(err, &pg) && pg.Code == "54000" {
+		return errRegistroEmpleadoB2ExcedeLimite
 	}
 	return errRegistroEmpleadoB2NoDisponible
 }

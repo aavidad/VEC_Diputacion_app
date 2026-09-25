@@ -28,13 +28,6 @@ var (
 	errPostimagenPersonalDietasNoAcreditada           = errors.New("bootstrap: postimagen Personal para dietas no acreditada")
 )
 
-// La firma y huella canónicas de Personal 000010 pertenecen a la composición
-// externa y aún no constan en este árbol. La activación permanece cerrada
-// hasta incorporar su preflight exacto sobre la base destino.
-func acreditarPostimagenPersonalDietas(context.Context, *pgxpool.Pool) error {
-	return errPostimagenPersonalDietasNoAcreditada
-}
-
 type poolOperativoPostgreSQLDietasDesarrollo interface {
 	Ping(context.Context) error
 	QueryRow(context.Context, string, ...any) pgx.Row
