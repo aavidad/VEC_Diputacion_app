@@ -209,8 +209,11 @@ if [[ ${VEC_GO_INTEGRACION:-0} == 1 ]]; then
   (cd "$repo_dir" && \
     VEC_CONTEXTO_ACTOR_CORPORATIVO_POSTGRES_DSN="postgres://vec_ca_runtime_p8:ensayo-desechable@127.0.0.1:$puerto/$base?sslmode=disable" \
     VEC_CONTEXTO_ACTOR_CORPORATIVO_ADMIN_DSN="postgres://postgres@127.0.0.1:$puerto/$base?sslmode=disable" \
-    go test -count=1 -run 'TestIntegracionPostgreSQLRevalidacionVinculoCorporativo' ./internal/vec/adapters/contextoactor/postgres/) \
-    || fallo 'integración Go del adaptador'
+    go test -count=1 -v -run 'TestIntegracionPostgreSQLRevalidacionVinculoCorporativo' ./internal/vec/adapters/contextoactor/postgres/) \
+    > "${TMPDIR:-/tmp}/vec_p8_go_$$" 2>&1 || { cat "${TMPDIR:-/tmp}/vec_p8_go_$$" >&2; fallo 'integración Go del adaptador'; }
+  grep -q -- '--- PASS: TestIntegracionPostgreSQLRevalidacionVinculoCorporativo' "${TMPDIR:-/tmp}/vec_p8_go_$$" \
+    || { rm -f "${TMPDIR:-/tmp}/vec_p8_go_$$"; fallo 'la integración Go no se ejecutó (omitida)'; }
+  rm -f "${TMPDIR:-/tmp}/vec_p8_go_$$"
   ok 'adaptador Go contra PostgreSQL 18.4'
 fi
 
