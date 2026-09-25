@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import * as i18nCronos from "./modulos/cronos/i18n.js";
+import * as composicionEmpleado from "./portal-composicion-empleado.js";
 import {
   componerCronosInterno,
   componerCronosVisible,
@@ -15,6 +16,10 @@ test("Cronos solo compone el recorrido visible y falla cerrado sin él", () => {
   assert.equal(componerCronosVisible({
     presentador: { crearPresentadorCronos() { throw new Error("no debe usar presentador de demostración"); } },
   }), undefined);
+});
+
+test("la composición no exporta el montaje de Dietas de presentación", () => {
+  assert.equal(Object.hasOwn(composicionEmpleado, "componerDietasVisible"), false);
 });
 
 function recursosDietas(llamadas, { cliente, asignacion, calculador, visor, montar }) {
