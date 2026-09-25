@@ -48,10 +48,6 @@ func detalleInformeDefinitivoPrueba() ports.DetalleExpedienteRRHH {
 	return d
 }
 
-func ultimoHitoInformeDefinitivoPrueba(d ports.DetalleExpedienteRRHH) ports.HitoExpedienteRRHH {
-	return d.Hitos[len(d.Hitos)-1]
-}
-
 func detalleInformeDefinitivoPruebaVersionNueve() ports.DetalleExpedienteRRHH {
 	d := detalleInformeDefinitivoPrueba()
 	d.Hitos[6] = ports.HitoExpedienteRRHH{
@@ -79,7 +75,7 @@ func detalleInformeDefinitivoPruebaVersionNueve() ports.DetalleExpedienteRRHH {
 
 func TestInformeDefinitivoPDFRealDeterministaYMarcado(t *testing.T) {
 	d := detalleInformeDefinitivoPrueba()
-	r := RenderizadorBorradorDesarrollo{PDF: pdf.Renderizador{}}
+	r := RenderizadorBorradorDesarrollo{PDF: pdf.Renderizador{}, Plantillas: plantillasPrueba(t)}
 	primero, err := r.RenderizarBorrador(context.Background(), ports.BorradorInformeDefinitivo, d)
 	if err != nil {
 		t.Fatal(err)
@@ -88,7 +84,10 @@ func TestInformeDefinitivoPDFRealDeterministaYMarcado(t *testing.T) {
 	if err != nil || !bytes.Equal(primero, segundo) || !bytes.HasPrefix(primero, []byte("%PDF-")) {
 		t.Fatalf("PDF no determinista o inválido: %v", err)
 	}
-	contenido := contenidoInformeDefinitivoDesarrollo(d, ultimoHitoInformeDefinitivoPrueba(d), nil)
+	contenido, err := contenidoBorradorDesarrollo(ports.BorradorInformeDefinitivo, d, nil, plantillasPrueba(t))
+	if err != nil {
+		t.Fatal(err)
+	}
 	texto := contenido.Titulo + "\n" + strings.Join(contenido.Parrafos, "\n")
 	for _, esperado := range []string{"NO FIRMADO NI VALIDADO", "2026/CT-0001", "100,00 %", "Versión de origen: 7", "Pendiente de completar", "no se han inventado", "Existe bolsa vigente para la categoría: Afirmativa"} {
 		if !strings.Contains(texto, esperado) {
@@ -101,7 +100,7 @@ func TestInformeDefinitivoPDFRealDeterministaYMarcado(t *testing.T) {
 }
 
 func TestInformeDefinitivoRechazaAntecedenteAusenteYCancelacion(t *testing.T) {
-	r := RenderizadorBorradorDesarrollo{PDF: pdf.Renderizador{}}
+	r := RenderizadorBorradorDesarrollo{PDF: pdf.Renderizador{}, Plantillas: plantillasPrueba(t)}
 	for _, mutar := range []func(*ports.DetalleExpedienteRRHH){
 		func(d *ports.DetalleExpedienteRRHH) { d.Resumen.Version = 6 },
 		func(d *ports.DetalleExpedienteRRHH) { d.Hitos[6].AccionClave = "otra_actuacion" },
@@ -144,14 +143,14 @@ func TestBorradoresRRHHAceptanPropuestaHistoricaTrasResolucionYAnotacion(t *test
 	anotacion.RealizadaEn = anotacion.RealizadaEn.Add(time.Minute)
 	d11.Hitos = append(d11.Hitos, anotacion)
 	d11.Resumen.Version, d11.Resumen.ActualizadoEn = 11, anotacion.RealizadaEn
-	r := RenderizadorBorradorDesarrollo{PDF: pdf.Renderizador{}}
+	r := RenderizadorBorradorDesarrollo{PDF: pdf.Renderizador{}, Plantillas: plantillasPrueba(t)}
 	for _, detalle := range []ports.DetalleExpedienteRRHH{d9, d10, d11} {
 		for _, tipo := range []ports.TipoBorradorRRHH{
 			ports.BorradorInformeDefinitivo, ports.BorradorResolucion, ports.BorradorDiligencia,
 			ports.BorradorTomaPosesion, ports.BorradorNotificacion, ports.BorradorComunicacionCentro,
 		} {
 			t.Run(fmt.Sprintf("v%d/%s", detalle.Resumen.Version, tipo), func(t *testing.T) {
-				contenido, err := contenidoBorradorDesarrollo(tipo, detalle, nil)
+				contenido, err := contenidoBorradorDesarrollo(tipo, detalle, nil, plantillasPrueba(t))
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -174,7 +173,7 @@ func TestBorradoresRRHHAceptanPropuestaHistoricaTrasResolucionYAnotacion(t *test
 }
 
 func TestBorradoresRRHHRechazanHistoriaConHuecoOSinPropuestaReal(t *testing.T) {
-	r := RenderizadorBorradorDesarrollo{PDF: pdf.Renderizador{}}
+	r := RenderizadorBorradorDesarrollo{PDF: pdf.Renderizador{}, Plantillas: plantillasPrueba(t)}
 	for _, mutar := range []func(*ports.DetalleExpedienteRRHH){
 		func(d *ports.DetalleExpedienteRRHH) { d.Hitos[7].Secuencia = 9 },
 		func(d *ports.DetalleExpedienteRRHH) { d.Hitos[8].AccionClave = "actuacion_sintetica" },
@@ -189,7 +188,7 @@ func TestBorradoresRRHHRechazanHistoriaConHuecoOSinPropuestaReal(t *testing.T) {
 
 func TestResolucionPDFRealDeterministaSinAutoridadInventada(t *testing.T) {
 	d := detalleInformeDefinitivoPrueba()
-	r := RenderizadorBorradorDesarrollo{PDF: pdf.Renderizador{}}
+	r := RenderizadorBorradorDesarrollo{PDF: pdf.Renderizador{}, Plantillas: plantillasPrueba(t)}
 	primero, err := r.RenderizarBorrador(context.Background(), ports.BorradorResolucion, d)
 	if err != nil {
 		t.Fatal(err)
@@ -198,7 +197,10 @@ func TestResolucionPDFRealDeterministaSinAutoridadInventada(t *testing.T) {
 	if err != nil || !bytes.Equal(primero, segundo) || !bytes.HasPrefix(primero, []byte("%PDF-")) {
 		t.Fatalf("resolución PDF no determinista o inválida: %v", err)
 	}
-	contenido := contenidoResolucionDesarrollo(d, ultimoHitoInformeDefinitivoPrueba(d), nil)
+	contenido, err := contenidoBorradorDesarrollo(ports.BorradorResolucion, d, nil, plantillasPrueba(t))
+	if err != nil {
+		t.Fatal(err)
+	}
 	texto := contenido.Titulo + "\n" + strings.Join(contenido.Parrafos, "\n")
 	for _, esperado := range []string{"Resolución — borrador", "NO FIRMADO NI VALIDADO", "2026/CT-0001", "100,00 %", "Versión de origen: 7", "Órgano competente: pendiente", "Persona propuesta: identificación autorizada pendiente", "SIN EFECTOS ADMINISTRATIVOS"} {
 		if !strings.Contains(texto, esperado) {
@@ -212,7 +214,7 @@ func TestResolucionPDFRealDeterministaSinAutoridadInventada(t *testing.T) {
 
 func TestDiligenciaPDFRealDeterministaSinHechosInventados(t *testing.T) {
 	d := detalleInformeDefinitivoPrueba()
-	r := RenderizadorBorradorDesarrollo{PDF: pdf.Renderizador{}}
+	r := RenderizadorBorradorDesarrollo{PDF: pdf.Renderizador{}, Plantillas: plantillasPrueba(t)}
 	primero, err := r.RenderizarBorrador(context.Background(), ports.BorradorDiligencia, d)
 	if err != nil {
 		t.Fatal(err)
@@ -221,7 +223,10 @@ func TestDiligenciaPDFRealDeterministaSinHechosInventados(t *testing.T) {
 	if err != nil || !bytes.Equal(primero, segundo) || !bytes.HasPrefix(primero, []byte("%PDF-")) {
 		t.Fatalf("diligencia PDF no determinista o inválida: %v", err)
 	}
-	contenido := contenidoDiligenciaDesarrollo(d, ultimoHitoInformeDefinitivoPrueba(d), nil)
+	contenido, err := contenidoBorradorDesarrollo(ports.BorradorDiligencia, d, nil, plantillasPrueba(t))
+	if err != nil {
+		t.Fatal(err)
+	}
 	texto := contenido.Titulo + "\n" + strings.Join(contenido.Parrafos, "\n")
 	for _, esperado := range []string{"Diligencia — borrador", "NO FIRMADO NI VALIDADO", "2026/CT-0001", "Versión de origen: 7", "Objeto específico de la diligencia: pendiente", "no la fecha de una comparecencia", "No se afirma que ninguna persona haya comparecido", "SIN EFECTOS ADMINISTRATIVOS"} {
 		if !strings.Contains(texto, esperado) {
@@ -235,7 +240,7 @@ func TestDiligenciaPDFRealDeterministaSinHechosInventados(t *testing.T) {
 
 func TestTomaPosesionPDFRealDeterministaSinIncorporacionInventada(t *testing.T) {
 	d := detalleInformeDefinitivoPrueba()
-	r := RenderizadorBorradorDesarrollo{PDF: pdf.Renderizador{}}
+	r := RenderizadorBorradorDesarrollo{PDF: pdf.Renderizador{}, Plantillas: plantillasPrueba(t)}
 	primero, err := r.RenderizarBorrador(context.Background(), ports.BorradorTomaPosesion, d)
 	if err != nil {
 		t.Fatal(err)
@@ -244,7 +249,10 @@ func TestTomaPosesionPDFRealDeterministaSinIncorporacionInventada(t *testing.T) 
 	if err != nil || !bytes.Equal(primero, segundo) || !bytes.HasPrefix(primero, []byte("%PDF-")) {
 		t.Fatalf("toma de posesión PDF no determinista o inválida: %v", err)
 	}
-	contenido := contenidoTomaPosesionDesarrollo(d, ultimoHitoInformeDefinitivoPrueba(d), nil)
+	contenido, err := contenidoBorradorDesarrollo(ports.BorradorTomaPosesion, d, nil, plantillasPrueba(t))
+	if err != nil {
+		t.Fatal(err)
+	}
 	texto := contenido.Titulo + "\n" + strings.Join(contenido.Parrafos, "\n")
 	for _, esperado := range []string{"Toma de posesión — borrador", "NO FIRMADO NI VALIDADO", "2026/CT-0001", "Versión de origen: 7", "Esa fecha no acredita comparecencia", "No se afirma que estos hechos hayan ocurrido", "confirmación de incorporación: pendientes", "SIN EFECTOS ADMINISTRATIVOS"} {
 		if !strings.Contains(texto, esperado) {
@@ -258,7 +266,7 @@ func TestTomaPosesionPDFRealDeterministaSinIncorporacionInventada(t *testing.T) 
 
 func TestNotificacionPDFRealDeterministaSinEntregaNiPlazosInventados(t *testing.T) {
 	d := detalleInformeDefinitivoPrueba()
-	r := RenderizadorBorradorDesarrollo{PDF: pdf.Renderizador{}}
+	r := RenderizadorBorradorDesarrollo{PDF: pdf.Renderizador{}, Plantillas: plantillasPrueba(t)}
 	primero, err := r.RenderizarBorrador(context.Background(), ports.BorradorNotificacion, d)
 	if err != nil {
 		t.Fatal(err)
@@ -267,7 +275,10 @@ func TestNotificacionPDFRealDeterministaSinEntregaNiPlazosInventados(t *testing.
 	if err != nil || !bytes.Equal(primero, segundo) || !bytes.HasPrefix(primero, []byte("%PDF-")) {
 		t.Fatalf("notificación PDF no determinista o inválida: %v", err)
 	}
-	contenido := contenidoNotificacionDesarrollo(d, ultimoHitoInformeDefinitivoPrueba(d), nil)
+	contenido, err := contenidoBorradorDesarrollo(ports.BorradorNotificacion, d, nil, plantillasPrueba(t))
+	if err != nil {
+		t.Fatal(err)
+	}
 	texto := contenido.Titulo + "\n" + strings.Join(contenido.Parrafos, "\n")
 	for _, esperado := range []string{"Notificación — borrador", "NO FIRMADO NI VALIDADO", "2026/CT-0001", "Versión de origen: 7", "dirección o canal admitido: pendientes", "No se generan plazos", "ni abre un plazo", "SIN EFECTOS ADMINISTRATIVOS"} {
 		if !strings.Contains(texto, esperado) {
@@ -281,7 +292,7 @@ func TestNotificacionPDFRealDeterministaSinEntregaNiPlazosInventados(t *testing.
 
 func TestComunicacionCentroPDFRealDeterministaSinEnvioNiOrdenInventados(t *testing.T) {
 	d := detalleInformeDefinitivoPrueba()
-	r := RenderizadorBorradorDesarrollo{PDF: pdf.Renderizador{}}
+	r := RenderizadorBorradorDesarrollo{PDF: pdf.Renderizador{}, Plantillas: plantillasPrueba(t)}
 	primero, err := r.RenderizarBorrador(context.Background(), ports.BorradorComunicacionCentro, d)
 	if err != nil {
 		t.Fatal(err)
@@ -290,7 +301,10 @@ func TestComunicacionCentroPDFRealDeterministaSinEnvioNiOrdenInventados(t *testi
 	if err != nil || !bytes.Equal(primero, segundo) || !bytes.HasPrefix(primero, []byte("%PDF-")) {
 		t.Fatalf("comunicación al centro PDF no determinista o inválida: %v", err)
 	}
-	contenido := contenidoComunicacionCentroDesarrollo(d, ultimoHitoInformeDefinitivoPrueba(d), nil)
+	contenido, err := contenidoBorradorDesarrollo(ports.BorradorComunicacionCentro, d, nil, plantillasPrueba(t))
+	if err != nil {
+		t.Fatal(err)
+	}
 	texto := contenido.Titulo + "\n" + strings.Join(contenido.Parrafos, "\n")
 	for _, esperado := range []string{"Comunicación al centro — borrador", "NO FIRMADO NI VALIDADO", "2026/CT-0001", "Versión de origen: 7", "no es una dirección de envío", "no ordena ni autoriza una incorporación", "No se afirma que el centro haya sido informado", "SIN EFECTOS ADMINISTRATIVOS"} {
 		if !strings.Contains(texto, esperado) {
@@ -315,7 +329,7 @@ func TestBorradoresImprimenNombresDeCatalogoJuntoALaReferencia(t *testing.T) {
 		ports.BorradorInformeDefinitivo, ports.BorradorResolucion, ports.BorradorDiligencia,
 		ports.BorradorTomaPosesion, ports.BorradorNotificacion, ports.BorradorComunicacionCentro,
 	} {
-		conNombres, err := contenidoBorradorDesarrollo(tipo, d, etiquetas)
+		conNombres, err := contenidoBorradorDesarrollo(tipo, d, etiquetas, plantillasPrueba(t))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -331,7 +345,7 @@ func TestBorradoresImprimenNombresDeCatalogoJuntoALaReferencia(t *testing.T) {
 		if strings.Contains(texto, "(referencia)") {
 			t.Fatalf("%s: rótulo «(referencia)» obsoleto", tipo)
 		}
-		sinNombres, err := contenidoBorradorDesarrollo(tipo, d, nil)
+		sinNombres, err := contenidoBorradorDesarrollo(tipo, d, nil, plantillasPrueba(t))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -350,7 +364,7 @@ func TestBorradoresImprimenObservacionesDelAnalisis(t *testing.T) {
 		ports.BorradorResolucion,
 		ports.BorradorComunicacionCentro,
 	} {
-		contenido, err := contenidoBorradorDesarrollo(tipo, d, nil)
+		contenido, err := contenidoBorradorDesarrollo(tipo, d, nil, plantillasPrueba(t))
 		if err != nil {
 			t.Fatal(err)
 		}

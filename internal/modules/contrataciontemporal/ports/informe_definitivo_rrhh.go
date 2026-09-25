@@ -16,6 +16,12 @@ const (
 	BorradorTomaPosesion       TipoBorradorRRHH = "toma_posesion"
 	BorradorNotificacion       TipoBorradorRRHH = "notificacion"
 	BorradorComunicacionCentro TipoBorradorRRHH = "comunicacion_centro"
+	// Documentos de formalización y de cambios posteriores. Su texto, sus
+	// modalidades y la actuación que exigen los fija el catálogo de plantillas.
+	BorradorContratoLaboral          TipoBorradorRRHH = "contrato_laboral"
+	BorradorNombramiento             TipoBorradorRRHH = "nombramiento"
+	BorradorCese                     TipoBorradorRRHH = "cese"
+	BorradorModificacionNombramiento TipoBorradorRRHH = "modificacion_nombramiento"
 )
 
 // ErrBorradorRRHHNoDisponible indica que el detalle autorizado no
