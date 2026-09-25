@@ -14,17 +14,19 @@ var ErrPublicacionContratosBolsaNoDisponible = errors.New("contratacion temporal
 // la función SQL CT113.
 const LimiteLecturaContratosBolsa = 100
 
-// CursorPublicacionContratosBolsa marca el último evento consumido. El valor
-// cero lee desde el principio; un instante con OrigenRef vacío lee desde ese
-// instante incluido (relectura). Lo conserva el consumidor, no CT.
+// CursorPublicacionContratosBolsa marca el último evento consumido por su
+// posición de publicación (la transacción CT que lo escribió) y su origen. El
+// valor cero lee desde el principio. CT solo publica eventos de transacciones
+// ya terminadas (marca de agua), así que nada puede aparecer después por
+// detrás del cursor. Lo conserva el consumidor, no CT.
 type CursorPublicacionContratosBolsa struct {
-	CreadaEn  time.Time
+	Posicion  int64
 	OrigenRef string
 }
 
 // Vacio indica que no hay cursor y la lectura empieza por el principio.
 func (c CursorPublicacionContratosBolsa) Vacio() bool {
-	return c.CreadaEn.IsZero()
+	return c.OrigenRef == ""
 }
 
 // EventoContratoBolsaPublicado es el evento de integración que CT proyecta
@@ -36,6 +38,7 @@ type EventoContratoBolsaPublicado struct {
 	Contenido      []byte
 	HuellaSHA256   string
 	OrigenRef      string
+	OrigenPosicion int64
 	OrigenCreadaEn time.Time
 }
 

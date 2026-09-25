@@ -34,8 +34,8 @@ END
 $pre$;
 
 -- Restaura exactamente la lectura de CT113 (solo incorporaciones).
-CREATE OR REPLACE FUNCTION vec_contratacion_temporal.leer_contratos_bolsa_v1(p_desde_en timestamp with time zone, p_desde_ref text, p_limite integer)
- RETURNS TABLE(evento_ref text, evento jsonb, huella_sha256 text, origen_ref text, origen_creada_en timestamp with time zone)
+CREATE OR REPLACE FUNCTION vec_contratacion_temporal.leer_contratos_bolsa_v1(p_desde_posicion bigint, p_desde_ref text, p_limite integer)
+ RETURNS TABLE(evento_ref text, evento jsonb, huella_sha256 text, origen_ref text, origen_posicion bigint, origen_creada_en timestamp with time zone)
  LANGUAGE plpgsql
  STABLE SECURITY DEFINER
  SET search_path TO 'pg_catalog'
@@ -43,8 +43,8 @@ CREATE OR REPLACE FUNCTION vec_contratacion_temporal.leer_contratos_bolsa_v1(p_d
 AS $function$
 BEGIN
     IF p_limite IS NULL OR p_limite NOT BETWEEN 1 AND 100
-       OR (p_desde_en IS NULL) <> (p_desde_ref IS NULL)
-       OR (p_desde_en IS NOT NULL AND NOT pg_catalog.isfinite(p_desde_en))
+       OR (p_desde_posicion IS NULL) <> (p_desde_ref IS NULL)
+       OR p_desde_posicion < 0
        OR pg_catalog.octet_length(p_desde_ref) > 512 THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'lectura de contratos para Bolsa inválida';
@@ -52,6 +52,7 @@ BEGIN
     RETURN QUERY
     WITH base AS (
         SELECT o.outbox_ref, o.creada_en,
+               vec_contratacion_temporal.posicion_contrato_bolsa_v1(o.transaccion_publicacion) AS posicion,
                'evento:ct:contrato-bolsa:' || pg_catalog.encode(pg_catalog.sha256(
                    pg_catalog.convert_to('incorporacion' || pg_catalog.chr(31) || o.outbox_ref, 'UTF8')
                ), 'hex') AS ref,
@@ -78,27 +79,34 @@ BEGIN
             ON p.organizacion_ref = r.organizacion_ref AND p.expediente_ref = r.expediente_ref
           JOIN vec_contratacion_temporal.expediente_version_integral e
             ON e.expediente_ref = r.expediente_ref AND e.version = r.version_expediente
-         WHERE p_desde_en IS NULL OR (o.creada_en, o.outbox_ref) > (p_desde_en, p_desde_ref)
-         ORDER BY o.creada_en, o.outbox_ref
+         WHERE (COALESCE(o.transaccion_publicacion, '0'::xid8)
+                  < pg_catalog.pg_snapshot_xmin(pg_catalog.pg_current_snapshot())
+                OR o.transaccion_publicacion = pg_catalog.pg_current_xact_id_if_assigned())
+           AND (p_desde_posicion IS NULL
+                OR (vec_contratacion_temporal.posicion_contrato_bolsa_v1(o.transaccion_publicacion), o.outbox_ref)
+                   > (p_desde_posicion, p_desde_ref))
+         ORDER BY 3, o.outbox_ref
          LIMIT p_limite
     )
     SELECT b.ref, b.cuerpo || pg_catalog.jsonb_build_object('evento_ref', b.ref),
            pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(
                (b.cuerpo || pg_catalog.jsonb_build_object('evento_ref', b.ref))::text, 'UTF8')), 'hex'),
-           b.outbox_ref, b.creada_en
+           b.outbox_ref, b.posicion, b.creada_en
       FROM base b
-     ORDER BY b.creada_en, b.outbox_ref;
+     ORDER BY b.posicion, b.outbox_ref;
 END
 $function$;
 DO $ct113$
 BEGIN
-    IF (SELECT md5(prosrc) FROM pg_proc WHERE oid='vec_contratacion_temporal.leer_contratos_bolsa_v1(timestamptz,text,integer)'::regprocedure)
-       IS DISTINCT FROM 'ecb89f46ebaf84a53bf52ee7ea4e2b93' THEN
+    IF (SELECT md5(prosrc) FROM pg_proc WHERE oid='vec_contratacion_temporal.leer_contratos_bolsa_v1(bigint,text,integer)'::regprocedure)
+       IS DISTINCT FROM '59e9c3fef416168399adfb282ea57094'
+       OR (SELECT proconfig FROM pg_proc WHERE oid='vec_contratacion_temporal.leer_contratos_bolsa_v1(bigint,text,integer)'::regprocedure)
+       IS DISTINCT FROM ARRAY['search_path=pg_catalog','TimeZone=UTC'] THEN
         RAISE EXCEPTION 'CT115 DOWN: no se restauró exactamente CT113' USING ERRCODE='55000';
     END IF;
 END
 $ct113$;
-COMMENT ON FUNCTION vec_contratacion_temporal.leer_contratos_bolsa_v1(timestamptz, text, integer) IS
+COMMENT ON FUNCTION vec_contratacion_temporal.leer_contratos_bolsa_v1(bigint, text, integer) IS
     'CT113: publica a Bolsa, desde el outbox CT75, las incorporaciones de expedientes cubiertos por llamamiento; solo referencias opacas, fechas y claves.';
 
 DROP FUNCTION vec_contratacion_temporal.consultar_cese_cierre_expediente_v1(text,text);

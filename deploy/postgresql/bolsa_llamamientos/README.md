@@ -118,11 +118,16 @@ autorización tiene sus propias pruebas):
   incorporaciones CT, las entrega dos veces al inbox sin duplicar, rechaza
   contenidos divergentes o inválidos y comprueba las ACL. El relevo Go con
   adaptadores reales se prueba con `TestEntregaContratosCTBolsaPostgreSQL18`
-  (`VEC_B13_PG18_CT_DSN` / `VEC_B13_PG18_BOLSA_DSN`). Cadencia y lote del
-  relevo: `VEC_BOLSA_CONTRATOS_CT_INTERVALO` (`0` lo desactiva) y
-  `VEC_BOLSA_CONTRATOS_CT_LOTE`; `VEC_BOLSA_CONTRATOS_CT_RELECTURA` queda como
-  margen adicional. El inbox confía en el relevo (ver el comentario de
-  `000024`): Bolsa no lee tablas de CT y el evento no lleva firma de origen.
+  (`VEC_B13_PG18_CT_DSN` / `VEC_B13_PG18_BOLSA_DSN`) y, con la marca de agua
+  y dos transacciones concurrentes, con
+  `deploy/postgresql/contratacion_temporal/probar_publicacion_contratos_bolsa_pg18.sh`.
+  El cursor es la posición de publicación de CT (la transacción que escribió
+  el origen): CT solo publica orígenes de transacciones ya terminadas, así que
+  el relevo no relee hacia atrás. Cadencia y lote:
+  `VEC_BOLSA_CONTRATOS_CT_INTERVALO` (`0` lo desactiva) y
+  `VEC_BOLSA_CONTRATOS_CT_LOTE`. El inbox confía en el relevo (ver el
+  comentario de `000024`): Bolsa no lee tablas de CT y el evento no lleva
+  firma de origen.
 - `000031` (intentos de contacto): `probar_intentos_contacto_pg18.sh`.
 - `000035` (contacto de origen CONVOCA): `probar_origen_datos_contacto_pg18.sh`.
 - `000039` (expiración): `probar_expiracion_rrhh_pg18.sh`.

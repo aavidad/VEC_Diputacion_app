@@ -9,17 +9,17 @@ import (
 )
 
 // Entrega del histórico de contratos (B13): Contratación temporal publica las
-// incorporaciones y un relevo las lleva al inbox de Bolsa. Cadencia, lote y
-// ventana de relectura son decisiones de operación, no reglas de negocio:
-// se fijan aquí y se pueden cambiar sin tocar código.
+// incorporaciones y un relevo las lleva al inbox de Bolsa. Cadencia y lote
+// son decisiones de operación, no reglas de negocio: se fijan aquí y se
+// pueden cambiar sin tocar código. Ya no hay ventana de relectura: CT publica
+// con marca de agua (000113) y ningún evento confirma por detrás del cursor;
+// VEC_BOLSA_CONTRATOS_CT_RELECTURA, si sigue en un entorno, se ignora.
 const (
 	EnvBolsaContratosCTIntervalo = "VEC_BOLSA_CONTRATOS_CT_INTERVALO"
 	EnvBolsaContratosCTLote      = "VEC_BOLSA_CONTRATOS_CT_LOTE"
-	EnvBolsaContratosCTRelectura = "VEC_BOLSA_CONTRATOS_CT_RELECTURA"
 
 	DefaultBolsaContratosCTIntervalo = 30 * time.Second
 	DefaultBolsaContratosCTLote      = 50
-	DefaultBolsaContratosCTRelectura = 10 * time.Minute
 )
 
 var ErrEntregaContratosCTBolsaInvalida = errors.New("config: entrega de contratos CT a Bolsa invalida")
@@ -27,7 +27,7 @@ var ErrEntregaContratosCTBolsaInvalida = errors.New("config: entrega de contrato
 // ConfiguracionEntregaContratosCTBolsa conserva los valores tal como llegan
 // del entorno; Resolver los valida al componer.
 type ConfiguracionEntregaContratosCTBolsa struct {
-	intervalo, lote, relectura string
+	intervalo, lote string
 }
 
 // EntregaContratosCTBolsa es la configuración ya validada del relevo.
@@ -36,29 +36,25 @@ type EntregaContratosCTBolsa struct {
 	Activa    bool
 	Intervalo time.Duration
 	Lote      int
-	// Relectura es la ventana hacia atrás desde el último evento recibido.
-	// Cubre confirmaciones CT fuera de orden; el inbox absorbe duplicados.
-	Relectura time.Duration
 }
 
 func cargarEntregaContratosCTBolsa() ConfiguracionEntregaContratosCTBolsa {
 	return ConfiguracionEntregaContratosCTBolsa{
 		intervalo: strings.TrimSpace(os.Getenv(EnvBolsaContratosCTIntervalo)),
 		lote:      strings.TrimSpace(os.Getenv(EnvBolsaContratosCTLote)),
-		relectura: strings.TrimSpace(os.Getenv(EnvBolsaContratosCTRelectura)),
 	}
 }
 
 // NuevaConfiguracionEntregaContratosCTBolsa permite fijar los valores en
 // pruebas y composiciones sin variables de entorno.
-func NuevaConfiguracionEntregaContratosCTBolsa(intervalo, lote, relectura string) ConfiguracionEntregaContratosCTBolsa {
-	return ConfiguracionEntregaContratosCTBolsa{intervalo: intervalo, lote: lote, relectura: relectura}
+func NuevaConfiguracionEntregaContratosCTBolsa(intervalo, lote string) ConfiguracionEntregaContratosCTBolsa {
+	return ConfiguracionEntregaContratosCTBolsa{intervalo: intervalo, lote: lote}
 }
 
 // Resolver aplica valores por defecto y rangos cerrados. Un valor mal escrito
 // es un error: nunca se sustituye en silencio por otro.
 func (c ConfiguracionEntregaContratosCTBolsa) Resolver() (EntregaContratosCTBolsa, error) {
-	r := EntregaContratosCTBolsa{Activa: true, Intervalo: DefaultBolsaContratosCTIntervalo, Lote: DefaultBolsaContratosCTLote, Relectura: DefaultBolsaContratosCTRelectura}
+	r := EntregaContratosCTBolsa{Activa: true, Intervalo: DefaultBolsaContratosCTIntervalo, Lote: DefaultBolsaContratosCTLote}
 	if c.intervalo == "0" {
 		return EntregaContratosCTBolsa{}, nil
 	}
@@ -75,13 +71,6 @@ func (c ConfiguracionEntregaContratosCTBolsa) Resolver() (EntregaContratosCTBols
 			return EntregaContratosCTBolsa{}, ErrEntregaContratosCTBolsaInvalida
 		}
 		r.Lote = n
-	}
-	if c.relectura != "" {
-		d, err := time.ParseDuration(c.relectura)
-		if err != nil || d < 0 || d > 24*time.Hour {
-			return EntregaContratosCTBolsa{}, ErrEntregaContratosCTBolsaInvalida
-		}
-		r.Relectura = d
 	}
 	return r, nil
 }

@@ -37,18 +37,19 @@ func TestEntregaContratosCTBolsaPostgreSQL18(t *testing.T) {
 	lector, _ := postgresct.NuevoLectorPublicacionContratosBolsaPostgreSQL(ct)
 	buzon, _ := postgresbolsa.NuevoBuzonContratosParticipacionPostgreSQL(bolsa)
 	receptor, _ := aplicacionbolsa.NuevoServicioRecepcionContratos(buzon)
-	relevo := &entregaContratosCTBolsa{lector: lector, receptor: receptor, lote: 1, relectura: time.Hour}
+	relevo := &entregaContratosCTBolsa{lector: lector, receptor: receptor, lote: 1}
 	primera, err := relevo.entregar(ctx)
 	if err != nil || primera.nuevos == 0 || primera.rechazados != 0 {
 		t.Fatalf("primera pasada=%+v err=%v", primera, err)
 	}
 	segunda, err := relevo.entregar(ctx)
-	if err != nil || segunda.nuevos != 0 || segunda.reentregas != primera.nuevos || segunda.rechazados != 0 {
+	// La segunda pasada parte del cursor exacto: nada nuevo ni repetido.
+	if err != nil || segunda.nuevos != 0 || segunda.reentregas != 0 || segunda.rechazados != 0 {
 		t.Fatalf("segunda pasada=%+v err=%v", segunda, err)
 	}
 	cursor, hay, err := receptor.Cursor(ctx)
 	if err != nil || !hay || cursor.OrigenRef == "" {
 		t.Fatalf("cursor=%+v hay=%v err=%v", cursor, hay, err)
 	}
-	t.Logf("B13 PG18: %d incorporaciones entregadas y %d reentregas sin duplicar", primera.nuevos, segunda.reentregas)
+	t.Logf("B13 PG18: %d incorporaciones entregadas; la segunda pasada parte del cursor (posición %d)", primera.nuevos, cursor.Posicion)
 }

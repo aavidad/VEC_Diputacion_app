@@ -48,8 +48,8 @@ func (s *ServicioRecepcionContratos) Cursor(ctx context.Context) (ports.CursorCo
 
 // Recibir registra una sola vez el evento. Una reentrega idéntica devuelve
 // Reutilizado; un contenido distinto para el mismo evento es un error.
-func (s *ServicioRecepcionContratos) Recibir(ctx context.Context, contenido []byte, huellaSHA256 string, origenCreadaEn time.Time) (ports.ResultadoRegistroContrato, error) {
-	if s == nil || ctx == nil || origenCreadaEn.IsZero() {
+func (s *ServicioRecepcionContratos) Recibir(ctx context.Context, contenido []byte, huellaSHA256 string, origenCreadaEn time.Time, origenPosicion int64) (ports.ResultadoRegistroContrato, error) {
+	if s == nil || ctx == nil || origenCreadaEn.IsZero() || origenPosicion < 0 {
 		return ports.ResultadoRegistroContrato{}, ports.ErrContratosParticipacionNoDisponible
 	}
 	evento, err := dominiobolsa.DecodificarEventoContratoParticipacion(contenido, huellaSHA256)
@@ -57,5 +57,5 @@ func (s *ServicioRecepcionContratos) Recibir(ctx context.Context, contenido []by
 		return ports.ResultadoRegistroContrato{}, err
 	}
 	copia := append([]byte(nil), contenido...)
-	return s.buzon.RegistrarContrato(ctx, ports.EventoContratoRecibido{Evento: evento, Contenido: copia, HuellaSHA256: huellaSHA256, OrigenCreadaEn: origenCreadaEn.UTC()})
+	return s.buzon.RegistrarContrato(ctx, ports.EventoContratoRecibido{Evento: evento, Contenido: copia, HuellaSHA256: huellaSHA256, OrigenCreadaEn: origenCreadaEn.UTC(), OrigenPosicion: origenPosicion})
 }

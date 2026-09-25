@@ -42,19 +42,22 @@ func TestRecepcionContratosValidaAntesDelInbox(t *testing.T) {
 	}
 	c, h := eventoContratoAplicacionPrueba()
 	contenido := []byte(c)
-	res, err := s.Recibir(context.Background(), contenido, h, time.Date(2027, 1, 2, 9, 0, 1, 0, time.UTC))
-	if err != nil || res.ParticipacionRef != "participacion:1" || len(buzon.recibidos) != 1 {
+	res, err := s.Recibir(context.Background(), contenido, h, time.Date(2027, 1, 2, 9, 0, 1, 0, time.UTC), 7)
+	if err != nil || res.ParticipacionRef != "participacion:1" || len(buzon.recibidos) != 1 || buzon.recibidos[0].OrigenPosicion != 7 {
 		t.Fatalf("res=%+v err=%v", res, err)
 	}
 	contenido[0] = 'X'
 	if buzon.recibidos[0].Contenido[0] != '{' {
 		t.Fatal("el inbox debe recibir una copia defensiva del contenido")
 	}
-	if _, err := s.Recibir(context.Background(), []byte(c), h[:63]+"0", time.Now()); !errors.Is(err, dominiobolsa.ErrEventoContratoParticipacionInvalido) {
+	if _, err := s.Recibir(context.Background(), []byte(c), h[:63]+"0", time.Now(), 7); !errors.Is(err, dominiobolsa.ErrEventoContratoParticipacionInvalido) {
 		t.Fatalf("huella falsa: %v", err)
 	}
-	if _, err := s.Recibir(context.Background(), []byte(c), h, time.Time{}); err == nil {
+	if _, err := s.Recibir(context.Background(), []byte(c), h, time.Time{}, 7); err == nil {
 		t.Fatal("origen sin instante aceptado")
+	}
+	if _, err := s.Recibir(context.Background(), []byte(c), h, time.Now(), -1); err == nil {
+		t.Fatal("origen con posición negativa aceptado")
 	}
 	if len(buzon.recibidos) != 1 {
 		t.Fatal("un evento inválido no debe llegar al inbox")

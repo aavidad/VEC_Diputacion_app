@@ -13,7 +13,7 @@ DO $f$ BEGIN
 END $f$;
 DROP FUNCTION vec_bolsa_llamamientos.listar_contratos_participacion_v1(text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) RESTRICT;
 DROP FUNCTION vec_bolsa_llamamientos.cursor_contratos_participacion_v1() RESTRICT;
-DROP FUNCTION vec_bolsa_llamamientos.registrar_contrato_participacion_v1(jsonb,text,timestamptz) RESTRICT;
+DROP FUNCTION vec_bolsa_llamamientos.registrar_contrato_participacion_v1(jsonb,text,timestamptz,bigint) RESTRICT;
 DROP FUNCTION vec_bolsa_llamamientos.instante_contrato_valido(jsonb,boolean) RESTRICT;
 DROP TABLE vec_bolsa_llamamientos.contrato_participacion RESTRICT;
 COMMIT;

@@ -40,6 +40,9 @@ CREATE TABLE vec_bolsa_llamamientos.contrato_participacion (
     evento jsonb NOT NULL CHECK (jsonb_typeof(evento) = 'object' AND octet_length(evento::text) <= 16384),
     origen_ref text NOT NULL CHECK (octet_length(origen_ref) <= 512 AND origen_ref ~ '^[A-Za-z0-9][A-Za-z0-9:._/-]*$'),
     origen_creada_en timestamptz(6) NOT NULL CHECK (isfinite(origen_creada_en)),
+    -- Posición de publicación de CT (transacción que escribió el origen): el
+    -- cursor del relevo, que CT solo publica con marca de agua.
+    origen_posicion bigint NOT NULL CHECK (origen_posicion >= 0),
     tipo text NOT NULL CHECK (tipo ~ '^[a-z][a-z0-9_]{1,39}$'),
     organizacion_ref text NOT NULL,
     expediente_ref text NOT NULL,
@@ -65,7 +68,7 @@ CREATE INDEX contrato_participacion_por_participacion
     ON vec_bolsa_llamamientos.contrato_participacion (participacion_ref, inicio DESC)
     WHERE participacion_ref IS NOT NULL;
 CREATE INDEX contrato_participacion_cursor
-    ON vec_bolsa_llamamientos.contrato_participacion (origen_creada_en DESC, origen_ref DESC);
+    ON vec_bolsa_llamamientos.contrato_participacion (origen_posicion DESC, origen_ref DESC);
 ALTER TABLE vec_bolsa_llamamientos.contrato_participacion ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vec_bolsa_llamamientos.contrato_participacion FORCE ROW LEVEL SECURITY;
 CREATE POLICY contrato_participacion_solo_propietario ON vec_bolsa_llamamientos.contrato_participacion
@@ -89,7 +92,7 @@ END $f$;
 -- completo, resuelve la participación con el llamamiento propio de Bolsa y
 -- lo registra una sola vez. Una reentrega idéntica devuelve reutilizado.
 CREATE FUNCTION vec_bolsa_llamamientos.registrar_contrato_participacion_v1(
- p_evento jsonb, p_huella_sha256 text, p_origen_creada_en timestamptz)
+ p_evento jsonb, p_huella_sha256 text, p_origen_creada_en timestamptz, p_origen_posicion bigint)
 RETURNS TABLE(reutilizado boolean, participacion_ref text)
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = pg_catalog SET timezone = 'UTC' SET lock_timeout = '2s' AS $f$
 DECLARE v_previo record; v_llamamiento record; v_ref text; v_clave text := '^[a-z][a-z0-9._-]{1,79}$';
@@ -102,6 +105,7 @@ BEGIN
     OR EXISTS (SELECT 1 FROM jsonb_each(p_evento) e WHERE jsonb_typeof(e.value) = 'string' AND octet_length(e.value #>> '{}') > 512)
     OR p_huella_sha256 IS DISTINCT FROM encode(sha256(convert_to(p_evento::text, 'UTF8')), 'hex')
     OR p_origen_creada_en IS NULL OR NOT isfinite(p_origen_creada_en)
+    OR p_origen_posicion IS NULL OR p_origen_posicion < 0
     OR (SELECT array_agg(k ORDER BY k) FROM jsonb_object_keys(p_evento) k) IS DISTINCT FROM
        ARRAY['categoria_ref','causa_clave','esquema','evento_ref','expediente_ref','fin_previsto','inicio',
              'llamamiento_ref','modalidad_clave','ocurrido_en','organizacion_ref','origen_ref','tipo']
@@ -124,10 +128,10 @@ BEGIN
  END IF;
  v_ref := p_evento->>'evento_ref';
  PERFORM pg_advisory_xact_lock(hashtextextended('bolsa:contrato-participacion:' || v_ref, 0));
- SELECT c.huella_sha256, c.participacion_ref INTO v_previo
+ SELECT c.huella_sha256, c.participacion_ref, c.origen_posicion INTO v_previo
    FROM vec_bolsa_llamamientos.contrato_participacion c WHERE c.evento_ref = v_ref;
  IF FOUND THEN
-  IF v_previo.huella_sha256 <> p_huella_sha256 THEN
+  IF v_previo.huella_sha256 <> p_huella_sha256 OR v_previo.origen_posicion <> p_origen_posicion THEN
    RAISE EXCEPTION USING ERRCODE='VBC01', MESSAGE='evento de contrato reentregado con otro contenido';
   END IF;
   RETURN QUERY SELECT true, v_previo.participacion_ref;
@@ -142,10 +146,10 @@ BEGIN
   v_llamamiento.bolsa_ref := NULL;
  END IF;
  INSERT INTO vec_bolsa_llamamientos.contrato_participacion(
-   evento_ref, huella_sha256, evento, origen_ref, origen_creada_en, tipo, organizacion_ref, expediente_ref,
+   evento_ref, huella_sha256, evento, origen_ref, origen_creada_en, origen_posicion, tipo, organizacion_ref, expediente_ref,
    llamamiento_ref, participacion_ref, bolsa_ref, inicio, fin_previsto, modalidad_clave, categoria_ref,
    causa_clave, ocurrido_en, recibido_en)
- VALUES (v_ref, p_huella_sha256, p_evento, p_evento->>'origen_ref', date_trunc('microseconds', p_origen_creada_en),
+ VALUES (v_ref, p_huella_sha256, p_evento, p_evento->>'origen_ref', date_trunc('microseconds', p_origen_creada_en), p_origen_posicion,
    p_evento->>'tipo', p_evento->>'organizacion_ref', p_evento->>'expediente_ref', p_evento->>'llamamiento_ref',
    v_llamamiento.participacion, v_llamamiento.bolsa_ref, (p_evento->>'inicio')::timestamptz,
    (p_evento->>'fin_previsto')::timestamptz, p_evento->>'modalidad_clave', p_evento->>'categoria_ref',
@@ -155,13 +159,15 @@ EXCEPTION WHEN unique_violation THEN
  RAISE EXCEPTION USING ERRCODE='VBC01', MESSAGE='origen de contrato ya registrado con otro evento';
 END $f$;
 
--- Cursor del consumidor: el último origen recibido. El relevo relee desde
--- aquí con una ventana configurable; la idempotencia absorbe la relectura.
+-- Cursor del consumidor: el último origen recibido por posición de
+-- publicación. CT solo publica orígenes de transacciones ya terminadas
+-- (marca de agua), así que ninguno puede aparecer después por detrás del
+-- cursor; la idempotencia absorbe cualquier reentrega.
 CREATE FUNCTION vec_bolsa_llamamientos.cursor_contratos_participacion_v1()
-RETURNS TABLE(origen_creada_en timestamptz, origen_ref text)
+RETURNS TABLE(origen_posicion bigint, origen_ref text)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog AS $f$
- SELECT c.origen_creada_en, c.origen_ref FROM vec_bolsa_llamamientos.contrato_participacion c
-  ORDER BY c.origen_creada_en DESC, c.origen_ref DESC LIMIT 1
+ SELECT c.origen_posicion, c.origen_ref FROM vec_bolsa_llamamientos.contrato_participacion c
+  ORDER BY c.origen_posicion DESC, c.origen_ref DESC LIMIT 1
 $f$;
 
 -- Lectura RRHH en la ficha: mismo consumo V3 y mismas comprobaciones que el
@@ -202,10 +208,10 @@ BEGIN
 END $f$;
 
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.instante_contrato_valido(jsonb,boolean) FROM PUBLIC;
-REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.registrar_contrato_participacion_v1(jsonb,text,timestamptz) FROM PUBLIC;
+REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.registrar_contrato_participacion_v1(jsonb,text,timestamptz,bigint) FROM PUBLIC;
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.cursor_contratos_participacion_v1() FROM PUBLIC;
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.listar_contratos_participacion_v1(text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.registrar_contrato_participacion_v1(jsonb,text,timestamptz) TO vec_bolsa_llamamientos_ejecutor;
+GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.registrar_contrato_participacion_v1(jsonb,text,timestamptz,bigint) TO vec_bolsa_llamamientos_ejecutor;
 GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.cursor_contratos_participacion_v1() TO vec_bolsa_llamamientos_ejecutor;
 GRANT EXECUTE ON FUNCTION vec_bolsa_llamamientos.listar_contratos_participacion_v1(text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_bolsa_llamamientos_ejecutor;
 COMMIT;

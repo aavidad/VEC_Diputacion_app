@@ -31,9 +31,10 @@ type ContratoParticipacion struct {
 	OcurridoEn     time.Time
 }
 
-// CursorContratosParticipacion es el último origen CT recibido por el inbox.
+// CursorContratosParticipacion es el último origen CT recibido por el inbox,
+// por posición de publicación (la transacción CT que lo escribió).
 type CursorContratosParticipacion struct {
-	CreadaEn  time.Time
+	Posicion  int64
 	OrigenRef string
 }
 
@@ -44,6 +45,7 @@ type EventoContratoRecibido struct {
 	Contenido      []byte
 	HuellaSHA256   string
 	OrigenCreadaEn time.Time
+	OrigenPosicion int64
 }
 
 // ResultadoRegistroContrato: ParticipacionRef vacía si Bolsa no reconoce

@@ -45,8 +45,9 @@ BEGIN
     -- CT113 publica a Bolsa las incorporaciones; CT115 añade los ceses a esa
     -- misma lectura. Se exige su versión exacta para no pisar otra.
     IF to_regprocedure('vec_contratacion_temporal.instante_contrato_bolsa_v1(timestamptz)') IS NULL
-       OR (SELECT md5(prosrc) FROM pg_proc WHERE oid=to_regprocedure('vec_contratacion_temporal.leer_contratos_bolsa_v1(timestamptz,text,integer)'))
-          IS DISTINCT FROM 'ecb89f46ebaf84a53bf52ee7ea4e2b93' THEN
+       OR to_regprocedure('vec_contratacion_temporal.posicion_contrato_bolsa_v1(xid8)') IS NULL
+       OR (SELECT md5(prosrc) FROM pg_proc WHERE oid=to_regprocedure('vec_contratacion_temporal.leer_contratos_bolsa_v1(bigint,text,integer)'))
+          IS DISTINCT FROM '59e9c3fef416168399adfb282ea57094' THEN
         RAISE EXCEPTION 'CT115: dependencias incompatibles (CT113 exacta requerida)' USING ERRCODE='55000';
     END IF;
     SELECT pg_get_constraintdef(oid) INTO STRICT v_origen FROM pg_constraint
@@ -145,8 +146,13 @@ CREATE TABLE vec_contratacion_temporal.cese_nombramiento_v1 (
     politica_huella_sha256 text NOT NULL CHECK (politica_huella_sha256 ~ '^[0-9a-f]{64}$'),
     registrada_en timestamptz(6) NOT NULL CHECK (isfinite(registrada_en)),
     confirmada_en timestamptz(6) NOT NULL CHECK (confirmada_en>=registrada_en),
+    -- Posición de publicación a Bolsa (CT113): la transacción que confirmó
+    -- el cese. La lectura pagina por ella con marca de agua.
+    transaccion_publicacion xid8 NOT NULL DEFAULT pg_current_xact_id(),
     FOREIGN KEY (expediente_ref,version_esperada) REFERENCES vec_contratacion_temporal.expediente_version_integral
 );
+CREATE INDEX cese_nombramiento_v1_publicacion_bolsa
+    ON vec_contratacion_temporal.cese_nombramiento_v1(transaccion_publicacion, evento_ref);
 
 CREATE TABLE vec_contratacion_temporal.cierre_expediente_v1 (
     ambito_hmac text PRIMARY KEY CHECK (ambito_hmac ~ '^hmac-sha256:vec[.]contratacion-temporal[.]cierre-expediente[.]ambito/v[1-9][0-9]{0,8}:[0-9a-f]{64}$'),
@@ -948,12 +954,20 @@ $funcion$;
 -- ============================================================ PUBLICACIÓN A BOLSA
 -- CT113 publica las incorporaciones con el evento de integración
 -- `vec.contratacion-temporal.contrato-bolsa.v1`. La misma lectura, con el
--- mismo cursor (creada_en, origen_ref) y la misma forma, añade ahora los
--- ceses: tipo `cese`, inicio de la incorporación, fin = fecha de efecto del
--- cese y su causa del catálogo. Bolsa los recibe por su inbox idempotente sin
--- otro relevo. Solo ceses de expedientes cubiertos por un llamamiento.
+-- mismo cursor (posición, origen_ref), la misma marca de agua y la misma
+-- forma, añade ahora los ceses: tipo `cese`, inicio de la incorporación,
+-- fin = fecha de efecto del cese y su causa del catálogo. Bolsa los recibe
+-- por su inbox idempotente sin otro relevo. Solo ceses de expedientes
+-- cubiertos por un llamamiento. La política RLS de lectura de ceses solo se
+-- abre durante la lectura: la marca se fija justo antes y se restaura a su
+-- valor anterior justo después, sin dejarla activa el resto de la
+-- transacción. (El atributo SET de la función no sirve: desde PostgreSQL 15
+-- fijar un parámetro personalizado en la definición exige superusuario o
+-- GRANT SET ON PARAMETER, y la migración corre como propietario.) Si la
+-- lectura falla, la transacción o su subtransacción se deshacen y la marca
+-- vuelve con ellas.
 CREATE OR REPLACE FUNCTION vec_contratacion_temporal.leer_contratos_bolsa_v1(
-    p_desde_en timestamptz,
+    p_desde_posicion bigint,
     p_desde_ref text,
     p_limite integer
 ) RETURNS TABLE(
@@ -961,23 +975,26 @@ CREATE OR REPLACE FUNCTION vec_contratacion_temporal.leer_contratos_bolsa_v1(
     evento jsonb,
     huella_sha256 text,
     origen_ref text,
+    origen_posicion bigint,
     origen_creada_en timestamptz
 )
 LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog SET timezone = 'UTC' AS $f$
+DECLARE v_marca_previa text := pg_catalog.current_setting('vec.ct115.publicacion_bolsa', true);
 BEGIN
     IF p_limite IS NULL OR p_limite NOT BETWEEN 1 AND 100
-       OR (p_desde_en IS NULL) <> (p_desde_ref IS NULL)
-       OR (p_desde_en IS NOT NULL AND NOT pg_catalog.isfinite(p_desde_en))
+       OR (p_desde_posicion IS NULL) <> (p_desde_ref IS NULL)
+       OR p_desde_posicion < 0
        OR pg_catalog.octet_length(p_desde_ref) > 512 THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'lectura de contratos para Bolsa inválida';
     END IF;
-    -- La política de lectura de ceses solo se abre dentro de esta función.
     PERFORM pg_catalog.set_config('vec.ct115.publicacion_bolsa', 'activa', true);
     RETURN QUERY
     WITH incorporaciones AS (
-        SELECT o.outbox_ref AS origen, o.creada_en AS creada,
+        SELECT o.outbox_ref AS origen,
+               vec_contratacion_temporal.posicion_contrato_bolsa_v1(o.transaccion_publicacion) AS posicion,
+               o.creada_en AS creada,
                'evento:ct:contrato-bolsa:' || pg_catalog.encode(pg_catalog.sha256(
                    pg_catalog.convert_to('incorporacion' || pg_catalog.chr(31) || o.outbox_ref, 'UTF8')
                ), 'hex') AS ref,
@@ -1004,11 +1021,18 @@ BEGIN
             ON p.organizacion_ref = r.organizacion_ref AND p.expediente_ref = r.expediente_ref
           JOIN vec_contratacion_temporal.expediente_version_integral e
             ON e.expediente_ref = r.expediente_ref AND e.version = r.version_expediente
-         WHERE p_desde_en IS NULL OR (o.creada_en, o.outbox_ref) > (p_desde_en, p_desde_ref)
-         ORDER BY o.creada_en, o.outbox_ref
+         WHERE (COALESCE(o.transaccion_publicacion, '0'::xid8)
+                  < pg_catalog.pg_snapshot_xmin(pg_catalog.pg_current_snapshot())
+                OR o.transaccion_publicacion = pg_catalog.pg_current_xact_id_if_assigned())
+           AND (p_desde_posicion IS NULL
+                OR (vec_contratacion_temporal.posicion_contrato_bolsa_v1(o.transaccion_publicacion), o.outbox_ref)
+                   > (p_desde_posicion, p_desde_ref))
+         ORDER BY 2, 1
          LIMIT p_limite
     ), ceses AS (
-        SELECT c.evento_ref AS origen, c.confirmada_en AS creada,
+        SELECT c.evento_ref AS origen,
+               vec_contratacion_temporal.posicion_contrato_bolsa_v1(c.transaccion_publicacion) AS posicion,
+               c.confirmada_en AS creada,
                'evento:ct:contrato-bolsa:' || pg_catalog.encode(pg_catalog.sha256(
                    pg_catalog.convert_to('cese' || pg_catalog.chr(31) || c.evento_ref, 'UTF8')
                ), 'hex') AS ref,
@@ -1031,8 +1055,12 @@ BEGIN
           FROM vec_contratacion_temporal.cese_nombramiento_v1 c
           JOIN vec_contratacion_temporal.incorporacion_registro_v2 r ON r.recibo_ref = c.incorporacion_ref
          WHERE c.llamamiento_ref IS NOT NULL
-           AND (p_desde_en IS NULL OR (c.confirmada_en, c.evento_ref) > (p_desde_en, p_desde_ref))
-         ORDER BY c.confirmada_en, c.evento_ref
+           AND (c.transaccion_publicacion < pg_catalog.pg_snapshot_xmin(pg_catalog.pg_current_snapshot())
+                OR c.transaccion_publicacion = pg_catalog.pg_current_xact_id_if_assigned())
+           AND (p_desde_posicion IS NULL
+                OR (vec_contratacion_temporal.posicion_contrato_bolsa_v1(c.transaccion_publicacion), c.evento_ref)
+                   > (p_desde_posicion, p_desde_ref))
+         ORDER BY 2, 1
          LIMIT p_limite
     ), base AS (
         SELECT * FROM incorporaciones UNION ALL SELECT * FROM ceses
@@ -1042,12 +1070,13 @@ BEGIN
     SELECT b.ref, b.cuerpo || pg_catalog.jsonb_build_object('evento_ref', b.ref),
            pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(
                (b.cuerpo || pg_catalog.jsonb_build_object('evento_ref', b.ref))::text, 'UTF8')), 'hex'),
-           b.origen, b.creada
+           b.origen, b.posicion, b.creada
       FROM base b
-     ORDER BY b.creada, b.origen;
+     ORDER BY b.posicion, b.origen;
+    PERFORM pg_catalog.set_config('vec.ct115.publicacion_bolsa', COALESCE(v_marca_previa, ''), true);
 END
 $f$;
-COMMENT ON FUNCTION vec_contratacion_temporal.leer_contratos_bolsa_v1(timestamptz, text, integer) IS
+COMMENT ON FUNCTION vec_contratacion_temporal.leer_contratos_bolsa_v1(bigint, text, integer) IS
     'CT113+CT115: publica a Bolsa incorporaciones y ceses de expedientes cubiertos por llamamiento; solo referencias opacas, fechas y claves.';
 
 -- ACL: solo el ejecutor de CT invoca las fachadas; tablas y auxiliares
@@ -1107,8 +1136,8 @@ BEGIN
        OR EXISTS (SELECT 1 FROM unnest(auxiliares) a WHERE has_function_privilege('vec_contratacion_temporal_ejecutor',a,'EXECUTE'))
        OR EXISTS (SELECT 1 FROM unnest(fachadas) a WHERE NOT has_function_privilege('vec_contratacion_temporal_ejecutor',a,'EXECUTE'))
        OR EXISTS (SELECT 1 FROM unnest(fachadas) a WHERE (SELECT NOT prosecdef FROM pg_proc WHERE oid=a))
-       OR NOT has_function_privilege('vec_contratacion_temporal_ejecutor','vec_contratacion_temporal.leer_contratos_bolsa_v1(timestamptz,text,integer)','EXECUTE')
-       OR has_function_privilege('public','vec_contratacion_temporal.leer_contratos_bolsa_v1(timestamptz,text,integer)','EXECUTE') THEN
+       OR NOT has_function_privilege('vec_contratacion_temporal_ejecutor','vec_contratacion_temporal.leer_contratos_bolsa_v1(bigint,text,integer)','EXECUTE')
+       OR has_function_privilege('public','vec_contratacion_temporal.leer_contratos_bolsa_v1(bigint,text,integer)','EXECUTE') THEN
         RAISE EXCEPTION 'CT115: ACL efectiva incompatible' USING ERRCODE='42501';
     END IF;
 END

@@ -28,8 +28,8 @@ func (l *lectorContratosCTPrueba) LeerContratosBolsa(_ context.Context, desde pu
 	}
 	var salida []puertosct.EventoContratoBolsaPublicado
 	for _, e := range l.eventos {
-		posterior := desde.Vacio() || e.OrigenCreadaEn.After(desde.CreadaEn) ||
-			(e.OrigenCreadaEn.Equal(desde.CreadaEn) && e.OrigenRef > desde.OrigenRef)
+		posterior := desde.Vacio() || e.OrigenPosicion > desde.Posicion ||
+			(e.OrigenPosicion == desde.Posicion && e.OrigenRef > desde.OrigenRef)
 		if posterior && len(salida) < limite {
 			salida = append(salida, e)
 		}
@@ -45,7 +45,7 @@ type buzonContratosEntregaPrueba struct {
 }
 
 func (b *buzonContratosEntregaPrueba) CursorContratos(context.Context) (puertosbolsa.CursorContratosParticipacion, bool, error) {
-	return b.cursor, !b.cursor.CreadaEn.IsZero(), b.err
+	return b.cursor, b.cursor.OrigenRef != "", b.err
 }
 
 func (b *buzonContratosEntregaPrueba) RegistrarContrato(_ context.Context, e puertosbolsa.EventoContratoRecibido) (puertosbolsa.ResultadoRegistroContrato, error) {
@@ -59,8 +59,8 @@ func (b *buzonContratosEntregaPrueba) RegistrarContrato(_ context.Context, e pue
 		return puertosbolsa.ResultadoRegistroContrato{Reutilizado: true}, nil
 	}
 	b.huellas[e.Evento.EventoRef] = e.HuellaSHA256
-	if e.OrigenCreadaEn.After(b.cursor.CreadaEn) {
-		b.cursor = puertosbolsa.CursorContratosParticipacion{CreadaEn: e.OrigenCreadaEn, OrigenRef: e.Evento.OrigenRef}
+	if e.OrigenPosicion > b.cursor.Posicion || (e.OrigenPosicion == b.cursor.Posicion && e.Evento.OrigenRef > b.cursor.OrigenRef) {
+		b.cursor = puertosbolsa.CursorContratosParticipacion{Posicion: e.OrigenPosicion, OrigenRef: e.Evento.OrigenRef}
 	}
 	return puertosbolsa.ResultadoRegistroContrato{ParticipacionRef: "participacion:1"}, nil
 }
@@ -71,7 +71,7 @@ func eventoPublicadoPrueba(i int, base time.Time) puertosct.EventoContratoBolsaP
 	eventoRef := "evento:ct:contrato-bolsa:" + hex.EncodeToString(ref[:])
 	c := `{"tipo": "incorporacion", "inicio": null, "esquema": "vec.contratacion-temporal.contrato-bolsa.v1", "evento_ref": "` + eventoRef + `", "origen_ref": "` + origen + `", "causa_clave": null, "ocurrido_en": "2027-01-02T09:00:01.000000Z", "fin_previsto": null, "categoria_ref": null, "expediente_ref": "expediente:ct:1", "llamamiento_ref": "llamamiento:1", "modalidad_clave": null, "organizacion_ref": "organizacion:1"}`
 	h := sha256.Sum256([]byte(c))
-	return puertosct.EventoContratoBolsaPublicado{EventoRef: eventoRef, Contenido: []byte(c), HuellaSHA256: hex.EncodeToString(h[:]), OrigenRef: origen, OrigenCreadaEn: base.Add(time.Duration(i) * time.Second)}
+	return puertosct.EventoContratoBolsaPublicado{EventoRef: eventoRef, Contenido: []byte(c), HuellaSHA256: hex.EncodeToString(h[:]), OrigenRef: origen, OrigenPosicion: int64(100 + i), OrigenCreadaEn: base.Add(time.Duration(i) * time.Second)}
 }
 
 func nuevaEntregaPrueba(t *testing.T, lector *lectorContratosCTPrueba, buzon *buzonContratosEntregaPrueba, lote int) *entregaContratosCTBolsa {
@@ -80,7 +80,7 @@ func nuevaEntregaPrueba(t *testing.T, lector *lectorContratosCTPrueba, buzon *bu
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &entregaContratosCTBolsa{lector: lector, receptor: receptor, lote: lote, relectura: time.Minute}
+	return &entregaContratosCTBolsa{lector: lector, receptor: receptor, lote: lote}
 }
 
 func TestEntregaContratosCTPaginaYEsIdempotente(t *testing.T) {
@@ -95,14 +95,23 @@ func TestEntregaContratosCTPaginaYEsIdempotente(t *testing.T) {
 	if err != nil || r.nuevos != 5 || r.reentregas != 0 || len(lector.desdes) != 3 || !lector.desdes[0].Vacio() {
 		t.Fatalf("primera pasada r=%+v err=%v desdes=%v", r, err, lector.desdes)
 	}
-	// Segunda pasada: relee desde el cursor menos la ventana y no duplica.
+	// Segunda pasada: continúa exactamente desde el cursor del inbox.
 	lector.desdes = nil
 	r, err = relevo.entregar(context.Background())
-	if err != nil || r.nuevos != 0 || r.reentregas != 5 || len(buzon.huellas) != 5 {
+	if err != nil || r.nuevos != 0 || r.reentregas != 0 || len(buzon.huellas) != 5 {
 		t.Fatalf("segunda pasada r=%+v err=%v", r, err)
 	}
-	if want := base.Add(5*time.Second - time.Minute); !lector.desdes[0].CreadaEn.Equal(want) || lector.desdes[0].OrigenRef != "" {
-		t.Fatalf("relectura desde %v, se esperaba %v", lector.desdes[0], want)
+	if lector.desdes[0] != (puertosct.CursorPublicacionContratosBolsa{Posicion: 105, OrigenRef: "ref:outbox:005"}) {
+		t.Fatalf("la pasada no parte del cursor: %v", lector.desdes[0])
+	}
+	// Una incorporación que confirma tarde con un instante anterior al
+	// cursor tiene una posición mayor (CT solo la publica al terminar su
+	// transacción) y se entrega en la pasada siguiente.
+	tarde := eventoPublicadoPrueba(6, base.Add(-time.Hour))
+	lector.eventos = append(lector.eventos, tarde)
+	r, err = relevo.entregar(context.Background())
+	if err != nil || r.nuevos != 1 || len(buzon.huellas) != 6 {
+		t.Fatalf("evento tardío r=%+v err=%v", r, err)
 	}
 }
 
@@ -141,15 +150,15 @@ func TestEntregaContratosCTSeDetieneYRespetaConfiguracion(t *testing.T) {
 	}
 	detener()
 	detener()
-	parar, err := iniciarEntregaContratosCTBolsaDesarrollo(config.NuevaConfiguracionEntregaContratosCTBolsa("0", "", ""), nil, nil)
+	parar, err := iniciarEntregaContratosCTBolsaDesarrollo(config.NuevaConfiguracionEntregaContratosCTBolsa("0", ""), nil, nil)
 	if err != nil || parar == nil {
 		t.Fatalf("desactivado: %v", err)
 	}
 	parar()
-	if _, err := iniciarEntregaContratosCTBolsaDesarrollo(config.NuevaConfiguracionEntregaContratosCTBolsa("x", "", ""), nil, nil); err == nil {
+	if _, err := iniciarEntregaContratosCTBolsaDesarrollo(config.NuevaConfiguracionEntregaContratosCTBolsa("x", ""), nil, nil); err == nil {
 		t.Fatal("configuración inválida aceptada")
 	}
-	if _, err := iniciarEntregaContratosCTBolsaDesarrollo(config.NuevaConfiguracionEntregaContratosCTBolsa("", "", ""), nil, nil); err == nil {
+	if _, err := iniciarEntregaContratosCTBolsaDesarrollo(config.NuevaConfiguracionEntregaContratosCTBolsa("", ""), nil, nil); err == nil {
 		t.Fatal("relevo sin pools aceptado")
 	}
 }

@@ -68,7 +68,7 @@ func (b *BuzonContratosParticipacionPostgreSQL) CursorContratos(ctx context.Cont
 	if b == nil || b.pool == nil || ctx == nil {
 		return c, false, ports.ErrContratosParticipacionNoDisponible
 	}
-	err := b.pool.QueryRow(ctx, `SELECT origen_creada_en, origen_ref FROM vec_bolsa_llamamientos.cursor_contratos_participacion_v1()`).Scan(&c.CreadaEn, &c.OrigenRef)
+	err := b.pool.QueryRow(ctx, `SELECT origen_posicion, origen_ref FROM vec_bolsa_llamamientos.cursor_contratos_participacion_v1()`).Scan(&c.Posicion, &c.OrigenRef)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ports.CursorContratosParticipacion{}, false, nil
 	}
@@ -80,12 +80,12 @@ func (b *BuzonContratosParticipacionPostgreSQL) CursorContratos(ctx context.Cont
 
 func (b *BuzonContratosParticipacionPostgreSQL) RegistrarContrato(ctx context.Context, e ports.EventoContratoRecibido) (ports.ResultadoRegistroContrato, error) {
 	var r ports.ResultadoRegistroContrato
-	if b == nil || b.pool == nil || ctx == nil || e.Evento.Validar() != nil || len(e.Contenido) == 0 || e.HuellaSHA256 == "" || e.OrigenCreadaEn.IsZero() {
+	if b == nil || b.pool == nil || ctx == nil || e.Evento.Validar() != nil || len(e.Contenido) == 0 || e.HuellaSHA256 == "" || e.OrigenCreadaEn.IsZero() || e.OrigenPosicion < 0 {
 		return r, ports.ErrContratosParticipacionNoDisponible
 	}
 	var participacion *string
 	err := pgx.BeginTxFunc(ctx, b.pool, pgx.TxOptions{IsoLevel: pgx.ReadCommitted, AccessMode: pgx.ReadWrite}, func(tx pgx.Tx) error {
-		return tx.QueryRow(ctx, `SELECT reutilizado, participacion_ref FROM vec_bolsa_llamamientos.registrar_contrato_participacion_v1($1::text::jsonb,$2,$3)`, string(e.Contenido), e.HuellaSHA256, e.OrigenCreadaEn.UTC().Truncate(time.Microsecond)).Scan(&r.Reutilizado, &participacion)
+		return tx.QueryRow(ctx, `SELECT reutilizado, participacion_ref FROM vec_bolsa_llamamientos.registrar_contrato_participacion_v1($1::text::jsonb,$2,$3,$4)`, string(e.Contenido), e.HuellaSHA256, e.OrigenCreadaEn.UTC().Truncate(time.Microsecond), e.OrigenPosicion).Scan(&r.Reutilizado, &participacion)
 	})
 	if err != nil {
 		return ports.ResultadoRegistroContrato{}, errorContratosParticipacion(err)

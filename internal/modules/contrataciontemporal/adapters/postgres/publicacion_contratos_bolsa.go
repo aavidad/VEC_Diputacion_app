@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -30,21 +29,21 @@ func NuevoLectorPublicacionContratosBolsaPostgreSQL(pool *pgxpool.Pool) (*Lector
 
 func (l *LectorPublicacionContratosBolsaPostgreSQL) LeerContratosBolsa(ctx context.Context, desde ports.CursorPublicacionContratosBolsa, limite int) ([]ports.EventoContratoBolsaPublicado, error) {
 	if l == nil || l.pool == nil || ctx == nil || limite < 1 || limite > ports.LimiteLecturaContratosBolsa ||
-		(desde.Vacio() && desde.OrigenRef != "") || len(desde.OrigenRef) > 512 {
+		desde.Posicion < 0 || (desde.Vacio() && desde.Posicion != 0) || len(desde.OrigenRef) > 512 {
 		return nil, ports.ErrPublicacionContratosBolsaNoDisponible
 	}
-	var desdeEn *time.Time
+	var desdePosicion *int64
 	var desdeRef *string
 	if !desde.Vacio() {
-		en, ref := desde.CreadaEn.UTC(), desde.OrigenRef
-		desdeEn, desdeRef = &en, &ref
+		posicion, ref := desde.Posicion, desde.OrigenRef
+		desdePosicion, desdeRef = &posicion, &ref
 	}
 	tx, err := l.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ports.ErrPublicacionContratosBolsaNoDisponible, err)
 	}
 	defer tx.Rollback(context.Background())
-	filas, err := tx.Query(ctx, `SELECT evento_ref, evento::text, huella_sha256, origen_ref, origen_creada_en FROM vec_contratacion_temporal.leer_contratos_bolsa_v1($1,$2,$3)`, desdeEn, desdeRef, limite)
+	filas, err := tx.Query(ctx, `SELECT evento_ref, evento::text, huella_sha256, origen_ref, origen_posicion, origen_creada_en FROM vec_contratacion_temporal.leer_contratos_bolsa_v1($1,$2,$3)`, desdePosicion, desdeRef, limite)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ports.ErrPublicacionContratosBolsaNoDisponible, err)
 	}
@@ -53,13 +52,13 @@ func (l *LectorPublicacionContratosBolsaPostgreSQL) LeerContratosBolsa(ctx conte
 	for filas.Next() {
 		var e ports.EventoContratoBolsaPublicado
 		var contenido string
-		if err := filas.Scan(&e.EventoRef, &contenido, &e.HuellaSHA256, &e.OrigenRef, &e.OrigenCreadaEn); err != nil {
+		if err := filas.Scan(&e.EventoRef, &contenido, &e.HuellaSHA256, &e.OrigenRef, &e.OrigenPosicion, &e.OrigenCreadaEn); err != nil {
 			return nil, fmt.Errorf("%w: %w", ports.ErrPublicacionContratosBolsaNoDisponible, err)
 		}
 		// La huella la calcula PostgreSQL sobre este mismo texto: se coteja
 		// antes de entregarlo para no propagar un contenido alterado.
 		suma := sha256.Sum256([]byte(contenido))
-		if hex.EncodeToString(suma[:]) != e.HuellaSHA256 || e.EventoRef == "" || e.OrigenRef == "" {
+		if hex.EncodeToString(suma[:]) != e.HuellaSHA256 || e.EventoRef == "" || e.OrigenRef == "" || e.OrigenPosicion < 0 {
 			return nil, fmt.Errorf("%w: %w", ports.ErrPublicacionContratosBolsaNoDisponible, errors.New("huella de evento incoherente"))
 		}
 		e.Contenido = []byte(contenido)

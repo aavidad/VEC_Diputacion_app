@@ -9,7 +9,7 @@ BEGIN;
 SET LOCAL timezone = 'UTC';
 DO $pre$ BEGIN
  IF current_setting('server_version_num') <> '180004'
-    OR to_regprocedure('vec_contratacion_temporal.leer_contratos_bolsa_v1(timestamptz,text,integer)') IS NULL
+    OR to_regprocedure('vec_contratacion_temporal.leer_contratos_bolsa_v1(bigint,text,integer)') IS NULL
     OR to_regclass('vec_bolsa_llamamientos.contrato_participacion') IS NULL
     OR NOT EXISTS (SELECT 1 FROM vec_contratacion_temporal.propuesta_formalizacion) THEN
   RAISE EXCEPTION 'B13: requiere PG18.4 con CT113, B13 y al menos una propuesta CT61';
@@ -59,16 +59,17 @@ INSERT INTO pg_temp.r SELECT 'ev1', evento::text FROM vec_contratacion_temporal.
 INSERT INTO pg_temp.r SELECT 'hu1', huella_sha256 FROM vec_contratacion_temporal.leer_contratos_bolsa_v1(NULL, NULL, 1);
 INSERT INTO pg_temp.r SELECT 'oc1', origen_creada_en::text FROM vec_contratacion_temporal.leer_contratos_bolsa_v1(NULL, NULL, 1);
 INSERT INTO pg_temp.r SELECT 'or1', origen_ref FROM vec_contratacion_temporal.leer_contratos_bolsa_v1(NULL, NULL, 1);
+INSERT INTO pg_temp.r SELECT 'po1', origen_posicion::text FROM vec_contratacion_temporal.leer_contratos_bolsa_v1(NULL, NULL, 1);
 -- Reentrega: misma fila, misma huella.
 INSERT INTO pg_temp.r SELECT 'hu1b', huella_sha256 FROM vec_contratacion_temporal.leer_contratos_bolsa_v1(NULL, NULL, 1);
-DO $cursor$ DECLARE v_oc timestamptz; v_or text; v_n integer; BEGIN
- SELECT valor::timestamptz INTO v_oc FROM pg_temp.r WHERE nombre = 'oc1';
+DO $cursor$ DECLARE v_po bigint; v_or text; v_n integer; BEGIN
+ SELECT valor::bigint INTO v_po FROM pg_temp.r WHERE nombre = 'po1';
  SELECT valor INTO v_or FROM pg_temp.r WHERE nombre = 'or1';
- SELECT count(*) INTO v_n FROM vec_contratacion_temporal.leer_contratos_bolsa_v1(v_oc, v_or, 100);
+ SELECT count(*) INTO v_n FROM vec_contratacion_temporal.leer_contratos_bolsa_v1(v_po, v_or, 100);
  INSERT INTO pg_temp.r VALUES ('ct_tras_cursor', v_n::text);
  BEGIN PERFORM vec_contratacion_temporal.leer_contratos_bolsa_v1(NULL, NULL, 0);
   RAISE EXCEPTION 'B13: límite 0 aceptado'; EXCEPTION WHEN invalid_parameter_value THEN NULL; END;
- BEGIN PERFORM vec_contratacion_temporal.leer_contratos_bolsa_v1(v_oc, NULL, 10);
+ BEGIN PERFORM vec_contratacion_temporal.leer_contratos_bolsa_v1(v_po, NULL, 10);
   RAISE EXCEPTION 'B13: cursor incompleto aceptado'; EXCEPTION WHEN invalid_parameter_value THEN NULL; END;
  BEGIN PERFORM 1 FROM vec_contratacion_temporal.incorporacion_outbox_v2;
   RAISE EXCEPTION 'B13: lectura directa del outbox CT'; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
@@ -84,24 +85,32 @@ END $acl_ct$;
 
 -- Bolsa: inbox idempotente.
 DO $inbox$
-DECLARE v_ev jsonb; v_hu text; v_oc timestamptz; v_res record; v_malo jsonb; v_desconocido jsonb;
+DECLARE v_ev jsonb; v_hu text; v_oc timestamptz; v_po bigint; v_res record; v_malo jsonb; v_desconocido jsonb;
 BEGIN
  SELECT valor::jsonb INTO v_ev FROM pg_temp.r WHERE nombre = 'ev1';
  SELECT valor INTO v_hu FROM pg_temp.r WHERE nombre = 'hu1';
  SELECT valor::timestamptz INTO v_oc FROM pg_temp.r WHERE nombre = 'oc1';
- SELECT * INTO STRICT v_res FROM vec_bolsa_llamamientos.registrar_contrato_participacion_v1(v_ev, v_hu, v_oc);
+ SELECT valor::bigint INTO v_po FROM pg_temp.r WHERE nombre = 'po1';
+ SELECT * INTO STRICT v_res FROM vec_bolsa_llamamientos.registrar_contrato_participacion_v1(v_ev, v_hu, v_oc, v_po);
  IF v_res.reutilizado OR v_res.participacion_ref IS NULL THEN RAISE EXCEPTION 'B13: primera entrega sin participación'; END IF;
  INSERT INTO pg_temp.r VALUES ('participacion', v_res.participacion_ref);
- SELECT * INTO STRICT v_res FROM vec_bolsa_llamamientos.registrar_contrato_participacion_v1(v_ev, v_hu, v_oc);
+ SELECT * INTO STRICT v_res FROM vec_bolsa_llamamientos.registrar_contrato_participacion_v1(v_ev, v_hu, v_oc, v_po);
  IF NOT v_res.reutilizado THEN RAISE EXCEPTION 'B13: reentrega no reconocida'; END IF;
+ -- La misma entrega con otra posición de publicación: divergente.
+ BEGIN PERFORM vec_bolsa_llamamientos.registrar_contrato_participacion_v1(v_ev, v_hu, v_oc, v_po + 7);
+  RAISE EXCEPTION 'B13: reentrega con otra posición aceptada';
+ EXCEPTION WHEN sqlstate 'VBC01' THEN NULL; END;
+ BEGIN PERFORM vec_bolsa_llamamientos.registrar_contrato_participacion_v1(v_ev, v_hu, v_oc, -1);
+  RAISE EXCEPTION 'B13: posición negativa aceptada';
+ EXCEPTION WHEN invalid_parameter_value THEN NULL; END;
  -- Mismo evento_ref con otro contenido: rechazo, nunca sobrescritura.
  v_malo := jsonb_set(v_ev, '{causa_clave}', '"otra_causa"');
  BEGIN PERFORM vec_bolsa_llamamientos.registrar_contrato_participacion_v1(v_malo,
-   encode(sha256(convert_to(v_malo::text, 'UTF8')), 'hex'), v_oc);
+   encode(sha256(convert_to(v_malo::text, 'UTF8')), 'hex'), v_oc, v_po);
   RAISE EXCEPTION 'B13: reentrega divergente aceptada';
  EXCEPTION WHEN sqlstate 'VBC01' THEN NULL; END;
  -- Huella que no corresponde al contenido.
- BEGIN PERFORM vec_bolsa_llamamientos.registrar_contrato_participacion_v1(v_ev, repeat('0', 64), v_oc);
+ BEGIN PERFORM vec_bolsa_llamamientos.registrar_contrato_participacion_v1(v_ev, repeat('0', 64), v_oc, v_po);
   RAISE EXCEPTION 'B13: huella falsa aceptada';
  EXCEPTION WHEN invalid_parameter_value THEN NULL; END;
  -- Campo desconocido, esquema ajeno, evento_ref no derivado y fechas invertidas.
@@ -110,7 +119,7 @@ BEGIN
    (jsonb_set(v_ev, '{fin_previsto}', '"2026-01-01T00:00:00.000000Z"')),
    (jsonb_set(v_ev, '{inicio}', '"2027-01-04"'))) t(x) LOOP
   BEGIN PERFORM vec_bolsa_llamamientos.registrar_contrato_participacion_v1(v_malo,
-    encode(sha256(convert_to(v_malo::text, 'UTF8')), 'hex'), v_oc);
+    encode(sha256(convert_to(v_malo::text, 'UTF8')), 'hex'), v_oc, v_po);
    RAISE EXCEPTION 'B13: evento inválido aceptado: %', v_malo;
   EXCEPTION WHEN invalid_parameter_value THEN NULL; END;
  END LOOP;
@@ -119,7 +128,7 @@ BEGIN
  v_desconocido := jsonb_set(v_desconocido, '{evento_ref}', to_jsonb('evento:ct:contrato-bolsa:' ||
    encode(sha256(convert_to('incorporacion' || chr(31) || 'ref:outbox:desconocido', 'UTF8')), 'hex')));
  SELECT * INTO STRICT v_res FROM vec_bolsa_llamamientos.registrar_contrato_participacion_v1(v_desconocido,
-   encode(sha256(convert_to(v_desconocido::text, 'UTF8')), 'hex'), v_oc + interval '1 hour');
+   encode(sha256(convert_to(v_desconocido::text, 'UTF8')), 'hex'), v_oc + interval '1 hour', v_po + 1);
  IF v_res.reutilizado OR v_res.participacion_ref IS NOT NULL THEN RAISE EXCEPTION 'B13: llamamiento ajeno asignado'; END IF;
  -- El cursor devuelve el último origen recibido.
  IF (SELECT origen_ref FROM vec_bolsa_llamamientos.cursor_contratos_participacion_v1()) <> 'ref:outbox:desconocido' THEN

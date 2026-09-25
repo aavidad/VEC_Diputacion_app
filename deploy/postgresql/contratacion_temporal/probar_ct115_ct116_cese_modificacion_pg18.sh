@@ -128,18 +128,20 @@ if [[ -s $b24 ]]; then
   salida=$(docker exec -i "$nombre" psql -X -At -v ON_ERROR_STOP=1 -U postgres -d postgres 2>&1 <<'SQL'
 SET SESSION AUTHORIZATION vec_ct115_runtime;
 BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;
-SELECT evento::text AS ev, huella_sha256 AS hu, origen_creada_en AS cr FROM vec_contratacion_temporal.leer_contratos_bolsa_v1(NULL,NULL,100) WHERE evento->>'tipo'='cese' \gset
+SELECT evento::text AS ev, huella_sha256 AS hu, origen_creada_en AS cr, origen_posicion AS po FROM vec_contratacion_temporal.leer_contratos_bolsa_v1(NULL,NULL,100) WHERE evento->>'tipo'='cese' \gset
+-- La marca que abre la lectura de ceses no sobrevive a la llamada.
+SELECT 'marca:'||coalesce(current_setting('vec.ct115.publicacion_bolsa',true),'');
 COMMIT;
 RESET SESSION AUTHORIZATION;
 SET ROLE vec_bolsa_llamamientos_propietario;
-SELECT 'primera:'||reutilizado FROM vec_bolsa_llamamientos.registrar_contrato_participacion_v1(:'ev'::jsonb,:'hu',:'cr');
-SELECT 'segunda:'||reutilizado FROM vec_bolsa_llamamientos.registrar_contrato_participacion_v1(:'ev'::jsonb,:'hu',:'cr');
+SELECT 'primera:'||reutilizado FROM vec_bolsa_llamamientos.registrar_contrato_participacion_v1(:'ev'::jsonb,:'hu',:'cr',:'po');
+SELECT 'segunda:'||reutilizado FROM vec_bolsa_llamamientos.registrar_contrato_participacion_v1(:'ev'::jsonb,:'hu',:'cr',:'po');
 SELECT 'fila:'||tipo||':'||causa_clave||':'||to_char(fin_previsto AT TIME ZONE 'UTC','YYYY-MM-DD') FROM vec_bolsa_llamamientos.contrato_participacion WHERE tipo='cese';
 SQL
 ) || { printf '%s\n' "$salida" >&2; exit 1; }
-  grep -q '^primera:false$' <<<"$salida" && grep -q '^segunda:true$' <<<"$salida" && grep -q '^fila:cese:fin_sustitucion:2027-02-15$' <<<"$salida" \
+  grep -q '^marca:$' <<<"$salida" && grep -q '^primera:false$' <<<"$salida" && grep -q '^segunda:true$' <<<"$salida" && grep -q '^fila:cese:fin_sustitucion:2027-02-15$' <<<"$salida" \
     || { printf 'FALLO inbox de Bolsa:\n%s\n' "$salida" >&2; exit 1; }
-  ok 'Bolsa registra el cese una vez y reconoce la reentrega'
+  ok 'Bolsa registra el cese una vez y reconoce la reentrega; la marca de lectura no queda activa'
 fi
 echo '== CT115 DOWN se niega con historia'
 falla_con "$ct/000115_cese_y_cierre_expediente.down.sql" 'no admitido con historia'

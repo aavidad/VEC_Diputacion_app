@@ -25,10 +25,9 @@ const maximoPaginasEntregaContratosCT = 100
 // publicación de CT (CT113) y entrega cada evento al inbox de Bolsa. Solo
 // compone puertos; ninguno de los dos módulos lee tablas del otro.
 type entregaContratosCTBolsa struct {
-	lector    puertosct.LectorPublicacionContratosBolsa
-	receptor  *aplicacionbolsa.ServicioRecepcionContratos
-	lote      int
-	relectura time.Duration
+	lector   puertosct.LectorPublicacionContratosBolsa
+	receptor *aplicacionbolsa.ServicioRecepcionContratos
+	lote     int
 }
 
 // resultadoEntregaContratosCT resume una pasada para el registro técnico.
@@ -36,9 +35,10 @@ type resultadoEntregaContratosCT struct {
 	nuevos, reentregas, rechazados int
 }
 
-// entregar hace una pasada completa desde el cursor del inbox menos la
-// ventana de relectura. Un evento inválido o divergente se registra y no
-// bloquea a los demás; una indisponibilidad detiene la pasada.
+// entregar hace una pasada completa desde el cursor del inbox. CT solo
+// publica eventos de transacciones ya terminadas y en orden de posición, así
+// que no hace falta releer hacia atrás. Un evento inválido o divergente se
+// registra y no bloquea a los demás; una indisponibilidad detiene la pasada.
 func (e *entregaContratosCTBolsa) entregar(ctx context.Context) (resultadoEntregaContratosCT, error) {
 	var r resultadoEntregaContratosCT
 	if e == nil || e.lector == nil || e.receptor == nil || e.lote < 1 || e.lote > puertosct.LimiteLecturaContratosBolsa || ctx == nil {
@@ -50,7 +50,7 @@ func (e *entregaContratosCTBolsa) entregar(ctx context.Context) (resultadoEntreg
 	}
 	var desde puertosct.CursorPublicacionContratosBolsa
 	if hay {
-		desde.CreadaEn = cursor.CreadaEn.Add(-e.relectura)
+		desde = puertosct.CursorPublicacionContratosBolsa{Posicion: cursor.Posicion, OrigenRef: cursor.OrigenRef}
 	}
 	for pagina := 0; pagina < maximoPaginasEntregaContratosCT; pagina++ {
 		eventos, err := e.lector.LeerContratosBolsa(ctx, desde, e.lote)
@@ -58,7 +58,7 @@ func (e *entregaContratosCTBolsa) entregar(ctx context.Context) (resultadoEntreg
 			return r, err
 		}
 		for _, evento := range eventos {
-			res, err := e.receptor.Recibir(ctx, evento.Contenido, evento.HuellaSHA256, evento.OrigenCreadaEn)
+			res, err := e.receptor.Recibir(ctx, evento.Contenido, evento.HuellaSHA256, evento.OrigenCreadaEn, evento.OrigenPosicion)
 			switch {
 			case errors.Is(err, dominiobolsa.ErrEventoContratoParticipacionInvalido), errors.Is(err, puertosbolsa.ErrEventoContratoDivergente):
 				r.rechazados++
@@ -75,7 +75,7 @@ func (e *entregaContratosCTBolsa) entregar(ctx context.Context) (resultadoEntreg
 			return r, nil
 		}
 		ultimo := eventos[len(eventos)-1]
-		desde = puertosct.CursorPublicacionContratosBolsa{CreadaEn: ultimo.OrigenCreadaEn, OrigenRef: ultimo.OrigenRef}
+		desde = puertosct.CursorPublicacionContratosBolsa{Posicion: ultimo.OrigenPosicion, OrigenRef: ultimo.OrigenRef}
 	}
 	return r, nil
 }
@@ -104,7 +104,7 @@ func iniciarEntregaContratosCTBolsaDesarrollo(cfg config.ConfiguracionEntregaCon
 	if err != nil {
 		return nada, err
 	}
-	relevo := &entregaContratosCTBolsa{lector: lector, receptor: receptor, lote: opciones.Lote, relectura: opciones.Relectura}
+	relevo := &entregaContratosCTBolsa{lector: lector, receptor: receptor, lote: opciones.Lote}
 	return mantenerEntregaContratosCTBolsa(relevo, opciones.Intervalo, esperarTemporizadorCTDesarrollo), nil
 }
 
