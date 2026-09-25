@@ -88,12 +88,12 @@ const CARGADORES_PRESENTACION_PREDETERMINADOS = Object.freeze({
     const [contrato, clienteCategorias, vistaCategorias, clienteRPT, vistaRPT, clienteEstructura, vistaEstructura, ficha] = await Promise.all([
       import("./modulos/personal/contrato.js?v=20260920-personal-catalogo-v1"),
       import("./modulos/personal/cliente-http-categorias.js?v=20260924-p1-personal-interno-v2"),
-      import("./modulos/personal/vista.js?v=20260925-b2-sin-codigos-v1"),
+      import("./modulos/personal/vista.js?v=20260925-b2-sin-acto-fuente-v1"),
       import("./modulos/personal/cliente-http-rpt-publica.js?v=20260920-personal-rpt-publica-v3"),
       import("./modulos/personal/vista-rpt-publica.js?v=20260924-web-c-v1"),
       import("./modulos/personal/cliente-http-estructura-organizativa-publica.js?v=20260920-personal-estructura-v1"),
-      import("./modulos/personal/vista-estructura-organizativa-publica.js?v=20260925-b2-sin-codigos-v1"),
-      import("./modulos/personal/vista-ficha-integral.js?v=20260925-b2-sin-codigos-v1"),
+      import("./modulos/personal/vista-estructura-organizativa-publica.js?v=20260925-b2-sin-acto-fuente-v1"),
+      import("./modulos/personal/vista-ficha-integral.js?v=20260925-b2-sin-acto-fuente-v1"),
     ]);
     return Object.freeze({ contrato, clienteCategorias, vistaCategorias, clienteRPT, vistaRPT, clienteEstructura, vistaEstructura, ficha });
   },
@@ -160,12 +160,12 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
     const [contrato, cliente, vista, ficha, registro, clienteRegistro, clienteCatalogosRegistro, i18n] = await Promise.all([
       import("./modulos/personal/contrato.js?v=20260920-personal-catalogo-v1"),
       import("./modulos/personal/cliente-http-categorias.js?v=20260924-p1-personal-interno-v2"),
-      import("./modulos/personal/vista.js?v=20260925-b2-sin-codigos-v1"),
-      import("./modulos/personal/vista-ficha-integral.js?v=20260925-b2-sin-codigos-v1"),
-      import("./modulos/personal/registro-b2.js?v=20260925-b2-sin-codigos-v1"),
+      import("./modulos/personal/vista.js?v=20260925-b2-sin-acto-fuente-v1"),
+      import("./modulos/personal/vista-ficha-integral.js?v=20260925-b2-sin-acto-fuente-v1"),
+      import("./modulos/personal/registro-b2.js?v=20260925-b2-sin-acto-fuente-v1"),
       import("./modulos/personal/registro-b2-cliente.js?v=20260925-b2-selector-v1"),
       import("./modulos/personal/registro-b2-catalogos-cliente.js?v=20260925-b2-mtls-v1"),
-      import("./modulos/personal/i18n.js?v=20260925-b2-sin-codigos-v1"),
+      import("./modulos/personal/i18n.js?v=20260925-b2-sin-acto-fuente-v1"),
     ]);
     return Object.freeze({ contrato, cliente, vista, clienteCategorias: cliente, vistaCategorias: vista,
       ficha, registro, clienteRegistro, clienteCatalogosRegistro, i18n });

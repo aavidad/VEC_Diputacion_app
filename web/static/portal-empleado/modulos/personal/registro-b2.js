@@ -1,7 +1,7 @@
-import { crearTraductorPersonal } from "./i18n.js?v=20260925-b2-sin-codigos-v1";
+import { crearTraductorPersonal } from "./i18n.js?v=20260925-b2-sin-acto-fuente-v1";
 import { ErrorRegistroB2 } from "./registro-b2-cliente.js?v=20260925-b2-selector-v1";
-import { accionesRegistroB2Disponibles, montarActosRegistroB2 } from "./registro-b2-actos.js?v=20260925-b2-sin-codigos-v1";
-import { cargarOpcionesPublicadasCatalogoB2, montarCatalogosRegistroB2 } from "./registro-b2-catalogos.js?v=20260925-b2-sin-codigos-v1";
+import { accionesRegistroB2Disponibles, montarActosRegistroB2 } from "./registro-b2-actos.js?v=20260925-b2-sin-acto-fuente-v1";
+import { cargarOpcionesPublicadasCatalogoB2, montarCatalogosRegistroB2 } from "./registro-b2-catalogos.js?v=20260925-b2-sin-acto-fuente-v1";
 
 const BLOQUES = Object.freeze([
   ["relaciones", "registro_b2_relaciones", "registro_b2_tabla_relaciones", [
@@ -11,10 +11,10 @@ const BLOQUES = Object.freeze([
     ["puesto", "registro_b2_puesto"], ["plaza", "registro_b2_plaza"], ["modalidad_catalogo", "registro_b2_modalidad"], ["clase", "registro_b2_clase"], ["unidad", "registro_b2_unidad"], ["periodo", "registro_b2_periodo"],
   ]],
   ["situaciones", "registro_b2_situaciones", "registro_b2_tabla_situaciones", [
-    ["situacion", "registro_b2_situacion"], ["periodo", "registro_b2_periodo"], ["acto", "registro_b2_acto"],
+    ["situacion", "registro_b2_situacion"], ["periodo", "registro_b2_periodo"],
   ]],
   ["servicios", "registro_b2_servicios", "registro_b2_tabla_servicios", [
-    ["clase_servicio_catalogo", "registro_b2_clase_servicio"], ["estado", "registro_b2_estado"], ["periodo_servicio", "registro_b2_periodo"], ["dias", "registro_b2_dias_reconocidos"], ["fuente", "registro_b2_fuente"],
+    ["clase_servicio_catalogo", "registro_b2_clase_servicio"], ["estado", "registro_b2_estado"], ["periodo_servicio", "registro_b2_periodo"], ["dias", "registro_b2_dias_reconocidos"],
   ]],
 ]);
 const ESTADOS = Object.freeze({
@@ -50,8 +50,6 @@ function presentar(item, campo, t) {
     case "puesto": return nombreOReferencia(item, "puesto_denominacion", "puesto_ref", t);
     case "plaza": return nombreOReferencia(item, "plaza_denominacion", "plaza_ref", t);
     case "situacion": return textoSeguro(item.catalogo_snapshot?.situacion?.denominacion, 256) || nombreOReferencia(item, "situacion_denominacion", "codigo_ref", t);
-    case "acto": return sinDenominacion(item.traza?.acto_ref, t);
-    case "fuente": return sinDenominacion(item.traza?.fuente_ref, t);
     case "cobertura": return etiquetaEstado(item.estado_cobertura, t);
     default: return t("registro_b2_sin_valor");
   }

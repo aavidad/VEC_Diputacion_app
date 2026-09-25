@@ -72,6 +72,18 @@ test("la ficha prioriza la denominación histórica del catálogo sobre su refer
   assert.doesNotMatch(texto(raiz), /regimen:uno|situacion:uno|· v\d/);
 });
 
+test("situaciones y servicios no muestran columnas de acto ni fuente sin denominación del servidor", async () => {
+  const raiz = raizFalsa(); const respuesta = ficha([relacion("rel_aaaaaaaaaaaaaaaaaaaaaa")]);
+  respuesta.ficha.situaciones = [{ situacion_ref: "situacion:hecho", relacion_ref: "rel_aaaaaaaaaaaaaaaaaaaaaa", codigo_ref: "situacion:uno", traza, catalogo_snapshot: { situacion: { ref: "situacion:uno", version: 3, denominacion: "Situación histórica" } } }];
+  respuesta.ficha.servicios = [{ servicio_ref: "servicio:uno", relacion_ref: "rel_aaaaaaaaaaaaaaaaaaaaaa", estado: "reconocido", periodo_desde: "2020-01-01", periodo_hasta: "2021-01-01", dias_reconocidos: 366, traza, catalogo_snapshot: { clase_servicio: { ref: "clase:uno", version: 1, denominacion: "Servicio previo" } } }];
+  montarRegistroB2({ raiz, empleadoRef: "emp_aaaaaaaaaaaaaaaaaaaaaa", cliente: { consultarFicha: () => respuesta, listarVacantes: () => { throw Error("no esperado"); } }, reloj: () => new Date("2026-09-25T10:00:00Z") });
+  await completar();
+  const cabeceras = nodos(raiz).filter((n) => n.tagName === "th").map((n) => n.textContent);
+  assert.ok(cabeceras.includes("Situación")); assert.ok(cabeceras.includes("Días reconocidos"));
+  assert.ok(!cabeceras.includes("Acto")); assert.ok(!cabeceras.includes("Fuente"));
+  assert.doesNotMatch(texto(raiz), /acto-uno|fuente-uno/);
+});
+
 test("fallo 503 no finge vacantes vacías y ofrece reintento", async () => {
   const raiz = raizFalsa(); let llamadas = 0;
   montarRegistroB2({ raiz, cliente: { consultarFicha: () => ficha(), listarVacantes: () => { llamadas++; throw new ErrorRegistroB2("estado_no_valido", 503); } }, reloj: () => new Date("2026-09-25T10:00:00Z") });
@@ -237,6 +249,10 @@ test("clientes con mTLS del mismo origen renuevan su versión en cascada", async
   exigirRenovado(catalogos, "registro-b2-catalogos-cliente.js", "20260925-b2-registro-v3");
   exigirRenovado(registro, "registro-b2-actos.js", "20260925-b2-registro-v3");
   exigirRenovado(registro, "registro-b2-catalogos.js", "20260925-b2-registro-v3");
+  const coordinador = await readFile(new URL("../../portal-modulos-coordinador.js", import.meta.url), "utf8");
+  exigirRenovado(coordinador, "registro-b2.js", "20260925-b2-sin-codigos-v1");
+  exigirRenovado([registro, actos, catalogos], "i18n.js", "20260925-b2-sin-codigos-v1");
+  exigirRenovado(coordinador, "modulos/personal/i18n.js", "20260925-b2-sin-codigos-v1");
 });
 
 function paginaEmpleados({ cursor = "", siguiente = "", empleados } = {}) {

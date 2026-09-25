@@ -49,7 +49,6 @@ export const MENSAJES_PERSONAL_ES = Object.freeze({
   registro_b2_relacion_pendiente: "Seleccione la relación de servicio que desea consultar.",
   registro_b2_todas_relaciones: "Todas las relaciones",
   registro_b2_situacion: "Situación",
-  registro_b2_fuente: "Fuente",
   registro_b2_acto: "Acto",
   registro_b2_sin_valor: "No consta",
   registro_b2_sin_denominacion: "Sin denominación",
