@@ -63,6 +63,13 @@ const (
 	EnvSMTPFrom                                    = "VEC_SMTP_FROM"
 	EnvSMTPCAFile                                  = "VEC_SMTP_CA_FILE"
 	EnvSMTPModoTLS                                 = "VEC_SMTP_MODO_TLS"
+	EnvFirmaVerificacionEnabled                    = "VEC_FIRMA_VERIFICACION_ENABLED"
+	EnvFirmaVerificacionURL                        = "VEC_FIRMA_VERIFICACION_URL"
+	EnvFirmaVerificacionCAFile                     = "VEC_FIRMA_VERIFICACION_CA_FILE"
+	EnvFirmaVerificacionTokenFile                  = "VEC_FIRMA_VERIFICACION_TOKEN_FILE"
+	EnvFirmaVerificacionCertFile                   = "VEC_FIRMA_VERIFICACION_CERT_FILE"
+	EnvFirmaVerificacionKeyFile                    = "VEC_FIRMA_VERIFICACION_KEY_FILE"
+	EnvFirmaVerificacionTimeout                    = "VEC_FIRMA_VERIFICACION_TIMEOUT"
 
 	StorageModeMemory       = "memory"
 	StorageModeFile         = "file"
@@ -159,6 +166,13 @@ type Config struct {
 	CronosResolucionEnabled                     string
 	CronosNotificacionesEnabled                 string
 	DocumentosEnabled                           string
+	FirmaVerificacionEnabled                    string
+	FirmaVerificacionURL                        string
+	FirmaVerificacionCAFile                     string
+	FirmaVerificacionTokenFile                  string
+	FirmaVerificacionCertFile                   string
+	FirmaVerificacionKeyFile                    string
+	FirmaVerificacionTimeout                    string
 	PersonalEmpleadoEnabled                     string
 	PersonalB2GobiernoEnabled                   string
 	DietasBorradoresPostgreSQL                  ConfiguracionDietasBorradores
@@ -239,6 +253,13 @@ func Load() Config {
 		PersonalEmpleadoEnabled:     envFirst(EnvPersonalEmpleadoEnabled),
 		PersonalB2GobiernoEnabled:   envFirst(EnvPersonalB2GobiernoEnabled),
 		DocumentosEnabled:           envFirst(EnvDocumentosEnabled),
+		FirmaVerificacionEnabled:    envFirst(EnvFirmaVerificacionEnabled),
+		FirmaVerificacionURL:        envFirst(EnvFirmaVerificacionURL),
+		FirmaVerificacionCAFile:     envFirst(EnvFirmaVerificacionCAFile),
+		FirmaVerificacionTokenFile:  envFirst(EnvFirmaVerificacionTokenFile),
+		FirmaVerificacionCertFile:   envFirst(EnvFirmaVerificacionCertFile),
+		FirmaVerificacionKeyFile:    envFirst(EnvFirmaVerificacionKeyFile),
+		FirmaVerificacionTimeout:    envFirst(EnvFirmaVerificacionTimeout),
 		DietasBorradoresPostgreSQL: ConfiguracionDietasBorradores{
 			dsnDietas:             envFirst(EnvDietasBorradoresDatabaseURL),
 			dsnPersonal:           envFirst(EnvDietasPersonalRelacionesDatabaseURL),
@@ -360,6 +381,13 @@ func (c Config) Normalize() Config {
 	c.CronosResolucionEnabled = strings.TrimSpace(c.CronosResolucionEnabled)
 	c.CronosNotificacionesEnabled = strings.TrimSpace(c.CronosNotificacionesEnabled)
 	c.DocumentosEnabled = strings.TrimSpace(c.DocumentosEnabled)
+	c.FirmaVerificacionEnabled = strings.TrimSpace(c.FirmaVerificacionEnabled)
+	c.FirmaVerificacionURL = strings.TrimSpace(c.FirmaVerificacionURL)
+	c.FirmaVerificacionCAFile = strings.TrimSpace(c.FirmaVerificacionCAFile)
+	c.FirmaVerificacionTokenFile = strings.TrimSpace(c.FirmaVerificacionTokenFile)
+	c.FirmaVerificacionCertFile = strings.TrimSpace(c.FirmaVerificacionCertFile)
+	c.FirmaVerificacionKeyFile = strings.TrimSpace(c.FirmaVerificacionKeyFile)
+	c.FirmaVerificacionTimeout = strings.TrimSpace(c.FirmaVerificacionTimeout)
 	c.PersonalEmpleadoEnabled = strings.TrimSpace(c.PersonalEmpleadoEnabled)
 	c.PersonalB2GobiernoEnabled = strings.TrimSpace(c.PersonalB2GobiernoEnabled)
 	c.DietasBorradoresPostgreSQL = c.DietasBorradoresPostgreSQL.normalizar()
