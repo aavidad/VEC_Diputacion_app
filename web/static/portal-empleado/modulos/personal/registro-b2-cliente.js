@@ -175,6 +175,15 @@ export function crearClienteRegistroB2({ fetchImpl = globalThis.fetch, plazoMs =
       if (!respuesta?.data?.pagina || !respuesta.data.evidencia) throw new ErrorRegistroB2("sobre_no_valido", 200);
       return respuesta.data;
     },
+    async listarEmpleados({ vigenteEn, conocidoEn, limite = 25, cursor = "", signal }) {
+      consultaValida({ vigenteEn, conocidoEn });
+      if (!Number.isSafeInteger(limite) || limite < 1 || limite > 100 || typeof cursor !== "string" || cursor.length > 256) throw new TypeError("paginación de empleados no válida");
+      const query = new URLSearchParams({ vigente_en: vigenteEn, conocido_en: conocidoEn, limite: String(limite) });
+      if (cursor) query.set("cursor", cursor);
+      const respuesta = await get(`${RUTA_REGISTRO_B2}/empleados-organismo`, query, signal);
+      if (!respuesta?.data?.pagina || !respuesta.data.evidencia) throw new ErrorRegistroB2("sobre_no_valido", 200);
+      return respuesta.data;
+    },
     registrarAlta(cuerpo, { claveIdempotencia } = {}) { return post(`${RUTA_REGISTRO_B2}/empleados`, cuerpo, CAMPOS_ALTA, claveIdempotencia); },
     registrarHecho(cuerpo, { claveIdempotencia } = {}) { return post(`${RUTA_REGISTRO_B2}/hechos`, cuerpo, CAMPOS_HECHO, claveIdempotencia); },
   });

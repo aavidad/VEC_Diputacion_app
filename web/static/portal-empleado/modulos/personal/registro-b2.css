@@ -129,7 +129,7 @@
 .personal-registro-b2 .tabla-datos { min-width: 560px; }
 .personal-registro-b2 .tabla-datos :is(th, td) { vertical-align: top; }
 .personal-registro-b2 .tabla-datos th { white-space: nowrap; }
-.personal-registro-b2 .tabla-datos td { overflow-wrap: anywhere; }
+.personal-registro-b2 .tabla-datos td { overflow-wrap: break-word; }
 .personal-registro-b2-secundario { display: block; margin-top: var(--portal-espacio-1); color: var(--portal-muted); font-size: .75rem; }
 .personal-registro-b2 .tabla-datos tbody tr:hover { background: var(--portal-azul-100); }
 
@@ -189,6 +189,36 @@
   padding: var(--portal-espacio-3) var(--portal-espacio-4);
   border-top: 1px solid var(--portal-borde);
 }
+
+.personal-registro-b2 .panel > .cabecera-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--portal-espacio-3);
+}
+.personal-registro-b2 .panel > .cabecera-panel h3 { margin: 0; font-size: 1.125rem; font-weight: 600; }
+.personal-registro-b2-alta,
+.personal-registro-b2-ver,
+.personal-registro-b2-ir {
+  min-height: 40px;
+  padding: var(--portal-espacio-2) var(--portal-espacio-3);
+  border: 1px solid var(--portal-azul-700);
+  border-radius: var(--portal-radio);
+  background: var(--portal-superficie);
+  color: var(--portal-azul-700);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.personal-registro-b2-alta { background: var(--portal-azul-700); color: var(--portal-superficie); }
+.personal-registro-b2-alta:disabled { border-color: var(--portal-borde); background: var(--portal-fondo); color: var(--portal-muted); cursor: not-allowed; }
+.personal-registro-b2-ver::after { content: " ›"; }
+.personal-registro-b2-ir { justify-self: start; margin: 0 var(--portal-espacio-4) var(--portal-espacio-4); }
+.personal-registro-b2-contenido > * { min-width: 0; }
+.personal-registro-b2 .personal-registro-b2-empleados td { vertical-align: middle; overflow-wrap: break-word; }
+.personal-registro-b2-empleados td:last-child { text-align: right; }
+.personal-registro-b2 :is(.personal-registro-b2-ver, .personal-registro-b2-ir):focus-visible { outline: 3px solid var(--portal-azul-700); outline-offset: 2px; }
 
 .personal-registro-b2-actos { min-width: 0; }
 .personal-registro-b2-formulario {
@@ -294,4 +324,35 @@
   .personal-registro-b2-formulario { grid-template-columns: minmax(0, 1fr); }
   .personal-registro-b2-catalogos-formulario { grid-template-columns: minmax(0, 1fr); }
   .personal-registro-b2 .tabla-contenedor { max-height: none; }
+  /* En móvil cada empleado es una tarjeta: unidad, puesto, régimen,
+     modalidad y estado apilados, con «Ver ficha» a la derecha. */
+  .personal-registro-b2 .personal-registro-b2-empleados { min-width: 0; }
+  .personal-registro-b2-empleados thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+  }
+  .personal-registro-b2 .personal-registro-b2-empleados tbody tr {
+    display: grid;
+    height: auto;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: var(--portal-espacio-3);
+    row-gap: var(--portal-espacio-1);
+    padding: var(--portal-espacio-3) var(--portal-espacio-4);
+    border-bottom: 1px solid var(--portal-borde);
+  }
+  .personal-registro-b2 .personal-registro-b2-empleados td {
+    display: block;
+    grid-column: 1;
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    color: var(--portal-muted);
+    font-size: .85rem;
+  }
+  .personal-registro-b2 .personal-registro-b2-empleados td:first-child { color: var(--portal-tinta); font-size: .94rem; font-weight: 600; }
+  .personal-registro-b2 .personal-registro-b2-empleados td:last-child { grid-column: 2; grid-row: 1 / span 5; align-self: center; }
+  .personal-registro-b2 .personal-registro-b2-empleados td[data-registro-b2-vacio] { display: none; }
 }

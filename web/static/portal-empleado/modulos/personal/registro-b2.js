@@ -1,7 +1,7 @@
-import { crearTraductorPersonal } from "./i18n.js?v=20260925-b2-registro-v3";
-import { ErrorRegistroB2 } from "./registro-b2-cliente.js?v=20260925-b2-mtls-v1";
-import { accionesRegistroB2Disponibles, montarActosRegistroB2 } from "./registro-b2-actos.js?v=20260925-b2-mtls-v1";
-import { cargarOpcionesPublicadasCatalogoB2, montarCatalogosRegistroB2 } from "./registro-b2-catalogos.js?v=20260925-b2-mtls-v1";
+import { crearTraductorPersonal } from "./i18n.js?v=20260925-b2-selector-v1";
+import { ErrorRegistroB2 } from "./registro-b2-cliente.js?v=20260925-b2-selector-v1";
+import { accionesRegistroB2Disponibles, montarActosRegistroB2 } from "./registro-b2-actos.js?v=20260925-b2-selector-v1";
+import { cargarOpcionesPublicadasCatalogoB2, montarCatalogosRegistroB2 } from "./registro-b2-catalogos.js?v=20260925-b2-selector-v1";
 
 const BLOQUES = Object.freeze([
   ["relaciones", "registro_b2_relaciones", "registro_b2_tabla_relaciones", [
@@ -96,6 +96,15 @@ function validarPagina(respuesta) {
       !p.vacantes.every((fila) => fila && typeof fila === "object" && fila.traza && fechaValida(fila.traza.desde))) throw new TypeError("página de vacantes incompatible");
   return p;
 }
+function validarPaginaEmpleados(respuesta) {
+  const p = respuesta?.pagina;
+  if (!p || typeof p !== "object" || !p.corte || !fechaValida(p.corte.vigente_en) || !instanteValido(p.corte.conocido_en) ||
+      !Array.isArray(p.empleados) || p.empleados.length > 100 || typeof p.cursor_siguiente !== "string" || p.cursor_siguiente.length > 256 ||
+      !p.empleados.every((e) => e && typeof e === "object" && /^emp_[A-Za-z0-9_-]{22,128}$/u.test(e.empleado_ref) && !Object.hasOwn(e, "persona_ref") &&
+        Array.isArray(e.relaciones) && e.relaciones.length <= 20 &&
+        e.relaciones.every((r) => r && typeof r === "object" && ["vigente", "suspendida"].includes(r.estado) && textoSeguro(r.unidad_ref, 160) && r.traza && fechaValida(r.traza.desde)))) throw new TypeError("página de empleados incompatible");
+  return p;
+}
 function hoyMadrid(reloj) {
   const partes = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Madrid", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(reloj());
   const dato = (tipo) => partes.find((parte) => parte.type === tipo)?.value;
@@ -125,7 +134,8 @@ export function montarRegistroB2({ raiz, cliente, clienteCatalogos, empleadoRef 
   s.append(cabecera, pestañas, contenido); raiz.append(s);
   let activo = true; let vista = "ficha"; let vuelo; let empleado = empleadoRef; let turno = 0; let ultimaFicha; let montajeActos; let montajeCatalogos;
   let vigenteEn = hoyMadrid(reloj); let conocidoEnLocal = localFechaHora(reloj());
-  let seleccionRelacion = ""; let cursor = ""; let anteriores = [];
+  let seleccionRelacion = "";
+  const paginas = { vacantes: { cursor: "", anteriores: [] }, empleados: { cursor: "", anteriores: [] } };
   const botones = new Map();
   const limpiarVuelo = () => { turno += 1; vuelo?.abort(); vuelo = undefined; };
   const desmontar = () => { if (!activo) return; activo = false; limpiarVuelo(); montajeActos?.desmontar(); montajeCatalogos?.desmontar(); s.remove?.(); };
@@ -159,18 +169,72 @@ export function montarRegistroB2({ raiz, cliente, clienteCatalogos, empleadoRef 
     }
     contenido.append(rejilla);
   }
+  function paginacion(clave, pagina, etiqueta) {
+    const estadoPagina = paginas[clave];
+    const nav = nodo(d, "nav"); nav.className = "personal-registro-b2-paginacion"; nav.setAttribute("aria-label", t(etiqueta));
+    const anterior = nodo(d, "button", t("registro_b2_anterior")); anterior.type = "button"; anterior.disabled = estadoPagina.anteriores.length === 0;
+    anterior.addEventListener("click", () => { estadoPagina.cursor = estadoPagina.anteriores.pop() || ""; consultar(); });
+    const siguiente = nodo(d, "button", t("registro_b2_siguiente")); siguiente.type = "button"; siguiente.disabled = !pagina.cursor_siguiente;
+    siguiente.addEventListener("click", () => { estadoPagina.anteriores.push(estadoPagina.cursor); estadoPagina.cursor = pagina.cursor_siguiente; consultar(); });
+    nav.append(anterior, siguiente);
+    return nav;
+  }
+  function describirEmpleado(empleado) {
+    const r = empleado.relaciones[0];
+    if (!r) return t("registro_b2_sin_relacion_vigente");
+    return [textoSeguro(r.unidad_denominacion, 300) || referencia(r.unidad_ref, t), textoSeguro(r.puesto_denominacion, 300)].filter(Boolean).join(" · ");
+  }
+  function pintarEmpleados(pagina) {
+    const p = panel(d, t("registro_b2_empleados"));
+    const alta = nodo(d, "button", t("registro_b2_nueva_alta")); alta.type = "button"; alta.disabled = true; alta.setAttribute("aria-disabled", "true");
+    alta.className = "personal-registro-b2-alta"; alta.title = t("registro_b2_nueva_alta_motivo");
+    const motivo = nodo(d, "span", t("registro_b2_nueva_alta_motivo")); motivo.className = "solo-lectura"; motivo.id = "personal-registro-b2-alta-motivo";
+    alta.setAttribute("aria-describedby", motivo.id);
+    p.elemento.children[0].append(alta, motivo);
+    if (pagina.empleados.length === 0) p.cuerpo.append(estado(d, t("registro_b2_empleados_vacio")));
+    else {
+      const region = nodo(d, "div"); region.className = "tabla-contenedor"; region.setAttribute("role", "region"); region.setAttribute("tabindex", "0"); region.setAttribute("aria-label", t("registro_b2_tabla_empleados"));
+      const tab = nodo(d, "table"); tab.className = "tabla-datos personal-registro-b2-empleados"; tab.append(nodo(d, "caption", t("registro_b2_tabla_empleados")));
+      const thead = nodo(d, "thead"); const cab = nodo(d, "tr");
+      for (const clave of ["registro_b2_unidad", "registro_b2_puesto", "registro_b2_regimen", "registro_b2_modalidad", "registro_b2_estado"]) { const th = nodo(d, "th", t(clave)); th.setAttribute("scope", "col"); cab.append(th); }
+      const acciones = nodo(d, "th"); acciones.setAttribute("scope", "col"); acciones.append(Object.assign(nodo(d, "span", t("registro_b2_ver_ficha")), { className: "solo-lectura" })); cab.append(acciones);
+      thead.append(cab); tab.append(thead);
+      const body = nodo(d, "tbody");
+      for (const empleado of pagina.empleados) {
+        const r = empleado.relaciones[0]; const tr = nodo(d, "tr");
+        const unidad = nodo(d, "td");
+        if (r) {
+          unidad.append(nodo(d, "span", textoSeguro(r.unidad_denominacion, 300) || referencia(r.unidad_ref, t)));
+          if (empleado.relaciones.length > 1) {
+            const mas = empleado.relaciones.length - 1;
+            const extra = nodo(d, "small", mas === 1 ? t("registro_b2_mas_relaciones_uno") : t("registro_b2_mas_relaciones_otro", { total: new Intl.NumberFormat("es-ES").format(mas) }));
+            extra.className = "personal-registro-b2-secundario"; unidad.append(extra);
+          }
+        } else unidad.textContent = t("registro_b2_sin_relacion_vigente");
+        tr.append(unidad,
+          nodo(d, "td", (r && textoSeguro(r.puesto_denominacion, 300)) || t("registro_b2_sin_valor")),
+          nodo(d, "td", (r && textoSeguro(r.regimen_denominacion, 300)) || t("registro_b2_sin_valor")),
+          nodo(d, "td", (r && textoSeguro(r.modalidad_denominacion, 300)) || t("registro_b2_sin_valor")),
+          nodo(d, "td", r ? etiquetaEstado(r.estado, t) : t("registro_b2_sin_valor")));
+        if (!r) for (const celda of tr.children.slice?.(1) ?? [...tr.children].slice(1)) celda.dataset.registroB2Vacio = "";
+        const celda = nodo(d, "td"); const ver = nodo(d, "button", t("registro_b2_ver_ficha")); ver.type = "button"; ver.className = "personal-registro-b2-ver";
+        ver.dataset.registroB2Empleado = empleado.empleado_ref;
+        ver.setAttribute("aria-label", t("registro_b2_ver_ficha_de", { descripcion: describirEmpleado(empleado) }));
+        ver.addEventListener("click", () => elegirEmpleado(empleado.empleado_ref));
+        celda.append(ver); tr.append(celda); body.append(tr);
+      }
+      tab.append(body); region.append(tab); p.cuerpo.append(region);
+    }
+    p.cuerpo.append(paginacion("empleados", pagina, "registro_b2_paginacion_empleados"));
+    contenido.append(p.elemento);
+  }
   function pintarVacantes(pagina) {
     const p = panel(d, t("registro_b2_vacantes"));
     if (pagina.vacantes.length === 0) p.cuerpo.append(estado(d, t("registro_b2_vacio")));
     else p.cuerpo.append(tabla(d, t, "registro_b2_tabla_vacantes", [
       ["puesto", "registro_b2_puesto"], ["plaza", "registro_b2_plaza"], ["unidad", "registro_b2_unidad"], ["cobertura", "registro_b2_estado"],
     ], pagina.vacantes));
-    const nav = nodo(d, "nav"); nav.className = "personal-registro-b2-paginacion"; nav.setAttribute("aria-label", t("registro_b2_paginacion"));
-    const anterior = nodo(d, "button", t("registro_b2_anterior")); anterior.type = "button"; anterior.disabled = anteriores.length === 0;
-    anterior.addEventListener("click", () => { cursor = anteriores.pop() || ""; consultar(); });
-    const siguiente = nodo(d, "button", t("registro_b2_siguiente")); siguiente.type = "button"; siguiente.disabled = !pagina.cursor_siguiente;
-    siguiente.addEventListener("click", () => { anteriores.push(cursor); cursor = pagina.cursor_siguiente; consultar(); });
-    nav.append(anterior, siguiente); p.elemento.append(nav);
+    p.cuerpo.append(paginacion("vacantes", pagina, "registro_b2_paginacion"));
     contenido.append(p.elemento);
   }
   async function consultar() {
@@ -178,13 +242,20 @@ export function montarRegistroB2({ raiz, cliente, clienteCatalogos, empleadoRef 
     limpiarVuelo();
     const conocidoEn = conocidoUTC(conocidoEnLocal);
     if (!fechaValida(vigenteEn) || !conocidoEn) { contenido.replaceChildren(estado(d, t("registro_b2_fecha_invalida"), true)); return; }
-    if (vista === "ficha" && !empleado) { contenido.replaceChildren(estado(d, t("registro_b2_sin_empleado"))); return; }
+    if (vista === "ficha" && !empleado) {
+      const ir = nodo(d, "button", t("registro_b2_elegir_empleado")); ir.type = "button"; ir.className = "personal-registro-b2-ir";
+      ir.addEventListener("click", () => { cambiarVista("empleados"); botones.get("empleados")?.focus?.(); });
+      contenido.replaceChildren(estado(d, t("registro_b2_sin_empleado")), ir); return;
+    }
     const actual = new AbortController(); vuelo = actual; const secuencia = turno;
     contenido.replaceChildren(estado(d, t("registro_b2_cargando")));
     try {
+      const cursorVista = paginas[vista]?.cursor ?? "";
       const respuesta = vista === "ficha"
         ? await cliente.consultarFicha({ empleadoRef: empleado, vigenteEn, conocidoEn, signal: actual.signal })
-        : await cliente.listarVacantes({ vigenteEn, conocidoEn, limite: 25, cursor, signal: actual.signal });
+        : vista === "empleados"
+          ? await cliente.listarEmpleados({ vigenteEn, conocidoEn, limite: 25, cursor: cursorVista, signal: actual.signal })
+          : await cliente.listarVacantes({ vigenteEn, conocidoEn, limite: 25, cursor: cursorVista, signal: actual.signal });
       if (!activo || vuelo !== actual || actual.signal.aborted || secuencia !== turno) return;
       contenido.replaceChildren();
       if (vista === "ficha") {
@@ -192,9 +263,9 @@ export function montarRegistroB2({ raiz, cliente, clienteCatalogos, empleadoRef 
         if (ficha.empleado_ref !== empleado || ficha.corte.vigente_en !== vigenteEn || Date.parse(ficha.corte.conocido_en) !== Date.parse(conocidoEn)) throw new TypeError("ficha de otro empleado o corte");
         ultimaFicha = ficha; pintarFicha(ficha);
       } else {
-        const pagina = validarPagina(respuesta);
-        if (pagina.corte.vigente_en !== vigenteEn || Date.parse(pagina.corte.conocido_en) !== Date.parse(conocidoEn) || pagina.limite !== 25 || pagina.cursor !== cursor) throw new TypeError("página de otro corte");
-        pintarVacantes(pagina);
+        const pagina = vista === "empleados" ? validarPaginaEmpleados(respuesta) : validarPagina(respuesta);
+        if (pagina.corte.vigente_en !== vigenteEn || Date.parse(pagina.corte.conocido_en) !== Date.parse(conocidoEn) || pagina.limite !== 25 || pagina.cursor !== cursorVista) throw new TypeError("página de otro corte");
+        if (vista === "empleados") pintarEmpleados(pagina); else pintarVacantes(pagina);
       }
     } catch (error) {
       if (!activo || vuelo !== actual || actual.signal.aborted || secuencia !== turno) return;
@@ -202,7 +273,7 @@ export function montarRegistroB2({ raiz, cliente, clienteCatalogos, empleadoRef 
       const reintentable = vista === "vacantes" && errorCliente && error.estado === 503;
       const clave = reintentable && error.codigo === "cobertura_no_acreditada" ? "registro_b2_no_determinable" : errorCliente && [401, 403].includes(error.estado) ? "registro_b2_denegado" : "registro_b2_error";
       contenido.replaceChildren(estado(d, t(clave), true));
-      if (reintentable) { const reintentar = nodo(d, "button", t("registro_b2_reintentar")); reintentar.type = "button"; reintentar.addEventListener("click", () => consultar()); contenido.append(reintentar); }
+      if (reintentable) { const reintentar = nodo(d, "button", t("registro_b2_reintentar")); reintentar.type = "button"; reintentar.className = "personal-registro-b2-ir"; reintentar.addEventListener("click", () => consultar()); contenido.append(reintentar); }
       anunciar(t(clave), "error");
     } finally { if (vuelo === actual) vuelo = undefined; }
   }
@@ -210,7 +281,7 @@ export function montarRegistroB2({ raiz, cliente, clienteCatalogos, empleadoRef 
   const etiquetaVigente = nodo(d, "label", t("registro_b2_vigente_en")); const campoVigente = nodo(d, "input"); campoVigente.type = "date"; campoVigente.required = true; campoVigente.value = vigenteEn; etiquetaVigente.append(campoVigente);
   const etiquetaConocido = nodo(d, "label", t("registro_b2_conocido_en")); const campoConocido = nodo(d, "input"); campoConocido.type = "datetime-local"; campoConocido.required = true; campoConocido.value = conocidoEnLocal; etiquetaConocido.append(campoConocido);
   const boton = nodo(d, "button", t("registro_b2_consultar")); boton.type = "submit"; form.append(etiquetaVigente, etiquetaConocido, boton);
-  form.addEventListener("submit", (evento) => { evento.preventDefault(); vigenteEn = campoVigente.value; conocidoEnLocal = campoConocido.value; cursor = ""; anteriores = []; consultar(); });
+  form.addEventListener("submit", (evento) => { evento.preventDefault(); vigenteEn = campoVigente.value; conocidoEnLocal = campoConocido.value; for (const p of Object.values(paginas)) { p.cursor = ""; p.anteriores = []; } consultar(); });
   s.replaceChildren(cabecera, pestañas, form, contenido);
   function cambiarVista(nueva) {
     if (!activo || !botones.has(nueva)) return;
@@ -243,6 +314,7 @@ export function montarRegistroB2({ raiz, cliente, clienteCatalogos, empleadoRef 
     consultar();
   }
   const vistas = [["ficha", "registro_b2_ficha"], ["vacantes", "registro_b2_vacantes"]];
+  if (typeof cliente.listarEmpleados === "function") vistas.unshift(["empleados", "registro_b2_empleados"]);
   if (typeof clienteCatalogos?.listar === "function" && typeof clienteCatalogos?.cambiar === "function") {
     vistas.push(["catalogos", "registro_b2_catalogos"]);
     const base = ["organismos", "unidades", "plazas", "puestos", "actos", "fuentes"].every((clave) => Array.isArray(catalogos?.[clave]));
@@ -254,7 +326,12 @@ export function montarRegistroB2({ raiz, cliente, clienteCatalogos, empleadoRef 
     tab.addEventListener("keydown", (evento) => { if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(evento.key)) return; evento.preventDefault(); const destino = evento.key === "Home" ? 0 : evento.key === "End" ? vistas.length - 1 : (indice + (evento.key === "ArrowRight" ? 1 : -1) + vistas.length) % vistas.length; const elegido = vistas[destino][0]; cambiarVista(elegido); botones.get(elegido)?.focus?.(); });
     botones.set(clave, tab); pestañas.append(tab);
   });
+  function elegirEmpleado(ref) {
+    if (!activo || typeof ref !== "string" || !/^emp_[A-Za-z0-9_-]{22,128}$/u.test(ref)) return;
+    empleado = ref; ultimaFicha = undefined; seleccionRelacion = "";
+    cambiarVista("ficha"); botones.get("ficha")?.focus?.();
+  }
   const cambiarEmpleado = (ref) => { if (ref !== "" && (typeof ref !== "string" || !/^emp_[A-Za-z0-9_-]{22,128}$/u.test(ref))) throw new TypeError("referencia de empleado no válida"); empleado = ref; ultimaFicha = undefined; seleccionRelacion = ""; if (vista === "ficha") consultar(); else if (vista === "actos") cambiarVista("actos"); };
-  cambiarVista("ficha");
+  cambiarVista(empleado || !botones.has("empleados") ? "ficha" : "empleados");
   return Object.freeze({ desmontar, cambiarEmpleado });
 }

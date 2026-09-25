@@ -237,3 +237,71 @@ test("clientes con mTLS del mismo origen renuevan su versión en cascada", async
   exigirRenovado(registro, "registro-b2-actos.js", "20260925-b2-registro-v3");
   exigirRenovado(registro, "registro-b2-catalogos.js", "20260925-b2-registro-v3");
 });
+
+function paginaEmpleados({ cursor = "", siguiente = "", empleados } = {}) {
+  return { pagina: { organismo_ref: "org_sintetico", corte, limite: 25, cursor, cursor_siguiente: siguiente, empleados: empleados ?? [
+    { empleado_ref: "emp_aaaaaaaaaaaaaaaaaaaaaa", relaciones: [
+      { relacion_ref: "rel_aaaaaaaaaaaaaaaaaaaaaa", estado: "vigente", unidad_ref: "unidad-uno", unidad_denominacion: "Servicio de Personal", puesto_denominacion: "Técnico de RRHH", regimen_denominacion: "Funcionario", modalidad_denominacion: "Carrera", traza },
+      { relacion_ref: "rel_bbbbbbbbbbbbbbbbbbbbbb", estado: "suspendida", unidad_ref: "unidad-dos", unidad_denominacion: "", puesto_denominacion: "", regimen_denominacion: "", modalidad_denominacion: "", traza },
+    ] },
+    { empleado_ref: "emp_cccccccccccccccccccccc", relaciones: [] },
+  ] }, evidencia: { recibo_ref: "recibo-lista" } };
+}
+
+test("RRHH elige el empleado en la lista del organismo y abre su ficha", async () => {
+  const raiz = raizFalsa(); const fichas = []; const listas = [];
+  const cliente = {
+    consultarFicha: ({ empleadoRef }) => { fichas.push(empleadoRef); return ficha(); },
+    listarVacantes: () => { throw Error("no esperado"); },
+    listarEmpleados: ({ cursor }) => { listas.push(cursor); return cursor ? paginaEmpleados({ cursor, empleados: [] }) : paginaEmpleados({ siguiente: "p_25_" + "a".repeat(64) }); },
+  };
+  montarRegistroB2({ raiz, cliente, reloj: () => new Date("2026-09-25T10:00:00Z") });
+  await completar();
+  assert.equal(buscar(raiz, (n) => n.dataset.registroB2Tab === "empleados").attrs.get("aria-selected"), "true");
+  assert.deepEqual(listas, [""]);
+  assert.match(texto(raiz), /Servicio de Personal/); assert.match(texto(raiz), /Técnico de RRHH/);
+  assert.match(texto(raiz), /y 1 relación más/); assert.match(texto(raiz), /Sin relación vigente en la fecha/);
+  assert.doesNotMatch(texto(raiz), /emp_aaaa|per_/);
+  const alta = buscar(raiz, (n) => n.className === "personal-registro-b2-alta");
+  assert.equal(alta.disabled, true);
+  assert.match(alta.title, /expediente de contratación/);
+  const motivo = buscar(raiz, (n) => n.id === alta.attrs.get("aria-describedby"));
+  assert.equal(motivo.className, "solo-lectura");
+  buscar(raiz, (n) => n.textContent === "Siguiente").listeners.get("click")(); await completar();
+  assert.equal(listas[1], "p_25_" + "a".repeat(64));
+  assert.match(texto(raiz), /No hay empleados registrados en esta fecha/);
+  buscar(raiz, (n) => n.textContent === "Anterior").listeners.get("click")(); await completar();
+  const ver = buscar(raiz, (n) => n.dataset.registroB2Empleado === "emp_aaaaaaaaaaaaaaaaaaaaaa");
+  assert.match(ver.attrs.get("aria-label"), /Ver ficha: Servicio de Personal · Técnico de RRHH/);
+  ver.listeners.get("click")(); await completar();
+  assert.deepEqual(fichas, ["emp_aaaaaaaaaaaaaaaaaaaaaa"]);
+  assert.equal(buscar(raiz, (n) => n.dataset.registroB2Tab === "ficha").attrs.get("aria-selected"), "true");
+  assert.match(texto(raiz), /Relaciones de servicio/);
+});
+
+test("la ficha sin empleado lleva a la lista y la lista rechaza datos de persona", async () => {
+  const raiz = raizFalsa();
+  const conPersona = paginaEmpleados(); conPersona.pagina.empleados[0].persona_ref = "per_bbbbbbbbbbbbbbbbbbbbbb";
+  const cliente = { consultarFicha: () => ficha(), listarVacantes: () => ({}), listarEmpleados: () => conPersona };
+  montarRegistroB2({ raiz, cliente, reloj: () => new Date("2026-09-25T10:00:00Z") });
+  await completar();
+  assert.match(texto(raiz), /No se pudo completar la consulta/);
+  assert.doesNotMatch(texto(raiz), /Servicio de Personal/);
+  buscar(raiz, (n) => n.dataset.registroB2Tab === "ficha").listeners.get("click")(); await completar();
+  assert.match(texto(raiz), /Seleccione un empleado/);
+  buscar(raiz, (n) => n.textContent === "Elegir empleado").listeners.get("click")(); await completar();
+  assert.equal(buscar(raiz, (n) => n.dataset.registroB2Tab === "empleados").attrs.get("aria-selected"), "true");
+});
+
+test("el cliente lista empleados por GET exacto con paginación acotada", async () => {
+  const rutas = [];
+  const cliente = crearClienteRegistroB2({ fetchImpl: async (url, opciones) => {
+    rutas.push([url, opciones]);
+    return new Response(JSON.stringify({ data: paginaEmpleados() }), { status: 200, headers: { "content-type": "application/json; charset=utf-8" } });
+  } });
+  await cliente.listarEmpleados({ vigenteEn: "2026-09-25", conocidoEn: "2026-09-25T10:00:00.000000Z", limite: 25, cursor: "p_25_" + "a".repeat(64) });
+  assert.match(rutas[0][0], /^\/api\/vec\/personal\/empleados-organismo\?/u);
+  assert.match(rutas[0][0], /limite=25/u); assert.match(rutas[0][0], /cursor=p_25_a+/u);
+  assert.equal(rutas[0][1].method, "GET"); assert.equal(rutas[0][1].credentials, "same-origin");
+  await assert.rejects(cliente.listarEmpleados({ vigenteEn: "2026-09-25", conocidoEn: "2026-09-25T10:00:00.000000Z", limite: 101 }), TypeError);
+});
