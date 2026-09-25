@@ -9,7 +9,7 @@
 # sustituye el consumidor ni se fabrican decisiones dentro de este runner.
 # El material firmado se recibe desde un archivo privado externo a Git.
 # Las AD3 se aplican desde este árbol en el orden de la principal: 51, 52, 53,
-# 59, 61, 70, 80 y después las de B2, 54 y 55 (su número es un hueco reservado,
+# 59, 61, 70, 80 y después las de B2, 54, 55 y 56 (su número es un hueco reservado,
 # no su orden). Sin los dos SQL sintéticos el ensayo termina en preflight
 # (código 2) antes de crear un contenedor.
 set -euo pipefail
@@ -22,7 +22,7 @@ contenedor="vec-personal-b2-real-${BASHPID}"
 base=vec_personal_b2_real_sintetica
 ad3_dir=deploy/postgresql/autorizacion_atestada_v3/migraciones
 personal_dir=deploy/postgresql/personal/migraciones
-orden_ad3=(51 52 53 59 61 70 80 54 55)
+orden_ad3=(51 52 53 59 61 70 80 54 55 56)
 
 fallo() { printf 'BLOQUEO B2 real: %s\n' "$*" >&2; exit 2; }
 error() { printf 'FALLO B2 real: %s\n' "$*" >&2; exit 1; }
@@ -65,7 +65,8 @@ done
 for ruta in \
   "$personal_dir/000019_escritura_registro_empleado_b2.up.sql" \
   "$personal_dir/000018_lectura_registro_empleado_b2.up.sql" \
-  "$personal_dir/000020_catalogos_registro_empleado.up.sql"; do
+  "$personal_dir/000020_catalogos_registro_empleado.up.sql" \
+  "$personal_dir/000021_lista_empleados_organismo_b2.up.sql"; do
   [[ -f "$repo_dir/$ruta" ]] || fallo "falta $ruta"
 done
 [[ -n ${VEC_B2_BASELINE_SQL:-} && -f ${VEC_B2_BASELINE_SQL:-} ]] ||
@@ -78,7 +79,7 @@ fi
 archivo_privado "$VEC_B2_CASOS_SQL"
 [[ $imagen =~ @sha256:[0-9a-f]{64}$ ]] ||
   fallo 'VEC_POSTGRES_TEST_IMAGE debe fijarse por digest sha256'
-printf 'Preflight B2 real: AD3 51/52/53/59/61/70/80/54/55, Personal-018..020 y material sintético presentes.\n'
+printf 'Preflight B2 real: AD3 51/52/53/59/61/70/80/54/55/56, Personal-018..021 y material sintético presentes.\n'
 [[ ${1:-} == '--preflight' ]] && exit 0
 
 command -v "$motor" >/dev/null 2>&1 || fallo "motor de contenedor ausente: $motor"
@@ -98,12 +99,15 @@ archivo "$VEC_B2_BASELINE_SQL"
 for indice in "${!rutas_ad3[@]}"; do
   numero=${orden_ad3[$indice]}
   ruta=${rutas_ad3[$indice]}
-  if [[ $numero == 54 || $numero == 55 ]]; then
+  if [[ $numero == 54 || $numero == 55 || $numero == 56 ]]; then
     sed '$s/^COMMIT;[[:space:]]*$/ROLLBACK;/' "$repo_dir/$ruta" | \
       "$motor" exec -i "$contenedor" psql -X -q -v ON_ERROR_STOP=1 -U postgres -d "$base" -o /dev/null
     if [[ $numero == 54 ]]; then
       [[ $(consulta "SELECT to_regprocedure('vec_autorizacion_atestada_v3.consumir_registro_empleado_b2_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL") == t ]] ||
         error 'ROLLBACK de AD3-54 dejó el consumidor instalado'
+    elif [[ $numero == 56 ]]; then
+      [[ $(consulta "SELECT to_regprocedure('vec_autorizacion_atestada_v3.consumir_empleados_registro_b2_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL") == t ]] ||
+        error 'ROLLBACK de AD3-56 dejó el consumidor instalado'
     else
       [[ $(consulta "SELECT to_regprocedure('vec_autorizacion_atestada_v3.consumir_catalogo_registro_empleado_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL") == t ]] ||
         error 'ROLLBACK de AD3-55 dejó el consumidor instalado'
@@ -115,7 +119,8 @@ done
 # Las migraciones Personal se ensayan en ROLLBACK y luego COMMIT, sin DOWN.
 for ruta in "$personal_dir/000018_lectura_registro_empleado_b2.up.sql" \
             "$personal_dir/000019_escritura_registro_empleado_b2.up.sql" \
-            "$personal_dir/000020_catalogos_registro_empleado.up.sql"; do
+            "$personal_dir/000020_catalogos_registro_empleado.up.sql" \
+            "$personal_dir/000021_lista_empleados_organismo_b2.up.sql"; do
   sed '$s/^COMMIT;[[:space:]]*$/ROLLBACK;/' "$repo_dir/$ruta" | \
     "$motor" exec -i "$contenedor" psql -X -q -v ON_ERROR_STOP=1 -U postgres -d "$base" -o /dev/null
   if [[ $ruta == *000020_* ]]; then
@@ -153,4 +158,4 @@ esperar
   error 'los catálogos cambiaron tras reinicio'
 [[ $(consulta "SELECT to_regprocedure('vec_autorizacion_atestada_v3.consumir_catalogo_registro_empleado_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL AND to_regprocedure('vec_personal.registrar_entrada_catalogo_empleado_rrhh_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL AND has_function_privilege('vec_personal_propietario','vec_autorizacion_atestada_v3.consumir_catalogo_registro_empleado_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')") == t ]] ||
   error 'consumidores y ACL de catálogo no sobrevivieron al reinicio'
-printf 'PG18.4 B2 real: cadena AD3 hasta 80 más 54/55, ACL, catálogo/alta firmados y %s recibos persistentes tras reinicio.\n' "$recibos"
+printf 'PG18.4 B2 real: cadena AD3 hasta 80 más 54/55/56, ACL, catálogo/alta firmados y %s recibos persistentes tras reinicio.\n' "$recibos"
