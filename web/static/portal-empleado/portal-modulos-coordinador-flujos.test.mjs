@@ -394,13 +394,15 @@ test("el coordinador no autentica ni conserva estado en el navegador", async () 
   assert.match(fuente, /composicion = null/);
   assert.match(fuente, /secuenciaCarga/);
   assert.doesNotMatch(empleado, /function componerCronosVisible|function componerDietasVisible/);
-  assert.match(fuenteCoordinador, /montarJornadaCronos/);
-  assert.match(fuenteCoordinador, /montarVistaRecorridosCronos/);
+  assert.match(fuenteCoordinador, /componerCronosInterno/);
+  assert.match(empleado, /montarVistaSaldoCronos/);
+  assert.match(empleado, /montarPermisosPropiosCronos/);
   assert.match(fuenteCoordinador, /componerDietasInternas/);
   assert.doesNotMatch(fuenteCoordinador, /cargarPresentacion|cargadoresPresentacion|resolverCargasModularesPresentacion/);
   assert.doesNotMatch(fuente, /^import .*\/modulos\//mu);
   assert.doesNotMatch(fuente, /import\("\.\/modulos\/cronos\/datos-presentacion\.js/);
-  assert.match(fuente, /import\("\.\/modulos\/cronos\/vista-recorridos\.js/);
+  assert.match(fuente, /import\("\.\/modulos\/cronos\/vista-saldo-conectado\.js\?v=/);
+  assert.match(fuente, /import\("\.\/modulos\/cronos\/vista-permisos-propios\.js\?v=/);
   assert.doesNotMatch(fuente, /import\("\.\/modulos\/dietas\/vista-itinerario\.js/);
   assert.doesNotMatch(fuente, /import\("\.\/modulos\/dietas\/adaptador-presentacion\.js/);
   assert.doesNotMatch(fuenteCoordinador, /calculador-rutas-presentacion-osrm\.js/);
@@ -496,7 +498,8 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
   assert.doesNotMatch(html, /portal\.css\?v=20260924-f2-salto-movil-v2/u);
   assert.doesNotMatch(html, new RegExp(`portal\\.css\\?v=${versionShellF2}`));
   exigirRenovado(html, "/portal-empleado/modulos/contratacion-temporal/expedientes-operativo.css", versionShellF2);
-  exigirRenovado(coordinador, "./modulos/cronos/vista-recorridos.js", versionCronos);
+  exigirRenovado(coordinador, "./modulos/cronos/vista-saldo-conectado.js", "20260925-tanda-v1");
+  exigirRenovado(coordinador, "./modulos/cronos/vista-permisos-propios.js", "20260925-tanda-v1");
   // Dietas solo tiene montaje interno: un cargador, renovado respecto a lo publicado.
   assert.doesNotMatch(coordinador, /modulos\/dietas\/vista-itinerario\.js/u);
   const versionDietasMontaje = exigirVersiones(coordinador, "./modulos/dietas/vista-recorridos.js", posterior(versionDietasVista), 1);

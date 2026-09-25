@@ -95,8 +95,9 @@ test("el módulo completo se compone sin alterar las rutas de Bolsa, Cronos, Die
   assert.doesNotMatch(coordinadorFuente, /componerCronosVisible|componerDietasVisible/);
   assert.match(coordinadorFuente, /CARGADORES_INTERNOS_PREDETERMINADOS/);
   assert.match(coordinadorFuente, /componerDietasInternas/);
-  assert.match(coordinadorFuente, /montarJornadaCronos/);
-  assert.match(coordinadorFuente, /montarVistaRecorridosCronos/);
+  assert.match(coordinadorFuente, /componerCronosInterno/);
+  assert.match(coordinadorFuente, /modulos\/cronos\/vista-saldo-conectado\.js\?v=/);
+  assert.match(coordinadorFuente, /modulos\/cronos\/vista-permisos-propios\.js\?v=/);
   assert.match(coordinadorFuente, /import\("\.\/modulos\/contratacion-temporal\/adaptador-http-expedientes\.js"\)/);
   assert.match(indicePortal, /modulos\/cronos\/cronos\.css/);
   assert.match(indicePortal, /modulos\/dietas\/dietas\.css/);
