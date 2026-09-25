@@ -79,7 +79,7 @@ BEGIN
  SET LOCAL ROLE vec_bolsa_llamamientos_ejecutor;
  PERFORM vec_bolsa_llamamientos.resolver_oferta_v1(o1, 'recibo:resolucion-oferta:'||repeat('1',64), 'bolsa:disp:1', 'part:disp:2', 'per_actoractoractoractoractor', 'clave-resolucion-1',
    convert_to('{"efecto_ref":"bolsa:disp:1","nonce":"r1"}','UTF8'),
-   convert_to('{"principal_id":"per_actoractoractoractoractor","accion":"llamamiento.emitir.v1","tipo_recurso":"bolsa_constituida"}','UTF8'),
+   convert_to('{"principal_id":"per_actoractoractoractoractor","accion":"llamamiento.emitir.v1","modulo_id":"bolsa","finalidad":"gestion_llamamientos_bolsa","recurso_ref":"bolsa:disp:1","tipo_recurso":"bolsa_constituida"}','UTF8'),
    '\x00'::bytea,'\x00'::bytea,1,1,'\x00'::bytea,'\x00'::bytea,'\x00'::bytea,'\x00'::bytea);
  PERFORM prueba_disp.espera(format($$SELECT * FROM prueba_disp.manifestar(%L,%L,'clave-disp-v3')$$, o1, dd), 'VBO06');
  -- Tras resolver, el replay de la disposición original sigue devolviendo su recibo.

@@ -60,7 +60,7 @@ RETURNS jsonb LANGUAGE sql AS $f$
    ('{"regla_ref":"vec.bolsa.reglas:1:b10.plazo_publicacion","huella_catalogo":"'||repeat('d',64)||'","unidad":"dias_habiles","cantidad":2,"computo":"administrativo","ultimo_dia":"2026-10-02","ejemplo":false}')::jsonb,
    clock_timestamp(), clock_timestamp() + p_vence,
    convert_to('{"efecto_ref":"bolsa:disp:1","nonce":"'||gen_random_uuid()||'"}','UTF8'),
-   convert_to('{"principal_id":"per_actoractoractoractoractor","accion":"llamamiento.emitir.v1","tipo_recurso":"bolsa_constituida"}','UTF8'),
+   convert_to('{"principal_id":"per_actoractoractoractoractor","accion":"llamamiento.emitir.v1","modulo_id":"bolsa","finalidad":"gestion_llamamientos_bolsa","recurso_ref":"bolsa:disp:1","tipo_recurso":"bolsa_constituida"}','UTF8'),
    '\x00'::bytea,'\x00'::bytea,1,1,'\x00'::bytea,'\x00'::bytea,'\x00'::bytea,'\x00'::bytea)).oferta
 $f$;
 CREATE FUNCTION prueba_disp.espera(p_sql text, p_codigo text) RETURNS void LANGUAGE plpgsql AS $f$
