@@ -1,0 +1,34 @@
+{
+  "catalogo": "vec.documentos.conservacion",
+  "version": 1,
+  "provisional": true,
+  "rotulo": "Plazos provisionales de desarrollo, pendientes de RRHH (dudas.md, pregunta 60). No son una política aprobada.",
+  "vigente_desde": "2026-01-01T00:00:00Z",
+  "vigente_hasta": "2031-01-01T00:00:00Z",
+  "politicas": [
+    {
+      "tipo": "dietas.comision.borrador.v1",
+      "procedimiento": "dietas.comision_servicio",
+      "serie": "dietas.comisiones",
+      "base_juridica": "pendiente_rrhh",
+      "plazo_anios": 6,
+      "proteccion": "conservacion"
+    },
+    {
+      "tipo": "dietas.justificante.v1",
+      "procedimiento": "dietas.comision_servicio",
+      "serie": "dietas.justificantes",
+      "base_juridica": "pendiente_rrhh",
+      "plazo_anios": 6,
+      "proteccion": "conservacion"
+    },
+    {
+      "tipo": "contratacion_temporal.borrador.v1",
+      "procedimiento": "contratacion_temporal.expediente",
+      "serie": "contratacion_temporal.expedientes",
+      "base_juridica": "pendiente_rrhh",
+      "plazo_anios": 10,
+      "proteccion": "conservacion"
+    }
+  ]
+}
