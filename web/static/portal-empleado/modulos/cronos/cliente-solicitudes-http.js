@@ -46,6 +46,16 @@ function unidad(v) { return v === "dia" || v === "hora"; }
 function clave(v) { return typeof v === "string" && /^[A-Za-z0-9][A-Za-z0-9_-]{7,127}$/u.test(v); }
 function lista(v, max) { return Array.isArray(v) && v.length <= max; }
 function incompatible() { return fallo("respuesta_incompatible", 200); }
+/**
+ * Circuito aplicado de una solicitud propia (lo añade Cronos 000010; antes
+ * falta). Sólo «A» o «J-A»; «pendiente de asignar jefatura» sólo en lo
+ * solicitado por jefatura; lo pendiente de RRHH tras la jefatura es «J-A».
+ */
+function circuitoSolicitudValido(s) {
+  if (s.circuito !== undefined && s.circuito !== "A" && s.circuito !== "J-A") return false;
+  if (s.pendiente_asignacion !== undefined && (s.pendiente_asignacion !== true || s.estado !== "solicitado" || s.circuito !== "J-A")) return false;
+  return s.estado !== "pendiente_administracion" || s.circuito === undefined || s.circuito === "J-A";
+}
 
 export function validarMovimientosPropiosCronos(v, consulta) {
   if (!campos(v, ["periodo", "calendario", "marcajes_por_dia", "absentismos", "correcciones"])
@@ -86,7 +96,9 @@ export function validarPermisosPropiosCronos(v, anio) {
       || (Object.hasOwn(p, "sin_conciliar") && typeof p.sin_conciliar !== "boolean")) throw incompatible();
   }
   for (const s of v.solicitudes) {
-    if (!campos(s, ["solicitud_ref", "catalogo_version_ref", "permiso_ref", "desde", "hasta", "cantidad", "unidad", "estado", "version", "pendiente_justificar", "solicitada_en"], ["hora_inicio", "hora_fin"])
+    if (!campos(s, ["solicitud_ref", "catalogo_version_ref", "permiso_ref", "desde", "hasta", "cantidad", "unidad", "estado", "version", "pendiente_justificar", "solicitada_en"],
+      ["hora_inicio", "hora_fin", "circuito", "pendiente_asignacion"])
+      || !circuitoSolicitudValido(s)
       || !referencia(s.solicitud_ref, "permiso:cronos:solicitud:") || !referencia(s.permiso_ref, "permiso:cronos:") || !fecha(s.desde) || !fecha(s.hasta)
       || s.desde > s.hasta || Number(s.desde.slice(0, 4)) !== v.anio || !entero(s.cantidad, 1) || !unidad(s.unidad) || !ESTADOS_PERMISO.has(s.estado)
       || !entero(s.version, 1) || typeof s.pendiente_justificar !== "boolean" || !instante(s.solicitada_en)

@@ -1,4 +1,4 @@
-import { traducirPortal } from "./portal-i18n.js?v=20260925-d5d6-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260925-d5d6-cronos-v1";
 
 /** Contenido de ayuda sustituible por catálogo o conector, sin lógica de negocio. */
 export const AYUDA_PORTAL_BOLSA = Object.freeze({
@@ -60,11 +60,11 @@ export const TRAMITES_AYUDANTE_PORTAL = Object.freeze([
     ]),
   }),
   Object.freeze({
-    id: "dietas-revisar-documento", titulo: traducirPortal("ayuda_contenido_319"), modulo: traducirPortal("ayuda_contenido_320"), vista: "dietas", selector: "[data-dietas-bandeja-circuito]",
-    resumen: traducirPortal("ayuda_contenido_321"),
+    id: "dietas-revisar-documento", titulo: traducirPortal("ayuda_contenido_387"), modulo: traducirPortal("ayuda_contenido_388"), vista: "dietas", selector: "[data-dietas-bandeja-circuito]",
+    resumen: traducirPortal("ayuda_contenido_389"),
     pasos: Object.freeze([
-      Object.freeze({ selector: "[data-dietas-bandeja-circuito]", bloqueado: false, titulo: traducirPortal("ayuda_contenido_322"), instruccion: traducirPortal("ayuda_contenido_323"), objetivo: traducirPortal("ayuda_contenido_324"), preparacion: traducirPortal("ayuda_contenido_325"), resultado: traducirPortal("ayuda_contenido_326"), actor: traducirPortal("ayuda_contenido_327"), limite: traducirPortal("ayuda_contenido_328") }),
-      Object.freeze({ selector: "[data-dietas-bandeja-circuito]", bloqueado: false, titulo: traducirPortal("ayuda_contenido_329"), instruccion: traducirPortal("ayuda_contenido_330"), objetivo: traducirPortal("ayuda_contenido_331"), preparacion: traducirPortal("ayuda_contenido_332"), resultado: traducirPortal("ayuda_contenido_333"), actor: traducirPortal("ayuda_contenido_334"), limite: traducirPortal("ayuda_contenido_335") }),
+      Object.freeze({ selector: "[data-dietas-bandeja-circuito]", bloqueado: false, titulo: traducirPortal("ayuda_contenido_390"), instruccion: traducirPortal("ayuda_contenido_391"), objetivo: traducirPortal("ayuda_contenido_392"), preparacion: traducirPortal("ayuda_contenido_393"), resultado: traducirPortal("ayuda_contenido_394"), actor: traducirPortal("ayuda_contenido_395"), limite: traducirPortal("ayuda_contenido_396") }),
+      Object.freeze({ selector: "[data-dietas-bandeja-circuito]", bloqueado: false, titulo: traducirPortal("ayuda_contenido_397"), instruccion: traducirPortal("ayuda_contenido_398"), objetivo: traducirPortal("ayuda_contenido_399"), preparacion: traducirPortal("ayuda_contenido_400"), resultado: traducirPortal("ayuda_contenido_401"), actor: traducirPortal("ayuda_contenido_402"), limite: traducirPortal("ayuda_contenido_403") }),
     ]),
   }),
   Object.freeze({
@@ -91,6 +91,38 @@ export const TRAMITES_AYUDANTE_PORTAL = Object.freeze([
     pasos: Object.freeze([
       Object.freeze({ selector: "#cronos-persona", bloqueado: true, titulo: traducirPortal("ayuda_contenido_119"), instruccion: traducirPortal("ayuda_contenido_120"), objetivo: traducirPortal("ayuda_contenido_121"), preparacion: traducirPortal("ayuda_contenido_122"), resultado: traducirPortal("ayuda_contenido_123"), actor: traducirPortal("ayuda_contenido_124"), limite: traducirPortal("ayuda_contenido_125") }),
       Object.freeze({ selector: "#cronos-persona", bloqueado: true, titulo: traducirPortal("ayuda_contenido_126"), instruccion: traducirPortal("ayuda_contenido_127"), objetivo: traducirPortal("ayuda_contenido_128"), preparacion: traducirPortal("ayuda_contenido_129"), resultado: traducirPortal("ayuda_contenido_130"), actor: traducirPortal("ayuda_contenido_131"), limite: traducirPortal("ayuda_contenido_132") }),
+    ]),
+  }),
+  Object.freeze({
+    id: "cronos-resolver-permisos", titulo: traducirPortal("ayuda_contenido_319"), modulo: traducirPortal("ayuda_contenido_320"), vista: "cronos-bandeja", selector: "[data-cronos-bandeja-permisos]",
+    resumen: traducirPortal("ayuda_contenido_321"),
+    pasos: Object.freeze([
+      Object.freeze({ selector: "[data-cronos-bandeja-permisos]", bloqueado: false, titulo: traducirPortal("ayuda_contenido_322"), instruccion: traducirPortal("ayuda_contenido_323"), objetivo: traducirPortal("ayuda_contenido_324"), preparacion: traducirPortal("ayuda_contenido_325"), resultado: traducirPortal("ayuda_contenido_326"), actor: traducirPortal("ayuda_contenido_327"), limite: traducirPortal("ayuda_contenido_328") }),
+      Object.freeze({ selector: "[data-cronos-bandeja-permisos]", bloqueado: false, titulo: traducirPortal("ayuda_contenido_329"), instruccion: traducirPortal("ayuda_contenido_330"), objetivo: traducirPortal("ayuda_contenido_331"), preparacion: traducirPortal("ayuda_contenido_332"), resultado: traducirPortal("ayuda_contenido_333"), actor: traducirPortal("ayuda_contenido_334"), limite: traducirPortal("ayuda_contenido_335") }),
+    ]),
+  }),
+  Object.freeze({
+    id: "cronos-avisos-resolucion", titulo: traducirPortal("ayuda_contenido_336"), modulo: traducirPortal("ayuda_contenido_337"), vista: "cronos-avisos", selector: "[data-cronos-avisos-propios]",
+    resumen: traducirPortal("ayuda_contenido_338"),
+    pasos: Object.freeze([
+      Object.freeze({ selector: "[data-cronos-avisos-propios]", bloqueado: false, titulo: traducirPortal("ayuda_contenido_339"), instruccion: traducirPortal("ayuda_contenido_340"), objetivo: traducirPortal("ayuda_contenido_341"), preparacion: traducirPortal("ayuda_contenido_342"), resultado: traducirPortal("ayuda_contenido_343"), actor: traducirPortal("ayuda_contenido_344"), limite: traducirPortal("ayuda_contenido_345") }),
+      Object.freeze({ selector: "[data-cronos-avisos-propios]", bloqueado: false, titulo: traducirPortal("ayuda_contenido_346"), instruccion: traducirPortal("ayuda_contenido_347"), objetivo: traducirPortal("ayuda_contenido_348"), preparacion: traducirPortal("ayuda_contenido_349"), resultado: traducirPortal("ayuda_contenido_350"), actor: traducirPortal("ayuda_contenido_351"), limite: traducirPortal("ayuda_contenido_352") }),
+    ]),
+  }),
+  Object.freeze({
+    id: "cronos-notificar-rrhh", titulo: traducirPortal("ayuda_contenido_353"), modulo: traducirPortal("ayuda_contenido_354"), vista: "cronos-notificaciones", selector: "[data-cronos-notificaciones-propias]",
+    resumen: traducirPortal("ayuda_contenido_355"),
+    pasos: Object.freeze([
+      Object.freeze({ selector: "[data-cronos-notificaciones-propias]", bloqueado: false, titulo: traducirPortal("ayuda_contenido_356"), instruccion: traducirPortal("ayuda_contenido_357"), objetivo: traducirPortal("ayuda_contenido_358"), preparacion: traducirPortal("ayuda_contenido_359"), resultado: traducirPortal("ayuda_contenido_360"), actor: traducirPortal("ayuda_contenido_361"), limite: traducirPortal("ayuda_contenido_362") }),
+      Object.freeze({ selector: "[data-cronos-notificaciones-propias]", bloqueado: false, titulo: traducirPortal("ayuda_contenido_363"), instruccion: traducirPortal("ayuda_contenido_364"), objetivo: traducirPortal("ayuda_contenido_365"), preparacion: traducirPortal("ayuda_contenido_366"), resultado: traducirPortal("ayuda_contenido_367"), actor: traducirPortal("ayuda_contenido_368"), limite: traducirPortal("ayuda_contenido_369") }),
+    ]),
+  }),
+  Object.freeze({
+    id: "cronos-atender-notificaciones", titulo: traducirPortal("ayuda_contenido_370"), modulo: traducirPortal("ayuda_contenido_371"), vista: "cronos-bandeja-notificaciones", selector: "[data-cronos-bandeja-notificaciones]",
+    resumen: traducirPortal("ayuda_contenido_372"),
+    pasos: Object.freeze([
+      Object.freeze({ selector: "[data-cronos-bandeja-notificaciones]", bloqueado: false, titulo: traducirPortal("ayuda_contenido_373"), instruccion: traducirPortal("ayuda_contenido_374"), objetivo: traducirPortal("ayuda_contenido_375"), preparacion: traducirPortal("ayuda_contenido_376"), resultado: traducirPortal("ayuda_contenido_377"), actor: traducirPortal("ayuda_contenido_378"), limite: traducirPortal("ayuda_contenido_379") }),
+      Object.freeze({ selector: "[data-cronos-bandeja-notificaciones]", bloqueado: false, titulo: traducirPortal("ayuda_contenido_380"), instruccion: traducirPortal("ayuda_contenido_381"), objetivo: traducirPortal("ayuda_contenido_382"), preparacion: traducirPortal("ayuda_contenido_383"), resultado: traducirPortal("ayuda_contenido_384"), actor: traducirPortal("ayuda_contenido_385"), limite: traducirPortal("ayuda_contenido_386") }),
     ]),
   }),
   Object.freeze({

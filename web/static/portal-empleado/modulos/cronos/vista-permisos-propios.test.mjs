@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { ErrorClienteSolicitudesCronos } from "./cliente-solicitudes-http.js";
-import { montarPermisosPropiosCronos, renderizarPermisosPropiosCronos } from "./vista-permisos-propios.js";
+import { estadoSolicitudPermisoCronos, montarPermisosPropiosCronos, renderizarPermisosPropiosCronos } from "./vista-permisos-propios.js";
 
 function permiso(ref, nombre, extra = {}) {
   return { permiso_ref: `permiso:cronos:${ref}`, version_ref: `catalogo:cronos:${ref}:v1`, nombre, unidad: "dia", computo: "laborables", circuito: "A",
@@ -20,8 +20,8 @@ function datos() {
     ],
     solicitudes: [
       { solicitud_ref: "permiso:cronos:solicitud:a-1", catalogo_version_ref: "catalogo:cronos:asuntos-propios:v1", permiso_ref: "permiso:cronos:asuntos-propios", desde: "2026-03-02", hasta: "2026-03-03", cantidad: 2, unidad: "dia", estado: "concedido", version: 2, pendiente_justificar: true, solicitada_en: "2026-02-20T08:00:00Z" },
-      { solicitud_ref: "permiso:cronos:solicitud:a-2", catalogo_version_ref: "catalogo:cronos:asuntos-propios:v1", permiso_ref: "permiso:cronos:asuntos-propios", desde: "2026-10-05", hasta: "2026-10-05", cantidad: 1, unidad: "dia", estado: "solicitado", version: 1, pendiente_justificar: false, solicitada_en: "2026-09-25T08:00:00Z" },
-      { solicitud_ref: "permiso:cronos:solicitud:m-1", catalogo_version_ref: "catalogo:cronos:horas-medico:v1", permiso_ref: "permiso:cronos:horas-medico", desde: "2026-10-07", hasta: "2026-10-07", hora_inicio: "09:00", hora_fin: "11:30", cantidad: 150, unidad: "hora", estado: "solicitado", version: 1, pendiente_justificar: false, solicitada_en: "2026-09-25T08:00:00Z" },
+      { solicitud_ref: "permiso:cronos:solicitud:a-2", catalogo_version_ref: "catalogo:cronos:asuntos-propios:v1", permiso_ref: "permiso:cronos:asuntos-propios", desde: "2026-10-05", hasta: "2026-10-05", cantidad: 1, unidad: "dia", estado: "solicitado", version: 1, pendiente_justificar: false, solicitada_en: "2026-09-25T08:00:00Z", circuito: "J-A" },
+      { solicitud_ref: "permiso:cronos:solicitud:m-1", catalogo_version_ref: "catalogo:cronos:horas-medico:v1", permiso_ref: "permiso:cronos:horas-medico", desde: "2026-10-07", hasta: "2026-10-07", hora_inicio: "09:00", hora_fin: "11:30", cantidad: 150, unidad: "hora", estado: "solicitado", version: 1, pendiente_justificar: false, solicitada_en: "2026-09-25T08:00:00Z", circuito: "A" },
     ],
   };
 }
@@ -41,11 +41,14 @@ test("listado anual con máximo, mínimo, solicitado, concedido y resta en días
   assert.match(html, /60 h al mes/);
   assert.match(html, /15 min/);
   assert.match(html, /2 h 30 min/);
-  assert.match(html, /Jefatura y administración/);
+  // El circuito del catálogo ya no decide: no se muestra ni en la tabla ni
+  // en el formulario; cada solicitud dice en qué punto está.
+  assert.doesNotMatch(html, /Jefatura y administración|>Administración<|>Concede</u);
   assert.match(html, /Cuantías pendientes de confirmar por RRHH/);
   assert.equal((html.match(/data-cronos-solicitar=/g) || []).length, 3, "el permiso no solicitable no ofrece Solicitar");
-  assert.match(html, /Pendiente de la jefatura/);
-  assert.match(html, /Pendiente de administración/);
+  assert.match(html, /Pendiente de jefatura/);
+  assert.match(html, /Pendiente de RRHH/);
+  assert.doesNotMatch(html, /Pendiente de administración|Pendiente de la jefatura/);
   assert.match(html, /Pendientes de justificar/);
   assert.doesNotMatch(html, /catalogo:cronos|solicitud:a-|Conceder|Denegar|DEMO/u);
   const reales = datos(); reales.permisos.forEach((p) => { p.sintetico = false; });
@@ -86,7 +89,8 @@ test("solicitar un permiso por horas envía un solo día con su tramo y muestra 
   await nodo.eventos.submit({ target: formulario, preventDefault() {} });
   await esperar();
   assert.equal(envios[1].clave_operacion, envios[0].clave_operacion, "un reintento conserva la clave");
-  assert.match(nodo.innerHTML, /Solicitud registrada: 1 h\. Queda pendiente de conceder \(Jefatura y administración\)/);
+  assert.match(nodo.innerHTML, /Solicitud registrada: 1 h\. Queda pendiente de resolver\./);
+  assert.doesNotMatch(nodo.innerHTML, /Jefatura y administración|cronos-circuito/);
   vista.desmontar();
   assert.equal(nodo.eliminado, true);
 });
@@ -105,4 +109,26 @@ test("sin empleado o sin servicio no muestra cifras", async () => {
 test("la vista no guarda nada en el navegador ni concede permisos", async () => {
   const fuente = await readFile(new URL("./vista-permisos-propios.js", import.meta.url), "utf8");
   assert.doesNotMatch(fuente, /localStorage|sessionStorage|indexedDB|document\.cookie|Math\.random|decidir|conceder\(/u);
+});
+
+test("el estado de cada solicitud sale del circuito aplicado por el servidor, no del catálogo", () => {
+  const casos = [
+    [{ estado: "solicitado", circuito: "J-A" }, "estado_permiso_pendiente_jefatura"],
+    [{ estado: "solicitado", circuito: "A" }, "estado_permiso_pendiente_rrhh"],
+    [{ estado: "solicitado", circuito: "J-A", pendiente_asignacion: true }, "estado_permiso_pendiente_asignacion"],
+    [{ estado: "solicitado" }, "estado_permiso_pendiente"],
+    [{ estado: "pendiente_administracion", circuito: "J-A" }, "estado_permiso_pendiente_rrhh"],
+    [{ estado: "pendiente_administracion" }, "estado_permiso_pendiente_rrhh"],
+    [{ estado: "concedido", circuito: "A" }, "estado_concedido"],
+    [{ estado: "denegado" }, "estado_permiso_denegado"],
+    [{ estado: "cancelado" }, "estado_permiso_cancelado"],
+  ];
+  for (const [s, clave] of casos) assert.equal(estadoSolicitudPermisoCronos(s), clave, JSON.stringify(s));
+  const d = datos();
+  d.solicitudes[1] = { ...d.solicitudes[1], pendiente_asignacion: true };
+  d.solicitudes[2] = { ...d.solicitudes[2] }; delete d.solicitudes[2].circuito;
+  const html = renderizarPermisosPropiosCronos({ estado: "listo", anio: 2026, datos: d });
+  assert.match(html, /Pendiente de asignar jefatura/);
+  assert.match(html, /Pendiente de resolver/);
+  assert.doesNotMatch(html, /Pendiente de RRHH/, "sin circuito del servidor no se deduce del catálogo (A)");
 });

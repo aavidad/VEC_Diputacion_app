@@ -37,9 +37,15 @@ type EmisorMaterialCronosV3 interface {
 }
 
 // MotivosCronos fija la entrada del catálogo de motivos de cada acción.
+// Los cuatro de la resolución de permisos y los avisos (AD3-57) van juntos:
+// o están todos, y la capacidad se compone, o no está ninguno.
+// Los cuatro de las notificaciones a RRHH (AD3-58) siguen la misma regla.
 type MotivosCronos struct {
 	Saldo, Marcaje, Disponibilidad, Recuperacion vecdomain.ReferenciaEntradaCatalogo
 	Movimientos, Correccion, Permisos, Permiso   vecdomain.ReferenciaEntradaCatalogo
+	Bandeja, Resolucion, Avisos, ArchivoAviso    vecdomain.ReferenciaEntradaCatalogo
+	Notificacion, Notificaciones                 vecdomain.ReferenciaEntradaCatalogo
+	BandejaNotificaciones, AtencionNotificacion  vecdomain.ReferenciaEntradaCatalogo
 }
 
 func (m MotivosCronos) validar() error {
@@ -48,7 +54,77 @@ func (m MotivosCronos) validar() error {
 			return ErrComposicionCronosNoDisponible
 		}
 	}
+	if _, err := m.resolucionConfigurada(); err != nil {
+		return err
+	}
+	if _, err := m.notificacionesConfiguradas(); err != nil {
+		return err
+	}
 	return nil
+}
+
+// notificacionesConfiguradas: los cuatro motivos de las notificaciones o
+// ninguno; una configuración parcial impide componer.
+func (m MotivosCronos) notificacionesConfiguradas() (bool, error) {
+	cero := vecdomain.ReferenciaEntradaCatalogo{}
+	validos, vacios := 0, 0
+	for _, r := range []vecdomain.ReferenciaEntradaCatalogo{m.Notificacion, m.Notificaciones, m.BandejaNotificaciones, m.AtencionNotificacion} {
+		switch {
+		case r == cero:
+			vacios++
+		case vecdomain.ReferenciaMotivoAutorizacionV2Valida(r):
+			validos++
+		}
+	}
+	switch {
+	case validos == 4:
+		return true, nil
+	case vacios == 4:
+		return false, nil
+	}
+	return false, ErrComposicionCronosNoDisponible
+}
+
+// NotificacionesConfiguradas indica si el autorizador puede emitir las
+// decisiones de las notificaciones a RRHH.
+func (a *AutorizadorCronos) NotificacionesConfiguradas() bool {
+	if a == nil {
+		return false
+	}
+	ok, err := a.motivos.notificacionesConfiguradas()
+	return ok && err == nil
+}
+
+// resolucionConfigurada distingue la capacidad apagada (ningún motivo) de
+// una configuración incompleta, que impide componer.
+func (m MotivosCronos) resolucionConfigurada() (bool, error) {
+	cero := vecdomain.ReferenciaEntradaCatalogo{}
+	validos, vacios := 0, 0
+	for _, r := range []vecdomain.ReferenciaEntradaCatalogo{m.Bandeja, m.Resolucion, m.Avisos, m.ArchivoAviso} {
+		switch {
+		case r == cero:
+			vacios++
+		case vecdomain.ReferenciaMotivoAutorizacionV2Valida(r):
+			validos++
+		}
+	}
+	switch {
+	case validos == 4:
+		return true, nil
+	case vacios == 4:
+		return false, nil
+	}
+	return false, ErrComposicionCronosNoDisponible
+}
+
+// ResolucionConfigurada indica si el autorizador puede emitir las decisiones
+// de la resolución de permisos y de los avisos.
+func (a *AutorizadorCronos) ResolucionConfigurada() bool {
+	if a == nil {
+		return false
+	}
+	ok, err := a.motivos.resolucionConfigurada()
+	return ok && err == nil
 }
 
 // AutorizadorCronos emite una decisión V3 nueva por acción y recurso exacto.
