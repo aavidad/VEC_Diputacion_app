@@ -43,6 +43,11 @@ const (
 	BolsaConsecuencias                = "b24.consecuencias"
 	BolsaVigencia                     = "b25.vigencia_bolsa"
 	BolsaAgotamiento                  = "b26.agotamiento"
+	// BolsaPrefijoSanciones agrupa las consecuencias de una sanción: cada
+	// entrada con este prefijo es una consecuencia que RRHH puede resolver,
+	// de modo que añadir otra no exige cambiar código.
+	BolsaPrefijoSanciones = "b24.sancion."
+	BolsaEstadosRecurso   = "b24.recurso_estados"
 )
 
 // Reglas de Contratación temporal.

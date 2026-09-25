@@ -422,7 +422,7 @@
       {
         "clave": "b24.consecuencias",
         "etiqueta": "Consecuencias y recurso",
-        "descripcion": "La única consecuencia prevista es la baja definitiva; cabe recurso de reposición en un mes.",
+        "descripcion": "Las consecuencias posibles son las entradas «b24.sancion.*» de este catálogo; contra la resolución cabe recurso de reposición en un mes desde su notificación.",
         "vigente_desde": "2026-02-01T00:00:00Z",
         "atributos": {
           "origen": "reglamento",
@@ -468,6 +468,121 @@
           "articulo": "arts. 3 y 7.c"
         },
         "orden": 29
+      },
+      {
+        "clave": "b24.sancion.baja_llamamiento_directo",
+        "etiqueta": "Baja definitiva: renuncia no justificada en llamamiento directo",
+        "descripcion": "No aceptar el llamamiento, no presentarse en el día y lugar indicados o no aportar la documentación, sin causa del art. 10.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "reglamento",
+          "norma": "Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002)",
+          "duda": "Duda 62.",
+          "unidad": "ninguna",
+          "articulo": "art. 11.1.a",
+          "sancion": "baja_definitiva",
+          "efecto": "excluir",
+          "ejemplo_parcial": "Que la baja la resuelva la jefatura de RRHH y conste en el histórico de sanciones es un circuito de ejemplo."
+        },
+        "orden": 30
+      },
+      {
+        "clave": "b24.sancion.baja_sin_contacto",
+        "etiqueta": "Baja definitiva: sin contacto tras dos procesos",
+        "descripcion": "No es posible contactar con el aspirante tras dos procesos de llamamiento telefónico en un mismo ofrecimiento.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "reglamento",
+          "norma": "Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002)",
+          "duda": "Duda 62.",
+          "unidad": "ninguna",
+          "articulo": "art. 11.1.a",
+          "sancion": "baja_definitiva",
+          "efecto": "excluir",
+          "ejemplo_parcial": "Que la baja la resuelva la jefatura de RRHH y conste en el histórico de sanciones es un circuito de ejemplo."
+        },
+        "orden": 31
+      },
+      {
+        "clave": "b24.sancion.baja_publicacion",
+        "etiqueta": "Baja definitiva: renuncia tras manifestar disposición",
+        "descripcion": "En el sistema de publicación, renunciar, no presentarse o no aportar la documentación tras haber manifestado disposición, sin causa del art. 10.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "reglamento",
+          "norma": "Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002)",
+          "duda": "Duda 62.",
+          "unidad": "ninguna",
+          "articulo": "art. 11.1.b",
+          "sancion": "baja_definitiva",
+          "efecto": "excluir",
+          "ejemplo_parcial": "Que la baja la resuelva la jefatura de RRHH y conste en el histórico de sanciones es un circuito de ejemplo."
+        },
+        "orden": 32
+      },
+      {
+        "clave": "b24.sancion.baja_renuncia_nombramiento",
+        "etiqueta": "Baja definitiva: renuncia a un nombramiento vigente",
+        "descripcion": "Renunciar a un nombramiento o contrato vigente, salvo el ofrecimiento de una vacante.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "reglamento",
+          "norma": "Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002)",
+          "duda": "Duda 62.",
+          "unidad": "ninguna",
+          "articulo": "art. 11.2",
+          "sancion": "baja_definitiva",
+          "efecto": "excluir",
+          "ejemplo_parcial": "Que la baja la resuelva la jefatura de RRHH y conste en el histórico de sanciones es un circuito de ejemplo."
+        },
+        "orden": 33
+      },
+      {
+        "clave": "b24.sancion.pasar_al_final",
+        "etiqueta": "Pasar al final de la lista",
+        "descripcion": "La persona sigue en la bolsa pero pasa al último puesto del orden de llamamiento.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo.",
+          "duda": "Duda 62.",
+          "unidad": "ninguna",
+          "sancion": "pasar_al_final",
+          "efecto": "ninguna"
+        },
+        "orden": 34
+      },
+      {
+        "clave": "b24.sancion.suspension",
+        "etiqueta": "Suspensión de seis meses",
+        "descripcion": "La persona queda no disponible durante seis meses desde la notificación de la resolución, contados de fecha a fecha.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo; Código Civil, art. 5.1.",
+          "duda": "Duda 62.",
+          "unidad": "meses",
+          "cantidad": "6",
+          "inicio": "notificacion",
+          "computo": "civil",
+          "sancion": "suspension",
+          "efecto": "pausar"
+        },
+        "orden": 35
+      },
+      {
+        "clave": "b24.recurso_estados",
+        "etiqueta": "Estados del recurso de reposición",
+        "descripcion": "Estados que RRHH puede anotar en el recurso de reposición contra una sanción.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Ley 39/2015, arts. 123 y 124.",
+          "duda": "Duda 62.",
+          "unidad": "lista",
+          "valor": "interpuesto,estimado,desestimado,inadmitido,desistido"
+        },
+        "orden": 36
       }
     ],
     "estado": "publicado",
