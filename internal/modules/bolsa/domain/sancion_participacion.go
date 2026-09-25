@@ -56,11 +56,19 @@ func (d DocumentoSancion) Validar() error {
 
 // FechaCivilSancion interpreta «AAAA-MM-DD» como fecha civil.
 func FechaCivilSancion(valor string) (time.Time, bool) {
+	fecha, err := parsearFechaCivilSancion(valor)
+	return fecha, err == nil
+}
+
+func parsearFechaCivilSancion(valor string) (time.Time, error) {
 	fecha, err := time.Parse(time.DateOnly, valor)
-	if err != nil || fecha.Format(time.DateOnly) != valor {
-		return time.Time{}, false
+	if err != nil {
+		return time.Time{}, errors.Join(ErrSancionParticipacionInvalida, err)
 	}
-	return fecha, true
+	if fecha.Format(time.DateOnly) != valor {
+		return time.Time{}, ErrSancionParticipacionInvalida
+	}
+	return fecha, nil
 }
 
 // DatosSancion son los hechos que declara RRHH al registrar la sanción.

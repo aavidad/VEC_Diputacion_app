@@ -6,7 +6,6 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -58,8 +57,9 @@ func ReferenciasRutaSancionesParticipacion(r *http.Request) (string, string, str
 	default:
 		return "", "", "", false
 	}
+	// La ruta escapada ya no contiene «%»: no hay nada que decodificar.
 	for _, v := range []string{partes[0], partes[2], sancion} {
-		if _, err := url.PathUnescape(v); err != nil || strings.ContainsAny(v, "?# \\%") || len(v) > 512 {
+		if strings.ContainsAny(v, "?# \\%") || len(v) > 512 {
 			return "", "", "", false
 		}
 	}
