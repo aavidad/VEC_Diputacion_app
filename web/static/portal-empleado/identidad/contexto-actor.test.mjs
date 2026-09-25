@@ -57,6 +57,9 @@ test("el contrato productivo acepta la proyeccion de una sesion interna fuerte",
   assert.equal(contexto.autenticacion.metodo, "kerberos_ad");
   assert.equal(contexto.autenticacion.garantia, "alto");
   assert.strictEqual(exigirContextoParaModulo(contexto, "dietas"), contexto);
+  // Un contexto congelado que no pasó por la validación nunca sirve de identidad.
+  const falso = Object.freeze({ ambito: Object.freeze({ modulos: Object.freeze(["cronos"]) }) });
+  assert.throws(() => exigirContextoParaModulo(falso, "cronos"), /validado e inmutable/);
 });
 
 test("el contexto validado se comparte por referencia solo con módulos de su ámbito", () => {
