@@ -7,9 +7,10 @@
  * Recibe las utilidades visuales para mantener este módulo puro y comprobable
  * sin acceder al DOM global.
  */
-import { traducirBolsaInterna, traducirPortal } from "./portal-i18n.js?v=20260925-d5d6-cronos-v1";
+import { traducirBolsaInterna, traducirPortal } from "./portal-i18n.js?v=20260925-reposicion-v1";
 import { renderizarBloqueAvisos } from "./portal-bolsas-avisos.js?v=20260925-aspecto-v1";
-import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260923-pweb14-v1";
+import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260925-reposicion-v1";
+import { destinosSituacion, fechaDisponiblePropuesta, renderizarCamposReposicion } from "./portal-bolsas-reglas-situacion.js?v=20260925-reposicion-v1";
 import { icono } from "../comun/iconos-vec.js?v=20260925-aspecto-v1";
 const ESQUEMA_PANEL_INTERNO = "vec.bolsa.panel.interno.v1";
 const ESTADOS_BOLSA = Object.freeze(["disponible", "no_disponible", "trabajando", "pendiente_incorporacion", "renuncia", "excluido", "disponible_desde"]);
@@ -568,20 +569,14 @@ export function crearPresentadorPanelInterno(dependencias) {
     const ultimoLlamamiento = candidato.ultimo_llamamiento
       ? `<div class="fila-resumen"><dt>Último llamamiento</dt><dd>${escaparHTML(etiquetaClave(candidato.ultimo_llamamiento.canal))} · ${escaparHTML(etiquetaClave(candidato.ultimo_llamamiento.resultado))}<br><small><time datetime="${escaparHTML(candidato.ultimo_llamamiento.comunicado_en)}">${escaparHTML(instanteVisible(candidato.ultimo_llamamiento.comunicado_en))}</time> · <code>${escaparHTML(candidato.ultimo_llamamiento.llamamiento_ref)}</code></small></dd></div>`
       : `<div class="fila-resumen"><dt>Último llamamiento</dt><dd>Sin llamamientos registrados</dd></div>`;
-    const destinos = {
-      disponible: ["no_disponible", "pendiente_incorporacion", "renuncia", "excluido"],
-      no_disponible: ["disponible", "excluido"],
-      pendiente_incorporacion: ["trabajando", "disponible", "renuncia", "excluido"],
-      trabajando: ["disponible", "disponible_desde", "excluido"],
-      disponible_desde: ["disponible", "excluido"],
-      renuncia: ["disponible", "excluido"],
-      excluido: [],
-    }[candidato.estado_clave] || [];
+    const destinos = destinosSituacion(modal.reglasSituacion, candidato.estado_clave);
+    const fechaPropuesta = fechaDisponiblePropuesta(modal.reglasSituacion, modal.reposicion);
     const cambio = modal.cambioSituacion ? `
       <form data-bolsa-form="cambio-situacion" data-participacion-ref="${escaparHTML(candidato.participacion_ref)}">
         <p>${pastillaPendienteRRHH()}</p>
         <label>Destino <select name="situacion" required><option value="">Seleccionar estado</option>${destinos.map((d) => `<option value="${d}">${escaparHTML(etiquetaClave(d))}</option>`).join("")}</select></label>
-        <label data-bolsa-fecha-disponible>Fecha de disponibilidad <input type="datetime-local" name="fecha_disponible"></label>
+        ${renderizarCamposReposicion({ reglas: modal.reglasSituacion, candidato, estadoReposicion: modal.reposicion, escaparHTML })}
+        <label data-bolsa-fecha-disponible>Fecha de disponibilidad <input type="datetime-local" name="fecha_disponible"${fechaPropuesta ? ` value="${escaparHTML(fechaPropuesta)}"` : ""}></label>
         <label>Motivo <textarea name="motivo" required maxlength="1000"></textarea></label>
         <button type="submit" class="boton-primario"${destinos.length ? "" : " disabled"}>Guardar cambio</button>
         <p class="mensaje-error" role="alert">${escaparHTML(modal.errorCambioSituacion || "")}</p>

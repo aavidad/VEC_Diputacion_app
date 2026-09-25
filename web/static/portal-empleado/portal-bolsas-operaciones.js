@@ -1,3 +1,6 @@
+import { causasBaja, consultarReglasSituacion, hoyCivil, instalarPropuestaReposicion, motivoConCausa, renderizarCausasBaja } from "./portal-bolsas-reglas-situacion.js?v=20260925-reposicion-v1";
+import { traducirReglasSituacion } from "./portal-bolsas-reglas-situacion-i18n.js?v=20260925-reposicion-v1";
+
 const BASE = "/api/vec/bolsa/bolsas";
 const TIPOS_JUSTIFICANTE = Object.freeze(["solicitud_candidato", "informe_medico", "resolucion", "correo", "acta_bolsa", "otro"]);
 const HEX_SHA256 = /^[a-f0-9]{64}$/;
@@ -128,7 +131,10 @@ function renderizarPaso(estado, escaparHTML) {
   const operacion = estado.operacion;
   const exclusiones = operacion === "excluir" ? `<p class="nota-seguridad" role="note"><strong>La exclusión requiere una persona validadora distinta de quien la registra.</strong> Regla provisional, duda 6; confirme esta separación antes de continuar.</p><label><input type="checkbox" name="confirma_validador_distinto" required ${datos.confirma_validador_distinto ? "checked" : ""}> Confirmo que el validador es otra persona.</label>` : "";
   const etapa = estado.paso;
-  const campos = etapa === 1
+  const causas = operacion === "excluir" ? estado.causasBaja || [] : [];
+  const campos = etapa === 1 && causas.length
+    ? renderizarCausasBaja({ causas, seleccion: datos.causa, detalle: datos.detalle, escaparHTML })
+    : etapa === 1
     ? `<label>Motivo <textarea name="motivo" required minlength="2" maxlength="1000">${escaparHTML(datos.motivo || "")}</textarea></label>`
     : etapa === 2
       ? `<label>Tipo de justificante <select name="tipo" required><option value="">Seleccione un tipo</option>${TIPOS_JUSTIFICANTE.map((tipo) => `<option value="${tipo}" ${datos.tipo === tipo ? "selected" : ""}>${TIPOS_ETIQUETA[tipo]}</option>`).join("")}</select></label><label>Referencia del documento en su custodia <input name="referencia" required minlength="2" maxlength="240" value="${escaparHTML(datos.referencia || "")}"></label><label>SHA-256 del documento <input name="sha256" required pattern="[a-fA-F0-9]{64}" minlength="64" maxlength="64" value="${escaparHTML(datos.sha256 || "")}" autocomplete="off"></label><p class="nota-seguridad" role="note">El documento permanece en su custodia y no se sube a VEC. Se registra únicamente su referencia y huella SHA-256.</p>`
@@ -136,18 +142,26 @@ function renderizarPaso(estado, escaparHTML) {
   return `<form data-b8-form="operacion" data-b8-paso="${etapa}"><p><strong>Operación seleccionada:</strong> ${OPERACIONES[operacion]}</p><h5>Paso ${etapa} de 3 · ${etapa === 1 ? "Motivo" : etapa === 2 ? "Justificante" : "Validación"}</h5>${campos}<p class="mensaje-error" role="alert">${escaparHTML(estado.errorFormulario || "")}</p><div class="acciones-vista"><button type="button" class="boton-secundario" data-b8-accion="anterior" ${etapa === 1 || estado.enviando ? "disabled" : ""}>Anterior</button><button type="submit" class="boton-primario" ${estado.enviando ? "disabled" : ""}>${estado.enviando ? "Registrando…" : etapa < 3 ? "Continuar" : `Confirmar ${OPERACIONES[operacion]}`}</button></div></form>`;
 }
 
-export function crearControladorOperacionesSituacion({ estado, renderizar, recargar }) {
+export function crearControladorOperacionesSituacion({ estado, renderizar, recargar, consultarReglas = consultarReglasSituacion }) {
   async function cargar(modalFicha) {
     const controlador = new AbortController();
     modalFicha.controladorOperaciones?.abort();
     modalFicha.controladorOperaciones = controlador;
     modalFicha.operacionesB8 = { ...modalFicha.operacionesB8, carga: "cargando", items: [] };
     renderizar();
-    const res = await consultarOperacionesSituacion(estado.bolsaSeleccionada, modalFicha.candidato.participacion_ref, { signal: controlador.signal });
+    // Las reglas del catálogo (destinos, causas y reposición) se piden con el
+    // historial; si fallan, la ficha sigue como sin catálogo.
+    const finRelacion = modalFicha.candidato.estado_clave === "trabajando" ? hoyCivil() : "";
+    const [res, reglas] = await Promise.all([
+      consultarOperacionesSituacion(estado.bolsaSeleccionada, modalFicha.candidato.participacion_ref, { signal: controlador.signal }),
+      consultarReglas({ finRelacion, signal: controlador.signal }),
+    ]);
     if (controlador.signal.aborted || estado.modalFicha !== modalFicha) return;
+    modalFicha.reglasSituacion = reglas.ok ? reglas.datos : null;
+    const causas = causasBaja(modalFicha.reglasSituacion);
     modalFicha.operacionesB8 = res.ok
-      ? { ...modalFicha.operacionesB8, carga: "listo", noDisponible: false, items: res.datos }
-      : { ...modalFicha.operacionesB8, carga: "error", noDisponible: res.status === 404, error: res.mensaje, items: [] };
+      ? { ...modalFicha.operacionesB8, carga: "listo", noDisponible: false, items: res.datos, causasBaja: causas }
+      : { ...modalFicha.operacionesB8, carga: "error", noDisponible: res.status === 404, error: res.mensaje, items: [], causasBaja: causas };
     renderizar();
   }
 
@@ -226,7 +240,14 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
     const datos = new FormData(formulario);
     if (flujo.enviando) return true;
     if (Number(flujo.paso) < 3) {
-      if (flujo.paso === 1) flujo.formulario = { ...flujo.formulario, motivo: String(datos.get("motivo") || "").trim() };
+      const causaElegida = flujo.paso === 1 ? datos.get("causa") : null;
+      if (causaElegida !== null && causaElegida !== undefined) {
+        const causa = String(causaElegida);
+        const detalle = String(datos.get("motivo") || "").trim();
+        const motivo = motivoConCausa(flujo.causasBaja || [], causa, detalle);
+        flujo.formulario = { ...flujo.formulario, causa, detalle, motivo };
+        if (!motivo) { flujo.errorFormulario = traducirReglasSituacion("causa_incompleta"); renderizar(); return true; }
+      } else if (flujo.paso === 1) flujo.formulario = { ...flujo.formulario, motivo: String(datos.get("motivo") || "").trim() };
       else flujo.formulario = { ...flujo.formulario, tipo: String(datos.get("tipo") || ""), referencia: String(datos.get("referencia") || "").trim(), sha256: String(datos.get("sha256") || "").trim().toLowerCase() };
       flujo.errorFormulario = flujo.paso === 2 && referenciaContieneDocumentoIdentidad(flujo.formulario.referencia)
         ? MENSAJE_REFERENCIA_IDENTIDAD : "";
@@ -241,6 +262,7 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
   function instalar(documento = globalThis.document) {
     documento.addEventListener("click", (evento) => { manejarClick(evento); });
     documento.addEventListener("submit", (evento) => { manejarSubmit(evento); });
+    instalarPropuestaReposicion(documento, () => estado.modalFicha);
   }
 
   return Object.freeze({ cargar, instalar, manejarClick, manejarSubmit });
