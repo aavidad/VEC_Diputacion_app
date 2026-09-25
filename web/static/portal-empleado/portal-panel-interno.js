@@ -15,6 +15,7 @@ import { renderizarIntentosContacto } from "./portal-bolsas-intentos.js?v=202609
 import { renderizarContratosParticipacion } from "./portal-bolsas-contratos.js?v=20260926-integracion-bolsa-ct-v1";
 import { renderizarSanciones } from "./portal-bolsas-sanciones.js?v=20260926-integracion-bolsa-ct-v1";
 import { renderizarAvisosContactoEmision, renderizarOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20260926-integracion-bolsa-ct-v1";
+import { renderizarRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20260926-integracion-bolsa-ct-v1";
 import { icono } from "../comun/iconos-vec.js?v=20260925-aspecto-v1";
 import { enlaceReglasVigentes } from "./reglas/enlace.js?v=20260926-integracion-bolsa-ct-v1";
 import { renderizarMarcadoresCorreo, renderizarVistaPreviaCorreo } from "./portal-bolsas-correo.js?v=20260926-integracion-bolsa-ct-v1";
@@ -613,6 +614,7 @@ export function crearPresentadorPanelInterno(dependencias) {
                 <div class="fila-resumen"><dt>${traducirBolsaInterna("contacto_contador")}</dt><dd>${numero(candidato.contactos_total)}</dd></div>
                 ${renderizarOrigenContacto({ estado: modal.contactoOrigen || {}, escaparHTML })}
               </dl>
+              ${renderizarRegistroContacto({ estado: modal.registroContacto || {}, escaparHTML })}
               ${reciboSituacion}
               ${reciboContacto}
               ${renderizarOperacionesSituacion({ candidato, estado: modal.operacionesB8 || {}, escaparHTML })}
