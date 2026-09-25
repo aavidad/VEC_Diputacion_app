@@ -68,10 +68,14 @@ BEGIN
  INTO STRICT original,meta,acl,propietario,config,definidora FROM pg_proc p WHERE p.oid=f;
  SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
  INTO deps FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f;
- IF length(original)-length(replace(original,extension||marca,''))<>length(extension||marca)
+ -- La extensión se localiza sola, exactamente una vez, como en AD3-85: otra
+ -- extensión instalada después (AD3-85 tras AD3-86) se insertó entre ella y
+ -- la marca, así que no se exige que la preceda inmediatamente.
+ IF length(original)-length(replace(original,extension,''))<>length(extension)
+    OR length(original)-length(replace(original,marca,''))<>length(marca)
     OR length(original)-length(replace(original,'participaciones_propias.confirmar_contacto.v1',''))<>length('participaciones_propias.confirmar_contacto.v1')
  THEN RAISE EXCEPTION 'AD3-86 DOWN: extensión no localizada en el núcleo' USING ERRCODE='55000'; END IF;
- nuevo:=replace(original,extension||marca,marca);
+ nuevo:=replace(original,extension,'');
  EXECUTE nuevo;
  SELECT pg_get_functiondef(f) INTO STRICT actual;
  IF actual IS DISTINCT FROM nuevo OR strpos(actual,'participaciones_propias.confirmar_contacto')<>0

@@ -1,16 +1,19 @@
 #!/usr/bin/env bash
-# Ensayo de AD3-82, AD3-83, AD3-84 y AD3-85 en PostgreSQL 18.4 desechable
-# sobre la estructura real restaurada (volcado con datos sintéticos).
-# Uso: probar_consumidores_82_85_pg18.sh GLOBALES_SQL VOLCADO_PG_DUMP
+# Ensayo de AD3-82, AD3-83, AD3-84, AD3-85 y AD3-86 en PostgreSQL 18.4
+# desechable sobre la estructura real restaurada (volcado con datos sintéticos).
+# Uso: probar_consumidores_82_86_pg18.sh GLOBALES_SQL VOLCADO_PG_DUMP
 # Comprueba: ROLLBACK sin rastro; UP y doble UP rechazado de cada una; ida y
 # vuelta con huella del núcleo y de las audiencias (todas las DOWN, también
 # fuera de orden, devuelven exactamente la preimagen y un UP posterior
 # reproduce el mismo núcleo); las condiciones de cada extensión presentes en
 # el núcleo instalado según una lista independiente de esta prueba (un UP y
 # un DOWN que las debiliten a la vez no pasan); ACL cerrada aunque haya
-# privilegios por defecto para otro rol, y las comprobaciones previas de la
-# fachada de firma con 42501. El contenedor usa --rm, sin red ni volúmenes
-# anónimos; sus datos viven en /dev/shm/vec-pg-ad3-82-85-<pid> y se borran.
+# privilegios por defecto para otro rol, y las comprobaciones previas de las
+# fachadas de firma y de confirmación del contacto con 42501. Se instalan en
+# el orden 82, 83, 84, 86, 85 para que AD3-85 quede insertada entre AD3-86 y la
+# marca del núcleo, y la DOWN de AD3-86 se ensaya con AD3-85 aún instalada.
+# El contenedor usa --rm, sin red ni volúmenes anónimos; sus datos viven en
+# /dev/shm/vec-pg-ad3-82-86-<pid> y se borran.
 set -Eeuo pipefail
 
 repo=$(git -C "$(dirname -- "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)
@@ -18,7 +21,7 @@ globales=${1:?falta el volcado de roles (pg_dumpall --globals-only)}
 volcado=${2:?falta el volcado de la base (pg_dump -Fc)}
 [[ -s $globales && -s $volcado ]] || { echo 'Faltan los volcados' >&2; exit 2; }
 imagen=${VEC_POSTGRES_TEST_IMAGE:-postgres:18.4-bookworm}
-nombre="vec-pg-ad3-82-85-$$"
+nombre="vec-pg-ad3-82-86-$$"
 datos="/dev/shm/$nombre"
 limpiar() {
   docker rm -f "$nombre" >/dev/null 2>&1 || true
@@ -45,7 +48,8 @@ docker exec -i "$nombre" pg_restore -U postgres -d postgres <"$volcado" >/dev/nu
 
 m=deploy/postgresql/autorizacion_atestada_v3/migraciones
 todas=(000082_consumidor_cese_cierre_contratacion_temporal 000083_consumidor_modificacion_tras_nombramiento_ct
-       000084_consumidor_portal_candidato_bolsa 000085_consumidor_firma_documento_ct)
+       000084_consumidor_portal_candidato_bolsa 000086_consumidor_contacto_propio_bolsa
+       000085_consumidor_firma_documento_ct)
 huella="SELECT md5(pg_get_functiondef('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure))
   ||md5(pg_get_constraintdef(c.oid)) FROM pg_constraint c WHERE c.conname='clave_capacidad_version_audiencia_consumo_check'"
 # Un rol ajeno con EXECUTE por defecto sobre las funciones nuevas del
@@ -57,11 +61,17 @@ ALTER DEFAULT PRIVILEGES FOR ROLE vec_autorizacion_atestada_v3_propietario IN SC
 SQL
 inicial=$(escalar "$huella")
 echo '== ROLLBACK, UP y doble UP'
+rollback() { sed 's/^COMMIT;$/ROLLBACK;/' "$repo/$m/$1.up.sql" | run; }
+# AD3-86 exige AD3-84 instalada: su ROLLBACK se ensaya justo antes de su UP.
+for x in "${todas[@]}"; do [[ $x == 000086_* ]] || rollback "$x"; done
+igual "$(escalar "$huella")" "$inicial" 'ROLLBACK de 82, 83, 84 y 85 no deja rastro'
 for x in "${todas[@]}"; do
-  sed 's/^COMMIT;$/ROLLBACK;/' "$repo/$m/$x.up.sql" | run
+  if [[ $x == 000086_* ]]; then
+    antes=$(escalar "$huella"); rollback "$x"
+    igual "$(escalar "$huella")" "$antes" 'ROLLBACK de 86 no deja rastro'
+  fi
+  run -f "/repo/$m/$x.up.sql"; ok "UP $x"; falla "$m/$x.up.sql"
 done
-igual "$(escalar "$huella")" "$inicial" 'ROLLBACK de las cuatro no deja rastro'
-for x in "${todas[@]}"; do run -f "/repo/$m/$x.up.sql"; ok "UP $x"; falla "$m/$x.up.sql"; done
 completo=$(escalar "$huella")
 
 echo '== Condiciones de las extensiones en el núcleo instalado'
@@ -77,20 +87,24 @@ condiciones=(
   "d->>'tipo_recurso' IS NOT DISTINCT FROM 'modificacion_contratacion_temporal'"
   "d->>'finalidad' IS NOT DISTINCT FROM 'gestion_participaciones_propias'"
   "d ->> 'finalidad' IS NOT DISTINCT FROM 'gestionar_contratacion_temporal'"
+  "c->>'operacion' IS NOT DISTINCT FROM 'bolsa.participaciones_propias.confirmar_contacto'"
+  "c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_bolsa_llamamientos.participaciones_propias.confirmar_contacto.v1'"
 )
 for condicion in "${condiciones[@]}"; do
   igual "$(escalar "SELECT strpos(pg_get_functiondef('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure), \$q\$$condicion\$q\$)>0")" t "núcleo con: $condicion"
 done
-# Cada perfil de CT (82, 83, 85) y el portal (84) exigen obligaciones vacías.
+# Cada perfil de CT (82, 83, 85), el portal (84) y la confirmación del
+# contacto (86) exigen obligaciones vacías.
 igual "$(escalar "SELECT (length(d)-length(replace(d, \$q\$AND d->'obligaciones' IS NOT DISTINCT FROM '[]'::jsonb)\$q\$, '')))/length(\$q\$AND d->'obligaciones' IS NOT DISTINCT FROM '[]'::jsonb)\$q\$)
-  FROM (SELECT pg_get_functiondef('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure) d) x")" 4 'cese, cierre, modificación y portal exigen obligaciones vacías'
+  FROM (SELECT pg_get_functiondef('vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure) d) x")" 5 'cese, cierre, modificación, portal y contacto exigen obligaciones vacías'
 
 echo '== ACL de las fachadas'
 fachadas="ARRAY['vec_autorizacion_atestada_v3.registrar_y_consumir_cese_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
  'vec_autorizacion_atestada_v3.registrar_y_consumir_cierre_expediente_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
  'vec_autorizacion_atestada_v3.registrar_y_consumir_modificacion_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
  'vec_autorizacion_atestada_v3.registrar_y_consumir_portal_candidato_bolsa_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
- 'vec_autorizacion_atestada_v3.registrar_y_consumir_firma_documento_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)']::regprocedure[]"
+ 'vec_autorizacion_atestada_v3.registrar_y_consumir_firma_documento_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
+ 'vec_autorizacion_atestada_v3.registrar_y_consumir_contacto_propio_bolsa_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)']::regprocedure[]"
 igual "$(escalar "SELECT bool_or(has_function_privilege('vec_ad3_prueba_ajeno', f, 'EXECUTE') OR has_function_privilege('public', f, 'EXECUTE')) FROM unnest($fachadas) f")" f 'ni PUBLIC ni un rol con privilegios por defecto ejecutan las fachadas'
 
 echo '== Comprobaciones previas de la fachada de firma (42501)'
@@ -108,7 +122,25 @@ SQL
 [[ $codigo == *'codigo:42501'* ]] || { echo "FALLO fachada de firma: $codigo" >&2; exit 1; }
 ok 'material ajeno a la firma denegado con 42501 antes del núcleo'
 
+echo '== Comprobaciones previas de la fachada de confirmación del contacto (42501)'
+codigo=$(docker exec -i "$nombre" psql -X -At -U postgres -d postgres <<'SQL' 2>&1 | grep -o 'codigo:[0-9A-Z]*\|aceptada' | tail -1
+SET ROLE vec_bolsa_llamamientos_propietario;
+DO $p$ BEGIN
+ PERFORM vec_autorizacion_atestada_v3.registrar_y_consumir_contacto_propio_bolsa_v3_atestada(
+  convert_to('{"operacion":"bolsa.participaciones_propias.confirmar_contacto","audiencia_consumo":"vec_bolsa_llamamientos.participaciones_propias.confirmar_contacto.v1","efecto_ref":"mi-bolsa:can_AAAAAAAAAAAAAAAAAAAAAAAA","huella_efecto_sha256":"h"}','UTF8'),
+  convert_to('{"accion":"bolsa.participaciones_propias.confirmar_contacto","modulo_id":"otro_modulo","tipo_recurso":"participaciones_candidato","finalidad":"gestion_participaciones_propias","recurso_ref":"mi-bolsa:can_AAAAAAAAAAAAAAAAAAAAAAAA","contexto_recurso_huella_sha256":"h","campos_permitidos":[],"obligaciones":[]}','UTF8'),
+  '\x00','\x00',1,1,'\x00','\x00','\x00','\x00');
+ RAISE NOTICE 'aceptada';
+EXCEPTION WHEN OTHERS THEN RAISE NOTICE 'codigo:%', SQLSTATE; END $p$;
+SQL
+)
+[[ $codigo == *'codigo:42501'* ]] || { echo "FALLO fachada de contacto: $codigo" >&2; exit 1; }
+ok 'material ajeno a la confirmación del contacto denegado con 42501 antes del núcleo'
+
 echo '== DOWN fuera de orden y en orden: vuelta exacta a la preimagen'
+falla "$m/000084_consumidor_portal_candidato_bolsa.down.sql"
+run -f "/repo/$m/000086_consumidor_contacto_propio_bolsa.down.sql"; ok 'DOWN AD3-86 con AD3-85 instalada después'
+falla "$m/000086_consumidor_contacto_propio_bolsa.down.sql"
 run -f "/repo/$m/000084_consumidor_portal_candidato_bolsa.down.sql"; ok 'DOWN AD3-84 con AD3-85 instalada después'
 run -f "/repo/$m/000082_consumidor_cese_cierre_contratacion_temporal.down.sql"; ok 'DOWN AD3-82 con AD3-83 y AD3-85 instaladas después'
 run -f "/repo/$m/000085_consumidor_firma_documento_ct.down.sql"; ok 'DOWN AD3-85'
@@ -117,4 +149,4 @@ run -f "/repo/$m/000083_consumidor_modificacion_tras_nombramiento_ct.down.sql"; 
 igual "$(escalar "$huella")" "$inicial" 'las DOWN devuelven exactamente núcleo y audiencias'
 for x in "${todas[@]}"; do run -f "/repo/$m/$x.up.sql"; done
 igual "$(escalar "$huella")" "$completo" 'UP tras DOWN reproduce el mismo núcleo y audiencias'
-echo 'OK AD3-82..85: ida y vuelta, condiciones, ACL y fachada de firma'
+echo 'OK AD3-82..86: ida y vuelta, condiciones, ACL y fachadas de firma y de contacto'

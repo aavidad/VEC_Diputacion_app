@@ -119,7 +119,12 @@ DO $acl$
 DECLARE f regprocedure:='vec_autorizacion_atestada_v3.registrar_y_consumir_contacto_propio_bolsa_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
  permitido oid:='vec_bolsa_llamamientos_propietario'::regrole::oid; x record;
 BEGIN
- EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC',f::text);
+ -- Como AD3-84, también las ACL por defecto: ningún rol conserva acceso por
+ -- haber sido destinatario predeterminado del propietario.
+ FOR x IN SELECT DISTINCT a.grantee FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+  WHERE p.oid=f AND a.grantee<>p.proowner LOOP
+  EXECUTE format('REVOKE ALL ON FUNCTION %s FROM %s',f::text,CASE WHEN x.grantee=0 THEN 'PUBLIC' ELSE quote_ident(pg_get_userbyid(x.grantee)) END);
+ END LOOP;
  EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO vec_bolsa_llamamientos_propietario',f::text);
  IF (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM 'vec_autorizacion_atestada_v3_propietario'::regrole
     OR (SELECT prosecdef FROM pg_proc WHERE oid=f) IS NOT TRUE
