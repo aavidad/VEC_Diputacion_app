@@ -1,6 +1,7 @@
 package server
 
 import (
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,6 +15,8 @@ import (
 func cargarRutasWebProduccion() map[string]struct{} {
 	contenido, err := leerManifiestoWebProduccion()
 	if err != nil {
+		// Texto fijo: la causa puede contener rutas del sistema de ficheros.
+		log.Print("servidor: manifiesto web de produccion no disponible; superficie estatica cerrada")
 		return map[string]struct{}{}
 	}
 	return rutasHTTPDesdeManifiestoWeb(contenido)

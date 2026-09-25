@@ -492,7 +492,10 @@ func (a *Almacen) Escribir(ctx context.Context, solicitud ports.SolicitudEscribi
 	if err := solicitud.Contexto.ValidarParaEn(ports.AccionAlmacenEscribir, ahora); err != nil {
 		return vacio, err
 	}
-	huellaSolicitud := huellaEscritura(solicitud)
+	huellaSolicitud, err := huellaEscritura(solicitud)
+	if err != nil {
+		return vacio, err
+	}
 	caps := capacidades(a.conectorID, a.tamanoMaximo)
 	if previo, existe, err := a.cargarIdempotencia(solicitud.ClaveIdempotencia); err != nil {
 		return vacio, err
@@ -663,7 +666,10 @@ func (a *Almacen) Promover(ctx context.Context, solicitud ports.SolicitudPromove
 		return vacio, err
 	}
 	caps := capacidades(a.conectorID, a.tamanoMaximo)
-	huellaSolicitud := huellaPromocion(solicitud, origen.objeto())
+	huellaSolicitud, err := huellaPromocion(solicitud, origen.objeto())
+	if err != nil {
+		return vacio, err
+	}
 	if previo, existe, err := a.cargarIdempotencia(solicitud.ClaveIdempotencia); err != nil {
 		return vacio, err
 	} else if existe {
@@ -942,27 +948,39 @@ func (a *Almacen) evidencia(contexto ports.ContextoOperacionAlmacen, objeto port
 	}, nil
 }
 
-func componentesContexto(contexto ports.ContextoOperacionAlmacen) []string {
+// componentesContexto proyecta el contexto autorizado en los componentes de
+// la huella de idempotencia. Si la proyección falla no hay huella posible:
+// el error se propaga como ErrSolicitudAlmacenInvalida con la causa envuelta,
+// en lugar de calcular una huella degenerada sin contexto.
+func componentesContexto(contexto ports.ContextoOperacionAlmacen) ([]string, error) {
 	p, err := contexto.Proyeccion()
 	if err != nil {
-		return nil
+		return nil, fmt.Errorf("%w: %w", ports.ErrSolicitudAlmacenInvalida, err)
 	}
 	return []string{p.Esquema, p.OperacionRef, p.CorrelacionRef, p.AutorizacionRef, p.Finalidad,
 		p.Clasificacion, p.AccionNegocio, p.AccionTecnica, p.CargaRef, p.SujetoSeudonimoHMAC,
 		p.RecursoRef, p.ModuloID, p.HuellaSolicitudHMAC, p.EfectoRef, p.HuellaPlanEfectoSHA256,
-		string(p.PasoRef), p.HuellaDecisionSHA256}
+		string(p.PasoRef), p.HuellaDecisionSHA256}, nil
 }
 
-func huellaEscritura(s ports.SolicitudEscribirObjeto) string {
+func huellaEscritura(s ports.SolicitudEscribirObjeto) (string, error) {
+	contexto, err := componentesContexto(s.Contexto)
+	if err != nil {
+		return "", err
+	}
 	c := append([]string{"escritura-v1", string(s.Zona), s.MIME, strconv.FormatInt(s.Tamano, 10), s.HuellaSHA256},
-		componentesContexto(s.Contexto)...)
-	return sha256Hex([]byte(strings.Join(c, "\x00")))
+		contexto...)
+	return sha256Hex([]byte(strings.Join(c, "\x00"))), nil
 }
 
-func huellaPromocion(s ports.SolicitudPromoverObjeto, origen ports.ObjetoAlmacenado) string {
+func huellaPromocion(s ports.SolicitudPromoverObjeto, origen ports.ObjetoAlmacenado) (string, error) {
+	contexto, err := componentesContexto(s.Contexto)
+	if err != nil {
+		return "", err
+	}
 	c := append([]string{"promocion-v1", s.Origen.Referencia, s.Origen.Version, s.EvidenciaAnalisisRef, origen.HuellaSHA256},
-		componentesContexto(s.Contexto)...)
-	return sha256Hex([]byte(strings.Join(c, "\x00")))
+		contexto...)
+	return sha256Hex([]byte(strings.Join(c, "\x00"))), nil
 }
 
 // String evita que la ruta privada llegue a un registro por accidente.

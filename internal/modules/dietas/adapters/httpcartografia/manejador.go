@@ -15,6 +15,8 @@ import (
 
 	dietasapp "vec-diputacion-granada/internal/modules/dietas/application"
 	dietasports "vec-diputacion-granada/internal/modules/dietas/ports"
+	vecdomain "vec-diputacion-granada/internal/vec/domain"
+	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
 const (
@@ -26,11 +28,15 @@ type OpcionesManejador struct {
 	// EnvolverEnDatos conserva el contrato historico de /api/vec. La
 	// superficie de presentacion entrega el mismo DTO directamente.
 	EnvolverEnDatos bool
+	// EmisorIncidencias declara OSRM_NO_DISPONIBLE. Nil equivale al emisor
+	// nulo; la composición raíz de vec-server siempre aporta uno real.
+	EmisorIncidencias vecports.EmisorIncidenciasTecnicas
 }
 
 type Manejador struct {
 	calculador      dietasapp.CasoUsoCalculoRutas
 	envolverEnDatos bool
+	emisor          vecports.EmisorIncidenciasTecnicas
 }
 
 type solicitudHTTP struct {
@@ -74,7 +80,11 @@ func NuevoManejador(calculador dietasapp.CasoUsoCalculoRutas, opciones OpcionesM
 	if calculador == nil {
 		return nil, errors.New("http cartografia: calculador requerido")
 	}
-	return &Manejador{calculador: calculador, envolverEnDatos: opciones.EnvolverEnDatos}, nil
+	emisor := opciones.EmisorIncidencias
+	if emisor == nil {
+		emisor = vecports.EmisorIncidenciasTecnicasNulo{}
+	}
+	return &Manejador{calculador: calculador, envolverEnDatos: opciones.EnvolverEnDatos, emisor: emisor}, nil
 }
 
 func (m *Manejador) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -105,8 +115,13 @@ func (m *Manejador) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, dietasports.ErrSolicitudRutaInvalida):
-			escribirError(w, http.StatusBadRequest, err.Error())
+			escribirError(w, http.StatusBadRequest, "peticion de ruta invalida")
 		case errors.Is(err, dietasports.ErrMotorRutasNoDisponible):
+			vecports.EmitirIncidenciaTecnicaEnPeticion(r.Context(), m.emisor, vecdomain.SolicitudIncidenciaTecnica{
+				Codigo:     vecdomain.IncidenciaOSRMNoDisponible,
+				Componente: vecdomain.ComponenteIncidenciaOSRM,
+				Etapa:      vecdomain.EtapaIncidenciaConsulta,
+			})
 			escribirError(w, http.StatusBadGateway, "no se pudo consultar el motor OSRM interno autorizado")
 		default:
 			escribirError(w, http.StatusBadGateway, "el motor OSRM interno devolvio una respuesta no valida")

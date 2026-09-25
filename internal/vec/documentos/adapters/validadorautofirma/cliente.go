@@ -28,6 +28,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"mime"
 	"net/http"
@@ -387,54 +388,63 @@ func decodificarRespuesta(contenido []byte) (*dictamenAutofirma, bool) {
 // plegado que aplica encoding/json al emparejar campos.
 func sinClavesDuplicadas(contenido []byte) bool {
 	lector := json.NewDecoder(bytes.NewReader(contenido))
-	if !recorrerValor(lector, 0) {
+	if recorrerValor(lector, 0) != nil {
 		return false
 	}
 	_, err := lector.Token()
 	return err == io.EOF
 }
 
-func recorrerValor(lector *json.Decoder, profundidad int) bool {
+// errEstructuraRespuesta es la causa cerrada de una respuesta cuyo recorrido
+// por tokens no es admisible; cuando procede de encoding/json la conserva.
+var errEstructuraRespuesta = errors.New("validadorautofirma: estructura de respuesta no admisible")
+
+func recorrerValor(lector *json.Decoder, profundidad int) error {
 	token, err := lector.Token()
 	if err != nil {
-		return false
+		return fmt.Errorf("%w: %w", errEstructuraRespuesta, err)
 	}
 	delimitador, compuesto := token.(json.Delim)
 	if !compuesto {
-		return true
+		return nil
 	}
 	if profundidad >= maximaProfundidad {
-		return false
+		return errEstructuraRespuesta
 	}
 	switch delimitador {
 	case '{':
 		vistas := make(map[string]struct{})
 		for lector.More() {
 			token, err := lector.Token()
+			if err != nil {
+				return fmt.Errorf("%w: %w", errEstructuraRespuesta, err)
+			}
 			clave, esClave := token.(string)
-			if err != nil || !esClave {
-				return false
+			if !esClave {
+				return errEstructuraRespuesta
 			}
 			plegada := plegarClave(clave)
 			if _, repetida := vistas[plegada]; repetida {
-				return false
+				return errEstructuraRespuesta
 			}
 			vistas[plegada] = struct{}{}
-			if !recorrerValor(lector, profundidad+1) {
-				return false
+			if err := recorrerValor(lector, profundidad+1); err != nil {
+				return err
 			}
 		}
 	case '[':
 		for lector.More() {
-			if !recorrerValor(lector, profundidad+1) {
-				return false
+			if err := recorrerValor(lector, profundidad+1); err != nil {
+				return err
 			}
 		}
 	default:
-		return false
+		return errEstructuraRespuesta
 	}
-	_, err = lector.Token()
-	return err == nil
+	if _, err = lector.Token(); err != nil {
+		return fmt.Errorf("%w: %w", errEstructuraRespuesta, err)
+	}
+	return nil
 }
 
 // plegarClave reproduce el plegado sin distincion de mayusculas con el que
