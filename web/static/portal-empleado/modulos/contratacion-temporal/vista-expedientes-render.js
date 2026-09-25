@@ -7,6 +7,7 @@ import {
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js";
 import { crearTraductorContratacionTemporal } from "./i18n.js";
 import { PATRON_REFERENCIA } from "./vista-expedientes-analisis.js";
+import { enlaceReglasVigentes } from "../../reglas/enlace.js?v=20260925-reglas-v1";
 
 export function renderizarNavegacion(estado, t) {
   const opciones = [
@@ -31,12 +32,13 @@ export function renderizarNavegacion(estado, t) {
   </nav>`;
 }
 
-// Centros, Peticiones y Calendarios son acciones de la bandeja: van a la derecha del título.
+// Centros, Peticiones, Calendarios y Reglas son acciones de la bandeja: van a la derecha del título.
 export function renderizarCabeceraModulo(estado, t) {
   const acciones = estado.vista === "cuadro" ? `<div class="acciones-vista ct-exp-acciones-cabecera">
       <a class="boton-secundario" href="/portal-empleado/organizacion/" target="_blank" rel="noopener">${escaparHTML(t("organizacion_referencia"))}</a>
       <a class="boton-secundario" href="/portal-empleado/peticiones-centro/?vista=rrhh" target="_blank" rel="noopener">${escaparHTML(t("peticiones_centros_rrhh"))}</a>
       <a class="boton-secundario" href="/portal-empleado/calendarios/" target="_blank" rel="noopener">${escaparHTML(t("calendarios_laborales"))}</a>
+      ${enlaceReglasVigentes()}
     </div>` : "";
   return `<header class="ct-exp-cabecera-modulo">
     <div>

@@ -7,9 +7,18 @@ base_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 mig_dir=$(CDPATH= cd -- "$base_dir/../migraciones" && pwd)
 roles_dir=$(CDPATH= cd -- "$base_dir/.." && pwd)
 imagen=${VEC_PG_IMAGEN:-postgres:18.4-alpine}
-container="vec-calendarios-pg18-$RANDOM"
+ensayo="calendarios-$RANDOM"
+container="vec-calendarios-pg18-$ensayo"
+# Datos en memoria y montados: sin volúmenes anónimos; se borran al terminar.
+datos="/dev/shm/vec-pg-$ensayo"
+mkdir -p "$datos"
 salida=$(mktemp -d)
-cleanup() { docker rm -f "$container" >/dev/null 2>&1 || true; rm -rf "$salida"; }
+cleanup() {
+  docker rm -f "$container" >/dev/null 2>&1 || true
+  docker run --rm -v "$datos:/borrar" --entrypoint sh "$imagen" -c 'rm -rf /borrar/* /borrar/.[!.]* 2>/dev/null; true' >/dev/null 2>&1 || true
+  rmdir "$datos" 2>/dev/null || true
+  rm -rf "$salida"
+}
 trap cleanup EXIT
 
 psql_c() { docker exec -i "$container" psql -X -q -v ON_ERROR_STOP=1 -U postgres -d postgres "$@"; }
@@ -31,10 +40,10 @@ debe_fallar() { # fichero codigo
   fi
 }
 huella() {
-  psql_c -At -c "SET ROLE vec_prueba_calendarios_lector; SELECT md5(string_agg(v::text, '|' ORDER BY v.id)) FROM vec_calendarios.versiones_vigentes_v1(2026, ARRAY['nacional','autonomico','local','local','centro','centro','centro','centro'], ARRAY['es','es-an','municipio:ine:18087','municipio:sintetico:a','centro-530','centro-520','centro-102','centro-752'], now()) v"
+  psql_c -At -c "SET ROLE vec_prueba_calendarios_lector; SELECT md5(string_agg(v::text, '|' ORDER BY v.id)) FROM vec_calendarios.versiones_vigentes_v1(2026, ARRAY['nacional','autonomico','local','local','local','centro','centro','centro','centro'], ARRAY['es','es-an','municipio:ine:18087','municipio:ine:18098','municipio:sintetico:a','centro-530','centro-520','centro-102','centro-752'], now()) v"
 }
 
-docker run -d --name "$container" -p 127.0.0.1::5432 -e POSTGRES_HOST_AUTH_METHOD=trust "$imagen" >/dev/null
+docker run -d --rm --name "$container" -p 127.0.0.1::5432 -v "$datos:/var/lib/postgresql" -e POSTGRES_HOST_AUTH_METHOD=trust "$imagen" >/dev/null
 esperar
 for f in "$roles_dir"/roles_up.sql "$roles_dir"/roles_down.sql "$mig_dir"/*.sql "$base_dir"/casos.sql; do
   docker cp "$f" "$container:/tmp/$(basename "$f")"
@@ -43,6 +52,8 @@ sed 's/^COMMIT;$/ROLLBACK;/' "$mig_dir/000002_calendarios_2026.up.sql" >"$salida
 docker cp "$salida/000002_rollback.sql" "$container:/tmp/000002_rollback.sql"
 sed 's/^COMMIT;$/ROLLBACK;/' "$mig_dir/000003_centros_sin_truncar.up.sql" >"$salida/000003_rollback.sql"
 docker cp "$salida/000003_rollback.sql" "$container:/tmp/000003_rollback.sql"
+sed 's/^COMMIT;$/ROLLBACK;/' "$mig_dir/000004_calendario_ejemplo_2026.up.sql" >"$salida/000004_rollback.sql"
+docker cp "$salida/000004_rollback.sql" "$container:/tmp/000004_rollback.sql"
 
 echo 'PG18: roles y estructura; retirada de una historia vacía y reinstalación'
 aplicar roles_up.sql
@@ -69,11 +80,38 @@ psql_c -At -c "SET ROLE vec_prueba_calendarios_lector; SELECT count(*) FROM vec_
 debe_fallar 000003_centros_sin_truncar.up.sql 55000
 debe_fallar 000003_centros_sin_truncar.down.sql 55000
 
+echo 'PG18: 000004 calendario de ejemplo; retirada y reaplicación sin borrar historia'
+ultima() { # tipo ref: id y días de la última versión, leídos por el lector
+  psql_c -At -c "SET ROLE vec_prueba_calendarios_lector; SELECT v.id||'|'||coalesce(v.municipio_ref,'-')||'|'||coalesce((SELECT string_agg(d->>'fecha', ',' ORDER BY d->>'fecha') FROM jsonb_array_elements(v.dias) d),'') FROM vec_calendarios.versiones_vigentes_v1(2026, ARRAY['$1'], ARRAY['$2'], now()) v"
+}
+debe_fallar 000004_calendario_ejemplo_2026.down.sql 55000
+aplicar 000004_rollback.sql
+psql_c -At -c "SELECT count(*) FROM vec_calendarios.version_calendario" | grep -qx 9
+if docker exec -i "$container" psql -X -q -v ON_ERROR_STOP=1 -U vec_prueba_calendarios_lector -d postgres -f /tmp/000004_calendario_ejemplo_2026.up.sql >"$salida/lector.out" 2>&1; then
+  echo "ERROR: el lector no puede aplicar 000004" >&2; exit 1
+fi
+grep -q 'permission denied' "$salida/lector.out"
+aplicar 000004_calendario_ejemplo_2026.up.sql
+ultima local municipio:ine:18087 | grep -qx 'calendario:local:municipio:ine:18087:2026:v3|-|2026-01-02,2026-06-04'
+ultima local municipio:ine:18098 | grep -qx 'calendario:local:municipio:ine:18098:2026:v1|-|2026-05-25,2026-10-22'
+ultima centro centro-752 | grep -qx 'calendario:centro:centro-752:2026:v2|municipio:ine:18098|2026-12-24,2026-12-31'
+psql_c -At -c "SET ROLE vec_prueba_calendarios_lector; SELECT count(*) FROM vec_calendarios.versiones_vigentes_v1(2026, ARRAY['local','local','centro'], ARRAY['municipio:ine:18087','municipio:ine:18098','centro-752'], now()) WHERE sintetica AND procedencia_referencia LIKE 'paquete:ejemplo:vec:v1%'" | grep -qx 3
+debe_fallar 000004_calendario_ejemplo_2026.up.sql 55000
+aplicar 000004_calendario_ejemplo_2026.down.sql
+ultima local municipio:ine:18087 | grep -qx 'calendario:local:municipio:ine:18087:2026:v4|-|2026-03-16,2026-06-15'
+ultima local municipio:ine:18098 | grep -qx 'calendario:local:municipio:ine:18098:2026:v2|-|'
+ultima centro centro-752 | grep -qx 'calendario:centro:centro-752:2026:v3|municipio:sintetico:a|'
+debe_fallar 000004_calendario_ejemplo_2026.down.sql 55000
+aplicar 000004_calendario_ejemplo_2026.up.sql
+ultima local municipio:ine:18087 | grep -qx 'calendario:local:municipio:ine:18087:2026:v5|-|2026-01-02,2026-06-04'
+ultima centro centro-752 | grep -qx 'calendario:centro:centro-752:2026:v4|municipio:ine:18098|2026-12-24,2026-12-31'
+psql_c -At -c "SET ROLE vec_prueba_calendarios_lector; SELECT count(*) FROM vec_calendarios.centros_con_calendario_v1(2026, now())" | grep -qx 4
+
 echo 'PG18: retiradas protegidas con historia'
 debe_fallar 000002_calendarios_2026.down.sql 55000
 debe_fallar 000001_historia_calendarios.down.sql 55000
 debe_fallar roles_down.sql 55000
-psql_c -At -c "SELECT count(*) FROM vec_calendarios.version_calendario" | grep -qx 9
+psql_c -At -c "SELECT count(*) FROM vec_calendarios.version_calendario" | grep -qx 18
 
 echo 'PG18: reinicio y misma lectura'
 antes=$(huella)

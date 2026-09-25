@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <title data-i18n="documentTitle"></title>
+    <link rel="stylesheet" href="/comun/tema-vec.css?v=20260925-aspecto-v1" />
+    <link rel="stylesheet" href="./reglas.css?v=20260925-reglas-v1" />
+    <link rel="modulepreload" href="./i18n.js?v=20260925-reglas-v1" />
+    <script type="module" src="./reglas.js?v=20260925-reglas-v1"></script>
+  </head>
+  <body class="rg-app">
+    <main class="rg-shell" id="reglas" tabindex="-1">
+      <header class="rg-cabecera">
+        <div>
+          <p class="rg-miga" data-i18n="miga"></p>
+          <h1 data-i18n="titulo"></h1>
+        </div>
+        <div class="rg-cabecera-acciones">
+          <button type="button" class="rg-boton-ayuda" id="rg-ayuda-abrir" data-i18n-label="ayudaAbrir">?</button>
+          <a class="rg-volver" href="/portal-empleado/" data-i18n="volver"></a>
+        </div>
+      </header>
+
+      <p id="rg-estado" class="rg-aviso" role="status" aria-live="polite" hidden></p>
+
+      <div id="rg-resultado" hidden>
+        <section class="rg-kpis" id="rg-kpis" aria-live="polite"></section>
+
+        <form class="rg-panel rg-filtros" id="rg-filtros" data-i18n-label="filtros">
+          <label><span data-i18n="filtroModulo"></span><select id="rg-modulo"></select></label>
+          <label><span data-i18n="filtroOrigen"></span><select id="rg-origen"></select></label>
+          <label class="rg-filtro-texto"><span data-i18n="filtroTexto"></span><input id="rg-texto" type="search" maxlength="80" autocomplete="off" /></label>
+        </form>
+
+        <div id="rg-catalogos"></div>
+      </div>
+
+      <dialog id="rg-ayuda" aria-labelledby="rg-ayuda-titulo">
+        <h2 id="rg-ayuda-titulo" data-i18n="ayudaTitulo"></h2>
+        <p data-i18n="ayudaQue"></p>
+        <p data-i18n="ayudaOrigen"></p>
+        <p data-i18n="ayudaVersion"></p>
+        <button type="button" id="rg-ayuda-cerrar" class="rg-secundario" data-i18n="ayudaCerrar"></button>
+      </dialog>
+    </main>
+  </body>
+</html>
