@@ -84,6 +84,12 @@ for perfil in importacion_organizacion_historica_personal cronos_saldo_propio cr
   [[ $n == 1 ]] || fallo "exclusión de $perfil aparece $n veces"
 done
 ok 'exclusiones previas conservadas y registro_empleado_b2 única'
+# La guarda B2 resuelve vec_personal_ejecutor por rolname (patrón AD3-59/80),
+# sin conversiones ::regrole ni pg_has_role por nombre (AD3-51/52, ya
+# instaladas, conservan su forma anterior y no se comprueban aquí).
+[[ $(valor "SELECT strpos(d,E'p_perfil_mutacion IS NOT DISTINCT FROM ''registro_empleado_b2''\\n               AND EXISTS (SELECT 1 FROM pg_roles g JOIN pg_auth_members m ON m.roleid=g.oid WHERE g.rolname=''vec_personal_ejecutor'' AND m.member=session_user::regrole')>0 FROM pg_get_functiondef('$nucleo'::regprocedure) d") == t ]] || fallo 'guarda B2 sin resolución por rolname'
+[[ $(grep -c "vec_personal_ejecutor''::regrole\\|pg_has_role(session_user,''vec_personal_ejecutor''" "$m54" "$m55" "$m56" | awk -F: '{s+=$2} END {print s}') == 0 ]] || fallo 'AD3-54/56 con regrole por nombre'
+ok 'guarda B2 resuelve el ejecutor por rolname'
 for operacion in alta.registrar hecho.registrar ficha.consultar vacantes.consultar catalogo.publicar catalogo.retirar catalogo.consultar empleados.consultar; do
   [[ $(valor "SELECT strpos(pg_get_functiondef('$nucleo'::regprocedure),'personal.registro_empleado.$operacion')>0") == t ]] || fallo "contrato $operacion ausente"
 done
