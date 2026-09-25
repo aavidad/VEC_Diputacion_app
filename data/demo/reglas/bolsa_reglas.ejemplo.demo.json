@@ -497,6 +497,23 @@
           "vigencia": "Entrada en vigor calculada: el texto íntegro se publicó en el BOP n.º 9 de 16/01/2026; el art. 70.2 de la Ley 7/1985 exige además que transcurran los 15 días hábiles del art. 65.2, contados aquí desde el día siguiente a esa publicación (sin sábados, domingos ni festivos, art. 30.2 de la Ley 39/2015): terminan el 06/02/2026 y el Reglamento rige desde el 07/02/2026 (00:00, hora peninsular). La modificación del BOP n.º 91 de 14/05/2026 cita el Reglamento como publicado en los BOP de 16/01/2026 y 27/01/2026; si el anuncio del 27/01/2026 completó o corrigió el texto, el cómputo empezaría ese día y la fecha pasaría al 18/02/2026. Pendiente de confirmar por RRHH."
         },
         "orden": 29
+      },
+      {
+        "clave": "b29.contacto_origen_convoca",
+        "etiqueta": "Contacto de origen CONVOCA",
+        "descripcion": "El correo y el teléfono traídos de CONVOCA se usan como «contacto de origen CONVOCA» durante doce meses desde su registro en VEC o hasta que la persona los confirme en su portal. Vencido ese plazo, el llamamiento por correo avisa a RRHH de que el contacto no está confirmado; no se bloquea y RRHH llama por teléfono.",
+        "vigente_desde": "2026-02-07T00:00:00+01:00",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo; Reglamento (UE) 2016/679, art. 5.1.d (exactitud de los datos).",
+          "duda": "Duda 45.",
+          "unidad": "meses",
+          "cantidad": "12",
+          "inicio": "registro_contacto_origen",
+          "computo": "civil",
+          "origen_contacto": "convoca"
+        },
+        "orden": 30
       }
     ],
     "estado": "publicado",

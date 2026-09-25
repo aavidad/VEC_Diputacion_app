@@ -43,6 +43,7 @@ const (
 	BolsaConsecuencias                = "b24.consecuencias"
 	BolsaVigencia                     = "b25.vigencia_bolsa"
 	BolsaAgotamiento                  = "b26.agotamiento"
+	BolsaContactoOrigenConvoca        = "b29.contacto_origen_convoca"
 )
 
 // Reglas de Contratación temporal.
