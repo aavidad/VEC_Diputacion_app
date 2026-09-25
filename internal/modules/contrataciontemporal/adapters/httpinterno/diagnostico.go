@@ -36,6 +36,10 @@ func registrarFalloContratacion(r *http.Request, estado int, codigo, correlacion
 			ruta, operacion = RutaDecisionCobertura, "decision_cobertura"
 		case RutaDocumentacionFormalizacion:
 			ruta, operacion = RutaDocumentacionFormalizacion, "documentacion_formalizacion"
+		case RutaFirmaDocumento:
+			ruta, operacion = RutaFirmaDocumento, "firma_documento"
+		case RutaConsultaFirmaDocumento:
+			ruta, operacion = RutaConsultaFirmaDocumento, "consulta_firma_documento"
 		case RutaFichaGINPIXV2:
 			ruta, operacion = RutaFichaGINPIXV2, "ficha_ginpixv2"
 		case RutaIncorporacionEjercicioV2:

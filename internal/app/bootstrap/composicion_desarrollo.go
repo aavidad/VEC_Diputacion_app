@@ -302,6 +302,11 @@ func nuevoServidorDesarrollo(
 		return nil, nil, err
 	}
 	rutasContratacion = append(rutasContratacion, rutaReglas)
+	rutasFirma, err := autoridadContratacion.firmaDocumento.rutas(cfg, reglasEjemplo.circuitoFirmaCT)
+	if err != nil {
+		return nil, nil, err
+	}
+	rutasContratacion = append(rutasContratacion, rutasFirma...)
 	autoridadDietas, cerrarDietas, err := nuevasRutasDietasDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia)
 	if err != nil {
 		return nil, nil, err

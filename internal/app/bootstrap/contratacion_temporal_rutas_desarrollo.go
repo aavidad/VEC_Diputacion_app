@@ -45,6 +45,7 @@ func esRutaContratacionTemporalDesarrollo(r *http.Request) bool {
 		r.URL.Path == rutaCambiosOrganizacionContratacionTemporalDesarrollo ||
 		r.URL.Path == rutaConfiguracionAnalisisContratacionTemporalDesarrollo ||
 		r.URL.Path == rutaCircuitoFirmaContratacionTemporalDesarrollo ||
+		rutaFirmaDocumentoCTDesarrollo(r.URL.Path) ||
 		rutaCalendariosDesarrollo(r.URL.Path) || rutaDocumentacionFormalizacionDesarrollo(r.URL.Path) ||
 		rutaReglasVigentesDesarrollo(r.URL.Path)
 }

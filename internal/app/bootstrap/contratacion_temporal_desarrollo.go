@@ -72,6 +72,8 @@ type autoridadConsultasContratacionTemporalDesarrollo struct {
 	// personalizacionB7 se enlaza con la fuente de bolsas constituidas cuando
 	// la composición raíz la crea; el correo B7 la usa para los marcadores.
 	personalizacionB7 *fuentePersonalizacionB7
+	// firmaDocumento es nil salvo con VEC_CT_FIRMA_REGISTRO_ENABLED=true.
+	firmaDocumento *firmaDocumentoCTDesarrollo
 }
 
 type autorizadorLigadoContratacionTemporalDesarrollo interface {
@@ -344,6 +346,10 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 				}
 			}
 		}
+	}
+	firmaDocumento, err := nuevaFirmaDocumentoCTDesarrollo(cfg, &alta, reloj)
+	if err != nil {
+		return nil, nil, nil, err
 	}
 	cerrarCobertura := true
 	defer func() {
@@ -682,6 +688,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		materialDocumentos:                       alta.postgresql.materialDocumentos,
 		materialPersonalFichaPropia:              alta.postgresql.materialPersonalFichaPropia,
 		presentadorCobertura:                     coberturaReal.presentador,
+		firmaDocumento:                           firmaDocumento,
 	}
 	if autoridad.registradorAuditoriaFronteraRutasExactas == nil {
 		return nil, nil, nil, errPostgreSQLContratacionTemporalDesarrolloNoDisponible

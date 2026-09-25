@@ -100,6 +100,7 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	proveedorMaterialEmision          *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialDespachoCorreo   *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialResultadoCorreo  *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialFirmaDocumento   *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialDietas                    materialDietasDesdeCTDesarrollo
 	materialCronos                    materialCronosDesdeCTDesarrollo
 	materialDocumentos                *proveedorMaterialAltaContratacionTemporalDesarrollo
@@ -341,6 +342,13 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	if personalEmpleadoSolicitado(cfg.PersonalEmpleadoEnabled) {
 		descriptoresMaterial = append(descriptoresMaterial, descriptorMaterialFichaPropiaPersonalDesarrollo())
 	}
+	firmaDocumento, err := cfg.CTFirmaRegistroDesarrolloActivo()
+	if err != nil {
+		return vacias, err
+	}
+	if firmaDocumento {
+		descriptoresMaterial = append(descriptoresMaterial, descriptorMaterialFirmaDocumentoCTDesarrollo())
+	}
 	personalB2, err := cfg.PersonalB2GobiernoDesarrolloActivo()
 	if err != nil {
 		return vacias, err
@@ -406,6 +414,12 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	}
 	if personalEmpleadoSolicitado(cfg.PersonalEmpleadoEnabled) {
 		dependencias.materialPersonalFichaPropia, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, personaldomain.AudienciaFichaPropia)
+		if err != nil {
+			return vacias, err
+		}
+	}
+	if firmaDocumento {
+		dependencias.proveedorMaterialFirmaDocumento, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, ports.AudienciaFirmaDocumentoV3)
 		if err != nil {
 			return vacias, err
 		}
