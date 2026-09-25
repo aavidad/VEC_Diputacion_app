@@ -59,6 +59,18 @@ test("varias relaciones requieren elección antes de mostrar ocupaciones", async
   assert.match(texto(raiz), /plaza-uno/);
 });
 
+test("la ficha prioriza la denominación histórica del catálogo sobre su referencia", async () => {
+  const raiz = raizFalsa(); const respuesta = ficha([{
+    ...relacion("rel_aaaaaaaaaaaaaaaaaaaaaa"), regimen_ref: "regimen:uno", modalidad_ref: "modalidad:uno",
+    catalogo_snapshot: { regimen: { ref: "regimen:uno", version: 2, denominacion: "Régimen histórico" }, modalidad: { ref: "modalidad:uno", version: 1, denominacion: "Modalidad histórica" } },
+  }]);
+  respuesta.ficha.situaciones = [{ situacion_ref: "situacion:hecho", relacion_ref: "rel_aaaaaaaaaaaaaaaaaaaaaa", codigo_ref: "situacion:uno", traza, catalogo_snapshot: { situacion: { ref: "situacion:uno", version: 3, denominacion: "Situación histórica" } } }];
+  montarRegistroB2({ raiz, empleadoRef: "emp_aaaaaaaaaaaaaaaaaaaaaa", cliente: { consultarFicha: () => respuesta, listarVacantes: () => { throw Error("no esperado"); } }, reloj: () => new Date("2026-09-25T10:00:00Z") });
+  await completar();
+  assert.match(texto(raiz), /Régimen histórico/); assert.match(texto(raiz), /regimen:uno · v2/);
+  assert.match(texto(raiz), /Situación histórica/); assert.match(texto(raiz), /situacion:uno · v3/);
+});
+
 test("fallo 503 no finge vacantes vacías y ofrece reintento", async () => {
   const raiz = raizFalsa(); let llamadas = 0;
   montarRegistroB2({ raiz, cliente: { consultarFicha: () => ficha(), listarVacantes: () => { llamadas++; throw new ErrorRegistroB2("estado_no_valido", 503); } }, reloj: () => new Date("2026-09-25T10:00:00Z") });
@@ -113,6 +125,16 @@ test("la pestaña de actuaciones solo aparece con objetivo y catálogos autoriza
   const retirada = { ...catalogos, modalidades: [opcion("modalidad_sintetica", "Modalidad retirada", { version: 2, estado: "retirada" })] };
   assert.equal(accionesRegistroB2Disponibles({ cliente, catalogos: sinVersion, personaRef: "per_aaaaaaaaaaaaaaaaaaaaaa" }), false);
   assert.equal(accionesRegistroB2Disponibles({ cliente, catalogos: retirada, personaRef: "per_aaaaaaaaaaaaaaaaaaaaaa" }), false);
+});
+
+test("el montaje toma los cuatro vocabularios del GET real e ignora los del shell", async () => {
+  const raiz = raizFalsa();
+  const cliente = { consultarFicha() { throw Error("no esperado"); }, listarVacantes() {}, registrarAlta() {}, registrarHecho() {} };
+  const clienteCatalogos = { async listar({ tipo }) { return { organismoRef: "org_sintetico", entradas: [{ organismo_ref: "org_sintetico", tipo, ref: `${tipo}:servidor`, version: 3, denominacion: `Servidor ${tipo}`, estado: "publicada" }], cursorSiguiente: null }; }, cambiar() {} };
+  montarRegistroB2({ raiz, cliente, clienteCatalogos, catalogos, personaRef: "per_aaaaaaaaaaaaaaaaaaaaaa" });
+  buscar(raiz, (n) => n.dataset.registroB2Tab === "actos").listeners.get("click")(); await completar();
+  assert.match(texto(raiz), /Servidor regimen/);
+  assert.doesNotMatch(texto(raiz), /Régimen sintético/);
 });
 
 test("el alta revisada conserva cuerpo y clave en reintento incierto y muestra recibo confirmado", async () => {
