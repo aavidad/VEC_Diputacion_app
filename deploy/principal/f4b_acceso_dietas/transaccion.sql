@@ -16,6 +16,7 @@ SELECT key, value FROM jsonb_each_text(convert_from(decode(:'f4b_verificadores_b
 --   (Dietas 000006 le revoca crear_o_recuperar_comision_calculada_v1);
 -- - leer_concesion_historica_contexto_actor_v3 (autorización 000011) solo la
 --   usa Contratación temporal, no Dietas: no se exige;
+-- - resolver_motivo_cobertura_historico_v1 solo lo usa Contratación temporal;
 -- - el USAGE de vec_autorizacion_atestada_v3 del ejecutor lo concede AD3-81
 --   (la fachada de rutas de AD3-50 es inalcanzable sin él).
 CREATE TEMP TABLE f4b_acl_requerida (grupo text, clase text, objeto text, privilegio text) ON COMMIT DROP;
@@ -48,10 +49,16 @@ INSERT INTO f4b_acl_requerida VALUES
  ('vec_autorizacion_registro','funcion','vec_autorizacion.registrar_decision_si_vigente(jsonb)','EXECUTE'),
  ('vec_autorizacion_registro','funcion','vec_autorizacion.registrar_decision_contexto_actor_v3(bytea,bytea,numeric,numeric)','EXECUTE'),
  ('vec_autorizacion_motivos_evaluador','funcion','vec_autorizacion.resolver_motivo_autorizacion_v2_historico(text,integer,text,text,timestamptz)','EXECUTE'),
- ('vec_autorizacion_motivos_evaluador','funcion','vec_autorizacion.resolver_motivo_cobertura_historico_v1(text,integer,text,text,text,timestamptz)','EXECUTE'),
  ('vec_dietas_ejecutor','funcion','vec_dietas.recuperar_comision_por_clave_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE'),
  ('vec_dietas_ejecutor','funcion','vec_dietas.crear_o_recuperar_comision_catalogada_v2(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE'),
  ('vec_dietas_ejecutor','funcion','vec_dietas.consultar_comisiones_calculadas_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE'),
+ ('vec_dietas_ejecutor','funcion','vec_dietas.consultar_comisiones_propias_v2(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE'),
+ ('vec_dietas_ejecutor','funcion','vec_dietas.mutar_comision_propia_v2(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE'),
+ ('vec_dietas_ejecutor','funcion','vec_dietas.recuperar_mutacion_por_clave_v2(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE'),
+ ('vec_dietas_ejecutor','funcion','vec_dietas.listar_bandeja_comisiones_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE'),
+ ('vec_dietas_ejecutor','funcion','vec_dietas.consultar_documento_circuito_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE'),
+ ('vec_dietas_ejecutor','funcion','vec_dietas.decidir_comision_v2(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE'),
+ ('vec_dietas_ejecutor','funcion','vec_dietas.consultar_regla_devengo_dietas_v1(text,date,text,text)','EXECUTE'),
  ('vec_dietas_ejecutor','funcion','vec_personal.consultar_relaciones_propias_dietas_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE'),
  ('vec_dietas_ejecutor','funcion','vec_autorizacion_atestada_v3.registrar_y_consumir_acceso_rutas_dietas_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE'),
  ('vec_dietas_registrador_frontera','funcion','vec_dietas.registrar_auditoria_frontera_comision_v2(text,text,text,text,text,text)','EXECUTE'),
