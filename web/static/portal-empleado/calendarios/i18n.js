@@ -73,6 +73,7 @@ export const MENSAJES_CALENDARIOS_ES = Object.freeze({
   error_solicitud_invalida: "Revise los datos de la consulta.",
   error_calendario_no_publicado: "No hay calendario publicado para {anio}: falta {faltan}.",
   error_servicio_no_disponible: "El servicio de calendarios no está disponible. Inténtelo más tarde.",
+  error_plazo_no_determinado: "Con los calendarios publicados no se puede fijar el vencimiento de este plazo.",
   error_autenticacion_requerida: "Identifíquese con su certificado para consultar los calendarios.",
   error_acceso_denegado: "Su perfil no permite consultar los calendarios.",
   error_respuesta: "La respuesta del servidor no es válida.",

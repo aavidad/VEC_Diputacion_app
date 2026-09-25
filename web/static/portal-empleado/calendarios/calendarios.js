@@ -38,7 +38,7 @@ async function leerJSONLimitado(respuesta) {
   }
 }
 
-const CODIGOS_API = new Set(["solicitud_invalida", "calendario_no_publicado", "servicio_no_disponible", "autenticacion_requerida", "acceso_denegado"]);
+const CODIGOS_API = new Set(["solicitud_invalida", "calendario_no_publicado", "plazo_no_determinado", "servicio_no_disponible", "autenticacion_requerida", "acceso_denegado"]);
 
 /** Cliente de solo lectura: sin cookies propias ni cabeceras de identidad. */
 export function crearCliente(fetchImpl = globalThis.fetch, timeoutMs = 10000) {
