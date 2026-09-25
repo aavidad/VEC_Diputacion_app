@@ -17,6 +17,20 @@ type catalogoSancionesPrueba struct {
 	err       error
 	llamadas  int
 	ultimoDia time.Time
+	// efectos activa «al final» y el fin automático; revocatorios, los
+	// estados que revierten la sanción.
+	efectos      bool
+	revocatorios []string
+}
+
+func (c *catalogoSancionesPrueba) ReversionRecurso(context.Context) (ports.ReversionCatalogoSancion, error) {
+	if c.err != nil {
+		return ports.ReversionCatalogoSancion{}, c.err
+	}
+	if len(c.revocatorios) == 0 {
+		return ports.ReversionCatalogoSancion{}, nil
+	}
+	return ports.ReversionCatalogoSancion{Estados: c.revocatorios, Motivo: "Readmisión", ReglaRef: "vec.bolsa.reglas:1:b24.recurso_revierte", Huella: strings.Repeat("d", 64)}, nil
 }
 
 func (c *catalogoSancionesPrueba) Consecuencias(context.Context) ([]ports.ConsecuenciaSancion, error) {
@@ -25,8 +39,8 @@ func (c *catalogoSancionesPrueba) Consecuencias(context.Context) ([]ports.Consec
 	}
 	return []ports.ConsecuenciaSancion{
 		{Clave: "b24.sancion.baja", Etiqueta: "Baja", Efecto: domain.OperacionExcluir, ReglaRef: "vec.bolsa.reglas:1:b24.sancion.baja", Huella: strings.Repeat("b", 64)},
-		{Clave: "b24.sancion.pasar_al_final", Etiqueta: "Final", Efecto: domain.EfectoSancionNinguno, ReglaRef: "vec.bolsa.reglas:1:b24.sancion.pasar_al_final", Huella: strings.Repeat("b", 64)},
-		{Clave: "b24.sancion.suspension", Etiqueta: "Suspensión", Efecto: domain.OperacionPausar, ConPlazo: true, ReglaRef: "vec.bolsa.reglas:1:b24.sancion.suspension", Huella: strings.Repeat("b", 64)},
+		{Clave: "b24.sancion.pasar_al_final", Etiqueta: "Final", Efecto: domain.EfectoSancionNinguno, OrdenFinal: c.efectos, ReglaRef: "vec.bolsa.reglas:1:b24.sancion.pasar_al_final", Huella: strings.Repeat("b", 64)},
+		{Clave: "b24.sancion.suspension", Etiqueta: "Suspensión", Efecto: domain.OperacionPausar, ConPlazo: true, FinAutomatico: c.efectos, ReglaRef: "vec.bolsa.reglas:1:b24.sancion.suspension", Huella: strings.Repeat("b", 64)},
 	}, nil
 }
 
@@ -204,5 +218,66 @@ func TestConsultaSancionesConCatalogo(t *testing.T) {
 	vista, err = s2.Consultar(context.Background(), solicitudSituacionPrueba(t, ahora))
 	if err != nil || vista.CatalogoDisponible {
 		t.Fatalf("catálogo caído debe mostrar el histórico sin registro: %+v %v", vista, err)
+	}
+}
+
+func TestSancionConEfectosDelCatalogo(t *testing.T) {
+	ahora := time.Date(2026, 9, 25, 9, 0, 0, 0, time.UTC)
+	s, _, repo := servicioSancionesPrueba(t, ahora, true, &catalogoSancionesPrueba{efectos: true})
+	if _, err := s.Registrar(context.Background(), solicitudSancionPrueba(t, ahora, "b24.sancion.suspension")); err != nil {
+		t.Fatal(err)
+	}
+	if !repo.ultimo.FinAutomatico || repo.ultimo.OrdenFinal || repo.ultimo.Operacion == nil ||
+		repo.ultimo.Operacion.Operacion != domain.OperacionPausar || repo.ultimo.Operacion.Cambio.Destino != domain.SituacionDisponibleDesde {
+		t.Fatalf("suspensión con fin: %+v", repo.ultimo)
+	}
+	if _, err := s.Registrar(context.Background(), solicitudSancionPrueba(t, ahora, "b24.sancion.pasar_al_final")); err != nil {
+		t.Fatal(err)
+	}
+	if !repo.ultimo.OrdenFinal || repo.ultimo.FinAutomatico || repo.ultimo.Operacion != nil {
+		t.Fatalf("pasar al final: %+v", repo.ultimo)
+	}
+	// Sin los atributos del catálogo, la conducta anterior.
+	s2, _, repo2 := servicioSancionesPrueba(t, ahora, true, &catalogoSancionesPrueba{})
+	if _, err := s2.Registrar(context.Background(), solicitudSancionPrueba(t, ahora, "b24.sancion.pasar_al_final")); err != nil || repo2.ultimo.OrdenFinal {
+		t.Fatalf("sin efecto de orden: %+v %v", repo2.ultimo, err)
+	}
+}
+
+func TestRecursoRevocatorioReadmiteConOtraPersona(t *testing.T) {
+	ahora := time.Date(2026, 9, 25, 9, 0, 0, 0, time.UTC)
+	s, _, repo := servicioSancionesPrueba(t, ahora, true, &catalogoSancionesPrueba{revocatorios: []string{"desestimado"}})
+	documento := &domain.DocumentoSancion{Referencia: "registro:2026/000300", SHA256: strings.Repeat("e", 64)}
+	sancion := "sancion:" + strings.Repeat("c", 64)
+	q := ports.SolicitudRegistrarRecursoSancion{SolicitudCambiarSituacionParticipacion: solicitudSituacionPrueba(t, ahora), SancionRef: sancion,
+		Evento: domain.EventoRecursoSancion{Estado: "desestimado", Fecha: "2026-09-24", Documento: documento}, ResueltaPor: "persona:jefatura"}
+	if _, err := s.RegistrarRecurso(context.Background(), q); err != nil {
+		t.Fatal(err)
+	}
+	r := repo.recurso.Reversion
+	if r == nil || r.ResueltaPor != "persona:jefatura" || r.Motivo != "Readmisión" || r.ReglaRef != "vec.bolsa.reglas:1:b24.recurso_revierte" ||
+		r.ReciboRef != "recibo:readmision:"+huellaClaveSancion(sancion, q.ClaveIdempotencia) {
+		t.Fatalf("reversión: %+v", r)
+	}
+	invalidas := map[string]func(*ports.SolicitudRegistrarRecursoSancion){
+		"sin quien resuelve": func(x *ports.SolicitudRegistrarRecursoSancion) { x.ResueltaPor = "" },
+		"autoresuelta": func(x *ports.SolicitudRegistrarRecursoSancion) {
+			x.ResueltaPor = x.ResultadoContexto.Contexto.PersonaRef
+		},
+		"sin resolución":          func(x *ports.SolicitudRegistrarRecursoSancion) { x.Evento.Documento = nil },
+		"no revocatorio resuelto": func(x *ports.SolicitudRegistrarRecursoSancion) { x.Evento.Estado = "interpuesto" },
+	}
+	for nombre, cambiar := range invalidas {
+		repo.escrituras = 0
+		x := q
+		cambiar(&x)
+		if _, err := s.RegistrarRecurso(context.Background(), x); !errors.Is(err, domain.ErrSancionParticipacionInvalida) || repo.escrituras != 0 {
+			t.Fatalf("%s: %v escrituras=%d", nombre, err, repo.escrituras)
+		}
+	}
+	// Un estado no revocatorio solo se anota.
+	q.Evento.Estado, q.ResueltaPor = "interpuesto", ""
+	if _, err := s.RegistrarRecurso(context.Background(), q); err != nil || repo.recurso.Reversion != nil {
+		t.Fatalf("no revocatorio: %+v %v", repo.recurso, err)
 	}
 }

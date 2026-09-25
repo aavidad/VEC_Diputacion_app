@@ -2,7 +2,10 @@ package reglasvec
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -104,5 +107,123 @@ func TestResolverRechazaClaveAjenaYFallaCerradoSinCalendario(t *testing.T) {
 	}
 	if NuevoCatalogoSanciones(nil) != nil {
 		t.Fatal("sin resolutor debe quedar sin catálogo")
+	}
+}
+
+func TestEfectosYReversionDelPaqueteDeEjemplo(t *testing.T) {
+	catalogo := catalogoPrueba(t, &calculadoraPrueba{})
+	consecuencias, err := catalogo.Consecuencias(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range consecuencias {
+		esperadoFinal := c.Clave == reglas.BolsaPrefijoSanciones+"pasar_al_final"
+		esperadoFin := c.Clave == reglas.BolsaPrefijoSanciones+"suspension"
+		if c.OrdenFinal != esperadoFinal || c.FinAutomatico != esperadoFin {
+			t.Fatalf("efectos de %s: %+v", c.Clave, c)
+		}
+	}
+	reversion, err := catalogo.ReversionRecurso(t.Context())
+	if err != nil || !reversion.Revierte("estimado") || reversion.Revierte("desestimado") || reversion.Motivo == "" ||
+		reversion.ReglaRef != "vec.bolsa.reglas:1:b24.recurso_revierte" || len(reversion.Huella) != 64 {
+		t.Fatalf("reversión=%+v err=%v", reversion, err)
+	}
+}
+
+// catalogoModificado reescribe una entrada del paquete de ejemplo en un
+// fichero temporal para comprobar que un atributo mal formado no se
+// interpreta.
+func catalogoModificado(t *testing.T, cambiar func(map[string]any)) *CatalogoSanciones {
+	t.Helper()
+	datos, err := os.ReadFile(rutaReglasBolsa)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var documento map[string]any
+	if err := json.Unmarshal(datos, &documento); err != nil {
+		t.Fatal(err)
+	}
+	cambiar(documento)
+	salida, err := json.Marshal(documento)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ruta := filepath.Join(t.TempDir(), "bolsa_reglas.ejemplo.demo.json")
+	if err := os.WriteFile(ruta, salida, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	consulta, err := fichero.NuevaConsultaCatalogos(ruta)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resolutor, err := reglas.NuevoResolutor(reglas.Configuracion{
+		Consulta: consulta, Metadatos: consulta, CatalogoID: reglas.CatalogoBolsa, ModuloID: reglas.ModuloBolsa,
+		Reloj: relojFijo(time.Date(2026, 9, 28, 8, 0, 0, 0, time.UTC)), Calculadora: &calculadoraPrueba{},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return NuevoCatalogoSanciones(resolutor)
+}
+
+func entradaCatalogo(documento map[string]any, clave string) map[string]any {
+	entradas, _ := documento["catalogo"].(map[string]any)["entradas"].([]any)
+	for _, e := range entradas {
+		if entrada := e.(map[string]any); entrada["clave"] == clave {
+			return entrada
+		}
+	}
+	return nil
+}
+
+func TestEfectosMalFormadosNoSeInterpretan(t *testing.T) {
+	casos := map[string]func(map[string]any){
+		"orden desconocido": func(d map[string]any) {
+			entradaCatalogo(d, reglas.BolsaPrefijoSanciones+"pasar_al_final")["atributos"].(map[string]any)["orden"] = "principio"
+		},
+		"baja al final": func(d map[string]any) {
+			entradaCatalogo(d, reglas.BolsaPrefijoSanciones+"baja_sin_contacto")["atributos"].(map[string]any)["orden"] = "final"
+		},
+		"fin sin plazo": func(d map[string]any) {
+			entradaCatalogo(d, reglas.BolsaPrefijoSanciones+"pasar_al_final")["atributos"].(map[string]any)["fin"] = "automatico"
+		},
+	}
+	for nombre, cambiar := range casos {
+		if _, err := catalogoModificado(t, cambiar).Consecuencias(t.Context()); !errors.Is(err, ports.ErrSancionesNoConfiguradas) {
+			t.Fatalf("%s: %v", nombre, err)
+		}
+	}
+	sinEfectos := catalogoModificado(t, func(d map[string]any) {
+		delete(entradaCatalogo(d, reglas.BolsaPrefijoSanciones+"suspension")["atributos"].(map[string]any), "fin")
+		delete(entradaCatalogo(d, reglas.BolsaPrefijoSanciones+"pasar_al_final")["atributos"].(map[string]any), "orden")
+	})
+	consecuencias, err := sinEfectos.Consecuencias(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range consecuencias {
+		if c.OrdenFinal || c.FinAutomatico {
+			t.Fatalf("sin atributos no hay efecto: %+v", c)
+		}
+	}
+	sinReversion := catalogoModificado(t, func(d map[string]any) {
+		catalogo := d["catalogo"].(map[string]any)
+		entradas := catalogo["entradas"].([]any)
+		filtradas := make([]any, 0, len(entradas))
+		for _, e := range entradas {
+			if e.(map[string]any)["clave"] != reglas.BolsaEstadosRecursoRevocatorios {
+				filtradas = append(filtradas, e)
+			}
+		}
+		catalogo["entradas"] = filtradas
+	})
+	if reversion, err := sinReversion.ReversionRecurso(t.Context()); err != nil || reversion.Revierte("estimado") {
+		t.Fatalf("sin entrada no revierte: %+v %v", reversion, err)
+	}
+	malReversion := catalogoModificado(t, func(d map[string]any) {
+		entradaCatalogo(d, reglas.BolsaEstadosRecursoRevocatorios)["atributos"].(map[string]any)["valor"] = "Estimado"
+	})
+	if _, err := malReversion.ReversionRecurso(t.Context()); !errors.Is(err, ports.ErrSancionesNoConfiguradas) {
+		t.Fatalf("estado mal formado: %v", err)
 	}
 }

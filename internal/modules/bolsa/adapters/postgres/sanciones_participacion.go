@@ -14,8 +14,8 @@ import (
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
 
-// RepositorioSancionesParticipacionPostgreSQL usa solo funciones de la
-// migración 000026; no lee tablas directamente.
+// RepositorioSancionesParticipacionPostgreSQL usa solo funciones de las
+// migraciones 000026 y 000037; no lee tablas directamente.
 type RepositorioSancionesParticipacionPostgreSQL struct{ pool *pgxpool.Pool }
 
 var _ ports.RepositorioSancionesParticipacion = (*RepositorioSancionesParticipacionPostgreSQL)(nil)
@@ -30,7 +30,8 @@ func NuevoRepositorioSancionesParticipacionPostgreSQL(pool *pgxpool.Pool) (*Repo
 func (r *RepositorioSancionesParticipacionPostgreSQL) RegistrarSancion(ctx context.Context, cmd ports.ComandoRegistrarSancion) (ports.RegistroSancion, error) {
 	s := cmd.Sancion
 	if r == nil || r.pool == nil || ctx == nil || s.ParticipacionRef == "" || cmd.BolsaRef == "" || cmd.ClaveIdempotencia == "" || cmd.ReciboRef == "" ||
-		!dominiobolsa.EfectoSancionValido(s.Efecto) || (s.Efecto == dominiobolsa.EfectoSancionNinguno) != (cmd.Operacion == nil) || cmd.Material.ValidarEstructura() != nil {
+		!dominiobolsa.EfectoSancionValido(s.Efecto) || (s.Efecto == dominiobolsa.EfectoSancionNinguno) != (cmd.Operacion == nil) || cmd.Material.ValidarEstructura() != nil ||
+		(cmd.FinAutomatico && (s.Efecto != dominiobolsa.OperacionPausar || s.SuspensionHasta == "")) || (cmd.OrdenFinal && s.Efecto == dominiobolsa.OperacionExcluir) {
 		return ports.RegistroSancion{}, ports.ErrSituacionParticipacionNoDisponible
 	}
 	fecha, ok := dominiobolsa.FechaCivilSancion(s.Datos.FechaNotificacion)
@@ -59,21 +60,21 @@ func (r *RepositorioSancionesParticipacionPostgreSQL) RegistrarSancion(ctx conte
 	m := cmd.Material
 	var resultado ports.RegistroSancion
 	var situacion *string
-	err = tx.QueryRow(ctx, `SELECT reutilizada,sancion_ref,recibo_ref,situacion,desde FROM vec_bolsa_llamamientos.registrar_sancion_participacion_v1($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27::numeric,$28::numeric,$29,$30,$31,$32)`,
+	err = tx.QueryRow(ctx, `SELECT reutilizada,sancion_ref,recibo_ref,situacion,desde,orden_final FROM vec_bolsa_llamamientos.registrar_sancion_participacion_v2($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29::numeric,$30::numeric,$31,$32,$33,$34)`,
 		cmd.BolsaRef, s.ParticipacionRef, s.SancionRef, s.Consecuencia, s.ConsecuenciaEtiqueta,
 		s.Efecto, s.Datos.Causa, fecha, s.Datos.Resolucion.Referencia, s.Datos.Resolucion.SHA256,
 		s.Datos.ResueltaPor, s.ReglaRef, s.ReglaHuella, hasta, vence,
 		s.RecursoReglaRef, s.RecursoReglaHuella, desde, s.Actor, cmd.ClaveIdempotencia,
-		cmd.ReciboRef, s.RegistradaEn.UTC(),
+		cmd.ReciboRef, s.RegistradaEn.UTC(), cmd.OrdenFinal, cmd.FinAutomatico,
 		m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI(),
-	).Scan(&resultado.Reutilizada, &resultado.SancionRef, &resultado.ReciboRef, &situacion, &resultado.Desde)
+	).Scan(&resultado.Reutilizada, &resultado.SancionRef, &resultado.ReciboRef, &situacion, &resultado.Desde, &resultado.OrdenFinal)
 	if err != nil {
 		return ports.RegistroSancion{}, errorSancion(err)
 	}
 	if situacion != nil {
 		resultado.Situacion = *situacion
 	}
-	if resultado.SancionRef != s.SancionRef || resultado.ReciboRef != cmd.ReciboRef ||
+	if resultado.SancionRef != s.SancionRef || resultado.ReciboRef != cmd.ReciboRef || resultado.OrdenFinal != cmd.OrdenFinal ||
 		(cmd.Operacion != nil && resultado.Situacion != cmd.Operacion.Cambio.Destino) {
 		return ports.RegistroSancion{}, ports.ErrSituacionParticipacionNoDisponible
 	}
@@ -93,6 +94,13 @@ func (r *RepositorioSancionesParticipacionPostgreSQL) RegistrarRecursoSancion(ct
 	if e.Documento != nil {
 		documentoRef, documentoSHA = &e.Documento.Referencia, &e.Documento.SHA256
 	}
+	var resueltaPor, reglaRef, huella, motivo, recibo *string
+	if rv := cmd.Reversion; rv != nil {
+		if rv.ResueltaPor == "" || rv.ResueltaPor == e.Actor || rv.ReglaRef == "" || rv.Huella == "" || rv.Motivo == "" || rv.ReciboRef == "" || e.Documento == nil {
+			return ports.RegistroRecursoSancion{}, dominiobolsa.ErrSancionParticipacionInvalida
+		}
+		resueltaPor, reglaRef, huella, motivo, recibo = &rv.ResueltaPor, &rv.ReglaRef, &rv.Huella, &rv.Motivo, &rv.ReciboRef
+	}
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
 	if err != nil {
 		return ports.RegistroRecursoSancion{}, ports.ErrSituacionParticipacionNoDisponible
@@ -100,14 +108,23 @@ func (r *RepositorioSancionesParticipacionPostgreSQL) RegistrarRecursoSancion(ct
 	defer tx.Rollback(context.Background())
 	m := cmd.Material
 	var resultado ports.RegistroRecursoSancion
-	err = tx.QueryRow(ctx, `SELECT reutilizada,sancion_ref,estado,registrada_en FROM vec_bolsa_llamamientos.registrar_recurso_sancion_participacion_v1($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14::numeric,$15::numeric,$16,$17,$18,$19)`,
+	var reciboRev, situacion *string
+	err = tx.QueryRow(ctx, `SELECT reutilizada,sancion_ref,estado,registrada_en,recibo_ref,situacion,desde FROM vec_bolsa_llamamientos.registrar_recurso_sancion_participacion_v2($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20::numeric,$21::numeric,$22,$23,$24,$25)`,
 		cmd.ParticipacionRef, cmd.SancionRef, e.Estado, fecha, documentoRef, documentoSHA, e.Actor, cmd.ClaveIdempotencia, e.RegistradaEn.UTC(),
+		cmd.Reversion != nil, resueltaPor, reglaRef, huella, motivo, recibo,
 		m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI(),
-	).Scan(&resultado.Reutilizada, &resultado.SancionRef, &resultado.Estado, &resultado.RegistradaEn)
+	).Scan(&resultado.Reutilizada, &resultado.SancionRef, &resultado.Estado, &resultado.RegistradaEn, &reciboRev, &situacion, &resultado.Desde)
 	if err != nil {
 		return ports.RegistroRecursoSancion{}, errorSancion(err)
 	}
-	if resultado.SancionRef != cmd.SancionRef || resultado.Estado != e.Estado {
+	if reciboRev != nil {
+		resultado.Revertida, resultado.ReciboRef = true, *reciboRev
+	}
+	if situacion != nil {
+		resultado.Situacion = *situacion
+	}
+	if resultado.SancionRef != cmd.SancionRef || resultado.Estado != e.Estado || resultado.Revertida != (cmd.Reversion != nil) ||
+		(cmd.Reversion != nil && resultado.ReciboRef != cmd.Reversion.ReciboRef) {
 		return ports.RegistroRecursoSancion{}, ports.ErrSituacionParticipacionNoDisponible
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -125,6 +142,31 @@ type recursoSancionFila struct {
 	RegistradaEn    time.Time `json:"registrada_en"`
 }
 
+type reversionSancionFila struct {
+	EstadoRecurso       string     `json:"estado_recurso"`
+	ReglaRef            string     `json:"regla_ref"`
+	EfectoRevertido     string     `json:"efecto_revertido"`
+	SituacionRestaurada *string    `json:"situacion_restaurada"`
+	SituacionDesde      *time.Time `json:"situacion_desde"`
+	ResueltaPor         string     `json:"resuelta_por"`
+	Actor               string     `json:"actor"`
+	ReciboRef           string     `json:"recibo_ref"`
+	RegistradaEn        time.Time  `json:"registrada_en"`
+}
+
+func (f reversionSancionFila) dominio() *dominiobolsa.ReversionSancion {
+	r := &dominiobolsa.ReversionSancion{EstadoRecurso: f.EstadoRecurso, ReglaRef: f.ReglaRef, EfectoRevertido: f.EfectoRevertido,
+		ResueltaPor: f.ResueltaPor, Actor: f.Actor, ReciboRef: f.ReciboRef, RegistradaEn: f.RegistradaEn.UTC()}
+	if f.SituacionRestaurada != nil {
+		r.SituacionRestaurada = *f.SituacionRestaurada
+	}
+	if f.SituacionDesde != nil {
+		desde := f.SituacionDesde.UTC()
+		r.SituacionDesde = &desde
+	}
+	return r
+}
+
 func (r *RepositorioSancionesParticipacionPostgreSQL) ListarSanciones(ctx context.Context, participacion, actor string, m puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3) ([]dominiobolsa.SancionParticipacion, error) {
 	if r == nil || r.pool == nil || ctx == nil || participacion == "" || actor == "" || m.ValidarEstructura() != nil {
 		return nil, ports.ErrSituacionParticipacionNoDisponible
@@ -134,7 +176,7 @@ func (r *RepositorioSancionesParticipacionPostgreSQL) ListarSanciones(ctx contex
 		return nil, ports.ErrSituacionParticipacionNoDisponible
 	}
 	defer tx.Rollback(context.Background())
-	filas, err := tx.Query(ctx, `SELECT sancion_ref,consecuencia,consecuencia_etiqueta,efecto,causa,fecha_notificacion,resolucion_ref,resolucion_sha256,resuelta_por,regla_ref,regla_huella_sha256,suspension_hasta,recurso_vence,recurso_regla_ref,recurso_regla_huella_sha256,situacion_desde,actor,registrada_en,recursos FROM vec_bolsa_llamamientos.listar_sanciones_participacion_v1($1,$2,$3,$4,$5,$6,$7::numeric,$8::numeric,$9,$10,$11,$12)`,
+	filas, err := tx.Query(ctx, `SELECT sancion_ref,consecuencia,consecuencia_etiqueta,efecto,causa,fecha_notificacion,resolucion_ref,resolucion_sha256,resuelta_por,regla_ref,regla_huella_sha256,suspension_hasta,recurso_vence,recurso_regla_ref,recurso_regla_huella_sha256,situacion_desde,actor,registrada_en,recursos,situacion_aplicada,fecha_disponible,orden_final,reversion FROM vec_bolsa_llamamientos.listar_sanciones_participacion_v2($1,$2,$3,$4,$5,$6,$7::numeric,$8::numeric,$9,$10,$11,$12)`,
 		participacion, actor, m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI())
 	if err != nil {
 		return nil, errorSancion(err)
@@ -145,11 +187,27 @@ func (r *RepositorioSancionesParticipacionPostgreSQL) ListarSanciones(ctx contex
 		var s dominiobolsa.SancionParticipacion
 		var notificada, vence time.Time
 		var hasta *time.Time
-		var recursos []byte
+		var recursos, reversion []byte
+		var situacion *string
 		if err := filas.Scan(&s.SancionRef, &s.Consecuencia, &s.ConsecuenciaEtiqueta, &s.Efecto, &s.Datos.Causa, &notificada,
 			&s.Datos.Resolucion.Referencia, &s.Datos.Resolucion.SHA256, &s.Datos.ResueltaPor, &s.ReglaRef, &s.ReglaHuella,
-			&hasta, &vence, &s.RecursoReglaRef, &s.RecursoReglaHuella, &s.SituacionDesde, &s.Actor, &s.RegistradaEn, &recursos); err != nil {
+			&hasta, &vence, &s.RecursoReglaRef, &s.RecursoReglaHuella, &s.SituacionDesde, &s.Actor, &s.RegistradaEn, &recursos,
+			&situacion, &s.FechaDisponible, &s.OrdenFinal, &reversion); err != nil {
 			return nil, errorSancion(err)
+		}
+		if situacion != nil {
+			s.SituacionAplicada = *situacion
+		}
+		if s.FechaDisponible != nil {
+			fin := s.FechaDisponible.UTC()
+			s.FechaDisponible = &fin
+		}
+		if len(reversion) > 0 {
+			var fila reversionSancionFila
+			if err := json.Unmarshal(reversion, &fila); err != nil {
+				return nil, ports.ErrSituacionParticipacionNoDisponible
+			}
+			s.Reversion = fila.dominio()
 		}
 		s.ParticipacionRef, s.RegistradaEn = participacion, s.RegistradaEn.UTC()
 		if s.SituacionDesde != nil {

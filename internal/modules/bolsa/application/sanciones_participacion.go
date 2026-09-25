@@ -80,9 +80,22 @@ func (s *ServicioSancionesParticipacion) Registrar(ctx context.Context, q ports.
 		RecursoReglaRef: resolucion.Recurso.ReglaRef, RecursoReglaHuella: resolucion.Recurso.Huella,
 		Actor: actor, RegistradaEn: ahora,
 	}
-	comando := ports.ComandoRegistrarSancion{Sancion: sancion, BolsaRef: q.BolsaRef, ClaveIdempotencia: q.ClaveIdempotencia, ReciboRef: "recibo:sancion:" + huella, Material: material}
+	// Una suspensión que termina sola necesita su fecha de fin; sin ella
+	// el catálogo está mal configurado y no se supone una suspensión
+	// indefinida.
+	finAutomatico := consecuencia.FinAutomatico && consecuencia.Efecto == dominiobolsa.OperacionPausar
+	if finAutomatico && resolucion.SuspensionHasta == "" {
+		return ports.RegistroSancion{}, ports.ErrSancionesNoConfiguradas
+	}
+	comando := ports.ComandoRegistrarSancion{Sancion: sancion, BolsaRef: q.BolsaRef, ClaveIdempotencia: q.ClaveIdempotencia, ReciboRef: "recibo:sancion:" + huella, Material: material,
+		OrdenFinal: consecuencia.OrdenFinal && consecuencia.Efecto != dominiobolsa.OperacionExcluir, FinAutomatico: finAutomatico}
 	if consecuencia.Efecto != dominiobolsa.EfectoSancionNinguno {
 		destino, _ := dominiobolsa.DestinoOperacionSituacion(consecuencia.Efecto)
+		if finAutomatico {
+			// La base calcula la vuelta al turno desde la fecha de fin, que
+			// es la única fuente: aquí solo se espera la situación.
+			destino = dominiobolsa.SituacionDisponibleDesde
+		}
 		vigente, err := s.situacion.repositorio.SituacionVigente(ctx, q.ParticipacionRef)
 		if err != nil {
 			return ports.RegistroSancion{}, err
@@ -132,21 +145,43 @@ func (s *ServicioSancionesParticipacion) RegistrarRecurso(ctx context.Context, q
 	if !slices.Contains(estados, q.Evento.Estado) {
 		return ports.RegistroRecursoSancion{}, dominiobolsa.ErrSancionParticipacionInvalida
 	}
+	reversion, err := s.catalogo.ReversionRecurso(ctx)
+	if err != nil {
+		return ports.RegistroRecursoSancion{}, err
+	}
+	revierte := reversion.Revierte(q.Evento.Estado)
+	// Solo un estado revocatorio lleva quien lo resuelve, y la resolución
+	// que estima el recurso debe constar.
+	if revierte != (q.ResueltaPor != "") || (revierte && q.Evento.Documento == nil) {
+		return ports.RegistroRecursoSancion{}, dominiobolsa.ErrSancionParticipacionInvalida
+	}
 	_, _, _, material, err := s.situacion.autorizarOperacion(ctx, q.SolicitudCambiarSituacionParticipacion)
 	if err != nil {
 		return ports.RegistroRecursoSancion{}, err
 	}
+	actor := q.ResultadoContexto.Contexto.PersonaRef
 	evento := q.Evento
-	evento.Actor = q.ResultadoContexto.Contexto.PersonaRef
+	evento.Actor = actor
 	evento.RegistradaEn = ahora
 	if evento.Documento != nil {
 		copia := *evento.Documento
 		evento.Documento = &copia
 	}
-	return s.repositorio.RegistrarRecursoSancion(ctx, ports.ComandoRegistrarRecursoSancion{
+	comando := ports.ComandoRegistrarRecursoSancion{
 		ParticipacionRef: q.ParticipacionRef, SancionRef: q.SancionRef, Evento: evento,
 		ClaveIdempotencia: q.ClaveIdempotencia, Material: material,
-	})
+	}
+	if revierte {
+		// Como la baja, la readmisión la resuelve otra persona.
+		if !dominiobolsa.IdentidadResolucionValida(q.ResueltaPor) || q.ResueltaPor == actor {
+			return ports.RegistroRecursoSancion{}, dominiobolsa.ErrSancionParticipacionInvalida
+		}
+		comando.Reversion = &ports.ComandoReversionSancion{
+			ResueltaPor: q.ResueltaPor, ReglaRef: reversion.ReglaRef, Huella: reversion.Huella, Motivo: reversion.Motivo,
+			ReciboRef: "recibo:readmision:" + huellaClaveSancion(q.SancionRef, q.ClaveIdempotencia),
+		}
+	}
+	return s.repositorio.RegistrarRecursoSancion(ctx, comando)
 }
 
 // Consultar devuelve el histórico autorizado y el catálogo vigente. Un fallo
@@ -169,8 +204,10 @@ func (s *ServicioSancionesParticipacion) Consultar(ctx context.Context, q ports.
 	}
 	consecuencias, errConsecuencias := s.catalogo.Consecuencias(ctx)
 	estados, errEstados := s.catalogo.EstadosRecurso(ctx)
-	if errConsecuencias == nil && errEstados == nil && len(consecuencias) > 0 {
+	reversion, errReversion := s.catalogo.ReversionRecurso(ctx)
+	if errConsecuencias == nil && errEstados == nil && errReversion == nil && len(consecuencias) > 0 {
 		vista.Consecuencias, vista.EstadosRecurso, vista.CatalogoDisponible = consecuencias, estados, true
+		vista.EstadosRevocatorios = reversion.Estados
 	} else if errors.Is(ctx.Err(), context.Canceled) {
 		return ports.VistaSancionesParticipacion{}, ctx.Err()
 	}

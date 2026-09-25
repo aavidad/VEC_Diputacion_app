@@ -16,6 +16,12 @@ import (
 
 var _ ports.CatalogoSancionesParticipacion = (*CatalogoSanciones)(nil)
 
+// Valores admitidos de los atributos de efecto de una consecuencia.
+const (
+	valorOrdenFinal    = "final"
+	valorFinAutomatico = "automatico"
+)
+
 // CatalogoSanciones lee en cada consulta las entradas «b24.sancion.*», el
 // plazo del recurso («b24.consecuencias») y sus estados.
 type CatalogoSanciones struct {
@@ -73,6 +79,36 @@ func (c *CatalogoSanciones) EstadosRecurso(ctx context.Context) ([]string, error
 	return estados, nil
 }
 
+// ReversionRecurso lee «b24.recurso_revierte». Sin la entrada ningún estado
+// revierte la sanción, que es la conducta anterior; una entrada mal formada
+// no se interpreta.
+func (c *CatalogoSanciones) ReversionRecurso(ctx context.Context) (ports.ReversionCatalogoSancion, error) {
+	if c == nil {
+		return ports.ReversionCatalogoSancion{}, ports.ErrSancionesNoConfiguradas
+	}
+	regla, err := c.resolutor.Regla(ctx, reglas.BolsaEstadosRecursoRevocatorios)
+	if errors.Is(err, reglas.ErrReglaNoEncontrada) {
+		return ports.ReversionCatalogoSancion{}, nil
+	}
+	if err != nil {
+		return ports.ReversionCatalogoSancion{}, errorCatalogo(err)
+	}
+	estados := regla.Elementos()
+	motivo := strings.TrimSpace(regla.Atributos["motivo"])
+	if motivo == "" {
+		motivo = regla.Etiqueta
+	}
+	if len(estados) == 0 || len(motivo) > 1000 {
+		return ports.ReversionCatalogoSancion{}, ports.ErrSancionesNoConfiguradas
+	}
+	for _, estado := range estados {
+		if !dominiobolsa.EstadoRecursoValido(estado) {
+			return ports.ReversionCatalogoSancion{}, ports.ErrSancionesNoConfiguradas
+		}
+	}
+	return ports.ReversionCatalogoSancion{Estados: estados, Motivo: motivo, ReglaRef: regla.Referencia, Huella: regla.HuellaCatalogo}, nil
+}
+
 // ResolverSancion devuelve la consecuencia, el fin de la suspensión si la
 // regla define un plazo, y el vencimiento del recurso de reposición, ambos
 // desde la notificación.
@@ -121,9 +157,19 @@ func consecuenciaDesdeRegla(regla reglas.Regla) (ports.ConsecuenciaSancion, erro
 	if conPlazo && efecto != dominiobolsa.OperacionPausar {
 		return ports.ConsecuenciaSancion{}, ports.ErrSancionesNoConfiguradas
 	}
+	// «orden»: «final» coloca al final del orden vigente; una baja ya saca
+	// a la persona del orden. «fin»: «automatico» exige una suspensión con
+	// plazo. Cualquier otro valor no se interpreta.
+	orden, fin := regla.Atributos["orden"], regla.Atributos["fin"]
+	ordenFinal, finAutomatico := orden == valorOrdenFinal, fin == valorFinAutomatico
+	if (orden != "" && !ordenFinal) || (fin != "" && !finAutomatico) ||
+		(ordenFinal && efecto == dominiobolsa.OperacionExcluir) || (finAutomatico && !conPlazo) {
+		return ports.ConsecuenciaSancion{}, ports.ErrSancionesNoConfiguradas
+	}
 	return ports.ConsecuenciaSancion{
 		Clave: regla.Clave, Etiqueta: regla.Etiqueta, Descripcion: regla.Descripcion, Efecto: efecto,
 		Articulo: regla.Articulo, Ejemplo: regla.EsEjemplo(), ConPlazo: conPlazo,
+		OrdenFinal: ordenFinal, FinAutomatico: finAutomatico,
 		ReglaRef: regla.Referencia, Huella: regla.HuellaCatalogo,
 	}, nil
 }

@@ -136,6 +136,29 @@ type SancionParticipacion struct {
 	Actor          string
 	RegistradaEn   time.Time
 	Recursos       []EventoRecursoSancion
+	// Efecto aplicado: la situación que dejó la sanción (con su fecha de
+	// vuelta al turno si la suspensión termina sola) y si la colocó al final
+	// del orden vigente.
+	SituacionAplicada string
+	FechaDisponible   *time.Time
+	OrdenFinal        bool
+	// Reversion es la readmisión por un recurso revocatorio, si la hubo.
+	Reversion *ReversionSancion
+}
+
+// ReversionSancion deja sin efecto una sanción por un recurso estimado. La
+// situación restaurada es vacía si no hubo que cambiarla (por ejemplo, al
+// levantar solo la penalización del orden).
+type ReversionSancion struct {
+	EstadoRecurso       string
+	ReglaRef            string
+	EfectoRevertido     string
+	SituacionRestaurada string
+	SituacionDesde      *time.Time
+	ResueltaPor         string
+	Actor               string
+	ReciboRef           string
+	RegistradaEn        time.Time
 }
 
 // EstadoRecurso devuelve el último estado anotado o «» si no hay recurso.
@@ -149,3 +172,7 @@ func (s SancionParticipacion) EstadoRecurso() string {
 func textoSancionValido(valor string, maximo int) bool {
 	return strings.TrimSpace(valor) == valor && valor != "" && len(valor) <= maximo
 }
+
+// IdentidadResolucionValida valida la persona que resuelve una sanción o su
+// reversión, con las mismas reglas que el validador de una operación B8.
+func IdentidadResolucionValida(valor string) bool { return identidadOperacionValida(valor) }
