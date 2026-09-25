@@ -217,3 +217,27 @@ test("Jornada: una parte que falla deja su aviso accesible y, sin calendario, no
   recibidas.movimientos.abrirCorreccion();
   assert.equal(olvidos, 1);
 });
+
+test("Cronos ofrece bandeja y avisos solo con sus tres piezas y un único cliente de resolución", () => {
+  const creados = []; const montados = [];
+  const partes = { saldo: () => ({}), remoto: () => ({}), movimientos: () => ({}), calendario: () => ({}) };
+  const conResolucion = {
+    ...recursosCronos(partes),
+    bandejaPermisos: { montarBandejaPermisosCronos: (o) => { montados.push(["bandeja", o]); return Object.freeze({ desmontar() {} }); } },
+    avisosPropios: { montarAvisosPropiosCronos: (o) => { montados.push(["avisos", o]); return Object.freeze({ desmontar() {} }); } },
+    clienteResolucion: { crearClienteResolucionCronosHTTP: (t) => { const c = Object.freeze({ t }); creados.push(c); return c; } },
+    i18nResolucion: { crearTraductorResolucionCronos: () => (clave) => ({ bandeja_titulo: "Solicitudes por resolver", avisos_titulo: "Avisos de resolución" })[clave] },
+  };
+  const cronos = componerCronosInterno(conResolucion, { fetch() {} });
+  assert.equal(creados.length, 1);
+  assert.deepEqual({ ...cronos.etiquetas }, { bandeja: "Solicitudes por resolver", avisos: "Avisos de resolución" });
+  cronos.montarBandeja({ raiz: "r1" }); cronos.montarAvisos({ raiz: "r2" });
+  assert.deepEqual(montados.map(([n, o]) => [n, o.raiz]), [["bandeja", "r1"], ["avisos", "r2"]]);
+  assert.strictEqual(montados[0][1].cliente, creados[0]);
+  assert.strictEqual(montados[1][1].cliente, creados[0]);
+  const { clienteResolucion: _omitido, ...incompleto } = conResolucion;
+  const sin = componerCronosInterno(incompleto, {});
+  assert.notEqual(sin, undefined, "sin resolución Cronos sigue disponible");
+  assert.equal(sin.montarBandeja, undefined);
+  assert.equal(sin.montarAvisos, undefined);
+});

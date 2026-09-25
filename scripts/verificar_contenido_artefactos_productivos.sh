@@ -191,6 +191,10 @@ transportes_mtls_revisados=(
 	# propios; GET y POST a rutas internas fijas, same-origin, no-store,
 	# redirect error y no-referrer; la persona la deriva el servidor del mTLS.
 	static/portal-empleado/modulos/cronos/cliente-solicitudes-http.js
+	# Resolución de permisos y avisos de Cronos (25/09): bandeja, resolución,
+	# avisos y archivo; GET/POST a rutas internas fijas, same-origin, no-store,
+	# redirect error y no-referrer; persona y competencia las deriva el servidor.
+	static/portal-empleado/modulos/cronos/cliente-resolucion-http.js
 	# Saldo propio y fichaje remoto de Cronos (25/09): con omit el navegador no
 	# presentaria el certificado mTLS tras el proxy; GET/POST a rutas internas
 	# fijas, same-origin, no-store, redirect error y no-referrer.

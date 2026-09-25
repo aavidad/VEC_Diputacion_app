@@ -4,11 +4,13 @@
  * del día y calendario con olvidos en «Jornada»; permisos propios aparte.
  * Falta cualquier pieza → undefined (el módulo no se ofrece). Cada vista
  * consulta su API y muestra su propio estado: un 404 de una capacidad
- * desactivada no afecta a las demás.
+ * desactivada no afecta a las demás. La bandeja de resolución y los avisos
+ * son opcionales y van juntos: sin sus tres piezas no se ofrecen.
  */
 export function componerCronosInterno(recursos, entorno) {
   const { saldo, remoto, movimientos, movimientosPropios, permisosPropios,
-    clienteSaldo, clienteRemoto, clienteSolicitudes, i18n } = recursos ?? {};
+    clienteSaldo, clienteRemoto, clienteSolicitudes, i18n,
+    bandejaPermisos, avisosPropios, clienteResolucion, i18nResolucion } = recursos ?? {};
   if (typeof saldo?.montarVistaSaldoCronos !== "function"
     || typeof remoto?.montarVistaRemotoCronos !== "function"
     || typeof movimientos?.montarVistaMovimientosCronos !== "function"
@@ -25,8 +27,24 @@ export function componerCronosInterno(recursos, entorno) {
     solicitudes: clienteSolicitudes.crearClienteSolicitudesCronosHTTP(transporte),
   });
   const traducir = i18n.crearTraductorCronos();
+  const resolucion = typeof bandejaPermisos?.montarBandejaPermisosCronos === "function"
+    && typeof avisosPropios?.montarAvisosPropiosCronos === "function"
+    && typeof clienteResolucion?.crearClienteResolucionCronosHTTP === "function"
+    && typeof i18nResolucion?.crearTraductorResolucionCronos === "function";
+  const clienteResolucionHTTP = resolucion ? clienteResolucion.crearClienteResolucionCronosHTTP(transporte) : undefined;
+  const traducirResolucion = resolucion ? i18nResolucion.crearTraductorResolucionCronos() : undefined;
+  const subvistasResolucion = resolucion ? Object.freeze({
+    etiquetas: Object.freeze({ bandeja: traducirResolucion("bandeja_titulo"), avisos: traducirResolucion("avisos_titulo") }),
+    montarBandeja({ raiz, anunciar = () => {}, registrarDesmontar } = {}) {
+      return bandejaPermisos.montarBandejaPermisosCronos({ raiz, cliente: clienteResolucionHTTP, anunciar, registrarDesmontar });
+    },
+    montarAvisos({ raiz, anunciar = () => {}, registrarDesmontar } = {}) {
+      return avisosPropios.montarAvisosPropiosCronos({ raiz, cliente: clienteResolucionHTTP, anunciar, registrarDesmontar });
+    },
+  }) : {};
   return Object.freeze({
     traducir,
+    ...subvistasResolucion,
     montar({ raiz, anunciar = () => {}, registrarDesmontar } = {}) {
       const t = traducir; const documento = raiz.ownerDocument;
       const elemento = (etiqueta, clase, texto) => {

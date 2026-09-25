@@ -16,7 +16,7 @@ import {
   componerDietasInternas,
   componerPersonalVisible,
   componerRegistroPersonal,
-} from "./portal-composicion-empleado.js?v=20260925-tanda3-v1";
+} from "./portal-composicion-empleado.js?v=20260925-resolucion-v1";
 import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260924-f2-shell-v1";
 import {
   CLAVES_CARGA_MODULAR,
@@ -40,7 +40,8 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   // que piden las vistas, para que cada módulo se evalúe una sola vez.
   cronos: async () => {
     const [saldo, remoto, movimientos, movimientosPropios, permisosPropios,
-      clienteSaldo, clienteRemoto, clienteSolicitudes, i18n] = await Promise.all([
+      clienteSaldo, clienteRemoto, clienteSolicitudes, i18n,
+      bandejaPermisos, avisosPropios, clienteResolucion, i18nResolucion] = await Promise.all([
       import("./modulos/cronos/vista-saldo-conectado.js?v=20260925-tanda2-v1"),
       import("./modulos/cronos/vista-remoto.js?v=20260925-tanda2-v1"),
       import("./modulos/cronos/vista-movimientos-conectado.js?v=20260925-tanda2-v1"),
@@ -50,9 +51,13 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       import("./modulos/cronos/cliente-remoto-http.js"),
       import("./modulos/cronos/cliente-solicitudes-http.js"),
       import("./modulos/cronos/i18n.js?v=20260925-tanda2-v1"),
+      import("./modulos/cronos/vista-bandeja-permisos.js?v=20260925-resolucion-v1"),
+      import("./modulos/cronos/vista-avisos-propios.js?v=20260925-resolucion-v1"),
+      import("./modulos/cronos/cliente-resolucion-http.js"),
+      import("./modulos/cronos/i18n-resolucion.js"),
     ]);
     return Object.freeze({ saldo, remoto, movimientos, movimientosPropios, permisosPropios,
-      clienteSaldo, clienteRemoto, clienteSolicitudes, i18n });
+      clienteSaldo, clienteRemoto, clienteSolicitudes, i18n, bandejaPermisos, avisosPropios, clienteResolucion, i18nResolucion });
   },
   contratacion_temporal: async () => {
     const [contrato, cliente, presentador, vista, adaptador] = await Promise.all([
@@ -92,7 +97,8 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   },
 });
 
-export const VISTAS_MODULOS_PERSONALES = Object.freeze(new Set(["cronos", "cronos-permisos", "dietas", "personal", "personal-registro"]));
+export const VISTAS_MODULOS_PERSONALES = Object.freeze(new Set(["cronos", "cronos-permisos", "cronos-avisos", "cronos-bandeja", "dietas", "personal", "personal-registro"]));
+const SUBVISTAS_CRONOS = Object.freeze(new Set(["cronos-permisos", "cronos-avisos", "cronos-bandeja"]));
 const VISTAS_MODULO_BOLSA = Object.freeze(new Set(VISTAS_INTERNAS_BOLSA));
 export const VISTAS_MODULOS_CONECTADOS = Object.freeze(new Set([
   "contratacion-temporal", ...VISTAS_MODULOS_PERSONALES,
@@ -102,7 +108,7 @@ export function moduloDeVistaPortal(vista) {
   if (vista === "portal") return "portal";
   if (vista === "contratacion-temporal") return "contratacion_temporal";
   if (vista === "personal" || vista === "personal-registro") return CLAVE_PERSONAL;
-  if (vista === "cronos-permisos") return "cronos";
+  if (SUBVISTAS_CRONOS.has(vista)) return "cronos";
   if (VISTAS_MODULOS_PERSONALES.has(vista)) return vista;
   if (VISTAS_MODULO_BOLSA.has(vista)) return "bolsa";
   return "";
@@ -434,6 +440,8 @@ export function crearCoordinadorModulosPortal({
     }
     if (vista === "cronos") return composicion?.cronos !== undefined;
     if (vista === "cronos-permisos") return typeof composicion?.cronos?.montarPermisos === "function";
+    if (vista === "cronos-avisos") return typeof composicion?.cronos?.montarAvisos === "function";
+    if (vista === "cronos-bandeja") return typeof composicion?.cronos?.montarBandeja === "function";
     if (vista === "dietas") return composicion?.dietas !== undefined;
     if (vista === "personal") return composicion?.personal !== undefined;
     // Oferta de interfaz para el perfil RRHH; cada lectura la autoriza V3.
@@ -610,7 +618,7 @@ export function crearCoordinadorModulosPortal({
       return true;
     }
 
-    if (vista === "cronos" || vista === "cronos-permisos") {
+    if (vista === "cronos" || SUBVISTAS_CRONOS.has(vista)) {
       if (typeof composicion.cronos.montar === "function") {
         raiz.replaceChildren();
         const t = composicion.cronos.traducir;
@@ -622,11 +630,16 @@ export function crearCoordinadorModulosPortal({
           <div class="cuerpo-panel">
             <button type="button" class="boton-secundario" data-vista="cronos"${vista === "cronos" ? ' aria-current="page"' : ""}>${escaparHTML(t("jornada_titulo"))}</button>
             <button type="button" class="boton-secundario" data-vista="cronos-permisos"${vista === "cronos-permisos" ? ' aria-current="page"' : ""}>${escaparHTML(t("navegacion_permisos"))}</button>
+            ${typeof composicion.cronos.montarAvisos === "function" ? `<button type="button" class="boton-secundario" data-vista="cronos-avisos"${vista === "cronos-avisos" ? ' aria-current="page"' : ""}>${escaparHTML(composicion.cronos.etiquetas.avisos)}</button>
+            <button type="button" class="boton-secundario" data-vista="cronos-bandeja"${vista === "cronos-bandeja" ? ' aria-current="page"' : ""}>${escaparHTML(composicion.cronos.etiquetas.bandeja)}</button>` : ""}
           </div>`;
         raiz.append(navegacion);
         desmontarVista = () => navegacion?.remove();
-        const montarCronos = vista === "cronos-permisos"
-          ? composicion.cronos.montarPermisos : composicion.cronos.montar;
+        const montarCronos = {
+          "cronos-permisos": composicion.cronos.montarPermisos,
+          "cronos-avisos": composicion.cronos.montarAvisos,
+          "cronos-bandeja": composicion.cronos.montarBandeja,
+        }[vista] ?? composicion.cronos.montar;
         const modulo = await montarCronos({ raiz, anunciar,
           registrarDesmontar: (limpiar) => {
             const retirar = () => { limpiar(); navegacion?.remove(); };

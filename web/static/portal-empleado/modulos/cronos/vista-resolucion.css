@@ -1,0 +1,111 @@
+/* Bandeja de resolución de permisos y avisos de resolución.
+   Solo tokens del tema común; tarjetas, tablas y botones son los del portal. */
+.cronos-bandeja-permisos,
+.cronos-avisos-propios {
+  display: grid;
+  gap: var(--portal-espacio-4);
+  min-width: 0;
+}
+
+.cronos-bandeja-permisos .cronos-encabezado .cronos-boton-ayuda,
+.cronos-avisos-propios .cronos-encabezado .cronos-boton-ayuda {
+  width: 30px;
+  height: 30px;
+  justify-self: end;
+}
+
+.cronos-selector-paso {
+  display: inline-flex;
+  gap: var(--portal-espacio-1);
+  margin-left: auto;
+}
+
+.cronos-selector-paso button[aria-pressed="true"] {
+  background: var(--portal-azul-700);
+  border-color: var(--portal-azul-700);
+  color: var(--portal-texto-inverso);
+}
+
+.cronos-resolucion-formulario {
+  display: grid;
+  gap: var(--portal-espacio-3);
+  max-width: 720px;
+}
+
+.cronos-resolucion-decision {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--portal-espacio-2) var(--portal-espacio-4);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.cronos-resolucion-decision legend {
+  margin-bottom: var(--portal-espacio-2);
+  color: var(--portal-muted);
+  font-size: .8125rem;
+}
+
+.cronos-resolucion-opcion {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--portal-espacio-2);
+  min-height: 36px;
+}
+
+.cronos-resolucion-motivo {
+  display: grid;
+  gap: var(--portal-espacio-1);
+  font-size: .8125rem;
+  color: var(--portal-muted);
+}
+
+.cronos-resolucion-motivo textarea {
+  width: 100%;
+  min-height: 72px;
+  resize: vertical;
+  font: inherit;
+  color: var(--portal-tinta);
+}
+
+.cronos-avisos-lista {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cronos-aviso {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--portal-espacio-3);
+  padding: var(--portal-espacio-3) 0;
+  border-bottom: 1px solid var(--portal-borde);
+}
+
+.cronos-aviso:last-child { border-bottom: 0; }
+
+.cronos-aviso-icono {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--portal-exito);
+}
+
+.cronos-aviso[data-estado="denegado"] .cronos-aviso-icono { background: var(--portal-peligro); }
+
+.cronos-aviso-texto p { margin: 0; }
+
+.cronos-aviso-motivo,
+.cronos-aviso-fecha {
+  color: var(--portal-muted);
+  font-size: .8125rem;
+}
+
+@media (max-width: 640px) {
+  .cronos-selector-paso { margin-left: 0; }
+  .cronos-aviso { grid-template-columns: auto minmax(0, 1fr); }
+  .cronos-aviso button { grid-column: 2; justify-self: start; }
+}
