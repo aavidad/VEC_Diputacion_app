@@ -1,0 +1,18 @@
+# Imágenes de la capa de supervisión (M0), fijadas por digest de índice
+# multiplataforma. Formato: VARIABLE=registro/imagen@sha256:... (shell).
+# La etiqueta de origen y la versión se anotan en el comentario de cada línea.
+# Actualizar: descargar la etiqueta, anotar el nuevo digest, repetir
+# scripts/probar_presupuesto_supervision.sh piloto y el inventario de licencias.
+
+# zabbix/zabbix-server-pgsql:alpine-7.0-latest -> Zabbix 7.0.31, Alpine 3.24.2
+IMAGEN_SERVIDOR=docker.io/zabbix/zabbix-server-pgsql@sha256:415452211dea59cd4ea3346f2c2b38403660408273c672ebf91603353ce1073f
+# Imagen desplegada: la anterior sin nmap (NPSL, no OSI), construida localmente
+# con servidor-sin-nmap/Containerfile. Es la que usan Quadlet y el piloto.
+IMAGEN_SERVIDOR_SIN_NMAP=localhost/vec-supervision-servidor:7.0.31
+# zabbix/zabbix-web-nginx-pgsql:alpine-7.0-latest -> Zabbix 7.0.31, nginx + PHP 8.5, Alpine 3.24.2
+IMAGEN_WEB=docker.io/zabbix/zabbix-web-nginx-pgsql@sha256:cd216a9968b62eb6fddd789872b9e8eb4d064539ef40b6356dd2d8c1588a3f91
+# zabbix/zabbix-agent2:alpine-7.0-latest -> Zabbix agent 2 7.0.31, Alpine 3.24.2
+IMAGEN_AGENTE=docker.io/zabbix/zabbix-agent2@sha256:ba55e6d146d0f0bc550da82b29b22134655db6e31d2c9eae9b1d15f659ad86cd
+# postgres:18-alpine -> PostgreSQL 18.6, Alpine 3.24.2 (Zabbix 7.0 admite PostgreSQL 13-18; 18 desde 7.0.20).
+# Misma versión mayor que la instancia de VEC, pero instancia y volumen propios.
+IMAGEN_PG=docker.io/library/postgres@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873

@@ -1,0 +1,4 @@
+# Red de salida del servidor (avisos de M3) y de publicación en loopback del
+# servidor (10051, agente activo) y del frontend (solo interno).
+[Network]
+NetworkName=vec-supervision-frontal

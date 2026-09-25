@@ -1,0 +1,29 @@
+# Frontend de Zabbix: SOLO interno (loopback). Herramienta de mantenimiento y
+# API para el adaptador de Administración (M4); el trabajo diario va en VEC.
+# Acceso de Sistemas por túnel SSH a 127.0.0.1:8090.
+[Unit]
+Description=VEC supervisión: frontend interno de Zabbix
+Requires=vec-supervision-pg.service
+After=vec-supervision-servidor.service
+
+[Container]
+ContainerName=vec-supervision-web
+Image=docker.io/zabbix/zabbix-web-nginx-pgsql@sha256:cd216a9968b62eb6fddd789872b9e8eb4d064539ef40b6356dd2d8c1588a3f91
+Network=vec-supervision-datos.network
+Network=vec-supervision-frontal.network
+PublishPort=127.0.0.1:8090:8080
+Secret=vec-supervision-pg-clave,type=mount,target=/run/secrets/pg_clave
+Environment=DB_SERVER_HOST=vec-supervision-pg POSTGRES_USER=zabbix POSTGRES_DB=zabbix POSTGRES_PASSWORD_FILE=/run/secrets/pg_clave ZBX_SERVER_HOST=vec-supervision-servidor ZBX_SERVER_NAME=VEC-supervision
+# WEB_AJUSTES de recursos.env.
+Environment=PHP_FPM_PM=ondemand PHP_FPM_PM_MAX_CHILDREN=4 PHP_FPM_PM_START_SERVERS=1 PHP_FPM_PM_MIN_SPARE_SERVERS=1 PHP_FPM_PM_MAX_SPARE_SERVERS=2 PHP_FPM_PM_MAX_REQUESTS=500 ZBX_MEMORYLIMIT=128M PHP_TZ=Europe/Madrid
+# Límites (recursos.env): WEB_CPUS, WEB_MEMORIA, WEB_PIDS.
+PodmanArgs=--cpus=0.5 --memory=256m --memory-swap=256m --pids-limit=64 --cpu-shares=256
+NoNewPrivileges=true
+
+[Service]
+Nice=10
+Restart=on-failure
+TimeoutStartSec=300
+
+[Install]
+WantedBy=default.target

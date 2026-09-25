@@ -1,0 +1,33 @@
+# Agente 2 de Zabbix: ve el host (pid y red del host, /proc) y los contenedores
+# leyendo cgroup v2 de SOLO LECTURA. NO se monta el socket de podman.
+# Claves permitidas: agente/vec_supervision.conf (copiar a
+# ~/.config/vec-supervision/). Disco por «sondas»: directorios vacíos de cada
+# sistema de ficheros montados ro; statfs da tamaño y uso sin exponer contenido.
+# Plantilla: macro {$VEC.CGROUP.BASE} = /host/cgroup/user.slice/user-<UID>.slice/user@<UID>.service/app.slice
+# y {$VEC.CGROUP.REGEX} = ^vec-.*\.service$ (nombres de unidad, sin datos personales).
+[Unit]
+Description=VEC supervisión: agente 2 de Zabbix
+After=vec-supervision-servidor.service
+
+[Container]
+ContainerName=vec-supervision-agente
+Image=docker.io/zabbix/zabbix-agent2@sha256:ba55e6d146d0f0bc550da82b29b22134655db6e31d2c9eae9b1d15f659ad86cd
+Network=host
+Environment=ZBX_HOSTNAME=cidonia-vec ZBX_SERVER_HOST=127.0.0.1 ZBX_SERVER_PORT=10051 ZBX_PASSIVE_ALLOW=false ZBX_ACTIVE_ALLOW=true
+Volume=/sys/fs/cgroup:/host/cgroup:ro
+Volume=%h/.config/vec-supervision/vec_supervision.conf:/etc/zabbix/zabbix_agentd.d/vec_supervision.conf:ro
+Volume=%h/.local/state/vec-supervision/sonda:/sondas/home:ro
+Volume=/var/tmp/vec-supervision-sonda:/sondas/raiz:ro
+# Límites (recursos.env): AGENTE_CPUS, AGENTE_MEMORIA, AGENTE_PIDS.
+PodmanArgs=--pid=host --cpus=0.25 --memory=128m --memory-swap=128m --pids-limit=64 --cpu-shares=256
+NoNewPrivileges=true
+DropCapability=ALL
+
+[Service]
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+Restart=on-failure
+
+[Install]
+WantedBy=default.target

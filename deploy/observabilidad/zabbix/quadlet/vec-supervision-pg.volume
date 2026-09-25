@@ -1,0 +1,4 @@
+# Volumen propio de la base de supervisión. Nunca comparte volumen ni instancia
+# con el PostgreSQL de VEC: debe poder registrar la caída de este.
+[Volume]
+VolumeName=vec-supervision-pg

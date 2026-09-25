@@ -1,0 +1,214 @@
+zabbix_export:
+  version: '7.0'
+  template_groups:
+    - uuid: 3f074e2b6d4c438db611de1ec20648d8
+      name: Templates/VEC
+  templates:
+    - uuid: d469883544ee480a8a7b9e626db4902e
+      template: 'VEC cgroup contenedores'
+      name: 'VEC cgroup contenedores'
+      description: |
+        Recursos por contenedor leyendo cgroup v2 de solo lectura (sin socket del motor).
+        Descubre los grupos bajo {$VEC.CGROUP.BASE} cuyo nombre cumple {$VEC.CGROUP.REGEX}.
+        Podman rootless con Quadlet: base .../user@UID.service/app.slice y nombres de unidad.
+        Docker (piloto): base system.slice y nombres docker-<id>.scope.
+        Solo nombres de unidad o identificadores de contenedor: ningún dato personal.
+      groups:
+        - name: Templates/VEC
+      macros:
+        - macro: '{$VEC.CGROUP.BASE}'
+          value: /host/cgroup/system.slice
+          description: 'Directorio cgroup (montado en /host/cgroup) que contiene los contenedores.'
+        - macro: '{$VEC.CGROUP.REGEX}'
+          value: '^(docker|libpod)-\w+\.scope$'
+          description: 'Expresión de los subdirectorios que son contenedores o unidades a vigilar.'
+        - macro: '{$VEC.CGROUP.LLD.INTERVALO}'
+          value: 10m
+      discovery_rules:
+        - uuid: 7f4a12d3fdd143ae8deb1be9548f392d
+          name: 'Contenedores por cgroup'
+          type: ZABBIX_ACTIVE
+          key: 'vfs.dir.get[{$VEC.CGROUP.BASE},{$VEC.CGROUP.REGEX},,dir,,0]'
+          delay: '{$VEC.CGROUP.LLD.INTERVALO}'
+          lifetime: 1d
+          lld_macro_paths:
+            - lld_macro: '{#CGRUPO}'
+              path: $.basename
+          item_prototypes:
+            - uuid: 53087123116f4e3e990f56ad82a6f241
+              name: '{#CGRUPO}: CPU usada'
+              type: ZABBIX_ACTIVE
+              key: 'vfs.file.regexp[{$VEC.CGROUP.BASE}/{#CGRUPO}/cpu.stat,^usage_usec (\d+),,,,\1]'
+              value_type: FLOAT
+              units: '%'
+              history: 7d
+              trends: 90d
+              description: 'Porcentaje de un núcleo (100 % = un núcleo completo).'
+              preprocessing:
+                - type: CHANGE_PER_SECOND
+                  parameters:
+                    - ''
+                - type: MULTIPLIER
+                  parameters:
+                    - '0.0001'
+              tags:
+                - tag: componente
+                  value: contenedor
+            - uuid: 06f38cdcc215489d81b1fc9afd2a5dbf
+              name: '{#CGRUPO}: CPU estrangulada por límite'
+              type: ZABBIX_ACTIVE
+              key: 'vfs.file.regexp[{$VEC.CGROUP.BASE}/{#CGRUPO}/cpu.stat,^throttled_usec (\d+),,,,\1]'
+              value_type: FLOAT
+              units: '%'
+              history: 7d
+              trends: 90d
+              preprocessing:
+                - type: CHANGE_PER_SECOND
+                  parameters:
+                    - ''
+                - type: MULTIPLIER
+                  parameters:
+                    - '0.0001'
+              tags:
+                - tag: componente
+                  value: contenedor
+            - uuid: d7331d4effdb45ea89ec77b7fd0ae2d8
+              name: '{#CGRUPO}: memoria en uso (incluye caché)'
+              type: ZABBIX_ACTIVE
+              key: 'vfs.file.contents[{$VEC.CGROUP.BASE}/{#CGRUPO}/memory.current]'
+              units: B
+              history: 7d
+              trends: 90d
+              tags:
+                - tag: componente
+                  value: contenedor
+            - uuid: 192276e2df8647b2a9c234a7b9bd13ac
+              name: '{#CGRUPO}: memoria anónima'
+              type: ZABBIX_ACTIVE
+              key: 'vfs.file.regexp[{$VEC.CGROUP.BASE}/{#CGRUPO}/memory.stat,^anon (\d+),,,,\1]'
+              units: B
+              history: 7d
+              trends: 90d
+              tags:
+                - tag: componente
+                  value: contenedor
+            - uuid: de5f987079ba4a33b28a22fbf16058cb
+              name: '{#CGRUPO}: límite de memoria'
+              type: ZABBIX_ACTIVE
+              key: 'vfs.file.contents[{$VEC.CGROUP.BASE}/{#CGRUPO}/memory.max]'
+              delay: 10m
+              units: B
+              history: 7d
+              trends: 90d
+              description: '0 significa sin límite.'
+              preprocessing:
+                - type: JAVASCRIPT
+                  parameters:
+                    - 'var v = value.trim(); return v === ''max'' ? 0 : v;'
+              tags:
+                - tag: componente
+                  value: contenedor
+            - uuid: a95c077b53c4440da4402539d9eeeb12
+              name: '{#CGRUPO}: terminaciones por falta de memoria'
+              type: ZABBIX_ACTIVE
+              key: 'vfs.file.regexp[{$VEC.CGROUP.BASE}/{#CGRUPO}/memory.events,^oom_kill (\d+),,,,\1]'
+              history: 7d
+              trends: 90d
+              tags:
+                - tag: componente
+                  value: contenedor
+            - uuid: 09b414ff3625406cb5abd692d8f3964a
+              name: '{#CGRUPO}: procesos'
+              type: ZABBIX_ACTIVE
+              key: 'vfs.file.contents[{$VEC.CGROUP.BASE}/{#CGRUPO}/pids.current]'
+              history: 7d
+              trends: 90d
+              tags:
+                - tag: componente
+                  value: contenedor
+            - uuid: e2ddd5f8681048649f93a7af94eb2415
+              name: '{#CGRUPO}: io.stat (maestro, sin historia)'
+              type: ZABBIX_ACTIVE
+              key: 'vfs.file.contents[{$VEC.CGROUP.BASE}/{#CGRUPO}/io.stat]'
+              value_type: TEXT
+              history: '0'
+              trends: '0'
+              tags:
+                - tag: componente
+                  value: contenedor
+            - uuid: 31003dc1c25a4391afc135b6901da97f
+              name: '{#CGRUPO}: lectura de disco'
+              type: DEPENDENT
+              key: 'vec.cgroup.io.lectura[{#CGRUPO}]'
+              delay: '0'
+              master_item:
+                key: 'vfs.file.contents[{$VEC.CGROUP.BASE}/{#CGRUPO}/io.stat]'
+              value_type: FLOAT
+              units: Bps
+              history: 7d
+              trends: 90d
+              preprocessing:
+                - type: JAVASCRIPT
+                  parameters:
+                    - |
+                      var t = 0;
+                      value.split('\n').forEach(function (l) {
+                        var m = l.match(/rbytes=(\d+)/);
+                        if (m) { t += parseInt(m[1], 10); }
+                      });
+                      return t;
+                - type: CHANGE_PER_SECOND
+                  parameters:
+                    - ''
+              tags:
+                - tag: componente
+                  value: contenedor
+            - uuid: 710a9a3173064499a77aaad39e68872f
+              name: '{#CGRUPO}: escritura en disco'
+              type: DEPENDENT
+              key: 'vec.cgroup.io.escritura[{#CGRUPO}]'
+              delay: '0'
+              master_item:
+                key: 'vfs.file.contents[{$VEC.CGROUP.BASE}/{#CGRUPO}/io.stat]'
+              value_type: FLOAT
+              units: Bps
+              history: 7d
+              trends: 90d
+              preprocessing:
+                - type: JAVASCRIPT
+                  parameters:
+                    - |
+                      var t = 0;
+                      value.split('\n').forEach(function (l) {
+                        var m = l.match(/wbytes=(\d+)/);
+                        if (m) { t += parseInt(m[1], 10); }
+                      });
+                      return t;
+                - type: CHANGE_PER_SECOND
+                  parameters:
+                    - ''
+              tags:
+                - tag: componente
+                  value: contenedor
+            - uuid: 8ac6450b6b9b46a19c7247ed08a0c64f
+              name: '{#CGRUPO}: presión de memoria (60 s)'
+              type: ZABBIX_ACTIVE
+              key: 'vfs.file.regexp[{$VEC.CGROUP.BASE}/{#CGRUPO}/memory.pressure,^some avg10=\S+ avg60=(\S+),,,,\1]'
+              value_type: FLOAT
+              units: '%'
+              history: 7d
+              trends: 90d
+              tags:
+                - tag: componente
+                  value: contenedor
+            - uuid: a5d3d9e40fe748e985fa51b9e130c758
+              name: '{#CGRUPO}: presión de CPU (60 s)'
+              type: ZABBIX_ACTIVE
+              key: 'vfs.file.regexp[{$VEC.CGROUP.BASE}/{#CGRUPO}/cpu.pressure,^some avg10=\S+ avg60=(\S+),,,,\1]'
+              value_type: FLOAT
+              units: '%'
+              history: 7d
+              trends: 90d
+              tags:
+                - tag: componente
+                  value: contenedor

@@ -1,0 +1,16 @@
+# Servidor Zabbix 7.0.31 sin nmap.
+#
+# La imagen oficial incluye nmap 7.99 bajo la «Nmap Public Source License»
+# (NPSL), que no está aprobada por OSI y que Fedora rechaza. Zabbix solo lo usa
+# en el script global «Detect operating system» (sudo nmap -O); aquí los
+# scripts globales están desactivados (ZBX_ENABLEGLOBALSCRIPTS=0). Se retira el
+# paquete para cumplir «solo software libre». No se modifica Zabbix.
+#
+# Construir (rootless):
+#   podman build -t localhost/vec-supervision-servidor:7.0.31 deploy/observabilidad/zabbix/servidor-sin-nmap
+# y usar esa imagen en quadlet/vec-supervision-servidor.container.
+FROM docker.io/zabbix/zabbix-server-pgsql@sha256:415452211dea59cd4ea3346f2c2b38403660408273c672ebf91603353ce1073f
+USER 0
+RUN apk del --no-cache nmap nmap-scripts 2>/dev/null || apk del --no-cache nmap; \
+    ! apk info -e nmap
+USER 1997

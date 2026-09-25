@@ -1,0 +1,5 @@
+# Red interna de supervisión: PostgreSQL de supervisión <-> servidor y frontend.
+# Internal=true: sin salida a Internet ni a otras redes.
+[Network]
+NetworkName=vec-supervision-datos
+Internal=true

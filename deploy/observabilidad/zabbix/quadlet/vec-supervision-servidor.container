@@ -1,0 +1,33 @@
+# Servidor Zabbix 7.0 LTS. Solo agentes activos; 10051 publicado en loopback
+# para el agente (red del host). Sin comprobación de actualizaciones (ninguna
+# llamada saliente a zabbix.com) ni scripts globales.
+[Unit]
+Description=VEC supervisión: servidor Zabbix
+Requires=vec-supervision-pg.service
+After=vec-supervision-pg.service
+
+[Container]
+ContainerName=vec-supervision-servidor
+# Imagen local sin nmap: podman build -f ../servidor-sin-nmap/Containerfile (README).
+Image=localhost/vec-supervision-servidor:7.0.31
+Network=vec-supervision-datos.network
+Network=vec-supervision-frontal.network
+PublishPort=127.0.0.1:10051:10051
+Secret=vec-supervision-pg-clave,type=mount,target=/run/secrets/pg_clave
+Environment=DB_SERVER_HOST=vec-supervision-pg POSTGRES_USER=zabbix POSTGRES_DB=zabbix POSTGRES_PASSWORD_FILE=/run/secrets/pg_clave
+# SERVIDOR_AJUSTES de recursos.env.
+Environment=ZBX_STARTPOLLERS=1 ZBX_STARTPOLLERSUNREACHABLE=1 ZBX_STARTAGENTPOLLERS=1 ZBX_STARTHTTPAGENTPOLLERS=1 ZBX_STARTSNMPPOLLERS=1 ZBX_STARTHTTPPOLLERS=1 ZBX_STARTTRAPPERS=3 ZBX_STARTPINGERS=1 ZBX_STARTDISCOVERERS=1 ZBX_STARTDBSYNCERS=2 ZBX_STARTLLDPROCESSORS=1 ZBX_STARTPREPROCESSORS=2 ZBX_STARTALERTERS=1 ZBX_STARTESCALATORS=1 ZBX_STARTTIMERS=1 ZBX_CACHESIZE=32M ZBX_HISTORYCACHESIZE=16M ZBX_HISTORYINDEXCACHESIZE=4M ZBX_TRENDCACHESIZE=4M ZBX_TRENDFUNCTIONCACHESIZE=4M ZBX_VALUECACHESIZE=32M ZBX_ALLOWSOFTWAREUPDATECHECK=0 ZBX_ENABLEGLOBALSCRIPTS=0
+# Límites (recursos.env): SERVIDOR_CPUS, SERVIDOR_MEMORIA, SERVIDOR_PIDS.
+PodmanArgs=--cpus=1.0 --memory=384m --memory-swap=384m --pids-limit=256 --cpu-shares=256
+NoNewPrivileges=true
+DropCapability=ALL
+
+[Service]
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+Restart=on-failure
+TimeoutStartSec=300
+
+[Install]
+WantedBy=default.target

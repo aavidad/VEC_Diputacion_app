@@ -1,0 +1,31 @@
+# PostgreSQL exclusivo de la supervisión (Zabbix 7.0 LTS). Rootless, en el
+# usuario de servicio: ~/.config/containers/systemd/.
+# Clave: `podman secret create vec-supervision-pg-clave <fichero>`, fuera de Git.
+[Unit]
+Description=VEC supervisión: PostgreSQL de Zabbix
+
+[Container]
+ContainerName=vec-supervision-pg
+Image=docker.io/library/postgres@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
+Network=vec-supervision-datos.network
+Volume=vec-supervision-pg.volume:/var/lib/postgresql
+Secret=vec-supervision-pg-clave,type=mount,target=/run/secrets/pg_clave
+Environment=POSTGRES_USER=zabbix POSTGRES_DB=zabbix POSTGRES_PASSWORD_FILE=/run/secrets/pg_clave
+# PG_AJUSTES de recursos.env.
+Exec=postgres -c shared_buffers=128MB -c effective_cache_size=256MB -c work_mem=4MB -c maintenance_work_mem=32MB -c max_connections=60 -c wal_buffers=4MB -c max_wal_size=512MB -c min_wal_size=64MB -c checkpoint_completion_target=0.9 -c synchronous_commit=off -c autovacuum_max_workers=2 -c random_page_cost=1.1 -c jit=off
+# Límites (recursos.env): PG_CPUS, PG_MEMORIA, PG_PIDS, CUOTA_CPU_RELATIVA.
+PodmanArgs=--cpus=1.0 --memory=768m --memory-swap=768m --pids-limit=128 --cpu-shares=256
+# E/S (PG_ESCRITURA_BPS/PG_LECTURA_BPS): solo tiene efecto si el controlador io
+# está delegado al usuario (README, «rootless»). Sustituir <disco>:
+# PodmanArgs=--device-write-bps=/dev/<disco>:20mb --device-read-bps=/dev/<disco>:50mb
+NoNewPrivileges=true
+
+[Service]
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+Restart=on-failure
+TimeoutStartSec=300
+
+[Install]
+WantedBy=default.target
