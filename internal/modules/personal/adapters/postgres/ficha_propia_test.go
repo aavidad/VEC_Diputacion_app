@@ -128,6 +128,12 @@ func TestFichaPropiaRechazaAtestacionAjenaAntesDeSQL(t *testing.T) {
 	if _, err := r.ConsultarFichaPropia(context.Background(), ports.OrdenFichaPropia{Material: o.Material, Autorizacion: ajena}); !errors.Is(err, domain.ErrFichaPropiaInvalida) || pool.n != 0 {
 		t.Fatal("atestación de otra operación enviada a SQL", err)
 	}
+	// Un material que no se reconstruye se rechaza con la causa conservada en
+	// el mensaje, pero solo como inválido para quien pregunta con errors.Is.
+	_, err := r.ConsultarFichaPropia(context.Background(), ports.OrdenFichaPropia{Autorizacion: o.Autorizacion})
+	if !errors.Is(err, domain.ErrFichaPropiaInvalida) || errors.Is(err, domain.ErrFichaPropiaSinEmpleado) || err.Error() == domain.ErrFichaPropiaInvalida.Error() || pool.n != 0 {
+		t.Fatal("material vacío sin causa o enviado a SQL", err)
+	}
 }
 
 func TestDecodificarFichaPropiaSinReferenciasEnJSON(t *testing.T) {

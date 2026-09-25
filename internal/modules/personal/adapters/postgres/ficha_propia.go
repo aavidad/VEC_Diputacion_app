@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"regexp"
 
 	"github.com/jackc/pgx/v5"
@@ -37,8 +38,11 @@ var _ ports.RepositorioFichaPropia = (*RepositorioRegistroEmpleadoB2PostgreSQL)(
 // supera su contrato.
 func (r *RepositorioRegistroEmpleadoB2PostgreSQL) ConsultarFichaPropia(ctx context.Context, o ports.OrdenFichaPropia) (ports.ResultadoFichaPropia, error) {
 	var vacio ports.ResultadoFichaPropia
-	if r == nil || !materialFichaPropiaValido(o.Material, o.Autorizacion) {
+	if r == nil {
 		return vacio, domain.ErrFichaPropiaInvalida
+	}
+	if err := validarMaterialFichaPropia(o.Material, o.Autorizacion); err != nil {
+		return vacio, err
 	}
 	resultado, err := ejecutarRegistroEmpleadoB2(ctx, r.pool, consultaFichaPropiaSQL, o.Material.Canonico(), o.Autorizacion, maxRespuestaFichaPropia, func(bruto []byte) (ports.ResultadoFichaPropia, error) {
 		return decodificarFichaPropia(bruto, o)
@@ -67,17 +71,32 @@ func PreflightEjecutorFichaPropia(ctx context.Context, pool *pgxpool.Pool) error
 	return preflightFichaPropia(ctx, pool, preflightFichaPropiaEjecutor)
 }
 
-func materialFichaPropiaValido(m domain.MaterialFichaPropia, a vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) bool {
+// validarMaterialFichaPropia comprueba que el material es canónico y que la
+// concesión V3 es exactamente la de esa ficha. Devuelve el error de dominio
+// de la reconstrucción o ErrFichaPropiaInvalida; nunca descarta la causa.
+func validarMaterialFichaPropia(m domain.MaterialFichaPropia, a vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) error {
 	reconstruido, err := domain.NuevoMaterialFichaPropia(domain.SolicitudFichaPropia{Corte: m.Corte(), Actor: m.Actor()})
-	if err != nil || !bytes.Equal(reconstruido.Canonico(), m.Canonico()) || a.ValidarEstructura() != nil {
-		return false
+	if err != nil {
+		return fmt.Errorf("%w: %v", domain.ErrFichaPropiaInvalida, err)
+	}
+	if !bytes.Equal(reconstruido.Canonico(), m.Canonico()) {
+		return domain.ErrFichaPropiaInvalida
+	}
+	if err := a.ValidarEstructura(); err != nil {
+		return fmt.Errorf("%w: %v", domain.ErrFichaPropiaInvalida, err)
 	}
 	h, err := m.HuellaSHA256()
+	if err != nil {
+		return fmt.Errorf("%w: %v", domain.ErrFichaPropiaInvalida, err)
+	}
 	x := a.ResumenCapacidad()
 	actor := m.Actor()
-	return err == nil && a.PersonaVersion() == actor.Instantanea.PersonaVersion && a.PerfilVersion() == actor.Instantanea.PerfilVersion &&
-		x.Operacion() == domain.AccionFichaPropia && x.AudienciaConsumo() == domain.AudienciaFichaPropia &&
-		x.EfectoRef() == m.EmpleadoRef() && x.EfectoHuellaSHA256() == h
+	if a.PersonaVersion() != actor.Instantanea.PersonaVersion || a.PerfilVersion() != actor.Instantanea.PerfilVersion ||
+		x.Operacion() != domain.AccionFichaPropia || x.AudienciaConsumo() != domain.AudienciaFichaPropia ||
+		x.EfectoRef() != m.EmpleadoRef() || x.EfectoHuellaSHA256() != h {
+		return domain.ErrFichaPropiaInvalida
+	}
+	return nil
 }
 
 func decodificarFichaPropia(bruto []byte, o ports.OrdenFichaPropia) (ports.ResultadoFichaPropia, error) {
