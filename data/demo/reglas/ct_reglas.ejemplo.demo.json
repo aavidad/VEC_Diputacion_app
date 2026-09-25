@@ -1,0 +1,216 @@
+{
+  "version_esquema": 1,
+  "fuente": {
+    "revision": "reglas-ct-ejemplo-v1",
+    "actualizada_en": "2026-09-25T00:00:00Z",
+    "demostracion": true,
+    "aviso": "DEMOSTRACIÓN: reglas de ejemplo para desarrollo y presentación a RRHH. Se borran al pasar a producción, como los datos de ejemplo. Las marcadas «reglamento» citan el Reglamento de bolsas de la Diputación de Granada (BOP n.º 9 de 16/01/2026, mod. BOP n.º 91 de 14/05/2026); las marcadas «ejemplo» son supuestos de trabajo sin aprobación de RRHH ni validez administrativa.",
+    "origen_sha256": "7155cbb790ffea9a8e28391c134e1b1b7f6b47cbbe5840ef964a5de3ecec6e8a"
+  },
+  "catalogo": {
+    "id": "vec.contratacion_temporal.reglas",
+    "version": 1,
+    "revision": 1,
+    "modulo_id": "contratacion_temporal",
+    "nombre": "Reglas de Contratación temporal — ejemplo",
+    "descripcion": "Plazos y límites de ejemplo del expediente de contratación temporal, con la norma que los inspira. Ninguno está aprobado por RRHH; origen_sha256 es la huella de la matriz normativa del módulo.",
+    "fuente_ref": "paquete:ejemplo:vec:v1",
+    "motivo_creacion": "Reglas de ejemplo para la presentación a RRHH; se retiran antes de producción.",
+    "entradas": [
+      {
+        "clave": "c01.plazo_analisis",
+        "etiqueta": "Plazo de análisis de la solicitud",
+        "descripcion": "Cinco días hábiles para que RRHH analice la solicitud del centro.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo.",
+          "duda": "Pendiente de RRHH.",
+          "unidad": "dias_habiles",
+          "cantidad": "5",
+          "inicio": "solicitud",
+          "computo": "administrativo"
+        },
+        "orden": 1
+      },
+      {
+        "clave": "c02.plazo_informes",
+        "etiqueta": "Plazo de los informes",
+        "descripcion": "Diez días hábiles para emitir un informe.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Ley 39/2015, art. 80.2.",
+          "duda": "Su aplicación a este procedimiento la confirma RRHH.",
+          "unidad": "dias_habiles",
+          "cantidad": "10",
+          "inicio": "peticion_informe",
+          "computo": "administrativo"
+        },
+        "orden": 2
+      },
+      {
+        "clave": "c03.plazo_fiscalizacion",
+        "etiqueta": "Plazo de fiscalización",
+        "descripcion": "Diez días hábiles; cinco si la tramitación es urgente.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Real Decreto 424/2017, art. 13.1 (texto no cotejado en este corte).",
+          "duda": "Cotejar el texto del art. 13.1 con Intervención.",
+          "unidad": "dias_habiles",
+          "cantidad": "10",
+          "inicio": "recepcion_expediente",
+          "computo": "administrativo",
+          "cantidad_urgente": "5"
+        },
+        "orden": 3
+      },
+      {
+        "clave": "c04.plazo_subsanacion",
+        "etiqueta": "Plazo de subsanación",
+        "descripcion": "Diez días hábiles para subsanar.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Ley 39/2015, art. 68.1.",
+          "duda": "Pendiente de RRHH.",
+          "unidad": "dias_habiles",
+          "cantidad": "10",
+          "inicio": "requerimiento",
+          "computo": "administrativo"
+        },
+        "orden": 4
+      },
+      {
+        "clave": "c05.motivos_rectificacion",
+        "etiqueta": "Motivos de rectificación",
+        "descripcion": "Los motivos admitidos están en el catálogo motivos_rectificacion_analisis.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo.",
+          "duda": "Pendiente de RRHH.",
+          "unidad": "lista",
+          "valor": "error_material,cambio_fechas_centro,cambio_jornada,modalidad_causa_mal_encuadrada,categoria_grupo_erroneo,observacion_intervencion",
+          "catalogo": "motivos_rectificacion_analisis"
+        },
+        "orden": 5
+      },
+      {
+        "clave": "c06.alta_seguridad_social",
+        "etiqueta": "Alta en la Seguridad Social",
+        "descripcion": "El alta se comunica antes del comienzo de la prestación de servicios.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Real Decreto 84/1996, art. 32.3.",
+          "duda": "Duda 39.",
+          "unidad": "ninguna"
+        },
+        "orden": 6
+      },
+      {
+        "clave": "c07.jornada_completa",
+        "etiqueta": "Jornada completa de referencia",
+        "descripcion": "37 h 30 min semanales de media.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo.",
+          "duda": "Duda 38.",
+          "unidad": "minutos_semanales",
+          "cantidad": "2250"
+        },
+        "orden": 7
+      },
+      {
+        "clave": "c08.acumulacion_tareas",
+        "etiqueta": "Duración máxima: acumulación de tareas",
+        "descripcion": "Nueve meses dentro de un periodo de dieciocho.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "TREBEP, art. 10.1.d.",
+          "duda": "Pendiente de RRHH.",
+          "unidad": "meses",
+          "cantidad": "9",
+          "inicio": "nombramiento",
+          "computo": "civil",
+          "ventana_meses": "18"
+        },
+        "orden": 8
+      },
+      {
+        "clave": "c08.programas_temporales",
+        "etiqueta": "Duración máxima: programas temporales",
+        "descripcion": "Tres años, ampliables doce meses más por ley de función pública.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "TREBEP, art. 10.1.c.",
+          "duda": "Pendiente de RRHH.",
+          "unidad": "anios",
+          "cantidad": "3",
+          "inicio": "nombramiento",
+          "computo": "civil",
+          "ampliacion_meses": "12"
+        },
+        "orden": 9
+      },
+      {
+        "clave": "c08.vacante",
+        "etiqueta": "Duración máxima: vacante",
+        "descripcion": "Tres años desde el nombramiento.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "TREBEP, art. 10.4.",
+          "duda": "Pendiente de RRHH.",
+          "unidad": "anios",
+          "cantidad": "3",
+          "inicio": "nombramiento",
+          "computo": "civil"
+        },
+        "orden": 10
+      },
+      {
+        "clave": "c08.sustitucion",
+        "etiqueta": "Duración: sustitución",
+        "descripcion": "Hasta la reincorporación de la persona sustituida.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "TREBEP, art. 10.1.b; Estatuto de los Trabajadores, art. 15.3.",
+          "duda": "Pendiente de RRHH.",
+          "unidad": "ninguna"
+        },
+        "orden": 11
+      },
+      {
+        "clave": "c08.circunstancias_produccion",
+        "etiqueta": "Duración máxima: circunstancias de la producción",
+        "descripcion": "Seis meses, ampliables a un año por convenio sectorial.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Estatuto de los Trabajadores, art. 15.2.",
+          "duda": "Pendiente de RRHH.",
+          "unidad": "meses",
+          "cantidad": "6",
+          "inicio": "contrato",
+          "computo": "civil",
+          "ampliable_meses": "12"
+        },
+        "orden": 12
+      }
+    ],
+    "estado": "publicado",
+    "creado_por": "catalogo_ejemplo_vec",
+    "creado_en": "2026-09-25T00:00:00Z",
+    "publicado_por": "catalogo_ejemplo_vec",
+    "publicado_en": "2026-09-25T00:00:00Z",
+    "aprobacion_ref": "sin_aprobacion_rrhh:ejemplo_desarrollo",
+    "motivo_publicacion": "Publicación de ejemplo solo para desarrollo y presentación; no es una aprobación."
+  }
+}

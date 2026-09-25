@@ -1,0 +1,481 @@
+{
+  "version_esquema": 1,
+  "fuente": {
+    "revision": "reglas-bolsa-ejemplo-v1",
+    "actualizada_en": "2026-09-25T00:00:00Z",
+    "demostracion": true,
+    "aviso": "DEMOSTRACIÓN: reglas de ejemplo para desarrollo y presentación a RRHH. Se borran al pasar a producción, como los datos de ejemplo. Las marcadas «reglamento» citan el Reglamento de bolsas de la Diputación de Granada (BOP n.º 9 de 16/01/2026, mod. BOP n.º 91 de 14/05/2026); las marcadas «ejemplo» son supuestos de trabajo sin aprobación de RRHH ni validez administrativa.",
+    "origen_sha256": "384e79db70d8885bd0ffce5c6b449792c38d6708fd45cdb40f0d2c3374b5e7ca"
+  },
+  "catalogo": {
+    "id": "vec.bolsa.reglas",
+    "version": 1,
+    "revision": 1,
+    "modulo_id": "bolsa",
+    "nombre": "Reglas de Bolsa — ejemplo",
+    "descripcion": "Reglas de llamamiento y gestión de las bolsas. Las de origen «reglamento» citan el Reglamento publicado en el BOP de Granada n.º 9 de 16/01/2026 (CVE BOP-GRA-2026-009002), modificado en el BOP n.º 91 de 14/05/2026 (CVE BOP-GRA-2026-091001); origen_sha256 es la huella del PDF publicado. Las de origen «ejemplo» no están aprobadas.",
+    "fuente_ref": "paquete:ejemplo:vec:v1",
+    "motivo_creacion": "Reglas de ejemplo para la presentación a RRHH; se retiran antes de producción.",
+    "entradas": [
+      {
+        "clave": "b01.orden_prelacion",
+        "etiqueta": "Llamamiento por orden estricto de prelación",
+        "descripcion": "Se llama al aspirante que corresponda por orden estricto y sucesivo, solo entre los disponibles.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "reglamento",
+          "norma": "Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002)",
+          "duda": "Sin duda abierta.",
+          "unidad": "ninguna",
+          "articulo": "art. 8.2.a"
+        },
+        "orden": 1
+      },
+      {
+        "clave": "b02.intentos_contacto",
+        "etiqueta": "Dos intentos de contacto telefónico",
+        "descripcion": "Dos intentos de contacto telefónico por proceso de llamamiento.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "reglamento",
+          "norma": "Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002)",
+          "duda": "Sin duda abierta.",
+          "unidad": "intentos",
+          "cantidad": "2",
+          "articulo": "art. 8.2.a"
+        },
+        "orden": 2
+      },
+      {
+        "clave": "b02.separacion_intentos",
+        "etiqueta": "Separación mínima entre intentos",
+        "descripcion": "Al menos dos horas entre el primer y el segundo intento.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "reglamento",
+          "norma": "Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002)",
+          "duda": "Sin duda abierta.",
+          "unidad": "horas",
+          "cantidad": "2",
+          "articulo": "art. 8.2.a"
+        },
+        "orden": 3
+      },
+      {
+        "clave": "b03.procesos_sin_contacto",
+        "etiqueta": "Dos procesos sin contacto: baja",
+        "descripcion": "Si tras dos procesos de llamamiento telefónico no hay contacto con el mismo aspirante en un mismo ofrecimiento, se propone su baja definitiva.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "reglamento",
+          "norma": "Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002)",
+          "duda": "Dudas 13 y 14.",
+          "unidad": "procesos",
+          "cantidad": "2",
+          "articulo": "arts. 8.2.a y 11.1.a"
+        },
+        "orden": 4
+      },
+      {
+        "clave": "b04.franja_llamadas",
+        "etiqueta": "Franja de llamadas",
+        "descripcion": "Las llamadas se hacen de 9 a 14 h en días hábiles.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo.",
+          "duda": "Dudas 13 y 14.",
+          "unidad": "franja_horaria",
+          "valor": "09:00-14:00",
+          "dias": "habiles"
+        },
+        "orden": 5
+      },
+      {
+        "clave": "b05.plazo_respuesta",
+        "etiqueta": "Plazo de respuesta al llamamiento",
+        "descripcion": "Un día hábil desde el día siguiente al contacto efectivo; vence a las 23:59:59, hora peninsular.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Cómputo del art. 30 de la Ley 39/2015.",
+          "duda": "Dudas 13 y 14.",
+          "unidad": "dias_habiles",
+          "cantidad": "1",
+          "inicio": "contacto_efectivo",
+          "computo": "administrativo"
+        },
+        "orden": 6
+      },
+      {
+        "clave": "b06.correo_no_abre_plazo",
+        "etiqueta": "El correo no abre plazo",
+        "descripcion": "El aviso por correo electrónico es informativo: no es notificación ni abre ningún plazo.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Ley 39/2015, arts. 40 a 43 (el correo no es notificación).",
+          "duda": "Duda 45.",
+          "unidad": "ninguna"
+        },
+        "orden": 7
+      },
+      {
+        "clave": "b07.fuera_de_plazo",
+        "etiqueta": "Respuesta fuera de plazo",
+        "descripcion": "Una respuesta fuera de plazo se trata como falta de respuesta, salvo causa justificada del art. 10 acreditada.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002), art. 10.",
+          "duda": "Dudas 13 y 14.",
+          "unidad": "ninguna"
+        },
+        "orden": 8
+      },
+      {
+        "clave": "b08.sin_respuesta_baja",
+        "etiqueta": "Sin respuesta: no aceptación y baja",
+        "descripcion": "La falta de respuesta equivale a no aceptar; VEC propone la baja definitiva y RRHH la confirma.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "reglamento",
+          "norma": "Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002)",
+          "duda": "Duda 62.",
+          "unidad": "ninguna",
+          "articulo": "art. 11.1.a",
+          "ejemplo_parcial": "Que VEC proponga y RRHH confirme es un circuito de ejemplo."
+        },
+        "orden": 9
+      },
+      {
+        "clave": "b09.siguiente_candidato",
+        "etiqueta": "Siguiente candidato",
+        "descripcion": "Tras cada llamamiento se llama al siguiente disponible; VEC lo propone y RRHH lo confirma.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "reglamento",
+          "norma": "Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002)",
+          "duda": "Sin duda abierta.",
+          "unidad": "ninguna",
+          "articulo": "art. 8.2.b",
+          "ejemplo_parcial": "La confirmación por RRHH es un circuito de ejemplo."
+        },
+        "orden": 10
+      },
+      {
+        "clave": "b10.plazo_publicacion",
+        "etiqueta": "Plazo para manifestar disposición",
+        "descripcion": "En la publicación de llamamientos, dos días desde la publicación para manifestar la disposición. Se usará cuando exista el programa (disposición transitoria única).",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "reglamento",
+          "norma": "Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002)",
+          "duda": "El Reglamento dice «dos días» sin precisar; se toman hábiles (art. 30.2 de la Ley 39/2015).",
+          "unidad": "dias_habiles",
+          "cantidad": "2",
+          "inicio": "publicacion",
+          "computo": "administrativo",
+          "articulo": "art. 8.1.b"
+        },
+        "orden": 11
+      },
+      {
+        "clave": "b11.acreditar_renuncia_justificada",
+        "etiqueta": "Plazo para acreditar una renuncia justificada",
+        "descripcion": "Diez días hábiles para acreditar documentalmente una causa del art. 10 (enfermedad, maternidad o paternidad, alta en la Seguridad Social, matrimonio o unión de hecho).",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "reglamento",
+          "norma": "Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002); Ley 39/2015, art. 73.1.",
+          "duda": "Duda 13.",
+          "unidad": "dias_habiles",
+          "cantidad": "10",
+          "inicio": "renuncia",
+          "computo": "administrativo",
+          "articulo": "art. 10",
+          "ejemplo_parcial": "El plazo de diez días hábiles es de ejemplo (art. 73.1 de la Ley 39/2015).",
+          "causas": "enfermedad,maternidad_paternidad_adopcion,alta_seguridad_social,matrimonio_union_hecho"
+        },
+        "orden": 12
+      },
+      {
+        "clave": "b11.periodo_matrimonio",
+        "etiqueta": "Periodo justificado por matrimonio o unión de hecho",
+        "descripcion": "Quince días naturales desde la fecha del evento.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "reglamento",
+          "norma": "Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002)",
+          "duda": "Sin duda abierta.",
+          "unidad": "dias_naturales",
+          "cantidad": "15",
+          "inicio": "evento",
+          "computo": "civil",
+          "articulo": "art. 10.d"
+        },
+        "orden": 13
+      },
+      {
+        "clave": "b12.renuncia_no_justificada",
+        "etiqueta": "Renuncia no justificada: baja",
+        "descripcion": "No aceptar, no presentarse o no aportar la documentación sin causa del art. 10 supone la baja definitiva.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "reglamento",
+          "norma": "Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002)",
+          "duda": "Duda 62.",
+          "unidad": "ninguna",
+          "articulo": "art. 11.1"
+        },
+        "orden": 14
+      },
+      {
+        "clave": "b13.renuncia_nombramiento_en_curso",
+        "etiqueta": "Renuncia a un nombramiento en curso",
+        "descripcion": "Renunciar a un nombramiento o contrato vigente supone la baja, salvo el ofrecimiento de una vacante.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "reglamento",
+          "norma": "Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002)",
+          "duda": "El art. 11.2 remite al art. 9.4, pero la excepción de vacantes figura en el apartado 3 del art. 9.",
+          "unidad": "ninguna",
+          "articulo": "arts. 11.2 y 9.3"
+        },
+        "orden": 15
+      },
+      {
+        "clave": "b14.reposicion_general",
+        "etiqueta": "No disponibilidad tras un nombramiento",
+        "descripcion": "Cinco meses desde la finalización de la relación, computados de fecha a fecha.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "reglamento",
+          "norma": "Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002); Código Civil, art. 5.1.",
+          "duda": "El art. 9 numera dos apartados como «1»; se cita el segundo. Queda por confirmar si el día final está incluido.",
+          "unidad": "meses",
+          "cantidad": "5",
+          "inicio": "fin_relacion",
+          "computo": "civil",
+          "articulo": "art. 9.1"
+        },
+        "orden": 16
+      },
+      {
+        "clave": "b14.reposicion_acumulacion_tareas",
+        "etiqueta": "No disponibilidad tras acumulación de tareas",
+        "descripcion": "Nueve meses desde la finalización de un nombramiento por acumulación de tareas, de fecha a fecha.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "reglamento",
+          "norma": "Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002); Código Civil, art. 5.1.",
+          "duda": "Igual que la regla anterior.",
+          "unidad": "meses",
+          "cantidad": "9",
+          "inicio": "fin_relacion",
+          "computo": "civil",
+          "articulo": "art. 9.1"
+        },
+        "orden": 17
+      },
+      {
+        "clave": "b15.recupera_posicion",
+        "etiqueta": "Recupera su posición",
+        "descripcion": "Tras la no disponibilidad vuelve a ser llamado cuando le corresponda por su posición (lista rotatoria).",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "reglamento",
+          "norma": "Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002)",
+          "duda": "Sin duda abierta.",
+          "unidad": "ninguna",
+          "articulo": "art. 8.2.b y c"
+        },
+        "orden": 18
+      },
+      {
+        "clave": "b16.presta_servicios",
+        "etiqueta": "No se ofrece a quien ya presta servicios",
+        "descripcion": "No se ofrece un nuevo nombramiento a quien ya presta servicios en la Diputación, salvo el ofrecimiento de vacante.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "reglamento",
+          "norma": "Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002)",
+          "duda": "Sin duda abierta.",
+          "unidad": "ninguna",
+          "articulo": "arts. 9.1 y 9.3"
+        },
+        "orden": 19
+      },
+      {
+        "clave": "b17.aviso_encadenamiento",
+        "etiqueta": "Aviso de encadenamiento",
+        "descripcion": "Aviso cuando la persona suma más de 18 meses en 24 con contratos o nombramientos temporales.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "TREBEP, art. 10.4; Estatuto de los Trabajadores, art. 15.5.",
+          "duda": "El umbral es un parámetro de ejemplo; RRHH debe fijar el criterio.",
+          "unidad": "meses",
+          "cantidad": "18",
+          "ventana_meses": "24"
+        },
+        "orden": 20
+      },
+      {
+        "clave": "b18.pausa_voluntaria",
+        "etiqueta": "Pausa voluntaria",
+        "descripcion": "La persona puede pedir no ser llamada durante un máximo de doce meses.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo.",
+          "duda": "Sin figura en el Reglamento; pendiente de RRHH.",
+          "unidad": "meses",
+          "cantidad": "12",
+          "inicio": "solicitud_pausa",
+          "computo": "civil"
+        },
+        "orden": 21
+      },
+      {
+        "clave": "b19.vacante_duracion_maxima",
+        "etiqueta": "Duración máxima en vacante",
+        "descripcion": "Tres años como máximo, descontando lo ya desempeñado en acumulación de tareas o sustitución.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "reglamento",
+          "norma": "Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002); TREBEP, art. 10.4.",
+          "duda": "Sin duda abierta.",
+          "unidad": "anios",
+          "cantidad": "3",
+          "inicio": "nombramiento",
+          "computo": "civil",
+          "articulo": "art. 9.3"
+        },
+        "orden": 22
+      },
+      {
+        "clave": "b20.sae_duracion_maxima",
+        "etiqueta": "Duración máxima vía Servicio Andaluz de Empleo",
+        "descripcion": "Los nombramientos formalizados por el procedimiento excepcional del SAE no superan nueve meses.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "reglamento",
+          "norma": "Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002)",
+          "duda": "Sin duda abierta.",
+          "unidad": "meses",
+          "cantidad": "9",
+          "inicio": "nombramiento",
+          "computo": "civil",
+          "articulo": "art. 3.3"
+        },
+        "orden": 23
+      },
+      {
+        "clave": "b21.plazo_documentacion",
+        "etiqueta": "Plazo para aportar la documentación",
+        "descripcion": "Tres días hábiles desde la aceptación para aportar la documentación.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo.",
+          "duda": "Duda 13.",
+          "unidad": "dias_habiles",
+          "cantidad": "3",
+          "inicio": "aceptacion",
+          "computo": "administrativo"
+        },
+        "orden": 24
+      },
+      {
+        "clave": "b22.documentos_incorporacion",
+        "etiqueta": "Documentos para la incorporación",
+        "descripcion": "Identidad, titulación, declaración de no separación ni inhabilitación, declaración de compatibilidad y certificado negativo de delitos sexuales cuando el puesto lo exija.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "TREBEP, arts. 56 y 57; Ley 53/1984; Ley Orgánica 1/1996, art. 13.5.",
+          "duda": "La lista concreta la fija RRHH.",
+          "unidad": "lista",
+          "valor": "documento_identidad,titulacion,declaracion_no_separacion,declaracion_compatibilidad,certificado_delitos_sexuales"
+        },
+        "orden": 25
+      },
+      {
+        "clave": "b23.plazo_incorporacion",
+        "etiqueta": "Plazo de incorporación",
+        "descripcion": "Al menos un día hábil entre la aceptación y la incorporación; no presentarse supone la baja.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "reglamento",
+          "norma": "Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002)",
+          "duda": "Duda 13.",
+          "unidad": "dias_habiles",
+          "cantidad": "1",
+          "inicio": "aceptacion",
+          "computo": "administrativo",
+          "articulo": "art. 11.1",
+          "ejemplo_parcial": "El mínimo de un día hábil es de ejemplo."
+        },
+        "orden": 26
+      },
+      {
+        "clave": "b24.consecuencias",
+        "etiqueta": "Consecuencias y recurso",
+        "descripcion": "La única consecuencia prevista es la baja definitiva; cabe recurso de reposición en un mes.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "reglamento",
+          "norma": "Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002); Ley 39/2015, arts. 123 y 124.",
+          "duda": "Duda 62.",
+          "unidad": "meses",
+          "cantidad": "1",
+          "inicio": "notificacion",
+          "computo": "administrativo",
+          "articulo": "art. 11",
+          "valor": "baja_definitiva"
+        },
+        "orden": 27
+      },
+      {
+        "clave": "b25.vigencia_bolsa",
+        "etiqueta": "Vigencia de la bolsa",
+        "descripcion": "Cinco años desde su constitución; se prorroga si la nueva convocatoria se publicó dentro de ese plazo. En categorías de alta demanda, el nuevo proceso empieza con seis meses de antelación.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "reglamento",
+          "norma": "Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002)",
+          "duda": "Sin duda abierta.",
+          "unidad": "anios",
+          "cantidad": "5",
+          "inicio": "constitucion_bolsa",
+          "computo": "civil",
+          "articulo": "arts. 7.b y 3.4",
+          "antelacion_meses": "6"
+        },
+        "orden": 28
+      },
+      {
+        "clave": "b26.agotamiento",
+        "etiqueta": "Agotamiento de la bolsa",
+        "descripcion": "La bolsa se agota si no quedan integrantes disponibles, previa resolución expresa; entonces puede acudirse al SAE.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "reglamento",
+          "norma": "Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002)",
+          "duda": "Sin duda abierta.",
+          "unidad": "ninguna",
+          "articulo": "arts. 3 y 7.c"
+        },
+        "orden": 29
+      }
+    ],
+    "estado": "publicado",
+    "creado_por": "catalogo_ejemplo_vec",
+    "creado_en": "2026-09-25T00:00:00Z",
+    "publicado_por": "catalogo_ejemplo_vec",
+    "publicado_en": "2026-09-25T00:00:00Z",
+    "aprobacion_ref": "sin_aprobacion_rrhh:ejemplo_desarrollo",
+    "motivo_publicacion": "Publicación de ejemplo solo para desarrollo y presentación; no es una aprobación."
+  }
+}
