@@ -32,13 +32,14 @@ const (
 	// Acciones de negocio de lista positiva. Se duplican deliberadamente en
 	// este puerto estable para no importar la capa de aplicacion ni el modulo
 	// bolsa desde el nucleo VEC.
-	AccionNegocioPrepararCargaDocumental     = "vec.documentos.carga.preparar"
-	AccionNegocioConfirmarCargaDocumental    = "vec.documentos.carga.confirmar"
-	AccionNegocioAnalizarCargaDocumental     = "vec.documentos.carga.analizar"
-	AccionNegocioPromoverCargaDocumental     = "vec.documentos.carga.promover"
-	AccionNegocioCustodiarDecisionBaremacion = "bolsa.decision.custodiar"
-	AccionNegocioCustodiarDocumentoFirmado   = "bolsa.decision.firma.documento.custodiar"
-	AccionNegocioRetenerDocumentoFirmado     = "bolsa.decision.firma.documento.retener"
+	AccionNegocioPrepararCargaDocumental       = "vec.documentos.carga.preparar"
+	AccionNegocioConfirmarCargaDocumental      = "vec.documentos.carga.confirmar"
+	AccionNegocioAnalizarCargaDocumental       = "vec.documentos.carga.analizar"
+	AccionNegocioPromoverCargaDocumental       = "vec.documentos.carga.promover"
+	AccionNegocioCustodiarDecisionBaremacion   = "bolsa.decision.custodiar"
+	AccionNegocioCustodiarDocumentoFirmado     = "bolsa.decision.firma.documento.custodiar"
+	AccionNegocioRetenerDocumentoFirmado       = "bolsa.decision.firma.documento.retener"
+	AccionNegocioLeerOriginalDocumentoGenerado = "documentos.original.descargar"
 
 	// Atributos que deben formar parte del RecursoAutorizable evaluado por el
 	// PDP. Asi una decision no puede emplearse para acuñar capacidades sobre
@@ -65,6 +66,7 @@ const (
 	PasoAlmacenAbandonarCargaDirecta = almacencanonico.PasoAbandonarCargaDirecta
 	PasoAlmacenConfirmarCargaDirecta = almacencanonico.PasoConfirmarCargaDirecta
 	PasoAlmacenLeerParaAnalisis      = almacencanonico.PasoLeerParaAnalisis
+	PasoAlmacenLeerOriginalDocumento = almacencanonico.PasoLeerOriginalDocumento
 	PasoAlmacenAnalizarContenido     = almacencanonico.PasoAnalizarContenido
 	PasoAlmacenPromover              = almacencanonico.PasoPromover
 	PasoAlmacenCustodiarDecision     = almacencanonico.PasoCustodiarDecision
@@ -209,6 +211,19 @@ func NuevoContextoRetenerDocumentoFirmadoAlmacen(
 ) (ContextoOperacionAlmacen, error) {
 	return nuevoContextoOperacionAlmacen(decision, recurso, vinculos, verificadaEn,
 		especificacionRetenerDocumentoFirmado())
+}
+
+// NuevoContextoLeerDocumentoGeneradoAlmacen exige una decision propia para
+// lectura del objeto exacto descubierto tras la consulta documental V3.
+// La decision de almacen no sustituye la concesion V3 consumida en SQL.
+func NuevoContextoLeerDocumentoGeneradoAlmacen(
+	decision domain.DecisionAutorizacion,
+	recurso domain.RecursoAutorizable,
+	vinculos VinculosOperacionAlmacen,
+	verificadaEn time.Time,
+) (ContextoOperacionAlmacen, error) {
+	return nuevoContextoOperacionAlmacen(decision, recurso, vinculos, verificadaEn,
+		especificacionLeerOriginalDocumentoGenerado())
 }
 
 // NuevoContextoGeneracionDocumentalAlmacen es la unica fabrica que admite
@@ -366,6 +381,17 @@ func especificacionRetenerDocumentoFirmado() especificacionAutorizacionAlmacen {
 		camposExactos: []string{"documento_firmado.retencion", "evidencia_retencion"},
 		pasos: []pasoPlanOperacionAlmacen{{
 			referencia: PasoAlmacenRetenerFirmado, accion: AccionAlmacenAplicarRetencion,
+		}},
+		requiereObjeto: true,
+	}
+}
+
+func especificacionLeerOriginalDocumentoGenerado() especificacionAutorizacionAlmacen {
+	return especificacionAutorizacionAlmacen{
+		accionNegocio: AccionNegocioLeerOriginalDocumentoGenerado,
+		camposExactos: []string{"contenido", "documento"},
+		pasos: []pasoPlanOperacionAlmacen{{
+			referencia: PasoAlmacenLeerOriginalDocumento, accion: AccionAlmacenLeer,
 		}},
 		requiereObjeto: true,
 	}
