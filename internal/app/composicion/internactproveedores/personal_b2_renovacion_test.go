@@ -273,8 +273,8 @@ func TestPersonalB2UsaRaizCompartidaYOchoAudienciasEnOrden(t *testing.T) {
 			t.Fatalf("B2 no usa el consumidor cerrado v2: %s", sql)
 		}
 	}
-	if !strings.Contains(sqlLeerConfiguracionCT, "leer_configuracion_interna_v1($1::jsonb)") {
-		t.Fatal("CT dejó de usar la lectura v1")
+	if !strings.Contains(sqlLeerConfiguracionCT, "leer_configuracion_interna_v2('ct',$1::jsonb)") {
+		t.Fatal("CT no usa la lectura v2 con consumidor 'ct'")
 	}
 }
 

@@ -159,8 +159,10 @@ func Construir(ctx context.Context, c Configuracion) (Proveedores, error) {
 	}
 	anterior := gobiernov3lector.Publicacion{Revision: m.V3.ConfiguracionRef, Secuencia: m.V3.ConfiguracionOrden,
 		HuellaSHA256: m.V3.ConfiguracionSHA256, PublicadaEn: m.V3.ConfiguracionPublicada, ExpiraEn: m.V3.ConfiguracionExpira}
-	// CT conserva leer_configuracion_interna_v1 (AD3-53a): su contrato de cinco
-	// audiencias es idéntico al de v2('ct') y es el camino ya recorrido.
+	// CT lee con leer_configuracion_interna_v2('ct') (AD3-69): mismo contrato
+	// de cinco audiencias que v1, sin la comparación entre escalas
+	// revision_gobierno/checkpoint que rechazaba claves recién publicadas.
+	// v1 sigue instalada y en el manifiesto hasta su retirada.
 	verificador, err := nuevoLectorGobiernoV3(ctx, anterior, raiz, c.Reloj,
 		fuenteGobiernoV3(consultaLecturaGobiernoV3(salida.pools[3], sqlLeerConfiguracionCT), clavesGobiernoCT(m), coord))
 	if err != nil {
@@ -321,7 +323,7 @@ func crearCapacidad(raiz *os.Root, m capacidadMaterial, audiencia string, reloj 
 // Funciones SQL del rol de preflight. Los consumidores se fijan aquí como
 // literales: el llamante nunca aporta audiencias ni otro discriminador.
 const (
-	sqlLeerConfiguracionCT    = `SELECT vec_autorizacion_atestada_v3.leer_configuracion_interna_v1($1::jsonb)`
+	sqlLeerConfiguracionCT    = `SELECT vec_autorizacion_atestada_v3.leer_configuracion_interna_v2('ct',$1::jsonb)`
 	sqlComprobarMaterialB2    = `SELECT vec_autorizacion_atestada_v3.comprobar_material_emision_interna_v2('personal_b2',$1::jsonb)`
 	sqlLeerConfiguracionB2    = `SELECT vec_autorizacion_atestada_v3.leer_configuracion_interna_v2('personal_b2',$1::jsonb)`
 	maximoRespuestaGobiernoV3 = 4 << 10
@@ -511,9 +513,10 @@ func funcionesEsperadasPerfil(p perfilPool) []string {
 			"vec_autorizacion.resolver_motivo_cobertura_historico_v1(text,integer,text,text,text,timestamptz)",
 		}
 	case "vec_autorizacion_atestada_v3_preflight_interno":
-		// Estado exacto tras AD3-69: v1 (AD3-50a/53a) para CT y v2 por
-		// consumidor cerrado para B2. Sin AD3-69 falta v2 y el preflight,
-		// CT incluida, falla cerrado; no se admite el estado anterior.
+		// Estado exacto tras AD3-69: v1 (AD3-50a/53a) sigue instalada, sin
+		// consumidor de lectura (solo acredita el pool) hasta su retirada; CT
+		// y B2 leen con v2 por consumidor cerrado. Sin AD3-69 falta v2 y el
+		// preflight, CT incluida, falla cerrado; no se admite el estado anterior.
 		return []string{
 			"vec_autorizacion_atestada_v3.comprobar_material_emision_interna_v1(jsonb)",
 			"vec_autorizacion_atestada_v3.leer_configuracion_interna_v1(jsonb)",
