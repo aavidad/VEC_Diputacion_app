@@ -3,8 +3,8 @@
 # PRUEBA: instala 000001–000007, ROLLBACK y COMMIT de 000008, ACL, RLS,
 # movimientos con calendario, absentismos y correcciones; corrección de un
 # olvido con replay y conflicto; permisos del año; solicitud con cómputo de
-# laborables, horas solo en día laborable y sin solapes, cupos, solapes y
-# replay; conservación tras reiniciar. No acredita MAC, COSE ni gobierno V3.
+# laborables, horas solo en día laborable y sin solapes en ambos sentidos,
+# cupos, solapes y replay; conservación tras reiniciar. No acredita MAC, COSE ni gobierno V3.
 # El contenedor se borra al salir.
 set -euo pipefail
 base_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
@@ -109,6 +109,7 @@ app "SELECT prueba.espera_error(\$\$SELECT prueba.pedir('$A','perm-hm-00011','ho
 app "SELECT prueba.espera_error(\$\$SELECT prueba.pedir('$A','perm-hm-00012','horas-medico',prueba.semana()+1,prueba.semana()+1,'09:00','09:15','n-pd-14')\$\$,'PC010')" 'OK PC010' 'horas dentro de un permiso en días vivo rechazadas'
 app "SELECT prueba.espera_error(\$\$SELECT prueba.pedir('$A','perm-hm-00013','horas-medico',prueba.semana()+14,prueba.semana()+14,'11:00','11:15','n-pd-15')\$\$,'PC010')" 'OK PC010' 'tramo cruzado con otro del mismo día rechazado'
 app "SELECT (d->>'cantidad')||'|'||(d->>'replay') FROM prueba.pedir('$A','perm-hm-00014','horas-medico',prueba.semana()+14,prueba.semana()+14,'11:30','11:45','n-pd-16') d" '15|false' 'tramo contiguo del mismo día admitido'
+app "SELECT prueba.espera_error(\$\$SELECT prueba.pedir('$A','perm-tr-00001','traslado',prueba.semana()+13,prueba.semana()+15,'','','n-pd-18')\$\$,'PC010')" 'OK PC010' 'días que cubren un permiso por horas vivo rechazados'
 app "SELECT prueba.espera_error(\$\$SELECT prueba.pedir('$B','perm-hm-00015','horas-medico',prueba.semana(),prueba.semana(),'09:00','09:15','n-pd-17')\$\$,'PC008')" 'OK PC008' 'horas sin calendario rechazadas'
 app "SELECT prueba.espera_error(\$\$SELECT prueba.pedir('$A','perm-hm-00002','horas-medico',prueba.semana()+15,prueba.semana()+15,'09:00','10:00','n-pd-7')\$\$,'PC007')" 'OK PC007' 'cupo horario superado'
 app "SELECT prueba.espera_error(\$\$SELECT prueba.pedir('$A','perm-ma-00001','maternidad',prueba.semana()+20,prueba.semana()+21,'','','n-pd-8')\$\$,'PC009')" 'OK PC009' 'permiso no solicitable desde el portal'

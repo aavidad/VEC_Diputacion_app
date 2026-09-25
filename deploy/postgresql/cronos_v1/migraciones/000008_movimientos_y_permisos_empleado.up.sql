@@ -578,10 +578,12 @@ BEGIN
        RAISE EXCEPTION 'sin días laborables' USING ERRCODE='PC007';
      END IF;
    END IF;
-   -- Dos permisos en días no pueden solaparse mientras sigan vivos.
+   -- Ni otro permiso en días vivo que se solape, ni un permiso por horas
+   -- vivo en alguna fecha del intervalo.
    IF EXISTS (SELECT 1 FROM vec_cronos_v1.permiso_solicitud s JOIN vec_cronos_v1.estado_permiso_actual_v1(emp) e ON e.solicitud_ref=s.solicitud_ref
-       WHERE s.empleado_ref=emp AND s.unidad='dia' AND e.estado IN ('solicitado','pendiente_administracion','concedido')
-         AND s.desde<=hasta AND s.hasta>=desde) THEN
+       WHERE s.empleado_ref=emp AND e.estado IN ('solicitado','pendiente_administracion','concedido')
+         AND ((s.unidad='dia' AND s.desde<=hasta AND s.hasta>=desde)
+           OR (s.unidad='hora' AND s.desde BETWEEN desde AND hasta))) THEN
      RAISE EXCEPTION 'permiso solapado' USING ERRCODE='PC010';
    END IF;
  END IF;
