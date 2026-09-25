@@ -554,6 +554,6 @@ test("index.html precarga exactamente el grafo estático de portal.js", async ()
   assert.deepEqual(faltantes, [], `añadir a index.html: ${faltantes.map((u) => `<link rel="modulepreload" href="${u}">`).join(" ")}`);
   // La cadena que carga catálogo y módulos va primero.
   assert.match(precargas[0], /^\/portal-empleado\/portal-modulos-coordinador\.js\?v=/);
-  const entrada = html.indexOf('<script type="module" src="/portal-empleado/portal.js?v=20260926-integracion-bolsa-ct-v1');
+  const entrada = html.indexOf('<script type="module" src="/portal-empleado/portal.js?v=');
   assert.ok(entrada > html.lastIndexOf('rel="modulepreload"'), "las precargas preceden a la entrada");
 });

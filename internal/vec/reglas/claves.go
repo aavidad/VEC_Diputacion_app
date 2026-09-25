@@ -56,6 +56,9 @@ const (
 	// de modo que añadir otra no exige cambiar código.
 	BolsaPrefijoSanciones = "b24.sancion."
 	BolsaEstadosRecurso   = "b24.recurso_estados"
+	// BolsaEstadosRecursoRevocatorios lista los estados del recurso que
+	// revierten la sanción (readmisión); sin la entrada ninguno la revierte.
+	BolsaEstadosRecursoRevocatorios = "b24.recurso_revierte"
 	// BolsaCamposPortal es la lista de datos de «Mi bolsa» (duda 17).
 	BolsaCamposPortal = "b28.campos_portal"
 	// BolsaPortalCandidato fija el modo de las acciones propias del candidato

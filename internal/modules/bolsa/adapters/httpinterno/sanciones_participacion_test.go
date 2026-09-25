@@ -168,3 +168,50 @@ func TestSancionesConsultaYRecurso(t *testing.T) {
 		t.Fatalf("recurso status=%d body=%s", w.Code, w.Body.String())
 	}
 }
+
+func TestSancionesEfectoAplicadoYReadmision(t *testing.T) {
+	ahora := time.Date(2026, 9, 25, 9, 0, 0, 0, time.UTC)
+	vuelve := time.Date(2027, 3, 20, 23, 0, 0, 0, time.UTC)
+	g := &gestorSancionesHTTPPrueba{vista: ports.VistaSancionesParticipacion{
+		CatalogoDisponible: true, EstadosRecurso: []string{"interpuesto", "estimado"}, EstadosRevocatorios: []string{"estimado"},
+		Consecuencias: []ports.ConsecuenciaSancion{{Clave: "b24.sancion.pasar_al_final", Etiqueta: "Final", Efecto: "ninguna", OrdenFinal: true}},
+		Sanciones: []domain.SancionParticipacion{
+			{SancionRef: "sancion:s", Efecto: "pausar", RecursoVence: "2026-10-20", RegistradaEn: ahora, SituacionAplicada: "disponible_desde", FechaDisponible: &vuelve},
+			{SancionRef: "sancion:b", Efecto: "excluir", RecursoVence: "2026-10-20", RegistradaEn: ahora, SituacionAplicada: "excluido",
+				Reversion: &domain.ReversionSancion{EstadoRecurso: "estimado", EfectoRevertido: "excluir", SituacionRestaurada: "disponible", SituacionDesde: &ahora,
+					ResueltaPor: "persona:jefatura", Actor: "per_actor", ReciboRef: "recibo:readmision:x", RegistradaEn: ahora}},
+		},
+	}, recurso: ports.RegistroRecursoSancion{SancionRef: "sancion:b", Estado: "estimado", RegistradaEn: ahora, Revertida: true, ReciboRef: "recibo:readmision:x", Situacion: "disponible", Desde: &ahora}}
+	h, _ := NuevoHandlerSancionesParticipacion(preparadorSituacionHTTPPrueba{}, g)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, peticionSancion(http.MethodGet, rutaSancionesPrueba, ""))
+	var cuerpo struct {
+		Data struct {
+			Revocatorios  []string         `json:"estados_revocatorios"`
+			Consecuencias []map[string]any `json:"consecuencias"`
+			Items         []map[string]any `json:"items"`
+		} `json:"data"`
+	}
+	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &cuerpo) != nil || len(cuerpo.Data.Revocatorios) != 1 || cuerpo.Data.Consecuencias[0]["orden_final"] != true {
+		t.Fatalf("GET status=%d body=%s", w.Code, w.Body.String())
+	}
+	susp := cuerpo.Data.Items[0]["efecto_aplicado"].(map[string]any)
+	if susp["situacion"] != "disponible_desde" || susp["vuelve_al_turno"] != "2027-03-20T23:00:00Z" || cuerpo.Data.Items[0]["reversion"] != nil {
+		t.Fatalf("efecto de la suspensión: %v", cuerpo.Data.Items[0])
+	}
+	rev := cuerpo.Data.Items[1]["reversion"].(map[string]any)
+	if rev["situacion_restaurada"] != "disponible" || rev["resuelta_por"] != "persona:jefatura" || rev["recibo_ref"] != "recibo:readmision:x" {
+		t.Fatalf("readmisión: %v", rev)
+	}
+	w = httptest.NewRecorder()
+	h.ServeHTTP(w, peticionSancion(http.MethodPost, rutaSancionesPrueba+"/sancion:b/recursos", `{"estado":"estimado","fecha":"2026-09-24","resuelta_por":"persona:jefatura","documento":{"referencia":"registro:2026/9","sha256":"`+strings.Repeat("d", 64)+`"}}`))
+	if w.Code != 201 || g.ultimoR == nil || g.ultimoR.ResueltaPor != "persona:jefatura" || !strings.Contains(w.Body.String(), `"revertida":true`) || !strings.Contains(w.Body.String(), `"situacion":"disponible"`) {
+		t.Fatalf("recurso estimado status=%d body=%s", w.Code, w.Body.String())
+	}
+	g.ultimoR = nil
+	w = httptest.NewRecorder()
+	h.ServeHTTP(w, peticionSancion(http.MethodPost, rutaSancionesPrueba+"/sancion:b/recursos", `{"estado":"estimado","fecha":"2026-09-24","resuelta_por":" persona","documento":null}`))
+	if w.Code != 400 || g.ultimoR != nil {
+		t.Fatalf("persona mal formada: %d", w.Code)
+	}
+}

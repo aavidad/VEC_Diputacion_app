@@ -122,19 +122,23 @@ func (h *HandlerSancionesParticipacion) consultar(w http.ResponseWriter, r *http
 	}
 	consecuencias := make([]map[string]any, 0, len(vista.Consecuencias))
 	for _, c := range vista.Consecuencias {
-		consecuencias = append(consecuencias, map[string]any{"clave": c.Clave, "etiqueta": c.Etiqueta, "descripcion": c.Descripcion, "efecto": c.Efecto, "articulo": c.Articulo, "ejemplo": c.Ejemplo, "regla_ref": c.ReglaRef})
+		consecuencias = append(consecuencias, map[string]any{"clave": c.Clave, "etiqueta": c.Etiqueta, "descripcion": c.Descripcion, "efecto": c.Efecto, "articulo": c.Articulo, "ejemplo": c.Ejemplo, "regla_ref": c.ReglaRef,
+			"orden_final": c.OrdenFinal, "fin_automatico": c.FinAutomatico})
 	}
 	items := make([]map[string]any, 0, len(vista.Sanciones))
 	for _, s := range vista.Sanciones {
 		items = append(items, salidaSancion(s))
 	}
-	estados := vista.EstadosRecurso
+	estados, revocatorios := vista.EstadosRecurso, vista.EstadosRevocatorios
 	if estados == nil {
 		estados = []string{}
 	}
+	if revocatorios == nil {
+		revocatorios = []string{}
+	}
 	responderSituacion(w, 200, map[string]any{"data": map[string]any{
 		"esquema": "vec.bolsa.rrhh.sanciones.v1", "catalogo_disponible": vista.CatalogoDisponible,
-		"consecuencias": consecuencias, "estados_recurso": estados, "items": items,
+		"consecuencias": consecuencias, "estados_recurso": estados, "estados_revocatorios": revocatorios, "items": items,
 	}})
 }
 
@@ -158,12 +162,44 @@ func salidaSancion(s domain.SancionParticipacion) map[string]any {
 		estadoRecurso = estado
 	}
 	return map[string]any{
+		"efecto_aplicado": salidaEfectoAplicado(s), "reversion": salidaReversion(s.Reversion),
 		"sancion_ref": s.SancionRef, "consecuencia": s.Consecuencia, "consecuencia_etiqueta": s.ConsecuenciaEtiqueta,
 		"efecto": s.Efecto, "causa": s.Datos.Causa, "fecha_notificacion": s.Datos.FechaNotificacion,
 		"resolucion":   map[string]string{"referencia": s.Datos.Resolucion.Referencia, "sha256": s.Datos.Resolucion.SHA256},
 		"resuelta_por": s.Datos.ResueltaPor, "regla_ref": s.ReglaRef, "suspension_hasta": suspension,
 		"recurso":         map[string]any{"vence": s.RecursoVence, "regla_ref": s.RecursoReglaRef, "estado": estadoRecurso, "eventos": eventos},
 		"situacion_desde": situacionDesde, "actor": s.Actor, "registrada_en": s.RegistradaEn.UTC().Format(time.RFC3339Nano),
+	}
+}
+
+// salidaEfectoAplicado describe lo que la sanción dejó hecho: la situación,
+// cuándo vuelve sola al turno y si la colocó al final del orden vigente.
+func salidaEfectoAplicado(s domain.SancionParticipacion) map[string]any {
+	var situacion, vuelve any
+	if s.SituacionAplicada != "" {
+		situacion = s.SituacionAplicada
+	}
+	if s.FechaDisponible != nil {
+		vuelve = s.FechaDisponible.UTC().Format(time.RFC3339Nano)
+	}
+	return map[string]any{"situacion": situacion, "vuelve_al_turno": vuelve, "orden_final": s.OrdenFinal}
+}
+
+func salidaReversion(r *domain.ReversionSancion) any {
+	if r == nil {
+		return nil
+	}
+	var situacion, desde any
+	if r.SituacionRestaurada != "" {
+		situacion = r.SituacionRestaurada
+	}
+	if r.SituacionDesde != nil {
+		desde = r.SituacionDesde.UTC().Format(time.RFC3339Nano)
+	}
+	return map[string]any{
+		"estado_recurso": r.EstadoRecurso, "regla_ref": r.ReglaRef, "efecto_revertido": r.EfectoRevertido,
+		"situacion_restaurada": situacion, "situacion_desde": desde, "resuelta_por": r.ResueltaPor,
+		"actor": r.Actor, "recibo_ref": r.ReciboRef, "registrada_en": r.RegistradaEn.UTC().Format(time.RFC3339Nano),
 	}
 }
 
@@ -218,9 +254,10 @@ func (h *HandlerSancionesParticipacion) registrar(w http.ResponseWriter, r *http
 
 func (h *HandlerSancionesParticipacion) registrarRecurso(w http.ResponseWriter, r *http.Request, bolsa, participacion, sancion, clave string) {
 	var cuerpo struct {
-		Estado    string                   `json:"estado"`
-		Fecha     string                   `json:"fecha"`
-		Documento *documentoSancionEntrada `json:"documento"`
+		Estado      string                   `json:"estado"`
+		Fecha       string                   `json:"fecha"`
+		Documento   *documentoSancionEntrada `json:"documento"`
+		ResueltaPor string                   `json:"resuelta_por"`
 	}
 	if !decodificarSancion(r, &cuerpo) {
 		responderOperacion(w, 400, "solicitud_invalida")
@@ -230,7 +267,7 @@ func (h *HandlerSancionesParticipacion) registrarRecurso(w http.ResponseWriter, 
 	if cuerpo.Documento != nil {
 		evento.Documento = &domain.DocumentoSancion{Referencia: cuerpo.Documento.Referencia, SHA256: cuerpo.Documento.SHA256}
 	}
-	if evento.ValidarDatos(time.Now()) != nil {
+	if evento.ValidarDatos(time.Now()) != nil || (cuerpo.ResueltaPor != "" && !domain.IdentidadResolucionValida(cuerpo.ResueltaPor)) {
 		responderOperacion(w, 400, "solicitud_invalida")
 		return
 	}
@@ -239,12 +276,24 @@ func (h *HandlerSancionesParticipacion) registrarRecurso(w http.ResponseWriter, 
 		responderErrorSancion(w, err)
 		return
 	}
-	res, err := h.gestor.RegistrarRecurso(r.Context(), ports.SolicitudRegistrarRecursoSancion{SolicitudCambiarSituacionParticipacion: q, SancionRef: sancion, Evento: evento})
+	res, err := h.gestor.RegistrarRecurso(r.Context(), ports.SolicitudRegistrarRecursoSancion{SolicitudCambiarSituacionParticipacion: q, SancionRef: sancion, Evento: evento, ResueltaPor: cuerpo.ResueltaPor})
 	if err != nil {
 		responderErrorSancion(w, err)
 		return
 	}
-	responderSituacion(w, estadoAlta(res.Reutilizada), map[string]any{"data": map[string]any{"sancion_ref": res.SancionRef, "estado": res.Estado, "registrada_en": res.RegistradaEn.UTC().Format(time.RFC3339Nano), "reutilizada": res.Reutilizada}})
+	var recibo, situacion, desde any
+	if res.Revertida {
+		recibo = res.ReciboRef
+	}
+	if res.Situacion != "" {
+		situacion = res.Situacion
+	}
+	if res.Desde != nil {
+		desde = res.Desde.UTC().Format(time.RFC3339Nano)
+	}
+	responderSituacion(w, estadoAlta(res.Reutilizada), map[string]any{"data": map[string]any{"sancion_ref": res.SancionRef, "estado": res.Estado,
+		"registrada_en": res.RegistradaEn.UTC().Format(time.RFC3339Nano), "reutilizada": res.Reutilizada,
+		"revertida": res.Revertida, "recibo_ref": recibo, "situacion": situacion, "desde": desde}})
 }
 
 func estadoAlta(reutilizada bool) int {

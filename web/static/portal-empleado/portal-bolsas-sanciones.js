@@ -14,7 +14,7 @@ export const MENSAJES_SANCIONES_ES = Object.freeze({
   titulo: "Sanciones",
   subtitulo: "Histórico de sanciones y recursos de reposición",
   ayuda_aria: "Ayuda sobre las sanciones",
-  ayuda: "Cada sanción aplica una consecuencia del catálogo de reglas. La baja y la suspensión cambian la situación de la participación; pasar al final no la cambia. El recurso de reposición vence un mes después de la notificación, según el mismo catálogo. La resolución permanece en su custodia: solo se anota su referencia y su huella.",
+  ayuda: "Cada sanción aplica una consecuencia del catálogo de reglas, con el efecto que ese catálogo declara. La baja y la suspensión cambian la situación de la participación; la suspensión con fecha de fin termina sola ese día. Pasar al final no cambia la situación, pero coloca a la persona tras las no sancionadas de su bolsa. El recurso de reposición vence según el mismo catálogo; si se anota un estado que revoca la sanción (por ejemplo, estimado), otra persona lo resuelve y la participación vuelve a la situación anterior y a su puesto. La resolución permanece en su custodia: solo se anota su referencia y su huella.",
   nueva: "Registrar sanción",
   cancelar: "Cancelar",
   cargando: "Cargando histórico de sanciones…",
@@ -26,10 +26,19 @@ export const MENSAJES_SANCIONES_ES = Object.freeze({
   col_consecuencia: "Consecuencia",
   col_causa: "Causa",
   col_resolucion: "Resolución",
-  col_suspension: "Suspensión hasta",
+  col_suspension: "Efecto aplicado",
   col_recurso: "Recurso de reposición",
   col_acciones: "Acciones",
-  sin_suspension: "No aplica",
+  sin_suspension: "Sin cambio de situación",
+  efecto_vuelve: "Vuelve al turno el {fecha}",
+  efecto_suspendida: "No disponible hasta que se reactive",
+  efecto_suspension_hasta: "Suspensión hasta el {fecha}",
+  efecto_excluida: "Baja",
+  efecto_al_final: "Al final de la lista",
+  readmitida: "Readmitida el {fecha}",
+  efectos_anulados: "Efectos anulados el {fecha}",
+  readmision_resuelta: "Resuelve {persona}",
+  situacion_restaurada: "Vuelve a: {situacion}",
   recurso_vence: "Vence el {fecha}",
   recurso_sin_estado: "Sin recurso anotado",
   anotar_recurso: "Anotar recurso",
@@ -51,9 +60,15 @@ export const MENSAJES_SANCIONES_ES = Object.freeze({
   campo_fecha: "Fecha",
   campo_documento_ref: "Referencia del escrito (opcional)",
   campo_documento_sha: "SHA-256 del escrito (opcional)",
+  campo_documento_ref_obligatorio: "Referencia de la resolución que lo estima",
+  campo_documento_sha_obligatorio: "SHA-256 de la resolución que lo estima",
+  campo_resuelta_por_recurso: "Persona que resuelve el recurso",
+  aviso_revierte: "Este estado revoca la sanción: la participación vuelve a su situación anterior y a su puesto. Lo resuelve otra persona.",
+  error_revierte: "Para revocar la sanción indique quién resuelve y la referencia y huella de la resolución.",
   confirmar_recurso: "Anotar estado",
   exito_sancion: "Sanción registrada. Recibo {recibo}.",
   exito_recurso: "Estado del recurso anotado.",
+  exito_readmision: "Recurso anotado y sanción revocada. Recibo {recibo}.",
   recuperada: " (respuesta recuperada)",
   paginacion: "Paginación del histórico de sanciones",
   mostrando: "Mostrando {inicio} a {fin} de {total}",
@@ -111,7 +126,21 @@ function sancionValida(item) {
     && item.resolucion && cadena(item.resolucion.referencia) && HEX_SHA256.test(item.resolucion.sha256 || "")
     && (item.suspension_hasta === null || FECHA.test(item.suspension_hasta))
     && item.recurso && FECHA.test(item.recurso.vence || "") && Array.isArray(item.recurso.eventos)
-    && (item.recurso.estado === null || cadena(item.recurso.estado));
+    && (item.recurso.estado === null || cadena(item.recurso.estado))
+    && efectoAplicadoValido(item.efecto_aplicado) && reversionValida(item.reversion);
+}
+
+const INSTANTE = /^\d{4}-\d{2}-\d{2}T[\d:.]+Z$/;
+
+function efectoAplicadoValido(efecto) {
+  return efecto === undefined || (efecto && (efecto.situacion === null || cadena(efecto.situacion))
+    && (efecto.vuelve_al_turno === null || INSTANTE.test(efecto.vuelve_al_turno || "")) && typeof efecto.orden_final === "boolean");
+}
+
+function reversionValida(reversion) {
+  return reversion === undefined || reversion === null || (cadena(reversion.estado_recurso) && cadena(reversion.resuelta_por)
+    && cadena(reversion.recibo_ref) && INSTANTE.test(reversion.registrada_en || "")
+    && (reversion.situacion_restaurada === null || cadena(reversion.situacion_restaurada)));
 }
 
 async function pedir(ruta, opciones, fetchImpl) {
@@ -144,8 +173,11 @@ export function validarComandoSancion(comando) {
   return valido ? "" : t("error_formulario");
 }
 
-export function validarComandoRecurso(comando) {
+export function validarComandoRecurso(comando, revocatorios = []) {
   if (!comando || !cadena(comando.estado) || !comando.estado || !FECHA.test(comando.fecha || "")) return t("error_formulario");
+  const revierte = revocatorios.includes(comando.estado);
+  if (revierte && (!cadena(comando.resuelta_por) || !comando.resuelta_por.trim() || !comando.documento)) return t("error_revierte");
+  if (!revierte && comando.resuelta_por !== undefined) return t("error_formulario");
   if (comando.documento) {
     if (referenciaContieneDocumentoIdentidad(comando.documento.referencia)) return t("referencia_identidad");
     if (!cadena(comando.documento.referencia) || !comando.documento.referencia.trim() || !HEX_SHA256.test(comando.documento.sha256 || "")) return t("error_documento");
@@ -174,11 +206,12 @@ export async function registrarSancion(bolsa, participacion, comando, clave, { f
     (d) => d && cadena(d.sancion_ref) && cadena(d.recibo_ref) && typeof d.reutilizada === "boolean");
 }
 
-export async function registrarRecursoSancion(bolsa, participacion, sancion, comando, clave, { fetchImpl = fetch } = {}) {
-  const error = validarComandoRecurso(comando);
+export async function registrarRecursoSancion(bolsa, participacion, sancion, comando, clave, { fetchImpl = fetch, revocatorios = [] } = {}) {
+  const error = validarComandoRecurso(comando, revocatorios);
   if (error || !bolsa || !participacion || !sancion || !clave) return { ok: false, status: 400, codigo: "solicitud_invalida", mensaje: error || t("error_400") };
   return enviar(rutaRecursoSancion(bolsa, participacion, sancion), comando, clave, fetchImpl,
-    (d) => d && d.sancion_ref === sancion && cadena(d.estado) && typeof d.reutilizada === "boolean");
+    (d) => d && d.sancion_ref === sancion && cadena(d.estado) && typeof d.reutilizada === "boolean"
+      && (d.revertida === undefined || typeof d.revertida === "boolean"));
 }
 
 function html(valor) {
@@ -194,6 +227,34 @@ function fechaVisible(valor) {
 const CLASE_EFECTO = Object.freeze({ excluir: "peligro", pausar: "advertencia", ninguna: "info" });
 const CLASE_RECURSO = Object.freeze({ interpuesto: "info", estimado: "exito", desestimado: "peligro", inadmitido: "peligro" });
 
+function fechaInstante(valor) {
+  if (!INSTANTE.test(valor || "")) return "";
+  return new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeZone: "Europe/Madrid" }).format(new Date(valor));
+}
+
+// Lo que la sanción dejó hecho y, si se revocó, la readmisión.
+function celdaEfecto(item, e) {
+  const aplicado = item.efecto_aplicado || { situacion: null, vuelve_al_turno: null, orden_final: false };
+  const partes = [];
+  if (item.efecto === "excluir") partes.push(t("efecto_excluida"));
+  else if (item.efecto === "pausar") {
+    partes.push(aplicado.vuelve_al_turno ? t("efecto_vuelve", { fecha: fechaInstante(aplicado.vuelve_al_turno) })
+      : item.suspension_hasta ? t("efecto_suspension_hasta", { fecha: fechaVisible(item.suspension_hasta) }) : t("efecto_suspendida"));
+  }
+  if (aplicado.orden_final) partes.push(t("efecto_al_final"));
+  if (!partes.length) partes.push(t("sin_suspension"));
+  let celda = partes.map((p) => e(p)).join("<br>");
+  const r = item.reversion;
+  if (r) {
+    const fecha = fechaInstante(r.situacion_desde || r.registrada_en);
+    const titulo = r.situacion_restaurada ? t("readmitida", { fecha }) : t("efectos_anulados", { fecha });
+    celda += `<br><span class="estado-chip exito">${e(titulo)}</span>`;
+    if (r.situacion_restaurada) celda += `<br><small>${e(t("situacion_restaurada", { situacion: etiquetaEstado(r.situacion_restaurada) }))}</small>`;
+    celda += `<br><small>${e(t("readmision_resuelta", { persona: r.resuelta_por }))}</small>`;
+  }
+  return celda;
+}
+
 function etiquetaEstado(estado) {
   return String(estado || "").replaceAll("_", " ").replace(/^./, (c) => c.toUpperCase());
 }
@@ -203,9 +264,9 @@ function filaSancion(item, e, recursoAbierto, catalogo) {
   const estadoRecurso = item.recurso.estado
     ? `<span class="estado-chip ${CLASE_RECURSO[item.recurso.estado] || "neutro"}">${e(etiquetaEstado(item.recurso.estado))}</span>`
     : `<span class="estado-chip neutro">${e(t("recurso_sin_estado"))}</span>`;
-  const accion = catalogo && recursoAbierto !== item.sancion_ref
+  const accion = catalogo && recursoAbierto !== item.sancion_ref && !item.reversion
     ? `<button type="button" class="boton-secundario" data-b24-accion="abrir-recurso" data-sancion-ref="${e(item.sancion_ref)}">${e(t("anotar_recurso"))}</button>` : "";
-  return `<tr><td>${e(fechaVisible(item.fecha_notificacion))}</td><td>${e(item.consecuencia_etiqueta)}<br>${efecto}</td><td>${e(item.causa)}</td><td>${e(item.resolucion.referencia)}<br><small>${e(item.resuelta_por)}</small><br>${huellaCorta(item.resolucion.sha256, e)}</td><td>${item.suspension_hasta ? e(fechaVisible(item.suspension_hasta)) : e(t("sin_suspension"))}</td><td>${estadoRecurso}<br><small>${e(t("recurso_vence", { fecha: fechaVisible(item.recurso.vence) }))}</small></td><td>${accion}</td></tr>`;
+  return `<tr><td>${e(fechaVisible(item.fecha_notificacion))}</td><td>${e(item.consecuencia_etiqueta)}<br>${efecto}</td><td>${e(item.causa)}</td><td>${e(item.resolucion.referencia)}<br><small>${e(item.resuelta_por)}</small><br>${huellaCorta(item.resolucion.sha256, e)}</td><td>${celdaEfecto(item, e)}</td><td>${estadoRecurso}<br><small>${e(t("recurso_vence", { fecha: fechaVisible(item.recurso.vence) }))}</small></td><td>${accion}</td></tr>`;
 }
 
 function campo(etiqueta, control, e) {
@@ -232,9 +293,13 @@ function formularioSancion(estado, e) {
 function formularioRecurso(estado, e) {
   const f = estado.formularioRecurso || {};
   const opciones = (estado.datos?.estados_recurso || []).map((valor) => `<option value="${e(valor)}" ${f.estado === valor ? "selected" : ""}>${e(etiquetaEstado(valor))}</option>`).join("");
+  const revierte = (estado.datos?.estados_revocatorios || []).includes(f.estado);
+  const requerido = revierte ? " required" : "";
+  const resuelta = revierte ? campo(t("campo_resuelta_por_recurso"), `<input name="resuelta_por" required maxlength="200" value="${e(f.resuelta_por || "")}">`, e) : "";
+  const aviso = revierte ? `<p class="nota-seguridad" role="note">${e(t("aviso_revierte"))}</p>` : "";
   const acciones = `<div class="acciones-formulario"><button type="button" class="boton-secundario" data-b24-accion="cancelar" ${estado.enviando ? "disabled" : ""}>${e(t("cancelar"))}</button><button type="submit" class="boton-primario" ${estado.enviando ? "disabled" : ""}>${e(estado.enviando ? t("registrando") : t("confirmar_recurso"))}</button></div>`;
   const error = estado.errorFormulario ? `<p class="mensaje-error" role="alert">${e(estado.errorFormulario)}</p>` : "";
-  return `<form data-b24-form="recurso" class="formulario-gobernado"><fieldset><legend>${e(t("anotar_recurso"))}</legend><div class="rejilla-formulario">${campo(t("campo_estado"), `<select name="estado" required><option value="">${e(t("elegir"))}</option>${opciones}</select>`, e)}${campo(t("campo_fecha"), `<input type="date" name="fecha" required value="${e(f.fecha || "")}">`, e)}${campo(t("campo_documento_ref"), `<input name="referencia" maxlength="240" value="${e(f.referencia || "")}">`, e)}${campo(t("campo_documento_sha"), `<input name="sha256" pattern="[a-fA-F0-9]{64}" maxlength="64" autocomplete="off" value="${e(f.sha256 || "")}">`, e)}</div></fieldset>${error}${acciones}</form>`;
+  return `<form data-b24-form="recurso" class="formulario-gobernado"><fieldset><legend>${e(t("anotar_recurso"))}</legend><div class="rejilla-formulario">${campo(t("campo_estado"), `<select name="estado" required data-b24-campo="estado"><option value="">${e(t("elegir"))}</option>${opciones}</select>`, e)}${campo(t("campo_fecha"), `<input type="date" name="fecha" required value="${e(f.fecha || "")}">`, e)}${resuelta}${campo(t(revierte ? "campo_documento_ref_obligatorio" : "campo_documento_ref"), `<input name="referencia" maxlength="240"${requerido} value="${e(f.referencia || "")}">`, e)}${campo(t(revierte ? "campo_documento_sha_obligatorio" : "campo_documento_sha"), `<input name="sha256" pattern="[a-fA-F0-9]{64}" maxlength="64" autocomplete="off"${requerido} value="${e(f.sha256 || "")}">`, e)}</div>${aviso}</fieldset>${error}${acciones}</form>`;
 }
 
 export function renderizarSanciones({ estado = {}, escaparHTML = html }) {
@@ -312,9 +377,15 @@ export function crearControladorSanciones({ estado, renderizar, recargar = async
   }
 
   function manejarCambio(evento) {
+    const flujo = estado.modalFicha?.sancionesB24;
+    const campoRecurso = evento.target?.closest?.('[data-b24-campo="estado"]');
+    if (campoRecurso && flujo?.recursoAbierto) {
+      flujo.formularioRecurso = leerFormularioRecurso(new FormData(campoRecurso.form));
+      renderizar();
+      return true;
+    }
     const campo = evento.target?.closest?.('[data-b24-campo="consecuencia"]');
-    if (!campo || !estado.modalFicha?.sancionesB24?.formularioAbierto) return false;
-    const flujo = estado.modalFicha.sancionesB24;
+    if (!campo || !flujo?.formularioAbierto) return false;
     const datos = new FormData(campo.form);
     flujo.formulario = leerFormularioSancion(datos);
     renderizar();
@@ -358,17 +429,19 @@ export function crearControladorSanciones({ estado, renderizar, recargar = async
         .then((r) => finalizar(modal, flujo, r, r.ok ? t("exito_sancion", { recibo: r.datos.recibo_ref }) : ""));
       return true;
     }
-    const f = { estado: String(datos.get("estado") || ""), fecha: String(datos.get("fecha") || ""), referencia: String(datos.get("referencia") || "").trim(), sha256: String(datos.get("sha256") || "").trim().toLowerCase() };
+    const f = leerFormularioRecurso(datos);
     flujo.formularioRecurso = f;
+    const revocatorios = flujo.datos?.estados_revocatorios || [];
     const comando = { estado: f.estado, fecha: f.fecha };
     if (f.referencia || f.sha256) comando.documento = { referencia: f.referencia, sha256: f.sha256 };
-    flujo.errorFormulario = validarComandoRecurso(comando);
+    if (revocatorios.includes(f.estado)) comando.resuelta_por = f.resuelta_por;
+    flujo.errorFormulario = validarComandoRecurso(comando, revocatorios);
     if (flujo.errorFormulario) { renderizar(); return true; }
     const sancion = flujo.recursoAbierto;
     const clave = claveIdempotente(flujo, { sancion, ...comando });
     flujo.enviando = true; renderizar();
-    void registrarRecursoSancion(estado.bolsaSeleccionada, modal.candidato.participacion_ref, sancion, comando, clave, opciones)
-      .then((r) => finalizar(modal, flujo, r, t("exito_recurso")));
+    void registrarRecursoSancion(estado.bolsaSeleccionada, modal.candidato.participacion_ref, sancion, comando, clave, { ...opciones, revocatorios })
+      .then((r) => finalizar(modal, flujo, r, r.ok && r.datos.revertida ? t("exito_readmision", { recibo: r.datos.recibo_ref }) : t("exito_recurso")));
     return true;
   }
 
@@ -379,6 +452,14 @@ export function crearControladorSanciones({ estado, renderizar, recargar = async
   }
 
   return Object.freeze({ cargar, instalar, manejarClick, manejarSubmit, manejarCambio });
+}
+
+function leerFormularioRecurso(datos) {
+  return {
+    estado: String(datos.get("estado") || ""), fecha: String(datos.get("fecha") || ""),
+    referencia: String(datos.get("referencia") || "").trim(), sha256: String(datos.get("sha256") || "").trim().toLowerCase(),
+    resuelta_por: String(datos.get("resuelta_por") || "").trim(),
+  };
 }
 
 function leerFormularioSancion(datos) {

@@ -13,7 +13,7 @@ import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v
 import { destinosSituacion, fechaDisponiblePropuesta, renderizarCamposReposicion } from "./portal-bolsas-reglas-situacion.js?v=20260926-integracion-bolsa-ct-v1";
 import { renderizarIntentosContacto } from "./portal-bolsas-intentos.js?v=20260926-integracion-bolsa-ct-v1";
 import { renderizarContratosParticipacion } from "./portal-bolsas-contratos.js?v=20260926-integracion-bolsa-ct-v1";
-import { renderizarSanciones } from "./portal-bolsas-sanciones.js?v=20260926-integracion-bolsa-ct-v1";
+import { renderizarSanciones } from "./portal-bolsas-sanciones.js?v=20260926-sanciones-efectos-v1";
 import { renderizarAvisosContactoEmision, renderizarOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20260926-integracion-bolsa-ct-v1";
 import { icono } from "../comun/iconos-vec.js?v=20260925-aspecto-v1";
 import { enlaceReglasVigentes } from "./reglas/enlace.js?v=20260926-integracion-bolsa-ct-v1";
