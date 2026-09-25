@@ -60,6 +60,7 @@ type autoridadConsultasContratacionTemporalDesarrollo struct {
 	coleccionesAdicionales                   []vechttp.RutaColeccion
 	registradorAuditoriaFronteraRutasExactas puertosvec.RegistradorAuditoriaFronteraRutaExacta
 	materialDietas                           materialDietasDesdeCTDesarrollo
+	materialCronos                           materialCronosDesdeCTDesarrollo
 }
 
 type autorizadorLigadoContratacionTemporalDesarrollo interface {
@@ -542,13 +543,6 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	if respuestaRecibidaReal != nil {
 		rutas = append(rutas, vechttp.RutaExacta{Ruta: httpinterno.RutaRegistroRespuestaRecibida, Manejador: respuestaRecibidaReal})
 	}
-	if cfg.BolsaDemoPath != "" {
-		rutasAreaPersonal, err := nuevasRutasAreaPersonalBolsaDesarrollo(cfg)
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		rutas = append(rutas, rutasAreaPersonal...)
-	}
 	rutasBorrador := []vechttp.RutaExacta(nil)
 	coleccionesBorrador := []vechttp.RutaColeccion(nil)
 	// Instancia única construida antes de las sesiones CT y Bolsa.
@@ -601,6 +595,7 @@ func nuevasRutasContratacionTemporalDesarrollo(
 		coleccionesAdicionales:                   coleccionesBorrador,
 		registradorAuditoriaFronteraRutasExactas: alta.postgresql.registradorAuditoriaFrontera,
 		materialDietas:                           alta.postgresql.materialDietas,
+		materialCronos:                           alta.postgresql.materialCronos,
 	}
 	if autoridad.registradorAuditoriaFronteraRutasExactas == nil {
 		return nil, nil, nil, errPostgreSQLContratacionTemporalDesarrolloNoDisponible

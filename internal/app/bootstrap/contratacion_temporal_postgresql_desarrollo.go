@@ -95,6 +95,9 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	proveedorMaterialDespachoCorreo   *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialResultadoCorreo  *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialDietas                    materialDietasDesdeCTDesarrollo
+	materialCronos                    materialCronosDesdeCTDesarrollo
+	materialPersonalB2                [8]CapacidadPublicadaPersonalB2V3
+	detenerRenovacion                 func()
 	catalogoMaterial                  catalogoMaterialAutorizacionComunDesarrollo
 	cerrarUnaVez                      func()
 }
@@ -209,6 +212,9 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	var cierre sync.Once
 	dependencias.cerrarUnaVez = func() {
 		cierre.Do(func() {
+			if dependencias.detenerRenovacion != nil {
+				dependencias.detenerRenovacion()
+			}
 			if dependencias.bolsa != nil {
 				dependencias.bolsa.Close()
 			}
@@ -310,20 +316,55 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	if dietasBorradoresSolicitadas(cfg.DietasBorradoresEnabled) {
 		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialDietasDesarrollo()...)
 	}
+	if cronosEmpleadoSolicitado(cfg.CronosEmpleadoEnabled) {
+		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialCronosDesarrollo()...)
+	}
+	personalB2, err := cfg.PersonalB2GobiernoDesarrolloActivo()
+	if err != nil {
+		return vacias, err
+	}
+	if personalB2 {
+		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialPersonalB2Desarrollo()...)
+	}
 	catalogoMaterial, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(descriptoresMaterial)
 	if err != nil {
 		return vacias, errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
 	}
 	dependencias.catalogoMaterial = catalogoMaterial
 	if dietasBorradoresSolicitadas(cfg.DietasBorradoresEnabled) {
-		var dietas [3]*proveedorMaterialAltaContratacionTemporalDesarrollo
-		for i, audiencia := range []string{audienciaConsumoPersonalDietasDesarrollo, audienciaConsumoCrearDietasDesarrollo, audienciaConsumoConsultarDietasDesarrollo} {
-			dietas[i], err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, audiencia)
+		proveedoresDietas := make(map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo)
+		for _, descriptor := range descriptoresMaterialDietasDesarrollo() {
+			proveedoresDietas[descriptor.Audiencia], err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, descriptor.Audiencia)
 			if err != nil {
 				return vacias, err
 			}
 		}
-		dependencias.materialDietas = materialDietasDesdeCTDesarrollo{personal: dietas[0], crear: dietas[1], consultar: dietas[2]}
+		dependencias.materialDietas = materialDietasDesdeCTDesarrollo{
+			personal:    proveedoresDietas[audienciaConsumoPersonalDietasDesarrollo],
+			crear:       proveedoresDietas[audienciaConsumoCrearDietasDesarrollo],
+			consultar:   proveedoresDietas[audienciaConsumoConsultarDietasDesarrollo],
+			adicionales: proveedoresDietas,
+		}
+	}
+	if cronosEmpleadoSolicitado(cfg.CronosEmpleadoEnabled) {
+		var cronos [8]*proveedorMaterialAltaContratacionTemporalDesarrollo
+		for i, audiencia := range audienciasCronosEmpleadoDesarrollo() {
+			cronos[i], err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, audiencia)
+			if err != nil {
+				return vacias, err
+			}
+		}
+		dependencias.materialCronos = materialCronosDesdeProveedores(cronos)
+	}
+	if personalB2 {
+		// vec-server no consume B2: sólo publica sus claves para vec-interno.
+		dependencias.materialPersonalB2, err = publicarMaterialPersonalB2Desarrollo(ctx, gobierno, material, catalogoMaterial)
+		if err != nil {
+			registrarFalloPostgreSQLContratacionTemporalDesarrollo(
+				"publicar_gobierno_personal_b2", codigoFalloGobiernoPostgreSQLContratacionTemporalDesarrollo(err),
+			)
+			return vacias, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		}
 	}
 	proveedor, err := nuevoProveedorMaterialAltaContratacionTemporalDesarrollo(
 		material, soporte, reloj,
@@ -440,6 +481,7 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	dependencias.candidaturas = resolver
 	dependencias.transaccionAlta = transaccion
 	dependencias.proveedorMaterial = proveedor
+	dependencias.detenerRenovacion = iniciarRenovacionProgramadaCTDesarrollo(material.fuenteConfianza, esperarTemporizadorCTDesarrollo)
 	completa = true
 	return dependencias, nil
 }

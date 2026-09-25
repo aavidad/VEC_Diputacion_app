@@ -11,7 +11,6 @@ import (
 	adminmodule "vec-diputacion-granada/internal/modules/administracion"
 	bolsamodule "vec-diputacion-granada/internal/modules/bolsa"
 	cronosmodule "vec-diputacion-granada/internal/modules/cronos"
-	dietasmodule "vec-diputacion-granada/internal/modules/dietas"
 	personalmodule "vec-diputacion-granada/internal/modules/personal"
 	"vec-diputacion-granada/internal/vec/application"
 	"vec-diputacion-granada/internal/vec/domain"
@@ -20,6 +19,7 @@ import (
 
 type Handler struct {
 	service                                  *application.Service
+	soloRutasExactas                         bool
 	internal                                 *application.InternalOperations
 	personalCatalog                          CatalogoPersonal
 	categoriasProfesionales                  ConsultaCategoriasProfesionales
@@ -63,6 +63,30 @@ type DemoIdentityResolver interface {
 
 func NewHandler(service *application.Service) (*Handler, error) {
 	return NewHandlerWithOptions(service, HandlerOptions{})
+}
+
+// NewHandlerSoloRutasExactas compone únicamente las rutas declaradas. La
+// identidad y la autorización de cada petición proceden de la frontera común
+// y de la autoridad recibida; no crea la carcasa VEC ni sus rutas generales.
+func NewHandlerSoloRutasExactas(
+	rutas []RutaExacta,
+	autoridad AutoridadRutasExactas,
+	auditoria ports.RegistradorAuditoriaFronteraRutaExacta,
+) (http.Handler, error) {
+	if len(rutas) == 0 || dependenciaRutaExactaNula(autoridad) ||
+		dependenciaRutaExactaNula(auditoria) {
+		return nil, ErrRutaExactaInvalida
+	}
+	declaradas, err := prepararRutasExactas(rutas, autoridad)
+	if err != nil {
+		return nil, err
+	}
+	return &Handler{
+		soloRutasExactas:                         true,
+		rutasExactas:                             declaradas,
+		autoridadRutasExactas:                    autoridad,
+		registradorAuditoriaFronteraRutasExactas: auditoria,
+	}, nil
 }
 
 func NewHandlerWithOptions(service *application.Service, options HandlerOptions) (*Handler, error) {
@@ -114,9 +138,6 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		return
 	}
-	if h.atenderRutaDietas(w, r) {
-		return
-	}
 	if manejador, registrada := h.rutasExactas[r.URL.Path]; registrada {
 		if !peticionRutaExactaCanonica(r) {
 			responderAutorizacionRutaExacta(
@@ -136,6 +157,13 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		manejador.ServeHTTP(w, r)
+		return
+	}
+	if h.soloRutasExactas {
+		responderAutorizacionRutaExacta(w, errRutaExactaNoEncontrada)
+		return
+	}
+	if h.atenderRutaDietas(w, r) {
 		return
 	}
 	if manejador, encontrada := h.manejadorColeccion(r.URL.Path); encontrada {
@@ -369,22 +397,6 @@ func actionForPath(path string) (moduleAction, bool) {
 			action:     cronosmodule.ActionReviewLeaveAndHoliday,
 			subjectRef: "cronos-permiso-demo",
 			eventType:  "vec.module.cronos.leave.executed",
-		},
-		"dietas": {
-			key:        "dietas",
-			moduleID:   dietasmodule.ModuleID,
-			permission: dietasmodule.PermissionApprovalManage,
-			action:     dietasmodule.ActionReviewTravelExpense,
-			subjectRef: "dietas-comision-demo",
-			eventType:  "vec.module.dietas.action.executed",
-		},
-		"rutas": {
-			key:        "rutas",
-			moduleID:   dietasmodule.ModuleID,
-			permission: dietasmodule.PermissionRouteManage,
-			action:     dietasmodule.ActionReviewRouteKM,
-			subjectRef: "dietas-ruta-demo",
-			eventType:  "vec.module.dietas.route.executed",
 		},
 		"bolsa": {
 			key:        "bolsa",

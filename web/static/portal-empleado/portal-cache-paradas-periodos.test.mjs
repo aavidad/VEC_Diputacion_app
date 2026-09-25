@@ -20,32 +20,20 @@ test("la caché de PR25 solicita de nuevo las paradas, los periodos y sus hojas"
     ["index.html", `/portal-empleado/${dietas}borradores-propios.css`, "20260924-f2-shell-v1", 1],
     ["index.html", `/portal-empleado/${cronos}cronos.css`, "20260924-f2-shell-v1", 1],
     ["portal.js", "./portal-modulos-coordinador.js", "20260924-osm-base-v3", 1],
-    ["portal-modulos-coordinador.js", `./${dietas}vista-itinerario.js`, "20260924-osm-base-v3", 2],
-    ["portal-modulos-coordinador.js", `./${dietas}mapa-ruta.js`, "20260924-osm-base-v3", 2],
-    ["portal-modulos-coordinador.js", `./${dietas}vista-recorridos.js`, "20260924-osm-base-v3", 2],
-    ["portal-modulos-coordinador.js", `./${cronos}vista.js`, "20260924-cronos-integrado-v1", 1],
-    ["portal-modulos-coordinador.js", `./${cronos}vista-recorridos.js`, "20260924-cronos-integrado-v1", 2],
+    ["portal-modulos-coordinador.js", `./${dietas}mapa-ruta.js`, "20260924-osm-base-v3", 1],
+    ["portal-modulos-coordinador.js", `./${dietas}vista-recorridos.js`, "20260924-osm-base-v3", 1],
+    ["portal-modulos-coordinador.js", `./${cronos}vista-saldo-conectado.js`, "20260925-tanda-v1", 1],
     ["portal-modulos-coordinador.js", `./${cronos}i18n.js`, "20260924-cronos-integrado-v1", 1],
     [`${dietas}i18n.js`, "./i18n-borradores.js", "20260924-osm-base-v3", 1],
     [`${dietas}vista-borradores-propios.js`, "./i18n.js", "20260924-osm-base-v3", 1],
     [`${dietas}vista-borradores-propios.js`, "./i18n-borradores.js", "20260924-osm-base-v3", 1],
-    [`${dietas}i18n-d1.js`, "./i18n.js", "20260924-osm-base-v3", 1],
-    [`${dietas}i18n-d4.js`, "./i18n.js", "20260924-osm-base-v3", 1],
-    [`${dietas}vista-acceso-papeles.js`, "./i18n-d1.js", "20260924-osm-base-v3", 1],
-    [`${dietas}vista-itinerario.js`, "./i18n.js", "20260924-osm-base-v3", 1],
-    [`${dietas}vista-itinerario.js`, "./i18n-d4.js", "20260924-osm-base-v3", 1],
-    [`${dietas}vista-itinerario.js`, "./mapa-ruta.js", "20260924-osm-base-v3", 1],
     [`${dietas}mapa-ruta.js`, "./i18n.js", "20260924-osm-base-v3", 1],
     [`${dietas}vista-recorridos.js`, "./i18n.js", "20260924-osm-base-v3", 1],
     [`${dietas}vista-recorridos.js`, "./vista-borradores-propios.js", "20260924-osm-base-v3", 1],
-    [`${dietas}vista-recorridos.js`, "./vista-acceso-papeles.js", "20260924-osm-base-v3", 1],
-    [`${dietas}vista-recorridos.js`, "./mapa-ruta.js", "20260924-osm-base-v3", 1],
     [`${cronos}vista.js`, "./i18n.js", "20260924-cronos-integrado-v1", 1],
     [`${cronos}vista.js`, "./vista-calendario.js", "20260924-cronos-integrado-v1", 1],
     [`${cronos}i18n-c4.js`, "./i18n.js", "20260924-cronos-integrado-v1", 1],
     [`${cronos}vista-calendario.js`, "./i18n-c4.js", "20260924-cronos-integrado-v1", 1],
-    [`${cronos}vista-correcciones.js`, "./i18n.js", "20260924-cronos-integrado-v1", 1],
-    [`${cronos}vista-notificaciones.js`, "./i18n.js", "20260924-cronos-integrado-v1", 1],
     [`${cronos}vista-recorridos.js`, "./i18n.js", "20260924-cronos-integrado-v1", 1],
     [`${cronos}vista-recorridos.js`, "./vista-correcciones.js", "20260924-cronos-integrado-v1", 1],
     [`${cronos}vista-recorridos.js`, "./vista-notificaciones.js", "20260924-cronos-integrado-v1", 1],
@@ -55,10 +43,9 @@ test("la caché de PR25 solicita de nuevo las paradas, los periodos y sus hojas"
   for (const [padre, recurso, previa, cantidad] of aristas) {
     const base = new URL(padre, raiz);
     const vieja = new URL(`${recurso}?v=${previa}`, base).href;
-    // i18n-borradores.js conserva la versión de PR25; el resto se renovó
-    // después y solo exige una URL posterior, única en cada importador.
-    const versionEsperada = recurso === "./i18n-borradores.js" ? version
-      : posterior(padre === "index.html" && recurso === "/portal-empleado/portal.js" ? versionEntradaAyuda : version);
+    // Todo se renovó después de PR25: cada importador pide una URL posterior,
+    // única. Dietas interno ya no carga itinerario, D1 ni D4 de presentación.
+    const versionEsperada = posterior(padre === "index.html" && recurso === "/portal-empleado/portal.js" ? versionEntradaAyuda : version);
     cache.set(vieja, "bytes PR25");
     const codigo = await readFile(base, "utf8");
     const vigente = exigirVersiones(codigo, recurso, versionEsperada, cantidad);

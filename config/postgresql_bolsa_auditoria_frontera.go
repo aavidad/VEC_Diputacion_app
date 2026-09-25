@@ -61,7 +61,7 @@ func (c Config) DSNBolsaAuditoriaFronteraSeparado() (string, error) {
 // una URL añadida para Bolsa se convierta en vía de reutilización.
 func (c Config) dsnsPostgreSQLConfigurados() []string {
 	resultado := c.dsnsPostgreSQLConfiguradosSinDietas()
-	for _, dsn := range []string{c.DietasBorradoresPostgreSQL.dsnDietas, c.DietasBorradoresPostgreSQL.dsnPersonal} {
+	for _, dsn := range []string{c.DietasBorradoresPostgreSQL.dsnDietas, c.DietasBorradoresPostgreSQL.dsnPersonal, c.DietasBorradoresPostgreSQL.dsnAsignacionPersonal, c.DietasBorradoresPostgreSQL.dsnAuditoriaPersonal} {
 		if dsn = strings.TrimSpace(dsn); dsn != "" {
 			resultado = append(resultado, dsn)
 		}

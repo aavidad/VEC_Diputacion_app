@@ -274,6 +274,7 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
   documento_asociado: "Documento asociado",
   nueva_peticion_titulo: "Nueva petición de personal",
   organizacion_referencia: "Centros",
+  calendarios_laborales: "Calendarios",
   peticiones_centro: "Peticiones y ratificación · certificado del centro",
   peticiones_centros_rrhh: "Peticiones",
   nueva_peticion_descripcion:

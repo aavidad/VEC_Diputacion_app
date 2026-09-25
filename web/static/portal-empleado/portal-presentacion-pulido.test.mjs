@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { crearClienteBorradoresPresentacion } from "./portal-borradores-demo-cliente.js";
 import {
   enfocarYMostrarResultado,
   restaurarFocoTrasReintentoBorradores,
@@ -40,25 +39,6 @@ test("el reintento devuelve el foco al control renovado o a la tarjeta de Bolsa"
   assert.equal(restaurarFocoTrasReintentoBorradores({ querySelector: () => tarjeta }), true);
   assert.deepEqual(focos.at(-1), ["tarjeta", { preventScroll: true }]);
   assert.equal(restaurarFocoTrasReintentoBorradores({ querySelector: () => null }), false);
-});
-
-test("las huellas de presentación son SHA-256 sintéticas creíbles y diferenciadas", async () => {
-  const cliente = crearClienteBorradoresPresentacion({
-    reloj: () => new Date("2026-07-20T12:00:00Z"),
-  });
-  const opciones = await cliente.obtenerOpciones();
-  const detalle = await cliente.obtenerDetalle();
-  const huellas = [
-    opciones.categorias[0].huella_sha256,
-    opciones.tipos[0].huella_sha256,
-    detalle.referencia_estado.huella_estado_sha256,
-  ];
-
-  for (const huella of huellas) {
-    assert.match(huella, /^[0-9a-f]{64}$/u);
-    assert.ok(new Set(huella).size >= 10, "la huella no debe parecer un relleno monótono");
-  }
-  assert.notEqual(huellas[0], huellas[1]);
 });
 
 test("la marca institucional permanece visible al desplazarse el menú lateral", async () => {

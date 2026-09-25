@@ -2,74 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  CAPACIDAD_CONSULTAR_RUTA,
   ESQUEMA_CALCULO_RUTA_DIETAS,
   ESQUEMA_CATALOGO_RUTAS_DIETAS,
   ESQUEMA_SOLICITUD_RUTA_DIETAS,
 } from "./contrato.js";
 import { crearCalculadorRutasDietasHTTP } from "./calculador-rutas-http.js";
-import {
-  ESQUEMA_CONTEXTO_ACTOR_FRONTEND,
-  validarYCongelarContextoActor,
-} from "../../identidad/contexto-actor.js";
-
-function contextoProductivo() {
-  return validarYCongelarContextoActor({
-    esquema: ESQUEMA_CONTEXTO_ACTOR_FRONTEND,
-    revision: 8,
-    demostracion: false,
-    persona_ref: "per_persona_productiva_dietas_000001",
-    cuenta_ref: "cta_cuenta_productiva_dietas_000001",
-    perfil_ref: "prf_perfil_productivo_dietas_000001",
-    actor: {
-      actor_ref: "act_actor_productivo_dietas_000001",
-      nombre_visible: "Empleado autorizado",
-      iniciales: "EA",
-    },
-    rol: { clave: "personal_interno", etiqueta: "Personal interno" },
-    ambito: {
-      clase: "personal_interno",
-      organizacion_ref: "org_diputacion_granada_productiva_000001",
-      unidad_ref: "uni_unidad_productiva_dietas_000001",
-      modulos: ["dietas"],
-    },
-    autenticacion: {
-      sesion_ref: "ses_sesion_productiva_dietas_000001",
-      metodo: "kerberos_ad",
-      garantia: "alto",
-    },
-    resuelto_en: "2026-07-19T10:00:00.000Z",
-  });
-}
-
-function contextoDemostracion() {
-  return validarYCongelarContextoActor({
-    esquema: ESQUEMA_CONTEXTO_ACTOR_FRONTEND,
-    revision: 1,
-    demostracion: true,
-    persona_ref: "per_persona_demostracion_dietas_000001",
-    cuenta_ref: "cta_cuenta_demostracion_dietas_000001",
-    perfil_ref: "prf_perfil_demostracion_dietas_000001",
-    actor: {
-      actor_ref: "DEMO-PERFIL-DIETAS-01",
-      nombre_visible: "Empleado DEMO",
-      iniciales: "ED",
-    },
-    rol: { clave: "personal_interno", etiqueta: "Personal interno DEMO" },
-    ambito: {
-      clase: "personal_interno",
-      organizacion_ref: "org_diputacion_granada_demo_000001",
-      unidad_ref: "uni_unidad_demostracion_dietas_000001",
-      modulos: ["dietas"],
-    },
-    autenticacion: {
-      sesion_ref: "ses_sesion_demostracion_dietas_000001",
-      metodo: "demo",
-      garantia: "bajo",
-    },
-    resuelto_en: "2026-07-19T10:00:00.000Z",
-  });
-}
 
 function punto(code, name, lat, lon) {
   return {
@@ -103,6 +40,7 @@ function catalogoBackend({ requeridoAntesLiquidar = true } = {}) {
 
 function respuestaOSRM() {
   return {
+    data: {
     code: "Ok",
     engine: "osrm_on_premise",
     route_scope: "Granada provincia + 15 km",
@@ -140,6 +78,7 @@ function respuestaOSRM() {
       },
     ],
     waypoints: [{ location: [-3.5986, 37.1773] }],
+    },
   };
 }
 
@@ -162,15 +101,11 @@ test("proyecta catalogo sin coordenadas y mapea OSRM interno al contrato no liqu
   const llamadas = [];
   const fetchImpl = async (ruta, opciones) => {
     llamadas.push({ ruta, opciones });
-    if (ruta === "/api/vec/workspace") return respuestaJSON(catalogoBackend());
+    if (ruta === "/api/vec/dietas/route-catalog") return respuestaJSON(catalogoBackend());
     if (ruta === "/api/vec/dietas/road-route") return respuestaJSON(respuestaOSRM());
     throw new Error("ruta inesperada");
   };
-  const adaptador = crearCalculadorRutasDietasHTTP({
-    contextoActor: contextoProductivo(),
-    capacidades: [CAPACIDAD_CONSULTAR_RUTA],
-    fetchImpl,
-  });
+  const adaptador = crearCalculadorRutasDietasHTTP({ fetchImpl });
 
   const catalogo = await adaptador.obtenerCatalogo();
   assert.equal(catalogo.esquema, ESQUEMA_CATALOGO_RUTAS_DIETAS);
@@ -225,14 +160,10 @@ test("impone en todo fetch productivo la política same-origin sin cookies ni re
   const fetchImpl = async (ruta, opciones) => {
     llamadas.push({ ruta, opciones });
     return respuestaJSON(
-      ruta === "/api/vec/workspace" ? catalogoBackend() : respuestaOSRM(),
+      ruta === "/api/vec/dietas/route-catalog" ? catalogoBackend() : respuestaOSRM(),
     );
   };
-  const adaptador = crearCalculadorRutasDietasHTTP({
-    contextoActor: contextoProductivo(),
-    capacidades: [CAPACIDAD_CONSULTAR_RUTA],
-    fetchImpl,
-  });
+  const adaptador = crearCalculadorRutasDietasHTTP({ fetchImpl });
 
   await adaptador.obtenerCatalogo();
   await adaptador.calcular(solicitud());
@@ -251,82 +182,52 @@ test("impone en todo fetch productivo la política same-origin sin cookies ni re
   });
 });
 
-test("solo se compone con ContextoActor productivo y capacidad positiva", () => {
+test("solo se compone con cliente HTTP inyectado", () => {
   let llamadas = 0;
   const fetchImpl = async () => {
     llamadas += 1;
     return respuestaJSON(catalogoBackend());
   };
-  assert.throws(() => crearCalculadorRutasDietasHTTP({
-    contextoActor: contextoDemostracion(),
-    capacidades: [CAPACIDAD_CONSULTAR_RUTA],
-    fetchImpl,
-  }), /ContextoActor productivo/u);
-  assert.throws(() => crearCalculadorRutasDietasHTTP({
-    contextoActor: contextoProductivo(),
-    capacidades: [],
-    fetchImpl,
-  }), /falta capacidad/u);
-  assert.throws(() => crearCalculadorRutasDietasHTTP({
-    contextoActor: contextoProductivo(),
-    capacidades: [CAPACIDAD_CONSULTAR_RUTA],
-  }), /conector de identidad sin cookies/u);
+  assert.throws(() => crearCalculadorRutasDietasHTTP(), /conector de identidad sin cookies/u);
+  assert.throws(() => crearCalculadorRutasDietasHTTP({ fetchImpl, capacidad: "dietas.ruta.read" }), /opciones/u);
   assert.equal(llamadas, 0);
 });
 
-test("falla cerrada si el workspace no ofrece una proyeccion gobernada coherente", async () => {
+test("falla cerrada si route-catalog no ofrece una proyeccion gobernada coherente", async () => {
   const incoherente = catalogoBackend();
   incoherente.province_route_matrix.route_points_loaded = 2;
-  const adaptador = crearCalculadorRutasDietasHTTP({
-    contextoActor: contextoProductivo(),
-    capacidades: [CAPACIDAD_CONSULTAR_RUTA],
-    fetchImpl: async () => respuestaJSON(incoherente),
-  });
+  const adaptador = crearCalculadorRutasDietasHTTP({ fetchImpl: async () => respuestaJSON(incoherente) });
   await assert.rejects(adaptador.obtenerCatalogo(), /catalogo y su manifiesto/u);
 
-  const bloqueado = crearCalculadorRutasDietasHTTP({
-    contextoActor: contextoProductivo(),
-    capacidades: [CAPACIDAD_CONSULTAR_RUTA],
-    fetchImpl: async () => respuestaJSON({ error: "superficie no disponible" }, 503),
-  });
+  const bloqueado = crearCalculadorRutasDietasHTTP({ fetchImpl: async () => respuestaJSON({ error: "superficie no disponible" }, 503) });
   await assert.rejects(bloqueado.obtenerCatalogo(), /HTTP 503/u);
 });
 
 test("rechaza cuerpos que no coinciden con Content-Length antes de proyectar datos", async () => {
   const cuerpo = JSON.stringify(catalogoBackend());
-  const adaptador = crearCalculadorRutasDietasHTTP({
-    contextoActor: contextoProductivo(),
-    capacidades: [CAPACIDAD_CONSULTAR_RUTA],
-    fetchImpl: async () => new Response(cuerpo, {
+  const adaptador = crearCalculadorRutasDietasHTTP({ fetchImpl: async () => new Response(cuerpo, {
       status: 200,
       headers: {
         "Content-Type": "application/json",
         "Content-Length": String(new TextEncoder().encode(cuerpo).byteLength + 1),
       },
-    }),
-  });
+    }) });
   await assert.rejects(adaptador.obtenerCatalogo(), /longitud declarada/u);
 });
 
 test("acepta JSON UTF-8 canonico con mayusculas y espacios en Content-Type", async () => {
-  const adaptador = crearCalculadorRutasDietasHTTP({
-    contextoActor: contextoProductivo(),
-    capacidades: [CAPACIDAD_CONSULTAR_RUTA],
-    fetchImpl: async () => new Response(JSON.stringify(catalogoBackend()), {
+  const adaptador = crearCalculadorRutasDietasHTTP({ fetchImpl: async () => new Response(JSON.stringify(catalogoBackend()), {
       status: 200,
       headers: { "Content-Type": "Application/JSON ; Charset = UTF-8" },
-    }),
-  });
+    }) });
   assert.equal((await adaptador.obtenerCatalogo()).puntos.length, 3);
 });
 
 test("rechaza solicitudes fuera de 12 paradas y no alcanza el endpoint OSRM", async () => {
   let llamadasRuta = 0;
   const adaptador = crearCalculadorRutasDietasHTTP({
-    contextoActor: contextoProductivo(),
-    capacidades: [CAPACIDAD_CONSULTAR_RUTA],
     fetchImpl: async (ruta) => {
-      if (ruta === "/api/vec/workspace") return respuestaJSON(catalogoBackend());
+      if (ruta === "/api/vec/dietas/route-catalog") return respuestaJSON(catalogoBackend());
       llamadasRuta += 1;
       return respuestaJSON(respuestaOSRM());
     },
@@ -342,20 +243,18 @@ test("rechaza solicitudes fuera de 12 paradas y no alcanza el endpoint OSRM", as
 
 test("no devuelve resultados parciales si OSRM omite version o tramos", async () => {
   const sinVersion = respuestaOSRM();
-  delete sinVersion.data_version;
+  delete sinVersion.data.data_version;
   let respuestaRuta = sinVersion;
   const adaptador = crearCalculadorRutasDietasHTTP({
-    contextoActor: contextoProductivo(),
-    capacidades: [CAPACIDAD_CONSULTAR_RUTA],
     fetchImpl: async (ruta) => respuestaJSON(
-      ruta === "/api/vec/workspace" ? catalogoBackend() : respuestaRuta,
+      ruta === "/api/vec/dietas/route-catalog" ? catalogoBackend() : respuestaRuta,
     ),
   });
   await adaptador.obtenerCatalogo();
   await assert.rejects(adaptador.calcular(solicitud()), /version del grafo/u);
 
   respuestaRuta = respuestaOSRM();
-  delete respuestaRuta.routes[0].legs;
+  delete respuestaRuta.data.routes[0].legs;
   await assert.rejects(adaptador.calcular(solicitud()), /tramos OSRM/u);
 });
 
@@ -378,11 +277,7 @@ test("conserva una sola version de catalogo durante un calculo concurrente", asy
     }
     return respuestaJSON(datos);
   };
-  const adaptador = crearCalculadorRutasDietasHTTP({
-    contextoActor: contextoProductivo(),
-    capacidades: [CAPACIDAD_CONSULTAR_RUTA],
-    fetchImpl,
-  });
+  const adaptador = crearCalculadorRutasDietasHTTP({ fetchImpl });
   await adaptador.obtenerCatalogo();
   const pendiente = adaptador.calcular(solicitud());
   await adaptador.obtenerCatalogo();
@@ -396,19 +291,13 @@ test("conserva una sola version de catalogo durante un calculo concurrente", asy
 test("propaga cancelacion externa y aplica un timeout propio", async () => {
   // El corte no depende de que el cliente inyectado respete AbortSignal.
   const fetchBloqueado = async () => new Promise(() => {});
-  const cancelable = crearCalculadorRutasDietasHTTP({
-    contextoActor: contextoProductivo(),
-    capacidades: [CAPACIDAD_CONSULTAR_RUTA],
-    fetchImpl: fetchBloqueado,
-  });
+  const cancelable = crearCalculadorRutasDietasHTTP({ fetchImpl: fetchBloqueado });
   const controlador = new AbortController();
   const pendiente = cancelable.obtenerCatalogo({ signal: controlador.signal });
   controlador.abort();
   await assert.rejects(pendiente, /fue cancelada/u);
 
   const conTimeout = crearCalculadorRutasDietasHTTP({
-    contextoActor: contextoProductivo(),
-    capacidades: [CAPACIDAD_CONSULTAR_RUTA],
     fetchImpl: fetchBloqueado,
     tiempoEsperaMs: 10,
   });

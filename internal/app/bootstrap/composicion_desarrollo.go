@@ -236,6 +236,16 @@ func NewHTTPServerDesarrolloWithConfig(
 	}
 	rutasContratacion = append(rutasContratacion, rutasBolsasRRHH...)
 	coleccionesBolsasRRHH = append(coleccionesBolsasRRHH, autoridadContratacion.coleccionesAdicionales...)
+	rutasCalendarios, cerrarCalendarios, err := nuevasRutasCalendariosDesarrollo(cfg)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer func() {
+		if !completa {
+			cerrarCalendarios()
+		}
+	}()
+	rutasContratacion = append(rutasContratacion, rutasCalendarios...)
 	autoridadDietas, cerrarDietas, err := nuevasRutasDietasDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia)
 	if err != nil {
 		return nil, nil, err
@@ -257,6 +267,17 @@ func NewHTTPServerDesarrolloWithConfig(
 		}()
 		rutasContratacion = append(rutasContratacion, comisionesDietas.rutas...)
 		coleccionesBolsasRRHH = append(coleccionesBolsasRRHH, comisionesDietas.colecciones...)
+	}
+	cronosEmpleado, err := nuevasRutasCronosEmpleadoDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, autoridadContratacion.materialCronos)
+	if err != nil {
+		return nil, nil, err
+	}
+	if cronosEmpleado != nil {
+		defer func() {
+			if !completa {
+				cronosEmpleado.cerrar()
+			}
+		}()
 	}
 	autoridadExactas := vechttp.AutoridadRutasExactas(autoridadContratacion)
 	if comisionesDietas != nil {
@@ -283,7 +304,7 @@ func NewHTTPServerDesarrolloWithConfig(
 	if err != nil {
 		return nil, nil, err
 	}
-	servidor, err := server.NewHTTPServer(cfg, composeVECShellAPIConBolsasPublicas(vecAPI, publicaBolsaAPI, bolsasPublicas))
+	servidor, err := server.NewHTTPServer(cfg, componerRaizConCronosEmpleado(composeVECShellAPIConBolsasPublicas(vecAPI, publicaBolsaAPI, bolsasPublicas), cronosEmpleado))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -293,8 +314,12 @@ func NewHTTPServerDesarrolloWithConfig(
 	}
 	servidor.RegisterOnShutdown(cerrarContratacion)
 	servidor.RegisterOnShutdown(cerrarDietas)
+	servidor.RegisterOnShutdown(cerrarCalendarios)
 	if comisionesDietas != nil {
 		servidor.RegisterOnShutdown(comisionesDietas.cerrar)
+	}
+	if cronosEmpleado != nil {
+		servidor.RegisterOnShutdown(cronosEmpleado.cerrar)
 	}
 	completa = true
 	return servidor, composicion, nil

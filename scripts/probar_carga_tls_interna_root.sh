@@ -7,7 +7,8 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 binario="$(mktemp)"
 volumen="vec-c4-tls-root-${RANDOM}-$$"
 trap 'rm -f "${binario}"; docker volume rm -f "${volumen}" >/dev/null 2>&1 || true' EXIT
-CGO_ENABLED=0 go test -c -o "${binario}" ./internal/app/composicion/interna
+# La composición interna enlaza PKCS#11; Debian slim aporta el cargador C.
+CGO_ENABLED=1 go test -c -o "${binario}" ./internal/app/composicion/interna
 chmod 0755 "${binario}"
 
 if ! command -v docker >/dev/null 2>&1; then

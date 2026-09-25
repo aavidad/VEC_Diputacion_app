@@ -6,7 +6,6 @@ const raizWeb = new URL("../../", import.meta.url);
 const necesarios = [
   "static/comun/tema-vec.css",
   "static/comun/tema-vec.js",
-  "static/portal-empleado/modulos/administracion/vista-apariencia.js",
   "static/portal-empleado/portal-i18n-contratos.js",
   "static/portal-empleado/modulos/cronos/i18n-permisos.js",
   "static/portal-empleado/modulos/dietas/i18n-borradores.js",
@@ -82,6 +81,11 @@ test("el producto incluye los activos F2 y solo prepara oportunidades en la comp
     assert.ok(!publico.has(ruta), `${ruta} no debe figurar en público`);
     assert.ok(!interno.has(ruta), `${ruta} no debe figurar en interno`);
   }
+  const administracionSinCargador = "static/portal-empleado/modulos/administracion/vista-apariencia.js";
+  const coordinador = await readFile(new URL("static/portal-empleado/portal-modulos-coordinador.js", raizWeb), "utf8");
+  assert.doesNotMatch(coordinador, /modulos\/administracion\/vista(?:-apariencia)?\.js/u);
+  assert.ok(!manifiesto.has(administracionSinCargador));
+  assert.ok(!interno.has(administracionSinCargador));
   for (const ruta of ["static/comun/oportunidades/vista.test.mjs"]) {
     assert.ok(!manifiesto.has(ruta), `${ruta} no debe figurar en producto`);
     assert.ok(!publico.has(ruta), `${ruta} no debe figurar en público`);
@@ -93,12 +97,9 @@ test("los catálogos públicos y F2 responden a imports o scripts existentes", a
   const consumidores = new Map([
     ["static/bolsa/i18n-publica.js", ["static/bolsa/index.html", "static/bolsa/listas.html"]],
     ["static/area-personal/i18n.js", ["static/area-personal/arranque.js"]],
-    ["static/comun/tema-vec.js", ["static/portal-empleado/modulos/administracion/vista-apariencia.js"]],
-    ["static/portal-empleado/modulos/administracion/vista-apariencia.js", ["static/portal-empleado/modulos/administracion/vista.js"]],
     ["static/portal-empleado/portal-i18n-contratos.js", ["static/portal-empleado/portal-vistas-operaciones.js"]],
-    ["static/portal-empleado/modulos/cronos/i18n-permisos.js", ["static/portal-empleado/modulos/cronos/vista-recorridos.js"]],
     ["static/portal-empleado/modulos/dietas/i18n-borradores.js", ["static/portal-empleado/modulos/dietas/vista-borradores-propios.js"]],
-    ["static/portal-empleado/modulos/dietas/i18n-revision.js", ["static/portal-empleado/modulos/dietas/vista-recorridos.js"]],
+    ["static/portal-empleado/modulos/dietas/i18n-revision.js", ["static/portal-empleado/modulos/dietas/i18n.js"]],
   ]);
   for (const [recurso, origenes] of consumidores) {
     for (const origen of origenes) {

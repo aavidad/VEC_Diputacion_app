@@ -49,7 +49,6 @@ const (
 	EnvBolsaCategoriesVersion                      = "VEC_BOLSA_CATEGORIES_CATALOG_VERSION"
 	EnvBolsaCategoriesSHA256                       = "VEC_BOLSA_CATEGORIES_CATALOG_SHA256"
 	EnvBolsaCategoriesPublicProjectionSHA256       = "VEC_BOLSA_CATEGORIES_PUBLIC_PROJECTION_SHA256"
-	EnvBolsaDemoPath                               = "VEC_BOLSA_DEMO_PATH"
 	EnvBolsaImportacionConvocaCustodiaDir          = "VEC_BOLSA_IMPORTACION_CONVOCA_CUSTODIA_DIR"
 	EnvOSRMBaseURL                                 = "VEC_OSRM_BASE_URL"
 	EnvOSRMScopeName                               = "VEC_OSRM_SCOPE_NAME"
@@ -137,7 +136,6 @@ type Config struct {
 	BolsaCategoriesVersion                      int
 	BolsaCategoriesSHA256                       string
 	BolsaCategoriesPublicProjectionSHA256       string
-	BolsaDemoPath                               string
 	BolsaImportacionConvocaCustodiaDir          string
 	BolsaPublicaPostgreSQL                      ConfiguracionPostgreSQLPublica
 	BolsaPublicaManifiestoSHA256                string
@@ -157,10 +155,13 @@ type Config struct {
 	BolsaBorradoresPostgreSQL                   ConfiguracionPostgreSQLBorradores
 	BolsaBorradoresEnabled                      bool
 	DietasBorradoresEnabled                     string
+	CronosEmpleadoEnabled                       string
+	PersonalB2GobiernoEnabled                   string
 	DietasBorradoresPostgreSQL                  ConfiguracionDietasBorradores
 	BolsaAuditoriaFronteraPostgreSQL            ConfiguracionPostgreSQLBolsaAuditoriaFrontera
 	BolsaImportacionConvocaPostgreSQL           ConfiguracionPostgreSQLImportacionConvoca
 	ContratacionTemporalPostgreSQL              ConfiguracionPostgreSQLContratacionTemporal
+	CalendariosPostgreSQL                       ConfiguracionCalendarios
 }
 
 func Load() Config {
@@ -202,7 +203,6 @@ func Load() Config {
 		BolsaCategoriesVersion:                      envPositiveInt(EnvBolsaCategoriesVersion),
 		BolsaCategoriesSHA256:                       envFirst(EnvBolsaCategoriesSHA256),
 		BolsaCategoriesPublicProjectionSHA256:       envFirst(EnvBolsaCategoriesPublicProjectionSHA256),
-		BolsaDemoPath:                               envFirst(EnvBolsaDemoPath),
 		BolsaImportacionConvocaCustodiaDir:          envFirst(EnvBolsaImportacionConvocaCustodiaDir),
 		BolsaPublicaPostgreSQL: ConfiguracionPostgreSQLPublica{
 			dsn: envFirst(EnvBolsaPublicaDatabaseURL),
@@ -227,12 +227,17 @@ func Load() Config {
 			dsnProyectorGobierno: envFirst(EnvBolsaBorradoresProyectorGobiernoDatabaseURL),
 			dsnVerificadorRecibo: envFirst(EnvBolsaBorradoresVerificadorReciboDatabaseURL),
 		},
-		BolsaBorradoresEnabled:  envBool(EnvBolsaBorradoresEnabled),
-		DietasBorradoresEnabled: envFirst(EnvDietasBorradoresEnabled),
+		BolsaBorradoresEnabled:    envBool(EnvBolsaBorradoresEnabled),
+		DietasBorradoresEnabled:   envFirst(EnvDietasBorradoresEnabled),
+		CronosEmpleadoEnabled:     envFirst(EnvCronosEmpleadoEnabled),
+		PersonalB2GobiernoEnabled: envFirst(EnvPersonalB2GobiernoEnabled),
 		DietasBorradoresPostgreSQL: ConfiguracionDietasBorradores{
-			dsnDietas:   envFirst(EnvDietasBorradoresDatabaseURL),
-			dsnPersonal: envFirst(EnvDietasPersonalRelacionesDatabaseURL),
+			dsnDietas:             envFirst(EnvDietasBorradoresDatabaseURL),
+			dsnPersonal:           envFirst(EnvDietasPersonalRelacionesDatabaseURL),
+			dsnAsignacionPersonal: envFirst(EnvDietasPersonalAsignacionDatabaseURL),
+			dsnAuditoriaPersonal:  envFirst(EnvDietasPersonalAuditoriaFronteraDatabaseURL),
 		},
+		CalendariosPostgreSQL: NuevaConfiguracionCalendarios(envFirst(EnvCalendariosDatabaseURL)),
 		BolsaAuditoriaFronteraPostgreSQL: ConfiguracionPostgreSQLBolsaAuditoriaFrontera{
 			dsn: envFirst(EnvBolsaAuditoriaFronteraDatabaseURL),
 		},
@@ -330,7 +335,6 @@ func (c Config) Normalize() Config {
 		c.BolsaCategoriesVersion = DefaultBolsaCategoriesVersion
 	}
 	c.BolsaCategoriesSHA256 = defaultString(c.BolsaCategoriesSHA256, DefaultBolsaCategoriesSHA256)
-	c.BolsaDemoPath = strings.TrimSpace(c.BolsaDemoPath)
 	c.BolsaImportacionConvocaCustodiaDir = strings.TrimSpace(c.BolsaImportacionConvocaCustodiaDir)
 	c.OSRMBaseURL = strings.TrimRight(strings.TrimSpace(c.OSRMBaseURL), "/")
 	c.OSRMScopeName = strings.TrimSpace(c.OSRMScopeName)
@@ -344,6 +348,8 @@ func (c Config) Normalize() Config {
 	c.RRHHPresentationGuardTwo = strings.TrimSpace(c.RRHHPresentationGuardTwo)
 	c.BolsaBorradoresPostgreSQL = c.BolsaBorradoresPostgreSQL.normalizar()
 	c.DietasBorradoresEnabled = strings.TrimSpace(c.DietasBorradoresEnabled)
+	c.CronosEmpleadoEnabled = strings.TrimSpace(c.CronosEmpleadoEnabled)
+	c.PersonalB2GobiernoEnabled = strings.TrimSpace(c.PersonalB2GobiernoEnabled)
 	c.DietasBorradoresPostgreSQL = c.DietasBorradoresPostgreSQL.normalizar()
 	c.BolsaAuditoriaFronteraPostgreSQL = c.BolsaAuditoriaFronteraPostgreSQL.normalizar()
 	c.BolsaPublicaPostgreSQL = c.BolsaPublicaPostgreSQL.normalizar()

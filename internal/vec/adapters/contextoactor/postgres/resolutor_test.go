@@ -310,6 +310,16 @@ func TestResolutorContextoActorPostgreSQLRechazaTypedNil(t *testing.T) {
 
 func solicitudYFilaContextoActorV2(t *testing.T) (ports.SolicitudResolucionRegistroContextoActorV2, filaContextoActorDoble) {
 	t.Helper()
+	return solicitudYFilaContextoActorV2Alcance(t, false)
+}
+
+// solicitudYFilaContextoActorV2Alcance construye la solicitud y la fila SQL
+// exactas. Con empleado añade la entrada pep_ de Personal y pide {empleado}.
+func solicitudYFilaContextoActorV2Alcance(
+	t *testing.T,
+	empleado bool,
+) (ports.SolicitudResolucionRegistroContextoActorV2, filaContextoActorDoble) {
+	t.Helper()
 	ref := func(prefijo, relleno string) string { return prefijo + strings.Repeat(relleno, 24) }
 	desde := time.Date(2026, 7, 21, 10, 0, 0, 123000, time.UTC)
 	hasta := desde.Add(time.Hour)
@@ -328,6 +338,13 @@ func solicitudYFilaContextoActorV2(t *testing.T) (ports.SolicitudResolucionRegis
 			Tipo: domain.TipoReferenciaContextoActorCandidato, Referencia: ref("can_", "f"),
 			Estado: domain.EstadoVinculoContextoActorActivo, VigenteDesde: desde, VigenteHasta: hasta,
 		}},
+	}
+	if empleado {
+		instantanea.Vinculos = append(instantanea.Vinculos, domain.VinculoReferenciaContextoActor{
+			VinculoRef: ref("pep_", "h"), Version: 2,
+			Tipo: domain.TipoReferenciaContextoActorEmpleado, Referencia: ref("emp_", "i"),
+			Estado: domain.EstadoVinculoContextoActorActivo, VigenteDesde: desde, VigenteHasta: hasta,
+		})
 	}
 	contexto, err := domain.NuevoContextoActor(cuenta, instantanea, resuelto)
 	if err != nil {
@@ -371,6 +388,13 @@ func solicitudYFilaContextoActorV2(t *testing.T) (ports.SolicitudResolucionRegis
 			AcreditacionProcedenciaComponenteContextoActorV1: acreditacion(1),
 		}},
 	}
+	if empleado {
+		manifiesto.Vinculos = append(manifiesto.Vinculos, domain.ProcedenciaVinculoReferenciaContextoActorV1{
+			VinculoRef: instantanea.Vinculos[1].VinculoRef, Version: instantanea.Vinculos[1].Version,
+			Tipo: instantanea.Vinculos[1].Tipo, Referencia: instantanea.Vinculos[1].Referencia,
+			AcreditacionProcedenciaComponenteContextoActorV1: acreditacion(3),
+		})
+	}
 	representacionManifiesto, err := manifiesto.RepresentacionCanonicaV1()
 	if err != nil {
 		t.Fatal(err)
@@ -380,6 +404,12 @@ func solicitudYFilaContextoActorV2(t *testing.T) (ports.SolicitudResolucionRegis
 		OperacionRef: ref("oca_", "g"),
 		Contexto:     domain.SolicitudContextoActor{Cuenta: cuenta, PerfilActivoRef: instantanea.PerfilActivoRef},
 		SolicitadoEn: desde.Add(500 * time.Millisecond),
+	}
+	if empleado {
+		solicitud.Proyecciones, err = domain.NuevoAlcanceProyeccionesContextoActor(domain.ProyeccionContextoActorEmpleado)
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 	return solicitud, filaContextoActorDoble{valores: []any{
 		solicitud.OperacionRef, "rca_" + base64.RawURLEncoding.EncodeToString(bytes.Repeat([]byte{0x55}, 24)),

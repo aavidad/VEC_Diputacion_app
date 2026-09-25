@@ -17,13 +17,23 @@ const (
 	rolDietasBorradoresPostgreSQLDesarrollo = "vec_dietas_ejecutor"
 	rolPersonalDietasPostgreSQLDesarrollo   = "vec_dietas_ejecutor"
 	rolAuditoriaFronteraDietasDesarrollo    = "vec_dietas_registrador_frontera"
+	rolPersonalAsignacionDietas             = "vec_personal_d7_ejecutor"
+	rolPersonalAuditoriaDietas              = "vec_personal_registrador_frontera"
 )
 
 var (
 	errPoolsPostgreSQLDietasDesarrolloInvalidos       = errors.New("bootstrap: pools PostgreSQL nominales de dietas invalidos")
 	errConexionPostgreSQLDietasDesarrolloNoDisponible = errors.New("bootstrap: conexion PostgreSQL nominal de dietas no disponible")
 	errIdentidadPostgreSQLDietasDesarrolloInvalida    = errors.New("bootstrap: identidad PostgreSQL nominal de dietas invalida")
+	errPostimagenPersonalDietasNoAcreditada           = errors.New("bootstrap: postimagen Personal para dietas no acreditada")
 )
+
+// La firma y huella canónicas de Personal 000010 pertenecen a la composición
+// externa y aún no constan en este árbol. La activación permanece cerrada
+// hasta incorporar su preflight exacto sobre la base destino.
+func acreditarPostimagenPersonalDietas(context.Context, *pgxpool.Pool) error {
+	return errPostimagenPersonalDietasNoAcreditada
+}
 
 type poolOperativoPostgreSQLDietasDesarrollo interface {
 	Ping(context.Context) error
@@ -46,6 +56,55 @@ var perfilesPoolPostgreSQLDietasDesarrollo = [2]perfilPoolPostgreSQLDietasDesarr
 
 var perfilAuditoriaFronteraDietasDesarrollo = perfilPoolPostgreSQLDietasDesarrollo{
 	rolAuditoriaFronteraDietasDesarrollo, "vec-dietas-auditoria-frontera", 2, false,
+}
+
+var perfilesPersonalAsignacionDietas = [2]perfilPoolPostgreSQLDietasDesarrollo{
+	{rolPersonalAsignacionDietas, "vec-personal-asignacion-dietas", 2, false},
+	{rolPersonalAuditoriaDietas, "vec-personal-auditoria-dietas", 2, false},
+}
+
+// Los dos pools adicionales pertenecen a Personal. Sus logins se acreditan
+// separadamente; Dietas jamás usa su ejecutor para escribir asignaciones.
+func abrirPoolPersonalAsignacionDietas(ctx context.Context, dsn string, perfil perfilPoolPostgreSQLDietasDesarrollo) (*pgxpool.Pool, string, topologiaPostgreSQLDietasDesarrollo, error) {
+	configuracion, err := prepararConfiguracionPoolPostgreSQLDietasDesarrollo(dsn, perfil)
+	if err != nil {
+		return nil, "", topologiaPostgreSQLDietasDesarrollo{}, err
+	}
+	pool, err := pgxpool.NewWithConfig(ctx, configuracion)
+	if err != nil {
+		return nil, "", topologiaPostgreSQLDietasDesarrollo{}, errConexionPostgreSQLDietasDesarrolloNoDisponible
+	}
+	sonda, cancelar := context.WithTimeout(ctx, 5*time.Second)
+	defer cancelar()
+	if pool.Ping(sonda) != nil {
+		pool.Close()
+		return nil, "", topologiaPostgreSQLDietasDesarrollo{}, errConexionPostgreSQLDietasDesarrolloNoDisponible
+	}
+	usuario, topologia, err := acreditarPoolPostgreSQLDietasDesarrollo(ctx, pool, perfil.rol)
+	if err != nil {
+		pool.Close()
+		return nil, "", topologiaPostgreSQLDietasDesarrollo{}, err
+	}
+	return pool, usuario, topologia, nil
+}
+
+var funcionesAsignacionPersonalDietas = []string{
+	"vec_personal.registrar_asignacion_dietas_inicial_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)",
+	"vec_personal.consultar_asignacion_dietas_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)",
+	"vec_personal.corregir_asignacion_dietas_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)",
+	"vec_personal.corregir_grupo_dieta_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)",
+}
+
+func acreditarFuncionesAsignacionPersonalDietas(ctx context.Context, pool *pgxpool.Pool) error {
+	if ctx == nil || pool == nil || ctx.Err() != nil {
+		return errIdentidadPostgreSQLDietasDesarrolloInvalida
+	}
+	var acreditadas bool
+	err := pool.QueryRow(ctx, `SELECT COALESCE(bool_and(CASE WHEN pg_catalog.to_regprocedure(f.nombre) IS NULL THEN false ELSE pg_catalog.has_function_privilege(current_user,f.nombre,'EXECUTE') END),false) FROM pg_catalog.unnest($1::text[]) AS f(nombre)`, funcionesAsignacionPersonalDietas).Scan(&acreditadas)
+	if err != nil || !acreditadas {
+		return errIdentidadPostgreSQLDietasDesarrolloInvalida
+	}
+	return nil
 }
 
 // poolsPostgreSQLDietasDesarrollo no retiene DSN. Cada getter entrega sólo el
@@ -226,7 +285,7 @@ func acreditarPoolPostgreSQLDietasDesarrollo(ctx context.Context, consulta inter
 }
 
 func rolPoolPostgreSQLDietasDesarrolloValido(rol string) bool {
-	if rol == rolAuditoriaFronteraDietasDesarrollo {
+	if rol == rolAuditoriaFronteraDietasDesarrollo || rol == rolPersonalAsignacionDietas || rol == rolPersonalAuditoriaDietas {
 		return true
 	}
 	for _, p := range perfilesPoolPostgreSQLDietasDesarrollo {

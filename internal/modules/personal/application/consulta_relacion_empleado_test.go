@@ -15,15 +15,16 @@ import (
 )
 
 type proveedorP struct {
-	a vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3
-	n int
-	m personaldomain.MaterialConsultaRelacionPropia
+	a   vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3
+	err error
+	n   int
+	m   personaldomain.MaterialConsultaRelacionPropia
 }
 
 func (p *proveedorP) AutorizarConsultaRelacionPropia(_ context.Context, m personaldomain.MaterialConsultaRelacionPropia) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
 	p.n++
 	p.m = m
-	return p.a, nil
+	return p.a, p.err
 }
 
 type repoP struct {
@@ -134,6 +135,30 @@ func TestServicioConsultaPropiaRechazaDependenciasNulas(t *testing.T) {
 	s, e := NuevoServicioConsultaRelacionEmpleado(nil, nil)
 	if s != nil || !errors.Is(e, personalports.ErrRelacionEmpleadoNoDisponible) {
 		t.Fatalf("servicio=%v error=%v", s, e)
+	}
+}
+
+func TestServicioDistingueDenegacionDeFalloSinConsultarRelaciones(t *testing.T) {
+	s := solicitudP(t)
+	for _, caso := range []struct {
+		nombre        string
+		err, esperado error
+	}{
+		{"denegacion probada", personalports.ErrRelacionEmpleadoDenegada, personalports.ErrRelacionEmpleadoDenegada},
+		{"dependencia caida", errors.New("fallo interno"), personalports.ErrRelacionEmpleadoNoDisponible},
+		{"denegacion con timeout", errors.Join(personalports.ErrRelacionEmpleadoDenegada, context.DeadlineExceeded), context.DeadlineExceeded},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			p, repo := &proveedorP{err: caso.err}, &repoP{}
+			servicio, err := NuevoServicioConsultaRelacionEmpleado(p, repo)
+			if err != nil {
+				t.Fatal(err)
+			}
+			resultado, err := servicio.ConsultarPropiasParaDietas(context.Background(), s)
+			if !errors.Is(err, caso.esperado) || repo.n != 0 || len(resultado.Relaciones) != 0 {
+				t.Fatalf("error=%v, consultas=%d, relaciones=%d", err, repo.n, len(resultado.Relaciones))
+			}
+		})
 	}
 }
 func TestServicioRechazaResumenAlteradoAntesDeRepositorio(t *testing.T) {

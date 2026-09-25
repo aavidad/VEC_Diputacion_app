@@ -52,6 +52,11 @@ const (
 	MetodoSSO         MetodoAutenticacion = "sso"
 )
 
+// ACRCertificadoPersonalDesarrolloProtegido solo se emite tras verificar el
+// certificado personal y la proteccion de su clave por el proveedor gobernado.
+// La prueba de posesion mTLS, por si sola, no acredita esa proteccion.
+const ACRCertificadoPersonalDesarrolloProtegido = "urn:vec:acr:certificado-desarrollo-protegido"
+
 func (m MetodoAutenticacion) Valido() bool {
 	switch m {
 	case MetodoKerberos, MetodoCertificado, MetodoDNIe, MetodoClave, MetodoSSO:
@@ -317,6 +322,10 @@ func NuevoServicioIdentidad(
 	}
 	if reloj == nil {
 		reloj = relojSistema{}
+	}
+	if configuracion.PoliticaInterna == PoliticaInternaDesarrolloCertificadoPersonal &&
+		!reloj.Ahora().Before(configuracion.RetiradaPoliticaInternaEn) {
+		return nil, fmt.Errorf("%w: politica temporal retirada", ErrConfiguracionSuperficie)
 	}
 	configuracion = copiarYNormalizarConfiguracion(configuracion)
 	contenidoConfiguracion, err := json.Marshal(configuracion)
@@ -692,6 +701,10 @@ func normalizarYValidarAsercion(
 	if estado.acrVerificado, err = canonicalizarID(a.ACRVerificado, longitudMaximaReferencia, false); err != nil {
 		return estado, err
 	}
+	if c.PoliticaInterna == PoliticaInternaDesarrolloCertificadoPersonal &&
+		(estado.acrVerificado != ACRCertificadoPersonalDesarrolloProtegido || a.MetodoPrimario != MetodoCertificado) {
+		return estado, ErrAsercionNoValida
+	}
 	if estado.cuenta, err = normalizarCuenta(a.Cuenta, estado.sujetoID); err != nil {
 		return estado, err
 	}
@@ -726,6 +739,11 @@ func validarEstadoSesion(estado estadoIdentidadSesion, c ConfiguracionSuperficie
 		validarHuellaPolitica(estado.huellaPolitica) != nil {
 		return ErrSesionNoValida
 	}
+	if c.PoliticaInterna == PoliticaInternaDesarrolloCertificadoPersonal &&
+		(estado.acrVerificado != ACRCertificadoPersonalDesarrolloProtegido ||
+			estado.metodoPrimario != MetodoCertificado || estado.garantia != dominiovec.AuthAssuranceSubstantial) {
+		return ErrSesionNoValida
+	}
 	for _, valor := range []struct {
 		texto      string
 		maximo     int
@@ -755,6 +773,10 @@ func validarEstadoSesion(estado estadoIdentidadSesion, c ConfiguracionSuperficie
 }
 
 func validarTiempos(estado estadoIdentidadSesion, c ConfiguracionSuperficie, ahora time.Time) error {
+	if c.PoliticaInterna == PoliticaInternaDesarrolloCertificadoPersonal &&
+		(!ahora.Before(c.RetiradaPoliticaInternaEn) || !estado.expiraEn.Before(c.RetiradaPoliticaInternaEn)) {
+		return ErrAsercionNoValida
+	}
 	if !instanteSesionCanonico(estado.autenticacionVerificadaEn) ||
 		!instanteSesionCanonico(estado.emitidaEn) || !instanteSesionCanonico(estado.noAntesDe) ||
 		!instanteSesionCanonico(estado.expiraEn) ||
@@ -920,6 +942,10 @@ func (s *ServicioIdentidad) evaluarGarantia(ctx context.Context, estado estadoId
 	}
 	if !resultado.Garantia.Valida() ||
 		!dominiovec.CumpleGarantiaAutenticacion(resultado.Garantia, s.configuracion.GarantiaMinima) {
+		return ResultadoEvaluacionGarantia{}, ErrAsercionNoValida
+	}
+	if s.configuracion.PoliticaInterna == PoliticaInternaDesarrolloCertificadoPersonal &&
+		resultado.Garantia != dominiovec.AuthAssuranceSubstantial {
 		return ResultadoEvaluacionGarantia{}, ErrAsercionNoValida
 	}
 	if !referenciaOpacaSesionValida(resultado.PoliticaRef, "pga_") {

@@ -7,5 +7,5 @@ func (a AutorizacionV2) validar(m MaterialV2, ahora time.Time) error {
 	if err != nil {
 		return ErrDenegada
 	}
-	return validarAutorizacionLectura(Autorizacion(a), m.base.contexto, m.PreparadoEn(), r, AudienciaV2, ahora)
+	return validarAutorizacionLectura(Autorizacion(a), m.base.contexto, m.PreparadoEn(), r, AudienciaV2, m.politica, ahora)
 }

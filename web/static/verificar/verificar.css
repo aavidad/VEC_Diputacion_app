@@ -9,11 +9,18 @@ body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; colo
 a:focus-visible { outline: 3px solid var(--portal-foco); outline-offset: 3px; }
 .cabecera { display: flex; align-items: center; gap: 2rem; padding: 1rem clamp(1rem, 5vw, 5rem); background: var(--portal-superficie); border-bottom: 4px solid var(--portal-acento); }
 .cabecera img { display: block; width: min(250px, 42vw); height: auto; }
-.cabecera div { display: grid; gap: .2rem; border-left: 1px solid var(--portal-borde); padding-left: 2rem; }
-.cabecera span { color: var(--portal-muted); font-size: .85rem; text-transform: uppercase; letter-spacing: .08em; }
-.cabecera strong { font-size: clamp(1rem, 2vw, 1.35rem); }
-main { width: min(1080px, calc(100% - 2rem)); margin: 3rem auto; display: grid; grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr); gap: 1.5rem; align-items: start; }
-.panel, .informacion { background: var(--portal-superficie); border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-lg); padding: clamp(1.25rem, 3vw, 2.25rem); box-shadow: var(--portal-sombra-sm); }
+.cabecera-identidad { display: grid; gap: .2rem; border-left: 1px solid var(--portal-borde); padding-left: 2rem; }
+.cabecera-identidad span { color: var(--portal-muted); font-size: .85rem; text-transform: uppercase; letter-spacing: .08em; }
+.cabecera-identidad strong { font-size: clamp(1rem, 2vw, 1.35rem); }
+.ayuda-cotejo { position: relative; margin-left: auto; }
+.ayuda-cotejo summary { display: grid; place-items: center; width: 2.5rem; height: 2.5rem; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio); color: var(--portal-azul-700); background: var(--portal-superficie); font-size: 1.25rem; font-weight: 700; cursor: pointer; list-style: none; }
+.ayuda-cotejo summary::-webkit-details-marker { display: none; }
+.ayuda-cotejo summary:focus-visible { outline: 3px solid var(--portal-foco); outline-offset: 3px; }
+.ayuda-cotejo-contenido { position: absolute; z-index: 3; top: calc(100% + .75rem); right: 0; width: min(25rem, calc(100vw - 2rem)); padding: 1.25rem; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-lg); color: var(--portal-tinta); background: var(--portal-superficie); box-shadow: var(--portal-sombra-sm); }
+.ayuda-cotejo-contenido h2 { margin-top: 0; }
+.ayuda-cotejo-contenido p:last-child { margin-bottom: 0; }
+main { width: min(720px, calc(100% - 2rem)); margin: 3rem auto; }
+.panel { background: var(--portal-superficie); border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-lg); padding: clamp(1.25rem, 3vw, 2.25rem); box-shadow: var(--portal-sombra-sm); }
 .panel { border-top: 5px solid var(--portal-acento); }
 .sobrelinea { margin: 0 0 .5rem; color: var(--portal-azul-700); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; font-size: .8rem; }
 h1 { margin: 0; font-size: clamp(1.6rem, 4vw, 2.35rem); }
@@ -31,7 +38,6 @@ button:disabled { opacity: .65; cursor: wait; }
 .resultado { margin-top: 1.5rem; padding: 1rem; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio); background: var(--portal-superficie-alterna); }
 .resultado[data-estado="valido"] { color: var(--portal-exito); background: var(--portal-exito-suave); border-color: var(--portal-exito); }
 .resultado[data-estado="error"] { color: var(--portal-peligro); background: var(--portal-peligro-suave); border-color: var(--portal-peligro); }
-#aviso-presentacion { color: var(--portal-aviso); background: var(--portal-aviso-suave); border-color: var(--portal-aviso); }
 .resultado strong { display: block; margin-bottom: .35rem; }
 .resultado dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: .35rem 1rem; margin-bottom: 0; }
 .resultado dt { font-weight: 700; }
@@ -39,9 +45,10 @@ button:disabled { opacity: .65; cursor: wait; }
 footer { margin-top: auto; padding: 1.2rem; text-align: center; color: var(--portal-muted); background: var(--portal-superficie); border-top: 1px solid var(--portal-borde); }
 
 @media (max-width: 720px) {
-  .cabecera { align-items: flex-start; flex-direction: column; gap: .8rem; }
-  .cabecera div { border-left: 0; padding-left: 0; }
-  main { grid-template-columns: 1fr; margin-block: 1.5rem; }
+  .cabecera { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .8rem; }
+  .cabecera-identidad { grid-column: 1 / -1; border-left: 0; padding-left: 0; }
+  .ayuda-cotejo { grid-column: 2; grid-row: 1; }
+  main { margin-block: 1.5rem; }
   .campo-accion { align-items: stretch; flex-direction: column; }
   .resultado dl { grid-template-columns: 1fr; }
 }

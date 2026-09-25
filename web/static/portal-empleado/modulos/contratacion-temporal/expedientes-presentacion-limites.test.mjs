@@ -2,51 +2,16 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { obtenerDatosPresentacion } from "../../datos-presentacion.js";
-import { crearContextoActorPresentacionDesdeSesion } from "../../identidad/presentacion.js";
-import { crearAdaptadorContratacionTemporalPresentacion } from "./adaptador-presentacion.js";
-import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js";
-import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js";
 import { renderizarCuadro, renderizarExpediente } from "./componentes-expedientes.js";
 import {
-  CAPACIDADES_CONTRATACION_TEMPORAL as CAP,
-  validarAuditoriaContratacionTemporal,
-  validarComandoActuacion,
   validarCuadroContratacionTemporal,
-  validarDocumentosContratacionTemporal,
   validarExpedienteContratacionTemporal,
-  validarReciboActuacion,
 } from "./contrato-expedientes.js";
-import { crearBorradorAlta, crearComandoAlta } from "./contrato.js";
 import {
-  crearAuditoriaContratacionTemporalPresentacion,
   crearCuadroContratacionTemporalPresentacion,
-  crearDocumentosContratacionTemporalPresentacion,
   crearExpedienteContratacionTemporalPresentacion,
 } from "./datos-presentacion.js";
-import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js";
-import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js";
-import {
-  crearEjecutorAltaConRefresco,
-  montarModuloContratacionTemporal,
-  renderizarModuloContratacionTemporal,
-} from "./vista-expedientes.js";
-
-function contexto(perfil = "administrador") {
-  return crearContextoActorPresentacionDesdeSesion(
-    obtenerDatosPresentacion(perfil).sesion,
-  );
-}
-
-function adaptador(perfil = "administrador") {
-  return crearAdaptadorContratacionTemporalPresentacion({
-    contextoActor: contexto(perfil),
-  });
-}
-
-function presentadorDe(fuente, capacidades = fuente.capacidades) {
-  return crearPresentadorExpedientesContratacionTemporal({ fuente, capacidades });
-}
+import { renderizarModuloContratacionTemporal } from "./vista-expedientes.js";
 
 function estadoVista(expediente, tareaRef = expediente.tareas[0].tarea_ref) {
   return {
@@ -65,28 +30,6 @@ function estadoVista(expediente, tareaRef = expediente.tareas[0].tarea_ref) {
     mensaje_clave: "estado_expediente_listo",
     tipo_mensaje: "informacion",
   };
-}
-
-function comandoDe(expediente, tarea, accion) {
-  return validarComandoActuacion({
-    esquema: "vec.contratacion_temporal.actuacion.v1",
-    expediente_ref: expediente.expediente_ref,
-    version_esperada: expediente.version,
-    tarea_ref: tarea.tarea_ref,
-    accion_ref: accion.accion_ref,
-    datos: {},
-  });
-}
-
-function expedienteConAccionSinteticaDisponible() {
-  const entrada = crearExpedienteContratacionTemporalPresentacion();
-  const tarea = entrada.tareas.find(({ tarea_ref }) => tarea_ref === "tarea-solicitud");
-  tarea.acciones[0] = {
-    ...tarea.acciones[0],
-    disponible: true,
-    motivo_no_disponible: "",
-  };
-  return validarExpedienteContratacionTemporal(entrada);
 }
 
 test("las tareas operativas cubren todos los hitos funcionales de RRHH", () => {
@@ -184,41 +127,18 @@ test("la formalización mantiene P4 pendiente sin inventar circuito ni efectos a
   assert.doesNotMatch(texto, /Jefatura de Servicio|Órgano competente|fe pública|Enviada al portafirmas|Firmado|orden proceden/i);
 });
 
-test("montaje y desmontaje son simétricos y no dejan efectos tras retirar la vista", async () => {
-  const eventos = new Map();
-  const raiz = {
-    innerHTML: "",
-    addEventListener(tipo, manejador) { eventos.set(tipo, manejador); },
-    removeEventListener(tipo, manejador) {
-      if (eventos.get(tipo) === manejador) eventos.delete(tipo);
-    },
-    querySelector() { return null; },
-    contains() { return true; },
-  };
-  const presentador = presentadorDe(adaptador());
-  const montaje = await montarModuloContratacionTemporal({ raiz, presentador });
-  assert.equal(eventos.size, 2);
-  assert.match(raiz.innerHTML, /Expedientes de contratación/);
-  montaje.desmontar();
-  assert.equal(eventos.size, 0);
-  const estadoAntes = presentador.obtenerEstado();
-  const estado = await presentador.cargar();
-  assert.strictEqual(estado, estadoAntes);
-  assert.strictEqual(presentador.obtenerEstado(), estadoAntes);
-});
 
-test("presentación queda aislada de red, cookies, storage y manifiestos productivos", async () => {
+test("las vistas neutras quedan aisladas de red, cookies, storage y adaptador sintético", async () => {
   const directorio = new URL("./", import.meta.url);
-  const [adaptadorFuente, datosFuente, presentadorFuente, vistaFuente, interno, produccion] =
+  const [datosFuente, presentadorFuente, vistaFuente, interno, produccion] =
     await Promise.all([
-      readFile(new URL("adaptador-presentacion.js", directorio), "utf8"),
       readFile(new URL("datos-presentacion.js", directorio), "utf8"),
       readFile(new URL("presentador-expedientes.js", directorio), "utf8"),
       readFile(new URL("vista-expedientes.js", directorio), "utf8"),
       readFile(new URL("../../../../interno.manifest", directorio), "utf8"),
       readFile(new URL("../../../../produccion.manifest", directorio), "utf8"),
     ]);
-  const candidato = `${adaptadorFuente}\n${datosFuente}\n${presentadorFuente}\n${vistaFuente}`;
+  const candidato = `${datosFuente}\n${presentadorFuente}\n${vistaFuente}`;
   assert.doesNotMatch(
     candidato,
     /\b(?:fetch|XMLHttpRequest|WebSocket|EventSource)\s*\(|document\.cookie|localStorage|sessionStorage|indexedDB/i,
@@ -233,27 +153,6 @@ test("presentación queda aislada de red, cookies, storage y manifiestos product
   }
 });
 
-test("la presentación no transmite GINPIX ni altera el expediente al llegar al envío", async () => {
-  const fuente = adaptador();
-  const referencia = "exp-demo-contratacion-005487";
-  const expediente = await fuente.obtener(referencia);
-
-  const tareaEnvio = expediente.tareas.find(({ tarea_ref: actual }) => actual === "tarea-envio-ginpix");
-  const accionEnvio = tareaEnvio.acciones.find(({ accion_ref: actual }) => actual === "enviar_ginpix");
-  assert.equal(accionEnvio.capacidad, CAP.enviarGinpix);
-  assert.equal(accionEnvio.disponible, false);
-  const versionAntes = expediente.version;
-  const auditoriaAntes = await fuente.obtenerAuditoria(referencia);
-
-  await assert.rejects(
-    fuente.ejecutar(comandoDe(expediente, tareaEnvio, accionEnvio)),
-    /no está disponible|conector corporativo/u,
-  );
-
-  const despues = await fuente.obtener(referencia);
-  assert.equal(despues.version, versionAntes);
-  assert.deepEqual(await fuente.obtenerAuditoria(referencia), auditoriaAntes);
-});
 
 test("la vista de alta no renderiza subcabecera redundante ni bloque de llamamiento", () => {
   const estado = {
@@ -272,84 +171,4 @@ test("la vista de alta no renderiza subcabecera redundante ni bloque de llamamie
   assert.doesNotMatch(html, /Nueva petición de personal/u);
   assert.doesNotMatch(html, /data-ct-exp-llamamiento/u);
   assert.match(html, /data-ct-exp-alta/u);
-});
-
-test("abrir otro expediente sitúa foco y scroll en su cabecera una sola vez", async () => {
-  const fuente = adaptador();
-  const presentador = presentadorDe(fuente);
-  await presentador.cargar();
-  const eventos = new Map();
-  const atributos = new Map();
-  let focos = 0;
-  let desplazamientos = 0;
-  const cabecera = {
-    setAttribute(nombre, valor) { atributos.set(nombre, valor); },
-    focus() { focos += 1; },
-    scrollIntoView(opciones) {
-      desplazamientos += 1;
-      assert.deepEqual(opciones, { block: "nearest", inline: "nearest" });
-    },
-  };
-  const raiz = {
-    innerHTML: "",
-    addEventListener(tipo, manejador) { eventos.set(tipo, manejador); },
-    removeEventListener(tipo, manejador) { eventos.delete(tipo); },
-    querySelector(selector) {
-      return selector === ".ct-exp-cabecera-expediente h3" ? cabecera : null;
-    },
-    contains() { return true; },
-  };
-  const referencia = presentador.obtenerEstado().cuadro.expedientes[1].expediente_ref;
-  const control = {
-    dataset: { ctExpAbrir: referencia },
-    closest(selector) { return selector === "[data-ct-exp-abrir]" ? control : null; },
-  };
-  const montaje = await montarModuloContratacionTemporal({ raiz, presentador });
-  try {
-    await eventos.get("click")({ target: control, preventDefault() {} });
-    assert.equal(presentador.obtenerEstado().expediente_ref, referencia);
-    assert.equal(atributos.get("tabindex"), "-1");
-    assert.equal(focos, 1);
-    assert.equal(desplazamientos, 1);
-  } finally {
-    montaje.desmontar();
-  }
-});
-
-test("un fallo al abrir se renderiza desde el estado del presentador y no mueve el foco", async () => {
-  const base = adaptador();
-  const cuadro = await base.listar();
-  const fuente = {
-    capacidades: [CAP.consultarCuadro, CAP.consultarExpediente],
-    async listar() { return cuadro; },
-    async obtener() { throw new Error("detalle no disponible"); },
-    async ejecutar() { throw new Error("actuación no disponible"); },
-  };
-  const presentador = presentadorDe(fuente);
-  const eventos = new Map();
-  let focos = 0;
-  const raiz = {
-    innerHTML: "",
-    addEventListener(tipo, manejador) { eventos.set(tipo, manejador); },
-    removeEventListener(tipo, manejador) { eventos.delete(tipo); },
-    querySelector(selector) {
-      return selector === ".ct-exp-cabecera-expediente h3" ? { focus() { focos += 1; } } : null;
-    },
-    contains() { return true; },
-  };
-  const referencia = cuadro.expedientes[0].expediente_ref;
-  const control = {
-    dataset: { ctExpAbrir: referencia },
-    closest(selector) { return selector === "[data-ct-exp-abrir]" ? control : null; },
-  };
-  const montaje = await montarModuloContratacionTemporal({ raiz, presentador });
-  try {
-    await eventos.get("click")({ target: control, preventDefault() {} });
-    assert.equal(presentador.obtenerEstado().carga, "error");
-    assert.match(raiz.innerHTML, /No se pudo cargar el expediente. Reintente desde el cuadro/u);
-    assert.match(raiz.innerHTML, /role="alert"/u);
-    assert.equal(focos, 0);
-  } finally {
-    montaje.desmontar();
-  }
 });

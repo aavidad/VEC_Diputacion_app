@@ -17,6 +17,10 @@ var (
 	ErrGeneradorOperacionContextoActorNoDisponible = errors.New("vec: generador de operacion de contexto de actor no disponible")
 	ErrSolicitudRegistroContextoActorV2Invalida    = errors.New("vec: solicitud de registro de contexto de actor v2 invalida")
 	ErrConfirmacionRegistroContextoActorV2Invalida = errors.New("vec: confirmacion de registro de contexto de actor v2 invalida")
+	// Motivos de denegacion cuando la composicion pide la proyeccion de
+	// empleado: Personal no acredita ninguno o acredita varios. Nunca se elige.
+	ErrProyeccionEmpleadoContextoActorAusente = errors.New("vec: proyeccion de empleado pedida sin empleado canonico")
+	ErrProyeccionEmpleadoContextoActorAmbigua = errors.New("vec: proyeccion de empleado pedida ambigua")
 )
 
 // VentanaMaximaFrescuraContextoActorV2 acota el tiempo entre el instante
@@ -43,10 +47,16 @@ type GeneradorOperacionContextoActorV2 interface {
 // invocacion durable. SolicitadoEn es una observacion local para acotar
 // frescura y deriva de reloj; no es el instante autoritativo que debe guardar
 // el adaptador.
+//
+// Proyecciones es el alcance cerrado que fija la composicion servidor, nunca
+// el cliente. Su valor cero (vacio) conserva el contexto y los bytes heredados;
+// con empleado, el adaptador obtiene el empleado canonico de Personal y deniega
+// si no hay exactamente uno.
 type SolicitudResolucionRegistroContextoActorV2 struct {
 	OperacionRef string
 	Contexto     domain.SolicitudContextoActor
 	SolicitadoEn time.Time
+	Proyecciones domain.AlcanceProyeccionesContextoActor
 }
 
 func (s SolicitudResolucionRegistroContextoActorV2) Validar() error {
@@ -89,7 +99,8 @@ func (c ConfirmacionRegistroContextoActorV2) ValidarPara(
 		c.Contexto.Instantanea.CuentaRef != solicitud.Contexto.Cuenta.CuentaRef ||
 		c.Contexto.PerfilActivoRef != solicitud.Contexto.PerfilActivoRef ||
 		c.Contexto.Principal.AuthMethod != solicitud.Contexto.Cuenta.Metodo ||
-		c.Contexto.Principal.AuthAssurance != solicitud.Contexto.Cuenta.Garantia {
+		c.Contexto.Principal.AuthAssurance != solicitud.Contexto.Cuenta.Garantia ||
+		c.Contexto.AlcanceProyecciones() != solicitud.Proyecciones {
 		return ErrConfirmacionRegistroContextoActorV2Invalida
 	}
 	representacion, err := c.Contexto.RepresentacionCanonicaVinculadaV2()

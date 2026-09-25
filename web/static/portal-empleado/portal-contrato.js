@@ -46,8 +46,6 @@ export const VISTAS_DESTINO_AVISO = Object.freeze(new Set([
   "baremacion", "alegaciones", "importacion", "llamamientos", "contratos", "reglas",
   "consulta", "estadisticas", "documentos", "comunicaciones", "auditoria", "configuracion",
   "bolsa-candidatos", "contratacion-temporal", "cronos", "dietas", "personal",
-  "nominas-empleado", "solicitudes-empleado", "meritos-empleado", "comunicaciones-empleado",
-  "documentos-empleado", "aprobaciones-empleado", "auditoria-empleado", "administracion-empleado",
 ]));
 
 function esObjeto(valor) {

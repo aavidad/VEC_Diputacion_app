@@ -26,15 +26,10 @@ test("capa C no reutiliza los consumidores previos de B con caché immutable", a
   const aristas = [
     [html, "/portal-empleado/portal.js", "20260924-web-integrada-v2", entradaAyuda, 1],
     [portal, "./portal-modulos-coordinador.js", "20260924-web-integrada-v2", entrada, 1],
-    [coordinador, "./modulos/cronos/vista.js", "20260924-f2-shell-v1", cronosVista, 1],
-    [coordinador, "./modulos/cronos/vista-recorridos.js", "20260924-cronos-ayuda-v1", cronosVista, 2],
+    [coordinador, "./modulos/cronos/vista-saldo-conectado.js", "20260925-tanda-v1", posterior("20260925-tanda-v1"), 1],
     [coordinador, "./modulos/cronos/i18n.js", "20260924-f2-web2", cronosVista, 1],
-    [coordinador, "./modulos/dietas/vista-recorridos.js", "20260924-f2-consulta-v2", sinGuia, 2],
-    [coordinador, "./modulos/dietas/vista-itinerario.js", "20260923-dietas-r1", sinGuia, 2],
-    [coordinador, "./modulos/personal/vista-ficha-integral.js", "20260924-f2-shell-v1", vistasPersonalC, 2],
-    [coordinador, "./modulos/personal/vista-rpt-publica.js", "20260920-personal-rpt-publica-v3", vistasC, 1],
-    [coordinador, "./modulos/personal/vista-estructura-organizativa-publica.js", "20260924-f2-cache-v3", vistasPersonalC, 1],
-    [coordinador, "./modulos/nominas/vista.js", "20260924-f2-shell-v1", vistasC, 1],
+    [coordinador, "./modulos/dietas/vista-recorridos.js", "20260924-f2-consulta-v2", sinGuia, 1],
+    [coordinador, "./modulos/personal/vista-ficha-integral.js", "20260924-f2-shell-v1", vistasPersonalC, 1],
     [html, "/portal-empleado/modulos/cronos/permisos.css", "20260924-cronos-ayuda-v1", cronos, 1],
     [html, "/portal-empleado/modulos/dietas/dietas.css", "20260924-f2-shell-v1", dietas, 1],
   ];
@@ -55,8 +50,7 @@ test("la ayuda de Dietas no reutiliza C v3 ni las vistas y CSS anteriores", asyn
   const aristas = [
     [html, "/portal-empleado/portal.js", "20260924-web-c-v3", entradaAyuda, 1],
     [portal, "./portal-modulos-coordinador.js", "20260924-web-c-v3", entrada, 1],
-    [coordinador, "./modulos/dietas/vista-itinerario.js", "20260924-dietas-d1d2d4", sinGuia, 2],
-    [coordinador, "./modulos/dietas/vista-recorridos.js", recuperacion, sinGuia, 2],
+    [coordinador, "./modulos/dietas/vista-recorridos.js", recuperacion, sinGuia, 1],
     [html, "/portal-empleado/modulos/dietas/dietas.css", "20260924-dietas-d1d2d4", dietas, 1],
   ];
   const cache = new Map(aristas.map(([, ruta, previa]) => [`${ruta}?v=${previa}`, "respuesta C antigua"]));
@@ -69,13 +63,17 @@ test("la ayuda de Dietas no reutiliza C v3 ni las vistas y CSS anteriores", asyn
 
 test("capa C empaqueta las hojas nuevas y conserva los recursos del mapa OSM", async () => {
   const activosCronos = ["i18n-c4.js", "i18n-c5.js", "i18n-c6.js", "i18n-c9.js", ...["vista-calendario", "vista-correcciones", "vista-catalogo-permisos", "vista-notificaciones"].flatMap((nombre) => [nombre + ".js", nombre + ".css"])];
-  const activosDietas = ["i18n-d1.js", "i18n-d4.js", "vista-acceso-papeles.js", "mapa-ruta.js"];
+  // D1 y D4 eran piezas de la vista de presentación retirada; el mapa sigue.
+  const activosDietas = ["mapa-ruta.js", "vista-mapa-comision.js"];
+  const retiradosDietas = ["i18n-d1.js", "i18n-d4.js", "vista-acceso-papeles.js", "vista-itinerario.js"];
   for (const nombre of ["interno.manifest", "produccion.manifest"]) {
     const contenido = await readFile(new URL(`../../${nombre}`, raiz), "utf8");
     const entradas = contenido.split(/\r?\n/u);
     for (const [modulo, activos] of [["cronos", activosCronos], ["dietas", activosDietas]]) {
       for (const activo of activos) assert.ok(entradas.includes(`static/portal-empleado/modulos/${modulo}/${activo}`), `${nombre}: ${activo}`);
     }
+    for (const retirado of retiradosDietas)
+      assert.ok(!entradas.includes(`static/portal-empleado/modulos/dietas/${retirado}`), `${nombre}: ${retirado} retirado`);
   }
   const html = await readFile(new URL("index.html", raiz), "utf8");
   for (const nombre of ["vista-calendario", "vista-correcciones", "vista-catalogo-permisos", "vista-notificaciones"]) {
@@ -96,7 +94,7 @@ test("el corrector Dietas descarga de nuevo la cadena que tenía C inicial", asy
   const aristas = [
     [html, "/portal-empleado/portal.js", "20260924-web-c-v1", entradaAyuda, 1],
     [portal, "./portal-modulos-coordinador.js", "20260924-web-c-v1", entrada, 1],
-    [coordinador, "./modulos/dietas/vista-recorridos.js", "20260924-dietas-d1d2d4", sinGuia, 2],
+    [coordinador, "./modulos/dietas/vista-recorridos.js", "20260924-dietas-d1d2d4", sinGuia, 1],
     [recorridos, "./vista-borradores-propios.js", "20260924-dietas-d1d2d4", sinGuia, 1],
   ];
   for (const [codigo, ruta, anterior] of [

@@ -8,8 +8,8 @@
     <title>Comprobación de documentos · Diputación de Granada</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="/comun/tema-vec.css?v=20260925-aspecto-v1">
-    <link rel="stylesheet" href="/verificar/verificar.css?v=20260924-f2-tema-verificar-v1">
-    <script type="module" src="/verificar/verificar.js?v=20260924-cotejo-espera-i18n-v3"></script>
+    <link rel="stylesheet" href="/verificar/verificar.css?v=20260925-cotejo-publico-v2">
+    <script type="module" src="/verificar/verificar.js?v=20260925-cotejo-publico-v1"></script>
   </head>
   <body>
     <a class="salto" href="#contenido">Saltar al contenido principal</a>
@@ -17,13 +17,21 @@
       <a href="/" aria-label="Ir al inicio">
         <img src="/assets/logo-diputacion-granada.svg" width="250" height="84" alt="Diputación de Granada">
       </a>
-      <div><span>Servicio de cotejo</span><strong>Comprobación de documentos</strong></div>
+      <div class="cabecera-identidad"><span>Servicio de cotejo</span><strong>Comprobación de documentos</strong></div>
+      <details class="ayuda-cotejo">
+        <summary aria-label="Ayuda sobre la comprobación de documentos" title="Ayuda sobre la comprobación de documentos"><span aria-hidden="true">?</span></summary>
+        <div class="ayuda-cotejo-contenido">
+          <h2>Ayuda y garantías</h2>
+          <p>Introduzca la referencia que aparece en el documento o abra directamente el código QR. La referencia no contiene datos personales.</p>
+          <p>El QR facilita el acceso al servicio, pero no acredita por sí mismo la autenticidad. El resultado válido procede del registro documental y de sus firmas.</p>
+          <p>Los documentos internos o protegidos requieren autenticación adicional y no se entregan por conocer una referencia.</p>
+        </div>
+      </details>
     </header>
     <main id="contenido" tabindex="-1">
       <section class="panel" aria-labelledby="titulo-cotejo">
         <p class="sobrelinea">Código seguro de verificación</p>
         <h1 id="titulo-cotejo">Compruebe un documento emitido</h1>
-        <p>Introduzca la referencia que aparece en el documento o abra directamente el código QR. La referencia no contiene datos personales.</p>
         <form id="formulario-cotejo">
           <label for="referencia">Referencia de comprobación</label>
           <div class="campo-accion">
@@ -32,13 +40,7 @@
           </div>
         </form>
         <div id="resultado-cotejo" class="resultado" role="status" aria-live="polite" hidden></div>
-        <p id="aviso-presentacion" class="resultado" role="status" hidden><strong>Resultado DEMO.</strong> Este modo solo reconoce referencias sintéticas de presentación; no acredita autenticidad, registro ni firma.</p>
       </section>
-      <aside class="informacion">
-        <h2>Garantías y privacidad</h2>
-        <p>El QR facilita el acceso al servicio, pero no acredita por sí mismo la autenticidad. El resultado válido procede del registro documental y de sus firmas.</p>
-        <p>Los documentos internos o protegidos requieren autenticación adicional y no se entregan por conocer una referencia.</p>
-      </aside>
     </main>
     <footer>Diputación de Granada · Servicio de cotejo documental</footer>
   </body>

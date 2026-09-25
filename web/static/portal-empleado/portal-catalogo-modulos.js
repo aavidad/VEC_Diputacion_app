@@ -6,7 +6,7 @@
  * adaptadores registrados, de modo que manifiesto y composición son decisiones
  * independientes y de mínimo privilegio.
  */
-import { traducirPortal } from "./portal-i18n.js?v=20260925-aspecto-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260925-tanda2-v1";
 
 const RUTA_MANIFIESTOS = "/api/vec/modules";
 const RUTA_TRADUCCIONES = "/locales/es.json";
@@ -121,38 +121,32 @@ export function crearCatalogoModulosDesdeManifiestos(manifiestos, traducciones) 
     || !traducciones || typeof traducciones !== "object" || Array.isArray(traducciones)) {
     throw new TypeError("catálogo de módulos no válido");
   }
+  // Un manifiesto defectuoso descarta sólo ese módulo: los demás se siguen
+  // mostrando. Sólo si no queda ninguno válido se informa del fallo.
   const vistos = new Set();
-  const catalogo = manifiestos.map((entrada) => {
-    const { clave, manifiesto } = validarManifiesto(entrada);
-    if (vistos.has(clave)) throw new TypeError("módulo repetido");
-    vistos.add(clave);
-    return Object.freeze({
-      clave,
-      sigla: siglaDe(clave),
-      titulo: traducir(traducciones, manifiesto.name_key, "nombre traducido"),
-      texto: traducir(traducciones, manifiesto.description_key, "descripción traducida"),
-      version: manifiesto.version,
-      grupo: manifiesto.group,
-      rutaBase: manifiesto.base_path,
-    });
-  });
-  return Object.freeze(catalogo);
-}
-
-export function validarCatalogoModulosPresentacion(catalogo) {
-  if (!Array.isArray(catalogo) || catalogo.length < 1 || catalogo.length > 128) {
-    throw new TypeError("catálogo de presentación no válido");
+  const catalogo = [];
+  let primerError = null;
+  for (const entrada of manifiestos) {
+    try {
+      const { clave, manifiesto } = validarManifiesto(entrada);
+      if (vistos.has(clave)) throw new TypeError("módulo repetido");
+      const modulo = Object.freeze({
+        clave,
+        sigla: siglaDe(clave),
+        titulo: traducir(traducciones, manifiesto.name_key, "nombre traducido"),
+        texto: traducir(traducciones, manifiesto.description_key, "descripción traducida"),
+        version: manifiesto.version,
+        grupo: manifiesto.group,
+        rutaBase: manifiesto.base_path,
+      });
+      vistos.add(clave);
+      catalogo.push(modulo);
+    } catch (error) {
+      primerError ??= error;
+    }
   }
-  const vistos = new Set();
-  return Object.freeze(catalogo.map((modulo) => {
-    if (!modulo || typeof modulo !== "object" || Array.isArray(modulo)) throw new TypeError("módulo de presentación no válido");
-    const clave = cadena(modulo.clave, "clave de módulo", /^[a-z][a-z0-9_.-]{1,79}$/);
-    if (vistos.has(clave)) throw new TypeError("módulo de presentación repetido");
-    vistos.add(clave);
-    return Object.freeze({ clave, sigla: cadena(modulo.sigla || siglaDe(clave), "sigla", /^[A-Z0-9·]{2,4}$/, 4),
-      titulo: cadena(modulo.titulo, "título", null, 160), texto: cadena(modulo.texto, "descripción", null, 300),
-      version: "presentacion", grupo: "presentacion", rutaBase: `/modules/${clave}` });
-  }));
+  if (catalogo.length === 0) throw primerError ?? new TypeError("catálogo de módulos no válido");
+  return Object.freeze(catalogo);
 }
 
 export async function cargarCatalogoModulosInterno(fetchImpl = globalThis.fetch) {

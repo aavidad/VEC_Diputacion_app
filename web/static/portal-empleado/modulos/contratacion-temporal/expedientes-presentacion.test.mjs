@@ -2,9 +2,6 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { obtenerDatosPresentacion } from "../../datos-presentacion.js";
-import { crearContextoActorPresentacionDesdeSesion } from "../../identidad/presentacion.js";
-import { crearAdaptadorContratacionTemporalPresentacion } from "./adaptador-presentacion.js";
 import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js";
 import { crearClienteHTTPContratacionTemporal } from "./cliente-http.js";
 import { renderizarCuadro, renderizarDocumentos, renderizarExpediente } from "./componentes-expedientes.js";
@@ -17,7 +14,6 @@ import {
   validarExpedienteContratacionTemporal,
   validarReciboActuacion,
 } from "./contrato-expedientes.js";
-import { crearBorradorAlta, crearComandoAlta } from "./contrato.js";
 import {
   crearAuditoriaContratacionTemporalPresentacion,
   crearCuadroContratacionTemporalPresentacion,
@@ -31,18 +27,6 @@ import {
   montarModuloContratacionTemporal,
   renderizarModuloContratacionTemporal,
 } from "./vista-expedientes.js";
-
-function contexto(perfil = "administrador") {
-  return crearContextoActorPresentacionDesdeSesion(
-    obtenerDatosPresentacion(perfil).sesion,
-  );
-}
-
-function adaptador(perfil = "administrador") {
-  return crearAdaptadorContratacionTemporalPresentacion({
-    contextoActor: contexto(perfil),
-  });
-}
 
 function presentadorDe(fuente, capacidades = fuente.capacidades) {
   return crearPresentadorExpedientesContratacionTemporal({ fuente, capacidades });
@@ -111,38 +95,6 @@ test("el índice documental conserva cada estado y escapa referencias en la tabl
   assert.doesNotMatch(html, /<GINPIX>|data-ct-ficha-ginpix-descargar/u);
 });
 
-test("el listado precede al trabajo auxiliar y cada expediente ofrece un resumen inicial cerrado", async () => {
-  const fuente = adaptador();
-  const cuadro = await fuente.listar();
-  const t = crearTraductorExpedientesContratacion();
-  const html = renderizarCuadro({
-    vista: "cuadro",
-    carga: "listo",
-    cuadro,
-    filtros: { texto: "", estado: "", fase: "" },
-  }, t);
-  const primerExpediente = cuadro.expedientes[0];
-
-  assert.ok(html.indexOf("ct-exp-listado") < html.indexOf("ct-exp-operativo"));
-  const resumenId = `ct-exp-resumen-${primerExpediente.expediente_ref}`;
-  assert.match(html, new RegExp(
-    `data-ct-exp-resumen aria-controls="${resumenId}" aria-expanded="false"`,
-    "u",
-  ));
-  assert.match(html, new RegExp(
-    `<tr class="ct-exp-fila-resumen" id="${resumenId}"[\\s\\S]*?data-ct-exp-resumen-fila[\\s\\S]*?hidden>`,
-    "u",
-  ));
-  assert.match(html, new RegExp(
-    `<tr class="ct-exp-fila"[\\s\\S]*?${primerExpediente.numero_visible}[\\s\\S]*?</tr>\\s*<tr class="ct-exp-fila-resumen"`,
-    "u",
-  ));
-  assert.match(html, new RegExp(`aria-label="Resumen del expediente ${primerExpediente.numero_visible}"`, "u"));
-  assert.match(html, new RegExp(
-    `data-ct-exp-abrir="${primerExpediente.expediente_ref}"[\\s\\S]*?Abrir expediente completo`,
-    "u",
-  ));
-});
 
 test("el resumen inicial escapa datos, marca la fase y omite las columnas de la fila", () => {
   const t = crearTraductorExpedientesContratacion();
@@ -211,60 +163,6 @@ test("la modalidad ausente se rotula con precisión y los metadatos ausentes se 
   assert.doesNotMatch(ficha, /ct-exp-resumen-datos[\s\S]*?<div>/u);
 });
 
-test("el control de resumen abre una fila, cierra las demás y no selecciona expediente", async () => {
-  const fuente = adaptador();
-  const presentador = presentadorDe(fuente);
-  await presentador.cargar();
-  const eventos = new Map();
-  const crearControl = (id) => {
-    const atributos = new Map([["aria-controls", id], ["aria-expanded", "false"]]);
-    const control = {
-      getAttribute: (nombre) => atributos.get(nombre) || null,
-      setAttribute: (nombre, valor) => atributos.set(nombre, valor),
-      closest: (selector) => selector === "[data-ct-exp-resumen]" ? control : null,
-    };
-    return { control, atributos };
-  };
-  const primero = crearControl("ct-exp-resumen-uno");
-  const segundo = crearControl("ct-exp-resumen-dos");
-  const filas = new Map([
-    ["ct-exp-resumen-uno", { hidden: true }],
-    ["ct-exp-resumen-dos", { hidden: true }],
-  ]);
-  const raiz = {
-    innerHTML: "",
-    ownerDocument: { getElementById: (id) => filas.get(id) || null },
-    addEventListener: (tipo, manejador) => eventos.set(tipo, manejador),
-    removeEventListener: (tipo) => eventos.delete(tipo),
-    querySelector: () => null,
-    querySelectorAll: (selector) => selector === "[data-ct-exp-resumen]"
-      ? [primero.control, segundo.control] : [],
-    contains: () => true,
-  };
-  const montaje = await montarModuloContratacionTemporal({ raiz, presentador });
-  try {
-    const click = eventos.get("click");
-    await click({ target: primero.control, preventDefault() {} });
-    assert.equal(primero.atributos.get("aria-expanded"), "true");
-    assert.equal(filas.get("ct-exp-resumen-uno").hidden, false);
-    assert.equal(segundo.atributos.get("aria-expanded"), "false");
-    assert.equal(filas.get("ct-exp-resumen-dos").hidden, true);
-
-    await click({ target: segundo.control, preventDefault() {} });
-    assert.equal(primero.atributos.get("aria-expanded"), "false");
-    assert.equal(filas.get("ct-exp-resumen-uno").hidden, true);
-    assert.equal(segundo.atributos.get("aria-expanded"), "true");
-    assert.equal(filas.get("ct-exp-resumen-dos").hidden, false);
-
-    await click({ target: segundo.control, preventDefault() {} });
-    assert.equal(segundo.atributos.get("aria-expanded"), "false");
-    assert.equal(filas.get("ct-exp-resumen-dos").hidden, true);
-    assert.equal(presentador.obtenerEstado().vista, "cuadro");
-    assert.equal(presentador.obtenerEstado().expediente_ref, "");
-  } finally {
-    montaje.desmontar();
-  }
-});
 
 test("el alta disponible no concede capacidades de consulta", async () => {
   let consultas = 0;
@@ -395,17 +293,6 @@ function estadoVista(expediente, tareaRef = expediente.tareas[0].tarea_ref) {
   };
 }
 
-function comandoDe(expediente, tarea, accion) {
-  return validarComandoActuacion({
-    esquema: "vec.contratacion_temporal.actuacion.v1",
-    expediente_ref: expediente.expediente_ref,
-    version_esperada: expediente.version,
-    tarea_ref: tarea.tarea_ref,
-    accion_ref: accion.accion_ref,
-    datos: {},
-  });
-}
-
 function expedienteConAccionSinteticaDisponible() {
   const entrada = crearExpedienteContratacionTemporalPresentacion();
   const tarea = entrada.tareas.find(({ tarea_ref }) => tarea_ref === "tarea-solicitud");
@@ -495,129 +382,9 @@ test("los cuatro contratos rechazan extras, duplicados, cruces y valores no can�
   }), /cerrado/);
 });
 
-test("filtro, selección y proyecciones segregadas conservan referencia y versión", async () => {
-  const fuente = adaptador();
-  const presentador = presentadorDe(fuente);
-  assert.deepEqual(presentador.obtenerEstado().navegacion, {
-    documentos: true,
-    auditoria: true,
-  });
-  const navegacion = renderizarModuloContratacionTemporal(presentador.obtenerEstado());
-  assert.match(navegacion, /data-ct-exp-vista="documentos"/u);
-  assert.match(navegacion, /data-ct-exp-vista="auditoria"/u);
-  await presentador.cargar({ texto: "Secretaría", estado: "", fase: "" });
-  let estado = presentador.obtenerEstado();
-  assert.equal(estado.cuadro.expedientes.length, 1);
-  const referencia = estado.cuadro.expedientes[0].expediente_ref;
-  await presentador.seleccionarExpediente(referencia, "documentos");
-  estado = presentador.obtenerEstado();
-  assert.equal(estado.expediente.expediente_ref, referencia);
-  assert.equal(estado.documentos.expediente_ref, referencia);
-  assert.equal(estado.documentos.version, estado.expediente.version);
-  assert.equal(estado.auditoria, null);
-  await presentador.seleccionarExpediente(referencia, "auditoria");
-  estado = presentador.obtenerEstado();
-  assert.equal(estado.auditoria.expediente_ref, referencia);
-  assert.equal(estado.auditoria.version, estado.expediente.version);
-  assert.equal(estado.documentos, null);
-  await presentador.cargar({ texto: "sin coincidencias", estado: "", fase: "" });
-  estado = presentador.obtenerEstado();
-  assert.equal(estado.vista, "cuadro");
-  assert.equal(estado.expediente_ref, "");
-  assert.equal(estado.expediente, null);
-});
 
-test("cuadro y detalle son coherentes para las cinco referencias sintéticas", async () => {
-  const fuente = adaptador();
-  const cuadro = await fuente.listar();
-  for (const resumen of cuadro.expedientes) {
-    const detalle = await fuente.obtener(resumen.expediente_ref);
-    assert.equal(detalle.numero_visible, resumen.numero_visible);
-    assert.equal(detalle.version, resumen.version);
-    const activas = detalle.tareas.filter((tarea) => (
-      ["en_curso", "espera", "incidencia"].includes(tarea.estado_clave)
-    ));
-    if (resumen.estado_clave === "completado") {
-      assert.equal(activas.length, 0);
-      assert.ok(detalle.tareas.every(({ estado_clave: clave }) => clave === "completado"));
-      assert.ok(detalle.fases.every(({ estado_clave: clave }) => clave === "completado"));
-    } else {
-      assert.equal(activas.length, 1, resumen.numero_visible);
-      assert.equal(activas[0].estado_clave, resumen.estado_clave);
-      const fase = detalle.fases.find(({ fase_ref }) => fase_ref === activas[0].fase_ref);
-      assert.equal(fase.estado_clave, resumen.estado_clave);
-    }
-  }
-});
 
-test("RBAC se proyecta en HTML y vuelve a imponerse dentro del adaptador", async () => {
-  const fuenteAdmin = adaptador("administrador");
-  const fuenteTecnica = adaptador("tecnico");
-  const referencia = (await fuenteAdmin.listar()).expedientes[0].expediente_ref;
-  const presentadorAdmin = presentadorDe(fuenteAdmin);
-  const presentadorTecnica = presentadorDe(fuenteTecnica);
-  await Promise.all([presentadorAdmin.cargar(), presentadorTecnica.cargar()]);
-  await Promise.all([
-    presentadorAdmin.seleccionarExpediente(referencia),
-    presentadorTecnica.seleccionarExpediente(referencia),
-  ]);
-  for (const presentador of [presentadorAdmin, presentadorTecnica]) {
-    presentador.seleccionarTarea("tarea-formalizacion");
-  }
-  const t = crearTraductorExpedientesContratacion();
-  const htmlAdmin = renderizarExpediente(
-    presentadorAdmin.obtenerEstado(), t, "es-ES", "Europe/Madrid",
-  );
-  const htmlTecnica = renderizarExpediente(
-    presentadorTecnica.obtenerEstado(), t, "es-ES", "Europe/Madrid",
-  );
-  assert.match(htmlAdmin, /data-ct-exp-efecto="preparar_borrador_firma_demo"[\s\S]*?>Preparar borrador para firma \(DEMO\)/);
-  assert.match(
-    htmlAdmin,
-    /data-ct-exp-efecto="preparar_borrador_firma_demo"[\s\S]{0,500}?disabled/,
-  );
-  assert.match(htmlAdmin, /circuito Portafirmas P4, sus documentos, firmantes y orden siguen pendientes de definición por RRHH/u);
-  assert.match(htmlTecnica, /data-ct-exp-efecto="preparar_borrador_firma_demo"[\s\S]{0,500}?disabled/);
-  const detalle = await fuenteAdmin.obtener(referencia);
-  const tarea = detalle.tareas.find(({ tarea_ref }) => tarea_ref === "tarea-formalizacion");
-  const accion = tarea.acciones.find(({ accion_ref }) => accion_ref === "preparar_borrador_firma_demo");
-  const version = detalle.version;
-  const auditoriaAntes = await fuenteAdmin.obtenerAuditoria(referencia);
-  await assert.rejects(fuenteAdmin.ejecutar(comandoDe(detalle, tarea, accion)), /Portafirmas P4/u);
-  assert.equal((await fuenteAdmin.obtener(referencia)).version, version);
-  assert.deepEqual(await fuenteAdmin.obtenerAuditoria(referencia), auditoriaAntes);
-});
 
-test("una transición emite recibo, añade auditoría y no puede repetirse", async () => {
-  const fuente = adaptador();
-  const resumen = (await fuente.listar()).expedientes.find(
-    ({ expediente_ref }) => expediente_ref === "exp-demo-contratacion-005484",
-  );
-  const antes = await fuente.obtener(resumen.expediente_ref);
-  const auditoriaAntes = await fuente.obtenerAuditoria(resumen.expediente_ref);
-  const tarea = antes.tareas.find(({ tarea_ref }) => tarea_ref === "tarea-seleccion-candidato");
-  const accion = tarea.acciones.find(
-    ({ accion_ref }) => accion_ref === "seleccionar_candidato",
-  );
-  const comando = comandoDe(antes, tarea, accion);
-  const recibo = await fuente.ejecutar(comando);
-  const despues = await fuente.obtener(resumen.expediente_ref);
-  const auditoriaDespues = await fuente.obtenerAuditoria(resumen.expediente_ref);
-  assert.equal(recibo.version, antes.version + 1);
-  assert.equal(despues.version, recibo.version);
-  const tareaDespues = despues.tareas.find(({ tarea_ref }) => tarea_ref === tarea.tarea_ref);
-  assert.equal(tareaDespues.recibo_ref, recibo.recibo_ref);
-  assert.ok(tareaDespues.decision_ref);
-  assert.equal(
-    tareaDespues.acciones.find(({ accion_ref }) => accion_ref === accion.accion_ref).disponible,
-    false,
-  );
-  assert.equal(auditoriaDespues.actuaciones.length, auditoriaAntes.actuaciones.length + 1);
-  await assert.rejects(fuente.ejecutar({
-    ...comando,
-    version_esperada: recibo.version,
-  }), /no está disponible/);
-});
 
 test("el presentador rechaza recibos cruzados y conserva el éxito si falla la recarga", async () => {
   const expediente = expedienteConAccionSinteticaDisponible();
@@ -795,39 +562,6 @@ test("un efecto indeterminado bloquea cualquier repetición hasta recuperar esta
   );
 });
 
-test("el alta crea un expediente nuevo mínimo sin heredar candidato ni documentos", async () => {
-  const fuente = adaptador();
-  const catalogos = fuente.obtenerCatalogosAlta();
-  const base = crearBorradorAlta();
-  const borrador = {
-    ...base,
-    centro_ref: catalogos.centros[0].referencia,
-    contacto_ref: catalogos.centros[0].contactos[0].referencia,
-    categoria_ref: catalogos.categorias[0].referencia,
-    grupo_subgrupo: catalogos.categorias[0].grupos_subgrupos[0].clave,
-    motivo_clave: catalogos.motivos[0].clave,
-    detalle: "Necesidad sintética para validar el alta coherente.",
-    inicio: "2026-08-15",
-    fin: "2027-04-14",
-    documentos_adjuntos: [catalogos.documentos[0].referencia],
-  };
-  const comando = crearComandoAlta(
-    borrador,
-    catalogos,
-    "12345678-1234-4abc-8def-1234567890ab",
-  );
-  const recibo = await fuente.registrarSolicitud(comando);
-  const cuadro = await fuente.listar();
-  assert.equal(cuadro.expedientes[0].expediente_ref, recibo.expediente_ref);
-  const detalle = await fuente.obtener(recibo.expediente_ref);
-  const documentos = await fuente.obtenerDocumentos(recibo.expediente_ref);
-  const auditoria = await fuente.obtenerAuditoria(recibo.expediente_ref);
-  assert.equal(detalle.tareas[0].estado_clave, "en_curso");
-  assert.ok(detalle.tareas.slice(1).every(({ estado_clave }) => estado_clave === "pendiente"));
-  assert.doesNotMatch(JSON.stringify(detalle), /CAND-DEMO|fiscalización favorable/i);
-  assert.equal(documentos.documentos.length, 0);
-  assert.equal(auditoria.actuaciones.length, 1);
-});
 
 test("el alta ejecuta un solo efecto y conserva su recibo sin refresco automático", async () => {
   const recibo = Object.freeze({
@@ -902,13 +636,6 @@ test("el alta no inicia un refresco pendiente que pueda retirar el análisis", a
   assert.equal(refrescos, 0);
 });
 
-test("un refresco satisfactorio conserva la vista de alta", async () => {
-  const presentador = presentadorDe(adaptador());
-  await presentador.cargar();
-  presentador.cambiarVista("alta");
-  await presentador.cargar();
-  assert.equal(presentador.obtenerEstado().vista, "alta");
-});
 
 test("HTML escapa contenido, bloquea históricos y expone semántica accesible", () => {
   const entrada = crearExpedienteContratacionTemporalPresentacion();

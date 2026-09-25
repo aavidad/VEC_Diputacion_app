@@ -62,8 +62,8 @@ test("una caché caliente descarga el grafo renovado hasta Personal i18n", async
   const portal = await cargar("portal.js", entrada);
   const coordinadorVigente = exigirVersiones(portal, "./portal-modulos-coordinador.js", posterior(versionCoordinador));
   const coordinador = await cargar("portal-modulos-coordinador.js", coordinadorVigente);
-  // presentación e interno usan la misma vista renovada
-  const vistaVigente = exigirVersiones(coordinador, "./modulos/personal/vista.js", posterior(versionNueva), 2);
+  // El cargador interno usa la vista renovada.
+  const vistaVigente = exigirVersiones(coordinador, "./modulos/personal/vista.js", posterior(versionNueva), 1);
   const vista = await cargar("modulos/personal/vista.js", vistaVigente);
   const i18nVigente = exigirVersiones(vista, "./i18n.js", posterior(versionI18n));
   await cargar("modulos/personal/i18n.js", i18nVigente);

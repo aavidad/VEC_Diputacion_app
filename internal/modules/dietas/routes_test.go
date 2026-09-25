@@ -50,20 +50,6 @@ func TestProvinceRoutePointsAllHaveCoordinates(t *testing.T) {
 	}
 }
 
-func TestProvinceRouteItineraryExampleSumsLegs(t *testing.T) {
-	examples := ProvinceRouteItineraryExamples()
-	if len(examples) == 0 {
-		t.Fatal("no itinerary examples")
-	}
-	example := examples[0]
-	if len(example.Stops) != 5 || len(example.Legs) != 4 {
-		t.Fatalf("example stops=%d legs=%d, want 5 stops and 4 legs", len(example.Stops), len(example.Legs))
-	}
-	if example.TotalKM <= 0 || example.TotalMinutes <= 0 || example.MileageAmountEUR <= 0 {
-		t.Fatalf("example totals not calculated: %#v", example)
-	}
-}
-
 func assertLocality(t *testing.T, localities []ProvinceLocality, code, name string) {
 	t.Helper()
 	for _, locality := range localities {

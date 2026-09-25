@@ -1,0 +1,154 @@
+package application
+
+import (
+	"bytes"
+	"errors"
+	"strings"
+	"testing"
+	"time"
+
+	"vec-diputacion-granada/internal/modules/personal/domain"
+)
+
+func TestRegistroB2ObjetivoRRHHIndependienteDelActor(t *testing.T) {
+	actor := solicitudP(t).Actor
+	fecha, _ := domain.NuevaFechaCivil("2026-09-20")
+	s := domain.SolicitudFichaEmpleadoB2{EmpleadoRef: "emp_" + strings.Repeat("z", 24), OrganismoRef: "organismo:dipgra", Corte: domain.CorteEmpleadoB2{VigenteEn: fecha, ConocidoEn: time.Date(2026, 9, 20, 10, 0, 0, 0, time.UTC)}, Actor: actor}
+	m, err := domain.NuevoMaterialFichaEmpleadoB2(s)
+	if err != nil || m.Recurso().Referencia != s.EmpleadoRef || m.Recurso().Ambitos["empleado_ref"] != s.EmpleadoRef || bytes.Contains(m.Canonico(), []byte(`"empleado_ref":"emp_`+strings.Repeat("a", 24)+`"`)) {
+		t.Fatalf("objetivo RRHH o material: %v", err)
+	}
+	if m.Recurso().Ambitos["organismo_ref"] != s.OrganismoRef {
+		t.Fatal("ambito organizativo ausente")
+	}
+	sinOrganismo := s
+	sinOrganismo.OrganismoRef = ""
+	if _, err := domain.NuevoMaterialFichaEmpleadoB2(sinOrganismo); !errors.Is(err, domain.ErrRegistroEmpleadoB2Invalido) {
+		t.Fatal("ficha sin organismo servidor")
+	}
+	otro := s
+	otro.OrganismoRef = "organismo:otro"
+	mOtro, err := domain.NuevoMaterialFichaEmpleadoB2(otro)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h1, _ := m.HuellaSHA256()
+	h2, _ := mOtro.HuellaSHA256()
+	if h1 == h2 {
+		t.Fatal("organismo no ligado a V3")
+	}
+	// Cambiar el objeto del llamante no puede alterar material ni concesión.
+	s.Actor.Instantanea.Vinculos[0].Referencia = "emp_" + strings.Repeat("q", 24)
+	if m.Actor().Instantanea.Vinculos[0].Referencia != "emp_"+strings.Repeat("a", 24) {
+		t.Fatal("alias de contexto")
+	}
+}
+
+func TestRegistroB2NoAfirmaVacantesSinCobertura(t *testing.T) {
+	actor := solicitudP(t).Actor
+	fecha, _ := domain.NuevaFechaCivil("2026-09-20")
+	s := domain.SolicitudVacantesB2{OrganismoRef: "organismo:dipgra", Corte: domain.CorteEmpleadoB2{VigenteEn: fecha, ConocidoEn: time.Date(2026, 9, 20, 10, 0, 0, 0, time.UTC)}, Limite: 20, Actor: actor}
+	m, err := domain.NuevoMaterialVacantesB2(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := domain.PaginaVacantesB2{OrganismoRef: s.OrganismoRef, Corte: s.Corte, Limite: 20, Cobertura: "parcial"}
+	if !errors.Is(p.ValidarPara(m), domain.ErrRegistroEmpleadoB2Invalido) {
+		t.Fatal("acepto vacio parcial como cero vacantes")
+	}
+	p.Cobertura = "completa"
+	if err := p.ValidarPara(m); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestRegistroB2FichaExigeSnapshotDelOrganismoYReferencia(t *testing.T) {
+	actor := solicitudP(t).Actor
+	fecha, _ := domain.NuevaFechaCivil("2026-09-20")
+	corte := domain.CorteEmpleadoB2{VigenteEn: fecha, ConocidoEn: time.Date(2026, 9, 20, 10, 0, 0, 0, time.UTC)}
+	s := domain.SolicitudFichaEmpleadoB2{EmpleadoRef: "emp_" + strings.Repeat("e", 24), OrganismoRef: "organismo:dipgra", Corte: corte, Actor: actor}
+	m, err := domain.NuevoMaterialFichaEmpleadoB2(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	traza := domain.TrazaEmpleadoB2{Desde: fecha, RegistradaEn: corte.ConocidoEn, Version: 1, ActoRef: "acto:uno", FuenteRef: "fuente:rrhh", FuenteVersion: 1}
+	snapshot := func(tipo, ref string) *domain.SnapshotEntradaCatalogoEmpleadoB2 {
+		return &domain.SnapshotEntradaCatalogoEmpleadoB2{OrganismoRef: s.OrganismoRef, Tipo: tipo, Ref: ref, Version: 1, Revision: 1, Denominacion: "Entrada sintética", HuellaSHA256: strings.Repeat("a", 64), VigenteDesde: fecha, Estado: "publicada"}
+	}
+	f := domain.FichaEmpleadoB2{EmpleadoRef: s.EmpleadoRef, OrganismoRef: s.OrganismoRef, PersonaRef: "per_" + strings.Repeat("p", 24), Corte: corte, Version: 1, Relaciones: []domain.RelacionRegistroEmpleadoB2{{RelacionRef: "rel_" + strings.Repeat("r", 24), OrganismoRef: s.OrganismoRef, UnidadRef: "unidad:uno", RegimenRef: "regimen:uno", ModalidadRef: "modalidad:uno", Estado: "vigente", Traza: traza, CatalogoSnapshot: domain.SnapshotCatalogoEmpleadoB2{Regimen: snapshot("regimen", "regimen:uno"), Modalidad: snapshot("modalidad", "modalidad:uno")}}}}
+	if err := f.ValidarPara(m); err != nil {
+		t.Fatal(err)
+	}
+	f.Relaciones[0].CatalogoSnapshot.Regimen.OrganismoRef = "organismo:otro"
+	if !errors.Is(f.ValidarPara(m), domain.ErrRegistroEmpleadoB2Invalido) {
+		t.Fatal("snapshot de otro organismo")
+	}
+}
+
+func TestRegistroB2AltaLigaPersonaObjetivoYRelacionExplicita(t *testing.T) {
+	actor := solicitudP(t).Actor
+	fecha, _ := domain.NuevaFechaCivil("2026-09-20")
+	procedencia := domain.ProcedenciaActoEmpleadoB2{ActoRef: "acto:alta", FuenteRef: "fuente:rrhh", FuenteVersion: 1, FuenteHuellaSHA256: strings.Repeat("a", 64), IdempotenciaRef: "11111111-1111-4111-8111-111111111111"}
+	s := domain.SolicitudAltaEmpleadoB2{PersonaRef: "per_" + strings.Repeat("z", 24), OrganismoRef: "organismo:dipgra", UnidadRef: "unidad:uno", Regimen: domain.EntradaCatalogoEmpleadoB2{Ref: "regimen:funcionario", Version: 1}, Modalidad: domain.EntradaCatalogoEmpleadoB2{Ref: "modalidad:interino", Version: 1}, VigenteDesde: fecha, Procedencia: procedencia, Actor: actor}
+	m, err := domain.NuevoMaterialAltaEmpleadoB2(s)
+	if err != nil || m.Recurso().Referencia != s.PersonaRef || !bytes.Contains(m.Canonico(), []byte(`"persona_ref":"`+s.PersonaRef+`"`)) || bytes.Contains(m.Canonico(), []byte("acreditacion_persona_ref")) {
+		t.Fatalf("objetivo no ligado o prelectura B1 indebida: %v", err)
+	}
+	if !bytes.Contains(m.Canonico(), []byte(`"regimen":{"ref":"regimen:funcionario","version":1}`)) {
+		t.Fatal("catalogo sin version canónica")
+	}
+	sInvalida := s
+	sInvalida.Regimen.Version = 0
+	if _, err := domain.NuevoMaterialAltaEmpleadoB2(sInvalida); !errors.Is(err, domain.ErrRegistroEmpleadoB2Invalido) {
+		t.Fatal("regimen sin version")
+	}
+	sVersion := s
+	sVersion.Regimen.Version = 2
+	mVersion, err := domain.NuevoMaterialAltaEmpleadoB2(sVersion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h1, _ := m.HuellaSHA256()
+	h2, _ := mVersion.HuellaSHA256()
+	if h1 == h2 {
+		t.Fatal("version catalogo no ligada a V3")
+	}
+	h := domain.SolicitudHechoEmpleadoB2{Tipo: "ocupacion", EmpleadoRef: "emp_" + strings.Repeat("a", 24), OrganismoRef: "organismo:dipgra", RevisionEsperada: 1, UnidadRef: "unidad:uno", Modalidad: domain.EntradaCatalogoEmpleadoB2{Ref: "modalidad:uno", Version: 1}, ClaseOcupacion: "temporal", PlazaRef: "11111111-1111-4111-8111-111111111111", VersionPlazaRef: "plantilla:uno", VigenteDesde: fecha, Procedencia: procedencia, Actor: actor}
+	if _, err := domain.NuevoMaterialHechoEmpleadoB2(h); !errors.Is(err, domain.ErrRegistroEmpleadoB2Invalido) {
+		t.Fatal("ocupacion sin relacion elegida")
+	}
+	h.Tipo = "relacion"
+	h.PlazaRef = ""
+	h.VersionPlazaRef = ""
+	h.ClaseOcupacion = ""
+	h.RelacionRef = ""
+	h.Estado = "vigente"
+	h.Regimen = domain.EntradaCatalogoEmpleadoB2{Ref: "regimen:funcionario", Version: 1}
+	if _, err := domain.NuevoMaterialHechoEmpleadoB2(h); err != nil {
+		t.Fatalf("relacion nueva: %v", err)
+	}
+	h.RelacionRef = "rel_" + strings.Repeat("r", 24)
+	if _, err := domain.NuevoMaterialHechoEmpleadoB2(h); !errors.Is(err, domain.ErrRegistroEmpleadoB2Invalido) {
+		t.Fatal("revision sin CAS de relacion")
+	}
+	h.RelacionVersionEsperada = 1
+	mHecho, err := domain.NuevoMaterialHechoEmpleadoB2(h)
+	if err != nil {
+		t.Fatalf("revision explicita: %v", err)
+	}
+	hOtro := h
+	hOtro.OrganismoRef = "organismo:otro"
+	mOtroHecho, err := domain.NuevoMaterialHechoEmpleadoB2(hOtro)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hashHecho, _ := mHecho.HuellaSHA256()
+	hashOtroHecho, _ := mOtroHecho.HuellaSHA256()
+	if hashHecho == hashOtroHecho || mHecho.Recurso().Ambitos["organismo_ref"] != h.OrganismoRef {
+		t.Fatal("organismo de hecho no ligado a V3")
+	}
+	h.OrganismoRef = ""
+	if _, err := domain.NuevoMaterialHechoEmpleadoB2(h); !errors.Is(err, domain.ErrRegistroEmpleadoB2Invalido) {
+		t.Fatal("hecho sin organismo servidor")
+	}
+}

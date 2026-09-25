@@ -11,8 +11,10 @@ import (
 	postgrescontratacion "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	ctapplication "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	cronosapp "vec-diputacion-granada/internal/modules/cronos/application"
 	altapersonal "vec-diputacion-granada/internal/modules/personal/adapters/contrataciontemporal"
 	lecturapersonal "vec-diputacion-granada/internal/modules/personal/adapters/lecturaincorporacion"
+	personal "vec-diputacion-granada/internal/modules/personal/domain"
 	confianzaatestacion "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
 )
 
@@ -162,7 +164,7 @@ func gobiernoActualPostgreSQLContratacionTemporalDesarrolloEsPropio(
 		    AND pg_catalog.left(c.acto_ref,
 		        pg_catalog.length('acto:ct:desarrollo:clave-capacidad:'))=
 		        'acto:ct:desarrollo:clave-capacidad:'
-		    AND c.audiencia_consumo IN ($1,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22))
+		    AND c.audiencia_consumo IN ($1,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44,$45,$46,$47,$48,$49,$50,$51,$52,$53,$54,$55))
 		AND EXISTS (
 		 SELECT 1
 		   FROM vec_autorizacion_atestada_v3.puntero_configuracion_actual p
@@ -208,11 +210,49 @@ func gobiernoActualPostgreSQLContratacionTemporalDesarrolloEsPropio(
 		puertosbolsa.AudienciaConsultarContactoParticipacion,
 		puertosbolsa.AudienciaRegistrarDatosContactoParticipacion,
 		puertosbolsa.AudienciaEmitirLlamamiento,
-		// Dietas deriva tres consumidores bajo esta misma raíz (ver
-		// dietas_material_ct_desarrollo.go); su clave puede ser la última.
+		// Dietas y su dependencia Personal derivan consumidores nominales
+		// bajo esta misma raíz (ver dietas_material_ct_desarrollo.go).
 		audienciaConsumoPersonalDietasDesarrollo,
 		audienciaConsumoCrearDietasDesarrollo,
 		audienciaConsumoConsultarDietasDesarrollo,
+		audienciaConsumoEditarDietasDesarrollo,
+		audienciaConsumoBorrarDietasDesarrollo,
+		audienciaConsumoEnviarDietasDesarrollo,
+		audienciaConsumoDocumentoDietasDesarrollo,
+		audienciaConsumoConsultarAsignacionDietas,
+		audienciaConsumoRegistrarAsignacionDietas,
+		audienciaConsumoCorregirAsignacionDietas,
+		audienciaConsumoCorregirGrupoDietas,
+		// Circuito de revisión de Dietas: AD3-59 y AD3-80.
+		audienciaConsumoRevisarDietas,
+		audienciaConsumoAutorizarDietas,
+		audienciaConsumoLiquidarDietas,
+		audienciaConsumoFiscalizarDietas,
+		audienciaConsumoBandejaRevisionDietas,
+		audienciaConsumoBandejaAutorizacionDietas,
+		audienciaConsumoBandejaLiquidacionDietas,
+		audienciaConsumoBandejaFiscalizacionDietas,
+		audienciaConsumoRevisorDocumentoDietas,
+		// Cronos (persona empleada): una audiencia por acción, AD3-53 y AD3-70.
+		cronosapp.AudienciaMarcajePropio,
+		cronosapp.AudienciaDisponibilidadMarcajeRemoto,
+		cronosapp.AudienciaRecuperacionMarcajeRemoto,
+		cronosapp.AudienciaConsultaSaldoPropio,
+		cronosapp.AudienciaConsultaMovimientosPropios,
+		cronosapp.AudienciaSolicitudCorreccionPropia,
+		cronosapp.AudienciaConsultaPermisosPropios,
+		cronosapp.AudienciaSolicitudPermisoPropio,
+		// Registro B2 de Personal: vec-server publica sus ocho consumidores y
+		// vec-interno sólo los lee (ver personal_b2_material.go). Sin ellas, el
+		// siguiente arranque tras publicar B2 vería el gobierno como ajeno.
+		personal.AudienciaFichaEmpleadoB2,
+		personal.AudienciaVacantesB2,
+		personal.AudienciaAltaEmpleadoB2,
+		personal.AudienciaHechoEmpleadoB2,
+		personal.AudienciaConsultarCatalogoEmpleadoB2,
+		personal.AudienciaPublicarCatalogoEmpleadoB2,
+		personal.AudienciaRetirarCatalogoEmpleadoB2,
+		personal.AudienciaEmpleadosB2,
 	).Scan(&propio)
 	return propio, err
 }
@@ -243,7 +283,40 @@ func audienciaConsumoGobiernoPostgreSQLContratacionTemporalDesarrolloEsPropia(
 		puertosbolsa.AudienciaEmitirLlamamiento,
 		audienciaConsumoPersonalDietasDesarrollo,
 		audienciaConsumoCrearDietasDesarrollo,
-		audienciaConsumoConsultarDietasDesarrollo:
+		audienciaConsumoConsultarDietasDesarrollo,
+		audienciaConsumoEditarDietasDesarrollo,
+		audienciaConsumoBorrarDietasDesarrollo,
+		audienciaConsumoEnviarDietasDesarrollo,
+		audienciaConsumoDocumentoDietasDesarrollo,
+		audienciaConsumoConsultarAsignacionDietas,
+		audienciaConsumoRegistrarAsignacionDietas,
+		audienciaConsumoCorregirAsignacionDietas,
+		audienciaConsumoCorregirGrupoDietas,
+		audienciaConsumoRevisarDietas,
+		audienciaConsumoAutorizarDietas,
+		audienciaConsumoLiquidarDietas,
+		audienciaConsumoFiscalizarDietas,
+		audienciaConsumoBandejaRevisionDietas,
+		audienciaConsumoBandejaAutorizacionDietas,
+		audienciaConsumoBandejaLiquidacionDietas,
+		audienciaConsumoBandejaFiscalizacionDietas,
+		audienciaConsumoRevisorDocumentoDietas,
+		cronosapp.AudienciaMarcajePropio,
+		cronosapp.AudienciaDisponibilidadMarcajeRemoto,
+		cronosapp.AudienciaRecuperacionMarcajeRemoto,
+		cronosapp.AudienciaConsultaSaldoPropio,
+		cronosapp.AudienciaConsultaMovimientosPropios,
+		cronosapp.AudienciaSolicitudCorreccionPropia,
+		cronosapp.AudienciaConsultaPermisosPropios,
+		cronosapp.AudienciaSolicitudPermisoPropio,
+		personal.AudienciaFichaEmpleadoB2,
+		personal.AudienciaVacantesB2,
+		personal.AudienciaAltaEmpleadoB2,
+		personal.AudienciaHechoEmpleadoB2,
+		personal.AudienciaConsultarCatalogoEmpleadoB2,
+		personal.AudienciaPublicarCatalogoEmpleadoB2,
+		personal.AudienciaRetirarCatalogoEmpleadoB2,
+		personal.AudienciaEmpleadosB2:
 		return true
 	default:
 		return false
@@ -546,7 +619,13 @@ func ejecutarTransaccionGobiernoCTDesarrollo(ctx context.Context, pool *pgxpool.
 	if err != nil {
 		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 	}
-	defer tx.Rollback(context.Background())
+	// Plazo propio también para ROLLBACK: se ejecuta con f.mu tomado por la
+	// renovación y no debe esperar indefinidamente a una red cortada.
+	defer func() {
+		ctxRollback, cancelar := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancelar()
+		_ = tx.Rollback(ctxRollback)
+	}()
 	if _, err = tx.Exec(ctx, `SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario`); err != nil {
 		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 	}

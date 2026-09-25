@@ -65,14 +65,11 @@ comprobación del recorrido después de reiniciar. La preparación del
 servidor corresponde a Sistemas; no necesita ejecutar sus comandos para
 utilizar un entorno que ya le hayan preparado.</li>
 </ul>
-<h2>1. Antes de empezar: real, demostración y pendiente</h2>
+<h2>1. Antes de empezar: funciones habilitadas y pendientes</h2>
 <p>En este manual, <strong>real en desarrollo</strong> significa que el servidor comprueba el
 permiso, guarda el resultado en la base de datos y devuelve un recibo. Los datos
 siguen siendo sintéticos. No significa firma jurídica, envío corporativo ni
 autorización para producción.</p>
-<p><strong>DEMO o presentación</strong> permite conocer pantallas con ejemplos. Sus cambios
-son simulados; un recibo de presentación no acredita una actuación guardada
-en el expediente. Puede perder esos cambios al recargar o cerrar la página.</p>
 <p><strong>Pendiente o no disponible</strong> significa que no hay un recorrido completo
 habilitado en esta versión, aunque exista el menú, el formulario o una parte
 del programa. Un botón visible no garantiza que el servicio esté conectado.</p>
@@ -94,7 +91,7 @@ del programa. Un botón visible no garantiza que el servicio esté conectado.</p
 </tr>
 <tr>
 <td>Gestión interna de Bolsas</td>
-<td>Pantallas de presentación y componentes reales todavía sin ensamblar como gestión completa. Consulte el estado de cada opción en el apartado 5.</td>
+<td>Use las funciones que el entorno interno tenga habilitadas para su perfil. Consulte el estado de las operaciones en el apartado 5.</td>
 </tr>
 <tr>
 <td>Consulta pública de convocatorias</td>
@@ -133,14 +130,12 @@ presentación no concede permisos reales.</p>
 muestra información de convocatorias, no los expedientes internos de RRHH
 ni la ficha privada de cada aspirante. Su disponibilidad es independiente
 del recorrido interno de Contratación temporal.</p>
-<h3>Conocer la presentación</h3>
-<p>Use el selector de <code>/presentacion/</code> cuando quiera explorar las pantallas
-DEMO. La franja <strong>Presentación para RRHH</strong> indica que las personas,
-expedientes y actuaciones internas son sintéticos y sin efectos reales.</p>
-<p>Algunas referencias de convocatorias o del Boletín Oficial de la Provincia
-pueden proceder de publicaciones públicas. Eso no convierte en reales los
-plazos, documentos o actuaciones rotulados DEMO. No mezcle sus referencias
-con un formulario del recorrido real.</p>
+<h3>Elegir una ruta funcional</h3>
+<p>Use <code>/bolsa/</code> para consultar convocatorias públicas y
+<code>/bolsa/listas.html</code> para las listas públicas cuando el servicio las ofrezca.
+La gestión interna se abre desde <code>/portal-empleado/</code> en el entorno autenticado
+que Sistemas haya habilitado para su perfil. El servidor aislado de presentación
+solo ofrece consultas públicas; no sirve el portal interno ni el área personal.</p>
 <h3>Al terminar</h3>
 <p>Conserve por el canal autorizado las referencias necesarias para continuar
 y cierre el perfil temporal de navegador. La retirada del material de
@@ -333,107 +328,26 @@ Los identificadores exactos constan en el <a href="../manual_rrhh/README.md">man
 Después de cerrar o recargar puede tener que introducir de nuevo sus datos.
 La guía contiene el ejemplo y la comprobación del reinicio; no reinicie ni
 recree el servidor por su cuenta.</p>
-<h2>5. Bolsas de trabajo: estado de todas las opciones</h2>
-<p>El menú organiza 17 vistas en diez grupos. La tabla distingue la pantalla
-escrita de la función realmente utilizable en la versión de referencia.
-Las opciones de presentación no sustituyen al recorrido real del apartado 4.</p>
-<table>
-<thead>
-<tr>
-<th>Opción del menú</th>
-<th>Uso y estado en esta edición</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Elaboración y borradores</td>
-<td>Tiene un formulario de guardado real separado de la DEMO, pero su recorrido completo no está habilitado en el entorno descrito. No dé un borrador por guardado sin confirmación del servicio.</td>
-</tr>
-<tr>
-<td>Convocatorias, bases y calendario</td>
-<td>Presentación de configuración y publicación. No acredita aprobación, firma ni publicación administrativa de unas bases.</td>
-</tr>
-<tr>
-<td>Solicitudes y admisión</td>
-<td>Presentación de revisión, admisión y subsanación de candidaturas a Bolsa. No es el alta real de una petición de personal de Contratación temporal.</td>
-</tr>
-<tr>
-<td>Revisión de méritos</td>
-<td>Presentación de méritos sintéticos. No registra una valoración administrativa real de una persona.</td>
-</tr>
-<tr>
-<td>Alegaciones</td>
-<td>Presentación de revisión y resolución. No presenta ni notifica una alegación real.</td>
-</tr>
-<tr>
-<td>Importación Convoca</td>
-<td>Simula lotes ya incluidos en la presentación. No procesa un archivo del equipo ni concilia personas con un sistema corporativo.</td>
-</tr>
-<tr>
-<td>Llamamientos automáticos según bases y Reglamento</td>
-<td>Asistente general de presentación en cuatro pasos. La vía real escrita bloquea la continuación tras confirmar la propuesta; no ofrece el llamamiento corporativo completo.</td>
-</tr>
-<tr>
-<td>Contratos, ceses y reincorporaciones</td>
-<td>Presentación. No registra un contrato, un cese o una reincorporación reales desde esta pantalla.</td>
-</tr>
-<tr>
-<td>Reglas y versiones</td>
-<td>Presentación de reglas. No cambia las reglas autorizadas del recorrido real.</td>
-</tr>
-<tr>
-<td>Baremación y ranking</td>
-<td>Presentación de cálculo y ordenación. No publica una lista oficial ni una puntuación administrativa.</td>
-</tr>
-<tr>
-<td>Portal de consulta para candidatos</td>
-<td>Presentación de una consulta minimizada. No es una sesión personal operativa para consultar la posición real o datos privados.</td>
-</tr>
-<tr>
-<td>Cuadro de mando para dirección</td>
-<td>Pantalla y consulta de datos escritas, pero todavía sin conectar en el entorno descrito. Sus indicadores DEMO no representan actividad real.</td>
-</tr>
-<tr>
-<td>Estadísticas y explotación de datos</td>
-<td>Presentación de agregados. No se ofrece como informe real sobre personas o expedientes.</td>
-</tr>
-<tr>
-<td>Generación y firma de documentos</td>
-<td>Presentación de plantillas y circuito de firma. No acredita firma, cotejo ni custodia jurídica. El informe real de desarrollo se obtiene en Contratación temporal y lleva su aviso sin validez jurídica.</td>
-</tr>
-<tr>
-<td>Correo y mensajería</td>
-<td>Presentación de canales y envíos. No envía correo ni acredita recepción. Es distinta del registro real de aviso local de Contratación temporal.</td>
-</tr>
-<tr>
-<td>Auditoría y trazabilidad</td>
-<td>Pantalla de presentación. Los hechos persistentes del recorrido real no convierten esta vista en un historial operativo completo.</td>
-</tr>
-<tr>
-<td>Configuración, roles y permisos</td>
-<td>Presentación de administración. Cambiar un ejemplo no concede permisos reales ni modifica la seguridad del servidor.</td>
-</tr>
-</tbody>
-</table>
-<h3>Explorar la presentación de llamamientos</h3>
-<p>Desde la presentación, entre en <strong>Bolsas de trabajo → Llamamientos</strong> y siga
-el asistente: elegir necesidad, revisar la propuesta, configurar y revisar
-la preparación. Sirve para conocer la disposición y el vocabulario de la
-pantalla. Sus recibos y efectos siguen siendo DEMO.</p>
-<p>En acceso real, un mensaje de «detalle no disponible» tras confirmar una
-propuesta no autoriza a avanzar a configuración o comunicación. No cambie
-al modo DEMO para completar aparentemente esa operación.</p>
+<h2>5. Bolsas de trabajo: consultas y gestión habilitadas</h2>
+<p>La zona pública <code>/bolsa/</code> permite consultar convocatorias, filtros y
+fichas mediante su API de lectura. <code>/bolsa/listas.html</code> muestra listas
+públicas cuando el servicio las haya publicado. Ninguna de estas consultas
+inscribe a una persona ni confirma una actuación administrativa.</p>
+<p>La gestión de Bolsas se abre desde <code>/portal-empleado/</code> únicamente en el
+entorno interno autenticado y con las capacidades concedidas al perfil. Antes
+de continuar una operación, compruebe la respuesta y el recibo del servicio.
+Si falta una vista, el servicio o el permiso, detenga ese recorrido y comuníquelo
+a Sistemas; no complete la operación en una pantalla de presentación.</p>
 <h3>Buscar una convocatoria pública</h3>
 <p>Cuando esté habilitada la zona <code>/bolsa/</code>:</p>
 <ol>
-<li>Revise el aviso de la fuente para saber si está consultando una
-presentación.</li>
+<li>Revise la fuente y fecha de los datos que muestra la consulta.</li>
 <li>Busque por texto y use los filtros de tipo, categoría, estado o plazo.
 Puede limpiar los filtros y recorrer las páginas de resultados.</li>
 <li>Abra el detalle de la convocatoria y consulte su descripción, requisitos,
 plazos, publicación y documentos asociados.</li>
-<li>Abra solo los documentos que la propia ficha ofrezca. Un archivo rotulado
-DEMO no es una base aprobada.</li>
+<li>Abra solo los documentos que la propia ficha ofrezca. Compruebe en la
+publicación correspondiente si unas bases están aprobadas.</li>
 <li>Si no hay resultados, compruebe los filtros. Si hay un error de servicio,
 la consulta no ha confirmado que no existan convocatorias.</li>
 </ol>

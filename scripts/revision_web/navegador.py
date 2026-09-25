@@ -32,11 +32,11 @@ from .modelo import (
 def verificar_servidor_presentacion(
     browser: Any, url_base: str, timeout_ms: int, permitir_red_privada: bool = False,
 ) -> None:
-    """Falla antes del recorrido si el proceso aislado no acredita ser la DEMO."""
+    """Falla antes del recorrido si el proceso aislado no acredita su perfil."""
     context = browser.new_context(service_workers="block")
     try:
         respuesta = context.request.get(
-            construir_url(url_base, "/presentacion/", permitir_red_privada),
+            construir_url(url_base, "/bolsa/", permitir_red_privada),
             timeout=timeout_ms,
             fail_on_status_code=False,
         )

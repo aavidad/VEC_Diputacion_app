@@ -8,11 +8,13 @@ import (
 	"io"
 	"log/slog"
 	"reflect"
+	"strings"
 	"time"
 	cd "vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
 	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	pa "vec-diputacion-granada/internal/modules/personal/adapters/contrataciontemporal"
 	pl "vec-diputacion-granada/internal/modules/personal/adapters/lecturaincorporacion"
+	httpseguridad "vec-diputacion-granada/internal/vec/adapters/httpseguridad"
 	core "vec-diputacion-granada/internal/vec/domain"
 	vp "vec-diputacion-granada/internal/vec/ports"
 )
@@ -20,7 +22,8 @@ import (
 var ErrAutoridadAplicacion = errors.New("incorporacion: autoridad nominal no disponible")
 
 // PeticionAutoridad NO es DTO de canal. Solo una captura verificada propietaria
-// puede entregar estos datos, incluido el mapeo explícito de referencias CT.
+// puede entregar estos datos. ActorRef de PreparacionCT se sustituye siempre
+// por la persona resuelta por F1 antes de crear la autoridad.
 type PeticionAutoridad struct {
 	Autenticacion             core.SolicitudRevalidacionAutenticacionActorV1
 	Contexto                  core.SolicitudContextoActor
@@ -37,18 +40,72 @@ type GeneradorCorrelacionAutoridad interface {
 // AutoridadAplicacion se construye por petición. No almacena decisiones ni
 // capacidades. Sus dependencias deben tolerar concurrencia; sus datos son privados.
 type AutoridadAplicacion struct {
-	peticion    PeticionAutoridad
-	contexto    ct.ContextoAutorizacionAltaV3
-	revalidador vp.RevalidadorAutenticacionActorV1
-	cadena      *CadenaAutorizacionAplicacion
-	correlador  GeneradorCorrelacionAutoridad
-	reloj       ct.Reloj
-	creadaEn    time.Time
+	peticion         PeticionAutoridad
+	contexto         ct.ContextoAutorizacionAltaV3
+	revalidador      vp.RevalidadorAutenticacionActorV1
+	cadena           *CadenaAutorizacionAplicacion
+	correlador       GeneradorCorrelacionAutoridad
+	reloj            ct.Reloj
+	creadaEn         time.Time
+	politicaConsulta *PoliticaConsultaDesarrollo
+}
+
+// PoliticaConsultaDesarrollo liga la excepción de lectura al dictamen exacto
+// de Identidad. Su referencia y huella proceden del evaluador gobernado, no
+// del canal HTTP ni del contexto F1 por sí solos.
+type PoliticaConsultaDesarrollo struct {
+	Tipo         httpseguridad.PoliticaInterna
+	Referencia   string
+	HuellaSHA256 string
+	RetiradaEn   time.Time
+}
+
+func (p PoliticaConsultaDesarrollo) validaEn(ahora time.Time) bool {
+	if p.Tipo != httpseguridad.PoliticaInternaDesarrolloCertificadoPersonal ||
+		len(p.Referencia) < 26 || len(p.Referencia) > 132 || !strings.HasPrefix(p.Referencia, "pga_") ||
+		len(p.HuellaSHA256) != 64 || strings.Trim(p.HuellaSHA256, "0") == "" ||
+		p.RetiradaEn.Location() != time.UTC || p.RetiradaEn.Nanosecond() != 0 ||
+		!p.RetiradaEn.After(ahora) {
+		return false
+	}
+	for _, c := range p.Referencia[4:] {
+		if (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && (c < '0' || c > '9') && c != '_' && c != '-' {
+			return false
+		}
+	}
+	for _, c := range p.HuellaSHA256 {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
+			return false
+		}
+	}
+	return true
+}
+
+func (p PoliticaConsultaDesarrollo) admite(v core.DatosVinculoAutenticacionActorV2, ahora time.Time) bool {
+	return p.validaEn(ahora) && v.Superficie == core.SuperficieAutenticacionInternaCorporativaV1 &&
+		v.MetodoObservado == core.AuthMethodCertificate && v.GarantiaObservada == core.AuthAssuranceSubstantial &&
+		!v.CuentaPrivilegiada && v.PoliticaGarantiaRef == p.Referencia && v.PoliticaGarantiaHuellaSHA256 == p.HuellaSHA256
 }
 
 func NuevaAutoridadAplicacion(ctx context.Context, fuente FuentePeticionAutoridad,
 	revalidador vp.RevalidadorAutenticacionActorV1, resolutor core.ResolutorContextoActorRegistradoV2,
 	cadena *CadenaAutorizacionAplicacion, correlador GeneradorCorrelacionAutoridad, reloj ct.Reloj) (*AutoridadAplicacion, error) {
+	return nuevaAutoridadAplicacion(ctx, fuente, revalidador, resolutor, cadena, correlador, reloj, nil)
+}
+
+// NuevaAutoridadAplicacionConsulta solo añade la política temporal al punto
+// de lectura. Los otros métodos de la autoridad siguen exigiendo garantía alta.
+func NuevaAutoridadAplicacionConsulta(ctx context.Context, fuente FuentePeticionAutoridad,
+	revalidador vp.RevalidadorAutenticacionActorV1, resolutor core.ResolutorContextoActorRegistradoV2,
+	cadena *CadenaAutorizacionAplicacion, correlador GeneradorCorrelacionAutoridad, reloj ct.Reloj,
+	politica PoliticaConsultaDesarrollo) (*AutoridadAplicacion, error) {
+	return nuevaAutoridadAplicacion(ctx, fuente, revalidador, resolutor, cadena, correlador, reloj, &politica)
+}
+
+func nuevaAutoridadAplicacion(ctx context.Context, fuente FuentePeticionAutoridad,
+	revalidador vp.RevalidadorAutenticacionActorV1, resolutor core.ResolutorContextoActorRegistradoV2,
+	cadena *CadenaAutorizacionAplicacion, correlador GeneradorCorrelacionAutoridad, reloj ct.Reloj,
+	politica *PoliticaConsultaDesarrollo) (*AutoridadAplicacion, error) {
 	if err := autoridadContextoError(ctx); err != nil {
 		return nil, err
 	}
@@ -64,6 +121,9 @@ func NuevaAutoridadAplicacion(ctx context.Context, fuente FuentePeticionAutorida
 	if err := autoridadInstante(ctx, inicio, time.Time{}); err != nil {
 		return nil, err
 	}
+	if politica != nil && !politica.validaEn(inicio) {
+		return nil, ErrAutoridadAplicacion
+	}
 	p, e := fuente.PeticionVerificada(ctx)
 	if e != nil {
 		return nil, autoridadFallo(ctx, e)
@@ -74,7 +134,7 @@ func NuevaAutoridadAplicacion(ctx context.Context, fuente FuentePeticionAutorida
 	if p.Autenticacion.Validar() != nil || p.Contexto.Validar() != nil {
 		return nil, ErrAutoridadAplicacion
 	}
-	for _, r := range []string{p.PreparacionCT.OrganizacionRef, p.PreparacionCT.UnidadRef, p.PreparacionCT.ActorRef, p.PreparacionCT.CorrelacionRef} {
+	for _, r := range []string{p.PreparacionCT.OrganizacionRef, p.PreparacionCT.UnidadRef, p.PreparacionCT.CorrelacionRef} {
 		if !cd.ReferenciaOpacaValida(r) {
 			return nil, ErrAutoridadAplicacion
 		}
@@ -88,7 +148,12 @@ func NuevaAutoridadAplicacion(ctx context.Context, fuente FuentePeticionAutorida
 	if e != nil {
 		return nil, autoridadFallo(ctx, e)
 	}
-	a := &AutoridadAplicacion{peticion: p, contexto: ct.ContextoAutorizacionAltaV3{Vinculo: v, Resultado: r}, revalidador: revalidador, cadena: cadena, correlador: correlador, reloj: reloj, creadaEn: inicio}
+	datosVinculo, e := v.Datos()
+	if e != nil || r.Contexto.PersonaRef != datosVinculo.PrincipalID || !cd.ReferenciaOpacaValida(r.Contexto.PersonaRef) {
+		return nil, ErrAutoridadAplicacion
+	}
+	p.PreparacionCT.ActorRef = r.Contexto.PersonaRef
+	a := &AutoridadAplicacion{peticion: p, contexto: ct.ContextoAutorizacionAltaV3{Vinculo: v, Resultado: r}, revalidador: revalidador, cadena: cadena, correlador: correlador, reloj: reloj, creadaEn: inicio, politicaConsulta: politica}
 	if _, e = a.comprobar(ctx, inicio); e != nil {
 		return nil, e
 	}
@@ -135,7 +200,8 @@ func (a *AutoridadAplicacion) comprobar(ctx context.Context, previo time.Time) (
 		return time.Time{}, ErrAutoridadAplicacion
 	}
 	v, e := a.contexto.Vinculo.Datos()
-	if e != nil || v.GarantiaObservada != core.AuthAssuranceHigh || (v.Superficie != core.SuperficieAutenticacionInternaCorporativaV1 && v.Superficie != core.SuperficieAutenticacionAdministracionPrivilegiadaV1) {
+	if e != nil || !((v.GarantiaObservada == core.AuthAssuranceHigh && (v.Superficie == core.SuperficieAutenticacionInternaCorporativaV1 || v.Superficie == core.SuperficieAutenticacionAdministracionPrivilegiadaV1)) ||
+		(a.politicaConsulta != nil && a.politicaConsulta.admite(v, ahora))) {
 		return time.Time{}, ErrAutoridadAplicacion
 	}
 	return ahora, autoridadContextoError(ctx)
@@ -169,6 +235,9 @@ func autoridadAutenticacionExacta(r core.AutenticacionRevalidadaV1, v core.Datos
 	return r == esperado
 }
 func (a *AutoridadAplicacion) ResolverAutoridad(ctx context.Context, p pa.PreparacionAlta) (pa.AutoridadAlta, error) {
+	if !a.admiteEfectos() {
+		return pa.AutoridadAlta{}, ErrAutoridadAplicacion
+	}
 	if _, e := a.revalidar(ctx, time.Time{}); e != nil {
 		return pa.AutoridadAlta{}, e
 	}
@@ -188,6 +257,9 @@ func (a *AutoridadAplicacion) ResolverAutoridad(ctx context.Context, p pa.Prepar
 }
 func (a *AutoridadAplicacion) AutorizarAlta(ctx context.Context, m pa.MaterialAlta) (pa.AutorizacionAlta, error) {
 	var cero pa.AutorizacionAlta
+	if !a.admiteEfectos() {
+		return cero, ErrAutoridadAplicacion
+	}
 	inicio, errInicio := a.comprobar(ctx, time.Time{})
 	if errInicio != nil {
 		return cero, errInicio
@@ -236,6 +308,9 @@ func (a *AutoridadAplicacion) AutorizarLecturaIncorporacionV2(ctx context.Contex
 }
 func (a *AutoridadAplicacion) AutorizarConfirmacionIncorporacion(ctx context.Context, m ct.MaterialConfirmacionIncorporacionV2) (ct.AutorizacionConfirmacionIncorporacionV2, error) {
 	var cero ct.AutorizacionConfirmacionIncorporacionV2
+	if !a.admiteEfectos() {
+		return cero, ErrAutoridadAplicacion
+	}
 	inicio, errInicio := a.comprobar(ctx, time.Time{})
 	if errInicio != nil {
 		return cero, errInicio
@@ -259,6 +334,14 @@ func (a *AutoridadAplicacion) AutorizarConfirmacionIncorporacion(ctx context.Con
 		return cero, e
 	}
 	return c, nil
+}
+func (a *AutoridadAplicacion) admiteEfectos() bool {
+	if a == nil {
+		return false
+	}
+	v, err := a.contexto.Vinculo.Datos()
+	return err == nil && v.GarantiaObservada == core.AuthAssuranceHigh &&
+		(v.Superficie == core.SuperficieAutenticacionInternaCorporativaV1 || v.Superficie == core.SuperficieAutenticacionAdministracionPrivilegiadaV1)
 }
 func (a *AutoridadAplicacion) contextoExacto(c ct.ContextoAutorizacionAltaV3) bool {
 	return c.Resultado.Validar() == nil && c.Vinculo.CoincideExactamenteCon(a.contexto.Vinculo) && reflect.DeepEqual(c.Resultado, a.contexto.Resultado)

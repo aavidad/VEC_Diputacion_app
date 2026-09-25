@@ -1,24 +1,13 @@
-/* Catálogo provisional C6. La paleta procede siempre del tema central. */
-.cronos-c6 { min-width: 0; margin-block: 16px; }
-.cronos-c6 .cabecera-panel { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
-.cronos-c6 .cabecera-panel p { max-width: 68ch; }
-.cronos-c6-estado { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px; background: var(--portal-aviso-suave); color: var(--portal-aviso); font-size: .8125rem; font-weight: 600; }
-.cronos-c6-estado::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--portal-aviso); }
-.cronos-c6-busqueda { display: grid; gap: 6px; max-width: 440px; color: var(--portal-muted); font-size: .8125rem; font-weight: 600; }
-.cronos-c6-busqueda input { box-sizing: border-box; width: 100%; min-height: 40px; padding: 8px 10px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio); background: var(--portal-superficie); color: var(--portal-tinta); font: inherit; }
-.cronos-c6-busqueda input:focus-visible, .cronos-c6 summary:focus-visible { outline: 3px solid var(--portal-cian); outline-offset: 2px; }
-.cronos-c6-ayuda { margin: 6px 0 12px; color: var(--portal-muted); font-size: .8125rem; }
-.cronos-c6-resultados { margin: 0 0 8px; color: var(--portal-tinta); font-size: .82rem; font-weight: 600; }
-.cronos-c6-vacio { padding: 16px; border-radius: var(--portal-radio); background: var(--portal-superficie-alterna); color: var(--portal-muted); }
-.cronos-c6-lista { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; gap: 8px; max-height: min(54vh, 510px); margin: 0; padding: 2px; overflow: auto; list-style: none; }
-.cronos-c6-fila { min-width: 0; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio); background: var(--portal-superficie); box-shadow: var(--portal-sombra-sm); }
-.cronos-c6-fila summary { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; padding: 8px 12px; cursor: pointer; }
-.cronos-c6-nombre { color: var(--portal-azul-700); font-weight: 600; }
-.cronos-c6-detalle { padding: 10px 14px 14px; border-top: 1px solid var(--portal-borde); background: var(--portal-superficie-alterna); }
-.cronos-c6-detalle p { margin: 0 0 10px; color: var(--portal-muted); font-size: .8125rem; }
-.cronos-c6-detalle dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 14px; margin: 0; }
-.cronos-c6-detalle dt { color: var(--portal-muted); font-size: .8125rem; }
-.cronos-c6-detalle dd { margin: 3px 0 0; overflow-wrap: anywhere; font-size: .82rem; font-weight: 600; }
-.cronos-c6-aviso { margin: 14px 0 0; padding: 10px 12px; border-left: 3px solid var(--portal-aviso); border-radius: var(--portal-radio); background: var(--portal-aviso-suave); color: var(--portal-tinta); font-size: .8125rem; }
-@media (max-width: 760px) { .cronos-c6-lista { grid-template-columns: minmax(0, 1fr); } .cronos-c6-detalle dl { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 480px) { .cronos-c6-detalle dl { grid-template-columns: minmax(0, 1fr); } .cronos-c6-fila summary { align-items: flex-start; } }
+.cronos-c6 { min-width: 0; margin-block: var(--portal-espacio-4); }
+.cronos-c6 .cabecera-panel { gap: var(--portal-espacio-3); }
+.cronos-c6 .cabecera-panel h3 { margin: 0; }
+.cronos-c6-estado { display: inline-flex; align-items: center; gap: var(--portal-espacio-2); padding: 5px 9px; border-radius: var(--portal-radio); background: var(--portal-aviso-suave); color: var(--portal-tinta); font-size: .78rem; font-weight: 700; }
+.cronos-c6-estado::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--portal-aviso); }
+.cronos-c6 .cuerpo-panel { display: grid; justify-items: start; gap: var(--portal-espacio-3); }
+.cronos-c6-tabla { width: 100%; overflow: auto; }
+.cronos-c6 table { width: 100%; border-collapse: collapse; }
+.cronos-c6 th { padding: var(--portal-espacio-2); background: var(--portal-superficie-alterna); color: var(--portal-tinta); text-align: left; white-space: nowrap; }
+.cronos-c6 td { padding: var(--portal-espacio-3); border-bottom: 1px solid var(--portal-borde); color: var(--portal-muted); }
+.cronos-c6-motivo { margin: 0; color: var(--portal-muted); font-size: .8rem; }
+.cronos-c6 button:disabled { cursor: not-allowed; }
+.cronos-c6 button:focus-visible { outline: 3px solid var(--portal-cian); outline-offset: 2px; }

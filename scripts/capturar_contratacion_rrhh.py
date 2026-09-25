@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-"""Captura y revisa las 17 pantallas de contratación solicitadas por RRHH.
+"""Conserva la matriz histórica de 17 pantallas de RRHH para consulta.
 
-La herramienta trabaja únicamente contra una presentación local, usa capturas
-del área visible y no conserva cookies ni almacenamiento del navegador.
+La captura de presentación quedó retirada al cerrarse el portal aislado.
 """
 
 from __future__ import annotations
@@ -20,10 +19,7 @@ from urllib.parse import urlparse
 
 RAIZ_REPOSITORIO = Path(__file__).resolve().parents[1]
 SALIDA_PREDETERMINADA = RAIZ_REPOSITORIO / "var" / "revision-web-contratacion-rrhh"
-RUTA_MODULO = (
-    "/portal-empleado/?presentacion=rrhh&perfil=administrador"
-    "#contratacion-temporal"
-)
+RUTA_MODULO = None  # La ruta de presentación ya no se sirve.
 
 
 @dataclass(frozen=True, slots=True)
@@ -217,7 +213,12 @@ def capturar(
     ejecutable: str | None,
     timeout_ms: int,
 ) -> tuple[dict[str, Any], int]:
-    """Ejecuta la matriz completa y devuelve informe y código de salida."""
+    """Falla cerrado: la matriz histórica no equivale al portal autenticado."""
+    if RUTA_MODULO is None:
+        raise RuntimeError(
+            "la captura histórica de presentación RRHH está retirada; "
+            "use el recorrido autenticado de Contratación temporal"
+        )
     errores_matriz = validar_matriz()
     if errores_matriz:
         raise ValueError("; ".join(errores_matriz))

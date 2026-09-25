@@ -13,8 +13,8 @@ import (
 
 var ErrAuditoriaFronteraComisionNoDisponible = errors.New("dietas postgres: auditoria de frontera no disponible")
 
-const consultaRegistrarAuditoriaFronteraComision = `SELECT vec_dietas.registrar_auditoria_frontera_comision_v1($1::text,$2::text,$3::text,$4::text,$5::text,NULLIF($6::text,''))`
-const consultaPreflightAuditoriaFronteraComision = `SELECT pg_catalog.has_function_privilege(current_user,'vec_dietas.registrar_auditoria_frontera_comision_v1(text,text,text,text,text,text)','EXECUTE')`
+const consultaRegistrarAuditoriaFronteraComision = `SELECT vec_dietas.registrar_auditoria_frontera_comision_v2($1::text,$2::text,$3::text,$4::text,$5::text,NULLIF($6::text,''))`
+const consultaPreflightAuditoriaFronteraComision = `SELECT pg_catalog.has_function_privilege(current_user,'vec_dietas.registrar_auditoria_frontera_comision_v2(text,text,text,text,text,text)','EXECUTE')`
 
 type consultorAuditoriaFronteraComision interface {
 	QueryRow(context.Context, string, ...any) pgx.Row

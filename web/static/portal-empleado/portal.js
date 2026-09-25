@@ -1,17 +1,18 @@
-import { crearControladorPortal } from "./portal-eventos.js?v=20260925-aspecto-v1";
+import { crearControladorPortal } from "./portal-eventos.js?v=20260925-tanda2-v1";
 import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20260925-aspecto-v1";
-import { extraerDatosEnvelopeCanonico } from "./portal-contrato.js?v=20260717-panel-interno-v1";
+import { extraerDatosEnvelopeCanonico } from "./portal-contrato.js?v=20260925-sin-demo2-v1";
 import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?v=20260718-llamamientos-v1";
-import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20260718-llamamientos-v1";
-import { AYUDA_PORTAL_BOLSA, detectarContextoContratacionTemporal, obtenerAyudaContratacionTemporal, renderizarAyudaContratacionTemporal } from "./ayuda-contenido.js?v=20260925-aspecto-v1";
-import { crearAyudanteTramites } from "./ayudante-tramites.js?v=20260925-aspecto-v1";
-import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20260925-aspecto-v1";
+import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20260925-sin-demo-v1";
+import { AYUDA_PORTAL_BOLSA, detectarContextoContratacionTemporal, obtenerAyudaContratacionTemporal, renderizarAyudaContratacionTemporal } from "./ayuda-contenido.js?v=20260925-tanda2-v1";
+import { crearAyudanteTramites } from "./ayudante-tramites.js?v=20260925-tanda2-v1";
+import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20260925-tanda2-v1";
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20260720-pulido-escritorio-v2";
 import { crearVistasOperaciones } from "./portal-vistas-operaciones.js?v=20260924-f2-shell-v1";
-import { crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, VISTAS_MODULOS_PERSONALES, VISTAS_PRESENTACION_VISUALES } from "./portal-modulos-coordinador.js?v=20260925-organizacion-historica-v1";
-import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260925-aspecto-v1";
+import { crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260925-catalogo-v1";
+import { crearTraductorPersonal } from "./modulos/personal/i18n.js?v=20260925-b2-sin-refs-v1";
+import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260925-tanda2-v1";
 import { accesoBolsaEfectivo, instalarMenuBolsa, resumenAccesosModulos, sincronizarMenuBolsa, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260924-f2-shell-v1";
-import { traducirPortal } from "./portal-i18n.js?v=20260925-aspecto-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260925-tanda2-v1";
 import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20260924-rescate-web-v4";
 import { crearSuperficieBorradorLlamamiento } from "./portal-borrador-llamamiento-ui.js?v=20260921-bback01-v1";
 import { consultarAvisosBolsa, manejarAccionAvisos } from "./portal-bolsas-avisos.js?v=20260925-aspecto-v1";
@@ -96,6 +97,7 @@ const TITULOS = Object.freeze({
   "cronos-permisos": [traducirPortal("cronos_permisos_miga"), traducirPortal("cronos_permisos_titulo")],
   dietas: ["Portal del Empleado → Dietas", "Dietas y comisiones de servicio"],
   personal: ["Portal del Empleado → Personal", "Personal · consulta informativa"],
+  "personal-registro": [crearTraductorPersonal()("registro_b2_miga"), crearTraductorPersonal()("registro_b2_titulo")],
   "bolsa-candidatos": ["Portal del Empleado → Bolsas de trabajo", "Candidatos de la bolsa"],
   "contratacion-temporal": [
     traducirPortal("contratacion_temporal_miga"),
@@ -110,7 +112,6 @@ const requiereLecturaBolsas = (vista) => moduloDeVistaPortal(vista) === "bolsa"
 const estado = {
   vista: "portal",
   fuenteLista: false,
-  modoPresentacion: false,
   errorFuente: "",
   pasoLlamamiento: 1,
   necesidadSeleccionada: "",
@@ -235,7 +236,6 @@ function configurarInicioInstitucional() {
 }
 function vistaPermitida(vista) {
   if (vista.startsWith("seleccion-")) return false;
-  if (VISTAS_PRESENTACION_VISUALES.has(vista)) return false;
   if (VISTAS_MODULOS_PERSONALES.has(vista)) {
     return !estado.fuenteLista || coordinadorModulos.vistaDisponible(vista);
   }
@@ -296,8 +296,8 @@ async function solicitarPropuestaLlamamiento() {
   renderizar();
   try {
     const resultado = await resolverSolicitudPropuestaLlamamiento({
-      modoPresentacion: false, necesidadId: necesidad.id, capacidad: puedeSolicitarPropuesta(),
-      obtenerPresentacion: null, cliente: clientePropuestasLlamamiento,
+      necesidadId: necesidad.id, capacidad: puedeSolicitarPropuesta(),
+      cliente: clientePropuestasLlamamiento,
     });
     if (!resultado.ok) throw new Error(resultado.mensaje);
     estado.confirmacionPropuestaLlamamiento = resultado.confirmacion;
@@ -712,7 +712,6 @@ async function inicializar() {
   document.querySelectorAll("[data-i18n-portal-aria-label]").forEach((elemento) => {
     elemento.setAttribute("aria-label", traducirPortal(elemento.dataset.i18nPortalAriaLabel));
   });
-  estado.modoPresentacion = false;
   configurarInicioInstitucional();
   controlador.restaurarPreferencias();
   estado.vista = vistaDesdeHash();

@@ -48,13 +48,26 @@ const contrasteAlto = { ...granate, ...valores(tema, "body.alto-contraste") };
 test("Verificar carga la hoja común antes de su CSS versionado y conserva el cotejo público", () => {
   const hojas = [...html.matchAll(/<link rel="stylesheet" href="([^"]+)"/g)].map((coincidencia) => coincidencia[1]);
   assert.deepEqual(hojas.map((href) => href.split("?", 1)[0]), ["/comun/tema-vec.css", "/verificar/verificar.css"]);
-  assert.equal(hojas[1], "/verificar/verificar.css?v=20260924-f2-tema-verificar-v1");
+  assert.equal(hojas[1], "/verificar/verificar.css?v=20260925-cotejo-publico-v2");
   // tema-vec.css cambió después de esta versión publicada: pide una URL nueva.
   const versionTema = new URL(hojas[0], "https://vec.example").searchParams.get("v");
   assert.ok(versionTema && versionTema !== "20260924-f2-tema-base-v2", "tema-vec.css renueva su URL");
   assert.match(html, /<form id="formulario-cotejo">/);
-  assert.match(html, /Resultado DEMO\./);
-  assert.match(html, /no acredita autenticidad, registro ni firma/);
+  assert.doesNotMatch(html, /Resultado DEMO|aviso-presentacion/);
+});
+
+test("las instrucciones y garantías quedan tras el control de ayuda nativo de la cabecera", () => {
+  const cabecera = html.match(/<header class="cabecera">([\s\S]*?)<\/header>/)?.[1];
+  const contenido = html.match(/<main id="contenido"[^>]*>([\s\S]*?)<\/main>/)?.[1];
+  assert.ok(cabecera && contenido);
+  assert.match(cabecera, /<details class="ayuda-cotejo">\s*<summary aria-label="Ayuda sobre la comprobación de documentos"[^>]*><span aria-hidden="true">\?<\/span><\/summary>/);
+  assert.doesNotMatch(cabecera, /<details[^>]*\sopen(?:\s|>)/);
+  for (const texto of ["Introduzca la referencia", "El QR facilita el acceso", "Los documentos internos o protegidos"]) {
+    assert.match(cabecera, new RegExp(texto));
+    assert.doesNotMatch(contenido, new RegExp(texto));
+  }
+  assert.doesNotMatch(contenido, /<aside|<h1[^>]*>[\s\S]*?<\/h1>\s*<p>/);
+  assert.match(css, /\.ayuda-cotejo summary:focus-visible \{ outline: 3px solid var\(--portal-foco\)/);
 });
 
 test("el patrón HTML admite las mismas referencias bajo RegExp v de Chromium", () => {
@@ -74,7 +87,7 @@ test("el patrón HTML admite las mismas referencias bajo RegExp v de Chromium", 
   }
 });
 
-test("los controles, resultados y aviso DEMO heredan tokens y admiten alto contraste", () => {
+test("los controles y resultados heredan tokens y admiten alto contraste", () => {
   assert.doesNotMatch(css, /#[\da-f]{3,8}\b|\brgba?\(/i, "No debe haber colores locales fijos");
   assert.doesNotMatch(css, /--portal-[\w-]+\s*:/, "La paleta solo se define en la hoja común");
   for (const referencia of css.matchAll(/var\((--portal-[\w-]+)\)/g)) {
@@ -86,7 +99,6 @@ test("los controles, resultados y aviso DEMO heredan tokens y admiten alto contr
     ["button", "texto-inverso", "azul-700"],
     ['.resultado[data-estado="valido"]', "exito", "exito-suave"],
     ['.resultado[data-estado="error"]', "peligro", "peligro-suave"],
-    ["#aviso-presentacion", "aviso", "aviso-suave"],
   ]) {
     const regla = bloque(css, selector);
     assert.match(regla, new RegExp(`color:\\s*var\\(--portal-${texto}\\)`));

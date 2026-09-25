@@ -4,7 +4,6 @@ import test from "node:test";
 import {
   ErrorAPIBorradores,
 } from "./portal-borradores-api.js";
-import { crearClienteBorradoresPresentacion } from "./portal-borradores-demo-cliente.js";
 import {
   ESQUEMAS_BORRADORES,
   validarSolicitudActualizarBorrador,
@@ -112,28 +111,28 @@ test("la navegación comprueba capacidad sin leer la bandeja y reutiliza las opc
 
 test("activar con referencia abre solo el borrador incluido en la lista autorizada", async () => {
   const llamadas = [];
-  const clientePresentacion = crearClienteBorradoresPresentacion();
+  const referencia = detalle().referencia_estado.referencia;
   const cliente = crearDobleCliente({
-    obtenerOpciones: async () => { llamadas.push("opciones"); return clientePresentacion.obtenerOpciones(); },
-    listar: async () => { llamadas.push("lista"); return clientePresentacion.listar(); },
+    obtenerOpciones: async () => { llamadas.push("opciones"); return structuredClone(opciones()); },
+    listar: async () => { llamadas.push("lista"); return structuredClone(lista()); },
     obtenerDetalle: async (referencia) => {
       llamadas.push(["detalle", referencia]);
-      return clientePresentacion.obtenerDetalle(referencia);
+      return structuredClone(detalle());
     },
   });
   const { superficie } = crearSuperficie({ cliente });
-  assert.equal(await superficie.activar({ referencia: "DEMO-BORRADOR-001" }), true);
-  assert.deepEqual(llamadas, ["opciones", "lista", ["detalle", "DEMO-BORRADOR-001"]]);
-  assert.match(superficie.renderizar(), /Convocatoria DEMO de Bolsa temporal/);
+  assert.equal(await superficie.activar({ referencia }), true);
+  assert.deepEqual(llamadas, ["opciones", "lista", ["detalle", referencia]]);
+  assert.match(superficie.renderizar(), /Convocatoria de bolsa temporal/);
 });
 
 test("el repintado dirigido por alCambiar sustituye la carga por el borrador exacto sin duplicar activar", async () => {
   const llamadas = [];
-  const clientePresentacion = crearClienteBorradoresPresentacion();
+  const referencia = detalle().referencia_estado.referencia;
   const cliente = crearDobleCliente({
-    obtenerOpciones: () => { llamadas.push("opciones"); return clientePresentacion.obtenerOpciones(); },
-    listar: () => { llamadas.push("lista"); return clientePresentacion.listar(); },
-    obtenerDetalle: (referencia) => { llamadas.push(["detalle", referencia]); return clientePresentacion.obtenerDetalle(referencia); },
+    obtenerOpciones: () => { llamadas.push("opciones"); return structuredClone(opciones()); },
+    listar: () => { llamadas.push("lista"); return structuredClone(lista()); },
+    obtenerDetalle: (id) => { llamadas.push(["detalle", id]); return structuredClone(detalle()); },
   });
   const dom = { innerHTML: "" };
   let superficie;
@@ -147,10 +146,10 @@ test("el repintado dirigido por alCambiar sustituye la carga por el borrador exa
   });
   dom.innerHTML = superficie.renderizar();
   assert.match(dom.innerHTML, /Comprobando acceso y cargando borradores/);
-  assert.equal(await superficie.activar({ referencia: "DEMO-BORRADOR-001" }), true);
-  assert.match(dom.innerHTML, /DEMO-BORRADOR-001/);
+  assert.equal(await superficie.activar({ referencia }), true);
+  assert.match(dom.innerHTML, /convocatoria:externa:2026/);
   assert.doesNotMatch(dom.innerHTML, /Cargando el borrador seleccionado/);
-  assert.deepEqual(llamadas, ["opciones", "lista", ["detalle", "DEMO-BORRADOR-001"]]);
+  assert.deepEqual(llamadas, ["opciones", "lista", ["detalle", referencia]]);
 });
 
 test("una referencia ausente no obtiene detalle ni abre la primera fila", async () => {
@@ -158,7 +157,7 @@ test("una referencia ausente no obtiene detalle ni abre la primera fila", async 
   const { anuncios, superficie } = crearSuperficie({ cliente: crearDobleCliente({
     obtenerDetalle: async () => { detalles += 1; return structuredClone(detalle()); },
   }) });
-  assert.equal(await superficie.activar({ referencia: "DEMO-BORRADOR-INEXISTENTE" }), false);
+  assert.equal(await superficie.activar({ referencia: "convocatoria:externa:inexistente" }), false);
   assert.equal(detalles, 0);
   assert.match(superficie.renderizar(), /El borrador solicitado no está disponible en la bandeja autorizada/);
   assert.match(superficie.renderizar(), /Seleccione un borrador o cree uno nuevo/);
@@ -166,13 +165,13 @@ test("una referencia ausente no obtiene detalle ni abre la primera fila", async 
 });
 
 test("una referencia autorizada con error de detalle conserva un error controlado", async () => {
-  const clientePresentacion = crearClienteBorradoresPresentacion();
+  const referencia = detalle().referencia_estado.referencia;
   const { anuncios, superficie } = crearSuperficie({ cliente: crearDobleCliente({
-    obtenerOpciones: () => clientePresentacion.obtenerOpciones(),
-    listar: () => clientePresentacion.listar(),
+    obtenerOpciones: async () => structuredClone(opciones()),
+    listar: async () => structuredClone(lista()),
     obtenerDetalle: async () => { throw new Error("fallo de red"); },
   }) });
-  assert.equal(await superficie.activar({ referencia: "DEMO-BORRADOR-001" }), false);
+  assert.equal(await superficie.activar({ referencia }), false);
   assert.match(superficie.renderizar(), /No se pudo cargar el borrador seleccionado/);
   assert.ok(anuncios.includes("No se pudo cargar el borrador seleccionado"));
 });

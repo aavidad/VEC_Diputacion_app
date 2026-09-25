@@ -14,6 +14,7 @@ import (
 	"os"
 	"reflect"
 	"slices"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -176,8 +177,43 @@ func (m *manejadorInternoVerificado) ServeHTTP(w http.ResponseWriter, r *http.Re
 		return
 	}
 	defer capacidad.invalidar()
+	cabeceras, normalizada := cabecerasSinConexionPersistente(r.Header)
+	if !normalizada {
+		w.Header().Set("Connection", "close")
+		http.Error(w, "solicitud no disponible", http.StatusBadRequest)
+		return
+	}
 	ctx := context.WithValue(r.Context(), claveContextoCanalTLSInterno{}, capacidad)
-	m.siguiente.ServeHTTP(w, r.WithContext(ctx))
+	siguiente := r.WithContext(ctx)
+	siguiente.Header = cabeceras
+	m.siguiente.ServeHTTP(w, siguiente)
+}
+
+// cabecerasSinConexionPersistente retira la gestión de conexión HTTP/1.1 que
+// todo navegador envía («Connection: keep-alive») antes de la frontera de los
+// manejadores, que rechazan Connection. Solo admite los tokens keep-alive y
+// close: si Connection nombra otras cabeceras (retirada salto a salto) la
+// petición se rechaza en lugar de interpretarlas o descartarlas.
+func cabecerasSinConexionPersistente(cabeceras http.Header) (http.Header, bool) {
+	valores := cabeceras.Values("Connection")
+	if len(valores) == 0 {
+		return cabeceras, true
+	}
+	for _, valor := range valores {
+		for _, token := range strings.Split(valor, ",") {
+			switch strings.ToLower(strings.TrimSpace(token)) {
+			case "keep-alive", "close":
+			default:
+				return nil, false
+			}
+		}
+	}
+	if cabeceras.Values("Keep-Alive") != nil {
+		return nil, false
+	}
+	copia := cabeceras.Clone()
+	copia.Del("Connection")
+	return copia, true
 }
 
 func (m *manejadorInternoVerificado) acreditarCanalTLSInterno(

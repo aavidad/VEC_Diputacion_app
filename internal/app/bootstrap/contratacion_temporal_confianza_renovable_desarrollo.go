@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"vec-diputacion-granada/internal/app/composicion/gobiernov3lector"
 	confianza "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
 	core "vec-diputacion-granada/internal/vec/domain"
 	vp "vec-diputacion-granada/internal/vec/ports"
@@ -22,7 +23,12 @@ type fuenteConfianzaRenovableCTDesarrollo struct {
 	reloj    relojConfianzaCTDesarrollo
 	material materialAtestacionContratacionTemporalDesarrollo
 	actual   *confianza.ServicioConfianzaAtestacionAutorizacionV3
+	lector   *gobiernov3lector.Lector
+	leer     func(context.Context, materialAtestacionContratacionTemporalDesarrollo, time.Time) (materialAtestacionContratacionTemporalDesarrollo, error)
 	renovar  func(context.Context, materialAtestacionContratacionTemporalDesarrollo, time.Time) (materialAtestacionContratacionTemporalDesarrollo, error)
+	// plazoIntento acota cada renovación programada; cero usa el valor
+	// predeterminado. Sólo las pruebas lo reducen.
+	plazoIntento time.Duration
 }
 
 func nuevaFuenteConfianzaRenovableCTDesarrollo(pool *pgxpool.Pool, m materialAtestacionContratacionTemporalDesarrollo, reloj relojConfianzaCTDesarrollo) (*fuenteConfianzaRenovableCTDesarrollo, error) {
@@ -41,10 +47,46 @@ func nuevaFuenteConfianzaRenovableCTDesarrollo(pool *pgxpool.Pool, m materialAte
 		publicadaEn: m.publicadaEn, expiraEn: m.expiraEn, validaDesde: m.validaDesde,
 		validaHasta: m.validaHasta, spki: append([]byte(nil), m.spki...), spkiHuella: m.spkiHuella,
 	}
-	return &fuenteConfianzaRenovableCTDesarrollo{reloj: reloj, material: publica, actual: servicio,
+	f := &fuenteConfianzaRenovableCTDesarrollo{reloj: reloj, material: publica, actual: servicio,
+		leer: func(ctx context.Context, anterior materialAtestacionContratacionTemporalDesarrollo, ahora time.Time) (materialAtestacionContratacionTemporalDesarrollo, error) {
+			var actual materialAtestacionContratacionTemporalDesarrollo
+			err := ejecutarTransaccionGobiernoCTDesarrollo(ctx, pool, func(tx pgx.Tx) error {
+				var e error
+				actual, e = leerConfiguracionRenovableCTDesarrollo(ctx, tx, anterior, ahora)
+				return e
+			})
+			return actual, err
+		},
 		renovar: func(ctx context.Context, anterior materialAtestacionContratacionTemporalDesarrollo, ahora time.Time) (materialAtestacionContratacionTemporalDesarrollo, error) {
 			return renovarConfiguracionConfianzaCTDesarrollo(ctx, pool, anterior, ahora)
-		}}, nil
+		}}
+	f.lector, err = f.nuevoLector()
+	if err != nil {
+		return nil, err
+	}
+	return f, nil
+}
+
+func publicacionConfianzaCT(m materialAtestacionContratacionTemporalDesarrollo) gobiernov3lector.Publicacion {
+	return gobiernov3lector.Publicacion{Revision: m.configuracionRef, Secuencia: m.configuracionOrden,
+		HuellaSHA256: m.configuracionHuella, PublicadaEn: m.publicadaEn, ExpiraEn: m.expiraEn}
+}
+
+func (f *fuenteConfianzaRenovableCTDesarrollo) nuevoLector() (*gobiernov3lector.Lector, error) {
+	return gobiernov3lector.Nuevo(publicacionConfianzaCT(f.material), f.material.raiz, f.reloj,
+		func(ctx context.Context, previa gobiernov3lector.Publicacion) (gobiernov3lector.Publicacion, error) {
+			if f.leer == nil {
+				return gobiernov3lector.Publicacion{}, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+			}
+			anterior := f.material
+			anterior.configuracionRef, anterior.configuracionOrden = previa.Revision, previa.Secuencia
+			anterior.configuracionHuella, anterior.publicadaEn, anterior.expiraEn = previa.HuellaSHA256, previa.PublicadaEn, previa.ExpiraEn
+			actual, err := f.leer(ctx, anterior, f.reloj.Ahora().UTC())
+			if err != nil {
+				return gobiernov3lector.Publicacion{}, err
+			}
+			return publicacionConfianzaCT(actual), nil
+		})
 }
 
 func (f *fuenteConfianzaRenovableCTDesarrollo) instantanea(ctx context.Context) (*confianza.ServicioConfianzaAtestacionAutorizacionV3, error) {
@@ -57,35 +99,152 @@ func (f *fuenteConfianzaRenovableCTDesarrollo) instantanea(ctx context.Context) 
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	if f.reloj == nil || f.actual == nil || f.renovar == nil {
+	if f.reloj == nil || f.lector == nil || f.leer == nil || f.renovar == nil {
 		return nil, fallo
 	}
 	ahora := f.reloj.Ahora().UTC()
 	if ahora.Before(f.material.publicadaEn) || ahora.Before(f.material.validaDesde) || !ahora.Before(f.material.validaHasta) {
 		return nil, fallo
 	}
-	if ahora.Before(f.material.expiraEn) {
-		return f.actual, nil
+	if !ahora.Before(f.material.expiraEn) {
+		// Único publicador: vec-server. La lectura posterior es separada y no
+		// adopta una publicación que no pueda volver a leer del gobierno.
+		if _, err := f.renovar(ctx, f.material, ahora); err != nil {
+			return nil, err
+		}
 	}
-	m, err := f.renovar(ctx, f.material, ahora)
+	servicio, publicada, err := f.lector.Leer(ctx)
 	if err != nil {
-		return nil, err
-	}
-	// El callback productivo sólo vuelve tras COMMIT; cualquier error mantiene
-	// la instantánea caducada. Un COMMIT ambiguo se resuelve leyendo de nuevo.
-	if m.configuracionOrden < f.material.configuracionOrden || m.claveID != f.material.claveID || m.claveVersion != f.material.claveVersion || m.spkiHuella != f.material.spkiHuella || ahora.Before(m.publicadaEn) || !ahora.Before(m.expiraEn) {
 		return nil, fallo
 	}
-	servicio, err := confianza.NuevoServicioConfianzaAtestacionAutorizacionV3(m.configuracion, f.reloj)
+	config, err := confianza.NuevaConfiguracionConfianzaAtestacionAutorizacionV3(publicada.Revision, publicada.Secuencia, publicada.PublicadaEn, publicada.ExpiraEn, f.material.raiz)
 	if err != nil {
 		return nil, fallo
 	}
 	if err = ctx.Err(); err != nil {
 		return nil, err
 	}
-	f.material = m
+	f.material.configuracionRef, f.material.configuracionOrden = publicada.Revision, publicada.Secuencia
+	f.material.configuracionHuella, f.material.publicadaEn, f.material.expiraEn = publicada.HuellaSHA256, publicada.PublicadaEn, publicada.ExpiraEn
+	f.material.configuracion = config
 	f.actual = servicio
 	return servicio, nil
+}
+
+// Renovación programada. La configuración vence a medianoche UTC y el
+// protocolo existente sólo admite publicar la del día en curso: el puntero se
+// establece en `publicadaEn` y la lectura exige `establecida_en <= ahora`, así
+// que la del día siguiente no puede adelantarse sin otra vía de publicación.
+// El temporizador despierta en el vencimiento, el primer instante en que la
+// renovación es admisible, y reutiliza `instantanea`: misma transacción,
+// mismo cerrojo consultivo y misma adopción idempotente que el disparo por
+// uso, que se conserva. Así la continuidad no depende de tráfico CT (ni del
+// lector de vec-interno, que no publica).
+//
+// Cada intento tiene plazo propio: `instantanea` retiene f.mu durante toda la
+// transacción de gobierno y el contexto del temporizador sólo se cancela al
+// cerrar, así que sin plazo un corte de red o un cerrojo consultivo ajeno
+// bloquearía también cada petición CT. La espera se acota a unos minutos y se
+// recalcula (los temporizadores de Go no avanzan con el equipo suspendido) y
+// los reintentos crecen hasta un tope, registrando el primer fallo y después
+// uno por reintento ya en el tope (cada 15 min), no una línea por minuto. El
+// retroceso vuelve al inicial en cuanto el vencimiento avanza, también si la
+// renovación la hizo el uso CT.
+const (
+	reintentoRenovacionProgramadaCTDesarrollo       = time.Minute
+	reintentoMaximoRenovacionProgramadaCTDesarrollo = 15 * time.Minute
+	maximoEsperaRenovacionProgramadaCT              = 10 * time.Minute
+	plazoIntentoRenovacionProgramadaCTDesarrollo    = 30 * time.Second
+)
+
+type esperaRenovacionCTDesarrollo func(context.Context, time.Duration) error
+
+func esperarTemporizadorCTDesarrollo(ctx context.Context, d time.Duration) error {
+	temporizador := time.NewTimer(d)
+	defer temporizador.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-temporizador.C:
+		return nil
+	}
+}
+
+func (f *fuenteConfianzaRenovableCTDesarrollo) vencimientoActual() time.Time {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.material.expiraEn
+}
+
+// mantenerRenovacionProgramada bloquea hasta que ctx se cancela. Un fallo no
+// adopta nada (la instantánea conserva la publicación confirmada) y se
+// reintenta; nunca se interpreta como renovación.
+func (f *fuenteConfianzaRenovableCTDesarrollo) mantenerRenovacionProgramada(ctx context.Context, esperar esperaRenovacionCTDesarrollo) {
+	if f == nil || ctx == nil || esperar == nil || f.reloj == nil {
+		return
+	}
+	reintento := reintentoRenovacionProgramadaCTDesarrollo
+	var venceAnterior time.Time
+	for ctx.Err() == nil {
+		vence := f.vencimientoActual()
+		if !vence.Equal(venceAnterior) {
+			reintento = reintentoRenovacionProgramadaCTDesarrollo
+			venceAnterior = vence
+		}
+		espera := min(max(vence.Sub(f.reloj.Ahora().UTC()), 0), maximoEsperaRenovacionProgramadaCT)
+		if esperar(ctx, espera) != nil {
+			return
+		}
+		ahora := f.reloj.Ahora().UTC()
+		if ahora.Before(vence) {
+			continue // Despertar anticipado: reloj de pared frente a monotónico.
+		}
+		plazo := f.plazoIntento
+		if plazo <= 0 {
+			plazo = plazoIntentoRenovacionProgramadaCTDesarrollo
+		}
+		intento, cancelarIntento := context.WithTimeout(ctx, plazo)
+		_, err := f.instantanea(intento)
+		cancelarIntento()
+		if ctx.Err() != nil {
+			return
+		}
+		if err == nil && f.vencimientoActual().After(ahora) {
+			reintento = reintentoRenovacionProgramadaCTDesarrollo
+			continue
+		}
+		if reintento == reintentoRenovacionProgramadaCTDesarrollo || reintento == reintentoMaximoRenovacionProgramadaCTDesarrollo {
+			registrarFalloPostgreSQLContratacionTemporalDesarrollo(
+				"renovacion_programada_confianza", "renovacion_no_confirmada",
+			)
+		}
+		if esperar(ctx, reintento) != nil {
+			return
+		}
+		reintento = min(2*reintento, reintentoMaximoRenovacionProgramadaCTDesarrollo)
+	}
+}
+
+// iniciarRenovacionProgramadaCTDesarrollo arranca un único temporizador por
+// fuente. La función devuelta lo cancela y espera a que termine; es
+// idempotente.
+func iniciarRenovacionProgramadaCTDesarrollo(f *fuenteConfianzaRenovableCTDesarrollo, esperar esperaRenovacionCTDesarrollo) func() {
+	if f == nil || esperar == nil {
+		return func() {}
+	}
+	ctx, cancelar := context.WithCancel(context.Background())
+	terminado := make(chan struct{})
+	go func() {
+		defer close(terminado)
+		f.mantenerRenovacionProgramada(ctx, esperar)
+	}()
+	var una sync.Once
+	return func() {
+		una.Do(func() {
+			cancelar()
+			<-terminado
+		})
+	}
 }
 
 func renovarConfiguracionConfianzaCTDesarrollo(ctx context.Context, pool *pgxpool.Pool, anterior materialAtestacionContratacionTemporalDesarrollo, ahora time.Time) (materialAtestacionContratacionTemporalDesarrollo, error) {

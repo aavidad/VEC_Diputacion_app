@@ -4,11 +4,17 @@ from __future__ import annotations
 
 import unittest
 from dataclasses import replace
+from pathlib import Path
 
 from scripts import capturar_contratacion_rrhh as capturador
 
 
 class CapturadorContratacionRRHHTest(unittest.TestCase):
+    def test_no_navega_a_la_ruta_historica_retirada(self) -> None:
+        self.assertIsNone(capturador.RUTA_MODULO)
+        with self.assertRaisesRegex(RuntimeError, "captura histórica.*retirada"):
+            capturador.capturar("http://127.0.0.1:8081", Path("/tmp"), None, 1000)
+
     def test_la_matriz_es_exactamente_la_numeracion_recibida_de_rrhh(self) -> None:
         self.assertEqual(capturador.validar_matriz(), [])
         self.assertEqual(len(capturador.PANTALLAS), 17)

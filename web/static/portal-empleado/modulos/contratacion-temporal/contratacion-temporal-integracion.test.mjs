@@ -17,9 +17,7 @@ const [
   vistaFuente,
   estilos,
   coordinadorFuente,
-  coordinadorPruebas,
   indicePortal,
-  catalogoPresentacion,
   vistaExpedientesFuente,
   coberturaFuente,
 ] = await Promise.all([
@@ -28,9 +26,7 @@ const [
   readFile(new URL("vista.js", directorio), "utf8"),
   readFile(new URL("contratacion-temporal.css", directorio), "utf8"),
   readFile(new URL("../../portal-modulos-coordinador.js", directorio), "utf8"),
-  readFile(new URL("../../portal-modulos-coordinador-flujos.test.mjs", directorio), "utf8"),
   readFile(new URL("../../index.html", directorio), "utf8"),
-  readFile(new URL("../../portal-catalogo-presentacion.js", directorio), "utf8"),
   readFile(new URL("vista-expedientes.js", directorio), "utf8"),
   readFile(new URL("formulario-cobertura.js", directorio), "utf8"),
 ]);
@@ -85,7 +81,8 @@ test("el módulo no usa red, cookies, almacenamiento web ni registra claves", ()
 });
 
 test("el módulo completo se compone sin alterar las rutas de Bolsa, Cronos, Dietas y Personal", async () => {
-  assert.deepEqual([...VISTAS_MODULOS_PERSONALES], ["cronos", "cronos-permisos", "dietas", "personal"]);
+  assert.deepEqual([...VISTAS_MODULOS_PERSONALES], ["cronos", "cronos-permisos", "dietas", "personal", "personal-registro"]);
+  assert.equal(moduloDeVistaPortal("personal-registro"), "personal");
   assert.ok(VISTAS_MODULOS_CONECTADOS.has("contratacion-temporal"));
   assert.equal(moduloDeVistaPortal("resumen"), "bolsa");
   assert.equal(moduloDeVistaPortal("contratacion-temporal"), "contratacion_temporal");
@@ -96,17 +93,21 @@ test("el módulo completo se compone sin alterar las rutas de Bolsa, Cronos, Die
   assert.equal(rutaDeVistaPortal("cronos"), "#cronos");
   assert.equal(rutaDeVistaPortal("cronos-permisos"), "#cronos-permisos");
   assert.equal(rutaDeVistaPortal("dietas"), "#dietas");
-  assert.match(coordinadorFuente, /componerCronosVisible/);
-  assert.match(coordinadorFuente, /componerDietasVisible/);
-  assert.match(coordinadorPruebas, /Cronos y Dietas montan contenido administrativo/);
+  assert.doesNotMatch(coordinadorFuente, /componerCronosVisible|componerDietasVisible/);
+  assert.match(coordinadorFuente, /CARGADORES_INTERNOS_PREDETERMINADOS/);
+  assert.match(coordinadorFuente, /componerDietasInternas/);
+  assert.match(coordinadorFuente, /componerCronosInterno/);
+  assert.match(coordinadorFuente, /modulos\/cronos\/vista-saldo-conectado\.js\?v=/);
+  assert.match(coordinadorFuente, /modulos\/cronos\/vista-permisos-propios\.js\?v=/);
+  assert.match(coordinadorFuente, /import\("\.\/modulos\/contratacion-temporal\/adaptador-http-expedientes\.js"\)/);
   assert.match(indicePortal, /modulos\/cronos\/cronos\.css/);
   assert.match(indicePortal, /modulos\/dietas\/dietas\.css/);
-  assert.match(catalogoPresentacion, /clave: "contratacion_temporal"/);
-  assert.match(coordinadorFuente, /import\("\.\/modulos\/contratacion-temporal\/adaptador-presentacion\.js"\)/);
+  assert.match(coordinadorFuente, /import\("\.\/modulos\/contratacion-temporal\/vista-expedientes\.js\?v=/);
+  assert.doesNotMatch(coordinadorFuente, /adaptador-presentacion\.js/);
 
   const archivos = (await readdir(directorio)).sort();
   for (const nombre of [
-    "INTEGRACION.md", "adaptador-presentacion.js", "componentes-expedientes.js",
+    "INTEGRACION.md", "componentes-expedientes.js",
     "cliente-http-alta.js", "cliente-http.js", "contratacion-temporal-integracion.test.mjs",
     "contratacion-temporal.css",
     "contratacion-temporal.test.mjs", "contrato-expedientes.js", "contrato.js",

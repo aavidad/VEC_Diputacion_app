@@ -4,10 +4,13 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	httpseguridad "vec-diputacion-granada/internal/vec/adapters/httpseguridad"
 )
 
 func configuracionServidorV2Prueba(t *testing.T, c *casoPreparacionV2) ConfiguracionServidorV2PostgreSQL {
@@ -111,5 +114,39 @@ func TestIncorporacionV2EnsamblajeConfiguracionCerrada(t *testing.T) {
 	cancel()
 	if p, err := s.NuevaPeticion(ctx); p != nil || !errors.Is(err, context.Canceled) {
 		t.Fatal("cancelación perdida")
+	}
+}
+
+func TestIncorporacionV2PoliticaConsultaSeCopiaYValida(t *testing.T) {
+	c := nuevoCasoPreparacionV2(t)
+	cfg := configuracionServidorV2Prueba(t, c)
+	politica := &PoliticaConsultaDesarrollo{Tipo: httpseguridad.PoliticaInternaDesarrolloCertificadoPersonal,
+		Referencia: "pga_0123456789abcdefghijkl", HuellaSHA256: strings.Repeat("3", 64),
+		RetiradaEn: c.a.ahora.Add(time.Hour)}
+	cfg.PoliticaConsultaDesarrollo = politica
+	s, err := NuevoServidorV2PostgreSQL(cfg)
+	registroV2Exigir(t, err)
+	politica.Referencia = "pga_otra23456789abcdefghijkl"
+	if s.c.PoliticaConsultaDesarrollo.Referencia != "pga_0123456789abcdefghijkl" {
+		t.Fatal("política mutable tras construir servidor")
+	}
+	p, err := s.NuevaPeticion(context.Background())
+	registroV2Exigir(t, err)
+	if p.autoridad.politicaConsulta == nil || p.autoridad.politicaConsulta.Referencia != s.c.PoliticaConsultaDesarrollo.Referencia {
+		t.Fatal("petición no recibió política sellada")
+	}
+	for _, mutar := range []func(*PoliticaConsultaDesarrollo){
+		func(p *PoliticaConsultaDesarrollo) { p.Tipo = "otra" },
+		func(p *PoliticaConsultaDesarrollo) { p.Referencia = "pga_corta" },
+		func(p *PoliticaConsultaDesarrollo) { p.HuellaSHA256 = strings.Repeat("0", 64) },
+		func(p *PoliticaConsultaDesarrollo) { p.RetiradaEn = c.a.ahora },
+	} {
+		x := configuracionServidorV2Prueba(t, c)
+		p := *s.c.PoliticaConsultaDesarrollo
+		mutar(&p)
+		x.PoliticaConsultaDesarrollo = &p
+		if y, err := NuevoServidorV2PostgreSQL(x); y != nil || !errors.Is(err, ct.ErrComposicionIncorporacionAplicacion) {
+			t.Fatal("política inválida aceptada en arranque")
+		}
 	}
 }

@@ -6,8 +6,7 @@ import {
   extraerDatosEnvelopeCanonico,
   validarPanelBolsa,
 } from "./portal-contrato.js";
-import { validarPropuestaLlamamientoPresentacion } from "./portal-llamamientos-contrato.js";
-import { obtenerDatosPresentacion, obtenerPropuestaPresentacion } from "./datos-presentacion.js";
+import { obtenerDatosPresentacion } from "./datos-presentacion.js";
 import { AYUDA_PORTAL_BOLSA } from "./ayuda-contenido.js";
 import { crearPresentadorPanelInterno } from "./portal-panel-interno.js";
 import { MENSAJES_PORTAL_ES, traducirPortal } from "./portal-i18n.js";
@@ -15,7 +14,7 @@ import { accesoBolsaEfectivo } from "./portal-menu-bolsa.js";
 import { exigirRenovado } from "./versiones-cache.test-helper.mjs";
 
 const directorio = new URL("./", import.meta.url);
-const [html, manifiestoProduccion, javascript, coordinadorModulos, catalogoI18n, eventos, contrato, contratoLlamamientos, apiLlamamientos, flujoLlamamientos, panelInterno, resumenPresentacion, datos, ayuda, estilosBase, estilosComponentes, estilosFlujos, estilosCapacidades] = await Promise.all([
+const [html, manifiestoProduccion, javascript, coordinadorModulos, catalogoI18n, eventos, contrato, contratoLlamamientos, apiLlamamientos, flujoLlamamientos, panelInterno, datos, ayuda, estilosBase, estilosComponentes, estilosFlujos, estilosCapacidades] = await Promise.all([
   readFile(new URL("index.html", directorio), "utf8"),
   readFile(new URL("../../produccion.manifest", directorio), "utf8"),
   readFile(new URL("portal.js", directorio), "utf8"),
@@ -27,7 +26,6 @@ const [html, manifiestoProduccion, javascript, coordinadorModulos, catalogoI18n,
   readFile(new URL("portal-llamamientos-api.js", directorio), "utf8"),
   readFile(new URL("portal-llamamientos-flujo.js", directorio), "utf8"),
   readFile(new URL("portal-panel-interno.js", directorio), "utf8"),
-  readFile(new URL("portal-resumen-presentacion.js", directorio), "utf8"),
   readFile(new URL("datos-presentacion.js", directorio), "utf8"),
   readFile(new URL("ayuda-contenido.js", directorio), "utf8"),
   readFile(new URL("portal.css", directorio), "utf8"),
@@ -35,7 +33,7 @@ const [html, manifiestoProduccion, javascript, coordinadorModulos, catalogoI18n,
   readFile(new URL("portal-flujos.css", directorio), "utf8"),
   readFile(new URL("portal-capacidades.css", directorio), "utf8"),
 ]);
-const codigo = `${javascript}\n${eventos}\n${contrato}\n${contratoLlamamientos}\n${apiLlamamientos}\n${flujoLlamamientos}\n${panelInterno}\n${resumenPresentacion}`;
+const codigo = `${javascript}\n${eventos}\n${contrato}\n${contratoLlamamientos}\n${apiLlamamientos}\n${flujoLlamamientos}\n${panelInterno}`;
 const estilos = `${estilosBase}\n${estilosComponentes}\n${estilosFlujos}\n${estilosCapacidades}`;
 
 function panelInternoReal() {
@@ -130,7 +128,7 @@ test("Bolsa solo figura comprobando mientras existe una consulta activa", () => 
   const inicio = javascript.indexOf("function disponibilidadBolsa()");
   const fin = javascript.indexOf("function resolverAccesoPerfil(", inicio);
   assert.ok(inicio > 0 && fin > inicio);
-  const estadoBolsa = { modoPresentacion: false, vista: "portal", datosBolsas: null };
+  const estadoBolsa = { vista: "portal", datosBolsas: null };
   const disponibilidad = runInNewContext(`${javascript.slice(inicio, fin)}; disponibilidadBolsa`, {
     estado: estadoBolsa,
     accesoBolsaEfectivo,
@@ -185,18 +183,14 @@ test("el contrato real exige envelope canónico y rechaza una raíz raw", () => 
   assert.equal(validado.actuaciones_pendientes[0].tipo_clave, "revisar_bases");
 });
 
-test("el panel global prohíbe candidatos y la propuesta es un contrato separado", () => {
+test("el panel global prohíbe candidatos y no habilita el contrato de propuesta sintética", () => {
   const panel = { ...panelInternoReal(), candidatos: [] };
   assert.throws(() => validarPanelBolsa(panel), /no admite listados/);
   assert.doesNotMatch(datos, /\bcandidatos\s*:/);
   assert.doesNotMatch(datos, /\bdni\s*:/i);
   assert.doesNotMatch(codigo, /data-candidato|Nombre o DNI parcial|filtros-candidatos/);
-  const propuesta = validarPropuestaLlamamientoPresentacion(obtenerPropuestaPresentacion("DEMO-NEC-0045"));
-  assert.deepEqual(Object.keys(propuesta.evaluaciones[0]), ["orden", "resultado", "motivos"]);
-  assert.throws(() => validarPropuestaLlamamientoPresentacion({
-    ...obtenerPropuestaPresentacion("DEMO-NEC-0045"),
-    nombre: "dato no permitido",
-  }), /contrato cerrado/);
+  assert.doesNotMatch(contratoLlamamientos, /validarPropuestaLlamamientoPresentacion/);
+  assert.doesNotMatch(javascript, /obtenerPropuestaPresentacion|validarPropuestaLlamamientoPresentacion/);
 });
 
 test("el contrato real falla cerrado y no completa datos ausentes con ceros o listas", () => {
@@ -263,7 +257,6 @@ test("el modo real renderiza solo indicadores, convocatorias y actuaciones acred
     "documentos_pendientes_firma", "incidencias_abiertas",
   ]) assert.match(panelInterno, new RegExp(`i\\.${indicador}`));
   assert.doesNotMatch(javascript, /import\("\.\/datos-presentacion\.js/);
-  assert.match(javascript, /estado\.modoPresentacion = false/);
 });
 
 test("el coordinador respeta DEC-051 y carga el presentador con versión de caché", () => {
@@ -365,7 +358,7 @@ test("la propuesta real usa el cliente cerrado y no habilita un detalle inexiste
   assert.match(apiLlamamientos, /esquema: "vec\.bolsa\.propuesta-llamamiento\.solicitud\.v1"/);
   assert.doesNotMatch(`${javascript}\n${apiLlamamientos}`, /Idempotency-Key|randomUUID|claveIdempotenciaPropuesta/);
   assert.match(datos, /solicitar_propuesta_llamamiento: false/);
-  assert.match(flujoLlamamientos, /conoce el cliente HTTP/);
+  assert.match(flujoLlamamientos, /cliente\.solicitar\(\{ necesidadId, capacidad \}\)/);
   assert.doesNotMatch(javascript, /import\("\.\/portal-presentacion-adaptador\.js/);
   assert.doesNotMatch(javascript, /^import .*portal-presentacion-adaptador/m);
   assert.match(flujoLlamamientos, /Detalle no disponible/);
@@ -397,8 +390,7 @@ test("un hash de presentación o Selección vuelve al portal aunque la URL solic
   const ventana = { location: { search: "?presentacion=rrhh&perfil=administrador", hash: "#nominas-empleado" } };
   const resolver = runInNewContext(`${javascript.slice(inicio, fin)}; vistaDesdeHash`, {
     window: ventana, history: { replaceState: (...argumentos) => cambios.push(argumentos) },
-    TITULOS: { portal: ["Portal", "Portal"] }, estado: { modoPresentacion: false },
-    VISTAS_PRESENTACION_VISUALES: new Set(["nominas-empleado"]),
+    TITULOS: { portal: ["Portal", "Portal"] }, estado: {},
   });
   assert.equal(resolver(), "portal");
   ventana.location.hash = "#bolsa/seleccion-inscripciones";
@@ -406,37 +398,8 @@ test("un hash de presentación o Selección vuelve al portal aunque la URL solic
   assert.deepEqual(cambios.map((argumentos) => argumentos[2]), ["#portal", "#portal"]);
 });
 
-test("la presentación RRHH usa referencias públicas reales y bases adaptadas locales", async () => {
-  const elaboraciones = obtenerDatosPresentacion().elaboraciones;
-  assert.deepEqual(elaboraciones.map((item) => item.cve_bop), [
-    "BOP-GRA-2025-125002",
-    "BOP-GRA-2024-244002",
-    "BOP-GRA-2026-043004",
-  ]);
-  assert.deepEqual(elaboraciones.map((item) => item.publicacion_bop), [
-    "04/07/2025",
-    "19/12/2024",
-    "05/03/2026",
-  ]);
-  assert.match(elaboraciones[0].nombre, /Auxiliar de Servicios Generales/);
-  assert.equal(elaboraciones[1].nombre, "Ingreso en la Subescala de Gestión de Administración General");
-  assert.equal(elaboraciones[1].identificador_publico, "gestion-administracion-general-2024");
-  assert.match(elaboraciones[2].nombre, /Bolsa de empleo de Operario/);
-  for (const elaboracion of elaboraciones) {
-    assert.match(elaboracion.expediente, /^DEMO-/);
-    assert.match(elaboracion.fase, /DEMO/);
-    assert.equal(elaboracion.documentos_publicos.length, 2);
-    for (const documento of elaboracion.documentos_publicos) {
-      assert.match(documento.url, /^\/bolsa\/documentos\/bases-(?:auxiliar|gestion|operario)-demo\.(?:pdf|html)$/);
-      const ruta = new URL(`../${documento.url.slice(1)}`, directorio);
-      assert.ok((await stat(ruta)).size > 1_000, `${documento.url} debe ser un documento real de la presentación`);
-    }
-  }
-});
-
 test("la navegación productiva rechaza vistas de presentación y Selección sin fuente", () => {
   assert.doesNotMatch(javascript, /getAll\("presentacion"\)|getAll\("perfil"\)/);
-  assert.match(javascript, /if \(VISTAS_PRESENTACION_VISUALES\.has\(vista\)\) return false/);
   assert.match(javascript, /if \(vista\.startsWith\("seleccion-"\)\) return false/);
   assert.match(javascript, /function vistaPermitida\(vista\)/);
   assert.match(javascript, /history\.replaceState\(null, "", hashSeguro\)/);

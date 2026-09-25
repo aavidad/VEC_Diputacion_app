@@ -3,7 +3,7 @@ const MAXIMO_CUERPO_SOLICITUD_BYTES = 16 * 1024;
 const MAXIMO_RESPUESTA_BYTES = 128 * 1024;
 const MAXIMO_FRAGMENTOS = 256;
 const codificador = new TextEncoder();
-const CODIGOS_POR_ESTADO = new Map([[400, new Set(["peticion_invalida"])], [401, new Set(["autenticacion_requerida"])], [403, new Set(["acceso_denegado"])], [404, new Set(["no_encontrada"])], [405, new Set(["metodo_no_permitido"])], [409, new Set(["relacion_ambigua", "conflicto_idempotencia"])], [415, new Set(["tipo_no_admitido"])], [422, new Set(["relacion_no_valida"])], [503, new Set(["relacion_no_disponible", "resultado_incierto", "no_disponible"])]]);
+const CODIGOS_POR_ESTADO = new Map([[400, new Set(["peticion_invalida"])], [401, new Set(["autenticacion_requerida"])], [403, new Set(["acceso_denegado"])], [404, new Set(["no_encontrada"])], [405, new Set(["metodo_no_permitido"])], [409, new Set(["relacion_ambigua", "conflicto_idempotencia", "conflicto_version", "estado_incompatible", "documento_no_disponible"])], [415, new Set(["tipo_no_admitido"])], [422, new Set(["relacion_no_valida", "documento_invalido"])], [503, new Set(["relacion_no_disponible", "resultado_incierto", "no_disponible"])]]);
 
 export class ErrorClienteBorradoresDietas extends Error {
   constructor(codigo, estado = 0, resultadoIndeterminado = false) { super(`cliente de borradores de Dietas: ${codigo}`); this.name = "ErrorClienteBorradoresDietas"; this.codigo = codigo; this.estado = estado; this.resultadoIndeterminado = resultadoIndeterminado; Object.freeze(this); }
@@ -28,19 +28,161 @@ function validarSolicitud(entrada) {
   if (entrada.relacion_ref !== undefined && !referencia(entrada.relacion_ref, "rel_")) throw new TypeError("relación no válida");
   return Object.freeze({ ...entrada, ...(entrada.codigos_ruta ? { codigos_ruta: Object.freeze([...entrada.codigos_ruta]) } : {}) });
 }
+function validarOtros(otros) {
+  if (!Array.isArray(otros) || otros.length > 32) throw new TypeError("líneas de otros gastos no válidas");
+  return Object.freeze(otros.map((linea) => {
+    if (!registro(linea) || Object.keys(linea).some((clave) => !["tipo", "concepto", "importe_centimos", "justificante_ref", "justificante_sha256"].includes(clave)) ||
+        !["otro_medio", "otro_gasto"].includes(linea.tipo) || !textoVisible(linea.concepto, 500) || linea.concepto.length < 3 ||
+        !Number.isSafeInteger(linea.importe_centimos) || linea.importe_centimos <= 0 || linea.importe_centimos > 100000000 ||
+        !((linea.justificante_ref === "" && linea.justificante_sha256 === "") ||
+          (/^[A-Za-z][A-Za-z0-9:_-]{2,127}$/u.test(linea.justificante_ref) && /^[a-f0-9]{64}$/u.test(linea.justificante_sha256))))
+      throw new TypeError("línea de otros gastos no válida");
+    return Object.freeze({ ...linea });
+  }));
+}
+function validarRutas(rutas, vehiculoPropio) {
+  if (!Array.isArray(rutas) || (vehiculoPropio ? rutas.length < 1 || rutas.length > 8 : rutas.length !== 0))
+    throw new TypeError("rutas de vehículo propio no válidas");
+  return Object.freeze(rutas.map((ruta) => {
+    const codigos = ruta?.codigos_ruta;
+    if (!registro(ruta) || Object.keys(ruta).some((clave) => !["codigos_ruta", "ajuste_kilometros", "motivo_ajuste"].includes(clave)) ||
+        !Array.isArray(codigos) || codigos.length < 2 || codigos.length > 12 ||
+        !codigos.every((codigo) => typeof codigo === "string" && /^[A-Za-z0-9:_-]{1,64}$/u.test(codigo)) ||
+        new Set(codigos).size !== codigos.length ||
+        !/^-?(?:0|[1-9]\d{0,3})\.\d{4}$/u.test(ruta.ajuste_kilometros) ||
+        Math.abs(Number(ruta.ajuste_kilometros)) > 1000 || ruta.ajuste_kilometros === "-0.0000" ||
+        (ruta.ajuste_kilometros === "0.0000"
+          ? ruta.motivo_ajuste !== ""
+          : !textoVisible(ruta.motivo_ajuste, 500) || ruta.motivo_ajuste.length < 3))
+      throw new TypeError("ruta de vehículo propio no válida");
+    return Object.freeze({ ...ruta, codigos_ruta: Object.freeze([...codigos]) });
+  }));
+}
+function validarMutacion(entrada, completa = false) {
+  const campos = completa
+    ? ["clave_idempotencia", "version_esperada", "relacion_ref", "fecha_inicio", "fecha_fin", "hora_inicio", "hora_fin", "motivo", "codigos_ruta", "vehiculo_propio", "rutas", "otros", "tramos_aceptados", "version_tarifa_aceptada"]
+    : ["clave_idempotencia", "version_esperada", "relacion_ref"];
+  if (!registro(entrada) || Object.keys(entrada).some((clave) => !campos.includes(clave)) ||
+      !/^[A-Za-z0-9_-]{16,128}$/u.test(entrada.clave_idempotencia || "") ||
+      !Number.isSafeInteger(entrada.version_esperada) || entrada.version_esperada < 1 ||
+      !referencia(entrada.relacion_ref, "rel_")) throw new TypeError("operación de comisión no válida");
+  if (!completa) return Object.freeze({ ...entrada });
+  const { clave_idempotencia, version_esperada, relacion_ref, vehiculo_propio, rutas, otros,
+    tramos_aceptados, version_tarifa_aceptada, ...cabecera } = entrada;
+  validarSolicitud({ clave_idempotencia, relacion_ref, ...cabecera });
+  if (typeof vehiculo_propio !== "boolean") throw new TypeError("vehículo propio no confirmado");
+  if (!Array.isArray(tramos_aceptados) || tramos_aceptados.length > 62 ||
+      !tramos_aceptados.every((indice, posicion) => Number.isSafeInteger(indice) && indice >= 0 && indice < 62 &&
+        (posicion === 0 || indice > tramos_aceptados[posicion - 1])) ||
+      !/^provisional:[a-z0-9:-]{8,120}$/u.test(version_tarifa_aceptada))
+    throw new TypeError("aceptación de tramos de Dietas no válida");
+  return Object.freeze({ ...entrada, rutas: validarRutas(rutas, vehiculo_propio),
+    tramos_aceptados: Object.freeze([...tramos_aceptados]),
+    ...(otros === undefined ? {} : { otros: validarOtros(otros) }) });
+}
 function validarRecibo(recibo) { if (!registro(recibo) || Object.keys(recibo).length !== 4 || !referencia(recibo.referencia, "rcd_") || !Number.isSafeInteger(recibo.version) || recibo.version < 1 || typeof recibo.registrado_en !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/u.test(recibo.registrado_en) || !Number.isFinite(Date.parse(recibo.registrado_en)) || typeof recibo.repeticion !== "boolean") throw new TypeError("recibo de Dietas incompatible"); return Object.freeze({ ...recibo }); }
-function validarCalculo(calculo,codigos) {
-  if (!registro(calculo) || calculo.procedencia !== "osrm_interno" || calculo.motor !== "OSRM" || typeof calculo.version_grafo !== "string" || !/^provisional:[a-z0-9:-]{8,120}$/u.test(calculo.version_tarifa) || !/^\d{1,5}\.\d{4}$/u.test(calculo.kilometros) || !/^0\.\d{4}$/u.test(calculo.eur_por_km) || !Number.isSafeInteger(calculo.importe_kilometraje_centimos) || calculo.importe_kilometraje_centimos<0 || !Array.isArray(calculo.tramos_ruta) || calculo.tramos_ruta.length!==codigos.length-1 || !Array.isArray(calculo.opciones_dieta) || calculo.opciones_dieta.length!==3) throw new TypeError("cálculo de comisión incompatible");
-  calculo.tramos_ruta.forEach((tramo,i)=>{ if (tramo.origen_codigo!==codigos[i] || tramo.destino_codigo!==codigos[i+1] || !/^\d{1,5}\.\d{4}$/u.test(tramo.kilometros)) throw new TypeError("tramo de comisión incompatible"); });
+function validarCalculo(calculo,codigos,rutasDeclaradas,vehiculo,documento) {
+  if (!registro(calculo) || !/^provisional:[a-z0-9:-]{8,120}$/u.test(calculo.version_tarifa) ||
+      !/^\d{1,5}\.\d{4}$/u.test(calculo.kilometros) || !/^0\.\d{4}$/u.test(calculo.eur_por_km) ||
+      !Number.isSafeInteger(calculo.importe_kilometraje_centimos) || calculo.importe_kilometraje_centimos < 0 ||
+      !Array.isArray(calculo.tramos_ruta) || !Array.isArray(calculo.opciones_dieta) || calculo.opciones_dieta.length !== 3)
+    throw new TypeError("cálculo de comisión incompatible");
+  if (documento) {
+    if ((calculo.vehiculo_propio === true) !== vehiculo || calculo.tramos_ruta.length !== 0 ||
+        (calculo.rutas !== undefined && !Array.isArray(calculo.rutas)) || (calculo.rutas || []).length !== rutasDeclaradas.length ||
+        (vehiculo ? calculo.procedencia !== "osrm_interno" || calculo.motor !== "OSRM" :
+          calculo.procedencia !== "sin_vehiculo_propio" || calculo.motor !== "no_aplica" || calculo.kilometros !== "0.0000" || calculo.importe_kilometraje_centimos !== 0))
+      throw new TypeError("cálculo de documento incompatible");
+    (calculo.rutas || []).forEach((ruta, indice) => {
+      const declarada = rutasDeclaradas[indice];
+      if (!registro(ruta) || !Array.isArray(ruta.codigos_ruta) ||
+          JSON.stringify(ruta.codigos_ruta) !== JSON.stringify(declarada.codigos_ruta) ||
+          ruta.ajuste_kilometros !== declarada.ajuste_kilometros || ruta.motivo_ajuste !== declarada.motivo_ajuste ||
+          !Array.isArray(ruta.tramos_ruta) || ruta.tramos_ruta.length !== declarada.codigos_ruta.length - 1 ||
+          !/^\d{1,5}\.\d{4}$/u.test(ruta.kilometros_finales) || !Number.isSafeInteger(ruta.importe_centimos))
+        throw new TypeError("ruta calculada incompatible");
+    });
+  } else {
+    if (calculo.procedencia !== "osrm_interno" || calculo.motor !== "OSRM" || typeof calculo.version_grafo !== "string" ||
+        calculo.tramos_ruta.length !== codigos.length - 1)
+      throw new TypeError("cálculo de comisión incompatible");
+    calculo.tramos_ruta.forEach((tramo,i)=>{ if (tramo.origen_codigo!==codigos[i] || tramo.destino_codigo!==codigos[i+1] || !/^\d{1,5}\.\d{4}$/u.test(tramo.kilometros)) throw new TypeError("tramo de comisión incompatible"); });
+  }
   calculo.opciones_dieta.forEach((opcion,i)=>{ if (opcion.grupo!==i+1 || !registro(opcion.calculo) || !Array.isArray(opcion.calculo.tramos) || !Number.isSafeInteger(opcion.calculo.total_maximo_orientativo_centimos)) throw new TypeError("tramos de dieta incompatibles"); });
   return Object.freeze({ ...calculo, tramos_ruta:Object.freeze(calculo.tramos_ruta.map((tramo)=>Object.freeze({...tramo}))), opciones_dieta:Object.freeze(calculo.opciones_dieta.map((opcion)=>Object.freeze({...opcion,calculo:Object.freeze({...opcion.calculo,tramos:Object.freeze(opcion.calculo.tramos.map((tramo)=>Object.freeze({...tramo})))})}))) });
 }
+// Tras enviarla, la comisión recorre el circuito de revisión; la persona
+// titular sigue viendo su documento en cualquiera de esos estados.
+const ESTADOS_COMISION_PROPIA = Object.freeze(["borrador", "eliminado", "enviado_pendiente_revision", "pendiente_autorizacion", "pendiente_liquidacion", "pendiente_fiscalizacion", "fiscalizada", "devuelta"]);
 function validarComision(comision) {
-  const campos = ["referencia", "estado", "fecha_inicio", "fecha_fin", "motivo", "codigos_ruta", "relacion_ref", "calculo"];
-  if (!registro(comision) || Object.keys(comision).some((clave) => !campos.includes(clave)) || !referencia(comision.referencia, "dco_") || comision.estado !== "borrador" || !fechaCivil(comision.fecha_inicio) || !fechaCivil(comision.fecha_fin) || comision.fecha_fin < comision.fecha_inicio || !textoVisible(comision.motivo, 600) || !referencia(comision.relacion_ref, "rel_")) throw new TypeError("comisión de Dietas incompatible");
+  const campos = ["referencia", "version", "numero_documento", "fecha_apertura", "estado", "fecha_inicio", "fecha_fin", "motivo", "codigos_ruta", "relacion_ref", "calculo", "documento", "vehiculo_propio", "rutas"];
+  if (!registro(comision) || Object.keys(comision).some((clave) => !campos.includes(clave)) || !referencia(comision.referencia, "dco_") || (comision.version !== undefined && (!Number.isSafeInteger(comision.version) || comision.version < 1)) || !ESTADOS_COMISION_PROPIA.includes(comision.estado) || !fechaCivil(comision.fecha_inicio) || !fechaCivil(comision.fecha_fin) || comision.fecha_fin < comision.fecha_inicio || !textoVisible(comision.motivo, 600) || !referencia(comision.relacion_ref, "rel_")) throw new TypeError("comisión de Dietas incompatible");
+  if ((comision.numero_documento !== undefined && !/^VEC-D-\d{4}-\d{6}$/u.test(comision.numero_documento)) ||
+      (comision.fecha_apertura !== undefined && !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/u.test(comision.fecha_apertura)))
+    throw new TypeError("identificador de comisión incompatible");
   const codigos = comision.codigos_ruta === undefined ? [] : comision.codigos_ruta;
   if (!Array.isArray(codigos) || codigos.length > 16 || !codigos.every((codigo) => typeof codigo === "string" && /^[A-Za-z0-9:_-]{1,64}$/u.test(codigo)) || new Set(codigos).size !== codigos.length) throw new TypeError("comisión de Dietas incompatible");
-  return Object.freeze({ ...comision, codigos_ruta: Object.freeze([...codigos]), ...(comision.calculo ? {calculo:validarCalculo(comision.calculo,codigos)} : {}) });
+  if (comision.vehiculo_propio !== undefined && typeof comision.vehiculo_propio !== "boolean") throw new TypeError("comisión de Dietas incompatible");
+  if (comision.rutas !== undefined && comision.rutas !== null) validarRutas(comision.rutas, comision.vehiculo_propio === true);
+  if (comision.documento !== undefined && comision.documento !== null) {
+    const documento = comision.documento;
+    if (!registro(documento) || !Array.isArray(documento.lineas) || documento.lineas.length > 256 ||
+        typeof documento.vehiculo_propio !== "boolean" || documento.vehiculo_propio !== comision.vehiculo_propio ||
+        ![1, 2, 3].includes(documento.grupo_dieta) ||
+        !/^provisional:[a-z0-9:-]{8,120}$/u.test(documento.version_tarifa_aceptada) ||
+        !Array.isArray(documento.tramos_aceptados) || documento.tramos_aceptados.length > 62 ||
+        !documento.tramos_aceptados.every((indice, posicion) => Number.isSafeInteger(indice) && indice >= 0 && indice < 62 &&
+          (posicion === 0 || indice > documento.tramos_aceptados[posicion - 1])) ||
+        ["manutencion_centimos", "alojamiento_tope_centimos", "kilometraje_centimos", "otros_centimos", "total_orientativo_centimos"]
+          .some((clave) => !Number.isSafeInteger(documento[clave]) || documento[clave] < 0) ||
+        documento.total_orientativo_centimos !== documento.manutencion_centimos + documento.alojamiento_tope_centimos +
+          documento.kilometraje_centimos + documento.otros_centimos)
+      throw new TypeError("documento de comisión incompatible");
+    const tramosGrupo = comision.calculo?.opciones_dieta?.[documento.grupo_dieta - 1]?.calculo?.tramos;
+    if (!Array.isArray(tramosGrupo) ||
+        (tramosGrupo.length === 0 ? documento.tramos_aceptados.length !== 0 :
+          documento.tramos_aceptados.length !== 1 && documento.tramos_aceptados.length !== tramosGrupo.length) ||
+        documento.tramos_aceptados.some((indice, posicion) => indice >= tramosGrupo.length ||
+          (documento.tramos_aceptados.length === tramosGrupo.length && indice !== posicion)))
+      throw new TypeError("aceptación de comisión incompatible");
+    let totalDietas = 0;
+    let totalKM = 0;
+    let totalOtros = 0;
+    let dietas = 0;
+    let kilometrajes = 0;
+    for (const linea of documento.lineas) {
+      if (!registro(linea) || !["dieta", "kilometraje", "otro_medio", "otro_gasto"].includes(linea.tipo) ||
+          !Number.isSafeInteger(linea.importe_centimos) || linea.importe_centimos < 0)
+        throw new TypeError("línea de comisión incompatible");
+      if (linea.tipo === "kilometraje") {
+        kilometrajes += 1;
+        if (!Number.isSafeInteger(linea.ruta_indice) || linea.ruta_indice !== kilometrajes ||
+            !/^\d{1,5}\.\d{4}$/u.test(linea.kilometros)) throw new TypeError("kilometraje incompatible");
+        totalKM += linea.importe_centimos;
+      } else if (linea.tipo === "otro_medio" || linea.tipo === "otro_gasto") {
+        if (!textoVisible(linea.concepto, 500) ||
+            !((linea.justificante_ref === "" && linea.justificante_sha256 === "") ||
+              (/^[A-Za-z][A-Za-z0-9:_-]{2,127}$/u.test(linea.justificante_ref || "") &&
+                /^[a-f0-9]{64}$/u.test(linea.justificante_sha256 || ""))))
+          throw new TypeError("otro gasto incompatible");
+        totalOtros += linea.importe_centimos;
+      } else {
+        const indice = documento.tramos_aceptados[dietas];
+        const tramo = tramosGrupo[indice];
+        if (linea.grupo !== documento.grupo_dieta || !fechaCivil(linea.fecha) ||
+            linea.indice_tramo !== indice || tramo?.fecha !== linea.fecha ||
+            tramo?.importe_centimos !== linea.importe_centimos || tramo?.tipo !== linea.concepto)
+          throw new TypeError("dieta incompatible");
+        totalDietas += linea.importe_centimos; dietas += 1;
+      }
+    }
+    if (totalDietas !== documento.manutencion_centimos + documento.alojamiento_tope_centimos ||
+        totalKM !== documento.kilometraje_centimos || totalOtros !== documento.otros_centimos ||
+        dietas !== documento.tramos_aceptados.length || kilometrajes !== (comision.rutas?.length || 0) ||
+        documento.version_tarifa_aceptada !== comision.calculo?.version_tarifa)
+      throw new TypeError("total de comisión incompatible");
+  }
+  return Object.freeze({ ...comision, codigos_ruta: Object.freeze([...codigos]), ...(comision.calculo ? {calculo:validarCalculo(comision.calculo,codigos,comision.rutas || [],comision.vehiculo_propio === true,Boolean(comision.documento))} : {}) });
 }
 function validarItem(valor) { if (!registro(valor) || Object.keys(valor).length !== 2 || !Object.hasOwn(valor, "comision") || !Object.hasOwn(valor, "recibo")) throw new TypeError("resultado de Dietas incompatible"); return Object.freeze({ comision: validarComision(valor.comision), recibo: validarRecibo(valor.recibo) }); }
 function validarPagina(valor) { if (!registro(valor) || Object.keys(valor).some((clave) => clave !== "items" && clave !== "siguiente_cursor") || !Array.isArray(valor.items) || valor.items.length > 50 || (valor.siguiente_cursor !== undefined && !textoVisible(valor.siguiente_cursor, 400))) throw new TypeError("página de Dietas incompatible"); return Object.freeze({ items: Object.freeze(valor.items.map(validarItem)), ...(valor.siguiente_cursor ? { siguiente_cursor: valor.siguiente_cursor } : {}) }); }
@@ -81,6 +223,23 @@ async function ejecutar(fetchImpl, ruta, opciones, estadosCorrectos, signal, esc
 }
 export function crearClienteBorradoresDietasHTTP({ fetchImpl = globalThis.fetch } = {}) {
   if (typeof fetchImpl !== "function") throw new TypeError("cliente de borradores de Dietas no disponible");
+  async function mutar(metodo, referenciaComision, entrada, opciones, completa = false, sufijo = "") {
+    if (!referencia(referenciaComision, "dco_")) throw new TypeError("referencia de Dietas no válida");
+    const solicitud = validarMutacion(entrada, completa);
+    const signal = validarOpciones(opciones);
+    const cuerpo = JSON.stringify(solicitud);
+    if (codificador.encode(cuerpo).byteLength > MAXIMO_CUERPO_SOLICITUD_BYTES)
+      throw new TypeError("operación de Dietas demasiado grande");
+    const resultado = await ejecutar(fetchImpl, `${RUTA_COMISIONES}/${encodeURIComponent(referenciaComision)}${sufijo}`,
+      { method: metodo, headers: { "Content-Type": "application/json; charset=utf-8", Accept: "application/json" }, body: cuerpo },
+      [200, 201], signal, true, validarItem);
+    if (resultado.comision.referencia !== referenciaComision || resultado.recibo.version < solicitud.version_esperada + 1 ||
+        (metodo === "PUT" && resultado.comision.estado !== "borrador") ||
+        (metodo === "DELETE" && resultado.comision.estado !== "eliminado") ||
+        (sufijo === "/enviar" && resultado.comision.estado !== "enviado_pendiente_revision"))
+      throw fallo("respuesta_incompatible", 200, true);
+    return resultado;
+  }
   return Object.freeze({
     async crear(entrada, opciones = {}) { const solicitud = validarSolicitud(entrada); const signal = validarOpciones(opciones); const cuerpo = JSON.stringify(solicitud); if (codificador.encode(cuerpo).byteLength > MAXIMO_CUERPO_SOLICITUD_BYTES) throw new TypeError("solicitud de borrador de Dietas demasiado grande"); return ejecutar(fetchImpl, RUTA_COMISIONES, { method: "POST", headers: { "Content-Type": "application/json; charset=utf-8", Accept: "application/json" }, body: cuerpo }, [200, 201], signal, true, validarItem); },
     async listar(consulta = {}, opciones = {}) {
@@ -101,5 +260,8 @@ export function crearClienteBorradoresDietasHTTP({ fetchImpl = globalThis.fetch 
       const consulta = parametros.size ? `?${parametros}` : "";
       return validarItem(await ejecutar(fetchImpl, `${RUTA_COMISIONES}/${encodeURIComponent(referenciaComision)}${consulta}`, { method: "GET", headers: { Accept: "application/json" } }, [200], signal));
     },
+    editar(referenciaComision, entrada, opciones = {}) { return mutar("PUT", referenciaComision, entrada, opciones, true); },
+    eliminar(referenciaComision, entrada, opciones = {}) { return mutar("DELETE", referenciaComision, entrada, opciones); },
+    enviar(referenciaComision, entrada, opciones = {}) { return mutar("POST", referenciaComision, entrada, opciones, false, "/enviar"); },
   });
 }

@@ -120,14 +120,7 @@
   outline-offset: 2px;
 }
 
-.cronos-calendario-pie {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--portal-espacio-3);
-}
-
-.cronos-calendario-seleccion,
-.cronos-calendario-leyenda {
+.cronos-calendario-seleccion {
   display: grid;
   align-content: start;
   gap: var(--portal-espacio-2);
@@ -156,5 +149,4 @@
 
 @media (max-width: 700px) {
   .cronos-calendario-meses { max-height: none; }
-  .cronos-calendario-pie { grid-template-columns: minmax(0, 1fr); }
 }

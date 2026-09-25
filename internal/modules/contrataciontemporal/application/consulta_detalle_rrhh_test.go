@@ -10,6 +10,37 @@ import (
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
 
+var camposSeguimientoRRHHPrueba = []string{
+	"esquema", "alcance", "expediente_ref", "version_expediente",
+	"recibo_incorporacion_ref", "seguimiento_ref", "version_seguimiento",
+	"estado_clave", "periodo", "registrado_en", "actuaciones",
+	"ejercicio_sintetico", "firma_oficial", "eficacia_administrativa",
+}
+
+type sesionResumenRRHHPrueba struct {
+	*sesionConsultaRRHHPrueba
+	llamadasResumen int
+	resultado       ports.ResultadoConsultaResumenSeguimientoRRHH
+}
+
+func (s *sesionResumenRRHHPrueba) ConsultarDetalleYRegistrar(context.Context, ports.OrdenConsultaDetalleRRHH) (ports.DetalleExpedienteRRHH, error) {
+	panic("la consulta de seguimiento leyó el detalle completo")
+}
+
+func (s *sesionResumenRRHHPrueba) ConsultarResumenSeguimientoYRegistrar(_ context.Context, orden ports.OrdenConsultaDetalleRRHH, _ string) (ports.ResultadoConsultaResumenSeguimientoRRHH, error) {
+	s.llamadasResumen++
+	r := s.resultado
+	if r.ExpedienteRef == "" {
+		r = ports.ResultadoConsultaResumenSeguimientoRRHH{
+			ExpedienteRef: orden.Solicitud().ExpedienteRef(), VersionExpediente: 1,
+			OrganizacionRef: orden.Contexto().OrganizacionRef(), UnidadRef: "unidad:rrhh:001",
+			ConsumoHuellaSHA256: strings.Repeat("b", 64), AuditoriaRef: "auditoria:rrhh:001",
+			AuditoriaHuellaSHA256: strings.Repeat("a", 64), ConsumidaEn: orden.Instante(),
+		}
+	}
+	return r, nil
+}
+
 func TestConsultaDetalleRRHHDevuelveProyeccionValidadaYClonada(t *testing.T) {
 	t.Parallel()
 	entorno := nuevoEntornoConsultaRRHH(t)
@@ -95,5 +126,111 @@ func TestConsultaDetalleRRHHRechazaResultadoDeOtroExpediente(t *testing.T) {
 		context.Background(), entorno.detalle,
 	); !errors.Is(err, ErrResultadoConsultaRRHHNoConfiable) {
 		t.Fatalf("resultado ajeno aceptado: %v", err)
+	}
+}
+
+func TestConsultaResumenSeguimientoNoExportaDetalleYConservaConsultaNominal(t *testing.T) {
+	t.Parallel()
+	entorno := nuevoEntornoConsultaRRHH(t)
+	entorno.emision.detalle.campos = camposSeguimientoRRHHPrueba
+	sesion := &sesionResumenRRHHPrueba{sesionConsultaRRHHPrueba: entorno.sesion}
+	servicio, err := NuevoServicioConsultaDetalleRRHH(entorno.autoridad, entorno.emisor, sesion, entorno.reloj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resumen, err := servicio.ConsultarResumenSeguimiento(context.Background(), entorno.detalle,
+		entorno.sesion.detalle.Resumen.OrganizacionRef, "unidad:rrhh:001")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resumen.ExpedienteRef != entorno.detalle.ExpedienteRef() ||
+		resumen.VersionExpediente != entorno.sesion.detalle.Resumen.Version ||
+		sesion.llamadasResumen != 1 || entorno.sesion.llamadasDetalle != 0 || entorno.emision.detalle.llamadas != 1 {
+		t.Fatal("la proyeccion no procede de la consulta nominal validada")
+	}
+	b, err := json.Marshal(resumen)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var campos map[string]any
+	if err := json.Unmarshal(b, &campos); err != nil {
+		t.Fatal(err)
+	}
+	if len(campos) != 2 || campos["expediente_ref"] == nil || campos["version_expediente"] == nil {
+		t.Fatalf("la proyeccion exporta otros campos: %s", b)
+	}
+}
+
+func TestConsultaResumenSeguimientoDeniegaCruces(t *testing.T) {
+	t.Parallel()
+	for _, caso := range []struct {
+		nombre string
+		org    string
+		unidad string
+	}{
+		{nombre: "organizacion", org: "organizacion:ajena"},
+		{nombre: "unidad", unidad: "unidad:ajena"},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			entorno := nuevoEntornoConsultaRRHH(t)
+			entorno.emision.detalle.campos = camposSeguimientoRRHHPrueba
+			sesion := &sesionResumenRRHHPrueba{sesionConsultaRRHHPrueba: entorno.sesion}
+			servicio, err := NuevoServicioConsultaDetalleRRHH(entorno.autoridad, entorno.emisor, sesion, entorno.reloj)
+			if err != nil {
+				t.Fatal(err)
+			}
+			org, unidad := entorno.sesion.detalle.Resumen.OrganizacionRef, "unidad:rrhh:001"
+			if caso.org != "" {
+				org = caso.org
+			}
+			if caso.unidad != "" {
+				unidad = caso.unidad
+			}
+			resumen, err := servicio.ConsultarResumenSeguimiento(context.Background(), entorno.detalle, org, unidad)
+			if !errors.Is(err, ErrConsultaRRHHNoObservable) && !errors.Is(err, ErrResultadoConsultaRRHHNoConfiable) || resumen != (ResumenConsultaSeguimientoRRHH{}) {
+				t.Fatalf("cruce publicado: %+v, %v", resumen, err)
+			}
+		})
+	}
+}
+
+func TestConsultaResumenSeguimientoRechazaCamposNoExactosAntesDeSesion(t *testing.T) {
+	t.Parallel()
+	for _, caso := range []struct {
+		nombre string
+		campos []string
+	}{
+		{nombre: "vacios"},
+		{nombre: "faltante", campos: camposSeguimientoRRHHPrueba[1:]},
+		{nombre: "adicional", campos: append(append([]string(nil), camposSeguimientoRRHHPrueba...), "resumen")},
+	} {
+		t.Run(caso.nombre, func(t *testing.T) {
+			entorno := nuevoEntornoConsultaRRHH(t)
+			entorno.emision.detalle.campos = caso.campos
+			sesion := &sesionResumenRRHHPrueba{sesionConsultaRRHHPrueba: entorno.sesion}
+			servicio, err := NuevoServicioConsultaDetalleRRHH(entorno.autoridad, entorno.emisor, sesion, entorno.reloj)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = servicio.ConsultarResumenSeguimiento(context.Background(), entorno.detalle,
+				entorno.sesion.detalle.Resumen.OrganizacionRef, "unidad:rrhh:001")
+			if !errors.Is(err, ErrConsultaRRHHNoObservable) || sesion.llamadasResumen != 0 || entorno.sesion.llamadasDetalle != 0 {
+				t.Fatalf("campos no exactos alcanzaron sesion: %v, %d", err, sesion.llamadasResumen)
+			}
+		})
+	}
+}
+
+func TestConsultaDetalleNoEntregaDetalleConConcesionDeSeguimiento(t *testing.T) {
+	t.Parallel()
+	entorno := nuevoEntornoConsultaRRHH(t)
+	entorno.emision.detalle.campos = camposSeguimientoRRHHPrueba
+	servicio, err := NuevoServicioConsultaDetalleRRHH(entorno.autoridad, entorno.emisor, entorno.sesion, entorno.reloj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = servicio.Consultar(context.Background(), entorno.detalle)
+	if !errors.Is(err, ErrConsultaRRHHNoObservable) || entorno.sesion.llamadasDetalle != 0 {
+		t.Fatalf("concesion limitada alcanzo detalle completo: %v", err)
 	}
 }
