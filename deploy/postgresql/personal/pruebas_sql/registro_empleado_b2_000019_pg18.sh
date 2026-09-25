@@ -419,4 +419,134 @@ if "$motor" exec "$contenedor" psql -X -qAt -v ON_ERROR_STOP=1 -U postgres -d "$
 esperar
 [[ $(admin_valor "SELECT count(*) FROM vec_personal.recibo_lista_empleados_b2") == 2 && $(admin_valor "SELECT count(*) FROM vec_personal.recibo_lectura_registro_empleado_b2 WHERE operacion='ficha'") == 1 ]] || fallo 'recibos de lista no conservados tras reinicio'
 ok '000021 dos recibos de lista conservados tras reinicio'
-printf 'PG18 000019: B1 real; ROLLBACK/COMMIT, ACL, alta/replay/hechos, rechazo multi-org ajeno, caducidad con lock, reinicio y proyección consumida por ContextoActor 000007, y lista 000021 correctos (AD3 simulado).\n'
+
+# ---------------------------------------------------------------------------
+# Personal 000022: ficha propia de la persona empleada («mis datos») sobre la
+# misma historia. AD3-74 se simula como AD3-54/56 (su ensayo estructural es
+# aparte). El rol de registro de frontera lo crea el DBA con Personal 000013;
+# aquí se crea igual, sin instalar 000012/000013.
+# ---------------------------------------------------------------------------
+admin -o /dev/null <<'SQL'
+CREATE ROLE vec_personal_registrador_frontera NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT NOREPLICATION NOBYPASSRLS;
+CREATE ROLE vec_prueba_frontera_personal LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+GRANT vec_personal_registrador_frontera TO vec_prueba_frontera_personal WITH ADMIN FALSE,INHERIT TRUE,SET FALSE;
+SQL
+admin_valor "GRANT CONNECT ON DATABASE $base TO vec_prueba_frontera_personal" >/dev/null
+up22="$repo_dir/deploy/postgresql/personal/migraciones/000022_ficha_propia_empleado.up.sql"
+if archivo "$up22" 2>/dev/null; then fallo '000022 aceptada sin el consumidor AD3-74'; fi
+admin -o /dev/null <<'SQL'
+CREATE FUNCTION vec_autorizacion_atestada_v3.consumir_ficha_propia_empleado_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)
+ RETURNS TABLE(decision_ref text,efecto_ref text,huella_efecto_sha256 text,consumo_huella_sha256 text,auditoria_ref text,consumida_en timestamptz,consumo_nuevo boolean)
+ LANGUAGE sql AS $$ SELECT d->>'decision_ref',d->>'recurso_ref',d->>'contexto_recurso_huella_sha256',encode(sha256($1||$2||gen_random_uuid()::text::bytea),'hex'),'auditoria:synthetic:ficha-propia',clock_timestamp(),true FROM (SELECT convert_from($2,'UTF8')::jsonb d) q $$;
+GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.consumir_ficha_propia_empleado_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_personal_propietario;
+SQL
+sed '$s/^COMMIT;/ROLLBACK;/' "$up22" | admin -o /dev/null
+[[ $(admin_valor "SELECT to_regclass('vec_personal.recibo_ficha_propia_empleado') IS NULL AND to_regclass('vec_personal.denegacion_frontera_ficha_propia') IS NULL AND to_regprocedure('vec_personal.consultar_ficha_propia_empleado_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL") == t ]] || fallo 'ROLLBACK 000022 dejó objetos'
+archivo "$up22"
+if archivo "$up22" 2>/dev/null; then fallo 'segunda aplicación de 000022 aceptada'; fi
+ok '000022 rechazada sin AD3-74; ROLLBACK sin rastro, COMMIT y segunda aplicación rechazada'
+f22='vec_personal.consultar_ficha_propia_empleado_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'
+d22='vec_personal.registrar_denegacion_ficha_propia_v1(text,text,smallint,text)'
+[[ $(admin_valor "SELECT has_function_privilege('vec_personal_ejecutor','$f22','EXECUTE') AND NOT has_function_privilege('public','$f22','EXECUTE') AND NOT has_function_privilege('vec_personal_registrador_frontera','$f22','EXECUTE') AND has_function_privilege('vec_personal_registrador_frontera','$d22','EXECUTE') AND NOT has_function_privilege('vec_personal_ejecutor','$d22','EXECUTE') AND NOT has_function_privilege('public','$d22','EXECUTE') AND NOT has_table_privilege('vec_personal_ejecutor','vec_personal.recibo_ficha_propia_empleado','SELECT') AND NOT has_table_privilege('vec_personal_registrador_frontera','vec_personal.denegacion_frontera_ficha_propia','SELECT') AND (SELECT bool_and(relrowsecurity AND relforcerowsecurity) FROM pg_class WHERE oid IN ('vec_personal.recibo_ficha_propia_empleado'::regclass,'vec_personal.denegacion_frontera_ficha_propia'::regclass))") == t ]] || fallo 'ACL o RLS de 000022 divergente'
+ok '000022 ACL: el ejecutor consulta, el registrador solo registra denegaciones; tablas sin lectura directa y con RLS forzada'
+propia_tmp=$(mktemp)
+cat > "$propia_tmp" <<'SQL'
+BEGIN ISOLATION LEVEL SERIALIZABLE READ WRITE;
+SET LOCAL TimeZone='UTC';
+DO $p$
+DECLARE conocido text; emp text; material text; mh text; rh text; cap jsonb; decision jsonb; res jsonb; r0 jsonb; r1 jsonb; s0 jsonb;
+ otro text; ajeno text;
+BEGIN
+ conocido:=to_char(transaction_timestamp() AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"');
+ emp:=current_setting('vec_prueba.empleado');
+ material:='{"esquema":"vec.personal.ficha-propia.consulta.v1","empleado_ref":"'||emp||'","vigente_en":"2026-09-26","conocido_en":"'||conocido||'","actor_ref":"per_sintetica_alcance_p_00000000000001","contexto_actor_ref":"ctx:synthetic:b2","contexto_version":1,"cuenta_ref":"cta_sintetica_alcance_p_0000000000001","cuenta_version":1,"perfil_ref":"prf_sintetico_alcance_p_0000000000001","perfil_version":1,"persona_ref":"per_sintetica_alcance_p_00000000000001","persona_version":1}';
+ mh:=encode(sha256(convert_to(material,'UTF8')),'hex');
+ rh:=encode(sha256(convert_to('{"ambitos":{"empleado_ref":"'||emp||'"},"atributos":{"conocido_en":"'||conocido||'","material_sha256":"'||mh||'","operacion":"ficha_propia","vigente_en":"2026-09-26"}}','UTF8')),'hex');
+ cap:=jsonb_build_object('operacion','personal.registro_empleado.ficha_propia.consultar','audiencia_consumo','vec_personal.registro_empleado.ficha_propia.v1','efecto_ref',emp,'huella_efecto_sha256',rh);
+ decision:=jsonb_build_object('principal_id','per_sintetica_alcance_p_00000000000001','perfil_activo_ref','prf_sintetico_alcance_p_0000000000001','concedida',true,'modulo_id','personal','obligaciones',jsonb_build_array(),'tipo_recurso','ficha_propia_empleado','finalidad','consultar_ficha_propia','campos_permitidos','["corte","evidencia","relaciones","servicios"]'::jsonb,'accion','personal.registro_empleado.ficha_propia.consultar','recurso_ref',emp,'contexto_recurso_huella_sha256',rh,'decision_ref','decision:synthetic:ficha-propia','valida_hasta','2100-01-01T00:00:00Z');
+ res:=vec_personal.consultar_ficha_propia_empleado_v1(material,convert_to(cap::text,'UTF8'),convert_to(decision::text,'UTF8'),convert_to('{}','UTF8'),convert_to('{}','UTF8'),1,1,'x'::bytea,'y'::bytea,'z'::bytea,'w'::bytea);
+ r0:=res->'ficha'->'relaciones'->0; r1:=res->'ficha'->'relaciones'->1; s0:=res->'ficha'->'servicios'->0;
+ -- Dos relaciones (la más reciente primero, en su última revisión), un
+ -- servicio y la situación vigente con sus denominaciones publicadas.
+ IF jsonb_array_length(res->'ficha'->'relaciones')<>2 OR jsonb_array_length(res->'ficha'->'servicios')<>1
+    OR r0->>'inicio'<>'2026-09-26' OR r0->>'estado'<>'suspendida' OR r0->>'fin'<>''
+    OR r0->>'regimen'<>'Régimen sintético' OR r0->>'modalidad'<>'Modalidad sintética' OR r0->>'situacion'<>''
+    OR r1->>'inicio'<>'2026-09-25' OR r1->>'estado'<>'vigente' OR r1->>'situacion'<>'Servicio activo sintético'
+    OR r1->>'unidad'<>'' OR r1->>'puesto'<>''
+    OR s0->>'inicio'<>'2026-01-01' OR s0->>'fin'<>'2026-02-01' OR (s0->>'dias')::int<>31
+    OR s0->>'estado'<>'reconocido' OR s0->>'clase'<>'Antigüedad sintética'
+    OR res->'ficha'->'corte'->>'vigente_en'<>'2026-09-26' OR res->'ficha'->'corte'->>'conocido_en'<>conocido
+    OR res->'evidencia'->>'decision_ref'<>'decision:synthetic:ficha-propia' OR res->'evidencia'->>'recibo_ref' !~ '^fichapropia:'
+    OR (res->'ficha')::text ~ '(per|emp|rel|srv|sit|ocu)_' THEN
+  RAISE EXCEPTION 'ficha propia inesperada %',res; END IF;
+ -- Antes de toda relación: la situación (vigente desde el 26) no se muestra.
+ otro:=replace(material,'"vigente_en":"2026-09-26"','"vigente_en":"2026-01-01"');
+ mh:=encode(sha256(convert_to(otro,'UTF8')),'hex');
+ rh:=encode(sha256(convert_to('{"ambitos":{"empleado_ref":"'||emp||'"},"atributos":{"conocido_en":"'||conocido||'","material_sha256":"'||mh||'","operacion":"ficha_propia","vigente_en":"2026-01-01"}}','UTF8')),'hex');
+ res:=vec_personal.consultar_ficha_propia_empleado_v1(otro,convert_to((cap||jsonb_build_object('huella_efecto_sha256',rh))::text,'UTF8'),convert_to((decision||jsonb_build_object('contexto_recurso_huella_sha256',rh,'decision_ref','decision:synthetic:ficha-propia:antes'))::text,'UTF8'),convert_to('{}','UTF8'),convert_to('{}','UTF8'),1,1,'x'::bytea,'y'::bytea,'z'::bytea,'w'::bytea);
+ IF jsonb_array_length(res->'ficha'->'relaciones')<>2 OR res->'ficha'->'relaciones'->1->>'situacion'<>'' THEN
+  RAISE EXCEPTION 'ficha propia anterior inesperada %',res; END IF;
+ -- Negativos: empleado ajeno a la persona, persona sin empleado, campos
+ -- ampliados, operación ajena, material no canónico y concesión caducada.
+ ajeno:='emp_sintetico_ajeno_0000000000000001';
+ otro:=replace(material,emp,ajeno);
+ mh:=encode(sha256(convert_to(otro,'UTF8')),'hex');
+ rh:=encode(sha256(convert_to('{"ambitos":{"empleado_ref":"'||ajeno||'"},"atributos":{"conocido_en":"'||conocido||'","material_sha256":"'||mh||'","operacion":"ficha_propia","vigente_en":"2026-09-26"}}','UTF8')),'hex');
+ BEGIN
+  PERFORM vec_personal.consultar_ficha_propia_empleado_v1(otro,convert_to((cap||jsonb_build_object('efecto_ref',ajeno,'huella_efecto_sha256',rh))::text,'UTF8'),convert_to((decision||jsonb_build_object('recurso_ref',ajeno,'contexto_recurso_huella_sha256',rh))::text,'UTF8'),convert_to('{}','UTF8'),convert_to('{}','UTF8'),1,1,'x'::bytea,'y'::bytea,'z'::bytea,'w'::bytea);
+  RAISE EXCEPTION 'empleado ajeno admitido';
+ EXCEPTION WHEN SQLSTATE '42501' THEN NULL; END;
+ otro:=replace(replace(replace(material,'per_sintetica_alcance_p_','per_sintetica_alcance_l_'),'cta_sintetica_alcance_p_','cta_sintetica_alcance_l_'),'prf_sintetico_alcance_p_','prf_sintetico_alcance_l_');
+ mh:=encode(sha256(convert_to(otro,'UTF8')),'hex');
+ rh:=encode(sha256(convert_to('{"ambitos":{"empleado_ref":"'||emp||'"},"atributos":{"conocido_en":"'||conocido||'","material_sha256":"'||mh||'","operacion":"ficha_propia","vigente_en":"2026-09-26"}}','UTF8')),'hex');
+ BEGIN
+  PERFORM vec_personal.consultar_ficha_propia_empleado_v1(otro,convert_to((cap||jsonb_build_object('huella_efecto_sha256',rh))::text,'UTF8'),convert_to((decision||jsonb_build_object('principal_id','per_sintetica_alcance_l_00000000000001','perfil_activo_ref','prf_sintetico_alcance_l_0000000000001','contexto_recurso_huella_sha256',rh))::text,'UTF8'),convert_to('{}','UTF8'),convert_to('{}','UTF8'),1,1,'x'::bytea,'y'::bytea,'z'::bytea,'w'::bytea);
+  RAISE EXCEPTION 'ficha de otra persona admitida';
+ EXCEPTION WHEN SQLSTATE '42501' THEN NULL; END;
+ BEGIN
+  PERFORM vec_personal.consultar_ficha_propia_empleado_v1(material,convert_to(cap::text,'UTF8'),convert_to((decision||jsonb_build_object('campos_permitidos','["corte","evidencia","relaciones","servicios","persona_ref"]'::jsonb))::text,'UTF8'),convert_to('{}','UTF8'),convert_to('{}','UTF8'),1,1,'x'::bytea,'y'::bytea,'z'::bytea,'w'::bytea);
+  RAISE EXCEPTION 'campos ampliados admitidos';
+ EXCEPTION WHEN SQLSTATE '42501' THEN NULL; END;
+ BEGIN
+  PERFORM vec_personal.consultar_ficha_propia_empleado_v1(material,convert_to((cap||jsonb_build_object('operacion','personal.registro_empleado.ficha.consultar'))::text,'UTF8'),convert_to(decision::text,'UTF8'),convert_to('{}','UTF8'),convert_to('{}','UTF8'),1,1,'x'::bytea,'y'::bytea,'z'::bytea,'w'::bytea);
+  RAISE EXCEPTION 'operación ajena admitida';
+ EXCEPTION WHEN SQLSTATE '42501' THEN NULL; END;
+ BEGIN
+  PERFORM vec_personal.consultar_ficha_propia_empleado_v1(replace(material,'"cuenta_version":1,','"cuenta_version": 1,'),convert_to(cap::text,'UTF8'),convert_to(decision::text,'UTF8'),convert_to('{}','UTF8'),convert_to('{}','UTF8'),1,1,'x'::bytea,'y'::bytea,'z'::bytea,'w'::bytea);
+  RAISE EXCEPTION 'material no canónico admitido';
+ EXCEPTION WHEN SQLSTATE '22023' THEN NULL; END;
+ BEGIN
+  PERFORM vec_personal.consultar_ficha_propia_empleado_v1(material,convert_to(cap::text,'UTF8'),convert_to((decision||jsonb_build_object('valida_hasta','2020-01-01T00:00:00Z'))::text,'UTF8'),convert_to('{}','UTF8'),convert_to('{}','UTF8'),1,1,'x'::bytea,'y'::bytea,'z'::bytea,'w'::bytea);
+  RAISE EXCEPTION 'concesión caducada admitida';
+ EXCEPTION WHEN SQLSTATE '42501' THEN NULL; END;
+END $p$;
+COMMIT;
+SQL
+# El ejecutor no puede resolver la proyección: el empleado canónico lo aporta
+# el DBA del ensayo (en producción lo aporta ContextoActor).
+emp22=$(admin_valor "SELECT empleado_ref FROM vec_personal.resolver_empleado_canonico_persona_v1('per_sintetica_alcance_p_00000000000001',clock_timestamp())")
+[[ $emp22 =~ ^emp_ ]] || fallo 'la persona de ensayo no tiene empleado canónico'
+{ printf "SET vec_prueba.empleado='%s';\n" "$emp22"; cat "$propia_tmp"; } |
+  "$motor" exec -i "$contenedor" psql -X -qAt -v ON_ERROR_STOP=1 -U vec_prueba_personal -d "$base" >/dev/null
+rm -f "$propia_tmp"
+[[ $(admin_valor "SELECT count(*) FROM vec_personal.recibo_ficha_propia_empleado") == 2 ]] || fallo 'recibos de ficha propia inesperados'
+ok '000022 ficha propia: relaciones, situación y servicio con denominaciones, sin referencias internas; empleado ajeno, otra persona, campos, operación, material y caducidad denegados'
+# Frontera: solo el LOGIN del registrador inscribe; motivos cerrados.
+"$motor" exec "$contenedor" psql -X -qAt -v ON_ERROR_STOP=1 -U vec_prueba_frontera_personal -d "$base" \
+  -c "SELECT vec_personal.registrar_denegacion_ficha_propia_v1('corr_0123456789abcdef0123456789abcdef','sin_empleado',403::smallint,'per_sintetica_alcance_l_00000000000001')" >/dev/null ||
+  fallo 'el registrador no pudo inscribir la denegación'
+if "$motor" exec "$contenedor" psql -X -qAt -v ON_ERROR_STOP=1 -U vec_prueba_frontera_personal -d "$base" \
+  -c "SELECT vec_personal.registrar_denegacion_ficha_propia_v1('corr_0123456789abcdef0123456789abcdef','autenticacion_requerida',401::smallint,'per_sintetica_alcance_l_00000000000001')" >/dev/null 2>&1; then
+  fallo 'autenticación requerida con actor admitida'; fi
+if "$motor" exec "$contenedor" psql -X -qAt -v ON_ERROR_STOP=1 -U vec_prueba_personal -d "$base" \
+  -c "SELECT vec_personal.registrar_denegacion_ficha_propia_v1('corr_no_disponible','acceso_denegado',403::smallint,NULL)" >/dev/null 2>&1; then
+  fallo 'el ejecutor registró una denegación'; fi
+if "$motor" exec "$contenedor" psql -X -qAt -v ON_ERROR_STOP=1 -U vec_prueba_frontera_personal -d "$base" \
+  -c "SELECT count(*) FROM vec_personal.denegacion_frontera_ficha_propia" >/dev/null 2>&1; then
+  fallo 'el registrador lee las denegaciones'; fi
+ok '000022 denegaciones de frontera: solo el registrador inscribe, motivo/estado cerrados, sin lectura'
+"$motor" restart "$contenedor" >/dev/null
+esperar
+[[ $(admin_valor "SELECT count(*) FROM vec_personal.recibo_ficha_propia_empleado") == 2 && $(admin_valor "SELECT count(*) FROM vec_personal.denegacion_frontera_ficha_propia") == 1 ]] || fallo 'recibos o denegaciones de ficha propia perdidos tras reinicio'
+ok '000022 recibos y denegación conservados tras reinicio'
+printf 'PG18 000019: B1 real; ROLLBACK/COMMIT, ACL, alta/replay/hechos, rechazo multi-org ajeno, caducidad con lock, reinicio y proyección consumida por ContextoActor 000007, lista 000021 y ficha propia 000022 correctas (AD3 simulado).\n'
