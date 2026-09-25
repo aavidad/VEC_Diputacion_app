@@ -20,6 +20,14 @@ test("P-WEB-14 no anuncia un total mientras Bolsa sigue comprobando", () => {
   assert.equal(resumenAccesosModulos([{ disponible: true, estado: "disponible" }], false), "1 módulo disponible");
   assert.equal(resumenAccesosModulos([{ disponible: false, estado: "denegado" }], false), "Sin módulos disponibles");
   assert.doesNotMatch(resumenAccesosModulos([], false), /fase inicial/iu);
+  const dos = [{ disponible: true, estado: "disponible" }, { disponible: true, estado: "disponible" }];
+  assert.equal(resumenAccesosModulos(dos, false), "2 módulos disponibles");
+  // Los textos salen del catálogo i18n, no de literales del módulo.
+  const claves = [];
+  resumenAccesosModulos(dos, false, (clave, variables) => { claves.push([clave, variables]); return clave; });
+  resumenAccesosModulos([], false, (clave) => { claves.push([clave]); return clave; });
+  resumenAccesosModulos([], true, (clave) => { claves.push([clave]); return clave; });
+  assert.deepEqual(claves, [["resumen_modulos_varios", { cantidad: "2" }], ["resumen_modulos_ninguno"], ["resumen_modulos_comprobando"]]);
 });
 
 const directorio = new URL("./", import.meta.url);
@@ -98,13 +106,11 @@ test("las diez categorías reproducen la jerarquía funcional facilitada por RRH
   assert.doesNotMatch(html, /\bB(5|6|7|12)\b|dudas? 1\d|relay/u);
 });
 
-test("las entradas con recorrido real describen su alcance concreto", () => {
-  for (const texto of [
-    "Se inician desde cada bolsa · orden de llamamiento pendiente de RRHH",
-    "Fuente de contratos sin configurar · altas, ceses y reincorporaciones pendientes",
-    "Borradores PDF en Contratación temporal · portafirmas pendiente",
-    "Correo desde cada bolsa · buzón corporativo y SMS pendientes",
-  ]) assert.ok(html.includes(texto), texto);
+test("el menú de Bolsa no anuncia servicios pendientes, ni en pantalla ni para el lector", () => {
+  const menu = html.match(/<nav class="navegacion-bolsa"[\s\S]+?<\/nav>/)?.[0] || "";
+  assert.ok(menu.length > 0);
+  // Lo pendiente se explica tras el «?», no en el menú (visible, lector o title).
+  assert.doesNotMatch(menu, /pendiente|Desde cada bolsa|solo-lectura|aria-describedby|title="/iu);
   assert.doesNotMatch(html, /Pendiente: sin servicio autorizado/u);
   for (const categoria of ["llamamientos", "contratos", "documentos", "comunicaciones"]) {
     const entrada = html.match(new RegExp(`<button[^>]*data-categoria-bolsa="${categoria}"[^>]*>`, "u"))?.[0] || "";
@@ -168,13 +174,13 @@ test("la subvista activa se anuncia y B5 conserva abierto su grupo", () => {
   assert.equal(enlace.getAttribute("aria-current"), null);
 });
 
-test("las entradas del menú llevan solo a recorridos disponibles y explican sus límites", () => {
+test("las entradas del menú llevan solo a recorridos disponibles", () => {
   const entradas = ["llamamientos", "contratos", "documentos", "comunicaciones"];
   const fragmentoMenu = html.match(/<nav class="navegacion-bolsa"[\s\S]+?<\/nav>/)?.[0] || "";
   for (const categoria of entradas) {
     const boton = fragmentoMenu.match(new RegExp(`<button[^>]*data-categoria-bolsa="${categoria}"[^>]*>[\\s\\S]*?<\\/button>`))?.[0] || "";
     assert.doesNotMatch(boton, /categoria-menu-pendiente|\sdisabled(?:\s|=|>)|aria-disabled="true"/);
-    assert.match(boton, /aria-describedby="estado-menu-[a-z]+"/);
+    assert.doesNotMatch(boton, /aria-describedby|pendiente/iu);
   }
   assert.equal(vistaBolsaPendienteNoCompuesta("llamamientos"), true);
   assert.equal(vistaBolsaPendienteNoCompuesta("contratos"), true);
@@ -252,14 +258,12 @@ test("accesoBolsaEfectivo abre el cuadro cuando hay bolsas reales aunque los bor
 
 // Regresión del 23/09/2026: las descripciones largas pintadas como etiqueta
 // visible se montaban sobre el texto del menú lateral y lo partían palabra a
-// palabra. La etiqueta visible es corta; la descripción completa queda para el
-// lector de pantalla mediante aria-describedby.
-test("las etiquetas visibles del menú son cortas y la descripción completa es accesible", () => {
-  for (const categoria of ["llamamientos", "contratos", "documentos", "comunicaciones"]) {
-    const visible = html.match(new RegExp(`<span class="etiqueta-menu" aria-hidden="true"[^>]*>([^<]*)</span><span class="solo-lectura" id="estado-menu-${categoria}"[^>]*>`, "u"));
-    assert.ok(visible, `falta la etiqueta corta de ${categoria}`);
-    assert.ok(visible[1].length <= 20, `etiqueta visible demasiado larga en ${categoria}: ${visible[1]}`);
-  }
+// palabra. Las etiquetas visibles que quedan son cortas.
+test("las etiquetas visibles del menú son cortas", () => {
+  const menu = html.match(/<nav class="navegacion-bolsa"[\s\S]+?<\/nav>/)?.[0] || "";
+  const etiquetas = [...menu.matchAll(/<span class="etiqueta-menu" aria-hidden="true"[^>]*>([^<]*)<\/span>/gu)].map((m) => m[1]);
+  assert.deepEqual(etiquetas, ["Consulta", "Borradores PDF", "Correo"]);
+  for (const etiqueta of etiquetas) assert.ok(etiqueta.length <= 20, etiqueta);
 });
 
 // Modelo mínimo del menú real de index.html: categorías, grupos y submenús.
@@ -325,7 +329,7 @@ function categoriasVisibles(raiz) {
 test("sin panel interno ni borradores, el menú de Bolsa solo ofrece lo que tiene servicio", async () => {
   const { aplicarDisponibilidadMenuBolsa } = await import("./portal-menu-bolsa.js");
   const raiz = menuDesdeHTML();
-  const indicadores = aplicarDisponibilidadMenuBolsa(raiz, { panelInterno: false, borradores: null, contratacionTemporal: true });
+  const indicadores = aplicarDisponibilidadMenuBolsa(raiz, { panelInterno: false, borradores: false, contratacionTemporal: true });
   assert.deepEqual(categoriasVisibles(raiz), ["llamamientos", "resumen", "estadisticas", "documentos"]);
   assert.equal(indicadores.length, 4, "se renumeran solo las categorías visibles");
   // Grupos enteros sin servicio (convocatorias…, reglas, auditoría) quedan ocultos.
@@ -334,6 +338,22 @@ test("sin panel interno ni borradores, el menú de Bolsa solo ofrece lo que tien
   // Sin contratación temporal, «Documentos y firma» tampoco se ofrece.
   aplicarDisponibilidadMenuBolsa(raiz, { panelInterno: false, borradores: false, contratacionTemporal: false });
   assert.deepEqual(categoriasVisibles(raiz), ["llamamientos", "resumen", "estadisticas"]);
+});
+
+// E10/P1: RRHH sin panel interno no perdía «Elaboración y borradores» aunque su
+// API respondiera: mientras se comprueba y cuando responde, la entrada se ofrece.
+test("Elaboración se ofrece a RRHH mientras su API se comprueba y cuando responde", async () => {
+  const { aplicarDisponibilidadMenuBolsa } = await import("./portal-menu-bolsa.js");
+  const raiz = menuDesdeHTML();
+  const elaboracion = () => raiz.querySelectorAll(".submenu-bolsa [data-vista]")
+    .find((control) => control.getAttribute("data-vista") === "elaboracion");
+  for (const borradores of [null, true]) {
+    aplicarDisponibilidadMenuBolsa(raiz, { panelInterno: false, borradores, contratacionTemporal: true });
+    assert.equal(elaboracion().hidden, false, String(borradores));
+    assert.deepEqual(categoriasVisibles(raiz), ["bolsas-candidatos", "llamamientos", "resumen", "estadisticas", "documentos"]);
+  }
+  aplicarDisponibilidadMenuBolsa(raiz, { panelInterno: false, borradores: false, contratacionTemporal: true });
+  assert.equal(elaboracion().hidden, true);
 });
 
 test("cada capacidad real vuelve a ofrecer sus entradas del menú de Bolsa", async () => {
@@ -359,10 +379,11 @@ test("la navegación directa a una vista de Bolsa sin servicio no se permite", a
   for (const vista of ["resumen", "estadisticas", "llamamientos", VISTA_CANDIDATOS_BOLSA]) {
     assert.equal(vistaBolsaNavegable(vista, sinServicio), true, vista);
   }
-  // Elaboración sin comprobar todavía: se deja abrir para que compruebe su API,
-  // pero el menú no la ofrece hasta que conste disponible.
+  // Elaboración mientras se comprueba su API: se ofrece y se deja abrir; solo
+  // desaparece cuando consta que falta.
   assert.equal(vistaBolsaNavegable("elaboracion", { borradores: null }), true);
-  assert.equal(vistaBolsaOfrecida("elaboracion", { borradores: null }), false);
+  assert.equal(vistaBolsaOfrecida("elaboracion", { borradores: null }), true);
+  assert.equal(vistaBolsaOfrecida("elaboracion", { borradores: false }), false);
   assert.equal(vistaBolsaOfrecida("desconocida", { panelInterno: true }), false);
 });
 

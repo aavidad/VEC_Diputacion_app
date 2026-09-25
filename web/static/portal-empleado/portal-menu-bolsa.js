@@ -4,6 +4,7 @@
  * Las categorías solo ordenan enlaces del router existente. No deciden
  * permisos, no cargan datos y no conservan estado en el navegador.
  */
+import { traducirPortal } from "./portal-i18n.js?v=20260925-e10-v1";
 const VISTAS_POR_CATEGORIA = Object.freeze({
   "bolsas-candidatos": Object.freeze([
     "elaboracion", "convocatorias", "solicitudes", "meritos", "alegaciones", "importacion",
@@ -55,14 +56,15 @@ export function accesoBolsaEfectivo(accesoBorradores, datosBolsas) {
   return Object.freeze({ disponible: true, vista: "resumen", estado: "disponible", etiqueta: "Cuadro de bolsas" });
 }
 
-export function resumenAccesosModulos(accesos, comprobandoBolsas) {
+export function resumenAccesosModulos(accesos, comprobandoBolsas, traducir = traducirPortal) {
   if (comprobandoBolsas || accesos.some((acceso) => acceso.estado === "cargando")) {
-    return "Comprobando módulos";
+    return traducir("resumen_modulos_comprobando");
   }
   const disponibles = accesos.filter((acceso) => acceso.disponible === true).length;
-  return disponibles > 0
-    ? `${disponibles} ${disponibles === 1 ? "módulo disponible" : "módulos disponibles"}`
-    : "Sin módulos disponibles";
+  if (disponibles === 0) return traducir("resumen_modulos_ninguno");
+  const cantidad = new Intl.NumberFormat("es-ES").format(disponibles);
+  return traducir(new Intl.PluralRules("es-ES").select(disponibles) === "one"
+    ? "resumen_modulos_uno" : "resumen_modulos_varios", { cantidad });
 }
 
 /**
@@ -72,6 +74,10 @@ export function resumenAccesosModulos(accesos, comprobandoBolsas) {
  * Elaboración, su API de borradores; «Documentos y firma», la vista de
  * Contratación temporal; y el resto, el panel interno agregado. Sin esa
  * capacidad la entrada no se ofrece, en lugar de abrir una pantalla vacía.
+ *
+ * La API de borradores se comprueba al cargar el portal, en paralelo: mientras
+ * no conste que falta (`borradores` distinto de `false`) Elaboración se ofrece,
+ * y al abrirla muestra el resultado de esa misma comprobación.
  */
 export function vistaBolsaOfrecida(vista, capacidades = {}) {
   switch (vista) {
@@ -81,7 +87,7 @@ export function vistaBolsaOfrecida(vista, capacidades = {}) {
     case VISTA_CANDIDATOS_BOLSA:
       return true;
     case "elaboracion":
-      return capacidades?.borradores === true;
+      return capacidades?.borradores !== false;
     case "contratacion-temporal":
       return capacidades?.contratacionTemporal === true;
     default:
@@ -90,12 +96,10 @@ export function vistaBolsaOfrecida(vista, capacidades = {}) {
 }
 
 /**
- * Navegación directa (enlace o historial) a una vista de Bolsa. Elaboración
- * comprueba su propia API al abrirse: mientras no conste que falta
- * (`borradores` distinto de `false`), se deja abrir para esa comprobación.
+ * Navegación directa (enlace o historial) a una vista de Bolsa: se permite lo
+ * mismo que el menú ofrece.
  */
 export function vistaBolsaNavegable(vista, capacidades = {}) {
-  if (vista === "elaboracion") return capacidades?.borradores !== false;
   return vistaBolsaOfrecida(vista, capacidades);
 }
 

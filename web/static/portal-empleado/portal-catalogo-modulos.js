@@ -7,7 +7,7 @@
  * independientes y de mínimo privilegio. También lee la sesión del núcleo
  * (`/api/vec/session`) que la cabecera muestra.
  */
-import { traducirPortal } from "./portal-i18n.js?v=20260925-portal-integrado-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260925-e10-v1";
 
 const RUTA_MANIFIESTOS = "/api/vec/modules";
 const RUTA_TRADUCCIONES = "/locales/es.json";
@@ -201,47 +201,68 @@ export function renderizarNavegacionModulos({
 const RUTA_SESION = "/api/vec/session";
 const PATRON_ROL = /^[a-z][a-z0-9_]{0,63}$/;
 const MAXIMO_ROLES = 64;
-// Perfil visible en la cabecera según el rol atestado. Solo se muestra: no
-// concede nada, cada consulta la autoriza el servidor.
+// Tiempo máximo de la consulta de sesión: una frontera colgada no deja la
+// cabecera esperando para siempre; al vencer se aborta y el shell reintenta.
+export const LIMITE_CONSULTA_SESION_MS = 8000;
+// Perfil visible en la cabecera según el rol atestado (clave i18n). Solo se
+// muestra: no concede nada, cada consulta la autoriza el servidor.
 const PERFILES_VISIBLES = Object.freeze({
-  tecnico_rrhh: "Recursos Humanos",
-  jefatura_rrhh: "Recursos Humanos",
-  administrativo: "Recursos Humanos",
-  intervencion: "Intervención",
-  personal_interno: "Personal",
-  jefe_servicio: "Jefatura",
-  jefe_seccion: "Jefatura",
+  tecnico_rrhh: "perfil_sesion_rrhh",
+  jefatura_rrhh: "perfil_sesion_rrhh",
+  administrativo: "perfil_sesion_rrhh",
+  intervencion: "perfil_sesion_intervencion",
+  personal_interno: "perfil_sesion_personal",
+  jefe_servicio: "perfil_sesion_jefatura",
+  jefe_seccion: "perfil_sesion_jefatura",
 });
 
 /**
  * Sesión del núcleo (`GET /api/vec/session`) para la cabecera y para elegir
  * qué pantalla se ofrece. La identidad la atesta la frontera del servidor
  * (certificado cliente); aquí no se guarda en cookies ni almacenamiento web.
- * Devuelve solo el nombre visible y los roles.
+ * Devuelve solo el nombre visible y los roles. La consulta se aborta si vence
+ * `limiteMs` o si se aborta la señal externa; en ambos casos se rechaza.
  */
-export async function consultarSesionPortal({ fetchImpl = globalThis.fetch, signal } = {}) {
+export async function consultarSesionPortal({
+  fetchImpl = globalThis.fetch, signal, limiteMs = LIMITE_CONSULTA_SESION_MS,
+  temporizadores = globalThis,
+} = {}) {
   if (typeof fetchImpl !== "function") throw new TypeError("cliente HTTP no disponible");
-  const respuesta = await fetchImpl(RUTA_SESION, {
-    method: "GET", credentials: "same-origin", mode: "same-origin", redirect: "error",
-    cache: "no-store", headers: { Accept: "application/json" }, signal,
-  });
-  if (!respuesta.ok) throw new Error("no se pudo consultar la sesión");
-  const principal = (await respuesta.json())?.data?.principal;
-  if (!principal || typeof principal !== "object" || !Array.isArray(principal.roles)
-    || principal.roles.length > MAXIMO_ROLES
-    || !principal.roles.every((rol) => typeof rol === "string" && PATRON_ROL.test(rol))) {
-    throw new TypeError("sesión no válida");
+  if (!Number.isSafeInteger(limiteMs) || limiteMs <= 0) throw new TypeError("límite de sesión no válido");
+  const controlador = new AbortController();
+  const abortar = () => controlador.abort();
+  if (signal?.aborted) abortar();
+  else signal?.addEventListener?.("abort", abortar, { once: true });
+  const temporizador = temporizadores.setTimeout(abortar, limiteMs);
+  try {
+    const respuesta = await fetchImpl(RUTA_SESION, {
+      method: "GET", credentials: "same-origin", mode: "same-origin", redirect: "error",
+      cache: "no-store", referrerPolicy: "no-referrer", headers: { Accept: "application/json" },
+      signal: controlador.signal,
+    });
+    if (!respuesta.ok) throw new Error("no se pudo consultar la sesión");
+    const principal = (await respuesta.json())?.data?.principal;
+    if (!principal || typeof principal !== "object" || !Array.isArray(principal.roles)
+      || principal.roles.length > MAXIMO_ROLES
+      || !principal.roles.every((rol) => typeof rol === "string" && PATRON_ROL.test(rol))) {
+      throw new TypeError("sesión no válida");
+    }
+    const nombre = typeof principal.display_name === "string" && principal.display_name.length <= 512
+      ? principal.display_name.trim() : "";
+    return Object.freeze({ nombre, roles: Object.freeze([...principal.roles]) });
+  } finally {
+    temporizadores.clearTimeout(temporizador);
+    signal?.removeEventListener?.("abort", abortar);
   }
-  const nombre = typeof principal.display_name === "string" && principal.display_name.length <= 512
-    ? principal.display_name.trim() : "";
-  return Object.freeze({ nombre, roles: Object.freeze([...principal.roles]) });
 }
 
 /** Nombre, perfil e iniciales que la cabecera muestra de una sesión. */
 export function presentarSesionPortal(sesion) {
   const nombre = typeof sesion?.nombre === "string" ? sesion.nombre : "";
   const roles = Array.isArray(sesion?.roles) ? sesion.roles : [];
-  const perfil = roles.length === 1 ? PERFILES_VISIBLES[roles[0]] || "" : "";
+  const clavePerfil = roles.length === 1 && Object.hasOwn(PERFILES_VISIBLES, roles[0])
+    ? PERFILES_VISIBLES[roles[0]] : "";
+  const perfil = clavePerfil ? traducirPortal(clavePerfil) : "";
   const iniciales = nombre.split(/\s+/u).filter(Boolean).slice(0, 2)
     .map((parte) => parte[0].toLocaleUpperCase("es-ES")).join("");
   return Object.freeze({ nombre, perfil, iniciales: iniciales || "—" });

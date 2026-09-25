@@ -6,7 +6,7 @@
  * los disponibles y los que aún se comprueban: un módulo sin acceso para este
  * perfil, o sin servicio, no aparece en lugar de mostrar una tarjeta vacía.
  */
-import { traducirPortal } from "./portal-i18n.js?v=20260925-portal-integrado-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260925-e10-v1";
 
 export function calcularMetricasCuadro(cuadro) {
 	const totales = cuadro?.totales;
@@ -188,12 +188,20 @@ export function crearVistaInicioPortal({
 
     const catalogo = obtenerCatalogo();
     if (!Array.isArray(catalogo)) throw new TypeError("catálogo de módulos no válido");
+    const modulos = renderizarModulosOfrecidos(catalogo, resolverAcceso, escaparHTML, traducir);
+    // Sin ningún módulo que ofrecer (y sin fallo del catálogo, que ya tiene su
+    // aviso), Inicio dice que no hay módulos en lugar de quedar en blanco.
+    const contenido = modulos === "" && avisoCatalogo === ""
+      ? `<section class="panel portal-inicio-empleado-vacio"><div class="cuerpo-panel vacio-controlado" role="status" data-inicio-sin-modulos>
+          <p>${escaparHTML(traducir("inicio_empleado_sin_modulos"))}</p>
+        </div></section>`
+      : `<div class="rejilla-modulos portal-inicio-empleado" aria-label="Módulos del Portal del Empleado">
+        ${modulos}
+      </div>`;
     return `
       ${encabezadoVista("", "Portal del Empleado", "")}
       ${avisoCatalogo}
-      <div class="rejilla-modulos portal-inicio-empleado" aria-label="Módulos del Portal del Empleado">
-        ${renderizarModulosOfrecidos(catalogo, resolverAcceso, escaparHTML, traducir)}
-      </div>`;
+      ${contenido}`;
   };
 }
 

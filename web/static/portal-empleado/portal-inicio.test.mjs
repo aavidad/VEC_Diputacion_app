@@ -100,6 +100,31 @@ test("un módulo denegado o sin servicio no ocupa una tarjeta vacía", () => {
   }
 });
 
+// E10/P2-4: sin ningún módulo que ofrecer, Inicio del empleado no queda en
+// blanco: un estado vacío con texto del catálogo i18n y sin ayuda en pantalla.
+test("Inicio del empleado sin módulos disponibles muestra un estado vacío i18n", () => {
+  const claves = [];
+  const vista = (catalogoFallido) => crearVistaInicioPortal({
+    encabezadoVista: () => "<header>Portal</header>",
+    escaparHTML,
+    obtenerCatalogo: () => [moduloBolsa],
+    resolverAcceso: () => ({ disponible: false, vista: "", estado: "denegado" }),
+    traducir: (clave) => { claves.push(clave); return `«${clave}»`; },
+    catalogoFallido: () => catalogoFallido,
+  })();
+  const html = vista(false);
+  assert.match(html, /role="status" data-inicio-sin-modulos>\s*<p>«inicio_empleado_sin_modulos»<\/p>/u);
+  assert.ok(claves.includes("inicio_empleado_sin_modulos"));
+  assert.doesNotMatch(html, /data-modulo-catalogo=|data-accion="ayuda"|rejilla-modulos/u);
+  assert.match(renderizar({ disponible: false, vista: "", estado: "denegado" }), /No hay módulos disponibles para su perfil\./u);
+  // Con el catálogo caído manda su aviso con reintento, no el estado vacío.
+  const fallido = vista(true);
+  assert.match(fallido, /data-accion="recargar-fuente"/u);
+  assert.doesNotMatch(fallido, /data-inicio-sin-modulos/u);
+  // Con un módulo ofrecido no hay estado vacío.
+  assert.doesNotMatch(renderizar({ disponible: true, vista: "resumen" }), /data-inicio-sin-modulos/u);
+});
+
 test("la capacidad propia abre Elaboración aunque el panel agregado no participe", () => {
   const html = renderizar({
     disponible: true,

@@ -1,20 +1,20 @@
-import { crearControladorPortal } from "./portal-eventos.js?v=20260925-portal-integrado-v1";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20260925-portal-integrado-v1";
+import { crearControladorPortal } from "./portal-eventos.js?v=20260925-e10-v1";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20260925-e10-v1";
 import { extraerDatosEnvelopeCanonico } from "./portal-contrato.js?v=20260925-sin-demo2-v1";
 import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?v=20260718-llamamientos-v1";
 import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20260925-sin-demo-v1";
-import { AYUDA_PORTAL_BOLSA, detectarContextoContratacionTemporal, obtenerAyudaContratacionTemporal, renderizarAyudaContratacionTemporal } from "./ayuda-contenido.js?v=20260925-portal-integrado-v1";
-import { crearAyudanteTramites } from "./ayudante-tramites.js?v=20260925-portal-integrado-v1";
-import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20260925-portal-integrado-v1";
-import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20260925-portal-integrado-v1";
+import { AYUDA_PORTAL_BOLSA, detectarContextoContratacionTemporal, obtenerAyudaContratacionTemporal, renderizarAyudaContratacionTemporal } from "./ayuda-contenido.js?v=20260925-e10-v1";
+import { crearAyudanteTramites } from "./ayudante-tramites.js?v=20260925-e10-v1";
+import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20260925-e10-v1";
+import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20260925-e10-v1";
 import { crearVistasOperaciones } from "./portal-vistas-operaciones.js?v=20260924-f2-shell-v1";
-import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260925-sin-vacios-v1";
-import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20260925-sin-vacios-v1";
+import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260925-e10-v1";
+import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20260925-e10-v1";
 import { crearTraductorPersonal } from "./modulos/personal/i18n.js?v=20260925-portal-integrado-v1";
-import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260925-sin-vacios-v1";
-import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa, resumenAccesosModulos, sincronizarMenuBolsa, vistaBolsaNavegable, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260925-sin-vacios-v1";
-import { traducirPortal } from "./portal-i18n.js?v=20260925-portal-integrado-v1";
-import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20260925-portal-integrado-v1";
+import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260925-e10-v1";
+import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa, resumenAccesosModulos, sincronizarMenuBolsa, vistaBolsaNavegable, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260925-e10-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260925-e10-v1";
+import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20260925-e10-v1";
 import { crearSuperficieBorradorLlamamiento } from "./portal-borrador-llamamiento-ui.js?v=20260921-bback01-v1";
 import { consultarAvisosBolsa, manejarAccionAvisos } from "./portal-bolsas-avisos.js?v=20260925-aspecto-v1";
 const TAMANO_PAGINA_MARCO = 6; const tablasPaginadas = new WeakMap(); export function calcularPaginaMarco(total, paginaSolicitada, tamano = TAMANO_PAGINA_MARCO) { const cantidad = Number.isSafeInteger(total) && total > 0 ? total : 0; const medida = Number.isSafeInteger(tamano) && tamano > 0 ? tamano : TAMANO_PAGINA_MARCO; const paginas = Math.max(1, Math.ceil(cantidad / medida)); const pagina = Math.min(Math.max(Number.isSafeInteger(paginaSolicitada) ? paginaSolicitada : 1, 1), paginas); const inicio = cantidad === 0 ? 0 : ((pagina - 1) * medida) + 1; const fin = Math.min(pagina * medida, cantidad); return Object.freeze({ total: cantidad, tamano: medida, paginas, pagina, inicio, fin }); } function navegadorRemotoDeTabla(contenedor) { const padre = contenedor.parentElement; return padre?.querySelector(":scope > .ct-exp-paginacion, :scope > .paginacion-bolsa, :scope > nav[aria-label*='aginación'], :scope > nav[aria-label*='aginacion']") || null; } function botonesPaginaMarco(calculo) {
@@ -298,7 +298,16 @@ async function actualizarSesionVisible() {
 // de módulo pedida por el enlace se monta en cuanto está disponible, una sola
 // vez; si estaba «Comprobando» y su módulo termina sin estarlo, se repinta.
 let inicioComprobando = false;
+// Elaboración se ofrece en el menú según su API de borradores. Se comprueba en
+// cuanto el catálogo confirma Bolsa para esta sesión, en paralelo y sin
+// esperarla; al responder, la superficie avisa y el menú se repinta.
+function comprobarBorradoresTrasCatalogo() {
+  if (!coordinadorModulos.obtenerCatalogo().some((modulo) => modulo.clave === "bolsa")) return;
+  if (superficieBorradores.obtenerAcceso()?.estado !== "cargando") return;
+  void superficieBorradores.comprobarDisponibilidad().catch(() => {});
+}
 function alCambiarModulos(clave) {
+  if (clave === "catalogo") comprobarBorradoresTrasCatalogo();
   if (estado.vista === "portal") { renderizarConservandoFoco(); anunciarAccesosComprobados(); return; }
   if (coordinadorModulos.vistaGestionada(estado.vista) && estado.vistaMontada !== estado.vista
     && (coordinadorModulos.vistaDisponible(estado.vista)
@@ -365,7 +374,7 @@ async function cargarFuenteDatos() {
   estado.vistaCerrada = "";
   // La disponibilidad de Bolsa en Inicio y en el menú la decide la API real del
   // cuadro de bolsas: se consulta en paralelo con el catálogo, sin esperarla ni
-  // bloquear los demás módulos. Borradores sigue comprobando su API al abrir su vista.
+  // bloquear los demás módulos. Borradores se comprueba al llegar el catálogo.
   if (requiereLecturaBolsas(estado.vista) || estado.datosBolsas?.carga !== "listo") void controladorBolsas.cargarBolsas();
   await coordinadorModulos.cargarInterno({ alCambiar: alCambiarModulos }).catch((error) => {
     // Una carga sustituida por otra más reciente no es un fallo del catálogo.
@@ -692,7 +701,7 @@ const superficieBorradores = crearSuperficieBorradoresPortal({
   escaparHTML,
   anunciar,
   alCambiar: () => {
-    if (estado.vista === "portal") renderizar();
+    if (estado.vista === "portal") renderizarConservandoFoco();
     else if (estado.vista === "elaboracion") actualizarVistaBolsa();
     else actualizarNavegacionModulos();
   },
