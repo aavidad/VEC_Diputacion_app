@@ -355,15 +355,22 @@ func (f fuenteReglasSeguimientoDesarrollo) ReglaModificacion(ctx context.Context
 		politicaSeguimientoDesarrollo(regla, httpinterno.RutaModificacionesNombramiento, instante), nil
 }
 
-// calculadorCosteModificacionDesarrollo usa la misma tabla de coste de
-// desarrollo que la fuente del análisis (grupo, periodo y jornada).
-type calculadorCosteModificacionDesarrollo struct{}
+// calculadorCosteModificacionDesarrollo usa el mismo catálogo ct.retribuciones
+// que la fuente del análisis (categoría o grupo, periodo y jornada). Sin
+// catálogo, o sin fila para el expediente, el coste no está disponible.
+type calculadorCosteModificacionDesarrollo struct {
+	retribuciones *fuenteRetribucionesDesarrollo
+}
 
-func (calculadorCosteModificacionDesarrollo) CalcularCosteModificacion(_ context.Context, e domain.Expediente, periodo domain.PeriodoPrevisto, jornada domain.JornadaDiezmilesimas) (domain.Importe, string, error) {
+func (c calculadorCosteModificacionDesarrollo) CalcularCosteModificacion(ctx context.Context, e domain.Expediente, periodo domain.PeriodoPrevisto, jornada domain.JornadaDiezmilesimas) (domain.Importe, string, error) {
 	if e.Analisis == nil {
 		return domain.Importe{}, "", errSeguimientoCeseDesarrolloNoDisponible
 	}
-	importe, ok := costeEstimadoAnalisisDesarrollo(e.Analisis.GrupoSubgrupo, periodo, jornada)
+	fila, ok, err := c.retribuciones.retribucion(ctx, e.Analisis.CategoriaRef, e.Analisis.GrupoSubgrupo)
+	if err != nil || !ok {
+		return domain.Importe{}, "", errSeguimientoCeseDesarrolloNoDisponible
+	}
+	importe, ok := costeEstimadoAnalisisDesarrollo(fila, periodo, jornada)
 	if !ok {
 		return domain.Importe{}, "", errSeguimientoCeseDesarrolloNoDisponible
 	}
@@ -447,7 +454,7 @@ func nuevasRutasSeguimientoCeseDesarrollo(dependencias *DependenciasCT, alta *de
 		Contextos: alta.soporte, Sellos: sellos, Repositorio: repositorio,
 		Reglas:      fuenteReglasSeguimientoDesarrollo{reglas: resolutor, causas: causas, motivos: motivos},
 		Autorizador: autoridad, Referencias: seguridadct.NuevoGeneradorReferenciasAltaCriptografico(),
-		Coste: calculadorCosteModificacionDesarrollo{}, Lector: repositorio, Reloj: reloj})
+		Coste: calculadorCosteModificacionDesarrollo{retribuciones: dependencias.retribucionesCT}, Lector: repositorio, Reloj: reloj})
 	if err != nil {
 		return fallar("servicio", err)
 	}

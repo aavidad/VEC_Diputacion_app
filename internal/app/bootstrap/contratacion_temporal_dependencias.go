@@ -24,6 +24,9 @@ type DependenciasCT struct {
 	plazosFase ports.CalculadoraPlazoFaseRRHH
 	// plazosOfertasBolsa recibe la regla b10 al componer las reglas de ejemplo.
 	plazosOfertasBolsa *calculadoraPlazoOfertaDesarrollo
+	// retribucionesCT es el catálogo ct.retribuciones del análisis; lo
+	// reutiliza el coste de las modificaciones. Nulo: coste no disponible.
+	retribucionesCT *fuenteRetribucionesDesarrollo
 	// reglasEjemplo solo existe en desarrollo con paquete de ejemplo
 	// declarado; vacío significa «sin catálogo».
 	reglasEjemplo reglasEjemploDesarrollo
