@@ -12,6 +12,7 @@ import (
 	calendarioshttp "vec-diputacion-granada/internal/modules/calendarios/adapters/httpinterno"
 	calendariospg "vec-diputacion-granada/internal/modules/calendarios/adapters/postgres"
 	calendariosapp "vec-diputacion-granada/internal/modules/calendarios/application"
+	calendariosports "vec-diputacion-granada/internal/modules/calendarios/ports"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 )
 
@@ -38,21 +39,29 @@ func rutaCalendariosDesarrollo(ruta string) bool {
 // conexión configurada las rutas existen y responden 503; una conexión
 // presente pero inválida o con otro rol impide arrancar.
 func nuevasRutasCalendariosDesarrollo(cfg config.Config) ([]vechttp.RutaExacta, func(), error) {
+	rutas, _, cerrar, err := nuevasRutasYConsultaCalendariosDesarrollo(cfg)
+	return rutas, cerrar, err
+}
+
+// nuevasRutasYConsultaCalendariosDesarrollo devuelve además la consulta para
+// otros consumidores de la composición (cálculo de plazos de las reglas). Sin
+// conexión la consulta es nula.
+func nuevasRutasYConsultaCalendariosDesarrollo(cfg config.Config) ([]vechttp.RutaExacta, calendariosports.ConsultaCalendarios, func(), error) {
 	cerrar := func() {}
 	dsn, err := cfg.DSNCalendarios()
 	if err != nil {
-		return nil, cerrar, err
+		return nil, nil, cerrar, err
 	}
 	var consulta *calendariosapp.Servicio
 	if dsn != "" {
 		if !cfg.DevelopmentEnabledByDoubleKey() {
-			return nil, cerrar, errCalendariosDesarrolloNoDisponible
+			return nil, nil, cerrar, errCalendariosDesarrolloNoDisponible
 		}
 		ctx, cancelar := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancelar()
 		pool, err := abrirPoolCalendariosDesarrollo(ctx, dsn)
 		if err != nil {
-			return nil, cerrar, err
+			return nil, nil, cerrar, err
 		}
 		repo, err := calendariospg.NuevoRepositorio(pool)
 		if err == nil {
@@ -60,7 +69,7 @@ func nuevasRutasCalendariosDesarrollo(cfg config.Config) ([]vechttp.RutaExacta, 
 		}
 		if err != nil {
 			pool.Close()
-			return nil, cerrar, errCalendariosDesarrolloNoDisponible
+			return nil, nil, cerrar, errCalendariosDesarrolloNoDisponible
 		}
 		cerrar = pool.Close
 	}
@@ -72,7 +81,10 @@ func nuevasRutasCalendariosDesarrollo(cfg config.Config) ([]vechttp.RutaExacta, 
 	for _, r := range calendarioshttp.Rutas() {
 		rutas = append(rutas, vechttp.RutaExacta{Ruta: r, Manejador: manejador})
 	}
-	return rutas, cerrar, nil
+	if consulta == nil {
+		return rutas, nil, cerrar, nil
+	}
+	return rutas, consulta, cerrar, nil
 }
 
 // abrirPoolCalendariosDesarrollo acredita en cada conexión que el login solo

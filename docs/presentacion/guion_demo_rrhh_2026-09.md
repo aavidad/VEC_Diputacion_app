@@ -24,6 +24,34 @@ expedientes. Nada de lo que se enseña firma, notifica ni produce efectos admini
    los que tienen documentos, tienen número-hash porque los creó una prueba automática;
    usar `2026/CT-4b2ba511…` y decirlo así.
 
+## Reglas de ejemplo frente a reglamento
+
+Para poder enseñar plazos y consecuencias antes de que RRHH responda, el perfil de
+desarrollo carga un catálogo de **reglas de ejemplo** (29 de Bolsa, 12 de Contratación
+temporal y 6 motivos de rectificación). Se borra al pasar a producción, como los datos
+de ejemplo: la imagen de producción no lo contiene y el servidor se niega a arrancar en
+producción si se le indica. Cada regla lleva su versión y su huella, y una de estas dos
+marcas:
+
+- **Reglamento**: cita un artículo del Reglamento de bolsas de la Diputación (BOP de
+  16/01/2026, modificado el 14/05/2026). Por ejemplo, dos intentos de llamada con al
+  menos dos horas entre ellos y baja tras dos procesos sin contacto (art. 8.2.a y 11.1.a),
+  o cinco meses sin llamamiento tras un nombramiento, nueve si fue por acumulación de
+  tareas (art. 9).
+- **Regla de ejemplo**: un supuesto de trabajo que RRHH debe confirmar o corregir. Por
+  ejemplo, llamar de 9 a 14 h, un día hábil para responder o tres días hábiles para
+  aportar la documentación. Cuando una regla del Reglamento se completa con una parte
+  inventada (quién propone y quién confirma una baja), también se rotula como ejemplo.
+
+Frase para la reunión: «Lo marcado como reglamento es vuestra norma; lo marcado como
+ejemplo es una propuesta para que la corrijáis. Ninguna regla de ejemplo produce efectos:
+VEC propone y RRHH confirma». Las dudas abiertas siguen en `dudas.md` (13, 14 y 62,
+sobre sanciones). *Catálogo validado en el arranque del perfil de desarrollo; qué
+pantallas lo muestran se comprueba en el ensayo general.*
+
+La ficha de la persona no ofrece un botón de llamamiento individual: los llamamientos
+se hacen desde el asistente del punto 3.
+
 ## Orden de la demostración
 
 ### 1. Bolsa: la foto de conjunto (petición p. 1, puntos 6 y 7; p. 3)
@@ -92,15 +120,15 @@ El módulo Dietas permanece desactivado y queda fuera de esta demostración.
 | 1. Bolsas y candidatos | Cuadro, lista ordenada, ficha, contactos cifrados, pausas y exclusiones con justificante | Hecho | — |
 | 2. Llamamientos según reglamento | Asistente de 4 pasos por el orden vigente; emisión y correo de prueba verificados antes del último despliegue | Parcial | Reglamento de Granada: RRHH (dudas 13–14); repetir emisión en el ensayo general |
 | 3. Contratos, ceses, reincorporaciones | Tramitación en Contratación temporal | Parcial | Ceses y reincorporaciones completos: Desarrollo |
-| 4. Motor de reglas configurable | Política de orden versionada y rotulada | Parcial | Parámetros aprobados: RRHH |
+| 4. Motor de reglas configurable | Política de orden versionada y rotulada; catálogo de reglas de ejemplo versionado, rotulado «reglamento» o «ejemplo» | Parcial | Parámetros aprobados: RRHH (dudas 13, 14 y 62) |
 | 5. Portal del candidato con acceso seguro | «Mi bolsa» no se muestra al candidato en cidonia | Pendiente | Completar P3 y acceso con DNIe/certificado (ya decidido): desarrollo propio |
 | 6. Cuadro de mando | Cuadro B12 | Hecho | — |
 | 7. Estadísticas | Pestaña de estadísticas | Hecho | — |
 | 8. Documentos Word/PDF | Seis documentos preparatorios en PDF y Word desde el expediente | Parcial | Plantillas oficiales: RRHH; firma en portafirmas: integración |
 | 9. Correo, SMS, mensajería | Correo por relay de pruebas | Parcial | Correo corporativo: Sistemas; SMS/WhatsApp: no iniciado |
 | 10. Auditoría y trazabilidad | Recibos e históricos de cada operación | Hecho en lo conectado | IP/equipo según política de seguridad |
-| Histórico (p. 2) | Estados, contactos, llamamientos | Parcial | Contratos y sanciones: Desarrollo |
-| Reglas de 5 y 9 meses (p. 2) | Reposición provisional | Pendiente | Regla exacta: RRHH (duda 13) |
+| Histórico (p. 2) | Estados, contactos, llamamientos | Parcial | Contratos y sanciones: Desarrollo; qué sanciones existen: RRHH (duda 62) |
+| Reglas de 5 y 9 meses (p. 2) | Reposición provisional; regla del Reglamento (art. 9) en el catálogo de ejemplo | Pendiente | Día final incluido o no y aplicación: RRHH (duda 13) |
 | Zona pública (p. 2) | Consulta pública B10 en instancia separada | Hecho, no publicado | Publicación y minimización: RRHH, Secretaría y DPD |
 | Envío masivo por estado (p. 3) | Selección por filtro, hasta 100 | Hecho, sin ensayo | Personalización por persona: Desarrollo |
 | Avisos de salto de orden y 3 años (p. 3) | Bloque «Avisos» en el cuadro de mando | Hecho | Tres años sale a cero hasta que haya histórico; art. 15.5 ET: RRHH (duda 13) |

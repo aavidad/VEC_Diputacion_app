@@ -15,7 +15,7 @@ import {
 } from "./portal-bolsas-contrato.js";
 import { traducirBolsaInterna, traducirPortal } from "./portal-i18n.js?v=20260926-portal-rrhh-main-v1";
 import { crearControladorOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260923-pweb14-v1";
-import { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js";
+import { emitirLlamamiento, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js";
 export { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js";
 
 export const RUTA_BOLSAS = "/api/vec/bolsa/bolsas";
@@ -378,7 +378,6 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     estado.modalFicha?.controladorOperaciones?.abort();
     estado.modalFicha = null;
     estado.modalContactos = null;
-    estado.modalLlamar = null;
     estado.modalResultado = null;
     const flujo = estado.filtrosBolsa?.nuevo_llamamiento;
     if (flujo) flujo.acceso_denegado = true;
@@ -607,24 +606,6 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     renderizar();
   }
 
-  function abrirLlamar(participacionRef, nombreVisible = "", orden = 0) {
-    if (!participacionRef) return;
-    estado.modalLlamar = {
-      abierto: true,
-      participacionRef,
-      nombreVisible,
-      orden,
-      carga: "ocioso",
-      error: "",
-    };
-    renderizar();
-  }
-
-  function cerrarLlamar() {
-    estado.modalLlamar = null;
-    renderizar();
-  }
-
   function abrirResultado(llamamientoRef, participacionRef = "", nombreVisible = "", orden = 0) {
     if (!llamamientoRef) return;
     estado.modalResultado = {
@@ -742,15 +723,6 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
       } else if (accion === "cerrar-contactos") {
         evento.preventDefault();
         cerrarContactos();
-      } else if (accion === "abrir-llamar") {
-        evento.preventDefault();
-        const ref = botonAccion.dataset.participacionRef;
-        const nom = botonAccion.dataset.nombreVisible || "";
-        const ord = Number(botonAccion.dataset.orden || 0);
-        abrirLlamar(ref, nom, ord);
-      } else if (accion === "cerrar-llamar") {
-        evento.preventDefault();
-        cerrarLlamar();
       } else if (accion === "abrir-resultado") {
         evento.preventDefault();
         const ref = botonAccion.dataset.llamamientoRef;
@@ -969,62 +941,6 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
         return;
       }
 
-      const formLlamar = evento.target?.closest?.('[data-bolsa-form="llamar"]');
-      if (formLlamar) {
-        evento.preventDefault();
-        const datos = new FormData(formLlamar);
-        const ref = formLlamar.dataset.participacionRef;
-        if (!datos.get("confirmacion")) {
-          if (estado.modalLlamar) {
-            estado.modalLlamar.error = "Debe confirmar explícitamente el llamamiento.";
-            renderizar();
-          }
-          return;
-        }
-        const canal = datos.get("canal") || "correo";
-        const valorComunicado = datos.get("comunicado_en");
-        const comunicadoEn = valorComunicado
-          ? (valorComunicado.includes("Z") ? valorComunicado : new Date(valorComunicado).toISOString())
-          : new Date().toISOString();
-        const valorPlazo = String(datos.get("plazo_respuesta_hasta") || "").trim();
-        const fechaPlazo = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})?$/.test(valorPlazo)
-          ? new Date(valorPlazo) : null;
-        if (!fechaPlazo || Number.isNaN(fechaPlazo.getTime())) {
-          if (estado.modalLlamar) {
-            estado.modalLlamar.error = traducirPortal("panel_llamar_plazo_error");
-            renderizar();
-          }
-          return;
-        }
-        const plazoRespuestaHasta = fechaPlazo.toISOString();
-        const anotacion = datos.get("anotacion") || "";
-
-        if (estado.modalLlamar) {
-          estado.modalLlamar.carga = "enviando";
-          estado.modalLlamar.error = "";
-          renderizar();
-        }
-
-        void crearLlamamientoCandidato(ref, {
-          canal,
-          comunicado_en: comunicadoEn,
-          plazo_respuesta_hasta: plazoRespuestaHasta,
-          anotacion,
-        }).then((res) => {
-          if (res.ok) {
-            estado.modalLlamar = null;
-            void cargarCandidatosBolsa(estado.bolsaSeleccionada);
-          } else {
-            if (estado.modalLlamar) {
-              estado.modalLlamar.carga = "error";
-              estado.modalLlamar.error = res.mensaje;
-              renderizar();
-            }
-          }
-        });
-        return;
-      }
-
       const formCambioSituacion = evento.target?.closest?.('[data-bolsa-form="cambio-situacion"]');
       if (formCambioSituacion) {
         evento.preventDefault();
@@ -1126,7 +1042,6 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     abrirFicha,
     cerrarFicha,
 	    abrirContactos, cerrarContactos,
-	    abrirLlamar, cerrarLlamar,
 	    abrirResultado, cerrarResultado, instalar,
   });
 }

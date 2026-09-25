@@ -118,4 +118,6 @@ Estamos completando los recorridos funcionales de VEC. Necesitamos concretar est
 
 61. **Aplicar los plazos definitivos a los documentos ya guardados.** Mientras no se confirmen los plazos de la pregunta 60, VEC guarda los documentos con el plazo provisional como simple anotación y sin bloquear su borrado en el almacén, porque ese bloqueo no se puede deshacer. Cuando aprobéis los plazos, VEC los aplicará también a los documentos ya guardados y entonces sí bloqueará su borrado hasta el final del plazo. ¿Desde qué fecha debe contarse el plazo de esos documentos: la de su incorporación a VEC o la que fije la regla de la pregunta 60 (cierre del expediente, pago, fin de la relación…)? ¿Quién debe autorizar esa aplicación, y hay que comunicarla o registrarla en algún sitio?
 
+62. **Sanciones en las bolsas y su registro.** El Reglamento (arts. 8.2.a y 11) solo prevé la baja definitiva. ¿Existen otras penalizaciones (pasar al final, suspensión temporal)? ¿Quién la resuelve, se notifica con recurso y puede revisarse? ¿Qué debe constar en el histórico que pide la petición (p. 2)?
+
 Para las integraciones, agradeceríamos también el contacto de **Informática responsable del portafirmas, RC/costes, GINPIX, identidad corporativa, certificados y revocación**, que pueda facilitarnos la documentación técnica y el acceso a pruebas.

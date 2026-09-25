@@ -124,6 +124,7 @@ type Config struct {
 	IncorporacionV2File                         string
 	ContratacionTemporalSubsanacionPoliticaFile string
 	CTAnalisisMotivosSourcePath                 string
+	ReglasEjemplo                               ConfiguracionReglasEjemplo
 	FakeCredentialsPath                         string
 	TrustedHeaderSubject                        string
 	TrustedHeaderRoles                          string
@@ -204,6 +205,7 @@ func Load() Config {
 		IncorporacionV2File:    envFirst(EnvIncorporacionV2File),
 		ContratacionTemporalSubsanacionPoliticaFile: envFirst(EnvContratacionTemporalSubsanacionPoliticaFile),
 		CTAnalisisMotivosSourcePath:                 envFirst(EnvCTAnalisisMotivosSourcePath),
+		ReglasEjemplo:                               cargarConfiguracionReglasEjemplo(),
 		FakeCredentialsPath:                         envFirst(EnvFakeCredentialsPath),
 		TrustedHeaderSubject:                        envFirst(EnvTrustedHeaderSubject, LegacyTrustedHeaderSubject),
 		TrustedHeaderRoles:                          envFirst(EnvTrustedHeaderRoles, LegacyTrustedHeaderRoles),
@@ -326,6 +328,7 @@ func (c Config) Normalize() Config {
 	c.DevelopmentMaterialDir = strings.TrimSpace(c.DevelopmentMaterialDir)
 	c.IncorporacionV2File = strings.TrimSpace(c.IncorporacionV2File)
 	c.CTAnalisisMotivosSourcePath = strings.TrimSpace(c.CTAnalisisMotivosSourcePath)
+	c.ReglasEjemplo = c.ReglasEjemplo.normalizar()
 	if c.ExecutionProfile == ExecutionProfileDevelopment && c.AuthMode == AuthModeDevelopment &&
 		c.DevelopmentGuard == DevelopmentGuardAcknowledgement && c.DevelopmentMaterialDir != "" {
 		rutas := c.DevelopmentPaths()

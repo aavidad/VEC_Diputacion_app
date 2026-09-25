@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/app/composicion/interna"
 )
 
@@ -31,6 +32,12 @@ func main() {
 }
 
 func ejecutar() error {
+	// Esta raíz no compone reglas de ejemplo: declarar cualquier catálogo
+	// impide arrancar. Fuera de la doble llave de desarrollo se rechaza como en
+	// el resto de raíces; con ella tampoco se ignora, porque aquí no se usaría.
+	if err := config.Load().RechazarReglasEjemploSinComposicion(); err != nil {
+		return err
+	}
 	cfg := interna.CargarConfiguracion()
 	aplicacion, err := interna.NuevaAplicacion(context.Background(), cfg)
 	if err != nil {

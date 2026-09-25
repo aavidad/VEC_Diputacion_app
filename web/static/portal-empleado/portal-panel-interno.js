@@ -28,7 +28,6 @@ export function crearPresentadorPanelInterno(dependencias) {
     obtenerEstadoCandidatos,
     obtenerModalContactos,
     obtenerModalFicha,
-    obtenerModalLlamar,
     obtenerModalResultado,
   } = dependencias;
   if ([claseEstado, encabezadoVista, escaparHTML, numero, obtenerDatosPanel, tituloVista]
@@ -673,58 +672,6 @@ export function crearPresentadorPanelInterno(dependencias) {
           </div>
           <div class="acciones-vista">
             <button type="button" class="boton-secundario" data-bolsa-accion="cerrar-contactos">Cerrar</button>
-          </div>
-        </div>
-      </div>`;
-  }
-  function renderizarModalLlamar(modal) {
-    if (!modal || !modal.abierto) return "";
-    const errorHtml = modal.error
-      ? `<div class="mensaje-error" role="alert"><p><strong>Error:</strong> ${escaparHTML(modal.error)}</p></div>`
-      : "";
-    const enviando = modal.carga === "enviando";
-    return `
-      <div class="modal-fondo" role="dialog" aria-modal="true" aria-labelledby="titulo-modal-llamar">
-        <div class="modal-contenido">
-          <div class="cabecera-panel">
-            <h3 id="titulo-modal-llamar">Nuevo llamamiento: ${escaparHTML(modal.nombreVisible || modal.participacionRef)}</h3>
-            <button type="button" class="boton-cerrar" data-bolsa-accion="cerrar-llamar" aria-label="Cerrar">×</button>
-          </div>
-          <div class="cuerpo-panel">
-            ${errorHtml}
-            <p>Aspirante en orden <strong>#${numero(modal.orden)}</strong> de la bolsa. Se registrará la comunicación y el plazo de respuesta.</p>
-            <form data-bolsa-form="llamar" data-participacion-ref="${escaparHTML(modal.participacionRef)}">
-              <div class="campo-formulario">
-                <label for="llamar-canal">Canal de comunicación *</label>
-                <select id="llamar-canal" name="canal" required>
-                  <option value="correo">Correo electrónico</option>
-                  <option value="telefono">Teléfono</option>
-                  <option value="sede">Sede electrónica</option>
-                </select>
-              </div>
-              <div class="campo-formulario">
-                <label for="llamar-comunicado-en">Fecha y hora de comunicación *</label>
-                <input type="datetime-local" id="llamar-comunicado-en" name="comunicado_en" required>
-              </div>
-              <div class="campo-formulario">
-                <label for="llamar-plazo-hasta">Plazo límite de respuesta *</label>
-                <input type="datetime-local" id="llamar-plazo-hasta" name="plazo_respuesta_hasta" required>
-              </div>
-              <div class="campo-formulario">
-                <label for="llamar-anotacion">Anotación u observaciones (opcional)</label>
-                <textarea id="llamar-anotacion" name="anotacion" rows="3" maxlength="1024" placeholder="Detalle del intento de localización o notas del llamamiento…"></textarea>
-              </div>
-              <div class="campo-confirmacion">
-                <label for="llamar-confirmacion">
-                  <input type="checkbox" id="llamar-confirmacion" name="confirmacion" value="true" required>
-                  Confirmo el llamamiento formal al aspirante conforme a las normas de gestión de bolsa.
-                </label>
-              </div>
-              <div class="acciones-formulario">
-                <button type="submit" class="boton-primario"${enviando ? " disabled" : ""}>${enviando ? "Registrando…" : "Registrar llamamiento"}</button>
-                <button type="button" class="boton-secundario" data-bolsa-accion="cerrar-llamar">Cancelar</button>
-              </div>
-            </form>
           </div>
         </div>
       </div>`;

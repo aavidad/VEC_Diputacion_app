@@ -125,7 +125,8 @@ func configuracionPresentacionSinteticaValida(cfg config.Config) bool {
 		cfg.OSRMBaseURL == "" && cfg.OSRMScopeName == "" && cfg.OSRMScopeBounds == "" &&
 		len(cfg.OSRMAllowedCIDRs) == 0 && cfg.OSRMGraphVersion == "" &&
 		rutaSinteticaPresentacion(cfg.BolsaPublicSourcePath) &&
-		rutaSinteticaPresentacion(cfg.BolsaCategoriesSourcePath)
+		rutaSinteticaPresentacion(cfg.BolsaCategoriesSourcePath) &&
+		rechazarReglasEjemploFueraDesarrollo(cfg) == nil
 }
 
 func rechazarSelectoresPresentacionEnComposicionNormal(cfg config.Config) error {

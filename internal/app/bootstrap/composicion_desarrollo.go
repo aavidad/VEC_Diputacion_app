@@ -227,6 +227,23 @@ func nuevoServidorDesarrollo(
 		return nil, nil, err
 	}
 	consultasPersonal := nuevasConsultasPublicasPersonal(cfg, categoriasPersonal, registro)
+	rutasCalendarios, consultaCalendarios, cerrarCalendarios, err := nuevasRutasYConsultaCalendariosDesarrollo(cfg)
+	if err != nil {
+		return nil, nil, err
+	}
+	calendariosCompletos := false
+	defer func() {
+		if !calendariosCompletos {
+			cerrarCalendarios()
+		}
+	}()
+	// Enganche de las reglas de ejemplo: los módulos de Bolsa y Contratación
+	// temporal recibirán reglasEjemplo.bolsa y reglasEjemplo.contratacionTemporal.
+	reglasEjemplo, err := nuevasReglasEjemploDesarrollo(cfg, consultaCalendarios, relojCalendariosDesarrollo{})
+	if err != nil {
+		return nil, nil, err
+	}
+	_ = reglasEjemplo
 	rutasContratacion, autoridadContratacion, cerrarContratacion, err := nuevasRutasContratacionTemporalDesarrollo(
 		cfg, resolvedor, composicion.derivadorIdempotencia, composicion.emisorKMS, registro, incorporacion...,
 	)
@@ -248,15 +265,6 @@ func nuevoServidorDesarrollo(
 	}
 	rutasContratacion = append(rutasContratacion, rutasBolsasRRHH...)
 	coleccionesBolsasRRHH = append(coleccionesBolsasRRHH, autoridadContratacion.coleccionesAdicionales...)
-	rutasCalendarios, cerrarCalendarios, err := nuevasRutasCalendariosDesarrollo(cfg)
-	if err != nil {
-		return nil, nil, err
-	}
-	defer func() {
-		if !completa {
-			cerrarCalendarios()
-		}
-	}()
 	rutasContratacion = append(rutasContratacion, rutasCalendarios...)
 	autoridadDietas, cerrarDietas, err := nuevasRutasDietasDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia)
 	if err != nil {
@@ -369,6 +377,7 @@ func nuevoServidorDesarrollo(
 		servidor.RegisterOnShutdown(personalEmpleado.cerrar)
 	}
 	completa = true
+	calendariosCompletos = true
 	return servidor, composicion, nil
 }
 
