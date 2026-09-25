@@ -250,7 +250,7 @@ func gobiernoDenego(err error) bool { return errors.Is(err, ErrProveedoresCTNoDi
 func TestPersonalB2UsaRaizCompartidaYOchoAudienciasEnOrden(t *testing.T) {
 	e := nuevoEscenarioB2(t)
 	p := e.construir(t)
-	if p.firmante.audiencia != audienciaAtestacionCTInterna || p.firmante.claveID != e.coord.ClaveID {
+	if p.firmante.base != e.firmante || p.firmante.base.audiencia != audienciaAtestacionCTInterna || p.firmante.base.claveID != e.coord.ClaveID {
 		t.Fatal("B2 no firma con la raíz y audiencia compartidas")
 	}
 	m := e.gobierno.ultimoMaterial()

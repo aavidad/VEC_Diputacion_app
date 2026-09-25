@@ -4,9 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/ed25519"
-	"crypto/rand"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
@@ -15,7 +12,6 @@ import (
 	"reflect"
 	"strings"
 
-	gocose "github.com/veraison/go-cose"
 	"vec-diputacion-granada/internal/app/composicion/internagobierno"
 	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	personal "vec-diputacion-granada/internal/modules/personal/domain"
@@ -50,7 +46,7 @@ type materialPersonalB2V3 struct {
 }
 
 // MaterialPersonalB2 sólo contiene nombres y huellas; todos sus archivos
-// están en un directorio privado distinto del inventario de CT.
+// están en el directorio privado de vec-interno, junto al inventario de CT.
 type MaterialPersonalB2 struct {
 	Version         int    `json:"version"`
 	CatalogoMotivos string `json:"catalogo_motivos"`
@@ -159,10 +155,8 @@ func (p *ProveedorAutorizacionPersonalB2) Cerrar() {
 	if p == nil {
 		return
 	}
-	if p.firmante != nil {
-		clear(p.firmante.privada)
-		p.firmante = nil
-	}
+	// La clave pertenece al firmante CT, que la borra al cerrar su composición.
+	p.firmante = nil
 	p.emisores = [8]emisorMaterialV3{}
 	p.fuente = nil
 }
@@ -230,12 +224,11 @@ func construirPersonalB2(ctx context.Context, m MaterialPersonalB2, d dependenci
 	if err != nil {
 		return nil, ErrPersonalB2V3NoDisponible
 	}
-	// Copia propia de la clave de la raíz compartida: B2 conserva su etiqueta de
-	// evidencia y su ciclo de vida, pero firma con la misma raíz y audiencia.
-	firmante := &firmantePersonalB2V3{claveID: g.coord.ClaveID, audiencia: g.coord.AudienciaDespliegue, privada: append(ed25519.PrivateKey(nil), d.firmante.privada...), reloj: d.reloj}
+	// B2 firma con el firmante de la raíz compartida, sin copiar su clave; sólo
+	// cambia la etiqueta de evidencia.
+	firmante := &firmantePersonalB2V3{base: d.firmante}
 	atestador, err := app.NuevoServicioAtestacionesAutorizacionV3(core.CabeceraAtestacionAutorizacionV3{FormatoVersion: core.VersionFormatoAtestacionAutorizacionV3, Suite: confianza.SuiteAtestacionAutorizacionV3COSEEdDSA, ClaveID: g.coord.ClaveID, Audiencia: g.coord.AudienciaDespliegue}, firmante)
 	if err != nil {
-		clear(firmante.privada)
 		return nil, ErrPersonalB2V3NoDisponible
 	}
 	p := &ProveedorAutorizacionPersonalB2{fuente: d.fuente, reloj: d.reloj, firmante: firmante, motivos: [8]core.ReferenciaEntradaCatalogo{m.Motivos.Ficha, m.Motivos.Vacantes, m.Motivos.Alta, m.Motivos.Hecho, m.Motivos.CatalogoConsultar, m.Motivos.CatalogoPublicar, m.Motivos.CatalogoRetirar, m.Motivos.Empleados}}
@@ -353,46 +346,11 @@ var _ personalports.ProveedorAutorizacionRegistroEmpleadoB2 = (*ProveedorAutoriz
 var _ personalports.ProveedorAutorizacionActosRegistroEmpleadoB2 = (*ProveedorAutorizacionPersonalB2)(nil)
 var _ personalports.ProveedorAutorizacionCatalogosRegistroEmpleadoB2 = (*ProveedorAutorizacionPersonalB2)(nil)
 
-type firmantePersonalB2V3 struct {
-	claveID, audiencia string
-	privada            ed25519.PrivateKey
-	reloj              ct.Reloj
-}
+type firmantePersonalB2V3 struct{ base *firmanteV3 }
 
 func (f *firmantePersonalB2V3) FirmarAtestacionAutorizacionV3(ctx context.Context, s vecports.SolicitudFirmaAtestacionAutorizacionV3) (vecports.ResultadoFirmaAtestacionAutorizacionV3, error) {
-	var vacio vecports.ResultadoFirmaAtestacionAutorizacionV3
-	if f == nil || ctx == nil || ctx.Err() != nil || len(f.privada) != ed25519.PrivateKeySize || f.reloj == nil {
-		return vacio, vecports.ErrFirmaAtestacionNoDisponible
+	if f == nil || f.base == nil {
+		return vecports.ResultadoFirmaAtestacionAutorizacionV3{}, vecports.ErrFirmaAtestacionNoDisponible
 	}
-	c, err := s.Cabecera()
-	if err != nil || c.ClaveID != f.claveID || c.Audiencia != f.audiencia {
-		return vacio, vecports.ErrFirmaAtestacionNoDisponible
-	}
-	mensaje, err := s.Mensaje()
-	if err != nil {
-		return vacio, vecports.ErrFirmaAtestacionNoDisponible
-	}
-	defer clear(mensaje)
-	aad, err := confianza.AADExternoAtestacionAutorizacionV3(c.Audiencia)
-	if err != nil {
-		return vacio, vecports.ErrFirmaAtestacionNoDisponible
-	}
-	sobre := gocose.NewSign1Message()
-	sobre.Headers.Protected.SetAlgorithm(gocose.AlgorithmEdDSA)
-	sobre.Headers.Protected[gocose.HeaderLabelKeyID] = []byte(f.claveID)
-	sobre.Payload = append([]byte(nil), mensaje...)
-	firmante, err := gocose.NewSigner(gocose.AlgorithmEdDSA, f.privada)
-	if err != nil || sobre.Sign(rand.Reader, aad, firmante) != nil {
-		return vacio, vecports.ErrFirmaAtestacionNoDisponible
-	}
-	sobre.Payload = nil
-	sobre.Headers.RawProtected = nil
-	sobre.Headers.RawUnprotected = nil
-	firma, err := sobre.MarshalCBOR()
-	if err != nil {
-		return vacio, vecports.ErrFirmaAtestacionNoDisponible
-	}
-	defer clear(firma)
-	huella := sha256.Sum256(mensaje)
-	return vecports.NuevoResultadoFirmaAtestacionAutorizacionV3(s, firma, "evidencia:firma:personal:b2:"+hex.EncodeToString(huella[:8]), f.reloj.Ahora())
+	return f.base.firmarConEvidencia(ctx, s, "evidencia:firma:personal:b2:")
 }
