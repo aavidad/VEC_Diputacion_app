@@ -53,7 +53,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		responder(w, 405, errorRespuesta{"metodo_no_permitido"})
 		return
 	}
-	if r.URL.RawQuery != "" || r.URL.ForceQuery || r.ContentLength != 0 || len(r.TransferEncoding) != 0 || (r.Body != nil && r.Body != http.NoBody) || cabeceraProhibida(r.Header) {
+	if r.URL.RawQuery != "" || r.URL.ForceQuery || r.ContentLength != 0 || len(r.TransferEncoding) != 0 || !cuerpoAusente(r) || cabeceraProhibida(r.Header) {
 		responder(w, 400, errorRespuesta{"peticion_no_permitida"})
 		return
 	}
@@ -69,6 +69,18 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	responder(w, 200, nuevaRespuesta(resultado))
 }
+
+// cuerpoAusente admite el GET sin cuerpo de HTTP/1.1 (http.NoBody) y el de
+// HTTP/2: allí net/http entrega siempre un Body no nulo, pero ContentLength
+// solo vale 0 cuando la cabecera cerró el flujo (END_STREAM); con un DATA sin
+// longitud declarada vale -1 y se rechaza arriba.
+func cuerpoAusente(r *http.Request) bool {
+	if r.Body == nil || r.Body == http.NoBody {
+		return true
+	}
+	return r.ProtoMajor >= 2 && r.ContentLength == 0
+}
+
 func cabeceraProhibida(h http.Header) bool {
 	for k := range h {
 		l := strings.ToLower(k)

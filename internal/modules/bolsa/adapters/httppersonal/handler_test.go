@@ -203,3 +203,43 @@ func TestMiBolsaRechazaCabecerasYVariantesDeRuta(t *testing.T) {
 		})
 	}
 }
+
+func TestMiBolsaGETSobreHTTP2NoEsPeticionNoPermitida(t *testing.T) {
+	h, err := Nuevo(preparadorH2{}, consultorH2{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := httptest.NewUnstartedServer(h)
+	s.EnableHTTP2 = true
+	s.StartTLS()
+	defer s.Close()
+	r, err := s.Client().Get(s.URL + RutaMiBolsa)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Body.Close()
+	if r.ProtoMajor != 2 || r.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("HTTP/2 GET sin cuerpo: %s %d; se esperaba HTTP/2 401 del preparador", r.Proto, r.StatusCode)
+	}
+	req, _ := http.NewRequest(http.MethodGet, s.URL+RutaMiBolsa, strings.NewReader("x"))
+	r2, err := s.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r2.Body.Close()
+	if r2.StatusCode != http.StatusBadRequest {
+		t.Fatalf("HTTP/2 GET con cuerpo: %d; se esperaba 400", r2.StatusCode)
+	}
+}
+
+type preparadorH2 struct{}
+
+func (preparadorH2) PrepararMiBolsa(*http.Request) (mibolsa.Orden, error) {
+	return mibolsa.Orden{}, ErrAutenticacionAusente
+}
+
+type consultorH2 struct{}
+
+func (consultorH2) Consultar(context.Context, mibolsa.Orden) (puertosbolsa.InstantaneaMiBolsa, error) {
+	return puertosbolsa.InstantaneaMiBolsa{}, nil
+}

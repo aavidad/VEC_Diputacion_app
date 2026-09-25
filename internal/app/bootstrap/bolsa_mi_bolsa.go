@@ -365,7 +365,11 @@ func nuevaRutaMiBolsaDesarrollo(
 		return nil, errMiBolsaNoDisponible
 	}
 	politica := &politicaMiBolsaDesarrollo{instantanea: preparada, registro: alta.soporte.registroDecisionesAnalisis, motivo: motivoMiBolsaDesarrollo()}
-	if publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno, []dominiovec.ReferenciaEntradaCatalogo{politica.motivo}, reloj.Ahora()) != nil {
+	// Instante fijo de la ventana sintética, como el resto de catálogos: el
+	// replay del publicador exige el mismo publicado_en y el reloj rompería
+	// cualquier arranque posterior al primero.
+	desdeMotivos, _, vigenteMotivos := ventanaAutoridadSinteticaContratacionTemporalDesarrollo(reloj.Ahora())
+	if !vigenteMotivos || publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno, []dominiovec.ReferenciaEntradaCatalogo{politica.motivo}, desdeMotivos) != nil {
 		return nil, errMiBolsaNoDisponible
 	}
 	autorizador, err := aplicacionvec.NuevoServicioAutorizacionSolicitudLigadaV3(
