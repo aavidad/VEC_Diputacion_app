@@ -19,6 +19,10 @@ const (
 type manifiestoCapacidadIdentidad struct {
 	grupo     string
 	funciones []string
+	// heredado marca el perfil anterior a Identidad 000006 (revalidador sin
+	// coincide_politica_certificado_desarrollo_v1). Solo existe para
+	// revalidar y se acredita con la misma exactitud que el vigente.
+	heredado bool
 }
 
 // manifiestoParaCapacidad es deliberadamente cerrado e inmutable. Un nuevo
@@ -66,12 +70,36 @@ func manifiestoParaCapacidad(
 	}
 }
 
+// manifiestoHeredadoParaCapacidad devuelve el perfil exacto que la base tenia
+// antes de Identidad 000006. Una base con 000006 no lo satisface (la ACL del
+// grupo tendria tres EXECUTE) y una sin 000006 no satisface el vigente, de
+// modo que cada base acredita exactamente uno de los dos. Quien necesita la
+// politica de certificado (composicion interna) la exige por su cuenta.
+func manifiestoHeredadoParaCapacidad(
+	capacidad string,
+) (manifiestoCapacidadIdentidad, bool) {
+	if capacidad != capacidadRevalidar {
+		return manifiestoCapacidadIdentidad{}, false
+	}
+	vigente, _ := manifiestoParaCapacidad(capacidadRevalidar)
+	return manifiestoCapacidadIdentidad{
+		grupo:     capacidadRevalidar,
+		funciones: vigente.funciones[:2:2],
+		heredado:  true,
+	}, true
+}
+
 func (m manifiestoCapacidadIdentidad) valido() bool {
 	esperadas := 2
 	switch m.grupo {
 	case capacidadRevalidar:
-		esperadas = 3
+		if !m.heredado {
+			esperadas = 3
+		}
 	case capacidadProvisionar, capacidadRegistrar, capacidadRevocar:
+		if m.heredado {
+			return false
+		}
 	default:
 		return false
 	}
@@ -319,6 +347,22 @@ func acreditarCapacidad(
 	if ctx == nil || valorNulo(consultor) || !encontrado || !manifiesto.valido() {
 		return "", httpseguridad.ErrRegistroSesionesAusente
 	}
+	usuario, err := acreditarManifiesto(ctx, consultor, manifiesto)
+	if err == nil {
+		return usuario, nil
+	}
+	heredado, existe := manifiestoHeredadoParaCapacidad(capacidadEsperada)
+	if !existe || !heredado.valido() || ctx.Err() != nil {
+		return "", err
+	}
+	return acreditarManifiesto(ctx, consultor, heredado)
+}
+
+func acreditarManifiesto(
+	ctx context.Context,
+	consultor consultorFilaCapacidad,
+	manifiesto manifiestoCapacidadIdentidad,
+) (string, error) {
 	var usuarioSesion, usuarioActual string
 	var loginSeguro, grupoSeguro bool
 	var membresiaDirectaSegura, membresiaTotalExclusiva bool
