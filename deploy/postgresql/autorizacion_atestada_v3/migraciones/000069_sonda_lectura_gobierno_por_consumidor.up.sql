@@ -10,7 +10,16 @@
 -- conservan login nominal, membresía exacta, punteros, revocaciones,
 -- checkpoint, huellas y validación conjunta de configuración y claves.
 -- Ambas funciones son STABLE: todas sus lecturas usan una sola instantánea,
--- de modo que una renovación concurrente no produce una vista mezclada.
+-- de modo que una renovación concurrente no produce una vista mezclada. El
+-- reloj es clock_timestamp(), como en la sonda v1: una sentencia larga del
+-- llamante no puede validar una clave que caducó durante ella.
+--
+-- TRANSICIÓN DE ACL: el binario actual fija en funcionesEsperadasPerfil
+-- (fabrica.go) y aprovisionar.py exactamente las dos funciones v1. Instalar
+-- 000069 con ese binario impide abrir conexiones de preflight y deja caída la
+-- composición interna, CT incluida; el binario con el manifiesto v1+v2 no
+-- arranca sin 000069. Aplicar ambos en la misma ventana y solo tras ensayo en
+-- clon.
 --
 -- Numeración: el bloque 000060–000069 quedó libre para B2 y Documentos
 -- (comentario de AD3-70; Documentos usa 60/62, main usa 61). Se toma el
@@ -87,7 +96,7 @@ SET lock_timeout = '2s'
 AS $funcion$
 DECLARE
     v_audiencias text[];
-    v_ahora timestamptz := pg_catalog.statement_timestamp();
+    v_ahora timestamptz := pg_catalog.clock_timestamp();
     v_claves jsonb;
     v_config jsonb;
     v_raiz jsonb;
@@ -279,7 +288,7 @@ SET lock_timeout = '2s'
 AS $funcion$
 DECLARE
     v_audiencias text[];
-    v_ahora timestamptz := pg_catalog.statement_timestamp();
+    v_ahora timestamptz := pg_catalog.clock_timestamp();
     v_previa jsonb;
     v_raiz jsonb;
     v_claves jsonb;

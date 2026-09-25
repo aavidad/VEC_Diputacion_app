@@ -429,7 +429,14 @@ salida=$(arnes vec_interno_preflight_v3_desarrollo \
   "SELECT prueba_ad3_69.configuracion(2,clock_timestamp()-interval '2 day',clock_timestamp()-interval '1 day');" \
   "$(rechazos " ('CT con configuración vigente caducada','ct',ct), ('B2 con configuración vigente caducada','personal_b2',b2)")" 2>&1 || true)
 [[ $salida == *'rechazos 42501: 4'* ]] || fallo "caducidad de configuración: $salida"
-ok 'caducidad de clave B2 y de configuración vigente rechazadas'
+# Caducidad durante una misma sentencia: la clave vence a los 2 s y la
+# comprobación ocurre tras pg_sleep(3) dentro del mismo DO.
+salida=$(arnes vec_interno_preflight_v3_desarrollo \
+  "SELECT prueba_ad3_69.clave(41,'vec_personal.registro_empleado.ficha.v1',clock_timestamp()-interval '1 day',clock_timestamp()+interval '2 second');" \
+  "PERFORM pg_catalog.pg_sleep(3);
+$(rechazos " ('B2 con clave caducada durante la sentencia','personal_b2',b2)")" 2>&1 || true)
+[[ $salida == *'rechazos 42501: 2'* ]] || fallo "caducidad durante la sentencia: $salida"
+ok 'caducidad de clave B2 (también durante la sentencia) y de configuración vigente rechazadas'
 
 # --- Renovación de configuración: lectura desde la previa devuelve la nueva;
 # después, retroceso por checkpoint (secuencia y raíz mínimas) rechazado.
@@ -488,6 +495,9 @@ BEGIN
   BEGIN PERFORM vec_autorizacion_atestada_v3.comprobar_material_emision_interna_v2('personal_b2', b2);
     RAISE EXCEPTION 'revisión posterior al checkpoint aceptada' USING ERRCODE='P0001';
   EXCEPTION WHEN SQLSTATE '42501' THEN n := n + 1; END;
+  BEGIN PERFORM vec_autorizacion_atestada_v3.leer_configuracion_interna_v2('personal_b2', b2);
+    RAISE EXCEPTION 'revisión posterior al checkpoint aceptada en lectura' USING ERRCODE='P0001';
+  EXCEPTION WHEN SQLSTATE '42501' THEN n := n + 1; END;
   RAISE NOTICE 'revisión de clave posterior al checkpoint rechazada: %%', n;
 END $t$;$fmt$, :'b2_c3') \gexec
 RESET SESSION AUTHORIZATION;
@@ -495,7 +505,7 @@ ROLLBACK;
 SQL
 )
 [[ $salida == *'configuración sustituida rechazada en sonda'* && $salida == *'retroceso configuración rechazado: 2'* \
-   && $salida == *'retroceso raíz rechazado: 2'* && $salida == *'posterior al checkpoint rechazada: 1'* ]] \
+   && $salida == *'retroceso raíz rechazado: 2'* && $salida == *'posterior al checkpoint rechazada: 2'* ]] \
   || fallo "renovación/retroceso: $salida"
 ok 'renovación c1→c3 leída; retroceso por checkpoint (secuencia, raíz, revisión) rechazado'
 
