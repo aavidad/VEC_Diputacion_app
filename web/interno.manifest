@@ -75,6 +75,8 @@ static/portal-empleado/modulos/dietas/vista-recorridos.js
 static/portal-empleado/modulos/dietas/vista-rectificacion-admin.js
 static/portal-empleado/modulos/dietas/vista-rectificacion-dietas.js
 static/portal-empleado/modulos/personal/cliente-http-categorias.js
+static/portal-empleado/modulos/personal/cliente-http-rpt-publica.js
+static/portal-empleado/modulos/personal/cliente-http-estructura-organizativa-publica.js
 static/portal-empleado/modulos/personal/contrato.js
 static/portal-empleado/modulos/personal/i18n.js
 static/portal-empleado/modulos/personal/i18n-rpt-puestos.js
@@ -87,6 +89,8 @@ static/portal-empleado/modulos/personal/registro-b2-actos.js
 static/portal-empleado/modulos/personal/registro-b2-catalogos.js
 static/portal-empleado/modulos/personal/registro-b2-catalogos-cliente.js
 static/portal-empleado/modulos/personal/vista.js
+static/portal-empleado/modulos/personal/vista-rpt-publica.js
+static/portal-empleado/modulos/personal/vista-estructura-organizativa-publica.js
 static/portal-empleado/estado-entrega.css
 static/portal-empleado/estado-entrega-i18n.js
 static/portal-empleado/estado-entrega.js

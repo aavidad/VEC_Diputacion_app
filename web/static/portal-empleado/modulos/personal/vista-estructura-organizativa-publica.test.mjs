@@ -63,7 +63,7 @@ function estructura() {
   };
 }
 
-test("la ayuda queda detrás de ? y la fuente DEMO sigue visible", async () => {
+test("la ayuda y la advertencia quedan detrás de ?; en pantalla solo la pastilla «En preparación»", async () => {
   const r = raiz();
   const modulo = await montarModuloEstructuraOrganizativaPublica({ raiz: r, cliente: { async obtener() { return estructura(); } } });
   const vista = r.querySelector("[data-personal-estructura-organizativa-publica]");
@@ -74,13 +74,15 @@ test("la ayuda queda detrás de ? y la fuente DEMO sigue visible", async () => {
   assert.match(boton.atributos.get("aria-label"), /Consulta pública/u);
   assert.equal(boton.atributos.get("aria-expanded"), "false");
   assert.equal(contenido.hidden, true);
-  assert.match(textoVisible(vista), /Fuente DEMO.*no acredita vigencia administrativa/u);
+  assert.match(textoVisible(vista), /En preparación/u);
+  assert.doesNotMatch(textoVisible(vista), /no acredita vigencia administrativa|Portal del Empleado → Personal/u);
   assert.match(textoVisible(vista), /14 delegaciones/u);
   assert.doesNotMatch(textoVisible(vista), /Huella SHA-256|demo-v1|2026-09-06T00:00:00Z/u);
   boton.listeners.click();
   assert.equal(contenido.hidden, false);
   assert.equal(boton.atributos.get("aria-expanded"), "true");
   assert.match(textoVisible(vista), /demo-v1/u);
+  assert.match(textoVisible(vista), /Estructura en preparación.*no acredita vigencia administrativa/u);
   assert.match(textoVisible(vista), /0e52d878526d6a5e7ee4ab6f525ef92a70144aef665f0b031fca6051564e054c/u);
   assert.doesNotMatch(textoVisible(vista), /2026-09-06T00:00:00Z/u);
   boton.listeners.click();
@@ -88,18 +90,14 @@ test("la ayuda queda detrás de ? y la fuente DEMO sigue visible", async () => {
   modulo.desmontar();
 });
 
-test("el aviso DEMO usa la nota multilínea del tema en móvil", async () => {
+test("la marca de estructura en preparación es una pastilla del tema", async () => {
   const r = raiz();
   const modulo = await montarModuloEstructuraOrganizativaPublica({ raiz: r, cliente: { async obtener() { return estructura(); } } });
   const aviso = r.querySelector("[data-personal-estructura-aviso]");
-  const tema = readFileSync(new URL("../../portal.css", import.meta.url), "utf8");
   const componentes = readFileSync(new URL("../../portal-componentes.css", import.meta.url), "utf8");
-  assert.equal(aviso.tagName, "p");
-  assert.equal(aviso.className, "nota-integracion");
-  assert.equal(aviso.atributos.get("role"), "note");
-  assert.match(aviso.textContent, /Fuente DEMO.*no acredita vigencia administrativa/u);
-  assert.match(tema, /\.nota-integracion\s*\{[^}]*background:\s*var\(--portal-aviso-suave\);[^}]*color:\s*var\(--portal-aviso\);/u);
-  assert.doesNotMatch(tema.match(/\.nota-integracion\s*\{[^}]*\}/u)?.[0], /white-space:\s*nowrap/u);
+  assert.equal(aviso.tagName, "span");
+  assert.equal(aviso.className, "estado-chip");
+  assert.equal(aviso.textContent, "En preparación");
   assert.match(componentes, /\.estado-chip\s*\{[^}]*white-space:\s*nowrap/u);
   modulo.desmontar();
 });

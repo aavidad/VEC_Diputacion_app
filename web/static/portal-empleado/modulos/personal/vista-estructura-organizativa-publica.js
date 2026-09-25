@@ -2,7 +2,7 @@ import {
   crearTraductorPersonal,
   formatearFechaEstructuraOrganizativa,
   formatearRecuentoEstructura,
-} from "./i18n.js?v=20260925-b2-sin-refs-v1";
+} from "./i18n.js?v=20260925-portal-integrado-v1";
 
 function nodo(documento, etiqueta, texto = "") {
   const salida = documento.createElement(etiqueta);
@@ -62,7 +62,7 @@ function ayuda(documento, fuente, t) {
   contenido.id = "personal-estructura-ayuda-contenido";
   contenido.dataset.personalEstructuraAyudaContenido = "";
   contenido.hidden = true;
-  contenido.append(nodo(documento, "p", t("estructura_ayuda")));
+  contenido.append(nodo(documento, "p", t("estructura_ayuda")), nodo(documento, "p", t("estructura_aviso")));
   if (fuente) {
     contenido.append(
       nodo(documento, "p", t("estructura_fuente", {
@@ -94,7 +94,6 @@ function pintar(raiz, contenedor, estado, t, pagina, cambiarPagina) {
   contextual.contenido.hidden = !ayudaAbierta;
   contextual.boton.setAttribute("aria-expanded", String(ayudaAbierta));
   cabecera.append(
-    nodo(documento, "p", t("estructura_sobrelinea")),
     nodo(documento, "h2", t("estructura_titulo")),
     contextual.boton,
   );
@@ -126,10 +125,12 @@ function pintar(raiz, contenedor, estado, t, pagina, cambiarPagina) {
     return;
   }
   const estructura = estado.estructura;
-  const aviso = nodo(documento, "p", t("estructura_aviso"));
-  aviso.className = "nota-integracion";
-  aviso.dataset.personalEstructuraAviso = "";
-  aviso.setAttribute("role", "note");
+  // La advertencia completa vive tras «?»; en pantalla, solo la pastilla.
+  const aviso = nodo(documento, "p");
+  const pastilla = nodo(documento, "span", t("estructura_en_preparacion"));
+  pastilla.className = "estado-chip";
+  pastilla.dataset.personalEstructuraAviso = "";
+  aviso.append(pastilla);
   const paginas = Math.ceil(estructura.unidades.length / FILAS_POR_PAGINA);
   const marco = nodo(documento, "div");
   marco.className = "marco-tabla-paginado";

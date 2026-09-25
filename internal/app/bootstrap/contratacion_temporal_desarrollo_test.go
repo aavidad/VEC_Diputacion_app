@@ -135,6 +135,26 @@ func TestCarcasaDesarrolloAceptaLaMismaCadenaMTLSVerificada(
 		}
 	})
 
+	t.Run("personal_publico_compuesto", func(t *testing.T) {
+		// Las consultas públicas de Personal se sirven en la raíz real y no
+		// dependen de un permiso de la carcasa; sin fuente, 503 y nunca 404.
+		for ruta, esperado := range map[string]int{
+			"/api/vec/personal/categories?q=&area=&limit=1&offset=0": http.StatusOK,
+			"/api/vec/personal/rpt-publica?q=&limit=1&offset=0":      http.StatusServiceUnavailable,
+			"/api/vec/personal/estructura-organizativa-publica":      http.StatusServiceUnavailable,
+		} {
+			respuesta, err := cliente.Get(baseURL + ruta)
+			if err != nil {
+				t.Fatalf("consultar %s por mTLS: %v", ruta, err)
+			}
+			contenido, _ := io.ReadAll(respuesta.Body)
+			respuesta.Body.Close()
+			if respuesta.StatusCode != esperado {
+				t.Fatalf("%s=%d %s", ruta, respuesta.StatusCode, contenido)
+			}
+		}
+	})
+
 	t.Run("autoridad_ambiental_denegada", func(t *testing.T) {
 		peticion, err := http.NewRequest(http.MethodGet, baseURL+"/api/vec/modules", nil)
 		if err != nil {

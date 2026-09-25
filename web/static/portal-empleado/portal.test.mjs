@@ -91,7 +91,7 @@ function panelInternoReal() {
 test("la carga inicial usa solo las APIs de Bolsa que están compuestas", () => {
   assert.doesNotMatch(javascript, /\/api\/vec\/bolsa\/panel/);
   assert.doesNotMatch(javascript, /const cargaDisponibilidad = superficieBorradores/);
-  assert.match(javascript, /await coordinadorModulos\.cargarInterno\(\)\.catch/);
+  assert.match(javascript, /await coordinadorModulos\.cargarInterno\([^)]*\)\.catch/);
   assert.match(javascript, /controladorBolsas\.cargarBolsas\(\)/);
   // same-origin es obligatorio para presentar el certificado mTLS (y la
   // autenticación de la demo en el proxy); include enviaría credenciales a otros orígenes.
@@ -143,7 +143,7 @@ test("Bolsa solo figura comprobando mientras existe una consulta activa", () => 
   assert.equal(disponibilidad().estado, "error");
 });
 
-test("la carga inicial no consulta servicios de Bolsa ausentes", () => {
+test("la carga inicial comprueba solo la API real del cuadro de Bolsa, sin servicios ausentes", () => {
   const inicio = javascript.indexOf("async function cargarFuenteDatos()");
   const fin = javascript.indexOf("function necesidadLlamamientoSeleccionada()", inicio);
   const cargaInicial = javascript.slice(inicio, fin);
@@ -152,9 +152,66 @@ test("la carga inicial no consulta servicios de Bolsa ausentes", () => {
   assert.doesNotMatch(cargaInicial, /comprobarDisponibilidad/);
   assert.doesNotMatch(cargaInicial, /API_PANEL_BOLSA/);
   assert.match(cargaInicial, /requiereLecturaBolsas\(estado\.vista\)/);
+  // Inicio comprueba la API real del cuadro de bolsas sin exigir abrir antes
+  // la vista, en paralelo con el catálogo y sin esperarla.
+  const comprobacion = cargaInicial.indexOf("void controladorBolsas.cargarBolsas()");
+  const catalogo = cargaInicial.indexOf("await coordinadorModulos.cargarInterno(");
+  assert.ok(comprobacion > 0 && catalogo > comprobacion, "la comprobación de Bolsa debe lanzarse antes de esperar el catálogo");
+  assert.match(cargaInicial, /estado\.datosBolsas\?\.carga !== "listo"\) void controladorBolsas\.cargarBolsas\(\)/);
+  assert.doesNotMatch(cargaInicial, /await controladorBolsas/);
   const vistasSinLectura = javascript.match(/const VISTAS_BOLSA_SIN_LECTURA = new Set\(\[([\s\S]*?)\]\);/)?.[1] || "";
   assert.match(vistasSinLectura, /"contratos"/);
   assert.doesNotMatch(vistasSinLectura, /"seleccion-(?:inscripciones|pruebas|comunicaciones)"/);
+});
+
+// E10/P1: la API de borradores se comprueba al llegar el catálogo, sin esperar,
+// y solo si Bolsa figura en el catálogo de la sesión; al responder se repinta.
+test("la disponibilidad de borradores se comprueba al cargar solo con Bolsa en el catálogo", async () => {
+  const inicio = javascript.indexOf("function comprobarBorradoresTrasCatalogo()");
+  const fin = javascript.indexOf("function alCambiarModulos(", inicio);
+  assert.ok(inicio > 0 && fin > inicio);
+  const escenario = (catalogo, estadoAcceso) => {
+    const llamadas = [];
+    const comprobar = runInNewContext(`${javascript.slice(inicio, fin)}; comprobarBorradoresTrasCatalogo`, {
+      coordinadorModulos: { obtenerCatalogo: () => catalogo },
+      superficieBorradores: {
+        obtenerAcceso: () => ({ estado: estadoAcceso }),
+        comprobarDisponibilidad: (opciones) => { llamadas.push(opciones); return new Promise(() => {}); },
+      },
+    });
+    assert.equal(comprobar(), undefined, "no espera la respuesta");
+    return llamadas.length;
+  };
+  assert.equal(escenario([{ clave: "bolsa" }], "cargando"), 1);
+  assert.equal(escenario([{ clave: "cronos" }], "cargando"), 0, "sin Bolsa en el catálogo no hay sonda");
+  assert.equal(escenario([], "cargando"), 0);
+  assert.equal(escenario([{ clave: "bolsa" }], "disponible"), 0, "ya comprobada");
+  assert.equal(escenario([{ clave: "bolsa" }], "denegado"), 0);
+  // Se lanza al publicarse el catálogo y la superficie repinta menú e Inicio.
+  const cambio = javascript.slice(fin, javascript.indexOf("function anunciarAccesosComprobados(", fin));
+  assert.match(cambio, /if \(clave === "catalogo"\) comprobarBorradoresTrasCatalogo\(\);/u);
+  assert.match(javascript, /alCambiar: \(\) => \{\s+if \(estado\.vista === "portal"\) renderizarConservandoFoco\(\);\s+else if \(estado\.vista === "elaboracion"\) actualizarVistaBolsa\(\);\s+else actualizarNavegacionModulos\(\);/u);
+  // El menú refleja la capacidad: null mientras se comprueba, true o false después.
+  const ini = javascript.indexOf("function capacidadesBolsa()");
+  const capacidades = (acceso) => runInNewContext(`${javascript.slice(ini, javascript.indexOf("function vistaPermitida(", ini))}; capacidadesBolsa()`, {
+    superficieBorradores: { obtenerAcceso: () => acceso },
+    estado: { fuenteLista: false },
+    coordinadorModulos: { vistaDisponible: () => true },
+  }).borradores;
+  assert.equal(capacidades({ disponible: false, estado: "cargando" }), null);
+  assert.equal(capacidades({ disponible: true, estado: "disponible" }), true);
+  assert.equal(capacidades({ disponible: false, estado: "denegado" }), false);
+  assert.equal(capacidades({ disponible: false, estado: "error" }), false);
+});
+
+// E10/P2-2 y P2-4: sin código ni claves muertas del contexto de sesión, y la
+// sesión de la cabecera es un grupo con nombre traducible.
+test("la cabecera de sesión es un grupo i18n y no quedan restos del contexto interno", () => {
+  assert.doesNotMatch(panelInterno, /actualizarContextoSesion/u);
+  assert.doesNotMatch(catalogoI18n, /contexto_portal_|contratos_consulta_estado/u);
+  assert.equal(Object.keys(MENSAJES_PORTAL_ES).some((clave) => clave.startsWith("contexto_portal_")), false);
+  assert.match(html, /id="sesion-visible" role="group" aria-label="Sesión" data-i18n-portal-aria-label="sesion_etiqueta"/u);
+  assert.equal(traducirPortal("sesion_etiqueta"), "Sesión");
 });
 
 test("el arranque desconocido normaliza a portal sin sondear Bolsa", () => {
@@ -290,7 +347,7 @@ test("el coordinador respeta DEC-051 y carga el presentador con versión de cach
   exigirRenovado(javascript, "./portal-inicio.js", "20260924-f2-cronos-permisos-v2");
   exigirRenovado(javascript, "./portal-i18n.js", "20260924-rescate-web-v4");
   assert.match(javascript, /traducirPortal\("error_catalogo_modulos"\)/);
-  assert.match(javascript, /portal-bolsas-api\.js\?v=20260924-rescate-web-v4/);
+  exigirRenovado(javascript, "./portal-bolsas-api.js", "20260924-rescate-web-v4");
   exigirRenovado(javascript, "./portal-borradores-ui.js", "20260924-f2-cronos-permisos-v2");
   exigirRenovado(javascript, "./portal-eventos.js", "20260924-rescate-web-v4");
   assert.doesNotMatch(javascript, /import\("\.\/portal-resumen-presentacion\.js/);
@@ -466,4 +523,56 @@ test("la cabecera usa el logo institucional local, dimensionado y sin hotlink", 
   const rutaLogo = new URL("../assets/logo-diputacion-granada.svg", directorio);
   assert.ok((await stat(rutaLogo)).size > 10_000);
   assert.doesNotMatch(await readFile(rutaLogo, "utf8"), /<script\b|<foreignObject\b|\sonload=/i);
+});
+
+// E10/P2-3: la consulta de sesión no envía referente y tiene tiempo límite; al
+// vencer se aborta y rechaza, y el shell anula la promesa para reintentar.
+test("la sesión se consulta sin referente, con tiempo límite y abortable", async () => {
+  const { consultarSesionPortal, LIMITE_CONSULTA_SESION_MS } = await import("./portal-catalogo-modulos.js");
+  assert.ok(Number.isSafeInteger(LIMITE_CONSULTA_SESION_MS) && LIMITE_CONSULTA_SESION_MS > 0);
+  let vencer = null;
+  let limpiados = 0;
+  const temporizadores = {
+    setTimeout: (funcion, ms) => { assert.equal(ms, 50); vencer = funcion; return 7; },
+    clearTimeout: (id) => { assert.equal(id, 7); limpiados += 1; },
+  };
+  let opcionesPeticion = null;
+  const colgada = consultarSesionPortal({
+    limiteMs: 50, temporizadores,
+    fetchImpl: (_ruta, opciones) => new Promise((_resolver, rechazar) => {
+      opcionesPeticion = opciones;
+      opciones.signal.addEventListener("abort", () => rechazar(new DOMException("abortada", "AbortError")));
+    }),
+  });
+  assert.equal(opcionesPeticion.referrerPolicy, "no-referrer");
+  assert.equal(opcionesPeticion.signal.aborted, false);
+  vencer();
+  await assert.rejects(colgada, { name: "AbortError" });
+  assert.equal(opcionesPeticion.signal.aborted, true);
+  assert.equal(limpiados, 1, "el temporizador se retira también al fallar");
+
+  // Una señal externa abortada también cancela la consulta.
+  const externa = new AbortController();
+  const cancelada = consultarSesionPortal({
+    temporizadores: { setTimeout: () => 1, clearTimeout: () => {} },
+    signal: externa.signal,
+    fetchImpl: (_ruta, opciones) => new Promise((_resolver, rechazar) => {
+      opciones.signal.addEventListener("abort", () => rechazar(new DOMException("abortada", "AbortError")));
+    }),
+  });
+  externa.abort();
+  await assert.rejects(cancelada, { name: "AbortError" });
+  await assert.rejects(consultarSesionPortal({ limiteMs: 0, fetchImpl: async () => new Response("{}") }), TypeError);
+
+  // El perfil visible sale del catálogo i18n y un rol heredado del prototipo no cuela.
+  const { presentarSesionPortal } = await import("./portal-catalogo-modulos.js");
+  assert.equal(presentarSesionPortal({ nombre: "X", roles: ["constructor"] }).perfil, "");
+  assert.equal(presentarSesionPortal({ nombre: "X", roles: ["jefe_servicio"] }).perfil, "Jefatura");
+  const catalogo = await readFile(new URL("portal-catalogo-modulos.js", directorio), "utf8");
+  const perfiles = catalogo.match(/const PERFILES_VISIBLES = Object\.freeze\(\{([\s\S]*?)\}\);/u)?.[1] || "";
+  assert.ok(perfiles.length > 0);
+  for (const [, valor] of perfiles.matchAll(/: "([^"]+)"/gu)) assert.match(valor, /^perfil_sesion_[a-z]+$/u);
+
+  // El shell anula la promesa compartida en error o tiempo agotado.
+  assert.match(javascript, /promesaSesion \?\?= consultarSesionPortal\(\)\.catch\(\(error\) => \{ promesaSesion = null; throw error; \}\);/u);
 });
