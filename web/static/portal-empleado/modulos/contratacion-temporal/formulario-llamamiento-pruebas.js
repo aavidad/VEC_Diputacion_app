@@ -26,7 +26,7 @@ export function raizPrueba() {
     contains: () => true,
     replaceChildren() { this.innerHTML = ""; },
     querySelector(selector) {
-      const tipo = selector.match(/^\[data-ct-llamamiento-form="(seleccion|comunicacion|comunicacion_siguiente|respuesta|respuesta_siguiente|resolucion|resolucion_siguiente|siguiente|propuesta)"\]$/u)?.[1];
+      const tipo = selector.match(/^\[data-ct-llamamiento-form="(seleccion|comunicacion|comunicacion_siguiente|respuesta|respuesta_siguiente|resolucion|resolucion_siguiente|siguiente|propuesta|contacto|causa|expiracion)"\]$/u)?.[1];
       if (tipo) return borradores[tipo] ?? null;
       if (selector === "[data-ct-llamamiento-comunicacion]") return { open: false };
       return { focus: () => foco.push(selector), scrollIntoView() {} };

@@ -64,6 +64,8 @@ func registrarFalloContratacion(r *http.Request, estado int, codigo, correlacion
 			ruta, operacion = RutaRegistroComunicacionLlamamiento, "registro_comunicacion_llamamiento"
 		case RutaRegistroRespuestaRecibida:
 			ruta, operacion = RutaRegistroRespuestaRecibida, "registro_respuesta_recibida"
+		case RutaEventoPlazoLlamamiento:
+			ruta, operacion = RutaEventoPlazoLlamamiento, "evento_plazo_llamamiento"
 		case RutaResolucionComunicacionLlamamiento:
 			ruta, operacion = RutaResolucionComunicacionLlamamiento, "resolucion_comunicacion_llamamiento"
 		case RutaResolucionFormalizacion:

@@ -203,10 +203,12 @@ func (s SolicitudResolverLlamamiento) Validar() error {
 
 // RevisionManualConfirmada expresa las dos revisiones declaradas por RRHH.
 // No verifica por sí sola el correo ni acredita una política o un plazo legal.
+// En la expiración gobernada equivale a que RRHH confirma la propuesta de VEC
+// (no aceptación y siguiente candidato) tras revisar el vencimiento.
 func (s SolicitudResolverLlamamiento) RevisionManualConfirmada() bool {
 	return s.RevisionRespuestaRRHH && s.RevisionPlazoRRHH &&
-		domain.ReferenciaOpacaValida(s.CriterioValidacionRef) &&
-		(s.Respuesta == RespuestaLlamamientoAceptada || s.Respuesta == RespuestaLlamamientoRenunciada) && s.VersionEsperada == 2
+		domain.ReferenciaOpacaValida(s.CriterioValidacionRef) && s.Respuesta.Valida() && s.VersionEsperada == 2 &&
+		(s.Respuesta == RespuestaLlamamientoExpirada) == (s.PruebaRespuestaRef == "")
 }
 
 // ParaConsultaJustificante conserva el contrato de ocho campos del lector.
@@ -284,18 +286,23 @@ func (i IntencionOutboxSiguienteCandidato) vacia() bool {
 
 // ResultadoResolucionLlamamiento acredita solo el commit local de la
 // respuesta. Una intencion outbox no acredita que Bolsa haya sido invocada.
+// RespuestaHasta solo existe si RRHH registró el contacto efectivo; una
+// respuesta tardía admitida conserva la causa acreditada que la admitió.
 type ResultadoResolucionLlamamiento struct {
-	Solicitud          SolicitudResolverLlamamiento
-	Politica           ReferenciaGobernadaComunicacionLlamamiento
-	EvaluacionPlazoRef string
-	EstadoPlazo        EstadoPlazoLlamamiento
-	ResolucionRef      string
-	ReciboLocalRef     string
-	AuditoriaRef       string
-	IntencionSiguiente IntencionOutboxSiguienteCandidato
-	VersionResultante  uint64
-	ResueltaEn         time.Time
-	Estado             EstadoResultadoComunicacionLlamamiento
+	Solicitud             SolicitudResolverLlamamiento
+	Politica              ReferenciaGobernadaComunicacionLlamamiento
+	EvaluacionPlazoRef    string
+	EstadoPlazo           EstadoPlazoLlamamiento
+	ResolucionRef         string
+	ReciboLocalRef        string
+	AuditoriaRef          string
+	IntencionSiguiente    IntencionOutboxSiguienteCandidato
+	VersionResultante     uint64
+	ResueltaEn            time.Time
+	Estado                EstadoResultadoComunicacionLlamamiento
+	RespuestaHasta        time.Time `json:",omitzero"`
+	RespuestaFueraDePlazo bool      `json:",omitempty"`
+	CausaJustificadaRef   string    `json:",omitempty"`
 }
 
 func (r ResultadoResolucionLlamamiento) ValidarPara(
@@ -316,6 +323,11 @@ func (r ResultadoResolucionLlamamiento) ValidarPara(
 			r.IntencionSiguiente.Estado != OutboxSiguienteCandidatoPendiente) {
 		return ErrResultadoComunicacionLlamamientoNoConfiable
 	}
+	if (!r.RespuestaHasta.IsZero() && !domain.InstanteUTCCanonico(r.RespuestaHasta)) ||
+		(r.RespuestaFueraDePlazo && r.RespuestaHasta.IsZero()) ||
+		(r.CausaJustificadaRef != "" && (!r.RespuestaFueraDePlazo || !domain.ReferenciaOpacaValida(r.CausaJustificadaRef))) {
+		return ErrResultadoComunicacionLlamamientoNoConfiable
+	}
 	switch solicitud.Respuesta {
 	case RespuestaLlamamientoAceptada:
 		if r.EstadoPlazo != PlazoLlamamientoVigente || !r.IntencionSiguiente.vacia() {
@@ -331,7 +343,8 @@ func (r ResultadoResolucionLlamamiento) ValidarPara(
 			return ErrResultadoComunicacionLlamamientoNoConfiable
 		}
 	case RespuestaLlamamientoExpirada:
-		if r.EstadoPlazo != PlazoLlamamientoExpirado ||
+		if r.EstadoPlazo != PlazoLlamamientoExpirado || r.RespuestaHasta.IsZero() ||
+			r.RespuestaFueraDePlazo || r.CausaJustificadaRef != "" || r.ResueltaEn.Before(r.RespuestaHasta) ||
 			r.IntencionSiguiente.ValidarPara(
 				solicitud,
 				r.ResolucionRef,

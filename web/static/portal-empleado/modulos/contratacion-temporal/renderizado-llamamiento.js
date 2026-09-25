@@ -1,12 +1,13 @@
 import { escaparHTML as e } from "./componentes-expedientes.js";
 import { renderizarResumenPropuestaFormalizacion } from "./formulario-propuesta-formalizacion.js";
+import { lecturaPlazoLlamamiento, renderizarPlazoLlamamiento } from "./renderizado-plazo-llamamiento.js";
 import { CAMPOS_SELECCION, CAMPOS_COMUNICACION,
   CAMPOS_RESPUESTA_RECIBIDA, CAMPOS_RESPUESTA_EDITABLES, CAMPOS_RESOLUCION,
   CAMPOS_REVISION_RESOLUCION, RESPUESTAS_RESOLUCION,
   CAMPOS_SIGUIENTE, CAMPOS_RECIBO_SIGUIENTE, CAMPOS_PROPUESTA, CAMPOS_RECIBO_PROPUESTA,
   PUBLICACIONES_FORMALIZACION } from "./contrato-llamamiento.js";
 
-export function renderizarLlamamiento(estado, t, fecha) {
+export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
   const esRespuesta = (operacion) => ["respuesta", "respuesta_siguiente"].includes(operacion);
   const esResolucion = (operacion) => ["resolucion", "resolucion_siguiente"].includes(operacion);
   function tiempoVisible(valor) {
@@ -21,7 +22,8 @@ export function renderizarLlamamiento(estado, t, fecha) {
     const esSucesor = Boolean(estado.siguiente?.recibo);
     const declaracion = estado[esSucesor ? "respuesta_siguiente" : "respuesta"].recibo;
     const resolucion = estado[esSucesor ? "resolucion_siguiente" : "resolucion"].recibo;
-    if (!declaracion && !resolucion) return "";
+    const expiracion = esSucesor ? null : estado.expiracion?.recibo;
+    if (!declaracion && !resolucion && !expiracion) return "";
     const declaracionTexto = declaracion
       ? t("llamamiento_resultado_declaracion_registrada", {
         respuesta: t("llamamiento_respuesta_" + declaracion.respuesta),
@@ -31,10 +33,14 @@ export function renderizarLlamamiento(estado, t, fecha) {
       ? t("llamamiento_resultado_circuito_confirmado", {
         respuesta: t("llamamiento_resolucion_" + resolucion.respuesta),
       })
-      : t("llamamiento_resultado_circuito_pendiente");
+      : expiracion ? t("llamamiento_expiracion_recibo") : t("llamamiento_resultado_circuito_pendiente");
     const declaradaEn = tiempoVisible(declaracion?.registrada_en);
     const resueltaEn = tiempoVisible(resolucion?.resuelta_en);
     let siguiente = t("llamamiento_resultado_siguiente_resolucion");
+    const plazo = esSucesor ? null : lecturaPlazoLlamamiento(estado, ahora);
+    const vencimiento = plazo
+      ? `${tiempoVisible(plazo.plazo.respuesta_hasta)} · ${e(t("llamamiento_plazo_" + plazo.situacion))}`
+      : e(t("llamamiento_resultado_vencimiento_no_evaluable"));
     if (resolucion?.respuesta === "renuncia") {
       siguiente = t(esSucesor
         ? "llamamiento_resultado_sucesor_renuncia_pendiente"
@@ -52,7 +58,7 @@ export function renderizarLlamamiento(estado, t, fecha) {
         ${declaradaEn ? `<div><dt>${e(t("llamamiento_resultado_declarada_en"))}</dt><dd>${declaradaEn}</dd></div>` : ""}
         <div><dt>${e(t("llamamiento_resultado_circuito"))}</dt><dd>${e(resolucionTexto)}</dd></div>
         ${resueltaEn ? `<div><dt>${e(t("llamamiento_resultado_resuelta_en"))}</dt><dd>${resueltaEn}</dd></div>` : ""}
-        <div><dt>${e(t("llamamiento_resultado_vencimiento"))}</dt><dd>${e(t("llamamiento_resultado_vencimiento_no_evaluable"))}</dd></div>
+        <div><dt>${e(t("llamamiento_resultado_vencimiento"))}</dt><dd>${vencimiento}</dd></div>
         <div><dt>${e(t("llamamiento_resultado_siguiente"))}</dt><dd>${e(siguiente)}</dd></div></dl>
       <p>${e(t("llamamiento_resultado_limite"))}</p>
     </section>`;
@@ -206,7 +212,8 @@ export function renderizarLlamamiento(estado, t, fecha) {
       ${estado.seleccion.recibo ? formulario("comunicacion", CAMPOS_COMUNICACION)
         : `<p role="status">${e(t("llamamiento_espera_seleccion"))}</p>`}
     </details>
-    ${estado.comunicacion.recibo?.version_resultante === 2
+    ${renderizarPlazoLlamamiento(estado, t, tiempoVisible, ahora)}
+    ${estado.comunicacion.recibo?.version_resultante === 2 && !estado.expiracion?.recibo
       ? formulario("respuesta", CAMPOS_RESPUESTA_RECIBIDA) : ""}
     ${RESPUESTAS_RESOLUCION.includes(estado.respuesta.recibo?.respuesta)
       ? formulario("resolucion", CAMPOS_RESOLUCION) : ""}

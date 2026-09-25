@@ -453,6 +453,9 @@ func resolucionAplicacionPrueba(
 		AuditoriaRef:      "auditoria:aplicacion-resolucion",
 		VersionResultante: solicitud.VersionEsperada + 1, ResueltaEn: resuelta, Estado: estado,
 	}
+	if solicitud.Respuesta == ports.RespuestaLlamamientoExpirada {
+		resultado.RespuestaHasta = resuelta.Add(-time.Hour)
+	}
 	if estadoOutbox != nil {
 		resultado.IntencionSiguiente = ports.IntencionOutboxSiguienteCandidato{
 			Solicitud: solicitud, ResolucionRef: resultado.ResolucionRef,

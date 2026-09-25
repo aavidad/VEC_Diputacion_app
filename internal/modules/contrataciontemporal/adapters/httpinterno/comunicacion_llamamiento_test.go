@@ -253,6 +253,7 @@ func resolucionComunicacionHTTPPrueba(
 	}
 	if solicitud.Respuesta == ports.RespuestaLlamamientoExpirada {
 		resultado.EstadoPlazo = ports.PlazoLlamamientoExpirado
+		resultado.RespuestaHasta = resuelta.Add(-time.Hour)
 	}
 	resultado.IntencionSiguiente = ports.IntencionOutboxSiguienteCandidato{
 		Solicitud:         solicitud,

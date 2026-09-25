@@ -31,6 +31,8 @@ func (a *autorizadorLlamamientoDesarrollo) modoResolucionOContinuacionValido(rut
 		return cuenta == 1 && !a.comunicacion && !a.respuestaRecibida && !a.resolucionManual && !a.aceptacionBolsa && !a.renunciaBolsa && !a.propuestaFormalizacion
 	case httpinterno.RutaPropuestaFormalizacion:
 		return cuenta == 1 && a.propuestaFormalizacion && !a.comunicacion && !a.respuestaRecibida
+	case httpinterno.RutaEventoPlazoLlamamiento:
+		return cuenta == 1 && a.resolucionManual && !a.comunicacion && !a.respuestaRecibida
 	default:
 		return cuenta == 0
 	}

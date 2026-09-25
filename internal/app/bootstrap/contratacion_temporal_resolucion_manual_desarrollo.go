@@ -31,6 +31,9 @@ type aceptacionRevisadaDesarrollo struct {
 	solicitud    ports.SolicitudResolverLlamamiento
 	justificante ports.JustificanteRespuestaRecibida
 	local        ports.ResultadoResolucionLlamamiento
+	// politica es la que la raíz resolvió para este criterio (histórica o
+	// regla vigente del catálogo); la autorización la liga al material.
+	politica ports.ReferenciaGobernadaComunicacionLlamamiento
 }
 
 type aceptadorRespuestaRRHHDesarrollo interface {
@@ -68,7 +71,11 @@ func (p *proveedorComunicacionLlamamientoDesarrollo) PrepararResolucionManual(ct
 	vacio := postgresct.MaterialResolucionManualLlamamiento{}
 	if p == nil || contextoInterfazNulo(ctx) || p.soporte == nil ||
 		dependenciaEsNulaContratacionTemporalDesarrollo(p.reloj) || s.Validar() != nil ||
-		!s.RevisionManualConfirmada() || s.CriterioValidacionRef != criterioRevisionManualDesarrollo {
+		!s.RevisionManualConfirmada() {
+		return vacio, ports.ErrOperacionComunicacionLlamamientoDenegada
+	}
+	politica, err := p.soporte.politicaResolucionDesarrollo(ctx, s)
+	if err != nil {
 		return vacio, ports.ErrOperacionComunicacionLlamamientoDenegada
 	}
 	if err := ctx.Err(); err != nil {
@@ -78,14 +85,28 @@ func (p *proveedorComunicacionLlamamientoDesarrollo) PrepararResolucionManual(ct
 	preparacion, preparada := ctx.Value(clavePreparacionLlamamientoDesarrollo{}).(preparacionLlamamientoDesarrollo)
 	ligada, existe := ctx.Value(claveResolucionManualDesarrollo{}).(aceptacionRevisadaDesarrollo)
 	if !valida || c.ruta != httpinterno.RutaResolucionComunicacionLlamamiento ||
-		!preparada || !existe || ligada.solicitud != s || ligada.justificante.ValidarPara(s) != nil ||
-		!consultaJustificanteLigadaAlExpedienteDesarrollo(preparacion.expediente, s) {
+		!preparada || !existe || ligada.solicitud != s || ligada.politica != politica ||
+		!resolucionLigadaAlExpedienteDesarrollo(preparacion.expediente, ligada) {
 		return vacio, ports.ErrOperacionComunicacionLlamamientoDenegada
 	}
 	if _, _, vigente := ventanaAutoridadSinteticaContratacionTemporalDesarrollo(p.reloj.Ahora()); !vigente {
 		return vacio, ports.ErrOperacionComunicacionLlamamientoDenegada
 	}
-	return postgresct.MaterialResolucionManualLlamamiento{Solicitud: s, Politica: politicaManualDesarrollo()}, nil
+	return postgresct.MaterialResolucionManualLlamamiento{Solicitud: s, Politica: politica}, nil
+}
+
+// resolucionLigadaAlExpedienteDesarrollo: una respuesta exige su justificante
+// consultado; la expiración gobernada no tiene respuesta personal y solo liga
+// el expediente fiscalizado. CT111 comprueba el aviso, el contacto y el plazo.
+func resolucionLigadaAlExpedienteDesarrollo(e ports.ExpedienteParaSeleccion, l aceptacionRevisadaDesarrollo) bool {
+	if l.solicitud.Respuesta == ports.RespuestaLlamamientoExpirada {
+		return l.solicitud.Validar() == nil && l.solicitud.VersionEsperada == 2 && l.justificante == (ports.JustificanteRespuestaRecibida{}) &&
+			e.Fiscalizado.Validar() == nil &&
+			expedienteComunicacionLlamamientoDesarrolloValido(e, ports.SolicitudRegistrarComunicacionLlamamiento{
+				OrganizacionRef: l.solicitud.OrganizacionRef, ExpedienteRef: l.solicitud.ExpedienteRef,
+			})
+	}
+	return l.justificante.ValidarPara(l.solicitud) == nil && consultaJustificanteLigadaAlExpedienteDesarrollo(e, l.solicitud)
 }
 
 func (p *proveedorComunicacionLlamamientoDesarrollo) AutorizarResolucionManual(ctx context.Context, m postgresct.MaterialResolucionManualLlamamiento) (puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
@@ -117,7 +138,11 @@ func (p *proveedorComunicacionLlamamientoDesarrollo) AutorizarResolucionManual(c
 
 func (e *ejecutorComunicacionLlamamientoDesarrollo) resolverConRevisionManual(ctx context.Context, s ports.SolicitudResolverLlamamiento, j ports.JustificanteRespuestaRecibida) (ports.ResultadoResolucionLlamamiento, error) {
 	vacio := ports.ResultadoResolucionLlamamiento{}
-	if s.CriterioValidacionRef != criterioRevisionManualDesarrollo || !s.RevisionManualConfirmada() || j.ValidarPara(s) != nil {
+	politica, err := e.soporte.politicaResolucionDesarrollo(ctx, s)
+	if err != nil {
+		return vacio, application.ErrComunicacionLlamamientoDenegada
+	}
+	if s.Respuesta == ports.RespuestaLlamamientoExpirada || !s.RevisionManualConfirmada() || j.ValidarPara(s) != nil {
 		return vacio, application.ErrComunicacionLlamamientoDenegada
 	}
 	if dependenciaEsNulaContratacionTemporalDesarrollo(e.servicio) || dependenciaEsNulaContratacionTemporalDesarrollo(e.aceptador) {
@@ -129,13 +154,13 @@ func (e *ejecutorComunicacionLlamamientoDesarrollo) resolverConRevisionManual(ct
 		copia := *j.Continuacion
 		j.Continuacion = &copia
 	}
-	ligada := aceptacionRevisadaDesarrollo{solicitud: s, justificante: j}
+	ligada := aceptacionRevisadaDesarrollo{solicitud: s, justificante: j, politica: politica}
 	ctx = context.WithValue(ctx, claveResolucionManualDesarrollo{}, ligada)
 	local, err := e.servicio.Resolver(ctx, s)
 	if err != nil {
 		return vacio, err
 	}
-	if local.ValidarPara(s) != nil || local.Politica != politicaManualDesarrollo() || local.ResueltaEn.Before(j.Respuesta.RegistradaEn) {
+	if local.ValidarPara(s) != nil || local.Politica != politica || local.ResueltaEn.Before(j.Respuesta.RegistradaEn) {
 		return vacio, application.ErrResultadoComunicacionLlamamientoNoConfiable
 	}
 	// El commit CT queda durable incluso si Bolsa falla. No hay compensación
@@ -227,8 +252,7 @@ func (p *puenteBolsaLlamamientoDesarrollo) fuenteResolucionSucesorLigada(ctx con
 	}
 	if err != nil || !existe || terminal.Tipo != "renuncia_rrhh" || terminal.Resolucion == nil ||
 		terminal.OperacionRef != b.TerminalOperacionRef || terminal.Resolucion.AperturaOperacionRef != raiz.OperacionRef ||
-		terminal.Resolucion.PoliticaRef != criterioRevisionManualDesarrollo ||
-		terminal.Resolucion.PoliticaVersion != 1 || terminal.Resolucion.PoliticaSHA256 != politicaManualDesarrollo().HuellaSHA256 ||
+		!politicaResolucionAdmitidaDesarrollo(terminal.Resolucion.PoliticaRef, terminal.Resolucion.PoliticaVersion, terminal.Resolucion.PoliticaSHA256) ||
 		terminal.Resolucion.ResueltaEn.Before(j.Seleccion.ConfirmadaEn) || terminal.Resolucion.ResueltaEn.After(apertura.Propuesta.GeneradaEn) {
 		return nil, ports.ErrRespuestaBolsaNoConfiable
 	}
@@ -265,12 +289,15 @@ func (p *puenteBolsaLlamamientoDesarrollo) fuenteResolucionSucesorLigada(ctx con
 func solicitudAutorizacionResolucionManualDesarrolloValida(ctx context.Context, datos dominiovec.DatosSolicitudAutorizacionLigadaV3, p preparacionLlamamientoDesarrollo) bool {
 	if datos.Accion == postgresct.AccionResolucionManualLlamamiento {
 		l, ok := ctx.Value(claveResolucionManualDesarrollo{}).(aceptacionRevisadaDesarrollo)
-		if !ok || !l.solicitud.RevisionManualConfirmada() || l.solicitud.CriterioValidacionRef != criterioRevisionManualDesarrollo ||
-			l.justificante.ValidarPara(l.solicitud) != nil || !consultaJustificanteLigadaAlExpedienteDesarrollo(p.expediente, l.solicitud) ||
+		if !ok || !l.solicitud.RevisionManualConfirmada() || !resolucionLigadaAlExpedienteDesarrollo(p.expediente, l) ||
 			datos.ReferenciaMotivo != motivoResolucionManualDesarrollo(false) {
 			return false
 		}
-		esperado, err := postgresct.RecursoResolucionManualLlamamiento(postgresct.MaterialResolucionManualLlamamiento{Solicitud: l.solicitud, Politica: politicaManualDesarrollo()})
+		if l.politica.Validar() != nil || l.politica.Referencia != l.solicitud.CriterioValidacionRef ||
+			!politicaResolucionAdmitidaDesarrollo(l.politica.Referencia, l.politica.Version, l.politica.HuellaSHA256) {
+			return false
+		}
+		esperado, err := postgresct.RecursoResolucionManualLlamamiento(postgresct.MaterialResolucionManualLlamamiento{Solicitud: l.solicitud, Politica: l.politica})
 		r := datos.Recurso
 		return err == nil && r.Referencia == esperado.Referencia && r.ModuloID == esperado.ModuloID && r.Tipo == esperado.Tipo &&
 			maps.Equal(r.Ambitos, esperado.Ambitos) && maps.Equal(r.Atributos, esperado.Atributos)
@@ -278,7 +305,8 @@ func solicitudAutorizacionResolucionManualDesarrolloValida(ctx context.Context, 
 	l, ok := ctx.Value(claveAceptacionRevisadaDesarrollo{}).(aceptacionRevisadaDesarrollo)
 	if !ok || !l.solicitud.RevisionManualConfirmada() || l.justificante.ValidarPara(l.solicitud) != nil ||
 		!consultaJustificanteLigadaAlExpedienteDesarrollo(p.expediente, l.solicitud) ||
-		l.local.ValidarPara(l.solicitud) != nil || l.local.Politica != politicaManualDesarrollo() {
+		l.local.ValidarPara(l.solicitud) != nil ||
+		!politicaResolucionAdmitidaDesarrollo(l.local.Politica.Referencia, l.local.Politica.Version, l.local.Politica.HuellaSHA256) {
 		return false
 	}
 	accion, motivo := puertosbolsa.AccionAceptarLlamamientoRRHHDesarrollo, motivoResolucionManualDesarrollo(true)
@@ -321,7 +349,8 @@ func (s *soporteAltaContratacionTemporalDesarrollo) motivoAutorizacionParaContex
 			}
 		}
 	}
-	if (ruta == httpinterno.RutaResolucionComunicacionLlamamiento || ruta == httpinterno.RutaContinuacionLlamamiento) && ctx != nil {
+	if (ruta == httpinterno.RutaResolucionComunicacionLlamamiento || ruta == httpinterno.RutaContinuacionLlamamiento ||
+		ruta == httpinterno.RutaEventoPlazoLlamamiento) && ctx != nil {
 		d, ok := ctx.Value(claveSolicitudAutorizacionContratacionTemporalDesarrollo{}).(dominiovec.DatosSolicitudAutorizacionLigadaV3)
 		if !ok || !solicitudAutorizacionLlamamientoDesarrolloValida(ctx, ruta, d) {
 			return dominiovec.ReferenciaEntradaCatalogo{}, false

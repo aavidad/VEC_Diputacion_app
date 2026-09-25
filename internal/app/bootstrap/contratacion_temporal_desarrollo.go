@@ -243,6 +243,9 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	}
 	dependencias.reglasEjemplo = reglasEjemplo
 	reglasBolsa := reglasEjemplo.bolsa
+	// El plazo de respuesta del llamamiento lo rige el Reglamento de bolsas:
+	// se gobierna con el catálogo de reglas de Bolsa.
+	reglasLlamamiento := reglasEjemplo.bolsa
 	dependencias.plazosFase = nuevaCalculadoraPlazoFaseCT(reglasEjemplo.contratacionTemporal)
 	if err := dependencias.cfg.ContratacionTemporalPostgreSQL.ValidarIdentidadOperativa(); err != nil {
 		return nil, nil, nil, err
@@ -265,6 +268,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	alta.soporte.reglasPlazo = reglasPlazoLlamamientoDesarrollo{resolutor: reglasLlamamiento}
 	cerrarAlta := true
 	defer func() {
 		if cerrarAlta {
@@ -369,12 +373,17 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	var propuestaReal httpinterno.EjecutorPropuestaFormalizacion = noCompuesta
 	var comunicacionReal http.Handler
 	var respuestaRecibidaReal http.Handler
+	var eventoPlazoReal http.Handler
 	if alta.postgresql.bolsa != nil {
 		seleccionReal, comunicacionReal, err = nuevasDependenciasLlamamientoContratacionTemporalDesarrollo(cfg, &alta, derivador, reloj, origen.etiquetasReferenciasCatalogosAlta())
 		if err != nil {
 			return nil, nil, nil, err
 		}
 		respuestaRecibidaReal, err = nuevoManejadorRespuestaRecibidaDesarrollo(&alta, reloj)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		eventoPlazoReal, err = nuevoManejadorEventoPlazoDesarrollo(&alta, reloj)
 		if err != nil {
 			return nil, nil, nil, err
 		}
@@ -599,6 +608,9 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	}
 	if respuestaRecibidaReal != nil {
 		rutas = append(rutas, vechttp.RutaExacta{Ruta: httpinterno.RutaRegistroRespuestaRecibida, Manejador: respuestaRecibidaReal})
+	}
+	if eventoPlazoReal != nil {
+		rutas = append(rutas, vechttp.RutaExacta{Ruta: httpinterno.RutaEventoPlazoLlamamiento, Manejador: eventoPlazoReal})
 	}
 	rutasBorrador := []vechttp.RutaExacta(nil)
 	coleccionesBorrador := []vechttp.RutaColeccion(nil)

@@ -441,6 +441,8 @@ func (s *soporteAltaContratacionTemporalDesarrollo) motivoAutorizacionParaRuta(
 		return motivoResolucionFormalizacionDesarrollo(), true
 	case httpinterno.RutaRegistroRespuestaRecibida:
 		return s.motivoRespuestaRecibida, dominiovec.ReferenciaMotivoAutorizacionV2Valida(s.motivoRespuestaRecibida)
+	case httpinterno.RutaEventoPlazoLlamamiento:
+		return motivoResolucionManualDesarrollo(false), true
 	case httpinterno.RutaSubsanacionReparos:
 		return s.motivoSubsanacion, dominiovec.ReferenciaMotivoAutorizacionV2Valida(s.motivoSubsanacion)
 	default:
@@ -500,6 +502,9 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaRuta(
 	}
 	if ruta == httpinterno.RutaRegistroRespuestaRecibida {
 		return clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantaneaRespuestaRecibida), s.instantaneaRespuestaRecibida.Validar() == nil
+	}
+	if ruta == httpinterno.RutaEventoPlazoLlamamiento {
+		return clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantaneaResolucionManual), s.instantaneaResolucionManual.Validar() == nil
 	}
 	if ruta == httpinterno.RutaSubsanacionReparos {
 		return clonarInstantaneaAutorizacionAltaContratacionTemporalDesarrollo(s.instantaneaSubsanacion), s.instantaneaSubsanacion.Validar() == nil

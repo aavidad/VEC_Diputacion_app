@@ -535,11 +535,14 @@ for (const opcion of ["aceptacion", "renuncia"]) test(`solicitud ${opcion} exige
     { estado_plazo: "vigente" }, { actor_ref: "actor:inventado" }, { politica_ref: "politica:inventada" },
     { evaluacion_plazo_ref: "evaluacion:inventada" }, { correo_sha256: "a".repeat(64) },
     { prueba_respuesta_ref: "persona@example.invalid" }, { clave_idempotencia: "otra" },
-    { criterio_validacion_ref: "politica:inventada" }, { criterio_validacion_ref: "" },
+    { criterio_validacion_ref: "no es referencia" }, { criterio_validacion_ref: "" },
     ...["revision_respuesta_rrhh", "revision_plazo_rrhh"].flatMap((campo) =>
       [false, "true", "false", 1, null, undefined].map((valor) => ({ [campo]: valor })))]) {
     assert.throws(() => cliente.resolverLlamamiento({ ...solicitud, ...cambio }), TypeError);
   }
+  // El criterio del catálogo llega con el recibo del contacto; el servidor decide si lo admite.
+  assert.equal(validarSolicitudResolucionLlamamiento({ ...solicitud,
+    criterio_validacion_ref: "vec.bolsa.reglas:1:b07.fuera_de_plazo" }).criterio_validacion_ref, "vec.bolsa.reglas:1:b07.fuera_de_plazo");
   for (const campo of CAMPOS_RESOLUCION) {
     const incompleta = { ...solicitud }; delete incompleta[campo];
     assert.throws(() => validarSolicitudResolucionLlamamiento(incompleta), TypeError);

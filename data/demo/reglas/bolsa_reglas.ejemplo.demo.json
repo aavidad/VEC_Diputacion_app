@@ -142,7 +142,8 @@
           "norma": "Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002), art. 10.",
           "duda": "Dudas 13 y 14.",
           "unidad": "ninguna",
-          "vigencia": "Entrada en vigor calculada: el texto íntegro se publicó en el BOP n.º 9 de 16/01/2026; el art. 70.2 de la Ley 7/1985 exige además que transcurran los 15 días hábiles del art. 65.2, contados aquí desde el día siguiente a esa publicación (sin sábados, domingos ni festivos, art. 30.2 de la Ley 39/2015): terminan el 06/02/2026 y el Reglamento rige desde el 07/02/2026 (00:00, hora peninsular). La modificación del BOP n.º 91 de 14/05/2026 cita el Reglamento como publicado en los BOP de 16/01/2026 y 27/01/2026; si el anuncio del 27/01/2026 completó o corrigió el texto, el cómputo empezaría ese día y la fecha pasaría al 18/02/2026. Pendiente de confirmar por RRHH."
+          "vigencia": "Entrada en vigor calculada: el texto íntegro se publicó en el BOP n.º 9 de 16/01/2026; el art. 70.2 de la Ley 7/1985 exige además que transcurran los 15 días hábiles del art. 65.2, contados aquí desde el día siguiente a esa publicación (sin sábados, domingos ni festivos, art. 30.2 de la Ley 39/2015): terminan el 06/02/2026 y el Reglamento rige desde el 07/02/2026 (00:00, hora peninsular). La modificación del BOP n.º 91 de 14/05/2026 cita el Reglamento como publicado en los BOP de 16/01/2026 y 27/01/2026; si el anuncio del 27/01/2026 completó o corrigió el texto, el cómputo empezaría ese día y la fecha pasaría al 18/02/2026. Pendiente de confirmar por RRHH.",
+          "tratamiento": "exige_causa_justificada"
         },
         "orden": 8
       },
@@ -158,7 +159,8 @@
           "unidad": "ninguna",
           "articulo": "art. 11.1.a",
           "ejemplo_parcial": "El Reglamento no dice que no responder equivalga a no aceptar: tratar la falta de respuesta dentro del plazo como no aceptación es un supuesto de ejemplo. También lo es que VEC proponga la baja y RRHH la confirme.",
-          "vigencia": "Entrada en vigor calculada: el texto íntegro se publicó en el BOP n.º 9 de 16/01/2026; el art. 70.2 de la Ley 7/1985 exige además que transcurran los 15 días hábiles del art. 65.2, contados aquí desde el día siguiente a esa publicación (sin sábados, domingos ni festivos, art. 30.2 de la Ley 39/2015): terminan el 06/02/2026 y el Reglamento rige desde el 07/02/2026 (00:00, hora peninsular). La modificación del BOP n.º 91 de 14/05/2026 cita el Reglamento como publicado en los BOP de 16/01/2026 y 27/01/2026; si el anuncio del 27/01/2026 completó o corrigió el texto, el cómputo empezaría ese día y la fecha pasaría al 18/02/2026. Pendiente de confirmar por RRHH."
+          "vigencia": "Entrada en vigor calculada: el texto íntegro se publicó en el BOP n.º 9 de 16/01/2026; el art. 70.2 de la Ley 7/1985 exige además que transcurran los 15 días hábiles del art. 65.2, contados aquí desde el día siguiente a esa publicación (sin sábados, domingos ni festivos, art. 30.2 de la Ley 39/2015): terminan el 06/02/2026 y el Reglamento rige desde el 07/02/2026 (00:00, hora peninsular). La modificación del BOP n.º 91 de 14/05/2026 cita el Reglamento como publicado en los BOP de 16/01/2026 y 27/01/2026; si el anuncio del 27/01/2026 completó o corrigió el texto, el cómputo empezaría ese día y la fecha pasaría al 18/02/2026. Pendiente de confirmar por RRHH.",
+          "confirmacion": "rrhh"
         },
         "orden": 9
       },
@@ -174,7 +176,8 @@
           "unidad": "ninguna",
           "articulo": "art. 8.2.b",
           "ejemplo_parcial": "La confirmación por RRHH es un circuito de ejemplo.",
-          "vigencia": "Entrada en vigor calculada: el texto íntegro se publicó en el BOP n.º 9 de 16/01/2026; el art. 70.2 de la Ley 7/1985 exige además que transcurran los 15 días hábiles del art. 65.2, contados aquí desde el día siguiente a esa publicación (sin sábados, domingos ni festivos, art. 30.2 de la Ley 39/2015): terminan el 06/02/2026 y el Reglamento rige desde el 07/02/2026 (00:00, hora peninsular). La modificación del BOP n.º 91 de 14/05/2026 cita el Reglamento como publicado en los BOP de 16/01/2026 y 27/01/2026; si el anuncio del 27/01/2026 completó o corrigió el texto, el cómputo empezaría ese día y la fecha pasaría al 18/02/2026. Pendiente de confirmar por RRHH."
+          "vigencia": "Entrada en vigor calculada: el texto íntegro se publicó en el BOP n.º 9 de 16/01/2026; el art. 70.2 de la Ley 7/1985 exige además que transcurran los 15 días hábiles del art. 65.2, contados aquí desde el día siguiente a esa publicación (sin sábados, domingos ni festivos, art. 30.2 de la Ley 39/2015): terminan el 06/02/2026 y el Reglamento rige desde el 07/02/2026 (00:00, hora peninsular). La modificación del BOP n.º 91 de 14/05/2026 cita el Reglamento como publicado en los BOP de 16/01/2026 y 27/01/2026; si el anuncio del 27/01/2026 completó o corrigió el texto, el cómputo empezaría ese día y la fecha pasaría al 18/02/2026. Pendiente de confirmar por RRHH.",
+          "confirmacion": "rrhh"
         },
         "orden": 10
       },
