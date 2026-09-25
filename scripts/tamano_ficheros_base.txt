@@ -90,7 +90,7 @@
 1068 web/static/portal-empleado/modulos/contratacion-temporal/montaje-formulario-analisis.test.mjs
 826 web/static/portal-empleado/modulos/contratacion-temporal/formulario-analisis.js
 1719 web/static/portal-empleado/modulos/dietas/dietas.css
-1518 web/static/portal-empleado/modulos/dietas/vista-borradores-propios.test.mjs
+1548 web/static/portal-empleado/modulos/dietas/vista-borradores-propios.test.mjs
 1024 web/static/portal-empleado/portal-modulos-coordinador.js
 901 web/static/portal-empleado/portal-modulos-coordinador.test.mjs
 945 web/static/portal-empleado/portal-componentes.css
@@ -98,7 +98,7 @@
 1132 web/static/portal-empleado/portal-bolsas-api.js
 824 web/static/portal-empleado/portal-panel-interno.js
 3053 web/static/styles.css
-1826 web/static/portal-empleado/modulos/dietas/vista-borradores-propios.js
+1856 web/static/portal-empleado/modulos/dietas/vista-borradores-propios.js
 813 internal/app/server/server_test.go
 1255 deploy/postgresql/contexto_actor_v1/migraciones/000007_alcance_proyecciones_empleado.up.sql
 1274 deploy/postgresql/dietas_borradores/migraciones/000006_documento_comision.up.sql

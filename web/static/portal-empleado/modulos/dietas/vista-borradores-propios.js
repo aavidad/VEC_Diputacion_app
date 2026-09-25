@@ -1,8 +1,8 @@
-import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260925-d5-v2";
-import { crearTraductorBorradoresDietas } from "./i18n-borradores.js?v=20260925-d5-v2";
-import { crearTraductorOtrosGastosDietas } from "./i18n-otros-gastos.js?v=20260925-d5-v2";
-import { actualizarHuellaOtroGasto, catalogoOtrosGastosValido, crearLineaOtroGasto, describirOtroGasto, leerOtrosGastos, numerarLineasOtroGasto, pintarTiposOtroGasto } from "./formulario-otros-gastos.js?v=20260925-d5-v2";
-import { montarVistaMapaComisionDietas } from "./vista-mapa-comision.js?v=20260925-d5-v2";
+import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260925-d6-v1";
+import { crearTraductorBorradoresDietas } from "./i18n-borradores.js?v=20260925-d6-v1";
+import { crearTraductorOtrosGastosDietas } from "./i18n-otros-gastos.js?v=20260925-d6-v1";
+import { actualizarHuellaOtroGasto, catalogoOtrosGastosValido, crearLineaOtroGasto, describirOtroGasto, leerOtrosGastos, numerarLineasOtroGasto, pintarTiposOtroGasto } from "./formulario-otros-gastos.js?v=20260925-d6-v1";
+import { montarVistaMapaComisionDietas } from "./vista-mapa-comision.js?v=20260925-d6-v1";
 import { montarVistaRectificacionDietas } from "./vista-rectificacion-dietas.js?v=20260925-tanda-v1";
 
 // NodeList no tiene find/filter/map en el navegador: se convierte siempre a array.
@@ -48,6 +48,9 @@ const ESTADOS_COMISION = Object.freeze({
   fiscalizada: ["circuito_estado_fiscalizada", "exito"],
 });
 const MOTIVOS_RELACIONES = new Set(["empleado_no_disponible", "empleado_ambiguo"]);
+// La persona titular corrige su borrador o el documento que le devolvieron.
+function comisionCorregible(item) { return ["borrador", "devuelta"].includes(item?.comision?.estado); }
+function enCorreccion(item) { return item?.comision?.estado === "devuelta" || Boolean(item?.comision?.devolucion); }
 function euros(centimos) { return new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(centimos / 100); }
 function rutaLegible(codigos, traducir, nombres = new Map()) {
   return codigos.length
@@ -924,7 +927,9 @@ export function montarVistaBorradoresPropios(
         boton,
         ...(item.comision.fecha_apertura ? [nodo(documento, "small", `${tBorradores("comision_fecha_apertura")}: ${fechaLegible(item.comision.fecha_apertura, true)}`)] : []),
         (() => {
-          const [clave, tono] = ESTADOS_COMISION[item.comision.estado] || ["comision_estado_borrador", "info"];
+          const [clave, tono] = item.comision.devolucion && item.comision.estado === "borrador"
+            ? ["comision_estado_en_correccion", "aviso"]
+            : ESTADOS_COMISION[item.comision.estado] || ["comision_estado_borrador", "info"];
           const chip = nodo(documento, "span", tBorradores(clave));
           chip.className = `estado-chip ${tono}`;
           chip.dataset.dietasEstadoComision = item.comision.estado;
@@ -992,6 +997,7 @@ export function montarVistaBorradoresPropios(
       datos.append(fila);
     });
     cuerpo.append(datos);
+    if (item.comision.devolucion) cuerpo.append(bloqueDevolucion(item.comision.devolucion));
     const panelAsignacion = nodo(documento, "section");
     panelAsignacion.className = "dietas-comision-asignacion";
     const cabeceraAsignacion = nodo(documento, "div");
@@ -1041,15 +1047,18 @@ export function montarVistaBorradoresPropios(
     cuerpo.append(panelAsignacion);
     const acciones = nodo(documento, "div");
     acciones.className = "dietas-borradores-acciones";
-    const esBorrador = item.comision.estado === "borrador";
-    [["comision_editar", "dietasBorradorEditar", "editar"],
-      ["comision_eliminar", "dietasBorradorEliminar", "eliminar"],
-      ["comision_enviar", "dietasBorradorEnviar", "enviar"]].forEach(([clave, atributo, metodo]) => {
+    const corregible = comisionCorregible(item);
+    const devuelta = enCorreccion(item);
+    // Un documento devuelto no se elimina: se corrige y se reenvía a la
+    // revisión del administrativo, que el rótulo del botón nombra.
+    [[devuelta ? "comision_corregir" : "comision_editar", "dietasBorradorEditar", "editar"],
+      ...(devuelta ? [] : [["comision_eliminar", "dietasBorradorEliminar", "eliminar"]]),
+      [devuelta ? "comision_reenviar" : "comision_enviar", "dietasBorradorEnviar", "enviar"]].forEach(([clave, atributo, metodo]) => {
       const boton = nodo(documento, "button", tBorradores(clave));
       boton.type = "button";
       boton.className = metodo === "enviar" ? "boton-primario" : "boton-secundario";
       boton.dataset[atributo] = item.comision.referencia;
-      boton.disabled = !esBorrador || estadoRelaciones === "no_disponible" || typeof cliente?.[metodo] !== "function" || controlador !== null ||
+      boton.disabled = !corregible || estadoRelaciones === "no_disponible" || typeof cliente?.[metodo] !== "function" || controlador !== null ||
         (metodo !== "eliminar" && !asignacionVerificada()) ||
         (metodo === "editar" && !item.comision.calculo) ||
         (metodo === "enviar" && !item.comision.documento);
@@ -1061,6 +1070,28 @@ export function montarVistaBorradoresPropios(
     if (item.comision.calculo) cuerpo.append(resumenCalculo(item.comision.calculo, item.comision.documento));
     cuerpo.append(recibo(item));
     return seccion;
+  }
+  function bloqueDevolucion(devolucion) {
+    const bloque = nodo(documento, "section");
+    bloque.className = "dietas-comision-asignacion dietas-comision-devolucion";
+    bloque.dataset.dietasComisionDevolucion = String(devolucion.version);
+    const cabeceraBloque = nodo(documento, "div");
+    cabeceraBloque.className = "cabecera-panel";
+    cabeceraBloque.append(nodo(documento, "h4", tBorradores("comision_devolucion_titulo")));
+    const cuerpoBloque = nodo(documento, "div");
+    cuerpoBloque.className = "cuerpo-panel";
+    const datosDevolucion = nodo(documento, "dl");
+    [["comision_devolucion_etapa", tBorradores(`comision_devolucion_etapa_${devolucion.etapa}`)],
+      ["comision_devolucion_fecha", fechaLegible(devolucion.devuelta_en, true)],
+      ["comision_devolucion_motivo", devolucion.motivo]].forEach(([clave, valor]) => {
+      const fila = nodo(documento, "div");
+      if (clave === "comision_devolucion_motivo") fila.className = "dietas-comision-devolucion-motivo";
+      fila.append(nodo(documento, "dt", tBorradores(clave)), nodo(documento, "dd", valor));
+      datosDevolucion.append(fila);
+    });
+    cuerpoBloque.append(datosDevolucion);
+    bloque.append(cabeceraBloque, cuerpoBloque);
+    return bloque;
   }
   function resumenCalculo(calculo, documentoComision) {
     const resumen=nodo(documento,"section"); resumen.className="dietas-comision-calculo";
@@ -1493,7 +1524,7 @@ export function montarVistaBorradoresPropios(
   }
   function abrirEdicion() {
     const item = estado.detalle;
-    if (!item || item.comision.estado !== "borrador" || estadoRelaciones === "no_disponible" ||
+    if (!comisionCorregible(item) || estadoRelaciones === "no_disponible" ||
         !asignacionVerificada() || !item.comision.calculo || typeof cliente?.editar !== "function") return;
     edicion = item;
     intentoEdicion = null;
@@ -1530,9 +1561,12 @@ export function montarVistaBorradoresPropios(
   }
   async function ejecutarAccionComision(accion) {
     const item = estado.detalle;
-    if (!item || item.comision.estado !== "borrador" || estadoRelaciones === "no_disponible" || typeof cliente?.[accion] !== "function" ||
+    if (!comisionCorregible(item) || estadoRelaciones === "no_disponible" || typeof cliente?.[accion] !== "function" ||
+        (accion === "eliminar" && enCorreccion(item)) ||
         (accion === "enviar" && (!asignacionVerificada() || !item.comision.documento)) || controlador) return;
-    const confirmada = await confirmarOperacion(tBorradores(accion === "enviar" ? "comision_confirmar_enviar" : "comision_confirmar_eliminar"));
+    const reenvio = accion === "enviar" && enCorreccion(item);
+    const confirmada = await confirmarOperacion(tBorradores(reenvio ? "comision_confirmar_reenviar"
+      : accion === "enviar" ? "comision_confirmar_enviar" : "comision_confirmar_eliminar"));
     if (!confirmada || !activaAhora()) return;
     const intento = `${accion}:${item.comision.referencia}:${item.recibo.version}`;
     const clave = intentosAccion.get(intento) || generarClaveIdempotencia();
@@ -1551,7 +1585,8 @@ export function montarVistaBorradoresPropios(
       intentosAccion.delete(intento);
       estado = { ...estado, detalle: resultado, detalleOrigen: "post" };
       void consultarAsignacion(resultado);
-      mensaje(accion === "enviar" ? "comision_envio_confirmado" : "comision_eliminacion_confirmada", "exito");
+      mensaje(reenvio ? "comision_reenvio_confirmado"
+        : accion === "enviar" ? "comision_envio_confirmado" : "comision_eliminacion_confirmada", "exito");
       cursores = [undefined]; indicePagina = 0; siguienteCursor = undefined;
       await cargar(true);
     } catch (error) {

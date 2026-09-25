@@ -227,6 +227,10 @@
 .dietas-borradores-propios .dietas-comision-asignacion dd { margin: 4px 0; font-weight: 600; }
 .dietas-borradores-propios .dietas-comision-asignacion small { display: block; overflow-wrap: anywhere; color: var(--portal-muted); }
 
+.dietas-borradores-propios .dietas-comision-devolucion { border-inline-start: 3px solid var(--portal-aviso); }
+.dietas-borradores-propios .dietas-comision-devolucion .dietas-comision-devolucion-motivo { grid-column: 1 / -1; }
+.dietas-borradores-propios .dietas-comision-devolucion-motivo dd { font-weight: 400; overflow-wrap: anywhere; }
+
 .dietas-borradores-propios .dietas-borradores-rectificacion { min-width: 0; }
 .dietas-borradores-propios [data-dietas-rectificacion] { display: grid; gap: 12px; min-width: 0; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-lg); background: var(--portal-superficie); box-shadow: var(--portal-sombra-sm); overflow: hidden; }
 .dietas-borradores-propios [data-dietas-rectificacion] > .cabecera-panel { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0; border-bottom: 1px solid var(--portal-borde); background: var(--portal-cabecera-panel); }

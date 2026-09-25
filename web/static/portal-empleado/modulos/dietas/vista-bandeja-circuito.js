@@ -1,10 +1,10 @@
-import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260925-d5-v2";
+import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260925-d6-v1";
 
 import { MENSAJES_CIRCUITO_DIETAS_ES } from "./i18n-circuito.js?v=20260925-tanda2-v1";
 export { MENSAJES_CIRCUITO_DIETAS_ES } from "./i18n-circuito.js?v=20260925-tanda2-v1";
 import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "../../portal-i18n.js?v=20260925-tanda2-v1";
-import { crearTraductorOtrosGastosDietas } from "./i18n-otros-gastos.js?v=20260925-d5-v2";
-import { describirOtroGasto } from "./formulario-otros-gastos.js?v=20260925-d5-v2";
+import { crearTraductorOtrosGastosDietas } from "./i18n-otros-gastos.js?v=20260925-d6-v1";
+import { describirOtroGasto } from "./formulario-otros-gastos.js?v=20260925-d6-v1";
 
 const ETAPAS = Object.freeze(["revision", "autorizacion", "liquidacion", "fiscalizacion"]);
 const TONO_ESTADO = Object.freeze({ enviado_pendiente_revision: "info", pendiente_autorizacion: "info", pendiente_liquidacion: "violeta", pendiente_fiscalizacion: "violeta", fiscalizada: "exito", devuelta: "peligro" });

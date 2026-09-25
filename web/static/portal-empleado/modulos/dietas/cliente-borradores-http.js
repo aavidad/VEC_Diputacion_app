@@ -120,8 +120,20 @@ function validarCalculo(calculo,codigos,rutasDeclaradas,vehiculo,documento) {
 // Tras enviarla, la comisión recorre el circuito de revisión; la persona
 // titular sigue viendo su documento en cualquiera de esos estados.
 const ESTADOS_COMISION_PROPIA = Object.freeze(["borrador", "eliminado", "enviado_pendiente_revision", "pendiente_autorizacion", "pendiente_liquidacion", "pendiente_fiscalizacion", "fiscalizada", "devuelta"]);
+const ETAPAS_DEVOLUCION = Object.freeze(["revision", "autorizacion", "liquidacion", "fiscalizacion"]);
+// Devolución vigente: solo en un documento devuelto o en corrección, con la
+// etapa que lo devolvió, su motivo, la versión devuelta y la fecha.
+function validarDevolucion(devolucion, comision) {
+  if (!registro(devolucion) || Object.keys(devolucion).length !== 4 || !ETAPAS_DEVOLUCION.includes(devolucion.etapa) ||
+      !textoVisible(devolucion.motivo, 600) || devolucion.motivo.length < 3 || devolucion.motivo.trim() !== devolucion.motivo ||
+      !Number.isSafeInteger(devolucion.version) || devolucion.version < 3 || !Number.isSafeInteger(comision.version) || devolucion.version > comision.version ||
+      typeof devolucion.devuelta_en !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/u.test(devolucion.devuelta_en) ||
+      !["devuelta", "borrador"].includes(comision.estado))
+    throw new TypeError("devolución de Dietas incompatible");
+  return Object.freeze({ ...devolucion });
+}
 function validarComision(comision) {
-  const campos = ["referencia", "version", "numero_documento", "fecha_apertura", "estado", "fecha_inicio", "fecha_fin", "motivo", "codigos_ruta", "relacion_ref", "calculo", "documento", "vehiculo_propio", "rutas"];
+  const campos = ["referencia", "version", "numero_documento", "fecha_apertura", "estado", "fecha_inicio", "fecha_fin", "motivo", "codigos_ruta", "relacion_ref", "centro_ref", "unidad_ref", "calculo", "documento", "vehiculo_propio", "rutas", "devolucion"];
   if (!registro(comision) || Object.keys(comision).some((clave) => !campos.includes(clave)) || !referencia(comision.referencia, "dco_") || (comision.version !== undefined && (!Number.isSafeInteger(comision.version) || comision.version < 1)) || !ESTADOS_COMISION_PROPIA.includes(comision.estado) || !fechaCivil(comision.fecha_inicio) || !fechaCivil(comision.fecha_fin) || comision.fecha_fin < comision.fecha_inicio || !textoVisible(comision.motivo, 600) || !referencia(comision.relacion_ref, "rel_")) throw new TypeError("comisión de Dietas incompatible");
   if ((comision.numero_documento !== undefined && !/^VEC-D-\d{4}-\d{6}$/u.test(comision.numero_documento)) ||
       (comision.fecha_apertura !== undefined && !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/u.test(comision.fecha_apertura)))
@@ -129,6 +141,10 @@ function validarComision(comision) {
   const codigos = comision.codigos_ruta === undefined ? [] : comision.codigos_ruta;
   if (!Array.isArray(codigos) || codigos.length > 16 || !codigos.every((codigo) => typeof codigo === "string" && /^[A-Za-z0-9:_-]{1,64}$/u.test(codigo)) || new Set(codigos).size !== codigos.length) throw new TypeError("comisión de Dietas incompatible");
   if (comision.vehiculo_propio !== undefined && typeof comision.vehiculo_propio !== "boolean") throw new TypeError("comisión de Dietas incompatible");
+  // Centro y unidad llegan con el documento v2 como referencias opacas.
+  if ((comision.centro_ref !== undefined && !textoVisible(comision.centro_ref, 256)) ||
+      (comision.unidad_ref !== undefined && !textoVisible(comision.unidad_ref, 256))) throw new TypeError("comisión de Dietas incompatible");
+  const devolucion = comision.devolucion === undefined ? undefined : validarDevolucion(comision.devolucion, comision);
   if (comision.rutas !== undefined && comision.rutas !== null) validarRutas(comision.rutas, comision.vehiculo_propio === true);
   if (comision.documento !== undefined && comision.documento !== null) {
     const documento = comision.documento;
@@ -194,7 +210,7 @@ function validarComision(comision) {
         documento.version_tarifa_aceptada !== comision.calculo?.version_tarifa)
       throw new TypeError("total de comisión incompatible");
   }
-  return Object.freeze({ ...comision, codigos_ruta: Object.freeze([...codigos]), ...(comision.calculo ? {calculo:validarCalculo(comision.calculo,codigos,comision.rutas || [],comision.vehiculo_propio === true,Boolean(comision.documento))} : {}) });
+  return Object.freeze({ ...comision, codigos_ruta: Object.freeze([...codigos]), ...(devolucion ? { devolucion } : {}), ...(comision.calculo ? {calculo:validarCalculo(comision.calculo,codigos,comision.rutas || [],comision.vehiculo_propio === true,Boolean(comision.documento))} : {}) });
 }
 function validarItem(valor) { if (!registro(valor) || Object.keys(valor).length !== 2 || !Object.hasOwn(valor, "comision") || !Object.hasOwn(valor, "recibo")) throw new TypeError("resultado de Dietas incompatible"); return Object.freeze({ comision: validarComision(valor.comision), recibo: validarRecibo(valor.recibo) }); }
 function validarPagina(valor) { if (!registro(valor) || Object.keys(valor).some((clave) => clave !== "items" && clave !== "siguiente_cursor") || !Array.isArray(valor.items) || valor.items.length > 50 || (valor.siguiente_cursor !== undefined && !textoVisible(valor.siguiente_cursor, 400))) throw new TypeError("página de Dietas incompatible"); return Object.freeze({ items: Object.freeze(valor.items.map(validarItem)), ...(valor.siguiente_cursor ? { siguiente_cursor: valor.siguiente_cursor } : {}) }); }

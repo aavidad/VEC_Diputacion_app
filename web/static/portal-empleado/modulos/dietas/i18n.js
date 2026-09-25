@@ -1,4 +1,4 @@
-import { MENSAJES_BORRADORES_ES } from "./i18n-borradores.js?v=20260925-d5-v2";
+import { MENSAJES_BORRADORES_ES } from "./i18n-borradores.js?v=20260925-d6-v1";
 import { MENSAJES_REVISION_DIETAS_ES } from "./i18n-revision.js?v=20260925-tanda-v1";
 import { MENSAJES_CIRCUITO_DIETAS_ES } from "./i18n-circuito.js?v=20260925-tanda2-v1";
 import { MENSAJES_RECTIFICACION_DIETAS_ES } from "./i18n-rectificacion-dietas.js?v=20260925-tanda-v1";

@@ -112,6 +112,19 @@ export const MENSAJES_BORRADORES_ES = Object.freeze({
   comision_estado_borrador: "Borrador",
   comision_estado_enviado: "Enviada a revisión",
   comision_estado_eliminado: "Eliminada",
+  comision_estado_en_correccion: "En corrección",
+  comision_corregir: "Corregir",
+  comision_reenviar: "Reenviar a revisión del administrativo",
+  comision_confirmar_reenviar: "¿Reenviar el documento a revisión del administrativo?",
+  comision_reenvio_confirmado: "Reenvío registrado con recibo. El documento vuelve a revisión del administrativo.",
+  comision_devolucion_titulo: "Devuelta para corregir",
+  comision_devolucion_etapa: "Devuelta en",
+  comision_devolucion_fecha: "Fecha",
+  comision_devolucion_motivo: "Motivo",
+  comision_devolucion_etapa_revision: "Revisión del administrativo",
+  comision_devolucion_etapa_autorizacion: "Autorización del responsable",
+  comision_devolucion_etapa_liquidacion: "Gestión de RRHH",
+  comision_devolucion_etapa_fiscalizacion: "Intervención",
 });
 
 export function crearTraductorBorradoresDietas(traducirBase) {

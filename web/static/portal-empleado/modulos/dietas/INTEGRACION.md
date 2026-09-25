@@ -94,6 +94,15 @@ vuelve a exigir catálogo, fechas y justificante al guardar. Las líneas
 guardadas antes de D5 se siguen leyendo, pero para volver a guardar hay que
 completarlas.
 
+Un documento devuelto por cualquier paso del circuito (D6) llega con
+`devolucion` (etapa, motivo, versión devuelta y fecha), que PostgreSQL
+(Dietas 000010) toma de la historia mientras está devuelto o en corrección.
+La ficha lo muestra y ofrece «Corregir» y «Reenviar a revisión del
+administrativo»; no ofrece eliminarlo, y PostgreSQL también lo impide. La
+corrección y el reenvío usan las mismas rutas PUT y `POST …/enviar`, con
+clave de idempotencia y versión esperada. A qué paso debe volver está
+pendiente de RRHH (pregunta 49 de `dudas.md`).
+
 ## Comprobación
 
 Las pruebas Node del directorio cubren clientes, ruta, mapa, formulario,
