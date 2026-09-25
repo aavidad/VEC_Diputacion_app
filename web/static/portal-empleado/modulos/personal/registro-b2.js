@@ -1,7 +1,7 @@
-import { crearTraductorPersonal } from "./i18n.js?v=20260925-b2-selector-v1";
+import { crearTraductorPersonal } from "./i18n.js?v=20260925-b2-sin-codigos-v1";
 import { ErrorRegistroB2 } from "./registro-b2-cliente.js?v=20260925-b2-selector-v1";
-import { accionesRegistroB2Disponibles, montarActosRegistroB2 } from "./registro-b2-actos.js?v=20260925-b2-selector-v1";
-import { cargarOpcionesPublicadasCatalogoB2, montarCatalogosRegistroB2 } from "./registro-b2-catalogos.js?v=20260925-b2-selector-v1";
+import { accionesRegistroB2Disponibles, montarActosRegistroB2 } from "./registro-b2-actos.js?v=20260925-b2-sin-codigos-v1";
+import { cargarOpcionesPublicadasCatalogoB2, montarCatalogosRegistroB2 } from "./registro-b2-catalogos.js?v=20260925-b2-sin-codigos-v1";
 
 const BLOQUES = Object.freeze([
   ["relaciones", "registro_b2_relaciones", "registro_b2_tabla_relaciones", [
@@ -36,8 +36,9 @@ function formatoFecha(valor, t) { if (!fechaValida(valor)) return t("registro_b2
 function formatoInstante(valor, t) { if (!instanteValido(valor)) return t("registro_b2_sin_valor"); return new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" }).format(new Date(valor)); }
 function periodo(traza, t) { return `${formatoFecha(traza?.desde, t)} – ${traza?.hasta ? formatoFecha(traza.hasta, t) : t("registro_b2_actual")}`; }
 function etiquetaEstado(valor, t) { return Object.hasOwn(ESTADOS, valor) ? t(ESTADOS[valor]) : t("registro_b2_estado_desconocido"); }
-function referencia(valor, t) { const texto = textoSeguro(valor, 128); return texto ? t("registro_b2_referencia", { referencia: texto }) : t("registro_b2_sin_valor"); }
-function nombreOReferencia(item, nombre, ref, t) { return textoSeguro(item?.[nombre], 240) || referencia(item?.[ref], t); }
+/** Una referencia es un código interno: nunca se pinta. Solo indica si consta o no el dato sin denominación. */
+function sinDenominacion(valor, t) { return textoSeguro(valor, 160) ? t("registro_b2_sin_denominacion") : t("registro_b2_sin_valor"); }
+function nombreOReferencia(item, nombre, ref, t) { return textoSeguro(item?.[nombre], 240) || sinDenominacion(item?.[ref], t); }
 function presentar(item, campo, t) {
   switch (campo) {
     case "estado": return etiquetaEstado(item.estado, t);
@@ -49,8 +50,8 @@ function presentar(item, campo, t) {
     case "puesto": return nombreOReferencia(item, "puesto_denominacion", "puesto_ref", t);
     case "plaza": return nombreOReferencia(item, "plaza_denominacion", "plaza_ref", t);
     case "situacion": return textoSeguro(item.catalogo_snapshot?.situacion?.denominacion, 256) || nombreOReferencia(item, "situacion_denominacion", "codigo_ref", t);
-    case "acto": return referencia(item.traza?.acto_ref, t);
-    case "fuente": return referencia(item.traza?.fuente_ref, t);
+    case "acto": return sinDenominacion(item.traza?.acto_ref, t);
+    case "fuente": return sinDenominacion(item.traza?.fuente_ref, t);
     case "cobertura": return etiquetaEstado(item.estado_cobertura, t);
     default: return t("registro_b2_sin_valor");
   }
@@ -70,11 +71,7 @@ function tabla(d, t, titulo, columnas, filas) {
       const td = nodo(d, "td");
       const tipoCatalogo = { regimen_catalogo: "regimen", modalidad_catalogo: "modalidad", clase_servicio_catalogo: "clase_servicio", situacion: "situacion" }[campo];
       const snapshot = tipoCatalogo ? item.catalogo_snapshot?.[tipoCatalogo] : undefined;
-      if (snapshot && textoSeguro(snapshot.denominacion, 256)) {
-        td.append(nodo(d, "span", snapshot.denominacion));
-        const secundario = nodo(d, "small", t("registro_b2_catalogo_ref_version", { ref: textoSeguro(snapshot.ref, 160), version: Number.isSafeInteger(snapshot.version) ? new Intl.NumberFormat("es-ES").format(snapshot.version) : "" }));
-        secundario.className = "personal-registro-b2-secundario"; td.append(secundario);
-      } else td.textContent = presentar(item, campo, t);
+      td.textContent = snapshot && textoSeguro(snapshot.denominacion, 256) ? snapshot.denominacion : presentar(item, campo, t);
       tr.append(td);
     }
     body.append(tr);
@@ -153,7 +150,7 @@ export function montarRegistroB2({ raiz, cliente, clienteCatalogos, empleadoRef 
       const form = nodo(d, "div"); form.className = "personal-registro-b2-toolbar";
       const label = nodo(d, "label", t("registro_b2_elegir_relacion")); const select = nodo(d, "select"); select.dataset.registroB2Relacion = "";
       const opcionVacia = nodo(d, "option", t("registro_b2_elegir_relacion")); opcionVacia.value = ""; select.append(opcionVacia);
-      for (const relacion of relacionesUnicas) { const opcion = nodo(d, "option", nombreOReferencia(relacion, "unidad_denominacion", "relacion_ref", t)); opcion.value = relacion.relacion_ref; select.append(opcion); }
+      for (const relacion of relacionesUnicas) { const opcion = nodo(d, "option", `${nombreOReferencia(relacion, "unidad_denominacion", "unidad_ref", t)} · ${periodo(relacion.traza, t)}`); opcion.value = relacion.relacion_ref; select.append(opcion); }
       select.value = ficha.relaciones.some((r) => r.relacion_ref === seleccionRelacion) ? seleccionRelacion : "";
       select.addEventListener("change", () => { seleccionRelacion = select.value; contenido.replaceChildren(); pintarFicha(ficha); });
       label.append(select); form.append(label); contenido.append(form);
@@ -182,7 +179,7 @@ export function montarRegistroB2({ raiz, cliente, clienteCatalogos, empleadoRef 
   function describirEmpleado(empleado) {
     const r = empleado.relaciones[0];
     if (!r) return t("registro_b2_sin_relacion_vigente");
-    return [textoSeguro(r.unidad_denominacion, 300) || referencia(r.unidad_ref, t), textoSeguro(r.puesto_denominacion, 300)].filter(Boolean).join(" · ");
+    return [textoSeguro(r.unidad_denominacion, 300) || sinDenominacion(r.unidad_ref, t), textoSeguro(r.puesto_denominacion, 300)].filter(Boolean).join(" · ");
   }
   function pintarEmpleados(pagina) {
     const p = panel(d, t("registro_b2_empleados"));
@@ -204,7 +201,7 @@ export function montarRegistroB2({ raiz, cliente, clienteCatalogos, empleadoRef 
         const r = empleado.relaciones[0]; const tr = nodo(d, "tr");
         const unidad = nodo(d, "td");
         if (r) {
-          unidad.append(nodo(d, "span", textoSeguro(r.unidad_denominacion, 300) || referencia(r.unidad_ref, t)));
+          unidad.append(nodo(d, "span", textoSeguro(r.unidad_denominacion, 300) || sinDenominacion(r.unidad_ref, t)));
           if (empleado.relaciones.length > 1) {
             const mas = empleado.relaciones.length - 1;
             const extra = nodo(d, "small", mas === 1 ? t("registro_b2_mas_relaciones_uno") : t("registro_b2_mas_relaciones_otro", { total: new Intl.NumberFormat("es-ES").format(mas) }));

@@ -56,7 +56,8 @@ test("varias relaciones requieren elección antes de mostrar ocupaciones", async
   assert.doesNotMatch(texto(raiz), /plaza-uno/);
   const selector = buscar(raiz, (n) => n.dataset.registroB2Relacion !== undefined);
   selector.value = "relacion-uno"; selector.listeners.get("change")();
-  assert.match(texto(raiz), /plaza-uno/);
+  assert.match(texto(raiz), /Ocupaciones/); assert.match(texto(raiz), /Sin denominación/);
+  assert.doesNotMatch(texto(raiz), /plaza-uno|puesto-uno|unidad-uno|relacion-uno|acto-uno|fuente-uno|Referencia/);
 });
 
 test("la ficha prioriza la denominación histórica del catálogo sobre su referencia", async () => {
@@ -67,8 +68,8 @@ test("la ficha prioriza la denominación histórica del catálogo sobre su refer
   respuesta.ficha.situaciones = [{ situacion_ref: "situacion:hecho", relacion_ref: "rel_aaaaaaaaaaaaaaaaaaaaaa", codigo_ref: "situacion:uno", traza, catalogo_snapshot: { situacion: { ref: "situacion:uno", version: 3, denominacion: "Situación histórica" } } }];
   montarRegistroB2({ raiz, empleadoRef: "emp_aaaaaaaaaaaaaaaaaaaaaa", cliente: { consultarFicha: () => respuesta, listarVacantes: () => { throw Error("no esperado"); } }, reloj: () => new Date("2026-09-25T10:00:00Z") });
   await completar();
-  assert.match(texto(raiz), /Régimen histórico/); assert.match(texto(raiz), /regimen:uno · v2/);
-  assert.match(texto(raiz), /Situación histórica/); assert.match(texto(raiz), /situacion:uno · v3/);
+  assert.match(texto(raiz), /Régimen histórico/); assert.match(texto(raiz), /Situación histórica/);
+  assert.doesNotMatch(texto(raiz), /regimen:uno|situacion:uno|· v\d/);
 });
 
 test("fallo 503 no finge vacantes vacías y ofrece reintento", async () => {
