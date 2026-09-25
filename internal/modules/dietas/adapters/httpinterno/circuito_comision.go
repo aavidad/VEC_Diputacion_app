@@ -15,6 +15,10 @@ import (
 
 const RutaCircuito = "/api/vec/dietas/comisiones/circuito"
 
+// RutaCircuitoCompetencias informa de qué bandejas puede abrir el actor según
+// la fuente gobernada de competencia, o de que esa fuente no existe.
+const RutaCircuitoCompetencias = RutaCircuito + "/competencias"
+
 var referenciaCircuitoHTTP = regexp.MustCompile(`^dco_[A-Za-z0-9_-]{22,128}$`)
 var claveCircuitoHTTP = regexp.MustCompile(`^[A-Za-z0-9_-]{16,128}$`)
 
@@ -43,21 +47,28 @@ func (m *ManejadorCircuito) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		responderError(w, http.StatusNotFound, "no_encontrada")
 		return
 	}
-	if r.URL.Path == RutaCircuito {
+	switch r.URL.Path {
+	case RutaCircuito:
 		m.listar(w, r)
 		return
+	case RutaCircuitoCompetencias:
+		m.competencias(w, r)
+		return
 	}
-	prefijo := RutaCircuito + "/"
-	if !strings.HasPrefix(r.URL.Path, prefijo) || !strings.HasSuffix(r.URL.Path, "/decisiones") {
+	resto, ok := strings.CutPrefix(r.URL.Path, RutaCircuito+"/")
+	if !ok {
 		responderError(w, http.StatusNotFound, "no_encontrada")
 		return
 	}
-	ref := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, prefijo), "/decisiones")
-	if !referenciaCircuitoHTTP.MatchString(ref) {
-		responderError(w, http.StatusNotFound, "no_encontrada")
+	if ref, decision := strings.CutSuffix(resto, "/decisiones"); decision && referenciaCircuitoHTTP.MatchString(ref) {
+		m.decidir(w, r, ref)
 		return
 	}
-	m.decidir(w, r, ref)
+	if referenciaCircuitoHTTP.MatchString(resto) {
+		m.documento(w, r, resto)
+		return
+	}
+	responderError(w, http.StatusNotFound, "no_encontrada")
 }
 
 type decisionCircuitoJSON struct {
@@ -127,6 +138,11 @@ func (m *ManejadorCircuito) listar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	identidad, err := m.identidades.ResolverIdentidadEfectivaCircuito(r.Context(), dietasports.SolicitudOperacionCircuito{Operacion: dietasports.OperacionListarBandeja, Consulta: consulta})
+	if errors.Is(err, dietasports.ErrCompetenciaCircuitoSinFuente) {
+		// Sin fuente gobernada no hay bandeja que mostrar ni acción posible.
+		responderJSON(w, http.StatusOK, bandejaCircuitoJSON{Items: []dietasports.VistaComisionCircuito{}, Competencia: dietasports.FuenteCompetenciaSinFuente})
+		return
+	}
 	if err != nil {
 		responderErrorCircuito(w, err)
 		return
@@ -140,7 +156,80 @@ func (m *ManejadorCircuito) listar(w http.ResponseWriter, r *http.Request) {
 	if pagina.Items == nil {
 		pagina.Items = []dietasports.VistaComisionCircuito{}
 	}
-	responderJSON(w, http.StatusOK, pagina)
+	responderJSON(w, http.StatusOK, bandejaCircuitoJSON{Items: pagina.Items, SiguienteCursor: pagina.SiguienteCursor, Competencia: dietasports.FuenteCompetenciaAcreditada})
+}
+
+type bandejaCircuitoJSON struct {
+	Items           []dietasports.VistaComisionCircuito `json:"items"`
+	SiguienteCursor string                              `json:"siguiente_cursor,omitempty"`
+	Competencia     string                              `json:"competencia"`
+}
+
+func (m *ManejadorCircuito) competencias(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", "GET")
+		responderError(w, http.StatusMethodNotAllowed, "metodo_no_permitido")
+		return
+	}
+	if !lecturaSinCuerpo(r) || r.URL.RawQuery != "" || r.URL.ForceQuery {
+		responderError(w, http.StatusBadRequest, "peticion_invalida")
+		return
+	}
+	estado, err := m.identidades.EstadoCompetenciasCircuito(r.Context())
+	if err != nil {
+		responderErrorCircuito(w, err)
+		return
+	}
+	if estado.Etapas == nil {
+		estado.Etapas = []domain.EtapaCircuito{}
+	}
+	if estado.Fuente != dietasports.FuenteCompetenciaSinFuente && estado.Fuente != dietasports.FuenteCompetenciaAcreditada ||
+		(estado.Fuente == dietasports.FuenteCompetenciaSinFuente && len(estado.Etapas) != 0) {
+		responderError(w, http.StatusServiceUnavailable, "no_disponible")
+		return
+	}
+	for _, etapa := range estado.Etapas {
+		if etapa.EstadoPendiente() == "" {
+			responderError(w, http.StatusServiceUnavailable, "no_disponible")
+			return
+		}
+	}
+	responderJSON(w, http.StatusOK, estado)
+}
+
+func (m *ManejadorCircuito) documento(w http.ResponseWriter, r *http.Request, ref string) {
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", "GET")
+		responderError(w, http.StatusMethodNotAllowed, "metodo_no_permitido")
+		return
+	}
+	if !lecturaSinCuerpo(r) || r.URL.ForceQuery {
+		responderError(w, http.StatusBadRequest, "peticion_invalida")
+		return
+	}
+	v, err := url.ParseQuery(r.URL.RawQuery)
+	if err != nil || len(v) != 1 || len(v["etapa"]) != 1 || domain.EtapaCircuito(v.Get("etapa")).EstadoPendiente() == "" {
+		responderError(w, http.StatusBadRequest, "peticion_invalida")
+		return
+	}
+	s := dietasports.SolicitudDocumentoCircuito{Referencia: ref, Etapa: domain.EtapaCircuito(v.Get("etapa"))}
+	identidad, err := m.identidades.ResolverIdentidadEfectivaCircuito(r.Context(), dietasports.SolicitudOperacionCircuito{Operacion: dietasports.OperacionConsultarDocumentoCircuito, Documento: s})
+	if err != nil {
+		responderErrorCircuito(w, err)
+		return
+	}
+	s.UnidadRef = identidad.UnidadCompetenciaRef
+	documento, err := m.casoUso.ConsultarDocumento(r.Context(), identidad, s)
+	if err != nil {
+		responderErrorCircuito(w, err)
+		return
+	}
+	if documento.CodigosRuta == nil {
+		documento.CodigosRuta = []string{}
+	}
+	responderJSON(w, http.StatusOK, struct {
+		Comision dietasports.DocumentoCircuito `json:"comision"`
+	}{documento})
 }
 
 func consultaCircuitoURL(u *url.URL) (dietasports.ConsultaBandejaCircuito, error) {
@@ -176,6 +265,8 @@ func consultaCircuitoURL(u *url.URL) (dietasports.ConsultaBandejaCircuito, error
 
 func responderErrorCircuito(w http.ResponseWriter, err error) {
 	switch {
+	case errors.Is(err, dietasports.ErrCompetenciaCircuitoSinFuente):
+		responderError(w, http.StatusForbidden, "competencia_sin_fuente")
 	case errors.Is(err, dietasports.ErrAccesoCircuitoDenegado):
 		responderError(w, http.StatusForbidden, "acceso_denegado")
 	case errors.Is(err, dietasports.ErrComisionNoEncontrada):

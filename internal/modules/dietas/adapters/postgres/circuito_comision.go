@@ -15,7 +15,8 @@ import (
 	dietasports "vec-diputacion-granada/internal/modules/dietas/ports"
 )
 
-const decidirComisionSQL = `SELECT vec_dietas.decidir_comision_v1($1::text,$2::bytea,$3::bytea,$4::bytea,$5::bytea,$6::numeric,$7::numeric,$8::bytea,$9::bytea,$10::bytea,$11::bytea)`
+const decidirComisionSQL = `SELECT vec_dietas.decidir_comision_v2($1::text,$2::bytea,$3::bytea,$4::bytea,$5::bytea,$6::numeric,$7::numeric,$8::bytea,$9::bytea,$10::bytea,$11::bytea)`
+const consultarDocumentoCircuitoSQL = `SELECT vec_dietas.consultar_documento_circuito_v1($1::text,$2::bytea,$3::bytea,$4::bytea,$5::bytea,$6::numeric,$7::numeric,$8::bytea,$9::bytea,$10::bytea,$11::bytea)`
 const listarBandejaComisionesSQL = `SELECT vec_dietas.listar_bandeja_comisiones_v1($1::text,$2::bytea,$3::bytea,$4::bytea,$5::bytea,$6::numeric,$7::numeric,$8::bytea,$9::bytea,$10::bytea,$11::bytea)`
 
 var cursorBandeja = regexp.MustCompile(`^dco_[A-Za-z0-9_-]{22,128}$`)
@@ -81,6 +82,32 @@ func (r *RepositorioBorradorComisionPostgreSQL) ListarPendientes(ctx context.Con
 	return pagina, nil
 }
 
+// ConsultarDocumento lee el documento pendiente en la etapa del revisor. La
+// función nominal consume AD3-80 y repite competencia y separación; una
+// respuesta "no_encontrado" no distingue ausencia de falta de competencia.
+func (r *RepositorioBorradorComisionPostgreSQL) ConsultarDocumento(ctx context.Context, identidad dietasports.IdentidadEfectivaCircuito, solicitud dietasports.SolicitudDocumentoCircuito) (dietasports.DocumentoCircuito, error) {
+	var cero dietasports.DocumentoCircuito
+	op := dietasports.SolicitudOperacionCircuito{Operacion: dietasports.OperacionConsultarDocumentoCircuito, Documento: solicitud}
+	bruto, err := r.ejecutarCircuito(ctx, identidad, op, consultarDocumentoCircuitoSQL, false)
+	if err != nil {
+		return cero, err
+	}
+	var x struct {
+		Resultado string                         `json:"resultado"`
+		Comision  *dietasports.DocumentoCircuito `json:"comision"`
+	}
+	if json.Unmarshal(bruto, &x) != nil {
+		return cero, dietasports.ErrCircuitoNoDisponible
+	}
+	if x.Resultado == "no_encontrado" && x.Comision == nil {
+		return cero, dietasports.ErrComisionNoEncontrada
+	}
+	if x.Resultado != "concedido" || x.Comision == nil || application.ValidarDocumentoCircuito(*x.Comision, solicitud) != nil {
+		return cero, dietasports.ErrCircuitoNoDisponible
+	}
+	return *x.Comision, nil
+}
+
 func (r *RepositorioBorradorComisionPostgreSQL) ejecutarCircuito(ctx context.Context, identidad dietasports.IdentidadEfectivaCircuito, op dietasports.SolicitudOperacionCircuito, funcion string, escritura bool) ([]byte, error) {
 	if err := r.valido(ctx); err != nil {
 		if ctx != nil && ctx.Err() != nil {
@@ -94,7 +121,7 @@ func (r *RepositorioBorradorComisionPostgreSQL) ejecutarCircuito(ctx context.Con
 		a.Accion != accion || a.RecursoRef != recurso || a.Finalidad != finalidad || a.Material.ValidarEstructura() != nil {
 		return nil, dietasports.ErrAccesoCircuitoDenegado
 	}
-	efecto, err := application.ConstruirEfectoAutorizacionCircuito(identidad.ContextoRegistrado, identidad.Asignacion, identidad.UnidadCompetenciaRef, op)
+	efecto, err := application.ConstruirEfectoAutorizacionCircuito(identidad.ContextoRegistrado, identidad.UnidadCompetenciaRef, op)
 	if err != nil || efecto.Recurso.Referencia != recurso || len(efecto.Material) == 0 {
 		return nil, dietasports.ErrAccesoCircuitoDenegado
 	}

@@ -118,5 +118,10 @@ test("municipios e instantes se presentan sin inventar nombres", () => {
   assert.equal(etiquetaMunicipio("municipio:sintetico:a"), "Municipio sintético A");
   assert.equal(etiquetaMunicipio("municipio:ine:18087"), "Municipio INE 18087");
   assert.equal(instanteDesdeCampo(""), "");
-  assert.match(instanteDesdeCampo("2026-04-20T10:00"), /^2026-04-20T\d{2}:00:00\.000Z$/u);
+  // «Conocido en» se interpreta en hora de Madrid, no en la del navegador.
+  assert.equal(instanteDesdeCampo("2026-04-20T10:00"), "2026-04-20T08:00:00.000Z");
+  assert.equal(instanteDesdeCampo("2026-01-20T10:00"), "2026-01-20T09:00:00.000Z");
+  assert.equal(instanteDesdeCampo("2026-03-29T02:30"), "", "hora inexistente del cambio de marzo");
+  assert.equal(instanteDesdeCampo("2026-10-25T02:30"), "2026-10-25T00:30:00.000Z", "primera aparición de la hora repetida");
+  assert.equal(instanteDesdeCampo("20/04/2026"), "");
 });

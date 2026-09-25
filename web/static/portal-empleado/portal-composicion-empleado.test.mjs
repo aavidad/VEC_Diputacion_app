@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import * as i18nCronos from "./modulos/cronos/i18n.js";
 import {
+  componerCronosInterno,
   componerCronosVisible,
   componerDietasInternas,
   componerPersonalVisible,
@@ -148,4 +150,73 @@ test("Personal limpia una vez también si un catálogo falla después de registr
   resolverTardio();
   await Promise.resolve();
   assert.equal(limpiarTemprano, 1);
+});
+
+test("Dietas interna compone el circuito de revisión solo con su cliente HTTP same-origin", async () => {
+  const llamadas = [];
+  const asignacion = Object.freeze({ async obtenerRelaciones() { return { relaciones_autorizadas: [], fecha_referencia: "2026-09-25" }; } });
+  const circuito = Object.freeze({ competencias() {}, listar() {}, decidir() {}, documento() {} });
+  const recursos = { ...recursosDietas(llamadas, { cliente: {}, asignacion, calculador: {}, visor: {} }),
+    clienteCircuito: { crearClienteCircuitoDietasHTTP(entrada) { assert.deepEqual(Object.keys(entrada), ["fetchImpl"]); return circuito; } } };
+  const dietas = componerDietasInternas(recursos, { fetch() {} });
+  await dietas.montar({ raiz: "raiz", anunciar: () => {}, registrarDesmontar: () => {} });
+  assert.strictEqual(llamadas.at(-1)[2].clienteCircuito, circuito);
+  const sinCircuito = componerDietasInternas(recursosDietas([], { cliente: {}, asignacion, calculador: {}, visor: {} }), { fetch() {} });
+  assert.notEqual(sinCircuito, undefined);
+});
+
+function domFalso() {
+  class Nodo {
+    constructor(etiqueta) { this.tagName = etiqueta; this.children = []; this.dataset = {}; this.atributos = {}; this.textContent = ""; this.parent = null; }
+    get ownerDocument() { return documento; }
+    append(...nodos) { for (const n of nodos) { n.parent = this; this.children.push(n); } }
+    replaceChildren(...nodos) { this.children = []; this.append(...nodos); }
+    remove() { if (this.parent) this.parent.children = this.parent.children.filter((n) => n !== this); this.parent = null; }
+    setAttribute(nombre, valor) { this.atributos[nombre] = String(valor); }
+  }
+  const documento = { createElement: (etiqueta) => new Nodo(etiqueta) };
+  return new Nodo("root");
+}
+
+function recursosCronos(partes) {
+  const cliente = (nombre) => ({ [nombre]: () => Object.freeze({}) });
+  return {
+    saldo: { montarVistaSaldoCronos: partes.saldo }, remoto: { montarVistaRemotoCronos: partes.remoto },
+    movimientos: { montarVistaMovimientosCronos: partes.movimientos },
+    movimientosPropios: { montarMovimientosPropiosCronos: partes.calendario },
+    permisosPropios: { montarPermisosPropiosCronos: () => Object.freeze({ desmontar() {} }) },
+    clienteSaldo: cliente("crearClienteSaldoCronosHTTP"), clienteRemoto: cliente("crearClienteRemotoCronosHTTP"),
+    clienteSolicitudes: cliente("crearClienteSolicitudesCronosHTTP"), i18n: i18nCronos,
+  };
+}
+
+test("Jornada: una parte que falla deja su aviso accesible y, sin calendario, no se ofrece el olvido", () => {
+  const recibidas = {};
+  const bien = (nombre, extra = {}) => (opciones) => { recibidas[nombre] = opciones; return Object.freeze({ desmontar() {}, ...extra }); };
+  const falla = () => { throw new Error("detalle interno: /api/interna/x"); };
+  const cronos = componerCronosInterno(recursosCronos({ saldo: falla, remoto: bien("remoto"),
+    movimientos: bien("movimientos"), calendario: falla }), {});
+  const raiz = domFalso();
+  const montaje = cronos.montar({ raiz });
+  const parte = (nombre) => raiz.children.find((n) => n.dataset.cronosParte === nombre);
+  assert.deepEqual(raiz.children.map((n) => n.dataset.cronosParte ?? n.tagName), ["header", "saldo", "remoto", "movimientos", "calendario"]);
+  for (const nombre of ["saldo", "calendario"]) {
+    assert.equal(parte(nombre).dataset.cronosParteEstado, "error", nombre);
+    const [aviso] = parte(nombre).children;
+    assert.equal(aviso.atributos.role, "alert");
+    assert.equal(aviso.textContent, i18nCronos.MENSAJES_CRONOS_ES.jornada_parte_error);
+    assert.doesNotMatch(aviso.textContent, /interno|api/u);
+  }
+  assert.equal(Object.hasOwn(recibidas.movimientos, "abrirCorreccion"), false, "sin calendario no hay olvido que abrir");
+  assert.equal(recibidas.movimientos.incrustada, true);
+  montaje.desmontar();
+  assert.equal(raiz.children.length, 0);
+
+  let olvidos = 0;
+  const conCalendario = componerCronosInterno(recursosCronos({ saldo: bien("saldo"), remoto: bien("remoto"),
+    movimientos: bien("movimientos"), calendario: bien("calendario", { abrirOlvido: () => { olvidos += 1; } }) }), {});
+  conCalendario.montar({ raiz: domFalso() });
+  assert.equal(recibidas.calendario.incrustada, true);
+  recibidas.movimientos.abrirCorreccion();
+  assert.equal(olvidos, 1);
 });

@@ -1,4 +1,7 @@
 import { crearTraductorPersonal } from "../modulos/personal/i18n.js";
+import { ZONA_MADRID, instanteDesdeHoraMadrid, localMadrid } from "../hora-madrid.js";
+
+export { instanteDesdeHoraMadrid };
 
 export const API_ORGANIZACION_HISTORICA = "/api/vec/personal/organizacion-historica";
 const tPersonal = crearTraductorPersonal();
@@ -10,27 +13,7 @@ const NOMBRES = Object.freeze({
   unidades: "historyUnits", puestos_tipo: "historyTypes", dotaciones: "historyAllocations",
   plazas: "historyPlazas", puestos_individuales: "historyPosts", vinculos: "historyLinks",
 });
-const ZONA_CONOCIMIENTO = "Europe/Madrid";
-const partesMadrid = new Intl.DateTimeFormat("en-GB", {
-  timeZone: ZONA_CONOCIMIENTO, year: "numeric", month: "2-digit", day: "2-digit",
-  hour: "2-digit", minute: "2-digit", hourCycle: "h23",
-});
-/** Devuelve `AAAA-MM-DDTHH:MM` del instante `ms` en hora de Madrid. */
-function localMadrid(ms) {
-  const p = Object.fromEntries(partesMadrid.formatToParts(new Date(ms)).map(({ type, value }) => [type, value]));
-  return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;
-}
-/**
- * Convierte una hora civil de Madrid (`AAAA-MM-DDTHH:MM`) en su instante UTC.
- * Una hora inexistente (salto de marzo) devuelve null; en la hora repetida de
- * octubre se toma la primera aparición, la más antigua.
- */
-export function instanteDesdeHoraMadrid(local) {
-  const base = Date.parse(`${local}:00Z`);
-  if (!Number.isFinite(base)) return null;
-  const candidatos = [2, 1, 0].map((horas) => base - horas * 3600000).filter((ms) => localMadrid(ms) === local);
-  return candidatos.length ? candidatos[0] : null;
-}
+const ZONA_CONOCIMIENTO = ZONA_MADRID;
 const esc = (valor) => String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;")
   .replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 

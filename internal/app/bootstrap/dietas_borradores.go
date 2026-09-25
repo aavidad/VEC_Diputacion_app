@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -41,10 +42,12 @@ type dependenciasBorradoresDietas struct {
 	preparador         interface {
 		Preparar(context.Context, dietasports.SolicitudCrearBorradorPropio) (dietasports.SolicitudCrearBorradorPropio, error)
 	}
+	// fuenteCompetencia acredita la unidad de cada revisor del circuito.
+	fuenteCompetencia dietasports.FuenteCompetenciaCircuito
 }
 
 func componerBorradoresDietas(d dependenciasBorradoresDietas) ([]vechttp.RutaExacta, []vechttp.RutaColeccion, error) {
-	if d.personal == nil || d.personalAsignacion == nil || d.dietas == nil || dependenciaDietasNula(d.auditoriaPersonal) || dependenciaDietasNula(d.seguridad) || dependenciaDietasNula(d.reloj) || dependenciaDietasNula(d.emisorPersonal) || dependenciaDietasNula(d.emisorDietas) {
+	if d.personal == nil || d.personalAsignacion == nil || d.dietas == nil || dependenciaDietasNula(d.auditoriaPersonal) || dependenciaDietasNula(d.seguridad) || dependenciaDietasNula(d.reloj) || dependenciaDietasNula(d.emisorPersonal) || dependenciaDietasNula(d.emisorDietas) || dependenciaDietasNula(d.fuenteCompetencia) {
 		return nil, nil, ErrComposicionBorradoresDietasNoDisponible
 	}
 	identidad, err := nuevaIdentidadPersonalDietas(d.seguridad, d.reloj)
@@ -112,10 +115,27 @@ func componerBorradoresDietas(d dependenciasBorradoresDietas) ([]vechttp.RutaExa
 	if err != nil {
 		return nil, nil, ErrComposicionBorradoresDietasNoDisponible
 	}
+	servicioCircuito, err := dietasapp.NuevoServicioCircuitoComision(repositorioDietas)
+	if err != nil {
+		return nil, nil, ErrComposicionBorradoresDietasNoDisponible
+	}
+	identidadCircuito, err := dietascomp.NuevoResolutorIdentidadEfectivaCircuito(identidad, d.fuenteCompetencia, d.emisorDietas, d.motivoDietas)
+	if err != nil {
+		return nil, nil, ErrComposicionBorradoresDietasNoDisponible
+	}
+	manejadorCircuito, err := dietashttp.NuevoManejadorCircuito(identidadCircuito, servicioCircuito)
+	if err != nil {
+		return nil, nil, ErrComposicionBorradoresDietasNoDisponible
+	}
 	// Las dos consultas de identidad comparten el mismo resultado revalidado
 	// durante la petición; una segunda identidad no puede sustituir la primera.
+	// El circuito vive bajo la colección de comisiones y tiene su manejador.
 	ruta := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := context.WithValue(r.Context(), claveCacheSeguridadComunDesarrollo{}, &cacheSeguridadComunDesarrollo{})
+		if r.URL != nil && (r.URL.Path == dietashttp.RutaCircuito || strings.HasPrefix(r.URL.Path, dietashttp.RutaCircuito+"/")) {
+			manejadorCircuito.ServeHTTP(w, r.WithContext(ctx))
+			return
+		}
 		manejador.ServeHTTP(w, r.WithContext(ctx))
 	})
 	rutaRelaciones := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

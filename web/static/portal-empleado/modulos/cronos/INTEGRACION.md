@@ -1,24 +1,25 @@
 # Estado de integración de Cronos en el Portal del Empleado
 
-El portal interno registra Cronos y monta una vista de Jornada sin datos cuando
-no recibe una proyección propia autorizada. La vista conserva estados de carga,
-vacío, denegación y error; no ofrece controles de fichaje genérico. El
-contrato de Jornada valida la referencia del actor de la sesión compartida, las
-capacidades declaradas y el envelope `vec.cronos.area-personal.v1`. Una capacidad
-en el navegador solo gobierna la presentación: la autorización del efecto
-pertenece al servidor.
+El portal interno registra Cronos desde el catálogo y compone
+`componerCronosInterno` (`portal-composicion-empleado.js`):
 
-El recorrido de Permisos, sus hojas de catálogo, correcciones y notificaciones
-son superficies separadas. El coordinador las monta sin inventar solicitudes,
-saldos ni responsables. Su comportamiento y textos están en
-`vista-recorridos.js` e `i18n.js`.
+- «Jornada» cuelga en contenedores hijos el saldo propio
+  (`vista-saldo-conectado.js`), el fichaje remoto (`vista-remoto.js`), los
+  movimientos del día (`vista-movimientos-conectado.js`) y el calendario anual
+  con ausencias y olvidos (`vista-movimientos-propios.js`). «Olvido de
+  marcaje» abre el formulario de olvido del calendario.
+- «Permisos» monta `vista-permisos-propios.js`.
 
-## Pendiente de composición
+Si falta cualquier vista o cliente, Cronos no se ofrece (falla cerrado). Cada
+vista consulta su propia API: con una capacidad desactivada el servidor da
+404 y esa vista muestra su estado sin afectar a las demás. La jornada genérica
+(`vista.js`) y el recorrido de Permisos (`vista-recorridos.js`) quedan solo en
+presentación.
 
-- La API de Jornada no está montada en el coordinador. La vista no recibe aún el
-  envelope validado de un servicio interno ni registra fichajes.
-- Existen clientes HTTP y vistas de saldo propio y marcaje remoto, pero aún no
-  están montados en el coordinador ni acreditados con un recorrido completo.
+## Pendiente
+
+- La concesión por jefatura o administración y los mensajes de resolución
+  pertenecen a otro corte.
 - El marcaje desde el portal se limitará al circuito remoto que acredite
   teletrabajo vigente para esa persona y periodo en el servidor.
 - Falta vincular y probar navegador → identidad y autorización → caso de uso →

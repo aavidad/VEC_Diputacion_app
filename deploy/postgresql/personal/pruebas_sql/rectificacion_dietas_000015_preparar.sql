@@ -1,5 +1,8 @@
 \set ON_ERROR_STOP on
--- TEST-ONLY. El stub AD3 no acredita autorización real.
+-- TEST-ONLY. El stub AD3 no acredita autorización real: sustituye a las
+-- fachadas AD3-61 solo en este PG18 efímero sin núcleo AD3. La instalación
+-- de 000015 sobre las fachadas reales se ensaya en
+-- autorizacion_atestada_v3/pruebas_sql/dietas_d7bc_ad3_000061_pg18.sh.
 CREATE FUNCTION vec_autorizacion_atestada_v3.registrar_y_consumir_rectificacion_dietas_v3_atestada(
  bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)
 RETURNS TABLE(decision_ref text,efecto_ref text,huella_efecto_sha256 text,

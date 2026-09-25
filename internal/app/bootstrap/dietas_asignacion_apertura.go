@@ -4,6 +4,10 @@ import (
 	"net/http"
 	"strings"
 
+	dietascomp "vec-diputacion-granada/internal/modules/dietas/adapters/composicion"
+	dietasapp "vec-diputacion-granada/internal/modules/dietas/application"
+	dietasports "vec-diputacion-granada/internal/modules/dietas/ports"
+
 	personalhttp "vec-diputacion-granada/internal/modules/personal/adapters/httpinterno"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 )
@@ -22,6 +26,25 @@ import (
 // La consulta (GET) y la corrección de grupo (PUT .../grupo), que no altera
 // centro, administrativo ni responsable, siguen abiertas.
 const catalogoValidadoresCompetentesAsignacionDietas = ""
+
+// fuenteCompetenciaCircuitoDietas elige la fuente que acredita la unidad de
+// cada revisor del circuito. Es el mismo catálogo de validadores competentes:
+// sin él, ninguna bandeja acredita a nadie y ninguna acción se ofrece. Con él
+// relleno la composición falla hasta que exista su consumidor: nunca se
+// deduce la competencia de la asignación D7, de un cargo ni de un perfil.
+func fuenteCompetenciaCircuitoDietas(catalogo string) (dietasports.FuenteCompetenciaCircuito, error) {
+	if escrituraAsignacionDietasAbierta(catalogo) {
+		return nil, ErrComposicionBorradoresDietasNoDisponible
+	}
+	return dietascomp.FuenteCompetenciaCircuitoSinCatalogo{}, nil
+}
+
+// accionesCircuitoDietas enumera las acciones V3 del circuito de revisión.
+func accionesCircuitoDietas() []string {
+	return []string{"dietas.documento.revisar", "dietas.documento.autorizar", "dietas.documento.liquidar", "dietas.documento.fiscalizar",
+		"dietas.bandeja.revision.consultar", "dietas.bandeja.autorizacion.consultar", "dietas.bandeja.liquidacion.consultar", "dietas.bandeja.fiscalizacion.consultar",
+		dietasapp.AccionConsultarDocumentoCircuito}
+}
 
 // escrituraAsignacionDietasAbierta indica si el catálogo gobernado permite
 // componer el alta y la corrección completa de la asignación D7.

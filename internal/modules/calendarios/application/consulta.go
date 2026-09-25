@@ -287,10 +287,16 @@ func (s *Servicio) preparado(ctx context.Context) error {
 	return ctx.Err()
 }
 
+// margenRelojConsulta absorbe la deriva habitual entre el reloj de la aplicación
+// y el de la base al consultar «lo conocido ahora».
+const margenRelojConsulta = 5 * time.Second
+
 func (s *Servicio) conocidoEn(pedido time.Time) (time.Time, error) {
 	ahora := s.reloj.Ahora().UTC().Truncate(time.Microsecond)
 	if pedido.IsZero() {
-		return ahora, nil
+		// «Ahora» se toma con un margen para que un reloj de la aplicación algo
+		// adelantado respecto al de PostgreSQL no convierta la consulta en futura.
+		return ahora.Add(-margenRelojConsulta), nil
 	}
 	pedido = pedido.UTC()
 	if pedido.After(ahora) || pedido.Year() < AnioMinimoConsulta {

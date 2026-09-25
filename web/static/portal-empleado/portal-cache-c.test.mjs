@@ -26,8 +26,7 @@ test("capa C no reutiliza los consumidores previos de B con caché immutable", a
   const aristas = [
     [html, "/portal-empleado/portal.js", "20260924-web-integrada-v2", entradaAyuda, 1],
     [portal, "./portal-modulos-coordinador.js", "20260924-web-integrada-v2", entrada, 1],
-    [coordinador, "./modulos/cronos/vista.js", "20260924-f2-shell-v1", cronosVista, 1],
-    [coordinador, "./modulos/cronos/vista-recorridos.js", "20260924-cronos-ayuda-v1", cronosVista, 2],
+    [coordinador, "./modulos/cronos/vista-recorridos.js", "20260924-cronos-ayuda-v1", cronosVista, 1],
     [coordinador, "./modulos/cronos/i18n.js", "20260924-f2-web2", cronosVista, 1],
     [coordinador, "./modulos/dietas/vista-recorridos.js", "20260924-f2-consulta-v2", sinGuia, 1],
     [coordinador, "./modulos/personal/vista-ficha-integral.js", "20260924-f2-shell-v1", vistasPersonalC, 2],

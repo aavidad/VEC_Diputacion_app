@@ -241,6 +241,10 @@ func responderFallo(w http.ResponseWriter, r *http.Request, err error) {
 			faltan = append(faltan, ambitoFaltante{Tipo: string(a.Tipo), Ref: a.Ref})
 		}
 		responderError(w, r, http.StatusUnprocessableEntity, "calendario_no_publicado", map[string]any{"anio": cobertura.Anio, "faltan": faltan})
+	case errors.Is(err, domain.ErrCalculoNoDeterminado):
+		// El plazo pedido no puede fijarse con los calendarios publicados: es un
+		// resultado de la consulta, no una caída del servicio.
+		responderError(w, r, http.StatusUnprocessableEntity, "plazo_no_determinado", nil)
 	default:
 		responderError(w, r, http.StatusServiceUnavailable, "servicio_no_disponible", nil)
 	}

@@ -62,6 +62,10 @@ type configuracionCronosEmpleadoDesarrollo struct {
 		Marcaje        core.ReferenciaEntradaCatalogo `json:"marcaje"`
 		Disponibilidad core.ReferenciaEntradaCatalogo `json:"disponibilidad"`
 		Recuperacion   core.ReferenciaEntradaCatalogo `json:"recuperacion"`
+		Movimientos    core.ReferenciaEntradaCatalogo `json:"movimientos"`
+		Correccion     core.ReferenciaEntradaCatalogo `json:"correccion"`
+		Permisos       core.ReferenciaEntradaCatalogo `json:"permisos"`
+		Permiso        core.ReferenciaEntradaCatalogo `json:"permiso"`
 	} `json:"motivos"`
 	CanalRemoto struct {
 		PoliticaVersionRef string `json:"politica_version_ref"`
@@ -71,7 +75,7 @@ type configuracionCronosEmpleadoDesarrollo struct {
 }
 
 // autoridadCronosEmpleadoDesarrollo es la frontera de /api/interna/cronos/.
-// Sólo publica las cuatro rutas exactas cuando todas las dependencias están
+// Sólo publica las ocho rutas exactas cuando todas las dependencias están
 // compuestas; toda otra ruta bajo el prefijo se deniega.
 type autoridadCronosEmpleadoDesarrollo struct {
 	base        *autoridadRutasDietasDesarrollo
@@ -234,7 +238,7 @@ func servicioContextoActorCronos(resolutor vecports.ResolutorRegistroContextoAct
 }
 
 // preflightCronosEmpleado comprueba con cada LOGIN nominal que las funciones
-// de 000007 existen (su instalación exige AD3-53) y que cada uno sólo tiene
+// de 000007 y 000008 existen (exigen AD3-53 y AD3-70) y que cada uno sólo tiene
 // las que le corresponden. Una función ausente hace fallar la consulta.
 func preflightCronosEmpleado(ctx context.Context, ejecutor, auditor *pgxpool.Pool) error {
 	var ok bool
@@ -242,7 +246,11 @@ func preflightCronosEmpleado(ctx context.Context, ejecutor, auditor *pgxpool.Poo
   'vec_cronos_v1.consultar_saldo_propio_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
   'vec_cronos_v1.consultar_estado_remoto_propio_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
   'vec_cronos_v1.registrar_marcaje_remoto_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
-  'vec_cronos_v1.recuperar_marcaje_remoto_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)']) f`).Scan(&ok) != nil || !ok {
+  'vec_cronos_v1.recuperar_marcaje_remoto_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
+  'vec_cronos_v1.consultar_movimientos_propio_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
+  'vec_cronos_v1.solicitar_correccion_propia_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
+  'vec_cronos_v1.consultar_permisos_propio_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
+  'vec_cronos_v1.solicitar_permiso_propio_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)']) f`).Scan(&ok) != nil || !ok {
 		return ErrComposicionCronosEmpleadoNoDisponible
 	}
 	if auditor.QueryRow(ctx, `SELECT has_function_privilege('vec_cronos_v1.registrar_denegacion_frontera_v1(text,text,text,text,text)','EXECUTE')
@@ -280,8 +288,9 @@ func nuevasRutasCronosEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp.D
 		(c.ZonaHoraria != cronosdomain.ZonaSaldoPeninsula && c.ZonaHoraria != cronosdomain.ZonaSaldoCanarias) {
 		return nil, errCronosEmpleadoEn()
 	}
-	motivos := cronoscomp.MotivosCronos{Saldo: c.Motivos.Saldo, Marcaje: c.Motivos.Marcaje, Disponibilidad: c.Motivos.Disponibilidad, Recuperacion: c.Motivos.Recuperacion}
-	for _, m := range []core.ReferenciaEntradaCatalogo{motivos.Marcaje, motivos.Disponibilidad, motivos.Recuperacion} {
+	motivos := cronoscomp.MotivosCronos{Saldo: c.Motivos.Saldo, Marcaje: c.Motivos.Marcaje, Disponibilidad: c.Motivos.Disponibilidad, Recuperacion: c.Motivos.Recuperacion,
+		Movimientos: c.Motivos.Movimientos, Correccion: c.Motivos.Correccion, Permisos: c.Motivos.Permisos, Permiso: c.Motivos.Permiso}
+	for _, m := range []core.ReferenciaEntradaCatalogo{motivos.Marcaje, motivos.Disponibilidad, motivos.Recuperacion, motivos.Movimientos, motivos.Correccion, motivos.Permisos, motivos.Permiso} {
 		if m.CatalogoID != motivos.Saldo.CatalogoID {
 			return nil, errCronosEmpleadoEn()
 		}
@@ -389,6 +398,10 @@ func nuevasRutasCronosEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp.D
 		cronosapp.AccionConsultarDisponibilidadRemota: material.disponibilidad,
 		cronosapp.AccionRecuperarMarcajeRemoto:        material.recibo,
 		cronosapp.AccionConsultarSaldoPropio:          material.saldo,
+		cronosapp.AccionConsultarMovimientosPropios:   material.movimientos,
+		cronosapp.AccionSolicitarCorreccion:           material.correccion,
+		cronosapp.AccionConsultarPermisosPropios:      material.permisos,
+		cronosapp.AccionSolicitarPermisoPropio:        material.solicitudPermiso,
 	} {
 		e, err := nuevoEmisorMaterialRenovableCTDesarrollo(autorizador, proveedor)
 		if err != nil {
@@ -431,7 +444,7 @@ type dependenciasCronosEmpleado struct {
 }
 
 // componerManejadoresCronosEmpleado une repositorios, casos de uso y
-// manejadores. Devuelve las cuatro rutas exactas o ninguna.
+// manejadores. Devuelve las ocho rutas exactas o ninguna.
 func componerManejadoresCronosEmpleado(d dependenciasCronosEmpleado) (map[string]http.Handler, error) {
 	if d.ejecutor == nil || d.auditor == nil || dependenciaDietasNula(d.identidad) || d.autorizador == nil || d.zona == nil {
 		return nil, errCronosEmpleadoEn()
@@ -465,9 +478,36 @@ func componerManejadoresCronosEmpleado(d dependenciasCronosEmpleado) (map[string
 	if err != nil {
 		return nil, errCronosEmpleadoEn()
 	}
+	movimientosRepo, err := cronospg.NuevoRepositorioConsultaMovimientos(d.ejecutor)
+	if err != nil {
+		return nil, errCronosEmpleadoEn()
+	}
+	movimientos, err := cronosapp.NuevoServicioConsultaMovimientos(movimientosRepo, reloj, d.zona)
+	if err != nil {
+		return nil, errCronosEmpleadoEn()
+	}
+	correccionesRepo, err := cronospg.NuevoRepositorioCorreccionesPropias(d.ejecutor, d.zona.String())
+	if err != nil {
+		return nil, errCronosEmpleadoEn()
+	}
+	correcciones, err := cronosapp.NuevoServicioCorrecciones(correccionesRepo, reloj)
+	if err != nil {
+		return nil, errCronosEmpleadoEn()
+	}
+	permisosRepo, err := cronospg.NuevoRepositorioPermisosPropios(d.ejecutor)
+	if err != nil {
+		return nil, errCronosEmpleadoEn()
+	}
+	permisos, err := cronosapp.NuevoServicioPermisosPropios(permisosRepo, reloj, d.zona)
+	if err != nil {
+		return nil, errCronosEmpleadoEn()
+	}
 	m, err := PrepararManejadoresCronos(DependenciasManejadoresCronos{
 		ConsultaSaldo: consultaSaldo, ResolverSaldo: resolutor,
 		MarcajesRemotos: marcajes, ResolverMarcajeRemoto: resolutor, ResolverRecuperacionRemota: resolutor,
+		Movimientos: movimientos, ResolverMovimientos: resolutor,
+		Correcciones: correcciones, ResolverCorreccion: resolutor,
+		Permisos: permisos, ResolverPermisos: resolutor,
 	})
 	if err != nil {
 		return nil, errCronosEmpleadoEn()
@@ -477,6 +517,10 @@ func componerManejadoresCronosEmpleado(d dependenciasCronosEmpleado) (map[string
 		cronoshttp.RutaRegistrarMarcajeRemoto:       m.MarcajeRemoto,
 		cronoshttp.RutaDisponibilidadMarcajeRemoto:  m.MarcajeRemoto,
 		cronoshttp.RutaRecuperarReciboMarcajeRemoto: m.RecuperacionRemota,
+		cronoshttp.RutaConsultarMovimientosPropios:  m.Movimientos,
+		cronoshttp.RutaSolicitarCorreccionPropia:    m.CorreccionPropia,
+		cronoshttp.RutaConsultarPermisosPropios:     m.PermisosPropios,
+		cronoshttp.RutaSolicitarPermisoPropio:       m.PermisosPropios,
 	}, nil
 }
 

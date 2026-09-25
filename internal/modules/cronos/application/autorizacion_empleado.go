@@ -25,10 +25,16 @@ const (
 
 func recursoEmpleado(referencia, tipo, empleado string, canonico []byte) (vecdomain.RecursoAutorizable, error) {
 	h := sha256.Sum256(canonico)
+	return recursoEmpleadoHuella(referencia, tipo, empleado, hex.EncodeToString(h[:]))
+}
+
+// recursoEmpleadoHuella liga el recurso a la huella SHA-256 del material
+// exacto que recibirá la función durable.
+func recursoEmpleadoHuella(referencia, tipo, empleado, huella string) (vecdomain.RecursoAutorizable, error) {
 	r := vecdomain.RecursoAutorizable{
 		Referencia: referencia, ModuloID: "cronos", Tipo: tipo,
 		Ambitos:   map[string]string{"empleado_ref": empleado},
-		Atributos: map[string]string{"material_sha256": hex.EncodeToString(h[:])},
+		Atributos: map[string]string{"material_sha256": huella},
 	}
 	if r.Validar() != nil {
 		return vecdomain.RecursoAutorizable{}, ErrContextoMarcajeNoAcreditado

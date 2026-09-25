@@ -1,4 +1,12 @@
 /* Vistas conectadas: las superficies y colores proceden del tema común. */
+.cronos-personal-parte {
+  min-width: 0;
+}
+
+.cronos-personal-parte + .cronos-personal-parte {
+  margin-top: var(--portal-espacio-5);
+}
+
 .cronos-saldo-conectado,
 .cronos-movimientos-conectado {
   min-width: 0;

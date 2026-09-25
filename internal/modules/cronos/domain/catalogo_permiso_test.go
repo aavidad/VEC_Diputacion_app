@@ -33,12 +33,36 @@ func TestProyeccionRechazaHechosAmbiguos(t *testing.T) {
 	for _, hechos := range [][]HechoResumenPermiso{
 		{{SolicitudRef: "sol:1", CatalogoVersionRef: "catalogo:v1", Unidad: LeaveUnitDay, Cantidad: 1, Estado: EstadoPermisoSolicitado}, {SolicitudRef: "sol:1", CatalogoVersionRef: "catalogo:v1", Unidad: LeaveUnitDay, Cantidad: 1, Estado: EstadoPermisoConcedido}},
 		{{SolicitudRef: "sol:2", CatalogoVersionRef: "catalogo:v1", Unidad: LeaveUnitDay, Cantidad: 1, Estado: EstadoPermisoDenegado, PendienteJustificar: true}},
-		{{SolicitudRef: "sol:3", CatalogoVersionRef: "catalogo:v1", Unidad: LeaveUnitDay, Cantidad: 21, Estado: EstadoPermisoConcedido}},
-		{{SolicitudRef: "sol:4", CatalogoVersionRef: "catalogo:v0", Unidad: LeaveUnitHour, Cantidad: 2, Estado: EstadoPermisoConcedido}},
+		{{SolicitudRef: "sol:3", CatalogoVersionRef: "catalogo:v1", Unidad: "semana", Cantidad: 1, Estado: EstadoPermisoConcedido}},
+		{{SolicitudRef: "sol:4", CatalogoVersionRef: "catalogo:v0", Unidad: LeaveUnitHour, Cantidad: 2, Estado: "desconocido"}},
 	} {
 		if _, err := ProyectarPermisoAnual(c, 2026, hechos); err == nil {
 			t.Fatalf("se aceptaron hechos invalidos: %+v", hechos)
 		}
+	}
+}
+
+// Un cambio de unidad o de maximo entre versiones marca solo esa fila.
+func TestProyeccionMarcaHistoriaSinConciliar(t *testing.T) {
+	c := catalogoPrueba()
+	r, err := ProyectarPermisoAnual(c, 2026, []HechoResumenPermiso{
+		{SolicitudRef: "sol:1", CatalogoVersionRef: "catalogo:v1", Unidad: LeaveUnitDay, Cantidad: 2, Estado: EstadoPermisoConcedido},
+		{SolicitudRef: "sol:2", CatalogoVersionRef: "catalogo:v0", Unidad: LeaveUnitHour, Cantidad: 90, Estado: EstadoPermisoConcedido},
+	})
+	if err != nil || !r.SinConciliar || r.Resta != nil || r.Concedido != 2 {
+		t.Fatalf("cambio de unidad: %+v, %v", r, err)
+	}
+	r, err = ProyectarPermisoAnual(c, 2026, []HechoResumenPermiso{
+		{SolicitudRef: "sol:3", CatalogoVersionRef: "catalogo:v0", Unidad: LeaveUnitDay, Cantidad: 21, Estado: EstadoPermisoConcedido},
+	})
+	if err != nil || !r.SinConciliar || r.Resta != nil || r.Concedido != 21 {
+		t.Fatalf("maximo rebajado: %+v, %v", r, err)
+	}
+	r, err = ProyectarPermisoAnual(c, 2026, []HechoResumenPermiso{
+		{SolicitudRef: "sol:4", CatalogoVersionRef: "catalogo:v1", Unidad: LeaveUnitDay, Cantidad: 20, Estado: EstadoPermisoConcedido},
+	})
+	if err != nil || r.SinConciliar || r.Resta == nil || *r.Resta != 0 {
+		t.Fatalf("cupo agotado sin descuadre: %+v, %v", r, err)
 	}
 }
 

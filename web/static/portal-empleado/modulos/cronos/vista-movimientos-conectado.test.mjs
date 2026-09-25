@@ -27,9 +27,9 @@ test("muestra movimiento remoto acreditado y estado incompleto sin inferir ausen
   assert.match(html, /Entrada/);
   assert.match(html, /Remoto/);
   assert.match(html, /Incompleto/);
-  assert.match(html, /data-cronos-accion="solicitar-correccion" disabled/);
-  assert.match(html, /title="La solicitud de corrección no está disponible/);
-  assert.doesNotMatch(html, /<p[^>]*>La solicitud de corrección/u);
+  assert.doesNotMatch(html, /solicitar-correccion|Solicitar corrección/u, "sin circuito de corrección no se ofrece");
+  assert.match(renderizarVistaMovimientosCronos({ estado: "listo", datos: respuesta(), correccionDisponible: true }),
+    /data-cronos-accion="solicitar-correccion">/u);
   assert.match(html, /data-accion="ayuda"/);
   assert.doesNotMatch(html, /absentismo|olvido|DEMO|datos sintéticos/i);
   const sinOrigen = respuesta(); sinOrigen.detalle[0].marcajes[0].origen = null;
@@ -98,4 +98,17 @@ test("elegir rango deja fechas vacías y consulta solo al enviar fechas válidas
 test("la vista no usa almacenamiento web ni crea otra fuente de movimientos", async () => {
   const fuente = await readFile(new URL("./vista-movimientos-conectado.js", import.meta.url), "utf8");
   assert.doesNotMatch(fuente, /localStorage|sessionStorage|indexedDB|document\.cookie|navigator\.geolocation|datos-sinteticos|Math\.random/u);
+});
+
+test("404 de la API: «no disponible» neutro, sin alerta; incrustada sin sobrelínea", async () => {
+  const { nodo, raiz } = raizFalsa();
+  const vista = montarVistaMovimientosCronos({ raiz, incrustada: true,
+    cliente: { consultar: async () => { throw new ErrorClienteSaldoCronos("servicio_no_disponible", 404); } } });
+  await Promise.resolve(); await Promise.resolve();
+  assert.match(nodo.innerHTML, /data-cronos-movimientos-estado="no_disponible"/u);
+  assert.match(nodo.innerHTML, /<p class="cronos-vacio" role="status">La consulta de movimientos no está disponible\.<\/p>/u);
+  assert.doesNotMatch(nodo.innerHTML, /role="alert"[^>]*>(?!<\/p>)|No se pudieron consultar/u);
+  assert.doesNotMatch(nodo.innerHTML, /sobrelinea|<h2/u);
+  assert.match(nodo.innerHTML, /<h3 id="cronos-movimientos-titulo">/u);
+  vista.desmontar();
 });

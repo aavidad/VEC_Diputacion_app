@@ -5,6 +5,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	dietascomp "vec-diputacion-granada/internal/modules/dietas/adapters/composicion"
+
 	personalhttp "vec-diputacion-granada/internal/modules/personal/adapters/httpinterno"
 )
 
@@ -85,6 +87,27 @@ func TestAsignacionDietasEmisoresEscrituraSoloConCatalogo(t *testing.T) {
 		}
 		if !emisorAsignacionDietasMontable(descriptor.Audiencia, "catalogo:base:validadores-competentes:v1") {
 			t.Fatalf("%s no se monta con el catálogo abierto", descriptor.Audiencia)
+		}
+	}
+}
+
+// Sin el catálogo de validadores competentes el circuito no acredita a nadie;
+// con él relleno, la composición falla hasta que exista su consumidor.
+func TestCircuitoDietasSinFuenteDeCompetenciaHastaElCatalogo(t *testing.T) {
+	fuente, err := fuenteCompetenciaCircuitoDietas(catalogoValidadoresCompetentesAsignacionDietas)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := fuente.(dietascomp.FuenteCompetenciaCircuitoSinCatalogo); !ok {
+		t.Fatalf("fuente de competencia inesperada: %T", fuente)
+	}
+	if _, err := fuenteCompetenciaCircuitoDietas("catalogo:base:validadores-competentes:v1"); err == nil {
+		t.Fatal("catálogo abierto sin consumidor aceptado")
+	}
+	for _, accion := range accionesCircuitoDietas() {
+		audiencia, ok := dietascomp.AudienciaCircuito(accion)
+		if !ok || !audienciaConsumoGobiernoPostgreSQLContratacionTemporalDesarrolloEsPropia(audiencia) {
+			t.Fatalf("acción %s sin audiencia publicable por el gobierno CT", accion)
 		}
 	}
 }
