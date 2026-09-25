@@ -8,7 +8,10 @@
 // `autofirmav2.dictamen-verificacion.v1`. Los campos heredados (`valid`,
 // `result`) se ignoran. Cualquier otro contrato, estado fuera de catalogo,
 // huella de eco distinta o veredicto incoherente con sus aspectos se traduce
-// a `indeterminada` / `respuesta_no_interpretable`.
+// a `indeterminada` / `respuesta_no_interpretable`. Tambien lo son un
+// dictamen con claves desconocidas o duplicadas, datos sobrantes, un eco del
+// original ausente cuando el vinculo se evaluo, o agregados que no son el
+// peor estado de sus firmantes (regla de agregacion del contrato v1).
 //
 // VEC no delega el veredicto: recalcula el suyo sobre los aspectos del
 // dictamen con ports.PoliticaVerificacionFirmaV1 y solo lo acepta si coincide
@@ -31,6 +34,7 @@ import (
 	"net/url"
 	"strings"
 	"time"
+	"unicode"
 
 	"vec-diputacion-granada/internal/vec/documentos/ports"
 )
@@ -45,10 +49,13 @@ const (
 	tiempoMaximo         = 60 * time.Second
 	// La respuesta de AutofirmaV2 incluye detalles textuales que VEC descarta;
 	// se acota antes de decodificar para no reservar memoria sin limite.
-	maximaRespuesta   = 256 << 10
-	minimoToken       = 32
-	maximoToken       = 512
-	maximoFirmantes   = 16
+	maximaRespuesta = 256 << 10
+	minimoToken     = 32
+	maximoToken     = 512
+	maximoFirmantes = 16
+	// maximaProfundidad acota el recorrido de claves duplicadas; el contrato
+	// v1 y sus campos heredados no superan cuatro niveles.
+	maximaProfundidad = 32
 	nombreDocumento   = "documento"
 	estadoNoInformado = "no_informado"
 )
@@ -173,16 +180,23 @@ type peticionAutofirma struct {
 	OriginalBase64 string `json:"original_content_base64"`
 }
 
-// respuestaAutofirma decodifica solo el dictamen. Asunto, emisor, serie,
-// motivos tecnicos, fuentes, fechas y los campos heredados se descartan.
+// respuestaAutofirma toma el dictamen en bruto; los campos heredados de
+// primer nivel se ignoran. El dictamen se decodifica despues con
+// DisallowUnknownFields contra el contrato v1 completo.
 type respuestaAutofirma struct {
-	Dictamen *dictamenAutofirma `json:"dictamen"`
+	Dictamen json.RawMessage `json:"dictamen"`
 }
 
+// dictamenAutofirma enumera todas las claves del contrato v1. Las que VEC no
+// usa (formato, fecha de comprobacion, asunto, emisor, serie, motivos
+// tecnicos, fuentes y fechas de aspecto) se aceptan como json.RawMessage para
+// que DisallowUnknownFields no las rechace, y se descartan sin interpretarlas.
 type dictamenAutofirma struct {
 	Contrato                string              `json:"contrato"`
 	Estado                  string              `json:"estado"`
 	Motivo                  string              `json:"motivo"`
+	Formato                 json.RawMessage     `json:"formato"`
+	ComprobadoEn            json.RawMessage     `json:"comprobadoEn"`
 	Integridad              aspectoAutofirma    `json:"integridad"`
 	Cadena                  aspectoAutofirma    `json:"cadena"`
 	Certificado             aspectoAutofirma    `json:"certificado"`
@@ -197,11 +211,17 @@ type dictamenAutofirma struct {
 }
 
 type aspectoAutofirma struct {
-	Estado string `json:"estado"`
+	Estado string          `json:"estado"`
+	Motivo json.RawMessage `json:"motivo"`
+	Fuente json.RawMessage `json:"fuente"`
+	Fecha  json.RawMessage `json:"fecha"`
 }
 
 type firmanteAutofirma struct {
 	CertificadoHuellaSHA256 string           `json:"certificadoHuellaSHA256"`
+	Serie                   json.RawMessage  `json:"serie"`
+	Asunto                  json.RawMessage  `json:"asunto"`
+	Emisor                  json.RawMessage  `json:"emisor"`
 	Cadena                  aspectoAutofirma `json:"cadena"`
 	Certificado             aspectoAutofirma `json:"certificado"`
 	Revocacion              aspectoAutofirma `json:"revocacion"`
@@ -222,7 +242,15 @@ var (
 	estadosRevocacion  = []string{ports.RevocacionVigente, ports.RevocacionRevocado, ports.RevocacionNoComprobada}
 	estadosSello       = []string{ports.SelloTiempoNoPresente, ports.SelloTiempoValido,
 		ports.SelloTiempoNoValido, ports.SelloTiempoNoComprobado}
-	estadosVinculo   = []string{"acreditado", "no_acreditado", "no_aportado"}
+	estadosVinculo = []string{"acreditado", "no_acreditado", "no_aportado"}
+	// Ordenes de agregacion del contrato v1, de peor a mejor. El agregado de
+	// cada aspecto es el peor estado de sus firmantes; sin firmantes, el
+	// estado por defecto del contrato.
+	ordenCadena      = []string{"no_valida", "no_comprobada", "valida"}
+	ordenCertificado = []string{"uso_no_permitido", "no_vigente", "no_comprobado", "vigente"}
+	ordenRevocacion  = []string{ports.RevocacionRevocado, ports.RevocacionNoComprobada, ports.RevocacionVigente}
+	ordenSello       = []string{ports.SelloTiempoNoValido, ports.SelloTiempoNoComprobado,
+		ports.SelloTiempoNoPresente, ports.SelloTiempoValido}
 	estadosExtension = []string{"desactivada", "activa"}
 	motivosDictamen  = map[string]ports.MotivoVerificacionFirma{
 		"verificada":                     ports.MotivoFirmaVerificada,
@@ -278,11 +306,11 @@ func (c *Cliente) VerificarMotivado(ctx context.Context, s ports.SolicitudVerifi
 	if motivo != "" {
 		return motivar(base, motivo), nil
 	}
-	return traducir(base, recibida.Dictamen), nil
+	return traducir(base, recibida), nil
 }
 
-func (c *Cliente) llamar(ctx context.Context, peticion peticionAutofirma) (respuestaAutofirma, ports.MotivoVerificacionFirma) {
-	var cero respuestaAutofirma
+func (c *Cliente) llamar(ctx context.Context, peticion peticionAutofirma) (*dictamenAutofirma, ports.MotivoVerificacionFirma) {
+	var cero *dictamenAutofirma
 	cuerpo, err := json.Marshal(peticion)
 	if err != nil {
 		return cero, ports.MotivoValidadorNoDisponible
@@ -321,15 +349,98 @@ func (c *Cliente) llamar(ctx context.Context, peticion peticionAutofirma) (respu
 	if err != nil {
 		return cero, ports.MotivoValidadorNoDisponible
 	}
-	if len(contenido) > maximaRespuesta {
+	dictamen, ok := decodificarRespuesta(contenido)
+	if !ok {
 		return cero, ports.MotivoRespuestaNoInterpretable
+	}
+	return dictamen, ""
+}
+
+// decodificarRespuesta acepta exactamente un objeto JSON de hasta
+// maximaRespuesta bytes, sin claves duplicadas en ningun nivel (tampoco por
+// plegado de mayusculas, que encoding/json haria coincidir) y con un dictamen
+// sin claves ajenas al contrato v1. Un dictamen ausente o nulo devuelve nil,
+// que traducir tambien trata como no interpretable.
+func decodificarRespuesta(contenido []byte) (*dictamenAutofirma, bool) {
+	if len(contenido) > maximaRespuesta || !sinClavesDuplicadas(contenido) {
+		return nil, false
 	}
 	lector := json.NewDecoder(bytes.NewReader(contenido))
 	var recibida respuestaAutofirma
 	if lector.Decode(&recibida) != nil || lector.Decode(new(any)) != io.EOF {
-		return cero, ports.MotivoRespuestaNoInterpretable
+		return nil, false
 	}
-	return recibida, ""
+	if len(recibida.Dictamen) == 0 || string(recibida.Dictamen) == "null" {
+		return nil, true
+	}
+	estricto := json.NewDecoder(bytes.NewReader(recibida.Dictamen))
+	estricto.DisallowUnknownFields()
+	dictamen := new(dictamenAutofirma)
+	if estricto.Decode(dictamen) != nil || estricto.Decode(new(any)) != io.EOF {
+		return nil, false
+	}
+	return dictamen, true
+}
+
+// sinClavesDuplicadas recorre el documento por tokens y exige un unico valor
+// de nivel superior, profundidad acotada y claves unicas por objeto tras el
+// plegado que aplica encoding/json al emparejar campos.
+func sinClavesDuplicadas(contenido []byte) bool {
+	lector := json.NewDecoder(bytes.NewReader(contenido))
+	if !recorrerValor(lector, 0) {
+		return false
+	}
+	_, err := lector.Token()
+	return err == io.EOF
+}
+
+func recorrerValor(lector *json.Decoder, profundidad int) bool {
+	token, err := lector.Token()
+	if err != nil {
+		return false
+	}
+	delimitador, compuesto := token.(json.Delim)
+	if !compuesto {
+		return true
+	}
+	if profundidad >= maximaProfundidad {
+		return false
+	}
+	switch delimitador {
+	case '{':
+		vistas := make(map[string]struct{})
+		for lector.More() {
+			token, err := lector.Token()
+			clave, esClave := token.(string)
+			if err != nil || !esClave {
+				return false
+			}
+			plegada := plegarClave(clave)
+			if _, repetida := vistas[plegada]; repetida {
+				return false
+			}
+			vistas[plegada] = struct{}{}
+			if !recorrerValor(lector, profundidad+1) {
+				return false
+			}
+		}
+	case '[':
+		for lector.More() {
+			if !recorrerValor(lector, profundidad+1) {
+				return false
+			}
+		}
+	default:
+		return false
+	}
+	_, err = lector.Token()
+	return err == nil
+}
+
+// plegarClave reproduce el plegado sin distincion de mayusculas con el que
+// encoding/json asocia claves a campos, para detectar duplicados equivalentes.
+func plegarClave(clave string) string {
+	return strings.Map(func(r rune) rune { return unicode.ToUpper(unicode.ToLower(r)) }, clave)
 }
 
 func motivar(r ports.ResultadoVerificacionFirma, m ports.MotivoVerificacionFirma) ports.VerificacionFirmaMotivada {
@@ -341,7 +452,10 @@ func motivar(r ports.ResultadoVerificacionFirma, m ports.MotivoVerificacionFirma
 // catalogos y huellas de eco; despues recalcula el veredicto con la politica
 // de VEC y lo contrasta con el declarado por el validador.
 func traducir(r ports.ResultadoVerificacionFirma, d *dictamenAutofirma) ports.VerificacionFirmaMotivada {
+	// VEC envia siempre el original: salvo que el validador declare no haberlo
+	// recibido (`no_aportado`, sin eco), su eco es obligatorio y exacto.
 	if !dictamenInterpretable(d) || d.HuellaFirmadoSHA256 != r.HuellaFirmadoSHA256 ||
+		(d.VinculoOriginal.Estado == "no_aportado") != (d.HuellaOriginalSHA256 == "") ||
 		(d.HuellaOriginalSHA256 != "" && d.HuellaOriginalSHA256 != r.HuellaOriginalSHA256) {
 		return motivar(r, ports.MotivoRespuestaNoInterpretable)
 	}
@@ -376,7 +490,9 @@ func traducir(r ports.ResultadoVerificacionFirma, d *dictamenAutofirma) ports.Ve
 
 // veredictoVEC aplica ports.PoliticaVerificacionFirmaV1 sobre los aspectos
 // agregados, con la misma precedencia que el contrato: defectos
-// concluyentes antes que comprobaciones no concluidas.
+// concluyentes antes que comprobaciones no concluidas. Solo es seguro porque
+// dictamenInterpretable ya exigio que cada agregado sea exactamente el peor
+// estado de los firmantes: ningun defecto de un firmante queda oculto.
 func veredictoVEC(d *dictamenAutofirma) ports.MotivoVerificacionFirma {
 	switch {
 	case d.Integridad.Estado == "no_valida":
@@ -430,6 +546,14 @@ func dictamenInterpretable(d *dictamenAutofirma) bool {
 			return false
 		}
 	}
+	// Coherencia exacta firmantes-agregados: con un firmante, sus cuatro
+	// aspectos son los agregados; con varios, cada agregado es el peor.
+	if d.Cadena.Estado != agregado(d.Firmantes, func(f firmanteAutofirma) string { return f.Cadena.Estado }, ordenCadena, "no_comprobada") ||
+		d.Certificado.Estado != agregado(d.Firmantes, func(f firmanteAutofirma) string { return f.Certificado.Estado }, ordenCertificado, "no_comprobado") ||
+		d.Revocacion.Estado != agregado(d.Firmantes, func(f firmanteAutofirma) string { return f.Revocacion.Estado }, ordenRevocacion, ports.RevocacionNoComprobada) ||
+		d.SelloTiempo.Estado != agregado(d.Firmantes, func(f firmanteAutofirma) string { return f.SelloTiempo.Estado }, ordenSello, ports.SelloTiempoNoPresente) {
+		return false
+	}
 	switch {
 	case d.CertificadoHuellaSHA256 == "":
 		return len(d.Firmantes) != 1
@@ -440,6 +564,27 @@ func dictamenInterpretable(d *dictamenAutofirma) bool {
 			d.CertificadoHuellaSHA256 == d.Firmantes[0].CertificadoHuellaSHA256 &&
 			d.CertificadoHuellaSHA256 != strings.Repeat("0", sha256.Size*2)
 	}
+}
+
+// agregado devuelve el peor estado de los firmantes segun orden (de peor a
+// mejor), o porDefecto sin firmantes, como compone el contrato v1. Los
+// estados ya se validaron contra catalogo, que coincide con el orden.
+func agregado(firmantes []firmanteAutofirma, estado func(firmanteAutofirma) string, orden []string, porDefecto string) string {
+	if len(firmantes) == 0 {
+		return porDefecto
+	}
+	peor := len(orden)
+	for _, f := range firmantes {
+		for i, candidato := range orden {
+			if candidato == estado(f) && i < peor {
+				peor = i
+			}
+		}
+	}
+	if peor == len(orden) {
+		return ""
+	}
+	return orden[peor]
 }
 
 func en(valor string, catalogo []string) bool {
