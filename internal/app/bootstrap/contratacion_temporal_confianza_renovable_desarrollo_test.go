@@ -201,3 +201,175 @@ func TestConfianzaRenovableCTProveedorYEmisorTomanFuenteCompartida(t *testing.T)
 		t.Fatal("consumidores no revalidaron fuente compartida")
 	}
 }
+
+// esperaProgramadaPrueba avanza el reloj simulado lo que pide el temporizador
+// y detiene el bucle cuando `parar` lo indica. Registra cada espera.
+type esperaProgramadaPrueba struct {
+	mu       sync.Mutex
+	reloj    *relojRenovableCTPrueba
+	esperas  []time.Duration
+	cancelar context.CancelFunc
+	parar    func(n int) bool
+	// congelado mantiene el reloj: el uso concurrente decide cuándo renovar.
+	congelado bool
+}
+
+func (e *esperaProgramadaPrueba) esperar(ctx context.Context, d time.Duration) error {
+	e.mu.Lock()
+	e.esperas = append(e.esperas, d)
+	n := len(e.esperas)
+	e.mu.Unlock()
+	if e.parar(n) {
+		e.cancelar()
+		return ctx.Err()
+	}
+	if !e.congelado {
+		e.reloj.fijar(e.reloj.Ahora().Add(d))
+	}
+	return ctx.Err()
+}
+
+func TestRenovacionProgramadaCambioDeDiaSinTraficoCT(t *testing.T) {
+	m := materialRenovableCTPrueba(t, time.Date(2026, 9, 25, 22, 0, 0, 0, time.UTC))
+	r := &relojRenovableCTPrueba{}
+	r.fijar(m.expiraEn.Add(-90 * time.Minute))
+	f := fuenteRenovableCTPrueba(t, m, r)
+	dia2 := avanzarMaterialRenovableCTPrueba(t, m)
+	dia3 := avanzarMaterialRenovableCTPrueba(t, dia2)
+	var renovaciones atomic.Int32
+	f.renovar = func(_ context.Context, _ materialAtestacionContratacionTemporalDesarrollo, ahora time.Time) (materialAtestacionContratacionTemporalDesarrollo, error) {
+		if ahora.Before(m.expiraEn) {
+			t.Error("renovó antes de que el protocolo lo admita")
+		}
+		if renovaciones.Add(1) == 1 {
+			return dia2, nil
+		}
+		return dia3, nil
+	}
+	f.leer = func(context.Context, materialAtestacionContratacionTemporalDesarrollo, time.Time) (materialAtestacionContratacionTemporalDesarrollo, error) {
+		switch renovaciones.Load() {
+		case 0:
+			return m, nil
+		case 1:
+			return dia2, nil
+		default:
+			return dia3, nil
+		}
+	}
+	ctx, cancelar := context.WithCancel(context.Background())
+	defer cancelar()
+	espera := &esperaProgramadaPrueba{reloj: r, cancelar: cancelar, parar: func(n int) bool { return n > 2 }}
+	f.mantenerRenovacionProgramada(ctx, espera.esperar)
+	// Primera espera: hasta la medianoche UTC. Segunda: el día siguiente
+	// completo, sin reintento. Cada cambio de día renueva una sola vez.
+	if len(espera.esperas) != 3 || espera.esperas[0] != 90*time.Minute || espera.esperas[1] != 24*time.Hour || renovaciones.Load() != 2 {
+		t.Fatalf("esperas %v, renovaciones %d", espera.esperas, renovaciones.Load())
+	}
+	if f.material.configuracionRef != dia3.configuracionRef || !f.material.expiraEn.Equal(dia3.expiraEn) || f.actual == nil {
+		t.Fatal("el temporizador no adoptó la configuración de cada nuevo día")
+	}
+}
+
+func TestRenovacionProgramadaFalloReintentaSinAdoptar(t *testing.T) {
+	m := materialRenovableCTPrueba(t, time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC))
+	r := &relojRenovableCTPrueba{}
+	r.fijar(m.expiraEn)
+	f := fuenteRenovableCTPrueba(t, m, r)
+	vieja := f.actual
+	nuevo := avanzarMaterialRenovableCTPrueba(t, m)
+	var intentos atomic.Int32
+	f.renovar = func(context.Context, materialAtestacionContratacionTemporalDesarrollo, time.Time) (materialAtestacionContratacionTemporalDesarrollo, error) {
+		if intentos.Add(1) == 1 {
+			return materialAtestacionContratacionTemporalDesarrollo{}, errors.New("gobierno no disponible")
+		}
+		return nuevo, nil
+	}
+	f.leer = func(context.Context, materialAtestacionContratacionTemporalDesarrollo, time.Time) (materialAtestacionContratacionTemporalDesarrollo, error) {
+		if intentos.Load() > 1 {
+			return nuevo, nil
+		}
+		return m, nil
+	}
+	ctx, cancelar := context.WithCancel(context.Background())
+	defer cancelar()
+	var adoptadaTrasFallo bool
+	espera := &esperaProgramadaPrueba{reloj: r, cancelar: cancelar, parar: func(n int) bool {
+		if n == 2 {
+			adoptadaTrasFallo = f.actual != vieja
+		}
+		return n > 3
+	}}
+	f.mantenerRenovacionProgramada(ctx, espera.esperar)
+	if espera.esperas[0] != 0 || espera.esperas[1] != reintentoRenovacionProgramadaCTDesarrollo || adoptadaTrasFallo || intentos.Load() != 2 || f.material.configuracionRef != nuevo.configuracionRef {
+		t.Fatalf("reintento incorrecto: esperas %v intentos %d adoptada %t", espera.esperas, intentos.Load(), adoptadaTrasFallo)
+	}
+}
+
+// El temporizador y el disparo por uso comparten la misma exclusión y la
+// misma adopción: en el cambio de día sólo se publica una vez.
+func TestRenovacionProgramadaConcurrenteConUsoPublicaUnaVez(t *testing.T) {
+	m := materialRenovableCTPrueba(t, time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC))
+	r := &relojRenovableCTPrueba{}
+	r.fijar(m.expiraEn)
+	f := fuenteRenovableCTPrueba(t, m, r)
+	nuevo := avanzarMaterialRenovableCTPrueba(t, m)
+	var renovaciones atomic.Int32
+	f.renovar = func(context.Context, materialAtestacionContratacionTemporalDesarrollo, time.Time) (materialAtestacionContratacionTemporalDesarrollo, error) {
+		renovaciones.Add(1)
+		return nuevo, nil
+	}
+	f.leer = func(context.Context, materialAtestacionContratacionTemporalDesarrollo, time.Time) (materialAtestacionContratacionTemporalDesarrollo, error) {
+		if renovaciones.Load() > 0 {
+			return nuevo, nil
+		}
+		return m, nil
+	}
+	ctx, cancelar := context.WithCancel(context.Background())
+	defer cancelar()
+	var wg sync.WaitGroup
+	for range 16 {
+		wg.Go(func() {
+			if _, err := f.instantanea(context.Background()); err != nil {
+				t.Errorf("uso: %v", err)
+			}
+		})
+	}
+	espera := &esperaProgramadaPrueba{reloj: r, cancelar: cancelar, parar: func(n int) bool { return n > 1 }, congelado: true}
+	f.mantenerRenovacionProgramada(ctx, espera.esperar)
+	wg.Wait()
+	if renovaciones.Load() != 1 || f.material.configuracionRef != nuevo.configuracionRef {
+		t.Fatalf("renovaciones duplicadas: %d", renovaciones.Load())
+	}
+}
+
+func TestRenovacionProgramadaCancelacionDetieneTemporizador(t *testing.T) {
+	m := materialRenovableCTPrueba(t, time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC))
+	r := &relojRenovableCTPrueba{}
+	r.fijar(m.publicadaEn.Add(time.Hour))
+	f := fuenteRenovableCTPrueba(t, m, r)
+	f.renovar = func(context.Context, materialAtestacionContratacionTemporalDesarrollo, time.Time) (materialAtestacionContratacionTemporalDesarrollo, error) {
+		t.Error("renovó sin vencimiento")
+		return materialAtestacionContratacionTemporalDesarrollo{}, nil
+	}
+	detener := iniciarRenovacionProgramadaCTDesarrollo(f, esperarTemporizadorCTDesarrollo)
+	hecho := make(chan struct{})
+	go func() {
+		detener()
+		detener() // idempotente
+		close(hecho)
+	}()
+	select {
+	case <-hecho:
+	case <-time.After(5 * time.Second):
+		t.Fatal("la cancelación no detuvo el temporizador")
+	}
+	iniciarRenovacionProgramadaCTDesarrollo(nil, esperarTemporizadorCTDesarrollo)()
+	ctx, cancelar := context.WithCancel(context.Background())
+	cancelar()
+	if err := esperarTemporizadorCTDesarrollo(ctx, time.Hour); !errors.Is(err, context.Canceled) {
+		t.Fatal("la espera ignora la cancelación")
+	}
+	if err := esperarTemporizadorCTDesarrollo(context.Background(), 0); err != nil {
+		t.Fatal(err)
+	}
+}
