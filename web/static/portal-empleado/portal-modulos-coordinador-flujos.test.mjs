@@ -393,10 +393,11 @@ test("el coordinador no autentica ni conserva estado en el navegador", async () 
   assert.match(fuente, /LIMITE_CARGA_MODULAR_MS/);
   assert.match(fuente, /composicion = null/);
   assert.match(fuente, /secuenciaCarga/);
-  assert.doesNotMatch(empleado, /function componerDietasVisible/);
+  assert.doesNotMatch(empleado, /function componerCronosVisible|function componerDietasVisible/);
+  assert.match(fuenteCoordinador, /montarJornadaCronos/);
+  assert.match(fuenteCoordinador, /montarVistaRecorridosCronos/);
   assert.match(fuenteCoordinador, /componerDietasInternas/);
   assert.doesNotMatch(fuenteCoordinador, /cargarPresentacion|cargadoresPresentacion|resolverCargasModularesPresentacion/);
-  assert.doesNotMatch(empleado, /function componerDietasVisible/);
   assert.doesNotMatch(fuente, /^import .*\/modulos\//mu);
   assert.doesNotMatch(fuente, /import\("\.\/modulos\/cronos\/datos-presentacion\.js/);
   assert.match(fuente, /import\("\.\/modulos\/cronos\/vista-recorridos\.js/);

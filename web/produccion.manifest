@@ -123,7 +123,6 @@ static/portal-empleado/modulos/personal/vista-ficha-integral.js
 static/portal-empleado/modulos/personal/vista.js
 static/portal-empleado/modulos/personal/vista-rpt-publica.js
 static/portal-empleado/modulos/personal/vista-estructura-organizativa-publica.js
-static/portal-empleado/datos-sinteticos-rrhh.js
 static/portal-empleado/estado-entrega.css
 static/portal-empleado/estado-entrega-i18n.js
 static/portal-empleado/estado-entrega.js

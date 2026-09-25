@@ -5,20 +5,12 @@ import * as i18nCronos from "./modulos/cronos/i18n.js";
 import * as composicionEmpleado from "./portal-composicion-empleado.js";
 import {
   componerCronosInterno,
-  componerCronosVisible,
   componerDietasInternas,
   componerPersonalVisible,
 } from "./portal-composicion-empleado.js";
 
-test("Cronos solo compone el recorrido visible y falla cerrado sin él", () => {
-  const montar = () => {};
-  assert.deepEqual(componerCronosVisible({ recorridos: { montarVistaRecorridosCronos: montar } }), { montar });
-  assert.equal(componerCronosVisible({
-    presentador: { crearPresentadorCronos() { throw new Error("no debe usar presentador de demostración"); } },
-  }), undefined);
-});
-
-test("la composición no exporta el montaje de Dietas de presentación", () => {
+test("la composición no exporta montajes huérfanos de presentación", () => {
+  assert.equal(Object.hasOwn(composicionEmpleado, "componerCronosVisible"), false);
   assert.equal(Object.hasOwn(composicionEmpleado, "componerDietasVisible"), false);
 });
 
