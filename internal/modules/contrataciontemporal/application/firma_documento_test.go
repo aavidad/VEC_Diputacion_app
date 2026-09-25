@@ -124,19 +124,20 @@ func TestFirmaDocumentoCircuitoCompletoConCadena(t *testing.T) {
 	if err != nil || r.Recibo.Secuencia != 1 || r.Material.OriginalHuella != huella(borrador) || r.Material.FirmadoHuella != huella(primera) {
 		t.Fatalf("paso 1: %+v %v", r, err)
 	}
-	// El paso 2 debe firmar lo que firmó el paso 1, no el borrador.
-	if _, err := s.Firmar(context.Background(), solicitudFirmaPrueba(2, borrador, append(borrador, 'x'), "clave-firma-000000002")); !errors.Is(err, ports.ErrCadenaFirmaDocumentoRota) {
+	// El paso 2 firma el mismo borrador que el paso 1, no otro documento.
+	otro := []byte("%PDF-1.7 otro borrador")
+	if _, err := s.Firmar(context.Background(), solicitudFirmaPrueba(2, otro, append(append([]byte{}, otro...), 'x'), "clave-firma-000000002")); !errors.Is(err, ports.ErrCadenaFirmaDocumentoRota) {
 		t.Fatalf("cadena rota admitida: %v", err)
 	}
-	segunda := append(append([]byte{}, primera...), []byte(" firma2")...)
-	if r, err = s.Firmar(context.Background(), solicitudFirmaPrueba(2, primera, segunda, "clave-firma-000000003")); err != nil || r.Recibo.Secuencia != 2 {
+	segunda := append(append([]byte{}, borrador...), []byte(" firma2")...)
+	if r, err = s.Firmar(context.Background(), solicitudFirmaPrueba(2, borrador, segunda, "clave-firma-000000003")); err != nil || r.Recibo.Secuencia != 2 {
 		t.Fatalf("paso 2: %v", err)
 	}
 	estado, err := s.Consultar(context.Background(), "organizacion:desarrollo:dipgra", "expediente:ct:001")
 	if err != nil || len(estado.Documentos) != 1 || !estado.Documentos[0].Completo {
 		t.Fatalf("circuito no completo: %+v %v", estado, err)
 	}
-	if _, err := s.Firmar(context.Background(), solicitudFirmaPrueba(2, segunda, append(segunda, 'y'), "clave-firma-000000004")); !errors.Is(err, ErrPasoFirmaNoPendiente) {
+	if _, err := s.Firmar(context.Background(), solicitudFirmaPrueba(2, borrador, append(segunda, 'y'), "clave-firma-000000004")); !errors.Is(err, ErrPasoFirmaNoPendiente) {
 		t.Fatalf("firma sobre circuito completo: %v", err)
 	}
 }

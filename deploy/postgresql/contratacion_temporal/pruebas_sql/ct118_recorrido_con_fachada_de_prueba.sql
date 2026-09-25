@@ -102,15 +102,15 @@ SELECT pg_temp.debe_fallar(format($q$SELECT pg_temp.registrar(pg_temp.solicitud(
 SELECT pg_temp.debe_fallar(format($q$SELECT pg_temp.registrar(pg_temp.solicitud(%L,%L,%s,1,3,'firmado',NULL,repeat('a',64),repeat('2',64),'clave-recorrido-000004'))$q$,
     :'organizacion',:'expediente',:version+1),'P1182','versión del expediente distinta');
 SELECT pg_temp.debe_fallar(format($q$SELECT pg_temp.registrar(pg_temp.solicitud(%L,%L,%s,2,3,'firmado',NULL,repeat('9',64),repeat('2',64),'clave-recorrido-000005'))$q$,
-    :'organizacion',:'expediente',:'version'),'P1184','paso 2 sin continuar la firma del paso 1');
+    :'organizacion',:'expediente',:'version'),'P1184','paso 2 sobre otro borrador que el paso 1');
 SELECT pg_temp.debe_fallar(format($q$SELECT pg_temp.registrar(pg_temp.solicitud('organizacion:ajena',%L,%s,1,3,'firmado',NULL,repeat('a',64),repeat('2',64),'clave-recorrido-000006'))$q$,
     :'expediente',:'version'),'42501','organización distinta de la del expediente');
 
--- Paso 2 continúa exactamente la firma del paso 1 («1…»).
+-- Paso 2 firma el mismo borrador («a…») que firmó el paso 1.
 DO $cadena$
 DECLARE r jsonb; org text := current_setting('prueba_ct118.organizacion'); exp text := current_setting('prueba_ct118.expediente');
 BEGIN
-    r := pg_temp.registrar(pg_temp.solicitud(org,exp,current_setting('prueba_ct118.version')::numeric,2,3,'firmado',NULL,repeat('1',64),repeat('2',64),'clave-recorrido-000007'));
+    r := pg_temp.registrar(pg_temp.solicitud(org,exp,current_setting('prueba_ct118.version')::numeric,2,3,'firmado',NULL,repeat('a',64),repeat('2',64),'clave-recorrido-000007'));
     IF (r->>'Secuencia')::int <> 3 THEN RAISE EXCEPTION 'FALLO cadena: %', r; END IF;
     IF jsonb_array_length(vec_contratacion_temporal.consultar_firmas_documento_v1(org,exp)) <> 3 THEN
         RAISE EXCEPTION 'FALLO consulta de la historia';

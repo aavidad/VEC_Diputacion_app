@@ -259,16 +259,17 @@ BEGIN
     IF siguiente <> (s->>'Secuencia')::integer THEN
         RAISE EXCEPTION 'secuencia de firma en conflicto' USING ERRCODE='P1183';
     END IF;
-    -- Cadena: a partir del paso 2, el original firmado es exactamente lo que
+    -- Cadena: a partir del paso 2 se firma exactamente el mismo borrador que
     -- firmó el paso anterior del mismo circuito (misma huella de catálogo).
+    -- Cada paso firma el borrador por separado; el orden lo da el circuito.
     IF firmado AND (s->>'PasoOrden')::integer > 1 AND NOT EXISTS (
         SELECT 1 FROM vec_contratacion_temporal.firma_documento_v1 f
          WHERE f.organizacion_ref=s->>'OrganizacionRef' AND f.expediente_ref=s->>'ExpedienteRef'
            AND f.documento=s->>'Documento' AND f.resultado='firmado'
            AND f.catalogo_huella_sha256=s->>'CatalogoHuella'
            AND f.paso_orden=(s->>'PasoOrden')::integer-1
-           AND f.firmado_huella_sha256=s->>'OriginalHuella') THEN
-        RAISE EXCEPTION 'la firma no continúa la del paso anterior' USING ERRCODE='P1184';
+           AND f.original_huella_sha256=s->>'OriginalHuella') THEN
+        RAISE EXCEPTION 'la firma no es sobre el borrador del paso anterior' USING ERRCODE='P1184';
     END IF;
     ahora := date_trunc('microseconds',clock_timestamp());
     firma := 'firma-ct:'||gen_random_uuid()::text;

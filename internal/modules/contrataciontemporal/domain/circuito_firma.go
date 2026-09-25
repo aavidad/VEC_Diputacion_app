@@ -138,8 +138,9 @@ type EstadoPasoCalculado struct {
 
 // EstadoCircuitoDocumento resume el circuito de un documento: el paso que
 // espera firma (0 si el circuito está completo), la última secuencia
-// registrada y la huella que debe tener el original del paso pendiente (la
-// del documento firmado por el paso anterior; vacía para el primer paso).
+// registrada y la huella que debe tener el original del paso pendiente: cada
+// paso firma por separado el mismo borrador que firmó el paso anterior; el
+// primer paso fija ese borrador (huella vacía).
 type EstadoCircuitoDocumento struct {
 	Documento               string
 	Pasos                   []EstadoPasoCalculado
@@ -188,14 +189,15 @@ func CalcularEstadoCircuitoFirma(c CircuitoFirmaDocumento, huellaCatalogo string
 		if e.PasoOrden < 1 || e.PasoOrden > n || e.PasoOrden != pendiente() {
 			return EstadoCircuitoDocumento{}, ErrHistoriaFirmaIncoherente
 		}
-		marca := marcaPaso{huella: e.FirmadoHuella, motivo: e.MotivoDevolucion, recibo: e.ReciboRef, en: e.RegistradaEn}
+		marca := marcaPaso{huella: e.OriginalHuella, motivo: e.MotivoDevolucion, recibo: e.ReciboRef, en: e.RegistradaEn}
 		switch e.Resultado {
 		case ResultadoFirmaFirmado:
 			esperado := ""
 			if e.PasoOrden > 1 {
 				esperado = firmados[e.PasoOrden-1].huella
 			}
-			if !HuellaSHA256FirmaValida(e.FirmadoHuella) || (esperado != "" && e.OriginalHuella != esperado) {
+			if !HuellaSHA256FirmaValida(e.FirmadoHuella) || !HuellaSHA256FirmaValida(e.OriginalHuella) ||
+				(esperado != "" && e.OriginalHuella != esperado) {
 				return EstadoCircuitoDocumento{}, ErrHistoriaFirmaIncoherente
 			}
 			firmados[e.PasoOrden] = marca

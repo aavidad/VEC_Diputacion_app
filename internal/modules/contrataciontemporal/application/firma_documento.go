@@ -230,7 +230,8 @@ func (s *ServicioFirmaDocumento) Firmar(ctx context.Context, sol SolicitudFirmaD
 	var motivo docports.MotivoVerificacionFirma
 	if sol.Resultado == domain.ResultadoFirmaFirmado {
 		original := huella(sol.Original)
-		// A partir del paso 2 se firma exactamente lo que firmó el anterior.
+		// A partir del paso 2 se firma exactamente el borrador que firmó el
+		// paso anterior: todos los pasos firman el mismo documento.
 		if actual.OriginalEsperadoHuella != "" && original != actual.OriginalEsperadoHuella {
 			return cero, ports.ErrCadenaFirmaDocumentoRota
 		}
