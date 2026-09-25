@@ -11,6 +11,21 @@ libros BIFF8 de prueba:
 - `formula.xls`: una celda fórmula que el staging debe rechazar;
 - `cabecera_desconocida.xls`: una cabecera parecida, pero no autorizada.
 
+Libros del formato real `convoca:v2` y del formato T17 `convoca:v1` con el
+nombre de hoja real, generados con `scripts/paquete_ejemplo/generar.py`
+(`--cabeceras convoca` y `--cabeceras vec`, una bolsa de cuatro candidaturas):
+
+- `convoca_v2_resumen.xls`, `convoca_v2_detalle.xls`: cabeceras literales de
+  CONVOCA en las hojas `grupo de méritos (Tribunal) (1)` y `méritos (1)`;
+- `convoca_v1_hoja_real_resumen.xls`, `convoca_v1_hoja_real_detalle.xls`:
+  cabeceras T17 con esos mismos nombres de hoja.
+
+Libros de una fila generados con
+`fuentes_sinteticas/generar_negativos_convoca_v2.py`: `convoca_v2_nfd.xls`
+(cabeceras reales en NFD, se aceptan) y, rechazados, `convoca_v2_hoja_sufijo_2.xls`,
+`convoca_v2_hoja_ajena.xls`, `convoca_v2_hoja_cruzada.xls`,
+`convoca_v1_hoja_cruzada.xls` y `convoca_mezcla_formatos.xls`.
+
 Los nombres, documentos enmascarados y méritos son deliberadamente sintéticos.
 No se copiaron filas, metadatos ni bytes de los ficheros inspeccionados para
 definir T17. Los binarios se generaron con LibreOffice usando el filtro

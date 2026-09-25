@@ -14,6 +14,8 @@ import (
 	"time"
 	"unicode"
 	"unicode/utf8"
+
+	"golang.org/x/text/unicode/norm"
 )
 
 const (
@@ -37,8 +39,11 @@ var codigoIncidencia = regexp.MustCompile(`^[a-z][a-z0-9_]{0,127}$`)
 var referenciaCustodia = regexp.MustCompile(`^[a-z][a-z0-9_.:/-]{2,511}$`)
 var actorOpaco = regexp.MustCompile(`^[a-z][a-z0-9_.:-]{2,127}$`)
 
-// EsquemaExportacion identifica una cabecera exacta, no una heuristica por
-// numero de columnas.
+// EsquemaExportacion identifica el contenido lógico de una hoja (resumen por
+// persona o detalle de méritos), no una heurística por número de columnas.
+// Es el valor durable del acta; la variante literal de cabeceras con la que
+// llegó el fichero se deriva de él (FormatoCabeceras) y se puede reproducir a
+// partir del fichero custodiado y su huella.
 type EsquemaExportacion string
 
 func (e EsquemaExportacion) Validar() error {
@@ -50,15 +55,35 @@ func (e EsquemaExportacion) Validar() error {
 	}
 }
 
-// Cabeceras devuelve una copia de las cabeceras literales acreditadas en T17.
+// FormatoCabeceras identifica una variante literal y cerrada de la fila de
+// títulos. Ambas variantes describen las mismas columnas en el mismo orden y
+// se validan con las mismas reglas por posición; solo cambian los literales.
+type FormatoCabeceras string
+
+const (
+	// FormatoConvocaV1 son las cabeceras transliteradas acreditadas en T17
+	// (sin tildes, «DNI/NIE»). Se conserva para no invalidar ficheros ni
+	// bolsas ya importados. No exige nombre de hoja: T17 no lo fijó.
+	FormatoConvocaV1 FormatoCabeceras = "convoca:v1"
+	// FormatoConvocaV2 son las cabeceras literales de una exportación real de
+	// CONVOCA («DNI/NIE enmascarado», con tildes) y exige además el nombre de
+	// hoja literal que CONVOCA asigna a cada exportación.
+	FormatoConvocaV2 FormatoCabeceras = "convoca:v2"
+)
+
+var formatosCabeceras = []FormatoCabeceras{FormatoConvocaV1, FormatoConvocaV2}
+
+// Cabeceras devuelve una copia de las cabeceras literales acreditadas en T17
+// (formato convoca:v1).
 func (e EsquemaExportacion) Cabeceras() []string {
-	var origen []string
-	switch e {
-	case EsquemaResumenPersona:
-		origen = cabecerasResumen
-	case EsquemaDetalleMerito:
-		origen = cabecerasDetalle
-	default:
+	return e.CabecerasFormato(FormatoConvocaV1)
+}
+
+// CabecerasFormato devuelve una copia de las cabeceras literales del esquema
+// en el formato indicado, o nil si la combinación no existe.
+func (e EsquemaExportacion) CabecerasFormato(formato FormatoCabeceras) []string {
+	origen := cabecerasPorFormato[formato][e]
+	if origen == nil {
 		return nil
 	}
 	return append([]string(nil), origen...)
@@ -66,38 +91,119 @@ func (e EsquemaExportacion) Cabeceras() []string {
 
 func (e EsquemaExportacion) NumeroColumnas() int { return len(e.Cabeceras()) }
 
-var cabecerasResumen = []string{
-	"DNI/NIE", "Primer Apellido", "Segundo Apellido", "Nombre", "Turno",
-	"Experiencia", "Formacion", "Total",
+// NombreHoja devuelve el nombre de hoja exigido por el formato, o "" si el
+// formato no fija ninguno.
+func (e EsquemaExportacion) NombreHoja(formato FormatoCabeceras) string {
+	return nombresHojaPorFormato[formato][e]
 }
 
-var cabecerasDetalle = []string{
-	"DNI/NIE", "Primer Apellido", "Segundo Apellido", "Nombre", "Turno",
-	"Grupo", "Descripcion del grupo", "Orden grupo",
-	"Descripcion del merito", "Puntos autobaremacion", "Puntos tribunal",
-	"Motivo",
+// Todos los literales se escriben en Unicode NFC; una prueba lo comprueba.
+var cabecerasPorFormato = map[FormatoCabeceras]map[EsquemaExportacion][]string{
+	FormatoConvocaV1: {
+		EsquemaResumenPersona: {
+			"DNI/NIE", "Primer Apellido", "Segundo Apellido", "Nombre", "Turno",
+			"Experiencia", "Formacion", "Total",
+		},
+		EsquemaDetalleMerito: {
+			"DNI/NIE", "Primer Apellido", "Segundo Apellido", "Nombre", "Turno",
+			"Grupo", "Descripcion del grupo", "Orden grupo",
+			"Descripcion del merito", "Puntos autobaremacion", "Puntos tribunal",
+			"Motivo",
+		},
+	},
+	// «DNI/NIE enmascarado» ocupa la misma primera columna que «DNI/NIE» y
+	// alimenta el mismo campo IdentidadEnmascarada.Documento.
+	FormatoConvocaV2: {
+		EsquemaResumenPersona: {
+			"DNI/NIE enmascarado", "Primer Apellido", "Segundo Apellido", "Nombre", "Turno",
+			"Experiencia", "Formación", "Total",
+		},
+		EsquemaDetalleMerito: {
+			"DNI/NIE enmascarado", "Primer Apellido", "Segundo Apellido", "Nombre", "Turno",
+			"Grupo", "Descripción del grupo", "Orden grupo",
+			"Descripción del mérito", "Puntos autobaremación", "Puntos tribunal",
+			"Motivo",
+		},
+	},
 }
 
-// DetectarEsquema exige coincidencia literal y ordenada. No corrige tildes,
-// mayusculas ni espacios porque hacerlo podria aceptar una exportacion ajena.
+// Nombres de hoja literales de la exportación real. El sufijo « (1)» es el
+// único observado. No se acepta « (2)» ni ningún otro: no hay constancia de
+// que CONVOCA lo genere ni de qué significaría (otra hoja, otro tribunal u
+// otra copia), así que se rechaza hasta que RRHH lo confirme y se añada aquí
+// como literal explícito.
+var nombresHojaPorFormato = map[FormatoCabeceras]map[EsquemaExportacion]string{
+	FormatoConvocaV2: {
+		EsquemaResumenPersona: "grupo de méritos (Tribunal) (1)",
+		EsquemaDetalleMerito:  "méritos (1)",
+	},
+}
+
+// DetectarEsquema devuelve el esquema lógico de una fila de títulos conocida.
 func DetectarEsquema(cabeceras []string) (EsquemaExportacion, error) {
-	for _, esquema := range []EsquemaExportacion{EsquemaResumenPersona, EsquemaDetalleMerito} {
-		esperadas := esquema.Cabeceras()
-		if len(cabeceras) != len(esperadas) {
-			continue
-		}
-		coinciden := true
-		for i := range esperadas {
-			if cabeceras[i] != esperadas[i] {
-				coinciden = false
-				break
+	esquema, _, err := DetectarFormato(cabeceras)
+	return esquema, err
+}
+
+// DetectarFormato exige que la fila de títulos coincida, columna a columna y
+// en orden, con uno de los conjuntos cerrados de cabeceras. La única
+// transformación admitida es la normalización Unicode NFC: une formas
+// canónicamente equivalentes de la misma letra («ó» precompuesta frente a
+// «o» + tilde combinante), que son el mismo texto y que distintas
+// herramientas pueden guardar de forma distinta. No se pliegan mayúsculas, ni
+// se quitan tildes, ni se recortan o colapsan espacios, ni se aplica NFKC:
+// cualquier otra diferencia deja la exportación como desconocida. Los
+// conjuntos son disjuntos, así que la detección no es ambigua y una fila que
+// mezcle literales de dos formatos no coincide con ninguno.
+func DetectarFormato(cabeceras []string) (EsquemaExportacion, FormatoCabeceras, error) {
+	for _, formato := range formatosCabeceras {
+		for _, esquema := range []EsquemaExportacion{EsquemaResumenPersona, EsquemaDetalleMerito} {
+			if cabecerasCoinciden(cabeceras, cabecerasPorFormato[formato][esquema]) {
+				return esquema, formato, nil
 			}
 		}
-		if coinciden {
-			return esquema, nil
+	}
+	return "", "", ErrEsquemaExportacionDesconocido
+}
+
+func cabecerasCoinciden(recibidas, esperadas []string) bool {
+	if len(recibidas) != len(esperadas) {
+		return false
+	}
+	for i := range esperadas {
+		if !utf8.ValidString(recibidas[i]) || norm.NFC.String(recibidas[i]) != esperadas[i] {
+			return false
 		}
 	}
-	return "", ErrEsquemaExportacionDesconocido
+	return true
+}
+
+// ValidarNombreHoja comprueba el nombre de la hoja con el formato detectado.
+// En convoca:v2 el nombre es parte del esquema y debe coincidir literalmente
+// (tras NFC) con el de su tipo. En convoca:v1 no se fijó nombre y se admite
+// cualquiera, salvo el nombre real de la otra exportación: una hoja llamada
+// como el detalle con cabeceras de resumen, o al revés, se rechaza.
+func ValidarNombreHoja(esquema EsquemaExportacion, formato FormatoCabeceras, nombre string) error {
+	if esquema.Validar() != nil || !utf8.ValidString(nombre) {
+		return ErrEsquemaExportacionDesconocido
+	}
+	nombre = norm.NFC.String(nombre)
+	switch formato {
+	case FormatoConvocaV2:
+		if nombre != esquema.NombreHoja(FormatoConvocaV2) {
+			return ErrEsquemaExportacionDesconocido
+		}
+		return nil
+	case FormatoConvocaV1:
+		for otro, real := range nombresHojaPorFormato[FormatoConvocaV2] {
+			if otro != esquema && nombre == real {
+				return ErrEsquemaExportacionDesconocido
+			}
+		}
+		return nil
+	default:
+		return ErrEsquemaExportacionDesconocido
+	}
 }
 
 // TipoCelda conserva solo la clase necesaria para rechazar formulas y tipos
@@ -125,17 +231,19 @@ type FilaStaging struct {
 }
 
 type HojaStaging struct {
-	Esquema   EsquemaExportacion
-	Cabeceras []string
-	Filas     []FilaStaging
+	Esquema    EsquemaExportacion
+	Cabeceras  []string
+	NombreHoja string
+	Filas      []FilaStaging
 }
 
 func (h HojaStaging) ValidarEstructura() error {
 	if h.Esquema.Validar() != nil || len(h.Cabeceras) != h.Esquema.NumeroColumnas() {
 		return ErrHojaStagingInvalida
 	}
-	detectado, err := DetectarEsquema(h.Cabeceras)
-	if err != nil || detectado != h.Esquema {
+	detectado, formato, err := DetectarFormato(h.Cabeceras)
+	if err != nil || detectado != h.Esquema ||
+		ValidarNombreHoja(detectado, formato, h.NombreHoja) != nil {
 		return ErrHojaStagingInvalida
 	}
 	anterior := 1
