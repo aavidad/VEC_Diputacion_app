@@ -67,7 +67,11 @@ type ResumenAnualPermiso struct {
 	PermisoRef, CatalogoVersionRef             string
 	Unidad                                     LeaveUnit
 	Solicitado, Concedido, PendienteJustificar int64
-	Resta                                      *int64 // nil: la fuente no establece maximo anual
+	Resta                                      *int64 // nil: sin maximo anual o sin conciliar
+	// SinConciliar marca solo esta fila cuando la historia no cuadra con la
+	// version vigente: hechos de otra unidad (no se suman) o un consumo que
+	// supera un maximo anual rebajado. La resta queda entonces ausente.
+	SinConciliar bool
 }
 
 func ProyectarPermisoAnual(c CatalogoPermisoVersion, anio int, hechos []HechoResumenPermiso) (ResumenAnualPermiso, error) {
@@ -77,10 +81,24 @@ func ProyectarPermisoAnual(c CatalogoPermisoVersion, anio int, hechos []HechoRes
 	r := ResumenAnualPermiso{Anio: anio, PermisoRef: c.PermisoRef, CatalogoVersionRef: c.VersionRef, Unidad: c.Unidad}
 	vistos := make(map[string]bool, len(hechos))
 	for _, h := range hechos {
-		if !referenciaMarcaje(h.SolicitudRef) || !referenciaMarcaje(h.CatalogoVersionRef) || h.Unidad != c.Unidad || vistos[h.SolicitudRef] || h.Cantidad <= 0 {
+		if !referenciaMarcaje(h.SolicitudRef) || !referenciaMarcaje(h.CatalogoVersionRef) || (h.Unidad != LeaveUnitDay && h.Unidad != LeaveUnitHour) || vistos[h.SolicitudRef] || h.Cantidad <= 0 {
 			return ResumenAnualPermiso{}, ErrCatalogoPermisoInvalido
 		}
 		vistos[h.SolicitudRef] = true
+		if h.Estado != EstadoPermisoConcedido && h.PendienteJustificar {
+			return ResumenAnualPermiso{}, ErrCatalogoPermisoInvalido
+		}
+		if h.Unidad != c.Unidad {
+			// Otra version del catalogo con otra unidad: minutos y dias no se
+			// suman; la fila se marca y el resto de la consulta sigue.
+			switch h.Estado {
+			case EstadoPermisoSolicitado, EstadoPermisoPendienteAdministracion, EstadoPermisoConcedido, EstadoPermisoDenegado, EstadoPermisoCancelado:
+			default:
+				return ResumenAnualPermiso{}, ErrCatalogoPermisoInvalido
+			}
+			r.SinConciliar = true
+			continue
+		}
 		switch h.Estado {
 		case EstadoPermisoSolicitado, EstadoPermisoPendienteAdministracion:
 			r.Solicitado += h.Cantidad
@@ -90,22 +108,17 @@ func ProyectarPermisoAnual(c CatalogoPermisoVersion, anio int, hechos []HechoRes
 				r.PendienteJustificar += h.Cantidad
 			}
 		case EstadoPermisoDenegado, EstadoPermisoCancelado:
-			if h.PendienteJustificar {
-				return ResumenAnualPermiso{}, ErrCatalogoPermisoInvalido
-			}
 		default:
 			return ResumenAnualPermiso{}, ErrCatalogoPermisoInvalido
 		}
-		if h.Estado != EstadoPermisoConcedido && h.PendienteJustificar {
-			return ResumenAnualPermiso{}, ErrCatalogoPermisoInvalido
-		}
 	}
-	if c.MaximoAnual != nil {
+	if c.MaximoAnual != nil && !r.SinConciliar {
 		resta := *c.MaximoAnual - r.Solicitado - r.Concedido
 		if resta < 0 {
-			return ResumenAnualPermiso{}, ErrCatalogoPermisoInvalido
+			r.SinConciliar = true
+		} else {
+			r.Resta = &resta
 		}
-		r.Resta = &resta
 	}
 	return r, nil
 }

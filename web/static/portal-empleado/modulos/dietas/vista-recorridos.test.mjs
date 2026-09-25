@@ -84,11 +84,13 @@ test("al cambiar de bandeja o salir aborta lecturas pendientes y no conserva una
       signal.addEventListener("abort", () => rechazar(Object.assign(new Error("cancelada"), { codigo: "operacion_abortada" })), { once: true });
     }),
     decidir: async () => { throw new Error("no debe decidir"); },
+    competencias: async () => ({ fuente: "acreditada", etapas: ["autorizacion", "revision"] }),
   };
   const vista = montarVistaRecorridosDietas(contenedor, { clienteBorradores: clienteBorradores(), clienteCircuito });
   const panel = contenedor.querySelector("[data-dietas-recorridos]");
+  await Promise.resolve(); await Promise.resolve();
   assert.deepEqual(panel.querySelectorAll("[data-dietas-cambiar-etapa]").map((boton) => boton.dataset.dietasCambiarEtapa),
-    ["solicitante", "revision", "autorizacion", "liquidacion", "fiscalizacion"]);
+    ["solicitante", "revision", "autorizacion", "control"]);
   await panel.listeners.click({ target: panel.querySelector('[data-dietas-cambiar-etapa="revision"]') });
   assert.equal(consultas.length, 1);
   assert.ok(panel.querySelector("[data-dietas-bandeja-circuito]"));
@@ -118,5 +120,24 @@ test("la lista muestra el estado real y el motivo de Personal cierra el alta", a
   assert.throws(() => montarVistaRecorridosDietas(raiz(), {
     clienteBorradores: clienteBorradores(), estadoRelaciones: "disponible", motivoRelaciones: "empleado_no_disponible",
   }), TypeError);
+  vista.desmontar();
+});
+
+test("sin fuente de competencia ofrece una sola pestaña que lo dice, sin consultar bandejas", async () => {
+  const contenedor = raiz(); let listados = 0;
+  const clienteCircuito = {
+    listar: async () => { listados += 1; return { items: [], competencia: "sin_fuente" }; },
+    decidir: async () => { throw new Error("no debe decidir"); },
+    competencias: async () => ({ fuente: "sin_fuente", etapas: [] }),
+  };
+  const vista = montarVistaRecorridosDietas(contenedor, { clienteBorradores: clienteBorradores(), clienteCircuito });
+  await Promise.resolve(); await Promise.resolve();
+  const panel = contenedor.querySelector("[data-dietas-recorridos]");
+  assert.deepEqual(panel.querySelectorAll("[data-dietas-cambiar-etapa]").map((boton) => boton.dataset.dietasCambiarEtapa),
+    ["solicitante", "circuito_sin_fuente"]);
+  await panel.listeners.click({ target: panel.querySelector('[data-dietas-cambiar-etapa="circuito_sin_fuente"]') });
+  assert.match(texto(panel.querySelector("[data-dietas-circuito-sin-fuente]")), /validadores/u);
+  assert.equal(panel.querySelector("[data-dietas-circuito-decision]"), null);
+  assert.equal(listados, 0);
   vista.desmontar();
 });

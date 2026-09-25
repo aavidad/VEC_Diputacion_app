@@ -127,7 +127,7 @@ async function ejecutar(fetchImpl, ruta, metodo, body, signal, cabeceras = {}) {
   try {
     respuesta = await fetchImpl(ruta, { method: metodo,
       headers: { Accept: "application/json", ...(escritura ? { "Content-Type": "application/json" } : {}), ...cabeceras },
-      ...(escritura ? { body: JSON.stringify(body) } : {}), credentials: "omit", mode: "same-origin",
+      ...(escritura ? { body: JSON.stringify(body) } : {}), credentials: "same-origin", mode: "same-origin",
       cache: "no-store", redirect: "error", referrerPolicy: "no-referrer", signal });
   } catch {
     throw new ErrorClienteRemotoCronos(signal?.aborted ? "operacion_abortada" : "red_no_disponible", 0, escritura);

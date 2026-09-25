@@ -39,10 +39,11 @@ type EmisorMaterialCronosV3 interface {
 // MotivosCronos fija la entrada del catálogo de motivos de cada acción.
 type MotivosCronos struct {
 	Saldo, Marcaje, Disponibilidad, Recuperacion vecdomain.ReferenciaEntradaCatalogo
+	Movimientos, Correccion, Permisos, Permiso   vecdomain.ReferenciaEntradaCatalogo
 }
 
 func (m MotivosCronos) validar() error {
-	for _, r := range []vecdomain.ReferenciaEntradaCatalogo{m.Saldo, m.Marcaje, m.Disponibilidad, m.Recuperacion} {
+	for _, r := range []vecdomain.ReferenciaEntradaCatalogo{m.Saldo, m.Marcaje, m.Disponibilidad, m.Recuperacion, m.Movimientos, m.Correccion, m.Permisos, m.Permiso} {
 		if !vecdomain.ReferenciaMotivoAutorizacionV2Valida(r) {
 			return ErrComposicionCronosNoDisponible
 		}

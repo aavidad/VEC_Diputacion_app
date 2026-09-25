@@ -216,3 +216,18 @@ func TestSolicitudesInvalidasYErroresOpacos(t *testing.T) {
 		t.Fatal("sin repositorio no se construye")
 	}
 }
+
+func TestConocidoAhoraTieneMargenDeReloj(t *testing.T) {
+	s, err := NuevoServicio(&historiaEnMemoria{}, relojFijo(ahora))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Sin instante pedido se consulta un poco antes de «ahora», para que un
+	// reloj de la aplicación adelantado no convierta la consulta en futura.
+	if got, err := s.conocidoEn(time.Time{}); err != nil || !got.Equal(ahora.Add(-margenRelojConsulta)) {
+		t.Fatalf("conocido ahora: %v %v", got, err)
+	}
+	if _, err := s.conocidoEn(ahora.Add(time.Second)); !errors.Is(err, ErrSolicitudInvalida) {
+		t.Fatal("un instante futuro pedido expresamente sigue rechazándose")
+	}
+}

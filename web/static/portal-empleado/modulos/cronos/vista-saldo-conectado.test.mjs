@@ -75,3 +75,16 @@ test("una denegación queda distinguida de una caída de servicio", async () => 
   assert.doesNotMatch(nodo.innerHTML, /No se pudo consultar/);
   vista.desmontar();
 });
+
+test("404 de la API: «no disponible» neutro, sin alerta; incrustada sin sobrelínea", async () => {
+  const nodo = { dataset: {}, innerHTML: "", addEventListener() {}, removeEventListener() {}, remove() {} };
+  const raiz = { ownerDocument: { createElement: () => nodo }, append() {} };
+  const vista = montarVistaSaldoCronos({ raiz, incrustada: true, cliente: { consultar: async () => { throw new ErrorClienteSaldoCronos("servicio_no_disponible", 404); } } });
+  await Promise.resolve(); await Promise.resolve();
+  assert.match(nodo.innerHTML, /<p class="cronos-vacio" role="status">El servicio de saldo no está disponible/u);
+  assert.doesNotMatch(nodo.innerHTML, /No se pudo consultar/u);
+  assert.doesNotMatch(nodo.innerHTML, /sobrelinea|<h2/u);
+  assert.match(nodo.innerHTML, /<h3 id="cronos-saldo-titulo">/u);
+  assert.match(renderizarVistaSaldoCronos({ estado: "cargando" }), /<p class="sobrelinea">[^<]+<\/p><h2 id="cronos-saldo-titulo">/u, "suelta conserva su encabezado de página");
+  vista.desmontar();
+});

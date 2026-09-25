@@ -30,7 +30,7 @@ var (
 	actorFronteraCronos       = regexp.MustCompile(`^per_[-A-Za-z0-9_]{22,128}$`)
 )
 
-// OrdenDenegacionFronteraCronos. Ruta es una de las cuatro publicadas u
+// OrdenDenegacionFronteraCronos. Ruta es una de las ocho publicadas u
 // "otra"; Metodo es GET, POST u "otro". ActorRef sólo si ya fue acreditado.
 type OrdenDenegacionFronteraCronos struct {
 	CorrelacionRef, Motivo, Ruta, Metodo, ActorRef string
@@ -44,7 +44,9 @@ func (o OrdenDenegacionFronteraCronos) Validar() error {
 	}
 	switch o.Ruta {
 	case "/api/interna/cronos/saldos/propio", "/api/interna/cronos/marcajes/remoto",
-		"/api/interna/cronos/marcajes/remoto/disponibilidad", "/api/interna/cronos/marcajes/remoto/recibo", "otra":
+		"/api/interna/cronos/marcajes/remoto/disponibilidad", "/api/interna/cronos/marcajes/remoto/recibo",
+		"/api/interna/cronos/movimientos/propio", "/api/interna/cronos/correcciones/propias",
+		"/api/interna/cronos/permisos/propio", "/api/interna/cronos/permisos/solicitudes", "otra":
 	default:
 		return ErrDenegacionFronteraNoRegistrada
 	}

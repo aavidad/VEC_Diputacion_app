@@ -1,4 +1,4 @@
-import { crearTraductorCronos, MENSAJES_CRONOS_ES } from "./i18n.js";
+import { crearTraductorCronos, MENSAJES_CRONOS_ES } from "./i18n.js?v=20260925-tanda2-v1";
 import { crearClienteSaldoCronosHTTP, ErrorClienteSaldoCronos, validarConsultaSaldoCronos, validarResultadoSaldoCronos } from "./cliente-saldo-http.js";
 
 const PERIODOS = ["hoy", "semana", "mes", "anio", "rango"];
@@ -9,6 +9,12 @@ const ESTADOS = new Set(["disponible", "no_disponible", "incompleto"]);
 function escaparHTML(valor) {
   return String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
+}
+
+/** Encabezado de la parte: propio de página, o de tarjeta sin sobrelínea dentro de «Jornada». */
+function encabezadoParte(sobrelinea, id, titulo, incrustada) {
+  return incrustada ? `<h3 id="${id}">${escaparHTML(titulo)}</h3>`
+    : `<p class="sobrelinea">${escaparHTML(sobrelinea)}</p><h2 id="${id}">${escaparHTML(titulo)}</h2>`;
 }
 function fechaVisible(fecha, locale) {
   const [anio, mes, dia] = fecha.split("-").map(Number);
@@ -40,7 +46,7 @@ function filasMovimientos(detalle, t, locale, zonaHoraria) {
 
 /** Solo muestra hechos y estados recibidos del saldo propio; no infiere ausencias ni olvidos. */
 export function renderizarVistaMovimientosCronos({ estado = "cargando", consulta = { periodo: "hoy" }, datos = null,
-  mensajes = MENSAJES_CRONOS_ES, locale = "es-ES", zonaHoraria = "Europe/Madrid" } = {}) {
+  mensajes = MENSAJES_CRONOS_ES, locale = "es-ES", zonaHoraria = "Europe/Madrid", correccionDisponible = false, incrustada = false } = {}) {
   const t = crearTraductorCronos(mensajes);
   const seleccion = estado === "seleccion" && consulta?.periodo === "rango"
     ? { periodo: "rango", desde: "", hasta: "" } : validarConsultaSaldoCronos(consulta);
@@ -49,6 +55,7 @@ export function renderizarVistaMovimientosCronos({ estado = "cargando", consulta
   const cargado = estado === "listo";
   const hayMarcajes = cargado && datos.detalle.some((dia) => dia.marcajes.length > 0);
   const claveEstado = estado === "denegado" ? "movimientos_denegado" : estado === "error" ? "movimientos_error"
+    : estado === "no_disponible" ? "movimientos_no_disponible"
     : estado === "seleccion" ? "movimientos_seleccionar_rango" : "movimientos_cargando";
   const cuerpo = cargado ? `${hayMarcajes ? "" : `<p class="cronos-vacio" role="status">${escaparHTML(t("movimientos_vacio"))}</p>`}
     <div class="cronos-tabla-contenedor"><table class="cronos-tabla"><caption>${escaparHTML(t("movimientos_detalle"))}</caption>
@@ -56,27 +63,33 @@ export function renderizarVistaMovimientosCronos({ estado = "cargando", consulta
       <tbody>${filasMovimientos(datos.detalle, t, locale, zonaHoraria)}</tbody></table></div>`
     : `<p class="cronos-${estado === "denegado" ? "acceso-denegado" : "vacio"}" role="${estado === "error" ? "alert" : "status"}">${escaparHTML(t(claveEstado))}</p>`;
   return `<section class="cronos-area cronos-movimientos-conectado" aria-labelledby="cronos-movimientos-titulo" data-cronos-movimientos-estado="${escaparHTML(estado)}">
-    <header class="cronos-encabezado"><div><p class="sobrelinea">${escaparHTML(t("sobrelinea"))}</p><h2 id="cronos-movimientos-titulo">${escaparHTML(t("movimientos_titulo"))}</h2></div>
+    <header class="cronos-encabezado"><div>${encabezadoParte(t("sobrelinea"), "cronos-movimientos-titulo", t("movimientos_titulo"), incrustada)}</div>
       <button type="button" class="cronos-boton-ayuda" data-accion="ayuda" aria-label="${escaparHTML(t("abrir_ayuda", { asunto: t("movimientos_titulo") }))}" title="${escaparHTML(t("abrir_ayuda", { asunto: t("movimientos_titulo") }))}"><span aria-hidden="true">?</span></button></header>
     <section class="panel cronos-panel" aria-label="${escaparHTML(t("movimientos_periodos"))}"><div class="cabecera-panel"><h3>${escaparHTML(t("movimientos_periodos"))}</h3></div><div class="cuerpo-panel">
       <nav class="cronos-navegacion" aria-label="${escaparHTML(t("movimientos_periodos"))}">${PERIODOS.map((periodo) => `<button type="button" data-cronos-movimientos-periodo="${periodo}" aria-pressed="${seleccion.periodo === periodo}">${escaparHTML(t(`saldo_${periodo}`))}</button>`).join("")}</nav>
       <form data-cronos-movimientos-rango ${rango ? "" : "hidden"}><label>${escaparHTML(t("saldo_desde"))}<input type="date" name="desde" value="${escaparHTML(rango ? seleccion.desde : "")}" ${rango ? "required" : ""}></label><label>${escaparHTML(t("saldo_hasta"))}<input type="date" name="hasta" value="${escaparHTML(rango ? seleccion.hasta : "")}" ${rango ? "required" : ""}></label><button type="submit" class="boton-primario">${escaparHTML(t("saldo_consultar"))}</button><p data-cronos-movimientos-validacion role="alert" hidden></p></form>
     </div></section>
     <section class="panel cronos-panel" aria-labelledby="cronos-movimientos-detalle-titulo"><div class="cabecera-panel"><h3 id="cronos-movimientos-detalle-titulo">${escaparHTML(t("movimientos_detalle"))}</h3></div>${cuerpo}</section>
-    <section class="panel cronos-panel" aria-labelledby="cronos-movimientos-correccion-titulo"><div class="cabecera-panel"><h3 id="cronos-movimientos-correccion-titulo">${escaparHTML(t("movimientos_correccion"))}</h3></div><div class="cuerpo-panel"><button type="button" class="boton-secundario" data-cronos-accion="solicitar-correccion" disabled aria-disabled="true" title="${escaparHTML(t("movimientos_correccion_pendiente"))}" aria-label="${escaparHTML(`${t("movimientos_correccion")}. ${t("movimientos_correccion_pendiente")}`)}">${escaparHTML(t("movimientos_correccion"))}</button></div></section>
+    ${correccionDisponible ? `<section class="panel cronos-panel" aria-labelledby="cronos-movimientos-correccion-titulo"><div class="cabecera-panel"><h3 id="cronos-movimientos-correccion-titulo">${escaparHTML(t("movimientos_correccion"))}</h3></div><div class="cuerpo-panel">
+      <button type="button" class="boton-secundario" data-cronos-accion="solicitar-correccion">${escaparHTML(t("movimientos_correccion"))}</button></div></section>` : ""}
   </section>`;
 }
 
-/** Inyecta el cliente propio y cancela peticiones al cambiar o desmontar. */
+/**
+ * Inyecta el cliente propio y cancela peticiones al cambiar o desmontar. Solo
+ * con `abrirCorreccion` se ofrece «olvido de marcaje», que abre la solicitud
+ * de corrección; el marcaje registrado nunca se edita desde aquí.
+ */
 export function montarVistaMovimientosCronos({ raiz, cliente = crearClienteSaldoCronosHTTP(), mensajes = MENSAJES_CRONOS_ES,
-  anunciar = () => {}, registrarDesmontar, locale = "es-ES", zonaHoraria = "Europe/Madrid" } = {}) {
+  anunciar = () => {}, registrarDesmontar, locale = "es-ES", zonaHoraria = "Europe/Madrid", abrirCorreccion, incrustada = false } = {}) {
   if (!raiz?.append || !raiz.ownerDocument?.createElement || typeof cliente?.consultar !== "function"
-    || typeof anunciar !== "function" || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function")) throw new TypeError("montaje de movimientos Cronos no disponible");
+    || typeof anunciar !== "function" || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function")
+    || (abrirCorreccion !== undefined && typeof abrirCorreccion !== "function")) throw new TypeError("montaje de movimientos Cronos no disponible");
   const contenedor = raiz.ownerDocument.createElement("section"); contenedor.dataset.cronosMovimientos = ""; raiz.append(contenedor);
   const t = crearTraductorCronos(mensajes);
   let activa = true; let secuencia = 0; let controlador = null; let consulta = { periodo: "hoy" };
   const dibujar = (estado, datos) => {
-    if (activa) contenedor.innerHTML = renderizarVistaMovimientosCronos({ estado, consulta, datos, mensajes, locale, zonaHoraria });
+    if (activa) contenedor.innerHTML = renderizarVistaMovimientosCronos({ estado, consulta, datos, mensajes, locale, zonaHoraria, correccionDisponible: abrirCorreccion !== undefined, incrustada });
   };
   const cargar = async (siguiente) => {
     consulta = validarConsultaSaldoCronos(siguiente);
@@ -88,11 +101,13 @@ export function montarVistaMovimientosCronos({ raiz, cliente = crearClienteSaldo
       dibujar("listo", datos);
     } catch (error) {
       if (!activa || turno !== secuencia || controlador.signal.aborted) return;
-      const estado = error instanceof ErrorClienteSaldoCronos && error.codigo === "acceso_denegado" ? "denegado" : "error";
+      const estado = !(error instanceof ErrorClienteSaldoCronos) ? "error" : error.codigo === "acceso_denegado" ? "denegado"
+        : error.estado === 404 ? "no_disponible" : "error";
       dibujar(estado); anunciar(estado);
     }
   };
   const alPulsar = (evento) => {
+    if (abrirCorreccion && evento.target?.closest?.('[data-cronos-accion="solicitar-correccion"]')) { abrirCorreccion(); return; }
     const boton = evento.target?.closest?.("[data-cronos-movimientos-periodo]");
     if (!boton) return;
     const periodo = boton.dataset.cronosMovimientosPeriodo;

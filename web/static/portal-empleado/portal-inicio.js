@@ -5,7 +5,7 @@
  * qué módulos están disponibles para el ContextoActor activo; los restantes
  * permanecen visibles para conservar la navegación estable y fallan cerrados.
  */
-import { traducirPortal } from "./portal-i18n.js?v=20260925-tanda-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260925-tanda2-v1";
 
 export function calcularMetricasCuadro(cuadro) {
 	const totales = cuadro?.totales;

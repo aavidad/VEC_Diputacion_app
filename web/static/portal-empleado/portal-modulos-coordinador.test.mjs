@@ -532,31 +532,103 @@ test("el paquete interno de Personal no solicita recursos RPT ni estructura púb
   }
 });
 
-test("Cronos interno solo se compone desde el catálogo y deja la jornada sin fichaje", async () => {
-  const { montarJornadaCronos } = await import("./modulos/cronos/vista.js");
-  const { montarVistaRecorridosCronos } = await import("./modulos/cronos/vista-recorridos.js");
-  const { crearTraductorCronos } = await import("./modulos/cronos/i18n.js");
+async function recursosCronosInternos() {
+  const [saldo, remoto, movimientos, movimientosPropios, permisosPropios, clienteSaldo, clienteRemoto, clienteSolicitudes, i18n] = await Promise.all([
+    import("./modulos/cronos/vista-saldo-conectado.js"), import("./modulos/cronos/vista-remoto.js"),
+    import("./modulos/cronos/vista-movimientos-conectado.js"), import("./modulos/cronos/vista-movimientos-propios.js"),
+    import("./modulos/cronos/vista-permisos-propios.js"), import("./modulos/cronos/cliente-saldo-http.js"),
+    import("./modulos/cronos/cliente-remoto-http.js"), import("./modulos/cronos/cliente-solicitudes-http.js"),
+    import("./modulos/cronos/i18n.js"),
+  ]);
+  return { saldo, remoto, movimientos, movimientosPropios, permisosPropios, clienteSaldo, clienteRemoto, clienteSolicitudes, i18n };
+}
+const esperarVueltas = async () => { for (let i = 0; i < 10; i++) await new Promise((resolve) => setImmediate(resolve)); };
+
+test("Cronos interno monta saldo, fichaje remoto, movimientos y calendario; con la API en 404 cada parte muestra su estado", async () => {
+  const recursos = await recursosCronosInternos();
+  const pedidas = [];
+  const entorno = { fetch: async (ruta) => { pedidas.push(String(ruta).split("?")[0]);
+    return new Response(JSON.stringify({ error: "no_encontrado" }), { status: 404, headers: { "content-type": "application/json" } }); } };
   const cargadoresInternos = {
     contratacion_temporal: async () => { throw new Error("no debe cargar CT"); },
-    cronos: async () => ({ vista: { montarJornadaCronos },
-      recorridos: { montarVistaRecorridosCronos }, i18n: { crearTraductorCronos } }),
+    cronos: async () => recursos,
   };
-  const coordinador = crearCoordinadorModulosPortal({ escaparHTML: String,
+  const coordinador = crearCoordinadorModulosPortal({ escaparHTML: String, entorno,
     cargarCatalogoInterno: async () => [{ clave: "cronos" }], cargadoresInternos });
   await coordinador.cargarInterno();
   assert.equal(coordinador.resolverAcceso("cronos").disponible, true);
   const raiz = raizDietasFalsa();
   assert.equal(await coordinador.montarVista("cronos", raiz), true);
-  const montaje = raiz.querySelector("[data-cronos-jornada-montaje]");
-  assert.ok(montaje);
-  assert.match(montaje.innerHTML, /data-estado="no_configurado"/);
-  assert.doesNotMatch(montaje.innerHTML, /data-cronos-fichar|jornada-acciones/);
+  await esperarVueltas();
+  const partes = raiz.querySelectorAll("[data-cronos-parte]");
+  assert.deepEqual(partes.map((p) => p.dataset.cronosParte), ["saldo", "remoto", "movimientos", "calendario"]);
+  const html = (nombre) => { const texto = []; const visitar = (n) => { texto.push(n.innerHTML ?? ""); n.children.forEach(visitar); };
+    visitar(raiz.querySelector(`[data-cronos-parte="${nombre}"]`)); return texto.join(""); };
+  assert.match(html("saldo"), /data-cronos-saldo-estado="no_disponible"/u);
+  assert.match(html("movimientos"), /data-cronos-movimientos-estado="no_disponible"/u);
+  assert.match(html("movimientos"), /data-cronos-accion="solicitar-correccion">/u, "olvido de marcaje habilitado");
+  assert.match(html("calendario"), /cronos-movimientos-propios" [^>]*data-estado="no_disponible"/u);
+  assert.match(html("remoto"), /El fichaje remoto no está disponible/u);
+  for (const nombre of ["saldo", "remoto", "movimientos", "calendario"]) {
+    // 404 = capacidad no disponible: estado neutro, sin alerta ni sobrelínea propia.
+    assert.doesNotMatch(html(nombre), /role="alert"[^>]*>[^<]|No se pudo|No se pudieron|class="sobrelinea"/u, nombre);
+  }
+  const cabecera = raiz.children.find((nodo) => nodo.tagName === "header");
+  assert.deepEqual(cabecera.children[0].children.map((n) => [n.tagName, n.className, n.textContent]),
+    [["p", "sobrelinea", "Cronos"], ["h2", undefined, "Mi jornada"]], "un único encabezado de página");
+  assert.doesNotMatch(html("remoto"), /data-cronos-remoto-movimiento="entrada"(?![^>]*disabled)/u, "sin fichaje sin disponibilidad");
+  assert.ok(pedidas.includes("/api/interna/cronos/saldos/propio"));
+  assert.ok(pedidas.includes("/api/interna/cronos/marcajes/remoto/disponibilidad"));
+  assert.equal(new Set(pedidas).size >= 3, true);
   coordinador.desmontarVistaActual();
-  assert.equal(raiz.querySelector("[data-cronos-jornada-montaje]"), null);
-  const sinCatalogo = crearCoordinadorModulosPortal({ escaparHTML: String,
+  assert.equal(raiz.querySelectorAll("[data-cronos-parte]").length, 0);
+  assert.equal(raiz.children.length, 0);
+  const sinCatalogo = crearCoordinadorModulosPortal({ escaparHTML: String, entorno,
     cargarCatalogoInterno: async () => [], cargadoresInternos });
   await sinCatalogo.cargarInterno();
   assert.equal(sinCatalogo.resolverAcceso("cronos").disponible, false);
+});
+
+test("Cronos interno: olvido de marcaje abre el formulario del calendario y faltar una vista cierra el módulo", async () => {
+  const reales = await recursosCronosInternos();
+  const llamadas = [];
+  const parte = (nombre, extra = {}) => (opciones) => {
+    llamadas.push([nombre, opciones]);
+    const nodo = opciones.raiz.ownerDocument.createElement("section"); opciones.raiz.append(nodo);
+    return Object.freeze({ desmontar: () => { llamadas.push([`${nombre}:desmontar`]); nodo.remove(); }, ...extra });
+  };
+  let olvidos = 0;
+  const recursos = { ...reales,
+    saldo: { montarVistaSaldoCronos: parte("saldo") }, remoto: { montarVistaRemotoCronos: parte("remoto") },
+    movimientos: { montarVistaMovimientosCronos: parte("movimientos") },
+    movimientosPropios: { montarMovimientosPropiosCronos: parte("calendario", { abrirOlvido: () => { olvidos += 1; } }) },
+    permisosPropios: { montarPermisosPropiosCronos: (opciones) => { llamadas.push(["permisos", opciones]);
+      const r = parte("permisos-montaje")(opciones); opciones.registrarDesmontar?.(r.desmontar); return r; } },
+  };
+  const crear = (cronos) => crearCoordinadorModulosPortal({ escaparHTML: String, entorno: { fetch: async () => { throw new Error("sin red"); } },
+    cargarCatalogoInterno: async () => [{ clave: "cronos" }], cargadoresInternos: {
+      contratacion_temporal: async () => { throw new Error("no debe cargar CT"); }, cronos: async () => cronos } });
+  const coordinador = crear(recursos);
+  await coordinador.cargarInterno();
+  const raiz = raizDietasFalsa();
+  assert.equal(await coordinador.montarVista("cronos", raiz), true);
+  const movimientos = llamadas.find(([nombre]) => nombre === "movimientos")[1];
+  assert.equal(typeof movimientos.abrirCorreccion, "function");
+  assert.equal(typeof movimientos.cliente.consultar, "function");
+  movimientos.abrirCorreccion();
+  assert.equal(olvidos, 1);
+  assert.equal(await coordinador.montarVista("cronos-permisos", raiz), true);
+  assert.deepEqual(llamadas.filter(([n]) => n.endsWith(":desmontar")).map(([n]) => n),
+    ["calendario:desmontar", "movimientos:desmontar", "remoto:desmontar", "saldo:desmontar"]);
+  const permisos = llamadas.find(([nombre]) => nombre === "permisos")[1];
+  assert.equal(typeof permisos.cliente.consultarPermisos, "function");
+  coordinador.desmontarVistaActual();
+  assert.equal(raiz.children.length, 0);
+  for (const falta of ["saldo", "remoto", "movimientos", "movimientosPropios", "permisosPropios", "clienteSaldo", "clienteRemoto", "clienteSolicitudes"]) {
+    const incompleto = crear({ ...recursos, [falta]: {} });
+    await incompleto.cargarInterno();
+    assert.equal(incompleto.resolverAcceso("cronos").disponible, false, falta);
+  }
 });
 
 test("CT interno se activa solo después de una consulta autorizada", async () => {

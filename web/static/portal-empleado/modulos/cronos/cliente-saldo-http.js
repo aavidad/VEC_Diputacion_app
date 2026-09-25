@@ -81,7 +81,8 @@ export function validarResultadoSaldoCronos(valor, consulta) {
   return valor;
 }
 
-async function leerJSONAcotado(respuesta) {
+/** Lectura acotada del cuerpo JSON; la comparten los clientes propios de Cronos. */
+export async function leerJSONAcotado(respuesta) {
   const declarada = respuesta.headers?.get?.("content-length");
   if (declarada !== null && declarada !== undefined && (!/^(?:0|[1-9]\d*)$/u.test(declarada) || Number(declarada) > MAXIMO_RESPUESTA_BYTES)) throw fallo("respuesta_excesiva", respuesta.status);
   if (!respuesta.body?.getReader) throw fallo("respuesta_incompatible", respuesta.status);
@@ -120,7 +121,7 @@ export function crearClienteSaldoCronosHTTP({ fetchImpl = globalThis.fetch, ruta
         let respuesta;
         try {
           respuesta = await fetchImpl(`${ruta}?${parametros}`, {
-            method: "GET", headers: { Accept: "application/json" }, credentials: "omit",
+            method: "GET", headers: { Accept: "application/json" }, credentials: "same-origin",
             mode: "same-origin", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer",
             signal: controlador.signal,
           });

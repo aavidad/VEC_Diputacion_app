@@ -234,3 +234,17 @@ test("el desmontaje ignora respuestas tardías", async () => {
   assert.equal(otra.nodo.eliminado, true);
   assert.equal(pendiente.estado().estado, "consultando");
 });
+
+test("GET 404: «no disponible» neutro, sin acciones de fichaje ni tono de aviso", async () => {
+  const { nodo, raiz } = raizFalsa();
+  const vista = montarVistaRemotoCronos({ raiz, cliente: {
+    disponibilidad: async () => { throw Object.assign(new Error("respuesta_rechazada"), { codigo: "respuesta_rechazada", estado: 404 }); },
+    registrar: async () => { throw new Error("no debe enviar"); },
+  } });
+  await siguiente();
+  assert.equal(vista.estado().estado, "no_disponible");
+  assert.match(nodo.innerHTML, /<p class="cronos-vacio" role="status" aria-live="polite">El fichaje remoto no está disponible\./u);
+  assert.doesNotMatch(nodo.innerHTML, /role="alert"|cronos-estado-aviso|data-cronos-remoto-movimiento/u);
+  assert.match(nodo.innerHTML, /data-cronos-remoto-actualizar/u);
+  vista.desmontar();
+});

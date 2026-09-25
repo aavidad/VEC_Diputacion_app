@@ -111,9 +111,12 @@ function validarCalculo(calculo,codigos,rutasDeclaradas,vehiculo,documento) {
   calculo.opciones_dieta.forEach((opcion,i)=>{ if (opcion.grupo!==i+1 || !registro(opcion.calculo) || !Array.isArray(opcion.calculo.tramos) || !Number.isSafeInteger(opcion.calculo.total_maximo_orientativo_centimos)) throw new TypeError("tramos de dieta incompatibles"); });
   return Object.freeze({ ...calculo, tramos_ruta:Object.freeze(calculo.tramos_ruta.map((tramo)=>Object.freeze({...tramo}))), opciones_dieta:Object.freeze(calculo.opciones_dieta.map((opcion)=>Object.freeze({...opcion,calculo:Object.freeze({...opcion.calculo,tramos:Object.freeze(opcion.calculo.tramos.map((tramo)=>Object.freeze({...tramo})))})}))) });
 }
+// Tras enviarla, la comisión recorre el circuito de revisión; la persona
+// titular sigue viendo su documento en cualquiera de esos estados.
+const ESTADOS_COMISION_PROPIA = Object.freeze(["borrador", "eliminado", "enviado_pendiente_revision", "pendiente_autorizacion", "pendiente_liquidacion", "pendiente_fiscalizacion", "fiscalizada", "devuelta"]);
 function validarComision(comision) {
   const campos = ["referencia", "version", "numero_documento", "fecha_apertura", "estado", "fecha_inicio", "fecha_fin", "motivo", "codigos_ruta", "relacion_ref", "calculo", "documento", "vehiculo_propio", "rutas"];
-  if (!registro(comision) || Object.keys(comision).some((clave) => !campos.includes(clave)) || !referencia(comision.referencia, "dco_") || (comision.version !== undefined && (!Number.isSafeInteger(comision.version) || comision.version < 1)) || !["borrador", "eliminado", "enviado_pendiente_revision"].includes(comision.estado) || !fechaCivil(comision.fecha_inicio) || !fechaCivil(comision.fecha_fin) || comision.fecha_fin < comision.fecha_inicio || !textoVisible(comision.motivo, 600) || !referencia(comision.relacion_ref, "rel_")) throw new TypeError("comisión de Dietas incompatible");
+  if (!registro(comision) || Object.keys(comision).some((clave) => !campos.includes(clave)) || !referencia(comision.referencia, "dco_") || (comision.version !== undefined && (!Number.isSafeInteger(comision.version) || comision.version < 1)) || !ESTADOS_COMISION_PROPIA.includes(comision.estado) || !fechaCivil(comision.fecha_inicio) || !fechaCivil(comision.fecha_fin) || comision.fecha_fin < comision.fecha_inicio || !textoVisible(comision.motivo, 600) || !referencia(comision.relacion_ref, "rel_")) throw new TypeError("comisión de Dietas incompatible");
   if ((comision.numero_documento !== undefined && !/^VEC-D-\d{4}-\d{6}$/u.test(comision.numero_documento)) ||
       (comision.fecha_apertura !== undefined && !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/u.test(comision.fecha_apertura)))
     throw new TypeError("identificador de comisión incompatible");

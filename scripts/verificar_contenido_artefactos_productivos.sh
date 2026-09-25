@@ -187,6 +187,15 @@ transportes_mtls_revisados=(
 	# Calendarios (25/09): solo GET a rutas internas fijas, same-origin, no-store y
 	# redirect error, como organizacion.js; sin cookies ni almacenamiento.
 	static/portal-empleado/calendarios/calendarios.js
+	# Cronos de la persona empleada (25/09): movimientos, olvidos y permisos
+	# propios; GET y POST a rutas internas fijas, same-origin, no-store,
+	# redirect error y no-referrer; la persona la deriva el servidor del mTLS.
+	static/portal-empleado/modulos/cronos/cliente-solicitudes-http.js
+	# Saldo propio y fichaje remoto de Cronos (25/09): con omit el navegador no
+	# presentaria el certificado mTLS tras el proxy; GET/POST a rutas internas
+	# fijas, same-origin, no-store, redirect error y no-referrer.
+	static/portal-empleado/modulos/cronos/cliente-saldo-http.js
+	static/portal-empleado/modulos/cronos/cliente-remoto-http.js
 )
 mapfile -t usos_mismo_origen < <(
 	grep -rliE 'credentials[[:space:]]*:[[:space:]]*["'"'"']same-origin' \

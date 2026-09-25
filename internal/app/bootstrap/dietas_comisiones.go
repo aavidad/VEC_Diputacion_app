@@ -20,6 +20,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"vec-diputacion-granada/config"
 	dietas "vec-diputacion-granada/internal/modules/dietas"
+	dietascomp "vec-diputacion-granada/internal/modules/dietas/adapters/composicion"
 	dietashttp "vec-diputacion-granada/internal/modules/dietas/adapters/httpinterno"
 	dietaspg "vec-diputacion-granada/internal/modules/dietas/adapters/postgres"
 	dietasapp "vec-diputacion-granada/internal/modules/dietas/application"
@@ -163,12 +164,14 @@ func metodoComisionesDietasValido(ruta, metodo string) bool {
 	if ruta == dietashttp.RutaBorradores {
 		return metodo == http.MethodGet || metodo == http.MethodPost
 	}
-	if ruta == dietashttp.RutaBorradores+"/circuito" {
+	if ruta == dietashttp.RutaCircuito || ruta == dietashttp.RutaCircuitoCompetencias {
 		return metodo == http.MethodGet
 	}
-	if resto, ok := strings.CutPrefix(ruta, dietashttp.RutaBorradores+"/circuito/"); ok {
-		referencia, decision := strings.CutSuffix(resto, "/decisiones")
-		return decision && metodo == http.MethodPost && referenciaRutaComisionDietas.MatchString(referencia)
+	if resto, ok := strings.CutPrefix(ruta, dietashttp.RutaCircuito+"/"); ok {
+		if referencia, decision := strings.CutSuffix(resto, "/decisiones"); decision {
+			return metodo == http.MethodPost && referenciaRutaComisionDietas.MatchString(referencia)
+		}
+		return metodo == http.MethodGet && referenciaRutaComisionDietas.MatchString(resto)
 	}
 	resto, ok := strings.CutPrefix(ruta, dietashttp.RutaBorradores+"/")
 	if !ok {
@@ -186,11 +189,15 @@ func accionFronteraComisionesDietas(ruta, metodo string) string {
 		return dietasports.AccionFronteraMetodoNoAdmitido
 	}
 	if ruta != dietashttp.RutaBorradores {
-		if strings.HasPrefix(ruta, dietashttp.RutaBorradores+"/circuito") {
-			if metodo == http.MethodGet {
+		if strings.HasPrefix(ruta, dietashttp.RutaCircuito) {
+			switch {
+			case metodo != http.MethodGet:
+				return dietasports.AccionFronteraDecidir
+			case ruta == dietashttp.RutaCircuito || ruta == dietashttp.RutaCircuitoCompetencias:
 				return dietasports.AccionFronteraConsultarBandeja
+			default:
+				return dietasports.AccionFronteraPreleer
 			}
-			return dietasports.AccionFronteraDecidir
 		}
 		if strings.HasSuffix(ruta, "/enviar") {
 			return dietasports.AccionFronteraEnviar
@@ -319,7 +326,7 @@ func (a *autoridadComisionesDietasDesarrollo) registrarDenegacion(ctx context.Co
 		motivo = dietasports.MotivoFronteraAccesoDenegado
 	}
 	ruta := dietasports.RutaAuditoriaFronteraComision
-	if strings.HasPrefix(rutaPeticion, dietashttp.RutaBorradores+"/circuito") {
+	if strings.HasPrefix(rutaPeticion, dietashttp.RutaCircuito) {
 		ruta = dietasports.RutaAuditoriaFronteraCircuito
 	} else if rutaPeticion != dietashttp.RutaBorradores {
 		ruta = dietasports.RutaAuditoriaFronteraDetalle
@@ -645,6 +652,11 @@ func nuevasComisionesDietasDesarrollo(cfg config.Config, resolvedor vechttp.Demo
 		"personal.asignacion_dietas.corregir":          emisores[audienciaConsumoCorregirAsignacionDietas],
 		"personal.asignacion_dietas.grupo_corregir":    emisores[audienciaConsumoCorregirGrupoDietas],
 	}
+	// Circuito: cada acción firma con su audiencia propia del gobierno CT.
+	for _, accion := range accionesCircuitoDietas() {
+		audiencia, _ := dietascomp.AudienciaCircuito(accion)
+		emisoresPorAccion[accion] = emisores[audiencia]
+	}
 	// Alta y corrección completa D7 solo tienen emisor con el catálogo abierto.
 	for accion, emisor := range emisoresPorAccion {
 		if emisor == nil {
@@ -674,7 +686,11 @@ func nuevasComisionesDietasDesarrollo(cfg config.Config, resolvedor vechttp.Demo
 	if err != nil {
 		return nil, errComposicionDietasEn()
 	}
-	rutas, colecciones, err := componerBorradoresDietas(dependenciasBorradoresDietas{personal: propios.Personal(), personalAsignacion: asignacionPersonal, dietas: propios.Dietas(), auditoriaPersonal: registradorPersonal, seguridad: seguridadComisiones, reloj: reloj, emisorPersonal: &emisorComisionesDietasDesarrollo{personal: emisores[audienciaConsumoPersonalDietasDesarrollo], adicionales: emisoresPorAccion}, emisorDietas: &emisorComisionesDietasDesarrollo{crear: emisores[audienciaConsumoCrearDietasDesarrollo], consultar: emisores[audienciaConsumoConsultarDietasDesarrollo], adicionales: emisoresPorAccion}, motivoPersonal: c.MotivoPersonal, motivoDietas: c.MotivoCrear, preparador: preparador})
+	fuenteCompetencia, err := fuenteCompetenciaCircuitoDietas(catalogoValidadoresCompetentesAsignacionDietas)
+	if err != nil {
+		return nil, errComposicionDietasEn()
+	}
+	rutas, colecciones, err := componerBorradoresDietas(dependenciasBorradoresDietas{personal: propios.Personal(), personalAsignacion: asignacionPersonal, dietas: propios.Dietas(), auditoriaPersonal: registradorPersonal, seguridad: seguridadComisiones, reloj: reloj, emisorPersonal: &emisorComisionesDietasDesarrollo{personal: emisores[audienciaConsumoPersonalDietasDesarrollo], adicionales: emisoresPorAccion}, emisorDietas: &emisorComisionesDietasDesarrollo{crear: emisores[audienciaConsumoCrearDietasDesarrollo], consultar: emisores[audienciaConsumoConsultarDietasDesarrollo], adicionales: emisoresPorAccion}, motivoPersonal: c.MotivoPersonal, motivoDietas: c.MotivoCrear, preparador: preparador, fuenteCompetencia: fuenteCompetencia})
 	if err != nil {
 		return nil, err
 	}

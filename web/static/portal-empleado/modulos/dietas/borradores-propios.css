@@ -245,26 +245,40 @@
   background: var(--portal-superficie-alterna);
 }
 
+.modulo-dietas .dietas-bandeja-circuito-filtros[hidden] { display: none; }
 .modulo-dietas .dietas-bandeja-circuito-filtros label { display: grid; gap: 6px; min-width: 0; }
 .modulo-dietas .dietas-bandeja-circuito-filtros input,
 .modulo-dietas .dietas-bandeja-circuito-filtros select { width: 100%; min-width: 0; }
 .modulo-dietas .dietas-bandeja-circuito > [data-dietas-circuito-estado] { margin: 0; padding: 8px 16px; }
 .modulo-dietas .dietas-bandeja-circuito > .cuerpo-panel { min-width: 0; min-height: 0; overflow: auto; overscroll-behavior: contain; }
-.modulo-dietas .dietas-bandeja-circuito-tabla { width: 100%; min-width: 820px; border-collapse: collapse; }
-.modulo-dietas .dietas-bandeja-circuito-tabla th { background: var(--portal-cabecera-panel); text-align: left; }
-.modulo-dietas .dietas-bandeja-circuito-tabla td,
-.modulo-dietas .dietas-bandeja-circuito-tabla th { padding: 10px 12px; border-bottom: 1px solid var(--portal-borde); vertical-align: top; }
-.modulo-dietas .dietas-bandeja-circuito-tabla tbody tr:nth-child(even) { background: var(--portal-superficie-alterna); }
-.modulo-dietas .dietas-bandeja-circuito-tabla tbody tr:hover,
-.modulo-dietas .dietas-bandeja-circuito-tabla tbody tr:focus-within { background: var(--portal-azul-100); }
-.modulo-dietas .dietas-bandeja-circuito-tabla td:first-child strong { display: block; color: var(--portal-azul-700); }
-.modulo-dietas .dietas-bandeja-circuito-tabla td:first-child small { display: block; margin-top: 4px; color: var(--portal-muted); overflow-wrap: anywhere; }
-.modulo-dietas .dietas-bandeja-circuito-tabla td:nth-child(3) { text-align: right; }
-.modulo-dietas .dietas-bandeja-circuito-tabla td:last-child { min-width: 210px; }
-.modulo-dietas .dietas-bandeja-circuito-tabla textarea { width: 100%; min-height: 56px; resize: vertical; }
-.modulo-dietas .dietas-bandeja-circuito-tabla td:last-child button { margin: 8px 8px 0 0; }
-.modulo-dietas .dietas-bandeja-circuito-tabla details { display: inline-block; margin-left: 8px; }
-.modulo-dietas .dietas-bandeja-circuito-tabla summary { display: grid; width: 24px; height: 24px; place-items: center; border: 1px solid var(--portal-borde); border-radius: 50%; cursor: pointer; }
+.modulo-dietas .dietas-bandeja-circuito > [data-dietas-circuito-estado]:empty { display: none; }
+.modulo-dietas .dietas-bandeja-circuito > [data-dietas-circuito-estado][data-nivel="error"] { color: var(--portal-peligro); }
+.modulo-dietas .dietas-bandeja-circuito > [data-dietas-circuito-estado][data-nivel="exito"] { color: var(--portal-exito); }
+.modulo-dietas .dietas-bandeja-circuito > .cuerpo-panel > .tabla-contenedor { margin: -18px -20px 0; }
+.modulo-dietas .dietas-bandeja-circuito-tabla { min-width: 640px; }
+.modulo-dietas .dietas-bandeja-circuito-tabla td:first-child { color: var(--portal-azul-700); font-weight: 600; }
+.modulo-dietas .dietas-bandeja-circuito-tabla td:last-child { width: 1%; text-align: right; }
+.modulo-dietas .dietas-bandeja-circuito > .cuerpo-panel > .boton-secundario { margin-top: 16px; }
+.modulo-dietas .dietas-circuito-sin-fuente,
+.modulo-dietas [data-dietas-circuito-sin-fuente] { margin: 0; color: var(--portal-muted); }
+.modulo-dietas .dietas-circuito-sin-fuente { padding: 18px 20px; }
+
+.modulo-dietas .dietas-circuito-detalle { display: grid; gap: 20px; padding: 18px 20px 20px; }
+.modulo-dietas .dietas-circuito-detalle[hidden] { display: none; }
+.modulo-dietas .dietas-circuito-detalle-cabecera { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.modulo-dietas .dietas-circuito-detalle-cabecera h3 { margin: 0; font-size: 1.05rem; font-weight: 600; color: var(--portal-tinta); }
+.modulo-dietas .dietas-circuito-resumen { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr) minmax(0, 2fr); gap: 12px 20px; margin: 0; }
+.modulo-dietas .dietas-circuito-resumen dt { color: var(--portal-muted); font-size: .8rem; font-weight: 600; }
+.modulo-dietas .dietas-circuito-resumen dd { margin: 4px 0 0; color: var(--portal-tinta); overflow-wrap: anywhere; }
+.modulo-dietas .dietas-circuito-lineas { min-width: 560px; }
+.modulo-dietas .dietas-circuito-lineas td:nth-child(2) { white-space: normal; }
+.modulo-dietas .dietas-circuito-lineas tfoot th { color: var(--portal-muted); text-align: right; }
+.modulo-dietas .dietas-circuito-lineas tfoot tr[data-dietas-circuito-total] th,
+.modulo-dietas .dietas-circuito-lineas tfoot tr[data-dietas-circuito-total] td { color: var(--portal-tinta); font-weight: 600; border-bottom: 0; }
+.modulo-dietas .dietas-circuito-decision { display: grid; gap: 8px; padding-top: 16px; border-top: 1px solid var(--portal-borde); }
+.modulo-dietas .dietas-circuito-decision label { color: var(--portal-muted); font-size: .8rem; font-weight: 600; }
+.modulo-dietas .dietas-circuito-decision textarea { width: 100%; min-width: 0; min-height: 72px; resize: vertical; }
+.modulo-dietas .dietas-circuito-botones { display: flex; flex-wrap: wrap; gap: 12px; }
 
 .modulo-dietas.dietas-rectificacion-admin { display: grid; grid-template-columns: minmax(20rem, .95fr) minmax(0, 1.3fr); gap: 16px; min-width: 0; min-height: 0; height: 100%; }
 .modulo-dietas.dietas-rectificacion-admin > .panel { display: flex; flex-direction: column; min-width: 0; min-height: 0; margin: 0; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-lg); background: var(--portal-superficie); box-shadow: var(--portal-sombra-sm); overflow: hidden; }
@@ -291,6 +305,8 @@
 
 @media (max-width: 520px) {
   .modulo-dietas .dietas-bandeja-circuito-filtros { grid-template-columns: minmax(0, 1fr); }
+  .modulo-dietas .dietas-circuito-resumen { grid-template-columns: minmax(0, 1fr); }
+  .modulo-dietas .dietas-circuito-detalle-cabecera { flex-direction: column; align-items: flex-start; }
 }
 
 @media (min-width: 1024px) {

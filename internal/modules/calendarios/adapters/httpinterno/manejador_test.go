@@ -137,6 +137,10 @@ func TestErroresTraducidosSinDetallesInternos(t *testing.T) {
 	if w.Code != http.StatusBadRequest || codigo(cuerpo) != "solicitud_invalida" {
 		t.Fatalf("solicitud: %d", w.Code)
 	}
+	w, cuerpo = pedir(t, NuevoManejador(&consultaPrueba{fallo: domain.ErrCalculoNoDeterminado}), http.MethodGet, RutaCentros+"?anio=2026", nil)
+	if w.Code != http.StatusUnprocessableEntity || codigo(cuerpo) != "plazo_no_determinado" {
+		t.Fatalf("plazo no determinado: %d %s", w.Code, w.Body.String())
+	}
 	w, cuerpo = pedir(t, NuevoManejador(nil), http.MethodGet, RutaCentros+"?anio=2026", nil)
 	if w.Code != http.StatusServiceUnavailable || codigo(cuerpo) != "servicio_no_disponible" {
 		t.Fatalf("sin base: %d", w.Code)
