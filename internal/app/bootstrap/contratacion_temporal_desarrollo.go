@@ -397,14 +397,18 @@ func nuevasRutasContratacionTemporalDesarrollo(
 		return nil, nil, nil, errBorradorNoDisponibleEn()
 	}
 	if cfg.ContratacionTemporalPostgreSQL.ConsultasRRHHConfiguradas() {
+		plantillas, err := cargarPlantillasBorradorCTDesarrollo(cfg, reloj.Ahora())
+		if err != nil {
+			return nil, nil, nil, err
+		}
 		consultasRRHH, err = nuevasDependenciasConsultasRRHHDesarrollo(dependencias, &alta, catalogoFronteras)
 		if err != nil {
 			return nil, nil, nil, err
 		}
 		cuadroReal, detalleReal, originalPropuestaReal = consultasRRHH.cuadroHTTP, consultasRRHH.detalleHTTP, consultasRRHH.originalPropuestaHTTP
 		etiquetas := origen.etiquetasReferenciasCatalogosAlta()
-		borradorRRHH = informejuridico.RenderizadorBorradorDesarrollo{PDF: pdfvec.Renderizador{}, Etiquetas: etiquetas}
-		borradorRRHHDOCX = informejuridico.RenderizadorBorradorDOCXDesarrollo{DOCX: docxvec.Renderizador{}, Etiquetas: etiquetas}
+		borradorRRHH = informejuridico.RenderizadorBorradorDesarrollo{PDF: pdfvec.Renderizador{}, Etiquetas: etiquetas, Plantillas: plantillas}
+		borradorRRHHDOCX = informejuridico.RenderizadorBorradorDOCXDesarrollo{DOCX: docxvec.Renderizador{}, Etiquetas: etiquetas, Plantillas: plantillas}
 	}
 	defer func() {
 		if cerrarAlta {

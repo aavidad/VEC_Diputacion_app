@@ -1,7 +1,7 @@
 /** Gestor de descarga y estado de borradores e informes definitivos de RRHH. */
 
 import {
-  crearClienteHTTPBorradorRRHH, PERFILES_BORRADOR_RRHH,
+  crearClienteHTTPBorradorRRHH, PERFILES_BORRADOR_RRHH, tipoBorradorDeAccion,
 } from "./cliente-http-informe-definitivo.js";
 import { solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js";
@@ -82,13 +82,10 @@ export function crearGestorDescargaBorradorRRHH({
     const accionDocumento = accionSolicitada.replace("descargar-docx-", "descargar-");
     const formato = esReintento && ["pdf", "docx"].includes(boton.dataset.ctExpFormato)
       ? boton.dataset.ctExpFormato : accionSolicitada.startsWith("descargar-docx-") ? "docx" : "pdf";
-    const tipo = accionDocumento === "descargar-resolucion" ? "resolucion"
-      : accionDocumento === "descargar-diligencia" ? "diligencia"
-        : accionDocumento === "descargar-toma-posesion" ? "toma_posesion"
-          : accionDocumento === "descargar-notificacion" ? "notificacion"
-            : accionDocumento === "descargar-comunicacion-centro" ? "comunicacion_centro" : "informe_definitivo";
+    const tipo = tipoBorradorDeAccion(accionDocumento) ?? "informe_definitivo";
     const botones = typeof raiz.querySelectorAll === "function" ? [...raiz.querySelectorAll(
-      '[data-ct-exp-accion="descargar-informe-definitivo"], [data-ct-exp-accion="descargar-resolucion"], [data-ct-exp-accion="descargar-diligencia"], [data-ct-exp-accion="descargar-toma-posesion"], [data-ct-exp-accion="descargar-notificacion"], [data-ct-exp-accion="descargar-comunicacion-centro"], [data-ct-exp-accion="descargar-docx-informe-definitivo"], [data-ct-exp-accion="descargar-docx-resolucion"], [data-ct-exp-accion="descargar-docx-diligencia"], [data-ct-exp-accion="descargar-docx-toma-posesion"], [data-ct-exp-accion="descargar-docx-notificacion"], [data-ct-exp-accion="descargar-docx-comunicacion-centro"]',
+      Object.keys(PERFILES_BORRADOR_RRHH).map((clave) => clave.replaceAll("_", "-"))
+        .flatMap((accion) => [`[data-ct-exp-accion="descargar-${accion}"]`, `[data-ct-exp-accion="descargar-docx-${accion}"]`]).join(", "),
     )] : [boton];
     const cancelaciones = typeof raiz.querySelectorAll === "function" ? [...raiz.querySelectorAll(
       '[data-ct-exp-accion="cancelar-descarga"]',
@@ -152,6 +149,7 @@ export function crearGestorDescargaBorradorRRHH({
   }
 
   return Object.freeze({
+    esAccionDescarga: (accion) => tipoBorradorDeAccion(accion) !== null,
     descargarBorrador,
     cancelarDescargaInforme,
     liberarURLInforme,

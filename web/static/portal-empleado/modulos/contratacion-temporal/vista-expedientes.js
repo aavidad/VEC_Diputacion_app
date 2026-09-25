@@ -502,7 +502,7 @@ export async function montarModuloContratacionTemporal({
       await gestorIncorporacion.montarIncorporacionEjercicio();
     } else if (accion.dataset.ctExpAccion === "cancelar-descarga") {
       if (gestorBorrador.cancelarDescargaInforme()) gestorBorrador.informarDescarga("descarga_cancelada", "informacion");
-    } else if (["descargar-informe-definitivo", "descargar-resolucion", "descargar-diligencia", "descargar-toma-posesion", "descargar-notificacion", "descargar-comunicacion-centro", "descargar-docx-informe-definitivo", "descargar-docx-resolucion", "descargar-docx-diligencia", "descargar-docx-toma-posesion", "descargar-docx-notificacion", "descargar-docx-comunicacion-centro", "reintentar-descarga-informe-definitivo", "reintentar-descarga-resolucion", "reintentar-descarga-diligencia", "reintentar-descarga-toma-posesion", "reintentar-descarga-notificacion", "reintentar-descarga-comunicacion-centro"].includes(accion.dataset.ctExpAccion)) {
+    } else if (gestorBorrador.esAccionDescarga(accion.dataset.ctExpAccion)) {
       await gestorBorrador.descargarBorrador(accion);
     } else if (accion.dataset.ctExpAccion === "limpiar-filtros") {
       const promesa = presentador.cargar({ texto: "", estado: "", fase: "" });

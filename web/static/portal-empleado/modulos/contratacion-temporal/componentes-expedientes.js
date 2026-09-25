@@ -379,6 +379,8 @@ const BORRADORES_FORMALIZACION = Object.freeze([
   ["informe_definitivo", "informe-definitivo"], ["resolucion", "resolucion"],
   ["diligencia", "diligencia"], ["toma_posesion", "toma-posesion"],
   ["notificacion", "notificacion"], ["comunicacion_centro", "comunicacion-centro"],
+  ["contrato_laboral", "contrato-laboral"], ["nombramiento", "nombramiento"],
+  ["cese", "cese"], ["modificacion_nombramiento", "modificacion-nombramiento"],
 ]);
 
 function renderizarBorradoresFormalizacion(t) {

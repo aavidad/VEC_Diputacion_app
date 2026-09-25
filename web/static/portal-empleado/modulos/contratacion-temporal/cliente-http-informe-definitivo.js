@@ -22,7 +22,28 @@ export const PERFILES_BORRADOR_RRHH = Object.freeze({
   comunicacion_centro: Object.freeze({
     documento: "comunicacion-centro-desarrollo", nombre: "comunicacion-centro-borrador.pdf", accept: "application/pdf; documento=comunicacion-centro-desarrollo",
   }),
+  // Su texto sólo existe en el catálogo de plantillas; el servidor decide si
+  // procede para el expediente (modalidad o actuación de cese/modificación).
+  contrato_laboral: Object.freeze({
+    documento: "contrato-laboral-desarrollo", nombre: "contrato-laboral-borrador.pdf", accept: "application/pdf; documento=contrato-laboral-desarrollo",
+  }),
+  nombramiento: Object.freeze({
+    documento: "nombramiento-desarrollo", nombre: "nombramiento-borrador.pdf", accept: "application/pdf; documento=nombramiento-desarrollo",
+  }),
+  cese: Object.freeze({
+    documento: "cese-desarrollo", nombre: "cese-borrador.pdf", accept: "application/pdf; documento=cese-desarrollo",
+  }),
+  modificacion_nombramiento: Object.freeze({
+    documento: "modificacion-nombramiento-desarrollo", nombre: "modificacion-nombramiento-borrador.pdf", accept: "application/pdf; documento=modificacion-nombramiento-desarrollo",
+  }),
 });
+
+/** Acción del detalle («descargar-x», «descargar-docx-x», «reintentar-descarga-x») → tipo. */
+export function tipoBorradorDeAccion(accion) {
+  const coincidencia = /^(?:descargar-docx-|descargar-|reintentar-descarga-)([a-z-]+)$/u.exec(String(accion ?? ""));
+  const tipo = coincidencia?.[1].replaceAll("-", "_");
+  return tipo && Object.hasOwn(PERFILES_BORRADOR_RRHH, tipo) ? tipo : null;
+}
 const MAXIMO_PDF = 2 * 1024 * 1024;
 const FORMATOS_BORRADOR = Object.freeze({
   pdf: Object.freeze({ mime: "application/pdf", extension: ".pdf", prefijo: "%PDF-" }),

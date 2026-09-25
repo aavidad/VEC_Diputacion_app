@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/informejuridico"
 	postgresct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
@@ -180,7 +181,11 @@ func TestResolucionFormalizacionDesarrolloFuenteRealYReplaySinEstadoWeb(t *testi
 	s.ExpedienteRef = d.Resumen.ExpedienteRef
 	consulta := &detalleResolucionPrueba{t: t, detalle: d}
 	registro := &registroResolucionDesarrolloPrueba{}
-	pdf := informejuridico.RenderizadorBorradorDesarrollo{PDF: pdfvec.Renderizador{}}
+	plantillas, err := cargarPlantillasBorradorCTDesarrollo(config.Config{}, p.reloj.Ahora())
+	if err != nil {
+		t.Fatal(err)
+	}
+	pdf := informejuridico.RenderizadorBorradorDesarrollo{PDF: pdfvec.Renderizador{}, Plantillas: plantillas}
 	e := &ejecutorResolucionFormalizacionDesarrollo{soporte: p.alta.soporte, detalle: consulta, renderizador: pdf, servicio: registro, reloj: p.reloj, fronteras: catalogoDetalleCTPrueba(t, p.alta.soporte)}
 	primero, err := e.RegistrarResolucionFormalizacion(ctx, s)
 	if err != nil {

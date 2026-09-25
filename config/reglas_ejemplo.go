@@ -20,6 +20,9 @@ const (
 	// que se estima el coste del nombramiento. Sin él, el coste queda «sin
 	// calcular».
 	EnvCTRetribucionesSourcePath = "VEC_CT_RETRIBUCIONES_SOURCE_PATH"
+	// EnvCTPlantillasSourcePath sustituye el catálogo de plantillas de los
+	// documentos de Contratación temporal que trae el repositorio.
+	EnvCTPlantillasSourcePath = "VEC_CT_PLANTILLAS_SOURCE_PATH"
 )
 
 // ErrConfiguracionReglasEjemploFueraDesarrollo impide arrancar si un
@@ -38,6 +41,7 @@ type ConfiguracionReglasEjemplo struct {
 	CTSourcePath                    string
 	BolsaRolesSegregacionSourcePath string
 	CTRetribucionesSourcePath       string
+	CTPlantillasSourcePath          string
 }
 
 func cargarConfiguracionReglasEjemplo() ConfiguracionReglasEjemplo {
@@ -46,6 +50,7 @@ func cargarConfiguracionReglasEjemplo() ConfiguracionReglasEjemplo {
 		CTSourcePath:                    envFirst(EnvCTReglasSourcePath),
 		BolsaRolesSegregacionSourcePath: envFirst(EnvBolsaRolesSegregacionSourcePath),
 		CTRetribucionesSourcePath:       envFirst(EnvCTRetribucionesSourcePath),
+		CTPlantillasSourcePath:          envFirst(EnvCTPlantillasSourcePath),
 	}
 }
 
@@ -54,13 +59,14 @@ func (c ConfiguracionReglasEjemplo) normalizar() ConfiguracionReglasEjemplo {
 	c.CTSourcePath = strings.TrimSpace(c.CTSourcePath)
 	c.BolsaRolesSegregacionSourcePath = strings.TrimSpace(c.BolsaRolesSegregacionSourcePath)
 	c.CTRetribucionesSourcePath = strings.TrimSpace(c.CTRetribucionesSourcePath)
+	c.CTPlantillasSourcePath = strings.TrimSpace(c.CTPlantillasSourcePath)
 	return c
 }
 
 // Configurada indica si se ha declarado algún catálogo de reglas.
 func (c ConfiguracionReglasEjemplo) Configurada() bool {
 	c = c.normalizar()
-	return c.BolsaSourcePath != "" || c.CTSourcePath != "" || c.BolsaRolesSegregacionSourcePath != "" || c.CTRetribucionesSourcePath != ""
+	return c.BolsaSourcePath != "" || c.CTSourcePath != "" || c.BolsaRolesSegregacionSourcePath != "" || c.CTRetribucionesSourcePath != "" || c.CTPlantillasSourcePath != ""
 }
 
 // ReglasEjemploDesarrollo valida la activación sin abrir ficheros. Devuelve

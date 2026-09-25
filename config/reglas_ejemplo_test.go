@@ -9,10 +9,12 @@ func TestReglasEjemploSeCarganDelEntornoYSeNormalizan(t *testing.T) {
 	t.Setenv(EnvBolsaReglasSourcePath, "  data/demo/reglas/bolsa_reglas.ejemplo.demo.json ")
 	t.Setenv(EnvCTReglasSourcePath, "data/demo/reglas/ct_reglas.ejemplo.demo.json")
 	t.Setenv(EnvBolsaRolesSegregacionSourcePath, " data/demo/reglas/bolsa_roles_segregacion.demo.json")
+	t.Setenv(EnvCTPlantillasSourcePath, " plantillas.json ")
 	cfg := Load().Normalize()
 	if cfg.ReglasEjemplo.BolsaSourcePath != "data/demo/reglas/bolsa_reglas.ejemplo.demo.json" ||
 		cfg.ReglasEjemplo.CTSourcePath != "data/demo/reglas/ct_reglas.ejemplo.demo.json" ||
-		cfg.ReglasEjemplo.BolsaRolesSegregacionSourcePath != "data/demo/reglas/bolsa_roles_segregacion.demo.json" {
+		cfg.ReglasEjemplo.BolsaRolesSegregacionSourcePath != "data/demo/reglas/bolsa_roles_segregacion.demo.json" ||
+		cfg.ReglasEjemplo.CTPlantillasSourcePath != "plantillas.json" {
 		t.Fatalf("rutas no cargadas: %+v", cfg.ReglasEjemplo)
 	}
 }
@@ -41,6 +43,7 @@ func TestReglasEjemploSoloConDobleLlaveDeDesarrollo(t *testing.T) {
 		{ExecutionProfile: ExecutionProfileProduction, ReglasEjemplo: ConfiguracionReglasEjemplo{CTSourcePath: "ct.json"}},
 		{ExecutionProfile: ExecutionProfileProduction, CTAnalisisMotivosSourcePath: "motivos.json"},
 		{ExecutionProfile: ExecutionProfileProduction, ReglasEjemplo: ConfiguracionReglasEjemplo{BolsaRolesSegregacionSourcePath: "roles.json"}},
+		{ExecutionProfile: ExecutionProfileProduction, ReglasEjemplo: ConfiguracionReglasEjemplo{CTPlantillasSourcePath: "plantillas.json"}},
 		{ExecutionProfile: ExecutionProfileRRHHPresentation, ReglasEjemplo: ConfiguracionReglasEjemplo{BolsaSourcePath: "bolsa.json"}},
 		{ExecutionProfile: ExecutionProfileDevelopment, AuthMode: AuthModeDevelopment,
 			ReglasEjemplo: ConfiguracionReglasEjemplo{BolsaSourcePath: "bolsa.json"}},
