@@ -20,25 +20,96 @@ class Nodo {
 function raiz() { const documento = { createElement: (etiqueta) => new Nodo(documento, etiqueta) }; return new Nodo(documento, "root"); }
 const referencia = "dco_1234567890123456789012";
 const fila = { referencia, estado: "enviado_pendiente_revision", version: 3, fecha_inicio: "2026-09-20", fecha_fin: "2026-09-21" };
+const documentoLeido = {
+  referencia, numero_documento: "VEC-D-2026-000012", fecha_apertura: "2026-09-20T08:00:00.000000Z", estado: "enviado_pendiente_revision", version: 3,
+  fecha_inicio: "2026-09-20", fecha_fin: "2026-09-21", hora_inicio: "08:00", hora_fin: "15:30", motivo: "Reunión técnica", codigos_ruta: [], calculo: {},
+  documento: { lineas: [
+    { tipo: "dieta", concepto: "manutencion", fecha: "2026-09-20", importe_centimos: 2667 },
+    { tipo: "kilometraje", ruta_indice: 1, kilometros: "42.5000", importe_centimos: 1105 },
+    { tipo: "otro_gasto", concepto: "Aparcamiento", importe_centimos: 650, justificante_ref: "just:ticket-01", justificante_sha256: "a".repeat(64) },
+  ], manutencion_centimos: 2667, alojamiento_tope_centimos: 0, kilometraje_centimos: 1105, otros_centimos: 650, total_orientativo_centimos: 4422 },
+};
+const recibo = { referencia: "rcd_1234567890123456789012", version: 4, registrado_en: "2026-09-24T10:00:00.000000Z", repeticion: false };
+function texto(nodo) { return [nodo.textContent, ...nodo.children.map(texto)].join(" "); }
 const esperar = async () => { await Promise.resolve(); await Promise.resolve(); };
 
-test("carga la bandeja conectada, muestra las dos decisiones y conserva el recibo sólo tras POST válido", async () => {
-  const contenedor = raiz(); const llamadas = [];
-  const vista = montarVistaBandejaCircuitoDietas(contenedor, { cliente: { listar: async () => ({ items: [fila] }), decidir: async (_ref, entrada) => { llamadas.push(entrada); return { comision: { referencia, estado: "pendiente_autorizacion", version: 4 }, recibo: { referencia: "rcd_1234567890123456789012", version: 4, registrado_en: "2026-09-24T10:00:00.000000Z", repeticion: false } }; } }, generarClaveIdempotencia: () => "decision-circuito-0001" });
-  await esperar(); const panel = contenedor.querySelector("[data-dietas-bandeja-circuito]"); const aprobar = panel.querySelector('[data-dietas-circuito-decision="aprobar"]');
-  await panel.listeners.click({ target: aprobar });
-  assert.equal(llamadas[0].clave_idempotencia, "decision-circuito-0001"); assert.match(panel.querySelector("[data-dietas-circuito-estado]").textContent, /Recibo/u); vista.desmontar();
+test("sin fuente de competencia lo dice en una línea y no ofrece acciones", async () => {
+  const contenedor = raiz();
+  const vista = montarVistaBandejaCircuitoDietas(contenedor, { cliente: { listar: async () => ({ items: [], competencia: "sin_fuente" }), decidir: async () => assert.fail("POST inesperado") } });
+  await esperar(); const panel = contenedor.querySelector("[data-dietas-bandeja-circuito]");
+  assert.match(panel.querySelector("[data-dietas-circuito-sin-fuente]").textContent, /validadores/u);
+  assert.equal(panel.querySelector("[data-dietas-circuito-abrir]"), null);
+  assert.equal(panel.querySelector("[data-dietas-circuito-decision]"), null);
+  vista.desmontar();
 });
 
-test("un resultado incierto conserva clave y decisión para el reintento exacto", async () => {
+test("abre el documento con sus líneas y total, exige motivo al devolver y muestra el recibo solo tras la respuesta", async () => {
+  const contenedor = raiz(); const llamadas = []; const lecturas = [];
+  const cliente = {
+    listar: async () => ({ items: [fila], competencia: "acreditada" }),
+    documento: async (ref, etapa) => { lecturas.push([ref, etapa]); return documentoLeido; },
+    decidir: async (ref, entrada) => { llamadas.push([ref, entrada]); return { comision: { referencia, estado: "devuelta", version: 4 }, recibo }; },
+  };
+  const vista = montarVistaBandejaCircuitoDietas(contenedor, { cliente, generarClaveIdempotencia: () => "decision-circuito-0001" });
+  await esperar(); const panel = contenedor.querySelector("[data-dietas-bandeja-circuito]");
+  assert.equal(panel.querySelector("h2").textContent, "Pendientes de revisar");
+  await panel.listeners.click({ target: panel.querySelector("[data-dietas-circuito-abrir]") });
+  assert.deepEqual(lecturas, [[referencia, "revision"]]);
+  const detalle = panel.querySelector("[data-dietas-circuito-detalle]");
+  assert.equal(detalle.hidden, false);
+  assert.equal(panel.querySelectorAll("[data-dietas-circuito-linea]").length, 3);
+  assert.match(texto(detalle), /Justificante just:ticket-01/u);
+  assert.match(texto(panel.querySelector("[data-dietas-circuito-total]")), /44,22/u);
+  assert.equal(panel.querySelector('[data-dietas-circuito-decision="aprobar"]').textContent, "Elevar al responsable");
+  await panel.listeners.click({ target: panel.querySelector('[data-dietas-circuito-decision="devolver"]') });
+  assert.equal(llamadas.length, 0); assert.match(panel.querySelector("[data-dietas-circuito-estado]").textContent, /motivo/u);
+  panel.querySelector("[data-dietas-circuito-motivo]").value = "  Falta el ticket del aparcamiento ";
+  await panel.listeners.click({ target: panel.querySelector('[data-dietas-circuito-decision="devolver"]') });
+  assert.deepEqual(llamadas[0], [referencia, { etapa: "revision", decision: "devolver", motivo: "Falta el ticket del aparcamiento", clave_idempotencia: "decision-circuito-0001", version_esperada: 3 }]);
+  assert.match(panel.querySelector("[data-dietas-circuito-estado]").textContent, /Recibo rcd_1234567890123456789012/u);
+  assert.equal(panel.querySelector("[data-dietas-circuito-detalle]").hidden, true);
+  assert.equal(panel.querySelector("[data-dietas-circuito-abrir]"), null);
+  vista.desmontar();
+});
+
+test("un resultado incierto conserva clave y decisión para repetir exactamente la misma acción", async () => {
   const contenedor = raiz(); const entradas = []; let intento = 0;
-  const vista = montarVistaBandejaCircuitoDietas(contenedor, { cliente: { listar: async () => ({ items: [fila] }), decidir: async (_ref, entrada) => { entradas.push(entrada); if (!intento++) { const error = new Error(); error.resultadoIndeterminado = true; throw error; } return { comision: { referencia, estado: "pendiente_autorizacion", version: 4 }, recibo: { referencia: "rcd_1234567890123456789012", version: 4, registrado_en: "2026-09-24T10:00:00.000000Z", repeticion: true } }; } }, generarClaveIdempotencia: () => "decision-circuito-0001" });
-  await esperar(); const panel = contenedor.querySelector("[data-dietas-bandeja-circuito]"); await panel.listeners.click({ target: panel.querySelector('[data-dietas-circuito-decision="aprobar"]') }); await esperar(); assert.match(panel.querySelector("[data-dietas-circuito-estado]").textContent, /confirmado/u); const reintento = panel.querySelector("[data-dietas-circuito-reintento]"); assert.ok(reintento); await panel.listeners.click({ target: reintento });
-  assert.equal(entradas.length, 2); assert.deepEqual(entradas[1], entradas[0]); vista.desmontar();
+  const cliente = {
+    listar: async () => ({ items: [fila], competencia: "acreditada" }), documento: async () => documentoLeido,
+    decidir: async (_ref, entrada) => { entradas.push(entrada); if (!intento++) { const error = new Error(); error.resultadoIndeterminado = true; throw error; } return { comision: { referencia, estado: "pendiente_autorizacion", version: 4 }, recibo: { ...recibo, repeticion: true } }; },
+  };
+  const vista = montarVistaBandejaCircuitoDietas(contenedor, { cliente, generarClaveIdempotencia: () => "decision-circuito-0001" });
+  await esperar(); const panel = contenedor.querySelector("[data-dietas-bandeja-circuito]");
+  await panel.listeners.click({ target: panel.querySelector("[data-dietas-circuito-abrir]") });
+  await panel.listeners.click({ target: panel.querySelector('[data-dietas-circuito-decision="aprobar"]') });
+  assert.match(panel.querySelector("[data-dietas-circuito-estado]").textContent, /confirmado/u);
+  assert.equal(panel.querySelector('[data-dietas-circuito-decision="aprobar"]').disabled, true);
+  await panel.listeners.click({ target: panel.querySelector("[data-dietas-circuito-reintento]") });
+  assert.equal(entradas.length, 2); assert.deepEqual(entradas[1], entradas[0]);
+  assert.match(panel.querySelector("[data-dietas-circuito-estado]").textContent, /Ya estaba registrado/u);
+  vista.desmontar();
+});
+
+test("el control de documentos busca por etapa y fechas acreditadas", async () => {
+  const contenedor = raiz(); const consultas = [];
+  const vista = montarVistaBandejaCircuitoDietas(contenedor, { control: true, etapas: ["revision", "liquidacion"], etapaInicial: "revision",
+    cliente: { listar: async (consulta) => { consultas.push(consulta); return { items: [], competencia: "acreditada" }; }, decidir: async () => assert.fail("POST inesperado") } });
+  await esperar(); const panel = contenedor.querySelector("[data-dietas-bandeja-circuito]");
+  assert.equal(panel.querySelector("h2").textContent, "Control de documentos");
+  const filtros = panel.querySelector("[data-dietas-circuito-filtros]");
+  assert.equal(filtros.hidden, false);
+  panel.querySelector("[data-dietas-circuito-etapa]").value = "liquidacion";
+  panel.querySelector("[data-dietas-circuito-desde]").value = "2026-09-01";
+  panel.querySelector("[data-dietas-circuito-hasta]").value = "2026-09-30";
+  await filtros.listeners.submit({ preventDefault() {} });
+  assert.deepEqual(consultas.at(-1), { etapa: "liquidacion", limit: 20, fecha_desde: "2026-09-01", fecha_hasta: "2026-09-30" });
+  assert.match(texto(panel), /No hay documentos para estas fechas/u);
+  assert.throws(() => montarVistaBandejaCircuitoDietas(raiz(), { cliente: { listar() {}, decidir() {} }, etapas: ["otra"] }), TypeError);
+  vista.desmontar();
 });
 
 test("desmontar aborta la lectura y descarta su respuesta tardía", async () => {
   const contenedor = raiz(); let signal; let resolver;
   const vista = montarVistaBandejaCircuitoDietas(contenedor, { cliente: { listar: (_consulta, opciones) => { signal = opciones.signal; return new Promise((resolve) => { resolver = resolve; }); }, decidir: async () => assert.fail("POST inesperado") } });
-  await esperar(); vista.desmontar(); assert.equal(signal.aborted, true); resolver({ items: [fila] }); await esperar(); assert.equal(contenedor.children.length, 0);
+  await esperar(); vista.desmontar(); assert.equal(signal.aborted, true); resolver({ items: [fila], competencia: "acreditada" }); await esperar(); assert.equal(contenedor.children.length, 0);
 });

@@ -176,6 +176,9 @@ transportes_mtls_revisados=(
 	static/portal-empleado/modulos/contratacion-temporal/cliente-http-estadisticas.js
 	static/portal-empleado/modulos/dietas/cliente-borradores-http.js
 	static/portal-empleado/modulos/dietas/calculador-rutas-http.js
+	# Circuito de revisión de Dietas (25/09): GET/POST a rutas internas fijas,
+	# same-origin, no-store, redirect error y no-referrer; sin identidad ni unidad.
+	static/portal-empleado/modulos/dietas/cliente-circuito-http.js
 	static/portal-empleado/modulos/personal/cliente-http-categorias.js
 	static/portal-empleado/peticiones-centro/peticiones-centro.js
 	static/portal-empleado/organizacion/organizacion.js

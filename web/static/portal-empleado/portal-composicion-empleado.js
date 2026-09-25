@@ -20,6 +20,10 @@ export function componerDietasInternas(recursos, entorno) {
   // las teselas son las propias del mismo origen, sin proveedor externo.
   const calculadorRuta = recursos.calculador.crearCalculadorRutasDietasHTTP({ fetchImpl });
   const visorRuta = recursos.mapa.crearVisorRutaDietas({ entorno, permitirTeselas: true });
+  // El circuito de revisión se autoriza en servidor por acción; sus bandejas
+  // dependen de la competencia que acredite la fuente gobernada.
+  const clienteCircuito = typeof recursos?.clienteCircuito?.crearClienteCircuitoDietasHTTP === "function"
+    ? recursos.clienteCircuito.crearClienteCircuitoDietasHTTP({ fetchImpl }) : undefined;
   return Object.freeze({
     clienteBorradores, clienteAsignacion,
     montar: async ({ raiz, anunciar, registrarDesmontar }) => {
@@ -40,7 +44,7 @@ export function componerDietasInternas(recursos, entorno) {
       }
       if (!vigente) return Object.freeze({ desmontar() {} });
       return recursos.recorridos.montarVistaRecorridosDietas(raiz, {
-        clienteBorradores, clienteAsignacion, calculadorRuta, visorRuta, ...relaciones,
+        clienteBorradores, clienteAsignacion, clienteCircuito, calculadorRuta, visorRuta, ...relaciones,
         anunciar, registrarDesmontar,
       });
     },

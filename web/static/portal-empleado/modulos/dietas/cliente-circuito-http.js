@@ -25,6 +25,7 @@ const texto = (valor, minimo, maximo) => typeof valor === "string" && valor.trim
   && valor.length >= minimo && codificador.encode(valor).byteLength <= maximo
   && !/[\x00-\x1f\x7f]/u.test(valor);
 const etapaValida = (valor) => ["revision", "autorizacion", "liquidacion", "fiscalizacion"].includes(valor);
+const ESTADO_PENDIENTE = Object.freeze({ revision: "enviado_pendiente_revision", autorizacion: "pendiente_autorizacion", liquidacion: "pendiente_liquidacion", fiscalizacion: "pendiente_fiscalizacion" });
 const fechaCivil = (valor) => {
   if (typeof valor !== "string" || !/^\d{4}-\d{2}-\d{2}$/u.test(valor)) return false;
   const [ano, mes, dia] = valor.split("-").map(Number);
@@ -74,9 +75,35 @@ function validarItem(item) {
   return Object.freeze({ ...item });
 }
 function validarPagina(pagina) {
-  if (!registro(pagina) || Object.keys(pagina).some((clave) => clave !== "items" && clave !== "siguiente_cursor")
-    || !Array.isArray(pagina.items) || pagina.items.length > 50 || (pagina.siguiente_cursor !== undefined && !referencia(pagina.siguiente_cursor))) throw new TypeError("página del circuito incompatible");
-  return Object.freeze({ items: Object.freeze(pagina.items.map(validarItem)), ...(pagina.siguiente_cursor ? { siguiente_cursor: pagina.siguiente_cursor } : {}) });
+  if (!registro(pagina) || Object.keys(pagina).some((clave) => !["items", "siguiente_cursor", "competencia"].includes(clave))
+    || !Array.isArray(pagina.items) || pagina.items.length > 50 || (pagina.siguiente_cursor !== undefined && !referencia(pagina.siguiente_cursor))
+    || !["acreditada", "sin_fuente"].includes(pagina.competencia)
+    || (pagina.competencia === "sin_fuente" && (pagina.items.length || pagina.siguiente_cursor))) throw new TypeError("página del circuito incompatible");
+  return Object.freeze({ items: Object.freeze(pagina.items.map(validarItem)), competencia: pagina.competencia, ...(pagina.siguiente_cursor ? { siguiente_cursor: pagina.siguiente_cursor } : {}) });
+}
+function validarCompetencias(estado) {
+  if (!registro(estado) || Object.keys(estado).some((clave) => clave !== "fuente" && clave !== "etapas")
+    || !["acreditada", "sin_fuente"].includes(estado.fuente) || !Array.isArray(estado.etapas) || estado.etapas.length > 4
+    || estado.etapas.some((etapa) => !etapaValida(etapa)) || new Set(estado.etapas).size !== estado.etapas.length
+    || (estado.fuente === "sin_fuente" && estado.etapas.length)) throw new TypeError("competencias del circuito incompatibles");
+  return Object.freeze({ fuente: estado.fuente, etapas: Object.freeze([...estado.etapas]) });
+}
+const CAMPOS_DOCUMENTO = ["referencia", "numero_documento", "fecha_apertura", "estado", "version", "fecha_inicio", "fecha_fin", "hora_inicio", "hora_fin", "motivo", "codigos_ruta", "vehiculo_propio", "rutas", "calculo", "documento"];
+function validarDocumento(respuesta, referenciaEsperada, etapa) {
+  const comision = respuesta?.comision;
+  if (!registro(respuesta) || Object.keys(respuesta).some((clave) => clave !== "comision") || !registro(comision)
+    || Object.keys(comision).some((clave) => !CAMPOS_DOCUMENTO.includes(clave)) || comision.referencia !== referenciaEsperada
+    || comision.estado !== ESTADO_PENDIENTE[etapa] || !Number.isSafeInteger(comision.version) || comision.version < 2
+    || typeof comision.numero_documento !== "string" || !/^VEC-D-\d{4}-\d{6,18}$/u.test(comision.numero_documento)
+    || typeof comision.fecha_apertura !== "string" || !Number.isFinite(Date.parse(comision.fecha_apertura))
+    || !fechaCivil(comision.fecha_inicio) || !fechaCivil(comision.fecha_fin) || comision.fecha_fin < comision.fecha_inicio
+    || ![comision.hora_inicio, comision.hora_fin].every((hora) => typeof hora === "string" && /^([01]\d|2[0-3]):[0-5]\d$/u.test(hora))
+    || !texto(comision.motivo, 3, 2400) || !Array.isArray(comision.codigos_ruta) || comision.codigos_ruta.length > 12
+    || !registro(comision.calculo) || !registro(comision.documento)
+    || (comision.documento.lineas !== undefined && (!Array.isArray(comision.documento.lineas) || comision.documento.lineas.length > 256 || comision.documento.lineas.some((linea) => !registro(linea))))
+    || (comision.vehiculo_propio !== undefined && (typeof comision.vehiculo_propio !== "boolean" || !Array.isArray(comision.rutas)))
+    || (comision.vehiculo_propio === undefined && comision.rutas !== undefined)) throw new TypeError("documento del circuito incompatible");
+  return Object.freeze({ ...comision });
 }
 function validarResultado(resultado, referenciaEsperada, versionEsperada) {
   if (!registro(resultado) || Object.keys(resultado).some((clave) => clave !== "comision" && clave !== "recibo")) throw new TypeError("resultado del circuito incompatible");
@@ -113,7 +140,7 @@ async function leerJSON(respuesta, signal) {
 }
 function codigoError(cuerpo, estado) {
   const codigo = typeof cuerpo?.error === "string" && cuerpo.error.startsWith("dietas.error.") ? cuerpo.error.slice("dietas.error.".length) : "";
-  return ({ 400: ["peticion_invalida"], 403: ["acceso_denegado"], 404: ["no_encontrada"], 409: ["conflicto_estado"], 503: ["resultado_incierto", "no_disponible"] }[estado] || []).includes(codigo) ? codigo : "respuesta_rechazada";
+  return ({ 400: ["peticion_invalida"], 403: ["acceso_denegado", "competencia_sin_fuente"], 404: ["no_encontrada"], 409: ["conflicto_estado"], 503: ["resultado_incierto", "no_disponible"] }[estado] || []).includes(codigo) ? codigo : "respuesta_rechazada";
 }
 async function ejecutar(fetchImpl, ruta, opciones, estados, signal, escritura, validar) {
   let respuesta;
@@ -129,10 +156,19 @@ async function ejecutar(fetchImpl, ruta, opciones, estados, signal, escritura, v
   try { return validar(cuerpo); } catch { throw fallo("respuesta_incompatible", estado, escritura); }
 }
 
-/** Puerto HTTP de las bandejas D6/D8; no acepta identidad ni unidad del navegador. */
+/**
+ * Puerto HTTP del circuito de revisión: competencias, bandejas, documento y
+ * decisiones. No acepta identidad ni unidad del navegador: las fija el
+ * servidor a partir de la sesión y de la fuente gobernada de competencia.
+ */
 export function crearClienteCircuitoDietasHTTP({ fetchImpl = globalThis.fetch } = {}) {
   if (typeof fetchImpl !== "function") throw new TypeError("cliente del circuito de Dietas no disponible");
   return Object.freeze({
+    competencias: async (opciones = {}) => ejecutar(fetchImpl, `${RUTA_CIRCUITO}/competencias`, { method: "GET", headers: { Accept: "application/json" } }, [200], validarOpciones(opciones), false, validarCompetencias),
+    documento: async (referenciaComision, etapa, opciones = {}) => {
+      if (!referencia(referenciaComision) || !etapaValida(etapa)) throw new TypeError("documento del circuito no válido");
+      return ejecutar(fetchImpl, `${RUTA_CIRCUITO}/${encodeURIComponent(referenciaComision)}?${new URLSearchParams({ etapa })}`, { method: "GET", headers: { Accept: "application/json" } }, [200], validarOpciones(opciones), false, (cuerpo) => validarDocumento(cuerpo, referenciaComision, etapa));
+    },
     listar: async (consulta, opciones = {}) => {
       const valores = validarConsulta(consulta); const parametros = new URLSearchParams({ etapa: valores.etapa, limit: String(valores.limit) });
       for (const clave of ["fecha_desde", "fecha_hasta", "cursor"]) if (valores[clave]) parametros.set(clave, valores[clave]);
