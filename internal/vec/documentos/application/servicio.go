@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"time"
 
 	baseapp "vec-diputacion-granada/internal/vec/application"
 	"vec-diputacion-granada/internal/vec/documentos/domain"
@@ -160,6 +161,22 @@ func custodiaSatisfacePolitica(
 // custodio. El efecto consume V3 en la misma transaccion que metadatos,
 // auditoria y outbox.
 func (s *Servicio) RegistrarExterno(ctx context.Context, in ports.AltaExterna) (domain.Documento, error) {
+	return s.registrarExterno(ctx, in, nil)
+}
+
+// RegistrarExternoAutorizado es RegistrarExterno para una frontera que obtiene
+// la concesion V3 en la misma peticion: la preimagen incluye la fecha de
+// conservacion que resuelve la politica en este instante, de modo que la
+// autorizacion solo puede pedirse despues de resolverla. El llamante no
+// aporta autorizacion propia; el autorizador la liga a la preimagen exacta.
+func (s *Servicio) RegistrarExternoAutorizado(ctx context.Context, in ports.AltaExterna, autorizador ports.AutorizadorRegistroExterno) (domain.Documento, error) {
+	if dependenciaNula(autorizador) || !reflect.DeepEqual(in.Autorizacion, ports.AutorizacionV3{}) {
+		return domain.Documento{}, ports.ErrSolicitudInvalida
+	}
+	return s.registrarExterno(ctx, in, autorizador)
+}
+
+func (s *Servicio) registrarExterno(ctx context.Context, in ports.AltaExterna, autorizador ports.AutorizadorRegistroExterno) (domain.Documento, error) {
 	if !s.registroDisponible() || ctx == nil || ctx.Err() != nil ||
 		!domain.ReferenciaOpacaValida(in.ID) || !domain.ReferenciaOpacaValida(in.ClaveIdempotencia) ||
 		!domain.IdentificadorTecnicoValido(in.ModuloID) || !domain.ReferenciaOpacaValida(in.ExpedienteRef) ||
@@ -170,8 +187,7 @@ func (s *Servicio) RegistrarExterno(ctx context.Context, in ports.AltaExterna) (
 		in.SolicitudPolitica.TipoDocumentalRef() != in.TipoRef {
 		return domain.Documento{}, ports.ErrSolicitudInvalida
 	}
-	if in.Autorizacion.ValidarPara(ports.AccionRegistrarExterno, s.Reloj.Ahora()) != nil ||
-		in.Autorizacion.RecursoRef != in.ID || in.Autorizacion.AmbitoRef != in.ExpedienteRef {
+	if autorizador == nil && !autorizacionExternaValida(in.Autorizacion, in, s.Reloj.Ahora()) {
 		return domain.Documento{}, ports.ErrSolicitudInvalida
 	}
 	politica, err := baseapp.ResolverPoliticaConservacionDocumental(ctx, s.Politicas, s.Reloj, in.SolicitudPolitica)
@@ -185,7 +201,20 @@ func (s *Servicio) RegistrarExterno(ctx context.Context, in ports.AltaExterna) (
 		Custodia: in.Custodia, Politica: politica, Autorizacion: in.Autorizacion,
 	}
 	preimagen, err := persistente.PreimagenExterna()
-	if !efectoLigado(in.Autorizacion, preimagen, err) {
+	if err != nil {
+		return domain.Documento{}, ports.ErrSolicitudInvalida
+	}
+	if autorizador != nil {
+		autorizacion, err := autorizador.AutorizarRegistroExterno(ctx, preimagen, in.ID, in.ExpedienteRef)
+		if err != nil {
+			return domain.Documento{}, err
+		}
+		if !autorizacionExternaValida(autorizacion, in, s.Reloj.Ahora()) {
+			return domain.Documento{}, ports.ErrSolicitudInvalida
+		}
+		persistente.Autorizacion = autorizacion
+	}
+	if !efectoLigado(persistente.Autorizacion, preimagen, nil) {
 		return domain.Documento{}, ports.ErrSolicitudInvalida
 	}
 	documento, err := s.Repositorio.ConfirmarReferenciaExterna(ctx, persistente)
@@ -206,6 +235,11 @@ func (s *Servicio) RegistrarExterno(ctx context.Context, in ports.AltaExterna) (
 		return domain.Documento{}, ports.ErrCapacidadNoDisponible
 	}
 	return documento, nil
+}
+
+func autorizacionExternaValida(a ports.AutorizacionV3, in ports.AltaExterna, ahora time.Time) bool {
+	return a.ValidarPara(ports.AccionRegistrarExterno, ahora) == nil &&
+		a.RecursoRef == in.ID && a.AmbitoRef == in.ExpedienteRef
 }
 
 func (s *Servicio) ListarExpediente(ctx context.Context, in ports.ConsultaExpediente) (ports.PaginaDocumentos, error) {

@@ -156,6 +156,27 @@ identidad de desarrollo; el catálogo de motivos y las concesiones de
 `["items","siguiente_cursor"]`) son datos de autorización, no de este montaje.
 
 Queda publicada la consulta `POST /api/vec/documentos/expedientes/consultas`.
+
+El material puede declarar además, de forma opcional, el registro de
+referencias externas:
+
+```json
+"registro_externo": {
+  "motivo": {"catalogo_id": "<mismo catálogo que listar>", "catalogo_version": 1, "catalogo_huella_sha256": "...", "entrada_clave": "..."},
+  "admitidos": [{"prefijo_tipo": "contratacion_temporal.formalizacion.", "modulo_id": "contratacion_temporal", "custodio_id": "<sistema que guarda el original>"}]
+}
+```
+
+Con él se publica `POST /api/vec/documentos/externos/registros`
+(`clave_idempotencia`, `expediente_ref`, `tipo`, `referencia`, `huella_sha256`).
+El navegador solo elige el tipo; módulo y custodio salen de `admitidos` y el
+tipo debe tener política en el catálogo de conservación. La concesión V3
+(`documentos.externo.registrar`, tipo `documento_externo`) se pide después de
+resolver la política, ligada a la preimagen exacta. El identificador del
+documento se deriva de expediente y clave, de modo que un reintento no
+duplica. La respuesta no devuelve la referencia ni el custodio. Anotar no
+acredita firma, registro ni entrega. Sin `registro_externo` la ruta no existe;
+sin concesión V3 responde 403.
 La descarga de originales no se publica todavía: leer el original exige una
 decisión de almacén propia (`NuevoContextoLeerDocumentoGeneradoAlmacen`) que
 la raíz no puede obtener del PDP V3; la lista marca `descargable:false`.

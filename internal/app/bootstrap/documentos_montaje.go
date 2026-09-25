@@ -72,6 +72,9 @@ type configuracionDocumentosDesarrollo struct {
 		Listar core.ReferenciaEntradaCatalogo `json:"listar"`
 	} `json:"motivos"`
 	Almacen almacenDocumentosDesarrollo `json:"almacen"`
+	// RegistroExterno es opcional: sin él no se publica el registro de
+	// referencias externas (documentos_registro_externo.go).
+	RegistroExterno *registroExternoDocumentosDesarrollo `json:"registro_externo,omitempty"`
 }
 
 // almacenDocumentosDesarrollo selecciona el conector de originales. El
@@ -514,7 +517,8 @@ func nuevosDocumentosDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdenti
 	dec.DisallowUnknownFields()
 	var extra any
 	if dec.Decode(&c) != nil || !errors.Is(dec.Decode(&extra), io.EOF) || c.Version != 1 || c.Autoridad != AutoridadNoAutoritativa ||
-		len(c.Cuentas) == 0 || len(c.Cuentas) > 64 || c.Motivos.Listar.Validar() != nil {
+		len(c.Cuentas) == 0 || len(c.Cuentas) > 64 || c.Motivos.Listar.Validar() != nil ||
+		!c.RegistroExterno.valido(c.Motivos.Listar.CatalogoID) {
 		return nil, errDocumentosEn()
 	}
 	cuentas := map[string]cuentaRutasDietasDesarrollo{}
@@ -661,9 +665,10 @@ func nuevosDocumentosDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdenti
 	base := &autoridadRutasDietasDesarrollo{resolvedor: identidad, cuentas: cuentas, registro: registroSesiones, revalidador: revalidador, contextos: contextos, reloj: reloj, instancia: nonce}
 	a := &autoridadDocumentosDesarrollo{base: base, reloj: reloj, cuentas: cuentas, registrador: registrador, incidencias: incidencias, cerrar: cerrar}
 	servicio := &docapp.Servicio{Repositorio: repositorio, Almacen: almacen, Politicas: politicas, Reloj: reloj, VerificadorFirma: verificadorFirma}
+	consulta := autoridadConsultaDocumentos{autoridad: a, emisor: emisor, motivo: c.Motivos.Listar}
 	rutas, err := dochttp.NuevasRutas(dochttp.Configuracion{
 		Servicio:  servicioLecturaVigilado{servicio: servicio, incidencias: incidencias},
-		Autoridad: autoridadConsultaDocumentos{autoridad: a, emisor: emisor, motivo: c.Motivos.Listar},
+		Autoridad: consulta,
 		// La descarga exige una decisión de almacén propia para leer el
 		// original; su autoridad aún no está compuesta en la raíz.
 		Incidencias: incidencias, Tipos: politicas, DescargaDisponible: false,
@@ -671,6 +676,11 @@ func nuevosDocumentosDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdenti
 	if err != nil {
 		return nil, errDocumentosEn()
 	}
+	registro, err := rutaRegistroExternoDocumentos(c.RegistroExterno, servicio, consulta, politicas, incidencias)
+	if err != nil {
+		return nil, errDocumentosEn()
+	}
+	rutas = append(rutas, registro...)
 	a.rutas = rutas
 	a.publicadas = map[string]bool{}
 	for _, ruta := range rutas {
