@@ -187,6 +187,7 @@ func TestTodoConsumidorPublicableDejaElGobiernoPropio(t *testing.T) {
 	descriptores = append(descriptores, descriptoresMaterialAutorizacionContratacionTemporalDesarrollo()...)
 	descriptores = append(descriptores, descriptoresMaterialBorradorLlamamientoBolsaDesarrollo()...)
 	descriptores = append(descriptores, descriptorMaterialMiBolsaDesarrollo())
+	descriptores = append(descriptores, descriptoresMaterialPortalCandidatoDesarrollo()...)
 	descriptores = append(descriptores, descriptoresMaterialDietasDesarrollo()...)
 	descriptores = append(descriptores, descriptoresMaterialCronosDesarrollo()...)
 	descriptores = append(descriptores, descriptoresMaterialCronosResolucionDesarrollo()...)

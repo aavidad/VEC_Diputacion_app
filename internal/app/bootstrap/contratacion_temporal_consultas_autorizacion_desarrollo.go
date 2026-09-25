@@ -88,7 +88,7 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 		r.Context(), r,
 	)
 	validoRuta := principalContratacionTemporalDesarrolloValidoParaRuta(principal, r.URL.Path)
-	if r.URL.Path == bolsapersonal.RutaMiBolsa {
+	if bolsapersonal.EsRutaPortal(r.URL.Path) {
 		validoRuta = m.autoridad.resolvedor.principalCandidatoBolsaValido(principal)
 	}
 	if protegidaComun && !protegidaCT {
@@ -104,7 +104,7 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 			principal: clonarPrincipalDesarrollo(principal),
 		}
 		if protegidaCT || protegidaComun || rutaContinuidadNominal(capacidad.ruta) || rutaConsultaRRHHContratacionTemporalDesarrollo(capacidad.ruta) ||
-			capacidad.ruta == bolsapersonal.RutaMiBolsa ||
+			bolsapersonal.EsRutaPortal(capacidad.ruta) ||
 			capacidad.ruta == httpinterno.RutaIncorporacionEjercicioV2 ||
 			capacidad.ruta == httpinterno.RutaFichaGINPIXV2 ||
 			capacidad.ruta == httpinterno.RutaConsultaSeguimientoV2 ||

@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 	"vec-diputacion-granada/config"
@@ -74,19 +75,22 @@ type materialAtestacionContratacionTemporalDesarrollo struct {
 }
 
 type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
-	ejecucion                         *pgxpool.Pool
-	bolsa                             *pgxpool.Pool
-	gobierno                          *pgxpool.Pool
-	registroAutorizacion              *pgxpool.Pool
-	confirmador                       *pgxpool.Pool
-	lectorResultado                   *postgrescontratacion.PoolRecuperacionCoberturaO405PostgreSQL
-	registradorAuditoriaFrontera      *postgresvec.RegistradorAuditoriaFronteraRutaExactaPostgreSQL
-	auditoriaFrontera                 *pgxpool.Pool
-	candidaturas                      ports.ResolutorCandidaturaAlta
-	transaccionAlta                   ports.TransaccionAltasCandidata
-	proveedorMaterial                 *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialBolsa            *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialMiBolsa          *proveedorMaterialAltaContratacionTemporalDesarrollo
+	ejecucion                    *pgxpool.Pool
+	bolsa                        *pgxpool.Pool
+	gobierno                     *pgxpool.Pool
+	registroAutorizacion         *pgxpool.Pool
+	confirmador                  *pgxpool.Pool
+	lectorResultado              *postgrescontratacion.PoolRecuperacionCoberturaO405PostgreSQL
+	registradorAuditoriaFrontera *postgresvec.RegistradorAuditoriaFronteraRutaExactaPostgreSQL
+	auditoriaFrontera            *pgxpool.Pool
+	candidaturas                 ports.ResolutorCandidaturaAlta
+	transaccionAlta              ports.TransaccionAltasCandidata
+	proveedorMaterial            *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialBolsa       *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialMiBolsa     *proveedorMaterialAltaContratacionTemporalDesarrollo
+	// proveedoresMaterialPortal: uno por acción propia del candidato que
+	// tiene consumidor compuesto (AD3-84 con Bolsa 000030).
+	proveedoresMaterialPortal         map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialBorradorCrear    *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialBorradorConsulta *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialSituacion        *proveedorMaterialAltaContratacionTemporalDesarrollo
@@ -316,6 +320,9 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	if debeComponerMiBolsaDesarrollo(cfg) {
 		descriptoresMaterial = append(descriptoresMaterial, descriptorMaterialMiBolsaDesarrollo())
 	}
+	if debeComponerPortalCandidatoDesarrollo(cfg) {
+		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialPortalCandidatoDesarrollo()...)
+	}
 	if dietasBorradoresSolicitadas(cfg.DietasBorradoresEnabled) {
 		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialDietasDesarrollo()...)
 	}
@@ -437,6 +444,20 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			}
 			dependencias.proveedorMaterialMiBolsa = proveedorMiBolsa
 		}
+		if debeComponerPortalCandidatoDesarrollo(cfg) {
+			dependencias.proveedoresMaterialPortal = make(map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo, 3)
+			for _, par := range puertosbolsa.AccionesPortalCandidato() {
+				// La disposición a ofertas se publicará con su consumidor.
+				if par[0] == puertosbolsa.AccionManifestarDisposicionPropia {
+					continue
+				}
+				proveedor, err := nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, par[1])
+				if err != nil {
+					return vacias, err
+				}
+				dependencias.proveedoresMaterialPortal[par[0]] = proveedor
+			}
+		}
 		if cfg.BolsaBorradoresEnabled {
 			proveedorBorradorCrear, err := nuevoProveedorMaterialBorradorLlamamientoDesarrollo(
 				ctx, gobierno, material, reloj, catalogoMaterial, puertosbolsa.AudienciaCrearBorradorLlamamientoInterno,
@@ -546,6 +567,29 @@ func descriptorMaterialMiBolsaDesarrollo() descriptorMaterialConsumidorV3Desarro
 		Prefijo:          "clave:capacidad:bolsa-mi-bolsa:",
 		ProveedorNominal: "proveedor-material-bolsa-mi-bolsa",
 	}
+}
+
+// descriptoresMaterialPortalCandidatoDesarrollo declara las cuatro audiencias
+// de AD3-84 en el catálogo común de material.
+func descriptoresMaterialPortalCandidatoDesarrollo() []descriptorMaterialConsumidorV3Desarrollo {
+	descriptores := make([]descriptorMaterialConsumidorV3Desarrollo, 0, 4)
+	for _, par := range puertosbolsa.AccionesPortalCandidato() {
+		nombre := strings.TrimPrefix(par[0], "bolsa.participaciones_propias.")
+		descriptores = append(descriptores, descriptorMaterialConsumidorV3Desarrollo{
+			Audiencia:        par[1],
+			Dominio:          "vec.bolsa.mi-bolsa." + nombre + ".desarrollo.capacidad-v3",
+			Prefijo:          "clave:capacidad:bolsa-mi-bolsa-" + strings.ReplaceAll(nombre, "_", "-") + ":",
+			ProveedorNominal: "proveedor-material-bolsa-mi-bolsa-" + strings.ReplaceAll(nombre, "_", "-"),
+		})
+	}
+	return descriptores
+}
+
+// debeComponerPortalCandidatoDesarrollo: las acciones propias existen solo
+// con «Mi bolsa» compuesta y catálogo de reglas de Bolsa que las rija.
+func debeComponerPortalCandidatoDesarrollo(cfg config.Config) bool {
+	rutas, activas, err := cfg.ReglasEjemploDesarrollo()
+	return debeComponerMiBolsaDesarrollo(cfg) && err == nil && activas && rutas.BolsaSourcePath != ""
 }
 
 func debeComponerMiBolsaDesarrollo(cfg config.Config) bool {

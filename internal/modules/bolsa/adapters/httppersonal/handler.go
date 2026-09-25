@@ -31,13 +31,15 @@ type Consultor interface {
 type Handler struct {
 	preparador Preparador
 	consultor  Consultor
+	// campos es opcional: sin catálogo se muestran todos los datos.
+	campos puertosbolsa.CamposPortalMiBolsa
 }
 
 func Nuevo(preparador Preparador, consultor Consultor) (http.Handler, error) {
 	if nula(preparador) || nula(consultor) {
 		return nil, ErrDependenciaNoDisponible
 	}
-	return &Handler{preparador, consultor}, nil
+	return &Handler{preparador: preparador, consultor: consultor}, nil
 }
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if h == nil || r == nil || nula(h.preparador) || nula(h.consultor) {
@@ -57,6 +59,11 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		responder(w, 400, errorRespuesta{"peticion_no_permitida"})
 		return
 	}
+	campos, err := h.camposVisibles(r.Context())
+	if err != nil {
+		responderError(w, err)
+		return
+	}
 	orden, err := h.preparador.PrepararMiBolsa(r)
 	if err != nil {
 		responderError(w, err)
@@ -67,7 +74,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		responderError(w, err)
 		return
 	}
-	responder(w, 200, nuevaRespuesta(resultado))
+	responder(w, 200, filtrarRespuesta(nuevaRespuesta(resultado), campos))
 }
 
 // cuerpoAusente admite el GET sin cuerpo de HTTP/1.1 (http.NoBody) y el de
@@ -101,12 +108,12 @@ type participacion struct {
 	Bolsa             string             `json:"bolsa"`
 	Categoria         string             `json:"categoria"`
 	Version           uint64             `json:"version"`
-	OrdenInicial      uint64             `json:"orden_inicial"`
-	TotalInstantanea  uint64             `json:"total_instantanea"`
-	EstadoBolsa       string             `json:"estado_bolsa"`
+	OrdenInicial      *uint64            `json:"orden_inicial,omitempty"`
+	TotalInstantanea  *uint64            `json:"total_instantanea,omitempty"`
+	EstadoBolsa       *string            `json:"estado_bolsa,omitempty"`
 	VigenteDesde      string             `json:"vigente_desde"`
 	VigenteHasta      *string            `json:"vigente_hasta"`
-	SituacionActual   *situacionActual   `json:"situacion_actual"`
+	SituacionActual   any                `json:"situacion_actual"`
 	UltimoLlamamiento *ultimoLlamamiento `json:"ultimo_llamamiento"`
 }
 
@@ -126,7 +133,12 @@ type respuesta struct {
 		Esquema         string          `json:"esquema"`
 		AvisoDesarrollo string          `json:"aviso_desarrollo"`
 		ConsultadaEn    string          `json:"consultada_en"`
+		CamposVisibles  []string        `json:"campos_visibles"`
 		Participaciones []participacion `json:"participaciones"`
+		// Portal y AccionesPortal solo aparecen si están compuestas las
+		// acciones propias del candidato.
+		Portal         []estadoPortal  `json:"portal,omitempty"`
+		AccionesPortal *accionesPortal `json:"acciones_portal,omitempty"`
 	} `json:"data"`
 }
 
@@ -135,24 +147,27 @@ func nuevaRespuesta(i puertosbolsa.InstantaneaMiBolsa) respuesta {
 	r.Data.Esquema = puertosbolsa.EsquemaMiBolsaV1
 	r.Data.AvisoDesarrollo = "Acceso de desarrollo con certificado sintético. Cl@ve, certificado FNMT y DNIe dependen de la pasarela de Sistemas."
 	r.Data.ConsultadaEn = i.ConsultadaEn.Format("2006-01-02T15:04:05.000000Z07:00")
+	r.Data.CamposVisibles = puertosbolsa.CamposPortalMiBolsaTodos()
 	r.Data.Participaciones = make([]participacion, 0, len(i.Participaciones))
 	for _, p := range i.Participaciones {
-		x := participacion{Bolsa: p.Bolsa, Categoria: p.Categoria, Version: p.Version, OrdenInicial: p.OrdenInicial, TotalInstantanea: p.TotalInstantanea, EstadoBolsa: p.EstadoBolsa, VigenteDesde: p.VigenteDesde.Format("2006-01-02T15:04:05.000000Z07:00")}
+		orden, total, estado := p.OrdenInicial, p.TotalInstantanea, p.EstadoBolsa
+		x := participacion{Bolsa: p.Bolsa, Categoria: p.Categoria, Version: p.Version, OrdenInicial: &orden, TotalInstantanea: &total, EstadoBolsa: &estado, VigenteDesde: p.VigenteDesde.Format("2006-01-02T15:04:05.000000Z07:00")}
 		if p.VigenteHasta != nil {
 			v := p.VigenteHasta.Format("2006-01-02T15:04:05.000000Z07:00")
 			x.VigenteHasta = &v
 		}
 		if p.SituacionActual != nil {
 			s := p.SituacionActual
-			x.SituacionActual = &situacionActual{Estado: s.Estado, Desde: s.Desde.Format("2006-01-02T15:04:05.000000Z07:00")}
+			actual := &situacionActual{Estado: s.Estado, Desde: s.Desde.Format("2006-01-02T15:04:05.000000Z07:00")}
 			if s.Hasta != nil {
 				hasta := s.Hasta.Format("2006-01-02T15:04:05.000000Z07:00")
-				x.SituacionActual.Hasta = &hasta
+				actual.Hasta = &hasta
 			}
 			if s.FechaDisponible != nil {
 				fecha := s.FechaDisponible.Format("2006-01-02T15:04:05.000000Z07:00")
-				x.SituacionActual.FechaDisponible = &fecha
+				actual.FechaDisponible = &fecha
 			}
+			x.SituacionActual = actual
 		}
 		if p.UltimoLlamamiento != nil {
 			l := p.UltimoLlamamiento
@@ -160,6 +175,7 @@ func nuevaRespuesta(i puertosbolsa.InstantaneaMiBolsa) respuesta {
 		}
 		r.Data.Participaciones = append(r.Data.Participaciones, x)
 	}
+	r.Data.Portal, r.Data.AccionesPortal = respuestaPortal(i)
 	return r
 }
 func responderError(w http.ResponseWriter, e error) {
@@ -175,7 +191,7 @@ func responderError(w http.ResponseWriter, e error) {
 	}
 }
 func esIndisponibilidad(e error) bool {
-	return errors.Is(e, puertosbolsa.ErrMaterialMiBolsaNoDisponible) || errors.Is(e, puertosvec.ErrRegistroConcesionAutorizacionLigadaV3NoDisponible) || errors.Is(e, puertosvec.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible) || errors.Is(e, ErrDependenciaNoDisponible) || errors.Is(e, puertosvec.ErrFuenteContextoActorNoDisponible) || errors.Is(e, puertosvec.ErrRevalidacionAutenticacionActorNoDisponible) || errors.Is(e, puertosvec.ErrFuenteAutorizacionNoDisponible) || errors.Is(e, puertosvec.ErrRegistroDecisionNoDisponible) || errors.Is(e, puertosvec.ErrRegistroDenegacionNoDisponible)
+	return errors.Is(e, puertosbolsa.ErrMaterialMiBolsaNoDisponible) || errors.Is(e, puertosbolsa.ErrCamposPortalMiBolsaNoDisponibles) || errors.Is(e, puertosbolsa.ErrCamposPortalMiBolsaInvalidos) || errors.Is(e, puertosvec.ErrRegistroConcesionAutorizacionLigadaV3NoDisponible) || errors.Is(e, puertosvec.ErrRegistroDenegacionAutorizacionLigadaV3NoDisponible) || errors.Is(e, ErrDependenciaNoDisponible) || errors.Is(e, puertosvec.ErrFuenteContextoActorNoDisponible) || errors.Is(e, puertosvec.ErrRevalidacionAutenticacionActorNoDisponible) || errors.Is(e, puertosvec.ErrFuenteAutorizacionNoDisponible) || errors.Is(e, puertosvec.ErrRegistroDecisionNoDisponible) || errors.Is(e, puertosvec.ErrRegistroDenegacionNoDisponible)
 }
 func responder(w http.ResponseWriter, status int, v any) {
 	if detalle, esError := v.(errorRespuesta); esError {

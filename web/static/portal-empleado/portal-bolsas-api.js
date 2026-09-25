@@ -17,7 +17,7 @@ import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL, traducirBolsaInterna, traduci
 import { crearControladorOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260926-integracion-bolsa-ct-v1";
 import { crearControladorIntentosContacto } from "./portal-bolsas-intentos.js?v=20260926-integracion-bolsa-ct-v1";
 import { crearControladorSanciones } from "./portal-bolsas-sanciones.js?v=20260926-integracion-bolsa-ct-v1";
-import { crearControladorCorreoLlamamiento } from "./portal-bolsas-correo.js?v=20260925-correo-personalizado-v1";
+import { crearControladorCorreoLlamamiento } from "./portal-bolsas-correo.js?v=20260926-integracion-bolsa-ct-v1";
 import { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js";
 export { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js";
 

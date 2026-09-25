@@ -720,6 +720,37 @@
           "valor": "interpuesto,estimado,desestimado,inadmitido,desistido"
         },
         "orden": 43
+      },
+      {
+        "clave": "b28.campos_portal",
+        "etiqueta": "Datos visibles en «Mi bolsa»",
+        "descripcion": "Datos que la persona ve de cada participación en su portal personal: bolsa, posición, estado, último llamamiento, contratos y fecha de disponibilidad. La bolsa se muestra siempre.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo.",
+          "duda": "Duda 17.",
+          "unidad": "lista",
+          "valor": "bolsa,posicion,estado,ultimo_llamamiento,contratos,fecha_disponible"
+        },
+        "orden": 44
+      },
+      {
+        "clave": "b29.portal_candidato",
+        "etiqueta": "Acciones de la persona en «Mi bolsa»",
+        "descripcion": "La pausa voluntaria y la reactivación pedidas en el portal quedan pendientes hasta que RRHH las valida. Aceptar o renunciar dentro de plazo desde el portal es una respuesta firme; puede cambiarse a «propuesta que RRHH confirma». El plazo lo abre el contacto efectivo (el correo solo avisa).",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo.",
+          "duda": "Dudas 3, 17 y 18.",
+          "unidad": "ninguna",
+          "modo_respuesta": "firme",
+          "contacto_efectivo": "contactado",
+          "pausa_desde": "disponible",
+          "reactivacion_desde": "no_disponible,disponible_desde"
+        },
+        "orden": 45
       }
     ],
     "estado": "publicado",

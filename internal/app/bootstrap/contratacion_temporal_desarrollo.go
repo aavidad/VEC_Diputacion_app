@@ -12,6 +12,7 @@ import (
 	contratacioncomposicion "vec-diputacion-granada/internal/app/composicion/interna/contrataciontemporal"
 	inc "vec-diputacion-granada/internal/app/incorporacionejercicio"
 	bolsapersonal "vec-diputacion-granada/internal/modules/bolsa/adapters/httppersonal"
+	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/informejuridico"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
@@ -21,6 +22,7 @@ import (
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
+	"vec-diputacion-granada/internal/vec/reglas"
 )
 
 const (
@@ -204,6 +206,7 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	derivador *derivadorIdentidadOperacionDesarrollo,
 	kms *emisorKMSDesarrollo,
 	registro io.Writer,
+	reglasBolsa *reglas.Resolutor,
 	incorporacion ...ConfiguracionIncorporacionDesarrollo,
 ) (
 	[]vechttp.RutaExacta,
@@ -211,7 +214,7 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	func(),
 	error,
 ) {
-	return nuevasRutasContratacionTemporalConReglasDesarrollo(cfg, reglasEjemploDesarrollo{}, resolvedor, derivador, kms, registro, incorporacion...)
+	return nuevasRutasContratacionTemporalConReglasDesarrollo(cfg, reglasEjemploDesarrollo{bolsa: reglasBolsa}, resolvedor, derivador, kms, registro, incorporacion...)
 }
 
 // nuevasRutasContratacionTemporalConReglasDesarrollo recibe además las
@@ -239,6 +242,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		return nil, nil, nil, err
 	}
 	dependencias.reglasEjemplo = reglasEjemplo
+	reglasBolsa := reglasEjemplo.bolsa
 	dependencias.plazosFase = nuevaCalculadoraPlazoFaseCT(reglasEjemplo.contratacionTemporal)
 	if err := dependencias.cfg.ContratacionTemporalPostgreSQL.ValidarIdentidadOperativa(); err != nil {
 		return nil, nil, nil, err
@@ -407,6 +411,18 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			PerfilesActivosRef: []string{candidato.perfilRef},
 			ClavePolitica:      "politica-bolsa-mi-bolsa", ClaveCapacidad: "capacidad-bolsa-mi-bolsa-consultar",
 		})
+		if debeComponerPortalCandidatoDesarrollo(cfg) {
+			for clave, ruta := range map[string]string{
+				"bolsa-mi-bolsa-solicitar": bolsapersonal.RutaMiBolsaSolicitudes,
+				"bolsa-mi-bolsa-responder": bolsapersonal.RutaMiBolsaRespuestas,
+			} {
+				declaracionesFrontera = append(declaracionesFrontera, descriptorFronteraComunDesarrollo{
+					Clave: clave, Superficie: superficieExternaPersonalSeguridadComunDesarrollo,
+					Metodo: http.MethodPost, Ruta: ruta, PerfilesActivosRef: []string{candidato.perfilRef},
+					ClavePolitica: "politica-bolsa-mi-bolsa", ClaveCapacidad: "capacidad-" + clave,
+				})
+			}
+		}
 	}
 	var soporteBolsaCatalogo *soporteSesionBorradorBolsaDesarrollo
 	if debeComponerBorradorLlamamientoDesarrollo(cfg) {
@@ -615,14 +631,25 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		if !debeComponerMiBolsaDesarrollo(cfg) || consultasRRHH.identidad == nil {
 			return nil, nil, nil, errMiBolsaNoDisponible
 		}
-		miBolsa, err := nuevaRutaMiBolsaDesarrollo(
+		camposMiBolsa, err := camposPortalMiBolsaDesarrollo(reglasBolsa)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		var portal puertosbolsa.ReglasPortalCandidato
+		if debeComponerPortalCandidatoDesarrollo(cfg) {
+			if reglasBolsa == nil {
+				return nil, nil, nil, errMiBolsaNoDisponible
+			}
+			portal = reglasPortalCandidatoDesarrollo{resolutor: reglasBolsa}
+		}
+		rutasMiBolsa, err := nuevaRutaMiBolsaDesarrollo(
 			context.Background(), resolvedorDesarrollo.candidatoBolsa, sello, &alta,
-			consultasRRHH.identidad, catalogoFronteras, derivador, reloj,
+			consultasRRHH.identidad, catalogoFronteras, derivador, reloj, camposMiBolsa, portal,
 		)
 		if err != nil {
 			return nil, nil, nil, err
 		}
-		rutas = append(rutas, vechttp.RutaExacta{Ruta: bolsapersonal.RutaMiBolsa, Manejador: miBolsa})
+		rutas = append(rutas, rutasMiBolsa...)
 	}
 	autoridad := &autoridadConsultasContratacionTemporalDesarrollo{
 		sello:                                    sello,

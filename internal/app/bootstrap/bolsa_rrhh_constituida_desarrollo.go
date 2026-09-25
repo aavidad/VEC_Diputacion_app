@@ -76,7 +76,11 @@ func nuevaFuenteConstituidaRRHHDesarrollo(ctx context.Context, cfg config.Config
 		poolBolsa.Close()
 		return nil
 	}
-	consultaAvisos, err := postgresbolsa.NuevaConsultaAvisosRRHHPostgreSQL(poolBolsa)
+	nuevaConsultaAvisos := postgresbolsa.NuevaConsultaAvisosRRHHPostgreSQL
+	if debeComponerPortalCandidatoDesarrollo(cfg) {
+		nuevaConsultaAvisos = postgresbolsa.NuevaConsultaAvisosRRHHConPortalPostgreSQL
+	}
+	consultaAvisos, err := nuevaConsultaAvisos(poolBolsa)
 	if err != nil {
 		poolBolsa.Close()
 		return nil

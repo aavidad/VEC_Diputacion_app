@@ -13,6 +13,7 @@ import {
 } from "./vistas/seguimiento-tramites.js";
 import { renderizarAyuda, renderizarCertificados, renderizarMensajes } from "./vistas/comunicaciones-ayuda.js";
 import { crearControladorContactoPropio, montarContactoPropio } from "./contacto-propio.js";
+import { enviarPortalMiBolsa } from "./mi-bolsa-portal.js";
 import {
   aplicarPasoSolicitud, crearPayloadBorrador, crearProgresoSolicitud,
   declaracionFinalConfirmada, localizarSolicitudEdicion,
@@ -587,6 +588,10 @@ function conectarEventos(estado) {
     if (!(formulario instanceof HTMLFormElement)) return;
     if (formulario.method === "dialog") return;
     evento.preventDefault();
+    if (formulario.dataset.portalMiBolsa) {
+      enviarPortalMiBolsa(formulario, { fetchImpl: estado.fetchImpl, alRegistrar: () => cargar(estado) });
+      return;
+    }
     if (formulario.id === "busqueda-global") {
       estado.filtros.termino = formularioAObjeto(formulario).consulta || "";
       navegar(estado, "convocatorias");
@@ -711,6 +716,9 @@ async function cargar(estado) {
     const datos = datosDeRespuesta(respuesta);
     estado.datos = exigirDatosOperativos(datos);
     estado.participaciones = respuesta?.consulta?.participaciones || [];
+    estado.camposMiBolsa = respuesta?.consulta?.campos_visibles || null;
+    estado.portalMiBolsa = respuesta?.consulta?.portal || null;
+    estado.accionesPortal = respuesta?.consulta?.acciones_portal || null;
     estado.fuenteBolsa = respuesta?.fuente || "real";
     estado.causaBolsa = respuesta?.causa || "";
     if (!estado.convocatoriaSolicitud) {

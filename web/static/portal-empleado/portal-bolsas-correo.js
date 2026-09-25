@@ -4,7 +4,7 @@
  * catálogo, se insertan marcadores en el texto y se pide la vista previa de un
  * destinatario. Sin catálogo, el asistente conserva el correo literal anterior.
  */
-import { traducirCorreoLlamamiento as tc } from "./portal-i18n-correo-llamamiento.js?v=20260925-correo-personalizado-v1";
+import { traducirCorreoLlamamiento as tc } from "./portal-i18n-correo-llamamiento.js?v=20260926-integracion-bolsa-ct-v1";
 
 export const RUTA_PLANTILLA_CORREO = "/api/vec/bolsa/llamamientos/emisiones/plantilla";
 export const RUTA_VISTA_PREVIA_CORREO = "/api/vec/bolsa/llamamientos/emisiones/vista-previa";

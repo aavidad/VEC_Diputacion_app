@@ -55,6 +55,12 @@ const (
 	// de modo que añadir otra no exige cambiar código.
 	BolsaPrefijoSanciones = "b24.sancion."
 	BolsaEstadosRecurso   = "b24.recurso_estados"
+	// BolsaCamposPortal es la lista de datos de «Mi bolsa» (duda 17).
+	BolsaCamposPortal = "b28.campos_portal"
+	// BolsaPortalCandidato fija el modo de las acciones propias del candidato
+	// (dudas 3 y 18): quién valida, qué contacto abre el plazo y desde qué
+	// situaciones se admite cada solicitud.
+	BolsaPortalCandidato = "b29.portal_candidato"
 )
 
 // Reglas de Bolsa que se consultan por prefijo: cada entrada es una opción

@@ -53,6 +53,13 @@ func (r *ConsultaMiBolsaPostgreSQL) ConsultarMiBolsa(ctx context.Context, s puer
 	if err != nil {
 		return puertosbolsa.InstantaneaMiBolsa{}, err
 	}
+	// El estado del portal propio se lee en la misma transacción que acaba
+	// de consumir la consulta propia y registrar su auditoría.
+	if len(s.ResultadosEfectivos) != 0 {
+		if resultado.Portal, err = leerPortalCandidato(ctx, tx, s.CandidatoRef, s.ConsultadaEn, s.ResultadosEfectivos); err != nil {
+			return puertosbolsa.InstantaneaMiBolsa{}, errors.Join(puertosbolsa.ErrMaterialMiBolsaNoDisponible, err)
+		}
+	}
 	if err := ctx.Err(); err != nil {
 		return puertosbolsa.InstantaneaMiBolsa{}, err
 	}
