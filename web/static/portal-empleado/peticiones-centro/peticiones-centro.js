@@ -547,4 +547,59 @@ export async function iniciarPeticionCentro({ raiz = document.querySelector("#ap
   return { recargar: cargar };
 }
 
-if (typeof document !== "undefined" && document.querySelector("#aplicacion")) iniciarPeticionCentro();
+/**
+ * Textos de la ayuda «?» de la petición del centro.
+ *
+ * La ayuda deja claro que identificarse con certificado no es firmar: la
+ * petición y su ratificación quedan registradas, pero el circuito de firma
+ * electrónica sigue pendiente del procedimiento corporativo.
+ */
+export const MENSAJES_AYUDA_PETICIONES_CENTRO_ES = Object.freeze({
+  pc_ayuda_abrir: "Ayuda sobre la petición del centro",
+  pc_ayuda_titulo: "Petición del centro: qué hace y qué no hace",
+  pc_ayuda_certificado_titulo: "¿Entrar con certificado es firmar?",
+  pc_ayuda_certificado: "No. El certificado solo sirve para identificarle al entrar. Presentar o ratificar una petición no firma electrónicamente ningún documento.",
+  pc_ayuda_registro_titulo: "¿Qué queda registrado?",
+  pc_ayuda_registro: "La petición y su ratificación quedan registradas con su autor, su fecha y un recibo. La firma electrónica todavía no está disponible: se incorporará cuando se establezca el circuito de firma corporativo.",
+  pc_ayuda_despues_titulo: "¿Qué pasa después?",
+  pc_ayuda_despues: "Cuando la petición está ratificada, llega a la bandeja de Recursos Humanos. RRHH revisa los datos y, si procede, crea con ellos el expediente de contratación. El centro no tiene que volver a enviarla.",
+  pc_ayuda_cerrar: "Cerrar",
+});
+
+/** Traduce una clave de la ayuda; una clave desconocida nunca muestra texto inventado. */
+function traducirAyudaPeticionCentro(clave, mensajes = MENSAJES_AYUDA_PETICIONES_CENTRO_ES) {
+  return Object.hasOwn(mensajes, clave) ? mensajes[clave] : "";
+}
+
+/**
+ * Conecta el botón «?» con su diálogo de ayuda. Los textos llegan del catálogo
+ * i18n; el diálogo nativo aporta foco atrapado y cierre con Escape, y al
+ * cerrarse el foco vuelve al botón que lo abrió.
+ */
+export function instalarAyudaPeticionCentro(doc) {
+  const boton = doc?.getElementById?.("pc-ayuda-abrir");
+  const dialogo = doc?.getElementById?.("pc-ayuda");
+  if (!boton || !dialogo) return false;
+  for (const elemento of dialogo.querySelectorAll("[data-i18n-ayuda]")) {
+    elemento.textContent = traducirAyudaPeticionCentro(elemento.dataset.i18nAyuda);
+  }
+  const etiqueta = traducirAyudaPeticionCentro("pc_ayuda_abrir");
+  boton.setAttribute("aria-label", etiqueta);
+  boton.setAttribute("title", etiqueta);
+  boton.addEventListener("click", () => {
+    if (typeof dialogo.showModal === "function") dialogo.showModal();
+    else dialogo.setAttribute("open", "");
+    dialogo.querySelector("#pc-ayuda-cerrar")?.focus?.();
+  });
+  dialogo.querySelector("#pc-ayuda-cerrar")?.addEventListener("click", () => {
+    if (typeof dialogo.close === "function") dialogo.close();
+    else { dialogo.removeAttribute("open"); boton.focus?.(); }
+  });
+  dialogo.addEventListener("close", () => boton.focus?.());
+  return true;
+}
+
+if (typeof document !== "undefined" && document.querySelector("#aplicacion")) {
+  instalarAyudaPeticionCentro(document);
+  iniciarPeticionCentro();
+}

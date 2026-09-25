@@ -142,3 +142,40 @@ test("alta RRHH envía el contrato exacto y conserva reintento ante resultado in
   await assert.rejects(registrarAltaRRHH(async () => { throw new TypeError("conexión perdida"); }, { peticion_ref: "peticion:centro:001", version_esperada: 2 }), (error) => error.indeterminado === true);
   await assert.rejects(registrarAltaRRHH(async () => { throw { status: 409 }; }, { peticion_ref: "peticion:centro:001", version_esperada: 2 }), (error) => error.status === 409 && !error.indeterminado);
 });
+
+test("la ayuda «?» explica que el certificado no firma y es accesible", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const { instalarAyudaPeticionCentro, MENSAJES_AYUDA_PETICIONES_CENTRO_ES: m } = await import("./peticiones-centro.js");
+  const html = await readFile(new URL("./index.html", import.meta.url), "utf8");
+  assert.match(html, /<button type="button" class="pc-boton-ayuda" id="pc-ayuda-abrir" aria-haspopup="dialog" aria-controls="pc-ayuda"[^>]*><span aria-hidden="true">\?<\/span><\/button>/u);
+  assert.match(html, /<dialog id="pc-ayuda"[^>]*aria-labelledby="pc-ayuda-titulo"/u);
+  const claves = [...html.matchAll(/data-i18n-ayuda="([a-z_]+)"/gu)].map((c) => c[1]);
+  assert.ok(claves.length >= 8);
+  for (const clave of claves) assert.ok(Object.hasOwn(m, clave) && m[clave], clave);
+  assert.match(m.pc_ayuda_certificado, /no firma electrónicamente/u);
+  assert.match(m.pc_ayuda_registro, /circuito de firma/u);
+  assert.match(m.pc_ayuda_despues, /Recursos Humanos/u);
+
+  const oyentes = new Map();
+  const elemento = (id, extra = {}) => ({ id, dataset: {}, atributos: {}, textContent: "", enfocado: 0,
+    setAttribute(n, v) { this.atributos[n] = v; }, removeAttribute(n) { delete this.atributos[n]; },
+    addEventListener(tipo, fn) { oyentes.set(`${id}:${tipo}`, fn); }, focus() { this.enfocado += 1; }, ...extra });
+  const titulo = elemento("pc-ayuda-titulo"); titulo.dataset.i18nAyuda = "pc_ayuda_titulo";
+  const cerrar = elemento("pc-ayuda-cerrar"); cerrar.dataset.i18nAyuda = "pc_ayuda_cerrar";
+  const boton = elemento("pc-ayuda-abrir");
+  const dialogo = elemento("pc-ayuda", { abierto: false,
+    querySelectorAll: () => [titulo, cerrar], querySelector: (sel) => (sel === "#pc-ayuda-cerrar" ? cerrar : null),
+    showModal() { this.abierto = true; }, close() { this.abierto = false; oyentes.get("pc-ayuda:close")(); } });
+  const doc = { getElementById: (id) => ({ "pc-ayuda-abrir": boton, "pc-ayuda": dialogo })[id] ?? null };
+  assert.equal(instalarAyudaPeticionCentro({ getElementById: () => null }), false);
+  assert.equal(instalarAyudaPeticionCentro(doc), true);
+  assert.equal(titulo.textContent, m.pc_ayuda_titulo);
+  assert.equal(cerrar.textContent, "Cerrar");
+  assert.equal(boton.atributos["aria-label"], m.pc_ayuda_abrir);
+  oyentes.get("pc-ayuda-abrir:click")();
+  assert.equal(dialogo.abierto, true);
+  assert.equal(cerrar.enfocado, 1);
+  oyentes.get("pc-ayuda-cerrar:click")();
+  assert.equal(dialogo.abierto, false);
+  assert.equal(boton.enfocado, 1);
+});
