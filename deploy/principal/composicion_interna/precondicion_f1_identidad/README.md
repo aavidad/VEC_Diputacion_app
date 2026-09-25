@@ -214,7 +214,7 @@ fichero se ensaya antes con su única línea `COMMIT;` cambiada por `ROLLBACK;`.
 | 5 | `contratacion_temporal/migraciones_identidad/000002_consulta_rrhh_certificado_desarrollo.up.sql` | `969d37a0…228ec0a7` |
 | 5 | `autorizacion_atestada_v3/migraciones/000050a_preflight_material_interno.up.sql` | `542b6629…d661119c` |
 | 6 | `contexto_actor_v1/migraciones/000007_alcance_proyecciones_empleado.up.sql` | `6b201fdd…91bd5b3c` |
-| 6 | `contexto_actor_v1/migraciones/000009_revalidacion_vinculo_corporativo_rrhh_v1.up.sql` | `53e0e243…fe78fd43` |
+| 6 | `contexto_actor_v1/migraciones/000009_revalidacion_vinculo_corporativo_rrhh_v1.up.sql` | `53e0e243…5e78fd43` |
 | 6 | `autorizacion_atestada_v3/migraciones/000053a_lectura_configuracion_interna.up.sql` | `ce2e2e2c…315d2d0c` |
 | 6 | `contratacion_temporal/migraciones/000109_consulta_resumen_seguimiento.up.sql` | `fb18461b…32363526` |
 | 7 | `autorizacion/migraciones/000014_perfil_interno_certificado.up.sql` | `1f46c4c8…51e53b4b` |
