@@ -468,6 +468,20 @@
           "articulo": "arts. 3 y 7.c"
         },
         "orden": 29
+      },
+      {
+        "clave": "b28.campos_portal",
+        "etiqueta": "Datos visibles en «Mi bolsa»",
+        "descripcion": "Datos que la persona ve de cada participación en su portal personal: bolsa, posición, estado, último llamamiento, contratos y fecha de disponibilidad. La bolsa se muestra siempre.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo.",
+          "duda": "Duda 17.",
+          "unidad": "lista",
+          "valor": "bolsa,posicion,estado,ultimo_llamamiento,contratos,fecha_disponible"
+        },
+        "orden": 30
       }
     ],
     "estado": "publicado",

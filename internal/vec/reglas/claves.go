@@ -43,6 +43,8 @@ const (
 	BolsaConsecuencias                = "b24.consecuencias"
 	BolsaVigencia                     = "b25.vigencia_bolsa"
 	BolsaAgotamiento                  = "b26.agotamiento"
+	// BolsaCamposPortal es la lista de datos de «Mi bolsa» (duda 17).
+	BolsaCamposPortal = "b28.campos_portal"
 )
 
 // Reglas de Contratación temporal.

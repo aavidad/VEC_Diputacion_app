@@ -301,6 +301,7 @@ func nuevaRutaMiBolsaDesarrollo(
 	fronteras catalogoFronterasComunDesarrollo,
 	derivador *derivadorIdentidadOperacionDesarrollo,
 	reloj relojContratacionTemporalDesarrollo,
+	campos puertosbolsa.CamposPortalMiBolsa,
 ) (http.Handler, error) {
 	if ctx == nil || identidad == nil || sello == nil || alta == nil || alta.soporte == nil ||
 		alta.postgresql.bolsa == nil || alta.postgresql.gobierno == nil ||
@@ -384,5 +385,9 @@ func nuevaRutaMiBolsaDesarrollo(
 	if err != nil {
 		return nil, errMiBolsaNoDisponible
 	}
-	return bolsapersonal.Nuevo(&preparadorMiBolsaDesarrollo{sello: sello, identidad: identidad, sesion: sesion, reloj: reloj}, servicio)
+	preparador := &preparadorMiBolsaDesarrollo{sello: sello, identidad: identidad, sesion: sesion, reloj: reloj}
+	if campos == nil {
+		return bolsapersonal.Nuevo(preparador, servicio)
+	}
+	return bolsapersonal.NuevoConCampos(preparador, servicio, campos)
 }

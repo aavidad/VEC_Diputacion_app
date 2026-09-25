@@ -575,9 +575,13 @@ func nuevasRutasContratacionTemporalDesarrollo(
 		if !debeComponerMiBolsaDesarrollo(cfg) || consultasRRHH.identidad == nil {
 			return nil, nil, nil, errMiBolsaNoDisponible
 		}
+		camposMiBolsa, err := camposPortalMiBolsaDesarrollo(cfg, reloj)
+		if err != nil {
+			return nil, nil, nil, err
+		}
 		miBolsa, err := nuevaRutaMiBolsaDesarrollo(
 			context.Background(), resolvedorDesarrollo.candidatoBolsa, sello, &alta,
-			consultasRRHH.identidad, catalogoFronteras, derivador, reloj,
+			consultasRRHH.identidad, catalogoFronteras, derivador, reloj, camposMiBolsa,
 		)
 		if err != nil {
 			return nil, nil, nil, err
