@@ -145,7 +145,10 @@ func (v VinculoActuacionFiscalizacion) validar() error {
 		}
 		return nil
 	}
-	if v.FaseDestino != FaseFiscalizacion || v.EstadoDestino != EstadoEnCurso ||
+	// Favorable: queda en fiscalización (CT52/CT93) o, si fiscaliza una
+	// modificación tras el nombramiento (CT120), vuelve al nombramiento.
+	if (v.FaseDestino != FaseFiscalizacion && v.FaseDestino != FaseNombramiento) ||
+		v.EstadoDestino != EstadoEnCurso ||
 		v.RetornoRef != "" || v.UnidadRetornoRef != "" ||
 		v.ResponsableRetornoRef != "" {
 		return ErrFiscalizacionInvalida
@@ -203,13 +206,14 @@ func (e Expediente) RegistrarFiscalizacion(
 	esRefiscalizacion := e.esAntecedenteRefiscalizable()
 	esFiscalizacionInicial := e.Version == 5 && e.Fiscalizacion == nil &&
 		e.FaseActual == FaseInformeJuridico && e.EstadoActual == EstadoEnCurso
-	if !esFiscalizacionInicial && !esRefiscalizacion {
+	esModificacion := e.EsModificacionPendienteFiscalizacion()
+	if !esFiscalizacionInicial && !esRefiscalizacion && !esModificacion {
 		return Expediente{}, ErrTransicionInvalida
 	}
 	if esRefiscalizacion && actuacion.RetornoRef != e.Fiscalizacion.Retorno.RetornoRef {
 		return Expediente{}, ErrTransicionInvalida
 	}
-	if esFiscalizacionInicial && actuacion.RetornoRef != "" {
+	if (esFiscalizacionInicial || esModificacion) && actuacion.RetornoRef != "" {
 		return Expediente{}, ErrTransicionInvalida
 	}
 
@@ -223,8 +227,7 @@ func (e Expediente) RegistrarFiscalizacion(
 		FiscalizadaEn:          datos.FiscalizadaEn,
 	}
 
-	faseDestino := FaseFiscalizacion
-	estadoDestino := EstadoEnCurso
+	faseDestino, estadoDestino := e.DestinoFiscalizacion(datos.Resultado)
 	if datos.Resultado == FiscalizacionFavorable {
 		if datos.Observaciones != "" || datos.RetornoRef != "" {
 			return Expediente{}, ErrTransicionInvalida
@@ -238,8 +241,6 @@ func (e Expediente) RegistrarFiscalizacion(
 			!referenciaValida(datos.RetornoRef) || e.retornoFiscalizacionYaUsado(datos.RetornoRef) {
 			return Expediente{}, ErrTransicionInvalida
 		}
-		faseDestino = FaseSubsanacionUnidad
-		estadoDestino = EstadoIncidencia
 		fiscalizacion.Retorno = &RetornoFiscalizacionUnidad{
 			RetornoRef: datos.RetornoRef, UnidadRef: e.Asignacion.UnidadRef,
 			ResponsableRef: e.Asignacion.ResponsableRef,
@@ -261,6 +262,44 @@ func (e Expediente) RegistrarFiscalizacion(
 	fiscalizacion.ActuacionRegistro = &vinculo
 	siguiente.Fiscalizacion = &fiscalizacion
 	return siguiente.confirmarTransicion(actuacion)
+}
+
+// EsModificacionPendienteFiscalizacion indica que la última actuación es una
+// modificación tras el nombramiento que devolvió el expediente a
+// fiscalización (CT116) y que todavía no se ha fiscalizado (CT120).
+func (e Expediente) EsModificacionPendienteFiscalizacion() bool {
+	if e.FaseActual != FaseFiscalizacion || e.EstadoActual != EstadoEnCurso ||
+		e.Fiscalizacion != nil || e.Asignacion == nil || e.InformeJuridico == nil ||
+		len(e.Actuaciones) == 0 {
+		return false
+	}
+	ultima := e.Actuaciones[len(e.Actuaciones)-1]
+	return ultima.AccionClave == AccionModificarTrasNombramiento &&
+		ultima.FaseDestino == FaseFiscalizacion && ultima.EstadoDestino == EstadoEnCurso &&
+		ultima.VersionExpediente == e.Version
+}
+
+// ReciboModificacionPendienteFiscalizacion devuelve el recibo de la
+// modificación que se va a fiscalizar, o vacío si no es ese el caso.
+func (e Expediente) ReciboModificacionPendienteFiscalizacion() string {
+	if !e.EsModificacionPendienteFiscalizacion() {
+		return ""
+	}
+	return e.Actuaciones[len(e.Actuaciones)-1].ReciboRef
+}
+
+// DestinoFiscalizacion fija la fase y el estado que deja el resultado: el
+// desfavorable vuelve a la unidad gestora; el favorable queda en
+// fiscalización o, si se fiscaliza una modificación, vuelve al nombramiento.
+func (e Expediente) DestinoFiscalizacion(resultado ResultadoFiscalizacion) (ClaveFase, EstadoOperativo) {
+	switch {
+	case resultado == FiscalizacionDesfavorable:
+		return FaseSubsanacionUnidad, EstadoIncidencia
+	case e.EsModificacionPendienteFiscalizacion():
+		return FaseNombramiento, EstadoEnCurso
+	default:
+		return FaseFiscalizacion, EstadoEnCurso
+	}
 }
 
 // retornoFiscalizacionYaUsado protege la unicidad del terminal de cada reparo

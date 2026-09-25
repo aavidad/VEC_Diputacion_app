@@ -17,6 +17,10 @@ static/area-personal/i18n.js
 static/area-personal/i18n-contacto-propio.js
 static/area-personal/index.html
 static/area-personal/locales/es.json
+static/area-personal/mi-bolsa-campos.js
+static/area-personal/mi-bolsa-contacto.js
+static/area-personal/mi-bolsa-ofertas.js
+static/area-personal/mi-bolsa-portal.js
 static/area-personal/vistas/comunes.js
 static/area-personal/vistas/comunicaciones-ayuda.js
 static/area-personal/vistas/inicio-convocatorias.js
@@ -251,6 +255,7 @@ static/portal-empleado/portal-bolsas-ofertas.js
 static/portal-empleado/portal-bolsas-contratos.js
 static/portal-empleado/portal-bolsas-correo.js
 static/portal-empleado/portal-bolsas-contacto-origen.js
+static/portal-empleado/portal-bolsas-contacto-registro.js
 static/portal-empleado/portal-bolsas-operaciones.js
 static/portal-empleado/portal-bolsas-intentos.js
 static/portal-empleado/portal-bolsas-reglas-situacion.js

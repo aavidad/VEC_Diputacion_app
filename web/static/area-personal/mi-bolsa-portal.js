@@ -4,6 +4,8 @@
 // los datos, se calcula la huella del justificante y se muestra el recibo.
 import { traducir } from "./i18n.js";
 import { escaparAtributo, escaparHTML, listaDatos } from "./vistas/comunes.js";
+import { cuerpoDisposicion, validarOfertasMiBolsa } from "./mi-bolsa-ofertas.js";
+import { cuerpoConfirmacionContacto, validarContactosMiBolsa } from "./mi-bolsa-contacto.js";
 
 export const RUTAS_PORTAL_MI_BOLSA = Object.freeze({
   solicitar: "/api/vec/bolsa/mi-bolsa/solicitudes",
@@ -47,6 +49,11 @@ const RESPALDO = Object.freeze({
   "areaPersonal.portal.error.fuera_de_plazo": "El plazo de respuesta ha terminado.",
   "areaPersonal.portal.error.causa_no_admitida": "La causa indicada no está admitida.",
   "areaPersonal.portal.error.pausa_fuera_de_limite": "La fecha de fin de la pausa no está permitida.",
+  "areaPersonal.portal.error.oferta_no_abierta": "La oferta ya no está abierta.",
+  "areaPersonal.portal.error.disposicion_ya_manifestada": "Ya se había ofrecido para esta oferta.",
+  "areaPersonal.portal.error.contacto_cambiado": "RRHH ha actualizado su contacto. Recargue la página antes de confirmarlo.",
+  "areaPersonal.portal.error.contacto_ya_confirmado": "Este contacto ya estaba confirmado.",
+  "areaPersonal.portal.error.sin_contacto": "No hay contacto registrado que confirmar.",
   "areaPersonal.portal.error.clave_reutilizada": "Esta petición ya se envió con otros datos. Recargue la página.",
   "areaPersonal.portal.error.datos_no_validos": "Revise los datos del formulario.",
   "areaPersonal.portal.error.acceso_denegado": "No tiene permiso para esta acción.",
@@ -71,6 +78,8 @@ function instante(valor, nombre) {
 // validarPortalMiBolsa comprueba las dos partes opcionales de la respuesta de
 // «Mi bolsa». Sin ellas el portal no ofrece acciones.
 export function validarPortalMiBolsa(datos) {
+  validarOfertasMiBolsa(datos);
+  validarContactosMiBolsa(datos);
   if (datos.portal === undefined && datos.acciones_portal === undefined) return;
   const acciones = datos.acciones_portal;
   if (!acciones || typeof acciones !== "object" || !Array.isArray(datos.portal) ||
@@ -180,6 +189,8 @@ function claveIdempotencia(formulario) {
 }
 
 export async function cuerpoPortalMiBolsa(formulario, datos = new FormData(formulario)) {
+  if (formulario.dataset.portalMiBolsa === "disposicion") return cuerpoDisposicion(formulario);
+  if (formulario.dataset.portalMiBolsa === "contacto") return cuerpoConfirmacionContacto(formulario);
   const bolsa = formulario.dataset.bolsa;
   if (formulario.dataset.portalMiBolsa === "solicitar") {
     const tipo = formulario.dataset.tipo;

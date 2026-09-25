@@ -21,6 +21,7 @@ import { crearControladorCorreoLlamamiento } from "./portal-bolsas-correo.js?v=2
 import { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20260926-integracion-bolsa-ct-v1";
 export { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20260926-integracion-bolsa-ct-v1";
 import { crearControladorOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20260926-integracion-bolsa-ct-v1";
+import { crearControladorRegistroContacto } from "./portal-bolsas-contacto-registro.js?v=20260926-integracion-bolsa-ct-v1";
 
 export const RUTA_BOLSAS = "/api/vec/bolsa/bolsas";
 export const RUTA_ESTADISTICAS_BOLSA = "/api/vec/bolsa/estadisticas";
@@ -441,6 +442,8 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
   const controladorIntentosContacto = crearControladorIntentosContacto({ estado, renderizar });
   const controladorCorreoB7 = crearControladorCorreoLlamamiento({ estado, renderizar });
   const controladorOrigenContacto = crearControladorOrigenContacto({ estado, renderizar });
+  // Tras registrar o corregir el contacto se vuelve a leer su origen.
+  const controladorRegistroContacto = crearControladorRegistroContacto({ estado, renderizar, alRegistrar: (modal) => controladorOrigenContacto.cargar(modal) });
   const controladorOperacionesB8 = crearControladorOperacionesSituacion({
     estado,
     renderizar,
@@ -706,6 +709,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     controladorOperacionesB8.instalar(documento);
     controladorIntentosContacto.instalar(documento);
     controladorSancionesB24.instalar(documento);
+    controladorRegistroContacto.instalar(documento);
     controladorCorreoB7.instalar(documento);
     documento.addEventListener("change", (evento) => {
       const control = evento.target;

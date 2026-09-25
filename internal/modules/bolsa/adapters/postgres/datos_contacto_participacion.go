@@ -89,6 +89,14 @@ func (r *RepositorioDatosContactoParticipacionPostgreSQL) leerOrigen(ctx context
 	if marca.Validar() != nil {
 		return nil, ports.ErrDatosContactoParticipacionNoDisponibles
 	}
+	// Una versión confirmada por la persona (Bolsa 000040) cuenta como propia.
+	var confirmada *time.Time
+	if err := r.pool.QueryRow(ctx, `SELECT vec_bolsa_llamamientos.leer_confirmacion_contacto_participacion_v1($1,$2)`, ref, version).Scan(&confirmada); err != nil {
+		return nil, ports.ErrDatosContactoParticipacionNoDisponibles
+	}
+	if confirmada != nil {
+		return nil, nil
+	}
 	return &marca, nil
 }
 

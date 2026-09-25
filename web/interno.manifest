@@ -212,6 +212,7 @@ static/portal-empleado/portal-bolsas-ofertas.js
 static/portal-empleado/portal-bolsas-contratos.js
 static/portal-empleado/portal-bolsas-correo.js
 static/portal-empleado/portal-bolsas-contacto-origen.js
+static/portal-empleado/portal-bolsas-contacto-registro.js
 static/portal-empleado/portal-bolsas-operaciones.js
 static/portal-empleado/portal-bolsas-intentos.js
 static/portal-empleado/portal-bolsas-reglas-situacion.js

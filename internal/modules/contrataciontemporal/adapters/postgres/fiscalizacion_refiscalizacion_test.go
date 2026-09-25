@@ -24,14 +24,14 @@ func TestFuncionesFiscalizacionSeleccionanSoloLosDosOrigenesPermitidos(t *testin
 		{
 			nombre:    "corregida_v7",
 			version:   7,
-			preparar:  funcionPrepararFiscalizacionTrasSubsanacion,
-			confirmar: funcionConfirmarFiscalizacionTrasSubsanacion,
+			preparar:  funcionPrepararFiscalizacionV2,
+			confirmar: funcionConfirmarFiscalizacionV2,
 		},
 		{
-			nombre:    "corregida_posterior",
+			nombre:    "corregida_o_modificada_posterior",
 			version:   8,
-			preparar:  funcionPrepararFiscalizacionTrasSubsanacion,
-			confirmar: funcionConfirmarFiscalizacionTrasSubsanacion,
+			preparar:  funcionPrepararFiscalizacionV2,
+			confirmar: funcionConfirmarFiscalizacionV2,
 		},
 		{nombre: "version_ajena_v6", version: 6, debeFallar: true},
 	}

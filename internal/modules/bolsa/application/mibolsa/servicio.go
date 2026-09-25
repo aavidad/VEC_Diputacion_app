@@ -36,6 +36,32 @@ type Servicio struct {
 	// portal es opcional: sin reglas del portal la consulta no incluye el
 	// llamamiento abierto ni las solicitudes pendientes.
 	portal puertosbolsa.ReglasPortalCandidato
+	// ofertas añade a la consulta las ofertas de sus bolsas (Bolsa 000029).
+	ofertas bool
+	// contacto añade el estado del contacto de cada bolsa (Bolsa 000040).
+	contacto bool
+}
+
+// ConContacto devuelve una copia que añade a la consulta el estado del
+// contacto de cada bolsa: versión, origen CONVOCA y confirmación.
+func (s *Servicio) ConContacto() (*Servicio, error) {
+	if s == nil {
+		return nil, ErrServicioMiBolsaInvalido
+	}
+	copia := *s
+	copia.contacto = true
+	return &copia, nil
+}
+
+// ConOfertas devuelve una copia que añade a la consulta las ofertas abiertas
+// de sus bolsas y aquellas en que ya manifestó disposición.
+func (s *Servicio) ConOfertas() (*Servicio, error) {
+	if s == nil {
+		return nil, ErrServicioMiBolsaInvalido
+	}
+	copia := *s
+	copia.ofertas = true
+	return &copia, nil
 }
 
 // ConReglasPortal devuelve una copia que añade a la consulta el estado del
@@ -109,7 +135,7 @@ func (s *Servicio) Consultar(ctx context.Context, orden Orden) (puertosbolsa.Ins
 	if _, _, err = validarOrden(orden, ahora); err != nil || !materialExacto(material, nominal, decision, confirmacion, resultadoActor, ahora, puertosbolsa.AccionConsultarMiBolsa, puertosbolsa.AudienciaMiBolsa) {
 		return puertosbolsa.InstantaneaMiBolsa{}, denegar(err)
 	}
-	solicitud := puertosbolsa.SolicitudConsultaMiBolsa{CandidatoRef: candidato, Material: material, ConsultadaEn: ahora}
+	solicitud := puertosbolsa.SolicitudConsultaMiBolsa{CandidatoRef: candidato, Material: material, ConsultadaEn: ahora, LeerOfertas: s.ofertas, LeerContacto: s.contacto}
 	if !nula(s.portal) {
 		efectivos, err := s.portal.ResultadosContactoEfectivo(ctx)
 		if err != nil && !errors.Is(err, puertosbolsa.ErrReglasPortalCandidatoAusente) {
@@ -178,6 +204,16 @@ func validarResultado(r puertosbolsa.InstantaneaMiBolsa, ahora time.Time) error 
 	}
 	for _, e := range r.Portal {
 		if !bolsas[e.Bolsa] {
+			return puertosbolsa.ErrResultadoMiBolsaInvalido
+		}
+	}
+	for _, c := range r.Contactos {
+		if !bolsas[c.Bolsa] || c.Version < 1 || c.ConfirmadaEn != nil && c.ConfirmadaEn.After(ahora) {
+			return puertosbolsa.ErrResultadoMiBolsaInvalido
+		}
+	}
+	for _, o := range r.Ofertas {
+		if !bolsas[o.Bolsa] || o.PublicadaEn.After(ahora) {
 			return puertosbolsa.ErrResultadoMiBolsaInvalido
 		}
 	}
