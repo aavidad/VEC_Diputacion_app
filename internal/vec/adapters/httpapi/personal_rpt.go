@@ -56,24 +56,7 @@ func NewHandlerCategoriasProfesionalesPresentacion(cfg config.Config, consulta C
 	if !cfg.Normalize().RRHHPresentationEnabledByDoubleGuard() || dependenciaHTTPNula(consulta) {
 		return nil, ErrConcesionCategoriasPresentacionInvalida
 	}
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r == nil || r.URL == nil {
-			w.Header().Set("Cache-Control", "no-store")
-			w.WriteHeader(http.StatusServiceUnavailable)
-			return
-		}
-		if r.URL.Path != rutaCategoriasProfesionalesPresentacion || r.URL.RawPath != "" {
-			http.NotFound(w, r)
-			return
-		}
-		if r.Method != http.MethodGet && r.Method != http.MethodHead {
-			w.Header().Set("Cache-Control", "no-store")
-			w.Header().Set("Allow", "GET, HEAD")
-			writeErrorCategoriasProfesionales(w, http.StatusMethodNotAllowed, "method not allowed")
-			return
-		}
-		servirCategoriasProfesionales(w, r, consulta, true)
-	}), nil
+	return handlerCategoriasProfesionales(consulta, true), nil
 }
 
 func (h *Handler) handlePersonalRPTPositions(w http.ResponseWriter, r *http.Request, principal domain.Principal) {

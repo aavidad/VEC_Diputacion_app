@@ -16,7 +16,7 @@ import {
   componerDietasInternas,
   componerPersonalVisible,
   componerRegistroPersonal,
-} from "./portal-composicion-empleado.js?v=20260925-tanda3-v1";
+} from "./portal-composicion-empleado.js?v=20260925-portal-integrado-v1";
 import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260924-f2-shell-v1";
 import {
   CLAVES_CARGA_MODULAR,
@@ -26,6 +26,7 @@ import {
 } from "./portal-modulos-carga.js?v=20260923-p4-estado-modulos-v1";
 
 const CLAVE_CONTRATACION_TEMPORAL = "contratacion_temporal";
+const SIN_CATALOGOS_PUBLICOS = Object.freeze({ recursos: Object.freeze({}), disponibles: Object.freeze([]) });
 const CLAVE_PERSONAL = "personal";
 export const CLAVES_MODULOS_VEC_REGISTRADOS = Object.freeze([
   CLAVE_PERSONAL, "cronos", "dietas", "bolsa",
@@ -67,16 +68,28 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   personal: async () => {
     const [contrato, cliente, vista, ficha, registro, clienteRegistro, clienteCatalogosRegistro, i18n] = await Promise.all([
       import("./modulos/personal/contrato.js?v=20260920-personal-catalogo-v1"),
-      import("./modulos/personal/cliente-http-categorias.js?v=20260924-p1-personal-interno-v2"),
-      import("./modulos/personal/vista.js?v=20260925-b2-sin-refs-v1"),
-      import("./modulos/personal/vista-ficha-integral.js?v=20260925-b2-sin-refs-v1"),
-      import("./modulos/personal/registro-b2.js?v=20260925-b2-sin-refs-v1"),
+      import("./modulos/personal/cliente-http-categorias.js?v=20260925-portal-integrado-v1"),
+      import("./modulos/personal/vista.js?v=20260925-portal-integrado-v1"),
+      import("./modulos/personal/vista-ficha-integral.js?v=20260925-portal-integrado-v1"),
+      import("./modulos/personal/registro-b2.js?v=20260925-portal-integrado-v1"),
       import("./modulos/personal/registro-b2-cliente.js?v=20260925-b2-selector-v1"),
       import("./modulos/personal/registro-b2-catalogos-cliente.js?v=20260925-b2-mtls-v1"),
-      import("./modulos/personal/i18n.js?v=20260925-b2-sin-refs-v1"),
+      import("./modulos/personal/i18n.js?v=20260925-portal-integrado-v1"),
     ]);
     return Object.freeze({ contrato, cliente, vista, clienteCategorias: cliente, vistaCategorias: vista,
       ficha, registro, clienteRegistro, clienteCatalogosRegistro, i18n });
+  },
+  // Catálogos públicos de Personal (RPT publicada y estructura de referencia).
+  // Van en todos los paquetes web (el import nunca da 404); solo se ofrecen si
+  // el servidor responde a su consulta con una página válida.
+  personal_catalogos_publicos: async () => {
+    const [clienteRPT, vistaRPT, clienteEstructura, vistaEstructura] = await Promise.all([
+      import("./modulos/personal/cliente-http-rpt-publica.js?v=20260925-portal-integrado-v1"),
+      import("./modulos/personal/vista-rpt-publica.js?v=20260925-portal-integrado-v1"),
+      import("./modulos/personal/cliente-http-estructura-organizativa-publica.js?v=20260925-portal-integrado-v1"),
+      import("./modulos/personal/vista-estructura-organizativa-publica.js?v=20260925-portal-integrado-v1"),
+    ]);
+    return Object.freeze({ clienteRPT, vistaRPT, clienteEstructura, vistaEstructura });
   },
   dietas: async () => {
     const [contrato, recorridos, clienteBorradores, clienteAsignacion, calculador, mapa, clienteCircuito] = await Promise.all([
@@ -159,6 +172,11 @@ export function crearCoordinadorModulosPortal({
   // Consultas de red de la carga en curso: los módulos se cargan en paralelo,
   // así que puede haber varias a la vez. Sustituir la carga las aborta todas.
   const controladoresCarga = new Set();
+  // Sonda del registro RRHH de Personal: se hace al entrar por primera vez en
+  // la vista y su resultado vale para la sesión (null: aún sin comprobar). Así
+  // abrir Personal no genera una lectura auditada del registro.
+  let registroPersonalServido = null;
+  let sondaRegistro = null;
 
   // Invalida siempre la carga en curso, también entre dos consultas (cuando no
   // hay ninguna pendiente): sus módulos tardíos ya no publican ni avisan.
@@ -173,6 +191,9 @@ export function crearCoordinadorModulosPortal({
   // vista (o repintar Inicio) mientras aún cargan otros módulos no los cancela.
   function retirarVistaMontada() {
     secuenciaMontaje += 1;
+    // Una sonda interrumpida no decide nada: se repetirá al volver a entrar.
+    sondaRegistro?.abort();
+    sondaRegistro = null;
     if (typeof desmontarVista === "function") desmontarVista();
     desmontarVista = null;
     vistaMontada = "";
@@ -318,26 +339,70 @@ export function crearCoordinadorModulosPortal({
     return { cronos };
   }
 
-  async function cargarPersonal({ exigirVigente }) {
-    const recursos = await cargarModuloConLimite(
-      cargadoresInternos.personal || CARGADORES_INTERNOS_PREDETERMINADOS.personal,
-      CLAVE_PERSONAL, limiteCargaModularMs, temporizadores,
-    );
+  // Personal y sus catálogos públicos opcionales se cargan a la vez.
+  async function cargarPersonal({ consultar, exigirVigente }) {
+    const [principal, publicos] = await Promise.allSettled([
+      cargarModuloConLimite(
+        cargadoresInternos.personal || CARGADORES_INTERNOS_PREDETERMINADOS.personal,
+        CLAVE_PERSONAL, limiteCargaModularMs, temporizadores,
+      ),
+      cargarCatalogosPublicosPersonal({ consultar }),
+    ]);
     exigirVigente();
+    if (principal.status !== "fulfilled") throw new TypeError("vista de Personal no disponible");
+    const recursos = principal.value;
     if (typeof recursos?.cliente?.crearClienteHTTPCategoriasPersonal !== "function"
       || typeof recursos?.vista?.montarModuloPersonal !== "function"
       || recursos?.contrato?.CAPACIDAD_CONSULTAR_PUESTO !== "personal.puesto.read") {
       throw new TypeError("vista de Personal no disponible");
     }
+    const catalogos = publicos.status === "fulfilled" ? publicos.value : SIN_CATALOGOS_PUBLICOS;
     const personal = typeof recursos.ficha?.montarVistaFichaIntegralPersonal === "function"
-      ? componerPersonalVisible(recursos, entorno, { catalogosPublicos: false })
+      ? componerPersonalVisible({ ...recursos, ...catalogos.recursos }, entorno, {
+        catalogosPublicos: catalogos.disponibles, ocultarSinFuente: true,
+        destinosDisponibles: () => ({ dietas: vistaDisponible("dietas"), cronos: vistaDisponible("cronos") }),
+      })
       : Object.freeze({
         cliente: recursos.cliente.crearClienteHTTPCategoriasPersonal({ fetchImpl: fetchDelEntorno() }),
         montar: recursos.vista.montarModuloPersonal,
       });
     if (!personal) throw new TypeError("ficha de Personal no disponible");
-    // El registro RRHH es una vista aparte: si falta, Personal sigue.
+    // El registro RRHH es una vista aparte: si falta, Personal sigue. Se compone
+    // siempre; lo ofrece vistaDisponible («personal-registro») solo al perfil
+    // RRHH y su sonda se hace al entrar en la vista, no al cargar Personal.
     return { personal, personalRegistro: componerRegistroPersonal(recursos, entorno) };
+  }
+
+  // Carga los catálogos públicos de Personal y sondea las dos consultas a la
+  // vez. Solo se ofrecen las que responden con una página válida; el resto se
+  // omite sin error. Las consultas pertenecen a la carga en curso: se cancelan
+  // con ella.
+  async function cargarCatalogosPublicosPersonal({ consultar }) {
+    let recursos;
+    try {
+      recursos = await cargarModuloConLimite(
+        cargadoresInternos.personal_catalogos_publicos
+          || CARGADORES_INTERNOS_PREDETERMINADOS.personal_catalogos_publicos,
+        "personal_catalogos_publicos", limiteCargaModularMs, temporizadores,
+      );
+    } catch {
+      return SIN_CATALOGOS_PUBLICOS;
+    }
+    const fetchImpl = fetchDelEntorno();
+    if (!fetchImpl) return SIN_CATALOGOS_PUBLICOS;
+    const sondeos = [
+      ["rpt", () => recursos?.clienteRPT?.crearClienteHTTPRPTPublica({ fetchImpl }),
+        (cliente, opciones) => cliente.listar({ vista: "categorias", q: "", limit: 1, offset: 0 }, opciones)],
+      ["estructura", () => recursos?.clienteEstructura?.crearClienteHTTPEstructuraOrganizativaPublica({ fetchImpl }),
+        (cliente, opciones) => cliente.obtener(opciones)],
+    ];
+    const resultados = await Promise.allSettled(sondeos.map(([, crear, sondear]) => {
+      const cliente = crear();
+      return consultar((opciones) => sondear(cliente, opciones), "consultar catálogos de Personal");
+    }));
+    const disponibles = sondeos.filter((_, indice) => resultados[indice].status === "fulfilled")
+      .map(([clave]) => clave);
+    return Object.freeze({ recursos, disponibles: Object.freeze(disponibles) });
   }
 
   async function cargarDietas({ exigirVigente }) {
@@ -491,7 +556,7 @@ export function crearCoordinadorModulosPortal({
     if (vista === "personal") return composicion?.personal !== undefined;
     // Oferta de interfaz para el perfil RRHH; cada lectura la autoriza V3.
     if (vista === "personal-registro") return composicion?.personal !== undefined
-      && composicion?.personalRegistro !== undefined && esPerfilRRHH();
+      && composicion?.personalRegistro !== undefined && registroPersonalServido !== false && esPerfilRRHH();
     return false;
   }
 
@@ -706,6 +771,17 @@ export function crearCoordinadorModulosPortal({
     }
 
     if (vista === "personal-registro") {
+      if (registroPersonalServido === null) {
+        const servido = await sondearRegistroPersonal();
+        if (montaje !== secuenciaMontaje) return false;
+        if (servido !== null) registroPersonalServido = servido;
+      }
+      if (registroPersonalServido !== true) {
+        // Esta superficie no sirve el registro o no autoriza su lectura: no se
+        // vuelve a ofrecer en la sesión.
+        raiz.innerHTML = `<section class="panel"><div class="cuerpo-panel vacio-controlado" role="status"><p><strong>${escaparHTML(traducir("estado_modulo_no_disponible_titulo"))}</strong></p></div></section>`;
+        return false;
+      }
       raiz.replaceChildren();
       const navegacion = navegacionPersonal(raiz, vista);
       const registro = composicion.personalRegistro.montar({ raiz, anunciar,
@@ -762,6 +838,24 @@ export function crearCoordinadorModulosPortal({
     }
     desmontarVista = moduloDietas.desmontar;
     return true;
+  }
+
+  // Consulta mínima autorizada del registro. Devuelve true si responde, false
+  // si falla y null si se interrumpe al cambiar de vista.
+  async function sondearRegistroPersonal() {
+    const sondear = composicion?.personalRegistro?.sondear;
+    if (typeof sondear !== "function") return false;
+    const controlador = new AbortController();
+    sondaRegistro = controlador;
+    try {
+      await consultarConLimite((opciones) => sondear(opciones), controlador,
+        limiteCargaModularMs, temporizadores, "consultar registro de Personal");
+      return true;
+    } catch {
+      return sondaRegistro === controlador ? false : null;
+    } finally {
+      if (sondaRegistro === controlador) sondaRegistro = null;
+    }
   }
 
   // Subnavegación de Personal: solo si el registro RRHH se ofrece.

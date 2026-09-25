@@ -30,22 +30,7 @@ func NewHandlerRPTPublicaPresentacion(cfg config.Config, consulta ConsultaRPTPub
 	if !cfg.Normalize().RRHHPresentationEnabledByDoubleGuard() || dependenciaHTTPNula(consulta) {
 		return nil, ErrConcesionRPTPublicaPresentacionInvalida
 	}
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r == nil || r.URL == nil {
-			escribirRPTPublicaError(w, http.StatusServiceUnavailable, "rpt_publica_no_disponible")
-			return
-		}
-		if r.URL.Path != rutaRPTPublicaPresentacion || r.URL.RawPath != "" {
-			http.NotFound(w, r)
-			return
-		}
-		if r.Method != http.MethodGet && r.Method != http.MethodHead {
-			w.Header().Set("Allow", "GET, HEAD")
-			escribirRPTPublicaError(w, http.StatusMethodNotAllowed, "method not allowed")
-			return
-		}
-		servirRPTPublica(w, r, consulta)
-	}), nil
+	return handlerRPTPublica(consulta), nil
 }
 
 type vistaRPTPublica string

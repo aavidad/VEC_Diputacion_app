@@ -472,10 +472,13 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
   exigirRenovado([portal, coordinador], "./portal-inicio.js", versionCronosPermisos);
   exigirRenovado(portal, "./portal-borradores-ui.js", versionCronosPermisos);
   exigirRenovado(coordinador, "./portal-catalogo-modulos.js", versionCatalogo);
-  const clientePersonal = new RegExp(`modulos/personal/cliente-http-categorias\\.js\\?v=${versionClientePersonal}`, "g");
-  assert.equal([...coordinador.matchAll(clientePersonal)].length, 1);
-  assert.doesNotMatch(coordinador, /modulos\/personal\/cliente-http-rpt-publica\.js/);
-  assert.doesNotMatch(coordinador, /modulos\/personal\/vista-rpt-publica\.js/);
+  // El cliente del catálogo pasó a presentar el certificado mTLS: URL renovada.
+  exigirRenovado(coordinador, "./modulos/personal/cliente-http-categorias.js", versionClientePersonal);
+  // RPT y estructura públicas solo las pide el cargador opcional de catálogos
+  // públicos, nunca el cargador principal de Personal.
+  const cargadorPersonal = coordinador.split("personal: async () => {")[1].split("personal_catalogos_publicos: async () => {")[0];
+  assert.doesNotMatch(cargadorPersonal, /modulos\/personal\/(?:cliente-http|vista)-rpt-publica\.js/);
+  assert.doesNotMatch(cargadorPersonal, /estructura-organizativa-publica\.js/);
   // La vista interna conserva su versión renovada.
   for (const [vista, montajes, versionVista] of [["vista.js", 1, versionPersonalEstados]]) {
     exigirVersiones(coordinador, `./modulos/personal/${vista}`, posterior(versionVista), montajes);
