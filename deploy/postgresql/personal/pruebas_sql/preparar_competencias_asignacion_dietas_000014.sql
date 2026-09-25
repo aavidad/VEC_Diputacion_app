@@ -1,6 +1,8 @@
 \set ON_ERROR_STOP on
--- TEST-ONLY: AD3 D7b todavía no tiene número ni instalación. Este stub
--- permite probar únicamente el contrato SQL de Personal en PG18 efímero.
+-- TEST-ONLY: sustituye a la fachada real AD3-61 solo en este PG18 efímero sin
+-- núcleo AD3, para probar la lógica de Personal con consumos simulados. La
+-- instalación de 000014 sobre la fachada real se ensaya en
+-- autorizacion_atestada_v3/pruebas_sql/dietas_d7bc_ad3_000061_pg18.sh.
 CREATE FUNCTION vec_autorizacion_atestada_v3.registrar_y_consumir_competencias_asignacion_dietas_v3_atestada(
  bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)
 RETURNS TABLE(decision_ref text,efecto_ref text,huella_efecto_sha256 text,
