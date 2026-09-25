@@ -39,9 +39,9 @@ ni ejecuta `DOWN`. El segundo comando devuelve código 3 por la guarda canónica
 La CLI `vec-publicar-permiso-interno` necesita el vínculo corporativo de
 ContextoActor 000004, Identidad 000004/000006 y F1 real. No se ejecutó contra
 tablas canónicas porque esa cadena se detiene en 000004. El fixture propio de
-AD3-53 es un **esquema sintético**: su primer `INSERT` en `checkpoint_gobierno`
+AD3-53a es un **esquema sintético**: su primer `INSERT` en `checkpoint_gobierno`
 omite `actualizada_en`, columna obligatoria en la tabla canónica. AD3-002 aún
-limita las claves a la audiencia de alta CT; la lectura positiva de AD3-53
+limita las claves a la audiencia de alta CT; la lectura positiva de AD3-53a
 requiere cinco audiencias y depende de las migraciones posteriores que amplían
 ese catálogo. Por ello este ensayo no acredita lectura positiva, rotación,
 revocación, replay ni decisión PDP de una configuración publicada.

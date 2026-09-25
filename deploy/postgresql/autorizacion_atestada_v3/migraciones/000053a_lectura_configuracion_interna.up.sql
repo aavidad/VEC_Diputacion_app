@@ -6,7 +6,7 @@ SET LOCAL timezone = 'UTC';
 SET LOCAL lock_timeout = '5s';
 SET LOCAL statement_timeout = '30s';
 SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
-    'vec_autorizacion_atestada_v3:migracion:000053', 0));
+    'vec_autorizacion_atestada_v3:migracion:000053a', 0));
 
 DO $preimagen$
 BEGIN
@@ -26,7 +26,7 @@ BEGIN
                        WHERE n.oid = 'vec_autorizacion_atestada_v3'::regnamespace
                          AND n.nspowner = 'vec_autorizacion_atestada_v3_propietario'::regrole)
     THEN
-        RAISE EXCEPTION 'AD3-53: preimagen incompatible' USING ERRCODE = '55000';
+        RAISE EXCEPTION 'AD3-53a: preimagen incompatible' USING ERRCODE = '55000';
     END IF;
 END $preimagen$;
 

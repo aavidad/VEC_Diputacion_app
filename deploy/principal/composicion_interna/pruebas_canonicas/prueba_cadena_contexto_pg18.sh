@@ -69,7 +69,7 @@ SQL
   archivo_como vec_ad3_canon_migrador "$ad3/000001_gobierno_y_registro_v3.up.sql"
   archivo_como vec_ad3_canon_migrador "$ad3/000002_consumidor_capacidad_v3.up.sql"
   archivo "$ad3/000050a_preflight_material_interno.up.sql"
-  archivo "$ad3/000053_lectura_configuracion_interna.up.sql"
+  archivo "$ad3/000053a_lectura_configuracion_interna.up.sql"
   sql <<'SQL'
 CREATE ROLE vec_interno_preflight_v3_desarrollo LOGIN NOSUPERUSER
   NOCREATEDB NOCREATEROLE INHERIT NOREPLICATION NOBYPASSRLS;
@@ -127,7 +127,7 @@ BEGIN
        'vec_autorizacion_atestada_v3_preflight_interno',
        'vec_autorizacion_atestada_v3.leer_configuracion_interna_v1(jsonb)',
        'EXECUTE')
-  THEN RAISE EXCEPTION 'AD3-53 no persistió tras reinicio'; END IF;
+  THEN RAISE EXCEPTION 'AD3-53a no persistió tras reinicio'; END IF;
 END $durable$;
 SQL
   printf '%s\n' 'CADENA AD3 000001, 000002, 000050a, 000053, ACL/RLS Y REINICIO PROBADOS'

@@ -1,6 +1,6 @@
 \set ON_ERROR_STOP on
 -- Ejecutar como postgres sobre una base PG18 desechable VACÍA. Este esquema
--- sintético prueba sólo AD3-53; no sustituye la instalación AD3 canónica.
+-- sintético prueba sólo AD3-53a; no sustituye la instalación AD3 canónica.
 DO $roles$
 DECLARE nombre text;
 BEGIN
@@ -52,7 +52,7 @@ CREATE TABLE vec_autorizacion_atestada_v3.puntero_clave_emision
 CREATE TABLE vec_autorizacion_atestada_v3.revocacion_clave_capacidad
   (clave_id text, version numeric, revocada_en timestamptz);
 RESET ROLE;
--- Aplicar ahora, en la misma base, migraciones/000053_lectura_configuracion_interna.up.sql.
+-- Aplicar ahora, en la misma base, migraciones/000053a_lectura_configuracion_interna.up.sql.
 -- El bloque siguiente es una transacción de prueba; termina en ROLLBACK.
 
 BEGIN;
