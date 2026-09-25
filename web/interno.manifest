@@ -184,6 +184,7 @@ static/portal-empleado/modulos/contratacion-temporal/vista.js
 static/portal-empleado/portal-bolsas-api.js
 static/portal-empleado/portal-bolsas-avisos.js
 static/portal-empleado/portal-bolsas-operaciones.js
+static/portal-empleado/portal-bolsas-traza-valores.js
 static/portal-empleado/portal-bolsas-contrato.js
 static/portal-empleado/portal-borrador-llamamiento-api.js
 static/portal-empleado/portal-borrador-llamamiento-ui.js

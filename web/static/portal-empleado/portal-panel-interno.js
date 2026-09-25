@@ -9,7 +9,7 @@
  */
 import { traducirBolsaInterna, traducirPortal } from "./portal-i18n.js?v=20260925-d5d6-cronos-v1";
 import { renderizarBloqueAvisos } from "./portal-bolsas-avisos.js?v=20260925-aspecto-v1";
-import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260923-pweb14-v1";
+import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260925-traza-valores-v1";
 import { icono } from "../comun/iconos-vec.js?v=20260925-aspecto-v1";
 const ESQUEMA_PANEL_INTERNO = "vec.bolsa.panel.interno.v1";
 const ESTADOS_BOLSA = Object.freeze(["disponible", "no_disponible", "trabajando", "pendiente_incorporacion", "renuncia", "excluido", "disponible_desde"]);
