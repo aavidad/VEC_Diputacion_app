@@ -216,15 +216,17 @@ type FirmaRegistrada struct {
 	PasoRef           string
 	PasoOrden         int
 	Resultado         domain.ResultadoFirmaDocumento
-	MotivoDevolucion  string
-	OriginalHuella    string
-	FirmadoHuella     string
-	CertificadoHuella string
-	FirmanteRef       string
-	SelloTiempoEstado string
-	ActorRef          string
-	PerfilRef         string
-	RegistradaEn      time.Time
+	// ConMotivoDevolucion: la devolución consta con motivo; su texto libre no
+	// se devuelve en la lectura de la historia.
+	ConMotivoDevolucion bool
+	OriginalHuella      string
+	FirmadoHuella       string
+	CertificadoHuella   string
+	FirmanteRef         string
+	SelloTiempoEstado   string
+	ActorRef            string
+	PerfilRef           string
+	RegistradaEn        time.Time
 }
 
 // RegistroFirmasDocumento es el almacén de solo adición de CT118.

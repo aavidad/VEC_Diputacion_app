@@ -122,6 +122,14 @@ BEGIN
         RAISE EXCEPTION 'FALLO la consulta expone quién firmó';
     END IF;
     RAISE NOTICE 'OK consulta sin firmante, certificado, actor ni perfil';
+    -- El motivo de una devolución es texto libre: solo consta si existe.
+    IF EXISTS (SELECT 1 FROM jsonb_array_elements(vec_contratacion_temporal.consultar_firmas_documento_v1(org,exp)) f
+                WHERE f ? 'MotivoDevolucion'
+                   OR jsonb_typeof(f->'ConMotivoDevolucion') IS DISTINCT FROM 'boolean'
+                   OR (f->'ConMotivoDevolucion')::boolean <> (f->>'Resultado'='devuelto')) THEN
+        RAISE EXCEPTION 'FALLO la consulta expone el motivo o no indica si existe';
+    END IF;
+    RAISE NOTICE 'OK consulta sin el texto del motivo, solo si existe';
 END $cadena$;
 SELECT pg_temp.debe_fallar(format($q$SELECT vec_contratacion_temporal.consultar_firmas_documento_v1('organizacion:ajena',%L)$q$, :'expediente'),
     '42501','consulta de firmas con otra organización');

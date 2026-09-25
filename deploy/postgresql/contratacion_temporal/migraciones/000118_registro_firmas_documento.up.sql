@@ -88,8 +88,11 @@ CREATE TABLE vec_contratacion_temporal.firma_documento_v1 (
         AND certificado_huella_sha256 IS NULL AND firmante_ref IS NULL AND politica_verificacion IS NULL
         AND verificacion_estado IS NULL AND verificacion_motivo IS NULL AND revocacion_estado IS NULL
         AND sello_tiempo_estado IS NULL)),
-    UNIQUE (organizacion_ref, expediente_ref, documento, secuencia),
-    UNIQUE (organizacion_ref, expediente_ref, clave_idempotencia),
+    -- Nombres fijos: el adaptador distingue por ellos la carrera perdida por
+    -- la misma clave (recupera el recibo) de la perdida por la secuencia
+    -- (conflicto de historia).
+    CONSTRAINT firma_documento_v1_secuencia_unica UNIQUE (organizacion_ref, expediente_ref, documento, secuencia),
+    CONSTRAINT firma_documento_v1_clave_unica UNIQUE (organizacion_ref, expediente_ref, clave_idempotencia),
     UNIQUE (firma_ref, recibo_ref, registrada_en)
 );
 COMMENT ON TABLE vec_contratacion_temporal.firma_documento_v1 IS
@@ -231,7 +234,14 @@ BEGIN
        OR consumo.consumo_nuevo IS NOT TRUE THEN
         RAISE EXCEPTION 'consumo de firma divergente' USING ERRCODE='42501';
     END IF;
-    -- Una sola escritura a la vez por documento del expediente.
+    -- El cerrojo solo ordena las escrituras de un mismo documento: en
+    -- SERIALIZABLE la instantánea ya está tomada al llegar aquí, así que no
+    -- impide que dos registros simultáneos lean la misma historia. Lo que
+    -- protege son las restricciones únicas de clave y de secuencia y la
+    -- detección de conflictos de SERIALIZABLE: la transacción que pierde
+    -- termina con 23505 (con el nombre de la restricción) o 40001, que se
+    -- dejan salir sin convertir para que el adaptador recupere el recibo,
+    -- informe del conflicto o reintente.
     PERFORM pg_advisory_xact_lock(hashtextextended('vec_contratacion_temporal:firma_documento:'||
         (s->>'ExpedienteRef')||':'||(s->>'Documento'),0));
     SELECT * INTO previa FROM vec_contratacion_temporal.firma_documento_v1
@@ -303,7 +313,7 @@ BEGIN
     RETURN jsonb_build_object('FirmaRef',firma,'ReciboRef',recibo,'Secuencia',siguiente,'Resultado',s->>'Resultado',
         'ExpedienteVersion',version_actual,'ActorRef',d->>'principal_id','PerfilRef',d->>'perfil_activo_ref',
         'RegistradaEn',ahora,'SolicitudHuella',h,'YaRegistrada',false);
-EXCEPTION WHEN serialization_failure OR deadlock_detected OR lock_not_available THEN
+EXCEPTION WHEN lock_not_available THEN
     RAISE EXCEPTION 'registro de firma no disponible' USING ERRCODE='P1185';
 WHEN data_exception THEN
     RAISE EXCEPTION 'solicitud de firma inválida' USING ERRCODE='22023';
@@ -312,8 +322,9 @@ $funcion$;
 
 -- Lectura de la historia de firmas de un expediente, en orden de registro.
 -- Devuelve solo lo que necesita el estado del circuito: huellas del
--- borrador, referencias del catálogo y del recibo, resultado y motivo de la
--- devolución; nunca el documento ni la firma, ni quién firmó (firmante,
+-- borrador, referencias del catálogo y del recibo, resultado y si la
+-- devolución consta con motivo (sin su texto libre, que puede contener datos
+-- personales); nunca el documento ni la firma, ni quién firmó (firmante,
 -- certificado, actor o perfil), que solo constan en la historia y en la
 -- auditoría de la escritura. Solo del expediente de la organización del
 -- contexto: si el expediente es de otra organización, se deniega. No consume
@@ -348,7 +359,7 @@ BEGIN
     RETURN coalesce((SELECT jsonb_agg(jsonb_build_object(
         'FirmaRef',f.firma_ref,'ReciboRef',f.recibo_ref,'Documento',f.documento,'Secuencia',f.secuencia,
         'ExpedienteVersion',f.expediente_version,'CatalogoRef',f.catalogo_ref,'CatalogoHuella',f.catalogo_huella_sha256,
-        'PasoRef',f.paso_ref,'PasoOrden',f.paso_orden,'Resultado',f.resultado,'MotivoDevolucion',f.motivo_devolucion,
+        'PasoRef',f.paso_ref,'PasoOrden',f.paso_orden,'Resultado',f.resultado,'ConMotivoDevolucion',f.motivo_devolucion IS NOT NULL,
         'OriginalHuella',f.original_huella_sha256,'FirmadoHuella',f.firmado_huella_sha256,
         'SelloTiempoEstado',f.sello_tiempo_estado,
         'RegistradaEn',f.registrada_en) ORDER BY f.documento,f.secuencia)

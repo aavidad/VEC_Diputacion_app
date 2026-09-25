@@ -162,7 +162,7 @@ func eventosDocumento(firmas []ports.FirmaRegistrada, documento string) []domain
 		}
 		eventos = append(eventos, domain.EventoFirmaDocumento{
 			Secuencia: f.Secuencia, CatalogoHuella: f.CatalogoHuella, PasoOrden: f.PasoOrden, Resultado: f.Resultado,
-			MotivoDevolucion: f.MotivoDevolucion, OriginalHuella: f.OriginalHuella, FirmadoHuella: f.FirmadoHuella,
+			ConMotivoDevolucion: f.ConMotivoDevolucion, OriginalHuella: f.OriginalHuella, FirmadoHuella: f.FirmadoHuella,
 			ReciboRef: f.ReciboRef, RegistradaEn: f.RegistradaEn,
 		})
 	}
