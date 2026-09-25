@@ -26,6 +26,12 @@ var catalogoSituacionesParticipacion = map[string]struct{}{
 
 // transicionesSituacionParticipacion es provisional por decisión de Dirección
 // hasta la respuesta de RRHH a las dudas 13 y 18. B2 no incorpora readmisión.
+// Replica la tabla de registrar_situacion_participacion_v1 (migración 000012
+// de bolsa_llamamientos, ya instalada) y es el máximo admitido: el catálogo de
+// reglas (b28.transiciones.<origen>) solo puede restringirla en la aplicación.
+// Pendiente como tarea aparte, migración reservada 000032: abrir
+// renuncia→no_disponible para la renuncia justificada del art. 10 y, cuando
+// RRHH confirme el art. 11, cerrar renuncia→disponible también en SQL.
 var transicionesSituacionParticipacion = map[string]map[string]struct{}{
 	SituacionDisponible:             {SituacionNoDisponible: {}, SituacionPendienteIncorporacion: {}, SituacionRenuncia: {}, SituacionExcluido: {}},
 	SituacionNoDisponible:           {SituacionDisponible: {}, SituacionExcluido: {}},

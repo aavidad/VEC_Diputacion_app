@@ -795,3 +795,38 @@ test("B7 lleva el foco al raíl al iniciarse desde teclado", () => {
   assert.deepEqual(focos, ["paso"]);
   assert.equal(renderizados, 1);
 });
+test("la ficha usa las transiciones del catálogo y prellena la reposición solo con catálogo", () => {
+  const { envelopeCandidatos } = construirFixturesDesdeDemo();
+  const datos = validarRespuestaCandidatosBolsa(envelopeCandidatos);
+  let modalFicha = null;
+  const presentador = crearPresentadorPanelInterno({
+    claseEstado: (c) => `chip-${c}`, encabezadoVista: (_s, t) => `<header><h2>${t}</h2></header>`,
+    escaparHTML: (v) => String(v ?? ""), numero: (n) => String(n ?? 0),
+    obtenerDatosPanel: () => ({ esquema: "vec.bolsa.panel.interno.v1" }), tituloVista: (v) => v,
+    obtenerDatosCandidatosBolsa: () => ({ carga: "listo", datos, error: "" }),
+    obtenerEstadoCandidatos: () => ({ estado: "", texto: "" }), obtenerModalFicha: () => modalFicha,
+  });
+  const reglas = {
+    esquema: "vec.bolsa.rrhh.reglas_situacion.v1", configuradas: true,
+    transiciones: { renuncia: ["excluido"], trabajando: ["disponible", "excluido", "disponible_desde"] }, causas_baja: [],
+    reposicion: { modalidades: [{ codigo: "acumulacion_tareas", meses: 9 }], propuesta: { fecha_disponible: "2099-06-30T22:00:00Z", ultimo_dia_no_disponible: "2099-06-30", meses: 5, procedencia: { clave: "b14.reposicion_general", referencia: "r", articulo: "art. 9.1", norma: "Reglamento", ejemplo: false } } },
+  };
+  const formulario = (html) => html.match(/<form data-bolsa-form="cambio-situacion"[\s\S]*?<\/form>/)[0];
+  const renuncia = { ...datos.candidatos[0], estado_clave: "renuncia" };
+  modalFicha = { abierto: true, cambioSituacion: true, candidato: renuncia, bolsa: datos.bolsa };
+  assert.match(formulario(presentador.renderizarVista("bolsa-candidatos")), /<option value="disponible">[\s\S]*<option value="excluido">/);
+  modalFicha = { ...modalFicha, reglasSituacion: reglas };
+  const conCatalogo = formulario(presentador.renderizarVista("bolsa-candidatos"));
+  assert.doesNotMatch(conCatalogo, /<option value="disponible">/);
+  assert.match(conCatalogo, /<option value="excluido">/);
+  const trabajando = { ...datos.candidatos[0], estado_clave: "trabajando" };
+  modalFicha = { abierto: true, cambioSituacion: true, candidato: trabajando, bolsa: datos.bolsa };
+  const sinCatalogo = formulario(presentador.renderizarVista("bolsa-candidatos"));
+  assert.doesNotMatch(sinCatalogo, /data-bolsa-reposicion|Reglamento/);
+  assert.match(sinCatalogo, /<input type="datetime-local" name="fecha_disponible">/);
+  modalFicha = { ...modalFicha, reglasSituacion: reglas };
+  const reposicion = formulario(presentador.renderizarVista("bolsa-candidatos"));
+  assert.match(reposicion, /data-bolsa-reposicion/);
+  assert.match(reposicion, /<input type="datetime-local" name="fecha_disponible" value="2099-0[67]-\d{2}T\d{2}:\d{2}">/);
+  assert.match(reposicion, /Reglamento, art\. 9\.1/);
+});

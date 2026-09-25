@@ -49,6 +49,13 @@ func (s *ServicioSituacionParticipacion) Operar(ctx context.Context, q ports.Sol
 	if ahora.Before(vigente.Desde) {
 		return ports.RegistroSituacionParticipacion{}, dominiobolsa.ErrCambioSituacionParticipacionInvalido
 	}
+	// Si la situación vigente ya es el destino puede tratarse del replay de
+	// esta misma clave: lo resuelve la base de datos, como hasta ahora.
+	if vigente.Situacion != destino {
+		if err := s.transicionAdmitida(ctx, vigente.Situacion, destino); err != nil {
+			return ports.RegistroSituacionParticipacion{}, err
+		}
+	}
 	h := sha256.Sum256([]byte(q.ParticipacionRef + "\x1f" + q.ClaveIdempotencia))
 	recibo := "recibo:situacion:" + hex.EncodeToString(h[:])
 	return repo.RegistrarOperacion(ctx, ports.ComandoOperacionSituacion{ComandoCambiarSituacionParticipacion: ports.ComandoCambiarSituacionParticipacion{Cambio: cambio, Actor: actor, BolsaRef: q.BolsaRef, ClaveIdempotencia: q.ClaveIdempotencia, ReciboRef: recibo, SolicitudAutorizacion: auth, Decision: decision, Confirmacion: confirmacion, Material: material}, Operacion: q.Operacion, Justificante: q.Justificante, Validador: q.Validador, ValidadaEn: ahora})

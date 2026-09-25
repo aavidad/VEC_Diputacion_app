@@ -45,6 +45,32 @@ const (
 	BolsaAgotamiento                  = "b26.agotamiento"
 )
 
+// Reglas de Bolsa que se consultan por prefijo: cada entrada es una opción
+// del catálogo y añadir otra no exige cambiar el código.
+const (
+	// BolsaPrefijoCausaBaja agrupa las causas de baja definitiva (art. 11)
+	// que RRHH elige al excluir; la etiqueta y el artículo salen de la entrada.
+	BolsaPrefijoCausaBaja = "b27.causa_baja."
+	// BolsaPrefijoTransicionesSituacion + situación de origen es una lista con
+	// los destinos admitidos desde ella. Sin entrada rige la tabla compilada;
+	// la entrada solo puede restringirla, porque la base de datos tiene la suya.
+	BolsaPrefijoTransicionesSituacion = "b28.transiciones."
+	// AtributoModalidades es la lista de modalidades de nombramiento a las que
+	// se aplica una regla de reposición distinta de la general.
+	AtributoModalidades = "modalidades"
+)
+
+// Entradas del paquete de ejemplo con esos prefijos.
+const (
+	BolsaCausaBajaNoAcepta                = BolsaPrefijoCausaBaja + "no_acepta"
+	BolsaCausaBajaNoSePresenta            = BolsaPrefijoCausaBaja + "no_se_presenta"
+	BolsaCausaBajaNoAportaDocumentacion   = BolsaPrefijoCausaBaja + "no_aporta_documentacion"
+	BolsaCausaBajaSinContacto             = BolsaPrefijoCausaBaja + "sin_contacto"
+	BolsaCausaBajaRenunciaTrasDisposicion = BolsaPrefijoCausaBaja + "renuncia_tras_disposicion"
+	BolsaCausaBajaRenunciaNombramiento    = BolsaPrefijoCausaBaja + "renuncia_nombramiento"
+	BolsaTransicionesRenuncia             = BolsaPrefijoTransicionesSituacion + "renuncia"
+)
+
 // Reglas de Contratación temporal.
 const (
 	CTPlazoAnalisis               = "c01.plazo_analisis"

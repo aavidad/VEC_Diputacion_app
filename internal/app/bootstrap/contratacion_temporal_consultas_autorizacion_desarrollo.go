@@ -119,6 +119,7 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 			capacidad.ruta == rutaEstadisticasBolsaRRHHDesarrollo ||
 			capacidad.ruta == rutaAvisosBolsaRRHHDesarrollo ||
 			capacidad.ruta == bolsahttp.RutaPlazoRespuestaLlamamiento ||
+			capacidad.ruta == rutaReglasSituacionBolsaDesarrollo ||
 			rutaCalendariosDesarrollo(capacidad.ruta) {
 			// El resolvedor ya ha cotejado la hoja y su cadena mTLS. Revalidar
 			// aquí su ventana también cubre conexiones abiertas antes de caducar.

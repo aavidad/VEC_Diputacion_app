@@ -13,9 +13,9 @@ import {
   validarRespuestaContactos,
   validarRespuestaEstadisticas,
 } from "./portal-bolsas-contrato.js";
-import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL, traducirBolsaInterna, traducirPortal } from "./portal-i18n.js?v=20260925-plazo-regla-v1";
-import { crearControladorOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260923-pweb14-v1";
-import { emitirLlamamiento, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js";
+import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL, traducirBolsaInterna, traducirPortal } from "./portal-i18n.js?v=20260925-reposicion-v1";
+import { crearControladorOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260925-reposicion-v1";
+import { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js";
 export { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js";
 
 export const RUTA_BOLSAS = "/api/vec/bolsa/bolsas";
@@ -1003,7 +1003,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
           if (estado.modalFicha) { estado.modalFicha.errorCambioSituacion = "Indique destino, motivo y la fecha futura cuando corresponda."; renderizar(); }
           return;
         }
-        const fechaDisponible = fecha ? new Date(fecha).toISOString() : null;
+        const fechaDisponible = fecha && situacion === "disponible_desde" ? new Date(fecha).toISOString() : null;
         const huellaComando = JSON.stringify([situacion, motivo, fechaDisponible]);
         let clave = estado.modalFicha?.claveCambioSituacion;
         if (!clave || estado.modalFicha?.huellaCambioSituacion !== huellaComando) {

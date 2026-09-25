@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"slices"
 	"time"
 
 	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
@@ -19,6 +20,9 @@ type ServicioSituacionParticipacion struct {
 	autorizador puertosbolsa.AutorizadorSituacionParticipacionV3
 	repositorio puertosbolsa.RepositorioSituacionParticipacion
 	reloj       func() time.Time
+	// reglas restringe la tabla compilada de transiciones con el catálogo
+	// versionado. Nula: rige solo la tabla compilada.
+	reglas puertosbolsa.ReglasTransicionesSituacion
 }
 
 func NuevoServicioSituacionParticipacion(c puertosbolsa.ResolutorContextoSituacionParticipacion, a puertosbolsa.AutorizadorSituacionParticipacionV3, r puertosbolsa.RepositorioSituacionParticipacion, reloj func() time.Time) (*ServicioSituacionParticipacion, error) {
@@ -26,6 +30,32 @@ func NuevoServicioSituacionParticipacion(c puertosbolsa.ResolutorContextoSituaci
 		return nil, ErrCambioSituacionParticipacionNoDisponible
 	}
 	return &ServicioSituacionParticipacion{contexto: c, autorizador: a, repositorio: r, reloj: reloj}, nil
+}
+
+// EstablecerReglasTransiciones compone el catálogo de transiciones. Se llama
+// solo durante la composición, antes de atender peticiones.
+func (s *ServicioSituacionParticipacion) EstablecerReglasTransiciones(reglas puertosbolsa.ReglasTransicionesSituacion) {
+	if s != nil {
+		s.reglas = reglas
+	}
+}
+
+// transicionAdmitida aplica el catálogo sobre la tabla compilada, que ya ha
+// validado el dominio y replica la base de datos: el catálogo puede cerrar una
+// transición, nunca abrir otra. Un catálogo ilegible no se interpreta como
+// permiso.
+func (s *ServicioSituacionParticipacion) transicionAdmitida(ctx context.Context, origen, destino string) error {
+	if s.reglas == nil {
+		return nil
+	}
+	destinos, configurada, err := s.reglas.DestinosSituacion(ctx, origen)
+	if err != nil {
+		return ErrCambioSituacionParticipacionNoDisponible
+	}
+	if configurada && !slices.Contains(destinos, destino) {
+		return dominiobolsa.ErrCambioSituacionParticipacionInvalido
+	}
+	return nil
 }
 
 func (s *ServicioSituacionParticipacion) Cambiar(ctx context.Context, solicitud puertosbolsa.SolicitudCambiarSituacionParticipacion) (puertosbolsa.RegistroSituacionParticipacion, error) {
@@ -83,6 +113,11 @@ func (s *ServicioSituacionParticipacion) Cambiar(ctx context.Context, solicitud 
 	cambio := dominiobolsa.CambioSituacionParticipacion{ParticipacionRef: solicitud.ParticipacionRef, Origen: vigente.Situacion, Destino: solicitud.Destino, Desde: ahora, Motivo: solicitud.Motivo, FechaDisponible: solicitud.FechaDisponible, RegistradaEn: ahora}
 	if !repeticion && (cambio.Validar() != nil || cambio.Desde.Before(vigente.Desde)) {
 		return puertosbolsa.RegistroSituacionParticipacion{}, dominiobolsa.ErrCambioSituacionParticipacionInvalido
+	}
+	if !repeticion {
+		if err := s.transicionAdmitida(ctx, cambio.Origen, cambio.Destino); err != nil {
+			return puertosbolsa.RegistroSituacionParticipacion{}, err
+		}
 	}
 	h := sha256.Sum256([]byte(solicitud.ParticipacionRef + "\x1f" + solicitud.ClaveIdempotencia))
 	recibo := "recibo:situacion:" + hex.EncodeToString(h[:])

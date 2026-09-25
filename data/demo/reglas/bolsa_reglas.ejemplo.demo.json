@@ -291,7 +291,8 @@
           "inicio": "fin_relacion",
           "computo": "civil",
           "articulo": "art. 9.1",
-          "vigencia": "Entrada en vigor calculada: el texto íntegro se publicó en el BOP n.º 9 de 16/01/2026; el art. 70.2 de la Ley 7/1985 exige además que transcurran los 15 días hábiles del art. 65.2, contados aquí desde el día siguiente a esa publicación (sin sábados, domingos ni festivos, art. 30.2 de la Ley 39/2015): terminan el 06/02/2026 y el Reglamento rige desde el 07/02/2026 (00:00, hora peninsular). La modificación del BOP n.º 91 de 14/05/2026 cita el Reglamento como publicado en los BOP de 16/01/2026 y 27/01/2026; si el anuncio del 27/01/2026 completó o corrigió el texto, el cómputo empezaría ese día y la fecha pasaría al 18/02/2026. Pendiente de confirmar por RRHH."
+          "vigencia": "Entrada en vigor calculada: el texto íntegro se publicó en el BOP n.º 9 de 16/01/2026; el art. 70.2 de la Ley 7/1985 exige además que transcurran los 15 días hábiles del art. 65.2, contados aquí desde el día siguiente a esa publicación (sin sábados, domingos ni festivos, art. 30.2 de la Ley 39/2015): terminan el 06/02/2026 y el Reglamento rige desde el 07/02/2026 (00:00, hora peninsular). La modificación del BOP n.º 91 de 14/05/2026 cita el Reglamento como publicado en los BOP de 16/01/2026 y 27/01/2026; si el anuncio del 27/01/2026 completó o corrigió el texto, el cómputo empezaría ese día y la fecha pasaría al 18/02/2026. Pendiente de confirmar por RRHH.",
+          "modalidades": "acumulacion_tareas"
         },
         "orden": 17
       },
@@ -497,6 +498,106 @@
           "vigencia": "Entrada en vigor calculada: el texto íntegro se publicó en el BOP n.º 9 de 16/01/2026; el art. 70.2 de la Ley 7/1985 exige además que transcurran los 15 días hábiles del art. 65.2, contados aquí desde el día siguiente a esa publicación (sin sábados, domingos ni festivos, art. 30.2 de la Ley 39/2015): terminan el 06/02/2026 y el Reglamento rige desde el 07/02/2026 (00:00, hora peninsular). La modificación del BOP n.º 91 de 14/05/2026 cita el Reglamento como publicado en los BOP de 16/01/2026 y 27/01/2026; si el anuncio del 27/01/2026 completó o corrigió el texto, el cómputo empezaría ese día y la fecha pasaría al 18/02/2026. Pendiente de confirmar por RRHH."
         },
         "orden": 29
+      },
+      {
+        "clave": "b27.causa_baja.no_acepta",
+        "etiqueta": "No acepta el llamamiento",
+        "descripcion": "En el llamamiento directo, no aceptar el puesto ofrecido sin una causa justificada del art. 10.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "reglamento",
+          "norma": "Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002)",
+          "duda": "Duda 62.",
+          "unidad": "ninguna",
+          "articulo": "art. 11.1.a"
+        },
+        "orden": 30
+      },
+      {
+        "clave": "b27.causa_baja.no_se_presenta",
+        "etiqueta": "No se presenta en el día y lugar indicados",
+        "descripcion": "No presentarse en el día y lugar indicados por la Administración sin una causa justificada del art. 10.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "reglamento",
+          "norma": "Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002)",
+          "duda": "Duda 62.",
+          "unidad": "ninguna",
+          "articulo": "art. 11.1.a y b"
+        },
+        "orden": 31
+      },
+      {
+        "clave": "b27.causa_baja.no_aporta_documentacion",
+        "etiqueta": "No aporta la documentación requerida",
+        "descripcion": "No aportar la documentación requerida sin una causa justificada del art. 10.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "reglamento",
+          "norma": "Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002)",
+          "duda": "Duda 62.",
+          "unidad": "ninguna",
+          "articulo": "art. 11.1.a y b"
+        },
+        "orden": 32
+      },
+      {
+        "clave": "b27.causa_baja.sin_contacto",
+        "etiqueta": "Sin contacto tras dos procesos de llamamiento",
+        "descripcion": "No ha sido posible contactar tras dos procesos de llamamiento telefónico en un mismo ofrecimiento.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "reglamento",
+          "norma": "Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002)",
+          "duda": "Dudas 13 y 14.",
+          "unidad": "ninguna",
+          "articulo": "art. 11.1.a"
+        },
+        "orden": 33
+      },
+      {
+        "clave": "b27.causa_baja.renuncia_tras_disposicion",
+        "etiqueta": "Renuncia tras manifestar su disposición",
+        "descripcion": "En la publicación de llamamientos, renunciar después de haber manifestado la disposición para el puesto.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "reglamento",
+          "norma": "Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002)",
+          "duda": "Duda 62.",
+          "unidad": "ninguna",
+          "articulo": "art. 11.1.b"
+        },
+        "orden": 34
+      },
+      {
+        "clave": "b27.causa_baja.renuncia_nombramiento",
+        "etiqueta": "Renuncia a un nombramiento o contrato vigente",
+        "descripcion": "Renunciar a un nombramiento o contrato en curso, salvo el ofrecimiento de una vacante.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "reglamento",
+          "norma": "Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002)",
+          "duda": "El art. 11.2 remite al art. 9.4, pero la excepción de vacantes figura en el apartado 3 del art. 9.",
+          "unidad": "ninguna",
+          "articulo": "art. 11.2"
+        },
+        "orden": 35
+      },
+      {
+        "clave": "b28.transiciones.renuncia",
+        "etiqueta": "Situaciones posibles tras una renuncia",
+        "descripcion": "Una renuncia no justificada supone la baja definitiva; ya no puede volver directamente a «disponible».",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "reglamento",
+          "norma": "Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002)",
+          "duda": "Duda 62. La renuncia justificada (art. 10) conserva la posición como no disponible hasta que termine la causa; ese paso exige una migración de base de datos pendiente (000032).",
+          "unidad": "lista",
+          "valor": "excluido",
+          "articulo": "arts. 10 y 11.1",
+          "ejemplo_parcial": "Que la renuncia justificada se registre como «no disponible» desde el principio es un criterio de trabajo hasta que exista ese paso."
+        },
+        "orden": 36
       }
     ],
     "estado": "publicado",
