@@ -98,11 +98,21 @@ la petición debe resolver F1 y V3 contra PostgreSQL en vivo.
 
 ```bash
 python3 "$SCRIPT" --material-dir "$MATERIAL" register-person \
-  --subject-id "$PERSONA_REF" --account-id "$CUENTA_REF"
+  --subject-id "$PERSONA_REF" --account-id "$CUENTA_EXTERNA_REF"
 python3 "$SCRIPT" --material-dir "$MATERIAL" register-context \
   --account-id "$CUENTA_REF" --profile-id "$PERFIL_REF" \
   --organization-ref "$ORGANIZACION_CT_REF" --unit-ref "$UNIDAD_CT_REF"
 ```
+
+`$CUENTA_EXTERNA_REF` es la cuenta que declara la aserción del certificado y
+**nunca** coincide con `$CUENTA_REF`, la cuenta interna de Identidad/F1: el
+registro de sesión rechaza cualquier referencia devuelta que proceda de la
+entrada. Ambas se enlazan con un alias HMAC en
+`vec_identidad_sesiones_v1.alias_hmac_cuenta`, calculado con la clave del
+token (`hmac.json`) y registrado mediante
+`registrar_alias_hmac_cuenta_v1`. Este script todavía no incluye ese paso;
+sin el alias la sesión termina en 401. `--unit-ref` admite la referencia
+opaca `ref:…` o la nominal `unidad:…` que ya usa el seguimiento CT.
 
 `identidad/certificados.json` es el registro de admisión vivo. `init-ca`
 emite también `identidad/clientes.crl`, CRL X.509 vacía y firmada. La
@@ -157,7 +167,7 @@ no mostrar contraseñas. El estado de credenciales se conserva en
 `pools-state.json` antes de la transacción, para repetirla con los mismos LOGIN.
 
 En una base ya restaurada con preimagen canónica CT `000108`, Identidad
-`000005`, Personal BASE `000010`, AD3 y las ACL nominales intactas, el instalador
+`000005`, Personal BASE `000010`–`000011`, AD3 y las ACL nominales intactas, el instalador
 de deltas nuevos exige además Identidad `000004` y ausencia exacta de
 Contexto `000006`, Identidad `000006`, Personal `000010a`, CT identidad
 `000002` y AD3 `000050a`. Lee las fuentes `.up.sql` canónicas,

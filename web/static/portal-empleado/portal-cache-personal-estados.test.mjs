@@ -36,6 +36,11 @@ test("una caché caliente descarga el grafo renovado hasta Personal i18n", async
     [`/portal-empleado/portal-modulos-coordinador.js?v=${versionCoordinador}`, "/* coordinador anterior de paradas */"],
     ["/portal-empleado/modulos/personal/vista.js?v=20260924-f2-cache-v3", "/* vista anterior */"],
     ["/portal-empleado/modulos/personal/i18n.js?v=20260924-f2-web2", "/* i18n anterior */"],
+    // Publicadas antes del i18n de organización histórica.
+    ["/portal-empleado/portal.js?v=20260925-aspecto-v1", "/* portal anterior del aspecto */"],
+    ["/portal-empleado/portal-modulos-coordinador.js?v=20260925-aspecto-v1", "/* coordinador anterior del aspecto */"],
+    [`/portal-empleado/modulos/personal/vista.js?v=${versionNueva}`, "/* vista anterior de estados */"],
+    [`/portal-empleado/modulos/personal/i18n.js?v=${versionI18n}`, "/* i18n anterior de estados */"],
   ]);
   const urlsAntiguas = new Set(cache.keys());
   const descargas = new Set();
@@ -57,17 +62,17 @@ test("una caché caliente descarga el grafo renovado hasta Personal i18n", async
   const portal = await cargar("portal.js", entrada);
   const coordinadorVigente = exigirVersiones(portal, "./portal-modulos-coordinador.js", posterior(versionCoordinador));
   const coordinador = await cargar("portal-modulos-coordinador.js", coordinadorVigente);
-  assert.deepEqual(versiones(coordinador, "./modulos/personal/vista.js"), [versionNueva, versionNueva],
-    "presentación e interno usan la misma vista renovada");
-  const vista = await cargar("modulos/personal/vista.js", versionNueva);
-  assert.deepEqual(versiones(vista, "./i18n.js"), [versionI18n]);
-  await cargar("modulos/personal/i18n.js", versionI18n);
+  // presentación e interno usan la misma vista renovada
+  const vistaVigente = exigirVersiones(coordinador, "./modulos/personal/vista.js", posterior(versionNueva), 2);
+  const vista = await cargar("modulos/personal/vista.js", vistaVigente);
+  const i18nVigente = exigirVersiones(vista, "./i18n.js", posterior(versionI18n));
+  await cargar("modulos/personal/i18n.js", i18nVigente);
 
   assert.deepEqual(descargas, new Set([
     `/portal-empleado/portal.js?v=${entrada}`,
     `/portal-empleado/portal-modulos-coordinador.js?v=${coordinadorVigente}`,
-    `/portal-empleado/modulos/personal/vista.js?v=${versionNueva}`,
-    `/portal-empleado/modulos/personal/i18n.js?v=${versionI18n}`,
+    `/portal-empleado/modulos/personal/vista.js?v=${vistaVigente}`,
+    `/portal-empleado/modulos/personal/i18n.js?v=${i18nVigente}`,
   ]));
   assert.deepEqual(hitsAntiguos, [], "ninguna respuesta immutable antigua se reutiliza");
 });

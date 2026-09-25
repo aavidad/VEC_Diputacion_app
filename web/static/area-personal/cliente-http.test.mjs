@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { crearAdaptadorPresentacion } from "./adaptador-presentacion.js";
 import { crearClienteHTTPAreaPersonal, ErrorClienteAreaPersonal } from "./cliente-http.js";
 
 function respuestaJSON(datos, estado = 200) {
@@ -101,8 +100,9 @@ test("un fichero no sale por JSON si el puerto documental no está compuesto", a
 });
 
 test("el cliente HTTP rechaza un contrato que no sea mi-bolsa", async () => {
-  const demo = await crearAdaptadorPresentacion().cargar();
-  const cliente = crearClienteHTTPAreaPersonal({ fetchImpl: async () => respuestaJSON({ data: demo }) });
+  // Doble mínimo del panel agregado: otro esquema que el cliente no debe aceptar.
+  const panel = { meta: { esquema: "vec.bolsa.area-personal.v1", presentacion: false, origen: "prueba", generado_en: "2026-07-18T09:00:00Z" } };
+  const cliente = crearClienteHTTPAreaPersonal({ fetchImpl: async () => respuestaJSON({ data: panel }) });
   await assert.rejects(() => cliente.cargar(), /mi-bolsa\.esquema/u);
 });
 
@@ -135,6 +135,11 @@ test("una acción real exige confirmación, idempotencia y recibo productivo", a
   assert.match(peticion.opciones.headers["X-Idempotency-Key"], /^WEB-[0-9a-f-]{36}$/u);
   assert.equal(peticion.opciones.headers.Authorization, undefined);
   assert.equal(peticion.opciones.headers.Cookie, undefined);
+
+  for (const alterado of [{ ...recibo, presentacion: true }, { ...recibo, esquema: "vec.bolsa.area-personal.recibo-demo.v1" }]) {
+    const rechazo = crearClienteHTTPAreaPersonal({ fetchImpl: async () => respuestaJSON({ data: { recibo: alterado, resultado: { version: "1" } } }, 201) });
+    await assert.rejects(() => rechazo.ejecutar({ accion: "guardar_borrador", payload: { convocatoria_id: "CONV-PRUEBA-0001" }, confirmacion: true, capacidad: true }));
+  }
 });
 
 test("una respuesta no JSON o excesiva falla cerrada", async () => {

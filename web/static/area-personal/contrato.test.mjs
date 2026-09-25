@@ -2,18 +2,47 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { crearAdaptadorPresentacion } from "./adaptador-presentacion.js";
 import {
   CONTRATO_AREA_PERSONAL,
   MOTIVOS_PAUSA_DISPONIBILIDAD,
   RESULTADOS_LLAMAMIENTO,
   SITUACIONES_PARTICIPACION_BOLSA,
-  esModoPresentacion,
   validarDatosAreaPersonal,
   validarRespuestaMiBolsa,
   validarPayloadCambiarDisponibilidad,
   validarRecibo,
 } from "./contrato.js";
+
+// Doble mínimo del panel del área personal con todos los campos obligatorios
+// del contrato; cada prueba altera solo lo que comprueba.
+function panelPrueba() {
+  return {
+    meta: { esquema: "vec.bolsa.area-personal.v1", presentacion: false, origen: "GET /api/vec/bolsa/area-personal", generado_en: "2026-07-18T09:00:00Z" },
+    sesion: { nombre_visible: "Persona de prueba", iniciales: "PP", metodo: "Certificado", persona_ref: "persona:prueba:0001" },
+    resumen: { acciones_pendientes: 0, convocatorias_abiertas: 0, solicitudes_activas: 0, mensajes_no_leidos: 0, puntuacion_provisional: 0 },
+    perfil: { referencia: "perfil:prueba:0001", nombre_visible: "Persona de prueba", identificador_visible: "ID-PRUEBA", correo: "persona@prueba.test", telefono: "600000000", domicilio: "Calle de prueba", estado_verificacion: "Verificado" },
+    plazos: [], convocatorias: [], meritos: [], solicitudes: [], baremo: [],
+    llamamientos: [{ id: "LLA-0001", bolsa: "Bolsa de prueba", puesto: "Puesto de prueba", plazo: "48 horas", estado: "Pendiente de respuesta" }],
+    subsanaciones: [], alegaciones: [], mensajes: [], certificados: [], documentos: [], actividad: [],
+    disponibilidad: { disponible: true, estado: "Disponible" },
+    ayuda: [], capacidades: {},
+  };
+}
+
+function reciboPrueba(campos = {}) {
+  return {
+    esquema: "vec.bolsa.area-personal.recibo.v1",
+    presentacion: false,
+    referencia: "REC-PRUEBA-0001",
+    accion: "guardar_borrador",
+    objetivo: "persona:prueba:0001",
+    resultado: "Borrador guardado",
+    actor: "persona:prueba:0001",
+    fecha: "2026-07-18T09:00:00Z",
+    advertencia: "Conserve este recibo para futuras comprobaciones.",
+    ...campos,
+  };
+}
 
 test("mi bolsa valida la situación actual sin exigirla a la respuesta antigua", () => {
   const base = { data: { esquema: "vec.bolsa.mi-bolsa.v1", consultada_en: "2026-09-23T10:00:00.000Z", participaciones: [
@@ -41,76 +70,35 @@ test("mi bolsa admite solo el resultado mínimo del llamamiento propio", () => {
   assert.throws(() => validarRespuestaMiBolsa(base), /último llamamiento propio/u);
 });
 
-test("el selector de presentación es único y explícito", () => {
-  assert.equal(esModoPresentacion(new URLSearchParams("presentacion=rrhh")), true);
-  assert.equal(esModoPresentacion(new URLSearchParams("presentacion=aspirante")), false);
-  assert.equal(esModoPresentacion(new URLSearchParams()), false);
-  assert.equal(esModoPresentacion(new URLSearchParams("presentacion=RRHH")), false);
-  assert.throws(
-    () => esModoPresentacion(new URLSearchParams("presentacion=rrhh&presentacion=otro")),
-    /selector de presentación es ambiguo/iu,
-  );
-});
-
-test("el contrato acepta el juego mixto de presentación y lo congela", async () => {
-  const datos = await crearAdaptadorPresentacion().cargar();
-  assert.equal(datos.meta.presentacion, true);
-  assert.equal(datos.meta.esquema, "vec.bolsa.area-personal.v1");
+test("el contrato acepta el panel productivo y lo congela", () => {
+  const datos = validarDatosAreaPersonal(panelPrueba());
+  assert.equal(datos.meta.presentacion, false);
   assert.equal(Object.isFrozen(datos), true);
-  assert.equal(Object.isFrozen(datos.convocatorias), true);
-  assert.ok(datos.sesion.persona_ref.startsWith("DEMO-"));
-  assert.ok(datos.perfil.referencia.startsWith("DEMO-"));
+  assert.equal(Object.isFrozen(datos.llamamientos), true);
 });
 
-test("la presentación rechaza DNI o NIE formalmente válidos", async () => {
-  const datos = structuredClone(await crearAdaptadorPresentacion().cargar());
-  datos.perfil.identificador_visible = "12345678Z";
-  assert.throws(
-    () => validarDatosAreaPersonal(datos, { presentacionEsperada: true }),
-    /no admite DNI o NIE/,
-  );
+test("un panel que no declara presentacion false no pasa por el contrato", () => {
+  for (const valor of [true, undefined, "false"]) {
+    const datos = panelPrueba();
+    datos.meta.presentacion = valor;
+    assert.throws(() => validarDatosAreaPersonal(datos), /meta\.presentacion|origen no corresponde/u);
+  }
 });
 
-test("la presentación solo acepta correos reservados .test", async () => {
-  const datos = structuredClone(await crearAdaptadorPresentacion().cargar());
-  datos.perfil.correo = "persona@example.com";
-  assert.throws(
-    () => validarDatosAreaPersonal(datos, { presentacionEsperada: true }),
-    /dominio \.test/,
-  );
+test("el recibo solo admite el esquema productivo sin modo de presentación", () => {
+  assert.equal(validarRecibo(reciboPrueba()).presentacion, false);
+  assert.throws(() => validarRecibo(reciboPrueba({ esquema: "vec.bolsa.area-personal.recibo-demo.v1" })), /esquema del recibo no es compatible/u);
+  assert.throws(() => validarRecibo(reciboPrueba({ presentacion: true })), /no corresponde al modo activo/u);
+  assert.equal(CONTRATO_AREA_PERSONAL.esquemaReciboPresentacion, undefined);
 });
 
-test("un origen sintético nunca pasa por el contrato productivo", async () => {
-  const datos = await crearAdaptadorPresentacion().cargar();
-  assert.throws(
-    () => validarDatosAreaPersonal(datos, { presentacionEsperada: false }),
-    /origen no coincide/,
-  );
-});
-
-test("el recibo DEMO es inequívoco y no pasa como recibo real", () => {
-  const entrada = {
-    esquema: "vec.bolsa.area-personal.recibo-demo.v1",
-    presentacion: true,
-    referencia: "DEMO-REC-0001",
-    accion: "guardar_borrador",
-    objetivo: "DEMO-CONV-001",
-    resultado: "Simulación completada sin efectos administrativos",
-    actor: "Persona Aspirante de Demostración",
-    fecha: "2026-07-18T09:00:00Z",
-    advertencia: "RECIBO DEMO · Sin validez administrativa.",
-  };
-  assert.equal(validarRecibo(entrada, { presentacionEsperada: true }).presentacion, true);
-  assert.throws(() => validarRecibo(entrada, { presentacionEsperada: false }), /esquema del recibo no es compatible/);
-});
-
-test("el contrato valida los campos ampliados de disponibilidad (B11)", async () => {
-  const base = structuredClone(await crearAdaptadorPresentacion().cargar());
+test("el contrato valida los campos ampliados de disponibilidad (B11)", () => {
+  const base = panelPrueba();
   base.disponibilidad.estado_clave = "ocupado";
   base.disponibilidad.estado_desde = "2026-07-01T08:00:00Z";
   base.disponibilidad.disponible_desde = "2026-10-01";
   base.disponibilidad.motivo_visible = "Incorporación temporal";
-  const validado = validarDatosAreaPersonal(base, { presentacionEsperada: true });
+  const validado = validarDatosAreaPersonal(base);
   assert.equal(validado.disponibilidad.estado_clave, "ocupado");
   assert.equal(validado.disponibilidad.disponible_desde, "2026-10-01");
   assert.equal(validado.disponibilidad.motivo_visible, "Incorporación temporal");
@@ -118,29 +106,29 @@ test("el contrato valida los campos ampliados de disponibilidad (B11)", async ()
   // Rechaza estado_clave fuera de catálogo
   base.disponibilidad.estado_clave = "invalido";
   assert.throws(
-    () => validarDatosAreaPersonal(base, { presentacionEsperada: true }),
+    () => validarDatosAreaPersonal(base),
     /estado_clave no reconocido en el catálogo/u,
   );
 });
 
-test("el contrato valida canal, comunicado_en y resultado_clave en llamamientos", async () => {
-  const base = structuredClone(await crearAdaptadorPresentacion().cargar());
+test("el contrato valida canal, comunicado_en y resultado_clave en llamamientos", () => {
+  const base = panelPrueba();
   base.llamamientos[0].canal = "Sede electrónica";
   base.llamamientos[0].comunicado_en = "2026-07-17T10:30:00Z";
   base.llamamientos[0].resultado_clave = "aceptado";
-  const validado = validarDatosAreaPersonal(base, { presentacionEsperada: true });
+  const validado = validarDatosAreaPersonal(base);
   assert.equal(validado.llamamientos[0].resultado_clave, "aceptado");
 
   // Rechaza resultado_clave desconocido
   base.llamamientos[0].resultado_clave = "rechazo_desconocido";
   assert.throws(
-    () => validarDatosAreaPersonal(base, { presentacionEsperada: true }),
+    () => validarDatosAreaPersonal(base),
     /resultado_clave no reconocido en el catálogo/u,
   );
 });
 
-test("el contrato valida la sección Mi posición (B11)", async () => {
-  const base = structuredClone(await crearAdaptadorPresentacion().cargar());
+test("el contrato valida la sección Mi posición (B11)", () => {
+  const base = panelPrueba();
   base.posicion = {
     bolsa: "Bolsa de empleo de Operario",
     categoria: "Operario/a",
@@ -149,7 +137,7 @@ test("el contrato valida la sección Mi posición (B11)", async () => {
     puntuacion: 22.5,
     vigente_desde: "2026-06-01",
   };
-  const validado = validarDatosAreaPersonal(base, { presentacionEsperada: true });
+  const validado = validarDatosAreaPersonal(base);
   assert.equal(validado.posicion.orden, 3);
   assert.equal(validado.posicion.total, 120);
 
@@ -157,33 +145,26 @@ test("el contrato valida la sección Mi posición (B11)", async () => {
   const invalido = structuredClone(base);
   delete invalido.posicion.orden;
   assert.throws(
-    () => validarDatosAreaPersonal(invalido, { presentacionEsperada: true }),
+    () => validarDatosAreaPersonal(invalido),
     /posicion\.orden debe ser un número/u,
   );
 });
 
 test("el recibo de cambiar_disponibilidad devuelve estado_clave y disponible_desde (B8)", () => {
-  const reciboValido = {
-    esquema: "vec.bolsa.area-personal.recibo-demo.v1",
-    presentacion: true,
-    referencia: "DEMO-REC-0010",
+  const reciboValido = reciboPrueba({
     accion: "cambiar_disponibilidad",
-    objetivo: "DEMO-PER-0001",
-    resultado: "Simulación completada sin efectos administrativos",
-    actor: "Persona Aspirante de Demostración",
-    fecha: "2026-07-18T09:00:00Z",
-    advertencia: "RECIBO DEMO · Sin validez administrativa.",
+    resultado: "Disponibilidad actualizada",
     estado_clave: "no_disponible",
     disponible_desde: "2026-11-01",
-  };
-  const validado = validarRecibo(reciboValido, { presentacionEsperada: true });
+  });
+  const validado = validarRecibo(reciboValido);
   assert.equal(validado.estado_clave, "no_disponible");
   assert.equal(validado.disponible_desde, "2026-11-01");
 
   const reciboInvalido = structuredClone(reciboValido);
   reciboInvalido.estado_clave = "estado_inexistente";
   assert.throws(
-    () => validarRecibo(reciboInvalido, { presentacionEsperada: true }),
+    () => validarRecibo(reciboInvalido),
     /estado_clave no reconocido en el catálogo/u,
   );
 });
@@ -256,7 +237,7 @@ test("el contrato procesa fixtures derivadas del dataset sintético con mapeo de
   assert.ok(raw.candidaturas?.length > 0);
   assert.ok(raw.llamamientos?.length > 0);
 
-  const base = structuredClone(await crearAdaptadorPresentacion().cargar());
+  const base = panelPrueba();
 
   // Tomamos una muestra de candidaturas del dataset
   for (const c of raw.candidaturas.slice(0, 10)) {
@@ -283,7 +264,7 @@ test("el contrato procesa fixtures derivadas del dataset sintético con mapeo de
     const llamamientosCandidatura = raw.llamamientos.filter((l) => l.candidatura_ref === c.candidatura_ref);
     if (llamamientosCandidatura.length > 0) {
       base.llamamientos = llamamientosCandidatura.map((l, i) => ({
-        id: `DEMO-LLA-${String(i + 1).padStart(4, "0")}`,
+        id: `LLA-${String(i + 1).padStart(4, "0")}`,
         bolsa: base.posicion.bolsa,
         puesto: l.puesto || "Puesto de bolsa",
         plazo: l.plazo_respuesta_hasta || "48 horas",
@@ -294,7 +275,7 @@ test("el contrato procesa fixtures derivadas del dataset sintético con mapeo de
       }));
     }
 
-    const resultado = validarDatosAreaPersonal(base, { presentacionEsperada: true });
+    const resultado = validarDatosAreaPersonal(base);
     assert.equal(resultado.disponibilidad.estado_clave, estadoMapeado);
     assert.equal(resultado.posicion.orden, c.orden);
   }

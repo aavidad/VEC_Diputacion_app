@@ -8,7 +8,9 @@ import (
 
 	dietascomp "vec-diputacion-granada/internal/modules/dietas/adapters/composicion"
 	personalcomp "vec-diputacion-granada/internal/modules/personal/adapters/composicion"
+	personalhttp "vec-diputacion-granada/internal/modules/personal/adapters/httpinterno"
 	personaldomain "vec-diputacion-granada/internal/modules/personal/domain"
+	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
@@ -62,8 +64,34 @@ func (i *identidadPersonalDietas) ResolverIdentidadRegistradaBorrador(ctx contex
 	return dietascomp.IdentidadRegistradaBorrador{Contexto: base.Resultado, Vinculo: base.Vinculo, FechaReferencia: fecha}, nil
 }
 
+func (i *identidadPersonalDietas) ResolverIdentidadRelacionesDietas(ctx context.Context) (vecdomain.ContextoActor, personaldomain.FechaCivil, error) {
+	base, err := i.ResolverIdentidadRegistradaBorrador(ctx)
+	if err != nil {
+		return vecdomain.ContextoActor{}, "", ErrIdentidadPersonalDietasNoDisponible
+	}
+	actor, err := base.Contexto.Contexto.Clonar()
+	if err != nil {
+		return vecdomain.ContextoActor{}, "", ErrIdentidadPersonalDietasNoDisponible
+	}
+	return actor, base.FechaReferencia, nil
+}
+
+func (i *identidadPersonalDietas) ResolverIdentidadAsignacionDietas(ctx context.Context) (vecdomain.ContextoActor, error) {
+	base, err := i.ResolverIdentidadRelacionDietas(ctx)
+	if err != nil {
+		return vecdomain.ContextoActor{}, ErrIdentidadPersonalDietasNoDisponible
+	}
+	actor, err := base.Resultado.Contexto.Clonar()
+	if err != nil {
+		return vecdomain.ContextoActor{}, ErrIdentidadPersonalDietasNoDisponible
+	}
+	return actor, nil
+}
+
 var _ personalcomp.ResolutorIdentidadRelacionDietas = (*identidadPersonalDietas)(nil)
 var _ dietascomp.ResolutorIdentidadRegistradaBorrador = (*identidadPersonalDietas)(nil)
+var _ personalhttp.ResolutorIdentidadRelacionesDietas = (*identidadPersonalDietas)(nil)
+var _ personalhttp.ResolutorIdentidadAsignacionDietas = (*identidadPersonalDietas)(nil)
 
 func dependenciaDietasNula(valor any) bool {
 	if valor == nil {

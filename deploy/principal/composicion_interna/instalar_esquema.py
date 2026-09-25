@@ -59,7 +59,8 @@ def build(finish: str) -> tuple[str, dict[str, str]]:
    WHERE c.oid='vec_personal.org_nodo_historia'::regclass
      AND c.relowner='vec_personal_propietario'::regrole
      AND c.relrowsecurity AND c.relforcerowsecurity)
- OR to_regprocedure('vec_personal.consultar_organizacion_historica_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea,bytea,bytea)') IS NULL
+ OR to_regprocedure('vec_personal.consultar_organizacion_historica_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
+ OR to_regprocedure('vec_personal.ejecutar_importacion_organizacion_v1(text,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
  OR to_regrole('vec_contratacion_temporal_registrador_frontera') IS NULL
  OR to_regprocedure('vec_contratacion_temporal.registrar_auditoria_frontera_ruta_exacta_v1(text,text,text,text,text)') IS NULL
  OR to_regprocedure('vec_contexto_actor_v1.acreditar_uso_registro_contexto_actor_v2(text,text,text,text,text,text,numeric,text,numeric,text,numeric,text,numeric,text,text,timestamptz,timestamptz)') IS NULL
@@ -76,7 +77,9 @@ END $preimagen$;"""]
             fail("fuente canónica de migración ausente")
         contents = path.read_bytes()
         hashes[relative] = hashlib.sha256(contents).hexdigest()
-        sql += [f"-- INICIO {relative}", body(contents), f"-- FIN {relative}"]
+        # Cada delta fija su propio SET LOCAL ROLE; se restituye el administrador
+        # antes del siguiente para que ninguno herede la identidad del anterior.
+        sql += [f"-- INICIO {relative}", body(contents), "RESET ROLE;", f"-- FIN {relative}"]
     sql.append(finish + ";")
     return "\n".join(sql), hashes
 

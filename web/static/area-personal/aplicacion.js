@@ -74,8 +74,14 @@ export function esOrigenSinteticoODesarrollo(meta = {}) {
     .some((declaracion) => /\bsint(?:e|é)tic(?:o|a|os|as)?\b|\bdesarrollo\b/iu.test(declaracion));
 }
 
-export function exigirSinPresentacion(parametros) {
-  if (parametros.has("presentacion")) throw new TypeError("El modo de presentación no está disponible en el área personal.");
+// Únicos parámetros que el área personal genera en sus propias URL; cualquier
+// otro (incluido el antiguo `?presentacion=`) detiene el arranque.
+const PARAMETROS_URL_ADMITIDOS = Object.freeze(new Set(["vista", "id"]));
+
+export function exigirParametrosConocidos(parametros) {
+  for (const nombre of parametros.keys()) {
+    if (!PARAMETROS_URL_ADMITIDOS.has(nombre)) throw new TypeError("La dirección contiene parámetros no admitidos en el área personal.");
+  }
 }
 
 export function exigirDatosOperativos(datos) {
@@ -721,7 +727,7 @@ export async function iniciarAreaPersonal({ cliente, descargarReciboPDF = null, 
     throw new TypeError("El cliente inyectado no respeta el contrato del área personal.");
   }
   const parametros = new URLSearchParams(window.location.search);
-  exigirSinPresentacion(parametros);
+  exigirParametrosConocidos(parametros);
   const estado = {
     cliente,
     descargarReciboPDF,

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	cronosapp "vec-diputacion-granada/internal/modules/cronos/application"
 
 	"github.com/jackc/pgx/v5"
 	"vec-diputacion-granada/internal/modules/bolsa/ports"
@@ -36,11 +37,11 @@ func (tx *txGobiernoContinuidadPrueba) QueryRow(
 			*destinos[1].(*int64) = 1
 			return nil
 		case strings.Contains(sql, "c.audiencia_consumo IN"):
-			if len(args) != 22 {
+			if len(args) != 47 {
 				return errors.New("numero de audiencias de gobierno inesperado")
 			}
 			admitida := false
-			for _, indice := range []int{0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21} {
+			for _, indice := range []int{0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46} {
 				if args[indice] == tx.audienciaActual {
 					admitida = true
 				}
@@ -76,6 +77,31 @@ func TestGobiernoPostgreSQLContinuidadNominalAD330YAD331(t *testing.T) {
 		audienciaConsumoPersonalDietasDesarrollo,
 		audienciaConsumoCrearDietasDesarrollo,
 		audienciaConsumoConsultarDietasDesarrollo,
+		audienciaConsumoEditarDietasDesarrollo,
+		audienciaConsumoBorrarDietasDesarrollo,
+		audienciaConsumoEnviarDietasDesarrollo,
+		audienciaConsumoDocumentoDietasDesarrollo,
+		audienciaConsumoConsultarAsignacionDietas,
+		audienciaConsumoRegistrarAsignacionDietas,
+		audienciaConsumoCorregirAsignacionDietas,
+		audienciaConsumoCorregirGrupoDietas,
+		audienciaConsumoRevisarDietas,
+		audienciaConsumoAutorizarDietas,
+		audienciaConsumoLiquidarDietas,
+		audienciaConsumoFiscalizarDietas,
+		audienciaConsumoBandejaRevisionDietas,
+		audienciaConsumoBandejaAutorizacionDietas,
+		audienciaConsumoBandejaLiquidacionDietas,
+		audienciaConsumoBandejaFiscalizacionDietas,
+		audienciaConsumoRevisorDocumentoDietas,
+		cronosapp.AudienciaMarcajePropio,
+		cronosapp.AudienciaDisponibilidadMarcajeRemoto,
+		cronosapp.AudienciaRecuperacionMarcajeRemoto,
+		cronosapp.AudienciaConsultaSaldoPropio,
+		cronosapp.AudienciaConsultaMovimientosPropios,
+		cronosapp.AudienciaSolicitudCorreccionPropia,
+		cronosapp.AudienciaConsultaPermisosPropios,
+		cronosapp.AudienciaSolicitudPermisoPropio,
 	}
 	for _, audiencia := range audienciasPropias {
 		t.Run(audiencia, func(t *testing.T) {
@@ -110,5 +136,21 @@ func TestAudienciasDietasPublicablesPorElGobiernoCT(t *testing.T) {
 		if !audienciaConsumoGobiernoPostgreSQLContratacionTemporalDesarrolloEsPropia(d.Audiencia) {
 			t.Fatalf("audiencia de Dietas no publicable por CT: %s", d.Audiencia)
 		}
+	}
+}
+
+func TestAudienciasCronosPublicablesPorElGobiernoCT(t *testing.T) {
+	descriptores := descriptoresMaterialCronosDesarrollo()
+	audiencias := audienciasCronosEmpleadoDesarrollo()
+	if len(descriptores) != len(audiencias) {
+		t.Fatal("descriptores y audiencias de Cronos divergen")
+	}
+	for i, d := range descriptores {
+		if d.Audiencia != audiencias[i] || !audienciaConsumoGobiernoPostgreSQLContratacionTemporalDesarrolloEsPropia(d.Audiencia) {
+			t.Fatalf("audiencia de Cronos no publicable por CT: %s", d.Audiencia)
+		}
+	}
+	if _, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(append(descriptoresMaterialDietasDesarrollo(), descriptores...)); err != nil {
+		t.Fatal("Cronos colisiona con Dietas en el catálogo común", err)
 	}
 }

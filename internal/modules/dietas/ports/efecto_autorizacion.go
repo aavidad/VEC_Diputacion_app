@@ -8,9 +8,10 @@ import (
 var ErrEfectoAutorizacionBorradorInvalido = errors.New("dietas: efecto de autorizacion de borrador invalido")
 
 const (
-	EsquemaEfectoAutorizacionBorradorV1 = "vec.dietas.borrador-operacion.v1"
-	ModuloDietas                        = "dietas"
-	TipoRecursoComisionBorrador         = "comision_borrador"
+	EsquemaEfectoAutorizacionBorradorV1  = "vec.dietas.borrador-operacion.v1"
+	EsquemaEfectoAutorizacionDocumentoV2 = "vec.dietas.borrador-operacion.v2"
+	ModuloDietas                         = "dietas"
+	TipoRecursoComisionBorrador          = "comision_borrador"
 )
 
 type EfectoAutorizacionBorrador struct {

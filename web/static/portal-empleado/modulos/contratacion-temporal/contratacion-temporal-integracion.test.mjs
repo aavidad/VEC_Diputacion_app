@@ -97,8 +97,9 @@ test("el módulo completo se compone sin alterar las rutas de Bolsa, Cronos, Die
   assert.equal(rutaDeVistaPortal("cronos-permisos"), "#cronos-permisos");
   assert.equal(rutaDeVistaPortal("dietas"), "#dietas");
   assert.match(coordinadorFuente, /componerCronosVisible/);
-  assert.match(coordinadorFuente, /componerDietasVisible/);
-  assert.match(coordinadorPruebas, /Cronos y Dietas montan contenido administrativo/);
+  assert.match(coordinadorFuente, /componerDietasInternas/);
+  assert.doesNotMatch(coordinadorFuente, /componerDietasVisible/);
+  assert.match(coordinadorPruebas, /Cronos se mantiene disponible y Dietas no monta una presentación sintética/);
   assert.match(indicePortal, /modulos\/cronos\/cronos\.css/);
   assert.match(indicePortal, /modulos\/dietas\/dietas\.css/);
   assert.match(catalogoPresentacion, /clave: "contratacion_temporal"/);

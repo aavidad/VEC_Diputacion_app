@@ -2,7 +2,7 @@ import {
   crearTraductorPersonal,
   formatearFechaEstructuraOrganizativa,
   formatearRecuentoEstructura,
-} from "./i18n.js?v=20260924-f2-web2";
+} from "./i18n.js?v=20260925-organizacion-historica-v1";
 
 function nodo(documento, etiqueta, texto = "") {
   const salida = documento.createElement(etiqueta);

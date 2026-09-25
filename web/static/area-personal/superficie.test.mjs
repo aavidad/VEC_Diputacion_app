@@ -4,8 +4,7 @@ import { dirname, extname, join, relative } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { crearAdaptadorPresentacion } from "./adaptador-presentacion.js";
-import { esOrigenSinteticoODesarrollo, exigirDatosOperativos, exigirSinPresentacion } from "./aplicacion.js";
+import { esOrigenSinteticoODesarrollo, exigirDatosOperativos, exigirParametrosConocidos } from "./aplicacion.js";
 import { iniciarI18nAreaPersonal, traducir } from "./i18n.js";
 import { renderizarConvocatorias, renderizarDetalleConvocatoria, renderizarInicio } from "./vistas/inicio-convocatorias.js";
 import { renderizarAutobaremacion, renderizarMeritos, renderizarPerfil, renderizarSolicitud } from "./vistas/perfil-meritos-solicitud.js";
@@ -13,6 +12,49 @@ import { renderizarAlegaciones, renderizarLlamamientos, renderizarSeguimiento, r
 import { renderizarAyuda, renderizarCertificados, renderizarMensajes } from "./vistas/comunicaciones-ayuda.js";
 
 const RAIZ = dirname(fileURLToPath(import.meta.url));
+
+// Doble de prueba del panel del área personal: datos mínimos pero completos
+// para recorrer todas las vistas con el contrato productivo.
+function datosPrueba() {
+  return {
+    meta: { esquema: "vec.bolsa.area-personal.v1", presentacion: false, origen: "API interna autenticada", generado_en: "2026-07-18T09:00:00Z" },
+    sesion: { persona_ref: "persona:prueba:0001", nombre_visible: "Persona de prueba", iniciales: "PP", metodo: "Certificado electrónico" },
+    resumen: { acciones_pendientes: 2, convocatorias_abiertas: 1, solicitudes_activas: 2, mensajes_no_leidos: 1, puntuacion_provisional: 14.75 },
+    capacidades: Object.fromEntries(["actualizar_contacto", "incorporar_merito", "guardar_borrador", "calcular_autobaremo", "iniciar_pago", "firmar_solicitud", "registrar_solicitud", "presentar_subsanacion", "presentar_alegacion", "marcar_mensaje", "actualizar_notificaciones", "solicitar_certificado", "solicitar_descarga"].map((clave) => [clave, true])),
+    perfil: { referencia: "perfil:prueba:0001", nombre_visible: "Persona de prueba", identificador_visible: "ID-PRUEBA", correo: "persona@prueba.test", telefono: "600 000 000", domicilio: "Calle de prueba 1", estado_verificacion: "Identidad verificada", provincia: "Granada", idioma: "Castellano", canales: ["Correo", "Aviso interno"] },
+    preferencias_notificacion: { correo: true, telegram: false, interno: true, convocatorias: true, plazos: true, llamamientos: true, noticias: false },
+    plazos: [{ id: "PLAZO-001", dia: "23", mes: "JUL", titulo: "Responder subsanación", detalle: "Expediente SOL-0027 · 14:00", estado: "Acción requerida", ruta: "subsanaciones" }],
+    convocatorias: [
+      { id: "CONV-001", referencia: "BOP-GRA-2026-043004", cve_bop: "BOP-GRA-2026-043004", titulo: "Bolsa de empleo de Operario", categoria: "Operario/a", estado: "Plazo abierto", plazo: "Del 19/07/2026 al 20/08/2026", descripcion: "Bases públicas de la bolsa de Operario.", plazas: "Bolsa de empleo temporal", tasa: "Según bases", presentacion_hasta: "20/08/2026 23:59", publicada_en: "18/07/2026",
+        requisitos: ["Nacionalidad conforme a las bases"], documentos: [{ titulo: "Bases (PDF)", formato: "PDF", url: "/bolsa/documentos/bases-operario.pdf", aviso: "Documento público" }, "Anexo sin enlace"] },
+      { id: "CONV-002", referencia: "BOP-GRA-2024-244002", titulo: "Gestión de Administración General", categoria: "Técnico de Gestión", estado: "Histórico cerrado", plazo: "Sin plazo abierto", descripcion: "Proceso histórico.", plazas: "Véanse las bases", tasa: "Según bases", presentacion_hasta: "Cerrado", requisitos: [], documentos: [] },
+    ],
+    meritos: [
+      { id: "MER-001", tipo: "Titulación", titulo: "Titulación de nivel 4", detalle: "Rama administrativa", estado: "Validado", documento_ref: "DOC-001", puntos_estimados: 2 },
+      { id: "MER-002", tipo: "Experiencia", titulo: "Experiencia en administración pública", detalle: "18 meses", estado: "Pendiente de contraste", documento_ref: "DOC-002", puntos_estimados: 5.4 },
+    ],
+    documentos: [{ id: "DOC-001", nombre: "titulo.pdf", tipo: "Titulación", fecha: "10/07/2026", estado: "Verificado", huella: "SHA256-001" }],
+    solicitudes: [
+      { id: "SOL-0027", convocatoria_id: "CONV-001", referencia: "REG-2026-0027", titulo: "Bolsa de empleo de Operario", estado: "Registrada", actualizado: "17/07/2026 12:10", posicion: "18 de 146", puntuacion: 14.75, siguiente: "Responder subsanación", pago: "Tasa abonada", firma: "Firmada" },
+      { id: "SOL-BORRADOR-0001", convocatoria_id: "CONV-001", referencia: "BORRADOR-0001", titulo: "Bolsa de empleo de Operario", estado: "Borrador", actualizado: "18/07/2026", posicion: "No aplica", puntuacion: 2, siguiente: "Registrar", pago: "Pago o exención confirmado", firma: "Firma confirmada", meritos_ids: ["MER-001"] },
+    ],
+    baremo: [
+      { id: "BAR-001", merito_id: "MER-002", nombre: "Experiencia en la Diputación", detalle: "18 meses × 0,30 puntos", estado: "De oficio", puntos: 5.4, maximo: 8 },
+      { id: "BAR-002", merito_id: "MER-001", nombre: "Titulaciones adicionales", detalle: "Una titulación", estado: "Validado", puntos: 2, maximo: 3 },
+      { id: "BAR-003", nombre: "Ejercicio superado", detalle: "Resultado del proceso", estado: "De oficio", puntos: 4.95, maximo: 5, de_oficio: true },
+    ],
+    posicion: { bolsa: "Bolsa de empleo de Operario", categoria: "Operario/a", orden: 18, total: 146, puntuacion: 14.75, vigente_desde: "2026-07-01T08:00:00Z" },
+    disponibilidad: { disponible: true, estado_clave: "disponible", estado: "Disponible para llamamientos", estado_desde: "2026-07-01T08:00:00Z", disponible_desde: null, motivo_visible: null, desde: "01/07/2026", bolsas: ["Bolsa de empleo de Operario"] },
+    llamamientos: [{ id: "LLA-0045", bolsa: "Bolsa de empleo de Operario", puesto: "Operario/a", plazo: "Pendiente de confirmación por RRHH", estado: "Pendiente de respuesta", jornada: "Completa", duracion: "Seis meses", posicion: "Primera persona elegible", canal: "Correo", comunicado_en: null }],
+    contratos: [],
+    subsanaciones: [{ id: "SUB-0008", solicitud_ref: "SOL-0027", motivo: "Acreditar la jornada", plazo: "23/07/2026 14:00", estado: "Pendiente", documento_solicitado: "Certificado de jornada" }],
+    alegaciones: [{ id: "ALE-0003", solicitud_ref: "SOL-0027", asunto: "Revisión de formación", estado: "Borrador", fecha: "Creada 17/07/2026" }],
+    mensajes: [{ id: "MSG-001", asunto: "Subsanación disponible", resumen: "Revise el requerimiento.", fecha: "17/07/2026 12:10", estado: "No leído", tipo: "Acción requerida", ruta: "subsanaciones" }],
+    certificados: [{ id: "CER-001", tipo: "Certificado de inscripción en bolsa", descripcion: "Acredita la situación en una bolsa.", estado: "Disponible bajo solicitud", formatos: "PDF, ODT o JSON" }],
+    actividad: [{ id: "ACT-001", titulo: "Solicitud registrada", detalle: "Registro de la solicitud.", fecha: "12/07/2026 18:42", actor: "Persona de prueba", recibo: "REG-2026-0027" }],
+    ayuda: [{ pregunta: "¿Cómo me inscribo en una convocatoria?", respuesta: "Abra Convocatorias y seleccione Iniciar solicitud." }],
+  };
+}
 
 test("el diálogo de sesión usa el catálogo común para la autoridad del servidor", async () => {
   const catalogo = JSON.parse(await readFile(join(RAIZ, "locales/es.json"), "utf8"));
@@ -38,13 +80,13 @@ async function archivosEn(directorio) {
   return resultado;
 }
 
-test("el enlace histórico a presentación no activa esa modalidad en el producto", async () => {
-  const launcher = await readFile(join(RAIZ, "../presentacion/index.html"), "utf8");
-  assert.match(launcher, /\/area-personal\/\?presentacion=rrhh/u);
-  for (const consulta of ["presentacion=rrhh", "presentacion=aspirante", "presentacion="]) {
-    assert.throws(() => exigirSinPresentacion(new URLSearchParams(consulta)), /no está disponible/u);
+test("la dirección solo admite los parámetros que genera el área personal", () => {
+  for (const consulta of ["presentacion=rrhh", "presentacion=", "vista=inicio&presentacion=rrhh", "perfil=tecnico", "utm_source=x"]) {
+    assert.throws(() => exigirParametrosConocidos(new URLSearchParams(consulta)), /parámetros no admitidos/u, consulta);
   }
-  assert.doesNotThrow(() => exigirSinPresentacion(new URLSearchParams("vista=llamamientos")));
+  for (const consulta of ["", "vista=llamamientos", "vista=convocatoria&id=CONV-001"]) {
+    assert.doesNotThrow(() => exigirParametrosConocidos(new URLSearchParams(consulta)), consulta);
+  }
 });
 
 test("la superficie cubre todos los recorridos solicitados y conserva semántica", async () => {
@@ -76,7 +118,7 @@ test("no hay estado de negocio persistido, cookies, credenciales ni red externa"
 test("el arranque de producto solo compone HTTP y no importa adaptadores de presentación", async () => {
   const arranque = await readFile(join(RAIZ, "arranque.js"), "utf8");
   const aplicacion = await readFile(join(RAIZ, "aplicacion.js"), "utf8");
-  assert.match(arranque, /exigirSinPresentacion\(new URLSearchParams\(window\.location\.search\)\)/u);
+  assert.match(arranque, /exigirParametrosConocidos\(new URLSearchParams\(window\.location\.search\)\)/u);
   assert.doesNotMatch(arranque, /adaptador-presentacion|descarga-recibos-presentacion|selector-perfiles/u);
   assert.match(arranque, /crearClienteHTTPAreaPersonal/u);
   assert.doesNotMatch(aplicacion, /adaptador-presentacion|cliente-http/u);
@@ -98,48 +140,8 @@ test("el área rechaza datos sintéticos, de desarrollo o de presentación", () 
   assert.doesNotThrow(() => exigirDatosOperativos({ meta: { presentacion: false, origen: "API interna autenticada" } }));
 });
 
-test("las convocatorias del candidato reproducen el inventario público y aíslan la tramitación sintética", async () => {
-  const datos = await crearAdaptadorPresentacion().cargar();
-  const inventario = JSON.parse(await readFile(join(RAIZ, "../../../data/demo/convocatorias_publicas.demo.json"), "utf8"));
-  const correspondencias = [
-    ["DEMO-CONV-001", "proceso:publico:bolsa-operario-2026"],
-    ["DEMO-CONV-002", "proceso:publico:auxiliar-servicios-generales-2025"],
-    ["DEMO-CONV-003", "proceso:publico:gestion-administracion-general-2024"],
-  ];
-
-  for (const [idDemo, idPublico] of correspondencias) {
-    const mostrada = datos.convocatorias.find((item) => item.id === idDemo);
-    const publica = inventario.convocatorias.find((item) => item.id === idPublico)?.datos_publicos;
-    assert.ok(mostrada && publica, `${idDemo} debe resolver su fuente pública`);
-    assert.equal(mostrada.titulo, publica.titulo);
-    assert.match(publica.resumen, new RegExp(mostrada.cve_bop, "u"));
-    assert.equal(mostrada.publicada_en, new Intl.DateTimeFormat("es-ES", {
-      day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC",
-    }).format(new Date(publica.publicada_en)));
-    assert.deepEqual(mostrada.documentos.map((item) => item.url), publica.documentos.map((item) => item.url));
-    if (idDemo === "DEMO-CONV-003") assert.equal(mostrada.estado, "Histórico cerrado");
-    else assert.equal(mostrada.estado, "Plazo abierto · DEMO");
-  }
-
-  assert.equal(datos.resumen.convocatorias_abiertas, 2);
-  assert.equal(datos.convocatorias.filter((item) => item.recorrido_demo === true).length, 2);
-  const gestion = datos.convocatorias.find((item) => item.id === "DEMO-CONV-003");
-  assert.equal(gestion.titulo, "Ingreso en la Subescala de Gestión de Administración General");
-  assert.equal(gestion.categoria, "Técnico de Gestión");
-  assert.doesNotMatch(`${gestion.titulo} ${gestion.descripcion}`, /Archivo|Analista Programador/u);
-  assert.ok(datos.solicitudes.every((item) => item.id.startsWith("DEMO-") && item.referencia.startsWith("DEMO-")));
-  assert.ok(datos.plazos.every((item) => item.id.startsWith("DEMO-")));
-  assert.ok(datos.llamamientos.every((item) => item.id.startsWith("DEMO-") && /DEMO|demostración/iu.test(`${item.bolsa} ${item.posicion}`)));
-  const detalle = renderizarDetalleConvocatoria(datos, { convocatoriaSeleccionada: "DEMO-CONV-001" });
-  assert.match(detalle, /href="\/bolsa\/documentos\/bases-operario-demo\.pdf"/u);
-  assert.match(detalle, /BOP-GRA-2026-043004/u);
-  assert.match(detalle, /Simular solicitud DEMO/u);
-  assert.doesNotMatch(detalle, /\[object Object\]/u);
-});
-
-test("los mismos renderizadores eliminan etiquetas de simulación en modo productivo", async () => {
-  const datos = structuredClone(await crearAdaptadorPresentacion().cargar());
-  datos.meta.presentacion = false;
+test("ninguna vista ofrece rótulos de demostración o simulación", () => {
+  const datos = datosPrueba();
   const estado = {
     filtros: { termino: "", estado: "Todas", categoria: "Todas" },
     convocatoriaSeleccionada: datos.convocatorias[0].id,
@@ -160,16 +162,8 @@ test("los mismos renderizadores eliminan etiquetas de simulación en modo produc
       const etiqueta = coincidencia[1].replace(/<[^>]+>/gu, "").trim();
       assert.doesNotMatch(etiqueta, /\bDEMO\b|Simular/iu, etiqueta);
     }
+    assert.doesNotMatch(superficie, /\bDEMO\b|Simular|demostración|class="nota demo"/iu);
   }
-});
-
-test("la presentación solo ofrece el formato documental que genera realmente", async () => {
-  const datos = await crearAdaptadorPresentacion().cargar();
-  const superficie = renderizarCertificados(datos);
-  assert.match(superficie, /Formato disponible en la demo/u);
-  assert.match(superficie, /<option>PDF<\/option>/u);
-  assert.doesNotMatch(superficie, /<option>(?:ODT|JSON|CSV)<\/option>/u);
-  assert.match(superficie, /genera un PDF real/u);
 });
 
 test("no existen estilos en línea ni botones sin tipo explícito", async () => {
@@ -225,34 +219,19 @@ test("la lectura de expedientes remite a la guía textual sin sintetizar datos p
   assert.match(ayuda, /Esta guía explica el área personal de Bolsa/u);
   assert.match(ayuda, /Cada operación real depende de la confirmación del servicio autorizado/u);
   assert.doesNotMatch(ayuda, /<audio\b|ayuda-llamamiento-bolsa\.mp3/u);
-  const ayudaSintetica = renderizarAyuda({ meta: { presentacion: true }, ayuda: [] });
-  assert.match(ayudaSintetica, /ningún acto tiene validez administrativa/u);
-  assert.doesNotMatch(ayudaSintetica, /Cada operación real|<audio\b|ayuda-llamamiento-bolsa\.mp3/u);
 });
 
-test("el registro final exige declaración y una referencia exacta de solicitud", async () => {
-  const adaptador = crearAdaptadorPresentacion();
-  const ejecutar = (accion, payload) => adaptador.ejecutar({ accion, payload, confirmacion: true, capacidad: true });
-  await ejecutar("guardar_borrador", {
-    convocatoria_id: "DEMO-CONV-001",
-    requisitos_confirmados: true,
-    datos_confirmados: true,
-    meritos_ids: ["DEMO-MER-001"],
-    autobaremo_revisado: true,
-  });
-  await ejecutar("iniciar_pago", { id: "DEMO-SOL-BORRADOR-0001" });
-  await ejecutar("firmar_solicitud", { id: "DEMO-SOL-BORRADOR-0001" });
-  const datos = await adaptador.cargar();
-  const html = renderizarSolicitud(datos, {
+test("el registro final exige declaración y una referencia exacta de solicitud", () => {
+  const html = renderizarSolicitud(datosPrueba(), {
     pasoSolicitud: 5,
-    convocatoriaSolicitud: "DEMO-CONV-001",
-    solicitudEdicionId: "DEMO-SOL-BORRADOR-0001",
+    convocatoriaSolicitud: "CONV-001",
+    solicitudEdicionId: "SOL-BORRADOR-0001",
     progresoSolicitud: {},
     errorPasoSolicitud: "",
   });
-  assert.match(html, /data-operacion="registrar_solicitud" data-id="DEMO-SOL-BORRADOR-0001"/u);
+  assert.match(html, /data-operacion="registrar_solicitud" data-id="SOL-BORRADOR-0001"/u);
   assert.match(html, /name="declaracion_final" value="true" required/u);
-  assert.doesNotMatch(await readFile(join(RAIZ, "adaptador-presentacion.js"), "utf8"), /solicitudes\[0\]/u);
+  assert.match(html, />Registrar solicitud<\/button>/u);
 });
 
 test("la composición limita enlaces al área y bloquea capacidades antes del diálogo", async () => {
@@ -265,9 +244,8 @@ test("la composición limita enlaces al área y bloquea capacidades antes del di
   assert.match(aplicacion, /\["Objetivo", escaparHTML\(recibo\.objetivo\)\]/u);
 });
 
-test("la ficha propia muestra la participación sin convertirla en una decisión de RRHH", async () => {
-  const adaptador = crearAdaptadorPresentacion();
-  const datos = await adaptador.cargar();
+test("la ficha propia muestra la participación sin convertirla en una decisión de RRHH", () => {
+  const datos = datosPrueba();
   const html = renderizarLlamamientos(datos);
 
   assert.match(html, /<h3>Mi participación<\/h3>/u);
@@ -282,17 +260,16 @@ test("la ficha propia muestra la participación sin convertirla en una decisión
   assert.match(htmlSin, /Sin participaciones activas/u);
 });
 
-test("la disponibilidad B8 no se simula mientras sigue pendiente de integración", async () => {
-  const adaptador = crearAdaptadorPresentacion();
-  const datos = await adaptador.cargar();
+test("la disponibilidad B8 no se simula mientras sigue pendiente de integración", () => {
+  const datos = datosPrueba();
 
   const htmlDisponible = renderizarLlamamientos(datos);
   assert.match(htmlDisponible, /Pausar o reactivar su disponibilidad todavía no se puede solicitar aquí\./u);
   assert.doesNotMatch(htmlDisponible, /data-operacion="cambiar_disponibilidad"|Ensayar pausa|Ensayar reactivación/u);
 });
 
-test("el correo propio y los contratos vacíos son explícitos sin inventar fecha de comunicación", async () => {
-  const datos = structuredClone(await crearAdaptadorPresentacion().cargar());
+test("el correo propio y los contratos vacíos son explícitos sin inventar fecha de comunicación", () => {
+  const datos = datosPrueba();
   datos.llamamientos = [];
   datos.contratos = [];
   const html = renderizarLlamamientos(datos);
@@ -301,6 +278,15 @@ test("el correo propio y los contratos vacíos son explícitos sin inventar fech
   assert.doesNotMatch(html, /B7/u);
   assert.match(html, /Contratos/u);
   assert.match(html, /Sin información de contratos\./u);
-  const conLlamamientos = renderizarLlamamientos(await crearAdaptadorPresentacion().cargar());
+  const conLlamamientos = renderizarLlamamientos(datosPrueba());
   assert.doesNotMatch(conLlamamientos, /Comunicado el|Aceptar llamamiento/u);
+});
+
+test("el área personal no conserva código ni rótulos de demostración", async () => {
+  const produccion = (await archivosEn(RAIZ)).filter((ruta) => !ruta.endsWith(".test.mjs"));
+  assert.ok(!produccion.some((ruta) => relative(RAIZ, ruta) === "adaptador-presentacion.js"));
+  for (const ruta of produccion) {
+    const contenido = await readFile(ruta, "utf8");
+    assert.doesNotMatch(contenido, /DEMO-|recibo-demo|recorrido_demo|limiteSintetico|\bSimular\b/u, relative(RAIZ, ruta));
+  }
 });

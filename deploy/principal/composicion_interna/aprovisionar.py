@@ -496,12 +496,20 @@ def register_context(root: Path, account_id: str, profile_id: str, organization:
     if not (re.fullmatch(r"ref:[0-9a-f]{64}", organization) or
             re.fullmatch(r"organizacion:[a-z0-9_:-]{4,128}", organization)):
         fail("organización no corresponde a referencia CT")
-    if not re.fullmatch(r"ref:[0-9a-f]{64}", unit):
-        fail("unidad sin referencia CT opaca")
+    # Mismo contrato que UnidadSeguimientoValida: referencia opaca o nominal
+    # «unidad:…» ya usada por el seguimiento CT existente.
+    if not (re.fullmatch(r"ref:[0-9a-f]{64}", unit) or
+            re.fullmatch(r"unidad:[a-z0-9_:-]{4,128}", unit)):
+        fail("unidad sin referencia CT válida")
+    # La cuenta del selector es la referencia interna de Identidad/F1 que
+    # devuelve el registro de sesión. Nunca coincide con la cuenta externa del
+    # certificado (la sesión rechaza referencias que procedan de la entrada);
+    # ambas se enlazan por el alias HMAC registrado en Identidad.
     certs = json.loads(read_private(root / "identidad" / "certificados.json"))
-    if not any(c.get("cuenta_id") == account_id and c.get("activo") is True
-               for c in certs.get("certificados", [])):
-        fail("cuenta sin certificado activo en el material privado")
+    if any(c.get("cuenta_id") == account_id for c in certs.get("certificados", [])):
+        fail("la cuenta del selector debe ser la interna de F1, no la del certificado")
+    if not any(c.get("activo") is True for c in certs.get("certificados", [])):
+        fail("sin certificado activo en el material privado")
     path = root / "identidad" / "contextos.json"
     record = {"cuenta_ref": account_id, "perfil_ref": profile_id,
               "organizacion_ref": organization, "unidad_ref": unit}

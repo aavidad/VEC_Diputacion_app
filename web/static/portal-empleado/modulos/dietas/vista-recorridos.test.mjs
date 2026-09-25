@@ -1,427 +1,143 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { readFile } from "node:fs/promises";
-import { montarVistaBorradoresPropios } from "./vista-borradores-propios.js";
 import { montarVistaRecorridosDietas } from "./vista-recorridos.js";
-import { MENSAJES_REVISION_DIETAS_ES } from "./i18n-revision.js";
-import { MENSAJES_DIETAS_ES } from "./i18n.js";
 
-const claveDatos = (atributo) =>
-  atributo.slice(5).replace(/-([a-z])/g, (_m, letra) => letra.toUpperCase());
+const claveDato = (atributo) => atributo.slice(5).replace(/-([a-z])/gu, (_todo, letra) => letra.toUpperCase());
 class Nodo {
   constructor(documento, etiqueta = "div") {
-    this.ownerDocument = documento;
-    this.tagName = etiqueta;
-    this.children = [];
-    this.dataset = {};
-    this.listeners = {};
-    this.attrs = {};
-    this.parent = null;
-    this.disabled = false;
-    this.textContent = "";
+    this.ownerDocument = documento; this.tagName = etiqueta; this.children = []; this.dataset = {};
+    this.attrs = {}; this.listeners = {}; this.parent = null; this.textContent = ""; this.disabled = false;
   }
-  append(...nodos) {
-    this.children.push(...nodos);
-    nodos.forEach((hijo) => {
-      hijo.parent = this;
-    });
-  }
-  replaceChildren(...nodos) {
-    this.children = [];
-    this.append(...nodos);
-  }
-  removeChild(nodo) {
-    this.children = this.children.filter((hijo) => hijo !== nodo);
-    nodo.parent = null;
-  }
-  remove() {
-    this.parent?.removeChild(this);
-  }
-  addEventListener(tipo, listener) {
-    this.listeners[tipo] = listener;
-  }
-  removeEventListener(tipo) {
-    delete this.listeners[tipo];
-  }
-  setAttribute(nombre, valor) {
-    this.attrs[nombre] = String(valor);
-  }
+  append(...nodos) { this.children.push(...nodos); nodos.forEach((nodo) => { nodo.parent = this; }); }
+  replaceChildren(...nodos) { this.children = []; this.append(...nodos); }
+  removeChild(nodo) { this.children = this.children.filter((hijo) => hijo !== nodo); nodo.parent = null; }
+  remove() { this.parent?.removeChild(this); }
+  setAttribute(nombre, valor) { this.attrs[nombre] = String(valor); }
+  removeAttribute(nombre) { delete this.attrs[nombre]; }
+  addEventListener(tipo, manejador) { this.listeners[tipo] = manejador; }
+  removeEventListener(tipo) { delete this.listeners[tipo]; }
+  focus() { this.ownerDocument.activeElement = this; }
   matches(selector) {
     if (!selector.startsWith("[")) return this.tagName === selector;
     const coincidencia = selector.match(/^\[([^=\]]+)(?:="([^"]*)")?\]$/u);
-    const valor = this.dataset[claveDatos(coincidencia[1])];
-    return (
-      valor !== undefined &&
-      (coincidencia[2] === undefined || valor === coincidencia[2])
-    );
+    if (!coincidencia) return false;
+    const atributo = coincidencia[1];
+    const valor = atributo.startsWith("data-") ? this.dataset[claveDato(atributo)] : this.attrs[atributo];
+    return valor !== undefined && (coincidencia[2] === undefined || valor === coincidencia[2]);
   }
-  closest(selector) {
-    for (let actual = this; actual; actual = actual.parent)
-      if (actual.matches(selector)) return actual;
-    return null;
-  }
-  querySelector(selector) {
-    return this.querySelectorAll(selector)[0] || null;
-  }
-  querySelectorAll(selector) {
-    const salida = [];
-    const visitar = (actual) => {
-      if (actual.matches(selector)) salida.push(actual);
-      actual.children.forEach(visitar);
-    };
-    visitar(this);
-    return salida;
-  }
+  closest(selector) { for (let actual = this; actual; actual = actual.parent) if (actual.matches(selector)) return actual; return null; }
+  querySelector(selector) { return this.querySelectorAll(selector)[0] || null; }
+  querySelectorAll(selector) { const salida = []; const visitar = (actual) => { if (actual.matches(selector)) salida.push(actual); actual.children.forEach(visitar); }; visitar(this); return salida; }
 }
-function crearRaiz() {
-  const documento = {
-    createElement: (etiqueta) => new Nodo(documento, etiqueta),
-  };
-  return new Nodo(documento, "root");
-}
-function textoVisible(nodo) {
-  return [nodo.textContent, ...nodo.children.map(textoVisible)].join(" ");
-}
-
+function raiz() { const documento = { createElement: (etiqueta) => new Nodo(documento, etiqueta) }; return new Nodo(documento, "root"); }
+function texto(nodo) { return [nodo.textContent, ...nodo.children.map(texto)].join(" "); }
 const item = Object.freeze({
-  comision: {
-    referencia: "dco_1234567890123456789012", estado: "borrador",
-    fecha_inicio: "2026-09-20", fecha_fin: "2026-09-21", motivo: "Reunión",
-    codigos_ruta: [], relacion_ref: "rel_1234567890123456789012",
-  },
-  recibo: { referencia: "rcd_1234567890123456789012", version: 1, registrado_en: "2026-09-20T10:00:00Z", repeticion: false },
+  comision: { referencia: "dco_1234567890123456789012", estado: "borrador", fecha_inicio: "2026-09-24",
+    fecha_fin: "2026-09-25", motivo: "Visita al centro", codigos_ruta: [], relacion_ref: "rel_1234567890123456789012" },
+  recibo: { referencia: "rcd_1234567890123456789012", version: 1, registrado_en: "2026-09-24T10:00:00.000000Z", repeticion: false },
 });
-const cliente = Object.freeze({
-  listar: async () => ({ items: [item] }),
-  obtener: async () => item,
-  crear: async () => item,
-});
+const clienteBorradores = () => ({ listar: async () => ({ items: [item] }), obtener: async () => item, crear: async () => item });
 
-test("la superficie visible conserva las tres etapas sin expedientes sintéticos ni acciones no conectadas", async () => {
-  const fuente = await readFile(
-    new URL("vista-recorridos.js", import.meta.url),
-    "utf8",
-  );
-  assert.match(fuente, /montarVistaRecorridosDietas/u);
-  assert.match(fuente, /recorridos_solicitante/u);
-  assert.match(fuente, /recorridos_jefatura/u);
-  assert.match(fuente, /recorridos_gestion/u);
-  assert.match(fuente, /boton\.disabled = true/u);
-  assert.match(fuente, /montarItinerario/u);
-  assert.doesNotMatch(fuente, /COMISIONES_PRESENTACION|obtenerAtlasSinteticoRRHH/u);
-  assert.match(fuente, /formularioInicialmenteVisible: false/u);
-  assert.doesNotMatch(fuente, /recorridos_titulo_presentacion/u);
-  assert.doesNotMatch(fuente, /dietasResumenEtapa|dietas-recorridos-lateral/u);
-  assert.doesNotMatch(fuente, /recorridos_limite_operativo/u);
-  assert.doesNotMatch(fuente, /dietas-recorridos-conexion-pendiente/u);
-  assert.doesNotMatch(fuente, /renderizarEstadoEntrega/u);
-  assert.doesNotMatch(fuente, /localStorage|sessionStorage|indexedDB|document\.cookie/u);
-});
-
-test("la revisión reutiliza la consulta propia y textos del catálogo", async () => {
-  const fuente = await readFile(new URL("vista-recorridos.js", import.meta.url), "utf8");
-  assert.match(fuente, /montarVistaBorradoresPropios/u);
-  assert.match(fuente, /crearTraductorRevisionDietas/u);
-  assert.equal(MENSAJES_REVISION_DIETAS_ES.revision_titulo, "Revisión de comisión");
-  assert.doesNotMatch(fuente, /localStorage|sessionStorage|indexedDB|document\.cookie/u);
-});
-
-test("el formulario propio no recurre a memoria web ni presenta éxito sin respuesta", async () => {
-  const fuente = await readFile(
-    new URL("vista-borradores-propios.js", import.meta.url),
-    "utf8",
-  );
-  assert.doesNotMatch(
-    fuente,
-    /localStorage|sessionStorage|indexedDB|document\.cookie/u,
-  );
-  assert.match(fuente, /cliente\.crear\(solicitud/u);
-  assert.match(fuente, /borradores_propios_pendiente_conexion/u);
-  assert.match(fuente, /AbortController/u);
-});
-
-test("muestra la estructura sin afirmar lista vacía cuando el servicio no está conectado", () => {
-  const contenedor = crearRaiz();
-  const vista = montarVistaBorradoresPropios(contenedor);
-  assert.equal(
-    contenedor.querySelector("[data-dietas-borradores-propios]") !== null,
-    true,
-  );
-  assert.equal(
-    contenedor.querySelector("[data-dietas-borradores-vacio]"),
-    null,
-  );
-  assert.equal(
-    contenedor.querySelectorAll("input").every((control) => control.disabled),
-    true,
-  );
-  assert.match(
-    contenedor.querySelector("[data-dietas-borradores-estado]").textContent,
-    /pendiente de conexión/u,
-  );
+test("Dietas monta el recorrido interno y abre el formulario real sin itinerario de presentación", async () => {
+  const contenedor = raiz();
+  const vista = montarVistaRecorridosDietas(contenedor, { clienteBorradores: clienteBorradores() });
+  await Promise.resolve(); await Promise.resolve();
+  const panel = contenedor.querySelector("[data-dietas-recorridos]");
+  const formulario = contenedor.querySelector("[data-dietas-borrador-form]");
+  assert.ok(panel); assert.ok(formulario);
+  assert.equal(formulario.hidden, true);
+  assert.equal(contenedor.querySelector("[data-dietas-area-itinerario]"), null);
+  assert.equal(contenedor.querySelector("[data-dietas-mapa-pendiente]"), null);
+  // Sin clientes de circuito solo existe el recorrido propio: no hay pasos que no se puedan abrir.
+  assert.equal(panel.querySelectorAll("[data-dietas-cambiar-etapa]").length, 0);
+  await panel.listeners.click({ target: panel.querySelector("[data-dietas-abrir-nueva-comision]") });
+  assert.equal(formulario.hidden, false);
+  assert.equal(panel.querySelector("[data-dietas-abrir-nueva-comision]").attrs["aria-expanded"], "true");
+  await panel.listeners.click({ target: panel.querySelector("[data-dietas-abrir-nueva-comision]") });
+  assert.equal(formulario.hidden, true);
   vista.desmontar();
-  assert.equal(
-    contenedor.querySelector("[data-dietas-borradores-propios]"),
-    null,
-  );
-});
-
-test("navega por las tres etapas sin convertir el selector en autorización", () => {
-  const contenedor = crearRaiz();
-  const vista = montarVistaRecorridosDietas(contenedor);
-  const raiz = contenedor.querySelector("[data-dietas-recorridos]");
-  const solicitante = raiz.querySelector(
-    '[data-dietas-panel-etapa="solicitante"]',
-  );
-  assert.equal(solicitante.hidden, false);
-  assert.equal(raiz.querySelector("[data-dietas-abrir-nueva-comision]").disabled, true);
-  raiz.listeners.click({
-    target: raiz.querySelector('[data-dietas-cambiar-etapa="jefatura"]'),
-  });
-  const jefatura = raiz.querySelector('[data-dietas-panel-etapa="jefatura"]');
-  assert.equal(jefatura.hidden, false);
-  assert.equal(solicitante.hidden, true);
-  raiz.listeners.click({
-    target: raiz.querySelector('[data-dietas-cambiar-etapa="gestion"]'),
-  });
-  assert.equal(
-    raiz.querySelector('[data-dietas-panel-etapa="gestion"]') !== null,
-    true,
-  );
-  assert.equal(
-    raiz.querySelectorAll("button").some((boton) => boton.disabled),
-    true,
-  );
-  vista.desmontar();
-});
-
-test("las cabeceras de solicitante y revisión no muestran instrucciones fuera de la ayuda ?", () => {
-  for (const clienteBorradores of [undefined, cliente]) {
-    const contenedor = crearRaiz();
-    const vista = montarVistaRecorridosDietas(contenedor, { clienteBorradores });
-    const panel = contenedor.querySelector('[data-dietas-panel-etapa="solicitante"]');
-    const titulos = panel.children[0].children[0];
-    const cabeceraRevision = panel.querySelector("[data-dietas-revision-comision]").children[0];
-    assert.equal(titulos.querySelectorAll("p").length, 0);
-    assert.equal(cabeceraRevision.querySelectorAll("p").length, 0);
-    assert.match(textoVisible(titulos), /Mis comisiones/u);
-    assert.match(textoVisible(cabeceraRevision), /Revisión de comisión/u);
-    assert.ok(panel.querySelector("summary"), "la ayuda contextual permanece disponible");
-    const ficha = panel.querySelector("[data-dietas-borrador-ficha]");
-    assert.equal(ficha.attrs["aria-label"], "Detalle del borrador");
-    assert.equal(ficha.querySelector("p").textContent, "Ningún borrador seleccionado.");
-    if (!clienteBorradores) {
-      assert.match(textoVisible(panel.querySelector("[data-dietas-borradores-propios]")), /pendiente de conexión/u);
-    }
-    vista.desmontar();
-  }
-});
-
-test("el recorrido monta los cinco papeles cerrados y los retira al desmontar", () => {
-  const contenedor = crearRaiz();
-  const vista = montarVistaRecorridosDietas(contenedor);
-  const acceso = contenedor.querySelector("[data-dietas-acceso]");
-  assert.ok(acceso);
-  assert.equal(acceso.querySelectorAll("[data-dietas-papel]").length, 5);
-  assert.ok(acceso.querySelectorAll("[data-dietas-estado-papel]").every((estado) =>
-    estado.dataset.dietasEstadoPapel === "no_configurado"));
-  assert.equal(acceso.querySelectorAll("button").length, 0);
-  vista.desmontar();
-  assert.equal(contenedor.querySelector("[data-dietas-acceso]"), null);
-});
-
-test("las ayudas del recorrido muestran solo ? y conservan nombre accesible y contenido desplegable", async () => {
-  const llamadas = [];
-  const contenedor = crearRaiz();
-  const vista = montarVistaRecorridosDietas(contenedor, {
-    clienteBorradores: {
-      listar: async () => { llamadas.push("GET lista"); return { items: [] }; },
-      obtener: async () => { llamadas.push("GET detalle"); return item; },
-      crear: async () => { llamadas.push("POST"); return item; },
-    },
-  });
-  await Promise.resolve();
-  await Promise.resolve();
-  const raiz = contenedor.querySelector("[data-dietas-recorridos]");
-  const ayudas = ["solicitante", "jefatura", "gestion"].map((etapa) => {
-    const panel = raiz.querySelector(`[data-dietas-panel-etapa="${etapa}"]`);
-    const ayudasPanel = panel.querySelectorAll("details").filter((nodo) => nodo.className === "dietas-recorridos-ayuda");
-    assert.equal(ayudasPanel.length, 1, `ayuda propia de ${etapa}`);
-    return ayudasPanel[0];
-  });
-  assert.equal(ayudas.length, 3);
-  const contextos = [MENSAJES_REVISION_DIETAS_ES.revision_mis_comisiones,
-    MENSAJES_DIETAS_ES.recorridos_jefatura, MENSAJES_DIETAS_ES.recorridos_gestion];
-  for (const [indice, detalle] of ayudas.entries()) {
-    const resumen = detalle.querySelector("summary");
-    assert.equal(resumen.textContent, "?");
-    assert.equal(resumen.attrs["aria-label"], `${MENSAJES_DIETAS_ES.recorridos_abrir_ayuda} · ${contextos[indice]}`);
-    assert.ok(detalle.querySelector("p").textContent.length > 0);
-  }
-  const antes = [...llamadas];
-  raiz.listeners.click({ target: ayudas[0].querySelector("summary") });
-  assert.deepEqual(llamadas, antes, "abrir ayuda no dispara consulta ni escritura");
-  vista.desmontar();
-});
-
-test("el marcador nativo de summary queda oculto solo en la ayuda de recorridos", async () => {
-  const css = await readFile(new URL("dietas.css", import.meta.url), "utf8");
-  assert.match(css, /\.modulo-dietas\.dietas-recorridos \.dietas-recorridos-ayuda summary\s*\{[^}]*list-style:\s*none\s*;/u);
-  assert.match(css, /\.modulo-dietas\.dietas-recorridos \.dietas-recorridos-ayuda summary::-webkit-details-marker\s*\{[^}]*display:\s*none\s*;/u);
-  assert.match(css, /\.modulo-dietas :focus-visible\s*\{[^}]*outline:/u);
-  assert.match(css, /@media \(forced-colors: active\)\s*\{\s*\.modulo-dietas\.dietas-recorridos \.dietas-recorridos-ayuda summary\s*\{[^}]*color:\s*ButtonText\s*;[^}]*border-color:\s*ButtonText\s*;/u);
-});
-
-test("consulta un borrador mediante GET propio y presenta su recibo real", async () => {
-  const contenedor = crearRaiz();
-  const llamadas = [];
-  const vista = montarVistaRecorridosDietas(contenedor, {
-    clienteBorradores: {
-      listar: async () => { llamadas.push("listar"); return { items: [item] }; },
-      obtener: async () => { llamadas.push("obtener"); return item; },
-      crear: async () => item,
-    },
-  });
-  await Promise.resolve();
-  await Promise.resolve();
-  const raiz = contenedor.querySelector("[data-dietas-recorridos]");
-  const boton = raiz.querySelector('[data-dietas-borrador-detalle="dco_1234567890123456789012"]');
-  assert.ok(boton);
-  await raiz.querySelector("[data-dietas-borradores-propios]").listeners.click({ target: boton });
-  assert.deepEqual(llamadas, ["listar", "obtener"]);
-  assert.match(textoVisible(raiz), /rcd_1234567890123456789012/u);
-  assert.equal(raiz.querySelector("[data-dietas-nueva-comision]").hidden, true);
-  vista.desmontar();
-});
-
-test("jefatura y gestión indican la falta de conector sin mostrar aprobaciones ni pagos", () => {
-  const contenedor = crearRaiz();
-  const vista = montarVistaRecorridosDietas(contenedor);
-  for (const etapa of ["jefatura", "gestion"]) {
-    const panel = contenedor.querySelector(`[data-dietas-panel-etapa="${etapa}"]`);
-    assert.match(textoVisible(panel), /no están conectadas/u);
-    assert.ok(panel.querySelectorAll("button").every((boton) => boton.disabled));
-  }
-  assert.doesNotMatch(textoVisible(contenedor), /DIE-2026-|Liquidada|61,88 €/u);
-  vista.desmontar();
-});
-
-test("mantiene rutas e itinerario ocultos hasta abrir una nueva comisión", async () => {
-  const contenedor = crearRaiz();
-  const indicador = contenedor.ownerDocument.createElement("p");
-  indicador.dataset.cargando = "";
-  contenedor.append(indicador);
-  let areaMapa;
-  let montajes = 0;
-  let limpiezas = 0;
-  const vista = montarVistaRecorridosDietas(contenedor, {
-    clienteBorradores: cliente,
-    montarItinerario: (area) => {
-      montajes += 1;
-      areaMapa = area;
-      return { desmontar() { limpiezas += 1; } };
-    },
-  });
-  const raiz = contenedor.querySelector("[data-dietas-recorridos]");
-  const nueva = raiz.querySelector("[data-dietas-nueva-comision]");
-  assert.equal(nueva.hidden, true);
-  assert.equal(montajes, 0);
-  raiz.listeners.click({
-    target: raiz.querySelector("[data-dietas-abrir-nueva-comision]"),
-  });
-  await Promise.resolve();
-  assert.equal(nueva.hidden, false);
-  assert.equal(montajes, 1);
-  assert.equal(nueva.querySelector("[data-dietas-area-itinerario]"), areaMapa);
-  assert.equal(raiz.querySelector("[data-dietas-borrador-form]").hidden, false);
-  assert.equal(contenedor.querySelector("[data-cargando]"), null);
-  raiz.listeners.click({ target: raiz.querySelector("[data-dietas-cerrar-nueva-comision]") });
-  assert.equal(nueva.hidden, true);
-  assert.equal(raiz.querySelector("[data-dietas-borrador-form]").hidden, true);
-  assert.equal(limpiezas, 1, "cerrar libera el itinerario ya montado");
-  raiz.listeners.click({
-    target: raiz.querySelector("[data-dietas-abrir-nueva-comision]"),
-  });
-  await Promise.resolve();
-  assert.equal(montajes, 2, "una reapertura inicia un itinerario nuevo");
-  vista.desmontar();
-});
-
-test("permite consultar itinerario sin cliente de borradores y mantiene cerrado el registro", async () => {
-  const contenedor = crearRaiz();
-  let montajes = 0;
-  const vista = montarVistaRecorridosDietas(contenedor, {
-    montarItinerario: () => { montajes += 1; return { desmontar() {} }; },
-  });
-  const raiz = contenedor.querySelector("[data-dietas-recorridos]");
-  const abrir = raiz.querySelector("[data-dietas-abrir-nueva-comision]");
-  assert.equal(abrir.disabled, false);
-  assert.match(abrir.textContent, /Explorar itinerario/);
-  assert.equal(abrir.attrs["aria-controls"], "dietas-recorridos-nueva");
-  assert.match(raiz.querySelector("[data-dietas-borradores-estado]").textContent, /pendiente de conexión/u);
-  raiz.listeners.click({ target: abrir });
-  await Promise.resolve();
-  assert.equal(montajes, 1);
-  assert.equal(raiz.querySelector("[data-dietas-borrador-form]").hidden, true);
-  const aviso = raiz.querySelector("[data-dietas-nueva-comision]").querySelector("p");
-  assert.equal(aviso.textContent, "Registro de comisiones no disponible.");
-  assert.equal(aviso.attrs.role, "status");
-  assert.doesNotMatch(abrir.title, /Puede explorar|Puede abrir/u);
-  const ayuda = raiz.querySelector('[data-dietas-panel-etapa="solicitante"]')
-    .querySelectorAll("details").find((nodo) => nodo.className === "dietas-recorridos-ayuda");
-  assert.ok(ayuda);
-  assert.equal(ayuda.querySelector("summary").textContent, "?");
-  assert.match(textoVisible(ayuda), /Puede explorar la zona del itinerario/u);
-  assert.match(textoVisible(ayuda), /guardar una comisión requiere el servicio de borradores autorizado/u);
-  assert.match(textoVisible(raiz.querySelector("[data-dietas-nueva-comision]")), /Cerrar itinerario/u);
-  vista.desmontar();
-});
-
-test("no recupera un itinerario de una apertura cerrada al reabrir", async () => {
-  const contenedor = crearRaiz();
-  const pendientes = [];
-  let limpiezas = 0;
-  const vista = montarVistaRecorridosDietas(contenedor, {
-    clienteBorradores: cliente,
-    montarItinerario: () => new Promise((resolve) => pendientes.push(resolve)),
-  });
-  const raiz = contenedor.querySelector("[data-dietas-recorridos]");
-  const pulsar = (selector) => raiz.listeners.click({ target: raiz.querySelector(selector) });
-  pulsar("[data-dietas-abrir-nueva-comision]");
-  pulsar("[data-dietas-cerrar-nueva-comision]");
-  pulsar("[data-dietas-abrir-nueva-comision]");
-  assert.equal(pendientes.length, 2);
-  pendientes[0]({ desmontar() { limpiezas += 1; } });
-  await Promise.resolve();
-  assert.equal(limpiezas, 1, "la respuesta antigua se libera al resolver");
-  pendientes[1]({ desmontar() { limpiezas += 1; } });
-  await Promise.resolve();
-  vista.desmontar();
-  assert.equal(limpiezas, 2, "la apertura vigente se libera al desmontar");
-});
-
-test("desmonta un itinerario asíncrono que resuelve después de abandonar la vista", async () => {
-  const contenedor = crearRaiz();
-  let resolver;
-  let limpiezas = 0;
-  const pendiente = new Promise((resolve) => {
-    resolver = resolve;
-  });
-  const vista = montarVistaRecorridosDietas(contenedor, {
-    clienteBorradores: cliente,
-    montarItinerario: () => pendiente,
-  });
-  const raiz = contenedor.querySelector("[data-dietas-recorridos]");
-  raiz.listeners.click({
-    target: raiz.querySelector("[data-dietas-abrir-nueva-comision]"),
-  });
-  vista.desmontar();
-  resolver({
-    desmontar() {
-      limpiezas += 1;
-    },
-  });
-  await Promise.resolve();
-  assert.equal(limpiezas, 1);
   assert.equal(contenedor.querySelector("[data-dietas-recorridos]"), null);
+});
+
+test("la bandeja propia consulta GET y conserva el recibo real en la ficha", async () => {
+  const contenedor = raiz(); let consultas = 0;
+  const vista = montarVistaRecorridosDietas(contenedor, {
+    clienteBorradores: { ...clienteBorradores(), obtener: async () => { consultas += 1; return item; } },
+  });
+  await Promise.resolve(); await Promise.resolve();
+  const panel = contenedor.querySelector("[data-dietas-recorridos]");
+  const boton = contenedor.querySelector("[data-dietas-borrador-detalle]");
+  await contenedor.querySelector("[data-dietas-borradores-propios]").listeners.click({ target: boton });
+  assert.equal(consultas, 1);
+  const recibo = contenedor.querySelector("[data-dietas-borrador-recibo]");
+  assert.ok(recibo);
+  assert.match(texto(recibo), /rcd_1234567890123456789012/u);
+  assert.equal(panel.querySelector("[data-dietas-panel-etapa=\"circuito\"]").hidden, true);
+  vista.desmontar();
+});
+
+test("al cambiar de bandeja o salir aborta lecturas pendientes y no conserva una etapa ajena", async () => {
+  const contenedor = raiz(); const consultas = [];
+  const clienteCircuito = {
+    listar: (_consulta, { signal }) => new Promise((_resolver, rechazar) => {
+      consultas.push(signal);
+      signal.addEventListener("abort", () => rechazar(Object.assign(new Error("cancelada"), { codigo: "operacion_abortada" })), { once: true });
+    }),
+    decidir: async () => { throw new Error("no debe decidir"); },
+    competencias: async () => ({ fuente: "acreditada", etapas: ["autorizacion", "revision"] }),
+  };
+  const vista = montarVistaRecorridosDietas(contenedor, { clienteBorradores: clienteBorradores(), clienteCircuito });
+  const panel = contenedor.querySelector("[data-dietas-recorridos]");
+  await Promise.resolve(); await Promise.resolve();
+  assert.deepEqual(panel.querySelectorAll("[data-dietas-cambiar-etapa]").map((boton) => boton.dataset.dietasCambiarEtapa),
+    ["solicitante", "revision", "autorizacion", "control"]);
+  await panel.listeners.click({ target: panel.querySelector('[data-dietas-cambiar-etapa="revision"]') });
+  assert.equal(consultas.length, 1);
+  assert.ok(panel.querySelector("[data-dietas-bandeja-circuito]"));
+  await panel.listeners.click({ target: panel.querySelector('[data-dietas-cambiar-etapa="autorizacion"]') });
+  assert.equal(consultas[0].aborted, true);
+  assert.equal(consultas.length, 2);
+  vista.desmontar();
+  assert.equal(consultas[1].aborted, true);
+  assert.equal(contenedor.querySelector("[data-dietas-recorridos]"), null);
+});
+
+test("la lista muestra el estado real y el motivo de Personal cierra el alta", async () => {
+  const contenedor = raiz();
+  const enviado = { ...item, comision: { ...item.comision, estado: "enviado_pendiente_revision" } };
+  const vista = montarVistaRecorridosDietas(contenedor, {
+    clienteBorradores: { ...clienteBorradores(), listar: async () => ({ items: [enviado] }) },
+    estadoRelaciones: "no_disponible", motivoRelaciones: "empleado_no_disponible",
+  });
+  await Promise.resolve(); await Promise.resolve();
+  const chip = contenedor.querySelector("[data-dietas-estado-comision]");
+  assert.equal(chip.dataset.dietasEstadoComision, "enviado_pendiente_revision");
+  assert.equal(chip.textContent, "Enviada a revisión");
+  const abrir = contenedor.querySelector("[data-dietas-abrir-nueva-comision]");
+  assert.equal(abrir.disabled, true);
+  assert.match(abrir.title, /No consta un empleado vigente/u);
+  assert.match(texto(contenedor), /No consta un empleado vigente asociado a su usuario/u);
+  assert.throws(() => montarVistaRecorridosDietas(raiz(), {
+    clienteBorradores: clienteBorradores(), estadoRelaciones: "disponible", motivoRelaciones: "empleado_no_disponible",
+  }), TypeError);
+  vista.desmontar();
+});
+
+test("sin fuente de competencia ofrece una sola pestaña que lo dice, sin consultar bandejas", async () => {
+  const contenedor = raiz(); let listados = 0;
+  const clienteCircuito = {
+    listar: async () => { listados += 1; return { items: [], competencia: "sin_fuente" }; },
+    decidir: async () => { throw new Error("no debe decidir"); },
+    competencias: async () => ({ fuente: "sin_fuente", etapas: [] }),
+  };
+  const vista = montarVistaRecorridosDietas(contenedor, { clienteBorradores: clienteBorradores(), clienteCircuito });
+  await Promise.resolve(); await Promise.resolve();
+  const panel = contenedor.querySelector("[data-dietas-recorridos]");
+  assert.deepEqual(panel.querySelectorAll("[data-dietas-cambiar-etapa]").map((boton) => boton.dataset.dietasCambiarEtapa),
+    ["solicitante", "circuito_sin_fuente"]);
+  await panel.listeners.click({ target: panel.querySelector('[data-dietas-cambiar-etapa="circuito_sin_fuente"]') });
+  assert.match(texto(panel.querySelector("[data-dietas-circuito-sin-fuente]")), /validadores/u);
+  assert.equal(panel.querySelector("[data-dietas-circuito-decision]"), null);
+  assert.equal(listados, 0);
+  vista.desmontar();
 });

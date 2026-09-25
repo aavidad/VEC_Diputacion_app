@@ -386,7 +386,6 @@ body.portal-empleado-app { overflow: hidden; }
 .org-history-form input, .org-history-form select { width: 100%; min-width: 0; }
 .org-history-results { min-height: 0; flex: 1; display: flex; flex-direction: column; gap: 10px; }
 .org-history-summary { display: flex; flex-wrap: wrap; gap: 12px; }
-.org-history-scope { color: var(--portal-muted); font-size: .76rem; font-weight: 700; }
 .org-history-kpis { display: grid; grid-template-columns: repeat(6, minmax(100px, 1fr)); gap: 8px; flex: 1; }
 .org-history-kpi { padding: 8px 10px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-md); background: var(--portal-superficie-alterna); }
 .org-history-kpi strong { display: block; color: var(--portal-azul-800); font-size: 1.2rem; }
@@ -433,7 +432,6 @@ tbody tr:focus-within { outline: 2px solid var(--portal-foco); outline-offset: -
 .org-import-preview { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
 .org-import-preview > span { padding: 8px 10px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-md); background: var(--portal-superficie); overflow-wrap: anywhere; font-size: .8rem; }
 .org-import-step .org-actions { margin-top: 12px; }
-.org-import-limit { margin: 8px 0 0; color: var(--portal-aviso); font-size: .82rem; }
 #import-publish:disabled { opacity: 1; color: var(--portal-muted); background: var(--portal-neutro-suave); border-color: var(--portal-borde); box-shadow: none; }
 .org-import-receipts { display: grid; gap: 8px; }
 .org-import-receipts > div { border-left: 4px solid var(--portal-exito); border-radius: var(--portal-radio-md); background: var(--portal-exito-suave); padding: 10px 12px; overflow-wrap: anywhere; }

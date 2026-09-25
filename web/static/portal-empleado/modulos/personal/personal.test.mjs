@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { exigirVersiones, posterior } from "../../versiones-cache.test-helper.mjs";
 import { readFileSync } from "node:fs";
 import { CAPACIDAD_CONSULTAR_PUESTO } from "./contrato.js";
 import { ErrorClienteCategoriasPersonal } from "./cliente-http-categorias.js";
@@ -7,7 +8,8 @@ import { montarModuloPersonal } from "./vista.js";
 
 test("categorías carga el i18n actualizado para sus estados internos", () => {
   const codigo = readFileSync(new URL("./vista.js", import.meta.url), "utf8");
-  assert.match(codigo, /from "\.\/i18n\.js\?v=20260924-personal-interno-estados-v1";/u);
+  // i18n de Personal renovado (organización histórica): nunca la URL immutable previa.
+  exigirVersiones(codigo, "./i18n.js", posterior("20260924-personal-interno-estados-v1"));
 });
 
 function raizFalsa() {

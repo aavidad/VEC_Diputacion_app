@@ -1,4 +1,4 @@
-import { MENSAJES_AYUDA_PORTAL_ES } from "./portal-i18n-ayuda.js?v=20260924-ayuda-i18n-v1";
+import { MENSAJES_AYUDA_PORTAL_ES } from "./portal-i18n-ayuda.js?v=20260925-tanda-v1";
 import { MENSAJES_PANEL_INTERNO_ES } from "./portal-panel-interno-i18n.js?v=20260925-aspecto-v1";
 
 /** Catálogo común de los estados del shell y del acceso a Borradores. */
@@ -153,9 +153,12 @@ export function crearTraductorBolsaInterna(catalogo = MENSAJES_BOLSA_INTERNA_ES)
   };
 }
 export const traducirBolsaInterna = crearTraductorBolsaInterna();
+/** Localización y zona horaria del portal: autoridad común para formatear fechas, horas, importes y cifras. */
+export const LOCALIZACION_PORTAL = "es-ES";
+export const ZONA_HORARIA_PORTAL = "Europe/Madrid";
 export function formatearNumeroPortal(valor, opciones = {}) {
   const numero = Number(valor);
-  return Number.isFinite(numero) ? new Intl.NumberFormat("es-ES", opciones).format(numero) : String(valor ?? "");
+  return Number.isFinite(numero) ? new Intl.NumberFormat(LOCALIZACION_PORTAL, opciones).format(numero) : String(valor ?? "");
 }
 export function formatearFechaPortal(valor) {
   if (valor === undefined || valor === null || valor === "") return traducirBolsaInterna("fecha_sin_valor");
@@ -166,5 +169,5 @@ export function formatearFechaPortal(valor) {
   const [dia, mes, ano, hora, minuto] = iso ? [local[3], local[2], local[1], local[4], local[5]] : [local[1], local[2], local[3], local[4], local[5]];
   const fecha = new Date(Number(ano), Number(mes) - 1, Number(dia), Number(hora || 0), Number(minuto || 0));
   if (!Number.isFinite(fecha.getTime())) return texto;
-  return new Intl.DateTimeFormat("es-ES", hora ? { dateStyle: "short", timeStyle: "short" } : { dateStyle: "short" }).format(fecha);
+  return new Intl.DateTimeFormat(LOCALIZACION_PORTAL, hora ? { dateStyle: "short", timeStyle: "short" } : { dateStyle: "short" }).format(fecha);
 }

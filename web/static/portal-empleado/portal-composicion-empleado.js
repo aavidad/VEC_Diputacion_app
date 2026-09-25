@@ -1,89 +1,144 @@
 /** Montaje de vistas del empleado, sin inferir permisos ni componer escrituras. */
-import { obtenerAtlasSinteticoRRHH } from "./datos-sinteticos-rrhh.js";
-
-function centroSalidaSinteticoDietas() {
-  const atlas = obtenerAtlasSinteticoRRHH();
-  const centro = atlas?.centro;
-  const localidad = atlas?.localidades?.find((item) => item.referencia === centro?.localidad_ref);
-  const nombreCentro = String(centro?.nombre_visible || "").trim();
-  const nombreLocalidad = String(localidad?.nombre_visible || "").trim();
-  if (!nombreCentro || !nombreLocalidad) return undefined;
-  // La presentación solo proyecta etiquetas; nunca propaga referencias de
-  // empleado, centro o localidad al selector ni convierte este dato sintético
-  // en una consulta de Personal.
-  return Object.freeze({
-    etiqueta: `${nombreCentro} · ${nombreLocalidad}`,
-    localidad: nombreLocalidad,
-  });
-}
 export function componerCronosVisible(recursos, contextoActor, entorno) {
   if (typeof recursos.recorridos?.montarVistaRecorridosCronos !== "function") return undefined;
   return Object.freeze({ montar: recursos.recorridos.montarVistaRecorridosCronos });
 }
 
-export function componerDietasVisible(recursos, contextoActor, capacidades, entorno) {
-  const calculador = recursos.calculador.crearCalculadorRutasDietasPresentacionOSRM({
-    contextoActor, capacidades,
-    fetchImpl: typeof entorno.fetch === "function" ? entorno.fetch.bind(entorno) : undefined,
+/**
+ * Cronos interno de la persona empleada: saldo, fichaje remoto, movimientos
+ * del día y calendario con olvidos en «Jornada»; permisos propios aparte.
+ * Falta cualquier pieza → undefined (el módulo no se ofrece). Cada vista
+ * consulta su API y muestra su propio estado: un 404 de una capacidad
+ * desactivada no afecta a las demás.
+ */
+export function componerCronosInterno(recursos, entorno) {
+  const { saldo, remoto, movimientos, movimientosPropios, permisosPropios,
+    clienteSaldo, clienteRemoto, clienteSolicitudes, i18n } = recursos ?? {};
+  if (typeof saldo?.montarVistaSaldoCronos !== "function"
+    || typeof remoto?.montarVistaRemotoCronos !== "function"
+    || typeof movimientos?.montarVistaMovimientosCronos !== "function"
+    || typeof movimientosPropios?.montarMovimientosPropiosCronos !== "function"
+    || typeof permisosPropios?.montarPermisosPropiosCronos !== "function"
+    || typeof clienteSaldo?.crearClienteSaldoCronosHTTP !== "function"
+    || typeof clienteRemoto?.crearClienteRemotoCronosHTTP !== "function"
+    || typeof clienteSolicitudes?.crearClienteSolicitudesCronosHTTP !== "function"
+    || typeof i18n?.crearTraductorCronos !== "function") return undefined;
+  const transporte = typeof entorno?.fetch === "function" ? { fetchImpl: entorno.fetch.bind(entorno) } : {};
+  const cliente = Object.freeze({
+    saldo: clienteSaldo.crearClienteSaldoCronosHTTP(transporte),
+    remoto: clienteRemoto.crearClienteRemotoCronosHTTP(transporte),
+    solicitudes: clienteSolicitudes.crearClienteSolicitudesCronosHTTP(transporte),
   });
-  const visorRuta = recursos.mapa.crearVisorRutaDietas({ entorno, permitirTeselas: true });
-  // El objeto vacío conserva el fallo cerrado: si el atlas deja de resolver
-  // el centro no se transforma silenciosamente en Granada.
-  const centroSalidaAsociado = centroSalidaSinteticoDietas() || Object.freeze({});
+  const traducir = i18n.crearTraductorCronos();
   return Object.freeze({
-    calculador, visorRuta,
-    montar: recursos.recorridos?.montarVistaRecorridosDietas
-      ? ({ raiz, anunciar, registrarDesmontar }) => recursos.recorridos.montarVistaRecorridosDietas(raiz, {
-        anunciar, registrarDesmontar,
-        montarItinerario: (hueco) => recursos.vista.montarVistaItinerarioDietas({
-          raiz: hueco, calculador, visorRuta, anunciar, centroSalidaAsociado,
-        }),
-      })
-      : recursos.vista.montarVistaItinerarioDietas,
+    traducir,
+    montar({ raiz, anunciar = () => {}, registrarDesmontar } = {}) {
+      const t = traducir; const documento = raiz.ownerDocument;
+      const elemento = (etiqueta, clase, texto) => {
+        const nodo = documento.createElement(etiqueta);
+        if (clase) nodo.className = clase;
+        if (texto !== undefined) nodo.textContent = texto;
+        return nodo;
+      };
+      // Un único encabezado de página; cada parte se monta incrustada, con
+      // encabezado de tarjeta y sin sobrelínea propia.
+      const cabecera = elemento("header", "cronos-encabezado");
+      const titulo = elemento("div");
+      titulo.append(elemento("p", "sobrelinea", t("titulo")), elemento("h2", undefined, t("jornada_titulo")));
+      cabecera.append(titulo); raiz.append(cabecera);
+      const nombres = ["saldo", "remoto", "movimientos", "calendario"];
+      const nodos = new Map(nombres.map((nombre) => {
+        const nodo = elemento("div", "cronos-personal-parte"); nodo.dataset.cronosParte = nombre;
+        raiz.append(nodo); return [nombre, nodo];
+      }));
+      const desmontes = new Map();
+      // Una parte que no se puede montar deja su aviso en su sitio (sin
+      // detalles internos) y no arrastra a las demás.
+      const colgar = (nombre, montarParte) => {
+        const nodo = nodos.get(nombre);
+        try {
+          const parte = montarParte(nodo);
+          if (typeof parte?.desmontar === "function") desmontes.set(nombre, parte.desmontar);
+          return parte;
+        } catch {
+          const aviso = elemento("p", "cronos-acceso-denegado", t("jornada_parte_error"));
+          aviso.setAttribute("role", "alert");
+          nodo.replaceChildren(aviso); nodo.dataset.cronosParteEstado = "error";
+          return null;
+        }
+      };
+      colgar("saldo", (nodo) => saldo.montarVistaSaldoCronos({ raiz: nodo, cliente: cliente.saldo, anunciar, incrustada: true }));
+      colgar("remoto", (nodo) => remoto.montarVistaRemotoCronos({ raiz: nodo, cliente: cliente.remoto }));
+      // El calendario se monta antes que los movimientos del día: «olvido de
+      // marcaje» solo se ofrece si hay un formulario de olvido al que llevar.
+      const propios = colgar("calendario", (nodo) => movimientosPropios.montarMovimientosPropiosCronos({
+        raiz: nodo, cliente: cliente.solicitudes, anunciar, incrustada: true }));
+      const abrirOlvido = typeof propios?.abrirOlvido === "function" ? propios.abrirOlvido : undefined;
+      colgar("movimientos", (nodo) => movimientos.montarVistaMovimientosCronos({ raiz: nodo, cliente: cliente.saldo, anunciar,
+        incrustada: true, ...(abrirOlvido ? { abrirCorreccion: () => abrirOlvido() } : {}) }));
+      let activo = true;
+      const desmontar = () => {
+        if (!activo) return;
+        activo = false;
+        for (const nombre of [...nombres].reverse()) {
+          try { desmontes.get(nombre)?.(); } catch { /* cada parte se retira sola */ }
+        }
+        desmontes.clear();
+        for (const nodo of [cabecera, ...nodos.values()]) nodo.remove?.();
+      };
+      registrarDesmontar?.(desmontar);
+      return Object.freeze({ desmontar });
+    },
+    montarPermisos({ raiz, anunciar = () => {}, registrarDesmontar } = {}) {
+      return permisosPropios.montarPermisosPropiosCronos({ raiz, cliente: cliente.solicitudes, anunciar, registrarDesmontar });
+    },
   });
 }
 
-/**
- * El portal interno puede ofrecer los borradores propios sin fabricar un
- * ContextoActor en el navegador. El cálculo de ruta HTTP conserva su contrato
- * más estricto: se añadirá sólo desde un proveedor explícito de identidad y
- * capacidades, nunca desde el catálogo o una entrada de menú.
- */
+/** El portal interno inyecta clientes HTTP; cada operación se autoriza en servidor. */
 export function componerDietasInternas(recursos, entorno) {
   if (!recursos?.contrato || typeof recursos.contrato !== "object"
     || typeof recursos?.clienteBorradores?.crearClienteBorradoresDietasHTTP !== "function"
+    || typeof recursos?.clienteAsignacion?.crearClienteAsignacionDietasHTTP !== "function"
+    || typeof recursos?.calculador?.crearCalculadorRutasDietasHTTP !== "function"
+    || typeof recursos?.mapa?.crearVisorRutaDietas !== "function"
     || typeof recursos?.recorridos?.montarVistaRecorridosDietas !== "function"
-    || typeof recursos?.vista?.montarVistaItinerarioPendienteDietas !== "function") return undefined;
-  const fetchImpl = typeof entorno?.fetch === "function" ? entorno.fetch.bind(entorno) : undefined;
+    || typeof entorno?.fetch !== "function") return undefined;
+  const fetchImpl = entorno.fetch.bind(entorno);
   const clienteBorradores = recursos.clienteBorradores.crearClienteBorradoresDietasHTTP({ fetchImpl });
-  // Solo la raíz de identidad puede inyectar este par ya autorizado. El
-  // navegador, el catálogo y el menú no construyen ContextoActor, capacidad ni
-  // cliente HTTP para rutas. En su ausencia se conserva el área visible pero
-  // no hay cálculo ni geometría.
-  const itinerarioAutorizado = entorno?.dietasItinerarioAutorizado;
-  const puedeCalcular = itinerarioAutorizado
-    && typeof itinerarioAutorizado === "object"
-    && typeof itinerarioAutorizado.calculador?.obtenerCatalogo === "function"
-    && typeof itinerarioAutorizado.calculador?.calcular === "function"
-    && typeof itinerarioAutorizado.visorRuta?.montar === "function";
+  const clienteAsignacion = recursos.clienteAsignacion.crearClienteAsignacionDietasHTTP({ fetchImpl });
+  // Catálogo y ruta por carretera los autoriza el servidor en cada petición;
+  // las teselas son las propias del mismo origen, sin proveedor externo.
+  const calculadorRuta = recursos.calculador.crearCalculadorRutasDietasHTTP({ fetchImpl });
+  const visorRuta = recursos.mapa.crearVisorRutaDietas({ entorno, permitirTeselas: true });
+  // El circuito de revisión se autoriza en servidor por acción; sus bandejas
+  // dependen de la competencia que acredite la fuente gobernada.
+  const clienteCircuito = typeof recursos?.clienteCircuito?.crearClienteCircuitoDietasHTTP === "function"
+    ? recursos.clienteCircuito.crearClienteCircuitoDietasHTTP({ fetchImpl }) : undefined;
   return Object.freeze({
-    clienteBorradores,
-    montar: ({ raiz, anunciar, registrarDesmontar }) => recursos.recorridos.montarVistaRecorridosDietas(raiz, {
-      clienteBorradores,
-      anunciar,
-      registrarDesmontar,
-      // El área cartográfica sí queda visible, pero no recibe catálogo,
-      // identidad ni calculador. Solo una composición autorizada puede
-      // sustituir este estado cerrado por el visor y la ruta reales.
-      montarItinerario: (hueco) => (puedeCalcular
-        ? recursos.vista.montarVistaItinerarioDietas({
-          raiz: hueco,
-          calculador: itinerarioAutorizado.calculador,
-          visorRuta: itinerarioAutorizado.visorRuta,
-          anunciar,
-        })
-        : recursos.vista.montarVistaItinerarioPendienteDietas({ raiz: hueco })),
-    }),
+    clienteBorradores, clienteAsignacion,
+    montar: async ({ raiz, anunciar, registrarDesmontar }) => {
+      // Personal acredita las relaciones antes de montar. Si el portal
+      // abandona la vista mientras llega la respuesta, no se monta nada.
+      const cancelacion = new AbortController();
+      let vigente = true;
+      registrarDesmontar?.(() => { vigente = false; cancelacion.abort(); });
+      let relaciones = { relacionesAutorizadas: [], fechaReferenciaPersonal: undefined,
+        estadoRelaciones: "no_disponible", motivoRelaciones: undefined };
+      try {
+        const respuesta = await clienteAsignacion.obtenerRelaciones({ signal: cancelacion.signal });
+        relaciones = { relacionesAutorizadas: respuesta.relaciones_autorizadas,
+          fechaReferenciaPersonal: respuesta.fecha_referencia, estadoRelaciones: "disponible", motivoRelaciones: undefined };
+      } catch (error) {
+        if (["empleado_no_disponible", "empleado_ambiguo"].includes(error?.codigo))
+          relaciones = { ...relaciones, motivoRelaciones: error.codigo };
+      }
+      if (!vigente) return Object.freeze({ desmontar() {} });
+      return recursos.recorridos.montarVistaRecorridosDietas(raiz, {
+        clienteBorradores, clienteAsignacion, clienteCircuito, calculadorRuta, visorRuta, ...relaciones,
+        anunciar, registrarDesmontar,
+      });
+    },
   });
 }
 

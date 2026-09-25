@@ -196,13 +196,25 @@ func Construir(ctx context.Context, c Configuracion) (Proveedores, error) {
 	if e != nil {
 		return fallo()
 	}
+	// Las consultas RRHH usan su propio catálogo gobernado de motivos, distinto
+	// del de alta/lectura. Como en vec-server, cada PDP valida un único catálogo
+	// cerrado: el de la cadena de incorporación y el de cuadro/detalle.
 	instanteMotivos := c.Reloj.Ahora()
 	motivoCuadro, e := resolutorMotivos.ResolverMotivoCuadroRRHH(ctx, instanteMotivos)
-	if e != nil || motivoCuadro.CatalogoID != m.CatalogoMotivos {
+	if e != nil || !core.ReferenciaMotivoAutorizacionV2Valida(motivoCuadro) {
 		return fallo()
 	}
 	motivoDetalle, e := resolutorMotivos.ResolverMotivoDetalleRRHH(ctx, instanteMotivos)
-	if e != nil || motivoDetalle.CatalogoID != m.CatalogoMotivos {
+	if e != nil || !core.ReferenciaMotivoAutorizacionV2Valida(motivoDetalle) ||
+		motivoDetalle.CatalogoID != motivoCuadro.CatalogoID {
+		return fallo()
+	}
+	validadorConsulta, e := pgvec.NuevoValidadorReferenciaMotivoPostgreSQLV2(salida.pools[2], motivoDetalle.CatalogoID)
+	if e != nil {
+		return fallo()
+	}
+	pdpConsulta, e := app.NuevoServicioAutorizacionSolicitudLigadaV3(fuente, registro, registro, validadorConsulta, c.Reloj, seg.GeneradorReferenciasCriptograficas{}, app.ConfiguracionServicioAutorizacion{VigenciaDecision: 5 * time.Second})
+	if e != nil {
 		return fallo()
 	}
 	sesion, e := pgct.NuevaSesionConsultaRRHHPostgreSQL(consultaPool)
@@ -217,11 +229,11 @@ func Construir(ctx context.Context, c Configuracion) (Proveedores, error) {
 	if e != nil {
 		return fallo()
 	}
-	emisorCuadro, e := confianza.NuevoEmisorMaterialAutorizacionAtestadaV3(pdp, atestador, verificador, emisorCapacidadCuadro)
+	emisorCuadro, e := confianza.NuevoEmisorMaterialAutorizacionAtestadaV3(pdpConsulta, atestador, verificador, emisorCapacidadCuadro)
 	if e != nil {
 		return fallo()
 	}
-	emisorDetalle, e := confianza.NuevoEmisorMaterialAutorizacionAtestadaV3(pdp, atestador, verificador, emisorCapacidadDetalle)
+	emisorDetalle, e := confianza.NuevoEmisorMaterialAutorizacionAtestadaV3(pdpConsulta, atestador, verificador, emisorCapacidadDetalle)
 	if e != nil {
 		return fallo()
 	}

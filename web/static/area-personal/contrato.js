@@ -1,9 +1,6 @@
 const ESQUEMA_PANEL = "vec.bolsa.area-personal.v1";
 export const ESQUEMA_MI_BOLSA = "vec.bolsa.mi-bolsa.v1";
 const ESQUEMA_RECIBO = "vec.bolsa.area-personal.recibo.v1";
-const ESQUEMA_RECIBO_PRESENTACION = "vec.bolsa.area-personal.recibo-demo.v1";
-const PATRON_DNI_NIE = /\b(?:[XYZ]\d{7}[A-Z]|\d{8}[A-Z])\b/i;
-const PATRON_CORREO = /\b[A-Z0-9._%+-]+@([A-Z0-9.-]+)\b/gi;
 const MAXIMO_ELEMENTOS = 200;
 
 export const SITUACIONES_PARTICIPACION_BOLSA = Object.freeze([
@@ -66,10 +63,9 @@ function exigirLista(valor, nombre) {
   return valor;
 }
 
-function exigirReferencia(valor, nombre, { demostracion = false } = {}) {
+function exigirReferencia(valor, nombre) {
   const referencia = exigirCadena(valor, nombre, 100);
   if (!/^[A-Z0-9][A-Z0-9._/:-]*$/i.test(referencia)) throw new TypeError(`${nombre} no es una referencia opaca válida.`);
-  if (demostracion && !referencia.startsWith("DEMO-")) throw new TypeError(`${nombre} debe comenzar por DEMO-.`);
   return referencia;
 }
 
@@ -91,32 +87,6 @@ function exigirFechaOInstante(valor, nombre) {
     throw new TypeError(`${nombre} no tiene formato de fecha (AAAA-MM-DD) o instante ISO 8601 válido.`);
   }
   return valor;
-}
-
-function recorrerCadenas(valor, visita) {
-  if (typeof valor === "string") {
-    visita(valor);
-    return;
-  }
-  if (Array.isArray(valor)) {
-    valor.forEach((item) => recorrerCadenas(item, visita));
-    return;
-  }
-  if (valor && typeof valor === "object") {
-    Object.values(valor).forEach((item) => recorrerCadenas(item, visita));
-  }
-}
-
-function validarPrivacidadPresentacion(datos) {
-  recorrerCadenas(datos, (cadena) => {
-    if (PATRON_DNI_NIE.test(cadena)) throw new TypeError("La presentación no admite DNI o NIE formalmente válidos.");
-    PATRON_CORREO.lastIndex = 0;
-    for (const coincidencia of cadena.matchAll(PATRON_CORREO)) {
-      if (!coincidencia[1].toLowerCase().endsWith(".test")) {
-        throw new TypeError("Los correos de presentación deben usar un dominio .test.");
-      }
-    }
-  });
 }
 
 function validarListaObjetos(datos, campo, camposCadena = []) {
@@ -173,14 +143,13 @@ export function validarRespuestaMiBolsa(entrada) {
   return congelarProfundo(datos);
 }
 
-export function validarDatosAreaPersonal(entrada, { presentacionEsperada = false } = {}) {
+export function validarDatosAreaPersonal(entrada) {
   const datos = structuredClone(exigirObjeto(entrada, "datos"));
   const meta = exigirObjeto(datos.meta, "meta");
   if (exigirCadena(meta.esquema, "meta.esquema", 80) !== ESQUEMA_PANEL) {
     throw new TypeError("El esquema del área personal no es compatible.");
   }
-  const presentacion = exigirBooleano(meta.presentacion, "meta.presentacion");
-  if (presentacion !== presentacionEsperada) throw new TypeError("El origen no coincide con el modo solicitado.");
+  if (exigirBooleano(meta.presentacion, "meta.presentacion") !== false) throw new TypeError("El origen no corresponde al área personal.");
   exigirCadena(meta.origen, "meta.origen", 120);
   exigirInstante(meta.generado_en, "meta.generado_en");
 
@@ -188,7 +157,7 @@ export function validarDatosAreaPersonal(entrada, { presentacionEsperada = false
   exigirCadena(sesion.nombre_visible, "sesion.nombre_visible", 100);
   exigirCadena(sesion.iniciales, "sesion.iniciales", 4);
   exigirCadena(sesion.metodo, "sesion.metodo", 100);
-  exigirReferencia(sesion.persona_ref, "sesion.persona_ref", { demostracion: presentacion });
+  exigirReferencia(sesion.persona_ref, "sesion.persona_ref");
 
   const resumen = exigirObjeto(datos.resumen, "resumen");
   ["acciones_pendientes", "convocatorias_abiertas", "solicitudes_activas", "mensajes_no_leidos"]
@@ -196,7 +165,7 @@ export function validarDatosAreaPersonal(entrada, { presentacionEsperada = false
   exigirNumero(resumen.puntuacion_provisional, "resumen.puntuacion_provisional", { maximo: 10_000 });
 
   const perfil = exigirObjeto(datos.perfil, "perfil");
-  exigirReferencia(perfil.referencia, "perfil.referencia", { demostracion: presentacion });
+  exigirReferencia(perfil.referencia, "perfil.referencia");
   ["nombre_visible", "identificador_visible", "correo", "telefono", "domicilio", "estado_verificacion"]
     .forEach((campo) => exigirCadena(perfil[campo], `perfil.${campo}`));
 
@@ -263,29 +232,27 @@ export function validarDatosAreaPersonal(entrada, { presentacionEsperada = false
   }
   if (datos.resultado_autobaremo !== undefined) {
     const resultado = exigirObjeto(datos.resultado_autobaremo, "resultado_autobaremo");
-    exigirReferencia(resultado.convocatoria_id, "resultado_autobaremo.convocatoria_id", { demostracion: presentacion });
+    exigirReferencia(resultado.convocatoria_id, "resultado_autobaremo.convocatoria_id");
     exigirLista(resultado.meritos_ids, "resultado_autobaremo.meritos_ids")
-      .forEach((id, indice) => exigirReferencia(id, `resultado_autobaremo.meritos_ids[${indice}]`, { demostracion: presentacion }));
+      .forEach((id, indice) => exigirReferencia(id, `resultado_autobaremo.meritos_ids[${indice}]`));
     exigirNumero(resultado.puntos, "resultado_autobaremo.puntos", { maximo: 10_000 });
     exigirInstante(resultado.calculado_en, "resultado_autobaremo.calculado_en");
   }
 
-  if (presentacion) validarPrivacidadPresentacion(datos);
   return congelarProfundo(datos);
 }
 
-export function validarRecibo(entrada, { presentacionEsperada = false } = {}) {
+export function validarRecibo(entrada) {
   const recibo = structuredClone(exigirObjeto(entrada, "recibo"));
-  const esquemaEsperado = presentacionEsperada ? ESQUEMA_RECIBO_PRESENTACION : ESQUEMA_RECIBO;
-  if (exigirCadena(recibo.esquema, "recibo.esquema", 80) !== esquemaEsperado) {
+  if (exigirCadena(recibo.esquema, "recibo.esquema", 80) !== ESQUEMA_RECIBO) {
     throw new TypeError("El esquema del recibo no es compatible.");
   }
-  if (exigirBooleano(recibo.presentacion, "recibo.presentacion") !== presentacionEsperada) {
+  if (exigirBooleano(recibo.presentacion, "recibo.presentacion") !== false) {
     throw new TypeError("El recibo no corresponde al modo activo.");
   }
-  exigirReferencia(recibo.referencia, "recibo.referencia", { demostracion: presentacionEsperada });
+  exigirReferencia(recibo.referencia, "recibo.referencia");
   exigirCadena(recibo.accion, "recibo.accion", 80);
-  exigirReferencia(recibo.objetivo, "recibo.objetivo", { demostracion: presentacionEsperada });
+  exigirReferencia(recibo.objetivo, "recibo.objetivo");
   exigirCadena(recibo.resultado, "recibo.resultado", 80);
   exigirCadena(recibo.actor, "recibo.actor", 100);
   exigirInstante(recibo.fecha, "recibo.fecha");
@@ -324,16 +291,9 @@ export function validarPayloadCambiarDisponibilidad(payload) {
   return obj;
 }
 
-export function esModoPresentacion(parametros = new URLSearchParams()) {
-  const selectores = parametros.getAll("presentacion");
-  if (selectores.length > 1) throw new TypeError("El selector de presentación es ambiguo.");
-  return selectores.length === 1 && selectores[0] === "rrhh";
-}
-
 export const CONTRATO_AREA_PERSONAL = Object.freeze({
   esquemaPanel: ESQUEMA_PANEL,
   esquemaRecibo: ESQUEMA_RECIBO,
-  esquemaReciboPresentacion: ESQUEMA_RECIBO_PRESENTACION,
   situacionesParticipacion: SITUACIONES_PARTICIPACION_BOLSA,
   resultadosLlamamiento: RESULTADOS_LLAMAMIENTO,
   motivosPausaDisponibilidad: MOTIVOS_PAUSA_DISPONIBILIDAD,

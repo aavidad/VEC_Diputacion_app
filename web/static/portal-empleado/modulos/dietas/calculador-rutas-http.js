@@ -1,36 +1,23 @@
 /**
  * Adaptador HTTP productivo del puerto de rutas de Dietas.
  *
- * Las coordenadas del catalogo gobernado permanecen privadas en este cierre y
- * solo se envian al endpoint same-origin que media con el OSRM on-premise. El
- * ContextoActor sirve para fijar el ambito de composicion, nunca como fuente de
- * autorizacion: el servidor debe autenticar y autorizar de nuevo cada peticion.
- * La política HTTP usa `credentials: same-origin`: el navegador presenta el
- * certificado cliente mTLS (o la autenticación del proxy de la frontera) solo
- * al mismo origen; el servidor no emite cookies y rechaza Cookie y
- * la cabecera de autorización HTTP. No admite `globalThis.fetch` de forma implícita: exige un
- * cliente inyectado por la composición; sin él, la composición falla cerrada.
- *
- * Dependencia de integracion: GET /api/vec/workspace debe proyectar
- * province_route_points y province_route_matrix para el actor autorizado. A
- * fecha de este adaptador la ruta productiva falla cerrada hasta disponer de
- * esa proyeccion PDP; no se emplean datos alternativos ni semillas locales.
+ * Las coordenadas del catalogo gobernado solo viajan al endpoint same-origin
+ * que media con el OSRM on-premise. El navegador no construye contexto,
+ * capacidad ni cabeceras de autorización: la frontera autoriza cada GET y
+ * POST. El cliente HTTP se inyecta desde la composición y no hay fallback a
+ * `globalThis.fetch`.
  */
 
 import {
-  CAPACIDAD_CONSULTAR_RUTA,
   ESQUEMA_CALCULO_RUTA_DIETAS,
   ESQUEMA_CATALOGO_RUTAS_DIETAS,
   ESQUEMA_GEOMETRIA_RUTA_DIETAS,
-  exigirContextoActorDietas,
-  tieneCapacidadDietas,
   validarCalculoRutaDietas,
-  validarCapacidadesDietas,
   validarCatalogoRutasDietas,
   validarSolicitudRutaDietas,
 } from "./contrato.js";
 
-const RUTA_CATALOGO = "/api/vec/workspace";
+const RUTA_CATALOGO = "/api/vec/dietas/route-catalog";
 const RUTA_CALCULO = "/api/vec/dietas/road-route";
 const TIEMPO_ESPERA_MS = 12_000;
 const MAXIMO_RESPUESTA_CATALOGO = 2 * 1024 * 1024;
@@ -40,7 +27,7 @@ const MAXIMO_COORDENADAS_OSRM = 50_000;
 const MAXIMO_PUNTOS_TRAZADO = 2_000;
 
 const CAMPOS_OPCIONES = new Set([
-  "contextoActor", "capacidades", "fetchImpl", "tiempoEsperaMs",
+  "fetchImpl", "tiempoEsperaMs",
 ]);
 const CAMPOS_OPCIONES_PETICION = new Set(["signal"]);
 const CAMPOS_PUNTO_BACKEND = new Set([
@@ -403,17 +390,24 @@ async function referenciaCalculo(version, solicitud, rutas, cripto) {
 }
 
 async function proyectarCalculo(respuesta, solicitud, puntosPorCodigo, cripto) {
-  if (!esObjetoPlano(respuesta) || respuesta.code !== "Ok"
-    || respuesta.engine !== "osrm_on_premise") {
+  // La API `/api/vec` conserva el envoltorio `data` del adaptador HTTP.
+  // No se acepta la respuesta del conector OSRM ni una forma de presentación.
+  if (!esObjetoPlano(respuesta) || Object.keys(respuesta).length !== 1
+    || !Object.hasOwn(respuesta, "data") || !esObjetoPlano(respuesta.data)) {
     throw new TypeError("respuesta del mediador OSRM no valida");
   }
-  textoCanonico(respuesta.route_scope, "ambito de ruta", 160);
-  const version = textoCanonico(respuesta.data_version, "version del grafo", 100);
-  if (!Array.isArray(respuesta.routes) || respuesta.routes.length < 1
-    || respuesta.routes.length > solicitud.alternativas || respuesta.routes.length > 3) {
+  const datos = respuesta.data;
+  if (datos.code !== "Ok"
+    || datos.engine !== "osrm_on_premise") {
+    throw new TypeError("respuesta del mediador OSRM no valida");
+  }
+  textoCanonico(datos.route_scope, "ambito de ruta", 160);
+  const version = textoCanonico(datos.data_version, "version del grafo", 100);
+  if (!Array.isArray(datos.routes) || datos.routes.length < 1
+    || datos.routes.length > solicitud.alternativas || datos.routes.length > 3) {
     throw new TypeError("alternativas OSRM no validas");
   }
-  const rutas = respuesta.routes.map((ruta, indice) => proyectarRutaOSRM(
+  const rutas = datos.routes.map((ruta, indice) => proyectarRutaOSRM(
     ruta, solicitud, puntosPorCodigo, indice,
   ));
   const referencia = await referenciaCalculo(version, solicitud, rutas, cripto);
@@ -436,17 +430,9 @@ async function proyectarCalculo(respuesta, solicitud, puntosPorCodigo, cripto) {
   }, solicitud);
 }
 
-/** Compone el adaptador productivo; no acepta ContextoActor de demostracion. */
+/** Compone el adaptador HTTP; el servidor conserva toda la autorización. */
 export function crearCalculadorRutasDietasHTTP(opciones = {}) {
   exigirOpciones(opciones, CAMPOS_OPCIONES, "opciones del calculador HTTP");
-  const contexto = exigirContextoActorDietas(opciones.contextoActor);
-  const capacidades = validarCapacidadesDietas(opciones.capacidades);
-  if (contexto.demostracion !== false) {
-    throw new Error("el calculador HTTP exige un ContextoActor productivo");
-  }
-  if (!tieneCapacidadDietas(capacidades, CAPACIDAD_CONSULTAR_RUTA)) {
-    throw new Error("falta capacidad para consultar rutas de Dietas");
-  }
   const fetchImpl = opciones.fetchImpl;
   if (typeof fetchImpl !== "function") {
     throw new TypeError("falta el cliente HTTP del conector de identidad sin cookies");

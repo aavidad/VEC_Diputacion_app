@@ -11,6 +11,7 @@ import (
 	postgrescontratacion "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	ctapplication "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	cronosapp "vec-diputacion-granada/internal/modules/cronos/application"
 	altapersonal "vec-diputacion-granada/internal/modules/personal/adapters/contrataciontemporal"
 	lecturapersonal "vec-diputacion-granada/internal/modules/personal/adapters/lecturaincorporacion"
 	confianzaatestacion "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
@@ -162,7 +163,7 @@ func gobiernoActualPostgreSQLContratacionTemporalDesarrolloEsPropio(
 		    AND pg_catalog.left(c.acto_ref,
 		        pg_catalog.length('acto:ct:desarrollo:clave-capacidad:'))=
 		        'acto:ct:desarrollo:clave-capacidad:'
-		    AND c.audiencia_consumo IN ($1,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22))
+		    AND c.audiencia_consumo IN ($1,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44,$45,$46,$47))
 		AND EXISTS (
 		 SELECT 1
 		   FROM vec_autorizacion_atestada_v3.puntero_configuracion_actual p
@@ -208,11 +209,38 @@ func gobiernoActualPostgreSQLContratacionTemporalDesarrolloEsPropio(
 		puertosbolsa.AudienciaConsultarContactoParticipacion,
 		puertosbolsa.AudienciaRegistrarDatosContactoParticipacion,
 		puertosbolsa.AudienciaEmitirLlamamiento,
-		// Dietas deriva tres consumidores bajo esta misma raíz (ver
-		// dietas_material_ct_desarrollo.go); su clave puede ser la última.
+		// Dietas y su dependencia Personal derivan consumidores nominales
+		// bajo esta misma raíz (ver dietas_material_ct_desarrollo.go).
 		audienciaConsumoPersonalDietasDesarrollo,
 		audienciaConsumoCrearDietasDesarrollo,
 		audienciaConsumoConsultarDietasDesarrollo,
+		audienciaConsumoEditarDietasDesarrollo,
+		audienciaConsumoBorrarDietasDesarrollo,
+		audienciaConsumoEnviarDietasDesarrollo,
+		audienciaConsumoDocumentoDietasDesarrollo,
+		audienciaConsumoConsultarAsignacionDietas,
+		audienciaConsumoRegistrarAsignacionDietas,
+		audienciaConsumoCorregirAsignacionDietas,
+		audienciaConsumoCorregirGrupoDietas,
+		// Circuito de revisión de Dietas: AD3-59 y AD3-80.
+		audienciaConsumoRevisarDietas,
+		audienciaConsumoAutorizarDietas,
+		audienciaConsumoLiquidarDietas,
+		audienciaConsumoFiscalizarDietas,
+		audienciaConsumoBandejaRevisionDietas,
+		audienciaConsumoBandejaAutorizacionDietas,
+		audienciaConsumoBandejaLiquidacionDietas,
+		audienciaConsumoBandejaFiscalizacionDietas,
+		audienciaConsumoRevisorDocumentoDietas,
+		// Cronos (persona empleada): una audiencia por acción, AD3-53 y AD3-70.
+		cronosapp.AudienciaMarcajePropio,
+		cronosapp.AudienciaDisponibilidadMarcajeRemoto,
+		cronosapp.AudienciaRecuperacionMarcajeRemoto,
+		cronosapp.AudienciaConsultaSaldoPropio,
+		cronosapp.AudienciaConsultaMovimientosPropios,
+		cronosapp.AudienciaSolicitudCorreccionPropia,
+		cronosapp.AudienciaConsultaPermisosPropios,
+		cronosapp.AudienciaSolicitudPermisoPropio,
 	).Scan(&propio)
 	return propio, err
 }
@@ -243,7 +271,32 @@ func audienciaConsumoGobiernoPostgreSQLContratacionTemporalDesarrolloEsPropia(
 		puertosbolsa.AudienciaEmitirLlamamiento,
 		audienciaConsumoPersonalDietasDesarrollo,
 		audienciaConsumoCrearDietasDesarrollo,
-		audienciaConsumoConsultarDietasDesarrollo:
+		audienciaConsumoConsultarDietasDesarrollo,
+		audienciaConsumoEditarDietasDesarrollo,
+		audienciaConsumoBorrarDietasDesarrollo,
+		audienciaConsumoEnviarDietasDesarrollo,
+		audienciaConsumoDocumentoDietasDesarrollo,
+		audienciaConsumoConsultarAsignacionDietas,
+		audienciaConsumoRegistrarAsignacionDietas,
+		audienciaConsumoCorregirAsignacionDietas,
+		audienciaConsumoCorregirGrupoDietas,
+		audienciaConsumoRevisarDietas,
+		audienciaConsumoAutorizarDietas,
+		audienciaConsumoLiquidarDietas,
+		audienciaConsumoFiscalizarDietas,
+		audienciaConsumoBandejaRevisionDietas,
+		audienciaConsumoBandejaAutorizacionDietas,
+		audienciaConsumoBandejaLiquidacionDietas,
+		audienciaConsumoBandejaFiscalizacionDietas,
+		audienciaConsumoRevisorDocumentoDietas,
+		cronosapp.AudienciaMarcajePropio,
+		cronosapp.AudienciaDisponibilidadMarcajeRemoto,
+		cronosapp.AudienciaRecuperacionMarcajeRemoto,
+		cronosapp.AudienciaConsultaSaldoPropio,
+		cronosapp.AudienciaConsultaMovimientosPropios,
+		cronosapp.AudienciaSolicitudCorreccionPropia,
+		cronosapp.AudienciaConsultaPermisosPropios,
+		cronosapp.AudienciaSolicitudPermisoPropio:
 		return true
 	default:
 		return false

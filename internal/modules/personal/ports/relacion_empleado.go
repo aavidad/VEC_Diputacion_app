@@ -10,6 +10,7 @@ import (
 
 var (
 	ErrConsultaRelacionEmpleadoInvalida = errors.New("personal: consulta propia de relacion invalida")
+	ErrRelacionEmpleadoDenegada         = errors.New("personal: consulta propia de relacion denegada")
 	ErrRelacionEmpleadoNoDisponible     = errors.New("personal: consulta propia de relacion no disponible")
 	ErrRelacionEmpleadoAmbigua          = errors.New("personal: consulta propia de relacion supera el limite")
 )

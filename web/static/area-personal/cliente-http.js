@@ -298,7 +298,7 @@ export function crearClienteHTTPAreaPersonal({ fetchImpl = globalThis.fetch } = 
     }, [200, 201]);
     const datos = exigirEnvelope(envelope, "La confirmación de la operación");
     return Object.freeze({
-      recibo: validarRecibo(datos.recibo, { presentacionEsperada: false }),
+      recibo: validarRecibo(datos.recibo),
       datos: datos.resultado && typeof datos.resultado === "object" ? structuredClone(datos.resultado) : null,
     });
   }

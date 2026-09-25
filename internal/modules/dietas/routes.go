@@ -19,42 +19,6 @@ type RoutePoint struct {
 	State            string
 }
 
-type RoutePair struct {
-	ID            string
-	From          string
-	To            string
-	FromCode      string
-	ToCode        string
-	DistanceKM    float64
-	DurationMin   int
-	Allowance     string
-	MatrixVersion string
-	Source        string
-	State         string
-}
-
-type RouteLeg struct {
-	From        string
-	To          string
-	DistanceKM  float64
-	DurationMin int
-	State       string
-}
-
-type RouteItinerary struct {
-	ID                  string
-	Label               string
-	Stops               []string
-	Legs                []RouteLeg
-	TotalKM             float64
-	TotalMinutes        int
-	MileageRateEURKM    float64
-	MileageAmountEUR    float64
-	AllowanceSuggestion string
-	MatrixVersion       string
-	AuditState          string
-}
-
 func ProvinceLocalities() []ProvinceLocality {
 	return append([]ProvinceLocality(nil), provinceLocalities...)
 }
@@ -94,7 +58,6 @@ func ProvinceRoutePoints() []RoutePoint {
 func ProvinceRouteMatrixStatus() map[string]any {
 	municipalities := len(ProvinceLocalities())
 	routePoints := len(ProvinceRoutePoints())
-	pairs := ProvinceRoutePairs()
 	return map[string]any{
 		"id":                                 "GR-DIETAS-MATRIX-2026-DESIGN",
 		"state":                              "pendiente_importacion_completa",
@@ -104,7 +67,6 @@ func ProvinceRouteMatrixStatus() map[string]any {
 		"routing_scope":                      "Provincia de Granada con buffer operativo de 15 km alrededor del limite provincial",
 		"directed_municipality_pairs":        municipalities * (municipalities - 1),
 		"directed_route_point_pairs":         routePoints * (routePoints - 1),
-		"seed_pairs_loaded":                  len(pairs),
 		"matrix_version":                     "pendiente-osrm-ngmep-2026",
 		"locality_source":                    "INE codmun 2025 + CNIG/IGN NGMEP 2026",
 		"routing_engine":                     "OSRM Route/Table service u openrouteservice Matrix on-premise",
@@ -114,56 +76,6 @@ func ProvinceRouteMatrixStatus() map[string]any {
 		"routing_mode":                       "Servidor OSRM interno/on-premise; sin consultas externas para calculo ordinario.",
 		"import_required_before_liquidation": true,
 	}
-}
-
-func ProvinceRoutePairs() []RoutePair {
-	return []RoutePair{
-		routePair("R-GR-ALBOLOTE", "Granada", "Albolote", "18087", "18003", 13.4, 18, "sin dieta por defecto"),
-		routePair("R-GR-MECINA", "Granada", "Mecina Bombarón", "18087", "NGMEP-MECINA-BOMBARON", 98.4, 93, "media dieta si hay manutencion"),
-		routePair("R-MECINA-GR", "Mecina Bombarón", "Granada", "NGMEP-MECINA-BOMBARON", "18087", 98.4, 93, "media dieta si hay manutencion"),
-		routePair("R-GR-LANJARON", "Granada", "Lanjarón", "18087", "18116", 45.9, 41, "sin dieta por defecto"),
-		routePair("R-LANJARON-MECINA", "Lanjarón", "Mecina Bombarón", "18116", "NGMEP-MECINA-BOMBARON", 49.5, 61, "sin dieta por defecto"),
-		routePair("R-GR-VELEZ-BENAUDALLA", "Granada", "Vélez de Benaudalla", "18087", "18184", 54.7, 47, "sin dieta por defecto"),
-		routePair("R-VELEZ-BENAUDALLA-MECINA", "Vélez de Benaudalla", "Mecina Bombarón", "18184", "NGMEP-MECINA-BOMBARON", 52.0, 59, "sin dieta por defecto"),
-		routePair("R-ALBOLOTE-MECINA", "Albolote", "Mecina Bombarón", "18003", "NGMEP-MECINA-BOMBARON", 124.6, 122, "sin dieta por defecto"),
-		routePair("R-MECINA-MOTRIL", "Mecina Bombarón", "Motril", "NGMEP-MECINA-BOMBARON", "18140", 83.2, 96, "media dieta si hay manutencion"),
-		routePair("R-MOTRIL-GR", "Motril", "Granada", "18140", "18087", 70.4, 55, "media dieta"),
-		routePair("R-GR-MOTRIL", "Granada", "Motril", "18087", "18140", 70.4, 55, "media dieta"),
-		routePair("R-GR-LOJA", "Granada", "Loja", "18087", "18122", 54.0, 45, "sin dieta por defecto"),
-		routePair("R-GR-GUADIX", "Granada", "Guadix", "18087", "18089", 60.5, 50, "media dieta si hay manutencion"),
-		routePair("R-GR-BAZA", "Granada", "Baza", "18087", "18023", 107.2, 80, "dieta completa segun horario"),
-		routePair("R-GR-ALMUNECAR", "Granada", "Almunecar", "18087", "18017", 80.5, 65, "media dieta"),
-		routePair("R-GR-ORGIVA", "Granada", "Orgiva", "18087", "18147", 55.8, 58, "media dieta si hay manutencion"),
-	}
-}
-
-func ProvinceRouteItineraryExamples() []RouteItinerary {
-	legs := []RouteLeg{
-		routeLeg("Granada", "Albolote", 13.4, 18),
-		routeLeg("Albolote", "Mecina Bombarón", 124.6, 122),
-		routeLeg("Mecina Bombarón", "Motril", 83.2, 96),
-		routeLeg("Motril", "Granada", 70.4, 55),
-	}
-	var totalKM float64
-	var totalMinutes int
-	for _, leg := range legs {
-		totalKM += leg.DistanceKM
-		totalMinutes += leg.DurationMin
-	}
-	rate := 0.26
-	return []RouteItinerary{{
-		ID:                  "IT-GR-ALBOLOTE-MECINA-MOTRIL-GR",
-		Label:               "Granada -> Albolote -> Mecina Bombarón -> Motril -> Granada",
-		Stops:               []string{"Granada", "Albolote", "Mecina Bombarón", "Motril", "Granada"},
-		Legs:                legs,
-		TotalKM:             totalKM,
-		TotalMinutes:        totalMinutes,
-		MileageRateEURKM:    rate,
-		MileageAmountEUR:    totalKM * rate,
-		AllowanceSuggestion: "Revisar media dieta/dieta completa por horario real y justificantes.",
-		MatrixVersion:       "pendiente-osrm-ngmep-2026",
-		AuditState:          "Ejemplo de flujo; requiere matriz oficial importada para liquidar.",
-	}}
 }
 
 func ProvinceLocalityMaps() []map[string]any {
@@ -197,86 +109,6 @@ func ProvinceRoutePointMaps() []map[string]any {
 		})
 	}
 	return out
-}
-
-func ProvinceRoutePairMaps() []map[string]any {
-	pairs := ProvinceRoutePairs()
-	out := make([]map[string]any, 0, len(pairs))
-	for _, item := range pairs {
-		out = append(out, map[string]any{
-			"id":                item.ID,
-			"from":              item.From,
-			"to":                item.To,
-			"from_code":         item.FromCode,
-			"to_code":           item.ToCode,
-			"distance_km":       item.DistanceKM,
-			"km_one_way":        item.DistanceKM,
-			"duration_minutes":  item.DurationMin,
-			"estimated_minutes": item.DurationMin,
-			"allowance":         item.Allowance,
-			"matrix_version":    item.MatrixVersion,
-			"source":            item.Source,
-			"state":             item.State,
-		})
-	}
-	return out
-}
-
-func ProvinceRouteItineraryExampleMaps() []map[string]any {
-	examples := ProvinceRouteItineraryExamples()
-	out := make([]map[string]any, 0, len(examples))
-	for _, item := range examples {
-		legs := make([]map[string]any, 0, len(item.Legs))
-		for _, leg := range item.Legs {
-			legs = append(legs, map[string]any{
-				"from":             leg.From,
-				"to":               leg.To,
-				"distance_km":      leg.DistanceKM,
-				"duration_minutes": leg.DurationMin,
-				"state":            leg.State,
-			})
-		}
-		out = append(out, map[string]any{
-			"id":                   item.ID,
-			"label":                item.Label,
-			"stops":                item.Stops,
-			"legs":                 legs,
-			"total_km":             item.TotalKM,
-			"total_minutes":        item.TotalMinutes,
-			"mileage_rate_eur_km":  item.MileageRateEURKM,
-			"mileage_amount_eur":   item.MileageAmountEUR,
-			"allowance_suggestion": item.AllowanceSuggestion,
-			"matrix_version":       item.MatrixVersion,
-			"audit_state":          item.AuditState,
-		})
-	}
-	return out
-}
-
-func routePair(id, from, to, fromCode, toCode string, distanceKM float64, durationMin int, allowance string) RoutePair {
-	return RoutePair{
-		ID:            id,
-		From:          from,
-		To:            to,
-		FromCode:      fromCode,
-		ToCode:        toCode,
-		DistanceKM:    distanceKM,
-		DurationMin:   durationMin,
-		Allowance:     allowance,
-		MatrixVersion: "pendiente-osrm-ngmep-2026",
-		Source:        "Semilla demo para UI; recalcular con matriz oficial antes de liquidar",
-		State:         "Pendiente validacion interna",
-	}
-}
-
-func routeLeg(from, to string, distanceKM float64, durationMin int) RouteLeg {
-	return RouteLeg{
-		From:        from,
-		To:          to,
-		DistanceKM:  distanceKM,
-		DurationMin: durationMin,
-		State:       "Pendiente validacion interna",
-	}
 }
 
 type routeCoordinate struct {

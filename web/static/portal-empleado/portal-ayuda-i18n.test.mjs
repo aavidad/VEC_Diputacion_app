@@ -56,6 +56,6 @@ test("la cadena de módulos renueva caché hasta el HTML", async () => {
   exigirRenovado(portal, "./ayudante-tramites.js", anterior);
   exigirRenovado([portal, ayudante], "./ayuda-contenido.js", anterior);
   exigirRenovado([portal, ayuda, ayudante], "./portal-i18n.js", anterior);
-  assert.match(i18n, /portal-i18n-ayuda\.js\?v=20260924-ayuda-i18n-v1/u);
+  exigirRenovado(i18n, "./portal-i18n-ayuda.js", "20260924-ayuda-i18n-v1");
   exigirRenovado(i18n, "./portal-panel-interno-i18n.js", "20260924-ayuda-panel-i18n-v4");
 });

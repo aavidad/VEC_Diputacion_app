@@ -18,6 +18,8 @@ import (
 	"vec-diputacion-granada/config"
 	dietashttp "vec-diputacion-granada/internal/modules/dietas/adapters/httpinterno"
 	dietasports "vec-diputacion-granada/internal/modules/dietas/ports"
+	personalhttp "vec-diputacion-granada/internal/modules/personal/adapters/httpinterno"
+	personalports "vec-diputacion-granada/internal/modules/personal/ports"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 )
 
@@ -26,6 +28,17 @@ type registradorFronteraComisionPrueba struct {
 	llamadas int
 	err      error
 	ctxErr   error
+}
+
+type registradorFronteraPersonalDietasPrueba struct {
+	orden    personalports.OrdenAuditoriaFronteraAsignacionDietas
+	llamadas int
+	err      error
+}
+
+func (r *registradorFronteraPersonalDietasPrueba) RegistrarAuditoriaFronteraAsignacionDietas(_ context.Context, orden personalports.OrdenAuditoriaFronteraAsignacionDietas) error {
+	r.orden, r.llamadas = orden, r.llamadas+1
+	return r.err
 }
 
 func (r *registradorFronteraComisionPrueba) RegistrarAuditoriaFronteraComision(ctx context.Context, orden dietasports.OrdenAuditoriaFronteraComision) error {
@@ -50,6 +63,66 @@ func TestComisionesDietasSoloSeMontanConSelectorYMaterialNominal(t *testing.T) {
 	}
 }
 
+func TestDescriptoresDietasNominalesEnCatalogoComun(t *testing.T) {
+	descriptores := descriptoresMaterialDietasDesarrollo()
+	if len(descriptores) != 20 {
+		t.Fatalf("audiencias Dietas/Personal = %d, se esperan 20", len(descriptores))
+	}
+	if _, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(descriptores); err != nil {
+		t.Fatalf("catálogo V3 rechaza audiencias nominales: %v", err)
+	}
+}
+
+func TestFronteraPersonalDietasAuditaConAutoridadNominal(t *testing.T) {
+	personal := &registradorFronteraPersonalDietasPrueba{}
+	a := &autoridadComisionesDietasDesarrollo{registradorPersonal: personal}
+	servidas := 0
+	protegida := a.proteger(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { servidas++ }))
+	w := httptest.NewRecorder()
+	protegida.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/vec/personal/relaciones-dietas", nil))
+	if w.Code != http.StatusUnauthorized || servidas != 0 || personal.llamadas != 1 || personal.orden.Motivo != personalports.MotivoFronteraPersonalAutenticacion || personal.orden.ActorRef != "" {
+		t.Fatal("frontera Personal no conservó 401 ni auditoría antes del caso de uso")
+	}
+	rCabecera := httptest.NewRequest(http.MethodGet, "/api/vec/personal/relaciones-dietas", nil)
+	rCabecera.Header.Add("Cookie", "")
+	rCabecera.Header.Add("Cookie", "sesion=libre")
+	w = httptest.NewRecorder()
+	protegida.ServeHTTP(w, rCabecera)
+	if w.Code != http.StatusUnauthorized || servidas != 0 || personal.llamadas != 2 {
+		t.Fatal("cabecera duplicada eludió la frontera Personal")
+	}
+	ruta := "/api/vec/personal/asignaciones-dietas/rel_aaaaaaaaaaaaaaaaaaaaaa/grupo"
+	if err := a.registrarDenegacion(context.Background(), ruta, http.MethodPut, http.StatusForbidden, "per_aaaaaaaaaaaaaaaaaaaaaa"); err != nil || personal.llamadas != 3 || personal.orden.Ruta != personalports.RutaFronteraAsignacionGrupo || personal.orden.Accion != "grupo_corregir" || personal.orden.Validar() != nil {
+		t.Fatalf("denegación Personal no registrada: %v %+v", err, personal.orden)
+	}
+	personal.err = errors.New("auditoría caída")
+	if err := a.registrarDenegacion(context.Background(), "/api/vec/personal/relaciones-dietas", http.MethodGet, http.StatusUnauthorized, ""); err == nil || personal.llamadas != 4 || personal.orden.Ruta != personalports.RutaFronteraRelacionesDietas {
+		t.Fatal("frontera Personal no falló cerrada")
+	}
+}
+
+func TestFronteraPersonalDietasConservaEstadoHTTPYMotivo(t *testing.T) {
+	casos := []struct {
+		estado int
+		motivo string
+	}{
+		{http.StatusBadRequest, personalports.MotivoFronteraPersonalPeticion},
+		{http.StatusNotFound, personalports.MotivoFronteraPersonalNoEncontrada},
+		{http.StatusMethodNotAllowed, personalports.MotivoFronteraPersonalMetodo},
+		{http.StatusNotAcceptable, personalports.MotivoFronteraPersonalRepresentacion},
+		{http.StatusConflict, personalports.MotivoFronteraPersonalConflicto},
+		{http.StatusServiceUnavailable, personalports.MotivoFronteraPersonalDependencia},
+	}
+	for _, caso := range casos {
+		registrador := &registradorFronteraPersonalDietasPrueba{}
+		a := &autoridadComisionesDietasDesarrollo{registradorPersonal: registrador}
+		ruta := "/api/vec/personal/asignaciones-dietas/rel_aaaaaaaaaaaaaaaaaaaaaa"
+		if err := a.registrarDenegacion(context.Background(), ruta, http.MethodGet, caso.estado, "per_aaaaaaaaaaaaaaaaaaaaaa"); err != nil || registrador.orden.Motivo != caso.motivo || registrador.orden.EstadoHTTP != caso.estado || registrador.orden.RecursoRef != "rel_aaaaaaaaaaaaaaaaaaaaaa" || registrador.orden.Validar() != nil {
+			t.Fatalf("estado %d: orden=%+v err=%v", caso.estado, registrador.orden, err)
+		}
+	}
+}
+
 func TestFronteraComisionesDietasNoDelegaNiSirveSinSesion(t *testing.T) {
 	for _, caso := range []struct {
 		ruta, metodo string
@@ -59,9 +132,29 @@ func TestFronteraComisionesDietasNoDelegaNiSirveSinSesion(t *testing.T) {
 		{dietashttp.RutaBorradores, http.MethodPost, true},
 		{dietashttp.RutaBorradores, http.MethodPut, false},
 		{dietashttp.RutaBorradores + "/dco_aaaaaaaaaaaaaaaaaaaaaa", http.MethodGet, true},
+		{dietashttp.RutaBorradores + "/dco_aaaaaaaaaaaaaaaaaaaaaa", http.MethodPut, true},
+		{dietashttp.RutaBorradores + "/dco_aaaaaaaaaaaaaaaaaaaaaa", http.MethodDelete, true},
+		{dietashttp.RutaBorradores + "/dco_aaaaaaaaaaaaaaaaaaaaaa/enviar", http.MethodPost, true},
+		{dietashttp.RutaBorradores + "/dco_aaaaaaaaaaaaaaaaaaaaaa/enviar", http.MethodGet, false},
+		{dietashttp.RutaBorradores + "/circuito", http.MethodGet, true},
+		{dietashttp.RutaBorradores + "/circuito", http.MethodPost, false},
+		{dietashttp.RutaBorradores + "/circuito/dco_aaaaaaaaaaaaaaaaaaaaaa/decisiones", http.MethodPost, true},
+		{dietashttp.RutaBorradores + "/circuito/dco_aaaaaaaaaaaaaaaaaaaaaa/decisiones", http.MethodGet, false},
+		{dietashttp.RutaBorradores + "/circuito/competencias", http.MethodGet, true},
+		{dietashttp.RutaBorradores + "/circuito/competencias", http.MethodPost, false},
+		{dietashttp.RutaBorradores + "/circuito/dco_aaaaaaaaaaaaaaaaaaaaaa", http.MethodGet, true},
+		{dietashttp.RutaBorradores + "/circuito/dco_aaaaaaaaaaaaaaaaaaaaaa", http.MethodPost, false},
+		{dietashttp.RutaBorradores + "/circuito/otra", http.MethodGet, false},
 		{dietashttp.RutaBorradores + "/dco_aaaaaaaaaaaaaaaaaaaaaa", http.MethodPost, false},
 		{dietashttp.RutaBorradores + "/a/b", http.MethodGet, false},
 		{dietashttp.RutaBorradores, http.MethodDelete, false},
+		{"/api/vec/personal/relaciones-dietas", http.MethodGet, true},
+		{"/api/vec/personal/relaciones-dietas", http.MethodPost, false},
+		{"/api/vec/personal/asignaciones-dietas", http.MethodPost, false},
+		{"/api/vec/personal/asignaciones-dietas/rel_aaaaaaaaaaaaaaaaaaaaaa", http.MethodGet, true},
+		{"/api/vec/personal/asignaciones-dietas/rel_aaaaaaaaaaaaaaaaaaaaaa", http.MethodPut, false},
+		{"/api/vec/personal/asignaciones-dietas/rel_aaaaaaaaaaaaaaaaaaaaaa/grupo", http.MethodPut, true},
+		{"/api/vec/personal/asignaciones-dietas/rel_aaaaaaaaaaaaaaaaaaaaaa/grupo", http.MethodGet, false},
 	} {
 		if obtenido := metodoComisionesDietasValido(caso.ruta, caso.metodo); obtenido != caso.admitido {
 			t.Fatalf("método %s %s admitido=%t", caso.metodo, caso.ruta, obtenido)
@@ -159,7 +252,8 @@ func TestComisionesDietasAuditaActorSoloTrasSesionYContextoVerificados(t *testin
 	resolutor := &resolutorSesionConsultaPrueba{base: fixture.resultado, reloj: reloj}
 	base := &autoridadRutasDietasDesarrollo{resolvedor: identidad, registro: registro, revalidador: revalidador, contextos: resolutor, reloj: reloj, instancia: strings.Repeat("a", 64)}
 	auditoria := &registradorFronteraComisionPrueba{}
-	autoridad := &autoridadComisionesDietasDesarrollo{base: base, reloj: reloj, cuentas: map[string]cuentaRutasDietasDesarrollo{huella: cuenta}, registrador: auditoria}
+	auditoriaPersonal := &registradorFronteraPersonalDietasPrueba{}
+	autoridad := &autoridadComisionesDietasDesarrollo{base: base, reloj: reloj, cuentas: map[string]cuentaRutasDietasDesarrollo{huella: cuenta}, registrador: auditoria, registradorPersonal: auditoriaPersonal}
 	servidos := 0
 	servidor := httptest.NewUnstartedServer(autoridad.proteger(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		servidos++
@@ -196,7 +290,22 @@ func TestComisionesDietasAuditaActorSoloTrasSesionYContextoVerificados(t *testin
 			t.Fatalf("rechazo de %s %s: estado=%d actor=%q servidos=%d", caso.metodo, caso.ruta, respuesta.StatusCode, auditoria.orden.ActorRef, servidos)
 		}
 	}
-	if len(registro.altas) != 2 || revalidador.llamadas != 2 {
+	codificada, err := http.NewRequest(http.MethodGet, servidor.URL+"/api/vec/personal/%72elaciones-dietas", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if codificada.URL.Path != personalhttp.RutaRelacionesDietas || codificada.URL.RawPath == "" {
+		t.Fatalf("URL codificada no conservó RawPath: %+v", codificada.URL)
+	}
+	respuestaCodificada, err := cliente.Do(codificada)
+	if err != nil {
+		t.Fatal(err)
+	}
+	respuestaCodificada.Body.Close()
+	if respuestaCodificada.StatusCode != http.StatusBadRequest || auditoriaPersonal.llamadas != 1 || auditoriaPersonal.orden.Motivo != personalports.MotivoFronteraPersonalPeticion || auditoriaPersonal.orden.Accion != "metodo_no_admitido" || auditoriaPersonal.orden.EstadoHTTP != http.StatusBadRequest || auditoriaPersonal.orden.RecursoRef != "" || auditoriaPersonal.orden.ActorRef != actorRef || auditoriaPersonal.orden.Validar() != nil || servidos != 0 {
+		t.Fatalf("RawPath codificada no auditada: estado=%d orden=%+v servidos=%d", respuestaCodificada.StatusCode, auditoriaPersonal.orden, servidos)
+	}
+	if len(registro.altas) != 3 || revalidador.llamadas != 3 {
 		t.Fatalf("identidad central no verificada antes del rechazo: sesiones=%d revalidaciones=%d", len(registro.altas), revalidador.llamadas)
 	}
 	anónimo := httptest.NewRecorder()
@@ -215,7 +324,7 @@ func TestComisionesDietasAuditaActorSoloTrasSesionYContextoVerificados(t *testin
 		t.Fatal(err)
 	}
 	respuesta.Body.Close()
-	if respuesta.StatusCode != http.StatusForbidden || auditoria.orden.ActorRef != "" || servidos != 0 || len(registro.altas) != 2 {
+	if respuesta.StatusCode != http.StatusForbidden || auditoria.orden.ActorRef != "" || servidos != 0 || len(registro.altas) != 3 {
 		t.Fatalf("sujeto TLS y cuenta cruzados: estado=%d actor=%q servidos=%d sesiones=%d", respuesta.StatusCode, auditoria.orden.ActorRef, servidos, len(registro.altas))
 	}
 }
