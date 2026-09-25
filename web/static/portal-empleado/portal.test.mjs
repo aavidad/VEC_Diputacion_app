@@ -6,8 +6,7 @@ import {
   extraerDatosEnvelopeCanonico,
   validarPanelBolsa,
 } from "./portal-contrato.js";
-import { validarPropuestaLlamamientoPresentacion } from "./portal-llamamientos-contrato.js";
-import { obtenerDatosPresentacion, obtenerPropuestaPresentacion } from "./datos-presentacion.js";
+import { obtenerDatosPresentacion } from "./datos-presentacion.js";
 import { AYUDA_PORTAL_BOLSA } from "./ayuda-contenido.js";
 import { crearPresentadorPanelInterno } from "./portal-panel-interno.js";
 import { MENSAJES_PORTAL_ES, traducirPortal } from "./portal-i18n.js";
@@ -184,18 +183,14 @@ test("el contrato real exige envelope canónico y rechaza una raíz raw", () => 
   assert.equal(validado.actuaciones_pendientes[0].tipo_clave, "revisar_bases");
 });
 
-test("el panel global prohíbe candidatos y la propuesta es un contrato separado", () => {
+test("el panel global prohíbe candidatos y no habilita el contrato de propuesta sintética", () => {
   const panel = { ...panelInternoReal(), candidatos: [] };
   assert.throws(() => validarPanelBolsa(panel), /no admite listados/);
   assert.doesNotMatch(datos, /\bcandidatos\s*:/);
   assert.doesNotMatch(datos, /\bdni\s*:/i);
   assert.doesNotMatch(codigo, /data-candidato|Nombre o DNI parcial|filtros-candidatos/);
-  const propuesta = validarPropuestaLlamamientoPresentacion(obtenerPropuestaPresentacion("DEMO-NEC-0045"));
-  assert.deepEqual(Object.keys(propuesta.evaluaciones[0]), ["orden", "resultado", "motivos"]);
-  assert.throws(() => validarPropuestaLlamamientoPresentacion({
-    ...obtenerPropuestaPresentacion("DEMO-NEC-0045"),
-    nombre: "dato no permitido",
-  }), /contrato cerrado/);
+  assert.doesNotMatch(contratoLlamamientos, /validarPropuestaLlamamientoPresentacion/);
+  assert.doesNotMatch(javascript, /obtenerPropuestaPresentacion|validarPropuestaLlamamientoPresentacion/);
 });
 
 test("el contrato real falla cerrado y no completa datos ausentes con ceros o listas", () => {
