@@ -22,9 +22,22 @@ export const CAMPOS_RESPUESTA_RECIBIDA = Object.freeze([
 export const CAMPOS_RESPUESTA_EDITABLES = Object.freeze([
   "clave_idempotencia", "respuesta", "correo_ref", "recibida_en",
 ]);
-// Configuración fija de este ejercicio de desarrollo; no concede autoridad.
+// Criterio histórico del ejercicio sintético, sin plazo abierto. Con contacto
+// efectivo el criterio procede del recibo del servidor (catálogo de reglas).
 export const CRITERIO_VALIDACION_RESOLUCION_DESARROLLO = "politica:ct:revision-manual-sintetica:20260906";
 export const RESPUESTAS_RESOLUCION = Object.freeze(["aceptacion", "renuncia"]);
+export const RESPUESTA_EXPIRACION = "expiracion_gobernada";
+export const TIPOS_EVENTO_PLAZO = Object.freeze(["contacto_efectivo", "causa_justificada"]);
+export const CAMPOS_EVENTO_PLAZO = Object.freeze([
+  "clave_idempotencia", "organizacion_ref", "expediente_ref", "llamamiento_ref",
+  "comunicacion_ref", "version_comunicacion_esperada", "tipo", "instante_en", "prueba_ref",
+]);
+export const CAMPOS_EVENTO_PLAZO_EDITABLES = Object.freeze(["clave_idempotencia", "instante_en", "prueba_ref"]);
+const CAMPOS_PLAZO_RESPUESTA = Object.freeze([
+  "respuesta_hasta", "ultimo_dia", "politica_ref", "tratamiento_fuera_de_plazo",
+  "confirmacion_expiracion", "criterio_respuesta_ref", "criterio_expiracion_ref", "regla_ejemplo",
+]);
+const TRATAMIENTOS_FUERA_DE_PLAZO = Object.freeze(["admitir", "exige_causa_justificada", "no_admitir"]);
 export const CAMPOS_REVISION_RESOLUCION = Object.freeze([
   "revision_respuesta_rrhh", "revision_plazo_rrhh",
 ]);
@@ -195,24 +208,28 @@ export function validarReciboRespuestaRecibida(entrada, solicitudEntrada) {
 }
 // La respuesta procede del justificante; este no concede plazo ni
 // autorización: ambos se comprueban en el servidor antes de producir un recibo.
+// La expiración gobernada no lleva justificante: RRHH confirma la propuesta.
 export function validarSolicitudResolucionLlamamiento(entrada) {
-  const valor = solicitud(entrada, CAMPOS_RESOLUCION);
-  exigir(valor.version_esperada === 2 && RESPUESTAS_RESOLUCION.includes(valor.respuesta)
-    && CAMPOS_REVISION_RESOLUCION.every((campo) => valor[campo] === true)
-    && valor.criterio_validacion_ref === CRITERIO_VALIDACION_RESOLUCION_DESARROLLO);
-  return valor;
+  const expiracion = entrada !== null && typeof entrada === "object" && entrada.respuesta === RESPUESTA_EXPIRACION;
+  const valor = expiracion ? solicitud({ ...registro(entrada, CAMPOS_RESOLUCION), prueba_respuesta_ref: "sin:justificante" },
+    CAMPOS_RESOLUCION) : solicitud(entrada, CAMPOS_RESOLUCION);
+  exigir(valor.version_esperada === 2
+    && (expiracion ? entrada.prueba_respuesta_ref === "" : RESPUESTAS_RESOLUCION.includes(valor.respuesta))
+    && CAMPOS_REVISION_RESOLUCION.every((campo) => valor[campo] === true));
+  return expiracion ? registro({ ...valor, prueba_respuesta_ref: "" }, CAMPOS_RESOLUCION) : valor;
 }
 export function validarReciboResolucionLlamamiento(entrada, solicitudEntrada) {
   const esperada = validarSolicitudResolucionLlamamiento(solicitudEntrada);
-  const renuncia = esperada.respuesta === "renuncia";
-  // Intención obligatoria en renuncia y prohibida, incluso null, en aceptación.
+  const expiracion = esperada.respuesta === RESPUESTA_EXPIRACION;
+  const renuncia = esperada.respuesta === "renuncia" || expiracion;
+  // Intención obligatoria en renuncia y expiración; prohibida, incluso null, en aceptación.
   const valor = registro(entrada, [
     "esquema", "respuesta", "estado_plazo", "estado_local", "resolucion_ref",
     "recibo_local_ref", "auditoria_ref", "version_resultante", "resuelta_en",
     ...(renuncia ? ["intencion_siguiente"] : []),
   ]);
   exigir(valor.esquema === "vec.contratacion-temporal.resolucion-comunicacion-llamamiento.v1"
-    && valor.respuesta === esperada.respuesta && valor.estado_plazo === "vigente"
+    && valor.respuesta === esperada.respuesta && valor.estado_plazo === (expiracion ? "expirado" : "vigente")
     && ["confirmado", "replay_confirmado"].includes(valor.estado_local)
     && entero(valor.version_resultante) && valor.version_resultante === esperada.version_esperada + 1
     && ["resolucion_ref", "recibo_local_ref", "auditoria_ref"].every(
@@ -256,4 +273,39 @@ export function validarReciboComunicacionLlamamiento(entrada, solicitudEntrada) 
       : instante(valor.respuesta_hasta))
     && valor.version_resultante === solicitudEntrada.version_esperada + 1);
   return valor;
+}
+
+// Plazo de respuesta: RRHH declara el contacto efectivo (o la causa
+// justificada); el vencimiento y sus reglas los calcula siempre el servidor.
+export function validarSolicitudEventoPlazo(entrada) {
+  const valor = solicitud(entrada, CAMPOS_EVENTO_PLAZO, "version_comunicacion_esperada");
+  exigir(valor.version_comunicacion_esperada === 2 && TIPOS_EVENTO_PLAZO.includes(valor.tipo));
+  instanteRespuesta(valor.instante_en);
+  return valor;
+}
+export function validarReciboEventoPlazo(entrada, solicitudEntrada) {
+  const esperada = validarSolicitudEventoPlazo(solicitudEntrada);
+  const contacto = esperada.tipo === "contacto_efectivo";
+  const valor = registro(entrada, [...CAMPOS_EVENTO_PLAZO, "esquema", "evento_ref", "recibo_ref",
+    "auditoria_ref", "registrado_en", "estado", ...(contacto ? ["plazo"] : [])]);
+  exigir(valor.esquema === "vec.contratacion-temporal.evento-plazo-llamamiento.v1"
+    && ["registrado", "replay_registrado"].includes(valor.estado)
+    && ["evento_ref", "recibo_ref", "auditoria_ref"].every((campo) => referenciaLlamamientoValida(valor[campo]))
+    && CAMPOS_EVENTO_PLAZO.every((campo) => campo === "instante_en"
+      ? instanteRespuesta(valor[campo]) === instanteRespuesta(esperada[campo]) : valor[campo] === esperada[campo])
+    && instanteRespuesta(valor.registrado_en) >= instanteRespuesta(valor.instante_en));
+  if (!contacto) return valor;
+  const plazo = registro(valor.plazo, CAMPOS_PLAZO_RESPUESTA);
+  exigir(/^\d{4}-\d{2}-\d{2}$/u.test(plazo.ultimo_dia) && typeof plazo.regla_ejemplo === "boolean"
+    && ["politica_ref", "criterio_respuesta_ref", "criterio_expiracion_ref"].every((campo) => referenciaLlamamientoValida(plazo[campo]))
+    && TRATAMIENTOS_FUERA_DE_PLAZO.includes(plazo.tratamiento_fuera_de_plazo) && plazo.confirmacion_expiracion === "rrhh"
+    && instanteRespuesta(plazo.respuesta_hasta) > instanteRespuesta(valor.instante_en));
+  return Object.freeze({ ...valor, plazo });
+}
+/** Lectura visual del plazo; el servidor vuelve a decidir con su reloj. */
+export function situacionPlazoRespuesta(plazo, ahora) {
+  return Number.isFinite(ahora) && ahora >= Date.parse(plazo.respuesta_hasta) ? "vencido" : "en_plazo";
+}
+export function respuestaFueraDePlazo(plazo, recibidaEn) {
+  return instanteRespuesta(recibidaEn) >= instanteRespuesta(plazo.respuesta_hasta);
 }

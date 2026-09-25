@@ -14,7 +14,10 @@ import {
   RESPUESTAS_RESOLUCION,
   CAMPOS_SIGUIENTE, validarSolicitudContinuacionLlamamiento, validarReciboContinuacionLlamamiento,
   CAMPOS_PROPUESTA, validarSolicitudPropuestaFormalizacion, validarReciboPropuestaFormalizacion,
+  CAMPOS_EVENTO_PLAZO, CAMPOS_EVENTO_PLAZO_EDITABLES, validarSolicitudEventoPlazo, validarReciboEventoPlazo,
+  RESPUESTA_EXPIRACION,
 } from "./contrato-llamamiento.js";
+import { lecturaPlazoLlamamiento } from "./renderizado-plazo-llamamiento.js";
 
 const OPERACION_COMUNICACION = Object.freeze({
   campos: CAMPOS_COMUNICACION, validar: validarSolicitudComunicacionLlamamiento,
@@ -28,6 +31,12 @@ const OPERACION_RESOLUCION = Object.freeze({
   campos: CAMPOS_RESOLUCION, validar: validarSolicitudResolucionLlamamiento,
   recibo: validarReciboResolucionLlamamiento, metodo: "resolverLlamamiento",
 });
+// Plazo de respuesta: operaciones opcionales si el cliente no las ofrece.
+const OPERACION_EVENTO_PLAZO = Object.freeze({
+  campos: CAMPOS_EVENTO_PLAZO, validar: validarSolicitudEventoPlazo,
+  recibo: validarReciboEventoPlazo, metodo: "registrarEventoPlazoLlamamiento",
+});
+const OPERACION_EXPIRACION = Object.freeze({ ...OPERACION_RESOLUCION });
 const OPERACIONES = Object.freeze({
   seleccion: {
     campos: CAMPOS_SELECCION, validar: validarSolicitudSeleccionLlamamiento,
@@ -37,6 +46,9 @@ const OPERACIONES = Object.freeze({
   comunicacion_siguiente: { ...OPERACION_COMUNICACION, campos: CAMPOS_COMUNICACION_SIGUIENTE },
   respuesta: OPERACION_RESPUESTA,
   respuesta_siguiente: OPERACION_RESPUESTA,
+  contacto: OPERACION_EVENTO_PLAZO,
+  causa: OPERACION_EVENTO_PLAZO,
+  expiracion: OPERACION_EXPIRACION,
   resolucion: OPERACION_RESOLUCION,
   resolucion_siguiente: OPERACION_RESOLUCION,
   siguiente: {
@@ -50,6 +62,8 @@ const OPERACIONES = Object.freeze({
 });
 function esRespuesta(operacion) { return OPERACIONES[operacion] === OPERACION_RESPUESTA; }
 function esResolucion(operacion) { return OPERACIONES[operacion] === OPERACION_RESOLUCION; }
+function esEventoPlazo(operacion) { return OPERACIONES[operacion] === OPERACION_EVENTO_PLAZO; }
+const OPERACIONES_OPCIONALES = Object.freeze(["propuesta", "contacto", "causa"]);
 function nuevoPaso() {
   return { valores: {}, solicitud: null, recibo: null, ocupado: false, bloqueado: false,
     calculando: false, lecturaCorreo: 0,
@@ -68,11 +82,13 @@ export function montarFormularioLlamamiento({
   mensajes = {}, locale = "es-ES", zonaHoraria = "Europe/Madrid", anunciar = () => {},
   alPropuestaConfirmada = () => {},
   alActualizarPropuesta = null,
+  reloj = () => Date.now(),
 } = {}) {
   if (!raiz || typeof raiz.addEventListener !== "function"
     || typeof raiz.removeEventListener !== "function" || typeof raiz.querySelector !== "function"
     || typeof raiz.contains !== "function" || typeof raiz.replaceChildren !== "function"
-    || Object.entries(OPERACIONES).some(([operacion, { metodo }]) => operacion !== "propuesta" && typeof cliente?.[metodo] !== "function")
+    || Object.entries(OPERACIONES).some(([operacion, { metodo }]) => !OPERACIONES_OPCIONALES.includes(operacion) && typeof cliente?.[metodo] !== "function")
+    || typeof reloj !== "function"
     || typeof confirmarOperacion !== "function" || typeof generarClaveIdempotencia !== "function"
     || typeof anunciar !== "function" || typeof alPropuestaConfirmada !== "function"
     || (alActualizarPropuesta !== null && typeof alActualizarPropuesta !== "function")) {
@@ -90,7 +106,34 @@ export function montarFormularioLlamamiento({
       actualizando: false, actualizacionPendiente: false, mensaje: "llamamiento_propuesta_no_disponible" },
     siguiente: { ...nuevoPaso(), mensaje: "llamamiento_siguiente_pendiente", claveConservada: false },
     resolucion: nuevoPasoResolucion(), resolucion_siguiente: nuevoPasoResolucion(),
+    contacto: { ...nuevoPaso(), mensaje: "llamamiento_contacto_pendiente" },
+    causa: { ...nuevoPaso(), mensaje: "llamamiento_causa_pendiente" },
+    expiracion: { ...nuevoPaso(), mensaje: "llamamiento_expiracion_pendiente",
+      valores: { revision_respuesta_rrhh: false, revision_plazo_rrhh: false } },
+    plazoDisponible: typeof cliente.registrarEventoPlazoLlamamiento === "function",
     enlazado: false, comunicacionAbierta: false };
+  function ahora() {
+    try { const valor = reloj(); return Number.isFinite(valor) ? valor : Date.now(); } catch { return Date.now(); }
+  }
+  function lecturaPlazo() { return lecturaPlazoLlamamiento(estado, ahora()); }
+  // La vista pasa a «vencido» y muestra la propuesta al llegar el vencimiento.
+  let temporizadorPlazo = null;
+  function programarVencimiento() {
+    clearTimeout(temporizadorPlazo);
+    const restante = Date.parse(estado.contacto.recibo?.plazo?.respuesta_hasta ?? "") - ahora();
+    if (Number.isFinite(restante) && restante > 0 && restante < 2 ** 31 - 1) {
+      temporizadorPlazo = setTimeout(() => repintar(), restante + 1000);
+    }
+  }
+  // El contacto efectivo abre el plazo; sin él, no hay expiración ni causa.
+  function puedeRegistrarEventoPlazo(operacion) {
+    if (!estado.plazoDisponible || estado.comunicacion.recibo?.version_resultante !== 2 || estado.resolucion.recibo) return false;
+    if (operacion === "contacto") return true;
+    return lecturaPlazo()?.exigeCausa === true;
+  }
+  function puedeConfirmarExpiracion() {
+    return lecturaPlazo()?.propuestaExpiracion === true || estado.expiracion.solicitud !== null;
+  }
 
   function puedeDeclarar(operacion) {
     const recibo = estado[operacion === "respuesta_siguiente" ? "comunicacion_siguiente" : "comunicacion"].recibo;
@@ -98,13 +141,16 @@ export function montarFormularioLlamamiento({
       || ["registrada_localmente", "replay_registrada_localmente"].includes(recibo.estado_local));
   }
   function puedeResolver(operacion) {
+    const lectura = operacion === "resolucion" ? lecturaPlazo() : null;
+    // La regla capturada al abrir el plazo decide sobre la respuesta tardía.
+    if (lectura?.noAdmitida || (lectura?.exigeCausa && !estado.causa.recibo)) return false;
     return RESPUESTAS_RESOLUCION.includes(
       estado[operacion === "resolucion_siguiente" ? "respuesta_siguiente" : "respuesta"].recibo?.respuesta,
     );
   }
   function repintar(operacion = "") {
     if (!montado) return;
-    raiz.innerHTML = renderizarLlamamiento(estado, t, fecha);
+    raiz.innerHTML = renderizarLlamamiento(estado, t, fecha, ahora());
     if (operacion) {
       const paso = estado[operacion];
       const foco = raiz.querySelector(paso.recibo
@@ -122,10 +168,11 @@ export function montarFormularioLlamamiento({
       if (!formulario?.elements || paso.solicitud !== null) continue;
       for (const campo of contrato.campos) {
         // Los antecedentes de comunicación proceden del recibo, no de los controles.
-        const revision = esResolucion(operacion) && CAMPOS_REVISION_RESOLUCION.includes(campo);
-        if ((esResolucion(operacion) || ["comunicacion", "comunicacion_siguiente", "siguiente", "propuesta"].includes(operacion)) && campo !== "clave_idempotencia" && !revision) continue;
+        const revision = (esResolucion(operacion) || operacion === "expiracion") && CAMPOS_REVISION_RESOLUCION.includes(campo);
+        if ((esResolucion(operacion) || ["comunicacion", "comunicacion_siguiente", "siguiente", "propuesta", "expiracion"].includes(operacion)) && campo !== "clave_idempotencia" && !revision) continue;
         if (paso.claveConservada && campo === "clave_idempotencia") continue;
         if (esRespuesta(operacion) && !CAMPOS_RESPUESTA_EDITABLES.includes(campo)) continue;
+        if (esEventoPlazo(operacion) && !CAMPOS_EVENTO_PLAZO_EDITABLES.includes(campo)) continue;
         const control = formulario.elements.namedItem(campo);
         paso.valores[campo] = revision ? control?.checked === true : String(control?.value ?? "");
       }
@@ -248,23 +295,25 @@ export function montarFormularioLlamamiento({
     if (operacion === "comunicacion_siguiente" && estado.siguiente.recibo === null) return;
     if (esRespuesta(operacion) && !puedeDeclarar(operacion)) return;
     if (esResolucion(operacion) && !puedeResolver(operacion)) return;
+    if (esEventoPlazo(operacion) && !puedeRegistrarEventoPlazo(operacion) && paso.solicitud === null) return;
+    if (operacion === "expiracion" && !puedeConfirmarExpiracion()) return;
     if (operacion === "siguiente" && !puedeContinuar()) return;
     if (operacion === "propuesta" && (!puedeProponer() || !paso.disponible)) return;
     guardarBorradores();
     const contrato = OPERACIONES[operacion];
-    const recuperandoRespuesta = (esResolucion(operacion) || ["respuesta", "respuesta_siguiente", "siguiente", "comunicacion_siguiente", "propuesta"].includes(operacion)) && paso.solicitud !== null;
+    const recuperandoRespuesta = (esResolucion(operacion) || ["respuesta", "respuesta_siguiente", "siguiente", "comunicacion_siguiente", "propuesta", "contacto", "causa", "expiracion"].includes(operacion)) && paso.solicitud !== null;
     let solicitud;
     try {
       solicitud = paso.solicitud ?? contrato.validar(Object.fromEntries(
         contrato.campos.map((campo) => [
           campo, campo === "version_esperada" || campo === "version_comunicacion_esperada"
             ? Number(paso.valores[campo])
-            : campo === "recibida_en" && !paso.valores[campo]?.endsWith("Z")
+            : (campo === "recibida_en" || campo === "instante_en") && !paso.valores[campo]?.endsWith("Z")
               ? `${paso.valores[campo]}${paso.valores[campo]?.length === 16 ? ":00" : ""}Z`
               : paso.valores[campo],
         ]),
       ));
-      if (["comunicacion_siguiente", "respuesta_siguiente", "resolucion_siguiente", "propuesta"].includes(operacion) && Object.keys(OPERACIONES).some(
+      if (["comunicacion_siguiente", "respuesta_siguiente", "resolucion_siguiente", "propuesta", "contacto", "causa", "expiracion"].includes(operacion) && Object.keys(OPERACIONES).some(
         (anterior) => anterior !== operacion
           && estado[anterior].solicitud?.clave_idempotencia === solicitud.clave_idempotencia,
       )) throw new TypeError("la operación necesita su propia clave");
@@ -274,7 +323,8 @@ export function montarFormularioLlamamiento({
         throw new TypeError("la operación necesita su propia clave");
       }
     } catch {
-      paso.mensaje = operacion === "respuesta_siguiente" ? "llamamiento_respuesta_siguiente_validacion"
+      paso.mensaje = ["contacto", "causa", "expiracion"].includes(operacion) ? `llamamiento_${operacion}_validacion`
+        : operacion === "respuesta_siguiente" ? "llamamiento_respuesta_siguiente_validacion"
         : operacion === "comunicacion_siguiente" ? "llamamiento_comunicacion_siguiente_validacion"
         : operacion === "propuesta" ? "llamamiento_propuesta_validacion" : operacion === "siguiente" ? "llamamiento_siguiente_validacion"
         : esResolucion(operacion) ? "llamamiento_resolucion_validacion"
@@ -292,6 +342,7 @@ export function montarFormularioLlamamiento({
           justificante: solicitud.prueba_respuesta_ref,
           criterio: solicitud.criterio_validacion_ref,
           antecedente: solicitud.prueba_entrega_ref,
+          ...(esEventoPlazo(operacion) ? { instante: solicitud.instante_en, prueba: solicitud.prueba_ref } : {}),
           ...(operacion === "siguiente" ? {
             resolucion: solicitud.resolucion_ref, intencion: solicitud.intencion_ref,
           } : {}),
@@ -311,7 +362,7 @@ export function montarFormularioLlamamiento({
     } catch { /* La confirmación es obligatoria. */ }
     if (!confirmado || !montado) return;
     paso.solicitud = solicitud;
-    if (["siguiente", "comunicacion_siguiente", "respuesta_siguiente", "resolucion_siguiente", "propuesta"].includes(operacion)) paso.claveConservada = true;
+    if (["siguiente", "comunicacion_siguiente", "respuesta_siguiente", "resolucion_siguiente", "propuesta", "contacto", "causa", "expiracion"].includes(operacion)) paso.claveConservada = true;
     paso.valores = { ...solicitud };
     paso.ocupado = true;
     paso.controlador = new AbortController();
@@ -333,7 +384,8 @@ export function montarFormularioLlamamiento({
         paso.actualizacionPendiente = alActualizarPropuesta !== null;
         try { alPropuestaConfirmada(recibo, solicitud); } catch { /* El recibo ya prevalece. */ }
       }
-      paso.mensaje = operacion === "respuesta_siguiente" ? "llamamiento_respuesta_siguiente_recibo"
+      paso.mensaje = ["contacto", "causa", "expiracion"].includes(operacion) ? `llamamiento_${operacion}_recibo`
+        : operacion === "respuesta_siguiente" ? "llamamiento_respuesta_siguiente_recibo"
         : operacion === "comunicacion_siguiente" ? "llamamiento_comunicacion_siguiente_recibo"
         : operacion === "propuesta" ? "llamamiento_propuesta_recibo" : operacion === "siguiente" ? "llamamiento_siguiente_recibo"
         : esResolucion(operacion) ? "llamamiento_" + operacion + "_recibo_" + recibo.respuesta
@@ -350,6 +402,28 @@ export function montarFormularioLlamamiento({
             version_esperada: recibo.version_llamamiento,
             prueba_entrega_ref: recibo.recibo_ref,
           };
+        }
+      }
+      if (operacion === "comunicacion" && recibo.version_resultante === 2) {
+        const contexto = {
+          organizacion_ref: solicitud.organizacion_ref, expediente_ref: solicitud.expediente_ref,
+          llamamiento_ref: solicitud.llamamiento_ref, comunicacion_ref: recibo.comunicacion_ref,
+        };
+        for (const [evento, tipo] of [["contacto", "contacto_efectivo"], ["causa", "causa_justificada"]]) {
+          estado[evento].valores = { ...estado[evento].valores, ...contexto,
+            version_comunicacion_esperada: recibo.version_resultante, tipo };
+        }
+        estado.expiracion.valores = { ...estado.expiracion.valores, ...contexto,
+          version_esperada: recibo.version_resultante, respuesta: RESPUESTA_EXPIRACION, prueba_respuesta_ref: "" };
+      }
+      if (operacion === "contacto") {
+        programarVencimiento();
+        // Los criterios los fija el servidor con el catálogo vigente al abrir el plazo.
+        estado.expiracion.valores = { ...estado.expiracion.valores,
+          criterio_validacion_ref: recibo.plazo.criterio_expiracion_ref };
+        if (estado.resolucion.solicitud === null) {
+          estado.resolucion.valores = { ...estado.resolucion.valores,
+            criterio_validacion_ref: recibo.plazo.criterio_respuesta_ref };
         }
       }
       if (["comunicacion", "comunicacion_siguiente"].includes(operacion) && recibo.version_resultante === 2) {
@@ -393,7 +467,7 @@ export function montarFormularioLlamamiento({
       if (!montado) return;
       guardarBorradores();
       const conflicto = ["conflicto_no_reintentable", "clave_idempotencia_reutilizada",
-        "version_en_conflicto", "seleccion_no_disponible", "resolucion_no_aceptada"].includes(error?.codigo);
+        "version_en_conflicto", "seleccion_no_disponible", "resolucion_no_aceptada", "evento_en_conflicto"].includes(error?.codigo);
       const validacionPendiente = esResolucion(operacion) && esValidacionRespuestaPendiente(error)
         && error.resultadoIndeterminado === false && !recuperandoRespuesta && !respuestaRecibida;
       // Denegar un replay no demuestra ausencia de efecto del intento original.
@@ -469,6 +543,8 @@ export function montarFormularioLlamamiento({
     if (operacion === "comunicacion_siguiente" && estado.siguiente.recibo === null) return;
     if (esRespuesta(operacion) && !puedeDeclarar(operacion)) return;
     if (esResolucion(operacion) && !puedeResolver(operacion)) return;
+    if (esEventoPlazo(operacion) && !puedeRegistrarEventoPlazo(operacion)) return;
+    if (operacion === "expiracion" && !puedeConfirmarExpiracion()) return;
     if (operacion === "siguiente" && !puedeContinuar()) return;
     if (operacion === "propuesta" && (!puedeProponer() || !estado.propuesta.disponible)) return;
     const paso = estado[operacion];
@@ -489,6 +565,7 @@ export function montarFormularioLlamamiento({
   const desmontar = () => {
     if (!montado) return;
     montado = false;
+    clearTimeout(temporizadorPlazo);
     for (const operacion of Object.keys(OPERACIONES)) {
       estado[operacion].lecturaCorreo += 1;
       estado[operacion].controlador?.abort();
@@ -499,5 +576,6 @@ export function montarFormularioLlamamiento({
     raiz.replaceChildren();
   };
   desmontar.actualizarContexto = actualizarContexto;
+  desmontar.revisarPlazo = () => repintar();
   return desmontar;
 }
