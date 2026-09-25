@@ -304,6 +304,21 @@ type resumenRRHHJSON struct {
 	UnidadRef      string `json:"unidad_ref,omitempty"`
 	CreadoEn       string `json:"creado_en"`
 	ActualizadoEn  string `json:"actualizado_en"`
+	// PlazoFase es opcional dentro del mismo esquema v1: solo aparece si el
+	// catálogo de reglas da plazo a la fase actual. El cliente lo ignora si
+	// falta.
+	PlazoFase *plazoFaseRRHHJSON `json:"plazo_fase,omitempty"`
+}
+
+// plazoFaseRRHHJSON: último día (fecha civil peninsular), primer instante ya
+// vencido, estado y la entrada exacta del catálogo que fija el plazo.
+// Con estado no_calculado solo viaja el estado.
+type plazoFaseRRHHJSON struct {
+	UltimoDia    string `json:"ultimo_dia,omitempty"`
+	VenceAntesDe string `json:"vence_antes_de,omitempty"`
+	Estado       string `json:"estado"`
+	ReglaRef     string `json:"regla_ref,omitempty"`
+	ReglaEjemplo *bool  `json:"regla_ejemplo,omitempty"`
 }
 
 func proyectarPaginaCuadroRRHH(
@@ -317,8 +332,12 @@ func proyectarPaginaCuadroRRHH(
 		CursorSiguiente: entrada.CursorSiguiente,
 		Totales:         entrada.Totales,
 	}
+	conPlazos := len(entrada.Plazos) == len(entrada.Expedientes)
 	for indice, resumen := range entrada.Expedientes {
 		salida.Expedientes[indice] = proyectarResumenRRHH(resumen)
+		if conPlazos && entrada.Plazos[indice] != nil && entrada.Plazos[indice].Valido() {
+			salida.Expedientes[indice].PlazoFase = proyectarPlazoFaseRRHH(*entrada.Plazos[indice])
+		}
 	}
 	return salida
 }
@@ -333,6 +352,17 @@ func proyectarResumenRRHH(entrada ports.ResumenExpedienteRRHH) resumenRRHHJSON {
 		ModalidadClave: string(entrada.ModalidadClave), UnidadRef: entrada.UnidadRef,
 		CreadoEn:      instanteConsultaRRHH(entrada.CreadoEn),
 		ActualizadoEn: instanteConsultaRRHH(entrada.ActualizadoEn),
+	}
+}
+
+func proyectarPlazoFaseRRHH(plazo ports.PlazoFaseRRHH) *plazoFaseRRHHJSON {
+	if plazo.Estado == ports.PlazoFaseNoCalculado {
+		return &plazoFaseRRHHJSON{Estado: string(plazo.Estado)}
+	}
+	ejemplo := plazo.ReglaEjemplo
+	return &plazoFaseRRHHJSON{
+		UltimoDia: plazo.UltimoDia, VenceAntesDe: instanteConsultaRRHH(plazo.VenceAntesDe),
+		Estado: string(plazo.Estado), ReglaRef: plazo.ReglaRef, ReglaEjemplo: &ejemplo,
 	}
 }
 

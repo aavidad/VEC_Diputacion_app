@@ -167,16 +167,22 @@ function validarIndicador(entrada, nombre) {
   };
 }
 
+// Estado del plazo de la fase actual, calculado por el servidor.
+const ESTADOS_PLAZO = new Set(["en_plazo", "vence_hoy", "vencido", "no_calculado"]);
+
 function validarResumen(entrada, nombre) {
   const tieneFaseClave = Object.hasOwn(entrada, "fase_clave");
+  const tienePlazoEstado = Object.hasOwn(entrada, "plazo_estado");
   const campos = [
     "expediente_ref", "numero_visible", "centro", "categoria", "modalidad",
     "estado_clave", "estado", "fase_actual", "fecha_solicitud", "responsable",
     "plazo", "version",
   ];
   if (tieneFaseClave) campos.push("fase_clave");
+  if (tienePlazoEstado) campos.push("plazo_estado");
   exigirCamposExactos(entrada, campos, nombre);
   if (!ESTADOS.has(entrada.estado_clave)
+    || (tienePlazoEstado && !ESTADOS_PLAZO.has(entrada.plazo_estado))
     || !PATRON_NUMERO.test(entrada.numero_visible)
     || (tieneFaseClave && !PATRON_CLAVE.test(entrada.fase_clave))
     || !Number.isSafeInteger(entrada.version) || entrada.version < 1) {
@@ -195,6 +201,7 @@ function validarResumen(entrada, nombre) {
     fecha_solicitud: cadenaNoVacia(entrada.fecha_solicitud, `${nombre}.fecha_solicitud`, 80),
     responsable: cadenaNoVacia(entrada.responsable, `${nombre}.responsable`),
     plazo: cadenaNoVacia(entrada.plazo, `${nombre}.plazo`, 80),
+    ...(tienePlazoEstado ? { plazo_estado: entrada.plazo_estado } : {}),
     version: entrada.version,
   };
 }

@@ -18,6 +18,8 @@ function estadoClave(estado) {
   return `ct-fase-${estado}`;
 }
 
+// Pastilla con fecha y estado en texto; sin fecha («no calculado») solo el estado.
+const plazoBandeja = (e, t) => (!e.plazo_estado ? escaparHTML(e.plazo) : `<span class="ct-exp-chip ct-plazo-${escaparHTML(e.plazo_estado)}">${escaparHTML(e.plazo_estado === "no_calculado" ? e.plazo : t("plazo_fase_bandeja", { fecha: e.plazo, estado: t(`plazo_fase_${e.plazo_estado}`) }))}</span>`);
 function textoEstado(clave, t) {
   return t(`fase_${clave}`);
 }
@@ -245,7 +247,7 @@ export function renderizarCuadro(estado, t) {
     <td${modalidadAusente ? ` title="${escaparHTML(t("modalidad_no_informada_bandeja"))}"` : ""}>${escaparHTML(expediente.modalidad)}</td>
     <td><span class="ct-exp-chip ${estadoClave(expediente.estado_clave)}">${escaparHTML(expediente.estado)}</span></td>
     <td>${escaparHTML(expediente.fase_actual)}</td>
-    <td>${escaparHTML(expediente.plazo)}</td>
+    <td>${plazoBandeja(expediente, t)}</td>
     <td><button type="button" class="boton-terciario" data-ct-exp-abrir="${escaparHTML(expediente.expediente_ref)}">${escaparHTML(t("abrir"))}</button></td>
   </tr>
   <tr class="ct-exp-fila-resumen" id="${escaparHTML(resumenId)}" data-ct-fase="${escaparHTML(fase)}" data-ct-exp-resumen-fila

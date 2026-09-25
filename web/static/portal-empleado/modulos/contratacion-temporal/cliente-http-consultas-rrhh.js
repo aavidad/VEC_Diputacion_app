@@ -113,7 +113,7 @@ function validarResumen(entrada) {
     "flujo_version", "flujo_huella_sha256", "fase_clave", "estado_clave",
     "centro_ref", "categoria_ref", "creado_en", "actualizado_en",
   ];
-  if (!camposCerrados(entrada, obligatorios, ["modalidad_clave", "unidad_ref"])
+  if (!camposCerrados(entrada, obligatorios, ["modalidad_clave", "unidad_ref", "plazo_fase"])
     || !referencia(entrada.expediente_ref) || !referencia(entrada.flujo_ref)
     || !referencia(entrada.centro_ref) || !referencia(entrada.categoria_ref)
     || !cadena(entrada.numero_visible, { maximo: 45, patron: PATRON_NUMERO })
@@ -123,10 +123,22 @@ function validarResumen(entrada) {
     || !clave(entrada.fase_clave) || !estadoOperativo(entrada.estado_clave)
     || !instante(entrada.creado_en) || !instante(entrada.actualizado_en)
     || (Object.hasOwn(entrada, "modalidad_clave") && !clave(entrada.modalidad_clave))
-    || (Object.hasOwn(entrada, "unidad_ref") && !referencia(entrada.unidad_ref))) {
+    || (Object.hasOwn(entrada, "unidad_ref") && !referencia(entrada.unidad_ref))
+    || (Object.hasOwn(entrada, "plazo_fase") && !plazoFaseValido(entrada.plazo_fase))) {
     throw new TypeError("resumen RRHH no válido");
   }
   return structuredClone(entrada);
+}
+
+// Plazo de la fase actual (opcional, CT-000110): lo calcula el servidor con
+// el catálogo de reglas; el cliente solo comprueba su forma.
+const ESTADOS_PLAZO_FASE = new Set(["en_plazo", "vence_hoy", "vencido"]);
+function plazoFaseValido(plazo) {
+  if (plazo?.estado === "no_calculado") return camposCerrados(plazo, ["estado"]);
+  return camposCerrados(plazo, ["ultimo_dia", "vence_antes_de", "estado", "regla_ref", "regla_ejemplo"])
+    && cadena(plazo.ultimo_dia, { maximo: 10, patron: /^\d{4}-\d{2}-\d{2}$/u })
+    && instante(plazo.vence_antes_de) && ESTADOS_PLAZO_FASE.has(plazo.estado)
+    && cadena(plazo.regla_ref, { maximo: 400 }) && typeof plazo.regla_ejemplo === "boolean";
 }
 
 // Totales del conjunto filtrado al mismo corte (migración 000105): cada

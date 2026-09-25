@@ -26,8 +26,10 @@ SELECT contenido_canonico,
        total_filtrado::bigint,
        en_tramitacion::bigint,
        con_incidencia::bigint,
-       en_llamamiento::bigint
-  FROM vec_contratacion_temporal.consultar_cuadro_rrhh_atestado_v2(
+       en_llamamiento::bigint,
+       fase_desde_expedientes,
+       fase_desde_instantes
+  FROM vec_contratacion_temporal.consultar_cuadro_rrhh_atestado_v3(
        ROW($1::text, $2::text, $3::text)::
            vec_contratacion_temporal.alcance_consulta_rrhh_v1,
        ROW($4::text, $5::text, $6::text, $7::smallint, $8::text)::

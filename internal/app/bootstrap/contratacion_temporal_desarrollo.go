@@ -204,6 +204,27 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	func(),
 	error,
 ) {
+	return nuevasRutasContratacionTemporalDesarrolloConPlazos(
+		cfg, nil, resolvedor, derivador, kms, registro, incorporacion...,
+	)
+}
+
+// nuevasRutasContratacionTemporalDesarrolloConPlazos añade la calculadora de
+// plazos por fase del catálogo de reglas; nil deja el cuadro sin plazos.
+func nuevasRutasContratacionTemporalDesarrolloConPlazos(
+	cfg config.Config,
+	plazosFase ports.CalculadoraPlazoFaseRRHH,
+	resolvedor vechttp.DemoIdentityResolver,
+	derivador *derivadorIdentidadOperacionDesarrollo,
+	kms *emisorKMSDesarrollo,
+	registro io.Writer,
+	incorporacion ...ConfiguracionIncorporacionDesarrollo,
+) (
+	[]vechttp.RutaExacta,
+	*autoridadConsultasContratacionTemporalDesarrollo,
+	func(),
+	error,
+) {
 	if len(incorporacion) > 1 || (len(incorporacion) != 0 && cfg.IncorporacionV2File != "") {
 		return nil, nil, nil, ErrComposicionDesarrolloIncompleta
 	}
@@ -211,6 +232,7 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	dependencias.plazosFase = plazosFase
 	if err := dependencias.cfg.ContratacionTemporalPostgreSQL.ValidarIdentidadOperativa(); err != nil {
 		return nil, nil, nil, err
 	}

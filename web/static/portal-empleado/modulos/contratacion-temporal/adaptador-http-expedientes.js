@@ -121,7 +121,16 @@ function referenciaVisible(catalogos, tipo, referencia) {
   return catalogos?.[tipo].get(referencia) ?? referencia;
 }
 
-function resumenVisual(entrada, catalogos, t) {
+// Sin plazo_fase (sin catálogo de reglas o fase sin plazo) la columna queda
+// en «—» como antes; la procedencia de la regla no se pinta en la tabla.
+function plazoVisual(entrada, locale, t) {
+  const plazo = entrada.plazo_fase;
+  if (!plazo) return { plazo: "—" };
+  if (plazo.estado === "no_calculado") return { plazo: t("plazo_fase_sin_calcular"), plazo_estado: plazo.estado };
+  return { plazo: fechaCivil(`${plazo.ultimo_dia}T00:00:00Z`, locale), plazo_estado: plazo.estado };
+}
+
+function resumenVisual(entrada, catalogos, t, locale) {
   const estadoClave = estadoVisual(entrada.estado_clave);
   return {
     expediente_ref: entrada.expediente_ref,
@@ -135,7 +144,7 @@ function resumenVisual(entrada, catalogos, t) {
     fase_actual: etiqueta(entrada.fase_clave, t),
     fecha_solicitud: entrada.creado_en,
     responsable: "—",
-    plazo: "—",
+    ...plazoVisual(entrada, locale, t),
     version: entrada.version,
   };
 }
@@ -154,8 +163,8 @@ function indicadores(expedientes, t) {
   }));
 }
 
-function proyectarCuadro(pagina, { cursor, numeroPagina, catalogos, t }) {
-  const expedientes = pagina.expedientes.map((entrada) => resumenVisual(entrada, catalogos, t));
+function proyectarCuadro(pagina, { cursor, numeroPagina, catalogos, t, locale }) {
+  const expedientes = pagina.expedientes.map((entrada) => resumenVisual(entrada, catalogos, t, locale));
   return validarCuadroContratacionTemporal({
     esquema: "vec.contratacion_temporal.cuadro.v1",
     demostracion: false,
@@ -507,7 +516,7 @@ export function crearAdaptadorHTTPExpedientesContratacionTemporal({
         resolverCatalogos(),
       ]);
       const cuadro = proyectarCuadro(pagina, {
-        cursor, numeroPagina, catalogos, t,
+        cursor, numeroPagina, catalogos, t, locale,
       });
       if (operacion === secuenciaCuadro && !signal?.aborted) {
         versiones.clear();

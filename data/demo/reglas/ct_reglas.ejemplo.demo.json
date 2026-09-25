@@ -41,11 +41,12 @@
         "atributos": {
           "origen": "ejemplo",
           "norma": "Ley 39/2015, art. 80.2.",
-          "duda": "Su aplicación a este procedimiento la confirma RRHH.",
+          "duda": "Su aplicación a este procedimiento, y a qué fases del expediente (atributo fases), la confirma RRHH.",
           "unidad": "dias_habiles",
           "cantidad": "10",
           "inicio": "peticion_informe",
-          "computo": "administrativo"
+          "computo": "administrativo",
+          "fases": "asignacion_unidad,informe_juridico"
         },
         "orden": 2
       },
@@ -62,6 +63,7 @@
           "cantidad": "10",
           "inicio": "recepcion_expediente",
           "computo": "administrativo",
+          "fases": "fiscalizacion",
           "cantidad_urgente": "5"
         },
         "orden": 3
@@ -78,7 +80,8 @@
           "unidad": "dias_habiles",
           "cantidad": "10",
           "inicio": "requerimiento",
-          "computo": "administrativo"
+          "computo": "administrativo",
+          "fases": "subsanacion_unidad"
         },
         "orden": 4
       },

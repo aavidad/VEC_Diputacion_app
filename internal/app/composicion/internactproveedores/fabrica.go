@@ -536,6 +536,7 @@ func funcionesEsperadasPerfil(p perfilPool) []string {
 			"vec_contratacion_temporal.consultar_preparacion_resolucion_v1(" + alcance + "," + detalle + "," + firma + ")",
 			"vec_contratacion_temporal.consultar_original_propuesta_rrhh_atestado_v1(" + alcance + "," + detalle + "," + firma + ")",
 			"vec_contratacion_temporal.consultar_cuadro_rrhh_atestado_v2(" + alcance + "," + cuadro + "," + firma + ")",
+			"vec_contratacion_temporal.consultar_cuadro_rrhh_atestado_v3(" + alcance + "," + cuadro + "," + firma + ")",
 			"vec_contratacion_temporal.consultar_estadisticas_rrhh_v1(" + alcance + ",text,date,date)",
 		}
 	}

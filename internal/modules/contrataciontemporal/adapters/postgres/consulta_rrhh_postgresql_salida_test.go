@@ -176,7 +176,8 @@ func TestContratoSQLConsultaRRHHTieneLigadurasYSalidasExactas(t *testing.T) {
 			[]any{&cuadro.contenidoCanonico, &cuadro.cursorSiguiente},
 			append(destinosCierreEsperadosConsultaRRHH(&cuadro.cierre),
 				&cuadro.totalFiltrado, &cuadro.enTramitacion,
-				&cuadro.conIncidencia, &cuadro.enLlamamiento)...,
+				&cuadro.conIncidencia, &cuadro.enLlamamiento,
+				&cuadro.faseDesdeExpedientes, &cuadro.faseDesdeInstantes)...,
 		),
 	)
 	comprobarIdentidadDestinosConsultaRRHH(
@@ -291,5 +292,30 @@ func TestLoginNominalConsultaRRHHRechazaGrupoTecnico(t *testing.T) {
 	}
 	if !loginNominalConsultaRRHHValido("vec_ct_rrhh_servicio_01") {
 		t.Fatal("se rechazó un LOGIN nominal dedicado")
+	}
+}
+
+func TestSalidaCuadroConsultaRRHHAlineaFasesDesde(t *testing.T) {
+	t.Parallel()
+	resumenes := []ports.ResumenExpedienteRRHH{{ExpedienteRef: "expediente:ct:b"}, {ExpedienteRef: "expediente:ct:a"}}
+	madrid := time.FixedZone("CEST", 2*3600)
+	instantes := []time.Time{time.Date(2026, 9, 4, 16, 0, 0, 0, madrid), time.Date(2026, 9, 3, 9, 0, 0, 0, time.UTC)}
+	fases, err := (salidaCuadroConsultaRRHH{
+		faseDesdeExpedientes: []string{"expediente:ct:b", "expediente:ct:a"}, faseDesdeInstantes: instantes,
+	}).fasesDesde(resumenes)
+	if err != nil || len(fases) != 2 || fases[0].Location() != time.UTC || !fases[0].Equal(instantes[0]) {
+		t.Fatalf("fases alineadas = %v, %v", fases, err)
+	}
+	if fases, err := (salidaCuadroConsultaRRHH{}).fasesDesde(nil); err != nil || fases != nil {
+		t.Fatalf("página vacía = %v, %v", fases, err)
+	}
+	for _, salida := range []salidaCuadroConsultaRRHH{
+		{faseDesdeExpedientes: []string{"expediente:ct:a", "expediente:ct:b"}, faseDesdeInstantes: instantes},
+		{faseDesdeExpedientes: []string{"expediente:ct:b"}, faseDesdeInstantes: instantes[:1]},
+		{faseDesdeExpedientes: []string{"expediente:ct:b", "expediente:ct:a"}, faseDesdeInstantes: instantes[:1]},
+	} {
+		if _, err := salida.fasesDesde(resumenes); !errors.Is(err, ports.ErrResultadoConsultaRRHHNoConfiable) {
+			t.Fatalf("desalineación aceptada: %#v, %v", salida, err)
+		}
 	}
 }

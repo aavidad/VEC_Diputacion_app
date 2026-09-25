@@ -32,6 +32,7 @@ type dependenciasConsultasRRHHDesarrollo struct {
 	originalPropuestaHTTP httpinterno.ConsultorDetalleRRHH
 	preparacionResolucion ports.ConsultorPreparacionResolucionFormalizacion
 	estadisticas          ports.ConsultorEstadisticasRRHH
+	plazosFase            ports.CalculadoraPlazoFaseRRHH
 	cerrar                func()
 }
 
@@ -116,6 +117,7 @@ func nuevasDependenciasLectoresRRHHDesarrollo(
 		if err != nil {
 			return vacio, err
 		}
+		cuadro.ConfigurarPlazosFase(base.plazosFase)
 		continuador, err := nuevoContinuadorSesionCursorRRHHDesarrollo(autoridad, reloj)
 		if err != nil {
 			return vacio, err
@@ -381,6 +383,7 @@ func nuevasDependenciasConsultasRRHHDesarrollo(
 	if err != nil {
 		return vacio, err
 	}
+	cuadro.ConfigurarPlazosFase(dependenciasCT.plazosFase)
 	continuador, err := nuevoContinuadorSesionCursorRRHHDesarrollo(autoridad, reloj)
 	if err != nil {
 		return vacio, err
@@ -411,7 +414,7 @@ func nuevasDependenciasConsultasRRHHDesarrollo(
 	if err != nil {
 		return vacio, err
 	}
-	base := dependenciasConsultasRRHHDesarrollo{materialDetalle: proveedorDetalle, emisorCuadro: emisorCuadro, sesion: sesion, motivos: motivos, cuadro: cuadro, detalle: detalle, originalPropuesta: originalPropuesta, cuadroHTTP: cuadroHTTP, detalleHTTP: detalle, originalPropuestaHTTP: originalPropuesta, preparacionResolucion: preparacion, identidad: identidad, autoridad: autoridad, estadisticas: estadisticas, cerrar: cerrar}
+	base := dependenciasConsultasRRHHDesarrollo{materialDetalle: proveedorDetalle, emisorCuadro: emisorCuadro, sesion: sesion, motivos: motivos, cuadro: cuadro, detalle: detalle, originalPropuesta: originalPropuesta, cuadroHTTP: cuadroHTTP, detalleHTTP: detalle, originalPropuestaHTTP: originalPropuesta, preparacionResolucion: preparacion, identidad: identidad, autoridad: autoridad, estadisticas: estadisticas, plazosFase: dependenciasCT.plazosFase, cerrar: cerrar}
 	if len(lectores) > 0 {
 		lectoresDependencias, err := nuevasDependenciasLectoresRRHHDesarrollo(ctx, cfg, alta, derivador, reloj, lectores, poolConsultas, motivos, motivoCuadro, motivoDetalle, base, fronteras)
 		if err != nil {

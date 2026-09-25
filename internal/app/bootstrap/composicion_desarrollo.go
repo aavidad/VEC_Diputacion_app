@@ -238,14 +238,15 @@ func nuevoServidorDesarrollo(
 		}
 	}()
 	// Enganche de las reglas de ejemplo: Bolsa consume reglasEjemplo.bolsa en
-	// el plazo de respuesta del asistente B7; Contratación temporal recibirá
-	// reglasEjemplo.contratacionTemporal.
+	// el plazo de respuesta del asistente B7 y en la situación de las
+	// participaciones; Contratación temporal usa reglasEjemplo.contratacionTemporal
+	// para el plazo de la fase en el cuadro.
 	reglasEjemplo, err := nuevasReglasEjemploDesarrollo(cfg, consultaCalendarios, relojCalendariosDesarrollo{})
 	if err != nil {
 		return nil, nil, err
 	}
-	rutasContratacion, autoridadContratacion, cerrarContratacion, err := nuevasRutasContratacionTemporalDesarrollo(
-		cfg, resolvedor, composicion.derivadorIdempotencia, composicion.emisorKMS, registro, incorporacion...,
+	rutasContratacion, autoridadContratacion, cerrarContratacion, err := nuevasRutasContratacionTemporalDesarrolloConPlazos(
+		cfg, nuevaCalculadoraPlazoFaseCT(reglasEjemplo.contratacionTemporal), resolvedor, composicion.derivadorIdempotencia, composicion.emisorKMS, registro, incorporacion...,
 	)
 	if err != nil {
 		return nil, nil, err
