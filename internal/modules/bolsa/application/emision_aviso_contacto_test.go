@@ -34,7 +34,7 @@ func TestEmisionAvisaDelContactoConvocaVencidoSinBloquear(t *testing.T) {
 	vencida := &dominiobolsa.MarcaOrigenDatosContacto{Origen: dominiobolsa.OrigenDatosContactoConvoca, VigenteHasta: time.Date(2027, 9, 28, 22, 0, 0, 0, time.UTC), UltimoDia: "2027-09-28"}
 	vigente := &dominiobolsa.MarcaOrigenDatosContacto{Origen: dominiobolsa.OrigenDatosContactoConvoca, VigenteHasta: time.Date(2028, 1, 1, 0, 0, 0, 0, time.UTC), UltimoDia: "2027-12-31"}
 	emision := puertosbolsa.EmisionLlamamiento{BolsaRef: "bolsa:1", Estado: "emitido", Participaciones: []string{"participacion:vencida", "participacion:vigente", "participacion:propia", "participacion:caida"}}
-	servicio, err := NuevoServicioEmisionLlamamiento(contextoContactoPrueba{}, &autorizadorBorradorPrueba{t: t, instante: ahora}, repositorioEmisionPrueba{emision: emision}, fuenteCorreoPrueba{}, emisorCorreoPrueba{}, func() time.Time { return ahora })
+	servicio, err := NuevoServicioEmisionLlamamiento(contextoContactoPrueba{}, &autorizadorBorradorPrueba{t: t, instante: ahora}, repositorioEmisionPrueba{emision: emision}, fuenteCorreoPrueba{}, emisorCorreoPrueba{}, func() time.Time { return ahora }, servicioCorreoPrueba(t, &personalizacionPrueba{}).correo)
 	if err != nil {
 		t.Fatal(err)
 	}
