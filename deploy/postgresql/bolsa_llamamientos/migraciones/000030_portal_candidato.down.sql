@@ -22,6 +22,7 @@ BEGIN
 END $proteger$;
 DROP FUNCTION vec_bolsa_llamamientos.consultar_avisos_portal_rrhh_v1(timestamptz);
 DROP FUNCTION vec_bolsa_llamamientos.leer_portal_candidato_v1(text,timestamptz,text[]);
+DROP FUNCTION vec_bolsa_llamamientos.preparar_respuesta_portal_v1(text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea);
 DROP FUNCTION vec_bolsa_llamamientos.responder_llamamiento_portal_v1(text,text,text,text,text,text,text,text,text,timestamptz,timestamptz,text[],text,text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea);
 DROP FUNCTION vec_bolsa_llamamientos.registrar_respuesta_portal_interna_v1(text,text,text,text,text,text,text,text,text,text,timestamptz,timestamptz,text[],text,text,timestamptz,text);
 DROP FUNCTION vec_bolsa_llamamientos.solicitar_portal_candidato_v1(text,text,text,text,text,timestamptz,timestamptz,text[],text,text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea);

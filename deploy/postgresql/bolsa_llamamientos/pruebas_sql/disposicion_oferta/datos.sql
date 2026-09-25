@@ -63,6 +63,20 @@ RETURNS jsonb LANGUAGE sql AS $f$
    convert_to('{"principal_id":"per_actoractoractoractoractor","accion":"llamamiento.emitir.v1","modulo_id":"bolsa","finalidad":"gestion_llamamientos_bolsa","recurso_ref":"bolsa:disp:1","tipo_recurso":"bolsa_constituida"}','UTF8'),
    '\x00'::bytea,'\x00'::bytea,1,1,'\x00'::bytea,'\x00'::bytea,'\x00'::bytea,'\x00'::bytea)).oferta
 $f$;
+-- Consulta Mi bolsa con material sintético (doble de AD3): consume la
+-- decisión propia y deja la marca que exigen las lecturas del candidato.
+CREATE FUNCTION prueba_disp.consultar(p_candidato text) RETURNS jsonb LANGUAGE sql AS $f$
+ SELECT vec_bolsa_llamamientos.consultar_mi_bolsa_portal_v1(p_candidato, clock_timestamp(),
+  convert_to(jsonb_build_object('efecto_ref','mi-bolsa:'||p_candidato,'huella_efecto_sha256',repeat('e',64),'nonce',gen_random_uuid())::text,'UTF8'),
+  convert_to(jsonb_build_object('recurso_ref','mi-bolsa:'||p_candidato,'contexto_recurso_huella_sha256',repeat('e',64))::text,'UTF8'),
+  '\x00'::bytea,
+  convert_to(jsonb_build_object('vinculos', jsonb_build_array(jsonb_build_object('tipo','candidato','estado','activo','referencia',p_candidato)))::text,'UTF8'),
+  1, 1, '\x00'::bytea, '\x00'::bytea, '\x00'::bytea, '\x00'::bytea)
+$f$;
+CREATE FUNCTION prueba_disp.ofertas(p_candidato text) RETURNS jsonb LANGUAGE sql AS $f$
+ SELECT prueba_disp.consultar(p_candidato);
+ SELECT vec_bolsa_llamamientos.listar_ofertas_candidato_v1(p_candidato, clock_timestamp());
+$f$;
 CREATE FUNCTION prueba_disp.espera(p_sql text, p_codigo text) RETURNS void LANGUAGE plpgsql AS $f$
 BEGIN
  EXECUTE p_sql;

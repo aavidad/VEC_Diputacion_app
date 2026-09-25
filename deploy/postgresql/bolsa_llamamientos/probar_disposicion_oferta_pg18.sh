@@ -51,6 +51,8 @@ manifestar='vec_bolsa_llamamientos.manifestar_disposicion_oferta_v1(text,text,te
 listar='vec_bolsa_llamamientos.listar_ofertas_candidato_v1(text,timestamptz)'
 interna='vec_bolsa_llamamientos.registrar_disposicion_oferta_interna_v1(text,text,text,text,text,timestamptz,text)'
 participacion='vec_bolsa_llamamientos.participacion_oferta_candidato_v1(text,text)'
+consulta='vec_bolsa_llamamientos.consultar_mi_bolsa_portal_v1(text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'
+marcas="'vec_bolsa_llamamientos.participaciones_vigentes_candidato_v1(text)','vec_bolsa_llamamientos.firma_marca_consumo_v1(xid8,text,text,text)','vec_bolsa_llamamientos.anotar_consumo_candidato_v1(text,text,text)','vec_bolsa_llamamientos.exigir_consumo_candidato_v1(text[],text)'"
 # 1. Ensayo en ROLLBACK: no deja nada.
 sed 's/^COMMIT;$/ROLLBACK;/' "$m.up.sql" | psql_pg >/dev/null
 psql_pg -tAc "SELECT to_regprocedure('$manifestar') IS NULL AND to_regclass('vec_bolsa_llamamientos.disposicion_oferta_candidato') IS NULL" | grep -qx t || { echo 'ROLLBACK dejó objetos'; exit 1; }
@@ -58,7 +60,7 @@ psql_pg -tAc "SELECT to_regprocedure('$manifestar') IS NULL AND to_regclass('vec
 psql_pg < "$m.up.sql" >/dev/null
 if psql_pg < "$m.up.sql" >/dev/null 2>&1; then echo 'doble UP aceptado'; exit 1; fi
 psql_pg < "$m.down.sql" >/dev/null
-psql_pg -tAc "SELECT to_regprocedure('$manifestar') IS NULL AND to_regprocedure('$listar') IS NULL AND to_regprocedure('$interna') IS NULL AND to_regprocedure('$participacion') IS NULL AND to_regclass('vec_bolsa_llamamientos.disposicion_oferta_candidato') IS NULL" | grep -qx t || { echo 'DOWN incompleto'; exit 1; }
+psql_pg -tAc "SELECT to_regprocedure('$manifestar') IS NULL AND to_regprocedure('$listar') IS NULL AND to_regprocedure('$interna') IS NULL AND to_regprocedure('$participacion') IS NULL AND to_regprocedure('$consulta') IS NULL AND to_regclass('vec_bolsa_llamamientos.disposicion_oferta_candidato') IS NULL AND to_regclass('vec_bolsa_llamamientos.secreto_marca_consumo') IS NULL AND NOT EXISTS (SELECT 1 FROM unnest(ARRAY[$marcas]) f WHERE to_regprocedure(f) IS NOT NULL)" | grep -qx t || { echo 'DOWN incompleto'; exit 1; }
 if psql_pg < "$m.down.sql" >/dev/null 2>&1; then echo 'doble DOWN aceptado'; exit 1; fi
 psql_pg < "$m.up.sql" >/dev/null
 echo 'UP/DOWN/UP y dobles aplicaciones: OK'
@@ -66,6 +68,9 @@ echo 'UP/DOWN/UP y dobles aplicaciones: OK'
 psql_pg <<SQL
 DO \$acl\$ BEGIN
  IF NOT has_function_privilege('vec_bolsa_llamamientos_ejecutor','$manifestar','EXECUTE') OR NOT has_function_privilege('vec_bolsa_llamamientos_ejecutor','$listar','EXECUTE') THEN RAISE EXCEPTION 'el ejecutor no puede usar las funciones públicas'; END IF;
+ IF NOT has_function_privilege('vec_bolsa_llamamientos_ejecutor','$consulta','EXECUTE') THEN RAISE EXCEPTION 'el ejecutor no puede consultar Mi bolsa con marca'; END IF;
+ IF EXISTS (SELECT 1 FROM unnest(ARRAY[$marcas]) f WHERE has_function_privilege('vec_bolsa_llamamientos_ejecutor', f, 'EXECUTE')) THEN RAISE EXCEPTION 'el ejecutor alcanza la marca de consumo'; END IF;
+ IF has_table_privilege('vec_bolsa_llamamientos_ejecutor','vec_bolsa_llamamientos.secreto_marca_consumo','SELECT,INSERT,UPDATE,DELETE') THEN RAISE EXCEPTION 'el ejecutor lee el secreto de la marca'; END IF;
  IF has_function_privilege('vec_bolsa_llamamientos_ejecutor','$interna','EXECUTE') OR has_function_privilege('vec_bolsa_llamamientos_ejecutor','$participacion','EXECUTE') THEN RAISE EXCEPTION 'el ejecutor alcanza el núcleo interno'; END IF;
  IF has_function_privilege('vec_bolsa_llamamientos_registrador_frontera','$manifestar','EXECUTE') OR has_function_privilege('vec_bolsa_llamamientos_registrador_frontera','$listar','EXECUTE') THEN RAISE EXCEPTION 'el registrador de frontera puede usar las funciones'; END IF;
  IF EXISTS(SELECT 1 FROM pg_proc p, aclexplode(p.proacl) a WHERE p.oid IN ('$manifestar'::regprocedure,'$listar'::regprocedure,'$interna'::regprocedure,'$participacion'::regprocedure) AND a.grantee=0) THEN RAISE EXCEPTION 'PUBLIC puede ejecutar'; END IF;

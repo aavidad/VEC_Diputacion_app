@@ -71,6 +71,14 @@ BEGIN
  VALUES ('contacto:b30', b, p, NULL, 'telefono', base + interval '30 second', 'per_'||repeat('x',22), 'contactado', 'Contacto sintético B30.', 'clave-contacto-b30', 'recibo:contacto:b30');
  SELECT * INTO STRICT r FROM vec_bolsa_llamamientos.llamamiento_abierto_portal_v1(p, base + interval '1 minute', efectivos);
  IF r.llamamiento_ref <> lla OR r.contacto_en <> base + interval '30 second' THEN RAISE EXCEPTION 'B30: llamamiento abierto'; END IF;
+ -- La lectura exige la marca de consumo propio de este candidato en la
+ -- transacción (aquí la anota el propietario, sin material).
+ BEGIN PERFORM vec_bolsa_llamamientos.leer_portal_candidato_v1(cand, base + interval '1 minute', efectivos); RAISE EXCEPTION 'B30: lectura sin marca';
+ EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+ PERFORM vec_bolsa_llamamientos.anotar_consumo_candidato_v1('consulta', otro, 'mi-bolsa');
+ BEGIN PERFORM vec_bolsa_llamamientos.leer_portal_candidato_v1(cand, base + interval '1 minute', efectivos); RAISE EXCEPTION 'B30: lectura con marca ajena';
+ EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+ PERFORM vec_bolsa_llamamientos.anotar_consumo_candidato_v1('consulta', cand, 'mi-bolsa');
  j := vec_bolsa_llamamientos.leer_portal_candidato_v1(cand, base + interval '1 minute', efectivos);
  IF jsonb_array_length(j) <> 1 OR j->0->>'bolsa' <> b OR j->0->'llamamiento_abierto' IS NULL OR j->0->'solicitud_pendiente'->>'tipo' <> 'reactivacion' OR strpos(j::text, p) <> 0 THEN
   RAISE EXCEPTION 'B30: lectura del portal %', j; END IF;
@@ -103,6 +111,28 @@ BEGIN
   UPDATE vec_bolsa_llamamientos.respuesta_portal_llamamiento SET modo = 'propuesta_rrhh';
   RAISE EXCEPTION 'B30: respuesta mutable';
  EXCEPTION WHEN others THEN IF SQLERRM = 'B30: respuesta mutable' THEN RAISE; END IF; END;
+ -- Respuesta en dos pasos (como el servidor): preparar consume la decisión y
+ -- deja la marca «responder»; con ella se lee el portal y responder usa esa
+ -- misma decisión (aquí, el replay de la respuesta ya registrada) y la borra.
+ PERFORM set_config('vec_bolsa_llamamientos.marca_consumo', '', true);
+ PERFORM vec_bolsa_llamamientos.preparar_respuesta_portal_v1(cand, b,
+   convert_to(jsonb_build_object('efecto_ref','mi-bolsa:'||cand,'operacion','bolsa.participaciones_propias.responder_llamamiento')::text,'UTF8'),
+   convert_to(jsonb_build_object('recurso_ref','mi-bolsa:'||cand,'accion','bolsa.participaciones_propias.responder_llamamiento')::text,'UTF8'),
+   NULL, convert_to(jsonb_build_object('vinculos', jsonb_build_array(jsonb_build_object('tipo','candidato','estado','activo','referencia',cand)))::text,'UTF8'),
+   1, 1, NULL, NULL, NULL, NULL);
+ j := vec_bolsa_llamamientos.leer_portal_candidato_v1(cand, base + interval '3 minute', efectivos);
+ IF j->0->'ultima_respuesta'->>'respuesta' <> 'renuncia_justificada' THEN RAISE EXCEPTION 'B30: lectura tras preparar %', j; END IF;
+ SELECT * INTO STRICT r FROM vec_bolsa_llamamientos.responder_llamamiento_portal_v1('respuesta-portal:'||repeat('1',64), 'recibo:respuesta-portal:'||repeat('1',64),
+   cand, b, 'renuncia_justificada', 'enfermedad', 'justificante:b30', repeat('f',64), 'firme', NULL, NULL, efectivos,
+   'vec.bolsa.reglas:1:b05.plazo_respuesta', 'clave-respuesta-1', base + interval '3 minute',
+   convert_to(jsonb_build_object('efecto_ref','mi-bolsa:'||cand,'operacion','bolsa.participaciones_propias.responder_llamamiento')::text,'UTF8'),
+   convert_to(jsonb_build_object('recurso_ref','mi-bolsa:'||cand,'accion','bolsa.participaciones_propias.responder_llamamiento')::text,'UTF8'),
+   NULL, convert_to(jsonb_build_object('vinculos', jsonb_build_array(jsonb_build_object('tipo','candidato','estado','activo','referencia',cand)))::text,'UTF8'),
+   1, 1, NULL, NULL, NULL, NULL);
+ IF NOT r.reutilizada OR r.recibo_ref <> 'recibo:respuesta-portal:'||repeat('1',64) THEN RAISE EXCEPTION 'B30: replay en dos pasos %', r; END IF;
+ IF current_setting('vec_bolsa_llamamientos.marca_consumo', true) <> '' THEN RAISE EXCEPTION 'B30: la respuesta no borra la marca'; END IF;
+ BEGIN PERFORM vec_bolsa_llamamientos.leer_portal_candidato_v1(cand, base + interval '3 minute', efectivos); RAISE EXCEPTION 'B30: marca reutilizable';
+ EXCEPTION WHEN insufficient_privilege THEN NULL; END;
 END $prueba$;
 
 SET LOCAL ROLE vec_bolsa_llamamientos_ejecutor;

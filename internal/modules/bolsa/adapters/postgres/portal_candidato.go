@@ -17,6 +17,7 @@ import (
 const (
 	funcionSolicitarPortalV1       = "vec_bolsa_llamamientos.solicitar_portal_candidato_v1"
 	funcionResponderPortalV1       = "vec_bolsa_llamamientos.responder_llamamiento_portal_v1"
+	funcionPrepararRespuestaV1     = "vec_bolsa_llamamientos.preparar_respuesta_portal_v1"
 	funcionLeerPortalCandidatoV1   = "vec_bolsa_llamamientos.leer_portal_candidato_v1"
 	configuracionTransaccionPortal = `SELECT set_config('search_path','pg_catalog',true), set_config('row_security','on',true), set_config('timezone','UTC',true), set_config('lock_timeout','2s',true), set_config('statement_timeout','15s',true), set_config('idle_in_transaction_session_timeout','20s',true)`
 )
@@ -71,6 +72,13 @@ func (r *RegistroPortalCandidatoPostgreSQL) ResponderPortal(ctx context.Context,
 		return vacio, err
 	}
 	defer revertir(tx)
+	m := s.Material
+	// Primero se consume la decisión propia: sin ella la base no deja leer el
+	// portal. La respuesta usa después esa misma decisión, no otra.
+	if _, err := tx.Exec(ctx, `SELECT `+funcionPrepararRespuestaV1+`($1::text,$2::text,$3::bytea,$4::bytea,$5::bytea,$6::bytea,$7::numeric,$8::numeric,$9::bytea,$10::bytea,$11::bytea,$12::bytea)`,
+		s.CandidatoRef, s.Bolsa, m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), int64(m.PersonaVersion()), int64(m.PerfilVersion()), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI()); err != nil {
+		return vacio, errorPortalCandidato(ctx, err)
+	}
 	// El contacto vigente se lee en la misma transacción serializable que la
 	// escritura; SQL vuelve a exigir que sea ese y que la hora sea anterior.
 	estados, err := leerPortalCandidato(ctx, tx, s.CandidatoRef, s.RespondidaEn, s.ResultadosEfectivos)
@@ -94,7 +102,6 @@ func (r *RegistroPortalCandidatoPostgreSQL) ResponderPortal(ctx context.Context,
 			contacto, vence = &inicio, &fin
 		}
 	}
-	m := s.Material
 	var recibo puertosbolsa.ReciboRespuestaPortal
 	if contacto != nil {
 		recibo.ContactoEn, recibo.VenceAntesDe = *contacto, *vence

@@ -24,8 +24,10 @@ BEGIN
     OR to_regclass('vec_bolsa_llamamientos.origen_datos_contacto_participacion') IS NULL
     OR to_regprocedure('vec_bolsa_llamamientos.listar_participaciones_candidato_v1(text)') IS NULL
     OR to_regprocedure('vec_bolsa_llamamientos.constitucion_rechazar_mutacion()') IS NULL
+    OR to_regprocedure('vec_bolsa_llamamientos.participaciones_vigentes_candidato_v1(text)') IS NULL
+    OR to_regprocedure('vec_bolsa_llamamientos.exigir_consumo_candidato_v1(text[],text)') IS NULL
     OR to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_contacto_propio_bolsa_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL THEN
-  RAISE EXCEPTION 'dependencias de la confirmación de contacto ausentes (000016, 000035 y AD3-86)' USING ERRCODE='55000';
+  RAISE EXCEPTION 'dependencias de la confirmación de contacto ausentes (000016, 000029, 000035 y AD3-86)' USING ERRCODE='55000';
  END IF;
  IF to_regclass('vec_bolsa_llamamientos.confirmacion_contacto_participacion') IS NOT NULL THEN
   RAISE EXCEPTION 'migracion 000040 ya aplicada' USING ERRCODE='55000';
@@ -54,15 +56,15 @@ REVOKE ALL ON vec_bolsa_llamamientos.confirmacion_contacto_participacion FROM PU
 CREATE TRIGGER confirmacion_contacto_participacion_inmutable BEFORE UPDATE OR DELETE ON vec_bolsa_llamamientos.confirmacion_contacto_participacion
  FOR EACH ROW EXECUTE FUNCTION vec_bolsa_llamamientos.constitucion_rechazar_mutacion();
 
--- Participación única del candidato en la bolsa. Sin vínculo: 42501.
+-- Participación vigente del candidato en la bolsa, con el mismo criterio que
+-- la lectura del contacto (000029). Sin vínculo: 42501.
 CREATE FUNCTION vec_bolsa_llamamientos.participacion_contacto_candidato_v1(p_candidato_ref text, p_bolsa_ref text)
 RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = pg_catalog AS $f$
-DECLARE v text; n integer;
+DECLARE v text;
 BEGIN
- SELECT min(p.participacion_ref), count(DISTINCT p.participacion_ref) INTO v, n
-   FROM vec_bolsa_llamamientos.listar_participaciones_candidato_v1(p_candidato_ref) p
+ SELECT p.participacion_ref INTO v FROM vec_bolsa_llamamientos.participaciones_vigentes_candidato_v1(p_candidato_ref) p
   WHERE p.bolsa_ref = p_bolsa_ref;
- IF n <> 1 THEN RAISE EXCEPTION 'la bolsa no es del candidato' USING ERRCODE='42501'; END IF;
+ IF v IS NULL THEN RAISE EXCEPTION 'la bolsa no es del candidato' USING ERRCODE='42501'; END IF;
  RETURN v;
 END $f$;
 
@@ -128,6 +130,14 @@ BEGIN
   RAISE EXCEPTION 'confirmación de contacto denegada' USING ERRCODE='42501';
  END IF;
  v_participacion := vec_bolsa_llamamientos.participacion_contacto_candidato_v1(p_candidato_ref, p_bolsa_ref);
+ -- Como B2 y el portal (000030), la decisión viva se consume antes de
+ -- resolver el replay: un reintento no devuelve el recibo sin una
+ -- autorización nueva y verificada.
+ SELECT * INTO STRICT v_consumo FROM vec_autorizacion_atestada_v3.registrar_y_consumir_contacto_propio_bolsa_v3_atestada(
+  p_capacidad, p_decision, p_motivo, p_contexto, p_persona_version, p_perfil_version, p_payload, p_sobre, p_evidencia, p_raiz);
+ IF v_consumo.consumo_nuevo IS NOT TRUE OR v_consumo.efecto_ref IS DISTINCT FROM 'mi-bolsa:'||p_candidato_ref THEN
+  RAISE EXCEPTION 'confirmación de contacto denegada' USING ERRCODE='42501';
+ END IF;
  PERFORM pg_advisory_xact_lock(hashtextextended('vec_bolsa_llamamientos:datos_contacto:' || v_participacion, 0));
  SELECT * INTO v_previa FROM vec_bolsa_llamamientos.confirmacion_contacto_participacion cp
   WHERE cp.participacion_ref = v_participacion AND cp.clave_idempotencia = p_clave;
@@ -138,36 +148,34 @@ BEGIN
   RETURN QUERY SELECT true, v_previa.recibo_ref, v_previa.version, v_previa.confirmada_en;
   RETURN;
  END IF;
- SELECT * INTO STRICT v_consumo FROM vec_autorizacion_atestada_v3.registrar_y_consumir_contacto_propio_bolsa_v3_atestada(
-  p_capacidad, p_decision, p_motivo, p_contexto, p_persona_version, p_perfil_version, p_payload, p_sobre, p_evidencia, p_raiz);
- IF v_consumo.consumo_nuevo IS NOT TRUE OR v_consumo.efecto_ref IS DISTINCT FROM 'mi-bolsa:'||p_candidato_ref THEN
-  RAISE EXCEPTION 'confirmación de contacto denegada' USING ERRCODE='42501';
- END IF;
  RETURN QUERY SELECT * FROM vec_bolsa_llamamientos.registrar_confirmacion_contacto_interna_v1(
   p_candidato_ref, p_bolsa_ref, v_participacion, p_version, p_clave, p_recibo_ref, p_confirmada_en, v_consumo.decision_ref);
 END $f$;
 
--- Estado del contacto por bolsa del candidato: versión vigente, marca de
--- origen CONVOCA (si la hay) y confirmación de esa versión. Nunca el claro.
--- Solo se usa dentro de la transacción que ya consumió la consulta propia.
+-- Estado del contacto por bolsa del candidato (participación vigente, el
+-- mismo criterio que confirmar): versión vigente, marca de origen CONVOCA (si
+-- la hay) y confirmación de esa versión. Nunca el claro. Solo responde dentro
+-- de la transacción que ya consumió la consulta propia (Mi bolsa) del mismo
+-- candidato: sin esa marca, 42501.
 CREATE FUNCTION vec_bolsa_llamamientos.leer_contacto_candidato_v1(p_candidato_ref text, p_corte timestamptz)
-RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog SET timezone = 'UTC' AS $f$
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = pg_catalog SET timezone = 'UTC' AS $f$
+BEGIN
+ PERFORM vec_bolsa_llamamientos.exigir_consumo_candidato_v1(ARRAY['consulta'], p_candidato_ref);
+ RETURN (
  SELECT coalesce(jsonb_agg(jsonb_build_object(
    'bolsa', p.bolsa_ref, 'version', v.version,
    'origen', CASE WHEN o.participacion_ref IS NULL THEN NULL ELSE jsonb_build_object('origen', o.origen,
       'vigente_hasta', to_char(o.vigente_hasta,'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'), 'ultimo_dia', to_char(o.ultimo_dia,'YYYY-MM-DD')) END,
    'confirmada_en', CASE WHEN cf.participacion_ref IS NULL THEN NULL ELSE to_char(cf.confirmada_en,'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') END)
    ORDER BY p.bolsa_ref), '[]'::jsonb)
- FROM (SELECT DISTINCT ON (x.bolsa_ref) x.bolsa_ref, x.participacion_ref
-         FROM vec_bolsa_llamamientos.listar_participaciones_candidato_v1(p_candidato_ref) x
-        ORDER BY x.bolsa_ref, x.confirmada_en DESC) p
+ FROM vec_bolsa_llamamientos.participaciones_vigentes_candidato_v1(p_candidato_ref) p
  JOIN LATERAL (SELECT max(dc.version) AS version FROM vec_bolsa_llamamientos.datos_contacto_participacion dc
                 WHERE dc.participacion_ref = p.participacion_ref AND dc.registrada_en <= p_corte) v ON v.version IS NOT NULL
  LEFT JOIN vec_bolsa_llamamientos.origen_datos_contacto_participacion o ON o.participacion_ref = p.participacion_ref AND o.version = v.version
  LEFT JOIN vec_bolsa_llamamientos.confirmacion_contacto_participacion cf
    ON cf.participacion_ref = p.participacion_ref AND cf.version = v.version AND cf.confirmada_en <= p_corte
- WHERE p_corte IS NOT NULL
-$f$;
+ WHERE p_corte IS NOT NULL);
+END $f$;
 
 -- Confirmación de una versión concreta, para RRHH y para los avisos del
 -- llamamiento: una versión confirmada por la persona cuenta como propia.
