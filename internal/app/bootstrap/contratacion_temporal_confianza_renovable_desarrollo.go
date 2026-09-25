@@ -147,7 +147,9 @@ func (f *fuenteConfianzaRenovableCTDesarrollo) instantanea(ctx context.Context) 
 // bloquearía también cada petición CT. La espera se acota a unos minutos y se
 // recalcula (los temporizadores de Go no avanzan con el equipo suspendido) y
 // los reintentos crecen hasta un tope, registrando el primer fallo y después
-// sólo al alcanzar el tope, para no emitir una línea por minuto.
+// uno por reintento ya en el tope (cada 15 min), no una línea por minuto. El
+// retroceso vuelve al inicial en cuanto el vencimiento avanza, también si la
+// renovación la hizo el uso CT.
 const (
 	reintentoRenovacionProgramadaCTDesarrollo       = time.Minute
 	reintentoMaximoRenovacionProgramadaCTDesarrollo = 15 * time.Minute
@@ -182,8 +184,13 @@ func (f *fuenteConfianzaRenovableCTDesarrollo) mantenerRenovacionProgramada(ctx 
 		return
 	}
 	reintento := reintentoRenovacionProgramadaCTDesarrollo
+	var venceAnterior time.Time
 	for ctx.Err() == nil {
 		vence := f.vencimientoActual()
+		if !vence.Equal(venceAnterior) {
+			reintento = reintentoRenovacionProgramadaCTDesarrollo
+			venceAnterior = vence
+		}
 		espera := min(max(vence.Sub(f.reloj.Ahora().UTC()), 0), maximoEsperaRenovacionProgramadaCT)
 		if esperar(ctx, espera) != nil {
 			return

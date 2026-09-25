@@ -619,7 +619,13 @@ func ejecutarTransaccionGobiernoCTDesarrollo(ctx context.Context, pool *pgxpool.
 	if err != nil {
 		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 	}
-	defer tx.Rollback(context.Background())
+	// Plazo propio también para ROLLBACK: se ejecuta con f.mu tomado por la
+	// renovación y no debe esperar indefinidamente a una red cortada.
+	defer func() {
+		ctxRollback, cancelar := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancelar()
+		_ = tx.Rollback(ctxRollback)
+	}()
 	if _, err = tx.Exec(ctx, `SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario`); err != nil {
 		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 	}
