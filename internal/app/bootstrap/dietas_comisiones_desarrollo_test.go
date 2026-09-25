@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/hex"
+	"encoding/pem"
 	"errors"
 	"io"
 	"net/http"
@@ -360,5 +361,66 @@ func TestAutoridadComisionesDietasNoAtribuyeContextoAjeno(t *testing.T) {
 	}
 	if auditoria.llamadas != 3 {
 		t.Fatalf("denegaciones auditadas=%d", auditoria.llamadas)
+	}
+}
+
+// curl/OpenSSL y muchos navegadores envían la CA tras el certificado cliente.
+// La frontera de comisiones debe resolver igualmente la identidad (antes daba
+// 401 sin actor porque el resolutor exige un único certificado del par).
+func TestComisionesDietasAceptaCadenaClienteConCA(t *testing.T) {
+	cfg, rutas := generarMaterialDesarrolloPrueba(t)
+	composicion, err := NuevaComposicionSeguridadDesarrollo(cfg, io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	identidad := composicion.identidad.(*resolvedorIdentidadDesarrollo)
+	clienteCert, err := tls.LoadX509KeyPair(rutas.ClientCertificate, rutas.ClientPrivateKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest := sha256.Sum256(clienteCert.Certificate[0])
+	huella := hex.EncodeToString(digest[:])
+	principal := identidad.porHuella[digest]
+	fixture := nuevoEscenarioMaterialRutasDietasPrueba(t, dietasports.AccionConsultarCatalogoRutasDietas, time.Now().UTC().Truncate(time.Microsecond))
+	actorRef := fixture.resultado.Contexto.Principal.ID
+	reloj := &relojSesionConsultaPrueba{ahora: fixture.ahora}
+	cuenta := cuentaRutasDietasDesarrollo{CertificadoSHA256: huella, Sujeto: principal.ID, CuentaRef: fixture.resultado.Contexto.Instantanea.CuentaRef, PerfilRef: fixture.resultado.Contexto.PerfilActivoRef}
+	registro := &registroSesionConsultaPrueba{reloj: reloj, cuenta: cuenta.CuentaRef}
+	revalidador := &revalidadorSesionConsultaPrueba{registro: registro}
+	resolutor := &resolutorSesionConsultaPrueba{base: fixture.resultado, reloj: reloj}
+	base := &autoridadRutasDietasDesarrollo{resolvedor: identidad, registro: registro, revalidador: revalidador, contextos: resolutor, reloj: reloj, instancia: strings.Repeat("a", 64)}
+	auditoria := &registradorFronteraComisionPrueba{}
+	autoridad := &autoridadComisionesDietasDesarrollo{base: base, reloj: reloj, cuentas: map[string]cuentaRutasDietasDesarrollo{huella: cuenta}, registrador: auditoria, registradorPersonal: &registradorFronteraPersonalDietasPrueba{}}
+	servidor := httptest.NewUnstartedServer(autoridad.proteger(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	})))
+	servidor.EnableHTTP2 = true
+	servidor.TLS = composicion.tls.Clone()
+	servidor.StartTLS()
+	t.Cleanup(servidor.Close)
+	caPEM, err := os.ReadFile(rutas.CACertificate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raices := x509.NewCertPool()
+	bloque, _ := pem.Decode(caPEM)
+	if !raices.AppendCertsFromPEM(caPEM) || bloque == nil {
+		t.Fatal("CA de prueba inválida")
+	}
+	conCA := clienteCert
+	conCA.Certificate = [][]byte{clienteCert.Certificate[0], bloque.Bytes}
+	transporte := &http.Transport{ForceAttemptHTTP2: true, TLSClientConfig: &tls.Config{Certificates: []tls.Certificate{conCA}, RootCAs: raices, ServerName: "localhost", MinVersion: tls.VersionTLS13}}
+	t.Cleanup(transporte.CloseIdleConnections)
+	solicitud, err := http.NewRequest(http.MethodDelete, servidor.URL+dietashttp.RutaBorradores, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	respuesta, err := (&http.Client{Transport: transporte}).Do(solicitud)
+	if err != nil {
+		t.Fatal(err)
+	}
+	respuesta.Body.Close()
+	if respuesta.StatusCode != http.StatusForbidden || auditoria.orden.ActorRef != actorRef || len(registro.altas) != 1 {
+		t.Fatalf("cadena cliente con CA por %s: estado=%d actor=%q sesiones=%d", respuesta.Proto, respuesta.StatusCode, auditoria.orden.ActorRef, len(registro.altas))
 	}
 }

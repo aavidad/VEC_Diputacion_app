@@ -231,6 +231,9 @@ func (a *autoridadComisionesDietasDesarrollo) proteger(siguiente http.Handler) h
 			a.denegar(w, r, http.StatusUnauthorized, "")
 			return
 		}
+		// Los clientes (curl/OpenSSL, navegadores) suelen enviar la CA tras el
+		// certificado; se normaliza como en Contratación antes de resolver.
+		r = peticionIdentidadConsultasContratacionTemporalDesarrollo(r)
 		principal, err := a.base.resolvedor.ResolveDemoIdentity(r.Context(), r)
 		ahora := a.reloj.Ahora()
 		cert := r.TLS.VerifiedChains[0][0]
