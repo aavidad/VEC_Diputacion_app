@@ -6,8 +6,8 @@
 BEGIN;
 SET LOCAL session_replication_role=replica;
 INSERT INTO vec_dietas.borrador_comision(referencia,persona_ref,empleado_ref,relacion_ref,unidad_ref,relacion_version,procedencia_acto_ref,fuente_ref,fuente_version,fecha_inicio,fecha_fin,motivo,codigos_ruta,clave_idempotencia,huella_semantica_sha256,creada_en)
-VALUES ('dco_DDDDDDDDDDDDDDDDDDDDDD','per_TTTTTTTTTTTTTTTTTTTTTT','emp_EEEEEEEEEEEEEEEEEEEEEE','rel_RRRRRRRRRRRRRRRRRRRRRR','U1',1,'acto','fuente',1,DATE '2026-09-23',DATE '2026-09-23','Visita sintética','["GR1","GR2"]','clave_devolucion_d6_0001',repeat('a',64),TIMESTAMPTZ '2026-09-23 07:00:00+00'),
-       ('dco_BBBBBBBBBBBBBBBBBBBBBB','per_TTTTTTTTTTTTTTTTTTTTTT','emp_EEEEEEEEEEEEEEEEEEEEEE','rel_RRRRRRRRRRRRRRRRRRRRRR','U1',1,'acto','fuente',1,DATE '2026-09-24',DATE '2026-09-24','Borrador sintético','["GR1","GR2"]','clave_devolucion_d6_0002',repeat('b',64),TIMESTAMPTZ '2026-09-24 07:00:00+00');
+VALUES ('dco_DDDDDDDDDDDDDDDDDDDDDD','per_TTTTTTTTTTTTTTTTTTTTTT','emp_EEEEEEEEEEEEEEEEEEEEEE','rel_RRRRRRRRRRRRRRRRRRRRRR','U01',1,'acto','fuente',1,DATE '2026-09-23',DATE '2026-09-23','Visita sintética','["GR1","GR2"]','clave_devolucion_d6_0001',repeat('a',64),TIMESTAMPTZ '2026-09-23 07:00:00+00'),
+       ('dco_BBBBBBBBBBBBBBBBBBBBBB','per_TTTTTTTTTTTTTTTTTTTTTT','emp_EEEEEEEEEEEEEEEEEEEEEE','rel_RRRRRRRRRRRRRRRRRRRRRR','U01',1,'acto','fuente',1,DATE '2026-09-24',DATE '2026-09-24','Borrador sintético','["GR1","GR2"]','clave_devolucion_d6_0002',repeat('b',64),TIMESTAMPTZ '2026-09-24 07:00:00+00');
 INSERT INTO vec_dietas.numero_documento_comision VALUES
  ('dco_DDDDDDDDDDDDDDDDDDDDDD',900001,'VEC-D-2026-900001',TIMESTAMPTZ '2026-09-23 07:00:00+00'),
  ('dco_BBBBBBBBBBBBBBBBBBBBBB',900002,'VEC-D-2026-900002',TIMESTAMPTZ '2026-09-24 07:00:00+00');
