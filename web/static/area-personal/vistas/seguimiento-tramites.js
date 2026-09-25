@@ -3,6 +3,7 @@ import {
   formatoPuntos, listaDatos, panel, tabla,
 } from "./comunes.js";
 import { traducir } from "../i18n.js";
+import { campoVisibleMiBolsa } from "../mi-bolsa-campos.js";
 
 const CLASES_SITUACION = Object.freeze({
   disponible: "exito", no_disponible: "aviso", trabajando: "info",
@@ -79,7 +80,13 @@ export function renderizarLlamamientos(datos, estado = {}) {
   const totalPaginas = Math.max(1, Math.ceil(participaciones.length / porPagina));
   const paginaActual = Math.min(pagina, totalPaginas);
   const visibles = participaciones.slice((paginaActual - 1) * porPagina, paginaActual * porPagina);
-  const tarjetasParticipacion = visibles.map((item) => panel("Mi participación", item.categoria, `${listaDatos([["Estado de la bolsa", chip(item.estado_bolsa)], [traducir("areaPersonal.miBolsa.ordenInicial"), `${escaparHTML(String(item.orden_inicial))} de ${escaparHTML(String(item.total_instantanea))}`], ["Versión de la bolsa", escaparHTML(String(item.version))], [traducir("areaPersonal.miBolsa.vigenciaBolsa"), `${escaparHTML(fechaSituacion(item.vigente_desde))}${item.vigente_hasta ? ` · hasta ${escaparHTML(fechaSituacion(item.vigente_hasta))}` : " · vigente"}`]])}<h4>${escaparHTML(traducir("areaPersonal.miBolsa.situacion.titulo"))}</h4>${fichaSituacionActual(item.situacion_actual)}`, { estado: item.estado_bolsa, clase: "participacion-propia" })).join("");
+  const ver = (campo) => campoVisibleMiBolsa(estado.camposMiBolsa, campo);
+  const tarjetasParticipacion = visibles.map((item) => panel("Mi participación", item.categoria, `${listaDatos([
+    ...(ver("estado") ? [["Estado de la bolsa", chip(item.estado_bolsa)]] : []),
+    ...(ver("posicion") ? [[traducir("areaPersonal.miBolsa.ordenInicial"), `${escaparHTML(String(item.orden_inicial))} de ${escaparHTML(String(item.total_instantanea))}`]] : []),
+    ["Versión de la bolsa", escaparHTML(String(item.version))], [traducir("areaPersonal.miBolsa.vigenciaBolsa"), `${escaparHTML(fechaSituacion(item.vigente_desde))}${item.vigente_hasta ? ` · hasta ${escaparHTML(fechaSituacion(item.vigente_hasta))}` : " · vigente"}`],
+    ...(!ver("estado") && ver("fecha_disponible") && item.situacion_actual?.fecha_disponible ? [[traducir("areaPersonal.miBolsa.situacion.fechaDisponible"), escaparHTML(fechaSituacion(item.situacion_actual.fecha_disponible))]] : []),
+  ])}${ver("estado") ? `<h4>${escaparHTML(traducir("areaPersonal.miBolsa.situacion.titulo"))}</h4>${fichaSituacionActual(item.situacion_actual)}` : ""}`, { estado: ver("estado") ? item.estado_bolsa : "", clase: "participacion-propia" })).join("");
   const paginacion = participaciones.length > porPagina ? `<nav class="paginacion-participaciones" aria-label="Paginación de participaciones"><span>Mostrando ${(paginaActual - 1) * porPagina + 1} a ${Math.min(paginaActual * porPagina, participaciones.length)} de ${participaciones.length}</span><button type="button" class="boton-secundario" data-accion="pagina-participaciones" data-pagina="${paginaActual - 1}" ${paginaActual === 1 ? "disabled" : ""}>Anterior</button><button type="button" class="boton-secundario" data-accion="pagina-participaciones" data-pagina="${paginaActual + 1}" ${paginaActual === totalPaginas ? "disabled" : ""}>Siguiente</button></nav>` : "";
   const fichaParticipaciones = participaciones.length ? `<section class="marco-participaciones" aria-label="Mis participaciones en bolsa">${tarjetasParticipacion}${paginacion}</section>` : panel("Mis participaciones", "Sin participaciones activas", "<p>No constan participaciones en bolsa para la identidad actual.</p>");
   const propios = participaciones.filter((item) => item.ultimo_llamamiento);
@@ -99,9 +106,9 @@ export function renderizarLlamamientos(datos, estado = {}) {
   const sinContratos = `<p>${escaparHTML(traducir("areaPersonal.miBolsa.contratos.sinDato"))}</p>`;
   return `${encabezadoVista("Mi bolsa", "")}
     ${fichaParticipaciones}
-    <div class="rejilla-principal"><div>${llamamientos}</div><aside>
+    <div class="rejilla-principal"><div>${ver("ultimo_llamamiento") ? llamamientos : ""}</div><aside>
       ${panel(traducir("areaPersonal.miBolsa.disponibilidad.titulo"), traducir("areaPersonal.miBolsa.disponibilidad.subtitulo"), `<p class="nota aviso">${escaparHTML(traducir("areaPersonal.miBolsa.disponibilidad.detalle"))}</p>`)}
-      ${panel("Contratos", "Información propia", sinContratos)}
+      ${ver("contratos") ? panel("Contratos", "Información propia", sinContratos) : ""}
     </aside></div>`;
 }
 

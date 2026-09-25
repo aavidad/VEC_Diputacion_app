@@ -709,6 +709,7 @@ async function cargar(estado) {
     const datos = datosDeRespuesta(respuesta);
     estado.datos = exigirDatosOperativos(datos);
     estado.participaciones = respuesta?.consulta?.participaciones || [];
+    estado.camposMiBolsa = respuesta?.consulta?.campos_visibles || null;
     estado.fuenteBolsa = respuesta?.fuente || "real";
     estado.causaBolsa = respuesta?.causa || "";
     if (!estado.convocatoriaSolicitud) {
