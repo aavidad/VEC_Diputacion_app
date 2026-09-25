@@ -100,6 +100,10 @@ func nuevoServidorHTTP(cfg config.Config, emisor vecports.EmisorIncidenciasTecni
 	if err := rechazarTLSDesarrolloEnProduccion(cfg); err != nil {
 		return nil, err
 	}
+	// vec-server: encender un selector fuera de la doble llave también falla.
+	if err := validarSelectoresDespliegueBolsaCT(cfg); err != nil {
+		return nil, err
+	}
 	if cfg.ExecutionProfile == config.ExecutionProfileDevelopment || cfg.AuthMode == config.AuthModeDevelopment ||
 		cfg.DevelopmentGuard != "" || cfg.DevelopmentMaterialDir != "" {
 		servidor, _, err := nuevoServidorDesarrollo(cfg, os.Stderr, emisor)
@@ -372,7 +376,9 @@ func validarValoresConfiguracionConocidos(cfg config.Config) error {
 	default:
 		return ErrModoAlmacenamientoDesconocido
 	}
-	return nil
+	// Los selectores de despliegue se validan siempre, también fuera de la
+	// composición PostgreSQL de CT: un valor mal escrito no se ignora.
+	return validarValorSelectoresDespliegueBolsaCT(cfg)
 }
 
 func rechazarComposicionProductivaNoDisponible(cfg config.Config) error {

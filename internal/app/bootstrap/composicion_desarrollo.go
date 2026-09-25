@@ -214,6 +214,9 @@ func nuevoServidorDesarrollo(
 		return nil, nil, ErrComposicionDesarrolloIncompleta
 	}
 	cfg = cfg.Normalize()
+	if err := validarSelectoresDespliegueBolsaCT(cfg); err != nil {
+		return nil, nil, err
+	}
 	composicion, err := NuevaComposicionSeguridadDesarrollo(cfg, registro)
 	if err != nil {
 		return nil, nil, err

@@ -314,60 +314,12 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	if err != nil {
 		return vacias, err
 	}
-	descriptoresMaterial := descriptoresMaterialAutorizacionContratacionTemporalDesarrollo()
-	if cfg.BolsaBorradoresEnabled {
-		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialBorradorLlamamientoBolsaDesarrollo()...)
-	}
-	if debeComponerMiBolsaDesarrollo(cfg) {
-		descriptoresMaterial = append(descriptoresMaterial, descriptorMaterialMiBolsaDesarrollo())
-	}
-	if debeComponerPortalCandidatoDesarrollo(cfg) {
-		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialPortalCandidatoDesarrollo()...)
-		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialContactoPropioDesarrollo()...)
-	}
-	if dietasBorradoresSolicitadas(cfg.DietasBorradoresEnabled) {
-		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialDietasDesarrollo()...)
-	}
-	if cronosEmpleadoSolicitado(cfg.CronosEmpleadoEnabled) {
-		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialCronosDesarrollo()...)
-	}
-	if documentosSolicitados(cfg.DocumentosEnabled) {
-		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialDocumentosDesarrollo()...)
-	}
-	if cronosResolucionSolicitada(cfg.CronosEmpleadoEnabled, cfg.CronosResolucionEnabled) {
-		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialCronosResolucionDesarrollo()...)
-	}
-	if cronosNotificacionesSolicitadas(cfg.CronosEmpleadoEnabled, cfg.CronosNotificacionesEnabled) {
-		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialCronosNotificacionesDesarrollo()...)
-	}
-	if personalEmpleadoSolicitado(cfg.PersonalEmpleadoEnabled) {
-		descriptoresMaterial = append(descriptoresMaterial, descriptorMaterialFichaPropiaPersonalDesarrollo())
-	}
-	firmaDocumento, err := cfg.CTFirmaRegistroDesarrolloActivo()
+	seleccion, err := seleccionMaterialCTDesarrolloDesdeConfig(cfg)
 	if err != nil {
 		return vacias, err
 	}
-	// Selectores de despliegue: un valor inválido o fuera de la doble llave
-	// detiene el arranque en lugar de interpretarse.
-	if _, err := cfg.BolsaPortalCandidatoDesarrolloActivo(); err != nil {
-		return vacias, err
-	}
-	if _, err := cfg.CTSeguimientoCeseDesarrolloActivo(); err != nil {
-		return vacias, err
-	}
-	if firmaDocumento {
-		descriptoresMaterial = append(descriptoresMaterial, descriptorMaterialFirmaDocumentoCTDesarrollo())
-	}
-	if seguimientoCeseSolicitado(cfg) {
-		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialSeguimientoCeseDesarrollo()...)
-	}
-	personalB2, err := cfg.PersonalB2GobiernoDesarrolloActivo()
-	if err != nil {
-		return vacias, err
-	}
-	if personalB2 {
-		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialPersonalB2Desarrollo()...)
-	}
+	firmaDocumento, personalB2 := seleccion.firmaDocumento, seleccion.personalB2
+	descriptoresMaterial := descriptoresMaterialSeleccionadosCTDesarrollo(seleccion)
 	catalogoMaterial, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(descriptoresMaterial)
 	if err != nil {
 		return vacias, errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
@@ -458,19 +410,25 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			return vacias, err
 		}
 		dependencias.bolsa = bolsa
+		if seleccion.portalCandidato {
+			if err := comprobarMigracionesPortalCandidatoDesarrollo(ctx, bolsa); err != nil {
+				slog.Error("portal del candidato de Bolsa encendido sin sus migraciones", "causa", err)
+				return vacias, err
+			}
+		}
 		proveedorBolsa, err := nuevoProveedorMaterialBolsaDesarrollo(ctx, gobierno, material, soporte, reloj)
 		if err != nil {
 			return vacias, err
 		}
 		dependencias.proveedorMaterialBolsa = proveedorBolsa
-		if debeComponerMiBolsaDesarrollo(cfg) {
+		if seleccion.miBolsa {
 			proveedorMiBolsa, err := nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, puertosbolsa.AudienciaMiBolsa)
 			if err != nil {
 				return vacias, err
 			}
 			dependencias.proveedorMaterialMiBolsa = proveedorMiBolsa
 		}
-		if debeComponerPortalCandidatoDesarrollo(cfg) {
+		if seleccion.portalCandidato {
 			dependencias.proveedoresMaterialPortal = make(map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo, len(accionesPropiasPortalDesarrollo()))
 			for _, par := range accionesPropiasPortalDesarrollo() {
 				proveedor, err := nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, par[1])
@@ -609,8 +567,10 @@ func descriptoresMaterialPortalCandidatoDesarrollo() []descriptorMaterialConsumi
 
 // debeComponerPortalCandidatoDesarrollo: las acciones propias existen solo
 // si se piden expresamente (VEC_BOLSA_PORTAL_CANDIDATO_ENABLED, que exige
-// AD3-84 y Bolsa 000030 instaladas), con «Mi bolsa» compuesta y catálogo de
-// reglas de Bolsa que las rija. Un selector inválido se rechaza al arrancar.
+// AD3-84, AD3-86 y Bolsa 000029, 000030 y 000040 instaladas; el arranque lo
+// comprueba en comprobarMigracionesPortalCandidatoDesarrollo), con «Mi bolsa»
+// compuesta y catálogo de reglas de Bolsa que las rija. Un selector inválido
+// se rechaza al arrancar.
 func debeComponerPortalCandidatoDesarrollo(cfg config.Config) bool {
 	activo, err := cfg.BolsaPortalCandidatoDesarrolloActivo()
 	if err != nil {

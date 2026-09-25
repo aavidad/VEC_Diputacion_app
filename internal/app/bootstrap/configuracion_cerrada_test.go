@@ -23,6 +23,12 @@ func TestRaicesRechazanSelectoresDesconocidosSinReflejarSuValor(t *testing.T) {
 		{nombre: "almacenamiento", error: ErrModoAlmacenamientoDesconocido, alterar: func(cfg *config.Config) {
 			cfg.StorageMode = "store-SECRETO\ninyectado"
 		}},
+		{nombre: "selector portal candidato", error: config.ErrConfiguracionBolsaPortalCandidatoSelector, alterar: func(cfg *config.Config) {
+			cfg.BolsaPortalCandidatoEnabled = "si-SECRETO"
+		}},
+		{nombre: "selector seguimiento cese", error: config.ErrConfiguracionCTSeguimientoCeseSelector, alterar: func(cfg *config.Config) {
+			cfg.CTSeguimientoCeseEnabled = "on-SECRETO"
+		}},
 	}
 
 	raices := map[string]func(config.Config) error{

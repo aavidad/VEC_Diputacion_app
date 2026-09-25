@@ -10,8 +10,11 @@ import "errors"
 // equivale a apagado. Exigen la doble llave de desarrollo.
 const (
 	// EnvBolsaPortalCandidatoEnabled compone las acciones propias del
-	// candidato en «Mi bolsa» (pausa, reactivación y respuesta al
-	// llamamiento); requiere AD3-84 y Bolsa 000030 instaladas.
+	// candidato en «Mi bolsa»: pausa, reactivación y respuesta al
+	// llamamiento (AD3-84 y Bolsa 000030), disposición a ofertas publicadas
+	// (AD3-84 y Bolsa 000029) y confirmación del contacto propio (AD3-86 y
+	// Bolsa 000040). Con el selector encendido el arranque comprueba que
+	// existen sus fachadas y se detiene nombrando la primera que falte.
 	EnvBolsaPortalCandidatoEnabled = "VEC_BOLSA_PORTAL_CANDIDATO_ENABLED"
 	// EnvCTSeguimientoCeseEnabled compone cese, cierre y modificación tras
 	// el nombramiento de Contratación temporal; requiere AD3-82, AD3-83,
