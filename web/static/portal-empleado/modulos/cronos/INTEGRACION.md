@@ -19,6 +19,12 @@ saldos ni responsables. Su comportamiento y textos están en
   envelope validado de un servicio interno ni registra fichajes.
 - Existen clientes HTTP y vistas de saldo propio y marcaje remoto, pero aún no
   están montados en el coordinador ni acreditados con un recorrido completo.
+- Movimientos propios (calendario anual por tipo de día, ausencias y olvidos
+  con su solicitud de corrección) y permisos propios (listado anual, solicitud
+  y pendientes de conceder y de justificar) tienen cliente
+  `cliente-solicitudes-http.js` y vistas `vista-movimientos-propios.js` y
+  `vista-permisos-propios.js`, igualmente sin montar. La concesión por jefatura
+  o administración y los mensajes de resolución pertenecen a otro corte.
 - El marcaje desde el portal se limitará al circuito remoto que acredite
   teletrabajo vigente para esa persona y periodo en el servidor.
 - Falta vincular y probar navegador → identidad y autorización → caso de uso →

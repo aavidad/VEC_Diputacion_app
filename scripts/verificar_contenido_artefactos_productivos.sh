@@ -179,6 +179,10 @@ transportes_mtls_revisados=(
 	static/portal-empleado/modulos/personal/cliente-http-categorias.js
 	static/portal-empleado/peticiones-centro/peticiones-centro.js
 	static/portal-empleado/organizacion/organizacion.js
+	# Cronos de la persona empleada (25/09): movimientos, olvidos y permisos
+	# propios; GET y POST a rutas internas fijas, same-origin, no-store,
+	# redirect error y no-referrer; la persona la deriva el servidor del mTLS.
+	static/portal-empleado/modulos/cronos/cliente-solicitudes-http.js
 )
 mapfile -t usos_mismo_origen < <(
 	grep -rliE 'credentials[[:space:]]*:[[:space:]]*["'"'"']same-origin' \

@@ -1,0 +1,183 @@
+/* Movimientos propios (calendario anual, ausencias, olvidos) y permisos propios.
+   Solo tokens del tema común; las tarjetas, tablas y botones son los del portal. */
+.cronos-movimientos-propios,
+.cronos-permisos-propios {
+  display: grid;
+  gap: var(--portal-espacio-4);
+  min-width: 0;
+}
+
+.cronos-movimientos-propios .cronos-encabezado .cronos-boton-ayuda,
+.cronos-permisos-propios .cronos-encabezado .cronos-boton-ayuda {
+  width: 30px;
+  height: 30px;
+  justify-self: end;
+}
+
+.cronos-anio-navegacion {
+  display: flex;
+  align-items: center;
+  gap: var(--portal-espacio-2);
+  margin-left: auto;
+}
+
+.cronos-anio-navegacion strong {
+  min-width: 4ch;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.cronos-anio-navegacion button {
+  min-width: 36px;
+  min-height: 36px;
+}
+
+.cronos-calendario-falta {
+  margin: 0 0 var(--portal-espacio-3);
+  color: var(--portal-muted);
+}
+
+.cronos-leyenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--portal-espacio-2) var(--portal-espacio-4);
+  margin: 0 0 var(--portal-espacio-3);
+  padding: 0;
+  list-style: none;
+  color: var(--portal-muted);
+  font-size: .8125rem;
+}
+
+.cronos-leyenda li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--portal-espacio-2);
+}
+
+.cronos-leyenda-muestra {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  border: 1px solid var(--portal-borde);
+}
+
+.cronos-meses {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr));
+  gap: var(--portal-espacio-4);
+  min-width: 0;
+}
+
+.cronos-mes {
+  min-width: 0;
+  padding: var(--portal-espacio-3);
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio-lg);
+  background: var(--portal-superficie);
+}
+
+.cronos-mes h4 {
+  margin: 0 0 var(--portal-espacio-2);
+  padding-bottom: var(--portal-espacio-2);
+  border-bottom: 1px solid var(--portal-borde);
+  font-size: .9375rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.cronos-mes table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  text-align: center;
+}
+
+.cronos-mes th {
+  color: var(--portal-muted);
+  font-size: .75rem;
+  font-weight: 600;
+}
+
+.cronos-mes abbr {
+  text-decoration: none;
+}
+
+.cronos-dia {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-height: 26px;
+  border-radius: 6px;
+  font-size: .8125rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Un color por tipo; la ausencia prevalece sobre el marcaje y el festivo sobre ambos. */
+[data-tipos~="marcaje"] { background: var(--portal-exito-suave); color: var(--portal-tinta); }
+[data-tipos~="olvido"] { box-shadow: inset 0 0 0 2px var(--portal-naranja); }
+[data-tipos~="ausencia"] { background: var(--portal-violeta-suave); color: var(--portal-tinta); }
+[data-tipos~="no_laborable"] { background: var(--portal-neutro-suave); color: var(--portal-muted); }
+[data-tipos~="festivo"] { background: var(--portal-peligro-suave); color: var(--portal-peligro); font-weight: 600; }
+
+.cronos-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.cronos-tabla .numero,
+.cronos-tabla th.numero {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.cronos-circuito {
+  margin-left: auto;
+  color: var(--portal-muted);
+  font-size: .8125rem;
+}
+
+.cronos-solicitud-formulario {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr));
+  align-items: end;
+  gap: var(--portal-espacio-3);
+}
+
+.cronos-solicitud-formulario label {
+  display: grid;
+  gap: var(--portal-espacio-1);
+  font-size: .8125rem;
+  color: var(--portal-muted);
+}
+
+.cronos-solicitud-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--portal-espacio-2);
+}
+
+.cronos-solicitud-aviso {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: var(--portal-espacio-2) var(--portal-espacio-3);
+  border-radius: var(--portal-radio-md);
+}
+
+.cronos-solicitud-aviso[data-tono="exito"] { background: var(--portal-exito-suave); color: var(--portal-tinta); }
+.cronos-solicitud-aviso[data-tono="error"] { background: var(--portal-peligro-suave); color: var(--portal-peligro); }
+
+.cronos-permisos-propios .rejilla-kpi {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+}
+
+@media (max-width: 640px) {
+  .cronos-permisos-propios .rejilla-kpi { grid-template-columns: 1fr; }
+  .cronos-anio-navegacion { margin-left: 0; }
+}
