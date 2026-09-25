@@ -45,6 +45,18 @@ psql_admin <<'SQL'
 CREATE ROLE vec_catalogo_ajeno NOLOGIN NOBYPASSRLS;
 SQL
 [[ $(valor "SELECT has_function_privilege('vec_personal_propietario','$firma','EXECUTE'),has_function_privilege('vec_personal_ejecutor','$firma','EXECUTE'),has_function_privilege('vec_catalogo_ajeno','$firma','EXECUTE')") == 't|f|f' ]] || fallo 'ACL consumidor divergente'
+psql_admin <<'SQL'
+DO $neg$
+BEGIN
+ BEGIN
+  PERFORM vec_autorizacion_atestada_v3.consumir_catalogo_registro_empleado_v3_atestada(
+   convert_to('{"operacion":"personal.registro_empleado.catalogo.borrar"}','UTF8'),
+   convert_to('{"modulo_id":"personal"}','UTF8'),'x'::bytea,'x'::bytea,1,1,
+   'x'::bytea,'x'::bytea,'x'::bytea,'x'::bytea);
+  RAISE EXCEPTION 'operación no nominal aceptada';
+ EXCEPTION WHEN SQLSTATE '42501' THEN NULL; END;
+END $neg$;
+SQL
 "$motor" restart "$contenedor" >/dev/null
 for _ in {1..80}; do
   if valor 'SELECT 1' >/dev/null 2>&1; then break; fi
