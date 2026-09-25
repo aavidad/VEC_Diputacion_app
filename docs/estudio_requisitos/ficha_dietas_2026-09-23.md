@@ -47,3 +47,30 @@ revisión y la autorización. Tablas de importes rotuladas provisionales.
 
 Tabla de cuantías vigente por grupo y país; importe por km; reglas de tramos horarios; quién
 revisa y autoriza en cada centro; integración de la liquidación con la nómina.
+
+## Estado al 25 de septiembre de 2026
+
+Contrastado con `origin/main` = `2ad54ce4` (PR #36, #40, #47 y #49) y con
+`web/static/portal-empleado/modulos/dietas/INTEGRACION.md`. «Formal» aplica la definición
+de terminado del consenso de hoja de ruta del 24/09.
+
+**Formal: 0/9.** Dietas está inactiva en la principal (no hay despliegue ni barrido) y el
+recorrido navegador → PostgreSQL con reinicio «corresponde al corte integrado y se documenta
+fuera de este archivo» (`INTEGRACION.md`, «Comprobación»): no hay tal evidencia en el
+repositorio.
+
+**Técnico: 3/9** (D2, D4, D5). **Uso real en la principal: 0/9** (inactiva; Dietas
+000001–000008 instaladas, 000009–000011 y AD3-75/81 pendientes; AD3-81 está en el PR #54,
+abierto).
+
+| Id | Técnico (máximo en código y pruebas) | Límite concreto |
+| --- | --- | --- |
+| D1 | Parcial | Identidad común y V3 sí; ninguna bandeja acredita a nadie hasta la fuente de competencia (PR #40; dudas 40 y 46) |
+| D2 | Sí | Alta v1, documento v2, edición, borrado lógico y envío con recibo (000001, 000006, 000007) |
+| D3 | Parcial | Tramos por grupo solo para España con tabla provisional; otro país deshabilita guardar (`INTEGRACION.md`, «Ruta y mapa») |
+| D4 | Sí | OSRM interna, hasta ocho rutas con diez paradas, ajustes motivados; importe por km provisional |
+| D5 | Sí | Tipo de catálogo, fecha, importe y justificante por referencia y huella (000009, PR #49); dudas 49 y 50 |
+| D6 | Parcial | Circuito y devolución en SQL y Go (000007, 000008, 000010, 000011, AD3-75/80); `clienteCircuito` no se compone en el portal; vuelta tras devolución pendiente (duda 51) |
+| D7 | Parcial | Asignación vía relaciones de Personal; rectificación D7c en código, `clienteRectificacion` no compuesto; sin catálogo competente, confirmar queda deshabilitado |
+| D8 | Parcial | Bandejas por papel en código (PR #40), sin componer en el portal |
+| D9 | No | No hay informe ni PDF del documento liquidado |

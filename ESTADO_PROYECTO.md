@@ -1,5 +1,108 @@
 # Estado y plan de ataque del proyecto
 
+## Métricas oficiales puestas al día — 25 de septiembre de 2026
+
+Sustituye a las cifras de los cortes anteriores, que no incluían lo integrado el 24 y el
+25/09. Reglas: se toma siempre la cifra más baja, sin redondear al alza (los porcentajes se
+truncan a una décima); cada cifra lleva su fuente; lo discutido por Astra o por una revisión
+queda como «no ratificado»; nada se cierra sin evidencia. `main` = `2ad54ce4` (PR #52).
+
+**Tres magnitudes distintas.**
+
+- *Formal*: cerrado con la definición de terminado del consenso de hoja de ruta
+  (`/home/alberto/.codex-vec-modulos/CONSENSO_HOJA_RUTA_MODULOS_20260924.md`, «Plan
+  consensuado», punto 5): recorrido humano en PostgreSQL real con datos sintéticos,
+  negativos y reinicio; puerta; dos E10; un PR; desplegado y verificado en cidonia por
+  Dirección. Los cierres anteriores al 24/09 se hicieron con otro criterio y se muestran
+  aparte como «criterio previo, no ratificado con la definición nueva».
+- *Técnico*: máximo acreditado en código y pruebas de `main`.
+- *Uso real*: servido en la principal (cidonia) **con barrido o prueba documentados**. Lo
+  servido sin barrido documentado se indica como referencia, no como cifra oficial.
+
+Ninguna de las tres autoriza producción ni datos reales.
+
+### Avance por módulo
+
+| Módulo | Formal | Técnico | Uso real en la principal | Fuente |
+| --- | --- | --- | --- | --- |
+| Contratación temporal | 0/46. Criterio previo: 20/46 tareas; 5/8 pasos más partes del 6.º y 7.º (no ratificado con la definición nueva) | 22/46 tareas | 0 oficial: en cidonia solo consta barrido de bandeja y detalle (23/09), sin inventario de qué tareas del tablero están allí. Los pasos 1–5 se recorrieron en la instancia principal de desarrollo, no en cidonia. Referencia servida: 20/46, no ratificado | `AGENTS.md`, «Checkpoint operativo vivo — O6» (20/46 y 22/46) y «Autoridad operativa OpenClaw» (5/8); ESTADO, «Cidonia al día» (23/09) |
+| Bolsa | 0/15. Criterio previo: 12/15 declarados (B1–B10, B12, B13); **B6, B7 y B13 no ratificados** → 9/15 | 11/15 (B7 no ratificado: lee el correo de participación de Bolsa, contra E09; B11 en código sin componer; B14 y B15 abiertos) | 3/15 con barrido o prueba en cidonia: B6 y B12 (recorrido 23/09) y B8 (prueba HTTP 9/9); B5 parcial, sin barrido del filtro por estado ni de la búsqueda | ESTADO, «Cidonia al día» (23/09); `CONSENSO_PROGRAMAS_TERMINADOS_20260923.md`, Bolsa; `internal/app/bootstrap/bolsa_borrador_llamamiento_desarrollo.go` (`fuenteCorreoParticipacionB7`); ficha `ficha_adaptacion_bolsa_convoca_2026-09-16.md` (15 B) |
+| Selección | 0/7 | 0/7 (S1 y S7 tienen piezas probadas sin componer) | 0/7 | Ficha de Bolsa/CONVOCA, S1–S7; consenso 23/09: «B15 y S1–S7 abiertos» |
+| Cronos | 0/12 | 3/12 (C6, C7, C9) | 0 oficial (sin barrido documentado). Referencia servida con Cronos empleado activo: 1/12 (C6) | `ficha_cronos_2026-09-23.md`, «Estado al 25 de septiembre» |
+| Dietas | 0/9 | 3/9 (D2, D4, D5) | 0/9 (inactiva) | `ficha_dietas_2026-09-23.md`, «Estado al 25 de septiembre» |
+| Personal / «mis datos» (B2) | 0/5 | 4/5 | 0/5 (inactivo; falta Personal 000022) | `fichas_base_B1_B5_2026-09-25.md`, B2; PR #41, #42 y #48 |
+| Documentos (B5 sin firma) | 0/5 | 1/5 (B5.1) | 0/5 (ninguna migración instalada) | `fichas_base_B1_B5_2026-09-25.md`, B5; PR #50 |
+| Firma (B5.3 y B5.4) | 0/2 | 1/2 (verificación con AutofirmaV2, sin componer) | 0/2 | PR #52; `fichas_base_B1_B5_2026-09-25.md`, B5 |
+| Calendarios (B4) | 0/4 | 2/4 | 0 oficial (activo, sin barrido documentado). Referencia servida: 2/4 | `fichas_base_B1_B5_2026-09-25.md`, B4; PR #40 |
+| Identidad y composición (B1) | 0/6 | 4/6 | 1/6 (V3, ejercida en el barrido de Bolsa del 23/09); el certificado solo en camino positivo, sin barrido de los negativos | `fichas_base_B1_B5_2026-09-25.md`, B1 |
+| Organización (B3) | 0/5 | 2/5 | 0/5 | `fichas_base_B1_B5_2026-09-25.md`, B3 |
+| Portal público | Sin tablero propio: se mide dentro de Bolsa (B10) y Selección (S1) | Portada cerrada; Cl@ve, certificado y DNIe visibles y deshabilitados | Activo | ESTADO, «Portada pública cerrada» (19/09) |
+| Provisión, Formación, Méritos, Certificados, Acción social, Nóminas, PRL, Igualdad, Incompatibilidades, Disciplina, Relaciones sindicales | 0 | 0 (sin ficha de requisitos: denominador pendiente) | 0 | Consenso de hoja de ruta 24/09, punto 4 |
+| Planificación/OEP, carrera, analítica, integraciones | 0 | 0 (sin ficha; hay piezas sueltas, p. ej. adaptador GINPIX y OSRM, que no cierran un tablero) | 0 | Consenso de hoja de ruta 24/09, punto 4; `CONSENSO_MAPA_MODULOS_20260923.md` |
+
+Bolsa se mide sobre sus 15 requisitos B de la ficha; las siete S cuentan en Selección. La
+cifra «12/14» de los cortes anteriores no incluía B15 (añadido el 20/09) y la «12/22» mezclaba
+Bolsa y Selección. Contratación se computa sobre el tablero de 46 porque da la fracción más
+baja (22/46 = 0,478 frente a 5/8 = 0,625); la mención «≈6/8» de cortes anteriores no se usa.
+
+### Avance global — 25 frentes
+
+Método: 25 frentes de peso 1 —5 de base (B1–B5), 16 módulos (CT, Bolsa, Selección,
+Provisión, Cronos, Dietas, Formación, Méritos, Certificados, Acción social, Nóminas, PRL,
+Igualdad, Incompatibilidades, Disciplina, Relaciones sindicales) y 4 transversales
+(planificación/OEP, carrera, analítica, integraciones)—. Cada frente aporta la fracción de
+su tablero (0 si no tiene nada acreditado o aún no tiene tablero); el global es la suma
+dividida entre 25. El uso real de un frente nunca supera su técnico.
+
+| Frente | Formal | Técnico | Uso real (oficial) | Referencia: criterio previo / servido |
+| --- | ---: | ---: | ---: | --- |
+| CT | 0/46 | 22/46 | 0 | formal previo 20/46; servido 20/46 |
+| Bolsa | 0/15 | 11/15 | 3/15 | formal previo 9/15; servido 4/15 |
+| Cronos | 0/12 | 3/12 | 0 | servido 1/12 |
+| Dietas | 0/9 | 3/9 | 0 | — |
+| B1 | 0/6 | 4/6 | 1/6 | servido 2/6 |
+| B2 | 0/5 | 4/5 | 0 | — |
+| B3 | 0/5 | 2/5 | 0 | — |
+| B4 | 0/4 | 2/4 | 0 | servido 2/4 |
+| B5 | 0/7 | 2/7 | 0 | — |
+| Otros 16 frentes | 0 | 0 | 0 | — |
+| **Suma (de 25)** | **0** | **4,447** | **0,366** | formal previo 1,034; servido 1,618 |
+| **Global** | **0,0 %** | **17,7 %** | **1,4 %** | formal previo 4,1 % y servido 6,4 %, no ratificados |
+
+Pruebas en `main@2ad54ce4`: 5.586 funciones `Test*` de Go (`git grep '^func Test'`, 5.588,
+menos dos `TestMain`); 1.650 pruebas web (`node --test $(git ls-files 'web/**/*.test.mjs')`
+ejecutado hoy sobre ese hash: 1650 pass, 0 fail).
+
+### Principal frente a main
+
+Inventario de solo lectura de la principal (cidonia) hecho por Dirección el 25/09; su salida
+queda fuera de Git porque contiene rutas privadas.
+
+- **Binario**: `main@35d1cd17` (hasta el PR #48).
+- **Activos**: portal, Contratación temporal, Bolsa (B-BACK), Calendarios y Cronos empleado.
+  **Inactivos**: Dietas, «mis datos» de Personal, Documentos y firma.
+- **Migraciones instaladas** según el inventario: Cronos 000003–000008; Dietas
+  000001–000008; AD3 49, 50, 53–56, 59, 61, 70 y 80; Personal 7–21 salvo huecos; Documentos
+  ninguna. El PR #40 da además por instaladas Cronos 1–7 y AD3 51/52; el inventario de hoy
+  no menciona Cronos 000001–000002 ni AD3 51/52: pendiente de confirmar.
+- **Pendientes**: Cronos 000009 y 000010; Dietas 000009–000011; AD3 57, 58, 74, 75 y 81;
+  Personal 000022. AD3 60 y 62 son de Documentos y no se instalan en la próxima activación.
+
+En `main` y no desplegado (`git log --first-parent 35d1cd17..origin/main`):
+
+- PR #51: Cronos, resolución de permisos jefatura → RRHH y notificaciones a RRHH (AD3-57,
+  Cronos 000009, AD3-58, Cronos 000010).
+- PR #49: Dietas D5/D6, otros gastos, corregir y reenviar (Dietas 000009–000011, AD3-75).
+- PR #50: Documentos v2, documentos comunes, custodia externa y almacén (Documentos
+  000001–000004, AD3-60/62).
+- PR #52: verificación de firma con el validador de AutofirmaV2 como servicio aparte, **sin
+  componer**.
+
+Abiertos, no fusionados: PR #53 (M2a supervisión) y PR #54 (F4b, ACL de Dietas y AD3-81).
+La activación prevista usa los scripts ensayados en local (`deploy/principal/04_dietas_migraciones.sh
+--incremental`, `politica_dietas_d5_d6.py`, orden de Cronos en su `INTEGRACION.md`); ninguna
+cifra de uso real cuenta lo pendiente de activar.
+
 ## Dietas recuperada, jornada en horas y CI en verde — 23 de septiembre de 2026 (tarde)
 
 Métrica (criterio estricto): Contratación ≈6 de 8 (sin cambio); **Bolsa 12 de 14** (sin
