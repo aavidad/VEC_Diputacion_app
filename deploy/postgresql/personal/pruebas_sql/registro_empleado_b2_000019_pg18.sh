@@ -317,4 +317,7 @@ rm -f "$casos_tmp"
 "$motor" restart "$contenedor" >/dev/null
 esperar
 [[ $(admin_valor "SELECT to_regclass('vec_personal.registro_empleado_b2_recibo') IS NOT NULL AND count(*)=5 FROM vec_personal.registro_empleado_b2_recibo") == t ]] || fallo 'recibos no recuperados tras reinicio'
-printf 'PG18 000019: B1 real; ROLLBACK/COMMIT, ACL, alta/replay/hechos, rechazo multi-org ajeno, caducidad con lock y reinicio correctos (AD3 simulado).\n'
+# La proyección que publica el alta es la que ContextoActor 000007 consume:
+# la persona resuelve exactamente al empleado del recibo de alta.
+[[ $(admin_valor "SELECT p.resultado='empleado' AND p.empleado_ref=r.empleado_ref AND p.proyeccion_ref=r.proyeccion_ref FROM vec_personal.registro_empleado_b2_recibo r CROSS JOIN LATERAL vec_contexto_actor_v1.proyeccion_empleado_personal_v2(r.efecto_ref, clock_timestamp()) p WHERE r.operacion='alta'") == t ]] || fallo 'ContextoActor no resuelve el empleado publicado por el alta'
+printf 'PG18 000019: B1 real; ROLLBACK/COMMIT, ACL, alta/replay/hechos, rechazo multi-org ajeno, caducidad con lock, reinicio y proyección consumida por ContextoActor 000007 correctos (AD3 simulado).\n'
