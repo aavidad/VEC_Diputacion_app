@@ -27,11 +27,19 @@ decisión en el mismo `COMMIT` que estado, auditoría y outbox. Un replay exacto
 puede recibir `consumo_nuevo=false` solo mientras sigan vigentes capacidad,
 clave, configuración, raíz y decisión; se cotejan principal, decisión y
 auditoría originales, preimagen y recibo objeto. No crea otro documento ni
-outbox. La consulta exige consumo nuevo y registra el acceso antes de resolver
+outbox. El material V3 original caduca como máximo a los cinco segundos: una
+recuperación posterior exige una **decisión V3 fresca**, ligada a la misma
+preimagen, recurso, principal y clave idempotente. Esta decisión produce su
+propio consumo y auditoría de autorización; el documento, número, recibo y
+outbox originales permanecen intactos. La consulta exige consumo nuevo y registra el acceso antes de resolver
 el objeto por su referencia y versión inmutables.
 
 `probar_integracion_pg18.sh` crea y destruye su propio contenedor PostgreSQL
-18.4. Comprueba `ROLLBACK`/`COMMIT`, RLS forzada, ACL, replay y recuperación tras reinicio
+18.4. Comprueba `ROLLBACK`/`COMMIT`, RLS forzada y ACL. Prueba el replay inmediato
+con el mismo material dentro de su TTL y, después de reiniciar y dejarlo
+caducar, una decisión sintética nueva con idénticos efecto y clave: devuelve
+el mismo recibo, mantiene un documento y un outbox, y registra dos consumos
+de autorización distintos. Todo esto corre
 sobre una **preimagen sintética** AD3-50 seguida de las migraciones reales
 AD3-51/52/60/62. AD3-61 no está en este árbol de trabajo y se coordina con
 BASE-B2. La preimagen sintética no acredita las decisiones COSE, las políticas ni

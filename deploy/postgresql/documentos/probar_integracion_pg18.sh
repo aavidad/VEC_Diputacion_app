@@ -121,12 +121,17 @@ SQL
 
 docker exec -i "$container" psql -X -q -v ON_ERROR_STOP=1 -U vec_documentos_ensayo -d postgres <<'SQL'
 BEGIN ISOLATION LEVEL SERIALIZABLE;
+SET LOCAL timezone='UTC';
 DO $test$
 DECLARE p bytea; h text; c bytea; d bytea; a jsonb; o jsonb; r jsonb;
 BEGIN
  p:=convert_to('{"accion":"documentos.generado.alta","id":"doc:00000000-0000-4000-8000-000000000001","clave_idempotencia":"idem:00000000-0000-4000-8000-000000000001","modulo_id":"dietas","expediente_ref":"exp:00000000-0000-4000-8000-000000000001","tipo_ref":"tipo:00000000-0000-4000-8000-000000000001","version":1,"mime":"application/pdf","tamano":3,"huella_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","politica_ref":"pol:00000000-0000-4000-8000-000000000001","version_politica":1,"huella_politica_sha256":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc","proteccion":"conservacion","conservacion_hasta":"2030-01-01T00:00:00Z"}','UTF8');
  h:=encode(sha256(p),'hex');
- c:=convert_to(jsonb_build_object('audiencia_consumo','vec_documentos.operacion.v1','operacion','documentos.generado.alta','efecto_ref','doc:00000000-0000-4000-8000-000000000001','huella_efecto_sha256',h)::text,'UTF8');
+ c:=convert_to(jsonb_build_object('audiencia_consumo','vec_documentos.operacion.v1','operacion','documentos.generado.alta','efecto_ref','doc:00000000-0000-4000-8000-000000000001','huella_efecto_sha256',h,
+  'decision_ref','decision:00000000-0000-4000-8000-000000000001','nonce','nonce:00000000-0000-4000-8000-000000000001',
+  'emitida_en',to_char(clock_timestamp(),'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
+  'expira_en',to_char(clock_timestamp()+interval '5 seconds','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
+  'decision_valida_hasta',to_char(clock_timestamp()+interval '5 seconds','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'))::text,'UTF8');
  d:=convert_to(jsonb_build_object('accion','documentos.generado.alta','modulo_id','documentos','tipo_recurso','documento_generado','finalidad','alta_documento_generado','campos_permitidos',jsonb_build_array('documento','recibo'),'obligaciones','[]'::jsonb,'recurso_ref','doc:00000000-0000-4000-8000-000000000001','contexto_recurso_huella_sha256',h,'principal_id','per:00000000-0000-4000-8000-000000000001','perfil_activo_ref','perfil:00000000-0000-4000-8000-000000000001','correlacion_ref','corr:00000000-0000-4000-8000-000000000001','decision_ref','decision:00000000-0000-4000-8000-000000000001')::text,'UTF8');
  a:=jsonb_build_object('accion','documentos.generado.alta','finalidad','alta_documento_generado','recurso_ref','doc:00000000-0000-4000-8000-000000000001','ambito_ref','exp:00000000-0000-4000-8000-000000000001','principal_id','per:00000000-0000-4000-8000-000000000001','perfil_activo_ref','perfil:00000000-0000-4000-8000-000000000001','correlacion_ref','corr:00000000-0000-4000-8000-000000000001');
  o:=jsonb_build_object('objeto_ref','obj:00000000-0000-4000-8000-000000000001','objeto_version','ov1','conector_ref','s3_ensayo','recibo_objeto_ref','recibo:00000000-0000-4000-8000-000000000001','recibo_objeto_huella_sha256',repeat('d',64),'retenido_hasta','2031-01-01T00:00:00Z','inmovilizado',false,'mime','application/pdf','tamano',3,'huella_sha256',repeat('a',64));
@@ -147,10 +152,13 @@ test "$(docker exec "$container" psql -X -qAt -U postgres -c "SELECT count(*)=1 
 docker exec -i "$container" sh -c 'cat >/tmp/replay_documentos.sql' <<'SQL'
 \set ON_ERROR_STOP on
 BEGIN ISOLATION LEVEL SERIALIZABLE;
+SET LOCAL timezone='UTC';
 DO $replay$
 DECLARE f record; r jsonb; otra_clave bytea;
 BEGIN
  SELECT * INTO STRICT f FROM public.ensayo_documentos_b5;
+ IF clock_timestamp()>=(convert_from(f.capacidad,'UTF8')::jsonb->>'expira_en')::timestamptz
+ THEN RAISE EXCEPTION 'el replay inmediato quedó fuera del TTL sintético'; END IF;
  SELECT vec_documentos.confirmar_alta_v2(f.preimagen,f.objeto,f.auth,f.capacidad,f.decision,
   '\x01'::bytea,'\x01'::bytea,1,1,'\x01'::bytea,'\x01'::bytea,'\x01'::bytea,'\x01'::bytea) INTO r;
  IF r IS DISTINCT FROM f.recibo THEN RAISE EXCEPTION 'replay cambió recibo'; END IF;
@@ -172,6 +180,37 @@ for _ in $(seq 1 60); do
  if docker exec "$container" psql -X -qAt -v ON_ERROR_STOP=1 -U postgres -c 'SELECT 1' >/dev/null 2>&1; then break; fi
  sleep 0.3
 done
-docker exec "$container" psql -X -q -v ON_ERROR_STOP=1 -U vec_documentos_ensayo -d postgres -f /tmp/replay_documentos.sql
-test "$(docker exec "$container" psql -X -qAt -U postgres -c "SELECT to_regclass('vec_documentos.documento') IS NOT NULL AND (SELECT count(*) FROM vec_documentos.documento)=1 AND (SELECT count(*) FROM vec_documentos.outbox)=1 AND (SELECT count(*) FROM vec_autorizacion_atestada_v3.ensayo_consumo_documentos)=1")" = t
-printf 'PG18.4: AD3-60/62 y Documentos-1/2 ROLLBACK/COMMIT, ACL, RLS, replay exacto y reinicio compatibles sobre preimagen sintética; NO acredita cadena V3 real.\n'
+for _ in $(seq 1 8); do
+ if test "$(docker exec "$container" psql -X -qAt -U postgres -c "SELECT clock_timestamp()>=(convert_from(capacidad,'UTF8')::jsonb->>'expira_en')::timestamptz FROM public.ensayo_documentos_b5")" = t; then break; fi
+ sleep 1
+done
+test "$(docker exec "$container" psql -X -qAt -U postgres -c "SELECT clock_timestamp()>=(convert_from(capacidad,'UTF8')::jsonb->>'expira_en')::timestamptz FROM public.ensayo_documentos_b5")" = t
+docker exec -i "$container" sh -c 'cat >/tmp/replay_documentos_fresco.sql' <<'SQL'
+\set ON_ERROR_STOP on
+BEGIN ISOLATION LEVEL SERIALIZABLE;
+SET LOCAL timezone='UTC';
+DO $fresco$
+DECLARE f record; c jsonb; d jsonb; c2 bytea; d2 bytea; r jsonb;
+BEGIN
+ SELECT * INTO STRICT f FROM public.ensayo_documentos_b5;
+ c:=convert_from(f.capacidad,'UTF8')::jsonb || jsonb_build_object(
+  'decision_ref','decision:00000000-0000-4000-8000-000000000002',
+  'nonce','nonce:00000000-0000-4000-8000-000000000002',
+  'emitida_en',to_char(clock_timestamp(),'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
+  'expira_en',to_char(clock_timestamp()+interval '5 seconds','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
+  'decision_valida_hasta',to_char(clock_timestamp()+interval '5 seconds','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'));
+ d:=convert_from(f.decision,'UTF8')::jsonb || jsonb_build_object(
+  'decision_ref','decision:00000000-0000-4000-8000-000000000002');
+ IF c->>'huella_efecto_sha256' IS DISTINCT FROM encode(sha256(f.preimagen),'hex')
+    OR c->>'efecto_ref' IS DISTINCT FROM f.auth->>'recurso_ref'
+ THEN RAISE EXCEPTION 'la decisión fresca cambió el efecto'; END IF;
+ c2:=convert_to(c::text,'UTF8'); d2:=convert_to(d::text,'UTF8');
+ SELECT vec_documentos.confirmar_alta_v2(f.preimagen,f.objeto,f.auth,c2,d2,
+  '\x01'::bytea,'\x01'::bytea,1,1,'\x01'::bytea,'\x01'::bytea,'\x01'::bytea,'\x01'::bytea) INTO r;
+ IF r IS DISTINCT FROM f.recibo THEN RAISE EXCEPTION 'decisión fresca sustituyó recibo'; END IF;
+END $fresco$;
+COMMIT;
+SQL
+docker exec "$container" psql -X -q -v ON_ERROR_STOP=1 -U vec_documentos_ensayo -d postgres -f /tmp/replay_documentos_fresco.sql
+test "$(docker exec "$container" psql -X -qAt -U postgres -c "SELECT to_regclass('vec_documentos.documento') IS NOT NULL AND (SELECT count(*) FROM vec_documentos.documento)=1 AND (SELECT count(*) FROM vec_documentos.outbox)=1 AND (SELECT count(*) FROM vec_autorizacion_atestada_v3.ensayo_consumo_documentos)=2 AND (SELECT decision_ref FROM vec_documentos.documento)='decision:00000000-0000-4000-8000-000000000001'")" = t
+printf 'PG18.4: replay inmediato mismo material y recuperación tras reinicio con decisión V3 sintética fresca: mismo recibo, 1 documento/outbox, 2 consumos autorizados. NO acredita cadena COSE real.\n'
