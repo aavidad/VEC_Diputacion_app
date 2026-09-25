@@ -92,6 +92,14 @@ func (r *RepositorioBorradorComisionPostgreSQL) ConsultarDocumento(ctx context.C
 	if err != nil {
 		return cero, err
 	}
+	return decodificarDocumentoCircuito(bruto, solicitud)
+}
+
+// decodificarDocumentoCircuito traduce la salida de
+// consultar_documento_circuito_v1, incluida la devolución anterior de un
+// reenvío (000010), y la valida con la forma de la aplicación.
+func decodificarDocumentoCircuito(bruto []byte, solicitud dietasports.SolicitudDocumentoCircuito) (dietasports.DocumentoCircuito, error) {
+	var cero dietasports.DocumentoCircuito
 	var x struct {
 		Resultado string                         `json:"resultado"`
 		Comision  *dietasports.DocumentoCircuito `json:"comision"`

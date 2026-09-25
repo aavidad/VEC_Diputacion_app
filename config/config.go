@@ -156,6 +156,8 @@ type Config struct {
 	BolsaBorradoresEnabled                      bool
 	DietasBorradoresEnabled                     string
 	CronosEmpleadoEnabled                       string
+	CronosResolucionEnabled                     string
+	CronosNotificacionesEnabled                 string
 	DocumentosEnabled                           string
 	PersonalEmpleadoEnabled                     string
 	PersonalB2GobiernoEnabled                   string
@@ -229,12 +231,14 @@ func Load() Config {
 			dsnProyectorGobierno: envFirst(EnvBolsaBorradoresProyectorGobiernoDatabaseURL),
 			dsnVerificadorRecibo: envFirst(EnvBolsaBorradoresVerificadorReciboDatabaseURL),
 		},
-		BolsaBorradoresEnabled:    envBool(EnvBolsaBorradoresEnabled),
-		DietasBorradoresEnabled:   envFirst(EnvDietasBorradoresEnabled),
-		CronosEmpleadoEnabled:     envFirst(EnvCronosEmpleadoEnabled),
-		DocumentosEnabled:         envFirst(EnvDocumentosEnabled),
-		PersonalEmpleadoEnabled:   envFirst(EnvPersonalEmpleadoEnabled),
-		PersonalB2GobiernoEnabled: envFirst(EnvPersonalB2GobiernoEnabled),
+		BolsaBorradoresEnabled:      envBool(EnvBolsaBorradoresEnabled),
+		DietasBorradoresEnabled:     envFirst(EnvDietasBorradoresEnabled),
+		CronosEmpleadoEnabled:       envFirst(EnvCronosEmpleadoEnabled),
+		CronosResolucionEnabled:     envFirst(EnvCronosResolucionEnabled),
+		CronosNotificacionesEnabled: envFirst(EnvCronosNotificacionesEnabled),
+		PersonalEmpleadoEnabled:     envFirst(EnvPersonalEmpleadoEnabled),
+		PersonalB2GobiernoEnabled:   envFirst(EnvPersonalB2GobiernoEnabled),
+		DocumentosEnabled:           envFirst(EnvDocumentosEnabled),
 		DietasBorradoresPostgreSQL: ConfiguracionDietasBorradores{
 			dsnDietas:             envFirst(EnvDietasBorradoresDatabaseURL),
 			dsnPersonal:           envFirst(EnvDietasPersonalRelacionesDatabaseURL),
@@ -353,6 +357,8 @@ func (c Config) Normalize() Config {
 	c.BolsaBorradoresPostgreSQL = c.BolsaBorradoresPostgreSQL.normalizar()
 	c.DietasBorradoresEnabled = strings.TrimSpace(c.DietasBorradoresEnabled)
 	c.CronosEmpleadoEnabled = strings.TrimSpace(c.CronosEmpleadoEnabled)
+	c.CronosResolucionEnabled = strings.TrimSpace(c.CronosResolucionEnabled)
+	c.CronosNotificacionesEnabled = strings.TrimSpace(c.CronosNotificacionesEnabled)
 	c.DocumentosEnabled = strings.TrimSpace(c.DocumentosEnabled)
 	c.PersonalEmpleadoEnabled = strings.TrimSpace(c.PersonalEmpleadoEnabled)
 	c.PersonalB2GobiernoEnabled = strings.TrimSpace(c.PersonalB2GobiernoEnabled)

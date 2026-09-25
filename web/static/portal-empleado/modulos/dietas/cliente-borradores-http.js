@@ -1,3 +1,4 @@
+import { sinBordes, textoRef } from "./texto-dietas.js?v=20260925-d5d6-v1";
 const RUTA_COMISIONES = "/api/vec/dietas/comisiones";
 const MAXIMO_CUERPO_SOLICITUD_BYTES = 16 * 1024;
 const MAXIMO_RESPUESTA_BYTES = 128 * 1024;
@@ -28,14 +29,20 @@ function validarSolicitud(entrada) {
   if (entrada.relacion_ref !== undefined && !referencia(entrada.relacion_ref, "rel_")) throw new TypeError("relación no válida");
   return Object.freeze({ ...entrada, ...(entrada.codigos_ruta ? { codigos_ruta: Object.freeze([...entrada.codigos_ruta]) } : {}) });
 }
+const REFERENCIA_JUSTIFICANTE = /^[A-Za-z][A-Za-z0-9:_-]{2,127}$/u;
+const HUELLA_JUSTIFICANTE = /^[a-f0-9]{64}$/u;
+const CLAVES_OTRO_GASTO = ["tipo", "tipo_gasto", "catalogo_version", "fecha", "concepto", "importe_centimos", "justificante_ref", "justificante_sha256"];
+// D5: al guardar, toda línea lleva tipo del catálogo, fecha y justificante
+// por referencia y huella; el servidor coteja además catálogo y fechas.
 function validarOtros(otros) {
   if (!Array.isArray(otros) || otros.length > 32) throw new TypeError("líneas de otros gastos no válidas");
   return Object.freeze(otros.map((linea) => {
-    if (!registro(linea) || Object.keys(linea).some((clave) => !["tipo", "concepto", "importe_centimos", "justificante_ref", "justificante_sha256"].includes(clave)) ||
-        !["otro_medio", "otro_gasto"].includes(linea.tipo) || !textoVisible(linea.concepto, 500) || linea.concepto.length < 3 ||
+    if (!registro(linea) || Object.keys(linea).length !== CLAVES_OTRO_GASTO.length || Object.keys(linea).some((clave) => !CLAVES_OTRO_GASTO.includes(clave)) ||
+        !["otro_medio", "otro_gasto"].includes(linea.tipo) || typeof linea.tipo_gasto !== "string" || !/^[a-z][a-z_]{1,40}$/u.test(linea.tipo_gasto) ||
+        typeof linea.catalogo_version !== "string" || !/^provisional:[a-z0-9:-]{8,120}$/u.test(linea.catalogo_version) || !fechaCivil(linea.fecha) ||
+        !textoVisible(linea.concepto, 500) || linea.concepto.length < 3 || linea.concepto !== linea.concepto.trim() ||
         !Number.isSafeInteger(linea.importe_centimos) || linea.importe_centimos <= 0 || linea.importe_centimos > 100000000 ||
-        !((linea.justificante_ref === "" && linea.justificante_sha256 === "") ||
-          (/^[A-Za-z][A-Za-z0-9:_-]{2,127}$/u.test(linea.justificante_ref) && /^[a-f0-9]{64}$/u.test(linea.justificante_sha256))))
+        !REFERENCIA_JUSTIFICANTE.test(linea.justificante_ref) || !HUELLA_JUSTIFICANTE.test(linea.justificante_sha256))
       throw new TypeError("línea de otros gastos no válida");
     return Object.freeze({ ...linea });
   }));
@@ -114,15 +121,32 @@ function validarCalculo(calculo,codigos,rutasDeclaradas,vehiculo,documento) {
 // Tras enviarla, la comisión recorre el circuito de revisión; la persona
 // titular sigue viendo su documento en cualquiera de esos estados.
 const ESTADOS_COMISION_PROPIA = Object.freeze(["borrador", "eliminado", "enviado_pendiente_revision", "pendiente_autorizacion", "pendiente_liquidacion", "pendiente_fiscalizacion", "fiscalizada", "devuelta"]);
+const ETAPAS_DEVOLUCION = Object.freeze(["revision", "autorizacion", "liquidacion", "fiscalizacion"]);
+// Devolución vigente: solo en un documento devuelto o en corrección, con la
+// etapa que lo devolvió, su motivo, la versión devuelta y la fecha.
+function validarDevolucion(devolucion, comision) {
+  if (!registro(devolucion) || Object.keys(devolucion).length !== 4 || !ETAPAS_DEVOLUCION.includes(devolucion.etapa) ||
+      !textoVisible(devolucion.motivo, 600) || devolucion.motivo.length < 3 || !sinBordes(devolucion.motivo) ||
+      !Number.isSafeInteger(devolucion.version) || devolucion.version < 3 || !Number.isSafeInteger(comision.version) || devolucion.version > comision.version ||
+      typeof devolucion.devuelta_en !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/u.test(devolucion.devuelta_en) ||
+      !["devuelta", "borrador"].includes(comision.estado))
+    throw new TypeError("devolución de Dietas incompatible");
+  return Object.freeze({ ...devolucion });
+}
 function validarComision(comision) {
-  const campos = ["referencia", "version", "numero_documento", "fecha_apertura", "estado", "fecha_inicio", "fecha_fin", "motivo", "codigos_ruta", "relacion_ref", "calculo", "documento", "vehiculo_propio", "rutas"];
+  const campos = ["referencia", "version", "numero_documento", "fecha_apertura", "estado", "fecha_inicio", "fecha_fin", "motivo", "codigos_ruta", "relacion_ref", "centro_ref", "unidad_ref", "calculo", "documento", "vehiculo_propio", "rutas", "devolucion"];
   if (!registro(comision) || Object.keys(comision).some((clave) => !campos.includes(clave)) || !referencia(comision.referencia, "dco_") || (comision.version !== undefined && (!Number.isSafeInteger(comision.version) || comision.version < 1)) || !ESTADOS_COMISION_PROPIA.includes(comision.estado) || !fechaCivil(comision.fecha_inicio) || !fechaCivil(comision.fecha_fin) || comision.fecha_fin < comision.fecha_inicio || !textoVisible(comision.motivo, 600) || !referencia(comision.relacion_ref, "rel_")) throw new TypeError("comisión de Dietas incompatible");
-  if ((comision.numero_documento !== undefined && !/^VEC-D-\d{4}-\d{6}$/u.test(comision.numero_documento)) ||
+  if ((comision.numero_documento !== undefined && !/^VEC-D-\d{4}-\d{6,18}$/u.test(comision.numero_documento)) ||
       (comision.fecha_apertura !== undefined && !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/u.test(comision.fecha_apertura)))
     throw new TypeError("identificador de comisión incompatible");
   const codigos = comision.codigos_ruta === undefined ? [] : comision.codigos_ruta;
   if (!Array.isArray(codigos) || codigos.length > 16 || !codigos.every((codigo) => typeof codigo === "string" && /^[A-Za-z0-9:_-]{1,64}$/u.test(codigo)) || new Set(codigos).size !== codigos.length) throw new TypeError("comisión de Dietas incompatible");
   if (comision.vehiculo_propio !== undefined && typeof comision.vehiculo_propio !== "boolean") throw new TypeError("comisión de Dietas incompatible");
+  // Centro y unidad llegan con el documento v2 como referencias opacas de
+  // Personal: mismo validador y límites que la asignación (160 y 256).
+  if ((comision.centro_ref !== undefined && !textoRef(comision.centro_ref, 160)) ||
+      (comision.unidad_ref !== undefined && !textoRef(comision.unidad_ref, 256))) throw new TypeError("comisión de Dietas incompatible");
+  const devolucion = comision.devolucion === undefined ? undefined : validarDevolucion(comision.devolucion, comision);
   if (comision.rutas !== undefined && comision.rutas !== null) validarRutas(comision.rutas, comision.vehiculo_propio === true);
   if (comision.documento !== undefined && comision.documento !== null) {
     const documento = comision.documento;
@@ -160,10 +184,16 @@ function validarComision(comision) {
             !/^\d{1,5}\.\d{4}$/u.test(linea.kilometros)) throw new TypeError("kilometraje incompatible");
         totalKM += linea.importe_centimos;
       } else if (linea.tipo === "otro_medio" || linea.tipo === "otro_gasto") {
+        // Las líneas anteriores a D5 no tienen tipo ni fecha y su justificante
+        // es opcional; las D5 lo llevan siempre.
+        const catalogada = linea.tipo_gasto !== undefined || linea.catalogo_version !== undefined;
         if (!textoVisible(linea.concepto, 500) ||
+            (catalogada && (typeof linea.tipo_gasto !== "string" || !/^[a-z][a-z_]{1,40}$/u.test(linea.tipo_gasto) ||
+              typeof linea.catalogo_version !== "string" || !fechaCivil(linea.fecha) ||
+              !REFERENCIA_JUSTIFICANTE.test(linea.justificante_ref || "") || !HUELLA_JUSTIFICANTE.test(linea.justificante_sha256 || ""))) ||
             !((linea.justificante_ref === "" && linea.justificante_sha256 === "") ||
-              (/^[A-Za-z][A-Za-z0-9:_-]{2,127}$/u.test(linea.justificante_ref || "") &&
-                /^[a-f0-9]{64}$/u.test(linea.justificante_sha256 || ""))))
+              (REFERENCIA_JUSTIFICANTE.test(linea.justificante_ref || "") &&
+                HUELLA_JUSTIFICANTE.test(linea.justificante_sha256 || ""))))
           throw new TypeError("otro gasto incompatible");
         totalOtros += linea.importe_centimos;
       } else {
@@ -182,7 +212,7 @@ function validarComision(comision) {
         documento.version_tarifa_aceptada !== comision.calculo?.version_tarifa)
       throw new TypeError("total de comisión incompatible");
   }
-  return Object.freeze({ ...comision, codigos_ruta: Object.freeze([...codigos]), ...(comision.calculo ? {calculo:validarCalculo(comision.calculo,codigos,comision.rutas || [],comision.vehiculo_propio === true,Boolean(comision.documento))} : {}) });
+  return Object.freeze({ ...comision, codigos_ruta: Object.freeze([...codigos]), ...(devolucion ? { devolucion } : {}), ...(comision.calculo ? {calculo:validarCalculo(comision.calculo,codigos,comision.rutas || [],comision.vehiculo_propio === true,Boolean(comision.documento))} : {}) });
 }
 function validarItem(valor) { if (!registro(valor) || Object.keys(valor).length !== 2 || !Object.hasOwn(valor, "comision") || !Object.hasOwn(valor, "recibo")) throw new TypeError("resultado de Dietas incompatible"); return Object.freeze({ comision: validarComision(valor.comision), recibo: validarRecibo(valor.recibo) }); }
 function validarPagina(valor) { if (!registro(valor) || Object.keys(valor).some((clave) => clave !== "items" && clave !== "siguiente_cursor") || !Array.isArray(valor.items) || valor.items.length > 50 || (valor.siguiente_cursor !== undefined && !textoVisible(valor.siguiente_cursor, 400))) throw new TypeError("página de Dietas incompatible"); return Object.freeze({ items: Object.freeze(valor.items.map(validarItem)), ...(valor.siguiente_cursor ? { siguiente_cursor: valor.siguiente_cursor } : {}) }); }

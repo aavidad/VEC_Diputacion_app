@@ -98,6 +98,16 @@ func ValidarSolicitudEditarBase(s ports.SolicitudEditarComisionPropia) error {
 			return domain.ErrDocumentoComisionInvalido
 		}
 	}
+	// D5: toda línea que se guarda lleva tipo catalogado, fecha dentro de la
+	// comisión y justificante; las antiguas solo se leen.
+	if len(s.Otros) > 32 {
+		return domain.ErrDocumentoComisionInvalido
+	}
+	for _, otro := range s.Otros {
+		if otro.ValidarAlta(s.FechaInicio, s.FechaFin) != nil {
+			return domain.ErrDocumentoComisionInvalido
+		}
+	}
 	if s.Calculo != nil && (s.Calculo.ValidarDocumento(s.CodigosRuta, s.Rutas, s.VehiculoPropio) != nil || s.Documento.Validar(*s.Calculo, s.CodigosRuta) != nil) {
 		return domain.ErrDocumentoComisionInvalido
 	}

@@ -102,3 +102,47 @@ func TestCircuitoNoLlamaRepositorioSinIdentidadV3(t *testing.T) {
 		t.Fatalf("lista sin V3: %v %d", err, repo.llamadas)
 	}
 }
+
+// Reenvío: el documento del circuito puede llevar la devolución anterior,
+// siempre de una versión previa y con la forma del dominio.
+func TestDocumentoCircuitoAceptaDevolucionAnteriorValida(t *testing.T) {
+	ref := "dco_" + strings.Repeat("d", 22)
+	s := dietasports.SolicitudDocumentoCircuito{Referencia: ref, Etapa: domain.EtapaRevision, UnidadRef: "unidad:uno"}
+	d := dietasports.DocumentoCircuito{Referencia: ref, NumeroDocumento: "VEC-D-2026-000001", FechaApertura: "2026-09-25T08:00:00.000000Z", Estado: domain.EstadoEnviadoPendienteRevision, Version: 5,
+		FechaInicio: "2026-09-25", FechaFin: "2026-09-25", HoraInicio: "08:00", HoraFin: "15:00", Motivo: "Reunión técnica", CodigosRuta: []string{"18087", "18140"},
+		Calculo: json.RawMessage(`{}`), Documento: json.RawMessage(`{"lineas":[]}`),
+		Devolucion: &domain.DevolucionComision{Etapa: domain.EtapaAutorizacion, Motivo: "Falta el justificante del taxi", Version: 3, DevueltaEn: "2026-09-23T09:00:00.123456Z"}}
+	if err := ValidarDocumentoCircuito(d, s); err != nil {
+		t.Fatal(err)
+	}
+	for nombre, cambiar := range map[string]func(*domain.DevolucionComision){
+		"versión actual":  func(x *domain.DevolucionComision) { x.Version = 5 },
+		"motivo con BOM":  func(x *domain.DevolucionComision) { x.Motivo += "\ufeff" },
+		"etapa inválida":  func(x *domain.DevolucionComision) { x.Etapa = "otra" },
+		"fecha sin micro": func(x *domain.DevolucionComision) { x.DevueltaEn = "2026-09-23T09:00:00Z" },
+	} {
+		x := d
+		dev := *d.Devolucion
+		cambiar(&dev)
+		x.Devolucion = &dev
+		if ValidarDocumentoCircuito(x, s) == nil {
+			t.Errorf("%s aceptada", nombre)
+		}
+	}
+	x := d
+	x.Devolucion = nil
+	if err := ValidarDocumentoCircuito(x, s); err != nil {
+		t.Fatalf("documento sin reenvío: %v", err)
+	}
+}
+
+func TestDecisionCircuitoRechazaBordesQueRecortaElNavegador(t *testing.T) {
+	ref := "dco_" + strings.Repeat("d", 22)
+	for _, motivo := range []string{"\ufeffFalta justificante", "Falta justificante\u0085", "Falta justificante\u00a0"} {
+		s := dietasports.SolicitudDecisionCircuito{Referencia: ref, UnidadRef: "unidad:uno", Etapa: domain.EtapaRevision, Decision: domain.DecisionDevolver,
+			Motivo: motivo, ClaveIdempotencia: "clave_decision_0001", VersionEsperada: 2}
+		if ValidarSolicitudDecisionCircuito(s) == nil {
+			t.Errorf("%q aceptado", motivo)
+		}
+	}
+}

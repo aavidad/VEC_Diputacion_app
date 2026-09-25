@@ -117,24 +117,26 @@ type PaginaBandejaCircuito struct {
 }
 
 // DocumentoCircuito es la vista del documento para quien lo revisa: fechas,
-// motivo, itinerario, cálculo y líneas con sus justificantes. No incluye
-// relación jurídica, unidad ni validadores de la persona titular.
+// motivo, itinerario, cálculo y líneas con sus justificantes y, si es un
+// reenvío, la devolución anterior (etapa, motivo, versión y fecha). No
+// incluye relación jurídica, unidad, validadores ni quién devolvió.
 type DocumentoCircuito struct {
-	Referencia      string          `json:"referencia"`
-	NumeroDocumento string          `json:"numero_documento"`
-	FechaApertura   string          `json:"fecha_apertura"`
-	Estado          string          `json:"estado"`
-	Version         uint64          `json:"version"`
-	FechaInicio     string          `json:"fecha_inicio"`
-	FechaFin        string          `json:"fecha_fin"`
-	HoraInicio      string          `json:"hora_inicio"`
-	HoraFin         string          `json:"hora_fin"`
-	Motivo          string          `json:"motivo"`
-	CodigosRuta     []string        `json:"codigos_ruta"`
-	VehiculoPropio  *bool           `json:"vehiculo_propio,omitempty"`
-	Rutas           json.RawMessage `json:"rutas,omitempty"`
-	Calculo         json.RawMessage `json:"calculo"`
-	Documento       json.RawMessage `json:"documento"`
+	Referencia      string                     `json:"referencia"`
+	NumeroDocumento string                     `json:"numero_documento"`
+	FechaApertura   string                     `json:"fecha_apertura"`
+	Estado          string                     `json:"estado"`
+	Version         uint64                     `json:"version"`
+	FechaInicio     string                     `json:"fecha_inicio"`
+	FechaFin        string                     `json:"fecha_fin"`
+	HoraInicio      string                     `json:"hora_inicio"`
+	HoraFin         string                     `json:"hora_fin"`
+	Motivo          string                     `json:"motivo"`
+	CodigosRuta     []string                   `json:"codigos_ruta"`
+	VehiculoPropio  *bool                      `json:"vehiculo_propio,omitempty"`
+	Rutas           json.RawMessage            `json:"rutas,omitempty"`
+	Calculo         json.RawMessage            `json:"calculo"`
+	Documento       json.RawMessage            `json:"documento"`
+	Devolucion      *domain.DevolucionComision `json:"devolucion,omitempty"`
 }
 
 // Competencia de un revisor: unidad y etapa acreditadas por una fuente

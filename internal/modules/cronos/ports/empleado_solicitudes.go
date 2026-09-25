@@ -161,6 +161,11 @@ type EntradaCatalogoPropio struct {
 	Sintetico   bool
 }
 
+// SolicitudPermisoPropia es una solicitud de la persona. Circuito es el
+// aplicado (J-A salvo marca directa; el de la última resolución si ya está
+// resuelta), nunca el del catálogo; vacío cuando no consta (antes de
+// cronos_v1 000010, cancelada o resuelta sin él). PendienteAsignacion marca
+// lo solicitado que espera a que se asigne una jefatura.
 type SolicitudPermisoPropia struct {
 	SolicitudRef        string                        `json:"solicitud_ref"`
 	CatalogoVersionRef  string                        `json:"catalogo_version_ref"`
@@ -175,6 +180,8 @@ type SolicitudPermisoPropia struct {
 	Version             int                           `json:"version"`
 	PendienteJustificar bool                          `json:"pendiente_justificar"`
 	SolicitadaEnUTC     time.Time                     `json:"solicitada_en"`
+	Circuito            domain.CircuitoPermiso        `json:"circuito,omitempty"`
+	PendienteAsignacion bool                          `json:"pendiente_asignacion,omitempty"`
 }
 
 type FuentePermisosPropios struct {
