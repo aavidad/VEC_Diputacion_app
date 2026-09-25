@@ -11,6 +11,7 @@ import { traducirBolsaInterna, traducirPortal } from "./portal-i18n.js?v=2026092
 import { renderizarBloqueAvisos } from "./portal-bolsas-avisos.js?v=20260925-aspecto-v1";
 import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260923-pweb14-v1";
 import { icono } from "../comun/iconos-vec.js?v=20260925-aspecto-v1";
+import { enlaceReglasVigentes } from "./reglas/enlace.js?v=20260925-reglas-v1";
 const ESQUEMA_PANEL_INTERNO = "vec.bolsa.panel.interno.v1";
 const ESTADOS_BOLSA = Object.freeze(["disponible", "no_disponible", "trabajando", "pendiente_incorporacion", "renuncia", "excluido", "disponible_desde"]);
 export function crearPresentadorPanelInterno(dependencias) {
@@ -286,7 +287,7 @@ export function crearPresentadorPanelInterno(dependencias) {
       ["alerta", i.incidencias_abiertas, "Incidencias abiertas"],
     ];
     return `
-      ${encabezadoVista("", "Cuadro de mando", "", '<button type="button" class="boton-secundario" data-accion="imprimir">Imprimir resumen</button>')}
+      ${encabezadoVista("", "Cuadro de mando", "", `${enlaceReglasVigentes()}<button type="button" class="boton-secundario" data-accion="imprimir">Imprimir resumen</button>`)}
       <div class="rejilla-kpi" aria-label="Indicadores operativos de Bolsa">
         ${indicadoresConectados.map(([sigla, valor, etiqueta]) => tarjetaKPI(sigla, numero(valor), etiqueta)).join("")}
       </div>

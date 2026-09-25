@@ -19,6 +19,11 @@ static/portal-empleado/calendarios/calendarios.js
 static/portal-empleado/hora-madrid.js
 static/portal-empleado/calendarios/calendarios.css
 static/portal-empleado/calendarios/i18n.js
+static/portal-empleado/reglas/index.html
+static/portal-empleado/reglas/reglas.js
+static/portal-empleado/reglas/reglas.css
+static/portal-empleado/reglas/i18n.js
+static/portal-empleado/reglas/enlace.js
 static/portal-empleado/peticiones-centro/index.html
 static/portal-empleado/peticiones-centro/peticiones-centro.js
 static/portal-empleado/peticiones-centro/peticiones-centro.css
