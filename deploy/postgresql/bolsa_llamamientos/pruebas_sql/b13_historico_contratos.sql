@@ -96,19 +96,23 @@ BEGIN
  INSERT INTO pg_temp.r VALUES ('participacion', v_res.participacion_ref);
  SELECT * INTO STRICT v_res FROM vec_bolsa_llamamientos.registrar_contrato_participacion_v1(v_ev, v_hu, v_oc, v_po);
  IF NOT v_res.reutilizado THEN RAISE EXCEPTION 'B13: reentrega no reconocida'; END IF;
- -- La misma entrega con otra posición de publicación: divergente.
- BEGIN PERFORM vec_bolsa_llamamientos.registrar_contrato_participacion_v1(v_ev, v_hu, v_oc, v_po + 7);
-  RAISE EXCEPTION 'B13: reentrega con otra posición aceptada';
- EXCEPTION WHEN sqlstate 'VBC01' THEN NULL; END;
+ -- La misma entrega con otra posición de publicación: divergente. No se
+ -- adopta ni detiene el relevo: queda en cuarentena y se señala.
+ SELECT * INTO STRICT v_res FROM vec_bolsa_llamamientos.registrar_contrato_participacion_v1(v_ev, v_hu, v_oc, v_po + 7);
+ IF NOT v_res.en_cuarentena OR v_res.reutilizado OR v_res.participacion_ref IS NOT NULL THEN RAISE EXCEPTION 'B13: posición divergente sin cuarentena'; END IF;
+ SELECT * INTO STRICT v_res FROM vec_bolsa_llamamientos.registrar_contrato_participacion_v1(v_ev, v_hu, v_oc, v_po + 7);
+ IF NOT v_res.en_cuarentena THEN RAISE EXCEPTION 'B13: reentrega de la divergencia sin señalar'; END IF;
  BEGIN PERFORM vec_bolsa_llamamientos.registrar_contrato_participacion_v1(v_ev, v_hu, v_oc, -1);
   RAISE EXCEPTION 'B13: posición negativa aceptada';
  EXCEPTION WHEN invalid_parameter_value THEN NULL; END;
- -- Mismo evento_ref con otro contenido: rechazo, nunca sobrescritura.
+ -- Mismo evento_ref con otro contenido: cuarentena, nunca sobrescritura.
  v_malo := jsonb_set(v_ev, '{causa_clave}', '"otra_causa"');
- BEGIN PERFORM vec_bolsa_llamamientos.registrar_contrato_participacion_v1(v_malo,
+ SELECT * INTO STRICT v_res FROM vec_bolsa_llamamientos.registrar_contrato_participacion_v1(v_malo,
    encode(sha256(convert_to(v_malo::text, 'UTF8')), 'hex'), v_oc, v_po);
-  RAISE EXCEPTION 'B13: reentrega divergente aceptada';
- EXCEPTION WHEN sqlstate 'VBC01' THEN NULL; END;
+ IF NOT v_res.en_cuarentena THEN RAISE EXCEPTION 'B13: contenido divergente sin cuarentena'; END IF;
+ -- El original sigue intacto y reconocido como reentrega.
+ SELECT * INTO STRICT v_res FROM vec_bolsa_llamamientos.registrar_contrato_participacion_v1(v_ev, v_hu, v_oc, v_po);
+ IF NOT v_res.reutilizado OR v_res.en_cuarentena THEN RAISE EXCEPTION 'B13: el original dejó de reconocerse'; END IF;
  -- Huella que no corresponde al contenido.
  BEGIN PERFORM vec_bolsa_llamamientos.registrar_contrato_participacion_v1(v_ev, repeat('0', 64), v_oc, v_po);
   RAISE EXCEPTION 'B13: huella falsa aceptada';
@@ -154,6 +158,9 @@ BEGIN
  END IF;
  IF (SELECT count(*) FROM vec_bolsa_llamamientos.contrato_participacion) <> 2 THEN
   RAISE EXCEPTION 'B13: la reentrega duplicó el histórico';
+ END IF;
+ IF (SELECT count(*) FROM vec_bolsa_llamamientos.contrato_participacion_cuarentena) <> 2 THEN
+  RAISE EXCEPTION 'B13: la cuarentena no conserva las dos divergencias sin duplicar';
  END IF;
  SELECT * INTO STRICT v_fila FROM vec_bolsa_llamamientos.contrato_participacion
   WHERE participacion_ref = (SELECT valor FROM pg_temp.r WHERE nombre = 'participacion');

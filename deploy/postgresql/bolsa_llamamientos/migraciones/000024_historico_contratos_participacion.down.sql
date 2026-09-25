@@ -15,5 +15,6 @@ DROP FUNCTION vec_bolsa_llamamientos.listar_contratos_participacion_v1(text,text
 DROP FUNCTION vec_bolsa_llamamientos.cursor_contratos_participacion_v1() RESTRICT;
 DROP FUNCTION vec_bolsa_llamamientos.registrar_contrato_participacion_v1(jsonb,text,timestamptz,bigint) RESTRICT;
 DROP FUNCTION vec_bolsa_llamamientos.instante_contrato_valido(jsonb,boolean) RESTRICT;
+DROP TABLE vec_bolsa_llamamientos.contrato_participacion_cuarentena RESTRICT;
 DROP TABLE vec_bolsa_llamamientos.contrato_participacion RESTRICT;
 COMMIT;

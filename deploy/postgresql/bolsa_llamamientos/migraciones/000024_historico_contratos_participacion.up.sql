@@ -22,6 +22,15 @@ SELECT pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_bolsa_llamamientos
 -- quedaría como historia informativa: no cambia la situación, el orden ni el
 -- llamamiento de nadie. Si algún día un consumidor decide con este histórico,
 -- el evento deberá llevar una firma de origen verificable aquí.
+-- Divergencias: la referencia del evento se deriva de su tipo y su origen, así
+-- que el PRIMER evento que llega con esa referencia es el que figura en el
+-- histórico. Si después llega otro con la misma referencia y distinto
+-- contenido o posición, no sustituye al primero ni detiene el relevo: se
+-- guarda en contrato_participacion_cuarentena y la función lo señala
+-- (en_cuarentena) para que el relevo lo registre como rechazado y siga. Por
+-- tanto, si un evento forjado llegara antes que el auténtico, el histórico
+-- mostraría el forjado y el auténtico quedaría en cuarentena: Bolsa no puede
+-- decidir cuál es el bueno y la divergencia exige revisión contra CT.
 DO $precondicion$
 BEGIN
  IF current_user <> 'vec_bolsa_llamamientos_propietario'
@@ -64,6 +73,19 @@ CREATE TABLE vec_bolsa_llamamientos.contrato_participacion (
         AND evento->>'organizacion_ref' = organizacion_ref AND evento->>'expediente_ref' = expediente_ref
         AND evento->>'llamamiento_ref' = llamamiento_ref) IS TRUE)
 );
+-- Entregas divergentes: se conservan íntegras, de solo adición, para revisión.
+CREATE TABLE vec_bolsa_llamamientos.contrato_participacion_cuarentena (
+    evento_ref text NOT NULL REFERENCES vec_bolsa_llamamientos.contrato_participacion(evento_ref),
+    huella_sha256 text NOT NULL CHECK (huella_sha256 ~ '^[0-9a-f]{64}$'),
+    evento jsonb NOT NULL CHECK (jsonb_typeof(evento) = 'object' AND octet_length(evento::text) <= 16384),
+    origen_ref text NOT NULL CHECK (octet_length(origen_ref) <= 512 AND origen_ref ~ '^[A-Za-z0-9][A-Za-z0-9:._/-]*$'),
+    origen_creada_en timestamptz(6) NOT NULL CHECK (isfinite(origen_creada_en)),
+    origen_posicion bigint NOT NULL CHECK (origen_posicion >= 0),
+    recibido_en timestamptz(6) NOT NULL,
+    PRIMARY KEY (evento_ref, huella_sha256, origen_posicion),
+    CHECK (huella_sha256 = encode(sha256(convert_to(evento::text, 'UTF8')), 'hex')),
+    CHECK ((evento->>'evento_ref' = evento_ref AND evento->>'origen_ref' = origen_ref) IS TRUE)
+);
 CREATE INDEX contrato_participacion_por_participacion
     ON vec_bolsa_llamamientos.contrato_participacion (participacion_ref, inicio DESC)
     WHERE participacion_ref IS NOT NULL;
@@ -78,6 +100,15 @@ CREATE POLICY contrato_participacion_solo_propietario ON vec_bolsa_llamamientos.
 REVOKE ALL ON vec_bolsa_llamamientos.contrato_participacion FROM PUBLIC;
 CREATE TRIGGER contrato_participacion_inmutable BEFORE UPDATE OR DELETE ON vec_bolsa_llamamientos.contrato_participacion
     FOR EACH ROW EXECUTE FUNCTION vec_bolsa_llamamientos.constitucion_rechazar_mutacion();
+ALTER TABLE vec_bolsa_llamamientos.contrato_participacion_cuarentena ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vec_bolsa_llamamientos.contrato_participacion_cuarentena FORCE ROW LEVEL SECURITY;
+CREATE POLICY contrato_participacion_cuarentena_solo_propietario ON vec_bolsa_llamamientos.contrato_participacion_cuarentena
+    TO vec_bolsa_llamamientos_propietario
+    USING (current_user = 'vec_bolsa_llamamientos_propietario')
+    WITH CHECK (current_user = 'vec_bolsa_llamamientos_propietario');
+REVOKE ALL ON vec_bolsa_llamamientos.contrato_participacion_cuarentena FROM PUBLIC;
+CREATE TRIGGER contrato_participacion_cuarentena_inmutable BEFORE UPDATE OR DELETE ON vec_bolsa_llamamientos.contrato_participacion_cuarentena
+    FOR EACH ROW EXECUTE FUNCTION vec_bolsa_llamamientos.constitucion_rechazar_mutacion();
 
 CREATE FUNCTION vec_bolsa_llamamientos.instante_contrato_valido(p jsonb, p_nulo boolean)
 RETURNS boolean LANGUAGE plpgsql IMMUTABLE SET search_path = pg_catalog AS $f$
@@ -90,10 +121,12 @@ END $f$;
 
 -- Inbox: la función recibe el evento publicado por CT113, lo valida
 -- completo, resuelve la participación con el llamamiento propio de Bolsa y
--- lo registra una sola vez. Una reentrega idéntica devuelve reutilizado.
+-- lo registra una sola vez. Una reentrega idéntica devuelve reutilizado; una
+-- divergente queda en cuarentena y devuelve en_cuarentena, sin error, para
+-- que la cuarentena se confirme y el relevo continúe.
 CREATE FUNCTION vec_bolsa_llamamientos.registrar_contrato_participacion_v1(
  p_evento jsonb, p_huella_sha256 text, p_origen_creada_en timestamptz, p_origen_posicion bigint)
-RETURNS TABLE(reutilizado boolean, participacion_ref text)
+RETURNS TABLE(reutilizado boolean, participacion_ref text, en_cuarentena boolean)
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = pg_catalog SET timezone = 'UTC' SET lock_timeout = '2s' AS $f$
 DECLARE v_previo record; v_llamamiento record; v_ref text; v_clave text := '^[a-z][a-z0-9._-]{1,79}$';
  v_opaca text := '^[A-Za-z0-9][A-Za-z0-9:._/-]*$';
@@ -132,9 +165,15 @@ BEGIN
    FROM vec_bolsa_llamamientos.contrato_participacion c WHERE c.evento_ref = v_ref;
  IF FOUND THEN
   IF v_previo.huella_sha256 <> p_huella_sha256 OR v_previo.origen_posicion <> p_origen_posicion THEN
-   RAISE EXCEPTION USING ERRCODE='VBC01', MESSAGE='evento de contrato reentregado con otro contenido';
+   INSERT INTO vec_bolsa_llamamientos.contrato_participacion_cuarentena(evento_ref, huella_sha256, evento, origen_ref,
+     origen_creada_en, origen_posicion, recibido_en)
+   VALUES (v_ref, p_huella_sha256, p_evento, p_evento->>'origen_ref', date_trunc('microseconds', p_origen_creada_en),
+     p_origen_posicion, date_trunc('microseconds', clock_timestamp()))
+   ON CONFLICT DO NOTHING;
+   RETURN QUERY SELECT false, NULL::text, true;
+   RETURN;
   END IF;
-  RETURN QUERY SELECT true, v_previo.participacion_ref;
+  RETURN QUERY SELECT true, v_previo.participacion_ref, false;
   RETURN;
  END IF;
  SELECT l.bolsa_ref, convert_from(i.registro_canonico, 'UTF8')::jsonb #>> '{propuesta,participacion_seleccionada_ref}' AS participacion
@@ -154,7 +193,7 @@ BEGIN
    v_llamamiento.participacion, v_llamamiento.bolsa_ref, (p_evento->>'inicio')::timestamptz,
    (p_evento->>'fin_previsto')::timestamptz, p_evento->>'modalidad_clave', p_evento->>'categoria_ref',
    p_evento->>'causa_clave', (p_evento->>'ocurrido_en')::timestamptz, date_trunc('microseconds', clock_timestamp()));
- RETURN QUERY SELECT false, v_llamamiento.participacion;
+ RETURN QUERY SELECT false, v_llamamiento.participacion, false;
 EXCEPTION WHEN unique_violation THEN
  RAISE EXCEPTION USING ERRCODE='VBC01', MESSAGE='origen de contrato ya registrado con otro evento';
 END $f$;
@@ -162,7 +201,9 @@ END $f$;
 -- Cursor del consumidor: el último origen recibido por posición de
 -- publicación. CT solo publica orígenes de transacciones ya terminadas
 -- (marca de agua), así que ninguno puede aparecer después por detrás del
--- cursor; la idempotencia absorbe cualquier reentrega.
+-- cursor; la idempotencia absorbe cualquier reentrega. Las entregas en
+-- cuarentena no mueven el cursor (su posición no está contrastada): si están
+-- por delante, se vuelven a leer y quedan otra vez señaladas, sin duplicarse.
 CREATE FUNCTION vec_bolsa_llamamientos.cursor_contratos_participacion_v1()
 RETURNS TABLE(origen_posicion bigint, origen_ref text)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog AS $f$
