@@ -103,6 +103,15 @@ corrección y el reenvío usan las mismas rutas PUT y `POST …/enviar`, con
 clave de idempotencia y versión esperada. A qué paso debe volver está
 pendiente de RRHH (pregunta 49 de `dudas.md`).
 
+Quien revisa un reenvío recibe en el documento del circuito la devolución
+anterior (`devolucion`: etapa, motivo, versión y fecha, nunca quién la hizo)
+y el detalle de la bandeja la muestra como «Reenvío» y «Motivo de la
+devolución». Los textos libres (motivo de devolución, centro y unidad) no
+admiten blancos de borde: el cliente recorta y valida con `texto-dietas.js`
+el mismo conjunto que Go rechaza (lo que quitan `trim()` y
+`strings.TrimSpace`). El fixture `testdata/documento_propio_v2.json` del
+adaptador HTTP es el JSON real de Go que valida `contrato-documento-go.test.mjs`.
+
 ## Comprobación
 
 Las pruebas Node del directorio cubren clientes, ruta, mapa, formulario,

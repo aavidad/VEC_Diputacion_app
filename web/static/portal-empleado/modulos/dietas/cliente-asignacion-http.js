@@ -1,10 +1,9 @@
+import { textoRef } from "./texto-dietas.js?v=20260925-d6p2-v1";
 const RUTA_ASIGNACION = "/api/vec/personal/asignaciones-dietas";
 const MAXIMO_RESPUESTA = 64 * 1024;
 const MOTIVOS_EMPLEADO = new Set(["empleado_no_disponible", "empleado_ambiguo"]);
 const referencia = (valor, prefijo) => typeof valor === "string" &&
   new RegExp(`^${prefijo}[A-Za-z0-9_-]{22,128}$`, "u").test(valor);
-const textoRef = (valor, maximo) => typeof valor === "string" && valor.length >= 1 &&
-  valor.length <= maximo && valor.trim() === valor && !/[\x00-\x1f\x7f]/u.test(valor);
 const fecha = (valor) => {
   if (typeof valor !== "string" || !/^\d{4}-\d{2}-\d{2}$/u.test(valor)) return false;
   const [ano, mes, dia] = valor.split("-").map(Number);

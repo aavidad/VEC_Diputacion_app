@@ -70,6 +70,7 @@ static/portal-empleado/modulos/dietas/i18n-rectificacion-dietas.js
 static/portal-empleado/modulos/dietas/i18n-revision.js
 static/portal-empleado/modulos/dietas/i18n.js
 static/portal-empleado/modulos/dietas/mapa-ruta.js
+static/portal-empleado/modulos/dietas/texto-dietas.js
 static/portal-empleado/modulos/dietas/vista-bandeja-circuito.js
 static/portal-empleado/modulos/dietas/vista-borradores-propios.js
 static/portal-empleado/modulos/dietas/vista-mapa-comision.js

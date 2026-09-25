@@ -117,3 +117,36 @@ test("desmontar aborta la lectura y descarta su respuesta tardía", async () => 
   const vista = montarVistaBandejaCircuitoDietas(contenedor, { cliente: { listar: (_consulta, opciones) => { signal = opciones.signal; return new Promise((resolve) => { resolver = resolve; }); }, decidir: async () => assert.fail("POST inesperado") } });
   await esperar(); vista.desmontar(); assert.equal(signal.aborted, true); resolver({ items: [fila], competencia: "acreditada" }); await esperar(); assert.equal(contenedor.children.length, 0);
 });
+
+test("un reenvío muestra etapa, fecha y motivo de la devolución anterior, sin quién la hizo", async () => {
+  const contenedor = raiz();
+  const reenviado = { ...documentoLeido, version: 5, devolucion: { etapa: "autorizacion", motivo: "Falta el justificante del taxi", version: 3, devuelta_en: "2026-09-19T09:00:00.123456Z" } };
+  const vista = montarVistaBandejaCircuitoDietas(contenedor, { cliente: { listar: async () => ({ items: [fila], competencia: "acreditada" }),
+    documento: async () => reenviado, decidir: async () => assert.fail("POST inesperado") } });
+  await esperar(); const panel = contenedor.querySelector("[data-dietas-bandeja-circuito]");
+  await panel.listeners.click({ target: panel.querySelector("[data-dietas-circuito-abrir]") });
+  const etapa = panel.querySelector('[data-dietas-circuito-reenvio="etapa"]');
+  assert.match(texto(etapa), /Reenvío.*Devuelto en Autorización el 19 sept 2026/u);
+  assert.match(texto(panel.querySelector('[data-dietas-circuito-reenvio="motivo"]')), /Motivo de la devolución.*Falta el justificante del taxi/u);
+  assert.doesNotMatch(texto(panel), /per_|act_|actor/u);
+  vista.desmontar();
+  const sinReenvio = raiz();
+  const otra = montarVistaBandejaCircuitoDietas(sinReenvio, { cliente: { listar: async () => ({ items: [fila], competencia: "acreditada" }), documento: async () => documentoLeido, decidir: async () => assert.fail("POST inesperado") } });
+  await esperar(); const panelDos = sinReenvio.querySelector("[data-dietas-bandeja-circuito]");
+  await panelDos.listeners.click({ target: panelDos.querySelector("[data-dietas-circuito-abrir]") });
+  assert.equal(panelDos.querySelector("[data-dietas-circuito-reenvio]"), null);
+  otra.desmontar();
+});
+
+test("el motivo de devolución se recorta con el mismo conjunto de blancos que rechaza Go", async () => {
+  const contenedor = raiz(); const llamadas = [];
+  const vista = montarVistaBandejaCircuitoDietas(contenedor, { generarClaveIdempotencia: () => "decision-circuito-0002", cliente: {
+    listar: async () => ({ items: [fila], competencia: "acreditada" }), documento: async () => documentoLeido,
+    decidir: async (ref, entrada) => { llamadas.push(entrada); return { comision: { referencia, estado: "devuelta", version: 4 }, recibo }; } } });
+  await esperar(); const panel = contenedor.querySelector("[data-dietas-bandeja-circuito]");
+  await panel.listeners.click({ target: panel.querySelector("[data-dietas-circuito-abrir]") });
+  panel.querySelector("[data-dietas-circuito-motivo]").value = "\ufeff\u0085 Falta el ticket\u00a0\u0085";
+  await panel.listeners.click({ target: panel.querySelector('[data-dietas-circuito-decision="devolver"]') });
+  assert.equal(llamadas[0].motivo, "Falta el ticket");
+  vista.desmontar();
+});

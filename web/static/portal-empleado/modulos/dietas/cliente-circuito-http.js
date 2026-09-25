@@ -1,3 +1,4 @@
+import { sinBordes } from "./texto-dietas.js?v=20260925-d6p2-v1";
 const RUTA_CIRCUITO = "/api/vec/dietas/comisiones/circuito";
 const MAXIMO_CUERPO_BYTES = 4 * 1024;
 const MAXIMO_RESPUESTA_BYTES = 64 * 1024;
@@ -21,7 +22,7 @@ const registro = (valor) => valor !== null && typeof valor === "object" && !Arra
   && (Object.getPrototypeOf(valor) === Object.prototype || Object.getPrototypeOf(valor) === null);
 const referencia = (valor, prefijo = "dco_") => typeof valor === "string"
   && new RegExp(`^${prefijo}[A-Za-z0-9_-]{22,128}$`, "u").test(valor);
-const texto = (valor, minimo, maximo) => typeof valor === "string" && valor.trim() === valor
+const texto = (valor, minimo, maximo) => typeof valor === "string" && sinBordes(valor)
   && valor.length >= minimo && codificador.encode(valor).byteLength <= maximo
   && !/[\x00-\x1f\x7f]/u.test(valor);
 const etapaValida = (valor) => ["revision", "autorizacion", "liquidacion", "fiscalizacion"].includes(valor);
@@ -88,7 +89,17 @@ function validarCompetencias(estado) {
     || (estado.fuente === "sin_fuente" && estado.etapas.length)) throw new TypeError("competencias del circuito incompatibles");
   return Object.freeze({ fuente: estado.fuente, etapas: Object.freeze([...estado.etapas]) });
 }
-const CAMPOS_DOCUMENTO = ["referencia", "numero_documento", "fecha_apertura", "estado", "version", "fecha_inicio", "fecha_fin", "hora_inicio", "hora_fin", "motivo", "codigos_ruta", "vehiculo_propio", "rutas", "calculo", "documento"];
+const CAMPOS_DOCUMENTO = ["referencia", "numero_documento", "fecha_apertura", "estado", "version", "fecha_inicio", "fecha_fin", "hora_inicio", "hora_fin", "motivo", "codigos_ruta", "vehiculo_propio", "rutas", "calculo", "documento", "devolucion"];
+// Reenvío: la devolución anterior (etapa, motivo, versión y fecha) de una
+// versión previa. Nunca trae quién devolvió.
+function validarDevolucionAnterior(devolucion, version) {
+  if (!registro(devolucion) || Object.keys(devolucion).length !== 4 || !etapaValida(devolucion.etapa)
+    || !texto(devolucion.motivo, 3, 600) || !Number.isSafeInteger(devolucion.version) || devolucion.version < 3
+    || devolucion.version >= version || typeof devolucion.devuelta_en !== "string"
+    || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/u.test(devolucion.devuelta_en)
+    || !Number.isFinite(Date.parse(devolucion.devuelta_en))) throw new TypeError("devolución del circuito incompatible");
+  return Object.freeze({ ...devolucion });
+}
 function validarDocumento(respuesta, referenciaEsperada, etapa) {
   const comision = respuesta?.comision;
   if (!registro(respuesta) || Object.keys(respuesta).some((clave) => clave !== "comision") || !registro(comision)
@@ -103,6 +114,7 @@ function validarDocumento(respuesta, referenciaEsperada, etapa) {
     || (comision.documento.lineas !== undefined && (!Array.isArray(comision.documento.lineas) || comision.documento.lineas.length > 256 || comision.documento.lineas.some((linea) => !registro(linea))))
     || (comision.vehiculo_propio !== undefined && (typeof comision.vehiculo_propio !== "boolean" || !Array.isArray(comision.rutas)))
     || (comision.vehiculo_propio === undefined && comision.rutas !== undefined)) throw new TypeError("documento del circuito incompatible");
+  if (comision.devolucion !== undefined) return Object.freeze({ ...comision, devolucion: validarDevolucionAnterior(comision.devolucion, comision.version) });
   return Object.freeze({ ...comision });
 }
 function validarResultado(resultado, referenciaEsperada, versionEsperada) {

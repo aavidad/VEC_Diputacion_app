@@ -1,3 +1,4 @@
+import { sinBordes, textoRef } from "./texto-dietas.js?v=20260925-d6p2-v1";
 const RUTA_COMISIONES = "/api/vec/dietas/comisiones";
 const MAXIMO_CUERPO_SOLICITUD_BYTES = 16 * 1024;
 const MAXIMO_RESPUESTA_BYTES = 128 * 1024;
@@ -125,7 +126,7 @@ const ETAPAS_DEVOLUCION = Object.freeze(["revision", "autorizacion", "liquidacio
 // etapa que lo devolvió, su motivo, la versión devuelta y la fecha.
 function validarDevolucion(devolucion, comision) {
   if (!registro(devolucion) || Object.keys(devolucion).length !== 4 || !ETAPAS_DEVOLUCION.includes(devolucion.etapa) ||
-      !textoVisible(devolucion.motivo, 600) || devolucion.motivo.length < 3 || devolucion.motivo.trim() !== devolucion.motivo ||
+      !textoVisible(devolucion.motivo, 600) || devolucion.motivo.length < 3 || !sinBordes(devolucion.motivo) ||
       !Number.isSafeInteger(devolucion.version) || devolucion.version < 3 || !Number.isSafeInteger(comision.version) || devolucion.version > comision.version ||
       typeof devolucion.devuelta_en !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/u.test(devolucion.devuelta_en) ||
       !["devuelta", "borrador"].includes(comision.estado))
@@ -141,9 +142,10 @@ function validarComision(comision) {
   const codigos = comision.codigos_ruta === undefined ? [] : comision.codigos_ruta;
   if (!Array.isArray(codigos) || codigos.length > 16 || !codigos.every((codigo) => typeof codigo === "string" && /^[A-Za-z0-9:_-]{1,64}$/u.test(codigo)) || new Set(codigos).size !== codigos.length) throw new TypeError("comisión de Dietas incompatible");
   if (comision.vehiculo_propio !== undefined && typeof comision.vehiculo_propio !== "boolean") throw new TypeError("comisión de Dietas incompatible");
-  // Centro y unidad llegan con el documento v2 como referencias opacas.
-  if ((comision.centro_ref !== undefined && !textoVisible(comision.centro_ref, 256)) ||
-      (comision.unidad_ref !== undefined && !textoVisible(comision.unidad_ref, 256))) throw new TypeError("comisión de Dietas incompatible");
+  // Centro y unidad llegan con el documento v2 como referencias opacas de
+  // Personal: mismo validador y límites que la asignación (160 y 256).
+  if ((comision.centro_ref !== undefined && !textoRef(comision.centro_ref, 160)) ||
+      (comision.unidad_ref !== undefined && !textoRef(comision.unidad_ref, 256))) throw new TypeError("comisión de Dietas incompatible");
   const devolucion = comision.devolucion === undefined ? undefined : validarDevolucion(comision.devolucion, comision);
   if (comision.rutas !== undefined && comision.rutas !== null) validarRutas(comision.rutas, comision.vehiculo_propio === true);
   if (comision.documento !== undefined && comision.documento !== null) {

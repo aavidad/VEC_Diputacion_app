@@ -149,6 +149,8 @@ test("reenviar pide confirmación, envía la versión devuelta con su clave y co
       { clave_idempotencia: "reenviar-devuelta-20260924", version_esperada: 4, relacion_ref: relacion }]]);
     assert.match(textoVisible(contenedor), /Reenvío registrado con recibo\. El documento vuelve a revisión del administrativo\./u);
     assert.equal(contenedor.querySelector("[data-dietas-comision-devolucion]"), null);
+    // El foco va al recibo del reenvío, donde se anuncia el resultado.
+    assert.equal(contenedor.ownerDocument.activeElement?.dataset?.dietasBorradorRecibo, "");
   } finally { vista.desmontar(); }
 });
 
@@ -169,4 +171,29 @@ test("un documento en corrección se rotula como tal y los ya reenviados no admi
     for (const selector of ["[data-dietas-borrador-editar]", "[data-dietas-borrador-eliminar]", "[data-dietas-borrador-enviar]"])
       assert.equal(segunda.contenedor.querySelector(selector).disabled, true);
   } finally { segunda.vista.desmontar(); }
+});
+
+test("si el reenvío falla, el foco va al aviso con el error", async () => {
+  const { contenedor, vista, panel } = await abrir(devuelta, {
+    cliente: { listar: async () => ({ items: [devuelta] }), obtener: async () => devuelta, crear: async () => devuelta,
+      editar: async () => devuelta, borrar: async () => devuelta,
+      enviar: async () => { throw Object.assign(new Error("conflicto"), { codigo: "conflicto_version" }); } },
+    confirmarOperacion: () => true, generarClaveIdempotencia: () => "reenviar-devuelta-20260925",
+  });
+  try {
+    await panel.listeners.click({ target: contenedor.querySelector("[data-dietas-borrador-enviar]") });
+    await Promise.resolve(); await Promise.resolve();
+    const activo = contenedor.ownerDocument.activeElement;
+    assert.equal(activo?.dataset?.dietasBorradoresEstado, "");
+    assert.ok(activo.textContent.length > 0);
+  } finally { vista.desmontar(); }
+});
+
+test("centro y unidad del documento v2 usan el validador de referencias de la asignación", async () => {
+  const leer = (comision) => crearClienteBorradoresDietasHTTP({ fetchImpl: async () => respuesta({ ...devuelta, comision }) })
+    .obtener(devuelta.comision.referencia);
+  assert.equal((await leer({ ...devuelta.comision, centro_ref: "c".repeat(160) })).comision.centro_ref.length, 160);
+  for (const cambio of [{ centro_ref: "c".repeat(161) }, { centro_ref: " centro:uno" }, { centro_ref: "centro:uno\u0085" },
+    { unidad_ref: "\ufeffunidad:uno" }, { unidad_ref: "" }, { unidad_ref: "u".repeat(257) }, { centro_ref: "centro\tuno" }])
+    await assert.rejects(() => leer({ ...devuelta.comision, ...cambio }), /comisión de Dietas incompatible/u);
 });

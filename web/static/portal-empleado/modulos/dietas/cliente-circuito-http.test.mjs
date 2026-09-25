@@ -69,3 +69,21 @@ test("lee el documento de la etapa exacta y rechaza otro estado o campos ajenos"
   await assert.rejects(() => ajeno.documento(referencia, "autorizacion"), (error) => error.codigo === "respuesta_incompatible");
   await assert.rejects(() => cliente.documento(referencia, "otra"), TypeError);
 });
+
+test("un reenvío trae la devolución anterior sin actor; se rechaza incoherente o con campos de más", async () => {
+  const devolucion = { etapa: "autorizacion", motivo: "Falta el justificante del taxi", version: 3, devuelta_en: "2026-09-19T09:00:00.123456Z" };
+  const leer = (comision) => crearClienteCircuitoDietasHTTP({ fetchImpl: async () => respuesta({ comision }) }).documento(referencia, "autorizacion");
+  const leido = await leer({ ...documento, version: 5, devolucion });
+  assert.deepEqual(leido.devolucion, devolucion);
+  assert.ok(Object.isFrozen(leido.devolucion));
+  for (const incoherente of [{ ...devolucion, version: 5 }, { ...devolucion, version: 2 }, { ...devolucion, etapa: "otra" }, { ...devolucion, motivo: "no" },
+    { ...devolucion, motivo: "Falta el justificante\u0085" }, { ...devolucion, motivo: "\ufeffFalta el justificante" },
+    { ...devolucion, devuelta_en: "2026-09-19T09:00:00Z" }, { ...devolucion, actor_ref: `per_${sufijo}` }])
+    await assert.rejects(() => leer({ ...documento, version: 5, devolucion: incoherente }), (error) => error.codigo === "respuesta_incompatible");
+});
+
+test("el motivo de una decisión no admite blancos de borde que Go rechaza", async () => {
+  const cliente = crearClienteCircuitoDietasHTTP({ fetchImpl: async () => assert.fail("POST inesperado") });
+  for (const motivo of ["Falta ticket\u0085", "\ufeffFalta ticket", " Falta ticket"])
+    await assert.rejects(() => cliente.decidir(referencia, { etapa: "revision", decision: "devolver", motivo, clave_idempotencia: "decision-circuito-0001", version_esperada: 3 }), TypeError);
+});

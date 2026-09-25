@@ -1,8 +1,8 @@
-import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260925-d6-v1";
+import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260925-d6p2-v1";
 import { crearTraductorBorradoresDietas } from "./i18n-borradores.js?v=20260925-d6-v1";
 import { crearTraductorOtrosGastosDietas } from "./i18n-otros-gastos.js?v=20260925-d6-v1";
 import { actualizarHuellaOtroGasto, catalogoOtrosGastosValido, crearLineaOtroGasto, describirOtroGasto, leerOtrosGastos, numerarLineasOtroGasto, pintarTiposOtroGasto } from "./formulario-otros-gastos.js?v=20260925-d6-v1";
-import { montarVistaMapaComisionDietas } from "./vista-mapa-comision.js?v=20260925-d6-v1";
+import { montarVistaMapaComisionDietas } from "./vista-mapa-comision.js?v=20260925-d6p2-v1";
 import { montarVistaRectificacionDietas } from "./vista-rectificacion-dietas.js?v=20260925-tanda-v1";
 
 // NodeList no tiene find/filter/map en el navegador: se convierte siempre a array.
@@ -1574,6 +1574,9 @@ export function montarVistaBorradoresPropios(
     intentosAccion.set(intento, clave);
     controlador = new AbortController();
     const signal = controlador.signal;
+    // Tras enviar, reenviar o eliminar, el foco va al recibo si hubo éxito y
+    // al aviso si falló: el resultado se anuncia donde está el lector.
+    let foco = null;
     mensaje("comision_actividad"); pintar();
     try {
       const resultado = await cliente[accion](item.comision.referencia, {
@@ -1588,15 +1591,21 @@ export function montarVistaBorradoresPropios(
       mensaje(reenvio ? "comision_reenvio_confirmado"
         : accion === "enviar" ? "comision_envio_confirmado" : "comision_eliminacion_confirmada", "exito");
       cursores = [undefined]; indicePagina = 0; siguienteCursor = undefined;
+      foco = "recibo";
       await cargar(true);
     } catch (error) {
       if (!activaAhora() || signal.aborted) return;
       if (!error?.resultadoIndeterminado) intentosAccion.delete(intento);
       if (["autenticacion_requerida", "acceso_denegado"].includes(error?.codigo)) purgarLecturasDenegadas();
       mensaje(error?.codigo === "conflicto_version" ? "comision_conflicto_version" : errorClave(error), "error");
+      foco = "aviso";
     } finally {
       if (controlador?.signal === signal) controlador = null;
-      if (activaAhora()) pintar();
+      if (activaAhora()) {
+        pintar();
+        if (foco === "recibo") enfocarRecibo();
+        else if (foco === "aviso") enfocar(avisoPersistente);
+      }
     }
   }
   async function clic(evento) {

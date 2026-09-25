@@ -1,10 +1,11 @@
-import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260925-d6-v1";
+import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260925-d6p2-v1";
 
-import { MENSAJES_CIRCUITO_DIETAS_ES } from "./i18n-circuito.js?v=20260925-tanda2-v1";
-export { MENSAJES_CIRCUITO_DIETAS_ES } from "./i18n-circuito.js?v=20260925-tanda2-v1";
-import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "../../portal-i18n.js?v=20260925-tanda2-v1";
+import { MENSAJES_CIRCUITO_DIETAS_ES } from "./i18n-circuito.js?v=20260925-d6p2-v1";
+export { MENSAJES_CIRCUITO_DIETAS_ES } from "./i18n-circuito.js?v=20260925-d6p2-v1";
+import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "../../portal-i18n.js?v=20260925-d6p2-v1";
 import { crearTraductorOtrosGastosDietas } from "./i18n-otros-gastos.js?v=20260925-d6-v1";
 import { describirOtroGasto } from "./formulario-otros-gastos.js?v=20260925-d6-v1";
+import { recortarBordes } from "./texto-dietas.js?v=20260925-d6p2-v1";
 
 const ETAPAS = Object.freeze(["revision", "autorizacion", "liquidacion", "fiscalizacion"]);
 const TONO_ESTADO = Object.freeze({ enviado_pendiente_revision: "info", pendiente_autorizacion: "info", pendiente_liquidacion: "violeta", pendiente_fiscalizacion: "violeta", fiscalizada: "exito", devuelta: "peligro" });
@@ -129,9 +130,14 @@ export function montarVistaBandejaCircuitoDietas(contenedor, {
     const encabezado = nodo(documento, "div"); encabezado.className = "dietas-circuito-detalle-cabecera";
     encabezado.append(nodo(documento, "h3", t("circuito_documento_titulo", { numero: d.numero_documento })), volver);
     const resumen = nodo(documento, "dl"); resumen.className = "dietas-circuito-resumen";
+    // Un reenvío muestra la devolución anterior (etapa, fecha y motivo), nunca quién la hizo.
+    const reenvio = d.devolucion ? [["circuito_documento_reenvio", t("circuito_documento_reenvio_valor", { etapa: t(`circuito_etapa_${d.devolucion.etapa}`), fecha: instante(d.devolucion.devuelta_en) })],
+      ["circuito_documento_motivo_devolucion", d.devolucion.motivo]] : [];
     [["circuito_documento_periodo", t("circuito_documento_periodo_valor", { inicio: fecha(d.fecha_inicio), hora_inicio: d.hora_inicio, fin: fecha(d.fecha_fin), hora_fin: d.hora_fin })],
-      ["circuito_documento_apertura", instante(d.fecha_apertura)], ["circuito_documento_motivo", d.motivo]].forEach(([clave, valor]) => {
-      const grupo = nodo(documento, "div"); grupo.append(nodo(documento, "dt", t(clave)), nodo(documento, "dd", valor)); resumen.append(grupo);
+      ["circuito_documento_apertura", instante(d.fecha_apertura)], ["circuito_documento_motivo", d.motivo], ...reenvio].forEach(([clave, valor]) => {
+      const grupo = nodo(documento, "div"); grupo.append(nodo(documento, "dt", t(clave)), nodo(documento, "dd", valor));
+      if (reenvio.some(([otra]) => otra === clave)) grupo.dataset.dietasCircuitoReenvio = clave === "circuito_documento_reenvio" ? "etapa" : "motivo";
+      resumen.append(grupo);
     });
     const marco = nodo(documento, "div"); marco.className = "tabla-contenedor";
     const tabla = nodo(documento, "table"); tabla.className = "tabla-datos dietas-circuito-lineas";
@@ -215,7 +221,8 @@ export function montarVistaBandejaCircuitoDietas(contenedor, {
     const decision = reintentar ? pendiente?.decision : boton?.dataset?.dietasCircuitoDecision;
     if (!["aprobar", "devolver"].includes(decision)) return;
     const campoMotivo = detalle.querySelector?.("[data-dietas-circuito-motivo]");
-    const motivo = reintentar ? pendiente.motivo : String(campoMotivo?.value ?? "").trim();
+    // Recorta los mismos blancos de borde que Go rechaza (también U+0085).
+    const motivo = reintentar ? pendiente.motivo : recortarBordes(campoMotivo?.value);
     if (!reintentar && decision === "devolver" && (motivo.length < 3 || motivo.length > 600)) {
       mensaje = t("circuito_decision_invalida"); nivel = "error"; abierto = { ...abierto, motivo }; pintar(); publicar(mensaje);
       detalle.querySelector?.("[data-dietas-circuito-motivo]")?.focus?.(); return;
