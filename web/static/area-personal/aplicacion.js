@@ -185,12 +185,14 @@ function mostrarError(estado, error) {
   estado.error = error;
 }
 
+// Mi bolsa no recibe el nombre: Bolsa solo lo conserva cifrado en la importación.
+// Sin nombre no se muestra ninguno, ni un rótulo que lo sustituya.
 export function datosMinimosMiBolsa(consulta) {
   return Object.freeze({
     meta: { presentacion: false, origen: "GET /api/vec/bolsa/mi-bolsa", generado_en: consulta.consultada_en },
-    sesion: { nombre_visible: traducir("areaPersonal.miBolsa.identidad.noFacilitada"), iniciales: "—", metodo: traducir("areaPersonal.miBolsa.identidad.metodoNoFacilitado"), persona_ref: null },
+    sesion: { nombre_visible: "", iniciales: "—", metodo: traducir("areaPersonal.miBolsa.identidad.metodoNoFacilitado"), persona_ref: null },
     resumen: { acciones_pendientes: 0, convocatorias_abiertas: 0, solicitudes_activas: 0, mensajes_no_leidos: 0, puntuacion_provisional: 0 },
-    perfil: { referencia: null, nombre_visible: traducir("areaPersonal.miBolsa.identidad.noFacilitada"), identificador_visible: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), correo: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), telefono: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), domicilio: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), estado_verificacion: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado") },
+    perfil: { referencia: null, nombre_visible: "", identificador_visible: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), correo: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), telefono: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), domicilio: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado"), estado_verificacion: traducir("areaPersonal.miBolsa.identidad.valorNoFacilitado") },
     plazos: [], convocatorias: [], meritos: [], solicitudes: [], baremo: [], llamamientos: [], subsanaciones: [], alegaciones: [], mensajes: [], certificados: [], documentos: [], actividad: [], ayuda: [], contratos: [],
     disponibilidad: { disponible: false, estado: "No disponible" }, capacidades: {},
   });
@@ -329,7 +331,7 @@ function mostrarDetalle(titulo, contenido) {
 function verSesion(estado) {
   const sesion = estado.datos.sesion;
   const prefijoTraduccion = "areaPersonal.sesion.";
-  const campos = [[traducir(`${prefijoTraduccion}persona`), escaparHTML(sesion.nombre_visible)],
+  const campos = [...(sesion.nombre_visible ? [[traducir(`${prefijoTraduccion}persona`), escaparHTML(sesion.nombre_visible)]] : []),
     ...(sesion.persona_ref ? [[traducir(`${prefijoTraduccion}referencia`), escaparHTML(sesion.persona_ref)]] : []),
     [traducir(`${prefijoTraduccion}metodo`), escaparHTML(sesion.metodo)],
     [traducir(`${prefijoTraduccion}origen`), escaparHTML(estado.datos.meta.origen)]];

@@ -217,11 +217,14 @@ vinculo = hash_ref('vin_', base + b'\0candidato')
 procedencia = hash_ref('prc_', base + b'\0procedencia')
 huella_procedencia = hashlib.sha256(b'vec.mi-bolsa.proyeccion.v1\0' + base + b'\0' + candidato.encode()).hexdigest()
 identidad = dict(version=1, autoridad='no_autoritativo', certificate_sha256=huella,
-                 subject=subject, display_name='Candidato sintético', roles=['candidato_bolsa'])
+                 subject=subject, display_name='Persona candidata', roles=['candidato_bolsa'])
+# Material de ejecuciones anteriores: solo cambiaba el nombre visible. Se
+# admite y se sustituye para que repetir el script siga siendo idempotente.
+identidad_anterior = dict(identidad, display_name='Candidato sintético')
 manifiesto = dict(version=1, autoridad='no_autoritativo', certificado='mtls/candidato.crt',
                   identidad='identidad/candidato.json', sujeto=subject, cuenta_ref=cuenta,
                   persona_ref=persona, perfil_ref=perfil, candidato_ref=candidato)
-for nombre, valor in [('candidato.json', identidad), ('bolsa-candidato.json', manifiesto)]:
+for nombre, valor in [('candidato.json', identidad), ('bolsa-candidato.json', manifiesto), ('candidato.anterior.json', identidad_anterior)]:
     (destino / nombre).write_text(json.dumps(valor, ensure_ascii=False, separators=(',', ':')) + '\n')
 
 def literal(s):
@@ -365,14 +368,19 @@ for nombre in candidato.json bolsa-candidato.json; do
   ruta=$material/identidad/$nombre
   if [[ -e $ruta ]]; then
     [[ -f $ruta && $(stat -c %a -- "$ruta") == 600 ]] || fallar 'manifiesto candidato inseguro'
-    cmp -s -- "$temporal/$nombre" "$ruta" || fallar 'manifiesto candidato preexistente distinto'
+    if ! cmp -s -- "$temporal/$nombre" "$ruta"; then
+      if [[ $nombre != candidato.json ]] || ! cmp -s -- "$temporal/candidato.anterior.json" "$ruta"; then
+        fallar 'manifiesto candidato preexistente distinto'
+      fi
+      sustituir_identidad=1
+    fi
   fi
 done
 
 sed 's/^FINALIZAR;$/ROLLBACK;/' "$temporal/proyeccion.sql" | psql_contenedor >/dev/null || fallar 'ensayo SQL fallido; no se hizo COMMIT'
 sed 's/^FINALIZAR;$/COMMIT;/' "$temporal/proyeccion.sql" | psql_contenedor >/dev/null || fallar 'COMMIT SQL fallido'
 for nombre in candidato.json bolsa-candidato.json; do
-  if [[ ! -e $material/identidad/$nombre ]]; then
+  if [[ ! -e $material/identidad/$nombre || ( $nombre == candidato.json && ${sustituir_identidad:-0} == 1 ) ]]; then
     install -m 0600 -- "$temporal/$nombre" "$material/identidad/$nombre"
   fi
 done
