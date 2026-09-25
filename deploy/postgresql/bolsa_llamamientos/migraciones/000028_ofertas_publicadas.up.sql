@@ -174,16 +174,8 @@ BEGIN
     OR p_publicada > v_ahora + interval '1 minute' OR p_publicada < v_ahora - interval '5 minutes' THEN
   RAISE EXCEPTION 'publicacion de oferta invalida' USING ERRCODE='22023';
  END IF;
- v_huella := encode(sha256(convert_to(p_bolsa || chr(31) || p_datos::text, 'UTF8')), 'hex');
- PERFORM pg_advisory_xact_lock(hashtextextended('vec_bolsa_llamamientos:oferta:' || p_bolsa || ':' || p_clave, 0));
- SELECT * INTO previo FROM vec_bolsa_llamamientos.oferta_publicada WHERE bolsa_ref = p_bolsa AND clave_idempotencia = p_clave;
- IF FOUND THEN
-  IF previo.actor_ref <> p_actor OR previo.huella_comando_sha256 <> v_huella THEN
-   RAISE EXCEPTION 'clave de oferta reutilizada con otro comando' USING ERRCODE='VBO01';
-  END IF;
-  RETURN QUERY SELECT vec_bolsa_llamamientos.proyectar_oferta_v1(previo.oferta_ref, v_ahora), true;
-  RETURN;
- END IF;
+ -- La decisión viva se consume antes de resolver el replay: un reintento no
+ -- devuelve el recibo sin una autorización nueva y verificada.
  SELECT * INTO STRICT consumo FROM vec_autorizacion_atestada_v3.registrar_y_consumir_emision_llamamiento_v3_atestada(
   p_capacidad, p_decision, p_motivo, p_contexto, p_persona_version, p_perfil_version, p_payload, p_sobre, p_evidencia, p_raiz);
  BEGIN d := convert_from(p_decision, 'UTF8')::jsonb;
@@ -196,6 +188,16 @@ BEGIN
     OR d->>'recurso_ref' IS DISTINCT FROM p_bolsa
     OR d->>'tipo_recurso' IS DISTINCT FROM 'bolsa_constituida' THEN
   RAISE EXCEPTION 'publicacion de oferta no autorizada' USING ERRCODE='42501';
+ END IF;
+ v_huella := encode(sha256(convert_to(p_bolsa || chr(31) || p_datos::text, 'UTF8')), 'hex');
+ PERFORM pg_advisory_xact_lock(hashtextextended('vec_bolsa_llamamientos:oferta:' || p_bolsa || ':' || p_clave, 0));
+ SELECT * INTO previo FROM vec_bolsa_llamamientos.oferta_publicada WHERE bolsa_ref = p_bolsa AND clave_idempotencia = p_clave;
+ IF FOUND THEN
+  IF previo.actor_ref <> p_actor OR previo.huella_comando_sha256 <> v_huella THEN
+   RAISE EXCEPTION 'clave de oferta reutilizada con otro comando' USING ERRCODE='VBO01';
+  END IF;
+  RETURN QUERY SELECT vec_bolsa_llamamientos.proyectar_oferta_v1(previo.oferta_ref, v_ahora), true;
+  RETURN;
  END IF;
  IF NOT EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.constitucion c
                   JOIN vec_bolsa_llamamientos.bolsa_constituida b ON b.bolsa_ref = c.bolsa_ref AND b.version = c.version_bolsa
@@ -233,6 +235,21 @@ BEGIN
  IF NOT FOUND OR o.bolsa_ref <> p_bolsa THEN
   RAISE EXCEPTION 'oferta inexistente en la bolsa' USING ERRCODE='23503';
  END IF;
+ -- La decisión viva se consume antes de resolver el replay: un reintento no
+ -- devuelve el recibo sin una autorización nueva y verificada.
+ SELECT * INTO STRICT consumo FROM vec_autorizacion_atestada_v3.registrar_y_consumir_emision_llamamiento_v3_atestada(
+  p_capacidad, p_decision, p_motivo, p_contexto, p_persona_version, p_perfil_version, p_payload, p_sobre, p_evidencia, p_raiz);
+ BEGIN d := convert_from(p_decision, 'UTF8')::jsonb;
+ EXCEPTION WHEN others THEN RAISE EXCEPTION 'resolucion de oferta no autorizada' USING ERRCODE='42501'; END;
+ IF consumo.efecto_ref IS DISTINCT FROM p_bolsa OR consumo.consumo_nuevo IS NOT TRUE
+    OR d->>'principal_id' IS DISTINCT FROM p_actor
+    OR d->>'accion' IS DISTINCT FROM 'llamamiento.emitir.v1'
+    OR d->>'modulo_id' IS DISTINCT FROM 'bolsa'
+    OR d->>'finalidad' IS DISTINCT FROM 'gestion_llamamientos_bolsa'
+    OR d->>'recurso_ref' IS DISTINCT FROM p_bolsa
+    OR d->>'tipo_recurso' IS DISTINCT FROM 'bolsa_constituida' THEN
+  RAISE EXCEPTION 'resolucion de oferta no autorizada' USING ERRCODE='42501';
+ END IF;
  SELECT * INTO previa FROM vec_bolsa_llamamientos.resolucion_oferta WHERE oferta_ref = p_oferta;
  IF FOUND THEN
   IF previa.clave_idempotencia <> p_clave OR previa.actor_ref <> p_actor OR previa.participacion_ref IS DISTINCT FROM p_participacion THEN
@@ -247,19 +264,6 @@ BEGIN
  v_proyeccion := vec_bolsa_llamamientos.proyectar_oferta_v1(p_oferta, v_ahora);
  IF v_proyeccion->'propuesta'->>'participacion_ref' IS DISTINCT FROM p_participacion THEN
   RAISE EXCEPTION 'la propuesta ha cambiado' USING ERRCODE='VBO04';
- END IF;
- SELECT * INTO STRICT consumo FROM vec_autorizacion_atestada_v3.registrar_y_consumir_emision_llamamiento_v3_atestada(
-  p_capacidad, p_decision, p_motivo, p_contexto, p_persona_version, p_perfil_version, p_payload, p_sobre, p_evidencia, p_raiz);
- BEGIN d := convert_from(p_decision, 'UTF8')::jsonb;
- EXCEPTION WHEN others THEN RAISE EXCEPTION 'resolucion de oferta no autorizada' USING ERRCODE='42501'; END;
- IF consumo.efecto_ref IS DISTINCT FROM p_bolsa OR consumo.consumo_nuevo IS NOT TRUE
-    OR d->>'principal_id' IS DISTINCT FROM p_actor
-    OR d->>'accion' IS DISTINCT FROM 'llamamiento.emitir.v1'
-    OR d->>'modulo_id' IS DISTINCT FROM 'bolsa'
-    OR d->>'finalidad' IS DISTINCT FROM 'gestion_llamamientos_bolsa'
-    OR d->>'recurso_ref' IS DISTINCT FROM p_bolsa
-    OR d->>'tipo_recurso' IS DISTINCT FROM 'bolsa_constituida' THEN
-  RAISE EXCEPTION 'resolucion de oferta no autorizada' USING ERRCODE='42501';
  END IF;
  v_tipo := CASE WHEN p_participacion IS NULL THEN 'llamamiento_directo' ELSE 'adjudicada' END;
  INSERT INTO vec_bolsa_llamamientos.resolucion_oferta(oferta_ref, recibo_ref, tipo, participacion_ref, orden_vigente, disposiciones_total, actor_ref, clave_idempotencia, resuelta_en, decision_ref)

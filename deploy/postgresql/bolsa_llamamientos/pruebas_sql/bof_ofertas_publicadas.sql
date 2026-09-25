@@ -15,7 +15,8 @@ GRANT vec_bolsa_llamamientos_ejecutor TO vec_bof_runtime_prueba;
 CREATE OR REPLACE FUNCTION vec_autorizacion_atestada_v3.registrar_y_consumir_emision_llamamiento_v3_atestada(p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)
 RETURNS TABLE(decision_ref text,efecto_ref text,huella_efecto_sha256 text,consumo_huella_sha256 text,auditoria_ref text,consumida_en timestamptz,consumo_nuevo boolean)
 LANGUAGE sql VOLATILE AS $d$
- SELECT 'decision:'||gen_random_uuid(), convert_from(p_capacidad,'UTF8')::jsonb->>'efecto_ref', repeat('a',64), repeat('b',64), 'auditoria:x', clock_timestamp(), true
+ SELECT 'decision:'||gen_random_uuid(), convert_from(p_capacidad,'UTF8')::jsonb->>'efecto_ref', repeat('a',64), repeat('b',64), 'auditoria:x', clock_timestamp(),
+        NOT (convert_from(p_capacidad,'UTF8')::jsonb ? 'repetida')
 $d$;
 
 SET LOCAL session_replication_role = replica;
@@ -37,6 +38,8 @@ SET LOCAL session_replication_role = origin;
 DO $prueba$
 DECLARE
  cap bytea := convert_to('{"efecto_ref":"bolsa:of:1"}','UTF8');
+ -- Concesión ya consumida: el doble devuelve «consumo no nuevo».
+ cap_repetida bytea := convert_to('{"efecto_ref":"bolsa:of:1","repetida":true}','UTF8');
  dec bytea := convert_to('{"principal_id":"per_actoractoractoractoractor","accion":"llamamiento.emitir.v1","modulo_id":"bolsa","finalidad":"gestion_llamamientos_bolsa","recurso_ref":"bolsa:of:1","tipo_recurso":"bolsa_constituida"}','UTF8');
  variante text;
  datos jsonb := '{"categoria":"Auxiliar administrativo","centro":"Residencia Sierra","fecha_inicio":"2026-10-01","fecha_fin":"2026-12-31","descripcion":"Sustitución por baja"}';
@@ -59,6 +62,11 @@ BEGIN
  -- Reintento exacto: misma oferta; otro contenido con la misma clave: conflicto.
  SELECT * INTO r2 FROM vec_bolsa_llamamientos.publicar_oferta_v1(o1,'recibo:oferta:'||repeat('1',64),'bolsa:of:1','per_actoractoractoractoractor','clave-oferta-1',datos,plazo,clock_timestamp(),clock_timestamp()+interval '1 day',cap,dec,'\x00','\x00',1,1,'\x00','\x00','\x00','\x00');
  IF NOT r2.reutilizada OR r2.oferta->>'oferta_ref'<>o1 THEN RAISE EXCEPTION 'reintento no idempotente'; END IF;
+ -- El reintento exige una decisión viva nueva: sin ella no devuelve el recibo.
+ BEGIN
+  PERFORM vec_bolsa_llamamientos.publicar_oferta_v1(o1,'recibo:oferta:'||repeat('1',64),'bolsa:of:1','per_actoractoractoractoractor','clave-oferta-1',datos,plazo,clock_timestamp(),clock_timestamp()+interval '1 day',cap_repetida,dec,'\x00','\x00',1,1,'\x00','\x00','\x00','\x00');
+  RAISE EXCEPTION 'reintento de publicación sin decisión viva aceptado';
+ EXCEPTION WHEN insufficient_privilege THEN NULL; END;
  BEGIN
   PERFORM vec_bolsa_llamamientos.publicar_oferta_v1(o2,'recibo:oferta:'||repeat('2',64),'bolsa:of:1','per_actoractoractoractoractor','clave-oferta-1',datos||'{"centro":"Otro centro"}',plazo,clock_timestamp(),clock_timestamp()+interval '1 day',cap,dec,'\x00','\x00',1,1,'\x00','\x00','\x00','\x00');
   RAISE EXCEPTION 'clave divergente aceptada';
@@ -124,6 +132,10 @@ BEGIN
  END IF;
  SELECT * INTO r FROM vec_bolsa_llamamientos.resolver_oferta_v1(o1,'recibo:resolucion-oferta:'||repeat('1',64),'bolsa:of:1','part:of:3','per_actoractoractoractoractor','clave-resolucion-1',cap,dec,'\x00','\x00',1,1,'\x00','\x00','\x00','\x00');
  IF NOT r.reutilizada THEN RAISE EXCEPTION 'reintento de resolución no idempotente'; END IF;
+ BEGIN
+  PERFORM vec_bolsa_llamamientos.resolver_oferta_v1(o1,'recibo:resolucion-oferta:'||repeat('1',64),'bolsa:of:1','part:of:3','per_actoractoractoractoractor','clave-resolucion-1',cap_repetida,dec,'\x00','\x00',1,1,'\x00','\x00','\x00','\x00');
+  RAISE EXCEPTION 'reintento de resolución sin decisión viva aceptado';
+ EXCEPTION WHEN insufficient_privilege THEN NULL; END;
  BEGIN
   PERFORM vec_bolsa_llamamientos.resolver_oferta_v1(o1,'recibo:resolucion-oferta:'||repeat('9',64),'bolsa:of:1','part:of:3','per_actoractoractoractoractor','clave-resolucion-otra',cap,dec,'\x00','\x00',1,1,'\x00','\x00','\x00','\x00');
   RAISE EXCEPTION 'segunda resolución aceptada';
