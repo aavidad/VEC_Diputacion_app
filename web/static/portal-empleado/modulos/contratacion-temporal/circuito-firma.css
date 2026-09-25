@@ -1,0 +1,135 @@
+/* Circuito de firma del expediente: panel propio bajo la cabecera. */
+.ct-circuito-firma {
+  min-width: 0;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio-lg);
+  background: var(--portal-superficie);
+  box-shadow: var(--portal-sombra-sm);
+  overflow: hidden;
+}
+
+.ct-circuito-cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--portal-borde);
+  background: var(--portal-superficie-alterna);
+}
+
+.ct-circuito-cabecera h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.ct-circuito-marca {
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--portal-violeta-suave);
+  color: var(--portal-violeta);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.ct-circuito-documentos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 16px;
+  padding: 16px 24px 20px;
+}
+
+.ct-circuito-documento {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--portal-borde);
+  border-left: 4px solid var(--portal-azul-600);
+  border-radius: var(--portal-radio);
+  background: var(--portal-fondo);
+}
+
+.ct-circuito-documento h4 {
+  margin: 0 0 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.ct-circuito-documento ol {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ct-circuito-paso {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 4px 10px;
+  padding: 8px;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio);
+  background: var(--portal-superficie);
+}
+
+.ct-circuito-orden {
+  display: inline-grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--portal-neutro-suave);
+  color: var(--portal-tinta);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.ct-circuito-paso[aria-current="step"] .ct-circuito-orden {
+  background: var(--portal-azul-700);
+  color: var(--portal-texto-inverso);
+}
+
+.ct-circuito-paso-cuerpo p {
+  margin: 0;
+}
+
+.ct-circuito-cargo {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.ct-circuito-detalle {
+  color: var(--portal-muted);
+  font-size: 0.78rem;
+}
+
+.ct-circuito-estado {
+  display: inline-flex;
+  grid-column: 2;
+  justify-self: start;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--ct-tono-suave, var(--portal-neutro-suave));
+  color: var(--ct-tono, var(--portal-muted));
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.ct-circuito-estado::before {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  content: "";
+}
+
+@media (max-width: 480px) {
+  .ct-circuito-cabecera,
+  .ct-circuito-documentos {
+    padding-inline: 16px;
+  }
+}

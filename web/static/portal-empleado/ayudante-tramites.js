@@ -1,5 +1,5 @@
-import { TRAMITES_AYUDANTE_PORTAL } from "./ayuda-contenido.js?v=20260925-d5d6-cronos-v1";
-import { traducirPortal } from "./portal-i18n.js?v=20260925-d5d6-cronos-v1";
+import { TRAMITES_AYUDANTE_PORTAL } from "./ayuda-contenido.js?v=20260925-circuito-firma-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260925-circuito-firma-v1";
 
 const TEXTO = Object.freeze({
   titulo: traducirPortal("ayuda_contenido_302"),

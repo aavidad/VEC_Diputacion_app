@@ -1,4 +1,4 @@
-import { traducirPortal } from "./portal-i18n.js?v=20260925-d5d6-cronos-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260925-circuito-firma-v1";
 
 /** Contenido de ayuda sustituible por catálogo o conector, sin lógica de negocio. */
 export const AYUDA_PORTAL_BOLSA = Object.freeze({
@@ -196,6 +196,7 @@ export const AYUDA_CONTRATACION_TEMPORAL = Object.freeze({
         traducirPortal("ayuda_contenido_269"),
         traducirPortal("ayuda_contenido_270"),
         traducirPortal("ayuda_contenido_271"),
+        traducirPortal("ayuda_contenido_404"),
       ]),
     }),
     documentos: Object.freeze({
@@ -268,6 +269,7 @@ export const AYUDA_CONTRATACION_TEMPORAL = Object.freeze({
         traducirPortal("ayuda_contenido_293"),
         traducirPortal("ayuda_contenido_294"),
         traducirPortal("ayuda_contenido_295"),
+        traducirPortal("ayuda_contenido_405"),
       ]),
     }),
     incorporacion: Object.freeze({

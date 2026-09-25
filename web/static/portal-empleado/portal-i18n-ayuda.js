@@ -403,6 +403,8 @@ export const MENSAJES_AYUDA_PORTAL_ES = Object.freeze({
   ayuda_contenido_401: "Se registra la decisión con su recibo y el documento sale de su bandeja.",
   ayuda_contenido_402: "Persona revisora de la etapa.",
   ayuda_contenido_403: "El motivo de la devolución lo leerá la persona titular del documento: indique solo qué debe corregir y no incluya datos de terceros ni valoraciones personales.",
+  ayuda_contenido_404: "El «Circuito de firma» indica, para cada borrador, quién firma y en qué orden, qué permite cada firma y qué ocurre si se devuelve. Es un ejemplo configurable a la espera de que RRHH lo defina; desde esta pantalla todavía no se firma.",
+  ayuda_contenido_405: "Una firma electrónica sobre un borrador, aunque se haga con el certificado personal y se verifique, no tiene eficacia administrativa mientras el documento no pase por el portafirmas corporativo de la Diputación.",
   ayuda_extension: "Bolsa de trabajo y Contratación temporal ofrecen ayuda propia en sus módulos.",
   ayuda_paso_de: "Paso {actual} de {total}",
   ayuda_pasos: "Pasos",
