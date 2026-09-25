@@ -5,7 +5,7 @@
  * qué módulos están disponibles para el ContextoActor activo; los restantes
  * permanecen visibles para conservar la navegación estable y fallan cerrados.
  */
-import { traducirPortal } from "./portal-i18n.js?v=20260925-tanda2-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260925-portal-integrado-v1";
 
 export function calcularMetricasCuadro(cuadro) {
 	const totales = cuadro?.totales;
@@ -93,14 +93,29 @@ export function crearVistaInicioPortal({
   numero = (v) => String(v ?? 0),
   obtenerTramitesInicio = () => null,
   catalogoFallido = () => false,
+  inicioPendiente = () => false,
 }) {
   if (typeof encabezadoVista !== "function" || typeof escaparHTML !== "function"
     || typeof obtenerCatalogo !== "function" || typeof resolverAcceso !== "function"
-    || typeof traducir !== "function" || typeof catalogoFallido !== "function") {
+    || typeof traducir !== "function" || typeof catalogoFallido !== "function"
+    || typeof inicioPendiente !== "function") {
     throw new TypeError("la vista inicial requiere sus dependencias");
   }
 
   return function renderizarInicioPortal() {
+    // Aún no se sabe si el perfil es RRHH: Inicio neutro, sin el bloque de
+    // RRHH ni la nota del empleado, con todas las tarjetas «Comprobando».
+    if (inicioPendiente()) {
+      const catalogo = obtenerCatalogo();
+      if (!Array.isArray(catalogo)) throw new TypeError("catálogo de módulos no válido");
+      const comprobando = Object.freeze({ disponible: false, vista: "", estado: "cargando" });
+      return `
+        ${encabezadoVista("", traducir("inicio_titulo_neutro"), "")}
+        <p class="portal-inicio-comprobando" role="status" data-inicio-pendiente>${escaparHTML(traducir("inicio_comprobando_accesos"))}</p>
+        <div class="rejilla-modulos" aria-label="${escaparHTML(traducir("inicio_modulos_etiqueta"))}">
+          ${catalogo.map((modulo) => renderizarModulo(modulo, comprobando, escaparHTML, traducir)).join("")}
+        </div>`;
+    }
     const avisoCatalogo = catalogoFallido() ? renderizarErrorCatalogo(escaparHTML, traducir) : "";
     if (typeof esPerfilRRHH === "function" && esPerfilRRHH()) {
       const catalogo = obtenerCatalogo();
@@ -214,7 +229,7 @@ function renderizarModulo(modulo, acceso, escaparHTML, traducir) {
       <h3>${escaparHTML(modulo.titulo)}</h3>
       <p>${escaparHTML(modulo.texto)}</p>
       <div class="pie-tarjeta">
-        <span class="${presentacion ? "estado-presentacion" : (habilitado ? "estado-disponible" : "estado-proximamente")}" role="status" aria-live="polite">${escaparHTML(estado)}</span>
+        <span class="${presentacion ? "estado-presentacion" : (habilitado ? "estado-disponible" : "estado-proximamente")}">${escaparHTML(estado)}</span>
         ${habilitado
           ? `<button type="button" class="${presentacion ? "boton-secundario" : "boton-primario"}" data-vista="${escaparHTML(acceso.vista)}">${escaparHTML(etiquetaAccion)}</button>`
           : (reintentar

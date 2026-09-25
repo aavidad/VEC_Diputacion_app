@@ -8,9 +8,9 @@
 import {
   cargarCatalogoModulosInterno,
   renderizarNavegacionModulos,
-} from "./portal-catalogo-modulos.js?v=20260925-catalogo-v1";
-import { traducirPortal } from "./portal-i18n.js?v=20260925-tanda2-v1";
-import { calcularMetricasCuadro, tramitesParaInicio } from "./portal-inicio.js?v=20260925-carga-rapida-v1";
+} from "./portal-catalogo-modulos.js?v=20260925-portal-integrado-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260925-portal-integrado-v1";
+import { calcularMetricasCuadro, tramitesParaInicio } from "./portal-inicio.js?v=20260925-portal-integrado-v1";
 import {
   componerCronosInterno,
   componerDietasInternas,
@@ -81,11 +81,11 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   dietas: async () => {
     const [contrato, recorridos, clienteBorradores, clienteAsignacion, calculador, mapa, clienteCircuito] = await Promise.all([
       import("./modulos/dietas/contrato.js"),
-      import("./modulos/dietas/vista-recorridos.js?v=20260925-tanda2-v1"),
+      import("./modulos/dietas/vista-recorridos.js?v=20260925-portal-integrado-v1"),
       import("./modulos/dietas/cliente-borradores-http.js?v=20260925-tanda2-v1"),
       import("./modulos/dietas/cliente-asignacion-http.js?v=20260925-tanda-v1"),
       import("./modulos/dietas/calculador-rutas-http.js?v=20260925-tanda-v1"),
-      import("./modulos/dietas/mapa-ruta.js?v=20260925-tanda2-v1"),
+      import("./modulos/dietas/mapa-ruta.js?v=20260925-portal-integrado-v1"),
       import("./modulos/dietas/cliente-circuito-http.js?v=20260925-tanda2-v1"),
     ]);
     return Object.freeze({ contrato, recorridos, clienteBorradores, clienteAsignacion, calculador, mapa, clienteCircuito });
@@ -97,6 +97,12 @@ const VISTAS_MODULO_BOLSA = Object.freeze(new Set(VISTAS_INTERNAS_BOLSA));
 export const VISTAS_MODULOS_CONECTADOS = Object.freeze(new Set([
   "contratacion-temporal", ...VISTAS_MODULOS_PERSONALES,
 ]));
+
+/** Código del error con el que se rechaza una carga sustituida por otra. */
+export const CODIGO_CARGA_SUSTITUIDA = "carga_sustituida";
+function errorCargaSustituida() {
+  return Object.assign(new Error("carga interna sustituida"), { codigo: CODIGO_CARGA_SUSTITUIDA });
+}
 
 export function moduloDeVistaPortal(vista) {
   if (vista === "portal") return "portal";
@@ -147,13 +153,18 @@ export function crearCoordinadorModulosPortal({
   let referenciaElaboracionMontada = "";
   let secuenciaMontaje = 0;
   let secuenciaCarga = 0;
+  // Hay una carga en curso (catálogo o módulos) que aún no ha terminado. Nace
+  // en verdadero: hasta la primera carga el shell tampoco sabe nada del perfil.
+  let cargaEnCurso = true;
   // Consultas de red de la carga en curso: los módulos se cargan en paralelo,
   // así que puede haber varias a la vez. Sustituir la carga las aborta todas.
   const controladoresCarga = new Set();
 
+  // Invalida siempre la carga en curso, también entre dos consultas (cuando no
+  // hay ninguna pendiente): sus módulos tardíos ya no publican ni avisan.
   function cancelarCargaInterna() {
-    if (controladoresCarga.size === 0) return;
     secuenciaCarga += 1;
+    cargaEnCurso = false;
     for (const controlador of controladoresCarga) controlador.abort();
     controladoresCarga.clear();
   }
@@ -361,9 +372,10 @@ export function crearCoordinadorModulosPortal({
     const carga = ++secuenciaCarga;
     composicion = null;
     catalogo = Object.freeze([]);
+    cargaEnCurso = true;
     const vigente = () => carga === secuenciaCarga;
     const exigirVigente = () => {
-      if (!vigente()) throw new Error("carga interna sustituida");
+      if (!vigente()) throw errorCargaSustituida();
     };
     const consultar = (consulta, operacion) => {
       const controlador = new AbortController();
@@ -387,6 +399,7 @@ export function crearCoordinadorModulosPortal({
       }, "cargar catálogo de módulos");
     } catch (error) {
       exigirVigente();
+      cargaEnCurso = false;
       throw error;
     }
     exigirVigente();
@@ -423,6 +436,42 @@ export function crearCoordinadorModulosPortal({
       notificar(clave);
     }));
     exigirVigente();
+    cargaEnCurso = false;
+  }
+
+  // Estado de carga de un módulo del catálogo: «cargando», «disponible»,
+  // «no_disponible» o "" si no hay composición.
+  function estadoCargaModulo(clave) {
+    return composicion?.estadosModulos?.[clave] || "";
+  }
+
+  // El catálogo aún no ha llegado a esta carga.
+  function catalogoPendiente() {
+    return cargaEnCurso && composicion === null;
+  }
+
+  /**
+   * Inicio no puede decidir todavía entre el perfil RRHH y el de empleado:
+   * contratación temporal está autorizada y aún carga (o no ha llegado el
+   * catálogo). Mientras tanto se pinta un Inicio neutro.
+   */
+  function inicioPendiente() {
+    if (catalogoPendiente()) return true;
+    return catalogo.some((modulo) => modulo.clave === CLAVE_CONTRATACION_TEMPORAL)
+      && estadoCargaModulo(CLAVE_CONTRATACION_TEMPORAL) === "cargando";
+  }
+
+  /**
+   * Una vista gestionada aún no disponible cuyo módulo sigue cargando: el shell
+   * pinta «Comprobando» en lugar de «no disponible».
+   */
+  function vistaPendiente(vista) {
+    if (!vistaGestionada(vista) || vistaDisponible(vista)) return false;
+    if (catalogoPendiente()) return true;
+    const modulo = moduloDeVistaPortal(vista);
+    if (estadoCargaModulo(modulo) === "cargando") return true;
+    // El registro RRHH depende también de conocer el perfil.
+    return vista === "personal-registro" && estadoCargaModulo(CLAVE_CONTRATACION_TEMPORAL) === "cargando";
   }
 
   function obtenerCatalogo() {
@@ -750,6 +799,7 @@ export function crearCoordinadorModulosPortal({
     cargarInterno,
     desmontarVistaActual,
     esPerfilRRHH,
+    inicioPendiente,
     montarVista,
     obtenerTramitesInicio,
     obtenerCatalogo,
@@ -759,5 +809,6 @@ export function crearCoordinadorModulosPortal({
     retirarVistaMontada,
     vistaGestionada,
     vistaDisponible,
+    vistaPendiente,
   });
 }

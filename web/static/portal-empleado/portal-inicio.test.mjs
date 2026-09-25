@@ -63,7 +63,8 @@ test("la portada sin catálogo ofrece reintento y el clic activa la recarga exis
     assert.equal(recargas, 1);
     assert.equal(estado.errorFuente, "");
     assert.equal(estado.fuenteLista, false);
-    assert.equal(repintados, 2);
+    // Un solo repintado previo: la carga pinta su propio resultado, sin montar dos veces.
+    assert.equal(repintados, 1);
     assert.doesNotMatch(html, /data-accion="recargar-fuente"/u);
   } finally {
     globalThis.document = documentoAnterior;
@@ -79,7 +80,9 @@ test("la tarjeta anuncia la comprobación sin ofrecer una ruta prematura", () =>
     etiqueta: "Comprobando acceso a borradores",
   });
   assert.match(html, /data-modulo-catalogo="bolsa" tabindex="-1" aria-busy="true"/);
-  assert.match(html, /role="status" aria-live="polite">Comprobando acceso a borradores/);
+  // Sin región viva por tarjeta: el shell da un único anuncio al terminar.
+  assert.match(html, /<span class="estado-proximamente">Comprobando acceso a borradores/);
+  assert.doesNotMatch(html, /aria-live/);
   assert.match(html, /<button[^>]+disabled>Comprobando<\/button>/);
   assert.doesNotMatch(html, /data-vista=/);
 });

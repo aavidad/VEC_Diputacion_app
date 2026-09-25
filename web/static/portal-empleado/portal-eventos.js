@@ -5,7 +5,7 @@
  * negocio. Las acciones sin comando de servidor compuesto permanecen
  * informativas y nunca producen efectos administrativos en el navegador.
  */
-import { traducirPortal } from "./portal-i18n.js?v=20260925-tanda2-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260925-portal-integrado-v1";
 import { validarAvisosPortal } from "./portal-contrato.js?v=20260925-sin-demo2-v1";
 
 const NOMBRES_FILTRO = Object.freeze({
@@ -204,15 +204,23 @@ export function crearControladorPortal(dependencias) {
     const id = boton.dataset.id;
     const datosPanel = obtenerDatosPanel();
     switch (accion) {
-      case "recargar-fuente":
+      case "recargar-fuente": {
         estado.errorFuente = "";
         estado.fuenteLista = false;
         renderizar();
-        cargarFuenteDatos().then(renderizar).catch(() => {
+        // El botón de reintento desaparece al repintar: el foco pasa al
+        // contenido principal. cargarFuenteDatos pinta su propio resultado sin
+        // volver a montar la vista que ya montó durante la carga.
+        const activo = document.activeElement;
+        if (!activo || activo === document.body || activo.isConnected === false) {
+          porId("contenido-principal")?.focus?.({ preventScroll: true });
+        }
+        cargarFuenteDatos().catch(() => {
           estado.errorFuente = "No se pudo volver a comprobar la fuente interna.";
           renderizar();
         });
         break;
+      }
       case "reintentar-borradores": {
         const disponible = await comprobarDisponibilidadBorradores({ forzar: true });
         anunciar(disponible

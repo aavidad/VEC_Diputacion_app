@@ -205,10 +205,114 @@ test("cambiar de vista o repintar Inicio durante la carga no cancela los módulo
 test("el shell repinta Inicio con cada módulo y no vuelve a montar una vista ya montada", async () => {
   const portal = await readFile(new URL("portal.js", import.meta.url), "utf8");
   assert.match(portal, /coordinadorModulos\.cargarInterno\(\{ alCambiar: alCambiarModulos \}\)/);
-  assert.match(portal, /if \(estado\.vista === "portal"\) \{ renderizarConservandoFoco\(\); return; \}/);
-  assert.match(portal, /if \(estado\.vistaMontada !== estado\.vista\) renderizar\(\);/);
+  assert.match(portal, /if \(estado\.vista === "portal"\) \{ renderizarConservandoFoco\(\);/);
+  // Al terminar la carga: Inicio conserva el foco; otra vista solo se monta si no lo estaba.
+  assert.match(portal, /if \(estado\.vista === "portal"\) renderizarConservandoFoco\(\);\s*else if \(estado\.vistaMontada !== estado\.vista\) renderizar\(\);/);
+  // La vista se monta por su disponibilidad, no por la clave del módulo que avisa.
+  assert.match(portal, /estado\.vistaMontada !== estado\.vista\s*&& \(coordinadorModulos\.vistaDisponible\(estado\.vista\)/);
+  // Selector del foco escapado y carga sustituida sin marcar error de catálogo.
+  assert.match(portal, /CSS\?\.escape/);
+  assert.match(portal, /error\?\.codigo === CODIGO_CARGA_SUSTITUIDA/);
   // Repintar no debe abortar la carga en curso.
   assert.doesNotMatch(portal, /coordinadorModulos\.desmontarVistaActual\(\)/);
+});
+
+test("dos cargas seguidas: los módulos tardíos de la primera no alteran la composición de la segunda", async () => {
+  const catalogos = [diferido(), diferido()];
+  const modulosPrimera = { cronos: diferido(), dietas: diferido() };
+  let carga = 0;
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    limiteCargaModularMs: 200,
+    cargarCatalogoInterno: async () => catalogos[carga++].promesa,
+    entorno: { fetch: async () => { throw new Error("sin red"); } },
+    cargadoresInternos: {
+      contratacion_temporal: async () => { throw new Error("sin CT"); },
+      // La primera carga recibe módulos tardíos; la segunda, fallos inmediatos.
+      cronos: () => (carga === 1 ? modulosPrimera.cronos.promesa : Promise.reject(new Error("no"))),
+      dietas: () => (carga === 1 ? modulosPrimera.dietas.promesa : Promise.reject(new Error("no"))),
+      personal: async () => { throw new Error("no"); },
+    },
+  });
+  const avisos = [];
+  const primera = coordinador.cargarInterno({ alCambiar: (clave) => avisos.push(`1:${clave}`) });
+  catalogos[0].resolver(Object.freeze([{ clave: "cronos" }, { clave: "dietas" }]));
+  await esperarTurnos();
+  const segunda = coordinador.cargarInterno({ alCambiar: (clave) => avisos.push(`2:${clave}`) });
+  catalogos[1].resolver(Object.freeze([{ clave: "cronos" }, { clave: "dietas" }]));
+  await assert.rejects(primera, (error) => error.codigo === "carga_sustituida");
+  await segunda;
+  modulosPrimera.cronos.resolver(recursosCronos());
+  modulosPrimera.dietas.resolver(recursosDietas());
+  await esperarTurnos();
+  assert.deepEqual(avisos.filter((aviso) => aviso.startsWith("1:")), ["1:catalogo"]);
+  assert.equal(coordinador.resolverAcceso("cronos").disponible, false);
+  assert.equal(coordinador.resolverAcceso("dietas").disponible, false);
+});
+
+test("cancelar sin consultas pendientes invalida igualmente la carga en curso", async () => {
+  const { coordinador, pendientes } = coordinadorControlado();
+  const avisos = [];
+  const carga = coordinador.cargarInterno({ alCambiar: (clave) => avisos.push(clave) });
+  await esperarTurnos();
+  // Los cargadores de módulo no son consultas de red: no hay controladores.
+  coordinador.desmontarVistaActual();
+  pendientes.cronos.resolver(recursosCronos());
+  pendientes.personal.resolver(recursosPersonal());
+  pendientes.dietas.resolver(recursosDietas());
+  pendientes.contratacion_temporal.rechazar(new Error("sin CT"));
+  await assert.rejects(carga, (error) => error.codigo === "carga_sustituida");
+  assert.deepEqual(avisos, ["catalogo"]);
+  assert.equal(coordinador.resolverAcceso("cronos").disponible, false);
+});
+
+test("Inicio con contratación temporal lenta: estado neutro hasta conocer el perfil", async () => {
+  const { coordinador, pendientes } = coordinadorControlado();
+  const vista = crearVistaInicioPortal({
+    encabezadoVista: (_s, titulo) => `<header><h2>${titulo}</h2></header>`,
+    escaparHTML: String,
+    obtenerCatalogo: coordinador.obtenerCatalogo,
+    resolverAcceso: (clave) => coordinador.resolverAcceso(clave),
+    esPerfilRRHH: coordinador.esPerfilRRHH,
+    inicioPendiente: coordinador.inicioPendiente,
+  });
+  assert.equal(coordinador.inicioPendiente(), true, "antes de la primera carga no se conoce el perfil");
+  const carga = coordinador.cargarInterno();
+  await esperarTurnos();
+  // Cronos, Personal y Dietas llegan; contratación temporal sigue cargando.
+  pendientes.cronos.resolver(recursosCronos());
+  pendientes.personal.resolver(recursosPersonal());
+  pendientes.dietas.resolver(recursosDietas());
+  await esperarTurnos();
+  assert.equal(coordinador.inicioPendiente(), true);
+  const neutro = vista();
+  assert.match(neutro, /<h2>Inicio<\/h2>/);
+  assert.match(neutro, /role="status" data-inicio-pendiente>Comprobando accesos…/);
+  assert.doesNotMatch(neutro, /nota-seguridad|portal-rrhh-inicio|Portal del Empleado<\/h2>/);
+  assert.equal((neutro.match(/aria-busy="true"/g) || []).length, CATALOGO.length, "todas las tarjetas «Comprobando»");
+  assert.equal(coordinador.vistaPendiente("personal-registro"), true, "el registro RRHH espera al perfil");
+  pendientes.contratacion_temporal.rechazar(new Error("sin CT"));
+  await carga;
+  assert.equal(coordinador.inicioPendiente(), false);
+  assert.equal(coordinador.vistaPendiente("personal-registro"), false);
+  assert.match(vista(), /nota-seguridad/, "sin CT: el Inicio del empleado");
+});
+
+test("empleado sin contratación temporal en el catálogo: su Inicio en cuanto llega el catálogo", async () => {
+  const pendiente = diferido();
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    cargarCatalogoInterno: async () => Object.freeze([{ clave: "cronos" }]),
+    cargadoresInternos: { contratacion_temporal: async () => ({}), cronos: () => pendiente.promesa },
+  });
+  const carga = coordinador.cargarInterno();
+  await esperarTurnos();
+  assert.equal(coordinador.inicioPendiente(), false);
+  assert.equal(coordinador.vistaPendiente("cronos"), true, "la vista pedida espera a su módulo");
+  assert.equal(coordinador.vistaPendiente("dietas"), false, "módulo no autorizado: no disponible");
+  pendiente.resolver(recursosCronos());
+  await carga;
+  assert.equal(coordinador.vistaPendiente("cronos"), false);
 });
 
 // --- Grafo de módulos: sin URL duplicadas y precarga exacta del grafo estático ---
