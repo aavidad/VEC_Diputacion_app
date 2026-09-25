@@ -64,6 +64,9 @@ type autoridadConsultasContratacionTemporalDesarrollo struct {
 	materialDocumentos                       *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialPersonalFichaPropia              *proveedorMaterialAltaContratacionTemporalDesarrollo
 	plazosOfertasBolsa                       *calculadoraPlazoOfertaDesarrollo
+	// presentadorCobertura permite activar después los avisos de la vía de
+	// cobertura, cuando Bolsa y las reglas de ejemplo ya están compuestas.
+	presentadorCobertura avisosViaCoberturaConfigurable
 }
 
 type autorizadorLigadoContratacionTemporalDesarrollo interface {
@@ -634,6 +637,7 @@ func nuevasRutasContratacionTemporalDesarrolloConPlazos(
 		materialCronos:                           alta.postgresql.materialCronos,
 		materialDocumentos:                       alta.postgresql.materialDocumentos,
 		materialPersonalFichaPropia:              alta.postgresql.materialPersonalFichaPropia,
+		presentadorCobertura:                     coberturaReal.presentador,
 	}
 	if autoridad.registradorAuditoriaFronteraRutasExactas == nil {
 		return nil, nil, nil, errPostgreSQLContratacionTemporalDesarrolloNoDisponible

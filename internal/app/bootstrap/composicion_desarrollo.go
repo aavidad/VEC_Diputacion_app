@@ -269,6 +269,7 @@ func nuevoServidorDesarrollo(
 	}
 	ctxBolsas, cancelarBolsas := context.WithTimeout(context.Background(), 15*time.Second)
 	fuenteConstituida := nuevaFuenteConstituidaRRHHDesarrollo(ctxBolsas, cfg)
+	configurarAvisosViaCoberturaDesarrollo(autoridadContratacion, reglasEjemplo.bolsa, fuenteConstituida)
 	cancelarBolsas()
 	rutasBolsasRRHH, coleccionesBolsasRRHH, err := nuevasRutasBolsasRRHHDesarrolloConFuente(cfg, fuenteConstituida, autoridadContratacion.manejadorSituacionParticipacion)
 	if err != nil {
