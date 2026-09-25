@@ -123,7 +123,7 @@ test("la lista muestra el estado real y el motivo de Personal cierra el alta", a
   vista.desmontar();
 });
 
-test("sin fuente de competencia ofrece una sola pestaña que lo dice, sin consultar bandejas", async () => {
+test("sin fuente de competencia no ofrece pestañas del circuito ni consulta bandejas", async () => {
   const contenedor = raiz(); let listados = 0;
   const clienteCircuito = {
     listar: async () => { listados += 1; return { items: [], competencia: "sin_fuente" }; },
@@ -133,10 +133,8 @@ test("sin fuente de competencia ofrece una sola pestaña que lo dice, sin consul
   const vista = montarVistaRecorridosDietas(contenedor, { clienteBorradores: clienteBorradores(), clienteCircuito });
   await Promise.resolve(); await Promise.resolve();
   const panel = contenedor.querySelector("[data-dietas-recorridos]");
-  assert.deepEqual(panel.querySelectorAll("[data-dietas-cambiar-etapa]").map((boton) => boton.dataset.dietasCambiarEtapa),
-    ["solicitante", "circuito_sin_fuente"]);
-  await panel.listeners.click({ target: panel.querySelector('[data-dietas-cambiar-etapa="circuito_sin_fuente"]') });
-  assert.match(texto(panel.querySelector("[data-dietas-circuito-sin-fuente]")), /validadores/u);
+  assert.deepEqual(panel.querySelectorAll("[data-dietas-cambiar-etapa]").map((boton) => boton.dataset.dietasCambiarEtapa), []);
+  assert.equal(panel.querySelector("[data-dietas-circuito-sin-fuente]"), null);
   assert.equal(panel.querySelector("[data-dietas-circuito-decision]"), null);
   assert.equal(listados, 0);
   vista.desmontar();

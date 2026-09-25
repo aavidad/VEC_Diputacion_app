@@ -80,6 +80,18 @@ el rol nominal indicado por su nombre; no se reutiliza una credencial. El nuevo
 LOGIN de auditoría se crea mediante `01_roles.sql`; su contraseña solo entra por
 `VEC_BOLSA_AUDITORIA_FRONTERA_LOGIN_PASSWORD` al ejecutar el despliegue.
 
+Registro de empleado Personal B2 en `vec-interno`: `vec-server` publica las
+ocho claves B2 en el gobierno V3 sólo si arranca con
+`VEC_PERSONAL_B2_GOBIERNO_ENABLED=true` (valores admitidos `true`/`false`;
+exige la doble llave de desarrollo y AD3 `000054`–`000056`). **Activarlo es un
+punto de no retorno para el binario:** un `vec-server` anterior ve la última
+clave publicada como gobierno ajeno y Contratación temporal no arranca; hacer
+copia de la base antes y ensayarlo en clon. Después se prepara el material con
+`cmd/vec-preparar-material-interno` y se arranca `vec-interno` nuevo, que
+exige AD3 `000069`. La configuración V3 vence a medianoche UTC: durante los
+segundos que tarda `vec-server` en renovarla, CT y B2 de `vec-interno` fallan
+cerrados.
+
 Para activar B-BACK/B2 también se exige `VEC_BOLSA_BORRADORES_ENABLED=true` y el
 fichero privado `identidad/bolsa-bback.json` bajo
 `VEC_DEVELOPMENT_MATERIAL_DIR`, modo `0600`, propietario `openclaw`. Ejemplo JSON

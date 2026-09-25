@@ -288,14 +288,15 @@ test("Inicio con contratación temporal lenta: estado neutro hasta conocer el pe
   const neutro = vista();
   assert.match(neutro, /<h2>Inicio<\/h2>/);
   assert.match(neutro, /role="status" data-inicio-pendiente>Comprobando accesos…/);
-  assert.doesNotMatch(neutro, /nota-seguridad|portal-rrhh-inicio|Portal del Empleado<\/h2>/);
+  assert.doesNotMatch(neutro, /portal-inicio-empleado|portal-rrhh-inicio|Portal del Empleado<\/h2>/);
   assert.equal((neutro.match(/aria-busy="true"/g) || []).length, CATALOGO.length, "todas las tarjetas «Comprobando»");
   assert.equal(coordinador.vistaPendiente("personal-registro"), true, "el registro RRHH espera al perfil");
   pendientes.contratacion_temporal.rechazar(new Error("sin CT"));
   await carga;
   assert.equal(coordinador.inicioPendiente(), false);
   assert.equal(coordinador.vistaPendiente("personal-registro"), false);
-  assert.match(vista(), /nota-seguridad/, "sin CT: el Inicio del empleado");
+  assert.match(vista(), /portal-inicio-empleado/, "sin CT: el Inicio del empleado");
+  assert.doesNotMatch(vista(), /nota-seguridad|representa el acceso interno/u);
 });
 
 test("empleado sin contratación temporal en el catálogo: su Inicio en cuanto llega el catálogo", async () => {

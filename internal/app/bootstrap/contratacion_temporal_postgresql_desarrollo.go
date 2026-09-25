@@ -98,6 +98,8 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	materialDietas                    materialDietasDesdeCTDesarrollo
 	materialCronos                    materialCronosDesdeCTDesarrollo
 	materialPersonalFichaPropia       *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialPersonalB2                [8]CapacidadPublicadaPersonalB2V3
+	detenerRenovacion                 func()
 	catalogoMaterial                  catalogoMaterialAutorizacionComunDesarrollo
 	cerrarUnaVez                      func()
 }
@@ -212,6 +214,9 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	var cierre sync.Once
 	dependencias.cerrarUnaVez = func() {
 		cierre.Do(func() {
+			if dependencias.detenerRenovacion != nil {
+				dependencias.detenerRenovacion()
+			}
 			if dependencias.bolsa != nil {
 				dependencias.bolsa.Close()
 			}
@@ -319,6 +324,13 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	if personalEmpleadoSolicitado(cfg.PersonalEmpleadoEnabled) {
 		descriptoresMaterial = append(descriptoresMaterial, descriptorMaterialFichaPropiaPersonalDesarrollo())
 	}
+	personalB2, err := cfg.PersonalB2GobiernoDesarrolloActivo()
+	if err != nil {
+		return vacias, err
+	}
+	if personalB2 {
+		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialPersonalB2Desarrollo()...)
+	}
 	catalogoMaterial, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(descriptoresMaterial)
 	if err != nil {
 		return vacias, errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
@@ -353,6 +365,16 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		dependencias.materialPersonalFichaPropia, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, personaldomain.AudienciaFichaPropia)
 		if err != nil {
 			return vacias, err
+		}
+	}
+	if personalB2 {
+		// vec-server no consume B2: sólo publica sus claves para vec-interno.
+		dependencias.materialPersonalB2, err = publicarMaterialPersonalB2Desarrollo(ctx, gobierno, material, catalogoMaterial)
+		if err != nil {
+			registrarFalloPostgreSQLContratacionTemporalDesarrollo(
+				"publicar_gobierno_personal_b2", codigoFalloGobiernoPostgreSQLContratacionTemporalDesarrollo(err),
+			)
+			return vacias, errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 		}
 	}
 	proveedor, err := nuevoProveedorMaterialAltaContratacionTemporalDesarrollo(
@@ -470,6 +492,7 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	dependencias.candidaturas = resolver
 	dependencias.transaccionAlta = transaccion
 	dependencias.proveedorMaterial = proveedor
+	dependencias.detenerRenovacion = iniciarRenovacionProgramadaCTDesarrollo(material.fuenteConfianza, esperarTemporizadorCTDesarrollo)
 	completa = true
 	return dependencias, nil
 }

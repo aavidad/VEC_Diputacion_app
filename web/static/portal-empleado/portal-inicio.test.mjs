@@ -87,27 +87,42 @@ test("la tarjeta anuncia la comprobación sin ofrecer una ruta prematura", () =>
   assert.doesNotMatch(html, /data-vista=/);
 });
 
-test("la tarjeta diferencia denegación de error técnico y solo este permite reintentar", () => {
-  const denegado = renderizar({
-    disponible: false,
-    vista: "",
-    estado: "denegado",
-    etiqueta: "Sin permiso para gestionar borradores",
-  });
-  assert.match(denegado, /Sin permiso para gestionar borradores/);
-  assert.match(denegado, /<button[^>]+disabled>Sin permiso<\/button>/);
-  assert.doesNotMatch(denegado, /reintentar-borradores/);
+test("un módulo denegado o sin servicio no ocupa una tarjeta vacía", () => {
+  for (const acceso of [
+    { disponible: false, vista: "", estado: "denegado", etiqueta: "Sin permiso para gestionar borradores" },
+    { disponible: false, vista: "", estado: "error", etiqueta: "Servicio de borradores no disponible", reintentar: true },
+    { disponible: false, vista: "", estado: "no_disponible" },
+    { disponible: false, vista: "" },
+  ]) {
+    const html = renderizar(acceso);
+    assert.doesNotMatch(html, /data-modulo-catalogo=/u, acceso.estado);
+    assert.doesNotMatch(html, /Sin permiso|no disponible|reintentar-borradores/u, acceso.estado);
+  }
+});
 
-  const error = renderizar({
-    disponible: false,
-    vista: "",
-    estado: "error",
-    etiqueta: "Servicio de borradores no disponible",
-    reintentar: true,
-  });
-  assert.match(error, /Servicio de borradores no disponible/);
-  assert.match(error, /data-accion="reintentar-borradores">Reintentar<\/button>/);
-  assert.doesNotMatch(error, /data-vista=/);
+// E10/P2-4: sin ningún módulo que ofrecer, Inicio del empleado no queda en
+// blanco: un estado vacío con texto del catálogo i18n y sin ayuda en pantalla.
+test("Inicio del empleado sin módulos disponibles muestra un estado vacío i18n", () => {
+  const claves = [];
+  const vista = (catalogoFallido) => crearVistaInicioPortal({
+    encabezadoVista: () => "<header>Portal</header>",
+    escaparHTML,
+    obtenerCatalogo: () => [moduloBolsa],
+    resolverAcceso: () => ({ disponible: false, vista: "", estado: "denegado" }),
+    traducir: (clave) => { claves.push(clave); return `«${clave}»`; },
+    catalogoFallido: () => catalogoFallido,
+  })();
+  const html = vista(false);
+  assert.match(html, /role="status" data-inicio-sin-modulos>\s*<p>«inicio_empleado_sin_modulos»<\/p>/u);
+  assert.ok(claves.includes("inicio_empleado_sin_modulos"));
+  assert.doesNotMatch(html, /data-modulo-catalogo=|data-accion="ayuda"|rejilla-modulos/u);
+  assert.match(renderizar({ disponible: false, vista: "", estado: "denegado" }), /No hay módulos disponibles para su perfil\./u);
+  // Con el catálogo caído manda su aviso con reintento, no el estado vacío.
+  const fallido = vista(true);
+  assert.match(fallido, /data-accion="recargar-fuente"/u);
+  assert.doesNotMatch(fallido, /data-inicio-sin-modulos/u);
+  // Con un módulo ofrecido no hay estado vacío.
+  assert.doesNotMatch(renderizar({ disponible: true, vista: "resumen" }), /data-inicio-sin-modulos/u);
 });
 
 test("la capacidad propia abre Elaboración aunque el panel agregado no participe", () => {
@@ -245,9 +260,9 @@ test("G10: la vista de inicio para RRHH conserva cuadro y accesos, y expone el c
 
   const html = renderizarRRHH();
 
-  // Encabezado y sección RRHH
-  assert.match(html, /Gestión de personal/);
+  // Encabezado y sección RRHH, sin textos técnicos ni de ayuda en pantalla.
   assert.match(html, /Inicio del portal/);
+  assert.doesNotMatch(html, /adaptador de backend|Accesos por módulo|fase inicial/u);
   assert.match(html, /class="portal-rrhh-inicio"/);
 
   // 3 accesos directos requeridos

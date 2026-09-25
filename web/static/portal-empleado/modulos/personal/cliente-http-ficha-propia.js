@@ -7,7 +7,7 @@
  * puestos» y «Servicios» con denominaciones legibles; nada se guarda fuera
  * de la memoria de la vista montada.
  */
-import { crearTraductorFichaPropia, formatearDiasFichaPropia } from "./i18n-ficha-propia.js?v=20260925-personal-mis-datos-v1";
+import { crearTraductorFichaPropia, formatearDiasFichaPropia } from "./i18n-ficha-propia.js?v=20260925-personal-e10-v1";
 
 export const RUTA_FICHA_PROPIA = "/api/interna/personal/mi-ficha";
 

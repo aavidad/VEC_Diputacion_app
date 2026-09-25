@@ -55,10 +55,29 @@ func TestPersonalEmpleadoApagadoPorDefectoNoTocaLaRaiz(t *testing.T) {
 	if d.Audiencia != personaldomain.AudienciaFichaPropia || !strings.HasPrefix(d.Prefijo, "clave:capacidad:") {
 		t.Fatalf("descriptor V3 inesperado: %+v", d)
 	}
-	// El descriptor convive con los del resto de consumidores sin colisión.
-	todos := append(append(append(descriptoresMaterialAutorizacionContratacionTemporalDesarrollo(), descriptoresMaterialDietasDesarrollo()...), descriptoresMaterialCronosDesarrollo()...), d)
+	// El descriptor convive con los del resto de consumidores (CT, Bolsa,
+	// Dietas, Cronos y los ocho de B2) sin colisión de audiencia, dominio ni
+	// prefijo, tampoco textual: ningún prefijo puede ser prefijo de otro.
+	todos := append(append(descriptoresPreviosPersonalB2Prueba(), descriptoresMaterialPersonalB2Desarrollo()...), d)
 	if _, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(todos); err != nil {
 		t.Fatal("el descriptor de la ficha propia colisiona con otro consumidor", err)
+	}
+	for _, otro := range todos {
+		if otro.Audiencia != d.Audiencia && (strings.HasPrefix(otro.Prefijo, d.Prefijo) || strings.HasPrefix(d.Prefijo, otro.Prefijo) || otro.Dominio == d.Dominio) {
+			t.Fatalf("prefijo o dominio solapado con la ficha propia: %s / %s", d.Prefijo, otro.Prefijo)
+		}
+	}
+	for _, b2 := range descriptoresMaterialPersonalB2Desarrollo() {
+		for nombre, alterado := range map[string]descriptorMaterialConsumidorV3Desarrollo{
+			"audiencia": {Audiencia: b2.Audiencia, Dominio: d.Dominio, Prefijo: d.Prefijo, ProveedorNominal: d.ProveedorNominal},
+			"dominio":   {Audiencia: d.Audiencia, Dominio: b2.Dominio, Prefijo: d.Prefijo, ProveedorNominal: d.ProveedorNominal},
+			"prefijo":   {Audiencia: d.Audiencia, Dominio: d.Dominio, Prefijo: b2.Prefijo, ProveedorNominal: d.ProveedorNominal},
+		} {
+			con := append(append(descriptoresPreviosPersonalB2Prueba(), descriptoresMaterialPersonalB2Desarrollo()...), alterado)
+			if _, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(con); err == nil {
+				t.Fatalf("colisión de %s entre la ficha propia y %s admitida", nombre, b2.Audiencia)
+			}
+		}
 	}
 }
 
