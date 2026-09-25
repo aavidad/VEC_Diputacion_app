@@ -79,9 +79,9 @@ la recupera al reactivar con la política de orden vigente.
 # Incremento B2 — registro de empleado de Personal
 
 Migraciones nuevas, en este orden y cada una ensayada antes con `ROLLBACK`:
-ContextoActor `000008`; Personal `000017`, `000019`, `000018`, `000020`;
-AD3 `000054`, `000055`, `000056` (sus números son huecos reservados: se
-instalan después de AD3 59/61/70/80, ya presentes en la principal); Personal
+ContextoActor `000008`; Personal `000017`; AD3 `000054`, `000055`, `000056`
+(sus números son huecos reservados: se instalan después de AD3 59/61/70/80,
+ya presentes en la principal); Personal `000018`, `000019`, `000020` y
 `000021`. Las AD3 toman el consultivo común del núcleo y rechazan una segunda
 aplicación. El material privado V3 de Personal B2 usa el formato 3 (ocho
 capacidades, con la lista de empleados del organismo).
