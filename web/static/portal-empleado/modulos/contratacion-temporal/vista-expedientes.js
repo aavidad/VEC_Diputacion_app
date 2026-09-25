@@ -151,6 +151,7 @@ export async function montarModuloContratacionTemporal({
   let reciboPropuestaConfirmado = null;
   let desmontarEstadisticas = null;
   let desmontarSeguimientoCese = null;
+  let avisoSeguimientoCese = null;
   let secuenciaInterfaz = 0;
   const clienteSeguimientoCese = typeof clienteLlamamiento?.seguimientoCese?.consultarSeguimientoCese === "function"
     ? clienteLlamamiento.seguimientoCese : null;
@@ -169,10 +170,14 @@ export async function montarModuloContratacionTemporal({
     const contenedor = raiz.ownerDocument.createElement("div");
     contenedor.setAttribute("data-ct-exp-seguimiento-cese", "");
     zona.append(contenedor);
+    // El recibo del último registro sobrevive a la recarga del detalle.
+    const avisoInicial = avisoSeguimientoCese?.expediente_ref === contexto.expediente_ref ? avisoSeguimientoCese.aviso : null;
+    avisoSeguimientoCese = null;
     try {
       desmontarSeguimientoCese = montarPanelSeguimientoCese({
-        contenedor, cliente: clienteSeguimientoCese, contexto, mensajes, locale, anunciar, confirmarOperacion,
-        alConfirmar: async () => {
+        contenedor, cliente: clienteSeguimientoCese, contexto, mensajes, locale, anunciar, confirmarOperacion, avisoInicial,
+        alConfirmar: async (_recibo, aviso) => {
+          avisoSeguimientoCese = aviso ? { expediente_ref: contexto.expediente_ref, aviso } : null;
           try {
             await presentador.cargar();
             if (!montada) return;

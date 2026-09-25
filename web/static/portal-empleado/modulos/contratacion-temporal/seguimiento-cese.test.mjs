@@ -148,3 +148,32 @@ test("si el servidor no compone el seguimiento (404 de ruta) el panel no se mont
   assert.equal(rutaSeguimientoCeseNoMontada({ estado: 503, envelopeValido: false }), false);
   assert.equal(rutaSeguimientoCeseNoMontada(new Error("red")), false);
 });
+
+test("tras registrar, el panel pinta el recibo y lo conserva al volver a montarse", async () => {
+  const c = contenedorFalso();
+  const cliente = { consultarSeguimientoCese: async () => validarConsultaSeguimientoCese(consulta(), EXP), registrarCese: async () => ({ ...recibo }) };
+  let recibido = null;
+  const FormDataOriginal = globalThis.FormData;
+  globalThis.FormData = class { constructor(f) { this.f = f; } entries() { return Object.entries(this.f.campos); } };
+  try {
+    const desmontar = montarPanelSeguimientoCese({ contenedor: c, cliente, contexto, confirmarOperacion: () => true,
+      generarClave: () => cese.clave_idempotencia, alConfirmar: (r, aviso) => { recibido = { r, aviso }; } });
+    await esperar();
+    const formulario = { dataset: { ctSegForm: "cese" }, campos: { causa_clave: "fin_sustitucion", fecha_efecto: "2027-02-15",
+      justificante_ref: "documento:reincorporacion:1", justificante_sha256: "a".repeat(64), observaciones: "" } };
+    c.eventos.get("submit")({ target: { closest: () => formulario }, preventDefault() {} });
+    await esperar();
+    assert.doesNotMatch(c.innerHTML, /Registrando/u, "el éxito no puede quedarse en «enviando»");
+    assert.match(c.innerHTML, /data-ct-seg-aviso[^>]*>[^<]*recibo:cese:1/u);
+    assert.equal(recibido?.r.recibo_ref, "recibo:cese:1");
+    assert.equal(recibido?.aviso.tono, "exito");
+    desmontar();
+    const otro = contenedorFalso();
+    const otroDesmontar = montarPanelSeguimientoCese({ contenedor: otro, cliente, contexto, avisoInicial: recibido.aviso });
+    await esperar();
+    assert.match(otro.innerHTML, /data-ct-seg-aviso[^>]*>[^<]*recibo:cese:1/u);
+    otroDesmontar();
+  } finally {
+    globalThis.FormData = FormDataOriginal;
+  }
+});
