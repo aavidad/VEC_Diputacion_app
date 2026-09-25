@@ -118,6 +118,7 @@ python3 "$SCRIPT" --material-dir "$MATERIAL" alias-hmac \
   --subject-id "$PERSONA_REF" \
   --external-account-id "$CUENTA_EXTERNA_REF" \
   --internal-account-ref "$CUENTA_REF" \
+  --corporate-organization-ref "$ORGANIZACION_CORPORATIVA_REF" \
   --database "$BASE" --admin-user "$USUARIO_ADMIN" \
   --pg-container "$CONTENEDOR_PG"
 ```
@@ -133,7 +134,11 @@ externa, el PIN y la clave no aparecen en SQL ni salida.
 En la misma transacción, antes del registro HMAC, coteja como propietario de
 ContextoActor el vínculo corporativo actual `consulta_rrhh`: persona del
 certificado, cuenta y perfil seleccionados, proyección de cuenta, persona,
-perfil, contexto y organización actuales, activos y vigentes. Bloquea sus
+perfil, contexto y organización actuales, activos y vigentes. La organización
+del vínculo es la corporativa de ContextoActor (`org_…`,
+`$ORGANIZACION_CORPORATIVA_REF`); el selector nominal conserva el ámbito CT
+(`organizacion:…` o `ref:…`). Son referencias distintas y cada una se coteja
+en su autoridad. Bloquea sus
 punteros durante el registro en Identidad. Una cuenta interna de otra persona
 se rechaza aunque esté activa. Si falta ContextoActor `000004` o cualquiera
 de sus pruebas, el alias falla cerrado.

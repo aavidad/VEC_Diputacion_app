@@ -15,8 +15,13 @@ F1. El perfil es propio del lector interno y aparece en el material privado de
 
 `VEC_PERMISO_INTERNO_DSN` contiene el DSN administrativo PostgreSQL y se aporta
 fuera de Git. Ejecutar `go run ./cmd/vec-publicar-permiso-interno` con `--cuenta`,
-`--persona`, `--perfil`, `--organizacion`, `--politica` y `--politica-huella`,
-tomados de los registros gobernados privados. No pasar el DSN por argumento.
+`--persona`, `--perfil`, `--organizacion`, `--organizacion-corporativa`,
+`--politica` y `--politica-huella`, tomados de los registros gobernados
+privados. No pasar el DSN por argumento. `--organizacion` es el ámbito CT del
+permiso (el mismo que el selector nominal de vec-interno, p. ej.
+`organizacion:…`); `--organizacion-corporativa` es la referencia `org_…` del
+vínculo corporativo de ContextoActor. No son intercambiables: el cotejo F1 usa
+la segunda y el ámbito V3 la primera.
 
 La herramienta coteja la política activa de Identidad, el vínculo F1 de
 cuenta/persona/perfil y el vínculo corporativo vigente de esa misma cuenta con

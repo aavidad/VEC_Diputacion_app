@@ -13,8 +13,9 @@ import (
 func TestPermisoInternoCTSoloConsultaTemporalEnPerfilPropio(t *testing.T) {
 	s := SolicitudPermisoInternoCT{
 		CuentaRef: "cta_0123456789abcdefghijkl", PrincipalRef: "per_0123456789abcdefghijkl",
-		PerfilRef: "prf_0123456789abcdefghijkl", OrganizacionRef: "org_0123456789abcdefghijkl",
-		PoliticaRef: "pga_0123456789abcdefghijkl", PoliticaHuellaSHA256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		PerfilRef: "prf_0123456789abcdefghijkl", OrganizacionRef: "organizacion:rrhh_ensayo",
+		OrganizacionCorporativaRef: "org_0123456789abcdefghijkl",
+		PoliticaRef:                "pga_0123456789abcdefghijkl", PoliticaHuellaSHA256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 	}
 	ahora := time.Date(2026, 9, 25, 9, 0, 0, 0, time.UTC)
 	hasta := time.Date(2026, 10, 31, 23, 0, 0, 0, time.UTC)
@@ -71,5 +72,20 @@ func TestPermisoInternoCTSoloConsultaTemporalEnPerfilPropio(t *testing.T) {
 	}
 	if _, err := plantillaPermisoInternoCT(s, hasta, hasta); err == nil {
 		t.Fatal("se aceptó vigencia vacía")
+	}
+	cruzada := s
+	cruzada.OrganizacionRef = s.OrganizacionCorporativaRef
+	if _, err := plantillaPermisoInternoCT(cruzada, ahora, hasta); err == nil {
+		t.Fatal("ámbito CT confundido con la organización corporativa")
+	}
+	sinCorporativa := s
+	sinCorporativa.OrganizacionCorporativaRef = "organizacion:rrhh_ensayo"
+	if _, err := plantillaPermisoInternoCT(sinCorporativa, ahora, hasta); err == nil {
+		t.Fatal("organización corporativa fuera de la gramática de ContextoActor")
+	}
+	for _, a := range i.AsignacionPerfil.Ambitos {
+		if a.Clave != "clase_ambito" && (len(a.Valores) != 1 || a.Valores[0] != s.OrganizacionRef) {
+			t.Fatal("el ámbito V3 no es la organización CT")
+		}
 	}
 }

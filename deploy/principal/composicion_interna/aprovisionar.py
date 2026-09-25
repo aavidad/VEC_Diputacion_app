@@ -1023,7 +1023,8 @@ def registrar_alias_hmac(root: Path, args: argparse.Namespace) -> None:
     if not re.fullmatch(r"per_[a-z0-9_]{22,128}", args.subject_id) or \
        not re.fullmatch(r"cta_[a-z0-9_]{22,128}", args.external_account_id) or \
        not re.fullmatch(r"cta_[a-z0-9_]{22,128}", args.internal_account_ref) or \
-       args.external_account_id == args.internal_account_ref:
+       args.external_account_id == args.internal_account_ref or \
+       not re.fullmatch(r"org_[a-z0-9]{16,80}", args.corporate_organization_ref):
         fail("referencias de alias inválidas o coincidentes")
     if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]{0,62}", args.database) or \
        not re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]{0,62}", args.admin_user):
@@ -1086,8 +1087,10 @@ def registrar_alias_hmac(root: Path, args: argparse.Namespace) -> None:
         str(metadata["clave_version"]).encode() + b"\0" + cuenta_hmac + sujeto_hmac
     ).hexdigest()
     for finish in ("ROLLBACK", "COMMIT"):
+        # El selector nominal lleva el ámbito CT («organizacion:…»); el vínculo
+        # corporativo de ContextoActor usa su propia referencia «org_…».
         psql(sql_alias_hmac(operation, args.internal_account_ref, args.subject_id,
-                           selected[0]["perfil_ref"], selected[0]["organizacion_ref"], metadata,
+                           selected[0]["perfil_ref"], args.corporate_organization_ref, metadata,
                            cuenta_hmac, sujeto_hmac, finish), args.pg_container,
              args.container_engine, args.database, args.admin_user)
     print("Alias HMAC de Identidad cotejado y registrado; operación idempotente")
@@ -1247,6 +1250,8 @@ def main() -> None:
     alias.add_argument("--subject-id", required=True)
     alias.add_argument("--external-account-id", required=True)
     alias.add_argument("--internal-account-ref", required=True)
+    alias.add_argument("--corporate-organization-ref", required=True,
+                       help="organización org_ del vínculo corporativo en ContextoActor")
     alias.add_argument("--database", required=True)
     alias.add_argument("--admin-user", required=True)
     alias.add_argument("--pg-container")

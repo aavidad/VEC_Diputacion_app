@@ -17,6 +17,7 @@ EXTERNAL = "cta_" + "b" * 24
 INTERNAL = "cta_" + "c" * 24
 PROFILE = "prf_" + "d" * 24
 ORGANIZATION = "organizacion:rrhh_ensayo"
+CORPORATE = "org_" + "e" * 24
 ROOT = Path("/material-de-prueba")
 
 
@@ -31,7 +32,8 @@ def metadata() -> dict:
 
 def arguments(**changes: str) -> argparse.Namespace:
     data = {"subject_id": SUBJECT, "external_account_id": EXTERNAL,
-            "internal_account_ref": INTERNAL, "database": "vec_test",
+            "internal_account_ref": INTERNAL, "corporate_organization_ref": CORPORATE,
+            "database": "vec_test",
             "admin_user": "postgres", "pg_container": "vec-pg",
             "container_engine": "docker"}
     data.update(changes)
@@ -91,6 +93,7 @@ class AliasHMACTest(unittest.TestCase):
         self.assertIn("vinculo_corporativo_actual", statements[1])
         self.assertIn("cv.persona_ref='" + SUBJECT + "'", statements[1])
         self.assertIn("cv.perfil_ref='" + PROFILE + "'", statements[1])
+        self.assertIn("cv.organizacion_ref='" + CORPORATE + "'", statements[1])
         self.assertLess(statements[1].index("DO $vinculo$"),
                         statements[1].index("registrar_alias_hmac_cuenta_v1"))
         self.assertIn(account_digest.hex(), statements[1])
@@ -125,13 +128,21 @@ class AliasHMACTest(unittest.TestCase):
 
     def test_cruce_sql_y_resultado_nulo_rechazan(self) -> None:
         query = app.sql_alias_hmac("opr_" + "e" * 64, INTERNAL, SUBJECT, PROFILE,
-                                   ORGANIZATION, metadata(),
+                                   CORPORATE, metadata(),
                                    bytes.fromhex("11" * 32), bytes.fromhex("22" * 32),
                                    "COMMIT")
         self.assertIn("a.sujeto_id_hmac=decode", query)
         self.assertIn("a.cuenta_ref=", query)
         self.assertIn("IS DISTINCT FROM", query)
         self.assertIn("RAISE EXCEPTION 'alias HMAC cruzado'", query)
+
+    def test_organizacion_corporativa_distinta_del_ambito_ct(self) -> None:
+        with patch.object(app, "read_private", side_effect=lambda path: private_files()[path]), \
+             patch.object(app, "firmar_alias_hmac") as sign, patch.object(app, "psql") as sql:
+            with self.assertRaisesRegex(RuntimeError, "inválidas"):
+                app.registrar_alias_hmac(ROOT, arguments(corporate_organization_ref=ORGANIZATION))
+        sign.assert_not_called()
+        sql.assert_not_called()
 
 
 if __name__ == "__main__":

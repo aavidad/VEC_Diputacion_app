@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -20,8 +21,13 @@ var ErrPermisoInternoNoPublicable = errors.New("permiso interno CT no publicable
 
 // SolicitudPermisoInternoCT es una orden administrativa previa al arranque. Las
 // referencias proceden del contexto nominal privado y deben existir en F1.
+// OrganizacionRef es el ámbito CT del permiso (la misma referencia que el
+// selector nominal de vec-interno, p. ej. «organizacion:…»); la organización
+// corporativa «org_…» es la del vínculo corporativo de ContextoActor. Son
+// vocabularios distintos y el aprovisionamiento coteja cada uno en su autoridad.
 type SolicitudPermisoInternoCT struct {
 	CuentaRef, PrincipalRef, PerfilRef, OrganizacionRef string
+	OrganizacionCorporativaRef                          string
 	PoliticaRef, PoliticaHuellaSHA256                   string
 }
 
@@ -32,6 +38,8 @@ var retiradaMaximaPermisoInternoCT = time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC
 func plantillaPermisoInternoCT(s SolicitudPermisoInternoCT, ahora, hasta time.Time) (core.InstantaneaAutorizacion, error) {
 	var vacia core.InstantaneaAutorizacion
 	if s.CuentaRef == "" || s.PrincipalRef == "" || s.PerfilRef == "" || s.OrganizacionRef == "" ||
+		!organizacionCorporativaValida(s.OrganizacionCorporativaRef) ||
+		strings.HasPrefix(s.OrganizacionRef, "org_") ||
 		len(s.PoliticaRef) < 26 || len(s.PoliticaHuellaSHA256) != 64 ||
 		!hasta.After(ahora) || hasta.After(retiradaMaximaPermisoInternoCT) ||
 		ahora.Location() != time.UTC || hasta.Location() != time.UTC {
@@ -93,8 +101,22 @@ func plantillaPermisoInternoCT(s SolicitudPermisoInternoCT, ahora, hasta time.Ti
 // PublicarPermisoInternoCT publica una vez el perfil nominal; no se llama
 // durante operaciones ni por el servidor. La transacción administrativa exige
 // F1 y política temporal actuales. Replay exacto sólo verifica, no reescribe.
+// organizacionCorporativaValida repite la gramática de ContextoActor 000003
+// (organizacion_ref_valida): «org_» y de 16 a 80 caracteres [a-z0-9].
+func organizacionCorporativaValida(valor string) bool {
+	if len(valor) < 20 || len(valor) > 84 || !strings.HasPrefix(valor, "org_") {
+		return false
+	}
+	for _, c := range valor[4:] {
+		if (c < 'a' || c > 'z') && (c < '0' || c > '9') {
+			return false
+		}
+	}
+	return true
+}
+
 func PublicarPermisoInternoCT(ctx context.Context, pool *pgxpool.Pool, s SolicitudPermisoInternoCT) error {
-	if ctx == nil || pool == nil || ctx.Err() != nil {
+	if ctx == nil || pool == nil || ctx.Err() != nil || !organizacionCorporativaValida(s.OrganizacionCorporativaRef) {
 		return ErrPermisoInternoNoPublicable
 	}
 	tx, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
@@ -155,7 +177,7 @@ func PublicarPermisoInternoCT(ctx context.Context, pool *pgxpool.Pool, s Solicit
  AND $4>=p.vigente_desde AND $4<p.vigente_hasta
  AND $4>=x.vigente_desde AND $4<x.vigente_hasta
  AND $4>=cv.vigente_desde AND $4<cv.vigente_hasta
- AND $4>=ov.vigente_desde AND $4<ov.vigente_hasta`, s.CuentaRef, s.PerfilRef, s.PrincipalRef, ahora, s.OrganizacionRef).Scan(&vinculaciones)
+ AND $4>=ov.vigente_desde AND $4<ov.vigente_hasta`, s.CuentaRef, s.PerfilRef, s.PrincipalRef, ahora, s.OrganizacionCorporativaRef).Scan(&vinculaciones)
 	if err != nil || vinculaciones != 1 {
 		return ErrPermisoInternoNoPublicable
 	}
