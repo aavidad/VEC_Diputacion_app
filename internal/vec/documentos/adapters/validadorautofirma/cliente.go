@@ -1,13 +1,18 @@
 // Package validadorautofirma traduce el puerto de verificacion de firma de
-// Documentos al validador de AutofirmaV2 desplegado como servicio aparte.
+// Documentos al validador de AutofirmaV2 desplegado como servicio aparte en
+// modo `-rest-solo-verificacion`.
 //
 // VEC no importa codigo de AutofirmaV2: este adaptador solo habla su API REST
-// `POST /verify` (JSON con `content_base64` y, para firmas separadas,
-// `original_content_base64`). La traduccion es deliberadamente conservadora:
-// AutofirmaV2 no informa hoy de sello de tiempo ni expone un estado de
-// revocacion explicito, por lo que el adaptador nunca devuelve una firma
-// valida; como maximo `indeterminada`. Si detecta defectos concluyentes
-// (integridad, certificado o confianza invalidos) devuelve `no_valida`.
+// `POST /verify` (JSON con `content_base64` y `original_content_base64`) e
+// interpreta exclusivamente el `dictamen` con contrato
+// `autofirmav2.dictamen-verificacion.v1`. Los campos heredados (`valid`,
+// `result`) se ignoran. Cualquier otro contrato, estado fuera de catalogo,
+// huella de eco distinta o veredicto incoherente con sus aspectos se traduce
+// a `indeterminada` / `respuesta_no_interpretable`.
+//
+// VEC no delega el veredicto: recalcula el suyo sobre los aspectos del
+// dictamen con ports.PoliticaVerificacionFirmaV1 y solo lo acepta si coincide
+// con el del validador, o si es mas estricto que un `valida` de este.
 package validadorautofirma
 
 import (
@@ -33,6 +38,8 @@ import (
 const (
 	// RutaVerificacion es la ruta REST del validador de AutofirmaV2.
 	RutaVerificacion = "/verify"
+	// ContratoDictamen es el unico contrato de dictamen que se interpreta.
+	ContratoDictamen = "autofirmav2.dictamen-verificacion.v1"
 
 	tiempoPredeterminado = 20 * time.Second
 	tiempoMaximo         = 60 * time.Second
@@ -163,36 +170,77 @@ func tokenValido(token string) bool {
 type peticionAutofirma struct {
 	Name           string `json:"name"`
 	ContentBase64  string `json:"content_base64"`
-	OriginalBase64 string `json:"original_content_base64,omitempty"`
+	OriginalBase64 string `json:"original_content_base64"`
 }
 
-// respuestaAutofirma decodifica solo lo necesario. Asunto, emisor, detalles
-// libres y avisos del proveedor se descartan al decodificar.
+// respuestaAutofirma decodifica solo el dictamen. Asunto, emisor, serie,
+// motivos tecnicos, fuentes, fechas y los campos heredados se descartan.
 type respuestaAutofirma struct {
-	OK     bool                `json:"ok"`
-	Valid  bool                `json:"valid"`
-	Result *resultadoAutofirma `json:"result"`
+	Dictamen *dictamenAutofirma `json:"dictamen"`
 }
 
-type resultadoAutofirma struct {
-	Valid           bool                `json:"valid"`
-	Details         []string            `json:"details"`
-	Integrity       aspectoAutofirma    `json:"integrity"`
-	Certificate     aspectoAutofirma    `json:"certificate"`
-	Trust           aspectoAutofirma    `json:"trust"`
-	SignerSummaries []firmanteAutofirma `json:"signerSummaries"`
+type dictamenAutofirma struct {
+	Contrato                string              `json:"contrato"`
+	Estado                  string              `json:"estado"`
+	Motivo                  string              `json:"motivo"`
+	Integridad              aspectoAutofirma    `json:"integridad"`
+	Cadena                  aspectoAutofirma    `json:"cadena"`
+	Certificado             aspectoAutofirma    `json:"certificado"`
+	Revocacion              aspectoAutofirma    `json:"revocacion"`
+	SelloTiempo             aspectoAutofirma    `json:"selloTiempo"`
+	VinculoOriginal         aspectoAutofirma    `json:"vinculoOriginal"`
+	HuellaFirmadoSHA256     string              `json:"huellaFirmadoSHA256"`
+	HuellaOriginalSHA256    string              `json:"huellaOriginalSHA256"`
+	CertificadoHuellaSHA256 string              `json:"certificadoHuellaSHA256"`
+	Firmantes               []firmanteAutofirma `json:"firmantes"`
+	Extensiones             extensionesDictamen `json:"extensiones"`
 }
 
 type aspectoAutofirma struct {
-	Status string `json:"status"`
+	Estado string `json:"estado"`
 }
 
 type firmanteAutofirma struct {
-	Fingerprint string `json:"fingerprint"`
+	CertificadoHuellaSHA256 string           `json:"certificadoHuellaSHA256"`
+	Cadena                  aspectoAutofirma `json:"cadena"`
+	Certificado             aspectoAutofirma `json:"certificado"`
+	Revocacion              aspectoAutofirma `json:"revocacion"`
+	SelloTiempo             aspectoAutofirma `json:"selloTiempo"`
 }
 
+type extensionesDictamen struct {
+	RevocacionRemota  string `json:"revocacionRemota"`
+	SelloTiempoRemoto string `json:"selloTiempoRemoto"`
+}
+
+// Catalogos cerrados del contrato v1. Son constantes de lectura: no se
+// modifican en ejecucion.
+var (
+	estadosIntegridad  = []string{"valida", "parcial", "no_valida"}
+	estadosCadena      = []string{"valida", "no_valida", "no_comprobada"}
+	estadosCertificado = []string{"vigente", "no_vigente", "uso_no_permitido", "no_comprobado"}
+	estadosRevocacion  = []string{ports.RevocacionVigente, ports.RevocacionRevocado, ports.RevocacionNoComprobada}
+	estadosSello       = []string{ports.SelloTiempoNoPresente, ports.SelloTiempoValido,
+		ports.SelloTiempoNoValido, ports.SelloTiempoNoComprobado}
+	estadosVinculo   = []string{"acreditado", "no_acreditado", "no_aportado"}
+	estadosExtension = []string{"desactivada", "activa"}
+	motivosDictamen  = map[string]ports.MotivoVerificacionFirma{
+		"verificada":                     ports.MotivoFirmaVerificada,
+		"integridad_no_valida":           ports.MotivoIntegridadNoValida,
+		"certificado_no_valido":          ports.MotivoCertificadoNoValido,
+		"confianza_no_valida":            ports.MotivoConfianzaNoValida,
+		"integridad_parcial":             ports.MotivoIntegridadParcial,
+		"firmante_no_identificado":       ports.MotivoFirmanteNoIdentificado,
+		"certificado_no_acreditado":      ports.MotivoCertificadoNoAcreditado,
+		"confianza_no_acreditada":        ports.MotivoConfianzaNoAcreditada,
+		"revocacion_no_acreditada":       ports.MotivoRevocacionNoAcreditada,
+		"sello_tiempo_no_acreditado":     ports.MotivoSelloTiempoNoAcreditado,
+		"vinculo_original_no_acreditado": ports.MotivoVinculoOriginalNoAcreditado,
+	}
+)
+
 // Verificar implementa ports.VerificadorFirma. Devuelve el resultado tipado;
-// solo `valida` con ValidarContra positivo habilitaria la firma.
+// solo `valida` con ValidarContra positivo habilita la firma.
 func (c *Cliente) Verificar(ctx context.Context, s ports.SolicitudVerificacionFirma) (ports.ResultadoVerificacionFirma, error) {
 	motivada, err := c.VerificarMotivado(ctx, s)
 	if err != nil {
@@ -212,27 +260,25 @@ func (c *Cliente) VerificarMotivado(ctx context.Context, s ports.SolicitudVerifi
 	base := ports.ResultadoVerificacionFirma{
 		Estado:               ports.EstadoVerificacionIndeterminada,
 		HuellaOriginalSHA256: s.HuellaOriginalSHA256,
-		// Huella calculada por VEC sobre los bytes enviados: AutofirmaV2 no
-		// devuelve eco de huellas.
+		// Huella calculada por VEC sobre los bytes enviados; el eco del
+		// validador solo se compara, nunca se adopta.
 		HuellaFirmadoSHA256: hex.EncodeToString(suma[:]),
 		SelloTiempoEstado:   estadoNoInformado,
 		RevocacionEstado:    estadoNoInformado,
 	}
-	// PAdES lleva el original incrustado y AutofirmaV2 ignora el original
-	// aportado; no se envia para minimizar datos.
-	incrustada := bytes.HasPrefix(s.ContenidoFirmado, []byte("%PDF-"))
+	// El original se envia siempre, tambien en PAdES: AutofirmaV2 acredita el
+	// vinculo cuando el original es prefijo exacto del PDF firmado y una firma
+	// cubre todos sus bytes. Sin original no hay vinculo que acreditar.
 	peticion := peticionAutofirma{
-		Name:          nombreDocumento,
-		ContentBase64: base64.StdEncoding.EncodeToString(s.ContenidoFirmado),
-	}
-	if !incrustada {
-		peticion.OriginalBase64 = base64.StdEncoding.EncodeToString(s.ContenidoOriginal)
+		Name:           nombreDocumento,
+		ContentBase64:  base64.StdEncoding.EncodeToString(s.ContenidoFirmado),
+		OriginalBase64: base64.StdEncoding.EncodeToString(s.ContenidoOriginal),
 	}
 	recibida, motivo := c.llamar(ctx, peticion)
 	if motivo != "" {
 		return motivar(base, motivo), nil
 	}
-	return traducir(base, recibida, !incrustada), nil
+	return traducir(base, recibida.Dictamen), nil
 }
 
 func (c *Cliente) llamar(ctx context.Context, peticion peticionAutofirma) (respuestaAutofirma, ports.MotivoVerificacionFirma) {
@@ -291,55 +337,114 @@ func motivar(r ports.ResultadoVerificacionFirma, m ports.MotivoVerificacionFirma
 	return ports.VerificacionFirmaMotivada{Resultado: r, Motivo: m}
 }
 
-// traducir aplica la politica de fallo cerrado. Precedencia: incoherencia de
-// la respuesta; defectos concluyentes; y, para respuestas positivas, cada
-// comprobacion que AutofirmaV2 no acredita.
-func traducir(r ports.ResultadoVerificacionFirma, a respuestaAutofirma, separada bool) ports.VerificacionFirmaMotivada {
-	res := a.Result
-	if !a.OK || res == nil || res.Valid != a.Valid || len(res.SignerSummaries) > maximoFirmantes ||
-		!estadoConocido(res.Integrity.Status) || !estadoConocido(res.Certificate.Status) ||
-		!estadoConocido(res.Trust.Status) {
+// traducir interpreta el dictamen con fallo cerrado. Primero valida contrato,
+// catalogos y huellas de eco; despues recalcula el veredicto con la politica
+// de VEC y lo contrasta con el declarado por el validador.
+func traducir(r ports.ResultadoVerificacionFirma, d *dictamenAutofirma) ports.VerificacionFirmaMotivada {
+	if !dictamenInterpretable(d) || d.HuellaFirmadoSHA256 != r.HuellaFirmadoSHA256 ||
+		(d.HuellaOriginalSHA256 != "" && d.HuellaOriginalSHA256 != r.HuellaOriginalSHA256) {
 		return motivar(r, ports.MotivoRespuestaNoInterpretable)
 	}
-	switch {
-	case res.Integrity.Status == "invalid":
-		return motivar(r, ports.MotivoIntegridadNoValida)
-	case res.Certificate.Status == "invalid":
-		return motivar(r, ports.MotivoCertificadoNoValido)
-	case res.Trust.Status == "invalid":
-		return motivar(r, ports.MotivoConfianzaNoValida)
-	case !res.Valid || res.Integrity.Status != "valid":
-		// Negativo sin aspecto concluyente: no se inventa la causa.
+	declarado := motivosDictamen[d.Motivo]
+	if string(declarado.EstadoAsociado()) != d.Estado {
 		return motivar(r, ports.MotivoRespuestaNoInterpretable)
 	}
-	// La firma solo esta ligada al original custodiado cuando AutofirmaV2 la
-	// verifico en modo separado contra los bytes enviados por VEC.
-	r.VinculoOriginal = separada && contieneMarcador(res.Details, "modo=detached")
-	if len(res.SignerSummaries) == 1 && huellaValida(res.SignerSummaries[0].Fingerprint) {
-		r.CertificadoHuellaSHA256 = res.SignerSummaries[0].Fingerprint
+	sinAdoptar := r
+	r.VinculoOriginal = d.VinculoOriginal.Estado == "acreditado"
+	r.RevocacionEstado = d.Revocacion.Estado
+	r.SelloTiempoEstado = d.SelloTiempo.Estado
+	if len(d.Firmantes) == 1 && d.CertificadoHuellaSHA256 != "" {
+		// La referencia del firmante es la huella de su certificado; su
+		// correspondencia con la persona la resuelve la aplicacion.
+		r.CertificadoHuellaSHA256 = d.CertificadoHuellaSHA256
+		r.FirmanteRef = "ref:" + d.CertificadoHuellaSHA256
+	}
+	propio := veredictoVEC(d)
+	switch {
+	case propio == declarado:
+		return motivar(r, propio)
+	case declarado == ports.MotivoFirmaVerificada:
+		// VEC es mas estricta que el validador (original no aportado o varios
+		// firmantes): prevalece su motivo, nunca el positivo.
+		return motivar(r, propio)
+	default:
+		// Un veredicto negativo que no casa con sus aspectos indica deriva
+		// del contrato: no se adopta ningun aspecto de esa respuesta.
+		return motivar(sinAdoptar, ports.MotivoRespuestaNoInterpretable)
+	}
+}
+
+// veredictoVEC aplica ports.PoliticaVerificacionFirmaV1 sobre los aspectos
+// agregados, con la misma precedencia que el contrato: defectos
+// concluyentes antes que comprobaciones no concluidas.
+func veredictoVEC(d *dictamenAutofirma) ports.MotivoVerificacionFirma {
+	switch {
+	case d.Integridad.Estado == "no_valida":
+		return ports.MotivoIntegridadNoValida
+	case d.Certificado.Estado == "no_vigente" || d.Certificado.Estado == "uso_no_permitido" ||
+		d.Revocacion.Estado == ports.RevocacionRevocado:
+		return ports.MotivoCertificadoNoValido
+	case d.Cadena.Estado == "no_valida":
+		return ports.MotivoConfianzaNoValida
+	case d.Integridad.Estado != "valida":
+		return ports.MotivoIntegridadParcial
+	case len(d.Firmantes) == 0:
+		return ports.MotivoFirmanteNoIdentificado
+	case d.Certificado.Estado != "vigente":
+		return ports.MotivoCertificadoNoAcreditado
+	case d.Cadena.Estado != "valida":
+		return ports.MotivoConfianzaNoAcreditada
+	case d.Revocacion.Estado != ports.RevocacionVigente:
+		return ports.MotivoRevocacionNoAcreditada
+	case !ports.SelloTiempoAdmisible(d.SelloTiempo.Estado):
+		return ports.MotivoSelloTiempoNoAcreditado
+	case d.VinculoOriginal.Estado != "acreditado":
+		return ports.MotivoVinculoOriginalNoAcreditado
+	case len(d.Firmantes) != 1 || d.CertificadoHuellaSHA256 == "":
+		return ports.MotivoFirmanteNoIdentificado
+	default:
+		return ports.MotivoFirmaVerificada
+	}
+}
+
+// dictamenInterpretable exige contrato exacto, estados de catalogo en todos
+// los aspectos y firmantes, y huellas bien formadas y coherentes.
+func dictamenInterpretable(d *dictamenAutofirma) bool {
+	if d == nil || d.Contrato != ContratoDictamen ||
+		!en(d.Integridad.Estado, estadosIntegridad) || !en(d.Cadena.Estado, estadosCadena) ||
+		!en(d.Certificado.Estado, estadosCertificado) || !en(d.Revocacion.Estado, estadosRevocacion) ||
+		!en(d.SelloTiempo.Estado, estadosSello) || !en(d.VinculoOriginal.Estado, estadosVinculo) ||
+		!en(d.Extensiones.RevocacionRemota, estadosExtension) ||
+		!en(d.Extensiones.SelloTiempoRemoto, estadosExtension) ||
+		len(d.Firmantes) > maximoFirmantes || !huellaValida(d.HuellaFirmadoSHA256) ||
+		(d.HuellaOriginalSHA256 != "" && !huellaValida(d.HuellaOriginalSHA256)) {
+		return false
+	}
+	if _, ok := motivosDictamen[d.Motivo]; !ok {
+		return false
+	}
+	for _, f := range d.Firmantes {
+		if !huellaValida(f.CertificadoHuellaSHA256) || !en(f.Cadena.Estado, estadosCadena) ||
+			!en(f.Certificado.Estado, estadosCertificado) || !en(f.Revocacion.Estado, estadosRevocacion) ||
+			!en(f.SelloTiempo.Estado, estadosSello) {
+			return false
+		}
 	}
 	switch {
-	case !r.VinculoOriginal:
-		return motivar(r, ports.MotivoVinculoOriginalNoAcreditado)
-	case r.CertificadoHuellaSHA256 == "":
-		return motivar(r, ports.MotivoFirmanteNoIdentificado)
-	case res.Certificate.Status != "valid":
-		return motivar(r, ports.MotivoCertificadoNoAcreditado)
-	case res.Trust.Status != "valid":
-		return motivar(r, ports.MotivoConfianzaNoAcreditada)
+	case d.CertificadoHuellaSHA256 == "":
+		return len(d.Firmantes) != 1
+	case len(d.Firmantes) != 1:
+		return false
+	default:
+		return huellaValida(d.CertificadoHuellaSHA256) &&
+			d.CertificadoHuellaSHA256 == d.Firmantes[0].CertificadoHuellaSHA256 &&
+			d.CertificadoHuellaSHA256 != strings.Repeat("0", sha256.Size*2)
 	}
-	// AutofirmaV2 no expone un estado de revocacion explicito ni verifica
-	// sellos de tiempo; `certificate: valid` no prueba revocacion vigente.
-	return motivar(r, ports.MotivoRevocacionNoAcreditada)
 }
 
-func estadoConocido(s string) bool {
-	return s == "valid" || s == "invalid" || s == "warning" || s == "unknown"
-}
-
-func contieneMarcador(detalles []string, marcador string) bool {
-	for _, d := range detalles {
-		if d == marcador {
+func en(valor string, catalogo []string) bool {
+	for _, c := range catalogo {
+		if valor == c {
 			return true
 		}
 	}

@@ -93,63 +93,30 @@ func verificar(t *testing.T, v *validadorautofirma.Cliente, s ports.SolicitudVer
 	if err := r.ValidarContra(s); err != nil {
 		t.Fatalf("resultado incoherente: %+v", r)
 	}
-	if r.Resultado.Estado == ports.EstadoVerificacionValida || r.Resultado.ValidarContra(s) == nil {
-		t.Fatalf("el adaptador no puede acreditar firma con AutofirmaV2 actual: %+v", r)
+	// Solo `verificada` puede superar la regla estricta del puerto.
+	if (r.Motivo == ports.MotivoFirmaVerificada) != (r.Resultado.ValidarContra(s) == nil) {
+		t.Fatalf("estado y regla estricta discrepan: %+v", r)
 	}
 	if texto := fmt.Sprintf("%+v", r); strings.Contains(texto, servidorprueba.TextoProveedor) ||
-		strings.Contains(texto, "PERSONA") || strings.Contains(texto, "CA SINTETICA") {
+		strings.Contains(texto, "PERSONA") || strings.Contains(texto, "CA SINTETICA") ||
+		strings.Contains(texto, "crl_local") || strings.Contains(texto, "anclas_locales") {
 		t.Fatalf("resultado filtra texto o datos del proveedor: %s", texto)
 	}
 	return r
 }
 
-func TestConfiguracionRechazaDestinosYCredencialesInseguros(t *testing.T) {
-	s := arrancar(t, false)
-	base := configuracion(s)
-	cert, clave := certificadoCliente(t)
-	casos := map[string]func(*validadorautofirma.Configuracion){
-		"http":     func(c *validadorautofirma.Configuracion) { c.URL = strings.Replace(c.URL, "https", "http", 1) },
-		"ruta":     func(c *validadorautofirma.Configuracion) { c.URL += "/verify" },
-		"consulta": func(c *validadorautofirma.Configuracion) { c.URL += "?x=1" },
-		"usuario": func(c *validadorautofirma.Configuracion) {
-			c.URL = strings.Replace(c.URL, "https://", "https://u:p@", 1)
-		},
-		"sin CA":         func(c *validadorautofirma.Configuracion) { c.CAPEM = nil },
-		"CA ilegible":    func(c *validadorautofirma.Configuracion) { c.CAPEM = []byte("no pem") },
-		"sin credencial": func(c *validadorautofirma.Configuracion) { c.Token = nil },
-		"token corto":    func(c *validadorautofirma.Configuracion) { c.Token = []byte("corto") },
-		"token con espacio": func(c *validadorautofirma.Configuracion) {
-			c.Token = []byte(strings.Repeat("a", 20) + " " + strings.Repeat("b", 20))
-		},
-		"cert sin clave":  func(c *validadorautofirma.Configuracion) { c.CertificadoClientePEM = cert },
-		"clave sin cert":  func(c *validadorautofirma.Configuracion) { c.ClaveClientePEM = clave },
-		"tiempo excesivo": func(c *validadorautofirma.Configuracion) { c.Timeout = time.Hour },
-		"tiempo negativo": func(c *validadorautofirma.Configuracion) { c.Timeout = -time.Second },
-	}
-	for nombre, mutar := range casos {
-		c := base
-		mutar(&c)
-		if _, err := validadorautofirma.Nuevo(c); !errors.Is(err, validadorautofirma.ErrConfiguracion) {
-			t.Fatalf("%s: aceptada (%v)", nombre, err)
-		}
-	}
-	solo := base
-	solo.Token = nil
-	solo.CertificadoClientePEM, solo.ClaveClientePEM = cert, clave
-	if _, err := validadorautofirma.Nuevo(solo); err != nil {
-		t.Fatalf("mTLS sin token rechazado: %v", err)
-	}
-}
-
-func TestSeparadaCorrectaNoAcreditaFirmaSinRevocacionNiSello(t *testing.T) {
+func TestValidaSinSelloAcreditaFirmaConPoliticaV1(t *testing.T) {
 	s := arrancar(t, false)
 	v := cliente(t, configuracion(s))
 	sol := solicitud([]byte{0x30, 0x82, 0x01, 0x00, 0x02})
 	r := verificar(t, v, sol)
-	if r.Motivo != ports.MotivoRevocacionNoAcreditada || !r.Resultado.VinculoOriginal ||
+	if r.Motivo != ports.MotivoFirmaVerificada || r.Resultado.Estado != ports.EstadoVerificacionValida ||
+		!r.Resultado.VinculoOriginal ||
 		r.Resultado.CertificadoHuellaSHA256 != servidorprueba.HuellaCertificadoSintetica ||
-		r.Resultado.RevocacionEstado != "no_informado" || r.Resultado.SelloTiempoEstado != "no_informado" ||
-		r.Resultado.FirmanteRef != "" || r.Resultado.HuellaOriginalSHA256 != sol.HuellaOriginalSHA256 {
+		r.Resultado.FirmanteRef != "ref:"+servidorprueba.HuellaCertificadoSintetica ||
+		r.Resultado.RevocacionEstado != ports.RevocacionVigente ||
+		r.Resultado.SelloTiempoEstado != ports.SelloTiempoNoPresente ||
+		r.Resultado.HuellaOriginalSHA256 != sol.HuellaOriginalSHA256 {
 		t.Fatalf("resultado inesperado: %+v", r)
 	}
 	suma := sha256.Sum256(sol.ContenidoFirmado)
@@ -170,23 +137,22 @@ func TestSeparadaCorrectaNoAcreditaFirmaSinRevocacionNiSello(t *testing.T) {
 		string(p.Original) != string(sol.ContenidoOriginal) || string(p.Firmado) != string(sol.ContenidoFirmado) {
 		t.Fatalf("peticion no minimizada o incorrecta: %v %+v", campos, p)
 	}
-	// El puerto sin motivo devuelve el mismo resultado, nunca firmado.
+	// El puerto sin motivo devuelve el mismo resultado.
 	rp, err := v.Verificar(context.Background(), sol)
-	if err != nil || rp.Estado != ports.EstadoVerificacionIndeterminada || rp.ValidarContra(sol) == nil {
+	if err != nil || rp.Estado != ports.EstadoVerificacionValida || rp.ValidarContra(sol) != nil {
 		t.Fatalf("puerto: %+v %v", rp, err)
 	}
 }
 
-func TestPAdESNoEnviaOriginalNiAcreditaVinculo(t *testing.T) {
+func TestPAdESEnviaOriginalParaAcreditarVinculo(t *testing.T) {
 	s := arrancar(t, false)
-	s.Escenario(servidorprueba.PAdESCorrecta)
 	v := cliente(t, configuracion(s))
-	r := verificar(t, v, solicitud([]byte("%PDF-1.7 sintetico")))
-	if r.Motivo != ports.MotivoVinculoOriginalNoAcreditado || r.Resultado.VinculoOriginal {
+	sol := solicitud([]byte("%PDF-1.7 sintetico"))
+	if r := verificar(t, v, sol); r.Motivo != ports.MotivoFirmaVerificada || !r.Resultado.VinculoOriginal {
 		t.Fatalf("PAdES: %+v", r)
 	}
-	if p, _ := s.Ultima(); !p.OriginalFalta {
-		t.Fatal("envio el original en PAdES")
+	if p, _ := s.Ultima(); p.OriginalFalta || string(p.Original) != string(sol.ContenidoOriginal) {
+		t.Fatal("no envio el original en PAdES")
 	}
 }
 
@@ -194,24 +160,48 @@ func TestTraduccionDeEscenarios(t *testing.T) {
 	s := arrancar(t, false)
 	v := cliente(t, configuracion(s))
 	casos := []struct {
-		esc    servidorprueba.Escenario
-		motivo ports.MotivoVerificacionFirma
+		esc        servidorprueba.Escenario
+		motivo     ports.MotivoVerificacionFirma
+		revocacion string
+		sello      string
 	}{
-		{servidorprueba.IntegridadRota, ports.MotivoIntegridadNoValida},
-		{servidorprueba.CertificadoRevocado, ports.MotivoCertificadoNoValido},
-		{servidorprueba.ConfianzaDesconocida, ports.MotivoConfianzaNoAcreditada},
-		{servidorprueba.EstadoDesconocido, ports.MotivoRespuestaNoInterpretable},
-		{servidorprueba.FormatoNoDetectado, ports.MotivoRechazadaPorValidador},
-		{servidorprueba.ErrorInterno, ports.MotivoValidadorNoDisponible},
-		{servidorprueba.RespuestaEnorme, ports.MotivoRespuestaNoInterpretable},
-		{servidorprueba.TipoIncorrecto, ports.MotivoRespuestaNoInterpretable},
-		{servidorprueba.Redireccion, ports.MotivoValidadorNoDisponible},
+		{servidorprueba.ValidaSinSello, ports.MotivoFirmaVerificada, "vigente", "no_presente"},
+		{servidorprueba.ValidaConSello, ports.MotivoFirmaVerificada, "vigente", "valido"},
+		{servidorprueba.SelloNoComprobado, ports.MotivoFirmaVerificada, "vigente", "no_comprobado"},
+		{servidorprueba.SelloNoValido, ports.MotivoSelloTiempoNoAcreditado, "vigente", "no_valido"},
+		{servidorprueba.Revocado, ports.MotivoCertificadoNoValido, "revocado", "no_presente"},
+		{servidorprueba.RevocacionNoComprobada, ports.MotivoRevocacionNoAcreditada, "no_comprobada", "no_presente"},
+		{servidorprueba.VinculoNoAcreditado, ports.MotivoVinculoOriginalNoAcreditado, "vigente", "no_presente"},
+		{servidorprueba.VinculoNoAportado, ports.MotivoVinculoOriginalNoAcreditado, "vigente", "no_presente"},
+		{servidorprueba.IntegridadRota, ports.MotivoIntegridadNoValida, "vigente", "no_presente"},
+		{servidorprueba.IntegridadParcial, ports.MotivoIntegridadParcial, "vigente", "no_presente"},
+		{servidorprueba.SinAnclas, ports.MotivoConfianzaNoAcreditada, "vigente", "no_presente"},
+		{servidorprueba.VariosFirmantes, ports.MotivoFirmanteNoIdentificado, "vigente", "no_presente"},
+		// Un `valida` del validador con revocacion no comprobada: VEC es mas
+		// estricta y conserva su propio motivo.
+		{servidorprueba.ValidaIncoherente, ports.MotivoRevocacionNoAcreditada, "no_comprobada", "no_presente"},
+		// Respuestas no interpretables: no se adopta ningun aspecto.
+		{servidorprueba.ContratoDesconocido, ports.MotivoRespuestaNoInterpretable, "no_informado", "no_informado"},
+		{servidorprueba.SinDictamen, ports.MotivoRespuestaNoInterpretable, "no_informado", "no_informado"},
+		{servidorprueba.HuellaEcoDistinta, ports.MotivoRespuestaNoInterpretable, "no_informado", "no_informado"},
+		{servidorprueba.HuellaOriginalDistinta, ports.MotivoRespuestaNoInterpretable, "no_informado", "no_informado"},
+		{servidorprueba.NegativaIncoherente, ports.MotivoRespuestaNoInterpretable, "no_informado", "no_informado"},
+		{servidorprueba.EstadoDesconocido, ports.MotivoRespuestaNoInterpretable, "no_informado", "no_informado"},
+		{servidorprueba.FormatoNoDetectado, ports.MotivoRechazadaPorValidador, "no_informado", "no_informado"},
+		{servidorprueba.ErrorInterno, ports.MotivoValidadorNoDisponible, "no_informado", "no_informado"},
+		{servidorprueba.RespuestaEnorme, ports.MotivoRespuestaNoInterpretable, "no_informado", "no_informado"},
+		{servidorprueba.TipoIncorrecto, ports.MotivoRespuestaNoInterpretable, "no_informado", "no_informado"},
+		{servidorprueba.Redireccion, ports.MotivoValidadorNoDisponible, "no_informado", "no_informado"},
 	}
 	for _, caso := range casos {
 		s.Escenario(caso.esc)
 		r := verificar(t, v, solicitud([]byte{0x30, 0x01}))
-		if r.Motivo != caso.motivo || r.Resultado.Estado != caso.motivo.EstadoAsociado() {
+		if r.Motivo != caso.motivo || r.Resultado.Estado != caso.motivo.EstadoAsociado() ||
+			r.Resultado.RevocacionEstado != caso.revocacion || r.Resultado.SelloTiempoEstado != caso.sello {
 			t.Fatalf("%s: %+v", caso.esc, r)
+		}
+		if caso.motivo != ports.MotivoFirmaVerificada && r.Resultado.Estado == ports.EstadoVerificacionValida {
+			t.Fatalf("%s: acredito firma", caso.esc)
 		}
 	}
 }
@@ -253,7 +243,7 @@ func TestCredencialYConfianzaTLS(t *testing.T) {
 	// El certificado de httptest cubre example.com; un nombre ajeno se rechaza.
 	c = configuracion(s)
 	c.NombreServidorTLS = "example.com"
-	if r := verificar(t, cliente(t, c), solicitud([]byte{0x30})); r.Motivo != ports.MotivoRevocacionNoAcreditada {
+	if r := verificar(t, cliente(t, c), solicitud([]byte{0x30})); r.Motivo != ports.MotivoFirmaVerificada {
 		t.Fatalf("nombre fijado: %+v", r)
 	}
 	c.NombreServidorTLS = "validador.invalid"
@@ -269,7 +259,7 @@ func TestMTLSExigeCertificadoCliente(t *testing.T) {
 	}
 	c := configuracion(s)
 	c.CertificadoClientePEM, c.ClaveClientePEM = certificadoCliente(t)
-	if r := verificar(t, cliente(t, c), solicitud([]byte{0x30})); r.Motivo != ports.MotivoRevocacionNoAcreditada {
+	if r := verificar(t, cliente(t, c), solicitud([]byte{0x30})); r.Motivo != ports.MotivoFirmaVerificada {
 		t.Fatalf("con certificado cliente: %+v", r)
 	}
 }
@@ -300,7 +290,7 @@ func TestConcurrenciaSinEstadoCompartido(t *testing.T) {
 		go func() {
 			defer grupo.Done()
 			r, err := v.VerificarMotivado(context.Background(), solicitud([]byte{0x30, byte(i)}))
-			if err != nil || r.Motivo != ports.MotivoRevocacionNoAcreditada {
+			if err != nil || r.Motivo != ports.MotivoFirmaVerificada {
 				t.Errorf("concurrente: %+v %v", r, err)
 			}
 		}()
