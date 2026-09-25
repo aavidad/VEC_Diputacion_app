@@ -370,6 +370,40 @@ test("el portal real de Personal no ofrece apartados sin fuente y abre los catá
   assert.equal(raiz.querySelector("[data-personal-ficha-integral]"), null);
 });
 
+test("con ficha propia servida, Personal ofrece relaciones y servicios con datos legibles", async () => {
+  const llamadas = [];
+  const ficha = { data: {
+    ficha: { corte: { vigente_en: "2026-09-25", conocido_en: "2026-09-25T08:59:59.000000Z" },
+      relaciones: [{ inicio: "2026-01-01", fin: "", estado: "vigente", regimen: "Funcionario interino", modalidad: "Vacante", unidad: "Servicio de Personal", puesto: "Técnico/a de gestión", situacion: "Servicio activo" }],
+      servicios: [{ inicio: "2019-01-01", fin: "2019-12-31", clase: "Servicios previos", dias: 365, estado: "reconocido" }] },
+    recibo_ref: "fichapropia:0f0e0d0c-0b0a-4908-8706-050403020100", consultada_en: "2026-09-25T09:00:00.000000Z" } };
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    entorno: { fetch: async (ruta, opciones) => {
+      llamadas.push([ruta, opciones?.credentials]);
+      if (ruta === "/api/interna/personal/mi-ficha") return respuestaPersonalJSON(ficha);
+      return ruta.startsWith("/api/vec/personal/categories?") ? respuestaPersonalJSON(CATEGORIAS_PERSONAL_VACIAS)
+        : new Response(JSON.stringify({ error: "no_disponible" }), { status: 503, headers: { "Content-Type": "application/json; charset=utf-8" } });
+    } },
+    cargarCatalogoInterno: async () => Object.freeze([{ clave: "personal" }]),
+    cargadoresInternos: { contratacion_temporal: async () => { throw new Error("no debe cargar CT"); } },
+  });
+  await coordinador.cargarInterno();
+  assert.ok(!llamadas.some(([ruta]) => ruta.startsWith("/api/interna/personal/")), "cargar el portal no consulta la ficha propia");
+  const raiz = raizDietasFalsa(); assert.equal(await coordinador.montarVista("personal", raiz), true);
+  assert.deepEqual(llamadas.filter(([ruta]) => ruta === "/api/interna/personal/mi-ficha"), [["/api/interna/personal/mi-ficha", "same-origin"]]);
+  assert.deepEqual(raiz.querySelectorAll("[data-personal-ficha-tab]").map((tab) => tab.dataset.personalFichaTab), ["ficha", "relaciones", "servicios", "catalogos"]);
+  raiz.querySelector('[data-personal-ficha-tab="relaciones"]').listeners.click();
+  await new Promise((resolve) => setImmediate(resolve));
+  const celdas = raiz.querySelectorAll("td").map((celda) => celda.textContent);
+  assert.ok(celdas.includes("Funcionario interino · Vacante") && celdas.includes("Servicio de Personal") && celdas.includes("Servicio activo"), celdas.join(" | "));
+  raiz.querySelector('[data-personal-ficha-tab="servicios"]').listeners.click();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.ok(raiz.querySelectorAll("td").map((celda) => celda.textContent).includes("365 días"));
+  assert.equal(llamadas.filter(([ruta]) => ruta === "/api/interna/personal/mi-ficha").length, 1, "los apartados reutilizan la consulta de la vista");
+  coordinador.desmontarVistaActual();
+});
+
 test("Personal monta solo los catálogos públicos que el servidor sirve", async () => {
   for (const [servidos, esperados] of [
     [{ rpt: true, estructura: true }, ["personalCategorias", "personalRptPublica", "personalEstructuraOrganizativaPublica"]],
@@ -537,7 +571,7 @@ test("los catálogos públicos de Personal van en un cargador opcional incluido 
     .map((match) => match[1]);
   assert.deepEqual(recursosInternos, ["contrato.js", "cliente-http-categorias.js",
     "vista.js", "vista-ficha-integral.js", "registro-b2.js", "registro-b2-cliente.js",
-    "registro-b2-catalogos-cliente.js", "i18n.js"]);
+    "registro-b2-catalogos-cliente.js", "i18n.js", "cliente-http-ficha-propia.js"]);
   for (const recurso of recursosInternos) {
     assert.match(manifiesto, new RegExp(`static/portal-empleado/modulos/personal/${recurso.replaceAll(".", "\\.")}`, "u"));
   }

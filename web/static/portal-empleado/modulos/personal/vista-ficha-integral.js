@@ -70,7 +70,7 @@ function validarResultado(resultado, bloque) {
   if (typeof resultado.fuente !== "string" || !resultado.fuente.trim() || resultado.fuente.length > 160 ||
       typeof resultado.actualizado_en !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/u.test(resultado.actualizado_en) ||
       !Number.isFinite(Date.parse(resultado.actualizado_en)) ||
-      !Array.isArray(resultado.items) || resultado.items.length > 50 ||
+      !Array.isArray(resultado.items) || resultado.items.length > 200 ||
       (resultado.estado === "vacio" && resultado.items.length !== 0) || (resultado.estado === "disponible" && resultado.items.length === 0)) throw new TypeError("respuesta de ficha no válida");
   const columnas = BLOQUES[bloque].columnas.map(([campo]) => campo);
   const items = resultado.items.map((item) => {
