@@ -37,6 +37,7 @@ func registrarFalloArranque(destino io.Writer, componente domain.ComponenteIncid
 		VersionBinario: revisionCompilada(),
 	})
 	if err != nil {
+		escribirRegistroFijo(os.Stderr, "vec-server: emisor de incidencias tecnicas no disponible\n")
 		return
 	}
 	emisor.Emitir(domain.SolicitudIncidenciaTecnica{Codigo: domain.IncidenciaArranqueFallido, Componente: componente, Etapa: etapa})

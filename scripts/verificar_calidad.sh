@@ -4,7 +4,7 @@ set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
-archivos_sin_formato="$(gofmt -l cmd config internal)"
+archivos_sin_formato="$(gofmt -l cmd config internal tools/vecsilencio)"
 if [[ -n "${archivos_sin_formato}" ]]; then
   printf 'Hay archivos Go sin formato:\n%s\n' "${archivos_sin_formato}" >&2
   exit 1
@@ -17,6 +17,9 @@ go mod verify
 go test ./... -count=1 -timeout 20m
 go test -race ./... -count=1 -timeout 30m
 go vet ./...
+# Guarda de fallos silenciosos (M2a): ningún error descartado sin registro
+# fuera de la línea base congelada, que solo puede decrecer.
+go run ./tools/vecsilencio -base tools/vecsilencio/base.txt
 go build ./cmd/...
 # Pruebas web (Node >= 20, sin dependencias): el portal y los clientes HTTP
 # tienen su propia suite y hasta hoy no formaba parte de la puerta.
