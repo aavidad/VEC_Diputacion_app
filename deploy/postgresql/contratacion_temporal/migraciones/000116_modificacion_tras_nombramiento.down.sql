@@ -16,6 +16,11 @@ BEGIN
        OR to_regclass('vec_contratacion_temporal.modificacion_nombramiento_v1') IS NULL THEN
         RAISE EXCEPTION 'CT116 DOWN: estado incompatible' USING ERRCODE='55000';
     END IF;
+    -- CT120 depende de modificacion_nombramiento_v1: se retira antes.
+    IF to_regprocedure('vec_contratacion_temporal.preparar_fiscalizacion_v2(jsonb)') IS NOT NULL
+       OR to_regprocedure('vec_contratacion_temporal.preparar_fiscalizacion_tras_modificacion_ct120(jsonb)') IS NOT NULL THEN
+        RAISE EXCEPTION 'CT116 DOWN: CT120 sigue instalada; retírela antes' USING ERRCODE='55000';
+    END IF;
     IF EXISTS (SELECT 1 FROM vec_contratacion_temporal.expediente_version_integral WHERE origen_version='modificacion_nombramiento_ct116')
        OR EXISTS (SELECT 1 FROM vec_contratacion_temporal.outbox_expediente_integral WHERE tipo_evento='ct.modificacion.v1') THEN
         RAISE EXCEPTION 'CT116 DOWN: no admitido con historia de modificaciones' USING ERRCODE='55000';

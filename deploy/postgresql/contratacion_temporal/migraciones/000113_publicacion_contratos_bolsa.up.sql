@@ -25,6 +25,11 @@ BEGIN
        OR pg_catalog.to_regprocedure(
            'vec_contratacion_temporal.leer_contratos_bolsa_v1(bigint,text,integer)'
        ) IS NOT NULL
+       -- Versión anterior de esta misma migración (cursor por instante): si
+       -- estuviera instalada, este UP dejaría dos sobrecargas. Se retira antes.
+       OR pg_catalog.to_regprocedure(
+           'vec_contratacion_temporal.leer_contratos_bolsa_v1(timestamptz,text,integer)'
+       ) IS NOT NULL
        OR EXISTS (SELECT 1 FROM pg_catalog.pg_attribute
                    WHERE attrelid = 'vec_contratacion_temporal.incorporacion_outbox_v2'::regclass
                      AND attname = 'transaccion_publicacion' AND NOT attisdropped) THEN

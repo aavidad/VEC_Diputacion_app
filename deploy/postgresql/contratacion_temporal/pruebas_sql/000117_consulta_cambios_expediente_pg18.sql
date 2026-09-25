@@ -173,6 +173,15 @@ BEGIN
         ('solicitud.causa_clave', '"necesidad_temporal"'::jsonb, 'necesidad_temporal'),
         ('coste_previsto.centimos', '123456'::jsonb, '123456'),
         ('fiscalizacion.ginpix_numero', '"2027000123"'::jsonb, '2027000123'),
+        ('solicitud.expediente_numero', '12345678'::jsonb, '*protegido'),
+        ('solicitud.numero_telefono', '600123456'::jsonb, '*protegido'),
+        ('solicitud.numero_visible', '"2027/000123"'::jsonb, '*protegido'),
+        ('solicitud.numero_visible', '2027000123'::jsonb, '2027000123'),
+        ('declaracion_rc.numero', '"220270001"'::jsonb, '220270001'),
+        ('solicitud.persona_ref', '"persona:12345678Z"'::jsonb, '*protegido'),
+        ('solicitud.persona_ref', '"persona:ct:x1234567l"'::jsonb, '*protegido'),
+        ('solicitud.candidato_ref', '"candidato:Y1234567Z:ct"'::jsonb, '*protegido'),
+        ('solicitud.expediente_ref', '"exp:3f2a1b4c-12ab-4cde-9f00-123456789abc"'::jsonb, 'exp:3f2a1b4c-12ab-4cde-9f00-123456789abc'),
         ('analisis.periodo.fin', '"2027-03-31"'::jsonb, '2027-03-31T00:00:00.000000Z'),
         ('analisis.urgente', 'true'::jsonb, 'true')) AS t(ruta, valor, esperado)
     LOOP
