@@ -23,7 +23,7 @@ import {
   LIMITE_CARGA_MODULAR_MS,
   cargarModuloConLimite,
   consultarConLimite,
-} from "./portal-modulos-carga.js?v=20260923-p4-estado-modulos-v1";
+} from "./portal-modulos-carga.js?v=20260926-integracion-bolsa-ct-v1";
 
 const CLAVE_CONTRATACION_TEMPORAL = "contratacion_temporal";
 const SIN_CATALOGOS_PUBLICOS = Object.freeze({ recursos: Object.freeze({}), disponibles: Object.freeze([]) });
@@ -50,6 +50,10 @@ export const CLAVES_MODULOS_CON_VISTA_PORTAL = Object.freeze([
 // y la contratación temporal. Su URL directa sigue funcionando.
 export const CLAVES_SIN_ENTRADA_PORTAL = Object.freeze([CLAVE_DOCUMENTOS, CLAVE_PERSONAL, "cronos", "dietas"]);
 const CLAVES_CARGA_PORTAL = Object.freeze([...CLAVES_CARGA_MODULAR, CLAVE_DOCUMENTOS]);
+// Módulos sin entrada que no se cargan al arrancar, sino al pedir una de sus
+// vistas. Documentos no se difiere: se abre desde el expediente y su carga no
+// hace consultas.
+const CLAVES_DIFERIDAS_PORTAL = Object.freeze([CLAVE_PERSONAL, "cronos", "dietas"]);
 // Rol con el que la frontera de identidad atesta a Intervención. Solo decide
 // qué pantalla se ofrece; cada operación la sigue autorizando el servidor.
 const ROL_INTERVENCION = "intervencion";
@@ -155,6 +159,10 @@ export const VISTAS_MODULOS_CONECTADOS = Object.freeze(new Set([
   "contratacion-temporal", VISTA_DOCUMENTOS_EXPEDIENTE, ...VISTAS_MODULOS_PERSONALES,
 ]));
 
+// Estado de un módulo autorizado sin entrada en el portal que aún no se ha
+// pedido: no se carga hasta que se abre una de sus vistas.
+const ESTADO_DIFERIDO = "diferido";
+
 /** Código del error con el que se rechaza una carga sustituida por otra. */
 export const CODIGO_CARGA_SUSTITUIDA = "carga_sustituida";
 function errorCargaSustituida() {
@@ -198,6 +206,8 @@ export function crearCoordinadorModulosPortal({
   consultarSesion = null,
   limiteCargaModularMs = LIMITE_CARGA_MODULAR_MS,
   temporizadores = globalThis,
+  // Módulos que no se cargan al arrancar sino al pedir una de sus vistas.
+  modulosDiferidos = CLAVES_DIFERIDAS_PORTAL,
 } = {}) {
   if (typeof escaparHTML !== "function" || typeof anunciar !== "function"
     || typeof confirmarOperacion !== "function" || typeof traducir !== "function"
@@ -207,7 +217,8 @@ export function crearCoordinadorModulosPortal({
       || typeof montajeBolsa?.disponible !== "function"))
     || typeof cargadoresInternos?.contratacion_temporal !== "function"
     || !Number.isSafeInteger(limiteCargaModularMs)
-    || limiteCargaModularMs < 1 || limiteCargaModularMs > 10_000) {
+    || limiteCargaModularMs < 1 || limiteCargaModularMs > 10_000
+    || !Array.isArray(modulosDiferidos) || !modulosDiferidos.every((clave) => CLAVES_CARGA_PORTAL.includes(clave))) {
     throw new TypeError("dependencias del coordinador de módulos no válidas");
   }
 
@@ -230,6 +241,8 @@ export function crearCoordinadorModulosPortal({
   // la vista y su resultado vale para la sesión (null: aún sin comprobar). Así
   // abrir Personal no genera una lectura auditada del registro.
   let registroPersonalServido = null;
+  // Arranca un módulo diferido dentro de la carga vigente (null sin carga).
+  let cargaDiferida = null;
   let sondaRegistro = null;
 
   // Invalida siempre la carga en curso, también entre dos consultas (cuando no
@@ -272,7 +285,7 @@ export function crearCoordinadorModulosPortal({
 
   // En contratación temporal, el cuadro, los catálogos de alta y la configuración
   // del análisis son consultas independientes; se piden a la vez.
-  async function cargarContratacionTemporal({ consultar, exigirVigente }) {
+  async function cargarContratacionTemporal({ consultar, exigirVigente, notificar = () => {} }) {
     const recursos = await cargarModuloConLimite(
       cargadoresInternos.contratacion_temporal,
       CLAVE_CONTRATACION_TEMPORAL,
@@ -292,25 +305,29 @@ export function crearCoordinadorModulosPortal({
         cliente, obtenerCatalogos: () => alta?.catalogos ?? null,
         obtenerJornadaCompleta: () => jornadaCompleta,
       });
-    const [cuadro, catalogosAlta, configuracion] = await Promise.allSettled([
-      consultar((opciones) => fuente.listar(opciones)),
-      consultar((opciones) => cliente.obtenerCatalogosAlta(opciones)),
-      consultar((opciones) => cliente.obtenerConfiguracionAnalisis(opciones)),
-    ]);
-    exigirVigente();
-    const cuadroDisponible = cuadro.status === "fulfilled";
-    const listadoCuadro = cuadroDisponible ? cuadro.value : null;
-    if (catalogosAlta.status === "fulfilled") {
+    // Los catálogos del alta (centros y categorías) no retrasan el cuadro:
+    // Inicio se pinta con el cuadro y la configuración, y los nombres de centro
+    // y categoría aparecen en cuanto llegan (se avisa con `notificar`). Abrir
+    // Contratación espera a que terminen, para que el alta y la bandeja se
+    // monten ya con ellos.
+    const promesaAlta = consultar((opciones) => cliente.obtenerCatalogosAlta(opciones)).then((valor) => {
       try {
         alta = Object.freeze({
-          catalogos: recursos.contrato.validarCatalogosAlta(catalogosAlta.value),
+          catalogos: recursos.contrato.validarCatalogosAlta(valor),
           capacidad: recursos.contrato.CAPACIDAD_CREAR_SOLICITUD,
           ejecutor: cliente.registrarSolicitud,
         });
       } catch {
         alta = null;
       }
-    }
+    }, () => { alta = null; });
+    const [cuadro, configuracion] = await Promise.allSettled([
+      consultar((opciones) => fuente.listar(opciones)),
+      consultar((opciones) => cliente.obtenerConfiguracionAnalisis(opciones)),
+    ]);
+    exigirVigente();
+    const cuadroDisponible = cuadro.status === "fulfilled";
+    const listadoCuadro = cuadroDisponible ? cuadro.value : null;
     let analisis = null;
     let subsanacion = null;
     if (configuracion.status === "fulfilled") {
@@ -348,6 +365,15 @@ export function crearCoordinadorModulosPortal({
         analisis = null;
       }
     }
+    // Sin cuadro o sin análisis, el perfil (RRHH o Intervención) depende
+    // también del alta: entonces sí se esperan sus catálogos.
+    const altaPendiente = cuadroDisponible && analisis !== null;
+    if (!altaPendiente) {
+      await promesaAlta;
+      exigirVigente();
+    } else {
+      void promesaAlta.then(() => notificar());
+    }
     // Sin alta ni análisis, la única pantalla posible es la de fiscalización,
     // y solo se ofrece si la sesión atesta el perfil de Intervención: a otra
     // persona (p. ej. una empleada sin concesión) no se le monta un formulario
@@ -368,7 +394,8 @@ export function crearCoordinadorModulosPortal({
             fuente, capacidades: fuente.capacidades,
             altaDisponible: alta !== null,
           }),
-        alta,
+        get alta() { return alta; },
+        esperarAlta: () => promesaAlta,
         analisis,
         fiscalizacion,
         subsanacion,
@@ -529,7 +556,10 @@ export function crearCoordinadorModulosPortal({
    * oculta a los demás: queda «no_disponible» por sí solo.
    */
   async function cargarInterno({ alCambiar = null } = {}) {
-    retirarVistaMontada();
+    // Las vistas de Bolsa no dependen de la composición de módulos: una vista
+    // de Bolsa ya montada (p. ej. al recargar con F5 en #bolsa/resumen) se
+    // conserva y sus consultas en curso no se cancelan.
+    if (!VISTAS_MODULO_BOLSA.has(vistaMontada)) retirarVistaMontada();
     cancelarCargaInterna();
     const carga = ++secuenciaCarga;
     composicion = null;
@@ -580,20 +610,22 @@ export function crearCoordinadorModulosPortal({
       personal: undefined,
       personalRegistro: undefined,
     };
-    const cargables = CLAVES_CARGA_PORTAL
+    const autorizados = CLAVES_CARGA_PORTAL
       .filter((clave) => catalogo.some((modulo) => modulo.clave === clave));
+    // Los módulos sin entrada en el portal no se cargan al arrancar: ni su
+    // código ni sus consultas. Quedan «diferidos» hasta que se pide una de sus
+    // vistas por su URL directa (`prepararVista`).
+    const cargables = autorizados.filter((clave) => !modulosDiferidos.includes(clave));
     const estados = Object.fromEntries(CLAVES_CARGA_PORTAL
-      .map((clave) => [clave, cargables.includes(clave) ? "cargando" : "no_disponible"]));
+      .map((clave) => [clave, cargables.includes(clave) ? "cargando"
+        : (autorizados.includes(clave) ? ESTADO_DIFERIDO : "no_disponible")]));
     const publicar = () => {
       composicion = Object.freeze({ ...partes, estadosModulos: Object.freeze({ ...estados }) });
     };
-    publicar();
-    notificar("catalogo");
-
-    await Promise.allSettled(cargables.map(async (clave) => {
+    const cargarModulo = async (clave) => {
       let resultado;
       try {
-        resultado = await CARGAS_MODULOS[clave]({ consultar, exigirVigente });
+        resultado = await CARGAS_MODULOS[clave]({ consultar, exigirVigente, notificar: () => notificar(clave) });
       } catch {
         resultado = undefined;
       }
@@ -602,9 +634,31 @@ export function crearCoordinadorModulosPortal({
       estados[clave] = resultado ? "disponible" : "no_disponible";
       publicar();
       notificar(clave);
-    }));
+    };
+    cargaDiferida = (clave) => {
+      if (!vigente() || estados[clave] !== ESTADO_DIFERIDO) return null;
+      estados[clave] = "cargando";
+      publicar();
+      return cargarModulo(clave);
+    };
+    publicar();
+    notificar("catalogo");
+
+    await Promise.allSettled(cargables.map(cargarModulo));
     exigirVigente();
     cargaEnCurso = false;
+  }
+
+  /**
+   * Una vista de un módulo diferido (sin entrada en el portal) se ha pedido:
+   * empieza a cargar su módulo. Devuelve la promesa de esa carga, o null si no
+   * había nada que cargar (módulo ya cargado, en curso, no autorizado o sin
+   * catálogo todavía).
+   */
+  function prepararVista(vista) {
+    const modulo = moduloDeVistaPortal(vista);
+    if (!modulosDiferidos.includes(modulo) || typeof cargaDiferida !== "function") return null;
+    return cargaDiferida(modulo);
   }
 
   // Estado de carga de un módulo del catálogo: «cargando», «disponible»,
@@ -637,7 +691,7 @@ export function crearCoordinadorModulosPortal({
     if (!vistaGestionada(vista) || vistaDisponible(vista)) return false;
     if (catalogoPendiente()) return true;
     const modulo = moduloDeVistaPortal(vista);
-    if (estadoCargaModulo(modulo) === "cargando") return true;
+    if (["cargando", ESTADO_DIFERIDO].includes(estadoCargaModulo(modulo))) return true;
     // El registro RRHH depende también de conocer el perfil.
     return vista === "personal-registro" && estadoCargaModulo(CLAVE_CONTRATACION_TEMPORAL) === "cargando";
   }
@@ -764,10 +818,12 @@ export function crearCoordinadorModulosPortal({
     if (reutilizarElaboracion(vista, raiz, opciones)) return true;
     retirarVistaMontada();
     const montaje = ++secuenciaMontaje;
-    if (vista === "elaboracion") {
+    if (VISTAS_MODULO_BOLSA.has(vista)) {
+      // Una vista de Bolsa consta montada desde ya: una carga del catálogo que
+      // empiece mientras se monta (F5 en #bolsa/resumen) no la retira.
       vistaMontada = vista;
       raizMontada = raiz;
-      referenciaElaboracionMontada = opciones?.referencia || "";
+      referenciaElaboracionMontada = vista === "elaboracion" ? opciones?.referencia || "" : "";
     }
     raiz.innerHTML = `<section class="panel"><div class="cuerpo-panel" role="status">${escaparHTML(traducir("estado_modulo_comprobando"))}</div></section>`;
 
@@ -776,7 +832,7 @@ export function crearCoordinadorModulosPortal({
       try {
         resultado = await montajeBolsa.montar({ vista, raiz, opciones, anunciar });
       } catch (error) {
-        if (montaje === secuenciaMontaje && vista === "elaboracion") {
+        if (montaje === secuenciaMontaje) {
           vistaMontada = "";
           raizMontada = null;
           referenciaElaboracionMontada = "";
@@ -789,15 +845,13 @@ export function crearCoordinadorModulosPortal({
         return false;
       }
       desmontarVista = typeof limpiar === "function" ? limpiar : null;
-      if (vista !== "elaboracion") {
-        vistaMontada = vista;
-        raizMontada = raiz;
-        referenciaElaboracionMontada = "";
-      }
       return true;
     }
 
     if (vista === "contratacion-temporal") {
+      // Los catálogos del alta ya están en camino desde la carga del módulo.
+      await composicion.contratacionTemporal.esperarAlta?.();
+      if (montaje !== secuenciaMontaje) return false;
       const esFiscalizacion = composicion.contratacionTemporal.fiscalizacion !== null;
       const presentadorCT = composicion.contratacionTemporal.crearPresentador();
       if (opciones?.subvista && typeof presentadorCT?.cambiarVista === "function"
@@ -1059,6 +1113,7 @@ export function crearCoordinadorModulosPortal({
   return Object.freeze({
     cargarInterno,
     desmontarVistaActual,
+    prepararVista,
     esPerfilRRHH,
     inicioPendiente,
     montarVista,

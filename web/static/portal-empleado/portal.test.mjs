@@ -157,41 +157,32 @@ test("la carga inicial comprueba solo la API real del cuadro de Bolsa, sin servi
   const comprobacion = cargaInicial.indexOf("void controladorBolsas.cargarBolsas()");
   const catalogo = cargaInicial.indexOf("await coordinadorModulos.cargarInterno(");
   assert.ok(comprobacion > 0 && catalogo > comprobacion, "la comprobación de Bolsa debe lanzarse antes de esperar el catálogo");
-  assert.match(cargaInicial, /estado\.datosBolsas\?\.carga !== "listo"\) void controladorBolsas\.cargarBolsas\(\)/);
+  assert.match(cargaInicial, /estado\.datosBolsas\?\.carga !== "listo"\)\) void controladorBolsas\.cargarBolsas\(\)/);
+  // Una lectura del cuadro ya en curso (p. ej. la pedida al montar la vista
+  // tras F5) no se repite ni se aborta.
+  assert.match(cargaInicial, /if \(estado\.datosBolsas\?\.carga !== "cargando"\s+&& \(requiereLecturaBolsas/u);
   assert.doesNotMatch(cargaInicial, /await controladorBolsas/);
   const vistasSinLectura = javascript.match(/const VISTAS_BOLSA_SIN_LECTURA = new Set\(\[([\s\S]*?)\]\);/)?.[1] || "";
   assert.match(vistasSinLectura, /"contratos"/);
   assert.doesNotMatch(vistasSinLectura, /"seleccion-(?:inscripciones|pruebas|comunicaciones)"/);
 });
 
-// E10/P1: la API de borradores se comprueba al llegar el catálogo, sin esperar,
-// y solo si Bolsa figura en el catálogo de la sesión; al responder se repinta.
-test("la disponibilidad de borradores se comprueba al cargar solo con Bolsa en el catálogo", async () => {
-  const inicio = javascript.indexOf("function comprobarBorradoresTrasCatalogo()");
-  const fin = javascript.indexOf("function alCambiarModulos(", inicio);
-  assert.ok(inicio > 0 && fin > inicio);
-  const escenario = (catalogo, estadoAcceso) => {
-    const llamadas = [];
-    const comprobar = runInNewContext(`${javascript.slice(inicio, fin)}; comprobarBorradoresTrasCatalogo`, {
-      coordinadorModulos: { obtenerCatalogo: () => catalogo },
-      superficieBorradores: {
-        obtenerAcceso: () => ({ estado: estadoAcceso }),
-        comprobarDisponibilidad: (opciones) => { llamadas.push(opciones); return new Promise(() => {}); },
-      },
-    });
-    assert.equal(comprobar(), undefined, "no espera la respuesta");
-    return llamadas.length;
-  };
-  assert.equal(escenario([{ clave: "bolsa" }], "cargando"), 1);
-  assert.equal(escenario([{ clave: "cronos" }], "cargando"), 0, "sin Bolsa en el catálogo no hay sonda");
-  assert.equal(escenario([], "cargando"), 0);
-  assert.equal(escenario([{ clave: "bolsa" }], "disponible"), 0, "ya comprobada");
-  assert.equal(escenario([{ clave: "bolsa" }], "denegado"), 0);
-  // Se lanza al publicarse el catálogo y la superficie repinta menú e Inicio.
-  const cambio = javascript.slice(fin, javascript.indexOf("function anunciarAccesosComprobados(", fin));
-  assert.match(cambio, /if \(clave === "catalogo"\) comprobarBorradoresTrasCatalogo\(\);/u);
+// Recorrido en Chrome del 25/09/2026 (fallo 2): la sonda de la API de
+// borradores de convocatorias daba 404 en cada carga contra un servidor que no
+// la sirve. Ya no se sondea al cargar ni al llegar el catálogo; Elaboración se
+// comprueba al abrirla por su enlace.
+test("la API de borradores no se sondea al cargar el portal", async () => {
+  assert.doesNotMatch(javascript, /comprobarBorradoresTrasCatalogo/u);
+  const inicio = javascript.indexOf("function alCambiarModulos(");
+  const cambio = javascript.slice(inicio, javascript.indexOf("function anunciarAccesosComprobados(", inicio));
+  assert.doesNotMatch(cambio, /comprobarDisponibilidad/u);
+  const carga = javascript.slice(javascript.indexOf("async function cargarFuenteDatos()"),
+    javascript.indexOf("function necesidadLlamamientoSeleccionada()"));
+  assert.doesNotMatch(carga, /comprobarDisponibilidad/u);
+  const arranque = javascript.slice(javascript.indexOf("async function inicializar()"));
+  assert.doesNotMatch(arranque, /comprobarDisponibilidad/u);
   assert.match(javascript, /alCambiar: \(\) => \{\s+if \(estado\.vista === "portal"\) renderizarConservandoFoco\(\);\s+else if \(estado\.vista === "elaboracion"\) actualizarVistaBolsa\(\);\s+else actualizarNavegacionModulos\(\);/u);
-  // El menú refleja la capacidad: null mientras se comprueba, true o false después.
+  // El menú refleja la capacidad: null sin comprobar, true o false después.
   const ini = javascript.indexOf("function capacidadesBolsa()");
   const capacidades = (acceso) => runInNewContext(`${javascript.slice(ini, javascript.indexOf("function vistaPermitida(", ini))}; capacidadesBolsa()`, {
     superficieBorradores: { obtenerAcceso: () => acceso },

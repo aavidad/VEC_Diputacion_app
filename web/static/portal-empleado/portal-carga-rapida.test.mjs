@@ -77,6 +77,9 @@ function coordinadorControlado({ limite = 10_000 } = {}) {
   const coordinador = crearCoordinadorModulosPortal({
     escaparHTML: String,
     limiteCargaModularMs: limite,
+    // Estas pruebas miden la carga en paralelo: todos los módulos arrancan a la
+    // vez (el portal difiere los que no tienen entrada; ver pruebas propias).
+    modulosDiferidos: [],
     cargarCatalogoInterno: async () => CATALOGO,
     entorno: { fetch: async () => { throw new Error("sin red"); } },
     cargadoresInternos: {
@@ -180,7 +183,8 @@ test("las tres consultas iniciales de contratación temporal se piden a la vez",
   });
   const carga = coordinador.cargarInterno();
   await esperarTurnos();
-  assert.deepEqual(iniciadas, ["cuadro", "alta", "analisis"]);
+  // Los catálogos del alta salen primero: no retrasan el cuadro (ver abajo).
+  assert.deepEqual(iniciadas, ["alta", "cuadro", "analisis"]);
   pendientes.analisis.rechazar(new Error("503"));
   pendientes.alta.resolver({ centros: [], categorias: [] });
   pendientes.cuadro.resolver({ expedientes: [] });
@@ -225,6 +229,7 @@ test("dos cargas seguidas: los módulos tardíos de la primera no alteran la com
   const coordinador = crearCoordinadorModulosPortal({
     escaparHTML: String,
     limiteCargaModularMs: 200,
+    modulosDiferidos: [],
     cargarCatalogoInterno: async () => catalogos[carga++].promesa,
     entorno: { fetch: async () => { throw new Error("sin red"); } },
     cargadoresInternos: {
@@ -305,6 +310,7 @@ test("empleado sin contratación temporal en el catálogo: su Inicio en cuanto l
   const pendiente = diferido();
   const coordinador = crearCoordinadorModulosPortal({
     escaparHTML: String,
+    modulosDiferidos: [],
     cargarCatalogoInterno: async () => Object.freeze([{ clave: "cronos" }]),
     cargadoresInternos: { contratacion_temporal: async () => ({}), cronos: () => pendiente.promesa },
   });
@@ -316,6 +322,186 @@ test("empleado sin contratación temporal en el catálogo: su Inicio en cuanto l
   pendiente.resolver(recursosCronos());
   await carga;
   assert.equal(coordinador.vistaPendiente("cronos"), false);
+});
+
+// Recorrido en Chrome del 25/09/2026 (fallo 6): los catálogos del alta de
+// Contratación (~0,5 s) retrasaban Inicio. Ahora el cuadro y la configuración
+// deciden el Inicio; los nombres de centro y categoría llegan después con un
+// aviso, y abrir Contratación espera a los catálogos para montar el alta.
+test("los catálogos del alta no retrasan Inicio y abrir Contratación los espera", async () => {
+  const pendientes = { cuadro: diferido(), alta: diferido(), analisis: diferido() };
+  const consulta = (nombre) => () => pendientes[nombre].promesa;
+  let altaMontada = "sin montar";
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    cargarCatalogoInterno: async () => Object.freeze([Object.freeze({ clave: "contratacion_temporal" })]),
+    cargadoresInternos: {
+      contratacion_temporal: async () => ({
+        cliente: { crearClienteHTTPContratacionTemporal: () => ({
+          obtenerCatalogosAlta: consulta("alta"), obtenerConfiguracionAnalisis: consulta("analisis"),
+          registrarSolicitud: async () => ({}), registrarAnalisis: async () => ({}),
+        }) },
+        adaptador: { crearAdaptadorHTTPExpedientesContratacionTemporal: () => ({ capacidades: [], listar: consulta("cuadro") }) },
+        contrato: { validarCatalogosAlta: (valor) => valor, CAPACIDAD_CREAR_SOLICITUD: "contratacion_temporal.solicitud.crear" },
+        presentador: { crearPresentadorExpedientesContratacionTemporal: () => ({}) },
+        vista: { montarModuloContratacionTemporal: async ({ alta }) => { altaMontada = alta; return { desmontar() {} }; } },
+      }),
+    },
+  });
+  const avisos = [];
+  const carga = coordinador.cargarInterno({ alCambiar: (clave) => avisos.push(clave) });
+  await esperarTurnos();
+  pendientes.cuadro.resolver({ expedientes: [{ expediente_ref: "e:1", numero_visible: "2026/CT-1", centro: "centro:1",
+    categoria: "categoria:1", fase_clave: "solicitud", estado_clave: "en_curso", version: 1 }] });
+  pendientes.analisis.resolver({ subsanacion_disponible: false, modalidades: [], categorias: [], causas: [],
+    entradas_rc: [], motivos_rectificacion: [], artefacto_ref: "artefacto:1" });
+  await carga;
+  // Sin catálogos todavía: Contratación ya está disponible y el perfil es RRHH.
+  assert.equal(coordinador.resolverAcceso("contratacion_temporal").disponible, true);
+  assert.equal(coordinador.esPerfilRRHH(), true);
+  assert.deepEqual(avisos, ["catalogo", "contratacion_temporal"]);
+  const raiz = { innerHTML: "", replaceChildren() {} };
+  const montaje = coordinador.montarVista("contratacion-temporal", raiz);
+  await esperarTurnos();
+  assert.equal(altaMontada, "sin montar", "abrir Contratación espera a los catálogos del alta");
+  pendientes.alta.resolver({ centros: [{ referencia: "centro:1", etiqueta: "DEPORTES" }],
+    categorias: [{ referencia: "categoria:1", etiqueta: "Auxiliar" }] });
+  assert.equal(await montaje, true);
+  assert.equal(altaMontada.catalogos.centros[0].etiqueta, "DEPORTES");
+  // Al llegar se avisa para repintar Inicio con los nombres.
+  assert.deepEqual(avisos, ["catalogo", "contratacion_temporal", "contratacion_temporal"]);
+  assert.equal(coordinador.obtenerTramitesInicio()[0].centro, "DEPORTES");
+});
+
+test("sin cuadro, el perfil sigue esperando a los catálogos del alta", async () => {
+  const alta = diferido();
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    cargarCatalogoInterno: async () => Object.freeze([Object.freeze({ clave: "contratacion_temporal" })]),
+    cargadoresInternos: {
+      contratacion_temporal: async () => ({
+        cliente: { crearClienteHTTPContratacionTemporal: () => ({
+          obtenerCatalogosAlta: () => alta.promesa, obtenerConfiguracionAnalisis: async () => { throw new Error("403"); },
+          registrarSolicitud: async () => ({}),
+        }) },
+        adaptador: { crearAdaptadorHTTPExpedientesContratacionTemporal: () => ({ capacidades: [], listar: async () => { throw new Error("503"); } }) },
+        contrato: { validarCatalogosAlta: (valor) => valor, CAPACIDAD_CREAR_SOLICITUD: "contratacion_temporal.solicitud.crear" },
+        presentador: { crearPresentadorExpedientesContratacionTemporal: () => ({}) },
+        vista: { montarModuloContratacionTemporal: async () => ({ desmontar() {} }) },
+      }),
+    },
+  });
+  const carga = coordinador.cargarInterno();
+  await esperarTurnos();
+  assert.equal(coordinador.inicioPendiente(), true, "sin cuadro ni análisis el perfil depende del alta");
+  alta.resolver({ centros: [], categorias: [] });
+  await carga;
+  assert.equal(coordinador.resolverAcceso("contratacion_temporal").disponible, true);
+});
+
+// Recorrido en Chrome del 25/09/2026 (fallo 1): Personal no tiene entrada en el
+// portal y aun así se descargaba su código en cada Inicio (y un fichero ausente
+// del paquete daba 404). Ahora los módulos sin entrada se cargan al pedir su vista.
+test("Personal, Cronos y Dietas no se cargan al arrancar; su vista directa los carga", async () => {
+  const iniciados = [];
+  const personal = diferido();
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    cargarCatalogoInterno: async () => CATALOGO,
+    entorno: { fetch: async () => { throw new Error("sin red"); } },
+    cargadoresInternos: {
+      contratacion_temporal: async () => { iniciados.push("contratacion_temporal"); throw new Error("sin CT"); },
+      cronos: async () => { iniciados.push("cronos"); return recursosCronos(); },
+      personal: async () => { iniciados.push("personal"); return personal.promesa; },
+      personal_catalogos_publicos: async () => { iniciados.push("personal_catalogos_publicos"); throw new Error("no"); },
+      dietas: async () => { iniciados.push("dietas"); return recursosDietas(); },
+    },
+  });
+  await coordinador.cargarInterno();
+  assert.deepEqual(iniciados, ["contratacion_temporal"], "solo el módulo con entrada");
+  assert.equal(coordinador.resolverAcceso("personal").estado, "diferido");
+  assert.equal(coordinador.vistaPendiente("personal"), true, "su URL directa dice «Comprobando», no «no disponible»");
+  const carga = coordinador.prepararVista("personal");
+  assert.ok(carga instanceof Promise);
+  assert.equal(coordinador.prepararVista("personal"), null, "una sola carga");
+  assert.equal(coordinador.prepararVista("resumen"), null, "Bolsa no se difiere");
+  assert.equal(coordinador.resolverAcceso("personal").estado, "cargando");
+  personal.resolver(recursosPersonal());
+  await carga;
+  assert.equal(coordinador.vistaDisponible("personal"), true);
+  assert.deepEqual(iniciados.filter((clave) => clave !== "personal_catalogos_publicos"),
+    ["contratacion_temporal", "personal"], "Cronos y Dietas siguen sin cargarse");
+  assert.equal(coordinador.vistaPendiente("cronos"), true);
+});
+
+test("el shell arranca la carga diferida al pintar o al llegar el catálogo", async () => {
+  const portal = await readFile(new URL("portal.js", import.meta.url), "utf8");
+  assert.match(portal, /if \(clave === "catalogo"\) coordinadorModulos\.prepararVista\(estado\.vista\);/u);
+  assert.match(portal, /coordinadorModulos\.prepararVista\(estado\.vista\);\s+const pendiente =/u);
+});
+
+// Recorrido en Chrome del 25/09/2026 (fallo 5): en 1 de 4 cargas a 390 px
+// Contratación no llegó a cargarse. El código de los módulos tenía un límite de
+// 2 s, y por una red lenta (túnel y pasarela serializada) las importaciones se
+// encolaban tras /bolsas y la sonda de borradores: el temporizador ganaba la
+// carrera y el módulo quedaba «no disponible» para toda la sesión.
+test("el límite de carga de un módulo admite una red lenta", async () => {
+  const { LIMITE_CARGA_MODULAR_MS } = await import("./portal-modulos-carga.js");
+  assert.ok(LIMITE_CARGA_MODULAR_MS >= 10_000, "no puede agotarse en una carga normal por una red lenta");
+  const plazos = [];
+  const reloj = {
+    setTimeout: (_fn, ms) => { plazos.push(ms); return plazos.length; },
+    clearTimeout: () => {},
+  };
+  const lento = diferido();
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    temporizadores: reloj,
+    cargarCatalogoInterno: async () => Object.freeze([Object.freeze({ clave: "contratacion_temporal" })]),
+    cargadoresInternos: { contratacion_temporal: () => lento.promesa },
+  });
+  const carga = coordinador.cargarInterno();
+  await esperarTurnos();
+  assert.ok(plazos.length > 0 && plazos.every((ms) => ms === LIMITE_CARGA_MODULAR_MS));
+  lento.rechazar(new Error("fin"));
+  await carga;
+});
+
+// Recorrido en Chrome del 25/09/2026 (fallo 4): recargar (F5) en #bolsa/resumen
+// dejaba «Gestión de Bolsas no disponible · Comprobando acceso…». La vista se
+// montaba antes del catálogo y la carga del catálogo la desmontaba, lo que
+// cancelaba la lectura del cuadro de bolsas y nadie la volvía a pedir.
+test("cargar el catálogo no desmonta una vista de Bolsa ya montada", async () => {
+  const desmontajes = [];
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    cargarCatalogoInterno: async () => Object.freeze([{ clave: "bolsa" }]),
+    montajeBolsa: { disponible: () => true, montar: ({ vista }) => ({ desmontar: () => desmontajes.push(vista) }) },
+  });
+  const raiz = { innerHTML: "", replaceChildren() {} };
+  // Como al arrancar tras F5: la carga del catálogo empieza mientras la vista
+  // de Bolsa aún se está montando (montarVista espera un turno).
+  const montaje = coordinador.montarVista("resumen", raiz);
+  const carga = coordinador.cargarInterno();
+  assert.equal(await montaje, true, "el montaje en curso no se sustituye");
+  await carga;
+  assert.deepEqual(desmontajes, [], "la vista de Bolsa y sus lecturas siguen vivas");
+  await coordinador.cargarInterno();
+  assert.deepEqual(desmontajes, []);
+  // Otra vista sí se retira (depende de la composición que se recarga).
+  coordinador.desmontarVistaActual();
+  assert.deepEqual(desmontajes, ["resumen"]);
+});
+
+test("F5 en el cuadro de Bolsa: se pide el cuadro al montar y la carga no lo repite", async () => {
+  const portal = await readFile(new URL("portal.js", import.meta.url), "utf8");
+  const montaje = portal.slice(portal.indexOf("function montarVistaBolsa("), portal.indexOf("function renderizarLlamamientoSinBolsa("));
+  // Sin lectura del cuadro, la vista la pide (en vez de pintar «no disponible»).
+  assert.match(montaje, /if \(vistaBolsas && estado\.datosBolsas === null\) \{\s+(?:\/\/[^\n]*\s+)*void controladorBolsas\.cargarBolsas\(\);\s+return;/u);
+  assert.ok(montaje.indexOf("estado.datosBolsas === null") < montaje.indexOf("if (!estado.fuenteLista)"));
+  const carga = portal.slice(portal.indexOf("async function cargarFuenteDatos()"), portal.indexOf("function necesidadLlamamientoSeleccionada()"));
+  // Una vista de Bolsa montada se conserva y no se vuelve a montar.
+  assert.match(carga, /if \(moduloDeVistaPortal\(estado\.vistaMontada \|\| ""\) !== "bolsa"\) estado\.vistaMontada = "";/u);
 });
 
 // --- Grafo de módulos: sin URL duplicadas y precarga exacta del grafo estático ---
