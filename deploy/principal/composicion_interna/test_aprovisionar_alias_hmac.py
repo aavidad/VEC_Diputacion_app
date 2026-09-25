@@ -60,7 +60,27 @@ class AliasHMACTest(unittest.TestCase):
                            "vec_interno_v3_", {"gobierno_v3": "vec_interno_preflight_v3_desarrollo"})
         self.assertIn("comprobar_material_emision_interna_v1(jsonb)", sql)
         self.assertIn("leer_configuracion_interna_v1(jsonb)", sql)
+        self.assertIn("comprobar_material_emision_interna_v2(text,jsonb)", sql)
+        self.assertIn("leer_configuracion_interna_v2(text,jsonb)", sql)
         self.assertIn("has_function_privilege", sql)
+
+    def test_v3_preflight_exige_exactamente_las_cuatro_funciones_de_ad3_69(self) -> None:
+        esperadas = [
+            "vec_autorizacion_atestada_v3.comprobar_material_emision_interna_v1(jsonb)",
+            "vec_autorizacion_atestada_v3.leer_configuracion_interna_v1(jsonb)",
+            "vec_autorizacion_atestada_v3.comprobar_material_emision_interna_v2(text,jsonb)",
+            "vec_autorizacion_atestada_v3.leer_configuracion_interna_v2(text,jsonb)",
+        ]
+        self.assertEqual(app.V3_FUNCTIONS["gobierno_v3"], esperadas)
+        sql = app.role_sql({key: "clave-sintetica" for key in app.V3_ROLES}, "vec_test",
+                           "ROLLBACK", app.V3_ROLES, app.V3_FUNCTIONS,
+                           "vec_interno_v3_", {"gobierno_v3": "vec_interno_preflight_v3_desarrollo"})
+        # Cada función se exige presente y concedida antes de crear el LOGIN:
+        # sin AD3-69 el ensayo en ROLLBACK aborta y no se confirma nada.
+        bloque = sql.split("vec_interno_preflight_v3_desarrollo")[0].rsplit("DO $provision$", 1)[1]
+        for funcion in esperadas:
+            self.assertIn(f"to_regprocedure('{funcion}') IS NULL", bloque)
+        self.assertEqual(bloque.count("to_regprocedure("), len(esperadas))
 
     def test_mensaje_canonico_separa_cuenta_y_sujeto(self) -> None:
         meta = metadata()

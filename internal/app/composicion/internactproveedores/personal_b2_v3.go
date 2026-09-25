@@ -6,8 +6,6 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/sha256"
-	"crypto/subtle"
-	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -16,9 +14,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
-	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	gocose "github.com/veraison/go-cose"
 	"vec-diputacion-granada/internal/app/composicion/internagobierno"
 	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
@@ -33,22 +29,15 @@ import (
 
 var ErrPersonalB2V3NoDisponible = errors.New("composicion interna: autorizacion Personal B2 no disponible")
 
-const audienciaAtestacionPersonalB2 = "vec:interno:personal:registro-empleado:atestacion:v3"
+// versionMaterialPersonalB2 4: el inventario ya no trae raíz, audiencia de
+// atestación ni configuración propias. B2 usa la raíz única que carga CT y la
+// configuración publicada vigente; el formato 3 (raíz B2) se rechaza.
+const versionMaterialPersonalB2 = 4
 
+// materialPersonalB2V3 contiene solo las ocho capacidades HMAC de consumo B2,
+// en el orden cerrado de leer_configuracion_interna_v2('personal_b2').
 type materialPersonalB2V3 struct {
-	ClaveID                string    `json:"clave_id"`
-	ClaveVersion           uint64    `json:"clave_version"`
-	ClaveArchivo           string    `json:"clave_archivo"`
-	ClaveSHA256            string    `json:"clave_sha256"`
-	Audiencia              string    `json:"audiencia"`
-	RaizDesde              time.Time `json:"raiz_desde"`
-	RaizHasta              time.Time `json:"raiz_hasta"`
-	ConfiguracionRef       string    `json:"configuracion_ref"`
-	ConfiguracionOrden     uint64    `json:"configuracion_orden"`
-	ConfiguracionPublicada time.Time `json:"configuracion_publicada"`
-	ConfiguracionExpira    time.Time `json:"configuracion_expira"`
-	ConfiguracionSHA256    string    `json:"configuracion_sha256"`
-	Capacidades            struct {
+	Capacidades struct {
 		Ficha             capacidadMaterial `json:"ficha"`
 		Vacantes          capacidadMaterial `json:"vacantes"`
 		Alta              capacidadMaterial `json:"alta"`
@@ -129,7 +118,7 @@ func CargarMaterialPersonalB2(directorio string) (MaterialPersonalB2, error) {
 	}
 	d := json.NewDecoder(bytes.NewReader(b))
 	d.DisallowUnknownFields()
-	if d.Decode(&m) != nil || d.Decode(new(any)) != io.EOF || m.Version != 3 || m.CatalogoMotivos == "" {
+	if d.Decode(&m) != nil || d.Decode(new(any)) != io.EOF || m.Version != versionMaterialPersonalB2 || m.CatalogoMotivos == "" {
 		return MaterialPersonalB2{}, ErrPersonalB2V3NoDisponible
 	}
 	for _, motivo := range []core.ReferenciaEntradaCatalogo{m.Motivos.Ficha, m.Motivos.Vacantes, m.Motivos.Alta, m.Motivos.Hecho, m.Motivos.CatalogoConsultar, m.Motivos.CatalogoPublicar, m.Motivos.CatalogoRetirar, m.Motivos.Empleados} {
@@ -137,13 +126,10 @@ func CargarMaterialPersonalB2(directorio string) (MaterialPersonalB2, error) {
 			return MaterialPersonalB2{}, ErrPersonalB2V3NoDisponible
 		}
 	}
-	for _, nombre := range []string{m.V3.ClaveArchivo, m.V3.Capacidades.Ficha.Archivo, m.V3.Capacidades.Vacantes.Archivo, m.V3.Capacidades.Alta.Archivo, m.V3.Capacidades.Hecho.Archivo, m.V3.Capacidades.CatalogoConsultar.Archivo, m.V3.Capacidades.CatalogoPublicar.Archivo, m.V3.Capacidades.CatalogoRetirar.Archivo, m.V3.Capacidades.Empleados.Archivo} {
+	for _, nombre := range []string{m.V3.Capacidades.Ficha.Archivo, m.V3.Capacidades.Vacantes.Archivo, m.V3.Capacidades.Alta.Archivo, m.V3.Capacidades.Hecho.Archivo, m.V3.Capacidades.CatalogoConsultar.Archivo, m.V3.Capacidades.CatalogoPublicar.Archivo, m.V3.Capacidades.CatalogoRetirar.Archivo, m.V3.Capacidades.Empleados.Archivo} {
 		if !filepath.IsLocal(nombre) || nombre == "." {
 			return MaterialPersonalB2{}, ErrPersonalB2V3NoDisponible
 		}
-	}
-	if m.V3.Audiencia != audienciaAtestacionPersonalB2 {
-		return MaterialPersonalB2{}, ErrPersonalB2V3NoDisponible
 	}
 	m.raiz = raiz
 	return m, nil
@@ -156,11 +142,16 @@ type ConfiguracionPersonalB2 struct {
 	Reloj    ct.Reloj
 }
 
+// emisorMaterialV3 es la emisión atestada que consume cada capacidad B2.
+type emisorMaterialV3 interface {
+	EmitirMaterialAutorizacionAtestadaV3(context.Context, core.SolicitudAutorizacionLigadaV3, core.ResultadoContextoActorRegistradoV2) (core.DecisionAutorizacionLigadaV3, vecports.ConfirmacionRegistroConcesionAutorizacionLigadaV3, vecports.ExportadorMaterialConsumoAutorizacionAtestadaV3, error)
+}
+
 type ProveedorAutorizacionPersonalB2 struct {
 	fuente   *internagobierno.FuenteF1
 	reloj    ct.Reloj
 	motivos  [8]core.ReferenciaEntradaCatalogo
-	emisores [8]*confianza.EmisorMaterialAutorizacionAtestadaV3
+	emisores [8]emisorMaterialV3
 	firmante *firmantePersonalB2V3
 }
 
@@ -172,52 +163,103 @@ func (p *ProveedorAutorizacionPersonalB2) Cerrar() {
 		clear(p.firmante.privada)
 		p.firmante = nil
 	}
-	p.emisores = [8]*confianza.EmisorMaterialAutorizacionAtestadaV3{}
+	p.emisores = [8]emisorMaterialV3{}
 	p.fuente = nil
 }
 
+// dependenciasPersonalB2 reúne lo que B2 toma de la composición CT: la raíz
+// compartida ya validada, su firmante, el PDP de su catálogo y las dos
+// funciones v2 del preflight. Separarlo permite probar la renovación sin SQL.
+type dependenciasPersonalB2 struct {
+	pdp       vecports.AutorizadorSolicitudLigadaV3
+	catalogo  string
+	gobierno  *gobiernoV3Compartido
+	firmante  *firmanteV3
+	comprobar comprobacionGobiernoV3
+	leer      consultaGobiernoV3
+	fuente    *internagobierno.FuenteF1
+	reloj     ct.Reloj
+}
+
+// ConstruirPersonalB2 no carga otra raíz ni otra configuración: reutiliza la
+// raíz y la audiencia de atestación compartidas que ya acreditó CT y lee la
+// configuración vigente con leer_configuracion_interna_v2('personal_b2').
+// Cualquier fallo deja B2 fuera sin tocar los proveedores CT.
 func ConstruirPersonalB2(ctx context.Context, c ConfiguracionPersonalB2) (*ProveedorAutorizacionPersonalB2, error) {
-	m := c.Material
-	if ctx == nil || ctx.Err() != nil || m.raiz == nil || c.Base == nil || c.Base.pdp == nil || len(c.Base.pools) < 4 || c.Base.pools[3] == nil || c.Base.catalogoMotivos != m.CatalogoMotivos || c.Fuente == nil || c.Reloj == nil || m.V3.Audiencia != audienciaAtestacionPersonalB2 {
+	if c.Base == nil || c.Base.pdp == nil || len(c.Base.pools) < 4 || c.Base.pools[3] == nil {
 		return nil, ErrPersonalB2V3NoDisponible
 	}
-	privada, err := leerConHuella(m.raiz, m.V3.ClaveArchivo, m.V3.ClaveSHA256, ed25519.PrivateKeySize)
-	if err != nil || len(privada) != ed25519.PrivateKeySize {
-		clear(privada)
+	return construirPersonalB2(ctx, c.Material, dependenciasPersonalB2{
+		pdp: c.Base.pdp, catalogo: c.Base.catalogoMotivos, gobierno: c.Base.gobierno, firmante: c.Base.firmante,
+		comprobar: comprobacionMaterialGobiernoV3(c.Base.pools[3], sqlComprobarMaterialB2),
+		leer:      consultaLecturaGobiernoV3(c.Base.pools[3], sqlLeerConfiguracionB2),
+		fuente:    c.Fuente, reloj: c.Reloj,
+	})
+}
+
+func construirPersonalB2(ctx context.Context, m MaterialPersonalB2, d dependenciasPersonalB2) (*ProveedorAutorizacionPersonalB2, error) {
+	g := d.gobierno
+	if ctx == nil || ctx.Err() != nil || m.raiz == nil || interfazNula(d.pdp) || d.catalogo == "" || d.catalogo != m.CatalogoMotivos ||
+		g == nil || g.lector == nil || g.coord.AudienciaDespliegue != audienciaAtestacionCTInterna ||
+		d.firmante == nil || len(d.firmante.privada) != ed25519.PrivateKeySize || d.firmante.claveID != g.coord.ClaveID ||
+		d.firmante.audiencia != g.coord.AudienciaDespliegue || d.comprobar == nil || d.leer == nil || d.fuente == nil || d.reloj == nil {
 		return nil, ErrPersonalB2V3NoDisponible
 	}
-	defer clear(privada)
-	clave := ed25519.PrivateKey(privada)
-	if subtle.ConstantTimeCompare(clave.Public().(ed25519.PublicKey), privada[32:]) != 1 {
-		return nil, ErrPersonalB2V3NoDisponible
+	capacidades := capacidadesPersonalB2(m)
+	claves := make([]claveGobiernoV3, 0, len(capacidades))
+	for _, c := range capacidades {
+		claves = append(claves, claveGobierno(c.material, c.audiencia))
 	}
-	raiz, err := confianza.NuevaRaizPublicaAtestacionAutorizacionV3EdDSA(m.V3.ClaveID, m.V3.ClaveVersion, clave.Public().(ed25519.PublicKey), m.V3.Audiencia, confianza.EstadoClaveAtestacionAutorizacionV3Activa, m.V3.RaizDesde, m.V3.RaizHasta, time.Time{})
+	// Punto de partida: la publicación vigente que CT acaba de validar con la
+	// misma raíz. El inventario B2 no fija configuración, así que sigue siendo
+	// válido tras cualquier renovación diaria.
+	_, vigente, err := g.lector.Leer(ctx)
 	if err != nil {
 		return nil, ErrPersonalB2V3NoDisponible
 	}
-	config, err := confianza.NuevaConfiguracionConfianzaAtestacionAutorizacionV3(m.V3.ConfiguracionRef, m.V3.ConfiguracionOrden, m.V3.ConfiguracionPublicada, m.V3.ConfiguracionExpira, raiz)
-	if err != nil || config.ValidarHuellaSHA256Esperada(m.V3.ConfiguracionSHA256) != nil || !c.Reloj.Ahora().Before(m.V3.ConfiguracionExpira) {
-		return nil, ErrPersonalB2V3NoDisponible
-	}
-	verificador, err := confianza.NuevoServicioConfianzaAtestacionAutorizacionV3(config, c.Reloj)
+	sonda, err := materialGobiernoV3{Claves: claves, Raiz: g.coord}.codificar(vigente)
 	if err != nil {
 		return nil, ErrPersonalB2V3NoDisponible
 	}
-	firmante := &firmantePersonalB2V3{claveID: m.V3.ClaveID, audiencia: m.V3.Audiencia, privada: append(ed25519.PrivateKey(nil), privada...), reloj: c.Reloj}
-	atestador, err := app.NuevoServicioAtestacionesAutorizacionV3(core.CabeceraAtestacionAutorizacionV3{FormatoVersion: core.VersionFormatoAtestacionAutorizacionV3, Suite: confianza.SuiteAtestacionAutorizacionV3COSEEdDSA, ClaveID: m.V3.ClaveID, Audiencia: m.V3.Audiencia}, firmante)
+	vale, err := d.comprobar(ctx, sonda)
+	clear(sonda)
+	if err != nil || !vale {
+		return nil, ErrPersonalB2V3NoDisponible
+	}
+	lector, err := nuevoLectorGobiernoV3(ctx, vigente, g.raiz, d.reloj, fuenteGobiernoV3(d.leer, claves, g.coord))
+	if err != nil {
+		return nil, ErrPersonalB2V3NoDisponible
+	}
+	// Copia propia de la clave de la raíz compartida: B2 conserva su etiqueta de
+	// evidencia y su ciclo de vida, pero firma con la misma raíz y audiencia.
+	firmante := &firmantePersonalB2V3{claveID: g.coord.ClaveID, audiencia: g.coord.AudienciaDespliegue, privada: append(ed25519.PrivateKey(nil), d.firmante.privada...), reloj: d.reloj}
+	atestador, err := app.NuevoServicioAtestacionesAutorizacionV3(core.CabeceraAtestacionAutorizacionV3{FormatoVersion: core.VersionFormatoAtestacionAutorizacionV3, Suite: confianza.SuiteAtestacionAutorizacionV3COSEEdDSA, ClaveID: g.coord.ClaveID, Audiencia: g.coord.AudienciaDespliegue}, firmante)
 	if err != nil {
 		clear(firmante.privada)
 		return nil, ErrPersonalB2V3NoDisponible
 	}
-	if sondearGobiernoPersonalB2(ctx, c.Base.pools[3], m, clave.Public().(ed25519.PublicKey)) != nil {
-		clear(firmante.privada)
-		return nil, ErrPersonalB2V3NoDisponible
+	p := &ProveedorAutorizacionPersonalB2{fuente: d.fuente, reloj: d.reloj, firmante: firmante, motivos: [8]core.ReferenciaEntradaCatalogo{m.Motivos.Ficha, m.Motivos.Vacantes, m.Motivos.Alta, m.Motivos.Hecho, m.Motivos.CatalogoConsultar, m.Motivos.CatalogoPublicar, m.Motivos.CatalogoRetirar, m.Motivos.Empleados}}
+	for i, capacidad := range capacidades {
+		emisorCapacidad, e := crearCapacidad(m.raiz, capacidad.material, capacidad.audiencia, d.reloj)
+		if e != nil {
+			p.Cerrar()
+			return nil, ErrPersonalB2V3NoDisponible
+		}
+		// Instantánea del gobierno antes de cada emisión, como CT interno.
+		p.emisores[i] = &emisorMaterialRenovable{lector: lector, pdp: d.pdp, atestador: atestador, capacidad: emisorCapacidad}
 	}
-	p := &ProveedorAutorizacionPersonalB2{fuente: c.Fuente, reloj: c.Reloj, firmante: firmante, motivos: [8]core.ReferenciaEntradaCatalogo{m.Motivos.Ficha, m.Motivos.Vacantes, m.Motivos.Alta, m.Motivos.Hecho, m.Motivos.CatalogoConsultar, m.Motivos.CatalogoPublicar, m.Motivos.CatalogoRetirar, m.Motivos.Empleados}}
-	for i, capacidad := range []struct {
-		material  capacidadMaterial
-		audiencia string
-	}{
+	return p, nil
+}
+
+type capacidadPersonalB2 struct {
+	material  capacidadMaterial
+	audiencia string
+}
+
+// capacidadesPersonalB2 fija el orden de las ocho audiencias de consumo B2; es
+// el mismo que imponen AD3-69 y los descriptores del publicador.
+func capacidadesPersonalB2(m MaterialPersonalB2) [8]capacidadPersonalB2 {
+	return [8]capacidadPersonalB2{
 		{m.V3.Capacidades.Ficha, personal.AudienciaFichaEmpleadoB2},
 		{m.V3.Capacidades.Vacantes, personal.AudienciaVacantesB2},
 		{m.V3.Capacidades.Alta, personal.AudienciaAltaEmpleadoB2},
@@ -226,19 +268,15 @@ func ConstruirPersonalB2(ctx context.Context, c ConfiguracionPersonalB2) (*Prove
 		{m.V3.Capacidades.CatalogoPublicar, personal.AudienciaPublicarCatalogoEmpleadoB2},
 		{m.V3.Capacidades.CatalogoRetirar, personal.AudienciaRetirarCatalogoEmpleadoB2},
 		{m.V3.Capacidades.Empleados, personal.AudienciaEmpleadosB2},
-	} {
-		emisorCapacidad, e := crearCapacidad(m.raiz, capacidad.material, capacidad.audiencia, c.Reloj)
-		if e != nil {
-			p.Cerrar()
-			return nil, ErrPersonalB2V3NoDisponible
-		}
-		p.emisores[i], e = confianza.NuevoEmisorMaterialAutorizacionAtestadaV3(c.Base.pdp, atestador, verificador, emisorCapacidad)
-		if e != nil {
-			p.Cerrar()
-			return nil, ErrPersonalB2V3NoDisponible
-		}
 	}
-	return p, nil
+}
+
+func interfazNula(v any) bool {
+	if v == nil {
+		return true
+	}
+	r := reflect.ValueOf(v)
+	return r.Kind() == reflect.Pointer && r.IsNil()
 }
 
 func (p *ProveedorAutorizacionPersonalB2) AutorizarConsultaRegistroEmpleadoB2(ctx context.Context, m personal.MaterialConsultaRegistroEmpleadoB2) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error) {
@@ -357,74 +395,4 @@ func (f *firmantePersonalB2V3) FirmarAtestacionAutorizacionV3(ctx context.Contex
 	defer clear(firma)
 	huella := sha256.Sum256(mensaje)
 	return vecports.NuevoResultadoFirmaAtestacionAutorizacionV3(s, firma, "evidencia:firma:personal:b2:"+hex.EncodeToString(huella[:8]), f.reloj.Ahora())
-}
-
-func sondearGobiernoPersonalB2(ctx context.Context, pool *pgxpool.Pool, m MaterialPersonalB2, publica ed25519.PublicKey) error {
-	if ctx == nil || ctx.Err() != nil || pool == nil || len(publica) != ed25519.PublicKeySize {
-		return ErrPersonalB2V3NoDisponible
-	}
-	spki, err := x509.MarshalPKIXPublicKey(publica)
-	if err != nil {
-		return ErrPersonalB2V3NoDisponible
-	}
-	huella := sha256.Sum256(spki)
-	type clave struct {
-		AudienciaConsumo     string `json:"audiencia_consumo"`
-		ClaveID              string `json:"clave_id"`
-		Version              uint64 `json:"version"`
-		RevisionGobierno     uint64 `json:"revision_gobierno"`
-		HuellaGobiernoSHA256 string `json:"huella_gobierno_sha256"`
-		HuellaSecretoSHA256  string `json:"huella_secreto_sha256"`
-		EmisorID             string `json:"emisor_id"`
-	}
-	material := struct {
-		Claves        []clave `json:"claves"`
-		Configuracion struct {
-			Revision                  string `json:"revision"`
-			Secuencia                 uint64 `json:"secuencia"`
-			HuellaConfiguracionSHA256 string `json:"huella_configuracion_sha256"`
-		} `json:"configuracion"`
-		Raiz struct {
-			ClaveID             string `json:"clave_id"`
-			Version             uint64 `json:"version"`
-			HuellaSPKISHA256    string `json:"huella_spki_sha256"`
-			AudienciaDespliegue string `json:"audiencia_despliegue"`
-			Suite               string `json:"suite"`
-		} `json:"raiz"`
-	}{Claves: make([]clave, 0, 8)}
-	for _, c := range []struct {
-		m         capacidadMaterial
-		audiencia string
-	}{
-		{m.V3.Capacidades.Ficha, personal.AudienciaFichaEmpleadoB2},
-		{m.V3.Capacidades.Vacantes, personal.AudienciaVacantesB2},
-		{m.V3.Capacidades.Alta, personal.AudienciaAltaEmpleadoB2},
-		{m.V3.Capacidades.Hecho, personal.AudienciaHechoEmpleadoB2},
-		{m.V3.Capacidades.CatalogoConsultar, personal.AudienciaConsultarCatalogoEmpleadoB2},
-		{m.V3.Capacidades.CatalogoPublicar, personal.AudienciaPublicarCatalogoEmpleadoB2},
-		{m.V3.Capacidades.CatalogoRetirar, personal.AudienciaRetirarCatalogoEmpleadoB2},
-		{m.V3.Capacidades.Empleados, personal.AudienciaEmpleadosB2},
-	} {
-		material.Claves = append(material.Claves, clave{c.audiencia, c.m.ClaveID, c.m.Version, c.m.RevisionGobierno, c.m.HuellaGobierno, c.m.SHA256, c.m.EmisorID})
-	}
-	material.Configuracion.Revision = m.V3.ConfiguracionRef
-	material.Configuracion.Secuencia = m.V3.ConfiguracionOrden
-	material.Configuracion.HuellaConfiguracionSHA256 = m.V3.ConfiguracionSHA256
-	material.Raiz.ClaveID = m.V3.ClaveID
-	material.Raiz.Version = m.V3.ClaveVersion
-	material.Raiz.HuellaSPKISHA256 = hex.EncodeToString(huella[:])
-	material.Raiz.AudienciaDespliegue = m.V3.Audiencia
-	material.Raiz.Suite = confianza.SuiteAtestacionAutorizacionV3COSEEdDSA
-	b, err := json.Marshal(material)
-	if err != nil {
-		return ErrPersonalB2V3NoDisponible
-	}
-	defer clear(b)
-	sonda, cancelar := context.WithTimeout(ctx, 5*time.Second)
-	defer cancelar()
-	var vigente bool
-	if err := pool.QueryRow(sonda, `SELECT vec_autorizacion_atestada_v3.comprobar_material_emision_interna_v1($1::jsonb)`, b).Scan(&vigente); err != nil || !vigente {
-		return ErrPersonalB2V3NoDisponible
-	}
-	return nil
 }

@@ -60,6 +60,16 @@ type Proveedores struct {
 	firmante        *firmanteV3
 	pdp             *app.ServicioAutorizacionSolicitudLigadaV3
 	catalogoMotivos string
+	gobierno        *gobiernoV3Compartido
+}
+
+// gobiernoV3Compartido es la única raíz de atestación del proceso: la carga CT
+// desde su material privado y la reutiliza B2. La raíz y sus coordenadas
+// quedan fijas; solo la configuración publicada se renueva mediante el lector.
+type gobiernoV3Compartido struct {
+	raiz   confianza.RaizPublicaAtestacionAutorizacionV3
+	coord  raizGobiernoV3
+	lector *gobiernov3lector.Lector
 }
 
 func (p *Proveedores) Cerrar() {
@@ -85,6 +95,7 @@ func (p *Proveedores) Cerrar() {
 		p.firmante = nil
 	}
 	p.pdp = nil
+	p.gobierno = nil
 	p.catalogoMotivos = ""
 	clear(p.Planes)
 	clear(p.FuentePersonal)
@@ -142,10 +153,20 @@ func Construir(ctx context.Context, c Configuracion) (Proveedores, error) {
 		}
 		salida.pools = append(salida.pools, pool)
 	}
-	verificador, err := nuevoLectorGobiernoV3(ctx, salida.pools[3], m, clave.Public().(ed25519.PublicKey), raiz, c.Reloj)
+	coord, err := coordenadasRaizV3(m.V3.ClaveID, m.V3.ClaveVersion, m.V3.Audiencia, clave.Public().(ed25519.PublicKey))
 	if err != nil {
 		return fallo()
 	}
+	anterior := gobiernov3lector.Publicacion{Revision: m.V3.ConfiguracionRef, Secuencia: m.V3.ConfiguracionOrden,
+		HuellaSHA256: m.V3.ConfiguracionSHA256, PublicadaEn: m.V3.ConfiguracionPublicada, ExpiraEn: m.V3.ConfiguracionExpira}
+	// CT conserva leer_configuracion_interna_v1 (AD3-53a): su contrato de cinco
+	// audiencias es idéntico al de v2('ct') y es el camino ya recorrido.
+	verificador, err := nuevoLectorGobiernoV3(ctx, anterior, raiz, c.Reloj,
+		fuenteGobiernoV3(consultaLecturaGobiernoV3(salida.pools[3], sqlLeerConfiguracionCT), clavesGobiernoCT(m), coord))
+	if err != nil {
+		return fallo()
+	}
+	salida.gobierno = &gobiernoV3Compartido{raiz: raiz, coord: coord, lector: verificador}
 	for _, perfil := range []perfilPool{
 		{"motivos_rrhh", "vec_autorizacion_motivos_rrhh_resolutor", "vec_autorizacion.resolver_motivo_detalle_rrhh_v1(timestamptz)"},
 		{"consulta_rrhh", "vec_contratacion_temporal_consultor_rrhh", "vec_contratacion_temporal.consultar_detalle_rrhh_atestado_v1(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_detalle_rrhh_v1,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)"},
@@ -297,76 +318,139 @@ func crearCapacidad(raiz *os.Root, m capacidadMaterial, audiencia string, reloj 
 	return emisor, nil
 }
 
-func nuevoLectorGobiernoV3(ctx context.Context, pool *pgxpool.Pool, m Material, publica ed25519.PublicKey, raiz confianza.RaizPublicaAtestacionAutorizacionV3, reloj ct.Reloj) (*gobiernov3lector.Lector, error) {
-	if ctx == nil || ctx.Err() != nil || pool == nil || len(publica) != ed25519.PublicKeySize {
-		return nil, ErrProveedoresCTNoDisponibles
+// Funciones SQL del rol de preflight. Los consumidores se fijan aquí como
+// literales: el llamante nunca aporta audiencias ni otro discriminador.
+const (
+	sqlLeerConfiguracionCT    = `SELECT vec_autorizacion_atestada_v3.leer_configuracion_interna_v1($1::jsonb)`
+	sqlComprobarMaterialB2    = `SELECT vec_autorizacion_atestada_v3.comprobar_material_emision_interna_v2('personal_b2',$1::jsonb)`
+	sqlLeerConfiguracionB2    = `SELECT vec_autorizacion_atestada_v3.leer_configuracion_interna_v2('personal_b2',$1::jsonb)`
+	maximoRespuestaGobiernoV3 = 4 << 10
+	limiteConsultaGobiernoV3  = 5 * time.Second
+)
+
+var errGobiernoV3 = errors.New("composicion interna: gobierno V3 no disponible")
+
+type claveGobiernoV3 struct {
+	AudienciaConsumo     string `json:"audiencia_consumo"`
+	ClaveID              string `json:"clave_id"`
+	Version              uint64 `json:"version"`
+	RevisionGobierno     uint64 `json:"revision_gobierno"`
+	HuellaGobiernoSHA256 string `json:"huella_gobierno_sha256"`
+	HuellaSecretoSHA256  string `json:"huella_secreto_sha256"`
+	EmisorID             string `json:"emisor_id"`
+}
+
+type raizGobiernoV3 struct {
+	ClaveID             string `json:"clave_id"`
+	Version             uint64 `json:"version"`
+	HuellaSPKISHA256    string `json:"huella_spki_sha256"`
+	AudienciaDespliegue string `json:"audiencia_despliegue"`
+	Suite               string `json:"suite"`
+}
+
+type configuracionGobiernoV3 struct {
+	Revision                  string `json:"revision"`
+	Secuencia                 uint64 `json:"secuencia"`
+	HuellaConfiguracionSHA256 string `json:"huella_configuracion_sha256"`
+}
+
+// materialGobiernoV3 es el JSON de tres claves que aceptan las sondas v1 y v2.
+type materialGobiernoV3 struct {
+	Claves        []claveGobiernoV3       `json:"claves"`
+	Configuracion configuracionGobiernoV3 `json:"configuracion"`
+	Raiz          raizGobiernoV3          `json:"raiz"`
+}
+
+func claveGobierno(c capacidadMaterial, audiencia string) claveGobiernoV3 {
+	return claveGobiernoV3{audiencia, c.ClaveID, c.Version, c.RevisionGobierno, c.HuellaGobierno, c.SHA256, c.EmisorID}
+}
+
+// clavesGobiernoCT sigue el orden cerrado de AD3-50a/53a y de v2('ct').
+func clavesGobiernoCT(m Material) []claveGobiernoV3 {
+	return []claveGobiernoV3{
+		claveGobierno(m.V3.Capacidades.Alta, pa.AudienciaAltaEjercicio),
+		claveGobierno(m.V3.Capacidades.Lectura, pl.AudienciaV2),
+		claveGobierno(m.V3.Capacidades.CT, ct.AudienciaConfirmacionIncorporacionV2),
+		claveGobierno(m.V3.Capacidades.Cuadro, ct.AudienciaConsumoConsultaCuadroRRHHV3),
+		claveGobierno(m.V3.Capacidades.Detalle, ct.AudienciaConsumoConsultaDetalleRRHHV3),
+	}
+}
+
+func coordenadasRaizV3(claveID string, version uint64, audiencia string, publica ed25519.PublicKey) (raizGobiernoV3, error) {
+	if claveID == "" || version == 0 || audiencia != audienciaAtestacionCTInterna || len(publica) != ed25519.PublicKeySize {
+		return raizGobiernoV3{}, errGobiernoV3
 	}
 	spki, err := x509.MarshalPKIXPublicKey(publica)
 	if err != nil {
-		return nil, ErrProveedoresCTNoDisponibles
+		return raizGobiernoV3{}, errGobiernoV3
 	}
 	huella := sha256.Sum256(spki)
-	type clave struct {
-		AudienciaConsumo     string `json:"audiencia_consumo"`
-		ClaveID              string `json:"clave_id"`
-		Version              uint64 `json:"version"`
-		RevisionGobierno     uint64 `json:"revision_gobierno"`
-		HuellaGobiernoSHA256 string `json:"huella_gobierno_sha256"`
-		HuellaSecretoSHA256  string `json:"huella_secreto_sha256"`
-		EmisorID             string `json:"emisor_id"`
-	}
-	claves := make([]clave, 0, 5)
-	for _, p := range []struct {
-		m         capacidadMaterial
-		audiencia string
-	}{
-		{m.V3.Capacidades.Alta, pa.AudienciaAltaEjercicio},
-		{m.V3.Capacidades.Lectura, pl.AudienciaV2},
-		{m.V3.Capacidades.CT, ct.AudienciaConfirmacionIncorporacionV2},
-		{m.V3.Capacidades.Cuadro, ct.AudienciaConsumoConsultaCuadroRRHHV3},
-		{m.V3.Capacidades.Detalle, ct.AudienciaConsumoConsultaDetalleRRHHV3},
-	} {
-		claves = append(claves, clave{p.audiencia, p.m.ClaveID, p.m.Version, p.m.RevisionGobierno, p.m.HuellaGobierno, p.m.SHA256, p.m.EmisorID})
-	}
-	material := struct {
-		Claves        []clave `json:"claves"`
-		Configuracion struct {
-			Revision                  string `json:"revision"`
-			Secuencia                 uint64 `json:"secuencia"`
-			HuellaConfiguracionSHA256 string `json:"huella_configuracion_sha256"`
-		} `json:"configuracion"`
-		Raiz struct {
-			ClaveID             string `json:"clave_id"`
-			Version             uint64 `json:"version"`
-			HuellaSPKISHA256    string `json:"huella_spki_sha256"`
-			AudienciaDespliegue string `json:"audiencia_despliegue"`
-			Suite               string `json:"suite"`
-		} `json:"raiz"`
-	}{Claves: claves}
-	material.Configuracion.Revision = m.V3.ConfiguracionRef
-	material.Configuracion.Secuencia = m.V3.ConfiguracionOrden
-	material.Configuracion.HuellaConfiguracionSHA256 = m.V3.ConfiguracionSHA256
-	material.Raiz.ClaveID = m.V3.ClaveID
-	material.Raiz.Version = m.V3.ClaveVersion
-	material.Raiz.HuellaSPKISHA256 = hex.EncodeToString(huella[:])
-	material.Raiz.AudienciaDespliegue = m.V3.Audiencia
-	material.Raiz.Suite = confianza.SuiteAtestacionAutorizacionV3COSEEdDSA
-	anterior := gobiernov3lector.Publicacion{Revision: m.V3.ConfiguracionRef, Secuencia: m.V3.ConfiguracionOrden,
-		HuellaSHA256: m.V3.ConfiguracionSHA256, PublicadaEn: m.V3.ConfiguracionPublicada, ExpiraEn: m.V3.ConfiguracionExpira}
-	lector, err := gobiernov3lector.Nuevo(anterior, raiz, reloj, func(ctx context.Context, previa gobiernov3lector.Publicacion) (gobiernov3lector.Publicacion, error) {
-		material.Configuracion.Revision = previa.Revision
-		material.Configuracion.Secuencia = previa.Secuencia
-		material.Configuracion.HuellaConfiguracionSHA256 = previa.HuellaSHA256
-		b, err := json.Marshal(material)
-		if err != nil {
-			return gobiernov3lector.Publicacion{}, ErrProveedoresCTNoDisponibles
+	return raizGobiernoV3{ClaveID: claveID, Version: version, HuellaSPKISHA256: hex.EncodeToString(huella[:]),
+		AudienciaDespliegue: audiencia, Suite: confianza.SuiteAtestacionAutorizacionV3COSEEdDSA}, nil
+}
+
+func (m materialGobiernoV3) codificar(p gobiernov3lector.Publicacion) ([]byte, error) {
+	m.Claves = append([]claveGobiernoV3(nil), m.Claves...)
+	m.Configuracion = configuracionGobiernoV3{Revision: p.Revision, Secuencia: p.Secuencia, HuellaConfiguracionSHA256: p.HuellaSHA256}
+	return json.Marshal(m)
+}
+
+// consultaGobiernoV3 ejecuta una función del preflight sobre el material JSON
+// y devuelve su resultado en bruto. Es la frontera que sustituyen las pruebas.
+type consultaGobiernoV3 func(context.Context, []byte) ([]byte, error)
+
+// comprobacionGobiernoV3 ejecuta la sonda booleana de material de emisión.
+type comprobacionGobiernoV3 func(context.Context, []byte) (bool, error)
+
+func consultaLecturaGobiernoV3(pool *pgxpool.Pool, sql string) consultaGobiernoV3 {
+	return func(ctx context.Context, material []byte) ([]byte, error) {
+		if pool == nil || ctx == nil {
+			return nil, errGobiernoV3
 		}
-		defer clear(b)
-		sonda, cancelar := context.WithTimeout(ctx, 5*time.Second)
+		sonda, cancelar := context.WithTimeout(ctx, limiteConsultaGobiernoV3)
 		defer cancelar()
 		var respuesta []byte
-		if err := pool.QueryRow(sonda, `SELECT vec_autorizacion_atestada_v3.leer_configuracion_interna_v1($1::jsonb)`, b).Scan(&respuesta); err != nil {
-			return gobiernov3lector.Publicacion{}, ErrProveedoresCTNoDisponibles
+		if err := pool.QueryRow(sonda, sql, material).Scan(&respuesta); err != nil {
+			return nil, errGobiernoV3
+		}
+		return respuesta, nil
+	}
+}
+
+func comprobacionMaterialGobiernoV3(pool *pgxpool.Pool, sql string) comprobacionGobiernoV3 {
+	return func(ctx context.Context, material []byte) (bool, error) {
+		if pool == nil || ctx == nil {
+			return false, errGobiernoV3
+		}
+		sonda, cancelar := context.WithTimeout(ctx, limiteConsultaGobiernoV3)
+		defer cancelar()
+		var vigente bool
+		if err := pool.QueryRow(sonda, sql, material).Scan(&vigente); err != nil {
+			return false, errGobiernoV3
+		}
+		return vigente, nil
+	}
+}
+
+// fuenteGobiernoV3 envía siempre las mismas claves y la misma raíz, y como
+// configuración la última publicación validada. La base comprueba puntero,
+// revocaciones, checkpoint y que la raíz no haya cambiado; el lector comprueba
+// después la huella contra la raíz fija. Una rotación de raíz o de HMAC no se
+// adopta: exige material nuevo.
+func fuenteGobiernoV3(consulta consultaGobiernoV3, claves []claveGobiernoV3, raiz raizGobiernoV3) gobiernov3lector.Fuente {
+	base := materialGobiernoV3{Claves: append([]claveGobiernoV3(nil), claves...), Raiz: raiz}
+	return func(ctx context.Context, previa gobiernov3lector.Publicacion) (gobiernov3lector.Publicacion, error) {
+		if consulta == nil || ctx == nil || len(base.Claves) == 0 {
+			return gobiernov3lector.Publicacion{}, errGobiernoV3
+		}
+		b, err := base.codificar(previa)
+		if err != nil {
+			return gobiernov3lector.Publicacion{}, errGobiernoV3
+		}
+		defer clear(b)
+		respuesta, err := consulta(ctx, b)
+		if err != nil || len(respuesta) == 0 || len(respuesta) > maximoRespuestaGobiernoV3 {
+			return gobiernov3lector.Publicacion{}, errGobiernoV3
 		}
 		defer clear(respuesta)
 		var publicada struct {
@@ -379,16 +463,25 @@ func nuevoLectorGobiernoV3(ctx context.Context, pool *pgxpool.Pool, m Material, 
 		d := json.NewDecoder(bytes.NewReader(respuesta))
 		d.DisallowUnknownFields()
 		if d.Decode(&publicada) != nil || d.Decode(new(any)) != io.EOF {
-			return gobiernov3lector.Publicacion{}, ErrProveedoresCTNoDisponibles
+			return gobiernov3lector.Publicacion{}, errGobiernoV3
 		}
 		return gobiernov3lector.Publicacion{Revision: publicada.Revision, Secuencia: publicada.Secuencia,
 			HuellaSHA256: publicada.HuellaSHA256, PublicadaEn: publicada.PublicadaEn, ExpiraEn: publicada.ExpiraEn}, nil
-	})
+	}
+}
+
+// nuevoLectorGobiernoV3 exige una primera lectura válida antes de devolver el
+// lector: un material que el gobierno ya no reconoce no arranca.
+func nuevoLectorGobiernoV3(ctx context.Context, anterior gobiernov3lector.Publicacion, raiz confianza.RaizPublicaAtestacionAutorizacionV3, reloj ct.Reloj, fuente gobiernov3lector.Fuente) (*gobiernov3lector.Lector, error) {
+	if ctx == nil || ctx.Err() != nil || reloj == nil || fuente == nil {
+		return nil, errGobiernoV3
+	}
+	lector, err := gobiernov3lector.Nuevo(anterior, raiz, reloj, fuente)
 	if err != nil {
-		return nil, ErrProveedoresCTNoDisponibles
+		return nil, errGobiernoV3
 	}
 	if _, err := lector.Instantanea(ctx); err != nil {
-		return nil, ErrProveedoresCTNoDisponibles
+		return nil, errGobiernoV3
 	}
 	return lector, nil
 }
@@ -418,9 +511,14 @@ func funcionesEsperadasPerfil(p perfilPool) []string {
 			"vec_autorizacion.resolver_motivo_cobertura_historico_v1(text,integer,text,text,text,timestamptz)",
 		}
 	case "vec_autorizacion_atestada_v3_preflight_interno":
+		// Estado exacto tras AD3-69: v1 (AD3-50a/53a) para CT y v2 por
+		// consumidor cerrado para B2. Sin AD3-69 falta v2 y el preflight,
+		// CT incluida, falla cerrado; no se admite el estado anterior.
 		return []string{
 			"vec_autorizacion_atestada_v3.comprobar_material_emision_interna_v1(jsonb)",
 			"vec_autorizacion_atestada_v3.leer_configuracion_interna_v1(jsonb)",
+			"vec_autorizacion_atestada_v3.comprobar_material_emision_interna_v2(text,jsonb)",
+			"vec_autorizacion_atestada_v3.leer_configuracion_interna_v2(text,jsonb)",
 		}
 	case "vec_autorizacion_motivos_rrhh_resolutor":
 		return []string{
