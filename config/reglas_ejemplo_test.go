@@ -48,3 +48,35 @@ func TestReglasEjemploSoloConDobleLlaveDeDesarrollo(t *testing.T) {
 		}
 	}
 }
+
+func TestRechazarReglasEjemploSinComposicion(t *testing.T) {
+	desarrollo := Config{
+		ExecutionProfile: ExecutionProfileDevelopment, AuthMode: AuthModeDevelopment,
+		DevelopmentGuard: DevelopmentGuardAcknowledgement,
+	}
+	if err := desarrollo.RechazarReglasEjemploSinComposicion(); err != nil {
+		t.Fatalf("sin catálogos no se rechaza: %v", err)
+	}
+	if err := (Config{}).RechazarReglasEjemploSinComposicion(); err != nil {
+		t.Fatalf("sin catálogos ni perfil no se rechaza: %v", err)
+	}
+	conDobleLlave := []Config{desarrollo, desarrollo, desarrollo}
+	conDobleLlave[0].ReglasEjemplo.BolsaSourcePath = "bolsa.json"
+	conDobleLlave[1].ReglasEjemplo.CTSourcePath = " ct.json "
+	conDobleLlave[2].CTAnalisisMotivosSourcePath = "motivos.json"
+	for indice, cfg := range conDobleLlave {
+		if err := cfg.RechazarReglasEjemploSinComposicion(); !errors.Is(err, ErrConfiguracionReglasEjemploSinComposicion) {
+			t.Errorf("caso %d con doble llave: %v", indice, err)
+		}
+	}
+	fuera := Config{ExecutionProfile: ExecutionProfileProduction,
+		ReglasEjemplo: ConfiguracionReglasEjemplo{BolsaSourcePath: "bolsa.json"}}
+	if err := fuera.RechazarReglasEjemploSinComposicion(); !errors.Is(err, ErrConfiguracionReglasEjemploFueraDesarrollo) {
+		t.Fatalf("fuera de desarrollo: %v", err)
+	}
+	blancos := desarrollo
+	blancos.ReglasEjemplo.BolsaSourcePath = "   "
+	if err := blancos.RechazarReglasEjemploSinComposicion(); err != nil {
+		t.Fatalf("una ruta en blanco no declara catálogo: %v", err)
+	}
+}

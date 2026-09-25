@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"errors"
+	"reflect"
 	"time"
 
 	"vec-diputacion-granada/config"
@@ -14,6 +15,12 @@ import (
 
 var errReglasEjemploNoValidas = errors.New("bootstrap: catalogo de reglas de ejemplo no valido")
 
+// errReglasEjemploSinCalendarios distingue que falta la consulta de
+// Calendarios de cualquier otro fallo del cálculo. Se une a
+// reglas.ErrCalculoNoDisponible para que los consumidores sigan sin
+// inventar un plazo.
+var errReglasEjemploSinCalendarios = errors.New("bootstrap: reglas de ejemplo sin consulta de Calendarios")
+
 // reglasEjemploDesarrollo es el enganche de composición para Bolsa y
 // Contratación temporal. Un resolutor nulo significa «sin catálogo»: el
 // consumidor mantiene su conducta actual.
@@ -22,8 +29,11 @@ type reglasEjemploDesarrollo struct {
 	contratacionTemporal *reglas.Resolutor
 }
 
-// rechazarReglasEjemploFueraDesarrollo se aplica en todas las raíces: un
-// catálogo de ejemplo declarado fuera de la doble llave impide arrancar.
+// rechazarReglasEjemploFueraDesarrollo se aplica en las raíces que componen
+// este paquete (vec-server y vec-presentacion): un catálogo de ejemplo
+// declarado fuera de la doble llave impide arrancar. vec-interno y vec-publico
+// no componen reglas y rechazan cualquier declaración, incluso con la doble
+// llave, mediante config.Config.RechazarReglasEjemploSinComposicion.
 func rechazarReglasEjemploFueraDesarrollo(cfg config.Config) error {
 	_, _, err := cfg.ReglasEjemploDesarrollo()
 	return err
@@ -110,8 +120,8 @@ func (c calculadoraPlazosCalendarios) administrativo(
 	ctx context.Context,
 	solicitud reglas.SolicitudVencimiento,
 ) (reglas.Vencimiento, error) {
-	if dependenciaMotivosRectificacionAnalisisNula(c.consulta) {
-		return reglas.Vencimiento{}, reglas.ErrCalculoNoDisponible
+	if consultaCalendariosNula(c.consulta) {
+		return reglas.Vencimiento{}, errors.Join(reglas.ErrCalculoNoDisponible, errReglasEjemploSinCalendarios)
 	}
 	resultado, err := c.consulta.CalcularPlazo(ctx, calendariosports.SolicitudCalculoPlazo{
 		NotificadoEn: solicitud.Inicio.UTC(), Unidad: calendariosdomain.UnidadPlazo(solicitud.Unidad),
@@ -128,6 +138,16 @@ func (c calculadoraPlazosCalendarios) administrativo(
 		UltimoDia: resultado.Vencimiento.String(), VenceAntesDe: resultado.VenceAntesDe,
 		Prorrogado: resultado.Prorrogado, Calendarios: versiones,
 	}, nil
+}
+
+// consultaCalendariosNula detecta tanto la interfaz nula como un puntero nulo
+// envuelto en ella, que de otro modo fallaría al primer cálculo.
+func consultaCalendariosNula(consulta calendariosports.ConsultaCalendarios) bool {
+	if consulta == nil {
+		return true
+	}
+	valor := reflect.ValueOf(consulta)
+	return valor.Kind() == reflect.Pointer && valor.IsNil()
 }
 
 func civilFechaAFecha(solicitud reglas.SolicitudVencimiento) (reglas.Vencimiento, error) {

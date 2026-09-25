@@ -32,9 +32,10 @@ func main() {
 }
 
 func ejecutar() error {
-	// Esta raíz no compone reglas de ejemplo: declararlas es un error de
-	// despliegue y se rechaza en lugar de ignorarse.
-	if _, _, err := config.Load().ReglasEjemploDesarrollo(); err != nil {
+	// Esta raíz no compone reglas de ejemplo: declarar cualquier catálogo
+	// impide arrancar. Fuera de la doble llave de desarrollo se rechaza como en
+	// el resto de raíces; con ella tampoco se ignora, porque aquí no se usaría.
+	if err := config.Load().RechazarReglasEjemploSinComposicion(); err != nil {
 		return err
 	}
 	cfg := interna.CargarConfiguracion()

@@ -213,6 +213,11 @@ func TestComposicionPresentacionRechazaDatosNoMarcadosYConectores(t *testing.T) 
 		func(c *config.Config) { c.FirmaVerificacionEnabled = "true" },
 		func(c *config.Config) { c.FirmaVerificacionEnabled = " true " },
 		func(c *config.Config) { c.FirmaVerificacionEnabled = "si" },
+		// La presentación no tiene la doble llave de desarrollo: cualquier
+		// catálogo de ejemplo declarado impide arrancar.
+		func(c *config.Config) { c.ReglasEjemplo.BolsaSourcePath = "bolsa_reglas.ejemplo.demo.json" },
+		func(c *config.Config) { c.ReglasEjemplo.CTSourcePath = "ct_reglas.ejemplo.demo.json" },
+		func(c *config.Config) { c.CTAnalisisMotivosSourcePath = "motivos.demo.json" },
 	}
 	for indice, mutar := range mutaciones {
 		cfg := base

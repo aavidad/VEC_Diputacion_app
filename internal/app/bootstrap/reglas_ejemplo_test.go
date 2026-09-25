@@ -191,9 +191,15 @@ func TestCalculadoraPlazosCalendariosTraduceAmbosComputos(t *testing.T) {
 	}); !errors.Is(err, reglas.ErrReglaSinPlazo) {
 		t.Fatalf("no hay días hábiles en el cómputo civil: %v", err)
 	}
-	if _, err := (calculadoraPlazosCalendarios{}).CalcularVencimiento(t.Context(), reglas.SolicitudVencimiento{
-		Inicio: contacto, Unidad: reglas.UnidadDiasHabiles, Cantidad: 1, Computo: reglas.ComputoAdministrativo,
-	}); !errors.Is(err, reglas.ErrCalculoNoDisponible) {
-		t.Fatalf("sin Calendarios no hay cómputo administrativo: %v", err)
+	var punteroNulo *consultaCalendariosReglasPrueba
+	for nombre, sinCalendarios := range map[string]calculadoraPlazosCalendarios{
+		"interfaz nula": {}, "puntero nulo": {consulta: punteroNulo},
+	} {
+		_, err := sinCalendarios.CalcularVencimiento(t.Context(), reglas.SolicitudVencimiento{
+			Inicio: contacto, Unidad: reglas.UnidadDiasHabiles, Cantidad: 1, Computo: reglas.ComputoAdministrativo,
+		})
+		if !errors.Is(err, reglas.ErrCalculoNoDisponible) || !errors.Is(err, errReglasEjemploSinCalendarios) {
+			t.Fatalf("%s: sin Calendarios no hay cómputo administrativo: %v", nombre, err)
+		}
 	}
 }

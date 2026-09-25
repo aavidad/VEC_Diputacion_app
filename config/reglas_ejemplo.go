@@ -20,6 +20,11 @@ const (
 // no admite reglas sin aprobar, ni siquiera ignorándolas.
 var ErrConfiguracionReglasEjemploFueraDesarrollo = errors.New("config: catalogo de reglas de ejemplo fuera del perfil de desarrollo")
 
+// ErrConfiguracionReglasEjemploSinComposicion impide arrancar una raíz que no
+// compone reglas de ejemplo cuando se le declara alguna, aunque sea con la
+// doble llave de desarrollo: ignorarla ocultaría un error de despliegue.
+var ErrConfiguracionReglasEjemploSinComposicion = errors.New("config: catalogo de reglas de ejemplo en una raiz que no lo compone")
+
 // ConfiguracionReglasEjemplo contiene rutas locales de paquetes DEMO.
 type ConfiguracionReglasEjemplo struct {
 	BolsaSourcePath string
@@ -59,4 +64,19 @@ func (c Config) ReglasEjemploDesarrollo() (ConfiguracionReglasEjemplo, bool, err
 		return ConfiguracionReglasEjemplo{}, false, ErrConfiguracionReglasEjemploFueraDesarrollo
 	}
 	return reglas, reglas.Configurada(), nil
+}
+
+// RechazarReglasEjemploSinComposicion es la comprobación de las raíces que no
+// componen reglas de ejemplo (vec-interno y vec-publico). Fuera de la doble
+// llave devuelve ErrConfiguracionReglasEjemploFueraDesarrollo; dentro de ella,
+// ErrConfiguracionReglasEjemploSinComposicion. Sin catálogos declarados, nil.
+func (c Config) RechazarReglasEjemploSinComposicion() error {
+	if _, _, err := c.ReglasEjemploDesarrollo(); err != nil {
+		return err
+	}
+	c = c.Normalize()
+	if c.ReglasEjemplo.Configurada() || c.CTAnalisisMotivosSourcePath != "" {
+		return ErrConfiguracionReglasEjemploSinComposicion
+	}
+	return nil
 }
