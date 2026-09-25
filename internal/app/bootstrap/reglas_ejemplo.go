@@ -27,6 +27,9 @@ var errReglasEjemploSinCalendarios = errors.New("bootstrap: reglas de ejemplo si
 type reglasEjemploDesarrollo struct {
 	bolsa                *reglas.Resolutor
 	contratacionTemporal *reglas.Resolutor
+	// circuitoFirmaCT resuelve el circuito de firma de ejemplo de los
+	// documentos de Contratación temporal.
+	circuitoFirmaCT *reglas.Resolutor
 }
 
 // rechazarReglasEjemploFueraDesarrollo se aplica en las raíces que componen
@@ -62,6 +65,19 @@ func nuevasReglasEjemploDesarrollo(
 		rutas.CTSourcePath, reglas.CatalogoContratacionTemporal, reglas.ModuloContratacionTemporal, calculadora, reloj,
 	); err != nil {
 		return reglasEjemploDesarrollo{}, err
+	}
+	if compuestas.circuitoFirmaCT, err = nuevoResolutorReglasEjemplo(
+		rutas.CTCircuitoFirmaSourcePath, reglas.CatalogoCircuitoFirmaCT, reglas.ModuloContratacionTemporal, nil, reloj,
+	); err != nil {
+		return reglasEjemploDesarrollo{}, err
+	}
+	if compuestas.circuitoFirmaCT != nil {
+		// Un circuito incompleto impide arrancar en lugar de mostrarse a medias.
+		ctx, cancelar := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancelar()
+		if _, err := compuestas.circuitoFirmaCT.CircuitoFirma(ctx); err != nil {
+			return reglasEjemploDesarrollo{}, errors.Join(errReglasEjemploNoValidas, err)
+		}
 	}
 	return compuestas, nil
 }

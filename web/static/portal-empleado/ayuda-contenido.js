@@ -206,6 +206,7 @@ export const AYUDA_CONTRATACION_TEMPORAL = Object.freeze({
         traducirPortal("ayuda_contenido_270"),
         traducirPortal("ayuda_contenido_271"),
         traducirPortal("ayuda_ct_limite_expediente"),
+        traducirPortal("ayuda_contenido_421"),
       ]),
     }),
     documentos: Object.freeze({
@@ -280,6 +281,7 @@ export const AYUDA_CONTRATACION_TEMPORAL = Object.freeze({
         traducirPortal("ayuda_contenido_294"),
         traducirPortal("ayuda_contenido_295"),
         traducirPortal("ayuda_ct_limite_nombramiento"),
+        traducirPortal("ayuda_contenido_422"),
       ]),
     }),
     incorporacion: Object.freeze({

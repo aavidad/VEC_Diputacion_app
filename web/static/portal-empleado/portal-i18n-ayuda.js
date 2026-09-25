@@ -426,6 +426,8 @@ export const MENSAJES_AYUDA_PORTAL_ES = Object.freeze({
   ayuda_contenido_418: "La exclusión queda registrada con la causa, el justificante y la validación.",
   ayuda_contenido_419: "Personal de RRHH y persona validadora.",
   ayuda_contenido_420: "Una renuncia justificada (art. 10) no es una baja: regístrela como «no disponible». Con el catálogo de reglas, una renuncia ya no vuelve directamente a «disponible»; solo puede pasar a baja.",
+  ayuda_contenido_421: "El «Circuito de firma» indica, para cada borrador, quién firma y en qué orden, qué permite cada firma y qué ocurre si se devuelve. Es un ejemplo configurable a la espera de que RRHH lo defina; desde esta pantalla todavía no se firma.",
+  ayuda_contenido_422: "Una firma electrónica sobre un borrador, aunque se haga con el certificado personal y se verifique, no tiene eficacia administrativa mientras el documento no pase por el portafirmas corporativo de la Diputación.",
   ayuda_extension: "Bolsa de trabajo y Contratación temporal ofrecen ayuda propia en sus módulos.",
   ayuda_paso_de: "Paso {actual} de {total}",
   ayuda_pasos: "Pasos",

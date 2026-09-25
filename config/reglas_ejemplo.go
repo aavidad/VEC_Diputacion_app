@@ -23,6 +23,9 @@ const (
 	// EnvCTPlantillasSourcePath sustituye el catálogo de plantillas de los
 	// documentos de Contratación temporal que trae el repositorio.
 	EnvCTPlantillasSourcePath = "VEC_CT_PLANTILLAS_SOURCE_PATH"
+	// EnvCTCircuitoFirmaSourcePath declara el circuito de firma de ejemplo de
+	// los documentos de Contratación temporal.
+	EnvCTCircuitoFirmaSourcePath = "VEC_CT_CIRCUITO_FIRMA_SOURCE_PATH"
 )
 
 // ErrConfiguracionReglasEjemploFueraDesarrollo impide arrancar si un
@@ -42,6 +45,7 @@ type ConfiguracionReglasEjemplo struct {
 	BolsaRolesSegregacionSourcePath string
 	CTRetribucionesSourcePath       string
 	CTPlantillasSourcePath          string
+	CTCircuitoFirmaSourcePath       string
 }
 
 func cargarConfiguracionReglasEjemplo() ConfiguracionReglasEjemplo {
@@ -51,6 +55,7 @@ func cargarConfiguracionReglasEjemplo() ConfiguracionReglasEjemplo {
 		BolsaRolesSegregacionSourcePath: envFirst(EnvBolsaRolesSegregacionSourcePath),
 		CTRetribucionesSourcePath:       envFirst(EnvCTRetribucionesSourcePath),
 		CTPlantillasSourcePath:          envFirst(EnvCTPlantillasSourcePath),
+		CTCircuitoFirmaSourcePath:       envFirst(EnvCTCircuitoFirmaSourcePath),
 	}
 }
 
@@ -60,13 +65,14 @@ func (c ConfiguracionReglasEjemplo) normalizar() ConfiguracionReglasEjemplo {
 	c.BolsaRolesSegregacionSourcePath = strings.TrimSpace(c.BolsaRolesSegregacionSourcePath)
 	c.CTRetribucionesSourcePath = strings.TrimSpace(c.CTRetribucionesSourcePath)
 	c.CTPlantillasSourcePath = strings.TrimSpace(c.CTPlantillasSourcePath)
+	c.CTCircuitoFirmaSourcePath = strings.TrimSpace(c.CTCircuitoFirmaSourcePath)
 	return c
 }
 
 // Configurada indica si se ha declarado algún catálogo de reglas.
 func (c ConfiguracionReglasEjemplo) Configurada() bool {
 	c = c.normalizar()
-	return c.BolsaSourcePath != "" || c.CTSourcePath != "" || c.BolsaRolesSegregacionSourcePath != "" || c.CTRetribucionesSourcePath != "" || c.CTPlantillasSourcePath != ""
+	return c.BolsaSourcePath != "" || c.CTSourcePath != "" || c.BolsaRolesSegregacionSourcePath != "" || c.CTRetribucionesSourcePath != "" || c.CTPlantillasSourcePath != "" || c.CTCircuitoFirmaSourcePath != ""
 }
 
 // ReglasEjemploDesarrollo valida la activación sin abrir ficheros. Devuelve

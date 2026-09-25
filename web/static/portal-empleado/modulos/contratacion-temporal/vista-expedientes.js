@@ -17,6 +17,7 @@ import {
 } from "./vista-expedientes-render.js";
 import { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js";
 import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js";
+import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20260925-circuito-firma-v1";
 import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js";
 import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js";
 
@@ -87,6 +88,7 @@ export async function montarModuloContratacionTemporal({
   continuidad = null,
   llamamiento = null,
   clienteBorradorRRHH,
+  clienteCircuitoFirma,
   entornoDescarga = globalThis,
   mensajes = {},
   anunciar = () => {},
@@ -151,6 +153,13 @@ export async function montarModuloContratacionTemporal({
 
   const esMontada = () => montada;
 
+  const gestorCircuitoFirma = crearGestorCircuitoFirma({
+    raiz,
+    obtenerEstado: () => presentador.obtenerEstado(),
+    ...(clienteCircuitoFirma === undefined ? {} : { cliente: clienteCircuitoFirma }),
+    mensajes,
+    esMontada,
+  });
   const gestorBorrador = crearGestorDescargaBorradorRRHH({
     raiz,
     presentador,
@@ -316,6 +325,7 @@ export async function montarModuloContratacionTemporal({
       estado, gestorTramitacion.obtenerReciboFiscalizacionConfirmado(),
     ));
     gestorIncorporacion.montarResolucionFormalizacion().then(gestorIncorporacion.montarIncorporacionEjercicio);
+    gestorCircuitoFirma.montarSiProcede(estado);
     if (gestorTramitacion.montarAnalisisSiProcede() === false) {
       gestorTramitacion.retirarComponentes();
       raiz.innerHTML = renderizarModuloContratacionTemporal(estado, {
@@ -559,6 +569,7 @@ export async function montarModuloContratacionTemporal({
     desmontar() {
       if (!montada) return;
       montada = false;
+      gestorCircuitoFirma.retirar();
       gestorBorrador.cancelarDescargaInforme();
       retirarEstadisticas();
       desmontarLlamamiento?.();
