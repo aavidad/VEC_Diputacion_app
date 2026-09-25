@@ -22,8 +22,10 @@ type DependenciasCT struct {
 	sello      *selloConsultasContratacionTemporalDesarrollo
 	// plazosFase es opcional: vencimiento de la fase según el catálogo.
 	plazosFase ports.CalculadoraPlazoFaseRRHH
-	cerrar     func()
-	unaVez     sync.Once
+	// plazosOfertasBolsa recibe la regla b10 al componer las reglas de ejemplo.
+	plazosOfertasBolsa *calculadoraPlazoOfertaDesarrollo
+	cerrar             func()
+	unaVez             sync.Once
 }
 
 func nuevasDependenciasCT(cfg config.Config, resolvedor vechttp.DemoIdentityResolver, derivador *derivadorIdentidadOperacionDesarrollo, kms *emisorKMSDesarrollo, registro io.Writer) (*DependenciasCT, error) {
@@ -32,7 +34,7 @@ func nuevasDependenciasCT(cfg config.Config, resolvedor vechttp.DemoIdentityReso
 	if !cfg.DevelopmentEnabledByDoubleKey() || validarRedLocalDesarrollo(cfg) != nil || !ok || identidad == nil || derivador == nil || !derivador.valido() {
 		return nil, ErrActivacionDesarrolloInvalida
 	}
-	return &DependenciasCT{cfg: cfg, resolvedor: identidad, derivador: derivador, kms: kms, registro: registro, reloj: relojContratacionTemporalDesarrollo{}, sello: &selloConsultasContratacionTemporalDesarrollo{}, cerrar: func() {}}, nil
+	return &DependenciasCT{cfg: cfg, resolvedor: identidad, derivador: derivador, kms: kms, registro: registro, reloj: relojContratacionTemporalDesarrollo{}, sello: &selloConsultasContratacionTemporalDesarrollo{}, plazosOfertasBolsa: &calculadoraPlazoOfertaDesarrollo{}, cerrar: func() {}}, nil
 }
 
 func (d *DependenciasCT) Cerrar() {

@@ -18,6 +18,7 @@ import { traducirPortal } from "./portal-i18n.js?v=20260926-portal-rrhh-main-v1"
 import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20260926-reglas-ejemplo-v3";
 import { crearSuperficieBorradorLlamamiento } from "./portal-borrador-llamamiento-ui.js?v=20260921-bback01-v1";
 import { consultarAvisosBolsa, manejarAccionAvisos } from "./portal-bolsas-avisos.js?v=20260925-aspecto-v1";
+import { crearSuperficieOfertasBolsa } from "./portal-bolsas-ofertas.js?v=20260925-ofertas-bolsa-v1";
 const TAMANO_PAGINA_MARCO = 6; const tablasPaginadas = new WeakMap(); export function calcularPaginaMarco(total, paginaSolicitada, tamano = TAMANO_PAGINA_MARCO) { const cantidad = Number.isSafeInteger(total) && total > 0 ? total : 0; const medida = Number.isSafeInteger(tamano) && tamano > 0 ? tamano : TAMANO_PAGINA_MARCO; const paginas = Math.max(1, Math.ceil(cantidad / medida)); const pagina = Math.min(Math.max(Number.isSafeInteger(paginaSolicitada) ? paginaSolicitada : 1, 1), paginas); const inicio = cantidad === 0 ? 0 : ((pagina - 1) * medida) + 1; const fin = Math.min(pagina * medida, cantidad); return Object.freeze({ total: cantidad, tamano: medida, paginas, pagina, inicio, fin }); } function navegadorRemotoDeTabla(contenedor) { const padre = contenedor.parentElement; return padre?.querySelector(":scope > .ct-exp-paginacion, :scope > .paginacion-bolsa, :scope > nav[aria-label*='aginación'], :scope > nav[aria-label*='aginacion']") || null; } function botonesPaginaMarco(calculo) {
   const paginas = [1, calculo.pagina - 1, calculo.pagina, calculo.pagina + 1, calculo.paginas]
     .filter((pagina) => pagina >= 1 && pagina <= calculo.paginas)
@@ -184,7 +185,7 @@ const coordinadorModulos = crearCoordinadorModulosPortal({ escaparHTML, anunciar
       const registrarDesmontar = (limpiar) => { desmontarRegistrado = limpiar; };
       montarVistaBolsa(vista, raiz, opciones);
       return Object.freeze({ desmontar: () => { if (vista === "elaboracion") superficieBorradoresActiva()?.desmontar();
-        controladorBolsas.cancelarPeticiones(); cancelarAvisosBolsa(); if (vista === "llamamientos") superficieBorradorLlamamiento.desmontar(); } });
+        controladorBolsas.cancelarPeticiones(); cancelarAvisosBolsa(); if (vista === "llamamientos") { superficieBorradorLlamamiento.desmontar(); superficieOfertasBolsa.desmontar(); } } });
     },
   }),
   confirmarOperacion: (descriptor) => window.confirm(`${descriptor.titulo}\n\n${descriptor.advertencia}\n\nReferencia: ${descriptor.referencia}`) });
@@ -513,7 +514,8 @@ function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } =
     // Con una bolsa elegida, el llamamiento usa su propia API de borradores:
     // no depende del panel interno agregado ni muestra su aviso.
     if (vista === "llamamientos") { superficieBorradorLlamamiento.activar();
-      contenedor.innerHTML = `${encabezadoVista("", tituloDeVista(vista)[1], "")}${superficieBorradorLlamamiento.renderizar()}`; return; }
+      contenedor.innerHTML = `${encabezadoVista("", tituloDeVista(vista)[1], "")}${superficieBorradorLlamamiento.renderizar()}${superficieOfertasBolsa.renderizar()}`;
+      superficieOfertasBolsa.activar(estado.bolsaSeleccionada); return; }
     contenedor.innerHTML = renderizarFuenteNoDisponible(); return;
   }
   if (vistaBolsas && presentadorPanelInterno.esActivo()) {
@@ -713,6 +715,10 @@ const superficieBorradores = crearSuperficieBorradoresPortal({
 });
 const superficieBorradorLlamamiento = crearSuperficieBorradorLlamamiento({ anunciar,
   alCambiar: () => { if (estado.vista === "llamamientos") actualizarVistaBolsa(); } });
+// Ofertas publicadas de la bolsa elegida (art. 8.1): módulo propio con sus eventos.
+const superficieOfertasBolsa = crearSuperficieOfertasBolsa({ anunciar,
+  alCambiar: () => { if (estado.vista === "llamamientos") actualizarVistaBolsa(); } });
+superficieOfertasBolsa.instalar(document);
 
 function instalarEventosBorradores() {
   document.addEventListener("click", (evento) => {

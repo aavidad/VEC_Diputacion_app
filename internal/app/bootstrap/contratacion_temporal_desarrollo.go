@@ -63,6 +63,7 @@ type autoridadConsultasContratacionTemporalDesarrollo struct {
 	materialCronos                           materialCronosDesdeCTDesarrollo
 	materialDocumentos                       *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialPersonalFichaPropia              *proveedorMaterialAltaContratacionTemporalDesarrollo
+	plazosOfertasBolsa                       *calculadoraPlazoOfertaDesarrollo
 }
 
 type autorizadorLigadoContratacionTemporalDesarrollo interface {
@@ -626,6 +627,7 @@ func nuevasRutasContratacionTemporalDesarrolloConPlazos(
 		fronterasSeguridadComun:                  seguridadBorrador,
 		envolverBorradorLlamamiento:              envolverBorrador,
 		manejadorSituacionParticipacion:          manejadorSituacion,
+		plazosOfertasBolsa:                       dependencias.plazosOfertasBolsa,
 		coleccionesAdicionales:                   coleccionesBorrador,
 		registradorAuditoriaFronteraRutasExactas: alta.postgresql.registradorAuditoriaFrontera,
 		materialDietas:                           alta.postgresql.materialDietas,

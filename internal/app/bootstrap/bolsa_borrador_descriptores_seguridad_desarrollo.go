@@ -49,7 +49,7 @@ func descriptoresFronterasBorradorLlamamientoBolsaDesarrollo(
 	if !perfilActivoSeguridadComunValido(perfilActivoRef) {
 		return nil, ErrSeguridadComunDesarrolloDenegada
 	}
-	return []descriptorFronteraComunDesarrollo{
+	return append([]descriptorFronteraComunDesarrollo{
 		{
 			Clave:      claveFronteraCrearBorradorLlamamientoBolsa,
 			Superficie: superficieInternaSeguridadComunDesarrollo,
@@ -74,7 +74,7 @@ func descriptoresFronterasBorradorLlamamientoBolsaDesarrollo(
 			ClaveCapacidad:     claveCapacidadConsultarBorradorLlamamientoBolsa,
 			DetalleColeccion:   true,
 		},
-	}, nil
+	}, descriptoresFronterasOfertasBolsaDesarrollo(perfilActivoRef)...), nil
 }
 
 // descriptoresAutorizacionBorradorLlamamientoBolsaDesarrollo enlaza sólo las
@@ -104,7 +104,7 @@ func descriptoresAutorizacionBorradorLlamamientoBolsaDesarrollo(
 		{Accion: puertosbolsa.AccionRegistrarContactoParticipacion, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadSituacionParticipacionBolsa, Fronteras: []string{claveFronteraSituacionParticipacionBolsa}, Politica: politica},
 		{Accion: puertosbolsa.AccionConsultarContactoParticipacion, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadConsultarContactosBolsa, Fronteras: []string{claveFronteraConsultarContactosBolsa, claveFronteraConsultarContactosB5Bolsa}, Politica: politica},
 		{Accion: puertosbolsa.AccionRegistrarDatosContactoParticipacion, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadSituacionParticipacionBolsa, Fronteras: []string{claveFronteraSituacionParticipacionBolsa, claveFronteraConsultarDatosContactoBolsa}, Politica: politica},
-		{Accion: puertosbolsa.AccionEmitirLlamamiento, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadEmisionLlamamientoBolsa, Fronteras: []string{claveFronteraEmisionLlamamientoBolsa, claveFronteraRecuperarEmisionLlamamientoBolsa}, Politica: politica},
+		{Accion: puertosbolsa.AccionEmitirLlamamiento, ClavePolitica: clavePoliticaBorradorLlamamientoBolsaDesarrollo, ClaveCapacidad: claveCapacidadEmisionLlamamientoBolsa, Fronteras: []string{claveFronteraEmisionLlamamientoBolsa, claveFronteraRecuperarEmisionLlamamientoBolsa, claveFronteraPublicarOfertaBolsa, claveFronteraConsultarOfertaBolsa, claveFronteraResolverOfertaBolsa}, Politica: politica},
 	}, nil
 }
 

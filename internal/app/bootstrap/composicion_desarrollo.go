@@ -239,9 +239,10 @@ func nuevoServidorDesarrollo(
 	}()
 	// Enganche de las reglas de ejemplo: Bolsa consume reglasEjemplo.bolsa en
 	// el plazo de respuesta del asistente B7, en la situación de las
-	// participaciones y en la documentación para formalizar; Contratación temporal usa reglasEjemplo.contratacionTemporal
-	// para el plazo de la fase en el cuadro. El circuito de firma ya se consulta
-	// desde el detalle del expediente.
+	// participaciones, en el plazo de las ofertas publicadas y en la
+	// documentación para formalizar; Contratación temporal usa
+	// reglasEjemplo.contratacionTemporal para el plazo de la fase en el cuadro.
+	// El circuito de firma ya se consulta desde el detalle del expediente.
 	reglasEjemplo, err := nuevasReglasEjemploDesarrollo(cfg, consultaCalendarios, relojCalendariosDesarrollo{})
 	if err != nil {
 		return nil, nil, err
@@ -262,6 +263,10 @@ func nuevoServidorDesarrollo(
 			cerrarContratacion()
 		}
 	}()
+	// Ofertas de Bolsa: el plazo de disposición sale de la regla b10.
+	if autoridadContratacion != nil {
+		autoridadContratacion.plazosOfertasBolsa.fijar(reglasEjemplo.bolsa)
+	}
 	ctxBolsas, cancelarBolsas := context.WithTimeout(context.Background(), 15*time.Second)
 	fuenteConstituida := nuevaFuenteConstituidaRRHHDesarrollo(ctxBolsas, cfg)
 	cancelarBolsas()

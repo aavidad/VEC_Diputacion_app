@@ -189,6 +189,7 @@ static/portal-empleado/modulos/contratacion-temporal/vista-expedientes-tramitaci
 static/portal-empleado/modulos/contratacion-temporal/vista.js
 static/portal-empleado/portal-bolsas-api.js
 static/portal-empleado/portal-bolsas-avisos.js
+static/portal-empleado/portal-bolsas-ofertas.js
 static/portal-empleado/portal-bolsas-operaciones.js
 static/portal-empleado/portal-bolsas-reglas-situacion.js
 static/portal-empleado/portal-bolsas-reglas-situacion-i18n.js

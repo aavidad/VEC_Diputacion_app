@@ -123,6 +123,16 @@ func intentoAuditableBorradorLlamamiento(r *http.Request) (puertosbolsa.AccionIn
 	if _, _, _, ok := ReferenciasRutaDatosContactoParticipacion(r); ok && r.Method == http.MethodPost {
 		return puertosbolsa.AccionIntentoRegistrarDatosContactoParticipacion, puertosbolsa.ClaseRutaDatosContactoParticipacion, true
 	}
+	// Las ofertas del art. 8.1 son una modalidad de llamamiento: se anotan
+	// en la bitácora con la misma acción y clase de ruta que la emisión.
+	if r.URL != nil && r.URL.RawPath == "" && (r.URL.Path == RutaOfertasPublicadas || r.URL.Path == RutaResolucionesOferta) {
+		if r.Method == http.MethodGet {
+			return puertosbolsa.AccionIntentoRecuperarLlamamiento, puertosbolsa.ClaseRutaEmisionesLlamamiento, true
+		}
+		if r.Method == http.MethodPost {
+			return puertosbolsa.AccionIntentoEmitirLlamamiento, puertosbolsa.ClaseRutaEmisionesLlamamiento, true
+		}
+	}
 	if r.URL != nil && r.URL.Path == RutaEmisionesLlamamiento && r.URL.RawPath == "" && r.Method == http.MethodGet {
 		return puertosbolsa.AccionIntentoRecuperarLlamamiento, puertosbolsa.ClaseRutaEmisionesLlamamiento, true
 	}
