@@ -65,8 +65,8 @@ func TestComisionesDietasSoloSeMontanConSelectorYMaterialNominal(t *testing.T) {
 
 func TestDescriptoresDietasNominalesEnCatalogoComun(t *testing.T) {
 	descriptores := descriptoresMaterialDietasDesarrollo()
-	if len(descriptores) != 11 {
-		t.Fatalf("audiencias Dietas/Personal = %d, se esperan 11", len(descriptores))
+	if len(descriptores) != 20 {
+		t.Fatalf("audiencias Dietas/Personal = %d, se esperan 20", len(descriptores))
 	}
 	if _, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(descriptores); err != nil {
 		t.Fatalf("catálogo V3 rechaza audiencias nominales: %v", err)
@@ -140,6 +140,11 @@ func TestFronteraComisionesDietasNoDelegaNiSirveSinSesion(t *testing.T) {
 		{dietashttp.RutaBorradores + "/circuito", http.MethodPost, false},
 		{dietashttp.RutaBorradores + "/circuito/dco_aaaaaaaaaaaaaaaaaaaaaa/decisiones", http.MethodPost, true},
 		{dietashttp.RutaBorradores + "/circuito/dco_aaaaaaaaaaaaaaaaaaaaaa/decisiones", http.MethodGet, false},
+		{dietashttp.RutaBorradores + "/circuito/competencias", http.MethodGet, true},
+		{dietashttp.RutaBorradores + "/circuito/competencias", http.MethodPost, false},
+		{dietashttp.RutaBorradores + "/circuito/dco_aaaaaaaaaaaaaaaaaaaaaa", http.MethodGet, true},
+		{dietashttp.RutaBorradores + "/circuito/dco_aaaaaaaaaaaaaaaaaaaaaa", http.MethodPost, false},
+		{dietashttp.RutaBorradores + "/circuito/otra", http.MethodGet, false},
 		{dietashttp.RutaBorradores + "/dco_aaaaaaaaaaaaaaaaaaaaaa", http.MethodPost, false},
 		{dietashttp.RutaBorradores + "/a/b", http.MethodGet, false},
 		{dietashttp.RutaBorradores, http.MethodDelete, false},

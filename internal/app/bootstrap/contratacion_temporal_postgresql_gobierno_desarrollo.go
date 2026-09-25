@@ -163,7 +163,7 @@ func gobiernoActualPostgreSQLContratacionTemporalDesarrolloEsPropio(
 		    AND pg_catalog.left(c.acto_ref,
 		        pg_catalog.length('acto:ct:desarrollo:clave-capacidad:'))=
 		        'acto:ct:desarrollo:clave-capacidad:'
-		    AND c.audiencia_consumo IN ($1,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34))
+		    AND c.audiencia_consumo IN ($1,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43))
 		AND EXISTS (
 		 SELECT 1
 		   FROM vec_autorizacion_atestada_v3.puntero_configuracion_actual p
@@ -222,6 +222,16 @@ func gobiernoActualPostgreSQLContratacionTemporalDesarrolloEsPropio(
 		audienciaConsumoRegistrarAsignacionDietas,
 		audienciaConsumoCorregirAsignacionDietas,
 		audienciaConsumoCorregirGrupoDietas,
+		// Circuito de revisión de Dietas: AD3-59 y AD3-80.
+		audienciaConsumoRevisarDietas,
+		audienciaConsumoAutorizarDietas,
+		audienciaConsumoLiquidarDietas,
+		audienciaConsumoFiscalizarDietas,
+		audienciaConsumoBandejaRevisionDietas,
+		audienciaConsumoBandejaAutorizacionDietas,
+		audienciaConsumoBandejaLiquidacionDietas,
+		audienciaConsumoBandejaFiscalizacionDietas,
+		audienciaConsumoRevisorDocumentoDietas,
 		// Cronos (persona empleada): una audiencia por acción, AD3-53.
 		cronosapp.AudienciaMarcajePropio,
 		cronosapp.AudienciaDisponibilidadMarcajeRemoto,
@@ -266,6 +276,15 @@ func audienciaConsumoGobiernoPostgreSQLContratacionTemporalDesarrolloEsPropia(
 		audienciaConsumoRegistrarAsignacionDietas,
 		audienciaConsumoCorregirAsignacionDietas,
 		audienciaConsumoCorregirGrupoDietas,
+		audienciaConsumoRevisarDietas,
+		audienciaConsumoAutorizarDietas,
+		audienciaConsumoLiquidarDietas,
+		audienciaConsumoFiscalizarDietas,
+		audienciaConsumoBandejaRevisionDietas,
+		audienciaConsumoBandejaAutorizacionDietas,
+		audienciaConsumoBandejaLiquidacionDietas,
+		audienciaConsumoBandejaFiscalizacionDietas,
+		audienciaConsumoRevisorDocumentoDietas,
 		cronosapp.AudienciaMarcajePropio,
 		cronosapp.AudienciaDisponibilidadMarcajeRemoto,
 		cronosapp.AudienciaRecuperacionMarcajeRemoto,
