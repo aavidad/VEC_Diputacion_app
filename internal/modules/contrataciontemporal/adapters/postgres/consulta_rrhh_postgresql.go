@@ -13,6 +13,7 @@ import (
 )
 
 var _ ports.SesionConsultaRRHH = (*SesionConsultaRRHHPostgreSQL)(nil)
+var _ ports.SesionConsultaResumenSeguimientoRRHH = (*SesionConsultaRRHHPostgreSQL)(nil)
 
 // SesionConsultaRRHHPostgreSQL ejecuta consumo VEC-AD-3, consulta minimizada y
 // registro durable de acceso en una única transacción serializable. No
@@ -229,6 +230,63 @@ func (s *SesionConsultaRRHHPostgreSQL) ConsultarDetalleYRegistrar(
 			return detalle, nil
 		},
 	)
+}
+
+func (s *SesionConsultaRRHHPostgreSQL) ConsultarResumenSeguimientoYRegistrar(
+	ctx context.Context, orden ports.OrdenConsultaDetalleRRHH, unidadRef string,
+) (ports.ResultadoConsultaResumenSeguimientoRRHH, error) {
+	var cero ports.ResultadoConsultaResumenSeguimientoRRHH
+	if err := s.validarContexto(ctx); err != nil {
+		return cero, err
+	}
+	if s.modo != modoConsultaDetalleRRHHOrdinaria ||
+		!orden.Capacidad().AutorizaCamposSeguimiento() {
+		return cero, ports.ErrConsultaRRHHNoDisponible
+	}
+	material, err := orden.ExportacionParaSQL()
+	if err != nil || material.ValidarEstructura() != nil {
+		return cero, ports.ErrConsultaRRHHNoDisponible
+	}
+	argumentos, err := nuevosArgumentosMaterialConsultaRRHH(material)
+	if err != nil {
+		return cero, ports.ErrConsultaRRHHNoDisponible
+	}
+	defer argumentos.limpiar()
+	contexto, capacidad, solicitud := orden.Contexto(), orden.Capacidad(), orden.Solicitud()
+	args := argumentosSQLResumenSeguimientoRRHH(contexto.OrganizacionRef(),
+		string(capacidad.ClaseAmbito()), capacidad.AmbitoRef(), solicitud, unidadRef, argumentos)
+	var version int64
+	var salida ports.ResultadoConsultaResumenSeguimientoRRHH
+	return ejecutarConsultaRRHHEnTransaccion(ctx, s.pool,
+		consultaResumenSeguimientoRRHHPostgreSQL, args,
+		[]any{&salida.ExpedienteRef, &version, &salida.OrganizacionRef,
+			&salida.UnidadRef, &salida.ConsumoHuellaSHA256,
+			&salida.AuditoriaRef, &salida.AuditoriaHuellaSHA256,
+			&salida.ConsumidaEn},
+		func() (ports.ResultadoConsultaResumenSeguimientoRRHH, error) {
+			if version < 1 || version > 9_007_199_254_740_991 {
+				return cero, ports.ErrResultadoConsultaRRHHNoConfiable
+			}
+			salida.VersionExpediente = uint64(version)
+			salida.ConsumidaEn = salida.ConsumidaEn.UTC()
+			if salida.ValidarPara(orden, unidadRef) != nil {
+				return cero, ports.ErrResultadoConsultaRRHHNoConfiable
+			}
+			return salida, nil
+		})
+}
+
+func argumentosSQLResumenSeguimientoRRHH(
+	organizacionRef, claseAmbito, ambitoRef string,
+	solicitud ports.SolicitudDetalleRRHH,
+	unidadRef string,
+	material argumentosMaterialConsultaRRHH,
+) []any {
+	base := argumentosSQLDetalleConsultaRRHH(organizacionRef, claseAmbito, ambitoRef, solicitud, material)
+	args := make([]any, 0, len(base)+1)
+	args = append(args, base[:5]...)
+	args = append(args, unidadRef)
+	return append(args, base[5:]...)
 }
 
 func ejecutarConsultaRRHHEnTransaccion[T any](
