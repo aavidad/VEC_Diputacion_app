@@ -6,8 +6,9 @@
 -- (1) consumir_v3_v1/v2 (000001/000002) ya exigen huella_efecto_sha256 =
 -- contexto_recurso_huella_sha256 = SHA-256 del contexto canónico
 -- {"ambitos":{},"atributos":{"preimagen_sha256":"<hex>"}}; esta migración no
--- los reescribe: comprueba que su cuerpo instalado es el que liga esa huella
--- y publica la misma expresión como función para las pruebas y el preflight.
+-- los reescribe: comprueba por huella SHA-256 que su cuerpo instalado es el
+-- exacto de 000001/000002, que liga esa huella, y publica la misma
+-- expresión como función para las pruebas y el preflight.
 --
 -- Requiere roles_000004_up.sql (DBA). Conserva 000001–000003 e historia.
 BEGIN;
@@ -26,13 +27,15 @@ BEGIN
     OR to_regprocedure('vec_documentos.huella_efecto_v1(bytea)') IS NOT NULL
     OR to_regclass('vec_documentos.denegacion_frontera') IS NOT NULL
     OR NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='vec_documentos_auditor' AND NOT rolcanlogin AND NOT rolbypassrls)
-    OR (SELECT count(*) FROM pg_proc p WHERE p.oid IN (
-        'vec_documentos.consumir_v3_v1(bytea,text,text,text,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure,
+    -- Cuerpos exactos instalados por 000001/000002 (SHA-256 de prosrc en
+    -- UTF-8): cualquier alteración, aunque conserve las subcadenas de la
+    -- ligadura, aborta la migración.
+    OR (SELECT encode(sha256(convert_to(p.prosrc,'UTF8')),'hex') FROM pg_proc p WHERE p.oid=
+        'vec_documentos.consumir_v3_v1(bytea,text,text,text,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure)
+       IS DISTINCT FROM '42fbad78031867af219766d9998166814b33c2d353a0b4570fac3c6e914f719d'
+    OR (SELECT encode(sha256(convert_to(p.prosrc,'UTF8')),'hex') FROM pg_proc p WHERE p.oid=
         'vec_documentos.consumir_v3_v2(bytea,text,text,text,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure)
-       AND strpos(p.prosrc,$h$h:=encode(sha256(convert_to('{"ambitos":{},"atributos":{"preimagen_sha256":"'||encode(sha256(p_preimagen),'hex')||'"}}','UTF8')),'hex');$h$)>0
-       AND strpos(p.prosrc,$h$h:=encode(sha256(p_preimagen),'hex');$h$)=0
-       AND strpos(p.prosrc,$h$c->>'huella_efecto_sha256' IS DISTINCT FROM h$h$)>0
-       AND strpos(p.prosrc,$h$d->>'contexto_recurso_huella_sha256' IS DISTINCT FROM h$h$)>0)<>2
+       IS DISTINCT FROM '1376ed85a21a46c7805af86ea0a47c10d1adb58a96e4c7801953b57d7dc10b6f'
  THEN RAISE EXCEPTION 'Documentos-4: preimagen incompatible' USING ERRCODE='55000'; END IF;
 END $pre$;
 

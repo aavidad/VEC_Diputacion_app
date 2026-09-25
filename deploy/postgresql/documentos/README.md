@@ -33,8 +33,10 @@ preimagen. `consumir_v3_v1/v2` (000001/000002, nunca instaladas, corregidas
 en su sitio) exigen esa huella del recurso
 `{"ambitos":{},"atributos":{"preimagen_sha256":"<hex>"}}`, que es la que
 construye `ports.RecursoV3` en Go. 000004 ya no las reescribe: comprueba
-antes de crear nada que su cuerpo instalado liga esa huella y publica la
-misma expresión como `huella_efecto_v1`. La columna
+antes de crear nada que el SHA-256 de su cuerpo instalado (`prosrc`)
+coincide con el de los cuerpos exactos de 000001/000002, que ligan esa huella,
+y publica la misma expresión como `huella_efecto_v1`. Si se corrige alguno de
+esos cuerpos, hay que recalcular y fijar su huella en 000004. La columna
 `huella_preimagen_sha256` sigue guardando `SHA-256(preimagen)`.
 
 `confirmar_alta_v1` y `preparar_notificacion_v1` no se conceden al ejecutor:

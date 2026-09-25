@@ -293,6 +293,32 @@ BEGIN ISOLATION LEVEL SERIALIZABLE;
 SELECT ensayo_externa.listar();
 COMMIT;
 SQL
+# Misma sonda de ligadura para consumir_v3_v1 (lecturas): decisión fresca
+# (fachada AD3-60 sintética que la acepta) emitida con la huella de la
+# preimagen de lista de OTRO expediente y presentada a listar_expediente_v2
+# con la preimagen del expediente autorizado: 42501 exacto, sin consumo.
+docker exec -i "$container" sh -c 'cat >/tmp/sonda_ligadura_v1.sql' <<'SQL'
+\set ON_ERROR_STOP on
+BEGIN ISOLATION LEVEL SERIALIZABLE;
+SET LOCAL timezone='UTC';
+DO $sonda$
+DECLARE p_otro bytea; p bytea; estado text:='aceptada';
+BEGIN
+ p_otro:=convert_to('{"accion":"documentos.expediente.listar","expediente_ref":"exp:00000000-0000-4000-8000-000000000002","cursor":"","limite":1}','UTF8');
+ p:=convert_to('{"accion":"documentos.expediente.listar","expediente_ref":"exp:00000000-0000-4000-8000-000000000001","cursor":"","limite":1}','UTF8');
+ PERFORM ensayo_externa.preparar('sonda_v1','documentos.expediente.listar','exp:00000000-0000-4000-8000-000000000001',
+  'exp:00000000-0000-4000-8000-000000000001','listar_documentos_expediente','expediente_documental','["items","siguiente_cursor"]',p_otro,
+  'decision:00000000-0000-4000-8000-00000000caf1');
+ UPDATE ensayo_externa.material SET preimagen=p WHERE caso='sonda_v1';
+ BEGIN
+  PERFORM ensayo_externa.invocar('sonda_v1');
+ EXCEPTION WHEN OTHERS THEN estado:=SQLSTATE; END;
+ IF estado<>'42501' THEN RAISE EXCEPTION 'FALLO: decisión de lista de otro expediente no rechazada como denegación (sqlstate %)', estado; END IF;
+END $sonda$;
+ROLLBACK;
+SQL
+docker exec "$container" psql -X -q -v ON_ERROR_STOP=1 -U vec_documentos_ensayo -d postgres -f /tmp/sonda_ligadura_v1.sql
+test "$(docker exec "$container" psql -X -qAt -U postgres -c "SELECT count(*) FROM vec_autorizacion_atestada_v3.ensayo_consumo_documentos WHERE decision_ref='decision:00000000-0000-4000-8000-00000000caf1'")" = 0
 test "$(docker exec "$container" psql -X -qAt -U postgres -c "SELECT (SELECT count(*) FROM vec_documentos.referencia_externa)=1 AND (SELECT count(*) FROM vec_documentos.outbox WHERE tipo='documento_externo_registrado')=1 AND (SELECT count(*) FROM vec_documentos.identificador_documental)=2")" = t
 if docker exec "$container" psql -X -q -v ON_ERROR_STOP=1 -U postgres -c "UPDATE vec_documentos.referencia_externa SET custodia_ref='otra:ref'" >/dev/null 2>&1; then echo 'FALLO: referencia externa mutable' >&2; exit 1; fi
 printf 'PG18.4: custodia externa registrada sin contenido, replay idéntico, clave/identificador reutilizados rechazados, lista v2 con ambas custodias.\n'
