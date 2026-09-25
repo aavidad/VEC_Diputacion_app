@@ -239,11 +239,11 @@ func nuevoServidorDesarrollo(
 	}()
 	// Enganche de las reglas de ejemplo: los módulos de Bolsa y Contratación
 	// temporal recibirán reglasEjemplo.bolsa y reglasEjemplo.contratacionTemporal.
+	// El circuito de firma ya se consulta desde el detalle del expediente.
 	reglasEjemplo, err := nuevasReglasEjemploDesarrollo(cfg, consultaCalendarios, relojCalendariosDesarrollo{})
 	if err != nil {
 		return nil, nil, err
 	}
-	_ = reglasEjemplo
 	rutasContratacion, autoridadContratacion, cerrarContratacion, err := nuevasRutasContratacionTemporalDesarrollo(
 		cfg, resolvedor, composicion.derivadorIdempotencia, composicion.emisorKMS, registro, incorporacion...,
 	)
@@ -266,6 +266,7 @@ func nuevoServidorDesarrollo(
 	rutasContratacion = append(rutasContratacion, rutasBolsasRRHH...)
 	coleccionesBolsasRRHH = append(coleccionesBolsasRRHH, autoridadContratacion.coleccionesAdicionales...)
 	rutasContratacion = append(rutasContratacion, rutasCalendarios...)
+	rutasContratacion = append(rutasContratacion, nuevaRutaCircuitoFirmaContratacionTemporalDesarrollo(reglasEjemplo.circuitoFirmaCT))
 	autoridadDietas, cerrarDietas, err := nuevasRutasDietasDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia)
 	if err != nil {
 		return nil, nil, err

@@ -13,6 +13,9 @@ import (
 const (
 	EnvBolsaReglasSourcePath = "VEC_BOLSA_REGLAS_SOURCE_PATH"
 	EnvCTReglasSourcePath    = "VEC_CT_REGLAS_SOURCE_PATH"
+	// EnvCTCircuitoFirmaSourcePath declara el circuito de firma de ejemplo de
+	// los documentos de Contratación temporal.
+	EnvCTCircuitoFirmaSourcePath = "VEC_CT_CIRCUITO_FIRMA_SOURCE_PATH"
 )
 
 // ErrConfiguracionReglasEjemploFueraDesarrollo impide arrancar si un
@@ -22,27 +25,30 @@ var ErrConfiguracionReglasEjemploFueraDesarrollo = errors.New("config: catalogo 
 
 // ConfiguracionReglasEjemplo contiene rutas locales de paquetes DEMO.
 type ConfiguracionReglasEjemplo struct {
-	BolsaSourcePath string
-	CTSourcePath    string
+	BolsaSourcePath           string
+	CTSourcePath              string
+	CTCircuitoFirmaSourcePath string
 }
 
 func cargarConfiguracionReglasEjemplo() ConfiguracionReglasEjemplo {
 	return ConfiguracionReglasEjemplo{
-		BolsaSourcePath: envFirst(EnvBolsaReglasSourcePath),
-		CTSourcePath:    envFirst(EnvCTReglasSourcePath),
+		BolsaSourcePath:           envFirst(EnvBolsaReglasSourcePath),
+		CTSourcePath:              envFirst(EnvCTReglasSourcePath),
+		CTCircuitoFirmaSourcePath: envFirst(EnvCTCircuitoFirmaSourcePath),
 	}
 }
 
 func (c ConfiguracionReglasEjemplo) normalizar() ConfiguracionReglasEjemplo {
 	c.BolsaSourcePath = strings.TrimSpace(c.BolsaSourcePath)
 	c.CTSourcePath = strings.TrimSpace(c.CTSourcePath)
+	c.CTCircuitoFirmaSourcePath = strings.TrimSpace(c.CTCircuitoFirmaSourcePath)
 	return c
 }
 
 // Configurada indica si se ha declarado algún catálogo de reglas.
 func (c ConfiguracionReglasEjemplo) Configurada() bool {
 	c = c.normalizar()
-	return c.BolsaSourcePath != "" || c.CTSourcePath != ""
+	return c.BolsaSourcePath != "" || c.CTSourcePath != "" || c.CTCircuitoFirmaSourcePath != ""
 }
 
 // ReglasEjemploDesarrollo valida la activación sin abrir ficheros. Devuelve

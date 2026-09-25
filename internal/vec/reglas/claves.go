@@ -7,6 +7,9 @@ const (
 	ModuloBolsa                  = "bolsa"
 	CatalogoContratacionTemporal = "vec.contratacion_temporal.reglas"
 	ModuloContratacionTemporal   = "contratacion_temporal"
+	// CatalogoCircuitoFirmaCT agrupa los pasos de firma de los documentos
+	// de Contratación temporal; cada entrada es un paso.
+	CatalogoCircuitoFirmaCT = "vec.contratacion_temporal.circuito_firma"
 	// MunicipioSedeDiputacion es la sede para el cómputo de plazos cuando el
 	// consumidor no conoce otra (Granada, código INE 18087).
 	MunicipioSedeDiputacion = "municipio:ine:18087"
