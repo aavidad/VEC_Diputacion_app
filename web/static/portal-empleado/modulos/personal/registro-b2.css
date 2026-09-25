@@ -130,6 +130,7 @@
 .personal-registro-b2 .tabla-datos :is(th, td) { vertical-align: top; }
 .personal-registro-b2 .tabla-datos th { white-space: nowrap; }
 .personal-registro-b2 .tabla-datos td { overflow-wrap: anywhere; }
+.personal-registro-b2-secundario { display: block; margin-top: var(--portal-espacio-1); color: var(--portal-muted); font-size: .75rem; }
 .personal-registro-b2 .tabla-datos tbody tr:hover { background: var(--portal-azul-100); }
 
 .personal-registro-b2-estado {
@@ -239,9 +240,47 @@
 .personal-registro-b2-revision strong { text-align: right; font-weight: 600; }
 .personal-registro-b2-acciones { display: flex; justify-content: flex-end; gap: var(--portal-espacio-2); }
 .personal-registro-b2-acciones button:first-child { background: var(--portal-superficie); color: var(--portal-azul-700); }
+.personal-registro-b2-catalogos-cuerpo { display: grid; min-width: 0; gap: var(--portal-espacio-3); }
+.personal-registro-b2-catalogos .tabla-contenedor { max-height: 480px; }
+.personal-registro-b2-catalogos-formulario {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--portal-espacio-3);
+  align-items: end;
+}
+.personal-registro-b2-catalogos-formulario label { display: grid; min-width: 0; gap: var(--portal-espacio-1); color: var(--portal-muted); font-size: .82rem; }
+.personal-registro-b2-catalogos-formulario input,
+.personal-registro-b2-catalogos select {
+  min-width: 0;
+  width: 100%;
+  min-height: 40px;
+  padding: var(--portal-espacio-2) var(--portal-espacio-3);
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio);
+  background: var(--portal-superficie);
+  color: var(--portal-tinta);
+  font: inherit;
+}
+.personal-registro-b2-catalogos-formulario button,
+.personal-registro-b2-catalogos-cuerpo > button,
+.personal-registro-b2-catalogos td button {
+  min-height: 40px;
+  padding: var(--portal-espacio-2) var(--portal-espacio-3);
+  border: 1px solid var(--portal-azul-700);
+  border-radius: var(--portal-radio);
+  background: var(--portal-azul-700);
+  color: var(--portal-superficie);
+  cursor: pointer;
+  font: inherit;
+}
+.personal-registro-b2-catalogos-formulario button:last-child { background: var(--portal-superficie); color: var(--portal-azul-700); }
+.personal-registro-b2-catalogos-revision { display: grid; grid-template-columns: max-content 1fr; gap: var(--portal-espacio-2) var(--portal-espacio-3); margin: 0; }
+.personal-registro-b2-catalogos-revision dt { color: var(--portal-muted); }
+.personal-registro-b2-catalogos-revision dd { margin: 0; font-weight: 600; }
 
 @media (max-width: 1024px) {
   .personal-registro-b2-formulario { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .personal-registro-b2-catalogos-formulario { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (min-width: 1024px) {
@@ -253,5 +292,6 @@
   .personal-registro-b2-contenido { overflow: visible; }
   .personal-registro-b2-grupos { grid-template-columns: minmax(0, 1fr); }
   .personal-registro-b2-formulario { grid-template-columns: minmax(0, 1fr); }
+  .personal-registro-b2-catalogos-formulario { grid-template-columns: minmax(0, 1fr); }
   .personal-registro-b2 .tabla-contenedor { max-height: none; }
 }

@@ -1,19 +1,20 @@
-import { crearTraductorPersonal } from "./i18n.js?v=20260925-b2-registro-v1";
+import { crearTraductorPersonal } from "./i18n.js?v=20260925-b2-registro-v2";
 import { ErrorRegistroB2 } from "./registro-b2-cliente.js?v=20260925-b2-registro-v1";
-import { accionesRegistroB2Disponibles, montarActosRegistroB2 } from "./registro-b2-actos.js?v=20260925-b2-registro-v1";
+import { accionesRegistroB2Disponibles, montarActosRegistroB2 } from "./registro-b2-actos.js?v=20260925-b2-registro-v2";
+import { cargarOpcionesPublicadasCatalogoB2, montarCatalogosRegistroB2 } from "./registro-b2-catalogos.js?v=20260925-b2-registro-v2";
 
 const BLOQUES = Object.freeze([
   ["relaciones", "registro_b2_relaciones", "registro_b2_tabla_relaciones", [
-    ["estado", "registro_b2_estado"], ["periodo", "registro_b2_periodo"], ["unidad", "registro_b2_unidad"], ["acto", "registro_b2_acto"],
+    ["estado", "registro_b2_estado"], ["periodo", "registro_b2_periodo"], ["regimen_catalogo", "registro_b2_regimen"], ["modalidad_catalogo", "registro_b2_modalidad"], ["unidad", "registro_b2_unidad"],
   ]],
   ["ocupaciones", "registro_b2_ocupaciones", "registro_b2_tabla_ocupaciones", [
-    ["puesto", "registro_b2_puesto"], ["plaza", "registro_b2_plaza"], ["clase", "registro_b2_clase"], ["unidad", "registro_b2_unidad"], ["periodo", "registro_b2_periodo"],
+    ["puesto", "registro_b2_puesto"], ["plaza", "registro_b2_plaza"], ["modalidad_catalogo", "registro_b2_modalidad"], ["clase", "registro_b2_clase"], ["unidad", "registro_b2_unidad"], ["periodo", "registro_b2_periodo"],
   ]],
   ["situaciones", "registro_b2_situaciones", "registro_b2_tabla_situaciones", [
     ["situacion", "registro_b2_situacion"], ["periodo", "registro_b2_periodo"], ["acto", "registro_b2_acto"],
   ]],
   ["servicios", "registro_b2_servicios", "registro_b2_tabla_servicios", [
-    ["estado", "registro_b2_estado"], ["periodo_servicio", "registro_b2_periodo"], ["dias", "registro_b2_dias_reconocidos"], ["fuente", "registro_b2_fuente"], ["acto", "registro_b2_acto"],
+    ["clase_servicio_catalogo", "registro_b2_clase_servicio"], ["estado", "registro_b2_estado"], ["periodo_servicio", "registro_b2_periodo"], ["dias", "registro_b2_dias_reconocidos"], ["fuente", "registro_b2_fuente"],
   ]],
 ]);
 const ESTADOS = Object.freeze({
@@ -47,7 +48,7 @@ function presentar(item, campo, t) {
     case "unidad": return nombreOReferencia(item, "unidad_denominacion", "unidad_ref", t);
     case "puesto": return nombreOReferencia(item, "puesto_denominacion", "puesto_ref", t);
     case "plaza": return nombreOReferencia(item, "plaza_denominacion", "plaza_ref", t);
-    case "situacion": return nombreOReferencia(item, "situacion_denominacion", "codigo_ref", t);
+    case "situacion": return textoSeguro(item.catalogo_snapshot?.situacion?.denominacion, 256) || nombreOReferencia(item, "situacion_denominacion", "codigo_ref", t);
     case "acto": return referencia(item.traza?.acto_ref, t);
     case "fuente": return referencia(item.traza?.fuente_ref, t);
     case "cobertura": return etiquetaEstado(item.estado_cobertura, t);
@@ -63,7 +64,21 @@ function tabla(d, t, titulo, columnas, filas) {
   for (const [, clave] of columnas) { const th = nodo(d, "th", t(clave)); th.setAttribute("scope", "col"); cab.append(th); }
   thead.append(cab); tab.append(thead);
   const body = nodo(d, "tbody");
-  for (const item of filas) { const tr = nodo(d, "tr"); for (const [campo] of columnas) tr.append(nodo(d, "td", presentar(item, campo, t))); body.append(tr); }
+  for (const item of filas) {
+    const tr = nodo(d, "tr");
+    for (const [campo] of columnas) {
+      const td = nodo(d, "td");
+      const tipoCatalogo = { regimen_catalogo: "regimen", modalidad_catalogo: "modalidad", clase_servicio_catalogo: "clase_servicio", situacion: "situacion" }[campo];
+      const snapshot = tipoCatalogo ? item.catalogo_snapshot?.[tipoCatalogo] : undefined;
+      if (snapshot && textoSeguro(snapshot.denominacion, 256)) {
+        td.append(nodo(d, "span", snapshot.denominacion));
+        const secundario = nodo(d, "small", t("registro_b2_catalogo_ref_version", { ref: textoSeguro(snapshot.ref, 160), version: Number.isSafeInteger(snapshot.version) ? new Intl.NumberFormat("es-ES").format(snapshot.version) : "" }));
+        secundario.className = "personal-registro-b2-secundario"; td.append(secundario);
+      } else td.textContent = presentar(item, campo, t);
+      tr.append(td);
+    }
+    body.append(tr);
+  }
   tab.append(body); region.append(tab); return region;
 }
 function validarFicha(respuesta) {
@@ -97,7 +112,7 @@ function conocidoUTC(valor) {
 }
 
 /** Montaje de lectura RRHH. El empleado se recibe de una selección autorizada del shell. */
-export function montarRegistroB2({ raiz, cliente, empleadoRef = "", personaRef = "", catalogos, anunciar = () => {}, registrarDesmontar, reloj = () => new Date() } = {}) {
+export function montarRegistroB2({ raiz, cliente, clienteCatalogos, fuenteActos, empleadoRef = "", personaRef = "", catalogos, anunciar = () => {}, registrarDesmontar, reloj = () => new Date() } = {}) {
   if (!raiz?.append || !raiz.ownerDocument?.createElement || !cliente?.consultarFicha || !cliente?.listarVacantes ||
       (empleadoRef !== "" && !/^emp_[A-Za-z0-9_-]{22,128}$/u.test(empleadoRef)) ||
       (personaRef !== "" && !/^per_[A-Za-z0-9_-]{22,128}$/u.test(personaRef)) ||
@@ -108,12 +123,12 @@ export function montarRegistroB2({ raiz, cliente, empleadoRef = "", personaRef =
   const pestañas = nodo(d, "div"); pestañas.className = "personal-registro-b2-pestanas"; pestañas.setAttribute("role", "tablist"); pestañas.setAttribute("aria-label", t("registro_b2_pestanas"));
   const contenido = nodo(d, "div"); contenido.className = "personal-registro-b2-contenido"; contenido.setAttribute("role", "tabpanel"); contenido.setAttribute("tabindex", "0"); contenido.id = "personal-registro-b2-panel";
   s.append(cabecera, pestañas, contenido); raiz.append(s);
-  let activo = true; let vista = "ficha"; let vuelo; let empleado = empleadoRef; let turno = 0; let ultimaFicha; let montajeActos;
+  let activo = true; let vista = "ficha"; let vuelo; let empleado = empleadoRef; let turno = 0; let ultimaFicha; let montajeActos; let montajeCatalogos;
   let vigenteEn = hoyMadrid(reloj); let conocidoEnLocal = localFechaHora(reloj());
   let seleccionRelacion = ""; let cursor = ""; let anteriores = [];
   const botones = new Map();
   const limpiarVuelo = () => { turno += 1; vuelo?.abort(); vuelo = undefined; };
-  const desmontar = () => { if (!activo) return; activo = false; limpiarVuelo(); montajeActos?.desmontar(); s.remove?.(); };
+  const desmontar = () => { if (!activo) return; activo = false; limpiarVuelo(); montajeActos?.desmontar(); montajeCatalogos?.desmontar(); s.remove?.(); };
   registrarDesmontar?.(desmontar);
 
   function pintarFicha(ficha) {
@@ -199,20 +214,40 @@ export function montarRegistroB2({ raiz, cliente, empleadoRef = "", personaRef =
   s.replaceChildren(cabecera, pestañas, form, contenido);
   function cambiarVista(nueva) {
     if (!activo || !botones.has(nueva)) return;
-    limpiarVuelo(); montajeActos?.desmontar(); montajeActos = undefined; vista = nueva; ayuda.open = false;
-    textoAyuda.replaceChildren(nodo(d, "p", t(vista === "actos" ? "registro_b2_acto_ayuda" : "registro_b2_ayuda")));
+    limpiarVuelo(); montajeActos?.desmontar(); montajeActos = undefined; montajeCatalogos?.desmontar(); montajeCatalogos = undefined; vista = nueva; ayuda.open = false;
+    textoAyuda.replaceChildren(nodo(d, "p", t(vista === "actos" ? "registro_b2_acto_ayuda" : vista === "catalogos" ? "registro_b2_catalogos_ayuda" : "registro_b2_ayuda")));
+    form.hidden = vista === "actos" || vista === "catalogos";
     for (const [clave, tab] of botones) { tab.setAttribute("aria-selected", String(clave === vista)); tab.setAttribute("tabindex", clave === vista ? "0" : "-1"); }
     contenido.setAttribute("aria-labelledby", `personal-registro-b2-tab-${vista}`);
-    if (vista === "actos") {
+    if (vista === "catalogos") {
       contenido.replaceChildren();
-      try { montajeActos = montarActosRegistroB2({ raiz: contenido, cliente, catalogos, personaRef, empleadoRef: empleado, ficha: ultimaFicha, anunciar, alRegistrar: (recibo) => { empleado = recibo.empleado_ref; ultimaFicha = undefined; seleccionRelacion = recibo.relacion_ref; } }); }
-      catch { contenido.append(estado(d, t("registro_b2_error"), true)); }
+      try { montajeCatalogos = montarCatalogosRegistroB2({ raiz: contenido, cliente: clienteCatalogos, fuenteActos, anunciar }); }
+      catch { contenido.append(estado(d, t("registro_b2_catalogos_error"), true)); }
+      return;
+    }
+    if (vista === "actos") {
+      contenido.replaceChildren(estado(d, t("registro_b2_catalogos_cargando")));
+      const actual = new AbortController(); vuelo = actual; const secuencia = turno;
+      cargarOpcionesPublicadasCatalogoB2(clienteCatalogos, { signal: actual.signal }).then((publicadas) => {
+        if (!activo || vista !== "actos" || vuelo !== actual || actual.signal.aborted || secuencia !== turno) return;
+        const opciones = { ...catalogos, regimenes: publicadas.regimenes, modalidades: publicadas.modalidades, situaciones: publicadas.situaciones, clasesServicio: publicadas.clasesServicio };
+        contenido.replaceChildren();
+        if (!accionesRegistroB2Disponibles({ cliente, catalogos: opciones, personaRef, empleadoRef: empleado })) { contenido.append(estado(d, t("registro_b2_actos_no_disponibles"))); return; }
+        montajeActos = montarActosRegistroB2({ raiz: contenido, cliente, catalogos: opciones, personaRef, empleadoRef: empleado, ficha: ultimaFicha, anunciar, alRegistrar: (recibo) => { empleado = recibo.empleado_ref; ultimaFicha = undefined; seleccionRelacion = recibo.relacion_ref; } });
+      }).catch(() => {
+        if (!activo || vista !== "actos" || vuelo !== actual || actual.signal.aborted || secuencia !== turno) return;
+        contenido.replaceChildren(estado(d, t("registro_b2_catalogos_error"), true));
+      }).finally(() => { if (vuelo === actual) vuelo = undefined; });
       return;
     }
     consultar();
   }
   const vistas = [["ficha", "registro_b2_ficha"], ["vacantes", "registro_b2_vacantes"]];
-  if (accionesRegistroB2Disponibles({ cliente, catalogos, personaRef, empleadoRef })) vistas.push(["actos", "registro_b2_actuaciones"]);
+  if (typeof clienteCatalogos?.listar === "function" && typeof clienteCatalogos?.cambiar === "function") {
+    vistas.push(["catalogos", "registro_b2_catalogos"]);
+    const base = ["organismos", "unidades", "plazas", "puestos", "actos", "fuentes"].every((clave) => Array.isArray(catalogos?.[clave]));
+    if (base && typeof cliente?.registrarAlta === "function" && typeof cliente?.registrarHecho === "function" && (personaRef || empleadoRef)) vistas.push(["actos", "registro_b2_actuaciones"]);
+  }
   vistas.forEach(([clave, etiqueta], indice) => {
     const tab = nodo(d, "button", t(etiqueta)); tab.type = "button"; tab.id = `personal-registro-b2-tab-${clave}`; tab.setAttribute("role", "tab"); tab.setAttribute("aria-controls", contenido.id);
     tab.dataset.registroB2Tab = clave; tab.addEventListener("click", () => cambiarVista(clave));
