@@ -62,7 +62,7 @@ if grep -Eq '^app/web/static/presentacion(/|$)' "$inventario_presentacion" ||
   exit 1
 fi
 
-for directorio_cerrado in area-personal portal-empleado
+for directorio_cerrado in area-personal portal-empleado verificar
 do
   if grep -Eq "^app/web/static/${directorio_cerrado}(/|$)" "$inventario_presentacion" ||
      [ -e "$contenido_presentacion/app/web/static/$directorio_cerrado" ]; then

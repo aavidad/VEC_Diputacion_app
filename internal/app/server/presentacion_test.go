@@ -163,6 +163,9 @@ func TestPresentacionSoloExponeSuperficiesEnumeradas(t *testing.T) {
 		"/area-personal/aplicacion.js", "/area-personal/adaptador-presentacion.js",
 		"/portal-empleado", "/portal-empleado/", "/portal-empleado/index.html",
 		"/portal-empleado/portal.css", "/portal-empleado/datos-presentacion.js",
+		"/verificar", "/verificar/", "/verificar/index.html",
+		"/verificar/verificar.js", "/verificar/verificar.css", "/verificar/i18n.js",
+		"/verificar/adaptador-presentacion.js",
 		"/app.js", "/config/config.go", "/data/demo/convocatorias_publicas.demo.json",
 		"/api/vec/session", "/api/demo", "/candidates", "/desconocido",
 	} {
@@ -211,7 +214,7 @@ func TestPresentacionHEADNoEntregaCuerpo(t *testing.T) {
 	for _, prueba := range []struct {
 		ruta   string
 		estado int
-	}{{"/presentacion/", http.StatusNotFound}, {"/area-personal/", http.StatusNotFound}, {"/portal-empleado/", http.StatusNotFound}, {"/bolsa/", http.StatusOK}, {"/livez", http.StatusOK}, {"/readyz", http.StatusServiceUnavailable}, {"/healthz", http.StatusServiceUnavailable}} {
+	}{{"/presentacion/", http.StatusNotFound}, {"/area-personal/", http.StatusNotFound}, {"/portal-empleado/", http.StatusNotFound}, {"/verificar/", http.StatusNotFound}, {"/bolsa/", http.StatusOK}, {"/livez", http.StatusOK}, {"/readyz", http.StatusServiceUnavailable}, {"/healthz", http.StatusServiceUnavailable}} {
 		rec := httptest.NewRecorder()
 		servidor.Handler.ServeHTTP(rec, peticionServidorPrueba(http.MethodHead, prueba.ruta, nil))
 		if rec.Code != prueba.estado || rec.Body.Len() != 0 {

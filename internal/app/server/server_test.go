@@ -240,19 +240,19 @@ func TestServerPresentacionAisladaNoSirvePortalesSinAPI(t *testing.T) {
 	}
 }
 
-func TestServerPresentacionAisladaConservaCotejo(t *testing.T) {
+func TestServerPresentacionAisladaNoSirveCotejoSimulado(t *testing.T) {
 	handler := NewHandlerPresentacionWithConfig(configuracionPresentacionValida(), http.NotFoundHandler())
-	for _, prueba := range []struct{ ruta, tipo, contenido string }{
-		{ruta: "/verificar/", tipo: "text/html", contenido: "Comprobación de documentos"},
-		{ruta: "/verificar/adaptador-presentacion.js?v=1", tipo: "text/javascript", contenido: "Adaptador local y no autoritativo"},
+	for _, ruta := range []string{
+		"/verificar", "/verificar/", "/verificar/index.html",
+		"/verificar/verificar.js", "/verificar/verificar.css", "/verificar/i18n.js",
+		"/verificar/adaptador-presentacion.js?v=1",
 	} {
-		rec := httptest.NewRecorder()
-		handler.ServeHTTP(rec, peticionServidorPrueba(http.MethodGet, prueba.ruta, nil))
-		if rec.Code != http.StatusOK || !strings.Contains(rec.Header().Get("Content-Type"), prueba.tipo) || !strings.Contains(rec.Body.String(), prueba.contenido) {
-			t.Fatalf("%s = %d %q", prueba.ruta, rec.Code, rec.Body.String())
-		}
-		if prueba.tipo == "text/html" && (strings.Contains(strings.ToLower(rec.Body.String()), "<style") || strings.Contains(strings.ToLower(rec.Body.String()), " style=")) {
-			t.Fatalf("%s contiene CSS inline", prueba.ruta)
+		for _, metodo := range []string{http.MethodGet, http.MethodHead} {
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, peticionServidorPrueba(metodo, ruta, nil))
+			if rec.Code != http.StatusNotFound || rec.Header().Get("Location") != "" || (metodo == http.MethodHead && rec.Body.Len() != 0) {
+				t.Fatalf("%s %s = %d Location=%q cuerpo=%q", metodo, ruta, rec.Code, rec.Header().Get("Location"), rec.Body.String())
+			}
 		}
 	}
 }

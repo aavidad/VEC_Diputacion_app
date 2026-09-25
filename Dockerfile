@@ -59,6 +59,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
   && rm -rf /src/web-presentacion/static/modulos \
        /src/web-presentacion/static/area-personal \
        /src/web-presentacion/static/portal-empleado \
+       /src/web-presentacion/static/verificar \
        /src/web-presentacion/cartografia \
   && test ! -e /src/web-presentacion/cartografia \
   && install -d /src/web-produccion \

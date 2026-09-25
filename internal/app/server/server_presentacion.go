@@ -109,7 +109,7 @@ func newHandlerPresentacionConPersonal(cfg config.Config, apiPublica, categorias
 		http.Redirect(w, r, "bolsa/", http.StatusMovedPermanently)
 	})))
 	registrarRutasDisponibilidad(mux, comprobador)
-	for _, directorio := range []string{"bolsa", "verificar"} {
+	for _, directorio := range []string{"bolsa"} {
 		registrarDirectorioPresentacion(mux, estaticos, directorio)
 	}
 	registrarActivosCompartidos(mux, estaticos)
