@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <title data-i18n="documentTitle"></title>
+    <link rel="stylesheet" href="/comun/tema-vec.css?v=20260925-aspecto-v1" />
+    <link rel="stylesheet" href="./calendarios.css?v=20260925-calendarios-v1" />
+    <script type="module" src="./calendarios.js?v=20260925-calendarios-v1"></script>
+  </head>
+  <body class="cal-app">
+    <main class="cal-shell" id="calendarios" tabindex="-1">
+      <header class="cal-cabecera">
+        <div>
+          <p class="cal-miga" data-i18n="miga"></p>
+          <h1 data-i18n="titulo"></h1>
+        </div>
+        <div class="cal-cabecera-acciones">
+          <button type="button" class="cal-boton-ayuda" id="cal-ayuda-abrir" data-i18n-label="ayudaAbrir">?</button>
+          <a class="cal-volver" href="/portal-empleado/" data-i18n="volver"></a>
+        </div>
+      </header>
+
+      <form class="cal-tarjeta cal-filtros" id="cal-filtros" data-i18n-label="filtros">
+        <label><span data-i18n="anio"></span><select id="cal-anio"></select></label>
+        <label><span data-i18n="centro"></span><select id="cal-centro"></select></label>
+        <label><span data-i18n="conocidoEn"></span><input id="cal-conocido" type="datetime-local" /></label>
+        <button type="submit" class="cal-principal" data-i18n="consultar"></button>
+      </form>
+      <p id="cal-estado" class="cal-estado" role="status" aria-live="polite" hidden></p>
+
+      <div id="cal-resultado" hidden>
+        <section class="cal-kpis" id="cal-kpis" aria-live="polite"></section>
+
+        <section class="cal-tarjeta" aria-labelledby="cal-titulo-anual">
+          <div class="cal-tarjeta-cabecera">
+            <h2 id="cal-titulo-anual"></h2>
+            <ul class="cal-leyenda" data-i18n-label="leyenda">
+              <li><span class="cal-muestra cal-dia--nacional" aria-hidden="true"></span><span data-i18n="leyendaNacional"></span></li>
+              <li><span class="cal-muestra cal-dia--autonomico" aria-hidden="true"></span><span data-i18n="leyendaAutonomico"></span></li>
+              <li><span class="cal-muestra cal-dia--local" aria-hidden="true"></span><span data-i18n="leyendaLocal"></span></li>
+              <li><span class="cal-muestra cal-dia--centro" aria-hidden="true"></span><span data-i18n="leyendaCentro"></span></li>
+              <li><span class="cal-muestra cal-dia--finde" aria-hidden="true"></span><span data-i18n="leyendaFinde"></span></li>
+            </ul>
+          </div>
+          <div class="cal-meses" id="cal-meses"></div>
+        </section>
+
+        <div class="cal-columnas">
+          <section class="cal-tarjeta" aria-labelledby="cal-titulo-festivos">
+            <h2 id="cal-titulo-festivos" data-i18n="festivosTitulo"></h2>
+            <div class="cal-tabla" tabindex="0">
+              <table>
+                <thead><tr><th scope="col" data-i18n="colFecha"></th><th scope="col" data-i18n="colDenominacion"></th><th scope="col" data-i18n="colAmbito"></th><th scope="col" data-i18n="colProcedencia"></th></tr></thead>
+                <tbody id="cal-festivos"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="cal-tarjeta" aria-labelledby="cal-titulo-plazo">
+            <h2 id="cal-titulo-plazo" data-i18n="plazoTitulo"></h2>
+            <form id="cal-plazo" class="cal-plazo-form">
+              <label><span data-i18n="plazoNotificacion"></span><input id="cal-notificacion" type="date" required /></label>
+              <label><span data-i18n="plazoUnidad"></span><select id="cal-unidad"></select></label>
+              <label><span data-i18n="plazoCantidad"></span><input id="cal-cantidad" type="number" min="1" max="730" value="10" required inputmode="numeric" /></label>
+              <label><span data-i18n="plazoResidencia"></span><select id="cal-residencia"></select></label>
+              <button type="submit" class="cal-principal" data-i18n="plazoCalcular"></button>
+            </form>
+            <p id="cal-plazo-estado" class="cal-estado" role="status" aria-live="polite" hidden></p>
+            <div id="cal-plazo-resultado" class="cal-plazo-resultado" aria-live="polite"></div>
+          </section>
+        </div>
+
+        <section class="cal-tarjeta" aria-labelledby="cal-titulo-versiones">
+          <h2 id="cal-titulo-versiones" data-i18n="versionesTitulo"></h2>
+          <div class="cal-tabla" tabindex="0">
+            <table>
+              <thead><tr><th scope="col" data-i18n="colCalendario"></th><th scope="col" class="cal-numero" data-i18n="colVersion"></th><th scope="col" data-i18n="colNorma"></th><th scope="col" data-i18n="colConocidoDesde"></th></tr></thead>
+              <tbody id="cal-versiones"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <dialog id="cal-ayuda" aria-labelledby="cal-ayuda-titulo">
+        <h2 id="cal-ayuda-titulo" data-i18n="ayudaTitulo"></h2>
+        <p data-i18n="ayudaCentro"></p>
+        <p data-i18n="ayudaHabil"></p>
+        <p data-i18n="ayudaConocido"></p>
+        <p data-i18n="ayudaPlazo"></p>
+        <button type="button" id="cal-ayuda-cerrar" class="cal-secundario" data-i18n="ayudaCerrar"></button>
+      </dialog>
+    </main>
+  </body>
+</html>

@@ -47,6 +47,7 @@ test("la cabecera no lleva sobrelínea, descripción ni aviso de presentación y
   const cuadro = renderizarCabeceraModulo({ vista: "cuadro", cuadro: { demostracion: true } }, t);
   assert.match(cuadro, /<h2>Expedientes de contratación<\/h2>/u);
   assert.match(cuadro, /class="acciones-vista ct-exp-acciones-cabecera"[\s\S]*>Centros<\/a>[\s\S]*>Peticiones<\/a>/u);
+  assert.match(cuadro, /href="\/portal-empleado\/calendarios\/"[^>]*>Calendarios<\/a>/u);
   assert.doesNotMatch(cuadro, /sobrelinea|Flujo guiado|Presentación RRHH|sintéticos|ct-exp-aviso-presentacion/u);
   const detalle = renderizarCabeceraModulo({ vista: "expediente" }, t);
   assert.doesNotMatch(detalle, /ct-exp-acciones-cabecera/u);

@@ -1,0 +1,70 @@
+/* Calendarios: solo lo propio de la pantalla; colores y superficies del tema. */
+body.cal-app { margin: 0; background: var(--portal-fondo); color: var(--portal-tinta); font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 14px; line-height: 1.4; }
+.cal-shell { max-width: 1440px; margin: 0 auto; padding: 24px clamp(16px, 4vw, 40px) 40px; background: var(--portal-fondo); min-height: 100vh; box-sizing: border-box; }
+.cal-cabecera { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; margin-bottom: 20px; }
+.cal-miga { margin: 0 0 4px; font-size: 13px; color: var(--portal-muted); }
+.cal-cabecera h1 { margin: 0; font-size: 26px; font-weight: 600; color: var(--portal-tinta); }
+.cal-cabecera-acciones { display: flex; align-items: center; gap: 12px; }
+.cal-boton-ayuda { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--portal-borde); background: var(--portal-superficie); color: var(--portal-azul-700); font-weight: 600; cursor: pointer; }
+.cal-volver { color: var(--portal-azul-700); font-weight: 600; font-size: 14px; white-space: nowrap; }
+.cal-tarjeta { background: var(--portal-superficie); border: 1px solid var(--portal-borde); border-radius: 12px; box-shadow: var(--portal-sombra-sm); padding: 20px 24px; margin-bottom: 24px; }
+.cal-tarjeta h2 { margin: 0 0 16px; font-size: 18px; font-weight: 600; color: var(--portal-tinta); }
+.cal-tarjeta-cabecera { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 12px; }
+.cal-filtros, .cal-plazo-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px; }
+.cal-filtros label, .cal-plazo-form label { display: grid; gap: 4px; font-size: 13px; color: var(--portal-muted); min-width: 160px; flex: 1 1 160px; }
+.cal-filtros select, .cal-filtros input, .cal-plazo-form select, .cal-plazo-form input { height: 40px; padding: 0 12px; border: 1px solid var(--portal-borde); border-radius: 8px; font: inherit; font-size: 14px; color: var(--portal-tinta); background: var(--portal-superficie); min-width: 0; }
+.cal-principal { height: 40px; padding: 0 20px; border: 0; border-radius: 8px; background: var(--portal-azul-700); color: var(--portal-texto-inverso); font-weight: 600; cursor: pointer; }
+.cal-secundario { height: 40px; padding: 0 20px; border: 1px solid var(--portal-azul-700); border-radius: 8px; background: var(--portal-superficie); color: var(--portal-azul-700); font-weight: 600; cursor: pointer; }
+.cal-principal:focus-visible, .cal-secundario:focus-visible, .cal-boton-ayuda:focus-visible, .cal-tabla:focus-visible, select:focus-visible, input:focus-visible { outline: 3px solid var(--portal-foco); outline-offset: 2px; }
+.cal-estado { margin: 0 0 20px; padding: 12px 16px; border-radius: 8px; background: var(--portal-azul-100); color: var(--portal-tinta); font-size: 14px; }
+.cal-estado-error { background: var(--portal-peligro-suave); color: var(--portal-peligro); }
+.cal-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; margin-bottom: 24px; }
+.cal-kpi { display: grid; grid-template-columns: 56px 1fr; grid-template-rows: auto auto; column-gap: 16px; align-items: center; background: var(--portal-superficie); border: 1px solid var(--portal-borde); border-radius: 12px; box-shadow: var(--portal-sombra-sm); padding: 20px; }
+.cal-kpi-icono { grid-row: 1 / 3; width: 56px; height: 56px; border-radius: 12px; display: grid; place-items: center; }
+.cal-kpi-icono svg { width: 26px; height: 26px; }
+.cal-kpi strong { font-size: 28px; font-weight: 600; color: var(--portal-tinta); line-height: 1.1; }
+.cal-kpi span:last-child { font-size: 14px; color: var(--portal-muted); }
+.cal-kpi--habiles .cal-kpi-icono { background: var(--portal-azul-100); color: var(--portal-azul-700); }
+.cal-kpi--laborables .cal-kpi-icono { background: var(--portal-exito-suave); color: var(--portal-exito); }
+.cal-kpi--festivos .cal-kpi-icono { background: var(--portal-peligro-suave); color: var(--portal-peligro); }
+.cal-kpi--cierres .cal-kpi-icono { background: var(--portal-violeta-suave); color: var(--portal-violeta); }
+.cal-leyenda { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 0 0 16px; padding: 0; list-style: none; font-size: 13px; color: var(--portal-muted); }
+.cal-leyenda li { display: inline-flex; align-items: center; gap: 6px; }
+.cal-muestra { width: 14px; height: 14px; border-radius: 4px; border: 1px solid var(--portal-borde); }
+.cal-meses { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px 24px; }
+.cal-mes { width: 100%; border-collapse: separate; border-spacing: 3px; table-layout: fixed; }
+.cal-mes caption { text-align: left; font-size: 14px; font-weight: 600; color: var(--portal-tinta); padding: 0 3px 6px; }
+.cal-mes th { font-size: 12px; font-weight: 400; color: var(--portal-muted); padding: 2px 0; text-align: center; }
+.cal-dia { text-align: center; font-size: 13px; height: 28px; border-radius: 6px; color: var(--portal-tinta); font-variant-numeric: tabular-nums; }
+.cal-dia--finde { background: var(--portal-neutro-suave); color: var(--portal-muted); }
+.cal-dia--nacional { background: var(--portal-peligro-suave); color: var(--portal-peligro); font-weight: 600; }
+.cal-dia--autonomico { background: var(--portal-exito-suave); color: var(--portal-exito); font-weight: 600; }
+.cal-dia--local { background: var(--portal-naranja-suave); color: var(--portal-tinta); font-weight: 600; }
+.cal-dia--centro { background: var(--portal-violeta-suave); color: var(--portal-violeta); font-weight: 600; }
+.cal-accesible { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.cal-columnas { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 24px; }
+.cal-columnas > * { min-width: 0; }
+.cal-tabla { overflow-x: auto; }
+.cal-tabla table { width: 100%; min-width: 560px; border-collapse: collapse; font-size: 14px; }
+.cal-tabla th { text-align: left; font-size: 13px; font-weight: 400; color: var(--portal-muted); padding: 8px 12px; border-bottom: 1px solid var(--portal-borde); }
+.cal-tabla td { padding: 14px 12px; border-bottom: 1px solid var(--portal-borde); color: var(--portal-tinta); vertical-align: top; }
+.cal-tabla small { color: var(--portal-muted); overflow-wrap: anywhere; }
+.cal-numero { text-align: right; font-variant-numeric: tabular-nums; }
+.cal-marca { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; vertical-align: middle; background: var(--portal-muted); }
+.cal-fila--nacional .cal-marca { background: var(--portal-peligro); }
+.cal-fila--autonomico .cal-marca { background: var(--portal-exito); }
+.cal-fila--local .cal-marca { background: var(--portal-naranja); }
+.cal-fila--centro .cal-marca { background: var(--portal-violeta); }
+.cal-estado--oficial, .cal-estado--sintetico { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; }
+.cal-estado--oficial { background: var(--portal-exito-suave); color: var(--portal-exito); }
+.cal-estado--sintetico { background: var(--portal-aviso-suave); color: var(--portal-tinta); }
+.cal-plazo-resultado { margin-top: 16px; font-size: 14px; color: var(--portal-tinta); }
+.cal-plazo-resultado p { margin: 4px 0; }
+.cal-plazo-resultado h3 { margin: 16px 0 8px; font-size: 14px; font-weight: 600; }
+.cal-plazo-vence { font-size: 18px; font-weight: 600; }
+.cal-excluidos { margin: 0; padding-left: 18px; color: var(--portal-muted); }
+dialog#cal-ayuda { max-width: 520px; border: 1px solid var(--portal-borde); border-radius: 12px; padding: 24px; box-shadow: var(--portal-sombra); }
+dialog#cal-ayuda p { font-size: 14px; color: var(--portal-tinta); line-height: 1.5; }
+@media (max-width: 1100px) { .cal-meses { grid-template-columns: repeat(3, minmax(0, 1fr)); } .cal-columnas { grid-template-columns: 1fr; } }
+@media (max-width: 760px) { .cal-meses { grid-template-columns: repeat(2, minmax(0, 1fr)); } .cal-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 480px) { .cal-meses { grid-template-columns: 1fr; } .cal-kpis { grid-template-columns: 1fr; } .cal-cabecera { flex-direction: column; align-items: flex-start; } }

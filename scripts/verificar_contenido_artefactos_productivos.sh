@@ -184,6 +184,9 @@ transportes_mtls_revisados=(
 	static/portal-empleado/modulos/dietas/cliente-asignacion-http.js
 	static/portal-empleado/modulos/dietas/cliente-rectificacion-http.js
 	static/portal-empleado/modulos/dietas/cliente-circuito-http.js
+	# Calendarios (25/09): solo GET a rutas internas fijas, same-origin, no-store y
+	# redirect error, como organizacion.js; sin cookies ni almacenamiento.
+	static/portal-empleado/calendarios/calendarios.js
 )
 mapfile -t usos_mismo_origen < <(
 	grep -rliE 'credentials[[:space:]]*:[[:space:]]*["'"'"']same-origin' \

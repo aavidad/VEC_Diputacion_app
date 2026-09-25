@@ -236,6 +236,16 @@ func NewHTTPServerDesarrolloWithConfig(
 	}
 	rutasContratacion = append(rutasContratacion, rutasBolsasRRHH...)
 	coleccionesBolsasRRHH = append(coleccionesBolsasRRHH, autoridadContratacion.coleccionesAdicionales...)
+	rutasCalendarios, cerrarCalendarios, err := nuevasRutasCalendariosDesarrollo(cfg)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer func() {
+		if !completa {
+			cerrarCalendarios()
+		}
+	}()
+	rutasContratacion = append(rutasContratacion, rutasCalendarios...)
 	autoridadDietas, cerrarDietas, err := nuevasRutasDietasDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia)
 	if err != nil {
 		return nil, nil, err
@@ -304,6 +314,7 @@ func NewHTTPServerDesarrolloWithConfig(
 	}
 	servidor.RegisterOnShutdown(cerrarContratacion)
 	servidor.RegisterOnShutdown(cerrarDietas)
+	servidor.RegisterOnShutdown(cerrarCalendarios)
 	if comisionesDietas != nil {
 		servidor.RegisterOnShutdown(comisionesDietas.cerrar)
 	}
