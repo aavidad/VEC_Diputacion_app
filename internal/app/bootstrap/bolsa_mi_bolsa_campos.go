@@ -5,7 +5,6 @@ import (
 	"errors"
 	"time"
 
-	"vec-diputacion-granada/config"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	"vec-diputacion-granada/internal/vec/reglas"
 )
@@ -30,14 +29,9 @@ func (c camposPortalMiBolsaReglas) CamposVisiblesMiBolsa(ctx context.Context) ([
 
 // camposPortalMiBolsaDesarrollo compone la lista solo si hay catálogo de
 // reglas de Bolsa. Una regla presente pero no válida impide arrancar.
-func camposPortalMiBolsaDesarrollo(cfg config.Config, reloj reglas.Reloj) (puertosbolsa.CamposPortalMiBolsa, error) {
-	rutas, activas, err := cfg.ReglasEjemploDesarrollo()
-	if err != nil || !activas || rutas.BolsaSourcePath == "" {
-		return nil, err
-	}
-	resolutor, err := nuevoResolutorReglasEjemplo(rutas.BolsaSourcePath, reglas.CatalogoBolsa, reglas.ModuloBolsa, nil, reloj)
-	if err != nil {
-		return nil, err
+func camposPortalMiBolsaDesarrollo(resolutor *reglas.Resolutor) (puertosbolsa.CamposPortalMiBolsa, error) {
+	if resolutor == nil {
+		return nil, nil
 	}
 	campos := camposPortalMiBolsaReglas{resolutor: resolutor}
 	ctx, cancelar := context.WithTimeout(context.Background(), 5*time.Second)

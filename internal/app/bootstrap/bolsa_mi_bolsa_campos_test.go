@@ -9,14 +9,15 @@ import (
 	"testing"
 
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
+	"vec-diputacion-granada/internal/vec/reglas"
 )
 
 func TestCamposPortalMiBolsaSaleDelCatalogoDeEjemplo(t *testing.T) {
-	sinCatalogo, err := camposPortalMiBolsaDesarrollo(configuracionDesarrolloReglasEjemplo("", ""), relojPresentacionReglasEjemplo)
+	sinCatalogo, err := camposPortalMiBolsaDesarrollo(nil)
 	if err != nil || sinCatalogo != nil {
 		t.Fatalf("sin catálogo debe quedar la conducta actual: %v %v", sinCatalogo, err)
 	}
-	campos, err := camposPortalMiBolsaDesarrollo(configuracionDesarrolloReglasEjemplo(rutaReglasBolsaEjemploPrueba, ""), relojPresentacionReglasEjemplo)
+	campos, err := camposPortalMiBolsaDesarrollo(resolutorBolsaPrueba(t, rutaReglasBolsaEjemploPrueba))
 	if err != nil || campos == nil {
 		t.Fatalf("catálogo de ejemplo no compuesto: %v", err)
 	}
@@ -42,7 +43,7 @@ func TestCamposPortalMiBolsaSigueAlCatalogoYRechazaListasRotas(t *testing.T) {
 		}
 		return ruta
 	}
-	reducida, err := camposPortalMiBolsaDesarrollo(configuracionDesarrolloReglasEjemplo(escribir(`"valor": "bolsa,estado"`), ""), relojPresentacionReglasEjemplo)
+	reducida, err := camposPortalMiBolsaDesarrollo(resolutorBolsaPrueba(t, escribir(`"valor": "bolsa,estado"`)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,8 +51,17 @@ func TestCamposPortalMiBolsaSigueAlCatalogoYRechazaListasRotas(t *testing.T) {
 		t.Fatalf("no sigue al catálogo: %v %v", lista, err)
 	}
 	for _, roto := range []string{`"valor": "posicion,estado"`, `"valor": "bolsa,puntuacion"`, `"valor": "bolsa,bolsa"`} {
-		if _, err := camposPortalMiBolsaDesarrollo(configuracionDesarrolloReglasEjemplo(escribir(roto), ""), relojPresentacionReglasEjemplo); !errors.Is(err, errReglasEjemploNoValidas) {
+		if _, err := camposPortalMiBolsaDesarrollo(resolutorBolsaPrueba(t, escribir(roto))); !errors.Is(err, errReglasEjemploNoValidas) {
 			t.Fatalf("%s admitido: %v", roto, err)
 		}
 	}
+}
+
+func resolutorBolsaPrueba(t *testing.T, ruta string) *reglas.Resolutor {
+	t.Helper()
+	resolutor, err := nuevoResolutorReglasEjemplo(ruta, reglas.CatalogoBolsa, reglas.ModuloBolsa, nil, relojPresentacionReglasEjemplo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return resolutor
 }

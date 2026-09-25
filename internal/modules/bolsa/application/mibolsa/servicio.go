@@ -139,9 +139,11 @@ func (s *Servicio) Consultar(ctx context.Context, orden Orden) (puertosbolsa.Ins
 		if abierto == nil || nula(s.portal) {
 			continue
 		}
+		// Sin calendario el plazo no se muestra; la respuesta, que lo exige,
+		// se rechazará entonces como no disponible.
 		vence, _, err := s.portal.VencimientoRespuesta(ctx, abierto.ContactoEn)
 		if err != nil || !vence.After(abierto.ContactoEn) {
-			return puertosbolsa.InstantaneaMiBolsa{}, errors.Join(puertosbolsa.ErrMaterialMiBolsaNoDisponible, err)
+			continue
 		}
 		vence = vence.UTC()
 		abierto.VenceAntesDe = &vence
