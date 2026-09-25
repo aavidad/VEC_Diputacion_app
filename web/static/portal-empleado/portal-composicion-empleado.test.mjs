@@ -149,3 +149,16 @@ test("Personal limpia una vez también si un catálogo falla después de registr
   await Promise.resolve();
   assert.equal(limpiarTemprano, 1);
 });
+
+test("Dietas interna compone el circuito de revisión solo con su cliente HTTP same-origin", async () => {
+  const llamadas = [];
+  const asignacion = Object.freeze({ async obtenerRelaciones() { return { relaciones_autorizadas: [], fecha_referencia: "2026-09-25" }; } });
+  const circuito = Object.freeze({ competencias() {}, listar() {}, decidir() {}, documento() {} });
+  const recursos = { ...recursosDietas(llamadas, { cliente: {}, asignacion, calculador: {}, visor: {} }),
+    clienteCircuito: { crearClienteCircuitoDietasHTTP(entrada) { assert.deepEqual(Object.keys(entrada), ["fetchImpl"]); return circuito; } } };
+  const dietas = componerDietasInternas(recursos, { fetch() {} });
+  await dietas.montar({ raiz: "raiz", anunciar: () => {}, registrarDesmontar: () => {} });
+  assert.strictEqual(llamadas.at(-1)[2].clienteCircuito, circuito);
+  const sinCircuito = componerDietasInternas(recursosDietas([], { cliente: {}, asignacion, calculador: {}, visor: {} }), { fetch() {} });
+  assert.notEqual(sinCircuito, undefined);
+});

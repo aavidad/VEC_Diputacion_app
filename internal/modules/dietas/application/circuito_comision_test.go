@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -19,6 +20,45 @@ func (r *repositorioCircuitoPrueba) Decidir(context.Context, dietasports.Identid
 func (r *repositorioCircuitoPrueba) ListarPendientes(context.Context, dietasports.IdentidadEfectivaCircuito, dietasports.ConsultaBandejaCircuito) (dietasports.PaginaBandejaCircuito, error) {
 	r.llamadas++
 	return dietasports.PaginaBandejaCircuito{}, nil
+}
+
+func (r *repositorioCircuitoPrueba) ConsultarDocumento(context.Context, dietasports.IdentidadEfectivaCircuito, dietasports.SolicitudDocumentoCircuito) (dietasports.DocumentoCircuito, error) {
+	r.llamadas++
+	return dietasports.DocumentoCircuito{}, nil
+}
+
+func TestDocumentoCircuitoContratoPropioYFormaValidada(t *testing.T) {
+	ref := "dco_" + strings.Repeat("d", 22)
+	s := dietasports.SolicitudDocumentoCircuito{Referencia: ref, Etapa: domain.EtapaLiquidacion, UnidadRef: "unidad:uno"}
+	a, r, f := ContratoCircuito(dietasports.SolicitudOperacionCircuito{Operacion: dietasports.OperacionConsultarDocumentoCircuito, Documento: s})
+	if a != AccionConsultarDocumentoCircuito || r != ref || f != FinalidadConsultarDocumentoCircuito {
+		t.Fatalf("contrato documento: %s %s %s", a, r, f)
+	}
+	propio := true
+	d := dietasports.DocumentoCircuito{Referencia: ref, NumeroDocumento: "VEC-D-2026-000001", FechaApertura: "2026-09-25T08:00:00.000000Z", Estado: domain.EstadoPendienteLiquidacion, Version: 4,
+		FechaInicio: "2026-09-25", FechaFin: "2026-09-25", HoraInicio: "08:00", HoraFin: "15:00", Motivo: "Reunión técnica", CodigosRuta: []string{"18087", "18140"},
+		VehiculoPropio: &propio, Rutas: json.RawMessage(`[]`), Calculo: json.RawMessage(`{}`), Documento: json.RawMessage(`{"lineas":[]}`)}
+	if err := ValidarDocumentoCircuito(d, s); err != nil {
+		t.Fatal(err)
+	}
+	for nombre, cambiar := range map[string]func(*dietasports.DocumentoCircuito){
+		"otra etapa":         func(x *dietasports.DocumentoCircuito) { x.Estado = domain.EstadoPendienteAutorizacion },
+		"otra referencia":    func(x *dietasports.DocumentoCircuito) { x.Referencia = "dco_" + strings.Repeat("e", 22) },
+		"rutas sin vehículo": func(x *dietasports.DocumentoCircuito) { x.VehiculoPropio = nil },
+		"documento lista":    func(x *dietasports.DocumentoCircuito) { x.Documento = json.RawMessage(`[]`) },
+		"hora":               func(x *dietasports.DocumentoCircuito) { x.HoraFin = "25:00" },
+	} {
+		x := d
+		cambiar(&x)
+		if ValidarDocumentoCircuito(x, s) == nil {
+			t.Fatalf("%s aceptado", nombre)
+		}
+	}
+	repo := &repositorioCircuitoPrueba{}
+	servicio, _ := NuevoServicioCircuitoComision(repo)
+	if _, err := servicio.ConsultarDocumento(context.Background(), dietasports.IdentidadEfectivaCircuito{}, s); !errors.Is(err, dietasports.ErrAccesoCircuitoDenegado) || repo.llamadas != 0 {
+		t.Fatalf("documento sin V3: %v %d", err, repo.llamadas)
+	}
 }
 
 func TestCircuitoDistingueAccionesYExigeUnidadInterna(t *testing.T) {

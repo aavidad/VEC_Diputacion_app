@@ -1,4 +1,4 @@
-import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260925-tanda-v1";
+import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260925-dietas-circuito-v1";
 import { MENSAJES_RECTIFICACION_ADMIN_ES } from "./i18n-rectificacion-admin.js?v=20260925-tanda-v1";
 
 const nodo = (d, etiqueta, valor = "") => { const n = d.createElement(etiqueta); n.textContent = valor; return n; };

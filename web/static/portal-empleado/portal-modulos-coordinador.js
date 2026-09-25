@@ -13,14 +13,14 @@ import {
 import {
   cargarCatalogoModulosInterno,
   renderizarNavegacionModulos,
-} from "./portal-catalogo-modulos.js?v=20260925-tanda-v1";
-import { traducirPortal } from "./portal-i18n.js?v=20260925-tanda-v1";
-import { calcularMetricasCuadro, tramitesParaInicio } from "./portal-inicio.js?v=20260925-tanda-v1";
+} from "./portal-catalogo-modulos.js?v=20260925-dietas-locale-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260925-dietas-locale-v1";
+import { calcularMetricasCuadro, tramitesParaInicio } from "./portal-inicio.js?v=20260925-dietas-locale-v1";
 import {
   componerCronosVisible,
   componerDietasInternas,
   componerPersonalVisible,
-} from "./portal-composicion-empleado.js?v=20260925-tanda-v1";
+} from "./portal-composicion-empleado.js?v=20260925-dietas-circuito-v1";
 import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260924-f2-shell-v1";
 import {
   CLAVES_CARGA_MODULAR,
@@ -151,15 +151,16 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       ficha });
   },
   dietas: async () => {
-    const [contrato, recorridos, clienteBorradores, clienteAsignacion, calculador, mapa] = await Promise.all([
+    const [contrato, recorridos, clienteBorradores, clienteAsignacion, calculador, mapa, clienteCircuito] = await Promise.all([
       import("./modulos/dietas/contrato.js"),
-      import("./modulos/dietas/vista-recorridos.js?v=20260925-tanda-v1"),
-      import("./modulos/dietas/cliente-borradores-http.js?v=20260925-tanda-v1"),
+      import("./modulos/dietas/vista-recorridos.js?v=20260925-dietas-locale-v1"),
+      import("./modulos/dietas/cliente-borradores-http.js?v=20260925-dietas-circuito-v1"),
       import("./modulos/dietas/cliente-asignacion-http.js?v=20260925-tanda-v1"),
       import("./modulos/dietas/calculador-rutas-http.js?v=20260925-tanda-v1"),
-      import("./modulos/dietas/mapa-ruta.js?v=20260925-tanda-v1"),
+      import("./modulos/dietas/mapa-ruta.js?v=20260925-dietas-locale-v1"),
+      import("./modulos/dietas/cliente-circuito-http.js?v=20260925-dietas-circuito-v1"),
     ]);
-    return Object.freeze({ contrato, recorridos, clienteBorradores, clienteAsignacion, calculador, mapa });
+    return Object.freeze({ contrato, recorridos, clienteBorradores, clienteAsignacion, calculador, mapa, clienteCircuito });
   },
 });
 

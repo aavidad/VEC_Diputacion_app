@@ -1,16 +1,9 @@
-import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260925-tanda-v1";
-import { montarVistaBorradoresPropios } from "./vista-borradores-propios.js?v=20260925-tanda-v1";
-import { montarVistaBandejaCircuitoDietas } from "./vista-bandeja-circuito.js?v=20260925-tanda-v1";
-import { montarVistaRectificacionAdminDietas } from "./vista-rectificacion-admin.js?v=20260925-tanda-v1";
+import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260925-dietas-circuito-v1";
+import { montarVistaBorradoresPropios } from "./vista-borradores-propios.js?v=20260925-dietas-circuito-v1";
+import { montarVistaBandejaCircuitoDietas } from "./vista-bandeja-circuito.js?v=20260925-dietas-locale-v1";
+import { montarVistaRectificacionAdminDietas } from "./vista-rectificacion-admin.js?v=20260925-dietas-circuito-v1";
 
-const ETAPAS = Object.freeze([
-  ["solicitante", "recorridos_solicitante"],
-  ["revision", "circuito_etapa_revision"],
-  ["autorizacion", "circuito_etapa_autorizacion"],
-  ["liquidacion", "circuito_etapa_liquidacion"],
-  ["fiscalizacion", "circuito_etapa_fiscalizacion"],
-  ["rectificacion_admin", "ra_titulo"],
-]);
+const ETAPAS_CIRCUITO = Object.freeze(["revision", "autorizacion", "liquidacion", "fiscalizacion"]);
 const nodo = (documento, etiqueta, texto = "") => {
   const resultado = documento.createElement(etiqueta);
   if (texto) resultado.textContent = texto;
@@ -19,9 +12,11 @@ const nodo = (documento, etiqueta, texto = "") => {
 const montada = (contenedor, raiz) => contenedor.querySelector?.("[data-dietas-recorridos]") === raiz;
 
 /**
- * Reúne el recorrido propio y las bandejas del circuito de Dietas. Solo se
- * ofrecen las etapas cuyo cliente ha compuesto el portal; sin ninguna, la
- * persona ve únicamente sus documentos, sin pasos que no puede abrir.
+ * Reúne el recorrido propio y las bandejas del circuito de Dietas. Las
+ * bandejas salen de las competencias que acredita el servidor: una por etapa
+ * acreditada más el «Control de documentos». Sin fuente gobernada aparece una
+ * sola pestaña que lo dice en una línea, sin acciones. Sin cliente de
+ * circuito, la persona ve únicamente sus documentos.
  */
 export function montarVistaRecorridosDietas(contenedor, {
   clienteBorradores,
@@ -57,18 +52,25 @@ export function montarVistaRecorridosDietas(contenedor, {
   const cabecera = nodo(documento, "header");
   cabecera.className = "dietas-recorridos-cabecera panel";
   cabecera.append(nodo(documento, "h2", traducir("titulo")));
-  const etapasDisponibles = ETAPAS.filter(([codigo]) => codigo === "solicitante" ||
-    (codigo === "rectificacion_admin" ? Boolean(clienteRectificacionAdmin) : Boolean(clienteCircuito)));
   const pasos = nodo(documento, "nav");
   pasos.className = "dietas-recorridos-pasos";
   pasos.setAttribute("aria-label", traducir("recorridos_roles"));
-  pasos.hidden = etapasDisponibles.length < 2;
-  etapasDisponibles.forEach(([codigo, clave], indice) => {
-    const boton = nodo(documento, "button", `${indice + 1}. ${traducir(clave)}`);
-    boton.type = "button";
-    boton.dataset.dietasCambiarEtapa = codigo;
-    pasos.append(boton);
-  });
+  let etapasDisponibles = [["solicitante", "recorridos_solicitante"],
+    ...(clienteRectificacionAdmin ? [["rectificacion_admin", "ra_titulo"]] : [])];
+  let etapasCircuito = [];
+  let sinFuente = false;
+  function pintarPasos() {
+    pasos.replaceChildren();
+    pasos.hidden = etapasDisponibles.length < 2;
+    if (pasos.hidden) return;
+    etapasDisponibles.forEach(([codigo, clave], indice) => {
+      const boton = nodo(documento, "button", `${indice + 1}. ${traducir(clave)}`);
+      boton.type = "button";
+      boton.dataset.dietasCambiarEtapa = codigo;
+      pasos.append(boton);
+    });
+  }
+  pintarPasos();
   const cuerpo = nodo(documento, "div");
   cuerpo.className = "dietas-recorridos-cuerpo";
   const panelPropio = nodo(documento, "section");
@@ -98,7 +100,7 @@ export function montarVistaRecorridosDietas(contenedor, {
   areaCircuito.dataset.dietasAreaCircuito = "";
   panelCircuito.append(areaCircuito);
   cuerpo.append(panelPropio, panelCircuito);
-  raiz.append(cabecera, ...(pasos.hidden ? [] : [pasos]), cuerpo);
+  raiz.append(cabecera, pasos, cuerpo);
 
   const vistaBorradores = montarVistaBorradoresPropios(areaBorradores, {
     cliente: clienteBorradores, clienteAsignacion, clienteRectificacion, calculadorRuta, visorRuta,
@@ -128,9 +130,18 @@ export function montarVistaRecorridosDietas(contenedor, {
       vistaCircuito = montarVistaRectificacionAdminDietas(areaCircuito, {
         cliente: clienteRectificacionAdmin, clienteCatalogoCompetente, traducir, anunciar,
       });
-    } else if (siguiente !== "solicitante" && siguiente !== "rectificacion_admin" && clienteCircuito) {
+    } else if (siguiente === "circuito_sin_fuente") {
+      const linea = nodo(documento, "p", traducir("circuito_sin_fuente"));
+      linea.className = "panel dietas-circuito-sin-fuente";
+      linea.dataset.dietasCircuitoSinFuente = "";
+      areaCircuito.append(linea);
+    } else if (siguiente === "control" && clienteCircuito && etapasCircuito.length) {
       vistaCircuito = montarVistaBandejaCircuitoDietas(areaCircuito, {
-        cliente: clienteCircuito, traducir, anunciar, etapaInicial: siguiente,
+        cliente: clienteCircuito, traducir, anunciar, etapaInicial: etapasCircuito[0], etapas: etapasCircuito, control: true,
+      });
+    } else if (ETAPAS_CIRCUITO.includes(siguiente) && clienteCircuito) {
+      vistaCircuito = montarVistaBandejaCircuitoDietas(areaCircuito, {
+        cliente: clienteCircuito, traducir, anunciar, etapaInicial: siguiente, etapas: [siguiente],
       });
     }
     pintar();
@@ -152,13 +163,33 @@ export function montarVistaRecorridosDietas(contenedor, {
   function desmontar() {
     if (!activa) return;
     activa = false;
+    cancelacionCompetencias.abort();
     raiz.removeEventListener("click", clic);
     vistaCircuito?.desmontar();
     vistaBorradores.desmontar();
     if (montada(contenedor, raiz)) raiz.remove?.();
   }
+  // Las pestañas del circuito dependen de lo que acredite la fuente gobernada.
+  const cancelacionCompetencias = new AbortController();
+  async function cargarCompetencias() {
+    if (typeof clienteCircuito?.competencias !== "function") return;
+    try {
+      const competencias = await clienteCircuito.competencias({ signal: cancelacionCompetencias.signal });
+      if (!activa) return;
+      sinFuente = competencias.fuente === "sin_fuente";
+      etapasCircuito = ETAPAS_CIRCUITO.filter((codigo) => competencias.etapas.includes(codigo));
+    } catch {
+      return;
+    }
+    const circuito = sinFuente ? [["circuito_sin_fuente", "circuito_revision"]]
+      : [...etapasCircuito.map((codigo) => [codigo, `circuito_etapa_${codigo}`]), ...(etapasCircuito.length ? [["control", "circuito_control"]] : [])];
+    etapasDisponibles = [etapasDisponibles[0], ...circuito, ...etapasDisponibles.slice(1)];
+    pintarPasos();
+    pintar();
+  }
   raiz.addEventListener("click", clic);
   registrarDesmontar?.(desmontar);
   pintar();
+  cargarCompetencias();
   return Object.freeze({ desmontar });
 }
