@@ -31,11 +31,12 @@ export function renderizarNavegacion(estado, t) {
   </nav>`;
 }
 
-// Centros y Peticiones son acciones de la bandeja: van a la derecha del título.
+// Centros, Peticiones y Calendarios son acciones de la bandeja: van a la derecha del título.
 export function renderizarCabeceraModulo(estado, t) {
   const acciones = estado.vista === "cuadro" ? `<div class="acciones-vista ct-exp-acciones-cabecera">
       <a class="boton-secundario" href="/portal-empleado/organizacion/" target="_blank" rel="noopener">${escaparHTML(t("organizacion_referencia"))}</a>
       <a class="boton-secundario" href="/portal-empleado/peticiones-centro/?vista=rrhh" target="_blank" rel="noopener">${escaparHTML(t("peticiones_centros_rrhh"))}</a>
+      <a class="boton-secundario" href="/portal-empleado/calendarios/" target="_blank" rel="noopener">${escaparHTML(t("calendarios_laborales"))}</a>
     </div>` : "";
   return `<header class="ct-exp-cabecera-modulo">
     <div>

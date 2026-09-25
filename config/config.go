@@ -161,6 +161,7 @@ type Config struct {
 	BolsaAuditoriaFronteraPostgreSQL            ConfiguracionPostgreSQLBolsaAuditoriaFrontera
 	BolsaImportacionConvocaPostgreSQL           ConfiguracionPostgreSQLImportacionConvoca
 	ContratacionTemporalPostgreSQL              ConfiguracionPostgreSQLContratacionTemporal
+	CalendariosPostgreSQL                       ConfiguracionCalendarios
 }
 
 func Load() Config {
@@ -233,6 +234,7 @@ func Load() Config {
 			dsnDietas:   envFirst(EnvDietasBorradoresDatabaseURL),
 			dsnPersonal: envFirst(EnvDietasPersonalRelacionesDatabaseURL),
 		},
+		CalendariosPostgreSQL: NuevaConfiguracionCalendarios(envFirst(EnvCalendariosDatabaseURL)),
 		BolsaAuditoriaFronteraPostgreSQL: ConfiguracionPostgreSQLBolsaAuditoriaFrontera{
 			dsn: envFirst(EnvBolsaAuditoriaFronteraDatabaseURL),
 		},
