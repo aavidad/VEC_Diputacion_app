@@ -176,7 +176,7 @@ func proyectarPermisosPropios(f ports.FuentePermisosPropios) (ports.ConsultaPerm
 			PermisoRef: c.PermisoRef, VersionRef: c.VersionRef, Nombre: c.Nombre, Unidad: c.Unidad, Computo: c.Computo,
 			Circuito: c.Circuito, Minimo: c.Minimo, MaximoSolicitud: c.MaximoSolicitud, MaximoMensual: c.MaximoMensual,
 			MaximoAnual: c.MaximoAnual, JustificanteExigido: c.JustificanteExigido, Solicitable: e.Solicitable, Sintetico: e.Sintetico,
-			Solicitado: p.Solicitado, Concedido: p.Concedido, PendienteJustificar: p.PendienteJustificar, Resta: p.Resta,
+			Solicitado: p.Solicitado, Concedido: p.Concedido, PendienteJustificar: p.PendienteJustificar, Resta: p.Resta, SinConciliar: p.SinConciliar,
 		})
 	}
 	return r, nil

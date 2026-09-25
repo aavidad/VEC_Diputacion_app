@@ -52,6 +52,21 @@ test("listado anual con máximo, mínimo, solicitado, concedido y resta en días
   assert.doesNotMatch(renderizarPermisosPropiosCronos({ estado: "listo", anio: 2026, datos: reales }), /pendientes de confirmar/);
 });
 
+test("con solo cupo mensual la resta es lo que queda del mes en curso; una fila sin conciliar no tumba el listado", () => {
+  const d = datos();
+  d.solicitudes.push(
+    { solicitud_ref: "permiso:cronos:solicitud:s-1", catalogo_version_ref: "catalogo:cronos:horas-sindicales:v1", permiso_ref: "permiso:cronos:horas-sindicales", desde: "2026-10-02", hasta: "2026-10-02", hora_inicio: "09:00", hora_fin: "10:00", cantidad: 60, unidad: "hora", estado: "concedido", version: 2, pendiente_justificar: false, solicitada_en: "2026-09-25T08:00:00Z" },
+    { solicitud_ref: "permiso:cronos:solicitud:s-2", catalogo_version_ref: "catalogo:cronos:horas-sindicales:v1", permiso_ref: "permiso:cronos:horas-sindicales", desde: "2026-10-05", hasta: "2026-10-05", hora_inicio: "09:00", hora_fin: "09:30", cantidad: 30, unidad: "hora", estado: "denegado", version: 2, pendiente_justificar: false, solicitada_en: "2026-09-25T08:00:00Z" },
+    { solicitud_ref: "permiso:cronos:solicitud:s-3", catalogo_version_ref: "catalogo:cronos:horas-sindicales:v1", permiso_ref: "permiso:cronos:horas-sindicales", desde: "2026-09-10", hasta: "2026-09-10", hora_inicio: "09:00", hora_fin: "11:00", cantidad: 120, unidad: "hora", estado: "concedido", version: 2, pendiente_justificar: false, solicitada_en: "2026-09-01T08:00:00Z" },
+  );
+  d.permisos[3].sin_conciliar = true; d.permisos[3].resta = null;
+  const html = renderizarPermisosPropiosCronos({ estado: "listo", anio: 2026, datos: d, hoy: "2026-10-15" });
+  assert.match(html, /59 h este mes/);
+  assert.match(html, /A revisar por RRHH/);
+  assert.match(html, /Asuntos propios/);
+  assert.doesNotMatch(renderizarPermisosPropiosCronos({ estado: "listo", anio: 2025, datos: { ...d, anio: 2025 }, hoy: "2026-10-15" }), /este mes/);
+});
+
 test("solicitar un permiso por horas envía un solo día con su tramo y muestra el rechazo nominal", async () => {
   const { nodo, raiz } = raizFalsa(); const envios = []; let respuesta = new ErrorClienteSolicitudesCronos("fuera_de_limites", 422);
   const cliente = {

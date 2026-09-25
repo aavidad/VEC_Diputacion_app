@@ -77,12 +77,13 @@ export function validarPermisosPropiosCronos(v, anio) {
     || !lista(v.permisos, 500) || !lista(v.solicitudes, 5000)) throw incompatible();
   for (const p of v.permisos) {
     if (!campos(p, ["permiso_ref", "version_ref", "nombre", "unidad", "computo", "circuito", "minimo", "maximo_solicitud", "maximo_mensual", "maximo_anual",
-      "justificante_exigido", "solicitable", "sintetico", "solicitado", "concedido", "pendiente_justificar", "resta"])
+      "justificante_exigido", "solicitable", "sintetico", "solicitado", "concedido", "pendiente_justificar", "resta"], ["sin_conciliar"])
       || !referencia(p.permiso_ref, "permiso:cronos:") || !referencia(p.version_ref, "catalogo:cronos:") || !texto(p.nombre, 120) || !unidad(p.unidad)
       || !["laborables", "naturales"].includes(p.computo) || !["A", "J-A"].includes(p.circuito) || !entero(p.minimo, 1)
       || !enteroONulo(p.maximo_solicitud) || !enteroONulo(p.maximo_mensual) || !enteroONulo(p.maximo_anual)
       || ![p.justificante_exigido, p.solicitable, p.sintetico].every((b) => typeof b === "boolean")
-      || !entero(p.solicitado) || !entero(p.concedido) || !entero(p.pendiente_justificar) || !(p.resta === null || entero(p.resta))) throw incompatible();
+      || !entero(p.solicitado) || !entero(p.concedido) || !entero(p.pendiente_justificar) || !(p.resta === null || entero(p.resta))
+      || (Object.hasOwn(p, "sin_conciliar") && typeof p.sin_conciliar !== "boolean")) throw incompatible();
   }
   for (const s of v.solicitudes) {
     if (!campos(s, ["solicitud_ref", "catalogo_version_ref", "permiso_ref", "desde", "hasta", "cantidad", "unidad", "estado", "version", "pendiente_justificar", "solicitada_en"], ["hora_inicio", "hora_fin"])

@@ -25,6 +25,19 @@ function maximo(p, t, locale) {
   return t("sin_limite");
 }
 
+const VIVAS = new Set(["solicitado", "pendiente_administracion", "concedido"]);
+
+/** Resta anual; con solo cupo mensual, lo que queda del mes en curso (si se mira el año en curso). */
+function resta(p, solicitudes, anio, hoy, t, locale) {
+  if (p.sin_conciliar) return `<span class="cronos-estado cronos-estado-aviso">${escaparHTML(t("resta_sin_conciliar"))}</span>`;
+  if (p.resta !== null) return escaparHTML(formatearCantidadCronos(p.resta, p.unidad, t, locale));
+  if (p.maximo_mensual === null || typeof hoy !== "string" || !hoy.startsWith(`${anio}-`)) return escaparHTML(t("sin_limite"));
+  const mes = hoy.slice(0, 7);
+  const usado = solicitudes.filter((s) => s.permiso_ref === p.permiso_ref && s.unidad === p.unidad && s.desde.startsWith(mes) && VIVAS.has(s.estado))
+    .reduce((suma, s) => suma + s.cantidad, 0);
+  return escaparHTML(t("resta_mes", { valor: formatearCantidadCronos(Math.max(0, p.maximo_mensual - usado), p.unidad, t, locale) }));
+}
+
 function periodo(s, t, locale) {
   return s.hora_inicio ? t("periodo_horas", { fecha: fechaVisible(s.desde, locale), inicio: s.hora_inicio, fin: s.hora_fin })
     : t("periodo_dias", { desde: fechaVisible(s.desde, locale), hasta: fechaVisible(s.hasta, locale) });
@@ -60,7 +73,7 @@ function formularioSolicitud(f, permiso, t) {
 }
 
 /** Listado anual del catálogo versionado, solicitud y pendientes de conceder y de justificar. */
-export function renderizarPermisosPropiosCronos({ estado = "cargando", anio, datos = null, solicitud = null, mensajes = MENSAJES_CRONOS_SOLICITUDES_ES, locale = "es-ES" } = {}) {
+export function renderizarPermisosPropiosCronos({ estado = "cargando", anio, datos = null, solicitud = null, mensajes = MENSAJES_CRONOS_SOLICITUDES_ES, locale = "es-ES", hoy = null } = {}) {
   const t = crearTraductorSolicitudesCronos(mensajes);
   if (!Number.isInteger(anio) || anio < 2000 || anio > 2100) throw new RangeError("año de Cronos no válido");
   const ayuda = t("abrir_ayuda", { asunto: t("permisos_titulo") });
@@ -81,7 +94,7 @@ export function renderizarPermisosPropiosCronos({ estado = "cargando", anio, dat
   const filas = datos.permisos.map((p) => `<tr><th scope="row">${escaparHTML(p.nombre)}</th><td>${escaparHTML(t(`circuito_${p.circuito}`))}</td>
     <td class="numero">${escaparHTML(maximo(p, t, locale))}</td><td class="numero">${escaparHTML(formatearCantidadCronos(p.minimo, p.unidad, t, locale))}</td>
     <td class="numero">${escaparHTML(formatearCantidadCronos(p.solicitado, p.unidad, t, locale))}</td><td class="numero">${escaparHTML(formatearCantidadCronos(p.concedido, p.unidad, t, locale))}</td>
-    <td class="numero">${p.resta === null ? escaparHTML(t("sin_limite")) : escaparHTML(formatearCantidadCronos(p.resta, p.unidad, t, locale))}</td>
+    <td class="numero">${resta(p, datos.solicitudes, anio, hoy, t, locale)}</td>
     <td>${p.solicitable ? `<button type="button" class="boton-secundario" data-cronos-solicitar="${escaparHTML(p.permiso_ref)}" aria-label="${escaparHTML(t("solicitar_permiso", { permiso: p.nombre }))}">${escaparHTML(t("solicitar"))} ›</button>` : ""}</td></tr>`);
   const fila = (s) => {
     const p = porRef.get(s.permiso_ref);
@@ -116,7 +129,7 @@ export function montarPermisosPropiosCronos({ raiz, cliente = crearClienteSolici
   let anioVisible = Number.isInteger(anio) ? anio : Number(hoyCivilCronos(zonaHoraria).slice(0, 4));
   let activa = true; let secuencia = 0; let controlador = null; let envio = null;
   let estado = "cargando"; let datos = null; let solicitud = null;
-  const dibujar = () => { if (activa) contenedor.innerHTML = renderizarPermisosPropiosCronos({ estado, anio: anioVisible, datos, solicitud, mensajes, locale }); };
+  const dibujar = () => { if (activa) contenedor.innerHTML = renderizarPermisosPropiosCronos({ estado, anio: anioVisible, datos, solicitud, mensajes, locale, hoy: hoyCivilCronos(zonaHoraria) }); };
   const cargar = async () => {
     controlador?.abort(); controlador = new AbortController(); const turno = ++secuencia;
     estado = "cargando"; datos = null; dibujar();

@@ -77,6 +77,8 @@ export const MENSAJES_CRONOS_SOLICITUDES_ES = Object.freeze({
   col_solicitado: "Solicitado",
   col_concedido: "Concedido",
   col_resta: "Resta",
+  resta_mes: "{valor} este mes",
+  resta_sin_conciliar: "A revisar por RRHH",
   col_accion: "Acción",
   circuito_A: "Administración",
   "circuito_J-A": "Jefatura y administración",

@@ -204,6 +204,7 @@ type PermisoAnualPropio struct {
 	Concedido           int64                  `json:"concedido"`
 	PendienteJustificar int64                  `json:"pendiente_justificar"`
 	Resta               *int64                 `json:"resta"`
+	SinConciliar        bool                   `json:"sin_conciliar"`
 }
 
 type ConsultaPermisosPropios struct {
