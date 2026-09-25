@@ -4,7 +4,7 @@ const REF = /^[a-z][a-z0-9_:-]{2,159}$/u;
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const HUELLA = /^[a-f0-9]{64}$/u;
 const MAX_BYTES = 512 * 1024;
-const CAMPOS_CAMBIO = new Set(["operacion", "tipo", "ref", "version", "revision", "denominacion", "huella_sha256", "vigente_desde", "vigente_hasta", "acto_ref"]);
+const CAMPOS_CAMBIO = new Set(["operacion", "tipo", "ref", "version", "revision", "denominacion", "huella_sha256", "vigente_desde", "vigente_hasta"]);
 
 export class ErrorCatalogosRegistroB2 extends Error {
   constructor(codigo, estado = 0) { super(codigo); this.name = "ErrorCatalogosRegistroB2"; this.codigo = codigo; this.estado = estado; }
@@ -40,11 +40,11 @@ async function leerJSON(respuesta, signal) {
   catch { throw new ErrorCatalogosRegistroB2("json_invalido", respuesta.status); }
 }
 
-export async function calcularHuellaPublicacionCatalogoB2({ organismoRef, tipo, ref, version, revision, denominacion, vigenteDesde, vigenteHasta = "", actoRef } = {}) {
+export async function calcularHuellaPublicacionCatalogoB2({ organismoRef, tipo, ref, version, revision, denominacion, vigenteDesde, vigenteHasta = "" } = {}) {
   if (!REF.test(organismoRef) || organismoRef.length > 127 || !TIPOS.has(tipo) || !REF.test(ref) || !entero(version) || revision !== 1 ||
-      !nombre(denominacion) || !fechaCivil(vigenteDesde) || (vigenteHasta && (!fechaCivil(vigenteHasta) || vigenteHasta <= vigenteDesde)) || !REF.test(actoRef) ||
+      !nombre(denominacion) || !fechaCivil(vigenteDesde) || (vigenteHasta && (!fechaCivil(vigenteHasta) || vigenteHasta <= vigenteDesde)) ||
       typeof globalThis.crypto?.subtle?.digest !== "function") throw new TypeError("publicación de catálogo no válida");
-  const partes = ["vec.personal.catalogo-registro-empleado.entrada.v1", organismoRef, tipo, ref, String(version), String(revision), denominacion, vigenteDesde, vigenteHasta, actoRef];
+  const partes = ["vec.personal.catalogo-registro-empleado.entrada.v1", organismoRef, tipo, ref, String(version), String(revision), denominacion, vigenteDesde, vigenteHasta];
   const bytes = new TextEncoder().encode(partes.join("\n"));
   const huella = new Uint8Array(await globalThis.crypto.subtle.digest("SHA-256", bytes));
   return [...huella].map((valor) => valor.toString(16).padStart(2, "0")).join("");
@@ -93,7 +93,7 @@ export function crearClienteCatalogosRegistroB2({ fetchImpl = globalThis.fetch, 
           !["publicar", "retirar"].includes(cuerpo.operacion) || !TIPOS.has(cuerpo.tipo) || !REF.test(cuerpo.ref) || !entero(cuerpo.version) || !entero(cuerpo.revision) ||
           (cuerpo.operacion === "publicar" && cuerpo.revision !== 1) || (cuerpo.operacion === "retirar" && cuerpo.revision < 2) ||
           !nombre(cuerpo.denominacion) || !HUELLA.test(cuerpo.huella_sha256) || !fechaCivil(cuerpo.vigente_desde) ||
-          (cuerpo.vigente_hasta !== undefined && cuerpo.vigente_hasta !== "" && !fechaCivil(cuerpo.vigente_hasta)) || !REF.test(cuerpo.acto_ref) || !UUID_V4.test(claveIdempotencia)) throw new TypeError("cambio de catálogo no válido");
+          (cuerpo.vigente_hasta !== undefined && cuerpo.vigente_hasta !== "" && !fechaCivil(cuerpo.vigente_hasta)) || !UUID_V4.test(claveIdempotencia)) throw new TypeError("cambio de catálogo no válido");
       const { estado, datos } = await solicitar(RUTA_CATALOGOS_REGISTRO_B2, { method: "POST", headers: { "content-type": "application/json", "Idempotency-Key": claveIdempotencia }, body: JSON.stringify(cuerpo) }, undefined, true);
       const d = datos?.data; const e = d?.entrada; const acceso = d?.acceso_actual;
       if (!e || !REF.test(e.organismo_ref) || !entradaValida(e, e.organismo_ref, cuerpo.tipo) || e.ref !== cuerpo.ref || e.version !== cuerpo.version || e.revision !== cuerpo.revision ||

@@ -1,5 +1,5 @@
-import { crearTraductorPersonal } from "./i18n.js?v=20260925-b2-registro-v2";
-import { ErrorCatalogosRegistroB2, calcularHuellaPublicacionCatalogoB2 } from "./registro-b2-catalogos-cliente.js?v=20260925-b2-registro-v2";
+import { crearTraductorPersonal } from "./i18n.js?v=20260925-b2-registro-v3";
+import { calcularHuellaPublicacionCatalogoB2 } from "./registro-b2-catalogos-cliente.js?v=20260925-b2-registro-v3";
 
 const TIPOS = Object.freeze([["regimen", "registro_b2_catalogos_regimen", "regimenes"], ["modalidad", "registro_b2_catalogos_modalidad", "modalidades"], ["situacion", "registro_b2_catalogos_situacion", "situaciones"], ["clase_servicio", "registro_b2_catalogos_clase_servicio", "clasesServicio"]]);
 const REF = /^[a-z][a-z0-9_:-]{2,159}$/u;
@@ -32,11 +32,11 @@ export async function cargarOpcionesPublicadasCatalogoB2(cliente, { signal } = {
 }
 
 /** Consulta y gobierno RRHH de vocabularios versionados. */
-export function montarCatalogosRegistroB2({ raiz, cliente, fuenteActos, anunciar = () => {}, registrarDesmontar } = {}) {
+export function montarCatalogosRegistroB2({ raiz, cliente, anunciar = () => {}, registrarDesmontar } = {}) {
   if (!raiz?.append || !raiz.ownerDocument?.createElement || typeof cliente?.listar !== "function" || typeof cliente?.cambiar !== "function" || typeof anunciar !== "function" || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function")) throw new TypeError("catálogos de Registro de Personal no disponibles");
   const d = raiz.ownerDocument; const t = crearTraductorPersonal(); const s = nodo(d, "section"); s.className = "panel personal-registro-b2-catalogos"; s.dataset.personalRegistroB2Catalogos = ""; raiz.append(s);
-  let activo = true, tipo = "regimen", filtro = "publicada", cursorRef = "", cursorVersion = 0, previos = [], paginaActual, pendiente, formulario, estado = "cargando", errorTexto = "", ultimoRecibo, vuelo, vueloActos, secuencia = 0;
-  const desmontar = () => { if (!activo) return; activo = false; secuencia++; vuelo?.abort(); vueloActos?.abort(); s.remove?.(); };
+  let activo = true, tipo = "regimen", filtro = "publicada", cursorRef = "", cursorVersion = 0, previos = [], paginaActual, pendiente, formulario, estado = "cargando", errorTexto = "", ultimoRecibo, vuelo, secuencia = 0;
+  const desmontar = () => { if (!activo) return; activo = false; secuencia++; vuelo?.abort(); s.remove?.(); };
   registrarDesmontar?.(desmontar);
   const limpiarVuelo = () => { secuencia++; vuelo?.abort(); vuelo = undefined; };
   const opcion = (valor, etiqueta) => { const o = nodo(d, "option", t(etiqueta)); o.value = valor; return o; };
@@ -55,7 +55,6 @@ export function montarCatalogosRegistroB2({ raiz, cliente, fuenteActos, anunciar
     const cuerpo = nodo(d, "div"); cuerpo.className = "cuerpo-panel personal-registro-b2-catalogos-cuerpo"; s.append(cuerpo);
     if (ultimoRecibo) cuerpo.append(aviso(d, t(ultimoRecibo.accesoActual.estado_replay === "replay" ? "registro_b2_catalogos_replay" : "registro_b2_catalogos_guardado") + ". " + t("registro_b2_catalogos_recibo", { fecha: fechaHora(ultimoRecibo.recibo.registrado_en) })));
     if (estado === "cargando") { cuerpo.append(aviso(d, t("registro_b2_catalogos_cargando"))); return; }
-    if (estado === "cargando_actos") { cuerpo.append(aviso(d, t("registro_b2_catalogos_cargando"))); return; }
     if (estado === "error") { cuerpo.append(aviso(d, errorTexto, true)); const retry = nodo(d, "button", t("registro_b2_reintentar")); retry.type = "button"; retry.addEventListener("click", consultar); cuerpo.append(retry); return; }
     if (estado === "conflicto") { cuerpo.append(aviso(d, t("registro_b2_catalogos_conflicto"), true)); const actualizar = nodo(d, "button", t("registro_b2_reintentar")); actualizar.type = "button"; actualizar.addEventListener("click", () => { formulario = undefined; consultar(); }); cuerpo.append(actualizar); return; }
     if (estado === "incierto") { cuerpo.append(aviso(d, t("registro_b2_catalogos_incierto"), true)); const exacto = nodo(d, "button", t("registro_b2_reintentar_exacto")); exacto.type = "button"; exacto.addEventListener("click", confirmar); cuerpo.append(exacto); return; }
@@ -68,8 +67,7 @@ export function montarCatalogosRegistroB2({ raiz, cliente, fuenteActos, anunciar
     const anterior = nodo(d, "button", t("registro_b2_catalogos_anterior")); anterior.type = "button"; anterior.disabled = previos.length === 0; anterior.addEventListener("click", () => { const c = previos.pop(); cursorRef = c.ref; cursorVersion = c.version; consultar(); });
     const siguiente = nodo(d, "button", t("registro_b2_catalogos_siguiente")); siguiente.type = "button"; siguiente.disabled = !paginaActual?.cursorSiguiente; siguiente.addEventListener("click", () => { previos.push({ ref: cursorRef, version: cursorVersion }); cursorRef = paginaActual.cursorSiguiente.ref; cursorVersion = paginaActual.cursorSiguiente.version; consultar(); });
     const publicar = nodo(d, "button", t("registro_b2_catalogos_publicar")); publicar.type = "button"; publicar.disabled = !paginaActual?.organismoRef;
-    publicar.disabled = publicar.disabled || typeof fuenteActos?.listarActosAcreditados !== "function";
-    publicar.addEventListener("click", () => cargarActos("publicar"));
+    publicar.addEventListener("click", () => { if (!paginaActual?.organismoRef) return; formulario = { operacion: "publicar" }; pintar(); });
     acciones.append(anterior, siguiente, publicar); cuerpo.append(acciones);
   }
   function tabla() {
@@ -81,7 +79,7 @@ export function montarCatalogosRegistroB2({ raiz, cliente, fuenteActos, anunciar
       const tr = nodo(d, "tr"); const nombre = nodo(d, "td"); nombre.append(nodo(d, "span", e.denominacion)); const sub = nodo(d, "small", e.ref); sub.className = "personal-registro-b2-secundario"; nombre.append(sub);
       tr.append(nombre, nodo(d, "td", new Intl.NumberFormat("es-ES").format(e.version)), nodo(d, "td", t(e.estado === "publicada" ? "registro_b2_catalogos_publicada" : "registro_b2_catalogos_retirada")), nodo(d, "td", `${fechaTexto(e.vigente_desde, t)} – ${fechaTexto(e.vigente_hasta, t)}`), nodo(d, "td", new Intl.NumberFormat("es-ES").format(e.revision)));
       const celda = nodo(d, "td");
-      if (e.estado === "publicada") { const retirar = nodo(d, "button", t("registro_b2_catalogos_retirar")); retirar.type = "button"; retirar.disabled = typeof fuenteActos?.listarActosAcreditados !== "function"; retirar.addEventListener("click", () => cargarActos("retirar", e)); celda.append(retirar); }
+      if (e.estado === "publicada") { const retirar = nodo(d, "button", t("registro_b2_catalogos_retirar")); retirar.type = "button"; retirar.addEventListener("click", () => { formulario = { operacion: "retirar", entrada: e }; pintar(); }); celda.append(retirar); }
       tr.append(celda);
       body.append(tr);
     }
@@ -92,42 +90,24 @@ export function montarCatalogosRegistroB2({ raiz, cliente, fuenteActos, anunciar
     const agregar = (clave, etiqueta, tipoCampo, valor = "", requerido = true) => { const control = nodo(d, "input"); control.type = tipoCampo; control.value = valor; control.required = requerido; if (tipoCampo === "number") { control.min = "1"; control.step = "1"; } campos.set(clave, control); form.append(etiquetaCampo(clave, etiqueta, control)); };
     if (formulario.operacion === "publicar") { agregar("ref", "registro_b2_catalogos_ref", "text"); agregar("version", "registro_b2_catalogos_version", "number", "1"); agregar("denominacion", "registro_b2_catalogos_denominacion", "text"); agregar("vigente_desde", "registro_b2_catalogos_desde", "date"); agregar("vigente_hasta", "registro_b2_catalogos_hasta", "date", "", false); }
     else { const e = formulario.entrada; form.append(aviso(d, `${e.denominacion} · ${e.ref} · ${t("registro_b2_catalogos_version")} ${new Intl.NumberFormat("es-ES").format(e.version)}`)); }
-    const selectActo = nodo(d, "select"); const vacio = nodo(d, "option", t("registro_b2_elegir")); vacio.value = ""; selectActo.append(vacio);
-    for (const acto of formulario.actos) { const item = nodo(d, "option", acto.denominacion); item.value = acto.ref; selectActo.append(item); }
-    selectActo.required = true; campos.set("acto_ref", selectActo); form.append(etiquetaCampo("acto_ref", "registro_b2_catalogos_acto_acreditado", selectActo));
     const revisar = nodo(d, "button", t("registro_b2_catalogos_revisar")); revisar.type = "submit";
     const cancelar = nodo(d, "button", t("registro_b2_catalogos_cancelar")); cancelar.type = "button"; cancelar.addEventListener("click", () => { formulario = undefined; pintar(); });
     form.append(revisar, cancelar); form.addEventListener("submit", async (evento) => {
       evento.preventDefault(); if (!activo || pendiente || formulario.revisando) return; formulario.revisando = true; const formularioActual = formulario;
       const valor = (clave) => campos.get(clave)?.value.trim() || "";
       try {
-        if (!REF.test(valor("acto_ref")) || !formulario.actos.some((a) => a.ref === valor("acto_ref")) || !paginaActual?.organismoRef || !globalThis.crypto?.randomUUID) throw new TypeError();
+        if (!paginaActual?.organismoRef || !globalThis.crypto?.randomUUID) throw new TypeError();
         let body;
         if (formulario.operacion === "publicar") {
           const version = Number(valor("version")); const desde = valor("vigente_desde"), hasta = valor("vigente_hasta");
-          const huella = await calcularHuellaPublicacionCatalogoB2({ organismoRef: paginaActual.organismoRef, tipo, ref: valor("ref"), version, revision: 1, denominacion: valor("denominacion"), vigenteDesde: desde, vigenteHasta: hasta, actoRef: valor("acto_ref") });
+          const huella = await calcularHuellaPublicacionCatalogoB2({ organismoRef: paginaActual.organismoRef, tipo, ref: valor("ref"), version, revision: 1, denominacion: valor("denominacion"), vigenteDesde: desde, vigenteHasta: hasta });
           if (!activo || formulario !== formularioActual) return;
-          body = { operacion: "publicar", tipo, ref: valor("ref"), version, revision: 1, denominacion: valor("denominacion"), huella_sha256: huella, vigente_desde: desde, vigente_hasta: hasta, acto_ref: valor("acto_ref") };
-        } else { const e = formulario.entrada; body = { operacion: "retirar", tipo, ref: e.ref, version: e.version, revision: e.revision + 1, denominacion: e.denominacion, huella_sha256: e.huella_sha256, vigente_desde: e.vigente_desde, vigente_hasta: e.vigente_hasta, acto_ref: valor("acto_ref") }; }
+          body = { operacion: "publicar", tipo, ref: valor("ref"), version, revision: 1, denominacion: valor("denominacion"), huella_sha256: huella, vigente_desde: desde, vigente_hasta: hasta };
+        } else { const e = formulario.entrada; body = { operacion: "retirar", tipo, ref: e.ref, version: e.version, revision: e.revision + 1, denominacion: e.denominacion, huella_sha256: e.huella_sha256, vigente_desde: e.vigente_desde, vigente_hasta: e.vigente_hasta }; }
         pendiente = Object.freeze({ cuerpo: Object.freeze(body), clave: globalThis.crypto.randomUUID() }); estado = "revision"; pintar();
       } catch { cuerpo.append(aviso(d, t("registro_b2_catalogos_invalido"), true)); }
       finally { if (formulario) formulario.revisando = false; }
     }); cuerpo.append(form);
-  }
-  async function cargarActos(operacion, entrada) {
-    if (!activo || typeof fuenteActos?.listarActosAcreditados !== "function") return;
-    vueloActos?.abort(); const actual = new AbortController(); vueloActos = actual; const turno = secuencia; estado = "cargando_actos"; pintar();
-    try {
-      const resultado = await fuenteActos.listarActosAcreditados({ signal: actual.signal });
-      if (!activo || vueloActos !== actual || actual.signal.aborted || turno !== secuencia) return;
-      if (!resultado || !Array.isArray(resultado.actos) || resultado.actos.length === 0 || resultado.actos.length > 200 ||
-          !resultado.evidencia?.decision_ref || !resultado.evidencia?.auditoria_ref ||
-          !resultado.actos.every((a) => REF.test(a.ref) && typeof a.denominacion === "string" && a.denominacion.trim() === a.denominacion && a.denominacion.length > 0 && a.denominacion.length <= 256 && a.estado === "acreditado" && REF.test(a.fuente_ref) && Number.isSafeInteger(a.fuente_version) && a.fuente_version >= 1 && /^[a-f0-9]{64}$/u.test(a.fuente_huella_sha256))) throw new TypeError("actos no acreditados");
-      formulario = { operacion, entrada, actos: resultado.actos.map((a) => Object.freeze({ ...a })) }; estado = "lista"; pintar();
-    } catch {
-      if (!activo || vueloActos !== actual || actual.signal.aborted || turno !== secuencia) return;
-      estado = "error"; errorTexto = t("registro_b2_catalogos_actos_error"); anunciar(errorTexto, "error"); pintar();
-    } finally { if (vueloActos === actual) vueloActos = undefined; }
   }
   function pintarRevision(cuerpo) {
     cuerpo.append(aviso(d, t(pendiente.cuerpo.operacion === "publicar" ? "registro_b2_catalogos_publicar" : "registro_b2_catalogos_retirar")));

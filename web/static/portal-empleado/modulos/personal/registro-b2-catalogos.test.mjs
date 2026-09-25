@@ -4,9 +4,8 @@ import { calcularHuellaPublicacionCatalogoB2, crearClienteCatalogosRegistroB2, E
 import { cargarOpcionesPublicadasCatalogoB2, montarCatalogosRegistroB2 } from "./registro-b2-catalogos.js";
 
 const completar = () => new Promise((resolver) => setImmediate(resolver));
-const huella = "eeb1c1fc439328d543c148cb105bf94207f834618334b14435d3bf3f13fd4ece";
+const huella = "b08fcb659efbcff4bf474e6d1d1051ca7e110007562dce9253bcd2fb69d47e62";
 const evidencia = { decision_ref: "dec_sintetica", auditoria_ref: "aud_sintetica", consumo_huella_sha256: "a".repeat(64), efecto_ref: "organismo:dipgra:regimen", consultada_en: "2026-09-25T10:00:00Z" };
-const fuenteActos = { async listarActosAcreditados() { return { actos: ["acto:publicacion", "acto:retirada"].map((ref) => ({ ref, denominacion: ref === "acto:publicacion" ? "Acto de publicación" : "Acto de retirada", estado: "acreditado", fuente_ref: "fuente:actos", fuente_version: 1, fuente_huella_sha256: "b".repeat(64) })), evidencia: { decision_ref: "dec_actos", auditoria_ref: "aud_actos" } }; } };
 function nodoFalso() {
   class Nodo {
     constructor(documento, etiqueta) { this.ownerDocument = documento; this.tagName = etiqueta; this.children = []; this.dataset = {}; this.listeners = new Map(); this.attrs = new Map(); this.parent = null; this.textContent = ""; this.value = ""; }
@@ -23,9 +22,9 @@ function buscar(n, pred) { return nodos(n).find(pred); }
 function texto(n) { return nodos(n).map((x) => x.textContent).join(" "); }
 
 test("la huella de publicación coincide con el contrato canónico Go, con UTF-8 y último campo", async () => {
-  const calculada = await calcularHuellaPublicacionCatalogoB2({ organismoRef: "organismo:dipgra", tipo: "regimen", ref: "regimen:uno", version: 1, revision: 1, denominacion: "Régimen sintético", vigenteDesde: "2026-09-20", actoRef: "acto:publicacion" });
+  const calculada = await calcularHuellaPublicacionCatalogoB2({ organismoRef: "organismo:dipgra", tipo: "regimen", ref: "regimen:uno", version: 1, revision: 1, denominacion: "Régimen sintético", vigenteDesde: "2026-09-20" });
   assert.equal(calculada, huella);
-  assert.notEqual(await calcularHuellaPublicacionCatalogoB2({ organismoRef: "organismo:dipgra", tipo: "regimen", ref: "regimen:uno", version: 1, revision: 1, denominacion: "Régimen sintético", vigenteDesde: "2026-09-20", actoRef: "acto:otro" }), huella);
+  assert.notEqual(await calcularHuellaPublicacionCatalogoB2({ organismoRef: "organismo:dipgra", tipo: "regimen", ref: "regimen:uno", version: 1, revision: 1, denominacion: "Otro régimen", vigenteDesde: "2026-09-20" }), huella);
 });
 
 test("GET vacío entrega organismo de servidor y el cliente omite cookies", async () => {
@@ -37,11 +36,13 @@ test("GET vacío entrega organismo de servidor y el cliente omite cookies", asyn
   assert.equal(llamadas[0][1].credentials, "omit");
   const denegado = crearClienteCatalogosRegistroB2({ fetchImpl: async () => new Response(JSON.stringify({ error: { codigo: "acceso_denegado" } }), { status: 403, headers: { "content-type": "application/json; charset=utf-8" } }) });
   await assert.rejects(denegado.listar({ tipo: "regimen" }), (error) => error instanceof ErrorCatalogosRegistroB2 && error.estado === 403);
+  const sinOrganismo = crearClienteCatalogosRegistroB2({ fetchImpl: async () => new Response(JSON.stringify({ data: { organismo_ref: "", entradas: [], cursor_siguiente: null, evidencia } }), { status: 200, headers: { "content-type": "application/json; charset=utf-8" } }) });
+  await assert.rejects(sinOrganismo.listar({ tipo: "regimen" }), (error) => error instanceof ErrorCatalogosRegistroB2 && error.codigo === "respuesta_incompatible");
 });
 
 test("POST publica sin organismo en el cuerpo y conserva recibo original en replay", async () => {
   const idempotencia = "123e4567-e89b-42d3-a456-426614174000"; const llamadas = [];
-  const cuerpo = { operacion: "publicar", tipo: "regimen", ref: "regimen:uno", version: 1, revision: 1, denominacion: "Régimen sintético", huella_sha256: huella, vigente_desde: "2026-09-20", vigente_hasta: "", acto_ref: "acto:publicacion" };
+  const cuerpo = { operacion: "publicar", tipo: "regimen", ref: "regimen:uno", version: 1, revision: 1, denominacion: "Régimen sintético", huella_sha256: huella, vigente_desde: "2026-09-20", vigente_hasta: "" };
   const entrada = { organismo_ref: "organismo:dipgra", ...cuerpo, estado: "publicada" };
   const recibo = { decision_ref: "dec_original", auditoria_ref: "aud_original", consumo_huella_sha256: "a".repeat(64), registrado_en: "2026-09-25T10:00:00Z" };
   const acceso_actual = { decision_ref: "dec_replay", auditoria_ref: "aud_replay", consumo_huella_sha256: "b".repeat(64), registrado_en: "2026-09-25T10:01:00Z", estado_replay: "replay" };
@@ -52,7 +53,9 @@ test("POST publica sin organismo en el cuerpo y conserva recibo original en repl
   assert.equal(llamadas[0][1].headers["Idempotency-Key"], idempotencia);
   assert.equal(llamadas[0][1].credentials, "omit");
   assert.equal(Object.hasOwn(JSON.parse(llamadas[0][1].body), "organismo_ref"), false);
+  assert.equal(Object.hasOwn(JSON.parse(llamadas[0][1].body), "acto_ref"), false);
   await assert.rejects(cliente.cambiar({ ...cuerpo, organismo_ref: "organismo:otro" }, { claveIdempotencia: idempotencia }), TypeError);
+  await assert.rejects(cliente.cambiar({ ...cuerpo, acto_ref: "acto:libre" }, { claveIdempotencia: idempotencia }), TypeError);
 });
 
 test("las opciones para actuaciones proceden de las cuatro consultas publicadas", async () => {
@@ -63,12 +66,12 @@ test("las opciones para actuaciones proceden de las cuatro consultas publicadas"
   assert.deepEqual(opciones.regimenes[0], { ref: "regimen:uno", version: 1, denominacion: "Nombre regimen", estado: "publicada" });
 });
 
-test("sin autoridad de actos el catálogo es consultable y los cambios quedan deshabilitados", async () => {
+test("el organismo autorizado de GET habilita la publicación interna", async () => {
   const raiz = nodoFalso(); const cliente = { async listar() { return { organismoRef: "organismo:dipgra", entradas: [], cursorSiguiente: null, evidencia }; }, async cambiar() { throw Error("no debe enviarse"); } };
   montarCatalogosRegistroB2({ raiz, cliente }); await completar();
   assert.match(texto(raiz), /No hay entradas para este filtro/);
   const publicar = buscar(raiz, (n) => n.textContent === "Publicar entrada");
-  assert.equal(publicar.disabled, true);
+  assert.equal(publicar.disabled, false);
 });
 
 test("el panel consulta lista vacía, calcula la huella y revisa antes del POST", async () => {
@@ -77,11 +80,11 @@ test("el panel consulta lista vacía, calcula la huella y revisa antes del POST"
     async listar() { return { organismoRef: "organismo:dipgra", entradas: [], cursorSiguiente: null, evidencia }; },
     async cambiar(cuerpo, { claveIdempotencia }) { envios.push({ cuerpo, claveIdempotencia }); if (envios.length === 1) throw new ErrorCatalogosRegistroB2("resultado_incierto"); return { entrada: { ...cuerpo, organismo_ref: "organismo:dipgra", estado: "publicada" }, recibo: { registrado_en: "2026-09-25T10:00:00Z" }, accesoActual: { estado_replay: "replay" } }; },
   };
-  montarCatalogosRegistroB2({ raiz, cliente, fuenteActos }); await completar();
+  montarCatalogosRegistroB2({ raiz, cliente }); await completar();
   assert.match(texto(raiz), /No hay entradas para este filtro/);
-  buscar(raiz, (n) => n.textContent === "Publicar entrada").listeners.get("click")(); await completar();
+  buscar(raiz, (n) => n.textContent === "Publicar entrada").listeners.get("click")();
   const campos = Object.fromEntries(nodos(raiz).filter((n) => n.dataset.registroB2CatalogoCampo).map((n) => [n.dataset.registroB2CatalogoCampo, n]));
-  for (const [clave, valor] of Object.entries({ ref: "regimen:uno", version: "1", denominacion: "Régimen sintético", vigente_desde: "2026-09-20", acto_ref: "acto:publicacion" })) campos[clave].value = valor;
+  for (const [clave, valor] of Object.entries({ ref: "regimen:uno", version: "1", denominacion: "Régimen sintético", vigente_desde: "2026-09-20" })) campos[clave].value = valor;
   buscar(raiz, (n) => n.tagName === "form").listeners.get("submit")({ preventDefault() {} }); await new Promise((resolver) => setTimeout(resolver, 30));
   assert.match(texto(raiz), /Confirmar cambio/); assert.equal(envios.length, 0);
   buscar(raiz, (n) => n.textContent === "Confirmar cambio").listeners.get("click")(); await completar();
@@ -97,11 +100,10 @@ test("retirar conserva la huella publicada y añade una revisión sin recalcular
   const raiz = nodoFalso(); let enviado;
   const entrada = { organismo_ref: "organismo:dipgra", tipo: "regimen", ref: "regimen:uno", version: 1, revision: 1, denominacion: "Régimen sintético", huella_sha256: huella, vigente_desde: "2026-09-20", vigente_hasta: "", estado: "publicada" };
   const cliente = { async listar() { return { organismoRef: "organismo:dipgra", entradas: [entrada], cursorSiguiente: null, evidencia }; }, async cambiar(cuerpo) { enviado = cuerpo; return { entrada: { ...entrada, revision: 2, estado: "retirada" }, recibo: { registrado_en: "2026-09-25T10:00:00Z" }, accesoActual: { estado_replay: "registrado" } }; } };
-  montarCatalogosRegistroB2({ raiz, cliente, fuenteActos }); await completar();
-  buscar(raiz, (n) => n.textContent === "Retirar").listeners.get("click")(); await completar();
-  buscar(raiz, (n) => n.dataset.registroB2CatalogoCampo === "acto_ref").value = "acto:retirada";
+  montarCatalogosRegistroB2({ raiz, cliente }); await completar();
+  buscar(raiz, (n) => n.textContent === "Retirar").listeners.get("click")();
   buscar(raiz, (n) => n.tagName === "form").listeners.get("submit")({ preventDefault() {} }); await completar();
   buscar(raiz, (n) => n.textContent === "Confirmar cambio").listeners.get("click")(); await completar();
   assert.equal(enviado.operacion, "retirar"); assert.equal(enviado.revision, 2);
-  assert.equal(enviado.huella_sha256, huella); assert.equal(enviado.acto_ref, "acto:retirada");
+  assert.equal(enviado.huella_sha256, huella); assert.equal(Object.hasOwn(enviado, "acto_ref"), false);
 });

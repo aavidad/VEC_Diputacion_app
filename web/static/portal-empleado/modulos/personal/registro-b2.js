@@ -1,7 +1,7 @@
-import { crearTraductorPersonal } from "./i18n.js?v=20260925-b2-registro-v2";
+import { crearTraductorPersonal } from "./i18n.js?v=20260925-b2-registro-v3";
 import { ErrorRegistroB2 } from "./registro-b2-cliente.js?v=20260925-b2-registro-v1";
-import { accionesRegistroB2Disponibles, montarActosRegistroB2 } from "./registro-b2-actos.js?v=20260925-b2-registro-v2";
-import { cargarOpcionesPublicadasCatalogoB2, montarCatalogosRegistroB2 } from "./registro-b2-catalogos.js?v=20260925-b2-registro-v2";
+import { accionesRegistroB2Disponibles, montarActosRegistroB2 } from "./registro-b2-actos.js?v=20260925-b2-registro-v3";
+import { cargarOpcionesPublicadasCatalogoB2, montarCatalogosRegistroB2 } from "./registro-b2-catalogos.js?v=20260925-b2-registro-v3";
 
 const BLOQUES = Object.freeze([
   ["relaciones", "registro_b2_relaciones", "registro_b2_tabla_relaciones", [
@@ -112,7 +112,7 @@ function conocidoUTC(valor) {
 }
 
 /** Montaje de lectura RRHH. El empleado se recibe de una selección autorizada del shell. */
-export function montarRegistroB2({ raiz, cliente, clienteCatalogos, fuenteActos, empleadoRef = "", personaRef = "", catalogos, anunciar = () => {}, registrarDesmontar, reloj = () => new Date() } = {}) {
+export function montarRegistroB2({ raiz, cliente, clienteCatalogos, empleadoRef = "", personaRef = "", catalogos, anunciar = () => {}, registrarDesmontar, reloj = () => new Date() } = {}) {
   if (!raiz?.append || !raiz.ownerDocument?.createElement || !cliente?.consultarFicha || !cliente?.listarVacantes ||
       (empleadoRef !== "" && !/^emp_[A-Za-z0-9_-]{22,128}$/u.test(empleadoRef)) ||
       (personaRef !== "" && !/^per_[A-Za-z0-9_-]{22,128}$/u.test(personaRef)) ||
@@ -221,7 +221,7 @@ export function montarRegistroB2({ raiz, cliente, clienteCatalogos, fuenteActos,
     contenido.setAttribute("aria-labelledby", `personal-registro-b2-tab-${vista}`);
     if (vista === "catalogos") {
       contenido.replaceChildren();
-      try { montajeCatalogos = montarCatalogosRegistroB2({ raiz: contenido, cliente: clienteCatalogos, fuenteActos, anunciar }); }
+      try { montajeCatalogos = montarCatalogosRegistroB2({ raiz: contenido, cliente: clienteCatalogos, anunciar }); }
       catch { contenido.append(estado(d, t("registro_b2_catalogos_error"), true)); }
       return;
     }
