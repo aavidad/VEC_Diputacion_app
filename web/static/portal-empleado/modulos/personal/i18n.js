@@ -107,7 +107,6 @@ export const MENSAJES_PERSONAL_ES = Object.freeze({
   registro_b2_guardando: "Registrando actuación…",
   registro_b2_guardado: "Registro conservado",
   registro_b2_replay: "Registro ya conservado",
-  registro_b2_recibo: "Recibo {recibo}",
   registro_b2_registrado_en: "Registrado el {fecha}",
   registro_b2_formulario_invalido: "Complete los campos de la actuación.",
   registro_b2_acto_denegado: "No dispone de permiso para registrar esta actuación.",

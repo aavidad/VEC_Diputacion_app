@@ -1,4 +1,4 @@
-import { crearTraductorPersonal } from "./i18n.js?v=20260925-b2-sin-acto-fuente-v1";
+import { crearTraductorPersonal } from "./i18n.js?v=20260925-b2-sin-refs-v1";
 
 const PESTANAS = Object.freeze([
   ["ficha", "ficha_tab_ficha"], ["relaciones", "ficha_tab_relaciones"],

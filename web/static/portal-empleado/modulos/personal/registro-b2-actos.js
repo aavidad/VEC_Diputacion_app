@@ -1,4 +1,4 @@
-import { crearTraductorPersonal } from "./i18n.js?v=20260925-b2-sin-acto-fuente-v1";
+import { crearTraductorPersonal } from "./i18n.js?v=20260925-b2-sin-refs-v1";
 import { ErrorRegistroB2 } from "./registro-b2-cliente.js?v=20260925-b2-selector-v1";
 
 const EMPLEADO = /^emp_[A-Za-z0-9_-]{22,128}$/u;
@@ -58,12 +58,12 @@ export function montarActosRegistroB2({ raiz, cliente, catalogos, personaRef = "
   };
   const enumerado = (clave, etiqueta, valores) => seleccionar(clave, etiqueta, valores.map(([ref, llave]) => ({ ref, denominacion: t(llave) })));
   const relacionesActuales = () => { const ultimas = new Map(); for (const r of ficha?.relaciones || []) if (!ultimas.has(r.relacion_ref) || ultimas.get(r.relacion_ref).traza.version < r.traza.version) ultimas.set(r.relacion_ref, r); return [...ultimas.values()]; };
-  const relaciones = () => relacionesActuales().map((r) => ({ ref: r.relacion_ref, denominacion: `${r.unidad_denominacion || t("registro_b2_relacion")} · ${r.relacion_ref}` }));
+  const relaciones = () => relacionesActuales().map((r) => ({ ref: r.relacion_ref, denominacion: `${r.unidad_denominacion || t("registro_b2_sin_denominacion")} · ${r.traza?.desde ? formatoFecha(r.traza.desde) : t("registro_b2_sin_valor")} – ${r.traza?.hasta ? formatoFecha(r.traza.hasta) : t("registro_b2_actual")}` }));
   const exito = ({ recibo, accesoActual }) => {
     fase = "exito"; pendiente = null; contenedor.replaceChildren();
     const cab = nodo(d, "header"); cab.className = "cabecera-panel"; cab.append(nodo(d, "h3", t(accesoActual.estado_replay === "replay" ? "registro_b2_replay" : "registro_b2_guardado")));
     const cuerpo = nodo(d, "div"); cuerpo.className = "cuerpo-panel";
-    cuerpo.append(estado(d, t("registro_b2_recibo", { recibo: recibo.recibo_ref })), estado(d, t("registro_b2_registrado_en", { fecha: formatoInstante(recibo.registrado_en) })));
+    cuerpo.append(estado(d, t("registro_b2_registrado_en", { fecha: formatoInstante(recibo.registrado_en) })));
     contenedor.append(cab, cuerpo); alRegistrar(recibo);
   };
   const errorDeActo = (error) => {

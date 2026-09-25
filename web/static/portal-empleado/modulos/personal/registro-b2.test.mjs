@@ -166,7 +166,7 @@ test("el alta revisada conserva cuerpo y clave en reintento incierto y muestra r
   buscar(raiz, (n) => n.textContent === "Reintentar exactamente").listeners.get("click")(); await completar();
   assert.deepEqual(envios[0], envios[1]);
   assert.match(texto(raiz), /Registro ya conservado/);
-  assert.match(texto(raiz), /recibo_sintetico/);
+  assert.doesNotMatch(texto(raiz), /recibo_sintetico/);
   assert.equal(Object.hasOwn(envios[0].cuerpo, "empleado_ref"), false);
 });
 
@@ -200,8 +200,10 @@ test("la ocupación exige relación explícita y versión de la plaza autorizada
   Object.assign(campos.modalidad, { value: "modalidad_sintetica" }); Object.assign(campos.plaza, { value: "plaza_sintetica" });
   Object.assign(campos.clase, { value: "titular" }); Object.assign(campos.vigente_desde, { value: "2026-09-25" });
   Object.assign(campos.acto, { value: "acto_sintetico" }); Object.assign(campos.fuente, { value: "fuente_sintetica" });
+  assert.doesNotMatch(texto(raiz), /rel_/);
   buscar(raiz, (n) => n.tagName === "form").listeners.get("submit")({ preventDefault() {} });
   buscar(raiz, (n) => n.textContent === "Confirmar registro").listeners.get("click")(); await completar();
+  assert.doesNotMatch(texto(raiz), /rel_|recibo_sintetico/);
   assert.equal(enviado.relacion_ref, "rel_aaaaaaaaaaaaaaaaaaaaaa");
   assert.equal(enviado.relacion_version_esperada, 1);
   assert.equal(enviado.revision_esperada, 1);

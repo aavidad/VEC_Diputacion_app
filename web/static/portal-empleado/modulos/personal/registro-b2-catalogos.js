@@ -1,4 +1,4 @@
-import { crearTraductorPersonal } from "./i18n.js?v=20260925-b2-sin-acto-fuente-v1";
+import { crearTraductorPersonal } from "./i18n.js?v=20260925-b2-sin-refs-v1";
 import { calcularHuellaPublicacionCatalogoB2 } from "./registro-b2-catalogos-cliente.js?v=20260925-b2-mtls-v1";
 
 const TIPOS = Object.freeze([["regimen", "registro_b2_catalogos_regimen", "regimenes"], ["modalidad", "registro_b2_catalogos_modalidad", "modalidades"], ["situacion", "registro_b2_catalogos_situacion", "situaciones"], ["clase_servicio", "registro_b2_catalogos_clase_servicio", "clasesServicio"]]);
@@ -76,7 +76,7 @@ export function montarCatalogosRegistroB2({ raiz, cliente, anunciar = () => {}, 
     const th = nodo(d, "thead"); const filaCab = nodo(d, "tr"); for (const texto of ["registro_b2_catalogos_denominacion", "registro_b2_catalogos_version", "registro_b2_catalogos_estado", "registro_b2_catalogos_vigencia", "registro_b2_catalogos_revision", "registro_b2_catalogos_acciones"]) { const celda = nodo(d, "th", t(texto)); celda.setAttribute("scope", "col"); filaCab.append(celda); } th.append(filaCab); tab.append(th);
     const body = nodo(d, "tbody");
     for (const e of paginaActual.entradas) {
-      const tr = nodo(d, "tr"); const nombre = nodo(d, "td"); nombre.append(nodo(d, "span", e.denominacion)); const sub = nodo(d, "small", e.ref); sub.className = "personal-registro-b2-secundario"; nombre.append(sub);
+      const tr = nodo(d, "tr"); const nombre = nodo(d, "td"); nombre.append(nodo(d, "span", e.denominacion));
       tr.append(nombre, nodo(d, "td", new Intl.NumberFormat("es-ES").format(e.version)), nodo(d, "td", t(e.estado === "publicada" ? "registro_b2_catalogos_publicada" : "registro_b2_catalogos_retirada")), nodo(d, "td", `${fechaTexto(e.vigente_desde, t)} – ${fechaTexto(e.vigente_hasta, t)}`), nodo(d, "td", new Intl.NumberFormat("es-ES").format(e.revision)));
       const celda = nodo(d, "td");
       if (e.estado === "publicada") { const retirar = nodo(d, "button", t("registro_b2_catalogos_retirar")); retirar.type = "button"; retirar.addEventListener("click", () => { formulario = { operacion: "retirar", entrada: e }; pintar(); }); celda.append(retirar); }
