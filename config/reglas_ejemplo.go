@@ -26,6 +26,8 @@ const (
 	// EnvCTCircuitoFirmaSourcePath declara el circuito de firma de ejemplo de
 	// los documentos de Contratación temporal.
 	EnvCTCircuitoFirmaSourcePath = "VEC_CT_CIRCUITO_FIRMA_SOURCE_PATH"
+	// EnvCTCausasCeseSourcePath es el catálogo de causas de cese de ejemplo.
+	EnvCTCausasCeseSourcePath = "VEC_CT_CAUSAS_CESE_SOURCE_PATH"
 )
 
 // ErrConfiguracionReglasEjemploFueraDesarrollo impide arrancar si un
@@ -46,6 +48,7 @@ type ConfiguracionReglasEjemplo struct {
 	CTRetribucionesSourcePath       string
 	CTPlantillasSourcePath          string
 	CTCircuitoFirmaSourcePath       string
+	CausasCeseSourcePath            string
 }
 
 func cargarConfiguracionReglasEjemplo() ConfiguracionReglasEjemplo {
@@ -56,6 +59,7 @@ func cargarConfiguracionReglasEjemplo() ConfiguracionReglasEjemplo {
 		CTRetribucionesSourcePath:       envFirst(EnvCTRetribucionesSourcePath),
 		CTPlantillasSourcePath:          envFirst(EnvCTPlantillasSourcePath),
 		CTCircuitoFirmaSourcePath:       envFirst(EnvCTCircuitoFirmaSourcePath),
+		CausasCeseSourcePath:            envFirst(EnvCTCausasCeseSourcePath),
 	}
 }
 
@@ -66,13 +70,14 @@ func (c ConfiguracionReglasEjemplo) normalizar() ConfiguracionReglasEjemplo {
 	c.CTRetribucionesSourcePath = strings.TrimSpace(c.CTRetribucionesSourcePath)
 	c.CTPlantillasSourcePath = strings.TrimSpace(c.CTPlantillasSourcePath)
 	c.CTCircuitoFirmaSourcePath = strings.TrimSpace(c.CTCircuitoFirmaSourcePath)
+	c.CausasCeseSourcePath = strings.TrimSpace(c.CausasCeseSourcePath)
 	return c
 }
 
 // Configurada indica si se ha declarado algún catálogo de reglas.
 func (c ConfiguracionReglasEjemplo) Configurada() bool {
 	c = c.normalizar()
-	return c.BolsaSourcePath != "" || c.CTSourcePath != "" || c.BolsaRolesSegregacionSourcePath != "" || c.CTRetribucionesSourcePath != "" || c.CTPlantillasSourcePath != "" || c.CTCircuitoFirmaSourcePath != ""
+	return c.BolsaSourcePath != "" || c.CTSourcePath != "" || c.BolsaRolesSegregacionSourcePath != "" || c.CTRetribucionesSourcePath != "" || c.CTPlantillasSourcePath != "" || c.CTCircuitoFirmaSourcePath != "" || c.CausasCeseSourcePath != ""
 }
 
 // ReglasEjemploDesarrollo valida la activación sin abrir ficheros. Devuelve

@@ -20,6 +20,7 @@ import { crearGestorDescargaBorradorRRHH } from "./vista-expedientes-borrador.js
 import { crearGestorCircuitoFirma } from "./circuito-firma.js?v=20260926-integracion-bolsa-ct-v1";
 import { crearGestorIncorporacion } from "./vista-expedientes-incorporacion.js";
 import { crearGestorTramitacion } from "./vista-expedientes-tramitacion.js";
+import { contextoSeguimientoCeseDesdeEstado, montarPanelSeguimientoCese } from "./seguimiento-cese.js";
 
 export { renderizarModuloContratacionTemporal } from "./vista-expedientes-render.js";
 export { montarModuloFiscalizacionContratacionTemporal } from "./vista-expedientes-fiscalizacion.js";
@@ -149,7 +150,41 @@ export async function montarModuloContratacionTemporal({
   let desmontarLlamamiento = null;
   let reciboPropuestaConfirmado = null;
   let desmontarEstadisticas = null;
+  let desmontarSeguimientoCese = null;
   let secuenciaInterfaz = 0;
+  const clienteSeguimientoCese = typeof clienteLlamamiento?.seguimientoCese?.consultarSeguimientoCese === "function"
+    ? clienteLlamamiento.seguimientoCese : null;
+
+  function retirarSeguimientoCese() {
+    desmontarSeguimientoCese?.();
+    desmontarSeguimientoCese = null;
+  }
+
+  // Cese, cierre y modificación tras el nombramiento: panel propio que se
+  // añade al detalle; tras un registro vuelve a cargar el expediente.
+  function montarSeguimientoCeseSiProcede(estado) {
+    const contexto = clienteSeguimientoCese ? contextoSeguimientoCeseDesdeEstado(estado) : null;
+    const zona = raiz.querySelector(".ct-exp-contenido");
+    if (!contexto || !zona) return;
+    const contenedor = raiz.ownerDocument.createElement("div");
+    contenedor.setAttribute("data-ct-exp-seguimiento-cese", "");
+    zona.append(contenedor);
+    try {
+      desmontarSeguimientoCese = montarPanelSeguimientoCese({
+        contenedor, cliente: clienteSeguimientoCese, contexto, mensajes, locale, anunciar, confirmarOperacion,
+        alConfirmar: async () => {
+          try {
+            await presentador.cargar();
+            if (!montada) return;
+            await presentador.seleccionarExpediente(contexto.expediente_ref, "expediente");
+            repintar("[data-ct-exp-seguimiento-cese]");
+          } catch { /* el recibo ya se mostró; el detalle se actualiza al volver */ }
+        },
+      });
+    } catch {
+      contenedor.remove();
+    }
+  }
 
   const esMontada = () => montada;
 
@@ -298,6 +333,7 @@ export async function montarModuloContratacionTemporal({
     desmontarLlamamiento = null;
     gestorIncorporacion.retirar();
     gestorTramitacion.retirarComponentes();
+    retirarSeguimientoCese();
     const estado = presentador.obtenerEstado();
     if (estado.carga === "denegado") gestorTramitacion.invalidarSubsanacionPorDenegacion();
     raiz.innerHTML = renderizarModuloContratacionTemporal(estado, {
@@ -345,6 +381,7 @@ export async function montarModuloContratacionTemporal({
       gestorTramitacion.montarInformeDesdeExpedienteActual();
       gestorTramitacion.montarFiscalizacionDesdeExpedienteActual();
       gestorTramitacion.montarSubsanacionDesdeExpedienteActual();
+      montarSeguimientoCeseSiProcede(estado);
     }
     if (selectorFoco) enfocar(raiz, selectorFoco);
     if (estado.mensaje_clave) {
@@ -576,6 +613,7 @@ export async function montarModuloContratacionTemporal({
       desmontarLlamamiento = null;
       gestorIncorporacion.retirar();
       gestorTramitacion.retirarComponentes();
+      retirarSeguimientoCese();
       raiz.removeEventListener("click", manejarClick);
       raiz.removeEventListener("submit", manejarEnvio);
       presentador.desmontar?.();

@@ -213,6 +213,9 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		ports.AudienciaConfirmacionIncorporacionV2,
 		postgrescontratacion.AudienciaAnotacionAdministrativaV1,
 		postgrescontratacion.AudienciaCierreAdministrativoSinCese,
+		ports.AudienciaConsumoCeseV1,
+		ports.AudienciaConsumoCierreExpedienteV1,
+		ports.AudienciaConsumoModificacionNombramientoV1,
 		ctapplication.AudienciaDespachoCorreoLlamamientoV3,
 		ctapplication.AudienciaResultadoCorreoLlamamientoV3,
 		// Registro de firmas de prueba de los borradores (AD3-85); solo se

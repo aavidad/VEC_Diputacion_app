@@ -11,7 +11,11 @@ func TestReglasEjemploSeCarganDelEntornoYSeNormalizan(t *testing.T) {
 	t.Setenv(EnvBolsaRolesSegregacionSourcePath, " data/demo/reglas/bolsa_roles_segregacion.demo.json")
 	t.Setenv(EnvCTPlantillasSourcePath, " plantillas.json ")
 	t.Setenv(EnvCTCircuitoFirmaSourcePath, " data/demo/reglas/ct_circuito_firma.ejemplo.demo.json")
+	t.Setenv(EnvCTCausasCeseSourcePath, " data/demo/reglas/ct_causas_cese.demo.json")
 	cfg := Load().Normalize()
+	if cfg.ReglasEjemplo.CausasCeseSourcePath != "data/demo/reglas/ct_causas_cese.demo.json" {
+		t.Fatalf("causas de cese no cargadas: %+v", cfg.ReglasEjemplo)
+	}
 	if cfg.ReglasEjemplo.BolsaSourcePath != "data/demo/reglas/bolsa_reglas.ejemplo.demo.json" ||
 		cfg.ReglasEjemplo.CTSourcePath != "data/demo/reglas/ct_reglas.ejemplo.demo.json" ||
 		cfg.ReglasEjemplo.BolsaRolesSegregacionSourcePath != "data/demo/reglas/bolsa_roles_segregacion.demo.json" ||

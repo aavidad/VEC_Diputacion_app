@@ -26,6 +26,7 @@ import { crearClienteSeguimientoIncorporacion, RUTA_SEGUIMIENTO_INCORPORACION } 
 import { crearClienteAnotacionAdministrativaHTTP, RUTA_ANOTACION_ADMINISTRATIVA, RUTA_RECUPERACION_ANOTACION_ADMINISTRATIVA } from "./cliente-http-anotacion-administrativa.js";
 import { crearClienteCierreAdministrativoHTTP, RUTA_CIERRE_ADMINISTRATIVO } from "./cliente-http-cierre-administrativo.js";
 import { crearClienteSubsanacionReparosHTTP, RUTA_SUBSANACION_REPAROS } from "./cliente-http-subsanacion-reparos.js";
+import { crearClienteSeguimientoCeseHTTP } from "./cliente-http-seguimiento-cese.js";
 import {
   MAXIMO_ERROR_BYTES,
   MAXIMO_FRAGMENTOS,
@@ -566,6 +567,7 @@ export function crearClienteHTTPContratacionTemporal(configuracion = {}) {
     ...crearInformeJuridicoClienteHTTP({ ejecutar, validarOpciones: validarOpcionesInterno, serializarAcotado: serializarAcotadoInterno }),
     ...crearFiscalizacionClienteHTTP({ ejecutar, validarOpciones: validarOpcionesInterno, serializarAcotado: serializarAcotadoInterno }),
     ...crearClienteSubsanacionReparosHTTP({ ejecutar, validarOpciones: validarOpcionesInterno, serializarAcotado: serializarAcotadoInterno }),
+    seguimientoCese: crearClienteSeguimientoCeseHTTP({ ejecutar, validarOpciones: validarOpcionesInterno, serializarAcotado: serializarAcotadoInterno }),
     ...crearLlamamientoClienteHTTP({ ejecutar, validarOpciones: validarOpcionesInterno }),
     ...crearResolucionFormalizacionClienteHTTP({ ejecutar, validarOpciones: validarOpcionesInterno }),
     ...crearIncorporacionEjercicioClienteHTTP({ ejecutar, validarOpciones: validarOpcionesInterno }),

@@ -178,6 +178,10 @@ static/portal-empleado/modulos/contratacion-temporal/i18n-llamamiento.js
 static/portal-empleado/modulos/contratacion-temporal/i18n.js
 static/portal-empleado/modulos/contratacion-temporal/i18n-subsanacion-reparos.js
 static/portal-empleado/modulos/contratacion-temporal/i18n-avisos-via-cobertura.js
+static/portal-empleado/modulos/contratacion-temporal/cliente-http-seguimiento-cese.js
+static/portal-empleado/modulos/contratacion-temporal/i18n-seguimiento-cese.js
+static/portal-empleado/modulos/contratacion-temporal/seguimiento-cese.js
+static/portal-empleado/modulos/contratacion-temporal/seguimiento-cese.css
 static/portal-empleado/modulos/contratacion-temporal/presentador-expedientes.js
 static/portal-empleado/modulos/contratacion-temporal/renderizado-llamamiento.js
 static/portal-empleado/modulos/contratacion-temporal/renderizado-plazo-llamamiento.js

@@ -585,6 +585,11 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		rutas = append(rutas, vechttp.RutaExacta{Ruta: httpinterno.RutaResolucionFormalizacion, Manejador: h})
 	}
 	rutas = append(rutas, rutasOrganizacion...)
+	rutasSeguimientoCese, err := nuevasRutasSeguimientoCeseDesarrollo(dependencias, &alta)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	rutas = append(rutas, rutasSeguimientoCese...)
 	if consultasRRHH.estadisticas != nil {
 		h, err := httpinterno.NuevoManejadorEstadisticasRRHH(consultasRRHH.estadisticas,
 			&resolutorAlcanceEstadisticasRRHHDesarrollo{sello: sello, resolvedor: resolvedorDesarrollo}, reloj.Ahora)
