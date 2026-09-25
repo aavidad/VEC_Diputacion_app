@@ -153,7 +153,7 @@ func (r *RegistroContinuacionLlamamientoPostgreSQL) ejecutar(ctx context.Context
 		}
 	}()
 	var jsonResultado string
-	err = tx.QueryRow(ctx, `SELECT vec_contratacion_temporal.continuar_llamamiento_rrhh_v1(
+	err = tx.QueryRow(ctx, `SELECT vec_contratacion_temporal.continuar_llamamiento_rrhh_v2(
 		$1::text,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)::text`,
 		string(contenido), secretos[0], secretos[1], secretos[2], secretos[3], int64(a.PersonaVersion()), int64(a.PerfilVersion()),
 		secretos[4], secretos[5], secretos[6], secretos[7]).Scan(&jsonResultado)

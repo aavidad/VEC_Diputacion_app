@@ -52,17 +52,34 @@ type ComandoSiguienteLlamamiento struct {
 	SeleccionClave  string `json:"seleccion_clave"`
 }
 
+// Seleccion solo acompaña a una expiración confirmada: sin justificante, CT119
+// devuelve el recibo de selección original de la misma comunicación. En una
+// renuncia se consulta con el justificante y aquí debe venir vacía.
 type AntecedenteContinuacionLlamamiento struct {
 	Resolucion          ResultadoResolucionLlamamiento
 	ComandoSiguienteRef string
 	ComandoSiguiente    ComandoSiguienteLlamamiento
+	Seleccion           *ReciboSolicitudLlamamientoBolsa `json:",omitempty"`
+}
+
+// EsExpiracion indica que el antecedente es la expiración confirmada por RRHH.
+func (a AntecedenteContinuacionLlamamiento) EsExpiracion() bool {
+	return a.Resolucion.Solicitud.Respuesta == RespuestaLlamamientoExpirada
 }
 
 func (a AntecedenteContinuacionLlamamiento) ValidarPara(s SolicitudContinuarLlamamiento) error {
 	r, c := a.Resolucion, a.ComandoSiguiente
+	expiracion := a.EsExpiracion()
+	if expiracion {
+		if r.EstadoPlazo != PlazoLlamamientoExpirado || a.Seleccion == nil ||
+			SeleccionOriginalValidaPara(*a.Seleccion, r.Solicitud.OrganizacionRef, r.Solicitud.ExpedienteRef, r.Solicitud.LlamamientoRef) != nil {
+			return ErrOperacionContinuacionNoDisponible
+		}
+	} else if r.Solicitud.Respuesta != RespuestaLlamamientoRenunciada || a.Seleccion != nil {
+		return ErrOperacionContinuacionNoDisponible
+	}
 	if s.Validar() != nil || r.ValidarPara(r.Solicitud) != nil ||
-		r.Estado != ResultadoComunicacionLlamamientoConfirmado ||
-		r.Solicitud.Respuesta != RespuestaLlamamientoRenunciada || !r.Solicitud.RevisionManualConfirmada() ||
+		r.Estado != ResultadoComunicacionLlamamientoConfirmado || !r.Solicitud.RevisionManualConfirmada() ||
 		r.Solicitud.OrganizacionRef != s.OrganizacionRef || r.Solicitud.ExpedienteRef != s.ExpedienteRef ||
 		r.ResolucionRef != s.ResolucionRef || r.IntencionSiguiente.IntencionRef != s.IntencionRef ||
 		c.Esquema != "vec.contratacion-temporal.siguiente-candidato.intencion.v1" ||
@@ -71,6 +88,35 @@ func (a AntecedenteContinuacionLlamamiento) ValidarPara(s SolicitudContinuarLlam
 		c.LlamamientoRef != r.Solicitud.LlamamientoRef || c.JustificanteRef != r.Solicitud.PruebaRespuestaRef ||
 		!ClaveIdempotenciaValida(c.SeleccionClave) {
 		return ErrOperacionContinuacionNoDisponible
+	}
+	return nil
+}
+
+// SeleccionOriginalValidaPara comprueba la forma del recibo de selección
+// original ligado a organización, expediente y llamamiento. No acredita por sí
+// mismo la apertura en Bolsa: la composición la coteja con el registro durable.
+func SeleccionOriginalValidaPara(seleccion ReciboSolicitudLlamamientoBolsa, organizacion, expediente, llamamiento string) error {
+	if !seleccion.PropuestaGenerada || seleccion.VersionExpediente < 6 ||
+		seleccion.VersionExpediente > MaximoEnteroSeguroIntegracionBolsa ||
+		seleccion.OrganizacionRef != organizacion || seleccion.ExpedienteRef != expediente ||
+		seleccion.LlamamientoRef != llamamiento || seleccion.SeleccionRef.Validar() != nil ||
+		seleccion.OrdenSeleccionado == 0 || seleccion.OrdenSeleccionado > MaximoElementosIntegracionBolsa ||
+		!instanteBolsaCanonico(seleccion.ConfirmadaEn) || !seleccion.Procedencia.validarNominal() ||
+		seleccion.ConfirmadaEn.After(seleccion.Procedencia.Evidencia.EmitidaEn) {
+		return ErrOperacionContinuacionNoDisponible
+	}
+	for _, ref := range []string{seleccion.OperacionRef, seleccion.CorrelacionRef,
+		seleccion.ReciboRef, seleccion.AuditoriaRef, seleccion.EventoRef} {
+		if !domain.ReferenciaOpacaValida(ref) {
+			return ErrOperacionContinuacionNoDisponible
+		}
+	}
+	for _, ref := range []ReferenciaVersionadaIntegracionBolsa{seleccion.Necesidad, seleccion.Bolsa,
+		seleccion.Orden, seleccion.Politica, seleccion.Resultado, seleccion.Propuesta,
+		seleccion.AccionEvento, seleccion.RetencionSeleccion} {
+		if ref.Validar() != nil {
+			return ErrOperacionContinuacionNoDisponible
+		}
 	}
 	return nil
 }
@@ -130,7 +176,7 @@ func (m MaterialContinuacionLlamamiento) Validar() error {
 
 // ResultadoContinuacionLlamamiento acredita exclusivamente la confirmación
 // local del recibo Bolsa. Al recuperar solo cambia Estado; no es correo
-// enviado ni cambia el recibo original de la renuncia.
+// enviado ni cambia el recibo original de la renuncia o la expiración.
 type ResultadoContinuacionLlamamiento struct {
 	Solicitud              SolicitudContinuarLlamamiento
 	LlamamientoAnteriorRef string

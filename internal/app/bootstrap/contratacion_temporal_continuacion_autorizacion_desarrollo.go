@@ -28,7 +28,9 @@ func (a *autorizadorLlamamientoDesarrollo) modoResolucionOContinuacionValido(rut
 	case httpinterno.RutaResolucionComunicacionLlamamiento:
 		return cuenta == 1 && !a.comunicacion && !a.respuestaRecibida && !a.continuacionCT && !a.siguienteBolsa && !a.propuestaFormalizacion
 	case httpinterno.RutaContinuacionLlamamiento:
-		return cuenta == 1 && !a.comunicacion && !a.respuestaRecibida && !a.resolucionManual && !a.aceptacionBolsa && !a.renunciaBolsa && !a.propuestaFormalizacion
+		// renunciaBolsa solo cierra aquí el llamamiento «sin respuesta» tras una
+		// expiración confirmada; la validación de la solicitud lo exige.
+		return cuenta == 1 && !a.comunicacion && !a.respuestaRecibida && !a.resolucionManual && !a.aceptacionBolsa && !a.propuestaFormalizacion
 	case httpinterno.RutaPropuestaFormalizacion:
 		return cuenta == 1 && a.propuestaFormalizacion && !a.comunicacion && !a.respuestaRecibida
 	case httpinterno.RutaEventoPlazoLlamamiento:
@@ -67,8 +69,7 @@ func solicitudAutorizacionContinuacionDesarrolloValida(ctx context.Context, d do
 		if m.Etapa == "confirmacion" {
 			l, ok := ctx.Value(claveContinuacionLlamamientoDesarrollo{}).(continuacionLigadaDesarrollo)
 			if !ok || l.solicitud != m.Solicitud || l.soloRecuperacion != (p.expediente.VersionActual > 6) ||
-				!antecedenteContinuacionDesarrolloValido(ctx, l.antecedente.Resolucion.Solicitud) ||
-				l.justificante.ValidarPara(l.antecedente.Resolucion.Solicitud) != nil ||
+				!antecedenteContinuacionDesarrolloValido(ctx, l.antecedente.Resolucion.Solicitud) || !l.antecedenteLigado() ||
 				m.ReciboBolsa.OperacionRef != operacionSiguienteDesarrollo(m.Solicitud) ||
 				m.ReciboBolsa.TerminalOperacionRef != terminalContinuacionDesarrollo(l) ||
 				m.ReciboBolsa.LlamamientoRef == l.antecedente.Resolucion.Solicitud.LlamamientoRef {
@@ -80,20 +81,42 @@ func solicitudAutorizacionContinuacionDesarrolloValida(ctx context.Context, d do
 	l, ok := ctx.Value(claveContinuacionLlamamientoDesarrollo{}).(continuacionLigadaDesarrollo)
 	if !ok || l.solicitud != m.Solicitud || l.soloRecuperacion != (p.expediente.VersionActual > 6) ||
 		!antecedenteContinuacionDesarrolloValido(ctx, l.antecedente.Resolucion.Solicitud) ||
-		!consultaJustificanteLigadaAlExpedienteDesarrollo(p.expediente, l.antecedente.Resolucion.Solicitud) {
+		!antecedenteLigadoAlExpedienteDesarrollo(p.expediente, l.antecedente.Resolucion.Solicitud) {
 		return false
 	}
 	if d.Accion == postgresct.AccionConsultaJustificanteRespuestaRecibida {
 		s, ok := ctx.Value(claveConsultaJustificanteRespuestaDesarrollo{}).(ports.SolicitudResolverLlamamiento)
-		return ok && s == l.antecedente.Resolucion.Solicitud && d.ReferenciaMotivo == motivoConsultaJustificanteRespuestaDesarrollo() &&
+		return ok && !l.antecedente.EsExpiracion() && s == l.antecedente.Resolucion.Solicitud &&
+			d.ReferenciaMotivo == motivoConsultaJustificanteRespuestaDesarrollo() &&
 			igual(postgresct.RecursoConsultaJustificanteRespuestaRecibida(s))
 	}
+	recursoBolsa := func(referencia string) bool {
+		return l.antecedenteLigado() && r.ModuloID == "bolsa" && r.Tipo == "integracion_llamamientos_bolsa" && r.Referencia == referencia &&
+			len(r.Ambitos) == 2 && r.Ambitos["categoria_ref"] == "categoria:desarrollo:c2" && r.Ambitos["unidad_ref"] == unidadCoberturaContratacionTemporalDesarrollo &&
+			len(r.Atributos) == 2 && r.Atributos["necesidad_ref"] == l.seleccion.Necesidad.Referencia &&
+			huellaSHA256ValidaContratacionTemporalDesarrollo(r.Atributos["contenido_sha256"])
+	}
+	// Cierre «sin respuesta» en Bolsa: mismo permiso y motivo que la renuncia,
+	// solo tras una expiración confirmada y sobre su terminal exacto.
+	if d.Accion == puertosbolsa.AccionRenunciarLlamamientoRRHHDesarrollo {
+		return l.antecedente.EsExpiracion() && !l.soloRecuperacion && d.ReferenciaMotivo == motivoRenunciaBolsaDesarrollo() &&
+			recursoBolsa(terminalContinuacionDesarrollo(l))
+	}
 	return d.Accion == puertosbolsa.AccionAbrirSiguienteLlamamientoDesarrollo && d.ReferenciaMotivo == motivoContinuacionDesarrollo(true) &&
-		l.justificante.ValidarPara(l.antecedente.Resolucion.Solicitud) == nil &&
-		r.ModuloID == "bolsa" && r.Tipo == "integracion_llamamientos_bolsa" && r.Referencia == operacionSiguienteDesarrollo(l.solicitud) &&
-		len(r.Ambitos) == 2 && r.Ambitos["categoria_ref"] == "categoria:desarrollo:c2" && r.Ambitos["unidad_ref"] == unidadCoberturaContratacionTemporalDesarrollo &&
-		len(r.Atributos) == 2 && r.Atributos["necesidad_ref"] == l.justificante.Seleccion.Necesidad.Referencia &&
-		huellaSHA256ValidaContratacionTemporalDesarrollo(r.Atributos["contenido_sha256"])
+		recursoBolsa(operacionSiguienteDesarrollo(l.solicitud))
+}
+
+// antecedenteLigadoAlExpedienteDesarrollo: la renuncia exige el justificante
+// consultable; la expiración confirmada no tiene respuesta personal y solo liga
+// el expediente fiscalizado del aviso (CT111 comprobó contacto y plazo).
+func antecedenteLigadoAlExpedienteDesarrollo(e ports.ExpedienteParaSeleccion, s ports.SolicitudResolverLlamamiento) bool {
+	if s.Respuesta == ports.RespuestaLlamamientoExpirada {
+		return s.Validar() == nil && s.VersionEsperada == 2 && e.Fiscalizado.Validar() == nil &&
+			expedienteComunicacionLlamamientoDesarrolloValido(e, ports.SolicitudRegistrarComunicacionLlamamiento{
+				OrganizacionRef: s.OrganizacionRef, ExpedienteRef: s.ExpedienteRef,
+			})
+	}
+	return consultaJustificanteLigadaAlExpedienteDesarrollo(e, s)
 }
 
 func configurarAutoridadContinuacionDesarrollo(ctx context.Context, alta *dependenciasAltaContratacionTemporalDesarrollo, reloj relojContratacionTemporalDesarrollo, desde time.Time) error {
