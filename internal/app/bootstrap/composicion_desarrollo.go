@@ -264,6 +264,11 @@ func nuevoServidorDesarrollo(
 		return nil, nil, err
 	}
 	rutasContratacion = append(rutasContratacion, rutasBolsasRRHH...)
+	rutaReglasSituacionBolsa, err := componerReglasSituacionBolsaDesarrollo(reglasEjemplo.bolsa, autoridadContratacion.manejadorSituacionParticipacion)
+	if err != nil {
+		return nil, nil, err
+	}
+	rutasContratacion = append(rutasContratacion, rutaReglasSituacionBolsa)
 	coleccionesBolsasRRHH = append(coleccionesBolsasRRHH, autoridadContratacion.coleccionesAdicionales...)
 	rutasContratacion = append(rutasContratacion, rutasCalendarios...)
 	autoridadDietas, cerrarDietas, err := nuevasRutasDietasDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia)
