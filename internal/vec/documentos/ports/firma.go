@@ -52,14 +52,51 @@ type ResultadoVerificacionFirma struct {
 	RevocacionEstado        string
 }
 
-// ValidarContra solo acepta un resultado positivo y ligado a ambos contenidos.
-// Un estado indeterminado, un eco de huella o revocacion dudosa no firma nada.
+// PoliticaVerificacionFirmaV1 identifica la politica de verificacion de firma
+// que aplica VEC. Cualquier cambio de sus reglas exige una version nueva.
+//
+// Reglas de la v1 (verificacion autonoma, sin depender de otros servicios):
+//   - Confianza: solo anclas locales fijadas por despliegue; el almacen del
+//     sistema no cuenta.
+//   - Revocacion: solo `vigente` permite `valida`, con evidencia local (CRL
+//     del directorio montado o embebida en la firma). OCSP y consultas
+//     remotas son extensiones opcionales, nunca requisito.
+//   - Sello de tiempo: opcional. `no_presente` y `no_comprobado` no bloquean
+//     (la validez se evalua en el instante de la comprobacion y VEC no se
+//     apoya en el sello como prueba de tiempo); un sello presente y
+//     `no_valido` deja la verificacion indeterminada.
+//   - Vinculo: la firma debe cubrir el original custodiado por VEC
+//     (`acreditado`); no basta con que no se aportara.
+//   - Un unico firmante identificado por la huella SHA-256 de su certificado.
+const PoliticaVerificacionFirmaV1 = "politica:vec:firma:verificacion-autonoma:v1"
+
+// Estados cerrados de revocacion y sello de tiempo del resultado.
+const (
+	RevocacionVigente      = "vigente"
+	RevocacionRevocado     = "revocado"
+	RevocacionNoComprobada = "no_comprobada"
+
+	SelloTiempoNoPresente   = "no_presente"
+	SelloTiempoValido       = "valido"
+	SelloTiempoNoValido     = "no_valido"
+	SelloTiempoNoComprobado = "no_comprobado"
+)
+
+// SelloTiempoAdmisible aplica la regla de sello de PoliticaVerificacionFirmaV1:
+// el sello es opcional, pero uno presente y no valido impide acreditar.
+func SelloTiempoAdmisible(estado string) bool {
+	return estado == SelloTiempoNoPresente || estado == SelloTiempoValido || estado == SelloTiempoNoComprobado
+}
+
+// ValidarContra solo acepta un resultado positivo y ligado a ambos contenidos,
+// conforme a PoliticaVerificacionFirmaV1. Un estado indeterminado, un eco de
+// huella, una revocacion no vigente o un sello no valido no firman nada.
 func (r ResultadoVerificacionFirma) ValidarContra(s SolicitudVerificacionFirma) error {
 	if s.Validar() != nil || r.Estado != EstadoVerificacionValida || !r.VinculoOriginal ||
 		r.HuellaOriginalSHA256 != s.HuellaOriginalSHA256 ||
 		!domain.ReferenciaOpacaValida(r.FirmanteRef) ||
 		!domain.HuellaValida(r.CertificadoHuellaSHA256) ||
-		r.SelloTiempoEstado != "valido" || r.RevocacionEstado != "vigente" {
+		!SelloTiempoAdmisible(r.SelloTiempoEstado) || r.RevocacionEstado != RevocacionVigente {
 		return ErrVerificacionFirmaInvalida
 	}
 	suma := sha256.Sum256(s.ContenidoFirmado)
