@@ -47,9 +47,6 @@ VALUES
   'Datos sintéticos de desarrollo; municipio asignado ficticio y calendario de centro no aprobado',
   'vec:sintetico:calendarios:2026', '2026-09-25', true, 'es-an', 'municipio:sintetico:a');
 
--- Criterio: se clasifica como nacional lo que el anexo de BOE-A-2025-21667 fija para todas las comunidades
--- en 2026 (incluido el 6 de enero, sustituible por las comunidades pero no sustituido este año); lo que una
--- comunidad sustituye o añade va en su calendario autonómico.
 INSERT INTO vec_calendarios.dia_calendario (version_id, fecha, efecto, denominacion) VALUES
  ('calendario:nacional:es:2026:v1', '2026-01-01', 'festivo', 'Año Nuevo'),
  ('calendario:nacional:es:2026:v1', '2026-01-06', 'festivo', 'Epifanía del Señor'),

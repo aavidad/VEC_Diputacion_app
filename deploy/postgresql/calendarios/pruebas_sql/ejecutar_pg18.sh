@@ -41,6 +41,8 @@ for f in "$roles_dir"/roles_up.sql "$roles_dir"/roles_down.sql "$mig_dir"/*.sql 
 done
 sed 's/^COMMIT;$/ROLLBACK;/' "$mig_dir/000002_calendarios_2026.up.sql" >"$salida/000002_rollback.sql"
 docker cp "$salida/000002_rollback.sql" "$container:/tmp/000002_rollback.sql"
+sed 's/^COMMIT;$/ROLLBACK;/' "$mig_dir/000003_centros_sin_truncar.up.sql" >"$salida/000003_rollback.sql"
+docker cp "$salida/000003_rollback.sql" "$container:/tmp/000003_rollback.sql"
 
 echo 'PG18: roles y estructura; retirada de una historia vacía y reinstalación'
 aplicar roles_up.sql
@@ -57,6 +59,15 @@ echo 'PG18: carga 2026 confirmada y casos'
 aplicar 000002_calendarios_2026.up.sql
 psql_c -At -c "SELECT count(*)||'/'||(SELECT count(*) FROM vec_calendarios.dia_calendario) FROM vec_calendarios.version_calendario" | grep -qx '8/22'
 psql_c -f /tmp/casos.sql | grep -q 'OK casos Calendarios'
+
+echo 'PG18: 000003 sustituye la lista de centros sin truncar'
+aplicar 000003_rollback.sql
+psql_c -At -c "SELECT position('LIMIT 1000' in pg_get_functiondef('vec_calendarios.centros_con_calendario_v1(integer,timestamptz)'::regprocedure))>0" | grep -qx t
+aplicar 000003_centros_sin_truncar.up.sql
+psql_c -At -c "SELECT position('54000' in pg_get_functiondef('vec_calendarios.centros_con_calendario_v1(integer,timestamptz)'::regprocedure))>0" | grep -qx t
+psql_c -At -c "SET ROLE vec_prueba_calendarios_lector; SELECT count(*) FROM vec_calendarios.centros_con_calendario_v1(2026, now())" | grep -qx 4
+debe_fallar 000003_centros_sin_truncar.up.sql 55000
+debe_fallar 000003_centros_sin_truncar.down.sql 55000
 
 echo 'PG18: retiradas protegidas con historia'
 debe_fallar 000002_calendarios_2026.down.sql 55000
