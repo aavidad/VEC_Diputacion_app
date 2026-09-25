@@ -130,6 +130,7 @@ func TestFichaPropiaHTTPDenegacionesAuditadas(t *testing.T) {
 		"ambiguo":      {func() *http.Request { return httptest.NewRequest(http.MethodGet, RutaFichaPropia, nil) }, personaldomain.ErrFichaPropiaAmbigua, 403, "empleado_ambiguo", true},
 		"denegado":     {func() *http.Request { return httptest.NewRequest(http.MethodGet, RutaFichaPropia, nil) }, personaldomain.ErrFichaPropiaDenegada, 403, "acceso_denegado", true},
 		"caido":        {func() *http.Request { return httptest.NewRequest(http.MethodGet, RutaFichaPropia, nil) }, errors.New("detalle"), 503, "no_disponible", true},
+		"excede":       {func() *http.Request { return httptest.NewRequest(http.MethodGet, RutaFichaPropia, nil) }, personaldomain.ErrFichaPropiaExcedeLimite, 422, "excede_limite", true},
 	}
 	for nombre, caso := range casos {
 		t.Run(nombre, func(t *testing.T) {

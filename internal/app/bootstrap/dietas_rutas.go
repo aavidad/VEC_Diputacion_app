@@ -259,6 +259,12 @@ func nuevasRutasDietasDesarrollo(cfg config.Config, resolvedor httpapi.DemoIdent
 	return a, cerrar, nil
 }
 
+// abrirPoolRutasDietas abre un pool nominal de desarrollo (TLS verificado,
+// LOGIN miembro exclusivo de un único rol NOLOGIN) y devuelve su usuario.
+// Pendiente: lo usan también Cronos (cronos_empleado.go) y la ficha propia
+// de Personal (personal_empleado.go), así que debería llamarse
+// abrirPoolFronteraDesarrollo y recibir su application_name. No se renombra
+// en este corte para no chocar con las ramas paralelas que lo llaman.
 func abrirPoolRutasDietas(ctx context.Context, dsn, rol string) (*pgxpool.Pool, string, error) {
 	fallo := httpapi.ErrRutaDietasNoDisponible
 	if dsn == "" {

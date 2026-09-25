@@ -78,12 +78,12 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
     const [contrato, cliente, vista, ficha, registro, clienteRegistro, clienteCatalogosRegistro, i18n, clienteFichaPropia] = await Promise.all([
       import("./modulos/personal/contrato.js?v=20260920-personal-catalogo-v1"),
       import("./modulos/personal/cliente-http-categorias.js?v=20260925-portal-integrado-v1"),
-      import("./modulos/personal/vista.js?v=20260925-portal-integrado-v1"),
+      import("./modulos/personal/vista.js?v=20260925-personal-e10-v1"),
       import("./modulos/personal/vista-ficha-integral.js?v=20260925-personal-e10-v1"),
-      import("./modulos/personal/registro-b2.js?v=20260925-portal-integrado-v1"),
+      import("./modulos/personal/registro-b2.js?v=20260925-personal-e10-v1"),
       import("./modulos/personal/registro-b2-cliente.js?v=20260925-b2-selector-v1"),
       import("./modulos/personal/registro-b2-catalogos-cliente.js?v=20260925-b2-mtls-v1"),
-      import("./modulos/personal/i18n.js?v=20260925-portal-integrado-v1"),
+      import("./modulos/personal/i18n.js?v=20260925-personal-e10-v1"),
       import("./modulos/personal/cliente-http-ficha-propia.js?v=20260925-personal-e10-v1"),
     ]);
     return Object.freeze({ contrato, cliente, vista, clienteCategorias: cliente, vistaCategorias: vista,
@@ -97,7 +97,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       import("./modulos/personal/cliente-http-rpt-publica.js?v=20260925-portal-integrado-v1"),
       import("./modulos/personal/vista-rpt-publica.js?v=20260925-portal-integrado-v1"),
       import("./modulos/personal/cliente-http-estructura-organizativa-publica.js?v=20260925-portal-integrado-v1"),
-      import("./modulos/personal/vista-estructura-organizativa-publica.js?v=20260925-portal-integrado-v1"),
+      import("./modulos/personal/vista-estructura-organizativa-publica.js?v=20260925-personal-e10-v1"),
     ]);
     return Object.freeze({ clienteRPT, vistaRPT, clienteEstructura, vistaEstructura });
   },
@@ -829,17 +829,33 @@ export function crearCoordinadorModulosPortal({
     if (vista === "personal") {
       raiz.replaceChildren();
       const navegacionFicha = navegacionPersonal(raiz, vista);
-      const moduloPersonal = await composicion.personal.montar({
-        raiz,
-        cliente: composicion.personal.cliente,
-        anunciar,
-        registrarDesmontar: (limpiar) => {
-          if (typeof limpiar !== "function") throw new TypeError("limpieza de Personal no válida");
-          const retirar = () => { limpiar(); navegacionFicha?.remove(); };
-          if (montaje !== secuenciaMontaje) { retirar(); return; }
-          desmontarVista = retirar;
-        },
-      });
+      // La ficha consulta sus fuentes antes de pintarse: mientras tanto se ve
+      // el mismo estado de carga común del shell y salir de la vista cancela
+      // la consulta en curso.
+      const controlador = new AbortController();
+      const cargando = panelComprobando(raiz);
+      raiz.append(cargando);
+      desmontarVista = () => { controlador.abort(); cargando.remove(); navegacionFicha?.remove(); };
+      let moduloPersonal;
+      try {
+        moduloPersonal = await composicion.personal.montar({
+          raiz,
+          cliente: composicion.personal.cliente,
+          anunciar,
+          signal: controlador.signal,
+          registrarDesmontar: (limpiar) => {
+            if (typeof limpiar !== "function") throw new TypeError("limpieza de Personal no válida");
+            const retirar = () => { controlador.abort(); limpiar(); navegacionFicha?.remove(); };
+            if (montaje !== secuenciaMontaje) { retirar(); return; }
+            desmontarVista = retirar;
+          },
+        });
+      } catch (error) {
+        cargando.remove();
+        if (montaje !== secuenciaMontaje || controlador.signal.aborted) return false;
+        throw error;
+      }
+      cargando.remove();
       if (montaje !== secuenciaMontaje) {
         moduloPersonal.desmontar();
         navegacionFicha?.remove();
@@ -868,6 +884,21 @@ export function crearCoordinadorModulosPortal({
     }
     desmontarVista = moduloDietas.desmontar;
     return true;
+  }
+
+  // Estado de carga común de las vistas del shell, como nodo: el mismo panel
+  // «Comprobando» con el que montarVista abre cualquier vista.
+  function panelComprobando(raiz) {
+    const documento = raiz.ownerDocument;
+    const seccion = documento.createElement("section");
+    seccion.className = "panel";
+    seccion.dataset.portalCargaVista = "";
+    const cuerpo = documento.createElement("div");
+    cuerpo.className = "cuerpo-panel";
+    cuerpo.setAttribute("role", "status");
+    cuerpo.textContent = traducir("estado_modulo_comprobando");
+    seccion.append(cuerpo);
+    return seccion;
   }
 
   // Consulta mínima autorizada del registro. Devuelve true si responde, false

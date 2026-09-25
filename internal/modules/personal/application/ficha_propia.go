@@ -88,5 +88,8 @@ func errorFichaPropiaOpaco(ctx context.Context, err error) error {
 	if errors.Is(err, domain.ErrFichaPropiaDenegada) {
 		return domain.ErrFichaPropiaDenegada
 	}
+	if errors.Is(err, domain.ErrFichaPropiaExcedeLimite) {
+		return domain.ErrFichaPropiaExcedeLimite
+	}
 	return domain.ErrFichaPropiaNoDisponible
 }

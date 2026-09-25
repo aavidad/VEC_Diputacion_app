@@ -29,6 +29,9 @@ var (
 	ErrFichaPropiaAmbigua      = errors.New("personal: la persona tiene varios empleados")
 	ErrFichaPropiaDenegada     = errors.New("personal: ficha propia denegada")
 	ErrFichaPropiaNoDisponible = errors.New("personal: ficha propia no disponible")
+	// ErrFichaPropiaExcedeLimite: la ficha existe pero algún apartado supera
+	// LimiteFilasFichaPropia; se informa como estado propio, no como caída.
+	ErrFichaPropiaExcedeLimite = errors.New("personal: la ficha propia excede el límite de filas")
 )
 
 type SolicitudFichaPropia struct {

@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { RUTA_FICHA_PROPIA, crearFuentesFichaPropia } from "./cliente-http-ficha-propia.js";
+import { LIMITE_TEXTO_FICHA_PROPIA, RUTA_FICHA_PROPIA, crearFuentesFichaPropia } from "./cliente-http-ficha-propia.js";
+import { LIMITE_TEXTO_CAMPO_FICHA } from "./vista-ficha-integral.js";
 import { crearTraductorFichaPropia, formatearDiasFichaPropia } from "./i18n-ficha-propia.js";
 
 const FICHA = Object.freeze({
@@ -38,7 +39,7 @@ test("una sola consulta same-origin alimenta relaciones y servicios con textos l
   assert.equal(relaciones.estado, "disponible");
   assert.equal(relaciones.fuente, "Registro de Personal");
   assert.equal(relaciones.actualizado_en, "2026-09-25T09:00:00.000000Z");
-  assert.deepEqual(relaciones.items[0], { desde: "2026-01-01", hasta: "", regimen: "Funcionario interino · Vacante", puesto: "Técnico/a de gestión", unidad: "Servicio de Personal", estado: "Servicio activo" });
+  assert.deepEqual(relaciones.items[0], { desde: "2026-01-01", hasta: "Actualidad", regimen: "Funcionario interino · Vacante", puesto: "Técnico/a de gestión", unidad: "Servicio de Personal", estado: "Servicio activo" });
   assert.deepEqual(relaciones.items[1], { desde: "2020-03-01", hasta: "2020-12-31", regimen: "Laboral temporal", puesto: "", unidad: "", estado: "Finalizada" });
   assert.deepEqual(servicios.items, [{ desde: "2019-01-01", hasta: "2019-12-31", procedencia: "Servicios previos", reconocimiento: "1365 días", estado: "Reconocido" }]);
   assert.ok(!JSON.stringify([relaciones, servicios]).match(/(?:emp|per|rel|srv)_/u), "sin referencias internas");
@@ -61,6 +62,55 @@ test("sin fuente servida, sin permiso o con respuesta no válida los apartados n
     const fuentes = await crearFuentesFichaPropia({ fetchImpl: async () => caso() }).preparar();
     assert.deepEqual(fuentes, {}, `caso ${indice}`);
   }
+});
+
+test("la columna Estado da el estado de la relación si no está vigente; la abierta llega hasta la actualidad", async () => {
+  const relaciones = [
+    { inicio: "2026-02-01", fin: "", estado: "suspendida", regimen: "Laboral", modalidad: "", unidad: "", puesto: "", situacion: "Servicio activo" },
+    { inicio: "2025-01-01", fin: "2025-12-31", estado: "finalizada", regimen: "Laboral", modalidad: "", unidad: "", puesto: "", situacion: "Excedencia voluntaria" },
+    { inicio: "2026-03-01", fin: "", estado: "vigente", regimen: "Laboral", modalidad: "", unidad: "", puesto: "", situacion: "" },
+  ];
+  const sobre = { data: { ...FICHA.data, ficha: { ...FICHA.data.ficha, relaciones } } };
+  const fuentes = await crearFuentesFichaPropia({ fetchImpl: async () => respuesta(sobre) }).preparar();
+  const { items } = await fuentes.relaciones.consultarPropios({});
+  assert.deepEqual(items.map((item) => [item.hasta, item.estado]),
+    [["Actualidad", "Suspendida"], ["2025-12-31", "Finalizada"], ["Actualidad", "Vigente"]]);
+});
+
+test("límite de texto único: régimen y modalidad largos se recortan y la vista los admite", async () => {
+  assert.equal(LIMITE_TEXTO_FICHA_PROPIA, 300);
+  assert.equal(LIMITE_TEXTO_CAMPO_FICHA, LIMITE_TEXTO_FICHA_PROPIA, "cliente y vista comparten límite");
+  const largo = "R".repeat(300); const emoji = "😀".repeat(150);
+  const relaciones = [
+    { inicio: "2026-01-01", fin: "", estado: "vigente", regimen: largo, modalidad: largo, unidad: largo, puesto: largo, situacion: largo },
+    { inicio: "2026-01-01", fin: "", estado: "vigente", regimen: "A", modalidad: emoji, unidad: "", puesto: "", situacion: "" },
+  ];
+  const sobre = { data: { ...FICHA.data, ficha: { ...FICHA.data.ficha, relaciones } } };
+  const fuentes = await crearFuentesFichaPropia({ fetchImpl: async () => respuesta(sobre) }).preparar();
+  const { items } = await fuentes.relaciones.consultarPropios({});
+  assert.equal(items[0].regimen.length, 300);
+  assert.ok(items[0].regimen.endsWith("…"));
+  assert.ok(items.every((item) => Object.values(item).every((valor) => valor.length <= LIMITE_TEXTO_CAMPO_FICHA)));
+  assert.doesNotMatch(items[1].regimen, /[\ud800-\udbff](?![\udc00-\udfff])/u, "sin pares sustitutos partidos");
+  const excedido = { data: { ...FICHA.data, ficha: { ...FICHA.data.ficha, relaciones: [{ ...relaciones[0], unidad: `${largo}x` }] } } };
+  assert.deepEqual(await crearFuentesFichaPropia({ fetchImpl: async () => respuesta(excedido) }).preparar(), {});
+});
+
+test("más filas de las que se muestran: los apartados se ofrecen con estado propio, sin volver a consultar", async () => {
+  const exceso = [
+    () => respuesta({ error: "excede_limite" }, 422),
+    () => respuesta({ data: { ...FICHA.data, ficha: { ...FICHA.data.ficha, servicios: Array.from({ length: 201 }, () => FICHA.data.ficha.servicios[0]) } } }),
+  ];
+  for (const [indice, caso] of exceso.entries()) {
+    let llamadas = 0;
+    const fuentes = await crearFuentesFichaPropia({ fetchImpl: async () => { llamadas += 1; return caso(); } }).preparar();
+    assert.deepEqual(Object.keys(fuentes), ["relaciones", "servicios"], `caso ${indice}`);
+    assert.deepEqual(await fuentes.relaciones.consultarPropios({}), { estado: "excede_limite" });
+    assert.deepEqual(await fuentes.servicios.consultarPropios({}), { estado: "excede_limite" });
+    assert.equal(llamadas, 1, `caso ${indice}`);
+  }
+  // Un 422 con otro código no es un exceso de filas.
+  assert.deepEqual(await crearFuentesFichaPropia({ fetchImpl: async () => respuesta({ error: "otra_cosa" }, 422) }).preparar(), {});
 });
 
 test("una ficha sin registros deja los apartados vacíos, no en cero inventado", async () => {

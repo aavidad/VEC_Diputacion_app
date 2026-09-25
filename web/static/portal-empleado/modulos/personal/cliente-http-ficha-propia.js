@@ -13,6 +13,12 @@ export const RUTA_FICHA_PROPIA = "/api/interna/personal/mi-ficha";
 
 const MAXIMO_RESPUESTA_BYTES = 256 * 1024;
 const MAXIMO_FILAS = 200;
+/**
+ * Longitud máxima de cada texto de la ficha (denominaciones de 000020 y
+ * 000010). Es el mismo límite que admite la vista para cualquier celda, de
+ * modo que un texto válido para el servidor nunca invalida la tabla.
+ */
+export const LIMITE_TEXTO_FICHA_PROPIA = 300;
 const PLAZO_POR_DEFECTO_MS = 10_000;
 const ESTADOS_RELACION = new Set(["vigente", "suspendida", "finalizada"]);
 const ESTADOS_SERVICIO = new Set(["declarado", "comprobado", "reconocido"]);
@@ -40,7 +46,14 @@ function fecha(valor, vacia = false) {
   const d = new Date(`${valor}T12:00:00Z`);
   return Number.isFinite(d.getTime()) && d.toISOString().slice(0, 10) === valor;
 }
-function texto(valor) { return typeof valor === "string" && valor.length <= 300 && !/[\u0000-\u001f\u007f]/u.test(valor); }
+function texto(valor) { return typeof valor === "string" && valor.length <= LIMITE_TEXTO_FICHA_PROPIA && !/[\u0000-\u001f\u007f]/u.test(valor); }
+/** Recorta a LIMITE_TEXTO_FICHA_PROPIA con «…», sin partir un par sustituto. */
+function recortar(valor) {
+  if (valor.length <= LIMITE_TEXTO_FICHA_PROPIA) return valor;
+  let corte = valor.slice(0, LIMITE_TEXTO_FICHA_PROPIA - 1);
+  if (/[\ud800-\udbff]$/u.test(corte)) corte = corte.slice(0, -1);
+  return `${corte}…`;
+}
 
 function validarSobre(sobre) {
   const datos = sobre?.data;
@@ -49,8 +62,9 @@ function validarSobre(sobre) {
       typeof datos.recibo_ref !== "string" || !/^fichapropia:[0-9a-f-]{36}$/u.test(datos.recibo_ref) ||
       typeof datos.consultada_en !== "string" || !INSTANTE.test(datos.consultada_en) || !Number.isFinite(Date.parse(datos.consultada_en)) ||
       !claves(ficha, ["corte", "relaciones", "servicios"]) || !claves(ficha.corte, ["vigente_en", "conocido_en"]) || !fecha(ficha.corte.vigente_en) ||
-      !Array.isArray(ficha.relaciones) || !Array.isArray(ficha.servicios) ||
-      ficha.relaciones.length > MAXIMO_FILAS || ficha.servicios.length > MAXIMO_FILAS) throw error("sobre_no_valido", 200);
+      !Array.isArray(ficha.relaciones) || !Array.isArray(ficha.servicios)) throw error("sobre_no_valido", 200);
+  // Más filas de las que la vista pinta: estado propio, no desaparición.
+  if (ficha.relaciones.length > MAXIMO_FILAS || ficha.servicios.length > MAXIMO_FILAS) return Object.freeze({ excedeLimite: true });
   for (const r of ficha.relaciones) {
     if (!claves(r, ["inicio", "fin", "estado", "regimen", "modalidad", "unidad", "puesto", "situacion"]) ||
         !fecha(r.inicio) || !fecha(r.fin, true) || !ESTADOS_RELACION.has(r.estado) ||
@@ -87,6 +101,14 @@ async function consultar(fetchImpl, plazoMs, externo) {
       try { await respuesta.body?.cancel?.(); } catch {}
       return Object.freeze({ sinFuente: true, estado });
     }
+    // La ficha existe pero supera las filas que se pueden mostrar (SQL 54000):
+    // los apartados se ofrecen con ese estado propio.
+    if (estado === 422) {
+      let cuerpo = "";
+      try { cuerpo = await respuesta.text(); } catch {}
+      if (cuerpo === '{"error":"excede_limite"}') return Object.freeze({ excedeLimite: true });
+      throw error("estado_no_valido", estado);
+    }
     if (estado !== 200 || respuesta.ok !== true || respuesta.redirected === true) throw error("estado_no_valido", estado);
     const tipo = respuesta.headers?.get?.("content-type");
     const longitud = respuesta.headers?.get?.("content-length");
@@ -105,14 +127,20 @@ async function consultar(fetchImpl, plazoMs, externo) {
   }
 }
 
+/**
+ * Una relación abierta llega con fin vacío y se muestra «Actualidad». La
+ * columna Estado da la situación administrativa de una relación vigente y,
+ * si la relación no está vigente, su propio estado (suspendida, finalizada):
+ * la última situación de una relación terminada no la describe.
+ */
 function presentarRelaciones(ficha, t) {
   return ficha.relaciones.map((r) => ({
     desde: r.inicio,
-    hasta: r.fin,
-    regimen: [r.regimen, r.modalidad].filter(Boolean).join(" · "),
+    hasta: r.fin || t("relacion_abierta"),
+    regimen: recortar([r.regimen, r.modalidad].filter(Boolean).join(" · ")),
     puesto: r.puesto,
     unidad: r.unidad,
-    estado: r.situacion || t(`estado_relacion_${r.estado}`),
+    estado: r.estado === "vigente" ? (r.situacion || t("estado_relacion_vigente")) : t(`estado_relacion_${r.estado}`),
   }));
 }
 
@@ -128,10 +156,11 @@ function presentarServicios(ficha, t) {
 
 /**
  * Crea las fuentes de los apartados de la ficha para una vista montada.
- * `preparar()` hace la consulta una vez: con una ficha válida devuelve los
- * apartados, que se pintan desde esa misma respuesta; si la superficie no la
- * sirve, la persona no tiene acceso o la consulta falla, devuelve `{}` y los
- * apartados no se ofrecen.
+ * `preparar({signal})` hace la consulta una vez, cancelable por quien monta
+ * la vista: con una ficha válida devuelve los apartados, que se pintan desde
+ * esa misma respuesta; con más filas de las que se muestran los devuelve con
+ * el estado «excede_limite»; si la superficie no la sirve, la persona no
+ * tiene acceso o la consulta falla, devuelve `{}` y no se ofrecen.
  */
 export function crearFuentesFichaPropia({ fetchImpl = globalThis.fetch, traducir = crearTraductorFichaPropia(), plazoMs = PLAZO_POR_DEFECTO_MS } = {}) {
   if (typeof fetchImpl !== "function" || typeof traducir !== "function" ||
@@ -146,6 +175,7 @@ export function crearFuentesFichaPropia({ fetchImpl = globalThis.fetch, traducir
   const bloque = (presentar) => Object.freeze({
     async consultarPropios({ signal } = {}) {
       const consulta = await obtener(signal);
+      if (consulta.excedeLimite) return { estado: "excede_limite" };
       if (consulta.sinFuente) return { estado: consulta.estado === 404 ? "no_configurado" : "denegado" };
       const items = presentar(consulta.ficha, traducir);
       return { estado: items.length ? "disponible" : "vacio", fuente: traducir("fuente_registro"), actualizado_en: consulta.consultadaEn, items };

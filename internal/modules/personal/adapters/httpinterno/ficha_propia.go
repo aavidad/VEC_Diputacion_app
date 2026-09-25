@@ -97,6 +97,11 @@ func (m *ManejadorFichaPropia) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	case errors.Is(err, personaldomain.ErrFichaPropiaDenegada):
 		m.denegar(w, r, http.StatusForbidden, "acceso_denegado", actor.Principal.ID)
 		return
+	case errors.Is(err, personaldomain.ErrFichaPropiaExcedeLimite):
+		// La ficha existe, pero no cabe en la pantalla: estado propio (422),
+		// que el portal muestra en sus apartados en lugar de ocultarlos.
+		m.denegar(w, r, http.StatusUnprocessableEntity, "excede_limite", actor.Principal.ID)
+		return
 	case r.Context().Err() != nil:
 		return
 	default:

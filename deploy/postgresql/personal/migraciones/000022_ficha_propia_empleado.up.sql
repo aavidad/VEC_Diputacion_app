@@ -98,6 +98,7 @@ CREATE TABLE vec_personal.denegacion_frontera_ficha_propia (
     OR (motivo='empleado_ambiguo' AND estado_http=403)
     OR (motivo='no_encontrada' AND estado_http=404)
     OR (motivo='metodo_no_permitido' AND estado_http=405)
+    OR (motivo='excede_limite' AND estado_http=422)
     OR (motivo='dependencia_no_disponible' AND estado_http=503))
 );
 CREATE TRIGGER historia_inmutable BEFORE UPDATE OR DELETE ON vec_personal.denegacion_frontera_ficha_propia

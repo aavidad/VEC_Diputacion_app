@@ -4,6 +4,7 @@ const MENSAJES_FICHA_PROPIA_ES = Object.freeze({
   estado_relacion_vigente: "Vigente",
   estado_relacion_suspendida: "Suspendida",
   estado_relacion_finalizada: "Finalizada",
+  relacion_abierta: "Actualidad",
   estado_servicio_declarado: "Declarado",
   estado_servicio_comprobado: "Comprobado",
   estado_servicio_reconocido: "Reconocido",

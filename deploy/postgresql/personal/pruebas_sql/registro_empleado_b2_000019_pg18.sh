@@ -538,6 +538,13 @@ ok '000022 ficha propia: relaciones, situación y servicio con denominaciones, s
 if "$motor" exec "$contenedor" psql -X -qAt -v ON_ERROR_STOP=1 -U vec_prueba_frontera_personal -d "$base" \
   -c "SELECT vec_personal.registrar_denegacion_ficha_propia_v1('corr_0123456789abcdef0123456789abcdef','autenticacion_requerida',401::smallint,'per_sintetica_alcance_l_00000000000001')" >/dev/null 2>&1; then
   fallo 'autenticación requerida con actor admitida'; fi
+# Una ficha que excede el límite de filas se registra con su estado propio (422).
+"$motor" exec "$contenedor" psql -X -qAt -v ON_ERROR_STOP=1 -U vec_prueba_frontera_personal -d "$base" \
+  -c "SELECT vec_personal.registrar_denegacion_ficha_propia_v1('corr_0123456789abcdef0123456789abcdef','excede_limite',422::smallint,'per_sintetica_alcance_l_00000000000001')" >/dev/null ||
+  fallo 'el registrador no pudo inscribir el exceso de filas'
+if "$motor" exec "$contenedor" psql -X -qAt -v ON_ERROR_STOP=1 -U vec_prueba_frontera_personal -d "$base" \
+  -c "SELECT vec_personal.registrar_denegacion_ficha_propia_v1('corr_0123456789abcdef0123456789abcdef','excede_limite',503::smallint,NULL)" >/dev/null 2>&1; then
+  fallo 'exceso de filas con estado ajeno admitido'; fi
 if "$motor" exec "$contenedor" psql -X -qAt -v ON_ERROR_STOP=1 -U vec_prueba_personal -d "$base" \
   -c "SELECT vec_personal.registrar_denegacion_ficha_propia_v1('corr_no_disponible','acceso_denegado',403::smallint,NULL)" >/dev/null 2>&1; then
   fallo 'el ejecutor registró una denegación'; fi
@@ -552,6 +559,7 @@ ok '000022 denegaciones de frontera: solo el registrador inscribe, motivo/estado
 # ---------------------------------------------------------------------------
 Q=per_sintetica_alcance_q_00000000000001
 R=per_sintetica_alcance_r_00000000000001
+S=per_sintetica_alcance_s_00000000000001
 propia_do() {
   cat <<'SQL'
 DO $p$
@@ -597,7 +605,8 @@ como_lector() { "$motor" exec -i "$contenedor" psql -X -qAt -v ON_ERROR_STOP=1 -
 # Siembra: unidad y puesto de la relación vigente de P en org:synthetic, y dos
 # nodos que no deben aparecer (otra unidad del organismo y la misma unidad en
 # otro organismo). Q: empleado propio con una relación inscrita a otra persona.
-# R: dos proyecciones activas (ambigua).
+# R: dos proyecciones activas (ambigua). S: 201 servicios (más de los 200 que
+# admite la ficha).
 admin -o /dev/null <<SQL
 BEGIN;
 SET LOCAL ROLE vec_personal_propietario;
@@ -622,9 +631,15 @@ FROM (SELECT DISTINCT ON (relacion_ref) * FROM vec_personal.relacion_servicio_hi
 SELECT vec_personal.publicar_proyeccion_empleado_persona_v1(p.pep,1,p.per,p.emp,'activa',clock_timestamp()-interval '1 hour','2100-01-01',NULL,'prc_maestra_sintetica_p7_000000000001',1,repeat('a',64))
 FROM (VALUES ('pep_sintetica_alcance_q_0000000000001','$Q','emp_sintetico_alcance_q_00000000000001'),
              ('pep_sintetica_alcance_r_0000000000001','$R','emp_sintetico_alcance_r_00000000000001'),
-             ('pep_sintetica_alcance_r_0000000000002','$R','emp_sintetico_alcance_r_00000000000002')) p(pep,per,emp);
+             ('pep_sintetica_alcance_r_0000000000002','$R','emp_sintetico_alcance_r_00000000000002'),
+             ('pep_sintetica_alcance_s_0000000000001','$S','emp_sintetico_alcance_s_00000000000001')) p(pep,per,emp);
 INSERT INTO vec_personal.relacion_servicio_historia(relacion_ref,revision,persona_ref,empleado_ref,organismo_ref,unidad_ref,regimen_ref,modalidad_ref,estado,vigente_desde,conocido_desde,acto_ref,fuente_ref,fuente_version,fuente_huella_sha256,decision_ref,auditoria_ref,catalogo_snapshot)
-VALUES ('rel_sintetica_alcance_q_00000000000001',1,'$L','emp_sintetico_alcance_q_00000000000001','org:synthetic','uni:synthetic','reg:synthetic','mod:synthetic','vigente','2026-09-01',clock_timestamp(),'acto:synthetic:b2','fuente:synthetic:b2',1,repeat('b',64),'decision:synthetic:q','auditoria:synthetic:q','{}'::jsonb);
+VALUES ('rel_sintetica_alcance_q_00000000000001',1,'$L','emp_sintetico_alcance_q_00000000000001','org:synthetic','uni:synthetic','reg:synthetic','mod:synthetic','vigente','2026-09-01',clock_timestamp(),'acto:synthetic:b2','fuente:synthetic:b2',1,repeat('b',64),'decision:synthetic:q','auditoria:synthetic:q','{}'::jsonb),
+ ('rel_sintetica_alcance_s_00000000000001',1,'$S','emp_sintetico_alcance_s_00000000000001','org:synthetic','uni:synthetic','reg:synthetic','mod:synthetic','vigente','2026-09-01',clock_timestamp(),'acto:synthetic:b2','fuente:synthetic:b2',1,repeat('b',64),'decision:synthetic:s','auditoria:synthetic:s','{}'::jsonb);
+INSERT INTO vec_personal.servicio_reconocido_historia(servicio_ref,revision,relacion_ref,relacion_revision,empleado_ref,organismo_ref,clase_ref,dias_reconocidos,periodo_desde,periodo_hasta,estado,vigente_desde,conocido_desde,acto_ref,fuente_ref,fuente_version,fuente_huella_sha256,decision_ref,auditoria_ref,catalogo_snapshot)
+SELECT 'srv_sintetico_alcance_s_'||lpad(i::text,14,'0'),1,'rel_sintetica_alcance_s_00000000000001',1,'emp_sintetico_alcance_s_00000000000001','org:synthetic','antiguedad',1,
+ date '2000-01-01'+i,date '2000-01-02'+i,'reconocido','2020-01-01',clock_timestamp(),'acto:synthetic:b2','fuente:synthetic:b2',1,repeat('b',64),'decision:synthetic:s','auditoria:synthetic:s','{}'::jsonb
+FROM generate_series(1,201) i;
 COMMIT;
 SQL
 [[ $(admin_valor "SELECT count(*) FROM vec_personal.ocupacion_empleado_historia WHERE empleado_ref='$emp22'") == 1 ]] || fallo 'ocupación sintética no sembrada'
@@ -657,9 +672,10 @@ ok '000022 unidad y puesto sembrados de la relación propia; otra unidad y otro 
   lector_propia principal_ajeno 'SERIALIZABLE READ WRITE' "$emp22" "$P" "$L" 2026-09-26 '42501:material de ficha propia incompatible'; echo 'COMMIT;'
   lector_propia relacion_ajena 'SERIALIZABLE READ WRITE' emp_sintetico_alcance_q_00000000000001 "$Q" "$Q" 2026-09-26 '55000:ficha propia incoherente'; echo 'COMMIT;'
   lector_propia ambiguo 'SERIALIZABLE READ WRITE' emp_sintetico_alcance_r_00000000000001 "$R" "$R" 2026-09-26 '42501:empleado ajeno a la persona'; echo 'COMMIT;'
+  lector_propia excede 'SERIALIZABLE READ WRITE' emp_sintetico_alcance_s_00000000000001 "$S" "$S" 2026-09-26 '54000:ficha propia excede límite'; echo 'COMMIT;'
 } | como_lector >/dev/null
 [[ $(admin_valor "SELECT count(*) FROM vec_personal.recibo_ficha_propia_empleado") == 3 ]] || fallo 'un negativo de ficha propia dejó recibo'
-ok '000022 READ COMMITTED, REPEATABLE READ y READ ONLY, principal ajeno, relación de otra persona y empleado ambiguo denegados sin recibo'
+ok '000022 READ COMMITTED, REPEATABLE READ y READ ONLY, principal ajeno, relación de otra persona, empleado ambiguo y 201 servicios (54000) denegados sin recibo'
 
 # Carrera: el lector toma su instantánea, otra sesión revoca y confirma la
 # proyección de P, y solo entonces el lector consulta. La barrera de 000016
@@ -682,6 +698,6 @@ rm -f "$carrera_err"
 ok '000022 carrera: revocación confirmada tras la instantánea da 40001 sin recibo; después, la persona revocada se deniega'
 "$motor" restart "$contenedor" >/dev/null
 esperar
-[[ $(admin_valor "SELECT count(*) FROM vec_personal.recibo_ficha_propia_empleado") == 3 && $(admin_valor "SELECT count(*) FROM vec_personal.denegacion_frontera_ficha_propia") == 1 ]] || fallo 'recibos o denegaciones de ficha propia perdidos tras reinicio'
+[[ $(admin_valor "SELECT count(*) FROM vec_personal.recibo_ficha_propia_empleado") == 3 && $(admin_valor "SELECT count(*) FROM vec_personal.denegacion_frontera_ficha_propia") == 2 ]] || fallo 'recibos o denegaciones de ficha propia perdidos tras reinicio'
 ok '000022 recibos y denegación conservados tras reinicio'
 printf 'PG18 000019: B1 real; ROLLBACK/COMMIT, ACL, alta/replay/hechos, rechazo multi-org ajeno, caducidad con lock, reinicio y proyección consumida por ContextoActor 000007, lista 000021 y ficha propia 000022 (unidad/puesto, aislamiento, principal ajeno, relación de otra persona, ambigüedad y carrera 40001) correctas (AD3 simulado).\n'

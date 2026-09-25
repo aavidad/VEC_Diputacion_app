@@ -49,6 +49,8 @@ func (r *RepositorioRegistroEmpleadoB2PostgreSQL) ConsultarFichaPropia(ctx conte
 			return vacio, err
 		case errors.Is(err, errRegistroEmpleadoB2Denegado):
 			return vacio, domain.ErrFichaPropiaDenegada
+		case errors.Is(err, errRegistroEmpleadoB2ExcedeLimite):
+			return vacio, domain.ErrFichaPropiaExcedeLimite
 		default:
 			return vacio, domain.ErrFichaPropiaNoDisponible
 		}

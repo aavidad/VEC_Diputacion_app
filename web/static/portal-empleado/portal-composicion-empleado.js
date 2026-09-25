@@ -196,14 +196,15 @@ export function componerPersonalVisible(recursos, entorno, {
     },
   });
   // Ficha propia servida por Personal: una consulta al entrar decide qué
-  // apartados tienen fuente para esta persona; sin ella no se ofrecen.
+  // apartados tienen fuente para esta persona; sin ella no se ofrecen. La
+  // cancela la señal del coordinador al salir de la vista antes de responder.
   const crearFuentes = recursos.clienteFichaPropia?.crearFuentesFichaPropia;
   const conFichaPropia = typeof crearFuentes === "function" && typeof entorno.fetch === "function";
   return Object.freeze({
     montar: recursos.ficha?.montarVistaFichaIntegralPersonal
       ? (conFichaPropia
         ? async (entrada) => {
-          const fuentes = await crearFuentes({ fetchImpl: entorno.fetch.bind(entorno) }).preparar();
+          const fuentes = await crearFuentes({ fetchImpl: entorno.fetch.bind(entorno) }).preparar({ signal: entrada?.signal });
           return montarFicha(entrada, fuentes);
         }
         : (entrada) => montarFicha(entrada))

@@ -111,6 +111,12 @@ func TestFichaPropiaDenegacionSQLOpaca(t *testing.T) {
 	if _, err = r.ConsultarFichaPropia(context.Background(), o); !errors.Is(err, domain.ErrFichaPropiaNoDisponible) {
 		t.Fatal("incoherencia no tratada como no disponible", err)
 	}
+	// 54000: más filas de las que admite el contrato; estado propio, sin confirmar.
+	tx = &txP{errQ: &pgconn.PgError{Code: "54000", Message: "ficha propia excede límite"}}
+	r, _ = nuevoRepositorioRegistroEmpleadoB2PostgreSQL(&poolP{tx: tx})
+	if _, err = r.ConsultarFichaPropia(context.Background(), o); !errors.Is(err, domain.ErrFichaPropiaExcedeLimite) || tx.commits != 0 {
+		t.Fatal("exceso de filas no distinguido", err)
+	}
 }
 
 func TestFichaPropiaRechazaAtestacionAjenaAntesDeSQL(t *testing.T) {

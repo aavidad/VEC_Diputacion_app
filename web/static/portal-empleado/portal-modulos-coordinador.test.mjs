@@ -374,6 +374,40 @@ test("el portal real de Personal no ofrece apartados sin fuente y abre los catá
   assert.equal(raiz.querySelector("[data-personal-ficha-integral]"), null);
 });
 
+test("la ficha propia muestra el estado de carga común y salir de Personal cancela su consulta", async () => {
+  let senal; let liberar;
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    entorno: { fetch: (ruta, opciones) => {
+      if (ruta === "/api/interna/personal/mi-ficha") {
+        senal = opciones.signal;
+        return new Promise((_resolver, rechazar) => {
+          liberar = () => rechazar(new Error("no debe llegar"));
+          opciones.signal.addEventListener("abort", () => rechazar(new DOMException("abortada", "AbortError")));
+        });
+      }
+      return Promise.resolve(ruta.startsWith("/api/vec/personal/categories?") ? respuestaPersonalJSON(CATEGORIAS_PERSONAL_VACIAS)
+        : new Response(JSON.stringify({ error: "no_disponible" }), { status: 503, headers: { "Content-Type": "application/json; charset=utf-8" } }));
+    } },
+    cargarCatalogoInterno: async () => Object.freeze([{ clave: "personal" }]),
+    cargadoresInternos: { contratacion_temporal: async () => { throw new Error("no debe cargar CT"); } },
+  });
+  await coordinador.cargarInterno();
+  const raiz = raizDietasFalsa();
+  const montaje = coordinador.montarVista("personal", raiz);
+  await new Promise((resolve) => setImmediate(resolve));
+  const carga = raiz.querySelector("[data-portal-carga-vista]");
+  assert.ok(carga, "mientras consulta se ve el estado de carga común");
+  assert.equal(carga.children[0].textContent, "Comprobando");
+  assert.ok(senal && senal.aborted === false, "la señal llega a la consulta de la ficha");
+  coordinador.desmontarVistaActual();
+  assert.equal(senal.aborted, true, "salir de la vista cancela la consulta");
+  assert.equal(await montaje, false);
+  assert.equal(raiz.querySelector("[data-portal-carga-vista]"), null);
+  assert.equal(raiz.querySelector("[data-personal-ficha-integral]"), null, "una consulta cancelada no monta la ficha");
+  assert.equal(typeof liberar, "function");
+});
+
 test("con ficha propia servida, Personal ofrece relaciones y servicios con datos legibles", async () => {
   const llamadas = [];
   const ficha = { data: {
@@ -396,6 +430,7 @@ test("con ficha propia servida, Personal ofrece relaciones y servicios con datos
   assert.ok(!llamadas.some(([ruta]) => ruta.startsWith("/api/interna/personal/")), "cargar el portal no consulta la ficha propia");
   const raiz = raizDietasFalsa(); assert.equal(await coordinador.montarVista("personal", raiz), true);
   assert.deepEqual(llamadas.filter(([ruta]) => ruta === "/api/interna/personal/mi-ficha"), [["/api/interna/personal/mi-ficha", "same-origin"]]);
+  assert.equal(raiz.querySelector("[data-portal-carga-vista]"), null, "la carga común se retira al montar la ficha");
   assert.deepEqual(raiz.querySelectorAll("[data-personal-ficha-tab]").map((tab) => tab.dataset.personalFichaTab), ["ficha", "relaciones", "servicios", "catalogos"]);
   raiz.querySelector('[data-personal-ficha-tab="relaciones"]').listeners.click();
   await new Promise((resolve) => setImmediate(resolve));

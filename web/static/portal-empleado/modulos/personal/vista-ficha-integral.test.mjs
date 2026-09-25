@@ -134,6 +134,28 @@ test("estados separados: fuente ausente, vacío autorizado, denegado y error", a
   assert.equal(nodos(ficha).filter((n) => n.dataset.personalFichaEstado === "error").length, 2);
 });
 
+test("más filas de las que se muestran: estado propio visible, no desaparece; celdas hasta 300", async () => {
+  const raiz = raizFalsa(); const fila = (n) => ({ desde: "2026-01-01", hasta: "Actualidad", regimen: "R".repeat(n) });
+  montarVistaFichaIntegralPersonal({ raiz, ocultarSinFuente: true, fuentes: {
+    relaciones: { consultarPropios: () => ({ estado: "excede_limite" }) },
+    servicios: { consultarPropios: () => ({ estado: "disponible", fuente: "Registro de Personal", actualizado_en: "2026-09-24T08:00:00Z", items: [{ desde: "2026-01-01", procedencia: "S".repeat(300) }] }) },
+  } });
+  const ficha = raiz.querySelector("[data-personal-ficha-integral]");
+  tab(ficha, "relaciones").listeners.get("click")(); await completar();
+  assert.match(texto(ficha), /más registros de los que se pueden mostrar/);
+  tab(ficha, "servicios").listeners.get("click")(); await completar();
+  assert.ok(texto(ficha).includes("S".repeat(300)), "una celda de 300 caracteres se admite");
+  tab(ficha, "ficha").listeners.get("click")();
+  const bloque = nodos(ficha).find((n) => n.dataset.personalFichaEstado === "excede_limite");
+  assert.ok(bloque, "el apartado sigue en la portada con su estado");
+  assert.match(texto(bloque), /Demasiados registros/);
+  const otra = raizFalsa();
+  montarVistaFichaIntegralPersonal({ raiz: otra, fuentes: { relaciones: { consultarPropios: () => ({ estado: "disponible", fuente: "P", actualizado_en: "2026-09-24T08:00:00Z", items: [fila(301)] }) } } });
+  const fichaOtra = otra.querySelector("[data-personal-ficha-integral]");
+  tab(fichaOtra, "relaciones").listeners.get("click")(); await completar();
+  assert.match(texto(fichaOtra), /No se pudo consultar/);
+});
+
 test("cambiar de pestaña y desmontar aborta consultas sin pintar respuestas tardías", async () => {
   const raiz = raizFalsa(); let resolver; let senal;
   const montaje = montarVistaFichaIntegralPersonal({ raiz, fuentes: { relaciones: { consultarPropios({ signal }) { senal = signal; return new Promise((resolve) => { resolver = resolve; }); } } } });

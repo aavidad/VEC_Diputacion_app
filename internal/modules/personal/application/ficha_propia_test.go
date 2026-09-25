@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -118,6 +119,14 @@ func TestServicioFichaPropiaDeniegaSinLlegarAlRepositorio(t *testing.T) {
 				t.Fatalf("error %v, se esperaba %v", err, caso.err)
 			}
 		})
+	}
+}
+
+func TestServicioFichaPropiaDistingueExcesoDeFilas(t *testing.T) {
+	a := &autorizadorFichaPropiaPrueba{accion: domain.AccionFichaPropia, t: t}
+	s, _ := NuevoServicioFichaPropia(a, &repositorioFichaPropiaPrueba{err: fmt.Errorf("envuelto: %w", domain.ErrFichaPropiaExcedeLimite)})
+	if _, err := s.Consultar(context.Background(), solicitudFichaPropiaPrueba(t, "pep_")); !errors.Is(err, domain.ErrFichaPropiaExcedeLimite) || strings.Contains(err.Error(), "envuelto") {
+		t.Fatal("exceso de filas no distinguido u opaco", err)
 	}
 }
 
