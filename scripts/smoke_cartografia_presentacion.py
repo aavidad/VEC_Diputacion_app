@@ -60,12 +60,10 @@ def exigir(condicion: bool, mensaje: str) -> None:
 
 def main() -> int:
     base = base_autorizada()
-    estado, cabeceras, portada = solicitar(
-        base, "/portal-empleado/?presentacion=rrhh&perfil=administrador",
-    )
-    exigir(estado == 200, f"portal HTTP {estado}")
+    estado, cabeceras, portada = solicitar(base, "/bolsa/")
+    exigir(estado == 200, f"consulta pública HTTP {estado}")
     exigir(cabeceras.get("X-Vec-Modo-Presentacion") == "aislada-sintetica-v1", "falta marca de presentación")
-    exigir(b"Presentaci" in portada and b"portal" in portada.lower(), "portada RRHH inesperada")
+    exigir(b"Bolsa" in portada and b"portal" in portada.lower(), "portada pública inesperada")
 
     estado, _, convocatorias = solicitar(base, "/api/publico/bolsa/convocatorias")
     exigir(estado == 200, f"consulta pública HTTP {estado}")
@@ -119,19 +117,25 @@ def main() -> int:
     estado_get, _, _ = solicitar(base, "/api/presentacion/cartografia/rutas")
     estado_zoom, _, _ = solicitar(base, "/tiles/osm/15/16056/12734.png")
     estado_privado, _, _ = solicitar(base, "/api/vec/session")
-    estado_lanzador, cabeceras_lanzador, cuerpo_lanzador = solicitar(
-        base, "/presentacion/",
+    for ruta_cerrada in (
+        "/area-personal/", "/area-personal/aplicacion.js",
+        "/portal-empleado/", "/portal-empleado/portal.js",
+    ):
+        estado_cerrado, _, _ = solicitar(base, ruta_cerrada)
+        exigir(estado_cerrado == 404, f"superficie sin API expuesta: {ruta_cerrada} HTTP {estado_cerrado}")
+    estado_portal, cabeceras_portal, cuerpo_portal = solicitar(
+        base, "/bolsa/",
     )
     estado_cookie, cabeceras_cookie, cuerpo_cookie = solicitar(
-        base, "/presentacion/", cabeceras_extra={"Cookie": "sesion=no-admitida"},
+        base, "/bolsa/", cabeceras_extra={"Cookie": "sesion=no-admitida"},
     )
     exigir(estado_get == 403, f"GET cartográfico inesperado: {estado_get}")
     exigir(estado_zoom == 404, f"zoom no autorizado inesperado: {estado_zoom}")
     exigir(estado_privado == 404, f"API privada inesperada: {estado_privado}")
-    exigir(estado_lanzador == 200, f"lanzador inesperado: {estado_lanzador}")
+    exigir(estado_portal == 200, f"consulta pública inesperada: {estado_portal}")
     exigir(estado_cookie == 200, f"cookie ambiental no neutralizada: {estado_cookie}")
-    exigir(cuerpo_cookie == cuerpo_lanzador, "una cookie ambiental alteró el lanzador")
-    exigir(not cabeceras_lanzador.get("Set-Cookie"), "el lanzador emitió una cookie")
+    exigir(cuerpo_cookie == cuerpo_portal, "una cookie ambiental alteró la consulta pública")
+    exigir(not cabeceras_portal.get("Set-Cookie"), "la consulta pública emitió una cookie")
     exigir(not cabeceras_cookie.get("Set-Cookie"), "el borde respondió con una cookie")
 
     print("Smoke de cartografía real de la presentación superado.")

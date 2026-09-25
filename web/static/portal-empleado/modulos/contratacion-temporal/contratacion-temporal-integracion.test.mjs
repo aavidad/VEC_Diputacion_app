@@ -17,9 +17,7 @@ const [
   vistaFuente,
   estilos,
   coordinadorFuente,
-  coordinadorPruebas,
   indicePortal,
-  catalogoPresentacion,
   vistaExpedientesFuente,
   coberturaFuente,
 ] = await Promise.all([
@@ -28,9 +26,7 @@ const [
   readFile(new URL("vista.js", directorio), "utf8"),
   readFile(new URL("contratacion-temporal.css", directorio), "utf8"),
   readFile(new URL("../../portal-modulos-coordinador.js", directorio), "utf8"),
-  readFile(new URL("../../portal-modulos-coordinador-flujos.test.mjs", directorio), "utf8"),
   readFile(new URL("../../index.html", directorio), "utf8"),
-  readFile(new URL("../../portal-catalogo-presentacion.js", directorio), "utf8"),
   readFile(new URL("vista-expedientes.js", directorio), "utf8"),
   readFile(new URL("formulario-cobertura.js", directorio), "utf8"),
 ]);
@@ -96,18 +92,21 @@ test("el módulo completo se compone sin alterar las rutas de Bolsa, Cronos, Die
   assert.equal(rutaDeVistaPortal("cronos"), "#cronos");
   assert.equal(rutaDeVistaPortal("cronos-permisos"), "#cronos-permisos");
   assert.equal(rutaDeVistaPortal("dietas"), "#dietas");
-  assert.match(coordinadorFuente, /componerCronosVisible/);
+  assert.doesNotMatch(coordinadorFuente, /componerCronosVisible|componerDietasVisible/);
+  assert.match(coordinadorFuente, /CARGADORES_INTERNOS_PREDETERMINADOS/);
   assert.match(coordinadorFuente, /componerDietasInternas/);
-  assert.doesNotMatch(coordinadorFuente, /componerDietasVisible/);
-  assert.match(coordinadorPruebas, /Cronos se mantiene disponible y Dietas no monta una presentación sintética/);
+  assert.match(coordinadorFuente, /componerCronosInterno/);
+  assert.match(coordinadorFuente, /modulos\/cronos\/vista-saldo-conectado\.js\?v=/);
+  assert.match(coordinadorFuente, /modulos\/cronos\/vista-permisos-propios\.js\?v=/);
+  assert.match(coordinadorFuente, /import\("\.\/modulos\/contratacion-temporal\/adaptador-http-expedientes\.js"\)/);
   assert.match(indicePortal, /modulos\/cronos\/cronos\.css/);
   assert.match(indicePortal, /modulos\/dietas\/dietas\.css/);
-  assert.match(catalogoPresentacion, /clave: "contratacion_temporal"/);
-  assert.match(coordinadorFuente, /import\("\.\/modulos\/contratacion-temporal\/adaptador-presentacion\.js"\)/);
+  assert.match(coordinadorFuente, /import\("\.\/modulos\/contratacion-temporal\/vista-expedientes\.js\?v=/);
+  assert.doesNotMatch(coordinadorFuente, /adaptador-presentacion\.js/);
 
   const archivos = (await readdir(directorio)).sort();
   for (const nombre of [
-    "INTEGRACION.md", "adaptador-presentacion.js", "componentes-expedientes.js",
+    "INTEGRACION.md", "componentes-expedientes.js",
     "cliente-http-alta.js", "cliente-http.js", "contratacion-temporal-integracion.test.mjs",
     "contratacion-temporal.css",
     "contratacion-temporal.test.mjs", "contrato-expedientes.js", "contrato.js",

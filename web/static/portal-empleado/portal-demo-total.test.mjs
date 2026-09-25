@@ -9,7 +9,7 @@ test("el portal productivo no activa ni empaqueta el recorrido de presentación"
   const [portal, html, interno, produccion] = await Promise.all([
     leer("portal.js"), leer("index.html"), leer("../../interno.manifest"), leer("../../produccion.manifest"),
   ]);
-  assert.match(portal, /modoPresentacion: false/u);
+  assert.doesNotMatch(portal, /modoPresentacion|adaptadorPresentacion/u);
   assert.doesNotMatch(portal, /getAll\("presentacion"\)|getAll\("perfil"\)|\/presentacion\//u);
   assert.doesNotMatch(portal, /import\("[^"]*(?:datos-presentacion|portal-presentacion-adaptador|portal-borradores-demo-cliente|portal-resumen-presentacion|selector-perfiles)/u);
   assert.doesNotMatch(html, /aviso-presentacion|portal-llamamientos\.css|portal-baremacion\.css|portal-convocatorias\.css/u);

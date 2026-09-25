@@ -5,12 +5,6 @@ export const CLAVES_CARGA_MODULAR = Object.freeze([
   "dietas",
 ]);
 
-export const CLAVES_CARGA_PRESENTACION = Object.freeze([
-  ...CLAVES_CARGA_MODULAR,
-  "nominas", "solicitudes", "meritos", "comunicaciones",
-  "documentos", "aprobaciones", "auditoria", "administracion",
-]);
-
 export const LIMITE_CARGA_MODULAR_MS = 2_000;
 
 export function cargarModuloConLimite(cargar, clave, limiteMs, temporizadores) {
@@ -69,35 +63,4 @@ export function consultarConLimite(consultar, controlador, limiteMs, temporizado
         () => finalizar(rechazar, new Error(`no se pudo ${operacion}`)),
       );
   });
-}
-
-export async function resolverCargasModularesPresentacion(cargadores, {
-  claves = CLAVES_CARGA_PRESENTACION,
-  limiteMs = LIMITE_CARGA_MODULAR_MS,
-  temporizadores = globalThis,
-} = {}) {
-  if (!Array.isArray(claves)
-    || claves.some((clave) => !CLAVES_CARGA_PRESENTACION.includes(clave))
-    || new Set(claves).size !== claves.length
-    || !Number.isSafeInteger(limiteMs) || limiteMs < 1 || limiteMs > 10_000) {
-    throw new TypeError("configuración de carga modular no válida");
-  }
-  const clavesSolicitadas = new Set(claves);
-  const resultados = await Promise.allSettled(CLAVES_CARGA_PRESENTACION.map((clave) => {
-    if (!clavesSolicitadas.has(clave)) return Promise.resolve(undefined);
-    const cargar = cargadores?.[clave];
-    if (typeof cargar !== "function") {
-      return Promise.reject(new TypeError(`cargador modular ausente: ${clave}`));
-    }
-    return cargarModuloConLimite(cargar, clave, limiteMs, temporizadores);
-  }));
-  return Object.freeze(Object.fromEntries(CLAVES_CARGA_PRESENTACION.map((clave, indice) => {
-    if (!clavesSolicitadas.has(clave)) {
-      return [clave, Object.freeze({ disponible: false, estado: "denegado" })];
-    }
-    const resultado = resultados[indice];
-    return [clave, resultado.status === "fulfilled"
-      ? Object.freeze({ disponible: true, estado: "disponible", recursos: resultado.value })
-      : Object.freeze({ disponible: false, estado: "no_disponible" })];
-  })));
 }

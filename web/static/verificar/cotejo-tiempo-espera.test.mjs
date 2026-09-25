@@ -15,7 +15,7 @@ function diferida() {
   return { promesa, resolver };
 }
 
-function entorno() {
+function entorno(consulta = "") {
   const peticiones = [];
   const temporizadores = new Map();
   const boton = { disabled: false };
@@ -36,9 +36,9 @@ function entorno() {
   runInNewContext(codigo, {
     document: { getElementById(id) {
       return { "formulario-cotejo": formulario, referencia: entrada,
-        "resultado-cotejo": resultado, "aviso-presentacion": { hidden: true } }[id];
+        "resultado-cotejo": resultado }[id];
     } },
-    window: { location: { search: "" } },
+    window: { location: { search: consulta } },
     traducirVerificar,
     URLSearchParams,
     AbortController,
@@ -128,6 +128,49 @@ test("una respuesta antigua no pisa otra comprobación iniciada antes del vencim
   assert.equal(pagina.resultado.innerHTML, resultadoNuevo);
   assert.match(resultadoNuevo, /REF-PRUEBA-0002/);
   assert.equal(pagina.boton.disabled, false);
+});
+
+test("solo ref canónica inicia el POST; el parámetro de presentación no crea otra vía", async () => {
+  const canonica = entorno("?ref=REF-PRUEBA-0002");
+  assert.equal(canonica.entrada.value, "REF-PRUEBA-0002");
+  assert.equal(canonica.peticiones.length, 1);
+  canonica.peticiones[0].resolver(respuestaValida("REF-PRUEBA-0002"));
+  await asentar();
+  assert.equal(canonica.resultado.dataset.estado, "valido");
+
+  for (const consulta of ["?ref=REF-PRUEBA-0002&presentacion=rrhh", "?presentacion=rrhh", "?ref=REF-PRUEBA-0002&ref=REF-PRUEBA-0002"]) {
+    const pagina = entorno(consulta);
+    assert.equal(pagina.peticiones.length, 0, consulta);
+    assert.equal(pagina.entrada.value, "REF-PRUEBA-0001", consulta);
+  }
+});
+
+test("una referencia DEMO enviada a mano depende únicamente del cotejo público", async () => {
+  const pagina = entorno("?presentacion=rrhh");
+  pagina.entrada.value = "DEMO-REC-DIE-0073-06";
+  const envio = pagina.enviar();
+  assert.equal(pagina.peticiones.length, 1);
+  assert.equal(pagina.peticiones[0].ruta, "/api/publico/documentos/cotejo");
+  assert.equal(JSON.parse(pagina.peticiones[0].opciones.body).referencia, "DEMO-REC-DIE-0073-06");
+  pagina.peticiones[0].resolver({ ok: false, status: 404 });
+  await envio;
+  assert.equal(pagina.resultado.dataset.estado, "error");
+  assert.doesNotMatch(pagina.resultado.innerHTML, /Documento de demostración reconocido/);
+});
+
+test("un fallo del servicio y una respuesta sin datos cierran el resultado", async () => {
+  for (const respuesta of [
+    { ok: false, status: 503 },
+    { ok: true, json: async () => ({}) },
+  ]) {
+    const pagina = entorno();
+    const envio = pagina.enviar();
+    pagina.peticiones[0].resolver(respuesta);
+    await envio;
+    assert.equal(pagina.resultado.dataset.estado, "error");
+    assert.equal(pagina.boton.disabled, false);
+    assert.doesNotMatch(pagina.resultado.innerHTML, /Referencia comprobada/);
+  }
 });
 
 test("el límite de espera cubre también una lectura JSON que queda pendiente", async () => {

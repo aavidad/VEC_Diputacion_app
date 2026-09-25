@@ -56,6 +56,21 @@ if grep -Eq '^app/web/cartografia(/|$)' "$inventario_presentacion" ||
   exit 1
 fi
 
+if grep -Eq '^app/web/static/presentacion(/|$)' "$inventario_presentacion" ||
+   [ -e "$contenido_presentacion/app/web/static/presentacion" ]; then
+  echo "ERROR: el artefacto de presentacion conserva el lanzador retirado" >&2
+  exit 1
+fi
+
+for directorio_cerrado in area-personal portal-empleado verificar
+do
+  if grep -Eq "^app/web/static/${directorio_cerrado}(/|$)" "$inventario_presentacion" ||
+     [ -e "$contenido_presentacion/app/web/static/$directorio_cerrado" ]; then
+    echo "ERROR: el artefacto de presentacion conserva $directorio_cerrado sin API" >&2
+    exit 1
+  fi
+done
+
 for raiz in "$contenido_produccion" "$contenido_presentacion" "$contenido_cartografia"
 do
   if [ -e "$raiz/app/config" ]; then
@@ -76,9 +91,6 @@ do
 done
 
 for ruta in \
-  app/web/static/presentacion/index.html \
-  app/web/static/portal-empleado/datos-presentacion.js \
-  app/web/static/portal-empleado/portal-presentacion-adaptador.js \
   app/web/static/bolsa/documentos/bases-demo.css \
   app/web/static/bolsa/documentos/bases-auxiliar-demo.html \
   app/web/static/bolsa/documentos/bases-auxiliar-demo.pdf \

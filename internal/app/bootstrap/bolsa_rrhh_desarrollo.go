@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/url"
 	"sort"
@@ -145,7 +146,7 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		}
 	}
 	if h == nil || r == nil || r.URL == nil || r.URL.RawPath != "" || len(r.TransferEncoding) != 0 || cabeceraCatalogosAltaContratacionTemporalDesarrolloProhibida(cabeceras) {
-		responderAreaPersonalDesarrollo(w, http.StatusBadRequest, map[string]string{"codigo": "solicitud_invalida"})
+		responderBolsaRRHHDesarrollo(w, http.StatusBadRequest, map[string]string{"codigo": "solicitud_invalida"})
 		return
 	}
 	if esMutacionSituacion || esOperacion || esContacto || esDatosContacto {
@@ -157,19 +158,19 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	}
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
 		w.Header().Set("Allow", "GET, HEAD")
-		responderAreaPersonalDesarrollo(w, http.StatusMethodNotAllowed, map[string]string{"codigo": "metodo_no_permitido"})
+		responderBolsaRRHHDesarrollo(w, http.StatusMethodNotAllowed, map[string]string{"codigo": "metodo_no_permitido"})
 		return
 	}
 	if r.URL.Path == rutaEstadisticasBolsaRRHHDesarrollo {
 		if r.URL.RawQuery != "" || r.ContentLength != 0 {
-			responderAreaPersonalDesarrollo(w, http.StatusBadRequest, map[string]string{"codigo": "solicitud_invalida"})
+			responderBolsaRRHHDesarrollo(w, http.StatusBadRequest, map[string]string{"codigo": "solicitud_invalida"})
 			return
 		}
 		vista, ok := h.vistaDurable(r.Context(), w)
 		if !ok {
 			return
 		}
-		responderAreaPersonalDesarrollo(w, http.StatusOK, map[string]any{"data": vista.respuestaEstadisticas()}, r.Method == http.MethodHead)
+		responderBolsaRRHHDesarrollo(w, http.StatusOK, map[string]any{"data": vista.respuestaEstadisticas()}, r.Method == http.MethodHead)
 		return
 	}
 	if r.URL.Path == rutaAvisosBolsaRRHHDesarrollo {
@@ -178,24 +179,24 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	}
 	if r.URL.Path == rutaBolsasRRHHDesarrollo {
 		if r.URL.RawQuery != "" || r.ContentLength != 0 {
-			responderAreaPersonalDesarrollo(w, http.StatusBadRequest, map[string]string{"codigo": "solicitud_invalida"})
+			responderBolsaRRHHDesarrollo(w, http.StatusBadRequest, map[string]string{"codigo": "solicitud_invalida"})
 			return
 		}
 		vista, ok := h.vistaDurable(r.Context(), w)
 		if !ok {
 			return
 		}
-		responderAreaPersonalDesarrollo(w, http.StatusOK, map[string]any{"data": vista.respuestaBolsas()}, r.Method == http.MethodHead)
+		responderBolsaRRHHDesarrollo(w, http.StatusOK, map[string]any{"data": vista.respuestaBolsas()}, r.Method == http.MethodHead)
 		return
 	}
 	bolsaRef, ok := referenciaBolsaCandidatos(r.URL.Path)
 	if !ok || r.ContentLength != 0 {
-		responderAreaPersonalDesarrollo(w, http.StatusNotFound, map[string]string{"codigo": "recurso_no_encontrado"})
+		responderBolsaRRHHDesarrollo(w, http.StatusNotFound, map[string]string{"codigo": "recurso_no_encontrado"})
 		return
 	}
 	consulta, ok := consultaCandidatos(r.URL.RawQuery)
 	if !ok {
-		responderAreaPersonalDesarrollo(w, http.StatusBadRequest, map[string]string{"codigo": "solicitud_invalida"})
+		responderBolsaRRHHDesarrollo(w, http.StatusBadRequest, map[string]string{"codigo": "solicitud_invalida"})
 		return
 	}
 	vista, ok := h.vistaDurable(r.Context(), w)
@@ -203,30 +204,30 @@ func (h *bolsasRRHHDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if (h.contactos == nil && h.mutar != nil) || (h.contactos != nil && !h.cargarContactos(r.Context(), vista, bolsaRef)) {
-		responderAreaPersonalDesarrollo(w, http.StatusServiceUnavailable, map[string]string{"codigo": "servicio_no_disponible"})
+		responderBolsaRRHHDesarrollo(w, http.StatusServiceUnavailable, map[string]string{"codigo": "servicio_no_disponible"})
 		return
 	}
 	respuesta, encontrada := vista.respuestaCandidatos(bolsaRef, consulta)
 	if !encontrada {
-		responderAreaPersonalDesarrollo(w, http.StatusNotFound, map[string]string{"codigo": "recurso_no_encontrado"})
+		responderBolsaRRHHDesarrollo(w, http.StatusNotFound, map[string]string{"codigo": "recurso_no_encontrado"})
 		return
 	}
-	responderAreaPersonalDesarrollo(w, http.StatusOK, map[string]any{"data": respuesta}, r.Method == http.MethodHead)
+	responderBolsaRRHHDesarrollo(w, http.StatusOK, map[string]any{"data": respuesta}, r.Method == http.MethodHead)
 }
 
 func (h *bolsasRRHHDesarrollo) responderAvisos(w http.ResponseWriter, r *http.Request) {
 	consulta, ok := consultaAvisosRRHH(r.URL.RawQuery)
 	if !ok || r.ContentLength != 0 {
-		responderAreaPersonalDesarrollo(w, http.StatusBadRequest, map[string]string{"codigo": "solicitud_invalida"})
+		responderBolsaRRHHDesarrollo(w, http.StatusBadRequest, map[string]string{"codigo": "solicitud_invalida"})
 		return
 	}
 	if h == nil || h.avisos == nil {
-		responderAreaPersonalDesarrollo(w, http.StatusServiceUnavailable, map[string]string{"codigo": "servicio_no_disponible"})
+		responderBolsaRRHHDesarrollo(w, http.StatusServiceUnavailable, map[string]string{"codigo": "servicio_no_disponible"})
 		return
 	}
 	pagina, err := h.avisos.Consultar(r.Context(), consulta)
 	if err != nil {
-		responderAreaPersonalDesarrollo(w, http.StatusServiceUnavailable, map[string]string{"codigo": "servicio_no_disponible"})
+		responderBolsaRRHHDesarrollo(w, http.StatusServiceUnavailable, map[string]string{"codigo": "servicio_no_disponible"})
 		return
 	}
 	items := make([]map[string]any, 0, len(pagina.Avisos))
@@ -236,7 +237,7 @@ func (h *bolsasRRHHDesarrollo) responderAvisos(w http.ResponseWriter, r *http.Re
 			"detalle": aviso.Detalle, "fecha": aviso.Fecha.UTC().Format(time.RFC3339Nano),
 		})
 	}
-	responderAreaPersonalDesarrollo(w, http.StatusOK, map[string]any{"data": map[string]any{
+	responderBolsaRRHHDesarrollo(w, http.StatusOK, map[string]any{"data": map[string]any{
 		"esquema": "vec.bolsa.rrhh.avisos.v1", "generado_en": pagina.GeneradaEn.UTC().Format(time.RFC3339Nano),
 		"provisionalidad": pagina.Provisionalidad, "items": items,
 		"conteos":    pagina.Conteos,
@@ -296,7 +297,7 @@ func (h *bolsasRRHHDesarrollo) cargarContactos(ctx context.Context, vista *bolsa
 func (h *bolsasRRHHDesarrollo) vistaDurable(ctx context.Context, w http.ResponseWriter) (*bolsasRRHHDesarrolloDatos, bool) {
 	datos, err := h.cargar(ctx)
 	if err != nil {
-		responderAreaPersonalDesarrollo(w, http.StatusServiceUnavailable, map[string]string{"codigo": "servicio_no_disponible"})
+		responderBolsaRRHHDesarrollo(w, http.StatusServiceUnavailable, map[string]string{"codigo": "servicio_no_disponible"})
 		return nil, false
 	}
 	return &bolsasRRHHDesarrolloDatos{datos: datos}, true
@@ -574,4 +575,13 @@ func instanteBolsasRRHH(valor string) string {
 		return valor
 	}
 	return time.Now().UTC().Format(time.RFC3339)
+}
+
+func responderBolsaRRHHDesarrollo(w http.ResponseWriter, estado int, valor any, soloCabecera ...bool) {
+	b, _ := json.Marshal(valor)
+	w.Header().Set("Content-Length", strconv.Itoa(len(b)))
+	w.WriteHeader(estado)
+	if estado != http.StatusNoContent && (len(soloCabecera) == 0 || !soloCabecera[0]) {
+		_, _ = w.Write(b)
+	}
 }

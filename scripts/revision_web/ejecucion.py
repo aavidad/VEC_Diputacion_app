@@ -22,7 +22,7 @@ from .navegador import capturar_escenario, verificar_servidor_presentacion
 
 def crear_argumentos() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Captura y revisa todas las vistas y flujos DEMO de la presentación VEC.",
+        description="Captura y revisa la consulta pública servida por el perfil aislado VEC.",
     )
     parser.add_argument(
         "--url-base", "--base-url", default="http://127.0.0.1:8081",
