@@ -96,3 +96,44 @@ así que repetirlo devuelve los mismos recibos; un 409 (entrada o persona ya
 registradas con otro contenido o por otra vía) se informa como divergencia y
 detiene el plan con código 1, igual que la primera caída.
 `--comprobar` valida el plan sin enviar nada.
+
+# Incremento Dietas D5/D6 — otros gastos, corregir y reenviar
+
+Ninguna de estas migraciones tiene historia en una base productiva. El orden de
+activación, verificado contra las precondiciones SQL de cada una, es:
+
+1. **SQL** — `04_dietas_migraciones.sh --incremental` ensambla en una sola
+   transacción, por este orden, Dietas `000005`, AD3 `000059`, Personal
+   `000012`/`000013`, Dietas `000006`, `000007`, AD3 `000080`, Dietas `000008`,
+   AD3 `000075`, Dietas `000009`, `000010` y `000011`. Cada migración va tras
+   una marca de catálogo y se omite (`\echo OMITIDA`) si ya está instalada: el
+   paquete nunca reaplica y puede repetirse. Exige R1 (Dietas
+   `000001`–`000004`), AD3 `000051`/`000052`, Personal `000010`/`000011` y
+   Composición `000010a`; si falta alguna, su precondición aborta todo.
+   Ensayar con `ROLLBACK` y confirmar con `COMMIT` sustituyendo `:finalizar;`:
+
+   ```bash
+   bash deploy/principal/04_dietas_migraciones.sh --incremental \
+     | sed 's/^:finalizar;$/ROLLBACK;/' | psql -X -v ON_ERROR_STOP=1 ...
+   ```
+
+   AD3 `000075` no tiene `DOWN` (como AD3 `000054`/`000056`) y no depende de
+   Dietas `000009`–`000011` ni estas de ella; se instala antes, de modo que la
+   lista con devolución sigue cerrada en Dietas hasta `000011`. Dietas `000010`
+   y `000011` se instalan juntas, sin tráfico entre ambas, y nunca se ejecuta el
+   `DOWN` de `000011` dejando `000010`: reabriría la devolución al revisor sin
+   cotejar la decisión V3.
+2. **Política V3** — `politica_dietas_d5_d6.py` da las concesiones exactas
+   (editar, borrar, enviar y consultar el documento propio para la titular;
+   `dietas.circuito.documento.consultar` para quien revisa), con
+   `campos_permitidos` en orden de bytes y copiadas de AD3 `000075`
+   (`test_politica_dietas_d5_d6.py` las compara con la migración y con Dietas
+   `000011`). Solo emite datos: la nueva versión del rol y de la asignación se
+   publica con el procedimiento revisado de Dirección, sin reutilizar el
+   preparador histórico R1D.
+3. **Binario** — por último, la aplicación con la web de esta tanda.
+
+Evidencia local: PostgreSQL 18.4 desechable sobre una base sintética con núcleo
+AD3: paquete incremental con `ROLLBACK` sin rastro, `COMMIT`, repetición con
+las doce migraciones omitidas y sin cambios, y `DOWN` de `000011` seguido del
+paquete, que reinstala solo `000011` al estado idéntico.
