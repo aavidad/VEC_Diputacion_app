@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -79,6 +80,13 @@ func (r *RepositorioDatosContactoParticipacionPostgreSQL) RegistrarDatosContacto
 	}
 	defer tx.Rollback(context.Background())
 	m := comando.Material
+	// La traza de valores (000034) recibe en esta misma transacción qué
+	// campos cambiaron; la base nunca ve sus valores.
+	if len(comando.CamposCambiados) > 0 {
+		if _, err = tx.Exec(ctx, `SELECT set_config('vec_bolsa.campos_contacto_cambiados',$1,true)`, strings.Join(comando.CamposCambiados, ",")); err != nil {
+			return ports.RegistroDatosContactoParticipacion{}, ports.ErrDatosContactoParticipacionNoDisponibles
+		}
+	}
 	var registro ports.RegistroDatosContactoParticipacion
 	var version int64
 	err = tx.QueryRow(ctx, `SELECT reutilizada,recibo_ref,version,registrada_en FROM vec_bolsa_llamamientos.registrar_datos_contacto_participacion_v1($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16::numeric,$17::numeric,$18,$19,$20,$21)`,

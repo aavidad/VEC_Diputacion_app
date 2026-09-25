@@ -111,6 +111,9 @@ type ComandoRegistrarDatosContactoParticipacion struct {
 	Decision              dominiovec.DecisionAutorizacionLigadaV3
 	Confirmacion          puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3
 	Material              puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3
+	// CamposCambiados nombra, sin valores, los campos que difieren de la
+	// versión anterior; alimenta la traza de valores (petición RRHH p.4).
+	CamposCambiados []string
 }
 
 // VerificadorPertenenciaParticipacion lo satisface el repositorio de B2.
