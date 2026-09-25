@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { crearControladorContactoPropio, capturarCorreoEnviado, montarContactoPropio } from "./contacto-propio.js";
-import { crearClienteOperacionesContactoPropio, RUTAS_OPERACIONES_CONTACTO } from "./cliente-http.js?v=20260925-mi-bolsa-campos-v1";
+import { crearClienteOperacionesContactoPropio, RUTAS_OPERACIONES_CONTACTO } from "./cliente-http.js?v=20260926-portal-candidato-v1";
 import { textoContactoPropio } from "./i18n-contacto-propio.js";
 import { traducir } from "./i18n.js";
 import { exigirRenovado } from "../portal-empleado/versiones-cache.test-helper.mjs";

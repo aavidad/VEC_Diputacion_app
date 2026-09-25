@@ -88,7 +88,7 @@ func (s *Servicio) Consultar(ctx context.Context, orden Orden) (puertosbolsa.Ins
 	if ctx.Err() != nil {
 		return puertosbolsa.InstantaneaMiBolsa{}, ctx.Err()
 	}
-	if !decisionExacta(nominal, decision, confirmacion, resultadoActor, ahora) {
+	if !decisionExacta(nominal, decision, confirmacion, resultadoActor, ahora, []string{puertosbolsa.CampoMiBolsa}) {
 		return puertosbolsa.InstantaneaMiBolsa{}, denegar(nil)
 	}
 	exportador, err := s.proveedor.EmitirMaterialMiBolsa(ctx, nominal, resultadoActor, decision, confirmacion)
@@ -106,7 +106,7 @@ func (s *Servicio) Consultar(ctx context.Context, orden Orden) (puertosbolsa.Ins
 	if ctx.Err() != nil {
 		return puertosbolsa.InstantaneaMiBolsa{}, ctx.Err()
 	}
-	if _, _, err = validarOrden(orden, ahora); err != nil || !materialExacto(material, nominal, decision, confirmacion, resultadoActor, ahora) {
+	if _, _, err = validarOrden(orden, ahora); err != nil || !materialExacto(material, nominal, decision, confirmacion, resultadoActor, ahora, puertosbolsa.AccionConsultarMiBolsa, puertosbolsa.AudienciaMiBolsa) {
 		return puertosbolsa.InstantaneaMiBolsa{}, denegar(err)
 	}
 	solicitud := puertosbolsa.SolicitudConsultaMiBolsa{CandidatoRef: candidato, Material: material, ConsultadaEn: ahora}
@@ -141,12 +141,10 @@ func (s *Servicio) Consultar(ctx context.Context, orden Orden) (puertosbolsa.Ins
 		}
 		// Sin calendario el plazo no se muestra; la respuesta, que lo exige,
 		// se rechazará entonces como no disponible.
-		vence, _, err := s.portal.VencimientoRespuesta(ctx, abierto.ContactoEn)
-		if err != nil || !vence.After(abierto.ContactoEn) {
-			continue
+		if vence, _, err := s.portal.VencimientoRespuesta(ctx, abierto.ContactoEn); err == nil && vence.After(abierto.ContactoEn) {
+			vence = vence.UTC()
+			abierto.VenceAntesDe = &vence
 		}
-		vence = vence.UTC()
-		abierto.VenceAntesDe = &vence
 	}
 	resultado.ReglasPortal = visibles
 	return resultado, nil
@@ -225,12 +223,8 @@ func denegar(err error) error {
 	return errors.Join(dominiovec.ErrAutorizacionDenegada, puertosbolsa.ErrConsultaMiBolsaInvalida, err)
 }
 
-func decisionExacta(s dominiovec.SolicitudAutorizacionLigadaV3, d dominiovec.DecisionAutorizacionLigadaV3, c puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3, r dominiovec.ResultadoContextoActorRegistradoV2, ahora time.Time) bool {
-	return decisionExactaConCampos(s, d, c, r, ahora, []string{puertosbolsa.CampoMiBolsa})
-}
-
-// decisionExactaConCampos exige exactamente esos campos y ninguna obligación.
-func decisionExactaConCampos(s dominiovec.SolicitudAutorizacionLigadaV3, d dominiovec.DecisionAutorizacionLigadaV3, c puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3, r dominiovec.ResultadoContextoActorRegistradoV2, ahora time.Time, campos []string) bool {
+// decisionExacta exige exactamente esos campos y ninguna obligación.
+func decisionExacta(s dominiovec.SolicitudAutorizacionLigadaV3, d dominiovec.DecisionAutorizacionLigadaV3, c puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3, r dominiovec.ResultadoContextoActorRegistradoV2, ahora time.Time, campos []string) bool {
 	if d.ValidarPara(s) != nil {
 		return false
 	}
@@ -252,13 +246,9 @@ func decisionExactaConCampos(s dominiovec.SolicitudAutorizacionLigadaV3, d domin
 	return err == nil && json.Unmarshal(canonica, &limites) == nil && slices.Equal(limites.Campos, campos) && len(limites.Obligaciones) == 0
 }
 
-func materialExacto(m puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3, s dominiovec.SolicitudAutorizacionLigadaV3, d dominiovec.DecisionAutorizacionLigadaV3, c puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3, r dominiovec.ResultadoContextoActorRegistradoV2, ahora time.Time) bool {
-	return materialExactoPara(m, s, d, c, r, ahora, puertosbolsa.AccionConsultarMiBolsa, puertosbolsa.AudienciaMiBolsa)
-}
-
-// materialExactoPara coteja el material con la operación y la audiencia de
-// la acción que lo va a consumir.
-func materialExactoPara(m puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3, s dominiovec.SolicitudAutorizacionLigadaV3, d dominiovec.DecisionAutorizacionLigadaV3, c puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3, r dominiovec.ResultadoContextoActorRegistradoV2, ahora time.Time, operacion, audiencia string) bool {
+// materialExacto coteja el material con la operación y la audiencia de la
+// acción que lo va a consumir.
+func materialExacto(m puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3, s dominiovec.SolicitudAutorizacionLigadaV3, d dominiovec.DecisionAutorizacionLigadaV3, c puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3, r dominiovec.ResultadoContextoActorRegistradoV2, ahora time.Time, operacion, audiencia string) bool {
 	if m.ValidarEstructura() != nil || d.ValidarPara(s) != nil {
 		return false
 	}

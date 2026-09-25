@@ -212,11 +212,8 @@ func (p *politicaMiBolsaDesarrollo) ordenValida(ctx context.Context, orden inter
 		return false
 	}
 	solicitud, err := datos.Solicitud.Datos()
-	if err != nil {
-		return false
-	}
 	motivo, admitida := p.motivoDe(solicitud.Accion)
-	return admitida && datos.ReferenciaMotivo == motivo && solicitud.ReferenciaMotivo == motivo &&
+	return err == nil && admitida && datos.ReferenciaMotivo == motivo && solicitud.ReferenciaMotivo == motivo &&
 		solicitud.Recurso.Ambitos["candidato_ref"] == p.instantanea.AsignacionPerfil.Ambitos[0].Valores[0]
 }
 func (p *politicaMiBolsaDesarrollo) RegistrarConcesionCandidataAutorizacionLigadaV3SiInstantaneaVigente(ctx context.Context, orden puertosvec.OrdenRegistroConcesionCandidataAutorizacionLigadaV3) (time.Time, error) {

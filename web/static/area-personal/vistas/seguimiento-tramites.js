@@ -4,6 +4,7 @@ import {
 } from "./comunes.js";
 import { traducir } from "../i18n.js";
 import { campoVisibleMiBolsa } from "../mi-bolsa-campos.js";
+import { renderizarPortalMiBolsa, textoPortal } from "../mi-bolsa-portal.js";
 
 const CLASES_SITUACION = Object.freeze({
   disponible: "exito", no_disponible: "aviso", trabajando: "info",
@@ -107,7 +108,9 @@ export function renderizarLlamamientos(datos, estado = {}) {
   return `${encabezadoVista("Mi bolsa", "")}
     ${fichaParticipaciones}
     <div class="rejilla-principal"><div>${ver("ultimo_llamamiento") ? llamamientos : ""}</div><aside>
-      ${panel(traducir("areaPersonal.miBolsa.disponibilidad.titulo"), traducir("areaPersonal.miBolsa.disponibilidad.subtitulo"), `<p class="nota aviso">${escaparHTML(traducir("areaPersonal.miBolsa.disponibilidad.detalle"))}</p>`)}
+      ${estado.accionesPortal
+    ? panel(textoPortal("titulo"), textoPortal("subtitulo"), renderizarPortalMiBolsa(participaciones, estado.portalMiBolsa, estado.accionesPortal))
+    : panel(traducir("areaPersonal.miBolsa.disponibilidad.titulo"), traducir("areaPersonal.miBolsa.disponibilidad.subtitulo"), `<p class="nota aviso">${escaparHTML(traducir("areaPersonal.miBolsa.disponibilidad.detalle"))}</p>`)}
       ${ver("contratos") ? panel("Contratos", "Información propia", sinContratos) : ""}
     </aside></div>`;
 }

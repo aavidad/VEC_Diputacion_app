@@ -1,4 +1,5 @@
 import { campoVisibleMiBolsa, validarCamposMiBolsa } from "./mi-bolsa-campos.js";
+import { validarPortalMiBolsa } from "./mi-bolsa-portal.js";
 
 const ESQUEMA_PANEL = "vec.bolsa.area-personal.v1";
 export const ESQUEMA_MI_BOLSA = "vec.bolsa.mi-bolsa.v1";
@@ -157,6 +158,7 @@ export function validarRespuestaMiBolsa(entrada) {
       }
     }
   });
+  validarPortalMiBolsa(datos);
   return congelarProfundo(datos);
 }
 

@@ -182,7 +182,7 @@ func (p *Portal) autorizar(ctx context.Context, orden Orden, accion, audiencia, 
 	if err := ctx.Err(); err != nil {
 		return vacio, "", time.Time{}, err
 	}
-	if !decisionExactaConCampos(nominal, decision, confirmacion, resultadoActor, ahora, []string{}) {
+	if !decisionExacta(nominal, decision, confirmacion, resultadoActor, ahora, []string{}) {
 		return vacio, "", time.Time{}, denegarPortal(nil)
 	}
 	exportador, err := p.proveedor.EmitirMaterialPortalCandidato(ctx, accion, nominal, resultadoActor, decision, confirmacion)
@@ -197,7 +197,7 @@ func (p *Portal) autorizar(ctx context.Context, orden Orden, accion, audiencia, 
 	if err := ctx.Err(); err != nil {
 		return vacio, "", time.Time{}, err
 	}
-	if _, _, err = validarOrden(orden, ahora); err != nil || !materialExactoPara(material, nominal, decision, confirmacion, resultadoActor, ahora, accion, audiencia) {
+	if _, _, err = validarOrden(orden, ahora); err != nil || !materialExacto(material, nominal, decision, confirmacion, resultadoActor, ahora, accion, audiencia) {
 		return vacio, "", time.Time{}, denegarPortal(err)
 	}
 	return material, candidato, ahora, nil
