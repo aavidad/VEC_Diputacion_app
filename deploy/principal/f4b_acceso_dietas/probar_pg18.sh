@@ -220,6 +220,17 @@ debe_fallar sin-contrasena 'cuentas o grupos F4b con atributos' --rollback
 psql_admin -c "ALTER ROLE vec_dietas_r1d_motivos_desarrollo PASSWORD '$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["vec_dietas_r1d_motivos_desarrollo"])' "$test_dir/r1d-contrasenas.json")'" >/dev/null
 sin_efecto sin-contrasena
 
+# Desde aquí el servidor registra todas las sentencias, fallidas y por
+# duración: F4b debe silenciarlas en su transacción (verificadores SCRAM).
+inicio_log="$(docker logs "$container" 2>&1 | wc -l)"
+psql_admin <<'SQL' >/dev/null
+ALTER SYSTEM SET log_statement = 'all';
+ALTER SYSTEM SET log_min_error_statement = 'error';
+ALTER SYSTEM SET log_min_duration_statement = 0;
+SELECT pg_reload_conf();
+SQL
+sleep 1
+
 # Ensayo ROLLBACK: nada cambia, ni siquiera el CONNECT del grupo D7.
 run_f4b --rollback > "$test_dir/rollback.out"
 sin_efecto rollback
@@ -241,6 +252,18 @@ json.dump(e, open(sys.argv[1], "w"))
 PY
 run_f4b --sonda-tls > "$test_dir/sonda.out"
 [[ "$(rg -c 'verify-full OK y sin TLS rechazado' "$test_dir/sonda.out")" == 11 ]] || { echo 'sonda TLS incompleta' >&2; exit 1; }
+# require_auth: una línea hostssl trust previa para una cuenta hace fallar la
+# sonda aunque haya TLS verify-full.
+docker exec -u root "$container" sh -c "cp '$hba' /tmp/hba.scram && { printf 'hostssl all vec_personal_d7_asignacion all trust\n'; cat /tmp/hba.scram; } > '$hba'"
+psql_admin -c 'SELECT pg_reload_conf()' >/dev/null
+sleep 1
+if run_f4b --sonda-tls > "$test_dir/sonda-trust.out" 2> "$test_dir/sonda-trust.err"; then
+  echo 'sonda TLS aceptó autenticación trust' >&2; exit 1
+fi
+rg -q 'vec_personal_d7_asignacion no conecta con verify-full' "$test_dir/sonda-trust.err" || { echo 'sonda trust: cuenta no señalada' >&2; exit 1; }
+docker exec -u root "$container" sh -c "cat /tmp/hba.scram > '$hba'"
+psql_admin -c 'SELECT pg_reload_conf()' >/dev/null
+sleep 1
 if F4B_CA="$test_dir/ajena.crt" run_f4b --sonda-tls > "$test_dir/sonda-ajena.out" 2> "$test_dir/sonda-ajena.err"; then
   echo 'sonda TLS aceptó una CA ajena' >&2; exit 1
 fi
@@ -257,4 +280,14 @@ if run_f4b --sonda-tls > "$test_dir/sonda-retirada.out" 2> "$test_dir/sonda-reti
 fi
 resultado="$(psql_admin -c "SELECT (SELECT count(*) FROM pg_roles WHERE rolcanlogin AND rolname ~ '^vec_(dietas_r1d|dietas_f4b|personal_d7)_')||'|'||(SELECT a.version||':'||(a.documento->>'estado') FROM vec_autorizacion.asignacion_perfil_actual p JOIN vec_autorizacion.asignacion_perfil a USING(asignacion_ref))||'|'||(SELECT n FROM vec_ct_sentinel.control)||'|'||(SELECT n FROM vec_bolsa_sentinel.control)")"
 [[ "$resultado" == '0|4:revocada|7|11' ]] || { echo "postcondicion retirada F4b PG18 fallida: $resultado" >&2; exit 1; }
-echo "PG18 F4b: estado 0600 sin sobrescritura, nueve negativos sin efecto, ROLLBACK limpio, COMMIT con once LOGIN (una membresía INHERIT/SET FALSE/ADMIN FALSE), sonda TLS verify-full 11/11 y sin TLS/CA ajena rechazados, reentrada denegada, retirada v4 y testigos CT/Bolsa OK"
+# Registro del servidor: el registro de sentencias estuvo activo (aparece el
+# inventario) y ni verificadores SCRAM ni su JSON en base64 llegaron a él.
+docker logs "$container" 2>&1 | tail -n "+$((inicio_log + 1))" > "$test_dir/servidor.log"
+rg -q 'statement: SELECT pg_reload_conf' "$test_dir/servidor.log" || { echo 'registro de sentencias no activo en el ensayo' >&2; exit 1; }
+if rg -q -e 'SCRAM-SHA-256\$4096:' -e 'eyJ2ZWNfZGlldGFzX2Y0' -e 'f4b_verificador' -e 'PASSWORD' "$test_dir/servidor.log"; then
+  echo 'verificador SCRAM o su transporte en el registro del servidor' >&2; exit 1
+fi
+if rg -q -e 'SCRAM-SHA-256\$4096:' -e 'eyJ2ZWNfZGlldGFzX2Y0' "$test_dir"/*.err "$test_dir"/*.out; then
+  echo 'verificador SCRAM en la salida del ejecutor' >&2; exit 1
+fi
+echo "PG18 F4b: estado 0600 sin sobrescritura, nueve negativos sin efecto, ROLLBACK limpio, COMMIT con once LOGIN (una membresía INHERIT/SET FALSE/ADMIN FALSE), sonda TLS verify-full 11/11 y sin TLS/CA ajena rechazados, reentrada denegada, retirada v4, testigos CT/Bolsa, require_auth frente a trust y registro del servidor sin verificadores OK"

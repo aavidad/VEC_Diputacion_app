@@ -255,17 +255,26 @@ RESET ROLE;
 
 -- Cuentas nuevas: se crean NOLOGIN con su verificador y su única membresía;
 -- si ya existían (p. ej. preparadas por D7) solo reciben el verificador.
+-- Un fallo de las sentencias dinámicas con verificador se sustituye por un
+-- error sin CONTEXT de la sentencia interna (que llevaría el verificador al
+-- registro del servidor y al cliente); se conserva el SQLSTATE original.
 DO $cuentas$
 DECLARE c record;
 BEGIN
  FOR c IN SELECT k.nombre,k.grupo,x.verificador FROM f4b_cuenta k
           JOIN f4b_verificador x ON x.nombre=k.nombre WHERE k.nueva ORDER BY k.nombre LOOP
-   IF to_regrole(c.nombre) IS NULL THEN
-     EXECUTE format('CREATE ROLE %I NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT NOREPLICATION NOBYPASSRLS PASSWORD %L',
-                    c.nombre,c.verificador);
+   BEGIN
+     IF to_regrole(c.nombre) IS NULL THEN
+       EXECUTE format('CREATE ROLE %I NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT NOREPLICATION NOBYPASSRLS PASSWORD %L',
+                      c.nombre,c.verificador);
+     ELSE
+       EXECUTE format('ALTER ROLE %I PASSWORD %L',c.nombre,c.verificador);
+     END IF;
+   EXCEPTION WHEN OTHERS THEN
+     RAISE EXCEPTION 'F4b no pudo fijar el verificador de %', c.nombre USING ERRCODE=SQLSTATE;
+   END;
+   IF NOT EXISTS (SELECT 1 FROM pg_auth_members m WHERE m.member=to_regrole(c.nombre)) THEN
      EXECUTE format('GRANT %I TO %I WITH ADMIN FALSE, INHERIT TRUE, SET FALSE',c.grupo,c.nombre);
-   ELSE
-     EXECUTE format('ALTER ROLE %I PASSWORD %L',c.nombre,c.verificador);
    END IF;
  END LOOP;
 END $cuentas$;

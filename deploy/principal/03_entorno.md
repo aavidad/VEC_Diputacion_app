@@ -114,15 +114,51 @@ composición comprueba la postimagen exacta de Personal 000007–000013 (y, si
 existen, 000014/000015): firmas, propietario, `SECURITY DEFINER`,
 configuración, huella del cuerpo y ACL. Si falta algo, `vec-server` no arranca
 y el registro dice qué: `bootstrap: postimagen Personal para dietas no
-acreditada: 000012 vec_personal.…: huella distinta`. Orden seguro: F4b
-`--inventario`/`--rollback`/`--commit`, `--sonda-tls`, material JSON y entorno,
-selector, reinicio y búsqueda de `vec server listening`.
+acreditada: 000012 vec_personal.…: huella distinta`.
+
+**Orden seguro de activación:**
+
+1. F4b `--inventario`, `--rollback` y, revisado, `--commit`.
+2. `pg_hba.conf` (antes de la sonda; recarga con `SELECT pg_reload_conf()`),
+   por encima de cualquier línea `host`/`local` más general que las alcance:
+   - `hostssl postgres <cuenta> <red de la app> scram-sha-256` para las tres
+     cuentas nuevas (`vec_dietas_f4b_auditoria_frontera_desarrollo`,
+     `vec_personal_d7_asignacion`, `vec_personal_d7_auditoria_frontera`),
+     igual que las ocho R1D si aún no tienen su línea;
+   - `hostnossl all <cuenta> all reject` para **las once** (o `host all
+     <cuenta> all reject` **después** de sus líneas `hostssl`), de modo que
+     ninguna entre sin TLS.
+   Comprobar con `SELECT * FROM pg_hba_file_rules WHERE error IS NOT NULL`
+   (vacío) antes de recargar.
+3. `--sonda-tls`: cada cuenta conecta con `verify-full` y
+   `require_auth=scram-sha-256` (libpq ≥ 16) y es rechazada sin TLS.
+4. Material JSON y entorno (cuatro URL, selector, `VEC_OSRM_*`), con copia de
+   las variantes de arranque.
+5. `vec-server comprobar-dietas` con **exactamente** el mismo entorno y
+   material que usará el arranque (p. ej. `podman run --rm` efímero de la
+   misma imagen): acredita en solo lectura las once identidades, la postimagen
+   de Personal y la cartografía, sin abrir el puerto ni escribir. Solo si dice
+   `OK` se reinicia.
+6. Reinicio y búsqueda de `vec server listening` en el registro.
+
+**Tras una retirada** (`--retirar-commit`) o una vuelta atrás del selector,
+comprobar como DBA que no queda ninguna sesión de las once cuentas:
+`SELECT usename, application_name, backend_start FROM pg_stat_activity WHERE
+usename ~ '^vec_(dietas_r1d|dietas_f4b|personal_d7)_'` debe devolver cero filas
+una vez reiniciado `vec-server` sin Dietas. NOLOGIN no corta las sesiones ya
+abiertas; si queda alguna, cerrarla con `pg_terminate_backend(pid)` tras
+confirmar que el servicio ya no la usa.
 
 
-El inventario canónico de `config/` contiene 18 variables `VEC_*_DATABASE_URL`.
-La principal ya tiene las once identidades de Contratación/Bolsa llamamientos y
-`VEC_CT_AUDITORIA_FRONTERA_DATABASE_URL`. Faltan estas seis en
-`material/arrancar-local.sh`; el contador exacto pasa de **12 a 18**:
+El inventario canónico de `config/` contiene **23** variables
+`VEC_*_DATABASE_URL` (recuento del 25/09/2026 con
+`grep -rhoE 'VEC_[A-Z0-9_]*DATABASE_URL' config/ --include=*.go --exclude=*_test.go | sort -u`):
+once de Contratación, siete de Bolsa, `VEC_CALENDARIOS_DATABASE_URL` y las
+cuatro de Dietas de la tabla anterior. Nota histórica del corte B2: la
+principal tenía entonces las once identidades de Contratación/Bolsa
+llamamientos y `VEC_CT_AUDITORIA_FRONTERA_DATABASE_URL`, y faltaban estas seis
+de Bolsa en `material/arrancar-local.sh` (el contador habría pasado de 12 a 18;
+en cidonia solo pasó a 13, ver más abajo):
 
 ```bash
 VEC_BOLSA_PUBLICA_DATABASE_URL='postgresql://vec_bolsa_publica_consulta_desarrollo@localhost:5432/postgres?sslmode=verify-full&sslrootcert=/ruta/privada/postgresql/ca.crt'

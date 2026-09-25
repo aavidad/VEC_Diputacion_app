@@ -68,8 +68,20 @@ concede, lo concede F4b dentro de la misma transacción.
   variable psql en un temporal `0600` del directorio de evidencia que se borra
   al salir. Nada viaja por argumentos ni aparece en la evidencia (el inventario
   solo indica si hay verificador SCRAM).
+- El verificador sí va en el texto de sentencias de la transacción. Por eso
+  `comun.sql` fija con `SET LOCAL` `log_statement='none'`,
+  `log_min_error_statement='panic'`, los registros por duración y muestreo,
+  `pg_stat_statements.track='none'` y `auto_explain.log_min_duration=-1`, y
+  el cliente psql usa `VERBOSITY terse`/`SHOW_CONTEXT never`. Las sentencias
+  dinámicas `CREATE/ALTER ROLE … PASSWORD` convierten su error en uno sin
+  CONTEXT interno. El ensayo PG18 activa `log_statement='all'` en el servidor
+  y comprueba que ningún verificador ni su base64 llega al registro.
 - `--sonda-tls` puede incluir en el estado las contraseñas R1D para probar las
-  once cuentas; las tres nuevas son obligatorias.
+  once cuentas; las tres nuevas son obligatorias. La conexión positiva exige
+  `verify-full` y `require_auth=scram-sha-256` (psql/libpq ≥ 16): una línea
+  `trust`, `password` o `md5` en `pg_hba` hace fallar la sonda. La negativa
+  (`sslmode=disable`) no lleva `require_auth` para que cualquier entrada sin
+  TLS cuente como fallo.
 
 ## Uso
 

@@ -1,8 +1,26 @@
 \set ON_ERROR_STOP on
+-- Errores en el cliente solo con el mensaje primario: sin LINE, QUERY ni
+-- CONTEXT que pudieran reproducir texto de sentencias con verificadores.
+\set VERBOSITY terse
+\set SHOW_CONTEXT never
 -- F4b: inicio y definiciones comunes de activación y retirada. El ejecutor
 -- concatena variables, este fichero y transaccion.sql o retirada.sql en una
 -- sola transacción. Solo objetos temporales; ningún objeto persistente.
 BEGIN;
+-- Ninguna sentencia de esta transacción llega al registro del servidor: la
+-- activación interpola los verificadores SCRAM en su texto. Se anulan el
+-- registro de sentencias, el de sentencias fallidas y los de duración
+-- (completo y por muestreo); los errores se siguen registrando sin sentencia.
+-- Exige superusuario, como el resto de F4b; SET LOCAL muere con la transacción.
+SET LOCAL log_statement='none';
+SET LOCAL log_min_error_statement='panic';
+SET LOCAL log_min_duration_statement=-1;
+SET LOCAL log_min_duration_sample=-1;
+SET LOCAL log_transaction_sample_rate=0;
+-- Extensiones que registran texto de sentencias anidadas si están cargadas;
+-- si no lo están, el ajuste solo crea un marcador inocuo de la transacción.
+SET LOCAL pg_stat_statements.track='none';
+SET LOCAL auto_explain.log_min_duration=-1;
 SET LOCAL search_path=pg_catalog;
 SET LOCAL timezone='UTC';
 SET LOCAL lock_timeout='5s';

@@ -101,10 +101,18 @@ with open(sys.argv[4], "w", encoding="utf-8") as p, open(sys.argv[5], "w", encod
         p.write(f"{host}:{puerto}:postgres:{nombre}:{c[nombre]}\n")
         n.write(nombre + "\n")
 ' "$estado" "$VEC_F4B_TLS_HOST" "$VEC_F4B_TLS_PORT" "$pgpass" "$cuentas_sonda"
+  # require_auth (libpq >= 16) impide que la sonda positiva se dé por buena si
+  # el servidor autentica por trust, password o md5 en vez de SCRAM. La sonda
+  # negativa no lo lleva: cualquier conexión sin TLS, sea cual sea el método,
+  # debe contar como fallo y no quedar oculta por un rechazo del cliente.
+  libpq_prueba="$(LC_ALL=C LANG=C psql -XAtq -w 'dbname=postgres require_auth=scram-sha-256 host=/nonexistent' -c '' </dev/null 2>&1 || true)"
+  if [[ "$libpq_prueba" == *'invalid connection option'* || "$libpq_prueba" == *'opción de conexión'* ]]; then
+    echo 'libpq sin require_auth (>= 16) para la sonda TLS' >&2; exit 2
+  fi
   fallos=0
   while IFS= read -r cuenta; do
     base="host=$VEC_F4B_TLS_HOST port=$VEC_F4B_TLS_PORT dbname=postgres user=$cuenta connect_timeout=5"
-    if ! salida="$(PGPASSFILE="$pgpass" psql -XAtq -w "$base sslmode=verify-full sslrootcert=$VEC_F4B_TLS_CA" \
+    if ! salida="$(PGPASSFILE="$pgpass" psql -XAtq -w "$base sslmode=verify-full sslrootcert=$VEC_F4B_TLS_CA require_auth=scram-sha-256" \
          -c "SELECT session_user||'|'||(SELECT ssl::text FROM pg_stat_ssl WHERE pid=pg_backend_pid())" </dev/null 2>/dev/null)" \
        || [[ "$salida" != "$cuenta|true" ]]; then
       echo "sonda TLS: $cuenta no conecta con verify-full" >&2; fallos=1; continue
