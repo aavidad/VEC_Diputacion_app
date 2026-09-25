@@ -10,7 +10,12 @@
 # referencia y huella, recibo, replay, conflicto de clave, clave de otra
 # persona sin oráculo, bandeja de RRHH filtrada por el circuito, atención con
 # recibo, replay y conflicto, estado visible para la persona; conservación
-# tras reiniciar. No acredita MAC, COSE ni gobierno V3. El contenedor se
+# tras reiniciar. Preimagen exacta de lo sustituido (ACL, configuración,
+# seguridad y definición retocadas se rechazan). La persona ve en su consulta
+# el circuito aplicado y lo pendiente de asignar. Separación de funciones:
+# quien dio la conformidad como jefatura no resuelve como RRHH; RRHH con
+# asignación sobre sí no ve ni atiende su notificación. Bandeja de más de 500
+# rechazada con PC013. No acredita MAC, COSE ni gobierno V3. El contenedor se
 # borra al salir.
 set -euo pipefail
 base_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
@@ -59,6 +64,7 @@ outbox_previo=$(scalar "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHER
 politicas_previas=$(scalar "SELECT count(*) FROM pg_policy")
 resolver_previo=$(scalar "SELECT md5(pg_get_functiondef('vec_cronos_v1.resolver_permiso_v1$firma'::regprocedure))")
 propio_previo=$(scalar "SELECT md5(pg_get_functiondef('vec_cronos_v1.consumir_propio_v1(text,text,text,text,text,text[],jsonb,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure))")
+permisos_previo=$(scalar "SELECT md5(pg_get_functiondef('vec_cronos_v1.consultar_permisos_propio_v1$firma'::regprocedure))")
 sed '$s/^COMMIT;$/ROLLBACK;/' "$m10" | run >/dev/null
 comprobar "SELECT to_regclass('vec_cronos_v1.notificacion') IS NULL AND to_regclass('vec_cronos_v1.permiso_circuito_directo') IS NULL AND NOT EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid='vec_cronos_v1.permiso_resolucion'::regclass AND attname='circuito')" t 'ROLLBACK de 000010 sin objetos'
 comprobar "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname='denegacion_frontera_ruta_check'" "$ruta_previa" 'ROLLBACK conserva las rutas auditadas'
@@ -66,6 +72,23 @@ comprobar "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname='so
 comprobar "SELECT count(*) FROM pg_policy" "$politicas_previas" 'ROLLBACK conserva las políticas'
 comprobar "SELECT md5(pg_get_functiondef('vec_cronos_v1.resolver_permiso_v1$firma'::regprocedure))" "$resolver_previo" 'ROLLBACK conserva la resolución de 000009'
 comprobar "SELECT md5(pg_get_functiondef('vec_cronos_v1.consumir_propio_v1(text,text,text,text,text,text[],jsonb,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure))" "$propio_previo" 'ROLLBACK conserva el consumo propio de 000008'
+comprobar "SELECT md5(pg_get_functiondef('vec_cronos_v1.consultar_permisos_propio_v1$firma'::regprocedure))" "$permisos_previo" 'ROLLBACK conserva la consulta de permisos propios de 000008'
+# Preimagen exacta: una ACL, una configuración o una seguridad retocadas
+# después de 000008/000009 detienen la instalación sin dejar nada.
+perturbar() {
+ run -c "$1" >/dev/null
+ local salida
+ if salida=$(run < "$m10" 2>&1); then echo "FALLO 000010 aceptada con la preimagen alterada: $3" >&2; exit 1; fi
+ case "$salida" in *'Cronos 000010: preimagen de '*) ;; *) echo "FALLO rechazo por otro motivo ($3): $salida" >&2; exit 1;; esac
+ run -c "$2" >/dev/null
+ printf 'OK 000010 rechazada con la preimagen alterada: %s\n' "$3"
+}
+propia_firma='vec_cronos_v1.consumir_propio_v1(text,text,text,text,text,text[],jsonb,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'
+perturbar "GRANT EXECUTE ON FUNCTION vec_cronos_v1.resolver_permiso_v1$firma TO vec_cronos_v1_auditor" "REVOKE EXECUTE ON FUNCTION vec_cronos_v1.resolver_permiso_v1$firma FROM vec_cronos_v1_auditor" 'ACL de resolver_permiso_v1'
+perturbar "ALTER FUNCTION vec_cronos_v1.consultar_bandeja_permisos_v1$firma SET lock_timeout='3s'" "ALTER FUNCTION vec_cronos_v1.consultar_bandeja_permisos_v1$firma SET lock_timeout='2s'" 'configuración de consultar_bandeja_permisos_v1'
+perturbar "ALTER FUNCTION $propia_firma SECURITY DEFINER" "ALTER FUNCTION $propia_firma SECURITY INVOKER" 'seguridad de consumir_propio_v1'
+perturbar "ALTER FUNCTION vec_cronos_v1.consultar_permisos_propio_v1$firma SET work_mem='8MB'" "ALTER FUNCTION vec_cronos_v1.consultar_permisos_propio_v1$firma RESET work_mem" 'configuración de consultar_permisos_propio_v1'
+perturbar "ALTER FUNCTION vec_cronos_v1.resolver_permiso_v1$firma COST 101" "ALTER FUNCTION vec_cronos_v1.resolver_permiso_v1$firma COST 100" 'definición de resolver_permiso_v1'
 run < "$m10" >/dev/null
 if run < "$m10" >/dev/null 2>&1; then echo 'FALLO segunda aplicación aceptada' >&2; exit 1; fi
 printf 'OK segunda aplicación de 000010 rechazada\n'
@@ -99,14 +122,23 @@ app "SELECT d->>'estado' FROM prueba.pedir('$C','perm-ct-00001','traslado',prueb
 app "SELECT d->>'estado' FROM prueba.pedir('$D','perm-dt-00001','traslado',prueba.semana(),prueba.semana(),'','','c-p-3') d" 'solicitado' 'D (marca directa) pide traslado'
 app "SELECT string_agg((e->>'permiso_ref')||'/'||(e->>'circuito')||'/'||(e->>'pendiente_asignacion'),',' ORDER BY e->>'permiso_ref') FROM prueba.bandeja('J','responsable','c-b-1') d, jsonb_array_elements(d->'pendientes') e" 'permiso:cronos:asuntos-propios/J-A/false' 'jefatura: el permiso A del catálogo le llega; D no (marca directa)'
 app "SELECT string_agg((e->>'empleado_etiqueta')||'/'||(e->>'circuito')||'/'||(e->>'pendiente_asignacion'),',' ORDER BY e->>'empleado_etiqueta') FROM prueba.bandeja('R','administracion','c-b-2') d, jsonb_array_elements(d->'pendientes') e" 'Persona sintética C/J-A/true,Persona sintética D/A/false' 'RRHH: D directo y C pendiente de asignación; A aún no'
+# La persona ve lo mismo en su consulta de permisos, sin saber quién resuelve.
+propia() { printf "SELECT string_agg(coalesce(e->>'circuito','-')||'/'||(e->>'estado')||'/'||(e->>'pendiente_asignacion'),',' ORDER BY e->>'solicitud_ref') FROM prueba.permisos('%s','%s') d, jsonb_array_elements(d->'solicitudes') e WHERE e->>'solicitud_ref'='permiso:cronos:solicitud:%s'" "$1" "$2" "$3"; }
+app "$(propia "$A" c-pp-1 perm-ap-00001)" 'J-A/solicitado/false' 'A ve su solicitud pendiente de jefatura aunque el catálogo diga A'
+app "$(propia "$C" c-pp-2 perm-ct-00001)" 'J-A/solicitado/true' 'C ve su solicitud pendiente de asignar jefatura'
+app "$(propia "$D" c-pp-3 perm-dt-00001)" 'A/solicitado/false' 'D ve su solicitud directa a RRHH'
+app "SELECT count(*) FROM prueba.permisos('$A','c-pp-4') d, jsonb_array_elements(d->'solicitudes') e WHERE e ?| ARRAY['resolutor_ref','asignacion_ref','empleado_etiqueta','circuito_directo_ref']" 0 'la consulta propia no revela quién resuelve'
 app "SELECT prueba.espera_error(\$\$SELECT prueba.resolver('R','res-ap-00001','perm-ap-00001','administracion','aprobar','',1,'c-r-1')\$\$,'PC011')" 'OK PC011' 'el circuito A del catálogo ya no va directo a RRHH'
 app "SELECT prueba.espera_error(\$\$SELECT prueba.resolver('R','res-ct-00001','perm-ct-00001','administracion','aprobar','',1,'c-r-2')\$\$,'PC014')" 'OK PC014' 'sin jefatura ni marca: pendiente de asignación, no se resuelve'
 app "SELECT prueba.espera_error(\$\$SELECT prueba.resolver('J','res-dt-00001','perm-dt-00001','responsable','aprobar','',1,'c-r-3')\$\$,'PC011')" 'OK PC011' 'con marca directa la jefatura no interviene'
 app "SELECT (d->>'estado')||'|'||(d->>'version') FROM prueba.resolver('J','res-ap-00002','perm-ap-00001','responsable','aprobar','',1,'c-r-4') d" 'pendiente_administracion|2' 'jefatura da conformidad a asuntos propios'
+app "$(propia "$A" c-pp-5 perm-ap-00001)" 'J-A/pendiente_administracion/false' 'A ve su solicitud pendiente de RRHH'
 app "SELECT (d->>'estado')||'|'||(d->>'version') FROM prueba.resolver('R','res-ap-00003','perm-ap-00001','administracion','aprobar','',2,'c-r-5') d" 'concedido|3' 'RRHH concede por último'
 app "SELECT (d->>'estado')||'|'||(d->>'version') FROM prueba.resolver('R','res-dt-00002','perm-dt-00001','administracion','aprobar','',1,'c-r-6') d" 'concedido|2' 'RRHH concede directo a D por la marca'
 comprobar "SELECT string_agg(clave_operacion||'='||coalesce(circuito,'-')||'/'||coalesce(circuito_directo_ref,'-'),',' ORDER BY clave_operacion) FROM vec_cronos_v1.permiso_resolucion" 'res-ap-00002=J-A/-,res-ap-00003=J-A/-,res-dt-00002=A/circuito:cronos:unidad-sin-jefatura:d' 'circuito y marca aplicados constan en la resolución'
 app "SELECT jsonb_array_length(d->'avisos') FROM prueba.avisos('$D','c-a-1') d" '1' 'D recibe el aviso de la concesión directa'
+app "$(propia "$A" c-pp-6 perm-ap-00001)" 'J-A/concedido/false' 'A ve concedido con el circuito aplicado'
+app "$(propia "$D" c-pp-7 perm-dt-00001)" 'A/concedido/false' 'D ve concedido por el circuito directo'
 # La competencia se evalúa en el instante del consumo: sin INTO STRICT, una
 # asignación que empieza entre ambos da no competente, nunca error interno.
 comprobar "SELECT strpos(pg_get_functiondef('vec_cronos_v1.resolver_permiso_v1$firma'::regprocedure),'INTO STRICT asignacion')=0 AND strpos(pg_get_functiondef('vec_cronos_v1.atender_notificacion_v1$firma'::regprocedure),'INTO STRICT asignacion')=0" t 'asignación sin INTO STRICT'
@@ -120,6 +152,7 @@ SQL
 sleep 1.5
 app "SELECT jsonb_array_length(d->'pendientes') FROM prueba.bandeja('R','administracion','c-b-3') d" '0' 'C con jefatura ya no está pendiente de asignación en RRHH'
 app "SELECT (d->>'estado') FROM prueba.resolver('J','res-ct-00002','perm-ct-00001','responsable','aprobar','',1,'c-r-7') d" 'pendiente_administracion' 'la jefatura nueva de C da conformidad'
+app "$(propia "$C" c-pp-8 perm-ct-00001)" 'J-A/pendiente_administracion/false' 'C con jefatura ya no ve pendiente de asignar'
 # ---- consumir_propio_v1 endurecido ----
 app "SELECT prueba.espera_error(\$\$WITH b AS MATERIALIZED (SELECT prueba.bandeja('R','administracion','c-h-1') x) SELECT prueba.permisos('$A','c-h-2') FROM b\$\$,'PC003')" 'OK PC003' 'consumo propio rechaza el contexto de quien resuelve ya fijado'
 app "SELECT prueba.espera_error(\$\$WITH b AS MATERIALIZED (SELECT prueba.notificaciones('$A','c-h-3') x) SELECT prueba.bandeja_notificaciones('R','c-h-4') FROM b\$\$,'PC003')" 'OK PC003' 'consumo de RRHH rechaza el contexto propio ya fijado'
@@ -175,4 +208,36 @@ comprobar "$conteo" "$antes" 'mismas filas tras reiniciar'
 app "SELECT (d->>'recibo_ref')||'|'||(d->>'replay') FROM prueba.notificar('$A','not-a-00001','$TIPO',prueba.semana(),E'No pude fichar la salida.\nLo comunico.','','','n-30') d" "$rn|true" 'mismo recibo de notificación tras reiniciar'
 app "SELECT (d->>'recibo_ref')||'|'||(d->>'replay') FROM prueba.atender('R','ate-r-00001','$na','n-31') d" "$rt|true" 'mismo recibo de atención tras reiniciar'
 comprobar "SELECT count(*) FROM vec_cronos_v1.notificacion WHERE empleado_ref='$A' AND clave_operacion IN ('not-a-00001')" 1 'una única notificación tras reiniciar'
+
+# ---- Separación de funciones y nada propio ----
+# (a) Quien dio la conformidad como jefatura no resuelve después como RRHH.
+app "SELECT d->>'estado' FROM prueba.pedir('$A','perm-va-00009','vacaciones',prueba.semana()+14,prueba.semana()+15,'','','s-p-1') d" 'solicitado' 'A pide vacaciones'
+app "SELECT d->>'estado' FROM prueba.resolver('J','res-va-00009','perm-va-00009','responsable','aprobar','',1,'s-r-1') d" 'pendiente_administracion' 'J da la conformidad como jefatura'
+app "SELECT prueba.espera_error(\$\$SELECT prueba.resolver('J','res-va-00010','perm-va-00009','administracion','aprobar','',2,'s-r-2')\$\$,'PC012')" 'OK PC012' 'J (también RRHH de A) no resuelve como RRHH lo que conformó'
+app "SELECT d->>'estado' FROM prueba.resolver('R','res-va-00011','perm-va-00009','administracion','aprobar','',2,'s-r-3') d" 'concedido' 'otra persona de RRHH concede'
+# (b) y (c) R tiene asignación de administración sobre sí mismo: su
+# notificación no llega a su bandeja y no puede atenderla.
+R=emp_RRRRRRRRRRRRRRRRRRRRRR
+app "SELECT d->>'replay' FROM prueba.notificar('$R','not-r-00001','$TIPO',prueba.semana(),'Comunicación propia de RRHH','','','s-n-1') d" 'false' 'R registra una notificación propia'
+nr=$(scalar "SELECT e->>'notificacion_ref' FROM prueba.notificaciones('$R','s-n-2') d, jsonb_array_elements(d->'notificaciones') e" login_cronos_prueba)
+app "SELECT count(*) FILTER (WHERE e->>'empleado_ref'='$R')||'/'||count(*) FILTER (WHERE e->>'empleado_ref'='$A') FROM prueba.bandeja_notificaciones('R','s-n-3') d, jsonb_array_elements(d->'notificaciones') e" '0/2' 'R no ve la suya en su bandeja aunque es competente sobre sí'
+app "SELECT prueba.espera_error(\$\$SELECT prueba.atender('R','ate-r-00009','$nr','s-n-4')\$\$,'PC012')" 'OK PC012' 'R no atiende su propia notificación'
+comprobar "SELECT count(*) FROM vec_cronos_v1.notificacion_atencion WHERE notificacion_ref='$nr'" 0 'la notificación propia sigue sin atender'
+
+# ---- Bandeja de más de 500: rechazo explícito, no recorte silencioso ----
+masivas() {
+ run <<SQL >/dev/null
+INSERT INTO vec_cronos_v1.notificacion(notificacion_ref,clave_operacion,empleado_ref,actor_ref,perfil_ref,tipo_version_ref,fecha_referida,texto,
+  material_sha256,decision_ref,auditoria_ref,consumo_huella_sha256,recibo_ref,registrada_en)
+SELECT 'notificacion:cronos:'||gen_random_uuid(),'masiva-'||lpad(i::text,5,'0'),'$D','per_DDDDDDDDDDDDDDDDDDDDDD','prf_PPPPPPPPPPPPPPPPPPPPPP','$TIPO',
+  prueba.semana(),'Carga sintética '||i,repeat('b',64),'decision:masiva:'||i,'auditoria:masiva:'||i,md5(i::text)||md5(i::text),
+  'recibo:cronos:'||gen_random_uuid(),clock_timestamp() FROM generate_series($1,$2) i;
+SQL
+}
+pendientes_r=$(scalar "SELECT jsonb_array_length(d->'notificaciones') FROM prueba.bandeja_notificaciones('R','s-g-0') d" login_cronos_prueba)
+masivas 1 $((500 - pendientes_r))
+app "SELECT jsonb_array_length(d->'notificaciones') FROM prueba.bandeja_notificaciones('R','s-g-1') d" '500' 'con 500 la bandeja se muestra entera'
+masivas 9001 9001
+app "SELECT prueba.espera_error(\$\$SELECT prueba.bandeja_notificaciones('R','s-g-2')\$\$,'PC013')" 'OK PC013' 'con 501 la bandeja se rechaza con PC013'
+app "SELECT jsonb_array_length(d->'notificaciones') FROM prueba.bandeja_notificaciones('J','s-g-3') d" '2' 'la bandeja de J (sólo A) no se ve afectada'
 printf 'PG18.4: cronos_v1 000010 verificado con fachadas AD3-57/58 DE PRUEBA; no acredita la cadena V3 real.\n'

@@ -4,10 +4,12 @@
 -- prueba.v3, prueba.v3r, prueba.material y sus personas).
 -- Además de A, B, J y R: C tiene RRHH (R) pero ni jefatura ni marca vigente
 -- (sólo una futura); D tiene jefatura (J), RRHH (R) y la marca expresa de
--- circuito directo de su unidad.
+-- circuito directo de su unidad. R tiene además una asignación de
+-- administración sobre sí mismo, para probar que nunca ve ni atiende lo suyo.
 BEGIN;
 SET LOCAL ROLE vec_cronos_v1_propietario;
 INSERT INTO vec_cronos_v1.permiso_resolutor VALUES
+ ('resolutor:cronos:r-administracion-r','emp_RRRRRRRRRRRRRRRRRRRRRR','RRHH sintético','administracion','per_RRRRRRRRRRRRRRRRRRRRRR',clock_timestamp()-interval '1 day',NULL,true,'fuente:sintetica:duda-47',clock_timestamp()),
  ('resolutor:cronos:c-administracion-r','emp_CCCCCCCCCCCCCCCCCCCCCC','Persona sintética C','administracion','per_RRRRRRRRRRRRRRRRRRRRRR',clock_timestamp()-interval '1 day',NULL,true,'fuente:sintetica:duda-47',clock_timestamp()),
  ('resolutor:cronos:d-administracion-r','emp_DDDDDDDDDDDDDDDDDDDDDD','Persona sintética D','administracion','per_RRRRRRRRRRRRRRRRRRRRRR',clock_timestamp()-interval '1 day',NULL,true,'fuente:sintetica:duda-47',clock_timestamp()),
  ('resolutor:cronos:d-responsable-j','emp_DDDDDDDDDDDDDDDDDDDDDD','Persona sintética D','responsable','per_JJJJJJJJJJJJJJJJJJJJJJ',clock_timestamp()-interval '1 day',NULL,true,'fuente:sintetica:duda-47',clock_timestamp());

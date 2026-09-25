@@ -10,7 +10,10 @@
 --    solicitud queda pendiente de asignación: RRHH la ve en su bandeja, pero
 --    nadie puede resolverla (falla cerrado). Sustituye las dos funciones de
 --    quien resuelve de 000009 y, de paso, trata como no competente (PC012)
---    una asignación que empieza entre el consumo y la comprobación.
+--    una asignación que empieza entre el consumo y la comprobación. La
+--    consulta de permisos propios de 000008 devuelve además, por solicitud,
+--    el circuito aplicado y si espera la asignación de una jefatura, con la
+--    misma regla que la bandeja (nunca quién resuelve).
 -- 2. consumir_propio_v1 (000008) rechaza también un contexto de quien
 --    resuelve ya fijado en la transacción, como ya hacía con el propio.
 -- 3. Notificaciones de la persona empleada a RRHH (C9): tipo de un catálogo
@@ -32,7 +35,7 @@ SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='30s';
 SELECT pg_advisory_xact_lock(hashtextextended('vec_cronos_v1:000010',0));
 DO $pre$
-DECLARE fachada text;
+DECLARE fachada text; previa record;
 BEGIN
  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='vec_cronos_v1_propietario' AND NOT rolcanlogin AND NOT rolbypassrls)
     OR NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='vec_cronos_v1_ejecutor' AND NOT rolcanlogin AND NOT rolbypassrls)
@@ -45,6 +48,26 @@ BEGIN
     OR EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid='vec_cronos_v1.permiso_resolucion'::regclass AND attname='circuito' AND NOT attisdropped) THEN
    RAISE EXCEPTION 'Cronos 000010: preimagen incompatible' USING ERRCODE='55000';
  END IF;
+ -- Preimagen exacta de las cuatro funciones que se sustituyen, tal como las
+ -- publicaron 000008 y 000009: definición (md5 de pg_get_functiondef),
+ -- SECURITY DEFINER, configuración, ACL y propietario. Cualquier retoque
+ -- posterior detiene la instalación en vez de pisarlo.
+ FOR previa IN SELECT * FROM (VALUES
+   ('vec_cronos_v1.consultar_bandeja_permisos_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','bf78174a39e6247a46e4427ccc4ca90b',true,
+    '{search_path=pg_catalog,row_security=on,TimeZone=UTC,lock_timeout=2s}','{vec_cronos_v1_propietario=X/vec_cronos_v1_propietario,vec_cronos_v1_ejecutor=X/vec_cronos_v1_propietario}'),
+   ('vec_cronos_v1.resolver_permiso_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','b6237434ce15054224385f35e535a1ae',true,
+    '{search_path=pg_catalog,row_security=on,TimeZone=UTC,lock_timeout=2s}','{vec_cronos_v1_propietario=X/vec_cronos_v1_propietario,vec_cronos_v1_ejecutor=X/vec_cronos_v1_propietario}'),
+   ('vec_cronos_v1.consultar_permisos_propio_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','134c3d112146748249561561e44f3783',true,
+    '{search_path=pg_catalog,row_security=on,TimeZone=UTC,lock_timeout=2s}','{vec_cronos_v1_propietario=X/vec_cronos_v1_propietario,vec_cronos_v1_ejecutor=X/vec_cronos_v1_propietario}'),
+   ('vec_cronos_v1.consumir_propio_v1(text,text,text,text,text,text[],jsonb,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','6c8350d88bde29ea4ad0f6710d802736',false,
+    '{search_path=pg_catalog}','{vec_cronos_v1_propietario=X/vec_cronos_v1_propietario}')
+   ) v(firma,huella,definidora,config,acl) LOOP
+   IF to_regprocedure(previa.firma) IS NULL OR NOT EXISTS (SELECT 1 FROM pg_proc p WHERE p.oid=to_regprocedure(previa.firma)
+       AND md5(pg_get_functiondef(p.oid))=previa.huella AND p.prosecdef=previa.definidora AND p.proconfig::text=previa.config
+       AND p.proacl::text=previa.acl AND p.proowner='vec_cronos_v1_propietario'::regrole) THEN
+     RAISE EXCEPTION 'Cronos 000010: preimagen de % incompatible',previa.firma USING ERRCODE='55000';
+   END IF;
+ END LOOP;
  FOREACH fachada IN ARRAY ARRAY['registrar_y_consumir_cronos_notificacion_v3_atestada','consumir_cronos_notificaciones_propio_v3_atestada',
    'consumir_cronos_notificaciones_bandeja_v3_atestada','registrar_y_consumir_cronos_atencion_notificacion_v3_atestada'] LOOP
    IF to_regprocedure('vec_autorizacion_atestada_v3.'||fachada||'(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
@@ -252,6 +275,64 @@ BEGIN
    'version',actual.version+1,'instante_utc',k.ahora,'replay',false);
 EXCEPTION WHEN unique_violation THEN
  RAISE EXCEPTION 'clave Cronos en conflicto' USING ERRCODE='PC002';
+END $f$;
+
+-- La persona sabe si tiene jefatura asignada (para ver «pendiente de asignar
+-- jefatura»): la función definidora sólo devuelve el booleano, nunca la fila.
+CREATE POLICY lectura_jefatura_propia ON vec_cronos_v1.permiso_resolutor FOR SELECT TO vec_cronos_v1_propietario
+ USING (paso='responsable' AND empleado_ref=nullif(current_setting('vec.cronos.empleado_ref',true),''));
+
+-- Igual que en 000008, más el circuito aplicado de cada solicitud y si
+-- espera la asignación de una jefatura, con la regla de la bandeja: J-A salvo
+-- marca directa vigente; lo ya resuelto conserva el de su última resolución
+-- (vacío en las anteriores a 000010 y en las canceladas).
+CREATE OR REPLACE FUNCTION vec_cronos_v1.consultar_permisos_propio_v1(
+    p_material text,p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,
+    p_persona_version numeric,p_perfil_version numeric,
+    p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea
+) RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
+SET search_path=pg_catalog SET row_security=on SET timezone='UTC' SET lock_timeout='2s' AS $f$
+#variable_conflict use_variable
+DECLARE m jsonb; k record; emp text; anio integer; referencia timestamptz; inicio timestamptz; fin timestamptz; resultado jsonb;
+ directo boolean; jefatura boolean;
+BEGIN
+ m:=vec_cronos_v1.material_propio_v1(p_material,ARRAY['actor_ref','perfil_ref','empleado_ref','anio','zona_horaria']);
+ IF m->>'anio' !~ '^[0-9]{4}$' OR (m->>'anio')::integer NOT BETWEEN 2000 AND 2100 THEN
+   RAISE EXCEPTION 'año Cronos inválido' USING ERRCODE='PC001';
+ END IF;
+ anio:=(m->>'anio')::integer; emp:=m->>'empleado_ref';
+ SELECT * INTO STRICT k FROM vec_cronos_v1.consumir_propio_v1('consumir_cronos_permisos_propio_v3_atestada','cronos.permisos.propio.consultar',
+   'permisos_propio','consultar_permisos_propio','permisos:cronos:'||emp,NULL,m,p_material,
+   p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz);
+ INSERT INTO vec_cronos_v1.permisos_acceso(decision_ref,empleado_ref,anio,material_sha256,auditoria_ref,consumo_huella_sha256,consultada_en)
+ VALUES(k.decision_ref,emp,anio,k.material_sha256,k.auditoria_ref,k.consumo_huella_sha256,k.ahora);
+ directo:=vec_cronos_v1.circuito_directo_vigente_v1(emp,k.ahora) IS NOT NULL;
+ jefatura:=vec_cronos_v1.jefatura_asignada_v1(emp,k.ahora);
+ -- El catálogo del año es el vigente hoy si el año está en curso; si no, el
+ -- de su primer o último instante.
+ inicio:=make_date(anio,1,1)::timestamp AT TIME ZONE (m->>'zona_horaria');
+ fin:=make_date(anio+1,1,1)::timestamp AT TIME ZONE (m->>'zona_horaria');
+ referencia:=CASE WHEN k.ahora<inicio THEN inicio WHEN k.ahora>=fin THEN fin-interval '1 microsecond' ELSE k.ahora END;
+ resultado:=jsonb_build_object('empleado_ref',emp,'anio',anio,
+  'catalogo',coalesce((SELECT jsonb_agg(jsonb_build_object('permiso_ref',c.permiso_ref,'version_ref',c.version_ref,'nombre',c.nombre,
+      'vigente_desde',c.vigente_desde,'vigente_hasta',c.vigente_hasta,'unidad',c.unidad,'computo',c.computo,'circuito',c.circuito,
+      'fuente_ref',c.fuente_ref,'minimo',c.minimo,'maximo_solicitud',c.maximo_solicitud,'maximo_mensual',c.maximo_mensual,'maximo_anual',c.maximo_anual,
+      'justificante_exigido',c.justificante_exigido,'solicitable',c.solicitable AND k.ahora>=c.vigente_desde AND (c.vigente_hasta IS NULL OR k.ahora<c.vigente_hasta),
+      'sintetico',c.sintetico) ORDER BY c.orden,c.permiso_ref)
+     FROM vec_cronos_v1.catalogo_vigente_v1(referencia) c),'[]'::jsonb),
+  'solicitudes',coalesce((SELECT jsonb_agg(jsonb_build_object('solicitud_ref',s.solicitud_ref,'catalogo_version_ref',s.catalogo_version_ref,
+      'permiso_ref',s.permiso_ref,'desde',to_char(s.desde,'YYYY-MM-DD'),'hasta',to_char(s.hasta,'YYYY-MM-DD'),
+      'hora_inicio',s.hora_inicio,'hora_fin',s.hora_fin,'cantidad',s.cantidad,'unidad',s.unidad,'estado',e.estado,'version',e.version,
+      'pendiente_justificar',e.pendiente_justificar,'solicitada_en',s.solicitada_en,
+      'circuito',CASE e.estado WHEN 'solicitado' THEN CASE WHEN directo THEN 'A' ELSE 'J-A' END
+        WHEN 'pendiente_administracion' THEN 'J-A'
+        ELSE (SELECT r.circuito FROM vec_cronos_v1.permiso_resolucion r WHERE r.solicitud_ref=s.solicitud_ref
+               ORDER BY r.version_resultante DESC LIMIT 1) END,
+      'pendiente_asignacion',(e.estado='solicitado' AND NOT directo AND NOT jefatura)) ORDER BY s.desde,s.solicitud_ref)
+     FROM vec_cronos_v1.permiso_solicitud s JOIN vec_cronos_v1.estado_permiso_actual_v1(emp) e ON e.solicitud_ref=s.solicitud_ref
+    WHERE s.empleado_ref=emp AND extract(year FROM s.desde)=anio),'[]'::jsonb));
+ IF clock_timestamp()>=k.vence THEN RAISE EXCEPTION 'vigencia Cronos agotada' USING ERRCODE='PC003'; END IF;
+ RETURN resultado;
 END $f$;
 
 -- ===================== 2. Consumo propio endurecido =====================
@@ -611,8 +692,12 @@ BEGIN
     FROM (SELECT n0.*,a.atendida_en FROM vec_cronos_v1.notificacion n0
             LEFT JOIN vec_cronos_v1.notificacion_atencion a ON a.notificacion_ref=n0.notificacion_ref
            WHERE vec_cronos_v1.resolutor_competente_v1(n0.empleado_ref,'administracion') AND n0.empleado_ref<>propio
-           ORDER BY a.atendida_en IS NOT NULL,n0.registrada_en DESC,n0.notificacion_ref LIMIT 500) n
+           ORDER BY a.atendida_en IS NOT NULL,n0.registrada_en DESC,n0.notificacion_ref LIMIT 501) n
     JOIN vec_cronos_v1.notificacion_tipo t ON t.version_ref=n.tipo_version_ref),'[]'::jsonb));
+ -- Como la bandeja de permisos: más de 500 no se recorta en silencio.
+ IF jsonb_array_length(resultado->'notificaciones')>500 THEN
+   RAISE EXCEPTION 'bandeja Cronos demasiado grande' USING ERRCODE='PC013';
+ END IF;
  IF clock_timestamp()>=k.vence THEN RAISE EXCEPTION 'vigencia Cronos agotada' USING ERRCODE='PC003'; END IF;
  RETURN resultado;
 END $f$;
@@ -692,6 +777,7 @@ BEGIN
  FOREACH f IN ARRAY ARRAY[
    'vec_cronos_v1.consultar_bandeja_permisos_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
    'vec_cronos_v1.resolver_permiso_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
+   'vec_cronos_v1.consultar_permisos_propio_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
    'vec_cronos_v1.registrar_notificacion_propia_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
    'vec_cronos_v1.consultar_notificaciones_propio_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
    'vec_cronos_v1.consultar_bandeja_notificaciones_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
