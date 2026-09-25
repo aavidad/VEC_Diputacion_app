@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"os"
+	"reflect"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -88,7 +90,7 @@ func TestContratoDocumentoPropioV2(t *testing.T) {
 	nueva := domain.ComisionBorrador{Referencia: "dco_" + strings.Repeat("B", 22), Estado: "borrador", FechaInicio: "2026-09-24", FechaFin: "2026-09-24",
 		Motivo: "Borrador nuevo", RelacionRef: "rel_" + strings.Repeat("R", 22)}
 	// Recibo tal como lo entregan los adaptadores PostgreSQL de lectura y
-	// mutación: sin regla (solo la creación v1 la publica).
+	// mutación; el recibo nunca lleva la regla (va en comision.calculo).
 	recibo := func(version uint64, repeticion bool) dietasports.ReciboBorradorComision {
 		return dietasports.ReciboBorradorComision{Referencia: "rcd_" + strings.Repeat("0", 22), Version: version,
 			RegistradoEn: time.Date(2026, 9, 23, 9, 0, 0, 123456000, time.UTC), Repeticion: repeticion}
@@ -128,5 +130,67 @@ func TestContratoDocumentoPropioV2(t *testing.T) {
 		if !strings.Contains(string(salida), requerido) {
 			t.Fatalf("falta %s en el contrato", requerido)
 		}
+	}
+	// El recibo del fixture tiene exactamente las claves que admite el
+	// cliente; contrato-documento-go.test.mjs lo comprueba con el cliente real.
+	var leidos []struct {
+		Resultado struct {
+			Recibo map[string]json.RawMessage `json:"recibo"`
+		} `json:"resultado"`
+	}
+	if err := json.Unmarshal(salida, &leidos); err != nil {
+		t.Fatal(err)
+	}
+	for i, leido := range leidos {
+		if claves := clavesOrdenadas(leido.Resultado.Recibo); strings.Join(claves, ",") != strings.Join(clavesReciboCliente, ",") {
+			t.Fatalf("%s: el recibo HTTP lleva %v; el cliente web solo admite %v", casos[i].Nombre, claves, clavesReciboCliente)
+		}
+	}
+}
+
+// clavesReciboCliente son las cuatro claves del recibo que acepta
+// validarRecibo en cliente-borradores-http.js, ordenadas.
+var clavesReciboCliente = []string{"referencia", "registrado_en", "repeticion", "version"}
+
+func clavesOrdenadas(m map[string]json.RawMessage) []string {
+	claves := make([]string, 0, len(m))
+	for clave := range m {
+		claves = append(claves, clave)
+	}
+	sort.Strings(claves)
+	return claves
+}
+
+// El recibo HTTP no puede ganar claves sin cambiar también el cliente web:
+// las etiquetas JSON del tipo son exactamente las del cliente y ninguna es
+// omitempty (siempre se emiten las cuatro).
+func TestReciboHTTPSoloClavesDelCliente(t *testing.T) {
+	tipo := reflect.TypeOf(reciboBorradorJSON{})
+	etiquetas := make([]string, 0, tipo.NumField())
+	for i := 0; i < tipo.NumField(); i++ {
+		etiqueta := tipo.Field(i).Tag.Get("json")
+		if strings.Contains(etiqueta, ",") {
+			t.Fatalf("la clave %q del recibo HTTP no puede ser opcional", etiqueta)
+		}
+		etiquetas = append(etiquetas, etiqueta)
+	}
+	sort.Strings(etiquetas)
+	if strings.Join(etiquetas, ",") != strings.Join(clavesReciboCliente, ",") {
+		t.Fatalf("recibo HTTP %v; el cliente web solo admite %v", etiquetas, clavesReciboCliente)
+	}
+	bruto, err := json.Marshal(resultadoAJSON(dietasports.ResultadoBorradorComision{
+		Comision: domain.ComisionBorrador{Referencia: "dco_" + strings.Repeat("B", 22)},
+		Recibo:   dietasports.ReciboBorradorComision{Referencia: "rcd_" + strings.Repeat("0", 22), Version: 1, RegistradoEn: time.Date(2026, 9, 25, 8, 0, 0, 0, time.UTC)}}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var leido struct {
+		Recibo map[string]json.RawMessage `json:"recibo"`
+	}
+	if err := json.Unmarshal(bruto, &leido); err != nil {
+		t.Fatal(err)
+	}
+	if claves := clavesOrdenadas(leido.Recibo); strings.Join(claves, ",") != strings.Join(clavesReciboCliente, ",") {
+		t.Fatalf("resultadoAJSON emite el recibo %v", claves)
 	}
 }

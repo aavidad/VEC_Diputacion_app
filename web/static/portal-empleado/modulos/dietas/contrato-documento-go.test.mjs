@@ -39,6 +39,22 @@ for (const { nombre, resultado } of casos) {
   });
 }
 
+test("el recibo de Go tiene exactamente las cuatro claves del cliente", () => {
+  for (const { nombre, resultado } of casos) {
+    assert.deepEqual(Object.keys(resultado.recibo).sort(), ["referencia", "registrado_en", "repeticion", "version"], nombre);
+  }
+});
+
+test("el cliente rechaza un recibo con la regla: Go no la emite", async () => {
+  const base = casos.find((caso) => caso.nombre === "devuelta").resultado;
+  for (const extra of [{ regla_ref: "provisional:regla:nacional-ordinaria:20260923" }, { regla_huella_sha256: "a".repeat(64) }]) {
+    const alterado = structuredClone(base);
+    Object.assign(alterado.recibo, extra);
+    const cliente = crearClienteBorradoresDietasHTTP({ fetchImpl: async () => respuesta(alterado) });
+    await assert.rejects(cliente.obtener(base.comision.referencia), /recibo de Dietas incompatible/u);
+  }
+});
+
 test("una devolución con blanco de borde que recorta Go o el navegador se rechaza", async () => {
   const base = casos.find((caso) => caso.nombre === "devuelta").resultado;
   for (const borde of ["\ufeff", "\u0085", "\u00a0", " "]) {
