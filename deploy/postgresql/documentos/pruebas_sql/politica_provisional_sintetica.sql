@@ -49,6 +49,17 @@ BEGIN
  RETURN ensayo_externa.invocar(p_caso);
 END $f$;
 
+-- Registro externo con otra protección: la preimagen solo cambia en ese campo.
+CREATE FUNCTION ensayo_provisional.externa_proteccion(p_caso text,p_id text,p_clave text,p_estado text,p_proteccion text,p_decision text) RETURNS jsonb
+LANGUAGE plpgsql SET search_path=pg_catalog AS $f$
+BEGIN
+ PERFORM ensayo_externa.preparar(p_caso,'documentos.externo.registrar',p_id,'exp:00000000-0000-4000-8000-000000000003',
+  'registrar_documento_externo','documento_externo','["documento","recibo"]',
+  convert_to(replace(convert_from(ensayo_provisional.preimagen_externa(p_id,p_clave,p_estado),'UTF8'),
+   '"proteccion":"conservacion"','"proteccion":"'||p_proteccion||'"'),'UTF8'),p_decision);
+ RETURN ensayo_externa.invocar(p_caso);
+END $f$;
+
 -- Ejecuta una operación y devuelve su SQLSTATE ('ok' si no falla); la
 -- subtransacción revierte cualquier consumo sintético del caso fallido.
 CREATE FUNCTION ensayo_provisional.estado(p_sql text) RETURNS text
@@ -116,6 +127,11 @@ BEGIN
  e:=ensayo_provisional.estado($s$SELECT ensayo_provisional.externa('ext_cambio','doc:00000000-0000-4000-8000-0000000000d1',
   'idem:00000000-0000-4000-8000-0000000000d1','aprobada','decision:00000000-0000-4000-8000-0000000000d3')$s$);
  IF e<>'23505' THEN RAISE EXCEPTION 'FALLO: externa con estado cambiado: sqlstate %',e; END IF;
+ -- Una política provisional solo admite protección ordinaria: el bloqueo se
+ -- deniega antes de consumir la autorización.
+ e:=ensayo_provisional.estado($s$SELECT ensayo_provisional.externa_proteccion('ext_bloqueo','doc:00000000-0000-4000-8000-0000000000d4',
+  'idem:00000000-0000-4000-8000-0000000000d4','provisional','bloqueo','decision:00000000-0000-4000-8000-0000000000d4')$s$);
+ IF e<>'42501' THEN RAISE EXCEPTION 'FALLO: externa provisional con bloqueo: sqlstate % (se esperaba 42501)',e; END IF;
 END $f$;
 
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA ensayo_provisional TO vec_documentos_ensayo;

@@ -27,11 +27,14 @@ func RegistrarFicheros(registro *RegistroConectoresAlmacen, identificador string
 				return nil, ficheros.ErrConfiguracionInvalida
 			}
 		}
+		// retencion_minima_dias es obligatoria y explícita: su ausencia no
+		// equivale a cero. Cero días: el conector no fija retención al escribir
+		// (política de conservación provisional); se aplica después con
+		// AplicarRetencion.
+		textoDias, declarada := valores["retencion_minima_dias"]
 		tamano, errT := strconv.ParseInt(valores["tamano_maximo"], 10, 64)
-		dias, errD := strconv.ParseInt(valores["retencion_minima_dias"], 10, 64)
-		// Cero días: el conector no fija retención al escribir (política de
-		// conservación provisional); se aplica después con AplicarRetencion.
-		if errT != nil || errD != nil || dias < 0 || dias > 36500 {
+		dias, errD := strconv.ParseInt(textoDias, 10, 64)
+		if !declarada || errT != nil || errD != nil || dias < 0 || dias > 36500 {
 			return nil, ficheros.ErrConfiguracionInvalida
 		}
 		return ficheros.Nuevo(ficheros.Configuracion{

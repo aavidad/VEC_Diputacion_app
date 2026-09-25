@@ -25,6 +25,13 @@ instaladas antes y después de ellas sobre el núcleo AD3 real.
    membresía `vec_documentos_ejecutor` y otro con **solo**
    `vec_documentos_auditor`; no conceder propiedad, migración ni acceso a tablas.
 
+> **Aviso (25/09/2026).** `000001`, `000002` y `000003` se han modificado en
+> su propio fichero (estado de la política de conservación, sin migraciones
+> nuevas). No constan instaladas en ninguna base conocida. Una base de
+> desarrollo que tuviera instalada una versión anterior de cualquiera de ellas
+> **debe recrearse** desde cero: no se corrige reaplicándolas ni con
+> `DOWN`/`UP`, y 000004 comprueba la huella de los cuerpos que instalan.
+
 ## Documentos-4
 
 El PDP V3 real fija `huella_efecto_sha256` y `contexto_recurso_huella_sha256`
@@ -140,7 +147,8 @@ sobre ambas custodias. Con la política provisional (en un expediente propio)
 confirma un alta sin retención y su replay, rechaza con 42501 estados fuera de
 catálogo, un provisional con retención o inmovilizado y un aprobado sin
 retención, y con 23505 el replay de la misma clave con el estado cambiado; lo
-mismo para una referencia externa; y comprueba que el `CHECK` de la tabla
+mismo para una referencia externa, que además rechaza con 42501 la protección
+`bloqueo` con política provisional; y comprueba que el `CHECK` de la tabla
 rechaza filas incoherentes incluso al superusuario. Al final ejecuta el repositorio Go (pgx) contra esa base
 con el LOGIN ejecutor para cotejar preimagen, proyección y lista v2
 (`VEC_DOCUMENTOS_SIN_GO=1` lo omite). Además rechaza con 42501 una decisión
@@ -198,10 +206,13 @@ Git, 0600):
 ```
 
 `almacen.tipo` admite `ficheros` (predeterminado: directorio propio del
-proceso, 0700) o `s3` con el mapa `s3` del conector S3 existente. Con el
-catálogo de conservación provisional solo arranca `ficheros` con
-`retencion_minima_dias: 0` (sin retención al escribir; véase «Política de
-conservación provisional»). Los DSN
+proceso, 0700) o `s3` con el mapa `s3` del conector S3 existente. En
+`ficheros`, `retencion_minima_dias` es obligatoria y explícita: omitirla impide
+arrancar (no equivale a 0), y `s3` no la admite. Con el catálogo de
+conservación provisional solo arranca `ficheros` con
+`retencion_minima_dias: 0` declarado (sin retención al escribir; véase
+«Política de conservación provisional»); con un catálogo aprobado, 0 se
+rechaza al arrancar, no en la primera escritura. Los DSN
 exigen TLS verificado y LOGIN distintos. Las cuentas deben existir ya en la
 identidad de desarrollo; el catálogo de motivos y las concesiones de
 `documentos.expediente.listar` (tipo `expediente_documental`, campos

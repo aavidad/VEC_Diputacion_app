@@ -251,6 +251,68 @@ func TestAutorizacionCaducadaNoLeeContenido(t *testing.T) {
 	}
 }
 
+// relojMovil devuelve el instante vigente hasta que la lectura del contenido
+// lo adelanta más allá de la vigencia de la concesión.
+type relojMovil struct {
+	mu sync.Mutex
+	t  time.Time
+}
+
+func (r *relojMovil) Ahora() time.Time {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.t
+}
+
+func (r *relojMovil) fijar(t time.Time) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.t = t
+}
+
+type lectorQueCaduca struct {
+	origen io.Reader
+	reloj  *relojMovil
+	unaVez sync.Once
+}
+
+func (l *lectorQueCaduca) Read(p []byte) (int, error) {
+	l.unaVez.Do(func() { l.reloj.fijar(instante().Add(2 * time.Hour)) })
+	return l.origen.Read(p)
+}
+
+// La concesión vence mientras se vuelca el contenido: la comprobación
+// posterior al volcado debe rechazar la escritura sin dejar rastro.
+func TestAutorizacionCaducaDuranteElVolcado(t *testing.T) {
+	dir := directorioPrueba(t)
+	reloj := &relojMovil{t: instante()}
+	a, err := Nuevo(Configuracion{Directorio: dir, TamanoMaximo: 1 << 20,
+		RetencionMinimaAdmitida: time.Hour}, reloj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = a.Cerrar() })
+	contenido := []byte("contenido que caduca")
+	s := escritura(t, "caduca", "clave:caduca", ports.ZonaAlmacenAdmitida, contenido)
+	lector := &lectorQueCaduca{origen: bytes.NewReader(contenido), reloj: reloj}
+	s.Contenido = lector
+	if _, err := a.Escribir(context.Background(), s); err == nil {
+		t.Fatal("escritura aceptada con la concesión vencida durante el volcado")
+	}
+	if reloj.Ahora().Equal(instante()) {
+		t.Fatal("el contenido no llegó a leerse")
+	}
+	for _, sub := range []string{dirTemporal, dirObjetos, dirIdempotencia} {
+		entradas, err := os.ReadDir(filepath.Join(dir, sub))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(entradas) != 0 {
+			t.Fatalf("%s conserva %d entradas tras el rechazo", sub, len(entradas))
+		}
+	}
+}
+
 type lectorQueFalla struct{}
 
 func (lectorQueFalla) Read([]byte) (int, error) { panic("contenido leído sin autorización vigente") }

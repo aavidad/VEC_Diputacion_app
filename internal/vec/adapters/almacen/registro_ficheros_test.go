@@ -40,6 +40,7 @@ func TestRegistroSeleccionaFicherosOS3PorConfiguracion(t *testing.T) {
 	for nombre, cfg := range map[string]almacen.ConfiguracionConectorAlmacen{
 		"clave desconocida":  {"directorio": dir, "tamano_maximo": "10", "retencion_minima_dias": "1", "ruta_cliente": "/tmp"},
 		"sin retención":      {"directorio": dir, "tamano_maximo": "10"},
+		"retención vacía":    {"directorio": dir, "tamano_maximo": "10", "retencion_minima_dias": ""},
 		"relativo":           {"directorio": "originales", "tamano_maximo": "10", "retencion_minima_dias": "1"},
 		"retención negativa": {"directorio": dir, "tamano_maximo": "10", "retencion_minima_dias": "-1"},
 	} {
