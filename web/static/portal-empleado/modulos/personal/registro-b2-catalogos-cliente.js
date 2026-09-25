@@ -57,7 +57,7 @@ export function crearClienteCatalogosRegistroB2({ fetchImpl = globalThis.fetch, 
     externo?.addEventListener("abort", abortar, { once: true }); const temporizador = setTimeout(abortar, plazoMs);
     try {
       let respuesta;
-      try { respuesta = await fetchImpl(url, { ...opciones, credentials: "omit", mode: "same-origin", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer", signal: controlador.signal }); }
+      try { respuesta = await fetchImpl(url, { ...opciones, credentials: "same-origin", mode: "same-origin", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer", signal: controlador.signal }); }
       catch { throw new ErrorCatalogosRegistroB2(escritura ? "resultado_incierto" : "red_no_disponible"); }
       if (!respuesta || respuesta.redirected) throw new ErrorCatalogosRegistroB2(escritura ? "resultado_incierto" : "respuesta_incompatible");
       if (respuesta.status !== 200 && (!escritura || respuesta.status !== 201)) {

@@ -196,6 +196,11 @@ transportes_mtls_revisados=(
 	# fijas, same-origin, no-store, redirect error y no-referrer.
 	static/portal-empleado/modulos/cronos/cliente-saldo-http.js
 	static/portal-empleado/modulos/cronos/cliente-remoto-http.js
+	# Registro de empleado B2 de Personal (25/09): ficha, vacantes, altas, hechos y
+	# catálogos RRHH; GET/POST a rutas internas fijas, same-origin, no-store,
+	# redirect error y no-referrer; actor y organismo los deriva el servidor.
+	static/portal-empleado/modulos/personal/registro-b2-cliente.js
+	static/portal-empleado/modulos/personal/registro-b2-catalogos-cliente.js
 )
 mapfile -t usos_mismo_origen < <(
 	grep -rliE 'credentials[[:space:]]*:[[:space:]]*["'"'"']same-origin' \

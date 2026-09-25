@@ -27,13 +27,13 @@ test("la huella de publicación coincide con el contrato canónico Go, con UTF-8
   assert.notEqual(await calcularHuellaPublicacionCatalogoB2({ organismoRef: "organismo:dipgra", tipo: "regimen", ref: "regimen:uno", version: 1, revision: 1, denominacion: "Otro régimen", vigenteDesde: "2026-09-20" }), huella);
 });
 
-test("GET vacío entrega organismo de servidor y el cliente omite cookies", async () => {
+test("GET vacío entrega organismo de servidor y el cliente usa credenciales del mismo origen", async () => {
   const llamadas = [];
   const cliente = crearClienteCatalogosRegistroB2({ fetchImpl: async (url, opciones) => { llamadas.push([url, opciones]); return new Response(JSON.stringify({ data: { organismo_ref: "organismo:dipgra", entradas: [], cursor_siguiente: null, evidencia } }), { status: 200, headers: { "content-type": "application/json; charset=utf-8" } }); } });
   const pagina = await cliente.listar({ tipo: "regimen", estado: "publicada", limite: 50 });
   assert.equal(pagina.organismoRef, "organismo:dipgra"); assert.deepEqual(pagina.entradas, []);
   assert.match(llamadas[0][0], /^\/api\/vec\/personal\/catalogos-registro-empleado\?tipo=regimen&limite=50&estado=publicada$/u);
-  assert.equal(llamadas[0][1].credentials, "omit");
+  assert.equal(llamadas[0][1].credentials, "same-origin");
   const denegado = crearClienteCatalogosRegistroB2({ fetchImpl: async () => new Response(JSON.stringify({ error: { codigo: "acceso_denegado" } }), { status: 403, headers: { "content-type": "application/json; charset=utf-8" } }) });
   await assert.rejects(denegado.listar({ tipo: "regimen" }), (error) => error instanceof ErrorCatalogosRegistroB2 && error.estado === 403);
   const sinOrganismo = crearClienteCatalogosRegistroB2({ fetchImpl: async () => new Response(JSON.stringify({ data: { organismo_ref: "", entradas: [], cursor_siguiente: null, evidencia } }), { status: 200, headers: { "content-type": "application/json; charset=utf-8" } }) });
@@ -51,7 +51,7 @@ test("POST publica sin organismo en el cuerpo y conserva recibo original en repl
   assert.deepEqual(resultado.recibo, recibo); assert.equal(resultado.accesoActual.estado_replay, "replay");
   assert.equal(llamadas[0][0], "/api/vec/personal/catalogos-registro-empleado");
   assert.equal(llamadas[0][1].headers["Idempotency-Key"], idempotencia);
-  assert.equal(llamadas[0][1].credentials, "omit");
+  assert.equal(llamadas[0][1].credentials, "same-origin");
   assert.equal(Object.hasOwn(JSON.parse(llamadas[0][1].body), "organismo_ref"), false);
   assert.equal(Object.hasOwn(JSON.parse(llamadas[0][1].body), "acto_ref"), false);
   await assert.rejects(cliente.cambiar({ ...cuerpo, organismo_ref: "organismo:otro" }, { claveIdempotencia: idempotencia }), TypeError);

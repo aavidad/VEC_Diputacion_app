@@ -109,7 +109,7 @@ test("el cliente usa GET exacto, corte bitemporal y rechaza acceso denegado", as
   assert.match(rutas[0][0], /^\/api\/vec\/personal\/empleados\/emp_aaaaaaaaaaaaaaaaaaaaaa\?/u);
   assert.match(rutas[0][0], /vigente_en=2026-09-25/u);
   assert.match(rutas[0][0], /conocido_en=2026-09-25T10%3A00%3A00\.000000Z/u);
-  assert.equal(rutas[0][1].credentials, "omit");
+  assert.equal(rutas[0][1].credentials, "same-origin");
   const denegado = crearClienteRegistroB2({ fetchImpl: async () => new Response(null, { status: 403 }) });
   await assert.rejects(denegado.consultarFicha({ empleadoRef: "emp_aaaaaaaaaaaaaaaaaaaaaa", vigenteEn: "2026-09-25", conocidoEn: "2026-09-25T10:00:00.000000Z" }), (error) => error instanceof ErrorRegistroB2 && error.estado === 403);
   const cobertura = crearClienteRegistroB2({ fetchImpl: async () => new Response(JSON.stringify({ error: { codigo: "cobertura_no_acreditada" } }), { status: 503, headers: { "content-type": "application/json; charset=utf-8" } }) });
@@ -165,7 +165,7 @@ test("POST de alta envía solo campos gobernados, sin cookies, y exige recibo no
   const cliente = crearClienteRegistroB2({ fetchImpl: async (url, opciones) => { peticiones.push([url, opciones]); return new Response(JSON.stringify({ data: { recibo, acceso_actual } }), { status: 201, headers: { "content-type": "application/json; charset=utf-8" } }); } });
   assert.equal((await cliente.registrarAlta(cuerpo, { claveIdempotencia: idempotencia })).recibo.recibo_ref, recibo.recibo_ref);
   assert.equal(peticiones[0][0], "/api/vec/personal/empleados");
-  assert.equal(peticiones[0][1].credentials, "omit");
+  assert.equal(peticiones[0][1].credentials, "same-origin");
   assert.equal(peticiones[0][1].headers["Idempotency-Key"], idempotencia);
   assert.deepEqual(JSON.parse(peticiones[0][1].body), cuerpo);
   await assert.rejects(cliente.registrarAlta({ ...cuerpo, regimen: undefined, regimen_ref: "regimen_sintetico" }, { claveIdempotencia: idempotencia }), TypeError);
@@ -225,4 +225,15 @@ test("el conflicto de catálogo o revisión retira el formulario pendiente", asy
   assert.match(texto(raiz), /Los datos seleccionados han cambiado/);
   assert.equal(buscar(raiz, (n) => n.tagName === "form"), undefined);
   assert.equal(buscar(raiz, (n) => n.textContent === "Confirmar registro"), undefined);
+});
+
+test("clientes con mTLS del mismo origen renuevan su versión en cascada", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const { exigirRenovado } = await import("../../versiones-cache.test-helper.mjs");
+  const leer = (nombre) => readFile(new URL(`./${nombre}`, import.meta.url), "utf8");
+  const [registro, actos, catalogos] = await Promise.all(["registro-b2.js", "registro-b2-actos.js", "registro-b2-catalogos.js"].map(leer));
+  exigirRenovado([registro, actos], "registro-b2-cliente.js", "20260925-b2-registro-v1");
+  exigirRenovado(catalogos, "registro-b2-catalogos-cliente.js", "20260925-b2-registro-v3");
+  exigirRenovado(registro, "registro-b2-actos.js", "20260925-b2-registro-v3");
+  exigirRenovado(registro, "registro-b2-catalogos.js", "20260925-b2-registro-v3");
 });

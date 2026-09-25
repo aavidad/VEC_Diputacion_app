@@ -107,7 +107,7 @@ export function crearClienteRegistroB2({ fetchImpl = globalThis.fetch, plazoMs =
       let respuesta;
       try {
         respuesta = await fetchImpl(`${ruta}?${parametros}`, {
-          method: "GET", credentials: "omit", mode: "same-origin", cache: "no-store",
+          method: "GET", credentials: "same-origin", mode: "same-origin", cache: "no-store",
           redirect: "error", referrerPolicy: "no-referrer", signal: controlador.signal,
         });
       } catch {
@@ -139,7 +139,7 @@ export function crearClienteRegistroB2({ fetchImpl = globalThis.fetch, plazoMs =
       let respuesta;
       try {
         respuesta = await fetchImpl(ruta, {
-          method: "POST", credentials: "omit", mode: "same-origin", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer",
+          method: "POST", credentials: "same-origin", mode: "same-origin", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer",
           headers: { "content-type": "application/json", "Idempotency-Key": claveIdempotencia }, body: bytes, signal: controlador.signal,
         });
       } catch { throw new ErrorRegistroB2("resultado_incierto"); }
