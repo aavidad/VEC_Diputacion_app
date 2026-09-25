@@ -167,7 +167,8 @@ el aviso de fsync del padre no confirmado), 1 = rechazado, 2 = uso incorrecto.
 
 Se ejecuta como el usuario del servicio, en la máquina donde corren
 `vec-server` y `vec-interno`, después de que `vec-server` haya arrancado con
-B2 activo (y, por tanto, publicado las ocho claves).
+`VEC_PERSONAL_B2_GOBIERNO_ENABLED=true` (y, por tanto, publicado las ocho
+claves; ver `deploy/principal/03_entorno.md`).
 
 Directorios que intervienen (los valores reales son privados y no están en
 Git):
