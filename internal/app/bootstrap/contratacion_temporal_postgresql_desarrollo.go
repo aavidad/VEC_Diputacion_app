@@ -612,7 +612,12 @@ func descriptoresMaterialPortalCandidatoDesarrollo() []descriptorMaterialConsumi
 // AD3-84 y Bolsa 000030 instaladas), con «Mi bolsa» compuesta y catálogo de
 // reglas de Bolsa que las rija. Un selector inválido se rechaza al arrancar.
 func debeComponerPortalCandidatoDesarrollo(cfg config.Config) bool {
-	if activo, err := cfg.BolsaPortalCandidatoDesarrolloActivo(); err != nil || !activo {
+	activo, err := cfg.BolsaPortalCandidatoDesarrolloActivo()
+	if err != nil {
+		slog.Error("portal del candidato de Bolsa no compuesto: selector inválido", "causa", err)
+		return false
+	}
+	if !activo {
 		return false
 	}
 	rutas, activas, err := cfg.ReglasEjemploDesarrollo()

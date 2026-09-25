@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"log/slog"
 	"slices"
 	"sort"
 	"strings"
@@ -84,7 +85,12 @@ func descriptoresMaterialSeguimientoCeseDesarrollo() []descriptorMaterialConsumi
 // instaladas) y los tres catálogos de ejemplo; la doble llave de desarrollo
 // la comprueba el propio selector.
 func seguimientoCeseSolicitado(cfg config.Config) bool {
-	if activo, err := cfg.CTSeguimientoCeseDesarrolloActivo(); err != nil || !activo {
+	activo, err := cfg.CTSeguimientoCeseDesarrolloActivo()
+	if err != nil {
+		slog.Error("seguimiento de cese de CT no compuesto: selector inválido", "causa", err)
+		return false
+	}
+	if !activo {
 		return false
 	}
 	r := cfg.ReglasEjemplo
