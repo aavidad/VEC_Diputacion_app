@@ -15,9 +15,11 @@ import {
 
 test("P-WEB-14 no anuncia un total mientras Bolsa sigue comprobando", () => {
   const accesos = [{ disponible: true, estado: "disponible" }, { disponible: false, estado: "cargando" }];
-  assert.equal(resumenAccesosModulos(accesos, false), "Fase inicial: comprobando módulos");
-  assert.equal(resumenAccesosModulos([{ disponible: true, estado: "disponible" }], true), "Fase inicial: comprobando módulos");
-  assert.equal(resumenAccesosModulos([{ disponible: true, estado: "disponible" }], false), "1 módulo habilitado en fase inicial");
+  assert.equal(resumenAccesosModulos(accesos, false), "Comprobando módulos");
+  assert.equal(resumenAccesosModulos([{ disponible: true, estado: "disponible" }], true), "Comprobando módulos");
+  assert.equal(resumenAccesosModulos([{ disponible: true, estado: "disponible" }], false), "1 módulo disponible");
+  assert.equal(resumenAccesosModulos([{ disponible: false, estado: "denegado" }], false), "Sin módulos disponibles");
+  assert.doesNotMatch(resumenAccesosModulos([], false), /fase inicial/iu);
 });
 
 const directorio = new URL("./", import.meta.url);
@@ -258,4 +260,118 @@ test("las etiquetas visibles del menú son cortas y la descripción completa es 
     assert.ok(visible, `falta la etiqueta corta de ${categoria}`);
     assert.ok(visible[1].length <= 20, `etiqueta visible demasiado larga en ${categoria}: ${visible[1]}`);
   }
+});
+
+// Modelo mínimo del menú real de index.html: categorías, grupos y submenús.
+function menuDesdeHTML() {
+  const fragmento = html.match(/<nav class="navegacion-bolsa"[\s\S]+?<\/nav>/)?.[0] || "";
+  const coincide = (elemento, selector) => {
+    if (selector === ".submenu-bolsa [data-vista]") {
+      return elemento.atributos["data-vista"] !== undefined && elemento.padre?.clase === "submenu-bolsa";
+    }
+    return selector.startsWith(".") && elemento.clase === selector.slice(1);
+  };
+  const nodo = (atributos, padre = null, clase = "") => {
+    const propio = {
+      hidden: false, dataset: {}, atributos, padre, hijos: [], clase, textContent: "",
+      getAttribute: (nombre) => atributos[nombre] ?? null,
+      closest: (selector) => {
+        for (let actual = propio; actual; actual = actual.padre) if (actual.clase === selector.slice(1)) return actual;
+        return null;
+      },
+      querySelector: (selector) => propio.querySelectorAll(selector)[0] || null,
+      querySelectorAll: (selector) => {
+        const salida = [];
+        const visitar = (hijo) => { if (coincide(hijo, selector)) salida.push(hijo); hijo.hijos.forEach(visitar); };
+        propio.hijos.forEach(visitar);
+        return salida;
+      },
+    };
+    padre?.hijos.push(propio);
+    return propio;
+  };
+  const atributosDe = (etiqueta) => Object.fromEntries([...etiqueta.matchAll(/([a-z-]+)="([^"]*)"/gu)]
+    .map(([, clave, valor]) => [clave, valor]));
+  const raiz = nodo({});
+  // Cada grupo es un bloque (su categoría y su submenú); cada categoría suelta, otro.
+  const bloques = fragmento.match(/<div class="grupo-menu-bolsa">[\s\S]*?<\/div>\s*<\/div>|<button type="button" class="enlace-lateral categoria-menu-bolsa"[^>]*>/gu) || [];
+  for (const bloque of bloques) {
+    const categoria = bloque.match(/<button type="button" class="enlace-lateral categoria-menu-bolsa"[^>]*>/u)?.[0];
+    if (!categoria) continue;
+    const agrupado = bloque.startsWith('<div class="grupo-menu-bolsa">');
+    const padre = agrupado ? nodo({}, raiz, "grupo-menu-bolsa") : raiz;
+    const atributos = atributosDe(categoria);
+    const control = nodo(atributos, padre, "categoria-menu-bolsa");
+    control.dataset = {
+      categoriaBolsa: atributos["data-categoria-bolsa"],
+      ...(atributos["data-grupo-bolsa"] ? { grupoBolsa: atributos["data-grupo-bolsa"] } : {}),
+    };
+    nodo({}, control, "numero-menu");
+    if (!agrupado) continue;
+    const submenu = nodo({}, padre, "submenu-bolsa");
+    for (const [etiqueta] of bloque.matchAll(/<button type="button" class="enlace-lateral enlace-submenu"[^>]*>/gu)) {
+      nodo(atributosDe(etiqueta), submenu);
+    }
+  }
+  return raiz;
+}
+
+function categoriasVisibles(raiz) {
+  return raiz.querySelectorAll(".categoria-menu-bolsa")
+    .filter((control) => !control.hidden && !(control.padre?.clase === "grupo-menu-bolsa" && control.padre.hidden))
+    .map((control) => control.dataset.categoriaBolsa);
+}
+
+test("sin panel interno ni borradores, el menú de Bolsa solo ofrece lo que tiene servicio", async () => {
+  const { aplicarDisponibilidadMenuBolsa } = await import("./portal-menu-bolsa.js");
+  const raiz = menuDesdeHTML();
+  const indicadores = aplicarDisponibilidadMenuBolsa(raiz, { panelInterno: false, borradores: null, contratacionTemporal: true });
+  assert.deepEqual(categoriasVisibles(raiz), ["llamamientos", "resumen", "estadisticas", "documentos"]);
+  assert.equal(indicadores.length, 4, "se renumeran solo las categorías visibles");
+  // Grupos enteros sin servicio (convocatorias…, reglas, auditoría) quedan ocultos.
+  assert.equal(raiz.querySelectorAll(".grupo-menu-bolsa").length, 3);
+  assert.equal(raiz.querySelectorAll(".grupo-menu-bolsa").every((grupo) => grupo.hidden), true);
+  // Sin contratación temporal, «Documentos y firma» tampoco se ofrece.
+  aplicarDisponibilidadMenuBolsa(raiz, { panelInterno: false, borradores: false, contratacionTemporal: false });
+  assert.deepEqual(categoriasVisibles(raiz), ["llamamientos", "resumen", "estadisticas"]);
+});
+
+test("cada capacidad real vuelve a ofrecer sus entradas del menú de Bolsa", async () => {
+  const { aplicarDisponibilidadMenuBolsa } = await import("./portal-menu-bolsa.js");
+  const raiz = menuDesdeHTML();
+  aplicarDisponibilidadMenuBolsa(raiz, { panelInterno: false, borradores: true, contratacionTemporal: true });
+  const grupoBolsas = raiz.querySelectorAll(".grupo-menu-bolsa")[0];
+  assert.equal(grupoBolsas.hidden, false);
+  assert.deepEqual(grupoBolsas.querySelectorAll(".submenu-bolsa [data-vista]").filter((control) => !control.hidden)
+    .map((control) => control.getAttribute("data-vista")), ["elaboracion"]);
+  const indicadores = aplicarDisponibilidadMenuBolsa(raiz, { panelInterno: true, borradores: true, contratacionTemporal: true });
+  assert.equal(indicadores.length, 10);
+  assert.deepEqual(categoriasVisibles(raiz), Object.keys(CATEGORIAS_MENU_BOLSA));
+});
+
+test("la navegación directa a una vista de Bolsa sin servicio no se permite", async () => {
+  const { vistaBolsaNavegable, vistaBolsaOfrecida } = await import("./portal-menu-bolsa.js");
+  const sinServicio = { panelInterno: false, borradores: false, contratacionTemporal: false };
+  for (const vista of ["convocatorias", "solicitudes", "meritos", "alegaciones", "importacion", "contratos",
+    "reglas", "baremacion", "consulta", "documentos", "comunicaciones", "auditoria", "configuracion", "elaboracion"]) {
+    assert.equal(vistaBolsaNavegable(vista, sinServicio), false, vista);
+  }
+  for (const vista of ["resumen", "estadisticas", "llamamientos", VISTA_CANDIDATOS_BOLSA]) {
+    assert.equal(vistaBolsaNavegable(vista, sinServicio), true, vista);
+  }
+  // Elaboración sin comprobar todavía: se deja abrir para que compruebe su API,
+  // pero el menú no la ofrece hasta que conste disponible.
+  assert.equal(vistaBolsaNavegable("elaboracion", { borradores: null }), true);
+  assert.equal(vistaBolsaOfrecida("elaboracion", { borradores: null }), false);
+  assert.equal(vistaBolsaOfrecida("desconocida", { panelInterno: true }), false);
+});
+
+test("el llamamiento con bolsa elegida no pinta el aviso del panel interno", () => {
+  const inicio = codigoPortal.indexOf("function montarVistaBolsa(");
+  const fin = codigoPortal.indexOf("function renderizarLlamamientoSinBolsa(", inicio);
+  const montaje = codigoPortal.slice(inicio, fin);
+  assert.ok(inicio > 0 && fin > inicio);
+  assert.doesNotMatch(montaje, /renderizarFuenteNoDisponible\(\)\}\$\{superficieBorradorLlamamiento/u);
+  assert.match(montaje, /encabezadoVista\("", tituloDeVista\(vista\)\[1\], ""\)\}\$\{superficieBorradorLlamamiento\.renderizar\(\)\}/u);
+  assert.match(codigoPortal, /if \(moduloDeVistaPortal\(vista\) === "bolsa"\) return vistaBolsaNavegable\(vista, capacidadesBolsa\(\)\)/u);
 });

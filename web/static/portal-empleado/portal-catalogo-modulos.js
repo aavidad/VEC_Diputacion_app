@@ -4,7 +4,8 @@
  * La lista productiva procede de `/api/vec/modules`; este archivo no enumera
  * módulos funcionales. Las pantallas disponibles se resuelven después mediante
  * adaptadores registrados, de modo que manifiesto y composición son decisiones
- * independientes y de mínimo privilegio.
+ * independientes y de mínimo privilegio. También lee la sesión del núcleo
+ * (`/api/vec/session`) que la cabecera muestra.
  */
 import { traducirPortal } from "./portal-i18n.js?v=20260925-portal-integrado-v1";
 
@@ -175,21 +176,73 @@ export function renderizarNavegacionModulos({
     || typeof escaparHTML !== "function" || typeof traducir !== "function") {
     throw new TypeError("navegación de módulos no válida");
   }
-  return catalogo.map((modulo) => {
-    const acceso = resolverAcceso(modulo.clave);
-    const habilitado = acceso?.disponible === true && typeof acceso?.vista === "string";
-    const estado = habilitado ? traducir("estado_modulo_activo") : (acceso?.textoEstado || ({
-      cargando: traducir("estado_modulo_comprobando"),
-      denegado: traducir("estado_modulo_sin_permiso"),
-      error: traducir("estado_modulo_no_disponible"),
-      no_disponible: traducir("estado_modulo_no_disponible"),
-    }[acceso?.estado] || traducir("estado_modulo_no_habilitado")));
-    const comprobando = acceso?.estado === "cargando";
-    return `<button type="button" class="enlace-lateral${habilitado ? " modulo-habilitado" : ""}"
-      data-modulo-portal="${escaparHTML(modulo.clave)}"${habilitado ? ` data-vista="${escaparHTML(acceso.vista)}"` : ' disabled aria-disabled="true"'}${comprobando ? ' aria-busy="true"' : ""}>
-      <span class="indicador-menu" aria-hidden="true">${escaparHTML(modulo.sigla.slice(0, 1))}</span>
-      <span>${escaparHTML(modulo.titulo)}</span>
-      <span class="etiqueta-menu${habilitado ? "" : " etiqueta-bloqueada"}">${escaparHTML(estado)}</span>
-    </button>`;
-  }).join("");
+  // Solo se ofrecen los módulos disponibles y los que aún se comprueban: un
+  // módulo sin acceso para el perfil o sin servicio no ocupa el menú.
+  return catalogo.map((modulo) => [modulo, resolverAcceso(modulo.clave)])
+    .filter(([, acceso]) => acceso?.disponible === true || acceso?.estado === "cargando")
+    .map(([modulo, acceso]) => {
+      const habilitado = acceso?.disponible === true && typeof acceso?.vista === "string";
+      const estado = habilitado ? traducir("estado_modulo_activo") : (acceso?.textoEstado || ({
+        cargando: traducir("estado_modulo_comprobando"),
+        denegado: traducir("estado_modulo_sin_permiso"),
+        error: traducir("estado_modulo_no_disponible"),
+        no_disponible: traducir("estado_modulo_no_disponible"),
+      }[acceso?.estado] || traducir("estado_modulo_no_habilitado")));
+      const comprobando = acceso?.estado === "cargando";
+      return `<button type="button" class="enlace-lateral${habilitado ? " modulo-habilitado" : ""}"
+        data-modulo-portal="${escaparHTML(modulo.clave)}"${habilitado ? ` data-vista="${escaparHTML(acceso.vista)}"` : ' disabled aria-disabled="true"'}${comprobando ? ' aria-busy="true"' : ""}>
+        <span class="indicador-menu" aria-hidden="true">${escaparHTML(modulo.sigla.slice(0, 1))}</span>
+        <span>${escaparHTML(modulo.titulo)}</span>
+        <span class="etiqueta-menu${habilitado ? "" : " etiqueta-bloqueada"}">${escaparHTML(estado)}</span>
+      </button>`;
+    }).join("");
+}
+
+const RUTA_SESION = "/api/vec/session";
+const PATRON_ROL = /^[a-z][a-z0-9_]{0,63}$/;
+const MAXIMO_ROLES = 64;
+// Perfil visible en la cabecera según el rol atestado. Solo se muestra: no
+// concede nada, cada consulta la autoriza el servidor.
+const PERFILES_VISIBLES = Object.freeze({
+  tecnico_rrhh: "Recursos Humanos",
+  jefatura_rrhh: "Recursos Humanos",
+  administrativo: "Recursos Humanos",
+  intervencion: "Intervención",
+  personal_interno: "Personal",
+  jefe_servicio: "Jefatura",
+  jefe_seccion: "Jefatura",
+});
+
+/**
+ * Sesión del núcleo (`GET /api/vec/session`) para la cabecera y para elegir
+ * qué pantalla se ofrece. La identidad la atesta la frontera del servidor
+ * (certificado cliente); aquí no se guarda en cookies ni almacenamiento web.
+ * Devuelve solo el nombre visible y los roles.
+ */
+export async function consultarSesionPortal({ fetchImpl = globalThis.fetch, signal } = {}) {
+  if (typeof fetchImpl !== "function") throw new TypeError("cliente HTTP no disponible");
+  const respuesta = await fetchImpl(RUTA_SESION, {
+    method: "GET", credentials: "same-origin", mode: "same-origin", redirect: "error",
+    cache: "no-store", headers: { Accept: "application/json" }, signal,
+  });
+  if (!respuesta.ok) throw new Error("no se pudo consultar la sesión");
+  const principal = (await respuesta.json())?.data?.principal;
+  if (!principal || typeof principal !== "object" || !Array.isArray(principal.roles)
+    || principal.roles.length > MAXIMO_ROLES
+    || !principal.roles.every((rol) => typeof rol === "string" && PATRON_ROL.test(rol))) {
+    throw new TypeError("sesión no válida");
+  }
+  const nombre = typeof principal.display_name === "string" && principal.display_name.length <= 512
+    ? principal.display_name.trim() : "";
+  return Object.freeze({ nombre, roles: Object.freeze([...principal.roles]) });
+}
+
+/** Nombre, perfil e iniciales que la cabecera muestra de una sesión. */
+export function presentarSesionPortal(sesion) {
+  const nombre = typeof sesion?.nombre === "string" ? sesion.nombre : "";
+  const roles = Array.isArray(sesion?.roles) ? sesion.roles : [];
+  const perfil = roles.length === 1 ? PERFILES_VISIBLES[roles[0]] || "" : "";
+  const iniciales = nombre.split(/\s+/u).filter(Boolean).slice(0, 2)
+    .map((parte) => parte[0].toLocaleUpperCase("es-ES")).join("");
+  return Object.freeze({ nombre, perfil, iniciales: iniciales || "—" });
 }

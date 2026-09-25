@@ -2,8 +2,9 @@
  * Catálogo del Portal del Empleado.
  *
  * Esta vista no conoce adaptadores ni datos de negocio. La composición decide
- * qué módulos están disponibles para el ContextoActor activo; los restantes
- * permanecen visibles para conservar la navegación estable y fallan cerrados.
+ * qué módulos están disponibles para el ContextoActor activo. Solo se ofrecen
+ * los disponibles y los que aún se comprueban: un módulo sin acceso para este
+ * perfil, o sin servicio, no aparece en lugar de mostrar una tarjeta vacía.
  */
 import { traducirPortal } from "./portal-i18n.js?v=20260925-portal-integrado-v1";
 
@@ -71,6 +72,18 @@ function renderizarTramitesInicio(tramites, escaparHTML) {
         </tr>`).join("")}</tbody>
       </table>
     </div>`;
+}
+
+// Tarjeta ofrecida: módulo disponible o todavía comprobándose.
+export function accesoModuloOfrecido(acceso) {
+  return acceso?.disponible === true || acceso?.estado === "cargando";
+}
+
+function renderizarModulosOfrecidos(catalogo, resolverAcceso, escaparHTML, traducir) {
+  return catalogo.map((modulo) => [modulo, resolverAcceso(modulo.clave)])
+    .filter(([, acceso]) => accesoModuloOfrecido(acceso))
+    .map(([modulo, acceso]) => renderizarModulo(modulo, acceso, escaparHTML, traducir))
+    .join("");
 }
 
 function renderizarErrorCatalogo(escaparHTML, traducir) {
@@ -141,11 +154,7 @@ export function crearVistaInicioPortal({
             </div>`
         : `<p class="portal-rrhh-resumen-vacio">Los totales se consultan en el cuadro de mando.</p>`;
       return `
-        ${encabezadoVista(
-          "Gestión de personal",
-          "Inicio del portal",
-          "Accesos directos y estado general de la contratación temporal para Recursos Humanos.",
-        )}
+        ${encabezadoVista("", "Inicio del portal", "")}
         ${avisoCatalogo}
         <section class="portal-rrhh-inicio" aria-label="Inicio de Contratación Temporal">
           <div class="portal-rrhh-accesos" aria-label="Accesos directos">
@@ -169,16 +178,10 @@ export function crearVistaInicioPortal({
         </section>
         <section class="portal-rrhh-todos-modulos" aria-labelledby="portal-rrhh-todos-modulos-titulo">
           <div class="cabecera-panel">
-            <div>
-              <p class="sobrelinea">Accesos por módulo</p>
-              <h3 id="portal-rrhh-todos-modulos-titulo">Todos los módulos de Recursos Humanos</h3>
-              <p>El estado de cada acceso indica si el recorrido está conectado o pendiente de su adaptador de backend.</p>
-            </div>
+            <h3 id="portal-rrhh-todos-modulos-titulo">Todos los módulos de Recursos Humanos</h3>
           </div>
           <div class="rejilla-modulos" aria-label="Todos los módulos de Recursos Humanos">
-            ${catalogo.map((modulo) => renderizarModulo(
-              modulo, resolverAcceso(modulo.clave), escaparHTML, traducir,
-            )).join("")}
+            ${renderizarModulosOfrecidos(catalogo, resolverAcceso, escaparHTML, traducir)}
           </div>
         </section>`;
     }
@@ -186,15 +189,10 @@ export function crearVistaInicioPortal({
     const catalogo = obtenerCatalogo();
     if (!Array.isArray(catalogo)) throw new TypeError("catálogo de módulos no válido");
     return `
-      ${encabezadoVista("Acceso unificado", "Portal del Empleado", "Identidad, datos, documentos y trazabilidad se comparten mediante contratos comunes. La disponibilidad depende del perfil y de los adaptadores compuestos.")}
+      ${encabezadoVista("", "Portal del Empleado", "")}
       ${avisoCatalogo}
-      <section class="nota-seguridad" aria-label="Separación de acceso">
-        Este portal representa el acceso interno. La zona externa de aspirantes usa otra sesión, permisos y proyección de datos; nunca muestra expedientes de terceras personas.
-      </section>
-      <div class="rejilla-modulos" aria-label="Módulos del Portal del Empleado">
-        ${catalogo.map((modulo) => renderizarModulo(
-          modulo, resolverAcceso(modulo.clave), escaparHTML, traducir,
-        )).join("")}
+      <div class="rejilla-modulos portal-inicio-empleado" aria-label="Módulos del Portal del Empleado">
+        ${renderizarModulosOfrecidos(catalogo, resolverAcceso, escaparHTML, traducir)}
       </div>`;
   };
 }

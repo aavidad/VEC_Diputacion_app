@@ -270,6 +270,10 @@ test("los siete módulos registrados conservan estado fiel sin inventar vistas",
     },
   });
   await coordinador.cargarInterno();
+  // Sin pantalla en el portal, Administración y Usuarios no entran en su catálogo.
+  assert.deepEqual(coordinador.obtenerCatalogo().map(({ clave }) => clave), [
+    "personal", "cronos", "dietas", "bolsa", "contratacion_temporal",
+  ]);
   for (const clave of ["administracion", "usuarios"]) {
     assert.deepEqual(coordinador.resolverAcceso(clave), {
       disponible: false, vista: "", estado: "no_disponible",
@@ -278,7 +282,7 @@ test("los siete módulos registrados conservan estado fiel sin inventar vistas",
   }
 });
 
-test("CT inventariado queda visible no_disponible si falla su carga real", async () => {
+test("CT inventariado queda no_disponible y fuera del menú si falla su carga real", async () => {
   let cargasContratacion = 0;
   const clavesTraducidas = [];
   const catalogo = crearCatalogoModulosDesdeManifiestos(
@@ -305,9 +309,9 @@ test("CT inventariado queda visible no_disponible si falla su carga real", async
     estado: "no_disponible",
     textoEstado: "i18n:estado_modulo_no_disponible_titulo",
   });
+  // Sin servicio, el menú no ofrece la entrada en lugar de mostrarla deshabilitada.
   const navegacion = coordinador.renderizarNavegacion(true, "portal");
-  assert.match(navegacion, /data-modulo-portal="contratacion_temporal" disabled aria-disabled="true"/);
-  assert.match(navegacion, />i18n:estado_modulo_no_disponible_titulo<\/span>/);
+  assert.doesNotMatch(navegacion, /data-modulo-portal="contratacion_temporal"/);
   assert.doesNotMatch(navegacion, /data-vista=/);
   assert.deepEqual(clavesTraducidas, [
     "estado_modulo_no_disponible_titulo",
@@ -727,6 +731,7 @@ test("Intervención abre CT con acceso directo a fiscalización, sin funciones d
   const coordinador = crearCoordinadorModulosPortal({
     escaparHTML: String,
     cargarCatalogoInterno: async () => catalogo,
+    consultarSesion: async () => ({ nombre: "Intervención", roles: ["intervencion"] }),
     cargadoresInternos: {
       contratacion_temporal: async () => ({
         cliente: { crearClienteHTTPContratacionTemporal: () => cliente },
@@ -751,8 +756,55 @@ test("Intervención abre CT con acceso directo a fiscalización, sin funciones d
 
   await coordinador.cargarInterno();
   assert.equal(coordinador.resolverAcceso("contratacion_temporal").disponible, true);
+  assert.equal(coordinador.esPerfilRRHH(), false);
   assert.equal(await coordinador.montarVista("contratacion-temporal", raizFalsa()), true);
   assert.strictEqual(montaje.cliente, cliente);
+});
+
+test("sin perfil de Intervención no se monta la fiscalización: CT no se ofrece", async () => {
+  const catalogo = crearCatalogoModulosDesdeManifiestos(
+    [manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL,
+  );
+  const cliente = Object.freeze({
+    async obtenerCatalogosAlta() { throw new Error("403"); },
+    async obtenerConfiguracionAnalisis() { throw new Error("403"); },
+    async registrarResultadoFiscalizacion() { throw new Error("no debe llamarse"); },
+  });
+  const fuente = Object.freeze({
+    capacidades: Object.freeze([]),
+    async listar() { throw new Error("403"); },
+    async obtener() { throw new Error("403"); },
+    async ejecutar() { throw new Error("403"); },
+  });
+  for (const consultarSesion of [
+    null,
+    async () => ({ nombre: "Persona empleada", roles: ["personal_interno"] }),
+    async () => { throw new Error("sesión no disponible"); },
+  ]) {
+    let montajes = 0;
+    const coordinador = crearCoordinadorModulosPortal({
+      escaparHTML: String,
+      cargarCatalogoInterno: async () => catalogo,
+      consultarSesion,
+      cargadoresInternos: {
+        contratacion_temporal: async () => ({
+          cliente: { crearClienteHTTPContratacionTemporal: () => cliente },
+          adaptador: { crearAdaptadorHTTPExpedientesContratacionTemporal: () => fuente },
+          contrato: { validarCatalogosAlta: (valor) => valor },
+          presentador: { crearPresentadorExpedientesContratacionTemporal: () => ({}) },
+          vista: {
+            montarModuloContratacionTemporal: async () => { montajes += 1; return { desmontar() {} }; },
+            montarModuloFiscalizacionContratacionTemporal: async () => { montajes += 1; return { desmontar() {} }; },
+          },
+        }),
+      },
+    });
+    await coordinador.cargarInterno();
+    assert.equal(coordinador.resolverAcceso("contratacion_temporal").disponible, false);
+    assert.doesNotMatch(coordinador.renderizarNavegacion(true, "portal"), /contratacion_temporal/u);
+    assert.equal(await coordinador.montarVista("contratacion-temporal", raizFalsa()), false);
+    assert.equal(montajes, 0);
+  }
 });
 
 test("CT recupera incorporación con continuidad si falla análisis y el alta sigue disponible", async () => {
@@ -919,4 +971,33 @@ test("CT interno mantiene el alta real cuando el cuadro sigue en 503", async () 
   });
   assert.equal(analisisMontado.analisisInicial, null);
   assert.equal(Object.hasOwn(analisisMontado, "desarrolloNoAutoritativo"), false);
+});
+
+test("la sesión del núcleo se lee del mismo origen y la cabecera muestra nombre y perfil", async () => {
+  const { consultarSesionPortal, presentarSesionPortal } = await import("./portal-catalogo-modulos.js");
+  let peticion;
+  const sesion = await consultarSesionPortal({
+    fetchImpl: async (ruta, opciones) => {
+      peticion = { ruta, opciones };
+      return respuestaJSON({ data: { principal: {
+        id: "persona:1", display_name: " Ana María Pérez ", roles: ["tecnico_rrhh"], permissions: ["vec.session.read"],
+        auth_method: "certificate", auth_assurance: "high", attributes: { certificate_sha256: "a".repeat(64) },
+      } } });
+    },
+  });
+  assert.equal(peticion.ruta, "/api/vec/session");
+  assert.equal(peticion.opciones.credentials, "same-origin");
+  assert.equal(peticion.opciones.redirect, "error");
+  assert.equal(peticion.opciones.cache, "no-store");
+  // Solo nombre y roles: ni permisos ni atributos del certificado.
+  assert.deepEqual(sesion, { nombre: "Ana María Pérez", roles: ["tecnico_rrhh"] });
+  assert.deepEqual(presentarSesionPortal(sesion), { nombre: "Ana María Pérez", perfil: "Recursos Humanos", iniciales: "AM" });
+  assert.deepEqual(presentarSesionPortal({ nombre: "", roles: ["intervencion"] }), { nombre: "", perfil: "Intervención", iniciales: "—" });
+  assert.equal(presentarSesionPortal({ nombre: "X", roles: ["a", "b"] }).perfil, "");
+  await assert.rejects(consultarSesionPortal({ fetchImpl: async () => new Response("{}", { status: 403 }) }));
+  await assert.rejects(consultarSesionPortal({
+    fetchImpl: async () => respuestaJSON({ data: { principal: { display_name: "X", roles: ["Rol Libre<script>"] } } }),
+  }), TypeError);
+  const html = await readFile(new URL("index.html", import.meta.url), "utf8");
+  assert.doesNotMatch(html, /Identidad personal no mostrada|Portal interno<\/strong>|Fase inicial/u);
 });

@@ -8,16 +8,16 @@
 import {
   cargarCatalogoModulosInterno,
   renderizarNavegacionModulos,
-} from "./portal-catalogo-modulos.js?v=20260925-portal-integrado-v1";
+} from "./portal-catalogo-modulos.js?v=20260925-sin-vacios-v1";
 import { traducirPortal } from "./portal-i18n.js?v=20260925-portal-integrado-v1";
-import { calcularMetricasCuadro, tramitesParaInicio } from "./portal-inicio.js?v=20260925-portal-integrado-v1";
+import { calcularMetricasCuadro, tramitesParaInicio } from "./portal-inicio.js?v=20260925-sin-vacios-v1";
 import {
   componerCronosInterno,
   componerDietasInternas,
   componerPersonalVisible,
   componerRegistroPersonal,
 } from "./portal-composicion-empleado.js?v=20260925-portal-integrado-v1";
-import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260925-portal-bolsa-v1";
+import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260925-sin-vacios-v1";
 import {
   CLAVES_CARGA_MODULAR,
   LIMITE_CARGA_MODULAR_MS,
@@ -32,6 +32,15 @@ export const CLAVES_MODULOS_VEC_REGISTRADOS = Object.freeze([
   CLAVE_PERSONAL, "cronos", "dietas", "bolsa",
   CLAVE_CONTRATACION_TEMPORAL, "administracion", "usuarios",
 ]);
+// Módulos del registro con pantalla en este portal. Administración y Usuarios
+// siguen publicados en `/api/vec/modules` para la carcasa general (que sí los
+// consume), pero aquí no tienen vista: no se ofrecen en menú ni en Inicio.
+export const CLAVES_MODULOS_CON_VISTA_PORTAL = Object.freeze([
+  CLAVE_PERSONAL, "cronos", "dietas", "bolsa", CLAVE_CONTRATACION_TEMPORAL,
+]);
+// Rol con el que la frontera de identidad atesta a Intervención. Solo decide
+// qué pantalla se ofrece; cada operación la sigue autorizando el servidor.
+const ROL_INTERVENCION = "intervencion";
 const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   // El portal interno monta las vistas conectadas de la persona empleada.
   // Los clientes se piden por la
@@ -94,11 +103,11 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   dietas: async () => {
     const [contrato, recorridos, clienteBorradores, clienteAsignacion, calculador, mapa, clienteCircuito] = await Promise.all([
       import("./modulos/dietas/contrato.js"),
-      import("./modulos/dietas/vista-recorridos.js?v=20260925-portal-integrado-v1"),
+      import("./modulos/dietas/vista-recorridos.js?v=20260925-sin-vacios-v1"),
       import("./modulos/dietas/cliente-borradores-http.js?v=20260925-tanda2-v1"),
       import("./modulos/dietas/cliente-asignacion-http.js?v=20260925-tanda-v1"),
       import("./modulos/dietas/calculador-rutas-http.js?v=20260925-tanda-v1"),
-      import("./modulos/dietas/mapa-ruta.js?v=20260925-portal-integrado-v1"),
+      import("./modulos/dietas/mapa-ruta.js?v=20260925-sin-vacios-v1"),
       import("./modulos/dietas/cliente-circuito-http.js?v=20260925-tanda2-v1"),
     ]);
     return Object.freeze({ contrato, recorridos, clienteBorradores, clienteAsignacion, calculador, mapa, clienteCircuito });
@@ -144,12 +153,14 @@ export function crearCoordinadorModulosPortal({
   traducir = traducirPortal,
   cargarCatalogoInterno = null,
   cargadoresInternos = CARGADORES_INTERNOS_PREDETERMINADOS,
+  consultarSesion = null,
   limiteCargaModularMs = LIMITE_CARGA_MODULAR_MS,
   temporizadores = globalThis,
 } = {}) {
   if (typeof escaparHTML !== "function" || typeof anunciar !== "function"
     || typeof confirmarOperacion !== "function" || typeof traducir !== "function"
     || (cargarCatalogoInterno !== null && typeof cargarCatalogoInterno !== "function")
+    || (consultarSesion !== null && typeof consultarSesion !== "function")
     || (montajeBolsa !== null && (typeof montajeBolsa?.montar !== "function"
       || typeof montajeBolsa?.disponible !== "function"))
     || typeof cargadoresInternos?.contratacion_temporal !== "function"
@@ -289,10 +300,16 @@ export function crearCoordinadorModulosPortal({
         analisis = null;
       }
     }
+    // Sin alta ni análisis, la única pantalla posible es la de fiscalización,
+    // y solo se ofrece si la sesión atesta el perfil de Intervención: a otra
+    // persona (p. ej. una empleada sin concesión) no se le monta un formulario
+    // cuyas operaciones el servidor le denegaría.
     const fiscalizacion = alta === null && analisis === null
       && typeof cliente.registrarResultadoFiscalizacion === "function"
       && typeof recursos.vista.montarModuloFiscalizacionContratacionTemporal === "function"
+      && await sesionDeIntervencion(consultar)
       ? Object.freeze({ cliente }) : null;
+    exigirVigente();
     if (!cuadroDisponible && alta === null && fiscalizacion === null) {
       throw new Error("contratación temporal no disponible");
     }
@@ -325,6 +342,16 @@ export function crearCoordinadorModulosPortal({
         montarFiscalizacion: recursos.vista.montarModuloFiscalizacionContratacionTemporal,
       }),
     };
+  }
+
+  async function sesionDeIntervencion(consultar) {
+    if (consultarSesion === null) return false;
+    try {
+      const sesion = await consultar((opciones) => consultarSesion(opciones), "consultar sesión");
+      return Array.isArray(sesion?.roles) && sesion.roles.includes(ROL_INTERVENCION);
+    } catch {
+      return false;
+    }
   }
 
   async function cargarCronos({ exigirVigente }) {
@@ -468,7 +495,9 @@ export function crearCoordinadorModulosPortal({
       throw error;
     }
     exigirVigente();
-    catalogo = catalogoInterno;
+    const conVista = catalogoInterno
+      .filter((modulo) => CLAVES_MODULOS_CON_VISTA_PORTAL.includes(modulo.clave));
+    catalogo = conVista.length === catalogoInterno.length ? catalogoInterno : Object.freeze(conVista);
 
     const partes = {
       contratacionTemporal: undefined,

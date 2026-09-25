@@ -87,27 +87,17 @@ test("la tarjeta anuncia la comprobación sin ofrecer una ruta prematura", () =>
   assert.doesNotMatch(html, /data-vista=/);
 });
 
-test("la tarjeta diferencia denegación de error técnico y solo este permite reintentar", () => {
-  const denegado = renderizar({
-    disponible: false,
-    vista: "",
-    estado: "denegado",
-    etiqueta: "Sin permiso para gestionar borradores",
-  });
-  assert.match(denegado, /Sin permiso para gestionar borradores/);
-  assert.match(denegado, /<button[^>]+disabled>Sin permiso<\/button>/);
-  assert.doesNotMatch(denegado, /reintentar-borradores/);
-
-  const error = renderizar({
-    disponible: false,
-    vista: "",
-    estado: "error",
-    etiqueta: "Servicio de borradores no disponible",
-    reintentar: true,
-  });
-  assert.match(error, /Servicio de borradores no disponible/);
-  assert.match(error, /data-accion="reintentar-borradores">Reintentar<\/button>/);
-  assert.doesNotMatch(error, /data-vista=/);
+test("un módulo denegado o sin servicio no ocupa una tarjeta vacía", () => {
+  for (const acceso of [
+    { disponible: false, vista: "", estado: "denegado", etiqueta: "Sin permiso para gestionar borradores" },
+    { disponible: false, vista: "", estado: "error", etiqueta: "Servicio de borradores no disponible", reintentar: true },
+    { disponible: false, vista: "", estado: "no_disponible" },
+    { disponible: false, vista: "" },
+  ]) {
+    const html = renderizar(acceso);
+    assert.doesNotMatch(html, /data-modulo-catalogo=/u, acceso.estado);
+    assert.doesNotMatch(html, /Sin permiso|no disponible|reintentar-borradores/u, acceso.estado);
+  }
 });
 
 test("la capacidad propia abre Elaboración aunque el panel agregado no participe", () => {
@@ -245,9 +235,9 @@ test("G10: la vista de inicio para RRHH conserva cuadro y accesos, y expone el c
 
   const html = renderizarRRHH();
 
-  // Encabezado y sección RRHH
-  assert.match(html, /Gestión de personal/);
+  // Encabezado y sección RRHH, sin textos técnicos ni de ayuda en pantalla.
   assert.match(html, /Inicio del portal/);
+  assert.doesNotMatch(html, /adaptador de backend|Accesos por módulo|fase inicial/u);
   assert.match(html, /class="portal-rrhh-inicio"/);
 
   // 3 accesos directos requeridos

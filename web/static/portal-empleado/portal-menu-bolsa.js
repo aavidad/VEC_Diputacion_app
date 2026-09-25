@@ -57,12 +57,84 @@ export function accesoBolsaEfectivo(accesoBorradores, datosBolsas) {
 
 export function resumenAccesosModulos(accesos, comprobandoBolsas) {
   if (comprobandoBolsas || accesos.some((acceso) => acceso.estado === "cargando")) {
-    return "Fase inicial: comprobando módulos";
+    return "Comprobando módulos";
   }
   const disponibles = accesos.filter((acceso) => acceso.disponible === true).length;
   return disponibles > 0
-    ? `${disponibles} ${disponibles === 1 ? "módulo habilitado" : "módulos habilitados"} en fase inicial`
-    : "Módulos pendientes de sesión autorizada";
+    ? `${disponibles} ${disponibles === 1 ? "módulo disponible" : "módulos disponibles"}`
+    : "Sin módulos disponibles";
+}
+
+/**
+ * Decide si una entrada del menú de Bolsa se ofrece según la capacidad real
+ * que la sirve: el cuadro, los candidatos, las estadísticas y el llamamiento
+ * desde cada bolsa usan la API del cuadro (ya comprobada para abrir Bolsa);
+ * Elaboración, su API de borradores; «Documentos y firma», la vista de
+ * Contratación temporal; y el resto, el panel interno agregado. Sin esa
+ * capacidad la entrada no se ofrece, en lugar de abrir una pantalla vacía.
+ */
+export function vistaBolsaOfrecida(vista, capacidades = {}) {
+  switch (vista) {
+    case "resumen":
+    case "estadisticas":
+    case "llamamientos":
+    case VISTA_CANDIDATOS_BOLSA:
+      return true;
+    case "elaboracion":
+      return capacidades?.borradores === true;
+    case "contratacion-temporal":
+      return capacidades?.contratacionTemporal === true;
+    default:
+      return VISTAS_INTERNAS_BOLSA.includes(vista) && capacidades?.panelInterno === true;
+  }
+}
+
+/**
+ * Navegación directa (enlace o historial) a una vista de Bolsa. Elaboración
+ * comprueba su propia API al abrirse: mientras no conste que falta
+ * (`borradores` distinto de `false`), se deja abrir para esa comprobación.
+ */
+export function vistaBolsaNavegable(vista, capacidades = {}) {
+  if (vista === "elaboracion") return capacidades?.borradores !== false;
+  return vistaBolsaOfrecida(vista, capacidades);
+}
+
+// Vista que ofrece una entrada de primer nivel. «Correo y mensajería» abre hoy
+// el llamamiento, pero su capacidad propia es la de su categoría; «Documentos y
+// firma» lleva a Contratación temporal.
+function vistaDeControl(control) {
+  const vista = control?.getAttribute?.("data-vista") || "";
+  const categoria = control?.dataset?.categoriaBolsa || "";
+  const categoriaVista = categoriaDeVistaBolsa(vista);
+  if (categoria && categoriaVista && categoriaVista !== categoria) {
+    return VISTAS_POR_CATEGORIA[categoria]?.[0] || "";
+  }
+  return vista;
+}
+
+/**
+ * Oculta del menú de Bolsa las entradas sin capacidad y los grupos que quedan
+ * vacíos. Devuelve los indicadores numéricos de las categorías visibles, en
+ * orden, para que el shell los renumere seguidos.
+ */
+export function aplicarDisponibilidadMenuBolsa(raiz, capacidades = {}) {
+  if (!raiz?.querySelectorAll) return [];
+  raiz.querySelectorAll(".submenu-bolsa [data-vista]").forEach((control) => {
+    control.hidden = !vistaBolsaOfrecida(control.getAttribute?.("data-vista"), capacidades);
+  });
+  raiz.querySelectorAll(".grupo-menu-bolsa").forEach((grupo) => {
+    grupo.hidden = !Array.from(grupo.querySelectorAll(".submenu-bolsa [data-vista]"))
+      .some((control) => !control.hidden);
+  });
+  const indicadores = [];
+  raiz.querySelectorAll(".categoria-menu-bolsa").forEach((control) => {
+    const grupo = control.dataset.grupoBolsa ? control.closest?.(".grupo-menu-bolsa") : null;
+    const visible = grupo ? !grupo.hidden : vistaBolsaOfrecida(vistaDeControl(control), capacidades);
+    if (!grupo) control.hidden = !visible;
+    const indicador = control.querySelector?.(".numero-menu");
+    if (visible && indicador) indicadores.push(indicador);
+  });
+  return indicadores;
 }
 
 export function categoriaDeVistaBolsa(vista) {
