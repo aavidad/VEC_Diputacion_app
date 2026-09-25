@@ -9,6 +9,12 @@ El portal interno registra Cronos desde el catálogo y compone
   con ausencias y olvidos (`vista-movimientos-propios.js`). «Olvido de
   marcaje» abre el formulario de olvido del calendario.
 - «Permisos» monta `vista-permisos-propios.js`.
+- «Avisos de resolución» (`vista-avisos-propios.js`) y «Solicitudes por
+  resolver» (`vista-bandeja-permisos.js`) usan `cliente-resolucion-http.js`.
+  Son opcionales y van juntas: sin sus piezas no se ofrecen. En el servidor
+  exigen `VEC_CRONOS_RESOLUCION_ENABLED=true`, AD3-57 y `cronos_v1` 000009
+  instaladas antes del binario, los cuatro motivos de la configuración privada
+  y el circuito publicado (`permiso_resolutor`, provisional hasta la duda 47).
 
 Si falta cualquier vista o cliente, Cronos no se ofrece (falla cerrado). Cada
 vista consulta su propia API: con una capacidad desactivada el servidor da
@@ -18,8 +24,12 @@ presentación.
 
 ## Pendiente
 
-- La concesión por jefatura o administración y los mensajes de resolución
-  pertenecen a otro corte.
+- Notificaciones de la persona a RRHH (tipo, fecha, texto de hasta 512
+  caracteres y adjunto por referencia y huella) y su bandeja en RRHH: siguiente
+  corte de C9. Justificación de permisos (C8) y resolución de olvidos: aparte.
+- La pestaña «Solicitudes por resolver» se ofrece a toda persona con Cronos;
+  quien no tiene concesión ve la denegación del servidor. Ocultarla exige la
+  matriz de roles pendiente (dudas 29, 31 y 47).
 - El marcaje desde el portal se limitará al circuito remoto que acredite
   teletrabajo vigente para esa persona y periodo en el servidor.
 - Falta vincular y probar navegador → identidad y autorización → caso de uso →
