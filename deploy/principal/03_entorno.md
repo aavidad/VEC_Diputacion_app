@@ -59,6 +59,65 @@ Dirección comunique su resultado. Un barrido del portal no las sustituye.
 No ejecutar `DOWN`, repetir el preparador histórico ni reactivar LOGIN a partir
 de esta anotación.
 
+### Dietas con la composición actual: variables y F4b (25/09/2026)
+
+Estado de este corte: código y paquetes revisables, **no aplicados en la
+principal**. F4 y D7 no constan aplicados en ningún registro; F4b los sustituye
+y no se mezclan (ver [`f4b_acceso_dietas/`](f4b_acceso_dietas/README.md)).
+
+La composición actual de Dietas usa **once** identidades PostgreSQL, cada una
+con una sola membresía heredada (`INHERIT TRUE, SET FALSE, ADMIN FALSE`) y TLS
+`verify-full`; el arranque las acredita y rechaza cualquier reutilización:
+
+| Dónde | Clave | LOGIN (F4b) | Grupo |
+| --- | --- | --- | --- |
+| entorno | `VEC_DIETAS_BORRADORES_DATABASE_URL` | `vec_dietas_r1d_dietas_desarrollo` | `vec_dietas_ejecutor` |
+| entorno | `VEC_DIETAS_PERSONAL_RELACIONES_DATABASE_URL` | `vec_dietas_r1d_personal_desarrollo` | `vec_dietas_ejecutor` |
+| entorno | `VEC_DIETAS_PERSONAL_ASIGNACION_DATABASE_URL` | `vec_personal_d7_asignacion` | `vec_personal_d7_ejecutor` |
+| entorno | `VEC_DIETAS_PERSONAL_AUDITORIA_FRONTERA_DATABASE_URL` | `vec_personal_d7_auditoria_frontera` | `vec_personal_registrador_frontera` |
+| `identidad/dietas-comisiones.json` | `dsn_registro_identidad` | `vec_dietas_r1d_registro_identidad_desarrollo` | `vec_identidad_sesiones_v1_registrador` |
+| ídem | `dsn_revalidacion_identidad` | `vec_dietas_r1d_revalidacion_identidad_desarrollo` | `vec_identidad_sesiones_v1_revalidador` |
+| ídem | `dsn_contexto` | `vec_dietas_r1d_contexto_desarrollo` | `vec_contexto_actor_v1_runtime` |
+| ídem | `dsn_fuente_autorizacion` | `vec_dietas_r1d_fuente_autorizacion_desarrollo` | `vec_autorizacion_fuente` |
+| ídem | `dsn_registro_autorizacion` | `vec_dietas_r1d_registro_autorizacion_desarrollo` | `vec_autorizacion_registro` |
+| ídem | `dsn_motivos` | `vec_dietas_r1d_motivos_desarrollo` | `vec_autorizacion_motivos_evaluador` |
+| ídem | `dsn_auditoria_frontera` | `vec_dietas_f4b_auditoria_frontera_desarrollo` | `vec_dietas_registrador_frontera` |
+
+Además del entorno de la tabla:
+
+```bash
+export VEC_DIETAS_BORRADORES_ENABLED=true   # literal true/false; otro valor impide arrancar
+# Cartografía obligatoria para comisiones (sin ella no arranca):
+export VEC_OSRM_BASE_URL=... VEC_OSRM_SCOPE_NAME=... VEC_OSRM_SCOPE_BOUNDS=...
+export VEC_OSRM_ALLOWED_CIDRS=... VEC_OSRM_GRAPH_VERSION=...
+```
+
+Exige también la doble llave de desarrollo y `VEC_DEVELOPMENT_MATERIAL_DIR`.
+Las cuatro URL de entorno pueden llevar los marcadores `$vec_local_pg_puerto` /
+`$vec_local_ca` que resuelve `arrancar_app.sh`; las siete del JSON se escriben
+**ya resueltas** tal como se ven desde el contenedor (Go no expande variables).
+Contraseñas: las ocho R1D conservan las suyas (`identidad/dietas-r1d-estado.json`);
+las tres nuevas salen del estado privado F4b (`--preparar-estado`), siempre con
+*percent-encoding* en la URL y nunca en Git, argumentos ni registros.
+
+**Contador `vec_conexiones` de `arrancar_app.sh`** (y sus variantes
+`.con-bback`/`.sin-bback`, que deben quedar iguales): solo cuentan las URL de
+entorno, no las del JSON. Resultado = conexiones sin Dietas **+ 4**. Con las
+13 comunicadas el 23/09 queda en **17**; si ya se añadió
+`VEC_CALENDARIOS_DATABASE_URL` (14), en **18**. Si el fichero de conexiones aún
+conserva las dos URL de R1D (contador 15 tras el preparador histórico), solo se
+añaden las dos de Personal: 15 → 17 (o 16 → 18). Comprobar antes con
+`grep -n 'vec_conexiones' arrancar_app.sh*`.
+
+Al arrancar con el selector a `true`, además de acreditar cada pool, la
+composición comprueba la postimagen exacta de Personal 000007–000013 (y, si
+existen, 000014/000015): firmas, propietario, `SECURITY DEFINER`,
+configuración, huella del cuerpo y ACL. Si falta algo, `vec-server` no arranca
+y el registro dice qué: `bootstrap: postimagen Personal para dietas no
+acreditada: 000012 vec_personal.…: huella distinta`. Orden seguro: F4b
+`--inventario`/`--rollback`/`--commit`, `--sonda-tls`, material JSON y entorno,
+selector, reinicio y búsqueda de `vec server listening`.
+
 
 El inventario canónico de `config/` contiene 18 variables `VEC_*_DATABASE_URL`.
 La principal ya tiene las once identidades de Contratación/Bolsa llamamientos y
