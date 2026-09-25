@@ -44,14 +44,18 @@ CREATE TABLE vec_documentos.documento (
  conector_ref text NOT NULL,
  recibo_objeto_ref text NOT NULL,
  recibo_objeto_huella_sha256 text NOT NULL CHECK(recibo_objeto_huella_sha256 ~ '^[0-9a-f]{64}$'),
- objeto_retenido_hasta timestamptz(6) NOT NULL,
+ -- Nulo solo con política provisional: el conector no fija retención hasta
+ -- aplicar el catálogo definitivo (tarea pendiente en el README).
+ objeto_retenido_hasta timestamptz(6),
  objeto_inmovilizado boolean NOT NULL,
  politica_ref text NOT NULL CHECK(vec_documentos.referencia_opaca_v1(politica_ref)),
  version_politica bigint NOT NULL CHECK(version_politica>0),
  huella_politica_sha256 text NOT NULL CHECK(huella_politica_sha256 ~ '^[0-9a-f]{64}$'),
  conservacion_hasta timestamptz(6) NOT NULL,
  proteccion text NOT NULL CHECK(proteccion IN ('conservacion','bloqueo')),
- CHECK(objeto_retenido_hasta>=conservacion_hasta),
+ estado_politica text NOT NULL CHECK(estado_politica IN ('aprobada','provisional')),
+ CHECK((estado_politica='aprobada' AND objeto_retenido_hasta IS NOT NULL AND objeto_retenido_hasta>=conservacion_hasta)
+    OR (estado_politica='provisional' AND objeto_retenido_hasta IS NULL AND NOT objeto_inmovilizado AND proteccion='conservacion')),
  CHECK(proteccion<>'bloqueo' OR objeto_inmovilizado),
  estado_firma text NOT NULL DEFAULT 'pendiente_proveedor' CHECK(estado_firma='pendiente_proveedor'),
  huella_preimagen_sha256 text NOT NULL CHECK(huella_preimagen_sha256 ~ '^[0-9a-f]{64}$'),
@@ -179,6 +183,7 @@ RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog SE
   'politica_ref',p.politica_ref,'version_politica',p.version_politica,
   'huella_politica_sha256',p.huella_politica_sha256,
   'conservacion_hasta',p.conservacion_hasta,'proteccion',p.proteccion,
+  'estado_politica',p.estado_politica,
   'estado_firma',p.estado_firma,'creado_en',p.creada_en)
  $f$;
 
@@ -195,7 +200,7 @@ BEGIN
  BEGIN m:=convert_from(p_preimagen,'UTF8')::jsonb;
  EXCEPTION WHEN others THEN RAISE EXCEPTION 'documentos: preimagen inválida' USING ERRCODE='22023'; END;
  IF jsonb_typeof(m)<>'object' OR ARRAY(SELECT jsonb_object_keys(m) ORDER BY 1)
-    IS DISTINCT FROM ARRAY['accion','clave_idempotencia','conservacion_hasta','expediente_ref','huella_politica_sha256','huella_sha256','id','mime','modulo_id','politica_ref','proteccion','tamano','tipo_ref','version','version_politica']
+    IS DISTINCT FROM ARRAY['accion','clave_idempotencia','conservacion_hasta','estado_politica','expediente_ref','huella_politica_sha256','huella_sha256','id','mime','modulo_id','politica_ref','proteccion','tamano','tipo_ref','version','version_politica']
     OR m->>'accion'<>'documentos.generado.alta'
     OR m->>'id' IS DISTINCT FROM p_auth->>'recurso_ref'
     OR m->>'expediente_ref' IS DISTINCT FROM p_auth->>'ambito_ref'
@@ -207,9 +212,15 @@ BEGIN
     OR p_objeto->>'objeto_ref' IS NULL OR p_objeto->>'objeto_version' IS NULL
     OR p_objeto->>'conector_ref' IS NULL OR p_objeto->>'recibo_objeto_ref' IS NULL
     OR p_objeto->>'recibo_objeto_huella_sha256' !~ '^[0-9a-f]{64}$'
-    OR p_objeto->>'retenido_hasta' IS NULL
-    OR p_objeto->>'inmovilizado' NOT IN ('true','false')
-    OR (p_objeto->>'retenido_hasta')::timestamptz < (m->>'conservacion_hasta')::timestamptz
+    OR jsonb_typeof(p_objeto->'inmovilizado') IS DISTINCT FROM 'boolean'
+    OR jsonb_typeof(m->'estado_politica') IS DISTINCT FROM 'string'
+    OR m->>'estado_politica' NOT IN ('aprobada','provisional')
+    -- Aprobada: retención del proveedor hasta el plazo. Provisional: el
+    -- conector no fijó retención ni inmovilizó el objeto (retenido_hasta null).
+    OR (m->>'estado_politica'='aprobada' AND (jsonb_typeof(p_objeto->'retenido_hasta') IS DISTINCT FROM 'string'
+        OR (p_objeto->>'retenido_hasta')::timestamptz < (m->>'conservacion_hasta')::timestamptz))
+    OR (m->>'estado_politica'='provisional' AND (jsonb_typeof(p_objeto->'retenido_hasta') IS DISTINCT FROM 'null'
+        OR p_objeto->>'inmovilizado' IS DISTINCT FROM 'false' OR m->>'proteccion' IS DISTINCT FROM 'conservacion'))
     OR (m->>'proteccion'='bloqueo' AND p_objeto->>'inmovilizado'<>'true')
     OR m->>'huella_sha256' !~ '^[0-9a-f]{64}$'
     OR m->>'huella_politica_sha256' !~ '^[0-9a-f]{64}$'
@@ -229,13 +240,14 @@ BEGIN
      OR d.objeto_version IS DISTINCT FROM p_objeto->>'objeto_version'
      OR d.objeto_retenido_hasta IS DISTINCT FROM (p_objeto->>'retenido_hasta')::timestamptz
      OR d.objeto_inmovilizado IS DISTINCT FROM (p_objeto->>'inmovilizado')::boolean
+     OR d.estado_politica IS DISTINCT FROM m->>'estado_politica'
   THEN RAISE EXCEPTION 'documentos: clave idempotente reutilizada' USING ERRCODE='23505'; END IF;
  ELSE
   INSERT INTO vec_documentos.documento(
     id,numero_vec,clave_idempotencia,principal_ref,modulo_id,expediente_ref,tipo_ref,version,mime,
     huella_sha256,tamano,objeto_ref,objeto_version,conector_ref,recibo_objeto_ref,recibo_objeto_huella_sha256,
     objeto_retenido_hasta,objeto_inmovilizado,
-    politica_ref,version_politica,huella_politica_sha256,conservacion_hasta,proteccion,
+    politica_ref,version_politica,huella_politica_sha256,conservacion_hasta,proteccion,estado_politica,
     huella_preimagen_sha256,decision_ref,auditoria_ad3_ref,creada_en)
   VALUES(m->>'id','VEC-'||to_char(ahora,'YYYY')||'-'||nextval('vec_documentos.numero_interno_seq')::text,
     m->>'clave_idempotencia',p_auth->>'principal_id',m->>'modulo_id',m->>'expediente_ref',m->>'tipo_ref',(m->>'version')::bigint,m->>'mime',
@@ -243,7 +255,7 @@ BEGIN
     p_objeto->>'conector_ref',p_objeto->>'recibo_objeto_ref',p_objeto->>'recibo_objeto_huella_sha256',
     (p_objeto->>'retenido_hasta')::timestamptz,(p_objeto->>'inmovilizado')::boolean,
     m->>'politica_ref',(m->>'version_politica')::bigint,m->>'huella_politica_sha256',(m->>'conservacion_hasta')::timestamptz,
-    m->>'proteccion',h,v.decision_ref,v.auditoria_ref,ahora) RETURNING * INTO d;
+    m->>'proteccion',m->>'estado_politica',h,v.decision_ref,v.auditoria_ref,ahora) RETURNING * INTO d;
   INSERT INTO vec_documentos.outbox(tipo,recurso_ref,expediente_ref,huella_sha256,registrada_en)
    VALUES('documento_generado',d.id,d.expediente_ref,d.huella_sha256,ahora);
   nuevo:=true;

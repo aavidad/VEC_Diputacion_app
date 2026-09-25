@@ -16,7 +16,7 @@ test("POST estricto contiene sólo la intención y acepta exclusivamente recibo 
   const cliente = crearClienteAnotacionAdministrativaHTTP({ ejecutar, validarOpciones: ({ signal } = {}) => ({ signal }) });
   const x = montar(cliente); await x.raiz.enviar();
   assert.deepEqual(llamadas[0].entrada, solicitud); assert.equal(llamadas[0].ruta, RUTA_ANOTACION_ADMINISTRATIVA); assert.equal(llamadas[0].estadoEsperado, 201);
-  assert.match(x.raiz.innerHTML, /recibo:anotacion:1/u); assert.match(x.raiz.innerHTML, /conserva la fase y el estado/u); x.desmontar();
+  assert.match(x.raiz.innerHTML, /recibo:anotacion:1/u); assert.doesNotMatch(x.raiz.innerHTML, /conserva la fase y el estado/u); x.desmontar();
 });
 test("resultado incierto recupera por la misma clave sin otro POST", async () => {
   const llamadas = []; const x = montar({ async registrar(s) { llamadas.push(["POST", s]); throw new Error("red"); }, async recuperar(s) { llamadas.push(["GET", s]); return respuesta; } });
@@ -41,6 +41,7 @@ test("el formulario consume el traductor real y escapa sus sobrescrituras visibl
   const t = crearTraductorContratacionTemporal({ anotacion_titulo: "Anotación <revisada>", anotacion_limite: "Ayuda <segura>" });
   montarFormularioAnotacionAdministrativa({ raiz, cliente: { registrar() { assert.fail("sin POST"); }, recuperar() { assert.fail("sin GET"); } }, expediente, t });
   assert.match(raiz.innerHTML, /Anotación &lt;revisada&gt;/u);
-  assert.match(raiz.innerHTML, /Ayuda &lt;segura&gt;/u);
+  // El límite ya no se pinta en pantalla: vive en la ayuda «?» del seguimiento.
+  assert.doesNotMatch(raiz.innerHTML, /Ayuda &lt;segura&gt;|ct-aa-ayuda/u);
   assert.doesNotMatch(raiz.innerHTML, /<revisada>|<segura>/u);
 });

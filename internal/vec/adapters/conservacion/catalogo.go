@@ -193,9 +193,13 @@ func (c *Catalogo) BuscarPoliticasConservacionDocumental(ctx context.Context, s 
 		return nil, nil
 	}
 	hasta := c.reloj.Ahora().UTC().Truncate(time.Microsecond).AddDate(e.plazoAnios, 0, 0)
+	// Un catálogo provisional nunca se presenta como política aprobada.
+	estado := ports.EstadoPoliticaConservacionDocumentalAprobada
+	if c.provisional {
+		estado = ports.EstadoPoliticaConservacionDocumentalProvisional
+	}
 	politica, err := ports.NuevaPoliticaConservacionDocumental(s, hasta,
-		ports.ProteccionPoliticaConservacionDocumentalOrdinaria, "",
-		ports.EstadoPoliticaConservacionDocumentalAprobada, time.Time{})
+		ports.ProteccionPoliticaConservacionDocumentalOrdinaria, "", estado, time.Time{})
 	if err != nil {
 		return nil, err
 	}

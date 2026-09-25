@@ -24,7 +24,6 @@ const TEXTO = Object.freeze({
   sobrelinea: "Contratación temporal · circuito previo",
   titulo: "Petición del centro y ratificación",
   descripcion: "Una petición previa reúne la necesidad del centro antes de que RRHH la transfiera al expediente de contratación.",
-  ficticio: "Datos ficticios de desarrollo",
   pendienteEntrada: "RRHH tramita las peticiones ratificadas desde su bandeja",
   solicitante: "Presentar petición",
   ratificador: "Bandeja de ratificación",
@@ -54,7 +53,6 @@ const TEXTO = Object.freeze({
   estado: "Estado",
   solicitanteDatos: "Solicitante y cargo",
   transferencia: "El alta se realiza en la bandeja de RRHH. Esta vista no consulta su estado de entrega.",
-  identidadAviso: "Identidades de prueba. La ratificación queda registrada; no se firma electrónicamente un documento. Para uso real: identidad y circuito de firma corporativos según el procedimiento que se establezca.",
   peticionNoEnviada: "Este recibo acredita la actuación del centro, no el alta del expediente",
   confirmacion: "Confirmo expresamente esta operación",
   volverEditar: "Volver a editar",
@@ -273,7 +271,7 @@ function tablaRRHH(peticiones, seleccionada) {
 
 export function renderizarPeticionesCentroRRHH({ peticiones = [], entrega = null, modo = "bandeja", confirmado = false, recibo = null, mensaje = "" } = {}) {
   const peticion = entrega?.peticion;
-  const cabecera = `<section class="pc-cabecera"><p class="sobrelinea">${esc(TEXTO.rrhhSobrelinea)}</p><h1>${esc(TEXTO.rrhhTitulo)}</h1><p>${esc(TEXTO.rrhhDescripcion)}</p><div class="pc-etiquetas"><span class="pc-etiqueta">${esc(TEXTO.ficticio)}</span></div></section>`;
+  const cabecera = `<section class="pc-cabecera"><p class="sobrelinea">${esc(TEXTO.rrhhSobrelinea)}</p><h1>${esc(TEXTO.rrhhTitulo)}</h1><p>${esc(TEXTO.rrhhDescripcion)}</p></section>`;
   const error = mensaje ? `<p class="pc-error" role="alert">${esc(mensaje)}</p>` : "";
   if (["denegado", "sin_verificar", "resultado_incierto"].includes(modo)) return vistaSinDatos(cabecera, modo, mensaje, "recargar-rrhh");
   if (modo === "confirmar") return `${cabecera}${error}<section class="pc-panel pc-detalle"><h2>${esc(TEXTO.rrhhConfirmar)}</h2>${detallePeticion(peticion, null)}<p class="pc-aviso">${esc(TEXTO.rrhhAviso)}</p><label class="pc-confirmacion"><input type="checkbox" name="confirmacion-alta-rrhh"${confirmado ? " checked" : ""}> ${esc(TEXTO.rrhhConfirmacion)}</label><div class="pc-acciones"><button type="button" class="boton-secundario" data-accion="cancelar-alta-rrhh">${esc(TEXTO.cancelar)}</button><button type="button" class="boton-primario" data-accion="confirmar-alta-rrhh">${esc(TEXTO.rrhhConfirmar)}</button></div></section>`;
@@ -313,7 +311,7 @@ export function renderizarPeticionCentro({ contexto, peticiones = [], peticion =
     const cabeceraSegura = `<section class="pc-cabecera"><p class="sobrelinea">${esc(TEXTO.sobrelinea)}</p><h1>${esc(TEXTO.titulo)}</h1></section>`;
     return vistaSinDatos(cabeceraSegura, modo, mensaje, "recargar");
   }
-  const cabecera = `<section class="pc-cabecera"><p class="sobrelinea">${esc(TEXTO.sobrelinea)}</p><h1>${esc(TEXTO.titulo)}</h1><p>${esc(TEXTO.descripcion)}</p><div class="pc-etiquetas"><span class="pc-etiqueta">${esc(TEXTO.ficticio)}</span><span class="pc-etiqueta">${esc(TEXTO.pendienteEntrada)}</span></div><p>${esc(TEXTO.identidadAviso)}</p><p>${esc(actor?.nombre || "—")} · ${esc(actor?.cargo || "—")} · ${esc(actor?.centro || "—")}</p></section>`;
+  const cabecera = `<section class="pc-cabecera"><p class="sobrelinea">${esc(TEXTO.sobrelinea)}</p><h1>${esc(TEXTO.titulo)}</h1><p>${esc(TEXTO.descripcion)}</p><div class="pc-etiquetas"><span class="pc-etiqueta">${esc(TEXTO.pendienteEntrada)}</span></div><p>${esc(actor?.nombre || "—")} · ${esc(actor?.cargo || "—")} · ${esc(actor?.centro || "—")}</p></section>`;
   const error = mensaje ? `<p class="pc-error" role="alert">${esc(mensaje)}</p>` : "";
   if (modo === "formulario") return `${cabecera}${error}${formularioHTML(contexto, estado, false)}`;
   if (modo === "revision") return `${cabecera}${error}${formularioHTML(contexto, estado, true)}`;
@@ -549,4 +547,59 @@ export async function iniciarPeticionCentro({ raiz = document.querySelector("#ap
   return { recargar: cargar };
 }
 
-if (typeof document !== "undefined" && document.querySelector("#aplicacion")) iniciarPeticionCentro();
+/**
+ * Textos de la ayuda «?» de la petición del centro.
+ *
+ * La ayuda deja claro que identificarse con certificado no es firmar: la
+ * petición y su ratificación quedan registradas, pero el circuito de firma
+ * electrónica sigue pendiente del procedimiento corporativo.
+ */
+export const MENSAJES_AYUDA_PETICIONES_CENTRO_ES = Object.freeze({
+  pc_ayuda_abrir: "Ayuda sobre la petición del centro",
+  pc_ayuda_titulo: "Petición del centro: qué hace y qué no hace",
+  pc_ayuda_certificado_titulo: "¿Entrar con certificado es firmar?",
+  pc_ayuda_certificado: "No. El certificado solo sirve para identificarle al entrar. Presentar o ratificar una petición no firma electrónicamente ningún documento.",
+  pc_ayuda_registro_titulo: "¿Qué queda registrado?",
+  pc_ayuda_registro: "La petición y su ratificación quedan registradas con su autor, su fecha y un recibo. La firma electrónica todavía no está disponible: se incorporará cuando se establezca el circuito de firma corporativo.",
+  pc_ayuda_despues_titulo: "¿Qué pasa después?",
+  pc_ayuda_despues: "Cuando la petición está ratificada, llega a la bandeja de Recursos Humanos. RRHH revisa los datos y, si procede, crea con ellos el expediente de contratación. El centro no tiene que volver a enviarla.",
+  pc_ayuda_cerrar: "Cerrar",
+});
+
+/** Traduce una clave de la ayuda; una clave desconocida nunca muestra texto inventado. */
+function traducirAyudaPeticionCentro(clave, mensajes = MENSAJES_AYUDA_PETICIONES_CENTRO_ES) {
+  return Object.hasOwn(mensajes, clave) ? mensajes[clave] : "";
+}
+
+/**
+ * Conecta el botón «?» con su diálogo de ayuda. Los textos llegan del catálogo
+ * i18n; el diálogo nativo aporta foco atrapado y cierre con Escape, y al
+ * cerrarse el foco vuelve al botón que lo abrió.
+ */
+export function instalarAyudaPeticionCentro(doc) {
+  const boton = doc?.getElementById?.("pc-ayuda-abrir");
+  const dialogo = doc?.getElementById?.("pc-ayuda");
+  if (!boton || !dialogo) return false;
+  for (const elemento of dialogo.querySelectorAll("[data-i18n-ayuda]")) {
+    elemento.textContent = traducirAyudaPeticionCentro(elemento.dataset.i18nAyuda);
+  }
+  const etiqueta = traducirAyudaPeticionCentro("pc_ayuda_abrir");
+  boton.setAttribute("aria-label", etiqueta);
+  boton.setAttribute("title", etiqueta);
+  boton.addEventListener("click", () => {
+    if (typeof dialogo.showModal === "function") dialogo.showModal();
+    else dialogo.setAttribute("open", "");
+    dialogo.querySelector("#pc-ayuda-cerrar")?.focus?.();
+  });
+  dialogo.querySelector("#pc-ayuda-cerrar")?.addEventListener("click", () => {
+    if (typeof dialogo.close === "function") dialogo.close();
+    else { dialogo.removeAttribute("open"); boton.focus?.(); }
+  });
+  dialogo.addEventListener("close", () => boton.focus?.());
+  return true;
+}
+
+if (typeof document !== "undefined" && document.querySelector("#aplicacion")) {
+  instalarAyudaPeticionCentro(document);
+  iniciarPeticionCentro();
+}

@@ -391,3 +391,18 @@ func TestPoliticaConservacionDocumentalConservaCopiasDefensivasEnCoordinacion(t 
 		t.Fatal("el resultado compartio la huella mutable")
 	}
 }
+
+func TestPoliticaConservacionDocumentalProvisionalSoloParaConsumidorQueLaDistingue(t *testing.T) {
+	solicitud := nuevosVinculosPoliticaConservacionDocumentalAplicacionPrueba().construir(t)
+	politica := nuevaPoliticaConservacionDocumentalAplicacionPrueba(t, solicitud,
+		ports.ProteccionPoliticaConservacionDocumentalOrdinaria, ports.EstadoPoliticaConservacionDocumentalProvisional)
+	resolutor := &resolutorPoliticaConservacionDocumentalAplicacionPrueba{politicas: []ports.PoliticaConservacionDocumental{politica}}
+	reloj := &relojPoliticaConservacionDocumentalAplicacionPrueba{ahora: time.Date(2028, 2, 1, 12, 0, 0, 0, time.UTC)}
+	if _, err := ResolverPoliticaConservacionDocumental(context.Background(), resolutor, reloj, solicitud); !errors.Is(err, ports.ErrPoliticaConservacionDocumentalNoResuelta) {
+		t.Fatalf("el resolutor estricto aceptó una política provisional: %v", err)
+	}
+	resultado, err := ResolverPoliticaConservacionDocumentalAdmitiendoProvisional(context.Background(), resolutor, reloj, solicitud)
+	if err != nil || !resultado.Politica().Provisional() {
+		t.Fatalf("provisional no resuelta para el consumidor que la distingue: %v", err)
+	}
+}

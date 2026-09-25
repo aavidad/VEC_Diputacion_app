@@ -8,16 +8,16 @@
 import {
   cargarCatalogoModulosInterno,
   renderizarNavegacionModulos,
-} from "./portal-catalogo-modulos.js?v=20260925-d5d6-cronos-v1";
-import { traducirPortal } from "./portal-i18n.js?v=20260925-d5d6-cronos-v1";
-import { calcularMetricasCuadro, tramitesParaInicio } from "./portal-inicio.js?v=20260925-d5d6-cronos-v1";
+} from "./portal-catalogo-modulos.js?v=20260926-portal-rrhh-main-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260926-portal-rrhh-main-v1";
+import { calcularMetricasCuadro, tramitesParaInicio } from "./portal-inicio.js?v=20260926-portal-rrhh-main-v1";
 import {
   componerCronosInterno,
   componerDietasInternas,
   componerPersonalVisible,
   componerRegistroPersonal,
 } from "./portal-composicion-empleado.js?v=20260925-cronos-notif-e10-v1";
-import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260925-d5d6-cronos-v1";
+import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260926-portal-rrhh-main-v1";
 import {
   CLAVES_CARGA_MODULAR,
   LIMITE_CARGA_MODULAR_MS,
@@ -44,8 +44,11 @@ export const CLAVES_MODULOS_CON_VISTA_PORTAL = Object.freeze([
 ]);
 // Documentos sólo se carga cuando el servidor lo tiene montado, pero no tiene
 // entrada propia en menú ni en Inicio: su vista se abre únicamente desde un
-// expediente, que le entrega la referencia a consultar.
-const CLAVES_SIN_ENTRADA_PORTAL = Object.freeze([CLAVE_DOCUMENTOS]);
+// expediente, que le entrega la referencia a consultar. Personal, Cronos y
+// Dietas se cargan y conservan su vista, pero tampoco tienen entrada en el
+// menú, en Inicio ni en el ayudante de trámites: el portal solo ofrece Bolsa
+// y la contratación temporal. Su URL directa sigue funcionando.
+export const CLAVES_SIN_ENTRADA_PORTAL = Object.freeze([CLAVE_DOCUMENTOS, CLAVE_PERSONAL, "cronos", "dietas"]);
 const CLAVES_CARGA_PORTAL = Object.freeze([...CLAVES_CARGA_MODULAR, CLAVE_DOCUMENTOS]);
 // Rol con el que la frontera de identidad atesta a Intervención. Solo decide
 // qué pantalla se ofrece; cada operación la sigue autorizando el servidor.
@@ -124,11 +127,11 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   dietas: async () => {
     const [contrato, recorridos, clienteBorradores, clienteAsignacion, calculador, mapa, clienteCircuito] = await Promise.all([
       import("./modulos/dietas/contrato.js"),
-      import("./modulos/dietas/vista-recorridos.js?v=20260925-d5d6-cronos-v1"),
+      import("./modulos/dietas/vista-recorridos.js?v=20260926-portal-rrhh-main-v1"),
       import("./modulos/dietas/cliente-borradores-http.js?v=20260925-d5d6-v2"),
       import("./modulos/dietas/cliente-asignacion-http.js?v=20260925-d5d6-v1"),
       import("./modulos/dietas/calculador-rutas-http.js?v=20260925-d5d6-v1"),
-      import("./modulos/dietas/mapa-ruta.js?v=20260925-d5d6-cronos-v1"),
+      import("./modulos/dietas/mapa-ruta.js?v=20260926-portal-rrhh-main-v1"),
       import("./modulos/dietas/cliente-circuito-http.js?v=20260925-d5d6-v1"),
     ]);
     return Object.freeze({ contrato, recorridos, clienteBorradores, clienteAsignacion, calculador, mapa, clienteCircuito });
@@ -137,7 +140,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   // módulo cuando su montaje está compuesto; cada consulta la autoriza V3.
   documentos: async () => {
     const [vista, cliente] = await Promise.all([
-      import("./modulos/documentos/vista.js?v=20260925-documentos-web-v2"),
+      import("./modulos/documentos/vista.js?v=20260925-documentos-web-v3"),
       import("./modulos/documentos/cliente-http.js?v=20260925-documentos-montaje-v1"),
     ]);
     return Object.freeze({ vista, cliente });
@@ -167,6 +170,11 @@ export function moduloDeVistaPortal(vista) {
   if (VISTAS_MODULOS_PERSONALES.has(vista)) return vista;
   if (VISTAS_MODULO_BOLSA.has(vista)) return "bolsa";
   return "";
+}
+
+/** Indica si una vista pertenece a un módulo que se ofrece en menú e Inicio. */
+export function vistaConEntradaPortal(vista) {
+  return !CLAVES_SIN_ENTRADA_PORTAL.includes(moduloDeVistaPortal(vista));
 }
 
 export function rutaDeVistaPortal(vista) {

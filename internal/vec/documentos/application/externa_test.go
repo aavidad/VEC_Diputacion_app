@@ -62,7 +62,7 @@ func documentoConfirmadoPrueba(a ports.AltaExternaPersistente) domain.Documento 
 		TipoRef: a.TipoRef, Version: a.Version, MIME: a.MIME, Tamano: a.Tamano,
 		HuellaSHA256: a.Custodia.HuellaSHA256, PoliticaRef: s.PoliticaRef(), VersionPolitica: s.VersionPolitica(),
 		HuellaPoliticaSHA256: hex.EncodeToString(s.HuellaPoliticaSHA256()), ConservacionHasta: p.ConservacionHasta(),
-		Proteccion: string(p.Proteccion()), EstadoFirma: domain.EstadoFirmaPendienteProveedor,
+		Proteccion: string(p.Proteccion()), EstadoPolitica: ports.EstadoPolitica(p), EstadoFirma: domain.EstadoFirmaPendienteProveedor,
 		CreadoEn: time.Date(2026, 9, 25, 12, 0, 1, 0, time.UTC), Custodia: domain.CustodiaExterna,
 		CustodiaExternaRef: a.Custodia,
 	}
@@ -230,6 +230,45 @@ type fabricaNoAlcanzable struct{ t *testing.T }
 func (f fabricaNoAlcanzable) ContextoLecturaOriginal(context.Context, domain.Documento, ports.AutorizacionV3) (vecports.ContextoOperacionAlmacen, error) {
 	f.t.Fatal("no debe pedirse contexto de lectura de un original externo")
 	return vecports.ContextoOperacionAlmacen{}, nil
+}
+
+// El estado provisional viaja en la preimagen autorizada y en el documento:
+// una autorización emitida para la política aprobada no sirve para registrar
+// con la provisional, y el registro confirmado declara el estado.
+func TestRegistrarExternoConPoliticaProvisionalLaDeclaraYLaLigaALaPreimagen(t *testing.T) {
+	servicio, repo, in := escenarioExterna(t)
+	aprobada := servicio.Politicas.(politicasExternaPrueba).politica
+	provisional := politicaConservacionEstadoPrueba(t, aprobada.ConservacionHasta(),
+		vecports.ProteccionPoliticaConservacionDocumentalOrdinaria, vecports.EstadoPoliticaConservacionDocumentalProvisional)
+	servicio.Politicas = politicasExternaPrueba{provisional}
+	if _, err := servicio.RegistrarExterno(context.Background(), in); !errors.Is(err, ports.ErrSolicitudInvalida) || repo.llamadas != 0 {
+		t.Fatalf("autorizacion de la politica aprobada usada con la provisional: %v llamadas=%d", err, repo.llamadas)
+	}
+	ahora := servicio.Reloj.Ahora()
+	resultado, err := vecports.NuevoResultadoPoliticaConservacionDocumental(provisional, in.SolicitudPolitica, ahora)
+	if err != nil {
+		t.Fatal(err)
+	}
+	preimagen, err := (ports.AltaExternaPersistente{ID: in.ID, ClaveIdempotencia: in.ClaveIdempotencia,
+		ModuloID: in.ModuloID, ExpedienteRef: in.ExpedienteRef, TipoRef: in.TipoRef, Version: in.Version,
+		Custodia: in.Custodia, Politica: resultado}).PreimagenExterna()
+	if err != nil || !strings.Contains(string(preimagen), `"estado_politica":"provisional"`) {
+		t.Fatalf("preimagen sin estado provisional: %v %s", err, preimagen)
+	}
+	in.Autorizacion.Material = materialExternaPrueba(t, ports.AccionRegistrarExterno, in.ID, preimagen, ahora)
+	d, err := servicio.RegistrarExterno(context.Background(), in)
+	if err != nil || d.EstadoPolitica != domain.EstadoPoliticaProvisional || repo.llamadas != 1 {
+		t.Fatalf("registro provisional: %v %+v", err, d)
+	}
+	// Un repositorio que confirmara otro estado no se acepta.
+	repo.respuesta = func(a ports.AltaExternaPersistente) domain.Documento {
+		d := documentoConfirmadoPrueba(a)
+		d.EstadoPolitica = domain.EstadoPoliticaAprobada
+		return d
+	}
+	if _, err := servicio.RegistrarExterno(context.Background(), in); !errors.Is(err, ports.ErrCapacidadNoDisponible) {
+		t.Fatalf("estado confirmado distinto aceptado: %v", err)
+	}
 }
 
 type fabricaLecturaFallida struct{ causa error }

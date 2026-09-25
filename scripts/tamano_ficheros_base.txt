@@ -46,8 +46,8 @@
 1172 internal/modules/bolsa/ports/idempotencia_semantica_baremacion_externo_test.go
 3864 internal/modules/bolsa/ports/idempotencia_semantica_baremacion.go
 3888 internal/modules/bolsa/ports/idempotencia_semantica_baremacion_test.go
-994 internal/vec/adapters/almacen/ficheros/almacen.go
-1391 internal/vec/adapters/almacen/s3/almacen.go
+998 internal/vec/adapters/almacen/ficheros/almacen.go
+1396 internal/vec/adapters/almacen/s3/almacen.go
 1158 internal/vec/adapters/almacen/s3/almacen_test.go
 1128 internal/vec/adapters/httpseguridad/identidad.go
 1175 internal/vec/adapters/postgres/autorizacion_integracion_test.go
@@ -92,8 +92,8 @@
 826 web/static/portal-empleado/modulos/contratacion-temporal/formulario-analisis.js
 1719 web/static/portal-empleado/modulos/dietas/dietas.css
 1548 web/static/portal-empleado/modulos/dietas/vista-borradores-propios.test.mjs
-1062 web/static/portal-empleado/portal-modulos-coordinador.js
-1072 web/static/portal-empleado/portal-modulos-coordinador.test.mjs
+1070 web/static/portal-empleado/portal-modulos-coordinador.js
+1073 web/static/portal-empleado/portal-modulos-coordinador.test.mjs
 945 web/static/portal-empleado/portal-componentes.css
 950 web/static/portal-empleado/portal.js
 1132 web/static/portal-empleado/portal-bolsas-api.js

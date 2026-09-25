@@ -8,7 +8,7 @@ import { crearFuenteDocumentosHTTP } from "./cliente-http.js";
 
 const huella = "a".repeat(64);
 const dato = (cambios = {}) => ({ ref: "ref:1111111111111111111111111111111111111111111111111111111111111111", numero_vec: "VEC-2026-1", tipo: "dietas.comision.borrador.v1",
-  version: 1, estado_firma: "pendiente_firma", huella, mime: "application/pdf", custodia: "vec", descargable: true, ...cambios });
+  version: 1, estado_firma: "pendiente_firma", huella, mime: "application/pdf", custodia: "vec", descargable: true, conservacion: "aprobada", ...cambios });
 
 test("la lista conserva número, firma pendiente y descarga declarada sin promover firma", () => {
   const [documento] = validarRespuestaDocumentos({ estado: "disponible", documentos: [dato()] }).documentos;
@@ -21,6 +21,14 @@ test("la lista conserva número, firma pendiente y descarga declarada sin promov
   assert.throws(() => validarRespuestaDocumentos({ estado: "vacio", documentos: [dato()] }));
   assert.throws(() => validarRespuestaDocumentos({ estado: "vacio", documentos: [], siguiente_cursor:"cursor:123" }));
   assert.throws(() => validarRespuestaDocumentos({ estado: "disponible", documentos: [dato({ huella: "mal" })] }));
+});
+
+test("la conservación provisional se declara y un estado fuera de catálogo se rechaza", () => {
+  const [provisional] = validarRespuestaDocumentos({ estado: "disponible", documentos: [dato({ conservacion: "provisional" })] }).documentos;
+  assert.equal(provisional.conservacion, "provisional");
+  assert.throws(() => validarRespuestaDocumentos({ estado: "disponible", documentos: [dato({ conservacion: "definitiva" })] }));
+  assert.throws(() => validarRespuestaDocumentos({ estado: "disponible", documentos: [dato({ conservacion: undefined })] }));
+  assert.equal(crearTraductorDocumentos()("conservacion_provisional"), MENSAJES_DOCUMENTOS_ES.conservacion_provisional);
 });
 
 test("la custodia externa se lista sin descarga aunque el servidor la declare", () => {

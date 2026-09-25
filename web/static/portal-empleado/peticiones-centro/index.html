@@ -15,11 +15,24 @@
     <header class="pc-barra">
       <a href="/portal-empleado/" class="pc-marca">Portal del Empleado</a>
       <span>Gestión de Recursos Humanos</span>
+      <button type="button" class="pc-boton-ayuda" id="pc-ayuda-abrir" aria-haspopup="dialog" aria-controls="pc-ayuda" aria-label="Ayuda"><span aria-hidden="true">?</span></button>
     </header>
+    <dialog id="pc-ayuda" class="pc-ayuda" aria-labelledby="pc-ayuda-titulo" aria-describedby="pc-ayuda-contenido">
+      <h2 id="pc-ayuda-titulo" data-i18n-ayuda="pc_ayuda_titulo"></h2>
+      <div id="pc-ayuda-contenido">
+        <h3 data-i18n-ayuda="pc_ayuda_certificado_titulo"></h3>
+        <p data-i18n-ayuda="pc_ayuda_certificado"></p>
+        <h3 data-i18n-ayuda="pc_ayuda_registro_titulo"></h3>
+        <p data-i18n-ayuda="pc_ayuda_registro"></p>
+        <h3 data-i18n-ayuda="pc_ayuda_despues_titulo"></h3>
+        <p data-i18n-ayuda="pc_ayuda_despues"></p>
+      </div>
+      <div class="pc-acciones"><button type="button" class="boton-secundario" id="pc-ayuda-cerrar" data-i18n-ayuda="pc_ayuda_cerrar"></button></div>
+    </dialog>
     <main id="contenido-principal" class="pc-contenido" tabindex="-1">
       <div id="aplicacion" aria-live="off"></div>
     </main>
-    <footer class="pc-pie">Diputación de Granada · Presentación con datos ficticios</footer>
+    <footer class="pc-pie">Diputación de Granada</footer>
     <script type="module" src="./peticiones-centro.js"></script>
   </body>
 </html>
