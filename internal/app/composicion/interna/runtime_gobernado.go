@@ -28,6 +28,7 @@ type recursoGobiernoInterno struct {
 	pools       PoolsIdentidadInterna
 	hmac        *seudonimizacionpkcs11.Conector
 	ct          *internactproveedores.Proveedores
+	personalB2  interface{ Cerrar() }
 	propiedad   atomic.Bool
 	unaVez      sync.Once
 	errorCierre error
@@ -49,6 +50,9 @@ func (r *recursoGobiernoInterno) cerrarSinPropiedad() error {
 		return nil
 	}
 	r.unaVez.Do(func() {
+		if r.personalB2 != nil {
+			r.personalB2.Cerrar()
+		}
 		if r.ct != nil {
 			r.ct.Cerrar()
 		}
@@ -149,7 +153,8 @@ func cargarProveedoresGobernados(ctx context.Context, cfg Configuracion) (provee
 	}
 	fuenteF1, err := internagobierno.NuevaFuenteF1(internagobierno.ConfiguracionFuenteF1{
 		Identidad: identidad, Revalidador: identidadPG.Revalidador,
-		Resolutor: contextoPG.Resolutor, Reloj: reloj,
+		Resolutor: contextoPG.Resolutor, VinculoCorporativo: contextoPG.VinculoCorporativo,
+		Reloj:     reloj,
 		PorCuenta: contextos, MotivoAlta: materialV3.MotivoAlta,
 		MotivoLectura: materialV3.MotivoLectura, Politica: politica,
 	})
@@ -182,11 +187,23 @@ func cargarProveedoresGobernados(ctx context.Context, cfg Configuracion) (provee
 	configuracionV2.Preparacion.TernaPersonal = recursos.ct.TernaPersonal
 	configuracionV2.Preparacion.Reloj = reloj
 	configuracionV2.PoliticaConsultaDesarrollo = &politica
+	personalB2, disponible := montarPersonalB2Gobernado(ctx, directorio, materialCT.AltaPersonal.Login,
+		configuracionV2.AltaPersonal, recursos.ct, fuenteF1, auditoria, reloj)
+	if disponible {
+		recursos.personalB2 = personalB2.proveedor
+	}
 	salida := proveedoresConsultaSeguimiento{
 		identidad: identidad, extractor: extractor,
 		autoridadRutas: autoridadRuta, auditoriaRutas: auditoria,
 		configuracionV2: configuracionV2,
 		recursos:        []recursoCerrableAplicacionInterna{recursos},
+	}
+	if disponible {
+		salida.vincularPersonalB2 = fuenteF1.VincularContextoPersonalB2
+		salida.fichaPersonalB2, salida.vacantesPersonalB2 = personalB2.ficha, personalB2.vacantes
+		salida.empleadosPersonalB2 = personalB2.empleados
+		salida.altaPersonalB2, salida.hechoPersonalB2 = personalB2.alta, personalB2.hecho
+		salida.catalogosPersonalB2 = personalB2.catalogos
 	}
 	exito = true
 	return salida, nil

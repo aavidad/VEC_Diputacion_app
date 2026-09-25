@@ -4,12 +4,49 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"reflect"
 	"time"
 
 	dominiovec "vec-diputacion-granada/internal/vec/domain"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
 )
+
+// La concesion temporal interna cubre exactamente la vista de seguimiento.
+// Esta lista se coteja sobre la decision canonica ligada al material atestado,
+// antes de que el adaptador pueda iniciar una lectura de CT.
+var camposConsultaSeguimientoRRHH = map[string]struct{}{
+	"esquema": {}, "alcance": {}, "expediente_ref": {},
+	"version_expediente": {}, "recibo_incorporacion_ref": {},
+	"seguimiento_ref": {}, "version_seguimiento": {}, "estado_clave": {},
+	"periodo": {}, "registrado_en": {}, "actuaciones": {},
+	"ejercicio_sintetico": {}, "firma_oficial": {},
+	"eficacia_administrativa": {},
+}
+
+func (m MaterialAutorizacionConsultaRRHH) camposSeguimientoExactos() bool {
+	if m.decision.ValidarPara(m.solicitud) != nil {
+		return false
+	}
+	canon, err := dominiovec.RepresentacionCanonicaDecisionAutorizacionV3(m.decision)
+	if err != nil || !bytes.Equal(canon, m.exportacion.DecisionCanonica()) {
+		return false
+	}
+	var datos struct {
+		Campos []string `json:"campos_permitidos"`
+	}
+	if json.Unmarshal(canon, &datos) != nil || len(datos.Campos) != len(camposConsultaSeguimientoRRHH) {
+		return false
+	}
+	vistos := make(map[string]bool, len(datos.Campos))
+	for _, campo := range datos.Campos {
+		if _, permitido := camposConsultaSeguimientoRRHH[campo]; !permitido || vistos[campo] {
+			return false
+		}
+		vistos[campo] = true
+	}
+	return true
+}
 
 // MaterialAutorizacionConsultaRRHH conserva el conjunto probatorio VEC-AD-3
 // completo que PostgreSQL deberá verificar y consumir. El resumen tipado solo

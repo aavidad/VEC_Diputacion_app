@@ -192,3 +192,27 @@ export function componerPersonalVisible(recursos, entorno, { catalogosPublicos =
       : montarCatalogos,
   });
 }
+
+/**
+ * Registro de Personal para RRHH: lista de empleados del organismo, ficha,
+ * vacantes y catálogos. El organismo y el permiso los fija el servidor en cada
+ * petición (V3); aquí solo se crean los clientes del mismo origen. Falta
+ * cualquier pieza → undefined (la vista no se ofrece).
+ */
+export function componerRegistroPersonal(recursos, entorno) {
+  const { registro, clienteRegistro, clienteCatalogosRegistro, i18n } = recursos ?? {};
+  if (typeof registro?.montarRegistroB2 !== "function"
+    || typeof clienteRegistro?.crearClienteRegistroB2 !== "function"
+    || typeof clienteCatalogosRegistro?.crearClienteCatalogosRegistroB2 !== "function"
+    || typeof i18n?.crearTraductorPersonal !== "function"
+    || typeof entorno?.fetch !== "function") return undefined;
+  const fetchImpl = entorno.fetch.bind(entorno);
+  const cliente = clienteRegistro.crearClienteRegistroB2({ fetchImpl });
+  const clienteCatalogos = clienteCatalogosRegistro.crearClienteCatalogosRegistroB2({ fetchImpl });
+  return Object.freeze({
+    traducir: i18n.crearTraductorPersonal(),
+    montar: ({ raiz, anunciar = () => {}, registrarDesmontar } = {}) => registro.montarRegistroB2({
+      raiz, cliente, clienteCatalogos, anunciar, registrarDesmontar,
+    }),
+  });
+}

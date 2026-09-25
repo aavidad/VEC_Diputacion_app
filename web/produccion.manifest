@@ -120,6 +120,12 @@ static/portal-empleado/modulos/personal/i18n.js
 static/portal-empleado/modulos/personal/i18n-rpt-puestos.js
 static/portal-empleado/modulos/personal/ficha-integral.css
 static/portal-empleado/modulos/personal/vista-ficha-integral.js
+static/portal-empleado/modulos/personal/registro-b2.js
+static/portal-empleado/modulos/personal/registro-b2.css
+static/portal-empleado/modulos/personal/registro-b2-cliente.js
+static/portal-empleado/modulos/personal/registro-b2-actos.js
+static/portal-empleado/modulos/personal/registro-b2-catalogos.js
+static/portal-empleado/modulos/personal/registro-b2-catalogos-cliente.js
 static/portal-empleado/modulos/personal/vista.js
 static/portal-empleado/modulos/personal/vista-rpt-publica.js
 static/portal-empleado/modulos/personal/vista-estructura-organizativa-publica.js

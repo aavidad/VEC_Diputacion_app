@@ -75,3 +75,24 @@ Reutiliza la autorización B2; no incorpora documentos ni otro consumidor AD3.
 La exigencia de validador distinto al registrar una exclusión es provisional
 hasta resolver la duda 6 de RRHH. La pausa conserva la posición de acta y B6
 la recupera al reactivar con la política de orden vigente.
+
+# Incremento B2 — registro de empleado de Personal
+
+Migraciones nuevas, en este orden y cada una ensayada antes con `ROLLBACK`:
+ContextoActor `000008`; Personal `000017`; AD3 `000054`, `000055`, `000056`
+(sus números son huecos reservados: se instalan después de AD3 59/61/70/80,
+ya presentes en la principal); Personal `000018`, `000019`, `000020` y
+`000021`. Las AD3 toman el consultivo común del núcleo y rechazan una segunda
+aplicación. El material privado V3 de Personal B2 usa el formato 3 (ocho
+capacidades, con la lista de empleados del organismo).
+
+`personal_altas_sinteticas.py` da de alta empleados sintéticos por la API
+interna real con el certificado mTLS de una persona de RRHH: cada alta es el
+acto V3 de Personal `000019` y publica la proyección persona→empleado
+(`000016`) que consumen Cronos y Dietas. Lee un plan privado 0600 fuera del
+repositorio (solo referencias opacas), publica antes las entradas de catálogo
+que el plan declara y es idempotente: la clave incluye el SHA-256 del cuerpo,
+así que repetirlo devuelve los mismos recibos; un 409 (entrada o persona ya
+registradas con otro contenido o por otra vía) se informa como divergencia y
+detiene el plan con código 1, igual que la primera caída.
+`--comprobar` valida el plan sin enviar nada.

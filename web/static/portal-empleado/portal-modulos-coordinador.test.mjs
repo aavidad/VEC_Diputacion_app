@@ -333,6 +333,58 @@ test("el cargador interno predeterminado de Personal monta la ficha sin cargar c
   assert.equal(raiz.querySelector("[data-personal-ficha-integral]"), null);
 });
 
+test("RRHH abre el Registro de Personal desde Personal con subnavegación; sin perfil RRHH no se ofrece", async () => {
+  const catalogo = [...crearCatalogoModulosDesdeManifiestos([manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL), Object.freeze({ clave: "personal" })];
+  const rutas = [];
+  const fuenteCT = Object.freeze({
+    capacidades: Object.freeze(["contratacion_temporal.cuadro.consultar", "contratacion_temporal.expediente.consultar"]),
+    async listar() { return { expedientes: [] }; }, async obtener() { throw new Error("sin expedientes"); }, async ejecutar() { throw new Error("solo lectura"); },
+  });
+  const cargadorCT = async () => ({
+    cliente: { crearClienteHTTPContratacionTemporal: () => ({}) },
+    adaptador: { crearAdaptadorHTTPExpedientesContratacionTemporal: () => fuenteCT },
+    presentador: { crearPresentadorExpedientesContratacionTemporal: () => ({ obtenerEstado: () => ({}), cargar: async () => ({}) }) },
+    vista: { montarModuloContratacionTemporal: async () => ({ desmontar() {} }) },
+  });
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    entorno: { fetch: async (ruta) => { rutas.push(ruta); return new Response(null, { status: 403 }); } },
+    cargarCatalogoInterno: async () => Object.freeze(catalogo),
+    cargadoresInternos: { contratacion_temporal: cargadorCT },
+  });
+  await coordinador.cargarInterno();
+  assert.equal(coordinador.esPerfilRRHH(), true);
+  assert.equal(coordinador.vistaDisponible("personal-registro"), true);
+  assert.equal(moduloDeVistaPortal("personal-registro"), "personal");
+  assert.equal(rutaDeVistaPortal("personal-registro"), "#personal-registro");
+  const raiz = raizDietasFalsa();
+  assert.equal(await coordinador.montarVista("personal-registro", raiz), true);
+  assert.ok(raiz.querySelector("[data-personal-subvistas]"));
+  assert.ok(raiz.querySelector("[data-personal-registro-b2]"));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.ok(rutas.some((ruta) => ruta.startsWith("/api/vec/personal/empleados-organismo?")));
+  coordinador.desmontarVistaActual();
+  assert.equal(raiz.querySelector("[data-personal-registro-b2]"), null);
+  assert.equal(raiz.querySelector("[data-personal-subvistas]"), null);
+  assert.equal(await coordinador.montarVista("personal", raiz), true);
+  assert.ok(raiz.querySelector("[data-personal-subvistas]"));
+  assert.ok(raiz.querySelector("[data-personal-ficha-integral]"));
+  coordinador.desmontarVistaActual();
+
+  const sinRRHH = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    entorno: { fetch: async () => new Response(null, { status: 403 }) },
+    cargarCatalogoInterno: async () => Object.freeze([{ clave: "personal" }]),
+    cargadoresInternos: { contratacion_temporal: async () => { throw new Error("no debe cargar CT"); } },
+  });
+  await sinRRHH.cargarInterno();
+  assert.equal(sinRRHH.vistaDisponible("personal"), true);
+  assert.equal(sinRRHH.vistaDisponible("personal-registro"), false);
+  const raizEmpleado = raizDietasFalsa();
+  assert.equal(await sinRRHH.montarVista("personal", raizEmpleado), true);
+  assert.equal(raizEmpleado.querySelector("[data-personal-subvistas]"), null);
+});
+
 test("el paquete interno de Personal no solicita recursos RPT ni estructura pública", async () => {
   const [codigo, manifiesto] = await Promise.all([
     readFile(new URL("portal-modulos-coordinador.js", import.meta.url), "utf8"),
@@ -344,7 +396,8 @@ test("el paquete interno de Personal no solicita recursos RPT ni estructura púb
   const recursosInternos = [...personalInterno.matchAll(/import\("\.\/modulos\/personal\/([^?"']+)/gu)]
     .map((match) => match[1]);
   assert.deepEqual(recursosInternos, ["contrato.js", "cliente-http-categorias.js",
-    "vista.js", "vista-ficha-integral.js"]);
+    "vista.js", "vista-ficha-integral.js", "registro-b2.js", "registro-b2-cliente.js",
+    "registro-b2-catalogos-cliente.js", "i18n.js"]);
   for (const recurso of recursosInternos) {
     assert.match(manifiesto, new RegExp(`static/portal-empleado/modulos/personal/${recurso.replaceAll(".", "\\.")}`, "u"));
   }

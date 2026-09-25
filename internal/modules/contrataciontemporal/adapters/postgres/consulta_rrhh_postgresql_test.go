@@ -203,6 +203,22 @@ func TestArgumentosSQLConsultaRRHHTienenValorYOrdenExactos(t *testing.T) {
 	if !reflect.DeepEqual(detalleActual, detalleEsperado) {
 		t.Fatalf("argumentos de detalle fuera de contrato:\n%#v", detalleActual)
 	}
+	resumenEsperado := make([]any, 0, 16)
+	resumenEsperado = append(resumenEsperado, detalleEsperado[:5]...)
+	resumenEsperado = append(resumenEsperado, "unidad:rrhh:001")
+	resumenEsperado = append(resumenEsperado, detalleEsperado[5:]...)
+	resumenActual := argumentosSQLResumenSeguimientoRRHH(
+		"organizacion-01", "clase-02", "ambito-03", detalle,
+		"unidad:rrhh:001", material,
+	)
+	if !reflect.DeepEqual(resumenActual, resumenEsperado) ||
+		!strings.Contains(consultaResumenSeguimientoRRHHPostgreSQL,
+			"vec_contratacion_temporal.consultar_resumen_seguimiento_rrhh_atestado_v1(") ||
+		strings.Contains(consultaResumenSeguimientoRRHHPostgreSQL,
+			"consultar_detalle_rrhh_atestado_v1(") ||
+		strings.Count(consultaResumenSeguimientoRRHHPostgreSQL, "$16::bytea") != 1 {
+		t.Fatalf("contrato SQL de resumen inesperado: %#v", resumenActual)
+	}
 }
 
 func TestConsultaOriginalPropuestaRRHHTieneFachadaFijaYNoAdmiteOtroUso(t *testing.T) {
@@ -247,6 +263,11 @@ func TestEjecutarConsultaRRHHFlujoNominalCuadroYDetalle(t *testing.T) {
 			destinos: destinosDetalleConsultaRRHH(
 				&salidaDetalleConsultaRRHH{},
 			),
+		},
+		{
+			nombre: "resumen_seguimiento", consulta: consultaResumenSeguimientoRRHHPostgreSQL,
+			argumentos: 16,
+			destinos:   make([]any, 8),
 		},
 	}
 	for _, caso := range casos {
