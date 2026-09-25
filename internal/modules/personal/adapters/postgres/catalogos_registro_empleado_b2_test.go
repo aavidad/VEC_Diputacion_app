@@ -3,11 +3,15 @@ package postgres
 import "testing"
 
 func TestCatalogosRegistroEmpleadoB2RechazaRespuestaSQLIncompleta(t *testing.T) {
+	consultaValida := `{"organismo_ref":"org_prueba","entradas":[],"cursor_siguiente":null,"evidencia":{"decision_ref":"dec_1","auditoria_ref":"aud_1","consumo_huella_sha256":"a","efecto_ref":"org_prueba:regimen","consultada_en":"2026-09-25T10:00:00Z"}}`
+	if !formaConsultaCatalogoEmpleadoB2([]byte(consultaValida)) {
+		t.Fatal("forma de consulta SQL nominal rechazada")
+	}
 	consultas := []string{
-		`{"entradas":null,"cursor_siguiente":null,"evidencia":{"decision_ref":"dec_1","auditoria_ref":"aud_1","consumo_huella_sha256":"a","efecto_ref":"org:regimen","consultada_en":"2026-09-25T10:00:00Z"}}`,
-		`{"entradas":[],"cursor_siguiente":null,"evidencia":{"decision_ref":"dec_1","auditoria_ref":"aud_1","consumo_huella_sha256":"a"}}`,
-		`{"entradas":[],"cursor_siguiente":null,"evidencia":{},"otro":"filtracion"}`,
-		`{"entradas":[],"entradas":[],"cursor_siguiente":null,"evidencia":{}}`,
+		`{"organismo_ref":"org_prueba","entradas":null,"cursor_siguiente":null,"evidencia":{"decision_ref":"dec_1","auditoria_ref":"aud_1","consumo_huella_sha256":"a","efecto_ref":"org_prueba:regimen","consultada_en":"2026-09-25T10:00:00Z"}}`,
+		`{"organismo_ref":"org_prueba","entradas":[],"cursor_siguiente":null,"evidencia":{"decision_ref":"dec_1","auditoria_ref":"aud_1","consumo_huella_sha256":"a"}}`,
+		`{"organismo_ref":"org_prueba","entradas":[],"cursor_siguiente":null,"evidencia":{},"otro":"filtracion"}`,
+		`{"organismo_ref":"org_prueba","entradas":[],"entradas":[],"cursor_siguiente":null,"evidencia":{}}`,
 	}
 	for _, bruto := range consultas {
 		if formaConsultaCatalogoEmpleadoB2([]byte(bruto)) {
