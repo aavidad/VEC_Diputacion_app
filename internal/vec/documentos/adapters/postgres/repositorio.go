@@ -169,7 +169,7 @@ func (r *Repositorio) ConfirmarAlta(ctx context.Context, a ports.AltaPersistente
 		a.Objeto.Objeto.RetenidoHasta, a.Objeto.Objeto.Inmovilizado,
 		a.MIME, a.Tamano, a.HuellaSHA256})
 	raw, err := r.transaccion(ctx,
-		"SELECT vec_documentos.confirmar_alta_v1($1,$2::jsonb,$3::jsonb,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)",
+		"SELECT vec_documentos.confirmar_alta_v2($1,$2::jsonb,$3::jsonb,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)",
 		preimagen, string(objeto), string(auth), material.capacidad, material.decision, material.motivo,
 		material.contexto, material.persona, material.perfil, material.payload, material.sobre,
 		material.evidencia, material.raiz)
@@ -265,7 +265,7 @@ func (r *Repositorio) ConfirmarPreparacion(ctx context.Context, p ports.Preparac
 	}
 	auth, _ := autorizacionJSON(p.Autorizacion)
 	raw, err := r.transaccion(ctx,
-		"SELECT vec_documentos.preparar_notificacion_v1($1,$2::jsonb,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)",
+		"SELECT vec_documentos.preparar_notificacion_v2($1,$2::jsonb,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)",
 		preimagen, string(auth), material.capacidad, material.decision, material.motivo,
 		material.contexto, material.persona, material.perfil, material.payload, material.sobre,
 		material.evidencia, material.raiz)
