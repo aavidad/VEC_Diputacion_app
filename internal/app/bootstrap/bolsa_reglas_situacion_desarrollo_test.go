@@ -78,7 +78,7 @@ func TestReglasSituacionBolsaConCatalogoProponenLaReposicionDeFechaAFecha(t *tes
 	if codigo != http.StatusOK || !cuerpo.Data.Configuradas || cuerpo.Data.Esquema != "vec.bolsa.rrhh.reglas_situacion.v1" ||
 		!slices.Equal(cuerpo.Data.Transiciones["renuncia"], []string{"excluido"}) ||
 		!slices.Equal(cuerpo.Data.Transiciones["trabajando"], []string{"disponible", "excluido", "disponible_desde"}) ||
-		len(cuerpo.Data.CausasBaja) != 6 || cuerpo.Data.CausasBaja[3].Codigo != "sin_contacto" ||
+		len(cuerpo.Data.CausasBaja) != 4 || cuerpo.Data.CausasBaja[1].Codigo != "baja_sin_contacto" ||
 		cuerpo.Data.Reposicion == nil || cuerpo.Data.Reposicion.Propuesta != nil || len(cuerpo.Data.Reposicion.Modalidades) != 1 {
 		t.Fatalf("con catálogo: %d %+v", codigo, cuerpo.Data)
 	}

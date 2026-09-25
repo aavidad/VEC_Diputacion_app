@@ -9,7 +9,7 @@ import (
 	"vec-diputacion-granada/internal/vec/reglas"
 )
 
-// camposPortalMiBolsaReglas lee de la regla b28.campos_portal qué datos ve
+// camposPortalMiBolsaReglas lee de la regla b29.campos_mi_bolsa qué datos ve
 // la persona en «Mi bolsa». Sin la regla vigente se muestran todos, como
 // antes de existir el catálogo.
 type camposPortalMiBolsaReglas struct {

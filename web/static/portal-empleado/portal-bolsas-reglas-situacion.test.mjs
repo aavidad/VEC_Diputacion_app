@@ -11,7 +11,7 @@ import {
 } from "./portal-bolsas-reglas-situacion.js";
 import { crearControladorOperacionesSituacion, renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js";
 
-const procedencia = (articulo) => ({ clave: "b27.causa_baja.x", referencia: "vec.bolsa.reglas:1:x", articulo, norma: "Reglamento", ejemplo: false });
+const procedencia = (articulo) => ({ clave: "b24.sancion.x", referencia: "vec.bolsa.reglas:1:x", articulo, norma: "Reglamento", ejemplo: false });
 
 const REGLAS_CON_CATALOGO = Object.freeze({
   esquema: "vec.bolsa.rrhh.reglas_situacion.v1",

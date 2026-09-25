@@ -1,4 +1,4 @@
-// Datos de «Mi bolsa» que el catálogo de Bolsa (regla b28.campos_portal)
+// Datos de «Mi bolsa» que el catálogo de Bolsa (regla b29.campos_mi_bolsa)
 // puede mostrar u ocultar. El servidor ya retira los ocultos; la web solo
 // deja de pintar su apartado. Sin lista en la respuesta se muestran todos.
 export const CAMPOS_MI_BOLSA = Object.freeze([

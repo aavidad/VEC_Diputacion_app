@@ -147,7 +147,7 @@ func (c *CatalogoSanciones) ResolverSancion(ctx context.Context, clave string, n
 }
 
 func consecuenciaDesdeRegla(regla reglas.Regla) (ports.ConsecuenciaSancion, error) {
-	efecto := regla.Atributos["efecto"]
+	efecto := regla.Atributos[reglas.AtributoEfecto]
 	if !dominiobolsa.EfectoSancionValido(efecto) || !dominiobolsa.ClaveConsecuenciaSancionValida(regla.Clave) {
 		return ports.ConsecuenciaSancion{}, ports.ErrSancionesNoConfiguradas
 	}

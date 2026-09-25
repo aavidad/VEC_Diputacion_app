@@ -90,16 +90,23 @@ func TestPoliticaTransicionesDelCatalogoSustituyeSoloLosOrigenesDeclarados(t *te
 }
 
 func TestCausasBajaConSuArticulo(t *testing.T) {
+	// Las causas de baja son las consecuencias de sanción con efecto
+	// «excluir»: una sola fuente en el catálogo.
 	causas, err := reglasPrueba(t, nil).CausasBaja(t.Context())
-	if err != nil || len(causas) != 6 {
+	if err != nil || len(causas) != 4 {
 		t.Fatalf("causas=%+v err=%v", causas, err)
 	}
-	if causas[0].Codigo != "no_acepta" || causas[0].Procedencia.Articulo != "art. 11.1.a" ||
-		causas[0].Procedencia.Referencia != "vec.bolsa.reglas:1:b27.causa_baja.no_acepta" || causas[0].Procedencia.Ejemplo {
+	if causas[0].Codigo != "baja_llamamiento_directo" || causas[0].Procedencia.Articulo != "art. 11.1.a" ||
+		causas[0].Procedencia.Referencia != "vec.bolsa.reglas:1:b24.sancion.baja_llamamiento_directo" {
 		t.Fatalf("primera causa: %+v", causas[0])
 	}
-	if causas[5].Codigo != "renuncia_nombramiento" || causas[5].Procedencia.Articulo != "art. 11.2" {
-		t.Fatalf("última causa: %+v", causas[5])
+	if causas[3].Codigo != "baja_renuncia_nombramiento" || causas[3].Procedencia.Articulo != "art. 11.2" {
+		t.Fatalf("última causa: %+v", causas[3])
+	}
+	for _, causa := range causas {
+		if causa.Codigo == "pasar_al_final" || causa.Codigo == "suspension" {
+			t.Fatalf("una consecuencia sin baja figura como causa: %+v", causa)
+		}
 	}
 }
 

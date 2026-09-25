@@ -457,7 +457,7 @@
       {
         "clave": "b24.consecuencias",
         "etiqueta": "Consecuencias y recurso",
-        "descripcion": "Las consecuencias posibles son las entradas «b24.sancion.*» de este catálogo; contra la resolución cabe recurso de reposición en un mes desde su notificación.",
+        "descripcion": "Las consecuencias posibles son las entradas «b24.sancion.*» de este catálogo; las de efecto «excluir» son también las causas de baja definitiva (art. 11) que RRHH elige al dar de baja. Contra la resolución cabe recurso de reposición en un mes desde su notificación.",
         "vigente_desde": "2026-02-07T00:00:00+01:00",
         "atributos": {
           "origen": "reglamento",
@@ -510,90 +510,6 @@
         "orden": 29
       },
       {
-        "clave": "b27.causa_baja.no_acepta",
-        "etiqueta": "No acepta el llamamiento",
-        "descripcion": "En el llamamiento directo, no aceptar el puesto ofrecido sin una causa justificada del art. 10.",
-        "vigente_desde": "2026-02-01T00:00:00Z",
-        "atributos": {
-          "origen": "reglamento",
-          "norma": "Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002)",
-          "duda": "Duda 62.",
-          "unidad": "ninguna",
-          "articulo": "art. 11.1.a"
-        },
-        "orden": 30
-      },
-      {
-        "clave": "b27.causa_baja.no_se_presenta",
-        "etiqueta": "No se presenta en el día y lugar indicados",
-        "descripcion": "No presentarse en el día y lugar indicados por la Administración sin una causa justificada del art. 10.",
-        "vigente_desde": "2026-02-01T00:00:00Z",
-        "atributos": {
-          "origen": "reglamento",
-          "norma": "Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002)",
-          "duda": "Duda 62.",
-          "unidad": "ninguna",
-          "articulo": "art. 11.1.a y b"
-        },
-        "orden": 31
-      },
-      {
-        "clave": "b27.causa_baja.no_aporta_documentacion",
-        "etiqueta": "No aporta la documentación requerida",
-        "descripcion": "No aportar la documentación requerida sin una causa justificada del art. 10.",
-        "vigente_desde": "2026-02-01T00:00:00Z",
-        "atributos": {
-          "origen": "reglamento",
-          "norma": "Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002)",
-          "duda": "Duda 62.",
-          "unidad": "ninguna",
-          "articulo": "art. 11.1.a y b"
-        },
-        "orden": 32
-      },
-      {
-        "clave": "b27.causa_baja.sin_contacto",
-        "etiqueta": "Sin contacto tras dos procesos de llamamiento",
-        "descripcion": "No ha sido posible contactar tras dos procesos de llamamiento telefónico en un mismo ofrecimiento.",
-        "vigente_desde": "2026-02-01T00:00:00Z",
-        "atributos": {
-          "origen": "reglamento",
-          "norma": "Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002)",
-          "duda": "Dudas 13 y 14.",
-          "unidad": "ninguna",
-          "articulo": "art. 11.1.a"
-        },
-        "orden": 33
-      },
-      {
-        "clave": "b27.causa_baja.renuncia_tras_disposicion",
-        "etiqueta": "Renuncia tras manifestar su disposición",
-        "descripcion": "En la publicación de llamamientos, renunciar después de haber manifestado la disposición para el puesto.",
-        "vigente_desde": "2026-02-01T00:00:00Z",
-        "atributos": {
-          "origen": "reglamento",
-          "norma": "Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002)",
-          "duda": "Duda 62.",
-          "unidad": "ninguna",
-          "articulo": "art. 11.1.b"
-        },
-        "orden": 34
-      },
-      {
-        "clave": "b27.causa_baja.renuncia_nombramiento",
-        "etiqueta": "Renuncia a un nombramiento o contrato vigente",
-        "descripcion": "Renunciar a un nombramiento o contrato en curso, salvo el ofrecimiento de una vacante.",
-        "vigente_desde": "2026-02-01T00:00:00Z",
-        "atributos": {
-          "origen": "reglamento",
-          "norma": "Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002)",
-          "duda": "El art. 11.2 remite al art. 9.4, pero la excepción de vacantes figura en el apartado 3 del art. 9.",
-          "unidad": "ninguna",
-          "articulo": "art. 11.2"
-        },
-        "orden": 35
-      },
-      {
         "clave": "b28.transiciones.disponible",
         "etiqueta": "Situaciones posibles desde «disponible»",
         "descripcion": "Desde «disponible» se puede pasar a no disponible, pendiente de incorporación, renuncia, baja definitiva o no disponible hasta una fecha (suspensión con fecha de fin, que vuelve sola al turno ese día).",
@@ -605,7 +521,7 @@
           "unidad": "lista",
           "valor": "no_disponible,pendiente_incorporacion,renuncia,excluido,disponible_desde"
         },
-        "orden": 48
+        "orden": 30
       },
       {
         "clave": "b28.transiciones.renuncia",
@@ -741,7 +657,7 @@
         "orden": 43
       },
       {
-        "clave": "b28.campos_portal",
+        "clave": "b29.campos_mi_bolsa",
         "etiqueta": "Datos visibles en «Mi bolsa»",
         "descripcion": "Datos que la persona ve de cada participación en su portal personal: bolsa, posición, estado, último llamamiento, contratos y fecha de disponibilidad. La bolsa se muestra siempre.",
         "vigente_desde": "2026-02-01T00:00:00Z",

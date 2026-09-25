@@ -60,7 +60,7 @@ const (
 	// revierten la sanción (readmisión); sin la entrada ninguno la revierte.
 	BolsaEstadosRecursoRevocatorios = "b24.recurso_revierte"
 	// BolsaCamposPortal es la lista de datos de «Mi bolsa» (duda 17).
-	BolsaCamposPortal = "b28.campos_portal"
+	BolsaCamposPortal = "b29.campos_mi_bolsa"
 	// BolsaPortalCandidato fija el modo de las acciones propias del candidato
 	// (dudas 3 y 18): quién valida, qué contacto abre el plazo y desde qué
 	// situaciones se admite cada solicitud.
@@ -70,9 +70,11 @@ const (
 // Reglas de Bolsa que se consultan por prefijo: cada entrada es una opción
 // del catálogo y añadir otra no exige cambiar el código.
 const (
-	// BolsaPrefijoCausaBaja agrupa las causas de baja definitiva (art. 11)
-	// que RRHH elige al excluir; la etiqueta y el artículo salen de la entrada.
-	BolsaPrefijoCausaBaja = "b27.causa_baja."
+	// AtributoEfecto es el efecto de una consecuencia «b24.sancion.*» sobre
+	// la situación (ninguna, pausar, excluir). Las consecuencias con efecto
+	// «excluir» son también las causas de baja definitiva (art. 11) que RRHH
+	// elige al excluir: una sola fuente para sanciones y bajas.
+	AtributoEfecto = "efecto"
 	// BolsaPrefijoTransicionesSituacion + situación de origen es una lista con
 	// los destinos admitidos desde ella. Sin entrada rige la tabla compilada.
 	// Bolsa publica al arrancar la tabla resultante como política de la base
@@ -85,14 +87,8 @@ const (
 
 // Entradas del paquete de ejemplo con esos prefijos.
 const (
-	BolsaCausaBajaNoAcepta                = BolsaPrefijoCausaBaja + "no_acepta"
-	BolsaCausaBajaNoSePresenta            = BolsaPrefijoCausaBaja + "no_se_presenta"
-	BolsaCausaBajaNoAportaDocumentacion   = BolsaPrefijoCausaBaja + "no_aporta_documentacion"
-	BolsaCausaBajaSinContacto             = BolsaPrefijoCausaBaja + "sin_contacto"
-	BolsaCausaBajaRenunciaTrasDisposicion = BolsaPrefijoCausaBaja + "renuncia_tras_disposicion"
-	BolsaCausaBajaRenunciaNombramiento    = BolsaPrefijoCausaBaja + "renuncia_nombramiento"
-	BolsaTransicionesRenuncia             = BolsaPrefijoTransicionesSituacion + "renuncia"
-	BolsaTransicionesDisponible           = BolsaPrefijoTransicionesSituacion + "disponible"
+	BolsaTransicionesRenuncia   = BolsaPrefijoTransicionesSituacion + "renuncia"
+	BolsaTransicionesDisponible = BolsaPrefijoTransicionesSituacion + "disponible"
 )
 
 // Reglas de Contratación temporal.

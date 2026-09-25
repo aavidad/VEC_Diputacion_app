@@ -105,7 +105,10 @@ func (r *ReglasSituacion) PoliticaTransiciones(ctx context.Context) (puertosbols
 	return publicacion, true, nil
 }
 
-// CausasBaja lista, en el orden del catálogo, las entradas de causa de baja.
+// CausasBaja lista, en el orden del catálogo, las causas de baja definitiva:
+// las consecuencias «b24.sancion.*» con efecto «excluir». Son la misma fuente
+// que usan las sanciones, de modo que una causa del art. 11 se configura una
+// sola vez.
 func (r *ReglasSituacion) CausasBaja(ctx context.Context) ([]puertosbolsa.CausaBajaSituacion, error) {
 	todas, err := r.reglas(ctx)
 	if err != nil {
@@ -113,8 +116,8 @@ func (r *ReglasSituacion) CausasBaja(ctx context.Context) ([]puertosbolsa.CausaB
 	}
 	causas := make([]puertosbolsa.CausaBajaSituacion, 0, 8)
 	for _, regla := range todas {
-		codigo, ok := strings.CutPrefix(regla.Clave, vecreglas.BolsaPrefijoCausaBaja)
-		if !ok {
+		codigo, ok := strings.CutPrefix(regla.Clave, vecreglas.BolsaPrefijoSanciones)
+		if !ok || regla.Atributos[vecreglas.AtributoEfecto] != dominiobolsa.OperacionExcluir {
 			continue
 		}
 		if codigo == "" || len(codigo) > maximoCodigo {
