@@ -121,7 +121,7 @@ export function crearClienteSaldoCronosHTTP({ fetchImpl = globalThis.fetch, ruta
         let respuesta;
         try {
           respuesta = await fetchImpl(`${ruta}?${parametros}`, {
-            method: "GET", headers: { Accept: "application/json" }, credentials: "omit",
+            method: "GET", headers: { Accept: "application/json" }, credentials: "same-origin",
             mode: "same-origin", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer",
             signal: controlador.signal,
           });

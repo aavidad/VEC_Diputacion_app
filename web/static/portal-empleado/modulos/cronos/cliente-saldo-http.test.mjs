@@ -25,7 +25,8 @@ test("consulta propia usa solo periodo y fechas civiles inclusivas, sin identida
   assert.equal(llamada.url, "/api/interna/cronos/saldos/propio?periodo=rango&desde=2026-09-20&hasta=2026-09-21");
   assert.equal(llamada.opciones.method, "GET");
   assert.equal(llamada.opciones.cache, "no-store");
-  assert.equal(llamada.opciones.credentials, "omit");
+  assert.equal(llamada.opciones.credentials, "same-origin");
+  assert.equal(llamada.opciones.mode, "same-origin");
   assert.equal(llamada.opciones.body, undefined);
   assert.equal(llamada.opciones.headers.Authorization, undefined);
   assert.throws(() => validarConsultaSaldoCronos({ periodo: "hoy", empleado_ref: "otra_persona" }), TypeError);

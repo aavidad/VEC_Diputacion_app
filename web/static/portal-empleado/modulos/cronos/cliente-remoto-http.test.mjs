@@ -24,7 +24,8 @@ test("consulta la disponibilidad exacta y no envía identidad ni ubicación", as
   assert.equal(llamadas[0][1].cache, "no-store");
   assert.equal(llamadas[0][1].redirect, "error");
   assert.equal(llamadas[0][1].referrerPolicy, "no-referrer");
-  assert.equal(llamadas[0][1].credentials, "omit");
+  assert.equal(llamadas[0][1].credentials, "same-origin");
+  assert.equal(llamadas[0][1].mode, "same-origin");
   assert.deepEqual(Object.keys(llamadas[0][1].headers), ["Accept"]);
   assert.equal(llamadas[0][1].headers.Cookie, undefined);
 });
@@ -61,7 +62,7 @@ test("registra con dos únicos campos y acepta sólo el recibo del servidor", as
   assert.deepEqual(await cliente.registrar({ movimiento: "entrada", clave_operacion: referenciaOperacion }), recibo.recibo);
   assert.equal(llamada[0], RUTA_MARCAJE_REMOTO);
   assert.deepEqual(JSON.parse(llamada[1].body), { movimiento: "entrada", clave_operacion: referenciaOperacion });
-  assert.equal(llamada[1].credentials, "omit");
+  assert.equal(llamada[1].credentials, "same-origin");
   assert.equal(llamada[1].headers.Cookie, undefined);
   await assert.rejects(() => cliente.registrar({ movimiento: "entrada", clave_operacion: referenciaOperacion, latitud: 1 }), TypeError);
   const falso = crearClienteRemotoCronosHTTP({ fetchImpl: async () => json({ recibo: { ...recibo.recibo, replay: "false" } }) });
@@ -100,7 +101,7 @@ test("recuperación nominal usa GET sin cuerpo, cookies ni clave en URL", async 
   assert.equal(llamada[0], RUTA_RECUPERACION_REMOTA);
   assert.equal(llamada[1].method, "GET");
   assert.equal(llamada[1].body, undefined);
-  assert.equal(llamada[1].credentials, "omit");
+  assert.equal(llamada[1].credentials, "same-origin");
   assert.deepEqual(llamada[1].headers, { Accept: "application/json",
     "X-Cronos-Clave-Operacion": referenciaOperacion, "X-Cronos-Movimiento": "entrada" });
 });
