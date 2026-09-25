@@ -233,7 +233,10 @@ func (h *manejador) servirLista(w http.ResponseWriter, r *http.Request) {
 			MIME        string `json:"mime"`
 			Custodia    string `json:"custodia"`
 			Descargable bool   `json:"descargable"`
-		}{d.ID, d.NumeroVEC, h.claveTipo(d.TipoRef), d.Version, "pendiente_firma", d.HuellaSHA256, d.MIME, d.Custodia, descargable})
+			// Conservacion declara si el plazo procede de una politica
+			// aprobada o provisional (sin retencion fijada en el almacen).
+			Conservacion string `json:"conservacion"`
+		}{d.ID, d.NumeroVEC, h.claveTipo(d.TipoRef), d.Version, "pendiente_firma", d.HuellaSHA256, d.MIME, d.Custodia, descargable, d.EstadoPolitica})
 	}
 	estado := "disponible"
 	if len(salida) == 0 {

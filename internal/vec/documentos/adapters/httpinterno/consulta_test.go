@@ -83,7 +83,7 @@ func documentoPrueba() domain.Documento {
 		TipoRef: "ref:" + strings.Repeat("3", 64), Version: 1, MIME: "application/pdf", HuellaSHA256: strings.Repeat("a", 64), Tamano: 6,
 		ObjetoRef: "obj:123", ObjetoVersion: "version:1", PoliticaRef: "ref:" + strings.Repeat("4", 64), VersionPolitica: 1,
 		HuellaPoliticaSHA256: strings.Repeat("b", 64), ConservacionHasta: time.Now().Add(time.Hour),
-		Proteccion: "conservacion", EstadoFirma: domain.EstadoFirmaPendienteProveedor, CreadoEn: time.Now(), Custodia: domain.CustodiaVEC,
+		Proteccion: "conservacion", EstadoPolitica: domain.EstadoPoliticaAprobada, EstadoFirma: domain.EstadoFirmaPendienteProveedor, CreadoEn: time.Now(), Custodia: domain.CustodiaVEC,
 	}
 }
 func solicitud(ruta, cuerpo string) *http.Request {
@@ -271,5 +271,16 @@ func TestListaDeclaraClaveDeTipoYNuncaLaReferenciaOpaca(t *testing.T) {
 	rutas[0].Manejador.ServeHTTP(w, solicitud(RutaConsultaExpediente, `{"expediente_ref":"ref:`+strings.Repeat("2", 64)+`","limite":5}`))
 	if !strings.Contains(w.Body.String(), `"tipo":"documento"`) || strings.Contains(w.Body.String(), d.TipoRef) {
 		t.Fatalf("tipo desconocido: %s", w.Body.String())
+	}
+}
+
+func TestListaDeclaraConservacionProvisional(t *testing.T) {
+	d := documentoPrueba()
+	d.EstadoPolitica = domain.EstadoPoliticaProvisional
+	rutas, _ := NuevasRutas(Configuracion{Servicio: &servicioPrueba{documento: d}, Autoridad: &autoridadPrueba{}})
+	w := httptest.NewRecorder()
+	rutas[0].Manejador.ServeHTTP(w, solicitud(RutaConsultaExpediente, `{"expediente_ref":"ref:`+strings.Repeat("2", 64)+`","limite":5}`))
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"conservacion":"provisional"`) {
+		t.Fatalf("conservación provisional: %d %s", w.Code, w.Body.String())
 	}
 }

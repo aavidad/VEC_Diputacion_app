@@ -38,9 +38,10 @@ func TestRegistroSeleccionaFicherosOS3PorConfiguracion(t *testing.T) {
 		t.Fatalf("crear ficheros: %v", err)
 	}
 	for nombre, cfg := range map[string]almacen.ConfiguracionConectorAlmacen{
-		"clave desconocida": {"directorio": dir, "tamano_maximo": "10", "retencion_minima_dias": "1", "ruta_cliente": "/tmp"},
-		"sin retención":     {"directorio": dir, "tamano_maximo": "10"},
-		"relativo":          {"directorio": "originales", "tamano_maximo": "10", "retencion_minima_dias": "1"},
+		"clave desconocida":  {"directorio": dir, "tamano_maximo": "10", "retencion_minima_dias": "1", "ruta_cliente": "/tmp"},
+		"sin retención":      {"directorio": dir, "tamano_maximo": "10"},
+		"relativo":           {"directorio": "originales", "tamano_maximo": "10", "retencion_minima_dias": "1"},
+		"retención negativa": {"directorio": dir, "tamano_maximo": "10", "retencion_minima_dias": "-1"},
 	} {
 		if _, err := registro.Crear(context.Background(), "ficheros-local", cfg, ports.RequisitosAlmacenObjetos{}); err == nil {
 			t.Fatalf("%s: configuración aceptada", nombre)

@@ -1,4 +1,4 @@
-import { crearTraductorDocumentos } from "./i18n.js?v=20260925-documentos-web-v2";
+import { crearTraductorDocumentos } from "./i18n.js?v=20260925-documentos-web-v3";
 
 // El servidor devuelve la clave del tipo documental catalogado, nunca su
 // referencia opaca; un tipo sin rótulo se muestra como documento genérico.
@@ -9,6 +9,7 @@ const TIPOS = Object.freeze({
 });
 const MIME = new Set(["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]);
 const CUSTODIAS = new Set(["vec", "externa"]);
+const CONSERVACIONES = new Set(["aprobada", "provisional"]);
 const referencia = (v) => typeof v === "string" && (/^ref:[0-9a-f]{64}$/u.test(v) && !/^ref:0{64}$/u.test(v)
   || /^[a-z][a-z0-9_]{1,31}:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(v));
 const huellaValida = (v) => typeof v === "string" && /^[0-9a-f]{64}$/iu.test(v);
@@ -33,14 +34,14 @@ export function validarRespuestaDocumentos(respuesta) {
     if (!referencia(ref) || vistos.has(ref) || !/^VEC-[0-9]{4}-[0-9]{1,12}$/u.test(dato.numero_vec) ||
         typeof dato.tipo !== "string" || !dato.tipo.trim() || dato.tipo.length > 80 ||
         !Number.isSafeInteger(dato.version) || dato.version < 1 ||
-        dato.estado_firma !== "pendiente_firma" || !CUSTODIAS.has(dato.custodia) ||
+        dato.estado_firma !== "pendiente_firma" || !CUSTODIAS.has(dato.custodia) || !CONSERVACIONES.has(dato.conservacion) ||
         !huellaValida(dato.huella) || typeof dato.mime !== "string" ||
         !(/^[a-z0-9.+-]+\/[a-z0-9.+-]+$/u.test(dato.mime) || (dato.custodia === "externa" && dato.mime === ""))) throw new TypeError("documento inválido");
     vistos.add(ref);
     // B5 no declara firma sin atestación verificable y confirmación durable.
     const firma = dato.estado_firma;
     return Object.freeze({ ref, numero: dato.numero_vec, tipo: dato.tipo.trim(), version: dato.version,
-      firma, huella: dato.huella.toLowerCase(), mime: dato.mime, custodia: dato.custodia,
+      firma, huella: dato.huella.toLowerCase(), mime: dato.mime, custodia: dato.custodia, conservacion: dato.conservacion,
       // VEC solo entrega bytes que custodia; de un original externo muestra la huella.
       descargable: dato.custodia === "vec" && dato.descargable === true && MIME.has(dato.mime) });
   });
@@ -139,6 +140,8 @@ export function montarVistaDocumentos({ raiz, fuente, expedienteRef = "", anunci
       for (const valor of [item.numero, t(Object.hasOwn(TIPOS, item.tipo) ? TIPOS[item.tipo] : "tipo_generico"), String(item.version)]) tr.append(elemento(doc, "td", valor));
       const firma = elemento(doc, "td");
       firma.append(elemento(doc, "span", t(`firma_${item.firma}`), `documentos-estado documentos-estado--${item.firma}`));
+      // Plazo de conservación provisional: sin retención fijada en el almacén.
+      if (item.conservacion === "provisional") firma.append(elemento(doc, "span", t("conservacion_provisional"), "documentos-conservacion-provisional"));
       tr.append(firma);
       const accion = elemento(doc, "td");
       if (item.custodia === "externa") {

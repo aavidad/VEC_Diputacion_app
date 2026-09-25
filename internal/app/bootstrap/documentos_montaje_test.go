@@ -19,6 +19,7 @@ import (
 	docpg "vec-diputacion-granada/internal/vec/documentos/adapters/postgres"
 	docports "vec-diputacion-granada/internal/vec/documentos/ports"
 	core "vec-diputacion-granada/internal/vec/domain"
+	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
 type registradorDocumentosPrueba struct {
@@ -228,4 +229,54 @@ func TestDescriptorMaterialDocumentosEsUnicoYNominal(t *testing.T) {
 	if _, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(todos); err != nil {
 		t.Fatal("el descriptor documental colisiona con otro consumidor", err)
 	}
+}
+
+// Decisión de dirección: con catálogo de conservación provisional no se fija
+// retención en el proveedor. Solo se compone en desarrollo con doble llave y
+// con un conector que declare no fijarla al escribir; S3 falla cerrado.
+func TestCatalogoProvisionalExigeDobleLlaveYConectorSinRetencionAlEscribir(t *testing.T) {
+	cfg, _ := generarMaterialDesarrolloPrueba(t)
+	reloj := relojRutasDietas{}
+	sinRetencion, cerrarSin, err := nuevoAlmacenDocumentos(context.Background(), almacenDocumentosDesarrollo{
+		Tipo: "ficheros", Directorio: directorioAlmacenPrueba(t), TamanoMaximo: 1 << 20}, reloj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cerrarSin()
+	conRetencion, cerrarCon, err := nuevoAlmacenDocumentos(context.Background(), almacenDocumentosDesarrollo{
+		Tipo: "ficheros", Directorio: directorioAlmacenPrueba(t), TamanoMaximo: 1 << 20, RetencionMinimaDias: 1}, reloj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cerrarCon()
+	if err := admitirCatalogoConservacion(cfg, true, "ficheros", sinRetencion); err != nil {
+		t.Fatalf("ficheros sin retención al escribir rechazado: %v", err)
+	}
+	for nombre, caso := range map[string]struct {
+		tipo    string
+		almacen vecports.AlmacenObjetos
+	}{
+		"ficheros con retención": {"ficheros", conRetencion},
+		"s3":                     {"s3", nil},
+	} {
+		if err := admitirCatalogoConservacion(cfg, true, caso.tipo, caso.almacen); !errors.Is(err, ErrComposicionDocumentosNoDisponible) {
+			t.Fatalf("%s aceptado con catálogo provisional: %v", nombre, err)
+		}
+	}
+	if err := admitirCatalogoConservacion(cfg, false, "s3", nil); err != nil {
+		t.Fatalf("catálogo aprobado rechazado: %v", err)
+	}
+	cfg.DevelopmentGuard = ""
+	if err := admitirCatalogoConservacion(cfg, true, "ficheros", sinRetencion); !errors.Is(err, ErrComposicionDocumentosNoDisponible) {
+		t.Fatalf("catálogo provisional fuera de la doble llave: %v", err)
+	}
+}
+
+func directorioAlmacenPrueba(t *testing.T) string {
+	t.Helper()
+	dir := filepath.Join(t.TempDir(), "originales")
+	if err := os.Mkdir(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	return dir
 }

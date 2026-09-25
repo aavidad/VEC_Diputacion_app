@@ -80,16 +80,16 @@ func TestNuevoRechazaDirectoriosInseguros(t *testing.T) {
 	}
 	reloj := relojFijo{instante()}
 	for nombre, cfg := range map[string]Configuracion{
-		"relativo":        {Directorio: "originales", TamanoMaximo: 10, RetencionMinimaAdmitida: time.Hour},
-		"no canónico":     {Directorio: privado + "/../privado", TamanoMaximo: 10, RetencionMinimaAdmitida: time.Hour},
-		"permisos":        {Directorio: abierto, TamanoMaximo: 10, RetencionMinimaAdmitida: time.Hour},
-		"enlace":          {Directorio: enlace, TamanoMaximo: 10, RetencionMinimaAdmitida: time.Hour},
-		"inexistente":     {Directorio: filepath.Join(base, "no"), TamanoMaximo: 10, RetencionMinimaAdmitida: time.Hour},
-		"sin tamaño":      {Directorio: privado, RetencionMinimaAdmitida: time.Hour},
-		"sin retención":   {Directorio: privado, TamanoMaximo: 10},
-		"tamaño enorme":   {Directorio: privado, TamanoMaximo: 1 << 40, RetencionMinimaAdmitida: time.Hour},
-		"límite negativo": {Directorio: privado, TamanoMaximo: 10, RetencionMinimaAdmitida: time.Hour, MaximoVolcadosConcurrentes: -1},
-		"límite excesivo": {Directorio: privado, TamanoMaximo: 10, RetencionMinimaAdmitida: time.Hour, MaximoVolcadosConcurrentes: 17},
+		"relativo":           {Directorio: "originales", TamanoMaximo: 10, RetencionMinimaAdmitida: time.Hour},
+		"no canónico":        {Directorio: privado + "/../privado", TamanoMaximo: 10, RetencionMinimaAdmitida: time.Hour},
+		"permisos":           {Directorio: abierto, TamanoMaximo: 10, RetencionMinimaAdmitida: time.Hour},
+		"enlace":             {Directorio: enlace, TamanoMaximo: 10, RetencionMinimaAdmitida: time.Hour},
+		"inexistente":        {Directorio: filepath.Join(base, "no"), TamanoMaximo: 10, RetencionMinimaAdmitida: time.Hour},
+		"sin tamaño":         {Directorio: privado, RetencionMinimaAdmitida: time.Hour},
+		"tamaño enorme":      {Directorio: privado, TamanoMaximo: 1 << 40, RetencionMinimaAdmitida: time.Hour},
+		"límite negativo":    {Directorio: privado, TamanoMaximo: 10, RetencionMinimaAdmitida: time.Hour, MaximoVolcadosConcurrentes: -1},
+		"límite excesivo":    {Directorio: privado, TamanoMaximo: 10, RetencionMinimaAdmitida: time.Hour, MaximoVolcadosConcurrentes: 17},
+		"retención negativa": {Directorio: privado, TamanoMaximo: 10, RetencionMinimaAdmitida: -time.Hour},
 	} {
 		if _, err := Nuevo(cfg, reloj); err == nil {
 			t.Fatalf("%s: configuración insegura aceptada", nombre)
@@ -419,5 +419,42 @@ func TestEscriturasConcurrentes(t *testing.T) {
 	}
 	if a.String() != "almacen-ficheros[ficheros-local]" {
 		t.Fatalf("String revela datos: %s", a.String())
+	}
+}
+
+// Con retención mínima cero el almacén no fija retención al escribir ni al
+// promover (política de conservación provisional); se aplica después.
+func TestSinRetencionAlEscribirLaAplicaDespues(t *testing.T) {
+	a, err := Nuevo(Configuracion{Directorio: directorioPrueba(t), TamanoMaximo: 1 << 20}, relojFijo{instante()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = a.Cerrar() })
+	if a.RetencionAlEscribir() || !nuevoPrueba(t, directorioPrueba(t)).RetencionAlEscribir() {
+		t.Fatal("declaración de retención al escribir incoherente")
+	}
+	ctx := context.Background()
+	caps, err := a.Capacidades(ctx)
+	if err != nil || !caps.Retencion || caps.RetencionAtomicaEnPromocion {
+		t.Fatalf("capacidades sin retención al escribir: %v %+v", err, caps)
+	}
+	admitido, err := a.Escribir(ctx, escritura(t, "sin", "clave:sin:retencion", ports.ZonaAlmacenAdmitida, []byte("%PDF-1.7\nsin retención")))
+	if err != nil || !admitido.Objeto.RetenidoHasta.IsZero() {
+		t.Fatalf("escritura sin retención: %v %+v", err, admitido.Objeto)
+	}
+	cuarentena, err := a.Escribir(ctx, escritura(t, "q", "clave:sin:cuarentena", ports.ZonaAlmacenCuarentena, []byte("%PDF-1.7\ncuarentena")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	promovido, err := a.Promover(ctx, ports.SolicitudPromoverObjeto{Contexto: contexto(t, "p", ports.AccionAlmacenPromover, cuarentena.Objeto.Objeto),
+		ClaveIdempotencia: "clave:sin:promocion", Origen: cuarentena.Objeto.Objeto, EvidenciaAnalisisRef: "analisis:limpio:1"})
+	if err != nil || !promovido.Objeto.RetenidoHasta.IsZero() {
+		t.Fatalf("promoción sin retención: %v %+v", err, promovido.Objeto)
+	}
+	hasta := instante().Add(6 * 365 * 24 * time.Hour)
+	retenido, err := a.AplicarRetencion(ctx, ports.SolicitudRetenerObjeto{Contexto: contexto(t, "r", ports.AccionAlmacenAplicarRetencion, admitido.Objeto.Objeto),
+		Objeto: admitido.Objeto.Objeto, PoliticaRef: "politica:conservacion:definitiva", Hasta: hasta})
+	if err != nil || !retenido.Objeto.RetenidoHasta.Equal(hasta) {
+		t.Fatalf("retención posterior: %v", err)
 	}
 }

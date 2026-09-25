@@ -50,6 +50,10 @@ CREATE TABLE vec_documentos.referencia_externa (
  huella_politica_sha256 text NOT NULL CHECK(huella_politica_sha256 ~ '^[0-9a-f]{64}$'),
  conservacion_hasta timestamptz(6) NOT NULL,
  proteccion text NOT NULL CHECK(proteccion IN ('conservacion','bloqueo')),
+ -- Con custodia externa VEC no fija retención; el estado declara si el plazo
+ -- anotado procede de la política aprobada o de la provisional.
+ estado_politica text NOT NULL CHECK(estado_politica IN ('aprobada','provisional')),
+ CHECK(estado_politica<>'provisional' OR proteccion='conservacion'),
  estado_firma text NOT NULL DEFAULT 'pendiente_proveedor' CHECK(estado_firma='pendiente_proveedor'),
  huella_preimagen_sha256 text NOT NULL CHECK(huella_preimagen_sha256 ~ '^[0-9a-f]{64}$'),
  decision_ref text NOT NULL,
@@ -116,6 +120,7 @@ RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog SE
   'politica_ref',p.politica_ref,'version_politica',p.version_politica,
   'huella_politica_sha256',p.huella_politica_sha256,
   'conservacion_hasta',p.conservacion_hasta,'proteccion',p.proteccion,
+  'estado_politica',p.estado_politica,
   'estado_firma',p.estado_firma,'creado_en',p.creada_en)
  $f$;
 
@@ -132,7 +137,7 @@ BEGIN
  BEGIN m:=convert_from(p_preimagen,'UTF8')::jsonb;
  EXCEPTION WHEN others THEN RAISE EXCEPTION 'documentos: preimagen inválida' USING ERRCODE='22023'; END;
  IF jsonb_typeof(m)<>'object' OR ARRAY(SELECT jsonb_object_keys(m) ORDER BY 1)
-    IS DISTINCT FROM ARRAY['accion','clave_idempotencia','conservacion_hasta','custodia_ref','custodio_id','expediente_ref','huella_politica_sha256','huella_sha256','id','mime','modulo_id','politica_ref','proteccion','tamano','tipo_ref','version','version_politica']
+    IS DISTINCT FROM ARRAY['accion','clave_idempotencia','conservacion_hasta','custodia_ref','custodio_id','estado_politica','expediente_ref','huella_politica_sha256','huella_sha256','id','mime','modulo_id','politica_ref','proteccion','tamano','tipo_ref','version','version_politica']
     OR m->>'accion'<>'documentos.externo.registrar'
     OR m->>'id' IS DISTINCT FROM p_auth->>'recurso_ref'
     OR m->>'expediente_ref' IS DISTINCT FROM p_auth->>'ambito_ref'
@@ -142,6 +147,9 @@ BEGIN
     OR jsonb_typeof(m->'mime')<>'string'
     OR m->>'huella_sha256' !~ '^[0-9a-f]{64}$' OR m->>'huella_politica_sha256' !~ '^[0-9a-f]{64}$'
     OR m->>'proteccion' NOT IN ('conservacion','bloqueo')
+    OR jsonb_typeof(m->'estado_politica') IS DISTINCT FROM 'string'
+    OR m->>'estado_politica' NOT IN ('aprobada','provisional')
+    OR (m->>'estado_politica'='provisional' AND m->>'proteccion'<>'conservacion')
     OR NOT vec_documentos.referencia_custodio_v1(m->>'custodia_ref')
  THEN RAISE EXCEPTION 'documentos: registro externo no ligado' USING ERRCODE='42501'; END IF;
  SELECT * INTO STRICT v FROM vec_documentos.consumir_v3_v2(
@@ -158,18 +166,19 @@ BEGIN
  IF FOUND THEN
   IF (v.consumo_nuevo IS FALSE AND (e.decision_ref IS DISTINCT FROM v.decision_ref OR e.auditoria_ad3_ref IS DISTINCT FROM v.auditoria_ref))
      OR e.huella_preimagen_sha256 IS DISTINCT FROM h OR e.id IS DISTINCT FROM m->>'id'
+     OR e.estado_politica IS DISTINCT FROM m->>'estado_politica'
   THEN RAISE EXCEPTION 'documentos: clave idempotente reutilizada' USING ERRCODE='23505'; END IF;
  ELSE
   INSERT INTO vec_documentos.referencia_externa(
     id,numero_vec,clave_idempotencia,principal_ref,modulo_id,expediente_ref,tipo_ref,version,
     huella_sha256,mime,tamano,custodio_id,custodia_ref,
-    politica_ref,version_politica,huella_politica_sha256,conservacion_hasta,proteccion,
+    politica_ref,version_politica,huella_politica_sha256,conservacion_hasta,proteccion,estado_politica,
     huella_preimagen_sha256,decision_ref,auditoria_ad3_ref,creada_en)
   VALUES(m->>'id','VEC-'||to_char(ahora,'YYYY')||'-'||nextval('vec_documentos.numero_interno_seq')::text,
     m->>'clave_idempotencia',p_auth->>'principal_id',m->>'modulo_id',m->>'expediente_ref',m->>'tipo_ref',(m->>'version')::bigint,
     m->>'huella_sha256',nullif(m->>'mime',''),nullif((m->>'tamano')::bigint,0),m->>'custodio_id',m->>'custodia_ref',
     m->>'politica_ref',(m->>'version_politica')::bigint,m->>'huella_politica_sha256',(m->>'conservacion_hasta')::timestamptz,
-    m->>'proteccion',h,v.decision_ref,v.auditoria_ref,ahora) RETURNING * INTO e;
+    m->>'proteccion',m->>'estado_politica',h,v.decision_ref,v.auditoria_ref,ahora) RETURNING * INTO e;
   INSERT INTO vec_documentos.outbox(tipo,recurso_ref,expediente_ref,huella_sha256,registrada_en)
    VALUES('documento_externo_registrado',e.id,e.expediente_ref,e.huella_sha256,ahora);
   nuevo:=true;
