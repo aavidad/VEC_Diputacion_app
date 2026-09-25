@@ -2,6 +2,11 @@
 -- B2: alta y hechos de RRHH. Cada invocación requiere consumo V3 nuevo.
 -- El llamador abre SERIALIZABLE READ WRITE y reintenta la transacción entera
 -- ante 40001. No ejecutar contra la base histórica hasta instalar dependencias.
+-- Límite conocido: la proyección persona→empleado (000016) que publica el alta
+-- vence en el mismo instante que la acreditación de la persona en ContextoActor
+-- (vigente_hasta); hoy nada la renueva, y al vencer Cronos y Dietas dejan de
+-- resolver al empleado. Queda pendiente una minitarea de renovación (versión
+-- n+1 de la proyección) antes de usar datos reales.
 BEGIN;
 SET LOCAL ROLE vec_personal_propietario;
 SET LOCAL search_path=pg_catalog;
