@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -147,6 +146,9 @@ func (e *EmisorJSONLines) Emitir(s domain.SolicitudIncidenciaTecnica) {
 	if e == nil {
 		return
 	}
+	// Invariante: incrementar enVuelo ANTES de leer cerrado. Cerrar marca la
+	// bandera y después espera a enVuelo == 0; si el orden se invirtiera, una
+	// incidencia aceptada podría quedar en la cola sin escribir tras el cierre.
 	e.enVuelo.Add(1)
 	defer e.enVuelo.Add(-1)
 	if e.cerrado.Load() {
@@ -193,8 +195,10 @@ func (e *EmisorJSONLines) Cerrar(ctx context.Context) error {
 		go func() {
 			// Espera a los Emitir que ya comprobaron la bandera, para que
 			// ninguna incidencia aceptada quede sin escribir tras el cierre.
+			// Espera con pausa corta, sin ocupar CPU, aunque siga habiendo
+			// emisiones concurrentes (éstas ven la bandera y descartan).
 			for e.enVuelo.Load() > 0 {
-				runtime.Gosched()
+				time.Sleep(time.Millisecond)
 			}
 			close(e.parar)
 		}()

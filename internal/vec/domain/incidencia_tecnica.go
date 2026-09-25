@@ -128,67 +128,67 @@ type DefinicionIncidenciaTecnica struct {
 func DefinicionIncidenciaTecnicaDe(codigo CodigoIncidenciaTecnica) (DefinicionIncidenciaTecnica, bool) {
 	switch codigo {
 	case IncidenciaArranqueFallido:
-		return definicionIncidencia(codigo, SeveridadIncidenciaCritica,
+		return definicionIncidencia(IncidenciaArranqueFallido, SeveridadIncidenciaCritica,
 			"El servidor no ha podido arrancar.",
 			[]ComponenteIncidenciaTecnica{ComponenteIncidenciaServidor, ComponenteIncidenciaComposicion},
 			[]EtapaIncidenciaTecnica{EtapaIncidenciaConfiguracion, EtapaIncidenciaComposicion, EtapaIncidenciaEscucha}), true
 	case IncidenciaCatalogoModulosInvalido:
-		return definicionIncidencia(codigo, SeveridadIncidenciaError,
+		return definicionIncidencia(IncidenciaCatalogoModulosInvalido, SeveridadIncidenciaError,
 			"El catálogo de módulos no es válido.",
 			[]ComponenteIncidenciaTecnica{ComponenteIncidenciaCatalogoModulos, ComponenteIncidenciaPortalWeb},
 			[]EtapaIncidenciaTecnica{EtapaIncidenciaValidacion, EtapaIncidenciaCarga}), true
 	case IncidenciaHTTPInternoFallido:
-		return definicionIncidencia(codigo, SeveridadIncidenciaError,
+		return definicionIncidencia(IncidenciaHTTPInternoFallido, SeveridadIncidenciaError,
 			"Una petición ha terminado con error interno.",
 			[]ComponenteIncidenciaTecnica{ComponenteIncidenciaHTTP},
 			[]EtapaIncidenciaTecnica{EtapaIncidenciaPeticion}), true
 	case IncidenciaPanicoControlado:
-		return definicionIncidencia(codigo, SeveridadIncidenciaCritica,
+		return definicionIncidencia(IncidenciaPanicoControlado, SeveridadIncidenciaCritica,
 			"Se ha contenido un pánico del proceso.",
 			[]ComponenteIncidenciaTecnica{ComponenteIncidenciaHTTP, ComponenteIncidenciaServidor},
 			[]EtapaIncidenciaTecnica{EtapaIncidenciaPeticion, EtapaIncidenciaEjecucion}), true
 	case IncidenciaGobiernoV3NoDisponible:
-		return definicionIncidencia(codigo, SeveridadIncidenciaCritica,
+		return definicionIncidencia(IncidenciaGobiernoV3NoDisponible, SeveridadIncidenciaCritica,
 			"La configuración de gobierno V3 no está disponible.",
 			[]ComponenteIncidenciaTecnica{ComponenteIncidenciaGobiernoV3},
 			[]EtapaIncidenciaTecnica{EtapaIncidenciaRenovacion, EtapaIncidenciaConsulta}), true
 	case IncidenciaPostgresNoDisponible:
-		return definicionIncidencia(codigo, SeveridadIncidenciaCritica,
+		return definicionIncidencia(IncidenciaPostgresNoDisponible, SeveridadIncidenciaCritica,
 			"PostgreSQL no está disponible.",
 			[]ComponenteIncidenciaTecnica{ComponenteIncidenciaPostgreSQL},
 			[]EtapaIncidenciaTecnica{EtapaIncidenciaConexion, EtapaIncidenciaConsulta}), true
 	case IncidenciaSMTPNoDisponible:
-		return definicionIncidencia(codigo, SeveridadIncidenciaError,
+		return definicionIncidencia(IncidenciaSMTPNoDisponible, SeveridadIncidenciaError,
 			"El servicio de correo saliente no está disponible.",
 			[]ComponenteIncidenciaTecnica{ComponenteIncidenciaSMTP},
 			[]EtapaIncidenciaTecnica{EtapaIncidenciaConexion, EtapaIncidenciaEnvio}), true
 	case IncidenciaOSRMNoDisponible:
-		return definicionIncidencia(codigo, SeveridadIncidenciaAviso,
+		return definicionIncidencia(IncidenciaOSRMNoDisponible, SeveridadIncidenciaAviso,
 			"El servicio de rutas OSRM no está disponible.",
 			[]ComponenteIncidenciaTecnica{ComponenteIncidenciaOSRM},
 			[]EtapaIncidenciaTecnica{EtapaIncidenciaConexion, EtapaIncidenciaConsulta}), true
 	case IncidenciaAuditoriaNoRegistrada:
-		return definicionIncidencia(codigo, SeveridadIncidenciaCritica,
+		return definicionIncidencia(IncidenciaAuditoriaNoRegistrada, SeveridadIncidenciaCritica,
 			"No se ha podido registrar una entrada de auditoría.",
 			[]ComponenteIncidenciaTecnica{ComponenteIncidenciaAuditoria},
 			[]EtapaIncidenciaTecnica{EtapaIncidenciaRegistro}), true
 	case IncidenciaModuloWebNoCargado:
-		return definicionIncidencia(codigo, SeveridadIncidenciaError,
+		return definicionIncidencia(IncidenciaModuloWebNoCargado, SeveridadIncidenciaError,
 			"Un módulo web no se ha cargado.",
 			[]ComponenteIncidenciaTecnica{ComponenteIncidenciaPortalWeb},
 			[]EtapaIncidenciaTecnica{EtapaIncidenciaCarga}), true
 	case IncidenciaClienteFalloNoClasificado:
-		return definicionIncidencia(codigo, SeveridadIncidenciaAviso,
+		return definicionIncidencia(IncidenciaClienteFalloNoClasificado, SeveridadIncidenciaAviso,
 			"El cliente ha declarado un fallo no clasificado.",
 			[]ComponenteIncidenciaTecnica{ComponenteIncidenciaPortalWeb},
 			[]EtapaIncidenciaTecnica{EtapaIncidenciaEjecucion}), true
 	case IncidenciaRecoleccionDegradada:
-		return definicionIncidencia(codigo, SeveridadIncidenciaAviso,
+		return definicionIncidencia(IncidenciaRecoleccionDegradada, SeveridadIncidenciaAviso,
 			"La recogida de incidencias técnicas está degradada.",
 			[]ComponenteIncidenciaTecnica{ComponenteIncidenciaSupervision},
 			[]EtapaIncidenciaTecnica{EtapaIncidenciaValidacion, EtapaIncidenciaEmision, EtapaIncidenciaEscritura}), true
 	case IncidenciaAlertaNoEntregada:
-		return definicionIncidencia(codigo, SeveridadIncidenciaError,
+		return definicionIncidencia(IncidenciaAlertaNoEntregada, SeveridadIncidenciaError,
 			"Un aviso técnico no se ha entregado.",
 			[]ComponenteIncidenciaTecnica{ComponenteIncidenciaAlertas},
 			[]EtapaIncidenciaTecnica{EtapaIncidenciaEntrega}), true

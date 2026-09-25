@@ -395,6 +395,36 @@ func TestEmisorNoRetieneMemoriaDelLlamante(t *testing.T) {
 	}
 }
 
+// Un código VÁLIDO obtenido como subcadena de un búfer grande no debe retener
+// el búfer mientras la incidencia espera en la cola: el catálogo guarda sus
+// propias constantes, no la cadena del llamante.
+func TestEmisorNoRetieneBuferDeCodigoValido(t *testing.T) {
+	destino := nuevoDestinoBloqueado()
+	e := nuevoEmisor(t, OpcionesEmisor{Destino: destino, Capacidad: 128})
+	defer close(destino.liberar)
+	e.Emitir(solicitudValida())
+	<-destino.entrado
+	runtime.GC()
+	var antes runtime.MemStats
+	runtime.ReadMemStats(&antes)
+	base := solicitudValida()
+	for i := 0; i < 64; i++ {
+		bufer := string(base.Codigo) + strings.Repeat(string(rune('a'+i%26)), 1<<20)
+		s := base
+		s.Codigo = domain.CodigoIncidenciaTecnica(bufer[:len(base.Codigo)])
+		e.Emitir(s)
+	}
+	runtime.GC()
+	var despues runtime.MemStats
+	runtime.ReadMemStats(&despues)
+	if crecimiento := int64(despues.HeapAlloc) - int64(antes.HeapAlloc); crecimiento > 8<<20 {
+		t.Fatalf("la cola retiene %d bytes de búferes del llamante", crecimiento)
+	}
+	if m := e.MetricasEmision(); m.PendientesEnCola == 0 || m.Saneadas != 0 {
+		t.Fatalf("los códigos válidos debían aceptarse sin sanear: %+v", m)
+	}
+}
+
 func TestEmisorCierre(t *testing.T) {
 	t.Run("vacia pendientes y rechaza despues", func(t *testing.T) {
 		destino := &destinoSeguro{}
