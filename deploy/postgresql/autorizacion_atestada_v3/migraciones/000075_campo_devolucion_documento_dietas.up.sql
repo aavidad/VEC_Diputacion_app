@@ -26,7 +26,16 @@
 -- cuerpo nuevo, metadatos y dependencias idénticos, y reversión textual al
 -- original). No toca el núcleo ni la restricción de audiencias; toma aun así
 -- el consultivo común del núcleo para instalarse en serie con AD3-53/59/61/80.
--- Requiere AD3-59 y AD3-80. Se instala una sola vez; sin DOWN, como AD3-54/56.
+-- Requiere AD3-59 y AD3-80. Se instala una sola vez.
+-- Sin DOWN, como AD3-54/56: la lista de la titular de AD3-59 nunca pudo
+-- superar el cotejo de Dietas y la del revisor sigue admitida, así que no hay
+-- estado anterior útil al que volver. Retirar la devolución se hace en Dietas: un DOWN de Dietas 000011
+-- (siempre junto con el de 000010) deja a Dietas rechazando toda lista con
+-- la devolución, de modo que las decisiones que AD3-75 aún admite fallan
+-- cerradas con 42501 en Dietas. No depende de Dietas 000009-000011 ni estas
+-- de ella; el procedimiento la instala antes: AD3-75 → Dietas 000009 →
+-- 000010 → 000011 → política V3 → binario
+-- (deploy/principal/04_dietas_migraciones.sh --incremental).
 BEGIN;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
 SET LOCAL search_path=pg_catalog;

@@ -3,10 +3,23 @@
 -- 000006/000008/000010 con las mismas anclas invertidas (las columnas de la
 -- tabla de anclas se leen al revés: la postimagen de 000011 es aquí la
 -- preimagen). Solo cambian cuerpos de funciones; no hay datos que conservar.
--- Tras el DOWN los cotejos vuelven a rechazar toda lista con la devolución,
--- de modo que ninguna lectura la devuelve aunque AD3-75 la admita, y el
--- detalle y el listado de la titular vuelven a fallar (42883 y 42702) como
--- en 000006.
+-- Tras el DOWN los cotejos vuelven a rechazar toda lista con la devolución
+-- y el detalle y el listado de la titular vuelven a fallar (42883 y 42702)
+-- como en 000006. Con la política V3 de D6 (listas con la devolución, que
+-- AD3-75 sigue admitiendo porque no tiene DOWN) Dietas falla cerrado en toda
+-- lectura de la titular y del revisor.
+-- NO es un retorno seguro si 000010 sigue instalada: sus proyecciones y
+-- consultar_documento_circuito_v1 vuelven a entregar comision.devolucion sin
+-- cotejar la decisión V3, de modo que el revisor con la lista base vuelve a
+-- ver la devolución anterior y la respuesta de mutación de la titular la
+-- incluye aunque su decisión no la conceda. Por eso 000010 y 000011 se
+-- instalan juntas, en la misma ventana y sin tráfico entre ambas, y nunca se
+-- ejecuta el DOWN de 000011 dejando 000010: se retiran las dos seguidas
+-- (000011 DOWN y a continuación 000010 DOWN) o ninguna.
+-- Orden de instalación (deploy/principal/04_dietas_migraciones.sh
+-- --incremental): AD3-75 → 000009 → 000010 → 000011 → política V3 → binario.
+-- AD3-75 solo exige AD3-59 y AD3-80 y 000011 solo exige 000010: ninguna de
+-- las dos depende de la otra en SQL.
 BEGIN;
 SET LOCAL ROLE vec_dietas_propietario;
 SET LOCAL search_path=pg_catalog;
