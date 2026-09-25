@@ -121,6 +121,9 @@ SQL
 psql_pg /tmp/replay_ad3_62.sql
 psql_pg /tmp/frontera4.sql
 test "$(docker exec "$container" psql -X -qAt -v ON_ERROR_STOP=1 -U vec_documentos_auditor_ensayo -d postgres -c "SELECT vec_documentos.registrar_denegacion_frontera_v1('corr_0123456789abcdef0123456789abcdef','acceso_denegado','/api/vec/documentos/expedientes/consultas','POST','per:00000000-0000-4000-8000-000000000001') LIKE 'denegacion:documentos:%'")" = t
+# La ruta del registro externo también se audita por su nombre; una ruta libre no.
+test "$(docker exec "$container" psql -X -qAt -v ON_ERROR_STOP=1 -U vec_documentos_auditor_ensayo -d postgres -c "SELECT vec_documentos.registrar_denegacion_frontera_v1('corr_0123456789abcdef0123456789abcdee','autenticacion_requerida','/api/vec/documentos/externos/registros','POST','') LIKE 'denegacion:documentos:%'")" = t
+if docker exec "$container" psql -X -q -v ON_ERROR_STOP=1 -U vec_documentos_auditor_ensayo -d postgres -c "SELECT vec_documentos.registrar_denegacion_frontera_v1('corr_no_disponible','acceso_denegado','/api/vec/documentos/externos/otra','POST','')" >/dev/null 2>&1; then echo 'FALLO: ruta libre aceptada' >&2; exit 1; fi
 if docker exec "$container" psql -X -q -v ON_ERROR_STOP=1 -U vec_documentos_ensayo -d postgres -c "SELECT vec_documentos.registrar_denegacion_frontera_v1('corr_no_disponible','acceso_denegado','otra','POST','')" >/dev/null 2>&1; then echo 'FALLO: el ejecutor registra denegaciones' >&2; exit 1; fi
 # Un LOGIN con la membresía auditora y cualquier otra no registra: una única
 # membresía exacta, como exige AD3-60 al ejecutor.
@@ -138,7 +141,7 @@ done
 if docker exec "$container" psql -X -q -v ON_ERROR_STOP=1 -U vec_documentos_auditor_ensayo -d postgres -c "SELECT vec_documentos.registrar_denegacion_frontera_v1('corr_no_disponible','texto libre','otra','POST','')" >/dev/null 2>&1; then echo 'FALLO: motivo libre aceptado' >&2; exit 1; fi
 if docker exec "$container" psql -X -q -v ON_ERROR_STOP=1 -U vec_documentos_auditor_ensayo -d postgres -c "SELECT count(*) FROM vec_documentos.denegacion_frontera" >/dev/null 2>&1; then echo 'FALLO: el auditor lee denegaciones' >&2; exit 1; fi
 if docker exec "$container" psql -X -q -v ON_ERROR_STOP=1 -U postgres -c "UPDATE vec_documentos.denegacion_frontera SET motivo='dependencia'" >/dev/null 2>&1; then echo 'FALLO: denegación mutable' >&2; exit 1; fi
-test "$(docker exec "$container" psql -X -qAt -U postgres -c "SELECT count(*) FROM vec_documentos.denegacion_frontera")" = 1
+test "$(docker exec "$container" psql -X -qAt -U postgres -c "SELECT count(*) FROM vec_documentos.denegacion_frontera")" = 2
 
 # Solo para probar la lógica documental: sustituir en ESTA base desechable la
 # fachada AD3-62 por un recibo sintético idempotente. No es una prueba COSE.
@@ -182,7 +185,7 @@ DO $test$
 DECLARE p bytea; h text; c bytea; d bytea; a jsonb; o jsonb; r jsonb;
 BEGIN
  p:=convert_to('{"accion":"documentos.generado.alta","id":"doc:00000000-0000-4000-8000-000000000001","clave_idempotencia":"idem:00000000-0000-4000-8000-000000000001","modulo_id":"dietas","expediente_ref":"exp:00000000-0000-4000-8000-000000000001","tipo_ref":"tipo:00000000-0000-4000-8000-000000000001","version":1,"mime":"application/pdf","tamano":3,"huella_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","politica_ref":"pol:00000000-0000-4000-8000-000000000001","version_politica":1,"huella_politica_sha256":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc","proteccion":"conservacion","conservacion_hasta":"2030-01-01T00:00:00Z","estado_politica":"aprobada"}','UTF8');
- h:=encode(sha256(convert_to('{"ambitos":{},"atributos":{"preimagen_sha256":"'||encode(sha256(p),'hex')||'"}}','UTF8')),'hex');
+ h:=encode(sha256(convert_to('{"ambitos":{"organizacion_ref":"organizacion:desarrollo:dipgra"},"atributos":{"preimagen_sha256":"'||encode(sha256(p),'hex')||'"}}','UTF8')),'hex');
  c:=convert_to(jsonb_build_object('audiencia_consumo','vec_documentos.operacion.v1','operacion','documentos.generado.alta','efecto_ref','doc:00000000-0000-4000-8000-000000000001','huella_efecto_sha256',h,
   'decision_ref','decision:00000000-0000-4000-8000-000000000001','nonce','nonce:00000000-0000-4000-8000-000000000001',
   'emitida_en',to_char(clock_timestamp(),'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
@@ -350,7 +353,7 @@ BEGIN
   'decision_valida_hasta',to_char(clock_timestamp()+interval '5 seconds','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'));
  d:=convert_from(f.decision,'UTF8')::jsonb || jsonb_build_object(
   'decision_ref','decision:00000000-0000-4000-8000-000000000002');
- IF c->>'huella_efecto_sha256' IS DISTINCT FROM encode(sha256(convert_to('{"ambitos":{},"atributos":{"preimagen_sha256":"'||encode(sha256(f.preimagen),'hex')||'"}}','UTF8')),'hex')
+ IF c->>'huella_efecto_sha256' IS DISTINCT FROM encode(sha256(convert_to('{"ambitos":{"organizacion_ref":"organizacion:desarrollo:dipgra"},"atributos":{"preimagen_sha256":"'||encode(sha256(f.preimagen),'hex')||'"}}','UTF8')),'hex')
     OR c->>'efecto_ref' IS DISTINCT FROM f.auth->>'recurso_ref'
  THEN RAISE EXCEPTION 'la decisión fresca cambió el efecto'; END IF;
  c2:=convert_to(c::text,'UTF8'); d2:=convert_to(d::text,'UTF8');

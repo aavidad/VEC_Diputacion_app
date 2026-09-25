@@ -6,18 +6,18 @@ CREATE ROLE vec_documentos_auditor_ensayo LOGIN NOSUPERUSER NOCREATEDB NOCREATER
 GRANT vec_documentos_auditor TO vec_documentos_auditor_ensayo WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
 DO $checks$
 BEGIN
- IF (SELECT encode(sha256(convert_to('{"ambitos":{},"atributos":{"preimagen_sha256":"'||encode(sha256('abc'::bytea),'hex')||'"}}','UTF8')),'hex'))
-    <> 'c2535d333933e853c1cd0ecb0ed11250173705932d435f6f4310bf3cf4f1d614'
+ IF (SELECT encode(sha256(convert_to('{"ambitos":{"organizacion_ref":"organizacion:desarrollo:dipgra"},"atributos":{"preimagen_sha256":"'||encode(sha256('abc'::bytea),'hex')||'"}}','UTF8')),'hex'))
+    <> 'fe8d170279095db5ae762a288e07bec21479a73c0050ce00929e893698a65f6a'
  THEN RAISE EXCEPTION 'vector de huella de efecto distinto del de Go'; END IF;
  SET LOCAL ROLE vec_documentos_propietario;
- IF vec_documentos.huella_efecto_v1('abc'::bytea) <> 'c2535d333933e853c1cd0ecb0ed11250173705932d435f6f4310bf3cf4f1d614'
+ IF vec_documentos.huella_efecto_v1('abc'::bytea) <> 'fe8d170279095db5ae762a288e07bec21479a73c0050ce00929e893698a65f6a'
  THEN RAISE EXCEPTION 'huella_efecto_v1 no coincide con Go'; END IF;
  -- Mismos vectores que TestHuellaEfectoV3VectoresCompartidosConSQL
  -- (internal/vec/documentos/ports/efecto_v3_test.go).
  IF vec_documentos.huella_efecto_v1(convert_to('{"accion":"documentos.expediente.listar","expediente_ref":"exp:00000000-0000-4000-8000-000000000001","cursor":"","limite":1}','UTF8'))
-    <> 'c0fd576c1fb94f16eceb0da654d6b5bf53013383f6bfd5ad3730730fd05b440a'
+    <> 'f0702b7b829d9741431f97288b3f2a78c8a896720af841f6b1e3aaeb33a8eb60'
     OR vec_documentos.huella_efecto_v1(convert_to('{"motivo":"año"}','UTF8'))
-    <> 'eed395327dbdfbda3586ec4ceaeae44086c90f7dceed7bd78c90eb7aa5898178'
+    <> '228f2c7ed9ba24be6394310f4cf55b8bbaa4389d2f7b8bcd8fa1a94e7742e9c9'
  THEN RAISE EXCEPTION 'huella_efecto_v1 no coincide con los vectores de Go'; END IF;
  RESET ROLE;
  IF has_function_privilege('vec_documentos_ensayo','vec_documentos.registrar_denegacion_frontera_v1(text,text,text,text,text)','EXECUTE')

@@ -22,9 +22,18 @@ var (
 
 const (
 	atributoPreimagenV3    = "preimagen_sha256"
+	ambitoOrganizacionV3   = "organizacion_ref"
 	moduloRecursoV3        = "documentos"
 	longitudMaximaEfectoV3 = 16384
 )
+
+// OrganizacionRefV3 es el único ámbito del recurso documental V3: la
+// organización del despliegue, la misma referencia que usan Contratación
+// temporal y Personal. Toda asignación AD3 exige al menos un ámbito y sólo
+// cubre un recurso con las mismas claves, así que un recurso sin ámbitos no
+// lo cubriría ninguna. La fachada SQL (000001/000002/000004) recalcula la
+// huella con este mismo valor: cambiarlo exige una migración nueva.
+const OrganizacionRefV3 = "organizacion:desarrollo:dipgra"
 
 // TipoRecursoV3 devuelve el tipo de recurso que AD3-60 exige para cada acción.
 func TipoRecursoV3(accion string) (string, bool) {
@@ -45,8 +54,8 @@ func TipoRecursoV3(accion string) (string, bool) {
 }
 
 // RecursoV3 construye el recurso autorizable que liga una decisión V3 a la
-// preimagen exacta del efecto. Su huella de contexto (ámbitos vacíos y un
-// único atributo con el SHA-256 de la preimagen) es la que AD3 coteja como
+// preimagen exacta del efecto. Su huella de contexto (el ámbito de
+// organización y un único atributo con el SHA-256 de la preimagen) es la que AD3 coteja como
 // huella_efecto_sha256 y la que recalcula la fachada SQL (Documentos-4).
 func RecursoV3(accion, recursoRef string, preimagen []byte) (vecdomain.RecursoAutorizable, error) {
 	tipo, ok := TipoRecursoV3(accion)
@@ -56,7 +65,7 @@ func RecursoV3(accion, recursoRef string, preimagen []byte) (vecdomain.RecursoAu
 	suma := sha256.Sum256(preimagen)
 	recurso := vecdomain.RecursoAutorizable{
 		Referencia: recursoRef, ModuloID: moduloRecursoV3, Tipo: tipo,
-		Ambitos:   map[string]string{},
+		Ambitos:   map[string]string{ambitoOrganizacionV3: OrganizacionRefV3},
 		Atributos: map[string]string{atributoPreimagenV3: hex.EncodeToString(suma[:])},
 	}
 	if recurso.Validar() != nil {
@@ -66,7 +75,8 @@ func RecursoV3(accion, recursoRef string, preimagen []byte) (vecdomain.RecursoAu
 }
 
 // HuellaEfectoV3 es la huella del contexto de recurso para una preimagen:
-// SHA-256 de {"ambitos":{},"atributos":{"preimagen_sha256":"<hex>"}}. Es
+// SHA-256 de {"ambitos":{"organizacion_ref":"<OrganizacionRefV3>"},
+// "atributos":{"preimagen_sha256":"<hex>"}} (sin espacios). Es
 // idéntica a RecursoV3(...).HuellaContextoAutorizacionSHA256() y a la que
 // calcula vec_documentos.huella_efecto_v1. Devuelve "" para una preimagen no
 // admisible, que nunca coincide con una huella válida.
@@ -75,7 +85,7 @@ func HuellaEfectoV3(preimagen []byte) string {
 		return ""
 	}
 	suma := sha256.Sum256(preimagen)
-	contexto := `{"ambitos":{},"atributos":{"` + atributoPreimagenV3 + `":"` + hex.EncodeToString(suma[:]) + `"}}`
+	contexto := `{"ambitos":{"` + ambitoOrganizacionV3 + `":"` + OrganizacionRefV3 + `"},"atributos":{"` + atributoPreimagenV3 + `":"` + hex.EncodeToString(suma[:]) + `"}}`
 	huella := sha256.Sum256([]byte(contexto))
 	return hex.EncodeToString(huella[:])
 }
