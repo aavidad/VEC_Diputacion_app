@@ -257,8 +257,12 @@ BEGIN
     'consumo_huella_sha256',previo.consumo_huella_sha256,'registrado_en',previo.registrado_en),
    'acceso_actual',jsonb_build_object('decision_ref',v.decision_ref,'auditoria_ref',v.auditoria_ref,
     'consumo_huella_sha256',v.consumo_huella_sha256,'registrado_en',v.consumida_en,
-    'estado_replay','replay'));
+   'estado_replay','replay'));
  END IF;
+ -- El trigger de historia usa esta misma clave. Adquirirla antes de la última
+ -- comprobación temporal impide que la espera del INSERT cruce la caducidad.
+ PERFORM pg_advisory_xact_lock(hashtextextended('vec_personal:catalogo-b2:'||
+  (m->>'organismo_ref')||':'||(m->>'tipo')||':'||(m->>'ref'),0));
  IF estado='publicada' THEN
   huella_esperada:=encode(sha256(convert_to(concat_ws(E'\n',
    'vec.personal.catalogo-registro-empleado.entrada.v1',m->>'organismo_ref',m->>'tipo',m->>'ref',

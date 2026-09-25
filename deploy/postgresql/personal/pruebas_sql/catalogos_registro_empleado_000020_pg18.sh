@@ -73,6 +73,12 @@ locker_pid=$!
 sleep 0.2
 "$motor" exec -i "$contenedor" psql -X -q -v ON_ERROR_STOP=1 -U vec_cat_runtime -d postgres -o /dev/null < "$repo_dir/deploy/postgresql/personal/pruebas_sql/catalogos_registro_empleado_000020_caducidad.sql"
 wait "$locker_pid"
+"$motor" exec "$contenedor" psql -X -q -v ON_ERROR_STOP=1 -U postgres -d postgres \
+  -c "BEGIN; SELECT pg_advisory_xact_lock(hashtextextended('vec_personal:catalogo-b2:org:sintetico:regimen:reg:carrera',0)); SELECT pg_sleep(1.6); COMMIT;" >/dev/null &
+locker_pid=$!
+sleep 0.2
+"$motor" exec -i "$contenedor" psql -X -q -v ON_ERROR_STOP=1 -U vec_cat_runtime -d postgres -o /dev/null < "$repo_dir/deploy/postgresql/personal/pruebas_sql/catalogos_registro_empleado_000020_caducidad.sql"
+wait "$locker_pid"
 [[ $(valor "SELECT count(*) FROM vec_personal.entrada_catalogo_registro_empleado_historia WHERE ref='reg:carrera'") == 0 ]] || fallo 'carrera caducada dejó efecto'
 admin <<'SQL'
 BEGIN ISOLATION LEVEL SERIALIZABLE READ WRITE;
@@ -98,4 +104,4 @@ SQL
 for _ in {1..80}; do if valor 'SELECT 1' >/dev/null 2>&1; then break; fi; sleep 0.25; done
 [[ $(valor "SELECT count(*) FROM vec_personal.entrada_catalogo_registro_empleado_historia") == 2 ]] || fallo 'historia cambió tras reinicio'
 [[ $(valor "SELECT estado FROM vec_personal.entrada_catalogo_registro_empleado_actual WHERE organismo_ref='org:sintetico' AND tipo='regimen' AND ref='reg:sintetico' AND version=1") == retirada ]] || fallo 'retirada perdida'
-printf 'Personal-20 PG18: ROLLBACK/COMMIT, ACL, preimagen poblada denegada, publicación/replay/retirada/consulta, caducidad tras lock y reinicio correctos (AD3 simulado).\n'
+printf 'Personal-20 PG18: ROLLBACK/COMMIT, ACL, preimagen poblada denegada, publicación/replay/retirada/consulta, caducidad tras locks de clave y entrada, reinicio correctos (AD3 simulado).\n'
