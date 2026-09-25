@@ -104,6 +104,16 @@ func TestDictamenMalFormadoNoEsInterpretable(t *testing.T) {
 			d.Firmantes = append(d.Firmantes, otro)
 			d.CertificadoHuellaSHA256, d.Estado, d.Motivo = "", "indeterminada", "firmante_no_identificado"
 		},
+		"sello peor de varios firmantes oculto": func(d *dictamenAutofirma) {
+			otro := d.Firmantes[0]
+			otro.CertificadoHuellaSHA256 = strings.Repeat("7a", 32)
+			d.Firmantes[0].SelloTiempo.Estado = "no_valido"
+			otro.SelloTiempo.Estado = "no_comprobado"
+			d.Firmantes = append(d.Firmantes, otro)
+			d.CertificadoHuellaSHA256 = ""
+			d.SelloTiempo.Estado = "no_comprobado"
+			d.Estado, d.Motivo = "indeterminada", "firmante_no_identificado"
+		},
 		"sin firmantes con agregados favorables": func(d *dictamenAutofirma) {
 			d.Firmantes, d.CertificadoHuellaSHA256 = nil, ""
 			d.Estado, d.Motivo = "indeterminada", "firmante_no_identificado"
