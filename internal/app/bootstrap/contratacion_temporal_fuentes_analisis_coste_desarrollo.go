@@ -18,6 +18,10 @@ type calculadorCosteAnalisisDesarrollo struct {
 	// retribuciones es el catálogo ct.retribuciones; sin él el coste queda
 	// «sin calcular».
 	retribuciones *fuenteRetribucionesDesarrollo
+	// catalogo es el mismo catálogo de alta que usa el preparador: sin él se
+	// rechazarían por desconocidas las categorías de la RPT que el preparador
+	// sí admitió.
+	catalogo *catalogosAltaContratacionTemporalDesarrollo
 }
 
 var _ ports.CalculadorCostePersonal = (*calculadorCosteAnalisisDesarrollo)(nil)
@@ -33,7 +37,7 @@ func (c *calculadorCosteAnalisisDesarrollo) CalcularCoste(
 	}
 	datos, err := solicitud.Datos()
 	if err != nil ||
-		!datosCalculoCosteAnalisisContratacionTemporalDesarrolloValidos(datos) {
+		!datosCalculoCosteAnalisisContratacionTemporalDesarrolloValidos(datos, c.catalogo) {
 		return ports.ResultadoCalculoCoste{},
 			ports.ErrPeticionFuenteAnalisisInvalida
 	}
@@ -107,6 +111,7 @@ func (c *calculadorCosteAnalisisDesarrollo) CalcularCoste(
 
 func datosCalculoCosteAnalisisContratacionTemporalDesarrolloValidos(
 	datos ports.DatosSolicitudCalcularCoste,
+	catalogo *catalogosAltaContratacionTemporalDesarrollo,
 ) bool {
 	solicitud := ports.SolicitudPrepararArtefactoAnalisis{
 		ArtefactoRef:      artefactoAnalisisContratacionTemporalDesarrollo,
@@ -128,5 +133,5 @@ func datosCalculoCosteAnalisisContratacionTemporalDesarrolloValidos(
 		SolicitadaEn: datos.SolicitadaEn,
 	}
 	return solicitud.Validar() == nil &&
-		solicitudAnalisisContratacionTemporalDesarrolloValida(solicitud)
+		solicitudAnalisisContratacionTemporalDesarrolloValidaConCatalogo(solicitud, catalogo)
 }

@@ -568,6 +568,7 @@ func nuevoPreparadorFuentesAnalisisContratacionTemporalDesarrollo(
 				presentadorAutoridadAnalisisDesarrollo: presentadorCoste,
 				derivador:                              derivador, autoridadRef: autoridadCosteAnalisisDesarrollo,
 				generacion: generacion, reloj: reloj, retribuciones: retribuciones,
+				catalogo: catalogo,
 			},
 			&verificadorRespuestaFuenteAnalisisDesarrollo{
 				presentadorAutoridadAnalisisDesarrollo: presentadorVerificador,

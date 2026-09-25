@@ -43,12 +43,10 @@ var modalidadesAnalisisContratacionTemporalDesarrollo = [...]domain.ClaveCatalog
 	"relevo",
 }
 
-func solicitudAnalisisContratacionTemporalDesarrolloValida(
-	solicitud ports.SolicitudPrepararArtefactoAnalisis,
-) bool {
-	return solicitudAnalisisContratacionTemporalDesarrolloValidaConCatalogo(solicitud, nil)
-}
-
+// Toda validación de la solicitud de análisis recibe el catálogo de alta
+// configurado; con catálogo nulo solo valen las categorías sintéticas, y
+// validar sin él una solicitud que el preparador admitió con la RPT la
+// rechazaría a mitad del análisis.
 func solicitudAnalisisContratacionTemporalDesarrolloValidaConCatalogo(
 	solicitud ports.SolicitudPrepararArtefactoAnalisis,
 	catalogo *catalogosAltaContratacionTemporalDesarrollo,

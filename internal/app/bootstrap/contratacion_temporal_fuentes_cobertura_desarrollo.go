@@ -245,22 +245,13 @@ func (f *fuenteComprobacionCoberturaDesarrollo) resultadoPara(
 	return resultadoGenericoCoberturaDesarrolloConCatalogo(f.catalogo, categoriaRef, viaClave, comprobacion, procedencia)
 }
 
-// resultadoGenericoCoberturaDesarrollo responde por cualquier categoría del
+// resultadoGenericoCoberturaDesarrolloConCatalogo responde por cualquier categoría del
 // catálogo de desarrollo y cualquier periodo cuando no hay registro explícito:
 // afirmativa, salvo la categoría sintética «sin cobertura», que es negativa; una
 // categoría fuera del catálogo no tiene respuesta. La
 // tupla vía/comprobación/procedencia sigue teniendo que ser una de las cuatro
 // plantillas; un cruce no existe. Es la fuente sintética de las demostraciones,
 // no la bolsa real.
-func resultadoGenericoCoberturaDesarrollo(
-	categoriaRef string,
-	viaClave domain.ClaveCatalogo,
-	comprobacion domain.ClaveCatalogo,
-	procedencia domain.ClaveCatalogo,
-) (domain.ResultadoComprobacion, bool) {
-	return resultadoGenericoCoberturaDesarrolloConCatalogo(nil, categoriaRef, viaClave, comprobacion, procedencia)
-}
-
 func resultadoGenericoCoberturaDesarrolloConCatalogo(
 	catalogo *catalogosAltaContratacionTemporalDesarrollo,
 	categoriaRef string,

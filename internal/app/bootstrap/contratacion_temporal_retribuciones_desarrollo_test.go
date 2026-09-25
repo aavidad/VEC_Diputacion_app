@@ -389,3 +389,40 @@ func TestRetribucionesNoDisponiblesNoSeConfundenConSinCatalogo(t *testing.T) {
 		t.Fatalf("un catálogo declarado y no vigente es un error: %v %v", ok, err)
 	}
 }
+
+// El coste de una categoría de la RPT se calcula con el mismo catálogo con el
+// que el preparador admitió la solicitud; validarla sin catálogo la rechazaba
+// y el análisis entero quedaba «no disponible».
+func TestCosteDeCategoriaRPTUsaElCatalogoDelPreparador(t *testing.T) {
+	catalogo, err := nuevoCatalogoDesarrollo(
+		"../../../data/catalogos/estructura-organizativa/v1.rpt-publica.json",
+		"../../../data/catalogos/rpt/v1.rpt-2026.json",
+	)
+	if err != nil {
+		t.Fatalf("catálogo con RPT: %v", err)
+	}
+	capacidad, err := nuevoPreparadorFuentesAnalisisContratacionTemporalDesarrollo(
+		nuevoDerivadorIdempotenciaPrueba(t, 2, 1), relojContratacionTemporalDesarrollo{},
+		fuenteRetribucionesTablaAnteriorPrueba(t), catalogo,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	solicitud := solicitudPrepararArtefactoAnalisisDesarrolloPrueba("sustitucion", "expediente:ct:desarrollo:analisis:rpt")
+	solicitud.DatosFuncionales.CategoriaRef = "categoria:rpt:administrativo"
+	solicitud.DatosFuncionales.GrupoSubgrupo = "C1"
+	artefacto, err := capacidad.PrepararArtefactoAnalisis(t.Context(), solicitud)
+	if err != nil {
+		t.Fatalf("análisis con categoría de la RPT: %v", err)
+	}
+	datos, err := artefacto.DatosPara(solicitud)
+	if err != nil || datos.CostePrevisto == nil || datos.CostePrevisto.Centimos <= 0 {
+		t.Fatalf("el coste de la categoría de la RPT debe calcularse: %+v %v", datos, err)
+	}
+	fueraDeCatalogo := solicitudPrepararArtefactoAnalisisDesarrolloPrueba("sustitucion", "expediente:ct:desarrollo:analisis:rpt-otro")
+	fueraDeCatalogo.DatosFuncionales.CategoriaRef = "categoria:rpt:no-existe"
+	fueraDeCatalogo.DatosFuncionales.GrupoSubgrupo = "C1"
+	if _, err := capacidad.PrepararArtefactoAnalisis(t.Context(), fueraDeCatalogo); err == nil {
+		t.Fatal("una categoría fuera del catálogo debe rechazarse")
+	}
+}
