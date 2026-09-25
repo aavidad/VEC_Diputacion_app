@@ -1,4 +1,4 @@
-import { crearTraductorPersonal } from "./i18n.js?v=20260925-portal-integrado-v1";
+import { crearTraductorPersonal } from "./i18n.js?v=20260925-personal-e10-v1";
 
 const PESTANAS = Object.freeze([
   ["ficha", "ficha_tab_ficha"], ["relaciones", "ficha_tab_relaciones"],
@@ -14,12 +14,14 @@ const BLOQUES = Object.freeze({
   economia: { titulo: "ficha_economia_titulo", ayuda: "ficha_economia_ayuda", columnas: [["documento", "ficha_cab_documento"], ["periodo", "ficha_cab_periodo"], ["estado", "ficha_cab_estado"]] },
   documentos: { titulo: "ficha_documentos_titulo", ayuda: "ficha_documentos_ayuda", columnas: [["documento", "ficha_cab_documento"], ["fecha", "ficha_cab_fecha"], ["estado", "ficha_cab_estado"]] },
 });
-const ESTADOS = new Set(["disponible", "vacio", "no_configurado", "denegado"]);
+const ESTADOS = new Set(["disponible", "vacio", "no_configurado", "denegado", "excede_limite"]);
+/** Longitud máxima de una celda; la misma que valida el cliente de la ficha propia. */
+export const LIMITE_TEXTO_CAMPO_FICHA = 300;
 const ETIQUETAS_ESTADO = Object.freeze({
   sin_consulta: "ficha_estado_sin_consulta", cargando: "ficha_estado_cargando",
   disponible: "ficha_estado_disponible", vacio: "ficha_estado_vacio",
   no_configurado: "ficha_estado_no_configurado", denegado: "ficha_estado_denegado",
-  error: "ficha_estado_error",
+  excede_limite: "ficha_estado_excede_limite", error: "ficha_estado_error",
 });
 
 function nodo(d, etiqueta, texto) { const n = d.createElement(etiqueta); if (texto !== undefined) n.textContent = texto; return n; }
@@ -70,14 +72,14 @@ function validarResultado(resultado, bloque) {
   if (typeof resultado.fuente !== "string" || !resultado.fuente.trim() || resultado.fuente.length > 160 ||
       typeof resultado.actualizado_en !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/u.test(resultado.actualizado_en) ||
       !Number.isFinite(Date.parse(resultado.actualizado_en)) ||
-      !Array.isArray(resultado.items) || resultado.items.length > 50 ||
+      !Array.isArray(resultado.items) || resultado.items.length > 200 ||
       (resultado.estado === "vacio" && resultado.items.length !== 0) || (resultado.estado === "disponible" && resultado.items.length === 0)) throw new TypeError("respuesta de ficha no válida");
   const columnas = BLOQUES[bloque].columnas.map(([campo]) => campo);
   const items = resultado.items.map((item) => {
     if (!item || typeof item !== "object") throw new TypeError("fila de ficha no válida");
     const visible = Object.fromEntries(columnas.map((campo) => {
       const valor = item[campo];
-      if (valor !== undefined && (typeof valor !== "string" || valor.length > 240)) throw new TypeError("campo de ficha no válido");
+      if (valor !== undefined && (typeof valor !== "string" || valor.length > LIMITE_TEXTO_CAMPO_FICHA)) throw new TypeError("campo de ficha no válido");
       return [campo, valor ?? ""];
     }));
     if (!Object.values(visible).some((valor) => valor.trim())) throw new TypeError("fila de ficha sin datos visibles");
@@ -124,7 +126,7 @@ function pintarBloque(d, principal, t, bloque, resultado) {
     metadatos.className = "personal-ficha-procedencia"; piezas.push(metadatos);
     piezas.push(resultado.estado === "vacio" ? mensaje(d, t("ficha_vacio")) : tabla(d, t, bloque, resultado.items));
   } else {
-    const clave = { cargando: "ficha_cargando", no_configurado: "ficha_no_configurado", denegado: "ficha_denegado", error: "ficha_error" }[resultado.estado];
+    const clave = { cargando: "ficha_cargando", no_configurado: "ficha_no_configurado", denegado: "ficha_denegado", excede_limite: "ficha_excede_limite", error: "ficha_error" }[resultado.estado];
     piezas.push(mensaje(d, t(clave), resultado.estado === "error" ? "alert" : "status"));
   }
   principal.replaceChildren(panel(d, t(definicion.titulo), piezas, "personal-ficha-panel-ancho"));

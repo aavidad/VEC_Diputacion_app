@@ -1,5 +1,9 @@
 # F4: acceso de Dietas R1D para el recorrido visible
 
+> **Sustituido por [F4b](../f4b_acceso_dietas/README.md) (25/09/2026).** No consta
+> aplicado en la principal y no encaja con la composición actual de Dietas,
+> que necesita once cuentas. No aplicarlo junto con F4b.
+
 Paquete administrativo para la vertical **crear, listar y obtener una comisión propia con recibo recuperable**. No instala migraciones, no modifica el rol V3 ni arranca la aplicación. La retirada P6 sigue intacta: F4 solo admite su puntero revocado `v2`, crea `v3` activa con emisión y vigencia nuevas, y habilita los ocho LOGIN nominales en la misma transacción. `plan.go` usa `AsignacionPerfil.Validar` y `HuellaSHA256` del dominio. La ejecución en cidonia, la identidad real del ensayo y el navegador corresponden a Dirección después de las dos revisiones E10 del mismo hash.
 
 ## Puertas antes de activar

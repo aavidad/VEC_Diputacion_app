@@ -13,6 +13,7 @@ import (
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	postgrescontratacion "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	personaldomain "vec-diputacion-granada/internal/modules/personal/domain"
 	postgresvec "vec-diputacion-granada/internal/vec/adapters/postgres"
 	confianzaatestacion "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
 )
@@ -96,6 +97,7 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	proveedorMaterialResultadoCorreo  *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialDietas                    materialDietasDesdeCTDesarrollo
 	materialCronos                    materialCronosDesdeCTDesarrollo
+	materialPersonalFichaPropia       *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialPersonalB2                [8]CapacidadPublicadaPersonalB2V3
 	detenerRenovacion                 func()
 	catalogoMaterial                  catalogoMaterialAutorizacionComunDesarrollo
@@ -319,6 +321,9 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	if cronosEmpleadoSolicitado(cfg.CronosEmpleadoEnabled) {
 		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialCronosDesarrollo()...)
 	}
+	if personalEmpleadoSolicitado(cfg.PersonalEmpleadoEnabled) {
+		descriptoresMaterial = append(descriptoresMaterial, descriptorMaterialFichaPropiaPersonalDesarrollo())
+	}
 	personalB2, err := cfg.PersonalB2GobiernoDesarrolloActivo()
 	if err != nil {
 		return vacias, err
@@ -355,6 +360,12 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			}
 		}
 		dependencias.materialCronos = materialCronosDesdeProveedores(cronos)
+	}
+	if personalEmpleadoSolicitado(cfg.PersonalEmpleadoEnabled) {
+		dependencias.materialPersonalFichaPropia, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, personaldomain.AudienciaFichaPropia)
+		if err != nil {
+			return vacias, err
+		}
 	}
 	if personalB2 {
 		// vec-server no consume B2: sólo publica sus claves para vec-interno.

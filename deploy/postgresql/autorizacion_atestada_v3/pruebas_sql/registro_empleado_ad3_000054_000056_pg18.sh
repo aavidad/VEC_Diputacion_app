@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Ensayo estructural PG18.4 desechable de AD3-54 (registro de empleado B2),
-# AD3-55 (catálogos B2) y AD3-56 (lista de empleados del organismo) sobre la postimagen de main: núcleo 051/052 con stub
+# AD3-55 (catálogos B2), AD3-56 (lista de empleados del organismo) y AD3-74
+# (ficha propia de la persona empleada) sobre la postimagen de main: núcleo 051/052 con stub
 # sintético y AD3-53, 59, 61, 70 y 80 reales, en el orden en que la principal
 # ya las tiene. Comprueba ROLLBACK sin rastro, COMMIT, ACL nominal, que las
 # reescrituras previas del núcleo se conservan, rechazo de segunda aplicación
@@ -54,6 +55,8 @@ m54="$mig/000054_consumidor_registro_empleado_b2.up.sql"
 m55="$mig/000055_consumidor_catalogos_registro_empleado.up.sql"
 f56='vec_autorizacion_atestada_v3.consumir_empleados_registro_b2_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'
 m56="$mig/000056_consumidor_empleados_registro_b2.up.sql"
+f74='vec_autorizacion_atestada_v3.consumir_ficha_propia_empleado_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'
+m74="$mig/000074_consumidor_ficha_propia_empleado.up.sql"
 huella() { valor "SELECT md5(pg_get_functiondef('$nucleo'::regprocedure))||':'||(SELECT md5(pg_get_constraintdef(oid)) FROM pg_constraint WHERE conname='clave_capacidad_version_audiencia_consumo_check')"; }
 
 if archivo "$m55" 2>/dev/null; then fallo 'AD3-55 aceptada sin AD3-54'; fi
@@ -70,12 +73,19 @@ ok 'ROLLBACK de AD3-55 sin rastro'
 if archivo "$m56" 2>/dev/null; then fallo 'AD3-56 aceptada sin AD3-55'; fi
 ok 'AD3-56 rechazada sin AD3-55'
 archivo "$m55"
+if archivo "$m74" 2>/dev/null; then fallo 'AD3-74 aceptada sin AD3-56'; fi
+ok 'AD3-74 rechazada sin AD3-56'
 antes=$(huella)
 sed '$s/^COMMIT;$/ROLLBACK;/' "$m56" | psql_admin
 [[ $(huella) == "$antes" && $(valor "SELECT to_regprocedure('$f56') IS NULL") == t ]] || fallo 'ROLLBACK de AD3-56 dejó rastro'
 ok 'ROLLBACK de AD3-56 sin rastro'
 archivo "$m56"
-ok 'COMMIT de AD3-54, AD3-55 y AD3-56'
+antes=$(huella)
+sed '$s/^COMMIT;$/ROLLBACK;/' "$m74" | psql_admin
+[[ $(huella) == "$antes" && $(valor "SELECT to_regprocedure('$f74') IS NULL") == t ]] || fallo 'ROLLBACK de AD3-74 dejó rastro'
+ok 'ROLLBACK de AD3-74 sin rastro'
+archivo "$m74"
+ok 'COMMIT de AD3-54, AD3-55, AD3-56 y AD3-74'
 
 # Las reescrituras previas del núcleo se conservan y la nueva aparece una vez.
 for perfil in importacion_organizacion_historica_personal cronos_saldo_propio cronos_permiso_solicitar bandeja_dietas \
@@ -88,21 +98,21 @@ ok 'exclusiones previas conservadas y registro_empleado_b2 única'
 # sin conversiones ::regrole ni pg_has_role por nombre (AD3-51/52, ya
 # instaladas, conservan su forma anterior y no se comprueban aquí).
 [[ $(valor "SELECT strpos(d,E'p_perfil_mutacion IS NOT DISTINCT FROM ''registro_empleado_b2''\\n               AND EXISTS (SELECT 1 FROM pg_roles g JOIN pg_auth_members m ON m.roleid=g.oid WHERE g.rolname=''vec_personal_ejecutor'' AND m.member=session_user::regrole')>0 FROM pg_get_functiondef('$nucleo'::regprocedure) d") == t ]] || fallo 'guarda B2 sin resolución por rolname'
-[[ $(grep -c "vec_personal_ejecutor''::regrole\\|pg_has_role(session_user,''vec_personal_ejecutor''" "$m54" "$m55" "$m56" | awk -F: '{s+=$2} END {print s}') == 0 ]] || fallo 'AD3-54/56 con regrole por nombre'
+[[ $(grep -c "vec_personal_ejecutor''::regrole\\|pg_has_role(session_user,''vec_personal_ejecutor''" "$m54" "$m55" "$m56" "$m74" | awk -F: '{s+=$2} END {print s}') == 0 ]] || fallo 'AD3-54/56 con regrole por nombre'
 ok 'guarda B2 resuelve el ejecutor por rolname'
-for operacion in alta.registrar hecho.registrar ficha.consultar vacantes.consultar catalogo.publicar catalogo.retirar catalogo.consultar empleados.consultar; do
+for operacion in alta.registrar hecho.registrar ficha.consultar vacantes.consultar catalogo.publicar catalogo.retirar catalogo.consultar empleados.consultar ficha_propia.consultar; do
   [[ $(valor "SELECT strpos(pg_get_functiondef('$nucleo'::regprocedure),'personal.registro_empleado.$operacion')>0") == t ]] || fallo "contrato $operacion ausente"
 done
-for audiencia in alta.v1 hecho.v1 ficha.v1 vacantes.v1 catalogo.publicar.v1 catalogo.retirar.v1 catalogo.consultar.v1 empleados.v1; do
+for audiencia in alta.v1 hecho.v1 ficha.v1 vacantes.v1 catalogo.publicar.v1 catalogo.retirar.v1 catalogo.consultar.v1 empleados.v1 ficha_propia.v1; do
   [[ $(valor "SELECT strpos(pg_get_constraintdef(oid),'vec_personal.registro_empleado.$audiencia')>0 AND strpos(pg_get_constraintdef(oid),'vec_cronos_v1.permiso_propio.solicitar.v1')>0 FROM pg_constraint WHERE conname='clave_capacidad_version_audiencia_consumo_check'") == t ]] || fallo "audiencia $audiencia"
 done
 ok 'audiencias B2 añadidas sin perder las previas'
-for firma in "$f54" "$f55" "$f56"; do
+for firma in "$f54" "$f55" "$f56" "$f74"; do
   [[ $(valor "SELECT has_function_privilege('vec_personal_propietario','$firma','EXECUTE'),has_function_privilege('vec_personal_ejecutor','$firma','EXECUTE'),has_function_privilege('vec_b2_prueba_ajeno','$firma','EXECUTE'),has_function_privilege('vec_dietas_propietario','$firma','EXECUTE')") == 't|f|f|f' ]] || fallo "ACL divergente en $firma"
   [[ $(valor "SELECT count(*) FROM pg_proc p CROSS JOIN LATERAL aclexplode(p.proacl) a WHERE p.oid='$firma'::regprocedure AND a.grantee NOT IN (p.proowner,'vec_personal_propietario'::regrole)") == 0 ]] || fallo "ACL abierta en $firma"
   [[ $(valor "SELECT prosecdef AND proowner='vec_autorizacion_atestada_v3_propietario'::regrole FROM pg_proc WHERE oid='$firma'::regprocedure") == t ]] || fallo "definidora $firma"
 done
-ok 'ACL nominal: solo vec_personal_propietario ejecuta las tres fachadas'
+ok 'ACL nominal: solo vec_personal_propietario ejecuta las cuatro fachadas'
 psql_admin <<'SQL'
 DO $neg$
 BEGIN
@@ -127,17 +137,70 @@ BEGIN
    'x'::bytea,'x'::bytea,'x'::bytea,'x'::bytea);
   RAISE EXCEPTION 'ficha aceptada por la fachada de empleados';
  EXCEPTION WHEN SQLSTATE '42501' THEN NULL; END;
+ BEGIN
+  PERFORM vec_autorizacion_atestada_v3.consumir_ficha_propia_empleado_v3_atestada(
+   convert_to('{"operacion":"personal.registro_empleado.ficha.consultar","audiencia_consumo":"vec_personal.registro_empleado.ficha.v1"}','UTF8'),
+   convert_to('{"modulo_id":"personal","accion":"personal.registro_empleado.ficha.consultar"}','UTF8'),'x'::bytea,'x'::bytea,1,1,
+   'x'::bytea,'x'::bytea,'x'::bytea,'x'::bytea);
+  RAISE EXCEPTION 'ficha RRHH aceptada por la fachada de ficha propia';
+ EXCEPTION WHEN SQLSTATE '42501' THEN NULL; END;
+ BEGIN
+  PERFORM vec_autorizacion_atestada_v3.consumir_ficha_propia_empleado_v3_atestada(
+   convert_to('{"operacion":"personal.registro_empleado.ficha_propia.consultar","audiencia_consumo":"vec_personal.registro_empleado.ficha_propia.v1","efecto_ref":"e","huella_efecto_sha256":"h"}','UTF8'),
+   convert_to('{"modulo_id":"personal","accion":"personal.registro_empleado.ficha_propia.consultar","recurso_ref":"e","contexto_recurso_huella_sha256":"h","obligaciones":[],"tipo_recurso":"ficha_propia_empleado","finalidad":"consultar_ficha_propia","campos_permitidos":["corte","evidencia","relaciones","servicios","persona_ref"]}','UTF8'),'x'::bytea,'x'::bytea,1,1,
+   'x'::bytea,'x'::bytea,'x'::bytea,'x'::bytea);
+  RAISE EXCEPTION 'ficha propia con campos ampliados aceptada';
+ EXCEPTION WHEN SQLSTATE '42501' THEN NULL; END;
 END $neg$;
 SQL
 ok 'operaciones no nominales denegadas con 42501'
+# AD3-74 distingue su fachada del núcleo: lo que la fachada no reconoce se
+# deniega con su propio mensaje antes de llegar al núcleo; lo que tiene la
+# forma exacta de la ficha propia pasa la fachada y lo rechaza el núcleo (aquí
+# por material sin firma), nunca con el mensaje de la fachada.
+psql_admin <<'SQL'
+DO $fachada$
+DECLARE cap text:='{"operacion":"personal.registro_empleado.ficha_propia.consultar","audiencia_consumo":"vec_personal.registro_empleado.ficha_propia.v1","efecto_ref":"e","huella_efecto_sha256":"h"}';
+ dec jsonb:='{"modulo_id":"personal","accion":"personal.registro_empleado.ficha_propia.consultar","recurso_ref":"e","contexto_recurso_huella_sha256":"h","obligaciones":[],"tipo_recurso":"ficha_propia_empleado","finalidad":"consultar_ficha_propia","campos_permitidos":["corte","evidencia","relaciones","servicios"]}';
+ caso record; estado text; mensaje text;
+BEGIN
+ FOR caso IN SELECT * FROM (VALUES
+   ('modulo',dec||'{"modulo_id":"dietas"}'),('accion',dec||'{"accion":"personal.registro_empleado.ficha.consultar"}'),
+   ('recurso',dec||'{"recurso_ref":"otro"}'),('huella',dec||'{"contexto_recurso_huella_sha256":"otra"}'),
+   ('obligaciones',dec||'{"obligaciones":["x"]}'),('tipo',dec||'{"tipo_recurso":"registro_empleado_rrhh"}'),
+   ('finalidad',dec||'{"finalidad":"consultar_ficha_empleado"}'),('campos',dec||'{"campos_permitidos":["corte","evidencia","relaciones"]}')) v(nombre,decision)
+ LOOP
+  BEGIN
+   PERFORM vec_autorizacion_atestada_v3.consumir_ficha_propia_empleado_v3_atestada(
+    convert_to(cap,'UTF8'),convert_to(caso.decision::text,'UTF8'),'x'::bytea,'x'::bytea,1,1,'x'::bytea,'x'::bytea,'x'::bytea,'x'::bytea);
+   RAISE EXCEPTION 'AD3-74 aceptó % divergente',caso.nombre;
+  EXCEPTION WHEN SQLSTATE '42501' THEN
+   GET STACKED DIAGNOSTICS mensaje=MESSAGE_TEXT;
+   IF mensaje IS DISTINCT FROM 'AD3-74: operación denegada' THEN
+    RAISE EXCEPTION 'AD3-74: % divergente no denegado por la fachada: %',caso.nombre,mensaje; END IF;
+  END;
+ END LOOP;
+ BEGIN
+  PERFORM vec_autorizacion_atestada_v3.consumir_ficha_propia_empleado_v3_atestada(
+   convert_to(cap,'UTF8'),convert_to(dec::text,'UTF8'),'x'::bytea,'x'::bytea,1,1,'x'::bytea,'x'::bytea,'x'::bytea,'x'::bytea);
+  RAISE EXCEPTION 'AD3-74: material sin firma aceptado';
+ EXCEPTION WHEN OTHERS THEN
+  GET STACKED DIAGNOSTICS estado=RETURNED_SQLSTATE,mensaje=MESSAGE_TEXT;
+  IF mensaje='AD3-74: material sin firma aceptado' OR mensaje LIKE 'AD3-74:%' THEN
+   RAISE EXCEPTION 'la forma exacta no pasó la fachada AD3-74: % %',estado,mensaje; END IF;
+ END;
+END $fachada$;
+SQL
+ok 'AD3-74: la fachada deniega con su mensaje; la forma exacta llega al núcleo'
 antes=$(huella)
 if archivo "$m54" 2>/dev/null; then fallo 'segunda aplicación de AD3-54 aceptada'; fi
 if archivo "$m55" 2>/dev/null; then fallo 'segunda aplicación de AD3-55 aceptada'; fi
 if archivo "$m56" 2>/dev/null; then fallo 'segunda aplicación de AD3-56 aceptada'; fi
+if archivo "$m74" 2>/dev/null; then fallo 'segunda aplicación de AD3-74 aceptada'; fi
 [[ $(huella) == "$antes" ]] || fallo 'segunda aplicación alteró el núcleo'
 ok 'segunda aplicación rechazada sin cambios'
 "$motor" restart "$contenedor" >/dev/null
 esperar
-[[ $(huella) == "$antes" && $(valor "SELECT to_regprocedure('$f54') IS NOT NULL AND to_regprocedure('$f55') IS NOT NULL AND to_regprocedure('$f56') IS NOT NULL") == t ]] || fallo 'estado perdido tras reinicio'
+[[ $(huella) == "$antes" && $(valor "SELECT to_regprocedure('$f54') IS NOT NULL AND to_regprocedure('$f55') IS NOT NULL AND to_regprocedure('$f56') IS NOT NULL AND to_regprocedure('$f74') IS NOT NULL") == t ]] || fallo 'estado perdido tras reinicio'
 ok 'núcleo, audiencias y fachadas persisten tras reinicio'
-printf 'PG18.4: AD3-54/55/56 sobre postimagen main (51/52 stub; 53/59/61/70/80 reales): ROLLBACK, COMMIT, ACL, negativos y reinicio; NO acredita decisión V3 firmada.\n'
+printf 'PG18.4: AD3-54/55/56/74 sobre postimagen main (51/52 stub; 53/59/61/70/80 reales): ROLLBACK, COMMIT, ACL, negativos y reinicio; NO acredita decisión V3 firmada.\n'
