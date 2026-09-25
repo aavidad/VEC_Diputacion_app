@@ -82,6 +82,26 @@ SELECT contenido_canonico,
        $15::bytea
   )`
 
+	consultaResumenSeguimientoRRHHPostgreSQL = `
+SELECT expediente_ref,
+       version_expediente::bigint,
+       organizacion_ref,
+       unidad_ref,
+       consumo_vec_huella_sha256,
+       auditoria_vec_ref,
+       auditoria_vec_huella_sha256,
+       consumida_en
+  FROM vec_contratacion_temporal.consultar_resumen_seguimiento_rrhh_atestado_v1(
+       ROW($1::text, $2::text, $3::text)::
+           vec_contratacion_temporal.alcance_consulta_rrhh_v1,
+       ROW($4::text, $5::numeric)::
+           vec_contratacion_temporal.consulta_detalle_rrhh_v1,
+       $6::text,
+       $7::bytea, $8::bytea, $9::bytea, $10::bytea,
+       $11::numeric, $12::numeric,
+       $13::bytea, $14::bytea, $15::bytea, $16::bytea
+  )`
+
 	consultaOriginalPropuestaRRHHPostgreSQL = `
 SELECT contenido_canonico,
        esquema,

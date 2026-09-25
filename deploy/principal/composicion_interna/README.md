@@ -110,8 +110,39 @@ registro de sesión rechaza cualquier referencia devuelta que proceda de la
 entrada. Ambas se enlazan con un alias HMAC en
 `vec_identidad_sesiones_v1.alias_hmac_cuenta`, calculado con la clave del
 token (`hmac.json`) y registrado mediante
-`registrar_alias_hmac_cuenta_v1`. Este script todavía no incluye ese paso;
-sin el alias la sesión termina en 401. `--unit-ref` admite la referencia
+`registrar_alias_hmac_cuenta_v1`. Con la cuenta F1 interna ya activa y la
+migración de Identidad `000002` instalada, ejecutar el paso explícito:
+
+```bash
+python3 "$SCRIPT" --material-dir "$MATERIAL" alias-hmac \
+  --subject-id "$PERSONA_REF" \
+  --external-account-id "$CUENTA_EXTERNA_REF" \
+  --internal-account-ref "$CUENTA_REF" \
+  --database "$BASE" --admin-user "$USUARIO_ADMIN" \
+  --pg-container "$CONTENEDOR_PG"
+```
+
+Sin contenedor se omite `--pg-container` y se usa `psql` local. El script
+comprueba el certificado activo, el selector de cuenta interna y las
+coordenadas exactas de `identidad/hmac.json`. Firma por PKCS#11 los mensajes
+canónicos de `cuenta` y `sujeto` que firma el conector Go: esquema, dominio,
+espacio de identidad, versión de clave, propósito e identificador, cada campo
+con longitud de cuatro bytes en orden de red. PostgreSQL recibe las dos
+huellas y las referencias opacas de F1 necesarias para el cotejo; la cuenta
+externa, el PIN y la clave no aparecen en SQL ni salida.
+En la misma transacción, antes del registro HMAC, coteja como propietario de
+ContextoActor el vínculo corporativo actual `consulta_rrhh`: persona del
+certificado, cuenta y perfil seleccionados, proyección de cuenta, persona,
+perfil, contexto y organización actuales, activos y vigentes. Bloquea sus
+punteros durante el registro en Identidad. Una cuenta interna de otra persona
+se rechaza aunque esté activa. Si falta ContextoActor `000004` o cualquiera
+de sus pruebas, el alias falla cerrado.
+La misma operación se ensaya con `ROLLBACK` y se confirma; al repetirla,
+Identidad devuelve la misma cuenta sin crear otro alias. Un alias que cruce
+cuenta externa, sujeto o cuenta interna bajo las mismas coordenadas se rechaza.
+La operación requiere un administrador de base autorizado a asumir los roles
+propietarios de ContextoActor e Identidad; no instala migraciones ni aprovisiona F1. Sin el
+alias la sesión termina en 401. `--unit-ref` admite la referencia
 opaca `ref:…` o la nominal `unidad:…` que ya usa el seguimiento CT.
 
 `identidad/certificados.json` es el registro de admisión vivo. `init-ca`
@@ -203,7 +234,10 @@ python3 "$SCRIPT" --material-dir "$MATERIAL" identity-roles \
 ```
 
 Los seis LOGIN de autorización, motivos RRHH, consulta y preflight V3 se
-preparan con `v3-roles` cuando AD3 `000050a` y CT `000108` consten instaladas.
+preparan con `v3-roles` cuando AD3 `000050a`, AD3 `000053` y CT `000109`
+consten instaladas. La segunda función del preflight, `leer_configuracion_interna_v1(jsonb)`,
+lee el gobierno V3 publicado para la renovación diaria; su función y ACL se
+cotejan antes de crear el LOGIN.
 El sexto se llama exactamente `vec_interno_preflight_v3_desarrollo` y solo
 pertenece a `vec_autorizacion_atestada_v3_preflight_interno`. El script deja
 `ct_v3_pools.json` 0600 como entrada privada al manifiesto `ct_v3.json`; no

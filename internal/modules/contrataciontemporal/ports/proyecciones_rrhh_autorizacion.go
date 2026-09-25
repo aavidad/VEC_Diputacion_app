@@ -2,6 +2,7 @@ package ports
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
@@ -230,6 +231,10 @@ func (c CapacidadConsultaRRHH) ConsultaHuellaSHA256() string {
 func (c CapacidadConsultaRRHH) ValidaDesde() time.Time { return c.validaDesde }
 func (c CapacidadConsultaRRHH) ValidaHasta() time.Time { return c.validaHasta }
 
+func (c CapacidadConsultaRRHH) AutorizaCamposSeguimiento() bool {
+	return c.validarEstructura() == nil && c.material.camposSeguimientoExactos()
+}
+
 type AutoridadContextoConsultaRRHH interface {
 	ResolverContextoConsultaRRHH(context.Context) (ContextoConsultaRRHH, error)
 }
@@ -245,4 +250,58 @@ type SesionConsultaRRHH interface {
 		context.Context,
 		OrdenConsultaDetalleRRHH,
 	) (DetalleExpedienteRRHH, error)
+}
+
+// SesionConsultaResumenSeguimientoRRHH es una lectura distinta del detalle.
+// La implementación SQL solo lee la publicación mínima tras consumir AD-3.
+type SesionConsultaResumenSeguimientoRRHH interface {
+	ConsultarResumenSeguimientoYRegistrar(
+		context.Context, OrdenConsultaDetalleRRHH, string,
+	) (ResultadoConsultaResumenSeguimientoRRHH, error)
+}
+
+type ResultadoConsultaResumenSeguimientoRRHH struct {
+	ExpedienteRef         string    `json:"-"`
+	VersionExpediente     uint64    `json:"-"`
+	OrganizacionRef       string    `json:"-"`
+	UnidadRef             string    `json:"-"`
+	ConsumoHuellaSHA256   string    `json:"-"`
+	AuditoriaRef          string    `json:"-"`
+	AuditoriaHuellaSHA256 string    `json:"-"`
+	ConsumidaEn           time.Time `json:"-"`
+}
+
+func (ResultadoConsultaResumenSeguimientoRRHH) String() string {
+	return "[resultado-consulta-seguimiento-rrhh-redactado]"
+}
+
+func (ResultadoConsultaResumenSeguimientoRRHH) GoString() string {
+	return "[resultado-consulta-seguimiento-rrhh-redactado]"
+}
+
+func (r ResultadoConsultaResumenSeguimientoRRHH) ValidarPara(
+	orden OrdenConsultaDetalleRRHH, unidadRef string,
+) error {
+	if orden.capacidad.validaPara(orden.contexto,
+		DominioHuellaConsultaDetalleRRHH, orden.consultaHuella,
+		AccionConsultarDetalleRRHH, FinalidadConsultarDetalleRRHH,
+		orden.solicitud.ExpedienteRef(), orden.instante) != nil ||
+		!orden.capacidad.AutorizaCamposSeguimiento() ||
+		!domain.ReferenciaOpacaValida(unidadRef) ||
+		r.ExpedienteRef != orden.solicitud.ExpedienteRef() ||
+		r.OrganizacionRef != orden.contexto.OrganizacionRef() ||
+		r.UnidadRef != unidadRef ||
+		r.VersionExpediente < 1 || r.VersionExpediente > 9_007_199_254_740_991 ||
+		(orden.solicitud.VersionObservada() != 0 && orden.solicitud.VersionObservada() != r.VersionExpediente) ||
+		!patronHuellaRRHH.MatchString(r.ConsumoHuellaSHA256) ||
+		r.ConsumoHuellaSHA256 == strings.Repeat("0", 64) ||
+		!domain.ReferenciaOpacaValida(r.AuditoriaRef) ||
+		!patronHuellaRRHH.MatchString(r.AuditoriaHuellaSHA256) ||
+		r.AuditoriaHuellaSHA256 == strings.Repeat("0", 64) ||
+		!domain.InstanteUTCCanonico(r.ConsumidaEn) ||
+		r.ConsumidaEn.Before(orden.instante) ||
+		!r.ConsumidaEn.Before(orden.capacidad.ValidaHasta()) {
+		return ErrResultadoConsultaRRHHNoConfiable
+	}
+	return nil
 }

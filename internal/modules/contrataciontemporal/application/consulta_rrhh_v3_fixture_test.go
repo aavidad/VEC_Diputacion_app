@@ -106,6 +106,7 @@ type emisorAtestadoConsultaRRHHPrueba struct {
 	llamadas        int
 	ultimaSolicitud dominiovec.SolicitudAutorizacionLigadaV3
 	ultimoResultado dominiovec.ResultadoContextoActorRegistradoV2
+	campos          []string
 }
 
 func (e *emisorAtestadoConsultaRRHHPrueba) EmitirMaterialAutorizacionAtestadaV3(
@@ -133,7 +134,7 @@ func (e *emisorAtestadoConsultaRRHHPrueba) EmitirMaterialAutorizacionAtestadaV3(
 	}
 	decision, confirmacion, err := concesionAutorizacionV3Prueba(
 		e.t, solicitud, resultado, datos.ReferenciaMotivo, e.instante,
-		"decision:rrhh:v3:prueba", true,
+		"decision:rrhh:v3:prueba", true, e.campos...,
 	)
 	if err != nil {
 		e.t.Fatal(err)

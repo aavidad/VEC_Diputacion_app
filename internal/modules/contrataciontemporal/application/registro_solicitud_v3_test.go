@@ -186,6 +186,7 @@ func concesionAutorizacionV3Prueba(
 	ahora time.Time,
 	referenciaDecision string,
 	conceder bool,
+	campos ...string,
 ) (
 	dominiovec.DecisionAutorizacionLigadaV3,
 	puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3,
@@ -211,9 +212,10 @@ func concesionAutorizacionV3Prueba(
 		Estado:  dominiovec.EstadoVersionRolPublicada,
 		Concesiones: []dominiovec.ConcesionRol{{
 			Accion: datos.Accion, ModuloID: datos.Recurso.ModuloID,
-			TipoRecurso:    datos.Recurso.Tipo,
-			Finalidades:    []string{datos.Finalidad},
-			GarantiaMinima: dominiovec.AuthAssuranceSubstantial,
+			TipoRecurso:      datos.Recurso.Tipo,
+			Finalidades:      []string{datos.Finalidad},
+			GarantiaMinima:   dominiovec.AuthAssuranceSubstantial,
+			CamposPermitidos: append([]string(nil), campos...),
 		}},
 		PublicadaPor: "responsable-seguridad",
 		PublicadaEn:  ahora.Add(-24 * time.Hour),
