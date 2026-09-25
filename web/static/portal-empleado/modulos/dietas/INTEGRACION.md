@@ -85,10 +85,32 @@ El documento v2 muestra el total orientativo singular del grupo acreditado,
 separando dietas, kilometraje y otros conceptos; no lo presenta como
 liquidación.
 
-Otros medios y otros gastos reciben descripción e importe. No se pide al
-empleado escribir una referencia o huella documental. Cuando exista custodia
-autorizada, el servidor podrá conservar su referencia y SHA-256 como pareja;
-la descripción por sí sola no acredita un fichero.
+Otros medios y otros gastos (D5) llevan tipo del catálogo versionado que
+sirve `route-catalog` (`otros_gastos`), fecha dentro de la comisión,
+descripción, importe y justificante por referencia y huella SHA-256. El
+fichero queda en custodia de la persona: el navegador solo lo lee, si ella lo
+elige, para calcular la huella, y no lo envía. PostgreSQL (Dietas 000009)
+vuelve a exigir catálogo, fechas y justificante al guardar. Las líneas
+guardadas antes de D5 se siguen leyendo, pero para volver a guardar hay que
+completarlas.
+
+Un documento devuelto por cualquier paso del circuito (D6) llega con
+`devolucion` (etapa, motivo, versión devuelta y fecha), que PostgreSQL
+(Dietas 000010) toma de la historia mientras está devuelto o en corrección.
+La ficha lo muestra y ofrece «Corregir» y «Reenviar a revisión del
+administrativo»; no ofrece eliminarlo, y PostgreSQL también lo impide. La
+corrección y el reenvío usan las mismas rutas PUT y `POST …/enviar`, con
+clave de idempotencia y versión esperada. A qué paso debe volver está
+pendiente de RRHH (pregunta 49 de `dudas.md`).
+
+Quien revisa un reenvío recibe en el documento del circuito la devolución
+anterior (`devolucion`: etapa, motivo, versión y fecha, nunca quién la hizo)
+y el detalle de la bandeja la muestra como «Reenvío» y «Motivo de la
+devolución». Los textos libres (motivo de devolución, centro y unidad) no
+admiten blancos de borde: el cliente recorta y valida con `texto-dietas.js`
+el mismo conjunto que Go rechaza (lo que quitan `trim()` y
+`strings.TrimSpace`). El fixture `testdata/documento_propio_v2.json` del
+adaptador HTTP es el JSON real de Go que valida `contrato-documento-go.test.mjs`.
 
 ## Comprobación
 

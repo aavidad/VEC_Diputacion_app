@@ -146,13 +146,15 @@ type ProveedorAsignacionParaEnvio interface {
 	ConsultarAsignacionParaEnvio(context.Context, IdentidadEfectivaBorrador) (AsignacionDietasAcreditada, error)
 }
 
+// ReciboBorradorComision es el recibo de una operación sobre la comisión.
+// La regla de devengo aplicada viaja en la comisión (Calculo.ReglaRef y su
+// huella), no en el recibo: ningún adaptador la rellenaba aquí y el cliente
+// web solo admite estas cuatro claves.
 type ReciboBorradorComision struct {
-	Referencia        string    `json:"referencia"`
-	Version           uint64    `json:"version"`
-	RegistradoEn      time.Time `json:"registrado_en"`
-	Repeticion        bool      `json:"repeticion"`
-	ReglaRef          string    `json:"regla_ref,omitempty"`
-	ReglaHuellaSHA256 string    `json:"regla_huella_sha256,omitempty"`
+	Referencia   string    `json:"referencia"`
+	Version      uint64    `json:"version"`
+	RegistradoEn time.Time `json:"registrado_en"`
+	Repeticion   bool      `json:"repeticion"`
 }
 type ResultadoBorradorComision struct {
 	Comision domain.ComisionBorrador `json:"comision"`

@@ -145,3 +145,14 @@ test("el ayudante no introduce red ni almacenamiento persistente", async () => {
   assert.match(eventos, /addEventListener\?\.\("close", limpiarContenidoDialogo\)/u);
   assert.match(eventos, /addEventListener\?\.\("cancel", limpiarContenidoDialogo\)/u);
 });
+
+test("la guía del revisor de Dietas avisa, tras el ?, de que la titular leerá el motivo", () => {
+  const revisar = TRAMITES_AYUDANTE_PORTAL.find(({ id }) => id === "dietas-revisar-documento");
+  assert.ok(revisar, "falta la guía del revisor");
+  assert.equal(revisar.vista, "dietas");
+  assert.ok(revisar.pasos.every((paso) => paso.selector === "[data-dietas-bandeja-circuito]" && paso.bloqueado === false));
+  const devolver = revisar.pasos.at(-1);
+  assert.match(devolver.limite, /lo leerá la persona titular/u);
+  assert.match(devolver.limite, /datos de terceros/u);
+  assert.match(revisar.pasos[0].resultado, /reenvío/u);
+});

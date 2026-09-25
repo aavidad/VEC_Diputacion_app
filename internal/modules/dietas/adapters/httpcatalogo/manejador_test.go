@@ -19,6 +19,14 @@ func TestManejadorSirveCatalogoSemillaNoLiquidable(t *testing.T) {
 	var body struct {
 		ProvinceRoutePoints []map[string]any `json:"province_route_points"`
 		ProvinceRouteMatrix map[string]any   `json:"province_route_matrix"`
+		OtrosGastos         struct {
+			Version string `json:"version"`
+			Rotulo  string `json:"rotulo"`
+			Tipos   []struct {
+				Codigo string `json:"codigo"`
+				Clase  string `json:"clase"`
+			} `json:"tipos"`
+		} `json:"otros_gastos"`
 	}
 	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
 		t.Fatal(err)
@@ -31,6 +39,17 @@ func TestManejadorSirveCatalogoSemillaNoLiquidable(t *testing.T) {
 	}
 	if body.ProvinceRouteMatrix["state"] != "pendiente_importacion_completa" {
 		t.Fatalf("estado = %#v", body.ProvinceRouteMatrix["state"])
+	}
+	g := body.OtrosGastos
+	if g.Version != "provisional:otros-gastos:20260925" || g.Rotulo == "" || len(g.Tipos) < 2 {
+		t.Fatalf("catálogo de otros gastos = %#v", g)
+	}
+	clases := map[string]bool{}
+	for _, tipo := range g.Tipos {
+		clases[tipo.Clase] = true
+	}
+	if !clases["otro_medio"] || !clases["otro_gasto"] || len(clases) != 2 {
+		t.Fatalf("clases = %#v", clases)
 	}
 }
 

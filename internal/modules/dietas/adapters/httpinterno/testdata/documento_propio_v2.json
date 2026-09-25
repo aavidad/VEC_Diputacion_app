@@ -1,0 +1,820 @@
+[
+  {
+    "nombre": "devuelta",
+    "resultado": {
+      "comision": {
+        "referencia": "dco_DDDDDDDDDDDDDDDDDDDDDD",
+        "numero_documento": "VEC-D-2026-000001",
+        "fecha_apertura": "2026-09-20T08:00:00.000000Z",
+        "version": 4,
+        "estado": "devuelta",
+        "fecha_inicio": "2026-09-21",
+        "fecha_fin": "2026-09-22",
+        "motivo": "Visita técnica",
+        "codigos_ruta": [
+          "ruta:a",
+          "ruta:b"
+        ],
+        "relacion_ref": "rel_RRRRRRRRRRRRRRRRRRRRRR",
+        "centro_ref": "centro:uno",
+        "unidad_ref": "unidad:uno",
+        "calculo": {
+          "procedencia": "osrm_interno",
+          "version_grafo": "grafo:prueba",
+          "motor": "OSRM",
+          "version_tarifa": "provisional:rd462:20260923",
+          "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH",
+          "regla_ref": "provisional:regla:nacional-ordinaria:20260923",
+          "regla_huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "hora_inicio": "08:00",
+          "hora_fin": "18:00",
+          "kilometros": "1.0000",
+          "eur_por_km": "0.2600",
+          "importe_kilometraje_centimos": 26,
+          "tramos_ruta": [],
+          "opciones_dieta": [
+            {
+              "grupo": 1,
+              "calculo": {
+                "tramos": [
+                  {
+                    "fecha": "2026-09-21",
+                    "tipo": "manutencion",
+                    "porcentaje": 100,
+                    "importe_centimos": 1000,
+                    "version_tarifa_ref": "provisional:rd462:20260923",
+                    "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH"
+                  },
+                  {
+                    "fecha": "2026-09-21",
+                    "tipo": "alojamiento_tope_pendiente_justificante",
+                    "porcentaje": 100,
+                    "importe_centimos": 2000,
+                    "version_tarifa_ref": "provisional:rd462:20260923",
+                    "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH"
+                  },
+                  {
+                    "fecha": "2026-09-22",
+                    "tipo": "manutencion",
+                    "porcentaje": 50,
+                    "importe_centimos": 500,
+                    "version_tarifa_ref": "provisional:rd462:20260923",
+                    "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH"
+                  }
+                ],
+                "manutencion_centimos": 1500,
+                "alojamiento_tope_centimos": 2000,
+                "total_maximo_orientativo_centimos": 3500,
+                "version_tarifa_ref": "provisional:rd462:20260923",
+                "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH",
+                "regla_ref": "provisional:regla:nacional-ordinaria:20260923",
+                "regla_huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              }
+            },
+            {
+              "grupo": 2,
+              "calculo": {
+                "tramos": [
+                  {
+                    "fecha": "2026-09-21",
+                    "tipo": "manutencion",
+                    "porcentaje": 100,
+                    "importe_centimos": 2000,
+                    "version_tarifa_ref": "provisional:rd462:20260923",
+                    "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH"
+                  },
+                  {
+                    "fecha": "2026-09-21",
+                    "tipo": "alojamiento_tope_pendiente_justificante",
+                    "porcentaje": 100,
+                    "importe_centimos": 4000,
+                    "version_tarifa_ref": "provisional:rd462:20260923",
+                    "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH"
+                  },
+                  {
+                    "fecha": "2026-09-22",
+                    "tipo": "manutencion",
+                    "porcentaje": 50,
+                    "importe_centimos": 1000,
+                    "version_tarifa_ref": "provisional:rd462:20260923",
+                    "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH"
+                  }
+                ],
+                "manutencion_centimos": 3000,
+                "alojamiento_tope_centimos": 4000,
+                "total_maximo_orientativo_centimos": 7000,
+                "version_tarifa_ref": "provisional:rd462:20260923",
+                "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH",
+                "regla_ref": "provisional:regla:nacional-ordinaria:20260923",
+                "regla_huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              }
+            },
+            {
+              "grupo": 3,
+              "calculo": {
+                "tramos": [
+                  {
+                    "fecha": "2026-09-21",
+                    "tipo": "manutencion",
+                    "porcentaje": 100,
+                    "importe_centimos": 3000,
+                    "version_tarifa_ref": "provisional:rd462:20260923",
+                    "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH"
+                  },
+                  {
+                    "fecha": "2026-09-21",
+                    "tipo": "alojamiento_tope_pendiente_justificante",
+                    "porcentaje": 100,
+                    "importe_centimos": 6000,
+                    "version_tarifa_ref": "provisional:rd462:20260923",
+                    "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH"
+                  },
+                  {
+                    "fecha": "2026-09-22",
+                    "tipo": "manutencion",
+                    "porcentaje": 50,
+                    "importe_centimos": 1500,
+                    "version_tarifa_ref": "provisional:rd462:20260923",
+                    "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH"
+                  }
+                ],
+                "manutencion_centimos": 4500,
+                "alojamiento_tope_centimos": 6000,
+                "total_maximo_orientativo_centimos": 10500,
+                "version_tarifa_ref": "provisional:rd462:20260923",
+                "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH",
+                "regla_ref": "provisional:regla:nacional-ordinaria:20260923",
+                "regla_huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              }
+            }
+          ],
+          "vehiculo_propio": true,
+          "rutas": [
+            {
+              "codigos_ruta": [
+                "ruta:a",
+                "ruta:b"
+              ],
+              "version_grafo": "grafo:prueba",
+              "tramos_ruta": [
+                {
+                  "origen_codigo": "ruta:a",
+                  "destino_codigo": "ruta:b",
+                  "kilometros": "1.0000"
+                }
+              ],
+              "kilometros_base": "1.0000",
+              "ajuste_kilometros": "0.0000",
+              "motivo_ajuste": "",
+              "kilometros_finales": "1.0000",
+              "importe_centimos": 26
+            }
+          ]
+        },
+        "documento": {
+          "vehiculo_propio": true,
+          "grupo_dieta": 2,
+          "version_tarifa_aceptada": "provisional:rd462:20260923",
+          "tramos_aceptados": [
+            0,
+            1,
+            2
+          ],
+          "lineas": [
+            {
+              "tipo": "dieta",
+              "grupo": 2,
+              "indice_tramo": 0,
+              "fecha": "2026-09-21",
+              "concepto": "manutencion",
+              "importe_centimos": 2000,
+              "version_tarifa_ref": "provisional:rd462:20260923",
+              "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH"
+            },
+            {
+              "tipo": "dieta",
+              "grupo": 2,
+              "indice_tramo": 1,
+              "fecha": "2026-09-21",
+              "concepto": "alojamiento_tope_pendiente_justificante",
+              "importe_centimos": 4000,
+              "version_tarifa_ref": "provisional:rd462:20260923",
+              "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH"
+            },
+            {
+              "tipo": "dieta",
+              "grupo": 2,
+              "indice_tramo": 2,
+              "fecha": "2026-09-22",
+              "concepto": "manutencion",
+              "importe_centimos": 1000,
+              "version_tarifa_ref": "provisional:rd462:20260923",
+              "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH"
+            },
+            {
+              "tipo": "kilometraje",
+              "importe_centimos": 26,
+              "version_tarifa_ref": "provisional:rd462:20260923",
+              "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH",
+              "origen_codigo": "ruta:a",
+              "destino_codigo": "ruta:b",
+              "kilometros": "1.0000",
+              "ruta_indice": 1,
+              "kilometros_base": "1.0000",
+              "ajuste_kilometros": "0.0000",
+              "version_grafo": "grafo:prueba"
+            },
+            {
+              "tipo": "otro_medio",
+              "fecha": "2026-09-21",
+              "concepto": "Taxi estación a sede",
+              "importe_centimos": 1250,
+              "justificante_ref": "ticket:taxi-0921",
+              "justificante_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "tipo_gasto": "taxi",
+              "catalogo_version": "provisional:otros-gastos:20260925"
+            }
+          ],
+          "manutencion_centimos": 3000,
+          "alojamiento_tope_centimos": 4000,
+          "kilometraje_centimos": 26,
+          "otros_centimos": 1250,
+          "total_orientativo_centimos": 8276
+        },
+        "vehiculo_propio": true,
+        "rutas": [
+          {
+            "codigos_ruta": [
+              "ruta:a",
+              "ruta:b"
+            ],
+            "ajuste_kilometros": "0.0000",
+            "motivo_ajuste": ""
+          }
+        ],
+        "devolucion": {
+          "etapa": "autorizacion",
+          "motivo": "Falta el justificante del taxi",
+          "version": 4,
+          "devuelta_en": "2026-09-23T09:00:00.123456Z"
+        }
+      },
+      "recibo": {
+        "referencia": "rcd_0000000000000000000000",
+        "version": 4,
+        "registrado_en": "2026-09-23T09:00:00.123456Z",
+        "repeticion": true
+      }
+    }
+  },
+  {
+    "nombre": "en_correccion",
+    "resultado": {
+      "comision": {
+        "referencia": "dco_DDDDDDDDDDDDDDDDDDDDDD",
+        "numero_documento": "VEC-D-2026-000001",
+        "fecha_apertura": "2026-09-20T08:00:00.000000Z",
+        "version": 5,
+        "estado": "borrador",
+        "fecha_inicio": "2026-09-21",
+        "fecha_fin": "2026-09-22",
+        "motivo": "Visita técnica",
+        "codigos_ruta": [
+          "ruta:a",
+          "ruta:b"
+        ],
+        "relacion_ref": "rel_RRRRRRRRRRRRRRRRRRRRRR",
+        "centro_ref": "centro:uno",
+        "unidad_ref": "unidad:uno",
+        "calculo": {
+          "procedencia": "osrm_interno",
+          "version_grafo": "grafo:prueba",
+          "motor": "OSRM",
+          "version_tarifa": "provisional:rd462:20260923",
+          "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH",
+          "regla_ref": "provisional:regla:nacional-ordinaria:20260923",
+          "regla_huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "hora_inicio": "08:00",
+          "hora_fin": "18:00",
+          "kilometros": "1.0000",
+          "eur_por_km": "0.2600",
+          "importe_kilometraje_centimos": 26,
+          "tramos_ruta": [],
+          "opciones_dieta": [
+            {
+              "grupo": 1,
+              "calculo": {
+                "tramos": [
+                  {
+                    "fecha": "2026-09-21",
+                    "tipo": "manutencion",
+                    "porcentaje": 100,
+                    "importe_centimos": 1000,
+                    "version_tarifa_ref": "provisional:rd462:20260923",
+                    "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH"
+                  },
+                  {
+                    "fecha": "2026-09-21",
+                    "tipo": "alojamiento_tope_pendiente_justificante",
+                    "porcentaje": 100,
+                    "importe_centimos": 2000,
+                    "version_tarifa_ref": "provisional:rd462:20260923",
+                    "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH"
+                  },
+                  {
+                    "fecha": "2026-09-22",
+                    "tipo": "manutencion",
+                    "porcentaje": 50,
+                    "importe_centimos": 500,
+                    "version_tarifa_ref": "provisional:rd462:20260923",
+                    "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH"
+                  }
+                ],
+                "manutencion_centimos": 1500,
+                "alojamiento_tope_centimos": 2000,
+                "total_maximo_orientativo_centimos": 3500,
+                "version_tarifa_ref": "provisional:rd462:20260923",
+                "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH",
+                "regla_ref": "provisional:regla:nacional-ordinaria:20260923",
+                "regla_huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              }
+            },
+            {
+              "grupo": 2,
+              "calculo": {
+                "tramos": [
+                  {
+                    "fecha": "2026-09-21",
+                    "tipo": "manutencion",
+                    "porcentaje": 100,
+                    "importe_centimos": 2000,
+                    "version_tarifa_ref": "provisional:rd462:20260923",
+                    "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH"
+                  },
+                  {
+                    "fecha": "2026-09-21",
+                    "tipo": "alojamiento_tope_pendiente_justificante",
+                    "porcentaje": 100,
+                    "importe_centimos": 4000,
+                    "version_tarifa_ref": "provisional:rd462:20260923",
+                    "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH"
+                  },
+                  {
+                    "fecha": "2026-09-22",
+                    "tipo": "manutencion",
+                    "porcentaje": 50,
+                    "importe_centimos": 1000,
+                    "version_tarifa_ref": "provisional:rd462:20260923",
+                    "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH"
+                  }
+                ],
+                "manutencion_centimos": 3000,
+                "alojamiento_tope_centimos": 4000,
+                "total_maximo_orientativo_centimos": 7000,
+                "version_tarifa_ref": "provisional:rd462:20260923",
+                "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH",
+                "regla_ref": "provisional:regla:nacional-ordinaria:20260923",
+                "regla_huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              }
+            },
+            {
+              "grupo": 3,
+              "calculo": {
+                "tramos": [
+                  {
+                    "fecha": "2026-09-21",
+                    "tipo": "manutencion",
+                    "porcentaje": 100,
+                    "importe_centimos": 3000,
+                    "version_tarifa_ref": "provisional:rd462:20260923",
+                    "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH"
+                  },
+                  {
+                    "fecha": "2026-09-21",
+                    "tipo": "alojamiento_tope_pendiente_justificante",
+                    "porcentaje": 100,
+                    "importe_centimos": 6000,
+                    "version_tarifa_ref": "provisional:rd462:20260923",
+                    "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH"
+                  },
+                  {
+                    "fecha": "2026-09-22",
+                    "tipo": "manutencion",
+                    "porcentaje": 50,
+                    "importe_centimos": 1500,
+                    "version_tarifa_ref": "provisional:rd462:20260923",
+                    "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH"
+                  }
+                ],
+                "manutencion_centimos": 4500,
+                "alojamiento_tope_centimos": 6000,
+                "total_maximo_orientativo_centimos": 10500,
+                "version_tarifa_ref": "provisional:rd462:20260923",
+                "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH",
+                "regla_ref": "provisional:regla:nacional-ordinaria:20260923",
+                "regla_huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              }
+            }
+          ],
+          "vehiculo_propio": true,
+          "rutas": [
+            {
+              "codigos_ruta": [
+                "ruta:a",
+                "ruta:b"
+              ],
+              "version_grafo": "grafo:prueba",
+              "tramos_ruta": [
+                {
+                  "origen_codigo": "ruta:a",
+                  "destino_codigo": "ruta:b",
+                  "kilometros": "1.0000"
+                }
+              ],
+              "kilometros_base": "1.0000",
+              "ajuste_kilometros": "0.0000",
+              "motivo_ajuste": "",
+              "kilometros_finales": "1.0000",
+              "importe_centimos": 26
+            }
+          ]
+        },
+        "documento": {
+          "vehiculo_propio": true,
+          "grupo_dieta": 2,
+          "version_tarifa_aceptada": "provisional:rd462:20260923",
+          "tramos_aceptados": [
+            0,
+            1,
+            2
+          ],
+          "lineas": [
+            {
+              "tipo": "dieta",
+              "grupo": 2,
+              "indice_tramo": 0,
+              "fecha": "2026-09-21",
+              "concepto": "manutencion",
+              "importe_centimos": 2000,
+              "version_tarifa_ref": "provisional:rd462:20260923",
+              "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH"
+            },
+            {
+              "tipo": "dieta",
+              "grupo": 2,
+              "indice_tramo": 1,
+              "fecha": "2026-09-21",
+              "concepto": "alojamiento_tope_pendiente_justificante",
+              "importe_centimos": 4000,
+              "version_tarifa_ref": "provisional:rd462:20260923",
+              "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH"
+            },
+            {
+              "tipo": "dieta",
+              "grupo": 2,
+              "indice_tramo": 2,
+              "fecha": "2026-09-22",
+              "concepto": "manutencion",
+              "importe_centimos": 1000,
+              "version_tarifa_ref": "provisional:rd462:20260923",
+              "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH"
+            },
+            {
+              "tipo": "kilometraje",
+              "importe_centimos": 26,
+              "version_tarifa_ref": "provisional:rd462:20260923",
+              "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH",
+              "origen_codigo": "ruta:a",
+              "destino_codigo": "ruta:b",
+              "kilometros": "1.0000",
+              "ruta_indice": 1,
+              "kilometros_base": "1.0000",
+              "ajuste_kilometros": "0.0000",
+              "version_grafo": "grafo:prueba"
+            },
+            {
+              "tipo": "otro_medio",
+              "fecha": "2026-09-21",
+              "concepto": "Taxi estación a sede",
+              "importe_centimos": 1250,
+              "justificante_ref": "ticket:taxi-0921",
+              "justificante_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "tipo_gasto": "taxi",
+              "catalogo_version": "provisional:otros-gastos:20260925"
+            }
+          ],
+          "manutencion_centimos": 3000,
+          "alojamiento_tope_centimos": 4000,
+          "kilometraje_centimos": 26,
+          "otros_centimos": 1250,
+          "total_orientativo_centimos": 8276
+        },
+        "vehiculo_propio": true,
+        "rutas": [
+          {
+            "codigos_ruta": [
+              "ruta:a",
+              "ruta:b"
+            ],
+            "ajuste_kilometros": "0.0000",
+            "motivo_ajuste": ""
+          }
+        ],
+        "devolucion": {
+          "etapa": "autorizacion",
+          "motivo": "Falta el justificante del taxi",
+          "version": 4,
+          "devuelta_en": "2026-09-23T09:00:00.123456Z"
+        }
+      },
+      "recibo": {
+        "referencia": "rcd_0000000000000000000000",
+        "version": 5,
+        "registrado_en": "2026-09-23T09:00:00.123456Z",
+        "repeticion": false
+      }
+    }
+  },
+  {
+    "nombre": "reenviada",
+    "resultado": {
+      "comision": {
+        "referencia": "dco_DDDDDDDDDDDDDDDDDDDDDD",
+        "numero_documento": "VEC-D-2026-000001",
+        "fecha_apertura": "2026-09-20T08:00:00.000000Z",
+        "version": 6,
+        "estado": "enviado_pendiente_revision",
+        "fecha_inicio": "2026-09-21",
+        "fecha_fin": "2026-09-22",
+        "motivo": "Visita técnica",
+        "codigos_ruta": [
+          "ruta:a",
+          "ruta:b"
+        ],
+        "relacion_ref": "rel_RRRRRRRRRRRRRRRRRRRRRR",
+        "centro_ref": "centro:uno",
+        "unidad_ref": "unidad:uno",
+        "calculo": {
+          "procedencia": "osrm_interno",
+          "version_grafo": "grafo:prueba",
+          "motor": "OSRM",
+          "version_tarifa": "provisional:rd462:20260923",
+          "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH",
+          "regla_ref": "provisional:regla:nacional-ordinaria:20260923",
+          "regla_huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "hora_inicio": "08:00",
+          "hora_fin": "18:00",
+          "kilometros": "1.0000",
+          "eur_por_km": "0.2600",
+          "importe_kilometraje_centimos": 26,
+          "tramos_ruta": [],
+          "opciones_dieta": [
+            {
+              "grupo": 1,
+              "calculo": {
+                "tramos": [
+                  {
+                    "fecha": "2026-09-21",
+                    "tipo": "manutencion",
+                    "porcentaje": 100,
+                    "importe_centimos": 1000,
+                    "version_tarifa_ref": "provisional:rd462:20260923",
+                    "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH"
+                  },
+                  {
+                    "fecha": "2026-09-21",
+                    "tipo": "alojamiento_tope_pendiente_justificante",
+                    "porcentaje": 100,
+                    "importe_centimos": 2000,
+                    "version_tarifa_ref": "provisional:rd462:20260923",
+                    "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH"
+                  },
+                  {
+                    "fecha": "2026-09-22",
+                    "tipo": "manutencion",
+                    "porcentaje": 50,
+                    "importe_centimos": 500,
+                    "version_tarifa_ref": "provisional:rd462:20260923",
+                    "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH"
+                  }
+                ],
+                "manutencion_centimos": 1500,
+                "alojamiento_tope_centimos": 2000,
+                "total_maximo_orientativo_centimos": 3500,
+                "version_tarifa_ref": "provisional:rd462:20260923",
+                "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH",
+                "regla_ref": "provisional:regla:nacional-ordinaria:20260923",
+                "regla_huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              }
+            },
+            {
+              "grupo": 2,
+              "calculo": {
+                "tramos": [
+                  {
+                    "fecha": "2026-09-21",
+                    "tipo": "manutencion",
+                    "porcentaje": 100,
+                    "importe_centimos": 2000,
+                    "version_tarifa_ref": "provisional:rd462:20260923",
+                    "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH"
+                  },
+                  {
+                    "fecha": "2026-09-21",
+                    "tipo": "alojamiento_tope_pendiente_justificante",
+                    "porcentaje": 100,
+                    "importe_centimos": 4000,
+                    "version_tarifa_ref": "provisional:rd462:20260923",
+                    "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH"
+                  },
+                  {
+                    "fecha": "2026-09-22",
+                    "tipo": "manutencion",
+                    "porcentaje": 50,
+                    "importe_centimos": 1000,
+                    "version_tarifa_ref": "provisional:rd462:20260923",
+                    "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH"
+                  }
+                ],
+                "manutencion_centimos": 3000,
+                "alojamiento_tope_centimos": 4000,
+                "total_maximo_orientativo_centimos": 7000,
+                "version_tarifa_ref": "provisional:rd462:20260923",
+                "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH",
+                "regla_ref": "provisional:regla:nacional-ordinaria:20260923",
+                "regla_huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              }
+            },
+            {
+              "grupo": 3,
+              "calculo": {
+                "tramos": [
+                  {
+                    "fecha": "2026-09-21",
+                    "tipo": "manutencion",
+                    "porcentaje": 100,
+                    "importe_centimos": 3000,
+                    "version_tarifa_ref": "provisional:rd462:20260923",
+                    "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH"
+                  },
+                  {
+                    "fecha": "2026-09-21",
+                    "tipo": "alojamiento_tope_pendiente_justificante",
+                    "porcentaje": 100,
+                    "importe_centimos": 6000,
+                    "version_tarifa_ref": "provisional:rd462:20260923",
+                    "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH"
+                  },
+                  {
+                    "fecha": "2026-09-22",
+                    "tipo": "manutencion",
+                    "porcentaje": 50,
+                    "importe_centimos": 1500,
+                    "version_tarifa_ref": "provisional:rd462:20260923",
+                    "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH"
+                  }
+                ],
+                "manutencion_centimos": 4500,
+                "alojamiento_tope_centimos": 6000,
+                "total_maximo_orientativo_centimos": 10500,
+                "version_tarifa_ref": "provisional:rd462:20260923",
+                "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH",
+                "regla_ref": "provisional:regla:nacional-ordinaria:20260923",
+                "regla_huella_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              }
+            }
+          ],
+          "vehiculo_propio": true,
+          "rutas": [
+            {
+              "codigos_ruta": [
+                "ruta:a",
+                "ruta:b"
+              ],
+              "version_grafo": "grafo:prueba",
+              "tramos_ruta": [
+                {
+                  "origen_codigo": "ruta:a",
+                  "destino_codigo": "ruta:b",
+                  "kilometros": "1.0000"
+                }
+              ],
+              "kilometros_base": "1.0000",
+              "ajuste_kilometros": "0.0000",
+              "motivo_ajuste": "",
+              "kilometros_finales": "1.0000",
+              "importe_centimos": 26
+            }
+          ]
+        },
+        "documento": {
+          "vehiculo_propio": true,
+          "grupo_dieta": 2,
+          "version_tarifa_aceptada": "provisional:rd462:20260923",
+          "tramos_aceptados": [
+            0,
+            1,
+            2
+          ],
+          "lineas": [
+            {
+              "tipo": "dieta",
+              "grupo": 2,
+              "indice_tramo": 0,
+              "fecha": "2026-09-21",
+              "concepto": "manutencion",
+              "importe_centimos": 2000,
+              "version_tarifa_ref": "provisional:rd462:20260923",
+              "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH"
+            },
+            {
+              "tipo": "dieta",
+              "grupo": 2,
+              "indice_tramo": 1,
+              "fecha": "2026-09-21",
+              "concepto": "alojamiento_tope_pendiente_justificante",
+              "importe_centimos": 4000,
+              "version_tarifa_ref": "provisional:rd462:20260923",
+              "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH"
+            },
+            {
+              "tipo": "dieta",
+              "grupo": 2,
+              "indice_tramo": 2,
+              "fecha": "2026-09-22",
+              "concepto": "manutencion",
+              "importe_centimos": 1000,
+              "version_tarifa_ref": "provisional:rd462:20260923",
+              "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH"
+            },
+            {
+              "tipo": "kilometraje",
+              "importe_centimos": 26,
+              "version_tarifa_ref": "provisional:rd462:20260923",
+              "rotulo": "PROVISIONAL · pendiente de confirmación por RRHH",
+              "origen_codigo": "ruta:a",
+              "destino_codigo": "ruta:b",
+              "kilometros": "1.0000",
+              "ruta_indice": 1,
+              "kilometros_base": "1.0000",
+              "ajuste_kilometros": "0.0000",
+              "version_grafo": "grafo:prueba"
+            },
+            {
+              "tipo": "otro_medio",
+              "fecha": "2026-09-21",
+              "concepto": "Taxi estación a sede",
+              "importe_centimos": 1250,
+              "justificante_ref": "ticket:taxi-0921",
+              "justificante_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "tipo_gasto": "taxi",
+              "catalogo_version": "provisional:otros-gastos:20260925"
+            }
+          ],
+          "manutencion_centimos": 3000,
+          "alojamiento_tope_centimos": 4000,
+          "kilometraje_centimos": 26,
+          "otros_centimos": 1250,
+          "total_orientativo_centimos": 8276
+        },
+        "vehiculo_propio": true,
+        "rutas": [
+          {
+            "codigos_ruta": [
+              "ruta:a",
+              "ruta:b"
+            ],
+            "ajuste_kilometros": "0.0000",
+            "motivo_ajuste": ""
+          }
+        ]
+      },
+      "recibo": {
+        "referencia": "rcd_0000000000000000000000",
+        "version": 6,
+        "registrado_en": "2026-09-23T09:00:00.123456Z",
+        "repeticion": false
+      }
+    }
+  },
+  {
+    "nombre": "borrador_nuevo",
+    "resultado": {
+      "comision": {
+        "referencia": "dco_BBBBBBBBBBBBBBBBBBBBBB",
+        "estado": "borrador",
+        "fecha_inicio": "2026-09-24",
+        "fecha_fin": "2026-09-24",
+        "motivo": "Borrador nuevo",
+        "codigos_ruta": [],
+        "relacion_ref": "rel_RRRRRRRRRRRRRRRRRRRRRR"
+      },
+      "recibo": {
+        "referencia": "rcd_0000000000000000000000",
+        "version": 1,
+        "registrado_en": "2026-09-23T09:00:00.123456Z",
+        "repeticion": false
+      }
+    }
+  }
+]

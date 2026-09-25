@@ -1,4 +1,4 @@
-import { traducirPortal } from "./portal-i18n.js?v=20260925-e10-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260925-d5d6-v1";
 
 /** Contenido de ayuda sustituible por catálogo o conector, sin lógica de negocio. */
 export const AYUDA_PORTAL_BOLSA = Object.freeze({
@@ -57,6 +57,14 @@ export const TRAMITES_AYUDANTE_PORTAL = Object.freeze([
     pasos: Object.freeze([
       Object.freeze({ selector: "[data-dietas-area-itinerario]", bloqueado: false, titulo: traducirPortal("ayuda_contenido_054"), instruccion: traducirPortal("ayuda_contenido_055"), objetivo: traducirPortal("ayuda_contenido_056"), preparacion: traducirPortal("ayuda_contenido_057"), resultado: traducirPortal("ayuda_contenido_058"), actor: traducirPortal("ayuda_contenido_059"), limite: traducirPortal("ayuda_contenido_060") }),
       Object.freeze({ selector: "[data-dietas-area-itinerario]", bloqueado: false, titulo: traducirPortal("ayuda_contenido_061"), instruccion: traducirPortal("ayuda_contenido_062"), objetivo: traducirPortal("ayuda_contenido_063"), preparacion: traducirPortal("ayuda_contenido_064"), resultado: traducirPortal("ayuda_contenido_065"), actor: traducirPortal("ayuda_contenido_066"), limite: traducirPortal("ayuda_contenido_067") }),
+    ]),
+  }),
+  Object.freeze({
+    id: "dietas-revisar-documento", titulo: traducirPortal("ayuda_contenido_319"), modulo: traducirPortal("ayuda_contenido_320"), vista: "dietas", selector: "[data-dietas-bandeja-circuito]",
+    resumen: traducirPortal("ayuda_contenido_321"),
+    pasos: Object.freeze([
+      Object.freeze({ selector: "[data-dietas-bandeja-circuito]", bloqueado: false, titulo: traducirPortal("ayuda_contenido_322"), instruccion: traducirPortal("ayuda_contenido_323"), objetivo: traducirPortal("ayuda_contenido_324"), preparacion: traducirPortal("ayuda_contenido_325"), resultado: traducirPortal("ayuda_contenido_326"), actor: traducirPortal("ayuda_contenido_327"), limite: traducirPortal("ayuda_contenido_328") }),
+      Object.freeze({ selector: "[data-dietas-bandeja-circuito]", bloqueado: false, titulo: traducirPortal("ayuda_contenido_329"), instruccion: traducirPortal("ayuda_contenido_330"), objetivo: traducirPortal("ayuda_contenido_331"), preparacion: traducirPortal("ayuda_contenido_332"), resultado: traducirPortal("ayuda_contenido_333"), actor: traducirPortal("ayuda_contenido_334"), limite: traducirPortal("ayuda_contenido_335") }),
     ]),
   }),
   Object.freeze({
