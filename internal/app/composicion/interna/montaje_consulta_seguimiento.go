@@ -30,17 +30,18 @@ type extractorAsercionInstitucional interface {
 // El cargador transfiere los once pools y recursos auxiliares a la aplicación.
 // ConfiguracionV2 incluye F1 registrado, V3 y roles PostgreSQL acreditados.
 type proveedoresConsultaSeguimiento struct {
-	identidad          *httpseguridad.ServicioIdentidad
-	extractor          extractorAsercionInstitucional
-	autoridadRutas     httpapi.AutoridadRutasExactas
-	auditoriaRutas     vecports.RegistradorAuditoriaFronteraRutaExacta
-	vincularPersonalB2 func(context.Context) (context.Context, error)
-	fichaPersonalB2    http.Handler
-	vacantesPersonalB2 http.Handler
-	altaPersonalB2     http.Handler
-	hechoPersonalB2    http.Handler
-	configuracionV2    inc.ConfiguracionServidorV2PostgreSQL
-	recursos           []recursoCerrableAplicacionInterna
+	identidad           *httpseguridad.ServicioIdentidad
+	extractor           extractorAsercionInstitucional
+	autoridadRutas      httpapi.AutoridadRutasExactas
+	auditoriaRutas      vecports.RegistradorAuditoriaFronteraRutaExacta
+	vincularPersonalB2  func(context.Context) (context.Context, error)
+	fichaPersonalB2     http.Handler
+	vacantesPersonalB2  http.Handler
+	altaPersonalB2      http.Handler
+	hechoPersonalB2     http.Handler
+	catalogosPersonalB2 http.Handler
+	configuracionV2     inc.ConfiguracionServidorV2PostgreSQL
+	recursos            []recursoCerrableAplicacionInterna
 }
 
 // La carga exige que todas las autoridades estén presentes antes de abrir red.
@@ -82,23 +83,20 @@ func (p *puenteConsultaSeguimiento) ServeHTTP(w http.ResponseWriter, r *http.Req
 	}
 	preparada, err := httpseguridad.PrepararPeticionAsercionPasarela(r, p.limiteCuerpo)
 	if err != nil {
-		p.auditarAutenticacionRequerida(r.Context(), r.URL.Path)
-		responderPuenteSeguimiento(w, http.StatusUnauthorized)
+		p.responderAutenticacionRequerida(w, r.Context(), r.URL.Path)
 		return
 	}
 	defer preparada.Body.Close()
 	asercion, err := p.extractor.ExtraerAsercionProtegida(preparada)
 	if err != nil || len(asercion) == 0 {
 		clear(asercion)
-		p.auditarAutenticacionRequerida(preparada.Context(), preparada.URL.Path)
-		responderPuenteSeguimiento(w, http.StatusUnauthorized)
+		p.responderAutenticacionRequerida(w, preparada.Context(), preparada.URL.Path)
 		return
 	}
 	defer clear(asercion)
 	ctx, err := p.fachada.Load().AutenticarYVincular(preparada.Context(), asercion)
 	if err != nil || ctx == nil {
-		p.auditarAutenticacionRequerida(preparada.Context(), preparada.URL.Path)
-		responderPuenteSeguimiento(w, http.StatusUnauthorized)
+		p.responderAutenticacionRequerida(w, preparada.Context(), preparada.URL.Path)
 		return
 	}
 	if preparada.URL.Path != httpct.RutaConsultaSeguimientoV2 {
@@ -123,7 +121,8 @@ func (p *puenteConsultaSeguimiento) auditarDenegacionPersonalB2(ctx context.Cont
 	if p == nil || ctx == nil || interfazNulaIdentidadOffline(p.auditoria) {
 		return false
 	}
-	if ruta != httpapi.RutaVacantesEmpleadoB2 && ruta != "/api/vec/personal/empleados" && ruta != "/api/vec/personal/hechos" {
+	if ruta != httpapi.RutaVacantesEmpleadoB2 && ruta != httpapi.RutaCatalogosRegistroEmpleadoB2 &&
+		ruta != "/api/vec/personal/empleados" && ruta != "/api/vec/personal/hechos" {
 		ruta = "/api/vec/personal/empleados/{emp_ref}"
 	}
 	orden := vecports.OrdenAuditoriaFronteraRutaExacta{
@@ -144,15 +143,24 @@ func (p *puenteConsultaSeguimiento) auditarDenegacionPersonalB2(ctx context.Cont
 	return true
 }
 
-func (p *puenteConsultaSeguimiento) auditarAutenticacionRequerida(ctx context.Context, ruta string) {
-	if p == nil || ctx == nil || interfazNulaIdentidadOffline(p.auditoria) {
+func (p *puenteConsultaSeguimiento) responderAutenticacionRequerida(w http.ResponseWriter, ctx context.Context, ruta string) {
+	if p.auditarAutenticacionRequerida(ctx, ruta) {
+		responderPuenteSeguimiento(w, http.StatusUnauthorized)
 		return
+	}
+	responderPuenteSeguimiento(w, http.StatusServiceUnavailable)
+}
+
+func (p *puenteConsultaSeguimiento) auditarAutenticacionRequerida(ctx context.Context, ruta string) bool {
+	if p == nil || ctx == nil || interfazNulaIdentidadOffline(p.auditoria) {
+		return false
 	}
 	correlacion := correlacionDenegacionSeguimiento()
 	superficie := vecports.SuperficieAuditoriaFronteraRutaExactaContratacionTemporal
 	if ruta != httpct.RutaConsultaSeguimientoV2 {
 		superficie = vecports.SuperficieAuditoriaFronteraRutaExactaPersonal
-		if ruta != httpapi.RutaVacantesEmpleadoB2 && ruta != "/api/vec/personal/empleados" && ruta != "/api/vec/personal/hechos" {
+		if ruta != httpapi.RutaVacantesEmpleadoB2 && ruta != httpapi.RutaCatalogosRegistroEmpleadoB2 &&
+			ruta != "/api/vec/personal/empleados" && ruta != "/api/vec/personal/hechos" {
 			ruta = "/api/vec/personal/empleados/{emp_ref}"
 		}
 	}
@@ -163,13 +171,15 @@ func (p *puenteConsultaSeguimiento) auditarAutenticacionRequerida(ctx context.Co
 		Ruta:           ruta,
 	}
 	if orden.Validar() != nil {
-		return
+		return false
 	}
 	ctxAuditoria, cancelar := context.WithTimeout(context.WithoutCancel(ctx), plazoAuditoriaDenegacionSeguimiento)
 	defer cancelar()
 	if err := p.auditoria.RegistrarAuditoriaFronteraRutaExacta(ctxAuditoria, orden); err != nil {
 		log.Printf("composicion interna: auditoria_frontera_no_registrada correlacion=%s", correlacion)
+		return false
 	}
+	return true
 }
 
 func correlacionDenegacionSeguimiento() string {
@@ -199,12 +209,8 @@ func nuevaAPIConsultaSeguimiento(p proveedoresConsultaSeguimiento, s *inc.Servid
 	if err != nil {
 		return nil, ErrAPIInternaNoDisponible
 	}
-	if manejadorNulo(p.fichaPersonalB2) && manejadorNulo(p.vacantesPersonalB2) &&
-		manejadorNulo(p.altaPersonalB2) && manejadorNulo(p.hechoPersonalB2) {
-		return ctAPI, nil
-	}
 	return nuevoEnrutadorPersonalB2(ctAPI, p.fichaPersonalB2, p.vacantesPersonalB2,
-		p.altaPersonalB2, p.hechoPersonalB2, p.autoridadRutas, p.auditoriaRutas)
+		p.altaPersonalB2, p.hechoPersonalB2, p.catalogosPersonalB2, p.autoridadRutas, p.auditoriaRutas)
 }
 
 func componerConsultaSeguimiento(ctx context.Context, cfg Configuracion, p proveedoresConsultaSeguimiento) (*AplicacionInterna, error) {
@@ -238,7 +244,8 @@ func componerConsultaSeguimiento(ctx context.Context, cfg Configuracion, p prove
 	puente := &puenteConsultaSeguimiento{extractor: p.extractor, api: api, auditoria: p.auditoriaRutas, limiteCuerpo: limiteCuerpo,
 		vincularB2: p.vincularPersonalB2,
 		personalB2: !manejadorNulo(p.fichaPersonalB2) && !manejadorNulo(p.vacantesPersonalB2) &&
-			!manejadorNulo(p.altaPersonalB2) && !manejadorNulo(p.hechoPersonalB2)}
+			!manejadorNulo(p.altaPersonalB2) && !manejadorNulo(p.hechoPersonalB2) &&
+			!manejadorNulo(p.catalogosPersonalB2)}
 	servidor, err := construirServidorInterno(cfg, puente)
 	if err != nil {
 		return nil, err

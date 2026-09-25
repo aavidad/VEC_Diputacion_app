@@ -12,21 +12,30 @@ import (
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
-// enrutadorPersonalB2 conserva el manejador CT y añade cuatro
+// enrutadorPersonalB2 conserva el manejador CT y añade cinco
 // superficies B2 explícitas. La consulta de la ficha valida su emp_ref en el
 // adaptador; ninguna ruta desconocida entra al módulo.
 type enrutadorPersonalB2 struct {
-	ct, ficha, vacantes, alta, hecho http.Handler
-	autoridad                        httpapi.AutoridadRutasExactas
-	auditoria                        vecports.RegistradorAuditoriaFronteraRutaExacta
+	ct, ficha, vacantes, alta, hecho, catalogos http.Handler
+	autoridad                                   httpapi.AutoridadRutasExactas
+	auditoria                                   vecports.RegistradorAuditoriaFronteraRutaExacta
+	personalActivo                              bool
 }
 
-func nuevoEnrutadorPersonalB2(ct, ficha, vacantes, alta, hecho http.Handler, autoridad httpapi.AutoridadRutasExactas, auditoria vecports.RegistradorAuditoriaFronteraRutaExacta) (http.Handler, error) {
-	if manejadorNulo(ct) || manejadorNulo(ficha) || manejadorNulo(vacantes) || manejadorNulo(alta) || manejadorNulo(hecho) ||
-		interfazNulaIdentidadOffline(autoridad) || interfazNulaIdentidadOffline(auditoria) {
+func nuevoEnrutadorPersonalB2(ct, ficha, vacantes, alta, hecho, catalogos http.Handler, autoridad httpapi.AutoridadRutasExactas, auditoria vecports.RegistradorAuditoriaFronteraRutaExacta) (http.Handler, error) {
+	if manejadorNulo(ct) || interfazNulaIdentidadOffline(autoridad) || interfazNulaIdentidadOffline(auditoria) {
 		return nil, ErrAPIInternaNoDisponible
 	}
-	return &enrutadorPersonalB2{ct, ficha, vacantes, alta, hecho, autoridad, auditoria}, nil
+	presentes := 0
+	for _, h := range []http.Handler{ficha, vacantes, alta, hecho, catalogos} {
+		if !manejadorNulo(h) {
+			presentes++
+		}
+	}
+	if presentes != 0 && presentes != 5 {
+		return nil, ErrAPIInternaNoDisponible
+	}
+	return &enrutadorPersonalB2{ct, ficha, vacantes, alta, hecho, catalogos, autoridad, auditoria, presentes == 5}, nil
 }
 
 func (e *enrutadorPersonalB2) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -36,6 +45,10 @@ func (e *enrutadorPersonalB2) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	}
 	if r.URL.Path == httpct.RutaConsultaSeguimientoV2 {
 		e.ct.ServeHTTP(w, r)
+		return
+	}
+	if !e.personalActivo {
+		responderPuenteSeguimiento(w, http.StatusNotFound)
 		return
 	}
 	if !internagobierno.RutaInternaGobernada(r.URL.Path) || r.URL.RawPath != "" ||
@@ -54,7 +67,8 @@ func (e *enrutadorPersonalB2) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		}
 		if estado != http.StatusServiceUnavailable {
 			rutaAuditoria := r.URL.Path
-			if r.URL.Path != httpapi.RutaVacantesEmpleadoB2 && r.URL.Path != "/api/vec/personal/empleados" && r.URL.Path != "/api/vec/personal/hechos" {
+			if r.URL.Path != httpapi.RutaVacantesEmpleadoB2 && r.URL.Path != httpapi.RutaCatalogosRegistroEmpleadoB2 &&
+				r.URL.Path != "/api/vec/personal/empleados" && r.URL.Path != "/api/vec/personal/hechos" {
 				rutaAuditoria = "/api/vec/personal/empleados/{emp_ref}"
 			}
 			orden := vecports.OrdenAuditoriaFronteraRutaExacta{
@@ -81,6 +95,10 @@ func (e *enrutadorPersonalB2) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	}
 	if r.URL.Path == "/api/vec/personal/hechos" {
 		e.hecho.ServeHTTP(w, r)
+		return
+	}
+	if r.URL.Path == httpapi.RutaCatalogosRegistroEmpleadoB2 {
+		e.catalogos.ServeHTTP(w, r)
 		return
 	}
 	e.ficha.ServeHTTP(w, r)

@@ -11,9 +11,6 @@ import (
 	"vec-diputacion-granada/internal/app/composicion/internactproveedores"
 	"vec-diputacion-granada/internal/app/composicion/internagobierno"
 	inc "vec-diputacion-granada/internal/app/incorporacionejercicio"
-	personalpg "vec-diputacion-granada/internal/modules/personal/adapters/postgres"
-	personalapp "vec-diputacion-granada/internal/modules/personal/application"
-	"vec-diputacion-granada/internal/vec/adapters/httpapi"
 	"vec-diputacion-granada/internal/vec/adapters/httpseguridad"
 	seguridad "vec-diputacion-granada/internal/vec/adapters/seguridad"
 	"vec-diputacion-granada/internal/vec/adapters/seudonimizacionpkcs11"
@@ -189,60 +186,22 @@ func cargarProveedoresGobernados(ctx context.Context, cfg Configuracion) (provee
 	configuracionV2.Preparacion.TernaPersonal = recursos.ct.TernaPersonal
 	configuracionV2.Preparacion.Reloj = reloj
 	configuracionV2.PoliticaConsultaDesarrollo = &politica
-	if err := acreditarPoolPersonalB2(ctx, configuracionV2.AltaPersonal, materialCT.AltaPersonal.Login); err != nil {
-		return vacio, ErrDependenciasProductivasNoDisponibles
-	}
-	materialPersonalB2, err := internactproveedores.CargarMaterialPersonalB2(directorio)
-	if err != nil {
-		return vacio, ErrDependenciasProductivasNoDisponibles
-	}
-	defer materialPersonalB2.Cerrar()
-	proveedorPersonalB2, err := internactproveedores.ConstruirPersonalB2(ctx,
-		internactproveedores.ConfiguracionPersonalB2{
-			Material: materialPersonalB2, Base: recursos.ct, Fuente: fuenteF1, Reloj: reloj,
-		})
-	if err != nil {
-		return vacio, ErrDependenciasProductivasNoDisponibles
-	}
-	recursos.personalB2 = proveedorPersonalB2
-	repositorioPersonalB2, err := personalpg.NuevoRepositorioRegistroEmpleadoB2PostgreSQL(configuracionV2.AltaPersonal)
-	if err != nil {
-		return vacio, ErrDependenciasProductivasNoDisponibles
-	}
-	consultaPersonalB2, err := personalapp.NuevoServicioRegistroEmpleadoB2(proveedorPersonalB2, repositorioPersonalB2)
-	if err != nil {
-		return vacio, ErrDependenciasProductivasNoDisponibles
-	}
-	actosPersonalB2, err := personalapp.NuevoServicioActosRegistroEmpleadoB2(proveedorPersonalB2, repositorioPersonalB2)
-	if err != nil {
-		return vacio, ErrDependenciasProductivasNoDisponibles
-	}
-	autoridadPersonalB2 := internactproveedores.AutoridadContextoRegistroEmpleadoB2{Fuente: fuenteF1}
-	auditorPersonalB2 := internactproveedores.AuditorDenegacionRegistroEmpleadoB2{Registrador: auditoria}
-	fichaPersonalB2, err := httpapi.NewHandlerFichaEmpleadoB2(autoridadPersonalB2, consultaPersonalB2, auditorPersonalB2)
-	if err != nil {
-		return vacio, ErrDependenciasProductivasNoDisponibles
-	}
-	vacantesPersonalB2, err := httpapi.NewHandlerVacantesEmpleadoB2(autoridadPersonalB2, consultaPersonalB2, auditorPersonalB2)
-	if err != nil {
-		return vacio, ErrDependenciasProductivasNoDisponibles
-	}
-	altaPersonalB2, err := httpapi.NewHandlerAltaEmpleadoB2(autoridadPersonalB2, actosPersonalB2, auditorPersonalB2)
-	if err != nil {
-		return vacio, ErrDependenciasProductivasNoDisponibles
-	}
-	hechoPersonalB2, err := httpapi.NewHandlerHechosEmpleadoB2(autoridadPersonalB2, actosPersonalB2, auditorPersonalB2)
-	if err != nil {
-		return vacio, ErrDependenciasProductivasNoDisponibles
+	personalB2, disponible := montarPersonalB2Gobernado(ctx, directorio, materialCT.AltaPersonal.Login,
+		configuracionV2.AltaPersonal, recursos.ct, fuenteF1, auditoria, reloj)
+	if disponible {
+		recursos.personalB2 = personalB2.proveedor
 	}
 	salida := proveedoresConsultaSeguimiento{
 		identidad: identidad, extractor: extractor,
 		autoridadRutas: autoridadRuta, auditoriaRutas: auditoria,
-		vincularPersonalB2: fuenteF1.VincularContextoPersonalB2,
-		fichaPersonalB2:    fichaPersonalB2, vacantesPersonalB2: vacantesPersonalB2,
-		altaPersonalB2: altaPersonalB2, hechoPersonalB2: hechoPersonalB2,
 		configuracionV2: configuracionV2,
 		recursos:        []recursoCerrableAplicacionInterna{recursos},
+	}
+	if disponible {
+		salida.vincularPersonalB2 = fuenteF1.VincularContextoPersonalB2
+		salida.fichaPersonalB2, salida.vacantesPersonalB2 = personalB2.ficha, personalB2.vacantes
+		salida.altaPersonalB2, salida.hechoPersonalB2 = personalB2.alta, personalB2.hecho
+		salida.catalogosPersonalB2 = personalB2.catalogos
 	}
 	exito = true
 	return salida, nil
