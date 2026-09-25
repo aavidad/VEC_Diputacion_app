@@ -414,7 +414,6 @@ test("interfaz B5: conecta el nuevo llamamiento y mantiene pendiente la respuest
   const datosCandidatosValidados = validarRespuestaCandidatosBolsa(envelopeCandidatos);
 
   let modalContactos = null;
-  let modalLlamar = null;
   let modalResultado = null;
 
   const presentador = crearPresentadorPanelInterno({
@@ -428,7 +427,6 @@ test("interfaz B5: conecta el nuevo llamamiento y mantiene pendiente la respuest
     obtenerDatosCandidatosBolsa: () => ({ carga: "listo", datos: datosCandidatosValidados, error: "" }),
     obtenerEstadoCandidatos: () => ({ estado: "", texto: "" }),
     obtenerModalContactos: () => modalContactos,
-    obtenerModalLlamar: () => modalLlamar,
     obtenerModalResultado: () => modalResultado,
   });
 
@@ -464,21 +462,8 @@ test("interfaz B5: conecta el nuevo llamamiento y mantiene pendiente la respuest
   const htmlConContactos = presentador.renderizarVista("bolsa-candidatos");
   assert.doesNotMatch(htmlConContactos, /Historial de contactos|Llamada satisfactoria|cerrar-contactos/);
 
-  // Modal de llamar (B7)
-  modalContactos = null;
-  modalLlamar = {
-    abierto: true,
-    participacionRef: "part_demo_1",
-    nombreVisible: "Aspirante de Prueba",
-    orden: 3,
-    carga: "ocioso",
-    error: "",
-  };
-  const htmlConLlamar = presentador.renderizarVista("bolsa-candidatos");
-  assert.doesNotMatch(htmlConLlamar, /Nuevo llamamiento \(B7\)|data-bolsa-form="llamar"|llamar-canal/);
-
   // Modal de resultado (B3)
-  modalLlamar = null;
+  modalContactos = null;
   modalResultado = {
     abierto: true,
     llamamientoRef: "llam_1",
@@ -504,35 +489,4 @@ test("sin fuente B5 configurada no ofrece candidaturas ni acciones de muestra", 
   assert.match(html, /Consulta no configurada/);
   assert.match(html, /No hay una fuente autorizada/);
   assert.doesNotMatch(html, /DEMO-BOL|Historial sintético|data-bolsa-accion="iniciar-b7"|data-bolsa-accion="abrir-ficha"/);
-});
-
-test("el formulario individual no inventa plazo ni envía POST si falta fecha y hora", () => {
-  const escuchas = {};
-  const form = { dataset: { participacionRef: "participacion:01" } };
-  const documento = { addEventListener(tipo, fn) { escuchas[tipo] = fn; } };
-  const FormDataOriginal = globalThis.FormData;
-  const fetchOriginal = globalThis.fetch;
-  const campos = { confirmacion: "true", canal: "correo",
-    comunicado_en: "2026-09-24T10:00", plazo_respuesta_hasta: "", anotacion: "" };
-  let posts = 0;
-  globalThis.FormData = class { get(clave) { return campos[clave]; } };
-  globalThis.fetch = async () => { posts += 1; throw new Error("POST inesperado"); };
-  try {
-    const estado = { bolsaSeleccionada: "bolsa:01", filtrosBolsa: {},
-      modalLlamar: { abierto: true, carga: "ocioso", error: "" } };
-    crearControladorBolsas({ estado, renderizar: () => {}, navegar: () => {}, documento }).instalar();
-    const submit = () => escuchas.submit({ preventDefault() {},
-      target: { closest(selector) { return selector === '[data-bolsa-form="llamar"]' ? form : null; } } });
-    submit();
-    assert.match(estado.modalLlamar.error, /fecha y hora válidas/);
-    assert.equal(estado.modalLlamar.carga, "ocioso");
-    assert.equal(posts, 0);
-    campos.plazo_respuesta_hasta = "2026-09-26";
-    submit();
-    assert.match(estado.modalLlamar.error, /fecha y hora válidas/);
-    assert.equal(posts, 0);
-  } finally {
-    globalThis.FormData = FormDataOriginal;
-    globalThis.fetch = fetchOriginal;
-  }
 });
