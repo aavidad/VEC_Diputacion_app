@@ -231,6 +231,12 @@ type PaginaCuadroRRHH struct {
 	CursorSiguiente string                  `json:"cursor_siguiente,omitempty"`
 	Lectura         ReciboLecturaRRHH       `json:"-"`
 	Totales         *TotalesCuadroRRHH      `json:"totales,omitempty"`
+	// FasesDesde (CT-000110) es opcional: instante de entrada en la fase
+	// actual de cada expediente, alineado con Expedientes y fuera del canon.
+	FasesDesde []time.Time `json:"-"`
+	// Plazos es opcional y lo calcula la aplicación con el catálogo de
+	// reglas; alineado con Expedientes, nil donde la fase no tiene plazo.
+	Plazos []*PlazoFaseRRHH `json:"-"`
 }
 
 type TotalesCuadroRRHH struct {
@@ -260,7 +266,7 @@ func (p PaginaCuadroRRHH) ValidarContenidoPublicablePara(
 		(p.Totales != nil && (!p.Totales.validar() ||
 			p.Totales.Total < uint64(len(p.Expedientes)))) ||
 		(p.HayMas && !cursorRRHHValido(p.CursorSiguiente)) ||
-		(!p.HayMas && p.CursorSiguiente != "") {
+		(!p.HayMas && p.CursorSiguiente != "") || !p.fasesDesdeValidas() {
 		return ErrResultadoConsultaRRHHNoConfiable
 	}
 	vistas := make(map[string]struct{}, len(p.Expedientes))

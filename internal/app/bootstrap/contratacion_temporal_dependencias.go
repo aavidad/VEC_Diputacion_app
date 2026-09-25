@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"vec-diputacion-granada/config"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 )
 
@@ -19,6 +20,8 @@ type DependenciasCT struct {
 	registro   io.Writer
 	reloj      relojContratacionTemporalDesarrollo
 	sello      *selloConsultasContratacionTemporalDesarrollo
+	// plazosFase es opcional: vencimiento de la fase según el catálogo.
+	plazosFase ports.CalculadoraPlazoFaseRRHH
 	cerrar     func()
 	unaVez     sync.Once
 }

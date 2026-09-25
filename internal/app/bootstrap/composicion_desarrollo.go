@@ -237,15 +237,14 @@ func nuevoServidorDesarrollo(
 			cerrarCalendarios()
 		}
 	}()
-	// Enganche de las reglas de ejemplo: los módulos de Bolsa y Contratación
-	// temporal recibirán reglasEjemplo.bolsa y reglasEjemplo.contratacionTemporal.
+	// Reglas de ejemplo: Contratación temporal las usa para el plazo de la
+	// fase en el cuadro; Bolsa recibirá reglasEjemplo.bolsa.
 	reglasEjemplo, err := nuevasReglasEjemploDesarrollo(cfg, consultaCalendarios, relojCalendariosDesarrollo{})
 	if err != nil {
 		return nil, nil, err
 	}
-	_ = reglasEjemplo
-	rutasContratacion, autoridadContratacion, cerrarContratacion, err := nuevasRutasContratacionTemporalDesarrollo(
-		cfg, resolvedor, composicion.derivadorIdempotencia, composicion.emisorKMS, registro, incorporacion...,
+	rutasContratacion, autoridadContratacion, cerrarContratacion, err := nuevasRutasContratacionTemporalDesarrolloConPlazos(
+		cfg, nuevaCalculadoraPlazoFaseCT(reglasEjemplo.contratacionTemporal), resolvedor, composicion.derivadorIdempotencia, composicion.emisorKMS, registro, incorporacion...,
 	)
 	if err != nil {
 		return nil, nil, err
