@@ -8,12 +8,12 @@ import { crearAyudanteTramites } from "./ayudante-tramites.js?v=20260926-portal-
 import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20260926-portal-rrhh-main-v1";
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20260926-portal-rrhh-main-v1";
 import { crearVistasOperaciones } from "./portal-vistas-operaciones.js?v=20260924-f2-shell-v1";
-import { CLAVES_SIN_ENTRADA_PORTAL, CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260926-portal-rrhh-main-v1";
+import { CLAVES_SIN_ENTRADA_PORTAL, CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260926-recorrido-main-v1";
 import { crearTraductorDocumentos } from "./modulos/documentos/i18n.js?v=20260925-documentos-web-v3";
 import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20260926-portal-rrhh-main-v1";
 import { crearTraductorPersonal } from "./modulos/personal/i18n.js?v=20260925-personal-e10-v1";
 import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260926-portal-rrhh-main-v1";
-import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa, resumenAccesosModulos, sincronizarMenuBolsa, vistaBolsaNavegable, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260926-portal-rrhh-main-v1";
+import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa, resumenAccesosModulos, sincronizarMenuBolsa, vistaBolsaNavegable, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260926-recorrido-main-v1";
 import { traducirPortal } from "./portal-i18n.js?v=20260926-portal-rrhh-main-v1";
 import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20260926-portal-rrhh-main-v1";
 import { crearSuperficieBorradorLlamamiento } from "./portal-borrador-llamamiento-ui.js?v=20260921-bback01-v1";
@@ -302,16 +302,13 @@ async function actualizarSesionVisible() {
 // de módulo pedida por el enlace se monta en cuanto está disponible, una sola
 // vez; si estaba «Comprobando» y su módulo termina sin estarlo, se repinta.
 let inicioComprobando = false;
-// Elaboración se ofrece en el menú según su API de borradores. Se comprueba en
-// cuanto el catálogo confirma Bolsa para esta sesión, en paralelo y sin
-// esperarla; al responder, la superficie avisa y el menú se repinta.
-function comprobarBorradoresTrasCatalogo() {
-  if (!coordinadorModulos.obtenerCatalogo().some((modulo) => modulo.clave === "bolsa")) return;
-  if (superficieBorradores.obtenerAcceso()?.estado !== "cargando") return;
-  void superficieBorradores.comprobarDisponibilidad().catch(() => {});
-}
+// La API de borradores de convocatorias NO se sondea al cargar: un servidor que
+// no la sirve respondería 404 en cada carga. Elaboración solo se ofrece en el
+// menú cuando consta disponible; al abrirla por su enlace se comprueba entonces.
 function alCambiarModulos(clave) {
-  if (clave === "catalogo") comprobarBorradoresTrasCatalogo();
+  // Una vista de un módulo sin entrada (URL directa) arranca su carga diferida
+  // en cuanto el catálogo la autoriza.
+  if (clave === "catalogo") coordinadorModulos.prepararVista(estado.vista);
   if (estado.vista === "portal") { renderizarConservandoFoco(); anunciarAccesosComprobados(); return; }
   if (coordinadorModulos.vistaGestionada(estado.vista) && estado.vistaMontada !== estado.vista
     && (coordinadorModulos.vistaDisponible(estado.vista)
@@ -374,12 +371,15 @@ let secuenciaFuente = 0;
 async function cargarFuenteDatos() {
   const intento = ++secuenciaFuente;
   estado.errorFuente = "";
-  estado.vistaMontada = "";
+  // Una vista de Bolsa ya montada no depende del catálogo de módulos: se
+  // conserva (el coordinador tampoco la retira) y no se vuelve a montar.
+  if (moduloDeVistaPortal(estado.vistaMontada || "") !== "bolsa") estado.vistaMontada = "";
   estado.vistaCerrada = "";
   // La disponibilidad de Bolsa en Inicio y en el menú la decide la API real del
   // cuadro de bolsas: se consulta en paralelo con el catálogo, sin esperarla ni
-  // bloquear los demás módulos. Borradores se comprueba al llegar el catálogo.
-  if (requiereLecturaBolsas(estado.vista) || estado.datosBolsas?.carga !== "listo") void controladorBolsas.cargarBolsas();
+  // bloquear los demás módulos. Una lectura ya en curso no se repite.
+  if (estado.datosBolsas?.carga !== "cargando"
+    && (requiereLecturaBolsas(estado.vista) || estado.datosBolsas?.carga !== "listo")) void controladorBolsas.cargarBolsas();
   await coordinadorModulos.cargarInterno({ alCambiar: alCambiarModulos }).catch((error) => {
     // Una carga sustituida por otra más reciente no es un fallo del catálogo.
     if (error?.codigo === CODIGO_CARGA_SUSTITUIDA || intento !== secuenciaFuente) return;
@@ -500,6 +500,12 @@ function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } =
     return;
   }
   const vistaBolsas = vista === "resumen" || vista === "bolsa-candidatos";
+  if (vistaBolsas && estado.datosBolsas === null) {
+    // Sin lectura del cuadro (p. ej. al recargar con F5 en #bolsa/resumen): se
+    // pide ahora y cargarBolsas pinta la vista «cargando» y después el cuadro.
+    void controladorBolsas.cargarBolsas();
+    return;
+  }
   if (vista === "estadisticas") {
     contenedor.innerHTML = presentadorPanelInterno.renderizarEstadisticasBolsa();
     if (estado.datosEstadisticas === null) void controladorBolsas.cargarEstadisticas();
@@ -563,6 +569,7 @@ function renderizar() {
     else boton.removeAttribute("aria-current");
   });
   sincronizarMenuBolsa(porId("navegacion-bolsa"), estado.vista);
+  coordinadorModulos.prepararVista(estado.vista);
   const pendiente = estado.vista === "portal" ? coordinadorModulos.inicioPendiente()
     : coordinadorModulos.vistaPendiente(estado.vista);
   if (pendiente) contenedor.setAttribute("aria-busy", "true");

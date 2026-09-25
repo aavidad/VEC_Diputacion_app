@@ -315,7 +315,7 @@ export async function montarModuloContratacionTemporal({
     montarLlamamiento(contextoLlamamientoDesdeEstado(
       estado, gestorTramitacion.obtenerReciboFiscalizacionConfirmado(),
     ));
-    gestorIncorporacion.montarResolucionFormalizacion().then(gestorIncorporacion.montarIncorporacionEjercicio);
+    gestorIncorporacion.montarResolucionFormalizacion().then(gestorIncorporacion.ofrecerIncorporacionEjercicio);
     if (gestorTramitacion.montarAnalisisSiProcede() === false) {
       gestorTramitacion.retirarComponentes();
       raiz.innerHTML = renderizarModuloContratacionTemporal(estado, {
@@ -498,7 +498,7 @@ export async function montarModuloContratacionTemporal({
       repintar(["[data-ct-exp-filtros]", ".ct-exp-estado-global"]);
     } else if (accion.dataset.ctExpAccion === "reintentar-resolucion") {
       await gestorIncorporacion.montarResolucionFormalizacion();
-    } else if (accion.dataset.ctExpAccion === "reintentar-incorporacion") {
+    } else if (["consultar-incorporacion", "reintentar-incorporacion"].includes(accion.dataset.ctExpAccion)) {
       await gestorIncorporacion.montarIncorporacionEjercicio();
     } else if (accion.dataset.ctExpAccion === "cancelar-descarga") {
       if (gestorBorrador.cancelarDescargaInforme()) gestorBorrador.informarDescarga("descarga_cancelada", "informacion");

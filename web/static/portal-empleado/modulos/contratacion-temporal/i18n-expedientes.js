@@ -29,6 +29,8 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
   indicador_pendientes: "Pendientes",
   indicador_en_curso: "En curso",
   indicador_incidencias: "Incidencias",
+  incorporacion_consulta_bajo_demanda: "La incorporación al ejercicio se consulta al pedirla. Consultarla no registra ninguna incorporación.",
+  incorporacion_consultar: "Consultar la incorporación al ejercicio",
   incorporacion_preparacion_cargando: "Consultando la preparación de incorporación guardada en el servidor.",
   incorporacion_preparacion_denegada: "No dispone de permiso para consultar la incorporación de este expediente.",
   incorporacion_preparacion_pendiente: "La preparación de incorporación no está disponible para este expediente. Esta consulta no registra una incorporación.",

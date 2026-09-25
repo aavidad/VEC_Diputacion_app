@@ -271,7 +271,8 @@ test("la recuperación de subsanación renueva toda la cadena immutable y ambas 
   ];
   const cache = new Map(pasos.map(([, ruta, previa]) => [`${ruta}?v=${previa}`, "módulo anterior"]));
   for (const [codigo, ruta, previa, cantidad] of pasos) {
-    const vigente = exigirVersiones(codigo, ruta, ruta.endsWith("vista-expedientes.js") ? nueva : ruta.endsWith("/portal.js") ? posterior(versionEntradaAyuda) : posterior(versionIntegracion), cantidad);
+    // La vista avanzó después (incorporación bajo demanda, 25/09): posterior a la de subsanación.
+    const vigente = exigirVersiones(codigo, ruta, ruta.endsWith("vista-expedientes.js") ? posterior(nueva) : ruta.endsWith("/portal.js") ? posterior(versionEntradaAyuda) : posterior(versionIntegracion), cantidad);
     assert.ok(!codigo.includes(`${ruta}?v=${previa}`));
     assert.ok(!cache.has(`${ruta}?v=${vigente}`), "la vista anterior no sustituye los bytes nuevos");
   }

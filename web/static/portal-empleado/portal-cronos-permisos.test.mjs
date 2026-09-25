@@ -80,6 +80,8 @@ test("Permisos monta los permisos propios; con la API en 404 muestra su estado y
   const consultas = [];
   const coordinador = crearCoordinador([{ clave: "cronos" }], consultas);
   await coordinador.cargarInterno();
+  // Cronos no tiene entrada en el portal: se carga al pedir su vista.
+  await coordinador.prepararVista("cronos-permisos");
   assert.equal(coordinador.resolverAcceso("cronos").disponible, true);
   assert.equal(coordinador.vistaDisponible("cronos-permisos"), true);
   const raiz = raizFalsa();

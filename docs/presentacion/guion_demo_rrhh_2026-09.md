@@ -49,9 +49,12 @@ expedientes. Nada de lo que se enseña firma, notifica ni produce efectos admini
   segunda persona (regla provisional, duda 6). Recibo e historial de operaciones.
   *Comprobado en cidonia por la API (9/9) y en la ficha.* La última persona de «Encargado»
   ya figura excluida por la prueba.
-- **Ficha de la persona**: datos de contacto cifrados (correo y dos teléfonos, B4) y
-  histórico de contactos (B3). *Registro de contactos comprobado por la API; ficha
-  pendiente de ensayo.*
+- **Ficha de la persona**: bolsa, vigencia, orden del acta, último cambio de situación,
+  último llamamiento, número de contactos y operaciones B8 con su historial. **No muestra
+  el correo ni los teléfonos, a propósito**: se guardan cifrados (B4) y solo los usa el
+  envío del llamamiento; en pantalla no se exponen. Desde la ficha, *Consultar historial
+  de contactos* abre el histórico de contactos (B3). *Ficha e historial recorridos en
+  Chrome el 25/09; registro de contactos comprobado por la API.*
 
 ### 3. Bolsa: nuevo llamamiento (p. 1, punto 2; p. 3, envío por estado)
 

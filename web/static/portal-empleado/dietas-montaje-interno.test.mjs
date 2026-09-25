@@ -46,6 +46,8 @@ test("el catálogo interno monta Dietas con clientes HTTP, ruta y mapa, sin depe
     },
   });
   await coordinador.cargarInterno();
+  // Dietas no tiene entrada en el portal: se carga al pedir su vista.
+  await coordinador.prepararVista("dietas");
   assert.equal(coordinador.vistaDisponible("dietas"), true);
   const raiz = { innerHTML: "", replaceChildren() {} };
   assert.equal(await coordinador.montarVista("dietas", raiz), true);
