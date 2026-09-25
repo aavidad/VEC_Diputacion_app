@@ -67,6 +67,9 @@ type autoridadConsultasContratacionTemporalDesarrollo struct {
 	// presentadorCobertura permite activar después los avisos de la vía de
 	// cobertura, cuando Bolsa y las reglas de ejemplo ya están compuestas.
 	presentadorCobertura avisosViaCoberturaConfigurable
+	// personalizacionB7 se enlaza con la fuente de bolsas constituidas cuando
+	// la composición raíz la crea; el correo B7 la usa para los marcadores.
+	personalizacionB7 *fuentePersonalizacionB7
 }
 
 type autorizadorLigadoContratacionTemporalDesarrollo interface {
@@ -588,13 +591,14 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	var envolverBorrador func(http.Handler) http.Handler
 	var manejadorSituacion http.Handler
 	cerrarBorrador := func() {}
+	personalizacionB7 := &fuentePersonalizacionB7{}
 	if debeComponerBorradorLlamamientoDesarrollo(cfg) {
 		if consultasRRHH.identidad == nil {
 			return nil, nil, nil, errBorradorNoDisponibleEn()
 		}
 		var errBorrador error
 		rutasBorrador, coleccionesBorrador, manejadorSituacion, seguridadBorrador, envolverBorrador, cerrarBorrador, errBorrador = nuevasDependenciasBorradorLlamamientoDesarrollo(
-			context.Background(), cfg, dependencias, &alta, soporteBolsaCatalogo, catalogoFronteras, consultasRRHH.identidad,
+			context.Background(), cfg, dependencias, &alta, soporteBolsaCatalogo, catalogoFronteras, consultasRRHH.identidad, personalizacionB7,
 		)
 		if errBorrador != nil {
 			return nil, nil, nil, errBorrador
@@ -631,6 +635,7 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		envolverBorradorLlamamiento:              envolverBorrador,
 		manejadorSituacionParticipacion:          manejadorSituacion,
 		plazosOfertasBolsa:                       dependencias.plazosOfertasBolsa,
+		personalizacionB7:                        personalizacionB7,
 		coleccionesAdicionales:                   coleccionesBorrador,
 		registradorAuditoriaFronteraRutasExactas: alta.postgresql.registradorAuditoriaFrontera,
 		materialDietas:                           alta.postgresql.materialDietas,

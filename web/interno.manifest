@@ -202,6 +202,7 @@ static/portal-empleado/portal-bolsas-api.js
 static/portal-empleado/portal-bolsas-avisos.js
 static/portal-empleado/portal-bolsas-ofertas.js
 static/portal-empleado/portal-bolsas-contratos.js
+static/portal-empleado/portal-bolsas-correo.js
 static/portal-empleado/portal-bolsas-operaciones.js
 static/portal-empleado/portal-bolsas-intentos.js
 static/portal-empleado/portal-bolsas-reglas-situacion.js
@@ -231,6 +232,7 @@ static/portal-empleado/portal-i18n-ayuda.js
 static/portal-empleado/portal-panel-interno-i18n.js
 static/portal-empleado/portal-i18n-contratos.js
 static/portal-empleado/portal-i18n-intentos.js
+static/portal-empleado/portal-i18n-correo-llamamiento.js
 static/portal-empleado/portal-inicio.js
 static/portal-empleado/portal-llamamientos-api.js
 static/portal-empleado/portal-llamamientos-contrato.js

@@ -271,6 +271,7 @@ func nuevoServidorDesarrollo(
 	fuenteConstituida := nuevaFuenteConstituidaRRHHDesarrollo(ctxBolsas, cfg)
 	configurarAvisosViaCoberturaDesarrollo(autoridadContratacion, reglasEjemplo.bolsa, fuenteConstituida)
 	cancelarBolsas()
+	autoridadContratacion.personalizacionB7.fijar(fuenteConstituida)
 	rutasBolsasRRHH, coleccionesBolsasRRHH, err := nuevasRutasBolsasRRHHDesarrolloConFuente(cfg, fuenteConstituida, autoridadContratacion.manejadorSituacionParticipacion)
 	if err != nil {
 		return nil, nil, err

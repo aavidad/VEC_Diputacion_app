@@ -17,6 +17,7 @@ import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL, traducirBolsaInterna, traduci
 import { crearControladorOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260926-integracion-bolsa-ct-v1";
 import { crearControladorIntentosContacto } from "./portal-bolsas-intentos.js?v=20260926-integracion-bolsa-ct-v1";
 import { crearControladorSanciones } from "./portal-bolsas-sanciones.js?v=20260926-integracion-bolsa-ct-v1";
+import { crearControladorCorreoLlamamiento } from "./portal-bolsas-correo.js?v=20260925-correo-personalizado-v1";
 import { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js";
 export { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js";
 
@@ -437,6 +438,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     estado.datosCandidatos = { carga: "denegado", datos: null, error: mensaje };
   }
   const controladorIntentosContacto = crearControladorIntentosContacto({ estado, renderizar });
+  const controladorCorreoB7 = crearControladorCorreoLlamamiento({ estado, renderizar });
   const controladorOperacionesB8 = crearControladorOperacionesSituacion({
     estado,
     renderizar,
@@ -701,6 +703,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     controladorOperacionesB8.instalar(documento);
     controladorIntentosContacto.instalar(documento);
     controladorSancionesB24.instalar(documento);
+    controladorCorreoB7.instalar(documento);
     documento.addEventListener("change", (evento) => {
       const control = evento.target;
       if (!control?.closest?.('[data-bolsa-form="b7-paso2"]')) return;
@@ -829,6 +832,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
         invalidarSeleccionMasiva();
         estado.filtrosBolsa = { ...estado.filtrosBolsa, estado: "", texto: "", nuevo_llamamiento: { paso: 1, estados: ["disponible"], participaciones: [], configuracion: null, error: "", recibo: "", seleccion_total: false, cursoresPagina: [""] } };
         void cargarPlazoRespuestaB7(estado.filtrosBolsa.nuevo_llamamiento);
+        controladorCorreoB7.prepararFlujo(estado.filtrosBolsa.nuevo_llamamiento);
         renderizar();
         documento.querySelector('[aria-current="step"]')?.focus?.();
       } else if (accion === "cancelar-b7") {
