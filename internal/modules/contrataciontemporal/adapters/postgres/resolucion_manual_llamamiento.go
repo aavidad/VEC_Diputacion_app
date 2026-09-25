@@ -161,6 +161,9 @@ func (t *TransaccionComunicacionLlamamientoPostgreSQL) registrarResolucionManual
 	// Solo ubicación: nunca esconder precisión submicrosegundo truncándola.
 	recibo.ResueltaEn = recibo.ResueltaEn.UTC()
 	recibo.IntencionSiguiente.ActualizadaEn = recibo.IntencionSiguiente.ActualizadaEn.UTC()
+	if !recibo.RespuestaHasta.IsZero() {
+		recibo.RespuestaHasta = recibo.RespuestaHasta.UTC()
+	}
 	if recibo.ValidarPara(m.Solicitud) != nil || recibo.Politica != m.Politica {
 		return vacio, ports.ErrResultadoComunicacionLlamamientoNoConfiable
 	}
@@ -201,6 +204,10 @@ func normalizarErrorResolucionManualLlamamiento(ctx context.Context, err error) 
 			return ports.ErrOperacionComunicacionLlamamientoDenegada
 		case "P0584":
 			return ErrPersistenciaComunicacionLlamamientoNoDisponible
+		case "P0585":
+			return ports.ErrRespuestaFueraDePlazoLlamamiento
+		case "P0586":
+			return ports.ErrPlazoRespuestaNoVencido
 		}
 	}
 	return normalizarErrorComunicacionLlamamiento(ctx, err)

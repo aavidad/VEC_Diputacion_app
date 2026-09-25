@@ -129,7 +129,8 @@
           "origen": "ejemplo",
           "norma": "Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002), art. 10.",
           "duda": "Dudas 13 y 14.",
-          "unidad": "ninguna"
+          "unidad": "ninguna",
+          "tratamiento": "exige_causa_justificada"
         },
         "orden": 8
       },
@@ -144,7 +145,8 @@
           "duda": "Duda 62.",
           "unidad": "ninguna",
           "articulo": "art. 11.1.a",
-          "ejemplo_parcial": "Que VEC proponga y RRHH confirme es un circuito de ejemplo."
+          "ejemplo_parcial": "Que VEC proponga y RRHH confirme es un circuito de ejemplo.",
+          "confirmacion": "rrhh"
         },
         "orden": 9
       },
@@ -159,7 +161,8 @@
           "duda": "Sin duda abierta.",
           "unidad": "ninguna",
           "articulo": "art. 8.2.b",
-          "ejemplo_parcial": "La confirmación por RRHH es un circuito de ejemplo."
+          "ejemplo_parcial": "La confirmación por RRHH es un circuito de ejemplo.",
+          "confirmacion": "rrhh"
         },
         "orden": 10
       },

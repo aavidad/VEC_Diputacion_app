@@ -36,13 +36,13 @@ func TestSolicitudResolverLlamamientoRevisionManualYProyeccionLegacy(t *testing.
 		t.Fatal("campos manuales no conservan nombres y valores")
 	}
 	for nombre, mutar := range map[string]func(*SolicitudResolverLlamamiento){
-		"sin_respuesta":     func(s *SolicitudResolverLlamamiento) { s.RevisionRespuestaRRHH = false },
-		"sin_plazo":         func(s *SolicitudResolverLlamamiento) { s.RevisionPlazoRRHH = false },
-		"sin_criterio":      func(s *SolicitudResolverLlamamiento) { s.CriterioValidacionRef = "" },
-		"criterio_invalido": func(s *SolicitudResolverLlamamiento) { s.CriterioValidacionRef = "no válido" },
-		"expiracion":        func(s *SolicitudResolverLlamamiento) { s.Respuesta = RespuestaLlamamientoExpirada },
-		"otra_version":      func(s *SolicitudResolverLlamamiento) { s.VersionEsperada = 3 },
-		"solo_criterio":     func(s *SolicitudResolverLlamamiento) { s.RevisionRespuestaRRHH, s.RevisionPlazoRRHH = false, false },
+		"sin_respuesta":         func(s *SolicitudResolverLlamamiento) { s.RevisionRespuestaRRHH = false },
+		"sin_plazo":             func(s *SolicitudResolverLlamamiento) { s.RevisionPlazoRRHH = false },
+		"sin_criterio":          func(s *SolicitudResolverLlamamiento) { s.CriterioValidacionRef = "" },
+		"criterio_invalido":     func(s *SolicitudResolverLlamamiento) { s.CriterioValidacionRef = "no válido" },
+		"expiracion_con_prueba": func(s *SolicitudResolverLlamamiento) { s.Respuesta = RespuestaLlamamientoExpirada },
+		"otra_version":          func(s *SolicitudResolverLlamamiento) { s.VersionEsperada = 3 },
+		"solo_criterio":         func(s *SolicitudResolverLlamamiento) { s.RevisionRespuestaRRHH, s.RevisionPlazoRRHH = false, false },
 	} {
 		t.Run(nombre, func(t *testing.T) {
 			otra := manual
@@ -51,6 +51,12 @@ func TestSolicitudResolverLlamamientoRevisionManualYProyeccionLegacy(t *testing.
 				t.Fatal("revisión incompleta aceptada")
 			}
 		})
+	}
+	// La confirmación de expiración por RRHH es revisión manual sin respuesta.
+	confirmada := manual
+	confirmada.Respuesta, confirmada.PruebaRespuestaRef = RespuestaLlamamientoExpirada, ""
+	if confirmada.Validar() != nil || !confirmada.RevisionManualConfirmada() {
+		t.Fatal("confirmación de expiración por RRHH rechazada")
 	}
 	renuncia := manual
 	renuncia.Respuesta = RespuestaLlamamientoRenunciada
@@ -377,6 +383,10 @@ func resultadoResolucionComunicacionPrueba(
 		ResolucionRef: "resolucion:llamamiento-local", ReciboLocalRef: "recibo:resolucion-local",
 		AuditoriaRef:      "auditoria:resolucion-local",
 		VersionResultante: solicitud.VersionEsperada + 1, ResueltaEn: resuelta, Estado: estado,
+	}
+	if solicitud.Respuesta == RespuestaLlamamientoExpirada {
+		// La expiración exige el vencimiento del contacto efectivo (CT111).
+		resultado.RespuestaHasta = resuelta.Add(-time.Hour)
 	}
 	if estadoOutbox != nil {
 		resultado.IntencionSiguiente = IntencionOutboxSiguienteCandidato{

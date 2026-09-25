@@ -34,6 +34,10 @@ var (
 	ErrResultadoComunicacionLlamamientoNoConfiable = errors.New(
 		"contratacion temporal: resultado de comunicacion de llamamiento no confiable",
 	)
+	// La expiración gobernada solo se confirma después del vencimiento.
+	ErrPlazoRespuestaLlamamientoNoVencido = errors.New(
+		"contratacion temporal: plazo de respuesta no vencido",
+	)
 )
 
 type ServicioComunicacionLlamamiento struct {
@@ -142,6 +146,12 @@ func clasificarErrorComunicacionLlamamiento(ctx context.Context, err error) erro
 		return ErrVersionComunicacionLlamamientoEnConflicto
 	case errors.Is(err, ports.ErrClaveComunicacionLlamamientoUsada):
 		return ErrClaveComunicacionLlamamientoEnColision
+	case errors.Is(err, ports.ErrRespuestaFueraDePlazoLlamamiento):
+		// Respuesta tardía: no puede resolverse sin la causa justificada
+		// acreditada que exige la regla, o la regla no la admite.
+		return ErrValidacionRespuestaLlamamientoPendiente
+	case errors.Is(err, ports.ErrPlazoRespuestaNoVencido):
+		return ErrPlazoRespuestaLlamamientoNoVencido
 	default:
 		return ErrComunicacionLlamamientoNoDisponible
 	}
