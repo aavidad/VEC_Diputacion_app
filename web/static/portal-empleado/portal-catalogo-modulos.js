@@ -121,21 +121,31 @@ export function crearCatalogoModulosDesdeManifiestos(manifiestos, traducciones) 
     || !traducciones || typeof traducciones !== "object" || Array.isArray(traducciones)) {
     throw new TypeError("catálogo de módulos no válido");
   }
+  // Un manifiesto defectuoso descarta sólo ese módulo: los demás se siguen
+  // mostrando. Sólo si no queda ninguno válido se informa del fallo.
   const vistos = new Set();
-  const catalogo = manifiestos.map((entrada) => {
-    const { clave, manifiesto } = validarManifiesto(entrada);
-    if (vistos.has(clave)) throw new TypeError("módulo repetido");
-    vistos.add(clave);
-    return Object.freeze({
-      clave,
-      sigla: siglaDe(clave),
-      titulo: traducir(traducciones, manifiesto.name_key, "nombre traducido"),
-      texto: traducir(traducciones, manifiesto.description_key, "descripción traducida"),
-      version: manifiesto.version,
-      grupo: manifiesto.group,
-      rutaBase: manifiesto.base_path,
-    });
-  });
+  const catalogo = [];
+  let primerError = null;
+  for (const entrada of manifiestos) {
+    try {
+      const { clave, manifiesto } = validarManifiesto(entrada);
+      if (vistos.has(clave)) throw new TypeError("módulo repetido");
+      const modulo = Object.freeze({
+        clave,
+        sigla: siglaDe(clave),
+        titulo: traducir(traducciones, manifiesto.name_key, "nombre traducido"),
+        texto: traducir(traducciones, manifiesto.description_key, "descripción traducida"),
+        version: manifiesto.version,
+        grupo: manifiesto.group,
+        rutaBase: manifiesto.base_path,
+      });
+      vistos.add(clave);
+      catalogo.push(modulo);
+    } catch (error) {
+      primerError ??= error;
+    }
+  }
+  if (catalogo.length === 0) throw primerError ?? new TypeError("catálogo de módulos no válido");
   return Object.freeze(catalogo);
 }
 
