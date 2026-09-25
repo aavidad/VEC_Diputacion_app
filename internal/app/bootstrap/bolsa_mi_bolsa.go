@@ -480,7 +480,7 @@ func nuevaRutaMiBolsaDesarrollo(
 	}
 	if portal != nil {
 		motivoPortal := motivoPortalMiBolsaDesarrollo()
-		if publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno, []dominiovec.ReferenciaEntradaCatalogo{motivoPortal}, reloj.Ahora()) != nil {
+		if publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(ctx, alta.postgresql.gobierno, []dominiovec.ReferenciaEntradaCatalogo{motivoPortal}, desdeMotivos) != nil {
 			return nil, errMiBolsaNoDisponible
 		}
 		politica.motivoPortal = &motivoPortal

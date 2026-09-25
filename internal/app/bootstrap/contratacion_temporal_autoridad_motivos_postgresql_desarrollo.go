@@ -169,21 +169,12 @@ func publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(
 		return motivos[i].EntradaClave < motivos[j].EntradaClave
 	})
 	primero := motivos[0]
-	entradas := make([]entradaMotivoPostgreSQLContratacionTemporalDesarrollo, len(motivos))
-	for indice, motivo := range motivos {
+	for _, motivo := range motivos {
 		if motivo.CatalogoID != primero.CatalogoID ||
 			motivo.CatalogoVersion != primero.CatalogoVersion ||
 			motivo.CatalogoHuellaSHA256 != primero.CatalogoHuellaSHA256 {
 			return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 		}
-		entradas[indice] = entradaMotivoPostgreSQLContratacionTemporalDesarrollo{
-			Clave:        motivo.EntradaClave,
-			VigenteDesde: publicadoEn.Format("2006-01-02T15:04:05.000000Z"),
-		}
-	}
-	contenido, err := json.Marshal(entradas)
-	if err != nil {
-		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 	}
 	eventoRef := referenciaAltaContratacionTemporalDesarrollo(
 		"evento_", "catalogo-motivos\x00"+primero.CatalogoID,
@@ -203,12 +194,26 @@ func publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(
 		diagnosticar("consulta_rol", err)
 		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 	}
+	// Un arranque repetido reutiliza la publicación existente: con la misma
+	// huella de catálogo se repite con el publicado_en ya registrado, de modo
+	// que el replay de la función SQL (que exige contenido idéntico) sigue
+	// comprobando las entradas y ningún instante distinto del arranque previo
+	// rompe los siguientes. Otra huella para la misma versión se rechaza.
+	var huellaExistente string
+	var publicadoExistente time.Time
 	err = txConsulta.QueryRow(ctx, `
-		SELECT secuencia_origen
+		SELECT secuencia_origen, catalogo_huella_publicada_sha256, publicado_en
 		  FROM vec_autorizacion.motivo_v2_catalogo_publicado
 		 WHERE catalogo_id=$1 AND catalogo_version=$2`,
 		primero.CatalogoID, primero.CatalogoVersion,
-	).Scan(&secuencia)
+	).Scan(&secuencia, &huellaExistente, &publicadoExistente)
+	if err == nil {
+		if huellaExistente != primero.CatalogoHuellaSHA256 {
+			diagnosticar("consulta_huella", nil)
+			return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		}
+		publicadoEn = publicadoExistente
+	}
 	if errors.Is(err, pgx.ErrNoRows) {
 		err = txConsulta.QueryRow(ctx, `
 			SELECT ultima_secuencia+1
@@ -221,6 +226,10 @@ func publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(
 	}
 	if err = txConsulta.Commit(ctx); err != nil {
 		diagnosticar("consulta_commit", err)
+		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	contenido, err := contenidoCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(motivos, publicadoEn)
+	if err != nil {
 		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 	}
 	tx, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
@@ -251,4 +260,21 @@ func publicarCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(
 		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
 	}
 	return nil
+}
+
+// contenidoCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo serializa
+// las entradas con la vigencia del instante de publicación. Es determinista:
+// la misma entrada produce los mismos bytes, que es lo que el replay exige.
+func contenidoCatalogoMotivosPostgreSQLContratacionTemporalDesarrollo(
+	motivos []dominiovec.ReferenciaEntradaCatalogo,
+	publicadoEn time.Time,
+) ([]byte, error) {
+	entradas := make([]entradaMotivoPostgreSQLContratacionTemporalDesarrollo, len(motivos))
+	for indice, motivo := range motivos {
+		entradas[indice] = entradaMotivoPostgreSQLContratacionTemporalDesarrollo{
+			Clave:        motivo.EntradaClave,
+			VigenteDesde: publicadoEn.UTC().Format("2006-01-02T15:04:05.000000Z"),
+		}
+	}
+	return json.Marshal(entradas)
 }
