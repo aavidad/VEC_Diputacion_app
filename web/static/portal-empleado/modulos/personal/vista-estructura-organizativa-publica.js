@@ -2,7 +2,7 @@ import {
   crearTraductorPersonal,
   formatearFechaEstructuraOrganizativa,
   formatearRecuentoEstructura,
-} from "./i18n.js?v=20260925-b2-sin-refs-v1";
+} from "./i18n.js?v=20260925-personal-real-v1";
 
 function nodo(documento, etiqueta, texto = "") {
   const salida = documento.createElement(etiqueta);

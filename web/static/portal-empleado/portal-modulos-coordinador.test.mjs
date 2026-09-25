@@ -308,34 +308,97 @@ test("CT inventariado queda visible no_disponible si falla su carga real", async
 });
 
 
-test("el cargador interno predeterminado de Personal monta la ficha sin cargar catálogos al entrar", async () => {
-  const categorias = { data: { categories: { items: null, total: 0, limit: 25, offset: 0, catalogo: { catalogo_id: "categorias-profesionales", catalogo_version: 1, catalogo_huella_sha256: "a".repeat(64) }, fuente: { revision: "demo-v1", actualizada_en: "2026-09-20T08:00:00Z", demostracion: true, aviso: "DEMOSTRACIÓN pendiente de validación RRHH." } } } };
+function respuestaPersonalJSON(datos) {
+  return new Response(JSON.stringify(datos), { status: 200, headers: { "Content-Type": "application/json; charset=utf-8" } });
+}
+const CATEGORIAS_PERSONAL_VACIAS = Object.freeze({ data: { categories: { items: null, total: 0, limit: 25, offset: 0, catalogo: { catalogo_id: "categorias-profesionales", catalogo_version: 1, catalogo_huella_sha256: "a".repeat(64) }, fuente: { revision: "demo-v1", actualizada_en: "2026-09-20T08:00:00Z", demostracion: true, aviso: "DEMOSTRACIÓN pendiente de validación RRHH." } } } });
+const EVIDENCIA_B2 = Object.freeze({ decision_ref: "dec_sintetica", auditoria_ref: "aud_sintetica", consumo_huella_sha256: "a".repeat(64), efecto_ref: "organismo:dipgra:regimen", consultada_en: "2026-09-25T10:00:00Z" });
+
+// Catálogos públicos falsos: el cliente sondea y la vista deja una marca.
+function cargadorCatalogosPublicosFalso({ rpt = true, estructura = true } = {}) {
+  const vista = (marca) => async ({ raiz, registrarDesmontar }) => {
+    const nodo = raiz.ownerDocument.createElement("section"); nodo.dataset[marca] = ""; raiz.append(nodo);
+    const desmontar = () => nodo.remove(); registrarDesmontar?.(desmontar); return { desmontar };
+  };
+  return async () => ({
+    clienteRPT: { crearClienteHTTPRPTPublica: () => ({ listar: async () => { if (!rpt) throw new Error("503"); return {}; } }) },
+    vistaRPT: { montarModuloRPTPublica: vista("personalRptPublica") },
+    clienteEstructura: { crearClienteHTTPEstructuraOrganizativaPublica: () => ({ obtener: async () => { if (!estructura) throw new Error("404"); return {}; } }) },
+    vistaEstructura: { montarModuloEstructuraOrganizativaPublica: vista("personalEstructuraOrganizativaPublica") },
+  });
+}
+
+test("el portal real de Personal no ofrece apartados sin fuente y abre los catálogos servidos", async () => {
   const llamadas = [];
   const coordinador = crearCoordinadorModulosPortal({
     escaparHTML: String,
-    entorno: { fetch: async (ruta) => { llamadas.push(ruta); return respuestaJSON(categorias); } },
+    entorno: { fetch: async (ruta) => {
+      llamadas.push(ruta);
+      return ruta.startsWith("/api/vec/personal/categories?") ? respuestaPersonalJSON(CATEGORIAS_PERSONAL_VACIAS)
+        : new Response(JSON.stringify({ error: "no_disponible" }), { status: 503, headers: { "Content-Type": "application/json; charset=utf-8" } });
+    } },
     cargarCatalogoInterno: async () => Object.freeze([{ clave: "personal" }]),
     cargadoresInternos: { contratacion_temporal: async () => { throw new Error("no debe cargar CT"); } },
   });
   await coordinador.cargarInterno(); assert.equal(coordinador.resolverAcceso("personal").etiqueta, "Catálogo profesional de Personal");
+  // Con el cargador real se sondean RPT y estructura; sin fuente (503) no se ofrecen.
+  assert.deepEqual(llamadas, ["/api/vec/personal/rpt-publica?q=&limit=1&offset=0", "/api/vec/personal/estructura-organizativa-publica"]);
+  assert.equal(coordinador.vistaDisponible("personal-registro"), false);
   const raiz = raizDietasFalsa(); assert.equal(await coordinador.montarVista("personal", raiz), true);
   assert.ok(raiz.querySelector("[data-personal-ficha-integral]"));
-  assert.equal(raiz.querySelector("[data-personal-categorias]"), null);
-  assert.equal(llamadas.length, 0);
-  assert.equal(raiz.querySelectorAll('[data-personal-ficha-estado="no_configurado"]').length, 6);
-  raiz.querySelector('[data-personal-ficha-tab="relaciones"]').listeners.click();
-  assert.equal(llamadas.length, 0);
-  raiz.querySelector('[data-personal-ficha-tab="catalogos"]').listeners.click();
+  assert.deepEqual(raiz.querySelectorAll("[data-personal-ficha-tab]").map((tab) => tab.dataset.personalFichaTab), ["ficha", "catalogos"]);
+  assert.equal(raiz.querySelectorAll('[data-personal-ficha-estado="no_configurado"]').length, 0);
   await new Promise((resolve) => setImmediate(resolve));
-  assert.deepEqual(llamadas, ["/api/vec/personal/categories?q=&area=&limit=25&offset=0"]);
+  assert.equal(llamadas.at(-1), "/api/vec/personal/categories?q=&area=&limit=25&offset=0");
   assert.ok(raiz.querySelector("[data-personal-categorias]"));
+  assert.equal(raiz.querySelector("[data-personal-rpt-publica]"), null);
+  raiz.querySelector('[data-personal-ficha-tab="ficha"]').listeners.click();
+  assert.equal(raiz.querySelector("[data-personal-categorias]"), null);
+  // Accesos: Dietas y Cronos no están montados en esta composición.
+  assert.ok(raiz.querySelectorAll("[data-personal-ficha-destino]").every((boton) => boton.disabled === true));
   coordinador.desmontarVistaActual();
   assert.equal(raiz.querySelector("[data-personal-ficha-integral]"), null);
 });
 
-test("RRHH abre el Registro de Personal desde Personal con subnavegación; sin perfil RRHH no se ofrece", async () => {
+test("Personal monta solo los catálogos públicos que el servidor sirve", async () => {
+  for (const [servidos, esperados] of [
+    [{ rpt: true, estructura: true }, ["personalCategorias", "personalRptPublica", "personalEstructuraOrganizativaPublica"]],
+    [{ rpt: false, estructura: true }, ["personalCategorias", "personalEstructuraOrganizativaPublica"]],
+  ]) {
+    const coordinador = crearCoordinadorModulosPortal({
+      escaparHTML: String,
+      entorno: { fetch: async () => respuestaPersonalJSON(CATEGORIAS_PERSONAL_VACIAS) },
+      cargarCatalogoInterno: async () => Object.freeze([{ clave: "personal" }, { clave: "dietas" }]),
+      cargadoresInternos: {
+        contratacion_temporal: async () => { throw new Error("no debe cargar CT"); },
+        personal_catalogos_publicos: cargadorCatalogosPublicosFalso(servidos),
+        dietas: async () => { throw new Error("Dietas no disponible"); },
+      },
+    });
+    await coordinador.cargarInterno();
+    const raiz = raizDietasFalsa(); assert.equal(await coordinador.montarVista("personal", raiz), true);
+    await new Promise((resolve) => setImmediate(resolve));
+    const montados = ["personalCategorias", "personalRptPublica", "personalEstructuraOrganizativaPublica"]
+      .filter((marca) => raiz.querySelectorAll("section").some((nodo) => nodo.dataset[marca] !== undefined));
+    assert.deepEqual(montados, esperados);
+    coordinador.desmontarVistaActual();
+  }
+});
+
+test("un cargador de catálogos públicos ausente no retira Personal", async () => {
+  const coordinador = crearCoordinadorModulosPortal({
+    escaparHTML: String,
+    entorno: { fetch: async () => respuestaPersonalJSON(CATEGORIAS_PERSONAL_VACIAS) },
+    cargarCatalogoInterno: async () => Object.freeze([{ clave: "personal" }]),
+    cargadoresInternos: { contratacion_temporal: async () => { throw new Error("no debe cargar CT"); },
+      personal_catalogos_publicos: async () => { throw new Error("no empaquetado"); } },
+  });
+  await coordinador.cargarInterno();
+  assert.equal(coordinador.vistaDisponible("personal"), true);
+});
+
+test("RRHH abre el Registro de Personal solo si el servidor lo sirve; sin perfil RRHH no se ofrece", async () => {
   const catalogo = [...crearCatalogoModulosDesdeManifiestos([manifiestoContratacionTemporal()], TRADUCCIONES_CONTRATACION_TEMPORAL), Object.freeze({ clave: "personal" })];
-  const rutas = [];
   const fuenteCT = Object.freeze({
     capacidades: Object.freeze(["contratacion_temporal.cuadro.consultar", "contratacion_temporal.expediente.consultar"]),
     async listar() { return { expedientes: [] }; }, async obtener() { throw new Error("sin expedientes"); }, async ejecutar() { throw new Error("solo lectura"); },
@@ -346,12 +409,35 @@ test("RRHH abre el Registro de Personal desde Personal con subnavegación; sin p
     presentador: { crearPresentadorExpedientesContratacionTemporal: () => ({ obtenerEstado: () => ({}), cargar: async () => ({}) }) },
     vista: { montarModuloContratacionTemporal: async () => ({ desmontar() {} }) },
   });
-  const coordinador = crearCoordinadorModulosPortal({
+  const crear = (servido, rutas) => crearCoordinadorModulosPortal({
     escaparHTML: String,
-    entorno: { fetch: async (ruta) => { rutas.push(ruta); return new Response(null, { status: 403 }); } },
+    entorno: { fetch: async (ruta) => {
+      rutas.push(ruta);
+      if (servido && ruta.startsWith("/api/vec/personal/catalogos-registro-empleado?")) {
+        return respuestaPersonalJSON({ data: { organismo_ref: "organismo:dipgra", entradas: [], cursor_siguiente: null, evidencia: EVIDENCIA_B2 } });
+      }
+      // vec-server no compone el registro: la carcasa responde 404.
+      return new Response(JSON.stringify({ error: "vec route not found" }), { status: servido ? 403 : 404, headers: { "Content-Type": "application/json; charset=utf-8" } });
+    } },
     cargarCatalogoInterno: async () => Object.freeze(catalogo),
-    cargadoresInternos: { contratacion_temporal: cargadorCT },
+    cargadoresInternos: { contratacion_temporal: cargadorCT, personal_catalogos_publicos: cargadorCatalogosPublicosFalso({ rpt: false, estructura: false }) },
   });
+
+  const rutasSinRegistro = [];
+  const sinRegistro = crear(false, rutasSinRegistro);
+  await sinRegistro.cargarInterno();
+  assert.equal(sinRegistro.esPerfilRRHH(), true);
+  assert.ok(rutasSinRegistro.includes("/api/vec/personal/catalogos-registro-empleado?tipo=regimen&limite=1"));
+  assert.equal(sinRegistro.vistaDisponible("personal"), true);
+  assert.equal(sinRegistro.vistaDisponible("personal-registro"), false);
+  const raizSin = raizDietasFalsa();
+  assert.equal(await sinRegistro.montarVista("personal-registro", raizSin), false);
+  assert.equal(await sinRegistro.montarVista("personal", raizSin), true);
+  assert.equal(raizSin.querySelector("[data-personal-subvistas]"), null);
+  sinRegistro.desmontarVistaActual();
+
+  const rutas = [];
+  const coordinador = crear(true, rutas);
   await coordinador.cargarInterno();
   assert.equal(coordinador.esPerfilRRHH(), true);
   assert.equal(coordinador.vistaDisponible("personal-registro"), true);
@@ -371,15 +457,17 @@ test("RRHH abre el Registro de Personal desde Personal con subnavegación; sin p
   assert.ok(raiz.querySelector("[data-personal-ficha-integral]"));
   coordinador.desmontarVistaActual();
 
+  const rutasEmpleado = [];
   const sinRRHH = crearCoordinadorModulosPortal({
     escaparHTML: String,
-    entorno: { fetch: async () => new Response(null, { status: 403 }) },
+    entorno: { fetch: async (ruta) => { rutasEmpleado.push(ruta); return new Response(null, { status: 403 }); } },
     cargarCatalogoInterno: async () => Object.freeze([{ clave: "personal" }]),
     cargadoresInternos: { contratacion_temporal: async () => { throw new Error("no debe cargar CT"); } },
   });
   await sinRRHH.cargarInterno();
   assert.equal(sinRRHH.vistaDisponible("personal"), true);
   assert.equal(sinRRHH.vistaDisponible("personal-registro"), false);
+  assert.ok(!rutasEmpleado.some((ruta) => ruta.includes("catalogos-registro-empleado")), "sin perfil RRHH no se sondea el registro");
   const raizEmpleado = raizDietasFalsa();
   assert.equal(await sinRRHH.montarVista("personal", raizEmpleado), true);
   assert.equal(raizEmpleado.querySelector("[data-personal-subvistas]"), null);
@@ -392,7 +480,7 @@ test("el paquete interno de Personal no solicita recursos RPT ni estructura púb
   ]);
   const interno = codigo.split("const CARGADORES_INTERNOS_PREDETERMINADOS =")[1]
     .split("export const VISTAS_MODULOS_PERSONALES")[0];
-  const personalInterno = interno.split("personal: async () => {")[1].split("dietas: async () => {")[0];
+  const personalInterno = interno.split("personal: async () => {")[1].split("personal_catalogos_publicos: async () => {")[0];
   const recursosInternos = [...personalInterno.matchAll(/import\("\.\/modulos\/personal\/([^?"']+)/gu)]
     .map((match) => match[1]);
   assert.deepEqual(recursosInternos, ["contrato.js", "cliente-http-categorias.js",
@@ -401,9 +489,13 @@ test("el paquete interno de Personal no solicita recursos RPT ni estructura púb
   for (const recurso of recursosInternos) {
     assert.match(manifiesto, new RegExp(`static/portal-empleado/modulos/personal/${recurso.replaceAll(".", "\\.")}`, "u"));
   }
+  // RPT y estructura públicas van en un cargador opcional aparte: el paquete
+  // interno no los incluye y Personal sigue disponible sin ellos.
+  const publicos = interno.split("personal_catalogos_publicos: async () => {")[1].split("dietas: async () => {")[0];
   for (const recurso of ["cliente-http-rpt-publica.js", "vista-rpt-publica.js",
     "cliente-http-estructura-organizativa-publica.js", "vista-estructura-organizativa-publica.js"]) {
-    assert.doesNotMatch(interno, new RegExp(recurso.replaceAll(".", "\\."), "u"), recurso);
+    assert.doesNotMatch(personalInterno, new RegExp(recurso.replaceAll(".", "\\."), "u"), recurso);
+    assert.match(publicos, new RegExp(recurso.replaceAll(".", "\\."), "u"), recurso);
     assert.doesNotMatch(manifiesto, new RegExp(recurso.replaceAll(".", "\\."), "u"), recurso);
   }
 });

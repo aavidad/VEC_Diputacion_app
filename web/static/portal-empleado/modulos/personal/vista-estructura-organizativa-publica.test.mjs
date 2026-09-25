@@ -74,7 +74,7 @@ test("la ayuda queda detrás de ? y la fuente DEMO sigue visible", async () => {
   assert.match(boton.atributos.get("aria-label"), /Consulta pública/u);
   assert.equal(boton.atributos.get("aria-expanded"), "false");
   assert.equal(contenido.hidden, true);
-  assert.match(textoVisible(vista), /Fuente DEMO.*no acredita vigencia administrativa/u);
+  assert.match(textoVisible(vista), /Estructura en preparación.*no acredita vigencia administrativa/u);
   assert.match(textoVisible(vista), /14 delegaciones/u);
   assert.doesNotMatch(textoVisible(vista), /Huella SHA-256|demo-v1|2026-09-06T00:00:00Z/u);
   boton.listeners.click();
@@ -97,7 +97,7 @@ test("el aviso DEMO usa la nota multilínea del tema en móvil", async () => {
   assert.equal(aviso.tagName, "p");
   assert.equal(aviso.className, "nota-integracion");
   assert.equal(aviso.atributos.get("role"), "note");
-  assert.match(aviso.textContent, /Fuente DEMO.*no acredita vigencia administrativa/u);
+  assert.match(aviso.textContent, /Estructura en preparación.*no acredita vigencia administrativa/u);
   assert.match(tema, /\.nota-integracion\s*\{[^}]*background:\s*var\(--portal-aviso-suave\);[^}]*color:\s*var\(--portal-aviso\);/u);
   assert.doesNotMatch(tema.match(/\.nota-integracion\s*\{[^}]*\}/u)?.[0], /white-space:\s*nowrap/u);
   assert.match(componentes, /\.estado-chip\s*\{[^}]*white-space:\s*nowrap/u);

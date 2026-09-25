@@ -39,7 +39,7 @@ test("Personal muestra solo el catálogo RRHH autorizado, su demostración y su 
   const modulo = await montarModuloPersonal({ raiz, cliente: { async listarCategorias(consulta, { signal }) { llamadas.push({ consulta, signal }); return pagina([categoria]); } } });
   assert.equal(modulo.capacidad, CAPACIDAD_CONSULTAR_PUESTO); assert.equal(llamadas.length, 1); assert.deepEqual(llamadas[0].consulta, { q: "", area: "", limit: 25, offset: 0 });
   const texto = raiz.querySelector("[data-personal-categorias]").children.map((n) => n.textContent).join(" ");
-  assert.match(texto, /demostracion:true/); assert.match(texto, /no es una RPT aprobada/); assert.doesNotMatch(texto, /nómina|servicios/i); modulo.desmontar(); assert.equal(raiz.querySelector("[data-personal-categorias]"), null);
+  assert.match(texto, /pendiente de validación por RRHH/); assert.match(texto, /no es una RPT aprobada/); assert.doesNotMatch(texto, /demostracion|demo-v1|categorias-profesionales/); assert.doesNotMatch(texto, /nómina|servicios/i); modulo.desmontar(); assert.equal(raiz.querySelector("[data-personal-categorias]"), null);
 });
 
 test("el catálogo usa tabla semántica y rótulos localizados", async () => {

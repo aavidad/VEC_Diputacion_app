@@ -1,5 +1,5 @@
 import { CAPACIDAD_CONSULTAR_PUESTO, validarConsultaCategorias } from "./contrato.js?v=20260920-personal-catalogo-v1";
-import { crearTraductorPersonal, formatearRecuentoCategorias } from "./i18n.js?v=20260925-b2-sin-refs-v1";
+import { crearTraductorPersonal, formatearRecuentoCategorias } from "./i18n.js?v=20260925-personal-real-v1";
 
 function nodo(documento, etiqueta, texto = "") { const salida = documento.createElement(etiqueta); if (texto !== "") salida.textContent = texto; return salida; }
 function sigueMontada(raiz, contenedor) { return raiz.querySelector?.("[data-personal-categorias]") === contenedor; }
@@ -44,12 +44,13 @@ function pintar(raiz, contenedor, estado, recargar, t, borrador = null) {
   if (!sigueMontada(raiz, contenedor)) return;
   const documento = contenedor.ownerDocument; contenedor.replaceChildren(); contenedor.dataset.personalCategoriasEstado = estado.tipo;
   const cabecera = nodo(documento, "header"); cabecera.className = "cabecera-vista";
-  cabecera.append(nodo(documento, "p", t("catalogo_sobrelinea")), nodo(documento, "h2", t("catalogo_titulo")), nodo(documento, "p", t("catalogo_ayuda"))); contenedor.append(cabecera);
+  cabecera.append(nodo(documento, "h2", t("catalogo_titulo"))); contenedor.append(cabecera);
   if (estado.tipo === "cargando") { const carga = nodo(documento, "p", t("catalogo_cargando")); carga.setAttribute("role", "status"); carga.setAttribute("aria-live", "polite"); carga.setAttribute("tabindex", "-1"); carga.dataset.personalCategoriasFoco = "espera"; contenedor.append(carga, formularioFiltros(documento, estado.consulta, recargar, t, borrador)); return; }
   if (estado.tipo !== "disponible") { const error = nodo(documento, "p", estado.mensaje); error.setAttribute("role", "alert"); contenedor.append(error, formularioFiltros(documento, estado.consulta, recargar, t, borrador)); return; }
   const pagina = estado.pagina;
-  const nota = nodo(documento, "p", pagina.fuente.demostracion === true ? t("catalogo_demo") : t("catalogo_publicado")); nota.className = "nota-pendiente"; contenedor.append(nota);
-  contenedor.append(nodo(documento, "p", t("catalogo_fuente", { revision: pagina.fuente.revision, catalogo: pagina.catalogo.catalogo_id, version: pagina.catalogo.catalogo_version, aviso: pagina.fuente.aviso })));
+  // Un catálogo aún no validado por RRHH se señala como tal; revisión, versión e
+  // identificadores del catálogo son datos técnicos y no se muestran.
+  if (pagina.fuente.demostracion === true) { const nota = nodo(documento, "p", t("catalogo_demo")); nota.className = "nota-pendiente"; contenedor.append(nota); }
   contenedor.append(formularioFiltros(documento, estado.consulta, recargar, t, borrador));
   if (pagina.items.length === 0) { const vacio = nodo(documento, "p", t("catalogo_vacio")); vacio.setAttribute("role", "status"); contenedor.append(vacio); } else {
     const marco = nodo(documento, "div"); marco.className = "marco-tabla-paginado panel"; marco.dataset.personalCategoriasMarco = "";
