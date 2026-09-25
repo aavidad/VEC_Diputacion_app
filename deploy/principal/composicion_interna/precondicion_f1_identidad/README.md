@@ -1,19 +1,28 @@
 # Precondición de F1/Identidad 000004 en una base con historia
 
-Este procedimiento acota el endurecimiento previo al selector corporativo F1 y a
-Identidad `000004`. No se ejecutó contra la base principal. Las fuentes `.up.sql`
-se leen por sus bytes canónicos, se despojan únicamente de `BEGIN` y `COMMIT`
-externos y se ejecutan dentro de **una** transacción junto con el cambio de ACL.
-No se invoca `DOWN`, ni se reaplica una migración instalada. El script falla si
-ya encuentra selector o fachada.
+Este procedimiento acota el endurecimiento previo al selector corporativo F1,
+ContextoActor `000003` y `000004a`, e Identidad `000004`. Se ensayó en un clon
+exacto de la principal (`vec-clon-f1-*`, 25/09/2026) con ROLLBACK y COMMIT; no
+se ejecutó contra la base principal. Las fuentes `.up.sql` se leen por sus
+bytes canónicos, se despojan únicamente de `BEGIN` y `COMMIT` externos y se
+ejecutan dentro de **una** transacción junto con el cambio de ACL. No se invoca
+`DOWN`, ni se reaplica una migración instalada. El script falla si ya encuentra
+selector o fachada.
+
+ContextoActor `000004` no se instala: su guarda exige una única huella del
+manifiesto del predecesor (`bddc5574…`) que no reproduce ninguna base actual
+(base nueva `613d1837…`, principal `6fa63aa7…` porque `000005` se instaló antes).
+`000004a` es su corrección con la misma definición y una lista cerrada de esas
+tres huellas; `000004` conserva sus bytes.
 
 ## Preimagen y condiciones de entrada
 
 Usar un acceso de superusuario PostgreSQL 18 autorizado, sin contraseñas en
-argumentos. `--pg-container` usa `docker exec -i` contra un contenedor indicado;
-sin esa opción usa `psql` local y el servicio PostgreSQL configurado por el
-operador. `--report` es material privado con permisos `0600`; contiene nombres
-de roles y objetos, nunca filas ni secretos.
+argumentos. `--pg-container` usa `docker exec -i` (o `podman` con
+`--container-engine podman`) contra un contenedor indicado; sin esa opción usa
+`psql` local y el servicio PostgreSQL configurado por el operador. `--report`
+es material privado con permisos `0600`; contiene nombres de roles y objetos,
+nunca filas ni secretos.
 
 ```bash
 SCRIPT=deploy/principal/composicion_interna/precondicion_f1_identidad/precondicion.py
@@ -22,25 +31,29 @@ python3 "$SCRIPT" --database "$BASE" --admin-user "$ADMIN" \
 ```
 
 El inventario guarda ACL PUBLIC de bases, esquemas, relaciones, funciones y
-tipos; enumera las membresías que tocan propietario, migrador y runtime de
-Contexto. El SHA256 informado fija esta preimagen. Antes del ensayo deben
-existir exactamente **187** tipos de fila con USAGE de PUBLIC y exactamente
-cinco membresías en ese subgrafo: la canónica
+tipos (los arrays automáticos no tienen ACL propia y no se cuentan); enumera
+las membresías que tocan propietario, migrador y runtime de Contexto. El
+SHA256 informado fija esta preimagen. El número de tipos de fila con USAGE de
+PUBLIC lo fija ese inventario revisado (227 en la principal el 25/09/2026); no
+puede haber PUBLIC en dominios, enumerados u otros tipos. En el subgrafo debe
+haber exactamente cinco membresías: la canónica
 `vec_contexto_actor_v1_migrador → vec_contexto_actor_v1_propietario` y cuatro
-concesiones de LOGIN de desarrollo, otorgadas por `postgres`, heredables,
-sin `SET` ni administración. Cualquier diferencia exige revisar una nueva
+concesiones de desarrollo otorgadas por `postgres`, heredables y sin
+administración (la del LOGIN de gobierno AD3 conserva `SET`; una de las cuatro
+es un rol sin LOGIN). Cualquier otra diferencia exige revisar una nueva
 preimagen y adaptar el cambio mediante revisión independiente; el script no
 amplía el alcance automáticamente.
 
 La transacción retira las cuatro concesiones de desarrollo y USAGE PUBLIC de
-los 187 tipos de fila, ejecuta el selector y la fachada, restaura las cuatro
-concesiones con sus opciones, compara todo el subgrafo con la preimagen y
-comprueba privilegios efectivos del selector y del consumidor. Captura además
-el inventario de ACL y punteros dentro de la misma transacción: antes del
-COMMIT exige que la postimagen completa coincida con la preimagen excepto por
-la retirada de PUBLIC en los 187 tipos y la aparición del selector/fachada.
-Si falla cualquiera de esas comparaciones, PostgreSQL revierte la transacción.
-El primer recorrido termina con ROLLBACK y compara otra vez el inventario.
+los tipos de fila, ejecuta el selector, ContextoActor `000003` y `000004a` e
+Identidad `000004`, restaura las cuatro concesiones con sus opciones, compara
+todo el subgrafo con la preimagen y comprueba privilegios efectivos del
+selector y del consumidor. Captura además el inventario de ACL y punteros
+dentro de la misma transacción: antes del COMMIT exige que la postimagen
+completa coincida con la preimagen excepto por la retirada de PUBLIC en los
+tipos de fila y la aparición del selector/fachada. Si falla cualquiera de
+esas comparaciones, PostgreSQL revierte la transacción. El primer recorrido
+termina con ROLLBACK y compara otra vez el inventario.
 
 ```bash
 python3 "$SCRIPT" --mode rollback --database "$BASE" --admin-user "$ADMIN" \

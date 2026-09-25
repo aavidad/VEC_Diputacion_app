@@ -53,8 +53,7 @@ class PrecondicionTest(unittest.TestCase):
                      "acl_public": [], "base": "sintetica"}
         digest = hashlib.sha256(json.dumps(
             inventory, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
-        _, rol_hash = module.migracion_sin_transaccion(module.ROL)
-        _, identidad_hash = module.migracion_sin_transaccion(module.IDENTIDAD)
+        _, huellas = module.migraciones_precondicion()
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             report = root / "resultado.json"
@@ -68,8 +67,7 @@ class PrecondicionTest(unittest.TestCase):
             }))
             rollback.write_text(json.dumps({
                 "resultado": "ensayo revertido", "inventario_sha256": digest,
-                "migraciones_sha256": {module.ROL.name: rol_hash,
-                                        module.IDENTIDAD.name: identidad_hash},
+                "migraciones_sha256": huellas,
             }))
             argv = ["precondicion.py", "--mode", "commit", "--database", "sintetica",
                     "--report", str(report), "--expected-inventory-sha256", digest,
