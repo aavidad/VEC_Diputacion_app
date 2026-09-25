@@ -1,6 +1,7 @@
 /** Textos castellanos del módulo; las vistas solo consumen claves. */
 import { MENSAJES_LLAMAMIENTO_ES } from "./i18n-llamamiento.js";
 import { MENSAJES_SUBSANACION_REPAROS_ES } from "./i18n-subsanacion-reparos.js";
+import { MENSAJES_DOCUMENTACION_FORMALIZACION_ES } from "./i18n-documentacion-formalizacion.js?v=20260925-formalizacion-v1";
 
 export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   pc_acceso_denegado: "Acceso denegado. Se han retirado los datos de esta vista; las actuaciones ya registradas permanecen en el servidor.",
@@ -23,6 +24,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   "contratacion_temporal.fase.incorporacion": "Incorporación",
   "contratacion_temporal.fase.seguimiento": "Seguimiento",
   ...MENSAJES_SUBSANACION_REPAROS_ES,
+  ...MENSAJES_DOCUMENTACION_FORMALIZACION_ES,
   titulo: "Nueva solicitud de contratación temporal",
   progreso_etiqueta: "Progreso del alta",
   progreso_datos: "Datos",

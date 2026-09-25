@@ -2,6 +2,8 @@
 import { crearTraductorContratacionTemporal } from "./i18n.js";
 import { renderizarLlamamiento } from "./renderizado-llamamiento.js";
 import { esValidacionRespuestaPendiente, cargarPublicacionesFormalizacionDesarrollo } from "./cliente-http-llamamiento.js";
+import { crearPanelDocumentacionFormalizacion } from "./documentacion-formalizacion.js?v=20260925-formalizacion-v1";
+import { crearFuenteDocumentacionFormalizacionHTTP } from "./cliente-http-documentacion-formalizacion.js?v=20260925-formalizacion-v1";
 import {
   CAMPOS_SELECCION, CAMPOS_COMUNICACION, referenciaLlamamientoValida,
   CAMPOS_COMUNICACION_SIGUIENTE, TIPO_ANTECEDENTE_CONTINUACION,
@@ -68,6 +70,7 @@ export function montarFormularioLlamamiento({
   mensajes = {}, locale = "es-ES", zonaHoraria = "Europe/Madrid", anunciar = () => {},
   alPropuestaConfirmada = () => {},
   alActualizarPropuesta = null,
+  fuenteDocumentacionFormalizacion = null,
 } = {}) {
   if (!raiz || typeof raiz.addEventListener !== "function"
     || typeof raiz.removeEventListener !== "function" || typeof raiz.querySelector !== "function"
@@ -83,6 +86,12 @@ export function montarFormularioLlamamiento({
     dateStyle: "medium", timeStyle: "medium", timeZone: zonaHoraria,
   });
   let montado = true;
+  // La fuente HTTP solo se crea si hay fetch; sin ella el panel no se pinta.
+  const fuenteDocumentacion = fuenteDocumentacionFormalizacion
+    ?? (typeof globalThis.fetch === "function" ? crearFuenteDocumentacionFormalizacionHTTP() : null);
+  const documentacion = fuenteDocumentacion ? crearPanelDocumentacionFormalizacion({
+    fuente: fuenteDocumentacion, t, locale, zonaHoraria, criptografia, generarClaveIdempotencia, anunciar,
+  }) : null;
   const estado = { seleccion: nuevoPaso(), comunicacion: nuevoPaso(), respuesta: nuevoPaso(),
     comunicacion_siguiente: { ...nuevoPaso(), claveConservada: false },
     respuesta_siguiente: { ...nuevoPaso(), claveConservada: false },
@@ -105,6 +114,10 @@ export function montarFormularioLlamamiento({
   function repintar(operacion = "") {
     if (!montado) return;
     raiz.innerHTML = renderizarLlamamiento(estado, t, fecha);
+    documentacion?.pintar(raiz.querySelector("[data-ct-documentacion-formalizacion]"), {
+      aceptadaEn: estado.propuesta.aceptacion?.respuesta === "aceptacion" ? estado.propuesta.aceptacion.resuelta_en : "",
+      expedienteRef: estado.propuesta.valores.expediente_ref,
+    });
     if (operacion) {
       const paso = estado[operacion];
       const foco = raiz.querySelector(paso.recibo
@@ -489,6 +502,7 @@ export function montarFormularioLlamamiento({
   const desmontar = () => {
     if (!montado) return;
     montado = false;
+    documentacion?.desmontar();
     for (const operacion of Object.keys(OPERACIONES)) {
       estado[operacion].lecturaCorreo += 1;
       estado[operacion].controlador?.abort();

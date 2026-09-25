@@ -138,7 +138,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   documentos: async () => {
     const [vista, cliente] = await Promise.all([
       import("./modulos/documentos/vista.js?v=20260925-documentos-web-v2"),
-      import("./modulos/documentos/cliente-http.js?v=20260925-documentos-montaje-v1"),
+      import("./modulos/documentos/cliente-http.js?v=20260925-formalizacion-v1"),
     ]);
     return Object.freeze({ vista, cliente });
   },
