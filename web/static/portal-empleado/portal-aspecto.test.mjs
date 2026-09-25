@@ -51,6 +51,6 @@ test("la bandeja conserva el detalle cerrado y explica la modalidad ausente solo
   assert.doesNotMatch(vista, /ct-exp-nota-tabla/u);
   assert.match(vista, /modalidadAusente \? ` title=/u);
   assert.match(expedientes, /\.ct-exp-numero,[\s\S]*\.ct-exp-fase,[\s\S]*white-space: nowrap/u);
-  assert.match(pagina, /!fila\.hasAttribute\('data-ct-exp-resumen-fila'\)/u);
+  assert.match(pagina, /function esFilaDetalleMarco[\s\S]*fila\.hasAttribute\('data-ct-exp-resumen-fila'\)/u);
   assert.match(pagina, /detalle\.hidden = fila\.hidden \|\|/u);
 });

@@ -30,22 +30,39 @@ const TAMANO_PAGINA_MARCO = 6; const tablasPaginadas = new WeakMap(); export fun
     return `${puntos}<button type="button" data-paginacion-marco-pagina="${pagina}" ${pagina === calculo.pagina ? 'aria-current="page"' : ''} aria-label="Página ${pagina}">${pagina}</button>`;
   }).join('');
 }
+// Filas de detalle que acompañan a la fila anterior: no cuentan como registros
+// de la tabla y se muestran u ocultan con ella (resumen de expediente CT, detalle
+// RPT público y ficha de participación abierta en Bolsa).
+function esFilaDetalleMarco(fila) {
+  return fila.hasAttribute('data-personal-rpt-publica-detalle-fila') || fila.hasAttribute('data-ct-exp-resumen-fila')
+    || fila.classList.contains('fila-ficha-participacion');
+}
+function filasPaginablesMarco(tabla) {
+  return Array.from(tabla.tBodies?.[0]?.rows || []).filter((fila) => !esFilaDetalleMarco(fila));
+}
+// Página inicial: la de la fila cuya ficha de participación está abierta, para
+// que la ficha no quede oculta en otra página al volver a pintar la tabla.
+function paginaInicialMarco(filas, tamano) {
+  const indice = filas.findIndex((fila) => fila.nextElementSibling?.classList.contains('fila-ficha-participacion'));
+  return indice < 0 ? 1 : Math.floor(indice / tamano) + 1;
+}
 function pintarPaginacionMarco(tabla, paginaSolicitada = 1) {
   const estado = tablasPaginadas.get(tabla);
   if (!estado || !tabla.isConnected) return;
-  const filas = Array.from(tabla.tBodies?.[0]?.rows || [])
-    .filter((fila) => !fila.hasAttribute('data-personal-rpt-publica-detalle-fila') && !fila.hasAttribute('data-ct-exp-resumen-fila'));
+  const filas = filasPaginablesMarco(tabla);
   const calculo = calcularPaginaMarco(filas.length, paginaSolicitada, estado.tamano);
   filas.forEach((fila, indice) => {
     fila.hidden = indice < calculo.inicio - 1 || indice >= calculo.fin;
     const detalle = fila.nextElementSibling;
     if (detalle?.hasAttribute('data-ct-exp-resumen-fila')) {
       detalle.hidden = fila.hidden || fila.querySelector('[data-ct-exp-resumen]')?.getAttribute('aria-expanded') !== 'true';
+    } else if (detalle?.classList.contains('fila-ficha-participacion')) {
+      detalle.hidden = fila.hidden;
     }
   });
   estado.pagina = calculo.pagina;
   estado.navegacion.innerHTML = `<span aria-live="polite">${traducirPortal('paginacion_marco_recuento', calculo)}</span><span class="paginacion-marco__paginas"><button type="button" data-paginacion-marco-accion="primera" ${calculo.pagina === 1 ? 'disabled' : ''}>${traducirPortal('paginacion_marco_primera')}</button><button type="button" data-paginacion-marco-accion="anterior" ${calculo.pagina === 1 ? 'disabled' : ''}>${traducirPortal('paginacion_marco_anterior')}</button>${botonesPaginaMarco(calculo)}<button type="button" data-paginacion-marco-accion="siguiente" ${calculo.pagina === calculo.paginas ? 'disabled' : ''}>${traducirPortal('paginacion_marco_siguiente')}</button></span>`;
-} function prepararTablaPaginable(contenedor) { const tabla = contenedor.querySelector(":scope > table"); if (!tabla || tablasPaginadas.has(tabla)) return; const remoto = navegadorRemotoDeTabla(contenedor); if (remoto) { remoto.classList.add("paginacion-marco", "paginacion-marco--remota"); contenedor.parentElement?.classList.add("marco-tabla-paginado"); return; } const filas = Array.from(tabla.tBodies?.[0]?.rows || []).filter((fila) => !fila.hasAttribute('data-ct-exp-resumen-fila')); if (filas.length <= TAMANO_PAGINA_MARCO) return; const navegacion = document.createElement("nav"); navegacion.className = "paginacion-marco"; navegacion.setAttribute("aria-label", traducirPortal("paginacion_marco_etiqueta")); contenedor.insertAdjacentElement("afterend", navegacion); contenedor.parentElement?.classList.add("marco-tabla-paginado"); tablasPaginadas.set(tabla, { navegacion, pagina: 1, tamano: TAMANO_PAGINA_MARCO }); pintarPaginacionMarco(tabla); } function actualizarPaginacionesMarco() { document.querySelectorAll("#espacio-trabajo .tabla-contenedor").forEach(prepararTablaPaginable); } function instalarPaginacionMarco() { const espacio = porId("espacio-trabajo"); if (!espacio) return; espacio.addEventListener("click", (evento) => { const control = evento.target.closest("[data-paginacion-marco-accion], [data-paginacion-marco-pagina]"); if (!control || control.disabled) return; const navegacion = control.closest(".paginacion-marco"); const tabla = navegacion?.previousElementSibling?.querySelector(":scope > table"); const estado = tabla && tablasPaginadas.get(tabla); if (!estado) return; const pagina = control.dataset.paginacionMarcoPagina ? Number(control.dataset.paginacionMarcoPagina) : control.dataset.paginacionMarcoAccion === "primera" ? 1 : estado.pagina + (control.dataset.paginacionMarcoAccion === "siguiente" ? 1 : -1); pintarPaginacionMarco(tabla, pagina); tabla.querySelector("tbody tr:not([hidden])")?.querySelector("button, a, [tabindex]")?.focus?.({ preventScroll: true }); }); new MutationObserver(actualizarPaginacionesMarco).observe(espacio, { childList: true, subtree: true }); actualizarPaginacionesMarco(); }
+} function prepararTablaPaginable(contenedor) { const tabla = contenedor.querySelector(":scope > table"); if (!tabla || tablasPaginadas.has(tabla)) return; const remoto = navegadorRemotoDeTabla(contenedor); if (remoto) { remoto.classList.add("paginacion-marco", "paginacion-marco--remota"); contenedor.parentElement?.classList.add("marco-tabla-paginado"); return; } const filas = filasPaginablesMarco(tabla); if (filas.length <= TAMANO_PAGINA_MARCO) return; const navegacion = document.createElement("nav"); navegacion.className = "paginacion-marco"; navegacion.setAttribute("aria-label", traducirPortal("paginacion_marco_etiqueta")); contenedor.insertAdjacentElement("afterend", navegacion); contenedor.parentElement?.classList.add("marco-tabla-paginado"); tablasPaginadas.set(tabla, { navegacion, pagina: 1, tamano: TAMANO_PAGINA_MARCO }); pintarPaginacionMarco(tabla, paginaInicialMarco(filas, TAMANO_PAGINA_MARCO)); } function actualizarPaginacionesMarco() { document.querySelectorAll("#espacio-trabajo .tabla-contenedor").forEach(prepararTablaPaginable); } function instalarPaginacionMarco() { const espacio = porId("espacio-trabajo"); if (!espacio) return; espacio.addEventListener("click", (evento) => { const control = evento.target.closest("[data-paginacion-marco-accion], [data-paginacion-marco-pagina]"); if (!control || control.disabled) return; const navegacion = control.closest(".paginacion-marco"); const tabla = navegacion?.previousElementSibling?.querySelector(":scope > table"); const estado = tabla && tablasPaginadas.get(tabla); if (!estado) return; const pagina = control.dataset.paginacionMarcoPagina ? Number(control.dataset.paginacionMarcoPagina) : control.dataset.paginacionMarcoAccion === "primera" ? 1 : estado.pagina + (control.dataset.paginacionMarcoAccion === "siguiente" ? 1 : -1); pintarPaginacionMarco(tabla, pagina); tabla.querySelector("tbody tr:not([hidden])")?.querySelector("button, a, [tabindex]")?.focus?.({ preventScroll: true }); }); new MutationObserver(actualizarPaginacionesMarco).observe(espacio, { childList: true, subtree: true }); actualizarPaginacionesMarco(); }
 // El portal usa la API interna; Borradores mantiene su cliente autenticado, CAS e idempotencia.
 const DATOS_VACIOS = Object.freeze({
   esquema: "vec.bolsa.panel.no-cargado.v1",
