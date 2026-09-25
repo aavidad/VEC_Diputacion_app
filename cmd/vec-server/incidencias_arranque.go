@@ -3,10 +3,13 @@ package main
 import (
 	"context"
 	"io"
+	"net/http"
 	"os"
 	"runtime/debug"
+	"sync"
 	"time"
 
+	"vec-diputacion-granada/internal/app/server"
 	"vec-diputacion-granada/internal/vec/adapters/observabilidad"
 	"vec-diputacion-granada/internal/vec/domain"
 )
@@ -55,4 +58,49 @@ func revisionCompilada() string {
 		}
 	}
 	return ""
+}
+
+// plazoCierreSupervision acota la espera para vaciar las incidencias
+// pendientes al terminar el servidor.
+const plazoCierreSupervision = 2 * time.Second
+
+// componerSupervisionServidor crea el emisor de incidencias técnicas del
+// servidor (JSON Lines hacia destino, recogido fuera del proceso), lo inyecta
+// en el middleware común de respuestas 5xx y pánicos y sanea el ErrorLog de
+// net/http hacia registro. Si el emisor no puede crearse, el servidor conserva
+// la contención y el saneamiento y el fallo queda en registro con texto fijo:
+// la supervisión nunca impide ni retrasa el arranque. Devuelve la función
+// idempotente que vacía y cierra el emisor.
+func componerSupervisionServidor(srv *http.Server, destino, registro io.Writer) func() {
+	emisor, err := observabilidad.NuevoEmisorJSONLines(observabilidad.OpcionesEmisor{
+		Destino:        destino,
+		Entorno:        os.Getenv(envEntornoSupervision),
+		VersionBinario: revisionCompilada(),
+	})
+	if err != nil {
+		escribirRegistroFijo(registro, "vec-server: emisor de incidencias tecnicas no disponible\n")
+		server.SupervisarServidor(srv, nil, registro)
+		return func() {}
+	}
+	server.SupervisarServidor(srv, emisor, registro)
+	var una sync.Once
+	cerrar := func() {
+		una.Do(func() {
+			ctx, cancelar := context.WithTimeout(context.Background(), plazoCierreSupervision)
+			defer cancelar()
+			if emisor.Cerrar(ctx) != nil {
+				escribirRegistroFijo(registro, "vec-server: incidencias tecnicas pendientes sin vaciar al cerrar\n")
+			}
+		})
+	}
+	srv.RegisterOnShutdown(cerrar)
+	return cerrar
+}
+
+// escribirRegistroFijo es el último destino de un mensaje fijo de la propia
+// supervisión: si también falla no queda otro canal al que informar.
+func escribirRegistroFijo(registro io.Writer, mensaje string) {
+	if registro != nil {
+		_, _ = io.WriteString(registro, mensaje)
+	}
 }

@@ -351,8 +351,10 @@ func TestDietasRoadRouteRejectsCoordinatesOutsideGranadaScope(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("road route status = %d: %s", rec.Code, rec.Body.String())
 	}
-	if !strings.Contains(rec.Body.String(), "Granada provincia + 15 km") {
-		t.Fatalf("road route error does not mention scope: %s", rec.Body.String())
+	// El rechazo usa un código fijo: el texto del error interno (índice de
+	// coordenada, ámbito configurado) no se devuelve al cliente.
+	if strings.TrimSpace(rec.Body.String()) != `{"error":"peticion de ruta invalida"}` {
+		t.Fatalf("road route error is not the fixed code: %s", rec.Body.String())
 	}
 }
 

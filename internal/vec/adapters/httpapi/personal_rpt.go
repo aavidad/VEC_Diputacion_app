@@ -88,7 +88,7 @@ func (h *Handler) handlePersonalRPTPositions(w http.ResponseWriter, r *http.Requ
 	}
 	page, err := h.personalCatalog.ListPositions(r.Context(), personalPositionFilterFromRequest(r))
 	if err != nil {
-		h.writeError(w, http.StatusBadRequest, err.Error())
+		h.responderFalloCatalogoPersonal(w, err)
 		return
 	}
 	h.writeJSON(w, http.StatusOK, map[string]any{"positions": page})
@@ -116,11 +116,7 @@ func (h *Handler) handlePersonalRPTPosition(w http.ResponseWriter, r *http.Reque
 					return
 				}
 			}
-			status := http.StatusBadRequest
-			if errors.Is(err, personalapp.ErrRPTPositionNotFound) {
-				status = http.StatusNotFound
-			}
-			h.writeError(w, status, err.Error())
+			h.responderFalloCatalogoPersonal(w, err)
 			return
 		}
 		h.writeJSON(w, http.StatusOK, map[string]any{"position": position})
@@ -139,12 +135,12 @@ func (h *Handler) handlePersonalRPTPosition(w http.ResponseWriter, r *http.Reque
 		position.Code = code
 		stored, err := h.personalCatalog.UpsertPosition(r.Context(), position)
 		if err != nil {
-			h.writeError(w, http.StatusBadRequest, err.Error())
+			h.responderFalloCatalogoPersonal(w, err)
 			return
 		}
 		receipt, err := h.recordPersonalCatalogAudit(r.Context(), principal, "personal.rpt.position.upsert", code)
 		if err != nil {
-			h.writeError(w, http.StatusBadRequest, err.Error())
+			h.responderFalloRegistroAuditoria(w, r, err)
 			return
 		}
 		h.writeJSON(w, http.StatusOK, map[string]any{"position": stored, "receipt": receipt})
@@ -157,7 +153,7 @@ func (h *Handler) handlePersonalRPTPosition(w http.ResponseWriter, r *http.Reque
 		}
 		deleted, err := h.personalCatalog.DeletePosition(r.Context(), code)
 		if err != nil {
-			h.writeError(w, http.StatusBadRequest, err.Error())
+			h.responderFalloCatalogoPersonal(w, err)
 			return
 		}
 		if !deleted {
@@ -166,7 +162,7 @@ func (h *Handler) handlePersonalRPTPosition(w http.ResponseWriter, r *http.Reque
 		}
 		receipt, err := h.recordPersonalCatalogAudit(r.Context(), principal, "personal.rpt.position.delete", code)
 		if err != nil {
-			h.writeError(w, http.StatusBadRequest, err.Error())
+			h.responderFalloRegistroAuditoria(w, r, err)
 			return
 		}
 		h.writeJSON(w, http.StatusOK, map[string]any{"deleted": true, "code": code, "receipt": receipt})
@@ -216,12 +212,12 @@ func (h *Handler) handlePersonalRPTImports(w http.ResponseWriter, r *http.Reques
 	}
 	receipt, err := h.personalCatalog.ImportPositions(r.Context(), cmd)
 	if err != nil {
-		h.writeError(w, http.StatusBadRequest, err.Error())
+		h.responderFalloCatalogoPersonal(w, err)
 		return
 	}
 	audit, err := h.recordPersonalCatalogAudit(r.Context(), principal, "personal.rpt.import", receipt.Source)
 	if err != nil {
-		h.writeError(w, http.StatusBadRequest, err.Error())
+		h.responderFalloRegistroAuditoria(w, r, err)
 		return
 	}
 	h.writeJSON(w, http.StatusCreated, map[string]any{"import": receipt, "receipt": audit})
@@ -240,7 +236,7 @@ func (h *Handler) handlePersonalRPTStats(w http.ResponseWriter, r *http.Request,
 	}
 	stats, err := h.personalCatalog.Stats(r.Context())
 	if err != nil {
-		h.writeError(w, http.StatusBadRequest, err.Error())
+		h.responderFalloCatalogoPersonal(w, err)
 		return
 	}
 	catalogo, err := h.listarCategoriasProfesionales(r.Context())
@@ -561,10 +557,25 @@ func (h *Handler) handlePersonalCatalogs(w http.ResponseWriter, r *http.Request,
 	}
 	entries, err := h.personalCatalog.ListCatalogEntries(r.Context())
 	if err != nil {
-		h.writeError(w, http.StatusBadRequest, err.Error())
+		h.responderFalloCatalogoPersonal(w, err)
 		return
 	}
 	h.writeJSON(w, http.StatusOK, map[string]any{"catalogs": entries})
+}
+
+// responderFalloCatalogoPersonal traduce el error del catálogo RPT a un código
+// fijo: nunca devuelve su texto. Una entrada inválida es 400 y una posición
+// inexistente 404; cualquier otro fallo es del almacén (503), que el
+// middleware del servidor declara como incidencia técnica.
+func (h *Handler) responderFalloCatalogoPersonal(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, personaldomain.ErrRPTPositionInvalid):
+		h.writeError(w, http.StatusBadRequest, "rpt_posicion_invalida")
+	case errors.Is(err, personalapp.ErrRPTPositionNotFound):
+		h.writeError(w, http.StatusNotFound, personalapp.ErrRPTPositionNotFound.Error())
+	default:
+		h.writeError(w, http.StatusServiceUnavailable, "catalogo_personal_no_disponible")
+	}
 }
 
 func (h *Handler) requirePermission(w http.ResponseWriter, principal domain.Principal, permission string) bool {

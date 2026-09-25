@@ -252,7 +252,7 @@ func (h *Handler) handleModules(w http.ResponseWriter, r *http.Request, principa
 	}
 	modules, err := h.service.Modules(r.Context(), principal)
 	if err != nil {
-		h.writeError(w, http.StatusInternalServerError, err.Error())
+		h.responderFalloCatalogoModulos(w, r, err)
 		return
 	}
 	h.writeJSON(w, http.StatusOK, map[string]any{"modules": modules})
@@ -268,7 +268,7 @@ func (h *Handler) handleMenu(w http.ResponseWriter, r *http.Request, principal d
 	}
 	menu, err := h.service.BuildMenu(r.Context(), principal)
 	if err != nil {
-		h.writeError(w, http.StatusBadRequest, err.Error())
+		h.responderFalloCatalogoModulos(w, r, err)
 		return
 	}
 	h.writeJSON(w, http.StatusOK, map[string]any{"menu": menu, "principal": principal})
@@ -303,7 +303,7 @@ func (h *Handler) handleAudit(w http.ResponseWriter, r *http.Request, principal 
 			h.writeError(w, http.StatusForbidden, domain.ErrPermissionDenied.Error())
 			return
 		}
-		h.writeError(w, http.StatusInternalServerError, err.Error())
+		h.writeError(w, http.StatusServiceUnavailable, codigoErrorAuditoriaNoDisponible)
 		return
 	}
 	h.writeJSON(w, http.StatusOK, map[string]any{"audit": audit})
@@ -344,7 +344,7 @@ func (h *Handler) handleModuleAction(w http.ResponseWriter, r *http.Request, pri
 	}
 	receipt, err := h.internal.RecordAudit(r.Context(), authorized)
 	if err != nil {
-		h.writeError(w, http.StatusBadRequest, err.Error())
+		h.responderFalloRegistroAuditoria(w, r, err)
 		return
 	}
 	audit := receipt.Entry()
@@ -356,7 +356,11 @@ func (h *Handler) handleModuleAction(w http.ResponseWriter, r *http.Request, pri
 		OccurredAt: time.Now().UTC(),
 		Payload:    map[string]string{"audit_id": audit.ID},
 	}); err != nil {
-		h.writeError(w, http.StatusBadRequest, err.Error())
+		if errors.Is(err, domain.ErrPermissionDenied) {
+			h.writeError(w, http.StatusForbidden, domain.ErrPermissionDenied.Error())
+			return
+		}
+		h.writeError(w, http.StatusServiceUnavailable, codigoErrorEventoNoPublicado)
 		return
 	}
 	h.writeJSON(w, http.StatusAccepted, map[string]any{"receipt": audit})
@@ -448,6 +452,47 @@ func (h *Handler) writeJSON(w http.ResponseWriter, status int, data any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(map[string]any{"data": data})
+}
+
+// Códigos fijos de error hacia el cliente. Nunca se devuelve el texto de un
+// error interno: puede contener rutas, SQL, DSN o datos de configuración.
+const (
+	codigoErrorCatalogoModulosNoDisponible = "catalogo_modulos_no_disponible"
+	codigoErrorAuditoriaNoDisponible       = "auditoria_no_disponible"
+	codigoErrorEventoNoPublicado           = "evento_no_publicado"
+)
+
+// responderFalloCatalogoModulos cubre el fallo del catálogo de módulos
+// (manifiesto inválido o almacén no disponible): declara
+// CATALOGO_MODULOS_INVALIDO y responde un 500 de código fijo. La denegación
+// conserva su 403.
+func (h *Handler) responderFalloCatalogoModulos(w http.ResponseWriter, r *http.Request, err error) {
+	if errors.Is(err, domain.ErrPermissionDenied) {
+		h.writeError(w, http.StatusForbidden, domain.ErrPermissionDenied.Error())
+		return
+	}
+	ports.EmitirIncidenciaTecnicaDesdeContexto(r.Context(), domain.SolicitudIncidenciaTecnica{
+		Codigo:     domain.IncidenciaCatalogoModulosInvalido,
+		Componente: domain.ComponenteIncidenciaCatalogoModulos,
+		Etapa:      domain.EtapaIncidenciaValidacion,
+	})
+	h.writeError(w, http.StatusInternalServerError, codigoErrorCatalogoModulosNoDisponible)
+}
+
+// responderFalloRegistroAuditoria cubre una auditoría que no pudo
+// registrarse: declara AUDITORIA_NO_REGISTRADA y responde 503 fijo. La
+// denegación conserva su 403.
+func (h *Handler) responderFalloRegistroAuditoria(w http.ResponseWriter, r *http.Request, err error) {
+	if errors.Is(err, domain.ErrPermissionDenied) {
+		h.writeError(w, http.StatusForbidden, domain.ErrPermissionDenied.Error())
+		return
+	}
+	ports.EmitirIncidenciaTecnicaDesdeContexto(r.Context(), domain.SolicitudIncidenciaTecnica{
+		Codigo:     domain.IncidenciaAuditoriaNoRegistrada,
+		Componente: domain.ComponenteIncidenciaAuditoria,
+		Etapa:      domain.EtapaIncidenciaRegistro,
+	})
+	h.writeError(w, http.StatusServiceUnavailable, codigoErrorAuditoriaNoDisponible)
 }
 
 func (h *Handler) writeError(w http.ResponseWriter, status int, message string) {

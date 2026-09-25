@@ -15,6 +15,8 @@ import (
 
 	dietasapp "vec-diputacion-granada/internal/modules/dietas/application"
 	dietasports "vec-diputacion-granada/internal/modules/dietas/ports"
+	vecdomain "vec-diputacion-granada/internal/vec/domain"
+	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
 const (
@@ -105,8 +107,13 @@ func (m *Manejador) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, dietasports.ErrSolicitudRutaInvalida):
-			escribirError(w, http.StatusBadRequest, err.Error())
+			escribirError(w, http.StatusBadRequest, "peticion de ruta invalida")
 		case errors.Is(err, dietasports.ErrMotorRutasNoDisponible):
+			vecports.EmitirIncidenciaTecnicaDesdeContexto(r.Context(), vecdomain.SolicitudIncidenciaTecnica{
+				Codigo:     vecdomain.IncidenciaOSRMNoDisponible,
+				Componente: vecdomain.ComponenteIncidenciaOSRM,
+				Etapa:      vecdomain.EtapaIncidenciaConsulta,
+			})
 			escribirError(w, http.StatusBadGateway, "no se pudo consultar el motor OSRM interno autorizado")
 		default:
 			escribirError(w, http.StatusBadGateway, "el motor OSRM interno devolvio una respuesta no valida")

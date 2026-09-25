@@ -10,6 +10,8 @@ import (
 	"testing"
 
 	dietasports "vec-diputacion-granada/internal/modules/dietas/ports"
+	vecdomain "vec-diputacion-granada/internal/vec/domain"
+	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
 type calculadorPrueba struct {
@@ -146,25 +148,48 @@ func TestManejadorRechazaHTTPFueraDeContratoAntesDelPuerto(t *testing.T) {
 
 func TestManejadorDistingueEntradaMotorYRespuestaNoValida(t *testing.T) {
 	for _, prueba := range []struct {
-		nombre string
-		error  error
-		estado int
+		nombre      string
+		error       error
+		estado      int
+		incidencias int
 	}{
 		{nombre: "entrada", error: dietasports.ErrSolicitudRutaInvalida, estado: http.StatusBadRequest},
-		{nombre: "motor", error: dietasports.ErrMotorRutasNoDisponible, estado: http.StatusBadGateway},
+		{nombre: "motor", error: dietasports.ErrMotorRutasNoDisponible, estado: http.StatusBadGateway, incidencias: 1},
 		{nombre: "respuesta", error: dietasports.ErrRespuestaMotorRutasInvalida, estado: http.StatusBadGateway},
 	} {
 		t.Run(prueba.nombre, func(t *testing.T) {
-			calculador := &calculadorPrueba{error: errors.Join(prueba.error, errors.New("detalle"))}
+			calculador := &calculadorPrueba{error: errors.Join(prueba.error, errors.New("detalle-interno"))}
 			manejador, err := NuevoManejador(calculador, OpcionesManejador{})
 			if err != nil {
 				t.Fatal(err)
 			}
+			emisor := &emisorIncidenciasCartografia{}
+			peticion := peticionRutaPrueba(`{"coordinates":[{"lat":37.1773,"lon":-3.5986},{"lat":37.2306,"lon":-3.6554}]}`)
+			peticion = peticion.WithContext(vecports.ConEmisorIncidenciasTecnicas(peticion.Context(), emisor))
 			respuesta := httptest.NewRecorder()
-			manejador.ServeHTTP(respuesta, peticionRutaPrueba(`{"coordinates":[{"lat":37.1773,"lon":-3.5986},{"lat":37.2306,"lon":-3.6554}]}`))
+			manejador.ServeHTTP(respuesta, peticion)
 			if respuesta.Code != prueba.estado {
 				t.Fatalf("estado = %d: %s", respuesta.Code, respuesta.Body.String())
 			}
+			if strings.Contains(respuesta.Body.String(), "detalle-interno") {
+				t.Fatalf("la respuesta expone el texto del error: %s", respuesta.Body.String())
+			}
+			if len(emisor.solicitudes) != prueba.incidencias {
+				t.Fatalf("incidencias = %v", emisor.solicitudes)
+			}
+			for _, s := range emisor.solicitudes {
+				if s.Codigo != vecdomain.IncidenciaOSRMNoDisponible || s.Componente != vecdomain.ComponenteIncidenciaOSRM {
+					t.Fatalf("incidencia inesperada: %v", s)
+				}
+			}
 		})
 	}
+}
+
+type emisorIncidenciasCartografia struct {
+	solicitudes []vecdomain.SolicitudIncidenciaTecnica
+}
+
+func (e *emisorIncidenciasCartografia) Emitir(s vecdomain.SolicitudIncidenciaTecnica) {
+	e.solicitudes = append(e.solicitudes, s)
 }
