@@ -13,11 +13,11 @@ import (
 
 const (
 	firmaRevalidarVinculoCorporativoRRHHV1 = `vec_contexto_actor_v1.revalidar_vinculo_corporativo_rrhh_v1(text,text,text,text,numeric)`
-	// ContextoActor 000008 exige el runtime acreditado dentro de la función.
+	// ContextoActor 000009 exige el runtime acreditado dentro de la función.
 	consultaRevalidarVinculoCorporativoRRHHV1 = `
 		SELECT vec_contexto_actor_v1.revalidar_vinculo_corporativo_rrhh_v1(
 		       $1, $2, $3, $4, $5::numeric)`
-	// Falla con error si la función no existe: sin 000008 no se arranca.
+	// Falla con error si la función no existe: sin 000009 no se arranca.
 	consultaSondaVinculoCorporativoRRHHV1 = `
 		SELECT pg_catalog.has_function_privilege($1, 'EXECUTE')`
 )
@@ -34,7 +34,7 @@ type RevalidadorVinculoCorporativoRRHHPostgreSQLV1 struct {
 }
 
 // NuevoRevalidadorVinculoCorporativoRRHHPostgreSQLV1 acredita el runtime y
-// exige EXECUTE sobre la función de 000008 antes de atender peticiones.
+// exige EXECUTE sobre la función de 000009 antes de atender peticiones.
 func NuevoRevalidadorVinculoCorporativoRRHHPostgreSQLV1(
 	ctx context.Context, pool *pgxpool.Pool,
 ) (*RevalidadorVinculoCorporativoRRHHPostgreSQLV1, error) {

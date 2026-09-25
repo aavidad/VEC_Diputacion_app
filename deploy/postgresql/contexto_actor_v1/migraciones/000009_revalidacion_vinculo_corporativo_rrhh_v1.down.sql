@@ -1,4 +1,4 @@
--- Reversión de ContextoActor 000008: retira la revalidación corporativa y
+-- Reversión de ContextoActor 000009: retira la revalidación corporativa y
 -- restaura exactamente la comprobación de runtime de 000007 (cinco funciones).
 -- La función retirada no firma ni registra nada; no hay historia que perder.
 BEGIN;
@@ -13,7 +13,7 @@ BEGIN
            FROM pg_catalog.pg_proc
           WHERE oid = pg_catalog.to_regprocedure('vec_contexto_actor_v1.exigir_runtime_contexto_actor_v1()'))
         IS DISTINCT FROM '005fff9328377a75bcde2a23e997959f2d1603f658ae39a2e6f2eb8d8986d3c8' THEN
-    RAISE EXCEPTION 'ContextoActor 000008 no instalada o divergente' USING ERRCODE='55000';
+    RAISE EXCEPTION 'ContextoActor 000009 no instalada o divergente' USING ERRCODE='55000';
   END IF;
 END
 $preimagen$;
@@ -149,7 +149,7 @@ BEGIN
              FROM pg_catalog.pg_proc
             WHERE oid = 'vec_contexto_actor_v1.exigir_runtime_contexto_actor_v1()'::regprocedure)
           <> 'f29b3374ea974e13e49454456e7fe80d6e1e7030cab0f566eb6c41eea0f3ab88' THEN
-        RAISE EXCEPTION 'reversion ContextoActor 000008 divergente' USING ERRCODE='55000';
+        RAISE EXCEPTION 'reversion ContextoActor 000009 divergente' USING ERRCODE='55000';
     END IF;
 END
 $postimagen$;

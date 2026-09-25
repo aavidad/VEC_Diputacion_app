@@ -1,4 +1,4 @@
--- ContextoActor 000008: revalidación por petición del vínculo corporativo RRHH.
+-- ContextoActor 000009: revalidación por petición del vínculo corporativo RRHH.
 --
 -- El vínculo corporativo (000004/000004a) solo se cotejaba al aprovisionar
 -- (alias HMAC de Identidad y publicación del permiso interno). Revocarlo no
@@ -23,8 +23,14 @@
 --   se sustituye por la misma comprobación con la función nueva en su
 --   manifiesto cerrado (misma estructura, contadores 6/8/6).
 --
--- Orden: tras 000007. DOWN permitido: la función no firma ni registra nada;
--- restaura exactamente la comprobación de runtime de 000007.
+-- Orden: tras 000007 y, por numeración, tras 000008 (acreditación de persona
+-- tercero de la Base B2). Son independientes y conmutan: 000008 no toca
+-- exigir_runtime_contexto_actor_v1 ni concede nada al runtime (su función
+-- revoca EXECUTE a PUBLIC y al runtime; solo la ejecuta
+-- vec_personal_propietario), así que la preimagen de esta migración (huella
+-- de 000007 y cinco funciones del runtime) se cumple con y sin 000008 y no se
+-- exige su postimagen. DOWN permitido: la función no firma ni registra nada;
+-- restaura exactamente la comprobación de runtime de 000007 y no toca 000008.
 BEGIN;
 SET LOCAL search_path = pg_catalog;
 SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(
@@ -37,7 +43,7 @@ DECLARE
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=current_user AND rolsuper)
      OR current_setting('transaction_isolation') <> 'read committed' THEN
-    RAISE EXCEPTION 'migracion ContextoActor 000008 requiere superusuario y transaccion ordinaria' USING ERRCODE='42501';
+    RAISE EXCEPTION 'migracion ContextoActor 000009 requiere superusuario y transaccion ordinaria' USING ERRCODE='42501';
   END IF;
   IF e IS NULL OR propietario IS NULL OR runtime IS NULL
      OR pg_catalog.to_regprocedure('vec_contexto_actor_v1.resolver_y_registrar_contexto_actor_v2(text,text,text,text,text,text,timestamptz,text[])') IS NULL
@@ -49,7 +55,7 @@ BEGIN
      OR EXISTS (SELECT 1 FROM pg_catalog.pg_proc p
                  WHERE p.pronamespace='vec_contexto_actor_v1'::regnamespace
                    AND p.proname='revalidar_vinculo_corporativo_rrhh_v1') THEN
-    RAISE EXCEPTION 'ContextoActor 000008 exige 000007 instalada y no aplicada antes' USING ERRCODE='55000';
+    RAISE EXCEPTION 'ContextoActor 000009 exige 000007 instalada y no aplicada antes' USING ERRCODE='55000';
   END IF;
   -- Postimagen exacta de 000007 para la comprobación de runtime.
   IF (SELECT pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(prosrc,'UTF8')),'hex')
@@ -278,7 +284,7 @@ BEGIN
              FROM pg_catalog.pg_proc
             WHERE oid = 'vec_contexto_actor_v1.exigir_runtime_contexto_actor_v1()'::regprocedure)
           <> '005fff9328377a75bcde2a23e997959f2d1603f658ae39a2e6f2eb8d8986d3c8' THEN
-        RAISE EXCEPTION 'postimagen ContextoActor 000008 divergente' USING ERRCODE='55000';
+        RAISE EXCEPTION 'postimagen ContextoActor 000009 divergente' USING ERRCODE='55000';
     END IF;
 END
 $postimagen$;

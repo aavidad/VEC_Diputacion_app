@@ -32,7 +32,7 @@ type ConfiguracionFuenteF1 struct {
 	Identidad   *httpseguridad.ServicioIdentidad
 	Revalidador vecports.RevalidadorAutenticacionActorV1
 	Resolutor   core.ResolutorContextoActorRegistradoV2
-	// VinculoCorporativo es ContextoActor 000008: revalida en cada petición el
+	// VinculoCorporativo es ContextoActor 000009: revalida en cada petición el
 	// vínculo corporativo interna_corporativa/consulta_rrhh de la persona.
 	VinculoCorporativo vecports.RevalidadorVinculoCorporativoRRHHV1
 	Reloj              vecports.Reloj

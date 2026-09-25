@@ -31,7 +31,7 @@ func (resolutorInalcanzable) ResolverContextoActorRegistradoV2(context.Context, 
 	panic("sin cápsula no debe consultar F1")
 }
 
-// autoridadCorporativaPrueba imita ContextoActor 000008: responde con el estado
+// autoridadCorporativaPrueba imita ContextoActor 000009: responde con el estado
 // actual del vínculo corporativo en cada llamada, sin caché.
 type autoridadCorporativaPrueba struct {
 	vigente     bool

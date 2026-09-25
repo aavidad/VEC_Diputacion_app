@@ -68,7 +68,7 @@ func NuevoContextoPostgreSQL(ctx context.Context, revalidacion, contexto *pgxpoo
 	if err != nil {
 		return ContextoPostgreSQL{}, ErrGobiernoInternoNoDisponible
 	}
-	// Mismo LOGIN runtime de ContextoActor; sin 000008 no arranca.
+	// Mismo LOGIN runtime de ContextoActor; sin 000009 no arranca.
 	corporativo, err := postgrescontexto.NuevoRevalidadorVinculoCorporativoRRHHPostgreSQLV1(ctx, contexto)
 	if err != nil {
 		return ContextoPostgreSQL{}, ErrGobiernoInternoNoDisponible

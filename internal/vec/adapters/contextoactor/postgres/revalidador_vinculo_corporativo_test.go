@@ -104,13 +104,13 @@ func TestRevalidadorVinculoCorporativoRechazaEntradaYContextoSinConsultar(t *tes
 }
 
 // TestIntegracionPostgreSQLRevalidacionVinculoCorporativo se ejecuta desde
-// deploy/postgresql/contexto_actor_v1/pruebas_sql/revalidacion_vinculo_corporativo_000008_pg18.sh
+// deploy/postgresql/contexto_actor_v1/pruebas_sql/revalidacion_vinculo_corporativo_000009_pg18.sh
 // con VEC_GO_INTEGRACION=1: la persona sintética R tiene su vínculo
 // corporativo en versión 6 activa.
 func TestIntegracionPostgreSQLRevalidacionVinculoCorporativo(t *testing.T) {
 	dsn, admin := os.Getenv("VEC_CONTEXTO_ACTOR_CORPORATIVO_POSTGRES_DSN"), os.Getenv("VEC_CONTEXTO_ACTOR_CORPORATIVO_ADMIN_DSN")
 	if dsn == "" || admin == "" {
-		t.Skip("requiere el ensayo PostgreSQL 18 de ContextoActor 000008")
+		t.Skip("requiere el ensayo PostgreSQL 18 de ContextoActor 000009")
 	}
 	ctx, cancelar := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancelar()

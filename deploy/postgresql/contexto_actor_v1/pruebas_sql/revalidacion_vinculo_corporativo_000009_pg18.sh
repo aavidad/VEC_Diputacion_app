@@ -1,19 +1,22 @@
 #!/usr/bin/env bash
-# Ensayo en PostgreSQL 18.4 desechable de ContextoActor 000008 (revalidación
+# Ensayo en PostgreSQL 18.4 desechable de ContextoActor 000009 (revalidación
 # por petición del vínculo corporativo RRHH) sobre la postimagen de 000007.
 # Datos exclusivamente sintéticos. El contenedor se elimina al terminar.
 # Con VEC_GO_INTEGRACION=1 ejecuta además la prueba de integración del
 # adaptador Go contra la misma base antes de borrarla.
+# Con VEC_CA_000008_REF=<referencia git> instala antes, leída de esa referencia
+# con git show y sin copiarla al árbol, la ContextoActor 000008 de la Base B2
+# (acreditación de persona tercero) para comprobar que ambas conmutan.
 set -euo pipefail
 base_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 repo_dir=$(CDPATH='' cd -- "$base_dir/../../../.." && pwd)
 motor=${VEC_CONTENEDOR_MOTOR:-docker}
 imagen=${VEC_POSTGRES_TEST_IMAGE:-postgres:18.4-alpine}
-contenedor="vec-ca-000008-${USER:-usuario}-$$"
+contenedor="vec-ca-000009-${USER:-usuario}-$$"
 base=vec_revalidacion_corporativa_prueba
 ca="$repo_dir/deploy/postgresql/contexto_actor_v1"
-up8="$ca/migraciones/000008_revalidacion_vinculo_corporativo_rrhh_v1.up.sql"
-down8="$ca/migraciones/000008_revalidacion_vinculo_corporativo_rrhh_v1.down.sql"
+up9="$ca/migraciones/000009_revalidacion_vinculo_corporativo_rrhh_v1.up.sql"
+down9="$ca/migraciones/000009_revalidacion_vinculo_corporativo_rrhh_v1.down.sql"
 limpiar() { "$motor" rm -f "$contenedor" >/dev/null 2>&1 || true; }
 trap limpiar EXIT INT TERM
 
@@ -149,16 +152,28 @@ revalidar() {
     '$CTA','${2:-$PRF}','${1:-$PER}','$VCA',${3:-1})" 2>&1 || true
 }
 
-echo 'ContextoActor 000008:'
-sed '$s/^COMMIT;/ROLLBACK;/' "$up8" | admin -o /dev/null 2>/dev/null
+f8=deploy/postgresql/contexto_actor_v1/migraciones/000008_acreditacion_persona_tercero.up.sql
+firma8='vec_contexto_actor_v1.acreditar_persona_tercero_v1(text)'
+if [[ -n ${VEC_CA_000008_REF:-} ]]; then
+  git -C "$repo_dir" show "$VEC_CA_000008_REF:$f8" | admin -o /dev/null
+  [[ $(admin_valor "SELECT to_regprocedure('$firma8') IS NOT NULL
+      AND NOT has_function_privilege('vec_contexto_actor_v1_runtime','$firma8','EXECUTE')") == t ]] \
+    || fallo '000008 (B2) no quedó instalada o concede EXECUTE al runtime'
+  [[ $(runtime -c 'SELECT acreditada FROM vec_contexto_actor_v1.acreditar_runtime_contexto_actor_v1()') == t ]] \
+    || fallo 'runtime de 000007 no acreditado tras 000008 (B2)'
+  ok '000008 (B2) instalada antes; runtime de cinco funciones intacto'
+fi
+
+echo 'ContextoActor 000009:'
+sed '$s/^COMMIT;/ROLLBACK;/' "$up9" | admin -o /dev/null 2>/dev/null
 [[ $(admin_valor "SELECT to_regprocedure('vec_contexto_actor_v1.revalidar_vinculo_corporativo_rrhh_v1(text,text,text,text,numeric)') IS NULL") == t ]] \
-  || fallo 'ROLLBACK de 000008 dejó objetos'
+  || fallo 'ROLLBACK de 000009 dejó objetos'
 [[ $(runtime -c 'SELECT acreditada FROM vec_contexto_actor_v1.acreditar_runtime_contexto_actor_v1()') == t ]] \
   || fallo 'runtime de 000007 no acreditado tras el ROLLBACK'
 ok 'ROLLBACK limpio; runtime de cinco funciones intacto'
-if archivo "$down8" >/dev/null 2>&1; then fallo 'DOWN aceptado sin 000008 instalada'; fi
-archivo "$up8"
-if archivo "$up8" >/dev/null 2>&1; then fallo '000008 admitió una segunda aplicación'; fi
+if archivo "$down9" >/dev/null 2>&1; then fallo 'DOWN aceptado sin 000009 instalada'; fi
+archivo "$up9"
+if archivo "$up9" >/dev/null 2>&1; then fallo '000009 admitió una segunda aplicación'; fi
 ok 'instalación única; DOWN rechazado antes de instalar'
 
 [[ $(runtime -c 'SELECT acreditada FROM vec_contexto_actor_v1.acreditar_runtime_contexto_actor_v1()') == t ]] \
@@ -217,12 +232,18 @@ if [[ ${VEC_GO_INTEGRACION:-0} == 1 ]]; then
   ok 'adaptador Go contra PostgreSQL 18.4'
 fi
 
-archivo "$down8"
+archivo "$down9"
 [[ $(admin_valor "SELECT to_regprocedure('vec_contexto_actor_v1.revalidar_vinculo_corporativo_rrhh_v1(text,text,text,text,numeric)') IS NULL") == t ]] \
   || fallo 'DOWN no retiró la función'
 [[ $(runtime -c 'SELECT acreditada FROM vec_contexto_actor_v1.acreditar_runtime_contexto_actor_v1()') == t ]] \
   || fallo 'runtime de cinco funciones no acreditado tras DOWN'
-archivo "$up8"
+archivo "$up9"
 [[ $(revalidar) == t ]] || fallo 'reinstalación tras DOWN'
 ok 'DOWN restaura el runtime de 000007 y admite reinstalar'
-echo 'ContextoActor 000008: todo verde'
+if [[ -n ${VEC_CA_000008_REF:-} ]]; then
+  [[ $(admin_valor "SELECT to_regprocedure('$firma8') IS NOT NULL
+      AND NOT has_function_privilege('vec_contexto_actor_v1_runtime','$firma8','EXECUTE')") == t ]] \
+    || fallo '000009 alteró la 000008 (B2)'
+  ok '000008 (B2) intacta tras UP, DOWN y reinstalación de 000009'
+fi
+echo 'ContextoActor 000009: todo verde'
