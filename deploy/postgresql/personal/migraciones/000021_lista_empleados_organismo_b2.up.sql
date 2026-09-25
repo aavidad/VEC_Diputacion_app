@@ -164,8 +164,8 @@ BEGIN
      WHERE organismo_ref=organismo AND conocido_desde<=conocido
      ORDER BY puesto_ref,conocido_desde DESC,revision DESC),
  todos AS (SELECT DISTINCT empleado_ref FROM rel),
- pagina_e AS (SELECT empleado_ref,row_number() OVER (ORDER BY empleado_ref) AS num
-     FROM (SELECT empleado_ref FROM todos ORDER BY empleado_ref OFFSET offset_p LIMIT limite+1) t),
+ pagina_e AS (SELECT empleado_ref,row_number() OVER (ORDER BY empleado_ref COLLATE "C") AS num
+     FROM (SELECT empleado_ref FROM todos ORDER BY empleado_ref COLLATE "C" OFFSET offset_p LIMIT limite+1) t),
  vigentes AS (
   SELECT r.empleado_ref,jsonb_build_object(
     'relacion_ref',r.relacion_ref,'estado',r.estado,'unidad_ref',r.unidad_ref,
@@ -186,7 +186,7 @@ BEGIN
   WHERE r.estado<>'finalizada' AND r.vigente_desde<=fecha AND (r.vigente_hasta IS NULL OR fecha<r.vigente_hasta))
  SELECT coalesce(jsonb_agg(jsonb_build_object('empleado_ref',p.empleado_ref,
     'relaciones',coalesce((SELECT jsonb_agg(v.relacion ORDER BY v.relacion_ref) FROM vigentes v
-       WHERE v.empleado_ref=p.empleado_ref),'[]'::jsonb)) ORDER BY p.empleado_ref)
+       WHERE v.empleado_ref=p.empleado_ref),'[]'::jsonb)) ORDER BY p.empleado_ref COLLATE "C")
     FILTER (WHERE p.num<=limite),'[]'::jsonb),
    count(*) FILTER (WHERE p.num<=limite),count(*)>limite
   INTO empleados,cardinalidad,hay_mas

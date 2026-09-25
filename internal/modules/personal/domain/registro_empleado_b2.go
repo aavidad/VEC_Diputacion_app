@@ -125,8 +125,11 @@ func nuevoMaterialConsultaB2(operacion, empleado, organismo string, corte CorteE
 	}
 	suma := sha256.Sum256(canonico)
 	referencia, tipo := empleado, "registro_empleado_rrhh"
-	if operacion == "vacantes" {
+	switch operacion {
+	case "vacantes":
 		referencia, tipo = organismo, "vacantes_rrhh"
+	case "empleados":
+		referencia, tipo = organismo, "empleados_rrhh"
 	}
 	ambitos := map[string]string{}
 	if empleado != "" {

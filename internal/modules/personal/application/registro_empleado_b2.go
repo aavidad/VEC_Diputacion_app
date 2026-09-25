@@ -94,8 +94,11 @@ func autorizacionRegistroB2Valida(m domain.MaterialConsultaRegistroEmpleadoB2, a
 	h, err := m.HuellaSHA256()
 	x := a.ResumenCapacidad()
 	accion, audiencia := domain.AccionFichaEmpleadoB2, domain.AudienciaFichaEmpleadoB2
-	if m.Operacion() == "vacantes" {
+	switch m.Operacion() {
+	case "vacantes":
 		accion, audiencia = domain.AccionVacantesB2, domain.AudienciaVacantesB2
+	case "empleados":
+		accion, audiencia = domain.AccionEmpleadosB2, domain.AudienciaEmpleadosB2
 	}
 	return err == nil && a.ValidarEstructura() == nil &&
 		a.PersonaVersion() == actor.Instantanea.PersonaVersion && a.PerfilVersion() == actor.Instantanea.PerfilVersion &&
