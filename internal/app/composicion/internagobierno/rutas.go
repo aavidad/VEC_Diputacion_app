@@ -8,13 +8,14 @@ import (
 )
 
 // AutoridadRutaSeguimiento limita la frontera HTTP a la ruta exacta de
-// consulta. Comprueba sesión y vínculo F1 vivos antes de entrar en el caso de
+// consulta. Comprueba sesión, vínculo F1 y vínculo corporativo vivos antes de entrar en el caso de
 // uso. La concesión sobre el expediente concreto se evalúa después mediante
 // V3 y se consume junto con la lectura PostgreSQL.
 type AutoridadRutaSeguimiento struct{ fuente *FuenteF1 }
 
 func NuevaAutoridadRutaSeguimiento(fuente *FuenteF1) (*AutoridadRutaSeguimiento, error) {
-	if fuente == nil || fuente.identidad == nil || fuente.revalidador == nil || fuente.resolutor == nil {
+	if fuente == nil || fuente.identidad == nil || fuente.revalidador == nil || fuente.resolutor == nil ||
+		fuente.corporativo == nil {
 		return nil, ErrGobiernoInternoNoDisponible
 	}
 	return &AutoridadRutaSeguimiento{fuente: fuente}, nil

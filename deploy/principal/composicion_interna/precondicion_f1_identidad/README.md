@@ -168,8 +168,13 @@ fichero se ensaya antes con su única línea `COMMIT;` cambiada por `ROLLBACK;`.
    en una transacción): ContextoActor `000006`, Identidad `000006`, Personal
    `000010a`, CT identidad `000002` y AD3 `000050a`.
 6. **Resto, fichero a fichero** (ensayo y COMMIT): ContextoActor `000007`,
-   AD3 `000053a` y CT `000109`. AD3 `000053a` es la lectura de configuración
-   interna, renumerada porque `000053` ya es de Cronos.
+   ContextoActor `000008`, AD3 `000053a` y CT `000109`. AD3 `000053a` es la
+   lectura de configuración interna, renumerada porque `000053` ya es de
+   Cronos. `000008` añade al runtime de ContextoActor la revalidación por
+   petición del vínculo corporativo; sin ella `vec-interno` no arranca, y con
+   ella revocar o dejar caducar el vínculo corporativo deniega la siguiente
+   petición. Ensayo: `contexto_actor_v1/pruebas_sql/revalidacion_vinculo_corporativo_000008_pg18.sh`
+   (no ejecutado en el clon ni en la principal).
 7. **Aprovisionamiento** de `vec-interno` con `../aprovisionar.py` fuera de
    Git (orden probado: `init-ca`, tokens PKCS#11 de HMAC y de la persona,
    `hmac-token`, `create-csr`, `issue-person`, `register-person`; registro F1
@@ -199,6 +204,7 @@ fichero se ensaya antes con su única línea `COMMIT;` cambiada por `ROLLBACK;`.
 | 5 | `contratacion_temporal/migraciones_identidad/000002_consulta_rrhh_certificado_desarrollo.up.sql` | `969d37a0…228ec0a7` |
 | 5 | `autorizacion_atestada_v3/migraciones/000050a_preflight_material_interno.up.sql` | `542b6629…d661119c` |
 | 6 | `contexto_actor_v1/migraciones/000007_alcance_proyecciones_empleado.up.sql` | `6b201fdd…91bd5b3c` |
+| 6 | `contexto_actor_v1/migraciones/000008_revalidacion_vinculo_corporativo_rrhh_v1.up.sql` | `d30ba3fd…69f52191` |
 | 6 | `autorizacion_atestada_v3/migraciones/000053a_lectura_configuracion_interna.up.sql` | `ce2e2e2c…315d2d0c` |
 | 6 | `contratacion_temporal/migraciones/000109_consulta_resumen_seguimiento.up.sql` | `fb18461b…32363526` |
 | 7 | `autorizacion/migraciones/000014_perfil_interno_certificado.up.sql` | `1f46c4c8…51e53b4b` |

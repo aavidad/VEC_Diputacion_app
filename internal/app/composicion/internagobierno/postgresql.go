@@ -16,8 +16,9 @@ import (
 // ContextoPostgreSQL conserva sólo adaptadores de lectura/registro de F1.
 // Los pools pertenecen al llamador, que los cierra con el resto del runtime.
 type ContextoPostgreSQL struct {
-	Revalidador vecports.RevalidadorAutenticacionActorV1
-	Resolutor   core.ResolutorContextoActorRegistradoV2
+	Revalidador        vecports.RevalidadorAutenticacionActorV1
+	Resolutor          core.ResolutorContextoActorRegistradoV2
+	VinculoCorporativo vecports.RevalidadorVinculoCorporativoRRHHV1
 }
 
 type IdentidadPostgreSQL struct {
@@ -67,7 +68,12 @@ func NuevoContextoPostgreSQL(ctx context.Context, revalidacion, contexto *pgxpoo
 	if err != nil {
 		return ContextoPostgreSQL{}, ErrGobiernoInternoNoDisponible
 	}
-	return ContextoPostgreSQL{Revalidador: r, Resolutor: autoridad}, nil
+	// Mismo LOGIN runtime de ContextoActor; sin 000008 no arranca.
+	corporativo, err := postgrescontexto.NuevoRevalidadorVinculoCorporativoRRHHPostgreSQLV1(ctx, contexto)
+	if err != nil {
+		return ContextoPostgreSQL{}, ErrGobiernoInternoNoDisponible
+	}
+	return ContextoPostgreSQL{Revalidador: r, Resolutor: autoridad, VinculoCorporativo: corporativo}, nil
 }
 
 // NuevoRegistradorAuditoriaPostgreSQL exige EXECUTE sobre la función exacta
