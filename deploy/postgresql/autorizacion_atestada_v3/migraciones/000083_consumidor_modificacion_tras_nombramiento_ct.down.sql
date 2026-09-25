@@ -15,7 +15,7 @@ LOCK TABLE vec_autorizacion_atestada_v3.clave_capacidad_version IN ACCESS EXCLUS
 
 DO $nucleo$
 DECLARE f oid:='vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
- original text; nuevo text; actual text; meta jsonb; acl aclitem[]; propietario oid; config text[]; definidora boolean;
+ original text; nuevo text; actual text; meta jsonb; deps jsonb; acl aclitem[]; propietario oid; config text[]; definidora boolean;
  marca text:=E'       )\n       OR c ->> ''suite'' <> ''VEC-AD-3-COSE-EDDSA-1''';
  extension text:=$x$           OR (
  p_perfil_mutacion IS NOT DISTINCT FROM 'modificacion_tras_nombramiento_ct'
@@ -26,7 +26,8 @@ DECLARE f oid:='vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_inter
  AND d->>'tipo_recurso' IS NOT DISTINCT FROM 'modificacion_contratacion_temporal'
  AND d->>'finalidad' IS NOT DISTINCT FROM 'modificar_expediente_tras_nombramiento'
  AND d->>'recurso_ref' IS NOT DISTINCT FROM c->>'efecto_ref'
- AND d->>'contexto_recurso_huella_sha256' IS NOT DISTINCT FROM c->>'huella_efecto_sha256')
+ AND d->>'contexto_recurso_huella_sha256' IS NOT DISTINCT FROM c->>'huella_efecto_sha256'
+ AND d->'obligaciones' IS NOT DISTINCT FROM '[]'::jsonb)
 $x$;
 BEGIN
  IF current_user<>'vec_autorizacion_atestada_v3_propietario'
@@ -38,6 +39,8 @@ BEGIN
  THEN RAISE EXCEPTION 'AD3-83: DOWN no admitido (CT 000116 instalada o historia de claves)' USING ERRCODE='55000'; END IF;
  SELECT pg_get_functiondef(f),to_jsonb(p)-'prosrc',p.proacl,p.proowner,p.proconfig,p.prosecdef
  INTO STRICT original,meta,acl,propietario,config,definidora FROM pg_proc p WHERE p.oid=f;
+ SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
+ INTO deps FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f;
  IF length(original)-length(replace(original,extension,''))<>length(extension)
  THEN RAISE EXCEPTION 'AD3-83: extensión del núcleo no localizada exactamente una vez' USING ERRCODE='55000'; END IF;
  nuevo:=replace(original,extension,'');
@@ -49,6 +52,8 @@ BEGIN
     OR (SELECT proowner FROM pg_proc WHERE oid=f) IS DISTINCT FROM propietario
     OR (SELECT proconfig FROM pg_proc WHERE oid=f) IS DISTINCT FROM config
     OR (SELECT prosecdef FROM pg_proc WHERE oid=f) IS DISTINCT FROM definidora
+    OR (SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
+        FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f) IS DISTINCT FROM deps
  THEN RAISE EXCEPTION 'AD3-83: núcleo alterado fuera de contrato al revertir' USING ERRCODE='55000'; END IF;
 END $nucleo$;
 

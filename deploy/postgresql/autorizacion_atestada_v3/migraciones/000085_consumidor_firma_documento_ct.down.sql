@@ -72,10 +72,12 @@ BEGIN
  INTO STRICT original,meta,acl,propietario,config,definidora FROM pg_proc p WHERE p.oid=f;
  SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
  INTO deps FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f;
- IF length(original)-length(replace(original,extension||marca,''))<>length(extension||marca)
+ -- La extensión se localiza sola, exactamente una vez: otra extensión
+ -- instalada después pudo insertarse también delante de la marca.
+ IF length(original)-length(replace(original,extension,''))<>length(extension)
     OR length(original)-length(replace(original,'firma_documento_ct',''))<>length('firma_documento_ct')
  THEN RAISE EXCEPTION 'AD3-85 DOWN: extensión no localizada en el núcleo' USING ERRCODE='55000'; END IF;
- nuevo:=replace(original,extension||marca,marca);
+ nuevo:=replace(original,extension,'');
  EXECUTE nuevo;
  SELECT pg_get_functiondef(f) INTO STRICT actual;
  IF actual IS DISTINCT FROM nuevo OR strpos(actual,'firma_documento_ct')<>0

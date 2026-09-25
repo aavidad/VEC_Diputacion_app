@@ -31,11 +31,11 @@ DO $nucleo$
 DECLARE
  f oid:='vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure;
  actual text; previa text; tras text; meta jsonb; acl aclitem[]; deps jsonb;
- marca text:=E'       )\n       OR c ->> ''suite'' <> ''VEC-AD-3-COSE-EDDSA-1''';
- excl text:=E'               p_perfil_mutacion IS DISTINCT FROM ''bolsa_llamamiento''\n';
- excl_nuevo text:=excl||E'               AND p_perfil_mutacion IS DISTINCT FROM ''portal_candidato_bolsa''\n';
- runtime text:=E'(p_perfil_mutacion IS NOT DISTINCT FROM ''bolsa_llamamiento''\n';
- runtime_nuevo text:=runtime||E'               OR p_perfil_mutacion IS NOT DISTINCT FROM ''portal_candidato_bolsa''\n';
+ -- Las tres piezas que insertó el UP se localizan por separado, cada una
+ -- exactamente una vez: otra extensión instalada después pudo insertarse
+ -- junto a las mismas anclas.
+ linea_excl text:=E'               AND p_perfil_mutacion IS DISTINCT FROM ''portal_candidato_bolsa''\n';
+ linea_runtime text:=E'               OR p_perfil_mutacion IS NOT DISTINCT FROM ''portal_candidato_bolsa''\n';
  extension text:=$x$           OR (
  p_perfil_mutacion IS NOT DISTINCT FROM 'portal_candidato_bolsa'
  AND ((((c->>'operacion' IS NOT DISTINCT FROM 'bolsa.participaciones_propias.solicitar_pausa'
@@ -59,11 +59,11 @@ BEGIN
  SELECT pg_get_functiondef(f),to_jsonb(p)-'prosrc',p.proacl INTO STRICT actual,meta,acl FROM pg_proc p WHERE p.oid=f;
  SELECT coalesce(jsonb_agg(to_jsonb(d) ORDER BY d.classid,d.objid,d.objsubid,d.refclassid,d.refobjid,d.refobjsubid,d.deptype),'[]'::jsonb)
  INTO deps FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=f;
- IF length(actual)-length(replace(actual,extension||marca,''))<>length(extension||marca)
-    OR length(actual)-length(replace(actual,excl_nuevo,''))<>length(excl_nuevo)
-    OR length(actual)-length(replace(actual,runtime_nuevo,''))<>length(runtime_nuevo)
+ IF length(actual)-length(replace(actual,extension,''))<>length(extension)
+    OR length(actual)-length(replace(actual,linea_excl,''))<>length(linea_excl)
+    OR length(actual)-length(replace(actual,linea_runtime,''))<>length(linea_runtime)
  THEN RAISE EXCEPTION 'AD3-84: núcleo sin la extensión exacta' USING ERRCODE='55000'; END IF;
- previa:=replace(replace(replace(actual,extension||marca,marca),runtime_nuevo,runtime),excl_nuevo,excl);
+ previa:=replace(replace(replace(actual,extension,''),linea_runtime,''),linea_excl,'');
  IF strpos(previa,'portal_candidato_bolsa')<>0 THEN RAISE EXCEPTION 'AD3-84: restos de la extensión' USING ERRCODE='55000'; END IF;
  EXECUTE previa;
  SELECT pg_get_functiondef(f) INTO STRICT tras;

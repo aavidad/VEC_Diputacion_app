@@ -100,8 +100,22 @@ CREATE FUNCTION vec_autorizacion_atestada_v3.registrar_y_consumir_firma_document
  p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)
 RETURNS TABLE(decision_ref text,efecto_ref text,huella_efecto_sha256 text,consumo_huella_sha256 text,auditoria_ref text,consumida_en timestamptz,consumo_nuevo boolean)
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET lock_timeout='2s' AS $f$
-DECLARE x record;
+DECLARE c jsonb; d jsonb; x record;
 BEGIN
+ -- Comprobaciones previas, como las demás fachadas: el material que no es de
+ -- firma de un documento de CT se deniega antes de llegar al núcleo.
+ BEGIN c:=convert_from(p_capacidad,'UTF8')::jsonb; d:=convert_from(p_decision,'UTF8')::jsonb;
+ EXCEPTION WHEN others THEN RAISE EXCEPTION 'AD3-85: material de firma inválido' USING ERRCODE='22023'; END;
+ IF c->>'operacion' IS DISTINCT FROM 'contratacion_temporal.documento.firmar'
+    OR c->>'audiencia_consumo' IS DISTINCT FROM 'vec_contratacion_temporal.firma_documento.v1'
+    OR d->>'accion' IS DISTINCT FROM c->>'operacion'
+    OR d->>'modulo_id' IS DISTINCT FROM 'contratacion_temporal'
+    OR d->>'tipo_recurso' IS DISTINCT FROM 'firma_documento_contratacion_temporal'
+    OR d->>'finalidad' IS DISTINCT FROM 'gestionar_contratacion_temporal'
+    OR d->>'recurso_ref' IS DISTINCT FROM c->>'efecto_ref'
+    OR d->>'contexto_recurso_huella_sha256' IS DISTINCT FROM c->>'huella_efecto_sha256'
+    OR d->'obligaciones' IS DISTINCT FROM '[]'::jsonb
+ THEN RAISE EXCEPTION 'AD3-85: firma denegada' USING ERRCODE='42501'; END IF;
  SELECT * INTO STRICT x FROM vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(
   'firma_documento_ct',p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz);
  IF x.consumo_nuevo IS NOT TRUE THEN

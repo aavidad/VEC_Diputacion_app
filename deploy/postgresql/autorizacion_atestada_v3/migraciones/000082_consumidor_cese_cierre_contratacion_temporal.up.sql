@@ -27,7 +27,8 @@ DECLARE f oid:='vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_inter
  AND d->>'tipo_recurso' IS NOT DISTINCT FROM 'cese_contratacion_temporal'
  AND d->>'finalidad' IS NOT DISTINCT FROM 'registrar_cese_contratacion_temporal'
  AND d->>'recurso_ref' IS NOT DISTINCT FROM c->>'efecto_ref'
- AND d->>'contexto_recurso_huella_sha256' IS NOT DISTINCT FROM c->>'huella_efecto_sha256')
+ AND d->>'contexto_recurso_huella_sha256' IS NOT DISTINCT FROM c->>'huella_efecto_sha256'
+ AND d->'obligaciones' IS NOT DISTINCT FROM '[]'::jsonb)
            OR (
  p_perfil_mutacion IS NOT DISTINCT FROM 'cierre_expediente_ct'
  AND c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_contratacion_temporal.cierre_expediente.v1'
@@ -37,7 +38,8 @@ DECLARE f oid:='vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_inter
  AND d->>'tipo_recurso' IS NOT DISTINCT FROM 'cierre_expediente_contratacion_temporal'
  AND d->>'finalidad' IS NOT DISTINCT FROM 'cerrar_expediente_tras_cese'
  AND d->>'recurso_ref' IS NOT DISTINCT FROM c->>'efecto_ref'
- AND d->>'contexto_recurso_huella_sha256' IS NOT DISTINCT FROM c->>'huella_efecto_sha256')
+ AND d->>'contexto_recurso_huella_sha256' IS NOT DISTINCT FROM c->>'huella_efecto_sha256'
+ AND d->'obligaciones' IS NOT DISTINCT FROM '[]'::jsonb)
 $x$;
 BEGIN
  IF current_user<>'vec_autorizacion_atestada_v3_propietario'
@@ -116,6 +118,7 @@ BEGIN
     OR d->>'finalidad' IS DISTINCT FROM 'registrar_cese_contratacion_temporal'
     OR d->>'recurso_ref' IS DISTINCT FROM c->>'efecto_ref'
     OR d->>'contexto_recurso_huella_sha256' IS DISTINCT FROM c->>'huella_efecto_sha256'
+    OR d->'obligaciones' IS DISTINCT FROM '[]'::jsonb
  THEN RAISE EXCEPTION 'AD3-82: cese denegado' USING ERRCODE='42501'; END IF;
  SELECT * INTO STRICT x FROM vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(
   'cese_ct',p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz);
@@ -140,6 +143,7 @@ BEGIN
     OR d->>'finalidad' IS DISTINCT FROM 'cerrar_expediente_tras_cese'
     OR d->>'recurso_ref' IS DISTINCT FROM c->>'efecto_ref'
     OR d->>'contexto_recurso_huella_sha256' IS DISTINCT FROM c->>'huella_efecto_sha256'
+    OR d->'obligaciones' IS DISTINCT FROM '[]'::jsonb
  THEN RAISE EXCEPTION 'AD3-82: cierre denegado' USING ERRCODE='42501'; END IF;
  SELECT * INTO STRICT x FROM vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(
   'cierre_expediente_ct',p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz);
