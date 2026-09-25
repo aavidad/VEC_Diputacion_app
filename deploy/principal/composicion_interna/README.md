@@ -237,9 +237,12 @@ python3 "$SCRIPT" --material-dir "$MATERIAL" identity-roles \
 ```
 
 Los seis LOGIN de autorización, motivos RRHH, consulta y preflight V3 se
-preparan con `v3-roles` cuando AD3 `000050a`, AD3 `000053a` y CT `000109`
-consten instaladas. La segunda función del preflight, `leer_configuracion_interna_v1(jsonb)`,
-lee el gobierno V3 publicado para la renovación diaria; su función y ACL se
+preparan con `v3-roles` cuando AD3 `000050a`, AD3 `000053a`, AD3 `000069` y CT
+`000109` consten instaladas. El preflight tiene exactamente cuatro funciones:
+las v1 de 50a/53a, que siguen instaladas sin consumidor de lectura, y las v2
+de AD3 `000069` (`comprobar_material_emision_interna_v2` y
+`leer_configuracion_interna_v2`, con consumidor cerrado `ct` o `personal_b2`),
+que leen el gobierno V3 publicado para la renovación diaria; funciones y ACL se
 cotejan antes de crear el LOGIN.
 El sexto se llama exactamente `vec_interno_preflight_v3_desarrollo` y solo
 pertenece a `vec_autorizacion_atestada_v3_preflight_interno`. El script deja

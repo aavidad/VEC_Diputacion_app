@@ -172,7 +172,12 @@ fichero se ensaya antes con su única línea `COMMIT;` cambiada por `ROLLBACK;`.
    en una transacción): ContextoActor `000006`, Identidad `000006`, Personal
    `000010a`, CT identidad `000002` y AD3 `000050a`.
 6. **Resto, fichero a fichero** (ensayo y COMMIT): ContextoActor `000007`,
-   ContextoActor `000009`, AD3 `000053a` y CT `000109`. AD3 `000053a` es la
+   ContextoActor `000009`, AD3 `000053a`, AD3 `000069` y CT `000109`. AD3
+   `000069` (sonda y lectura de gobierno por consumidor `ct`/`personal_b2`) la
+   exigen `v3-roles` y el binario de `vec-interno`: con ella instalada, el
+   binario anterior de `vec-interno` no abre el preflight (su manifiesto
+   admite sólo las dos funciones v1), y el nuevo no arranca sin ella; se
+   aplican en la misma ventana. AD3 `000053a` es la
    lectura de configuración interna, renumerada porque `000053` ya es de
    Cronos. `000009` añade al runtime de ContextoActor la revalidación por
    petición del vínculo corporativo; sin ella `vec-interno` no arranca, y con
@@ -216,12 +221,14 @@ fichero se ensaya antes con su única línea `COMMIT;` cambiada por `ROLLBACK;`.
 | 6 | `contexto_actor_v1/migraciones/000007_alcance_proyecciones_empleado.up.sql` | `6b201fdd…91bd5b3c` |
 | 6 | `contexto_actor_v1/migraciones/000009_revalidacion_vinculo_corporativo_rrhh_v1.up.sql` | `53e0e243…5e78fd43` |
 | 6 | `autorizacion_atestada_v3/migraciones/000053a_lectura_configuracion_interna.up.sql` | `ce2e2e2c…315d2d0c` |
+| 6 | `autorizacion_atestada_v3/migraciones/000069_sonda_lectura_gobierno_por_consumidor.up.sql` | `43984903…299e42d3e` |
 | 6 | `contratacion_temporal/migraciones/000109_consulta_resumen_seguimiento.up.sql` | `fb18461b…32363526` |
 | 7 | `autorizacion/migraciones/000014_perfil_interno_certificado.up.sql` | `1f46c4c8…51e53b4b` |
 
 El núcleo AD3 (`md5` de `consumir_decision_mutacion_v3_interna`) no cambia en
 ningún paso (`a5ef3e6f…`). Con el binario actual de la principal, CT sigue
-igual tras los pasos 4–7; el binario de la rama también. No aplicar
+igual tras los pasos 4–7 (vec-server no usa AD3 `000069`). El `vec-interno`
+nuevo exige AD3 `000069`. No aplicar
 ContextoActor `000006` antes que `000003`/`000004a` ni instalar `000004`.
 
 ## Ensayos sintéticos anteriores
