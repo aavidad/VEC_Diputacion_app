@@ -61,12 +61,17 @@ export function motivoResolucionValido(motivo) {
 export function validarBandejaCronos(v, paso) {
   if (!campos(v, ["paso", "pendientes"]) || v.paso !== paso || !Array.isArray(v.pendientes) || v.pendientes.length > 500) throw incompatible();
   for (const s of v.pendientes) {
-    if (!campos(s, ["solicitud_ref", "empleado_ref", "empleado_etiqueta", "permiso_ref", "nombre", "circuito", "justificante_exigido", "desde", "hasta",
-      "cantidad", "unidad", "estado", "version", "solicitada_en"], ["hora_inicio", "hora_fin"])
+    if (!campos(s, ["solicitud_ref", "empleado_ref", "empleado_etiqueta", "permiso_ref", "nombre", "circuito", "pendiente_asignacion", "justificante_exigido",
+      "desde", "hasta", "cantidad", "unidad", "estado", "version", "solicitada_en"], ["hora_inicio", "hora_fin"])
       || !referencia(s.solicitud_ref, "permiso:cronos:solicitud:") || !referencia(s.empleado_ref, "emp_") || typeof s.empleado_etiqueta !== "string"
       || [...s.empleado_etiqueta].length > 120 || !referencia(s.permiso_ref, "permiso:cronos:") || !texto(s.nombre, 120)
-      || !["A", "J-A"].includes(s.circuito) || typeof s.justificante_exigido !== "boolean" || !fecha(s.desde) || !fecha(s.hasta) || s.desde > s.hasta
-      || !tramo(s) || !entero(s.cantidad, 1) || !unidad(s.unidad) || !ESTADOS_PENDIENTES.has(s.estado) || !entero(s.version, 1) || !instante(s.solicitada_en)) throw incompatible();
+      || !["A", "J-A"].includes(s.circuito) || typeof s.pendiente_asignacion !== "boolean" || typeof s.justificante_exigido !== "boolean"
+      || !fecha(s.desde) || !fecha(s.hasta) || s.desde > s.hasta
+      || !tramo(s) || !entero(s.cantidad, 1) || !unidad(s.unidad) || !ESTADOS_PENDIENTES.has(s.estado) || !entero(s.version, 1) || !instante(s.solicitada_en)
+      // Circuito aplicado: J-A por defecto; A (directo) y lo pendiente de
+      // asignar jefatura sólo en la bandeja de RRHH y aún sin conformidad.
+      || ((s.circuito === "A" || s.pendiente_asignacion) && (paso !== "administracion" || s.estado !== "solicitado"))
+      || (s.circuito === "A" && s.pendiente_asignacion) || (paso === "responsable" && s.estado !== "solicitado")) throw incompatible();
   }
   return v;
 }
@@ -153,7 +158,7 @@ export function crearClienteResolucionCronosHTTP({ fetchImpl = globalThis.fetch,
         if (respuesta.status === 401) throw fallo("autenticacion_requerida", 401);
         if (respuesta.status === 403) throw fallo(["sin_empleado", "no_competente"].includes(codigoServidor) ? codigoServidor : "acceso_denegado", 403);
         if (respuesta.status === 400) throw fallo("peticion_invalida", 400);
-        if (respuesta.status === 409) throw fallo(codigoServidor === "estado_cambiado" ? "estado_cambiado" : "conflicto", 409);
+        if (respuesta.status === 409) throw fallo(["estado_cambiado", "pendiente_asignacion"].includes(codigoServidor) ? codigoServidor : "conflicto", 409);
         throw fallo("servicio_no_disponible", respuesta.status);
       }
       if (!json) throw fallo("tipo_respuesta_no_valido", respuesta.status);

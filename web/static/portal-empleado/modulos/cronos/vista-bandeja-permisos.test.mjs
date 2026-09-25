@@ -9,10 +9,10 @@ function bandeja(paso = "responsable") {
     paso,
     pendientes: [
       { solicitud_ref: "permiso:cronos:solicitud:perm-va-00001", empleado_ref: "emp_AAAAAAAAAAAAAAAAAAAAAA", empleado_etiqueta: "Persona sintética A",
-        permiso_ref: "permiso:cronos:vacaciones", nombre: "Vacaciones", circuito: "J-A", justificante_exigido: false, desde: "2026-10-05", hasta: "2026-10-07",
+        permiso_ref: "permiso:cronos:vacaciones", nombre: "Vacaciones", circuito: "J-A", pendiente_asignacion: false, justificante_exigido: false, desde: "2026-10-05", hasta: "2026-10-07",
         cantidad: 3, unidad: "dia", estado: "solicitado", version: 1, solicitada_en: "2026-09-24T08:00:00Z" },
       { solicitud_ref: "permiso:cronos:solicitud:perm-hm-00001", empleado_ref: "emp_AAAAAAAAAAAAAAAAAAAAAA", empleado_etiqueta: "",
-        permiso_ref: "permiso:cronos:horas-medico", nombre: "Horas de médico", circuito: "J-A", justificante_exigido: true, desde: "2026-10-08", hasta: "2026-10-08",
+        permiso_ref: "permiso:cronos:horas-medico", nombre: "Horas de médico", circuito: "J-A", pendiente_asignacion: false, justificante_exigido: true, desde: "2026-10-08", hasta: "2026-10-08",
         hora_inicio: "09:00", hora_fin: "10:30", cantidad: 90, unidad: "hora", estado: "solicitado", version: 1, solicitada_en: "2026-09-24T09:00:00Z" },
     ],
   };
@@ -99,6 +99,30 @@ test("sin permiso o sin empleado no muestra solicitudes", async () => {
     assert.doesNotMatch(nodo.innerHTML, /data-cronos-resolver/);
     vista.desmontar();
   }
+});
+
+test("RRHH ve lo pendiente de asignar jefatura sin poder resolverlo y un 400 del servidor no culpa al motivo", async () => {
+  const datos = bandeja("administracion");
+  datos.pendientes[0].pendiente_asignacion = true;
+  const html = renderizarBandejaPermisosCronos({ estado: "listo", paso: "administracion", datos });
+  assert.match(html, /Pendiente de asignar jefatura/);
+  assert.match(html, /Sin jefatura asignada: no se puede resolver hasta asignarla/);
+  assert.equal((html.match(/data-cronos-resolver=/g) || []).length, 1, "sólo la otra fila se puede resolver");
+  const { nodo, raiz } = raizFalsa();
+  let respuesta = new ErrorClienteResolucionCronos("peticion_invalida", 400);
+  const cliente = { consultarBandeja: async () => structuredClone(datos), resolver: async () => { throw respuesta; } };
+  montarBandejaPermisosCronos({ raiz, cliente, paso: "administracion" });
+  await esperar();
+  nodo.eventos.click(pulsar("[data-cronos-resolver]", { cronosResolver: "permiso:cronos:solicitud:perm-va-00001" }));
+  assert.doesNotMatch(nodo.innerHTML, /data-cronos-resolucion-formulario/, "no abre la resolución de lo pendiente de asignación");
+  nodo.eventos.click(pulsar("[data-cronos-resolver]", { cronosResolver: "permiso:cronos:solicitud:perm-hm-00001" }));
+  await nodo.eventos.submit({ target: formulario({ decision: "aprobar", motivo: "" }), preventDefault() {} });
+  assert.match(nodo.innerHTML, /revise la decisión y el motivo/);
+  assert.doesNotMatch(nodo.innerHTML, /Indique el motivo de la denegación/);
+  respuesta = new ErrorClienteResolucionCronos("pendiente_asignacion", 409);
+  await nodo.eventos.submit({ target: formulario({ decision: "aprobar", motivo: "" }), preventDefault() {} });
+  await esperar();
+  assert.match(nodo.innerHTML, /no tiene jefatura asignada/);
 });
 
 test("la vista no guarda nada en el navegador", async () => {

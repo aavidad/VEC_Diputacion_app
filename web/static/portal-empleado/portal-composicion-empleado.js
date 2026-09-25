@@ -5,12 +5,14 @@
  * Falta cualquier pieza → undefined (el módulo no se ofrece). Cada vista
  * consulta su API y muestra su propio estado: un 404 de una capacidad
  * desactivada no afecta a las demás. La bandeja de resolución y los avisos
- * son opcionales y van juntos: sin sus tres piezas no se ofrecen.
+ * son opcionales y van juntos: sin sus tres piezas no se ofrecen. Igual las
+ * notificaciones a RRHH (envío de la persona y bandeja de RRHH).
  */
 export function componerCronosInterno(recursos, entorno) {
   const { saldo, remoto, movimientos, movimientosPropios, permisosPropios,
     clienteSaldo, clienteRemoto, clienteSolicitudes, i18n,
-    bandejaPermisos, avisosPropios, clienteResolucion, i18nResolucion } = recursos ?? {};
+    bandejaPermisos, avisosPropios, clienteResolucion, i18nResolucion,
+    notificacionesPropias, bandejaNotificaciones, clienteNotificaciones, i18nNotificaciones } = recursos ?? {};
   if (typeof saldo?.montarVistaSaldoCronos !== "function"
     || typeof remoto?.montarVistaRemotoCronos !== "function"
     || typeof movimientos?.montarVistaMovimientosCronos !== "function"
@@ -34,7 +36,6 @@ export function componerCronosInterno(recursos, entorno) {
   const clienteResolucionHTTP = resolucion ? clienteResolucion.crearClienteResolucionCronosHTTP(transporte) : undefined;
   const traducirResolucion = resolucion ? i18nResolucion.crearTraductorResolucionCronos() : undefined;
   const subvistasResolucion = resolucion ? Object.freeze({
-    etiquetas: Object.freeze({ bandeja: traducirResolucion("bandeja_titulo"), avisos: traducirResolucion("avisos_titulo") }),
     montarBandeja({ raiz, anunciar = () => {}, registrarDesmontar } = {}) {
       return bandejaPermisos.montarBandejaPermisosCronos({ raiz, cliente: clienteResolucionHTTP, anunciar, registrarDesmontar });
     },
@@ -42,9 +43,31 @@ export function componerCronosInterno(recursos, entorno) {
       return avisosPropios.montarAvisosPropiosCronos({ raiz, cliente: clienteResolucionHTTP, anunciar, registrarDesmontar });
     },
   }) : {};
+  // Notificaciones a RRHH: opcionales y juntas (persona y bandeja de RRHH).
+  const notificaciones = typeof notificacionesPropias?.montarNotificacionesPropiasCronos === "function"
+    && typeof bandejaNotificaciones?.montarBandejaNotificacionesCronos === "function"
+    && typeof clienteNotificaciones?.crearClienteNotificacionesCronosHTTP === "function"
+    && typeof i18nNotificaciones?.crearTraductorNotificacionesCronos === "function";
+  const clienteNotificacionesHTTP = notificaciones ? clienteNotificaciones.crearClienteNotificacionesCronosHTTP(transporte) : undefined;
+  const traducirNotificaciones = notificaciones ? i18nNotificaciones.crearTraductorNotificacionesCronos() : undefined;
+  const subvistasNotificaciones = notificaciones ? Object.freeze({
+    montarNotificaciones({ raiz, anunciar = () => {}, registrarDesmontar } = {}) {
+      return notificacionesPropias.montarNotificacionesPropiasCronos({ raiz, cliente: clienteNotificacionesHTTP, anunciar, registrarDesmontar });
+    },
+    montarBandejaNotificaciones({ raiz, anunciar = () => {}, registrarDesmontar } = {}) {
+      return bandejaNotificaciones.montarBandejaNotificacionesCronos({ raiz, cliente: clienteNotificacionesHTTP, anunciar, registrarDesmontar });
+    },
+  }) : {};
+  const etiquetas = Object.freeze({
+    ...(resolucion ? { bandeja: traducirResolucion("bandeja_titulo"), avisos: traducirResolucion("avisos_titulo") } : {}),
+    ...(notificaciones ? { notificaciones: traducirNotificaciones("notificaciones_titulo"),
+      bandejaNotificaciones: traducirNotificaciones("bandeja_notificaciones_titulo") } : {}),
+  });
   return Object.freeze({
     traducir,
+    ...(resolucion || notificaciones ? { etiquetas } : {}),
     ...subvistasResolucion,
+    ...subvistasNotificaciones,
     montar({ raiz, anunciar = () => {}, registrarDesmontar } = {}) {
       const t = traducir; const documento = raiz.ownerDocument;
       const elemento = (etiqueta, clase, texto) => {

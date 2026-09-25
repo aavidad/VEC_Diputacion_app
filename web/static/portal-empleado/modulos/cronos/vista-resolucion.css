@@ -104,6 +104,12 @@
   font-size: .8125rem;
 }
 
+/* Pendiente de asignar jefatura: RRHH lo ve, pero no se resuelve. */
+.cronos-sin-jefatura {
+  color: var(--portal-muted);
+  font-size: .8125rem;
+}
+
 @media (max-width: 640px) {
   .cronos-selector-paso { margin-left: 0; }
   .cronos-aviso { grid-template-columns: auto minmax(0, 1fr); }

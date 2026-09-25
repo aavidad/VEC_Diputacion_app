@@ -4,9 +4,10 @@ import {
   ErrorClienteResolucionCronos, MAXIMO_MOTIVO_RESOLUCION_CRONOS, PASOS_RESOLUCION_CRONOS, crearClienteResolucionCronosHTTP, motivoResolucionValido,
 } from "./cliente-resolucion-http.js";
 
+// El motivo se comprueba antes de enviar; un 400 del servidor es genérico.
 const ERRORES = new Map([
-  ["peticion_invalida", "error_motivo"], ["no_competente", "error_no_competente"], ["estado_cambiado", "error_estado_cambiado"],
-  ["conflicto", "error_conflicto_resolucion"],
+  ["peticion_invalida", "error_peticion_resolucion"], ["no_competente", "error_no_competente"], ["estado_cambiado", "error_estado_cambiado"],
+  ["conflicto", "error_conflicto_resolucion"], ["pendiente_asignacion", "error_pendiente_asignacion"],
 ]);
 
 function escaparHTML(valor) {
@@ -37,7 +38,14 @@ function formulario(r, s, paso, t, locale) {
 }
 
 function estadoFila(s) {
+  if (s.pendiente_asignacion) return "estado_pendiente_asignacion";
   return s.estado === "pendiente_administracion" || s.circuito === "A" ? "estado_pendiente_administracion" : "estado_pendiente_jefatura";
+}
+
+/** Lo pendiente de asignar jefatura no se resuelve: se explica en la fila. */
+function accionFila(s, t) {
+  if (s.pendiente_asignacion) return `<span class="cronos-sin-jefatura">${escaparHTML(t("sin_jefatura_asignada"))}</span>`;
+  return `<button type="button" class="boton-secundario" data-cronos-resolver="${escaparHTML(s.solicitud_ref)}" aria-label="${escaparHTML(t("resolver_solicitud", { permiso: s.nombre, persona: persona(s, t) }))}">${escaparHTML(t("resolver"))} ›</button>`;
 }
 
 /** Bandeja de un paso: solicitudes pendientes de quien resuelve y el formulario de resolución. */
@@ -61,7 +69,7 @@ export function renderizarBandejaPermisosCronos({ estado = "cargando", paso = "r
   const filas = datos.pendientes.map((s) => `<tr><th scope="row">${escaparHTML(persona(s, t))}</th><td>${escaparHTML(s.nombre)}${s.justificante_exigido ? ` <span class="cronos-estado cronos-estado-aviso">${escaparHTML(t("requiere_justificante"))}</span>` : ""}</td>
     <td>${escaparHTML(periodoSolicitudCronos(s, t, locale))}</td><td class="numero">${escaparHTML(formatearCantidadCronos(s.cantidad, s.unidad, t, locale))}</td>
     <td>${escaparHTML(instanteVisible(s.solicitada_en, locale, zonaHoraria))}</td><td><span class="cronos-estado" data-estado="${escaparHTML(s.estado)}">${escaparHTML(t(estadoFila(s)))}</span></td>
-    <td><button type="button" class="boton-secundario" data-cronos-resolver="${escaparHTML(s.solicitud_ref)}" aria-label="${escaparHTML(t("resolver_solicitud", { permiso: s.nombre, persona: persona(s, t) }))}">${escaparHTML(t("resolver"))} ›</button></td></tr>`);
+    <td>${accionFila(s, t)}</td></tr>`);
   const cabeceras = ["col_persona", "permiso", "periodo", "duracion", "col_solicitada", "estado", "col_accion"];
   const cuerpo = filas.length ? filas.join("") : `<tr><td colspan="${cabeceras.length}">${escaparHTML(t("bandeja_vacia"))}</td></tr>`;
   const tabla = `<div class="cronos-tabla-contenedor"><table class="cronos-tabla"><thead><tr>${cabeceras.map((c) => `<th scope="col"${c === "duracion" ? ' class="numero"' : ""}>${escaparHTML(t(c))}</th>`).join("")}</tr></thead><tbody>${cuerpo}</tbody></table></div>`;
@@ -110,7 +118,7 @@ export function montarBandejaPermisosCronos({ raiz, cliente = crearClienteResolu
       return;
     }
     const abrir = evento.target?.closest?.("[data-cronos-resolver]");
-    if (abrir && datos?.pendientes.some((s) => s.solicitud_ref === abrir.dataset.cronosResolver)) {
+    if (abrir && datos?.pendientes.some((s) => s.solicitud_ref === abrir.dataset.cronosResolver && !s.pendiente_asignacion)) {
       envio?.abort(); mensaje = "";
       resolucion = { solicitudRef: abrir.dataset.cronosResolver, clave: claveNueva(), decision: "", motivo: "" };
       dibujar(); contenedor.querySelector?.("[data-cronos-resolucion-formulario] [name=decision]")?.focus?.();
@@ -156,7 +164,7 @@ export function montarBandejaPermisosCronos({ raiz, cliente = crearClienteResolu
       const texto = t(ERRORES.get(codigo) ?? "error_resolucion");
       anunciar(texto);
       // Si otra resolución se adelantó, se cierra el formulario y se recarga.
-      if (codigo === "estado_cambiado") { resolucion = null; mensaje = texto; tonoMensaje = "error"; await cargar(); return; }
+      if (codigo === "estado_cambiado" || codigo === "pendiente_asignacion") { resolucion = null; mensaje = texto; tonoMensaje = "error"; await cargar(); return; }
       resolucion = { ...resolucion, estado: "error", mensaje: texto };
       dibujar();
     }

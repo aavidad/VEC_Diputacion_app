@@ -95,6 +95,11 @@ static/portal-empleado/modulos/cronos/cliente-resolucion-http.js
 static/portal-empleado/modulos/cronos/vista-bandeja-permisos.js
 static/portal-empleado/modulos/cronos/vista-avisos-propios.js
 static/portal-empleado/modulos/cronos/vista-resolucion.css
+static/portal-empleado/modulos/cronos/i18n-notificaciones.js
+static/portal-empleado/modulos/cronos/cliente-notificaciones-http.js
+static/portal-empleado/modulos/cronos/vista-notificaciones-propias.js
+static/portal-empleado/modulos/cronos/vista-bandeja-notificaciones.js
+static/portal-empleado/modulos/cronos/vista-notificaciones-rrhh.css
 static/portal-empleado/modulos/dietas/borradores-propios.css
 static/portal-empleado/modulos/dietas/calculador-rutas-http.js
 static/portal-empleado/modulos/dietas/cliente-asignacion-http.js

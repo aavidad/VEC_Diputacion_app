@@ -1,0 +1,70 @@
+/* Notificaciones de la persona a RRHH y bandeja de RRHH.
+   Solo tokens del tema común; tarjetas, tablas y botones son los del portal. */
+.cronos-notificaciones-propias,
+.cronos-bandeja-notificaciones {
+  display: grid;
+  gap: var(--portal-espacio-4);
+  min-width: 0;
+}
+
+.cronos-notificaciones-propias .cronos-encabezado .cronos-boton-ayuda,
+.cronos-bandeja-notificaciones .cronos-encabezado .cronos-boton-ayuda {
+  width: 30px;
+  height: 30px;
+  justify-self: end;
+}
+
+.cronos-notificacion-formulario {
+  display: grid;
+  gap: var(--portal-espacio-3);
+  max-width: 880px;
+}
+
+.cronos-notificacion-fila {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--portal-espacio-3) var(--portal-espacio-4);
+}
+
+.cronos-campo {
+  display: grid;
+  gap: var(--portal-espacio-1);
+  min-width: 0;
+  font-size: .8125rem;
+  color: var(--portal-muted);
+}
+
+.cronos-campo select,
+.cronos-campo input,
+.cronos-campo textarea {
+  width: 100%;
+  min-width: 0;
+  font: inherit;
+  font-size: .875rem;
+  color: var(--portal-tinta);
+}
+
+.cronos-campo textarea {
+  min-height: 112px;
+  resize: vertical;
+}
+
+.cronos-cuenta,
+.cronos-documento-estado {
+  margin: 0;
+  color: var(--portal-muted);
+  font-size: .8125rem;
+}
+
+.cronos-documento-estado[data-tono="error"] { color: var(--portal-peligro); }
+.cronos-documento-estado:empty { display: none; }
+
+.cronos-notificacion-texto {
+  max-width: 420px;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .cronos-notificacion-fila { grid-template-columns: minmax(0, 1fr); }
+}

@@ -241,3 +241,27 @@ test("Cronos ofrece bandeja y avisos solo con sus tres piezas y un único client
   assert.equal(sin.montarBandeja, undefined);
   assert.equal(sin.montarAvisos, undefined);
 });
+
+test("Cronos ofrece las notificaciones a RRHH solo con sus cuatro piezas, con o sin resolución", () => {
+  const creados = []; const montados = [];
+  const partes = { saldo: () => ({}), remoto: () => ({}), movimientos: () => ({}), calendario: () => ({}) };
+  const conNotificaciones = {
+    ...recursosCronos(partes),
+    notificacionesPropias: { montarNotificacionesPropiasCronos: (o) => { montados.push(["propias", o]); return Object.freeze({ desmontar() {} }); } },
+    bandejaNotificaciones: { montarBandejaNotificacionesCronos: (o) => { montados.push(["bandeja", o]); return Object.freeze({ desmontar() {} }); } },
+    clienteNotificaciones: { crearClienteNotificacionesCronosHTTP: (t) => { const c = Object.freeze({ t }); creados.push(c); return c; } },
+    i18nNotificaciones: { crearTraductorNotificacionesCronos: () => (clave) => ({ notificaciones_titulo: "Notificaciones a RRHH", bandeja_notificaciones_titulo: "Notificaciones recibidas" })[clave] },
+  };
+  const cronos = componerCronosInterno(conNotificaciones, { fetch() {} });
+  assert.equal(creados.length, 1);
+  assert.deepEqual({ ...cronos.etiquetas }, { notificaciones: "Notificaciones a RRHH", bandejaNotificaciones: "Notificaciones recibidas" });
+  assert.equal(cronos.montarBandeja, undefined, "sin resolución no hay bandeja de permisos");
+  cronos.montarNotificaciones({ raiz: "r1" }); cronos.montarBandejaNotificaciones({ raiz: "r2" });
+  assert.deepEqual(montados.map(([n, o]) => [n, o.raiz]), [["propias", "r1"], ["bandeja", "r2"]]);
+  assert.strictEqual(montados[0][1].cliente, creados[0]);
+  assert.strictEqual(montados[1][1].cliente, creados[0]);
+  const { i18nNotificaciones: _omitido, ...incompleto } = conNotificaciones;
+  const sin = componerCronosInterno(incompleto, {});
+  assert.equal(sin.montarNotificaciones, undefined);
+  assert.equal(sin.etiquetas, undefined);
+});

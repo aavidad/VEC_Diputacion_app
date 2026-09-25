@@ -29,6 +29,10 @@ export const MENSAJES_CRONOS_RESOLUCION_ES = Object.freeze({
   error_estado_cambiado: "La solicitud ha cambiado desde que la abrió. La bandeja se ha actualizado.",
   error_conflicto_resolucion: "Ya existe otra resolución con esa referencia. Vuelva a abrir la solicitud.",
   error_resolucion: "No se pudo registrar la resolución. Puede reintentarla sin duplicarla.",
+  error_peticion_resolucion: "No se pudo registrar: revise la decisión y el motivo.",
+  estado_pendiente_asignacion: "Pendiente de asignar jefatura",
+  sin_jefatura_asignada: "Sin jefatura asignada: no se puede resolver hasta asignarla",
+  error_pendiente_asignacion: "Esta persona no tiene jefatura asignada. La solicitud no se puede resolver hasta que se asigne.",
 
   avisos_titulo: "Avisos de resolución",
   avisos_recibidos: "Recibidos",

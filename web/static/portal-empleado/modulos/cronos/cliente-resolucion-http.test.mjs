@@ -12,7 +12,7 @@ function respuestaJSON(estado, cuerpo) {
 const BANDEJA = {
   paso: "responsable",
   pendientes: [{ solicitud_ref: "permiso:cronos:solicitud:perm-va-00001", empleado_ref: "emp_AAAAAAAAAAAAAAAAAAAAAA", empleado_etiqueta: "Persona sintética A",
-    permiso_ref: "permiso:cronos:vacaciones", nombre: "Vacaciones", circuito: "J-A", justificante_exigido: false, desde: "2026-10-05", hasta: "2026-10-07",
+    permiso_ref: "permiso:cronos:vacaciones", nombre: "Vacaciones", circuito: "J-A", pendiente_asignacion: false, justificante_exigido: false, desde: "2026-10-05", hasta: "2026-10-07",
     cantidad: 3, unidad: "dia", estado: "solicitado", version: 1, solicitada_en: "2026-09-24T08:00:00.123456Z" }],
 };
 const ENTRADA = { clave_operacion: "res-va-00001", solicitud_ref: "permiso:cronos:solicitud:perm-va-00001", paso: "responsable", decision: "denegar", motivo: "Coincide con el cierre", version_esperada: 1 };
@@ -80,6 +80,23 @@ test("avisos y archivo validan la respuesta completa", async () => {
   const archivadoSinFecha = structuredClone(avisos); archivadoSinFecha.avisos[0].archivado = true;
   await assert.rejects(crearClienteResolucionCronosHTTP({ fetchImpl: async () => respuestaJSON(200, archivadoSinFecha) }).consultarAvisos(), (e) => e.codigo === "respuesta_incompatible");
   await assert.rejects(cliente.archivarAviso({ clave_operacion: "arch-00000001", aviso_ref: "x" }), TypeError);
+});
+
+test("circuito aplicado: J-A por defecto; directo y pendiente de asignación sólo en RRHH", async () => {
+  const consultar = (paso, cambio) => {
+    const b = structuredClone(BANDEJA); b.paso = paso; Object.assign(b.pendientes[0], cambio);
+    return crearClienteResolucionCronosHTTP({ fetchImpl: async () => respuestaJSON(200, b) }).consultarBandeja({ paso });
+  };
+  assert.equal((await consultar("administracion", { pendiente_asignacion: true })).pendientes[0].pendiente_asignacion, true);
+  assert.equal((await consultar("administracion", { circuito: "A" })).pendientes[0].circuito, "A");
+  assert.equal((await consultar("administracion", { estado: "pendiente_administracion" })).pendientes.length, 1);
+  for (const [paso, cambio] of [["responsable", { pendiente_asignacion: true }], ["responsable", { circuito: "A" }],
+    ["administracion", { circuito: "A", pendiente_asignacion: true }], ["administracion", { pendiente_asignacion: true, estado: "pendiente_administracion" }],
+    ["responsable", { estado: "pendiente_administracion" }], ["responsable", { pendiente_asignacion: undefined }]]) {
+    await assert.rejects(consultar(paso, cambio), (e) => e.codigo === "respuesta_incompatible", `${paso} ${JSON.stringify(cambio)}`);
+  }
+  const cliente = crearClienteResolucionCronosHTTP({ fetchImpl: async () => respuestaJSON(409, { error: "pendiente_asignacion" }) });
+  await assert.rejects(cliente.resolver(ENTRADA), (e) => e.codigo === "pendiente_asignacion" && e.estado === 409);
 });
 
 test("el cliente no guarda nada en el navegador", async () => {
