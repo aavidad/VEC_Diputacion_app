@@ -260,7 +260,7 @@ test("la integración B7 renueva controlador y presentador desde la entrada HTML
 });
 
 test("la recuperación de subsanación renueva toda la cadena immutable y ambas entradas al módulo", async () => {
-  const nueva = "20260924-web-subsanacion-v1";
+  const nueva = posterior("20260924-web-subsanacion-v1");
   const html = await readFile(new URL("index.html", raiz), "utf8");
   const portal = await readFile(new URL("portal.js", raiz), "utf8");
   const coordinador = await readFile(new URL("portal-modulos-coordinador.js", raiz), "utf8");
