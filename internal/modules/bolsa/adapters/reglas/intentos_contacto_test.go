@@ -73,8 +73,8 @@ func TestIntentosContactoRechazaCatalogoIncompleto(t *testing.T) {
 		t.Fatal(err)
 	}
 	for nombre, cambio := range map[string][2]string{
-		"sin control de separación": {`"articulo": "art. 8.2.a",
-          "control": "impedir"`, `"articulo": "art. 8.2.a"`},
+		"sin control de separación": {`,
+          "control": "impedir"`, ``},
 		"sin resultados sin contacto": {`"resultados_sin_contacto": "no_contesta,buzon,numero_erroneo",`, ``},
 		"días desconocidos":           {`"dias": "habiles"`, `"dias": "laborables"`},
 	} {
