@@ -110,6 +110,17 @@ Para B6, tras instalar `000018` en una réplica sintética, ejecutar además
 pausa, retorno tras contrato, recolocación al final, una sola fila append-only
 y denegación de lectura directa al ejecutor.
 
+Para B13 (histórico de contratos), sobre la estructura real restaurada con
+CT `000113` y Bolsa `000024` instaladas, ejecutar
+`pruebas_sql/b13_historico_contratos.sql` como superusuario: proyecta las
+incorporaciones CT, las entrega dos veces al inbox sin duplicar, rechaza
+contenidos divergentes o inválidos y comprueba las ACL; termina en ROLLBACK.
+El relevo Go con adaptadores reales se prueba con
+`TestEntregaContratosCTBolsaPostgreSQL18` y `VEC_B13_PG18_CT_DSN` /
+`VEC_B13_PG18_BOLSA_DSN`. Cadencia, lote y ventana de relectura del relevo se
+fijan con `VEC_BOLSA_CONTRATOS_CT_INTERVALO` (`0` lo desactiva),
+`VEC_BOLSA_CONTRATOS_CT_LOTE` y `VEC_BOLSA_CONTRATOS_CT_RELECTURA`.
+
 El script usa PostgreSQL fijado por imagen y digest, verifica ACL negativas,
 RLS, `SECURITY DEFINER`, claves de idempotencia y una carrera real por la misma
 necesidad. Los datos sinteticos se insertan unicamente como propietario en la

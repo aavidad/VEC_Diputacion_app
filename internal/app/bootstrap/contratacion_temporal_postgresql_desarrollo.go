@@ -5,6 +5,7 @@ import (
 	"crypto/ed25519"
 	"errors"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sync"
@@ -101,6 +102,7 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	materialPersonalFichaPropia       *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialPersonalB2                [8]CapacidadPublicadaPersonalB2V3
 	detenerRenovacion                 func()
+	detenerEntregaContratos           func()
 	catalogoMaterial                  catalogoMaterialAutorizacionComunDesarrollo
 	cerrarUnaVez                      func()
 }
@@ -217,6 +219,9 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		cierre.Do(func() {
 			if dependencias.detenerRenovacion != nil {
 				dependencias.detenerRenovacion()
+			}
+			if dependencias.detenerEntregaContratos != nil {
+				dependencias.detenerEntregaContratos()
 			}
 			if dependencias.bolsa != nil {
 				dependencias.bolsa.Close()
@@ -524,6 +529,12 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	dependencias.transaccionAlta = transaccion
 	dependencias.proveedorMaterial = proveedor
 	dependencias.detenerRenovacion = iniciarRenovacionProgramadaCTDesarrollo(material.fuenteConfianza, esperarTemporizadorCTDesarrollo)
+	if dependencias.bolsa != nil && cfg.BolsaBorradoresEnabled {
+		// B13: el relevo es opcional; si su configuración es inválida no arranca.
+		if dependencias.detenerEntregaContratos, err = iniciarEntregaContratosCTBolsaDesarrollo(cfg.BolsaContratosCT, ejecucion, dependencias.bolsa); err != nil {
+			slog.Error("entrega de contratos CT a Bolsa no iniciada", "causa", err)
+		}
+	}
 	completa = true
 	return dependencias, nil
 }

@@ -162,6 +162,7 @@ type Config struct {
 	SMTPModoTLS                                 string
 	BolsaBorradoresPostgreSQL                   ConfiguracionPostgreSQLBorradores
 	BolsaBorradoresEnabled                      bool
+	BolsaContratosCT                            ConfiguracionEntregaContratosCTBolsa
 	DietasBorradoresEnabled                     string
 	CronosEmpleadoEnabled                       string
 	CronosResolucionEnabled                     string
@@ -248,6 +249,7 @@ func Load() Config {
 			dsnVerificadorRecibo: envFirst(EnvBolsaBorradoresVerificadorReciboDatabaseURL),
 		},
 		BolsaBorradoresEnabled:             envBool(EnvBolsaBorradoresEnabled),
+		BolsaContratosCT:                   cargarEntregaContratosCTBolsa(),
 		DietasBorradoresEnabled:            envFirst(EnvDietasBorradoresEnabled),
 		CronosEmpleadoEnabled:              envFirst(EnvCronosEmpleadoEnabled),
 		CronosResolucionEnabled:            envFirst(EnvCronosResolucionEnabled),
