@@ -12,8 +12,8 @@ SET LOCAL search_path = pg_catalog;
 SET LOCAL timezone = 'UTC';
 SET LOCAL lock_timeout = '5s';
 SET LOCAL statement_timeout = '30s';
-SELECT pg_advisory_xact_lock(hashtextextended(
-    'vec_contratacion_temporal:000118_registro_firmas_documento', 0));
+SELECT pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended('vec_contratacion_temporal:migracion:000118', 0));
 SET LOCAL ROLE vec_contratacion_temporal_propietario;
 
 DO $pre$
@@ -179,6 +179,11 @@ BEGIN
         RAISE EXCEPTION 'solicitud de firma inválida' USING ERRCODE='22023';
     END IF;
     s := p_solicitud::jsonb;
+    -- jsonb se queda con la última de dos claves repetidas y la huella se
+    -- calcula sobre el texto: una clave repetida se rechaza.
+    IF (SELECT count(*) FROM json_each(p_solicitud::json)) <> (SELECT count(*) FROM jsonb_each(s)) THEN
+        RAISE EXCEPTION 'solicitud de firma inválida' USING ERRCODE='22023';
+    END IF;
     IF vec_contratacion_temporal.fiscalizacion_claves_exactas_v1(s,ARRAY[
         'OrganizacionRef','ExpedienteRef','VersionExpediente','Documento','CatalogoRef','CatalogoHuella',
         'PasoRef','PasoOrden','Secuencia','Resultado','MotivoDevolucion','OriginalHuella','FirmadoHuella',
@@ -186,7 +191,7 @@ BEGIN
         'ClaveIdempotencia']) IS NOT TRUE
        OR jsonb_typeof(s->'VersionExpediente') <> 'number' OR jsonb_typeof(s->'PasoOrden') <> 'number'
        OR jsonb_typeof(s->'Secuencia') <> 'number'
-       OR (s->>'VersionExpediente') !~ '^[1-9][0-9]{0,15}$' OR (s->>'PasoOrden') !~ '^[1-9][0-9]?$'
+       OR (s->>'VersionExpediente') !~ '^[1-9][0-9]{0,15}$' OR (s->>'PasoOrden') !~ '^([1-9]|1[0-6])$'
        OR (s->>'Secuencia') !~ '^[1-9][0-9]{0,5}$'
        OR EXISTS (SELECT 1 FROM jsonb_each(s) x WHERE x.key NOT IN ('VersionExpediente','PasoOrden','Secuencia')
                   AND jsonb_typeof(x.value) NOT IN ('string','null'))
@@ -306,7 +311,14 @@ END
 $funcion$;
 
 -- Lectura de la historia de firmas de un expediente, en orden de registro.
--- Devuelve solo huellas y referencias; nunca el documento ni la firma.
+-- Devuelve solo lo que necesita el estado del circuito: huellas del
+-- borrador, referencias del catálogo y del recibo, resultado y motivo de la
+-- devolución; nunca el documento ni la firma, ni quién firmó (firmante,
+-- certificado, actor o perfil), que solo constan en la historia y en la
+-- auditoría de la escritura. Solo del expediente de la organización del
+-- contexto: si el expediente es de otra organización, se deniega. No consume
+-- una decisión atestada (no hay consumidor propio de esta lectura y no se
+-- abre otro); por eso se limita a campos no personales.
 CREATE FUNCTION vec_contratacion_temporal.consultar_firmas_documento_v1(
     p_organizacion_ref text, p_expediente_ref text
 ) RETURNS jsonb
@@ -318,20 +330,27 @@ BEGIN
     IF current_user <> 'vec_contratacion_temporal_propietario'
        OR session_user = current_user
        OR NOT pg_has_role(session_user,'vec_contratacion_temporal_ejecutor','MEMBER')
-       OR pg_has_role(session_user,'vec_contratacion_temporal_propietario','MEMBER') THEN
+       OR pg_has_role(session_user,'vec_contratacion_temporal_propietario','MEMBER')
+       OR pg_has_role(session_user,'vec_contratacion_temporal_migrador','MEMBER') THEN
         RAISE EXCEPTION 'consulta de firmas denegada' USING ERRCODE='42501';
     END IF;
     IF p_organizacion_ref IS NULL OR p_organizacion_ref !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$'
        OR p_expediente_ref IS NULL OR p_expediente_ref !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$' THEN
         RAISE EXCEPTION 'consulta de firmas inválida' USING ERRCODE='22023';
     END IF;
+    IF EXISTS (SELECT 1 FROM vec_contratacion_temporal.expediente_integral_actual a
+                 JOIN vec_contratacion_temporal.expediente_version_integral v
+                   ON v.expediente_ref=a.expediente_ref AND v.version=a.version
+                WHERE a.expediente_ref=p_expediente_ref
+                  AND v.agregado_json->>'organizacion_ref' IS DISTINCT FROM p_organizacion_ref) THEN
+        RAISE EXCEPTION 'consulta de firmas denegada' USING ERRCODE='42501';
+    END IF;
     RETURN coalesce((SELECT jsonb_agg(jsonb_build_object(
         'FirmaRef',f.firma_ref,'ReciboRef',f.recibo_ref,'Documento',f.documento,'Secuencia',f.secuencia,
         'ExpedienteVersion',f.expediente_version,'CatalogoRef',f.catalogo_ref,'CatalogoHuella',f.catalogo_huella_sha256,
         'PasoRef',f.paso_ref,'PasoOrden',f.paso_orden,'Resultado',f.resultado,'MotivoDevolucion',f.motivo_devolucion,
         'OriginalHuella',f.original_huella_sha256,'FirmadoHuella',f.firmado_huella_sha256,
-        'CertificadoHuella',f.certificado_huella_sha256,'FirmanteRef',f.firmante_ref,
-        'SelloTiempoEstado',f.sello_tiempo_estado,'ActorRef',f.actor_ref,'PerfilRef',f.perfil_ref,
+        'SelloTiempoEstado',f.sello_tiempo_estado,
         'RegistradaEn',f.registrada_en) ORDER BY f.documento,f.secuencia)
       FROM (SELECT * FROM vec_contratacion_temporal.firma_documento_v1
              WHERE organizacion_ref=p_organizacion_ref AND expediente_ref=p_expediente_ref

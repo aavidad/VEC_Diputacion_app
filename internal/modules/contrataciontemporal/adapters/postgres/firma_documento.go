@@ -65,11 +65,7 @@ type firmaSQL118 struct {
 	MotivoDevolucion  *string   `json:"MotivoDevolucion"`
 	OriginalHuella    *string   `json:"OriginalHuella"`
 	FirmadoHuella     *string   `json:"FirmadoHuella"`
-	CertificadoHuella *string   `json:"CertificadoHuella"`
-	FirmanteRef       *string   `json:"FirmanteRef"`
 	SelloTiempoEstado *string   `json:"SelloTiempoEstado"`
-	ActorRef          string    `json:"ActorRef"`
-	PerfilRef         string    `json:"PerfilRef"`
 	RegistradaEn      time.Time `json:"RegistradaEn"`
 }
 
@@ -179,7 +175,8 @@ func (r *RegistroFirmasDocumentoPostgreSQL) RegistrarFirma(ctx context.Context, 
 }
 
 // ConsultarFirmas lee la historia del expediente en orden de documento y
-// secuencia.
+// secuencia. CT118 no devuelve quién firmó (firmante, certificado, actor ni
+// perfil): el estado del circuito no lo necesita.
 func (r *RegistroFirmasDocumentoPostgreSQL) ConsultarFirmas(ctx context.Context, organizacionRef, expedienteRef string) ([]ports.FirmaRegistrada, error) {
 	if ctx == nil || r == nil || nuloRegistroTX(r.pool) {
 		return nil, ports.ErrRegistroFirmaDocumentoNoDisponible
@@ -210,8 +207,7 @@ func (r *RegistroFirmasDocumentoPostgreSQL) ConsultarFirmas(ctx context.Context,
 			Secuencia: f.Secuencia, ExpedienteVersion: f.ExpedienteVersion, CatalogoRef: f.CatalogoRef, CatalogoHuella: f.CatalogoHuella,
 			PasoRef: f.PasoRef, PasoOrden: f.PasoOrden, Resultado: domain.ResultadoFirmaDocumento(f.Resultado),
 			MotivoDevolucion: textoFirma118(f.MotivoDevolucion), OriginalHuella: textoFirma118(f.OriginalHuella), FirmadoHuella: textoFirma118(f.FirmadoHuella),
-			CertificadoHuella: textoFirma118(f.CertificadoHuella), FirmanteRef: textoFirma118(f.FirmanteRef), SelloTiempoEstado: textoFirma118(f.SelloTiempoEstado),
-			ActorRef: f.ActorRef, PerfilRef: f.PerfilRef, RegistradaEn: f.RegistradaEn.UTC()})
+			SelloTiempoEstado: textoFirma118(f.SelloTiempoEstado), RegistradaEn: f.RegistradaEn.UTC()})
 	}
 	return firmas, nil
 }

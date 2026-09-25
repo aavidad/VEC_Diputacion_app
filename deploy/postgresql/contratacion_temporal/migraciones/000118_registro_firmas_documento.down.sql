@@ -6,8 +6,8 @@ SET LOCAL search_path = pg_catalog;
 SET LOCAL timezone = 'UTC';
 SET LOCAL lock_timeout = '5s';
 SET LOCAL statement_timeout = '30s';
-SELECT pg_advisory_xact_lock(hashtextextended(
-    'vec_contratacion_temporal:000118_registro_firmas_documento', 0));
+SELECT pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended('vec_contratacion_temporal:migracion:000118', 0));
 SET LOCAL ROLE vec_contratacion_temporal_propietario;
 DO $pre$
 BEGIN

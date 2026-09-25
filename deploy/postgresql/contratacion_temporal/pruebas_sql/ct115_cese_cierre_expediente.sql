@@ -218,6 +218,16 @@ COMMIT;
 SELECT pg_temp.exigir((:'cierre'::jsonb)->>'resultado'='confirmada' AND (:'cierre'::jsonb)#>>'{recibo,estado_resultante}'='completado','cierre del expediente '||:'cierre');
 SELECT pg_temp.exigir((:'consulta'::jsonb)#>>'{cese,causa_clave}'='fin_sustitucion' AND (:'consulta'::jsonb)#>>'{cierre,ginpix_numero}'='GX-2027-0042'
   AND (:'consulta'::jsonb)#>>'{incorporacion,inicio}'='2027-01-01','consulta del detalle');
+-- La lectura sin decisión propia no da texto libre ni quién actuó, y no
+-- sirve para otra organización.
+SELECT pg_temp.exigir(NOT ((:'consulta'::jsonb)->'cese' ? 'observaciones') AND NOT ((:'consulta'::jsonb)->'cierre' ? 'observaciones')
+  AND (SELECT array_agg(k ORDER BY k) FROM jsonb_object_keys((:'consulta'::jsonb)#>'{cese,recibo}') k)=ARRAY['recibo_ref','registrada_en']
+  AND (SELECT array_agg(k ORDER BY k) FROM jsonb_object_keys((:'consulta'::jsonb)#>'{cierre,recibo}') k)=ARRAY['recibo_ref','registrada_en'],
+  'consulta sin texto libre ni actor');
+CREATE FUNCTION pg_temp.codigo_consulta_ct115(o text, e text) RETURNS text LANGUAGE plpgsql AS $f$
+BEGIN PERFORM vec_contratacion_temporal.consultar_cese_cierre_expediente_v1(o, e); RETURN 'ok';
+EXCEPTION WHEN OTHERS THEN RETURN SQLSTATE; END $f$;
+SELECT pg_temp.exigir(pg_temp.codigo_consulta_ct115('organizacion:otra:ct115', :'exp_a')='42501','consulta con otra organización denegada');
 RESET SESSION AUTHORIZATION;
 
 -- ---------------------------------------------------------------- efectos durables e historia

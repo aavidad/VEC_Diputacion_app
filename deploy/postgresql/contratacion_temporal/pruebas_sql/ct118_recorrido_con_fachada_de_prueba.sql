@@ -116,7 +116,21 @@ BEGIN
         RAISE EXCEPTION 'FALLO consulta de la historia';
     END IF;
     RAISE NOTICE 'OK cadena entre pasos y consulta';
+    -- La consulta no dice quién firmó y no sirve para otra organización.
+    IF EXISTS (SELECT 1 FROM jsonb_array_elements(vec_contratacion_temporal.consultar_firmas_documento_v1(org,exp)) f
+                WHERE f ?| ARRAY['FirmanteRef','CertificadoHuella','ActorRef','PerfilRef']) THEN
+        RAISE EXCEPTION 'FALLO la consulta expone quién firmó';
+    END IF;
+    RAISE NOTICE 'OK consulta sin firmante, certificado, actor ni perfil';
 END $cadena$;
+SELECT pg_temp.debe_fallar(format($q$SELECT vec_contratacion_temporal.consultar_firmas_documento_v1('organizacion:ajena',%L)$q$, :'expediente'),
+    '42501','consulta de firmas con otra organización');
+-- El paso no supera el máximo del circuito (16) y una clave repetida en la
+-- solicitud no se admite (la huella se calcula sobre el texto).
+SELECT pg_temp.debe_fallar(format($q$SELECT pg_temp.registrar(pg_temp.solicitud(%L,%L,%s,17,4,'firmado',NULL,repeat('a',64),repeat('3',64),'clave-recorrido-000008'))$q$,
+    :'organizacion',:'expediente',:'version'),'22023','paso por encima de 16');
+SELECT pg_temp.debe_fallar(format($q$SELECT pg_temp.registrar('{"Resultado": "devuelto", '||substr(pg_temp.solicitud(%L,%L,%s,3,4,'firmado',NULL,repeat('a',64),repeat('3',64),'clave-recorrido-000009'),2))$q$,
+    :'organizacion',:'expediente',:'version'),'22023','clave JSON repetida');
 RESET SESSION AUTHORIZATION;
 
 -- Una fila de firma, auditoría y outbox por registro, y nada más.

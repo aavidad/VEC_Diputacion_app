@@ -61,6 +61,12 @@ BEGIN
 END $c$;
 SELECT pg_temp.debe_fallar($$SELECT vec_contratacion_temporal.consultar_firmas_documento_v1('x','expediente:ct:a')$$,'22023','consulta con organización inválida');
 RESET SESSION AUTHORIZATION;
+-- Un LOGIN que además es migrador no lee la historia de firmas.
+CREATE ROLE vec_ct118_prueba_migrador LOGIN;
+GRANT vec_contratacion_temporal_ejecutor, vec_contratacion_temporal_migrador TO vec_ct118_prueba_migrador;
+SET SESSION AUTHORIZATION vec_ct118_prueba_migrador;
+SELECT pg_temp.debe_fallar($$SELECT vec_contratacion_temporal.consultar_firmas_documento_v1('organizacion:a','expediente:ct:a')$$,'42501','consulta de firmas por un migrador');
+RESET SESSION AUTHORIZATION;
 COMMIT;
 
 -- Registro en SERIALIZABLE: solicitudes inválidas y decisión divergente.

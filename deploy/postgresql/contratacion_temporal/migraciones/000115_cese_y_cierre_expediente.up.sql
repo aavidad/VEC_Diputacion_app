@@ -918,7 +918,14 @@ $funcion$;
 
 -- ============================================================ CONSULTA
 -- Estado del cese y del cierre de un expediente para el detalle. La
--- composición solo la invoca tras acreditar la consulta V3 del mismo detalle.
+-- composición solo la invoca tras acreditar la consulta V3 del mismo detalle
+-- (esa acreditación consume la decisión y deja la auditoría de acceso); esta
+-- lectura no consume otra decisión (no hay consumidor propio y no se abre
+-- otro), así que se limita a campos no personales: causa, fechas, tipo,
+-- referencia y huella del justificante, condiciones, número GINPIX y
+-- referencia y fecha del recibo. Las observaciones (texto libre) y el resto
+-- del recibo (actor, perfil) no salen. Solo del expediente de la
+-- organización del contexto: si es de otra organización, se deniega.
 CREATE FUNCTION vec_contratacion_temporal.consultar_cese_cierre_expediente_v1(p_organizacion text, p_expediente text)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path=pg_catalog SET row_security='on' SET timezone='UTC'
@@ -934,6 +941,13 @@ BEGIN
     IF NOT vec_contratacion_temporal.referencia_valida_ct115(p_organizacion) OR NOT vec_contratacion_temporal.referencia_valida_ct115(p_expediente) THEN
         RAISE EXCEPTION 'CT115: consulta inválida' USING ERRCODE='22023';
     END IF;
+    IF EXISTS (SELECT 1 FROM vec_contratacion_temporal.expediente_integral_actual a
+                 JOIN vec_contratacion_temporal.expediente_version_integral v
+                   ON v.expediente_ref=a.expediente_ref AND v.version=a.version
+                WHERE a.expediente_ref=p_expediente
+                  AND v.agregado_json->>'organizacion_ref' IS DISTINCT FROM p_organizacion) THEN
+        RAISE EXCEPTION 'CT115: consulta no autorizada' USING ERRCODE='42501';
+    END IF;
     PERFORM set_config('vec.ct115.organizacion_ref',p_organizacion,true);
     PERFORM set_config('vec.ct115.expediente_ref',p_expediente,true);
     SELECT * INTO c FROM vec_contratacion_temporal.cese_nombramiento_v1 WHERE organizacion_ref=p_organizacion AND expediente_ref=p_expediente;
@@ -944,10 +958,11 @@ BEGIN
         'incorporacion',CASE WHEN i.recibo_ref IS NULL THEN NULL ELSE jsonb_build_object('recibo_ref',i.recibo_ref,'inicio',to_char(i.inicio,'YYYY-MM-DD')) END,
         'cese',CASE WHEN c.recibo_ref IS NULL THEN NULL ELSE jsonb_build_object('causa_clave',c.causa_clave,
             'fecha_efecto',to_char(c.fecha_efecto,'YYYY-MM-DD'),'justificante_tipo',c.justificante_tipo,'justificante_ref',c.justificante_ref,
-            'justificante_sha256',c.justificante_sha256,'observaciones',c.observaciones,'recibo',c.recibo_json) END,
+            'justificante_sha256',c.justificante_sha256,
+            'recibo',jsonb_build_object('recibo_ref',c.recibo_json->'recibo_ref','registrada_en',c.recibo_json->'registrada_en')) END,
         'cierre',CASE WHEN k.recibo_ref IS NULL THEN NULL ELSE jsonb_build_object('condiciones',to_jsonb(k.condiciones),
             'ginpix_numero',k.ginpix_numero,'ginpix_confirmada_en',coalesce(to_char(k.ginpix_confirmada_en,'YYYY-MM-DD'),''),
-            'observaciones',k.observaciones,'recibo',k.recibo_json) END);
+            'recibo',jsonb_build_object('recibo_ref',k.recibo_json->'recibo_ref','registrada_en',k.recibo_json->'registrada_en')) END);
 END
 $funcion$;
 
