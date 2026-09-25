@@ -88,6 +88,9 @@ type configuracionAnalisisContratacionTemporalDesarrollo struct {
 	Causas                []opcionClaveCatalogosAltaContratacionTemporalDesarrollo       `json:"causas"`
 	EntradasRC            []entradaRCConfiguracionAnalisisContratacionTemporalDesarrollo `json:"entradas_rc"`
 	MotivosRectificacion  []opcionClaveCatalogosAltaContratacionTemporalDesarrollo       `json:"motivos_rectificacion"`
+	// JornadaCompletaMinutosSemanales procede de la regla c07 del catálogo; la
+	// web convierte con ella horas y minutos en fracción de jornada.
+	JornadaCompletaMinutosSemanales int `json:"jornada_completa_minutos_semanales"`
 }
 
 type respuestaConfiguracionAnalisisContratacionTemporalDesarrollo struct {
@@ -122,6 +125,19 @@ func nuevaRutaConfiguracionAnalisisConSubsanacionYMotivosDesarrollo(
 	motivos fuenteMotivosRectificacionAnalisisDesarrollo,
 	catalogos ...*catalogosAltaContratacionTemporalDesarrollo,
 ) (vechttp.RutaExacta, error) {
+	return nuevaRutaConfiguracionAnalisisConReglasDesarrollo(
+		subsanacionDisponible, motivos, fuenteJornadaCompletaDesarrollo{}, catalogos...,
+	)
+}
+
+// nuevaRutaConfiguracionAnalisisConReglasDesarrollo sirve además la jornada
+// completa de referencia resuelta del catálogo de reglas.
+func nuevaRutaConfiguracionAnalisisConReglasDesarrollo(
+	subsanacionDisponible bool,
+	motivos fuenteMotivosRectificacionAnalisisDesarrollo,
+	jornada fuenteJornadaCompletaDesarrollo,
+	catalogos ...*catalogosAltaContratacionTemporalDesarrollo,
+) (vechttp.RutaExacta, error) {
 	catalogo, err := catalogoAnalisisDesarrollo(catalogos...)
 	if err != nil {
 		return vechttp.RutaExacta{}, err
@@ -131,6 +147,7 @@ func nuevaRutaConfiguracionAnalisisConSubsanacionYMotivosDesarrollo(
 		Manejador: manejadorConfiguracionAnalisisContratacionTemporalDesarrollo{
 			subsanacionDisponible: subsanacionDisponible,
 			motivos:               motivos,
+			jornada:               jornada,
 			catalogo:              catalogo,
 		},
 	}, nil
@@ -139,6 +156,7 @@ func nuevaRutaConfiguracionAnalisisConSubsanacionYMotivosDesarrollo(
 type manejadorConfiguracionAnalisisContratacionTemporalDesarrollo struct {
 	subsanacionDisponible bool
 	motivos               fuenteMotivosRectificacionAnalisisDesarrollo
+	jornada               fuenteJornadaCompletaDesarrollo
 	catalogo              *catalogosAltaContratacionTemporalDesarrollo
 }
 
@@ -173,6 +191,14 @@ func (m manejadorConfiguracionAnalisisContratacionTemporalDesarrollo) ServeHTTP(
 		m.motivos.opciones(r.Context()), m.catalogo,
 	)
 	configuracion.SubsanacionDisponible = m.subsanacionDisponible
+	minutosJornada, err := m.jornada.minutos(r.Context())
+	if err != nil {
+		responderErrorConfiguracionAnalisisContratacionTemporalDesarrollo(
+			w, r, http.StatusServiceUnavailable, "servicio_no_disponible",
+		)
+		return
+	}
+	configuracion.JornadaCompletaMinutosSemanales = minutosJornada
 	contenido, err := json.Marshal(
 		respuestaConfiguracionAnalisisContratacionTemporalDesarrollo{
 			Data: configuracion,
@@ -243,7 +269,8 @@ func nuevaConfiguracionAnalisisContratacionTemporalDesarrollo(
 			HuellaSHA256: huellaEntradaRCAnalisisContratacionTemporalDesarrollo,
 			Etiqueta:     "Retención de crédito sintética 001",
 		}},
-		MotivosRectificacion: motivos,
+		MotivosRectificacion:            motivos,
+		JornadaCompletaMinutosSemanales: minutosJornadaCompletaPredeterminadaDesarrollo,
 	}
 }
 
@@ -275,6 +302,7 @@ func nuevasDependenciasAnalisisContratacionTemporalDesarrollo(
 	dependenciasCT *DependenciasCT,
 	alta *dependenciasAltaContratacionTemporalDesarrollo,
 	motivos fuenteMotivosRectificacionAnalisisDesarrollo,
+	retribuciones *fuenteRetribucionesDesarrollo,
 	catalogos ...*catalogosAltaContratacionTemporalDesarrollo,
 ) (*application.ServicioOperacionAnalisis, error) {
 	if dependenciasCT == nil {
@@ -290,6 +318,7 @@ func nuevasDependenciasAnalisisContratacionTemporalDesarrollo(
 	artefactos, err := nuevoPreparadorFuentesAnalisisContratacionTemporalDesarrollo(
 		derivador,
 		reloj,
+		retribuciones,
 		catalogos...,
 	)
 	if err != nil {

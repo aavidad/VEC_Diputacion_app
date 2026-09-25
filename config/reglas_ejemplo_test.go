@@ -48,3 +48,24 @@ func TestReglasEjemploSoloConDobleLlaveDeDesarrollo(t *testing.T) {
 		}
 	}
 }
+
+func TestRetribucionesCTSiguenLaDobleLlaveDeLasReglasEjemplo(t *testing.T) {
+	t.Setenv(EnvCTRetribucionesSourcePath, " data/demo/reglas/ct_retribuciones.demo.json ")
+	cargada := Load().Normalize()
+	if cargada.ReglasEjemplo.CTRetribucionesSourcePath != "data/demo/reglas/ct_retribuciones.demo.json" {
+		t.Fatalf("ruta de retribuciones no cargada: %+v", cargada.ReglasEjemplo)
+	}
+	desarrollo := Config{
+		ExecutionProfile: ExecutionProfileDevelopment, AuthMode: AuthModeDevelopment,
+		DevelopmentGuard: DevelopmentGuardAcknowledgement,
+		ReglasEjemplo:    ConfiguracionReglasEjemplo{CTRetribucionesSourcePath: "retribuciones.json"},
+	}
+	if reglas, activas, err := desarrollo.ReglasEjemploDesarrollo(); err != nil || !activas || reglas.CTRetribucionesSourcePath != "retribuciones.json" {
+		t.Fatalf("desarrollo con doble llave debe componer las retribuciones: %+v %v %v", reglas, activas, err)
+	}
+	produccion := desarrollo
+	produccion.ExecutionProfile = ExecutionProfileProduction
+	if _, activas, err := produccion.ReglasEjemploDesarrollo(); !errors.Is(err, ErrConfiguracionReglasEjemploFueraDesarrollo) || activas {
+		t.Fatalf("las retribuciones de ejemplo no se admiten fuera de desarrollo: %v %v", activas, err)
+	}
+}

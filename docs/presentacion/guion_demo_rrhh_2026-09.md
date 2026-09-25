@@ -43,6 +43,14 @@ marcas:
   aportar la documentación. Cuando una regla del Reglamento se completa con una parte
   inventada (quién propone y quién confirma una baja), también se rotula como ejemplo.
 
+El coste estimado del nombramiento sale de otro catálogo de ejemplo, el de
+**retribuciones de referencia** (`data/demo/reglas/ct_retribuciones.demo.json`, variable
+`VEC_CT_RETRIBUCIONES_SOURCE_PATH`): por grupo o categoría, sueldo y complementos
+mensuales, 14 pagas, 32 % de Seguridad Social y prorrateo por la jornada (duda 8). Sin
+ese catálogo el coste queda «sin calcular». La jornada completa con la que se pasan
+horas a porcentaje es la regla c07 (37 h 30 min salvo que el catálogo diga otra cosa;
+duda 38). Ambos se cambian editando el catálogo, sin tocar el programa.
+
 Frase para la reunión: «Lo marcado como reglamento es vuestra norma; lo marcado como
 ejemplo es una propuesta para que la corrijáis. Ninguna regla de ejemplo produce efectos:
 VEC propone y RRHH confirma». Las dudas abiertas siguen en `dudas.md` (13, 14 y 62,
