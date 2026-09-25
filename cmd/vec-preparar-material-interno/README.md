@@ -23,8 +23,10 @@ ruta de código que `vec-server` (`cargarMaterialIdempotenciaDesarrollo` →
 `nuevoMaterialAtestacionContratacionTemporalDesarrollo` →
 `derivarMaterialConsumidorV3Desarrollo` con los descriptores B2) y devuelve
 directamente las ocho claves B2. La clave base, la semilla Ed25519 y el
-material de idempotencia solo viven en memoria durante esa llamada y se
-borran al salir; nunca se escriben. Una prueba unitaria demuestra que las
+material de idempotencia solo viven en memoria durante esa llamada y nunca se
+escriben ni se devuelven. Se borran las copias propias; el constructor de
+confianza conserva copias internas que no se sobrescriben y quedan en memoria
+hasta el recolector, igual que en vec-server. Una prueba unitaria demuestra que las
 claves coinciden byte a byte con las que publica
 `publicarMaterialPersonalB2Desarrollo`, y el ensayo PostgreSQL lo repite
 comparando en el servidor con el secreto que dejó el publicador real.

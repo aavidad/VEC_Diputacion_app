@@ -109,8 +109,10 @@ var errMaterialPersonalB2V3Desarrollo = errors.New("vec: material Personal B2 de
 // base de capacidad CT con nuevoMaterialAtestacionContratacionTemporalDesarrollo
 // y aplica derivarMaterialConsumidorV3Desarrollo con los descriptores B2, igual
 // que publicarMaterialPersonalB2Desarrollo. La clave base, la semilla Ed25519
-// y el material de idempotencia sólo viven en memoria y se borran al salir;
-// nunca se devuelven ni se escriben.
+// y el material de idempotencia sólo viven en memoria y nunca se devuelven ni
+// se escriben; se borran las copias propias, pero el constructor de confianza
+// guarda copias internas que no se sobrescriben y quedan hasta el GC, igual
+// que en vec-server.
 //
 // directorioIdempotencia es el subdirectorio `idempotencia` del material de
 // desarrollo de vec-server (VEC_DEVELOPMENT_MATERIAL_DIR): ruta absoluta,
