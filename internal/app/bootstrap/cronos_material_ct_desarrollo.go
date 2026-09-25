@@ -13,6 +13,45 @@ type materialCronosDesdeCTDesarrollo struct {
 	marcaje, disponibilidad, recibo, saldo              *proveedorMaterialAltaContratacionTemporalDesarrollo
 	movimientos, correccion, permisos, solicitudPermiso *proveedorMaterialAltaContratacionTemporalDesarrollo
 	bandeja, resolucion, avisos, archivoAviso           *proveedorMaterialAltaContratacionTemporalDesarrollo
+	// Notificaciones a RRHH (AD3-58), opcionales y juntas.
+	notificacion, notificaciones                *proveedorMaterialAltaContratacionTemporalDesarrollo
+	bandejaNotificaciones, atencionNotificacion *proveedorMaterialAltaContratacionTemporalDesarrollo
+}
+
+// completoNotificaciones exige los cuatro proveedores de las notificaciones.
+func (m materialCronosDesdeCTDesarrollo) completoNotificaciones() bool {
+	return m.notificacion != nil && m.notificaciones != nil && m.bandejaNotificaciones != nil && m.atencionNotificacion != nil
+}
+
+// conNotificaciones añade los cuatro proveedores en el orden de
+// audienciasCronosNotificacionesDesarrollo.
+func (m materialCronosDesdeCTDesarrollo) conNotificaciones(p [4]*proveedorMaterialAltaContratacionTemporalDesarrollo) materialCronosDesdeCTDesarrollo {
+	m.notificacion, m.notificaciones, m.bandejaNotificaciones, m.atencionNotificacion = p[0], p[1], p[2], p[3]
+	return m
+}
+
+// cronosNotificacionesSolicitadas sólo refleja ambos selectores; la
+// validación completa la hace la composición de las rutas.
+func cronosNotificacionesSolicitadas(empleado, notificaciones string) bool {
+	return cronosEmpleadoSolicitado(empleado) && notificaciones == "true"
+}
+
+func audienciasCronosNotificacionesDesarrollo() [4]string {
+	return [4]string{
+		cronosapp.AudienciaRegistroNotificacion,
+		cronosapp.AudienciaConsultaNotificacionesPropias,
+		cronosapp.AudienciaBandejaNotificaciones,
+		cronosapp.AudienciaAtencionNotificacion,
+	}
+}
+
+func descriptoresMaterialCronosNotificacionesDesarrollo() []descriptorMaterialConsumidorV3Desarrollo {
+	return []descriptorMaterialConsumidorV3Desarrollo{
+		{Audiencia: cronosapp.AudienciaRegistroNotificacion, Dominio: "vec.cronos.notificacion-registrar.desarrollo.capacidad-v3", Prefijo: "clave:capacidad:cronos-notificacion:", ProveedorNominal: "proveedor-material-cronos-notificacion"},
+		{Audiencia: cronosapp.AudienciaConsultaNotificacionesPropias, Dominio: "vec.cronos.notificaciones-propio.desarrollo.capacidad-v3", Prefijo: "clave:capacidad:cronos-notificaciones:", ProveedorNominal: "proveedor-material-cronos-notificaciones"},
+		{Audiencia: cronosapp.AudienciaBandejaNotificaciones, Dominio: "vec.cronos.notificaciones-bandeja.desarrollo.capacidad-v3", Prefijo: "clave:capacidad:cronos-bandeja-notificaciones:", ProveedorNominal: "proveedor-material-cronos-bandeja-notificaciones"},
+		{Audiencia: cronosapp.AudienciaAtencionNotificacion, Dominio: "vec.cronos.notificacion-atender.desarrollo.capacidad-v3", Prefijo: "clave:capacidad:cronos-atencion-notificacion:", ProveedorNominal: "proveedor-material-cronos-atencion-notificacion"},
+	}
 }
 
 // completoResolucion exige los cuatro proveedores de la resolución.

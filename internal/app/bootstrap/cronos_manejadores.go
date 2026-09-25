@@ -29,6 +29,11 @@ type DependenciasManejadoresCronos struct {
 	ResolverResolucion httpinterno.ResolverResolucionPermisos
 	Avisos             ports.CasoUsoAvisosPropios
 	ResolverAvisos     httpinterno.ResolverAvisosPropios
+	// Notificaciones a RRHH: opcionales, pero todas o ninguna.
+	NotificacionesPropias         ports.CasoUsoNotificacionesPropias
+	ResolverNotificacionesPropias httpinterno.ResolverNotificacionesPropias
+	BandejaNotificaciones         ports.CasoUsoBandejaNotificaciones
+	ResolverBandejaNotificaciones httpinterno.ResolverBandejaNotificaciones
 }
 
 type ManejadoresCronos struct {
@@ -40,6 +45,9 @@ type ManejadoresCronos struct {
 	PermisosPropios    *httpinterno.ManejadorPermisosPropios
 	Resolucion         *httpinterno.ManejadorResolucionPermisos
 	Avisos             *httpinterno.ManejadorAvisosPropios
+	// Notificaciones a RRHH (persona y bandeja de RRHH).
+	NotificacionesPropias *httpinterno.ManejadorNotificacionesPropias
+	BandejaNotificaciones *httpinterno.ManejadorBandejaNotificaciones
 }
 
 // PrepararManejadoresCronos no registra rutas: las monta la frontera de
@@ -72,24 +80,47 @@ func PrepararManejadoresCronos(d DependenciasManejadoresCronos) (ManejadoresCron
 	}
 	m := ManejadoresCronos{SaldoPropio: saldo, MarcajeRemoto: remoto, RecuperacionRemota: recuperacion,
 		Movimientos: movimientos, CorreccionPropia: correccion, PermisosPropios: permisos}
+	resolucion, err := grupoOpcionalCronos(d.Resolucion, d.ResolverResolucion, d.Avisos, d.ResolverAvisos)
+	if err != nil {
+		return ManejadoresCronos{}, err
+	}
+	if resolucion {
+		if m.Resolucion, err = httpinterno.NuevoManejadorResolucionPermisos(d.Resolucion, d.ResolverResolucion); err != nil {
+			return ManejadoresCronos{}, ErrManejadoresCronosNoDisponibles
+		}
+		if m.Avisos, err = httpinterno.NuevoManejadorAvisosPropios(d.Avisos, d.ResolverAvisos); err != nil {
+			return ManejadoresCronos{}, ErrManejadoresCronosNoDisponibles
+		}
+	}
+	notificaciones, err := grupoOpcionalCronos(d.NotificacionesPropias, d.ResolverNotificacionesPropias, d.BandejaNotificaciones, d.ResolverBandejaNotificaciones)
+	if err != nil {
+		return ManejadoresCronos{}, err
+	}
+	if notificaciones {
+		if m.NotificacionesPropias, err = httpinterno.NuevoManejadorNotificacionesPropias(d.NotificacionesPropias, d.ResolverNotificacionesPropias); err != nil {
+			return ManejadoresCronos{}, ErrManejadoresCronosNoDisponibles
+		}
+		if m.BandejaNotificaciones, err = httpinterno.NuevoManejadorBandejaNotificaciones(d.BandejaNotificaciones, d.ResolverBandejaNotificaciones); err != nil {
+			return ManejadoresCronos{}, ErrManejadoresCronosNoDisponibles
+		}
+	}
+	return m, nil
+}
+
+// grupoOpcionalCronos: una capacidad opcional llega entera (true) o no llega
+// (false); a medias impide publicar nada.
+func grupoOpcionalCronos(piezas ...any) (bool, error) {
 	nulos := 0
-	for _, v := range []any{d.Resolucion, d.ResolverResolucion, d.Avisos, d.ResolverAvisos} {
+	for _, v := range piezas {
 		if dependenciaDietasNula(v) {
 			nulos++
 		}
 	}
 	switch nulos {
-	case 4:
-		return m, nil
+	case len(piezas):
+		return false, nil
 	case 0:
-	default:
-		return ManejadoresCronos{}, ErrManejadoresCronosNoDisponibles
+		return true, nil
 	}
-	if m.Resolucion, err = httpinterno.NuevoManejadorResolucionPermisos(d.Resolucion, d.ResolverResolucion); err != nil {
-		return ManejadoresCronos{}, ErrManejadoresCronosNoDisponibles
-	}
-	if m.Avisos, err = httpinterno.NuevoManejadorAvisosPropios(d.Avisos, d.ResolverAvisos); err != nil {
-		return ManejadoresCronos{}, ErrManejadoresCronosNoDisponibles
-	}
-	return m, nil
+	return false, ErrManejadoresCronosNoDisponibles
 }

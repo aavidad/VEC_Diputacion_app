@@ -56,3 +56,31 @@ func (c Config) CronosResolucionDesarrolloActiva() (bool, error) {
 		return false, ErrConfiguracionCronosResolucionSelector
 	}
 }
+
+// EnvCronosNotificacionesEnabled añade las notificaciones de la persona a
+// RRHH y la bandeja de RRHH. Exige Cronos de la persona empleada activo y,
+// antes del binario, AD3-58 y cronos_v1 000010 instaladas.
+const EnvCronosNotificacionesEnabled = "VEC_CRONOS_NOTIFICACIONES_ENABLED"
+
+var ErrConfiguracionCronosNotificacionesSelector = errors.New("config: selector de las notificaciones de Cronos invalido")
+
+// CronosNotificacionesDesarrolloActivas valida el selector: sólo "true" o
+// "false", y "true" sólo con Cronos activo.
+func (c Config) CronosNotificacionesDesarrolloActivas() (bool, error) {
+	c = c.Normalize()
+	switch c.CronosNotificacionesEnabled {
+	case "", "false":
+		return false, nil
+	case "true":
+		activo, err := c.CronosEmpleadoDesarrolloActivo()
+		if err != nil {
+			return false, err
+		}
+		if !activo {
+			return false, ErrConfiguracionCronosNotificacionesSelector
+		}
+		return true, nil
+	default:
+		return false, ErrConfiguracionCronosNotificacionesSelector
+	}
+}

@@ -86,6 +86,8 @@ func responderErrorResolucion(w http.ResponseWriter, err error) {
 		errorJSON(w, http.StatusConflict, "conflicto")
 	case errors.Is(err, ports.ErrResolucionEstadoCambiado):
 		errorJSON(w, http.StatusConflict, "estado_cambiado")
+	case errors.Is(err, ports.ErrResolucionPendienteAsignacion):
+		errorJSON(w, http.StatusConflict, "pendiente_asignacion")
 	case errors.Is(err, ports.ErrResolucionNoCompetente):
 		errorJSON(w, http.StatusForbidden, "no_competente")
 	default:

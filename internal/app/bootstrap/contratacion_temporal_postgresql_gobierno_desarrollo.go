@@ -300,7 +300,11 @@ func audienciaConsumoGobiernoPostgreSQLContratacionTemporalDesarrolloEsPropia(
 		cronosapp.AudienciaBandejaPermisos,
 		cronosapp.AudienciaResolucionPermiso,
 		cronosapp.AudienciaConsultaAvisosPropios,
-		cronosapp.AudienciaArchivoAvisoPropio:
+		cronosapp.AudienciaArchivoAvisoPropio,
+		cronosapp.AudienciaRegistroNotificacion,
+		cronosapp.AudienciaConsultaNotificacionesPropias,
+		cronosapp.AudienciaBandejaNotificaciones,
+		cronosapp.AudienciaAtencionNotificacion:
 		return true
 	default:
 		return false

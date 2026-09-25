@@ -37,6 +37,9 @@ func errorResolucion(ctx context.Context, err error) error {
 			return ports.ErrResolucionEstadoCambiado
 		case "PC012":
 			return ports.ErrResolucionNoCompetente
+		case "PC014":
+			// cronos_v1 000010: sin jefatura ni marca de circuito directo.
+			return ports.ErrResolucionPendienteAsignacion
 		}
 	}
 	return errorSolicitud(ctx, err, ports.ErrClaveOperacionEnConflicto)
@@ -71,6 +74,7 @@ type pendienteSQL struct {
 	PermisoRef          string     `json:"permiso_ref"`
 	Nombre              string     `json:"nombre"`
 	Circuito            string     `json:"circuito"`
+	PendienteAsignacion *bool      `json:"pendiente_asignacion"`
 	JustificanteExigido bool       `json:"justificante_exigido"`
 	Desde               string     `json:"desde"`
 	Hasta               string     `json:"hasta"`
@@ -121,13 +125,15 @@ func (r *RepositorioResolucionPermisos) ConsultarBandeja(ctx context.Context, or
 	}
 	b := ports.BandejaPermisos{Paso: domain.PasoPermiso(sql.Paso), Pendientes: make([]ports.SolicitudPendiente, 0, len(sql.Pendientes))}
 	for _, p := range sql.Pendientes {
-		if p.SolicitadaEn == nil {
+		// pendiente_asignacion lo añade cronos_v1 000010: sin él no hay bandeja.
+		if p.SolicitadaEn == nil || p.PendienteAsignacion == nil {
 			return ports.BandejaPermisos{}, ports.ErrDependenciaNoDisponible
 		}
 		b.Pendientes = append(b.Pendientes, ports.SolicitudPendiente{
 			SolicitudRef: p.SolicitudRef, EmpleadoRef: p.EmpleadoRef, EmpleadoEtiqueta: textoOpcional(p.EmpleadoEtiqueta),
-			PermisoRef: p.PermisoRef, Nombre: p.Nombre, Circuito: domain.CircuitoPermiso(p.Circuito), JustificanteExigido: p.JustificanteExigido,
-			Desde: p.Desde, Hasta: p.Hasta, HoraInicio: textoOpcional(p.HoraInicio), HoraFin: textoOpcional(p.HoraFin),
+			PermisoRef: p.PermisoRef, Nombre: p.Nombre, Circuito: domain.CircuitoPermiso(p.Circuito), PendienteAsignacion: *p.PendienteAsignacion,
+			JustificanteExigido: p.JustificanteExigido,
+			Desde:               p.Desde, Hasta: p.Hasta, HoraInicio: textoOpcional(p.HoraInicio), HoraFin: textoOpcional(p.HoraFin),
 			Cantidad: p.Cantidad, Unidad: domain.LeaveUnit(p.Unidad), Estado: domain.EstadoSolicitudPermiso(p.Estado),
 			Version: p.Version, SolicitadaEnUTC: p.SolicitadaEn.UTC(),
 		})

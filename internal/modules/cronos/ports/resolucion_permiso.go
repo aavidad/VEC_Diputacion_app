@@ -20,6 +20,10 @@ var (
 	// ErrResolucionEstadoCambiado: la versión o el estado ya no son los que
 	// vio quien resuelve (otra resolución o un aviso ya archivado).
 	ErrResolucionEstadoCambiado = errors.New("cronos resolucion con estado cambiado")
+	// ErrResolucionPendienteAsignacion: la persona no tiene jefatura
+	// asignada ni marca de circuito directo (cronos_v1 000010). RRHH la ve,
+	// pero nadie puede resolverla hasta que se publique la asignación.
+	ErrResolucionPendienteAsignacion = errors.New("cronos resolucion pendiente de asignacion")
 )
 
 // ---- Quien resuelve: bandeja y resolución ----
@@ -62,7 +66,9 @@ func (o OrdenResolucionPermisos) ProveedorMaterial() ProveedorMaterialResolucion
 }
 
 // SolicitudPendiente es una fila de la bandeja. EmpleadoEtiqueta es el
-// nombre visible publicado con el circuito; puede faltar.
+// nombre visible publicado con el circuito; puede faltar. Circuito es el
+// aplicado (J-A salvo marca directa), no el del catálogo. PendienteAsignacion
+// marca en la bandeja de RRHH lo que espera una jefatura y no se resuelve.
 type SolicitudPendiente struct {
 	SolicitudRef        string                        `json:"solicitud_ref"`
 	EmpleadoRef         string                        `json:"empleado_ref"`
@@ -70,6 +76,7 @@ type SolicitudPendiente struct {
 	PermisoRef          string                        `json:"permiso_ref"`
 	Nombre              string                        `json:"nombre"`
 	Circuito            domain.CircuitoPermiso        `json:"circuito"`
+	PendienteAsignacion bool                          `json:"pendiente_asignacion"`
 	JustificanteExigido bool                          `json:"justificante_exigido"`
 	Desde               string                        `json:"desde"`
 	Hasta               string                        `json:"hasta"`

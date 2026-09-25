@@ -71,6 +71,11 @@ type configuracionCronosEmpleadoDesarrollo struct {
 		Resolucion   core.ReferenciaEntradaCatalogo `json:"resolucion"`
 		Avisos       core.ReferenciaEntradaCatalogo `json:"avisos"`
 		ArchivoAviso core.ReferenciaEntradaCatalogo `json:"archivo_aviso"`
+		// Notificaciones a RRHH: sólo con su selector activo.
+		Notificacion          core.ReferenciaEntradaCatalogo `json:"notificacion"`
+		Notificaciones        core.ReferenciaEntradaCatalogo `json:"notificaciones"`
+		BandejaNotificaciones core.ReferenciaEntradaCatalogo `json:"bandeja_notificaciones"`
+		AtencionNotificacion  core.ReferenciaEntradaCatalogo `json:"atencion_notificacion"`
 	} `json:"motivos"`
 	CanalRemoto struct {
 		PoliticaVersionRef string `json:"politica_version_ref"`
@@ -246,15 +251,24 @@ func servicioContextoActorCronos(resolutor vecports.ResolutorRegistroContextoAct
 // preflightCronosEmpleado comprueba con cada LOGIN nominal que las funciones
 // de 000007 y 000008 existen (exigen AD3-53 y AD3-70) y que cada uno sólo tiene
 // las que le corresponden. Una función ausente hace fallar la consulta.
-func preflightCronosEmpleado(ctx context.Context, ejecutor, auditor *pgxpool.Pool, resolucion bool) error {
+func preflightCronosEmpleado(ctx context.Context, ejecutor, auditor *pgxpool.Pool, resolucion, notificaciones bool) error {
 	var ok bool
 	// Con la resolución activa se exigen también las cuatro funciones de
-	// 000009 (AD3-57); sin ella no se consultan.
-	if resolucion && (ejecutor.QueryRow(ctx, `SELECT bool_and(has_function_privilege(f,'EXECUTE')) FROM unnest(ARRAY[
+	// 000009 (AD3-57) y el circuito J-A de 000010, cuya bandeja devuelve lo
+	// pendiente de asignación; sin ella no se consultan.
+	if resolucion && (ejecutor.QueryRow(ctx, `SELECT bool_and(has_function_privilege(f,'EXECUTE')) AND to_regclass('vec_cronos_v1.permiso_circuito_directo') IS NOT NULL FROM unnest(ARRAY[
   'vec_cronos_v1.consultar_bandeja_permisos_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
   'vec_cronos_v1.resolver_permiso_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
   'vec_cronos_v1.consultar_avisos_propio_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
   'vec_cronos_v1.archivar_aviso_propio_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)']) f`).Scan(&ok) != nil || !ok) {
+		return ErrComposicionCronosEmpleadoNoDisponible
+	}
+	// Con las notificaciones activas, las cuatro funciones de 000010 (AD3-58).
+	if notificaciones && (ejecutor.QueryRow(ctx, `SELECT bool_and(has_function_privilege(f,'EXECUTE')) FROM unnest(ARRAY[
+  'vec_cronos_v1.registrar_notificacion_propia_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
+  'vec_cronos_v1.consultar_notificaciones_propio_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
+  'vec_cronos_v1.consultar_bandeja_notificaciones_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
+  'vec_cronos_v1.atender_notificacion_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)']) f`).Scan(&ok) != nil || !ok) {
 		return ErrComposicionCronosEmpleadoNoDisponible
 	}
 	if ejecutor.QueryRow(ctx, `SELECT bool_and(has_function_privilege(f,'EXECUTE')) FROM unnest(ARRAY[
@@ -290,8 +304,13 @@ func nuevasRutasCronosEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp.D
 	if err != nil {
 		return nil, err
 	}
+	notificaciones, err := cfg.CronosNotificacionesDesarrolloActivas()
+	if err != nil {
+		return nil, err
+	}
 	identidad, ok := resolvedor.(*resolvedorIdentidadDesarrollo)
-	if !ok || identidad == nil || derivador == nil || !derivador.valido() || !material.completo() || (resolucion && !material.completoResolucion()) {
+	if !ok || identidad == nil || derivador == nil || !derivador.valido() || !material.completo() || (resolucion && !material.completoResolucion()) ||
+		(notificaciones && !material.completoNotificaciones()) {
 		return nil, errCronosEmpleadoEn()
 	}
 	contenido, err := leerFicheroMaterialSeguro(filepath.Join(cfg.DevelopmentMaterialDir, "identidad", "cronos-empleado.json"), 256<<10)
@@ -315,6 +334,12 @@ func nuevasRutasCronosEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp.D
 	if resolucion {
 		motivos.Bandeja, motivos.Resolucion, motivos.Avisos, motivos.ArchivoAviso = c.Motivos.Bandeja, c.Motivos.Resolucion, c.Motivos.Avisos, c.Motivos.ArchivoAviso
 		comunes = append(comunes, motivos.Bandeja, motivos.Resolucion, motivos.Avisos, motivos.ArchivoAviso)
+	}
+	// Igual para las notificaciones a RRHH.
+	if notificaciones {
+		motivos.Notificacion, motivos.Notificaciones = c.Motivos.Notificacion, c.Motivos.Notificaciones
+		motivos.BandejaNotificaciones, motivos.AtencionNotificacion = c.Motivos.BandejaNotificaciones, c.Motivos.AtencionNotificacion
+		comunes = append(comunes, motivos.Notificacion, motivos.Notificaciones, motivos.BandejaNotificaciones, motivos.AtencionNotificacion)
 	}
 	for _, m := range comunes {
 		if m.CatalogoID != motivos.Saldo.CatalogoID {
@@ -378,7 +403,7 @@ func nuevasRutasCronosEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp.D
 		}
 		usuarios[usuario] = true
 	}
-	if preflightCronosEmpleado(ctx, pools[6], pools[7], resolucion) != nil {
+	if preflightCronosEmpleado(ctx, pools[6], pools[7], resolucion, notificaciones) != nil {
 		return nil, errCronosEmpleadoEn()
 	}
 	registro, err := identidadpg.NuevoRegistroSesionesPostgreSQL(ctx, pools[0], pools[1], &seudonimizadorSesionDesarrollo{derivador: derivador}, espacioIdentidadSesionDesarrollo, dominioIdentidadSesionDesarrollo)
@@ -435,6 +460,12 @@ func nuevasRutasCronosEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp.D
 		proveedoresPorAccion[cronosapp.AccionConsultarAvisosPropios] = material.avisos
 		proveedoresPorAccion[cronosapp.AccionArchivarAvisoPropio] = material.archivoAviso
 	}
+	if notificaciones {
+		proveedoresPorAccion[cronosapp.AccionRegistrarNotificacion] = material.notificacion
+		proveedoresPorAccion[cronosapp.AccionConsultarNotificacionesPropias] = material.notificaciones
+		proveedoresPorAccion[cronosapp.AccionConsultarBandejaNotif] = material.bandejaNotificaciones
+		proveedoresPorAccion[cronosapp.AccionAtenderNotificacion] = material.atencionNotificacion
+	}
 	for accion, proveedor := range proveedoresPorAccion {
 		e, err := nuevoEmisorMaterialRenovableCTDesarrollo(autorizador, proveedor)
 		if err != nil {
@@ -443,7 +474,7 @@ func nuevasRutasCronosEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp.D
 		emisor.porAccion[accion] = e
 	}
 	autorizadorCronos, err := cronoscomp.NuevoAutorizadorCronos(emisor, motivos)
-	if err != nil || autorizadorCronos.ResolucionConfigurada() != resolucion {
+	if err != nil || autorizadorCronos.ResolucionConfigurada() != resolucion || autorizadorCronos.NotificacionesConfiguradas() != notificaciones {
 		return nil, errCronosEmpleadoEn()
 	}
 	nonce, err := nonceRutasDietas()
@@ -561,8 +592,27 @@ func componerManejadoresCronosEmpleado(d dependenciasCronosEmpleado) (map[string
 		}
 		deps.ResolverResolucion, deps.ResolverAvisos = resolutor, resolutor
 	}
+	notificaciones := d.autorizador.NotificacionesConfiguradas()
+	if notificaciones {
+		propiasRepo, err := cronospg.NuevoRepositorioNotificacionesPropias(d.ejecutor)
+		if err != nil {
+			return nil, errCronosEmpleadoEn()
+		}
+		bandejaRepo, err := cronospg.NuevoRepositorioBandejaNotificaciones(d.ejecutor)
+		if err != nil {
+			return nil, errCronosEmpleadoEn()
+		}
+		if deps.NotificacionesPropias, err = cronosapp.NuevoServicioNotificacionesPropias(propiasRepo, reloj, d.zona); err != nil {
+			return nil, errCronosEmpleadoEn()
+		}
+		if deps.BandejaNotificaciones, err = cronosapp.NuevoServicioBandejaNotificaciones(bandejaRepo, reloj, d.zona); err != nil {
+			return nil, errCronosEmpleadoEn()
+		}
+		deps.ResolverNotificacionesPropias, deps.ResolverBandejaNotificaciones = resolutor, resolutor
+	}
 	m, err := PrepararManejadoresCronos(deps)
-	if err != nil || (m.Resolucion != nil) != resolucion || (m.Avisos != nil) != resolucion {
+	if err != nil || (m.Resolucion != nil) != resolucion || (m.Avisos != nil) != resolucion ||
+		(m.NotificacionesPropias != nil) != notificaciones || (m.BandejaNotificaciones != nil) != notificaciones {
 		return nil, errCronosEmpleadoEn()
 	}
 	rutas := map[string]http.Handler{
@@ -580,6 +630,12 @@ func componerManejadoresCronosEmpleado(d dependenciasCronosEmpleado) (map[string
 		rutas[cronoshttp.RutaResolverPermiso] = m.Resolucion
 		rutas[cronoshttp.RutaAvisosPropios] = m.Avisos
 		rutas[cronoshttp.RutaArchivarAviso] = m.Avisos
+	}
+	if notificaciones {
+		rutas[cronoshttp.RutaNotificacionesPropias] = m.NotificacionesPropias
+		rutas[cronoshttp.RutaRegistrarNotificacion] = m.NotificacionesPropias
+		rutas[cronoshttp.RutaBandejaNotificaciones] = m.BandejaNotificaciones
+		rutas[cronoshttp.RutaAtenderNotificacion] = m.BandejaNotificaciones
 	}
 	return rutas, nil
 }

@@ -23,6 +23,7 @@ func TestErrorResolucionTraduceSoloRechazosNominales(t *testing.T) {
 		"PC011": ports.ErrResolucionEstadoCambiado,
 		"PC012": ports.ErrResolucionNoCompetente,
 		"PC013": ports.ErrDependenciaNoDisponible,
+		"PC014": ports.ErrResolucionPendienteAsignacion,
 		"42501": ports.ErrDependenciaNoDisponible,
 		"P0002": ports.ErrDependenciaNoDisponible,
 	} {
@@ -85,7 +86,7 @@ func (p *proveedorResolucionPrueba) ProveerMaterialResolucionPermiso(_ context.C
 	return exportacionPrueba(p.t, application.AccionResolverPermiso, p.audiencia, r), nil
 }
 
-const bandejaSQLPrueba = `{"paso":"responsable","pendientes":[{"solicitud_ref":"permiso:cronos:solicitud:perm-va-00001","empleado_ref":"emp_AAAAAAAAAAAAAAAAAAAAAA","empleado_etiqueta":null,"permiso_ref":"permiso:cronos:vacaciones","nombre":"Vacaciones","circuito":"J-A","justificante_exigido":false,"desde":"2026-10-05","hasta":"2026-10-07","hora_inicio":null,"hora_fin":null,"cantidad":3,"unidad":"dia","estado":"solicitado","version":1,"solicitada_en":"2026-09-24T08:00:00.123456+00:00"}]}`
+const bandejaSQLPrueba = `{"paso":"responsable","pendientes":[{"solicitud_ref":"permiso:cronos:solicitud:perm-va-00001","empleado_ref":"emp_AAAAAAAAAAAAAAAAAAAAAA","empleado_etiqueta":null,"permiso_ref":"permiso:cronos:vacaciones","nombre":"Vacaciones","circuito":"J-A","pendiente_asignacion":false,"justificante_exigido":false,"desde":"2026-10-05","hasta":"2026-10-07","hora_inicio":null,"hora_fin":null,"cantidad":3,"unidad":"dia","estado":"solicitado","version":1,"solicitada_en":"2026-09-24T08:00:00.123456+00:00"}]}`
 
 const reciboResolucionSQLPrueba = `{"resolucion_ref":"permiso:cronos:resolucion:res-va-00001","solicitud_ref":"permiso:cronos:solicitud:perm-va-00001","recibo_ref":"recibo:cronos:0b9f3c2e-1d4a-4c6b-9e8f-0a1b2c3d4e5f","estado":"pendiente_administracion","version":2,"instante_utc":"2026-09-25T08:00:00.123456+00:00","replay":false}`
 

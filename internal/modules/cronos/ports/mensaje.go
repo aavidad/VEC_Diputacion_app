@@ -2,12 +2,46 @@ package ports
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"vec-diputacion-granada/internal/modules/cronos/domain"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
+
+var ErrComunicacionNoAcreditada = errors.New("cronos comunicacion no acreditada")
+
+// Los proveedores son nominales: la composición debe conectar V3 real.
+type ProveedorAutorizacionComunicaciones interface {
+	ProveerArchivoMensaje(context.Context, MaterialArchivoMensaje) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error)
+	ProveerMensajeResolucion(context.Context, MaterialMensajeResolucion) (vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, error)
+}
+
+// OrdenComunicaciones solo se forma en el servidor tras resolver identidad y
+// empleado propio. El proveedor y repositorio revalidan concesión en el efecto.
+type OrdenComunicaciones struct {
+	actor     vecdomain.ContextoActor
+	proveedor ProveedorAutorizacionComunicaciones
+}
+
+func NuevaOrdenComunicaciones(actor vecdomain.ContextoActor, proveedor ProveedorAutorizacionComunicaciones) (OrdenComunicaciones, error) {
+	if actor.Validar() != nil || proveedor == nil {
+		return OrdenComunicaciones{}, ErrComunicacionNoAcreditada
+	}
+	copia, err := actor.Clonar()
+	if err != nil {
+		return OrdenComunicaciones{}, ErrComunicacionNoAcreditada
+	}
+	return OrdenComunicaciones{actor: copia, proveedor: proveedor}, nil
+}
+func (o OrdenComunicaciones) Actor() (vecdomain.ContextoActor, error) {
+	if o.proveedor == nil || o.actor.Validar() != nil {
+		return vecdomain.ContextoActor{}, ErrComunicacionNoAcreditada
+	}
+	return o.actor.Clonar()
+}
+func (o OrdenComunicaciones) Proveedor() ProveedorAutorizacionComunicaciones { return o.proveedor }
 
 type SolicitudMensajeResolucion struct {
 	ResolucionRef, ClaveOperacion string

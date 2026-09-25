@@ -317,6 +317,9 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	if cronosResolucionSolicitada(cfg.CronosEmpleadoEnabled, cfg.CronosResolucionEnabled) {
 		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialCronosResolucionDesarrollo()...)
 	}
+	if cronosNotificacionesSolicitadas(cfg.CronosEmpleadoEnabled, cfg.CronosNotificacionesEnabled) {
+		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialCronosNotificacionesDesarrollo()...)
+	}
 	catalogoMaterial, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(descriptoresMaterial)
 	if err != nil {
 		return vacias, errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
@@ -355,6 +358,16 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 				}
 			}
 			dependencias.materialCronos = dependencias.materialCronos.conResolucion(resolucion)
+		}
+		if cronosNotificacionesSolicitadas(cfg.CronosEmpleadoEnabled, cfg.CronosNotificacionesEnabled) {
+			var notificaciones [4]*proveedorMaterialAltaContratacionTemporalDesarrollo
+			for i, audiencia := range audienciasCronosNotificacionesDesarrollo() {
+				notificaciones[i], err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, audiencia)
+				if err != nil {
+					return vacias, err
+				}
+			}
+			dependencias.materialCronos = dependencias.materialCronos.conNotificaciones(notificaciones)
 		}
 	}
 	proveedor, err := nuevoProveedorMaterialAltaContratacionTemporalDesarrollo(

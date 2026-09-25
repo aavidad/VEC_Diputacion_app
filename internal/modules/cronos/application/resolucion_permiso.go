@@ -132,15 +132,19 @@ func (s *ServicioResolucionPermisos) ConsultarBandeja(ctx context.Context, orden
 }
 
 // bandejaCoherente rechaza una fuente que devuelva lo propio, un estado
-// que no corresponda al paso o datos incompletos.
+// que no corresponda al paso o datos incompletos. Circuito es el aplicado
+// (cronos_v1 000010): J-A por defecto y A sólo con marca directa; lo
+// pendiente de asignación sólo aparece a RRHH, solicitado y en J-A.
 func bandejaCoherente(b ports.BandejaPermisos, paso domain.PasoPermiso, propio string) bool {
 	if b.Paso != paso || b.Pendientes == nil || len(b.Pendientes) > maximoFilasResolucion {
 		return false
 	}
 	for _, p := range b.Pendientes {
-		pasoValido := (paso == domain.PasoResponsable && p.Circuito == domain.CircuitoResponsableAdministracion && p.Estado == domain.EstadoPermisoSolicitado) ||
-			(paso == domain.PasoAdministracion && ((p.Circuito == domain.CircuitoAdministracion && p.Estado == domain.EstadoPermisoSolicitado) ||
-				(p.Circuito == domain.CircuitoResponsableAdministracion && p.Estado == domain.EstadoPermisoPendienteAdministracion)))
+		jefatura := p.Circuito == domain.CircuitoResponsableAdministracion
+		pasoValido := (paso == domain.PasoResponsable && jefatura && p.Estado == domain.EstadoPermisoSolicitado && !p.PendienteAsignacion) ||
+			(paso == domain.PasoAdministracion && ((p.Circuito == domain.CircuitoAdministracion && p.Estado == domain.EstadoPermisoSolicitado && !p.PendienteAsignacion) ||
+				(jefatura && p.Estado == domain.EstadoPermisoPendienteAdministracion && !p.PendienteAsignacion) ||
+				(jefatura && p.Estado == domain.EstadoPermisoSolicitado && p.PendienteAsignacion)))
 		if !pasoValido || p.EmpleadoRef == propio || !domain.SolicitudPermisoRefValida(p.SolicitudRef) || p.Version < 1 || p.Cantidad < 1 ||
 			(p.Unidad != domain.LeaveUnitDay && p.Unidad != domain.LeaveUnitHour) || p.Desde == "" || p.Hasta < p.Desde || p.SolicitadaEnUTC.IsZero() {
 			return false
