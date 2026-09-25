@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"slices"
 	"time"
 
 	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
@@ -40,22 +39,71 @@ func (s *ServicioSituacionParticipacion) EstablecerReglasTransiciones(reglas pue
 	}
 }
 
-// transicionAdmitida aplica el catálogo sobre la tabla compilada, que ya ha
-// validado el dominio y replica la base de datos: el catálogo puede cerrar una
-// transición, nunca abrir otra. Un catálogo ilegible no se interpreta como
-// permiso.
-func (s *ServicioSituacionParticipacion) transicionAdmitida(ctx context.Context, origen, destino string) error {
-	if s.reglas == nil {
-		return nil
+// politicaTransiciones es la política que la base de datos aplicará: la
+// publicada si el repositorio la ofrece (migración 000032) o, si no, la tabla
+// compilada. Una lectura fallida nunca se interpreta como una política más
+// laxa.
+func (s *ServicioSituacionParticipacion) politicaTransiciones(ctx context.Context) (dominiobolsa.PoliticaTransicionesSituacion, error) {
+	consulta, ok := s.repositorio.(puertosbolsa.ConsultaPoliticaTransicionesSituacion)
+	if !ok {
+		return dominiobolsa.PoliticaTransicionesSituacionCompilada(), nil
 	}
-	destinos, configurada, err := s.reglas.DestinosSituacion(ctx, origen)
+	vigente, err := consulta.PoliticaTransicionesSituacion(ctx)
 	if err != nil {
-		return ErrCambioSituacionParticipacionNoDisponible
+		return dominiobolsa.PoliticaTransicionesSituacion{}, ErrCambioSituacionParticipacionNoDisponible
 	}
-	if configurada && !slices.Contains(destinos, destino) {
-		return dominiobolsa.ErrCambioSituacionParticipacionInvalido
+	return vigente.Politica, nil
+}
+
+// politicaEfectiva aplica el catálogo sobre la política vigente: el catálogo
+// puede cerrar una transición, nunca abrir otra (abrirla exige publicarla en
+// la base). Un catálogo ilegible no se interpreta como permiso.
+func (s *ServicioSituacionParticipacion) politicaEfectiva(ctx context.Context) (dominiobolsa.PoliticaTransicionesSituacion, error) {
+	politica, err := s.politicaTransiciones(ctx)
+	if err != nil || s.reglas == nil {
+		return politica, err
 	}
-	return nil
+	for _, origen := range dominiobolsa.SituacionesParticipacion() {
+		destinos, configurada, err := s.reglas.DestinosSituacion(ctx, origen)
+		if err != nil {
+			return dominiobolsa.PoliticaTransicionesSituacion{}, ErrCambioSituacionParticipacionNoDisponible
+		}
+		if configurada {
+			politica = politica.Restringir(origen, destinos)
+		}
+	}
+	return politica, nil
+}
+
+// TransicionesAdmitidas devuelve, por origen, los destinos que el servicio
+// admitirá en un cambio de situación. Es lo que muestra la pantalla de RRHH.
+func (s *ServicioSituacionParticipacion) TransicionesAdmitidas(ctx context.Context) (map[string][]string, error) {
+	if s == nil || ctx == nil {
+		return nil, ErrCambioSituacionParticipacionNoDisponible
+	}
+	politica, err := s.politicaEfectiva(ctx)
+	if err != nil {
+		return nil, err
+	}
+	resultado := make(map[string][]string, len(dominiobolsa.SituacionesParticipacion()))
+	for _, origen := range dominiobolsa.SituacionesParticipacion() {
+		resultado[origen] = politica.Destinos(origen)
+	}
+	return resultado, nil
+}
+
+// PublicarPoliticaTransiciones traslada a la base la política derivada del
+// catálogo. Se llama solo durante la composición. Sin repositorio que la
+// admita devuelve ErrPoliticaTransicionesNoInstalada.
+func (s *ServicioSituacionParticipacion) PublicarPoliticaTransiciones(ctx context.Context, p puertosbolsa.PublicacionPoliticaTransicionesSituacion) (puertosbolsa.PoliticaTransicionesVigente, error) {
+	if s == nil || ctx == nil {
+		return puertosbolsa.PoliticaTransicionesVigente{}, ErrCambioSituacionParticipacionNoDisponible
+	}
+	publicador, ok := s.repositorio.(puertosbolsa.PublicadorPoliticaTransicionesSituacion)
+	if !ok {
+		return puertosbolsa.PoliticaTransicionesVigente{}, puertosbolsa.ErrPoliticaTransicionesNoInstalada
+	}
+	return publicador.PublicarPoliticaTransicionesSituacion(ctx, p)
 }
 
 func (s *ServicioSituacionParticipacion) Cambiar(ctx context.Context, solicitud puertosbolsa.SolicitudCambiarSituacionParticipacion) (puertosbolsa.RegistroSituacionParticipacion, error) {
@@ -111,12 +159,13 @@ func (s *ServicioSituacionParticipacion) Cambiar(ctx context.Context, solicitud 
 	}
 	ahora := s.reloj().UTC().Truncate(time.Microsecond)
 	cambio := dominiobolsa.CambioSituacionParticipacion{ParticipacionRef: solicitud.ParticipacionRef, Origen: vigente.Situacion, Destino: solicitud.Destino, Desde: ahora, Motivo: solicitud.Motivo, FechaDisponible: solicitud.FechaDisponible, RegistradaEn: ahora}
-	if !repeticion && (cambio.Validar() != nil || cambio.Desde.Before(vigente.Desde)) {
-		return puertosbolsa.RegistroSituacionParticipacion{}, dominiobolsa.ErrCambioSituacionParticipacionInvalido
-	}
 	if !repeticion {
-		if err := s.transicionAdmitida(ctx, cambio.Origen, cambio.Destino); err != nil {
+		politica, err := s.politicaEfectiva(ctx)
+		if err != nil {
 			return puertosbolsa.RegistroSituacionParticipacion{}, err
+		}
+		if cambio.ValidarCon(politica) != nil || cambio.Desde.Before(vigente.Desde) {
+			return puertosbolsa.RegistroSituacionParticipacion{}, dominiobolsa.ErrCambioSituacionParticipacionInvalido
 		}
 	}
 	h := sha256.Sum256([]byte(solicitud.ParticipacionRef + "\x1f" + solicitud.ClaveIdempotencia))

@@ -106,11 +106,28 @@ function html(valor) {
 const OPERACIONES = Object.freeze({ pausar: "Pausar", reactivar: "Reactivar", excluir: "Excluir" });
 const TIPOS_ETIQUETA = Object.freeze({ solicitud_candidato: "Solicitud del candidato", informe_medico: "Informe médico", resolucion: "Resolución", correo: "Correo", acta_bolsa: "Acta de Bolsa", otro: "Otro" });
 
+// Situación que produce cada operación (espejo de destinoOperacionSituacion).
+const DESTINO_OPERACION = Object.freeze({ pausar: "no_disponible", reactivar: "disponible", excluir: "excluido" });
+
+/**
+ * Operaciones que se ofrecen desde la situación vigente. Sin reglas del
+ * servidor, la selección de siempre. Con ellas, solo las que el servidor
+ * admitirá; «pausar» se ofrece además donde admita pasar a no disponible
+ * (renuncia justificada, art. 10, cuando la política publicada lo permite).
+ */
+export function operacionesDisponibles(estadoClave, transiciones) {
+  const base = estadoClave === "disponible" ? ["pausar", "excluir"]
+    : ["no_disponible", "trabajando"].includes(estadoClave) ? ["reactivar", "excluir"]
+      : estadoClave === "excluido" ? [] : ["excluir"];
+  const destinos = transiciones?.[estadoClave];
+  if (!Array.isArray(destinos)) return base;
+  return Object.keys(DESTINO_OPERACION)
+    .filter((operacion) => (base.includes(operacion) || operacion === "pausar") && destinos.includes(DESTINO_OPERACION[operacion]));
+}
+
 export function renderizarOperacionesSituacion({ candidato, estado = {}, escaparHTML = html }) {
   const actual = estado.carga || "cargando";
-  const disponibles = candidato.estado_clave === "disponible" ? ["pausar", "excluir"]
-    : ["no_disponible", "trabajando"].includes(candidato.estado_clave) ? ["reactivar", "excluir"]
-      : candidato.estado_clave === "excluido" ? [] : ["excluir"];
+  const disponibles = operacionesDisponibles(candidato.estado_clave, estado.transiciones);
   const acciones = disponibles.map((operacion) => `<button type="button" class="boton-secundario" data-b8-accion="seleccionar" data-operacion="${operacion}">${OPERACIONES[operacion]}</button>`).join("");
   const botones = estado.paso > 0 ? `<button type="button" class="boton-secundario" data-b8-accion="cancelar" ${estado.enviando ? "disabled" : ""}>Cancelar</button>`
     : estado.noDisponible ? "" : acciones;
@@ -164,9 +181,10 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
     if (controlador.signal.aborted || estado.modalFicha !== modalFicha) return;
     modalFicha.reglasSituacion = reglas.ok ? reglas.datos : null;
     const causas = causasBaja(modalFicha.reglasSituacion);
+    const transiciones = modalFicha.reglasSituacion?.transiciones ?? null;
     modalFicha.operacionesB8 = res.ok
-      ? { ...modalFicha.operacionesB8, carga: "listo", noDisponible: false, items: res.datos, cambios: res.cambios, causasBaja: causas }
-      : { ...modalFicha.operacionesB8, carga: "error", noDisponible: res.status === 404, error: res.mensaje, items: [], cambios: [], causasBaja: causas };
+      ? { ...modalFicha.operacionesB8, carga: "listo", noDisponible: false, items: res.datos, cambios: res.cambios, causasBaja: causas, transiciones }
+      : { ...modalFicha.operacionesB8, carga: "error", noDisponible: res.status === 404, error: res.mensaje, items: [], cambios: [], causasBaja: causas, transiciones };
     renderizar();
   }
 

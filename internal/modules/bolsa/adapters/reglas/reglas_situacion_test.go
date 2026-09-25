@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -63,11 +64,28 @@ func TestSinCatalogoNadaEstaConfigurado(t *testing.T) {
 func TestTransicionesDelCatalogoSoloParaLosOrigenesDeclarados(t *testing.T) {
 	reglas := reglasPrueba(t, nil)
 	destinos, configurada, err := reglas.DestinosSituacion(t.Context(), "renuncia")
-	if err != nil || !configurada || !slices.Equal(destinos, []string{"excluido"}) {
+	if err != nil || !configurada || !slices.Equal(destinos, []string{"no_disponible", "excluido"}) {
 		t.Fatalf("renuncia: %v %v %v", destinos, configurada, err)
 	}
 	if destinos, configurada, err := reglas.DestinosSituacion(t.Context(), "trabajando"); destinos != nil || configurada || err != nil {
 		t.Fatalf("trabajando no está en el catálogo: %v %v %v", destinos, configurada, err)
+	}
+}
+
+func TestPoliticaTransicionesDelCatalogoSustituyeSoloLosOrigenesDeclarados(t *testing.T) {
+	publicacion, hay, err := reglasPrueba(t, nil).PoliticaTransiciones(t.Context())
+	if err != nil || !hay {
+		t.Fatalf("politica: %v %v", hay, err)
+	}
+	if !slices.Equal(publicacion.Politica.Destinos("renuncia"), []string{"no_disponible", "excluido"}) ||
+		!slices.Equal(publicacion.Politica.Destinos("trabajando"), []string{"disponible", "excluido", "disponible_desde"}) {
+		t.Fatalf("politica derivada: %v", publicacion.Politica.Pares())
+	}
+	if !strings.HasSuffix(publicacion.CatalogoRef, ":b28.transiciones") || len(publicacion.CatalogoSHA256) != 64 {
+		t.Fatalf("procedencia: %q %q", publicacion.CatalogoRef, publicacion.CatalogoSHA256)
+	}
+	if _, hay, err := NuevasReglasSituacion(nil).PoliticaTransiciones(t.Context()); hay || err != nil {
+		t.Fatalf("sin catálogo no se publica nada: %v %v", hay, err)
 	}
 }
 

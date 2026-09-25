@@ -593,16 +593,16 @@
       {
         "clave": "b28.transiciones.renuncia",
         "etiqueta": "Situaciones posibles tras una renuncia",
-        "descripcion": "Una renuncia no justificada supone la baja definitiva; ya no puede volver directamente a «disponible».",
+        "descripcion": "Una renuncia no justificada supone la baja definitiva (art. 11); la justificada (art. 10) conserva la posición como «no disponible» hasta que termine la causa. Ya no puede volver directamente a «disponible».",
         "vigente_desde": "2026-02-01T00:00:00Z",
         "atributos": {
           "origen": "reglamento",
           "norma": "Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002)",
-          "duda": "Duda 62. La renuncia justificada (art. 10) conserva la posición como no disponible hasta que termine la causa; ese paso exige una migración de base de datos pendiente (000032).",
+          "duda": "Duda 62. Bolsa publica esta lista en la base de datos al arrancar (migración 000032); la base aplica la política publicada.",
           "unidad": "lista",
-          "valor": "excluido",
+          "valor": "no_disponible,excluido",
           "articulo": "arts. 10 y 11.1",
-          "ejemplo_parcial": "Que la renuncia justificada se registre como «no disponible» desde el principio es un criterio de trabajo hasta que exista ese paso."
+          "ejemplo_parcial": "Que la renuncia justificada se registre primero como «renuncia» y después, con su justificante, pase a «no disponible» es un criterio de trabajo."
         },
         "orden": 36
       },

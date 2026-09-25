@@ -59,6 +59,52 @@ func (r *ReglasSituacion) DestinosSituacion(ctx context.Context, origen string) 
 	return destinos, true, nil
 }
 
+// PoliticaTransiciones compone la política que debe publicarse en la base:
+// para cada origen, la lista del catálogo si la tiene o, si no, la tabla
+// compilada. hay=false si el catálogo no trae ninguna entrada de
+// transiciones; entonces no se publica nada y rige lo que la base ya tenga.
+func (r *ReglasSituacion) PoliticaTransiciones(ctx context.Context) (puertosbolsa.PublicacionPoliticaTransicionesSituacion, bool, error) {
+	todas, err := r.reglas(ctx)
+	if errors.Is(err, puertosbolsa.ErrReglasSituacionNoConfiguradas) {
+		return puertosbolsa.PublicacionPoliticaTransicionesSituacion{}, false, nil
+	}
+	if err != nil {
+		return puertosbolsa.PublicacionPoliticaTransicionesSituacion{}, false, err
+	}
+	tabla := make(map[string][]string, len(dominiobolsa.SituacionesParticipacion()))
+	for _, origen := range dominiobolsa.SituacionesParticipacion() {
+		tabla[origen] = dominiobolsa.DestinosSituacionParticipacion(origen)
+	}
+	var publicacion puertosbolsa.PublicacionPoliticaTransicionesSituacion
+	hay := false
+	for _, regla := range todas {
+		origen, ok := strings.CutPrefix(regla.Clave, vecreglas.BolsaPrefijoTransicionesSituacion)
+		if !ok {
+			continue
+		}
+		destinos, configurada, err := r.DestinosSituacion(ctx, origen)
+		if err != nil || !configurada || !slices.Contains(dominiobolsa.SituacionesParticipacion(), origen) {
+			return puertosbolsa.PublicacionPoliticaTransicionesSituacion{}, false, puertosbolsa.ErrReglasSituacionNoDisponibles
+		}
+		tabla[origen] = destinos
+		if !hay {
+			// Todas las entradas vienen de la misma versión del catálogo.
+			entrada := regla.ReferenciaEntrada
+			entrada.EntradaClave = strings.TrimSuffix(vecreglas.BolsaPrefijoTransicionesSituacion, ".")
+			publicacion.CatalogoRef = entrada.Referencia()
+			publicacion.CatalogoSHA256 = regla.HuellaCatalogo
+			hay = true
+		}
+	}
+	if !hay {
+		return puertosbolsa.PublicacionPoliticaTransicionesSituacion{}, false, nil
+	}
+	if publicacion.Politica, err = dominiobolsa.NuevaPoliticaTransicionesSituacion(tabla); err != nil {
+		return puertosbolsa.PublicacionPoliticaTransicionesSituacion{}, false, errors.Join(puertosbolsa.ErrReglasSituacionNoDisponibles, err)
+	}
+	return publicacion, true, nil
+}
+
 // CausasBaja lista, en el orden del catálogo, las entradas de causa de baja.
 func (r *ReglasSituacion) CausasBaja(ctx context.Context) ([]puertosbolsa.CausaBajaSituacion, error) {
 	todas, err := r.reglas(ctx)

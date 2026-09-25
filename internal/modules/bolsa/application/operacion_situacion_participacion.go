@@ -60,8 +60,12 @@ func (s *ServicioSituacionParticipacion) Operar(ctx context.Context, q ports.Sol
 	// Si la situación vigente ya es el destino puede tratarse del replay de
 	// esta misma clave: lo resuelve la base de datos, como hasta ahora.
 	if vigente.Situacion != destino {
-		if err := s.transicionAdmitida(ctx, vigente.Situacion, destino); err != nil {
+		politica, err := s.politicaEfectiva(ctx)
+		if err != nil {
 			return ports.RegistroSituacionParticipacion{}, err
+		}
+		if !politica.Admite(vigente.Situacion, destino) {
+			return ports.RegistroSituacionParticipacion{}, dominiobolsa.ErrCambioSituacionParticipacionInvalido
 		}
 	}
 	h := sha256.Sum256([]byte(q.ParticipacionRef + "\x1f" + q.ClaveIdempotencia))
