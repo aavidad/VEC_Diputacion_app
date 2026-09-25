@@ -1,5 +1,5 @@
 \set ON_ERROR_STOP on
--- Ejecutar en PostgreSQL 18 tras ContextoActor 000008, AD3-60 y Personal
+-- Ejecutar en PostgreSQL 18 tras ContextoActor 000008, AD3-54 y Personal
 -- 000016/000017/000019. Los casos positivos V3 requieren atestación real y
 -- se prueban por el adaptador HTTP con identidad sintética.
 BEGIN;

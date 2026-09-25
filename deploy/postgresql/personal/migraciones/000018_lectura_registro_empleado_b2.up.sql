@@ -1,5 +1,5 @@
 \set ON_ERROR_STOP on
--- B2: lecturas nominales de Personal. Instalar tras Personal 000017 y AD3 000060.
+-- B2: lecturas nominales de Personal. Instalar tras Personal 000017 y AD3 000054.
 BEGIN;
 SET LOCAL ROLE vec_personal_propietario;
 SET LOCAL search_path=pg_catalog;

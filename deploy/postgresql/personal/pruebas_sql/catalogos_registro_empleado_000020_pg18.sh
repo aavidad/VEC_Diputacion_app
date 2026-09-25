@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Focal de Personal-20 en PostgreSQL 18. El consumidor AD3 se sustituye SOLO
-# aquí para aislar catálogo, ACL, historia y transacciones; AD3-61 se prueba aparte.
+# aquí para aislar catálogo, ACL, historia y transacciones; AD3-55 se prueba aparte.
 set -euo pipefail
 repo_dir=$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../../.." && pwd)
 motor=${VEC_CONTENEDOR_MOTOR:-docker}

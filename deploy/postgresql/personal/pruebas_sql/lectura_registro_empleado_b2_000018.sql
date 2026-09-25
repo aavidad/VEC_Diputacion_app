@@ -1,5 +1,5 @@
 \set ON_ERROR_STOP on
--- Prueba focal sin dobles. Ejecutar después de 000017, AD3-60 y 000018.
+-- Prueba focal sin dobles. Ejecutar después de 000017, AD3-54 y 000018.
 -- La ruta positiva V3 requiere un certificado de desarrollo y se recorre por HTTP.
 BEGIN;
 SET LOCAL search_path=pg_catalog;
