@@ -288,6 +288,8 @@ BEGIN
   acto_ref,actor_ref,idempotencia_ref,decision_ref,consumo_huella_sha256,auditoria_ref,registrado_en)
  VALUES(m->>'organismo_ref',m->>'tipo',m->>'ref',ver,rev,estado,fecha_desde,fecha_hasta,m->>'huella_sha256',m->>'denominacion',
   m->>'acto_ref',m->>'actor_ref',clave,v.decision_ref,v.consumo_huella_sha256,v.auditoria_ref,v.consumida_en);
+ IF clock_timestamp()>=cap_hasta OR clock_timestamp()>=dec_hasta THEN
+  RAISE EXCEPTION 'capacidad de catálogo caducada' USING ERRCODE='42501'; END IF;
  RETURN jsonb_build_object('entrada',jsonb_build_object('organismo_ref',m->>'organismo_ref','tipo',m->>'tipo','ref',m->>'ref',
   'version',ver,'revision',rev,'estado',estado,'huella_sha256',m->>'huella_sha256',
   'denominacion',m->>'denominacion',
