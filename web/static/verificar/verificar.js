@@ -4,21 +4,15 @@ const RUTA_COTEJO_PUBLICO = "/api/publico/documentos/cotejo";
 const formulario = document.getElementById("formulario-cotejo");
 const entrada = document.getElementById("referencia");
 const resultado = document.getElementById("resultado-cotejo");
-const avisoPresentacion = document.getElementById("aviso-presentacion");
 const TIEMPO_MAX_COTEJO_MS = 12000;
 let intentoActual = 0;
 let controladorActual;
 
 function parametrosCerrados() {
   const parametros = new URLSearchParams(window.location.search);
-  const permitidos = new Set(["ref", "presentacion"]);
-  if ([...parametros.keys()].some((clave) => !permitidos.has(clave))) return { referencia: "", presentacion: false };
+  if ([...parametros.keys()].some((clave) => clave !== "ref")) return "";
   const referencias = parametros.getAll("ref");
-  const modos = parametros.getAll("presentacion");
-  return {
-    referencia: referencias.length === 1 ? referencias[0] : "",
-    presentacion: modos.length === 1 && modos[0] === "rrhh",
-  };
+  return referencias.length === 1 ? referencias[0] : "";
 }
 
 function referenciaValida(valor) {
@@ -30,24 +24,17 @@ function escaparHTML(valor) {
     .replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
 }
 
-function pintar(respuesta, presentacion) {
+function pintar(respuesta) {
   const valido = respuesta?.valido === true;
   resultado.hidden = false;
   resultado.dataset.estado = valido ? "valido" : "error";
-  const avisoDemo = presentacion
-    ? "<p><strong>Resultado DEMO.</strong> No acredita autenticidad, registro ni firma.</p>"
-    : "";
   resultado.innerHTML = valido
-    ? `<strong>${escaparHTML(respuesta.titulo)}</strong><p>${escaparHTML(respuesta.mensaje)}</p>${avisoDemo}<dl><dt>Referencia</dt><dd><code>${escaparHTML(respuesta.referencia)}</code></dd><dt>Estado</dt><dd>${escaparHTML(respuesta.estado)}</dd><dt>Alcance</dt><dd>${escaparHTML(respuesta.alcance)}</dd></dl>`
+    ? `<strong>${escaparHTML(respuesta.titulo)}</strong><p>${escaparHTML(respuesta.mensaje)}</p><dl><dt>Referencia</dt><dd><code>${escaparHTML(respuesta.referencia)}</code></dd><dt>Estado</dt><dd>${escaparHTML(respuesta.estado)}</dd><dt>Alcance</dt><dd>${escaparHTML(respuesta.alcance)}</dd></dl>`
     : `<strong>No se ha podido acreditar el documento</strong><p>${escaparHTML(respuesta?.mensaje || "La referencia no consta como vigente o el servicio no está disponible.")}</p>`;
 }
 
-async function cotejar(referencia, presentacion, signal) {
+async function cotejar(referencia, signal) {
   if (!referenciaValida(referencia)) throw new Error("La referencia no respeta el formato admitido.");
-  if (presentacion) {
-    const adaptador = await import("./adaptador-presentacion.js?v=20260719-cotejo-v1");
-    return adaptador.cotejarDocumentoPresentacion(referencia);
-  }
   const respuesta = await fetch(RUTA_COTEJO_PUBLICO, {
     method: "POST",
     credentials: "omit",
@@ -66,7 +53,6 @@ async function comprobar(evento) {
   evento?.preventDefault();
   const referencia = entrada.value.trim();
   const boton = formulario.querySelector("button[type='submit']");
-  const presentacion = parametrosCerrados().presentacion;
   const intento = ++intentoActual;
   controladorActual?.abort();
   const controlador = new AbortController();
@@ -77,8 +63,8 @@ async function comprobar(evento) {
   resultado.removeAttribute("data-estado");
   resultado.textContent = "Comprobando la referencia…";
   try {
-    const operacion = cotejar(referencia, presentacion, controlador.signal);
-    const respuesta = presentacion ? await operacion : await Promise.race([
+    const operacion = cotejar(referencia, controlador.signal);
+    const respuesta = await Promise.race([
       operacion,
       new Promise((_, rechazar) => {
         temporizador = setTimeout(() => {
@@ -87,7 +73,7 @@ async function comprobar(evento) {
         }, TIEMPO_MAX_COTEJO_MS);
       }),
     ]);
-    if (intento === intentoActual) pintar(respuesta, presentacion);
+    if (intento === intentoActual) pintar(respuesta);
   } catch (error) {
     if (intento === intentoActual) {
       pintar({ valido: false, mensaje: error instanceof Error ? error.message : "No se pudo completar la comprobación." });
@@ -103,8 +89,7 @@ async function comprobar(evento) {
 
 formulario.addEventListener("submit", comprobar);
 const parametros = parametrosCerrados();
-if (parametros.presentacion) avisoPresentacion.hidden = false;
-if (referenciaValida(parametros.referencia)) {
-  entrada.value = parametros.referencia;
+if (referenciaValida(parametros)) {
+  entrada.value = parametros;
   void comprobar();
 }
