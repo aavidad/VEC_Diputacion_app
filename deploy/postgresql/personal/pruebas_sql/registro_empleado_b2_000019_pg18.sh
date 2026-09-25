@@ -545,8 +545,143 @@ if "$motor" exec "$contenedor" psql -X -qAt -v ON_ERROR_STOP=1 -U vec_prueba_fro
   -c "SELECT count(*) FROM vec_personal.denegacion_frontera_ficha_propia" >/dev/null 2>&1; then
   fallo 'el registrador lee las denegaciones'; fi
 ok '000022 denegaciones de frontera: solo el registrador inscribe, motivo/estado cerrados, sin lectura'
+# ---------------------------------------------------------------------------
+# 000022, casos adicionales. Una llamada del lector se parametriza con
+# variables de transacción (vec_prueba.*) y compara SQLSTATE:mensaje con lo
+# esperado; el resultado queda en vec_prueba.res para las comprobaciones.
+# ---------------------------------------------------------------------------
+Q=per_sintetica_alcance_q_00000000000001
+R=per_sintetica_alcance_r_00000000000001
+propia_do() {
+  cat <<'SQL'
+DO $p$
+DECLARE conocido text; emp text:=current_setting('vec_prueba.empleado'); per text:=current_setting('vec_prueba.persona');
+ pri text:=current_setting('vec_prueba.principal'); vig text:=current_setting('vec_prueba.vigente');
+ espera text:=current_setting('vec_prueba.espera'); material text; mh text; rh text; cap jsonb; decision jsonb;
+ res jsonb; obtenido text; mensaje text;
+BEGIN
+ conocido:=to_char(transaction_timestamp() AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"');
+ material:='{"esquema":"vec.personal.ficha-propia.consulta.v1","empleado_ref":"'||emp||'","vigente_en":"'||vig||'","conocido_en":"'||conocido||'","actor_ref":"'||per||'","contexto_actor_ref":"ctx:synthetic:b2","contexto_version":1,"cuenta_ref":"cta_sintetica_alcance_p_0000000000001","cuenta_version":1,"perfil_ref":"prf_sintetico_alcance_p_0000000000001","perfil_version":1,"persona_ref":"'||per||'","persona_version":1}';
+ mh:=encode(sha256(convert_to(material,'UTF8')),'hex');
+ rh:=encode(sha256(convert_to('{"ambitos":{"empleado_ref":"'||emp||'"},"atributos":{"conocido_en":"'||conocido||'","material_sha256":"'||mh||'","operacion":"ficha_propia","vigente_en":"'||vig||'"}}','UTF8')),'hex');
+ cap:=jsonb_build_object('operacion','personal.registro_empleado.ficha_propia.consultar','audiencia_consumo','vec_personal.registro_empleado.ficha_propia.v1','efecto_ref',emp,'huella_efecto_sha256',rh);
+ decision:=jsonb_build_object('principal_id',pri,'perfil_activo_ref','prf_sintetico_alcance_p_0000000000001','concedida',true,'modulo_id','personal','obligaciones',jsonb_build_array(),'tipo_recurso','ficha_propia_empleado','finalidad','consultar_ficha_propia','campos_permitidos','["corte","evidencia","relaciones","servicios"]'::jsonb,'accion','personal.registro_empleado.ficha_propia.consultar','recurso_ref',emp,'contexto_recurso_huella_sha256',rh,'decision_ref','decision:synthetic:ficha-propia:'||current_setting('vec_prueba.caso'),'valida_hasta','2100-01-01T00:00:00Z');
+ IF espera='propagar' THEN
+  -- Sin captura: el error aborta la transacción del lector tal cual.
+  res:=vec_personal.consultar_ficha_propia_empleado_v1(material,convert_to(cap::text,'UTF8'),convert_to(decision::text,'UTF8'),convert_to('{}','UTF8'),convert_to('{}','UTF8'),1,1,'x'::bytea,'y'::bytea,'z'::bytea,'w'::bytea);
+  RAISE EXCEPTION 'lector con instantánea obsoleta admitido: %',res;
+ END IF;
+ BEGIN
+  res:=vec_personal.consultar_ficha_propia_empleado_v1(material,convert_to(cap::text,'UTF8'),convert_to(decision::text,'UTF8'),convert_to('{}','UTF8'),convert_to('{}','UTF8'),1,1,'x'::bytea,'y'::bytea,'z'::bytea,'w'::bytea);
+  obtenido:='ok';
+ EXCEPTION WHEN OTHERS THEN
+  GET STACKED DIAGNOSTICS obtenido=RETURNED_SQLSTATE,mensaje=MESSAGE_TEXT;
+  obtenido:=obtenido||':'||mensaje;
+ END;
+ IF obtenido NOT LIKE espera THEN
+  RAISE EXCEPTION 'ficha propia %: esperado «%», obtenido «%»',current_setting('vec_prueba.caso'),espera,obtenido;
+ END IF;
+ PERFORM set_config('vec_prueba.res',coalesce(res::text,''),true);
+END $p$;
+SQL
+}
+# caso nivel empleado persona principal vigente espera
+lector_propia() {
+  printf "BEGIN ISOLATION LEVEL %s;\nSET LOCAL TimeZone='UTC';\n" "$2"
+  printf "SELECT set_config('vec_prueba.caso','%s',true),set_config('vec_prueba.empleado','%s',true),set_config('vec_prueba.persona','%s',true),set_config('vec_prueba.principal','%s',true),set_config('vec_prueba.vigente','%s',true),set_config('vec_prueba.espera','%s',true);\n" \
+    "$1" "$3" "$4" "$5" "$6" "$7"
+  propia_do
+}
+como_lector() { "$motor" exec -i "$contenedor" psql -X -qAt -v ON_ERROR_STOP=1 -v VERBOSITY=verbose -U vec_prueba_personal -d "$base"; }
+
+# Siembra: unidad y puesto de la relación vigente de P en org:synthetic, y dos
+# nodos que no deben aparecer (otra unidad del organismo y la misma unidad en
+# otro organismo). Q: empleado propio con una relación inscrita a otra persona.
+# R: dos proyecciones activas (ambigua).
+admin -o /dev/null <<SQL
+BEGIN;
+SET LOCAL ROLE vec_personal_propietario;
+INSERT INTO vec_personal.org_nodo_historia(nodo_ref,revision,organismo_ref,unidad_ref,clase,catalogo_ref,catalogo_version,catalogo_revision,catalogo_entrada_clave,denominacion,vigente_desde,conocido_desde,fuente_ref,acto_ref,huella_fuente_sha256)
+VALUES (gen_random_uuid(),1,'org:synthetic','uni:synthetic','centro','estructura-organizativa-dipgra',1,1,'nodo:synthetic:destino','Unidad sintética de destino','2020-01-01',clock_timestamp(),'fuente:synthetic:org','acto:synthetic:org',repeat('c',64)),
+ (gen_random_uuid(),1,'org:synthetic','uni:ajena','centro','estructura-organizativa-dipgra',1,1,'nodo:synthetic:ajena','Unidad ajena sintética','2020-01-01',clock_timestamp(),'fuente:synthetic:org','acto:synthetic:org',repeat('c',64)),
+ (gen_random_uuid(),1,'org:synthetic:ajeno','uni:synthetic','centro','estructura-organizativa-dipgra',1,1,'nodo:synthetic:otro-organismo','Unidad de otro organismo','2020-01-01',clock_timestamp(),'fuente:synthetic:org','acto:synthetic:org',repeat('c',64));
+INSERT INTO vec_personal.version_rpt_historia(version_ref,revision,organismo_ref,codigo_version_fuente,estado,aprobada_en,publicada_en,vigente_desde,conocido_desde,fuente_ref,documento_ref,acto_ref,huella_fuente_sha256)
+VALUES ('00000000-0000-4000-8000-0000000000a1',1,'org:synthetic','RPT-SINT-1','publicada','2020-01-01','2020-01-01','2020-01-01',clock_timestamp(),'fuente:synthetic:rpt','doc:synthetic:rpt','acto:synthetic:rpt',repeat('c',64));
+INSERT INTO vec_personal.puesto_tipo_historia(tipo_ref,revision,organismo_ref,unidad_ref,rpt_version_ref,rpt_revision,codigo_fila_fuente,denominacion,clasificacion_ref,nivel_destino,vigente_desde,conocido_desde,fuente_ref,acto_ref,huella_fuente_sha256)
+VALUES ('00000000-0000-4000-8000-0000000000a2',1,'org:synthetic','uni:synthetic','00000000-0000-4000-8000-0000000000a1',1,'F-1','Técnico sintético de personal','cla:synthetic',20,'2020-01-01',clock_timestamp(),'fuente:synthetic:rpt','acto:synthetic:rpt',repeat('c',64));
+INSERT INTO vec_personal.puesto_rpt_historia(puesto_ref,revision,organismo_ref,unidad_ref,tipo_ref,tipo_revision,codigo_puesto_fuente,estado_estructural,vigente_desde,conocido_desde,fuente_ref,acto_ref,huella_fuente_sha256)
+VALUES ('00000000-0000-4000-8000-0000000000a3',1,'org:synthetic','uni:synthetic','00000000-0000-4000-8000-0000000000a2',1,'P-1','vigente','2020-01-01',clock_timestamp(),'fuente:synthetic:rpt','acto:synthetic:rpt',repeat('c',64));
+INSERT INTO vec_personal.version_plantilla_historia(version_ref,revision,organismo_ref,ejercicio,codigo_version_fuente,estado,aprobada_en,publicada_en,vigente_desde,conocido_desde,fuente_ref,documento_ref,acto_ref,huella_fuente_sha256)
+VALUES ('00000000-0000-4000-8000-0000000000a4',1,'org:synthetic',2026,'PL-SINT-2026','publicada','2020-01-01','2020-01-01','2020-01-01',clock_timestamp(),'fuente:synthetic:plantilla','doc:synthetic:plantilla','acto:synthetic:plantilla',repeat('c',64));
+INSERT INTO vec_personal.plaza_plantilla_historia(plaza_ref,revision,organismo_ref,unidad_ref,plantilla_version_ref,plantilla_revision,codigo_plaza_fuente,clasificacion_ref,estado_estructural,dotacion_presupuestaria,vigente_desde,conocido_desde,fuente_ref,acto_ref,huella_fuente_sha256)
+VALUES ('00000000-0000-4000-8000-0000000000a5',1,'org:synthetic','uni:synthetic','00000000-0000-4000-8000-0000000000a4',1,'PZ-1','cla:synthetic','vigente','acreditada','2020-01-01',clock_timestamp(),'fuente:synthetic:plantilla','acto:synthetic:plantilla',repeat('c',64));
+INSERT INTO vec_personal.ocupacion_empleado_historia(ocupacion_ref,revision,relacion_ref,relacion_revision,empleado_ref,organismo_ref,unidad_ref,plaza_ref,plaza_revision,puesto_ref,puesto_revision,clase,modalidad_ref,estado,vigente_desde,conocido_desde,acto_ref,fuente_ref,fuente_version,fuente_huella_sha256,decision_ref,auditoria_ref,catalogo_snapshot)
+SELECT 'ocu_sintetica_alcance_p_00000000000001',1,r.relacion_ref,r.revision,r.empleado_ref,r.organismo_ref,'uni:synthetic','00000000-0000-4000-8000-0000000000a5',1,'00000000-0000-4000-8000-0000000000a3',1,'titular','mod:synthetic','vigente','2026-09-25',clock_timestamp(),'acto:synthetic:b2','fuente:synthetic:b2',1,repeat('b',64),'decision:synthetic:ocupacion','auditoria:synthetic:ocupacion','{}'::jsonb
+FROM (SELECT DISTINCT ON (relacion_ref) * FROM vec_personal.relacion_servicio_historia
+      WHERE empleado_ref='$emp22' AND organismo_ref='org:synthetic' ORDER BY relacion_ref,revision DESC) r;
+SELECT vec_personal.publicar_proyeccion_empleado_persona_v1(p.pep,1,p.per,p.emp,'activa',clock_timestamp()-interval '1 hour','2100-01-01',NULL,'prc_maestra_sintetica_p7_000000000001',1,repeat('a',64))
+FROM (VALUES ('pep_sintetica_alcance_q_0000000000001','$Q','emp_sintetico_alcance_q_00000000000001'),
+             ('pep_sintetica_alcance_r_0000000000001','$R','emp_sintetico_alcance_r_00000000000001'),
+             ('pep_sintetica_alcance_r_0000000000002','$R','emp_sintetico_alcance_r_00000000000002')) p(pep,per,emp);
+INSERT INTO vec_personal.relacion_servicio_historia(relacion_ref,revision,persona_ref,empleado_ref,organismo_ref,unidad_ref,regimen_ref,modalidad_ref,estado,vigente_desde,conocido_desde,acto_ref,fuente_ref,fuente_version,fuente_huella_sha256,decision_ref,auditoria_ref,catalogo_snapshot)
+VALUES ('rel_sintetica_alcance_q_00000000000001',1,'$L','emp_sintetico_alcance_q_00000000000001','org:synthetic','uni:synthetic','reg:synthetic','mod:synthetic','vigente','2026-09-01',clock_timestamp(),'acto:synthetic:b2','fuente:synthetic:b2',1,repeat('b',64),'decision:synthetic:q','auditoria:synthetic:q','{}'::jsonb);
+COMMIT;
+SQL
+[[ $(admin_valor "SELECT count(*) FROM vec_personal.ocupacion_empleado_historia WHERE empleado_ref='$emp22'") == 1 ]] || fallo 'ocupación sintética no sembrada'
+
+# Positivo con unidad y puesto: solo la unidad y el puesto de la relación de
+# org:synthetic; ni la otra unidad ni la misma unidad de otro organismo.
+{ lector_propia unidad_puesto 'SERIALIZABLE READ WRITE' "$emp22" "$P" "$P" 2026-09-26 ok
+  cat <<'SQL'
+DO $a$
+DECLARE res jsonb:=current_setting('vec_prueba.res')::jsonb; r0 jsonb; r1 jsonb;
+BEGIN
+ r0:=res->'ficha'->'relaciones'->0; r1:=res->'ficha'->'relaciones'->1;
+ IF jsonb_array_length(res->'ficha'->'relaciones')<>2
+    OR r1->>'inicio'<>'2026-09-25' OR r1->>'unidad'<>'Unidad sintética de destino' OR r1->>'puesto'<>'Técnico sintético de personal'
+    OR r0->>'inicio'<>'2026-09-26' OR r0->>'unidad'<>'' OR r0->>'puesto'<>''
+    OR (res->'ficha')::text ~ '(Unidad ajena|otro organismo)'
+    OR (res->'ficha')::text ~ '(per|emp|rel|srv|sit|ocu)_' THEN
+  RAISE EXCEPTION 'unidad o puesto inesperados %',res; END IF;
+END $a$;
+COMMIT;
+SQL
+} | como_lector >/dev/null
+ok '000022 unidad y puesto sembrados de la relación propia; otra unidad y otro organismo ausentes'
+
+# Negativos del lector: aislamiento y solo lectura, principal ajeno con la
+# misma proyección, relación inscrita a otra persona y empleado ambiguo.
+{ lector_propia read_committed 'READ COMMITTED' "$emp22" "$P" "$P" 2026-09-26 '42501:ficha propia denegada'; echo 'COMMIT;'
+  lector_propia repeatable_read 'REPEATABLE READ' "$emp22" "$P" "$P" 2026-09-26 '42501:ficha propia denegada'; echo 'COMMIT;'
+  lector_propia solo_lectura 'SERIALIZABLE READ ONLY' "$emp22" "$P" "$P" 2026-09-26 '42501:ficha propia denegada'; echo 'COMMIT;'
+  lector_propia principal_ajeno 'SERIALIZABLE READ WRITE' "$emp22" "$P" "$L" 2026-09-26 '42501:material de ficha propia incompatible'; echo 'COMMIT;'
+  lector_propia relacion_ajena 'SERIALIZABLE READ WRITE' emp_sintetico_alcance_q_00000000000001 "$Q" "$Q" 2026-09-26 '55000:ficha propia incoherente'; echo 'COMMIT;'
+  lector_propia ambiguo 'SERIALIZABLE READ WRITE' emp_sintetico_alcance_r_00000000000001 "$R" "$R" 2026-09-26 '42501:empleado ajeno a la persona'; echo 'COMMIT;'
+} | como_lector >/dev/null
+[[ $(admin_valor "SELECT count(*) FROM vec_personal.recibo_ficha_propia_empleado") == 3 ]] || fallo 'un negativo de ficha propia dejó recibo'
+ok '000022 READ COMMITTED, REPEATABLE READ y READ ONLY, principal ajeno, relación de otra persona y empleado ambiguo denegados sin recibo'
+
+# Carrera: el lector toma su instantánea, otra sesión revoca y confirma la
+# proyección de P, y solo entonces el lector consulta. La barrera de 000016
+# debe devolver 40001 y no quedar recibo; sin ella se leería la proyección
+# revocada como vigente.
+carrera_err=$(mktemp)
+revocar="SELECT vec_personal.publicar_proyeccion_empleado_persona_v1(h.proyeccion_ref,h.version+1,h.persona_ref,h.empleado_ref,'revocada',h.vigente_desde,h.vigente_hasta,'baja',h.procedencia_ref,h.procedencia_version,h.procedencia_huella_sha256) FROM (SELECT DISTINCT ON (proyeccion_ref) * FROM vec_personal.proyeccion_empleado_persona_historia WHERE persona_ref='$P' ORDER BY proyeccion_ref,version DESC) h"
+if { printf "BEGIN ISOLATION LEVEL SERIALIZABLE READ WRITE;\nSET LOCAL TimeZone='UTC';\n"
+     printf "SELECT set_config('vec_prueba.caso','carrera',true),set_config('vec_prueba.empleado','%s',true),set_config('vec_prueba.persona','%s',true),set_config('vec_prueba.principal','%s',true),set_config('vec_prueba.vigente','2026-09-26',true),set_config('vec_prueba.espera','propagar',true);\n" "$emp22" "$P" "$P"
+     printf '\\! psql -X -qAt -v ON_ERROR_STOP=1 -U postgres -d %s -o /dev/null -c "%s"\n' "$base" "$revocar"
+     propia_do; echo 'COMMIT;'
+   } | como_lector >/dev/null 2>"$carrera_err"; then
+  cat "$carrera_err" >&2; rm -f "$carrera_err"; fallo 'lector con instantánea anterior a la revocación admitido'
+fi
+grep -q '40001' "$carrera_err" || { cat "$carrera_err" >&2; rm -f "$carrera_err"; fallo 'la carrera no falló con 40001'; }
+rm -f "$carrera_err"
+[[ $(admin_valor "SELECT resultado FROM vec_personal.resolver_empleado_canonico_persona_v1('$P',clock_timestamp())") == sin_empleado ]] || fallo 'la revocación de la carrera no se confirmó'
+[[ $(admin_valor "SELECT count(*) FROM vec_personal.recibo_ficha_propia_empleado") == 3 ]] || fallo 'la carrera dejó recibo'
+{ lector_propia revocada 'SERIALIZABLE READ WRITE' "$emp22" "$P" "$P" 2026-09-26 '42501:empleado ajeno a la persona'; echo 'COMMIT;'; } | como_lector >/dev/null
+ok '000022 carrera: revocación confirmada tras la instantánea da 40001 sin recibo; después, la persona revocada se deniega'
 "$motor" restart "$contenedor" >/dev/null
 esperar
-[[ $(admin_valor "SELECT count(*) FROM vec_personal.recibo_ficha_propia_empleado") == 2 && $(admin_valor "SELECT count(*) FROM vec_personal.denegacion_frontera_ficha_propia") == 1 ]] || fallo 'recibos o denegaciones de ficha propia perdidos tras reinicio'
+[[ $(admin_valor "SELECT count(*) FROM vec_personal.recibo_ficha_propia_empleado") == 3 && $(admin_valor "SELECT count(*) FROM vec_personal.denegacion_frontera_ficha_propia") == 1 ]] || fallo 'recibos o denegaciones de ficha propia perdidos tras reinicio'
 ok '000022 recibos y denegación conservados tras reinicio'
-printf 'PG18 000019: B1 real; ROLLBACK/COMMIT, ACL, alta/replay/hechos, rechazo multi-org ajeno, caducidad con lock, reinicio y proyección consumida por ContextoActor 000007, lista 000021 y ficha propia 000022 correctas (AD3 simulado).\n'
+printf 'PG18 000019: B1 real; ROLLBACK/COMMIT, ACL, alta/replay/hechos, rechazo multi-org ajeno, caducidad con lock, reinicio y proyección consumida por ContextoActor 000007, lista 000021 y ficha propia 000022 (unidad/puesto, aislamiento, principal ajeno, relación de otra persona, ambigüedad y carrera 40001) correctas (AD3 simulado).\n'

@@ -6,8 +6,28 @@
 -- transacción, recibo propio y comprobación, con la proyección gobernada
 -- persona→empleado de Personal 000016, de que el empleado pedido es el de la
 -- persona que consulta. Añade además el registro segregado de denegaciones de
--- su frontera HTTP. Instalar tras Personal 000021 y AD3-74. Sin DOWN tras
--- historia.
+-- su frontera HTTP. Sin DOWN tras historia.
+--
+-- Dependencias y orden de instalación (la precondición las comprueba todas):
+--   1. Personal 000013: crea el rol NOLOGIN vec_personal_registrador_frontera
+--      al que se concede aquí el registro de denegaciones.
+--   2. Personal 000016: proyección persona→empleado, su lectura gobernada
+--      resolver_empleado_canonico_persona_v1 y la barrera de lectores
+--      bloquear_generacion_proyeccion_empleado_persona_v1.
+--   3. Personal 000017 a 000021 (historias bitemporales con catalogo_snapshot
+--      de 000020 y lista de empleados de 000021).
+--   4. AD3-74 (tras AD3-54, 55 y 56): consumidor V3 nominal de esta lectura.
+--   5. Esta migración.
+--
+-- Nuevo consumidor del resolver de 000016. 000016 nombra como único
+-- consumidor al propietario de ContextoActor (ContextoActor 000007). Esta
+-- función es un segundo consumidor, interno de Personal: la ejecuta el
+-- propietario de Personal (SECURITY DEFINER), dueño de ambas funciones, sin
+-- conceder nada a ningún rol runtime. Cumple el mismo contrato de lector que
+-- ContextoActor 000007: dentro de una transacción SERIALIZABLE toma la
+-- barrera bloquear_generacion_proyeccion_empleado_persona_v1 de la persona
+-- antes de resolverla, para que una revocación confirmada después de su
+-- instantánea falle con 40001 en vez de leerse el estado anterior.
 BEGIN;
 SET LOCAL search_path=pg_catalog;
 SET LOCAL timezone='UTC';
@@ -19,6 +39,7 @@ DO $pre$
 BEGIN
  IF current_user<>'vec_personal_propietario'
     OR to_regprocedure('vec_personal.resolver_empleado_canonico_persona_v1(text,timestamptz)') IS NULL
+    OR to_regprocedure('vec_personal.bloquear_generacion_proyeccion_empleado_persona_v1(text)') IS NULL
     OR to_regprocedure('vec_personal.consultar_empleados_rrhh_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
     OR to_regclass('vec_personal.org_nodo_historia') IS NULL
     OR to_regclass('vec_personal.puesto_tipo_historia') IS NULL
@@ -212,7 +233,10 @@ BEGIN
   RAISE EXCEPTION 'concesión de ficha propia divergente' USING ERRCODE='42501'; END IF;
  -- Autoridad propia de Personal: el empleado pedido debe ser, ahora, el único
  -- empleado canónico de la persona que consulta. Ausencia, ambigüedad,
- -- revocación o un empleado ajeno se deniegan igual.
+ -- revocación o un empleado ajeno se deniegan igual. Barrera de lectores de
+ -- 000016 antes de resolver (mismo contrato que ContextoActor 000007): una
+ -- publicación confirmada tras la instantánea de esta transacción da 40001.
+ PERFORM vec_personal.bloquear_generacion_proyeccion_empleado_persona_v1(persona);
  SELECT * INTO STRICT proyeccion
   FROM vec_personal.resolver_empleado_canonico_persona_v1(persona,transaction_timestamp());
  IF proyeccion.resultado IS DISTINCT FROM 'empleado' OR proyeccion.empleado_ref IS DISTINCT FROM empleado

@@ -154,6 +154,44 @@ BEGIN
 END $neg$;
 SQL
 ok 'operaciones no nominales denegadas con 42501'
+# AD3-74 distingue su fachada del núcleo: lo que la fachada no reconoce se
+# deniega con su propio mensaje antes de llegar al núcleo; lo que tiene la
+# forma exacta de la ficha propia pasa la fachada y lo rechaza el núcleo (aquí
+# por material sin firma), nunca con el mensaje de la fachada.
+psql_admin <<'SQL'
+DO $fachada$
+DECLARE cap text:='{"operacion":"personal.registro_empleado.ficha_propia.consultar","audiencia_consumo":"vec_personal.registro_empleado.ficha_propia.v1","efecto_ref":"e","huella_efecto_sha256":"h"}';
+ dec jsonb:='{"modulo_id":"personal","accion":"personal.registro_empleado.ficha_propia.consultar","recurso_ref":"e","contexto_recurso_huella_sha256":"h","obligaciones":[],"tipo_recurso":"ficha_propia_empleado","finalidad":"consultar_ficha_propia","campos_permitidos":["corte","evidencia","relaciones","servicios"]}';
+ caso record; estado text; mensaje text;
+BEGIN
+ FOR caso IN SELECT * FROM (VALUES
+   ('modulo',dec||'{"modulo_id":"dietas"}'),('accion',dec||'{"accion":"personal.registro_empleado.ficha.consultar"}'),
+   ('recurso',dec||'{"recurso_ref":"otro"}'),('huella',dec||'{"contexto_recurso_huella_sha256":"otra"}'),
+   ('obligaciones',dec||'{"obligaciones":["x"]}'),('tipo',dec||'{"tipo_recurso":"registro_empleado_rrhh"}'),
+   ('finalidad',dec||'{"finalidad":"consultar_ficha_empleado"}'),('campos',dec||'{"campos_permitidos":["corte","evidencia","relaciones"]}')) v(nombre,decision)
+ LOOP
+  BEGIN
+   PERFORM vec_autorizacion_atestada_v3.consumir_ficha_propia_empleado_v3_atestada(
+    convert_to(cap,'UTF8'),convert_to(caso.decision::text,'UTF8'),'x'::bytea,'x'::bytea,1,1,'x'::bytea,'x'::bytea,'x'::bytea,'x'::bytea);
+   RAISE EXCEPTION 'AD3-74 aceptó % divergente',caso.nombre;
+  EXCEPTION WHEN SQLSTATE '42501' THEN
+   GET STACKED DIAGNOSTICS mensaje=MESSAGE_TEXT;
+   IF mensaje IS DISTINCT FROM 'AD3-74: operación denegada' THEN
+    RAISE EXCEPTION 'AD3-74: % divergente no denegado por la fachada: %',caso.nombre,mensaje; END IF;
+  END;
+ END LOOP;
+ BEGIN
+  PERFORM vec_autorizacion_atestada_v3.consumir_ficha_propia_empleado_v3_atestada(
+   convert_to(cap,'UTF8'),convert_to(dec::text,'UTF8'),'x'::bytea,'x'::bytea,1,1,'x'::bytea,'x'::bytea,'x'::bytea,'x'::bytea);
+  RAISE EXCEPTION 'AD3-74: material sin firma aceptado';
+ EXCEPTION WHEN OTHERS THEN
+  GET STACKED DIAGNOSTICS estado=RETURNED_SQLSTATE,mensaje=MESSAGE_TEXT;
+  IF mensaje='AD3-74: material sin firma aceptado' OR mensaje LIKE 'AD3-74:%' THEN
+   RAISE EXCEPTION 'la forma exacta no pasó la fachada AD3-74: % %',estado,mensaje; END IF;
+ END;
+END $fachada$;
+SQL
+ok 'AD3-74: la fachada deniega con su mensaje; la forma exacta llega al núcleo'
 antes=$(huella)
 if archivo "$m54" 2>/dev/null; then fallo 'segunda aplicación de AD3-54 aceptada'; fi
 if archivo "$m55" 2>/dev/null; then fallo 'segunda aplicación de AD3-55 aceptada'; fi
