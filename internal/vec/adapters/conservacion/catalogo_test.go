@@ -28,11 +28,18 @@ func TestCatalogoProvisionalResuelveUnaPoliticaExactaPorTipo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resultado, err := vecapp.ResolverPoliticaConservacionDocumental(context.Background(), c, relojFijo{ahora}, s)
+	// El resolutor estricto no acepta una política provisional como aprobada.
+	if _, err := vecapp.ResolverPoliticaConservacionDocumental(context.Background(), c, relojFijo{ahora}, s); err == nil {
+		t.Fatal("política provisional presentada como aprobada")
+	}
+	resultado, err := vecapp.ResolverPoliticaConservacionDocumentalAdmitiendoProvisional(context.Background(), c, relojFijo{ahora}, s)
 	if err != nil {
 		t.Fatal(err)
 	}
 	p := resultado.Politica()
+	if !p.Provisional() || p.Estado() != ports.EstadoPoliticaConservacionDocumentalProvisional {
+		t.Fatalf("estado de la política: %q", p.Estado())
+	}
 	if !p.ConservacionHasta().Equal(ahora.AddDate(6, 0, 0)) || p.Proteccion() != ports.ProteccionPoliticaConservacionDocumentalOrdinaria ||
 		p.Solicitud().ExpedienteRef() != expediente {
 		t.Fatalf("política inesperada: %v %v", p.ConservacionHasta(), p.Proteccion())
@@ -59,12 +66,12 @@ func TestCatalogoProvisionalResuelveUnaPoliticaExactaPorTipo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := vecapp.ResolverPoliticaConservacionDocumental(context.Background(), c, relojFijo{ahora}, manipulada); err == nil {
+	if _, err := vecapp.ResolverPoliticaConservacionDocumentalAdmitiendoProvisional(context.Background(), c, relojFijo{ahora}, manipulada); err == nil {
 		t.Fatal("versión distinta resuelta")
 	}
 	// Fuera de vigencia del catálogo: no resuelve.
 	tarde := relojFijo{time.Date(2031, 1, 2, 0, 0, 0, 0, time.UTC)}
-	if _, err := vecapp.ResolverPoliticaConservacionDocumental(context.Background(), c, tarde, s); err == nil {
+	if _, err := vecapp.ResolverPoliticaConservacionDocumentalAdmitiendoProvisional(context.Background(), c, tarde, s); err == nil {
 		t.Fatal("política fuera de vigencia resuelta")
 	}
 }

@@ -50,7 +50,7 @@ END $f$;
 
 CREATE FUNCTION ensayo_externa.preimagen_externa(p_id text,p_clave text,p_custodia text) RETURNS bytea
 LANGUAGE sql IMMUTABLE SET search_path=pg_catalog AS $f$
- SELECT convert_to('{"accion":"documentos.externo.registrar","id":"'||p_id||'","clave_idempotencia":"'||p_clave||'","modulo_id":"dietas","expediente_ref":"exp:00000000-0000-4000-8000-000000000001","tipo_ref":"tipo:00000000-0000-4000-8000-000000000002","version":1,"mime":"","tamano":0,"huella_sha256":"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee","custodio_id":"dietas.justificantes","custodia_ref":"'||p_custodia||'","politica_ref":"pol:00000000-0000-4000-8000-000000000001","version_politica":1,"huella_politica_sha256":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc","proteccion":"conservacion","conservacion_hasta":"2030-01-01T00:00:00Z"}','UTF8')
+ SELECT convert_to('{"accion":"documentos.externo.registrar","id":"'||p_id||'","clave_idempotencia":"'||p_clave||'","modulo_id":"dietas","expediente_ref":"exp:00000000-0000-4000-8000-000000000001","tipo_ref":"tipo:00000000-0000-4000-8000-000000000002","version":1,"mime":"","tamano":0,"huella_sha256":"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee","custodio_id":"dietas.justificantes","custodia_ref":"'||p_custodia||'","politica_ref":"pol:00000000-0000-4000-8000-000000000001","version_politica":1,"huella_politica_sha256":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc","proteccion":"conservacion","conservacion_hasta":"2030-01-01T00:00:00Z","estado_politica":"aprobada"}','UTF8')
 $f$;
 
 CREATE FUNCTION ensayo_externa.invocar(p_caso text) RETURNS jsonb

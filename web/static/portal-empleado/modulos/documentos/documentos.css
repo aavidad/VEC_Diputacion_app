@@ -27,6 +27,7 @@
 .documentos-estado--pendiente_firma { color: var(--portal-aviso); }
 .documentos-estado--borrador { color: var(--portal-azul-700); }
 .documentos-estado--sin_acreditar { color: var(--portal-peligro); }
+.documentos-conservacion-provisional { display: block; margin-top: 4px; color: var(--portal-muted); font-size: .8125rem; }
 .documentos-custodia-externa { color: var(--portal-muted); font-size: .875rem; white-space: nowrap; }
 .documentos-descargar { min-height: 36px; }
 .documentos-huella { display: inline-block; margin-left: 12px; text-align: left; }

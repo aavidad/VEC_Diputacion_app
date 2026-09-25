@@ -11,6 +11,14 @@ var ErrDocumentoInvalido = errors.New("documentos: documento invalido")
 
 const EstadoFirmaPendienteProveedor = "pendiente_proveedor"
 
+// Estado de la politica de conservacion con que se incorporo el documento.
+// Con una politica provisional el plazo solo consta como metadato: el almacen
+// no fija retencion hasta aplicar el catalogo definitivo.
+const (
+	EstadoPoliticaAprobada    = "aprobada"
+	EstadoPoliticaProvisional = "provisional"
+)
+
 // Custodia indica quien guarda los bytes. Con custodia VEC el original esta en
 // AlmacenObjetos y se puede descargar; con custodia externa VEC solo conserva
 // la referencia opaca del custodio y la huella, nunca el contenido.
@@ -39,6 +47,7 @@ type Documento struct {
 	HuellaPoliticaSHA256 string
 	ConservacionHasta    time.Time
 	Proteccion           string
+	EstadoPolitica       string
 	EstadoFirma          string
 	CreadoEn             time.Time
 	// Custodia es CustodiaVEC o CustodiaExterna. Con custodia externa,
@@ -56,7 +65,9 @@ func (d Documento) Validar() error {
 		!HuellaValida(d.HuellaSHA256) || !HuellaValida(d.HuellaPoliticaSHA256) ||
 		d.EstadoFirma != EstadoFirmaPendienteProveedor ||
 		d.ConservacionHasta.IsZero() || d.CreadoEn.IsZero() ||
-		(d.Proteccion != "conservacion" && d.Proteccion != "bloqueo") {
+		(d.Proteccion != "conservacion" && d.Proteccion != "bloqueo") ||
+		(d.EstadoPolitica != EstadoPoliticaAprobada && d.EstadoPolitica != EstadoPoliticaProvisional) ||
+		(d.EstadoPolitica == EstadoPoliticaProvisional && d.Proteccion != "conservacion") {
 		return ErrDocumentoInvalido
 	}
 	switch d.Custodia {

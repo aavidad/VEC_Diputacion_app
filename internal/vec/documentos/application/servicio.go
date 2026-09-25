@@ -72,7 +72,7 @@ func (s *Servicio) AltaGenerado(ctx context.Context, in ports.AltaGenerado) (dom
 	if in.Autorizacion.ValidarPara(ports.AccionAlta, ahora) != nil {
 		return domain.Documento{}, ports.ErrSolicitudInvalida
 	}
-	politica, err := baseapp.ResolverPoliticaConservacionDocumental(ctx, s.Politicas, s.Reloj, in.SolicitudPolitica)
+	politica, err := baseapp.ResolverPoliticaConservacionDocumentalAdmitiendoProvisional(ctx, s.Politicas, s.Reloj, in.SolicitudPolitica)
 	if err != nil {
 		return domain.Documento{}, err
 	}
@@ -131,19 +131,30 @@ func (s *Servicio) AltaGenerado(ctx context.Context, in ports.AltaGenerado) (dom
 		documento.HuellaPoliticaSHA256 != hex.EncodeToString(in.SolicitudPolitica.HuellaPoliticaSHA256()) ||
 		documento.Proteccion != string(politica.Politica().Proteccion()) ||
 		!documento.ConservacionHasta.Equal(politica.Politica().ConservacionHasta()) ||
+		documento.EstadoPolitica != ports.EstadoPolitica(politica.Politica()) ||
 		documento.EstadoFirma != domain.EstadoFirmaPendienteProveedor {
 		return domain.Documento{}, ports.ErrCapacidadNoDisponible
 	}
 	return documento, nil
 }
 
+// custodiaSatisfacePolitica exige, con politica aprobada, retencion del
+// proveedor hasta el plazo. Con politica provisional exige lo contrario: que
+// el conector no haya fijado retencion ni inmovilizado el objeto, porque ese
+// efecto seria irreversible con plazos que la autoridad aun no ha aprobado.
 func custodiaSatisfacePolitica(
 	objeto vecports.ResultadoOperacionObjeto,
 	capacidades vecports.CapacidadesAlmacenObjetos,
 	politica vecports.PoliticaConservacionDocumental,
 ) bool {
-	if politica.Validar() != nil || !capacidades.Retencion ||
-		objeto.Objeto.RetenidoHasta.IsZero() ||
+	if politica.Validar() != nil || !capacidades.Retencion {
+		return false
+	}
+	if politica.Provisional() {
+		return objeto.Objeto.RetenidoHasta.IsZero() && !objeto.Objeto.Inmovilizado &&
+			politica.Proteccion() == vecports.ProteccionPoliticaConservacionDocumentalOrdinaria
+	}
+	if objeto.Objeto.RetenidoHasta.IsZero() ||
 		objeto.Objeto.RetenidoHasta.Before(politica.ConservacionHasta()) {
 		return false
 	}
@@ -174,7 +185,7 @@ func (s *Servicio) RegistrarExterno(ctx context.Context, in ports.AltaExterna) (
 		in.Autorizacion.RecursoRef != in.ID || in.Autorizacion.AmbitoRef != in.ExpedienteRef {
 		return domain.Documento{}, ports.ErrSolicitudInvalida
 	}
-	politica, err := baseapp.ResolverPoliticaConservacionDocumental(ctx, s.Politicas, s.Reloj, in.SolicitudPolitica)
+	politica, err := baseapp.ResolverPoliticaConservacionDocumentalAdmitiendoProvisional(ctx, s.Politicas, s.Reloj, in.SolicitudPolitica)
 	if err != nil {
 		return domain.Documento{}, err
 	}
@@ -202,6 +213,7 @@ func (s *Servicio) RegistrarExterno(ctx context.Context, in ports.AltaExterna) (
 		documento.HuellaPoliticaSHA256 != hex.EncodeToString(in.SolicitudPolitica.HuellaPoliticaSHA256()) ||
 		documento.Proteccion != string(politica.Politica().Proteccion()) ||
 		!documento.ConservacionHasta.Equal(politica.Politica().ConservacionHasta()) ||
+		documento.EstadoPolitica != ports.EstadoPolitica(politica.Politica()) ||
 		documento.EstadoFirma != domain.EstadoFirmaPendienteProveedor {
 		return domain.Documento{}, ports.ErrCapacidadNoDisponible
 	}

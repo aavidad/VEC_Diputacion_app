@@ -9,7 +9,35 @@ import (
 
 // ResolverPoliticaConservacionDocumental coordina la frontera documental y
 // exige una unica politica exacta, aprobada y vigente en el instante resuelto.
+// Una politica provisional se deniega: el consumidor que no distingue el
+// estado no puede tratarla como aprobada.
 func ResolverPoliticaConservacionDocumental(
+	ctx context.Context,
+	resolutor ports.ResolutorPoliticaConservacionDocumental,
+	reloj ports.Reloj,
+	solicitud ports.SolicitudPoliticaConservacionDocumental,
+) (ports.ResultadoPoliticaConservacionDocumental, error) {
+	resultado, err := resolverPoliticaConservacionDocumental(ctx, resolutor, reloj, solicitud)
+	if err != nil || resultado.Politica().Provisional() {
+		return ports.ResultadoPoliticaConservacionDocumental{},
+			ports.ErrPoliticaConservacionDocumentalNoResuelta
+	}
+	return resultado, nil
+}
+
+// ResolverPoliticaConservacionDocumentalAdmitiendoProvisional acepta tambien
+// una politica provisional vigente. Solo la usa un consumidor que conserva el
+// estado y se abstiene de efectos irreversibles mientras sea provisional.
+func ResolverPoliticaConservacionDocumentalAdmitiendoProvisional(
+	ctx context.Context,
+	resolutor ports.ResolutorPoliticaConservacionDocumental,
+	reloj ports.Reloj,
+	solicitud ports.SolicitudPoliticaConservacionDocumental,
+) (ports.ResultadoPoliticaConservacionDocumental, error) {
+	return resolverPoliticaConservacionDocumental(ctx, resolutor, reloj, solicitud)
+}
+
+func resolverPoliticaConservacionDocumental(
 	ctx context.Context,
 	resolutor ports.ResolutorPoliticaConservacionDocumental,
 	reloj ports.Reloj,

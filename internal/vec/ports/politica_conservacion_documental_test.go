@@ -179,6 +179,9 @@ func TestPoliticaConservacionDocumentalRechazaEstadosIncoherentes(t *testing.T) 
 		{"aprobada retirada", conservacion, ProteccionPoliticaConservacionDocumentalOrdinaria, "", EstadoPoliticaConservacionDocumentalAprobada, retirada},
 		{"retirada sin instante", conservacion, ProteccionPoliticaConservacionDocumentalOrdinaria, "", EstadoPoliticaConservacionDocumentalRetirada, time.Time{}},
 		{"retirada fuera de vigencia", conservacion, ProteccionPoliticaConservacionDocumentalOrdinaria, "", EstadoPoliticaConservacionDocumentalRetirada, solicitud.VigenteHasta()},
+		{"provisional retirada", conservacion, ProteccionPoliticaConservacionDocumentalOrdinaria, "", EstadoPoliticaConservacionDocumentalProvisional, retirada},
+		{"provisional con bloqueo", conservacion, ProteccionPoliticaConservacionDocumentalBloqueada, bloqueo, EstadoPoliticaConservacionDocumentalProvisional, time.Time{}},
+		{"estado fuera de catalogo", conservacion, ProteccionPoliticaConservacionDocumentalOrdinaria, "", "definitiva", time.Time{}},
 	}
 	for _, caso := range casos {
 		t.Run(caso.nombre, func(t *testing.T) {
@@ -219,5 +222,20 @@ func TestPoliticaConservacionDocumentalConservaCopiasDefensivas(t *testing.T) {
 	primera[2] ^= 0xff
 	if !bytes.Equal(resultado.Politica().Solicitud().HuellaPoliticaSHA256(), huellaOriginal) {
 		t.Fatal("el resultado compartio la huella mutable")
+	}
+}
+
+func TestPoliticaConservacionDocumentalProvisionalEsVigenteYSeDeclara(t *testing.T) {
+	solicitud := nuevosVinculosPoliticaConservacionDocumentalPrueba().construir(t)
+	politica := nuevaPoliticaConservacionDocumentalPrueba(t, solicitud,
+		ProteccionPoliticaConservacionDocumentalOrdinaria, EstadoPoliticaConservacionDocumentalProvisional)
+	resultado, err := NuevoResultadoPoliticaConservacionDocumental(politica, solicitud, time.Date(2028, 2, 1, 12, 0, 0, 0, time.UTC))
+	if err != nil || !resultado.Politica().Provisional() {
+		t.Fatalf("provisional vigente no resuelta o no declarada: %v", err)
+	}
+	aprobada := nuevaPoliticaConservacionDocumentalPrueba(t, solicitud,
+		ProteccionPoliticaConservacionDocumentalOrdinaria, EstadoPoliticaConservacionDocumentalAprobada)
+	if aprobada.Provisional() {
+		t.Fatal("una política aprobada se declara provisional")
 	}
 }

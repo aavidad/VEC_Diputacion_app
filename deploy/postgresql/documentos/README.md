@@ -25,6 +25,13 @@ instaladas antes y después de ellas sobre el núcleo AD3 real.
    membresía `vec_documentos_ejecutor` y otro con **solo**
    `vec_documentos_auditor`; no conceder propiedad, migración ni acceso a tablas.
 
+> **Aviso (25/09/2026).** `000001`, `000002` y `000003` se han modificado en
+> su propio fichero (estado de la política de conservación, sin migraciones
+> nuevas). No constan instaladas en ninguna base conocida. Una base de
+> desarrollo que tuviera instalada una versión anterior de cualquiera de ellas
+> **debe recrearse** desde cero: no se corrige reaplicándolas ni con
+> `DOWN`/`UP`, y 000004 comprueba la huella de los cuerpos que instalan.
+
 ## Documentos-4
 
 El PDP V3 real fija `huella_efecto_sha256` y `contexto_recurso_huella_sha256`
@@ -82,6 +89,50 @@ identificador no puede nombrar a la vez un original y una referencia externa
 (`identificador_documental`). La lista v2 devuelve ambos tipos con el campo
 `custodia` (`vec` o `externa`), con el mismo cursor.
 
+## Política de conservación provisional
+
+El catálogo local de conservación (`internal/vec/adapters/conservacion`) es
+**provisional**: sus plazos son de desarrollo, pendientes de RRHH (dudas.md,
+preguntas 60 y 61). Mientras lo sea, **no se fija retención en el proveedor**:
+
+- El resolutor emite la política con estado `provisional`, nunca `aprobada`.
+  `ResolverPoliticaConservacionDocumental` la deniega; solo Documentos usa la
+  variante `...AdmitiendoProvisional`, que conserva el estado.
+- `estado_politica` (`aprobada` | `provisional`) forma parte de la preimagen
+  autorizada de `confirmar_alta_v2` y `registrar_referencia_externa_v1`, se
+  guarda en `documento` y `referencia_externa` y aparece en recibos y listas
+  (`conservacion` en la consulta HTTP). Otro valor es 42501; la misma clave con
+  el estado cambiado es conflicto 23505.
+- Un original con política provisional se confirma con
+  `objeto_retenido_hasta` nulo, sin inmovilizar y solo con protección
+  ordinaria; con política aprobada se sigue exigiendo retención hasta el plazo.
+  La tabla lo impone con un `CHECK`, también al superusuario.
+- El arranque solo acepta el catálogo provisional en el perfil de desarrollo
+  con doble llave y con un conector que declare no fijar retención al escribir
+  (`RetencionAlEscribir() == false`): `ficheros` con `retencion_minima_dias: 0`.
+  El conector S3 (Object Lock) la fija siempre y falla cerrado al componer.
+
+### Tarea pendiente: aplicar el catálogo definitivo
+
+No está implementada. Cuando RRHH apruebe los plazos (preguntas 60 y 61) hará
+falta una operación durable, autorizada (V3 nominal propia) y auditada que,
+por cada documento con `estado_politica = 'provisional'`:
+
+1. resuelva la política aprobada que le corresponde y calcule el plazo según
+   la regla de cómputo aprobada;
+2. aplique la retención en el proveedor (`AplicarRetencion`) y verifique su
+   recibo;
+3. registre en historia de solo adición la nueva política, el plazo y la
+   retención, conservando la decisión provisional original (hoy las tablas
+   son inmutables: la operación añadirá su propia tabla de aplicaciones y la
+   proyección combinará ambas);
+4. todo ello en la misma transacción que autorización, auditoría y outbox, con
+   idempotencia y reanudación si el proveedor falla a mitad.
+
+Con el catálogo definitivo instalado, el montaje volverá a admitir un conector
+que fije retención al escribir; los documentos provisionales ya incorporados
+seguirán sin retención hasta ejecutar esta operación.
+
 ## Ensayos
 
 `probar_integracion_pg18.sh` crea y destruye su propio contenedor PostgreSQL
@@ -92,7 +143,13 @@ devuelve el mismo recibo, mantiene un documento y un outbox, y registra dos
 consumos de autorización distintos. Hace lo mismo con un registro de custodia
 externa (replay; clave reutilizada, identificador compartido con un original,
 referencia con ruta y finalidad ajena rechazados) y con la lista v2 paginada
-sobre ambas custodias. Al final ejecuta el repositorio Go (pgx) contra esa base
+sobre ambas custodias. Con la política provisional (en un expediente propio)
+confirma un alta sin retención y su replay, rechaza con 42501 estados fuera de
+catálogo, un provisional con retención o inmovilizado y un aprobado sin
+retención, y con 23505 el replay de la misma clave con el estado cambiado; lo
+mismo para una referencia externa, que además rechaza con 42501 la protección
+`bloqueo` con política provisional; y comprueba que el `CHECK` de la tabla
+rechaza filas incoherentes incluso al superusuario. Al final ejecuta el repositorio Go (pgx) contra esa base
 con el LOGIN ejecutor para cotejar preimagen, proyección y lista v2
 (`VEC_DOCUMENTOS_SIN_GO=1` lo omite). Además rechaza con 42501 una decisión
 fresca con la huella de otra preimagen, el replay AD3-62 de una decisión
@@ -144,12 +201,18 @@ Git, 0600):
   "dsn_documentos": "<LOGIN con solo vec_documentos_ejecutor>",
   "dsn_documentos_auditor": "<LOGIN con solo vec_documentos_auditor>",
   "motivos": {"listar": {"catalogo_id": "...", "catalogo_version": 1, "catalogo_huella_sha256": "...", "entrada_clave": "..."}},
-  "almacen": {"tipo": "ficheros", "directorio": "/ruta/absoluta/privada", "tamano_maximo": 16777216, "retencion_minima_dias": 3650}
+  "almacen": {"tipo": "ficheros", "directorio": "/ruta/absoluta/privada", "tamano_maximo": 16777216, "retencion_minima_dias": 0}
 }
 ```
 
 `almacen.tipo` admite `ficheros` (predeterminado: directorio propio del
-proceso, 0700) o `s3` con el mapa `s3` del conector S3 existente. Los DSN
+proceso, 0700) o `s3` con el mapa `s3` del conector S3 existente. En
+`ficheros`, `retencion_minima_dias` es obligatoria y explícita: omitirla impide
+arrancar (no equivale a 0), y `s3` no la admite. Con el catálogo de
+conservación provisional solo arranca `ficheros` con
+`retencion_minima_dias: 0` declarado (sin retención al escribir; véase
+«Política de conservación provisional»); con un catálogo aprobado, 0 se
+rechaza al arrancar, no en la primera escritura. Los DSN
 exigen TLS verificado y LOGIN distintos. Las cuentas deben existir ya en la
 identidad de desarrollo; el catálogo de motivos y las concesiones de
 `documentos.expediente.listar` (tipo `expediente_documental`, campos

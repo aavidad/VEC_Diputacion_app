@@ -161,11 +161,12 @@ func (a AltaExternaPersistente) PreimagenExterna() ([]byte, error) {
 		HuellaPolitica    string `json:"huella_politica_sha256"`
 		Proteccion        string `json:"proteccion"`
 		ConservacionHasta string `json:"conservacion_hasta"`
+		EstadoPolitica    string `json:"estado_politica"`
 	}{AccionRegistrarExterno, a.ID, a.ClaveIdempotencia, a.ModuloID, a.ExpedienteRef,
 		a.TipoRef, a.Version, a.MIME, a.Tamano, a.Custodia.HuellaSHA256,
 		a.Custodia.CustodioID, a.Custodia.Referencia,
 		s.PoliticaRef(), s.VersionPolitica(), hex.EncodeToString(s.HuellaPoliticaSHA256()),
-		string(p.Proteccion()), p.ConservacionHasta().UTC().Format(time.RFC3339Nano)})
+		string(p.Proteccion()), p.ConservacionHasta().UTC().Format(time.RFC3339Nano), EstadoPolitica(p)})
 }
 
 type ConsultaExpediente struct {
@@ -281,10 +282,21 @@ func (a AltaPersistente) PreimagenAlta() ([]byte, error) {
 		HuellaPolitica    string `json:"huella_politica_sha256"`
 		Proteccion        string `json:"proteccion"`
 		ConservacionHasta string `json:"conservacion_hasta"`
+		EstadoPolitica    string `json:"estado_politica"`
 	}{AccionAlta, a.ID, a.ClaveIdempotencia, a.ModuloID, a.ExpedienteRef,
 		a.TipoRef, a.Version, a.MIME, a.Tamano, a.HuellaSHA256,
 		s.PoliticaRef(), s.VersionPolitica(), hex.EncodeToString(s.HuellaPoliticaSHA256()),
-		string(p.Proteccion()), p.ConservacionHasta().UTC().Format(time.RFC3339Nano)})
+		string(p.Proteccion()), p.ConservacionHasta().UTC().Format(time.RFC3339Nano), EstadoPolitica(p)})
+}
+
+// EstadoPolitica traduce el estado de la politica resuelta al del documento.
+// Forma parte de la preimagen autorizada: autorizar un alta con politica
+// aprobada no permite confirmarla como provisional ni al reves.
+func EstadoPolitica(p vecports.PoliticaConservacionDocumental) string {
+	if p.Provisional() {
+		return domain.EstadoPoliticaProvisional
+	}
+	return domain.EstadoPoliticaAprobada
 }
 
 func HuellaPreimagen(preimagen []byte) string {
