@@ -33,9 +33,17 @@ func (s *ServicioSituacionParticipacion) Operar(ctx context.Context, q ports.Sol
 	}
 	actor := q.ResultadoContexto.Contexto.PersonaRef
 	ahora := s.reloj().UTC().Truncate(time.Microsecond)
-	// El validador es una identidad declarada por RRHH, no un firmante. La
-	// separación en exclusión es provisional hasta resolver la duda 6.
-	if q.Validador == "" || strings.TrimSpace(q.Validador) != q.Validador || len(q.Validador) > 256 || (q.Operacion == dominiobolsa.OperacionExcluir && q.Validador == actor) {
+	// El validador es una identidad declarada por RRHH, no un firmante. Qué
+	// operaciones exigen otra persona lo fija la política configurable; la
+	// base de datos vuelve a comprobarlo con la misma versión.
+	if q.Validador == "" || strings.TrimSpace(q.Validador) != q.Validador || len(q.Validador) > 256 {
+		return ports.RegistroSituacionParticipacion{}, dominiobolsa.ErrOperacionSituacionParticipacionInvalida
+	}
+	politica, err := s.politicaSegregacion(ctx)
+	if err != nil {
+		return ports.RegistroSituacionParticipacion{}, err
+	}
+	if politica.ExigeSegundaPersona(q.Operacion) && q.Validador == actor {
 		return ports.RegistroSituacionParticipacion{}, dominiobolsa.ErrOperacionSituacionParticipacionInvalida
 	}
 	vigente, err := s.repositorio.SituacionVigente(ctx, q.ParticipacionRef)
@@ -52,6 +60,21 @@ func (s *ServicioSituacionParticipacion) Operar(ctx context.Context, q ports.Sol
 	h := sha256.Sum256([]byte(q.ParticipacionRef + "\x1f" + q.ClaveIdempotencia))
 	recibo := "recibo:situacion:" + hex.EncodeToString(h[:])
 	return repo.RegistrarOperacion(ctx, ports.ComandoOperacionSituacion{ComandoCambiarSituacionParticipacion: ports.ComandoCambiarSituacionParticipacion{Cambio: cambio, Actor: actor, BolsaRef: q.BolsaRef, ClaveIdempotencia: q.ClaveIdempotencia, ReciboRef: recibo, SolicitudAutorizacion: auth, Decision: decision, Confirmacion: confirmacion, Material: material}, Operacion: q.Operacion, Justificante: q.Justificante, Validador: q.Validador, ValidadaEn: ahora})
+}
+
+// politicaSegregacion lee la política vigente del repositorio. Sin consulta
+// rige el mínimo fijo; una consulta que falla nunca se interpreta como una
+// política más laxa.
+func (s *ServicioSituacionParticipacion) politicaSegregacion(ctx context.Context) (dominiobolsa.PoliticaSegregacion, error) {
+	consulta, ok := s.repositorio.(ports.ConsultaPoliticaSegregacion)
+	if !ok {
+		return dominiobolsa.PoliticaSegregacionMinima(), nil
+	}
+	vigente, err := consulta.PoliticaSegregacion(ctx)
+	if err != nil {
+		return dominiobolsa.PoliticaSegregacion{}, ErrCambioSituacionParticipacionNoDisponible
+	}
+	return vigente.Politica, nil
 }
 
 func (s *ServicioSituacionParticipacion) ListarOperaciones(ctx context.Context, q ports.SolicitudCambiarSituacionParticipacion) ([]ports.RegistroOperacionSituacion, error) {
