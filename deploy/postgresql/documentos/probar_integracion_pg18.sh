@@ -47,6 +47,7 @@ docker cp "$base_dir/migraciones/000004_efecto_contexto_y_frontera.up.sql" "$con
 docker cp "$base_dir/pruebas_sql/frontera_000004.sql" "$container:/tmp/frontera4.sql"
 docker cp "$base_dir/pruebas_sql/custodia_externa_sintetica.sql" "$container:/tmp/externa.sql"
 docker cp "$base_dir/pruebas_sql/replay_ad3_62_sintetico.sql" "$container:/tmp/replay_ad3_62.sql"
+docker cp "$base_dir/pruebas_sql/politica_provisional_sintetica.sql" "$container:/tmp/provisional.sql"
 
 psql_pg() { docker exec "$container" psql -X -q -v ON_ERROR_STOP=1 -U postgres -f "$1"; }
 psql_pg /tmp/stub.sql
@@ -180,7 +181,7 @@ SET LOCAL timezone='UTC';
 DO $test$
 DECLARE p bytea; h text; c bytea; d bytea; a jsonb; o jsonb; r jsonb;
 BEGIN
- p:=convert_to('{"accion":"documentos.generado.alta","id":"doc:00000000-0000-4000-8000-000000000001","clave_idempotencia":"idem:00000000-0000-4000-8000-000000000001","modulo_id":"dietas","expediente_ref":"exp:00000000-0000-4000-8000-000000000001","tipo_ref":"tipo:00000000-0000-4000-8000-000000000001","version":1,"mime":"application/pdf","tamano":3,"huella_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","politica_ref":"pol:00000000-0000-4000-8000-000000000001","version_politica":1,"huella_politica_sha256":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc","proteccion":"conservacion","conservacion_hasta":"2030-01-01T00:00:00Z"}','UTF8');
+ p:=convert_to('{"accion":"documentos.generado.alta","id":"doc:00000000-0000-4000-8000-000000000001","clave_idempotencia":"idem:00000000-0000-4000-8000-000000000001","modulo_id":"dietas","expediente_ref":"exp:00000000-0000-4000-8000-000000000001","tipo_ref":"tipo:00000000-0000-4000-8000-000000000001","version":1,"mime":"application/pdf","tamano":3,"huella_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","politica_ref":"pol:00000000-0000-4000-8000-000000000001","version_politica":1,"huella_politica_sha256":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc","proteccion":"conservacion","conservacion_hasta":"2030-01-01T00:00:00Z","estado_politica":"aprobada"}','UTF8');
  h:=encode(sha256(convert_to('{"ambitos":{},"atributos":{"preimagen_sha256":"'||encode(sha256(p),'hex')||'"}}','UTF8')),'hex');
  c:=convert_to(jsonb_build_object('audiencia_consumo','vec_documentos.operacion.v1','operacion','documentos.generado.alta','efecto_ref','doc:00000000-0000-4000-8000-000000000001','huella_efecto_sha256',h,
   'decision_ref','decision:00000000-0000-4000-8000-000000000001','nonce','nonce:00000000-0000-4000-8000-000000000001',
@@ -368,6 +369,45 @@ SELECT ensayo_externa.recuperar();
 COMMIT;
 SQL
 test "$(docker exec "$container" psql -X -qAt -U postgres -c "SELECT (SELECT count(*) FROM vec_documentos.referencia_externa)=1 AND (SELECT count(*) FROM vec_documentos.outbox WHERE tipo='documento_externo_registrado')=1")" = t
+# Política provisional (expediente propio): alta sin retención, estados fuera
+# de catálogo denegados y replay con el estado cambiado en conflicto.
+docker exec "$container" psql -X -q -v ON_ERROR_STOP=1 -U postgres -f /tmp/provisional.sql
+docker exec -i "$container" psql -X -q -v ON_ERROR_STOP=1 -U vec_documentos_ensayo -d postgres <<'SQL'
+\set ON_ERROR_STOP on
+BEGIN ISOLATION LEVEL SERIALIZABLE;
+SET LOCAL timezone='UTC';
+SELECT ensayo_provisional.probar();
+COMMIT;
+SQL
+test "$(docker exec "$container" psql -X -qAt -U postgres -c "SELECT (SELECT count(*) FROM vec_documentos.documento WHERE estado_politica='provisional' AND objeto_retenido_hasta IS NULL AND NOT objeto_inmovilizado)=1 AND (SELECT count(*) FROM vec_documentos.documento WHERE estado_politica='aprobada' AND objeto_retenido_hasta>=conservacion_hasta)=1 AND (SELECT count(*) FROM vec_documentos.referencia_externa WHERE estado_politica='provisional')=1 AND (SELECT count(*) FROM vec_documentos.referencia_externa WHERE estado_politica='aprobada')=1")" = t
+# La tabla rechaza por sí misma, incluso al superusuario, un original
+# provisional con retención, inmovilizado o con bloqueo, y uno aprobado sin
+# retención o con una retención menor que conservacion_hasta.
+docker exec -i "$container" psql -X -q -v ON_ERROR_STOP=1 -U postgres <<'SQL'
+DO $check$
+DECLARE s text;
+BEGIN
+ FOREACH s IN ARRAY ARRAY[
+  $$'provisional','2031-01-01T00:00:00Z'::timestamptz,false,'conservacion'$$,
+  $$'provisional',NULL::timestamptz,true,'conservacion'$$,
+  $$'provisional',NULL::timestamptz,true,'bloqueo'$$,
+  $$'aprobada',NULL::timestamptz,false,'conservacion'$$,
+  $$'aprobada','2029-12-31T23:59:59Z'::timestamptz,false,'conservacion'$$,
+  $$'definitiva','2031-01-01T00:00:00Z'::timestamptz,false,'conservacion'$$] LOOP
+  BEGIN
+   EXECUTE format($i$INSERT INTO vec_documentos.documento(id,numero_vec,clave_idempotencia,principal_ref,modulo_id,expediente_ref,tipo_ref,version,mime,
+     huella_sha256,tamano,objeto_ref,objeto_version,conector_ref,recibo_objeto_ref,recibo_objeto_huella_sha256,objeto_retenido_hasta,objeto_inmovilizado,
+     politica_ref,version_politica,huella_politica_sha256,conservacion_hasta,proteccion,estado_politica,huella_preimagen_sha256,decision_ref,auditoria_ad3_ref,creada_en)
+    SELECT 'doc:00000000-0000-4000-8000-0000000000ff','VEC-2026-999999','idem:00000000-0000-4000-8000-0000000000ff','per:00000000-0000-4000-8000-000000000001',
+     'dietas','exp:00000000-0000-4000-8000-000000000009','tipo:00000000-0000-4000-8000-000000000001',1,'application/pdf',repeat('a',64),3,'o','v','c','r',repeat('d',64),
+     v.retenido,v.inmovilizado,'pol:00000000-0000-4000-8000-000000000001',1,repeat('c',64),'2030-01-01T00:00:00Z',v.proteccion,v.estado,repeat('b',64),'d','a',clock_timestamp()
+    FROM (SELECT %s) AS v(estado,retenido,inmovilizado,proteccion)$i$,s);
+   RAISE EXCEPTION 'FALLO: fila incoherente aceptada: %',s;
+  EXCEPTION WHEN check_violation THEN NULL;
+  END;
+ END LOOP;
+END $check$;
+SQL
 # Contrato Go<->SQL del repositorio con el LOGIN ejecutor sobre la misma base.
 if [ "${VEC_DOCUMENTOS_SIN_GO:-}" != 1 ]; then
  puerto=$(docker port "$container" 5432/tcp | head -1 | sed 's/.*://')

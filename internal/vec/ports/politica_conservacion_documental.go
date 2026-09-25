@@ -115,6 +115,11 @@ type EstadoPoliticaConservacionDocumental string
 const (
 	EstadoPoliticaConservacionDocumentalAprobada EstadoPoliticaConservacionDocumental = "aprobada"
 	EstadoPoliticaConservacionDocumentalRetirada EstadoPoliticaConservacionDocumental = "retirada"
+	// EstadoPoliticaConservacionDocumentalProvisional declara plazos de
+	// desarrollo pendientes de la autoridad documental. Es vigente, pero no
+	// autoriza ningun efecto irreversible: mientras dure, el almacen no fija
+	// retencion y el plazo solo consta como metadato del documento.
+	EstadoPoliticaConservacionDocumentalProvisional EstadoPoliticaConservacionDocumental = "provisional"
 )
 
 type ProteccionPoliticaConservacionDocumental string
@@ -176,6 +181,11 @@ func (p PoliticaConservacionDocumental) Validar() error {
 		if !p.retiradaEn.IsZero() {
 			return ErrPoliticaConservacionDocumentalInvalida
 		}
+	case EstadoPoliticaConservacionDocumentalProvisional:
+		// Un bloqueo exige la orden que lo impone: no puede ser provisional.
+		if !p.retiradaEn.IsZero() || p.proteccion != ProteccionPoliticaConservacionDocumentalOrdinaria {
+			return ErrPoliticaConservacionDocumentalInvalida
+		}
 	case EstadoPoliticaConservacionDocumentalRetirada:
 		if !instantePoliticaConservacionDocumentalValido(p.retiradaEn) ||
 			p.retiradaEn.Before(p.solicitud.vigenteDesde) ||
@@ -204,6 +214,12 @@ func (p PoliticaConservacionDocumental) Estado() EstadoPoliticaConservacionDocum
 	return p.estado
 }
 func (p PoliticaConservacionDocumental) RetiradaEn() time.Time { return p.retiradaEn }
+
+// Provisional indica que la politica vigente no es la aprobada: ningun
+// consumidor debe fijar con ella retencion irreversible.
+func (p PoliticaConservacionDocumental) Provisional() bool {
+	return p.estado == EstadoPoliticaConservacionDocumentalProvisional
+}
 func (PoliticaConservacionDocumental) String() string {
 	return "[POLITICA-CONSERVACION-DOCUMENTAL-OPACA]"
 }
@@ -269,7 +285,8 @@ func (p PoliticaConservacionDocumental) aplicableEn(
 	instante time.Time,
 ) bool {
 	return p.Validar() == nil && solicitud.Validar() == nil && p.solicitud.coincide(solicitud) &&
-		p.estado == EstadoPoliticaConservacionDocumentalAprobada &&
+		(p.estado == EstadoPoliticaConservacionDocumentalAprobada ||
+			p.estado == EstadoPoliticaConservacionDocumentalProvisional) &&
 		instantePoliticaConservacionDocumentalValido(instante) &&
 		!instante.Before(p.solicitud.vigenteDesde) && instante.Before(p.solicitud.vigenteHasta)
 }

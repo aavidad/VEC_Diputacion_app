@@ -74,6 +74,11 @@ func autorizacion(m vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, a
 
 func politicaEnsayo(t *testing.T, expediente, tipo string) vecports.ResultadoPoliticaConservacionDocumental {
 	t.Helper()
+	return politicaEnsayoEstado(t, expediente, tipo, vecports.EstadoPoliticaConservacionDocumentalAprobada)
+}
+
+func politicaEnsayoEstado(t *testing.T, expediente, tipo string, estado vecports.EstadoPoliticaConservacionDocumental) vecports.ResultadoPoliticaConservacionDocumental {
+	t.Helper()
 	ref := func(c string) string { return "ref:" + strings.Repeat(c, 64) }
 	s, err := vecports.NuevaSolicitudPoliticaConservacionDocumental(ref("1"), ref("2"), tipo, expediente, ref("5"), 1,
 		bytes.Repeat([]byte{0x6a}, 32), ref("6"), time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC))
@@ -81,7 +86,7 @@ func politicaEnsayo(t *testing.T, expediente, tipo string) vecports.ResultadoPol
 		t.Fatal(err)
 	}
 	p, err := vecports.NuevaPoliticaConservacionDocumental(s, time.Date(2035, 1, 1, 0, 0, 0, 0, time.UTC),
-		vecports.ProteccionPoliticaConservacionDocumentalOrdinaria, "", vecports.EstadoPoliticaConservacionDocumentalAprobada, time.Time{})
+		vecports.ProteccionPoliticaConservacionDocumentalOrdinaria, "", estado, time.Time{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -153,5 +158,50 @@ func TestRepositorioPG18RegistraReferenciaExternaYLaListaConCustodia(t *testing.
 	if err != nil || len(pagina.Items) != 1 || pagina.Items[0].ID != alta.ID || pagina.Items[0].Custodia != domain.CustodiaExterna ||
 		pagina.Items[0].CustodiaExternaRef != alta.Custodia || pagina.SiguienteCursor != "" {
 		t.Fatalf("lista v2: %v %+v", err, pagina)
+	}
+}
+
+// Registro externo con política provisional: el recibo declara el estado y un
+// replay de la misma clave con la política aprobada es conflicto.
+func TestRepositorioPG18RegistraReferenciaExternaProvisional(t *testing.T) {
+	ctx, cancelar := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancelar()
+	pool, err := pgxpool.New(ctx, dsnEnsayo(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	repo, err := NuevoRepositorio(pool)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expediente := "ref:" + strings.Repeat("b2", 32)
+	tipo := "ref:" + strings.Repeat("b3", 32)
+	alta := ports.AltaExternaPersistente{
+		ID: "doc:00000000-0000-4000-8000-0000000000b4", ClaveIdempotencia: "idem:00000000-0000-4000-8000-0000000000b4",
+		ModuloID: "dietas", ExpedienteRef: expediente, TipoRef: tipo, Version: 1,
+		Custodia: domain.ReferenciaCustodiaExterna{CustodioID: "dietas", Referencia: "justificante:go:prov", HuellaSHA256: strings.Repeat("f", 64)},
+		Politica: politicaEnsayoEstado(t, expediente, tipo, vecports.EstadoPoliticaConservacionDocumentalProvisional),
+	}
+	firmar := func(a *ports.AltaExternaPersistente, decision string) {
+		t.Helper()
+		preimagen, err := a.PreimagenExterna()
+		if err != nil {
+			t.Fatal(err)
+		}
+		a.Autorizacion = autorizacion(materialSintetico(t, ports.AccionRegistrarExterno, a.ID, "registrar_documento_externo",
+			"documento_externo", []string{"documento", "recibo"}, preimagen, decision),
+			ports.AccionRegistrarExterno, "registrar_documento_externo", a.ID, expediente)
+	}
+	firmar(&alta, "decision:00000000-0000-4000-8000-0000000000b4")
+	d, err := repo.ConfirmarReferenciaExterna(ctx, alta)
+	if err != nil || d.EstadoPolitica != domain.EstadoPoliticaProvisional {
+		t.Fatalf("registro externo provisional: %v %+v", err, d)
+	}
+	aprobada := alta
+	aprobada.Politica = politicaEnsayo(t, expediente, tipo)
+	firmar(&aprobada, "decision:00000000-0000-4000-8000-0000000000b5")
+	if _, err := repo.ConfirmarReferenciaExterna(ctx, aprobada); !errors.Is(err, ports.ErrConflicto) {
+		t.Fatalf("replay con estado cambiado: %v", err)
 	}
 }

@@ -48,3 +48,14 @@
 @media (max-width:420px) { .pc-barra { align-items:flex-start; flex-direction:column; gap:3px; } .pc-campos { grid-template-columns:1fr; } .pc-acciones button { width:100%; } }
 @media (prefers-reduced-motion:reduce) { * { scroll-behavior:auto !important; transition:none !important; } }
 @media (forced-colors:active) { .pc-etiqueta, .pc-estado { border:1px solid currentColor; } }
+.pc-boton-ayuda { margin-left:auto; width:36px; height:36px; flex:none; border:1px solid rgba(255,255,255,.7); border-radius:50%; background:transparent; color:#fff; font-weight:800; font-size:1rem; cursor:pointer; }
+.pc-boton-ayuda:hover { background:rgba(255,255,255,.14); }
+.pc-boton-ayuda:focus-visible { outline:3px solid var(--portal-foco); outline-offset:2px; }
+.pc-ayuda { max-width:min(560px, calc(100vw - 32px)); padding:24px; border:1px solid var(--portal-borde); border-radius:var(--portal-radio); background:var(--portal-superficie); color:var(--portal-tinta); box-shadow:var(--portal-sombra); }
+.pc-ayuda::backdrop { background:rgba(0,0,0,.45); }
+.pc-ayuda h2 { margin:0 0 12px; line-height:1.2; }
+.pc-ayuda h3 { margin:16px 0 4px; font-size:1rem; }
+.pc-ayuda p { margin:0; line-height:1.5; }
+.pc-ayuda .pc-acciones { margin-top:20px; }
+@media (max-width:420px) { .pc-boton-ayuda { position:absolute; top:10px; right:16px; } .pc-barra { position:relative; padding-right:64px; } }
+@media (forced-colors:active) { .pc-boton-ayuda { border:1px solid ButtonText; } }

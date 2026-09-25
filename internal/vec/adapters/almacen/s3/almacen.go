@@ -294,6 +294,11 @@ func (a *Almacen) sondearCapacidades(ctx context.Context) (bool, bool, bool, boo
 	return retencionOK && retencionAtomicaOK, holdOK, promocionOK, checksumOK, retencionAtomicaOK
 }
 
+// RetencionAlEscribir declara que el conector fija retención Object Lock al
+// escribir o promover un objeto admitido (y el cubo puede imponer la suya por
+// defecto). La composición no lo admite con una política provisional.
+func (a *Almacen) RetencionAlEscribir() bool { return true }
+
 func (a *Almacen) Escribir(ctx context.Context, solicitud ports.SolicitudEscribirObjeto) (ports.ResultadoOperacionObjeto, error) {
 	if err := contextoValido(ctx); err != nil {
 		return ports.ResultadoOperacionObjeto{}, err

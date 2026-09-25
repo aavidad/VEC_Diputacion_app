@@ -78,10 +78,12 @@ type configuracionDocumentosDesarrollo struct {
 // predeterminado es "ficheros" (no depende de otra aplicación); "s3" queda
 // como alternativa y sólo se usa si el material privado lo pide.
 type almacenDocumentosDesarrollo struct {
-	Tipo                string            `json:"tipo"`
-	Directorio          string            `json:"directorio"`
-	TamanoMaximo        int64             `json:"tamano_maximo"`
-	RetencionMinimaDias int64             `json:"retencion_minima_dias"`
+	Tipo         string `json:"tipo"`
+	Directorio   string `json:"directorio"`
+	TamanoMaximo int64  `json:"tamano_maximo"`
+	// RetencionMinimaDias es obligatoria para "ficheros": nil (clave ausente)
+	// impide arrancar; 0 solo vale declarado y con catálogo provisional.
+	RetencionMinimaDias *int64            `json:"retencion_minima_dias"`
 	S3                  map[string]string `json:"s3"`
 }
 
@@ -450,7 +452,10 @@ func nuevoAlmacenDocumentos(ctx context.Context, a almacenDocumentosDesarrollo, 
 	)
 	switch a.Tipo {
 	case "", "ficheros":
-		if len(a.S3) != 0 || a.TamanoMaximo < 1 || a.RetencionMinimaDias < 1 {
+		// retencion_minima_dias es explícita: omitirla no equivale a 0. Con 0
+		// el conector no fija retención al escribir, como exige un catálogo de
+		// conservación provisional.
+		if len(a.S3) != 0 || a.TamanoMaximo < 1 || a.RetencionMinimaDias == nil || *a.RetencionMinimaDias < 0 {
 			return nil, nil, ErrComposicionDocumentosNoDisponible
 		}
 		identificador = "ficheros-local"
@@ -458,9 +463,9 @@ func nuevoAlmacenDocumentos(ctx context.Context, a almacenDocumentosDesarrollo, 
 			return nil, nil, ErrComposicionDocumentosNoDisponible
 		}
 		valores = almacenvec.ConfiguracionConectorAlmacen{"directorio": a.Directorio,
-			"tamano_maximo": strconv.FormatInt(a.TamanoMaximo, 10), "retencion_minima_dias": strconv.FormatInt(a.RetencionMinimaDias, 10)}
+			"tamano_maximo": strconv.FormatInt(a.TamanoMaximo, 10), "retencion_minima_dias": strconv.FormatInt(*a.RetencionMinimaDias, 10)}
 	case "s3":
-		if a.Directorio != "" || len(a.S3) == 0 {
+		if a.Directorio != "" || a.RetencionMinimaDias != nil || len(a.S3) == 0 {
 			return nil, nil, ErrComposicionDocumentosNoDisponible
 		}
 		identificador = "s3-documentos"
@@ -480,6 +485,41 @@ func nuevoAlmacenDocumentos(ctx context.Context, a almacenDocumentosDesarrollo, 
 		cerrar = func() { _ = cerrable.Cerrar() }
 	}
 	return almacen, cerrar, nil
+}
+
+// conectorRetencionAlEscribir lo implementa el conector que declara si fija
+// retención irreversible al escribir. Uno que no lo declara se presume que sí.
+type conectorRetencionAlEscribir interface{ RetencionAlEscribir() bool }
+
+// admitirCatalogoConservacion aplica la decisión de dirección sobre el
+// catálogo provisional: sus plazos no son una política aprobada, así que solo
+// se admite en el perfil de desarrollo con doble llave y con un conector que
+// no fije retención al escribir. S3 (Object Lock) la fija siempre: falla
+// cerrado sin llegar a crearlo. Con almacen nil solo se comprueba el perfil y
+// el tipo; con el conector ya creado, su declaración. Con catálogo aprobado es
+// al revés: un conector que declara no fijar retención al escribir
+// (`retencion_minima_dias: 0`) se rechaza al arrancar, no en la primera
+// escritura.
+func admitirCatalogoConservacion(cfg config.Config, provisional bool, tipo string, almacen vecports.AlmacenObjetos) error {
+	if !provisional {
+		if c, ok := almacen.(conectorRetencionAlEscribir); ok && !c.RetencionAlEscribir() {
+			return fmt.Errorf("%w: el catálogo de conservación está aprobado y el conector no fija retención al escribir", ErrComposicionDocumentosNoDisponible)
+		}
+		return nil
+	}
+	if !cfg.DevelopmentEnabledByDoubleKey() {
+		return fmt.Errorf("%w: catálogo de conservación provisional fuera del perfil de desarrollo", ErrComposicionDocumentosNoDisponible)
+	}
+	if tipo == "s3" {
+		return fmt.Errorf("%w: el conector S3 fija retención al escribir y el catálogo de conservación es provisional", ErrComposicionDocumentosNoDisponible)
+	}
+	if almacen == nil {
+		return nil
+	}
+	if c, ok := almacen.(conectorRetencionAlEscribir); !ok || c.RetencionAlEscribir() {
+		return fmt.Errorf("%w: el conector fija retención al escribir y el catálogo de conservación es provisional", ErrComposicionDocumentosNoDisponible)
+	}
+	return nil
 }
 
 // nuevosDocumentosDesarrollo devuelve nil con el selector apagado. Con él
@@ -593,14 +633,20 @@ func nuevosDocumentosDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdenti
 		return nil, errDocumentosEn()
 	}
 	reloj := relojRutasDietas{}
+	politicas, err := conservacion.NuevoCatalogoProvisional(reloj)
+	if err != nil {
+		return nil, errDocumentosEn()
+	}
+	if err := admitirCatalogoConservacion(cfg, politicas.Provisional(), c.Almacen.Tipo, nil); err != nil {
+		return nil, err
+	}
 	almacen, cerrarAlmacen, err := nuevoAlmacenDocumentos(ctx, c.Almacen, reloj)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", errDocumentosEn(), err)
 	}
 	cierres = append(cierres, cerrarAlmacen)
-	politicas, err := conservacion.NuevoCatalogoProvisional(reloj)
-	if err != nil {
-		return nil, errDocumentosEn()
+	if err := admitirCatalogoConservacion(cfg, politicas.Provisional(), c.Almacen.Tipo, almacen); err != nil {
+		return nil, err
 	}
 	registroSesiones, err := identidadpg.NuevoRegistroSesionesPostgreSQL(ctx, pools[0], pools[1], &seudonimizadorSesionDesarrollo{derivador: derivador}, espacioIdentidadSesionDesarrollo, dominioIdentidadSesionDesarrollo)
 	if err != nil {

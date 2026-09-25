@@ -31,6 +31,7 @@ export const MENSAJES_DOCUMENTOS_ES = Object.freeze({
   descargar: "Descargar original",
   descargar_de: "Descargar original del documento {numero}",
   custodia_externa: "Custodia externa",
+  conservacion_provisional: "Conservación provisional",
   huella_abreviada: "Huella {huella}",
 });
 

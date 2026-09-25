@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -19,6 +20,7 @@ import (
 	docpg "vec-diputacion-granada/internal/vec/documentos/adapters/postgres"
 	docports "vec-diputacion-granada/internal/vec/documentos/ports"
 	core "vec-diputacion-granada/internal/vec/domain"
+	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
 type registradorDocumentosPrueba struct {
@@ -228,4 +230,88 @@ func TestDescriptorMaterialDocumentosEsUnicoYNominal(t *testing.T) {
 	if _, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(todos); err != nil {
 		t.Fatal("el descriptor documental colisiona con otro consumidor", err)
 	}
+}
+
+// Decisión de dirección: con catálogo de conservación provisional no se fija
+// retención en el proveedor. Solo se compone en desarrollo con doble llave y
+// con un conector que declare no fijarla al escribir; S3 falla cerrado.
+func TestCatalogoProvisionalExigeDobleLlaveYConectorSinRetencionAlEscribir(t *testing.T) {
+	cfg, _ := generarMaterialDesarrolloPrueba(t)
+	reloj := relojRutasDietas{}
+	sinRetencion, cerrarSin, err := nuevoAlmacenDocumentos(context.Background(), almacenDocumentosDesarrollo{
+		Tipo: "ficheros", Directorio: directorioAlmacenPrueba(t), TamanoMaximo: 1 << 20, RetencionMinimaDias: dias(0)}, reloj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cerrarSin()
+	conRetencion, cerrarCon, err := nuevoAlmacenDocumentos(context.Background(), almacenDocumentosDesarrollo{
+		Tipo: "ficheros", Directorio: directorioAlmacenPrueba(t), TamanoMaximo: 1 << 20, RetencionMinimaDias: dias(1)}, reloj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cerrarCon()
+	if err := admitirCatalogoConservacion(cfg, true, "ficheros", sinRetencion); err != nil {
+		t.Fatalf("ficheros sin retención al escribir rechazado: %v", err)
+	}
+	for nombre, caso := range map[string]struct {
+		tipo    string
+		almacen vecports.AlmacenObjetos
+	}{
+		"ficheros con retención": {"ficheros", conRetencion},
+		"s3":                     {"s3", nil},
+	} {
+		if err := admitirCatalogoConservacion(cfg, true, caso.tipo, caso.almacen); !errors.Is(err, ErrComposicionDocumentosNoDisponible) {
+			t.Fatalf("%s aceptado con catálogo provisional: %v", nombre, err)
+		}
+	}
+	if err := admitirCatalogoConservacion(cfg, false, "s3", nil); err != nil {
+		t.Fatalf("catálogo aprobado rechazado: %v", err)
+	}
+	if err := admitirCatalogoConservacion(cfg, false, "ficheros", conRetencion); err != nil {
+		t.Fatalf("catálogo aprobado con retención al escribir rechazado: %v", err)
+	}
+	// Con catálogo aprobado, cero días falla al arrancar, no al escribir.
+	if err := admitirCatalogoConservacion(cfg, false, "ficheros", sinRetencion); !errors.Is(err, ErrComposicionDocumentosNoDisponible) {
+		t.Fatalf("catálogo aprobado con conector sin retención al escribir: %v", err)
+	}
+	cfg.DevelopmentGuard = ""
+	if err := admitirCatalogoConservacion(cfg, true, "ficheros", sinRetencion); !errors.Is(err, ErrComposicionDocumentosNoDisponible) {
+		t.Fatalf("catálogo provisional fuera de la doble llave: %v", err)
+	}
+}
+
+func dias(n int64) *int64 { return &n }
+
+// retencion_minima_dias es obligatoria y explícita: omitirla impide arrancar
+// en lugar de equivaler a cero; S3 no la admite porque no es clave suya.
+func TestAlmacenFicherosExigeRetencionMinimaExplicita(t *testing.T) {
+	reloj := relojRutasDietas{}
+	for nombre, a := range map[string]almacenDocumentosDesarrollo{
+		"omitida":     {Tipo: "ficheros", Directorio: directorioAlmacenPrueba(t), TamanoMaximo: 1 << 20},
+		"negativa":    {Tipo: "ficheros", Directorio: directorioAlmacenPrueba(t), TamanoMaximo: 1 << 20, RetencionMinimaDias: dias(-1)},
+		"s3 con ella": {Tipo: "s3", S3: map[string]string{"endpoint": "https://s3.invalid"}, RetencionMinimaDias: dias(0)},
+	} {
+		if almacen, cerrar, err := nuevoAlmacenDocumentos(context.Background(), a, reloj); !errors.Is(err, ErrComposicionDocumentosNoDisponible) || almacen != nil {
+			if cerrar != nil {
+				cerrar()
+			}
+			t.Fatalf("%s: configuración aceptada: %v", nombre, err)
+		}
+	}
+	var sinClave, conCero almacenDocumentosDesarrollo
+	if err := json.Unmarshal([]byte(`{"tipo":"ficheros","directorio":"/x","tamano_maximo":1}`), &sinClave); err != nil || sinClave.RetencionMinimaDias != nil {
+		t.Fatalf("clave omitida interpretada como declarada: %v", err)
+	}
+	if err := json.Unmarshal([]byte(`{"tipo":"ficheros","directorio":"/x","tamano_maximo":1,"retencion_minima_dias":0}`), &conCero); err != nil || conCero.RetencionMinimaDias == nil || *conCero.RetencionMinimaDias != 0 {
+		t.Fatalf("cero declarado no conservado: %v", err)
+	}
+}
+
+func directorioAlmacenPrueba(t *testing.T) string {
+	t.Helper()
+	dir := filepath.Join(t.TempDir(), "originales")
+	if err := os.Mkdir(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	return dir
 }

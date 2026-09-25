@@ -14,7 +14,7 @@ func TestDocumentoSoloAceptaReferenciasOpacasYFirmaPendiente(t *testing.T) {
 		MIME: "application/pdf", HuellaSHA256: strings.Repeat("4", 64), Tamano: 3,
 		ObjetoRef: "objeto:1", ObjetoVersion: "version:1", PoliticaRef: ref("5"),
 		VersionPolitica: 1, HuellaPoliticaSHA256: strings.Repeat("6", 64),
-		ConservacionHasta: time.Now().UTC().Add(time.Hour), Proteccion: "conservacion",
+		ConservacionHasta: time.Now().UTC().Add(time.Hour), Proteccion: "conservacion", EstadoPolitica: EstadoPoliticaAprobada,
 		EstadoFirma: EstadoFirmaPendienteProveedor, CreadoEn: time.Now().UTC(), Custodia: CustodiaVEC,
 	}
 	if err := d.Validar(); err != nil {
@@ -29,6 +29,21 @@ func TestDocumentoSoloAceptaReferenciasOpacasYFirmaPendiente(t *testing.T) {
 	if d.Validar() == nil {
 		t.Fatal("admitio firma sin transicion acreditada")
 	}
+	d.EstadoFirma = EstadoFirmaPendienteProveedor
+	d.EstadoPolitica = EstadoPoliticaProvisional
+	if d.Validar() != nil {
+		t.Fatal("denego politica provisional ordinaria")
+	}
+	for _, estado := range []string{"", "retirada", "definitiva"} {
+		d.EstadoPolitica = estado
+		if d.Validar() == nil {
+			t.Fatalf("admitio estado de politica fuera de catalogo %q", estado)
+		}
+	}
+	d.EstadoPolitica, d.Proteccion = EstadoPoliticaProvisional, "bloqueo"
+	if d.Validar() == nil {
+		t.Fatal("admitio bloqueo con politica provisional")
+	}
 }
 
 func TestDocumentoConCustodiaExternaNoLlevaObjetoYExigeReferenciaYHuella(t *testing.T) {
@@ -39,7 +54,7 @@ func TestDocumentoConCustodiaExternaNoLlevaObjetoYExigeReferenciaYHuella(t *test
 		ExpedienteRef: ref("2"), TipoRef: ref("3"), Version: 1,
 		HuellaSHA256: huella, PoliticaRef: ref("5"),
 		VersionPolitica: 1, HuellaPoliticaSHA256: strings.Repeat("6", 64),
-		ConservacionHasta: time.Now().UTC().Add(time.Hour), Proteccion: "conservacion",
+		ConservacionHasta: time.Now().UTC().Add(time.Hour), Proteccion: "conservacion", EstadoPolitica: EstadoPoliticaAprobada,
 		EstadoFirma: EstadoFirmaPendienteProveedor, CreadoEn: time.Now().UTC(), Custodia: CustodiaExterna,
 		CustodiaExternaRef: ReferenciaCustodiaExterna{CustodioID: "dietas.justificantes", Referencia: "justificante:0001", HuellaSHA256: huella},
 	}

@@ -5,8 +5,10 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"vec-diputacion-granada/internal/vec/documentos/ports"
+	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
 // La capacidad V3 debe estar ligada a la operación y a la huella de la
@@ -49,3 +51,26 @@ func TestValidarAutorizacionLigaOperacionYHuellaDeLaPreimagen(t *testing.T) {
 }
 
 const finalidadListarPrueba = "listar_documentos_expediente"
+
+// La regla de retención del adaptador replica la de la fachada SQL.
+func TestRetencionCoherenteSegunEstadoDePolitica(t *testing.T) {
+	expediente, tipo := "ref:"+strings.Repeat("c2", 32), "ref:"+strings.Repeat("c3", 32)
+	aprobada := ports.AltaPersistente{Politica: politicaEnsayo(t, expediente, tipo)}
+	provisional := ports.AltaPersistente{Politica: politicaEnsayoEstado(t, expediente, tipo, vecports.EstadoPoliticaConservacionDocumentalProvisional)}
+	hasta := aprobada.Politica.Politica().ConservacionHasta()
+	if retencionCoherente(aprobada) || !retencionCoherente(provisional) {
+		t.Fatal("sin retención: aprobada aceptada o provisional rechazada")
+	}
+	aprobada.Objeto.Objeto.RetenidoHasta, provisional.Objeto.Objeto.RetenidoHasta = hasta, hasta
+	if !retencionCoherente(aprobada) || retencionCoherente(provisional) {
+		t.Fatal("con retención: aprobada rechazada o provisional aceptada")
+	}
+	provisional.Objeto.Objeto.RetenidoHasta = time.Time{}
+	provisional.Objeto.Objeto.Inmovilizado = true
+	if retencionCoherente(provisional) {
+		t.Fatal("provisional inmovilizada aceptada")
+	}
+	if retenidoHasta(time.Time{}) != nil || retenidoHasta(hasta) == nil {
+		t.Fatal("retenido_hasta nulo mal traducido")
+	}
+}

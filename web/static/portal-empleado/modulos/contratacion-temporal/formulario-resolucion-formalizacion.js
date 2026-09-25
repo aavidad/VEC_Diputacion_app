@@ -41,7 +41,7 @@ export function montarFormularioResolucionFormalizacion({
   const fila = (clave, valor) => `<div><dt>${texto(clave)}</dt><dd>${e(String(valor))}</dd></div>`;
   const siNo = (valor) => valor ? "Sí" : "No";
   const estadoLegible = (estado) => estado === "registrada" ? "Registrada" : "Recibo recuperado";
-  const validacionLegible = () => "Validación manual de ejercicio sintético";
+  const validacionLegible = () => "Validación manual";
 
   function pintar(mensaje = "", enfocarEstado = false) {
     if (!montado) return;
@@ -53,7 +53,6 @@ export function montarFormularioResolucionFormalizacion({
       "actuacion_ref", "auditoria_ref", "outbox_ref"];
     raiz.innerHTML = `<section class="ct-alta" data-ct-resolucion-formalizacion>
       <h3>${texto("titulo")}</h3>
-      <p id="ct-rf-ayuda" class="ct-ayuda">${texto("ayuda")}</p>
       <dl class="ct-resumen" aria-label="${texto("contexto")}">
         ${fila("expediente_ref", contexto.expediente_ref)}
         ${fila("propuesta_ref", contexto.propuesta_ref)}
@@ -68,7 +67,7 @@ export function montarFormularioResolucionFormalizacion({
         <details><summary>${texto("detalles_trazabilidad")}</summary><dl>${camposRecibo.map((campo) => fila(campo, recibo[campo])).join("")}</dl></details>
         <button type="button" class="boton-secundario" data-ct-exp-accion="volver-cuadro-actualizado">${texto("volver_cuadro")}</button>
       </section>` : `<form data-ct-resolucion-formalizacion-form aria-busy="${ocupado}">
-        <fieldset${ocupado || reintentoInmutable ? " disabled" : ""} aria-describedby="ct-rf-ayuda">
+        <fieldset${ocupado || reintentoInmutable ? " disabled" : ""}>
           <legend>${texto("contexto")}</legend>
           <div class="ct-campo"><label for="ct-rf-numero">${texto("numero")} *</label>
             <input id="ct-rf-numero" required name="numero_resolucion" maxlength="80" autocomplete="off" value="${e(v.numero_resolucion)}"></div>

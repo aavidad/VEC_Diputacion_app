@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 
@@ -79,14 +80,16 @@ func TestNuevoRechazaDirectoriosInseguros(t *testing.T) {
 	}
 	reloj := relojFijo{instante()}
 	for nombre, cfg := range map[string]Configuracion{
-		"relativo":      {Directorio: "originales", TamanoMaximo: 10, RetencionMinimaAdmitida: time.Hour},
-		"no canónico":   {Directorio: privado + "/../privado", TamanoMaximo: 10, RetencionMinimaAdmitida: time.Hour},
-		"permisos":      {Directorio: abierto, TamanoMaximo: 10, RetencionMinimaAdmitida: time.Hour},
-		"enlace":        {Directorio: enlace, TamanoMaximo: 10, RetencionMinimaAdmitida: time.Hour},
-		"inexistente":   {Directorio: filepath.Join(base, "no"), TamanoMaximo: 10, RetencionMinimaAdmitida: time.Hour},
-		"sin tamaño":    {Directorio: privado, RetencionMinimaAdmitida: time.Hour},
-		"sin retención": {Directorio: privado, TamanoMaximo: 10},
-		"tamaño enorme": {Directorio: privado, TamanoMaximo: 1 << 40, RetencionMinimaAdmitida: time.Hour},
+		"relativo":           {Directorio: "originales", TamanoMaximo: 10, RetencionMinimaAdmitida: time.Hour},
+		"no canónico":        {Directorio: privado + "/../privado", TamanoMaximo: 10, RetencionMinimaAdmitida: time.Hour},
+		"permisos":           {Directorio: abierto, TamanoMaximo: 10, RetencionMinimaAdmitida: time.Hour},
+		"enlace":             {Directorio: enlace, TamanoMaximo: 10, RetencionMinimaAdmitida: time.Hour},
+		"inexistente":        {Directorio: filepath.Join(base, "no"), TamanoMaximo: 10, RetencionMinimaAdmitida: time.Hour},
+		"sin tamaño":         {Directorio: privado, RetencionMinimaAdmitida: time.Hour},
+		"tamaño enorme":      {Directorio: privado, TamanoMaximo: 1 << 40, RetencionMinimaAdmitida: time.Hour},
+		"límite negativo":    {Directorio: privado, TamanoMaximo: 10, RetencionMinimaAdmitida: time.Hour, MaximoVolcadosConcurrentes: -1},
+		"límite excesivo":    {Directorio: privado, TamanoMaximo: 10, RetencionMinimaAdmitida: time.Hour, MaximoVolcadosConcurrentes: 17},
+		"retención negativa": {Directorio: privado, TamanoMaximo: 10, RetencionMinimaAdmitida: -time.Hour},
 	} {
 		if _, err := Nuevo(cfg, reloj); err == nil {
 			t.Fatalf("%s: configuración insegura aceptada", nombre)
@@ -96,6 +99,223 @@ func TestNuevoRechazaDirectoriosInseguros(t *testing.T) {
 		t.Fatal("sin reloj aceptado")
 	}
 }
+
+type infoConUID struct {
+	os.FileInfo
+	uid uint32
+}
+
+func (i infoConUID) Sys() any { return &syscall.Stat_t{Uid: i.uid} }
+
+func TestCerrojoExigePropietarioDelProceso(t *testing.T) {
+	ruta := filepath.Join(t.TempDir(), "cerrojo")
+	if err := os.WriteFile(ruta, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(ruta)
+	if err != nil || !ficheroPrivado(info) || ficheroPrivado(infoConUID{info, uint32(os.Geteuid() + 1)}) {
+		t.Fatalf("validación de propietario: %v", err)
+	}
+}
+
+func TestNuevoLimpiaTemporalesHuerfanosSinSeguirEnlaces(t *testing.T) {
+	dir := directorioPrueba(t)
+	a := nuevoPrueba(t, dir)
+	temporal, err := a.temporal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ruta := temporal.Name()
+	if err := temporal.Close(); err != nil {
+		t.Fatal(err)
+	}
+	ajeno := filepath.Join(dir, "ajeno")
+	if err := os.WriteFile(ajeno, []byte("intacto"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	enlace := filepath.Join(dir, dirTemporal, "tmp_"+strings.Repeat("a", 32))
+	if err := os.Symlink(ajeno, enlace); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Cerrar(); err != nil {
+		t.Fatal(err)
+	}
+	b := nuevoPrueba(t, dir)
+	if _, err := os.Lstat(ruta); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("temporal huérfano conservado: %v", err)
+	}
+	if _, err := os.Lstat(enlace); err != nil {
+		t.Fatalf("enlace alterado: %v", err)
+	}
+	if contenido, err := os.ReadFile(ajeno); err != nil || string(contenido) != "intacto" {
+		t.Fatalf("destino ajeno alterado: %v", err)
+	}
+	_ = b
+}
+
+type lectorBloqueado struct {
+	origen io.Reader
+	inicio chan<- struct{}
+	libre  <-chan struct{}
+	unaVez sync.Once
+}
+
+func (l *lectorBloqueado) Read(p []byte) (int, error) {
+	l.unaVez.Do(func() { l.inicio <- struct{}{}; <-l.libre })
+	return l.origen.Read(p)
+}
+
+func TestVolcadosLimitadosPorSemaforo(t *testing.T) {
+	a, err := Nuevo(Configuracion{Directorio: directorioPrueba(t), TamanoMaximo: 1 << 20,
+		RetencionMinimaAdmitida: time.Hour, MaximoVolcadosConcurrentes: 1}, relojFijo{instante()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = a.Cerrar() })
+	libre := make(chan struct{})
+	inicios := make(chan struct{}, 2)
+	errores := make(chan error, 2)
+	for i := 0; i < 2; i++ {
+		contenido := []byte(fmt.Sprintf("contenido %d", i))
+		s := escritura(t, fmt.Sprintf("limite%d", i), fmt.Sprintf("clave:limite:%d", i), ports.ZonaAlmacenAdmitida, contenido)
+		s.Contenido = &lectorBloqueado{origen: bytes.NewReader(contenido), inicio: inicios, libre: libre}
+		go func() { _, err := a.Escribir(context.Background(), s); errores <- err }()
+	}
+	select {
+	case <-inicios:
+	case <-time.After(2 * time.Second):
+		t.Fatal("ningún volcado comenzó")
+	}
+	select {
+	case <-inicios:
+		t.Fatal("dos volcados comenzaron con límite uno")
+	case <-time.After(50 * time.Millisecond):
+	}
+	close(libre)
+	for i := 0; i < 2; i++ {
+		if err := <-errores; err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestNuevoEsperaUnVolcadoActivoAntesDeLimpiar(t *testing.T) {
+	dir := directorioPrueba(t)
+	a := nuevoPrueba(t, dir)
+	inicio := make(chan struct{}, 1)
+	libre := make(chan struct{})
+	contenido := []byte("contenido activo")
+	s := escritura(t, "activo", "clave:activo", ports.ZonaAlmacenAdmitida, contenido)
+	s.Contenido = &lectorBloqueado{origen: bytes.NewReader(contenido), inicio: inicio, libre: libre}
+	escrituraTerminada := make(chan error, 1)
+	go func() { _, err := a.Escribir(context.Background(), s); escrituraTerminada <- err }()
+	select {
+	case <-inicio:
+	case <-time.After(2 * time.Second):
+		t.Fatal("el volcado no comenzó")
+	}
+	arranqueTerminado := make(chan error, 1)
+	go func() {
+		b, err := Nuevo(Configuracion{Directorio: dir, TamanoMaximo: 1 << 20,
+			RetencionMinimaAdmitida: time.Hour}, relojFijo{instante()})
+		if b != nil {
+			_ = b.Cerrar()
+		}
+		arranqueTerminado <- err
+	}()
+	select {
+	case err := <-arranqueTerminado:
+		t.Fatalf("Nuevo limpió durante un volcado: %v", err)
+	case <-time.After(50 * time.Millisecond):
+	}
+	close(libre)
+	if err := <-escrituraTerminada; err != nil {
+		t.Fatal(err)
+	}
+	if err := <-arranqueTerminado; err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestAutorizacionCaducadaNoLeeContenido(t *testing.T) {
+	a, err := Nuevo(Configuracion{Directorio: directorioPrueba(t), TamanoMaximo: 1 << 20,
+		RetencionMinimaAdmitida: time.Hour}, relojFijo{instante().Add(2 * time.Hour)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = a.Cerrar() })
+	s := escritura(t, "caducada", "clave:caducada", ports.ZonaAlmacenAdmitida, []byte("contenido"))
+	s.Contenido = lectorQueFalla{}
+	if _, err := a.Escribir(context.Background(), s); err == nil {
+		t.Fatal("autorización caducada aceptada")
+	}
+}
+
+// relojMovil devuelve el instante vigente hasta que la lectura del contenido
+// lo adelanta más allá de la vigencia de la concesión.
+type relojMovil struct {
+	mu sync.Mutex
+	t  time.Time
+}
+
+func (r *relojMovil) Ahora() time.Time {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.t
+}
+
+func (r *relojMovil) fijar(t time.Time) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.t = t
+}
+
+type lectorQueCaduca struct {
+	origen io.Reader
+	reloj  *relojMovil
+	unaVez sync.Once
+}
+
+func (l *lectorQueCaduca) Read(p []byte) (int, error) {
+	l.unaVez.Do(func() { l.reloj.fijar(instante().Add(2 * time.Hour)) })
+	return l.origen.Read(p)
+}
+
+// La concesión vence mientras se vuelca el contenido: la comprobación
+// posterior al volcado debe rechazar la escritura sin dejar rastro.
+func TestAutorizacionCaducaDuranteElVolcado(t *testing.T) {
+	dir := directorioPrueba(t)
+	reloj := &relojMovil{t: instante()}
+	a, err := Nuevo(Configuracion{Directorio: dir, TamanoMaximo: 1 << 20,
+		RetencionMinimaAdmitida: time.Hour}, reloj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = a.Cerrar() })
+	contenido := []byte("contenido que caduca")
+	s := escritura(t, "caduca", "clave:caduca", ports.ZonaAlmacenAdmitida, contenido)
+	lector := &lectorQueCaduca{origen: bytes.NewReader(contenido), reloj: reloj}
+	s.Contenido = lector
+	if _, err := a.Escribir(context.Background(), s); err == nil {
+		t.Fatal("escritura aceptada con la concesión vencida durante el volcado")
+	}
+	if reloj.Ahora().Equal(instante()) {
+		t.Fatal("el contenido no llegó a leerse")
+	}
+	for _, sub := range []string{dirTemporal, dirObjetos, dirIdempotencia} {
+		entradas, err := os.ReadDir(filepath.Join(dir, sub))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(entradas) != 0 {
+			t.Fatalf("%s conserva %d entradas tras el rechazo", sub, len(entradas))
+		}
+	}
+}
+
+type lectorQueFalla struct{}
+
+func (lectorQueFalla) Read([]byte) (int, error) { panic("contenido leído sin autorización vigente") }
 
 func TestEscribirLeerVerificaHuellaPermisosYReinicio(t *testing.T) {
 	dir := directorioPrueba(t)
@@ -261,5 +481,42 @@ func TestEscriturasConcurrentes(t *testing.T) {
 	}
 	if a.String() != "almacen-ficheros[ficheros-local]" {
 		t.Fatalf("String revela datos: %s", a.String())
+	}
+}
+
+// Con retención mínima cero el almacén no fija retención al escribir ni al
+// promover (política de conservación provisional); se aplica después.
+func TestSinRetencionAlEscribirLaAplicaDespues(t *testing.T) {
+	a, err := Nuevo(Configuracion{Directorio: directorioPrueba(t), TamanoMaximo: 1 << 20}, relojFijo{instante()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = a.Cerrar() })
+	if a.RetencionAlEscribir() || !nuevoPrueba(t, directorioPrueba(t)).RetencionAlEscribir() {
+		t.Fatal("declaración de retención al escribir incoherente")
+	}
+	ctx := context.Background()
+	caps, err := a.Capacidades(ctx)
+	if err != nil || !caps.Retencion || caps.RetencionAtomicaEnPromocion {
+		t.Fatalf("capacidades sin retención al escribir: %v %+v", err, caps)
+	}
+	admitido, err := a.Escribir(ctx, escritura(t, "sin", "clave:sin:retencion", ports.ZonaAlmacenAdmitida, []byte("%PDF-1.7\nsin retención")))
+	if err != nil || !admitido.Objeto.RetenidoHasta.IsZero() {
+		t.Fatalf("escritura sin retención: %v %+v", err, admitido.Objeto)
+	}
+	cuarentena, err := a.Escribir(ctx, escritura(t, "q", "clave:sin:cuarentena", ports.ZonaAlmacenCuarentena, []byte("%PDF-1.7\ncuarentena")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	promovido, err := a.Promover(ctx, ports.SolicitudPromoverObjeto{Contexto: contexto(t, "p", ports.AccionAlmacenPromover, cuarentena.Objeto.Objeto),
+		ClaveIdempotencia: "clave:sin:promocion", Origen: cuarentena.Objeto.Objeto, EvidenciaAnalisisRef: "analisis:limpio:1"})
+	if err != nil || !promovido.Objeto.RetenidoHasta.IsZero() {
+		t.Fatalf("promoción sin retención: %v %+v", err, promovido.Objeto)
+	}
+	hasta := instante().Add(6 * 365 * 24 * time.Hour)
+	retenido, err := a.AplicarRetencion(ctx, ports.SolicitudRetenerObjeto{Contexto: contexto(t, "r", ports.AccionAlmacenAplicarRetencion, admitido.Objeto.Objeto),
+		Objeto: admitido.Objeto.Objeto, PoliticaRef: "politica:conservacion:definitiva", Hasta: hasta})
+	if err != nil || !retenido.Objeto.RetenidoHasta.Equal(hasta) {
+		t.Fatalf("retención posterior: %v", err)
 	}
 }

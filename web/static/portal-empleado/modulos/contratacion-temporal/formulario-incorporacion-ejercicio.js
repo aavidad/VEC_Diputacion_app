@@ -5,8 +5,8 @@ import { crearTraductorContratacionTemporal } from "./i18n.js";
 
 // Catálogo local de esta pieza: admite las mismas sobrescrituras que el módulo.
 const textos = Object.freeze({
-  titulo: "Incorporación de ejercicio", contexto: "Contexto de la incorporación",
-  limites: "Ejercicio sintético: no acredita firma oficial ni eficacia administrativa.",
+  titulo: "Incorporación", contexto: "Contexto de la incorporación",
+  limites: "La incorporación no acredita firma oficial ni eficacia administrativa.",
   expediente_ref: "Expediente", solicitud_personal_ref: "Solicitud de Personal",
   version_actual: "Versión actual del expediente", version_original: "Versión original del expediente",
   version_solicitud_personal: "Versión de la solicitud de Personal",
@@ -14,8 +14,8 @@ const textos = Object.freeze({
   desde: "Inicio del período", hasta: "Fin del período", documentos: "Documentos revisados",
   sin_documentos: "Sin referencias documentales", motivo: "Motivo del catálogo",
   seleccionar: "Seleccione un motivo", revision: "He revisado la solicitud de Personal, el período y los documentos indicados.",
-  ejercicio: "Confirmo que esta actuación corresponde exclusivamente al ejercicio sintético.",
-  confirmar: "Confirmar incorporación de ejercicio", reintentar: "Reintentar el mismo contenido",
+  ejercicio: "Confirmo que esta actuación no acredita firma oficial ni eficacia administrativa.",
+  confirmar: "Confirmar incorporación", reintentar: "Reintentar el mismo contenido",
   recibo: "Recibo original", recibo_ref: "Referencia del recibo", relacion_ref: "Relación de Personal",
   seguimiento_ref: "Seguimiento", actuacion_ref: "Actuación", auditoria_ref: "Auditoría", outbox_ref: "Evento de salida",
   version_seguimiento_anterior: "Versión anterior del seguimiento",
@@ -66,14 +66,13 @@ export function montarFormularioIncorporacionEjercicio({
     if (!montado) return;
     const p = contexto.preparacion;
     raiz.innerHTML = `<section class="ct-alta" data-ct-incorporacion-ejercicio>
-      <h3>${texto("titulo")}</h3><p class="ct-ayuda" id="ct-ie-ayuda">${texto("limites")}</p>
+      <h3>${texto("titulo")}</h3>
       <dl class="ct-resumen" aria-label="${texto("contexto")}">
         ${fila("expediente_ref", contexto.expediente_ref)}${fila("version_actual", versionActual)}
       </dl>
       ${recibo ? `<section class="ct-recibo" role="status"><h4>${texto("recibo")}</h4><dl>
         ${fila("recibo_ref", recibo.recibo_ref)}
         ${fila("registrada_en", `${fechaRegistro.format(new Date(recibo.registrada_en))} · ${recibo.registrada_en}`)}
-        ${fila("ejercicio_sintetico", siNo(recibo.ejercicio_sintetico))}
         ${fila("firma_oficial", siNo(recibo.firma_oficial))}
         ${fila("eficacia_administrativa", siNo(recibo.eficacia_administrativa))}
         ${periodo(recibo.periodo_incorporacion)}</dl><details><summary>${texto("detalles_trazabilidad")}</summary><dl>
@@ -87,7 +86,7 @@ export function montarFormularioIncorporacionEjercicio({
         ${fila("version_seguimiento_esperada", p.version_seguimiento_esperada)}${periodo(p.periodo_incorporacion)}
         ${fila("documentos", p.documentos_refs.length ? p.documentos_refs.join(" · ") : t("incorporacion_ejercicio_sin_documentos"))}</dl>
         ${p.disponible ? `<form data-ct-incorporacion-ejercicio-form aria-busy="${ocupado}">
-          <fieldset${ocupado || inmutable ? " disabled" : ""} aria-describedby="ct-ie-ayuda">
+          <fieldset${ocupado || inmutable ? " disabled" : ""}>
             <legend>${texto("contexto")}</legend>
             <div class="ct-campo"><label for="ct-ie-motivo">${texto("motivo")} *</label>
               <select id="ct-ie-motivo" name="motivo_clave" required><option value="">${texto("seleccionar")}</option>

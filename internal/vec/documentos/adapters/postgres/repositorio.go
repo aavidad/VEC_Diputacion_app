@@ -146,6 +146,7 @@ type documentoJSON struct {
 	HuellaPoliticaSHA256 string    `json:"huella_politica_sha256"`
 	ConservacionHasta    time.Time `json:"conservacion_hasta"`
 	Proteccion           string    `json:"proteccion"`
+	EstadoPolitica       string    `json:"estado_politica"`
 	EstadoFirma          string    `json:"estado_firma"`
 	CreadoEn             time.Time `json:"creado_en"`
 	// Las proyecciones v1 de originales no llevan custodia; la lista v2 y el
@@ -166,7 +167,7 @@ func decodificarDocumento(raw []byte) (domain.Documento, error) {
 		Tamano: v.Tamano, ObjetoRef: v.ObjetoRef, ObjetoVersion: v.ObjetoVersion,
 		PoliticaRef: v.PoliticaRef, VersionPolitica: v.VersionPolitica,
 		HuellaPoliticaSHA256: v.HuellaPoliticaSHA256, ConservacionHasta: v.ConservacionHasta,
-		Proteccion: v.Proteccion, EstadoFirma: v.EstadoFirma, CreadoEn: v.CreadoEn,
+		Proteccion: v.Proteccion, EstadoPolitica: v.EstadoPolitica, EstadoFirma: v.EstadoFirma, CreadoEn: v.CreadoEn,
 		Custodia: v.Custodia,
 	}
 	switch v.Custodia {
@@ -186,9 +187,7 @@ func (r *Repositorio) ConfirmarAlta(ctx context.Context, a ports.AltaPersistente
 	if err != nil || a.Objeto.Validar() != nil || a.Objeto.Objeto.HuellaSHA256 != a.HuellaSHA256 ||
 		a.Objeto.Objeto.MIME != a.MIME || a.Objeto.Objeto.Tamano != a.Tamano ||
 		a.Objeto.Evidencia.Objeto != a.Objeto.Objeto.Objeto || a.Autorizacion.RecursoRef != a.ID ||
-		a.Autorizacion.AmbitoRef != a.ExpedienteRef ||
-		a.Objeto.Objeto.RetenidoHasta.Before(a.Politica.Politica().ConservacionHasta()) ||
-		(a.Politica.Politica().Proteccion() == "bloqueo" && !a.Objeto.Objeto.Inmovilizado) {
+		a.Autorizacion.AmbitoRef != a.ExpedienteRef || !retencionCoherente(a) {
 		return domain.Documento{}, ports.ErrSolicitudInvalida
 	}
 	material, err := validarAutorizacion(a.Autorizacion, ports.AccionAlta, preimagen)
@@ -202,19 +201,19 @@ func (r *Repositorio) ConfirmarAlta(ctx context.Context, a ports.AltaPersistente
 	}
 	suma := sha256.Sum256(recibo)
 	objeto, _ := json.Marshal(struct {
-		ObjetoRef                string    `json:"objeto_ref"`
-		ObjetoVersion            string    `json:"objeto_version"`
-		ConectorRef              string    `json:"conector_ref"`
-		ReciboObjetoRef          string    `json:"recibo_objeto_ref"`
-		ReciboObjetoHuellaSHA256 string    `json:"recibo_objeto_huella_sha256"`
-		RetenidoHasta            time.Time `json:"retenido_hasta"`
-		Inmovilizado             bool      `json:"inmovilizado"`
-		MIME                     string    `json:"mime"`
-		Tamano                   int64     `json:"tamano"`
-		HuellaSHA256             string    `json:"huella_sha256"`
+		ObjetoRef                string     `json:"objeto_ref"`
+		ObjetoVersion            string     `json:"objeto_version"`
+		ConectorRef              string     `json:"conector_ref"`
+		ReciboObjetoRef          string     `json:"recibo_objeto_ref"`
+		ReciboObjetoHuellaSHA256 string     `json:"recibo_objeto_huella_sha256"`
+		RetenidoHasta            *time.Time `json:"retenido_hasta"`
+		Inmovilizado             bool       `json:"inmovilizado"`
+		MIME                     string     `json:"mime"`
+		Tamano                   int64      `json:"tamano"`
+		HuellaSHA256             string     `json:"huella_sha256"`
 	}{a.Objeto.Objeto.Objeto.Referencia, a.Objeto.Objeto.Objeto.Version,
 		a.Objeto.Objeto.ConectorID, a.Objeto.Evidencia.OperacionRef, hex.EncodeToString(suma[:]),
-		a.Objeto.Objeto.RetenidoHasta, a.Objeto.Objeto.Inmovilizado,
+		retenidoHasta(a.Objeto.Objeto.RetenidoHasta), a.Objeto.Objeto.Inmovilizado,
 		a.MIME, a.Tamano, a.HuellaSHA256})
 	raw, err := r.transaccion(ctx,
 		"SELECT vec_documentos.confirmar_alta_v2($1,$2::jsonb,$3::jsonb,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)",
@@ -225,6 +224,29 @@ func (r *Repositorio) ConfirmarAlta(ctx context.Context, a ports.AltaPersistente
 		return domain.Documento{}, err
 	}
 	return decodificarDocumento(raw)
+}
+
+// retencionCoherente replica la regla de la fachada SQL: con politica
+// aprobada el objeto queda retenido al menos hasta el plazo (e inmovilizado si
+// hay bloqueo); con politica provisional el objeto no tiene retencion ni
+// inmovilizacion, que se fijaran al aplicar el catalogo definitivo.
+func retencionCoherente(a ports.AltaPersistente) bool {
+	p := a.Politica.Politica()
+	o := a.Objeto.Objeto
+	if p.Provisional() {
+		return o.RetenidoHasta.IsZero() && !o.Inmovilizado && p.Proteccion() == "conservacion"
+	}
+	return !o.RetenidoHasta.IsZero() && !o.RetenidoHasta.Before(p.ConservacionHasta()) &&
+		(p.Proteccion() != "bloqueo" || o.Inmovilizado)
+}
+
+// retenidoHasta envía null cuando el conector no fijó retención.
+func retenidoHasta(t time.Time) *time.Time {
+	if t.IsZero() {
+		return nil
+	}
+	u := t.UTC()
+	return &u
 }
 
 // ConfirmarReferenciaExterna registra la referencia y huella de un original

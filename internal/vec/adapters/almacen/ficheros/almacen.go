@@ -13,6 +13,8 @@
 //     el sistema de ficheros no las impone frente a un administrador del
 //     equipo. No cifra: el cifrado en reposo corresponde al volumen.
 //   - Un cerrojo flock serializa procesos que compartan el directorio.
+//   - Las rutas se forman con Join; no se usa openat/RESOLVE_BENEATH. Un
+//     proceso con el mismo uid podría sustituir un subdirectorio.
 package ficheros
 
 import (
@@ -47,6 +49,9 @@ const (
 	dirIdempotencia      = "idempotencia"
 	dirTemporal          = "tmp"
 	ficheroCerrojo       = ".cerrojo"
+	ficheroVolcados      = ".volcados"
+	maximoVolcados       = 16
+	volcadosPorDefecto   = 2
 )
 
 var (
@@ -57,10 +62,16 @@ var (
 // Configuracion la construye la raíz de composición desde el material
 // privado; nunca llega del cliente ni de un módulo.
 type Configuracion struct {
-	ConectorID              string
-	Directorio              string
-	TamanoMaximo            int64
+	ConectorID   string
+	Directorio   string
+	TamanoMaximo int64
+	// RetencionMinimaAdmitida fija la retención de cada objeto admitido al
+	// escribirlo o promoverlo. Cero significa no fijarla: el objeto queda sin
+	// retención hasta que una operación posterior la aplique (política de
+	// conservación provisional). Nunca es negativa.
 	RetencionMinimaAdmitida time.Duration
+	// MaximoVolcadosConcurrentes limita temporales por instancia; cero usa 2.
+	MaximoVolcadosConcurrentes int
 }
 
 type Almacen struct {
@@ -71,6 +82,7 @@ type Almacen struct {
 	retencionMin time.Duration
 	reloj        ports.Reloj
 	cerrojo      *os.File
+	volcados     chan struct{}
 }
 
 var _ ports.AlmacenObjetos = (*Almacen)(nil)
@@ -79,13 +91,14 @@ var _ ports.AlmacenObjetos = (*Almacen)(nil)
 // ante cualquier permiso, propietario o enlace inesperado.
 func Nuevo(cfg Configuracion, reloj ports.Reloj) (*Almacen, error) {
 	if reloj == nil || reloj.Ahora().IsZero() || cfg.TamanoMaximo < 1 || cfg.TamanoMaximo > tamanoMaximoAbsoluto ||
-		cfg.RetencionMinimaAdmitida <= 0 || cfg.RetencionMinimaAdmitida%time.Microsecond != 0 {
+		cfg.RetencionMinimaAdmitida < 0 || cfg.RetencionMinimaAdmitida%time.Microsecond != 0 ||
+		cfg.MaximoVolcadosConcurrentes < 0 || cfg.MaximoVolcadosConcurrentes > maximoVolcados {
 		return nil, ErrConfiguracionInvalida
 	}
 	if cfg.ConectorID == "" {
 		cfg.ConectorID = IdentificadorPredeterminado
 	}
-	if ports.VerificarCapacidadesAlmacen(capacidades(cfg.ConectorID, cfg.TamanoMaximo), ports.RequisitosAlmacenObjetos{}) != nil {
+	if ports.VerificarCapacidadesAlmacen(capacidades(cfg.ConectorID, cfg.TamanoMaximo, cfg.RetencionMinimaAdmitida > 0), ports.RequisitosAlmacenObjetos{}) != nil {
 		return nil, ErrConfiguracionInvalida
 	}
 	if err := directorioPrivado(cfg.Directorio); err != nil {
@@ -100,17 +113,22 @@ func Nuevo(cfg Configuracion, reloj ports.Reloj) (*Almacen, error) {
 			return nil, err
 		}
 	}
-	cerrojo, err := os.OpenFile(filepath.Join(cfg.Directorio, ficheroCerrojo), os.O_RDWR|os.O_CREATE|syscall.O_NOFOLLOW, 0o600)
+	cerrojo, err := prepararCerrojoYLimpiar(cfg.Directorio)
 	if err != nil {
-		return nil, ErrDirectorioInseguro
+		return nil, err
 	}
-	if info, err := cerrojo.Stat(); err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0o077 != 0 {
-		_ = cerrojo.Close()
-		return nil, ErrDirectorioInseguro
+	limite := cfg.MaximoVolcadosConcurrentes
+	if limite == 0 {
+		limite = volcadosPorDefecto
 	}
 	return &Almacen{conectorID: cfg.ConectorID, raiz: cfg.Directorio, tamanoMaximo: cfg.TamanoMaximo,
-		retencionMin: cfg.RetencionMinimaAdmitida, reloj: reloj, cerrojo: cerrojo}, nil
+		retencionMin: cfg.RetencionMinimaAdmitida, reloj: reloj, cerrojo: cerrojo, volcados: make(chan struct{}, limite)}, nil
 }
+
+// RetencionAlEscribir indica si el almacén fija retención irreversible al
+// escribir o promover un objeto admitido. La composición lo consulta para no
+// fijarla mientras la política de conservación sea provisional.
+func (a *Almacen) RetencionAlEscribir() bool { return a != nil && a.retencionMin > 0 }
 
 // Cerrar libera el descriptor del cerrojo. El almacén no admite más uso.
 func (a *Almacen) Cerrar() error {
@@ -144,11 +162,13 @@ func directorioPrivado(ruta string) error {
 	return nil
 }
 
-func capacidades(conectorID string, tamanoMaximo int64) ports.CapacidadesAlmacenObjetos {
+// capacidades declara retención (aplicable después con AplicarRetencion) y,
+// solo si el almacén la fija al escribir, retención atómica en la promoción.
+func capacidades(conectorID string, tamanoMaximo int64, retencionAlEscribir bool) ports.CapacidadesAlmacenObjetos {
 	return ports.CapacidadesAlmacenObjetos{
 		ConectorID: conectorID, EscrituraEnFlujo: true, LecturaEnFlujo: true, ReferenciasOpacas: true,
 		IntegridadSHA256: true, Versionado: true, Retencion: true, BloqueoLegal: true,
-		PromocionAtomica: true, RetencionAtomicaEnPromocion: true, PreservaObjetoOriginal: true,
+		PromocionAtomica: true, RetencionAtomicaEnPromocion: retencionAlEscribir, PreservaObjetoOriginal: true,
 		TamanoMaximoObjeto: tamanoMaximo,
 	}
 }
@@ -163,7 +183,7 @@ func (a *Almacen) Capacidades(ctx context.Context) (ports.CapacidadesAlmacenObje
 	if a == nil {
 		return ports.CapacidadesAlmacenObjetos{}, ports.ErrCapacidadAlmacenNoDisponible
 	}
-	return capacidades(a.conectorID, a.tamanoMaximo), nil
+	return capacidades(a.conectorID, a.tamanoMaximo, a.RetencionAlEscribir()), nil
 }
 
 // bloquear toma el mutex del proceso y el cerrojo exclusivo del directorio.
@@ -413,50 +433,6 @@ func (a *Almacen) guardarIdempotencia(clave string, r registroIdempotencia) erro
 	return a.escribirAtomico(a.rutaIdempotencia(clave), raw)
 }
 
-// volcarContenido copia exactamente tamano bytes a un temporal, calcula la
-// huella y sincroniza. Devuelve la ruta temporal que el llamante debe
-// renombrar o borrar.
-func (a *Almacen) volcarContenido(ctx context.Context, origen io.Reader, tamano int64, huella string) (string, error) {
-	tmp, err := a.temporal()
-	if err != nil {
-		return "", err
-	}
-	nombre := tmp.Name()
-	fallo := func(e error) (string, error) {
-		_ = tmp.Close()
-		_ = os.Remove(nombre)
-		return "", e
-	}
-	h := sha256.New()
-	copiados, err := io.Copy(io.MultiWriter(tmp, h), io.LimitReader(lectorCancelable{ctx: ctx, r: origen}, tamano+1))
-	if ctx.Err() != nil {
-		return fallo(ctx.Err())
-	}
-	if err != nil {
-		return fallo(ports.ErrCapacidadAlmacenNoDisponible)
-	}
-	if copiados != tamano || hex.EncodeToString(h.Sum(nil)) != huella {
-		return fallo(ports.ErrIntegridadObjetoAlmacen)
-	}
-	if tmp.Sync() != nil || tmp.Close() != nil {
-		_ = os.Remove(nombre)
-		return "", ports.ErrCapacidadAlmacenNoDisponible
-	}
-	return nombre, nil
-}
-
-type lectorCancelable struct {
-	ctx context.Context
-	r   io.Reader
-}
-
-func (l lectorCancelable) Read(p []byte) (int, error) {
-	if err := l.ctx.Err(); err != nil {
-		return 0, err
-	}
-	return l.r.Read(p)
-}
-
 func contextoValido(ctx context.Context) error {
 	if ctx == nil {
 		return ports.ErrSolicitudAlmacenInvalida
@@ -478,7 +454,32 @@ func (a *Almacen) Escribir(ctx context.Context, solicitud ports.SolicitudEscribi
 	if solicitud.Tamano > a.tamanoMaximo {
 		return vacio, ports.ErrLimiteObjetoAlmacenExcedido
 	}
+	// Denegar antes de leer el contenido y repetir después del volcado, ya
+	// bajo el cerrojo exclusivo, porque la concesión puede vencer entretanto.
+	if err := solicitud.Contexto.ValidarParaEn(ports.AccionAlmacenEscribir, a.reloj.Ahora().UTC()); err != nil {
+		return vacio, err
+	}
+	select {
+	case a.volcados <- struct{}{}:
+	case <-ctx.Done():
+		return vacio, ctx.Err()
+	}
+	if err := contextoValido(ctx); err != nil {
+		<-a.volcados
+		return vacio, err
+	}
+	if err := solicitud.Contexto.ValidarParaEn(ports.AccionAlmacenEscribir, a.reloj.Ahora().UTC()); err != nil {
+		<-a.volcados
+		return vacio, err
+	}
+	liberarVolcado, err := a.cerrojoVolcado()
+	if err != nil {
+		<-a.volcados
+		return vacio, err
+	}
+	defer liberarVolcado()
 	temporal, err := a.volcarContenido(ctx, solicitud.Contenido, solicitud.Tamano, solicitud.HuellaSHA256)
+	<-a.volcados
 	if err != nil {
 		return vacio, err
 	}
@@ -496,7 +497,7 @@ func (a *Almacen) Escribir(ctx context.Context, solicitud ports.SolicitudEscribi
 	if err != nil {
 		return vacio, err
 	}
-	caps := capacidades(a.conectorID, a.tamanoMaximo)
+	caps := capacidades(a.conectorID, a.tamanoMaximo, a.RetencionAlEscribir())
 	if previo, existe, err := a.cargarIdempotencia(solicitud.ClaveIdempotencia); err != nil {
 		return vacio, err
 	} else if existe {
@@ -540,7 +541,7 @@ func (a *Almacen) Escribir(ctx context.Context, solicitud ports.SolicitudEscribi
 		Tamano: solicitud.Tamano, HuellaSHA256: solicitud.HuellaSHA256,
 		EvidenciaCreacionRef: evidencia.Referencia, AlmacenadoEn: ahora,
 	}
-	if solicitud.Zona == ports.ZonaAlmacenAdmitida {
+	if solicitud.Zona == ports.ZonaAlmacenAdmitida && a.RetencionAlEscribir() {
 		objeto.RetenidoHasta = ahora.Add(a.retencionMin)
 	}
 	resultado := ports.ResultadoOperacionObjeto{Objeto: objeto, Evidencia: evidencia}
@@ -665,7 +666,7 @@ func (a *Almacen) Promover(ctx context.Context, solicitud ports.SolicitudPromove
 	if err != nil {
 		return vacio, err
 	}
-	caps := capacidades(a.conectorID, a.tamanoMaximo)
+	caps := capacidades(a.conectorID, a.tamanoMaximo, a.RetencionAlEscribir())
 	huellaSolicitud, err := huellaPromocion(solicitud, origen.objeto())
 	if err != nil {
 		return vacio, err
@@ -716,7 +717,10 @@ func (a *Almacen) Promover(ctx context.Context, solicitud ports.SolicitudPromove
 	destino.Zona = ports.ZonaAlmacenAdmitida
 	destino.EvidenciaCreacionRef = evidencia.Referencia
 	destino.AlmacenadoEn = ahora
-	destino.RetenidoHasta = ahora.Add(a.retencionMin)
+	destino.RetenidoHasta = time.Time{}
+	if a.RetencionAlEscribir() {
+		destino.RetenidoHasta = ahora.Add(a.retencionMin)
+	}
 	destino.Inmovilizado = false
 	resultado := ports.ResultadoOperacionObjeto{Objeto: destino, Evidencia: evidencia}
 	if resultado.ValidarPromocion(solicitud, origen.objeto(), caps) != nil {
