@@ -65,8 +65,17 @@ func (l *Lector) Decodificar(
 	if err != nil {
 		return dominio.HojaStaging{}, err
 	}
-	esquema, err := dominio.DetectarEsquema(cabeceras)
+	esquema, formato, err := dominio.DetectarFormato(cabeceras)
 	if err != nil {
+		return dominio.HojaStaging{}, err
+	}
+	// El nombre de hoja se comprueba antes de leer filas: en el formato real
+	// de CONVOCA forma parte del esquema cerrado.
+	nombreHoja := hojaXLS.Name()
+	if len(nombreHoja) > maximoBytesCelda {
+		return dominio.HojaStaging{}, ErrXLSInvalido
+	}
+	if err := dominio.ValidarNombreHoja(esquema, formato, nombreHoja); err != nil {
 		return dominio.HojaStaging{}, err
 	}
 	filas := make([]dominio.FilaStaging, 0, hojaXLS.RowCount()-1)
@@ -83,7 +92,7 @@ func (l *Lector) Decodificar(
 		filas = append(filas, fila)
 	}
 	return dominio.HojaStaging{
-		Esquema: esquema, Cabeceras: cabeceras, Filas: filas,
+		Esquema: esquema, Cabeceras: cabeceras, NombreHoja: nombreHoja, Filas: filas,
 	}, nil
 }
 
