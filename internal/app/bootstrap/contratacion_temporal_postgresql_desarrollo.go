@@ -462,12 +462,8 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			dependencias.proveedorMaterialMiBolsa = proveedorMiBolsa
 		}
 		if debeComponerPortalCandidatoDesarrollo(cfg) {
-			dependencias.proveedoresMaterialPortal = make(map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo, 3)
+			dependencias.proveedoresMaterialPortal = make(map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo, 4)
 			for _, par := range puertosbolsa.AccionesPortalCandidato() {
-				// La disposición a ofertas se publicará con su consumidor.
-				if par[0] == puertosbolsa.AccionManifestarDisposicionPropia {
-					continue
-				}
 				proveedor, err := nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, par[1])
 				if err != nil {
 					return vacias, err

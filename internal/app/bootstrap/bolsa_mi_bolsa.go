@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"net/http"
+	"regexp"
 	"slices"
 	"time"
 
@@ -250,12 +251,24 @@ func (a *autorizadorMiBolsaDesarrollo) ExigirSolicitudLigadaV3(ctx context.Conte
 		capacidad.principal.Attributes["certificate_sha256"] != a.identidad.identidad.principal.Attributes["certificate_sha256"] ||
 		len(capacidad.principal.Roles) != 1 || capacidad.principal.Roles[0] != "candidato_bolsa" || err != nil ||
 		!slices.Contains(bolsapersonal.AccionPortalEn(metodo, capacidad.ruta), datos.Accion) ||
-		datos.Recurso.Referencia != "mi-bolsa:"+a.identidad.candidatoRef ||
+		!recursoPortalPropioDesarrollo(datos.Accion, datos.Recurso, a.identidad.candidatoRef) ||
 		datos.Recurso.Ambitos["candidato_ref"] != a.identidad.candidatoRef {
 		return dominiovec.DecisionAutorizacionLigadaV3{}, puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3{}, dominiovec.ErrAutorizacionDenegada
 	}
 	return a.delegado.ExigirSolicitudLigadaV3(ctx, solicitud, resultado)
 }
+
+// recursoPortalPropioDesarrollo: las acciones sobre la propia bolsa actúan
+// sobre 'mi-bolsa:<candidato>'; la disposición actúa sobre la oferta, y que
+// la oferta sea de una bolsa del candidato lo comprueba PostgreSQL.
+func recursoPortalPropioDesarrollo(accion string, recurso dominiovec.RecursoAutorizable, candidato string) bool {
+	if accion == puertosbolsa.AccionManifestarDisposicionPropia {
+		return recurso.Tipo == puertosbolsa.TipoRecursoOfertaBolsa && ofertaPortalDesarrollo.MatchString(recurso.Referencia)
+	}
+	return recurso.Referencia == "mi-bolsa:"+candidato
+}
+
+var ofertaPortalDesarrollo = regexp.MustCompile(`^oferta:[0-9a-f]{64}$`)
 
 type proveedorMiBolsaDesarrollo struct {
 	delegado *proveedorMaterialAltaContratacionTemporalDesarrollo
@@ -398,7 +411,7 @@ func nuevaRutaMiBolsaDesarrollo(
 		alta.postgresql.proveedorMaterialMiBolsa == nil || identidadCT == nil ||
 		identidadCT.resolutor == nil || derivador == nil || !derivador.valido() ||
 		alta.soporte.registroDecisionesAnalisis == nil ||
-		(portal != nil && len(alta.postgresql.proveedoresMaterialPortal) != 3) {
+		(portal != nil && len(alta.postgresql.proveedoresMaterialPortal) != len(puertosbolsa.AccionesPortalCandidato())) {
 		return nil, errMiBolsaNoDisponible
 	}
 	// ResolverRegistrado escribe el recibo rca_ mediante contexto_actor_v1.
@@ -492,6 +505,9 @@ func nuevaRutaMiBolsaDesarrollo(
 		if servicio, err = servicio.ConReglasPortal(portal); err != nil {
 			return nil, errMiBolsaNoDisponible
 		}
+		if servicio, err = servicio.ConOfertas(); err != nil {
+			return nil, errMiBolsaNoDisponible
+		}
 	}
 	preparador := &preparadorMiBolsaDesarrollo{sello: sello, identidad: identidad, sesion: sesion, reloj: reloj}
 	var consultaHTTP http.Handler
@@ -522,5 +538,19 @@ func nuevaRutaMiBolsaDesarrollo(
 		}
 		rutas = append(rutas, vechttp.RutaExacta{Ruta: ruta, Manejador: manejador})
 	}
+	// Disposición a ofertas publicadas (Bolsa 000029 y AD3-84).
+	registroOfertas, err := postgresbolsa.NuevoRegistroDisposicionOfertaPostgreSQL(alta.postgresql.bolsa)
+	if err != nil {
+		return nil, errMiBolsaNoDisponible
+	}
+	conOfertas, err := acciones.ConRegistroOfertas(registroOfertas)
+	if err != nil {
+		return nil, errMiBolsaNoDisponible
+	}
+	disposicion, err := bolsapersonal.NuevoDisposicion(preparador, conOfertas)
+	if err != nil {
+		return nil, errMiBolsaNoDisponible
+	}
+	rutas = append(rutas, vechttp.RutaExacta{Ruta: bolsapersonal.RutaMiBolsaDisposiciones, Manejador: disposicion})
 	return rutas, nil
 }

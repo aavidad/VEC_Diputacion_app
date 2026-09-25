@@ -429,8 +429,9 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 		})
 		if debeComponerPortalCandidatoDesarrollo(cfg) {
 			for clave, ruta := range map[string]string{
-				"bolsa-mi-bolsa-solicitar": bolsapersonal.RutaMiBolsaSolicitudes,
-				"bolsa-mi-bolsa-responder": bolsapersonal.RutaMiBolsaRespuestas,
+				"bolsa-mi-bolsa-solicitar":   bolsapersonal.RutaMiBolsaSolicitudes,
+				"bolsa-mi-bolsa-responder":   bolsapersonal.RutaMiBolsaRespuestas,
+				"bolsa-mi-bolsa-disposicion": bolsapersonal.RutaMiBolsaDisposiciones,
 			} {
 				declaracionesFrontera = append(declaracionesFrontera, descriptorFronteraComunDesarrollo{
 					Clave: clave, Superficie: superficieExternaPersonalSeguridadComunDesarrollo,

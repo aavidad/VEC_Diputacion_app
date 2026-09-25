@@ -65,6 +65,8 @@ type InstantaneaMiBolsa struct {
 	// ReglasPortal resume lo que la persona necesita para actuar: causas de
 	// renuncia justificada, fin máximo de una pausa pedida hoy y modo.
 	ReglasPortal *ReglasPortalVisibles
+	// Ofertas solo existe si la consulta pidió las ofertas de sus bolsas.
+	Ofertas []OfertaPortalCandidato
 }
 
 type ReglasPortalVisibles struct {
@@ -83,6 +85,9 @@ type SolicitudConsultaMiBolsa struct {
 	// ResultadosEfectivos, si no está vacío, pide en la misma transacción el
 	// estado del portal propio (llamamiento abierto y solicitudes pendientes).
 	ResultadosEfectivos []string
+	// LeerOfertas pide en la misma transacción las ofertas abiertas de sus
+	// bolsas y aquellas en que ya manifestó disposición (Bolsa 000029).
+	LeerOfertas bool
 }
 
 // ConsultaMiBolsa es el contrato exacto para PostgreSQL. Debe revalidar y

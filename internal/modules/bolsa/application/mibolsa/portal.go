@@ -31,6 +31,8 @@ type Portal struct {
 	proveedor   puertosbolsa.ProveedorMaterialPortalCandidato
 	reglas      puertosbolsa.ReglasPortalCandidato
 	reloj       puertosvec.Reloj
+	// ofertas es opcional: sin él no se atiende la disposición a ofertas.
+	ofertas puertosbolsa.RegistroDisposicionOferta
 }
 
 // ComandoRespuestaPortal es lo único que aporta la persona al responder.
@@ -153,17 +155,25 @@ func (p *Portal) Responder(ctx context.Context, orden Orden, c ComandoRespuestaP
 // autorizar pide la decisión de la acción exacta sobre el recurso propio y
 // devuelve su material, ya cotejado con la operación y la audiencia.
 func (p *Portal) autorizar(ctx context.Context, orden Orden, accion, audiencia, bolsa string) (puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3, string, time.Time, error) {
+	return p.autorizarRecurso(ctx, orden, accion, audiencia, func(candidato string) dominiovec.RecursoAutorizable {
+		return dominiovec.RecursoAutorizable{
+			Referencia: "mi-bolsa:" + candidato, ModuloID: puertosbolsa.ModuloMiBolsa, Tipo: puertosbolsa.TipoRecursoMiBolsa,
+			Ambitos:   map[string]string{"candidato_ref": candidato},
+			Atributos: map[string]string{"propiedad": "candidato", "bolsa_ref": bolsa},
+		}
+	})
+}
+
+// autorizarRecurso pide la decisión de la acción exacta sobre el recurso que
+// construye el llamador a partir del candidato del contexto.
+func (p *Portal) autorizarRecurso(ctx context.Context, orden Orden, accion, audiencia string, construir func(candidato string) dominiovec.RecursoAutorizable) (puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3, string, time.Time, error) {
 	var vacio puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3
 	ahora := p.reloj.Ahora().UTC().Truncate(time.Microsecond)
 	resultadoActor, candidato, err := validarOrden(orden, ahora)
 	if err != nil {
 		return vacio, "", time.Time{}, err
 	}
-	recurso := dominiovec.RecursoAutorizable{
-		Referencia: "mi-bolsa:" + candidato, ModuloID: puertosbolsa.ModuloMiBolsa, Tipo: puertosbolsa.TipoRecursoMiBolsa,
-		Ambitos:   map[string]string{"candidato_ref": candidato},
-		Atributos: map[string]string{"propiedad": "candidato", "bolsa_ref": bolsa},
-	}
+	recurso := construir(candidato)
 	if recurso.Validar() != nil {
 		return vacio, "", time.Time{}, errors.Join(dominiovec.ErrAutorizacionDenegada, puertosbolsa.ErrPortalCandidatoInvalido)
 	}

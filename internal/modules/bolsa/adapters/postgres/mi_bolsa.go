@@ -60,6 +60,11 @@ func (r *ConsultaMiBolsaPostgreSQL) ConsultarMiBolsa(ctx context.Context, s puer
 			return puertosbolsa.InstantaneaMiBolsa{}, errors.Join(puertosbolsa.ErrMaterialMiBolsaNoDisponible, err)
 		}
 	}
+	if s.LeerOfertas {
+		if resultado.Ofertas, err = leerOfertasCandidato(ctx, tx, s.CandidatoRef, s.ConsultadaEn); err != nil {
+			return puertosbolsa.InstantaneaMiBolsa{}, errors.Join(puertosbolsa.ErrMaterialMiBolsaNoDisponible, err)
+		}
+	}
 	if err := ctx.Err(); err != nil {
 		return puertosbolsa.InstantaneaMiBolsa{}, err
 	}
