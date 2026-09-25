@@ -51,8 +51,9 @@ test("el menú lateral e Inicio solo ofrecen Bolsa y la contratación temporal",
   const coordinador = coordinadorConModulosCargando();
   void coordinador.cargarInterno().catch(() => {});
   await esperarTurnos();
-  // El módulo sigue en carga (su vista directa se conserva), pero no se ofrece.
-  assert.equal(coordinador.resolverAcceso("cronos").estado, "cargando");
+  // El módulo no se carga al arrancar (su vista directa lo carga), ni se ofrece.
+  assert.equal(coordinador.resolverAcceso("cronos").estado, "diferido");
+  assert.equal(coordinador.vistaPendiente("cronos"), true, "su URL directa espera a su carga");
   assert.deepEqual(coordinador.obtenerCatalogo().map(({ clave }) => clave), ["bolsa", "contratacion_temporal"]);
 
   const menu = coordinador.renderizarNavegacion(true);

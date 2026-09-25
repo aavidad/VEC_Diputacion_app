@@ -75,9 +75,9 @@ export function resumenAccesosModulos(accesos, comprobandoBolsas, traducir = tra
  * Contratación temporal; y el resto, el panel interno agregado. Sin esa
  * capacidad la entrada no se ofrece, en lugar de abrir una pantalla vacía.
  *
- * La API de borradores se comprueba al cargar el portal, en paralelo: mientras
- * no conste que falta (`borradores` distinto de `false`) Elaboración se ofrece,
- * y al abrirla muestra el resultado de esa misma comprobación.
+ * La API de borradores no se sondea al cargar el portal (un servidor que no la
+ * sirve respondería 404 en cada carga): Elaboración solo se ofrece en el menú
+ * cuando consta disponible (`borradores === true`).
  */
 export function vistaBolsaOfrecida(vista, capacidades = {}) {
   switch (vista) {
@@ -87,7 +87,7 @@ export function vistaBolsaOfrecida(vista, capacidades = {}) {
     case VISTA_CANDIDATOS_BOLSA:
       return true;
     case "elaboracion":
-      return capacidades?.borradores !== false;
+      return capacidades?.borradores === true;
     case "contratacion-temporal":
       return capacidades?.contratacionTemporal === true;
     default:
@@ -97,9 +97,11 @@ export function vistaBolsaOfrecida(vista, capacidades = {}) {
 
 /**
  * Navegación directa (enlace o historial) a una vista de Bolsa: se permite lo
- * mismo que el menú ofrece.
+ * mismo que el menú ofrece y, además, Elaboración mientras no conste que falta:
+ * abrirla por su enlace es lo que comprueba su API de borradores.
  */
 export function vistaBolsaNavegable(vista, capacidades = {}) {
+  if (vista === "elaboracion") return capacidades?.borradores !== false;
   return vistaBolsaOfrecida(vista, capacidades);
 }
 

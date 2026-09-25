@@ -13,6 +13,14 @@ import {
   rutaDeVistaPortal,
 } from "./portal-modulos-coordinador.js";
 
+
+// Personal, Cronos y Dietas no tienen entrada en el portal: no se cargan al
+// arrancar, sino al pedir una de sus vistas (`prepararVista`).
+async function cargarConDiferidos(coordinador) {
+  await coordinador.cargarInterno();
+  await Promise.all(["personal", "cronos", "dietas"].map((vista) => coordinador.prepararVista(vista)));
+}
+
 function raizFalsa() {
   const eventos = new Map();
   return {
@@ -269,7 +277,7 @@ test("los siete módulos registrados conservan estado fiel sin inventar vistas",
       contratacion_temporal: async () => { throw new Error("sin dependencia CT"); },
     },
   });
-  await coordinador.cargarInterno();
+  await cargarConDiferidos(coordinador);
   // Sin pantalla en el portal, Administración y Usuarios no entran en su
   // catálogo; Personal, Cronos y Dietas se cargan pero no se ofrecen.
   assert.deepEqual(coordinador.obtenerCatalogo().map(({ clave }) => clave), [
@@ -303,7 +311,7 @@ test("CT inventariado queda no_disponible y fuera del menú si falla su carga re
       },
     },
   });
-  await coordinador.cargarInterno();
+  await cargarConDiferidos(coordinador);
   assert.deepEqual(coordinador.resolverAcceso("contratacion_temporal"), {
     disponible: false,
     vista: "",
@@ -355,7 +363,7 @@ test("el portal real de Personal no ofrece apartados sin fuente y abre los catá
     cargarCatalogoInterno: async () => Object.freeze([{ clave: "personal" }]),
     cargadoresInternos: { contratacion_temporal: async () => { throw new Error("no debe cargar CT"); } },
   });
-  await coordinador.cargarInterno(); assert.equal(coordinador.resolverAcceso("personal").etiqueta, "Catálogo profesional de Personal");
+  await cargarConDiferidos(coordinador); assert.equal(coordinador.resolverAcceso("personal").etiqueta, "Catálogo profesional de Personal");
   // Con el cargador real se sondean RPT y estructura; sin fuente (503) no se ofrecen.
   assert.deepEqual(llamadas, ["/api/vec/personal/rpt-publica?q=&limit=1&offset=0", "/api/vec/personal/estructura-organizativa-publica"]);
   assert.equal(coordinador.vistaDisponible("personal-registro"), false);
@@ -393,7 +401,7 @@ test("la ficha propia muestra el estado de carga común y salir de Personal canc
     cargarCatalogoInterno: async () => Object.freeze([{ clave: "personal" }]),
     cargadoresInternos: { contratacion_temporal: async () => { throw new Error("no debe cargar CT"); } },
   });
-  await coordinador.cargarInterno();
+  await cargarConDiferidos(coordinador);
   const raiz = raizDietasFalsa();
   const montaje = coordinador.montarVista("personal", raiz);
   await new Promise((resolve) => setImmediate(resolve));
@@ -427,7 +435,7 @@ test("con ficha propia servida, Personal ofrece relaciones y servicios con datos
     cargarCatalogoInterno: async () => Object.freeze([{ clave: "personal" }]),
     cargadoresInternos: { contratacion_temporal: async () => { throw new Error("no debe cargar CT"); } },
   });
-  await coordinador.cargarInterno();
+  await cargarConDiferidos(coordinador);
   assert.ok(!llamadas.some(([ruta]) => ruta.startsWith("/api/interna/personal/")), "cargar el portal no consulta la ficha propia");
   const raiz = raizDietasFalsa(); assert.equal(await coordinador.montarVista("personal", raiz), true);
   assert.deepEqual(llamadas.filter(([ruta]) => ruta === "/api/interna/personal/mi-ficha"), [["/api/interna/personal/mi-ficha", "same-origin"]]);
@@ -459,7 +467,7 @@ test("Personal monta solo los catálogos públicos que el servidor sirve", async
         dietas: async () => { throw new Error("Dietas no disponible"); },
       },
     });
-    await coordinador.cargarInterno();
+    await cargarConDiferidos(coordinador);
     const raiz = raizDietasFalsa(); assert.equal(await coordinador.montarVista("personal", raiz), true);
     await new Promise((resolve) => setImmediate(resolve));
     const montados = ["personalCategorias", "personalRptPublica", "personalEstructuraOrganizativaPublica"]
@@ -491,12 +499,14 @@ test("las sondas de los catálogos públicos van en paralelo y se cancelan con l
       }),
     },
   });
-  const carga = coordinador.cargarInterno();
+  await coordinador.cargarInterno();
+  assert.deepEqual(iniciadas, [], "Personal no tiene entrada: no se carga al arrancar");
+  const carga = coordinador.prepararVista("personal");
   for (let i = 0; i < 10 && iniciadas.length < 2; i += 1) await new Promise((resolve) => setImmediate(resolve));
   assert.deepEqual([...iniciadas].sort(), ["estructura", "rpt"], "las dos sondas empiezan sin esperarse");
   coordinador.desmontarVistaActual();
   assert.ok(señales.every((señal) => señal.aborted === true), "sustituir la carga aborta las sondas");
-  await assert.rejects(carga, (error) => error.codigo === "carga_sustituida");
+  await carga;
   assert.equal(coordinador.vistaDisponible("personal"), false);
 });
 
@@ -508,7 +518,7 @@ test("un cargador de catálogos públicos ausente no retira Personal", async () 
     cargadoresInternos: { contratacion_temporal: async () => { throw new Error("no debe cargar CT"); },
       personal_catalogos_publicos: async () => { throw new Error("no empaquetado"); } },
   });
-  await coordinador.cargarInterno();
+  await cargarConDiferidos(coordinador);
   assert.equal(coordinador.vistaDisponible("personal"), true);
 });
 
@@ -542,7 +552,7 @@ test("RRHH sondea el Registro de Personal al entrar, una vez por sesión; sin pe
   const sondas = (rutas) => rutas.filter((ruta) => ruta === SONDA).length;
   const rutasSinRegistro = [];
   const sinRegistro = crear(false, rutasSinRegistro);
-  await sinRegistro.cargarInterno();
+  await cargarConDiferidos(sinRegistro);
   assert.equal(sinRegistro.esPerfilRRHH(), true);
   // Cargar Personal no lee el registro (ni genera su auditoría).
   assert.equal(sondas(rutasSinRegistro), 0);
@@ -559,7 +569,7 @@ test("RRHH sondea el Registro de Personal al entrar, una vez por sesión; sin pe
 
   const rutas = [];
   const coordinador = crear(true, rutas);
-  await coordinador.cargarInterno();
+  await cargarConDiferidos(coordinador);
   assert.equal(coordinador.esPerfilRRHH(), true);
   assert.equal(sondas(rutas), 0);
   assert.equal(coordinador.vistaDisponible("personal-registro"), true);
@@ -590,7 +600,7 @@ test("RRHH sondea el Registro de Personal al entrar, una vez por sesión; sin pe
     cargarCatalogoInterno: async () => Object.freeze([{ clave: "personal" }]),
     cargadoresInternos: { contratacion_temporal: async () => { throw new Error("no debe cargar CT"); } },
   });
-  await sinRRHH.cargarInterno();
+  await cargarConDiferidos(sinRRHH);
   assert.equal(sinRRHH.vistaDisponible("personal"), true);
   assert.equal(sinRRHH.vistaDisponible("personal-registro"), false);
   assert.ok(!rutasEmpleado.some((ruta) => ruta.includes("catalogos-registro-empleado")), "sin perfil RRHH no se sondea el registro");
@@ -650,7 +660,7 @@ test("Cronos interno monta saldo, fichaje remoto, movimientos y calendario; con 
   };
   const coordinador = crearCoordinadorModulosPortal({ escaparHTML: String, entorno,
     cargarCatalogoInterno: async () => [{ clave: "cronos" }], cargadoresInternos });
-  await coordinador.cargarInterno();
+  await cargarConDiferidos(coordinador);
   assert.equal(coordinador.resolverAcceso("cronos").disponible, true);
   const raiz = raizDietasFalsa();
   assert.equal(await coordinador.montarVista("cronos", raiz), true);
@@ -680,7 +690,7 @@ test("Cronos interno monta saldo, fichaje remoto, movimientos y calendario; con 
   assert.equal(raiz.children.length, 0);
   const sinCatalogo = crearCoordinadorModulosPortal({ escaparHTML: String, entorno,
     cargarCatalogoInterno: async () => [], cargadoresInternos });
-  await sinCatalogo.cargarInterno();
+  await cargarConDiferidos(sinCatalogo);
   assert.equal(sinCatalogo.resolverAcceso("cronos").disponible, false);
 });
 
@@ -704,7 +714,7 @@ test("Cronos interno: olvido de marcaje abre el formulario del calendario y falt
     cargarCatalogoInterno: async () => [{ clave: "cronos" }], cargadoresInternos: {
       contratacion_temporal: async () => { throw new Error("no debe cargar CT"); }, cronos: async () => cronos } });
   const coordinador = crear(recursos);
-  await coordinador.cargarInterno();
+  await cargarConDiferidos(coordinador);
   const raiz = raizDietasFalsa();
   assert.equal(await coordinador.montarVista("cronos", raiz), true);
   const movimientos = llamadas.find(([nombre]) => nombre === "movimientos")[1];
@@ -721,7 +731,7 @@ test("Cronos interno: olvido de marcaje abre el formulario del calendario y falt
   assert.equal(raiz.children.length, 0);
   for (const falta of ["saldo", "remoto", "movimientos", "movimientosPropios", "permisosPropios", "clienteSaldo", "clienteRemoto", "clienteSolicitudes"]) {
     const incompleto = crear({ ...recursos, [falta]: {} });
-    await incompleto.cargarInterno();
+    await cargarConDiferidos(incompleto);
     assert.equal(incompleto.resolverAcceso("cronos").disponible, false, falta);
   }
 });
@@ -770,7 +780,7 @@ test("CT interno se activa solo después de una consulta autorizada", async () =
       }),
     },
   });
-  await coordinador.cargarInterno();
+  await cargarConDiferidos(coordinador);
   assert.equal(consultas, 1);
   assert.ok(signalConsulta instanceof AbortSignal);
   assert.equal(signalConsulta.aborted, false);
@@ -824,7 +834,7 @@ test("Intervención abre CT con acceso directo a fiscalización, sin funciones d
     },
   });
 
-  await coordinador.cargarInterno();
+  await cargarConDiferidos(coordinador);
   assert.equal(coordinador.resolverAcceso("contratacion_temporal").disponible, true);
   assert.equal(coordinador.esPerfilRRHH(), false);
   assert.equal(await coordinador.montarVista("contratacion-temporal", raizFalsa()), true);
@@ -869,7 +879,7 @@ test("sin perfil de Intervención no se monta la fiscalización: CT no se ofrece
         }),
       },
     });
-    await coordinador.cargarInterno();
+    await cargarConDiferidos(coordinador);
     assert.equal(coordinador.resolverAcceso("contratacion_temporal").disponible, false);
     assert.doesNotMatch(coordinador.renderizarNavegacion(true, "portal"), /contratacion_temporal/u);
     assert.equal(await coordinador.montarVista("contratacion-temporal", raizFalsa()), false);
@@ -915,7 +925,7 @@ test("CT recupera incorporación con continuidad si falla análisis y el alta si
     },
   });
 
-  await coordinador.cargarInterno();
+  await cargarConDiferidos(coordinador);
   assert.equal(await coordinador.montarVista("contratacion-temporal", raizFalsa()), true);
   assert.ok(montaje.alta);
   assert.equal(montaje.analisis, null);
@@ -1014,13 +1024,14 @@ test("CT interno mantiene el alta real cuando el cuadro sigue en 503", async () 
     },
   });
 
-  await coordinador.cargarInterno();
-  await coordinador.cargarInterno();
+  await cargarConDiferidos(coordinador);
+  await cargarConDiferidos(coordinador);
   assert.equal(consultasCuadro, 2);
   assert.equal(consultasCatalogo, 2);
   assert.equal(consultasAnalisis, 2);
+  // Los catálogos del alta se piden primero y no retrasan el cuadro.
   assert.deepEqual(orden, [
-    "cuadro", "alta", "analisis", "cuadro", "alta", "analisis",
+    "alta", "cuadro", "analisis", "alta", "cuadro", "analisis",
   ]);
   assert.equal(coordinador.resolverAcceso("contratacion_temporal").disponible, true);
   assert.equal(await coordinador.montarVista("contratacion-temporal", raizFalsa()), true);

@@ -25,7 +25,9 @@ function domMontaje() {
   const eventos = new Map(), hijos = [], vigentes = new Set(); let contenedor = null;
   const crearNodo = () => { const eventosNodo = new Map(), eventosBoton = new Map(); const nodo = { innerHTML: "", eventos: eventosNodo, eventosBoton, addEventListener: (tipo, fn) => eventosNodo.set(tipo, fn), removeEventListener: (tipo) => eventosNodo.delete(tipo), replaceChildren() { this.innerHTML = ""; }, append(nodo) { hijos.push(nodo); }, querySelector(selector) { return selector === "[data-ct-exp-reintentar-cierre]" && this.innerHTML.includes("data-ct-exp-reintentar-cierre") ? { addEventListener: (tipo, fn) => eventosBoton.set(tipo, fn) } : null; }, ownerDocument: { createElement: crearNodo } }; return nodo; };
   const raiz = { set innerHTML(html) { vigentes.clear(); contenedor = html.includes("data-ct-exp-incorporacion-ejercicio") ? crearNodo() : null; if (contenedor) vigentes.add(contenedor); }, get innerHTML() { return ""; }, contains: (nodo) => vigentes.has(nodo), querySelector: (selector) => selector === "[data-ct-exp-incorporacion-ejercicio]" ? contenedor : null, querySelectorAll: () => [], addEventListener: (tipo, fn) => eventos.set(tipo, fn), removeEventListener: (tipo) => eventos.delete(tipo) };
-  return { raiz, hijos, abrir: async () => { const control = { dataset: { ctExpAbrir: expediente_ref }, closest: (selector) => selector === "[data-ct-exp-abrir]" ? control : null }; vigentes.add(control); await eventos.get("click")({ target: control, preventDefault() {} }); } };
+  return { raiz, hijos, abrir: async () => { const control = { dataset: { ctExpAbrir: expediente_ref }, closest: (selector) => selector === "[data-ct-exp-abrir]" ? control : null }; vigentes.add(control); await eventos.get("click")({ target: control, preventDefault() {} }); },
+    // La incorporación se consulta al pedirla (botón del detalle), no al abrir.
+    consultarIncorporacion: async () => { const control = { dataset: { ctExpAccion: "consultar-incorporacion" }, closest: (selector) => selector === "[data-ct-exp-accion]" ? control : null }; vigentes.add(control); await eventos.get("click")({ target: control, preventDefault() {} }); } };
 }
 const esperar = () => new Promise((resolver) => setImmediate(resolver));
 
@@ -41,6 +43,8 @@ async function montarPanel({ cierre, registrar, cerrar = () => { assert.fail("no
   const cliente = { async prepararIncorporacionEjercicio() { return { esquema: "vec.contratacion-temporal.incorporacion-ejercicio.preparacion.v2", expediente_ref, version_actual_expediente: 8, preparacion: null, recibo }; }, confirmarIncorporacionEjercicio() { assert.fail("no debe enviar incorporación"); }, anotacionAdministrativa: { registrar, recuperar() { assert.fail("no debe recuperar"); } }, consultarPreparacionCierreSinCese: cierre, cerrar };
   const modulo = await montarModuloContratacionTemporal({ raiz: dom.raiz, presentador, llamamiento: { cliente }, confirmarOperacion: () => true, mensajes });
   await dom.abrir(); await esperar(); await esperar();
+  assert.match(dom.raiz.querySelector("[data-ct-exp-incorporacion-ejercicio]")?.innerHTML || "", /data-ct-exp-accion="consultar-incorporacion"/u);
+  void dom.consultarIncorporacion(); await esperar(); await esperar();
   return { dom, modulo, presentador };
 }
 
@@ -92,6 +96,7 @@ test("montaje: un GET de cierre tardío no recrea el panel tras desmontar", asyn
   const cliente = { async prepararIncorporacionEjercicio() { return { esquema: "vec.contratacion-temporal.incorporacion-ejercicio.preparacion.v2", expediente_ref, version_actual_expediente: 8, preparacion: null, recibo }; }, confirmarIncorporacionEjercicio() { assert.fail("no debe enviar incorporación"); }, anotacionAdministrativa: { registrar() { assert.fail("no debe anotar"); }, recuperar() { assert.fail("no debe recuperar"); } }, async consultarPreparacionCierreSinCese() { lecturasCierre++; return new Promise((resolver) => { resolverCierre = resolver; }); }, cerrar() { assert.fail("no debe cerrar"); } };
   const modulo = await montarModuloContratacionTemporal({ raiz: dom.raiz, presentador, llamamiento: { cliente }, confirmarOperacion: () => true });
   await dom.abrir(); await esperar(); await esperar();
+  void dom.consultarIncorporacion(); await esperar(); await esperar();
   assert.equal(lecturasCierre, 1);
   const hijosAntes = dom.hijos.length;
   modulo.desmontar(); resolverCierre({ preparacion: null }); await esperar(); await esperar();

@@ -465,7 +465,8 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
   assert.doesNotMatch(portal, /portal-modulos-coordinador\.js\?v=20260924-f2-cronos-permisos-v1/u);
   assert.doesNotMatch(portal, new RegExp(`portal-modulos-coordinador\\.js\\?v=${versionPersonalEstados}`));
   assert.doesNotMatch(portal, new RegExp(`portal-modulos-coordinador\\.js\\?v=${versionPersonalInterno}`));
-  assert.match(coordinador, new RegExp(`portal-modulos-carga\\.js\\?v=${versionCarga}`));
+  // El límite de carga cambió (recorrido del 25/09): su URL avanza.
+  exigirRenovado(coordinador, "./portal-modulos-carga.js", versionCarga);
   exigirRenovado(portal, "./portal-bolsas-api.js", versionModuloBolsa);
   exigirRenovado([portal, coordinador], "./portal-i18n.js", [versionEntradaAyuda, versionCronosPermisos]);
   exigirRenovado(portal, "./portal-eventos.js", versionEntradaAyuda);
