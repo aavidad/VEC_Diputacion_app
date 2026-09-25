@@ -143,7 +143,7 @@ test("Bolsa solo figura comprobando mientras existe una consulta activa", () => 
   assert.equal(disponibilidad().estado, "error");
 });
 
-test("la carga inicial no consulta servicios de Bolsa ausentes", () => {
+test("la carga inicial comprueba solo la API real del cuadro de Bolsa, sin servicios ausentes", () => {
   const inicio = javascript.indexOf("async function cargarFuenteDatos()");
   const fin = javascript.indexOf("function necesidadLlamamientoSeleccionada()", inicio);
   const cargaInicial = javascript.slice(inicio, fin);
@@ -152,6 +152,13 @@ test("la carga inicial no consulta servicios de Bolsa ausentes", () => {
   assert.doesNotMatch(cargaInicial, /comprobarDisponibilidad/);
   assert.doesNotMatch(cargaInicial, /API_PANEL_BOLSA/);
   assert.match(cargaInicial, /requiereLecturaBolsas\(estado\.vista\)/);
+  // Inicio comprueba la API real del cuadro de bolsas sin exigir abrir antes
+  // la vista, en paralelo con el catálogo y sin esperarla.
+  const comprobacion = cargaInicial.indexOf("void controladorBolsas.cargarBolsas()");
+  const catalogo = cargaInicial.indexOf("await coordinadorModulos.cargarInterno()");
+  assert.ok(comprobacion > 0 && catalogo > comprobacion, "la comprobación de Bolsa debe lanzarse antes de esperar el catálogo");
+  assert.match(cargaInicial, /estado\.datosBolsas\?\.carga !== "listo"\) void controladorBolsas\.cargarBolsas\(\)/);
+  assert.doesNotMatch(cargaInicial, /await controladorBolsas/);
   const vistasSinLectura = javascript.match(/const VISTAS_BOLSA_SIN_LECTURA = new Set\(\[([\s\S]*?)\]\);/)?.[1] || "";
   assert.match(vistasSinLectura, /"contratos"/);
   assert.doesNotMatch(vistasSinLectura, /"seleccion-(?:inscripciones|pruebas|comunicaciones)"/);

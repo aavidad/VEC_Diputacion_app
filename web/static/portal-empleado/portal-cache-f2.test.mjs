@@ -115,11 +115,15 @@ test("el grafo JS propio llega desde HTML a los consumidores F2 con versiones nu
   assert.notEqual(versionDe(portal, "./portal-modulos-coordinador.js"), "20260924-f2-cronos-permisos-v1");
   assert.notEqual(versionDe(html, "/portal-empleado/portal.js"), versionPersonalEstados);
   assert.notEqual(versionDe(portal, "./portal-modulos-coordinador.js"), versionPersonalEstados);
-  for (const recurso of ["portal-menu-bolsa.js",
-    "portal-vistas-operaciones.js"]) {
+  for (const recurso of ["portal-vistas-operaciones.js"]) {
     assert.equal(versionDe(portal, `./${recurso}`), version, recurso);
     await access(new URL(recurso, raiz));
   }
+  // El menú de Bolsa cambió después de F2: sus dos importadores piden la misma
+  // URL nueva para no cargar dos instancias del módulo.
+  exigirVersiones(portal, "./portal-menu-bolsa.js", posterior(version));
+  assert.deepEqual(versionesDe(coordinador, "./portal-menu-bolsa.js"), versionesDe(portal, "./portal-menu-bolsa.js"));
+  await access(new URL("portal-menu-bolsa.js", raiz));
   // Cronos interno ya no importa la jornada: solo quedan las vistas conectadas.
   assert.deepEqual(versionesDe(coordinador, "./modulos/cronos/vista.js"), []);
   for (const recurso of [

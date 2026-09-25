@@ -43,12 +43,15 @@ export function vistaBolsaPendienteNoCompuesta(vista) {
 }
 
 // El módulo Bolsa está disponible si lo está la elaboración de borradores o,
-// en su defecto, si el cuadro de bolsas ha cargado bolsas reales: entonces la
-// entrada del menú abre el cuadro (B12) en vez de marcarse «no disponible».
+// en su defecto, si la API del cuadro de bolsas ha respondido con su contrato:
+// entonces la entrada del menú abre el cuadro en vez de marcarse «no
+// disponible». Un cuadro sin bolsas sigue siendo un módulo compuesto y
+// autorizado; lo que no cuenta es un fallo, una denegación o una consulta
+// pendiente.
 export function accesoBolsaEfectivo(accesoBorradores, datosBolsas) {
   if (accesoBorradores && accesoBorradores.disponible === true) return accesoBorradores;
   const bolsas = datosBolsas?.carga === "listo" ? datosBolsas.datos?.bolsas : null;
-  if (!Array.isArray(bolsas) || bolsas.length === 0) return accesoBorradores;
+  if (!Array.isArray(bolsas)) return accesoBorradores;
   return Object.freeze({ disponible: true, vista: "resumen", estado: "disponible", etiqueta: "Cuadro de bolsas" });
 }
 
