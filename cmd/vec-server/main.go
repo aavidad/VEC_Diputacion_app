@@ -70,14 +70,18 @@ func main() {
 		return
 	}
 	cfg := config.Load()
-	srv, err := bootstrap.NewHTTPServerWithConfig(cfg)
+	emisor, cerrarEmisor := crearEmisorServidor(os.Stdout, os.Stderr)
+	srv, err := bootstrap.NuevoServidorHTTPSupervisado(cfg, emisor)
 	if err != nil {
+		cerrarEmisor()
 		registrarFalloArranque(os.Stdout, domain.ComponenteIncidenciaComposicion, domain.EtapaIncidenciaComposicion)
 		log.Fatalf("bootstrap server: %v", err)
 	}
+	cerrarSupervision := componerSupervisionServidor(srv, emisor, cerrarEmisor, os.Stderr)
 
 	if cfg.TLSCertFile != "" || cfg.TLSKeyFile != "" {
 		if cfg.TLSCertFile == "" || cfg.TLSKeyFile == "" {
+			cerrarSupervision()
 			registrarFalloArranque(os.Stdout, domain.ComponenteIncidenciaServidor, domain.EtapaIncidenciaConfiguracion)
 			log.Fatal("serve TLS: VEC_TLS_CERT_FILE and VEC_TLS_KEY_FILE must be configured together")
 		}
@@ -87,6 +91,7 @@ func main() {
 		log.Printf("vec server listening on %s", srv.Addr)
 		err = srv.ListenAndServe()
 	}
+	cerrarSupervision()
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
 		registrarFalloArranque(os.Stdout, domain.ComponenteIncidenciaServidor, domain.EtapaIncidenciaEscucha)
 		log.Fatalf("serve: %v", err)

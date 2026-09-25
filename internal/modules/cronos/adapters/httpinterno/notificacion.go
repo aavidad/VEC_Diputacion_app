@@ -93,10 +93,10 @@ func (m *ManejadorNotificacionesPropias) registrar(w http.ResponseWriter, r *htt
 	if !soloMetodo(w, r, http.MethodPost) {
 		return
 	}
-	v, ok := decodificarCadenasAcotadas(w, r, []string{"clave_operacion", "tipo_version_ref", "fecha_referida", "texto"},
+	v, err := decodificarCadenasAcotadas(w, r, []string{"clave_operacion", "tipo_version_ref", "fecha_referida", "texto"},
 		map[string]int{"clave_operacion": 128, "tipo_version_ref": 160, "fecha_referida": 10, "texto": domain.MaximoTextoNotificacion,
 			"adjunto_ref": 128, "adjunto_sha256": 64})
-	if !ok {
+	if err != nil {
 		errorJSON(w, http.StatusBadRequest, "peticion_invalida")
 		return
 	}

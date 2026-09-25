@@ -2,6 +2,8 @@ package autorizacion
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"reflect"
 	"strconv"
 
@@ -55,21 +57,28 @@ var _ docports.FabricaContextoLectura = (*FabricaContextoLecturaOriginal)(nil)
 func (f *FabricaContextoLecturaOriginal) ContextoLecturaOriginal(
 	ctx context.Context, d domain.Documento, a docports.AutorizacionV3,
 ) (vecports.ContextoOperacionAlmacen, error) {
-	denegado := vecports.ErrAutorizacionAlmacenInvalida
 	if f == nil || nulo(f.resolutor) || nulo(f.reloj) || ctx == nil || ctx.Err() != nil ||
 		d.Validar() != nil || !d.Descargable() || d.ID != a.RecursoRef || d.ExpedienteRef != a.AmbitoRef {
-		return vecports.ContextoOperacionAlmacen{}, denegado
+		return vecports.ContextoOperacionAlmacen{}, denegadoPor(contextoCancelado(ctx))
 	}
 	instante := f.reloj.Ahora()
 	preimagen, err := (docports.ConsultaDocumento{DocumentoID: d.ID, Version: d.Version}).PreimagenDescargar()
-	if err != nil || a.ValidarPara(docports.AccionDescargar, instante) != nil ||
-		a.Material.ResumenCapacidad().Operacion() != docports.AccionDescargar ||
+	if err != nil {
+		return vecports.ContextoOperacionAlmacen{}, denegadoPor(err)
+	}
+	if err := a.ValidarPara(docports.AccionDescargar, instante); err != nil {
+		return vecports.ContextoOperacionAlmacen{}, denegadoPor(err)
+	}
+	if a.Material.ResumenCapacidad().Operacion() != docports.AccionDescargar ||
 		a.Material.ResumenCapacidad().EfectoHuellaSHA256() != docports.HuellaEfectoV3(preimagen) {
-		return vecports.ContextoOperacionAlmacen{}, denegado
+		return vecports.ContextoOperacionAlmacen{}, denegadoPor(nil)
 	}
 	seudonimos, err := f.resolutor.SeudonimosLecturaOriginal(ctx, a)
-	if err != nil || ctx.Err() != nil {
-		return vecports.ContextoOperacionAlmacen{}, denegado
+	if err != nil {
+		return vecports.ContextoOperacionAlmacen{}, denegadoPor(err)
+	}
+	if err := ctx.Err(); err != nil {
+		return vecports.ContextoOperacionAlmacen{}, denegadoPor(err)
 	}
 	objeto := vecports.ReferenciaObjetoAlmacen{Referencia: d.ObjetoRef, Version: d.ObjetoVersion}
 	vinculos := vecports.VinculosOperacionAlmacen{
@@ -79,19 +88,45 @@ func (f *FabricaContextoLecturaOriginal) ContextoLecturaOriginal(
 		EfectoRef:           d.ID, ObjetoVinculado: objeto,
 	}
 	recurso := recursoLecturaOriginal(d, a, vinculos)
-	if recurso.Validar() != nil || objeto.Validar() != nil {
-		return vecports.ContextoOperacionAlmacen{}, denegado
+	if err := errors.Join(recurso.Validar(), objeto.Validar()); err != nil {
+		return vecports.ContextoOperacionAlmacen{}, denegadoPor(err)
 	}
 	decision, err := f.resolutor.ExigirLecturaOriginal(ctx, SolicitudDecisionLecturaOriginal{
 		Autorizacion: a, Accion: vecports.AccionNegocioLeerOriginalDocumentoGenerado,
 		Finalidad: a.Finalidad, Recurso: recurso,
 	})
-	if err != nil || ctx.Err() != nil || decision.PrincipalID != a.PrincipalID ||
-		decision.PerfilActivoRef != a.PerfilActivoRef || decision.CorrelacionRef != a.CorrelacionRef ||
-		decision.Finalidad != a.Finalidad {
-		return vecports.ContextoOperacionAlmacen{}, denegado
+	if err != nil {
+		return vecports.ContextoOperacionAlmacen{}, denegadoPor(err)
+	}
+	if err := ctx.Err(); err != nil {
+		return vecports.ContextoOperacionAlmacen{}, denegadoPor(err)
+	}
+	if decision.PrincipalID != a.PrincipalID || decision.PerfilActivoRef != a.PerfilActivoRef ||
+		decision.CorrelacionRef != a.CorrelacionRef || decision.Finalidad != a.Finalidad {
+		return vecports.ContextoOperacionAlmacen{}, denegadoPor(nil)
 	}
 	return vecports.NuevoContextoLeerDocumentoGeneradoAlmacen(decision, recurso, vinculos, f.reloj.Ahora())
+}
+
+// denegadoPor devuelve la denegación cerrada de la lectura del original. Si
+// la denegación procede de un fallo (resolutor, validación o cancelación),
+// ese fallo queda envuelto como causa para que errors.Is/errors.As lo
+// alcancen y el registro interno lo conserve; la denegación sigue siendo
+// ErrAutorizacionAlmacenInvalida para todo consumidor.
+func denegadoPor(causa error) error {
+	if causa == nil {
+		return vecports.ErrAutorizacionAlmacenInvalida
+	}
+	return fmt.Errorf("%w: %w", vecports.ErrAutorizacionAlmacenInvalida, causa)
+}
+
+// contextoCancelado devuelve la causa de cancelación, si la hay, sin
+// desreferenciar un contexto nulo.
+func contextoCancelado(ctx context.Context) error {
+	if ctx == nil {
+		return nil
+	}
+	return ctx.Err()
 }
 
 func recursoLecturaOriginal(
