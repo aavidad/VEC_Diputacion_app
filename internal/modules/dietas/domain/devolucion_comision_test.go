@@ -49,3 +49,45 @@ func TestDevolucionRechazaFormasIncoherentes(t *testing.T) {
 		}
 	}
 }
+
+// Go y el cliente web recortan conjuntos distintos: Go quita U+0085 y el
+// navegador U+FEFF. Un motivo con cualquiera de ellos en un extremo se
+// rechaza, para que la titular vea exactamente lo que su cliente acepta.
+func TestTextoSinBordesCubreLoQueRecortanGoYElNavegador(t *testing.T) {
+	for _, borde := range []string{" ", "\u00a0", "\u0085", "\ufeff", "\u2028", "\u3000", "\u200a"} {
+		for _, motivo := range []string{borde + "Falta justificante", "Falta justificante" + borde} {
+			if TextoSinBordes(motivo) {
+				t.Errorf("%q aceptado", motivo)
+			}
+			if _, err := ResolverDecisionCircuito(EstadoEnviadoPendienteRevision, EtapaRevision, DecisionDevolver, motivo, "act_a", "act_b", nil); err == nil {
+				t.Errorf("devolución con %q aceptada", motivo)
+			}
+			c := comisionDevuelta()
+			d := *c.Devolucion
+			d.Motivo = motivo
+			c.Devolucion = &d
+			if c.Validar() == nil {
+				t.Errorf("devolución proyectada con %q aceptada", motivo)
+			}
+		}
+	}
+	if !TextoSinBordes("Falta\ufeffel justificante") || !TextoSinBordes("Falta el justificante") {
+		t.Fatal("blanco interior rechazado")
+	}
+}
+
+func TestDevolucionAnteriorAUnReenvio(t *testing.T) {
+	d := *comisionDevuelta().Devolucion
+	if err := d.ValidarAnteriorA(5); err != nil {
+		t.Fatalf("devolución anterior al reenvío: %v", err)
+	}
+	for nombre, version := range map[string]uint64{"misma versión": 4, "anterior": 3} {
+		if d.ValidarAnteriorA(version) == nil {
+			t.Errorf("%s: aceptada", nombre)
+		}
+	}
+	d.Etapa = "otra"
+	if d.ValidarAnteriorA(5) == nil {
+		t.Error("etapa desconocida aceptada")
+	}
+}

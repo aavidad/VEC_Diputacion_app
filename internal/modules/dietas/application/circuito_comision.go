@@ -114,7 +114,7 @@ func ValidarSolicitudDecisionCircuito(s dietasports.SolicitudDecisionCircuito) e
 	if !referenciaComision.MatchString(s.Referencia) || !unidadCircuito.MatchString(s.UnidadRef) || s.Etapa.EstadoPendiente() == "" ||
 		(s.Decision != domain.DecisionAprobar && s.Decision != domain.DecisionDevolver) ||
 		!claveCircuito.MatchString(s.ClaveIdempotencia) || s.VersionEsperada == 0 || s.VersionEsperada > 999999999999999999 ||
-		len(s.Motivo) > 600 || s.Motivo != strings.TrimSpace(s.Motivo) ||
+		len(s.Motivo) > 600 || !domain.TextoSinBordes(s.Motivo) ||
 		!textoCircuitoValido(s.Motivo) || (s.Decision == domain.DecisionDevolver && len(s.Motivo) < 3) {
 		return domain.ErrDecisionCircuitoInvalida
 	}
@@ -155,7 +155,8 @@ func ValidarDocumentoCircuito(d dietasports.DocumentoCircuito, s dietasports.Sol
 		len(d.Motivo) < 3 || len(d.Motivo) > 600 || len(d.CodigosRuta) > 12 ||
 		!objeto(d.Calculo) || !objeto(d.Documento) ||
 		(d.VehiculoPropio == nil) != (len(rutas) == 0) ||
-		(len(rutas) > 0 && (rutas[0] != '[' || !json.Valid(rutas))) {
+		(len(rutas) > 0 && (rutas[0] != '[' || !json.Valid(rutas))) ||
+		(d.Devolucion != nil && d.Devolucion.ValidarAnteriorA(d.Version) != nil) {
 		return dietasports.ErrCircuitoNoDisponible
 	}
 	return nil
