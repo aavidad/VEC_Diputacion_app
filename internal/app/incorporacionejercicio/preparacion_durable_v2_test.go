@@ -25,6 +25,17 @@ func (f detallePreparacionDoble) Consultar(c context.Context, s ct.SolicitudDeta
 	return f(c, s)
 }
 
+func (f detallePreparacionDoble) ConsultarResumenSeguimiento(c context.Context, s ct.SolicitudDetalleRRHH, org, unidad string) (appct.ResumenConsultaSeguimientoRRHH, error) {
+	d, err := f(c, s)
+	if err != nil {
+		return appct.ResumenConsultaSeguimientoRRHH{}, err
+	}
+	if d.Resumen.OrganizacionRef != org || d.Resumen.UnidadRef != unidad {
+		return appct.ResumenConsultaSeguimientoRRHH{}, appct.ErrConsultaRRHHNoObservable
+	}
+	return appct.ResumenConsultaSeguimientoRRHH{ExpedienteRef: d.Resumen.ExpedienteRef, VersionExpediente: d.Resumen.Version}, nil
+}
+
 type planPreparacionDoble func(context.Context, string, string) (PlanPreparacionDurableV2, error)
 
 func (f planPreparacionDoble) ResolverPlan(c context.Context, o, e string) (PlanPreparacionDurableV2, error) {

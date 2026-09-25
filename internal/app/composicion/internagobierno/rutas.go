@@ -63,13 +63,15 @@ func (f *FuenteF1) ContextoVinculadoPersonalB2(ctx context.Context) (ct.Contexto
 }
 
 // AutoridadRutaSeguimiento limita la frontera HTTP a las rutas internas
-// declaradas. Comprueba F1 vivo antes del caso de uso; Personal consume el
+// declaradas. Comprueba sesión, vínculo F1 y vínculo corporativo vivos antes
+// del caso de uso; Personal consume el
 // resultado ya sellado por el puente. Cada concesión concreta se evalúa en
 // V3 y se consume en PostgreSQL.
 type AutoridadRutaSeguimiento struct{ fuente *FuenteF1 }
 
 func NuevaAutoridadRutaSeguimiento(fuente *FuenteF1) (*AutoridadRutaSeguimiento, error) {
-	if fuente == nil || fuente.identidad == nil || fuente.revalidador == nil || fuente.resolutor == nil {
+	if fuente == nil || fuente.identidad == nil || fuente.revalidador == nil || fuente.resolutor == nil ||
+		fuente.corporativo == nil {
 		return nil, ErrGobiernoInternoNoDisponible
 	}
 	return &AutoridadRutaSeguimiento{fuente: fuente}, nil

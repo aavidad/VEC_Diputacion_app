@@ -60,6 +60,7 @@ while IFS= read -r paquete; do
 			golang.org/x/text/width | \
 			"${modulo}/cmd/vec-interno" | \
 			"${modulo}/config" | \
+			"${modulo}/internal/app/composicion/gobiernov3lector" | \
 			"${modulo}/internal/app/composicion/interna" | \
 			"${modulo}/internal/app/composicion/interna/contrataciontemporal" | \
 			"${modulo}/internal/app/composicion/internactproveedores" | \
@@ -122,6 +123,7 @@ fi
 for obligatoria in \
 	"${modulo}/cmd/vec-interno" \
 	"${modulo}/config" \
+	"${modulo}/internal/app/composicion/gobiernov3lector" \
 	"${modulo}/internal/app/composicion/interna" \
 	"${modulo}/internal/app/composicion/interna/contrataciontemporal" \
 	"${modulo}/internal/app/composicion/internactproveedores" \

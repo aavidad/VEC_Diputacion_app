@@ -54,7 +54,15 @@ func fuenteRenovableCTPrueba(t *testing.T, m materialAtestacionContratacionTempo
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &fuenteConfianzaRenovableCTDesarrollo{reloj: r, material: m, actual: v}
+	f := &fuenteConfianzaRenovableCTDesarrollo{reloj: r, material: m, actual: v,
+		leer: func(context.Context, materialAtestacionContratacionTemporalDesarrollo, time.Time) (materialAtestacionContratacionTemporalDesarrollo, error) {
+			return m, nil
+		}}
+	f.lector, err = f.nuevoLector()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return f
 }
 func TestConfianzaRenovableCTCambioUTCConcurrente(t *testing.T) {
 	m := materialRenovableCTPrueba(t, time.Date(2026, 9, 18, 23, 59, 59, 0, time.UTC))
@@ -66,6 +74,12 @@ func TestConfianzaRenovableCTCambioUTCConcurrente(t *testing.T) {
 	f.renovar = func(context.Context, materialAtestacionContratacionTemporalDesarrollo, time.Time) (materialAtestacionContratacionTemporalDesarrollo, error) {
 		llamadas.Add(1)
 		return nuevo, nil
+	}
+	f.leer = func(context.Context, materialAtestacionContratacionTemporalDesarrollo, time.Time) (materialAtestacionContratacionTemporalDesarrollo, error) {
+		if llamadas.Load() > 0 {
+			return nuevo, nil
+		}
+		return m, nil
 	}
 	anterior, err := f.instantanea(context.Background())
 	if err != nil || llamadas.Load() != 0 {
@@ -116,6 +130,9 @@ func TestConfianzaRenovableCTFalloConservaCaducadaYRecupera(t *testing.T) {
 	f.renovar = func(context.Context, materialAtestacionContratacionTemporalDesarrollo, time.Time) (materialAtestacionContratacionTemporalDesarrollo, error) {
 		return nuevo, nil
 	}
+	f.leer = func(context.Context, materialAtestacionContratacionTemporalDesarrollo, time.Time) (materialAtestacionContratacionTemporalDesarrollo, error) {
+		return nuevo, nil
+	}
 	if s, e := f.instantanea(context.Background()); e != nil || s == vieja {
 		t.Fatal("no recuperó publicación confirmada")
 	}
@@ -126,6 +143,39 @@ func TestConfianzaRenovableCTFalloConservaCaducadaYRecupera(t *testing.T) {
 	r.fijar(m.validaHasta)
 	if s, e := f.instantanea(context.Background()); e == nil || s != nil {
 		t.Fatal("renovó raíz caducada")
+	}
+}
+
+func TestConfianzaRenovableCTRevocacionInmediataYReinicioLector(t *testing.T) {
+	m := materialRenovableCTPrueba(t, time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC))
+	r := &relojRenovableCTPrueba{}
+	r.fijar(m.publicadaEn.Add(time.Hour))
+	f := fuenteRenovableCTPrueba(t, m, r)
+	f.renovar = func(context.Context, materialAtestacionContratacionTemporalDesarrollo, time.Time) (materialAtestacionContratacionTemporalDesarrollo, error) {
+		t.Fatal("no debe publicar antes de caducidad")
+		return materialAtestacionContratacionTemporalDesarrollo{}, nil
+	}
+	var revocada atomic.Bool
+	f.leer = func(context.Context, materialAtestacionContratacionTemporalDesarrollo, time.Time) (materialAtestacionContratacionTemporalDesarrollo, error) {
+		if revocada.Load() {
+			return materialAtestacionContratacionTemporalDesarrollo{}, errors.New("raíz revocada")
+		}
+		return m, nil
+	}
+	if _, err := f.instantanea(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	revocada.Store(true)
+	if s, err := f.instantanea(context.Background()); s != nil || err == nil {
+		t.Fatal("revocación inmediata ignorada")
+	}
+	// Un nuevo proceso no conserva una autorización en memoria ante la misma
+	// revocación publicada; vuelve a consultar el gobierno.
+	reiniciada := fuenteRenovableCTPrueba(t, m, r)
+	reiniciada.renovar = f.renovar
+	reiniciada.leer = f.leer
+	if s, err := reiniciada.instantanea(context.Background()); s != nil || err == nil {
+		t.Fatal("reinicio recuperó confianza revocada")
 	}
 }
 func TestConfianzaRenovableCTProveedorYEmisorTomanFuenteCompartida(t *testing.T) {

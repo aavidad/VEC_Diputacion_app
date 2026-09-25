@@ -5,8 +5,22 @@ import (
 	"errors"
 	"testing"
 
+	appct "vec-diputacion-granada/internal/modules/contrataciontemporal/application"
 	ct "vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 )
+
+type consultaSoloSeguimientoDoble struct {
+	resumen appct.ResumenConsultaSeguimientoRRHH
+	err     error
+}
+
+func (d consultaSoloSeguimientoDoble) Consultar(context.Context, ct.SolicitudDetalleRRHH) (ct.DetalleExpedienteRRHH, error) {
+	panic("la consulta de seguimiento intento exportar el detalle completo")
+}
+
+func (d consultaSoloSeguimientoDoble) ConsultarResumenSeguimiento(_ context.Context, _ ct.SolicitudDetalleRRHH, _, _ string) (appct.ResumenConsultaSeguimientoRRHH, error) {
+	return d.resumen, d.err
+}
 
 func TestConsultarSeguimientoIncorporacionV2EntregaHitoOriginal(t *testing.T) {
 	c := nuevoCasoPreparacionV2(t)
@@ -15,6 +29,9 @@ func TestConsultarSeguimientoIncorporacionV2EntregaHitoOriginal(t *testing.T) {
 		t.Fatal(err)
 	}
 	c.confirmada = true
+	c.p.c.Detalle = consultaSoloSeguimientoDoble{resumen: appct.ResumenConsultaSeguimientoRRHH{
+		ExpedienteRef: c.plan.SolicitudPersonal.ExpedienteRef, VersionExpediente: c.detalle.Resumen.Version,
+	}}
 	p := &PeticionV2PostgreSQL{preparador: c.p}
 	vista, err := p.ConsultarSeguimientoIncorporacionV2(context.Background(), c.plan.SolicitudPersonal.ExpedienteRef)
 	if err != nil {
@@ -26,6 +43,19 @@ func TestConsultarSeguimientoIncorporacionV2EntregaHitoOriginal(t *testing.T) {
 		vista.VersionSeguimiento != recibo.VersionSeguimientoResultante || hito.ActuacionRef != recibo.ActuacionRef ||
 		hito.RegistradaEn != recibo.RegistradaEn {
 		t.Fatal("la consulta no conserva el hito original de incorporacion")
+	}
+}
+
+func TestConsultarSeguimientoIncorporacionV2RechazaProyeccionCruzada(t *testing.T) {
+	c := nuevoCasoPreparacionV2(t)
+	c.confirmada = true
+	c.p.c.Detalle = consultaSoloSeguimientoDoble{resumen: appct.ResumenConsultaSeguimientoRRHH{
+		ExpedienteRef: "expediente:ajeno", VersionExpediente: c.detalle.Resumen.Version,
+	}}
+	p := &PeticionV2PostgreSQL{preparador: c.p}
+	_, err := p.ConsultarSeguimientoIncorporacionV2(context.Background(), c.plan.SolicitudPersonal.ExpedienteRef)
+	if !errors.Is(err, ct.ErrComposicionIncorporacionAplicacion) || len(c.pasos) != 0 {
+		t.Fatalf("proyeccion cruzada continuo a la restauracion: %v, %v", err, c.pasos)
 	}
 }
 

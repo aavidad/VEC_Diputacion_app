@@ -153,7 +153,8 @@ func cargarProveedoresGobernados(ctx context.Context, cfg Configuracion) (provee
 	}
 	fuenteF1, err := internagobierno.NuevaFuenteF1(internagobierno.ConfiguracionFuenteF1{
 		Identidad: identidad, Revalidador: identidadPG.Revalidador,
-		Resolutor: contextoPG.Resolutor, Reloj: reloj,
+		Resolutor: contextoPG.Resolutor, VinculoCorporativo: contextoPG.VinculoCorporativo,
+		Reloj:     reloj,
 		PorCuenta: contextos, MotivoAlta: materialV3.MotivoAlta,
 		MotivoLectura: materialV3.MotivoLectura, Politica: politica,
 	})

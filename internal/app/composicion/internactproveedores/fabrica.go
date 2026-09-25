@@ -1,6 +1,7 @@
 package internactproveedores
 
 import (
+	"bytes"
 	"context"
 	"crypto/ed25519"
 	"crypto/sha256"
@@ -10,6 +11,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -17,6 +19,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"vec-diputacion-granada/internal/app/composicion/gobiernov3lector"
 	"vec-diputacion-granada/internal/app/composicion/internagobierno"
 	inc "vec-diputacion-granada/internal/app/incorporacionejercicio"
 	pgct "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
@@ -109,14 +112,6 @@ func Construir(ctx context.Context, c Configuracion) (Proveedores, error) {
 	if err != nil || m.V3.Audiencia != audienciaAtestacionCTInterna {
 		return vacio, ErrProveedoresCTNoDisponibles
 	}
-	config, err := confianza.NuevaConfiguracionConfianzaAtestacionAutorizacionV3(m.V3.ConfiguracionRef, m.V3.ConfiguracionOrden, m.V3.ConfiguracionPublicada, m.V3.ConfiguracionExpira, raiz)
-	if err != nil || config.ValidarHuellaSHA256Esperada(m.V3.ConfiguracionSHA256) != nil || !c.Reloj.Ahora().Before(m.V3.ConfiguracionExpira) {
-		return vacio, ErrProveedoresCTNoDisponibles
-	}
-	verificador, err := confianza.NuevoServicioConfianzaAtestacionAutorizacionV3(config, c.Reloj)
-	if err != nil {
-		return vacio, ErrProveedoresCTNoDisponibles
-	}
 	firmante := &firmanteV3{claveID: m.V3.ClaveID, audiencia: m.V3.Audiencia, privada: append(ed25519.PrivateKey(nil), privada...), reloj: c.Reloj}
 	atestador, err := app.NuevoServicioAtestacionesAutorizacionV3(core.CabeceraAtestacionAutorizacionV3{FormatoVersion: core.VersionFormatoAtestacionAutorizacionV3, Suite: confianza.SuiteAtestacionAutorizacionV3COSEEdDSA, ClaveID: m.V3.ClaveID, Audiencia: m.V3.Audiencia}, firmante)
 	if err != nil {
@@ -132,7 +127,7 @@ func Construir(ctx context.Context, c Configuracion) (Proveedores, error) {
 		{"fuente_autorizacion", "vec_autorizacion_fuente", "vec_autorizacion.obtener_instantanea(text,text)"},
 		{"registro_autorizacion", "vec_autorizacion_registro", "vec_autorizacion.registrar_decision_contexto_actor_v3(bytea,bytea,numeric,numeric)"},
 		{"motivos_autorizacion", "vec_autorizacion_motivos_evaluador", "vec_autorizacion.resolver_motivo_autorizacion_v2_historico(text,integer,text,text,timestamptz)"},
-		{"gobierno_v3", "vec_autorizacion_atestada_v3_preflight_interno", "vec_autorizacion_atestada_v3.comprobar_material_emision_interna_v1(jsonb)"},
+		{"gobierno_v3", "vec_autorizacion_atestada_v3_preflight_interno", "vec_autorizacion_atestada_v3.leer_configuracion_interna_v1(jsonb)"},
 	}
 	var salida Proveedores
 	salida.firmante = firmante
@@ -147,7 +142,8 @@ func Construir(ctx context.Context, c Configuracion) (Proveedores, error) {
 		}
 		salida.pools = append(salida.pools, pool)
 	}
-	if err := sondearGobiernoV3(ctx, salida.pools[3], m, clave.Public().(ed25519.PublicKey)); err != nil {
+	verificador, err := nuevoLectorGobiernoV3(ctx, salida.pools[3], m, clave.Public().(ed25519.PublicKey), raiz, c.Reloj)
+	if err != nil {
 		return fallo()
 	}
 	for _, perfil := range []perfilPool{
@@ -229,14 +225,8 @@ func Construir(ctx context.Context, c Configuracion) (Proveedores, error) {
 	if e != nil {
 		return fallo()
 	}
-	emisorCuadro, e := confianza.NuevoEmisorMaterialAutorizacionAtestadaV3(pdpConsulta, atestador, verificador, emisorCapacidadCuadro)
-	if e != nil {
-		return fallo()
-	}
-	emisorDetalle, e := confianza.NuevoEmisorMaterialAutorizacionAtestadaV3(pdpConsulta, atestador, verificador, emisorCapacidadDetalle)
-	if e != nil {
-		return fallo()
-	}
+	emisorCuadro := &emisorMaterialRenovable{lector: verificador, pdp: pdpConsulta, atestador: atestador, capacidad: emisorCapacidadCuadro}
+	emisorDetalle := &emisorMaterialRenovable{lector: verificador, pdp: pdpConsulta, atestador: atestador, capacidad: emisorCapacidadDetalle}
 	emisor, e := ct.NuevoEmisorMaterialConsultaRRHH(resolutorMotivos, seg.GeneradorReferenciasCriptograficas{}, c.Reloj, emisorCuadro, emisorDetalle)
 	if e != nil {
 		return fallo()
@@ -307,13 +297,13 @@ func crearCapacidad(raiz *os.Root, m capacidadMaterial, audiencia string, reloj 
 	return emisor, nil
 }
 
-func sondearGobiernoV3(ctx context.Context, pool *pgxpool.Pool, m Material, publica ed25519.PublicKey) error {
+func nuevoLectorGobiernoV3(ctx context.Context, pool *pgxpool.Pool, m Material, publica ed25519.PublicKey, raiz confianza.RaizPublicaAtestacionAutorizacionV3, reloj ct.Reloj) (*gobiernov3lector.Lector, error) {
 	if ctx == nil || ctx.Err() != nil || pool == nil || len(publica) != ed25519.PublicKeySize {
-		return ErrProveedoresCTNoDisponibles
+		return nil, ErrProveedoresCTNoDisponibles
 	}
 	spki, err := x509.MarshalPKIXPublicKey(publica)
 	if err != nil {
-		return ErrProveedoresCTNoDisponibles
+		return nil, ErrProveedoresCTNoDisponibles
 	}
 	huella := sha256.Sum256(spki)
 	type clave struct {
@@ -361,18 +351,46 @@ func sondearGobiernoV3(ctx context.Context, pool *pgxpool.Pool, m Material, publ
 	material.Raiz.HuellaSPKISHA256 = hex.EncodeToString(huella[:])
 	material.Raiz.AudienciaDespliegue = m.V3.Audiencia
 	material.Raiz.Suite = confianza.SuiteAtestacionAutorizacionV3COSEEdDSA
-	b, err := json.Marshal(material)
+	anterior := gobiernov3lector.Publicacion{Revision: m.V3.ConfiguracionRef, Secuencia: m.V3.ConfiguracionOrden,
+		HuellaSHA256: m.V3.ConfiguracionSHA256, PublicadaEn: m.V3.ConfiguracionPublicada, ExpiraEn: m.V3.ConfiguracionExpira}
+	lector, err := gobiernov3lector.Nuevo(anterior, raiz, reloj, func(ctx context.Context, previa gobiernov3lector.Publicacion) (gobiernov3lector.Publicacion, error) {
+		material.Configuracion.Revision = previa.Revision
+		material.Configuracion.Secuencia = previa.Secuencia
+		material.Configuracion.HuellaConfiguracionSHA256 = previa.HuellaSHA256
+		b, err := json.Marshal(material)
+		if err != nil {
+			return gobiernov3lector.Publicacion{}, ErrProveedoresCTNoDisponibles
+		}
+		defer clear(b)
+		sonda, cancelar := context.WithTimeout(ctx, 5*time.Second)
+		defer cancelar()
+		var respuesta []byte
+		if err := pool.QueryRow(sonda, `SELECT vec_autorizacion_atestada_v3.leer_configuracion_interna_v1($1::jsonb)`, b).Scan(&respuesta); err != nil {
+			return gobiernov3lector.Publicacion{}, ErrProveedoresCTNoDisponibles
+		}
+		defer clear(respuesta)
+		var publicada struct {
+			Revision     string    `json:"revision"`
+			Secuencia    uint64    `json:"secuencia"`
+			HuellaSHA256 string    `json:"huella_configuracion_sha256"`
+			PublicadaEn  time.Time `json:"publicada_en"`
+			ExpiraEn     time.Time `json:"expira_en"`
+		}
+		d := json.NewDecoder(bytes.NewReader(respuesta))
+		d.DisallowUnknownFields()
+		if d.Decode(&publicada) != nil || d.Decode(new(any)) != io.EOF {
+			return gobiernov3lector.Publicacion{}, ErrProveedoresCTNoDisponibles
+		}
+		return gobiernov3lector.Publicacion{Revision: publicada.Revision, Secuencia: publicada.Secuencia,
+			HuellaSHA256: publicada.HuellaSHA256, PublicadaEn: publicada.PublicadaEn, ExpiraEn: publicada.ExpiraEn}, nil
+	})
 	if err != nil {
-		return ErrProveedoresCTNoDisponibles
+		return nil, ErrProveedoresCTNoDisponibles
 	}
-	defer clear(b)
-	sonda, cancelar := context.WithTimeout(ctx, 5*time.Second)
-	defer cancelar()
-	var vigente bool
-	if err := pool.QueryRow(sonda, `SELECT vec_autorizacion_atestada_v3.comprobar_material_emision_interna_v1($1::jsonb)`, b).Scan(&vigente); err != nil || !vigente {
-		return ErrProveedoresCTNoDisponibles
+	if _, err := lector.Instantanea(ctx); err != nil {
+		return nil, ErrProveedoresCTNoDisponibles
 	}
-	return nil
+	return lector, nil
 }
 
 type perfilPool struct{ nombre, rol, funcion string }
@@ -400,7 +418,10 @@ func funcionesEsperadasPerfil(p perfilPool) []string {
 			"vec_autorizacion.resolver_motivo_cobertura_historico_v1(text,integer,text,text,text,timestamptz)",
 		}
 	case "vec_autorizacion_atestada_v3_preflight_interno":
-		return []string{"vec_autorizacion_atestada_v3.comprobar_material_emision_interna_v1(jsonb)"}
+		return []string{
+			"vec_autorizacion_atestada_v3.comprobar_material_emision_interna_v1(jsonb)",
+			"vec_autorizacion_atestada_v3.leer_configuracion_interna_v1(jsonb)",
+		}
 	case "vec_autorizacion_motivos_rrhh_resolutor":
 		return []string{
 			"vec_autorizacion.resolver_motivo_cuadro_rrhh_v1(timestamptz)",
@@ -410,6 +431,7 @@ func funcionesEsperadasPerfil(p perfilPool) []string {
 		return []string{
 			"vec_contratacion_temporal.consultar_cuadro_rrhh_atestado_v1(" + alcance + "," + cuadro + "," + firma + ")",
 			"vec_contratacion_temporal.consultar_detalle_rrhh_atestado_v1(" + alcance + "," + detalle + "," + firma + ")",
+			"vec_contratacion_temporal.consultar_resumen_seguimiento_rrhh_atestado_v1(" + alcance + "," + detalle + ",text," + firma + ")",
 			"vec_contratacion_temporal.consultar_preparacion_resolucion_v1(" + alcance + "," + detalle + "," + firma + ")",
 			"vec_contratacion_temporal.consultar_original_propuesta_rrhh_atestado_v1(" + alcance + "," + detalle + "," + firma + ")",
 			"vec_contratacion_temporal.consultar_cuadro_rrhh_atestado_v2(" + alcance + "," + cuadro + "," + firma + ")",
