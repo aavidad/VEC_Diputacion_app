@@ -60,21 +60,24 @@ INSERT INTO f4b_cuenta VALUES
 
 -- Esquemas donde cada grupo técnico puede tener privilegios. Cualquier ACL de
 -- un grupo fuera de ellos (CT, Bolsa, otra base, CREATE/TEMP, escritura directa
--- de tablas, objetos de otra clase) detiene F4b.
-CREATE TEMP TABLE f4b_esquema_permitido (grupo text NOT NULL, esquema text NOT NULL) ON COMMIT DROP;
+-- de tablas, objetos de otra clase) detiene F4b. Con solo_requerida, en ese
+-- esquema el grupo solo puede tener las ACL de la lista positiva (en AD3: el
+-- USAGE de AD3-81 y el EXECUTE de la fachada de rutas; ni tablas ni columnas).
+CREATE TEMP TABLE f4b_esquema_permitido (grupo text NOT NULL, esquema text NOT NULL,
+ solo_requerida boolean NOT NULL) ON COMMIT DROP;
 INSERT INTO f4b_esquema_permitido VALUES
- ('vec_identidad_sesiones_v1_registrador','vec_identidad_sesiones_v1'),
- ('vec_identidad_sesiones_v1_revalidador','vec_identidad_sesiones_v1'),
- ('vec_contexto_actor_v1_runtime','vec_contexto_actor_v1'),
- ('vec_autorizacion_fuente','vec_autorizacion'),
- ('vec_autorizacion_registro','vec_autorizacion'),
- ('vec_autorizacion_motivos_evaluador','vec_autorizacion'),
- ('vec_dietas_ejecutor','vec_dietas'),
- ('vec_dietas_ejecutor','vec_personal'),
- ('vec_dietas_ejecutor','vec_autorizacion_atestada_v3'),
- ('vec_dietas_registrador_frontera','vec_dietas'),
- ('vec_personal_d7_ejecutor','vec_personal'),
- ('vec_personal_registrador_frontera','vec_personal');
+ ('vec_identidad_sesiones_v1_registrador','vec_identidad_sesiones_v1',false),
+ ('vec_identidad_sesiones_v1_revalidador','vec_identidad_sesiones_v1',false),
+ ('vec_contexto_actor_v1_runtime','vec_contexto_actor_v1',false),
+ ('vec_autorizacion_fuente','vec_autorizacion',false),
+ ('vec_autorizacion_registro','vec_autorizacion',false),
+ ('vec_autorizacion_motivos_evaluador','vec_autorizacion',false),
+ ('vec_dietas_ejecutor','vec_dietas',false),
+ ('vec_dietas_ejecutor','vec_personal',false),
+ ('vec_dietas_ejecutor','vec_autorizacion_atestada_v3',true),
+ ('vec_dietas_registrador_frontera','vec_dietas',false),
+ ('vec_personal_d7_ejecutor','vec_personal',false),
+ ('vec_personal_registrador_frontera','vec_personal',false);
 
 -- ACL heredable observada de los nueve grupos (base, esquema, relación,
 -- columna, función y tipo), con el esquema del objeto.
