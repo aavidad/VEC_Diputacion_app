@@ -136,7 +136,7 @@ function validarDevolucion(devolucion, comision) {
 function validarComision(comision) {
   const campos = ["referencia", "version", "numero_documento", "fecha_apertura", "estado", "fecha_inicio", "fecha_fin", "motivo", "codigos_ruta", "relacion_ref", "centro_ref", "unidad_ref", "calculo", "documento", "vehiculo_propio", "rutas", "devolucion"];
   if (!registro(comision) || Object.keys(comision).some((clave) => !campos.includes(clave)) || !referencia(comision.referencia, "dco_") || (comision.version !== undefined && (!Number.isSafeInteger(comision.version) || comision.version < 1)) || !ESTADOS_COMISION_PROPIA.includes(comision.estado) || !fechaCivil(comision.fecha_inicio) || !fechaCivil(comision.fecha_fin) || comision.fecha_fin < comision.fecha_inicio || !textoVisible(comision.motivo, 600) || !referencia(comision.relacion_ref, "rel_")) throw new TypeError("comisión de Dietas incompatible");
-  if ((comision.numero_documento !== undefined && !/^VEC-D-\d{4}-\d{6}$/u.test(comision.numero_documento)) ||
+  if ((comision.numero_documento !== undefined && !/^VEC-D-\d{4}-\d{6,18}$/u.test(comision.numero_documento)) ||
       (comision.fecha_apertura !== undefined && !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/u.test(comision.fecha_apertura)))
     throw new TypeError("identificador de comisión incompatible");
   const codigos = comision.codigos_ruta === undefined ? [] : comision.codigos_ruta;

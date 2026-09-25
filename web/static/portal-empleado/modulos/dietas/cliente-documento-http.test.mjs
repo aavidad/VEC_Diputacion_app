@@ -60,6 +60,20 @@ test("rechaza documento que atribuye dieta a otro grupo o altera su total", asyn
   }
 });
 
+test("el número de documento admite de 6 a 18 dígitos, como SQL, Go y el cliente del revisor", async () => {
+  const conNumero = (numero) => crearClienteBorradoresDietasHTTP({ fetchImpl: async () => respuesta({ ...item,
+    comision: { ...item.comision, numero_documento: numero },
+  }) });
+  for (const numero of ["VEC-D-2026-000001", "VEC-D-2026-1000000", "VEC-D-2026-123456789012345678"]) {
+    const resultado = await conNumero(numero).editar(referencia, solicitud);
+    assert.equal(resultado.comision.numero_documento, numero);
+  }
+  for (const numero of ["VEC-D-2026-00001", "VEC-D-2026-1234567890123456789", "VEC-D-26-000001", "VEC-D-2026-00000a"]) {
+    await assert.rejects(() => conNumero(numero).editar(referencia, solicitud),
+      (error) => error.codigo === "respuesta_incompatible" && error.resultadoIndeterminado);
+  }
+});
+
 test("PUT conserva ruta propia con ajuste y otro gasto D5 con justificante por referencia y huella", async () => {
   const ruta = { codigos_ruta: ["18087", "18003"], ajuste_kilometros: "-0.5000", motivo_ajuste: "Atajo documentado" };
   const otros = [{ tipo: "otro_gasto", tipo_gasto: "aparcamiento", catalogo_version: "provisional:otros-gastos:20260925",
