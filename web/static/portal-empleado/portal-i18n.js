@@ -1,4 +1,4 @@
-import { MENSAJES_AYUDA_PORTAL_ES } from "./portal-i18n-ayuda.js?v=20260925-d5d6-cronos-v1";
+import { MENSAJES_AYUDA_PORTAL_ES } from "./portal-i18n-ayuda.js?v=20260926-portal-rrhh-main-v1";
 import { MENSAJES_PANEL_INTERNO_ES } from "./portal-panel-interno-i18n.js?v=20260925-aspecto-v1";
 
 /** Catálogo común de los estados del shell y del acceso a Borradores. */
@@ -93,15 +93,11 @@ export const MENSAJES_BOLSA_INTERNA_ES = Object.freeze({
   b7_cuerpo_excesivo: "El texto final del correo supera 4000 caracteres. Reduzca el mensaje antes de continuar.",
   b7_seleccion_cambiada: "La selección ha cambiado. Revise el número de candidatos antes de confirmar.",
   b7_emision_rechazada: "El servidor rechazó la emisión (422). Revise la configuración o actualice la selección según la bolsa vigente.",
-  boton_perfil_sin_permiso: "El perfil de presentación no permite esta operación",
+  boton_perfil_sin_permiso: "El perfil activo no permite esta operación",
   boton_capacidad_no_conectada: "Capacidad de servidor no conectada",
   tabla_sin_registros: "No hay registros para los filtros aplicados.",
   tabla_region_operativa: "Tabla operativa: {titulo}",
-  fuente_datos_sinteticos: "Datos sintéticos · Memoria volátil",
   fuente_real_no_conectada: "Fuente real no conectada",
-  alcance_presentacion: "Alcance de la presentación",
-  modo_presentacion: "Modo presentación.",
-  aviso_presentacion: "Este recorrido simula la actuación sin efectos administrativos ni comunicaciones externas.",
   capacidad_real_no_disponible: "Capacidad real no disponible",
   funcionalidad_no_conectada: "Funcionalidad no conectada.",
   detalle_funcionalidad_no_conectada: "La misma pantalla queda visible, pero sus acciones permanecen deshabilitadas hasta que el servidor conceda capacidad explícita y aporte datos autorizados.",

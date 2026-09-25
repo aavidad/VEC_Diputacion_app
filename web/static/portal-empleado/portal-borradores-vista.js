@@ -56,7 +56,6 @@ export function crearRenderizadorBorradores({
         ${renderError(estado.errorLista, "Servicio de borradores no disponible")}
         <section class="panel"><div class="cuerpo-panel vacio-controlado">
           <p><strong>La bandeja no puede operar sin el backend autenticado.</strong></p>
-          <p>No se muestran borradores ficticios ni una copia local alternativa.</p>
           <button type="button" class="boton-primario" data-borrador-accion="borradores-recargar">Reintentar conexión</button>
         </div></section>`;
     }
@@ -390,7 +389,7 @@ export function crearRenderizadorBorradores({
         <div><p class="sobrelinea">Gestión interna de Bolsa</p><h2>Borradores de convocatorias</h2><p>Edición durable con catálogos versionados, control CAS, idempotencia y recibo de auditoría.</p></div>
         <div class="acciones-vista"><button type="button" class="boton-secundario" data-vista="resumen">Volver al cuadro de mando</button></div>
       </header>
-      <section class="nota-seguridad" aria-label="Tratamiento del borrador">La identidad procede exclusivamente del canal interno autenticado. No se usan cookies, tokens, almacenamiento local ni datos de presentación para esta bandeja.</section>`;
+      <section class="nota-seguridad" aria-label="Tratamiento del borrador">La identidad procede exclusivamente del canal interno autenticado. No se usan cookies, tokens ni almacenamiento local para esta bandeja.</section>`;
     const fuente = renderEstadoFuente();
     if (fuente) return `${cabecera}${fuente}`;
     return `${cabecera}<div class="espacio-borradores">${renderLista()}${renderEditor()}</div>`;
