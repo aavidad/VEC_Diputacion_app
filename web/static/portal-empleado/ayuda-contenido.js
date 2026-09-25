@@ -204,7 +204,6 @@ export const AYUDA_CONTRATACION_TEMPORAL = Object.freeze({
       frases: Object.freeze([
         traducirPortal("ayuda_contenido_269"),
         traducirPortal("ayuda_contenido_270"),
-        traducirPortal("ayuda_contenido_271"),
         traducirPortal("ayuda_ct_limite_expediente"),
         traducirPortal("ayuda_contenido_421"),
       ]),
@@ -279,7 +278,6 @@ export const AYUDA_CONTRATACION_TEMPORAL = Object.freeze({
       frases: Object.freeze([
         traducirPortal("ayuda_contenido_293"),
         traducirPortal("ayuda_contenido_294"),
-        traducirPortal("ayuda_contenido_295"),
         traducirPortal("ayuda_ct_limite_nombramiento"),
         traducirPortal("ayuda_contenido_422"),
       ]),
