@@ -23,10 +23,14 @@ const (
 	ResultadoContactoOtro       = "otro"
 	ResultadoContactoEnviado    = "enviado"
 	ResultadoContactoNoEnviado  = "no_enviado"
+	// ResultadoContactoNumeroErroneo: el teléfono no corresponde a la persona.
+	ResultadoContactoNumeroErroneo = "numero_erroneo"
+	// ResultadoContactoNoEntregado: el correo de aviso rebotó; lo anota RRHH.
+	ResultadoContactoNoEntregado = "no_entregado"
 )
 
 var canalesContacto = map[string]struct{}{CanalContactoTelefono: {}, CanalContactoCorreo: {}, CanalContactoSMS: {}, CanalContactoPresencial: {}, CanalContactoOtro: {}}
-var resultadosContacto = map[string]struct{}{ResultadoContactoContactado: {}, ResultadoContactoNoContesta: {}, ResultadoContactoBuzon: {}, ResultadoContactoAcepta: {}, ResultadoContactoRechaza: {}, ResultadoContactoAplazado: {}, ResultadoContactoOtro: {}, ResultadoContactoEnviado: {}, ResultadoContactoNoEnviado: {}}
+var resultadosContacto = map[string]struct{}{ResultadoContactoContactado: {}, ResultadoContactoNoContesta: {}, ResultadoContactoBuzon: {}, ResultadoContactoAcepta: {}, ResultadoContactoRechaza: {}, ResultadoContactoAplazado: {}, ResultadoContactoOtro: {}, ResultadoContactoEnviado: {}, ResultadoContactoNoEnviado: {}, ResultadoContactoNumeroErroneo: {}, ResultadoContactoNoEntregado: {}}
 
 type ContactoParticipacion struct {
 	ContactoRef, BolsaRef, ParticipacionRef, LlamamientoRef string
@@ -50,5 +54,5 @@ func CanalesContactoParticipacion() []string {
 	return []string{CanalContactoTelefono, CanalContactoCorreo, CanalContactoSMS, CanalContactoPresencial, CanalContactoOtro}
 }
 func ResultadosContactoParticipacion() []string {
-	return []string{ResultadoContactoContactado, ResultadoContactoNoContesta, ResultadoContactoBuzon, ResultadoContactoAcepta, ResultadoContactoRechaza, ResultadoContactoAplazado, ResultadoContactoOtro, ResultadoContactoEnviado, ResultadoContactoNoEnviado}
+	return []string{ResultadoContactoContactado, ResultadoContactoNoContesta, ResultadoContactoBuzon, ResultadoContactoAcepta, ResultadoContactoRechaza, ResultadoContactoAplazado, ResultadoContactoOtro, ResultadoContactoEnviado, ResultadoContactoNoEnviado, ResultadoContactoNumeroErroneo, ResultadoContactoNoEntregado}
 }

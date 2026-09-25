@@ -38,7 +38,11 @@ func (r *RepositorioContactoParticipacionPostgreSQL) RegistrarContacto(ctx conte
 	defer tx.Rollback(context.Background())
 	m := c.Material
 	out := ports.RegistroContactoParticipacion{Contacto: c.Contacto}
-	err = tx.QueryRow(ctx, `SELECT reutilizado,recibo_ref,contacto_ref FROM vec_bolsa_llamamientos.registrar_contacto_participacion_v1($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16::numeric,$17::numeric,$18,$19,$20,$21)`, c.Contacto.ContactoRef, c.Contacto.BolsaRef, c.Contacto.ParticipacionRef, nuloTexto(c.Contacto.LlamamientoRef), c.Contacto.Canal, c.Contacto.Instante, c.Contacto.Actor, c.Contacto.Resultado, c.Contacto.Anotacion, c.ClaveIdempotencia, c.ReciboRef, m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI()).Scan(&out.Reutilizado, &out.ReciboRef, &out.Contacto.ContactoRef)
+	if requiereRegistroContactoV2(c) {
+		err = registrarContactoV2(ctx, tx, c, &out)
+	} else {
+		err = tx.QueryRow(ctx, `SELECT reutilizado,recibo_ref,contacto_ref FROM vec_bolsa_llamamientos.registrar_contacto_participacion_v1($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16::numeric,$17::numeric,$18,$19,$20,$21)`, c.Contacto.ContactoRef, c.Contacto.BolsaRef, c.Contacto.ParticipacionRef, nuloTexto(c.Contacto.LlamamientoRef), c.Contacto.Canal, c.Contacto.Instante, c.Contacto.Actor, c.Contacto.Resultado, c.Contacto.Anotacion, c.ClaveIdempotencia, c.ReciboRef, m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), m.PersonaVersion(), m.PerfilVersion(), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI()).Scan(&out.Reutilizado, &out.ReciboRef, &out.Contacto.ContactoRef)
+	}
 	if err != nil {
 		return ports.RegistroContactoParticipacion{}, errorContactoParticipacion(err)
 	}
@@ -110,6 +114,10 @@ func errorContactoParticipacion(err error) error {
 			return ports.ErrContactoParticipacionNoEncontrado
 		case "VBC01", "22023":
 			return dominiobolsa.ErrContactoParticipacionInvalido
+		case "VBC02":
+			return dominiobolsa.ErrIntentoAntesDeSeparacion
+		case "VBC03":
+			return dominiobolsa.ErrIntentosContactoAgotados
 		}
 	}
 	return ports.ErrContactoParticipacionNoDisponible
