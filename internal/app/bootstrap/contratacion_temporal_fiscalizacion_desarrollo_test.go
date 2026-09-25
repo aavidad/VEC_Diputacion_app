@@ -21,7 +21,9 @@ func TestOrigenFiscalizacionContratacionTemporalDesarrollo(t *testing.T) {
 		{"inicial no sustituye v5", 6, domain.FaseInformeJuridico, domain.EstadoEnCurso, false},
 		{"refiscalizacion con version real", 7, domain.FaseSubsanacionUnidad, domain.EstadoIncidencia, true},
 		{"fase de subsanacion sin incidencia", 7, domain.FaseSubsanacionUnidad, domain.EstadoEnCurso, false},
-		{"fase ajena", 7, domain.FaseFiscalizacion, domain.EstadoEnCurso, false},
+		{"modificacion devuelta a fiscalizacion", 8, domain.FaseFiscalizacion, domain.EstadoEnCurso, true},
+		{"fiscalizacion sin version posterior", 5, domain.FaseFiscalizacion, domain.EstadoEnCurso, false},
+		{"fase ajena", 7, domain.FaseNombramiento, domain.EstadoEnCurso, false},
 	}
 	for _, caso := range casos {
 		t.Run(caso.nombre, func(t *testing.T) {
@@ -56,6 +58,25 @@ func TestSolicitudAutorizacionFiscalizacionExigeVinculoDeSubsanacion(t *testing.
 	)
 	if solicitudAutorizacionFiscalizacionContratacionTemporalDesarrolloValida(inicialConRetorno) {
 		t.Fatal("la fiscalizacion inicial no admite un retorno previo")
+	}
+
+	modificacion := datosAutorizacionFiscalizacionDesarrollo(
+		domain.FaseFiscalizacion, domain.EstadoEnCurso,
+		map[string]string{"modificacion_recibo_ref": "recibo:modificacion:001"},
+	)
+	if !solicitudAutorizacionFiscalizacionContratacionTemporalDesarrolloValida(modificacion) {
+		t.Fatal("la fiscalizacion de una modificacion ligada a su recibo debe autorizarse")
+	}
+	sinModificacion := datosAutorizacionFiscalizacionDesarrollo(domain.FaseFiscalizacion, domain.EstadoEnCurso, map[string]string{})
+	if solicitudAutorizacionFiscalizacionContratacionTemporalDesarrolloValida(sinModificacion) {
+		t.Fatal("la fiscalizacion en fase de fiscalizacion exige el recibo de la modificacion")
+	}
+	mezclada := datosAutorizacionFiscalizacionDesarrollo(
+		domain.FaseSubsanacionUnidad, domain.EstadoIncidencia,
+		map[string]string{"retorno_previo_ref": "retorno:fiscalizacion:001", "subsanacion_recibo_ref": "recibo:subsanacion:001", "modificacion_recibo_ref": "recibo:modificacion:001"},
+	)
+	if solicitudAutorizacionFiscalizacionContratacionTemporalDesarrolloValida(mezclada) {
+		t.Fatal("una refiscalizacion no puede citar una modificacion")
 	}
 }
 
