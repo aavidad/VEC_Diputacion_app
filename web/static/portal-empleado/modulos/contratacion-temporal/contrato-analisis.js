@@ -16,6 +16,8 @@ const ESQUEMA_CONFIGURACION =
 const OPERACIONES = new Set(["registrar", "rectificar"]);
 const MAXIMO_OPCIONES_CONFIGURACION = 100;
 const MAXIMO_CATEGORIAS_CONFIGURACION = 1000;
+// Una jornada completa no puede superar los minutos de una semana.
+const MAXIMO_MINUTOS_JORNADA_COMPLETA = 7 * 24 * 60;
 const CLAVES_MODALIDADES_RRHH = new Set([
   "sustitucion", "vacante", "acumulacion_tareas", "programa", "relevo",
 ]);
@@ -136,11 +138,12 @@ export function validarConfiguracionAnalisis(configuracion) {
   const tieneSubsanacion = esRegistro(configuracion) && Object.hasOwn(configuracion, "subsanacion_disponible");
   exigirCamposExactos(configuracion, [
     "esquema", "artefacto_ref", "modalidades", "categorias", "causas",
-    "entradas_rc", "motivos_rectificacion",
+    "entradas_rc", "motivos_rectificacion", "jornada_completa_minutos_semanales",
     ...(tieneSubsanacion ? ["subsanacion_disponible"] : []),
   ], "configuración del análisis");
   if (configuracion.esquema !== ESQUEMA_CONFIGURACION
     || !referenciaValida(configuracion.artefacto_ref)
+    || !minutosJornadaCompletaValidos(configuracion.jornada_completa_minutos_semanales)
     || (tieneSubsanacion && typeof configuracion.subsanacion_disponible !== "boolean")) {
     throw new TypeError("configuración del análisis no válida");
   }
@@ -213,8 +216,14 @@ export function validarConfiguracionAnalisis(configuracion) {
     causas,
     entradas_rc: entradasRC,
     motivos_rectificacion: motivos,
+    jornada_completa_minutos_semanales: configuracion.jornada_completa_minutos_semanales,
     ...(tieneSubsanacion ? { subsanacion_disponible: configuracion.subsanacion_disponible } : {}),
   });
+}
+
+/** Minutos semanales de la jornada completa servidos por la regla c07. */
+export function minutosJornadaCompletaValidos(valor) {
+  return Number.isSafeInteger(valor) && valor >= 1 && valor <= MAXIMO_MINUTOS_JORNADA_COMPLETA;
 }
 
 function diasDelMes(anio, mes) {

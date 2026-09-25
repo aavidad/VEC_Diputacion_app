@@ -14,6 +14,7 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
   cabecera_jornada: "Jornada",
   cabecera_jornada_valor: "{horas} h {minutos} min de media semanal ({porcentaje})",
   cabecera_jornada_menos_minuto: "Menos de 1 min de media semanal ({porcentaje})",
+  cabecera_jornada_porcentaje: "{porcentaje} de la jornada completa",
   cabecera_resultado_rc: "Resultado RC",
   cabecera_coste_estimado: "Coste estimado",
   cabecera_via_cobertura: "Vía de cobertura",

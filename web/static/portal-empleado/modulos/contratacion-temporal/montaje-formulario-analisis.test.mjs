@@ -60,6 +60,7 @@ function crearCatalogos() {
       clave: "correccion_datos",
       etiqueta: "Corrección de datos",
     }],
+    jornada_completa_minutos_semanales: 2250,
   };
 }
 

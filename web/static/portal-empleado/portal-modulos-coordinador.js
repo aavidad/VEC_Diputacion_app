@@ -285,9 +285,12 @@ export function crearCoordinadorModulosPortal({
       HeadersImpl: entorno.Headers,
     });
     let alta = null;
+    // La jornada completa de referencia llega con la configuración del análisis.
+    let jornadaCompleta = null;
     const fuente = recursos.adaptador
       .crearAdaptadorHTTPExpedientesContratacionTemporal({
         cliente, obtenerCatalogos: () => alta?.catalogos ?? null,
+        obtenerJornadaCompleta: () => jornadaCompleta,
       });
     const [cuadro, catalogosAlta, configuracion] = await Promise.allSettled([
       consultar((opciones) => fuente.listar(opciones)),
@@ -317,6 +320,7 @@ export function crearCoordinadorModulosPortal({
           && typeof cliente.registrarSubsanacionReparos === "function") {
           subsanacion = Object.freeze({ disponible: true, cliente });
         }
+        jornadaCompleta = configuracionAnalisis.jornada_completa_minutos_semanales;
         analisis = Object.freeze({
           cliente,
           catalogos: Object.freeze({
@@ -325,6 +329,7 @@ export function crearCoordinadorModulosPortal({
             causas: configuracionAnalisis.causas,
             entradas_rc: configuracionAnalisis.entradas_rc,
             motivos_rectificacion: configuracionAnalisis.motivos_rectificacion,
+            jornada_completa_minutos_semanales: configuracionAnalisis.jornada_completa_minutos_semanales,
           }),
           contexto: Object.freeze({
             operacion: "registrar",

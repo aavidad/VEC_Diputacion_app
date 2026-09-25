@@ -1,0 +1,137 @@
+{
+  "version_esquema": 1,
+  "fuente": {
+    "revision": "retribuciones-ct-ejemplo-v1",
+    "actualizada_en": "2026-09-25T00:00:00Z",
+    "demostracion": true,
+    "aviso": "DEMOSTRACIÓN: retribuciones de ejemplo para desarrollo y presentación a RRHH. Se borran al pasar a producción, como los datos de ejemplo. Son supuestos de trabajo sin aprobación de RRHH, del Servicio de Gestión Económica ni de Intervención, y sin validez administrativa.",
+    "origen_sha256": "7155cbb790ffea9a8e28391c134e1b1b7f6b47cbbe5840ef964a5de3ecec6e8a"
+  },
+  "catalogo": {
+    "id": "ct.retribuciones",
+    "version": 1,
+    "revision": 1,
+    "modulo_id": "contratacion_temporal",
+    "nombre": "Retribuciones de referencia para el coste — ejemplo",
+    "descripcion": "Coste estimado de un nombramiento por grupo o categoría. Importes mensuales en céntimos de euro a jornada completa: sueldo_mensual_centimos y complementos_mensual_centimos (destino y específico); pagas_anuales es el número de pagas al año de ese total (12 ordinarias más las extraordinarias); seguridad_social_centesimas es la cuota empresarial en centésimas de punto (3200 = 32 %); proporcional_jornada «si» prorratea por la jornada del nombramiento. Coste mensual = (sueldo + complementos) × pagas ÷ 12 × (1 + cuota), prorrateado por días naturales (mes de 30,4375 días). Una entrada con atributo categoria_ref se aplica a esa categoría antes que la de su grupo.",
+    "fuente_ref": "paquete:ejemplo:vec:v1",
+    "motivo_creacion": "Retribuciones de ejemplo para la presentación a RRHH; se retiran antes de producción.",
+    "entradas": [
+      {
+        "clave": "grupo.a1",
+        "etiqueta": "Grupo A1",
+        "descripcion": "Sueldo base del grupo A1; complementos de destino (nivel 26) y específico de un puesto técnico superior.",
+        "vigente_desde": "2026-01-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo con importes verosímiles de una administración local; no son las retribuciones aprobadas.",
+          "duda": "Duda 8.",
+          "grupo": "A1",
+          "sueldo_mensual_centimos": "133500",
+          "complementos_mensual_centimos": "195000",
+          "pagas_anuales": "14",
+          "seguridad_social_centesimas": "3200",
+          "proporcional_jornada": "si"
+        },
+        "orden": 1
+      },
+      {
+        "clave": "grupo.a2",
+        "etiqueta": "Grupo A2",
+        "descripcion": "Sueldo base del grupo A2; complementos de destino (nivel 22) y específico de un puesto técnico medio.",
+        "vigente_desde": "2026-01-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo con importes verosímiles de una administración local; no son las retribuciones aprobadas.",
+          "duda": "Duda 8.",
+          "grupo": "A2",
+          "sueldo_mensual_centimos": "115500",
+          "complementos_mensual_centimos": "150000",
+          "pagas_anuales": "14",
+          "seguridad_social_centesimas": "3200",
+          "proporcional_jornada": "si"
+        },
+        "orden": 2
+      },
+      {
+        "clave": "grupo.b",
+        "etiqueta": "Grupo B",
+        "descripcion": "Sueldo base del grupo B; complementos de destino (nivel 20) y específico de un puesto técnico especialista.",
+        "vigente_desde": "2026-01-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo con importes verosímiles de una administración local; no son las retribuciones aprobadas.",
+          "duda": "Duda 8.",
+          "grupo": "B",
+          "sueldo_mensual_centimos": "101000",
+          "complementos_mensual_centimos": "120000",
+          "pagas_anuales": "14",
+          "seguridad_social_centesimas": "3200",
+          "proporcional_jornada": "si"
+        },
+        "orden": 3
+      },
+      {
+        "clave": "grupo.c1",
+        "etiqueta": "Grupo C1",
+        "descripcion": "Sueldo base del grupo C1; complementos de destino (nivel 18) y específico de un puesto administrativo.",
+        "vigente_desde": "2026-01-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo con importes verosímiles de una administración local; no son las retribuciones aprobadas.",
+          "duda": "Duda 8.",
+          "grupo": "C1",
+          "sueldo_mensual_centimos": "87000",
+          "complementos_mensual_centimos": "105000",
+          "pagas_anuales": "14",
+          "seguridad_social_centesimas": "3200",
+          "proporcional_jornada": "si"
+        },
+        "orden": 4
+      },
+      {
+        "clave": "grupo.c2",
+        "etiqueta": "Grupo C2",
+        "descripcion": "Sueldo base del grupo C2; complementos de destino (nivel 16) y específico de un puesto auxiliar.",
+        "vigente_desde": "2026-01-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo con importes verosímiles de una administración local; no son las retribuciones aprobadas.",
+          "duda": "Duda 8.",
+          "grupo": "C2",
+          "sueldo_mensual_centimos": "72500",
+          "complementos_mensual_centimos": "90000",
+          "pagas_anuales": "14",
+          "seguridad_social_centesimas": "3200",
+          "proporcional_jornada": "si"
+        },
+        "orden": 5
+      },
+      {
+        "clave": "grupo.ap",
+        "etiqueta": "Agrupaciones profesionales",
+        "descripcion": "Sueldo base de agrupaciones profesionales; complementos de destino (nivel 14) y específico de un puesto subalterno.",
+        "vigente_desde": "2026-01-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo con importes verosímiles de una administración local; no son las retribuciones aprobadas.",
+          "duda": "Duda 8.",
+          "grupo": "AP",
+          "sueldo_mensual_centimos": "66500",
+          "complementos_mensual_centimos": "78000",
+          "pagas_anuales": "14",
+          "seguridad_social_centesimas": "3200",
+          "proporcional_jornada": "si"
+        },
+        "orden": 6
+      }
+    ],
+    "estado": "publicado",
+    "creado_por": "catalogo_ejemplo_vec",
+    "creado_en": "2026-09-25T00:00:00Z",
+    "publicado_por": "revision_catalogo_ejemplo_vec",
+    "publicado_en": "2026-09-25T00:00:00Z",
+    "aprobacion_ref": "sin_aprobacion_rrhh:ejemplo_desarrollo",
+    "motivo_publicacion": "Publicación de ejemplo solo para desarrollo y presentación; no es una aprobación."
+  }
+}

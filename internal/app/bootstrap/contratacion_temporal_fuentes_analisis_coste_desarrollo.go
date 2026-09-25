@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
@@ -14,6 +15,9 @@ type calculadorCosteAnalisisDesarrollo struct {
 	autoridadRef string
 	generacion   uint32
 	reloj        relojContratacionTemporalDesarrollo
+	// retribuciones es el catálogo ct.retribuciones; sin él el coste queda
+	// «sin calcular».
+	retribuciones *fuenteRetribucionesDesarrollo
 }
 
 var _ ports.CalculadorCostePersonal = (*calculadorCosteAnalisisDesarrollo)(nil)
@@ -50,8 +54,15 @@ func (c *calculadorCosteAnalisisDesarrollo) CalcularCoste(
 		return ports.ResultadoCalculoCoste{},
 			ports.ErrCalculadorCosteNoDisponible
 	}
+	fila, ok, err := c.retribuciones.retribucion(
+		ctx, datos.CategoriaRef, datos.GrupoSubgrupo,
+	)
+	if err != nil || !ok {
+		return ports.ResultadoCalculoCoste{},
+			errors.Join(ports.ErrCalculadorCosteNoDisponible, err)
+	}
 	importe, ok := costeEstimadoAnalisisDesarrollo(
-		datos.GrupoSubgrupo, datos.Periodo, datos.Jornada,
+		fila, datos.Periodo, datos.Jornada,
 	)
 	if !ok {
 		return ports.ResultadoCalculoCoste{},
@@ -118,46 +129,4 @@ func datosCalculoCosteAnalisisContratacionTemporalDesarrolloValidos(
 	}
 	return solicitud.Validar() == nil &&
 		solicitudAnalisisContratacionTemporalDesarrolloValida(solicitud)
-}
-
-// costeMensualReferenciaDesarrollo es la tabla de referencia de desarrollo:
-// coste empresa mensual aproximado por grupo (céntimos de euro, jornada
-// completa). Sirve para que la estimación varíe con la categoría, el periodo y
-// la jornada en las demostraciones; no es la tabla oficial. La fuente real
-// (GINPIX o la que fije Intervención) se decide con RRHH (dudas, pregunta 8).
-var costeMensualReferenciaDesarrollo = map[string]int64{
-	"A1": 460_000,
-	"A2": 390_000,
-	"B":  330_000,
-	"C1": 300_000,
-	"C2": 260_000,
-	"AP": 230_000,
-}
-
-// costeEstimadoAnalisisDesarrollo prorratea el coste mensual del grupo por los
-// días naturales del periodo (ambos inclusive) y por la jornada, redondeando al
-// céntimo. Devuelve false si el grupo no está en la tabla o el periodo no es
-// posterior o igual a su inicio: entonces el coste queda «sin calcular».
-func costeEstimadoAnalisisDesarrollo(
-	grupo string,
-	periodo domain.PeriodoPrevisto,
-	jornada domain.JornadaDiezmilesimas,
-) (domain.Importe, bool) {
-	mensual, ok := costeMensualReferenciaDesarrollo[grupo]
-	if !ok || jornada == 0 || periodo.Fin.Before(periodo.Inicio) {
-		return domain.Importe{}, false
-	}
-	dias := int64(periodo.Fin.Sub(periodo.Inicio).Hours()/24) + 1
-	if dias <= 0 || dias > 3_660 {
-		return domain.Importe{}, false
-	}
-	// céntimos = mensual × días × jornada / (días por mes × 10 000 diezmilésimas)
-	// con la jornada en diezmilésimas; se agrupa para redondear una sola vez.
-	numerador := mensual * dias * int64(jornada)
-	divisor := diasMesDiezmilesimasCosteDesarrollo
-	centimos := (numerador + divisor/2) / divisor
-	if centimos <= 0 {
-		return domain.Importe{}, false
-	}
-	return domain.Importe{Centimos: centimos, Moneda: "EUR"}, true
 }

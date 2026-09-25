@@ -242,10 +242,15 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	reglasAnalisis, err := nuevasFuentesReglasAnalisisDesarrollo(cfg, reloj)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 	servicioAnalisis, err := nuevasDependenciasAnalisisContratacionTemporalDesarrollo(
 		dependencias,
 		&alta,
 		fuenteMotivosRectificacion,
+		reglasAnalisis.retribuciones,
 		catalogoDesarrollo,
 	)
 	if err != nil {
@@ -313,9 +318,10 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	rutaConfiguracionAnalisis, err := nuevaRutaConfiguracionAnalisisConSubsanacionYMotivosDesarrollo(
+	rutaConfiguracionAnalisis, err := nuevaRutaConfiguracionAnalisisConReglasDesarrollo(
 		subsanacionReal.servicio != nil,
 		fuenteMotivosRectificacion,
+		reglasAnalisis.jornada,
 		catalogoDesarrollo,
 	)
 	if err != nil {

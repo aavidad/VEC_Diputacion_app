@@ -39,6 +39,7 @@ function montar() {
       causas: [{ clave: "sustitucion", etiqueta: "Sustitución" }],
       entradas_rc: [{ referencia: "entrada-rc:opaca:001", huella_sha256: HUELLA, etiqueta: "RC" }],
       motivos_rectificacion: [{ clave: "correccion_datos", etiqueta: "Corrección" }],
+      jornada_completa_minutos_semanales: 2250,
     },
     generarClaveIdempotencia: () => CLAVE,
     cliente: {
@@ -76,7 +77,7 @@ test("acepta enteros decimales con ceros iniciales dentro de la jornada semanal"
     ["07", "05", "1889"], ["7", "00", "1867"], ["0", "01", "4"],
     ["00037", "030", "10000"],
   ]) {
-    assert.equal(diezmilesimasDesdeHorasMinutos(horas, minutos), esperado);
+    assert.equal(diezmilesimasDesdeHorasMinutos(horas, minutos, 2250), esperado);
   }
   for (const [horas, minutos] of [
     ["0", "00"], ["37", "31"], ["38", "00"], ["7", "60"],
@@ -84,7 +85,7 @@ test("acepta enteros decimales con ceros iniciales dentro de la jornada semanal"
     ["Infinity", "05"], ["07", "-5"], ["07", "+5"], ["07", "5.0"],
     ["07", "5e0"], ["07", "Infinity"],
   ]) {
-    assert.equal(diezmilesimasDesdeHorasMinutos(horas, minutos), "", `${horas}h${minutos}`);
+    assert.equal(diezmilesimasDesdeHorasMinutos(horas, minutos, 2250), "", `${horas}h${minutos}`);
   }
 });
 

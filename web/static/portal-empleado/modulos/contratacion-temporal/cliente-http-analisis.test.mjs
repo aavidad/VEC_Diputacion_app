@@ -44,6 +44,7 @@ function configuracionAnalisis(cambios = {}) {
       clave: "ajuste_jornada",
       etiqueta: "Ajuste de jornada",
     }],
+    jornada_completa_minutos_semanales: 2250,
     ...cambios,
   };
 }

@@ -16,6 +16,10 @@ const (
 	// EnvBolsaRolesSegregacionSourcePath declara qué operaciones de Bolsa
 	// exigen una segunda persona; sin él rige la exclusión como hasta ahora.
 	EnvBolsaRolesSegregacionSourcePath = "VEC_BOLSA_ROLES_SEGREGACION_SOURCE_PATH"
+	// EnvCTRetribucionesSourcePath apunta al catálogo ct.retribuciones con el
+	// que se estima el coste del nombramiento. Sin él, el coste queda «sin
+	// calcular».
+	EnvCTRetribucionesSourcePath = "VEC_CT_RETRIBUCIONES_SOURCE_PATH"
 )
 
 // ErrConfiguracionReglasEjemploFueraDesarrollo impide arrancar si un
@@ -33,6 +37,7 @@ type ConfiguracionReglasEjemplo struct {
 	BolsaSourcePath                 string
 	CTSourcePath                    string
 	BolsaRolesSegregacionSourcePath string
+	CTRetribucionesSourcePath       string
 }
 
 func cargarConfiguracionReglasEjemplo() ConfiguracionReglasEjemplo {
@@ -40,6 +45,7 @@ func cargarConfiguracionReglasEjemplo() ConfiguracionReglasEjemplo {
 		BolsaSourcePath:                 envFirst(EnvBolsaReglasSourcePath),
 		CTSourcePath:                    envFirst(EnvCTReglasSourcePath),
 		BolsaRolesSegregacionSourcePath: envFirst(EnvBolsaRolesSegregacionSourcePath),
+		CTRetribucionesSourcePath:       envFirst(EnvCTRetribucionesSourcePath),
 	}
 }
 
@@ -47,13 +53,14 @@ func (c ConfiguracionReglasEjemplo) normalizar() ConfiguracionReglasEjemplo {
 	c.BolsaSourcePath = strings.TrimSpace(c.BolsaSourcePath)
 	c.CTSourcePath = strings.TrimSpace(c.CTSourcePath)
 	c.BolsaRolesSegregacionSourcePath = strings.TrimSpace(c.BolsaRolesSegregacionSourcePath)
+	c.CTRetribucionesSourcePath = strings.TrimSpace(c.CTRetribucionesSourcePath)
 	return c
 }
 
 // Configurada indica si se ha declarado algún catálogo de reglas.
 func (c ConfiguracionReglasEjemplo) Configurada() bool {
 	c = c.normalizar()
-	return c.BolsaSourcePath != "" || c.CTSourcePath != "" || c.BolsaRolesSegregacionSourcePath != ""
+	return c.BolsaSourcePath != "" || c.CTSourcePath != "" || c.BolsaRolesSegregacionSourcePath != "" || c.CTRetribucionesSourcePath != ""
 }
 
 // ReglasEjemploDesarrollo valida la activación sin abrir ficheros. Devuelve
