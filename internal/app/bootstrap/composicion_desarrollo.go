@@ -243,9 +243,10 @@ func nuevoServidorDesarrollo(
 	if err != nil {
 		return nil, nil, err
 	}
-	_ = reglasEjemplo
-	rutasContratacion, autoridadContratacion, cerrarContratacion, err := nuevasRutasContratacionTemporalDesarrollo(
-		cfg, resolvedor, composicion.derivadorIdempotencia, composicion.emisorKMS, registro, incorporacion...,
+	// El plazo de respuesta del llamamiento de Contratación temporal lo rige el
+	// Reglamento de bolsas: se gobierna con el catálogo de reglas de Bolsa.
+	rutasContratacion, autoridadContratacion, cerrarContratacion, err := nuevasRutasContratacionTemporalDesarrolloConReglas(
+		cfg, resolvedor, composicion.derivadorIdempotencia, composicion.emisorKMS, registro, reglasEjemplo.bolsa, incorporacion...,
 	)
 	if err != nil {
 		return nil, nil, err

@@ -72,37 +72,39 @@ type registroDecisionesAnalisisContratacionTemporalDesarrollo interface {
 // solo para ejercitar los casos de uso reales. Todo su estado es efimero,
 // no_autoritativo y queda aislado por la composicion de doble llave.
 type soporteAltaContratacionTemporalDesarrollo struct {
-	origen                             *origenConsultasContratacionTemporalDesarrollo
-	peticionesCentro                   bool
-	candidatoBolsa                     bool
-	mu                                 sync.Mutex
-	sello                              *selloConsultasContratacionTemporalDesarrollo
-	principalID                        string
-	certificadoSHA256                  string
-	lectorConsultasRRHH                bool
-	tecnicoConsultaRRHH                bool
-	organizacionConsultaRRHH           string
-	claseAmbitoConsultaRRHH            ports.ClaseAmbitoConsultaRRHH
-	ambitoConsultaRRHH                 string
-	contexto                           ports.ContextoAutorizacionAltaV3
-	contextoEsperadoRegistrado         dominiovec.ResultadoContextoActorRegistradoV2
-	sesionOperativa                    proveedorSesionOperativaCTDesarrollo
-	flujo                              ports.ConfiguracionAltaFlujo
-	motivo                             dominiovec.ReferenciaEntradaCatalogo
-	instantanea                        dominiovec.InstantaneaAutorizacion
-	instantaneaAnalisis                dominiovec.InstantaneaAutorizacion
-	motivoRegistroAnalisis             dominiovec.ReferenciaEntradaCatalogo
-	motivoRectificacionAnalisis        dominiovec.ReferenciaEntradaCatalogo
-	instantaneaCobertura               dominiovec.InstantaneaAutorizacion
-	instantaneaAsignacion              dominiovec.InstantaneaAutorizacion
-	instantaneaInformeJuridico         dominiovec.InstantaneaAutorizacion
-	instantaneaLlamamiento             dominiovec.InstantaneaAutorizacion
-	instantaneaReanudacionLlamamiento  dominiovec.InstantaneaAutorizacion
-	instantaneaComunicacion            dominiovec.InstantaneaAutorizacion
-	instantaneaCorreo                  dominiovec.InstantaneaAutorizacion
-	instantaneaRespuestaRecibida       dominiovec.InstantaneaAutorizacion
-	instantaneaConsultaJustificante    dominiovec.InstantaneaAutorizacion
-	instantaneaResolucionManual        dominiovec.InstantaneaAutorizacion
+	origen                            *origenConsultasContratacionTemporalDesarrollo
+	peticionesCentro                  bool
+	candidatoBolsa                    bool
+	mu                                sync.Mutex
+	sello                             *selloConsultasContratacionTemporalDesarrollo
+	principalID                       string
+	certificadoSHA256                 string
+	lectorConsultasRRHH               bool
+	tecnicoConsultaRRHH               bool
+	organizacionConsultaRRHH          string
+	claseAmbitoConsultaRRHH           ports.ClaseAmbitoConsultaRRHH
+	ambitoConsultaRRHH                string
+	contexto                          ports.ContextoAutorizacionAltaV3
+	contextoEsperadoRegistrado        dominiovec.ResultadoContextoActorRegistradoV2
+	sesionOperativa                   proveedorSesionOperativaCTDesarrollo
+	flujo                             ports.ConfiguracionAltaFlujo
+	motivo                            dominiovec.ReferenciaEntradaCatalogo
+	instantanea                       dominiovec.InstantaneaAutorizacion
+	instantaneaAnalisis               dominiovec.InstantaneaAutorizacion
+	motivoRegistroAnalisis            dominiovec.ReferenciaEntradaCatalogo
+	motivoRectificacionAnalisis       dominiovec.ReferenciaEntradaCatalogo
+	instantaneaCobertura              dominiovec.InstantaneaAutorizacion
+	instantaneaAsignacion             dominiovec.InstantaneaAutorizacion
+	instantaneaInformeJuridico        dominiovec.InstantaneaAutorizacion
+	instantaneaLlamamiento            dominiovec.InstantaneaAutorizacion
+	instantaneaReanudacionLlamamiento dominiovec.InstantaneaAutorizacion
+	instantaneaComunicacion           dominiovec.InstantaneaAutorizacion
+	instantaneaCorreo                 dominiovec.InstantaneaAutorizacion
+	instantaneaRespuestaRecibida      dominiovec.InstantaneaAutorizacion
+	instantaneaConsultaJustificante   dominiovec.InstantaneaAutorizacion
+	instantaneaResolucionManual       dominiovec.InstantaneaAutorizacion
+	// reglasPlazo se fija al componer, antes de servir, y no cambia después.
+	reglasPlazo                        ports.ReglasPlazoRespuestaLlamamiento
 	instantaneaAceptacionBolsa         dominiovec.InstantaneaAutorizacion
 	instantaneaRenunciaBolsa           dominiovec.InstantaneaAutorizacion
 	instantaneaContinuacionCT          dominiovec.InstantaneaAutorizacion

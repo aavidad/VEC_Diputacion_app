@@ -126,7 +126,8 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 				return dominiovec.InstantaneaAutorizacion{}, false
 			}
 		}
-		if ruta == httpinterno.RutaResolucionComunicacionLlamamiento || ruta == httpinterno.RutaContinuacionLlamamiento {
+		if ruta == httpinterno.RutaResolucionComunicacionLlamamiento || ruta == httpinterno.RutaContinuacionLlamamiento ||
+			ruta == httpinterno.RutaEventoPlazoLlamamiento {
 			s.mu.Lock()
 			switch datos.Accion {
 			case postgrescontratacion.AccionConsultaJustificanteRespuestaRecibida:

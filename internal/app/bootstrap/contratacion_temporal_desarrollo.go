@@ -21,6 +21,7 @@ import (
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
+	"vec-diputacion-granada/internal/vec/reglas"
 )
 
 const (
@@ -204,6 +205,26 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	func(),
 	error,
 ) {
+	return nuevasRutasContratacionTemporalDesarrolloConReglas(cfg, resolvedor, derivador, kms, registro, nil, incorporacion...)
+}
+
+// nuevasRutasContratacionTemporalDesarrolloConReglas recibe el catálogo de
+// reglas que gobierna el plazo de respuesta del llamamiento. Sin catálogo el
+// registro de plazos responde «reglas no disponibles» y nunca supone plazos.
+func nuevasRutasContratacionTemporalDesarrolloConReglas(
+	cfg config.Config,
+	resolvedor vechttp.DemoIdentityResolver,
+	derivador *derivadorIdentidadOperacionDesarrollo,
+	kms *emisorKMSDesarrollo,
+	registro io.Writer,
+	reglasLlamamiento *reglas.Resolutor,
+	incorporacion ...ConfiguracionIncorporacionDesarrollo,
+) (
+	[]vechttp.RutaExacta,
+	*autoridadConsultasContratacionTemporalDesarrollo,
+	func(),
+	error,
+) {
 	if len(incorporacion) > 1 || (len(incorporacion) != 0 && cfg.IncorporacionV2File != "") {
 		return nil, nil, nil, ErrComposicionDesarrolloIncompleta
 	}
@@ -232,6 +253,7 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	alta.soporte.reglasPlazo = reglasPlazoLlamamientoDesarrollo{resolutor: reglasLlamamiento}
 	cerrarAlta := true
 	defer func() {
 		if cerrarAlta {
@@ -330,12 +352,17 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	var propuestaReal httpinterno.EjecutorPropuestaFormalizacion = noCompuesta
 	var comunicacionReal http.Handler
 	var respuestaRecibidaReal http.Handler
+	var eventoPlazoReal http.Handler
 	if alta.postgresql.bolsa != nil {
 		seleccionReal, comunicacionReal, err = nuevasDependenciasLlamamientoContratacionTemporalDesarrollo(cfg, &alta, derivador, reloj, origen.etiquetasReferenciasCatalogosAlta())
 		if err != nil {
 			return nil, nil, nil, err
 		}
 		respuestaRecibidaReal, err = nuevoManejadorRespuestaRecibidaDesarrollo(&alta, reloj)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		eventoPlazoReal, err = nuevoManejadorEventoPlazoDesarrollo(&alta, reloj)
 		if err != nil {
 			return nil, nil, nil, err
 		}
@@ -544,6 +571,9 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	}
 	if respuestaRecibidaReal != nil {
 		rutas = append(rutas, vechttp.RutaExacta{Ruta: httpinterno.RutaRegistroRespuestaRecibida, Manejador: respuestaRecibidaReal})
+	}
+	if eventoPlazoReal != nil {
+		rutas = append(rutas, vechttp.RutaExacta{Ruta: httpinterno.RutaEventoPlazoLlamamiento, Manejador: eventoPlazoReal})
 	}
 	rutasBorrador := []vechttp.RutaExacta(nil)
 	coleccionesBorrador := []vechttp.RutaColeccion(nil)
