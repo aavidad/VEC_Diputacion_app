@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 	cronosapp "vec-diputacion-granada/internal/modules/cronos/application"
@@ -36,16 +37,16 @@ func (tx *txGobiernoContinuidadPrueba) QueryRow(
 			*destinos[0].(*int64) = 1
 			*destinos[1].(*int64) = 1
 			return nil
-		case strings.Contains(sql, "c.audiencia_consumo IN"):
-			if len(args) != 55 {
-				return errors.New("numero de audiencias de gobierno inesperado")
+		case strings.Contains(sql, "c.audiencia_consumo = ANY($2::text[])"):
+			// Una sola lista nominal, la misma que usa el publicador.
+			if len(args) != 2 || args[0] != audienciaAtestacionContratacionTemporalDesarrollo {
+				return errors.New("argumentos de gobierno inesperados")
 			}
-			admitida := false
-			for _, indice := range []int{0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54} {
-				if args[indice] == tx.audienciaActual {
-					admitida = true
-				}
+			lista, ok := args[1].([]string)
+			if !ok || !slices.Equal(lista, audienciasConsumoGobiernoCTDesarrollo()) {
+				return errors.New("lista de audiencias de gobierno inesperada")
 			}
+			admitida := slices.Contains(lista, tx.audienciaActual)
 			*destinos[0].(*bool) = admitida
 			return nil
 		default:
@@ -174,5 +175,44 @@ func TestAudienciasCronosPublicablesPorElGobiernoCT(t *testing.T) {
 	}
 	if _, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(append(descriptoresMaterialDietasDesarrollo(), descriptores...)); err != nil {
 		t.Fatal("Cronos colisiona con Dietas en el catálogo común", err)
+	}
+}
+
+// Todo consumidor que vec-server puede publicar desde el catálogo común debe
+// reconocerse después como gobierno propio cuando queda en el puntero de
+// emisión vigente. Si el publicador lo admite y la comprobación no, la
+// publicación siguiente (otro consumidor o un reinicio) cae como «ajeno».
+func TestTodoConsumidorPublicableDejaElGobiernoPropio(t *testing.T) {
+	var descriptores []descriptorMaterialConsumidorV3Desarrollo
+	descriptores = append(descriptores, descriptoresMaterialAutorizacionContratacionTemporalDesarrollo()...)
+	descriptores = append(descriptores, descriptoresMaterialBorradorLlamamientoBolsaDesarrollo()...)
+	descriptores = append(descriptores, descriptorMaterialMiBolsaDesarrollo())
+	descriptores = append(descriptores, descriptoresMaterialDietasDesarrollo()...)
+	descriptores = append(descriptores, descriptoresMaterialCronosDesarrollo()...)
+	descriptores = append(descriptores, descriptoresMaterialCronosResolucionDesarrollo()...)
+	descriptores = append(descriptores, descriptoresMaterialCronosNotificacionesDesarrollo()...)
+	descriptores = append(descriptores, descriptoresMaterialDocumentosDesarrollo()...)
+	descriptores = append(descriptores, descriptorMaterialFichaPropiaPersonalDesarrollo())
+	descriptores = append(descriptores, descriptoresMaterialPersonalB2Desarrollo()...)
+	if _, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(descriptores); err != nil {
+		t.Fatal("el catálogo común completo colisiona", err)
+	}
+	for _, d := range descriptores {
+		if !audienciaConsumoGobiernoPostgreSQLContratacionTemporalDesarrolloEsPropia(d.Audiencia) {
+			t.Fatalf("el publicador rechaza un consumidor del catálogo: %s", d.Audiencia)
+		}
+		propio, err := gobiernoActualPostgreSQLContratacionTemporalDesarrolloEsPropio(
+			context.Background(), &txGobiernoContinuidadPrueba{audienciaActual: d.Audiencia},
+		)
+		if err != nil || !propio {
+			t.Fatalf("gobierno ajeno tras publicar %s: propio=%t err=%v", d.Audiencia, propio, err)
+		}
+	}
+	vistas := map[string]bool{}
+	for _, a := range audienciasConsumoGobiernoCTDesarrollo() {
+		if a == "" || vistas[a] {
+			t.Fatalf("lista de audiencias de gobierno con vacía o repetida: %q", a)
+		}
+		vistas[a] = true
 	}
 }
