@@ -110,6 +110,16 @@ Para B6, tras instalar `000018` en una réplica sintética, ejecutar además
 pausa, retorno tras contrato, recolocación al final, una sola fila append-only
 y denegación de lectura directa al ejecutor.
 
+Para la política de transiciones B2 (`000032`), tras instalar `000019` y
+`000032` en una réplica sintética con una participación disponible, ejecutar
+`pruebas_sql/b2_politica_transiciones.sql` como superusuario. También se
+revierte completa: comprueba que la versión 1 es el literal de `000012`, que
+publicar la política del Reglamento cierra `renuncia→disponible` y abre
+`renuncia→no_disponible` (también por B8 «pausar»), las invariantes fijas, la
+publicación idempotente, el solo-adición y las ACL. Sustituye dentro de la
+transacción el consumidor de autorización V3 por un doble; la autorización
+tiene sus propias pruebas. `000032` no modifica situaciones ya registradas.
+
 El script usa PostgreSQL fijado por imagen y digest, verifica ACL negativas,
 RLS, `SECURITY DEFINER`, claves de idempotencia y una carrera real por la misma
 necesidad. Los datos sinteticos se insertan unicamente como propietario en la
