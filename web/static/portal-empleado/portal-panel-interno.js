@@ -7,7 +7,7 @@
  * Recibe las utilidades visuales para mantener este módulo puro y comprobable
  * sin acceder al DOM global.
  */
-import { traducirBolsaInterna, traducirPortal } from "./portal-i18n.js";
+import { traducirBolsaInterna, traducirPortal } from "./portal-i18n.js?v=20260925-tanda2-v1";
 import { renderizarBloqueAvisos } from "./portal-bolsas-avisos.js?v=20260925-aspecto-v1";
 import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260923-pweb14-v1";
 import { icono } from "../comun/iconos-vec.js?v=20260925-aspecto-v1";

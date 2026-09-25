@@ -194,10 +194,11 @@ function renderizarModulo(modulo, acceso, escaparHTML, traducir) {
   // recorrido visual o a un adaptador compuesto. La tarjeta lo deja visible,
   // sin deducirlo de un menú ni convertir una pantalla en una conexión real.
   const presentacion = habilitado && acceso?.presentacion === true;
+  const comprobando = fase === "cargando";
+  // Mientras su módulo carga, la tarjeta dice «Comprobando», no «no habilitado».
   const estado = etiquetaAcceso || (habilitado
     ? traducir("estado_modulo_disponible_perfil")
-    : traducir("estado_modulo_no_habilitado"));
-  const comprobando = fase === "cargando";
+    : traducir(comprobando ? "estado_modulo_comprobando" : "estado_modulo_no_habilitado"));
   const reintentar = fase === "error" && acceso?.reintentar === true;
   const etiquetaAccion = typeof acceso?.accion_etiqueta === "string" && acceso.accion_etiqueta.trim() !== ""
     ? acceso.accion_etiqueta

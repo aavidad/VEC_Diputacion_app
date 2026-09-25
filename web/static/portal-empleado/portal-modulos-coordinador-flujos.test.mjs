@@ -466,7 +466,7 @@ test("el cache busting de módulos avanza en cascada hasta el HTML", async () =>
   assert.doesNotMatch(portal, new RegExp(`portal-modulos-coordinador\\.js\\?v=${versionPersonalEstados}`));
   assert.doesNotMatch(portal, new RegExp(`portal-modulos-coordinador\\.js\\?v=${versionPersonalInterno}`));
   assert.match(coordinador, new RegExp(`portal-modulos-carga\\.js\\?v=${versionCarga}`));
-  assert.match(portal, new RegExp(`portal-bolsas-api\\.js\\?v=${versionModuloBolsa}`));
+  exigirRenovado(portal, "./portal-bolsas-api.js", versionModuloBolsa);
   exigirRenovado([portal, coordinador], "./portal-i18n.js", [versionEntradaAyuda, versionCronosPermisos]);
   exigirRenovado(portal, "./portal-eventos.js", versionEntradaAyuda);
   exigirRenovado([portal, coordinador], "./portal-inicio.js", versionCronosPermisos);

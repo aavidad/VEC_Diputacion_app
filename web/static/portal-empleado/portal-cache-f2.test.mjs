@@ -242,10 +242,9 @@ test("la integración B7 renueva controlador y presentador desde la entrada HTML
   for (const [recurso, previa] of versionesAnteriores) {
     const codigo = recurso === "portal.js" ? html : portal;
     const prefijo = recurso === "portal.js" ? "/portal-empleado/" : "./";
-    // portal-bolsas-api.js no ha cambiado desde B7 y conserva su URL; entrada y
-    // panel interno sí, y piden una posterior.
-    const nueva = exigirVersiones(codigo, prefijo + recurso,
-      recurso === "portal-bolsas-api.js" ? versionEntradaAyuda : posterior(versionEntradaAyuda));
+    // Entrada, panel interno y controlador (que ahora importa i18n con la misma
+    // URL que el resto del portal) cambiaron después y piden una posterior.
+    const nueva = exigirVersiones(codigo, prefijo + recurso, posterior(versionEntradaAyuda));
     assert.notEqual(nueva, previa, recurso);
     assert.ok(!codigo.includes(`${prefijo}${recurso}?v=${previa}`), `${recurso}: no queda URL antigua`);
     const url = `${recurso}?v=${nueva}`;

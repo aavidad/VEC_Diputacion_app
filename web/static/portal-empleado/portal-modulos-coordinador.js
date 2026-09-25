@@ -10,7 +10,7 @@ import {
   renderizarNavegacionModulos,
 } from "./portal-catalogo-modulos.js?v=20260925-catalogo-v1";
 import { traducirPortal } from "./portal-i18n.js?v=20260925-tanda2-v1";
-import { calcularMetricasCuadro, tramitesParaInicio } from "./portal-inicio.js?v=20260925-tanda2-v1";
+import { calcularMetricasCuadro, tramitesParaInicio } from "./portal-inicio.js?v=20260925-carga-rapida-v1";
 import {
   componerCronosInterno,
   componerDietasInternas,
@@ -147,22 +147,30 @@ export function crearCoordinadorModulosPortal({
   let referenciaElaboracionMontada = "";
   let secuenciaMontaje = 0;
   let secuenciaCarga = 0;
-  let controladorCargaInterna = null;
+  // Consultas de red de la carga en curso: los módulos se cargan en paralelo,
+  // así que puede haber varias a la vez. Sustituir la carga las aborta todas.
+  const controladoresCarga = new Set();
 
   function cancelarCargaInterna() {
-    if (controladorCargaInterna === null) return;
+    if (controladoresCarga.size === 0) return;
     secuenciaCarga += 1;
-    controladorCargaInterna.abort();
-    controladorCargaInterna = null;
+    for (const controlador of controladoresCarga) controlador.abort();
+    controladoresCarga.clear();
   }
 
-  function desmontarVistaActual() {
+  // Retira la vista montada sin tocar la composición de módulos: cambiar de
+  // vista (o repintar Inicio) mientras aún cargan otros módulos no los cancela.
+  function retirarVistaMontada() {
     secuenciaMontaje += 1;
     if (typeof desmontarVista === "function") desmontarVista();
     desmontarVista = null;
     vistaMontada = "";
     raizMontada = null;
     referenciaElaboracionMontada = "";
+  }
+
+  function desmontarVistaActual() {
+    retirarVistaMontada();
     cancelarCargaInterna();
   }
 
@@ -172,253 +180,249 @@ export function crearCoordinadorModulosPortal({
     return opciones.referencia === referenciaElaboracionMontada;
   }
 
-  async function cargarInterno() {
-    desmontarVistaActual();
+  function fetchDelEntorno() {
+    return typeof entorno.fetch === "function" ? entorno.fetch.bind(entorno) : undefined;
+  }
+
+  // En contratación temporal, el cuadro, los catálogos de alta y la configuración
+  // del análisis son consultas independientes; se piden a la vez.
+  async function cargarContratacionTemporal({ consultar, exigirVigente }) {
+    const recursos = await cargarModuloConLimite(
+      cargadoresInternos.contratacion_temporal,
+      CLAVE_CONTRATACION_TEMPORAL,
+      limiteCargaModularMs,
+      temporizadores,
+    );
+    exigirVigente();
+    const cliente = recursos.cliente.crearClienteHTTPContratacionTemporal({
+      fetchImpl: fetchDelEntorno(),
+      HeadersImpl: entorno.Headers,
+    });
+    let alta = null;
+    const fuente = recursos.adaptador
+      .crearAdaptadorHTTPExpedientesContratacionTemporal({
+        cliente, obtenerCatalogos: () => alta?.catalogos ?? null,
+      });
+    const [cuadro, catalogosAlta, configuracion] = await Promise.allSettled([
+      consultar((opciones) => fuente.listar(opciones)),
+      consultar((opciones) => cliente.obtenerCatalogosAlta(opciones)),
+      consultar((opciones) => cliente.obtenerConfiguracionAnalisis(opciones)),
+    ]);
+    exigirVigente();
+    const cuadroDisponible = cuadro.status === "fulfilled";
+    const listadoCuadro = cuadroDisponible ? cuadro.value : null;
+    if (catalogosAlta.status === "fulfilled") {
+      try {
+        alta = Object.freeze({
+          catalogos: recursos.contrato.validarCatalogosAlta(catalogosAlta.value),
+          capacidad: recursos.contrato.CAPACIDAD_CREAR_SOLICITUD,
+          ejecutor: cliente.registrarSolicitud,
+        });
+      } catch {
+        alta = null;
+      }
+    }
+    let analisis = null;
+    let subsanacion = null;
+    if (configuracion.status === "fulfilled") {
+      const configuracionAnalisis = configuracion.value;
+      try {
+        if (configuracionAnalisis.subsanacion_disponible === true
+          && typeof cliente.registrarSubsanacionReparos === "function") {
+          subsanacion = Object.freeze({ disponible: true, cliente });
+        }
+        analisis = Object.freeze({
+          cliente,
+          catalogos: Object.freeze({
+            modalidades: configuracionAnalisis.modalidades,
+            categorias: configuracionAnalisis.categorias,
+            causas: configuracionAnalisis.causas,
+            entradas_rc: configuracionAnalisis.entradas_rc,
+            motivos_rectificacion: configuracionAnalisis.motivos_rectificacion,
+          }),
+          contexto: Object.freeze({
+            operacion: "registrar",
+            artefacto_ref: configuracionAnalisis.artefacto_ref,
+          }),
+          analisisInicial: null,
+          ...(configuracionAnalisis.motivos_rectificacion.length > 0 ? {
+            rectificacion: Object.freeze({
+              operacion: "rectificar",
+              artefacto_ref: configuracionAnalisis.artefacto_ref,
+              analisisInicial: null,
+            }),
+          } : {}),
+        });
+      } catch {
+        analisis = null;
+      }
+    }
+    const fiscalizacion = alta === null && analisis === null
+      && typeof cliente.registrarResultadoFiscalizacion === "function"
+      && typeof recursos.vista.montarModuloFiscalizacionContratacionTemporal === "function"
+      ? Object.freeze({ cliente }) : null;
+    if (!cuadroDisponible && alta === null && fiscalizacion === null) {
+      throw new Error("contratación temporal no disponible");
+    }
+    return {
+      contratacionTemporal: Object.freeze({
+        crearPresentador: () => recursos.presentador
+          .crearPresentadorExpedientesContratacionTemporal({
+            fuente, capacidades: fuente.capacidades,
+            altaDisponible: alta !== null,
+          }),
+        alta,
+        analisis,
+        fiscalizacion,
+        subsanacion,
+        continuidad: fiscalizacion === null ? Object.freeze({ cliente }) : null,
+        obtenerMetricas: () => (listadoCuadro ? calcularMetricasCuadro(listadoCuadro) : null),
+        // Los nombres de centro y categoría se resuelven al pedirlo, con los
+        // catálogos de alta que hayan llegado.
+        obtenerTramitesInicio: () => {
+          if (!listadoCuadro) return null;
+          const etiqueta = (lista, referencia) => (Array.isArray(lista)
+            ? lista.find((opcion) => opcion.referencia === referencia)?.etiqueta : undefined) ?? referencia;
+          return tramitesParaInicio(listadoCuadro).map((e) => ({
+            ...e,
+            centro: etiqueta(alta?.catalogos?.centros, e.centro),
+            categoria: etiqueta(alta?.catalogos?.categorias, e.categoria),
+          }));
+        },
+        montar: recursos.vista.montarModuloContratacionTemporal,
+        montarFiscalizacion: recursos.vista.montarModuloFiscalizacionContratacionTemporal,
+      }),
+    };
+  }
+
+  async function cargarCronos({ exigirVigente }) {
+    const recursos = await cargarModuloConLimite(
+      cargadoresInternos.cronos || CARGADORES_INTERNOS_PREDETERMINADOS.cronos,
+      "cronos", limiteCargaModularMs, temporizadores,
+    );
+    exigirVigente();
+    // Falta cualquier montar* o cliente → undefined: falla cerrado.
+    const cronos = componerCronosInterno(recursos, entorno);
+    if (!cronos) throw new TypeError("vistas de Cronos no disponibles");
+    return { cronos };
+  }
+
+  async function cargarPersonal({ exigirVigente }) {
+    const recursos = await cargarModuloConLimite(
+      cargadoresInternos.personal || CARGADORES_INTERNOS_PREDETERMINADOS.personal,
+      CLAVE_PERSONAL, limiteCargaModularMs, temporizadores,
+    );
+    exigirVigente();
+    if (typeof recursos?.cliente?.crearClienteHTTPCategoriasPersonal !== "function"
+      || typeof recursos?.vista?.montarModuloPersonal !== "function"
+      || recursos?.contrato?.CAPACIDAD_CONSULTAR_PUESTO !== "personal.puesto.read") {
+      throw new TypeError("vista de Personal no disponible");
+    }
+    const personal = typeof recursos.ficha?.montarVistaFichaIntegralPersonal === "function"
+      ? componerPersonalVisible(recursos, entorno, { catalogosPublicos: false })
+      : Object.freeze({
+        cliente: recursos.cliente.crearClienteHTTPCategoriasPersonal({ fetchImpl: fetchDelEntorno() }),
+        montar: recursos.vista.montarModuloPersonal,
+      });
+    if (!personal) throw new TypeError("ficha de Personal no disponible");
+    // El registro RRHH es una vista aparte: si falta, Personal sigue.
+    return { personal, personalRegistro: componerRegistroPersonal(recursos, entorno) };
+  }
+
+  async function cargarDietas({ exigirVigente }) {
+    const recursos = await cargarModuloConLimite(
+      cargadoresInternos.dietas || CARGADORES_INTERNOS_PREDETERMINADOS.dietas,
+      "dietas", limiteCargaModularMs, temporizadores,
+    );
+    exigirVigente();
+    // El recorrido interno consume clientes HTTP del mismo origen.
+    const dietas = componerDietasInternas(recursos, entorno);
+    if (dietas === undefined) throw new TypeError("vista de Dietas no disponible");
+    return { dietas };
+  }
+
+  const CARGAS_MODULOS = Object.freeze({
+    [CLAVE_CONTRATACION_TEMPORAL]: cargarContratacionTemporal,
+    cronos: cargarCronos,
+    [CLAVE_PERSONAL]: cargarPersonal,
+    dietas: cargarDietas,
+  });
+
+  /**
+   * Carga el catálogo y, después, todos los módulos autorizados en paralelo.
+   * La composición se publica en cuanto llega el catálogo (módulos en estado
+   * «cargando») y se actualiza al terminar cada módulo; `alCambiar(clave)`
+   * avisa al shell para repintar. Un módulo lento o fallido no retrasa ni
+   * oculta a los demás: queda «no_disponible» por sí solo.
+   */
+  async function cargarInterno({ alCambiar = null } = {}) {
+    retirarVistaMontada();
+    cancelarCargaInterna();
     const carga = ++secuenciaCarga;
     composicion = null;
     catalogo = Object.freeze([]);
-    const controladorCatalogo = new AbortController();
-    controladorCargaInterna = controladorCatalogo;
+    const vigente = () => carga === secuenciaCarga;
+    const exigirVigente = () => {
+      if (!vigente()) throw new Error("carga interna sustituida");
+    };
+    const consultar = (consulta, operacion) => {
+      const controlador = new AbortController();
+      controladoresCarga.add(controlador);
+      return consultarConLimite(consulta, controlador, limiteCargaModularMs, temporizadores, operacion)
+        .finally(() => controladoresCarga.delete(controlador));
+    };
+    const notificar = (clave) => {
+      if (!vigente() || typeof alCambiar !== "function") return;
+      try { alCambiar(clave); } catch { /* un fallo al pintar no detiene la carga */ }
+    };
+
     let catalogoInterno;
     try {
-      catalogoInterno = await consultarConLimite(({ signal }) => {
+      catalogoInterno = await consultar(({ signal }) => {
         if (cargarCatalogoInterno !== null) return cargarCatalogoInterno(signal);
-        const fetchImpl = typeof entorno.fetch === "function"
-          ? entorno.fetch.bind(entorno) : globalThis.fetch;
+        const fetchImpl = fetchDelEntorno() ?? globalThis.fetch;
         return cargarCatalogoModulosInterno((ruta, opciones) => fetchImpl(ruta, {
           ...opciones, signal,
         }));
-      }, controladorCatalogo, limiteCargaModularMs, temporizadores, "cargar catálogo de módulos");
+      }, "cargar catálogo de módulos");
     } catch (error) {
-      if (carga !== secuenciaCarga) throw new Error("carga interna sustituida");
+      exigirVigente();
       throw error;
-    } finally {
-      if (controladorCargaInterna === controladorCatalogo) controladorCargaInterna = null;
     }
-    if (carga !== secuenciaCarga) throw new Error("carga interna sustituida");
+    exigirVigente();
     catalogo = catalogoInterno;
-    let contratacionTemporal;
-    let cronos;
-    let personal;
-    let personalRegistro;
-    let dietas;
-    if (catalogo.some(({ clave }) => clave === CLAVE_CONTRATACION_TEMPORAL)) {
+
+    const partes = {
+      contratacionTemporal: undefined,
+      cronos: undefined,
+      dietas: undefined,
+      personal: undefined,
+      personalRegistro: undefined,
+    };
+    const cargables = CLAVES_CARGA_MODULAR
+      .filter((clave) => catalogo.some((modulo) => modulo.clave === clave));
+    const estados = Object.fromEntries(CLAVES_CARGA_MODULAR
+      .map((clave) => [clave, cargables.includes(clave) ? "cargando" : "no_disponible"]));
+    const publicar = () => {
+      composicion = Object.freeze({ ...partes, estadosModulos: Object.freeze({ ...estados }) });
+    };
+    publicar();
+    notificar("catalogo");
+
+    await Promise.allSettled(cargables.map(async (clave) => {
+      let resultado;
       try {
-        const recursos = await cargarModuloConLimite(
-          cargadoresInternos.contratacion_temporal,
-          CLAVE_CONTRATACION_TEMPORAL,
-          limiteCargaModularMs,
-          temporizadores,
-        );
-        if (carga !== secuenciaCarga) throw new Error("carga interna sustituida");
-        const cliente = recursos.cliente.crearClienteHTTPContratacionTemporal({
-          fetchImpl: typeof entorno.fetch === "function"
-            ? entorno.fetch.bind(entorno) : undefined,
-          HeadersImpl: entorno.Headers,
-        });
-        let alta = null;
-        const fuente = recursos.adaptador
-          .crearAdaptadorHTTPExpedientesContratacionTemporal({
-            cliente, obtenerCatalogos: () => alta?.catalogos ?? null,
-          });
-        const controladorConsulta = new AbortController();
-        controladorCargaInterna = controladorConsulta;
-        let cuadroDisponible = false;
-        let listadoCuadro = null;
-        try {
-          listadoCuadro = await consultarConLimite(
-            (opciones) => fuente.listar(opciones),
-            controladorConsulta,
-            limiteCargaModularMs,
-            temporizadores,
-          );
-          cuadroDisponible = true;
-        } catch {
-          if (carga !== secuenciaCarga) throw new Error("carga interna sustituida");
-        } finally {
-          if (controladorCargaInterna === controladorConsulta) controladorCargaInterna = null;
-        }
-        if (carga !== secuenciaCarga) throw new Error("carga interna sustituida");
-        const controladorCatalogos = new AbortController();
-        controladorCargaInterna = controladorCatalogos;
-        try {
-          const catalogos = recursos.contrato.validarCatalogosAlta(
-            await consultarConLimite(
-              (opciones) => cliente.obtenerCatalogosAlta(opciones),
-              controladorCatalogos,
-              limiteCargaModularMs,
-              temporizadores,
-            ),
-          );
-          if (carga !== secuenciaCarga) throw new Error("carga interna sustituida");
-          alta = Object.freeze({
-            catalogos,
-            capacidad: recursos.contrato.CAPACIDAD_CREAR_SOLICITUD,
-            ejecutor: cliente.registrarSolicitud,
-          });
-        } catch {
-          if (carga !== secuenciaCarga) throw new Error("carga interna sustituida");
-        } finally {
-          if (controladorCargaInterna === controladorCatalogos) {
-            controladorCargaInterna = null;
-          }
-        }
-        let analisis = null;
-        let subsanacion = null;
-        const controladorAnalisis = new AbortController();
-        controladorCargaInterna = controladorAnalisis;
-        try {
-          const configuracionAnalisis = await consultarConLimite(
-            (opciones) => cliente.obtenerConfiguracionAnalisis(opciones),
-            controladorAnalisis,
-            limiteCargaModularMs,
-            temporizadores,
-          );
-          if (carga !== secuenciaCarga) throw new Error("carga interna sustituida");
-          if (configuracionAnalisis.subsanacion_disponible === true
-            && typeof cliente.registrarSubsanacionReparos === "function") {
-            subsanacion = Object.freeze({ disponible: true, cliente });
-          }
-          analisis = Object.freeze({
-            cliente,
-            catalogos: Object.freeze({
-              modalidades: configuracionAnalisis.modalidades,
-              categorias: configuracionAnalisis.categorias,
-              causas: configuracionAnalisis.causas,
-              entradas_rc: configuracionAnalisis.entradas_rc,
-              motivos_rectificacion: configuracionAnalisis.motivos_rectificacion,
-            }),
-            contexto: Object.freeze({
-              operacion: "registrar",
-              artefacto_ref: configuracionAnalisis.artefacto_ref,
-            }),
-            analisisInicial: null,
-            ...(configuracionAnalisis.motivos_rectificacion.length > 0 ? {
-              rectificacion: Object.freeze({
-                operacion: "rectificar",
-                artefacto_ref: configuracionAnalisis.artefacto_ref,
-                analisisInicial: null,
-              }),
-            } : {}),
-          });
-        } catch {
-          if (carga !== secuenciaCarga) throw new Error("carga interna sustituida");
-        } finally {
-          if (controladorCargaInterna === controladorAnalisis) {
-            controladorCargaInterna = null;
-          }
-        }
-        const fiscalizacion = alta === null && analisis === null
-          && typeof cliente.registrarResultadoFiscalizacion === "function"
-          && typeof recursos.vista.montarModuloFiscalizacionContratacionTemporal === "function"
-          ? Object.freeze({ cliente }) : null;
-        if (!cuadroDisponible && alta === null && fiscalizacion === null) {
-          throw new Error("contratación temporal no disponible");
-        }
-        contratacionTemporal = Object.freeze({
-          crearPresentador: () => recursos.presentador
-            .crearPresentadorExpedientesContratacionTemporal({
-              fuente, capacidades: fuente.capacidades,
-              altaDisponible: alta !== null,
-            }),
-          alta,
-          analisis,
-          fiscalizacion,
-          subsanacion,
-          continuidad: fiscalizacion === null ? Object.freeze({ cliente }) : null,
-          obtenerMetricas: () => (listadoCuadro ? calcularMetricasCuadro(listadoCuadro) : null),
-          // El listado inicial se carga antes que los catálogos: los nombres de
-          // centro y categoría se resuelven al pedirlo, con lo que haya llegado.
-          obtenerTramitesInicio: () => {
-            if (!listadoCuadro) return null;
-            const etiqueta = (lista, referencia) => (Array.isArray(lista)
-              ? lista.find((opcion) => opcion.referencia === referencia)?.etiqueta : undefined) ?? referencia;
-            return tramitesParaInicio(listadoCuadro).map((e) => ({
-              ...e,
-              centro: etiqueta(alta?.catalogos?.centros, e.centro),
-              categoria: etiqueta(alta?.catalogos?.categorias, e.categoria),
-            }));
-          },
-          montar: recursos.vista.montarModuloContratacionTemporal,
-          montarFiscalizacion: recursos.vista.montarModuloFiscalizacionContratacionTemporal,
-        });
+        resultado = await CARGAS_MODULOS[clave]({ consultar, exigirVigente });
       } catch {
-        contratacionTemporal = undefined;
+        resultado = undefined;
       }
-    }
-    if (catalogo.some(({ clave }) => clave === "cronos")) {
-      try {
-        const recursos = await cargarModuloConLimite(
-          cargadoresInternos.cronos || CARGADORES_INTERNOS_PREDETERMINADOS.cronos,
-          "cronos", limiteCargaModularMs, temporizadores,
-        );
-        if (carga !== secuenciaCarga) throw new Error("carga interna sustituida");
-        // Falta cualquier montar* o cliente → undefined: falla cerrado.
-        cronos = componerCronosInterno(recursos, entorno);
-        if (!cronos) throw new TypeError("vistas de Cronos no disponibles");
-      } catch {
-        cronos = undefined;
-      }
-    }
-    if (catalogo.some(({ clave }) => clave === CLAVE_PERSONAL)) {
-      try {
-        const cargarPersonal = cargadoresInternos.personal
-          || CARGADORES_INTERNOS_PREDETERMINADOS.personal;
-        const recursos = await cargarModuloConLimite(
-          cargarPersonal, CLAVE_PERSONAL, limiteCargaModularMs, temporizadores,
-        );
-        if (carga !== secuenciaCarga) throw new Error("carga interna sustituida");
-        if (typeof recursos?.cliente?.crearClienteHTTPCategoriasPersonal !== "function"
-          || typeof recursos?.vista?.montarModuloPersonal !== "function"
-          || recursos?.contrato?.CAPACIDAD_CONSULTAR_PUESTO !== "personal.puesto.read") {
-          throw new TypeError("vista de Personal no disponible");
-        }
-        personal = typeof recursos.ficha?.montarVistaFichaIntegralPersonal === "function"
-          ? componerPersonalVisible(recursos, entorno, { catalogosPublicos: false })
-          : Object.freeze({
-            cliente: recursos.cliente.crearClienteHTTPCategoriasPersonal({
-              fetchImpl: typeof entorno.fetch === "function" ? entorno.fetch.bind(entorno) : undefined,
-            }),
-            montar: recursos.vista.montarModuloPersonal,
-          });
-        if (!personal) throw new TypeError("ficha de Personal no disponible");
-        // El registro RRHH es una vista aparte: si falta, Personal sigue.
-        personalRegistro = componerRegistroPersonal(recursos, entorno);
-      } catch {
-        personal = undefined;
-        personalRegistro = undefined;
-      }
-    }
-    if (catalogo.some(({ clave }) => clave === "dietas")) {
-      try {
-        const cargarDietas = cargadoresInternos.dietas
-          || CARGADORES_INTERNOS_PREDETERMINADOS.dietas;
-        const recursos = await cargarModuloConLimite(
-          cargarDietas, "dietas", limiteCargaModularMs, temporizadores,
-        );
-        if (carga !== secuenciaCarga) throw new Error("carga interna sustituida");
-        // El recorrido interno consume clientes HTTP del mismo origen.
-        dietas = componerDietasInternas(recursos, entorno);
-        if (dietas === undefined) throw new TypeError("vista de Dietas no disponible");
-      } catch {
-        dietas = undefined;
-      }
-    }
-    if (carga !== secuenciaCarga) throw new Error("carga interna sustituida");
-    composicion = Object.freeze({
-      contratacionTemporal,
-      cronos,
-      dietas,
-      personal,
-      personalRegistro,
-      estadosModulos: Object.freeze({
-        contratacion_temporal: contratacionTemporal === undefined
-          ? "no_disponible" : "disponible",
-        cronos: cronos === undefined ? "no_disponible" : "disponible",
-        dietas: dietas === undefined ? "no_disponible" : "disponible",
-        personal: personal === undefined ? "no_disponible" : "disponible",
-      }),
-    });
+      if (!vigente()) return;
+      if (resultado) Object.assign(partes, resultado);
+      estados[clave] = resultado ? "disponible" : "no_disponible";
+      publicar();
+      notificar(clave);
+    }));
+    exigirVigente();
   }
 
   function obtenerCatalogo() {
@@ -473,6 +477,10 @@ export function crearCoordinadorModulosPortal({
     if (clave === CLAVE_PERSONAL && vistaDisponible("personal")) {
       return Object.freeze({ disponible: true, vista: "personal",
         etiqueta: traducir("personal_catalogo_profesional") });
+    }
+    // Mientras su carga sigue en curso, la tarjeta y el menú dicen «Comprobando».
+    if (composicion?.estadosModulos?.[clave] === "cargando") {
+      return Object.freeze({ disponible: false, vista: "", estado: "cargando" });
     }
     if (clave === CLAVE_CONTRATACION_TEMPORAL
       && catalogo.some((modulo) => modulo.clave === CLAVE_CONTRATACION_TEMPORAL)) {
@@ -529,7 +537,7 @@ export function crearCoordinadorModulosPortal({
       throw new TypeError("raíz del módulo no válida");
     }
     if (reutilizarElaboracion(vista, raiz, opciones)) return true;
-    desmontarVistaActual();
+    retirarVistaMontada();
     const montaje = ++secuenciaMontaje;
     if (vista === "elaboracion") {
       vistaMontada = vista;
@@ -748,6 +756,7 @@ export function crearCoordinadorModulosPortal({
     obtenerMetricasCuadro,
     renderizarNavegacion,
     resolverAcceso,
+    retirarVistaMontada,
     vistaGestionada,
     vistaDisponible,
   });

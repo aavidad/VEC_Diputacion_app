@@ -91,7 +91,7 @@ function panelInternoReal() {
 test("la carga inicial usa solo las APIs de Bolsa que están compuestas", () => {
   assert.doesNotMatch(javascript, /\/api\/vec\/bolsa\/panel/);
   assert.doesNotMatch(javascript, /const cargaDisponibilidad = superficieBorradores/);
-  assert.match(javascript, /await coordinadorModulos\.cargarInterno\(\)\.catch/);
+  assert.match(javascript, /await coordinadorModulos\.cargarInterno\([^)]*\)\.catch/);
   assert.match(javascript, /controladorBolsas\.cargarBolsas\(\)/);
   // same-origin es obligatorio para presentar el certificado mTLS (y la
   // autenticación de la demo en el proxy); include enviaría credenciales a otros orígenes.
@@ -290,7 +290,7 @@ test("el coordinador respeta DEC-051 y carga el presentador con versión de cach
   exigirRenovado(javascript, "./portal-inicio.js", "20260924-f2-cronos-permisos-v2");
   exigirRenovado(javascript, "./portal-i18n.js", "20260924-rescate-web-v4");
   assert.match(javascript, /traducirPortal\("error_catalogo_modulos"\)/);
-  assert.match(javascript, /portal-bolsas-api\.js\?v=20260924-rescate-web-v4/);
+  exigirRenovado(javascript, "./portal-bolsas-api.js", "20260924-rescate-web-v4");
   exigirRenovado(javascript, "./portal-borradores-ui.js", "20260924-f2-cronos-permisos-v2");
   exigirRenovado(javascript, "./portal-eventos.js", "20260924-rescate-web-v4");
   assert.doesNotMatch(javascript, /import\("\.\/portal-resumen-presentacion\.js/);

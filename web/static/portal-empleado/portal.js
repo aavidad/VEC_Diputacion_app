@@ -1,19 +1,19 @@
-import { crearControladorPortal } from "./portal-eventos.js?v=20260925-tanda2-v1";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20260925-aspecto-v1";
+import { crearControladorPortal } from "./portal-eventos.js?v=20260925-carga-rapida-v1";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20260925-carga-rapida-v1";
 import { extraerDatosEnvelopeCanonico } from "./portal-contrato.js?v=20260925-sin-demo2-v1";
 import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?v=20260718-llamamientos-v1";
 import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20260925-sin-demo-v1";
 import { AYUDA_PORTAL_BOLSA, detectarContextoContratacionTemporal, obtenerAyudaContratacionTemporal, renderizarAyudaContratacionTemporal } from "./ayuda-contenido.js?v=20260925-tanda2-v1";
 import { crearAyudanteTramites } from "./ayudante-tramites.js?v=20260925-tanda2-v1";
 import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20260925-tanda2-v1";
-import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20260720-pulido-escritorio-v2";
+import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20260925-carga-rapida-v1";
 import { crearVistasOperaciones } from "./portal-vistas-operaciones.js?v=20260924-f2-shell-v1";
-import { crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260925-catalogo-v1";
+import { crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260925-carga-rapida-v1";
 import { crearTraductorPersonal } from "./modulos/personal/i18n.js?v=20260925-b2-sin-refs-v1";
-import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260925-tanda2-v1";
+import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260925-carga-rapida-v1";
 import { accesoBolsaEfectivo, instalarMenuBolsa, resumenAccesosModulos, sincronizarMenuBolsa, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260924-f2-shell-v1";
 import { traducirPortal } from "./portal-i18n.js?v=20260925-tanda2-v1";
-import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20260924-rescate-web-v4";
+import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20260925-carga-rapida-v1";
 import { crearSuperficieBorradorLlamamiento } from "./portal-borrador-llamamiento-ui.js?v=20260921-bback01-v1";
 import { consultarAvisosBolsa, manejarAccionAvisos } from "./portal-bolsas-avisos.js?v=20260925-aspecto-v1";
 const TAMANO_PAGINA_MARCO = 6; const tablasPaginadas = new WeakMap(); export function calcularPaginaMarco(total, paginaSolicitada, tamano = TAMANO_PAGINA_MARCO) { const cantidad = Number.isSafeInteger(total) && total > 0 ? total : 0; const medida = Number.isSafeInteger(tamano) && tamano > 0 ? tamano : TAMANO_PAGINA_MARCO; const paginas = Math.max(1, Math.ceil(cantidad / medida)); const pagina = Math.min(Math.max(Number.isSafeInteger(paginaSolicitada) ? paginaSolicitada : 1, 1), paginas); const inicio = cantidad === 0 ? 0 : ((pagina - 1) * medida) + 1; const fin = Math.min(pagina * medida, cantidad); return Object.freeze({ total: cantidad, tamano: medida, paginas, pagina, inicio, fin }); } function navegadorRemotoDeTabla(contenedor) { const padre = contenedor.parentElement; return padre?.querySelector(":scope > .ct-exp-paginacion, :scope > .paginacion-bolsa, :scope > nav[aria-label*='aginación'], :scope > nav[aria-label*='aginacion']") || null; } function botonesPaginaMarco(calculo) {
@@ -271,9 +271,32 @@ function actualizarSesionVisible() {
     avisos.setAttribute("aria-label", "Avisos pendientes sin resolver");
   }
 }
+// Repinta en cuanto llega el catálogo y cada vez que termina un módulo: Inicio
+// muestra las tarjetas con «Comprobando» y cada una se actualiza sola. Una vista
+// de módulo pedida por el enlace se monta en cuanto su módulo está listo.
+function alCambiarModulos(clave) {
+  if (estado.vista === "portal") { renderizarConservandoFoco(); return; }
+  if (clave !== "catalogo" && moduloActivoDeVista(estado.vista) === clave
+    && estado.vistaMontada !== estado.vista) {
+    renderizar();
+    return;
+  }
+  actualizarNavegacionModulos();
+}
+function renderizarConservandoFoco() {
+  const activo = document.activeElement;
+  const contenedor = porId("espacio-trabajo");
+  const tarjeta = contenedor && activo && contenedor.contains(activo)
+    ? activo.closest("[data-modulo-catalogo]")?.dataset.moduloCatalogo : "";
+  renderizar();
+  if (!tarjeta) return;
+  const destino = contenedor.querySelector(`[data-modulo-catalogo="${tarjeta}"]`);
+  (destino?.querySelector("button:not([disabled])") || destino)?.focus?.({ preventScroll: true });
+}
 async function cargarFuenteDatos() {
   estado.errorFuente = "";
-  await coordinadorModulos.cargarInterno().catch(() => { estado.errorFuente = traducirPortal("error_catalogo_modulos"); });
+  estado.vistaMontada = "";
+  await coordinadorModulos.cargarInterno({ alCambiar: alCambiarModulos }).catch(() => { estado.errorFuente = traducirPortal("error_catalogo_modulos"); });
   // Borradores comprueba su API al abrir la vista. El cuadro de bolsas usa su propia API compuesta.
   if (requiereLecturaBolsas(estado.vista)) void controladorBolsas.cargarBolsas();
   actualizarNavegacionModulos();
@@ -449,7 +472,8 @@ function renderizar() {
   sincronizarMenuBolsa(porId("navegacion-bolsa"), estado.vista);
   if (coordinadorModulos.vistaGestionada(estado.vista)) {
     if (!coordinadorModulos.vistaDisponible(estado.vista)) {
-      coordinadorModulos.desmontarVistaActual();
+      coordinadorModulos.retirarVistaMontada();
+      estado.vistaMontada = "";
       contenedor.innerHTML = estado.vista === "contratacion-temporal"
         ? renderizarContratacionTemporalNoDisponible()
         : renderizarFuenteNoDisponible();
@@ -457,6 +481,7 @@ function renderizar() {
     }
     const opcionesMontaje = estado.opcionesVista || {};
     estado.opcionesVista = null;
+    estado.vistaMontada = estado.vista;
     void coordinadorModulos.montarVista(estado.vista, contenedor, opcionesMontaje).catch((error) => {
       contenedor.innerHTML = `${encabezadoVista(
         traducirPortal("estado_modulo_no_disponible_titulo"),
@@ -467,7 +492,8 @@ function renderizar() {
     return;
   }
 
-  coordinadorModulos.desmontarVistaActual();
+  coordinadorModulos.retirarVistaMontada();
+  estado.vistaMontada = "";
   if (estado.vista !== "portal" && !estado.fuenteLista) {
     contenedor.innerHTML = renderizarFuenteNoDisponible();
     return;
@@ -722,7 +748,8 @@ async function inicializar() {
   instalarMenuBolsa(porId("navegacion-bolsa"));
   instalarEventosBorradores(); instalarPaginacionMarco();
   await cargarFuenteDatos();
-  renderizar();
+  // Una vista de módulo ya montada durante la carga no se vuelve a montar.
+  if (estado.vistaMontada !== estado.vista) renderizar();
 }
 
 document.addEventListener("DOMContentLoaded", inicializar, { once: true });

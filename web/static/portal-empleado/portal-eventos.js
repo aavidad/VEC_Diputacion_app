@@ -6,7 +6,7 @@
  * informativas y nunca producen efectos administrativos en el navegador.
  */
 import { traducirPortal } from "./portal-i18n.js?v=20260925-tanda2-v1";
-import { validarAvisosPortal } from "./portal-contrato.js";
+import { validarAvisosPortal } from "./portal-contrato.js?v=20260925-sin-demo2-v1";
 
 const NOMBRES_FILTRO = Object.freeze({
   convocatorias: new Set(["texto", "estado", "unidad"]),
