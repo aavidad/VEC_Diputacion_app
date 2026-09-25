@@ -51,7 +51,8 @@ func rutaAuditoriaFronteraRutaExactaValidaParaSuperficie(superficie, ruta string
 		return rutaAuditoriaFronteraRutaExactaValida(ruta)
 	case SuperficieAuditoriaFronteraRutaExactaPersonal:
 		if ruta == "/api/vec/personal/vacantes" || ruta == "/api/vec/personal/empleados" ||
-			ruta == "/api/vec/personal/hechos" || ruta == "/api/vec/personal/empleados/{emp_ref}" {
+			ruta == "/api/vec/personal/hechos" || ruta == "/api/vec/personal/empleados/{emp_ref}" ||
+			ruta == "/api/vec/personal/catalogos-registro-empleado" {
 			return true
 		}
 		const prefijo = "/api/vec/personal/empleados/"

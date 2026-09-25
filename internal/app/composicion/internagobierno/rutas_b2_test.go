@@ -11,7 +11,8 @@ import (
 func TestRutaInternaGobernadaPersonalB2EsListaPositiva(t *testing.T) {
 	for _, ruta := range []string{
 		"/api/vec/personal/empleados", "/api/vec/personal/hechos",
-		"/api/vec/personal/vacantes", "/api/vec/personal/empleados/emp_0123456789abcdefghijkl",
+		"/api/vec/personal/vacantes", httpapi.RutaCatalogosRegistroEmpleadoB2,
+		"/api/vec/personal/empleados/emp_0123456789abcdefghijkl",
 	} {
 		if !RutaInternaGobernada(ruta) {
 			t.Fatalf("ruta %q rechazada", ruta)
@@ -21,6 +22,7 @@ func TestRutaInternaGobernadaPersonalB2EsListaPositiva(t *testing.T) {
 		"/api/vec/personal/empleados/", "/api/vec/personal/empleados/emp_corta",
 		"/api/vec/personal/empleados/emp_0123456789abcdefghijkl/relaciones",
 		"/api/vec/personal/vacantes/otra", "/api/vec/personal/hechos/otra",
+		"/api/vec/personal/catalogos-registro-empleado/otra",
 		"/api/vec/admin", "/api/vec/personal/empleados%2Femp_0123456789abcdefghijkl",
 	} {
 		if RutaInternaGobernada(ruta) {

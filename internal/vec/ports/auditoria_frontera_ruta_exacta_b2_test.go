@@ -10,7 +10,8 @@ func TestAuditoriaFronteraPersonalB2AceptaSoloSuperficieYRutasNominales(t *testi
 	}
 	for _, ruta := range []string{
 		"/api/vec/personal/empleados", "/api/vec/personal/hechos",
-		"/api/vec/personal/vacantes", "/api/vec/personal/empleados/{emp_ref}",
+		"/api/vec/personal/vacantes", "/api/vec/personal/catalogos-registro-empleado",
+		"/api/vec/personal/empleados/{emp_ref}",
 		"/api/vec/personal/empleados/emp_0123456789abcdefghijkl",
 	} {
 		orden := base
@@ -27,6 +28,7 @@ func TestAuditoriaFronteraPersonalB2AceptaSoloSuperficieYRutasNominales(t *testi
 		"/api/vec/personal/empleados/", "/api/vec/personal/empleados/emp_corta",
 		"/api/vec/personal/empleados/emp_0123456789abcdefghijkl/relaciones",
 		"/api/vec/personal/empleados/emp_0123456789abcdefghijkl?dato=privado",
+		"/api/vec/personal/catalogos-registro-empleado/otra",
 		"/api/vec/personal/otra", "/api/vec/contratacion-temporal/solicitudes",
 	} {
 		orden := base
