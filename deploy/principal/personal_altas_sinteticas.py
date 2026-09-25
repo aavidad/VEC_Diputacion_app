@@ -9,9 +9,11 @@ persona→empleado (Personal 000016) que consumen Cronos y Dietas.
 
 No escribe en PostgreSQL, no firma nada por su cuenta y no guarda datos
 civiles: el plan privado solo contiene referencias opacas. Es idempotente:
-cada alta y cada entrada de catálogo usan una clave derivada de su contenido,
-de modo que repetir el plan devuelve el mismo recibo (200) y una persona que
-ya tiene empleado se informa como conflicto (409) sin crear otro.
+cada alta y cada entrada de catálogo usan una clave que incluye el SHA-256 del
+cuerpo enviado, de modo que repetir el mismo plan devuelve el mismo recibo
+(200). Un 409 significa entonces que ya existe algo distinto de lo que declara
+el plan (otro contenido o un alta por otra vía): se informa como divergencia y
+el plan se detiene con código 1, sin crear nada.
 
 Uso (sin secretos en la línea de órdenes):
   VEC_ALTAS_BASE_URL=https://localhost:8443 \
@@ -156,6 +158,12 @@ def clave_idempotencia(*partes: str) -> str:
     return f"{h[:8]}-{h[8:12]}-{h[12:16]}-{h[16:20]}-{h[20:]}"
 
 
+def huella_cuerpo(cuerpo: dict[str, Any]) -> str:
+    """SHA-256 del cuerpo en forma canónica; distingue cualquier cambio del plan."""
+    canonico = json.dumps(cuerpo, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonico.encode("utf-8")).hexdigest()
+
+
 def huella_catalogo(organismo: str, e: dict[str, Any]) -> str:
     """Misma huella que calcula el portal al publicar una entrada (revisión 1)."""
     partes = ["vec.personal.catalogo-registro-empleado.entrada.v1", organismo, e["tipo"], e["ref"],
@@ -184,21 +192,28 @@ Enviar = Callable[[str, dict[str, Any], str], tuple[int, Any]]
 def ejecutar(plan: dict[str, Any], enviar: Enviar, informar: Callable[[str], None]) -> int:
     """Publica el catálogo y registra las altas. Devuelve 0 si nada falló.
 
-    201/200 son éxito (nuevo o replay del mismo recibo) y 409 un conflicto
-    sin efecto (entrada o empleado ya existentes). Cualquier otro estado
-    detiene el plan: la indisponibilidad nunca se interpreta como éxito.
+    201/200 son éxito (nuevo o replay del mismo recibo). Como la clave
+    incluye la huella del cuerpo, un 409 es una divergencia entre el plan y
+    lo ya registrado: se informa y detiene el plan. También lo detienen la
+    caída (estado 0), 401/403 y 5xx: la indisponibilidad nunca es éxito.
     """
     organismo = plan["organismo_ref"]
     for indice, e in enumerate(plan["catalogo"], 1):
-        clave = clave_idempotencia("vec.personal.catalogo-sintetico.v1", organismo, e["tipo"], e["ref"], str(e["version"]))
-        estado, _ = enviar(RUTA_CATALOGO, cuerpo_catalogo(organismo, e), clave)
+        cuerpo = cuerpo_catalogo(organismo, e)
+        clave = clave_idempotencia("vec.personal.catalogo-sintetico.v2", organismo, e["tipo"], e["ref"], str(e["version"]),
+                                   huella_cuerpo(cuerpo))
+        estado, _ = enviar(RUTA_CATALOGO, cuerpo, clave)
         informar(f"catálogo {indice}/{len(plan['catalogo'])} {e['tipo']}:{e['ref']}: HTTP {estado}")
-        if estado not in (200, 201, 409):
+        if estado == 409:
+            informar("divergencia: la entrada de catálogo ya existe con contenido distinto al del plan; no se continúa")
+            return 1
+        if estado not in (200, 201):
             return 1
     fallos = 0
     for indice, alta in enumerate(plan["altas"], 1):
-        clave = clave_idempotencia("vec.personal.alta-sintetica.v1", organismo, alta["persona_ref"])
-        estado, datos = enviar(RUTA_ALTA, cuerpo_alta(plan, alta), clave)
+        cuerpo = cuerpo_alta(plan, alta)
+        clave = clave_idempotencia("vec.personal.alta-sintetica.v2", organismo, alta["persona_ref"], huella_cuerpo(cuerpo))
+        estado, datos = enviar(RUTA_ALTA, cuerpo, clave)
         empleado = ""
         if estado in (200, 201):
             recibo = (datos or {}).get("data", {}).get("recibo", {}) if isinstance(datos, dict) else {}
@@ -208,10 +223,11 @@ def ejecutar(plan: dict[str, Any], enviar: Enviar, informar: Callable[[str], Non
                 return 1
         informar(f"alta {indice}/{len(plan['altas'])}: HTTP {estado}" + (f" {empleado}" if empleado else ""))
         if estado == 409:
-            continue
+            informar("divergencia: la persona ya tiene empleado con datos distintos a los del plan o dado de alta por otra vía; no se continúa")
+            return 1
         if estado not in (200, 201):
             fallos += 1
-            if estado >= 500 or estado in (401, 403):
+            if estado == 0 or estado >= 500 or estado in (401, 403):
                 return 1
     return 1 if fallos else 0
 

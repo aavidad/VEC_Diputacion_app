@@ -91,6 +91,8 @@ interna real con el certificado mTLS de una persona de RRHH: cada alta es el
 acto V3 de Personal `000019` y publica la proyección persona→empleado
 (`000016`) que consumen Cronos y Dietas. Lee un plan privado 0600 fuera del
 repositorio (solo referencias opacas), publica antes las entradas de catálogo
-que el plan declara y es idempotente: repetirlo devuelve los mismos recibos y
-una persona que ya tiene empleado se informa con 409 sin crear otro.
+que el plan declara y es idempotente: la clave incluye el SHA-256 del cuerpo,
+así que repetirlo devuelve los mismos recibos; un 409 (entrada o persona ya
+registradas con otro contenido o por otra vía) se informa como divergencia y
+detiene el plan con código 1, igual que la primera caída.
 `--comprobar` valida el plan sin enviar nada.

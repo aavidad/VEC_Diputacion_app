@@ -109,10 +109,40 @@ class EjecucionTest(unittest.TestCase):
         self.assertEqual(codigo2, 0)
         self.assertEqual([c for _, _, c in enviados], [c for _, _, c in enviados2])
 
-    def test_conflicto_no_crea_otra_alta_y_caida_no_es_exito(self) -> None:
-        codigo, _, mensajes = self.ejecutar({altas.RUTA_CATALOGO: [(409, {})], altas.RUTA_ALTA: [(409, {})]})
-        self.assertEqual(codigo, 0)
-        self.assertTrue(any("409" in m for m in mensajes))
+    def test_la_clave_cambia_con_el_cuerpo(self) -> None:
+        _, enviados, _ = self.ejecutar({altas.RUTA_CATALOGO: [(201, {})], altas.RUTA_ALTA: [(201, {"data": {"recibo": {"empleado_ref": "emp_" + "c" * 24}}})]})
+        otro = copy.deepcopy(PLAN)
+        otro["altas"][0]["unidad_ref"] = "uni:otra"
+        otro["catalogo"][0]["denominacion"] = "Funcionaria de carrera"
+        enviados2: list[tuple[str, dict, str]] = []
+        altas.ejecutar(altas.validar_plan(otro), lambda r, c, k: (enviados2.append((r, c, k)), (201, {"data": {"recibo": {"empleado_ref": "emp_" + "c" * 24}}}))[1], lambda _: None)
+        self.assertNotEqual(enviados[0][2], enviados2[0][2])
+        self.assertNotEqual(enviados[1][2], enviados2[1][2])
+
+    def test_conflicto_es_divergencia_y_detiene(self) -> None:
+        codigo, enviados, mensajes = self.ejecutar({altas.RUTA_CATALOGO: [(409, {})], altas.RUTA_ALTA: []})
+        self.assertEqual((codigo, len(enviados)), (1, 1))
+        self.assertTrue(any("divergencia" in m for m in mensajes))
+        codigo, _, mensajes = self.ejecutar({altas.RUTA_CATALOGO: [(201, {})], altas.RUTA_ALTA: [(409, {})]})
+        self.assertEqual(codigo, 1)
+        self.assertTrue(any("divergencia" in m for m in mensajes))
+
+    def test_caida_corta_en_la_primera_alta(self) -> None:
+        plan = copy.deepcopy(PLAN)
+        segunda = copy.deepcopy(plan["altas"][0])
+        segunda["persona_ref"] = "per_" + "b" * 24
+        plan["altas"].append(segunda)
+        enviados: list[str] = []
+        respuestas = {altas.RUTA_CATALOGO: [(201, {})], altas.RUTA_ALTA: [(0, None), (201, {})]}
+
+        def enviar(ruta: str, cuerpo: dict, clave: str) -> tuple[int, object]:
+            enviados.append(ruta)
+            return respuestas[ruta].pop(0)
+
+        self.assertEqual(altas.ejecutar(altas.validar_plan(plan), enviar, lambda _: None), 1)
+        self.assertEqual(enviados, [altas.RUTA_CATALOGO, altas.RUTA_ALTA])
+
+    def test_caida_no_es_exito(self) -> None:
         for estado in (0, 401, 403, 503):
             codigo, _, _ = self.ejecutar({altas.RUTA_CATALOGO: [(201, {})], altas.RUTA_ALTA: [(estado, None)]})
             self.assertEqual(codigo, 1, estado)
