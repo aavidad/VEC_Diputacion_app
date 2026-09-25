@@ -101,12 +101,15 @@ func TestBandejaYResolucionParametrosYCodigos(t *testing.T) {
 		estado int
 		codigo string
 	}{
-		ports.ErrResolucionNoCompetente:    {http.StatusForbidden, "no_competente"},
-		ports.ErrResolucionEstadoCambiado:  {http.StatusConflict, "estado_cambiado"},
-		ports.ErrClaveOperacionEnConflicto: {http.StatusConflict, "conflicto"},
-		ports.ErrSolicitudCronosInvalida:   {http.StatusBadRequest, "peticion_invalida"},
-		ports.ErrDependenciaNoDisponible:   {http.StatusServiceUnavailable, "no_disponible"},
-		errors.New("interno"):              {http.StatusServiceUnavailable, "no_disponible"},
+		ports.ErrResolucionNoCompetente:   {http.StatusForbidden, "no_competente"},
+		ports.ErrResolucionEstadoCambiado: {http.StatusConflict, "estado_cambiado"},
+		// Sin jefatura ni marca directa (cronos_v1 000010): la ruta responde
+		// 409 nominal, distinto del cambio de estado y del conflicto de clave.
+		ports.ErrResolucionPendienteAsignacion: {http.StatusConflict, "pendiente_asignacion"},
+		ports.ErrClaveOperacionEnConflicto:     {http.StatusConflict, "conflicto"},
+		ports.ErrSolicitudCronosInvalida:       {http.StatusBadRequest, "peticion_invalida"},
+		ports.ErrDependenciaNoDisponible:       {http.StatusServiceUnavailable, "no_disponible"},
+		errors.New("interno"):                  {http.StatusServiceUnavailable, "no_disponible"},
 	} {
 		caso.err = err
 		w := httptest.NewRecorder()

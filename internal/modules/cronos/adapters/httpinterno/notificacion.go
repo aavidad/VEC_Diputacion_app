@@ -32,6 +32,9 @@ func responderErrorNotificacion(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, ports.ErrTipoNotificacionNoVigente):
 		errorJSON(w, http.StatusConflict, "tipo_no_vigente")
+	case errors.Is(err, ports.ErrBandejaNotificacionesDemasiadoGrande):
+		// Conflicto con el estado actual: hay más de las que se muestran.
+		errorJSON(w, http.StatusConflict, "bandeja_demasiado_grande")
 	case errors.Is(err, domain.ErrNotificacionInvalida):
 		errorJSON(w, http.StatusBadRequest, "peticion_invalida")
 	default:

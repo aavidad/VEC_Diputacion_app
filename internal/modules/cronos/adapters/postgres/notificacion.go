@@ -32,6 +32,16 @@ func errorRegistroNotificacion(ctx context.Context, err error) error {
 	return errorSolicitud(ctx, err, ports.ErrClaveOperacionEnConflicto)
 }
 
+// errorBandejaNotificaciones: PC013 es una bandeja de más de 500, que se
+// rechaza entera; el resto como en la resolución.
+func errorBandejaNotificaciones(ctx context.Context, err error) error {
+	var pg *pgconn.PgError
+	if (ctx == nil || ctx.Err() == nil) && errors.As(err, &pg) && pg.Code == "PC013" {
+		return ports.ErrBandejaNotificacionesDemasiadoGrande
+	}
+	return errorResolucion(ctx, err)
+}
+
 // ---- La persona ----
 
 type RepositorioNotificacionesPropias struct{ db iniciadorMarcaje }
@@ -205,7 +215,7 @@ func (r *RepositorioBandejaNotificaciones) ConsultarBandeja(ctx context.Context,
 	if !resumenV3Ligado(v3, application.AudienciaBandejaNotificaciones, application.AccionConsultarBandejaNotif, recurso) {
 		return ports.BandejaNotificaciones{}, ports.ErrDependenciaNoDisponible
 	}
-	bruto, err := ejecutarFuncionV3(ctx, r.db, consultaBandejaNotificaciones, canonico, v3, errorResolucion)
+	bruto, err := ejecutarFuncionV3(ctx, r.db, consultaBandejaNotificaciones, canonico, v3, errorBandejaNotificaciones)
 	if err != nil {
 		return ports.BandejaNotificaciones{}, err
 	}

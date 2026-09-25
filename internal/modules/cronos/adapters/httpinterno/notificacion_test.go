@@ -153,6 +153,19 @@ func TestBandejaDeNotificacionesRutasYCodigos(t *testing.T) {
 	}
 }
 
+func TestBandejaDeNotificacionesDemasiadoGrandeEsConflictoNominal(t *testing.T) {
+	caso := &casoNotificacionesPrueba{err: ports.ErrBandejaNotificacionesDemasiadoGrande}
+	h, err := NuevoManejadorBandejaNotificaciones(caso, &resolverNotificacionesPrueba{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, RutaBandejaNotificaciones, nil))
+	if w.Code != http.StatusConflict || !strings.Contains(w.Body.String(), `"bandeja_demasiado_grande"`) || strings.Contains(w.Body.String(), "notificaciones\":") {
+		t.Fatal(w.Code, w.Body.String())
+	}
+}
+
 func TestResolucionPendienteDeAsignacionEsConflictoNominal(t *testing.T) {
 	w := httptest.NewRecorder()
 	responderErrorResolucion(w, ports.ErrResolucionPendienteAsignacion)

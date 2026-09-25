@@ -16,6 +16,10 @@ import (
 // vigente. Nunca se interpreta como registro.
 var ErrTipoNotificacionNoVigente = errors.New("cronos tipo de notificacion no vigente")
 
+// ErrBandejaNotificacionesDemasiadoGrande: la bandeja de RRHH supera 500
+// notificaciones; se rechaza entera en vez de recortarla en silencio.
+var ErrBandejaNotificacionesDemasiadoGrande = errors.New("cronos bandeja de notificaciones demasiado grande")
+
 // Estados que ve la persona. "atendida" sólo indica que RRHH la marcó
 // atendida; no es una resolución ni una respuesta.
 const (

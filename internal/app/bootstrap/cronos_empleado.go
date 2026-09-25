@@ -248,6 +248,58 @@ func servicioContextoActorCronos(resolutor vecports.ResolutorRegistroContextoAct
 	return vecapp.NuevoServicioContextoActorProductivoV2ConAlcance(resolutor, contextopg.NuevoGeneradorOperacionContextoActorV2Criptografico(), reloj, alcance)
 }
 
+// Errores del arranque que nombran la migración que falta. Envuelven
+// ErrComposicionCronosEmpleadoNoDisponible.
+var (
+	ErrCronosFalta000009 = fmt.Errorf("%w: falta cronos_v1 000009 (resolución de permisos y avisos; exige AD3-57)", ErrComposicionCronosEmpleadoNoDisponible)
+	ErrCronosFaltaAD358  = fmt.Errorf("%w: falta AD3-58 (consumidores de las notificaciones), que se instala antes de cronos_v1 000010", ErrComposicionCronosEmpleadoNoDisponible)
+	ErrCronosFalta000010 = fmt.Errorf("%w: falta cronos_v1 000010 (circuito jefatura-RRHH y notificaciones a RRHH)", ErrComposicionCronosEmpleadoNoDisponible)
+)
+
+// consultaMigracionesCronos: con el LOGIN ejecutor, si tiene las funciones de
+// 000009, el circuito y las funciones de 000010 y, en el catálogo (que todos
+// leen), las cuatro fachadas de AD3-58. Una función ausente cuenta como no
+// instalada, no como error.
+const consultaMigracionesCronos = `SELECT
+ (SELECT coalesce(bool_and(to_regprocedure(f) IS NOT NULL AND has_function_privilege(to_regprocedure(f),'EXECUTE')),false) FROM unnest(ARRAY[
+  'vec_cronos_v1.consultar_bandeja_permisos_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
+  'vec_cronos_v1.resolver_permiso_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
+  'vec_cronos_v1.consultar_avisos_propio_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
+  'vec_cronos_v1.archivar_aviso_propio_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)']) f),
+ to_regclass('vec_cronos_v1.permiso_circuito_directo') IS NOT NULL,
+ (SELECT coalesce(bool_and(to_regprocedure(f) IS NOT NULL AND has_function_privilege(to_regprocedure(f),'EXECUTE')),false) FROM unnest(ARRAY[
+  'vec_cronos_v1.registrar_notificacion_propia_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
+  'vec_cronos_v1.consultar_notificaciones_propio_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
+  'vec_cronos_v1.consultar_bandeja_notificaciones_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
+  'vec_cronos_v1.atender_notificacion_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)']) f),
+ (SELECT count(DISTINCT p.proname)=4 FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+   WHERE n.nspname='vec_autorizacion_atestada_v3' AND p.proname IN ('registrar_y_consumir_cronos_notificacion_v3_atestada',
+     'consumir_cronos_notificaciones_propio_v3_atestada','consumir_cronos_notificaciones_bandeja_v3_atestada',
+     'registrar_y_consumir_cronos_atencion_notificacion_v3_atestada'))`
+
+type estadoMigracionesCronos struct {
+	cronos000009, circuito000010, notificaciones000010, ad358 bool
+}
+
+// diagnostico devuelve nil si está todo lo que exigen los selectores
+// activos; si no, el error de la primera migración ausente en el orden de
+// instalación (000009, AD3-58, 000010).
+func (e estadoMigracionesCronos) diagnostico(resolucion, notificaciones bool) error {
+	if !resolucion && !notificaciones {
+		return nil
+	}
+	if !e.cronos000009 {
+		return ErrCronosFalta000009
+	}
+	if (resolucion && !e.circuito000010) || (notificaciones && !e.notificaciones000010) {
+		if !e.ad358 {
+			return ErrCronosFaltaAD358
+		}
+		return ErrCronosFalta000010
+	}
+	return nil
+}
+
 // preflightCronosEmpleado comprueba con cada LOGIN nominal que las funciones
 // de 000007 y 000008 existen (exigen AD3-53 y AD3-70) y que cada uno sólo tiene
 // las que le corresponden. Una función ausente hace fallar la consulta.
@@ -255,21 +307,17 @@ func preflightCronosEmpleado(ctx context.Context, ejecutor, auditor *pgxpool.Poo
 	var ok bool
 	// Con la resolución activa se exigen también las cuatro funciones de
 	// 000009 (AD3-57) y el circuito J-A de 000010, cuya bandeja devuelve lo
-	// pendiente de asignación; sin ella no se consultan.
-	if resolucion && (ejecutor.QueryRow(ctx, `SELECT bool_and(has_function_privilege(f,'EXECUTE')) AND to_regclass('vec_cronos_v1.permiso_circuito_directo') IS NOT NULL FROM unnest(ARRAY[
-  'vec_cronos_v1.consultar_bandeja_permisos_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
-  'vec_cronos_v1.resolver_permiso_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
-  'vec_cronos_v1.consultar_avisos_propio_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
-  'vec_cronos_v1.archivar_aviso_propio_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)']) f`).Scan(&ok) != nil || !ok) {
-		return ErrComposicionCronosEmpleadoNoDisponible
-	}
-	// Con las notificaciones activas, las cuatro funciones de 000010 (AD3-58).
-	if notificaciones && (ejecutor.QueryRow(ctx, `SELECT bool_and(has_function_privilege(f,'EXECUTE')) FROM unnest(ARRAY[
-  'vec_cronos_v1.registrar_notificacion_propia_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
-  'vec_cronos_v1.consultar_notificaciones_propio_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
-  'vec_cronos_v1.consultar_bandeja_notificaciones_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
-  'vec_cronos_v1.atender_notificacion_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)']) f`).Scan(&ok) != nil || !ok) {
-		return ErrComposicionCronosEmpleadoNoDisponible
+	// pendiente de asignación; con las notificaciones, las cuatro de 000010
+	// (AD3-58). Si falta algo, el error nombra la primera migración ausente
+	// de la cadena 000009 → AD3-58 → 000010.
+	if resolucion || notificaciones {
+		var e estadoMigracionesCronos
+		if ejecutor.QueryRow(ctx, consultaMigracionesCronos).Scan(&e.cronos000009, &e.circuito000010, &e.notificaciones000010, &e.ad358) != nil {
+			return ErrComposicionCronosEmpleadoNoDisponible
+		}
+		if err := e.diagnostico(resolucion, notificaciones); err != nil {
+			return err
+		}
 	}
 	if ejecutor.QueryRow(ctx, `SELECT bool_and(has_function_privilege(f,'EXECUTE')) FROM unnest(ARRAY[
   'vec_cronos_v1.consultar_saldo_propio_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
@@ -403,7 +451,11 @@ func nuevasRutasCronosEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp.D
 		}
 		usuarios[usuario] = true
 	}
-	if preflightCronosEmpleado(ctx, pools[6], pools[7], resolucion, notificaciones) != nil {
+	if err := preflightCronosEmpleado(ctx, pools[6], pools[7], resolucion, notificaciones); err != nil {
+		// Una migración ausente se nombra; cualquier otro fallo, con su lugar.
+		if errors.Is(err, ErrCronosFalta000009) || errors.Is(err, ErrCronosFaltaAD358) || errors.Is(err, ErrCronosFalta000010) {
+			return nil, err
+		}
 		return nil, errCronosEmpleadoEn()
 	}
 	registro, err := identidadpg.NuevoRegistroSesionesPostgreSQL(ctx, pools[0], pools[1], &seudonimizadorSesionDesarrollo{derivador: derivador}, espacioIdentidadSesionDesarrollo, dominioIdentidadSesionDesarrollo)

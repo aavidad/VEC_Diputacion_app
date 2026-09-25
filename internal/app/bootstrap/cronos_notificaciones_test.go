@@ -111,3 +111,38 @@ func TestAudienciasNotificacionesCronosPublicablesPorElGobiernoCT(t *testing.T) 
 		t.Fatal("las notificaciones colisionan en el catálogo común", err)
 	}
 }
+
+// El arranque nombra la primera migración que falta de 000009 → AD3-58 →
+// 000010 según los selectores activos; sin selectores no exige nada.
+func TestPreflightCronosNombraLaMigracionQueFalta(t *testing.T) {
+	todo := estadoMigracionesCronos{cronos000009: true, circuito000010: true, notificaciones000010: true, ad358: true}
+	sin := func(cambiar func(*estadoMigracionesCronos)) estadoMigracionesCronos { e := todo; cambiar(&e); return e }
+	for _, c := range []struct {
+		nombre                     string
+		estado                     estadoMigracionesCronos
+		resolucion, notificaciones bool
+		esperado                   error
+	}{
+		{"nada activo", estadoMigracionesCronos{}, false, false, nil},
+		{"todo instalado", todo, true, true, nil},
+		{"falta 000009", sin(func(e *estadoMigracionesCronos) { e.cronos000009 = false }), true, false, ErrCronosFalta000009},
+		{"falta 000009 con notificaciones", sin(func(e *estadoMigracionesCronos) { e.cronos000009 = false }), false, true, ErrCronosFalta000009},
+		{"falta AD3-58 y 000010", estadoMigracionesCronos{cronos000009: true}, true, false, ErrCronosFaltaAD358},
+		{"falta AD3-58 para notificaciones", estadoMigracionesCronos{cronos000009: true}, false, true, ErrCronosFaltaAD358},
+		{"falta 000010 con AD3-58", estadoMigracionesCronos{cronos000009: true, ad358: true}, true, true, ErrCronosFalta000010},
+		{"notificaciones sin sus funciones", sin(func(e *estadoMigracionesCronos) { e.notificaciones000010 = false }), false, true, ErrCronosFalta000010},
+		{"resolución no exige las notificaciones", sin(func(e *estadoMigracionesCronos) { e.notificaciones000010 = false }), true, false, nil},
+	} {
+		err := c.estado.diagnostico(c.resolucion, c.notificaciones)
+		if err != c.esperado || (err != nil && !errors.Is(err, ErrComposicionCronosEmpleadoNoDisponible)) {
+			t.Fatalf("%s: %v", c.nombre, err)
+		}
+	}
+	for _, err := range []error{ErrCronosFalta000009, ErrCronosFaltaAD358, ErrCronosFalta000010} {
+		for _, otro := range []error{ErrCronosFalta000009, ErrCronosFaltaAD358, ErrCronosFalta000010} {
+			if (err == otro) != (err.Error() == otro.Error()) {
+				t.Fatal("dos migraciones ausentes con el mismo mensaje", err)
+			}
+		}
+	}
+}

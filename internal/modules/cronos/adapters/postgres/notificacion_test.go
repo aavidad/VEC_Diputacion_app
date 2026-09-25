@@ -150,3 +150,21 @@ func TestBandejaDeNotificacionesConsumeV3DeRRHH(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestErrorBandejaNotificacionesRechazaLaDemasiadoGrande(t *testing.T) {
+	ctx := context.Background()
+	for codigo, esperado := range map[string]error{
+		"PC013": ports.ErrBandejaNotificacionesDemasiadoGrande,
+		"PC012": ports.ErrResolucionNoCompetente,
+		"PC003": ports.ErrDependenciaNoDisponible,
+	} {
+		if err := errorBandejaNotificaciones(ctx, &pgconn.PgError{Code: codigo}); !errors.Is(err, esperado) {
+			t.Fatalf("%s: %v", codigo, err)
+		}
+	}
+	cancelado, cancelar := context.WithCancel(ctx)
+	cancelar()
+	if err := errorBandejaNotificaciones(cancelado, &pgconn.PgError{Code: "PC013"}); errors.Is(err, ports.ErrBandejaNotificacionesDemasiadoGrande) {
+		t.Fatal("una consulta cancelada no es una bandeja grande", err)
+	}
+}
