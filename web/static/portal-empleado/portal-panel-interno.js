@@ -13,6 +13,7 @@ import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v
 import { destinosSituacion, fechaDisponiblePropuesta, renderizarCamposReposicion } from "./portal-bolsas-reglas-situacion.js?v=20260925-reposicion-v1";
 import { renderizarIntentosContacto } from "./portal-bolsas-intentos.js?v=20260925-intentos-contacto-v1";
 import { renderizarContratosParticipacion } from "./portal-bolsas-contratos.js?v=20260925-b13-v1";
+import { renderizarSanciones } from "./portal-bolsas-sanciones.js?v=20260925-sanciones-v1";
 import { icono } from "../comun/iconos-vec.js?v=20260925-aspecto-v1";
 import { enlaceReglasVigentes } from "./reglas/enlace.js?v=20260925-reglas-v1";
 const ESQUEMA_PANEL_INTERNO = "vec.bolsa.panel.interno.v1";
@@ -614,6 +615,7 @@ export function crearPresentadorPanelInterno(dependencias) {
               ${renderizarOperacionesSituacion({ candidato, estado: modal.operacionesB8 || {}, escaparHTML })}
               ${renderizarIntentosContacto({ candidato, estado: modal.intentosContacto || {}, escaparHTML })}
               ${renderizarContratosParticipacion({ estado: modal.contratosB13 || {}, escaparHTML })}
+              ${renderizarSanciones({ estado: modal.sancionesB24 || {}, escaparHTML })}
             </div>
             <div class="acciones-vista">
               <button type="button" class="boton-primario" data-bolsa-accion="abrir-cambio-situacion">Cambiar situación</button>

@@ -24,8 +24,11 @@ type DependenciasCT struct {
 	plazosFase ports.CalculadoraPlazoFaseRRHH
 	// plazosOfertasBolsa recibe la regla b10 al componer las reglas de ejemplo.
 	plazosOfertasBolsa *calculadoraPlazoOfertaDesarrollo
-	cerrar             func()
-	unaVez             sync.Once
+	// reglasEjemplo solo existe en desarrollo con paquete de ejemplo
+	// declarado; vacío significa «sin catálogo».
+	reglasEjemplo reglasEjemploDesarrollo
+	cerrar        func()
+	unaVez        sync.Once
 }
 
 func nuevasDependenciasCT(cfg config.Config, resolvedor vechttp.DemoIdentityResolver, derivador *derivadorIdentidadOperacionDesarrollo, kms *emisorKMSDesarrollo, registro io.Writer) (*DependenciasCT, error) {

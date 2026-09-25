@@ -14,6 +14,7 @@ import (
 	"vec-diputacion-granada/config"
 	bolsahttp "vec-diputacion-granada/internal/modules/bolsa/adapters/httpinterno"
 	postgresbolsa "vec-diputacion-granada/internal/modules/bolsa/adapters/postgres"
+	reglasbolsa "vec-diputacion-granada/internal/modules/bolsa/adapters/reglasvec"
 	aplicacionbolsa "vec-diputacion-granada/internal/modules/bolsa/application"
 	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
@@ -277,9 +278,9 @@ type emisorBorradorLlamamientoDesarrollo struct {
 }
 
 type manejadorParticipacionBolsaDesarrollo struct {
-	situacion, operaciones, contacto, datosContacto, contratos http.Handler
-	preparador                                                 *preparadorBorradorLlamamientoDesarrollo
-	servicio                                                   *aplicacionbolsa.ServicioContactoParticipacion
+	situacion, operaciones, contacto, datosContacto, contratos, sanciones http.Handler
+	preparador                                                            *preparadorBorradorLlamamientoDesarrollo
+	servicio                                                              *aplicacionbolsa.ServicioContactoParticipacion
 	// servicioSituacion permite componer después las reglas de transición.
 	servicioSituacion *aplicacionbolsa.ServicioSituacionParticipacion
 }
@@ -291,6 +292,10 @@ func (m *manejadorParticipacionBolsaDesarrollo) ServeHTTP(w http.ResponseWriter,
 	}
 	if _, _, ok := bolsahttp.ReferenciasRutaContratosParticipacion(r); ok && m.contratos != nil {
 		m.contratos.ServeHTTP(w, r)
+		return
+	}
+	if _, _, _, ok := bolsahttp.ReferenciasRutaSancionesParticipacion(r); ok && m.sanciones != nil {
+		m.sanciones.ServeHTTP(w, r)
 		return
 	}
 	if _, _, _, ok := bolsahttp.ReferenciasRutaDatosContactoParticipacion(r); ok {
@@ -538,6 +543,24 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
+	// Sanciones (duda 62): mismo servicio de situación y autorización B8; el
+	// catálogo solo existe con el paquete de reglas de ejemplo declarado.
+	repositorioSanciones, err := postgresbolsa.NuevoRepositorioSancionesParticipacionPostgreSQL(alta.postgresql.bolsa)
+	if err != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+	}
+	var catalogoSanciones puertosbolsa.CatalogoSancionesParticipacion
+	if catalogo := reglasbolsa.NuevoCatalogoSanciones(dependenciasCT.reglasEjemplo.bolsa); catalogo != nil {
+		catalogoSanciones = catalogo
+	}
+	servicioSanciones, err := aplicacionbolsa.NuevoServicioSancionesParticipacion(servicioSituacion, catalogoSanciones, repositorioSanciones)
+	if err != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+	}
+	handlerSanciones, err := bolsahttp.NuevoHandlerSancionesParticipacion(preparador, servicioSanciones)
+	if err != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+	}
 	handlerContratos, err := bolsahttp.NuevoHandlerContratosParticipacion(preparador, servicioSituacion)
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
@@ -594,7 +617,7 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
-	mutador := &manejadorParticipacionBolsaDesarrollo{situacion: handlerSituacion, operaciones: handlerOperaciones, contratos: handlerContratos, contacto: handlerContacto, datosContacto: handlerDatos, preparador: preparador, servicio: servicioContacto, servicioSituacion: servicioSituacion}
+	mutador := &manejadorParticipacionBolsaDesarrollo{situacion: handlerSituacion, operaciones: handlerOperaciones, contratos: handlerContratos, sanciones: handlerSanciones, contacto: handlerContacto, datosContacto: handlerDatos, preparador: preparador, servicio: servicioContacto, servicioSituacion: servicioSituacion}
 	envolver := func(siguiente http.Handler) http.Handler {
 		auditada, auditErr := bolsahttp.NuevaAuditoriaBorradorLlamamiento(siguiente, auditoria, seguridadvec.GeneradorReferenciasCriptograficas{}, actorBorradorLlamamientoDesdeContextoDesarrollo{})
 		if auditErr != nil {

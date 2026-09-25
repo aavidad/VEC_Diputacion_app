@@ -208,16 +208,15 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	func(),
 	error,
 ) {
-	return nuevasRutasContratacionTemporalDesarrolloConPlazos(
-		cfg, nil, resolvedor, derivador, kms, registro, incorporacion...,
-	)
+	return nuevasRutasContratacionTemporalConReglasDesarrollo(cfg, reglasEjemploDesarrollo{}, resolvedor, derivador, kms, registro, incorporacion...)
 }
 
-// nuevasRutasContratacionTemporalDesarrolloConPlazos añade la calculadora de
-// plazos por fase del catálogo de reglas; nil deja el cuadro sin plazos.
-func nuevasRutasContratacionTemporalDesarrolloConPlazos(
+// nuevasRutasContratacionTemporalConReglasDesarrollo recibe además las
+// reglas de ejemplo ya validadas; sin ellas cada consumidor conserva su
+// conducta sin catálogo.
+func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	cfg config.Config,
-	plazosFase ports.CalculadoraPlazoFaseRRHH,
+	reglasEjemplo reglasEjemploDesarrollo,
 	resolvedor vechttp.DemoIdentityResolver,
 	derivador *derivadorIdentidadOperacionDesarrollo,
 	kms *emisorKMSDesarrollo,
@@ -236,7 +235,8 @@ func nuevasRutasContratacionTemporalDesarrolloConPlazos(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	dependencias.plazosFase = plazosFase
+	dependencias.reglasEjemplo = reglasEjemplo
+	dependencias.plazosFase = nuevaCalculadoraPlazoFaseCT(reglasEjemplo.contratacionTemporal)
 	if err := dependencias.cfg.ContratacionTemporalPostgreSQL.ValidarIdentidadOperativa(); err != nil {
 		return nil, nil, nil, err
 	}

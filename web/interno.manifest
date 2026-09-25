@@ -203,6 +203,7 @@ static/portal-empleado/portal-bolsas-operaciones.js
 static/portal-empleado/portal-bolsas-intentos.js
 static/portal-empleado/portal-bolsas-reglas-situacion.js
 static/portal-empleado/portal-bolsas-reglas-situacion-i18n.js
+static/portal-empleado/portal-bolsas-sanciones.js
 static/portal-empleado/portal-bolsas-contrato.js
 static/portal-empleado/portal-borrador-llamamiento-api.js
 static/portal-empleado/portal-borrador-llamamiento-ui.js

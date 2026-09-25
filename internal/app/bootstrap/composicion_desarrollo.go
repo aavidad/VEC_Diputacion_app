@@ -251,8 +251,8 @@ func nuevoServidorDesarrollo(
 	if err != nil {
 		return nil, nil, err
 	}
-	rutasContratacion, autoridadContratacion, cerrarContratacion, err := nuevasRutasContratacionTemporalDesarrolloConPlazos(
-		cfg, nuevaCalculadoraPlazoFaseCT(reglasEjemplo.contratacionTemporal), resolvedor, composicion.derivadorIdempotencia, composicion.emisorKMS, registro, incorporacion...,
+	rutasContratacion, autoridadContratacion, cerrarContratacion, err := nuevasRutasContratacionTemporalConReglasDesarrollo(
+		cfg, reglasEjemplo, resolvedor, composicion.derivadorIdempotencia, composicion.emisorKMS, registro, incorporacion...,
 	)
 	if err != nil {
 		return nil, nil, err
