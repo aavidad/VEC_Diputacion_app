@@ -63,47 +63,43 @@ python3 "$SCRIPT" --mode rollback --database "$BASE" --admin-user "$ADMIN" \
 
 ## Restauración comprobada: condición previa al COMMIT
 
-El [comentario del PR 29](https://github.com/aavidad/VEC_Diputacion_app/pull/29#issuecomment-5823727557)
-documenta que una fila de `prueba_resultado_recibo_rrhh_v2` incumple su CHECK
-actual al restaurar. Por tanto, el volcado disponible **no acredita una
-restauración recuperable**. Con la evidencia actual, el script **no permite
-COMMIT en la principal**: no existe acta válida de restauración para su
-preimagen ni ensayo ROLLBACK completo. La reparación exacta se hará en la
-autoridad CT después de diagnosticar la fila y el CHECK en el clon. No omitir
-esa tabla, no deshabilitar CHECK, no usar
-`session_replication_role`, no editar el dump ni borrar o reescribir el recibo
-para hacer que `pg_restore` termine con cero. Eso destruiría la prueba de
-recuperación y podría alterar historia.
+**Diagnóstico (25/09/2026, solo lectura sobre la principal).** No es una fila:
+son **420** de las 1845 filas de `vec_contratacion_temporal.prueba_resultado_recibo_rrhh_v2`,
+todas de tipo `detalle` y registradas entre 2026-09-05 y 2026-09-18T00:15Z,
+antes de CT `000106`. Esa migración añadió cuatro atributos
+(`fiscalizacion_presente`, `fiscalizacion`, `referencia_fiscalizacion`,
+`referencia_subsanacion`) al tipo `entrada_detalle_expediente_rrhh_v1` y
+redefinió `canon_contenido_detalle_rrhh_v1`, que los exige. PostgreSQL no
+revalida filas existentes al cambiar una función de un CHECK: en la principal
+`check1` figura `convalidated` pero sus filas antiguas lanzan
+`contenido de detalle RRHH inválido` al evaluarlo, de modo que ninguna
+restauración lógica puede cargarlas. Las 1255 filas de `cuadro` y las 170 de
+`detalle` posteriores cumplen todos los CHECK. El modo `diagnose-check`
+evalúa cada fila en su propia subtransacción y cuenta también las que lanzan
+excepción.
 
-Diagnosticar en la fuente mediante superusuario autorizado, en transacciones de
-solo lectura, sin emitir contenido ni referencias originales:
+**Resolución adoptada (orden del operador: documentar o excluir la sonda en la
+restauración, sin alterar la principal).** La copia de seguridad conserva la
+tabla completa (`pg_dump -Fc`, SHA256 de sus datos en el acta). La restauración
+comprobada excluye solo la entrada `TABLE DATA` de esta tabla de la lista de
+`pg_restore`, se ejecuta con `--exit-on-error --single-transaction` y después
+carga fila a fila, con los CHECK vigentes, las filas que los cumplen; las que no
+quedan solo en la copia y el acta registra su número, intervalo, causa y las
+huellas SHA256 de su `acceso_ref`. No se deshabilitan CHECK ni disparadores,
+no se usa `session_replication_role` ni se edita la copia. La corrección
+definitiva (un delta CT que acepte la forma anterior a `000106` sin reescribir
+recibos) queda para la autoridad CT.
 
-```bash
-python3 "$SCRIPT" --mode diagnose-check --database "$BASE" \
-  --admin-user "$ADMIN" --pg-container "$CONTENEDOR" \
-  --report "$MATERIAL/checks.json"
-```
-
-El informe contiene cada CHECK, su estado `convalidated`, el número de filas
-que evalúan `FALSE` y hasta 20 huellas SHA256 de `acceso_ref`. Si la expresión
-depende de una función que cambió después de registrar el recibo, comparar la
-versión de función y la evidencia histórica con la fuente de la migración.
-Resolver la discrepancia en la **autoridad CT** mediante un delta versionado y
-revisado que preserve bytes, huellas, recibos e historia. La corrección exacta
-depende del CHECK que falle y de la preimagen observada; este script no la
-infiere ni la modifica. Repetir diagnóstico y obtener cero filas inválidas.
-
-Después, repetir el inventario y el ensayo ROLLBACK sobre la preimagen ya
-corregida. Hacer una copia nueva coherente del clúster, incluidos roles globales,
-ACL, tipos de fila, datos, funciones y objetos; conservar huellas y recuentos
-de la fuente. Restaurarla en PostgreSQL 18 aislado y vacío con `ON_ERROR_STOP`
-y `pg_restore --exit-on-error`, sin filtrar errores. Comparar inventario de
-roles/ACL/tipos, migraciones, recuentos y recibos/huellas antes de declarar
-`verified=true`; repetir el diagnóstico CHECK en el destino y verificar cero
-filas inválidas. El [manual de sistemas](../../../../docs/manual_sistemas/README.md)
-describe el orden de globales y base. Secretos y claves se reponen por el canal
-privado; la recuperación de aplicación exige también la prueba de lectura de
-recibos y denegaciones tras reinicio, sin reemitir efectos.
+Además del volcado, `pg_dumpall` omite ACL explícitas que coinciden con
+`acldefault`: en relaciones «solo propietario» (110 el 25/09/2026) y en tipos
+(68, que en tipos significan **PUBLIC revocado**). La restauración las reaplica
+leídas de la fuente, igual que las ACL y ajustes de la base `postgres`. El
+contraste posterior compara 13185 líneas de catálogo y datos (esquemas,
+relaciones, columnas, restricciones, funciones con su definición, tipos,
+políticas, disparadores, roles, membresías con otorgante, ACL por defecto, base,
+secuencias y, por tabla, recuento y huella de contenido). Las únicas
+diferencias admitidas son la sonda y 30 CHECK cuyo texto cambia solo de
+parentización de `AND` al reanalizarse (idénticos sin paréntesis).
 
 Un acta privada revisada debe registrar, al menos:
 
@@ -142,7 +138,80 @@ solo lectura la presencia de selector/fachada, ACL y membresías. Una versión
 exacta modificada del procedimiento o de sus migraciones reabre las dos
 revisiones E10.
 
-## Ensayo disponible
+## Procedimiento validado para la principal (no aplicado)
+
+Validado de principio a fin el 25/09/2026 en el clon `vec-clon-f1-*` de
+cidonia, creado desde la principal `vec-postgresql-20260906` con la copia y la
+restauración anteriores (inventario F1 idéntico en ambas:
+`20cb81339997e9f0c987a7883ddb88665ec409dedfcb6de748e5e830334c81c8`). Requiere la
+autorización expresa de Alberto; ningún paso se ha ejecutado en la principal.
+Todo se hace como `postgres` por el socket del contenedor, en serie, y cada
+fichero se ensaya antes con su única línea `COMMIT;` cambiada por `ROLLBACK;`.
+
+1. **Copia y restauración comprobada** en un clon nuevo, según la sección
+   anterior; escribir `restauracion-verificada.json` (acta mínima) y el acta
+   completa privada. Si la principal cambia después, repetir.
+2. **Huellas CT de referencia**: con el binario y la configuración de la
+   principal contra el clon, `POST cuadro/consultas` (límite 100) y
+   `expedientes/consultas` del primer expediente. En el clon: `200/200`,
+   huellas normalizadas `9001f81c…`/`b7354636…`. Tomar la misma pareja en la
+   principal antes y después.
+3. **Inventario**: `--mode inspect`; el SHA256 debe ser el revisado. Si no,
+   parar: la preimagen cambió.
+4. **Precondición F1** (una transacción): `--mode rollback` y, con su informe y
+   el acta de restauración, `--mode commit`. Aplica selector, ContextoActor
+   `000003`, `000004a` e Identidad `000004`, retirando y restaurando las cuatro
+   membresías y retirando USAGE de PUBLIC en los 227 tipos fila. En el clon:
+   `ensayo revertido` y `confirmado`, postinventario
+   `8d1ba3288145da8b59a1cbb8f83df9d5d5527b2d1020092aecfa7bc36225cad3`.
+5. **Deltas de composición** con `../instalar_esquema.py` (ROLLBACK y COMMIT
+   en una transacción): ContextoActor `000006`, Identidad `000006`, Personal
+   `000010a`, CT identidad `000002` y AD3 `000050a`.
+6. **Resto, fichero a fichero** (ensayo y COMMIT): ContextoActor `000007`,
+   AD3 `000053a` y CT `000109`. AD3 `000053a` es la lectura de configuración
+   interna, renumerada porque `000053` ya es de Cronos.
+7. **Aprovisionamiento** de `vec-interno` con `../aprovisionar.py` fuera de
+   Git (orden probado: `init-ca`, tokens PKCS#11 de HMAC y de la persona,
+   `hmac-token`, `create-csr`, `issue-person`, `register-person`; registro F1
+   del perfil propio de vec-interno, su vínculo de contexto, la organización
+   corporativa `org_…` y el vínculo corporativo `interna_corporativa`/
+   `consulta_rrhh` de la persona RRHH ya registrada en F1; `register-context`
+   con el ámbito CT `organizacion:…`; `policy`; `alias-hmac` con
+   `--corporate-organization-ref`; `roles`, `identity-roles`, `v3-roles`;
+   **después** Autorización `000014` (exige el LOGIN de la fuente V3) y
+   `vec-publicar-permiso-interno` con `--organizacion` (CT) y
+   `--organizacion-corporativa`. El registro F1 del perfil y los vínculos no
+   tiene todavía herramienta versionada.
+8. **Comprobación**: huellas CT iguales a las del paso 2 con el binario de la
+   principal y con el de la rama; arrancar `vec-interno` y consultar el
+   seguimiento con el certificado personal; repetir tras reiniciar aplicación
+   y PostgreSQL.
+
+| Paso | Fichero (`deploy/postgresql/…`) | SHA256 |
+|---|---|---|
+| 4 | `contexto_actor_v1/roles_contexto_corporativo_rrhh_selector_v1_up.sql` | `d8a94def…fa62b802` |
+| 4 | `contexto_actor_v1/migraciones/000003_organizacion_corporativa_v1.up.sql` | `6f6e7682…083901f6` |
+| 4 | `contexto_actor_v1/migraciones/000004a_vinculo_corporativo_rrhh_v1.up.sql` | `ca969bc9…a3cabaa0` |
+| 4 | `identidad_sesiones_v1/migraciones/000004_revalidacion_contexto_corporativo_rrhh_v1.up.sql` | `83130607…025a3d90` |
+| 5 | `contexto_actor_v1/migraciones/000006_vinculos_efectivos_temporales.up.sql` | `e70043d8…57f1e3c0` |
+| 5 | `identidad_sesiones_v1/migraciones/000006_politica_certificado_personal_desarrollo.up.sql` | `38ed28d8…6078f46d` |
+| 5 | `personal/migraciones/000010a_lectura_incorporacion_certificado_desarrollo.up.sql` | `6c2b308c…fbc6de11` |
+| 5 | `contratacion_temporal/migraciones_identidad/000002_consulta_rrhh_certificado_desarrollo.up.sql` | `969d37a0…228ec0a7` |
+| 5 | `autorizacion_atestada_v3/migraciones/000050a_preflight_material_interno.up.sql` | `542b6629…d661119c` |
+| 6 | `contexto_actor_v1/migraciones/000007_alcance_proyecciones_empleado.up.sql` | `6b201fdd…91bd5b3c` |
+| 6 | `autorizacion_atestada_v3/migraciones/000053a_lectura_configuracion_interna.up.sql` | `ce2e2e2c…315d2d0c` |
+| 6 | `contratacion_temporal/migraciones/000109_consulta_resumen_seguimiento.up.sql` | `fb18461b…32363526` |
+| 7 | `autorizacion/migraciones/000014_perfil_interno_certificado.up.sql` | `1f46c4c8…51e53b4b` |
+
+El núcleo AD3 (`md5` de `consumir_decision_mutacion_v3_interna`) no cambia en
+ningún paso (`a5ef3e6f…`). Con el binario actual de la principal, CT sigue
+igual tras los pasos 4–7; el binario de la rama también. No aplicar
+ContextoActor `000006` antes que `000003`/`000004a` ni instalar `000004`.
+
+## Ensayos sintéticos anteriores
+
+Anteriores al ensayo en el clon exacto descrito arriba; se conservan como
+evidencia de las guardas.
 
 El diagnóstico y rechazo por preimagen se ejecutaron en PostgreSQL 18.4
 desechable `vec_precondicion_v3` del contenedor

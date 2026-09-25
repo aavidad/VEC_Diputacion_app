@@ -217,15 +217,13 @@ python3 deploy/principal/composicion_interna/instalar_esquema.py \
   --container-engine docker
 ```
 
-El dump sintético de septiembre restaurado en el clon E2E llega solo a CT67,
-sin Personal ni Contexto/Identidad corporativos. El upgrade focal ensayado
-alcanzó CT108/AD3-29/50a/Personal6/Contexto3/5/6, omitiendo CT86–96 y
-Dietas/Cronos. Personal BASE `000010` todavía no está en ese clon; no se
-instala `000010a` sobre él. La migración histórica Contexto `000004` falla por manifiesto
-de predecesor con huella distinta incluso en su runner oficial; Identidad
-`000006` exige Identidad `000004`, así que este clon no cumple todavía la
-preimagen del instalador. No se fuerza ninguna de esas migraciones ni se
-declara consulta E2E antes de resolver esa divergencia con la autoridad SQL.
+En la principal esa preimagen se alcanza con la precondición F1
+(`precondicion_f1_identidad/`), que instala selector, ContextoActor `000003`,
+la corrección `000004a` e Identidad `000004`; `000004` no se instala porque su
+guarda de predecesor no admite la huella de ninguna base actual. El
+procedimiento completo, validado en un clon exacto de la principal con
+navegador, reinicio y revocación, está en
+[precondicion_f1_identidad/README.md](precondicion_f1_identidad/README.md#procedimiento-validado-para-la-principal-no-aplicado).
 
 Los cuatro pools de identidad/F1/auditoría se generan con el mismo patrón en
 `identidad/pools.json` mediante `identity-roles`. Requieren Identidad `000006`
