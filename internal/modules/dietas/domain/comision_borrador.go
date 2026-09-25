@@ -4,6 +4,7 @@ package domain
 import (
 	"errors"
 	"regexp"
+	"strings"
 	"time"
 )
 
@@ -34,6 +35,27 @@ type ComisionBorrador struct {
 	Documento       *DocumentoComision       `json:"documento,omitempty"`
 	VehiculoPropio  *bool                    `json:"vehiculo_propio,omitempty"`
 	Rutas           *[]RutaDeclaradaComision `json:"rutas,omitempty"`
+	Devolucion      *DevolucionComision      `json:"devolucion,omitempty"`
+}
+
+// DevolucionComision es la última devolución del circuito que la persona
+// titular aún no ha reenviado: etapa, motivo, versión devuelta y fecha,
+// tomados de la historia. Solo acompaña a un documento devuelto o en
+// corrección; el reenvío vuelve siempre a la revisión del administrativo.
+type DevolucionComision struct {
+	Etapa      EtapaCircuito `json:"etapa"`
+	Motivo     string        `json:"motivo"`
+	Version    uint64        `json:"version"`
+	DevueltaEn string        `json:"devuelta_en"`
+}
+
+func (d DevolucionComision) validarPara(c ComisionBorrador) error {
+	if (c.Estado != EstadoDevuelta && c.Estado != "borrador") || d.Etapa.EstadoPendiente() == "" ||
+		len(d.Motivo) < 3 || len(d.Motivo) > 600 || !textoVisible(d.Motivo) || strings.TrimSpace(d.Motivo) != d.Motivo ||
+		d.Version < 3 || d.Version > c.Version || !fechaAperturaValida(d.DevueltaEn) {
+		return ErrComisionBorradorInvalida
+	}
+	return nil
 }
 
 func (c ComisionBorrador) Validar() error {
@@ -66,6 +88,9 @@ func (c ComisionBorrador) Validar() error {
 	}
 	if c.Estado == "enviado_pendiente_revision" && c.Documento == nil {
 		return ErrComisionBorradorInvalida
+	}
+	if c.Devolucion != nil {
+		return c.Devolucion.validarPara(c)
 	}
 	return nil
 }
