@@ -17,10 +17,11 @@ import {
 import { traducirPortal } from "./portal-i18n.js?v=20260925-tanda-v1";
 import { calcularMetricasCuadro, tramitesParaInicio } from "./portal-inicio.js?v=20260925-tanda-v1";
 import {
+  componerCronosInterno,
   componerCronosVisible,
   componerDietasInternas,
   componerPersonalVisible,
-} from "./portal-composicion-empleado.js?v=20260925-tanda-v1";
+} from "./portal-composicion-empleado.js?v=20260925-cronos-pantallas-v1";
 import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260924-f2-shell-v1";
 import {
   CLAVES_CARGA_MODULAR,
@@ -122,13 +123,25 @@ const CARGADORES_PRESENTACION_PREDETERMINADOS = Object.freeze({
 });
 
 const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
+  // Jornada y recorridos quedan solo en presentación; el portal interno monta
+  // las vistas conectadas de la persona empleada. Los clientes se piden por la
+  // misma URL que usan las vistas (sin ?v=, servida no-cache): así sus clases
+  // de error son la misma y los instanceof de cada vista siguen valiendo.
   cronos: async () => {
-    const [vista, recorridos, i18n] = await Promise.all([
-      import("./modulos/cronos/vista.js?v=20260925-tanda-v1"),
-      import("./modulos/cronos/vista-recorridos.js?v=20260925-tanda-v1"),
+    const [saldo, remoto, movimientos, movimientosPropios, permisosPropios,
+      clienteSaldo, clienteRemoto, clienteSolicitudes, i18n] = await Promise.all([
+      import("./modulos/cronos/vista-saldo-conectado.js?v=20260925-cronos-pantallas-v1"),
+      import("./modulos/cronos/vista-remoto.js?v=20260925-cronos-pantallas-v1"),
+      import("./modulos/cronos/vista-movimientos-conectado.js?v=20260925-cronos-pantallas-v1"),
+      import("./modulos/cronos/vista-movimientos-propios.js?v=20260925-cronos-pantallas-v1"),
+      import("./modulos/cronos/vista-permisos-propios.js?v=20260925-cronos-pantallas-v1"),
+      import("./modulos/cronos/cliente-saldo-http.js"),
+      import("./modulos/cronos/cliente-remoto-http.js"),
+      import("./modulos/cronos/cliente-solicitudes-http.js"),
       import("./modulos/cronos/i18n.js?v=20260925-tanda-v1"),
     ]);
-    return Object.freeze({ vista, recorridos, i18n });
+    return Object.freeze({ saldo, remoto, movimientos, movimientosPropios, permisosPropios,
+      clienteSaldo, clienteRemoto, clienteSolicitudes, i18n });
   },
   contratacion_temporal: async () => {
     const [contrato, cliente, presentador, vista, adaptador] = await Promise.all([
@@ -569,16 +582,9 @@ export function crearCoordinadorModulosPortal({
           "cronos", limiteCargaModularMs, temporizadores,
         );
         if (carga !== secuenciaCarga) throw new Error("carga interna sustituida");
-        if (typeof recursos?.vista?.montarJornadaCronos !== "function"
-          || typeof recursos?.recorridos?.montarVistaRecorridosCronos !== "function"
-          || typeof recursos?.i18n?.crearTraductorCronos !== "function") {
-          throw new TypeError("vistas de Cronos no disponibles");
-        }
-        cronos = Object.freeze({
-          montar: recursos.vista.montarJornadaCronos,
-          montarPermisos: recursos.recorridos.montarVistaRecorridosCronos,
-          traducir: recursos.i18n.crearTraductorCronos(),
-        });
+        // Falta cualquier montar* o cliente → undefined: falla cerrado.
+        cronos = componerCronosInterno(recursos, entorno);
+        if (!cronos) throw new TypeError("vistas de Cronos no disponibles");
       } catch {
         cronos = undefined;
       }
@@ -884,7 +890,6 @@ export function crearCoordinadorModulosPortal({
         const montarCronos = vista === "cronos-permisos"
           ? composicion.cronos.montarPermisos : composicion.cronos.montar;
         const modulo = await montarCronos({ raiz, anunciar,
-          ...(!presentacionActiva ? { estado: "no_configurado" } : {}),
           registrarDesmontar: (limpiar) => {
             const retirar = () => { limpiar(); navegacion?.remove(); };
             if (montaje !== secuenciaMontaje) { retirar(); return; }

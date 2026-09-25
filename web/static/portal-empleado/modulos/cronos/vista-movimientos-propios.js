@@ -186,6 +186,14 @@ export function montarMovimientosPropiosCronos({ raiz, cliente = crearClienteSol
     activa = false; ++secuencia; controlador?.abort(); envio?.abort();
     contenedor.removeEventListener("click", alPulsar); contenedor.removeEventListener("submit", alEnviar); contenedor.remove?.();
   };
+  // Abre el formulario de olvido desde otra vista (p. ej. «olvido de marcaje»
+  // en los movimientos del día); si ya está abierto, solo lleva el foco.
+  const abrirFormularioOlvido = () => {
+    if (!activa) return;
+    if (!formulario) { formulario = { abierto: true, clave: claveNueva(), movimiento: "entrada", fecha: hoy }; dibujar(); }
+    const campo = contenedor.querySelector?.("[name=fecha_civil]");
+    campo?.scrollIntoView?.({ block: "center" }); campo?.focus?.();
+  };
   registrarDesmontar?.(desmontar);
-  return Object.freeze({ desmontar, recargar: cargar });
+  return Object.freeze({ desmontar, recargar: cargar, abrirOlvido: abrirFormularioOlvido });
 }

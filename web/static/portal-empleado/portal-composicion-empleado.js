@@ -4,6 +4,67 @@ export function componerCronosVisible(recursos, contextoActor, entorno) {
   return Object.freeze({ montar: recursos.recorridos.montarVistaRecorridosCronos });
 }
 
+/**
+ * Cronos interno de la persona empleada: saldo, fichaje remoto, movimientos
+ * del día y calendario con olvidos en «Jornada»; permisos propios aparte.
+ * Falta cualquier pieza → undefined (el módulo no se ofrece). Cada vista
+ * consulta su API y muestra su propio estado: un 404 de una capacidad
+ * desactivada no afecta a las demás.
+ */
+export function componerCronosInterno(recursos, entorno) {
+  const { saldo, remoto, movimientos, movimientosPropios, permisosPropios,
+    clienteSaldo, clienteRemoto, clienteSolicitudes, i18n } = recursos ?? {};
+  if (typeof saldo?.montarVistaSaldoCronos !== "function"
+    || typeof remoto?.montarVistaRemotoCronos !== "function"
+    || typeof movimientos?.montarVistaMovimientosCronos !== "function"
+    || typeof movimientosPropios?.montarMovimientosPropiosCronos !== "function"
+    || typeof permisosPropios?.montarPermisosPropiosCronos !== "function"
+    || typeof clienteSaldo?.crearClienteSaldoCronosHTTP !== "function"
+    || typeof clienteRemoto?.crearClienteRemotoCronosHTTP !== "function"
+    || typeof clienteSolicitudes?.crearClienteSolicitudesCronosHTTP !== "function"
+    || typeof i18n?.crearTraductorCronos !== "function") return undefined;
+  const transporte = typeof entorno?.fetch === "function" ? { fetchImpl: entorno.fetch.bind(entorno) } : {};
+  const cliente = Object.freeze({
+    saldo: clienteSaldo.crearClienteSaldoCronosHTTP(transporte),
+    remoto: clienteRemoto.crearClienteRemotoCronosHTTP(transporte),
+    solicitudes: clienteSolicitudes.crearClienteSolicitudesCronosHTTP(transporte),
+  });
+  return Object.freeze({
+    traducir: i18n.crearTraductorCronos(),
+    montar({ raiz, anunciar = () => {}, registrarDesmontar } = {}) {
+      const partes = []; const desmontes = [];
+      let propios = null;
+      const colgar = (nombre, montarParte) => {
+        const nodo = raiz.ownerDocument.createElement("div");
+        nodo.className = "cronos-personal-parte"; nodo.dataset.cronosParte = nombre;
+        raiz.append(nodo); partes.push(nodo);
+        try {
+          const parte = montarParte(nodo);
+          if (typeof parte?.desmontar === "function") desmontes.push(parte.desmontar);
+          return parte;
+        } catch { nodo.remove?.(); return null; }
+      };
+      colgar("saldo", (nodo) => saldo.montarVistaSaldoCronos({ raiz: nodo, cliente: cliente.saldo, anunciar }));
+      colgar("remoto", (nodo) => remoto.montarVistaRemotoCronos({ raiz: nodo, cliente: cliente.remoto }));
+      colgar("movimientos", (nodo) => movimientos.montarVistaMovimientosCronos({ raiz: nodo, cliente: cliente.saldo, anunciar,
+        abrirCorreccion: () => propios?.abrirOlvido?.() }));
+      propios = colgar("calendario", (nodo) => movimientosPropios.montarMovimientosPropiosCronos({ raiz: nodo, cliente: cliente.solicitudes, anunciar }));
+      let activo = true;
+      const desmontar = () => {
+        if (!activo) return;
+        activo = false;
+        for (const retirar of desmontes.splice(0).reverse()) { try { retirar(); } catch { /* cada parte se retira sola */ } }
+        for (const nodo of partes.splice(0)) nodo.remove?.();
+      };
+      registrarDesmontar?.(desmontar);
+      return Object.freeze({ desmontar });
+    },
+    montarPermisos({ raiz, anunciar = () => {}, registrarDesmontar } = {}) {
+      return permisosPropios.montarPermisosPropiosCronos({ raiz, cliente: cliente.solicitudes, anunciar, registrarDesmontar });
+    },
+  });
+}
+
 /** El portal interno inyecta clientes HTTP; cada operación se autoriza en servidor. */
 export function componerDietasInternas(recursos, entorno) {
   if (!recursos?.contrato || typeof recursos.contrato !== "object"
