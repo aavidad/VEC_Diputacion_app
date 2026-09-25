@@ -3,8 +3,9 @@
 # PRUEBA: instala 000001–000007, ROLLBACK y COMMIT de 000008, ACL, RLS,
 # movimientos con calendario, absentismos y correcciones; corrección de un
 # olvido con replay y conflicto; permisos del año; solicitud con cómputo de
-# laborables, cupos, solapes y replay; conservación tras reiniciar. No
-# acredita MAC, COSE ni gobierno V3. El contenedor se borra al salir.
+# laborables, horas solo en día laborable y sin solapes, cupos, solapes y
+# replay; conservación tras reiniciar. No acredita MAC, COSE ni gobierno V3.
+# El contenedor se borra al salir.
 set -euo pipefail
 base_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 mig=$(CDPATH= cd -- "$base_dir/../migraciones" && pwd)
@@ -103,6 +104,12 @@ app "SELECT prueba.espera_error(\$\$SELECT prueba.pedir('$A','perm-ap-00001','as
 app "SELECT prueba.espera_error(\$\$SELECT prueba.pedir('$A','perm-va-00001','vacaciones',prueba.semana()+3,prueba.semana()+8,'','','n-pd-4')\$\$,'PC010')" 'OK PC010' 'permiso en días solapado rechazado'
 app "SELECT prueba.espera_error(\$\$SELECT prueba.pedir('$A','perm-ap-00002','asuntos-propios',prueba.semana()+7,prueba.semana()+9,'','','n-pd-5')\$\$,'PC007')" 'OK PC007' 'cupo anual superado'
 app "SELECT (d->>'cantidad')||'|'||(d->>'unidad') FROM prueba.pedir('$A','perm-hm-00001','horas-medico',prueba.semana()+14,prueba.semana()+14,'09:00','11:30','n-pd-6') d" '150|hora' 'horas de médico en minutos'
+app "SELECT prueba.espera_error(\$\$SELECT prueba.pedir('$A','perm-hm-00010','horas-medico',prueba.semana()+5,prueba.semana()+5,'09:00','09:15','n-pd-12')\$\$,'PC007')" 'OK PC007' 'horas en sábado rechazadas'
+app "SELECT prueba.espera_error(\$\$SELECT prueba.pedir('$A','perm-hm-00011','horas-medico',prueba.semana()+2,prueba.semana()+2,'09:00','09:15','n-pd-13')\$\$,'PC007')" 'OK PC007' 'horas en festivo del calendario rechazadas'
+app "SELECT prueba.espera_error(\$\$SELECT prueba.pedir('$A','perm-hm-00012','horas-medico',prueba.semana()+1,prueba.semana()+1,'09:00','09:15','n-pd-14')\$\$,'PC010')" 'OK PC010' 'horas dentro de un permiso en días vivo rechazadas'
+app "SELECT prueba.espera_error(\$\$SELECT prueba.pedir('$A','perm-hm-00013','horas-medico',prueba.semana()+14,prueba.semana()+14,'11:00','11:15','n-pd-15')\$\$,'PC010')" 'OK PC010' 'tramo cruzado con otro del mismo día rechazado'
+app "SELECT (d->>'cantidad')||'|'||(d->>'replay') FROM prueba.pedir('$A','perm-hm-00014','horas-medico',prueba.semana()+14,prueba.semana()+14,'11:30','11:45','n-pd-16') d" '15|false' 'tramo contiguo del mismo día admitido'
+app "SELECT prueba.espera_error(\$\$SELECT prueba.pedir('$B','perm-hm-00015','horas-medico',prueba.semana(),prueba.semana(),'09:00','09:15','n-pd-17')\$\$,'PC008')" 'OK PC008' 'horas sin calendario rechazadas'
 app "SELECT prueba.espera_error(\$\$SELECT prueba.pedir('$A','perm-hm-00002','horas-medico',prueba.semana()+15,prueba.semana()+15,'09:00','10:00','n-pd-7')\$\$,'PC007')" 'OK PC007' 'cupo horario superado'
 app "SELECT prueba.espera_error(\$\$SELECT prueba.pedir('$A','perm-ma-00001','maternidad',prueba.semana()+20,prueba.semana()+21,'','','n-pd-8')\$\$,'PC009')" 'OK PC009' 'permiso no solicitable desde el portal'
 app "SELECT prueba.espera_error(\$\$SELECT prueba.pedir('$B','perm-bb-00001','asuntos-propios',prueba.semana(),prueba.semana(),'','','n-pd-9')\$\$,'PC008')" 'OK PC008' 'laborables sin calendario rechazado'
@@ -111,7 +118,7 @@ app "SELECT jsonb_array_length(d->'solicitudes') FROM prueba.permisos('$B','n-pe
 
 conteo="SELECT (SELECT count(*) FROM vec_cronos_v1.correccion_solicitud)||'/'||(SELECT count(*) FROM vec_cronos_v1.correccion_actuacion)||'/'||(SELECT count(*) FROM vec_cronos_v1.permiso_solicitud)||'/'||(SELECT count(*) FROM vec_cronos_v1.permiso_estado)||'/'||(SELECT count(*) FROM vec_cronos_v1.solicitud_outbox)||'/'||(SELECT count(*) FROM vec_cronos_v1.solicitud_replay)||'/'||(SELECT count(*) FROM vec_cronos_v1.movimientos_acceso)||'/'||(SELECT count(*) FROM vec_cronos_v1.permisos_acceso)"
 antes=$(scalar "$conteo")
-comprobar "SELECT '$antes'" '1/1/4/5/4/2/3/2' 'filas únicas: solicitudes, estados, outbox, replays y accesos'
+comprobar "SELECT '$antes'" '1/1/5/6/5/2/3/2' 'filas únicas: solicitudes, estados, outbox, replays y accesos'
 inicio=$(scalar "SELECT pg_postmaster_start_time()")
 docker restart "$container" >/dev/null
 esperar

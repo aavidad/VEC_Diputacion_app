@@ -542,6 +542,24 @@ BEGIN
      RAISE EXCEPTION 'tramo horario inválido' USING ERRCODE='PC001';
    END IF;
    cantidad:=(extract(epoch FROM (hf::time-hi::time))/60)::bigint;
+   -- Un permiso por horas solo cabe en un día laborable del calendario
+   -- publicado de la persona: de lunes a viernes y sin marca en calendario_dia.
+   calendario:=vec_cronos_v1.calendario_de_v1(emp,extract(year FROM desde)::integer);
+   IF calendario IS NULL THEN
+     RAISE EXCEPTION 'calendario laboral no publicado' USING ERRCODE='PC008';
+   END IF;
+   IF extract(isodow FROM desde)>=6
+      OR EXISTS (SELECT 1 FROM vec_cronos_v1.calendario_dia cd WHERE cd.calendario_ref=calendario AND cd.fecha=desde) THEN
+     RAISE EXCEPTION 'día no laborable' USING ERRCODE='PC007';
+   END IF;
+   -- Ni otro tramo vivo del mismo día que se cruce, ni un permiso en días
+   -- vivo que ya cubra esa fecha.
+   IF EXISTS (SELECT 1 FROM vec_cronos_v1.permiso_solicitud s JOIN vec_cronos_v1.estado_permiso_actual_v1(emp) e ON e.solicitud_ref=s.solicitud_ref
+       WHERE s.empleado_ref=emp AND e.estado IN ('solicitado','pendiente_administracion','concedido')
+         AND ((s.unidad='hora' AND s.desde=desde AND s.hora_inicio<hf AND s.hora_fin>hi)
+           OR (s.unidad='dia' AND s.desde<=desde AND s.hasta>=desde))) THEN
+     RAISE EXCEPTION 'permiso solapado' USING ERRCODE='PC010';
+   END IF;
  ELSE
    IF hi IS NOT NULL THEN
      RAISE EXCEPTION 'permiso en días sin tramo horario' USING ERRCODE='PC001';
