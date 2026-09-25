@@ -187,13 +187,16 @@ func TestTodoConsumidorPublicableDejaElGobiernoPropio(t *testing.T) {
 	descriptores = append(descriptores, descriptoresMaterialAutorizacionContratacionTemporalDesarrollo()...)
 	descriptores = append(descriptores, descriptoresMaterialBorradorLlamamientoBolsaDesarrollo()...)
 	descriptores = append(descriptores, descriptorMaterialMiBolsaDesarrollo())
+	descriptores = append(descriptores, descriptoresMaterialPortalCandidatoDesarrollo()...)
 	descriptores = append(descriptores, descriptoresMaterialDietasDesarrollo()...)
 	descriptores = append(descriptores, descriptoresMaterialCronosDesarrollo()...)
 	descriptores = append(descriptores, descriptoresMaterialCronosResolucionDesarrollo()...)
 	descriptores = append(descriptores, descriptoresMaterialCronosNotificacionesDesarrollo()...)
 	descriptores = append(descriptores, descriptoresMaterialDocumentosDesarrollo()...)
 	descriptores = append(descriptores, descriptorMaterialFichaPropiaPersonalDesarrollo())
+	descriptores = append(descriptores, descriptorMaterialFirmaDocumentoCTDesarrollo())
 	descriptores = append(descriptores, descriptoresMaterialPersonalB2Desarrollo()...)
+	descriptores = append(descriptores, descriptoresMaterialSeguimientoCeseDesarrollo()...)
 	if _, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(descriptores); err != nil {
 		t.Fatal("el catálogo común completo colisiona", err)
 	}

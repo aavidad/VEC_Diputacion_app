@@ -7,6 +7,7 @@ import {
   validarSolicitudPropuestaCobertura,
 } from "./contrato-cobertura.js";
 import { crearTraductorContratacionTemporal } from "./i18n.js";
+import { ACCION_AYUDA_AVISOS_VIA, renderizarAvisosViaCobertura } from "./avisos-via-cobertura.js";
 
 const CAMPOS_CONFIGURACION = new Set([
   "raiz", "cliente", "contexto", "generarClaveIdempotencia",
@@ -126,8 +127,16 @@ function renderizarPropuesta(propuesta, estado, t) {
   </section>`;
 }
 
-function renderizarContenido(estado, contexto, t, formateador) {
+function renderizarContenido(estado, contexto, t, formateador, formateadorFechas) {
   if (estado.recibo) return renderizarRecibo(estado.recibo, contexto, t, formateador);
+  const avisos = estado.indeterminado ? "" : renderizarAvisosViaCobertura(
+    estado.propuesta?.avisos_via, t,
+    { formateadorFechas, ayudaAbierta: estado.ayuda_avisos_abierta === true },
+  );
+  return avisos + renderizarContenidoPropuesta(estado, t);
+}
+
+function renderizarContenidoPropuesta(estado, t) {
   if (estado.indeterminado) {
     return `<section class="ct-alcance" data-ct-cobertura-indeterminado role="status"
       aria-live="assertive" aria-atomic="true" tabindex="-1">
@@ -196,6 +205,8 @@ export function montarFormularioCobertura(configuracion = {}) {
   let formateador = new Intl.DateTimeFormat(locale, {
     dateStyle: "long", timeStyle: "medium", timeZone: zonaHoraria,
   });
+  // Las fechas civiles de los avisos (AAAA-MM-DD) no dependen de la zona.
+  let formateadorFechas = new Intl.DateTimeFormat(locale, { dateStyle: "long", timeZone: "UTC" });
   let raizActual = raiz;
   let clienteActual = cliente;
   let generarClaveActual = generarClaveIdempotencia;
@@ -257,7 +268,7 @@ export function montarFormularioCobertura(configuracion = {}) {
       <div class="ct-estado ct-estado-${escaparHTML(estado.tipo_mensaje)}"
         data-ct-cobertura-estado role="status" aria-live="polite"
         aria-atomic="true" tabindex="-1"><strong>${escaparHTML(t(estado.mensaje_clave))}</strong></div>
-      ${renderizarContenido(estado, contexto, t, formateador)}
+      ${renderizarContenido(estado, contexto, t, formateador, formateadorFechas)}
     </section>`;
     if (selectorFoco) enfocar(selectorFoco);
     if (anunciarEstado) {
@@ -538,12 +549,29 @@ export function montarFormularioCobertura(configuracion = {}) {
     if (control.dataset.ctCoberturaAccion === "reintentar-propuesta") {
       return reintentarPropuesta();
     }
+    if (control.dataset.ctCoberturaAccion === ACCION_AYUDA_AVISOS_VIA) {
+      return alternarAyudaAvisos(!estado.ayuda_avisos_abierta);
+    }
     return undefined;
+  }
+
+  function alternarAyudaAvisos(abierta) {
+    if (!montado || estado.ayuda_avisos_abierta === abierta) return undefined;
+    estado = { ...estado, ayuda_avisos_abierta: abierta };
+    repintar(`[data-ct-cobertura-accion="${ACCION_AYUDA_AVISOS_VIA}"]`, false);
+    return undefined;
+  }
+
+  function alTeclear(evento) {
+    if (evento.key !== "Escape" || !estado?.ayuda_avisos_abierta) return;
+    evento.preventDefault?.();
+    alternarAyudaAvisos(false);
   }
 
   raizActual.addEventListener("submit", alEnviar);
   raizActual.addEventListener("change", alCambiar);
   raizActual.addEventListener("click", alPulsar);
+  raizActual.addEventListener("keydown", alTeclear);
   repintar();
   void cargarPropuesta();
 
@@ -554,6 +582,7 @@ export function montarFormularioCobertura(configuracion = {}) {
     raizActual.removeEventListener("submit", alEnviar);
     raizActual.removeEventListener("change", alCambiar);
     raizActual.removeEventListener("click", alPulsar);
+    raizActual.removeEventListener("keydown", alTeclear);
     raizActual.replaceChildren();
     estado = null;
     contexto = null;
@@ -566,6 +595,7 @@ export function montarFormularioCobertura(configuracion = {}) {
     vuelo = null;
     t = null;
     formateador = null;
+    formateadorFechas = null;
     raizActual = null;
   };
 }

@@ -141,6 +141,9 @@ type PresentacionPropuestaCobertura struct {
 	Evaluaciones       []domain.EvaluacionViaPropuestaCobertura
 	MotivosAlternativa []MotivoAlternativaPropuestaCobertura
 	IdentidadSemantica domain.IdentidadSemanticaPropuestaDecisionCobertura
+	// AvisosVia son las comprobaciones automáticas orientativas; nulo si no
+	// hay catálogo de reglas. No forman parte de la identidad semántica.
+	AvisosVia *ResultadoAvisosViaCobertura
 }
 
 // MotivoAlternativaPropuestaCobertura es la única vista transportable del
@@ -196,6 +199,7 @@ type ServicioPresentacionPropuestaCobertura struct {
 	motivos      resolutorClaveMotivoPresentacionCobertura
 	alternativas []MotivoAlternativaCobertura
 	coberturas   *PreparadorGlobalCobertura
+	avisosVia    avisosViaPresentacion
 }
 
 func NuevoServicioPresentacionPropuestaCobertura(
@@ -393,6 +397,7 @@ func (s *ServicioPresentacionPropuestaCobertura) Proponer(
 		Evaluaciones:       propuesta.Evaluaciones(),
 		MotivosAlternativa: motivosAlternativa,
 		IdentidadSemantica: identidad,
+		AvisosVia:          s.evaluarAvisosVia(operacion, expediente.Analisis),
 	}, nil
 }
 

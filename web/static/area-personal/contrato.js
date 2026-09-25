@@ -1,3 +1,6 @@
+import { campoVisibleMiBolsa, validarCamposMiBolsa } from "./mi-bolsa-campos.js";
+import { validarPortalMiBolsa } from "./mi-bolsa-portal.js";
+
 const ESQUEMA_PANEL = "vec.bolsa.area-personal.v1";
 export const ESQUEMA_MI_BOLSA = "vec.bolsa.mi-bolsa.v1";
 const ESQUEMA_RECIBO = "vec.bolsa.area-personal.recibo.v1";
@@ -110,24 +113,39 @@ export function validarRespuestaMiBolsa(entrada) {
     throw new TypeError("El esquema de mi bolsa no es compatible.");
   }
   exigirInstante(datos.consultada_en, "mi-bolsa.consultada_en");
+  datos.campos_visibles = validarCamposMiBolsa(datos.campos_visibles);
+  const visible = (campo) => campoVisibleMiBolsa(datos.campos_visibles, campo);
   exigirLista(datos.participaciones, "mi-bolsa.participaciones").forEach((participacion, indice) => {
     const item = exigirObjeto(participacion, `mi-bolsa.participaciones[${indice}]`);
     exigirReferencia(item.bolsa, `mi-bolsa.participaciones[${indice}].bolsa`);
     exigirCadena(item.categoria, `mi-bolsa.participaciones[${indice}].categoria`, 200);
     exigirNumero(item.version, `mi-bolsa.participaciones[${indice}].version`, { minimo: 1 });
-    exigirNumero(item.orden_inicial, `mi-bolsa.participaciones[${indice}].orden_inicial`, { minimo: 1 });
-    exigirNumero(item.total_instantanea, `mi-bolsa.participaciones[${indice}].total_instantanea`, { minimo: 0 });
-    exigirCadena(item.estado_bolsa, `mi-bolsa.participaciones[${indice}].estado_bolsa`, 80);
+    if (visible("posicion")) {
+      exigirNumero(item.orden_inicial, `mi-bolsa.participaciones[${indice}].orden_inicial`, { minimo: 1 });
+      exigirNumero(item.total_instantanea, `mi-bolsa.participaciones[${indice}].total_instantanea`, { minimo: 0 });
+    } else if (item.orden_inicial !== undefined || item.total_instantanea !== undefined) {
+      throw new TypeError("La posición de mi bolsa está oculta por el catálogo.");
+    }
+    if (visible("estado")) exigirCadena(item.estado_bolsa, `mi-bolsa.participaciones[${indice}].estado_bolsa`, 80);
+    else if (item.estado_bolsa !== undefined) throw new TypeError("El estado de mi bolsa está oculto por el catálogo.");
     exigirFechaOInstante(item.vigente_desde, `mi-bolsa.participaciones[${indice}].vigente_desde`);
     if (item.vigente_hasta !== null) exigirFechaOInstante(item.vigente_hasta, `mi-bolsa.participaciones[${indice}].vigente_hasta`);
-    if (item.situacion_actual !== undefined && item.situacion_actual !== null) {
+    if (!visible("estado") && item.situacion_actual !== undefined && item.situacion_actual !== null) {
+      const soloFecha = exigirObjeto(item.situacion_actual, `mi-bolsa.participaciones[${indice}].situacion_actual`);
+      if (!visible("fecha_disponible") || Object.keys(soloFecha).join() !== "fecha_disponible") throw new TypeError("La situación de mi bolsa está oculta por el catálogo.");
+      exigirFechaOInstante(soloFecha.fecha_disponible, `mi-bolsa.participaciones[${indice}].situacion_actual.fecha_disponible`);
+    } else if (item.situacion_actual !== undefined && item.situacion_actual !== null) {
       const actual = exigirObjeto(item.situacion_actual, `mi-bolsa.participaciones[${indice}].situacion_actual`);
       if (!SITUACIONES_ACTUALES_MI_BOLSA.includes(actual.estado)) throw new TypeError("La situación actual de mi bolsa no es válida.");
       exigirFechaOInstante(actual.desde, `mi-bolsa.participaciones[${indice}].situacion_actual.desde`);
       if (actual.hasta !== null) exigirFechaOInstante(actual.hasta, `mi-bolsa.participaciones[${indice}].situacion_actual.hasta`);
       if (actual.fecha_disponible !== null) exigirFechaOInstante(actual.fecha_disponible, `mi-bolsa.participaciones[${indice}].situacion_actual.fecha_disponible`);
-      if ((actual.estado === "disponible_desde") !== (actual.fecha_disponible !== null)) throw new TypeError("La fecha de disponibilidad no corresponde a la situación actual.");
+      if (!visible("fecha_disponible") && actual.fecha_disponible !== null) throw new TypeError("La fecha de disponibilidad está oculta por el catálogo.");
+      if (visible("fecha_disponible") && (actual.estado === "disponible_desde") !== (actual.fecha_disponible !== null)) throw new TypeError("La fecha de disponibilidad no corresponde a la situación actual.");
       if (actual.hasta !== null && Date.parse(actual.hasta) < Date.parse(actual.desde)) throw new TypeError("La situación actual termina antes de comenzar.");
+    }
+    if (!visible("ultimo_llamamiento") && item.ultimo_llamamiento !== undefined && item.ultimo_llamamiento !== null) {
+      throw new TypeError("El último llamamiento está oculto por el catálogo.");
     }
     if (item.ultimo_llamamiento !== undefined && item.ultimo_llamamiento !== null) {
       const ultimo = exigirObjeto(item.ultimo_llamamiento, `mi-bolsa.participaciones[${indice}].ultimo_llamamiento`);
@@ -140,6 +158,7 @@ export function validarRespuestaMiBolsa(entrada) {
       }
     }
   });
+  validarPortalMiBolsa(datos);
   return congelarProfundo(datos);
 }
 

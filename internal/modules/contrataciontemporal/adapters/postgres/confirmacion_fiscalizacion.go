@@ -22,12 +22,14 @@ import (
 )
 
 const (
-	funcionConfirmarFiscalizacion                = "vec_contratacion_temporal.confirmar_fiscalizacion_v1"
-	funcionConfirmarFiscalizacionTrasSubsanacion = "vec_contratacion_temporal.confirmar_fiscalizacion_tras_subsanacion_v1"
-	esquemaConfirmarFiscalizacion                = "vec.contratacion-temporal.confirmar-fiscalizacion.v1"
-	audienciaConfirmarFiscalizacionV1            = "vec_contratacion_temporal.confirmar_alta_atestada.v1"
-	maximoIntentosConfirmarFiscalizacion         = 3
-	maximoCargaConfirmarFiscalizacion            = 3 * 1024 * 1024
+	funcionConfirmarFiscalizacion = "vec_contratacion_temporal.confirmar_fiscalizacion_v1"
+	// funcionConfirmarFiscalizacionV2 (CT120) elige entre CT93 y la
+	// fiscalización de un expediente modificado por el expediente anterior.
+	funcionConfirmarFiscalizacionV2      = "vec_contratacion_temporal.confirmar_fiscalizacion_v2"
+	esquemaConfirmarFiscalizacion        = "vec.contratacion-temporal.confirmar-fiscalizacion.v1"
+	audienciaConfirmarFiscalizacionV1    = "vec_contratacion_temporal.confirmar_alta_atestada.v1"
+	maximoIntentosConfirmarFiscalizacion = 3
+	maximoCargaConfirmarFiscalizacion    = 3 * 1024 * 1024
 )
 
 func funcionConfirmarFiscalizacionParaVersion(version uint64) (string, error) {
@@ -35,7 +37,7 @@ func funcionConfirmarFiscalizacionParaVersion(version uint64) (string, error) {
 	case version == 5:
 		return funcionConfirmarFiscalizacion, nil
 	case version >= 7:
-		return funcionConfirmarFiscalizacionTrasSubsanacion, nil
+		return funcionConfirmarFiscalizacionV2, nil
 	default:
 		return "", ports.ErrPreparacionFiscalizacionInvalida
 	}
@@ -399,7 +401,7 @@ func validarOrdenConfirmarFiscalizacion(
 		validarAutorizacionFiscalizacion(orden, instante) != nil {
 		return ports.ErrPreparacionFiscalizacionInvalida
 	}
-	fase, estado := destinoFiscalizacionPostgreSQL(material.Resultado)
+	fase, estado := anterior.DestinoFiscalizacion(material.Resultado)
 	retornoRef := ""
 	if material.Resultado == domain.FiscalizacionDesfavorable {
 		retornoRef = p.Referencias.RetornoRef
@@ -447,9 +449,13 @@ func validarAutorizacionFiscalizacion(
 	huellaObservaciones := sha256.Sum256([]byte(material.Observaciones))
 	anterior := orden.Preparacion.Expediente
 	retornoPrevioRef, reciboSubsanacionRef := referenciasAntecedenteRefiscalizacionPostgreSQL(anterior)
+	reciboModificacion := anterior.ReciboModificacionPendienteFiscalizacion()
 	numeroAtributos := 13
 	if retornoPrevioRef != "" {
 		numeroAtributos = 15
+	}
+	if reciboModificacion != "" {
+		numeroAtributos = 14
 	}
 	if errSolicitud != nil || errVinculo != nil || errContexto != nil ||
 		errDecision != nil || errHuella != nil || errConfirmacion != nil ||
@@ -487,6 +493,7 @@ func validarAutorizacionFiscalizacion(
 		(retornoPrevioRef != "" &&
 			(recurso.Atributos["retorno_previo_ref"] != retornoPrevioRef ||
 				recurso.Atributos["subsanacion_recibo_ref"] != reciboSubsanacionRef)) ||
+		recurso.Atributos["modificacion_recibo_ref"] != reciboModificacion ||
 		confirmacion.DecisionHuellaSHA256 != huellaDecision ||
 		!orden.Evidencia.ConfirmacionV3.DentroDeVentanaEn(instante) {
 		return ports.ErrPreparacionFiscalizacionInvalida
@@ -513,15 +520,6 @@ func referenciasAntecedenteRefiscalizacionPostgreSQL(
 		}
 	}
 	return "", ""
-}
-
-func destinoFiscalizacionPostgreSQL(
-	resultado domain.ResultadoFiscalizacion,
-) (domain.ClaveFase, domain.EstadoOperativo) {
-	if resultado == domain.FiscalizacionDesfavorable {
-		return domain.FaseSubsanacionUnidad, domain.EstadoIncidencia
-	}
-	return domain.FaseFiscalizacion, domain.EstadoEnCurso
 }
 
 func decodificarReciboFiscalizacion(contenido string) (ports.ReciboFiscalizacion, error) {

@@ -57,7 +57,7 @@ func TestMiBolsaCargaSoloCertificadoCandidatoNominal(t *testing.T) {
 	sujeto := "per_candidato_sintetico_1234567890123456"
 	identidad := map[string]any{"version": 1, "autoridad": AutoridadNoAutoritativa,
 		"certificate_sha256": hexHuellaMiBolsaPrueba(huella), "subject": sujeto,
-		"display_name": "Candidato sintético", "roles": []string{"candidato_bolsa"}}
+		"display_name": "Persona candidata", "roles": []string{"candidato_bolsa"}}
 	rutaIdentidad := filepath.Join(cfg.DevelopmentMaterialDir, "identidad", "candidato.json")
 	contenido, _ := json.Marshal(identidad)
 	if err := os.WriteFile(rutaIdentidad, contenido, 0o600); err != nil {

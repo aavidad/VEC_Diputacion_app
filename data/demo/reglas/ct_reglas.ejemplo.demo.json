@@ -41,11 +41,12 @@
         "atributos": {
           "origen": "ejemplo",
           "norma": "Ley 39/2015, art. 80.2.",
-          "duda": "Su aplicación a este procedimiento la confirma RRHH.",
+          "duda": "Su aplicación a este procedimiento, y a qué fases del expediente (atributo fases), la confirma RRHH.",
           "unidad": "dias_habiles",
           "cantidad": "10",
           "inicio": "peticion_informe",
-          "computo": "administrativo"
+          "computo": "administrativo",
+          "fases": "asignacion_unidad,informe_juridico"
         },
         "orden": 2
       },
@@ -62,6 +63,7 @@
           "cantidad": "10",
           "inicio": "recepcion_expediente",
           "computo": "administrativo",
+          "fases": "fiscalizacion",
           "cantidad_urgente": "5"
         },
         "orden": 3
@@ -78,7 +80,8 @@
           "unidad": "dias_habiles",
           "cantidad": "10",
           "inicio": "requerimiento",
-          "computo": "administrativo"
+          "computo": "administrativo",
+          "fases": "subsanacion_unidad"
         },
         "orden": 4
       },
@@ -203,6 +206,52 @@
           "ampliable_meses": "12"
         },
         "orden": 12
+      },
+      {
+        "clave": "c09.modificacion_fase_retorno",
+        "etiqueta": "Fase a la que vuelve una modificación",
+        "descripcion": "Un cambio de fechas o de jornada tras el nombramiento crea una versión nueva del análisis, recalcula el coste y devuelve el expediente a fiscalización.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo.",
+          "duda": "Duda 12.",
+          "unidad": "lista",
+          "valor": "fiscalizacion",
+          "estado": "en_curso",
+          "motivos": "cambio_fechas_centro,cambio_jornada",
+          "catalogo": "motivos_rectificacion_analisis"
+        },
+        "orden": 13
+      },
+      {
+        "clave": "c10.cierre_expediente",
+        "etiqueta": "Condiciones del cierre del expediente",
+        "descripcion": "El expediente se cierra cuando consta el cese registrado y la ficha de GINPIX confirmada con su número.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo.",
+          "duda": "Duda 11.",
+          "unidad": "lista",
+          "valor": "cese_registrado,ginpix_confirmado"
+        },
+        "orden": 14
+      },
+      {
+        "clave": "c11.causas_cese",
+        "etiqueta": "Causas de cese",
+        "descripcion": "Las causas admitidas y su justificante están en el catálogo causas_cese_contratacion_temporal.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo.",
+          "duda": "Duda 12.",
+          "unidad": "lista",
+          "valor": "fin_sustitucion,cobertura_vacante,fin_programa,fin_acumulacion_tareas,fin_circunstancias_produccion,renuncia,no_superacion_periodo_prueba",
+          "catalogo": "causas_cese_contratacion_temporal"
+        },
+        "orden": 15
       }
     ],
     "estado": "publicado",

@@ -13,7 +13,13 @@ import (
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 )
 
-const funcionConsultarMiBolsaV1 = "vec_bolsa_llamamientos.consultar_mi_bolsa_v1"
+const (
+	funcionConsultarMiBolsaV1 = "vec_bolsa_llamamientos.consultar_mi_bolsa_v1"
+	// funcionConsultarMiBolsaPortalV1 (Bolsa 000029) consume la misma
+	// decisión y además deja en la transacción la marca que exigen las
+	// lecturas propias del portal, el contacto y las ofertas.
+	funcionConsultarMiBolsaPortalV1 = "vec_bolsa_llamamientos.consultar_mi_bolsa_portal_v1"
+)
 
 var _ puertosbolsa.ConsultaMiBolsa = (*ConsultaMiBolsaPostgreSQL)(nil)
 
@@ -42,8 +48,12 @@ func (r *ConsultaMiBolsaPostgreSQL) ConsultarMiBolsa(ctx context.Context, s puer
 		return puertosbolsa.InstantaneaMiBolsa{}, errorMiBolsa(ctx, err)
 	}
 	m := s.Material
+	funcion := funcionConsultarMiBolsaV1
+	if len(s.ResultadosEfectivos) != 0 || s.LeerContacto || s.LeerOfertas {
+		funcion = funcionConsultarMiBolsaPortalV1
+	}
 	var contenido []byte
-	err = tx.QueryRow(ctx, `SELECT `+funcionConsultarMiBolsaV1+`($1::text,$2::timestamptz,$3::bytea,$4::bytea,$5::bytea,$6::bytea,$7::numeric,$8::numeric,$9::bytea,$10::bytea,$11::bytea,$12::bytea)`,
+	err = tx.QueryRow(ctx, `SELECT `+funcion+`($1::text,$2::timestamptz,$3::bytea,$4::bytea,$5::bytea,$6::bytea,$7::numeric,$8::numeric,$9::bytea,$10::bytea,$11::bytea,$12::bytea)`,
 		s.CandidatoRef, s.ConsultadaEn.UTC(), m.CapacidadCanonica(), m.DecisionCanonica(), m.MotivoCanonico(), m.ContextoActorCanonico(), int64(m.PersonaVersion()), int64(m.PerfilVersion()), m.PayloadVECAD3(), m.SobreCOSESign1(), m.EvidenciaVerificacion(), m.RaizPublicaSPKI()).Scan(&contenido)
 	if err != nil {
 		return puertosbolsa.InstantaneaMiBolsa{}, errorMiBolsa(ctx, err)
@@ -52,6 +62,23 @@ func (r *ConsultaMiBolsaPostgreSQL) ConsultarMiBolsa(ctx context.Context, s puer
 	resultado, err := decodificarInstantaneaMiBolsa(contenido, s.ConsultadaEn)
 	if err != nil {
 		return puertosbolsa.InstantaneaMiBolsa{}, err
+	}
+	// El estado del portal propio se lee en la misma transacción que acaba
+	// de consumir la consulta propia y registrar su auditoría.
+	if len(s.ResultadosEfectivos) != 0 {
+		if resultado.Portal, err = leerPortalCandidato(ctx, tx, s.CandidatoRef, s.ConsultadaEn, s.ResultadosEfectivos); err != nil {
+			return puertosbolsa.InstantaneaMiBolsa{}, errors.Join(puertosbolsa.ErrMaterialMiBolsaNoDisponible, err)
+		}
+	}
+	if s.LeerContacto {
+		if resultado.Contactos, err = leerContactosCandidato(ctx, tx, s.CandidatoRef, s.ConsultadaEn); err != nil {
+			return puertosbolsa.InstantaneaMiBolsa{}, errors.Join(puertosbolsa.ErrMaterialMiBolsaNoDisponible, err)
+		}
+	}
+	if s.LeerOfertas {
+		if resultado.Ofertas, err = leerOfertasCandidato(ctx, tx, s.CandidatoRef, s.ConsultadaEn); err != nil {
+			return puertosbolsa.InstantaneaMiBolsa{}, errors.Join(puertosbolsa.ErrMaterialMiBolsaNoDisponible, err)
+		}
 	}
 	if err := ctx.Err(); err != nil {
 		return puertosbolsa.InstantaneaMiBolsa{}, err

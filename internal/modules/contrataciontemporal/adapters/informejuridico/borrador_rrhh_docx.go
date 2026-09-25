@@ -14,18 +14,20 @@ type RenderizadorBorradorDOCXDesarrollo struct {
 	DOCX vecports.RenderizadorDocumento
 	// Etiquetas: nombres de catálogo para las referencias; puede ser nil.
 	Etiquetas EtiquetadorReferencias
+	// Plantillas: el mismo catálogo que el PDF.
+	Plantillas *PlantillasBorrador
 }
 
 func (r RenderizadorBorradorDOCXDesarrollo) RenderizarBorradorDOCX(
 	ctx context.Context, tipo ports.TipoBorradorRRHH, detalle ports.DetalleExpedienteRRHH,
 ) ([]byte, error) {
-	if ctx == nil || r.DOCX == nil || r.DOCX.Formato() != vecdomain.FormatoDocumentoDOCX {
+	if ctx == nil || r.DOCX == nil || r.DOCX.Formato() != vecdomain.FormatoDocumentoDOCX || r.Plantillas == nil {
 		return nil, ports.ErrConsultaRRHHNoDisponible
 	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	documento, err := contenidoBorradorDesarrollo(tipo, detalle, r.Etiquetas)
+	documento, err := contenidoBorradorDesarrollo(tipo, detalle, r.Etiquetas, r.Plantillas)
 	if err != nil {
 		return nil, err
 	}

@@ -235,7 +235,19 @@ func registroPropuestaIntegracion(orden ports.RegistroLlamamientoDesarrollo, ope
 	return r, nil
 }
 
-// SolicitarSiguienteLlamamiento solo continúa una renuncia canónica. Reutiliza
+// estadoTerminalContinuable devuelve el estado de un terminal que admite
+// siguiente llamamiento: renuncia o expiración confirmadas por RRHH.
+func estadoTerminalContinuable(tipo string) (domain.EstadoLlamamiento, bool) {
+	switch tipo {
+	case "renuncia_rrhh":
+		return domain.EstadoLlamamientoRenunciado, true
+	case ports.TipoExpiracionRRHHDesarrollo:
+		return domain.EstadoLlamamientoExpirado, true
+	}
+	return "", false
+}
+
+// SolicitarSiguienteLlamamiento continúa una renuncia o una expiración canónica. Reutiliza
 // el orden y la fuente firmada originales; Guardar debe imponer un sucesor único
 // por terminal/intención y consumir autorización fresca también en recuperación.
 func (s *ServicioIntegracionLlamamientosDesarrollo) SolicitarSiguienteLlamamiento(ctx context.Context, p ports.PeticionSiguienteLlamamientoDesarrollo) (ports.ReciboLlamamientoDesarrollo, error) {
@@ -248,7 +260,8 @@ func (s *ServicioIntegracionLlamamientosDesarrollo) SolicitarSiguienteLlamamient
 		return vacio, err
 	}
 	terminal, existe, err := s.repositorio.BuscarOperacion(ctx, p.TerminalOperacionRef)
-	if err != nil || !existe || terminal.OperacionRef != p.TerminalOperacionRef || terminal.Tipo != "renuncia_rrhh" {
+	estadoTerminal, continuable := estadoTerminalContinuable(terminal.Tipo)
+	if err != nil || !existe || terminal.OperacionRef != p.TerminalOperacionRef || !continuable {
 		return vacio, ports.ErrIntegracionLlamamientoDesarrollo
 	}
 	canonTerminal, err := terminal.Canonico()
@@ -281,12 +294,12 @@ func (s *ServicioIntegracionLlamamientosDesarrollo) SolicitarSiguienteLlamamient
 	if err != nil {
 		return vacio, err
 	}
-	cerrado, err := abierto.TransicionarATerminal(1, &domain.TerminalLlamamiento{Estado: domain.EstadoLlamamientoRenunciado, OperacionRef: terminal.OperacionRef})
+	cerrado, err := abierto.TransicionarATerminal(1, &domain.TerminalLlamamiento{Estado: estadoTerminal, OperacionRef: terminal.OperacionRef})
 	if err != nil {
 		return vacio, err
 	}
 	datosCerrados := cerrado.Datos()
-	esperada.OperacionRef, esperada.Tipo, esperada.EstadoLlamamiento = terminal.OperacionRef, "renuncia_rrhh", cerrado.Estado()
+	esperada.OperacionRef, esperada.Tipo, esperada.EstadoLlamamiento = terminal.OperacionRef, terminal.Tipo, cerrado.Estado()
 	esperada.Llamamiento, esperada.Resolucion = &datosCerrados, terminal.Resolucion
 	canonEsperada, err = esperada.Canonico()
 	if err != nil || !bytes.Equal(canonEsperada, canonTerminal) {
@@ -370,22 +383,25 @@ func (s *ServicioIntegracionLlamamientosDesarrollo) SolicitarSiguienteLlamamient
 // Reutiliza la apertura durable, el dominio y Guardar con autorización propia.
 // El repositorio debe confirmar CAS, terminal, recibo, historia y evento juntos.
 func (s *ServicioIntegracionLlamamientosDesarrollo) AceptarLlamamiento(ctx context.Context, p ports.PeticionResolverLlamamientoDesarrollo) (ports.ReciboLlamamientoDesarrollo, error) {
-	return s.resolverLlamamiento(ctx, p, false)
+	return s.resolverLlamamiento(ctx, p, "aceptacion_rrhh", domain.EstadoLlamamientoAceptado)
 }
 
 // RenunciarLlamamiento aplica la misma frontera confiable que la aceptación,
 // con permiso propio de renuncia. No selecciona ni avisa al siguiente candidato.
 func (s *ServicioIntegracionLlamamientosDesarrollo) RenunciarLlamamiento(ctx context.Context, p ports.PeticionResolverLlamamientoDesarrollo) (ports.ReciboLlamamientoDesarrollo, error) {
-	return s.resolverLlamamiento(ctx, p, true)
+	return s.resolverLlamamiento(ctx, p, "renuncia_rrhh", domain.EstadoLlamamientoRenunciado)
 }
 
-// Solo existen estos dos pares tipo/estado. No se expone una resolución genérica
-// que permita al llamador elegir un estado o una acción arbitrarios.
-func (s *ServicioIntegracionLlamamientosDesarrollo) resolverLlamamiento(ctx context.Context, p ports.PeticionResolverLlamamientoDesarrollo, renuncia bool) (ports.ReciboLlamamientoDesarrollo, error) {
-	tipo, estado := "aceptacion_rrhh", domain.EstadoLlamamientoAceptado
-	if renuncia {
-		tipo, estado = "renuncia_rrhh", domain.EstadoLlamamientoRenunciado
-	}
+// ExpirarLlamamiento cierra el llamamiento «sin respuesta» cuando RRHH ya
+// confirmó en su frontera el vencimiento del plazo sin respuesta. Misma
+// frontera y permiso que la renuncia; no selecciona al siguiente candidato.
+func (s *ServicioIntegracionLlamamientosDesarrollo) ExpirarLlamamiento(ctx context.Context, p ports.PeticionResolverLlamamientoDesarrollo) (ports.ReciboLlamamientoDesarrollo, error) {
+	return s.resolverLlamamiento(ctx, p, ports.TipoExpiracionRRHHDesarrollo, domain.EstadoLlamamientoExpirado)
+}
+
+// Solo existen estos tres pares tipo/estado, fijados por los métodos públicos.
+// No se expone una resolución genérica que permita elegir estado o acción.
+func (s *ServicioIntegracionLlamamientosDesarrollo) resolverLlamamiento(ctx context.Context, p ports.PeticionResolverLlamamientoDesarrollo, tipo string, estado domain.EstadoLlamamiento) (ports.ReciboLlamamientoDesarrollo, error) {
 	vacio := ports.ReciboLlamamientoDesarrollo{}
 	if ctx == nil || s == nil || p.Validar() != nil || dependenciaLlamamientoNula(s.repositorio) ||
 		dependenciaLlamamientoNula(s.autorizador) || dependenciaLlamamientoNula(s.reloj) {

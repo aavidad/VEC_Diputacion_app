@@ -1,4 +1,4 @@
-import { traducirPortal } from "./portal-i18n.js?v=20260926-portal-rrhh-main-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260926-integracion-bolsa-ct-v1";
 
 /** Contenido de ayuda sustituible por catálogo o conector, sin lógica de negocio. */
 export const AYUDA_PORTAL_BOLSA = Object.freeze({
@@ -169,6 +169,14 @@ export const TRAMITES_AYUDANTE_PORTAL = Object.freeze([
       Object.freeze({ vista: "bolsa-candidatos", selector: "[data-bolsa-c23-pendiente]", bloqueado: true, titulo: traducirPortal("ayuda_contenido_239"), instruccion: traducirPortal("ayuda_contenido_240"), objetivo: traducirPortal("ayuda_contenido_241"), preparacion: traducirPortal("ayuda_contenido_242"), resultado: traducirPortal("ayuda_contenido_243"), actor: traducirPortal("ayuda_contenido_244"), limite: traducirPortal("ayuda_contenido_245") }),
     ]),
   }),
+  Object.freeze({
+    id: "bolsa-cambiar-situacion", titulo: traducirPortal("ayuda_contenido_404"), modulo: traducirPortal("ayuda_contenido_405"), vista: "bolsa-candidatos", selector: '[data-bolsa-accion="abrir-ficha"]',
+    resumen: traducirPortal("ayuda_contenido_406"),
+    pasos: Object.freeze([
+      Object.freeze({ vista: "bolsa-candidatos", selector: '[data-bolsa-accion="abrir-cambio-situacion"]', bloqueado: false, titulo: traducirPortal("ayuda_contenido_407"), instruccion: traducirPortal("ayuda_contenido_408"), objetivo: traducirPortal("ayuda_contenido_409"), preparacion: traducirPortal("ayuda_contenido_410"), resultado: traducirPortal("ayuda_contenido_411"), actor: traducirPortal("ayuda_contenido_412"), limite: traducirPortal("ayuda_contenido_413") }),
+      Object.freeze({ vista: "bolsa-candidatos", selector: '[data-b8-raiz="true"]', bloqueado: false, titulo: traducirPortal("ayuda_contenido_414"), instruccion: traducirPortal("ayuda_contenido_415"), objetivo: traducirPortal("ayuda_contenido_416"), preparacion: traducirPortal("ayuda_contenido_417"), resultado: traducirPortal("ayuda_contenido_418"), actor: traducirPortal("ayuda_contenido_419"), limite: traducirPortal("ayuda_contenido_420") }),
+    ]),
+  }),
 ]);
 
 /** Ayuda contextual del módulo de contratación temporal para Recursos Humanos. */
@@ -195,9 +203,9 @@ export const AYUDA_CONTRATACION_TEMPORAL = Object.freeze({
       titulo: traducirPortal("ayuda_contenido_248"),
       frases: Object.freeze([
         traducirPortal("ayuda_contenido_269"),
-        traducirPortal("ayuda_contenido_270"),
         traducirPortal("ayuda_contenido_271"),
         traducirPortal("ayuda_ct_limite_expediente"),
+        traducirPortal("ayuda_contenido_421"),
       ]),
     }),
     documentos: Object.freeze({

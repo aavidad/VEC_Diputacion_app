@@ -197,7 +197,10 @@ func origenFiscalizacionContratacionTemporalDesarrolloValido(
 	estado domain.EstadoOperativo,
 ) bool {
 	return version == 5 && fase == domain.FaseInformeJuridico && estado == domain.EstadoEnCurso ||
-		fase == domain.FaseSubsanacionUnidad && estado == domain.EstadoIncidencia
+		fase == domain.FaseSubsanacionUnidad && estado == domain.EstadoIncidencia ||
+		// Modificación tras el nombramiento (CT120): el preparador comprueba
+		// la modificación durable que dejó el expediente en fiscalización.
+		version >= 7 && fase == domain.FaseFiscalizacion && estado == domain.EstadoEnCurso
 }
 
 type autorizadorFiscalizacionContratacionTemporalDesarrollo struct {
@@ -576,7 +579,7 @@ func nuevaInstantaneaAutorizacionFiscalizacionContratacionTemporalDesarrollo(
 		[]dominiovec.AmbitoPerfil{
 			{Clave: "organizacion_ref", Valores: []string{organizacionAltaContratacionTemporalDesarrollo}},
 			{Clave: "expediente_ref", Valores: []string{expedienteContratacionTemporalDesarrolloRef}},
-			{Clave: "fase_previa", Valores: []string{string(domain.FaseInformeJuridico), string(domain.FaseSubsanacionUnidad)}},
+			{Clave: "fase_previa", Valores: []string{string(domain.FaseInformeJuridico), string(domain.FaseSubsanacionUnidad), string(domain.FaseFiscalizacion)}},
 			{Clave: "estado_previo", Valores: []string{string(domain.EstadoEnCurso), string(domain.EstadoIncidencia)}},
 		},
 	)
@@ -604,6 +607,10 @@ func solicitudAutorizacionFiscalizacionContratacionTemporalDesarrolloValida(
 		ambitos["estado_previo"] == string(domain.EstadoIncidencia) &&
 		domain.ReferenciaOpacaValida(datos.Recurso.Atributos["retorno_previo_ref"]) &&
 		domain.ReferenciaOpacaValida(datos.Recurso.Atributos["subsanacion_recibo_ref"])
+	origenModificacion := ambitos["fase_previa"] == string(domain.FaseFiscalizacion) &&
+		ambitos["estado_previo"] == string(domain.EstadoEnCurso) &&
+		domain.ReferenciaOpacaValida(datos.Recurso.Atributos["modificacion_recibo_ref"]) &&
+		datos.Recurso.Atributos["retorno_previo_ref"] == "" && datos.Recurso.Atributos["subsanacion_recibo_ref"] == ""
 	return datos.Accion == contrataciontemporal.PermisoRegistrarFiscalizacion &&
 		datos.ReferenciaMotivo == referenciaMotivoAutorizacionFiscalizacionDesarrollo() &&
 		datos.Recurso.ModuloID == ports.ModuloContratacion &&
@@ -613,5 +620,6 @@ func solicitudAutorizacionFiscalizacionContratacionTemporalDesarrolloValida(
 		len(ambitos) == 4 &&
 		ambitos["organizacion_ref"] == organizacionAltaContratacionTemporalDesarrollo &&
 		((origenInicial && datos.Recurso.Atributos["retorno_previo_ref"] == "" &&
-			datos.Recurso.Atributos["subsanacion_recibo_ref"] == "") || origenRefiscalizacion)
+			datos.Recurso.Atributos["subsanacion_recibo_ref"] == "" && datos.Recurso.Atributos["modificacion_recibo_ref"] == "") ||
+			(origenRefiscalizacion && datos.Recurso.Atributos["modificacion_recibo_ref"] == "") || origenModificacion)
 }

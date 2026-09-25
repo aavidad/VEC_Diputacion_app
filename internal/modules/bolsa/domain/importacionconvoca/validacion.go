@@ -53,6 +53,9 @@ func ValidarHoja(hoja HojaStaging) (ResultadoStaging, error) {
 	return resultado, nil
 }
 
+// validarFila lee las celdas por posición: convoca:v1 y convoca:v2 comparten
+// columnas y reglas. Los nombres de campo de las incidencias son identificadores
+// estables del acta (los de convoca:v1), no el literal de la cabecera recibida.
 func validarFila(esquema EsquemaExportacion, fila FilaStaging) (FilaAceptada, []Incidencia) {
 	incidencias := make([]Incidencia, 0, 4)
 	if len(fila.Celdas) > esquema.NumeroColumnas() {

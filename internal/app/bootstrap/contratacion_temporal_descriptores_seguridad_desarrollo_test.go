@@ -50,7 +50,7 @@ func politicaDescriptoresCTPrueba(t *testing.T) politicaAutorizacionSolicitudLig
 	return politica
 }
 
-func TestDescriptoresContratacionTemporalDeclaranLosDiezParesExactos(t *testing.T) {
+func TestDescriptoresContratacionTemporalDeclaranLosParesExactos(t *testing.T) {
 	pares := []struct{ clave, accion, ruta string }{
 		{"ct-analisis-registrar", ctports.AccionRegistrarAnalisis, cthttp.RutaRegistroAnalisisRRHH},
 		{"ct-analisis-rectificar", ctports.AccionRectificarAnalisis, cthttp.RutaRectificacionAnalisisRRHH},
@@ -62,6 +62,12 @@ func TestDescriptoresContratacionTemporalDeclaranLosDiezParesExactos(t *testing.
 		{"ct-cobertura-rectificar", string(ctdomain.AccionRectificarCoberturaGobernada), cthttp.RutaRectificacionCobertura},
 		{"ct-cuadro-consultar", ctports.AccionConsultarCuadroRRHH, cthttp.RutaConsultaCuadroRRHH},
 		{"ct-expediente-consultar", ctports.AccionConsultarDetalleRRHH, cthttp.RutaConsultaDetalleRRHH},
+		{"ct-cobertura-proponer", accionPropuestaCoberturaDesarrollo, cthttp.RutaPropuestaCobertura},
+		{"ct-cobertura-resultado-consultar", string(ctports.AccionConsultarResultadoCobertura), cthttp.RutaResultadoCobertura},
+		{"ct-cese-registrar", string(ctdomain.AccionCesarNombramiento), cthttp.RutaCesesNombramiento},
+		{"ct-expediente-cerrar", string(ctdomain.AccionCerrarExpediente), cthttp.RutaCierresExpediente},
+		{"ct-nombramiento-modificar", string(ctdomain.AccionModificarTrasNombramiento), cthttp.RutaModificacionesNombramiento},
+		{"ct-seguimiento-cese-consultar", accionConsultarSeguimientoCeseDesarrollo, cthttp.RutaSeguimientoCese},
 	}
 	lectores := []string{"prf_ct_lector_uno", "prf_ct_lector_dos"}
 	fronteras := descriptoresFronterasContratacionTemporalDesarrollo("prf_ct_prueba", lectores)
@@ -72,7 +78,7 @@ func TestDescriptoresContratacionTemporalDeclaranLosDiezParesExactos(t *testing.
 	for indice, par := range pares {
 		frontera := fronteras[indice]
 		perfilesEsperados := []string{"prf_ct_prueba"}
-		if indice >= 8 {
+		if indice == 8 || indice == 9 {
 			perfilesEsperados = []string{"prf_ct_lector_uno", "prf_ct_lector_dos"}
 		}
 		if frontera.Clave != par.clave || frontera.Metodo != http.MethodPost || frontera.Ruta != par.ruta || frontera.ClaveCapacidad != par.accion || !reflect.DeepEqual(frontera.PerfilesActivosRef, perfilesEsperados) {
@@ -150,6 +156,36 @@ func TestDescriptoresMaterialContratacionTemporalSonNominales(t *testing.T) {
 	} {
 		if _, ok := catalogo.descriptorPara(audiencia); !ok {
 			t.Fatalf("audiencia CT ausente: %s", audiencia)
+		}
+	}
+}
+
+// La propuesta y el resultado de cobertura pasan por el mismo PDP común que
+// la decisión. Sin frontera y política propias, el perfil RRHH que registró el
+// análisis recibía 403 al pedir la propuesta en cuanto se componía Bolsa.
+func TestDescriptoresContratacionTemporalAutorizanLecturasDeCobertura(t *testing.T) {
+	fronteras := descriptoresFronterasContratacionTemporalDesarrollo("prf_ct_prueba", []string{"prf_ct_prueba"})
+	catalogoFronteras, err := nuevoCatalogoFronterasComunDesarrollo(fronteras)
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalogo, err := nuevoCatalogoAutorizacionComunDesarrollo(catalogoFronteras, descriptoresAutorizacionContratacionTemporalDesarrollo(politicaDescriptoresCTPrueba(t)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, caso := range []struct{ frontera, accion, ruta string }{
+		{"ct-cobertura-proponer", accionPropuestaCoberturaDesarrollo, cthttp.RutaPropuestaCobertura},
+		{"ct-cobertura-resultado-consultar", string(ctports.AccionConsultarResultadoCobertura), cthttp.RutaResultadoCobertura},
+	} {
+		descriptor, ok := catalogoFronteras.resolver(http.MethodPost, caso.ruta)
+		if !ok || descriptor.Clave != caso.frontera || !descriptor.admitePerfil("prf_ct_prueba") || descriptor.admitePerfil("prf_ct_ajeno") {
+			t.Fatalf("%s sin frontera propia: %#v", caso.ruta, descriptor)
+		}
+		if _, ok := catalogo.politicaPara(caso.accion, caso.frontera, clavePoliticaContratacionTemporalDesarrollo, caso.accion); !ok {
+			t.Fatalf("%s sin política en el PDP común", caso.accion)
+		}
+		if _, ok := catalogo.politicaPara(caso.accion, "ct-cobertura-decidir", clavePoliticaContratacionTemporalDesarrollo, caso.accion); ok {
+			t.Fatalf("%s admitida por la frontera de la decisión", caso.accion)
 		}
 	}
 }

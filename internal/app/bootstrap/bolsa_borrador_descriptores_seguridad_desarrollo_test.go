@@ -64,8 +64,8 @@ func TestDescriptoresBorradorLlamamientoBolsaFronterasExactas(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(fronteras) != 9 {
-		t.Fatalf("fronteras = %d, se esperan 9", len(fronteras))
+	if len(fronteras) != 17 {
+		t.Fatalf("fronteras = %d, se esperan 17 (nueve B-BACK, tres de ofertas, una de contratos, dos de sanciones y dos del correo B7)", len(fronteras))
 	}
 	for _, frontera := range fronteras {
 		if len(frontera.PerfilesActivosRef) != 1 || frontera.PerfilesActivosRef[0] != "prf_bolsa_bback" {
@@ -91,6 +91,20 @@ func TestDescriptoresBorradorLlamamientoBolsaFronterasExactas(t *testing.T) {
 	if _, ok := catalogo.resolver(http.MethodGet, bolsahttp.RutaBolsasGestion+"/bolsa:01/candidatos/participacion:01/operaciones"); !ok {
 		t.Fatal("GET B8 no quedó declarado")
 	}
+	if _, ok := catalogo.resolver(http.MethodGet, bolsahttp.RutaBolsasGestion+"/bolsa:01/candidatos/participacion:01/contratos"); !ok {
+		t.Fatal("GET B13 no quedó declarado")
+	}
+	for metodo, ruta := range map[string]string{
+		http.MethodGet:  bolsahttp.RutaBolsasGestion + "/bolsa:01/candidatos/participacion:01/sanciones",
+		http.MethodPost: bolsahttp.RutaBolsasGestion + "/bolsa:01/candidatos/participacion:01/sanciones/sancion:01/recursos",
+	} {
+		if _, ok := catalogo.resolver(metodo, ruta); !ok {
+			t.Fatalf("%s %s de sanciones no quedó declarado", metodo, ruta)
+		}
+	}
+	if _, ok := catalogo.resolver(http.MethodPost, bolsahttp.RutaBolsasGestion+"/bolsa:01/candidatos/participacion:01/sanciones"); !ok {
+		t.Fatal("POST de sanción no quedó declarado")
+	}
 	if _, ok := catalogo.resolver(http.MethodPost, bolsahttp.RutaBolsasGestion+"/bolsa:01/candidatos/participacion:01/contactos"); !ok {
 		t.Fatal("POST B3 no quedó declarado")
 	}
@@ -105,6 +119,15 @@ func TestDescriptoresBorradorLlamamientoBolsaFronterasExactas(t *testing.T) {
 	}
 	if _, ok := catalogo.resolver(http.MethodPost, bolsahttp.RutaEmisionesLlamamiento); !ok {
 		t.Fatal("POST B7 no quedó declarado")
+	}
+	if _, ok := catalogo.resolver(http.MethodGet, bolsahttp.RutaPlantillaCorreoLlamamiento); !ok {
+		t.Fatal("GET de plantilla del correo B7 no quedó declarado")
+	}
+	if _, ok := catalogo.resolver(http.MethodPost, bolsahttp.RutaVistaPreviaCorreoLlamamiento); !ok {
+		t.Fatal("POST de vista previa del correo B7 no quedó declarado")
+	}
+	if _, ok := catalogo.resolver(http.MethodPost, bolsahttp.RutaPlantillaCorreoLlamamiento); ok {
+		t.Fatal("POST de plantilla del correo B7 no debe declararse")
 	}
 	if _, ok := catalogo.resolver(http.MethodGet, bolsahttp.RutaEmisionesLlamamiento); !ok {
 		t.Fatal("GET de recuperación B7 no quedó declarado")

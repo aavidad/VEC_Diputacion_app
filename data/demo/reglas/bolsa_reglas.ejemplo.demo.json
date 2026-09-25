@@ -60,7 +60,8 @@
           "unidad": "horas",
           "cantidad": "2",
           "articulo": "art. 8.2.a",
-          "vigencia": "Entrada en vigor calculada: el texto íntegro se publicó en el BOP n.º 9 de 16/01/2026; el art. 70.2 de la Ley 7/1985 exige además que transcurran los 15 días hábiles del art. 65.2, contados aquí desde el día siguiente a esa publicación (sin sábados, domingos ni festivos, art. 30.2 de la Ley 39/2015): terminan el 06/02/2026 y el Reglamento rige desde el 07/02/2026 (00:00, hora peninsular). La modificación del BOP n.º 91 de 14/05/2026 cita el Reglamento como publicado en los BOP de 16/01/2026 y 27/01/2026; si el anuncio del 27/01/2026 completó o corrigió el texto, el cómputo empezaría ese día y la fecha pasaría al 18/02/2026. Pendiente de confirmar por RRHH."
+          "vigencia": "Entrada en vigor calculada: el texto íntegro se publicó en el BOP n.º 9 de 16/01/2026; el art. 70.2 de la Ley 7/1985 exige además que transcurran los 15 días hábiles del art. 65.2, contados aquí desde el día siguiente a esa publicación (sin sábados, domingos ni festivos, art. 30.2 de la Ley 39/2015): terminan el 06/02/2026 y el Reglamento rige desde el 07/02/2026 (00:00, hora peninsular). La modificación del BOP n.º 91 de 14/05/2026 cita el Reglamento como publicado en los BOP de 16/01/2026 y 27/01/2026; si el anuncio del 27/01/2026 completó o corrigió el texto, el cómputo empezaría ese día y la fecha pasaría al 18/02/2026. Pendiente de confirmar por RRHH.",
+          "control": "impedir"
         },
         "orden": 3
       },
@@ -76,7 +77,9 @@
           "unidad": "procesos",
           "cantidad": "2",
           "articulo": "arts. 8.2.a y 11.1.a",
-          "vigencia": "Entrada en vigor calculada: el texto íntegro se publicó en el BOP n.º 9 de 16/01/2026; el art. 70.2 de la Ley 7/1985 exige además que transcurran los 15 días hábiles del art. 65.2, contados aquí desde el día siguiente a esa publicación (sin sábados, domingos ni festivos, art. 30.2 de la Ley 39/2015): terminan el 06/02/2026 y el Reglamento rige desde el 07/02/2026 (00:00, hora peninsular). La modificación del BOP n.º 91 de 14/05/2026 cita el Reglamento como publicado en los BOP de 16/01/2026 y 27/01/2026; si el anuncio del 27/01/2026 completó o corrigió el texto, el cómputo empezaría ese día y la fecha pasaría al 18/02/2026. Pendiente de confirmar por RRHH."
+          "vigencia": "Entrada en vigor calculada: el texto íntegro se publicó en el BOP n.º 9 de 16/01/2026; el art. 70.2 de la Ley 7/1985 exige además que transcurran los 15 días hábiles del art. 65.2, contados aquí desde el día siguiente a esa publicación (sin sábados, domingos ni festivos, art. 30.2 de la Ley 39/2015): terminan el 06/02/2026 y el Reglamento rige desde el 07/02/2026 (00:00, hora peninsular). La modificación del BOP n.º 91 de 14/05/2026 cita el Reglamento como publicado en los BOP de 16/01/2026 y 27/01/2026; si el anuncio del 27/01/2026 completó o corrigió el texto, el cómputo empezaría ese día y la fecha pasaría al 18/02/2026. Pendiente de confirmar por RRHH.",
+          "resultados_sin_contacto": "no_contesta,buzon,numero_erroneo",
+          "ejemplo_parcial": "Qué resultados de la llamada cuentan como «sin contacto» (no contesta, buzón de voz y número erróneo) es un supuesto de trabajo."
         },
         "orden": 4
       },
@@ -92,7 +95,9 @@
           "unidad": "franja_horaria",
           "valor": "09:00-14:00",
           "dias": "habiles",
-          "vigencia": "Entrada en vigor calculada: el texto íntegro se publicó en el BOP n.º 9 de 16/01/2026; el art. 70.2 de la Ley 7/1985 exige además que transcurran los 15 días hábiles del art. 65.2, contados aquí desde el día siguiente a esa publicación (sin sábados, domingos ni festivos, art. 30.2 de la Ley 39/2015): terminan el 06/02/2026 y el Reglamento rige desde el 07/02/2026 (00:00, hora peninsular). La modificación del BOP n.º 91 de 14/05/2026 cita el Reglamento como publicado en los BOP de 16/01/2026 y 27/01/2026; si el anuncio del 27/01/2026 completó o corrigió el texto, el cómputo empezaría ese día y la fecha pasaría al 18/02/2026. Pendiente de confirmar por RRHH."
+          "vigencia": "Entrada en vigor calculada: el texto íntegro se publicó en el BOP n.º 9 de 16/01/2026; el art. 70.2 de la Ley 7/1985 exige además que transcurran los 15 días hábiles del art. 65.2, contados aquí desde el día siguiente a esa publicación (sin sábados, domingos ni festivos, art. 30.2 de la Ley 39/2015): terminan el 06/02/2026 y el Reglamento rige desde el 07/02/2026 (00:00, hora peninsular). La modificación del BOP n.º 91 de 14/05/2026 cita el Reglamento como publicado en los BOP de 16/01/2026 y 27/01/2026; si el anuncio del 27/01/2026 completó o corrigió el texto, el cómputo empezaría ese día y la fecha pasaría al 18/02/2026. Pendiente de confirmar por RRHH.",
+          "zona_horaria": "Europe/Madrid",
+          "control": "advertir"
         },
         "orden": 5
       },
@@ -137,7 +142,8 @@
           "norma": "Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002), art. 10.",
           "duda": "Dudas 13 y 14.",
           "unidad": "ninguna",
-          "vigencia": "Entrada en vigor calculada: el texto íntegro se publicó en el BOP n.º 9 de 16/01/2026; el art. 70.2 de la Ley 7/1985 exige además que transcurran los 15 días hábiles del art. 65.2, contados aquí desde el día siguiente a esa publicación (sin sábados, domingos ni festivos, art. 30.2 de la Ley 39/2015): terminan el 06/02/2026 y el Reglamento rige desde el 07/02/2026 (00:00, hora peninsular). La modificación del BOP n.º 91 de 14/05/2026 cita el Reglamento como publicado en los BOP de 16/01/2026 y 27/01/2026; si el anuncio del 27/01/2026 completó o corrigió el texto, el cómputo empezaría ese día y la fecha pasaría al 18/02/2026. Pendiente de confirmar por RRHH."
+          "vigencia": "Entrada en vigor calculada: el texto íntegro se publicó en el BOP n.º 9 de 16/01/2026; el art. 70.2 de la Ley 7/1985 exige además que transcurran los 15 días hábiles del art. 65.2, contados aquí desde el día siguiente a esa publicación (sin sábados, domingos ni festivos, art. 30.2 de la Ley 39/2015): terminan el 06/02/2026 y el Reglamento rige desde el 07/02/2026 (00:00, hora peninsular). La modificación del BOP n.º 91 de 14/05/2026 cita el Reglamento como publicado en los BOP de 16/01/2026 y 27/01/2026; si el anuncio del 27/01/2026 completó o corrigió el texto, el cómputo empezaría ese día y la fecha pasaría al 18/02/2026. Pendiente de confirmar por RRHH.",
+          "tratamiento": "exige_causa_justificada"
         },
         "orden": 8
       },
@@ -153,7 +159,8 @@
           "unidad": "ninguna",
           "articulo": "art. 11.1.a",
           "ejemplo_parcial": "El Reglamento no dice que no responder equivalga a no aceptar: tratar la falta de respuesta dentro del plazo como no aceptación es un supuesto de ejemplo. También lo es que VEC proponga la baja y RRHH la confirme.",
-          "vigencia": "Entrada en vigor calculada: el texto íntegro se publicó en el BOP n.º 9 de 16/01/2026; el art. 70.2 de la Ley 7/1985 exige además que transcurran los 15 días hábiles del art. 65.2, contados aquí desde el día siguiente a esa publicación (sin sábados, domingos ni festivos, art. 30.2 de la Ley 39/2015): terminan el 06/02/2026 y el Reglamento rige desde el 07/02/2026 (00:00, hora peninsular). La modificación del BOP n.º 91 de 14/05/2026 cita el Reglamento como publicado en los BOP de 16/01/2026 y 27/01/2026; si el anuncio del 27/01/2026 completó o corrigió el texto, el cómputo empezaría ese día y la fecha pasaría al 18/02/2026. Pendiente de confirmar por RRHH."
+          "vigencia": "Entrada en vigor calculada: el texto íntegro se publicó en el BOP n.º 9 de 16/01/2026; el art. 70.2 de la Ley 7/1985 exige además que transcurran los 15 días hábiles del art. 65.2, contados aquí desde el día siguiente a esa publicación (sin sábados, domingos ni festivos, art. 30.2 de la Ley 39/2015): terminan el 06/02/2026 y el Reglamento rige desde el 07/02/2026 (00:00, hora peninsular). La modificación del BOP n.º 91 de 14/05/2026 cita el Reglamento como publicado en los BOP de 16/01/2026 y 27/01/2026; si el anuncio del 27/01/2026 completó o corrigió el texto, el cómputo empezaría ese día y la fecha pasaría al 18/02/2026. Pendiente de confirmar por RRHH.",
+          "confirmacion": "rrhh"
         },
         "orden": 9
       },
@@ -169,7 +176,8 @@
           "unidad": "ninguna",
           "articulo": "art. 8.2.b",
           "ejemplo_parcial": "La confirmación por RRHH es un circuito de ejemplo.",
-          "vigencia": "Entrada en vigor calculada: el texto íntegro se publicó en el BOP n.º 9 de 16/01/2026; el art. 70.2 de la Ley 7/1985 exige además que transcurran los 15 días hábiles del art. 65.2, contados aquí desde el día siguiente a esa publicación (sin sábados, domingos ni festivos, art. 30.2 de la Ley 39/2015): terminan el 06/02/2026 y el Reglamento rige desde el 07/02/2026 (00:00, hora peninsular). La modificación del BOP n.º 91 de 14/05/2026 cita el Reglamento como publicado en los BOP de 16/01/2026 y 27/01/2026; si el anuncio del 27/01/2026 completó o corrigió el texto, el cómputo empezaría ese día y la fecha pasaría al 18/02/2026. Pendiente de confirmar por RRHH."
+          "vigencia": "Entrada en vigor calculada: el texto íntegro se publicó en el BOP n.º 9 de 16/01/2026; el art. 70.2 de la Ley 7/1985 exige además que transcurran los 15 días hábiles del art. 65.2, contados aquí desde el día siguiente a esa publicación (sin sábados, domingos ni festivos, art. 30.2 de la Ley 39/2015): terminan el 06/02/2026 y el Reglamento rige desde el 07/02/2026 (00:00, hora peninsular). La modificación del BOP n.º 91 de 14/05/2026 cita el Reglamento como publicado en los BOP de 16/01/2026 y 27/01/2026; si el anuncio del 27/01/2026 completó o corrigió el texto, el cómputo empezaría ese día y la fecha pasaría al 18/02/2026. Pendiente de confirmar por RRHH.",
+          "confirmacion": "rrhh"
         },
         "orden": 10
       },
@@ -291,7 +299,8 @@
           "inicio": "fin_relacion",
           "computo": "civil",
           "articulo": "art. 9.1",
-          "vigencia": "Entrada en vigor calculada: el texto íntegro se publicó en el BOP n.º 9 de 16/01/2026; el art. 70.2 de la Ley 7/1985 exige además que transcurran los 15 días hábiles del art. 65.2, contados aquí desde el día siguiente a esa publicación (sin sábados, domingos ni festivos, art. 30.2 de la Ley 39/2015): terminan el 06/02/2026 y el Reglamento rige desde el 07/02/2026 (00:00, hora peninsular). La modificación del BOP n.º 91 de 14/05/2026 cita el Reglamento como publicado en los BOP de 16/01/2026 y 27/01/2026; si el anuncio del 27/01/2026 completó o corrigió el texto, el cómputo empezaría ese día y la fecha pasaría al 18/02/2026. Pendiente de confirmar por RRHH."
+          "vigencia": "Entrada en vigor calculada: el texto íntegro se publicó en el BOP n.º 9 de 16/01/2026; el art. 70.2 de la Ley 7/1985 exige además que transcurran los 15 días hábiles del art. 65.2, contados aquí desde el día siguiente a esa publicación (sin sábados, domingos ni festivos, art. 30.2 de la Ley 39/2015): terminan el 06/02/2026 y el Reglamento rige desde el 07/02/2026 (00:00, hora peninsular). La modificación del BOP n.º 91 de 14/05/2026 cita el Reglamento como publicado en los BOP de 16/01/2026 y 27/01/2026; si el anuncio del 27/01/2026 completó o corrigió el texto, el cómputo empezaría ese día y la fecha pasaría al 18/02/2026. Pendiente de confirmar por RRHH.",
+          "modalidades": "acumulacion_tareas"
         },
         "orden": 17
       },
@@ -448,7 +457,7 @@
       {
         "clave": "b24.consecuencias",
         "etiqueta": "Consecuencias y recurso",
-        "descripcion": "La única consecuencia prevista es la baja definitiva; cabe recurso de reposición en un mes.",
+        "descripcion": "Las consecuencias posibles son las entradas «b24.sancion.*» de este catálogo; las de efecto «excluir» son también las causas de baja definitiva (art. 11) que RRHH elige al dar de baja. Contra la resolución cabe recurso de reposición en un mes desde su notificación.",
         "vigente_desde": "2026-02-07T00:00:00+01:00",
         "atributos": {
           "origen": "reglamento",
@@ -494,9 +503,221 @@
           "duda": "Sin duda abierta.",
           "unidad": "ninguna",
           "articulo": "arts. 3.3 y 7.c",
+          "umbral_disponibles": "0",
+          "ejemplo_parcial": "Que VEC proponga la bolsa como «agotada provisionalmente» cuando las personas disponibles no superan umbral_disponibles, y que RRHH lo confirme, es un circuito de ejemplo; el umbral 0 corresponde a «no quedan integrantes disponibles» y el agotamiento exige resolución expresa.",
           "vigencia": "Entrada en vigor calculada: el texto íntegro se publicó en el BOP n.º 9 de 16/01/2026; el art. 70.2 de la Ley 7/1985 exige además que transcurran los 15 días hábiles del art. 65.2, contados aquí desde el día siguiente a esa publicación (sin sábados, domingos ni festivos, art. 30.2 de la Ley 39/2015): terminan el 06/02/2026 y el Reglamento rige desde el 07/02/2026 (00:00, hora peninsular). La modificación del BOP n.º 91 de 14/05/2026 cita el Reglamento como publicado en los BOP de 16/01/2026 y 27/01/2026; si el anuncio del 27/01/2026 completó o corrigió el texto, el cómputo empezaría ese día y la fecha pasaría al 18/02/2026. Pendiente de confirmar por RRHH."
         },
         "orden": 29
+      },
+      {
+        "clave": "b28.transiciones.disponible",
+        "etiqueta": "Situaciones posibles desde «disponible»",
+        "descripcion": "Desde «disponible» se puede pasar a no disponible, pendiente de incorporación, renuncia, baja definitiva o no disponible hasta una fecha (suspensión con fecha de fin, que vuelve sola al turno ese día).",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo; Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002), art. 11.",
+          "duda": "Duda 62. Bolsa publica esta lista en la base de datos al arrancar (migración 000032); la base aplica la política publicada.",
+          "unidad": "lista",
+          "valor": "no_disponible,pendiente_incorporacion,renuncia,excluido,disponible_desde"
+        },
+        "orden": 30
+      },
+      {
+        "clave": "b28.transiciones.renuncia",
+        "etiqueta": "Situaciones posibles tras una renuncia",
+        "descripcion": "Una renuncia no justificada supone la baja definitiva (art. 11); la justificada (art. 10) conserva la posición como «no disponible» hasta que termine la causa. Ya no puede volver directamente a «disponible».",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "reglamento",
+          "norma": "Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002)",
+          "duda": "Duda 62. Bolsa publica esta lista en la base de datos al arrancar (migración 000032); la base aplica la política publicada.",
+          "unidad": "lista",
+          "valor": "no_disponible,excluido",
+          "articulo": "arts. 10 y 11.1",
+          "ejemplo_parcial": "Que la renuncia justificada se registre primero como «renuncia» y después, con su justificante, pase a «no disponible» es un criterio de trabajo."
+        },
+        "orden": 36
+      },
+      {
+        "clave": "b24.sancion.baja_llamamiento_directo",
+        "etiqueta": "Baja definitiva: renuncia no justificada en llamamiento directo",
+        "descripcion": "No aceptar el llamamiento, no presentarse en el día y lugar indicados o no aportar la documentación, sin causa del art. 10.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "reglamento",
+          "norma": "Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002)",
+          "duda": "Duda 62.",
+          "unidad": "ninguna",
+          "articulo": "art. 11.1.a",
+          "sancion": "baja_definitiva",
+          "efecto": "excluir",
+          "ejemplo_parcial": "Que la baja la resuelva la jefatura de RRHH y conste en el histórico de sanciones es un circuito de ejemplo."
+        },
+        "orden": 37
+      },
+      {
+        "clave": "b24.sancion.baja_sin_contacto",
+        "etiqueta": "Baja definitiva: sin contacto tras dos procesos",
+        "descripcion": "No es posible contactar con el aspirante tras dos procesos de llamamiento telefónico en un mismo ofrecimiento.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "reglamento",
+          "norma": "Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002)",
+          "duda": "Duda 62.",
+          "unidad": "ninguna",
+          "articulo": "art. 11.1.a",
+          "sancion": "baja_definitiva",
+          "efecto": "excluir",
+          "ejemplo_parcial": "Que la baja la resuelva la jefatura de RRHH y conste en el histórico de sanciones es un circuito de ejemplo."
+        },
+        "orden": 38
+      },
+      {
+        "clave": "b24.sancion.baja_publicacion",
+        "etiqueta": "Baja definitiva: renuncia tras manifestar disposición",
+        "descripcion": "En el sistema de publicación, renunciar, no presentarse o no aportar la documentación tras haber manifestado disposición, sin causa del art. 10.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "reglamento",
+          "norma": "Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002)",
+          "duda": "Duda 62.",
+          "unidad": "ninguna",
+          "articulo": "art. 11.1.b",
+          "sancion": "baja_definitiva",
+          "efecto": "excluir",
+          "ejemplo_parcial": "Que la baja la resuelva la jefatura de RRHH y conste en el histórico de sanciones es un circuito de ejemplo."
+        },
+        "orden": 39
+      },
+      {
+        "clave": "b24.sancion.baja_renuncia_nombramiento",
+        "etiqueta": "Baja definitiva: renuncia a un nombramiento vigente",
+        "descripcion": "Renunciar a un nombramiento o contrato vigente, salvo el ofrecimiento de una vacante.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "reglamento",
+          "norma": "Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002)",
+          "duda": "Duda 62.",
+          "unidad": "ninguna",
+          "articulo": "art. 11.2",
+          "sancion": "baja_definitiva",
+          "efecto": "excluir",
+          "ejemplo_parcial": "Que la baja la resuelva la jefatura de RRHH y conste en el histórico de sanciones es un circuito de ejemplo."
+        },
+        "orden": 40
+      },
+      {
+        "clave": "b24.sancion.pasar_al_final",
+        "etiqueta": "Pasar al final de la lista",
+        "descripcion": "La persona sigue en la bolsa pero pasa al último puesto del orden de llamamiento.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo.",
+          "duda": "Duda 62.",
+          "unidad": "ninguna",
+          "sancion": "pasar_al_final",
+          "efecto": "ninguna",
+          "orden": "final"
+        },
+        "orden": 41
+      },
+      {
+        "clave": "b24.sancion.suspension",
+        "etiqueta": "Suspensión de seis meses",
+        "descripcion": "La persona queda no disponible durante seis meses desde la notificación de la resolución, contados de fecha a fecha.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo; Código Civil, art. 5.1.",
+          "duda": "Duda 62.",
+          "unidad": "meses",
+          "cantidad": "6",
+          "inicio": "notificacion",
+          "computo": "civil",
+          "sancion": "suspension",
+          "efecto": "pausar",
+          "fin": "automatico"
+        },
+        "orden": 42
+      },
+      {
+        "clave": "b24.recurso_estados",
+        "etiqueta": "Estados del recurso de reposición",
+        "descripcion": "Estados que RRHH puede anotar en el recurso de reposición contra una sanción.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Ley 39/2015, arts. 123 y 124.",
+          "duda": "Duda 62.",
+          "unidad": "lista",
+          "valor": "interpuesto,estimado,desestimado,inadmitido,desistido"
+        },
+        "orden": 43
+      },
+      {
+        "clave": "b29.campos_mi_bolsa",
+        "etiqueta": "Datos visibles en «Mi bolsa»",
+        "descripcion": "Datos que la persona ve de cada participación en su portal personal: bolsa, posición, estado, último llamamiento, contratos y fecha de disponibilidad. La bolsa se muestra siempre.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo.",
+          "duda": "Duda 17.",
+          "unidad": "lista",
+          "valor": "bolsa,posicion,estado,ultimo_llamamiento,contratos,fecha_disponible"
+        },
+        "orden": 44
+      },
+      {
+        "clave": "b29.portal_candidato",
+        "etiqueta": "Acciones de la persona en «Mi bolsa»",
+        "descripcion": "La pausa voluntaria y la reactivación pedidas en el portal quedan pendientes hasta que RRHH las valida. Aceptar o renunciar dentro de plazo desde el portal es una respuesta firme; puede cambiarse a «propuesta que RRHH confirma». El plazo lo abre el contacto efectivo (el correo solo avisa).",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo.",
+          "duda": "Dudas 3, 17 y 18.",
+          "unidad": "ninguna",
+          "modo_respuesta": "firme",
+          "contacto_efectivo": "contactado",
+          "pausa_desde": "disponible",
+          "reactivacion_desde": "no_disponible,disponible_desde"
+        },
+        "orden": 45
+      },
+      {
+        "clave": "b29.contacto_origen_convoca",
+        "etiqueta": "Contacto de origen CONVOCA",
+        "descripcion": "El correo y el teléfono traídos de CONVOCA se usan como «contacto de origen CONVOCA» durante doce meses desde su registro en VEC o hasta que la persona los confirme en su portal. Vencido ese plazo, el llamamiento por correo avisa a RRHH de que el contacto no está confirmado; no se bloquea y RRHH llama por teléfono.",
+        "vigente_desde": "2026-02-07T00:00:00+01:00",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo; Reglamento (UE) 2016/679, art. 5.1.d (exactitud de los datos).",
+          "duda": "Duda 45.",
+          "unidad": "meses",
+          "cantidad": "12",
+          "inicio": "registro_contacto_origen",
+          "computo": "civil",
+          "origen_contacto": "convoca"
+        },
+        "orden": 46
+      },
+      {
+        "clave": "b24.recurso_revierte",
+        "etiqueta": "Recurso de reposición estimado",
+        "descripcion": "Estados del recurso que dejan sin efecto la sanción: la baja o la suspensión vigente se revierten a la situación anterior y la persona deja de estar al final de la lista. Lo resuelve una persona distinta de quien lo anota.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Ley 39/2015, art. 119.",
+          "duda": "Duda 62.",
+          "unidad": "lista",
+          "valor": "estimado",
+          "motivo": "Readmisión por recurso de reposición estimado"
+        },
+        "orden": 47
       }
     ],
     "estado": "publicado",

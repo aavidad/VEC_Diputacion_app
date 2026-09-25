@@ -23,6 +23,8 @@ import (
 type EntradaRegistrarDatosContactoParticipacion struct {
 	BolsaRef, ParticipacionRef, Motivo, ClaveIdempotencia string
 	Datos                                                 dominiobolsa.DatosContactoParticipacion
+	// Origen es vacío (contacto propio) o «convoca» (duda 45).
+	Origen string
 }
 
 type PreparadorDatosContactoParticipacion interface {
@@ -84,6 +86,7 @@ func (h *HandlerDatosContactoParticipacion) consultar(w http.ResponseWriter, r *
 		"version":           leidos.Version,
 		"registrada_en":     leidos.RegistradaEn.UTC().Format(time.RFC3339Nano),
 		"enmascarados":      leidos.Enmascarados,
+		"origen":            origenDatosContactoRespuesta(leidos.Origen, leidos.EstadoOrigen),
 	}
 	if completo {
 		datos["correo"] = leidos.Datos.Correo
@@ -110,16 +113,18 @@ func (h *HandlerDatosContactoParticipacion) registrar(w http.ResponseWriter, r *
 		Telefono1 string `json:"telefono_1"`
 		Telefono2 string `json:"telefono_2"`
 		Motivo    string `json:"motivo"`
+		Origen    string `json:"origen"`
 	}
 	dec := json.NewDecoder(io.LimitReader(r.Body, 4097))
 	dec.DisallowUnknownFields()
 	if dec.Decode(&cuerpo) != nil || dec.Decode(&struct{}{}) != io.EOF ||
-		strings.TrimSpace(cuerpo.Motivo) != cuerpo.Motivo || cuerpo.Motivo == "" || len(cuerpo.Motivo) > 1000 {
+		strings.TrimSpace(cuerpo.Motivo) != cuerpo.Motivo || cuerpo.Motivo == "" || len(cuerpo.Motivo) > 1000 ||
+		!dominiobolsa.OrigenDatosContactoAdmitido(cuerpo.Origen) {
 		responderSituacion(w, http.StatusBadRequest, map[string]any{"error": map[string]string{"codigo": "solicitud_invalida"}})
 		return
 	}
 	entrada := EntradaRegistrarDatosContactoParticipacion{
-		BolsaRef: bolsa, ParticipacionRef: participacion, Motivo: cuerpo.Motivo, ClaveIdempotencia: clave,
+		BolsaRef: bolsa, ParticipacionRef: participacion, Motivo: cuerpo.Motivo, ClaveIdempotencia: clave, Origen: cuerpo.Origen,
 		Datos: dominiobolsa.DatosContactoParticipacion{ParticipacionRef: participacion, Correo: cuerpo.Correo, Telefono1: cuerpo.Telefono1, Telefono2: cuerpo.Telefono2},
 	}
 	solicitud, err := h.preparador.PrepararSolicitudRegistrarDatosContacto(r.Context(), entrada)
@@ -142,7 +147,27 @@ func (h *HandlerDatosContactoParticipacion) registrar(w http.ResponseWriter, r *
 		"registrada_en":     resultado.RegistradaEn.UTC().Format(time.RFC3339Nano),
 		"recibo_ref":        resultado.ReciboRef,
 		"reutilizada":       resultado.Reutilizada,
+		"origen":            origenDatosContactoRespuesta(resultado.Origen, ""),
 	}})
+}
+
+// origenDatosContactoRespuesta expone la marca de origen CONVOCA con la regla
+// que la fijó; nil para un contacto propio. El estado solo acompaña a la
+// lectura, que lo calcula a su hora.
+func origenDatosContactoRespuesta(marca *dominiobolsa.MarcaOrigenDatosContacto, estado string) any {
+	if marca == nil {
+		return nil
+	}
+	origen := map[string]any{
+		"origen":        marca.Origen,
+		"vigente_hasta": marca.VigenteHasta.UTC().Format(time.RFC3339Nano),
+		"ultimo_dia":    marca.UltimoDia,
+		"regla_ref":     marca.ReglaRef,
+	}
+	if estado != "" {
+		origen["estado"] = estado
+	}
+	return origen
 }
 
 // ReferenciasRutaDatosContactoParticipacion acepta
@@ -181,6 +206,8 @@ func responderErrorDatosContacto(w http.ResponseWriter, err error) {
 		responderSituacion(w, http.StatusForbidden, map[string]any{"error": map[string]string{"codigo": "acceso_denegado"}})
 	case errors.Is(err, dominiobolsa.ErrDatosContactoParticipacionInvalidos):
 		responderSituacion(w, http.StatusConflict, map[string]any{"error": map[string]string{"codigo": "datos_contacto_en_conflicto"}})
+	case errors.Is(err, puertosbolsa.ErrOrigenDatosContactoNoConfigurado):
+		responderSituacion(w, http.StatusUnprocessableEntity, map[string]any{"error": map[string]string{"codigo": "origen_contacto_no_disponible"}})
 	case errors.Is(err, puertosbolsa.ErrDatosContactoParticipacionNoEncontrados):
 		responderSituacion(w, http.StatusNotFound, map[string]any{"error": map[string]string{"codigo": "recurso_no_encontrado"}})
 	default:

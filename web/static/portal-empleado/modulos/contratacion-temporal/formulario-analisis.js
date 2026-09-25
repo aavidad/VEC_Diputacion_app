@@ -1,4 +1,5 @@
 import {
+  minutosJornadaCompletaValidos,
   validarDatosPreviosAnalisis,
   validarReciboAnalisis,
   validarSolicitudRectificacionAnalisis,
@@ -12,36 +13,53 @@ const PATRON_GRUPO = /^[A-Z][A-Z0-9/+.-]{0,19}$/u;
 const PATRON_HUELLA = /^[0-9a-f]{64}$/u;
 const PATRON_JORNADA = /^(?:[1-9][0-9]{0,3}|10000)$/u;
 // La API guarda la jornada en diezmilésimas de la jornada completa (entero
-// exacto). La persona la escribe en horas y minutos semanales; la referencia
-// de jornada completa es provisional hasta que RRHH la confirme.
-export const MINUTOS_JORNADA_COMPLETA = 37 * 60 + 30;
+// exacto). La persona la escribe en horas y minutos semanales. Los minutos de
+// la jornada completa llegan del servidor (regla c07 del catálogo de reglas),
+// dentro de la configuración del análisis; aquí no hay valor fijo.
 const PATRON_ENTERO_DECIMAL = /^[0-9]+$/u;
 
-export function diezmilesimasDesdeHorasMinutos(horas, minutos) {
+function exigirMinutosJornadaCompleta(minutosCompleta) {
+  if (!minutosJornadaCompletaValidos(minutosCompleta)) {
+    throw new TypeError("jornada completa de referencia no válida");
+  }
+  return minutosCompleta;
+}
+
+export function diezmilesimasDesdeHorasMinutos(horas, minutos, minutosCompleta) {
+  const completa = exigirMinutosJornadaCompleta(minutosCompleta);
   if (!PATRON_ENTERO_DECIMAL.test(horas) || !PATRON_ENTERO_DECIMAL.test(minutos)) return "";
   const cantidadHoras = Number(horas);
   const cantidadMinutos = Number(minutos);
-  if (cantidadHoras > 37 || cantidadMinutos > 59) return "";
+  if (cantidadHoras > Math.floor(completa / 60) || cantidadMinutos > 59) return "";
   const total = cantidadHoras * 60 + cantidadMinutos;
-  if (total < 1 || total > MINUTOS_JORNADA_COMPLETA) return "";
-  return String(Math.max(1, Math.round(total * 10000 / MINUTOS_JORNADA_COMPLETA)));
+  if (total < 1 || total > completa) return "";
+  return String(Math.max(1, Math.round(total * 10000 / completa)));
 }
 
-function jornadaDesdeFormulario(datos) {
+function jornadaDesdeFormulario(datos, minutosCompleta) {
   const horas = String(datos.get("jornada_horas") ?? "").trim();
   const minutos = String(datos.get("jornada_minutos") ?? "").trim();
   const original = String(datos.get("jornada_original") ?? "");
-  const previa = horasMinutosDesdeDiezmilesimas(original);
-  if (PATRON_JORNADA.test(original) && diezmilesimasDesdeHorasMinutos(horas, minutos) !== ""
+  const previa = horasMinutosDesdeDiezmilesimas(original, minutosCompleta);
+  if (PATRON_JORNADA.test(original) && diezmilesimasDesdeHorasMinutos(horas, minutos, minutosCompleta) !== ""
     && String(Number(horas)) === previa.horas
     && String(Number(minutos)) === previa.minutos && horas !== "" && minutos !== "") return original;
-  return diezmilesimasDesdeHorasMinutos(horas, minutos);
+  return diezmilesimasDesdeHorasMinutos(horas, minutos, minutosCompleta);
 }
 
-export function horasMinutosDesdeDiezmilesimas(valor) {
+export function horasMinutosDesdeDiezmilesimas(valor, minutosCompleta) {
+  const completa = exigirMinutosJornadaCompleta(minutosCompleta);
   if (!PATRON_JORNADA.test(valor)) return { horas: "", minutos: "" };
-  const total = Math.round(Number(valor) * MINUTOS_JORNADA_COMPLETA / 10000);
+  const total = Math.round(Number(valor) * completa / 10000);
   return { horas: String(Math.floor(total / 60)), minutos: String(total % 60) };
+}
+
+// Variables de los textos que citan la jornada completa («37 h 30 min»).
+function variablesJornadaCompleta(minutosCompleta) {
+  return {
+    horas_completa: String(Math.floor(minutosCompleta / 60)),
+    minutos_completa: String(minutosCompleta % 60),
+  };
 }
 const MAXIMO_OPCIONES = 100;
 const MAXIMO_CATEGORIAS = 1000;
@@ -126,7 +144,9 @@ function normalizarOpciones(lista, { nombre, campo, patron, permitirVacia = fals
 function normalizarCatalogos(entrada, rectificacion) {
   exigirRegistroExacto(entrada, [
     "modalidades", "categorias", "causas", "entradas_rc", "motivos_rectificacion",
+    "jornada_completa_minutos_semanales",
   ], "catálogos del análisis");
+  const minutosJornadaCompleta = exigirMinutosJornadaCompleta(entrada.jornada_completa_minutos_semanales);
   const modalidades = normalizarOpciones(entrada.modalidades, {
     nombre: "modalidades", campo: "clave", patron: PATRON_CLAVE,
   });
@@ -188,6 +208,7 @@ function normalizarCatalogos(entrada, rectificacion) {
     }));
   return Object.freeze({
     modalidades, categorias, causas, entradas_rc: entradasRC, motivos_rectificacion: motivos,
+    jornada_completa_minutos_semanales: minutosJornadaCompleta,
   });
 }
 
@@ -341,9 +362,10 @@ function campoEntrada(estado, t, campo, tipo, claveEtiqueta, atributos = "") {
   </div>`;
 }
 
-function campoJornada(estado, t, formateadorJornada) {
+function campoJornada(estado, t, formateadorJornada, minutosCompleta) {
   const valor = estado.borrador.porcentaje_jornada;
-  const derivada = horasMinutosDesdeDiezmilesimas(valor);
+  const derivada = horasMinutosDesdeDiezmilesimas(valor, minutosCompleta);
+  const variablesCompleta = variablesJornadaCompleta(minutosCompleta);
   const horas = estado.borrador.jornada_horas ?? derivada.horas;
   const minutos = estado.borrador.jornada_minutos ?? derivada.minutos;
   const equivalencia = PATRON_JORNADA.test(valor) ? t("analisis_jornada_equivalencia", {
@@ -358,11 +380,11 @@ function campoJornada(estado, t, formateadorJornada) {
     <legend>${escaparHTML(t("analisis_jornada"))} <b aria-hidden="true">*</b></legend>
     <div class="ct-jornada-entradas">
       <label for="ct-analisis-porcentaje_jornada">${escaparHTML(t("analisis_jornada_horas"))}</label>
-      <input id="ct-analisis-porcentaje_jornada" name="jornada_horas" type="number" required value="${escaparHTML(horas)}" ${atributos} min="0" max="37" step="1" inputmode="numeric">
+      <input id="ct-analisis-porcentaje_jornada" name="jornada_horas" type="number" required value="${escaparHTML(horas)}" ${atributos} min="0" max="${escaparHTML(variablesCompleta.horas_completa)}" step="1" inputmode="numeric">
       <label for="ct-analisis-jornada_minutos">${escaparHTML(t("analisis_jornada_minutos"))}</label>
       <input id="ct-analisis-jornada_minutos" name="jornada_minutos" type="number" required value="${escaparHTML(minutos)}" ${atributos} min="0" max="59" step="1" inputmode="numeric">
     </div>
-    <small id="ct-analisis-porcentaje_jornada-ayuda">${escaparHTML(t("analisis_jornada_ayuda"))}</small>
+    <small id="ct-analisis-porcentaje_jornada-ayuda">${escaparHTML(t("analisis_jornada_ayuda", variablesCompleta))}</small>
     <small id="ct-analisis-porcentaje_jornada-equivalencia" aria-live="polite" aria-atomic="true">${escaparHTML(equivalencia)}</small>
     ${estado.errores.porcentaje_jornada ? `<span class="ct-error-campo" id="ct-analisis-porcentaje_jornada-error">${escaparHTML(mensajeCampo(t, estado.errores.porcentaje_jornada))}</span>` : ""}
   </fieldset>`;
@@ -434,7 +456,7 @@ function renderizarContenido(estado, contexto, catalogos, t, formateador, format
         ${campoSeleccion(estado, t, "causa_clave", "analisis_causa", catalogos.causas, "clave")}
         ${campoEntrada(estado, t, "inicio", "date", "analisis_inicio")}
         ${campoEntrada(estado, t, "fin", "date", "analisis_fin")}
-        ${campoJornada(estado, t, formateadorJornada)}
+        ${campoJornada(estado, t, formateadorJornada, catalogos.jornada_completa_minutos_semanales)}
         ${campoSeleccion(estado, t, "entrada_rc_referencia", "analisis_entrada_rc", catalogos.entradas_rc, "referencia")}
         ${rectificacion ? campoSeleccion(estado, t, "motivo_rectificacion_clave", "analisis_motivo_rectificacion", catalogos.motivos_rectificacion, "clave") : ""}
         ${campoAreaTexto(estado, t, "observaciones", "analisis_observaciones", "analisis_observaciones", 4000)}
@@ -446,7 +468,7 @@ function renderizarContenido(estado, contexto, catalogos, t, formateador, format
   </form>`;
 }
 
-function extraerBorrador(formulario) {
+function extraerBorrador(formulario, minutosCompleta) {
   const datos = new FormData(formulario);
   return {
     modalidad_clave: String(datos.get("modalidad_clave") ?? ""),
@@ -456,7 +478,7 @@ function extraerBorrador(formulario) {
     inicio: String(datos.get("inicio") ?? ""), fin: String(datos.get("fin") ?? ""),
     jornada_horas: String(datos.get("jornada_horas") ?? "").trim(),
     jornada_minutos: String(datos.get("jornada_minutos") ?? "").trim(),
-    porcentaje_jornada: jornadaDesdeFormulario(datos),
+    porcentaje_jornada: jornadaDesdeFormulario(datos, minutosCompleta),
     entrada_rc_referencia: String(datos.get("entrada_rc_referencia") ?? ""),
     motivo_rectificacion_clave: String(datos.get("motivo_rectificacion_clave") ?? ""),
     observaciones: String(datos.get("observaciones") ?? "").trim(),
@@ -522,7 +544,10 @@ export function montarFormularioAnalisisRRHH(configuracion = {}) {
   const soloLectura = rectificacion && catalogos.motivos_rectificacion.length === 0;
   let metodo = rectificacion ? cliente?.rectificarAnalisis : cliente?.registrarAnalisis;
   if (!soloLectura && typeof metodo !== "function") throw new TypeError("cliente de análisis no válido");
-  let t = crearTraductorContratacionTemporal(mensajes);
+  // Los textos que citan la jornada completa reciben siempre sus horas y minutos.
+  const traducir = crearTraductorContratacionTemporal(mensajes);
+  const variablesCompleta = variablesJornadaCompleta(catalogos.jornada_completa_minutos_semanales);
+  let t = (clave, variables = {}) => traducir(clave, { ...variablesCompleta, ...variables });
   let formateador = new Intl.DateTimeFormat(locale, {
     dateStyle: "long", timeStyle: "medium", timeZone: zonaHoraria,
   });
@@ -735,14 +760,14 @@ export function montarFormularioAnalisisRRHH(configuracion = {}) {
     const formulario = evento.target?.closest?.("[data-ct-analisis-form]");
     if (!formulario || !raizActual.contains(formulario)) return undefined;
     evento.preventDefault();
-    return enviar(extraerBorrador(formulario));
+    return enviar(extraerBorrador(formulario, catalogos.jornada_completa_minutos_semanales));
   }
 
   function alCambiar(evento) {
     if (evento.target?.name !== "categoria_ref" || estado.ocupado) return;
     const formulario = evento.target.closest?.("[data-ct-analisis-form]");
     if (!formulario || !raizActual.contains(formulario)) return;
-    const siguiente = extraerBorrador(formulario);
+    const siguiente = extraerBorrador(formulario, catalogos.jornada_completa_minutos_semanales);
     siguiente.grupo_subgrupo = "";
     estado = { ...estado, borrador: siguiente, errores: {} };
     repintar("#ct-analisis-categoria_ref");
@@ -757,7 +782,9 @@ export function montarFormularioAnalisisRRHH(configuracion = {}) {
     if (!ayuda) return;
     const horas = formulario.querySelector?.("[name=jornada_horas]")?.value ?? "";
     const minutos = formulario.querySelector?.("[name=jornada_minutos]")?.value ?? "";
-    const valor = diezmilesimasDesdeHorasMinutos(String(horas).trim(), String(minutos).trim());
+    const valor = diezmilesimasDesdeHorasMinutos(
+      String(horas).trim(), String(minutos).trim(), catalogos.jornada_completa_minutos_semanales,
+    );
     ayuda.textContent = valor
       ? t("analisis_jornada_equivalencia", { porcentaje: formateadorJornada.format(Number(valor) / 10000) })
       : "";

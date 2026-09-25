@@ -37,13 +37,19 @@ function exigirCadena(valor, nombre, maximo = 512) {
   return valor;
 }
 
+// Espejo de ReferenciaPropiaSistema del dominio de Bolsa: las referencias que
+// emite el sistema (espacio de nombres alfabético y huella SHA-256 en
+// hexadecimal) no pueden llevar un documento escrito por una persona, pero sus
+// cifras casan por azar con los patrones de DNI o teléfono.
+const REFERENCIA_PROPIA_SISTEMA = /^[a-z_]+(?::[a-z_]+)*:[0-9a-f]{64}$/;
+
 export function validarReferenciaOpacaLlamamiento(valor, nombre = "referencia") {
   const referencia = exigirCadena(valor, nombre);
   const contieneControlOBidi = /[\u0000-\u001f\u007f-\u009f\u061c\u200e\u200f\u2028-\u202e\u2066-\u2069\ufffd]/u;
   const pareceDocumento = /(?:[0-9][._:/#-]?){8}[a-z]|[xyz][._:/#-]?(?:[0-9][._:/#-]?){7}[a-z]/iu;
   const etiquetaPersonal = /(?:^|[._:/#-])(?:dni|nie|nif|pasaporte|passport)(?:[._:/#-]|$)/iu;
   if (referencia.includes("*") || contieneControlOBidi.test(referencia)
-    || pareceDocumento.test(referencia) || etiquetaPersonal.test(referencia)) {
+    || (!REFERENCIA_PROPIA_SISTEMA.test(referencia) && pareceDocumento.test(referencia)) || etiquetaPersonal.test(referencia)) {
     throw new Error(`${nombre} no válida`);
   }
   return referencia;
@@ -169,7 +175,7 @@ export function validarConfirmacionPropuestaLlamamiento(datos, etag) {
 
 export function validarEmisionLlamamiento(datos) {
   const obligatorios = ["llamamiento_ref", "recibo_ref", "bolsa_ref", "estado", "participaciones", "configuracion", "emitido_en", "reutilizada"];
-  const permitidos = new Set([...obligatorios, "contactos"]);
+  const permitidos = new Set([...obligatorios, "contactos", "avisos_contacto"]);
   if (!esObjeto(datos) || obligatorios.some((campo) => !Object.hasOwn(datos, campo))
     || Object.keys(datos).some((campo) => !permitidos.has(campo))
     || datos.estado !== "emitido_pendiente_respuesta" || typeof datos.reutilizada !== "boolean"
@@ -187,6 +193,13 @@ export function validarEmisionLlamamiento(datos) {
     || datos.contactos.some((c) => !esObjeto(c) || !["enviado", "no_enviado"].includes(c.resultado)
       || typeof c.recibo_ref !== "string" || typeof c.participacion_ref !== "string"))) {
     throw new Error("contactos de emisión no válidos");
+  }
+  // Duda 45: avisos a RRHH (contacto de origen CONVOCA vencido o no comprobado).
+  if (datos.avisos_contacto !== undefined && (!Array.isArray(datos.avisos_contacto) || datos.avisos_contacto.length > 100
+    || datos.avisos_contacto.some((a) => !esObjeto(a) || !datos.participaciones.includes(a.participacion_ref)
+      || !["contacto_origen_convoca_no_confirmado", "estado_contacto_no_disponible"].includes(a.aviso)
+      || (a.ultimo_dia !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(a.ultimo_dia))))) {
+    throw new Error("avisos de contacto de emisión no válidos");
   }
   return datos;
 }

@@ -192,7 +192,7 @@ func (s *ServicioFiscalizaciones) Registrar(
 		return *preparacion.ReciboConfirmado, nil
 	}
 
-	faseDestino, estadoDestino := destinoFiscalizacion(material.Resultado)
+	faseDestino, estadoDestino := preparacion.Expediente.DestinoFiscalizacion(material.Resultado)
 	retornoRef := ""
 	if material.Resultado == domain.FiscalizacionDesfavorable {
 		retornoRef = preparacion.Referencias.RetornoRef
@@ -306,6 +306,11 @@ func (s *ServicioFiscalizaciones) nuevaSolicitudAutorizacion(
 		atributos["retorno_previo_ref"] = retornoRef
 		atributos["subsanacion_recibo_ref"] = reciboSubsanacion
 	}
+	// La fiscalización de una modificación (CT120) cita el recibo de la
+	// modificación fiscalizada.
+	if recibo := anterior.ReciboModificacionPendienteFiscalizacion(); recibo != "" {
+		atributos["modificacion_recibo_ref"] = recibo
+	}
 	return dominiovec.NuevaSolicitudAutorizacionLigadaV3(
 		dominiovec.DatosSolicitudAutorizacionLigadaV3{
 			VinculoAutenticacionActor: contexto.Vinculo,
@@ -346,15 +351,6 @@ func antecedentesRefiscalizacion(expediente domain.Expediente) (string, string) 
 		}
 	}
 	return "", ""
-}
-
-func destinoFiscalizacion(
-	resultado domain.ResultadoFiscalizacion,
-) (domain.ClaveFase, domain.EstadoOperativo) {
-	if resultado == domain.FiscalizacionDesfavorable {
-		return domain.FaseSubsanacionUnidad, domain.EstadoIncidencia
-	}
-	return domain.FaseFiscalizacion, domain.EstadoEnCurso
 }
 
 func clasificarFalloFiscalizacion(ctx context.Context, causa error) error {

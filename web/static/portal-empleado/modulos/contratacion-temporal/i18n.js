@@ -1,6 +1,8 @@
 /** Textos castellanos del módulo; las vistas solo consumen claves. */
 import { MENSAJES_LLAMAMIENTO_ES } from "./i18n-llamamiento.js";
 import { MENSAJES_SUBSANACION_REPAROS_ES } from "./i18n-subsanacion-reparos.js";
+import { MENSAJES_DOCUMENTACION_FORMALIZACION_ES } from "./i18n-documentacion-formalizacion.js?v=20260926-integracion-bolsa-ct-v1";
+import { MENSAJES_AVISOS_VIA_COBERTURA_ES } from "./i18n-avisos-via-cobertura.js";
 
 export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   pc_acceso_denegado: "Acceso denegado. Se han retirado los datos de esta vista; las actuaciones ya registradas permanecen en el servidor.",
@@ -23,6 +25,8 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   "contratacion_temporal.fase.incorporacion": "Incorporación",
   "contratacion_temporal.fase.seguimiento": "Seguimiento",
   ...MENSAJES_SUBSANACION_REPAROS_ES,
+  ...MENSAJES_DOCUMENTACION_FORMALIZACION_ES,
+  ...MENSAJES_AVISOS_VIA_COBERTURA_ES,
   titulo: "Nueva solicitud de contratación temporal",
   progreso_etiqueta: "Progreso del alta",
   progreso_datos: "Datos",
@@ -146,7 +150,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   analisis_jornada: "Jornada contratada (media semanal)",
   analisis_jornada_horas: "Horas",
   analisis_jornada_minutos: "Minutos",
-  analisis_jornada_ayuda: "Jornada completa: 37 h 30 min.",
+  analisis_jornada_ayuda: "Jornada completa: {horas_completa} h {minutos_completa} min.",
   analisis_jornada_equivalencia: "Equivale a {porcentaje} de la jornada completa.",
   analisis_entrada_rc: "Retención de crédito (RC)",
   analisis_observaciones: "Observaciones",
@@ -167,7 +171,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   analisis_error_fecha: "Introduzca una fecha válida.",
   analisis_error_periodo:
     "La fecha de fin no puede ser anterior a la de inicio ni superar el periodo permitido.",
-  analisis_error_jornada: "Introduzca una media semanal entre 1 minuto y 37 h 30 min.",
+  analisis_error_jornada: "Introduzca una media semanal entre 1 minuto y {horas_completa} h {minutos_completa} min.",
   analisis_error_observaciones: "Las observaciones no pueden superar 4.000 caracteres ni incluir caracteres no admitidos.",
   analisis_error_motivo: "Seleccione un motivo disponible para rectificar.",
   analisis_error_contrato: "Revise los datos del análisis antes de continuar.",

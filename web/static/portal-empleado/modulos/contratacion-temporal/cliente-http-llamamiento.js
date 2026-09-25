@@ -5,13 +5,14 @@ import {
   validarSolicitudResolucionLlamamiento, validarReciboResolucionLlamamiento,
   validarSolicitudContinuacionLlamamiento, validarReciboContinuacionLlamamiento,
   validarSolicitudPropuestaFormalizacion, validarReciboPropuestaFormalizacion,
-  snapshotsFormalizacionDesarrollo,
+  snapshotsFormalizacionDesarrollo, validarSolicitudEventoPlazo, validarReciboEventoPlazo,
 } from "./contrato-llamamiento.js";
 
 export const RUTAS_LLAMAMIENTO = Object.freeze({
   seleccionLlamamiento: "/api/vec/contratacion-temporal/llamamientos/seleccion",
   comunicacionLlamamiento: "/api/vec/contratacion-temporal/llamamientos/comunicaciones",
   respuestaRecibida: "/api/vec/contratacion-temporal/llamamientos/respuestas/registro",
+  eventoPlazoLlamamiento: "/api/vec/contratacion-temporal/llamamientos/plazos/eventos",
   resolucionLlamamiento: "/api/vec/contratacion-temporal/llamamientos/resoluciones",
   continuacionLlamamiento: "/api/vec/contratacion-temporal/llamamientos/siguientes",
   propuestaFormalizacion: "/api/vec/contratacion-temporal/formalizacion/propuestas",
@@ -64,12 +65,15 @@ export function prefijoErrorLlamamiento(ruta) {
   if (ruta === RUTAS_LLAMAMIENTO.respuestaRecibida) {
     return "api.contratacion_temporal.respuesta_recibida.error.";
   }
+  if (ruta === RUTAS_LLAMAMIENTO.eventoPlazoLlamamiento) return "api.contratacion_temporal.plazo_llamamiento.error.";
   return null;
 }
 export function conflictoLlamamientoValido(ruta, codigo) {
   if (ruta === RUTAS_LLAMAMIENTO.propuestaFormalizacion)
     return ["version_en_conflicto", "clave_idempotencia_reutilizada", "resolucion_no_aceptada"].includes(codigo);
   if (ruta === RUTAS_LLAMAMIENTO.continuacionLlamamiento) return codigo === "clave_idempotencia_reutilizada";
+  if (ruta === RUTAS_LLAMAMIENTO.eventoPlazoLlamamiento)
+    return ["evento_en_conflicto", "clave_idempotencia_reutilizada"].includes(codigo);
   if (ruta === RUTAS_LLAMAMIENTO.resolucionLlamamiento
     && codigo === "validacion_respuesta_pendiente") return true;
   return (ruta === RUTAS_LLAMAMIENTO.seleccionLlamamiento
@@ -117,6 +121,11 @@ export function crearLlamamientoClienteHTTP({ ejecutar, validarOpciones } = {}) 
       const entrada = validarSolicitudRespuestaRecibida(solicitud);
       return enviar(RUTAS_LLAMAMIENTO.respuestaRecibida, entrada, opciones,
         (respuesta) => validarReciboRespuestaRecibida(respuesta, entrada));
+    },
+    registrarEventoPlazoLlamamiento(solicitud, opciones) {
+      const entrada = validarSolicitudEventoPlazo(solicitud);
+      return enviar(RUTAS_LLAMAMIENTO.eventoPlazoLlamamiento, entrada, opciones,
+        (respuesta) => validarReciboEventoPlazo(respuesta, entrada));
     },
     resolverLlamamiento(solicitud, opciones) {
       const entrada = validarSolicitudResolucionLlamamiento(solicitud);

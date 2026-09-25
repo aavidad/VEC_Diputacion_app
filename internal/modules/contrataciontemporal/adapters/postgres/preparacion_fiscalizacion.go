@@ -15,10 +15,13 @@ import (
 )
 
 const (
-	funcionPrepararFiscalizacion                = "vec_contratacion_temporal.preparar_fiscalizacion_v1"
-	funcionPrepararFiscalizacionTrasSubsanacion = "vec_contratacion_temporal.preparar_fiscalizacion_tras_subsanacion_v1"
-	esquemaPrepararFiscalizacion                = "vec.contratacion-temporal.preparar-fiscalizacion.v1"
-	maximoIntentosPrepararFiscalizacion         = 3
+	funcionPrepararFiscalizacion = "vec_contratacion_temporal.preparar_fiscalizacion_v1"
+	// funcionPrepararFiscalizacionV2 (CT120) elige, por la forma del
+	// expediente, entre la refiscalización tras subsanación (CT93) y la
+	// fiscalización de un expediente modificado tras el nombramiento.
+	funcionPrepararFiscalizacionV2      = "vec_contratacion_temporal.preparar_fiscalizacion_v2"
+	esquemaPrepararFiscalizacion        = "vec.contratacion-temporal.preparar-fiscalizacion.v1"
+	maximoIntentosPrepararFiscalizacion = 3
 )
 
 // funcionPrepararFiscalizacionParaVersion conserva la función original para
@@ -30,7 +33,7 @@ func funcionPrepararFiscalizacionParaVersion(version uint64) (string, error) {
 	case version == 5:
 		return funcionPrepararFiscalizacion, nil
 	case version >= 7:
-		return funcionPrepararFiscalizacionTrasSubsanacion, nil
+		return funcionPrepararFiscalizacionV2, nil
 	default:
 		return "", ports.ErrPreparacionFiscalizacionInvalida
 	}
@@ -261,6 +264,9 @@ func origenFiscalizacionPostgreSQL(expediente domain.Expediente) error {
 		expediente.FaseActual == domain.FaseInformeJuridico &&
 		expediente.EstadoActual == domain.EstadoEnCurso &&
 		expediente.Asignacion != nil && expediente.InformeJuridico != nil {
+		return nil
+	}
+	if expediente.Version >= 7 && expediente.EsModificacionPendienteFiscalizacion() {
 		return nil
 	}
 	if expediente.Version < 7 || expediente.Fiscalizacion == nil ||

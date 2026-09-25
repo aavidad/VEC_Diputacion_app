@@ -213,8 +213,14 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		ports.AudienciaConfirmacionIncorporacionV2,
 		postgrescontratacion.AudienciaAnotacionAdministrativaV1,
 		postgrescontratacion.AudienciaCierreAdministrativoSinCese,
+		ports.AudienciaConsumoCeseV1,
+		ports.AudienciaConsumoCierreExpedienteV1,
+		ports.AudienciaConsumoModificacionNombramientoV1,
 		ctapplication.AudienciaDespachoCorreoLlamamientoV3,
 		ctapplication.AudienciaResultadoCorreoLlamamientoV3,
+		// Registro de firmas de prueba de los borradores (AD3-85); solo se
+		// publica con VEC_CT_FIRMA_REGISTRO_ENABLED.
+		ports.AudienciaFirmaDocumentoV3,
 		puertosbolsa.AudienciaCrearBorradorLlamamientoInterno,
 		puertosbolsa.AudienciaConsultarBorradorLlamamientoInterno,
 		puertosbolsa.AudienciaCambiarSituacionParticipacion,
@@ -222,6 +228,12 @@ func audienciasConsumoGobiernoCTDesarrollo() []string {
 		puertosbolsa.AudienciaConsultarContactoParticipacion,
 		puertosbolsa.AudienciaRegistrarDatosContactoParticipacion,
 		puertosbolsa.AudienciaEmitirLlamamiento,
+		puertosbolsa.AudienciaSolicitarPausaPropia,
+		puertosbolsa.AudienciaSolicitarReactivacionPropia,
+		puertosbolsa.AudienciaResponderLlamamientoPropio,
+		puertosbolsa.AudienciaManifestarDisposicionPropia,
+		// Confirmación del contacto propio (AD3-86); solo con el portal.
+		puertosbolsa.AudienciaConfirmarContactoPropio,
 		audienciaConsumoPersonalDietasDesarrollo,
 		audienciaConsumoCrearDietasDesarrollo,
 		audienciaConsumoConsultarDietasDesarrollo,

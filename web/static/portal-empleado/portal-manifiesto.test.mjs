@@ -41,3 +41,34 @@ for (const manifiesto of ["produccion.manifest", "interno.manifest"]) {
     assert.deepEqual(faltan, [], `módulos importados sin empaquetar en ${manifiesto}`);
   });
 }
+
+// Recorrido en Chrome del 25/09/2026 (fallo 1): el coordinador importaba con
+// import() `modulos/personal/cliente-http-ficha-propia.js`, que no figuraba en
+// produccion.manifest: el paquete desplegado respondía 404 en cada Inicio. Todo
+// import() del coordinador (y sus imports estáticos) debe ir en el paquete.
+for (const manifiesto of ["produccion.manifest", "interno.manifest"]) {
+  test(`${manifiesto}: cada import() del coordinador de módulos está empaquetado con sus dependencias`, async () => {
+    const empaquetados = await entradas(manifiesto);
+    const entrada = "static/portal-empleado/portal-modulos-coordinador.js";
+    assert.ok(empaquetados.has(entrada));
+    const codigo = await readFile(new URL(entrada, raizWeb), "utf8");
+    const pendientes = [...codigo.matchAll(/import\(\s*["']([^"']+)["']\s*\)/gu)]
+      .map(([, ruta]) => new URL(ruta.split("?")[0], new URL("static/portal-empleado/", "file:///")).pathname.slice(1));
+    assert.ok(pendientes.length > 10, "el coordinador carga sus módulos con import()");
+    const faltan = [];
+    const vistos = new Set();
+    while (pendientes.length > 0) {
+      const destino = pendientes.pop();
+      if (vistos.has(destino)) continue;
+      vistos.add(destino);
+      if (/\/modulos\/[a-z-]+\/datos-presentacion\.js$/u.test(destino)) continue;
+      if (!empaquetados.has(destino)) { faltan.push(destino); continue; }
+      const fuente = await readFile(new URL(destino, raizWeb), "utf8");
+      const carpeta = destino.slice(0, destino.lastIndexOf("/") + 1);
+      for (const ruta of importsEstaticos(fuente)) {
+        pendientes.push(new URL(ruta.split("?")[0], new URL(carpeta, "file:///")).pathname.slice(1));
+      }
+    }
+    assert.deepEqual(faltan, [], `módulos cargados con import() sin empaquetar en ${manifiesto}`);
+  });
+}

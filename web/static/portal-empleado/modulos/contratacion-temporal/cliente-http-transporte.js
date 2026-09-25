@@ -10,6 +10,7 @@ import { RUTA_SEGUIMIENTO_INCORPORACION } from "./cliente-http-seguimiento-incor
 import { RUTA_ANOTACION_ADMINISTRATIVA, RUTA_RECUPERACION_ANOTACION_ADMINISTRATIVA } from "./cliente-http-anotacion-administrativa.js";
 import { RUTA_CIERRE_ADMINISTRATIVO } from "./cliente-http-cierre-administrativo.js";
 import { RUTA_SUBSANACION_REPAROS } from "./cliente-http-subsanacion-reparos.js";
+import { CONFLICTOS_SEGUIMIENTO_CESE, RUTAS_SEGUIMIENTO_CESE } from "./cliente-http-seguimiento-cese.js";
 
 export const MAXIMO_ERROR_BYTES = 16 * 1024;
 export const MAXIMO_FRAGMENTOS = 4096;
@@ -310,6 +311,8 @@ export function claveI18nValida(ruta, codigo, clave, rutas) {
     ? "api.contratacion_temporal.cierre_administrativo.error."
     : rutaBase === RUTA_SUBSANACION_REPAROS
     ? "api.contratacion_temporal.subsanacion_reparos.error."
+    : RUTAS_SEGUIMIENTO_CESE.includes(rutaBase)
+    ? "api.contratacion_temporal.seguimiento.error."
     : rutaBase === RUTA_ANOTACION_ADMINISTRATIVA
     || rutaBase === RUTA_RECUPERACION_ANOTACION_ADMINISTRATIVA
     ? "api.contratacion_temporal.anotacion_administrativa.error."
@@ -333,6 +336,9 @@ export function claveI18nValida(ruta, codigo, clave, rutas) {
 }
 
 export function codigoValidoParaRuta(ruta, estado, codigo, rutas) {
+  if (RUTAS_SEGUIMIENTO_CESE.includes(ruta.split("?")[0]) && estado === 409) {
+    return CONFLICTOS_SEGUIMIENTO_CESE.includes(codigo);
+  }
   if (ruta.split("?")[0] === RUTA_CIERRE_ADMINISTRATIVO) {
     if ((estado === 401 && codigo === "autenticacion_requerida")
       || (estado === 403 && codigo === "acceso_denegado")

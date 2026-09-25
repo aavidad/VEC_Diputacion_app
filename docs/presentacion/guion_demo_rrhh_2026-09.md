@@ -43,6 +43,14 @@ marcas:
   aportar la documentación. Cuando una regla del Reglamento se completa con una parte
   inventada (quién propone y quién confirma una baja), también se rotula como ejemplo.
 
+El coste estimado del nombramiento sale de otro catálogo de ejemplo, el de
+**retribuciones de referencia** (`data/demo/reglas/ct_retribuciones.demo.json`, variable
+`VEC_CT_RETRIBUCIONES_SOURCE_PATH`): por grupo o categoría, sueldo y complementos
+mensuales, 14 pagas, 32 % de Seguridad Social y prorrateo por la jornada (duda 8). Sin
+ese catálogo el coste queda «sin calcular». La jornada completa con la que se pasan
+horas a porcentaje es la regla c07 (37 h 30 min salvo que el catálogo diga otra cosa;
+duda 38). Ambos se cambian editando el catálogo, sin tocar el programa.
+
 Frase para la reunión: «Lo marcado como reglamento es vuestra norma; lo marcado como
 ejemplo es una propuesta para que la corrijáis. Ninguna regla de ejemplo produce efectos:
 VEC propone y RRHH confirma». Las dudas abiertas siguen en `dudas.md` (13, 14 y 62,
@@ -77,9 +85,12 @@ se hacen desde el asistente del punto 3.
   segunda persona (regla provisional, duda 6). Recibo e historial de operaciones.
   *Comprobado en cidonia por la API (9/9) y en la ficha.* La última persona de «Encargado»
   ya figura excluida por la prueba.
-- **Ficha de la persona**: datos de contacto cifrados (correo y dos teléfonos, B4) y
-  histórico de contactos (B3). *Registro de contactos comprobado por la API; ficha
-  pendiente de ensayo.*
+- **Ficha de la persona**: bolsa, vigencia, orden del acta, último cambio de situación,
+  último llamamiento, número de contactos y operaciones B8 con su historial. **No muestra
+  el correo ni los teléfonos, a propósito**: se guardan cifrados (B4) y solo los usa el
+  envío del llamamiento; en pantalla no se exponen. Desde la ficha, *Consultar historial
+  de contactos* abre el histórico de contactos (B3). *Ficha e historial recorridos en
+  Chrome el 25/09; registro de contactos comprobado por la API.*
 
 ### 3. Bolsa: nuevo llamamiento (p. 1, punto 2; p. 3, envío por estado)
 

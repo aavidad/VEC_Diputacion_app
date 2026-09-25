@@ -12,6 +12,7 @@ import (
 	contratacioncomposicion "vec-diputacion-granada/internal/app/composicion/interna/contrataciontemporal"
 	inc "vec-diputacion-granada/internal/app/incorporacionejercicio"
 	bolsapersonal "vec-diputacion-granada/internal/modules/bolsa/adapters/httppersonal"
+	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/informejuridico"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
@@ -21,6 +22,7 @@ import (
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	puertosvec "vec-diputacion-granada/internal/vec/ports"
+	"vec-diputacion-granada/internal/vec/reglas"
 )
 
 const (
@@ -63,6 +65,15 @@ type autoridadConsultasContratacionTemporalDesarrollo struct {
 	materialCronos                           materialCronosDesdeCTDesarrollo
 	materialDocumentos                       *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialPersonalFichaPropia              *proveedorMaterialAltaContratacionTemporalDesarrollo
+	plazosOfertasBolsa                       *calculadoraPlazoOfertaDesarrollo
+	// presentadorCobertura permite activar después los avisos de la vía de
+	// cobertura, cuando Bolsa y las reglas de ejemplo ya están compuestas.
+	presentadorCobertura avisosViaCoberturaConfigurable
+	// personalizacionB7 se enlaza con la fuente de bolsas constituidas cuando
+	// la composición raíz la crea; el correo B7 la usa para los marcadores.
+	personalizacionB7 *fuentePersonalizacionB7
+	// firmaDocumento es nil salvo con VEC_CT_FIRMA_REGISTRO_ENABLED=true.
+	firmaDocumento *firmaDocumentoCTDesarrollo
 }
 
 type autorizadorLigadoContratacionTemporalDesarrollo interface {
@@ -197,6 +208,27 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	derivador *derivadorIdentidadOperacionDesarrollo,
 	kms *emisorKMSDesarrollo,
 	registro io.Writer,
+	reglasBolsa *reglas.Resolutor,
+	incorporacion ...ConfiguracionIncorporacionDesarrollo,
+) (
+	[]vechttp.RutaExacta,
+	*autoridadConsultasContratacionTemporalDesarrollo,
+	func(),
+	error,
+) {
+	return nuevasRutasContratacionTemporalConReglasDesarrollo(cfg, reglasEjemploDesarrollo{bolsa: reglasBolsa}, resolvedor, derivador, kms, registro, incorporacion...)
+}
+
+// nuevasRutasContratacionTemporalConReglasDesarrollo recibe además las
+// reglas de ejemplo ya validadas; sin ellas cada consumidor conserva su
+// conducta sin catálogo.
+func nuevasRutasContratacionTemporalConReglasDesarrollo(
+	cfg config.Config,
+	reglasEjemplo reglasEjemploDesarrollo,
+	resolvedor vechttp.DemoIdentityResolver,
+	derivador *derivadorIdentidadOperacionDesarrollo,
+	kms *emisorKMSDesarrollo,
+	registro io.Writer,
 	incorporacion ...ConfiguracionIncorporacionDesarrollo,
 ) (
 	[]vechttp.RutaExacta,
@@ -211,6 +243,12 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	dependencias.reglasEjemplo = reglasEjemplo
+	reglasBolsa := reglasEjemplo.bolsa
+	// El plazo de respuesta del llamamiento lo rige el Reglamento de bolsas:
+	// se gobierna con el catálogo de reglas de Bolsa.
+	reglasLlamamiento := reglasEjemplo.bolsa
+	dependencias.plazosFase = nuevaCalculadoraPlazoFaseCT(reglasEjemplo.contratacionTemporal)
 	if err := dependencias.cfg.ContratacionTemporalPostgreSQL.ValidarIdentidadOperativa(); err != nil {
 		return nil, nil, nil, err
 	}
@@ -232,6 +270,7 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	alta.soporte.reglasPlazo = reglasPlazoLlamamientoDesarrollo{resolutor: reglasLlamamiento}
 	cerrarAlta := true
 	defer func() {
 		if cerrarAlta {
@@ -242,10 +281,16 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	reglasAnalisis, err := nuevasFuentesReglasAnalisisDesarrollo(cfg, reloj)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	dependencias.retribucionesCT = reglasAnalisis.retribuciones
 	servicioAnalisis, err := nuevasDependenciasAnalisisContratacionTemporalDesarrollo(
 		dependencias,
 		&alta,
 		fuenteMotivosRectificacion,
+		reglasAnalisis.retribuciones,
 		catalogoDesarrollo,
 	)
 	if err != nil {
@@ -303,6 +348,10 @@ func nuevasRutasContratacionTemporalDesarrollo(
 			}
 		}
 	}
+	firmaDocumento, err := nuevaFirmaDocumentoCTDesarrollo(cfg, &alta, reloj)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 	cerrarCobertura := true
 	defer func() {
 		if cerrarCobertura {
@@ -313,9 +362,10 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	rutaConfiguracionAnalisis, err := nuevaRutaConfiguracionAnalisisConSubsanacionYMotivosDesarrollo(
+	rutaConfiguracionAnalisis, err := nuevaRutaConfiguracionAnalisisConReglasDesarrollo(
 		subsanacionReal.servicio != nil,
 		fuenteMotivosRectificacion,
+		reglasAnalisis.jornada,
 		catalogoDesarrollo,
 	)
 	if err != nil {
@@ -330,12 +380,17 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	var propuestaReal httpinterno.EjecutorPropuestaFormalizacion = noCompuesta
 	var comunicacionReal http.Handler
 	var respuestaRecibidaReal http.Handler
+	var eventoPlazoReal http.Handler
 	if alta.postgresql.bolsa != nil {
 		seleccionReal, comunicacionReal, err = nuevasDependenciasLlamamientoContratacionTemporalDesarrollo(cfg, &alta, derivador, reloj, origen.etiquetasReferenciasCatalogosAlta())
 		if err != nil {
 			return nil, nil, nil, err
 		}
 		respuestaRecibidaReal, err = nuevoManejadorRespuestaRecibidaDesarrollo(&alta, reloj)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		eventoPlazoReal, err = nuevoManejadorEventoPlazoDesarrollo(&alta, reloj)
 		if err != nil {
 			return nil, nil, nil, err
 		}
@@ -372,6 +427,20 @@ func nuevasRutasContratacionTemporalDesarrollo(
 			PerfilesActivosRef: []string{candidato.perfilRef},
 			ClavePolitica:      "politica-bolsa-mi-bolsa", ClaveCapacidad: "capacidad-bolsa-mi-bolsa-consultar",
 		})
+		if debeComponerPortalCandidatoDesarrollo(cfg) {
+			for clave, ruta := range map[string]string{
+				"bolsa-mi-bolsa-solicitar":   bolsapersonal.RutaMiBolsaSolicitudes,
+				"bolsa-mi-bolsa-responder":   bolsapersonal.RutaMiBolsaRespuestas,
+				"bolsa-mi-bolsa-disposicion": bolsapersonal.RutaMiBolsaDisposiciones,
+				"bolsa-mi-bolsa-contacto":    bolsapersonal.RutaMiBolsaContacto,
+			} {
+				declaracionesFrontera = append(declaracionesFrontera, descriptorFronteraComunDesarrollo{
+					Clave: clave, Superficie: superficieExternaPersonalSeguridadComunDesarrollo,
+					Metodo: http.MethodPost, Ruta: ruta, PerfilesActivosRef: []string{candidato.perfilRef},
+					ClavePolitica: "politica-bolsa-mi-bolsa", ClaveCapacidad: "capacidad-" + clave,
+				})
+			}
+		}
 	}
 	var soporteBolsaCatalogo *soporteSesionBorradorBolsaDesarrollo
 	if debeComponerBorradorLlamamientoDesarrollo(cfg) {
@@ -391,14 +460,18 @@ func nuevasRutasContratacionTemporalDesarrollo(
 		return nil, nil, nil, errBorradorNoDisponibleEn()
 	}
 	if cfg.ContratacionTemporalPostgreSQL.ConsultasRRHHConfiguradas() {
+		plantillas, err := cargarPlantillasBorradorCTDesarrollo(cfg, reloj.Ahora())
+		if err != nil {
+			return nil, nil, nil, err
+		}
 		consultasRRHH, err = nuevasDependenciasConsultasRRHHDesarrollo(dependencias, &alta, catalogoFronteras)
 		if err != nil {
 			return nil, nil, nil, err
 		}
 		cuadroReal, detalleReal, originalPropuestaReal = consultasRRHH.cuadroHTTP, consultasRRHH.detalleHTTP, consultasRRHH.originalPropuestaHTTP
 		etiquetas := origen.etiquetasReferenciasCatalogosAlta()
-		borradorRRHH = informejuridico.RenderizadorBorradorDesarrollo{PDF: pdfvec.Renderizador{}, Etiquetas: etiquetas}
-		borradorRRHHDOCX = informejuridico.RenderizadorBorradorDOCXDesarrollo{DOCX: docxvec.Renderizador{}, Etiquetas: etiquetas}
+		borradorRRHH = informejuridico.RenderizadorBorradorDesarrollo{PDF: pdfvec.Renderizador{}, Etiquetas: etiquetas, Plantillas: plantillas}
+		borradorRRHHDOCX = informejuridico.RenderizadorBorradorDOCXDesarrollo{DOCX: docxvec.Renderizador{}, Etiquetas: etiquetas, Plantillas: plantillas}
 	}
 	defer func() {
 		if cerrarAlta {
@@ -515,6 +588,11 @@ func nuevasRutasContratacionTemporalDesarrollo(
 		rutas = append(rutas, vechttp.RutaExacta{Ruta: httpinterno.RutaResolucionFormalizacion, Manejador: h})
 	}
 	rutas = append(rutas, rutasOrganizacion...)
+	rutasSeguimientoCese, err := nuevasRutasSeguimientoCeseDesarrollo(dependencias, &alta)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	rutas = append(rutas, rutasSeguimientoCese...)
 	if consultasRRHH.estadisticas != nil {
 		h, err := httpinterno.NuevoManejadorEstadisticasRRHH(consultasRRHH.estadisticas,
 			&resolutorAlcanceEstadisticasRRHHDesarrollo{sello: sello, resolvedor: resolvedorDesarrollo}, reloj.Ahora)
@@ -545,6 +623,9 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	if respuestaRecibidaReal != nil {
 		rutas = append(rutas, vechttp.RutaExacta{Ruta: httpinterno.RutaRegistroRespuestaRecibida, Manejador: respuestaRecibidaReal})
 	}
+	if eventoPlazoReal != nil {
+		rutas = append(rutas, vechttp.RutaExacta{Ruta: httpinterno.RutaEventoPlazoLlamamiento, Manejador: eventoPlazoReal})
+	}
 	rutasBorrador := []vechttp.RutaExacta(nil)
 	coleccionesBorrador := []vechttp.RutaColeccion(nil)
 	// Instancia única construida antes de las sesiones CT y Bolsa.
@@ -552,13 +633,14 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	var envolverBorrador func(http.Handler) http.Handler
 	var manejadorSituacion http.Handler
 	cerrarBorrador := func() {}
+	personalizacionB7 := &fuentePersonalizacionB7{}
 	if debeComponerBorradorLlamamientoDesarrollo(cfg) {
 		if consultasRRHH.identidad == nil {
 			return nil, nil, nil, errBorradorNoDisponibleEn()
 		}
 		var errBorrador error
 		rutasBorrador, coleccionesBorrador, manejadorSituacion, seguridadBorrador, envolverBorrador, cerrarBorrador, errBorrador = nuevasDependenciasBorradorLlamamientoDesarrollo(
-			context.Background(), cfg, dependencias, &alta, soporteBolsaCatalogo, catalogoFronteras, consultasRRHH.identidad,
+			context.Background(), cfg, dependencias, &alta, soporteBolsaCatalogo, catalogoFronteras, consultasRRHH.identidad, personalizacionB7,
 		)
 		if errBorrador != nil {
 			return nil, nil, nil, errBorrador
@@ -575,14 +657,25 @@ func nuevasRutasContratacionTemporalDesarrollo(
 		if !debeComponerMiBolsaDesarrollo(cfg) || consultasRRHH.identidad == nil {
 			return nil, nil, nil, errMiBolsaNoDisponible
 		}
-		miBolsa, err := nuevaRutaMiBolsaDesarrollo(
+		camposMiBolsa, err := camposPortalMiBolsaDesarrollo(reglasBolsa)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		var portal puertosbolsa.ReglasPortalCandidato
+		if debeComponerPortalCandidatoDesarrollo(cfg) {
+			if reglasBolsa == nil {
+				return nil, nil, nil, errMiBolsaNoDisponible
+			}
+			portal = reglasPortalCandidatoDesarrollo{resolutor: reglasBolsa}
+		}
+		rutasMiBolsa, err := nuevaRutaMiBolsaDesarrollo(
 			context.Background(), resolvedorDesarrollo.candidatoBolsa, sello, &alta,
-			consultasRRHH.identidad, catalogoFronteras, derivador, reloj,
+			consultasRRHH.identidad, catalogoFronteras, derivador, reloj, camposMiBolsa, portal,
 		)
 		if err != nil {
 			return nil, nil, nil, err
 		}
-		rutas = append(rutas, vechttp.RutaExacta{Ruta: bolsapersonal.RutaMiBolsa, Manejador: miBolsa})
+		rutas = append(rutas, rutasMiBolsa...)
 	}
 	autoridad := &autoridadConsultasContratacionTemporalDesarrollo{
 		sello:                                    sello,
@@ -594,12 +687,16 @@ func nuevasRutasContratacionTemporalDesarrollo(
 		fronterasSeguridadComun:                  seguridadBorrador,
 		envolverBorradorLlamamiento:              envolverBorrador,
 		manejadorSituacionParticipacion:          manejadorSituacion,
+		plazosOfertasBolsa:                       dependencias.plazosOfertasBolsa,
+		personalizacionB7:                        personalizacionB7,
 		coleccionesAdicionales:                   coleccionesBorrador,
 		registradorAuditoriaFronteraRutasExactas: alta.postgresql.registradorAuditoriaFrontera,
 		materialDietas:                           alta.postgresql.materialDietas,
 		materialCronos:                           alta.postgresql.materialCronos,
 		materialDocumentos:                       alta.postgresql.materialDocumentos,
 		materialPersonalFichaPropia:              alta.postgresql.materialPersonalFichaPropia,
+		presentadorCobertura:                     coberturaReal.presentador,
+		firmaDocumento:                           firmaDocumento,
 	}
 	if autoridad.registradorAuditoriaFronteraRutasExactas == nil {
 		return nil, nil, nil, errPostgreSQLContratacionTemporalDesarrolloNoDisponible

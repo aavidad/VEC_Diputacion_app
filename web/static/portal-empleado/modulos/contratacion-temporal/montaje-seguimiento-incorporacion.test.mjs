@@ -116,6 +116,12 @@ function raizMontajePrincipal() {
       vigentes.add(control);
       await eventos.get("click")({ target: control, preventDefault() {} });
     },
+    // La incorporación se consulta al pedirla (botón del detalle), no al abrir.
+    async consultarIncorporacion() {
+      const control = { dataset: { ctExpAccion: "consultar-incorporacion" }, closest: (selector) => selector === "[data-ct-exp-accion]" ? control : null };
+      vigentes.add(control);
+      await eventos.get("click")({ target: control, preventDefault() {} });
+    },
   };
 }
 
@@ -148,6 +154,8 @@ test("seguimiento: el montaje principal recupera el recibo, presenta solo el pan
   });
   try {
     await dom.abrir(); await esperarMontaje(); await esperarMontaje();
+    assert.equal(llamadas.length, 0, "abrir el expediente no consulta la incorporación");
+    await dom.consultarIncorporacion(); await esperarMontaje(); await esperarMontaje();
     assert.equal(llamadas.length, 1);
     assert.equal(llamadas[0][0], EXPEDIENTE_MONTAJE);
     assert.ok(llamadas[0][1] instanceof AbortSignal);

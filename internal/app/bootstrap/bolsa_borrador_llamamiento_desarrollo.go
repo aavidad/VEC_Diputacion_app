@@ -14,6 +14,7 @@ import (
 	"vec-diputacion-granada/config"
 	bolsahttp "vec-diputacion-granada/internal/modules/bolsa/adapters/httpinterno"
 	postgresbolsa "vec-diputacion-granada/internal/modules/bolsa/adapters/postgres"
+	reglasbolsa "vec-diputacion-granada/internal/modules/bolsa/adapters/reglasvec"
 	aplicacionbolsa "vec-diputacion-granada/internal/modules/bolsa/application"
 	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
@@ -98,7 +99,7 @@ func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudRegistrarDato
 	if err != nil {
 		return puertosbolsa.SolicitudRegistrarDatosContactoParticipacion{}, err
 	}
-	return puertosbolsa.SolicitudRegistrarDatosContactoParticipacion{Vinculo: contexto.Vinculo, ResultadoContexto: contexto.Resultado, BolsaRef: entrada.BolsaRef, ParticipacionRef: entrada.ParticipacionRef, Datos: entrada.Datos, Motivo: entrada.Motivo, ClaveIdempotencia: entrada.ClaveIdempotencia, Correlacion: correlacion, MotivoAutorizacion: motivoRegistrarDatosContactoParticipacionBolsaDesarrollo()}, nil
+	return puertosbolsa.SolicitudRegistrarDatosContactoParticipacion{Vinculo: contexto.Vinculo, ResultadoContexto: contexto.Resultado, BolsaRef: entrada.BolsaRef, ParticipacionRef: entrada.ParticipacionRef, Datos: entrada.Datos, Motivo: entrada.Motivo, ClaveIdempotencia: entrada.ClaveIdempotencia, Correlacion: correlacion, MotivoAutorizacion: motivoRegistrarDatosContactoParticipacionBolsaDesarrollo(), Origen: entrada.Origen}, nil
 }
 
 func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudConsultarDatosContacto(ctx context.Context, bolsaRef, participacionRef string) (puertosbolsa.SolicitudConsultarDatosContactoParticipacion, error) {
@@ -277,14 +278,28 @@ type emisorBorradorLlamamientoDesarrollo struct {
 }
 
 type manejadorParticipacionBolsaDesarrollo struct {
-	situacion, operaciones, contacto, datosContacto http.Handler
-	preparador                                      *preparadorBorradorLlamamientoDesarrollo
-	servicio                                        *aplicacionbolsa.ServicioContactoParticipacion
+	situacion, operaciones, contacto, datosContacto, contratos, sanciones http.Handler
+	preparador                                                            *preparadorBorradorLlamamientoDesarrollo
+	servicio                                                              *aplicacionbolsa.ServicioContactoParticipacion
+	// servicioSituacion permite componer después las reglas de transición.
+	servicioSituacion *aplicacionbolsa.ServicioSituacionParticipacion
+	// datos y emision reciben después la regla del contacto de origen CONVOCA.
+	datos   *aplicacionbolsa.ServicioDatosContactoParticipacion
+	emision *aplicacionbolsa.ServicioEmisionLlamamiento
+	fuente  *fuenteCorreoParticipacionB7
 }
 
 func (m *manejadorParticipacionBolsaDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if _, _, ok := bolsahttp.ReferenciasRutaOperacionesSituacion(r); ok {
 		m.operaciones.ServeHTTP(w, r)
+		return
+	}
+	if _, _, ok := bolsahttp.ReferenciasRutaContratosParticipacion(r); ok && m.contratos != nil {
+		m.contratos.ServeHTTP(w, r)
+		return
+	}
+	if _, _, _, ok := bolsahttp.ReferenciasRutaSancionesParticipacion(r); ok && m.sanciones != nil {
+		m.sanciones.ServeHTTP(w, r)
 		return
 	}
 	if _, _, _, ok := bolsahttp.ReferenciasRutaDatosContactoParticipacion(r); ok {
@@ -358,9 +373,10 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	soporteBolsa *soporteSesionBorradorBolsaDesarrollo,
 	catalogoFronteras catalogoFronterasComunDesarrollo,
 	identidadCT *proveedorSesionConsultaRRHHDesarrollo,
+	personalizacion *fuentePersonalizacionB7,
 ) ([]vechttp.RutaExacta, []vechttp.RutaColeccion, http.Handler, catalogoFronterasComunDesarrollo, func(http.Handler) http.Handler, func(), error) {
 	vacio := catalogoFronterasComunDesarrollo{}
-	if ctx == nil || dependenciasCT == nil || dependenciasCT.kms == nil || alta == nil || soporteBolsa == nil || identidadCT == nil || catalogoFronteras.identidad == nil || alta.soporte == nil || alta.postgresql.bolsa == nil || alta.postgresql.gobierno == nil || alta.postgresql.registroAutorizacion == nil || alta.postgresql.proveedorMaterialBorradorCrear == nil || alta.postgresql.proveedorMaterialBorradorConsulta == nil || alta.postgresql.proveedorMaterialSituacion == nil || alta.postgresql.proveedorMaterialContacto == nil || alta.postgresql.proveedorMaterialConsultaContacto == nil || alta.postgresql.proveedorMaterialDatosContacto == nil || alta.postgresql.proveedorMaterialEmision == nil {
+	if ctx == nil || personalizacion == nil || dependenciasCT == nil || dependenciasCT.kms == nil || alta == nil || soporteBolsa == nil || identidadCT == nil || catalogoFronteras.identidad == nil || alta.soporte == nil || alta.postgresql.bolsa == nil || alta.postgresql.gobierno == nil || alta.postgresql.registroAutorizacion == nil || alta.postgresql.proveedorMaterialBorradorCrear == nil || alta.postgresql.proveedorMaterialBorradorConsulta == nil || alta.postgresql.proveedorMaterialSituacion == nil || alta.postgresql.proveedorMaterialContacto == nil || alta.postgresql.proveedorMaterialConsultaContacto == nil || alta.postgresql.proveedorMaterialDatosContacto == nil || alta.postgresql.proveedorMaterialEmision == nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	// El manifiesto y el contexto nominal Bolsa se cargan antes de declarar
@@ -517,6 +533,9 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
+	if err := publicarPoliticaSegregacionDesarrollo(ctx, cfg, repositorioSituacion, relojCalendariosDesarrollo{}); err != nil {
+		return nil, nil, nil, vacio, nil, nil, err
+	}
 	servicioSituacion, err := aplicacionbolsa.NuevoServicioSituacionParticipacion(preparador, emisor, repositorioSituacion, dependenciasCT.reloj.Ahora)
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
@@ -526,6 +545,28 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
 	handlerOperaciones, err := bolsahttp.NuevoHandlerOperacionesSituacion(preparador, servicioSituacion)
+	if err != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+	}
+	// Sanciones (duda 62): mismo servicio de situación y autorización B8; el
+	// catálogo solo existe con el paquete de reglas de ejemplo declarado.
+	repositorioSanciones, err := postgresbolsa.NuevoRepositorioSancionesParticipacionPostgreSQL(alta.postgresql.bolsa)
+	if err != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+	}
+	var catalogoSanciones puertosbolsa.CatalogoSancionesParticipacion
+	if catalogo := reglasbolsa.NuevoCatalogoSanciones(dependenciasCT.reglasEjemplo.bolsa); catalogo != nil {
+		catalogoSanciones = catalogo
+	}
+	servicioSanciones, err := aplicacionbolsa.NuevoServicioSancionesParticipacion(servicioSituacion, catalogoSanciones, repositorioSanciones)
+	if err != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+	}
+	handlerSanciones, err := bolsahttp.NuevoHandlerSancionesParticipacion(preparador, servicioSanciones)
+	if err != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+	}
+	handlerContratos, err := bolsahttp.NuevoHandlerContratosParticipacion(preparador, servicioSituacion)
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
@@ -561,7 +602,12 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	if err != nil || correoSMTP == nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
-	servicioEmision, err := aplicacionbolsa.NuevoServicioEmisionLlamamiento(preparador, emisor, repositorioEmision, &fuenteCorreoParticipacionB7{repositorioDatos, dependenciasCT.kms}, &emisorCorreoBolsaB7{correoSMTP}, dependenciasCT.reloj.Ahora)
+	catalogoCorreo, err := cargarCatalogoCorreoLlamamientoBolsa()
+	if err != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+	}
+	fuenteCorreo := &fuenteCorreoParticipacionB7{repositorioDatos, dependenciasCT.kms}
+	servicioEmision, err := aplicacionbolsa.NuevoServicioEmisionLlamamiento(preparador, emisor, repositorioEmision, fuenteCorreo, &emisorCorreoBolsaB7{correoSMTP}, dependenciasCT.reloj.Ahora, aplicacionbolsa.CorreoPersonalizadoLlamamiento{Catalogo: catalogoCorreo, Personalizacion: personalizacion, Huellas: repositorioEmision})
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
@@ -569,7 +615,23 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
-	mutador := &manejadorParticipacionBolsaDesarrollo{situacion: handlerSituacion, operaciones: handlerOperaciones, contacto: handlerContacto, datosContacto: handlerDatos, preparador: preparador, servicio: servicioContacto}
+	handlerCorreo, err := bolsahttp.NuevoHandlerCorreoLlamamiento(preparador, servicioEmision, catalogoCorreo.IdiomaDefecto())
+	if err != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+	}
+	repositorioOfertas, err := postgresbolsa.NuevoRepositorioOfertasPublicadasPostgreSQL(alta.postgresql.bolsa)
+	if err != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+	}
+	servicioOfertas, err := aplicacionbolsa.NuevoServicioOfertasPublicadas(preparador, emisor, repositorioOfertas, dependenciasCT.plazosOfertasBolsa, dependenciasCT.reloj.Ahora)
+	if err != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+	}
+	handlerOfertas, err := bolsahttp.NuevoHandlerOfertasPublicadas(preparador, servicioOfertas)
+	if err != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+	}
+	mutador := &manejadorParticipacionBolsaDesarrollo{situacion: handlerSituacion, operaciones: handlerOperaciones, contratos: handlerContratos, sanciones: handlerSanciones, contacto: handlerContacto, datosContacto: handlerDatos, preparador: preparador, servicio: servicioContacto, servicioSituacion: servicioSituacion, datos: servicioDatos, emision: servicioEmision, fuente: fuenteCorreo}
 	envolver := func(siguiente http.Handler) http.Handler {
 		auditada, auditErr := bolsahttp.NuevaAuditoriaBorradorLlamamiento(siguiente, auditoria, seguridadvec.GeneradorReferenciasCriptograficas{}, actorBorradorLlamamientoDesdeContextoDesarrollo{})
 		if auditErr != nil {
@@ -589,7 +651,7 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 		})
 	}
 	completa = true
-	return []vechttp.RutaExacta{{Ruta: bolsahttp.RutaBorradoresLlamamiento, Manejador: handler}, {Ruta: bolsahttp.RutaEmisionesLlamamiento, Manejador: handlerEmision}}, []vechttp.RutaColeccion{{Prefijo: bolsahttp.RutaBorradoresLlamamiento, Manejador: handler}}, mutador, catalogoFronteras, envolver, cerrarAuditoria, nil
+	return []vechttp.RutaExacta{{Ruta: bolsahttp.RutaBorradoresLlamamiento, Manejador: handler}, {Ruta: bolsahttp.RutaEmisionesLlamamiento, Manejador: handlerEmision}, {Ruta: bolsahttp.RutaOfertasPublicadas, Manejador: handlerOfertas}, {Ruta: bolsahttp.RutaResolucionesOferta, Manejador: handlerOfertas}, {Ruta: bolsahttp.RutaPlantillaCorreoLlamamiento, Manejador: handlerCorreo}, {Ruta: bolsahttp.RutaVistaPreviaCorreoLlamamiento, Manejador: handlerCorreo}}, []vechttp.RutaColeccion{{Prefijo: bolsahttp.RutaBorradoresLlamamiento, Manejador: handler}}, mutador, catalogoFronteras, envolver, cerrarAuditoria, nil
 }
 
 type fuenteCorreoParticipacionB7 struct {

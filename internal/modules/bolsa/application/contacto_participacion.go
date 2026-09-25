@@ -16,13 +16,14 @@ type ServicioContactoParticipacion struct {
 	contexto    puertosbolsa.ResolutorContextoContactoParticipacion
 	autorizador puertosbolsa.AutorizadorSituacionParticipacionV3
 	repositorio puertosbolsa.RepositorioContactoParticipacion
+	intentos    *controlIntentosContacto
 }
 
 func NuevoServicioContactoParticipacion(c puertosbolsa.ResolutorContextoContactoParticipacion, a puertosbolsa.AutorizadorSituacionParticipacionV3, r puertosbolsa.RepositorioContactoParticipacion) (*ServicioContactoParticipacion, error) {
 	if c == nil || a == nil || r == nil {
 		return nil, puertosbolsa.ErrContactoParticipacionNoDisponible
 	}
-	return &ServicioContactoParticipacion{c, a, r}, nil
+	return &ServicioContactoParticipacion{contexto: c, autorizador: a, repositorio: r}, nil
 }
 
 func (s *ServicioContactoParticipacion) RegistrarContactoParticipacion(ctx context.Context, solicitud puertosbolsa.SolicitudRegistrarContactoParticipacion) (puertosbolsa.RegistroContactoParticipacion, error) {
@@ -50,6 +51,10 @@ func (s *ServicioContactoParticipacion) RegistrarContactoParticipacion(ctx conte
 	if contacto.Validar() != nil {
 		return puertosbolsa.RegistroContactoParticipacion{}, dominiobolsa.ErrContactoParticipacionInvalido
 	}
+	intento, err := s.prepararIntento(ctx, contacto)
+	if err != nil {
+		return puertosbolsa.RegistroContactoParticipacion{}, err
+	}
 	recurso := dominiovec.RecursoAutorizable{Referencia: solicitud.ParticipacionRef, ModuloID: puertosbolsa.ModuloSituacionParticipacion, Tipo: puertosbolsa.TipoRecursoSituacionParticipacion, Ambitos: map[string]string{"unidad_ref": resuelto.UnidadRef, "ambito_ref": resuelto.AmbitoRef}}
 	auth, err := dominiovec.NuevaSolicitudAutorizacionLigadaV3(dominiovec.DatosSolicitudAutorizacionLigadaV3{VinculoAutenticacionActor: solicitud.Vinculo, ReferenciaMotivo: solicitud.MotivoAutorizacion, Accion: puertosbolsa.AccionRegistrarContactoParticipacion, Recurso: recurso, Finalidad: puertosbolsa.FinalidadRegistrarContactoParticipacion, Correlacion: solicitud.Correlacion})
 	if err != nil {
@@ -63,7 +68,19 @@ func (s *ServicioContactoParticipacion) RegistrarContactoParticipacion(ctx conte
 	if err != nil || !materialAutorizacionBorradorLlamamientoExacto(auth, decision, confirmacion, solicitud.ResultadoContexto, solicitud.MotivoAutorizacion, material, puertosbolsa.AudienciaRegistrarContactoParticipacion) {
 		return puertosbolsa.RegistroContactoParticipacion{}, errorDependenciaSituacion(err)
 	}
-	return s.repositorio.RegistrarContacto(ctx, puertosbolsa.ComandoRegistrarContactoParticipacion{Contacto: contacto, ClaveIdempotencia: solicitud.ClaveIdempotencia, ReciboRef: "recibo:contacto:" + sufijo, SolicitudAutorizacion: auth, Decision: decision, Confirmacion: confirmacion, Material: material})
+	comando := puertosbolsa.ComandoRegistrarContactoParticipacion{Contacto: contacto, ClaveIdempotencia: solicitud.ClaveIdempotencia, ReciboRef: "recibo:contacto:" + sufijo, SolicitudAutorizacion: auth, Decision: decision, Confirmacion: confirmacion, Material: material}
+	if intento != nil {
+		politica := intento.politica
+		comando.ControlIntentos = &politica
+	}
+	registro, err := s.repositorio.RegistrarContacto(ctx, comando)
+	if err != nil {
+		return puertosbolsa.RegistroContactoParticipacion{}, err
+	}
+	if err = completarIntento(intento, contacto, &registro); err != nil {
+		return puertosbolsa.RegistroContactoParticipacion{}, err
+	}
+	return registro, nil
 }
 func (s *ServicioContactoParticipacion) ListarContactosParticipacion(ctx context.Context, q puertosbolsa.ConsultaContactosParticipacion) (puertosbolsa.PaginaContactosParticipacion, error) {
 	if ctx == nil || s == nil || q.ResultadoContexto.Validar() != nil || q.Vinculo.ValidarPara(q.ResultadoContexto) != nil || q.BolsaRef == "" || q.ParticipacionRef == "" || q.Limite < 1 || q.Limite > 100 {

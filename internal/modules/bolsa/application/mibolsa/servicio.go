@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"reflect"
+	"slices"
 	"time"
 
 	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
@@ -32,6 +33,46 @@ type Servicio struct {
 	autorizador puertosvec.AutorizadorSolicitudLigadaV3
 	proveedor   puertosbolsa.ProveedorMaterialMiBolsa
 	reloj       puertosvec.Reloj
+	// portal es opcional: sin reglas del portal la consulta no incluye el
+	// llamamiento abierto ni las solicitudes pendientes.
+	portal puertosbolsa.ReglasPortalCandidato
+	// ofertas añade a la consulta las ofertas de sus bolsas (Bolsa 000029).
+	ofertas bool
+	// contacto añade el estado del contacto de cada bolsa (Bolsa 000040).
+	contacto bool
+}
+
+// ConContacto devuelve una copia que añade a la consulta el estado del
+// contacto de cada bolsa: versión, origen CONVOCA y confirmación.
+func (s *Servicio) ConContacto() (*Servicio, error) {
+	if s == nil {
+		return nil, ErrServicioMiBolsaInvalido
+	}
+	copia := *s
+	copia.contacto = true
+	return &copia, nil
+}
+
+// ConOfertas devuelve una copia que añade a la consulta las ofertas abiertas
+// de sus bolsas y aquellas en que ya manifestó disposición.
+func (s *Servicio) ConOfertas() (*Servicio, error) {
+	if s == nil {
+		return nil, ErrServicioMiBolsaInvalido
+	}
+	copia := *s
+	copia.ofertas = true
+	return &copia, nil
+}
+
+// ConReglasPortal devuelve una copia que añade a la consulta el estado del
+// portal propio y el vencimiento de su llamamiento abierto.
+func (s *Servicio) ConReglasPortal(reglas puertosbolsa.ReglasPortalCandidato) (*Servicio, error) {
+	if s == nil || nula(reglas) {
+		return nil, ErrServicioMiBolsaInvalido
+	}
+	copia := *s
+	copia.portal = reglas
+	return &copia, nil
 }
 
 func Nuevo(consulta puertosbolsa.ConsultaMiBolsa, autorizador puertosvec.AutorizadorSolicitudLigadaV3, proveedor puertosbolsa.ProveedorMaterialMiBolsa, reloj puertosvec.Reloj) (*Servicio, error) {
@@ -73,7 +114,7 @@ func (s *Servicio) Consultar(ctx context.Context, orden Orden) (puertosbolsa.Ins
 	if ctx.Err() != nil {
 		return puertosbolsa.InstantaneaMiBolsa{}, ctx.Err()
 	}
-	if !decisionExacta(nominal, decision, confirmacion, resultadoActor, ahora) {
+	if !decisionExacta(nominal, decision, confirmacion, resultadoActor, ahora, []string{puertosbolsa.CampoMiBolsa}) {
 		return puertosbolsa.InstantaneaMiBolsa{}, denegar(nil)
 	}
 	exportador, err := s.proveedor.EmitirMaterialMiBolsa(ctx, nominal, resultadoActor, decision, confirmacion)
@@ -91,10 +132,27 @@ func (s *Servicio) Consultar(ctx context.Context, orden Orden) (puertosbolsa.Ins
 	if ctx.Err() != nil {
 		return puertosbolsa.InstantaneaMiBolsa{}, ctx.Err()
 	}
-	if _, _, err = validarOrden(orden, ahora); err != nil || !materialExacto(material, nominal, decision, confirmacion, resultadoActor, ahora) {
+	if _, _, err = validarOrden(orden, ahora); err != nil || !materialExacto(material, nominal, decision, confirmacion, resultadoActor, ahora, puertosbolsa.AccionConsultarMiBolsa, puertosbolsa.AudienciaMiBolsa) {
 		return puertosbolsa.InstantaneaMiBolsa{}, denegar(err)
 	}
-	solicitud := puertosbolsa.SolicitudConsultaMiBolsa{CandidatoRef: candidato, Material: material, ConsultadaEn: ahora}
+	solicitud := puertosbolsa.SolicitudConsultaMiBolsa{CandidatoRef: candidato, Material: material, ConsultadaEn: ahora, LeerOfertas: s.ofertas, LeerContacto: s.contacto}
+	if !nula(s.portal) {
+		efectivos, err := s.portal.ResultadosContactoEfectivo(ctx)
+		if err != nil && !errors.Is(err, puertosbolsa.ErrReglasPortalCandidatoAusente) {
+			return puertosbolsa.InstantaneaMiBolsa{}, errors.Join(puertosbolsa.ErrMaterialMiBolsaNoDisponible, err)
+		}
+		solicitud.ResultadosEfectivos = efectivos
+	}
+	var visibles *puertosbolsa.ReglasPortalVisibles
+	if len(solicitud.ResultadosEfectivos) != 0 {
+		causas, errCausas := s.portal.CausasRenunciaJustificada(ctx)
+		maxima, _, errMaxima := s.portal.PausaMaxima(ctx, ahora)
+		modo, _, errModo := s.portal.ModoRespuesta(ctx)
+		if err := errors.Join(errCausas, errMaxima, errModo); err != nil {
+			return puertosbolsa.InstantaneaMiBolsa{}, errors.Join(puertosbolsa.ErrMaterialMiBolsaNoDisponible, err)
+		}
+		visibles = &puertosbolsa.ReglasPortalVisibles{CausasRenuncia: slices.Clone(causas), PausaMaxima: maxima.UTC(), ModoRespuesta: modo}
+	}
 	resultado, err := s.consulta.ConsultarMiBolsa(ctx, solicitud)
 	if err != nil {
 		return puertosbolsa.InstantaneaMiBolsa{}, err
@@ -102,6 +160,19 @@ func (s *Servicio) Consultar(ctx context.Context, orden Orden) (puertosbolsa.Ins
 	if err := validarResultado(resultado, ahora); err != nil {
 		return puertosbolsa.InstantaneaMiBolsa{}, errors.Join(puertosbolsa.ErrResultadoMiBolsaInvalido, err)
 	}
+	for i := range resultado.Portal {
+		abierto := resultado.Portal[i].LlamamientoAbierto
+		if abierto == nil || nula(s.portal) {
+			continue
+		}
+		// Sin calendario el plazo no se muestra; la respuesta, que lo exige,
+		// se rechazará entonces como no disponible.
+		if vence, _, err := s.portal.VencimientoRespuesta(ctx, abierto.ContactoEn); err == nil && vence.After(abierto.ContactoEn) {
+			vence = vence.UTC()
+			abierto.VenceAntesDe = &vence
+		}
+	}
+	resultado.ReglasPortal = visibles
 	return resultado, nil
 }
 
@@ -126,6 +197,25 @@ func validarOrden(o Orden, ahora time.Time) (dominiovec.ResultadoContextoActorRe
 func validarResultado(r puertosbolsa.InstantaneaMiBolsa, ahora time.Time) error {
 	if !r.ConsultadaEn.Equal(ahora) {
 		return puertosbolsa.ErrResultadoMiBolsaInvalido
+	}
+	bolsas := make(map[string]bool, len(r.Participaciones))
+	for _, p := range r.Participaciones {
+		bolsas[p.Bolsa] = true
+	}
+	for _, e := range r.Portal {
+		if !bolsas[e.Bolsa] {
+			return puertosbolsa.ErrResultadoMiBolsaInvalido
+		}
+	}
+	for _, c := range r.Contactos {
+		if !bolsas[c.Bolsa] || c.Version < 1 || c.ConfirmadaEn != nil && c.ConfirmadaEn.After(ahora) {
+			return puertosbolsa.ErrResultadoMiBolsaInvalido
+		}
+	}
+	for _, o := range r.Ofertas {
+		if !bolsas[o.Bolsa] || o.PublicadaEn.After(ahora) {
+			return puertosbolsa.ErrResultadoMiBolsaInvalido
+		}
 	}
 	for _, p := range r.Participaciones {
 		if p.Bolsa == "" || p.Categoria == "" || p.Version == 0 || p.OrdenInicial == 0 || p.TotalInstantanea < p.OrdenInicial || p.EstadoBolsa == "" || p.VigenteDesde.IsZero() || !p.VigenteDesde.Before(ahora) && !p.VigenteDesde.Equal(ahora) || p.VigenteHasta != nil && !p.VigenteHasta.After(p.VigenteDesde) {
@@ -169,7 +259,8 @@ func denegar(err error) error {
 	return errors.Join(dominiovec.ErrAutorizacionDenegada, puertosbolsa.ErrConsultaMiBolsaInvalida, err)
 }
 
-func decisionExacta(s dominiovec.SolicitudAutorizacionLigadaV3, d dominiovec.DecisionAutorizacionLigadaV3, c puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3, r dominiovec.ResultadoContextoActorRegistradoV2, ahora time.Time) bool {
+// decisionExacta exige exactamente esos campos y ninguna obligación.
+func decisionExacta(s dominiovec.SolicitudAutorizacionLigadaV3, d dominiovec.DecisionAutorizacionLigadaV3, c puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3, r dominiovec.ResultadoContextoActorRegistradoV2, ahora time.Time, campos []string) bool {
 	if d.ValidarPara(s) != nil {
 		return false
 	}
@@ -188,10 +279,12 @@ func decisionExacta(s dominiovec.SolicitudAutorizacionLigadaV3, d dominiovec.Dec
 		Campos       []string `json:"campos_permitidos"`
 		Obligaciones []string `json:"obligaciones"`
 	}
-	return err == nil && json.Unmarshal(canonica, &limites) == nil && len(limites.Campos) == 1 && limites.Campos[0] == puertosbolsa.CampoMiBolsa && len(limites.Obligaciones) == 0
+	return err == nil && json.Unmarshal(canonica, &limites) == nil && slices.Equal(limites.Campos, campos) && len(limites.Obligaciones) == 0
 }
 
-func materialExacto(m puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3, s dominiovec.SolicitudAutorizacionLigadaV3, d dominiovec.DecisionAutorizacionLigadaV3, c puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3, r dominiovec.ResultadoContextoActorRegistradoV2, ahora time.Time) bool {
+// materialExacto coteja el material con la operación y la audiencia de la
+// acción que lo va a consumir.
+func materialExacto(m puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3, s dominiovec.SolicitudAutorizacionLigadaV3, d dominiovec.DecisionAutorizacionLigadaV3, c puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3, r dominiovec.ResultadoContextoActorRegistradoV2, ahora time.Time, operacion, audiencia string) bool {
 	if m.ValidarEstructura() != nil || d.ValidarPara(s) != nil {
 		return false
 	}
@@ -220,6 +313,6 @@ func materialExacto(m puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV
 	}
 	return ec == nil && resumen.DecisionRef() == confirmacion.DecisionRef && resumen.DecisionHuellaSHA256() == hex.EncodeToString(hd[:]) && resumen.MotivoHuellaSHA256() == hex.EncodeToString(hm[:]) && ed == nil && em == nil && eh == nil && ev == nil && !ahora.Before(desde) && ahora.Before(hasta) &&
 		bytes.Equal(dc, m.DecisionCanonica()) && bytes.Equal(mc, m.MotivoCanonico()) && bytes.Equal(r.RepresentacionCanonica, m.ContextoActorCanonico()) &&
-		resumen.Operacion() == puertosbolsa.AccionConsultarMiBolsa && resumen.EfectoRef() == datos.Recurso.Referencia && resumen.EfectoHuellaSHA256() == huella && resumen.AudienciaConsumo() == puertosbolsa.AudienciaMiBolsa &&
+		resumen.Operacion() == operacion && resumen.EfectoRef() == datos.Recurso.Referencia && resumen.EfectoHuellaSHA256() == huella && resumen.AudienciaConsumo() == audiencia &&
 		resumen.ContextoRef() == r.RegistroContextoRef && resumen.ContextoHuellaSHA256() == r.HuellaSHA256 && m.PersonaVersion() == r.Contexto.Instantanea.PersonaVersion && m.PerfilVersion() == r.Contexto.Instantanea.PerfilVersion && !ahora.Before(resumen.EmitidaEn()) && ahora.Before(resumen.ExpiraEn())
 }

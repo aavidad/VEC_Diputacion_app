@@ -1,0 +1,127 @@
+{
+  "version_esquema": 1,
+  "fuente": {
+    "revision": "causas-cese-ejemplo-v1",
+    "actualizada_en": "2026-09-25T00:00:00Z",
+    "demostracion": true,
+    "aviso": "DEMOSTRACIÓN: reglas de ejemplo para desarrollo y presentación a RRHH. Se borran al pasar a producción, como los datos de ejemplo. Las marcadas «reglamento» citan el Reglamento de bolsas de la Diputación de Granada (BOP n.º 9 de 16/01/2026, mod. BOP n.º 91 de 14/05/2026); las marcadas «ejemplo» son supuestos de trabajo sin aprobación de RRHH ni validez administrativa.",
+    "origen_sha256": "7155cbb790ffea9a8e28391c134e1b1b7f6b47cbbe5840ef964a5de3ecec6e8a"
+  },
+  "catalogo": {
+    "id": "causas_cese_contratacion_temporal",
+    "version": 1,
+    "revision": 1,
+    "modulo_id": "contratacion_temporal",
+    "nombre": "Causas de cese del nombramiento o contrato — ejemplo",
+    "descripcion": "Causas de ejemplo para registrar el cese de un nombramiento o contrato temporal, con el justificante que se pide. No son causas legales aprobadas.",
+    "fuente_ref": "paquete:ejemplo:vec:v1",
+    "motivo_creacion": "Reglas de ejemplo para la presentación a RRHH; se retiran antes de producción.",
+    "entradas": [
+      {
+        "clave": "fin_sustitucion",
+        "etiqueta": "Fin de la sustitución",
+        "descripcion": "Se reincorpora la persona sustituida o termina su derecho a reserva.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "clave_i18n": "contratacion_temporal.seguimiento.cese.causa.fin_sustitucion",
+          "origen": "ejemplo",
+          "norma": "TREBEP, art. 10.1.b; Estatuto de los Trabajadores, art. 15.3.",
+          "duda": "Duda 12.",
+          "justificante": "comunicacion_reincorporacion"
+        },
+        "orden": 1
+      },
+      {
+        "clave": "cobertura_vacante",
+        "etiqueta": "Cobertura reglamentaria de la vacante",
+        "descripcion": "La plaza se cubre por el procedimiento ordinario o se amortiza.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "clave_i18n": "contratacion_temporal.seguimiento.cese.causa.cobertura_vacante",
+          "origen": "ejemplo",
+          "norma": "TREBEP, art. 10.1.a y 10.4.",
+          "duda": "Duda 12.",
+          "justificante": "resolucion_cobertura"
+        },
+        "orden": 2
+      },
+      {
+        "clave": "fin_programa",
+        "etiqueta": "Fin del programa temporal",
+        "descripcion": "Termina el programa de carácter temporal o su financiación.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "clave_i18n": "contratacion_temporal.seguimiento.cese.causa.fin_programa",
+          "origen": "ejemplo",
+          "norma": "TREBEP, art. 10.1.c.",
+          "duda": "Duda 12.",
+          "justificante": "resolucion_fin_programa"
+        },
+        "orden": 3
+      },
+      {
+        "clave": "fin_acumulacion_tareas",
+        "etiqueta": "Fin de la acumulación de tareas",
+        "descripcion": "Termina el exceso o acumulación de tareas, o su plazo máximo.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "clave_i18n": "contratacion_temporal.seguimiento.cese.causa.fin_acumulacion_tareas",
+          "origen": "ejemplo",
+          "norma": "TREBEP, art. 10.1.d.",
+          "duda": "Duda 12.",
+          "justificante": "informe_centro"
+        },
+        "orden": 4
+      },
+      {
+        "clave": "fin_circunstancias_produccion",
+        "etiqueta": "Fin de las circunstancias de la producción",
+        "descripcion": "Termina la circunstancia de la producción que justificó el contrato.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "clave_i18n": "contratacion_temporal.seguimiento.cese.causa.fin_circunstancias_produccion",
+          "origen": "ejemplo",
+          "norma": "Estatuto de los Trabajadores, art. 15.2.",
+          "duda": "Duda 12.",
+          "justificante": "informe_centro"
+        },
+        "orden": 5
+      },
+      {
+        "clave": "renuncia",
+        "etiqueta": "Renuncia de la persona",
+        "descripcion": "La persona renuncia al nombramiento o contrato.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "clave_i18n": "contratacion_temporal.seguimiento.cese.causa.renuncia",
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo.",
+          "duda": "Duda 12.",
+          "justificante": "escrito_renuncia"
+        },
+        "orden": 6
+      },
+      {
+        "clave": "no_superacion_periodo_prueba",
+        "etiqueta": "No superación del periodo de prueba",
+        "descripcion": "El centro informa que no supera el periodo de prueba.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "clave_i18n": "contratacion_temporal.seguimiento.cese.causa.no_superacion_periodo_prueba",
+          "origen": "ejemplo",
+          "norma": "Estatuto de los Trabajadores, art. 14; TREBEP, art. 61.5 (aplicación pendiente de RRHH).",
+          "duda": "Duda 12.",
+          "justificante": "informe_periodo_prueba"
+        },
+        "orden": 7
+      }
+    ],
+    "estado": "publicado",
+    "creado_por": "catalogo_ejemplo_vec",
+    "creado_en": "2026-09-25T00:00:00Z",
+    "publicado_por": "revision_catalogo_ejemplo_vec",
+    "publicado_en": "2026-09-25T00:00:00Z",
+    "aprobacion_ref": "sin_aprobacion_rrhh:ejemplo_desarrollo",
+    "motivo_publicacion": "Publicación de ejemplo solo para desarrollo y presentación; no es una aprobación."
+  }
+}

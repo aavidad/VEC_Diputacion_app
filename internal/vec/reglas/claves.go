@@ -7,6 +7,13 @@ const (
 	ModuloBolsa                  = "bolsa"
 	CatalogoContratacionTemporal = "vec.contratacion_temporal.reglas"
 	ModuloContratacionTemporal   = "contratacion_temporal"
+	// CatalogoBolsaRolesSegregacion lista las operaciones de Bolsa que valida
+	// una segunda persona (duda 6 de RRHH).
+	CatalogoBolsaRolesSegregacion = "vec.bolsa.roles_segregacion"
+	BolsaSegundaPersona           = "s01.segunda_persona"
+	// CatalogoCircuitoFirmaCT agrupa los pasos de firma de los documentos
+	// de Contratación temporal; cada entrada es un paso.
+	CatalogoCircuitoFirmaCT = "vec.contratacion_temporal.circuito_firma"
 	// MunicipioSedeDiputacion es la sede para el cómputo de plazos cuando el
 	// consumidor no conoce otra (Granada, código INE 18087).
 	MunicipioSedeDiputacion = "municipio:ine:18087"
@@ -43,6 +50,45 @@ const (
 	BolsaConsecuencias                = "b24.consecuencias"
 	BolsaVigencia                     = "b25.vigencia_bolsa"
 	BolsaAgotamiento                  = "b26.agotamiento"
+	BolsaContactoOrigenConvoca        = "b29.contacto_origen_convoca"
+	// BolsaPrefijoSanciones agrupa las consecuencias de una sanción: cada
+	// entrada con este prefijo es una consecuencia que RRHH puede resolver,
+	// de modo que añadir otra no exige cambiar código.
+	BolsaPrefijoSanciones = "b24.sancion."
+	BolsaEstadosRecurso   = "b24.recurso_estados"
+	// BolsaEstadosRecursoRevocatorios lista los estados del recurso que
+	// revierten la sanción (readmisión); sin la entrada ninguno la revierte.
+	BolsaEstadosRecursoRevocatorios = "b24.recurso_revierte"
+	// BolsaCamposPortal es la lista de datos de «Mi bolsa» (duda 17).
+	BolsaCamposPortal = "b29.campos_mi_bolsa"
+	// BolsaPortalCandidato fija el modo de las acciones propias del candidato
+	// (dudas 3 y 18): quién valida, qué contacto abre el plazo y desde qué
+	// situaciones se admite cada solicitud.
+	BolsaPortalCandidato = "b29.portal_candidato"
+)
+
+// Reglas de Bolsa que se consultan por prefijo: cada entrada es una opción
+// del catálogo y añadir otra no exige cambiar el código.
+const (
+	// AtributoEfecto es el efecto de una consecuencia «b24.sancion.*» sobre
+	// la situación (ninguna, pausar, excluir). Las consecuencias con efecto
+	// «excluir» son también las causas de baja definitiva (art. 11) que RRHH
+	// elige al excluir: una sola fuente para sanciones y bajas.
+	AtributoEfecto = "efecto"
+	// BolsaPrefijoTransicionesSituacion + situación de origen es una lista con
+	// los destinos admitidos desde ella. Sin entrada rige la tabla compilada.
+	// Bolsa publica al arrancar la tabla resultante como política de la base
+	// de datos (migración 000032 de bolsa_llamamientos), que es la que decide.
+	BolsaPrefijoTransicionesSituacion = "b28.transiciones."
+	// AtributoModalidades es la lista de modalidades de nombramiento a las que
+	// se aplica una regla de reposición distinta de la general.
+	AtributoModalidades = "modalidades"
+)
+
+// Entradas del paquete de ejemplo con esos prefijos.
+const (
+	BolsaTransicionesRenuncia   = BolsaPrefijoTransicionesSituacion + "renuncia"
+	BolsaTransicionesDisponible = BolsaPrefijoTransicionesSituacion + "disponible"
 )
 
 // Reglas de Contratación temporal.
@@ -59,4 +105,7 @@ const (
 	CTDuracionVacante             = "c08.vacante"
 	CTDuracionSustitucion         = "c08.sustitucion"
 	CTDuracionCircunstancias      = "c08.circunstancias_produccion"
+	CTModificacionFaseRetorno     = "c09.modificacion_fase_retorno"
+	CTCierreExpediente            = "c10.cierre_expediente"
+	CTCausasCese                  = "c11.causas_cese"
 )

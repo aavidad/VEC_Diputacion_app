@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"errors"
+	"time"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/application/diagnostico"
 
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/domain"
@@ -32,6 +33,8 @@ type ServicioConsultaCuadroRRHH struct {
 	emisor    *ports.EmisorMaterialConsultaRRHH
 	sesion    ports.SesionConsultaRRHH
 	reloj     ports.Reloj
+	// plazos es opcional: sin catálogo de reglas la página sale sin plazos.
+	plazos ports.CalculadoraPlazoFaseRRHH
 }
 
 func NuevoServicioConsultaCuadroRRHH(
@@ -124,7 +127,9 @@ func (s *ServicioConsultaCuadroRRHH) Consultar(
 	if err := pagina.ValidarPara(orden); err != nil {
 		return ports.PaginaCuadroRRHH{}, &diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaPagina, Sentinela: ErrResultadoConsultaRRHHNoConfiable, Causa: err}
 	}
-	return clonarPaginaCuadroRRHH(pagina), nil
+	salida := clonarPaginaCuadroRRHH(pagina)
+	salida.Plazos = s.calcularPlazosFase(ctx, salida)
+	return salida, nil
 }
 
 func errorContextoConsultaRRHH(ctx context.Context) error {
@@ -167,5 +172,7 @@ func clonarPaginaCuadroRRHH(
 		[]ports.ResumenExpedienteRRHH(nil),
 		pagina.Expedientes...,
 	)
+	pagina.FasesDesde = append([]time.Time(nil), pagina.FasesDesde...)
+	pagina.Plazos = nil
 	return pagina
 }

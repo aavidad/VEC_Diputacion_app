@@ -608,7 +608,10 @@ func securityHeaders(next http.Handler) http.Handler {
 		// su manejador; las API y sesiones nunca heredan una cache permisiva.
 		headers.Set("Cache-Control", "no-store")
 		headers.Set("Pragma", "no-cache")
-		headers.Set("Content-Security-Policy", "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'")
+		// connect-src admite además el WebSocket local de AutoFirma (protocolo
+		// afirma://, puerto 63117 de loopback) para la firma de prueba de los
+		// borradores en el equipo de la persona; ningún otro destino externo.
+		headers.Set("Content-Security-Policy", "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' wss://127.0.0.1:63117")
 		headers.Set("Cross-Origin-Opener-Policy", "same-origin")
 		headers.Set("Cross-Origin-Resource-Policy", "same-origin")
 		headers.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()")

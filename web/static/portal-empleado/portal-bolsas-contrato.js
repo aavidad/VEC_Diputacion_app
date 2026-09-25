@@ -104,6 +104,11 @@ const CAMPOS_CONTACTO = Object.freeze([
 const PATRON_ENMASCARADO = /^\*{3}\d{4}\*{2}$/;
 const PATRON_DNI = /\b\d{8}[A-Za-z]\b/;
 const PATRON_NIE = /\b[XYZxyz]\d{7}[A-Za-z]\b/;
+// Espejo de ReferenciaPropiaSistema del dominio de Bolsa: las referencias que
+// emite el sistema (espacio de nombres alfabético y huella SHA-256 en
+// hexadecimal) no pueden llevar un documento escrito por una persona, pero sus
+// cifras casan por azar con los patrones de DNI o teléfono.
+const REFERENCIA_PROPIA_SISTEMA = /^[a-z_]+(?::[a-z_]+)*:[0-9a-f]{64}$/;
 const PATRON_EMAIL = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
 const PATRON_TELEFONO = /(?:\+?34[\s.-]?)?[6789]\d{2}[\s.-]?\d{3}[\s.-]?\d{3}\b/;
 
@@ -120,7 +125,7 @@ function exigirCamposExactos(objeto, campos, nombre) {
 }
 
 function contieneDatosPersonalesSensibles(cadena) {
-  if (typeof cadena !== "string") return false;
+  if (typeof cadena !== "string" || REFERENCIA_PROPIA_SISTEMA.test(cadena)) return false;
   return PATRON_DNI.test(cadena)
     || PATRON_NIE.test(cadena)
     || PATRON_EMAIL.test(cadena)
@@ -250,7 +255,7 @@ export function validarCandidato(candidato) {
   const participacionRef = exigirCadenaSegura(candidato.participacion_ref, "participacion_ref");
   if (candidato.orden !== null && (!Number.isSafeInteger(candidato.orden) || candidato.orden < 1)) throw new Error("orden de candidato debe ser nulo o entero positivo");
   if (!Number.isSafeInteger(candidato.orden_acta) || candidato.orden_acta < 1) throw new Error("orden_acta debe ser entero positivo");
-  if (!["orden_acta","reposicion_tras_contrato","pausa","trabajando","sin_turno"].includes(candidato.razon_orden)) throw new Error("razon_orden no reconocida");
+  if (!["orden_acta","reposicion_tras_contrato","pausa","trabajando","sin_turno","sancion_al_final","adelanta_por_sancion"].includes(candidato.razon_orden)) throw new Error("razon_orden no reconocida");
   const nombreVisible = exigirCadenaSegura(candidato.nombre_visible, "nombre_visible");
   const documentoEnmascarado = validarDocumentoEnmascarado(candidato.documento_enmascarado);
 

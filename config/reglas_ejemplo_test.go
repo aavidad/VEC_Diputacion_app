@@ -8,9 +8,19 @@ import (
 func TestReglasEjemploSeCarganDelEntornoYSeNormalizan(t *testing.T) {
 	t.Setenv(EnvBolsaReglasSourcePath, "  data/demo/reglas/bolsa_reglas.ejemplo.demo.json ")
 	t.Setenv(EnvCTReglasSourcePath, "data/demo/reglas/ct_reglas.ejemplo.demo.json")
+	t.Setenv(EnvBolsaRolesSegregacionSourcePath, " data/demo/reglas/bolsa_roles_segregacion.demo.json")
+	t.Setenv(EnvCTPlantillasSourcePath, " plantillas.json ")
+	t.Setenv(EnvCTCircuitoFirmaSourcePath, " data/demo/reglas/ct_circuito_firma.ejemplo.demo.json")
+	t.Setenv(EnvCTCausasCeseSourcePath, " data/demo/reglas/ct_causas_cese.demo.json")
 	cfg := Load().Normalize()
+	if cfg.ReglasEjemplo.CausasCeseSourcePath != "data/demo/reglas/ct_causas_cese.demo.json" {
+		t.Fatalf("causas de cese no cargadas: %+v", cfg.ReglasEjemplo)
+	}
 	if cfg.ReglasEjemplo.BolsaSourcePath != "data/demo/reglas/bolsa_reglas.ejemplo.demo.json" ||
-		cfg.ReglasEjemplo.CTSourcePath != "data/demo/reglas/ct_reglas.ejemplo.demo.json" {
+		cfg.ReglasEjemplo.CTSourcePath != "data/demo/reglas/ct_reglas.ejemplo.demo.json" ||
+		cfg.ReglasEjemplo.BolsaRolesSegregacionSourcePath != "data/demo/reglas/bolsa_roles_segregacion.demo.json" ||
+		cfg.ReglasEjemplo.CTPlantillasSourcePath != "plantillas.json" ||
+		cfg.ReglasEjemplo.CTCircuitoFirmaSourcePath != "data/demo/reglas/ct_circuito_firma.ejemplo.demo.json" {
 		t.Fatalf("rutas no cargadas: %+v", cfg.ReglasEjemplo)
 	}
 }
@@ -38,6 +48,9 @@ func TestReglasEjemploSoloConDobleLlaveDeDesarrollo(t *testing.T) {
 		{ReglasEjemplo: ConfiguracionReglasEjemplo{BolsaSourcePath: "bolsa.json"}},
 		{ExecutionProfile: ExecutionProfileProduction, ReglasEjemplo: ConfiguracionReglasEjemplo{CTSourcePath: "ct.json"}},
 		{ExecutionProfile: ExecutionProfileProduction, CTAnalisisMotivosSourcePath: "motivos.json"},
+		{ExecutionProfile: ExecutionProfileProduction, ReglasEjemplo: ConfiguracionReglasEjemplo{BolsaRolesSegregacionSourcePath: "roles.json"}},
+		{ExecutionProfile: ExecutionProfileProduction, ReglasEjemplo: ConfiguracionReglasEjemplo{CTPlantillasSourcePath: "plantillas.json"}},
+		{ExecutionProfile: ExecutionProfileProduction, ReglasEjemplo: ConfiguracionReglasEjemplo{CTCircuitoFirmaSourcePath: "circuito.json"}},
 		{ExecutionProfile: ExecutionProfileRRHHPresentation, ReglasEjemplo: ConfiguracionReglasEjemplo{BolsaSourcePath: "bolsa.json"}},
 		{ExecutionProfile: ExecutionProfileDevelopment, AuthMode: AuthModeDevelopment,
 			ReglasEjemplo: ConfiguracionReglasEjemplo{BolsaSourcePath: "bolsa.json"}},
@@ -78,5 +91,26 @@ func TestRechazarReglasEjemploSinComposicion(t *testing.T) {
 	blancos.ReglasEjemplo.BolsaSourcePath = "   "
 	if err := blancos.RechazarReglasEjemploSinComposicion(); err != nil {
 		t.Fatalf("una ruta en blanco no declara catálogo: %v", err)
+	}
+}
+
+func TestRetribucionesCTSiguenLaDobleLlaveDeLasReglasEjemplo(t *testing.T) {
+	t.Setenv(EnvCTRetribucionesSourcePath, " data/demo/reglas/ct_retribuciones.demo.json ")
+	cargada := Load().Normalize()
+	if cargada.ReglasEjemplo.CTRetribucionesSourcePath != "data/demo/reglas/ct_retribuciones.demo.json" {
+		t.Fatalf("ruta de retribuciones no cargada: %+v", cargada.ReglasEjemplo)
+	}
+	desarrollo := Config{
+		ExecutionProfile: ExecutionProfileDevelopment, AuthMode: AuthModeDevelopment,
+		DevelopmentGuard: DevelopmentGuardAcknowledgement,
+		ReglasEjemplo:    ConfiguracionReglasEjemplo{CTRetribucionesSourcePath: "retribuciones.json"},
+	}
+	if reglas, activas, err := desarrollo.ReglasEjemploDesarrollo(); err != nil || !activas || reglas.CTRetribucionesSourcePath != "retribuciones.json" {
+		t.Fatalf("desarrollo con doble llave debe componer las retribuciones: %+v %v %v", reglas, activas, err)
+	}
+	produccion := desarrollo
+	produccion.ExecutionProfile = ExecutionProfileProduction
+	if _, activas, err := produccion.ReglasEjemploDesarrollo(); !errors.Is(err, ErrConfiguracionReglasEjemploFueraDesarrollo) || activas {
+		t.Fatalf("las retribuciones de ejemplo no se admiten fuera de desarrollo: %v %v", activas, err)
 	}
 }

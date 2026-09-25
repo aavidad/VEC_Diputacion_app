@@ -36,7 +36,7 @@ BEGIN
  -- Huella del contexto de recurso V3 documental: ámbitos vacíos y el único
  -- atributo preimagen_sha256 (la que emite el PDP real y recalcula Go en
  -- ports.HuellaEfectoV3). La decisión queda ligada a esta preimagen exacta.
- h:=encode(sha256(convert_to('{"ambitos":{},"atributos":{"preimagen_sha256":"'||encode(sha256(p_preimagen),'hex')||'"}}','UTF8')),'hex');
+ h:=encode(sha256(convert_to('{"ambitos":{"organizacion_ref":"organizacion:desarrollo:dipgra"},"atributos":{"preimagen_sha256":"'||encode(sha256(p_preimagen),'hex')||'"}}','UTF8')),'hex');
  IF c->>'audiencia_consumo' IS DISTINCT FROM 'vec_documentos.operacion.v1'
     OR c->>'operacion' IS DISTINCT FROM p_accion
     OR c->>'efecto_ref' IS DISTINCT FROM p_recurso

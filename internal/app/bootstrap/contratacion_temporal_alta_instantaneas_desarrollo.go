@@ -21,7 +21,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 		rutaConsultaRRHHContratacionTemporalDesarrollo(ruta) ||
 		ruta == httpinterno.RutaDecisionCobertura ||
 		ruta == httpinterno.RutaRectificacionCobertura
-	if ruta == httpinterno.RutaSubsanacionReparos {
+	if ruta == httpinterno.RutaSubsanacionReparos || rutaSeguimientoCeseDesarrollo(ruta) {
 		dinamica = true
 	}
 	if !valida || !dinamica {
@@ -104,6 +104,12 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 			{Clave: "fase_previa", Valores: []string{datos.Recurso.Ambitos["fase_previa"]}},
 			{Clave: "estado_previo", Valores: []string{datos.Recurso.Ambitos["estado_previo"]}},
 		}
+	} else if rutaSeguimientoCeseDesarrollo(ruta) {
+		ambitos, valida := s.ambitosSeguimientoCese(ruta, datos)
+		if !valida {
+			return dominiovec.InstantaneaAutorizacion{}, false
+		}
+		instantanea.AsignacionPerfil.Ambitos = ambitos
 	} else if ruta == httpinterno.RutaSubsanacionReparos {
 		if !s.solicitudAutorizacionSubsanacionReparosValida(datos) {
 			return dominiovec.InstantaneaAutorizacion{}, false
@@ -113,6 +119,10 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 			{Clave: "expediente_ref", Valores: []string{datos.Recurso.Ambitos["expediente_ref"]}},
 			{Clave: "fase_previa", Valores: []string{datos.Recurso.Ambitos["fase_previa"]}},
 			{Clave: "estado_previo", Valores: []string{datos.Recurso.Ambitos["estado_previo"]}},
+		}
+	} else if ruta == httpinterno.RutaFirmaDocumento {
+		if !solicitudAutorizacionFirmaDocumentoCTDesarrolloValida(ctx, datos) {
+			return dominiovec.InstantaneaAutorizacion{}, false
 		}
 	} else if rutaLlamamientoContratacionTemporalDesarrollo(ruta) {
 		if !solicitudAutorizacionLlamamientoDesarrolloValida(ctx, ruta, datos) {
@@ -126,7 +136,8 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 				return dominiovec.InstantaneaAutorizacion{}, false
 			}
 		}
-		if ruta == httpinterno.RutaResolucionComunicacionLlamamiento || ruta == httpinterno.RutaContinuacionLlamamiento {
+		if ruta == httpinterno.RutaResolucionComunicacionLlamamiento || ruta == httpinterno.RutaContinuacionLlamamiento ||
+			ruta == httpinterno.RutaEventoPlazoLlamamiento {
 			s.mu.Lock()
 			switch datos.Accion {
 			case postgrescontratacion.AccionConsultaJustificanteRespuestaRecibida:

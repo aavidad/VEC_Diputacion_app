@@ -399,7 +399,8 @@ type TransaccionPropuestasLlamamiento interface {
 // pretende sustituir el emisor criptograficamente aleatorio de referencias.
 func ReferenciaOpacaLlamamientoValida(valor string) bool {
 	if valor == "" || len(valor) > 512 || valor != strings.TrimSpace(valor) || strings.ContainsRune(valor, '*') ||
-		!utf8.ValidString(valor) || patronDocumentoPersonalLlamamiento.MatchString(valor) ||
+		!utf8.ValidString(valor) ||
+		(!dominiobolsa.ReferenciaPropiaSistema(valor) && patronDocumentoPersonalLlamamiento.MatchString(valor)) ||
 		patronEtiquetaPersonalLlamamiento.MatchString(valor) {
 		return false
 	}

@@ -7,6 +7,7 @@ import (
 	"maps"
 	"time"
 
+	"vec-diputacion-granada/internal/modules/bolsa/adapters/fuentesintetica"
 	appbolsa "vec-diputacion-granada/internal/modules/bolsa/application"
 	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
@@ -21,11 +22,25 @@ type claveMaterialContinuacionDesarrollo struct{}
 
 // Solo la composición instala estos antecedentes después de recuperarlos con
 // permisos nominales nuevos. No son entradas del navegador ni otra cola.
+// En una renuncia la selección procede del justificante consultado; en una
+// expiración confirmada, sin justificante, del antecedente que devuelve CT119.
 type continuacionLigadaDesarrollo struct {
 	solicitud        ports.SolicitudContinuarLlamamiento
 	antecedente      ports.AntecedenteContinuacionLlamamiento
 	justificante     ports.JustificanteRespuestaRecibida
+	seleccion        ports.ReciboSolicitudLlamamientoBolsa
 	soloRecuperacion bool
+}
+
+// antecedenteLigado exige que la selección usada sea exactamente la del
+// justificante (renuncia) o la del antecedente CT119 (expiración).
+func (l continuacionLigadaDesarrollo) antecedenteLigado() bool {
+	if l.antecedente.EsExpiracion() {
+		return l.antecedente.Seleccion != nil && *l.antecedente.Seleccion == l.seleccion &&
+			l.justificante == (ports.JustificanteRespuestaRecibida{})
+	}
+	return l.antecedente.Seleccion == nil && l.justificante.ValidarPara(l.antecedente.Resolucion.Solicitud) == nil &&
+		l.justificante.Seleccion == l.seleccion
 }
 
 type continuadorBolsaDesarrollo interface {
@@ -68,28 +83,33 @@ func (e *ejecutorComunicacionLlamamientoDesarrollo) Continuar(ctx context.Contex
 	if err != nil {
 		return vacio, err
 	}
-	if a.ValidarPara(s) != nil || a.Resolucion.Politica != politicaManualDesarrollo() ||
-		a.Resolucion.Solicitud.CriterioValidacionRef != criterioRevisionManualDesarrollo {
+	if a.ValidarPara(s) != nil || !politicaAntecedenteContinuacionDesarrolloValida(a.Resolucion) {
 		return vacio, ports.ErrOperacionContinuacionNoDisponible
 	}
 	l := continuacionLigadaDesarrollo{solicitud: s, antecedente: a, soloRecuperacion: expediente.VersionActual > 6}
-	ctx = context.WithValue(ctx, claveContinuacionLlamamientoDesarrollo{}, l)
-	ctx = context.WithValue(ctx, claveConsultaJustificanteRespuestaDesarrollo{}, a.Resolucion.Solicitud)
-	j, err := e.lectorJustificante.ConsultarJustificanteRespuestaRecibida(ctx, a.Resolucion.Solicitud)
-	if ctx.Err() != nil {
-		return vacio, ctx.Err()
-	}
-	if errors.Is(err, ports.ErrOperacionRespuestaRecibidaDenegada) {
-		return vacio, ports.ErrOperacionContinuacionDenegada
-	}
-	if err != nil || j.ValidarPara(a.Resolucion.Solicitud) != nil || a.Resolucion.ResueltaEn.Before(j.Respuesta.RegistradaEn) {
-		return vacio, ports.ErrOperacionContinuacionNoDisponible
+	if a.EsExpiracion() {
+		// Sin respuesta no hay justificante: la selección original la devolvió
+		// CT119 tras consumir el permiso de continuación.
+		l.seleccion = *a.Seleccion
+	} else {
+		ctx = context.WithValue(ctx, claveContinuacionLlamamientoDesarrollo{}, l)
+		ctx = context.WithValue(ctx, claveConsultaJustificanteRespuestaDesarrollo{}, a.Resolucion.Solicitud)
+		j, err := e.lectorJustificante.ConsultarJustificanteRespuestaRecibida(ctx, a.Resolucion.Solicitud)
+		if ctx.Err() != nil {
+			return vacio, ctx.Err()
+		}
+		if errors.Is(err, ports.ErrOperacionRespuestaRecibidaDenegada) {
+			return vacio, ports.ErrOperacionContinuacionDenegada
+		}
+		if err != nil || j.ValidarPara(a.Resolucion.Solicitud) != nil || a.Resolucion.ResueltaEn.Before(j.Respuesta.RegistradaEn) {
+			return vacio, ports.ErrOperacionContinuacionNoDisponible
+		}
+		l.justificante, l.seleccion = j, j.Seleccion
 	}
 	preparada, err := prepararReferenciasLlamamientoDesarrollo(expediente, a.ComandoSiguiente.SeleccionClave)
-	if err != nil || preparada.operacionPropuesta != j.Seleccion.OperacionRef {
+	if err != nil || preparada.operacionPropuesta != l.seleccion.OperacionRef {
 		return vacio, ports.ErrOperacionContinuacionNoDisponible
 	}
-	l.justificante = j
 	ctx = context.WithValue(ctx, claveContinuacionLlamamientoDesarrollo{}, l)
 	b, err := e.continuador.AbrirSiguienteRRHH(ctx, s)
 	if ctx.Err() != nil {
@@ -131,15 +151,32 @@ func intencionSiguienteBolsaDesarrollo(s ports.SolicitudContinuarLlamamiento) st
 	return referenciaPuenteLlamamientoDesarrollo("intencion-siguiente-bolsa", s.OrganizacionRef, s.ExpedienteRef, s.ResolucionRef, s.IntencionRef)
 }
 
+// El terminal Bolsa de la renuncia lo crea la resolución; el de la expiración
+// («sin respuesta») lo crea la propia continuación, con referencia propia.
 func terminalContinuacionDesarrollo(l continuacionLigadaDesarrollo) string {
+	if l.antecedente.EsExpiracion() {
+		s := l.antecedente.Resolucion.Solicitud
+		return referenciaPuenteLlamamientoDesarrollo("operacion-expiracion-rrhh",
+			s.OrganizacionRef, s.ExpedienteRef, l.seleccion.OperacionRef, s.ClaveIdempotencia)
+	}
 	return operacionAceptacionManualDesarrollo(aceptacionRevisadaDesarrollo{
 		solicitud: l.antecedente.Resolucion.Solicitud, justificante: l.justificante, local: l.antecedente.Resolucion})
+}
+
+// politicaAntecedenteContinuacionDesarrolloValida admite la política con la que
+// RRHH confirmó la resolución: la histórica sintética o una regla del catálogo
+// (la expiración siempre se confirma con la regla de falta de respuesta).
+func politicaAntecedenteContinuacionDesarrolloValida(r ports.ResultadoResolucionLlamamiento) bool {
+	p := r.Politica
+	return politicaResolucionAdmitidaDesarrollo(p.Referencia, p.Version, p.HuellaSHA256) &&
+		r.Solicitud.CriterioValidacionRef == p.Referencia &&
+		(r.Solicitud.Respuesta != ports.RespuestaLlamamientoExpirada || p.Referencia != criterioRevisionManualDesarrollo)
 }
 
 func antecedenteContinuacionDesarrolloValido(ctx context.Context, s ports.SolicitudResolverLlamamiento) bool {
 	l, ok := ctx.Value(claveContinuacionLlamamientoDesarrollo{}).(continuacionLigadaDesarrollo)
 	return ok && l.antecedente.ValidarPara(l.solicitud) == nil && l.antecedente.Resolucion.Solicitud == s &&
-		l.antecedente.Resolucion.Politica == politicaManualDesarrollo() && s.CriterioValidacionRef == criterioRevisionManualDesarrollo
+		politicaAntecedenteContinuacionDesarrolloValida(l.antecedente.Resolucion)
 }
 
 func (p *puenteBolsaLlamamientoDesarrollo) AbrirSiguienteRRHH(ctx context.Context, s ports.SolicitudContinuarLlamamiento) (ports.ReciboBolsaContinuacion, error) {
@@ -155,31 +192,43 @@ func (p *puenteBolsaLlamamientoDesarrollo) AbrirSiguienteRRHH(ctx context.Contex
 	c, valida := p.alta.soporte.capacidadValida(ctx)
 	l, ok := ctx.Value(claveContinuacionLlamamientoDesarrollo{}).(continuacionLigadaDesarrollo)
 	if !valida || c.ruta != httpinterno.RutaContinuacionLlamamiento || !ok || l.solicitud != s ||
-		!antecedenteContinuacionDesarrolloValido(ctx, l.antecedente.Resolucion.Solicitud) || l.justificante.ValidarPara(l.antecedente.Resolucion.Solicitud) != nil {
+		!antecedenteContinuacionDesarrolloValido(ctx, l.antecedente.Resolucion.Solicitud) || !l.antecedenteLigado() {
 		return vacio, ports.ErrOperacionContinuacionDenegada
 	}
 	a := l.antecedente.Resolucion
-	apertura, existe, err := p.repositorio.BuscarOperacion(ctx, l.justificante.Seleccion.OperacionRef)
+	apertura, existe, err := p.repositorio.BuscarOperacion(ctx, l.seleccion.OperacionRef)
 	if err != nil || !existe {
 		return vacio, ports.ErrOperacionContinuacionNoDisponible
 	}
-	fuente, err := p.fuenteResolucionLigada(a.Solicitud, l.justificante.Seleccion, apertura)
+	fuente, err := p.fuenteResolucionLigada(a.Solicitud, l.seleccion, apertura)
 	if err != nil {
 		return vacio, ports.ErrOperacionContinuacionNoDisponible
 	}
-	terminalRef := terminalContinuacionDesarrollo(l)
+	terminalRef, tipoTerminal := terminalContinuacionDesarrollo(l), "renuncia_rrhh"
+	esperado := puertosbolsa.ResolucionLlamamientoDesarrollo{AperturaOperacionRef: l.seleccion.OperacionRef,
+		JustificanteRef: a.Solicitud.PruebaRespuestaRef, EvaluacionPlazoRef: a.EvaluacionPlazoRef,
+		PoliticaRef: a.Politica.Referencia, PoliticaVersion: a.Politica.Version, PoliticaSHA256: a.Politica.HuellaSHA256, VersionEsperada: 1}
+	if l.antecedente.EsExpiracion() {
+		// Sin respuesta en plazo: la resolución CT confirmada por RRHH es la
+		// prueba de la no aceptación que cierra el llamamiento en Bolsa.
+		// Se traduce al alfabeto opaco de Bolsa, como la intención (un UUID de
+		// CT puede parecer un documento personal a sus validadores).
+		tipoTerminal = puertosbolsa.TipoExpiracionRRHHDesarrollo
+		esperado.JustificanteRef = referenciaPuenteLlamamientoDesarrollo("resolucion-expiracion-rrhh",
+			a.Solicitud.OrganizacionRef, a.Solicitud.ExpedienteRef, a.ResolucionRef)
+		if err := p.cerrarSinRespuestaDesarrollo(ctx, fuente, terminalRef, esperado, l.soloRecuperacion); err != nil {
+			return vacio, err
+		}
+	}
 	terminal, existe, err := p.repositorio.BuscarOperacion(ctx, terminalRef)
 	if err != nil || !existe {
 		return vacio, ports.ErrOperacionContinuacionNoDisponible
 	}
 	canonTerminal, err := terminal.Canonico()
-	esperado := puertosbolsa.ResolucionLlamamientoDesarrollo{AperturaOperacionRef: l.justificante.Seleccion.OperacionRef,
-		JustificanteRef: a.Solicitud.PruebaRespuestaRef, EvaluacionPlazoRef: a.EvaluacionPlazoRef,
-		PoliticaRef: a.Politica.Referencia, PoliticaVersion: a.Politica.Version, PoliticaSHA256: a.Politica.HuellaSHA256, VersionEsperada: 1}
 	if terminal.Resolucion != nil {
 		esperado.ResueltaEn = terminal.Resolucion.ResueltaEn
 	}
-	if err != nil || terminal.OperacionRef != terminalRef || terminal.Tipo != "renuncia_rrhh" || terminal.Resolucion == nil ||
+	if err != nil || terminal.OperacionRef != terminalRef || terminal.Tipo != tipoTerminal || terminal.Resolucion == nil ||
 		*terminal.Resolucion != esperado || esperado.ResueltaEn.Before(a.ResueltaEn) || terminal.Llamamiento == nil || terminal.Llamamiento.LlamamientoRef != a.Solicitud.LlamamientoRef {
 		return vacio, ports.ErrOperacionContinuacionNoDisponible
 	}
@@ -227,6 +276,42 @@ func (p *puenteBolsaLlamamientoDesarrollo) AbrirSiguienteRRHH(ctx context.Contex
 		return vacio, ports.ErrOperacionContinuacionNoDisponible
 	}
 	return b, nil
+}
+
+// cerrarSinRespuestaDesarrollo registra en Bolsa el terminal «sin respuesta»
+// por el mismo puente que la renuncia: servicio de integración, permiso de no
+// aceptación de RRHH y registro inmutable con auditoría y outbox. Es
+// idempotente: si ya existe, no pide otra autorización ni crea otro efecto; en
+// modo de solo recuperación nunca lo crea.
+func (p *puenteBolsaLlamamientoDesarrollo) cerrarSinRespuestaDesarrollo(ctx context.Context,
+	fuente *fuentesintetica.FuenteLlamamientos, terminalRef string, resolucion puertosbolsa.ResolucionLlamamientoDesarrollo, soloRecuperacion bool,
+) error {
+	_, existe, err := p.repositorio.BuscarOperacion(ctx, terminalRef)
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+	if err != nil {
+		return ports.ErrOperacionContinuacionNoDisponible
+	}
+	if existe {
+		return nil
+	}
+	if soloRecuperacion || dependenciaEsNulaContratacionTemporalDesarrollo(p.autorizadorRenuncia) {
+		return ports.ErrOperacionContinuacionNoDisponible
+	}
+	servicio, err := appbolsa.NuevoServicioIntegracionLlamamientosDesarrollo(fuente, p.repositorio, p.autorizadorRenuncia, p.reloj)
+	if err != nil {
+		return ports.ErrOperacionContinuacionNoDisponible
+	}
+	r, err := servicio.ExpirarLlamamiento(ctx, puertosbolsa.PeticionResolverLlamamientoDesarrollo{OperacionRef: terminalRef, Resolucion: resolucion})
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+	if err != nil || r.Registro.Tipo != puertosbolsa.TipoExpiracionRRHHDesarrollo || r.Registro.OperacionRef != terminalRef ||
+		r.Registro.EstadoLlamamiento != dominiobolsa.EstadoLlamamientoExpirado {
+		return ports.ErrOperacionContinuacionNoDisponible
+	}
+	return nil
 }
 
 type proveedorContinuacionLlamamientoDesarrollo struct {

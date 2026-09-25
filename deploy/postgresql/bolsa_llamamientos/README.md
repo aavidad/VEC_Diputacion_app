@@ -105,10 +105,58 @@ tablas para resolver esas integraciones.
 ./deploy/postgresql/bolsa_llamamientos/probar_integracion.sh
 ```
 
-Para B6, tras instalar `000018` en una réplica sintética, ejecutar además
-`pruebas_sql/b6_orden_vigente.sql`. La prueba se revierte completa y comprueba
-pausa, retorno tras contrato, recolocación al final, una sola fila append-only
-y denegación de lectura directa al ejecutor.
+Pruebas por migración (todas en PostgreSQL 18 desechable; las que se
+ejecutan como superusuario terminan en ROLLBACK y sustituyen, solo dentro de
+su transacción, el consumidor de autorización V3 por un doble: la
+autorización tiene sus propias pruebas):
+
+- `000018` (B6, orden vigente): `pruebas_sql/b6_orden_vigente.sql` sobre una
+  réplica sintética. Comprueba pausa, retorno tras contrato, recolocación al
+  final, una sola fila append-only y denegación de lectura directa.
+- `000024` (B13, histórico de contratos): `pruebas_sql/b13_historico_contratos.sql`
+  sobre la estructura real con CT `000113` y Bolsa `000024`. Proyecta las
+  incorporaciones CT, las entrega dos veces al inbox sin duplicar, rechaza
+  contenidos inválidos, pone en cuarentena (`contrato_participacion_cuarentena`)
+  las entregas divergentes sin detener el relevo y comprueba las ACL. El
+  primer evento que llega con una referencia es el que figura en el
+  histórico; una divergencia exige revisión contra CT. El relevo Go con
+  adaptadores reales se prueba con `TestEntregaContratosCTBolsaPostgreSQL18`
+  (`VEC_B13_PG18_CT_DSN` / `VEC_B13_PG18_BOLSA_DSN`) y, con la marca de agua
+  y dos transacciones concurrentes, con
+  `deploy/postgresql/contratacion_temporal/probar_publicacion_contratos_bolsa_pg18.sh`.
+  El cursor es la posición de publicación de CT (la transacción que escribió
+  el origen): CT solo publica orígenes de transacciones ya terminadas, así que
+  el relevo no relee hacia atrás. Cadencia y lote:
+  `VEC_BOLSA_CONTRATOS_CT_INTERVALO` (`0` lo desactiva) y
+  `VEC_BOLSA_CONTRATOS_CT_LOTE`. El inbox confía en el relevo (ver el
+  comentario de `000024`): Bolsa no lee tablas de CT y el evento no lleva
+  firma de origen.
+- `000031` (intentos de contacto): `probar_intentos_contacto_pg18.sh`.
+- `000035` (contacto de origen CONVOCA): `probar_origen_datos_contacto_pg18.sh`.
+- `000039` (expiración): `probar_expiracion_rrhh_pg18.sh`.
+- `000028`, `000030`, `000032` y `000037`: `probar_revision_bolsa_pg18.sh`
+  instala la cadena, prueba UP/DOWN/UP y dependencias de `000032`/`000037` y
+  ejecuta `b2_politica_transiciones.sql` (la versión 1 es el literal de
+  `000012` más `disponible→disponible_desde`; el Reglamento cierra
+  `renuncia→disponible` y abre `renuncia→no_disponible`, invariantes fijas,
+  publicación idempotente, solo adición y ACL), `bof_ofertas_publicadas.sql`,
+  `b30_portal_candidato.sql`, `revision/b30_replay_autorizacion.sql` y
+  `b37_efectos_sanciones.sql` (suspensión con fin por la política vigente,
+  readmisión por recurso estimado como única salida de «excluido», que se
+  repite con `lc_messages` en castellano porque la readmisión exige una marca
+  de transacción y no el texto de la pila) y `b33_politica_segregacion.sql`.
+  Las políticas de `000032` y `000033` las publica la aplicación al arrancar
+  con la cuenta de ejecución; cada versión guarda `publicada_por`.
+  `000032` no modifica situaciones ya registradas.
+- `000029` y `000040`: `probar_disposicion_oferta_pg18.sh` y
+  `probar_confirmacion_contacto_pg18.sh`. Las acciones propias del candidato
+  (y publicar/resolver ofertas de `000028`) consumen la decisión antes de
+  devolver el recibo de un reintento. Las lecturas propias (ofertas, portal y
+  contacto) solo responden en la transacción que ya consumió la consulta
+  propia (`consultar_mi_bolsa_portal_v1`) o la respuesta propia
+  (`preparar_respuesta_portal_v1`): una marca local de la transacción firmada
+  con un secreto que solo lee el propietario. Listas y acciones usan la misma
+  participación vigente por bolsa (la de confirmación más reciente).
 
 El script usa PostgreSQL fijado por imagen y digest, verifica ACL negativas,
 RLS, `SECURITY DEFINER`, claves de idempotencia y una carrera real por la misma

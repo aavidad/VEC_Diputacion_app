@@ -38,6 +38,8 @@ func (a *autorizacionContinuacionPrueba) AutorizarOperacion(ctx context.Context,
 		etapa, motivo = "justificante", motivoConsultaJustificanteRespuestaDesarrollo()
 	case puertosbolsa.AccionAbrirSiguienteLlamamientoDesarrollo:
 		etapa, motivo, audiencia = "bolsa", motivoContinuacionDesarrollo(true), puertosbolsa.AudienciaIntegracionLlamamientoDesarrollo
+	case puertosbolsa.AccionRenunciarLlamamientoRRHHDesarrollo:
+		etapa, motivo, audiencia = "bolsa:sin_respuesta", motivoRenunciaBolsaDesarrollo(), puertosbolsa.AudienciaIntegracionLlamamientoDesarrollo
 	default:
 		a.t.Fatal("acción ajena a la continuación", accion)
 	}
@@ -300,7 +302,9 @@ func TestContinuacionLlamamientoDesarrolloCorteCTYReplayAutorizado(t *testing.T)
 	if _, err := f.registro.proveedor.AutorizarContinuacionLlamamiento(consultaCtx, m); !errors.Is(err, ports.ErrOperacionContinuacionDenegada) || len(f.autoridad.etapas) != 12 {
 		t.Fatal("contexto de consulta autorizó confirmación")
 	}
-	for _, a := range []*autorizadorLlamamientoDesarrollo{{continuacionCT: true, siguienteBolsa: true}, {renunciaBolsa: true}, {comunicacion: true}} {
+	// renunciaBolsa solo es un modo admitido en esta ruta para cerrar «sin
+	// respuesta» tras una expiración; nunca combinado con otro permiso.
+	for _, a := range []*autorizadorLlamamientoDesarrollo{{continuacionCT: true, siguienteBolsa: true}, {renunciaBolsa: true, siguienteBolsa: true}, {comunicacion: true}} {
 		if a.modoResolucionOContinuacionValido(httpinterno.RutaContinuacionLlamamiento) {
 			t.Fatal("modos de autorización confundidos")
 		}

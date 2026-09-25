@@ -70,8 +70,13 @@ func (s *ServicioAvisosRRHH) Consultar(ctx context.Context, peticion ConsultaAvi
 		return PaginaAvisos{}, err
 	}
 	conteos, err := s.consulta.ContarAvisosRRHH(ctx, cursor.Corte)
-	if err != nil || conteos[dominiobolsa.AvisoSaltoOrden] < 0 || conteos[dominiobolsa.AvisoTresAnos] < 0 {
+	if err != nil {
 		return PaginaAvisos{}, puertosbolsa.ErrConsultaAvisosNoDisponible
+	}
+	for tipo, total := range conteos {
+		if total < 0 || (dominiobolsa.AvisoRRHH{Tipo: tipo, BolsaRef: "x", Referencia: "x", Detalle: map[string]any{"x": 1}, Fecha: ahora}).Validar() != nil {
+			return PaginaAvisos{}, puertosbolsa.ErrConsultaAvisosNoDisponible
+		}
 	}
 	for _, aviso := range filas {
 		if aviso.Validar() != nil {
@@ -79,7 +84,15 @@ func (s *ServicioAvisosRRHH) Consultar(ctx context.Context, peticion ConsultaAvi
 		}
 	}
 	pagina := PaginaAvisos{GeneradaEn: cursor.Corte, Provisionalidad: RotuloComputoTresAnosPendiente, Conteos: map[string]int{dominiobolsa.AvisoSaltoOrden: conteos[dominiobolsa.AvisoSaltoOrden], dominiobolsa.AvisoTresAnos: conteos[dominiobolsa.AvisoTresAnos]}}
-	pagina.Total = pagina.Conteos[dominiobolsa.AvisoSaltoOrden] + pagina.Conteos[dominiobolsa.AvisoTresAnos]
+	// Los avisos del portal solo cuentan si la consulta los incluye.
+	for _, tipo := range []string{dominiobolsa.AvisoSolicitudPortal, dominiobolsa.AvisoRespuestaPortal} {
+		if total, incluido := conteos[tipo]; incluido {
+			pagina.Conteos[tipo] = total
+		}
+	}
+	for _, total := range pagina.Conteos {
+		pagina.Total += total
+	}
 	if len(filas) > peticion.Limite {
 		pagina.Avisos = append([]dominiobolsa.AvisoRRHH(nil), filas[:peticion.Limite]...)
 		siguiente, _ := json.Marshal(cursorAvisos{Corte: cursor.Corte, Offset: cursor.Offset + peticion.Limite})

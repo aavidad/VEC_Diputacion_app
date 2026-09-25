@@ -197,6 +197,7 @@ type propuestaCoberturaSalidaJSON struct {
 	Evaluaciones       []evaluacionCoberturaJSON        `json:"evaluaciones"`
 	MotivosAlternativa []motivoAlternativaCoberturaJSON `json:"motivos_alternativa,omitempty"`
 	IdentidadSemantica identidadSemanticaCoberturaJSON  `json:"identidad_semantica"`
+	AvisosVia          *avisosViaCoberturaJSON          `json:"avisos_via,omitempty"`
 }
 type motivoAlternativaCoberturaJSON struct {
 	Clave        string `json:"clave"`
@@ -243,6 +244,7 @@ func proyectarPropuestaCobertura(entrada application.ResultadoPropuestaCobertura
 			motivoAlternativaCoberturaJSON{Clave: string(motivo.Clave),
 				ViaClave: string(motivo.ViaClave), EtiquetaI18n: string(motivo.EtiquetaI18n)})
 	}
+	salida.AvisosVia = proyectarAvisosViaCobertura(datos.AvisosVia)
 	return salida, true
 }
 

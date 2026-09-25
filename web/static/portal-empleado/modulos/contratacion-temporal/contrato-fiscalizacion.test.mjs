@@ -68,3 +68,23 @@ test("rechaza campos abiertos y valida el retorno opcional por parejas", () => {
     TypeError,
   );
 });
+
+test("el favorable de una modificación vuelve al nombramiento; el desfavorable no", () => {
+  const recibo = {
+    esquema: "vec.contratacion-temporal.recibo-fiscalizacion.v1",
+    operacion: "registrar_resultado",
+    expediente_ref: BASE.expediente_ref,
+    version_resultante: 9,
+    resultado: "favorable",
+    fase_resultante: "nombramiento",
+    estado_resultante: "en_curso",
+    recibo_ref: "recibo:fiscalizacion:sintetico:009",
+    auditoria_ref: "auditoria:fiscalizacion:sintetica:009",
+    evento_ref: "evento:fiscalizacion:sintetico:009",
+    actor_ref: "actor:intervencion:sintetico:001",
+    registrada_en: "2026-09-25T19:00:00Z",
+  };
+  assert.deepEqual(validarReciboResultadoFiscalizacion(JSON.stringify(recibo)), recibo);
+  assert.throws(() => validarReciboResultadoFiscalizacion(JSON.stringify({ ...recibo, fase_resultante: "llamamiento" })), TypeError);
+  assert.throws(() => validarReciboResultadoFiscalizacion(JSON.stringify({ ...recibo, resultado: "desfavorable" })), TypeError);
+});

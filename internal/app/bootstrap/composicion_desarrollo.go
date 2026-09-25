@@ -214,6 +214,9 @@ func nuevoServidorDesarrollo(
 		return nil, nil, ErrComposicionDesarrolloIncompleta
 	}
 	cfg = cfg.Normalize()
+	if err := validarSelectoresDespliegueBolsaCT(cfg); err != nil {
+		return nil, nil, err
+	}
 	composicion, err := NuevaComposicionSeguridadDesarrollo(cfg, registro)
 	if err != nil {
 		return nil, nil, err
@@ -237,15 +240,22 @@ func nuevoServidorDesarrollo(
 			cerrarCalendarios()
 		}
 	}()
-	// Enganche de las reglas de ejemplo: los módulos de Bolsa y Contratación
-	// temporal recibirán reglasEjemplo.bolsa y reglasEjemplo.contratacionTemporal.
+	// Enganche de las reglas de ejemplo: Bolsa consume reglasEjemplo.bolsa en
+	// el plazo de respuesta del asistente B7, en la situación de las
+	// participaciones, en el plazo de las ofertas publicadas y en la
+	// documentación para formalizar; Contratación temporal usa
+	// reglasEjemplo.contratacionTemporal para el plazo de la fase en el cuadro.
+	// El circuito de firma ya se consulta desde el detalle del expediente.
 	reglasEjemplo, err := nuevasReglasEjemploDesarrollo(cfg, consultaCalendarios, relojCalendariosDesarrollo{})
 	if err != nil {
 		return nil, nil, err
 	}
-	_ = reglasEjemplo
-	rutasContratacion, autoridadContratacion, cerrarContratacion, err := nuevasRutasContratacionTemporalDesarrollo(
-		cfg, resolvedor, composicion.derivadorIdempotencia, composicion.emisorKMS, registro, incorporacion...,
+	rutaFormalizacion, err := nuevaRutaDocumentacionFormalizacionDesarrollo(reglasEjemplo.bolsa)
+	if err != nil {
+		return nil, nil, err
+	}
+	rutasContratacion, autoridadContratacion, cerrarContratacion, err := nuevasRutasContratacionTemporalConReglasDesarrollo(
+		cfg, reglasEjemplo, resolvedor, composicion.derivadorIdempotencia, composicion.emisorKMS, registro, incorporacion...,
 	)
 	if err != nil {
 		return nil, nil, err
@@ -256,16 +266,50 @@ func nuevoServidorDesarrollo(
 			cerrarContratacion()
 		}
 	}()
+	// Ofertas de Bolsa: el plazo de disposición sale de la regla b10.
+	if autoridadContratacion != nil {
+		autoridadContratacion.plazosOfertasBolsa.fijar(reglasEjemplo.bolsa)
+	}
 	ctxBolsas, cancelarBolsas := context.WithTimeout(context.Background(), 15*time.Second)
 	fuenteConstituida := nuevaFuenteConstituidaRRHHDesarrollo(ctxBolsas, cfg)
+	configurarAvisosViaCoberturaDesarrollo(autoridadContratacion, reglasEjemplo.bolsa, fuenteConstituida)
 	cancelarBolsas()
+	autoridadContratacion.personalizacionB7.fijar(fuenteConstituida)
 	rutasBolsasRRHH, coleccionesBolsasRRHH, err := nuevasRutasBolsasRRHHDesarrolloConFuente(cfg, fuenteConstituida, autoridadContratacion.manejadorSituacionParticipacion)
 	if err != nil {
 		return nil, nil, err
 	}
+	if err = componerContactoOrigenBolsaDesarrollo(reglasEjemplo.bolsa, autoridadContratacion.manejadorSituacionParticipacion); err != nil {
+		return nil, nil, err
+	}
 	rutasContratacion = append(rutasContratacion, rutasBolsasRRHH...)
+	rutaPlazoRespuesta, err := nuevaRutaPlazoRespuestaBolsaDesarrollo(reglasEjemplo.bolsa, relojCalendariosDesarrollo{})
+	if err != nil {
+		return nil, nil, err
+	}
+	rutasContratacion = append(rutasContratacion, rutaPlazoRespuesta)
+	rutaReglasSituacionBolsa, err := componerReglasSituacionBolsaDesarrollo(reglasEjemplo.bolsa, autoridadContratacion.manejadorSituacionParticipacion)
+	if err != nil {
+		return nil, nil, err
+	}
+	rutasContratacion = append(rutasContratacion, rutaReglasSituacionBolsa)
 	coleccionesBolsasRRHH = append(coleccionesBolsasRRHH, autoridadContratacion.coleccionesAdicionales...)
 	rutasContratacion = append(rutasContratacion, rutasCalendarios...)
+	if err = componerIntentosContactoBolsaDesarrollo(reglasEjemplo.bolsa, consultaCalendarios, autoridadContratacion.manejadorSituacionParticipacion); err != nil {
+		return nil, nil, err
+	}
+	rutasContratacion = append(rutasContratacion, nuevaRutaCircuitoFirmaContratacionTemporalDesarrollo(reglasEjemplo.circuitoFirmaCT))
+	rutasContratacion = append(rutasContratacion, rutaFormalizacion)
+	rutaReglas, err := nuevaRutaReglasVigentesDesarrollo(reglasEjemplo)
+	if err != nil {
+		return nil, nil, err
+	}
+	rutasContratacion = append(rutasContratacion, rutaReglas)
+	rutasFirma, err := autoridadContratacion.firmaDocumento.rutas(cfg, reglasEjemplo.circuitoFirmaCT)
+	if err != nil {
+		return nil, nil, err
+	}
+	rutasContratacion = append(rutasContratacion, rutasFirma...)
 	autoridadDietas, cerrarDietas, err := nuevasRutasDietasDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia)
 	if err != nil {
 		return nil, nil, err

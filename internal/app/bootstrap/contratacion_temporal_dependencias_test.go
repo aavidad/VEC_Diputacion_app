@@ -29,7 +29,7 @@ func TestRutasCTSinPostgreSQLFallaCerradoYSinCierre(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rutas, autoridad, cerrar, err := nuevasRutasContratacionTemporalDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, composicion.emisorKMS, io.Discard)
+	rutas, autoridad, cerrar, err := nuevasRutasContratacionTemporalDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, composicion.emisorKMS, io.Discard, nil)
 	if !errors.Is(err, config.ErrConfiguracionPostgreSQLContratacionTemporalIncompleta) || rutas != nil || autoridad != nil || cerrar != nil {
 		t.Fatalf("composición sin PostgreSQL: rutas=%v autoridad=%v cerrar_presente=%t err=%v", rutas, autoridad, cerrar != nil, err)
 	}
@@ -51,7 +51,7 @@ func TestRutasCTConPostgreSQLMinimoExigenContextoRegistradoAntesDeArrancar(t *te
 	if err != nil {
 		t.Fatal(err)
 	}
-	rutas, autoridad, cerrar, err := nuevasRutasContratacionTemporalDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, composicion.emisorKMS, io.Discard)
+	rutas, autoridad, cerrar, err := nuevasRutasContratacionTemporalDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, composicion.emisorKMS, io.Discard, nil)
 	if !errors.Is(err, config.ErrConfiguracionPostgreSQLContratacionTemporalIncompleta) ||
 		!strings.Contains(err.Error(), "contexto actor registrado") || rutas != nil || autoridad != nil || cerrar != nil {
 		t.Fatalf("CT mínimo abrió rutas sin identidad operativa: rutas=%v autoridad=%v cierre=%t err=%v", rutas, autoridad, cerrar != nil, err)

@@ -464,7 +464,9 @@ func TestServicioPresentacionCoberturaRechazaNulosTipados(t *testing.T) {
 func exigirServicioPresentacionSinPuertosMutantes(t *testing.T) {
 	t.Helper()
 	tipo := reflect.TypeOf(ServicioPresentacionPropuestaCobertura{})
-	if tipo.NumField() != 8 {
+	// El noveno campo (avisosVia) es el evaluador de solo lectura de las
+	// comprobaciones de la vía; no escribe ni consume nada.
+	if tipo.NumField() != 9 {
 		t.Fatalf("aparecieron dependencias no revisadas: %d", tipo.NumField())
 	}
 	for indice := 0; indice < tipo.NumField(); indice++ {
@@ -487,6 +489,8 @@ func exigirVistaPresentacionMinimizada(t *testing.T) {
 		"Estado": true, "ViaRecomendada": true,
 		"Evaluaciones": true, "MotivosAlternativa": true,
 		"IdentidadSemantica": true,
+		// Recuentos y fechas de la bolsa, sin personas.
+		"AvisosVia": true,
 	}
 	if tipo.NumField() != len(permitidos) {
 		t.Fatalf("la vista amplió su superficie: %d campos", tipo.NumField())

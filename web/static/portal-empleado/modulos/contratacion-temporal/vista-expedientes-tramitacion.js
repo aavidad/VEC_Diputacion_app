@@ -241,7 +241,8 @@ export function crearGestorTramitacion({
         anunciar,
         alConfirmar: (recibo) => {
           try {
-            if (recibo.resultado !== "desfavorable" && recibo.version_resultante >= 6) {
+            if (recibo.resultado !== "desfavorable" && recibo.fase_resultante === "fiscalizacion"
+              && recibo.version_resultante >= 6) {
               alFiscalizacionConfirmadaLlamamiento(recibo);
             }
           } finally {

@@ -221,6 +221,27 @@ transportes_mtls_revisados=(
 	# fija, sin parámetros, same-origin, no-store, redirect error y no-referrer;
 	# persona y empleado los deriva el servidor del mTLS.
 	static/portal-empleado/modulos/personal/cliente-http-ficha-propia.js
+	# Cambios del expediente de Contratación temporal (25/09, petición RRHH p.4):
+	# POST a la ruta fija del detalle con otro Accept, same-origin, no-store,
+	# redirect error y no-referrer; misma autorización que el detalle.
+	static/portal-empleado/modulos/contratacion-temporal/cliente-http-cambios-expediente.js
+	# Bolsa y Contratación temporal (26/09, cierre para RRHH): circuito y registro
+	# de firmas, documentación de formalización, contactos, contratos, correo,
+	# intentos, ofertas, reglas de situación, sanciones y consulta de reglas.
+	# Rutas internas fijas, same-origin, no-store, redirect error y no-referrer;
+	# actor y permisos los deriva el servidor del mTLS.
+	static/portal-empleado/modulos/contratacion-temporal/circuito-firma.js
+	static/portal-empleado/modulos/contratacion-temporal/cliente-http-documentacion-formalizacion.js
+	static/portal-empleado/modulos/contratacion-temporal/firma-documento-cliente.js
+	static/portal-empleado/portal-bolsas-contacto-origen.js
+	static/portal-empleado/portal-bolsas-contacto-registro.js
+	static/portal-empleado/portal-bolsas-contratos.js
+	static/portal-empleado/portal-bolsas-correo.js
+	static/portal-empleado/portal-bolsas-intentos.js
+	static/portal-empleado/portal-bolsas-ofertas.js
+	static/portal-empleado/portal-bolsas-reglas-situacion.js
+	static/portal-empleado/portal-bolsas-sanciones.js
+	static/portal-empleado/reglas/reglas.js
 )
 mapfile -t usos_mismo_origen < <(
 	grep -rliE 'credentials[[:space:]]*:[[:space:]]*["'"'"']same-origin' \

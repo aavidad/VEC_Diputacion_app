@@ -38,16 +38,16 @@ func perfilesConsultaContratacionTemporalDesarrollo(
 	return perfiles
 }
 
-// descriptoresFronterasContratacionTemporalDesarrollo declara las diez
-// fronteras CT que comparten contexto autenticado y PDP. Las ocho escrituras
-// usan sólo el perfil base; cuadro y detalle usan exclusivamente los perfiles
+// descriptoresFronterasContratacionTemporalDesarrollo declara las fronteras CT
+// que comparten contexto autenticado y PDP. Las escrituras y las lecturas de
+// cobertura usan sólo el perfil base; cuadro y detalle usan exclusivamente los perfiles
 // de consulta recibidos. Cada una conserva la acción nominal como capacidad.
 func descriptoresFronterasContratacionTemporalDesarrollo(
 	perfilCT string,
 	perfilesConsulta []string,
 ) []descriptorFronteraComunDesarrollo {
 	perfilesConsulta = append([]string(nil), perfilesConsulta...)
-	return []descriptorFronteraComunDesarrollo{
+	return append([]descriptorFronteraComunDesarrollo{
 		fronteraContratacionTemporalDesarrollo("ct-analisis-registrar", ctports.AccionRegistrarAnalisis, cthttp.RutaRegistroAnalisisRRHH, []string{perfilCT}),
 		fronteraContratacionTemporalDesarrollo("ct-analisis-rectificar", ctports.AccionRectificarAnalisis, cthttp.RutaRectificacionAnalisisRRHH, []string{perfilCT}),
 		fronteraContratacionTemporalDesarrollo("ct-solicitud-crear", ctports.AccionCrearSolicitud, cthttp.RutaAltaSolicitudes, []string{perfilCT}),
@@ -58,7 +58,11 @@ func descriptoresFronterasContratacionTemporalDesarrollo(
 		fronteraContratacionTemporalDesarrollo("ct-cobertura-rectificar", string(ctdomain.AccionRectificarCoberturaGobernada), cthttp.RutaRectificacionCobertura, []string{perfilCT}),
 		fronteraContratacionTemporalDesarrollo("ct-cuadro-consultar", ctports.AccionConsultarCuadroRRHH, cthttp.RutaConsultaCuadroRRHH, perfilesConsulta),
 		fronteraContratacionTemporalDesarrollo("ct-expediente-consultar", ctports.AccionConsultarDetalleRRHH, cthttp.RutaConsultaDetalleRRHH, perfilesConsulta),
-	}
+		// La propuesta y el resultado de cobertura usan el mismo autorizador
+		// que la decisión: sin su frontera, el PDP común las deniega (403).
+		fronteraContratacionTemporalDesarrollo("ct-cobertura-proponer", accionPropuestaCoberturaDesarrollo, cthttp.RutaPropuestaCobertura, []string{perfilCT}),
+		fronteraContratacionTemporalDesarrollo("ct-cobertura-resultado-consultar", string(ctports.AccionConsultarResultadoCobertura), cthttp.RutaResultadoCobertura, []string{perfilCT}),
+	}, descriptoresFronterasSeguimientoCeseDesarrollo(perfilCT)...)
 }
 
 func fronteraContratacionTemporalDesarrollo(

@@ -38,6 +38,9 @@ const (
 	AccionRenunciarLlamamientoRRHHDesarrollo  = "bolsa.llamamiento.renuncia_rrhh.registrar"
 	AccionAbrirSiguienteLlamamientoDesarrollo = "bolsa.llamamiento.siguiente.abrir"
 	FinalidadIntegracionLlamamientoDesarrollo = "gestionar_contratacion_temporal"
+	// TipoExpiracionRRHHDesarrollo es el terminal «sin respuesta» confirmado por
+	// RRHH tras el vencimiento del plazo; cierra el llamamiento como expirado.
+	TipoExpiracionRRHHDesarrollo = "expiracion_rrhh"
 )
 
 type DisponibilidadLlamamientosDesarrollo struct {
@@ -177,7 +180,7 @@ func (r RegistroLlamamientoDesarrollo) Canonico() ([]byte, error) {
 		len(r.FirmaFuente) != 64 || r.Instantanea.Validar() != nil {
 		return nil, ErrIntegracionLlamamientoDesarrollo
 	}
-	terminal := r.Tipo == "aceptacion_rrhh" || r.Tipo == "renuncia_rrhh"
+	terminal := r.Tipo == "aceptacion_rrhh" || r.Tipo == "renuncia_rrhh" || r.Tipo == TipoExpiracionRRHHDesarrollo
 	if !terminal && r.Resolucion != nil {
 		return nil, ErrIntegracionLlamamientoDesarrollo
 	}
@@ -207,7 +210,8 @@ func (r RegistroLlamamientoDesarrollo) Canonico() ([]byte, error) {
 		} else if r.Resolucion == nil || r.Resolucion.Validar() != nil ||
 			r.Resolucion.AperturaOperacionRef == r.OperacionRef ||
 			(r.Tipo == "aceptacion_rrhh" && r.EstadoLlamamiento != domain.EstadoLlamamientoAceptado) ||
-			(r.Tipo == "renuncia_rrhh" && r.EstadoLlamamiento != domain.EstadoLlamamientoRenunciado) || r.Llamamiento.Version != 2 ||
+			(r.Tipo == "renuncia_rrhh" && r.EstadoLlamamiento != domain.EstadoLlamamientoRenunciado) ||
+			(r.Tipo == TipoExpiracionRRHHDesarrollo && r.EstadoLlamamiento != domain.EstadoLlamamientoExpirado) || r.Llamamiento.Version != 2 ||
 			r.Resolucion.ResueltaEn.Before(r.Propuesta.GeneradaEn) || r.Resolucion.ResueltaEn.Before(r.Instantanea.GeneradaEn) {
 			return nil, ErrIntegracionLlamamientoDesarrollo
 		}
@@ -247,6 +251,11 @@ func (r RegistroLlamamientoDesarrollo) Accion() string {
 		return AccionAceptarLlamamientoRRHHDesarrollo
 	}
 	if r.Tipo == "renuncia_rrhh" && r.EstadoLlamamiento == domain.EstadoLlamamientoRenunciado {
+		return AccionRenunciarLlamamientoRRHHDesarrollo
+	}
+	// Sin respuesta en plazo es la otra no aceptación que confirma RRHH: usa el
+	// mismo permiso nominal que la renuncia, sin crear otra acción ni consumidor.
+	if r.Tipo == TipoExpiracionRRHHDesarrollo && r.EstadoLlamamiento == domain.EstadoLlamamientoExpirado {
 		return AccionRenunciarLlamamientoRRHHDesarrollo
 	}
 	return ""

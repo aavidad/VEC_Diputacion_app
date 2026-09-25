@@ -57,3 +57,49 @@ test("R10 bloquea el documento en escritorio y conserva móvil vertical", () => 
   assert.match(componentes, /\.paginacion-marco[\s\S]*\.paginacion-marco__paginas/u);
   assert.match(componentes, /@media \(max-width: 1023\.98px\)/u);
 });
+
+function cargarPintado() {
+  const inicio = javascript.indexOf("export function calcularPaginaMarco");
+  const fin = javascript.indexOf(" function prepararTablaPaginable", inicio);
+  assert.ok(inicio >= 0 && fin > inicio);
+  const tablasPaginadas = new Map();
+  const contexto = { Array, Math, Number, Object, tablasPaginadas, traducirPortal: (clave, datos) => `${clave}:${datos?.total ?? ""}` };
+  runInNewContext(`${javascript.slice(inicio, fin).replace("export function", "function")}
+    this.pintarPaginacionMarco = pintarPaginacionMarco; this.filasPaginablesMarco = filasPaginablesMarco; this.paginaInicialMarco = paginaInicialMarco;`, contexto);
+  return contexto;
+}
+
+function tablaCandidatos(total, fichaTras) {
+  const filas = [];
+  for (let i = 0; i < total; i += 1) {
+    filas.push({ clases: [], hidden: false });
+    if (i === fichaTras) filas.push({ clases: ["fila-ficha-participacion"], hidden: false });
+  }
+  filas.forEach((fila, i) => Object.assign(fila, {
+    nextElementSibling: filas[i + 1] || null,
+    classList: { contains: (c) => fila.clases.includes(c) },
+    hasAttribute: () => false,
+    querySelector: () => null,
+  }));
+  return { isConnected: true, tBodies: [{ rows: filas }], filas };
+}
+
+test("la ficha de participación abierta no cuenta como candidato y sigue a su fila", () => {
+  const ctx = cargarPintado();
+  const tabla = tablaCandidatos(25, 8);
+  const navegacion = { innerHTML: "" };
+  ctx.tablasPaginadas.set(tabla, { navegacion, pagina: 1, tamano: 6 });
+  assert.equal(ctx.filasPaginablesMarco(tabla).length, 25);
+  const ficha = tabla.filas.find((f) => f.clases.length);
+  const candidato = tabla.filas[tabla.filas.indexOf(ficha) - 1];
+  assert.equal(ctx.paginaInicialMarco(ctx.filasPaginablesMarco(tabla), 6), 2);
+  ctx.pintarPaginacionMarco(tabla, 1);
+  assert.match(navegacion.innerHTML, /paginacion_marco_recuento:25/u);
+  assert.equal(candidato.hidden, true);
+  assert.equal(ficha.hidden, true);
+  ctx.pintarPaginacionMarco(tabla, 2);
+  assert.equal(candidato.hidden, false);
+  assert.equal(ficha.hidden, false);
+  assert.equal(tabla.filas.filter((f) => !f.hidden && !f.clases.length).length, 6);
+  assert.equal(ctx.paginaInicialMarco(ctx.filasPaginablesMarco(tablaCandidatos(25, -1)), 6), 1);
+});

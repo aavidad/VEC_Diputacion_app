@@ -342,18 +342,22 @@ test("sin panel interno ni borradores, el menú de Bolsa solo ofrece lo que tien
 
 // E10/P1: RRHH sin panel interno no perdía «Elaboración y borradores» aunque su
 // API respondiera: mientras se comprueba y cuando responde, la entrada se ofrece.
-test("Elaboración se ofrece a RRHH mientras su API se comprueba y cuando responde", async () => {
+// Recorrido en Chrome del 25/09/2026 (fallo 2): la sonda de la API de
+// borradores daba 404 en cada carga contra un servidor que no la sirve. Ya no se
+// sondea al cargar: Elaboración solo se ofrece cuando consta disponible.
+test("Elaboración solo se ofrece a RRHH cuando su API consta disponible", async () => {
   const { aplicarDisponibilidadMenuBolsa } = await import("./portal-menu-bolsa.js");
   const raiz = menuDesdeHTML();
   const elaboracion = () => raiz.querySelectorAll(".submenu-bolsa [data-vista]")
     .find((control) => control.getAttribute("data-vista") === "elaboracion");
-  for (const borradores of [null, true]) {
+  aplicarDisponibilidadMenuBolsa(raiz, { panelInterno: false, borradores: true, contratacionTemporal: true });
+  assert.equal(elaboracion().hidden, false);
+  assert.deepEqual(categoriasVisibles(raiz), ["bolsas-candidatos", "llamamientos", "resumen", "estadisticas", "documentos"]);
+  for (const borradores of [null, false]) {
     aplicarDisponibilidadMenuBolsa(raiz, { panelInterno: false, borradores, contratacionTemporal: true });
-    assert.equal(elaboracion().hidden, false, String(borradores));
-    assert.deepEqual(categoriasVisibles(raiz), ["bolsas-candidatos", "llamamientos", "resumen", "estadisticas", "documentos"]);
+    assert.equal(elaboracion().hidden, true, String(borradores));
+    assert.deepEqual(categoriasVisibles(raiz), ["llamamientos", "resumen", "estadisticas", "documentos"]);
   }
-  aplicarDisponibilidadMenuBolsa(raiz, { panelInterno: false, borradores: false, contratacionTemporal: true });
-  assert.equal(elaboracion().hidden, true);
 });
 
 test("cada capacidad real vuelve a ofrecer sus entradas del menú de Bolsa", async () => {
@@ -379,10 +383,11 @@ test("la navegación directa a una vista de Bolsa sin servicio no se permite", a
   for (const vista of ["resumen", "estadisticas", "llamamientos", VISTA_CANDIDATOS_BOLSA]) {
     assert.equal(vistaBolsaNavegable(vista, sinServicio), true, vista);
   }
-  // Elaboración mientras se comprueba su API: se ofrece y se deja abrir; solo
-  // desaparece cuando consta que falta.
+  // Elaboración sin comprobar: no se ofrece en el menú, pero su enlace directo
+  // se deja abrir (abrirla es lo que comprueba su API); si consta que falta, no.
   assert.equal(vistaBolsaNavegable("elaboracion", { borradores: null }), true);
-  assert.equal(vistaBolsaOfrecida("elaboracion", { borradores: null }), true);
+  assert.equal(vistaBolsaOfrecida("elaboracion", { borradores: null }), false);
+  assert.equal(vistaBolsaOfrecida("elaboracion", { borradores: true }), true);
   assert.equal(vistaBolsaOfrecida("elaboracion", { borradores: false }), false);
   assert.equal(vistaBolsaOfrecida("desconocida", { panelInterno: true }), false);
 });

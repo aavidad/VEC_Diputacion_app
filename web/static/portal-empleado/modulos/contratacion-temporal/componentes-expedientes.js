@@ -4,6 +4,7 @@ import "./atajos-incidencia.js";
 import "./fases-expediente.js";
 import { CAPACIDADES_CONTRATACION_TEMPORAL, versionPropuestaDocumentalValida } from "./contrato-expedientes.js";
 import { icono } from "../../../comun/iconos-vec.js?v=20260925-aspecto-v1";
+import { renderizarCambiosExpediente } from "./vista-expedientes-cambios.js";
 
 export function escaparHTML(valor) {
   return String(valor ?? "")
@@ -18,6 +19,8 @@ function estadoClave(estado) {
   return `ct-fase-${estado}`;
 }
 
+// Pastilla con fecha y estado en texto; sin fecha («no calculado») solo el estado.
+const plazoBandeja = (e, t) => (!e.plazo_estado ? escaparHTML(e.plazo) : `<span class="ct-exp-chip ct-plazo-${escaparHTML(e.plazo_estado)}">${escaparHTML(e.plazo_estado === "no_calculado" ? e.plazo : t("plazo_fase_bandeja", { fecha: e.plazo, estado: t(`plazo_fase_${e.plazo_estado}`) }))}</span>`);
 function textoEstado(clave, t) {
   return t(`fase_${clave}`);
 }
@@ -245,7 +248,7 @@ export function renderizarCuadro(estado, t) {
     <td${modalidadAusente ? ` title="${escaparHTML(t("modalidad_no_informada_bandeja"))}"` : ""}>${escaparHTML(expediente.modalidad)}</td>
     <td><span class="ct-exp-chip ${estadoClave(expediente.estado_clave)}">${escaparHTML(expediente.estado)}</span></td>
     <td>${escaparHTML(expediente.fase_actual)}</td>
-    <td>${escaparHTML(expediente.plazo)}</td>
+    <td>${plazoBandeja(expediente, t)}</td>
     <td><button type="button" class="boton-terciario" data-ct-exp-abrir="${escaparHTML(expediente.expediente_ref)}">${escaparHTML(t("abrir"))}</button></td>
   </tr>
   <tr class="ct-exp-fila-resumen" id="${escaparHTML(resumenId)}" data-ct-fase="${escaparHTML(fase)}" data-ct-exp-resumen-fila
@@ -379,6 +382,8 @@ const BORRADORES_FORMALIZACION = Object.freeze([
   ["informe_definitivo", "informe-definitivo"], ["resolucion", "resolucion"],
   ["diligencia", "diligencia"], ["toma_posesion", "toma-posesion"],
   ["notificacion", "notificacion"], ["comunicacion_centro", "comunicacion-centro"],
+  ["contrato_laboral", "contrato-laboral"], ["nombramiento", "nombramiento"],
+  ["cese", "cese"], ["modificacion_nombramiento", "modificacion-nombramiento"],
 ]);
 
 function renderizarBorradoresFormalizacion(t) {
@@ -702,6 +707,7 @@ export function renderizarExpediente(estado, t, locale, zonaHoraria, analisisDis
     ${renderizarFases(expediente, t)}
     ${tramitacion}
     ${renderizarHistorialHitos(expediente, t)}
+    ${renderizarCambiosExpediente(expediente)}
     ${renderizarContinuidadDesdeExpediente(estado, t)}`;
 }
 

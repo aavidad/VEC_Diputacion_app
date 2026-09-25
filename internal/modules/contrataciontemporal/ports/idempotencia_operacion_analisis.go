@@ -104,6 +104,26 @@ func (s SellosOperacionAnalisis) ContienePar(
 	return encontrado
 }
 
+// ContieneAmbito indica si el ámbito de idempotencia (clave, organización,
+// expediente, actor y perfil) pertenece a alguna generación de estos sellos.
+func (s SellosOperacionAnalisis) ContieneAmbito(ambito string) bool {
+	ambitos, _, valido := coleccionesOperacionAnalisisAlineadas(
+		s.AmbitosIdempotenciaHMAC,
+		s.HuellasSemanticasHMAC,
+	)
+	if !valido {
+		return false
+	}
+	encontrado := subtle.ConstantTimeCompare([]byte(ambitos.Activo.Valor), []byte(ambito)) == 1
+	for indice := range ambitos.Retenidos {
+		encontrado = subtle.ConstantTimeCompare(
+			[]byte(ambitos.Retenidos[indice].Valor),
+			[]byte(ambito),
+		) == 1 || encontrado
+	}
+	return encontrado
+}
+
 type SelladorOperacionAnalisis interface {
 	SellarOperacionAnalisis(
 		context.Context,

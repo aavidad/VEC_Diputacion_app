@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"vec-diputacion-granada/config"
+	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 )
 
@@ -19,8 +20,18 @@ type DependenciasCT struct {
 	registro   io.Writer
 	reloj      relojContratacionTemporalDesarrollo
 	sello      *selloConsultasContratacionTemporalDesarrollo
-	cerrar     func()
-	unaVez     sync.Once
+	// plazosFase es opcional: vencimiento de la fase según el catálogo.
+	plazosFase ports.CalculadoraPlazoFaseRRHH
+	// plazosOfertasBolsa recibe la regla b10 al componer las reglas de ejemplo.
+	plazosOfertasBolsa *calculadoraPlazoOfertaDesarrollo
+	// retribucionesCT es el catálogo ct.retribuciones del análisis; lo
+	// reutiliza el coste de las modificaciones. Nulo: coste no disponible.
+	retribucionesCT *fuenteRetribucionesDesarrollo
+	// reglasEjemplo solo existe en desarrollo con paquete de ejemplo
+	// declarado; vacío significa «sin catálogo».
+	reglasEjemplo reglasEjemploDesarrollo
+	cerrar        func()
+	unaVez        sync.Once
 }
 
 func nuevasDependenciasCT(cfg config.Config, resolvedor vechttp.DemoIdentityResolver, derivador *derivadorIdentidadOperacionDesarrollo, kms *emisorKMSDesarrollo, registro io.Writer) (*DependenciasCT, error) {
@@ -29,7 +40,7 @@ func nuevasDependenciasCT(cfg config.Config, resolvedor vechttp.DemoIdentityReso
 	if !cfg.DevelopmentEnabledByDoubleKey() || validarRedLocalDesarrollo(cfg) != nil || !ok || identidad == nil || derivador == nil || !derivador.valido() {
 		return nil, ErrActivacionDesarrolloInvalida
 	}
-	return &DependenciasCT{cfg: cfg, resolvedor: identidad, derivador: derivador, kms: kms, registro: registro, reloj: relojContratacionTemporalDesarrollo{}, sello: &selloConsultasContratacionTemporalDesarrollo{}, cerrar: func() {}}, nil
+	return &DependenciasCT{cfg: cfg, resolvedor: identidad, derivador: derivador, kms: kms, registro: registro, reloj: relojContratacionTemporalDesarrollo{}, sello: &selloConsultasContratacionTemporalDesarrollo{}, plazosOfertasBolsa: &calculadoraPlazoOfertaDesarrollo{}, cerrar: func() {}}, nil
 }
 
 func (d *DependenciasCT) Cerrar() {

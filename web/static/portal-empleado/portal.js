@@ -1,23 +1,24 @@
-import { crearControladorPortal } from "./portal-eventos.js?v=20260926-portal-rrhh-main-v1";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20260926-reglas-ejemplo-v2";
+import { crearControladorPortal } from "./portal-eventos.js?v=20260926-integracion-bolsa-ct-v1";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20260926-sanciones-efectos-v1";
 import { extraerDatosEnvelopeCanonico } from "./portal-contrato.js?v=20260925-sin-demo2-v1";
-import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?v=20260718-llamamientos-v1";
+import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?v=20260926-integracion-bolsa-ct-v1";
 import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20260925-sin-demo-v1";
-import { AYUDA_PORTAL_BOLSA, detectarContextoContratacionTemporal, obtenerAyudaContratacionTemporal, renderizarAyudaContratacionTemporal, TRAMITES_AYUDANTE_PORTAL } from "./ayuda-contenido.js?v=20260926-portal-rrhh-main-v1";
-import { crearAyudanteTramites } from "./ayudante-tramites.js?v=20260926-portal-rrhh-main-v1";
-import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20260926-portal-rrhh-main-v1";
-import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20260926-portal-rrhh-main-v1";
+import { AYUDA_PORTAL_BOLSA, detectarContextoContratacionTemporal, obtenerAyudaContratacionTemporal, renderizarAyudaContratacionTemporal, TRAMITES_AYUDANTE_PORTAL } from "./ayuda-contenido.js?v=20260926-integracion-bolsa-ct-v1";
+import { crearAyudanteTramites } from "./ayudante-tramites.js?v=20260926-integracion-bolsa-ct-v1";
+import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20260926-integracion-bolsa-ct-v1";
+import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20260926-integracion-bolsa-ct-v1";
 import { crearVistasOperaciones } from "./portal-vistas-operaciones.js?v=20260924-f2-shell-v1";
-import { CLAVES_SIN_ENTRADA_PORTAL, CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260926-portal-rrhh-main-v1";
+import { CLAVES_SIN_ENTRADA_PORTAL, CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, vistaConEntradaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260926-integracion-bolsa-ct-v1";
 import { crearTraductorDocumentos } from "./modulos/documentos/i18n.js?v=20260925-documentos-web-v3";
-import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20260926-portal-rrhh-main-v1";
+import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20260926-integracion-bolsa-ct-v1";
 import { crearTraductorPersonal } from "./modulos/personal/i18n.js?v=20260925-personal-e10-v1";
-import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260926-portal-rrhh-main-v1";
-import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa, resumenAccesosModulos, sincronizarMenuBolsa, vistaBolsaNavegable, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260926-portal-rrhh-main-v1";
-import { traducirPortal } from "./portal-i18n.js?v=20260926-portal-rrhh-main-v1";
-import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20260926-reglas-ejemplo-v3";
+import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260926-integracion-bolsa-ct-v1";
+import { accesoBolsaEfectivo, aplicarDisponibilidadMenuBolsa, instalarMenuBolsa, resumenAccesosModulos, sincronizarMenuBolsa, vistaBolsaNavegable, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260926-integracion-bolsa-ct-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260926-integracion-bolsa-ct-v1";
+import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20260926-sanciones-efectos-v1";
 import { crearSuperficieBorradorLlamamiento } from "./portal-borrador-llamamiento-ui.js?v=20260921-bback01-v1";
-import { consultarAvisosBolsa, manejarAccionAvisos } from "./portal-bolsas-avisos.js?v=20260925-aspecto-v1";
+import { consultarAvisosBolsa, manejarAccionAvisos } from "./portal-bolsas-avisos.js?v=20260926-integracion-bolsa-ct-v1";
+import { crearSuperficieOfertasBolsa } from "./portal-bolsas-ofertas.js?v=20260926-integracion-bolsa-ct-v1";
 const TAMANO_PAGINA_MARCO = 6; const tablasPaginadas = new WeakMap(); export function calcularPaginaMarco(total, paginaSolicitada, tamano = TAMANO_PAGINA_MARCO) { const cantidad = Number.isSafeInteger(total) && total > 0 ? total : 0; const medida = Number.isSafeInteger(tamano) && tamano > 0 ? tamano : TAMANO_PAGINA_MARCO; const paginas = Math.max(1, Math.ceil(cantidad / medida)); const pagina = Math.min(Math.max(Number.isSafeInteger(paginaSolicitada) ? paginaSolicitada : 1, 1), paginas); const inicio = cantidad === 0 ? 0 : ((pagina - 1) * medida) + 1; const fin = Math.min(pagina * medida, cantidad); return Object.freeze({ total: cantidad, tamano: medida, paginas, pagina, inicio, fin }); } function navegadorRemotoDeTabla(contenedor) { const padre = contenedor.parentElement; return padre?.querySelector(":scope > .ct-exp-paginacion, :scope > .paginacion-bolsa, :scope > nav[aria-label*='aginación'], :scope > nav[aria-label*='aginacion']") || null; } function botonesPaginaMarco(calculo) {
   const paginas = [1, calculo.pagina - 1, calculo.pagina, calculo.pagina + 1, calculo.paginas]
     .filter((pagina) => pagina >= 1 && pagina <= calculo.paginas)
@@ -29,22 +30,39 @@ const TAMANO_PAGINA_MARCO = 6; const tablasPaginadas = new WeakMap(); export fun
     return `${puntos}<button type="button" data-paginacion-marco-pagina="${pagina}" ${pagina === calculo.pagina ? 'aria-current="page"' : ''} aria-label="Página ${pagina}">${pagina}</button>`;
   }).join('');
 }
+// Filas de detalle que acompañan a la fila anterior: no cuentan como registros
+// de la tabla y se muestran u ocultan con ella (resumen de expediente CT, detalle
+// RPT público y ficha de participación abierta en Bolsa).
+function esFilaDetalleMarco(fila) {
+  return fila.hasAttribute('data-personal-rpt-publica-detalle-fila') || fila.hasAttribute('data-ct-exp-resumen-fila')
+    || fila.classList.contains('fila-ficha-participacion');
+}
+function filasPaginablesMarco(tabla) {
+  return Array.from(tabla.tBodies?.[0]?.rows || []).filter((fila) => !esFilaDetalleMarco(fila));
+}
+// Página inicial: la de la fila cuya ficha de participación está abierta, para
+// que la ficha no quede oculta en otra página al volver a pintar la tabla.
+function paginaInicialMarco(filas, tamano) {
+  const indice = filas.findIndex((fila) => fila.nextElementSibling?.classList.contains('fila-ficha-participacion'));
+  return indice < 0 ? 1 : Math.floor(indice / tamano) + 1;
+}
 function pintarPaginacionMarco(tabla, paginaSolicitada = 1) {
   const estado = tablasPaginadas.get(tabla);
   if (!estado || !tabla.isConnected) return;
-  const filas = Array.from(tabla.tBodies?.[0]?.rows || [])
-    .filter((fila) => !fila.hasAttribute('data-personal-rpt-publica-detalle-fila') && !fila.hasAttribute('data-ct-exp-resumen-fila'));
+  const filas = filasPaginablesMarco(tabla);
   const calculo = calcularPaginaMarco(filas.length, paginaSolicitada, estado.tamano);
   filas.forEach((fila, indice) => {
     fila.hidden = indice < calculo.inicio - 1 || indice >= calculo.fin;
     const detalle = fila.nextElementSibling;
     if (detalle?.hasAttribute('data-ct-exp-resumen-fila')) {
       detalle.hidden = fila.hidden || fila.querySelector('[data-ct-exp-resumen]')?.getAttribute('aria-expanded') !== 'true';
+    } else if (detalle?.classList.contains('fila-ficha-participacion')) {
+      detalle.hidden = fila.hidden;
     }
   });
   estado.pagina = calculo.pagina;
   estado.navegacion.innerHTML = `<span aria-live="polite">${traducirPortal('paginacion_marco_recuento', calculo)}</span><span class="paginacion-marco__paginas"><button type="button" data-paginacion-marco-accion="primera" ${calculo.pagina === 1 ? 'disabled' : ''}>${traducirPortal('paginacion_marco_primera')}</button><button type="button" data-paginacion-marco-accion="anterior" ${calculo.pagina === 1 ? 'disabled' : ''}>${traducirPortal('paginacion_marco_anterior')}</button>${botonesPaginaMarco(calculo)}<button type="button" data-paginacion-marco-accion="siguiente" ${calculo.pagina === calculo.paginas ? 'disabled' : ''}>${traducirPortal('paginacion_marco_siguiente')}</button></span>`;
-} function prepararTablaPaginable(contenedor) { const tabla = contenedor.querySelector(":scope > table"); if (!tabla || tablasPaginadas.has(tabla)) return; const remoto = navegadorRemotoDeTabla(contenedor); if (remoto) { remoto.classList.add("paginacion-marco", "paginacion-marco--remota"); contenedor.parentElement?.classList.add("marco-tabla-paginado"); return; } const filas = Array.from(tabla.tBodies?.[0]?.rows || []).filter((fila) => !fila.hasAttribute('data-ct-exp-resumen-fila')); if (filas.length <= TAMANO_PAGINA_MARCO) return; const navegacion = document.createElement("nav"); navegacion.className = "paginacion-marco"; navegacion.setAttribute("aria-label", traducirPortal("paginacion_marco_etiqueta")); contenedor.insertAdjacentElement("afterend", navegacion); contenedor.parentElement?.classList.add("marco-tabla-paginado"); tablasPaginadas.set(tabla, { navegacion, pagina: 1, tamano: TAMANO_PAGINA_MARCO }); pintarPaginacionMarco(tabla); } function actualizarPaginacionesMarco() { document.querySelectorAll("#espacio-trabajo .tabla-contenedor").forEach(prepararTablaPaginable); } function instalarPaginacionMarco() { const espacio = porId("espacio-trabajo"); if (!espacio) return; espacio.addEventListener("click", (evento) => { const control = evento.target.closest("[data-paginacion-marco-accion], [data-paginacion-marco-pagina]"); if (!control || control.disabled) return; const navegacion = control.closest(".paginacion-marco"); const tabla = navegacion?.previousElementSibling?.querySelector(":scope > table"); const estado = tabla && tablasPaginadas.get(tabla); if (!estado) return; const pagina = control.dataset.paginacionMarcoPagina ? Number(control.dataset.paginacionMarcoPagina) : control.dataset.paginacionMarcoAccion === "primera" ? 1 : estado.pagina + (control.dataset.paginacionMarcoAccion === "siguiente" ? 1 : -1); pintarPaginacionMarco(tabla, pagina); tabla.querySelector("tbody tr:not([hidden])")?.querySelector("button, a, [tabindex]")?.focus?.({ preventScroll: true }); }); new MutationObserver(actualizarPaginacionesMarco).observe(espacio, { childList: true, subtree: true }); actualizarPaginacionesMarco(); }
+} function prepararTablaPaginable(contenedor) { const tabla = contenedor.querySelector(":scope > table"); if (!tabla || tablasPaginadas.has(tabla)) return; const remoto = navegadorRemotoDeTabla(contenedor); if (remoto) { remoto.classList.add("paginacion-marco", "paginacion-marco--remota"); contenedor.parentElement?.classList.add("marco-tabla-paginado"); return; } const filas = filasPaginablesMarco(tabla); if (filas.length <= TAMANO_PAGINA_MARCO) return; const navegacion = document.createElement("nav"); navegacion.className = "paginacion-marco"; navegacion.setAttribute("aria-label", traducirPortal("paginacion_marco_etiqueta")); contenedor.insertAdjacentElement("afterend", navegacion); contenedor.parentElement?.classList.add("marco-tabla-paginado"); tablasPaginadas.set(tabla, { navegacion, pagina: 1, tamano: TAMANO_PAGINA_MARCO }); pintarPaginacionMarco(tabla, paginaInicialMarco(filas, TAMANO_PAGINA_MARCO)); } function actualizarPaginacionesMarco() { document.querySelectorAll("#espacio-trabajo .tabla-contenedor").forEach(prepararTablaPaginable); } function instalarPaginacionMarco() { const espacio = porId("espacio-trabajo"); if (!espacio) return; espacio.addEventListener("click", (evento) => { const control = evento.target.closest("[data-paginacion-marco-accion], [data-paginacion-marco-pagina]"); if (!control || control.disabled) return; const navegacion = control.closest(".paginacion-marco"); const tabla = navegacion?.previousElementSibling?.querySelector(":scope > table"); const estado = tabla && tablasPaginadas.get(tabla); if (!estado) return; const pagina = control.dataset.paginacionMarcoPagina ? Number(control.dataset.paginacionMarcoPagina) : control.dataset.paginacionMarcoAccion === "primera" ? 1 : estado.pagina + (control.dataset.paginacionMarcoAccion === "siguiente" ? 1 : -1); pintarPaginacionMarco(tabla, pagina); tabla.querySelector("tbody tr:not([hidden])")?.querySelector("button, a, [tabindex]")?.focus?.({ preventScroll: true }); }); new MutationObserver(actualizarPaginacionesMarco).observe(espacio, { childList: true, subtree: true }); actualizarPaginacionesMarco(); }
 // El portal usa la API interna; Borradores mantiene su cliente autenticado, CAS e idempotencia.
 const DATOS_VACIOS = Object.freeze({
   esquema: "vec.bolsa.panel.no-cargado.v1",
@@ -184,7 +202,7 @@ const coordinadorModulos = crearCoordinadorModulosPortal({ escaparHTML, anunciar
       const registrarDesmontar = (limpiar) => { desmontarRegistrado = limpiar; };
       montarVistaBolsa(vista, raiz, opciones);
       return Object.freeze({ desmontar: () => { if (vista === "elaboracion") superficieBorradoresActiva()?.desmontar();
-        controladorBolsas.cancelarPeticiones(); cancelarAvisosBolsa(); if (vista === "llamamientos") superficieBorradorLlamamiento.desmontar(); } });
+        controladorBolsas.cancelarPeticiones(); cancelarAvisosBolsa(); if (vista === "llamamientos") { superficieBorradorLlamamiento.desmontar(); superficieOfertasBolsa.desmontar(); } } });
     },
   }),
   confirmarOperacion: (descriptor) => window.confirm(`${descriptor.titulo}\n\n${descriptor.advertencia}\n\nReferencia: ${descriptor.referencia}`) });
@@ -301,16 +319,13 @@ async function actualizarSesionVisible() {
 // de módulo pedida por el enlace se monta en cuanto está disponible, una sola
 // vez; si estaba «Comprobando» y su módulo termina sin estarlo, se repinta.
 let inicioComprobando = false;
-// Elaboración se ofrece en el menú según su API de borradores. Se comprueba en
-// cuanto el catálogo confirma Bolsa para esta sesión, en paralelo y sin
-// esperarla; al responder, la superficie avisa y el menú se repinta.
-function comprobarBorradoresTrasCatalogo() {
-  if (!coordinadorModulos.obtenerCatalogo().some((modulo) => modulo.clave === "bolsa")) return;
-  if (superficieBorradores.obtenerAcceso()?.estado !== "cargando") return;
-  void superficieBorradores.comprobarDisponibilidad().catch(() => {});
-}
+// La API de borradores de convocatorias NO se sondea al cargar: un servidor que
+// no la sirve respondería 404 en cada carga. Elaboración solo se ofrece en el
+// menú cuando consta disponible; al abrirla por su enlace se comprueba entonces.
 function alCambiarModulos(clave) {
-  if (clave === "catalogo") comprobarBorradoresTrasCatalogo();
+  // Una vista de un módulo sin entrada (URL directa) arranca su carga diferida
+  // en cuanto el catálogo la autoriza.
+  if (clave === "catalogo") coordinadorModulos.prepararVista(estado.vista);
   if (estado.vista === "portal") { renderizarConservandoFoco(); anunciarAccesosComprobados(); return; }
   if (coordinadorModulos.vistaGestionada(estado.vista) && estado.vistaMontada !== estado.vista
     && (coordinadorModulos.vistaDisponible(estado.vista)
@@ -373,12 +388,15 @@ let secuenciaFuente = 0;
 async function cargarFuenteDatos() {
   const intento = ++secuenciaFuente;
   estado.errorFuente = "";
-  estado.vistaMontada = "";
+  // Una vista de Bolsa ya montada no depende del catálogo de módulos: se
+  // conserva (el coordinador tampoco la retira) y no se vuelve a montar.
+  if (moduloDeVistaPortal(estado.vistaMontada || "") !== "bolsa") estado.vistaMontada = "";
   estado.vistaCerrada = "";
   // La disponibilidad de Bolsa en Inicio y en el menú la decide la API real del
   // cuadro de bolsas: se consulta en paralelo con el catálogo, sin esperarla ni
-  // bloquear los demás módulos. Borradores se comprueba al llegar el catálogo.
-  if (requiereLecturaBolsas(estado.vista) || estado.datosBolsas?.carga !== "listo") void controladorBolsas.cargarBolsas();
+  // bloquear los demás módulos. Una lectura ya en curso no se repite.
+  if (estado.datosBolsas?.carga !== "cargando"
+    && (requiereLecturaBolsas(estado.vista) || estado.datosBolsas?.carga !== "listo")) void controladorBolsas.cargarBolsas();
   await coordinadorModulos.cargarInterno({ alCambiar: alCambiarModulos }).catch((error) => {
     // Una carga sustituida por otra más reciente no es un fallo del catálogo.
     if (error?.codigo === CODIGO_CARGA_SUSTITUIDA || intento !== secuenciaFuente) return;
@@ -499,6 +517,12 @@ function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } =
     return;
   }
   const vistaBolsas = vista === "resumen" || vista === "bolsa-candidatos";
+  if (vistaBolsas && estado.datosBolsas === null) {
+    // Sin lectura del cuadro (p. ej. al recargar con F5 en #bolsa/resumen): se
+    // pide ahora y cargarBolsas pinta la vista «cargando» y después el cuadro.
+    void controladorBolsas.cargarBolsas();
+    return;
+  }
   if (vista === "estadisticas") {
     contenedor.innerHTML = presentadorPanelInterno.renderizarEstadisticasBolsa();
     if (estado.datosEstadisticas === null) void controladorBolsas.cargarEstadisticas();
@@ -513,7 +537,8 @@ function montarVistaBolsa(vista, contenedor, opciones = {}, { activar = true } =
     // Con una bolsa elegida, el llamamiento usa su propia API de borradores:
     // no depende del panel interno agregado ni muestra su aviso.
     if (vista === "llamamientos") { superficieBorradorLlamamiento.activar();
-      contenedor.innerHTML = `${encabezadoVista("", tituloDeVista(vista)[1], "")}${superficieBorradorLlamamiento.renderizar()}`; return; }
+      contenedor.innerHTML = `${encabezadoVista("", tituloDeVista(vista)[1], "")}${superficieBorradorLlamamiento.renderizar()}${superficieOfertasBolsa.renderizar()}`;
+      superficieOfertasBolsa.activar(estado.bolsaSeleccionada); return; }
     contenedor.innerHTML = renderizarFuenteNoDisponible(); return;
   }
   if (vistaBolsas && presentadorPanelInterno.esActivo()) {
@@ -562,6 +587,7 @@ function renderizar() {
     else boton.removeAttribute("aria-current");
   });
   sincronizarMenuBolsa(porId("navegacion-bolsa"), estado.vista);
+  coordinadorModulos.prepararVista(estado.vista);
   const pendiente = estado.vista === "portal" ? coordinadorModulos.inicioPendiente()
     : coordinadorModulos.vistaPendiente(estado.vista);
   if (pendiente) contenedor.setAttribute("aria-busy", "true");
@@ -713,6 +739,10 @@ const superficieBorradores = crearSuperficieBorradoresPortal({
 });
 const superficieBorradorLlamamiento = crearSuperficieBorradorLlamamiento({ anunciar,
   alCambiar: () => { if (estado.vista === "llamamientos") actualizarVistaBolsa(); } });
+// Ofertas publicadas de la bolsa elegida (art. 8.1): módulo propio con sus eventos.
+const superficieOfertasBolsa = crearSuperficieOfertasBolsa({ anunciar,
+  alCambiar: () => { if (estado.vista === "llamamientos") actualizarVistaBolsa(); } });
+superficieOfertasBolsa.instalar(document);
 
 function instalarEventosBorradores() {
   document.addEventListener("click", (evento) => {

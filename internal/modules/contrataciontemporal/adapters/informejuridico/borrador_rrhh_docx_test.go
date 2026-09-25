@@ -26,7 +26,7 @@ func (r *renderizadorDocumentoDOCXPrueba) Renderizar(context.Context, vecdomain.
 func (*renderizadorDocumentoDOCXPrueba) ValidarSalida(context.Context, []byte) error { return nil }
 
 func TestBorradoresRRHHDOCXSeisRepresentacionesValidasYMarcadas(t *testing.T) {
-	renderizador := RenderizadorBorradorDOCXDesarrollo{DOCX: docxvec.Renderizador{}}
+	renderizador := RenderizadorBorradorDOCXDesarrollo{DOCX: docxvec.Renderizador{}, Plantillas: plantillasPrueba(t)}
 	for _, caso := range []struct {
 		tipo     ports.TipoBorradorRRHH
 		esperado string
@@ -81,7 +81,7 @@ func TestBorradorRRHHDOCXDeniegaAntesDeRenderizar(t *testing.T) {
 	doble := &renderizadorDocumentoDOCXPrueba{}
 	detalle := detalleInformeDefinitivoPrueba()
 	detalle.Hitos[6].AccionClave = "ajeno"
-	_, err := (RenderizadorBorradorDOCXDesarrollo{DOCX: doble}).RenderizarBorradorDOCX(
+	_, err := (RenderizadorBorradorDOCXDesarrollo{DOCX: doble, Plantillas: plantillasPrueba(t)}).RenderizarBorradorDOCX(
 		context.Background(), ports.BorradorResolucion, detalle,
 	)
 	if !errors.Is(err, ports.ErrBorradorRRHHNoDisponible) || doble.llamadas != 0 {

@@ -94,7 +94,11 @@ func (h *HandlerContactoParticipacion) registrar(w http.ResponseWriter, r *http.
 	if out.Reutilizado {
 		estado = http.StatusOK
 	}
-	responderContacto(w, estado, map[string]any{"data": salidaContacto(out.Contacto, out.ReciboRef, out.Reutilizado)})
+	datos := salidaContacto(out.Contacto, out.ReciboRef, out.Reutilizado)
+	if out.Intentos != nil {
+		datos["intentos"] = salidaEstadoIntentos(*out.Intentos)
+	}
+	responderContacto(w, estado, map[string]any{"data": datos})
 }
 func (h *HandlerContactoParticipacion) listar(w http.ResponseWriter, r *http.Request, bolsa, participacion string) {
 	if r.ContentLength != 0 || r.Header.Get("Accept") != "application/json" {
@@ -102,12 +106,16 @@ func (h *HandlerContactoParticipacion) listar(w http.ResponseWriter, r *http.Req
 		return
 	}
 	v, e := url.ParseQuery(r.URL.RawQuery)
-	if e != nil || len(v) > 2 {
+	llamamiento, conLlamamiento := v["llamamiento_ref"]
+	if e != nil || len(v) > 3 || (conLlamamiento && !referenciaLlamamientoConsultaValida(llamamiento)) {
 		responderContacto(w, 400, map[string]any{"error": map[string]string{"codigo": "solicitud_invalida"}})
 		return
 	}
 	cursor := v.Get("cursor")
 	limite := 20
+	if conLlamamiento {
+		limite = limiteHistoricoIntentos
+	}
 	if x := v.Get("limite"); x != "" {
 		limite, e = strconv.Atoi(x)
 	}
@@ -129,7 +137,16 @@ func (h *HandlerContactoParticipacion) listar(w http.ResponseWriter, r *http.Req
 	for _, c := range p.Contactos {
 		items = append(items, map[string]any{"contacto_ref": c.ContactoRef, "participacion_ref": c.ParticipacionRef, "llamamiento_ref": valorNulo(c.LlamamientoRef), "canal": c.Canal, "instante": c.Instante.UTC().Format(time.RFC3339Nano), "actor_ref": c.Actor, "resultado": c.Resultado, "anotacion": c.Anotacion})
 	}
-	responderContacto(w, 200, map[string]any{"data": map[string]any{"esquema": "vec.bolsa.rrhh.contactos.v1", "contactos": items, "cursor_siguiente": valorNulo(p.CursorSiguiente), "hay_mas": len(p.Contactos) == limite}})
+	datos := map[string]any{"esquema": "vec.bolsa.rrhh.contactos.v1", "contactos": items, "cursor_siguiente": valorNulo(p.CursorSiguiente), "hay_mas": len(p.Contactos) == limite}
+	if conLlamamiento {
+		intentos, err := h.estadoIntentos(r.Context(), llamamiento[0], p.Contactos, cursor == "" && len(p.Contactos) < limite)
+		if err != nil {
+			responderErrorContacto(w, err)
+			return
+		}
+		datos["intentos"] = intentos
+	}
+	responderContacto(w, 200, map[string]any{"data": datos})
 }
 func ReferenciasRutaContactosParticipacion(r *http.Request) (string, string, bool) {
 	if r == nil || r.URL == nil || r.URL.RawPath != "" || strings.Contains(r.URL.EscapedPath(), "%") {
@@ -151,6 +168,10 @@ func valorNulo(v string) any {
 	return v
 }
 func responderErrorContacto(w http.ResponseWriter, err error) {
+	if codigo := codigoErrorIntento(err); codigo != "" {
+		responderContacto(w, 409, map[string]any{"error": map[string]string{"codigo": codigo}})
+		return
+	}
 	switch {
 	case errors.Is(err, dominiovec.ErrAutorizacionDenegada), errors.Is(err, dominiovec.ErrPermissionDenied):
 		responderContacto(w, 403, map[string]any{"error": map[string]string{"codigo": "acceso_denegado"}})

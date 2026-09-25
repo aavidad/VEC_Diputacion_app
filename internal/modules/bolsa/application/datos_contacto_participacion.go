@@ -25,6 +25,8 @@ type ServicioDatosContactoParticipacion struct {
 	cifrador    puertosbolsa.CifradorDatosContactoParticipacion
 	repositorio puertosbolsa.RepositorioDatosContactoParticipacion
 	reloj       func() time.Time
+	// origen es opcional: sin él solo se registran contactos propios.
+	origen puertosbolsa.PoliticaOrigenDatosContacto
 }
 
 func NuevoServicioDatosContactoParticipacion(
@@ -41,6 +43,16 @@ func NuevoServicioDatosContactoParticipacion(
 	return &ServicioDatosContactoParticipacion{contexto: c, autorizador: a, pertenencia: p, cifrador: cifrador, repositorio: r, reloj: reloj}, nil
 }
 
+// EstablecerPoliticaOrigenDatosContacto habilita el alta de contactos de
+// origen CONVOCA (duda 45) con la vigencia que calcula la política.
+func (s *ServicioDatosContactoParticipacion) EstablecerPoliticaOrigenDatosContacto(p puertosbolsa.PoliticaOrigenDatosContacto) error {
+	if s == nil || p == nil {
+		return ErrRegistroDatosContactoParticipacionNoDisponible
+	}
+	s.origen = p
+	return nil
+}
+
 func (s *ServicioDatosContactoParticipacion) Registrar(ctx context.Context, solicitud puertosbolsa.SolicitudRegistrarDatosContactoParticipacion) (puertosbolsa.RegistroDatosContactoParticipacion, error) {
 	if ctx == nil || s == nil || solicitud.Validar() != nil {
 		return puertosbolsa.RegistroDatosContactoParticipacion{}, ErrRegistroDatosContactoParticipacionNoDisponible
@@ -48,6 +60,10 @@ func (s *ServicioDatosContactoParticipacion) Registrar(ctx context.Context, soli
 	datos := solicitud.Datos.Normalizar()
 	if err := datos.Validar(); err != nil {
 		return puertosbolsa.RegistroDatosContactoParticipacion{}, err
+	}
+	conOrigen := solicitud.Origen == dominiobolsa.OrigenDatosContactoConvoca
+	if conOrigen && s.origen == nil {
+		return puertosbolsa.RegistroDatosContactoParticipacion{}, puertosbolsa.ErrOrigenDatosContactoNoConfigurado
 	}
 	actor := solicitud.ResultadoContexto.Contexto
 	resuelto, err := s.contexto.ResolverContextoSituacionParticipacion(ctx, actor, solicitud.BolsaRef, solicitud.ParticipacionRef)
@@ -82,7 +98,7 @@ func (s *ServicioDatosContactoParticipacion) Registrar(ctx context.Context, soli
 		if errComparacion != nil {
 			return puertosbolsa.RegistroDatosContactoParticipacion{}, errComparacion
 		}
-		if !iguales || previo.Motivo != solicitud.Motivo {
+		if !iguales || previo.Motivo != solicitud.Motivo || (previo.Origen != nil) != conOrigen {
 			return puertosbolsa.RegistroDatosContactoParticipacion{}, dominiobolsa.ErrDatosContactoParticipacionInvalidos
 		}
 		previo.Reutilizada = true
@@ -92,10 +108,16 @@ func (s *ServicioDatosContactoParticipacion) Registrar(ctx context.Context, soli
 		return puertosbolsa.RegistroDatosContactoParticipacion{}, err
 	}
 	version := uint64(1)
+	var anteriores *dominiobolsa.DatosContactoParticipacion
 	vigente, err := s.repositorio.DatosContactoVigentes(ctx, solicitud.ParticipacionRef)
 	switch {
 	case err == nil:
 		version = vigente.Version + 1
+		previos, errPrevios := s.descifrar(ctx, vigente)
+		if errPrevios != nil {
+			return puertosbolsa.RegistroDatosContactoParticipacion{}, errPrevios
+		}
+		anteriores = &previos
 	case errors.Is(err, puertosbolsa.ErrDatosContactoParticipacionNoEncontrados):
 	default:
 		return puertosbolsa.RegistroDatosContactoParticipacion{}, err
@@ -109,12 +131,22 @@ func (s *ServicioDatosContactoParticipacion) Registrar(ctx context.Context, soli
 		return puertosbolsa.RegistroDatosContactoParticipacion{}, ErrRegistroDatosContactoParticipacionNoDisponible
 	}
 	ahora := s.reloj().UTC().Truncate(time.Microsecond)
+	var marca *dominiobolsa.MarcaOrigenDatosContacto
+	if conOrigen {
+		calculada, errMarca := s.origen.MarcaOrigenConvoca(ctx, ahora)
+		if errMarca != nil || calculada.Validar() != nil || !calculada.VigenteHasta.After(ahora) {
+			return puertosbolsa.RegistroDatosContactoParticipacion{}, puertosbolsa.ErrOrigenDatosContactoNoConfigurado
+		}
+		marca = &calculada
+	}
 	h := sha256.Sum256([]byte(solicitud.ParticipacionRef + "\x1f" + solicitud.ClaveIdempotencia))
 	registrado, err := s.repositorio.RegistrarDatosContacto(ctx, puertosbolsa.ComandoRegistrarDatosContactoParticipacion{
 		ParticipacionRef: solicitud.ParticipacionRef, BolsaRef: solicitud.BolsaRef, Sobre: sobre, Motivo: solicitud.Motivo,
 		Actor: actor.PersonaRef, RegistradaEn: ahora, ClaveIdempotencia: solicitud.ClaveIdempotencia,
 		ReciboRef:             "recibo:datos-contacto:" + hex.EncodeToString(h[:]),
 		SolicitudAutorizacion: auth, Decision: decision, Confirmacion: confirmacion, Material: material,
+		CamposCambiados: dominiobolsa.CamposContactoCambiados(anteriores, datos),
+		Origen:          marca,
 	})
 	if err != nil {
 		return puertosbolsa.RegistroDatosContactoParticipacion{}, err
@@ -124,7 +156,7 @@ func (s *ServicioDatosContactoParticipacion) Registrar(ctx context.Context, soli
 		if compararErr != nil {
 			return puertosbolsa.RegistroDatosContactoParticipacion{}, compararErr
 		}
-		if !iguales || registrado.Motivo != solicitud.Motivo {
+		if !iguales || registrado.Motivo != solicitud.Motivo || (registrado.Origen != nil) != conOrigen {
 			return puertosbolsa.RegistroDatosContactoParticipacion{}, dominiobolsa.ErrDatosContactoParticipacionInvalidos
 		}
 	}
@@ -156,7 +188,12 @@ func (s *ServicioDatosContactoParticipacion) Consultar(ctx context.Context, soli
 	if err != nil {
 		return puertosbolsa.DatosContactoParticipacionLeidos{}, err
 	}
-	return puertosbolsa.DatosContactoParticipacionLeidos{ParticipacionRef: vigente.ParticipacionRef, Version: vigente.Version, RegistradaEn: vigente.RegistradaEn, Datos: datos, Enmascarados: datos.Enmascarados()}, nil
+	leidos := puertosbolsa.DatosContactoParticipacionLeidos{ParticipacionRef: vigente.ParticipacionRef, Version: vigente.Version, RegistradaEn: vigente.RegistradaEn, Datos: datos, Enmascarados: datos.Enmascarados()}
+	if vigente.Origen != nil {
+		marca := *vigente.Origen
+		leidos.Origen, leidos.EstadoOrigen = &marca, marca.Estado(s.reloj().UTC())
+	}
+	return leidos, nil
 }
 
 func (s *ServicioDatosContactoParticipacion) descifrar(ctx context.Context, registro puertosbolsa.RegistroDatosContactoParticipacion) (dominiobolsa.DatosContactoParticipacion, error) {

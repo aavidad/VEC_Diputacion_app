@@ -236,6 +236,10 @@ test("contrato de contactos y acciones: validación estricta de contacto y respu
 
   const validado = validarContacto(contactoValido);
   assert.equal(validado.contacto_ref, "contacto:sintetico:001");
+  // Una huella del sistema que acaba en nueve cifras no es un teléfono.
+  const huellaConCifras = "llamamiento:" + "abcdef0123".repeat(5) + "abcde612345678";
+  assert.equal(validarContacto({ ...contactoValido, llamamiento_ref: huellaConCifras }).llamamiento_ref, huellaConCifras);
+  assert.throws(() => validarContacto({ ...contactoValido, llamamiento_ref: "llamamiento:612345678" }), /datos personales/);
   assert.equal(validado.canal, "telefono");
   assert.equal(validado.resultado, "acepta");
 

@@ -44,7 +44,7 @@ func escenarioRevisionManualPrueba(t *testing.T) (context.Context, *proveedorCom
 	if err := j.ValidarPara(s); err != nil {
 		t.Fatal("fixture justificante", err)
 	}
-	l := aceptacionRevisadaDesarrollo{solicitud: s, justificante: j}
+	l := aceptacionRevisadaDesarrollo{solicitud: s, justificante: j, politica: politicaManualDesarrollo()}
 	l.local = ports.ResultadoResolucionLlamamiento{Solicitud: s, Politica: politicaManualDesarrollo(),
 		EvaluacionPlazoRef: "evaluacion:manual-prueba", EstadoPlazo: ports.PlazoLlamamientoVigente,
 		ResolucionRef: "resolucion:manual-prueba", ReciboLocalRef: "recibo:manual-prueba", AuditoriaRef: "auditoria:manual-prueba",

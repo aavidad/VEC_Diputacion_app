@@ -29,6 +29,46 @@
       "base_juridica": "pendiente_rrhh",
       "plazo_anios": 10,
       "proteccion": "conservacion"
+    },
+    {
+      "tipo": "contratacion_temporal.formalizacion.documento_identidad.v1",
+      "procedimiento": "contratacion_temporal.expediente",
+      "serie": "contratacion_temporal.documentacion_incorporacion",
+      "base_juridica": "pendiente_rrhh",
+      "plazo_anios": 10,
+      "proteccion": "conservacion"
+    },
+    {
+      "tipo": "contratacion_temporal.formalizacion.titulacion.v1",
+      "procedimiento": "contratacion_temporal.expediente",
+      "serie": "contratacion_temporal.documentacion_incorporacion",
+      "base_juridica": "pendiente_rrhh",
+      "plazo_anios": 10,
+      "proteccion": "conservacion"
+    },
+    {
+      "tipo": "contratacion_temporal.formalizacion.declaracion_no_separacion.v1",
+      "procedimiento": "contratacion_temporal.expediente",
+      "serie": "contratacion_temporal.documentacion_incorporacion",
+      "base_juridica": "pendiente_rrhh",
+      "plazo_anios": 10,
+      "proteccion": "conservacion"
+    },
+    {
+      "tipo": "contratacion_temporal.formalizacion.declaracion_compatibilidad.v1",
+      "procedimiento": "contratacion_temporal.expediente",
+      "serie": "contratacion_temporal.documentacion_incorporacion",
+      "base_juridica": "pendiente_rrhh",
+      "plazo_anios": 10,
+      "proteccion": "conservacion"
+    },
+    {
+      "tipo": "contratacion_temporal.formalizacion.certificado_delitos_sexuales.v1",
+      "procedimiento": "contratacion_temporal.expediente",
+      "serie": "contratacion_temporal.documentacion_incorporacion",
+      "base_juridica": "pendiente_rrhh",
+      "plazo_anios": 10,
+      "proteccion": "conservacion"
     }
   ]
 }

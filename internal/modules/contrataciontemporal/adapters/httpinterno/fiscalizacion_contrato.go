@@ -252,7 +252,9 @@ func reciboFiscalizacionSeguro(
 			domain.ReferenciaOpacaValida(r.UnidadRetornoRef) &&
 			domain.ReferenciaOpacaValida(r.ResponsableRetornoRef)
 	}
-	transicionValida := r.FaseResultante == domain.FaseFiscalizacion &&
+	// Favorable: queda en fiscalización o, si fiscaliza una modificación
+	// tras el nombramiento (CT120), vuelve al nombramiento.
+	transicionValida := (r.FaseResultante == domain.FaseFiscalizacion || r.FaseResultante == domain.FaseNombramiento) &&
 		r.EstadoResultante == domain.EstadoEnCurso &&
 		r.UnidadRetornoRef == "" && r.ResponsableRetornoRef == ""
 	if r.Resultado == domain.FiscalizacionDesfavorable {

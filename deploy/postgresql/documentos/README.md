@@ -38,8 +38,12 @@ El PDP V3 real fija `huella_efecto_sha256` y `contexto_recurso_huella_sha256`
 como SHA-256 del contexto canónico del recurso autorizado, no de la
 preimagen. `consumir_v3_v1/v2` (000001/000002, nunca instaladas, corregidas
 en su sitio) exigen esa huella del recurso
-`{"ambitos":{},"atributos":{"preimagen_sha256":"<hex>"}}`, que es la que
-construye `ports.RecursoV3` en Go. 000004 ya no las reescribe: comprueba
+`{"ambitos":{"organizacion_ref":"organizacion:desarrollo:dipgra"},"atributos":{"preimagen_sha256":"<hex>"}}`,
+que es la que construye `ports.RecursoV3` en Go. El ámbito de organización
+(`ports.OrganizacionRefV3`) es obligatorio: toda asignación AD3 declara al
+menos un ámbito y solo cubre recursos con las mismas claves, así que la
+asignación que conceda Documentos debe tener exactamente
+`organizacion_ref = organizacion:desarrollo:dipgra`. 000004 ya no las reescribe: comprueba
 antes de crear nada que el SHA-256 de su cuerpo instalado (`prosrc`)
 coincide con el de los cuerpos exactos de 000001/000002, que ligan esa huella,
 y publica la misma expresión como `huella_efecto_v1`. Si se corrige alguno de
@@ -219,6 +223,27 @@ identidad de desarrollo; el catálogo de motivos y las concesiones de
 `["items","siguiente_cursor"]`) son datos de autorización, no de este montaje.
 
 Queda publicada la consulta `POST /api/vec/documentos/expedientes/consultas`.
+
+El material puede declarar además, de forma opcional, el registro de
+referencias externas:
+
+```json
+"registro_externo": {
+  "motivo": {"catalogo_id": "<mismo catálogo que listar>", "catalogo_version": 1, "catalogo_huella_sha256": "...", "entrada_clave": "..."},
+  "admitidos": [{"prefijo_tipo": "contratacion_temporal.formalizacion.", "modulo_id": "contratacion_temporal", "custodio_id": "<sistema que guarda el original>"}]
+}
+```
+
+Con él se publica `POST /api/vec/documentos/externos/registros`
+(`clave_idempotencia`, `expediente_ref`, `tipo`, `referencia`, `huella_sha256`).
+El navegador solo elige el tipo; módulo y custodio salen de `admitidos` y el
+tipo debe tener política en el catálogo de conservación. La concesión V3
+(`documentos.externo.registrar`, tipo `documento_externo`) se pide después de
+resolver la política, ligada a la preimagen exacta. El identificador del
+documento se deriva de expediente y clave, de modo que un reintento no
+duplica. La respuesta no devuelve la referencia ni el custodio. Anotar no
+acredita firma, registro ni entrega. Sin `registro_externo` la ruta no existe;
+sin concesión V3 responde 403.
 La descarga de originales no se publica todavía: leer el original exige una
 decisión de almacén propia (`NuevoContextoLeerDocumentoGeneradoAlmacen`) que
 la raíz no puede obtener del PDP V3; la lista marca `descargable:false`.

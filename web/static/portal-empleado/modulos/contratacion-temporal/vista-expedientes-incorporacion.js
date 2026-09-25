@@ -82,16 +82,46 @@ export function crearGestorIncorporacion({
     }
   }
 
+  // Expediente cuya incorporación ya se ha pedido: los repintados posteriores
+  // del mismo expediente (también tras confirmarla) la vuelven a consultar.
+  let incorporacionSolicitada = "";
+  const claveIncorporacion = (expediente) => expediente?.expediente_ref || "";
+
+  function incorporacionProcede(estado) {
+    return esMontada() && incorporacionEjercicioDisponible
+      && estado.carga === "listo" && estado.expediente?.demostracion === false
+      && estado.vista === "expediente" && Number.isSafeInteger(estado.expediente?.version)
+      && estado.expediente.version >= 8;
+  }
+
+  /**
+   * Al abrir el expediente la incorporación NO se consulta: la mayoría de los
+   * expedientes en nombramiento no tienen preparación sellada y el servidor
+   * respondería 409 («preparacion_pendiente»). Se ofrece un botón y se consulta
+   * al pedirla; una vez pedida para este detalle, los repintados la consultan.
+   */
+  async function ofrecerIncorporacionEjercicio() {
+    const estado = presentador.obtenerEstado();
+    if (!incorporacionProcede(estado) || desmontarIncorporacionEjercicio || consultaIncorporacionEjercicio) return;
+    if (incorporacionSolicitada === claveIncorporacion(estado.expediente)) {
+      await montarIncorporacionEjercicio();
+      return;
+    }
+    const contenedor = raiz.querySelector("[data-ct-exp-incorporacion-ejercicio]");
+    if (!contenedor) return;
+    const t = crearTraductorExpedientesContratacion(mensajes);
+    contenedor.innerHTML = `<p class="ct-ayuda">${escaparHTML(t("incorporacion_consulta_bajo_demanda"))}</p>
+      <button class="boton-secundario" type="button" data-ct-exp-accion="consultar-incorporacion">${escaparHTML(t("incorporacion_consultar"))}</button>`;
+  }
+
   async function montarIncorporacionEjercicio() {
     const estado = presentador.obtenerEstado();
-    if (!esMontada() || !incorporacionEjercicioDisponible || desmontarIncorporacionEjercicio || consultaIncorporacionEjercicio
-      || estado.carga !== "listo" || estado.expediente?.demostracion !== false
-      || estado.vista !== "expediente" || !Number.isSafeInteger(estado.expediente?.version)
-      || estado.expediente.version < 8) return;
+    if (!incorporacionProcede(estado) || desmontarIncorporacionEjercicio || consultaIncorporacionEjercicio) return;
     const contenedor = raiz.querySelector("[data-ct-exp-incorporacion-ejercicio]");
     if (!contenedor) return;
     const expedienteRef = estado.expediente.expediente_ref;
     const version = estado.expediente.version;
+    incorporacionSolicitada = claveIncorporacion(estado.expediente);
     const controlador = new AbortController();
     consultaIncorporacionEjercicio = controlador;
     const vigente = () => {
@@ -344,6 +374,7 @@ export function crearGestorIncorporacion({
   return Object.freeze({
     montarResolucionFormalizacion,
     montarIncorporacionEjercicio,
+    ofrecerIncorporacionEjercicio,
     abortar() {
       consultaResolucionFormalizacion?.abort();
       consultaResolucionFormalizacion = null;

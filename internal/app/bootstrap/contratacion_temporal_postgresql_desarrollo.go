@@ -5,8 +5,10 @@ import (
 	"crypto/ed25519"
 	"errors"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 	"vec-diputacion-granada/config"
@@ -73,19 +75,22 @@ type materialAtestacionContratacionTemporalDesarrollo struct {
 }
 
 type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
-	ejecucion                         *pgxpool.Pool
-	bolsa                             *pgxpool.Pool
-	gobierno                          *pgxpool.Pool
-	registroAutorizacion              *pgxpool.Pool
-	confirmador                       *pgxpool.Pool
-	lectorResultado                   *postgrescontratacion.PoolRecuperacionCoberturaO405PostgreSQL
-	registradorAuditoriaFrontera      *postgresvec.RegistradorAuditoriaFronteraRutaExactaPostgreSQL
-	auditoriaFrontera                 *pgxpool.Pool
-	candidaturas                      ports.ResolutorCandidaturaAlta
-	transaccionAlta                   ports.TransaccionAltasCandidata
-	proveedorMaterial                 *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialBolsa            *proveedorMaterialAltaContratacionTemporalDesarrollo
-	proveedorMaterialMiBolsa          *proveedorMaterialAltaContratacionTemporalDesarrollo
+	ejecucion                    *pgxpool.Pool
+	bolsa                        *pgxpool.Pool
+	gobierno                     *pgxpool.Pool
+	registroAutorizacion         *pgxpool.Pool
+	confirmador                  *pgxpool.Pool
+	lectorResultado              *postgrescontratacion.PoolRecuperacionCoberturaO405PostgreSQL
+	registradorAuditoriaFrontera *postgresvec.RegistradorAuditoriaFronteraRutaExactaPostgreSQL
+	auditoriaFrontera            *pgxpool.Pool
+	candidaturas                 ports.ResolutorCandidaturaAlta
+	transaccionAlta              ports.TransaccionAltasCandidata
+	proveedorMaterial            *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialBolsa       *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialMiBolsa     *proveedorMaterialAltaContratacionTemporalDesarrollo
+	// proveedoresMaterialPortal: uno por acción propia del candidato que
+	// tiene consumidor compuesto (AD3-84 con Bolsa 000030).
+	proveedoresMaterialPortal         map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialBorradorCrear    *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialBorradorConsulta *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialSituacion        *proveedorMaterialAltaContratacionTemporalDesarrollo
@@ -95,12 +100,14 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	proveedorMaterialEmision          *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialDespachoCorreo   *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialResultadoCorreo  *proveedorMaterialAltaContratacionTemporalDesarrollo
+	proveedorMaterialFirmaDocumento   *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialDietas                    materialDietasDesdeCTDesarrollo
 	materialCronos                    materialCronosDesdeCTDesarrollo
 	materialDocumentos                *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialPersonalFichaPropia       *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialPersonalB2                [8]CapacidadPublicadaPersonalB2V3
 	detenerRenovacion                 func()
+	detenerEntregaContratos           func()
 	catalogoMaterial                  catalogoMaterialAutorizacionComunDesarrollo
 	cerrarUnaVez                      func()
 }
@@ -218,6 +225,9 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			if dependencias.detenerRenovacion != nil {
 				dependencias.detenerRenovacion()
 			}
+			if dependencias.detenerEntregaContratos != nil {
+				dependencias.detenerEntregaContratos()
+			}
 			if dependencias.bolsa != nil {
 				dependencias.bolsa.Close()
 			}
@@ -304,38 +314,12 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	if err != nil {
 		return vacias, err
 	}
-	descriptoresMaterial := descriptoresMaterialAutorizacionContratacionTemporalDesarrollo()
-	if cfg.BolsaBorradoresEnabled {
-		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialBorradorLlamamientoBolsaDesarrollo()...)
-	}
-	if debeComponerMiBolsaDesarrollo(cfg) {
-		descriptoresMaterial = append(descriptoresMaterial, descriptorMaterialMiBolsaDesarrollo())
-	}
-	if dietasBorradoresSolicitadas(cfg.DietasBorradoresEnabled) {
-		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialDietasDesarrollo()...)
-	}
-	if cronosEmpleadoSolicitado(cfg.CronosEmpleadoEnabled) {
-		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialCronosDesarrollo()...)
-	}
-	if documentosSolicitados(cfg.DocumentosEnabled) {
-		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialDocumentosDesarrollo()...)
-	}
-	if cronosResolucionSolicitada(cfg.CronosEmpleadoEnabled, cfg.CronosResolucionEnabled) {
-		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialCronosResolucionDesarrollo()...)
-	}
-	if cronosNotificacionesSolicitadas(cfg.CronosEmpleadoEnabled, cfg.CronosNotificacionesEnabled) {
-		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialCronosNotificacionesDesarrollo()...)
-	}
-	if personalEmpleadoSolicitado(cfg.PersonalEmpleadoEnabled) {
-		descriptoresMaterial = append(descriptoresMaterial, descriptorMaterialFichaPropiaPersonalDesarrollo())
-	}
-	personalB2, err := cfg.PersonalB2GobiernoDesarrolloActivo()
+	seleccion, err := seleccionMaterialCTDesarrolloDesdeConfig(cfg)
 	if err != nil {
 		return vacias, err
 	}
-	if personalB2 {
-		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialPersonalB2Desarrollo()...)
-	}
+	firmaDocumento, personalB2 := seleccion.firmaDocumento, seleccion.personalB2
+	descriptoresMaterial := descriptoresMaterialSeleccionadosCTDesarrollo(seleccion)
 	catalogoMaterial, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(descriptoresMaterial)
 	if err != nil {
 		return vacias, errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
@@ -398,6 +382,12 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			return vacias, err
 		}
 	}
+	if firmaDocumento {
+		dependencias.proveedorMaterialFirmaDocumento, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, ports.AudienciaFirmaDocumentoV3)
+		if err != nil {
+			return vacias, err
+		}
+	}
 	if personalB2 {
 		// vec-server no consume B2: sólo publica sus claves para vec-interno.
 		dependencias.materialPersonalB2, err = publicarMaterialPersonalB2Desarrollo(ctx, gobierno, material, catalogoMaterial)
@@ -420,17 +410,33 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			return vacias, err
 		}
 		dependencias.bolsa = bolsa
+		if seleccion.portalCandidato {
+			if err := comprobarMigracionesPortalCandidatoDesarrollo(ctx, bolsa); err != nil {
+				slog.Error("portal del candidato de Bolsa encendido sin sus migraciones", "causa", err)
+				return vacias, err
+			}
+		}
 		proveedorBolsa, err := nuevoProveedorMaterialBolsaDesarrollo(ctx, gobierno, material, soporte, reloj)
 		if err != nil {
 			return vacias, err
 		}
 		dependencias.proveedorMaterialBolsa = proveedorBolsa
-		if debeComponerMiBolsaDesarrollo(cfg) {
+		if seleccion.miBolsa {
 			proveedorMiBolsa, err := nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, puertosbolsa.AudienciaMiBolsa)
 			if err != nil {
 				return vacias, err
 			}
 			dependencias.proveedorMaterialMiBolsa = proveedorMiBolsa
+		}
+		if seleccion.portalCandidato {
+			dependencias.proveedoresMaterialPortal = make(map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo, len(accionesPropiasPortalDesarrollo()))
+			for _, par := range accionesPropiasPortalDesarrollo() {
+				proveedor, err := nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, par[1])
+				if err != nil {
+					return vacias, err
+				}
+				dependencias.proveedoresMaterialPortal[par[0]] = proveedor
+			}
 		}
 		if cfg.BolsaBorradoresEnabled {
 			proveedorBorradorCrear, err := nuevoProveedorMaterialBorradorLlamamientoDesarrollo(
@@ -524,6 +530,12 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	dependencias.transaccionAlta = transaccion
 	dependencias.proveedorMaterial = proveedor
 	dependencias.detenerRenovacion = iniciarRenovacionProgramadaCTDesarrollo(material.fuenteConfianza, esperarTemporizadorCTDesarrollo)
+	if dependencias.bolsa != nil && cfg.BolsaBorradoresEnabled {
+		// B13: el relevo es opcional; si su configuración es inválida no arranca.
+		if dependencias.detenerEntregaContratos, err = iniciarEntregaContratosCTBolsaDesarrollo(cfg.BolsaContratosCT, ejecucion, dependencias.bolsa); err != nil {
+			slog.Error("entrega de contratos CT a Bolsa no iniciada", "causa", err)
+		}
+	}
 	completa = true
 	return dependencias, nil
 }
@@ -535,6 +547,41 @@ func descriptorMaterialMiBolsaDesarrollo() descriptorMaterialConsumidorV3Desarro
 		Prefijo:          "clave:capacidad:bolsa-mi-bolsa:",
 		ProveedorNominal: "proveedor-material-bolsa-mi-bolsa",
 	}
+}
+
+// descriptoresMaterialPortalCandidatoDesarrollo declara las cuatro audiencias
+// de AD3-84 en el catálogo común de material.
+func descriptoresMaterialPortalCandidatoDesarrollo() []descriptorMaterialConsumidorV3Desarrollo {
+	descriptores := make([]descriptorMaterialConsumidorV3Desarrollo, 0, 4)
+	for _, par := range puertosbolsa.AccionesPortalCandidato() {
+		nombre := strings.TrimPrefix(par[0], "bolsa.participaciones_propias.")
+		descriptores = append(descriptores, descriptorMaterialConsumidorV3Desarrollo{
+			Audiencia:        par[1],
+			Dominio:          "vec.bolsa.mi-bolsa." + nombre + ".desarrollo.capacidad-v3",
+			Prefijo:          "clave:capacidad:bolsa-mi-bolsa-" + strings.ReplaceAll(nombre, "_", "-") + ":",
+			ProveedorNominal: "proveedor-material-bolsa-mi-bolsa-" + strings.ReplaceAll(nombre, "_", "-"),
+		})
+	}
+	return descriptores
+}
+
+// debeComponerPortalCandidatoDesarrollo: las acciones propias existen solo
+// si se piden expresamente (VEC_BOLSA_PORTAL_CANDIDATO_ENABLED, que exige
+// AD3-84, AD3-86 y Bolsa 000029, 000030 y 000040 instaladas; el arranque lo
+// comprueba en comprobarMigracionesPortalCandidatoDesarrollo), con «Mi bolsa»
+// compuesta y catálogo de reglas de Bolsa que las rija. Un selector inválido
+// se rechaza al arrancar.
+func debeComponerPortalCandidatoDesarrollo(cfg config.Config) bool {
+	activo, err := cfg.BolsaPortalCandidatoDesarrolloActivo()
+	if err != nil {
+		slog.Error("portal del candidato de Bolsa no compuesto: selector inválido", "causa", err)
+		return false
+	}
+	if !activo {
+		return false
+	}
+	rutas, activas, err := cfg.ReglasEjemploDesarrollo()
+	return debeComponerMiBolsaDesarrollo(cfg) && err == nil && activas && rutas.BolsaSourcePath != ""
 }
 
 func debeComponerMiBolsaDesarrollo(cfg config.Config) bool {

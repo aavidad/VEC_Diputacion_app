@@ -90,7 +90,10 @@ export function montarModuloFiscalizacionContratacionTemporal({
       zonaHoraria,
       anunciar,
       alConfirmar: (recibo) => {
-        if (recibo.resultado === "desfavorable" || recibo.version_resultante < 6
+        // Solo la fiscalización que deja el expediente en fiscalización abre
+        // el llamamiento; la de una modificación vuelve al nombramiento.
+        if (recibo.resultado === "desfavorable" || recibo.fase_resultante !== "fiscalizacion"
+          || recibo.version_resultante < 6
           || desmontarLlamamiento !== null || ![
             "seleccionarLlamamiento",
             "registrarComunicacionLlamamiento",

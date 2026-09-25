@@ -42,6 +42,10 @@ type RegistroContactoParticipacion struct {
 	Contacto    dominiobolsa.ContactoParticipacion
 	ReciboRef   string
 	Reutilizado bool
+	// ResumenPrevio lo devuelve el repositorio cuando se pidió control de
+	// intentos; Intentos lo completa la aplicación con avisos y propuesta.
+	ResumenPrevio *dominiobolsa.ResumenIntentosTelefonicos
+	Intentos      *dominiobolsa.EstadoIntentosTelefonicos
 }
 type ComandoRegistrarContactoParticipacion struct {
 	Contacto                     dominiobolsa.ContactoParticipacion
@@ -50,6 +54,9 @@ type ComandoRegistrarContactoParticipacion struct {
 	Decision                     dominiovec.DecisionAutorizacionLigadaV3
 	Confirmacion                 puertosvec.ConfirmacionRegistroConcesionAutorizacionLigadaV3
 	Material                     puertosvec.ExportacionMaterialConsumoAutorizacionAtestadaV3
+	// ControlIntentos, si existe, hace que el repositorio controle en la misma
+	// transacción los intentos telefónicos del llamamiento.
+	ControlIntentos *dominiobolsa.PoliticaIntentosTelefonicos
 }
 type ConsultaContactosParticipacion struct {
 	Vinculo                            dominiovec.VinculoAutenticacionActorV2

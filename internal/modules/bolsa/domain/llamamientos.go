@@ -795,12 +795,14 @@ type OrdenProponerSiguienteLlamamiento struct {
 }
 
 // ProponerSiguienteLlamamiento conserva la instantánea íntegra y no reevalúa ni
-// convierte en inelegible al renunciante. Solo admite el tramo contiguo posterior.
+// convierte en inelegible a quien renunció o no respondió en plazo. Solo admite
+// el tramo contiguo posterior a un terminal de renuncia o de expiración.
 func ProponerSiguienteLlamamiento(o OrdenProponerSiguienteLlamamiento) (PropuestaLlamamiento, error) {
 	a, c, d := o.Anterior, o.Continuacion, o.Terminal.Datos()
 	t, terminal := o.Terminal.Terminal()
 	if a.Validar() != nil || c.Validar() != nil || o.Terminal.Validar() != nil || !terminal ||
-		t.Estado != EstadoLlamamientoRenunciado || t.OperacionRef != c.TerminalOperacionRef || d.Version != 2 ||
+		(t.Estado != EstadoLlamamientoRenunciado && t.Estado != EstadoLlamamientoExpirado) ||
+		t.OperacionRef != c.TerminalOperacionRef || d.Version != 2 ||
 		d.PropuestaRef != a.PropuestaRef || d.BolsaRef != a.BolsaRef || d.NecesidadRef != a.NecesidadRef ||
 		c.PropuestaRef != a.PropuestaRef || c.PropuestaSHA256 != a.HuellaContenidoSHA256 || c.OrdenAnterior != a.OrdenSeleccionado ||
 		o.Orden.PropuestaRef == a.PropuestaRef || o.Orden.GeneradaEn.Before(a.GeneradaEn) ||
@@ -1114,7 +1116,7 @@ func claveMotivoEvaluacion(motivo MotivoEvaluacionLlamamiento) string {
 
 func referenciaLlamamientoOpacaValida(valor string) bool {
 	return referenciaOpacaValida(valor) && !strings.Contains(valor, "*") &&
-		!patronDocumentoIdentidadEnReferencia.MatchString(valor) &&
+		(ReferenciaPropiaSistema(valor) || !patronDocumentoIdentidadEnReferencia.MatchString(valor)) &&
 		!patronEtiquetaDocumentoIdentidad.MatchString(valor)
 }
 

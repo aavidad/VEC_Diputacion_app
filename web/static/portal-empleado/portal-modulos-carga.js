@@ -5,7 +5,10 @@ export const CLAVES_CARGA_MODULAR = Object.freeze([
   "dietas",
 ]);
 
-export const LIMITE_CARGA_MODULAR_MS = 2_000;
+// Límite de cada carga modular (código del módulo y cada consulta inicial). Con
+// 2 s una red lenta dejaba módulos «no disponibles» toda la sesión: la
+// importación se encolaba tras otras peticiones y el temporizador ganaba.
+export const LIMITE_CARGA_MODULAR_MS = 10_000;
 
 export function cargarModuloConLimite(cargar, clave, limiteMs, temporizadores) {
   if (typeof temporizadores?.setTimeout !== "function"

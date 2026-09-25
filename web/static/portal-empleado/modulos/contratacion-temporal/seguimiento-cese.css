@@ -1,0 +1,66 @@
+/* Panel de seguimiento del nombramiento (cese, cierre y modificación).
+ * Reutiliza el panel de fase (.ct-exp-fase-panel) y los tokens del tema; solo
+ * añade la rejilla de los formularios y el texto de ayuda plegable. */
+.ct-seg-cese .ct-seg-cese-form {
+  margin: 16px 0 0;
+  padding: 16px;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio-lg);
+  background: var(--portal-superficie-alterna);
+}
+
+.ct-seg-cese .ct-seg-cese-form h4 {
+  margin: 0 0 12px;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.ct-seg-cese-rejilla {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px 16px;
+}
+
+.ct-seg-cese-rejilla .ct-seg-cese-ancho {
+  grid-column: 1 / -1;
+}
+
+.ct-seg-cese-rejilla input,
+.ct-seg-cese-rejilla select,
+.ct-seg-cese-rejilla textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.ct-seg-cese-condiciones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  color: var(--portal-muted);
+}
+
+.ct-seg-cese-motivo {
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border-radius: var(--portal-radio-md);
+  background: var(--portal-aviso-suave);
+}
+
+.ct-seg-cese-texto-ayuda {
+  margin: 12px 0 0;
+  padding: 12px 16px;
+  border-radius: var(--portal-radio-md);
+  background: var(--portal-superficie-alterna);
+  color: var(--portal-tinta);
+}
+
+.ct-seg-cese-ayuda {
+  min-width: 32px;
+  font-weight: 600;
+}
+
+.ct-seg-cese .ct-acciones {
+  margin-top: 12px;
+}

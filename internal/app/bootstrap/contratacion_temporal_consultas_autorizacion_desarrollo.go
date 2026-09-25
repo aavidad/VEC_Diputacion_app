@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 	"vec-diputacion-granada/config"
+	bolsahttp "vec-diputacion-granada/internal/modules/bolsa/adapters/httpinterno"
 	bolsapersonal "vec-diputacion-granada/internal/modules/bolsa/adapters/httppersonal"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
@@ -87,7 +88,7 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 		r.Context(), r,
 	)
 	validoRuta := principalContratacionTemporalDesarrolloValidoParaRuta(principal, r.URL.Path)
-	if r.URL.Path == bolsapersonal.RutaMiBolsa {
+	if bolsapersonal.EsRutaPortal(r.URL.Path) {
 		validoRuta = m.autoridad.resolvedor.principalCandidatoBolsaValido(principal)
 	}
 	if protegidaComun && !protegidaCT {
@@ -103,7 +104,7 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 			principal: clonarPrincipalDesarrollo(principal),
 		}
 		if protegidaCT || protegidaComun || rutaContinuidadNominal(capacidad.ruta) || rutaConsultaRRHHContratacionTemporalDesarrollo(capacidad.ruta) ||
-			capacidad.ruta == bolsapersonal.RutaMiBolsa ||
+			bolsapersonal.EsRutaPortal(capacidad.ruta) ||
 			capacidad.ruta == httpinterno.RutaIncorporacionEjercicioV2 ||
 			capacidad.ruta == httpinterno.RutaFichaGINPIXV2 ||
 			capacidad.ruta == httpinterno.RutaConsultaSeguimientoV2 ||
@@ -117,7 +118,10 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 			capacidad.ruta == rutaBolsasRRHHDesarrollo || rutaBolsasCandidatosRRHHDesarrollo(capacidad.ruta) || rutaBolsasOperacionesRRHHDesarrollo(capacidad.ruta) ||
 			capacidad.ruta == rutaEstadisticasBolsaRRHHDesarrollo ||
 			capacidad.ruta == rutaAvisosBolsaRRHHDesarrollo ||
-			rutaCalendariosDesarrollo(capacidad.ruta) {
+			capacidad.ruta == bolsahttp.RutaPlazoRespuestaLlamamiento ||
+			capacidad.ruta == rutaReglasSituacionBolsaDesarrollo ||
+			rutaCalendariosDesarrollo(capacidad.ruta) || rutaDocumentacionFormalizacionDesarrollo(capacidad.ruta) ||
+			rutaReglasVigentesDesarrollo(capacidad.ruta) {
 			// El resolvedor ya ha cotejado la hoja y su cadena mTLS. Revalidar
 			// aquí su ventana también cubre conexiones abiertas antes de caducar.
 			certificado := r.TLS.VerifiedChains[0][0]

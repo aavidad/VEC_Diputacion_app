@@ -195,6 +195,9 @@ func antecedenteFiscalizacionValido(expediente domain.Expediente) bool {
 		expediente.EstadoActual == domain.EstadoEnCurso && expediente.Fiscalizacion == nil {
 		return true
 	}
+	if expediente.EsModificacionPendienteFiscalizacion() {
+		return true
+	}
 	if expediente.FaseActual != domain.FaseSubsanacionUnidad ||
 		expediente.EstadoActual != domain.EstadoIncidencia || expediente.Fiscalizacion == nil ||
 		expediente.Fiscalizacion.Resultado != domain.FiscalizacionDesfavorable ||
@@ -244,7 +247,8 @@ func (s SolicitudResolverPoliticaFiscalizacion) Validar() error {
 		Observaciones: s.Observaciones,
 	}).Validar() != nil ||
 		!((s.FaseActual == domain.FaseInformeJuridico && s.EstadoActual == domain.EstadoEnCurso) ||
-			(s.FaseActual == domain.FaseSubsanacionUnidad && s.EstadoActual == domain.EstadoIncidencia)) ||
+			(s.FaseActual == domain.FaseSubsanacionUnidad && s.EstadoActual == domain.EstadoIncidencia) ||
+			(s.FaseActual == domain.FaseFiscalizacion && s.EstadoActual == domain.EstadoEnCurso)) ||
 		!domain.ReferenciaOpacaValida(s.UnidadAsignadaRef) ||
 		!domain.ReferenciaOpacaValida(s.ResponsableAsignadoRef) ||
 		!domain.ReferenciaOpacaValida(s.InformeJuridicoRef) ||
@@ -359,8 +363,8 @@ func (r ReciboFiscalizacion) ValidarParaPreparacion(
 			r.ResponsableRetornoRef != p.Expediente.Asignacion.ResponsableRef {
 			return ErrResultadoFiscalizacionNoConfiable
 		}
-	} else if r.FaseResultante != domain.FaseFiscalizacion ||
-		r.EstadoResultante != domain.EstadoEnCurso ||
+	} else if fase, estado := p.Expediente.DestinoFiscalizacion(r.Resultado); r.FaseResultante != fase ||
+		r.EstadoResultante != estado ||
 		r.UnidadRetornoRef != "" || r.ResponsableRetornoRef != "" {
 		return ErrResultadoFiscalizacionNoConfiable
 	}

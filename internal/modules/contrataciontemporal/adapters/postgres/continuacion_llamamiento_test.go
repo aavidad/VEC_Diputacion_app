@@ -122,7 +122,7 @@ func TestContinuacionLlamamientoPGMaterialYRecuperacion(t *testing.T) {
 		h := sha256.Sum256(j)
 		recurso, _ := RecursoContinuacionLlamamiento(m)
 		if len(args) != 11 || args[0] != string(j) || recurso.Atributos["material_sha256"] != hex.EncodeToString(h[:]) ||
-			!strings.Contains(tx.consultas[i], "continuar_llamamiento_rrhh_v1(") {
+			!strings.Contains(tx.consultas[i], "continuar_llamamiento_rrhh_v2(") {
 			t.Fatal("material SQL distinto del autorizado")
 		}
 	}

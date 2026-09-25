@@ -99,6 +99,7 @@ func TestRutaConfiguracionAnalisisDesarrolloPublicaContratoCerrado(t *testing.T)
 		"causas",
 		"entradas_rc",
 		"motivos_rectificacion",
+		"jornada_completa_minutos_semanales",
 	}
 	if len(contenido.Data) != len(campos) {
 		t.Fatalf("contrato abierto o incompleto: %v", contenido.Data)

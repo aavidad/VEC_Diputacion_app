@@ -10,6 +10,7 @@ type DatosPropuestaCoberturaParaAdaptador struct {
 	Evaluaciones       []domain.EvaluacionViaPropuestaCobertura
 	MotivosAlternativa []MotivoAlternativaPropuestaCobertura
 	IdentidadSemantica domain.IdentidadSemanticaPropuestaDecisionCobertura
+	AvisosVia          *ResultadoAvisosViaCobertura
 }
 
 // ResultadoPropuestaCoberturaParaAdaptador evita que campos públicos de una
@@ -27,6 +28,7 @@ func nuevaResultadoPropuestaCoberturaParaAdaptador(
 		Evaluaciones:       copiarEvaluacionesCobertura(p.Evaluaciones),
 		MotivosAlternativa: copiarMotivosAlternativaCobertura(p.MotivosAlternativa),
 		IdentidadSemantica: p.IdentidadSemantica,
+		AvisosVia:          copiarAvisosViaCobertura(p.AvisosVia),
 	}
 	if !datosPropuestaCoberturaAdaptadorValidos(datos) {
 		return ResultadoPropuestaCoberturaParaAdaptador{}, ErrPresentacionPropuestaCoberturaNoConfiable
@@ -40,6 +42,7 @@ func (r ResultadoPropuestaCoberturaParaAdaptador) DatosParaAdaptador() (DatosPro
 	}
 	r.datos.Evaluaciones = copiarEvaluacionesCobertura(r.datos.Evaluaciones)
 	r.datos.MotivosAlternativa = copiarMotivosAlternativaCobertura(r.datos.MotivosAlternativa)
+	r.datos.AvisosVia = copiarAvisosViaCobertura(r.datos.AvisosVia)
 	return r.datos, true
 }
 

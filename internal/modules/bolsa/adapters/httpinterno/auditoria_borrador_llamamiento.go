@@ -117,11 +117,37 @@ func intentoAuditableBorradorLlamamiento(r *http.Request) (puertosbolsa.AccionIn
 			return puertosbolsa.AccionIntentoConsultarBorradorLlamamiento, puertosbolsa.ClaseRutaSituacionParticipacion, true
 		}
 	}
+	if _, _, ok := ReferenciasRutaContratosParticipacion(r); ok && r.Method == http.MethodGet {
+		return puertosbolsa.AccionIntentoConsultarBorradorLlamamiento, puertosbolsa.ClaseRutaSituacionParticipacion, true
+	}
+	// Las sanciones usan la autorización de las operaciones de situación y
+	// se auditan con su misma acción y clase de ruta.
+	if _, _, _, ok := ReferenciasRutaSancionesParticipacion(r); ok {
+		if r.Method == http.MethodPost {
+			return puertosbolsa.AccionIntentoCambiarSituacionParticipacion, puertosbolsa.ClaseRutaSituacionParticipacion, true
+		}
+		if r.Method == http.MethodGet {
+			return puertosbolsa.AccionIntentoConsultarBorradorLlamamiento, puertosbolsa.ClaseRutaSituacionParticipacion, true
+		}
+	}
 	if _, _, _, ok := ReferenciasRutaDatosContactoParticipacion(r); ok && r.Method == http.MethodGet {
 		return puertosbolsa.AccionIntentoConsultarDatosContactoParticipacion, puertosbolsa.ClaseRutaDatosContactoParticipacion, true
 	}
 	if _, _, _, ok := ReferenciasRutaDatosContactoParticipacion(r); ok && r.Method == http.MethodPost {
 		return puertosbolsa.AccionIntentoRegistrarDatosContactoParticipacion, puertosbolsa.ClaseRutaDatosContactoParticipacion, true
+	}
+	// Las ofertas del art. 8.1 son una modalidad de llamamiento: se anotan
+	// en la bitácora con la misma acción y clase de ruta que la emisión.
+	if r.URL != nil && r.URL.RawPath == "" && (r.URL.Path == RutaOfertasPublicadas || r.URL.Path == RutaResolucionesOferta) {
+		if r.Method == http.MethodGet {
+			return puertosbolsa.AccionIntentoRecuperarLlamamiento, puertosbolsa.ClaseRutaEmisionesLlamamiento, true
+		}
+		if r.Method == http.MethodPost {
+			return puertosbolsa.AccionIntentoEmitirLlamamiento, puertosbolsa.ClaseRutaEmisionesLlamamiento, true
+		}
+	}
+	if r.URL != nil && r.URL.RawPath == "" && ((r.URL.Path == RutaPlantillaCorreoLlamamiento && r.Method == http.MethodGet) || (r.URL.Path == RutaVistaPreviaCorreoLlamamiento && r.Method == http.MethodPost)) {
+		return puertosbolsa.AccionIntentoConsultarBorradorLlamamiento, puertosbolsa.ClaseRutaEmisionesLlamamiento, true
 	}
 	if r.URL != nil && r.URL.Path == RutaEmisionesLlamamiento && r.URL.RawPath == "" && r.Method == http.MethodGet {
 		return puertosbolsa.AccionIntentoRecuperarLlamamiento, puertosbolsa.ClaseRutaEmisionesLlamamiento, true

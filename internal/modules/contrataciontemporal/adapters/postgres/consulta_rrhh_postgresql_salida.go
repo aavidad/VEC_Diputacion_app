@@ -43,6 +43,31 @@ type salidaCuadroConsultaRRHH struct {
 	enTramitacion     int64
 	conIncidencia     int64
 	enLlamamiento     int64
+	// CT-000110: entrada en la fase actual, en el orden del canon.
+	faseDesdeExpedientes []string
+	faseDesdeInstantes   []time.Time
+}
+
+// fasesDesde alinea la fecha de entrada en fase con los resúmenes ya
+// analizados; cualquier desajuste de orden o cardinalidad es no confiable.
+func (s salidaCuadroConsultaRRHH) fasesDesde(
+	resumenes []ports.ResumenExpedienteRRHH,
+) ([]time.Time, error) {
+	if len(s.faseDesdeExpedientes) != len(resumenes) ||
+		len(s.faseDesdeInstantes) != len(resumenes) {
+		return nil, ports.ErrResultadoConsultaRRHHNoConfiable
+	}
+	if len(resumenes) == 0 {
+		return nil, nil
+	}
+	fases := make([]time.Time, len(resumenes))
+	for indice, resumen := range resumenes {
+		if s.faseDesdeExpedientes[indice] != resumen.ExpedienteRef {
+			return nil, ports.ErrResultadoConsultaRRHHNoConfiable
+		}
+		fases[indice] = s.faseDesdeInstantes[indice].UTC()
+	}
+	return fases, nil
 }
 
 func (s salidaCuadroConsultaRRHH) construirTotales() (*ports.TotalesCuadroRRHH, error) {

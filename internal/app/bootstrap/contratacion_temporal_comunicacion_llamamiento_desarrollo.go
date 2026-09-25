@@ -194,8 +194,7 @@ func (e *ejecutorComunicacionLlamamientoDesarrollo) Resolver(ctx context.Context
 	}
 	capacidad, valida := e.soporte.capacidadValida(ctx)
 	if !valida || capacidad.ruta != httpinterno.RutaResolucionComunicacionLlamamiento ||
-		solicitud.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo ||
-		(solicitud.Respuesta != ports.RespuestaLlamamientoAceptada && solicitud.Respuesta != ports.RespuestaLlamamientoRenunciada) {
+		solicitud.OrganizacionRef != organizacionAltaContratacionTemporalDesarrollo || !solicitud.Respuesta.Valida() {
 		return ports.ResultadoResolucionLlamamiento{}, application.ErrComunicacionLlamamientoDenegada
 	}
 	if solicitud.VersionEsperada != 2 {
@@ -207,6 +206,9 @@ func (e *ejecutorComunicacionLlamamientoDesarrollo) Resolver(ctx context.Context
 	expediente, err := e.lector.LeerExpedienteParaAvisoConfirmado(ctx, solicitud.OrganizacionRef, solicitud.ExpedienteRef, solicitud.LlamamientoRef)
 	if ctx.Err() != nil {
 		return ports.ResultadoResolucionLlamamiento{}, ctx.Err()
+	}
+	if err == nil && solicitud.Respuesta == ports.RespuestaLlamamientoExpirada {
+		return e.confirmarExpiracion(ctx, solicitud, expediente)
 	}
 	if err != nil || !consultaJustificanteLigadaAlExpedienteDesarrollo(expediente, solicitud) {
 		return ports.ResultadoResolucionLlamamiento{}, application.ErrComunicacionLlamamientoNoDisponible

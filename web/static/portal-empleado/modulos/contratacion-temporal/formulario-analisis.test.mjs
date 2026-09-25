@@ -45,6 +45,7 @@ function crearCatalogos(cantidadCategorias = 1) {
       clave: "correccion_datos",
       etiqueta: "Corrección de datos",
     }],
+    jornada_completa_minutos_semanales: 2250,
   };
 }
 
@@ -246,14 +247,14 @@ test("la jornada se escribe en horas y minutos semanales y conserva el DTO canó
 });
 
 test("la conversión horas-minutos y diezmilésimas es estable en ambos sentidos", () => {
-  assert.equal(diezmilesimasDesdeHorasMinutos("37", "30"), "10000");
-  assert.equal(diezmilesimasDesdeHorasMinutos("0", "0"), "");
-  assert.equal(diezmilesimasDesdeHorasMinutos("38", "0"), "");
-  assert.equal(diezmilesimasDesdeHorasMinutos("10", "60"), "");
-  assert.deepEqual(horasMinutosDesdeDiezmilesimas("7500"), { horas: "28", minutos: "8" });
+  assert.equal(diezmilesimasDesdeHorasMinutos("37", "30", 2250), "10000");
+  assert.equal(diezmilesimasDesdeHorasMinutos("0", "0", 2250), "");
+  assert.equal(diezmilesimasDesdeHorasMinutos("38", "0", 2250), "");
+  assert.equal(diezmilesimasDesdeHorasMinutos("10", "60", 2250), "");
+  assert.deepEqual(horasMinutosDesdeDiezmilesimas("7500", 2250), { horas: "28", minutos: "8" });
   for (const minutos of [1, 59, 600, 1125, 2249, 2250]) {
-    const valor = diezmilesimasDesdeHorasMinutos(String(Math.floor(minutos / 60)), String(minutos % 60));
-    const vuelta = horasMinutosDesdeDiezmilesimas(valor);
+    const valor = diezmilesimasDesdeHorasMinutos(String(Math.floor(minutos / 60)), String(minutos % 60), 2250);
+    const vuelta = horasMinutosDesdeDiezmilesimas(valor, 2250);
     assert.equal(Number(vuelta.horas) * 60 + Number(vuelta.minutos), minutos);
   }
 });

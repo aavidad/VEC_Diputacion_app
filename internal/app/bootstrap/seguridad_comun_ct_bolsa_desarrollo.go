@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	bolsapersonal "vec-diputacion-granada/internal/modules/bolsa/adapters/httppersonal"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -75,7 +76,7 @@ func (c catalogoFronterasComunDesarrollo) mismaInstancia(otro catalogoFronterasC
 
 func (d descriptorFronteraComunDesarrollo) valida() bool {
 	if d.Clave == "" || (d.Superficie != superficieInternaSeguridadComunDesarrollo &&
-		!(d.Superficie == superficieExternaPersonalSeguridadComunDesarrollo && d.Metodo == http.MethodGet && d.Ruta == "/api/vec/bolsa/mi-bolsa")) ||
+		!(d.Superficie == superficieExternaPersonalSeguridadComunDesarrollo && len(bolsapersonal.AccionPortalEn(d.Metodo, d.Ruta)) != 0)) ||
 		d.Ruta == "" || d.ClavePolitica == "" || d.ClaveCapacidad == "" ||
 		!claveCatalogoComunValida(d.Clave) || !claveCatalogoComunValida(d.ClavePolitica) ||
 		!claveCatalogoComunValida(d.ClaveCapacidad) || !rutaCatalogoComunValida(d.Ruta) ||

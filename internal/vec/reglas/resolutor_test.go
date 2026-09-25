@@ -98,12 +98,18 @@ func TestResolutorResuelveTodasLasClavesPublicadas(t *testing.T) {
 			BolsaRecuperaPosicion, BolsaPrestaServicios, BolsaAvisoEncadenamiento, BolsaPausaVoluntaria,
 			BolsaVacanteDuracionMaxima, BolsaSAEDuracionMaxima, BolsaPlazoDocumentacion,
 			BolsaDocumentosIncorporacion, BolsaPlazoIncorporacion, BolsaConsecuencias, BolsaVigencia,
-			BolsaAgotamiento,
+			BolsaAgotamiento, BolsaTransicionesRenuncia, BolsaTransicionesDisponible,
+			BolsaEstadosRecurso, BolsaEstadosRecursoRevocatorios,
+			BolsaPrefijoSanciones + "baja_llamamiento_directo", BolsaPrefijoSanciones + "baja_sin_contacto",
+			BolsaPrefijoSanciones + "baja_publicacion", BolsaPrefijoSanciones + "baja_renuncia_nombramiento",
+			BolsaPrefijoSanciones + "pasar_al_final", BolsaPrefijoSanciones + "suspension",
+			BolsaCamposPortal, BolsaPortalCandidato, BolsaContactoOrigenConvoca,
 		}},
 		{rutaReglasCTPrueba, CatalogoContratacionTemporal, ModuloContratacionTemporal, []string{
 			CTPlazoAnalisis, CTPlazoInformes, CTPlazoFiscalizacion, CTPlazoSubsanacion, CTMotivosRectificacion,
 			CTAltaSeguridadSocial, CTJornadaCompleta, CTDuracionAcumulacionTareas, CTDuracionProgramasTemporales,
 			CTDuracionVacante, CTDuracionSustitucion, CTDuracionCircunstancias,
+			CTModificacionFaseRetorno, CTCierreExpediente, CTCausasCese,
 		}},
 	}
 	for _, caso := range casos {

@@ -114,6 +114,10 @@ type preparadorSolicitudesFuentesAnalisisDesarrollo struct {
 	sellador  ports.SelladorPeticionFuenteAnalisis
 	reloj     relojContratacionTemporalDesarrollo
 	catalogo  *catalogosAltaContratacionTemporalDesarrollo
+	// retribuciones decide si se pide el cálculo de coste: sin catálogo
+	// ct.retribuciones, o sin fila para la categoría o su grupo, el coste
+	// queda «sin calcular» y el análisis continúa.
+	retribuciones *fuenteRetribucionesDesarrollo
 }
 
 func (p *preparadorSolicitudesFuentesAnalisisDesarrollo) PrepararSolicitudesFuentesAnalisisO3(
@@ -148,6 +152,15 @@ func (p *preparadorSolicitudesFuentesAnalisisDesarrollo) PrepararSolicitudesFuen
 	)
 	if err != nil {
 		return vacias, err
+	}
+	_, conCoste, err := p.retribuciones.retribucion(
+		ctx, solicitud.DatosFuncionales.CategoriaRef, solicitud.DatosFuncionales.GrupoSubgrupo,
+	)
+	if err != nil {
+		return vacias, errors.Join(ports.ErrCalculadorCosteNoDisponible, err)
+	}
+	if !conCoste {
+		return ports.SolicitudesFuentesAnalisisO3{ValidacionRC: solicitudRC}, nil
 	}
 	solicitudCoste, err := application.NuevaSolicitudCalcularCoste(
 		ctx,
@@ -406,6 +419,7 @@ func (*publicadorMotivoFuenteAnalisisDesarrollo) VerificarPublicacionMotivoFuent
 func nuevoPreparadorFuentesAnalisisContratacionTemporalDesarrollo(
 	derivador *derivadorIdentidadOperacionDesarrollo,
 	reloj relojContratacionTemporalDesarrollo,
+	retribuciones *fuenteRetribucionesDesarrollo,
 	catalogos ...*catalogosAltaContratacionTemporalDesarrollo,
 ) (*application.CapacidadPrepararArtefactoAnalisisO3, error) {
 	catalogo, errCatalogo := catalogoAnalisisDesarrollo(catalogos...)
@@ -536,10 +550,11 @@ func nuevoPreparadorFuentesAnalisisContratacionTemporalDesarrollo(
 		return nil, errAnalisisContratacionTemporalDesarrolloNoDisponible
 	}
 	preparador := &preparadorSolicitudesFuentesAnalisisDesarrollo{
-		generador: generadorPeticionFuenteAnalisisDesarrollo{},
-		sellador:  &selladorPeticionFuenteAnalisisDesarrollo{derivador: derivador},
-		reloj:     reloj,
-		catalogo:  catalogo,
+		generador:     generadorPeticionFuenteAnalisisDesarrollo{},
+		sellador:      &selladorPeticionFuenteAnalisisDesarrollo{derivador: derivador},
+		reloj:         reloj,
+		catalogo:      catalogo,
+		retribuciones: retribuciones,
 	}
 	capacidad, err :=
 		application.NuevaCapacidadPrepararArtefactoAnalisisO3ParaComposicionInterna(
@@ -552,7 +567,8 @@ func nuevoPreparadorFuentesAnalisisContratacionTemporalDesarrollo(
 			&calculadorCosteAnalisisDesarrollo{
 				presentadorAutoridadAnalisisDesarrollo: presentadorCoste,
 				derivador:                              derivador, autoridadRef: autoridadCosteAnalisisDesarrollo,
-				generacion: generacion, reloj: reloj,
+				generacion: generacion, reloj: reloj, retribuciones: retribuciones,
+				catalogo: catalogo,
 			},
 			&verificadorRespuestaFuenteAnalisisDesarrollo{
 				presentadorAutoridadAnalisisDesarrollo: presentadorVerificador,

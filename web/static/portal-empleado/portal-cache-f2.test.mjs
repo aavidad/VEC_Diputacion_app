@@ -260,7 +260,7 @@ test("la integración B7 renueva controlador y presentador desde la entrada HTML
 });
 
 test("la recuperación de subsanación renueva toda la cadena immutable y ambas entradas al módulo", async () => {
-  const nueva = "20260924-web-subsanacion-v1";
+  const nueva = posterior("20260924-web-subsanacion-v1");
   const html = await readFile(new URL("index.html", raiz), "utf8");
   const portal = await readFile(new URL("portal.js", raiz), "utf8");
   const coordinador = await readFile(new URL("portal-modulos-coordinador.js", raiz), "utf8");
@@ -271,7 +271,8 @@ test("la recuperación de subsanación renueva toda la cadena immutable y ambas 
   ];
   const cache = new Map(pasos.map(([, ruta, previa]) => [`${ruta}?v=${previa}`, "módulo anterior"]));
   for (const [codigo, ruta, previa, cantidad] of pasos) {
-    const vigente = exigirVersiones(codigo, ruta, ruta.endsWith("vista-expedientes.js") ? nueva : ruta.endsWith("/portal.js") ? posterior(versionEntradaAyuda) : posterior(versionIntegracion), cantidad);
+    // La vista avanzó después (incorporación bajo demanda y plazo del llamamiento, 25/09).
+    const vigente = exigirVersiones(codigo, ruta, ruta.endsWith("vista-expedientes.js") ? posterior(nueva) : ruta.endsWith("/portal.js") ? posterior(versionEntradaAyuda) : posterior(versionIntegracion), cantidad);
     assert.ok(!codigo.includes(`${ruta}?v=${previa}`));
     assert.ok(!cache.has(`${ruta}?v=${vigente}`), "la vista anterior no sustituye los bytes nuevos");
   }

@@ -73,7 +73,7 @@ func (h *HandlerOperacionesSituacion) ServeHTTP(w http.ResponseWriter, r *http.R
 			responderErrorOperacion(w, err)
 			return
 		}
-		items, err := h.operador.ListarOperaciones(r.Context(), q)
+		items, cambios, err := listarHistorialOperaciones(r.Context(), h.operador, q)
 		if err != nil {
 			responderErrorOperacion(w, err)
 			return
@@ -82,7 +82,11 @@ func (h *HandlerOperacionesSituacion) ServeHTTP(w http.ResponseWriter, r *http.R
 		for _, o := range items {
 			salida = append(salida, map[string]any{"desde": o.Desde.UTC().Format(time.RFC3339Nano), "operacion": o.Operacion, "situacion": o.Situacion, "motivo": o.Motivo, "justificante": map[string]string{"tipo": o.Justificante.Tipo, "referencia": o.Justificante.Referencia, "sha256": o.Justificante.SHA256}, "actor": o.Actor, "validador": o.Validador, "validada_en": o.ValidadaEn.UTC().Format(time.RFC3339Nano)})
 		}
-		responderSituacion(w, 200, map[string]any{"data": map[string]any{"esquema": "vec.bolsa.rrhh.operaciones_situacion.v1", "items": salida}})
+		datos := map[string]any{"esquema": "vec.bolsa.rrhh.operaciones_situacion.v1", "items": salida}
+		if cambios != nil {
+			datos["cambios"] = cambios
+		}
+		responderSituacion(w, 200, map[string]any{"data": datos})
 		return
 	}
 	if r.Body == nil || r.Body == http.NoBody || r.ContentLength <= 0 || r.ContentLength > 4096 || len(r.TransferEncoding) != 0 || len(r.Header.Values("Content-Type")) != 1 || r.Header.Get("Content-Type") != "application/json" {

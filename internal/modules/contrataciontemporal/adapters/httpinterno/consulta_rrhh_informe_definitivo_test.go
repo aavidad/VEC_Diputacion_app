@@ -72,6 +72,10 @@ func TestConsultaRRHHBorradorDescargaTrasLectura(t *testing.T) {
 		{ports.BorradorTomaPosesion, AcceptTomaPosesionRRHH, "toma-posesion-borrador.pdf"},
 		{ports.BorradorNotificacion, AcceptNotificacionRRHH, "notificacion-borrador.pdf"},
 		{ports.BorradorComunicacionCentro, AcceptComunicacionCentroRRHH, "comunicacion-centro-borrador.pdf"},
+		{ports.BorradorContratoLaboral, AcceptContratoLaboralRRHH, "contrato-laboral-borrador.pdf"},
+		{ports.BorradorNombramiento, AcceptNombramientoRRHH, "nombramiento-borrador.pdf"},
+		{ports.BorradorCese, AcceptCeseRRHH, "cese-borrador.pdf"},
+		{ports.BorradorModificacionNombramiento, AcceptModificacionNombramientoRRHH, "modificacion-nombramiento-borrador.pdf"},
 	} {
 		t.Run(string(caso.tipo), func(t *testing.T) {
 			c := &consultorDetalleRRHHPrueba{detalle: detalleInformeRRHHPrueba()}

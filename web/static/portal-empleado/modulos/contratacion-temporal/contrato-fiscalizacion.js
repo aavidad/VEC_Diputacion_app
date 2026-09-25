@@ -132,7 +132,9 @@ export function validarReciboResultadoFiscalizacion(texto) {
   const transicionValida = datos.resultado === "desfavorable"
     ? datos.fase_resultante === "subsanacion_unidad"
       && datos.estado_resultante === "incidencia" && tieneUnidad && tieneResponsable
-    : datos.fase_resultante === "fiscalizacion"
+    // Favorable: queda en fiscalización o, si fiscaliza una modificación tras
+    // el nombramiento, vuelve al nombramiento.
+    : ["fiscalizacion", "nombramiento"].includes(datos.fase_resultante)
       && datos.estado_resultante === "en_curso" && !tieneUnidad && !tieneResponsable;
   if (datos.esquema !== "vec.contratacion-temporal.recibo-fiscalizacion.v1"
     || datos.operacion !== "registrar_resultado" || !referencia(datos.expediente_ref)

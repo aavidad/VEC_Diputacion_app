@@ -2,7 +2,7 @@ import {
   extraerDatosEnvelopeLlamamiento,
   validarConfirmacionPropuestaLlamamiento,
   validarReferenciaOpacaLlamamiento,
-} from "./portal-llamamientos-contrato.js?v=20260718-llamamientos-v1";
+} from "./portal-llamamientos-contrato.js?v=20260926-integracion-bolsa-ct-v1";
 
 const RUTA_PROPUESTAS_LLAMAMIENTO = "/api/vec/bolsa/propuestas-llamamiento";
 const MAXIMO_RESPUESTA_BYTES = 8 * 1024;

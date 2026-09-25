@@ -40,6 +40,7 @@ type preparacionLlamamientoDesarrollo struct {
 func rutaLlamamientoContratacionTemporalDesarrollo(ruta string) bool {
 	return ruta == httpinterno.RutaResolucionFormalizacion || ruta == httpinterno.RutaSeleccionLlamamiento ||
 		ruta == httpinterno.RutaRegistroRespuestaRecibida ||
+		ruta == httpinterno.RutaEventoPlazoLlamamiento ||
 		ruta == httpinterno.RutaRegistroComunicacionLlamamiento ||
 		ruta == httpinterno.RutaResolucionComunicacionLlamamiento ||
 		ruta == httpinterno.RutaContinuacionLlamamiento ||
@@ -52,6 +53,8 @@ func rutaMutacionDurableContratacionTemporalDesarrollo(ruta string) bool {
 		rutaAsignacionContratacionTemporalDesarrollo(ruta) ||
 		rutaInformeJuridicoContratacionTemporalDesarrollo(ruta) ||
 		ruta == httpinterno.RutaSubsanacionReparos ||
+		ruta == httpinterno.RutaFirmaDocumento ||
+		rutaSeguimientoCeseDesarrollo(ruta) ||
 		rutaLlamamientoContratacionTemporalDesarrollo(ruta)
 }
 
@@ -109,6 +112,9 @@ func solicitudAutorizacionLlamamientoDesarrolloValida(ctx context.Context, ruta 
 	}
 	if ruta == httpinterno.RutaContinuacionLlamamiento {
 		return solicitudAutorizacionContinuacionDesarrolloValida(ctx, datos, p)
+	}
+	if ruta == httpinterno.RutaEventoPlazoLlamamiento {
+		return solicitudAutorizacionEventoPlazoDesarrolloValida(ctx, datos, p)
 	}
 	if ruta == httpinterno.RutaResolucionComunicacionLlamamiento {
 		if datos.Accion != postgresct.AccionConsultaJustificanteRespuestaRecibida {
