@@ -3,6 +3,7 @@ package httpinterno
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -33,47 +34,77 @@ type ResolverAvisosPropios interface {
 	ResolverAvisosPropios(*http.Request) (ports.OrdenAvisosPropios, error)
 }
 
+// errPeticionResolucionInvalida es el motivo cerrado con el que se rechaza
+// un cuerpo o una consulta mal formados. Cuando el rechazo procede de un
+// fallo de lectura o decodificación, ese fallo queda envuelto como causa
+// (errors.Is/errors.As) para el registro interno; al cliente solo llega
+// «peticion_invalida».
+var errPeticionResolucionInvalida = errors.New("cronos: petición de resolución inválida")
+
+// peticionInvalidaPor envuelve la causa técnica bajo el motivo cerrado.
+func peticionInvalidaPor(causa error) error {
+	return fmt.Errorf("%w: %w", errPeticionResolucionInvalida, causa)
+}
+
 // decodificarCadenasAcotadas lee un único objeto JSON de hasta
 // maximoCuerpoResolver bytes cuyos campos son cadenas conocidas, cada una
-// con su límite en caracteres, sin duplicados ni campos extra.
-func decodificarCadenasAcotadas(w http.ResponseWriter, r *http.Request, obligatorios []string, maximos map[string]int) (map[string]string, bool) {
+// con su límite en caracteres, sin duplicados ni campos extra. Todo rechazo
+// satisface errors.Is(err, errPeticionResolucionInvalida).
+func decodificarCadenasAcotadas(w http.ResponseWriter, r *http.Request, obligatorios []string, maximos map[string]int) (map[string]string, error) {
 	if r.Header.Get("Content-Type") != "application/json" || r.Body == nil {
-		return nil, false
+		return nil, errPeticionResolucionInvalida
 	}
 	defer r.Body.Close()
 	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, maximoCuerpoResolver))
-	if apertura, err := dec.Token(); err != nil || apertura != json.Delim('{') {
-		return nil, false
+	apertura, err := dec.Token()
+	if err != nil {
+		return nil, peticionInvalidaPor(err)
+	}
+	if apertura != json.Delim('{') {
+		return nil, errPeticionResolucionInvalida
 	}
 	valores := make(map[string]string, len(maximos))
 	for dec.More() {
 		token, err := dec.Token()
+		if err != nil {
+			return nil, peticionInvalidaPor(err)
+		}
 		nombre, ok := token.(string)
 		maximo, admitido := maximos[nombre]
-		if err != nil || !ok || !admitido {
-			return nil, false
+		if !ok || !admitido {
+			return nil, errPeticionResolucionInvalida
 		}
 		if _, repetido := valores[nombre]; repetido {
-			return nil, false
+			return nil, errPeticionResolucionInvalida
 		}
 		var v string
-		if dec.Decode(&v) != nil || !utf8.ValidString(v) || utf8.RuneCountInString(v) > maximo {
-			return nil, false
+		if err := dec.Decode(&v); err != nil {
+			return nil, peticionInvalidaPor(err)
+		}
+		if !utf8.ValidString(v) || utf8.RuneCountInString(v) > maximo {
+			return nil, errPeticionResolucionInvalida
 		}
 		valores[nombre] = v
 	}
-	if cierre, err := dec.Token(); err != nil || cierre != json.Delim('}') {
-		return nil, false
+	cierre, err := dec.Token()
+	if err != nil {
+		return nil, peticionInvalidaPor(err)
+	}
+	if cierre != json.Delim('}') {
+		return nil, errPeticionResolucionInvalida
 	}
 	if _, err := dec.Token(); !errors.Is(err, io.EOF) {
-		return nil, false
+		if err == nil {
+			return nil, errPeticionResolucionInvalida
+		}
+		return nil, peticionInvalidaPor(err)
 	}
 	for _, c := range obligatorios {
 		if _, ok := valores[c]; !ok {
-			return nil, false
+			return nil, errPeticionResolucionInvalida
 		}
 	}
-	return valores, true
+	return valores, nil
 }
 
 // responderErrorResolucion añade los rechazos nominales de la resolución a
@@ -122,8 +153,8 @@ func (m *ManejadorResolucionPermisos) ServeHTTP(w http.ResponseWriter, r *http.R
 	if !soloMetodo(w, r, http.MethodGet) {
 		return
 	}
-	paso, ok := parametroPaso(r.URL.RawQuery)
-	if !ok {
+	paso, err := parametroPaso(r.URL.RawQuery)
+	if err != nil {
 		errorJSON(w, http.StatusBadRequest, "peticion_invalida")
 		return
 	}
@@ -148,9 +179,9 @@ func (m *ManejadorResolucionPermisos) registrarResolucion(w http.ResponseWriter,
 		errorJSON(w, http.StatusNotFound, "no_disponible")
 		return
 	}
-	v, ok := decodificarCadenasAcotadas(w, r, []string{"clave_operacion", "solicitud_ref", "paso", "decision", "version_esperada"},
+	v, err := decodificarCadenasAcotadas(w, r, []string{"clave_operacion", "solicitud_ref", "paso", "decision", "version_esperada"},
 		map[string]int{"clave_operacion": 128, "solicitud_ref": 160, "paso": 32, "decision": 16, "version_esperada": 3, "motivo": domain.MaximoMotivoResolucion})
-	if !ok {
+	if err != nil {
 		errorJSON(w, http.StatusBadRequest, "peticion_invalida")
 		return
 	}
@@ -178,17 +209,25 @@ func (m *ManejadorResolucionPermisos) registrarResolucion(w http.ResponseWriter,
 	_ = json.NewEncoder(w).Encode(map[string]any{"recibo": recibo})
 }
 
-// parametroPaso exige paso=responsable o paso=administracion.
-func parametroPaso(raw string) (domain.PasoPermiso, bool) {
+// parametroPaso exige paso=responsable o paso=administracion. Un rechazo
+// satisface errors.Is(err, errPeticionResolucionInvalida) y conserva como
+// causa el fallo de análisis de la consulta, si lo hubo.
+func parametroPaso(raw string) (domain.PasoPermiso, error) {
 	if raw == "" || len(raw) > 32 {
-		return "", false
+		return "", errPeticionResolucionInvalida
 	}
 	valores, err := url.ParseQuery(raw)
-	if err != nil || len(valores) != 1 || len(valores["paso"]) != 1 {
-		return "", false
+	if err != nil {
+		return "", peticionInvalidaPor(err)
+	}
+	if len(valores) != 1 || len(valores["paso"]) != 1 {
+		return "", errPeticionResolucionInvalida
 	}
 	paso := domain.PasoPermiso(valores.Get("paso"))
-	return paso, domain.PasoResolucionValido(paso)
+	if !domain.PasoResolucionValido(paso) {
+		return "", errPeticionResolucionInvalida
+	}
+	return paso, nil
 }
 
 // ---- La persona: avisos ----

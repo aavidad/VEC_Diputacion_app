@@ -92,3 +92,33 @@ func documentoValidoPrueba(ahora time.Time) domain.Documento {
 		EstadoFirma: domain.EstadoFirmaPendienteProveedor, CreadoEn: ahora, Custodia: domain.CustodiaVEC,
 	}
 }
+
+// La denegación conserva su causa (M2a): sigue siendo
+// ErrAutorizacionAlmacenInvalida para todo consumidor, pero errors.Is alcanza
+// el fallo que la originó para el registro interno.
+func TestFabricaDenegacionConservaLaCausa(t *testing.T) {
+	ahora := time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC)
+	resolutor := &resolutorContador{}
+	fabrica, err := NuevaFabricaContextoLecturaOriginal(resolutor, relojFijo{ahora})
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := documentoValidoPrueba(ahora)
+	a := docports.AutorizacionV3{RecursoRef: d.ID, AmbitoRef: d.ExpedienteRef}
+	_, err = fabrica.ContextoLecturaOriginal(context.Background(), d, a)
+	if !errors.Is(err, vecports.ErrAutorizacionAlmacenInvalida) || !errors.Is(err, docports.ErrSolicitudInvalida) {
+		t.Fatalf("la validación V3 fallida no queda como causa: %v", err)
+	}
+	cancelado, cancelar := context.WithCancel(context.Background())
+	cancelar()
+	_, err = fabrica.ContextoLecturaOriginal(cancelado, d, a)
+	if !errors.Is(err, vecports.ErrAutorizacionAlmacenInvalida) || !errors.Is(err, context.Canceled) {
+		t.Fatalf("la cancelación no queda como causa: %v", err)
+	}
+	if err := denegadoPor(nil); err != vecports.ErrAutorizacionAlmacenInvalida {
+		t.Fatalf("sin causa la denegación debe ser el motivo cerrado: %v", err)
+	}
+	if resolutor.llamadas != 0 {
+		t.Fatalf("la denegación llegó al PDP: %d", resolutor.llamadas)
+	}
+}
