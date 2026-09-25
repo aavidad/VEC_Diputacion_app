@@ -79,6 +79,17 @@ static/portal-empleado/modulos/cronos/i18n-permisos.js
 static/portal-empleado/modulos/cronos/permisos.css
 static/portal-empleado/modulos/cronos/vista.js
 static/portal-empleado/modulos/cronos/vista-recorridos.js
+static/portal-empleado/modulos/cronos/cronos-conectado.css
+static/portal-empleado/modulos/cronos/vista-solicitudes.css
+static/portal-empleado/modulos/cronos/i18n-solicitudes.js
+static/portal-empleado/modulos/cronos/cliente-saldo-http.js
+static/portal-empleado/modulos/cronos/cliente-remoto-http.js
+static/portal-empleado/modulos/cronos/cliente-solicitudes-http.js
+static/portal-empleado/modulos/cronos/vista-saldo-conectado.js
+static/portal-empleado/modulos/cronos/vista-remoto.js
+static/portal-empleado/modulos/cronos/vista-movimientos-conectado.js
+static/portal-empleado/modulos/cronos/vista-movimientos-propios.js
+static/portal-empleado/modulos/cronos/vista-permisos-propios.js
 static/portal-empleado/modulos/dietas/borradores-propios.css
 static/portal-empleado/modulos/dietas/calculador-rutas-http.js
 static/portal-empleado/modulos/dietas/cliente-asignacion-http.js

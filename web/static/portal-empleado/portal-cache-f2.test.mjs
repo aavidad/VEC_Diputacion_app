@@ -120,12 +120,13 @@ test("el grafo JS propio llega desde HTML a los consumidores F2 con versiones nu
     assert.equal(versionDe(portal, `./${recurso}`), version, recurso);
     await access(new URL(recurso, raiz));
   }
-  for (const recurso of ["modulos/cronos/vista.js",
+  // Cronos interno ya no importa la jornada: solo quedan las vistas conectadas.
+  assert.deepEqual(versionesDe(coordinador, "./modulos/cronos/vista.js"), []);
+  for (const recurso of [
     "modulos/dietas/cliente-borradores-http.js", "modulos/personal/vista-ficha-integral.js",
     "modulos/nominas/vista.js", "modulos/solicitudes/vista.js", "modulos/meritos/vista.js",
     "modulos/comunicaciones/vista.js", "modulos/documentos/vista.js", "modulos/aprobaciones/vista.js"]) {
-    exigirVersiones(coordinador, `./${recurso}`, recurso === "modulos/cronos/vista.js" ? posterior(versionCronosVista)
-      : recurso === "modulos/dietas/cliente-borradores-http.js" ? posterior(version)
+    exigirVersiones(coordinador, `./${recurso}`, recurso === "modulos/dietas/cliente-borradores-http.js" ? posterior(version)
       : recurso === "modulos/personal/vista-ficha-integral.js" ? posterior(versionVistasC)
       : recurso === "modulos/nominas/vista.js" ? versionVistasC : version,
       Math.max(versionesDe(coordinador, `./${recurso}`).length, 1));
@@ -200,8 +201,7 @@ test("la caché immutable previa no retiene el catálogo i18n ni los consumidore
       const ruta = padre === "index.html" ? `/portal-empleado/${hijo}` : `./${hijo}`;
       const versionesHijo = versionesDe(codigo, ruta);
       const personal = padre === "portal-modulos-coordinador.js" && hijo.startsWith("modulos/personal/");
-      assert.equal(versionesHijo.length, ["modulos/personal/vista.js", "modulos/personal/cliente-http-categorias.js",
-        "modulos/cronos/vista-recorridos.js"].includes(hijo) ? 2 : 1,
+      assert.equal(versionesHijo.length, ["modulos/personal/vista.js", "modulos/personal/cliente-http-categorias.js"].includes(hijo) ? 2 : 1,
         `${padre} → ${hijo}: número de aristas`);
       const versionEsperada = padre === "index.html" ? posterior(versionEntradaAyuda) : hijo === "portal-modulos-coordinador.js"
         ? posterior(versionDietasShell) : padre === "portal.js" && ["portal-i18n.js", "portal-eventos.js"].includes(hijo) ? posterior(versionEntradaAyuda)
@@ -291,7 +291,7 @@ test("la ayuda de Cronos renueva las dos importaciones y la hoja de permisos", a
   assert.ok(!portal.includes("portal-modulos-coordinador.js?v=20260924-web-integrada-v1"));
   assert.ok(!cacheAnterior.has(`portal.js?v=${entrada}`));
   assert.ok(!cacheAnterior.has(`portal-modulos-coordinador.js?v=${coordinadorVigente}`));
-  exigirVersiones(coordinador, "./modulos/cronos/vista-recorridos.js", posterior(versionCronosVista), 2);
+  exigirVersiones(coordinador, "./modulos/cronos/vista-recorridos.js", posterior(versionCronosVista), 1);
   exigirVersiones(html, "/portal-empleado/modulos/cronos/permisos.css", posterior(versionCronosAyuda));
   assert.ok(!coordinador.includes("cronos/vista-recorridos.js?v=20260924-f2-cache-v2"));
   assert.ok(!html.includes("cronos/permisos.css?v=20260924-f2-shell-v1"));

@@ -18,12 +18,21 @@ type DependenciasManejadoresCronos struct {
 	MarcajesRemotos            ports.CasoUsoMarcajesRemotos
 	ResolverMarcajeRemoto      httpinterno.ResolverMarcajeRemoto
 	ResolverRecuperacionRemota httpinterno.ResolverRecuperacionMarcajeRemoto
+	Movimientos                ports.CasoUsoConsultarMovimientos
+	ResolverMovimientos        httpinterno.ResolverConsultaMovimientosPropios
+	Correcciones               httpinterno.CasoUsoSolicitarOlvido
+	ResolverCorreccion         httpinterno.ResolverSolicitudCorreccionPropia
+	Permisos                   ports.CasoUsoPermisosPropios
+	ResolverPermisos           httpinterno.ResolverPermisosPropios
 }
 
 type ManejadoresCronos struct {
 	SaldoPropio        *httpinterno.ManejadorSaldoPropio
 	MarcajeRemoto      *httpinterno.ManejadorMarcajeRemoto
 	RecuperacionRemota *httpinterno.ManejadorRecuperacionMarcajeRemoto
+	Movimientos        *httpinterno.ManejadorMovimientosPropios
+	CorreccionPropia   *httpinterno.ManejadorCorreccionPropia
+	PermisosPropios    *httpinterno.ManejadorPermisosPropios
 }
 
 // PrepararManejadoresCronos no registra rutas: las monta la frontera de
@@ -42,5 +51,18 @@ func PrepararManejadoresCronos(d DependenciasManejadoresCronos) (ManejadoresCron
 	if err != nil {
 		return ManejadoresCronos{}, ErrManejadoresCronosNoDisponibles
 	}
-	return ManejadoresCronos{SaldoPropio: saldo, MarcajeRemoto: remoto, RecuperacionRemota: recuperacion}, nil
+	movimientos, err := httpinterno.NuevoManejadorMovimientosPropios(d.Movimientos, d.ResolverMovimientos)
+	if err != nil {
+		return ManejadoresCronos{}, ErrManejadoresCronosNoDisponibles
+	}
+	correccion, err := httpinterno.NuevoManejadorCorreccionPropia(d.Correcciones, d.ResolverCorreccion)
+	if err != nil {
+		return ManejadoresCronos{}, ErrManejadoresCronosNoDisponibles
+	}
+	permisos, err := httpinterno.NuevoManejadorPermisosPropios(d.Permisos, d.ResolverPermisos)
+	if err != nil {
+		return ManejadoresCronos{}, ErrManejadoresCronosNoDisponibles
+	}
+	return ManejadoresCronos{SaldoPropio: saldo, MarcajeRemoto: remoto, RecuperacionRemota: recuperacion,
+		Movimientos: movimientos, CorreccionPropia: correccion, PermisosPropios: permisos}, nil
 }

@@ -1,6 +1,6 @@
 import {
   crearTraductorCalendarios, formatearFechaCivil, formatearInstante, formatearNumero, nombreMes,
-} from "./i18n.js?v=20260925-calendarios-v1";
+} from "./i18n.js?v=20260925-tanda2-v1";
 import { icono } from "../../comun/iconos-vec.js?v=20260925-aspecto-v1";
 import { instanteDesdeHoraMadrid } from "../hora-madrid.js";
 

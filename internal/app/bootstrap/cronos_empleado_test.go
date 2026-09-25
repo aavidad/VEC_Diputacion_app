@@ -82,7 +82,19 @@ func TestCronosEmpleadoActivadoFallaCerradoSinDependencias(t *testing.T) {
 	if _, err := nuevasRutasCronosEmpleadoDesarrollo(cfg, composicion.identidad, composicion.derivadorIdempotencia, materialCronosDesdeCTDesarrollo{}); !errors.Is(err, ErrComposicionCronosEmpleadoNoDisponible) {
 		t.Fatal("arranca sin material V3 de Cronos", err)
 	}
-	completo := materialCronosDesdeCTDesarrollo{marcaje: &proveedorMaterialAltaContratacionTemporalDesarrollo{}, disponibilidad: &proveedorMaterialAltaContratacionTemporalDesarrollo{}, recibo: &proveedorMaterialAltaContratacionTemporalDesarrollo{}, saldo: &proveedorMaterialAltaContratacionTemporalDesarrollo{}}
+	var proveedores [8]*proveedorMaterialAltaContratacionTemporalDesarrollo
+	for i := range proveedores {
+		proveedores[i] = &proveedorMaterialAltaContratacionTemporalDesarrollo{}
+	}
+	completo := materialCronosDesdeProveedores(proveedores)
+	if !completo.completo() {
+		t.Fatal("ocho proveedores no componen el material de Cronos")
+	}
+	proveedores[7] = nil
+	if materialCronosDesdeProveedores(proveedores).completo() {
+		t.Fatal("material de Cronos completo sin el proveedor de solicitud de permiso")
+	}
+	proveedores[7] = completo.solicitudPermiso
 	if _, err := nuevasRutasCronosEmpleadoDesarrollo(cfg, composicion.identidad, composicion.derivadorIdempotencia, completo); !errors.Is(err, ErrComposicionCronosEmpleadoNoDisponible) {
 		t.Fatal("arranca sin configuración privada de Cronos", err)
 	}
@@ -93,7 +105,7 @@ func TestCronosEmpleadoActivadoFallaCerradoSinDependencias(t *testing.T) {
 	}
 }
 
-func TestComponerManejadoresCronosEmpleadoPublicaSoloCuatroRutas(t *testing.T) {
+func TestComponerManejadoresCronosEmpleadoPublicaSoloOchoRutas(t *testing.T) {
 	if _, err := componerManejadoresCronosEmpleado(dependenciasCronosEmpleado{}); !errors.Is(err, ErrComposicionCronosEmpleadoNoDisponible) {
 		t.Fatal("compone sin dependencias", err)
 	}
@@ -106,17 +118,18 @@ func TestComponerManejadoresCronosEmpleadoPublicaSoloCuatroRutas(t *testing.T) {
 	canal, _ := cronosdomain.NuevaAcreditacionCanalMarcaje(cronosdomain.DatosAcreditacionCanalMarcaje{PoliticaVersionRef: "politica:canal:cronos:v1", CanalRef: "portal-empleado-web", OrigenRef: cronosdomain.OrigenMarcajeRemoto, CalidadRef: "mtls-certificado"})
 	motivo := core.ReferenciaEntradaCatalogo{CatalogoID: "motivos_cronos", CatalogoVersion: 1, CatalogoHuellaSHA256: strings.Repeat("d", 64), EntradaClave: "motivo_" + strings.Repeat("5", 32)}
 	emisor := emisorCronosEmpleadoDesarrollo{porAccion: map[string]emisorMaterialDietasDesarrollo{}}
-	autorizador, err := cronoscomp.NuevoAutorizadorCronos(emisor, cronoscomp.MotivosCronos{Saldo: motivo, Marcaje: motivo, Disponibilidad: motivo, Recuperacion: motivo})
+	autorizador, err := cronoscomp.NuevoAutorizadorCronos(emisor, cronoscomp.MotivosCronos{Saldo: motivo, Marcaje: motivo, Disponibilidad: motivo, Recuperacion: motivo, Movimientos: motivo, Correccion: motivo, Permisos: motivo, Permiso: motivo})
 	if err != nil {
 		t.Fatal(err)
 	}
 	zona, _ := time.LoadLocation("Europe/Madrid")
 	identidad := seguridadCronosEmpleadoDesarrollo{autoridad: &autoridadCronosEmpleadoDesarrollo{reloj: relojRutasDietas{}}}
 	rutas, err := componerManejadoresCronosEmpleado(dependenciasCronosEmpleado{ejecutor: pool, auditor: pool, identidad: identidad, autorizador: autorizador, canal: canal, zona: zona})
-	if err != nil || len(rutas) != 4 {
+	if err != nil || len(rutas) != 8 {
 		t.Fatal(len(rutas), err)
 	}
-	for _, ruta := range []string{cronoshttp.RutaConsultarSaldoPropio, cronoshttp.RutaRegistrarMarcajeRemoto, cronoshttp.RutaDisponibilidadMarcajeRemoto, cronoshttp.RutaRecuperarReciboMarcajeRemoto} {
+	for _, ruta := range []string{cronoshttp.RutaConsultarSaldoPropio, cronoshttp.RutaRegistrarMarcajeRemoto, cronoshttp.RutaDisponibilidadMarcajeRemoto, cronoshttp.RutaRecuperarReciboMarcajeRemoto,
+		cronoshttp.RutaConsultarMovimientosPropios, cronoshttp.RutaSolicitarCorreccionPropia, cronoshttp.RutaConsultarPermisosPropios, cronoshttp.RutaSolicitarPermisoPropio} {
 		if rutas[ruta] == nil || !strings.HasPrefix(ruta, prefijoRutasCronosEmpleado) {
 			t.Fatalf("ruta %s ausente", ruta)
 		}
@@ -126,6 +139,16 @@ func TestComponerManejadoresCronosEmpleadoPublicaSoloCuatroRutas(t *testing.T) {
 	rutas[cronoshttp.RutaConsultarSaldoPropio].ServeHTTP(w, httptest.NewRequest(http.MethodGet, cronoshttp.RutaConsultarSaldoPropio+"?periodo=hoy", nil))
 	if w.Code != http.StatusServiceUnavailable {
 		t.Fatal("manejador sin identidad no falla cerrado", w.Code)
+	}
+	for ruta, peticion := range map[string]*http.Request{
+		cronoshttp.RutaConsultarMovimientosPropios: httptest.NewRequest(http.MethodGet, cronoshttp.RutaConsultarMovimientosPropios+"?periodo=anio", nil),
+		cronoshttp.RutaConsultarPermisosPropios:    httptest.NewRequest(http.MethodGet, cronoshttp.RutaConsultarPermisosPropios, nil),
+	} {
+		w := httptest.NewRecorder()
+		rutas[ruta].ServeHTTP(w, peticion)
+		if w.Code != http.StatusServiceUnavailable {
+			t.Fatal("manejador sin identidad no falla cerrado", ruta, w.Code)
+		}
 	}
 }
 
