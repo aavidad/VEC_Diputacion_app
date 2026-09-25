@@ -1,5 +1,5 @@
 import { crearControladorPortal } from "./portal-eventos.js?v=20260925-d5d6-cronos-v1";
-import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20260925-d5d6-cronos-v1";
+import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20260925-reglas-ejemplo-v1";
 import { extraerDatosEnvelopeCanonico } from "./portal-contrato.js?v=20260925-sin-demo2-v1";
 import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?v=20260718-llamamientos-v1";
 import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20260925-sin-demo-v1";
@@ -771,7 +771,6 @@ const presentadorPanelInterno = crearPresentadorPanelInterno({
   obtenerEstadoCandidatos: () => estado.filtrosBolsa,
   obtenerModalContactos: () => estado.modalContactos,
   obtenerModalFicha: () => estado.modalFicha,
-  obtenerModalLlamar: () => estado.modalLlamar,
   obtenerModalResultado: () => estado.modalResultado,
 });
 
