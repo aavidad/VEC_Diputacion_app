@@ -51,7 +51,7 @@ export async function consultarReglasSituacion({ finRelacion = "", modalidad = "
   const consulta = parametros.toString();
   try {
     const respuesta = await fetchImpl(consulta ? `${RUTA_REGLAS_SITUACION}?${consulta}` : RUTA_REGLAS_SITUACION, {
-      method: "GET", credentials: "same-origin", mode: "same-origin", cache: "no-store", redirect: "error", signal, headers: { Accept: "application/json" },
+      method: "GET", credentials: "same-origin", mode: "same-origin", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer", signal, headers: { Accept: "application/json" },
     });
     if (!respuesta.ok) return { ok: false, status: respuesta.status, codigo: "no_disponible" };
     const cuerpo = await respuesta.json();

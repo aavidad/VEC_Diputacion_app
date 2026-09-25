@@ -75,7 +75,7 @@ function errorHttp(status) {
 export async function consultarContratosParticipacion(bolsa, participacion, { fetchImpl = fetch, signal } = {}) {
   try {
     const respuesta = await fetchImpl(rutaContratosParticipacion(bolsa, participacion), {
-      method: "GET", credentials: "same-origin", mode: "same-origin", cache: "no-store", redirect: "error", signal, headers: { Accept: "application/json" },
+      method: "GET", credentials: "same-origin", mode: "same-origin", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer", signal, headers: { Accept: "application/json" },
     });
     if (!respuesta.ok) return errorHttp(respuesta.status);
     const cuerpo = await respuesta.json();

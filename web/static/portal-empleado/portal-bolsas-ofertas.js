@@ -103,7 +103,7 @@ async function codigoError(respuesta) {
 /** Cliente HTTP mínimo: nunca envía identidad; la sesión la acredita el servidor. */
 export function crearClienteOfertas({ fetchImpl = fetch } = {}) {
   async function escribir(ruta, cuerpo, clave, signal) {
-    const respuesta = await fetchImpl(ruta, { method: "POST", credentials: "same-origin", signal, body: JSON.stringify(cuerpo),
+    const respuesta = await fetchImpl(ruta, { method: "POST", credentials: "same-origin", mode: "same-origin", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer", signal, body: JSON.stringify(cuerpo),
       headers: { Accept: "application/json", "Content-Type": "application/json", "Idempotency-Key": clave } });
     if (!respuesta.ok) return { ok: false, status: respuesta.status, codigo: await codigoError(respuesta) };
     return { ok: true, status: respuesta.status, oferta: validarOferta((await respuesta.json())?.data) };
@@ -111,7 +111,7 @@ export function crearClienteOfertas({ fetchImpl = fetch } = {}) {
   return Object.freeze({
     async consultar(bolsaRef, { signal } = {}) {
       const respuesta = await fetchImpl(`${RUTA_OFERTAS_BOLSA}?${new URLSearchParams({ bolsa_ref: bolsaRef, limite: "50" })}`,
-        { method: "GET", credentials: "same-origin", signal, headers: { Accept: "application/json" } });
+        { method: "GET", credentials: "same-origin", mode: "same-origin", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer", signal, headers: { Accept: "application/json" } });
       if (!respuesta.ok) return { ok: false, status: respuesta.status, codigo: await codigoError(respuesta) };
       return { ok: true, datos: validarOfertasBolsa(await respuesta.json()) };
     },

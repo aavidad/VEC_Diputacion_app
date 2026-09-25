@@ -41,7 +41,7 @@ function intentosValidos(i) {
 export async function consultarIntentosContacto(bolsa, participacion, llamamiento, { fetchImpl = fetch, signal } = {}) {
   try {
     const respuesta = await fetchImpl(`${rutaContactosCandidato(bolsa, participacion)}?llamamiento_ref=${encodeURIComponent(llamamiento)}`, {
-      method: "GET", credentials: "same-origin", mode: "same-origin", cache: "no-store", redirect: "error", signal, headers: { Accept: "application/json" },
+      method: "GET", credentials: "same-origin", mode: "same-origin", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer", signal, headers: { Accept: "application/json" },
     });
     if (!respuesta.ok) return { ok: false, status: respuesta.status, mensaje: t("error_carga") };
     const cuerpo = await respuesta.json();
@@ -58,7 +58,7 @@ export async function consultarIntentosContacto(bolsa, participacion, llamamient
 export async function registrarContactoIntento(bolsa, participacion, comando, clave, { fetchImpl = fetch } = {}) {
   try {
     const respuesta = await fetchImpl(rutaContactosCandidato(bolsa, participacion), {
-      method: "POST", credentials: "same-origin", mode: "same-origin", cache: "no-store", redirect: "error",
+      method: "POST", credentials: "same-origin", mode: "same-origin", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer",
       headers: { Accept: "application/json", "Content-Type": "application/json", "Idempotency-Key": clave },
       body: JSON.stringify(comando),
     });

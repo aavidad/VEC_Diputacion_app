@@ -10,7 +10,7 @@ export const RUTA_PLANTILLA_CORREO = "/api/vec/bolsa/llamamientos/emisiones/plan
 export const RUTA_VISTA_PREVIA_CORREO = "/api/vec/bolsa/llamamientos/emisiones/vista-previa";
 const VERSION = /^bolsa-llamamiento-v[1-9][0-9]{0,3}$/;
 const CLAVE_MARCADOR = /^[a-z][a-z0-9_]{0,39}$/;
-const OPCIONES = Object.freeze({ credentials: "same-origin", mode: "same-origin", cache: "no-store", redirect: "error" });
+const OPCIONES = Object.freeze({ credentials: "same-origin", mode: "same-origin", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer" });
 
 function escapar(valor) {
   return String(valor ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);

@@ -144,7 +144,7 @@ function reversionValida(reversion) {
 }
 
 async function pedir(ruta, opciones, fetchImpl) {
-  const respuesta = await fetchImpl(ruta, { credentials: "same-origin", mode: "same-origin", cache: "no-store", redirect: "error", ...opciones });
+  const respuesta = await fetchImpl(ruta, { credentials: "same-origin", mode: "same-origin", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer", ...opciones });
   const cuerpo = await respuesta.json().catch(() => ({}));
   return { respuesta, cuerpo };
 }

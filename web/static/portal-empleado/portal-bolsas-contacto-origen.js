@@ -40,7 +40,7 @@ export function origenValido(origen) {
 export async function consultarOrigenContacto(bolsa, participacion, { fetchImpl = fetch, signal } = {}) {
   try {
     const respuesta = await fetchImpl(`${RUTA_BOLSAS}/${segmento(bolsa)}/candidatos/${segmento(participacion)}/datos-contacto`, {
-      method: "GET", credentials: "same-origin", mode: "same-origin", cache: "no-store", redirect: "error", signal, headers: { Accept: "application/json" },
+      method: "GET", credentials: "same-origin", mode: "same-origin", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer", signal, headers: { Accept: "application/json" },
     });
     if (respuesta.status === 404) return { ok: true, datos: { sin_contacto: true, origen: null } };
     if (respuesta.status === 403) return { ok: false, status: 403, codigo: "acceso_denegado" };

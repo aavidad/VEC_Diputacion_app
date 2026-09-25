@@ -71,7 +71,7 @@ export async function registrarContacto(bolsa, participacion, comando, clave, { 
   if (!bolsa || !participacion || !clave || validarComandoContacto(comando)) return { ok: false, status: 400, mensaje: t("error_datos") };
   try {
     const respuesta = await fetchImpl(rutaRegistroContacto(bolsa, participacion), {
-      method: "POST", credentials: "same-origin", mode: "same-origin", cache: "no-store", redirect: "error",
+      method: "POST", credentials: "same-origin", mode: "same-origin", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer",
       headers: { Accept: "application/json", "Content-Type": "application/json", "Idempotency-Key": clave },
       body: JSON.stringify(comando),
     });

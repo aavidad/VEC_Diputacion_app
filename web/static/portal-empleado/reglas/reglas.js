@@ -56,7 +56,7 @@ export function crearCliente(fetchImpl = globalThis.fetch, timeoutMs = 10000) {
       const temporizador = setTimeout(() => controlador.abort(), timeoutMs);
       try {
         const respuesta = await fetchImpl(API_REGLAS, {
-          method: "GET", credentials: "same-origin", redirect: "error", cache: "no-store",
+          method: "GET", credentials: "same-origin", mode: "same-origin", redirect: "error", cache: "no-store", referrerPolicy: "no-referrer",
           headers: { Accept: "application/json" }, signal: controlador.signal,
         });
         const cuerpo = await respuesta.text();
