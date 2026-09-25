@@ -13,6 +13,7 @@ import (
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	postgrescontratacion "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/ports"
+	personaldomain "vec-diputacion-granada/internal/modules/personal/domain"
 	postgresvec "vec-diputacion-granada/internal/vec/adapters/postgres"
 	confianzaatestacion "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
 )
@@ -97,6 +98,7 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	materialDietas                    materialDietasDesdeCTDesarrollo
 	materialCronos                    materialCronosDesdeCTDesarrollo
 	materialDocumentos                *proveedorMaterialAltaContratacionTemporalDesarrollo
+	materialPersonalFichaPropia       *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialPersonalB2                [8]CapacidadPublicadaPersonalB2V3
 	detenerRenovacion                 func()
 	catalogoMaterial                  catalogoMaterialAutorizacionComunDesarrollo
@@ -323,6 +325,9 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	if documentosSolicitados(cfg.DocumentosEnabled) {
 		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialDocumentosDesarrollo()...)
 	}
+	if personalEmpleadoSolicitado(cfg.PersonalEmpleadoEnabled) {
+		descriptoresMaterial = append(descriptoresMaterial, descriptorMaterialFichaPropiaPersonalDesarrollo())
+	}
 	personalB2, err := cfg.PersonalB2GobiernoDesarrolloActivo()
 	if err != nil {
 		return vacias, err
@@ -362,6 +367,12 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	}
 	if documentosSolicitados(cfg.DocumentosEnabled) {
 		dependencias.materialDocumentos, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, descriptoresMaterialDocumentosDesarrollo()[0].Audiencia)
+		if err != nil {
+			return vacias, err
+		}
+	}
+	if personalEmpleadoSolicitado(cfg.PersonalEmpleadoEnabled) {
+		dependencias.materialPersonalFichaPropia, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, personaldomain.AudienciaFichaPropia)
 		if err != nil {
 			return vacias, err
 		}

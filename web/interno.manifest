@@ -80,6 +80,8 @@ static/portal-empleado/modulos/personal/cliente-http-estructura-organizativa-pub
 static/portal-empleado/modulos/personal/contrato.js
 static/portal-empleado/modulos/personal/i18n.js
 static/portal-empleado/modulos/personal/i18n-rpt-puestos.js
+static/portal-empleado/modulos/personal/i18n-ficha-propia.js
+static/portal-empleado/modulos/personal/cliente-http-ficha-propia.js
 static/portal-empleado/modulos/personal/ficha-integral.css
 static/portal-empleado/modulos/personal/vista-ficha-integral.js
 static/portal-empleado/modulos/personal/registro-b2.js

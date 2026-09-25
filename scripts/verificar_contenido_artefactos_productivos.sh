@@ -209,6 +209,10 @@ transportes_mtls_revisados=(
 	# rutas internas fijas, same-origin, no-store, redirect error y no-referrer;
 	# actor y concesión V3 los deriva el servidor del mTLS.
 	static/portal-empleado/modulos/documentos/cliente-http.js
+	# Ficha propia de la persona empleada (25/09): un solo GET a ruta interna
+	# fija, sin parámetros, same-origin, no-store, redirect error y no-referrer;
+	# persona y empleado los deriva el servidor del mTLS.
+	static/portal-empleado/modulos/personal/cliente-http-ficha-propia.js
 )
 mapfile -t usos_mismo_origen < <(
 	grep -rliE 'credentials[[:space:]]*:[[:space:]]*["'"'"']same-origin' \
