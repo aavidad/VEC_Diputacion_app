@@ -39,7 +39,16 @@ type Lector struct {
 	actual   *confianza.ServicioConfianzaAtestacionAutorizacionV3
 }
 
+// enUTC fija la localización canónica: una fecha leída de JSON o PostgreSQL con
+// desplazamiento +00:00 llega con otra Location y la configuración V3 la rechaza.
+func enUTC(p Publicacion) Publicacion {
+	p.PublicadaEn = p.PublicadaEn.UTC()
+	p.ExpiraEn = p.ExpiraEn.UTC()
+	return p
+}
+
 func Nuevo(anterior Publicacion, raiz confianza.RaizPublicaAtestacionAutorizacionV3, reloj Reloj, fuente Fuente) (*Lector, error) {
+	anterior = enUTC(anterior)
 	if reloj == nil || fuente == nil || configurar(anterior, raiz) == nil {
 		return nil, ErrGobiernoNoDisponible
 	}
@@ -61,6 +70,7 @@ func (l *Lector) Leer(ctx context.Context) (*confianza.ServicioConfianzaAtestaci
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	actual, err := l.fuente(ctx, l.anterior)
+	actual = enUTC(actual)
 	if err != nil || ctx.Err() != nil || actual.Secuencia < l.anterior.Secuencia ||
 		(actual.Secuencia == l.anterior.Secuencia && !mismaPublicacion(actual, l.anterior)) {
 		return nil, Publicacion{}, ErrGobiernoNoDisponible

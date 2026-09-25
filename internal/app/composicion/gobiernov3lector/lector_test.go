@@ -93,3 +93,24 @@ func TestLectorFallaCerradoAnteCambioIncoherenteRevocacionYCaducidad(t *testing.
 		t.Fatalf("configuración vencida admitida: %v", err)
 	}
 }
+
+// PostgreSQL devuelve las fechas de la publicación con desplazamiento +00:00;
+// al decodificarlas llegan con una Location distinta de time.UTC.
+func TestLectorAdmiteFechasConDesplazamientoCero(t *testing.T) {
+	raiz, primera, _, reloj := escenarioPrueba(t)
+	cero := time.FixedZone("", 0)
+	leida := primera
+	leida.PublicadaEn = primera.PublicadaEn.In(cero)
+	leida.ExpiraEn = primera.ExpiraEn.In(cero)
+	anterior := primera
+	anterior.PublicadaEn = primera.PublicadaEn.In(time.Local)
+	lector, err := Nuevo(anterior, raiz, reloj, func(_ context.Context, _ Publicacion) (Publicacion, error) {
+		return leida, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, p, err := lector.Leer(context.Background()); err != nil || p.PublicadaEn.Location() != time.UTC {
+		t.Fatalf("publicación con desplazamiento cero rechazada: %v", err)
+	}
+}
