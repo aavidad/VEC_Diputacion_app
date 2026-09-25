@@ -279,9 +279,24 @@ func NewHTTPServerDesarrolloWithConfig(
 			}
 		}()
 	}
+	documentos, err := nuevosDocumentosDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, autoridadContratacion.materialDocumentos, registro)
+	if err != nil {
+		return nil, nil, err
+	}
+	if documentos != nil {
+		defer func() {
+			if !completa {
+				documentos.cerrar()
+			}
+		}()
+		rutasContratacion = append(rutasContratacion, documentos.rutas...)
+	}
 	autoridadExactas := vechttp.AutoridadRutasExactas(autoridadContratacion)
 	if comisionesDietas != nil {
 		autoridadExactas = autoridadExactasConDietas{delegada: autoridadContratacion, dietas: comisionesDietas}
+	}
+	if documentos != nil {
+		autoridadExactas = autoridadExactasConDocumentos{delegada: autoridadExactas, documentos: documentos}
 	}
 	vecAPI, err := newVECShellAPICompuestaConIdentidadYRutas(
 		cfg, resolvedor, categoriasPersonal, rutasContratacion, autoridadExactas,
@@ -293,6 +308,9 @@ func NewHTTPServerDesarrolloWithConfig(
 	vecAPI = autoridadContratacion.proteger(vecAPI)
 	if comisionesDietas != nil {
 		vecAPI = comisionesDietas.proteger(vecAPI)
+	}
+	if documentos != nil {
+		vecAPI = documentos.proteger(vecAPI)
 	}
 	cfgPublica := cfg
 	cfgPublica.AuthMode = config.AuthModeDisabled
@@ -320,6 +338,9 @@ func NewHTTPServerDesarrolloWithConfig(
 	}
 	if cronosEmpleado != nil {
 		servidor.RegisterOnShutdown(cronosEmpleado.cerrar)
+	}
+	if documentos != nil {
+		servidor.RegisterOnShutdown(documentos.cerrar)
 	}
 	completa = true
 	return servidor, composicion, nil

@@ -47,31 +47,65 @@ type ServicioLectura interface {
 }
 
 type manejador struct {
-	servicio    ServicioLectura
-	autoridad   AutoridadContextoConsulta
-	incidencias vecports.EmisorIncidenciasTecnicas
-	descarga    bool
+	servicio           ServicioLectura
+	autoridad          AutoridadContextoConsulta
+	incidencias        vecports.EmisorIncidenciasTecnicas
+	tipos              TiposDocumentales
+	descarga           bool
+	descargaDisponible bool
 }
+
+// TiposDocumentales traduce la referencia opaca de un tipo catalogado a su
+// clave estable para la interfaz. Sin catálogo, o para un tipo desconocido,
+// la lista declara "documento": nunca expone la referencia opaca.
+type TiposDocumentales interface {
+	ClaveTipo(tipoRef string) (string, bool)
+}
+
+const tipoGenerico = "documento"
 
 // NuevasRutasExactas entrega los dos manejadores al unico dispatcher de la raiz.
 // La raiz debe proporcionar tambien su AutoridadRutasExactas independiente.
 func NuevasRutasExactas(servicio ServicioLectura, autoridad AutoridadContextoConsulta) ([]httpapi.RutaExacta, error) {
-	return NuevasRutasExactasConIncidencias(servicio, autoridad, nil)
+	return NuevasRutas(Configuracion{Servicio: servicio, Autoridad: autoridad, DescargaDisponible: true})
 }
 
-// NuevasRutasExactasConIncidencias declara HTTP_INTERNO_FALLIDO en cada
-// respuesta 5xx: ningun fallo tecnico queda silencioso. El emisor no bloquea.
+// NuevasRutasExactasConIncidencias es NuevasRutasExactas con emisor de
+// incidencias tecnicas.
 func NuevasRutasExactasConIncidencias(servicio ServicioLectura, autoridad AutoridadContextoConsulta, incidencias vecports.EmisorIncidenciasTecnicas) ([]httpapi.RutaExacta, error) {
-	if nula(servicio) || nula(autoridad) {
+	return NuevasRutas(Configuracion{Servicio: servicio, Autoridad: autoridad, Incidencias: incidencias, DescargaDisponible: true})
+}
+
+// Configuracion de la frontera. Con DescargaDisponible=false la ruta de
+// descarga no se publica y la lista nunca ofrece bytes: la composicion la
+// apaga mientras no exista autoridad de lectura del almacen.
+type Configuracion struct {
+	Servicio           ServicioLectura
+	Autoridad          AutoridadContextoConsulta
+	Incidencias        vecports.EmisorIncidenciasTecnicas
+	Tipos              TiposDocumentales
+	DescargaDisponible bool
+}
+
+// NuevasRutas declara HTTP_INTERNO_FALLIDO en cada respuesta 5xx cuando hay
+// emisor: ningun fallo tecnico queda silencioso. El emisor no bloquea.
+func NuevasRutas(c Configuracion) ([]httpapi.RutaExacta, error) {
+	if nula(c.Servicio) || nula(c.Autoridad) {
 		return nil, ErrManejadorInvalido
 	}
-	if nula(incidencias) {
-		incidencias = nil
+	if nula(c.Incidencias) {
+		c.Incidencias = nil
 	}
-	return []httpapi.RutaExacta{
-		{Ruta: RutaConsultaExpediente, Manejador: &manejador{servicio: servicio, autoridad: autoridad, incidencias: incidencias}},
-		{Ruta: RutaDescargaOriginal, Manejador: &manejador{servicio: servicio, autoridad: autoridad, incidencias: incidencias, descarga: true}},
-	}, nil
+	if nula(c.Tipos) {
+		c.Tipos = nil
+	}
+	rutas := []httpapi.RutaExacta{{Ruta: RutaConsultaExpediente, Manejador: &manejador{servicio: c.Servicio,
+		autoridad: c.Autoridad, incidencias: c.Incidencias, tipos: c.Tipos, descargaDisponible: c.DescargaDisponible}}}
+	if c.DescargaDisponible {
+		rutas = append(rutas, httpapi.RutaExacta{Ruta: RutaDescargaOriginal, Manejador: &manejador{servicio: c.Servicio,
+			autoridad: c.Autoridad, incidencias: c.Incidencias, descarga: true, descargaDisponible: true}})
+	}
+	return rutas, nil
 }
 func nula(v any) bool {
 	if v == nil {
@@ -187,7 +221,8 @@ func (h *manejador) servirLista(w http.ResponseWriter, r *http.Request) {
 		}
 		// Solo se ofrece descarga de originales que custodia VEC. De una
 		// referencia externa se muestran huella y custodia, nunca bytes.
-		descargable := d.Descargable() && (d.MIME == "application/pdf" || d.MIME == "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+		descargable := h.descargaDisponible && d.Descargable() &&
+			(d.MIME == "application/pdf" || d.MIME == "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
 		salida = append(salida, struct {
 			Ref         string `json:"ref"`
 			Numero      string `json:"numero_vec"`
@@ -198,7 +233,7 @@ func (h *manejador) servirLista(w http.ResponseWriter, r *http.Request) {
 			MIME        string `json:"mime"`
 			Custodia    string `json:"custodia"`
 			Descargable bool   `json:"descargable"`
-		}{d.ID, d.NumeroVEC, d.TipoRef, d.Version, "pendiente_firma", d.HuellaSHA256, d.MIME, d.Custodia, descargable})
+		}{d.ID, d.NumeroVEC, h.claveTipo(d.TipoRef), d.Version, "pendiente_firma", d.HuellaSHA256, d.MIME, d.Custodia, descargable})
 	}
 	estado := "disponible"
 	if len(salida) == 0 {
@@ -206,6 +241,16 @@ func (h *manejador) servirLista(w http.ResponseWriter, r *http.Request) {
 	}
 	responderJSON(w, http.StatusOK, map[string]any{"data": map[string]any{"estado": estado, "documentos": salida, "siguiente_cursor": pagina.SiguienteCursor}})
 }
+func (h *manejador) claveTipo(tipoRef string) string {
+	if h.tipos == nil {
+		return tipoGenerico
+	}
+	if clave, ok := h.tipos.ClaveTipo(tipoRef); ok && domain.IdentificadorTecnicoValido(clave) {
+		return clave
+	}
+	return tipoGenerico
+}
+
 func (h *manejador) servirOriginal(w http.ResponseWriter, r *http.Request) {
 	var entrada struct {
 		ExpedienteRef string `json:"expediente_ref"`

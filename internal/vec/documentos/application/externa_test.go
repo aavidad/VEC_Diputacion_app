@@ -212,7 +212,22 @@ func TestDescargaNoSirveDocumentosDeCustodiaExterna(t *testing.T) {
 	}
 	servicio.Repositorio = &repositorioObtenerExterno{documento: documentoConfirmadoPrueba(repo.recibido)}
 	servicio.Almacen = almacenNoAlcanzable{}
+	servicio.ContextosLectura = fabricaNoAlcanzable{t: t}
 	if _, err := servicio.DescargarOriginal(context.Background(), consulta); !errors.Is(err, ports.ErrOriginalNoDisponible) {
 		t.Fatalf("descarga de custodia externa: %v", err)
 	}
+	// Sin autoridad de lectura del almacén no se llega a consumir V3.
+	servicio.ContextosLectura = nil
+	servicio.Repositorio = &repositorioExternaPrueba{}
+	if _, err := servicio.DescargarOriginal(context.Background(), consulta); !errors.Is(err, ports.ErrCapacidadNoDisponible) {
+		t.Fatalf("descarga sin autoridad de lectura: %v", err)
+	}
+}
+
+// fabricaNoAlcanzable falla la prueba si se pide un contexto de lectura.
+type fabricaNoAlcanzable struct{ t *testing.T }
+
+func (f fabricaNoAlcanzable) ContextoLecturaOriginal(context.Context, domain.Documento, ports.AutorizacionV3) (vecports.ContextoOperacionAlmacen, error) {
+	f.t.Fatal("no debe pedirse contexto de lectura de un original externo")
+	return vecports.ContextoOperacionAlmacen{}, nil
 }

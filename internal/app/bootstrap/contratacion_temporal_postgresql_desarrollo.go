@@ -96,6 +96,7 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	proveedorMaterialResultadoCorreo  *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialDietas                    materialDietasDesdeCTDesarrollo
 	materialCronos                    materialCronosDesdeCTDesarrollo
+	materialDocumentos                *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialPersonalB2                [8]CapacidadPublicadaPersonalB2V3
 	detenerRenovacion                 func()
 	catalogoMaterial                  catalogoMaterialAutorizacionComunDesarrollo
@@ -319,6 +320,9 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	if cronosEmpleadoSolicitado(cfg.CronosEmpleadoEnabled) {
 		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialCronosDesarrollo()...)
 	}
+	if documentosSolicitados(cfg.DocumentosEnabled) {
+		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialDocumentosDesarrollo()...)
+	}
 	personalB2, err := cfg.PersonalB2GobiernoDesarrolloActivo()
 	if err != nil {
 		return vacias, err
@@ -355,6 +359,12 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			}
 		}
 		dependencias.materialCronos = materialCronosDesdeProveedores(cronos)
+	}
+	if documentosSolicitados(cfg.DocumentosEnabled) {
+		dependencias.materialDocumentos, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, descriptoresMaterialDocumentosDesarrollo()[0].Audiencia)
+		if err != nil {
+			return vacias, err
+		}
 	}
 	if personalB2 {
 		// vec-server no consume B2: sólo publica sus claves para vec-interno.

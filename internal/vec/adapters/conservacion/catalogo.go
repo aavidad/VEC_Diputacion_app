@@ -150,6 +150,16 @@ func (c *Catalogo) TipoDocumentalRef(tipo string) (string, error) {
 	return ref, nil
 }
 
+// ClaveTipo devuelve la clave estable de un tipo catalogado a partir de su
+// referencia opaca, para presentarlo sin exponer la referencia.
+func (c *Catalogo) ClaveTipo(tipoRef string) (string, bool) {
+	if c == nil {
+		return "", false
+	}
+	e, ok := c.porTipoRef[tipoRef]
+	return e.tipo, ok
+}
+
 // SolicitudPara construye la solicitud exacta que un módulo productor debe
 // pasar a Documentos para un tipo catalogado y un expediente opaco.
 func (c *Catalogo) SolicitudPara(tipo, expedienteRef string) (ports.SolicitudPoliticaConservacionDocumental, error) {

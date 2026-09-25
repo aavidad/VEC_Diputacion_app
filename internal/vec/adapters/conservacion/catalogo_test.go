@@ -43,6 +43,12 @@ func TestCatalogoProvisionalResuelveUnaPoliticaExactaPorTipo(t *testing.T) {
 		string(otra.HuellaPoliticaSHA256()) == string(s.HuellaPoliticaSHA256()) {
 		t.Fatal("tipos distintos comparten referencias")
 	}
+	if clave, ok := c.ClaveTipo(s.TipoDocumentalRef()); !ok || clave != "dietas.comision.borrador.v1" {
+		t.Fatalf("clave de tipo: %q %v", clave, ok)
+	}
+	if _, ok := c.ClaveTipo(expediente); ok {
+		t.Fatal("referencia no catalogada con clave")
+	}
 	if _, err := c.SolicitudPara("tipo.desconocido.v1", expediente); err == nil {
 		t.Fatal("tipo no catalogado aceptado")
 	}

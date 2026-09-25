@@ -242,6 +242,11 @@ func (s *Servicio) DescargarOriginal(ctx context.Context, in ports.ConsultaDocum
 	if !efectoLigado(in.Autorizacion, preimagen, errPreimagen) {
 		return ports.Original{}, ports.ErrSolicitudInvalida
 	}
+	// Sin autoridad de lectura del almacén no se consume la concesión V3:
+	// la descarga no llegaría a producirse.
+	if dependenciaNula(s.ContextosLectura) {
+		return ports.Original{}, ports.ErrCapacidadNoDisponible
+	}
 	d, err := s.Repositorio.Obtener(ctx, in)
 	if err != nil {
 		return ports.Original{}, err
@@ -249,9 +254,6 @@ func (s *Servicio) DescargarOriginal(ctx context.Context, in ports.ConsultaDocum
 	if d.Validar() != nil || d.ID != in.DocumentoID || d.Version != in.Version ||
 		!d.Descargable() || d.Tamano > limiteOriginal {
 		return ports.Original{}, ports.ErrOriginalNoDisponible
-	}
-	if dependenciaNula(s.ContextosLectura) {
-		return ports.Original{}, ports.ErrCapacidadNoDisponible
 	}
 	contextoAlmacen, err := s.ContextosLectura.ContextoLecturaOriginal(ctx, d, in.Autorizacion)
 	if err != nil {

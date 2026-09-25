@@ -239,3 +239,37 @@ func TestAutoridadCaidaEsIndisponibilidadYDenegacionEs403(t *testing.T) {
 		t.Fatalf("descarga sin expediente=%d", w.Code)
 	}
 }
+
+func TestSinDescargaNoSePublicaRutaNiSeOfrecenBytes(t *testing.T) {
+	s := &servicioPrueba{documento: documentoPrueba()}
+	rutas, err := NuevasRutas(Configuracion{Servicio: s, Autoridad: &autoridadPrueba{}})
+	if err != nil || len(rutas) != 1 || rutas[0].Ruta != RutaConsultaExpediente {
+		t.Fatalf("rutas sin descarga: %v %d", err, len(rutas))
+	}
+	w := httptest.NewRecorder()
+	rutas[0].Manejador.ServeHTTP(w, solicitud(RutaConsultaExpediente, `{"expediente_ref":"ref:`+strings.Repeat("2", 64)+`","limite":5}`))
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"descargable":false`) {
+		t.Fatalf("lista sin descarga=%d %s", w.Code, w.Body.String())
+	}
+}
+
+type tiposPrueba map[string]string
+
+func (t tiposPrueba) ClaveTipo(ref string) (string, bool) { c, ok := t[ref]; return c, ok }
+
+func TestListaDeclaraClaveDeTipoYNuncaLaReferenciaOpaca(t *testing.T) {
+	d := documentoPrueba()
+	s := &servicioPrueba{documento: d}
+	rutas, _ := NuevasRutas(Configuracion{Servicio: s, Autoridad: &autoridadPrueba{}, Tipos: tiposPrueba{d.TipoRef: "dietas.comision.borrador.v1"}})
+	w := httptest.NewRecorder()
+	rutas[0].Manejador.ServeHTTP(w, solicitud(RutaConsultaExpediente, `{"expediente_ref":"ref:`+strings.Repeat("2", 64)+`","limite":5}`))
+	if !strings.Contains(w.Body.String(), `"tipo":"dietas.comision.borrador.v1"`) || strings.Contains(w.Body.String(), d.TipoRef) {
+		t.Fatalf("tipo catalogado: %s", w.Body.String())
+	}
+	rutas, _ = NuevasRutas(Configuracion{Servicio: s, Autoridad: &autoridadPrueba{}, Tipos: tiposPrueba{}})
+	w = httptest.NewRecorder()
+	rutas[0].Manejador.ServeHTTP(w, solicitud(RutaConsultaExpediente, `{"expediente_ref":"ref:`+strings.Repeat("2", 64)+`","limite":5}`))
+	if !strings.Contains(w.Body.String(), `"tipo":"documento"`) || strings.Contains(w.Body.String(), d.TipoRef) {
+		t.Fatalf("tipo desconocido: %s", w.Body.String())
+	}
+}

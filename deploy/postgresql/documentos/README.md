@@ -102,3 +102,43 @@ la base no tiene clave publicada para `vec_documentos.operacion.v1`.
 AutoFirmaV2 requiere recibo verificable del verificador y otro consumidor V3
 nominal; la referencia del objeto firmado o un resultado booleano no habilitan
 la transición. La preparación de notificación no declara envío ni entrega.
+
+## Montaje en vec-server
+
+Selector de despliegue `VEC_DOCUMENTOS_ENABLED` (`true`/`false`; ausente =
+apagado), sujeto a la doble llave de desarrollo. Apagado no cambia nada: ni
+rutas, ni catálogo `/api/vec/modules`, ni material V3. Encendido, cualquier
+pieza ausente impide arrancar (`bootstrap: Documentos no disponible`, con
+fichero y línea, sin DSN ni rutas).
+
+Encendido, vec-server publica en el gobierno V3 único la clave de la
+audiencia `vec_documentos.operacion.v1` (AD3-60) y lee el material privado
+`identidad/documentos.json` del directorio de material de desarrollo (fuera de
+Git, 0600):
+
+```json
+{
+  "version": 1,
+  "autoridad": "no_autoritativo",
+  "cuentas": [{"certificado_sha256": "<64 hex>", "sujeto": "...", "cuenta_ref": "...", "perfil_ref": "prf_..."}],
+  "dsn_registro_identidad": "...", "dsn_revalidacion_identidad": "...",
+  "dsn_contexto": "...", "dsn_fuente_autorizacion": "...",
+  "dsn_registro_autorizacion": "...", "dsn_motivos": "...",
+  "dsn_documentos": "<LOGIN con solo vec_documentos_ejecutor>",
+  "dsn_documentos_auditor": "<LOGIN con solo vec_documentos_auditor>",
+  "motivos": {"listar": {"catalogo_id": "...", "catalogo_version": 1, "catalogo_huella_sha256": "...", "entrada_clave": "..."}},
+  "almacen": {"tipo": "ficheros", "directorio": "/ruta/absoluta/privada", "tamano_maximo": 16777216, "retencion_minima_dias": 3650}
+}
+```
+
+`almacen.tipo` admite `ficheros` (predeterminado: directorio propio del
+proceso, 0700) o `s3` con el mapa `s3` del conector S3 existente. Los DSN
+exigen TLS verificado y LOGIN distintos. Las cuentas deben existir ya en la
+identidad de desarrollo; el catálogo de motivos y las concesiones de
+`documentos.expediente.listar` (tipo `expediente_documental`, campos
+`["items","siguiente_cursor"]`) son datos de autorización, no de este montaje.
+
+Queda publicada la consulta `POST /api/vec/documentos/expedientes/consultas`.
+La descarga de originales no se publica todavía: leer el original exige una
+decisión de almacén propia (`NuevoContextoLeerDocumentoGeneradoAlmacen`) que
+la raíz no puede obtener del PDP V3; la lista marca `descargable:false`.

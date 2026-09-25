@@ -256,16 +256,7 @@ func newVECShellAPICompuestaConIdentidadYRutas(
 	if err != nil {
 		return nil, err
 	}
-	for _, manifest := range []vecdomain.ModuleManifest{
-		personalmodule.Manifest(),
-		cronosmodule.Manifest(),
-		dietasmodule.Manifest(),
-		vecdocumentos.Manifest(),
-		bolsamodule.Manifest(),
-		contrataciontemporal.Manifest(),
-		adminmodule.Manifest(),
-		usuariosmodule.Manifest(),
-	} {
+	for _, manifest := range manifiestosShellVEC(cfg) {
 		if err := internalOperations.RegisterModule(context.Background(), manifest); err != nil {
 			return nil, err
 		}
@@ -284,6 +275,27 @@ func newVECShellAPICompuestaConIdentidadYRutas(
 		AutoridadRutasExactas:                    autoridadRutasExactas,
 		RegistradorAuditoriaFronteraRutasExactas: registradorAuditoriaFronteraRutasExactas,
 	})
+}
+
+// manifiestosShellVEC enumera los módulos que el catálogo /api/vec/modules
+// ofrece. Documentos sólo aparece cuando su montaje está activado: el
+// arranque falla cerrado si ese montaje no se compone, de modo que el portal
+// nunca muestra un menú sin rutas detrás.
+func manifiestosShellVEC(cfg config.Config) []vecdomain.ModuleManifest {
+	manifiestos := []vecdomain.ModuleManifest{
+		personalmodule.Manifest(),
+		cronosmodule.Manifest(),
+		dietasmodule.Manifest(),
+	}
+	if activo, err := cfg.DocumentosDesarrolloActivo(); err == nil && activo {
+		manifiestos = append(manifiestos, vecdocumentos.Manifest())
+	}
+	return append(manifiestos,
+		bolsamodule.Manifest(),
+		contrataciontemporal.Manifest(),
+		adminmodule.Manifest(),
+		usuariosmodule.Manifest(),
+	)
 }
 
 func validarModoAutenticacionIntegrado(cfg config.Config) error {
