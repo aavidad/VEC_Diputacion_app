@@ -1,4 +1,4 @@
-import { crearTraductorDocumentos } from "./i18n.js?v=20260925-documentos-montaje-v1";
+import { crearTraductorDocumentos } from "./i18n.js?v=20260925-documentos-web-v2";
 
 // El servidor devuelve la clave del tipo documental catalogado, nunca su
 // referencia opaca; un tipo sin rótulo se muestra como documento genérico.
@@ -70,24 +70,14 @@ export function montarVistaDocumentos({ raiz, fuente, expedienteRef = "", anunci
   ayuda.append(ayudaBoton, elemento(doc, "p", t("aclaracion_firma")));
   cabecera.append(titulo, ayuda);
   const panel = elemento(doc, "section", undefined, "panel documentos-panel");
-  const formulario = elemento(doc, "form", undefined, "documentos-formulario");
-  const label = elemento(doc, "label", t("expediente"));
-  const entrada = elemento(doc, "input");
-  entrada.name = "expediente";
-  entrada.type = "text";
-  entrada.required = true;
-  entrada.maxLength = 120;
-  entrada.autocomplete = "off";
-  entrada.value = expedienteRef;
-  label.append(entrada);
-  const consultarBoton = elemento(doc, "button", t("consultar"), "boton-primario");
-  consultarBoton.type = "submit";
-  formulario.append(label, consultarBoton);
+  // La vista no pide referencias al usuario: solo se abre desde un expediente,
+  // que entrega la suya por navegación.
+  const expediente = referencia(expedienteRef) ? expedienteRef : "";
   const estado = elemento(doc, "p", "", "documentos-estado-consulta");
   estado.setAttribute("role", "status");
   estado.setAttribute("aria-live", "polite");
   const listado = elemento(doc, "div", undefined, "documentos-listado");
-  panel.append(formulario, estado, listado);
+  panel.append(estado, listado);
   contenedor.append(cabecera, panel);
   raiz.append(contenedor);
 
@@ -152,13 +142,10 @@ export function montarVistaDocumentos({ raiz, fuente, expedienteRef = "", anunci
       tr.append(firma);
       const accion = elemento(doc, "td");
       if (item.custodia === "externa") {
-        const custodia = elemento(doc, "span", t("custodia_externa"), "documentos-custodia-externa");
-        custodia.title = t("huella_de", { huella: item.huella });
-        accion.append(custodia);
-      } else {
+        accion.append(elemento(doc, "span", t("custodia_externa"), "documentos-custodia-externa"), huellaVisible(item.huella));
+      } else if (item.descargable) {
         const boton = elemento(doc, "button", t("descargar"), "boton-secundario documentos-descargar");
         boton.type = "button";
-        boton.disabled = !item.descargable;
         boton.setAttribute("aria-label", t("descargar_de", { numero: item.numero }));
         boton.addEventListener("click", () => descargar(item));
         accion.append(boton);
@@ -172,23 +159,32 @@ export function montarVistaDocumentos({ raiz, fuente, expedienteRef = "", anunci
     if (siguienteCursor) {
       const siguiente = elemento(doc, "button", t("cargar_mas"), "boton-secundario documentos-mas");
       siguiente.type = "button";
-      siguiente.addEventListener("click", () => { void consultar(entrada.value, true); });
+      siguiente.addEventListener("click", () => { void consultar(true); });
       listado.append(siguiente);
     }
     mostrar("disponible");
   }
 
-  async function consultar(valor = entrada.value, continuar = false) {
+  // Huella abreviada visible; la completa, en un desplegable accesible por teclado.
+  function huellaVisible(huella) {
+    const detalle = elemento(doc, "details", undefined, "documentos-huella");
+    const resumen = elemento(doc, "summary", t("huella_abreviada", { huella: `${huella.slice(0, 12)}…` }));
+    const completa = elemento(doc, "code", huella, "documentos-huella-completa");
+    detalle.append(resumen, completa);
+    return detalle;
+  }
+
+  async function consultar(continuar = false) {
     controlador?.abort();
     controlador = new AbortController();
     const signal = controlador.signal;
     const numero = ++secuencia;
     if (!continuar) { paginaDocumentos = []; siguienteCursor = ""; limpiar(); }
     if (!fuente) { mostrar("no_configurado"); return; }
-    if (!referencia(valor)) { mostrar("referencia_invalida"); return; }
+    if (!expediente) { mostrar("sin_expediente"); return; }
     mostrar("cargando");
     try {
-      fuente.seleccionarExpediente(valor);
+      fuente.seleccionarExpediente(expediente);
       const respuesta = validarRespuestaDocumentos(await fuente.listar({ signal, cursor: continuar ? siguienteCursor : "" }));
       if (!valido(numero, signal)) return;
       if (respuesta.estado === "denegado") { paginaDocumentos = []; siguienteCursor = ""; limpiar(); mostrar("denegado"); return; }
@@ -204,7 +200,6 @@ export function montarVistaDocumentos({ raiz, fuente, expedienteRef = "", anunci
       mostrar(error?.codigo === "denegado" ? "denegado" : "error");
     }
   }
-  formulario.addEventListener("submit", (evento) => { evento.preventDefault(); void consultar(); });
   function desmontar() {
     if (!activa) return;
     activa = false;
@@ -215,7 +210,7 @@ export function montarVistaDocumentos({ raiz, fuente, expedienteRef = "", anunci
     contenedor.remove();
   }
   registrarDesmontar?.(desmontar);
-  mostrar(fuente ? "seleccione_expediente" : "no_configurado");
-  if (referencia(expedienteRef) && fuente) void consultar(expedienteRef);
-  return Object.freeze({ consultar, desmontar });
+  mostrar(!fuente ? "no_configurado" : expediente ? "cargando" : "sin_expediente");
+  if (expediente && fuente) void consultar();
+  return Object.freeze({ consultar: () => consultar(), desmontar });
 }

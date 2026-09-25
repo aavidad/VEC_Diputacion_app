@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import test from "node:test";
 import { crearTraductorDocumentos, MENSAJES_DOCUMENTOS_ES } from "./i18n.js";
-import { validarArchivoDescarga, validarRespuestaDocumentos } from "./vista.js";
+import { montarVistaDocumentos, validarArchivoDescarga, validarRespuestaDocumentos } from "./vista.js";
 import { crearFuenteDocumentosHTTP } from "./cliente-http.js";
 
 const huella = "a".repeat(64);
@@ -82,6 +82,68 @@ test("la descarga conserva los bytes originales y rechaza una huella alterada", 
   assert.equal(original.nombre,"documento.pdf");
   await assert.rejects(fuente.descargar(ref,{ version:1,mime:"application/pdf",huella:"a".repeat(64) }),
     (error) => error.codigo === "respuesta_invalida");
+});
+
+// DOM mínimo: basta para montar la vista y recorrer lo que pinta.
+function crearDocumentoFalso() {
+  const doc = { defaultView: {}, createElement(tag) {
+    const nodo = { tagName: tag.toUpperCase(), ownerDocument: doc, children: [], dataset: {}, atributos: {}, oyentes: {}, textoPropio: "", padre: null,
+      set textContent(v) { this.textoPropio = String(v); this.children = []; },
+      get textContent() { return this.textoPropio + this.children.map((h) => h.textContent).join(""); },
+      setAttribute(n, v) { this.atributos[n] = String(v); }, getAttribute(n) { return this.atributos[n] ?? null; },
+      append(...hijos) { for (const h of hijos) { h.padre = this; this.children.push(h); } },
+      replaceChildren(...hijos) { this.children = []; this.append(...hijos); },
+      remove() { if (this.padre) this.padre.children = this.padre.children.filter((h) => h !== this); },
+      addEventListener(tipo, fn) { this.oyentes[tipo] = fn; } };
+    return nodo;
+  } };
+  doc.body = doc.createElement("body");
+  return doc;
+}
+const todos = (nodo) => [nodo, ...nodo.children.flatMap(todos)];
+const esperar = () => new Promise((resolver) => setImmediate(resolver));
+const fuenteFalsa = (documentos) => ({ seleccionados: [], seleccionarExpediente(ref) { this.seleccionados.push(ref); },
+  async listar() { return { estado: "disponible", documentos }; }, async descargar() { throw new Error("no usado"); } });
+
+test("sin expediente recibido por navegación no hay campo ni consulta", async () => {
+  const doc = crearDocumentoFalso();
+  const fuente = fuenteFalsa([dato()]);
+  montarVistaDocumentos({ raiz: doc.body, fuente });
+  await esperar();
+  const nodos = todos(doc.body);
+  assert.equal(nodos.some((n) => ["INPUT", "FORM"].includes(n.tagName)), false);
+  assert.equal(fuente.seleccionados.length, 0);
+  assert.equal(nodos.find((n) => n.getAttribute("role") === "status").textContent, MENSAJES_DOCUMENTOS_ES.sin_expediente);
+  const conBasura = crearDocumentoFalso();
+  montarVistaDocumentos({ raiz: conBasura.body, fuente, expedienteRef: "../ajeno" });
+  await esperar();
+  assert.equal(fuente.seleccionados.length, 0);
+});
+
+test("solo se pinta la descarga de lo descargable y la huella externa queda visible", async () => {
+  const doc = crearDocumentoFalso();
+  const expediente = "ref:" + "3".repeat(64);
+  const externa = "b".repeat(64);
+  const fuente = fuenteFalsa([
+    dato(),
+    dato({ ref: "ref:" + "4".repeat(64), numero_vec: "VEC-2026-2", descargable: false }),
+    dato({ ref: "ref:" + "5".repeat(64), numero_vec: "VEC-2026-3", custodia: "externa", mime: "", huella: externa }),
+  ]);
+  montarVistaDocumentos({ raiz: doc.body, fuente, expedienteRef: expediente });
+  await esperar();
+  assert.deepEqual(fuente.seleccionados, [expediente]);
+  const nodos = todos(doc.body);
+  assert.equal(nodos.some((n) => n.tagName === "INPUT"), false);
+  const botones = nodos.filter((n) => n.tagName === "BUTTON" && n.textContent === MENSAJES_DOCUMENTOS_ES.descargar);
+  assert.equal(botones.length, 1);
+  assert.equal(botones[0].getAttribute("aria-label"), "Descargar original del documento VEC-2026-1");
+  const filas = nodos.filter((n) => n.tagName === "TR");
+  assert.equal(todos(filas[2]).some((n) => n.tagName === "BUTTON"), false, "sin botón deshabilitado perpetuo");
+  const detalle = nodos.find((n) => n.tagName === "DETAILS" && n.className === "documentos-huella");
+  const resumen = detalle.children.find((n) => n.tagName === "SUMMARY");
+  assert.equal(resumen.textContent, `Huella ${"b".repeat(12)}…`);
+  assert.equal(detalle.children.find((n) => n.tagName === "CODE").textContent, externa);
+  assert.equal(nodos.some((n) => n.title), false, "la huella no depende de un title");
 });
 
 test("i18n y vista solo muestran ayuda tras el signo de interrogación", async () => {

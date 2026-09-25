@@ -36,6 +36,9 @@ test("Documentos se ofrece solo si el catálogo lo publica y su vista carga", as
   assert.equal(conDocumentos.vistaGestionada("documentos-expediente"), true);
   assert.equal(conDocumentos.vistaDisponible("documentos-expediente"), true);
   assert.deepEqual(conDocumentos.resolverAcceso("documentos"), { disponible: true, vista: "documentos-expediente" });
+  // Sin entrada propia: solo se abre desde un expediente que entrega su referencia.
+  assert.deepEqual(conDocumentos.obtenerCatalogo(), []);
+  assert.doesNotMatch(conDocumentos.renderizarNavegacion(), /documentos-expediente/u);
   assert.equal(moduloDeVistaPortal("documentos-expediente"), "documentos");
   assert.equal(rutaDeVistaPortal("documentos-expediente"), "#documentos-expediente");
   // La sección «documentos» de Bolsa no se confunde con el servicio común.

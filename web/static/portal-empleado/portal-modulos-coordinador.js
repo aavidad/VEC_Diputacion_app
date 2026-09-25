@@ -42,7 +42,10 @@ export const CLAVES_MODULOS_VEC_REGISTRADOS = Object.freeze([
 export const CLAVES_MODULOS_CON_VISTA_PORTAL = Object.freeze([
   CLAVE_PERSONAL, "cronos", "dietas", CLAVE_DOCUMENTOS, "bolsa", CLAVE_CONTRATACION_TEMPORAL,
 ]);
-// Documentos sólo aparece en el catálogo cuando el servidor lo tiene montado.
+// Documentos sólo se carga cuando el servidor lo tiene montado, pero no tiene
+// entrada propia en menú ni en Inicio: su vista se abre únicamente desde un
+// expediente, que le entrega la referencia a consultar.
+const CLAVES_SIN_ENTRADA_PORTAL = Object.freeze([CLAVE_DOCUMENTOS]);
 const CLAVES_CARGA_PORTAL = Object.freeze([...CLAVES_CARGA_MODULAR, CLAVE_DOCUMENTOS]);
 // Rol con el que la frontera de identidad atesta a Intervención. Solo decide
 // qué pantalla se ofrece; cada operación la sigue autorizando el servidor.
@@ -122,7 +125,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   // módulo cuando su montaje está compuesto; cada consulta la autoriza V3.
   documentos: async () => {
     const [vista, cliente] = await Promise.all([
-      import("./modulos/documentos/vista.js?v=20260925-documentos-montaje-v1"),
+      import("./modulos/documentos/vista.js?v=20260925-documentos-web-v2"),
       import("./modulos/documentos/cliente-http.js?v=20260925-documentos-montaje-v1"),
     ]);
     return Object.freeze({ vista, cliente });
@@ -187,6 +190,7 @@ export function crearCoordinadorModulosPortal({
   }
 
   let catalogo = Object.freeze([]);
+  let catalogoOfrecido = Object.freeze([]);
   let composicion = null;
   let desmontarVista = null;
   let vistaMontada = "";
@@ -503,6 +507,7 @@ export function crearCoordinadorModulosPortal({
     const carga = ++secuenciaCarga;
     composicion = null;
     catalogo = Object.freeze([]);
+    catalogoOfrecido = catalogo;
     cargaEnCurso = true;
     const vigente = () => carga === secuenciaCarga;
     const exigirVigente = () => {
@@ -537,6 +542,8 @@ export function crearCoordinadorModulosPortal({
     const conVista = catalogoInterno
       .filter((modulo) => CLAVES_MODULOS_CON_VISTA_PORTAL.includes(modulo.clave));
     catalogo = conVista.length === catalogoInterno.length ? catalogoInterno : Object.freeze(conVista);
+    const ofrecidos = catalogo.filter((modulo) => !CLAVES_SIN_ENTRADA_PORTAL.includes(modulo.clave));
+    catalogoOfrecido = ofrecidos.length === catalogo.length ? catalogo : Object.freeze(ofrecidos);
 
     const partes = {
       contratacionTemporal: undefined,
@@ -609,7 +616,7 @@ export function crearCoordinadorModulosPortal({
   }
 
   function obtenerCatalogo() {
-    return catalogo;
+    return catalogoOfrecido;
   }
 
   function vistaDisponible(vista) {
@@ -698,8 +705,8 @@ export function crearCoordinadorModulosPortal({
   function renderizarNavegacion(bolsaDisponible = true, moduloActivo = "portal", vistaPermitida = () => true) {
     if (typeof vistaPermitida !== "function") throw new TypeError("filtro de vistas no válido");
     const catalogoVisible = moduloActivo === "portal"
-      ? catalogo
-      : catalogo.filter((modulo) => modulo.clave === moduloActivo);
+      ? catalogoOfrecido
+      : catalogoOfrecido.filter((modulo) => modulo.clave === moduloActivo);
     return renderizarNavegacionModulos({
       catalogo: catalogoVisible,
       resolverAcceso: (clave) => {

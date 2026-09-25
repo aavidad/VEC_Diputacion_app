@@ -7,10 +7,6 @@
 .documentos-ayuda summary::-webkit-details-marker { display: none; }
 .documentos-ayuda p { position: absolute; right: 0; z-index: 3; width: min(340px, calc(100vw - 40px)); margin: 8px 0 0; padding: 16px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-lg); background: var(--portal-superficie); box-shadow: var(--portal-sombra-sm); color: var(--portal-tinta); font-size: .875rem; }
 .documentos-panel { min-width: 0; padding: 20px 24px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio-lg); background: var(--portal-superficie); box-shadow: var(--portal-sombra-sm); }
-.documentos-formulario { display: flex; align-items: end; gap: 12px; max-width: 720px; }
-.documentos-formulario label { display: grid; flex: 1; gap: 7px; min-width: 0; color: var(--portal-muted); font-size: .875rem; font-weight: 600; }
-.documentos-formulario input { box-sizing: border-box; width: 100%; min-height: 40px; padding: 8px 12px; border: 1px solid var(--portal-borde); border-radius: var(--portal-radio); background: var(--portal-superficie); color: var(--portal-tinta); font: inherit; }
-.documentos-formulario button { min-height: 40px; }
 .documentos-estado-consulta { min-height: 1.25em; margin: 16px 0 12px; color: var(--portal-muted); font-size: .875rem; }
 .modulo-documentos[data-estado="denegado"] .documentos-estado-consulta,
 .modulo-documentos[data-estado="error"] .documentos-estado-consulta,
@@ -33,10 +29,10 @@
 .documentos-estado--sin_acreditar { color: var(--portal-peligro); }
 .documentos-custodia-externa { color: var(--portal-muted); font-size: .875rem; white-space: nowrap; }
 .documentos-descargar { min-height: 36px; }
-.documentos-descargar:disabled { opacity: .5; cursor: not-allowed; }
+.documentos-huella { display: inline-block; margin-left: 12px; text-align: left; }
+.documentos-huella summary { color: var(--portal-azul-700); cursor: pointer; font-family: monospace; font-size: .8125rem; white-space: nowrap; }
+.documentos-huella-completa { display: block; max-width: 320px; margin-top: 6px; color: var(--portal-tinta); font-size: .75rem; overflow-wrap: anywhere; }
 .documentos-mas { display: block; min-height: 38px; margin: 16px auto 0; }
 @media (max-width: 700px) {
   .documentos-panel { padding: 16px; }
-  .documentos-formulario { align-items: stretch; flex-direction: column; }
-  .documentos-formulario button { align-self: stretch; }
 }
