@@ -231,6 +231,15 @@ BEGIN
  IF res->'recibo'->>'empleado_ref' !~ '^emp_' OR res->'acceso_actual'->>'estado_replay'<>'registrado' THEN RAISE EXCEPTION 'alta no registrada %',res; END IF;
  replay:=vec_personal.registrar_empleado_rrhh_v1(material,convert_to(cap::text,'UTF8'),convert_to(decision::text,'UTF8'),convert_to('{}','UTF8'),convert_to(contexto::text,'UTF8'),1,1,'x'::bytea,'y'::bytea,'z'::bytea,'w'::bytea);
  IF replay->'recibo' IS DISTINCT FROM res->'recibo' OR replay->'acceso_actual'->>'estado_replay'<>'replay' OR replay->'acceso_actual'->>'consumo_huella_sha256'=res->'acceso_actual'->>'consumo_huella_sha256' THEN RAISE EXCEPTION 'replay mutable o sin V3 nuevo'; END IF;
+ -- Otra clave para la misma persona (aprovisionamiento repetido con plan
+ -- distinto): conflicto sin segundo empleado ni segunda proyección.
+ material_error:=replace(material,'11111111-1111-4111-8111-111111111111','77777777-7777-4777-8777-777777777777');
+ mh:=encode(sha256(convert_to(material_error,'UTF8')),'hex');
+ rh:=encode(sha256(convert_to('{"ambitos":{"objetivo_ref":"per_sintetica_alcance_p_00000000000001","organismo_ref":"org:synthetic"},"atributos":{"material_sha256":"'||mh||'","operacion":"alta"}}','UTF8')),'hex');
+ BEGIN
+  PERFORM vec_personal.registrar_empleado_rrhh_v1(material_error,convert_to((cap||jsonb_build_object('huella_efecto_sha256',rh))::text,'UTF8'),convert_to((decision||jsonb_build_object('contexto_recurso_huella_sha256',rh,'decision_ref','decision:synthetic:b2:segunda'))::text,'UTF8'),convert_to('{}','UTF8'),convert_to(contexto::text,'UTF8'),1,1,'x'::bytea,'y'::bytea,'z'::bytea,'w'::bytea);
+  RAISE EXCEPTION 'segunda alta de la misma persona admitida';
+ EXCEPTION WHEN SQLSTATE '23505' THEN NULL; END;
  emp:=res->'recibo'->>'empleado_ref';
  material:=jsonb_build_object('esquema','vec.personal.registro-empleado-b2.hecho.v1','operacion','hecho','tipo','relacion','empleado_ref',emp,'organismo_ref','org:synthetic:other','relacion_ref','','revision_esperada',1,'relacion_version_esperada',0,'unidad_ref','uni:synthetic','regimen',jsonb_build_object('ref','reg:synthetic','version',1),'modalidad',jsonb_build_object('ref','mod:synthetic','version',1),'situacion',jsonb_build_object('ref','','version',0),'clase_servicio',jsonb_build_object('ref','','version',0),'clase_ocupacion','','estado','vigente','plaza_ref','','puesto_ref','','version_plaza_ref','','version_puesto_ref','','periodo_desde','','periodo_hasta','','dias_reconocidos',0,'vigente_desde','2026-09-26','vigente_hasta','','procedencia',jsonb_build_object('acto_ref','acto:synthetic:b2','fuente_ref','fuente:synthetic:b2','fuente_version',1,'fuente_huella_sha256',repeat('b',64),'idempotencia_ref','22222222-2222-4222-8222-222222222222'),'actor',actor)::text;
  mh:=encode(sha256(convert_to(material,'UTF8')),'hex');
