@@ -215,6 +215,13 @@ func TestPerfilPreflightPostgreSQL18ManifiestoExactoAD369(t *testing.T) {
 
 // Contra la cadena AD3 real con AD3-69 instalada: el LOGIN nominal de
 // preflight supera el manifiesto exacto que exige el binario.
+//
+// Preparación: instancia desechable con la cadena canónica y AD3-69 UP y
+// VEC_CT_ACL_AD369_PG_DSN apuntando al LOGIN vec_interno_preflight_v3_desarrollo.
+// Si se reutiliza la base que deja sonda_consumidor_ad3_000069_pg18.sh, antes
+// hay que retirar EXECUTE de PUBLIC en las funciones auxiliares del esquema
+// prueba_ad3_69 (REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA prueba_ad3_69 FROM
+// PUBLIC): el manifiesto exacto las cuenta y rechazaría el perfil.
 func TestPerfilPreflightPostgreSQL18CadenaRealConAD369(t *testing.T) {
 	dsn := os.Getenv("VEC_CT_ACL_AD369_PG_DSN")
 	if dsn == "" {
