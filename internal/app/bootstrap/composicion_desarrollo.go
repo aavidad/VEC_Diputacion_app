@@ -256,6 +256,10 @@ func nuevoServidorDesarrollo(
 			cerrarContratacion()
 		}
 	}()
+	// Ofertas de Bolsa: el plazo de disposición sale de la regla b10.
+	if autoridadContratacion != nil {
+		autoridadContratacion.plazosOfertasBolsa.fijar(reglasEjemplo.bolsa)
+	}
 	ctxBolsas, cancelarBolsas := context.WithTimeout(context.Background(), 15*time.Second)
 	fuenteConstituida := nuevaFuenteConstituidaRRHHDesarrollo(ctxBolsas, cfg)
 	cancelarBolsas()
