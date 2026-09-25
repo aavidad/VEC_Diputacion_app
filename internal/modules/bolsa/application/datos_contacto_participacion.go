@@ -92,10 +92,16 @@ func (s *ServicioDatosContactoParticipacion) Registrar(ctx context.Context, soli
 		return puertosbolsa.RegistroDatosContactoParticipacion{}, err
 	}
 	version := uint64(1)
+	var anteriores *dominiobolsa.DatosContactoParticipacion
 	vigente, err := s.repositorio.DatosContactoVigentes(ctx, solicitud.ParticipacionRef)
 	switch {
 	case err == nil:
 		version = vigente.Version + 1
+		previos, errPrevios := s.descifrar(ctx, vigente)
+		if errPrevios != nil {
+			return puertosbolsa.RegistroDatosContactoParticipacion{}, errPrevios
+		}
+		anteriores = &previos
 	case errors.Is(err, puertosbolsa.ErrDatosContactoParticipacionNoEncontrados):
 	default:
 		return puertosbolsa.RegistroDatosContactoParticipacion{}, err
@@ -115,6 +121,7 @@ func (s *ServicioDatosContactoParticipacion) Registrar(ctx context.Context, soli
 		Actor: actor.PersonaRef, RegistradaEn: ahora, ClaveIdempotencia: solicitud.ClaveIdempotencia,
 		ReciboRef:             "recibo:datos-contacto:" + hex.EncodeToString(h[:]),
 		SolicitudAutorizacion: auth, Decision: decision, Confirmacion: confirmacion, Material: material,
+		CamposCambiados: dominiobolsa.CamposContactoCambiados(anteriores, datos),
 	})
 	if err != nil {
 		return puertosbolsa.RegistroDatosContactoParticipacion{}, err

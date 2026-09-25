@@ -190,6 +190,9 @@ static/portal-empleado/modulos/contratacion-temporal/vista-expedientes-analisis.
 static/portal-empleado/modulos/contratacion-temporal/vista-expedientes-borrador.js
 static/portal-empleado/modulos/contratacion-temporal/circuito-firma.js
 static/portal-empleado/modulos/contratacion-temporal/i18n-circuito-firma.js
+static/portal-empleado/modulos/contratacion-temporal/vista-expedientes-cambios.js
+static/portal-empleado/modulos/contratacion-temporal/cliente-http-cambios-expediente.js
+static/portal-empleado/modulos/contratacion-temporal/i18n-cambios-expediente.js
 static/portal-empleado/modulos/contratacion-temporal/vista-expedientes-fiscalizacion.js
 static/portal-empleado/modulos/contratacion-temporal/vista-expedientes-incorporacion.js
 static/portal-empleado/modulos/contratacion-temporal/vista-expedientes-render.js
@@ -204,6 +207,7 @@ static/portal-empleado/portal-bolsas-intentos.js
 static/portal-empleado/portal-bolsas-reglas-situacion.js
 static/portal-empleado/portal-bolsas-reglas-situacion-i18n.js
 static/portal-empleado/portal-bolsas-sanciones.js
+static/portal-empleado/portal-bolsas-traza-valores.js
 static/portal-empleado/portal-bolsas-contrato.js
 static/portal-empleado/portal-borrador-llamamiento-api.js
 static/portal-empleado/portal-borrador-llamamiento-ui.js

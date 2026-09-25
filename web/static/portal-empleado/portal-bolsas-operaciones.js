@@ -1,6 +1,7 @@
 import { causasBaja, consultarReglasSituacion, hoyCivil, instalarPropuestaReposicion, motivoConCausa, renderizarCausasBaja } from "./portal-bolsas-reglas-situacion.js?v=20260925-reposicion-v1";
 import { traducirReglasSituacion } from "./portal-bolsas-reglas-situacion-i18n.js?v=20260925-reposicion-v1";
 import { cargarContratosFicha, manejarClickContratos } from "./portal-bolsas-contratos.js?v=20260925-b13-v1";
+import { renderizarTrazaValores, validarCambiosTraza } from "./portal-bolsas-traza-valores.js?v=20260925-traza-valores-v1";
 
 const BASE = "/api/vec/bolsa/bolsas";
 const TIPOS_JUSTIFICANTE = Object.freeze(["solicitud_candidato", "informe_medico", "resolucion", "correo", "acta_bolsa", "otro"]);
@@ -45,7 +46,8 @@ export async function consultarOperacionesSituacion(bolsa, participacion, { fetc
       && ["desde", "operacion", "situacion", "motivo", "actor", "validador", "validada_en"].every((campo) => typeof item[campo] === "string")
       && item.justificante && TIPOS_JUSTIFICANTE.includes(item.justificante.tipo)
       && typeof item.justificante.referencia === "string" && HEX_SHA256.test(item.justificante.sha256));
-    return valido ? { ok: true, datos: items } : respuestaInvalida("Un registro del historial no respeta su contrato.");
+    const cambios = validarCambiosTraza(cuerpo.data.cambios);
+    return valido && cambios ? { ok: true, datos: items, cambios } : respuestaInvalida("Un registro del historial no respeta su contrato.");
   } catch (error) {
     return { ok: false, status: 0, codigo: "error_red", mensaje: "No se pudo comunicar con el historial de operaciones." };
   }
@@ -124,7 +126,7 @@ export function renderizarOperacionesSituacion({ candidato, estado = {}, escapar
     contenido = `<div class="tabla-contenedor"><table class="tabla-datos"><caption>Historial de operaciones</caption><thead><tr><th>Desde</th><th>Operación</th><th>Situación</th><th>Motivo</th><th>Justificante</th><th>Actor / validador</th></tr></thead><tbody>${visibles.map((item) => `<tr><td>${escaparHTML(item.desde)}</td><td>${escaparHTML(OPERACIONES[item.operacion] || item.operacion)}</td><td>${escaparHTML(item.situacion)}</td><td>${escaparHTML(item.motivo)}</td><td>${escaparHTML(TIPOS_ETIQUETA[item.justificante.tipo] || item.justificante.tipo)} · ${escaparHTML(item.justificante.referencia)}<br><code>${escaparHTML(item.justificante.sha256)}</code></td><td>${escaparHTML(item.actor)} / ${escaparHTML(item.validador)}<br>${escaparHTML(item.validada_en)}</td></tr>`).join("")}</tbody></table></div>${paginas > 1 ? `<nav class="paginacion-bolsa" aria-label="Paginación del historial de operaciones"><span>Mostrando ${pagina * 6 + 1} a ${Math.min((pagina + 1) * 6, total)} de ${total}</span><button type="button" class="boton-secundario" data-b8-accion="pagina" data-pagina="${pagina - 1}" ${pagina === 0 ? "disabled" : ""}>Anterior</button><button type="button" class="boton-secundario" data-b8-accion="pagina" data-pagina="${pagina + 1}" ${pagina + 1 >= paginas ? "disabled" : ""}>Siguiente</button></nav>` : `<p>Mostrando 1 a ${total} de ${total}</p>`}`;
   }
   const flujo = estado.paso > 0 ? renderizarPaso(estado, escaparHTML) : "";
-  return `<section class="panel panel-separado" data-b8-raiz="true"><div class="cabecera-panel"><div><h4>Operaciones B8</h4><p>Registrar pausa, reactivación o exclusión con justificante y validación.</p></div></div><div class="cuerpo-panel"><div class="acciones-vista">${botones}</div>${estado.recibo ? `<p class="mensaje-exito" role="status">Operación registrada. Recibo <code>${escaparHTML(estado.recibo)}</code>${estado.reutilizada ? " (respuesta recuperada)" : ""}.</p>` : ""}${estado.errorOperacion ? `<p class="mensaje-error" role="alert">${escaparHTML(estado.errorOperacion)}</p>` : ""}${flujo}<h4>Historial de operaciones</h4>${contenido}</div></section>`;
+  return `<section class="panel panel-separado" data-b8-raiz="true"><div class="cabecera-panel"><div><h4>Operaciones B8</h4><p>Registrar pausa, reactivación o exclusión con justificante y validación.</p></div></div><div class="cuerpo-panel"><div class="acciones-vista">${botones}</div>${estado.recibo ? `<p class="mensaje-exito" role="status">Operación registrada. Recibo <code>${escaparHTML(estado.recibo)}</code>${estado.reutilizada ? " (respuesta recuperada)" : ""}.</p>` : ""}${estado.errorOperacion ? `<p class="mensaje-error" role="alert">${escaparHTML(estado.errorOperacion)}</p>` : ""}${flujo}<h4>Historial de operaciones</h4>${contenido}${actual === "listo" ? renderizarTrazaValores({ cambios: estado.cambios || [], pagina: estado.paginaTraza, escaparHTML }) : ""}</div></section>`;
 }
 
 function renderizarPaso(estado, escaparHTML) {
@@ -150,7 +152,7 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
     const controlador = new AbortController();
     modalFicha.controladorOperaciones?.abort();
     modalFicha.controladorOperaciones = controlador;
-    modalFicha.operacionesB8 = { ...modalFicha.operacionesB8, carga: "cargando", items: [] };
+    modalFicha.operacionesB8 = { ...modalFicha.operacionesB8, carga: "cargando", items: [], cambios: [] };
     renderizar();
     // Las reglas del catálogo (destinos, causas y reposición) se piden con el
     // historial; si fallan, la ficha sigue como sin catálogo.
@@ -163,8 +165,8 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
     modalFicha.reglasSituacion = reglas.ok ? reglas.datos : null;
     const causas = causasBaja(modalFicha.reglasSituacion);
     modalFicha.operacionesB8 = res.ok
-      ? { ...modalFicha.operacionesB8, carga: "listo", noDisponible: false, items: res.datos, causasBaja: causas }
-      : { ...modalFicha.operacionesB8, carga: "error", noDisponible: res.status === 404, error: res.mensaje, items: [], causasBaja: causas };
+      ? { ...modalFicha.operacionesB8, carga: "listo", noDisponible: false, items: res.datos, cambios: res.cambios, causasBaja: causas }
+      : { ...modalFicha.operacionesB8, carga: "error", noDisponible: res.status === 404, error: res.mensaje, items: [], cambios: [], causasBaja: causas };
     renderizar();
   }
 
@@ -188,6 +190,8 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
     } else if (control.dataset.b8Accion === "reintentar") {
       void cargar(modal);
       return true;
+    } else if (control.dataset.b8Accion === "pagina-traza") {
+      flujo.paginaTraza = Math.max(0, Number(control.dataset.pagina) || 0);
     } else if (control.dataset.b8Accion === "pagina") {
       flujo.paginaHistorial = Math.max(0, Number(control.dataset.pagina) || 0);
     }
