@@ -61,3 +61,35 @@ rotulado provisional. Después C5, C8, C9 y las vistas de responsable y RRHH.
 
 Catálogo y cuantías definitivas; jornada teórica por colectivo; quién autoriza cada permiso;
 origen real de los fichajes (terminales) y su integración.
+
+## Estado al 25 de septiembre de 2026
+
+Contrastado con `origin/main` = `2ad54ce4` (PR #36, #40, #46 y #51) y con
+`web/static/portal-empleado/modulos/cronos/INTEGRACION.md`. «Formal» aplica la definición
+de terminado del consenso de hoja de ruta del 24/09 (recorrido real en PostgreSQL con
+negativos y reinicio, puerta, dos E10, un PR, desplegado y barrido en cidonia).
+
+**Formal: 0/12.** Ningún requisito tiene el recorrido navegador → identidad y autorización
+→ PostgreSQL → recibo recuperable tras reiniciar: `INTEGRACION.md` («Pendiente») dice
+expresamente que falta y que no se atribuye a las pruebas de contrato ni a los ensayos
+PostgreSQL con fachadas V3 de prueba. Tampoco hay barrido de Cronos en cidonia
+documentado en el repositorio.
+
+**Técnico: 3/12** (C6, C7, C9). **Uso real en la principal: 0/12** con barrido documentado;
+como referencia, con Cronos empleado activo y Cronos hasta 000008 instaladas, está servido
+C6 completo (1/12). 000009 y 000010 están pendientes.
+
+| Id | Técnico (máximo en código y pruebas) | Límite concreto | Uso real en la principal |
+| --- | --- | --- | --- |
+| C1 | Parcial | Certificado en la frontera (PR #46); la organización (Diputación o Patronato) como ámbito no está en el código de Cronos | Certificado sí |
+| C2 | Parcial | Marcaje propio y fichaje remoto solo con teletrabajo autorizado (000001–000007); no hay terminales ni su integración (pendiente de RRHH) | Fichaje remoto servido, sin barrido documentado |
+| C3 | Parcial | El saldo se deriva de marcajes y jornada prevista, pero no computa los permisos concedidos (`internal/modules/cronos/domain/consulta_saldo.go`; ninguna migración 000008–000010 los lleva al saldo); jornada teórica provisional | Saldo en cinco periodos servido, sin permisos |
+| C4 | Parcial | Calendario propio `vec_cronos_v1.calendario_dia` (000008) en vez de consumir Calendarios (B4.3) | Calendario anual servido |
+| C5 | Parcial | El olvido se comunica (000008); la validación por responsable y RRHH existe en Go (`ServicioCorrecciones`) pero 000008 la deja para «otro corte» en SQL | Solo la comunicación |
+| C6 | Sí | 25 permisos sintéticos, «a confirmar por RRHH» (duda 41) | Servido, sin barrido documentado |
+| C7 | Sí | Resolución jefatura → RRHH (000009/000010, PR #51); circuito directo provisional (duda 47) | Solo la solicitud: la resolución exige 000009/000010, no instaladas |
+| C8 | No | El catálogo marca `justificante_exigido` y «pendiente de justificar», pero no hay operación de justificar | No |
+| C9 | Sí | Notificaciones con referencia y huella del adjunto, avisos archivables (PR #51); tipos provisionales (duda 48) | No (000009/000010 pendientes) |
+| C10 | Parcial | Absentismos del empleado en movimientos (000008); sin agregados para RRHH | Solo la vista del empleado |
+| C11 | Parcial | Bandejas de resolución y de notificaciones de RRHH; sin presencia del equipo ni informes; pestañas visibles a todos hasta la matriz de roles (dudas 29, 31, 47, 48) | No |
+| C12 | No | `INTEGRACION.md`: sin PDF local; la emisión corresponde al servicio documental (B5) | No |
