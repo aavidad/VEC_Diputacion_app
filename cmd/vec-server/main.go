@@ -7,8 +7,9 @@ import (
 	"errors"
 	"flag"
 	"log"
-	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/app/bootstrap"
@@ -70,25 +71,31 @@ func main() {
 		return
 	}
 	cfg := config.Load()
-	srv, err := bootstrap.NewHTTPServerWithConfig(cfg)
+	if (cfg.TLSCertFile == "") != (cfg.TLSKeyFile == "") {
+		registrarFalloArranque(os.Stdout, domain.ComponenteIncidenciaServidor, domain.EtapaIncidenciaConfiguracion)
+		log.Fatal("serve TLS: VEC_TLS_CERT_FILE and VEC_TLS_KEY_FILE must be configured together")
+	}
+	srv, cerrar, err := bootstrap.NewHTTPServerWithConfigYCierre(cfg)
 	if err != nil {
 		registrarFalloArranque(os.Stdout, domain.ComponenteIncidenciaComposicion, domain.EtapaIncidenciaComposicion)
 		log.Fatalf("bootstrap server: %v", err)
 	}
 
-	if cfg.TLSCertFile != "" || cfg.TLSKeyFile != "" {
-		if cfg.TLSCertFile == "" || cfg.TLSKeyFile == "" {
-			registrarFalloArranque(os.Stdout, domain.ComponenteIncidenciaServidor, domain.EtapaIncidenciaConfiguracion)
-			log.Fatal("serve TLS: VEC_TLS_CERT_FILE and VEC_TLS_KEY_FILE must be configured together")
-		}
+	ctx, detener := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer detener()
+	var servir func() error
+	if cfg.TLSCertFile != "" {
 		log.Printf("vec server listening with TLS on %s", srv.Addr)
-		err = srv.ListenAndServeTLS(cfg.TLSCertFile, cfg.TLSKeyFile)
+		servir = func() error { return srv.ListenAndServeTLS(cfg.TLSCertFile, cfg.TLSKeyFile) }
 	} else {
 		log.Printf("vec server listening on %s", srv.Addr)
-		err = srv.ListenAndServe()
+		servir = srv.ListenAndServe
 	}
-	if err != nil && !errors.Is(err, http.ErrServerClosed) {
-		registrarFalloArranque(os.Stdout, domain.ComponenteIncidenciaServidor, domain.EtapaIncidenciaEscucha)
-		log.Fatalf("serve: %v", err)
+	if err = ejecutarServidor(ctx, srv, servir, cerrar, cfg.Normalize().ShutdownTimeout); err != nil {
+		if errors.Is(err, errEscucha) {
+			registrarFalloArranque(os.Stdout, domain.ComponenteIncidenciaServidor, domain.EtapaIncidenciaEscucha)
+		}
+		log.Printf("serve: %v", err)
+		os.Exit(1)
 	}
 }

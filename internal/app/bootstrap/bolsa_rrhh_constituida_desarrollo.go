@@ -20,15 +20,17 @@ import (
 // bolsas constituidas (migración 000007). Los nombres y documentos enmascarados
 // no se almacenan en claro: se recuperan del staging protegido del acta al leer.
 type fuenteConstituidaRRHHDesarrollo struct {
-	repositorio ports.RepositorioConstitucion
-	situaciones ports.RepositorioSituacionParticipacion
-	orden       *bolsaapplication.ServicioOrdenVigente
-	avisos      *bolsaapplication.ServicioAvisosRRHH
-	emisiones   *postgresbolsa.RepositorioEmisionLlamamientoPostgreSQL
-	recuperador constitucion.Recuperador
-	categorias  map[string]string
-	grupos      map[string][]string
-	ahora       func() time.Time
+	repositorio    ports.RepositorioConstitucion
+	situaciones    ports.RepositorioSituacionParticipacion
+	orden          *bolsaapplication.ServicioOrdenVigente
+	avisos         *bolsaapplication.ServicioAvisosRRHH
+	emisiones      *postgresbolsa.RepositorioEmisionLlamamientoPostgreSQL
+	recuperador    constitucion.Recuperador
+	categorias     map[string]string
+	grupos         map[string][]string
+	ahora          func() time.Time
+	cerrarRecursos func()
+	cierre         sync.Once
 
 	mu       sync.Mutex
 	cache    datasetBolsasRRHHDesarrollo
@@ -124,7 +126,14 @@ func nuevaFuenteConstituidaRRHHDesarrollo(ctx context.Context, cfg config.Config
 			}
 		}
 	}
-	return &fuenteConstituidaRRHHDesarrollo{repositorio: repositorio, situaciones: situaciones, orden: orden, avisos: avisos, emisiones: emisiones, recuperador: recuperador, categorias: categorias, grupos: grupos, ahora: time.Now}
+	return &fuenteConstituidaRRHHDesarrollo{repositorio: repositorio, situaciones: situaciones, orden: orden, avisos: avisos, emisiones: emisiones, recuperador: recuperador, categorias: categorias, grupos: grupos, ahora: time.Now,
+		cerrarRecursos: func() { poolImportacion.Close(); poolBolsa.Close() }}
+}
+
+func (f *fuenteConstituidaRRHHDesarrollo) Cerrar() {
+	if f != nil && f.cerrarRecursos != nil {
+		f.cierre.Do(f.cerrarRecursos)
+	}
 }
 
 func (f *fuenteConstituidaRRHHDesarrollo) constituidas(ctx context.Context) (datasetBolsasRRHHDesarrollo, bool) {

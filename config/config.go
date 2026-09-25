@@ -15,6 +15,7 @@ const (
 	// que un cierre por inactividad obliga a rehacer la consulta; un despliegue
 	// detrás de un proxy con una conexión persistente puede necesitar más margen.
 	EnvHTTPIdleTimeout                             = "VEC_HTTP_IDLE_TIMEOUT"
+	EnvHTTPShutdownTimeout                         = "VEC_HTTP_SHUTDOWN_TIMEOUT"
 	LegacyEnvAddress                               = "BOLSA_HTTP_ADDR"
 	EnvStorageMode                                 = "VEC_BOLSA_STORAGE_MODE"
 	LegacyEnvStorageMode                           = "BOLSA_STORAGE_MODE"
@@ -78,6 +79,7 @@ const (
 	DefaultReadTimeout               = 30 * time.Second
 	DefaultWriteTimeout              = 60 * time.Second
 	DefaultIdleTimeout               = 2 * time.Minute
+	DefaultShutdownTimeout           = 25 * time.Second
 	DefaultMaxHeaderBytes            = 1 << 20
 	DefaultMaxRequestBodyBytes       = int64(2 << 20)
 	DefaultStorageMode               = StorageModeMemory
@@ -104,6 +106,7 @@ type Config struct {
 	ReadTimeout                                 time.Duration
 	WriteTimeout                                time.Duration
 	IdleTimeout                                 time.Duration
+	ShutdownTimeout                             time.Duration
 	MaxHeaderBytes                              int
 	MaxRequestBodyBytes                         int64
 	StorageMode                                 string
@@ -176,6 +179,7 @@ func Load() Config {
 		ReadTimeout:            DefaultReadTimeout,
 		WriteTimeout:           DefaultWriteTimeout,
 		IdleTimeout:            idleTimeoutDesdeEntorno(),
+		ShutdownTimeout:        shutdownTimeoutDesdeEntorno(),
 		MaxHeaderBytes:         DefaultMaxHeaderBytes,
 		MaxRequestBodyBytes:    DefaultMaxRequestBodyBytes,
 		StorageMode:            envFirst(EnvStorageMode, LegacyEnvStorageMode),
@@ -286,6 +290,9 @@ func (c Config) Normalize() Config {
 	}
 	if c.IdleTimeout <= 0 {
 		c.IdleTimeout = DefaultIdleTimeout
+	}
+	if c.ShutdownTimeout < time.Second || c.ShutdownTimeout > time.Minute {
+		c.ShutdownTimeout = DefaultShutdownTimeout
 	}
 	if c.MaxHeaderBytes <= 0 {
 		c.MaxHeaderBytes = DefaultMaxHeaderBytes
@@ -531,6 +538,20 @@ func idleTimeoutDesdeEntorno() time.Duration {
 	duracion, err := time.ParseDuration(valor)
 	if err != nil || duracion < 30*time.Second || duracion > 2*time.Hour {
 		return DefaultIdleTimeout
+	}
+	return duracion
+}
+
+// El plazo de cierre admite entre un segundo y un minuto; valores inválidos
+// conservan el margen operativo por defecto.
+func shutdownTimeoutDesdeEntorno() time.Duration {
+	valor := strings.TrimSpace(os.Getenv(EnvHTTPShutdownTimeout))
+	if valor == "" {
+		return DefaultShutdownTimeout
+	}
+	duracion, err := time.ParseDuration(valor)
+	if err != nil || duracion < time.Second || duracion > time.Minute {
+		return DefaultShutdownTimeout
 	}
 	return duracion
 }

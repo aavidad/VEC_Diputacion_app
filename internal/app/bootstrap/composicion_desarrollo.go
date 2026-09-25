@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"vec-diputacion-granada/config"
@@ -199,28 +200,40 @@ func NewHTTPServerDesarrolloWithConfig(
 	registro io.Writer,
 	incorporacion ...ConfiguracionIncorporacionDesarrollo,
 ) (*http.Server, *ComposicionSeguridadDesarrollo, error) {
+	servidor, composicion, cerrar, err := nuevoHTTPServerDesarrolloConCierre(cfg, registro, incorporacion...)
+	if err == nil {
+		servidor.RegisterOnShutdown(func() { _ = cerrar(context.Background()) })
+	}
+	return servidor, composicion, err
+}
+
+func nuevoHTTPServerDesarrolloConCierre(
+	cfg config.Config,
+	registro io.Writer,
+	incorporacion ...ConfiguracionIncorporacionDesarrollo,
+) (*http.Server, *ComposicionSeguridadDesarrollo, func(context.Context) error, error) {
 	if len(incorporacion) > 1 {
-		return nil, nil, ErrComposicionDesarrolloIncompleta
+		return nil, nil, nil, ErrComposicionDesarrolloIncompleta
 	}
 	cfg = cfg.Normalize()
 	composicion, err := NuevaComposicionSeguridadDesarrollo(cfg, registro)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	resolvedor, err := composicion.ResolvedorIdentidad()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	consultaCategorias, categoriasPersonal, err := nuevasDependenciasCategoriasProfesionales(cfg)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	consultasPersonal := nuevasConsultasPublicasPersonal(cfg, categoriasPersonal, registro)
 	rutasContratacion, autoridadContratacion, cerrarContratacion, err := nuevasRutasContratacionTemporalDesarrollo(
 		cfg, resolvedor, composicion.derivadorIdempotencia, composicion.emisorKMS, registro, incorporacion...,
 	)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	completa := false
 	defer func() {
@@ -231,15 +244,20 @@ func NewHTTPServerDesarrolloWithConfig(
 	ctxBolsas, cancelarBolsas := context.WithTimeout(context.Background(), 15*time.Second)
 	fuenteConstituida := nuevaFuenteConstituidaRRHHDesarrollo(ctxBolsas, cfg)
 	cancelarBolsas()
+	defer func() {
+		if !completa {
+			fuenteConstituida.Cerrar()
+		}
+	}()
 	rutasBolsasRRHH, coleccionesBolsasRRHH, err := nuevasRutasBolsasRRHHDesarrolloConFuente(cfg, fuenteConstituida, autoridadContratacion.manejadorSituacionParticipacion)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	rutasContratacion = append(rutasContratacion, rutasBolsasRRHH...)
 	coleccionesBolsasRRHH = append(coleccionesBolsasRRHH, autoridadContratacion.coleccionesAdicionales...)
 	rutasCalendarios, cerrarCalendarios, err := nuevasRutasCalendariosDesarrollo(cfg)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	defer func() {
 		if !completa {
@@ -249,7 +267,7 @@ func NewHTTPServerDesarrolloWithConfig(
 	rutasContratacion = append(rutasContratacion, rutasCalendarios...)
 	autoridadDietas, cerrarDietas, err := nuevasRutasDietasDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	defer func() {
 		if !completa {
@@ -258,7 +276,7 @@ func NewHTTPServerDesarrolloWithConfig(
 	}()
 	comisionesDietas, err := nuevasComisionesDietasDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, autoridadContratacion.materialDietas)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	if comisionesDietas != nil {
 		defer func() {
@@ -271,7 +289,7 @@ func NewHTTPServerDesarrolloWithConfig(
 	}
 	cronosEmpleado, err := nuevasRutasCronosEmpleadoDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, autoridadContratacion.materialCronos)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	if cronosEmpleado != nil {
 		defer func() {
@@ -282,7 +300,7 @@ func NewHTTPServerDesarrolloWithConfig(
 	}
 	documentos, err := nuevosDocumentosDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, autoridadContratacion.materialDocumentos, registro)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	if documentos != nil {
 		defer func() {
@@ -294,7 +312,7 @@ func NewHTTPServerDesarrolloWithConfig(
 	}
 	personalEmpleado, err := nuevasRutasPersonalEmpleadoDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia, autoridadContratacion.materialPersonalFichaPropia)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	if personalEmpleado != nil {
 		defer func() {
@@ -315,7 +333,7 @@ func NewHTTPServerDesarrolloWithConfig(
 		autoridadContratacion.registradorAuditoriaFronteraRutasExactas, autoridadDietas, coleccionesBolsasRRHH...,
 	)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	vecAPI = autoridadContratacion.proteger(vecAPI)
 	if comisionesDietas != nil {
@@ -328,37 +346,55 @@ func NewHTTPServerDesarrolloWithConfig(
 	cfgPublica.AuthMode = config.AuthModeDisabled
 	publicaBolsaAPI, err := publicatransitoria.NuevaAPIConCatalogos(cfgPublica, consultaCategorias)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	bolsasPublicas, err := nuevoManejadorBolsasPublicasDesarrollo(fuenteConstituida)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	servidor, err := server.NewHTTPServer(cfg, componerRaizConPersonalPublico(componerRaizConPersonalEmpleado(componerRaizConCronosEmpleado(composeVECShellAPIConBolsasPublicas(vecAPI, publicaBolsaAPI, bolsasPublicas), cronosEmpleado), personalEmpleado), consultasPersonal))
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	servidor.TLSConfig, err = composicion.ConfiguracionTLS()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	servidor.RegisterOnShutdown(cerrarContratacion)
-	servidor.RegisterOnShutdown(cerrarDietas)
-	servidor.RegisterOnShutdown(cerrarCalendarios)
+	// La lista sigue el orden de creación; se ejecuta al revés y sólo
+	// después de que Shutdown haya terminado de esperar las peticiones.
+	envolver := func(cerrar func()) func(context.Context) error {
+		return func(context.Context) error { cerrar(); return nil }
+	}
+	cierres := []func(context.Context) error{envolver(cerrarContratacion), envolver(fuenteConstituida.Cerrar), envolver(cerrarCalendarios), envolver(cerrarDietas)}
 	if comisionesDietas != nil {
-		servidor.RegisterOnShutdown(comisionesDietas.cerrar)
+		cierres = append(cierres, envolver(comisionesDietas.cerrar))
 	}
 	if cronosEmpleado != nil {
-		servidor.RegisterOnShutdown(cronosEmpleado.cerrar)
+		cierres = append(cierres, envolver(cronosEmpleado.cerrar))
 	}
 	if documentos != nil {
-		servidor.RegisterOnShutdown(documentos.cerrar)
+		cierres = append(cierres, documentos.cerrarConContexto)
 	}
 	if personalEmpleado != nil {
-		servidor.RegisterOnShutdown(personalEmpleado.cerrar)
+		cierres = append(cierres, envolver(personalEmpleado.cerrar))
 	}
+	cerrar := nuevoCierreRecursos(cierres)
+
 	completa = true
-	return servidor, composicion, nil
+	return servidor, composicion, cerrar, nil
+}
+
+func nuevoCierreRecursos(cierres []func(context.Context) error) func(context.Context) error {
+	var unaVez sync.Once
+	var resultado error
+	return func(ctx context.Context) error {
+		unaVez.Do(func() {
+			for i := len(cierres) - 1; i >= 0; i-- {
+				resultado = errors.Join(resultado, cierres[i](ctx))
+			}
+		})
+		return resultado
+	}
 }
 
 func descriptoresProveedoresDesarrollo(

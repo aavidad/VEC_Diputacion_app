@@ -62,35 +62,47 @@ func NewHTTPServer() (*http.Server, error) {
 }
 
 func NewHTTPServerWithConfig(cfg config.Config) (*http.Server, error) {
-	cfg = cfg.Normalize()
-	if cfg.IncorporacionV2File != "" && !cfg.DevelopmentEnabledByDoubleKey() {
-		return nil, ErrActivacionDesarrolloInvalida
-	}
-	if err := validarValoresConfiguracionConocidos(cfg); err != nil {
-		return nil, err
-	}
-	if err := rechazarSelectoresPresentacionEnComposicionNormal(cfg); err != nil {
-		return nil, err
-	}
-	if err := rechazarTLSDesarrolloEnProduccion(cfg); err != nil {
-		return nil, err
-	}
-	if cfg.ExecutionProfile == config.ExecutionProfileDevelopment || cfg.AuthMode == config.AuthModeDevelopment ||
-		cfg.DevelopmentGuard != "" || cfg.DevelopmentMaterialDir != "" {
-		servidor, _, err := NewHTTPServerDesarrolloWithConfig(cfg, os.Stderr)
-		return servidor, err
-	}
-	if err := validarModoAutenticacionIntegrado(cfg); err != nil {
-		return nil, err
-	}
-	if err := rechazarComposicionProductivaNoDisponible(cfg); err != nil {
-		return nil, err
-	}
-	api, err := NewDemoAPIWithConfig(cfg)
+	servidor, cerrar, err := NewHTTPServerWithConfigYCierre(cfg)
 	if err != nil {
 		return nil, err
 	}
-	return server.NewHTTPServer(cfg, api)
+	servidor.RegisterOnShutdown(func() { _ = cerrar(context.Background()) })
+	return servidor, nil
+}
+
+// NewHTTPServerWithConfigYCierre entrega al proceso el cierre de recursos.
+// Debe invocarse después de esperar a las peticiones mediante Shutdown.
+func NewHTTPServerWithConfigYCierre(cfg config.Config) (*http.Server, func(context.Context) error, error) {
+	cfg = cfg.Normalize()
+	if cfg.IncorporacionV2File != "" && !cfg.DevelopmentEnabledByDoubleKey() {
+		return nil, nil, ErrActivacionDesarrolloInvalida
+	}
+	if err := validarValoresConfiguracionConocidos(cfg); err != nil {
+		return nil, nil, err
+	}
+	if err := rechazarSelectoresPresentacionEnComposicionNormal(cfg); err != nil {
+		return nil, nil, err
+	}
+	if err := rechazarTLSDesarrolloEnProduccion(cfg); err != nil {
+		return nil, nil, err
+	}
+	if cfg.ExecutionProfile == config.ExecutionProfileDevelopment || cfg.AuthMode == config.AuthModeDevelopment ||
+		cfg.DevelopmentGuard != "" || cfg.DevelopmentMaterialDir != "" {
+		servidor, _, cerrar, err := nuevoHTTPServerDesarrolloConCierre(cfg, os.Stderr)
+		return servidor, cerrar, err
+	}
+	if err := validarModoAutenticacionIntegrado(cfg); err != nil {
+		return nil, nil, err
+	}
+	if err := rechazarComposicionProductivaNoDisponible(cfg); err != nil {
+		return nil, nil, err
+	}
+	api, err := NewDemoAPIWithConfig(cfg)
+	if err != nil {
+		return nil, nil, err
+	}
+	servidor, err := server.NewHTTPServer(cfg, api)
+	return servidor, func(context.Context) error { return nil }, err
 }
 
 // NewHTTPServerPublicoWithConfig construye el listener anonimo de Bolsa sin

@@ -89,14 +89,15 @@ type almacenDocumentosDesarrollo struct {
 // Resuelve identidad y sesión registradas, audita toda denegación con el
 // LOGIN auditor propio y deja la autorización de cada efecto al PDP V3.
 type autoridadDocumentosDesarrollo struct {
-	base        *autoridadRutasDietasDesarrollo
-	reloj       vecports.Reloj
-	cuentas     map[string]cuentaRutasDietasDesarrollo
-	rutas       []vechttp.RutaExacta
-	publicadas  map[string]bool
-	registrador registradorDenegacionesDocumentos
-	incidencias vecports.EmisorIncidenciasTecnicas
-	cerrar      func()
+	base              *autoridadRutasDietasDesarrollo
+	reloj             vecports.Reloj
+	cuentas           map[string]cuentaRutasDietasDesarrollo
+	rutas             []vechttp.RutaExacta
+	publicadas        map[string]bool
+	registrador       registradorDenegacionesDocumentos
+	incidencias       vecports.EmisorIncidenciasTecnicas
+	cerrar            func()
+	cerrarConContexto func(context.Context) error
 }
 
 type registradorDenegacionesDocumentos interface {
@@ -531,16 +532,23 @@ func nuevosDocumentosDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdenti
 	var pools []*pgxpool.Pool
 	var cierres []func()
 	var unaVez sync.Once
-	cerrar := func() {
+	var cerrarIncidencias func(context.Context) error
+	var errorCierre error
+	cerrarConContexto := func(ctx context.Context) error {
 		unaVez.Do(func() {
+			if cerrarIncidencias != nil {
+				errorCierre = cerrarIncidencias(ctx)
+			}
 			for i := len(cierres) - 1; i >= 0; i-- {
 				cierres[i]()
 			}
-			for _, p := range pools {
-				p.Close()
+			for i := len(pools) - 1; i >= 0; i-- {
+				pools[i].Close()
 			}
 		})
+		return errorCierre
 	}
+	cerrar := func() { _ = cerrarConContexto(context.Background()) }
 	completa := false
 	defer func() {
 		if !completa {
@@ -647,13 +655,9 @@ func nuevosDocumentosDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdenti
 	if err != nil {
 		return nil, errDocumentosEn()
 	}
-	cierres = append(cierres, func() {
-		ctxCierre, cancelarCierre := context.WithTimeout(context.Background(), 2*time.Second)
-		defer cancelarCierre()
-		_ = incidencias.Cerrar(ctxCierre)
-	})
+	cerrarIncidencias = incidencias.Cerrar
 	base := &autoridadRutasDietasDesarrollo{resolvedor: identidad, cuentas: cuentas, registro: registroSesiones, revalidador: revalidador, contextos: contextos, reloj: reloj, instancia: nonce}
-	a := &autoridadDocumentosDesarrollo{base: base, reloj: reloj, cuentas: cuentas, registrador: registrador, incidencias: incidencias, cerrar: cerrar}
+	a := &autoridadDocumentosDesarrollo{base: base, reloj: reloj, cuentas: cuentas, registrador: registrador, incidencias: incidencias, cerrar: cerrar, cerrarConContexto: cerrarConContexto}
 	servicio := &docapp.Servicio{Repositorio: repositorio, Almacen: almacen, Politicas: politicas, Reloj: reloj}
 	rutas, err := dochttp.NuevasRutas(dochttp.Configuracion{
 		Servicio:  servicioLecturaVigilado{servicio: servicio, incidencias: incidencias},
