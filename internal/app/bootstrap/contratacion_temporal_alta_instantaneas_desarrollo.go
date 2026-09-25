@@ -114,6 +114,10 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 			{Clave: "fase_previa", Valores: []string{datos.Recurso.Ambitos["fase_previa"]}},
 			{Clave: "estado_previo", Valores: []string{datos.Recurso.Ambitos["estado_previo"]}},
 		}
+	} else if ruta == httpinterno.RutaFirmaDocumento {
+		if !solicitudAutorizacionFirmaDocumentoCTDesarrolloValida(ctx, datos) {
+			return dominiovec.InstantaneaAutorizacion{}, false
+		}
 	} else if rutaLlamamientoContratacionTemporalDesarrollo(ruta) {
 		if !solicitudAutorizacionLlamamientoDesarrolloValida(ctx, ruta, datos) {
 			return dominiovec.InstantaneaAutorizacion{}, false

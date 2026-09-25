@@ -166,6 +166,7 @@ type Config struct {
 	DietasBorradoresEnabled                     string
 	CronosEmpleadoEnabled                       string
 	CronosResolucionEnabled                     string
+	CTFirmaRegistroEnabled                      string
 	CronosNotificacionesEnabled                 string
 	DocumentosEnabled                           string
 	FirmaVerificacionEnabled                    string
@@ -253,6 +254,7 @@ func Load() Config {
 		DietasBorradoresEnabled:            envFirst(EnvDietasBorradoresEnabled),
 		CronosEmpleadoEnabled:              envFirst(EnvCronosEmpleadoEnabled),
 		CronosResolucionEnabled:            envFirst(EnvCronosResolucionEnabled),
+		CTFirmaRegistroEnabled:             envFirst(EnvCTFirmaRegistroEnabled),
 		CronosNotificacionesEnabled:        envFirst(EnvCronosNotificacionesEnabled),
 		PersonalEmpleadoEnabled:            envFirst(EnvPersonalEmpleadoEnabled),
 		PersonalB2GobiernoEnabled:          envFirst(EnvPersonalB2GobiernoEnabled),
@@ -385,6 +387,7 @@ func (c Config) Normalize() Config {
 	c.DietasBorradoresEnabled = strings.TrimSpace(c.DietasBorradoresEnabled)
 	c.CronosEmpleadoEnabled = strings.TrimSpace(c.CronosEmpleadoEnabled)
 	c.CronosResolucionEnabled = strings.TrimSpace(c.CronosResolucionEnabled)
+	c.CTFirmaRegistroEnabled = strings.TrimSpace(c.CTFirmaRegistroEnabled)
 	c.CronosNotificacionesEnabled = strings.TrimSpace(c.CronosNotificacionesEnabled)
 	c.DocumentosEnabled = strings.TrimSpace(c.DocumentosEnabled)
 	c.FirmaVerificacionEnabled = strings.TrimSpace(c.FirmaVerificacionEnabled)

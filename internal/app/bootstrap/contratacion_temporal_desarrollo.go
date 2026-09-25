@@ -63,6 +63,8 @@ type autoridadConsultasContratacionTemporalDesarrollo struct {
 	materialCronos                           materialCronosDesdeCTDesarrollo
 	materialDocumentos                       *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialPersonalFichaPropia              *proveedorMaterialAltaContratacionTemporalDesarrollo
+	// firmaDocumento es nil salvo con VEC_CT_FIRMA_REGISTRO_ENABLED=true.
+	firmaDocumento *firmaDocumentoCTDesarrollo
 }
 
 type autorizadorLigadoContratacionTemporalDesarrollo interface {
@@ -302,6 +304,10 @@ func nuevasRutasContratacionTemporalDesarrollo(
 				}
 			}
 		}
+	}
+	firmaDocumento, err := nuevaFirmaDocumentoCTDesarrollo(cfg, &alta, reloj)
+	if err != nil {
+		return nil, nil, nil, err
 	}
 	cerrarCobertura := true
 	defer func() {
@@ -600,6 +606,7 @@ func nuevasRutasContratacionTemporalDesarrollo(
 		materialCronos:                           alta.postgresql.materialCronos,
 		materialDocumentos:                       alta.postgresql.materialDocumentos,
 		materialPersonalFichaPropia:              alta.postgresql.materialPersonalFichaPropia,
+		firmaDocumento:                           firmaDocumento,
 	}
 	if autoridad.registradorAuditoriaFronteraRutasExactas == nil {
 		return nil, nil, nil, errPostgreSQLContratacionTemporalDesarrolloNoDisponible

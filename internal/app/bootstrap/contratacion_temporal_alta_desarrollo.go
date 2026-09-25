@@ -114,6 +114,7 @@ type soporteAltaContratacionTemporalDesarrollo struct {
 	instantaneaCuadroRRHH              dominiovec.InstantaneaAutorizacion
 	instantaneaDetalleRRHH             dominiovec.InstantaneaAutorizacion
 	instantaneaSubsanacion             dominiovec.InstantaneaAutorizacion
+	instantaneaFirmaDocumento          dominiovec.InstantaneaAutorizacion
 	motivoCuadroRRHH                   dominiovec.ReferenciaEntradaCatalogo
 	motivoDetalleRRHH                  dominiovec.ReferenciaEntradaCatalogo
 	motivoLlamamiento                  dominiovec.ReferenciaEntradaCatalogo
@@ -129,6 +130,7 @@ type soporteAltaContratacionTemporalDesarrollo struct {
 	motivoAsignacion                   dominiovec.ReferenciaEntradaCatalogo
 	motivoInformeJuridico              dominiovec.ReferenciaEntradaCatalogo
 	motivoSubsanacion                  dominiovec.ReferenciaEntradaCatalogo
+	motivoFirmaDocumento               dominiovec.ReferenciaEntradaCatalogo
 	ambitos                            ports.SelladorAmbitoIdempotencia
 	reloj                              relojContratacionTemporalDesarrollo
 	concesiones                        map[string]struct{}
