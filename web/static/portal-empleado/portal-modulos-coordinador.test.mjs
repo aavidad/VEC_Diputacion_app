@@ -253,9 +253,9 @@ test("el catálogo admite el manifiesto real de usuarios con menú nil sin atrib
   ), /colecciones del manifiesto no válidas/);
 });
 
-test("los siete módulos registrados conservan estado fiel sin inventar vistas", async () => {
+test("los ocho módulos registrados conservan estado fiel sin inventar vistas", async () => {
   assert.deepEqual(CLAVES_MODULOS_VEC_REGISTRADOS, [
-    "personal", "cronos", "dietas", "bolsa", "contratacion_temporal",
+    "personal", "cronos", "dietas", "documentos", "bolsa", "contratacion_temporal",
     "administracion", "usuarios",
   ]);
   const coordinador = crearCoordinadorModulosPortal({

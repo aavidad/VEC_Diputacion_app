@@ -158,6 +158,7 @@ type Config struct {
 	CronosEmpleadoEnabled                       string
 	CronosResolucionEnabled                     string
 	CronosNotificacionesEnabled                 string
+	DocumentosEnabled                           string
 	PersonalEmpleadoEnabled                     string
 	PersonalB2GobiernoEnabled                   string
 	DietasBorradoresPostgreSQL                  ConfiguracionDietasBorradores
@@ -237,6 +238,7 @@ func Load() Config {
 		CronosNotificacionesEnabled: envFirst(EnvCronosNotificacionesEnabled),
 		PersonalEmpleadoEnabled:     envFirst(EnvPersonalEmpleadoEnabled),
 		PersonalB2GobiernoEnabled:   envFirst(EnvPersonalB2GobiernoEnabled),
+		DocumentosEnabled:           envFirst(EnvDocumentosEnabled),
 		DietasBorradoresPostgreSQL: ConfiguracionDietasBorradores{
 			dsnDietas:             envFirst(EnvDietasBorradoresDatabaseURL),
 			dsnPersonal:           envFirst(EnvDietasPersonalRelacionesDatabaseURL),
@@ -357,6 +359,7 @@ func (c Config) Normalize() Config {
 	c.CronosEmpleadoEnabled = strings.TrimSpace(c.CronosEmpleadoEnabled)
 	c.CronosResolucionEnabled = strings.TrimSpace(c.CronosResolucionEnabled)
 	c.CronosNotificacionesEnabled = strings.TrimSpace(c.CronosNotificacionesEnabled)
+	c.DocumentosEnabled = strings.TrimSpace(c.DocumentosEnabled)
 	c.PersonalEmpleadoEnabled = strings.TrimSpace(c.PersonalEmpleadoEnabled)
 	c.PersonalB2GobiernoEnabled = strings.TrimSpace(c.PersonalB2GobiernoEnabled)
 	c.DietasBorradoresPostgreSQL = c.DietasBorradoresPostgreSQL.normalizar()

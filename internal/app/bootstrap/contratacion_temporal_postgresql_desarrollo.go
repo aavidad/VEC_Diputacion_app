@@ -97,6 +97,7 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	proveedorMaterialResultadoCorreo  *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialDietas                    materialDietasDesdeCTDesarrollo
 	materialCronos                    materialCronosDesdeCTDesarrollo
+	materialDocumentos                *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialPersonalFichaPropia       *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialPersonalB2                [8]CapacidadPublicadaPersonalB2V3
 	detenerRenovacion                 func()
@@ -321,6 +322,9 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	if cronosEmpleadoSolicitado(cfg.CronosEmpleadoEnabled) {
 		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialCronosDesarrollo()...)
 	}
+	if documentosSolicitados(cfg.DocumentosEnabled) {
+		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialDocumentosDesarrollo()...)
+	}
 	if cronosResolucionSolicitada(cfg.CronosEmpleadoEnabled, cfg.CronosResolucionEnabled) {
 		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialCronosResolucionDesarrollo()...)
 	}
@@ -385,6 +389,12 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 				}
 			}
 			dependencias.materialCronos = dependencias.materialCronos.conNotificaciones(notificaciones)
+		}
+	}
+	if documentosSolicitados(cfg.DocumentosEnabled) {
+		dependencias.materialDocumentos, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, descriptoresMaterialDocumentosDesarrollo()[0].Audiencia)
+		if err != nil {
+			return vacias, err
 		}
 	}
 	if personalEmpleadoSolicitado(cfg.PersonalEmpleadoEnabled) {

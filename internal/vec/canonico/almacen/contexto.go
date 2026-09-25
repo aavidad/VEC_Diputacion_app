@@ -15,6 +15,7 @@ const (
 	PasoAbandonarCargaDirecta PasoOperacionAlmacen = "02_abandonar_carga_directa"
 	PasoConfirmarCargaDirecta PasoOperacionAlmacen = "01_confirmar_carga_directa"
 	PasoLeerParaAnalisis      PasoOperacionAlmacen = "01_leer_para_analisis"
+	PasoLeerOriginalDocumento PasoOperacionAlmacen = "01_leer_original_documento"
 	PasoAnalizarContenido     PasoOperacionAlmacen = "02_analizar_contenido"
 	PasoPromover              PasoOperacionAlmacen = "01_promover"
 	PasoCustodiarDecision     PasoOperacionAlmacen = "01_custodiar_decision"

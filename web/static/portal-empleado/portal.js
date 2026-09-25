@@ -8,7 +8,8 @@ import { crearAyudanteTramites } from "./ayudante-tramites.js?v=20260925-d5d6-cr
 import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20260925-d5d6-cronos-v1";
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20260925-d5d6-cronos-v1";
 import { crearVistasOperaciones } from "./portal-vistas-operaciones.js?v=20260924-f2-shell-v1";
-import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260925-d5d6-cronos-v1";
+import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, VISTA_DOCUMENTOS_EXPEDIENTE, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260925-documentos-cronos-v1";
+import { crearTraductorDocumentos } from "./modulos/documentos/i18n.js?v=20260925-documentos-web-v2";
 import { consultarSesionPortal, presentarSesionPortal } from "./portal-catalogo-modulos.js?v=20260925-d5d6-cronos-v1";
 import { crearTraductorPersonal } from "./modulos/personal/i18n.js?v=20260925-personal-e10-v1";
 import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260925-d5d6-cronos-v1";
@@ -99,6 +100,7 @@ const TITULOS = Object.freeze({
   dietas: ["Portal del Empleado → Dietas", "Dietas y comisiones de servicio"],
   personal: ["Portal del Empleado → Personal", "Personal · consulta informativa"],
   "personal-registro": [crearTraductorPersonal()("registro_b2_miga"), crearTraductorPersonal()("registro_b2_titulo")],
+  [VISTA_DOCUMENTOS_EXPEDIENTE]: [crearTraductorDocumentos()("miga"), crearTraductorDocumentos()("titulo")],
   "bolsa-candidatos": ["Portal del Empleado → Bolsas de trabajo", "Candidatos de la bolsa"],
   "contratacion-temporal": [
     traducirPortal("contratacion_temporal_miga"),
