@@ -17,7 +17,7 @@ func TestManifestRegistersDietasAsVECModule(t *testing.T) {
 	if err := manifest.Validate(); err != nil {
 		t.Fatalf("manifiesto Dietas inválido: %v", err)
 	}
-	if manifest.BasePath != "/portal-empleado/" || len(manifest.Menu) != 0 {
+	if manifest.BasePath != "/modules/dietas" || len(manifest.Menu) != 0 {
 		t.Fatal("el manifiesto publicó enlaces de Dietas sin ruta web real")
 	}
 	esperados := map[string]bool{

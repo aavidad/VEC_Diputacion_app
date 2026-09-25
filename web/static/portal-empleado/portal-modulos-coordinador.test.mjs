@@ -205,6 +205,16 @@ test("el catálogo rechaza manifiestos y colecciones internas no canónicos", ()
   ), /entrada de menú no válida/);
 });
 
+test("un manifiesto defectuoso descarta sólo ese módulo y el resto se muestra", () => {
+  const valido = manifiestoContratacionTemporal();
+  const defectuoso = { ...manifiestoContratacionTemporal(), id: "vec.module.dietas", base_path: "/portal-empleado/" };
+  const catalogo = crearCatalogoModulosDesdeManifiestos([defectuoso, valido], TRADUCCIONES_CONTRATACION_TEMPORAL);
+  assert.deepEqual(catalogo.map(({ clave }) => clave), ["contratacion_temporal"]);
+  const repetido = crearCatalogoModulosDesdeManifiestos([valido, valido], TRADUCCIONES_CONTRATACION_TEMPORAL);
+  assert.equal(repetido.length, 1);
+  assert.throws(() => crearCatalogoModulosDesdeManifiestos([defectuoso], TRADUCCIONES_CONTRATACION_TEMPORAL), /ruta base no válido/);
+});
+
 test("el catálogo admite el manifiesto real de usuarios con menú nil sin atribuir acciones", () => {
   const usuarios = {
     id: "vec.module.usuarios",
