@@ -564,11 +564,18 @@ test("Cronos interno monta saldo, fichaje remoto, movimientos y calendario; con 
   assert.deepEqual(partes.map((p) => p.dataset.cronosParte), ["saldo", "remoto", "movimientos", "calendario"]);
   const html = (nombre) => { const texto = []; const visitar = (n) => { texto.push(n.innerHTML ?? ""); n.children.forEach(visitar); };
     visitar(raiz.querySelector(`[data-cronos-parte="${nombre}"]`)); return texto.join(""); };
-  assert.match(html("saldo"), /data-cronos-saldo-estado="error"/u);
-  assert.match(html("movimientos"), /data-cronos-movimientos-estado="error"/u);
+  assert.match(html("saldo"), /data-cronos-saldo-estado="no_disponible"/u);
+  assert.match(html("movimientos"), /data-cronos-movimientos-estado="no_disponible"/u);
   assert.match(html("movimientos"), /data-cronos-accion="solicitar-correccion">/u, "olvido de marcaje habilitado");
-  assert.match(html("calendario"), /cronos-movimientos-propios" [^>]*data-estado="error"/u);
-  assert.ok(html("remoto").length > 0);
+  assert.match(html("calendario"), /cronos-movimientos-propios" [^>]*data-estado="no_disponible"/u);
+  assert.match(html("remoto"), /El fichaje remoto no está disponible/u);
+  for (const nombre of ["saldo", "remoto", "movimientos", "calendario"]) {
+    // 404 = capacidad no disponible: estado neutro, sin alerta ni sobrelínea propia.
+    assert.doesNotMatch(html(nombre), /role="alert"[^>]*>[^<]|No se pudo|No se pudieron|class="sobrelinea"/u, nombre);
+  }
+  const cabecera = raiz.children.find((nodo) => nodo.tagName === "header");
+  assert.deepEqual(cabecera.children[0].children.map((n) => [n.tagName, n.className, n.textContent]),
+    [["p", "sobrelinea", "Cronos"], ["h2", undefined, "Mi jornada"]], "un único encabezado de página");
   assert.doesNotMatch(html("remoto"), /data-cronos-remoto-movimiento="entrada"(?![^>]*disabled)/u, "sin fichaje sin disponibilidad");
   assert.ok(pedidas.includes("/api/interna/cronos/saldos/propio"));
   assert.ok(pedidas.includes("/api/interna/cronos/marcajes/remoto/disponibilidad"));

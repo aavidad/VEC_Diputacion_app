@@ -29,32 +29,62 @@ export function componerCronosInterno(recursos, entorno) {
     remoto: clienteRemoto.crearClienteRemotoCronosHTTP(transporte),
     solicitudes: clienteSolicitudes.crearClienteSolicitudesCronosHTTP(transporte),
   });
+  const traducir = i18n.crearTraductorCronos();
   return Object.freeze({
-    traducir: i18n.crearTraductorCronos(),
+    traducir,
     montar({ raiz, anunciar = () => {}, registrarDesmontar } = {}) {
-      const partes = []; const desmontes = [];
-      let propios = null;
+      const t = traducir; const documento = raiz.ownerDocument;
+      const elemento = (etiqueta, clase, texto) => {
+        const nodo = documento.createElement(etiqueta);
+        if (clase) nodo.className = clase;
+        if (texto !== undefined) nodo.textContent = texto;
+        return nodo;
+      };
+      // Un único encabezado de página; cada parte se monta incrustada, con
+      // encabezado de tarjeta y sin sobrelínea propia.
+      const cabecera = elemento("header", "cronos-encabezado");
+      const titulo = elemento("div");
+      titulo.append(elemento("p", "sobrelinea", t("titulo")), elemento("h2", undefined, t("jornada_titulo")));
+      cabecera.append(titulo); raiz.append(cabecera);
+      const nombres = ["saldo", "remoto", "movimientos", "calendario"];
+      const nodos = new Map(nombres.map((nombre) => {
+        const nodo = elemento("div", "cronos-personal-parte"); nodo.dataset.cronosParte = nombre;
+        raiz.append(nodo); return [nombre, nodo];
+      }));
+      const desmontes = new Map();
+      // Una parte que no se puede montar deja su aviso en su sitio (sin
+      // detalles internos) y no arrastra a las demás.
       const colgar = (nombre, montarParte) => {
-        const nodo = raiz.ownerDocument.createElement("div");
-        nodo.className = "cronos-personal-parte"; nodo.dataset.cronosParte = nombre;
-        raiz.append(nodo); partes.push(nodo);
+        const nodo = nodos.get(nombre);
         try {
           const parte = montarParte(nodo);
-          if (typeof parte?.desmontar === "function") desmontes.push(parte.desmontar);
+          if (typeof parte?.desmontar === "function") desmontes.set(nombre, parte.desmontar);
           return parte;
-        } catch { nodo.remove?.(); return null; }
+        } catch {
+          const aviso = elemento("p", "cronos-acceso-denegado", t("jornada_parte_error"));
+          aviso.setAttribute("role", "alert");
+          nodo.replaceChildren(aviso); nodo.dataset.cronosParteEstado = "error";
+          return null;
+        }
       };
-      colgar("saldo", (nodo) => saldo.montarVistaSaldoCronos({ raiz: nodo, cliente: cliente.saldo, anunciar }));
+      colgar("saldo", (nodo) => saldo.montarVistaSaldoCronos({ raiz: nodo, cliente: cliente.saldo, anunciar, incrustada: true }));
       colgar("remoto", (nodo) => remoto.montarVistaRemotoCronos({ raiz: nodo, cliente: cliente.remoto }));
+      // El calendario se monta antes que los movimientos del día: «olvido de
+      // marcaje» solo se ofrece si hay un formulario de olvido al que llevar.
+      const propios = colgar("calendario", (nodo) => movimientosPropios.montarMovimientosPropiosCronos({
+        raiz: nodo, cliente: cliente.solicitudes, anunciar, incrustada: true }));
+      const abrirOlvido = typeof propios?.abrirOlvido === "function" ? propios.abrirOlvido : undefined;
       colgar("movimientos", (nodo) => movimientos.montarVistaMovimientosCronos({ raiz: nodo, cliente: cliente.saldo, anunciar,
-        abrirCorreccion: () => propios?.abrirOlvido?.() }));
-      propios = colgar("calendario", (nodo) => movimientosPropios.montarMovimientosPropiosCronos({ raiz: nodo, cliente: cliente.solicitudes, anunciar }));
+        incrustada: true, ...(abrirOlvido ? { abrirCorreccion: () => abrirOlvido() } : {}) }));
       let activo = true;
       const desmontar = () => {
         if (!activo) return;
         activo = false;
-        for (const retirar of desmontes.splice(0).reverse()) { try { retirar(); } catch { /* cada parte se retira sola */ } }
-        for (const nodo of partes.splice(0)) nodo.remove?.();
+        for (const nombre of [...nombres].reverse()) {
+          try { desmontes.get(nombre)?.(); } catch { /* cada parte se retira sola */ }
+        }
+        desmontes.clear();
+        for (const nodo of [cabecera, ...nodos.values()]) nodo.remove?.();
       };
       registrarDesmontar?.(desmontar);
       return Object.freeze({ desmontar });

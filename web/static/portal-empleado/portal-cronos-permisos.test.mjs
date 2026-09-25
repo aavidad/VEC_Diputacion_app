@@ -99,7 +99,8 @@ test("Permisos monta los permisos propios; con la API en 404 muestra su estado y
   assert.equal(await coordinador.montarVista("cronos", raiz), true);
   await esperar();
   assert.equal(permisos.listeners.size, 0);
-  assert.deepEqual(raiz.hijos.slice(1).map((nodo) => nodo.dataset.cronosParte), ["saldo", "remoto", "movimientos", "calendario"]);
+  assert.equal(raiz.hijos[1].className, "cronos-encabezado", "encabezado único de «Jornada»");
+  assert.deepEqual(raiz.hijos.slice(2).map((nodo) => nodo.dataset.cronosParte), ["saldo", "remoto", "movimientos", "calendario"]);
   assert.match(raiz.hijos[0].innerHTML, /data-vista="cronos" aria-current="page"/u);
   coordinador.desmontarVistaActual();
   assert.equal(raiz.hijos.length, 0);
@@ -141,7 +142,7 @@ test("el cargador interno nominal y el manifiesto contienen el recorrido sin nue
   assert.doesNotMatch(cronosInterno, /cronos\/vista\.js|vista-recorridos\.js/u);
   for (const vista of ["vista-saldo-conectado.js", "vista-remoto.js", "vista-movimientos-conectado.js",
     "vista-movimientos-propios.js", "vista-permisos-propios.js"]) {
-    exigirRenovado(cronosInterno, `./modulos/cronos/${vista}`, "20260925-tanda-v1");
+    exigirRenovado(cronosInterno, `./modulos/cronos/${vista}`, ["20260925-tanda-v1", "20260925-cronos-pantallas-v1"]);
     assert.match(manifiesto, new RegExp(`static/portal-empleado/modulos/cronos/${vista.replaceAll(".", "\\.")}`, "u"), vista);
   }
   for (const cliente of ["cliente-saldo-http.js", "cliente-remoto-http.js", "cliente-solicitudes-http.js"]) {
@@ -156,8 +157,8 @@ test("el cargador interno nominal y el manifiesto contienen el recorrido sin nue
   assert.match(manifiesto, /static\/portal-empleado\/modulos\/cronos\/vista-recorridos\.js/u);
   assert.match(manifiesto, /static\/portal-empleado\/modulos\/cronos\/permisos\.css/u);
   assert.match(manifiesto, /static\/portal-empleado\/modulos\/cronos\/i18n-permisos\.js/u);
-  exigirRenovado(portal, "./portal-modulos-coordinador.js", ["20260924-web-paradas-periodos-v1", "20260925-tanda-v1"]);
-  exigirRenovado(html, "/portal-empleado/portal.js", ["20260924-rescate-web-v4", "20260925-tanda-v1"]);
+  exigirRenovado(portal, "./portal-modulos-coordinador.js", ["20260924-web-paradas-periodos-v1", "20260925-tanda-v1", "20260925-cronos-pantallas-v1"]);
+  exigirRenovado(html, "/portal-empleado/portal.js", ["20260924-rescate-web-v4", "20260925-tanda-v1", "20260925-cronos-pantallas-v1"]);
   assert.doesNotMatch(portal, /portal-modulos-coordinador\.js\?v=20260924-web-c-ayuda-v5/u);
   assert.doesNotMatch(html, /portal\.js\?v=20260924-web-c-ayuda-v5/u);
   assert.doesNotMatch(portal, /portal-modulos-coordinador\.js\?v=20260924-web-c-ayuda-v4/u);

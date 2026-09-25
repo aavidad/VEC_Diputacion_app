@@ -1,4 +1,4 @@
-import { crearTraductorCronos, MENSAJES_CRONOS_ES } from "./i18n.js?v=20260925-tanda-v1";
+import { crearTraductorCronos, MENSAJES_CRONOS_ES } from "./i18n.js?v=20260925-cronos-p2-v1";
 
 export const MENSAJES_CRONOS_C4_ES = Object.freeze({
   calendario_civil_titulo: "Calendario civil",

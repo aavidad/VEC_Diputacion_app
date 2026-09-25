@@ -10,6 +10,12 @@ function escaparHTML(valor) {
   return String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 }
+
+/** Encabezado de la parte: propio de página, o de tarjeta sin sobrelínea dentro de «Jornada». */
+function encabezadoParte(sobrelinea, id, titulo, incrustada) {
+  return incrustada ? `<h3 id="${id}">${escaparHTML(titulo)}</h3>`
+    : `<p class="sobrelinea">${escaparHTML(sobrelinea)}</p><h2 id="${id}">${escaparHTML(titulo)}</h2>`;
+}
 function fechaVisible(valor, locale) {
   const [anio, mes, dia] = valor.split("-").map(Number);
   return new Intl.DateTimeFormat(locale, { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" })
@@ -47,13 +53,14 @@ function tablaDetalle(datos, t, locale, zonaHoraria) {
 
 /** Render puro: los importes de tiempo proceden exclusivamente de la respuesta validada. */
 export function renderizarVistaSaldoCronos({ estado = "cargando", consulta = { periodo: "hoy" }, datos = null,
-  mensajes = MENSAJES_CRONOS_ES, locale = "es-ES", zonaHoraria = "Europe/Madrid" } = {}) {
+  mensajes = MENSAJES_CRONOS_ES, locale = "es-ES", zonaHoraria = "Europe/Madrid", incrustada = false } = {}) {
   const t = crearTraductorCronos(mensajes);
   const seleccion = estado === "seleccion" && consulta?.periodo === "rango"
     ? { periodo: "rango", desde: "", hasta: "" } : validarConsultaSaldoCronos(consulta);
   if (estado === "listo") validarResultadoSaldoCronos(datos, seleccion);
   const rango = seleccion.periodo === "rango";
   const estadoClave = estado === "denegado" ? "saldo_denegado" : estado === "error" ? "saldo_error"
+    : estado === "no_disponible" ? "saldo_no_disponible"
     : estado === "cargando" ? "saldo_cargando" : estado === "seleccion" ? "saldo_seleccionar_rango"
       : estado === "rango_invalido" ? "saldo_rango_invalido" : "saldo_vacio";
   const resumen = estado === "listo" && datos ? `<div class="rejilla-kpi cronos-indicadores" aria-label="${escaparHTML(t("saldo_titulo"))}">
@@ -62,7 +69,7 @@ export function renderizarVistaSaldoCronos({ estado = "cargando", consulta = { p
   const contenido = estado === "listo" && datos ? `${resumen}<section class="panel cronos-panel" aria-labelledby="cronos-saldo-detalle-titulo"><div class="cabecera-panel"><h3 id="cronos-saldo-detalle-titulo">${escaparHTML(t("saldo_detalle"))}</h3></div>${tablaDetalle(datos, t, locale, zonaHoraria)}</section>`
     : `<section class="panel cronos-panel"><div class="cabecera-panel"><h3>${escaparHTML(t("saldo_detalle"))}</h3></div><p class="cronos-${estado === "denegado" ? "acceso-denegado" : "vacio"}" role="${estado === "error" ? "alert" : "status"}">${escaparHTML(t(estadoClave))}</p></section>`;
   return `<section class="cronos-area cronos-saldo-conectado" aria-labelledby="cronos-saldo-titulo" data-cronos-saldo-estado="${escaparHTML(estado)}">
-    <header class="cronos-encabezado"><div><p class="sobrelinea">${escaparHTML(t("sobrelinea"))}</p><h2 id="cronos-saldo-titulo">${escaparHTML(t("saldo_titulo"))}</h2></div>
+    <header class="cronos-encabezado"><div>${encabezadoParte(t("sobrelinea"), "cronos-saldo-titulo", t("saldo_titulo"), incrustada)}</div>
       <button type="button" class="cronos-boton-ayuda" data-accion="ayuda" aria-label="${escaparHTML(t("abrir_ayuda", { asunto: t("saldo_titulo") }))}" title="${escaparHTML(t("abrir_ayuda", { asunto: t("saldo_titulo") }))}"><span aria-hidden="true">?</span></button></header>
     <section class="panel cronos-panel" aria-label="${escaparHTML(t("saldo_periodos"))}"><div class="cabecera-panel"><h3>${escaparHTML(t("saldo_periodos"))}</h3></div><div class="cuerpo-panel">
       <nav class="cronos-navegacion" aria-label="${escaparHTML(t("saldo_periodos"))}">${PERIODOS.map((periodo) => `<button type="button" data-cronos-saldo-periodo="${periodo}" aria-pressed="${seleccion.periodo === periodo}">${escaparHTML(t(`saldo_${periodo}`))}</button>`).join("")}</nav>
@@ -72,7 +79,7 @@ export function renderizarVistaSaldoCronos({ estado = "cargando", consulta = { p
 
 /** Montaje aislado; aborta cada consulta anterior y descarta sus respuestas tardías. */
 export function montarVistaSaldoCronos({ raiz, cliente, mensajes = MENSAJES_CRONOS_ES, anunciar = () => {}, registrarDesmontar,
-  locale = "es-ES", zonaHoraria = "Europe/Madrid" } = {}) {
+  locale = "es-ES", zonaHoraria = "Europe/Madrid", incrustada = false } = {}) {
   if (!raiz?.append || !raiz.ownerDocument?.createElement || typeof cliente?.consultar !== "function"
     || typeof anunciar !== "function" || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function")) throw new TypeError("montaje de saldo Cronos no disponible");
   const contenedor = raiz.ownerDocument.createElement("section");
@@ -80,7 +87,7 @@ export function montarVistaSaldoCronos({ raiz, cliente, mensajes = MENSAJES_CRON
   const t = crearTraductorCronos(mensajes);
   let activa = true; let secuencia = 0; let controlador = null; let consulta = { periodo: "hoy" };
   const dibujar = (estado, datos) => {
-    if (activa) contenedor.innerHTML = renderizarVistaSaldoCronos({ estado, consulta, datos, mensajes, locale, zonaHoraria });
+    if (activa) contenedor.innerHTML = renderizarVistaSaldoCronos({ estado, consulta, datos, mensajes, locale, zonaHoraria, incrustada });
   };
   const cargar = async (siguiente) => {
     consulta = validarConsultaSaldoCronos(siguiente);
@@ -92,7 +99,8 @@ export function montarVistaSaldoCronos({ raiz, cliente, mensajes = MENSAJES_CRON
       dibujar("listo", datos);
     } catch (error) {
       if (!activa || turno !== secuencia || controlador.signal.aborted) return;
-      const estado = error instanceof ErrorClienteSaldoCronos && error.codigo === "acceso_denegado" ? "denegado" : "error";
+      const estado = !(error instanceof ErrorClienteSaldoCronos) ? "error" : error.codigo === "acceso_denegado" ? "denegado"
+        : error.estado === 404 ? "no_disponible" : "error";
       dibujar(estado); anunciar(estado);
     }
   };

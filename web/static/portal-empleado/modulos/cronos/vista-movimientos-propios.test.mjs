@@ -86,3 +86,14 @@ test("la vista no guarda nada en el navegador ni edita marcajes", async () => {
   const fuente = await readFile(new URL("./vista-movimientos-propios.js", import.meta.url), "utf8");
   assert.doesNotMatch(fuente, /localStorage|sessionStorage|indexedDB|document\.cookie|geolocation|Math\.random|marcajes\/remoto/u);
 });
+
+test("404 de la API: «no disponible» neutro, sin alerta; incrustada sin sobrelínea", async () => {
+  const { nodo, raiz } = raizFalsa();
+  const vista = montarMovimientosPropiosCronos({ raiz, anio: 2026, incrustada: true, cliente: {
+    consultarMovimientos: async () => { throw new ErrorClienteSolicitudesCronos("servicio_no_disponible", 404); }, solicitarCorreccion: async () => ({}) } });
+  await esperar();
+  assert.match(nodo.innerHTML, /<p class="cronos-vacio" role="status">Esta consulta no está disponible\.<\/p>/u);
+  assert.doesNotMatch(nodo.innerHTML, /role="alert"|No se pudieron consultar|sobrelinea|<h2/u);
+  assert.match(nodo.innerHTML, /<h3 id="cronos-movpropios-titulo">/u);
+  vista.desmontar();
+});

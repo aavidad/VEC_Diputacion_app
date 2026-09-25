@@ -8,6 +8,7 @@ export const MENSAJES_CRONOS_SOLICITUDES_ES = Object.freeze({
   denegado: "No tiene permiso para consultar estos datos.",
   sin_empleado: "Su usuario no tiene una relación de empleo vigente en Cronos.",
   error: "No se pudieron consultar los datos. Inténtelo de nuevo más tarde.",
+  no_disponible: "Esta consulta no está disponible.",
   cancelar: "Cancelar",
   fecha: "Fecha",
   desde: "Desde",

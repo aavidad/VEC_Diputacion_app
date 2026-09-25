@@ -21,7 +21,7 @@ import {
   componerCronosVisible,
   componerDietasInternas,
   componerPersonalVisible,
-} from "./portal-composicion-empleado.js?v=20260925-cronos-pantallas-v1";
+} from "./portal-composicion-empleado.js?v=20260925-cronos-p2-v1";
 import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260924-f2-shell-v1";
 import {
   CLAVES_CARGA_MODULAR,
@@ -79,7 +79,7 @@ const CARGADORES_PRESENTACION_PREDETERMINADOS = Object.freeze({
   cronos: async () => {
     const [contrato, recorridos] = await Promise.all([
       import("./modulos/cronos/contrato.js"),
-      import("./modulos/cronos/vista-recorridos.js?v=20260925-tanda-v1"),
+      import("./modulos/cronos/vista-recorridos.js?v=20260925-cronos-p2-v1"),
     ]);
     return Object.freeze({ contrato, recorridos });
   },
@@ -130,15 +130,15 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   cronos: async () => {
     const [saldo, remoto, movimientos, movimientosPropios, permisosPropios,
       clienteSaldo, clienteRemoto, clienteSolicitudes, i18n] = await Promise.all([
-      import("./modulos/cronos/vista-saldo-conectado.js?v=20260925-cronos-pantallas-v1"),
-      import("./modulos/cronos/vista-remoto.js?v=20260925-cronos-pantallas-v1"),
-      import("./modulos/cronos/vista-movimientos-conectado.js?v=20260925-cronos-pantallas-v1"),
-      import("./modulos/cronos/vista-movimientos-propios.js?v=20260925-cronos-pantallas-v1"),
-      import("./modulos/cronos/vista-permisos-propios.js?v=20260925-cronos-pantallas-v1"),
+      import("./modulos/cronos/vista-saldo-conectado.js?v=20260925-cronos-p2-v1"),
+      import("./modulos/cronos/vista-remoto.js?v=20260925-cronos-p2-v1"),
+      import("./modulos/cronos/vista-movimientos-conectado.js?v=20260925-cronos-p2-v1"),
+      import("./modulos/cronos/vista-movimientos-propios.js?v=20260925-cronos-p2-v1"),
+      import("./modulos/cronos/vista-permisos-propios.js?v=20260925-cronos-p2-v1"),
       import("./modulos/cronos/cliente-saldo-http.js"),
       import("./modulos/cronos/cliente-remoto-http.js"),
       import("./modulos/cronos/cliente-solicitudes-http.js"),
-      import("./modulos/cronos/i18n.js?v=20260925-tanda-v1"),
+      import("./modulos/cronos/i18n.js?v=20260925-cronos-p2-v1"),
     ]);
     return Object.freeze({ saldo, remoto, movimientos, movimientosPropios, permisosPropios,
       clienteSaldo, clienteRemoto, clienteSolicitudes, i18n });

@@ -8,6 +8,12 @@ function escaparHTML(valor) {
   return String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 }
+
+/** Encabezado de la parte: propio de página, o de tarjeta sin sobrelínea dentro de «Jornada». */
+function encabezadoParte(sobrelinea, id, titulo, incrustada) {
+  return incrustada ? `<h3 id="${id}">${escaparHTML(titulo)}</h3>`
+    : `<p class="sobrelinea">${escaparHTML(sobrelinea)}</p><h2 id="${id}">${escaparHTML(titulo)}</h2>`;
+}
 function iso(anio, mes, dia) { return `${anio}-${String(mes).padStart(2, "0")}-${String(dia).padStart(2, "0")}`; }
 function fechaVisible(fecha, locale, estilo = "medium") {
   const [a, m, d] = fecha.split("-").map(Number);
@@ -82,17 +88,17 @@ function formularioOlvido(f, t, hoy) {
 
 /** Calendario anual con los días marcados por tipo, ausencias y olvidos comunicados. */
 export function renderizarMovimientosPropiosCronos({ estado = "cargando", anio, datos = null, formulario = null, mensajes = MENSAJES_CRONOS_SOLICITUDES_ES,
-  locale = "es-ES", zonaHoraria = "Europe/Madrid", hoy = hoyCivilCronos(zonaHoraria) } = {}) {
+  locale = "es-ES", zonaHoraria = "Europe/Madrid", hoy = hoyCivilCronos(zonaHoraria), incrustada = false } = {}) {
   const t = crearTraductorSolicitudesCronos(mensajes);
   if (!Number.isInteger(anio) || anio < 2000 || anio > 2100) throw new RangeError("año de Cronos no válido");
   const ayuda = t("abrir_ayuda", { asunto: t("calendario_titulo") });
-  const cabecera = `<header class="cronos-encabezado"><div><p class="sobrelinea">${escaparHTML(t("sobrelinea"))}</p><h2 id="cronos-movpropios-titulo">${escaparHTML(t("calendario_titulo"))}</h2></div>
+  const cabecera = `<header class="cronos-encabezado"><div>${encabezadoParte(t("sobrelinea"), "cronos-movpropios-titulo", t("calendario_titulo"), incrustada)}</div>
     <button type="button" class="cronos-boton-ayuda" data-accion="ayuda" aria-label="${escaparHTML(ayuda)}" title="${escaparHTML(ayuda)}"><span aria-hidden="true">?</span></button></header>`;
   const navegacion = `<nav class="cronos-anio-navegacion" aria-label="${escaparHTML(t("calendario_anual", { anio }))}"><button type="button" class="boton-secundario" data-cronos-anio="-1" aria-label="${escaparHTML(t("anio_anterior"))}"${anio <= 2000 ? " disabled" : ""}>‹</button><strong aria-live="polite">${anio}</strong><button type="button" class="boton-secundario" data-cronos-anio="1" aria-label="${escaparHTML(t("anio_siguiente"))}"${anio >= 2100 ? " disabled" : ""}>›</button></nav>`;
   let cuerpo;
   if (estado !== "listo") {
-    const clave = { denegado: "denegado", sin_empleado: "sin_empleado", error: "error" }[estado] ?? "cargando";
-    cuerpo = `<section class="panel cronos-panel"><div class="cuerpo-panel"><p class="cronos-${estado === "cargando" ? "vacio" : "acceso-denegado"}" role="${estado === "error" ? "alert" : "status"}">${escaparHTML(t(clave))}</p></div></section>`;
+    const clave = { denegado: "denegado", sin_empleado: "sin_empleado", error: "error", no_disponible: "no_disponible" }[estado] ?? "cargando";
+    cuerpo = `<section class="panel cronos-panel"><div class="cuerpo-panel"><p class="cronos-${["cargando", "no_disponible"].includes(estado) ? "vacio" : "acceso-denegado"}" role="${estado === "error" ? "alert" : "status"}">${escaparHTML(t(clave))}</p></div></section>`;
   } else {
     const marcas = marcasPorDiaCronos(datos);
     const aviso = datos.calendario.disponible ? "" : `<p class="cronos-calendario-falta" role="status">${escaparHTML(t("calendario_sin_publicar", { anio }))}</p>`;
@@ -111,13 +117,14 @@ function estadoError(error) {
   if (error instanceof ErrorClienteSolicitudesCronos) {
     if (error.codigo === "sin_empleado") return "sin_empleado";
     if (["acceso_denegado", "autenticacion_requerida"].includes(error.codigo)) return "denegado";
+    if (error.estado === 404) return "no_disponible";
   }
   return "error";
 }
 
 /** Consulta el año con el cliente propio y registra olvidos; aborta al cambiar o desmontar. */
 export function montarMovimientosPropiosCronos({ raiz, cliente = crearClienteSolicitudesCronosHTTP(), mensajes = MENSAJES_CRONOS_SOLICITUDES_ES,
-  anunciar = () => {}, registrarDesmontar, locale = "es-ES", zonaHoraria = "Europe/Madrid", anio, abrirOlvido = false } = {}) {
+  anunciar = () => {}, registrarDesmontar, locale = "es-ES", zonaHoraria = "Europe/Madrid", anio, abrirOlvido = false, incrustada = false } = {}) {
   if (!raiz?.append || !raiz.ownerDocument?.createElement || typeof cliente?.consultarMovimientos !== "function" || typeof cliente?.solicitarCorreccion !== "function"
     || typeof anunciar !== "function" || (registrarDesmontar !== undefined && typeof registrarDesmontar !== "function")) throw new TypeError("montaje de movimientos propios Cronos no disponible");
   const t = crearTraductorSolicitudesCronos(mensajes);
@@ -127,7 +134,7 @@ export function montarMovimientosPropiosCronos({ raiz, cliente = crearClienteSol
   let anioVisible = Number.isInteger(anio) ? anio : Number(hoy.slice(0, 4));
   let estado = "cargando"; let datos = null;
   let formulario = abrirOlvido ? { abierto: true, clave: claveNueva(), movimiento: "entrada", fecha: hoy } : null;
-  const dibujar = () => { if (activa) contenedor.innerHTML = renderizarMovimientosPropiosCronos({ estado, anio: anioVisible, datos, formulario, mensajes, locale, zonaHoraria, hoy }); };
+  const dibujar = () => { if (activa) contenedor.innerHTML = renderizarMovimientosPropiosCronos({ estado, anio: anioVisible, datos, formulario, mensajes, locale, zonaHoraria, hoy, incrustada }); };
   const cargar = async () => {
     controlador?.abort(); controlador = new AbortController(); const turno = ++secuencia;
     estado = "cargando"; datos = null; dibujar();

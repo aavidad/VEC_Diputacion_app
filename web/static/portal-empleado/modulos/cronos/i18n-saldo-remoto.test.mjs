@@ -18,7 +18,7 @@ const CLAVES_SALDO = [
 const CLAVES_REMOTO = [
   "titulo", "origen", "periodo", "sin_periodo", "consultando", "autorizado",
   "motivo_sin_autorizacion", "motivo_fuera_periodo", "motivo_no_disponible",
-  "error_consulta", "autenticacion_requerida", "acceso_denegado", "sin_movimientos",
+  "error_consulta", "no_disponible", "autenticacion_requerida", "acceso_denegado", "sin_movimientos",
   "secuencia_no_permitida",
   "continuidad_pendiente", "servicio_no_disponible", "error_registro",
   "conflicto", "enviando", "incierto", "recuperando", "recuperacion_no_disponible",
@@ -29,7 +29,7 @@ const CLAVES_REMOTO = [
 const CLAVES_MOVIMIENTOS = [
   "titulo", "periodos", "detalle", "vacio", "cargando", "error", "denegado",
   "fecha", "hora", "tipo", "origen", "estado", "correccion",
-  "correccion_pendiente", "sin_marcajes", "rango_invalido", "seleccionar_rango",
+  "no_disponible", "sin_marcajes", "rango_invalido", "seleccionar_rango",
 ].map((clave) => `movimientos_${clave}`);
 
 test("el traductor real cubre saldo, movimientos y fichaje remoto en todos sus estados", () => {
@@ -40,7 +40,7 @@ test("el traductor real cubre saldo, movimientos y fichaje remoto en todos sus e
   }
   assert.match(traducir("saldo_estado_incompleto"), /incompleto/i);
   assert.equal(traducir("movimientos_correccion"), "Solicitar corrección");
-  assert.match(traducir("movimientos_correccion_pendiente"), /no está disponible/);
+  assert.throws(() => traducir("movimientos_correccion_pendiente"), /desconocida/, "sin corrección no se ofrece el botón");
   assert.match(traducir("remoto_incierto"), /misma clave/i);
   assert.match(traducir("remoto_continuidad_pendiente"), /último marcaje/);
   assert.match(traducir("remoto_sin_movimientos"), /no hay movimientos disponibles/i);

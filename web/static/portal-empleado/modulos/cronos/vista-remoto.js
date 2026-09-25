@@ -30,7 +30,7 @@ export function renderizarVistaRemotoCronos({ disponibilidad = null, estado = "c
     }
   }
   if (typeof t !== "function") throw new TypeError("traductor de Cronos no disponible");
-  if (!["consultando", "listo", "enviando", "recuperando", "incierto", "servicio_incierto", "recuperacion_no_disponible", "error", "error_registro", "conflicto", "registrado", "autenticacion", "acceso_denegado", "servicio", "continuidad", "secuencia"].includes(estado)) {
+  if (!["consultando", "listo", "enviando", "recuperando", "incierto", "servicio_incierto", "recuperacion_no_disponible", "error", "no_disponible", "error_registro", "conflicto", "registrado", "autenticacion", "acceso_denegado", "servicio", "continuidad", "secuencia"].includes(estado)) {
     throw new TypeError("estado remoto no válido");
   }
   const autorizado = disponible?.autorizado === true && disponible?.continuidad_confirmada === true;
@@ -51,6 +51,7 @@ export function renderizarVistaRemotoCronos({ disponibilidad = null, estado = "c
       : estado === "servicio_incierto" ? "remoto_servicio_no_disponible"
         : estado === "recuperacion_no_disponible" ? "remoto_recuperacion_no_disponible"
       : estado === "error" ? "remoto_error_consulta"
+      : estado === "no_disponible" ? "remoto_no_disponible"
         : estado === "autenticacion" ? "remoto_autenticacion_requerida"
           : estado === "acceso_denegado" ? "remoto_acceso_denegado"
             : estado === "servicio" ? "remoto_servicio_no_disponible"
@@ -78,9 +79,9 @@ export function renderizarVistaRemotoCronos({ disponibilidad = null, estado = "c
       <p>${traducir(t, "remoto_origen")}</p></div>
       <button type="button" class="cronos-boton-ayuda" data-accion="ayuda" aria-label="${traducir(t, "abrir_ayuda", { asunto: t("remoto_titulo") })}" title="${traducir(t, "abrir_ayuda", { asunto: t("remoto_titulo") })}">?</button></div>
     <div class="cuerpo-panel"><p>${escapar(periodo)}</p>
-      <p class="cronos-estado cronos-estado-${autorizado && estado === "listo" && disponible.movimientos_permitidos.length ? "exito" : "aviso"}" role="status" aria-live="polite">${traducir(t, etiquetaEstado)}${estado === "servicio_incierto" ? ` ${traducir(t, "remoto_incierto")}` : ""}</p>
+      <p class="${estado === "no_disponible" ? "cronos-vacio" : `cronos-estado cronos-estado-${autorizado && estado === "listo" && disponible.movimientos_permitidos.length ? "exito" : "aviso"}`}" role="status" aria-live="polite">${traducir(t, etiquetaEstado)}${estado === "servicio_incierto" ? ` ${traducir(t, "remoto_incierto")}` : ""}</p>
       ${avisoSecuencia ? `<p role="status">${traducir(t, "remoto_secuencia_no_permitida")}</p>` : ""}
-      <div class="cronos-acciones">${acciones}${reintento}
+      <div class="cronos-acciones">${estado === "no_disponible" ? "" : acciones}${reintento}
         <button type="button" data-cronos-remoto-actualizar class="boton-secundario" ${pendiente || ["consultando", "enviando", "recuperando", "incierto", "servicio_incierto", "recuperacion_no_disponible"].includes(estado) ? 'disabled aria-disabled="true"' : ""}>${traducir(t, "remoto_actualizar")}</button></div>
       ${resultado}</div>
   </section>`;
@@ -129,7 +130,8 @@ export function montarVistaRemotoCronos({ raiz, cliente, mensajes = MENSAJES_CRO
           : error?.codigo === "acceso_denegado" ? "acceso_denegado"
             : error?.codigo === "continuidad_no_confirmada" ? "continuidad"
               : error?.codigo === "secuencia_no_permitida" ? "secuencia"
-              : error?.codigo === "servicio_no_disponible" ? "servicio" : "error";
+              : error?.codigo === "servicio_no_disponible" ? "servicio"
+                : error?.estado === 404 ? "no_disponible" : "error";
       }
     } finally { if (activo && version === generacion) { controlador = null; pintar(); } }
   }

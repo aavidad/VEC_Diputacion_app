@@ -1,4 +1,4 @@
-import { crearTraductorCronos, MENSAJES_CRONOS_ES } from "./i18n.js?v=20260925-tanda-v1";
+import { crearTraductorCronos, MENSAJES_CRONOS_ES } from "./i18n.js?v=20260925-cronos-p2-v1";
 import { montarCatalogoPermisosCronos } from "./vista-catalogo-permisos.js?v=20260925-tanda-v1";
 import { montarVistaCorreccionesCronos } from "./vista-correcciones.js?v=20260925-tanda-v1";
 import { montarVistaNotificacionesCronos } from "./vista-notificaciones.js?v=20260925-tanda-v1";
