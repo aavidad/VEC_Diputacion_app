@@ -2,6 +2,8 @@
 # Ensayo de AD3-82/83 y CT115/116 en PostgreSQL 18.4 desechable sobre la
 # estructura real restaurada de la principal (volcado con datos sintéticos).
 # Uso: probar_ct115_ct116_cese_modificacion_pg18.sh GLOBALS_SQL VOLCADO_PG_DUMP
+# Con VEC_CT115_GO=1 publica el puerto solo en 127.0.0.1 y, en lugar de las
+# pruebas SQL de transacción, ejecuta la prueba de contrato Go↔SQL.
 # El contenedor usa --rm, sin red ni volúmenes anónimos; sus datos viven en
 # /dev/shm/vec-pg-ct115-<pid> y se borran al terminar.
 set -Eeuo pipefail
@@ -19,9 +21,16 @@ limpiar() {
 }
 trap limpiar EXIT
 mkdir -p "$datos"
-docker run -d --rm --network none --name "$nombre" -e POSTGRES_HOST_AUTH_METHOD=trust \
+red=(--network none)
+[[ ${VEC_CT115_GO:-} == 1 ]] && red=(-p 127.0.0.1::5432)
+docker run -d --rm "${red[@]}" --name "$nombre" -e POSTGRES_HOST_AUTH_METHOD=trust \
   -v "$datos:/var/lib/postgresql" postgres:18.4 >/dev/null
-for _ in $(seq 1 120); do docker exec "$nombre" pg_isready -q -U postgres && break; sleep 0.5; done
+# La imagen arranca un servidor temporal para inicializar y después el
+# definitivo: se espera al segundo antes de conectar.
+for _ in $(seq 1 240); do
+  if docker logs "$nombre" 2>&1 | grep -q 'PostgreSQL init process complete' && docker exec "$nombre" pg_isready -q -U postgres; then break; fi
+  sleep 0.5
+done
 run() { docker exec -i "$nombre" psql -X -q -o /dev/null -v ON_ERROR_STOP=1 -U postgres -d postgres "$@"; }
 escalar() { docker exec "$nombre" psql -X -At -v ON_ERROR_STOP=1 -U postgres -d postgres -c "$1"; }
 [[ $(escalar 'SHOW server_version') == 18.4* ]] || { echo 'PostgreSQL 18.4 no disponible' >&2; exit 2; }
@@ -85,18 +94,30 @@ done
 echo '== AD3-82 DOWN se niega con CT115 instalada'
 falla_con "$ad3/000082_consumidor_cese_cierre_contratacion_temporal.down.sql" 'DOWN no admitido'
 
-echo '== Transacciones de cese y cierre (doble explícito de la fachada AD3)'
-prueba() { # $1 fichero, $2 marca final
-  local salida
-  salida=$(docker exec -i "$nombre" psql -X -At -v ON_ERROR_STOP=1 -U postgres -d postgres <"$1" 2>&1) || { printf '%s\n' "$salida" | tail -5 >&2; exit 1; }
-  grep -q "$2" <<<"$salida" || { echo "FALLO: falta $2" >&2; exit 1; }
-  ok "$(grep -c '^ok$' <<<"$salida") comprobaciones de $(basename "$1")"
-}
-prueba "$repo/deploy/postgresql/contratacion_temporal/pruebas_sql/ct115_cese_cierre_expediente.sql" 'CT115 OK'
-if [[ -f $repo/deploy/postgresql/contratacion_temporal/pruebas_sql/ct116_modificacion_tras_nombramiento.sql ]]; then
-  echo '== Transacción de modificación (doble explícito de la fachada AD3)'
-  prueba "$repo/deploy/postgresql/contratacion_temporal/pruebas_sql/ct116_modificacion_tras_nombramiento.sql" 'CT116 OK'
+pruebas=$repo/deploy/postgresql/contratacion_temporal/pruebas_sql
+if [[ ${VEC_CT115_GO:-} == 1 ]]; then
+  echo '== Contrato Go↔SQL (doble explícito de las fachadas AD3)'
+  run <"$pruebas/ct115_ct116_fixture_pg18.sql"
+  puerto=$(docker port "$nombre" 5432/tcp | head -1 | sed 's/.*://')
+  a='expediente:ct:5fe7e60e7632213e9f20cee64aa0e8fb913187513d728da76a4c6de54c49c001'
+  b='expediente:ct:fe4934a1c7a9f9ad91aaccc6026ff7d39a494031d14d8a98dcd0d6a140619ba7'
+  org=$(escalar "SELECT agregado_json->>'organizacion_ref' FROM vec_contratacion_temporal.expediente_version_integral WHERE expediente_ref='$a' AND version=7")
+  (cd "$repo" && VEC_CT115_PG_DSN="postgres://vec_ct115_runtime@127.0.0.1:$puerto/postgres?sslmode=disable" VEC_CT115_ORG="$org" \
+    VEC_CT115_EXP_A="$a" VEC_CT115_EXP_B="$b" TMPDIR=${TMPDIR:-/dev/shm} go test -count=1 -run TestSeguimientoPostgreSQLContratoGoSQL -v \
+    ./internal/modules/contrataciontemporal/adapters/postgres/ 2>&1 | tail -20)
+  echo 'ENSAYO GO COMPLETO'
+  exit 0
 fi
+echo '== Transacciones de cese y cierre (doble explícito de la fachada AD3)'
+prueba() { # $1 marca final, $2... ficheros en una sola sesión
+  local marca=$1 salida; shift
+  salida=$(cat "$@" | docker exec -i "$nombre" psql -X -At -v ON_ERROR_STOP=1 -U postgres -d postgres 2>&1) || { printf '%s\n' "$salida" | tail -5 >&2; exit 1; }
+  grep -q "$marca" <<<"$salida" || { echo "FALLO: falta $marca" >&2; exit 1; }
+  ok "$(grep -c '^ok$' <<<"$salida") comprobaciones hasta $marca"
+}
+prueba 'CT115 OK' "$pruebas/ct115_ct116_fixture_pg18.sql" "$pruebas/ct115_cese_cierre_expediente.sql"
+echo '== Transacción de modificación (doble explícito de la fachada AD3)'
+prueba 'CT116 OK' "$pruebas/ct116_modificacion_tras_nombramiento.sql"
 # Inbox del histórico de contratos de Bolsa (B13, Bolsa 000024): el cese
 # publicado por CT115 se registra igual que una incorporación, y su reentrega
 # se reconoce. Mientras B13 no esté en esta rama se indica con BOLSA24_UP.

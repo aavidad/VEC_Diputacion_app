@@ -32,7 +32,7 @@ $pre$;
 DROP FUNCTION vec_contratacion_temporal.confirmar_modificacion_nombramiento_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea);
 DROP FUNCTION vec_contratacion_temporal.preparar_modificacion_nombramiento_v1(jsonb);
 DROP FUNCTION vec_contratacion_temporal.resultado_modificacion_ct116(vec_contratacion_temporal.modificacion_nombramiento_v1);
-DROP FUNCTION vec_contratacion_temporal.proyeccion_modificacion_ct116(jsonb,jsonb,text,jsonb);
+DROP FUNCTION vec_contratacion_temporal.proyeccion_modificacion_ct116(jsonb,jsonb,text,jsonb,boolean);
 DROP FUNCTION vec_contratacion_temporal.validar_material_modificacion_ct116(jsonb);
 DROP TABLE vec_contratacion_temporal.modificacion_nombramiento_v1;
 

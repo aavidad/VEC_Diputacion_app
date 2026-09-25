@@ -5,16 +5,6 @@
 \set exp_b 'expediente:ct:fe4934a1c7a9f9ad91aaccc6026ff7d39a494031d14d8a98dcd0d6a140619ba7'
 \set exp_a 'expediente:ct:5fe7e60e7632213e9f20cee64aa0e8fb913187513d728da76a4c6de54c49c001'
 
-CREATE OR REPLACE FUNCTION vec_autorizacion_atestada_v3.registrar_y_consumir_modificacion_ct_v3_atestada(
- p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)
-RETURNS TABLE(decision_ref text,efecto_ref text,huella_efecto_sha256 text,consumo_huella_sha256 text,auditoria_ref text,consumida_en timestamptz,consumo_nuevo boolean)
-LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET lock_timeout='2s' AS $f$
-DECLARE d jsonb:=convert_from(p_decision,'UTF8')::jsonb;
-BEGIN
- IF d->>'accion'<>'contratacion_temporal.expediente.modificar_tras_nombramiento' THEN RAISE EXCEPTION 'doble: denegado' USING ERRCODE='42501'; END IF;
- RETURN QUERY SELECT d->>'decision_ref', d->>'recurso_ref', d->>'contexto_recurso_huella_sha256', encode(sha256(p_capacidad||p_decision),'hex'),
-   'aud_v3_'||md5(p_capacidad||p_decision), clock_timestamp(), true;
-END $f$;
 
 CREATE FUNCTION pg_temp.exigir(c boolean, msg text) RETURNS text LANGUAGE plpgsql AS $$
 BEGIN IF c IS NOT TRUE THEN RAISE EXCEPTION 'FALLO %', msg; END IF; RETURN 'ok'; END $$;
@@ -95,7 +85,7 @@ SELECT pg_temp.preparar(:'mod_cerrado'::jsonb)->>'resultado' AS prep_cerrado \gs
 COMMIT;
 SELECT pg_temp.exigir(:'prep_uno'='preparada','preparación de la modificación');
 SELECT pg_temp.exigir(:'prep_igual'='sin_cambios','modificación sin cambios');
-SELECT pg_temp.exigir(:'prep_caro'='credito_insuficiente','coste por encima de la retención de crédito');
+SELECT pg_temp.exigir(:'prep_caro'='preparada','la preparación no exige coste (se calcula después)');
 SELECT pg_temp.exigir(:'prep_cerrado'='cese_existente','modificación tras el cese');
 
 BEGIN ISOLATION LEVEL SERIALIZABLE;
@@ -103,6 +93,7 @@ SELECT pg_temp.exigir(pg_temp.confirmar(jsonb_set(:'mod_uno'::jsonb,'{material,f
 SELECT pg_temp.exigir(pg_temp.confirmar(jsonb_set(:'mod_uno'::jsonb,'{expediente_siguiente,fiscalizacion}','{}'))->>'error'='22023','fiscalización conservada en la proyección');
 SELECT pg_temp.exigir(pg_temp.confirmar(jsonb_set(:'mod_uno'::jsonb,'{contexto,atributos,coste_centimos}','"1"'))->>'error'='42501','coste distinto del autorizado');
 SELECT pg_temp.exigir(pg_temp.confirmar(jsonb_set(:'mod_uno'::jsonb,'{material,periodo_fin}','"2026-12-31"'))->>'error'='22023','periodo invertido');
+SELECT pg_temp.exigir(pg_temp.confirmar(:'mod_caro'::jsonb)->>'resultado'='credito_insuficiente','coste por encima de la retención de crédito');
 ROLLBACK;
 BEGIN ISOLATION LEVEL SERIALIZABLE;
 SELECT pg_temp.confirmar(:'mod_uno'::jsonb)::text AS conf \gset

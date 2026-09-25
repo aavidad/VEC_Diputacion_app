@@ -149,7 +149,7 @@ $$;
 -- Estado admisible del expediente y proyección siguiente de la modificación.
 -- Devuelve NULL si el estado no admite la modificación (conflicto) y un
 -- objeto con `resultado` si la regla de negocio la rechaza.
-CREATE FUNCTION vec_contratacion_temporal.proyeccion_modificacion_ct116(ag jsonb, m jsonb, p_recibo text, p_instante jsonb)
+CREATE FUNCTION vec_contratacion_temporal.proyeccion_modificacion_ct116(ag jsonb, m jsonb, p_recibo text, p_instante jsonb, p_con_coste boolean)
 RETURNS jsonb LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog AS $$
 DECLARE a jsonb:=ag->'analisis'; v numeric:=(ag->>'version')::numeric; act jsonb; nuevo jsonb; sig jsonb; periodo jsonb;
 BEGIN
@@ -165,7 +165,7 @@ BEGIN
     IF a->'periodo'=periodo AND (a->>'porcentaje_jornada')::numeric=(m->>'porcentaje_jornada')::numeric THEN
         RETURN jsonb_build_object('resultado','sin_cambios');
     END IF;
-    IF a#>>'{validacion_rc,resultado}'='validada' AND (m->>'coste_centimos')::numeric>(a#>>'{validacion_rc,importe,centimos}')::numeric THEN
+    IF p_con_coste AND a#>>'{validacion_rc,resultado}'='validada' AND (m->>'coste_centimos')::numeric>(a#>>'{validacion_rc,importe,centimos}')::numeric THEN
         RETURN jsonb_build_object('resultado','credito_insuficiente');
     END IF;
     act:=jsonb_build_object('secuencia',jsonb_array_length(ag->'actuaciones')+1,'version_expediente',v+1,
@@ -219,8 +219,8 @@ BEGIN
                OR r.expediente_ref<>m->>'expediente_ref' OR r.version_esperada<>(m->>'version_esperada')::numeric
                OR r.actor_ref<>m->>'actor_ref' OR r.perfil_ref<>m->>'perfil_ref' OR r.motivo_clave<>m->>'motivo_clave'
                OR to_char(r.periodo_inicio,'YYYY-MM-DD')<>m->>'periodo_inicio' OR to_char(r.periodo_fin,'YYYY-MM-DD')<>m->>'periodo_fin'
-               OR r.porcentaje_jornada<>(m->>'porcentaje_jornada')::numeric OR r.coste_centimos<>(m->>'coste_centimos')::numeric
-               OR r.fuente_coste_ref<>m->>'fuente_coste_ref' OR r.fase_retorno<>m->>'fase_retorno' OR r.observaciones<>m->>'observaciones' THEN
+               OR r.porcentaje_jornada<>(m->>'porcentaje_jornada')::numeric
+               OR r.fase_retorno<>m->>'fase_retorno' OR r.observaciones<>m->>'observaciones' THEN
                 RETURN jsonb_build_object('esquema',e,'resultado','idempotencia_reutilizada');
             END IF;
             RETURN vec_contratacion_temporal.resultado_modificacion_ct116(r);
@@ -236,7 +236,8 @@ BEGIN
     IF NOT FOUND OR v_actual.version<>(m->>'version_esperada')::numeric THEN
         RETURN jsonb_build_object('esquema',e,'resultado','version_en_conflicto');
     END IF;
-    v_proy:=vec_contratacion_temporal.proyeccion_modificacion_ct116(v_actual.agregado_json,m,p_operacion#>>'{referencias_candidatas,recibo_ref}','"1970-01-01T00:00:00Z"');
+    -- El coste se calcula después, con el expediente leído: aquí no se exige.
+    v_proy:=vec_contratacion_temporal.proyeccion_modificacion_ct116(v_actual.agregado_json,m,p_operacion#>>'{referencias_candidatas,recibo_ref}','"1970-01-01T00:00:00Z"',false);
     IF v_proy IS NULL THEN
         RETURN jsonb_build_object('esquema',e,'resultado','version_en_conflicto');
     END IF;
@@ -290,7 +291,7 @@ BEGIN
         IF r.huella_peticion_hmac IS DISTINCT FROM p_operacion->>'huella_peticion_hmac' OR r.version_esperada<>v_version
            OR r.motivo_clave<>m->>'motivo_clave' OR to_char(r.periodo_inicio,'YYYY-MM-DD')<>m->>'periodo_inicio'
            OR to_char(r.periodo_fin,'YYYY-MM-DD')<>m->>'periodo_fin' OR r.porcentaje_jornada<>(m->>'porcentaje_jornada')::numeric
-           OR r.coste_centimos<>(m->>'coste_centimos')::numeric OR r.observaciones<>m->>'observaciones' THEN
+           OR r.observaciones<>m->>'observaciones' THEN
             RETURN jsonb_build_object('esquema',e,'resultado','idempotencia_reutilizada');
         END IF;
         IF r.decision_ref IS DISTINCT FROM a->>'decision_ref' THEN
@@ -307,7 +308,7 @@ BEGIN
     IF NOT FOUND OR v_actual.version<>v_version OR v_actual.agregado_json IS DISTINCT FROM p_operacion->'expediente_anterior' THEN
         RETURN jsonb_build_object('esquema',e,'resultado','version_en_conflicto');
     END IF;
-    v_proy:=vec_contratacion_temporal.proyeccion_modificacion_ct116(v_actual.agregado_json,m,refs->>'recibo_ref',p_operacion->'instante_efecto');
+    v_proy:=vec_contratacion_temporal.proyeccion_modificacion_ct116(v_actual.agregado_json,m,refs->>'recibo_ref',p_operacion->'instante_efecto',true);
     IF v_proy IS NULL THEN
         RETURN jsonb_build_object('esquema',e,'resultado','version_en_conflicto');
     END IF;
@@ -432,7 +433,7 @@ DECLARE v record; f regprocedure; destinatario text;
       'vec_contratacion_temporal.confirmar_modificacion_nombramiento_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure];
     auxiliares regprocedure[]:=ARRAY[
       'vec_contratacion_temporal.validar_material_modificacion_ct116(jsonb)'::regprocedure,
-      'vec_contratacion_temporal.proyeccion_modificacion_ct116(jsonb,jsonb,text,jsonb)'::regprocedure,
+      'vec_contratacion_temporal.proyeccion_modificacion_ct116(jsonb,jsonb,text,jsonb,boolean)'::regprocedure,
       'vec_contratacion_temporal.resultado_modificacion_ct116(vec_contratacion_temporal.modificacion_nombramiento_v1)'::regprocedure];
 BEGIN
     FOR v IN SELECT DISTINCT x.grantee FROM pg_class c CROSS JOIN LATERAL aclexplode(coalesce(c.relacl,acldefault('r',c.relowner))) x
