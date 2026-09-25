@@ -117,4 +117,10 @@ BEGIN
   RAISE EXCEPTION 'B33: PUBLIC conserva EXECUTE';
  END IF;
 END $publico$;
+-- Constancia de quién publicó: cada versión guarda la cuenta de conexión.
+DO $publicador$ BEGIN
+ IF EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.politica_segregacion WHERE publicada_por IS DISTINCT FROM session_user) THEN
+  RAISE EXCEPTION 'la política no deja constancia de quién la publicó';
+ END IF;
+END $publicador$;
 ROLLBACK;

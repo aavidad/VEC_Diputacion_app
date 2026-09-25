@@ -98,7 +98,10 @@ CREATE TABLE vec_bolsa_llamamientos.politica_transiciones_situacion (
     catalogo_ref text NOT NULL CHECK (octet_length(catalogo_ref) BETWEEN 1 AND 512 AND catalogo_ref = btrim(catalogo_ref)),
     catalogo_sha256 text NOT NULL CHECK (catalogo_sha256 ~ '^[a-f0-9]{64}$'),
     transiciones text[] NOT NULL CHECK (transiciones IS NOT DISTINCT FROM vec_bolsa_llamamientos.transiciones_situacion_canonicas(transiciones)),
-    publicada_en timestamptz(6) NOT NULL
+    publicada_en timestamptz(6) NOT NULL,
+    -- Constancia de quién publicó: la cuenta de conexión (session_user), que
+    -- no cambia dentro de las funciones con SECURITY DEFINER.
+    publicada_por text NOT NULL DEFAULT session_user CHECK (octet_length(publicada_por) BETWEEN 1 AND 128)
 );
 COMMENT ON TABLE vec_bolsa_llamamientos.politica_transiciones_situacion IS
     'Versiones de solo adición de las transiciones de situación B2 admitidas (pares origen>destino). La vigente es la de mayor versión.';
@@ -159,6 +162,14 @@ END $f$;
 
 -- Publica la política derivada del catálogo. Solo crea versión si difiere de
 -- la vigente; nunca admite una lista que incumpla las invariantes fijas.
+-- Quién publica: la aplicación, al arrancar, con la cuenta de ejecución
+-- (rol ejecutor) y la entrada vigente del catálogo configurable; no hay una
+-- decisión de autorización por publicación. Por eso el ejecutor conserva
+-- EXECUTE y cada versión deja constancia de la cuenta de conexión que la
+-- publicó (publicada_por), además de la referencia y la huella del catálogo.
+-- La publicación nunca puede saltarse las invariantes fijas de arriba. Si se
+-- quiere reservar a una cuenta de despliegue, basta con retirar el GRANT y
+-- publicar desde esa cuenta, sin cambiar esta función.
 CREATE FUNCTION vec_bolsa_llamamientos.publicar_politica_transiciones_situacion_v1(p_catalogo_ref text, p_catalogo_sha256 text, p_transiciones text[])
 RETURNS TABLE(version bigint, reutilizada boolean, catalogo_ref text, transiciones text[])
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = pg_catalog SET lock_timeout = '2s' SET statement_timeout = '5s' AS $f$
@@ -199,10 +210,14 @@ END $f$;
 -- vigente admita la transición cuando el origen es «excluido». Para cualquier
 -- otro origen (una suspensión revocada) la política sí se exige. Sin EXECUTE
 -- para nadie y con SECURITY INVOKER: solo la alcanzan funciones del
--- propietario, y además comprueba que quien la llama directamente es la
--- función de recurso de 000037 (registrar_recurso_sancion_participacion_v2),
--- que ya ha consumido la autorización, anotado el recurso y comprobado que el
--- catálogo declara revocatorio ese estado. Aquí se exige que ese recurso sea
+-- propietario (current_user). Además exige la marca de transacción que deja
+-- la función de recurso de 000037 (registrar_recurso_sancion_participacion_v2)
+-- justo antes de llamarla, con la sanción y la clave del recurso, y la
+-- consume. Esa función ya ha consumido la autorización, anotado el recurso y
+-- comprobado que el catálogo declara revocatorio ese estado. La marca es una
+-- variable local de la transacción: no depende del idioma de los mensajes
+-- del servidor (lc_messages) y, aunque cualquier rol puede escribirla, solo
+-- el propietario puede llegar a esta función. Aquí se exige que ese recurso sea
 -- el último estado registrado de la sanción, en este mismo instante, y que la
 -- situación vigente sea la que dejó esa sanción. La situación restaurada es
 -- la anterior a la sanción (si era «disponible_desde» y la fecha ya pasó,
@@ -212,18 +227,18 @@ CREATE FUNCTION vec_bolsa_llamamientos.readmitir_participacion_por_recurso_v1(
  p_clave_idempotencia text, p_recibo_ref text, p_registrada_en timestamptz)
 RETURNS TABLE(situacion text, fecha_disponible timestamptz, desde timestamptz, politica_transiciones_version bigint)
 LANGUAGE plpgsql VOLATILE SET search_path = pg_catalog AS $f$
-DECLARE v_pila text; v_sancion record; v_ultimo record; v_actual record; v_previa record; v_politica record;
+DECLARE v_marca text; v_sancion record; v_ultimo record; v_actual record; v_previa record; v_politica record;
  v_situacion text; v_fecha timestamptz;
 BEGIN
  IF current_user <> 'vec_bolsa_llamamientos_propietario' THEN RAISE EXCEPTION USING ERRCODE='42501', MESSAGE='readmision no autorizada'; END IF;
- -- La pila empieza por esta función; la siguiente función de la pila (las
- -- líneas intermedias citan la sentencia) es quien la llama.
- GET DIAGNOSTICS v_pila = PG_CONTEXT;
- SELECT t.l INTO v_pila FROM unnest(string_to_array(v_pila, E'\n')) WITH ORDINALITY AS t(l, n)
-  WHERE t.n > 1 AND (t.l LIKE 'PL/pgSQL function %' OR t.l LIKE 'SQL function %') ORDER BY t.n LIMIT 1;
- IF v_pila IS NULL OR v_pila NOT LIKE 'PL/pgSQL function vec_bolsa_llamamientos.registrar_recurso_sancion_participacion_v2(%' THEN
+ -- Marca de la función de recurso: sanción y clave del recurso exactas. Se
+ -- consume aquí para que no sirva a otra llamada en la misma transacción.
+ v_marca := current_setting('vec_bolsa_llamamientos.readmision_recurso', true);
+ IF v_marca IS NULL OR p_sancion_ref IS NULL OR p_recurso_clave_idempotencia IS NULL
+    OR v_marca IS DISTINCT FROM p_sancion_ref || chr(31) || p_recurso_clave_idempotencia THEN
   RAISE EXCEPTION USING ERRCODE='42501', MESSAGE='readmision no autorizada';
  END IF;
+ PERFORM set_config('vec_bolsa_llamamientos.readmision_recurso', '', true);
  IF p_participacion_ref IS NULL OR p_sancion_ref IS NULL OR p_recurso_clave_idempotencia IS NULL
     OR p_motivo IS NULL OR p_motivo <> btrim(p_motivo) OR octet_length(p_motivo) NOT BETWEEN 1 AND 1000
     OR p_actor IS NULL OR p_clave_idempotencia IS NULL OR p_recibo_ref IS NULL OR p_registrada_en IS NULL THEN

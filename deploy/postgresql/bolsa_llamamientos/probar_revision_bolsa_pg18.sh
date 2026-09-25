@@ -91,8 +91,24 @@ prueba() { # fichero, marca de éxito
   echo "OK $(basename "$1")"
 }
 prueba $p/b37_efectos_sanciones.sql 'OK B37 efectos de sanciones'
+# La readmisión no depende del idioma de los mensajes del servidor: se repite
+# b37 con lc_messages en castellano (se genera el locale en el contenedor y se
+# reinicia) y se comprueba que la pila de PL/pgSQL sale traducida, como en producción.
+docker exec -u root "$contenedor" localedef -i es_ES -f UTF-8 es_ES.UTF-8 >/dev/null 2>&1 || { echo 'no se pudo generar es_ES.UTF-8' >&2; exit 1; }
+# El servidor solo ve el locale nuevo tras reiniciar.
+docker restart "$contenedor" >/dev/null
+for _ in $(seq 1 60); do docker exec "$contenedor" pg_isready -q -U postgres 2>/dev/null && break; sleep 0.5; done
+sleep 2
+pila=$(docker exec -i -e PGOPTIONS='-c lc_messages=es_ES.UTF-8' "$contenedor" psql -X -q -tA -U postgres \
+  -c "DO \$d\$ DECLARE t text; BEGIN GET DIAGNOSTICS t = PG_CONTEXT; RAISE NOTICE '%', t; END \$d\$" 2>&1)
+grep -q 'PL/pgSQL function' <<<"$pila" && { echo "lc_messages en castellano no aplicado: $pila" >&2; exit 1; }
+salida=$(docker exec -i -e PGOPTIONS='-c lc_messages=es_ES.UTF-8' "$contenedor" psql -X -q -v ON_ERROR_STOP=1 -U postgres -f /repo/$p/b37_efectos_sanciones.sql 2>&1) \
+  || { printf '%s\n' "$salida" >&2; exit 1; }
+grep -q 'OK B37 efectos de sanciones' <<<"$salida" || { printf '%s\n' "$salida" >&2; exit 1; }
+echo 'OK b37_efectos_sanciones.sql con lc_messages=es_ES'
 fichero $p/revision/datos.sql >/dev/null
 prueba $p/b2_politica_transiciones.sql
+prueba $p/b33_politica_segregacion.sql
 prueba $p/bof_ofertas_publicadas.sql 'OK B-OF focal'
 prueba $p/b30_portal_candidato.sql
 prueba $p/revision/b30_replay_autorizacion.sql 'OK B30 replay con decisión viva'
