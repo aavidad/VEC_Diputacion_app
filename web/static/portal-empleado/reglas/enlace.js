@@ -1,5 +1,5 @@
 /** Acceso a la pantalla de reglas vigentes desde Bolsa y Contratación temporal (no va en el menú principal). */
-import { crearTraductorReglas } from "./i18n.js?v=20260925-reglas-v1";
+import { crearTraductorReglas } from "./i18n.js?v=20260926-integracion-bolsa-ct-v1";
 
 export const RUTA_PANTALLA_REGLAS = "/portal-empleado/reglas/";
 

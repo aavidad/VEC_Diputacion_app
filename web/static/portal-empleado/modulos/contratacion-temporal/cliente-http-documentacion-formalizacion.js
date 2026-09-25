@@ -4,7 +4,7 @@
  * reglas; qué documentos constan anotados lo conserva Documentos. Nada se
  * guarda en el navegador.
  */
-import { crearFuenteDocumentosHTTP } from "../documentos/cliente-http.js?v=20260925-formalizacion-v1";
+import { crearFuenteDocumentosHTTP } from "../documentos/cliente-http.js?v=20260926-integracion-bolsa-ct-v1";
 
 export const RUTA_DOCUMENTACION_FORMALIZACION = "/api/vec/contratacion-temporal/formalizacion/documentacion";
 const ESQUEMA = "vec.ct.formalizacion.documentacion.v1";

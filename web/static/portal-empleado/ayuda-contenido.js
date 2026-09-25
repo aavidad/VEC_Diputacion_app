@@ -1,4 +1,4 @@
-import { traducirPortal } from "./portal-i18n.js?v=20260926-portal-rrhh-main-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260926-integracion-bolsa-ct-v1";
 
 /** Contenido de ayuda sustituible por catálogo o conector, sin lógica de negocio. */
 export const AYUDA_PORTAL_BOLSA = Object.freeze({

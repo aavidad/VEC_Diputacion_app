@@ -8,16 +8,16 @@
 import {
   cargarCatalogoModulosInterno,
   renderizarNavegacionModulos,
-} from "./portal-catalogo-modulos.js?v=20260926-portal-rrhh-main-v1";
-import { traducirPortal } from "./portal-i18n.js?v=20260926-portal-rrhh-main-v1";
-import { calcularMetricasCuadro, tramitesParaInicio } from "./portal-inicio.js?v=20260926-portal-rrhh-main-v1";
+} from "./portal-catalogo-modulos.js?v=20260926-integracion-bolsa-ct-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260926-integracion-bolsa-ct-v1";
+import { calcularMetricasCuadro, tramitesParaInicio } from "./portal-inicio.js?v=20260926-integracion-bolsa-ct-v1";
 import {
   componerCronosInterno,
   componerDietasInternas,
   componerPersonalVisible,
   componerRegistroPersonal,
 } from "./portal-composicion-empleado.js?v=20260925-cronos-notif-e10-v1";
-import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260926-portal-rrhh-main-v1";
+import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260926-integracion-bolsa-ct-v1";
 import {
   CLAVES_CARGA_MODULAR,
   LIMITE_CARGA_MODULAR_MS,
@@ -92,7 +92,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       import("./modulos/contratacion-temporal/contrato.js"),
       import("./modulos/contratacion-temporal/cliente-http.js"),
       import("./modulos/contratacion-temporal/presentador-expedientes.js"),
-      import("./modulos/contratacion-temporal/vista-expedientes.js?v=20260925-ct-plantillas-v1"),
+      import("./modulos/contratacion-temporal/vista-expedientes.js?v=20260926-integracion-bolsa-ct-v1"),
       import("./modulos/contratacion-temporal/adaptador-http-expedientes.js"),
     ]);
     return Object.freeze({ contrato, cliente, presentador, vista, adaptador });
@@ -127,7 +127,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   dietas: async () => {
     const [contrato, recorridos, clienteBorradores, clienteAsignacion, calculador, mapa, clienteCircuito] = await Promise.all([
       import("./modulos/dietas/contrato.js"),
-      import("./modulos/dietas/vista-recorridos.js?v=20260926-portal-rrhh-main-v1"),
+      import("./modulos/dietas/vista-recorridos.js?v=20260926-integracion-bolsa-ct-v1"),
       import("./modulos/dietas/cliente-borradores-http.js?v=20260925-d5d6-v2"),
       import("./modulos/dietas/cliente-asignacion-http.js?v=20260925-d5d6-v1"),
       import("./modulos/dietas/calculador-rutas-http.js?v=20260925-d5d6-v1"),
@@ -141,7 +141,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   documentos: async () => {
     const [vista, cliente] = await Promise.all([
       import("./modulos/documentos/vista.js?v=20260925-documentos-web-v3"),
-      import("./modulos/documentos/cliente-http.js?v=20260925-documentos-montaje-v1"),
+      import("./modulos/documentos/cliente-http.js?v=20260926-integracion-bolsa-ct-v1"),
     ]);
     return Object.freeze({ vista, cliente });
   },

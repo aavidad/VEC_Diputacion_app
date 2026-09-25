@@ -7,15 +7,15 @@
  * Recibe las utilidades visuales para mantener este módulo puro y comprobable
  * sin acceder al DOM global.
  */
-import { traducirBolsaInterna, traducirPortal } from "./portal-i18n.js?v=20260926-portal-rrhh-main-v1";
+import { traducirBolsaInterna, traducirPortal } from "./portal-i18n.js?v=20260926-integracion-bolsa-ct-v1";
 import { renderizarBloqueAvisos } from "./portal-bolsas-avisos.js?v=20260925-aspecto-v1";
-import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260925-transiciones-v1";
-import { destinosSituacion, fechaDisponiblePropuesta, renderizarCamposReposicion } from "./portal-bolsas-reglas-situacion.js?v=20260925-reposicion-v1";
-import { renderizarIntentosContacto } from "./portal-bolsas-intentos.js?v=20260925-intentos-contacto-v1";
-import { renderizarContratosParticipacion } from "./portal-bolsas-contratos.js?v=20260925-b13-v1";
-import { renderizarSanciones } from "./portal-bolsas-sanciones.js?v=20260925-sanciones-v1";
+import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260926-integracion-bolsa-ct-v1";
+import { destinosSituacion, fechaDisponiblePropuesta, renderizarCamposReposicion } from "./portal-bolsas-reglas-situacion.js?v=20260926-integracion-bolsa-ct-v1";
+import { renderizarIntentosContacto } from "./portal-bolsas-intentos.js?v=20260926-integracion-bolsa-ct-v1";
+import { renderizarContratosParticipacion } from "./portal-bolsas-contratos.js?v=20260926-integracion-bolsa-ct-v1";
+import { renderizarSanciones } from "./portal-bolsas-sanciones.js?v=20260926-integracion-bolsa-ct-v1";
 import { icono } from "../comun/iconos-vec.js?v=20260925-aspecto-v1";
-import { enlaceReglasVigentes } from "./reglas/enlace.js?v=20260925-reglas-v1";
+import { enlaceReglasVigentes } from "./reglas/enlace.js?v=20260926-integracion-bolsa-ct-v1";
 const ESQUEMA_PANEL_INTERNO = "vec.bolsa.panel.interno.v1";
 const ESTADOS_BOLSA = Object.freeze(["disponible", "no_disponible", "trabajando", "pendiente_incorporacion", "renuncia", "excluido", "disponible_desde"]);
 export function crearPresentadorPanelInterno(dependencias) {

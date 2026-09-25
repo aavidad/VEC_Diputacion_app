@@ -1,7 +1,7 @@
 /** Textos castellanos del módulo; las vistas solo consumen claves. */
 import { MENSAJES_LLAMAMIENTO_ES } from "./i18n-llamamiento.js";
 import { MENSAJES_SUBSANACION_REPAROS_ES } from "./i18n-subsanacion-reparos.js";
-import { MENSAJES_DOCUMENTACION_FORMALIZACION_ES } from "./i18n-documentacion-formalizacion.js?v=20260925-formalizacion-v1";
+import { MENSAJES_DOCUMENTACION_FORMALIZACION_ES } from "./i18n-documentacion-formalizacion.js?v=20260926-integracion-bolsa-ct-v1";
 import { MENSAJES_AVISOS_VIA_COBERTURA_ES } from "./i18n-avisos-via-cobertura.js";
 
 export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({

@@ -1,4 +1,4 @@
-import { crearTraductorReglas, existeClaveReglas, formatearNumero } from "./i18n.js?v=20260925-reglas-v1";
+import { crearTraductorReglas, existeClaveReglas, formatearNumero } from "./i18n.js?v=20260926-integracion-bolsa-ct-v1";
 import { icono } from "../../comun/iconos-vec.js?v=20260925-aspecto-v1";
 
 export const API_REGLAS = "/api/vec/reglas/vigentes";

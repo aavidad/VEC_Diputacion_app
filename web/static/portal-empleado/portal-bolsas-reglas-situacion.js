@@ -5,7 +5,7 @@
  * Sin catálogo la pantalla sigue como antes: tabla de transiciones actual,
  * fecha de disponibilidad a mano y motivo libre.
  */
-import { etiquetaModalidadReposicion, traducirReglasSituacion as t } from "./portal-bolsas-reglas-situacion-i18n.js?v=20260925-reposicion-v1";
+import { etiquetaModalidadReposicion, traducirReglasSituacion as t } from "./portal-bolsas-reglas-situacion-i18n.js?v=20260926-integracion-bolsa-ct-v1";
 
 export const RUTA_REGLAS_SITUACION = "/api/vec/bolsa/reglas-situacion";
 const ESQUEMA = "vec.bolsa.rrhh.reglas_situacion.v1";

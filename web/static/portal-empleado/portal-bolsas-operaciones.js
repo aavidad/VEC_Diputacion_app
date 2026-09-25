@@ -1,7 +1,7 @@
-import { causasBaja, consultarReglasSituacion, hoyCivil, instalarPropuestaReposicion, motivoConCausa, renderizarCausasBaja } from "./portal-bolsas-reglas-situacion.js?v=20260925-reposicion-v1";
-import { traducirReglasSituacion } from "./portal-bolsas-reglas-situacion-i18n.js?v=20260925-reposicion-v1";
-import { cargarContratosFicha, manejarClickContratos } from "./portal-bolsas-contratos.js?v=20260925-b13-v1";
-import { renderizarTrazaValores, validarCambiosTraza } from "./portal-bolsas-traza-valores.js?v=20260925-traza-valores-v1";
+import { causasBaja, consultarReglasSituacion, hoyCivil, instalarPropuestaReposicion, motivoConCausa, renderizarCausasBaja } from "./portal-bolsas-reglas-situacion.js?v=20260926-integracion-bolsa-ct-v1";
+import { traducirReglasSituacion } from "./portal-bolsas-reglas-situacion-i18n.js?v=20260926-integracion-bolsa-ct-v1";
+import { cargarContratosFicha, manejarClickContratos } from "./portal-bolsas-contratos.js?v=20260926-integracion-bolsa-ct-v1";
+import { renderizarTrazaValores, validarCambiosTraza } from "./portal-bolsas-traza-valores.js?v=20260926-integracion-bolsa-ct-v1";
 
 const BASE = "/api/vec/bolsa/bolsas";
 const TIPOS_JUSTIFICANTE = Object.freeze(["solicitud_candidato", "informe_medico", "resolucion", "correo", "acta_bolsa", "otro"]);

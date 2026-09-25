@@ -2,8 +2,8 @@
 import { crearTraductorContratacionTemporal } from "./i18n.js";
 import { renderizarLlamamiento } from "./renderizado-llamamiento.js";
 import { esValidacionRespuestaPendiente, cargarPublicacionesFormalizacionDesarrollo } from "./cliente-http-llamamiento.js";
-import { crearPanelDocumentacionFormalizacion } from "./documentacion-formalizacion.js?v=20260925-formalizacion-v1";
-import { crearFuenteDocumentacionFormalizacionHTTP } from "./cliente-http-documentacion-formalizacion.js?v=20260925-formalizacion-v1";
+import { crearPanelDocumentacionFormalizacion } from "./documentacion-formalizacion.js?v=20260926-integracion-bolsa-ct-v1";
+import { crearFuenteDocumentacionFormalizacionHTTP } from "./cliente-http-documentacion-formalizacion.js?v=20260926-integracion-bolsa-ct-v1";
 import {
   CAMPOS_SELECCION, CAMPOS_COMUNICACION, referenciaLlamamientoValida,
   CAMPOS_COMUNICACION_SIGUIENTE, TIPO_ANTECEDENTE_CONTINUACION,

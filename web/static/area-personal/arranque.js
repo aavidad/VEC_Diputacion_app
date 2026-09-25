@@ -1,4 +1,4 @@
-import { exigirParametrosConocidos, iniciarAreaPersonal } from "./aplicacion.js?v=20260925-mi-bolsa-sin-nombre-v1";
+import { exigirParametrosConocidos, iniciarAreaPersonal } from "./aplicacion.js?v=20260926-integracion-bolsa-ct-v1";
 import { iniciarI18nAreaPersonal, traducir } from "./i18n.js";
 
 await iniciarI18nAreaPersonal();

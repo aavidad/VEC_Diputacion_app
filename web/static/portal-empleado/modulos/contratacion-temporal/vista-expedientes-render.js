@@ -7,7 +7,7 @@ import {
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js";
 import { crearTraductorContratacionTemporal } from "./i18n.js";
 import { PATRON_REFERENCIA } from "./vista-expedientes-analisis.js";
-import { enlaceReglasVigentes } from "../../reglas/enlace.js?v=20260925-reglas-v1";
+import { enlaceReglasVigentes } from "../../reglas/enlace.js?v=20260926-integracion-bolsa-ct-v1";
 
 export function renderizarNavegacion(estado, t) {
   const opciones = [
