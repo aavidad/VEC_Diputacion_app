@@ -133,6 +133,7 @@ function configuracionBase(cantidadCategorias) {
       etiqueta: "Retención preparada",
     }],
     motivos_rectificacion: [{ clave: "correccion_datos", etiqueta: "Corrección de datos" }],
+    jornada_completa_minutos_semanales: 2250,
   };
 }
 

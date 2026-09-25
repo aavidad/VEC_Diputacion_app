@@ -949,6 +949,7 @@ test("CT interno mantiene el alta real cuando el cuadro sigue en 503", async () 
     causas: Object.freeze([]),
     entradas_rc: Object.freeze([]),
     motivos_rectificacion: Object.freeze([]),
+    jornada_completa_minutos_semanales: 2250,
   });
   let consultasCuadro = 0;
   let consultasCatalogo = 0;

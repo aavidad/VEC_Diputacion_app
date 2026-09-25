@@ -3,6 +3,7 @@ import {
   validarCuadroContratacionTemporal,
   validarExpedienteContratacionTemporal,
 } from "./contrato-expedientes.js";
+import { minutosJornadaCompletaValidos } from "./contrato-analisis.js";
 import { validarCatalogosAlta } from "./contrato.js";
 import { crearTraductorContratacionTemporal } from "./i18n.js";
 import { crearTraductorExpedientesContratacion } from "./i18n-expedientes.js";
@@ -58,11 +59,13 @@ const CLAVES_ETIQUETAS_CONOCIDAS = new Map([
 ]);
 
 // La jornada se guarda en diezmilésimas; se muestra en horas y minutos de media
-// semanal (referencia provisional de 37 h 30 min) con su porcentaje.
-function jornadaVisible(diezmilesimas, locale, t) {
-  const minutos = Math.round(diezmilesimas * (37 * 60 + 30) / 10_000);
+// semanal con su porcentaje. La jornada completa de referencia la sirve el
+// servidor (regla c07); si no se conoce, solo se muestra el porcentaje.
+function jornadaVisible(diezmilesimas, locale, t, minutosCompleta) {
   const porcentaje = new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 2 })
     .format(diezmilesimas / 10_000);
+  if (!minutosJornadaCompletaValidos(minutosCompleta)) return t("cabecera_jornada_porcentaje", { porcentaje });
+  const minutos = Math.round(diezmilesimas * minutosCompleta / 10_000);
   if (minutos < 1) return t("cabecera_jornada_menos_minuto", { porcentaje });
   return t("cabecera_jornada_valor", {
     horas: String(Math.floor(minutos / 60)), minutos: String(minutos % 60), porcentaje,
@@ -252,7 +255,7 @@ function costeEstimadoVisible(analisis, locale, t) {
   return analisis.fuente_coste_ref ? t("coste_con_fuente", { importe }) : importe;
 }
 
-function cabeceraDetalle(detalle, locale, catalogos, t) {
+function cabeceraDetalle(detalle, locale, catalogos, t, minutosCompleta) {
   const { resumen, solicitud } = detalle;
   const campos = [
     campo("centro", t("cabecera_centro"), referenciaVisible(catalogos, "centros", resumen.centro_ref)),
@@ -268,7 +271,7 @@ function cabeceraDetalle(detalle, locale, catalogos, t) {
     campos.push(
       campo("periodo_analizado", t("cabecera_periodo_analizado"), `${fechaCivil(detalle.analisis.periodo_inicio, locale)} — ${fechaCivil(detalle.analisis.periodo_fin, locale)}`),
       campo("causa", t("cabecera_causa_analizada"), etiqueta(detalle.analisis.causa_clave, t)),
-      campo("jornada", t("cabecera_jornada"), jornadaVisible(detalle.analisis.porcentaje_jornada, locale, t)),
+      campo("jornada", t("cabecera_jornada"), jornadaVisible(detalle.analisis.porcentaje_jornada, locale, t, minutosCompleta)),
       campo("resultado_rc", t("cabecera_resultado_rc"), etiqueta(detalle.analisis.resultado_rc, t)),
       campo("coste_estimado", t("cabecera_coste_estimado"), costeEstimadoVisible(detalle.analisis, locale, t)),
     );
@@ -395,7 +398,7 @@ function fasesDesdeHitos(detalle, traducir) {
   return fases;
 }
 
-function proyectarExpediente(detalle, locale, catalogos, t, mensajes) {
+function proyectarExpediente(detalle, locale, catalogos, t, mensajes, minutosCompleta) {
   const traducir = crearTraductorContratacionTemporal(mensajes);
   const versionPropuesta = versionPropuestaDocumental(detalle);
   return validarExpedienteContratacionTemporal({
@@ -407,7 +410,7 @@ function proyectarExpediente(detalle, locale, catalogos, t, mensajes) {
     flujo_ref: detalle.resumen.flujo_ref,
     flujo_version: detalle.resumen.flujo_version,
     flujo_huella: detalle.resumen.flujo_huella_sha256,
-    cabecera: cabeceraDetalle(detalle, locale, catalogos, t),
+    cabecera: cabeceraDetalle(detalle, locale, catalogos, t, minutosCompleta),
     ...(detalle.analisis ? { analisis_previo: {
       modalidad_clave: detalle.analisis.modalidad_clave,
       categoria_ref: detalle.analisis.categoria_ref,
@@ -436,6 +439,7 @@ function proyectarExpediente(detalle, locale, catalogos, t, mensajes) {
 
 export function crearAdaptadorHTTPExpedientesContratacionTemporal({
   cliente, locale = "es-ES", obtenerCatalogos = () => null, mensajes = {},
+  obtenerJornadaCompleta = () => null,
 } = {}) {
   if (typeof cliente?.consultarCuadroRRHH !== "function"
     || typeof cliente?.consultarDetalleRRHH !== "function") {
@@ -446,6 +450,9 @@ export function crearAdaptadorHTTPExpedientesContratacionTemporal({
   }
   if (typeof obtenerCatalogos !== "function") {
     throw new TypeError("obtener catálogos de expedientes no válido");
+  }
+  if (typeof obtenerJornadaCompleta !== "function") {
+    throw new TypeError("obtener jornada completa de expedientes no válido");
   }
   const t = crearTraductorExpedientesContratacion(mensajes);
   const versiones = new Map();
@@ -522,7 +529,7 @@ export function crearAdaptadorHTTPExpedientesContratacionTemporal({
         resolverCatalogos(),
       ]);
       const expediente = proyectarExpediente(
-        detalle, locale, catalogos, t, mensajes,
+        detalle, locale, catalogos, t, mensajes, obtenerJornadaCompleta(),
       );
       capacidadesConsultadas.add(CAPACIDADES_CONTRATACION_TEMPORAL.consultarExpediente);
       return expediente;

@@ -146,7 +146,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   analisis_jornada: "Jornada contratada (media semanal)",
   analisis_jornada_horas: "Horas",
   analisis_jornada_minutos: "Minutos",
-  analisis_jornada_ayuda: "Jornada completa: 37 h 30 min.",
+  analisis_jornada_ayuda: "Jornada completa: {horas_completa} h {minutos_completa} min.",
   analisis_jornada_equivalencia: "Equivale a {porcentaje} de la jornada completa.",
   analisis_entrada_rc: "Retención de crédito (RC)",
   analisis_observaciones: "Observaciones",
@@ -167,7 +167,7 @@ export const MENSAJES_CONTRATACION_TEMPORAL_ES = Object.freeze({
   analisis_error_fecha: "Introduzca una fecha válida.",
   analisis_error_periodo:
     "La fecha de fin no puede ser anterior a la de inicio ni superar el periodo permitido.",
-  analisis_error_jornada: "Introduzca una media semanal entre 1 minuto y 37 h 30 min.",
+  analisis_error_jornada: "Introduzca una media semanal entre 1 minuto y {horas_completa} h {minutos_completa} min.",
   analisis_error_observaciones: "Las observaciones no pueden superar 4.000 caracteres ni incluir caracteres no admitidos.",
   analisis_error_motivo: "Seleccione un motivo disponible para rectificar.",
   analisis_error_contrato: "Revise los datos del análisis antes de continuar.",
