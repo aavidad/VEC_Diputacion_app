@@ -517,6 +517,9 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
+	if err := publicarPoliticaSegregacionDesarrollo(ctx, cfg, repositorioSituacion, relojCalendariosDesarrollo{}); err != nil {
+		return nil, nil, nil, vacio, nil, nil, err
+	}
 	servicioSituacion, err := aplicacionbolsa.NuevoServicioSituacionParticipacion(preparador, emisor, repositorioSituacion, dependenciasCT.reloj.Ahora)
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
