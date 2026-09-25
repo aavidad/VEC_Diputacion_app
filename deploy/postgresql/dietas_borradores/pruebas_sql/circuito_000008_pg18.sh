@@ -2,11 +2,14 @@
 # Ensayo PostgreSQL 18.4 desechable de AD3-80 y Dietas 000008 sobre una base
 # VEC restaurada (núcleo AD3 real), sin red. Borra el contenedor al salir.
 #
-# Uso: circuito_000008_pg18.sh BASE.dump ROLES.sql
+# Uso: circuito_000008_pg18.sh BASE.dump ROLES.sql [53-80|80-53]
 #   BASE.dump  pg_dump -Fc de una base VEC sintética con AD3-48 instalada y sin
-#              Dietas; el ensayo instala encima la cadena hasta Dietas 000007.
+#              Dietas 000001 (puede traer ya parte de la cadena: cada paso se
+#              salta solo si existe el objeto que crea); se instala encima
+#              la cadena hasta Dietas 000007.
 #   ROLES.sql  pg_dumpall --roles-only de la misma instancia; las contraseñas
 #              se descartan antes de entrar al contenedor.
+#   ORDEN      orden de AD3-53 (Cronos) respecto de AD3-80; por omisión 53-80.
 #
 # Comprueba: ROLLBACK sin rastro, COMMIT y repetición rechazada de AD3-80 y de
 # 000008; la fachada AD3-80 real con su LOGIN exacto supera guarda y ligadura y
@@ -17,6 +20,8 @@
 set -Eeuo pipefail
 base=${1:?falta BASE.dump}
 roles=${2:?falta ROLES.sql}
+orden=${3:-53-80}
+[[ $orden == 53-80 || $orden == 80-53 ]] || { echo 'ORDEN: 53-80 o 80-53' >&2; exit 2; }
 [[ -s $base && -s $roles ]] || { echo 'Base o roles vacíos' >&2; exit 2; }
 dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 repo=$(CDPATH='' cd -- "$dir/../../../.." && pwd)
@@ -65,41 +70,70 @@ esperar
 [[ $(val 'SHOW server_version_num') == 180004 ]] || fallo 'no es PostgreSQL 18.4'
 sql -o /dev/null < "$tmp/roles.sql" || fallo 'roles'
 docker exec -i "$C" pg_restore -U postgres -d postgres < "$base" >/dev/null 2>&1 || true
-[[ $(val "SELECT to_regprocedure('$nucleo') IS NOT NULL AND to_regnamespace('vec_dietas') IS NULL") == t ]] \
-  || fallo 'la base no tiene el núcleo AD3 o ya tiene Dietas'
-ok 'base VEC restaurada sin Dietas'
+[[ $(val "SELECT to_regprocedure('$nucleo') IS NOT NULL AND to_regclass('vec_dietas.borrador_comision') IS NULL") == t ]] \
+  || fallo 'la base no tiene el núcleo AD3 o ya tiene Dietas 000001'
+ok 'base VEC restaurada sin Dietas 000001'
 
+# Cada paso se identifica por un objeto concreto que crea. Si la base ya trae
+# ese objeto (volcado con parte de la cadena), el paso se salta; si no, se
+# aplica y cualquier error aborta el ensayo: nunca se decide por el texto.
+#   r:nombre       rol          e:esquema     t:esquema.tabla
+#   f:esquema.fn   función      p:esquema.tabla.política
+existe() {
+  local k=${1%%:*} o=${1#*:}
+  case $k in
+    r) val "SELECT to_regrole('$o') IS NOT NULL" ;;
+    e) val "SELECT to_regnamespace('$o') IS NOT NULL" ;;
+    t) val "SELECT to_regclass('$o') IS NOT NULL" ;;
+    f) val "SELECT EXISTS (SELECT 1 FROM pg_proc WHERE pronamespace=to_regnamespace('${o%%.*}') AND proname='${o#*.}')" ;;
+    p) val "SELECT EXISTS (SELECT 1 FROM pg_policy WHERE polrelid=to_regclass('${o%.*}') AND polname='${o##*.}')" ;;
+    *) fallo "marcador desconocido: $1" ;;
+  esac
+}
 cadena=(
- dietas_borradores/roles_up.sql
- personal/migraciones/000007_relacion_empleado_dietas.up.sql
- autorizacion_atestada_v3/migraciones/000049_consumidor_personal_dietas.up.sql
- autorizacion_atestada_v3/migraciones/000050_acceso_rutas_dietas.up.sql
- personal/migraciones/000008_consulta_relaciones_propias_dietas.up.sql
- personal/migraciones/000009_asignacion_dietas.up.sql
- autorizacion_atestada_v3/migraciones/000051_consumidor_organizacion_historica.up.sql
- autorizacion_atestada_v3/migraciones/000052_consumidor_importacion_organizacion.up.sql
- dietas_borradores/migraciones/000001_borrador_comision_durable.up.sql
- dietas_borradores/migraciones/000002_tarifas_provisionales.up.sql
- dietas_borradores/migraciones/000003_consulta_tarifas_provisionales.up.sql
- dietas_borradores/migraciones/000004_calculo_comision.up.sql
- dietas_borradores/migraciones/000005_auditoria_frontera.up.sql
- autorizacion_atestada_v3/migraciones/000059_consumidor_documento_dietas.up.sql
- personal/migraciones/000012_asignacion_dietas.up.sql
- personal/migraciones/000013_auditoria_frontera_asignacion_dietas.up.sql
- dietas_borradores/migraciones/000006_documento_comision.up.sql
- dietas_borradores/migraciones/000007_circuito_comision.up.sql
+ 'dietas_borradores/roles_up.sql e:vec_dietas'
+ 'personal/migraciones/000007_relacion_empleado_dietas.up.sql t:vec_personal.relacion_empleado_dietas'
+ 'autorizacion_atestada_v3/migraciones/000049_consumidor_personal_dietas.up.sql f:vec_autorizacion_atestada_v3.registrar_y_consumir_dietas_borrador_v3_atestada'
+ 'autorizacion_atestada_v3/migraciones/000050_acceso_rutas_dietas.up.sql f:vec_autorizacion_atestada_v3.registrar_y_consumir_acceso_rutas_dietas_v3_atestada'
+ 'personal/migraciones/000008_consulta_relaciones_propias_dietas.up.sql t:vec_personal.recibo_consulta_relacion_propia_dietas'
+ 'personal/migraciones/000009_asignacion_dietas.up.sql t:vec_personal.asignacion_dietas'
+ 'autorizacion_atestada_v3/migraciones/000051_consumidor_organizacion_historica.up.sql f:vec_autorizacion_atestada_v3.consumir_consulta_organizacion_v3_atestada'
+ 'autorizacion_atestada_v3/migraciones/000052_consumidor_importacion_organizacion.up.sql f:vec_autorizacion_atestada_v3.consumir_importacion_organizacion_v3_atestada'
+ 'dietas_borradores/migraciones/000001_borrador_comision_durable.up.sql t:vec_dietas.borrador_comision'
+ 'dietas_borradores/migraciones/000002_tarifas_provisionales.up.sql t:vec_dietas.version_tarifa_provisional'
+ 'dietas_borradores/migraciones/000003_consulta_tarifas_provisionales.up.sql p:vec_dietas.version_tarifa_provisional.lectura_ejecutor_tarifas'
+ 'dietas_borradores/migraciones/000004_calculo_comision.up.sql t:vec_dietas.calculo_comision'
+ 'dietas_borradores/migraciones/000005_auditoria_frontera.up.sql t:vec_dietas.auditoria_frontera_comision'
+ 'autorizacion_atestada_v3/migraciones/000059_consumidor_documento_dietas.up.sql f:vec_autorizacion_atestada_v3.registrar_y_consumir_dietas_documento_v3_atestada'
+ 'personal/migraciones/000012_asignacion_dietas.up.sql t:vec_personal.recibo_asignacion_dietas'
+ 'personal/migraciones/000013_auditoria_frontera_asignacion_dietas.up.sql t:vec_personal.auditoria_frontera_asignacion_dietas'
+ 'dietas_borradores/migraciones/000006_documento_comision.up.sql t:vec_dietas.comision_revision'
+ 'dietas_borradores/migraciones/000007_circuito_comision.up.sql t:vec_dietas.cola_circuito_comision'
 )
-for f in "${cadena[@]}"; do
-  if [[ $f == autorizacion_atestada_v3/migraciones/00005[0-2]* ]] && [[ $(val "SELECT to_regprocedure('vec_autorizacion_atestada_v3.consumir_importacion_organizacion_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL") == t ]]; then
-    continue
-  fi
+for paso in "${cadena[@]}"; do
+  f=${paso% *} marca=${paso##* }
+  if [[ $(existe "$marca") == t ]]; then echo "·  $f ya presente ($marca)"; continue; fi
   sql -o /dev/null < "$pg/$f" 2>"$tmp/err" || { cat "$tmp/err" >&2; fallo "cadena: $f"; }
+  [[ $(existe "$marca") == t ]] || fallo "cadena: $f no creó $marca"
 done
 ok 'cadena instalada hasta Dietas 000007 y AD3-59'
 
+m53=$pg/autorizacion_atestada_v3/migraciones/000053_consumidores_cronos_empleado.up.sql
 m80=$pg/autorizacion_atestada_v3/migraciones/000080_consumidor_revisor_documento_dietas.up.sql
 m8=$pg/dietas_borradores/migraciones/000008_revision_circuito_comision.up.sql
-for m in "$m80" "$m8"; do
+# AD3-53 (Cronos) reescribe el mismo núcleo: se ensaya antes y después de AD3-80.
+# Su preimagen son los dos roles NOLOGIN de cronos_v1 000001, con sus atributos.
+sql -o /dev/null <<'SQL' || fallo 'roles de cronos_v1 000001'
+DO $$ BEGIN
+ IF to_regrole('vec_cronos_v1_propietario') IS NULL THEN CREATE ROLE vec_cronos_v1_propietario NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS; END IF;
+ IF to_regrole('vec_cronos_v1_ejecutor') IS NULL THEN CREATE ROLE vec_cronos_v1_ejecutor NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS; END IF;
+END $$;
+SQL
+case $orden in
+  53-80) migs=("$m53" "$m80" "$m8") ;;
+  80-53) migs=("$m80" "$m53" "$m8") ;;
+esac
+for m in "${migs[@]}"; do
   antes=$(firma)
   sed '$s/^COMMIT;$/ROLLBACK;/' "$m" | sql -o /dev/null || fallo "ROLLBACK de $(basename "$m")"
   [[ $(firma) == "$antes" ]] || fallo "ROLLBACK de $(basename "$m") dejó rastro"
@@ -110,9 +144,13 @@ for m in "$m80" "$m8"; do
   ok "$(basename "$m"): ROLLBACK sin rastro, COMMIT y repetición rechazada"
 done
 def=$(val "SELECT pg_get_functiondef('$nucleo'::regprocedure)")
-[[ $(grep -c "IS DISTINCT FROM 'revisor_documento_dietas'" <<<"$def") == 1 ]] || fallo 'exclusión AD3-80 no única'
-[[ $(grep -c "IS DISTINCT FROM 'circuito_dietas'" <<<"$def") == 1 ]] || fallo 'AD3-59 perdida'
-ok 'núcleo con AD3-59 y AD3-80, exclusiones únicas'
+excl=$(grep -oE "p_perfil_mutacion IS DISTINCT FROM '[a-z_]+'" <<<"$def" | sed -E "s/.*'(.*)'/\1/")
+[[ -z $(sort <<<"$excl" | uniq -d) ]] || fallo "exclusiones repetidas en el núcleo: $(sort <<<"$excl" | uniq -d | tr '\n' ' ')"
+for e in circuito_dietas revisor_documento_dietas importacion_organizacion_historica_personal \
+         cronos_marcaje_propio cronos_marcaje_remoto_disponibilidad cronos_marcaje_remoto_recibo cronos_saldo_propio; do
+  [[ $(grep -cx "$e" <<<"$excl") == 1 ]] || fallo "exclusión $e ausente o repetida"
+done
+ok "núcleo con AD3-59, AD3-53 y AD3-80 (orden $orden): $(wc -l <<<"$excl") exclusiones, cada una una sola vez"
 
 # Fachada AD3-80 real: login exacto hasta la clave; dos grupos y ajeno fuera.
 sql -o /dev/null < "$repo/deploy/postgresql/autorizacion_atestada_v3/pruebas_sql/dietas_documento_ad3_000059_sondas.sql" || fallo 'sondas'
@@ -213,4 +251,4 @@ ok 'devolución con motivo al titular, sin cola nueva; motivo corto y versión s
 if sql -o /dev/null < "$pg/dietas_borradores/migraciones/000008_revision_circuito_comision.down.sql" 2>/dev/null; then fallo 'DOWN aceptó historia'; fi
 [[ $(filas) == '3|3|2|2|2' ]] || fallo 'el DOWN rechazado alteró la historia'
 ok 'DOWN de 000008 rechazado con decisiones registradas'
-echo 'PG18.4: AD3-80 y Dietas 000008 verificados sobre núcleo AD3 real y cadena Dietas hasta 000007.'
+echo "PG18.4 ($orden): AD3-53, AD3-80 y Dietas 000008 verificados sobre núcleo AD3 real y cadena Dietas hasta 000007."
