@@ -22,7 +22,7 @@ test("la caché de PR25 solicita de nuevo las paradas, los periodos y sus hojas"
     ["portal.js", "./portal-modulos-coordinador.js", "20260924-osm-base-v3", 1],
     ["portal-modulos-coordinador.js", `./${dietas}mapa-ruta.js`, "20260924-osm-base-v3", 1],
     ["portal-modulos-coordinador.js", `./${dietas}vista-recorridos.js`, "20260924-osm-base-v3", 1],
-    ["portal-modulos-coordinador.js", `./${cronos}vista-recorridos.js`, "20260924-cronos-integrado-v1", 1],
+    ["portal-modulos-coordinador.js", `./${cronos}vista-saldo-conectado.js`, "20260925-tanda-v1", 1],
     ["portal-modulos-coordinador.js", `./${cronos}i18n.js`, "20260924-cronos-integrado-v1", 1],
     [`${dietas}i18n.js`, "./i18n-borradores.js", "20260924-osm-base-v3", 1],
     [`${dietas}vista-borradores-propios.js`, "./i18n.js", "20260924-osm-base-v3", 1],

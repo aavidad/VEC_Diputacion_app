@@ -1,9 +1,4 @@
 /** Montaje de vistas del empleado, sin inferir permisos ni componer escrituras. */
-export function componerCronosVisible(recursos, contextoActor, entorno) {
-  if (typeof recursos.recorridos?.montarVistaRecorridosCronos !== "function") return undefined;
-  return Object.freeze({ montar: recursos.recorridos.montarVistaRecorridosCronos });
-}
-
 /**
  * Cronos interno de la persona empleada: saldo, fichaje remoto, movimientos
  * del día y calendario con olvidos en «Jornada»; permisos propios aparte.

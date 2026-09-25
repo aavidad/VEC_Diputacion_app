@@ -3,7 +3,6 @@ import test from "node:test";
 import {
   extraerDatosEnvelopeLlamamiento,
   validarConfirmacionPropuestaLlamamiento,
-  validarPropuestaLlamamientoPresentacion,
   validarReferenciaOpacaLlamamiento,
 } from "./portal-llamamientos-contrato.js";
 
@@ -100,8 +99,8 @@ test("versiones, contadores, referencias y tiempos conservan su representación 
   }
 });
 
-test("la presentación usa otro contrato, siempre demo y sin puntuaciones inventadas", () => {
-  const demo = validarPropuestaLlamamientoPresentacion({
+test("el contrato real rechaza una propuesta sintética y sus puntuaciones", () => {
+  const demo = {
     esquema: "vec.bolsa.propuesta-llamamiento.presentacion.v1",
     demostracion: true,
     id: "DEMO-PRO-0045",
@@ -115,12 +114,9 @@ test("la presentación usa otro contrato, siempre demo y sin puntuaciones invent
       { orden: "1", resultado: "no_elegible", motivos: [{ regla: "R4", fundamento: "Indisponibilidad sintética" }] },
       { orden: "2", resultado: "elegible", motivos: [{ regla: "R1", fundamento: "Orden sintético vigente" }] },
     ],
-  });
-  assert.equal(demo.demostracion, true);
-  assert.deepEqual(Object.keys(demo.evaluaciones[0]), ["orden", "resultado", "motivos"]);
-  assert.throws(() => validarPropuestaLlamamientoPresentacion({ ...demo, demostracion: false }), /no compatible/);
-  assert.throws(() => validarPropuestaLlamamientoPresentacion({
-    ...demo,
-    evaluaciones: [{ ...demo.evaluaciones[0], puntuacion: 99 }, demo.evaluaciones[1]],
-  }), /contrato cerrado/);
+  };
+  assert.throws(() => validarConfirmacionPropuestaLlamamiento(demo, ETAG), /contrato cerrado/);
+  assert.throws(() => validarConfirmacionPropuestaLlamamiento({
+    ...confirmacionValida(), evaluaciones: [{ orden: "1", puntuacion: 99 }],
+  }, ETAG), /contrato cerrado/);
 });

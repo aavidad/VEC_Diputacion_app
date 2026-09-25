@@ -139,22 +139,6 @@ export function crearCatalogoModulosDesdeManifiestos(manifiestos, traducciones) 
   return Object.freeze(catalogo);
 }
 
-export function validarCatalogoModulosPresentacion(catalogo) {
-  if (!Array.isArray(catalogo) || catalogo.length < 1 || catalogo.length > 128) {
-    throw new TypeError("catálogo de presentación no válido");
-  }
-  const vistos = new Set();
-  return Object.freeze(catalogo.map((modulo) => {
-    if (!modulo || typeof modulo !== "object" || Array.isArray(modulo)) throw new TypeError("módulo de presentación no válido");
-    const clave = cadena(modulo.clave, "clave de módulo", /^[a-z][a-z0-9_.-]{1,79}$/);
-    if (vistos.has(clave)) throw new TypeError("módulo de presentación repetido");
-    vistos.add(clave);
-    return Object.freeze({ clave, sigla: cadena(modulo.sigla || siglaDe(clave), "sigla", /^[A-Z0-9·]{2,4}$/, 4),
-      titulo: cadena(modulo.titulo, "título", null, 160), texto: cadena(modulo.texto, "descripción", null, 300),
-      version: "presentacion", grupo: "presentacion", rutaBase: `/modules/${clave}` });
-  }));
-}
-
 export async function cargarCatalogoModulosInterno(fetchImpl = globalThis.fetch) {
   if (typeof fetchImpl !== "function") throw new TypeError("cliente HTTP no disponible");
   // El servidor interno exige certificado cliente también en estos GET.

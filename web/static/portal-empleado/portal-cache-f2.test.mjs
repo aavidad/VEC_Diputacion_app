@@ -123,17 +123,16 @@ test("el grafo JS propio llega desde HTML a los consumidores F2 con versiones nu
   // Cronos interno ya no importa la jornada: solo quedan las vistas conectadas.
   assert.deepEqual(versionesDe(coordinador, "./modulos/cronos/vista.js"), []);
   for (const recurso of [
-    "modulos/dietas/cliente-borradores-http.js", "modulos/personal/vista-ficha-integral.js",
-    "modulos/nominas/vista.js", "modulos/solicitudes/vista.js", "modulos/meritos/vista.js",
-    "modulos/comunicaciones/vista.js", "modulos/documentos/vista.js", "modulos/aprobaciones/vista.js"]) {
+    "modulos/dietas/cliente-borradores-http.js", "modulos/personal/vista-ficha-integral.js"]) {
     exigirVersiones(coordinador, `./${recurso}`, recurso === "modulos/dietas/cliente-borradores-http.js" ? posterior(version)
-      : recurso === "modulos/personal/vista-ficha-integral.js" ? posterior(versionVistasC)
-      : recurso === "modulos/nominas/vista.js" ? versionVistasC : version,
-      Math.max(versionesDe(coordinador, `./${recurso}`).length, 1));
+      : recurso === "modulos/personal/vista-ficha-integral.js" ? posterior(versionVistasC) : version);
     await access(new URL(recurso, raiz));
   }
-  // Dietas solo se monta en el portal interno: un único cargador, sin itinerario de presentación.
-  exigirVersiones(coordinador, "./modulos/dietas/vista-recorridos.js", posterior(versionDietasVista), 1);
+  for (const recurso of ["nominas", "solicitudes", "meritos", "comunicaciones", "aprobaciones", "auditoria", "administracion"]) {
+    assert.equal(versionesDe(coordinador, `./modulos/${recurso}/vista.js`).length, 0,
+      `${recurso}: sin cargador productivo`);
+  }
+  exigirVersiones(coordinador, "./modulos/dietas/vista-recorridos.js", posterior(versionDietasVista));
   assert.doesNotMatch(coordinador, /modulos\/dietas\/vista-itinerario\.js/u);
   exigirVersiones(dietas, "./vista-borradores-propios.js", posterior(versionDietasVista));
 });
@@ -148,11 +147,10 @@ test("la caché immutable previa no retiene el catálogo i18n ni los consumidore
     ["portal-borradores-ui.js", ["20260921-avisos-r5-v1", versionCache, versionCronosPermisos]],
     ["portal-borradores-acceso.js", ["20260721-acceso-real-v2", versionCache, versionCronosPermisos]],
     ["portal-i18n.js", ["20260721-acceso-real-v2", "20260923-p4-reintento-v2", version, versionCache, versionCronosPermisos, versionEntradaAyuda]],
-    ["modulos/cronos/vista-recorridos.js", ["20260920-cronos-bandeja-v2", versionCache, versionCronosVista]],
+    ["modulos/cronos/vista-saldo-conectado.js", ["20260925-tanda-v1"]],
     ["modulos/dietas/vista-recorridos.js", [version, "20260924-f2-dietas-consulta-v2", versionDietasRecuperacion, versionDietasIcono, "20260924-dietas-ayuda-sin-guia-v1", versionDietasVista]],
     ["modulos/personal/vista.js", ["20260920-personal-catalogo-v1", versionCachePersonal, versionPersonalEstados]],
     ["modulos/personal/cliente-http-categorias.js", ["20260920-personal-catalogo-v1"]],
-    ["modulos/personal/vista-estructura-organizativa-publica.js", ["20260920-personal-estructura-v1", versionVistasC]],
   ]);
   const cache = new Map();
   for (const [recurso, versiones] of versionesPrevias) {
@@ -180,9 +178,8 @@ test("la caché immutable previa no retiene el catálogo i18n ni los consumidore
     ["portal.js", ["portal-modulos-coordinador.js", "portal-inicio.js", "portal-eventos.js",
       "portal-borradores-ui.js", "portal-i18n.js"]],
     ["portal-modulos-coordinador.js", ["portal-catalogo-modulos.js", "portal-inicio.js", "portal-i18n.js",
-      "modulos/cronos/vista-recorridos.js", "modulos/dietas/vista-recorridos.js", "modulos/personal/vista.js",
-      "modulos/personal/cliente-http-categorias.js",
-      "modulos/personal/vista-estructura-organizativa-publica.js"]],
+      "modulos/cronos/vista-saldo-conectado.js", "modulos/dietas/vista-recorridos.js", "modulos/personal/vista.js",
+      "modulos/personal/cliente-http-categorias.js"]],
     ["portal-catalogo-modulos.js", ["portal-i18n.js"]],
     ["portal-inicio.js", ["portal-i18n.js"]],
     ["portal-eventos.js", ["portal-i18n.js"]],
@@ -201,17 +198,17 @@ test("la caché immutable previa no retiene el catálogo i18n ni los consumidore
       const ruta = padre === "index.html" ? `/portal-empleado/${hijo}` : `./${hijo}`;
       const versionesHijo = versionesDe(codigo, ruta);
       const personal = padre === "portal-modulos-coordinador.js" && hijo.startsWith("modulos/personal/");
-      assert.equal(versionesHijo.length, ["modulos/personal/vista.js", "modulos/personal/cliente-http-categorias.js"].includes(hijo) ? 2 : 1,
+      assert.equal(versionesHijo.length, 1,
         `${padre} → ${hijo}: número de aristas`);
       const versionEsperada = padre === "index.html" ? posterior(versionEntradaAyuda) : hijo === "portal-modulos-coordinador.js"
         ? posterior(versionDietasShell) : padre === "portal.js" && ["portal-i18n.js", "portal-eventos.js"].includes(hijo) ? posterior(versionEntradaAyuda)
-        : hijo === "modulos/cronos/vista-recorridos.js" ? posterior(versionCronosVista) : ["modulos/dietas/vista-recorridos.js", "modulos/dietas/vista-itinerario.js"].includes(hijo) ? posterior(versionDietasVista) : [
+        : hijo === "modulos/cronos/vista-saldo-conectado.js" ? posterior("20260925-tanda-v1") : hijo === "modulos/dietas/vista-recorridos.js" ? posterior(versionDietasVista) : [
         "portal-catalogo-modulos.js", "portal-inicio.js", "portal-eventos.js",
         "portal-borradores-ui.js", "portal-borradores-acceso.js", "portal-i18n.js"].includes(hijo)
         ? posterior(versionCronosPermisos)
         : hijo === "modulos/personal/vista.js" ? posterior(versionPersonalEstados)
         : hijo === "modulos/personal/cliente-http-categorias.js" ? versionPersonalInterno
-        : hijo === "modulos/personal/vista-estructura-organizativa-publica.js" ? posterior(versionVistasC) : personal ? versionCachePersonal : versionCache;
+        : personal ? versionCachePersonal : versionCache;
       const versionHijoVigente = exigirVersiones(codigo, ruta, versionEsperada, versionesHijo.length);
       assert.ok(!vigentes.has(hijo) || vigentes.get(hijo) === versionHijoVigente,
         `${hijo}: todos sus importadores piden la misma URL`);
@@ -267,7 +264,7 @@ test("la recuperación de subsanación renueva toda la cadena immutable y ambas 
   const pasos = [
     [html, "/portal-empleado/portal.js", "20260924-integracion-b7-v1", 1],
     [portal, "./portal-modulos-coordinador.js", "20260924-p1-personal-interno-v2", 1],
-    [coordinador, "./modulos/contratacion-temporal/vista-expedientes.js", "20260923-pweb17-v1", 2],
+    [coordinador, "./modulos/contratacion-temporal/vista-expedientes.js", "20260923-pweb17-v1", 1],
   ];
   const cache = new Map(pasos.map(([, ruta, previa]) => [`${ruta}?v=${previa}`, "módulo anterior"]));
   for (const [codigo, ruta, previa, cantidad] of pasos) {
@@ -277,7 +274,7 @@ test("la recuperación de subsanación renueva toda la cadena immutable y ambas 
   }
 });
 
-test("la ayuda de Cronos renueva las dos importaciones y la hoja de permisos", async () => {
+test("Cronos renueva la importación interna de permisos y su hoja de estilo", async () => {
   const html = await readFile(new URL("index.html", raiz), "utf8");
   const coordinador = await readFile(new URL("portal-modulos-coordinador.js", raiz), "utf8");
   const portal = await readFile(new URL("portal.js", raiz), "utf8");
@@ -291,7 +288,7 @@ test("la ayuda de Cronos renueva las dos importaciones y la hoja de permisos", a
   assert.ok(!portal.includes("portal-modulos-coordinador.js?v=20260924-web-integrada-v1"));
   assert.ok(!cacheAnterior.has(`portal.js?v=${entrada}`));
   assert.ok(!cacheAnterior.has(`portal-modulos-coordinador.js?v=${coordinadorVigente}`));
-  exigirVersiones(coordinador, "./modulos/cronos/vista-recorridos.js", posterior(versionCronosVista), 1);
+  exigirVersiones(coordinador, "./modulos/cronos/vista-permisos-propios.js", posterior("20260925-tanda-v1"), 1);
   exigirVersiones(html, "/portal-empleado/modulos/cronos/permisos.css", posterior(versionCronosAyuda));
   assert.ok(!coordinador.includes("cronos/vista-recorridos.js?v=20260924-f2-cache-v2"));
   assert.ok(!html.includes("cronos/permisos.css?v=20260924-f2-shell-v1"));

@@ -3,12 +3,10 @@
  *
  * La confirmación real es deliberadamente compacta: acredita qué versiones
  * evaluó el servidor, pero nunca transporta personas, evaluaciones ni detalle
- * reutilizable. El contrato de presentación vive separado y siempre conserva
- * su marca inequívoca de demostración.
+ * reutilizable.
  */
 
 const ESQUEMA_CONFIRMACION = "vec.bolsa.propuesta-llamamiento.confirmacion.v1";
-const ESQUEMA_PRESENTACION = "vec.bolsa.propuesta-llamamiento.presentacion.v1";
 const MAXIMO_UINT64 = 18_446_744_073_709_551_615n;
 const MAXIMO_PARTICIPACIONES = 250_000n;
 
@@ -19,12 +17,6 @@ const CAMPOS_CONFIRMACION = Object.freeze([
   "generada_en",
 ]);
 const CAMPOS_VERSION = Object.freeze(["referencia", "version", "huella_sha256"]);
-const CAMPOS_PRESENTACION = Object.freeze([
-  "esquema", "demostracion", "id", "necesidad_id", "estado", "version_bolsa",
-  "version_regla", "fecha_corte", "personas_incluidas", "evaluaciones",
-]);
-const CAMPOS_EVALUACION_PRESENTACION = Object.freeze(["orden", "resultado", "motivos"]);
-const CAMPOS_MOTIVO_PRESENTACION = Object.freeze(["regla", "fundamento"]);
 
 function esObjeto(valor) {
   return valor !== null && typeof valor === "object" && !Array.isArray(valor);
@@ -172,58 +164,6 @@ export function validarConfirmacionPropuestaLlamamiento(datos, etag) {
     total_evaluaciones: totalEvaluaciones,
     orden_seleccionado: ordenSeleccionado,
     generada_en: generadaEn,
-  };
-}
-
-export function validarPropuestaLlamamientoPresentacion(datos) {
-  exigirCamposExactos(datos, CAMPOS_PRESENTACION, "propuesta de presentación");
-  if (datos.esquema !== ESQUEMA_PRESENTACION || datos.demostracion !== true
-    || datos.estado !== "demostracion" || !Array.isArray(datos.evaluaciones)
-    || datos.evaluaciones.length === 0 || datos.evaluaciones.length > 100) {
-    throw new Error("contrato de propuesta de presentación no compatible");
-  }
-
-  const evaluaciones = datos.evaluaciones.map((evaluacion, indice) => {
-    exigirCamposExactos(evaluacion, CAMPOS_EVALUACION_PRESENTACION, "evaluación de presentación");
-    const orden = exigirDecimal(evaluacion.orden, "orden de presentación", { maximo: 100n });
-    if (orden !== String(indice + 1)
-      || (evaluacion.resultado !== "elegible" && evaluacion.resultado !== "no_elegible")
-      || !Array.isArray(evaluacion.motivos) || evaluacion.motivos.length === 0
-      || evaluacion.motivos.length > 10) {
-      throw new Error("evaluación de presentación incoherente");
-    }
-    return {
-      orden,
-      resultado: evaluacion.resultado,
-      motivos: evaluacion.motivos.map((motivo) => {
-        exigirCamposExactos(motivo, CAMPOS_MOTIVO_PRESENTACION, "motivo de presentación");
-        return {
-          regla: exigirCadena(motivo.regla, "regla de presentación", 160),
-          fundamento: exigirCadena(motivo.fundamento, "fundamento de presentación", 500),
-        };
-      }),
-    };
-  });
-  const personasIncluidas = exigirDecimal(
-    datos.personas_incluidas,
-    "personas incluidas en presentación",
-    { admiteCero: true, maximo: 100n },
-  );
-  if (BigInt(personasIncluidas) !== BigInt(evaluaciones.filter((item) => item.resultado === "elegible").length)) {
-    throw new Error("total de presentación incoherente");
-  }
-
-  return {
-    esquema: datos.esquema,
-    demostracion: true,
-    id: exigirCadena(datos.id, "id de presentación", 100),
-    necesidad_id: exigirCadena(datos.necesidad_id, "necesidad de presentación", 100),
-    estado: "demostracion",
-    version_bolsa: exigirCadena(datos.version_bolsa, "versión de bolsa de presentación", 160),
-    version_regla: exigirCadena(datos.version_regla, "versión de regla de presentación", 160),
-    fecha_corte: exigirInstanteUTC(datos.fecha_corte, "fecha de corte de presentación"),
-    personas_incluidas: personasIncluidas,
-    evaluaciones,
   };
 }
 

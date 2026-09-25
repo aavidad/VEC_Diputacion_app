@@ -24,4 +24,4 @@ if [ "${VEC_PRESENTACION_CON_CARTOGRAFIA:-false}" = "true" ]; then
   scripts/smoke_cartografia_presentacion.sh
 fi
 
-echo "Presentación RRHH disponible en http://127.0.0.1:${VEC_PRESENTACION_PUBLISHED_PORT:-8081}/presentacion/"
+echo "Presentación RRHH disponible en http://127.0.0.1:${VEC_PRESENTACION_PUBLISHED_PORT:-8081}/bolsa/"

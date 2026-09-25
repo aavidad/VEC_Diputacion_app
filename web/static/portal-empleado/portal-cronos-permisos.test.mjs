@@ -12,7 +12,6 @@ import * as clienteSaldo from "./modulos/cronos/cliente-saldo-http.js";
 import * as clienteRemoto from "./modulos/cronos/cliente-remoto-http.js";
 import * as clienteSolicitudes from "./modulos/cronos/cliente-solicitudes-http.js";
 import * as i18n from "./modulos/cronos/i18n.js";
-import { obtenerDatosPresentacion } from "./datos-presentacion.js";
 import { exigirRenovado } from "./versiones-cache.test-helper.mjs";
 
 function raizFalsa() {
@@ -118,10 +117,10 @@ test("sin concesión positiva de Cronos no carga ni monta Permisos", async () =>
   assert.deepEqual(consultas, []);
 });
 
-test("la presentación no expone la subvista interna aunque muestre Cronos", async () => {
+test("sin catálogo autorizado no expone la subvista interna de Cronos", async () => {
   const coordinador = crearCoordinadorModulosPortal({ escaparHTML: String });
-  await coordinador.cargarPresentacion(obtenerDatosPresentacion("funcionario").sesion);
-  assert.equal(coordinador.vistaDisponible("cronos"), true);
+  assert.equal(typeof coordinador.cargarPresentacion, "undefined");
+  assert.equal(coordinador.vistaDisponible("cronos"), false);
   assert.equal(coordinador.vistaDisponible("cronos-permisos"), false);
   assert.equal(await coordinador.montarVista("cronos-permisos", raizFalsa()), false);
 });

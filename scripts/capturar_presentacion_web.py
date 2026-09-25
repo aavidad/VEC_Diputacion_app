@@ -13,9 +13,9 @@ from importlib import import_module
 _api = import_module("scripts.revision_web" if __package__ else "revision_web")
 
 __all__ = (
-    "CABECERA_MODO_PRESENTACION", "VALOR_MODO_PRESENTACION", "FLUJOS_RRHH_CON_RECIBO",
+    "CABECERA_MODO_PRESENTACION", "VALOR_MODO_PRESENTACION",
     "MANIFIESTO", "MANIFIESTO_FLUJOS", "MANIFIESTO_VISTAS",
-    "RAIZ_REPOSITORIO", "RUTAS_MENU_ASPIRANTE", "RUTAS_MENU_RRHH",
+    "RAIZ_REPOSITORIO",
     "SALIDA_PREDETERMINADA", "SUPERFICIES", "TAMANOS_VISTA",
     "Escenario", "Flujo", "PasoInteraccion", "Superficie", "TamanoVista", "Vista",
     "cabecera_presentacion_valida", "codigo_salida", "construir_url", "crear_informe_markdown", "ejecutar_revision",

@@ -99,7 +99,7 @@
 824 web/static/portal-empleado/portal-panel-interno.js
 3053 web/static/styles.css
 1844 web/static/portal-empleado/modulos/dietas/vista-borradores-propios.js
-803 internal/app/server/server_test.go
+813 internal/app/server/server_test.go
 1255 deploy/postgresql/contexto_actor_v1/migraciones/000007_alcance_proyecciones_empleado.up.sql
 1274 deploy/postgresql/dietas_borradores/migraciones/000006_documento_comision.up.sql
 815 deploy/postgresql/personal/migraciones/000015_solicitud_rectificacion_dietas.up.sql

@@ -107,6 +107,12 @@ func TestBolsasRRHHDesarrolloExponeContratoCerradoYPaginaCandidatos(t *testing.T
 	if lista.Code != http.StatusOK || strings.Contains(strings.ToLower(lista.Body.String()), "correo") || strings.Contains(strings.ToLower(lista.Body.String()), "telefono") {
 		t.Fatalf("lista C20: status=%d body=%s", lista.Code, lista.Body.String())
 	}
+	cabecera := httptest.NewRecorder()
+	manejador.ServeHTTP(cabecera, httptest.NewRequest(http.MethodHead, rutaBolsasRRHHDesarrollo, nil))
+	if cabecera.Code != lista.Code || cabecera.Body.Len() != 0 ||
+		cabecera.Header().Get("Content-Length") != lista.Header().Get("Content-Length") {
+		t.Fatalf("HEAD RRHH: status=%d longitud=%q cuerpo=%q", cabecera.Code, cabecera.Header().Get("Content-Length"), cabecera.Body.String())
+	}
 	var salida struct {
 		Data struct {
 			Esquema string `json:"esquema"`
@@ -143,15 +149,15 @@ func TestBolsasRRHHDesarrolloExponeContratoCerradoYPaginaCandidatos(t *testing.T
 	}
 }
 
-func TestBolsasRRHHDesarrolloNoDependeDelDatasetDemoYFallaCerrado(t *testing.T) {
-	rutas, colecciones, err := nuevasRutasBolsasRRHHDesarrollo(config.Config{BolsaDemoPath: "/no-debe-leerse/bolsa-demo.json"})
+func TestBolsasRRHHDesarrolloFallaCerradoSinFuente(t *testing.T) {
+	rutas, colecciones, err := nuevasRutasBolsasRRHHDesarrollo(config.Config{})
 	// Tres rutas exactas: cuadro, estadísticas agregadas y avisos derivados.
 	if err != nil || len(rutas) != 3 || len(colecciones) != 1 {
 		t.Fatalf("rutas RRHH: exactas=%d colecciones=%d error=%v", len(rutas), len(colecciones), err)
 	}
 	w := httptest.NewRecorder()
 	rutas[0].Manejador.ServeHTTP(w, httptest.NewRequest(http.MethodGet, rutaBolsasRRHHDesarrollo, nil))
-	if w.Code != http.StatusServiceUnavailable || !strings.Contains(w.Body.String(), `"codigo":"servicio_no_disponible"`) {
+	if w.Code != http.StatusServiceUnavailable || w.Body.String() != `{"codigo":"servicio_no_disponible"}` {
 		t.Fatalf("sin fuente durable: status=%d body=%s", w.Code, w.Body.String())
 	}
 	fallo := nuevoManejadorBolsasRRHHDesarrollo(func(context.Context) (datasetBolsasRRHHDesarrollo, error) {
