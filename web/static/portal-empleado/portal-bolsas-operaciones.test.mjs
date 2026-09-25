@@ -7,6 +7,7 @@ import {
   referenciaContieneDocumentoIdentidad,
   renderizarOperacionesSituacion,
   rutaOperacionesSituacion,
+  operacionesDisponibles,
 } from "./portal-bolsas-operaciones.js";
 
 test("P-WEB-14 rechaza DNI, NIE y etiquetas de identidad antes del POST B8", async () => {
@@ -150,4 +151,21 @@ test("P-WEB-13 conserva la clave en un reintento 503 y refresca después del rec
     globalThis.fetch = fetchAnterior;
     globalThis.FormData = formDataAnterior;
   }
+});
+
+test("B8 ofrece pausar una renuncia solo si el servidor admite pasar a no disponible", () => {
+  const botones = (html) => [...html.matchAll(/data-operacion="([a-z]+)"/g)].map((m) => m[1]);
+  const renuncia = { estado_clave: "renuncia" };
+  // Sin reglas del servidor: lo de siempre.
+  assert.deepEqual(operacionesDisponibles("renuncia", null), ["excluir"]);
+  assert.deepEqual(operacionesDisponibles("disponible", undefined), ["pausar", "excluir"]);
+  // Política de 000012: la renuncia vuelve a disponible, pero B8 no reactiva renuncias.
+  assert.deepEqual(operacionesDisponibles("renuncia", { renuncia: ["disponible", "excluido"] }), ["excluir"]);
+  // Política del Reglamento publicada: renuncia justificada a no disponible.
+  const publicada = { renuncia: ["no_disponible", "excluido"], disponible: ["no_disponible", "pendiente_incorporacion", "renuncia", "excluido"], excluido: [] };
+  assert.deepEqual(botones(renderizarOperacionesSituacion({ candidato: renuncia, estado: { carga: "listo", items: [], transiciones: publicada } })), ["pausar", "excluir"]);
+  assert.deepEqual(operacionesDisponibles("disponible", publicada), ["pausar", "excluir"]);
+  assert.deepEqual(operacionesDisponibles("excluido", publicada), []);
+  // El servidor cierra una transición: el botón desaparece.
+  assert.deepEqual(operacionesDisponibles("trabajando", { trabajando: ["excluido"] }), ["excluir"]);
 });
