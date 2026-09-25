@@ -215,6 +215,7 @@ func NewHTTPServerDesarrolloWithConfig(
 	if err != nil {
 		return nil, nil, err
 	}
+	consultasPersonal := nuevasConsultasPublicasPersonal(cfg, categoriasPersonal, registro)
 	rutasContratacion, autoridadContratacion, cerrarContratacion, err := nuevasRutasContratacionTemporalDesarrollo(
 		cfg, resolvedor, composicion.derivadorIdempotencia, composicion.emisorKMS, registro, incorporacion...,
 	)
@@ -304,7 +305,7 @@ func NewHTTPServerDesarrolloWithConfig(
 	if err != nil {
 		return nil, nil, err
 	}
-	servidor, err := server.NewHTTPServer(cfg, componerRaizConCronosEmpleado(composeVECShellAPIConBolsasPublicas(vecAPI, publicaBolsaAPI, bolsasPublicas), cronosEmpleado))
+	servidor, err := server.NewHTTPServer(cfg, componerRaizConPersonalPublico(componerRaizConCronosEmpleado(composeVECShellAPIConBolsasPublicas(vecAPI, publicaBolsaAPI, bolsasPublicas), cronosEmpleado), consultasPersonal))
 	if err != nil {
 		return nil, nil, err
 	}

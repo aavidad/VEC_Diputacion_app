@@ -115,11 +115,15 @@ test("el grafo JS propio llega desde HTML a los consumidores F2 con versiones nu
   assert.notEqual(versionDe(portal, "./portal-modulos-coordinador.js"), "20260924-f2-cronos-permisos-v1");
   assert.notEqual(versionDe(html, "/portal-empleado/portal.js"), versionPersonalEstados);
   assert.notEqual(versionDe(portal, "./portal-modulos-coordinador.js"), versionPersonalEstados);
-  for (const recurso of ["portal-menu-bolsa.js",
-    "portal-vistas-operaciones.js"]) {
+  for (const recurso of ["portal-vistas-operaciones.js"]) {
     assert.equal(versionDe(portal, `./${recurso}`), version, recurso);
     await access(new URL(recurso, raiz));
   }
+  // El menú de Bolsa cambió después de F2: sus dos importadores piden la misma
+  // URL nueva para no cargar dos instancias del módulo.
+  exigirVersiones(portal, "./portal-menu-bolsa.js", posterior(version));
+  assert.deepEqual(versionesDe(coordinador, "./portal-menu-bolsa.js"), versionesDe(portal, "./portal-menu-bolsa.js"));
+  await access(new URL("portal-menu-bolsa.js", raiz));
   // Cronos interno ya no importa la jornada: solo quedan las vistas conectadas.
   assert.deepEqual(versionesDe(coordinador, "./modulos/cronos/vista.js"), []);
   for (const recurso of [
@@ -150,7 +154,7 @@ test("la caché immutable previa no retiene el catálogo i18n ni los consumidore
     ["modulos/cronos/vista-saldo-conectado.js", ["20260925-tanda-v1"]],
     ["modulos/dietas/vista-recorridos.js", [version, "20260924-f2-dietas-consulta-v2", versionDietasRecuperacion, versionDietasIcono, "20260924-dietas-ayuda-sin-guia-v1", versionDietasVista]],
     ["modulos/personal/vista.js", ["20260920-personal-catalogo-v1", versionCachePersonal, versionPersonalEstados]],
-    ["modulos/personal/cliente-http-categorias.js", ["20260920-personal-catalogo-v1"]],
+    ["modulos/personal/cliente-http-categorias.js", ["20260920-personal-catalogo-v1", versionPersonalInterno]],
   ]);
   const cache = new Map();
   for (const [recurso, versiones] of versionesPrevias) {
@@ -207,7 +211,7 @@ test("la caché immutable previa no retiene el catálogo i18n ni los consumidore
         "portal-borradores-ui.js", "portal-borradores-acceso.js", "portal-i18n.js"].includes(hijo)
         ? posterior(versionCronosPermisos)
         : hijo === "modulos/personal/vista.js" ? posterior(versionPersonalEstados)
-        : hijo === "modulos/personal/cliente-http-categorias.js" ? versionPersonalInterno
+        : hijo === "modulos/personal/cliente-http-categorias.js" ? posterior(versionPersonalInterno)
         : personal ? versionCachePersonal : versionCache;
       const versionHijoVigente = exigirVersiones(codigo, ruta, versionEsperada, versionesHijo.length);
       assert.ok(!vigentes.has(hijo) || vigentes.get(hijo) === versionHijoVigente,
@@ -220,7 +224,7 @@ test("la caché immutable previa no retiene el catálogo i18n ni los consumidore
     }
   }
   assert.deepEqual(hitsPrevios, [], "ninguna URL immutable antigua se recupera de caché");
-  assert.ok(descargas.has(`/portal-empleado/modulos/personal/cliente-http-categorias.js?v=${versionPersonalInterno}`));
+  assert.ok(descargas.has(`/portal-empleado/modulos/personal/cliente-http-categorias.js?v=${vigentes.get("modulos/personal/cliente-http-categorias.js")}`));
   assert.ok(descargas.has(`/portal-empleado/modulos/dietas/vista-recorridos.js?v=${vigentes.get("modulos/dietas/vista-recorridos.js")}`));
   assert.ok(descargas.has(`/portal-empleado/portal-i18n.js?v=${vigentes.get("portal-i18n.js")}`),
     "el portal carga el catálogo de ayuda y B7 renovado");
@@ -242,10 +246,9 @@ test("la integración B7 renueva controlador y presentador desde la entrada HTML
   for (const [recurso, previa] of versionesAnteriores) {
     const codigo = recurso === "portal.js" ? html : portal;
     const prefijo = recurso === "portal.js" ? "/portal-empleado/" : "./";
-    // portal-bolsas-api.js no ha cambiado desde B7 y conserva su URL; entrada y
-    // panel interno sí, y piden una posterior.
-    const nueva = exigirVersiones(codigo, prefijo + recurso,
-      recurso === "portal-bolsas-api.js" ? versionEntradaAyuda : posterior(versionEntradaAyuda));
+    // Entrada, panel interno y controlador (que ahora importa i18n con la misma
+    // URL que el resto del portal) cambiaron después y piden una posterior.
+    const nueva = exigirVersiones(codigo, prefijo + recurso, posterior(versionEntradaAyuda));
     assert.notEqual(nueva, previa, recurso);
     assert.ok(!codigo.includes(`${prefijo}${recurso}?v=${previa}`), `${recurso}: no queda URL antigua`);
     const url = `${recurso}?v=${nueva}`;

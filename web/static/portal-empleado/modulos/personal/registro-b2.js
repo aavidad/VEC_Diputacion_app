@@ -1,7 +1,7 @@
-import { crearTraductorPersonal } from "./i18n.js?v=20260925-b2-sin-refs-v1";
+import { crearTraductorPersonal } from "./i18n.js?v=20260925-portal-integrado-v1";
 import { ErrorRegistroB2 } from "./registro-b2-cliente.js?v=20260925-b2-selector-v1";
-import { accionesRegistroB2Disponibles, montarActosRegistroB2 } from "./registro-b2-actos.js?v=20260925-b2-sin-refs-v1";
-import { cargarOpcionesPublicadasCatalogoB2, montarCatalogosRegistroB2 } from "./registro-b2-catalogos.js?v=20260925-b2-sin-refs-v1";
+import { accionesRegistroB2Disponibles, montarActosRegistroB2 } from "./registro-b2-actos.js?v=20260925-portal-integrado-v1";
+import { cargarOpcionesPublicadasCatalogoB2, montarCatalogosRegistroB2 } from "./registro-b2-catalogos.js?v=20260925-portal-integrado-v1";
 
 const BLOQUES = Object.freeze([
   ["relaciones", "registro_b2_relaciones", "registro_b2_tabla_relaciones", [
