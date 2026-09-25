@@ -70,6 +70,7 @@ const (
 	EnvFirmaVerificacionCertFile                   = "VEC_FIRMA_VERIFICACION_CERT_FILE"
 	EnvFirmaVerificacionKeyFile                    = "VEC_FIRMA_VERIFICACION_KEY_FILE"
 	EnvFirmaVerificacionTimeout                    = "VEC_FIRMA_VERIFICACION_TIMEOUT"
+	EnvFirmaVerificacionNombreServidorTLS          = "VEC_FIRMA_VERIFICACION_TLS_SERVER_NAME"
 
 	StorageModeMemory       = "memory"
 	StorageModeFile         = "file"
@@ -173,6 +174,7 @@ type Config struct {
 	FirmaVerificacionCertFile                   string
 	FirmaVerificacionKeyFile                    string
 	FirmaVerificacionTimeout                    string
+	FirmaVerificacionNombreServidorTLS          string
 	PersonalEmpleadoEnabled                     string
 	PersonalB2GobiernoEnabled                   string
 	DietasBorradoresPostgreSQL                  ConfiguracionDietasBorradores
@@ -245,21 +247,22 @@ func Load() Config {
 			dsnProyectorGobierno: envFirst(EnvBolsaBorradoresProyectorGobiernoDatabaseURL),
 			dsnVerificadorRecibo: envFirst(EnvBolsaBorradoresVerificadorReciboDatabaseURL),
 		},
-		BolsaBorradoresEnabled:      envBool(EnvBolsaBorradoresEnabled),
-		DietasBorradoresEnabled:     envFirst(EnvDietasBorradoresEnabled),
-		CronosEmpleadoEnabled:       envFirst(EnvCronosEmpleadoEnabled),
-		CronosResolucionEnabled:     envFirst(EnvCronosResolucionEnabled),
-		CronosNotificacionesEnabled: envFirst(EnvCronosNotificacionesEnabled),
-		PersonalEmpleadoEnabled:     envFirst(EnvPersonalEmpleadoEnabled),
-		PersonalB2GobiernoEnabled:   envFirst(EnvPersonalB2GobiernoEnabled),
-		DocumentosEnabled:           envFirst(EnvDocumentosEnabled),
-		FirmaVerificacionEnabled:    envFirst(EnvFirmaVerificacionEnabled),
-		FirmaVerificacionURL:        envFirst(EnvFirmaVerificacionURL),
-		FirmaVerificacionCAFile:     envFirst(EnvFirmaVerificacionCAFile),
-		FirmaVerificacionTokenFile:  envFirst(EnvFirmaVerificacionTokenFile),
-		FirmaVerificacionCertFile:   envFirst(EnvFirmaVerificacionCertFile),
-		FirmaVerificacionKeyFile:    envFirst(EnvFirmaVerificacionKeyFile),
-		FirmaVerificacionTimeout:    envFirst(EnvFirmaVerificacionTimeout),
+		BolsaBorradoresEnabled:             envBool(EnvBolsaBorradoresEnabled),
+		DietasBorradoresEnabled:            envFirst(EnvDietasBorradoresEnabled),
+		CronosEmpleadoEnabled:              envFirst(EnvCronosEmpleadoEnabled),
+		CronosResolucionEnabled:            envFirst(EnvCronosResolucionEnabled),
+		CronosNotificacionesEnabled:        envFirst(EnvCronosNotificacionesEnabled),
+		PersonalEmpleadoEnabled:            envFirst(EnvPersonalEmpleadoEnabled),
+		PersonalB2GobiernoEnabled:          envFirst(EnvPersonalB2GobiernoEnabled),
+		DocumentosEnabled:                  envFirst(EnvDocumentosEnabled),
+		FirmaVerificacionEnabled:           envFirst(EnvFirmaVerificacionEnabled),
+		FirmaVerificacionURL:               envFirst(EnvFirmaVerificacionURL),
+		FirmaVerificacionCAFile:            envFirst(EnvFirmaVerificacionCAFile),
+		FirmaVerificacionTokenFile:         envFirst(EnvFirmaVerificacionTokenFile),
+		FirmaVerificacionCertFile:          envFirst(EnvFirmaVerificacionCertFile),
+		FirmaVerificacionKeyFile:           envFirst(EnvFirmaVerificacionKeyFile),
+		FirmaVerificacionTimeout:           envFirst(EnvFirmaVerificacionTimeout),
+		FirmaVerificacionNombreServidorTLS: envFirst(EnvFirmaVerificacionNombreServidorTLS),
 		DietasBorradoresPostgreSQL: ConfiguracionDietasBorradores{
 			dsnDietas:             envFirst(EnvDietasBorradoresDatabaseURL),
 			dsnPersonal:           envFirst(EnvDietasPersonalRelacionesDatabaseURL),
@@ -388,6 +391,7 @@ func (c Config) Normalize() Config {
 	c.FirmaVerificacionCertFile = strings.TrimSpace(c.FirmaVerificacionCertFile)
 	c.FirmaVerificacionKeyFile = strings.TrimSpace(c.FirmaVerificacionKeyFile)
 	c.FirmaVerificacionTimeout = strings.TrimSpace(c.FirmaVerificacionTimeout)
+	c.FirmaVerificacionNombreServidorTLS = strings.TrimSpace(c.FirmaVerificacionNombreServidorTLS)
 	c.PersonalEmpleadoEnabled = strings.TrimSpace(c.PersonalEmpleadoEnabled)
 	c.PersonalB2GobiernoEnabled = strings.TrimSpace(c.PersonalB2GobiernoEnabled)
 	c.DietasBorradoresPostgreSQL = c.DietasBorradoresPostgreSQL.normalizar()

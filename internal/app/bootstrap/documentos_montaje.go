@@ -487,11 +487,13 @@ func nuevoAlmacenDocumentos(ctx context.Context, a almacenDocumentosDesarrollo, 
 func nuevosDocumentosDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdentityResolver, derivador *derivadorIdentidadOperacionDesarrollo,
 	material *proveedorMaterialAltaContratacionTemporalDesarrollo, registroIncidencias io.Writer,
 ) (*autoridadDocumentosDesarrollo, error) {
-	verificadorFirma, err := nuevoVerificadorFirmaDocumentos(cfg)
+	// Documentos se valida primero: con la firma encendida y un selector de
+	// Documentos invalido, el error visible es el de Documentos.
+	activo, err := cfg.DocumentosDesarrolloActivo()
 	if err != nil {
 		return nil, err
 	}
-	activo, err := cfg.DocumentosDesarrolloActivo()
+	verificadorFirma, err := nuevoVerificadorFirmaDocumentos(cfg)
 	if err != nil {
 		return nil, err
 	}
