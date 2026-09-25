@@ -109,3 +109,44 @@ test("B24 controlador registra, conserva la clave en el reintento y recarga", as
     globalThis.FormData = anterior;
   }
 });
+
+test("B37 muestra el efecto aplicado y la readmisión", () => {
+  const conEfectos = {
+    ...datos, estados_revocatorios: ["estimado"],
+    items: [
+      { ...item, efecto_aplicado: { situacion: "disponible_desde", vuelve_al_turno: "2027-03-20T23:00:00Z", orden_final: false }, reversion: null },
+      { ...item, sancion_ref: "sancion:" + "d".repeat(64), efecto: "ninguna", suspension_hasta: null, efecto_aplicado: { situacion: null, vuelve_al_turno: null, orden_final: true }, reversion: null },
+      { ...item, sancion_ref: "sancion:" + "e".repeat(64), efecto: "excluir", suspension_hasta: null, efecto_aplicado: { situacion: "excluido", vuelve_al_turno: null, orden_final: false },
+        reversion: { estado_recurso: "estimado", regla_ref: "r", efecto_revertido: "excluir", situacion_restaurada: "disponible", situacion_desde: "2026-09-26T08:00:00Z",
+          resuelta_por: "persona:jefatura", actor: "per_x", recibo_ref: "recibo:readmision:1", registrada_en: "2026-09-26T08:00:00Z" } },
+    ],
+  };
+  const salida = renderizarSanciones({ estado: { carga: "listo", datos: conEfectos } });
+  assert.match(salida, /Vuelve al turno el 21 mar 2027/);
+  assert.match(salida, /Al final de la lista/);
+  assert.match(salida, /Readmitida el 26 sept 2026/);
+  assert.match(salida, /Vuelve a: Disponible/);
+  assert.match(salida, /Resuelve persona:jefatura/);
+  // Una sanción ya revocada no admite otro recurso.
+  assert.equal((salida.match(/data-b24-accion="abrir-recurso"/g) || []).length, 2);
+});
+
+test("B37 el estado revocatorio pide quien resuelve y la resolución", async () => {
+  const conEfectos = { ...datos, estados_recurso: ["interpuesto", "estimado"], estados_revocatorios: ["estimado"] };
+  const formulario = renderizarSanciones({ estado: { carga: "listo", datos: conEfectos, recursoAbierto: item.sancion_ref, formularioRecurso: { estado: "estimado" } } });
+  assert.match(formulario, /name="resuelta_por" required/);
+  assert.match(formulario, /revoca la sanción/);
+  assert.match(formulario, /name="referencia" maxlength="240" required/);
+  const normal = renderizarSanciones({ estado: { carga: "listo", datos: conEfectos, recursoAbierto: item.sancion_ref, formularioRecurso: { estado: "interpuesto" } } });
+  assert.doesNotMatch(normal, /name="resuelta_por"/);
+  const fetchImpl = () => { throw new Error("No debe enviarse"); };
+  const incompleto = await registrarRecursoSancion("b", "p", "s", { estado: "estimado", fecha: "2026-09-24" }, "k", { fetchImpl, revocatorios: ["estimado"] });
+  assert.equal(incompleto.mensaje, MENSAJES_SANCIONES_ES.error_revierte);
+  let cuerpo;
+  const ok = await registrarRecursoSancion("b", "p", "s", { estado: "estimado", fecha: "2026-09-24", resuelta_por: "persona:jefatura", documento: { referencia: "reg:9", sha256: SHA } }, "k", {
+    revocatorios: ["estimado"],
+    fetchImpl: async (_r, o) => { cuerpo = JSON.parse(o.body); return { ok: true, status: 201, json: async () => ({ data: { sancion_ref: "s", estado: "estimado", reutilizada: false, revertida: true, recibo_ref: "recibo:readmision:1", situacion: "disponible", desde: "2026-09-26T08:00:00Z" } }) }; },
+  });
+  assert.equal(ok.ok, true);
+  assert.equal(cuerpo.resuelta_por, "persona:jefatura");
+});
