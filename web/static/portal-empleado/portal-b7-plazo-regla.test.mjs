@@ -78,7 +78,9 @@ async function iniciarAsistente(respuesta) {
 
 test("B7 con regla rellena el plazo editable y rotula su procedencia", async () => {
   const { flujo, rutas } = await iniciarAsistente({ ok: true, status: 200, json: async () => ({ data: conRegla() }) });
-  assert.deepEqual(rutas, [RUTA_PLAZO_RESPUESTA_LLAMAMIENTO]);
+  // Al abrir B7 se pide el plazo una sola vez; la plantilla del correo B7
+  // personalizado se pide aparte y no forma parte de esta comprobación.
+  assert.deepEqual(rutas.filter((ruta) => ruta === RUTA_PLAZO_RESPUESTA_LLAMAMIENTO), [RUTA_PLAZO_RESPUESTA_LLAMAMIENTO]);
   assert.equal(flujo.reglaPlazo.procedencia, "Regla de ejemplo");
   flujo.paso = 3;
   const html = presentador(flujo).renderizarVista("bolsa-candidatos");
