@@ -320,4 +320,94 @@ esperar
 # La proyección que publica el alta es la que ContextoActor 000007 consume:
 # la persona resuelve exactamente al empleado del recibo de alta.
 [[ $(admin_valor "SELECT p.resultado='empleado' AND p.empleado_ref=r.empleado_ref AND p.proyeccion_ref=r.proyeccion_ref FROM vec_personal.registro_empleado_b2_recibo r CROSS JOIN LATERAL vec_contexto_actor_v1.proyeccion_empleado_personal_v2(r.efecto_ref, clock_timestamp()) p WHERE r.operacion='alta'") == t ]] || fallo 'ContextoActor no resuelve el empleado publicado por el alta'
-printf 'PG18 000019: B1 real; ROLLBACK/COMMIT, ACL, alta/replay/hechos, rechazo multi-org ajeno, caducidad con lock, reinicio y proyección consumida por ContextoActor 000007 correctos (AD3 simulado).\n'
+
+# ---------------------------------------------------------------------------
+# Personal 000021: lista RRHH de empleados del organismo sobre la historia ya
+# confirmada. AD3-56 se simula igual que AD3-54; se prueba en su propio ensayo.
+# ---------------------------------------------------------------------------
+archivo "$repo_dir/deploy/postgresql/personal/migraciones/000018_lectura_registro_empleado_b2.up.sql"
+admin -o /dev/null <<'SQL'
+CREATE FUNCTION vec_autorizacion_atestada_v3.consumir_empleados_registro_b2_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)
+ RETURNS TABLE(decision_ref text,efecto_ref text,huella_efecto_sha256 text,consumo_huella_sha256 text,auditoria_ref text,consumida_en timestamptz,consumo_nuevo boolean)
+ LANGUAGE sql AS $$ SELECT d->>'decision_ref',d->>'recurso_ref',d->>'contexto_recurso_huella_sha256',encode(sha256($1||$2||gen_random_uuid()::text::bytea),'hex'),'auditoria:synthetic:b2',clock_timestamp(),true FROM (SELECT convert_from($2,'UTF8')::jsonb d) q $$;
+GRANT EXECUTE ON FUNCTION vec_autorizacion_atestada_v3.consumir_empleados_registro_b2_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) TO vec_personal_propietario;
+SQL
+up21="$repo_dir/deploy/postgresql/personal/migraciones/000021_lista_empleados_organismo_b2.up.sql"
+sed '$s/^COMMIT;/ROLLBACK;/' "$up21" | admin -o /dev/null
+[[ $(admin_valor "SELECT to_regclass('vec_personal.recibo_lista_empleados_b2') IS NULL AND to_regprocedure('vec_personal.consultar_empleados_rrhh_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL") == t ]] || fallo 'ROLLBACK 000021 dejó objetos'
+archivo "$up21"
+if archivo "$up21" 2>/dev/null; then fallo 'segunda aplicación de 000021 aceptada'; fi
+ok '000021 ROLLBACK sin rastro, COMMIT y segunda aplicación rechazada'
+[[ $(admin_valor "SELECT has_function_privilege('vec_personal_ejecutor','vec_personal.consultar_empleados_rrhh_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE') AND NOT has_function_privilege('public','vec_personal.consultar_empleados_rrhh_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE') AND NOT has_table_privilege('vec_personal_ejecutor','vec_personal.recibo_lista_empleados_b2','SELECT') AND (SELECT relrowsecurity AND relforcerowsecurity FROM pg_class WHERE oid='vec_personal.recibo_lista_empleados_b2'::regclass)") == t ]] || fallo 'ACL o RLS de 000021 divergente'
+ok '000021 ACL: solo el ejecutor consulta; recibo sin lectura directa y con RLS forzada'
+lista_tmp=$(mktemp)
+cat > "$lista_tmp" <<'SQL'
+BEGIN ISOLATION LEVEL SERIALIZABLE READ WRITE;
+SET LOCAL TimeZone='UTC';
+DO $l$
+DECLARE conocido text; material text; mh text; rh text; cap jsonb; decision jsonb; res jsonb; fila jsonb;
+ llamar_material text; err text;
+BEGIN
+ conocido:=to_char(transaction_timestamp() AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"');
+ material:='{"esquema":"vec.personal.registro-empleado-b2.consulta.v1","operacion":"empleados","empleado_ref":"","organismo_ref":"org:synthetic","vigente_en":"2026-09-26","conocido_en":"'||conocido||'","limite":1,"cursor":"","actor_ref":"per_sintetica_alcance_p_00000000000001","contexto_actor_ref":"ctx:synthetic:b2","contexto_version":1,"cuenta_ref":"cta_sintetica_alcance_p_0000000000001","cuenta_version":1,"perfil_ref":"prf_sintetico_alcance_p_0000000000001","perfil_version":1,"persona_ref":"per_sintetica_alcance_p_00000000000001","persona_version":1}';
+ mh:=encode(sha256(convert_to(material,'UTF8')),'hex');
+ rh:=encode(sha256(convert_to('{"ambitos":{"organismo_ref":"org:synthetic"},"atributos":{"conocido_en":"'||conocido||'","material_sha256":"'||mh||'","operacion":"empleados","vigente_en":"2026-09-26"}}','UTF8')),'hex');
+ cap:=jsonb_build_object('operacion','personal.registro_empleado.empleados.consultar','audiencia_consumo','vec_personal.registro_empleado.empleados.v1','efecto_ref','org:synthetic','huella_efecto_sha256',rh);
+ decision:=jsonb_build_object('principal_id','per_sintetica_alcance_p_00000000000001','perfil_activo_ref','prf_sintetico_alcance_p_0000000000001','concedida',true,'modulo_id','personal','obligaciones',jsonb_build_array(),'tipo_recurso','empleados_rrhh','finalidad','consultar_empleados','campos_permitidos','["corte","cursor","cursor_siguiente","empleados","evidencia","limite","organismo_ref"]'::jsonb,'accion','personal.registro_empleado.empleados.consultar','recurso_ref','org:synthetic','contexto_recurso_huella_sha256',rh,'decision_ref','decision:synthetic:b2:lista','valida_hasta','2100-01-01T00:00:00Z');
+ res:=vec_personal.consultar_empleados_rrhh_v1(material,convert_to(cap::text,'UTF8'),convert_to(decision::text,'UTF8'),convert_to('{}','UTF8'),convert_to('{}','UTF8'),1,1,'x'::bytea,'y'::bytea,'z'::bytea,'w'::bytea);
+ fila:=res->'pagina'->'empleados'->0;
+ IF jsonb_array_length(res->'pagina'->'empleados')<>1 OR fila->>'empleado_ref' !~ '^emp_'
+    OR jsonb_array_length(fila->'relaciones')<>1
+    OR fila->'relaciones'->0->>'regimen_denominacion'<>'Régimen sintético'
+    OR fila->'relaciones'->0->>'modalidad_denominacion'<>'Modalidad sintética'
+    OR fila->'relaciones'->0->>'estado'<>'vigente'
+    OR res->'pagina'->>'cursor_siguiente'<>'' OR res->'evidencia'->>'decision_ref'<>'decision:synthetic:b2:lista'
+    OR res::text ~ 'per_sintetica' THEN
+  RAISE EXCEPTION 'lista de empleados inesperada %',res; END IF;
+ -- La referencia elegida en la lista abre la ficha (Personal 000018).
+ llamar_material:='{"esquema":"vec.personal.registro-empleado-b2.consulta.v1","operacion":"ficha","empleado_ref":"'||(fila->>'empleado_ref')||'","organismo_ref":"org:synthetic","vigente_en":"2026-09-26","conocido_en":"'||conocido||'","limite":0,"cursor":"","actor_ref":"per_sintetica_alcance_p_00000000000001","contexto_actor_ref":"ctx:synthetic:b2","contexto_version":1,"cuenta_ref":"cta_sintetica_alcance_p_0000000000001","cuenta_version":1,"perfil_ref":"prf_sintetico_alcance_p_0000000000001","perfil_version":1,"persona_ref":"per_sintetica_alcance_p_00000000000001","persona_version":1}';
+ mh:=encode(sha256(convert_to(llamar_material,'UTF8')),'hex');
+ rh:=encode(sha256(convert_to('{"ambitos":{"empleado_ref":"'||(fila->>'empleado_ref')||'","organismo_ref":"org:synthetic"},"atributos":{"conocido_en":"'||conocido||'","material_sha256":"'||mh||'","operacion":"ficha","vigente_en":"2026-09-26"}}','UTF8')),'hex');
+ res:=vec_personal.consultar_registro_empleado_rrhh_v1(llamar_material,
+  convert_to(jsonb_build_object('operacion','personal.registro_empleado.ficha.consultar','audiencia_consumo','vec_personal.registro_empleado.ficha.v1','efecto_ref',fila->>'empleado_ref','huella_efecto_sha256',rh)::text,'UTF8'),
+  convert_to((decision||jsonb_build_object('tipo_recurso','registro_empleado_rrhh','finalidad','consultar_ficha_empleado','accion','personal.registro_empleado.ficha.consultar','recurso_ref',fila->>'empleado_ref','contexto_recurso_huella_sha256',rh,'decision_ref','decision:synthetic:b2:ficha','campos_permitidos','["corte","eficacia_administrativa","empleado_ref","evidencia","firma_oficial","ocupaciones","organismo_ref","persona_ref","relaciones","servicios","situaciones","version"]'::jsonb))::text,'UTF8'),
+  convert_to('{}','UTF8'),convert_to('{}','UTF8'),1,1,'x'::bytea,'y'::bytea,'z'::bytea,'w'::bytea);
+ IF res->'ficha'->>'empleado_ref'<>fila->>'empleado_ref' OR jsonb_array_length(res->'ficha'->'relaciones')<>1
+    OR jsonb_array_length(res->'ficha'->'servicios')<>1 OR jsonb_array_length(res->'ficha'->'situaciones')<>1 THEN
+  RAISE EXCEPTION 'ficha desde la lista inesperada %',res; END IF;
+ -- Fecha anterior a toda relación: el empleado se lista, sin relaciones.
+ llamar_material:=replace(material,'"vigente_en":"2026-09-26"','"vigente_en":"2026-01-01"');
+ mh:=encode(sha256(convert_to(llamar_material,'UTF8')),'hex');
+ rh:=encode(sha256(convert_to('{"ambitos":{"organismo_ref":"org:synthetic"},"atributos":{"conocido_en":"'||conocido||'","material_sha256":"'||mh||'","operacion":"empleados","vigente_en":"2026-01-01"}}','UTF8')),'hex');
+ res:=vec_personal.consultar_empleados_rrhh_v1(llamar_material,convert_to((cap||jsonb_build_object('huella_efecto_sha256',rh))::text,'UTF8'),convert_to((decision||jsonb_build_object('contexto_recurso_huella_sha256',rh,'decision_ref','decision:synthetic:b2:lista:antes'))::text,'UTF8'),convert_to('{}','UTF8'),convert_to('{}','UTF8'),1,1,'x'::bytea,'y'::bytea,'z'::bytea,'w'::bytea);
+ IF jsonb_array_length(res->'pagina'->'empleados')<>1 OR jsonb_array_length(res->'pagina'->'empleados'->0->'relaciones')<>0 THEN
+  RAISE EXCEPTION 'fecha anterior mostró relaciones %',res; END IF;
+ -- Negativos: campos ampliados, operación ajena y material no canónico.
+ BEGIN
+  PERFORM vec_personal.consultar_empleados_rrhh_v1(material,convert_to(cap::text,'UTF8'),convert_to((decision||jsonb_build_object('campos_permitidos','["empleados","persona_ref"]'::jsonb))::text,'UTF8'),convert_to('{}','UTF8'),convert_to('{}','UTF8'),1,1,'x'::bytea,'y'::bytea,'z'::bytea,'w'::bytea);
+  RAISE EXCEPTION 'campos ampliados admitidos';
+ EXCEPTION WHEN SQLSTATE '42501' THEN NULL; END;
+ BEGIN
+  PERFORM vec_personal.consultar_empleados_rrhh_v1(material,convert_to((cap||jsonb_build_object('operacion','personal.registro_empleado.ficha.consultar'))::text,'UTF8'),convert_to(decision::text,'UTF8'),convert_to('{}','UTF8'),convert_to('{}','UTF8'),1,1,'x'::bytea,'y'::bytea,'z'::bytea,'w'::bytea);
+  RAISE EXCEPTION 'operación ajena admitida';
+ EXCEPTION WHEN SQLSTATE '42501' THEN NULL; END;
+ BEGIN
+  PERFORM vec_personal.consultar_empleados_rrhh_v1(replace(material,'"limite":1,','"limite": 1,'),convert_to(cap::text,'UTF8'),convert_to(decision::text,'UTF8'),convert_to('{}','UTF8'),convert_to('{}','UTF8'),1,1,'x'::bytea,'y'::bytea,'z'::bytea,'w'::bytea);
+  RAISE EXCEPTION 'material no canónico admitido';
+ EXCEPTION WHEN SQLSTATE '22023' THEN NULL; END;
+ BEGIN
+  PERFORM vec_personal.consultar_empleados_rrhh_v1(replace(material,'"cursor":""','"cursor":"p_5_'||repeat('0',64)||'"'),convert_to(cap::text,'UTF8'),convert_to(decision::text,'UTF8'),convert_to('{}','UTF8'),convert_to('{}','UTF8'),1,1,'x'::bytea,'y'::bytea,'z'::bytea,'w'::bytea);
+  RAISE EXCEPTION 'cursor ajeno admitido';
+ EXCEPTION WHEN SQLSTATE '22023' OR SQLSTATE '42501' THEN NULL; END;
+END $l$;
+COMMIT;
+SQL
+"$motor" exec -i "$contenedor" psql -X -qAt -v ON_ERROR_STOP=1 -U vec_prueba_personal -d "$base" < "$lista_tmp" >/dev/null
+rm -f "$lista_tmp"
+ok '000021 lista paginada sin datos civiles, ficha 000018 abierta desde la lista, relaciones vigentes por fecha y negativos 42501/22023'
+if "$motor" exec "$contenedor" psql -X -qAt -v ON_ERROR_STOP=1 -U postgres -d "$base" -c "SET ROLE vec_personal_ejecutor; SELECT count(*) FROM vec_personal.recibo_lista_empleados_b2" >/dev/null 2>&1; then fallo 'recibo de lista legible por el ejecutor'; fi
+"$motor" restart "$contenedor" >/dev/null
+esperar
+[[ $(admin_valor "SELECT count(*) FROM vec_personal.recibo_lista_empleados_b2") == 2 && $(admin_valor "SELECT count(*) FROM vec_personal.recibo_lectura_registro_empleado_b2 WHERE operacion='ficha'") == 1 ]] || fallo 'recibos de lista no conservados tras reinicio'
+ok '000021 dos recibos de lista conservados tras reinicio'
+printf 'PG18 000019: B1 real; ROLLBACK/COMMIT, ACL, alta/replay/hechos, rechazo multi-org ajeno, caducidad con lock, reinicio y proyección consumida por ContextoActor 000007, y lista 000021 correctos (AD3 simulado).\n'
