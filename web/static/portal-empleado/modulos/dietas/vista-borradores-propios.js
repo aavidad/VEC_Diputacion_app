@@ -5,6 +5,9 @@ import { calcularHuellaFichero, catalogoOtrosGastosValido, crearLineaOtroGasto, 
 import { montarVistaMapaComisionDietas } from "./vista-mapa-comision.js?v=20260925-tanda2-v1";
 import { montarVistaRectificacionDietas } from "./vista-rectificacion-dietas.js?v=20260925-tanda-v1";
 
+// NodeList no tiene find/filter/map en el navegador: se convierte siempre a array.
+const todos = (raiz, selector) => Array.from(raiz?.querySelectorAll(selector) || []);
+
 const MAXIMO_LOCALIDADES = 12;
 
 function nodo(documento, etiqueta, texto = "") {
@@ -568,7 +571,7 @@ export function montarVistaBorradoresPropios(
       if (!activaAhora() || signal.aborted || !Array.isArray(catalogo?.puntos)) return;
       puntosRuta = catalogo.puntos;
       nombresRuta = new Map(puntosRuta.map((punto) => [punto.codigo, punto.nombre]));
-      const controles = formularioPersistente.querySelectorAll("select").filter((selector) =>
+      const controles = todos(formularioPersistente, "select").filter((selector) =>
         ["origen_codigo", "destino_codigo", "parada_codigo"].includes(selector.name));
       controles.forEach((selector) => {
         const anterior = selector.value;
@@ -731,22 +734,22 @@ export function montarVistaBorradoresPropios(
     if (anadir) anadir.disabled = valores.length >= 10;
   }
   function codigosRutaVehiculo(fila) {
-    const valor = (nombre) => fila.querySelectorAll("select").find((selector) => selector.name === nombre)?.value || "";
+    const valor = (nombre) => todos(fila, "select").find((selector) => selector.name === nombre)?.value || "";
     return [valor("ruta_origen_codigo"),
-      ...fila.querySelectorAll("select").filter((selector) => selector.name === "ruta_parada_codigo").map((selector) => selector.value || ""),
+      ...todos(fila, "select").filter((selector) => selector.name === "ruta_parada_codigo").map((selector) => selector.value || ""),
       valor("ruta_destino_codigo")];
   }
   function rutasDesdeFormulario(form) {
     const vehiculo = form.querySelector("[data-dietas-vehiculo-propio]")?.value;
     if (vehiculo === "no") return { vehiculo_propio: false, rutas: [] };
     if (vehiculo !== "si") throw new TypeError("vehículo propio sin confirmar");
-    const filas = form.querySelectorAll("[data-dietas-ruta-linea]");
+    const filas = todos(form, "[data-dietas-ruta-linea]");
     if (filas.length < 1 || filas.length > 8) throw new TypeError("rutas no válidas");
     const rutas = filas.map((fila) => {
       const codigos = codigosRutaVehiculo(fila);
       if (!rutaValida(codigos) || !rutasCalculadas.has(JSON.stringify(codigos))) throw new TypeError("ruta no calculada");
-      const ajuste = fila.querySelectorAll("input").find((entrada) => entrada.name === "ajuste_kilometros")?.value || "";
-      const motivo = String(fila.querySelectorAll("input").find((entrada) => entrada.name === "motivo_ajuste")?.value || "").trim();
+      const ajuste = todos(fila, "input").find((entrada) => entrada.name === "ajuste_kilometros")?.value || "";
+      const motivo = String(todos(fila, "input").find((entrada) => entrada.name === "motivo_ajuste")?.value || "").trim();
       if (!/^-?(?:0|[1-9]\d{0,3})\.\d{4}$/u.test(ajuste) || Math.abs(Number(ajuste)) > 1000 ||
           ajuste === "-0.0000" ||
           (Number(ajuste) === 0 ? motivo !== "" : motivo.length < 3 || motivo.length > 500))
@@ -762,8 +765,8 @@ export function montarVistaBorradoresPropios(
     const tramos = item.comision.calculo.opciones_dieta[grupo - 1]?.calculo.tramos || [];
     const rotuloGrupo = seccion.querySelector("[data-dietas-aceptacion-grupo]");
     rotuloGrupo.textContent = `${traducir("borradores_propios_grupo")} ${grupo} · ${item.comision.calculo.rotulo}`;
-    const modo = seccion.querySelectorAll("select").find((selector) => selector.name === "modo_tramos");
-    const indice = seccion.querySelectorAll("select").find((selector) => selector.name === "tramo_indice");
+    const modo = todos(seccion, "select").find((selector) => selector.name === "modo_tramos");
+    const indice = todos(seccion, "select").find((selector) => selector.name === "tramo_indice");
     indice.replaceChildren(...tramos.map((tramo, posicion) => {
       const opcion = nodo(documento, "option", `${fechaLegible(tramo.fecha)} · ${tramo.tipo === "manutencion" ?
         traducir("borradores_propios_manutencion") : traducir("borradores_propios_alojamiento_tope")} · ${euros(tramo.importe_centimos)}`);
@@ -784,9 +787,9 @@ export function montarVistaBorradoresPropios(
     const tramos = edicion.comision.calculo?.opciones_dieta?.[asignacion.grupo_dieta - 1]?.calculo?.tramos;
     if (!Array.isArray(tramos)) throw new TypeError("tramos de Dietas no disponibles");
     if (tramos.length === 0) return [];
-    const modo = form.querySelectorAll("select").find((selector) => selector.name === "modo_tramos")?.value;
+    const modo = todos(form, "select").find((selector) => selector.name === "modo_tramos")?.value;
     if (modo === "todos") return tramos.map((_tramo, indice) => indice);
-    const elegido = Number(form.querySelectorAll("select").find((selector) => selector.name === "tramo_indice")?.value);
+    const elegido = Number(todos(form, "select").find((selector) => selector.name === "tramo_indice")?.value);
     if (modo !== "uno" || !Number.isSafeInteger(elegido) || elegido < 0 || elegido >= tramos.length)
       throw new TypeError("tramo de Dietas no seleccionado");
     return [elegido];
@@ -1178,7 +1181,7 @@ export function montarVistaBorradoresPropios(
     const estadoPais = formularioPersistente.querySelector("[data-dietas-pais-sin-calculo]");
     if (paisOtro) paisOtro.hidden = !extranjero;
     if (estadoPais) estadoPais.hidden = !extranjero;
-    formularioPersistente.querySelectorAll("select").filter((selector) =>
+    todos(formularioPersistente, "select").filter((selector) =>
       ["origen_codigo", "destino_codigo", "parada_codigo"].includes(selector.name)).forEach((selector) => { selector.required = !extranjero; });
     const botonGuardar = formularioPersistente.querySelector("[data-dietas-borrador-guardar]");
     if (botonGuardar) botonGuardar.textContent = tBorradores(edicion ? "comision_editar" : "borradores_propios_guardar");
@@ -1196,8 +1199,8 @@ export function montarVistaBorradoresPropios(
       if (anadirRuta) anadirRuta.disabled = controlesBloqueados || !edicion || vehiculo?.value !== "si" || formularioPersistente.querySelectorAll("[data-dietas-ruta-linea]").length >= 8;
       const seccionAceptacion = formularioPersistente.querySelector("[data-dietas-aceptacion]");
       if (seccionAceptacion) seccionAceptacion.hidden = !(edicion && asignacionVerificada());
-      const modoAceptacion = formularioPersistente.querySelectorAll("select").find((selector) => selector.name === "modo_tramos");
-      const indiceAceptacion = formularioPersistente.querySelectorAll("select").find((selector) => selector.name === "tramo_indice");
+      const modoAceptacion = todos(formularioPersistente, "select").find((selector) => selector.name === "modo_tramos");
+      const indiceAceptacion = todos(formularioPersistente, "select").find((selector) => selector.name === "tramo_indice");
       const etiquetaIndice = indiceAceptacion?.closest("label");
       if (etiquetaIndice) etiquetaIndice.hidden = modoAceptacion?.value !== "uno";
       const anadirOtro = formularioPersistente.querySelector("[data-dietas-otro-anadir]");
@@ -1505,7 +1508,7 @@ export function montarVistaBorradoresPropios(
       destino_codigo: item.comision.codigos_ruta.at(-1) || "",
       relacion_ref: item.comision.relacion_ref,
     };
-    form.querySelectorAll("input").concat(form.querySelectorAll("select")).forEach((control) => {
+    [...form.querySelectorAll("input"), ...form.querySelectorAll("select")].forEach((control) => {
       if (Object.hasOwn(valores, control.name)) control.value = valores[control.name];
     });
     pintarParadas(form, item.comision.codigos_ruta.slice(1, -1));
@@ -1580,7 +1583,7 @@ export function montarVistaBorradoresPropios(
       .find(([, boton]) => boton);
     if (accionParadaRuta && edicion && !controlador && !accionParadaRuta[1].disabled) {
       const fila = accionParadaRuta[1].closest("[data-dietas-ruta-linea]");
-      const valores = fila.querySelectorAll("select").filter((selector) => selector.name === "ruta_parada_codigo").map((selector) => selector.value || "");
+      const valores = todos(fila, "select").filter((selector) => selector.name === "ruta_parada_codigo").map((selector) => selector.value || "");
       const [accion, boton] = accionParadaRuta;
       const indice = Number(boton.dataset[accion]);
       if (accion === "dietasRutaParadaAnadir" && valores.length < 10) valores.push("");
