@@ -169,3 +169,9 @@ test("B8 ofrece pausar una renuncia solo si el servidor admite pasar a no dispon
   // El servidor cierra una transición: el botón desaparece.
   assert.deepEqual(operacionesDisponibles("trabajando", { trabajando: ["excluido"] }), ["excluir"]);
 });
+
+test("una referencia con huella del sistema no se toma por un documento de identidad", () => {
+  assert.equal(referenciaContieneDocumentoIdentidad("llamamiento:823ae25fabcdefabcdefabcdefabcdefabcdefabcdefabcda31969244d148227"), false);
+  assert.equal(referenciaContieneDocumentoIdentidad("justificante:12345678Z"), true);
+  assert.equal(referenciaContieneDocumentoIdentidad("dni:" + "a".repeat(64)), true);
+});

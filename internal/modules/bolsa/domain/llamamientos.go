@@ -1116,7 +1116,7 @@ func claveMotivoEvaluacion(motivo MotivoEvaluacionLlamamiento) string {
 
 func referenciaLlamamientoOpacaValida(valor string) bool {
 	return referenciaOpacaValida(valor) && !strings.Contains(valor, "*") &&
-		!patronDocumentoIdentidadEnReferencia.MatchString(valor) &&
+		(ReferenciaPropiaSistema(valor) || !patronDocumentoIdentidadEnReferencia.MatchString(valor)) &&
 		!patronEtiquetaDocumentoIdentidad.MatchString(valor)
 }
 

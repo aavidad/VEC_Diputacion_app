@@ -120,3 +120,11 @@ test("el contrato real rechaza una propuesta sintética y sus puntuaciones", () 
     ...confirmacionValida(), evaluaciones: [{ orden: "1", puntuacion: 99 }],
   }, ETAG), /contrato cerrado/);
 });
+
+test("las referencias con huella del sistema no se confunden con un DNI", () => {
+  // Huella del recorrido: «31969244d» casa por azar con el patrón de DNI.
+  const huella = "llamamiento:823ae25fabcdefabcdefabcdefabcdefabcdefabcdefabcda31969244d148227";
+  assert.equal(validarReferenciaOpacaLlamamiento(huella), huella);
+  assert.throws(() => validarReferenciaOpacaLlamamiento("llamamiento:12345678Z"));
+  assert.throws(() => validarReferenciaOpacaLlamamiento("llamamiento:x:12345678Z:" + "a".repeat(64)));
+});

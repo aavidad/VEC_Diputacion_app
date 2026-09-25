@@ -10,10 +10,15 @@ const HEX_SHA256 = /^[a-f0-9]{64}$/;
 // del dominio: evita enviar referencias que la API rechaza con HTTP 400.
 const DOCUMENTO_IDENTIDAD = /((?:[0-9][._:/#-]?){8}|[XYZ][._:/#-]?(?:[0-9][._:/#-]?){7})[A-Z]/i;
 const ETIQUETA_DOCUMENTO_IDENTIDAD = /(^|[._:/#-])(dni|nie|nif|pasaporte|passport)([._:/#-]|$)/i;
+// Espejo de ReferenciaPropiaSistema del dominio de Bolsa: las referencias que
+// emite el sistema (espacio de nombres alfabético y huella SHA-256 en
+// hexadecimal) no pueden llevar un documento escrito por una persona, pero sus
+// cifras casan por azar con los patrones de DNI o teléfono.
+const REFERENCIA_PROPIA_SISTEMA = /^[a-z_]+(?::[a-z_]+)*:[0-9a-f]{64}$/;
 const MENSAJE_REFERENCIA_IDENTIDAD = "La referencia no puede contener un DNI o NIE; use el número de registro o de expediente";
 
 export function referenciaContieneDocumentoIdentidad(referencia) {
-  return typeof referencia === "string" && (DOCUMENTO_IDENTIDAD.test(referencia) || ETIQUETA_DOCUMENTO_IDENTIDAD.test(referencia));
+  return typeof referencia === "string" && ((!REFERENCIA_PROPIA_SISTEMA.test(referencia) && DOCUMENTO_IDENTIDAD.test(referencia)) || ETIQUETA_DOCUMENTO_IDENTIDAD.test(referencia));
 }
 
 function segmento(valor) {

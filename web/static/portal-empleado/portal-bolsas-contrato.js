@@ -104,6 +104,11 @@ const CAMPOS_CONTACTO = Object.freeze([
 const PATRON_ENMASCARADO = /^\*{3}\d{4}\*{2}$/;
 const PATRON_DNI = /\b\d{8}[A-Za-z]\b/;
 const PATRON_NIE = /\b[XYZxyz]\d{7}[A-Za-z]\b/;
+// Espejo de ReferenciaPropiaSistema del dominio de Bolsa: las referencias que
+// emite el sistema (espacio de nombres alfabético y huella SHA-256 en
+// hexadecimal) no pueden llevar un documento escrito por una persona, pero sus
+// cifras casan por azar con los patrones de DNI o teléfono.
+const REFERENCIA_PROPIA_SISTEMA = /^[a-z_]+(?::[a-z_]+)*:[0-9a-f]{64}$/;
 const PATRON_EMAIL = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
 const PATRON_TELEFONO = /(?:\+?34[\s.-]?)?[6789]\d{2}[\s.-]?\d{3}[\s.-]?\d{3}\b/;
 
@@ -120,7 +125,7 @@ function exigirCamposExactos(objeto, campos, nombre) {
 }
 
 function contieneDatosPersonalesSensibles(cadena) {
-  if (typeof cadena !== "string") return false;
+  if (typeof cadena !== "string" || REFERENCIA_PROPIA_SISTEMA.test(cadena)) return false;
   return PATRON_DNI.test(cadena)
     || PATRON_NIE.test(cadena)
     || PATRON_EMAIL.test(cadena)

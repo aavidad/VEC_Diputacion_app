@@ -37,13 +37,19 @@ function exigirCadena(valor, nombre, maximo = 512) {
   return valor;
 }
 
+// Espejo de ReferenciaPropiaSistema del dominio de Bolsa: las referencias que
+// emite el sistema (espacio de nombres alfabético y huella SHA-256 en
+// hexadecimal) no pueden llevar un documento escrito por una persona, pero sus
+// cifras casan por azar con los patrones de DNI o teléfono.
+const REFERENCIA_PROPIA_SISTEMA = /^[a-z_]+(?::[a-z_]+)*:[0-9a-f]{64}$/;
+
 export function validarReferenciaOpacaLlamamiento(valor, nombre = "referencia") {
   const referencia = exigirCadena(valor, nombre);
   const contieneControlOBidi = /[\u0000-\u001f\u007f-\u009f\u061c\u200e\u200f\u2028-\u202e\u2066-\u2069\ufffd]/u;
   const pareceDocumento = /(?:[0-9][._:/#-]?){8}[a-z]|[xyz][._:/#-]?(?:[0-9][._:/#-]?){7}[a-z]/iu;
   const etiquetaPersonal = /(?:^|[._:/#-])(?:dni|nie|nif|pasaporte|passport)(?:[._:/#-]|$)/iu;
   if (referencia.includes("*") || contieneControlOBidi.test(referencia)
-    || pareceDocumento.test(referencia) || etiquetaPersonal.test(referencia)) {
+    || (!REFERENCIA_PROPIA_SISTEMA.test(referencia) && pareceDocumento.test(referencia)) || etiquetaPersonal.test(referencia)) {
     throw new Error(`${nombre} no válida`);
   }
   return referencia;

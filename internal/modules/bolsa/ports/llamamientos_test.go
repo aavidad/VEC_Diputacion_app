@@ -76,3 +76,13 @@ func TestSolicitudEvaluacionDeniegaValorCeroYTiempoNoCanonico(t *testing.T) {
 		t.Fatalf("entrada parcial no denegada: %v", err)
 	}
 }
+
+func TestReferenciaOpacaLlamamientoValidaAceptaHuellaDelSistema(t *testing.T) {
+	huella := "llamamiento:823ae25fabcdefabcdefabcdefabcdefabcdefabcdefabcda31969244d148227"
+	if !ReferenciaOpacaLlamamientoValida(huella) {
+		t.Fatalf("huella del sistema rechazada por parecer un DNI")
+	}
+	if ReferenciaOpacaLlamamientoValida("llamamiento:12345678Z") {
+		t.Fatalf("referencia con DNI aceptada")
+	}
+}
