@@ -2,7 +2,7 @@
 -- D6: corregir y reenviar un documento devuelto.
 -- 000006 ya admite editar y enviar desde «devuelta» con recibo, idempotencia,
 -- versión esperada e historia de solo adición; el reenvío vuelve siempre a
--- la revisión del administrativo (pregunta 49 de dudas.md). Esta migración:
+-- la revisión del administrativo (pregunta 51 de dudas.md). Esta migración:
 -- 1) proyecta a la persona titular la devolución vigente (etapa, motivo,
 --    versión y fecha) mientras el documento está devuelto o en corrección;
 --    se toma de la historia, sin copiarla ni reescribirla;

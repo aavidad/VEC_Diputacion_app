@@ -101,7 +101,7 @@ La ficha lo muestra y ofrece «Corregir» y «Reenviar a revisión del
 administrativo»; no ofrece eliminarlo, y PostgreSQL también lo impide. La
 corrección y el reenvío usan las mismas rutas PUT y `POST …/enviar`, con
 clave de idempotencia y versión esperada. A qué paso debe volver está
-pendiente de RRHH (pregunta 49 de `dudas.md`).
+pendiente de RRHH (pregunta 51 de `dudas.md`).
 
 Quien revisa un reenvío recibe en el documento del circuito la devolución
 anterior (`devolucion`: etapa, motivo, versión y fecha, nunca quién la hizo)
