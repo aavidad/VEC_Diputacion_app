@@ -24,6 +24,11 @@ type DependenciasManejadoresCronos struct {
 	ResolverCorreccion         httpinterno.ResolverSolicitudCorreccionPropia
 	Permisos                   ports.CasoUsoPermisosPropios
 	ResolverPermisos           httpinterno.ResolverPermisosPropios
+	// Resolución de permisos y avisos: opcionales, pero todos o ninguno.
+	Resolucion         ports.CasoUsoResolucionPermisos
+	ResolverResolucion httpinterno.ResolverResolucionPermisos
+	Avisos             ports.CasoUsoAvisosPropios
+	ResolverAvisos     httpinterno.ResolverAvisosPropios
 }
 
 type ManejadoresCronos struct {
@@ -33,6 +38,8 @@ type ManejadoresCronos struct {
 	Movimientos        *httpinterno.ManejadorMovimientosPropios
 	CorreccionPropia   *httpinterno.ManejadorCorreccionPropia
 	PermisosPropios    *httpinterno.ManejadorPermisosPropios
+	Resolucion         *httpinterno.ManejadorResolucionPermisos
+	Avisos             *httpinterno.ManejadorAvisosPropios
 }
 
 // PrepararManejadoresCronos no registra rutas: las monta la frontera de
@@ -63,6 +70,26 @@ func PrepararManejadoresCronos(d DependenciasManejadoresCronos) (ManejadoresCron
 	if err != nil {
 		return ManejadoresCronos{}, ErrManejadoresCronosNoDisponibles
 	}
-	return ManejadoresCronos{SaldoPropio: saldo, MarcajeRemoto: remoto, RecuperacionRemota: recuperacion,
-		Movimientos: movimientos, CorreccionPropia: correccion, PermisosPropios: permisos}, nil
+	m := ManejadoresCronos{SaldoPropio: saldo, MarcajeRemoto: remoto, RecuperacionRemota: recuperacion,
+		Movimientos: movimientos, CorreccionPropia: correccion, PermisosPropios: permisos}
+	nulos := 0
+	for _, v := range []any{d.Resolucion, d.ResolverResolucion, d.Avisos, d.ResolverAvisos} {
+		if dependenciaDietasNula(v) {
+			nulos++
+		}
+	}
+	switch nulos {
+	case 4:
+		return m, nil
+	case 0:
+	default:
+		return ManejadoresCronos{}, ErrManejadoresCronosNoDisponibles
+	}
+	if m.Resolucion, err = httpinterno.NuevoManejadorResolucionPermisos(d.Resolucion, d.ResolverResolucion); err != nil {
+		return ManejadoresCronos{}, ErrManejadoresCronosNoDisponibles
+	}
+	if m.Avisos, err = httpinterno.NuevoManejadorAvisosPropios(d.Avisos, d.ResolverAvisos); err != nil {
+		return ManejadoresCronos{}, ErrManejadoresCronosNoDisponibles
+	}
+	return m, nil
 }

@@ -66,6 +66,11 @@ type configuracionCronosEmpleadoDesarrollo struct {
 		Correccion     core.ReferenciaEntradaCatalogo `json:"correccion"`
 		Permisos       core.ReferenciaEntradaCatalogo `json:"permisos"`
 		Permiso        core.ReferenciaEntradaCatalogo `json:"permiso"`
+		// Resolución de permisos y avisos: sólo con su selector activo.
+		Bandeja      core.ReferenciaEntradaCatalogo `json:"bandeja"`
+		Resolucion   core.ReferenciaEntradaCatalogo `json:"resolucion"`
+		Avisos       core.ReferenciaEntradaCatalogo `json:"avisos"`
+		ArchivoAviso core.ReferenciaEntradaCatalogo `json:"archivo_aviso"`
 	} `json:"motivos"`
 	CanalRemoto struct {
 		PoliticaVersionRef string `json:"politica_version_ref"`
@@ -75,8 +80,9 @@ type configuracionCronosEmpleadoDesarrollo struct {
 }
 
 // autoridadCronosEmpleadoDesarrollo es la frontera de /api/interna/cronos/.
-// Sólo publica las ocho rutas exactas cuando todas las dependencias están
-// compuestas; toda otra ruta bajo el prefijo se deniega.
+// Sólo publica las rutas exactas (ocho, más cuatro con la resolución de
+// permisos) cuando todas sus dependencias están compuestas; toda otra ruta
+// bajo el prefijo se deniega.
 type autoridadCronosEmpleadoDesarrollo struct {
 	base        *autoridadRutasDietasDesarrollo
 	reloj       vecports.Reloj
@@ -240,8 +246,17 @@ func servicioContextoActorCronos(resolutor vecports.ResolutorRegistroContextoAct
 // preflightCronosEmpleado comprueba con cada LOGIN nominal que las funciones
 // de 000007 y 000008 existen (exigen AD3-53 y AD3-70) y que cada uno sólo tiene
 // las que le corresponden. Una función ausente hace fallar la consulta.
-func preflightCronosEmpleado(ctx context.Context, ejecutor, auditor *pgxpool.Pool) error {
+func preflightCronosEmpleado(ctx context.Context, ejecutor, auditor *pgxpool.Pool, resolucion bool) error {
 	var ok bool
+	// Con la resolución activa se exigen también las cuatro funciones de
+	// 000009 (AD3-57); sin ella no se consultan.
+	if resolucion && (ejecutor.QueryRow(ctx, `SELECT bool_and(has_function_privilege(f,'EXECUTE')) FROM unnest(ARRAY[
+  'vec_cronos_v1.consultar_bandeja_permisos_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
+  'vec_cronos_v1.resolver_permiso_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
+  'vec_cronos_v1.consultar_avisos_propio_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
+  'vec_cronos_v1.archivar_aviso_propio_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)']) f`).Scan(&ok) != nil || !ok) {
+		return ErrComposicionCronosEmpleadoNoDisponible
+	}
 	if ejecutor.QueryRow(ctx, `SELECT bool_and(has_function_privilege(f,'EXECUTE')) FROM unnest(ARRAY[
   'vec_cronos_v1.consultar_saldo_propio_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
   'vec_cronos_v1.consultar_estado_remoto_propio_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
@@ -271,8 +286,12 @@ func nuevasRutasCronosEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp.D
 	if !activo {
 		return nil, nil
 	}
+	resolucion, err := cfg.CronosResolucionDesarrolloActiva()
+	if err != nil {
+		return nil, err
+	}
 	identidad, ok := resolvedor.(*resolvedorIdentidadDesarrollo)
-	if !ok || identidad == nil || derivador == nil || !derivador.valido() || !material.completo() {
+	if !ok || identidad == nil || derivador == nil || !derivador.valido() || !material.completo() || (resolucion && !material.completoResolucion()) {
 		return nil, errCronosEmpleadoEn()
 	}
 	contenido, err := leerFicheroMaterialSeguro(filepath.Join(cfg.DevelopmentMaterialDir, "identidad", "cronos-empleado.json"), 256<<10)
@@ -290,7 +309,14 @@ func nuevasRutasCronosEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp.D
 	}
 	motivos := cronoscomp.MotivosCronos{Saldo: c.Motivos.Saldo, Marcaje: c.Motivos.Marcaje, Disponibilidad: c.Motivos.Disponibilidad, Recuperacion: c.Motivos.Recuperacion,
 		Movimientos: c.Motivos.Movimientos, Correccion: c.Motivos.Correccion, Permisos: c.Motivos.Permisos, Permiso: c.Motivos.Permiso}
-	for _, m := range []core.ReferenciaEntradaCatalogo{motivos.Marcaje, motivos.Disponibilidad, motivos.Recuperacion, motivos.Movimientos, motivos.Correccion, motivos.Permisos, motivos.Permiso} {
+	comunes := []core.ReferenciaEntradaCatalogo{motivos.Marcaje, motivos.Disponibilidad, motivos.Recuperacion, motivos.Movimientos, motivos.Correccion, motivos.Permisos, motivos.Permiso}
+	// La resolución exige sus cuatro motivos con su selector; sin él se
+	// ignoran para no emitir decisiones de una capacidad no compuesta.
+	if resolucion {
+		motivos.Bandeja, motivos.Resolucion, motivos.Avisos, motivos.ArchivoAviso = c.Motivos.Bandeja, c.Motivos.Resolucion, c.Motivos.Avisos, c.Motivos.ArchivoAviso
+		comunes = append(comunes, motivos.Bandeja, motivos.Resolucion, motivos.Avisos, motivos.ArchivoAviso)
+	}
+	for _, m := range comunes {
 		if m.CatalogoID != motivos.Saldo.CatalogoID {
 			return nil, errCronosEmpleadoEn()
 		}
@@ -352,7 +378,7 @@ func nuevasRutasCronosEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp.D
 		}
 		usuarios[usuario] = true
 	}
-	if preflightCronosEmpleado(ctx, pools[6], pools[7]) != nil {
+	if preflightCronosEmpleado(ctx, pools[6], pools[7], resolucion) != nil {
 		return nil, errCronosEmpleadoEn()
 	}
 	registro, err := identidadpg.NuevoRegistroSesionesPostgreSQL(ctx, pools[0], pools[1], &seudonimizadorSesionDesarrollo{derivador: derivador}, espacioIdentidadSesionDesarrollo, dominioIdentidadSesionDesarrollo)
@@ -393,7 +419,7 @@ func nuevasRutasCronosEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp.D
 		return nil, errCronosEmpleadoEn()
 	}
 	emisor := emisorCronosEmpleadoDesarrollo{porAccion: map[string]emisorMaterialDietasDesarrollo{}}
-	for accion, proveedor := range map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo{
+	proveedoresPorAccion := map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo{
 		cronosapp.AccionRegistrarMarcajePropio:        material.marcaje,
 		cronosapp.AccionConsultarDisponibilidadRemota: material.disponibilidad,
 		cronosapp.AccionRecuperarMarcajeRemoto:        material.recibo,
@@ -402,7 +428,14 @@ func nuevasRutasCronosEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp.D
 		cronosapp.AccionSolicitarCorreccion:           material.correccion,
 		cronosapp.AccionConsultarPermisosPropios:      material.permisos,
 		cronosapp.AccionSolicitarPermisoPropio:        material.solicitudPermiso,
-	} {
+	}
+	if resolucion {
+		proveedoresPorAccion[cronosapp.AccionConsultarBandeja] = material.bandeja
+		proveedoresPorAccion[cronosapp.AccionResolverPermiso] = material.resolucion
+		proveedoresPorAccion[cronosapp.AccionConsultarAvisosPropios] = material.avisos
+		proveedoresPorAccion[cronosapp.AccionArchivarAvisoPropio] = material.archivoAviso
+	}
+	for accion, proveedor := range proveedoresPorAccion {
 		e, err := nuevoEmisorMaterialRenovableCTDesarrollo(autorizador, proveedor)
 		if err != nil {
 			return nil, errCronosEmpleadoEn()
@@ -410,7 +443,7 @@ func nuevasRutasCronosEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp.D
 		emisor.porAccion[accion] = e
 	}
 	autorizadorCronos, err := cronoscomp.NuevoAutorizadorCronos(emisor, motivos)
-	if err != nil {
+	if err != nil || autorizadorCronos.ResolucionConfigurada() != resolucion {
 		return nil, errCronosEmpleadoEn()
 	}
 	nonce, err := nonceRutasDietas()
@@ -444,7 +477,8 @@ type dependenciasCronosEmpleado struct {
 }
 
 // componerManejadoresCronosEmpleado une repositorios, casos de uso y
-// manejadores. Devuelve las ocho rutas exactas o ninguna.
+// manejadores. Devuelve las ocho rutas exactas, más las cuatro de la
+// resolución de permisos si el autorizador la tiene configurada, o ninguna.
 func componerManejadoresCronosEmpleado(d dependenciasCronosEmpleado) (map[string]http.Handler, error) {
 	if d.ejecutor == nil || d.auditor == nil || dependenciaDietasNula(d.identidad) || d.autorizador == nil || d.zona == nil {
 		return nil, errCronosEmpleadoEn()
@@ -502,17 +536,36 @@ func componerManejadoresCronosEmpleado(d dependenciasCronosEmpleado) (map[string
 	if err != nil {
 		return nil, errCronosEmpleadoEn()
 	}
-	m, err := PrepararManejadoresCronos(DependenciasManejadoresCronos{
+	deps := DependenciasManejadoresCronos{
 		ConsultaSaldo: consultaSaldo, ResolverSaldo: resolutor,
 		MarcajesRemotos: marcajes, ResolverMarcajeRemoto: resolutor, ResolverRecuperacionRemota: resolutor,
 		Movimientos: movimientos, ResolverMovimientos: resolutor,
 		Correcciones: correcciones, ResolverCorreccion: resolutor,
 		Permisos: permisos, ResolverPermisos: resolutor,
-	})
-	if err != nil {
+	}
+	resolucion := d.autorizador.ResolucionConfigurada()
+	if resolucion {
+		resolucionRepo, err := cronospg.NuevoRepositorioResolucionPermisos(d.ejecutor)
+		if err != nil {
+			return nil, errCronosEmpleadoEn()
+		}
+		avisosRepo, err := cronospg.NuevoRepositorioAvisosPropios(d.ejecutor)
+		if err != nil {
+			return nil, errCronosEmpleadoEn()
+		}
+		if deps.Resolucion, err = cronosapp.NuevoServicioResolucionPermisos(resolucionRepo, reloj, d.zona); err != nil {
+			return nil, errCronosEmpleadoEn()
+		}
+		if deps.Avisos, err = cronosapp.NuevoServicioAvisosPropios(avisosRepo, reloj, d.zona); err != nil {
+			return nil, errCronosEmpleadoEn()
+		}
+		deps.ResolverResolucion, deps.ResolverAvisos = resolutor, resolutor
+	}
+	m, err := PrepararManejadoresCronos(deps)
+	if err != nil || (m.Resolucion != nil) != resolucion || (m.Avisos != nil) != resolucion {
 		return nil, errCronosEmpleadoEn()
 	}
-	return map[string]http.Handler{
+	rutas := map[string]http.Handler{
 		cronoshttp.RutaConsultarSaldoPropio:         m.SaldoPropio,
 		cronoshttp.RutaRegistrarMarcajeRemoto:       m.MarcajeRemoto,
 		cronoshttp.RutaDisponibilidadMarcajeRemoto:  m.MarcajeRemoto,
@@ -521,7 +574,14 @@ func componerManejadoresCronosEmpleado(d dependenciasCronosEmpleado) (map[string
 		cronoshttp.RutaSolicitarCorreccionPropia:    m.CorreccionPropia,
 		cronoshttp.RutaConsultarPermisosPropios:     m.PermisosPropios,
 		cronoshttp.RutaSolicitarPermisoPropio:       m.PermisosPropios,
-	}, nil
+	}
+	if resolucion {
+		rutas[cronoshttp.RutaBandejaPermisos] = m.Resolucion
+		rutas[cronoshttp.RutaResolverPermiso] = m.Resolucion
+		rutas[cronoshttp.RutaAvisosPropios] = m.Avisos
+		rutas[cronoshttp.RutaArchivarAviso] = m.Avisos
+	}
+	return rutas, nil
 }
 
 // componerRaizConCronosEmpleado monta el prefijo interno de Cronos delante de

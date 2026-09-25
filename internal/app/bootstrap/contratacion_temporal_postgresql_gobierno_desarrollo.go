@@ -296,7 +296,11 @@ func audienciaConsumoGobiernoPostgreSQLContratacionTemporalDesarrolloEsPropia(
 		cronosapp.AudienciaConsultaMovimientosPropios,
 		cronosapp.AudienciaSolicitudCorreccionPropia,
 		cronosapp.AudienciaConsultaPermisosPropios,
-		cronosapp.AudienciaSolicitudPermisoPropio:
+		cronosapp.AudienciaSolicitudPermisoPropio,
+		cronosapp.AudienciaBandejaPermisos,
+		cronosapp.AudienciaResolucionPermiso,
+		cronosapp.AudienciaConsultaAvisosPropios,
+		cronosapp.AudienciaArchivoAvisoPropio:
 		return true
 	default:
 		return false

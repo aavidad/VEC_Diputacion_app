@@ -139,6 +139,23 @@ func TestAudienciasDietasPublicablesPorElGobiernoCT(t *testing.T) {
 	}
 }
 
+func TestAudienciasResolucionCronosPublicablesPorElGobiernoCT(t *testing.T) {
+	descriptores := descriptoresMaterialCronosResolucionDesarrollo()
+	audiencias := audienciasCronosResolucionDesarrollo()
+	if len(descriptores) != len(audiencias) {
+		t.Fatal("descriptores y audiencias de la resolución divergen")
+	}
+	for i, d := range descriptores {
+		if d.Audiencia != audiencias[i] || !audienciaConsumoGobiernoPostgreSQLContratacionTemporalDesarrolloEsPropia(d.Audiencia) {
+			t.Fatalf("audiencia de la resolución no publicable por CT: %s", d.Audiencia)
+		}
+	}
+	todos := append(append(descriptoresMaterialDietasDesarrollo(), descriptoresMaterialCronosDesarrollo()...), descriptores...)
+	if _, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(todos); err != nil {
+		t.Fatal("la resolución colisiona en el catálogo común", err)
+	}
+}
+
 func TestAudienciasCronosPublicablesPorElGobiernoCT(t *testing.T) {
 	descriptores := descriptoresMaterialCronosDesarrollo()
 	audiencias := audienciasCronosEmpleadoDesarrollo()
