@@ -89,7 +89,7 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       import("./modulos/contratacion-temporal/contrato.js"),
       import("./modulos/contratacion-temporal/cliente-http.js"),
       import("./modulos/contratacion-temporal/presentador-expedientes.js"),
-      import("./modulos/contratacion-temporal/vista-expedientes.js?v=20260924-web-subsanacion-v1"),
+      import("./modulos/contratacion-temporal/vista-expedientes.js?v=20260925-ct-plantillas-v1"),
       import("./modulos/contratacion-temporal/adaptador-http-expedientes.js"),
     ]);
     return Object.freeze({ contrato, cliente, presentador, vista, adaptador });

@@ -33,6 +33,15 @@ const (
 	AcceptTomaPosesionDOCXRRHH           = MIMEDOCXBorradorRRHH + "; documento=toma-posesion-desarrollo"
 	AcceptNotificacionDOCXRRHH           = MIMEDOCXBorradorRRHH + "; documento=notificacion-desarrollo"
 	AcceptComunicacionCentroDOCXRRHH     = MIMEDOCXBorradorRRHH + "; documento=comunicacion-centro-desarrollo"
+	// Documentos cuyo texto aporta sólo el catálogo de plantillas de ejemplo.
+	AcceptContratoLaboralRRHH              = "application/pdf; documento=contrato-laboral-desarrollo"
+	AcceptNombramientoRRHH                 = "application/pdf; documento=nombramiento-desarrollo"
+	AcceptCeseRRHH                         = "application/pdf; documento=cese-desarrollo"
+	AcceptModificacionNombramientoRRHH     = "application/pdf; documento=modificacion-nombramiento-desarrollo"
+	AcceptContratoLaboralDOCXRRHH          = MIMEDOCXBorradorRRHH + "; documento=contrato-laboral-desarrollo"
+	AcceptNombramientoDOCXRRHH             = MIMEDOCXBorradorRRHH + "; documento=nombramiento-desarrollo"
+	AcceptCeseDOCXRRHH                     = MIMEDOCXBorradorRRHH + "; documento=cese-desarrollo"
+	AcceptModificacionNombramientoDOCXRRHH = MIMEDOCXBorradorRRHH + "; documento=modificacion-nombramiento-desarrollo"
 
 	// Los esquemas identifican el contrato HTTP v1 neutral. Su OpenAPI y los
 	// catálogos i18n de cliente se publicarán en tareas posteriores; no habilitan
@@ -143,6 +152,22 @@ func borradorRRHHSolicitado(cabeceras http.Header) (representacionBorradorRRHH, 
 			return representacionBorradorRRHH{tipo: ports.BorradorNotificacion, nombreArchivo: "notificacion-borrador.docx", tipoContenido: MIMEDOCXBorradorRRHH}, true
 		case AcceptComunicacionCentroDOCXRRHH:
 			return representacionBorradorRRHH{tipo: ports.BorradorComunicacionCentro, nombreArchivo: "comunicacion-centro-borrador.docx", tipoContenido: MIMEDOCXBorradorRRHH}, true
+		case AcceptContratoLaboralRRHH:
+			return representacionBorradorRRHH{tipo: ports.BorradorContratoLaboral, nombreArchivo: "contrato-laboral-borrador.pdf", tipoContenido: "application/pdf"}, true
+		case AcceptNombramientoRRHH:
+			return representacionBorradorRRHH{tipo: ports.BorradorNombramiento, nombreArchivo: "nombramiento-borrador.pdf", tipoContenido: "application/pdf"}, true
+		case AcceptCeseRRHH:
+			return representacionBorradorRRHH{tipo: ports.BorradorCese, nombreArchivo: "cese-borrador.pdf", tipoContenido: "application/pdf"}, true
+		case AcceptModificacionNombramientoRRHH:
+			return representacionBorradorRRHH{tipo: ports.BorradorModificacionNombramiento, nombreArchivo: "modificacion-nombramiento-borrador.pdf", tipoContenido: "application/pdf"}, true
+		case AcceptContratoLaboralDOCXRRHH:
+			return representacionBorradorRRHH{tipo: ports.BorradorContratoLaboral, nombreArchivo: "contrato-laboral-borrador.docx", tipoContenido: MIMEDOCXBorradorRRHH}, true
+		case AcceptNombramientoDOCXRRHH:
+			return representacionBorradorRRHH{tipo: ports.BorradorNombramiento, nombreArchivo: "nombramiento-borrador.docx", tipoContenido: MIMEDOCXBorradorRRHH}, true
+		case AcceptCeseDOCXRRHH:
+			return representacionBorradorRRHH{tipo: ports.BorradorCese, nombreArchivo: "cese-borrador.docx", tipoContenido: MIMEDOCXBorradorRRHH}, true
+		case AcceptModificacionNombramientoDOCXRRHH:
+			return representacionBorradorRRHH{tipo: ports.BorradorModificacionNombramiento, nombreArchivo: "modificacion-nombramiento-borrador.docx", tipoContenido: MIMEDOCXBorradorRRHH}, true
 		}
 	}
 	return representacionBorradorRRHH{}, false

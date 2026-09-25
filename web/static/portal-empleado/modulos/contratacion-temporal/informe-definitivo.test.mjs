@@ -6,7 +6,7 @@ import { crearClienteHTTPContratacionTemporal, RUTAS_HTTP_CONTRATACION_TEMPORAL 
 import { crearAdaptadorHTTPExpedientesContratacionTemporal } from "./adaptador-http-expedientes.js";
 import { crearPresentadorExpedientesContratacionTemporal } from "./presentador-expedientes.js";
 import { validarExpedienteContratacionTemporal } from "./contrato-expedientes.js";
-import { crearClienteHTTPBorradorRRHH } from "./cliente-http-informe-definitivo.js";
+import { crearClienteHTTPBorradorRRHH, tipoBorradorDeAccion } from "./cliente-http-informe-definitivo.js";
 
 function estadoReal() {
   const expediente = {
@@ -32,6 +32,10 @@ const perfiles = [
   { tipo: "toma_posesion", accion: "descargar-toma-posesion", nombre: "toma-posesion-borrador.pdf" },
   { tipo: "notificacion", accion: "descargar-notificacion", nombre: "notificacion-borrador.pdf" },
   { tipo: "comunicacion_centro", accion: "descargar-comunicacion-centro", nombre: "comunicacion-centro-borrador.pdf" },
+  { tipo: "contrato_laboral", accion: "descargar-contrato-laboral", nombre: "contrato-laboral-borrador.pdf" },
+  { tipo: "nombramiento", accion: "descargar-nombramiento", nombre: "nombramiento-borrador.pdf" },
+  { tipo: "cese", accion: "descargar-cese", nombre: "cese-borrador.pdf" },
+  { tipo: "modificacion_nombramiento", accion: "descargar-modificacion-nombramiento", nombre: "modificacion-nombramiento-borrador.pdf" },
 ];
 
 async function montar(descargar, perfil = perfiles[0], estado = estadoReal()) {
@@ -133,12 +137,14 @@ test("la pestaña documental agrupa los seis borradores y solo activa la consult
   };
   const html = renderizarModuloContratacionTemporal(estado);
   assert.match(html, /Documentos preparatorios disponibles/u);
-  assert.match(html, /Seis piezas preparatorias agrupadas por formalización/u);
+  assert.match(html, /Piezas preparatorias agrupadas por formalización/u);
   assert.match(html, /data-ct-exp-accion="cancelar-descarga" disabled/u);
   assert.match(html, /data-ct-exp-resultado-descarga="informe-definitivo"[^>]*>Aún no se ha solicitado esta descarga/u);
   assert.match(html, /data-ct-exp-accion="reintentar-descarga-informe-definitivo" disabled hidden/u);
   for (const { accion } of perfiles) assert.match(html, new RegExp(`data-ct-exp-accion="${accion}"`, "u"));
   assert.match(html, /data-ct-exp-accion="descargar-docx-comunicacion-centro"/u);
+  assert.match(html, /data-ct-exp-accion="descargar-docx-modificacion-nombramiento"/u);
+  assert.match(html, /Descargar contrato laboral · modelo de ejemplo/u);
   estado.documentos.version = 8;
   assert.equal(solicitudInformeDefinitivoDesdeEstado(estado), null);
   assert.doesNotMatch(renderizarModuloContratacionTemporal(estado), /cancelar-descarga/u);
@@ -506,5 +512,16 @@ test("historial con secuencias duplicadas muestra error sin habilitar documentos
     const estado = await estadoResolucionDesdeHTTP(alterar, "error");
     assert.equal(estado.expediente, null);
     assert.equal(solicitudInformeDefinitivoDesdeEstado(estado), null);
+  }
+});
+
+test("las acciones del detalle se traducen al tipo de documento de forma cerrada", () => {
+  for (const { tipo, accion } of perfiles) {
+    assert.equal(tipoBorradorDeAccion(accion), tipo);
+    assert.equal(tipoBorradorDeAccion(accion.replace("descargar-", "descargar-docx-")), tipo);
+    assert.equal(tipoBorradorDeAccion(accion.replace("descargar-", "reintentar-descarga-")), tipo);
+  }
+  for (const ajena of ["descargar-contrato-de-alquiler", "descargar-", "cancelar-descarga", "descargar-__proto__", undefined]) {
+    assert.equal(tipoBorradorDeAccion(ajena), null);
   }
 });
