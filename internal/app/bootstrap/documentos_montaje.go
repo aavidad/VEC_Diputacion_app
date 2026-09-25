@@ -78,9 +78,9 @@ type configuracionDocumentosDesarrollo struct {
 // predeterminado es "ficheros" (no depende de otra aplicación); "s3" queda
 // como alternativa y sólo se usa si el material privado lo pide.
 type almacenDocumentosDesarrollo struct {
-	Tipo                string            `json:"tipo"`
-	Directorio          string            `json:"directorio"`
-	TamanoMaximo        int64             `json:"tamano_maximo"`
+	Tipo         string `json:"tipo"`
+	Directorio   string `json:"directorio"`
+	TamanoMaximo int64  `json:"tamano_maximo"`
 	// RetencionMinimaDias es obligatoria para "ficheros": nil (clave ausente)
 	// impide arrancar; 0 solo vale declarado y con catálogo provisional.
 	RetencionMinimaDias *int64            `json:"retencion_minima_dias"`
