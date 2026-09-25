@@ -68,18 +68,17 @@ $funcion$;
 
 -- Antecedente durable: la fila confirmada de CT116 que produjo exactamente
 -- la versión vigente. Se lee con la política de lectura de CT116, ligada al
--- expediente por la configuración de la transacción.
+-- expediente por la configuración, que se restaura al salir (como CT115).
 CREATE FUNCTION vec_contratacion_temporal.antecedente_fiscalizacion_modificacion_ct120(p_expediente jsonb)
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path=pg_catalog SET row_security='on' SET timezone='UTC'
 AS $funcion$
-DECLARE v_recibo text;
+DECLARE v_recibo text; v_previo text[] := ARRAY[pg_catalog.current_setting('vec.ct115.organizacion_ref',true),pg_catalog.current_setting('vec.ct115.expediente_ref',true)];
 BEGIN
     IF NOT vec_contratacion_temporal.es_antecedente_fiscalizacion_modificacion_ct120(p_expediente) THEN
         RAISE EXCEPTION 'origen de fiscalización de la modificación incompatible' USING ERRCODE='40001';
     END IF;
-    PERFORM pg_catalog.set_config('vec.ct115.organizacion_ref',p_expediente->>'organizacion_ref',true);
-    PERFORM pg_catalog.set_config('vec.ct115.expediente_ref',p_expediente->>'referencia',true);
+    PERFORM pg_catalog.set_config('vec.ct115.organizacion_ref',p_expediente->>'organizacion_ref',true),pg_catalog.set_config('vec.ct115.expediente_ref',p_expediente->>'referencia',true);
     SELECT m.recibo_ref INTO v_recibo
       FROM vec_contratacion_temporal.modificacion_nombramiento_v1 m
      WHERE m.organizacion_ref=p_expediente->>'organizacion_ref'
@@ -88,7 +87,8 @@ BEGIN
        AND m.version_esperada+1=(p_expediente->>'version')::numeric
        AND m.expediente_siguiente_json=p_expediente
        AND m.recibo_ref=(p_expediente->'actuaciones')->-1->>'recibo_ref';
-    IF NOT FOUND THEN
+    PERFORM pg_catalog.set_config('vec.ct115.organizacion_ref',COALESCE(v_previo[1],''),true),pg_catalog.set_config('vec.ct115.expediente_ref',COALESCE(v_previo[2],''),true);
+    IF v_recibo IS NULL THEN
         RAISE EXCEPTION 'modificación durable ausente' USING ERRCODE='40001';
     END IF;
     RETURN pg_catalog.jsonb_build_object('modificacion_recibo_ref',v_recibo);

@@ -62,7 +62,7 @@ type firmaSQL118 struct {
 	PasoRef           string    `json:"PasoRef"`
 	PasoOrden         int       `json:"PasoOrden"`
 	Resultado         string    `json:"Resultado"`
-	MotivoDevolucion  *string   `json:"MotivoDevolucion"`
+	ConMotivo         bool      `json:"ConMotivoDevolucion"`
 	OriginalHuella    *string   `json:"OriginalHuella"`
 	FirmadoHuella     *string   `json:"FirmadoHuella"`
 	SelloTiempoEstado *string   `json:"SelloTiempoEstado"`
@@ -76,6 +76,28 @@ func textoFirma118(p *string) string {
 	return *p
 }
 
+// Restricciones únicas de CT118 por las que se distingue la carrera perdida
+// entre dos registros simultáneos (SERIALIZABLE no la impide con el cerrojo).
+const (
+	restriccionClaveFirma118     = "firma_documento_v1_clave_unica"
+	restriccionSecuenciaFirma118 = "firma_documento_v1_secuencia_unica"
+	intentosRegistroFirma118     = 3
+)
+
+// reintentableFirma118 indica que la transacción perdió una carrera y debe
+// repetirse entera: un fallo de serialización o un interbloqueo (40001,
+// 40P01) o la misma clave de idempotencia ya confirmada por otra
+// transacción (23505 de la clave), que el reintento recupera como recibo
+// existente o rechaza como clave reutilizada con otro material.
+func reintentableFirma118(err error) bool {
+	var p *pgconn.PgError
+	if !errors.As(err, &p) {
+		return false
+	}
+	return p.Code == "40001" || p.Code == "40P01" ||
+		(p.Code == "23505" && p.ConstraintName == restriccionClaveFirma118)
+}
+
 func errorFirma118(ctx context.Context, err error) error {
 	if ctx != nil && ctx.Err() != nil {
 		return ctx.Err()
@@ -85,8 +107,14 @@ func errorFirma118(ctx context.Context, err error) error {
 		switch p.Code {
 		case "P1181":
 			return ports.ErrClaveFirmaDocumentoUsada
-		case "P1182", "P1183", "40001":
+		case "P1182", "P1183":
 			return ports.ErrFirmaDocumentoEnConflicto
+		case "23505":
+			// Otra transacción ocupó la misma secuencia del documento: es el
+			// mismo conflicto de historia que P1183.
+			if p.ConstraintName == restriccionSecuenciaFirma118 {
+				return ports.ErrFirmaDocumentoEnConflicto
+			}
 		case "P1184":
 			return ports.ErrCadenaFirmaDocumentoRota
 		case "42501", "P1102":
@@ -95,6 +123,8 @@ func errorFirma118(ctx context.Context, err error) error {
 			return ports.ErrSolicitudFirmaDocumentoInvalida
 		}
 	}
+	// 40001/40P01 agotados, 23505 de la clave sin recuperar y cualquier otro
+	// fallo: indisponibilidad transitoria, nunca éxito ni conflicto.
 	return ports.ErrRegistroFirmaDocumentoNoDisponible
 }
 
@@ -110,7 +140,12 @@ func decodificarFirma118(b []byte, v any) error {
 	return nil
 }
 
-// RegistrarFirma consume la capacidad y escribe en una sola transacción.
+// RegistrarFirma consume la capacidad y escribe en una sola transacción. Si
+// la transacción pierde una carrera con otro registro simultáneo (fallo de
+// serialización, interbloqueo o la misma clave ya confirmada), se repite
+// entera con el mismo material: el consumo de la transacción perdida se
+// deshizo con ella, y el reintento recupera el recibo existente o informa
+// del conflicto.
 func (r *RegistroFirmasDocumentoPostgreSQL) RegistrarFirma(ctx context.Context, m ports.MaterialFirmaDocumento, c ports.CapacidadFirmaDocumento) (ports.ReciboFirmaDocumento, error) {
 	var cero ports.ReciboFirmaDocumento
 	if ctx == nil || r == nil || nuloRegistroTX(r.pool) {
@@ -131,9 +166,57 @@ func (r *RegistroFirmasDocumentoPostgreSQL) RegistrarFirma(ctx context.Context, 
 			}
 		}
 	}()
+	var recibo ports.ReciboFirmaDocumento
+	h, _ := m.HuellaSHA256()
+	// El recibo se valida antes de confirmar: uno incoherente no se guarda.
+	validar := func(w reciboFirmaSQL118) error {
+		recibo = ports.ReciboFirmaDocumento{FirmaRef: w.FirmaRef, ReciboRef: w.ReciboRef, Secuencia: w.Secuencia,
+			Resultado: domain.ResultadoFirmaDocumento(w.Resultado), ExpedienteVersion: w.ExpedienteVersion, ActorRef: w.ActorRef,
+			PerfilRef: w.PerfilRef, RegistradaEn: w.RegistradaEn.UTC(), SolicitudHuella: w.SolicitudHuella, YaRegistrada: w.YaRegistrada}
+		if !domain.ReferenciaOpacaValida(recibo.FirmaRef) || !domain.ReferenciaOpacaValida(recibo.ReciboRef) || recibo.SolicitudHuella != h ||
+			recibo.Resultado != m.Resultado || recibo.ActorRef == "" || recibo.PerfilRef == "" || recibo.RegistradaEn.IsZero() ||
+			(!recibo.YaRegistrada && (recibo.Secuencia != m.Secuencia || recibo.ExpedienteVersion != m.VersionExpediente)) {
+			return ports.ErrResultadoFirmaDocumentoInvalido
+		}
+		return nil
+	}
+	if err := r.registrarConReintentos(ctx, append([]any{string(canonico)}, parametros...), validar); err != nil {
+		return cero, err
+	}
+	return recibo, nil
+}
+
+// registrarConReintentos repite el intento completo mientras pierda una
+// carrera reintentable, hasta intentosRegistroFirma118 veces, y traduce el
+// error final al vocabulario del puerto.
+func (r *RegistroFirmasDocumentoPostgreSQL) registrarConReintentos(ctx context.Context, args []any, validar func(reciboFirmaSQL118) error) error {
+	var err error
+	for intento := 1; ; intento++ {
+		err = r.registrarUnaVez(ctx, args, validar)
+		if err == nil || !reintentableFirma118(err) || intento == intentosRegistroFirma118 || ctx.Err() != nil {
+			break
+		}
+	}
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, ports.ErrResultadoFirmaDocumentoInvalido):
+		return err
+	default:
+		return errorFirma118(ctx, err)
+	}
+}
+
+// registrarUnaVez ejecuta un intento completo: BEGIN SERIALIZABLE, CT118,
+// validación del recibo y COMMIT. Devuelve el error de PostgreSQL sin
+// traducir para que el llamador decida si repetir.
+func (r *RegistroFirmasDocumentoPostgreSQL) registrarUnaVez(ctx context.Context, args []any, validar func(reciboFirmaSQL118) error) error {
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable, AccessMode: pgx.ReadWrite})
-	if err != nil || nuloRegistroTX(tx) {
-		return cero, errorFirma118(ctx, err)
+	if err != nil {
+		return err
+	}
+	if nuloRegistroTX(tx) {
+		return ports.ErrRegistroFirmaDocumentoNoDisponible
 	}
 	confirmado := false
 	defer func() {
@@ -144,34 +227,27 @@ func (r *RegistroFirmasDocumentoPostgreSQL) RegistrarFirma(ctx context.Context, 
 		}
 	}()
 	if _, err = tx.Exec(ctx, ajustesRegistroIncorporacionTXV2); err != nil {
-		return cero, errorFirma118(ctx, err)
+		return err
 	}
 	var contenido []byte
-	args := append([]any{string(canonico)}, parametros...)
 	if err = tx.QueryRow(ctx, registrarFirmaSQL118, args...).Scan(&contenido); err != nil {
-		return cero, errorFirma118(ctx, err)
+		return err
 	}
 	var w reciboFirmaSQL118
 	if decodificarFirma118(contenido, &w) != nil {
-		return cero, ports.ErrResultadoFirmaDocumentoInvalido
+		return ports.ErrResultadoFirmaDocumentoInvalido
 	}
-	h, _ := m.HuellaSHA256()
-	recibo := ports.ReciboFirmaDocumento{FirmaRef: w.FirmaRef, ReciboRef: w.ReciboRef, Secuencia: w.Secuencia,
-		Resultado: domain.ResultadoFirmaDocumento(w.Resultado), ExpedienteVersion: w.ExpedienteVersion, ActorRef: w.ActorRef,
-		PerfilRef: w.PerfilRef, RegistradaEn: w.RegistradaEn.UTC(), SolicitudHuella: w.SolicitudHuella, YaRegistrada: w.YaRegistrada}
-	if !domain.ReferenciaOpacaValida(recibo.FirmaRef) || !domain.ReferenciaOpacaValida(recibo.ReciboRef) || recibo.SolicitudHuella != h ||
-		recibo.Resultado != m.Resultado || recibo.ActorRef == "" || recibo.PerfilRef == "" || recibo.RegistradaEn.IsZero() ||
-		(!recibo.YaRegistrada && (recibo.Secuencia != m.Secuencia || recibo.ExpedienteVersion != m.VersionExpediente)) {
-		return cero, ports.ErrResultadoFirmaDocumentoInvalido
+	if err = validar(w); err != nil {
+		return err
 	}
-	if ctx.Err() != nil {
-		return cero, ctx.Err()
+	if err = ctx.Err(); err != nil {
+		return err
 	}
 	if err = tx.Commit(ctx); err != nil {
-		return cero, errorFirma118(ctx, err)
+		return err
 	}
 	confirmado = true
-	return recibo, nil
+	return nil
 }
 
 // ConsultarFirmas lee la historia del expediente en orden de documento y
@@ -206,7 +282,7 @@ func (r *RegistroFirmasDocumentoPostgreSQL) ConsultarFirmas(ctx context.Context,
 		firmas = append(firmas, ports.FirmaRegistrada{FirmaRef: f.FirmaRef, ReciboRef: f.ReciboRef, Documento: f.Documento,
 			Secuencia: f.Secuencia, ExpedienteVersion: f.ExpedienteVersion, CatalogoRef: f.CatalogoRef, CatalogoHuella: f.CatalogoHuella,
 			PasoRef: f.PasoRef, PasoOrden: f.PasoOrden, Resultado: domain.ResultadoFirmaDocumento(f.Resultado),
-			MotivoDevolucion: textoFirma118(f.MotivoDevolucion), OriginalHuella: textoFirma118(f.OriginalHuella), FirmadoHuella: textoFirma118(f.FirmadoHuella),
+			ConMotivoDevolucion: f.ConMotivo, OriginalHuella: textoFirma118(f.OriginalHuella), FirmadoHuella: textoFirma118(f.FirmadoHuella),
 			SelloTiempoEstado: textoFirma118(f.SelloTiempoEstado), RegistradaEn: f.RegistradaEn.UTC()})
 	}
 	return firmas, nil

@@ -138,6 +138,10 @@ ROLLBACK;
 BEGIN ISOLATION LEVEL SERIALIZABLE;
 SELECT pg_temp.confirmar(:'des'::jsonb)::text AS conf_des \gset
 SELECT pg_temp.exigir((:'conf_des'::jsonb) ? 'recibo','desfavorable confirmado '||:'conf_des');
+-- El antecedente restaura el contexto de lectura de CT116 al salir: no
+-- queda ligado a este expediente el resto de la transacción.
+SELECT pg_temp.exigir(coalesce(current_setting('vec.ct115.organizacion_ref',true),'')=''
+    AND coalesce(current_setting('vec.ct115.expediente_ref',true),'')='','contexto de CT116 restaurado');
 ROLLBACK;
 RESET SESSION AUTHORIZATION;
 SELECT pg_temp.exigir(NOT EXISTS (SELECT 1 FROM vec_contratacion_temporal.expediente_version_integral WHERE expediente_ref=:'exp_b' AND version=9),'desfavorable revertido sin rastro');

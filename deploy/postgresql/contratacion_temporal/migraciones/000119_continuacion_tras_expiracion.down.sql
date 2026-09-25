@@ -16,6 +16,13 @@ BEGIN
     IF to_regprocedure('vec_contratacion_temporal.continuar_llamamiento_rrhh_v2(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL THEN
         RAISE EXCEPTION 'CT119 no instalada' USING ERRCODE='55000';
     END IF;
+    -- CT121 amplía el circuito del sucesor a la continuación de CT119: se
+    -- retira antes. Su marca es la condición ampliada en el aviso del sucesor.
+    IF strpos(pg_get_functiondef(to_regprocedure(
+           'vec_contratacion_temporal.registrar_comunicacion_llamamiento_local_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)')),
+           $m$solicitud_json->>'Respuesta' IN ('renuncia','expiracion_gobernada')$m$)<>0 THEN
+        RAISE EXCEPTION 'CT119 DOWN: CT121 sigue instalada; retírela antes' USING ERRCODE='55000';
+    END IF;
     IF EXISTS (SELECT 1 FROM vec_contratacion_temporal.resolucion_manual_respuesta_rrhh
         WHERE continuacion_clave IS NOT NULL AND solicitud_json->>'Respuesta'='expiracion_gobernada') THEN
         RAISE EXCEPTION 'reversión denegada: continuación tras expiración existente' USING ERRCODE='55000';

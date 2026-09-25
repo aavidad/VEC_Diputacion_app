@@ -20,12 +20,15 @@ SELECT pg_catalog.pg_advisory_xact_lock(
 -- Minimización por lista cerrada de campos (la hoja de la ruta), no por la
 -- forma del valor: solo salen en claro los booleanos, las fechas de campos de
 -- fecha ('inicio', 'fin', 'desde', 'hasta', 'fecha*' salvo la de nacimiento,
--- '*_en'), los números de gestión ('centimos', 'porcentaje_jornada',
--- 'numero*', '*_numero', 'orden', 'plazas', 'dias', 'meses', 'horas'), los
+-- '*_en'), los números de gestión (solo estas hojas exactas: 'centimos',
+-- 'porcentaje_jornada', 'orden', 'plazas', 'dias', 'meses', 'horas',
+-- 'numero' de la retención de crédito, 'numero_visible' del expediente,
+-- 'ginpix_numero' y 'numero_resolucion'; ningún otro campo con «numero»), los
 -- códigos de catálogo ('*_clave', 'estado', 'fase', 'resultado', 'moneda',
 -- 'tipo', 'modalidad', 'origen', 'grupo_subgrupo') y las referencias opacas
 -- con espacio de nombres ('*_ref', 'referencia') que no identifican a una
--- persona (dni:, nif:, nie:, tel:, correo:, iban:, nss: y similares nunca).
+-- persona (dni:, nif:, nie:, tel:, correo:, iban:, nss: y similares nunca, ni
+-- ninguna referencia que contenga un fragmento con forma de DNI o NIE).
 -- Además el valor debe tener la forma de su clase. Todo lo demás (texto
 -- libre, observaciones, nombres, teléfonos, documentos, un número fuera de la
 -- lista) sale como la marca «*protegido», sin huella: una huella sin sal de un
@@ -108,9 +111,11 @@ BEGIN
         RETURN '*protegido';
     END IF;
     -- Números de gestión: importes en céntimos, porcentajes, contadores y
-    -- números de registro, nunca un número de persona.
-    IF v_campo IN ('centimos', 'porcentaje_jornada', 'orden', 'plazas', 'dias', 'meses', 'horas')
-       OR v_campo LIKE 'numero%' OR v_campo LIKE '%\_numero' THEN
+    -- números de registro, nunca un número de persona. Lista cerrada de hojas
+    -- exactas: un campo nuevo con «numero» en el nombre sale protegido hasta
+    -- que se añada aquí expresamente.
+    IF v_campo IN ('centimos', 'porcentaje_jornada', 'orden', 'plazas', 'dias', 'meses', 'horas',
+                   'numero', 'numero_visible', 'ginpix_numero', 'numero_resolucion') THEN
         IF v_texto ~ '^-?[0-9]{1,20}(\.[0-9]{1,6})?$' THEN
             RETURN v_texto;
         END IF;
@@ -131,7 +136,10 @@ BEGIN
         IF pg_catalog.octet_length(v_texto) <= 160
            AND v_texto ~ '^[a-z][a-z0-9_.-]*(:[A-Za-z0-9_.#/-]+)+$'
            AND pg_catalog.split_part(v_texto, ':', 1) NOT IN ('dni', 'nif', 'nie', 'cif', 'pasaporte', 'tel', 'telefono',
-               'movil', 'correo', 'email', 'mail', 'iban', 'cuenta', 'nss', 'naf', 'nombre', 'apellidos', 'domicilio', 'direccion') THEN
+               'movil', 'correo', 'email', 'mail', 'iban', 'cuenta', 'nss', 'naf', 'nombre', 'apellidos', 'domicilio', 'direccion')
+           -- Ningún fragmento alfanumérico con forma de DNI (8 cifras y letra)
+           -- o NIE (X/Y/Z, 7 cifras y letra), cualquiera que sea el prefijo.
+           AND v_texto !~* '(^|[^a-z0-9])([0-9]{8}|[xyz][0-9]{7})[a-z]($|[^a-z0-9])' THEN
             RETURN v_texto;
         END IF;
         RETURN '*protegido';

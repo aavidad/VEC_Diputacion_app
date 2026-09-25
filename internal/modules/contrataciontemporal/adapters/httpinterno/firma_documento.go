@@ -127,14 +127,13 @@ func (h *manejadorFirmaDocumento) consultar(w http.ResponseWriter, r *http.Reque
 }
 
 type pasoEstadoFirmaJSON struct {
-	Orden            int    `json:"orden"`
-	Cargo            string `json:"cargo"`
-	Accion           string `json:"accion"`
-	Devolucion       string `json:"devolucion"`
-	Estado           string `json:"estado"`
-	MotivoDevolucion string `json:"motivo_devolucion,omitempty"`
-	ReciboRef        string `json:"recibo_ref,omitempty"`
-	RegistradaEn     string `json:"registrada_en,omitempty"`
+	Orden        int    `json:"orden"`
+	Cargo        string `json:"cargo"`
+	Accion       string `json:"accion"`
+	Devolucion   string `json:"devolucion"`
+	Estado       string `json:"estado"`
+	ReciboRef    string `json:"recibo_ref,omitempty"`
+	RegistradaEn string `json:"registrada_en,omitempty"`
 }
 
 type documentoEstadoFirmaJSON struct {
@@ -154,7 +153,7 @@ func vistaEstadoFirmas(e application.EstadoFirmasExpediente, verificacion bool) 
 		salida := documentoEstadoFirmaJSON{Documento: d.Documento, Etiqueta: c.Etiqueta, PasoPendiente: d.PasoPendiente,
 			Completo: d.Completo, UltimaSecuencia: d.UltimaSecuencia, OriginalSHA256: d.OriginalEsperadoHuella}
 		for i, p := range d.Pasos {
-			paso := pasoEstadoFirmaJSON{Orden: p.Orden, Estado: string(p.Estado), MotivoDevolucion: p.MotivoDevolucion, ReciboRef: p.ReciboRef}
+			paso := pasoEstadoFirmaJSON{Orden: p.Orden, Estado: string(p.Estado), ReciboRef: p.ReciboRef}
 			if i < len(c.Pasos) {
 				paso.Cargo, paso.Accion, paso.Devolucion = c.Pasos[i].Cargo, c.Pasos[i].Accion, string(c.Pasos[i].Devolucion)
 			}

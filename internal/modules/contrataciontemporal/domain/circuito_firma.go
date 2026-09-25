@@ -116,24 +116,26 @@ func (c CircuitoFirma) Documento(clave string) (CircuitoFirmaDocumento, bool) {
 
 // EventoFirmaDocumento es una fila de la historia de firmas de un documento.
 type EventoFirmaDocumento struct {
-	Secuencia        int
-	CatalogoHuella   string
-	PasoOrden        int
-	Resultado        ResultadoFirmaDocumento
-	MotivoDevolucion string
-	OriginalHuella   string
-	FirmadoHuella    string
-	ReciboRef        string
-	RegistradaEn     time.Time
+	Secuencia      int
+	CatalogoHuella string
+	PasoOrden      int
+	Resultado      ResultadoFirmaDocumento
+	// ConMotivoDevolucion indica que la devolución consta con su motivo; el
+	// texto del motivo no se lee: la consulta de la historia no consume una
+	// decisión atestada y solo devuelve campos no personales.
+	ConMotivoDevolucion bool
+	OriginalHuella      string
+	FirmadoHuella       string
+	ReciboRef           string
+	RegistradaEn        time.Time
 }
 
 // EstadoPasoCalculado es el estado de un paso derivado de la historia.
 type EstadoPasoCalculado struct {
-	Orden            int
-	Estado           EstadoPasoFirma
-	MotivoDevolucion string
-	ReciboRef        string
-	RegistradaEn     time.Time
+	Orden        int
+	Estado       EstadoPasoFirma
+	ReciboRef    string
+	RegistradaEn time.Time
 }
 
 // EstadoCircuitoDocumento resume el circuito de un documento: el paso que
@@ -152,8 +154,8 @@ type EstadoCircuitoDocumento struct {
 }
 
 type marcaPaso struct {
-	huella, motivo, recibo string
-	en                     time.Time
+	huella, recibo string
+	en             time.Time
 }
 
 // CalcularEstadoCircuitoFirma aplica la historia en orden de secuencia. Un
@@ -189,7 +191,7 @@ func CalcularEstadoCircuitoFirma(c CircuitoFirmaDocumento, huellaCatalogo string
 		if e.PasoOrden < 1 || e.PasoOrden > n || e.PasoOrden != pendiente() {
 			return EstadoCircuitoDocumento{}, ErrHistoriaFirmaIncoherente
 		}
-		marca := marcaPaso{huella: e.OriginalHuella, motivo: e.MotivoDevolucion, recibo: e.ReciboRef, en: e.RegistradaEn}
+		marca := marcaPaso{huella: e.OriginalHuella, recibo: e.ReciboRef, en: e.RegistradaEn}
 		switch e.Resultado {
 		case ResultadoFirmaFirmado:
 			esperado := ""
@@ -203,7 +205,7 @@ func CalcularEstadoCircuitoFirma(c CircuitoFirmaDocumento, huellaCatalogo string
 			firmados[e.PasoOrden] = marca
 			delete(devueltos, e.PasoOrden)
 		case ResultadoFirmaDevuelto:
-			if e.MotivoDevolucion == "" {
+			if !e.ConMotivoDevolucion {
 				return EstadoCircuitoDocumento{}, ErrHistoriaFirmaIncoherente
 			}
 			if c.Pasos[e.PasoOrden-1].Devolucion == DevolucionVuelveARedaccion {
@@ -226,7 +228,7 @@ func CalcularEstadoCircuitoFirma(c CircuitoFirmaDocumento, huellaCatalogo string
 		if f, ok := firmados[p.Orden]; ok {
 			calc.Estado, calc.ReciboRef, calc.RegistradaEn = EstadoPasoFirmado, f.recibo, f.en
 		} else if d, ok := devueltos[p.Orden]; ok {
-			calc.Estado, calc.MotivoDevolucion, calc.ReciboRef, calc.RegistradaEn = EstadoPasoDevuelto, d.motivo, d.recibo, d.en
+			calc.Estado, calc.ReciboRef, calc.RegistradaEn = EstadoPasoDevuelto, d.recibo, d.en
 		} else if p.Orden == estado.PasoPendiente {
 			calc.Estado = EstadoPasoPendienteFirma
 		} else {

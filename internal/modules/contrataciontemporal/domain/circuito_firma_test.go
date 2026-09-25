@@ -57,17 +57,17 @@ func TestEstadoCircuitoFirmasEncadenadasYCompleto(t *testing.T) {
 func TestEstadoCircuitoDevoluciones(t *testing.T) {
 	base := []EventoFirmaDocumento{
 		{Secuencia: 1, CatalogoHuella: catalogo, PasoOrden: 1, Resultado: ResultadoFirmaFirmado, OriginalHuella: hOrig, FirmadoHuella: h1},
-		{Secuencia: 2, CatalogoHuella: catalogo, PasoOrden: 2, Resultado: ResultadoFirmaDevuelto, MotivoDevolucion: "Falta la fecha"},
+		{Secuencia: 2, CatalogoHuella: catalogo, PasoOrden: 2, Resultado: ResultadoFirmaDevuelto, ConMotivoDevolucion: true},
 	}
 	// El paso 2 vuelve al paso anterior: el 1 debe firmar otra vez.
 	e, err := CalcularEstadoCircuitoFirma(circuitoPrueba(), catalogo, base)
-	if err != nil || e.PasoPendiente != 1 || estados(e) != "pendiente_firma,devuelto,en_espera" || e.Pasos[1].MotivoDevolucion != "Falta la fecha" {
+	if err != nil || e.PasoPendiente != 1 || estados(e) != "pendiente_firma,devuelto,en_espera" || e.Pasos[1].Estado != EstadoPasoDevuelto {
 		t.Fatalf("vuelve al paso anterior: %+v %v", e, err)
 	}
 	base = append(base,
 		EventoFirmaDocumento{Secuencia: 3, CatalogoHuella: catalogo, PasoOrden: 1, Resultado: ResultadoFirmaFirmado, OriginalHuella: hOrig, FirmadoHuella: h1},
 		EventoFirmaDocumento{Secuencia: 4, CatalogoHuella: catalogo, PasoOrden: 2, Resultado: ResultadoFirmaFirmado, OriginalHuella: hOrig, FirmadoHuella: h2},
-		EventoFirmaDocumento{Secuencia: 5, CatalogoHuella: catalogo, PasoOrden: 3, Resultado: ResultadoFirmaDevuelto, MotivoDevolucion: "Rehacer"},
+		EventoFirmaDocumento{Secuencia: 5, CatalogoHuella: catalogo, PasoOrden: 3, Resultado: ResultadoFirmaDevuelto, ConMotivoDevolucion: true},
 	)
 	// El paso 3 vuelve a redacción: todo el circuito empieza de nuevo.
 	e, err = CalcularEstadoCircuitoFirma(circuitoPrueba(), catalogo, base)

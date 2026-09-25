@@ -3,7 +3,8 @@
 # 000024 (inbox) en PostgreSQL 18.4 desechable sobre la estructura real
 # restaurada (volcado con datos sintéticos, con al menos dos propuestas CT61).
 # Uso: probar_publicacion_contratos_bolsa_pg18.sh GLOBALES_SQL VOLCADO_PG_DUMP
-# Comprueba ROLLBACK, UP, doble UP, DOWN, doble DOWN y UP de CT113; la prueba
+# Comprueba ROLLBACK, UP, doble UP, DOWN, doble DOWN y UP de CT113 (y que el
+# DOWN se niega en cuanto hay publicaciones posicionadas); la prueba
 # b13 (proyección, inbox idempotente, negativos y ACL) y la marca de agua con
 # dos transacciones concurrentes: una incorporación que confirma tarde con un
 # instante anterior no queda nunca por detrás del cursor. El contenedor usa
@@ -91,4 +92,7 @@ pos_b=$(escalar "SET ROLE vec_contratacion_temporal_ejecutor; SELECT origen_posi
 igual "$(escalar "SELECT $pos_a < $pos_b AND (SELECT creada_en FROM vec_contratacion_temporal.incorporacion_outbox_v2 WHERE outbox_ref='$ref_a') < (SELECT creada_en FROM vec_contratacion_temporal.incorporacion_outbox_v2 WHERE outbox_ref='$ref_b')")" t 'A tiene instante y posición anteriores a B'
 igual "$(contar "$pos_a" "'$ref_a'")" "$ref_b" 'desde el cursor de A solo queda B'
 igual "$(contar "$pos_b" "'$ref_b'")" '' 'desde el cursor de B no queda nada'
+salida=$(run -f "/repo/$ct.down.sql" 2>&1) && { echo 'FALLO: DOWN aceptado con publicaciones posicionadas' >&2; exit 1; }
+grep -q 'publicaciones posicionadas' <<<"$salida" || { echo "FALLO: rechazo inesperado del DOWN: $salida" >&2; exit 1; }
+igual "$(escalar "SELECT count(*) FROM vec_contratacion_temporal.incorporacion_outbox_v2 WHERE transaccion_publicacion IS NOT NULL")" 2 'DOWN rechazado: conserva la posición de A y B'
 echo 'OK CT113: marca de agua, cursor por posición y b13'

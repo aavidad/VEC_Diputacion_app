@@ -78,6 +78,7 @@ falla_con "$m.up.sql" 'CT120 ya instalada'; ok 'doble UP rechazado'
 run <"$m.down.sql"; [[ $(escalar "$funciones") == 0 ]] || { echo 'FALLO: DOWN incompleto' >&2; exit 1; }; ok 'DOWN sin historia'
 falla_con "$m.down.sql" 'CT120 no instalada'; ok 'doble DOWN rechazado'
 run <"$m.up.sql"; ok 'UP de nuevo'
+falla_con "$ct/000116_modificacion_tras_nombramiento.down.sql" 'CT120 sigue instalada'; ok 'DOWN de CT116 rechazado con CT120 instalada'
 acl=$(escalar "SELECT has_function_privilege('vec_contratacion_temporal_ejecutor','vec_contratacion_temporal.antecedente_fiscalizacion_modificacion_ct120(jsonb)','EXECUTE') OR NOT has_function_privilege('vec_contratacion_temporal_ejecutor','vec_contratacion_temporal.preparar_fiscalizacion_v2(jsonb)','EXECUTE') OR EXISTS (SELECT 1 FROM pg_proc p, aclexplode(p.proacl) a WHERE p.pronamespace='vec_contratacion_temporal'::regnamespace AND p.proname LIKE '%ct120' AND a.grantee=0)")
 [[ $acl == f ]] || { echo 'FALLO: ACL de CT120' >&2; exit 1; }; ok 'ACL con roles reales'
 
