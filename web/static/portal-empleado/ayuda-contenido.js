@@ -1,4 +1,4 @@
-import { traducirPortal } from "./portal-i18n.js?v=20260925-d5d6-cronos-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260926-portal-rrhh-main-v1";
 
 /** Contenido de ayuda sustituible por catálogo o conector, sin lógica de negocio. */
 export const AYUDA_PORTAL_BOLSA = Object.freeze({
@@ -188,6 +188,7 @@ export const AYUDA_CONTRATACION_TEMPORAL = Object.freeze({
         traducirPortal("ayuda_contenido_266"),
         traducirPortal("ayuda_contenido_267"),
         traducirPortal("ayuda_contenido_268"),
+        traducirPortal("ayuda_ct_limite_alta"),
       ]),
     }),
     expediente: Object.freeze({
@@ -196,6 +197,7 @@ export const AYUDA_CONTRATACION_TEMPORAL = Object.freeze({
         traducirPortal("ayuda_contenido_269"),
         traducirPortal("ayuda_contenido_270"),
         traducirPortal("ayuda_contenido_271"),
+        traducirPortal("ayuda_ct_limite_expediente"),
       ]),
     }),
     documentos: Object.freeze({
@@ -259,6 +261,7 @@ export const AYUDA_CONTRATACION_TEMPORAL = Object.freeze({
         traducirPortal("ayuda_contenido_290"),
         traducirPortal("ayuda_contenido_291"),
         traducirPortal("ayuda_contenido_292"),
+        traducirPortal("ayuda_ct_limite_llamamiento"),
       ]),
     }),
     nombramiento: Object.freeze({
@@ -268,6 +271,7 @@ export const AYUDA_CONTRATACION_TEMPORAL = Object.freeze({
         traducirPortal("ayuda_contenido_293"),
         traducirPortal("ayuda_contenido_294"),
         traducirPortal("ayuda_contenido_295"),
+        traducirPortal("ayuda_ct_limite_nombramiento"),
       ]),
     }),
     incorporacion: Object.freeze({
@@ -277,6 +281,7 @@ export const AYUDA_CONTRATACION_TEMPORAL = Object.freeze({
         traducirPortal("ayuda_contenido_296"),
         traducirPortal("ayuda_contenido_297"),
         traducirPortal("ayuda_contenido_298"),
+        traducirPortal("ayuda_ct_limite_incorporacion"),
       ]),
     }),
     seguimiento: Object.freeze({
@@ -286,6 +291,7 @@ export const AYUDA_CONTRATACION_TEMPORAL = Object.freeze({
         traducirPortal("ayuda_contenido_299"),
         traducirPortal("ayuda_contenido_300"),
         traducirPortal("ayuda_contenido_301"),
+        traducirPortal("ayuda_ct_limite_seguimiento"),
       ]),
     }),
   }),

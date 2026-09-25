@@ -25,7 +25,7 @@ const peticion = { referencia: "peticion:centro:001", version: 1, estado: "pendi
 test("renderer comparte el formulario de alta y deja claro el circuito previo", () => {
   const html = renderizarPeticionCentro({ contexto, modo: "formulario", estado: { fase: "edicion", disponible: true, ocupado: false, borrador: crearBorradorAlta(), catalogos, errores: {}, mensaje_clave: "estado_disponible", tipo_mensaje: "informacion" } });
   assert.match(html, /data-ct-form/);
-  assert.match(html, /Identidades de prueba/);
+  assert.doesNotMatch(html, /Identidades de prueba|Datos ficticios/u);
   assert.match(html, /RRHH tramita las peticiones ratificadas/);
   assert.match(html, /C2/);
 });
@@ -35,7 +35,8 @@ test("renderer de ratificación muestra todos los datos revisables", () => {
   assert.match(html, /Necesidad sintética/);
   assert.match(html, /motivo_ratificacion/);
   assert.match(html, /confirmacion_ratificacion/);
-  assert.match(html, /no se firma electrónicamente/);
+  // El límite de firma está en la ayuda «?» de la nueva petición.
+  assert.doesNotMatch(html, /Identidades de prueba|Datos ficticios/u);
 });
 
 test("pedir conserva cuerpo y certificado exclusivamente en el mismo origen", async () => {

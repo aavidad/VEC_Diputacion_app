@@ -197,7 +197,7 @@ export const MENSAJES_EXPEDIENTES_CONTRATACION_ES = Object.freeze({
   accion_no_disponible: "Actuación no disponible: {motivo}",
   recibo_titulo: "Recibo de actuación",
   recibo_descripcion:
-    "Conserve estas referencias para el seguimiento. En presentación no tienen validez administrativa.",
+    "Conserve estas referencias para el seguimiento.",
   recibo_referencia: "Referencia de recibo",
   recibo_expediente: "Expediente",
   recibo_version: "Nueva versión",

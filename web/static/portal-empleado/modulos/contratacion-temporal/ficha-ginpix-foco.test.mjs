@@ -68,7 +68,7 @@ test("teclado: conserva botón enfocado y estado ocupado hasta descargar una sol
   assert.equal(dom.boton(), disparador);
   assert.equal(disparador.getAttribute("aria-disabled"), "true");
   assert.equal(disparador.getAttribute("aria-busy"), "true");
-  assert.match(dom.estado().textContent, /Preparando descarga/u);
+  assert.match(dom.estado().textContent, /Preparando la descarga/u);
   await dom.pulsar(); assert.equal(consultas, 1);
   pendiente.resolver({ contenido: new Uint8Array([123, 125]) }); await pulsacion;
   assert.equal(archivos, 1);

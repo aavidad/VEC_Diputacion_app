@@ -69,7 +69,7 @@ export function renderizarLlamamiento(estado, t, fecha) {
     if (esResolucion(operacion) && CAMPOS_REVISION_RESOLUCION.includes(nombre)) {
       return `<div class="ct-campo"><label for="${id}"><input id="${id}" name="${nombre}"
         type="checkbox" autocomplete="off"${valor === true ? " checked" : ""}${bloqueado ? " disabled" : ""}
-        aria-describedby="ct-llamamiento-${operacion}-validacion-ayuda"> ${e(t("llamamiento_" + nombre))}</label></div>`;
+        aria-describedby="ct-llamamiento-${operacion}-ayuda"> ${e(t("llamamiento_" + nombre))}</label></div>`;
     }
     const numero = nombre === "version_esperada" || nombre === "version_comunicacion_esperada";
     if (nombre === "respuesta") return `<div class="ct-campo">
@@ -152,7 +152,6 @@ export function renderizarLlamamiento(estado, t, fecha) {
           ? "llamamiento_clave_ayuda" : operacion === "respuesta_siguiente" ? "llamamiento_respuesta_siguiente_ayuda" : operacion === "comunicacion_siguiente" ? "llamamiento_comunicacion_siguiente_ayuda" : operacion === "propuesta" ? "llamamiento_propuesta_ayuda" : operacion === "siguiente" ? "llamamiento_siguiente_ayuda" : esResolucion(operacion) ? "llamamiento_" + operacion + "_ayuda" : esRespuesta(operacion)
             ? "llamamiento_respuesta_ayuda" : "llamamiento_prueba_ayuda"))}</p>
         ${operacion !== "seleccion" ? `<p>${e(t("llamamiento_clave_ayuda"))}</p>` : ""}
-        ${esResolucion(operacion) ? `<p id="ct-llamamiento-${operacion}-validacion-ayuda" class="ct-ayuda">${e(t("llamamiento_validacion_manual_desarrollo"))}</p>` : ""}
         <fieldset${paso.ocupado || paso.calculando ? " disabled" : ""}>
           <legend>${e(t("llamamiento_contexto"))}</legend>
           <div class="ct-campos">${campos.map((nombre) => campo(
