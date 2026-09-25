@@ -1,4 +1,4 @@
-import { crearTraductorPersonal } from "./i18n.js?v=20260925-b2-sin-refs-v1";
+import { crearTraductorPersonal } from "./i18n.js?v=20260925-personal-e10-v1";
 import { ErrorRegistroB2 } from "./registro-b2-cliente.js?v=20260925-b2-selector-v1";
 
 const EMPLEADO = /^emp_[A-Za-z0-9_-]{22,128}$/u;

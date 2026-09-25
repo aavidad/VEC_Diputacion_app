@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/hex"
+	"encoding/pem"
 	"errors"
 	"io"
 	"net/http"
@@ -342,4 +343,69 @@ func TestCronosEmpleadoFronteraMTLSDeniegaConMotivoYAudita(t *testing.T) {
 		t.Fatalf("denegación acreditada sin intento de auditoría: %+v", auditoria.ordenes)
 	}
 	auditoria.err = nil
+}
+
+// TestCronosEmpleadoFronteraAceptaCadenaClienteConCA reproduce el cliente
+// curl/OpenSSL: con --cacert, OpenSSL completa la cadena del certificado de
+// cliente y envía también la CA, así que el servidor recibe dos
+// PeerCertificates. La frontera debe aceptarlo igual que Contratación, por
+// HTTP/2, sin relajar la comprobación exacta contra la cadena verificada.
+func TestCronosEmpleadoFronteraAceptaCadenaClienteConCA(t *testing.T) {
+	cfg, rutasMaterial := generarMaterialDesarrolloPrueba(t)
+	composicion, err := NuevaComposicionSeguridadDesarrollo(cfg, io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	identidad := composicion.identidad.(*resolvedorIdentidadDesarrollo)
+	clienteCert, err := tls.LoadX509KeyPair(rutasMaterial.ClientCertificate, rutasMaterial.ClientPrivateKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	caPEM, err := os.ReadFile(rutasMaterial.CACertificate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raices := x509.NewCertPool()
+	bloque, _ := pem.Decode(caPEM)
+	if !raices.AppendCertsFromPEM(caPEM) || bloque == nil {
+		t.Fatal("CA de desarrollo ilegible")
+	}
+	digest := sha256.Sum256(clienteCert.Certificate[0])
+	huella := hex.EncodeToString(digest[:])
+	principal := identidad.porHuella[digest]
+	fixture := nuevoEscenarioMaterialRutasDietasPrueba(t, dp.AccionConsultarCatalogoRutasDietas, time.Now().UTC().Truncate(time.Microsecond))
+	reloj := &relojSesionConsultaPrueba{ahora: fixture.ahora}
+	cuenta := cuentaRutasDietasDesarrollo{CertificadoSHA256: huella, Sujeto: principal.ID, CuentaRef: fixture.resultado.Contexto.Instantanea.CuentaRef, PerfilRef: fixture.resultado.Contexto.PerfilActivoRef}
+	registro := &registroSesionConsultaPrueba{reloj: reloj, cuenta: cuenta.CuentaRef}
+	contextos := &resolutorContextoCronosPrueba{base: &resolutorSesionConsultaPrueba{base: fixture.resultado, reloj: reloj}}
+	cuentas := map[string]cuentaRutasDietasDesarrollo{huella: cuenta}
+	base := &autoridadRutasDietasDesarrollo{resolvedor: identidad, cuentas: cuentas, registro: registro, revalidador: &revalidadorSesionConsultaPrueba{registro: registro}, contextos: contextos, reloj: reloj, instancia: strings.Repeat("a", 64)}
+	auditoria := &registroDenegacionCronosPrueba{}
+	autoridad := &autoridadCronosEmpleadoDesarrollo{base: base, reloj: reloj, cuentas: cuentas, registrador: auditoria}
+	datos := 0
+	autoridad.rutas = map[string]http.Handler{cronoshttp.RutaConsultarSaldoPropio: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if _, err := (seguridadCronosEmpleadoDesarrollo{autoridad: autoridad}).ResolverIdentidadRegistradaCronos(r.Context()); err != nil {
+			t.Error("la identidad registrada no llega al manejador", err)
+		}
+		datos++
+		w.WriteHeader(http.StatusOK)
+	})}
+	servidor := httptest.NewUnstartedServer(componerRaizConCronosEmpleado(http.NotFoundHandler(), autoridad))
+	servidor.EnableHTTP2 = true
+	servidor.TLS = composicion.tls.Clone()
+	servidor.StartTLS()
+	t.Cleanup(servidor.Close)
+	conCA := clienteCert
+	conCA.Certificate = [][]byte{clienteCert.Certificate[0], bloque.Bytes}
+	transport := &http.Transport{ForceAttemptHTTP2: true, TLSClientConfig: &tls.Config{Certificates: []tls.Certificate{conCA}, RootCAs: raices, ServerName: "localhost", MinVersion: tls.VersionTLS13}}
+	t.Cleanup(transport.CloseIdleConnections)
+	res, err := (&http.Client{Transport: transport}).Get(servidor.URL + cronoshttp.RutaConsultarSaldoPropio + "?periodo=hoy")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	cuerpo, _ := io.ReadAll(res.Body)
+	if res.ProtoMajor != 2 || res.StatusCode != http.StatusOK || datos != 1 || len(auditoria.ordenes) != 0 {
+		t.Fatalf("cadena cliente con CA por %s: %d %s, datos=%d, auditoría=%+v", res.Proto, res.StatusCode, cuerpo, datos, auditoria.ordenes)
+	}
 }

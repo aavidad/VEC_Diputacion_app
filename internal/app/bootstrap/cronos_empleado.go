@@ -148,6 +148,10 @@ func (a *autoridadCronosEmpleadoDesarrollo) ServeHTTP(w http.ResponseWriter, r *
 		a.denegar(w, r, http.StatusNotFound, cronosports.MotivoFronteraAccesoDenegado, "no_disponible", "")
 		return
 	}
+	// curl/OpenSSL completa la cadena del cliente y envía también la CA; el
+	// resolvedor exige un único certificado. Se reduce a la hoja sólo si cada
+	// certificado enviado coincide con la cadena verificada, como en CT.
+	r = peticionIdentidadConsultasContratacionTemporalDesarrollo(r)
 	if a.base == nil || r.Header.Get("Cookie") != "" || r.Header.Get("Authorization") != "" {
 		a.denegar(w, r, http.StatusUnauthorized, cronosports.MotivoFronteraAutenticacion, "autenticacion_requerida", "")
 		return

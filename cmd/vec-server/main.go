@@ -12,6 +12,7 @@ import (
 
 	"vec-diputacion-granada/config"
 	"vec-diputacion-granada/internal/app/bootstrap"
+	"vec-diputacion-granada/internal/vec/domain"
 )
 
 func main() {
@@ -29,6 +30,9 @@ func main() {
 		}
 		log.Printf("relleno_vinculos aplicar=%t nuevos=%d existentes=%d", *aplicar, r.Nuevos, r.Existentes)
 		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "comprobar-dietas" {
+		os.Exit(ejecutarComprobacionDietas(context.Background(), os.Args[2:], os.Stdout, os.Stderr, config.Load(), bootstrap.ComprobarArranqueDietasSoloLectura))
 	}
 	if len(os.Args) > 1 && os.Args[1] == "publicar-proyeccion-publica" {
 		if err := ejecutarPublicacionProyeccionPublica(context.Background(), os.Args[2:], os.Stdout, config.Load(), publicarProyeccionPublicaPostgreSQL); err != nil {
@@ -68,11 +72,13 @@ func main() {
 	cfg := config.Load()
 	srv, err := bootstrap.NewHTTPServerWithConfig(cfg)
 	if err != nil {
+		registrarFalloArranque(os.Stdout, domain.ComponenteIncidenciaComposicion, domain.EtapaIncidenciaComposicion)
 		log.Fatalf("bootstrap server: %v", err)
 	}
 
 	if cfg.TLSCertFile != "" || cfg.TLSKeyFile != "" {
 		if cfg.TLSCertFile == "" || cfg.TLSKeyFile == "" {
+			registrarFalloArranque(os.Stdout, domain.ComponenteIncidenciaServidor, domain.EtapaIncidenciaConfiguracion)
 			log.Fatal("serve TLS: VEC_TLS_CERT_FILE and VEC_TLS_KEY_FILE must be configured together")
 		}
 		log.Printf("vec server listening with TLS on %s", srv.Addr)
@@ -82,6 +88,7 @@ func main() {
 		err = srv.ListenAndServe()
 	}
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
+		registrarFalloArranque(os.Stdout, domain.ComponenteIncidenciaServidor, domain.EtapaIncidenciaEscucha)
 		log.Fatalf("serve: %v", err)
 	}
 }

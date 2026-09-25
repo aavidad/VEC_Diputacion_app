@@ -28,7 +28,7 @@ test("el traductor rechaza catálogos y claves incompletos", () => {
 test("el catálogo conectado conserva textos y plural localizados", () => {
   const t = crearTraductorPersonal();
   assert.match(t("catalogo_error"), /No se muestran datos anteriores/);
-  assert.match(t("catalogo_demo"), /demostracion:true/);
+  assert.match(t("catalogo_demo"), /pendiente de validación por RRHH/);
   assert.equal(formatearRecuentoCategorias(1), "1 categoría");
   assert.equal(formatearRecuentoCategorias(1_000), "1000 categorías");
   assert.throws(() => formatearRecuentoCategorias(-1), /no válido/);

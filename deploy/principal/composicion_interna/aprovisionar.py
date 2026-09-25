@@ -99,9 +99,15 @@ V3_FUNCTIONS = {
         "vec_contratacion_temporal.consultar_detalle_rrhh_atestado_v1(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_detalle_rrhh_v1,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)",
         "vec_contratacion_temporal.consultar_resumen_seguimiento_rrhh_atestado_v1(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_detalle_rrhh_v1,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)",
     ],
+    # Estado exacto tras AD3-69: v1 (AD3-50a/53a, CT) y v2 por consumidor
+    # cerrado (Personal B2). El binario lo coteja como manifiesto exacto
+    # (funcionesEsperadasPerfil en fabrica.go): sin AD3-69 no arranca, CT
+    # incluida, y este aprovisionamiento también se detiene antes del LOGIN.
     "gobierno_v3": [
         "vec_autorizacion_atestada_v3.comprobar_material_emision_interna_v1(jsonb)",
         "vec_autorizacion_atestada_v3.leer_configuracion_interna_v1(jsonb)",
+        "vec_autorizacion_atestada_v3.comprobar_material_emision_interna_v2(text,jsonb)",
+        "vec_autorizacion_atestada_v3.leer_configuracion_interna_v2(text,jsonb)",
     ],
 }
 

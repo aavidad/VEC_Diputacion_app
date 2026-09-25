@@ -134,6 +134,28 @@ test("estados separados: fuente ausente, vacío autorizado, denegado y error", a
   assert.equal(nodos(ficha).filter((n) => n.dataset.personalFichaEstado === "error").length, 2);
 });
 
+test("más filas de las que se muestran: estado propio visible, no desaparece; celdas hasta 300", async () => {
+  const raiz = raizFalsa(); const fila = (n) => ({ desde: "2026-01-01", hasta: "Actualidad", regimen: "R".repeat(n) });
+  montarVistaFichaIntegralPersonal({ raiz, ocultarSinFuente: true, fuentes: {
+    relaciones: { consultarPropios: () => ({ estado: "excede_limite" }) },
+    servicios: { consultarPropios: () => ({ estado: "disponible", fuente: "Registro de Personal", actualizado_en: "2026-09-24T08:00:00Z", items: [{ desde: "2026-01-01", procedencia: "S".repeat(300) }] }) },
+  } });
+  const ficha = raiz.querySelector("[data-personal-ficha-integral]");
+  tab(ficha, "relaciones").listeners.get("click")(); await completar();
+  assert.match(texto(ficha), /más registros de los que se pueden mostrar/);
+  tab(ficha, "servicios").listeners.get("click")(); await completar();
+  assert.ok(texto(ficha).includes("S".repeat(300)), "una celda de 300 caracteres se admite");
+  tab(ficha, "ficha").listeners.get("click")();
+  const bloque = nodos(ficha).find((n) => n.dataset.personalFichaEstado === "excede_limite");
+  assert.ok(bloque, "el apartado sigue en la portada con su estado");
+  assert.match(texto(bloque), /Demasiados registros/);
+  const otra = raizFalsa();
+  montarVistaFichaIntegralPersonal({ raiz: otra, fuentes: { relaciones: { consultarPropios: () => ({ estado: "disponible", fuente: "P", actualizado_en: "2026-09-24T08:00:00Z", items: [fila(301)] }) } } });
+  const fichaOtra = otra.querySelector("[data-personal-ficha-integral]");
+  tab(fichaOtra, "relaciones").listeners.get("click")(); await completar();
+  assert.match(texto(fichaOtra), /No se pudo consultar/);
+});
+
 test("cambiar de pestaña y desmontar aborta consultas sin pintar respuestas tardías", async () => {
   const raiz = raizFalsa(); let resolver; let senal;
   const montaje = montarVistaFichaIntegralPersonal({ raiz, fuentes: { relaciones: { consultarPropios({ signal }) { senal = signal; return new Promise((resolve) => { resolver = resolve; }); } } } });
@@ -183,6 +205,35 @@ test("disponibilidad heredada o no booleana no habilita destinos", () => {
   const botones = nodos(ficha).filter((n) => n.dataset.personalFichaDestino);
   assert.ok(botones.every((boton) => boton.disabled && boton.atributos.get("aria-disabled") === "true"));
   botones.forEach((boton) => boton.listeners.get("click")()); assert.deepEqual(destinos, []);
+});
+
+test("en el portal real no se ofrecen apartados sin fuente ni textos explicativos", async () => {
+  const raiz = raizFalsa(); let montajes = 0;
+  montarVistaFichaIntegralPersonal({ raiz, ocultarSinFuente: true, montarCatalogos: () => { montajes += 1; return { desmontar() {} }; } });
+  const ficha = raiz.querySelector("[data-personal-ficha-integral]");
+  const pestanas = nodos(ficha).filter((n) => n.dataset.personalFichaTab).map((n) => n.dataset.personalFichaTab);
+  assert.deepEqual(pestanas, ["ficha", "catalogos"]);
+  assert.equal(tab(ficha, "catalogos").atributos.get("aria-selected"), "true", "sin apartados propios se abre Catálogos");
+  await completar(); assert.equal(montajes, 1);
+  assert.doesNotMatch(texto(ficha), /se consultan por separado/);
+  tab(ficha, "ficha").listeners.get("click")();
+  assert.equal(nodos(ficha).filter((n) => n.dataset.personalFichaEstado).length, 0);
+  assert.doesNotMatch(texto(ficha), /Abra un apartado|No se muestran nombre/);
+  assert.ok(nodos(ficha).some((n) => n.dataset.personalFichaDestino === "cronos"));
+  tab(ficha, "ficha").listeners.get("keydown")({ key: "ArrowRight", preventDefault() {} });
+  assert.equal(tab(ficha, "catalogos").atributos.get("aria-selected"), "true");
+});
+
+test("en el portal real un apartado con fuente sí se ofrece y la ficha abre primero", () => {
+  const raiz = raizFalsa();
+  montarVistaFichaIntegralPersonal({ raiz, ocultarSinFuente: true, montarCatalogos: () => ({ desmontar() {} }), fuentes: {
+    servicios: { consultarPropios: () => ({ estado: "vacio", fuente: "Personal", actualizado_en: "2026-09-24T08:00:00Z", items: [] }) },
+  } });
+  const ficha = raiz.querySelector("[data-personal-ficha-integral]");
+  assert.deepEqual(nodos(ficha).filter((n) => n.dataset.personalFichaTab).map((n) => n.dataset.personalFichaTab), ["ficha", "servicios", "catalogos"]);
+  assert.equal(tab(ficha, "ficha").atributos.get("aria-selected"), "true");
+  assert.deepEqual(nodos(ficha).filter((n) => n.dataset.personalFichaEstado).map((n) => n.dataset.personalFichaEstado), ["sin_consulta"]);
+  assert.throws(() => montarVistaFichaIntegralPersonal({ raiz: raizFalsa(), ocultarSinFuente: "si" }), /no disponible/);
 });
 
 test("catálogos existentes se montan bajo demanda y se limpian al salir", async () => {

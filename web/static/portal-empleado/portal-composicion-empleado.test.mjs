@@ -149,6 +149,34 @@ test("Personal limpia una vez también si un catálogo falla después de registr
   assert.equal(limpiarTemprano, 1);
 });
 
+test("Personal compone solo los catálogos públicos servidos y pasa accesos y ocultación a la ficha", async () => {
+  const clientes = [];
+  const recursos = (entradaFicha) => ({
+    ficha: { montarVistaFichaIntegralPersonal(entrada) { entradaFicha.push(entrada); return { desmontar() {} }; } },
+    clienteCategorias: { crearClienteHTTPCategoriasPersonal() { clientes.push("categorias"); return {}; } },
+    clienteEstructura: { crearClienteHTTPEstructuraOrganizativaPublica() { clientes.push("estructura"); return {}; } },
+    vistaCategorias: { montarModuloPersonal: async () => ({ desmontar() {} }) },
+    vistaEstructura: { montarModuloEstructuraOrganizativaPublica: async () => ({ desmontar() {} }) },
+  });
+  const entradas = [];
+  let disponibles = { dietas: false, cronos: false };
+  // Sin recursos RPT: basta con que el servidor no lo sirva para no exigirlos.
+  const personal = componerPersonalVisible(recursos(entradas), { fetch() {} }, {
+    catalogosPublicos: ["estructura"], ocultarSinFuente: true, destinosDisponibles: () => disponibles,
+  });
+  assert.notEqual(personal, undefined);
+  disponibles = { dietas: true, cronos: false };
+  personal.montar({ raiz: {}, anunciar() {} });
+  assert.equal(entradas[0].ocultarSinFuente, true);
+  assert.deepEqual(entradas[0].destinosDisponibles, { dietas: true, cronos: false }, "la disponibilidad se evalúa al montar");
+  await entradas[0].montarCatalogos({ raiz: {}, anunciar() {} });
+  assert.deepEqual(clientes, ["categorias", "estructura"]);
+  // Pedir un catálogo servido sin sus recursos, o uno desconocido, no compone.
+  assert.equal(componerPersonalVisible(recursos([]), {}, { catalogosPublicos: ["rpt"] }), undefined);
+  assert.equal(componerPersonalVisible(recursos([]), {}, { catalogosPublicos: ["otro"] }), undefined);
+  assert.equal(componerPersonalVisible(recursos([]), {}, { destinosDisponibles: {} }), undefined);
+});
+
 test("Dietas interna compone el circuito de revisión solo con su cliente HTTP same-origin", async () => {
   const llamadas = [];
   const asignacion = Object.freeze({ async obtenerRelaciones() { return { relaciones_autorizadas: [], fecha_referencia: "2026-09-25" }; } });

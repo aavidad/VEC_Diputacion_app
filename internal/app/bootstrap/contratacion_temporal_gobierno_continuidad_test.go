@@ -37,11 +37,11 @@ func (tx *txGobiernoContinuidadPrueba) QueryRow(
 			*destinos[1].(*int64) = 1
 			return nil
 		case strings.Contains(sql, "c.audiencia_consumo IN"):
-			if len(args) != 47 {
+			if len(args) != 55 {
 				return errors.New("numero de audiencias de gobierno inesperado")
 			}
 			admitida := false
-			for _, indice := range []int{0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46} {
+			for _, indice := range []int{0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54} {
 				if args[indice] == tx.audienciaActual {
 					admitida = true
 				}
@@ -102,6 +102,11 @@ func TestGobiernoPostgreSQLContinuidadNominalAD330YAD331(t *testing.T) {
 		cronosapp.AudienciaSolicitudCorreccionPropia,
 		cronosapp.AudienciaConsultaPermisosPropios,
 		cronosapp.AudienciaSolicitudPermisoPropio,
+	}
+	// Tras publicar B2, su última audiencia es la del puntero vigente: el
+	// siguiente arranque debe reconocer el gobierno como propio.
+	for _, d := range DescriptoresCapacidadPersonalB2V3Desarrollo() {
+		audienciasPropias = append(audienciasPropias, d.Audiencia)
 	}
 	for _, audiencia := range audienciasPropias {
 		t.Run(audiencia, func(t *testing.T) {

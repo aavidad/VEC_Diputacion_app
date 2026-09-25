@@ -2,10 +2,11 @@
  * Catálogo del Portal del Empleado.
  *
  * Esta vista no conoce adaptadores ni datos de negocio. La composición decide
- * qué módulos están disponibles para el ContextoActor activo; los restantes
- * permanecen visibles para conservar la navegación estable y fallan cerrados.
+ * qué módulos están disponibles para el ContextoActor activo. Solo se ofrecen
+ * los disponibles y los que aún se comprueban: un módulo sin acceso para este
+ * perfil, o sin servicio, no aparece en lugar de mostrar una tarjeta vacía.
  */
-import { traducirPortal } from "./portal-i18n.js?v=20260925-notificaciones-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260925-cronos-notif-e10-v1";
 
 export function calcularMetricasCuadro(cuadro) {
 	const totales = cuadro?.totales;
@@ -73,6 +74,18 @@ function renderizarTramitesInicio(tramites, escaparHTML) {
     </div>`;
 }
 
+// Tarjeta ofrecida: módulo disponible o todavía comprobándose.
+export function accesoModuloOfrecido(acceso) {
+  return acceso?.disponible === true || acceso?.estado === "cargando";
+}
+
+function renderizarModulosOfrecidos(catalogo, resolverAcceso, escaparHTML, traducir) {
+  return catalogo.map((modulo) => [modulo, resolverAcceso(modulo.clave)])
+    .filter(([, acceso]) => accesoModuloOfrecido(acceso))
+    .map(([modulo, acceso]) => renderizarModulo(modulo, acceso, escaparHTML, traducir))
+    .join("");
+}
+
 function renderizarErrorCatalogo(escaparHTML, traducir) {
   return `<section class="panel" role="alert" aria-labelledby="error-catalogo-modulos-titulo">
     <div class="cabecera-panel"><h3 id="error-catalogo-modulos-titulo">${escaparHTML(traducir("titulo_error_catalogo_modulos"))}</h3></div>
@@ -93,14 +106,29 @@ export function crearVistaInicioPortal({
   numero = (v) => String(v ?? 0),
   obtenerTramitesInicio = () => null,
   catalogoFallido = () => false,
+  inicioPendiente = () => false,
 }) {
   if (typeof encabezadoVista !== "function" || typeof escaparHTML !== "function"
     || typeof obtenerCatalogo !== "function" || typeof resolverAcceso !== "function"
-    || typeof traducir !== "function" || typeof catalogoFallido !== "function") {
+    || typeof traducir !== "function" || typeof catalogoFallido !== "function"
+    || typeof inicioPendiente !== "function") {
     throw new TypeError("la vista inicial requiere sus dependencias");
   }
 
   return function renderizarInicioPortal() {
+    // Aún no se sabe si el perfil es RRHH: Inicio neutro, sin el bloque de
+    // RRHH ni la nota del empleado, con todas las tarjetas «Comprobando».
+    if (inicioPendiente()) {
+      const catalogo = obtenerCatalogo();
+      if (!Array.isArray(catalogo)) throw new TypeError("catálogo de módulos no válido");
+      const comprobando = Object.freeze({ disponible: false, vista: "", estado: "cargando" });
+      return `
+        ${encabezadoVista("", traducir("inicio_titulo_neutro"), "")}
+        <p class="portal-inicio-comprobando" role="status" data-inicio-pendiente>${escaparHTML(traducir("inicio_comprobando_accesos"))}</p>
+        <div class="rejilla-modulos" aria-label="${escaparHTML(traducir("inicio_modulos_etiqueta"))}">
+          ${catalogo.map((modulo) => renderizarModulo(modulo, comprobando, escaparHTML, traducir)).join("")}
+        </div>`;
+    }
     const avisoCatalogo = catalogoFallido() ? renderizarErrorCatalogo(escaparHTML, traducir) : "";
     if (typeof esPerfilRRHH === "function" && esPerfilRRHH()) {
       const catalogo = obtenerCatalogo();
@@ -126,11 +154,7 @@ export function crearVistaInicioPortal({
             </div>`
         : `<p class="portal-rrhh-resumen-vacio">Los totales se consultan en el cuadro de mando.</p>`;
       return `
-        ${encabezadoVista(
-          "Gestión de personal",
-          "Inicio del portal",
-          "Accesos directos y estado general de la contratación temporal para Recursos Humanos.",
-        )}
+        ${encabezadoVista("", "Inicio del portal", "")}
         ${avisoCatalogo}
         <section class="portal-rrhh-inicio" aria-label="Inicio de Contratación Temporal">
           <div class="portal-rrhh-accesos" aria-label="Accesos directos">
@@ -154,33 +178,30 @@ export function crearVistaInicioPortal({
         </section>
         <section class="portal-rrhh-todos-modulos" aria-labelledby="portal-rrhh-todos-modulos-titulo">
           <div class="cabecera-panel">
-            <div>
-              <p class="sobrelinea">Accesos por módulo</p>
-              <h3 id="portal-rrhh-todos-modulos-titulo">Todos los módulos de Recursos Humanos</h3>
-              <p>El estado de cada acceso indica si el recorrido está conectado o pendiente de su adaptador de backend.</p>
-            </div>
+            <h3 id="portal-rrhh-todos-modulos-titulo">Todos los módulos de Recursos Humanos</h3>
           </div>
           <div class="rejilla-modulos" aria-label="Todos los módulos de Recursos Humanos">
-            ${catalogo.map((modulo) => renderizarModulo(
-              modulo, resolverAcceso(modulo.clave), escaparHTML, traducir,
-            )).join("")}
+            ${renderizarModulosOfrecidos(catalogo, resolverAcceso, escaparHTML, traducir)}
           </div>
         </section>`;
     }
 
     const catalogo = obtenerCatalogo();
     if (!Array.isArray(catalogo)) throw new TypeError("catálogo de módulos no válido");
-    return `
-      ${encabezadoVista("Acceso unificado", "Portal del Empleado", "Identidad, datos, documentos y trazabilidad se comparten mediante contratos comunes. La disponibilidad depende del perfil y de los adaptadores compuestos.")}
-      ${avisoCatalogo}
-      <section class="nota-seguridad" aria-label="Separación de acceso">
-        Este portal representa el acceso interno. La zona externa de aspirantes usa otra sesión, permisos y proyección de datos; nunca muestra expedientes de terceras personas.
-      </section>
-      <div class="rejilla-modulos" aria-label="Módulos del Portal del Empleado">
-        ${catalogo.map((modulo) => renderizarModulo(
-          modulo, resolverAcceso(modulo.clave), escaparHTML, traducir,
-        )).join("")}
+    const modulos = renderizarModulosOfrecidos(catalogo, resolverAcceso, escaparHTML, traducir);
+    // Sin ningún módulo que ofrecer (y sin fallo del catálogo, que ya tiene su
+    // aviso), Inicio dice que no hay módulos en lugar de quedar en blanco.
+    const contenido = modulos === "" && avisoCatalogo === ""
+      ? `<section class="panel portal-inicio-empleado-vacio"><div class="cuerpo-panel vacio-controlado" role="status" data-inicio-sin-modulos>
+          <p>${escaparHTML(traducir("inicio_empleado_sin_modulos"))}</p>
+        </div></section>`
+      : `<div class="rejilla-modulos portal-inicio-empleado" aria-label="Módulos del Portal del Empleado">
+        ${modulos}
       </div>`;
+    return `
+      ${encabezadoVista("", "Portal del Empleado", "")}
+      ${avisoCatalogo}
+      ${contenido}`;
   };
 }
 
@@ -194,10 +215,11 @@ function renderizarModulo(modulo, acceso, escaparHTML, traducir) {
   // recorrido visual o a un adaptador compuesto. La tarjeta lo deja visible,
   // sin deducirlo de un menú ni convertir una pantalla en una conexión real.
   const presentacion = habilitado && acceso?.presentacion === true;
+  const comprobando = fase === "cargando";
+  // Mientras su módulo carga, la tarjeta dice «Comprobando», no «no habilitado».
   const estado = etiquetaAcceso || (habilitado
     ? traducir("estado_modulo_disponible_perfil")
-    : traducir("estado_modulo_no_habilitado"));
-  const comprobando = fase === "cargando";
+    : traducir(comprobando ? "estado_modulo_comprobando" : "estado_modulo_no_habilitado"));
   const reintentar = fase === "error" && acceso?.reintentar === true;
   const etiquetaAccion = typeof acceso?.accion_etiqueta === "string" && acceso.accion_etiqueta.trim() !== ""
     ? acceso.accion_etiqueta
@@ -213,7 +235,7 @@ function renderizarModulo(modulo, acceso, escaparHTML, traducir) {
       <h3>${escaparHTML(modulo.titulo)}</h3>
       <p>${escaparHTML(modulo.texto)}</p>
       <div class="pie-tarjeta">
-        <span class="${presentacion ? "estado-presentacion" : (habilitado ? "estado-disponible" : "estado-proximamente")}" role="status" aria-live="polite">${escaparHTML(estado)}</span>
+        <span class="${presentacion ? "estado-presentacion" : (habilitado ? "estado-disponible" : "estado-proximamente")}">${escaparHTML(estado)}</span>
         ${habilitado
           ? `<button type="button" class="${presentacion ? "boton-secundario" : "boton-primario"}" data-vista="${escaparHTML(acceso.vista)}">${escaparHTML(etiquetaAccion)}</button>`
           : (reintentar

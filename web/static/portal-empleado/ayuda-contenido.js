@@ -1,4 +1,4 @@
-import { traducirPortal } from "./portal-i18n.js?v=20260925-notificaciones-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260925-cronos-notif-e10-v1";
 
 /** Contenido de ayuda sustituible por catálogo o conector, sin lógica de negocio. */
 export const AYUDA_PORTAL_BOLSA = Object.freeze({

@@ -60,7 +60,7 @@ func TestProveedorPersonalB2FallaCerradoSinAutoridades(t *testing.T) {
 	}
 }
 
-func TestMaterialPersonalB2VersionTresExigeCatalogoYListaDeEmpleados(t *testing.T) {
+func TestMaterialPersonalB2VersionCuatroExigeCatalogoYListaDeEmpleados(t *testing.T) {
 	// El inventario real exige estar fuera de cualquier repositorio Git.
 	dir, err := os.MkdirTemp("/var/tmp", "personal-b2-v3-")
 	if err != nil {
@@ -74,7 +74,7 @@ func TestMaterialPersonalB2VersionTresExigeCatalogoYListaDeEmpleados(t *testing.
 	referencia := map[string]any{"catalogo_id": "motivos.b2", "catalogo_version": 1, "catalogo_huella_sha256": strings.Repeat("a", 64), "entrada_clave": "motivo_0123456789abcdef0123456789abcdef"}
 	motivos := map[string]any{"ficha": referencia, "vacantes": referencia, "alta": referencia, "hecho": referencia}
 	capacidades := map[string]any{"ficha": map[string]any{"archivo": "ficha.key"}, "vacantes": map[string]any{"archivo": "vacantes.key"}, "alta": map[string]any{"archivo": "alta.key"}, "hecho": map[string]any{"archivo": "hecho.key"}}
-	inventario := map[string]any{"version": 3, "catalogo_motivos": "motivos.b2", "motivos": motivos, "v3": map[string]any{"audiencia": audienciaAtestacionPersonalB2, "clave_archivo": "raiz.key", "capacidades": capacidades}}
+	inventario := map[string]any{"version": 4, "catalogo_motivos": "motivos.b2", "motivos": motivos, "v3": map[string]any{"capacidades": capacidades}}
 	escribir := func() {
 		t.Helper()
 		b, err := json.Marshal(inventario)
@@ -113,10 +113,13 @@ func TestMaterialPersonalB2VersionTresExigeCatalogoYListaDeEmpleados(t *testing.
 	if err := m.Cerrar(); err != nil {
 		t.Fatal(err)
 	}
-	inventario["version"] = 2
-	escribir()
-	if _, err := CargarMaterialPersonalB2(dir); !errors.Is(err, ErrPersonalB2V3NoDisponible) {
-		t.Fatalf("formato anterior: %v", err)
+	// El formato 3 (raíz y configuración B2 propias) ya no se admite.
+	for _, version := range []int{2, 3} {
+		inventario["version"] = version
+		escribir()
+		if _, err := CargarMaterialPersonalB2(dir); !errors.Is(err, ErrPersonalB2V3NoDisponible) {
+			t.Fatalf("formato anterior %d: %v", version, err)
+		}
 	}
 }
 

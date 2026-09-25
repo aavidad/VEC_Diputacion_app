@@ -34,10 +34,10 @@ func Manifest() domain.ModuleManifest {
 		DescriptionKey: "ui.vec.module.dietas.description",
 		Version:        "v0.2.0",
 		Group:          "gestion_gastos",
-		// El portal interno navega por #dietas tras consultar el catálogo.
-		// ModuleManifest prohíbe fragmentos en rutas de menú; no se publican
-		// aquí enlaces a /modules/dietas/* que no existen en el servidor.
-		BasePath: "/portal-empleado/",
+		// Ruta base canónica como el resto de módulos (/modules/<clave>): el
+		// portal la valida y rechaza el manifiesto si no la cumple. El portal
+		// navega por #dietas; no se publican entradas de menú.
+		BasePath: "/modules/dietas",
 		Permissions: []domain.Permission{
 			{Key: PermissionDraftCreate, LabelKey: "ui.permission.dietas.borrador_crear"},
 			{Key: PermissionDraftRead, LabelKey: "ui.permission.dietas.borrador_consultar"},

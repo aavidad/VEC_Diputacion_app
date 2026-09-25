@@ -59,11 +59,106 @@ Dirección comunique su resultado. Un barrido del portal no las sustituye.
 No ejecutar `DOWN`, repetir el preparador histórico ni reactivar LOGIN a partir
 de esta anotación.
 
+### Dietas con la composición actual: variables y F4b (25/09/2026)
 
-El inventario canónico de `config/` contiene 18 variables `VEC_*_DATABASE_URL`.
-La principal ya tiene las once identidades de Contratación/Bolsa llamamientos y
-`VEC_CT_AUDITORIA_FRONTERA_DATABASE_URL`. Faltan estas seis en
-`material/arrancar-local.sh`; el contador exacto pasa de **12 a 18**:
+Estado de este corte: código y paquetes revisables, **no aplicados en la
+principal**. F4 y D7 no constan aplicados en ningún registro; F4b los sustituye
+y no se mezclan (ver [`f4b_acceso_dietas/`](f4b_acceso_dietas/README.md)).
+
+La composición actual de Dietas usa **once** identidades PostgreSQL, cada una
+con una sola membresía heredada (`INHERIT TRUE, SET FALSE, ADMIN FALSE`) y TLS
+`verify-full`; el arranque las acredita y rechaza cualquier reutilización:
+
+| Dónde | Clave | LOGIN (F4b) | Grupo |
+| --- | --- | --- | --- |
+| entorno | `VEC_DIETAS_BORRADORES_DATABASE_URL` | `vec_dietas_r1d_dietas_desarrollo` | `vec_dietas_ejecutor` |
+| entorno | `VEC_DIETAS_PERSONAL_RELACIONES_DATABASE_URL` | `vec_dietas_r1d_personal_desarrollo` | `vec_dietas_ejecutor` |
+| entorno | `VEC_DIETAS_PERSONAL_ASIGNACION_DATABASE_URL` | `vec_personal_d7_asignacion` | `vec_personal_d7_ejecutor` |
+| entorno | `VEC_DIETAS_PERSONAL_AUDITORIA_FRONTERA_DATABASE_URL` | `vec_personal_d7_auditoria_frontera` | `vec_personal_registrador_frontera` |
+| `identidad/dietas-comisiones.json` | `dsn_registro_identidad` | `vec_dietas_r1d_registro_identidad_desarrollo` | `vec_identidad_sesiones_v1_registrador` |
+| ídem | `dsn_revalidacion_identidad` | `vec_dietas_r1d_revalidacion_identidad_desarrollo` | `vec_identidad_sesiones_v1_revalidador` |
+| ídem | `dsn_contexto` | `vec_dietas_r1d_contexto_desarrollo` | `vec_contexto_actor_v1_runtime` |
+| ídem | `dsn_fuente_autorizacion` | `vec_dietas_r1d_fuente_autorizacion_desarrollo` | `vec_autorizacion_fuente` |
+| ídem | `dsn_registro_autorizacion` | `vec_dietas_r1d_registro_autorizacion_desarrollo` | `vec_autorizacion_registro` |
+| ídem | `dsn_motivos` | `vec_dietas_r1d_motivos_desarrollo` | `vec_autorizacion_motivos_evaluador` |
+| ídem | `dsn_auditoria_frontera` | `vec_dietas_f4b_auditoria_frontera_desarrollo` | `vec_dietas_registrador_frontera` |
+
+Además del entorno de la tabla:
+
+```bash
+export VEC_DIETAS_BORRADORES_ENABLED=true   # literal true/false; otro valor impide arrancar
+# Cartografía obligatoria para comisiones (sin ella no arranca):
+export VEC_OSRM_BASE_URL=... VEC_OSRM_SCOPE_NAME=... VEC_OSRM_SCOPE_BOUNDS=...
+export VEC_OSRM_ALLOWED_CIDRS=... VEC_OSRM_GRAPH_VERSION=...
+```
+
+Exige también la doble llave de desarrollo y `VEC_DEVELOPMENT_MATERIAL_DIR`.
+Las cuatro URL de entorno pueden llevar los marcadores `$vec_local_pg_puerto` /
+`$vec_local_ca` que resuelve `arrancar_app.sh`; las siete del JSON se escriben
+**ya resueltas** tal como se ven desde el contenedor (Go no expande variables).
+Contraseñas: las ocho R1D conservan las suyas (`identidad/dietas-r1d-estado.json`);
+las tres nuevas salen del estado privado F4b (`--preparar-estado`), siempre con
+*percent-encoding* en la URL y nunca en Git, argumentos ni registros.
+
+**Contador `vec_conexiones` de `arrancar_app.sh`** (y sus variantes
+`.con-bback`/`.sin-bback`, que deben quedar iguales): solo cuentan las URL de
+entorno, no las del JSON. Resultado = conexiones sin Dietas **+ 4**. Con las
+13 comunicadas el 23/09 queda en **17**; si ya se añadió
+`VEC_CALENDARIOS_DATABASE_URL` (14), en **18**. Si el fichero de conexiones aún
+conserva las dos URL de R1D (contador 15 tras el preparador histórico), solo se
+añaden las dos de Personal: 15 → 17 (o 16 → 18). Comprobar antes con
+`grep -n 'vec_conexiones' arrancar_app.sh*`.
+
+Al arrancar con el selector a `true`, además de acreditar cada pool, la
+composición comprueba la postimagen exacta de Personal 000007–000013 (y, si
+existen, 000014/000015): firmas, propietario, `SECURITY DEFINER`,
+configuración, huella del cuerpo y ACL. Si falta algo, `vec-server` no arranca
+y el registro dice qué: `bootstrap: postimagen Personal para dietas no
+acreditada: 000012 vec_personal.…: huella distinta`.
+
+**Orden seguro de activación:**
+
+1. F4b `--inventario`, `--rollback` y, revisado, `--commit`.
+2. `pg_hba.conf` (antes de la sonda; recarga con `SELECT pg_reload_conf()`),
+   por encima de cualquier línea `host`/`local` más general que las alcance:
+   - `hostssl postgres <cuenta> <red de la app> scram-sha-256` para las tres
+     cuentas nuevas (`vec_dietas_f4b_auditoria_frontera_desarrollo`,
+     `vec_personal_d7_asignacion`, `vec_personal_d7_auditoria_frontera`),
+     igual que las ocho R1D si aún no tienen su línea;
+   - `hostnossl all <cuenta> all reject` para **las once** (o `host all
+     <cuenta> all reject` **después** de sus líneas `hostssl`), de modo que
+     ninguna entre sin TLS.
+   Comprobar con `SELECT * FROM pg_hba_file_rules WHERE error IS NOT NULL`
+   (vacío) antes de recargar.
+3. `--sonda-tls`: cada cuenta conecta con `verify-full` y
+   `require_auth=scram-sha-256` (libpq ≥ 16) y es rechazada sin TLS.
+4. Material JSON y entorno (cuatro URL, selector, `VEC_OSRM_*`), con copia de
+   las variantes de arranque.
+5. `vec-server comprobar-dietas` con **exactamente** el mismo entorno y
+   material que usará el arranque (p. ej. `podman run --rm` efímero de la
+   misma imagen): acredita en solo lectura las once identidades, la postimagen
+   de Personal y la cartografía, sin abrir el puerto ni escribir. Solo si dice
+   `OK` se reinicia.
+6. Reinicio y búsqueda de `vec server listening` en el registro.
+
+**Tras una retirada** (`--retirar-commit`) o una vuelta atrás del selector,
+comprobar como DBA que no queda ninguna sesión de las once cuentas:
+`SELECT usename, application_name, backend_start FROM pg_stat_activity WHERE
+usename ~ '^vec_(dietas_r1d|dietas_f4b|personal_d7)_'` debe devolver cero filas
+una vez reiniciado `vec-server` sin Dietas. NOLOGIN no corta las sesiones ya
+abiertas; si queda alguna, cerrarla con `pg_terminate_backend(pid)` tras
+confirmar que el servicio ya no la usa.
+
+
+El inventario canónico de `config/` contiene **23** variables
+`VEC_*_DATABASE_URL` (recuento del 25/09/2026 con
+`grep -rhoE 'VEC_[A-Z0-9_]*DATABASE_URL' config/ --include=*.go --exclude=*_test.go | sort -u`):
+once de Contratación, siete de Bolsa, `VEC_CALENDARIOS_DATABASE_URL` y las
+cuatro de Dietas de la tabla anterior. Nota histórica del corte B2: la
+principal tenía entonces las once identidades de Contratación/Bolsa
+llamamientos y `VEC_CT_AUDITORIA_FRONTERA_DATABASE_URL`, y faltaban estas seis
+de Bolsa en `material/arrancar-local.sh` (el contador habría pasado de 12 a 18;
+en cidonia solo pasó a 13, ver más abajo):
 
 ```bash
 VEC_BOLSA_PUBLICA_DATABASE_URL='postgresql://vec_bolsa_publica_consulta_desarrollo@localhost:5432/postgres?sslmode=verify-full&sslrootcert=/ruta/privada/postgresql/ca.crt'
@@ -79,6 +174,18 @@ de las doce conexiones privadas existentes. Cada URL usa un LOGIN diferente y
 el rol nominal indicado por su nombre; no se reutiliza una credencial. El nuevo
 LOGIN de auditoría se crea mediante `01_roles.sql`; su contraseña solo entra por
 `VEC_BOLSA_AUDITORIA_FRONTERA_LOGIN_PASSWORD` al ejecutar el despliegue.
+
+Registro de empleado Personal B2 en `vec-interno`: `vec-server` publica las
+ocho claves B2 en el gobierno V3 sólo si arranca con
+`VEC_PERSONAL_B2_GOBIERNO_ENABLED=true` (valores admitidos `true`/`false`;
+exige la doble llave de desarrollo y AD3 `000054`–`000056`). **Activarlo es un
+punto de no retorno para el binario:** un `vec-server` anterior ve la última
+clave publicada como gobierno ajeno y Contratación temporal no arranca; hacer
+copia de la base antes y ensayarlo en clon. Después se prepara el material con
+`cmd/vec-preparar-material-interno` y se arranca `vec-interno` nuevo, que
+exige AD3 `000069`. La configuración V3 vence a medianoche UTC: durante los
+segundos que tarda `vec-server` en renovarla, CT y B2 de `vec-interno` fallan
+cerrados.
 
 Para activar B-BACK/B2 también se exige `VEC_BOLSA_BORRADORES_ENABLED=true` y el
 fichero privado `identidad/bolsa-bback.json` bajo
