@@ -118,4 +118,6 @@ Estamos completando los recorridos funcionales de VEC. Necesitamos concretar est
 
 62. **Sanciones en las bolsas y su registro.** El Reglamento (arts. 8.2.a y 11) solo prevé la baja definitiva. ¿Existen otras penalizaciones (pasar al final, suspensión temporal)? ¿Quién la resuelve, se notifica con recurso y puede revisarse? ¿Qué debe constar en el histórico que pide la petición (p. 2)?
 
+63. **Cuándo es urgente un expediente de contratación temporal.** Las reglas de ejemplo dan a la fiscalización 10 días hábiles, o 5 si la tramitación es urgente. Hoy VEC no sabe qué expedientes son urgentes y aplica siempre los 10 días en la columna «Plazo» del cuadro. ¿Quién declara la urgencia (el centro al pedir, RRHH al analizar, la resolución de inicio…), con qué motivo y en qué momento? ¿Debe constar en algún documento? ¿Puede retirarse? ¿Afecta solo a la fiscalización o también a los informes y a la subsanación?
+
 Para las integraciones, agradeceríamos también el contacto de **Informática responsable del portafirmas, RC/costes, GINPIX, identidad corporativa, certificados y revocación**, que pueda facilitarnos la documentación técnica y el acceso a pruebas.

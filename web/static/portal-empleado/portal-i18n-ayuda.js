@@ -264,7 +264,7 @@ export const MENSAJES_AYUDA_PORTAL_ES = Object.freeze({
   ayuda_contenido_262: "Configure plazo y canales, y compruebe el resumen antes de confirmar.",
   ayuda_contenido_263: "El cuadro de mando centraliza y organiza las solicitudes de contratación temporal del personal de la Diputación.",
   ayuda_contenido_264: "Permite consultar el estado de cada expediente, aplicar filtros por texto, estado o fase, y acceder a cada caso para continuar su tramitación.",
-  ayuda_contenido_265: "Los criterios de priorización de las solicitudes y los plazos de respuesta están pendientes de definir por RRHH.",
+  ayuda_contenido_265: "La columna Plazo muestra el último día para terminar la fase actual, contado desde que el expediente entró en ella con una regla de ejemplo del catálogo de reglas, no aprobada por RRHH; sin regla para la fase aparece «—». Los plazos definitivos y los criterios de priorización están pendientes de definir por RRHH.",
   ayuda_contenido_266: "Este formulario permite registrar una nueva solicitud de contratación temporal para cubrir una necesidad de personal.",
   ayuda_contenido_267: "Debe indicar el centro solicitante, la categoría profesional requerida, la jornada de trabajo prevista y la justificación del puesto.",
   ayuda_contenido_268: "Los requisitos de la memoria justificativa y los plazos para presentar peticiones están pendientes de definir por RRHH.",

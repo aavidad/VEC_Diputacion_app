@@ -282,3 +282,24 @@
     grid-column: auto;
   }
 }
+
+/* Plazo de la fase actual en la bandeja: pastilla con fecha y estado en texto. */
+.ct-plazo-en_plazo {
+  background: var(--portal-azul-100);
+  color: var(--portal-azul-700);
+}
+
+.ct-plazo-vence_hoy {
+  background: var(--portal-aviso-suave);
+  color: var(--portal-aviso);
+}
+
+.ct-plazo-vencido {
+  background: var(--portal-peligro-suave);
+  color: var(--portal-peligro);
+}
+
+.ct-plazo-no_calculado {
+  background: var(--portal-neutro-suave);
+  color: var(--portal-muted);
+}
