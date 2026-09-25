@@ -30,10 +30,10 @@ BEGIN
            SELECT 1 FROM pg_catalog.pg_proc p
             WHERE p.oid = v_resumen
               AND p.proowner = 'vec_contratacion_temporal_propietario'::regrole
-              AND pg_catalog.octet_length(p.prosrc) = 8770
+              AND pg_catalog.octet_length(p.prosrc) = 11443
               AND pg_catalog.encode(pg_catalog.sha256(
                   pg_catalog.convert_to(p.prosrc,'UTF8')),'hex') =
-                  '9ce146e0065e14b0a696441d637b8f35f1d1ed9d778f08ac284c46c82ac7917b'
+                  '73ae49630a485ebfb93677ca0636ff7166e9d69650c13b042bf2de22e889f1fb'
        ) THEN
         RAISE EXCEPTION USING ERRCODE = '55000',
             MESSAGE = 'historia o preimagen impide retirar consulta de seguimiento';

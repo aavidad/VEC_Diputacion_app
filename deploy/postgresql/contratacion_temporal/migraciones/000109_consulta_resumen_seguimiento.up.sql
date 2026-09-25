@@ -165,10 +165,30 @@ BEGIN
        )
        OR EXISTS (SELECT 1 FROM pg_catalog.pg_auth_members m
                    WHERE m.roleid = v_login.oid)
+       OR NOT EXISTS (
+           SELECT 1 FROM pg_catalog.pg_roles r
+            WHERE r.rolname = 'vec_contratacion_temporal_consultor_rrhh'
+              AND NOT r.rolcanlogin AND r.rolinherit
+              AND NOT r.rolsuper AND NOT r.rolcreatedb
+              AND NOT r.rolcreaterole AND NOT r.rolreplication
+              AND NOT r.rolbypassrls
+       )
+       OR EXISTS (
+           SELECT 1 FROM pg_catalog.pg_auth_members m
+            WHERE m.member =
+                  'vec_contratacion_temporal_consultor_rrhh'::regrole
+       )
        OR pg_catalog.pg_is_in_recovery()
        OR pg_catalog.current_setting('transaction_isolation') <> 'serializable'
        OR pg_catalog.current_setting('transaction_read_only') <> 'off'
        OR pg_catalog.current_setting('TimeZone') <> 'UTC'
+       OR pg_catalog.current_setting('lock_timeout') = '0'
+       OR pg_catalog.current_setting('lock_timeout')::interval > interval '1 second'
+       OR pg_catalog.current_setting('statement_timeout') = '0'
+       OR pg_catalog.current_setting('statement_timeout')::interval > interval '4 seconds'
+       OR pg_catalog.current_setting('idle_in_transaction_session_timeout') = '0'
+       OR pg_catalog.current_setting(
+           'idle_in_transaction_session_timeout')::interval > interval '6 seconds'
        OR p_alcance IS NULL OR p_consulta IS NULL
        OR pg_catalog.octet_length(COALESCE(p_alcance.organizacion_ref, '')) > 160
        OR pg_catalog.octet_length(COALESCE(p_alcance.clase_ambito, '')) > 16
@@ -177,6 +197,41 @@ BEGIN
        OR p_unidad_ref IS NULL
        OR pg_catalog.octet_length(p_unidad_ref) > 160
        OR p_unidad_ref !~ '^[A-Za-z0-9][A-Za-z0-9._:/#-]{2,159}$' THEN
+        RAISE EXCEPTION USING ERRCODE = '42501',
+            MESSAGE = 'consulta de seguimiento RRHH rechazada';
+    END IF;
+
+    -- Límites O(1) antes de construir el material privado y antes de
+    -- decodificar JSON o ejecutar los cánones CT40, iguales a CT45.
+    IF p_capacidad_canonica IS NULL
+       OR pg_catalog.octet_length(p_capacidad_canonica)
+          NOT BETWEEN 512 AND 32768
+       OR p_decision_canonica IS NULL
+       OR pg_catalog.octet_length(p_decision_canonica)
+          NOT BETWEEN 1 AND 524288
+       OR p_motivo_canonico IS NULL
+       OR pg_catalog.octet_length(p_motivo_canonico)
+          NOT BETWEEN 1 AND 65536
+       OR p_contexto_actor_canonico IS NULL
+       OR pg_catalog.octet_length(p_contexto_actor_canonico)
+          NOT BETWEEN 1 AND 262144
+       OR p_persona_version IS NULL
+       OR p_persona_version NOT BETWEEN 1 AND 9007199254740991::numeric
+       OR p_persona_version <> pg_catalog.trunc(p_persona_version)
+       OR p_perfil_version IS NULL
+       OR p_perfil_version NOT BETWEEN 1 AND 9007199254740991::numeric
+       OR p_perfil_version <> pg_catalog.trunc(p_perfil_version)
+       OR p_payload_vec_ad_3 IS NULL
+       OR pg_catalog.octet_length(p_payload_vec_ad_3)
+          NOT BETWEEN 1 AND 1048576
+       OR p_sobre_cose_sign_1 IS NULL
+       OR pg_catalog.octet_length(p_sobre_cose_sign_1)
+          NOT BETWEEN 1 AND 1048576
+       OR p_evidencia_verificacion IS NULL
+       OR pg_catalog.octet_length(p_evidencia_verificacion)
+          NOT BETWEEN 1 AND 262144
+       OR p_raiz_publica_spki IS NULL
+       OR pg_catalog.octet_length(p_raiz_publica_spki) <> 44 THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'consulta de seguimiento RRHH rechazada';
     END IF;

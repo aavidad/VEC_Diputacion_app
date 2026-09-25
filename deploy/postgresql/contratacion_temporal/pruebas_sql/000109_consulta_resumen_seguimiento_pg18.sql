@@ -87,10 +87,19 @@ GRANT EXECUTE ON FUNCTION vec_contratacion_temporal.canon_consulta_detalle_rrhh_
     vec_contratacion_temporal.consulta_detalle_rrhh_v1)
     TO vec_contratacion_temporal_consultor_rrhh;
 CREATE FUNCTION vec_contratacion_temporal.acreditar_contexto_motor_consultas_rrhh_v1(
-    vec_contratacion_temporal.alcance_consulta_rrhh_v1,
-    vec_contratacion_temporal.material_autorizacion_consulta_rrhh_v3)
+    p_alcance vec_contratacion_temporal.alcance_consulta_rrhh_v1,
+    p_material vec_contratacion_temporal.material_autorizacion_consulta_rrhh_v3)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog
-AS $$ BEGIN RETURN; END $$;
+AS $$ BEGIN
+    -- Centinela: si CT109 llega aquí con un campo excesivo, la prueba recibe
+    -- 40001, distinto del 42501 que exige la guarda previa de CT109.
+    IF pg_catalog.octet_length(p_material.capacidad_canonica)>32768
+       OR pg_catalog.octet_length(p_material.decision_canonica)>524288
+       OR pg_catalog.octet_length(p_material.contexto_actor_canonico)>262144
+       OR p_material.persona_version>9007199254740991::numeric THEN
+        RAISE EXCEPTION USING ERRCODE='40001', MESSAGE='guarda O(1) omitida';
+    END IF;
+END $$;
 CREATE FUNCTION vec_contratacion_temporal.consumir_autorizacion_motor_consultas_rrhh_v1(
     p_tipo text, p_material vec_contratacion_temporal.material_autorizacion_consulta_rrhh_v3)
 RETURNS vec_contratacion_temporal.evidencia_consumo_nuevo_rrhh_v3
@@ -192,6 +201,8 @@ BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE;
 DO $probar$
 DECLARE v record; v_n integer; d bytea; c bytea; fallo boolean;
         decision_j jsonb; capacidad_j jsonb; caso integer;
+        capacidad_larga bytea; decision_larga bytea;
+        contexto_largo bytea;
 BEGIN
     SELECT * INTO STRICT v FROM ct109_caso;
     SELECT * INTO STRICT v FROM vec_contratacion_temporal
@@ -208,6 +219,38 @@ BEGIN
     END IF;
     SELECT t.n INTO STRICT v_n FROM vec_contratacion_temporal.test_consumos t;
     IF v_n <> 1 THEN RAISE EXCEPTION 'CT109 consumo positivo incorrecto'; END IF;
+
+    capacidad_larga := pg_catalog.convert_to(
+        '{"relleno":"'||pg_catalog.repeat('x',32768)||'"}','UTF8');
+    decision_larga := pg_catalog.convert_to(
+        '{"relleno":"'||pg_catalog.repeat('x',524288)||'"}','UTF8');
+    contexto_largo := pg_catalog.convert_to(
+        '{"relleno":"'||pg_catalog.repeat('x',262144)||'"}','UTF8');
+    FOR caso IN 1..4 LOOP
+        fallo := false;
+        BEGIN
+            PERFORM * FROM vec_contratacion_temporal
+              .consultar_resumen_seguimiento_rrhh_atestado_v1(
+                (SELECT alcance FROM ct109_caso),
+                (SELECT consulta FROM ct109_caso),'uni:actual',
+                CASE WHEN caso=1 THEN capacidad_larga
+                     ELSE (SELECT capacidad_bytes FROM ct109_caso) END,
+                CASE WHEN caso=2 THEN decision_larga
+                     ELSE (SELECT decision_bytes FROM ct109_caso) END,
+                '\x01'::bytea,
+                CASE WHEN caso=3 THEN contexto_largo
+                     ELSE (SELECT contexto_actor_bytes FROM ct109_caso) END,
+                CASE WHEN caso=4 THEN 9007199254740992::numeric ELSE 1 END,
+                1,'\x01'::bytea,'\x01'::bytea,'\x01'::bytea,
+                pg_catalog.decode(pg_catalog.repeat('01',44),'hex'));
+        EXCEPTION WHEN SQLSTATE '42501' THEN fallo := true;
+        END;
+        IF NOT fallo THEN
+            RAISE EXCEPTION 'CT109 aceptó material excesivo en caso %',caso;
+        END IF;
+    END LOOP;
+    SELECT t.n INTO STRICT v_n FROM vec_contratacion_temporal.test_consumos t;
+    IF v_n <> 1 THEN RAISE EXCEPTION 'CT109 consumió material excesivo'; END IF;
 
     SELECT decision_bytes, capacidad_bytes INTO STRICT d,c FROM ct109_caso;
     d := pg_catalog.convert_to(
