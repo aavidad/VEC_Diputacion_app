@@ -3,6 +3,8 @@ BEGIN;
 SET LOCAL ROLE vec_bolsa_llamamientos_propietario;
 SET LOCAL search_path = pg_catalog;
 SET LOCAL timezone = 'UTC';
+SET LOCAL lock_timeout = '5s';
+SET LOCAL statement_timeout = '30s';
 SELECT pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_bolsa_llamamientos:migracion:000035', 0));
 
 -- Duda 45: los aspirantes importados de CONVOCA no tienen contacto propio en
@@ -12,6 +14,17 @@ SELECT pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_bolsa_llamamientos
 -- que fija la regla b29 del catálogo de reglas (referencia y huella exactas).
 -- La marca vale solo para su versión: cualquier versión posterior, registrada
 -- por RRHH o confirmada por la persona, la sustituye. Nada se reescribe.
+DO $precondicion$
+BEGIN
+ IF current_user <> 'vec_bolsa_llamamientos_propietario'
+    OR to_regclass('vec_bolsa_llamamientos.datos_contacto_participacion') IS NULL
+    OR to_regprocedure('vec_bolsa_llamamientos.constitucion_rechazar_mutacion()') IS NULL
+    OR to_regprocedure('vec_bolsa_llamamientos.registrar_datos_contacto_participacion_v1(text,text,bigint,text,bytea,bytea,text,text,timestamptz,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
+    OR to_regclass('vec_bolsa_llamamientos.origen_datos_contacto_participacion') IS NOT NULL
+    OR to_regprocedure('vec_bolsa_llamamientos.leer_origen_datos_contacto_participacion_v1(text,bigint)') IS NOT NULL THEN
+  RAISE EXCEPTION 'estado incompatible para el contacto de origen CONVOCA' USING ERRCODE='55000';
+ END IF;
+END $precondicion$;
 CREATE TABLE vec_bolsa_llamamientos.origen_datos_contacto_participacion (
     participacion_ref text NOT NULL,
     version bigint NOT NULL,
