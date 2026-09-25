@@ -2,6 +2,7 @@ import {
   crearTraductorCalendarios, formatearFechaCivil, formatearInstante, formatearNumero, nombreMes,
 } from "./i18n.js?v=20260925-calendarios-v1";
 import { icono } from "../../comun/iconos-vec.js?v=20260925-aspecto-v1";
+import { instanteDesdeHoraMadrid } from "../hora-madrid.js";
 
 export const API_CENTROS = "/api/vec/calendarios/centros";
 export const API_CALENDARIO = "/api/vec/calendarios/centro";
@@ -37,7 +38,7 @@ async function leerJSONLimitado(respuesta) {
   }
 }
 
-const CODIGOS_API = new Set(["solicitud_invalida", "calendario_no_publicado", "servicio_no_disponible", "autenticacion_requerida", "acceso_denegado"]);
+const CODIGOS_API = new Set(["solicitud_invalida", "calendario_no_publicado", "plazo_no_determinado", "servicio_no_disponible", "autenticacion_requerida", "acceso_denegado"]);
 
 /** Cliente de solo lectura: sin cookies propias ni cabeceras de identidad. */
 export function crearCliente(fetchImpl = globalThis.fetch, timeoutMs = 10000) {
@@ -234,10 +235,10 @@ export function mensajeError(error) {
 }
 
 /** Convierte un datetime-local del navegador en RFC 3339 UTC; vacío si no hay valor. */
+/** «Conocido en» se escribe en hora de Madrid y viaja en UTC; vacío o hora inexistente → sin selector. */
 export function instanteDesdeCampo(valor) {
-  if (!valor) return "";
-  const instante = new Date(valor);
-  return Number.isNaN(instante.getTime()) ? "" : instante.toISOString();
+  const ms = instanteDesdeHoraMadrid(valor);
+  return ms === null ? "" : new Date(ms).toISOString();
 }
 
 function traducirDocumento(doc) {

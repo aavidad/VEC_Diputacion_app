@@ -163,6 +163,11 @@ BEGIN
   IF p_anio IS NULL OR p_anio NOT BETWEEN 2000 AND 2100 OR p_conocido_en IS NULL OR p_conocido_en>statement_timestamp() THEN
     RAISE EXCEPTION 'Calendarios: consulta inválida' USING ERRCODE='22023';
   END IF;
+  -- Nunca se trunca en silencio: más centros de los que admite una respuesta es un error explícito.
+  IF (SELECT count(DISTINCT x.ambito_ref) FROM vec_calendarios.version_calendario x
+       WHERE x.ambito_tipo='centro' AND x.anio=p_anio AND x.conocido_desde<=p_conocido_en) > 1000 THEN
+    RAISE EXCEPTION 'Calendarios: demasiados centros para una respuesta' USING ERRCODE='54000';
+  END IF;
   RETURN QUERY
   SELECT v.id, v.ambito_tipo, v.ambito_ref, v.anio, v.numero, v.sustituye_id, v.denominacion,
          v.procedencia_norma, v.procedencia_referencia, v.procedencia_publicada_en, v.sintetica,
@@ -170,8 +175,7 @@ BEGIN
     FROM (SELECT DISTINCT ON (x.ambito_ref) x.*
             FROM vec_calendarios.version_calendario x
            WHERE x.ambito_tipo='centro' AND x.anio=p_anio AND x.conocido_desde<=p_conocido_en
-           ORDER BY x.ambito_ref, x.numero DESC
-           LIMIT 1000) v
+           ORDER BY x.ambito_ref, x.numero DESC) v
    ORDER BY v.ambito_ref;
 END $f$;
 
