@@ -179,6 +179,11 @@ transportes_mtls_revisados=(
 	static/portal-empleado/modulos/personal/cliente-http-categorias.js
 	static/portal-empleado/peticiones-centro/peticiones-centro.js
 	static/portal-empleado/organizacion/organizacion.js
+	# Dietas (25/09): asignación D7, rectificación y circuito; mismo origen, no-store,
+	# redirect error y no-referrer, como cliente-borradores-http.js.
+	static/portal-empleado/modulos/dietas/cliente-asignacion-http.js
+	static/portal-empleado/modulos/dietas/cliente-rectificacion-http.js
+	static/portal-empleado/modulos/dietas/cliente-circuito-http.js
 )
 mapfile -t usos_mismo_origen < <(
 	grep -rliE 'credentials[[:space:]]*:[[:space:]]*["'"'"']same-origin' \
