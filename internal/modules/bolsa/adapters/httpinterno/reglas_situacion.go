@@ -23,13 +23,28 @@ const esquemaReglasSituacion = "vec.bolsa.rrhh.reglas_situacion.v1"
 // tabla compilada, para que la pantalla siga como hasta ahora.
 type HandlerReglasSituacion struct {
 	reglas puertosbolsa.ConsultaReglasSituacion
+	// transiciones da los destinos que admitirá el servicio, con la política
+	// que publica la base. Nula: tabla compilada restringida por el catálogo.
+	transiciones FuenteTransicionesSituacion
+}
+
+// FuenteTransicionesSituacion es el servicio de situación visto desde la
+// lectura: por origen, los destinos que admitirá.
+type FuenteTransicionesSituacion interface {
+	TransicionesAdmitidas(ctx context.Context) (map[string][]string, error)
 }
 
 func NuevoHandlerReglasSituacion(reglas puertosbolsa.ConsultaReglasSituacion) (http.Handler, error) {
+	return NuevoHandlerReglasSituacionConTransiciones(reglas, nil)
+}
+
+// NuevoHandlerReglasSituacionConTransiciones toma los destinos del servicio,
+// de modo que la pantalla ofrece exactamente lo que se podrá registrar.
+func NuevoHandlerReglasSituacionConTransiciones(reglas puertosbolsa.ConsultaReglasSituacion, transiciones FuenteTransicionesSituacion) (http.Handler, error) {
 	if reglas == nil {
 		return nil, errors.New("bolsa http interno: reglas de situacion no disponibles")
 	}
-	return &HandlerReglasSituacion{reglas: reglas}, nil
+	return &HandlerReglasSituacion{reglas: reglas, transiciones: transiciones}, nil
 }
 
 func (h *HandlerReglasSituacion) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -59,7 +74,13 @@ func (h *HandlerReglasSituacion) ServeHTTP(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *HandlerReglasSituacion) datos(ctx context.Context, fin time.Time, modalidad string) (map[string]any, error) {
-	transiciones, err := TransicionesEfectivas(ctx, h.reglas)
+	var transiciones map[string][]string
+	var err error
+	if h.transiciones != nil {
+		transiciones, err = h.transiciones.TransicionesAdmitidas(ctx)
+	} else {
+		transiciones, err = TransicionesEfectivas(ctx, h.reglas)
+	}
 	if err != nil {
 		return nil, err
 	}

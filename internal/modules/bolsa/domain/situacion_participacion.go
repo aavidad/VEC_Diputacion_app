@@ -24,14 +24,13 @@ var catalogoSituacionesParticipacion = map[string]struct{}{
 	SituacionDisponibleDesde: {},
 }
 
-// transicionesSituacionParticipacion es provisional por decisión de Dirección
-// hasta la respuesta de RRHH a las dudas 13 y 18. B2 no incorpora readmisión.
-// Replica la tabla de registrar_situacion_participacion_v1 (migración 000012
-// de bolsa_llamamientos, ya instalada) y es el máximo admitido: el catálogo de
-// reglas (b28.transiciones.<origen>) solo puede restringirla en la aplicación.
-// Pendiente como tarea aparte, migración reservada 000032: abrir
-// renuncia→no_disponible para la renuncia justificada del art. 10 y, cuando
-// RRHH confirme el art. 11, cerrar renuncia→disponible también en SQL.
+// transicionesSituacionParticipacion es el literal de
+// registrar_situacion_participacion_v1 en la migración 000012 de
+// bolsa_llamamientos y la versión 1 de su política de transiciones (000032).
+// Rige mientras la base no publique otra: desde 000032 la base de datos guarda
+// la política vigente, publicada al arrancar desde el catálogo de reglas
+// (b28.transiciones.<origen>), y esa política sustituye a esta tabla. Ver
+// PoliticaTransicionesSituacion.
 var transicionesSituacionParticipacion = map[string]map[string]struct{}{
 	SituacionDisponible:             {SituacionNoDisponible: {}, SituacionPendienteIncorporacion: {}, SituacionRenuncia: {}, SituacionExcluido: {}},
 	SituacionNoDisponible:           {SituacionDisponible: {}, SituacionExcluido: {}},
@@ -67,13 +66,19 @@ type CambioSituacionParticipacion struct {
 	RegistradaEn     time.Time
 }
 
+// Validar comprueba el cambio con la tabla compilada.
 func (c CambioSituacionParticipacion) Validar() error {
+	return c.ValidarCon(PoliticaTransicionesSituacionCompilada())
+}
+
+// ValidarCon comprueba el cambio con la política de transiciones vigente.
+func (c CambioSituacionParticipacion) ValidarCon(politica PoliticaTransicionesSituacion) error {
 	if !referenciaLlamamientoOpacaValida(c.ParticipacionRef) || !situacionParticipacionValida(c.Origen) || !situacionParticipacionValida(c.Destino) ||
 		strings.TrimSpace(c.Motivo) != c.Motivo || len(c.Motivo) == 0 || len(c.Motivo) > 1000 ||
 		!instanteLlamamientoCanonico(c.Desde) || !instanteLlamamientoCanonico(c.RegistradaEn) || c.Desde.Before(c.RegistradaEn) {
 		return ErrCambioSituacionParticipacionInvalido
 	}
-	if _, ok := transicionesSituacionParticipacion[c.Origen][c.Destino]; !ok {
+	if !politica.Admite(c.Origen, c.Destino) {
 		return ErrCambioSituacionParticipacionInvalido
 	}
 	if c.Destino == SituacionDisponibleDesde {

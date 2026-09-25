@@ -52,8 +52,9 @@ const (
 	// que RRHH elige al excluir; la etiqueta y el artículo salen de la entrada.
 	BolsaPrefijoCausaBaja = "b27.causa_baja."
 	// BolsaPrefijoTransicionesSituacion + situación de origen es una lista con
-	// los destinos admitidos desde ella. Sin entrada rige la tabla compilada;
-	// la entrada solo puede restringirla, porque la base de datos tiene la suya.
+	// los destinos admitidos desde ella. Sin entrada rige la tabla compilada.
+	// Bolsa publica al arrancar la tabla resultante como política de la base
+	// de datos (migración 000032 de bolsa_llamamientos), que es la que decide.
 	BolsaPrefijoTransicionesSituacion = "b28.transiciones."
 	// AtributoModalidades es la lista de modalidades de nombramiento a las que
 	// se aplica una regla de reposición distinta de la general.
