@@ -1448,7 +1448,7 @@ test("A incierta conserva su clave tras un 403 posterior y no duplica B al reaut
   } finally { globalThis.FormData = FormDataOriginal; vista.desmontar(); }
 });
 
-test("editar D3 usa grupo acreditado para aceptar tramos y D4 sin vehículo conserva otros gastos sin custodia inventada", async () => {
+test("editar D3 usa grupo acreditado para aceptar tramos y D4 sin vehículo envía otros gastos D5 con justificante", async () => {
   const calculado = { ...item, comision: { ...item.comision,
     codigos_ruta: ["18087", "18003"], calculo: {
       rotulo: "PROVISIONAL · pendiente de confirmación por RRHH", version_tarifa: "provisional:rd462:20260923",
@@ -1470,6 +1470,8 @@ test("editar D3 usa grupo acreditado para aceptar tramos y D4 sin vehículo cons
     cliente: { listar: async () => ({ items: [calculado] }), obtener: async () => calculado,
       crear: async () => calculado, editar: async (_ref, entrada) => { peticiones.push(entrada); return calculado; } },
     generarClaveIdempotencia: () => "editar-comision-aceptada-20260924",
+    catalogoOtrosGastos: { version: "provisional:otros-gastos:20260925", tipos: [
+      { codigo: "taxi", clase: "otro_medio" }, { codigo: "aparcamiento", clase: "otro_gasto" }] },
   });
   await Promise.resolve(); await Promise.resolve();
   const panel = contenedor.querySelector("[data-dietas-borradores-propios]");
@@ -1482,20 +1484,35 @@ test("editar D3 usa grupo acreditado para aceptar tramos y D4 sin vehículo cons
   form.querySelector("[data-dietas-vehiculo-propio]").value = "no";
   await panel.listeners.click({ target: form.querySelector("[data-dietas-otro-anadir]") });
   const filaOtro = form.querySelector("[data-dietas-otro-linea]");
-  filaOtro.querySelectorAll("input").find((entrada) => entrada.name === "concepto").value = "Aparcamiento";
-  filaOtro.querySelectorAll("input").find((entrada) => entrada.name === "importe").value = "2,50";
+  const tipo = filaOtro.querySelectorAll("select").find((entrada) => entrada.name === "tipo_gasto");
+  // Los tipos se agrupan por apartado con rótulos de negocio, sin códigos.
+  assert.deepEqual(tipo.children.slice(1).map((grupo) => [grupo.label, grupo.children.map((opcion) => opcion.textContent)]),
+    [["Otros medios de transporte", ["Taxi"]], ["Otros gastos", ["Aparcamiento"]]]);
+  const campoOtro = (nombre) => filaOtro.querySelectorAll("input").find((entrada) => entrada.name === nombre);
+  tipo.value = "aparcamiento";
+  campoOtro("fecha").value = "2026-09-22";
+  campoOtro("concepto").value = "Aparcamiento";
+  campoOtro("importe").value = "2,50";
+  campoOtro("justificante_ref").value = "ticket:parking-01";
+  campoOtro("justificante_sha256").value = "A".repeat(64);
   const datos = { fecha_inicio: "2026-09-20", fecha_fin: "2026-09-21", motivo: "Visita",
     hora_inicio: "09:00", hora_fin: "18:00", origen_codigo: "18087", destino_codigo: "18003" };
   const original = globalThis.FormData;
   globalThis.FormData = class { get(nombre) { return datos[nombre] ?? null; } };
   try {
+    // Un gasto fuera de las fechas de la comisión no se envía.
+    await panel.listeners.submit({ target: form, preventDefault() {} });
+    assert.equal(peticiones.length, 0);
+    assert.match(textoVisible(contenedor), /Revise cada gasto/u);
+    campoOtro("fecha").value = "2026-09-21";
     await panel.listeners.submit({ target: form, preventDefault() {} });
     assert.equal(peticiones.length, 1);
     assert.equal(peticiones[0].vehiculo_propio, false);
     assert.deepEqual(peticiones[0].rutas, []);
     assert.deepEqual(peticiones[0].tramos_aceptados, [0, 1]);
     assert.equal(peticiones[0].version_tarifa_aceptada, "provisional:rd462:20260923");
-    assert.deepEqual(peticiones[0].otros, [{ tipo: "otro_gasto", concepto: "Aparcamiento",
-      importe_centimos: 250, justificante_ref: "", justificante_sha256: "" }]);
+    assert.deepEqual(peticiones[0].otros, [{ tipo: "otro_gasto", tipo_gasto: "aparcamiento",
+      catalogo_version: "provisional:otros-gastos:20260925", fecha: "2026-09-21", concepto: "Aparcamiento",
+      importe_centimos: 250, justificante_ref: "ticket:parking-01", justificante_sha256: "a".repeat(64) }]);
   } finally { globalThis.FormData = original; vista.desmontar(); }
 });

@@ -28,14 +28,20 @@ function validarSolicitud(entrada) {
   if (entrada.relacion_ref !== undefined && !referencia(entrada.relacion_ref, "rel_")) throw new TypeError("relación no válida");
   return Object.freeze({ ...entrada, ...(entrada.codigos_ruta ? { codigos_ruta: Object.freeze([...entrada.codigos_ruta]) } : {}) });
 }
+const REFERENCIA_JUSTIFICANTE = /^[A-Za-z][A-Za-z0-9:_-]{2,127}$/u;
+const HUELLA_JUSTIFICANTE = /^[a-f0-9]{64}$/u;
+const CLAVES_OTRO_GASTO = ["tipo", "tipo_gasto", "catalogo_version", "fecha", "concepto", "importe_centimos", "justificante_ref", "justificante_sha256"];
+// D5: al guardar, toda línea lleva tipo del catálogo, fecha y justificante
+// por referencia y huella; el servidor coteja además catálogo y fechas.
 function validarOtros(otros) {
   if (!Array.isArray(otros) || otros.length > 32) throw new TypeError("líneas de otros gastos no válidas");
   return Object.freeze(otros.map((linea) => {
-    if (!registro(linea) || Object.keys(linea).some((clave) => !["tipo", "concepto", "importe_centimos", "justificante_ref", "justificante_sha256"].includes(clave)) ||
-        !["otro_medio", "otro_gasto"].includes(linea.tipo) || !textoVisible(linea.concepto, 500) || linea.concepto.length < 3 ||
+    if (!registro(linea) || Object.keys(linea).length !== CLAVES_OTRO_GASTO.length || Object.keys(linea).some((clave) => !CLAVES_OTRO_GASTO.includes(clave)) ||
+        !["otro_medio", "otro_gasto"].includes(linea.tipo) || typeof linea.tipo_gasto !== "string" || !/^[a-z][a-z_]{1,40}$/u.test(linea.tipo_gasto) ||
+        typeof linea.catalogo_version !== "string" || !/^provisional:[a-z0-9:-]{8,120}$/u.test(linea.catalogo_version) || !fechaCivil(linea.fecha) ||
+        !textoVisible(linea.concepto, 500) || linea.concepto.length < 3 || linea.concepto !== linea.concepto.trim() ||
         !Number.isSafeInteger(linea.importe_centimos) || linea.importe_centimos <= 0 || linea.importe_centimos > 100000000 ||
-        !((linea.justificante_ref === "" && linea.justificante_sha256 === "") ||
-          (/^[A-Za-z][A-Za-z0-9:_-]{2,127}$/u.test(linea.justificante_ref) && /^[a-f0-9]{64}$/u.test(linea.justificante_sha256))))
+        !REFERENCIA_JUSTIFICANTE.test(linea.justificante_ref) || !HUELLA_JUSTIFICANTE.test(linea.justificante_sha256))
       throw new TypeError("línea de otros gastos no válida");
     return Object.freeze({ ...linea });
   }));
@@ -160,10 +166,16 @@ function validarComision(comision) {
             !/^\d{1,5}\.\d{4}$/u.test(linea.kilometros)) throw new TypeError("kilometraje incompatible");
         totalKM += linea.importe_centimos;
       } else if (linea.tipo === "otro_medio" || linea.tipo === "otro_gasto") {
+        // Las líneas anteriores a D5 no tienen tipo ni fecha y su justificante
+        // es opcional; las D5 lo llevan siempre.
+        const catalogada = linea.tipo_gasto !== undefined || linea.catalogo_version !== undefined;
         if (!textoVisible(linea.concepto, 500) ||
+            (catalogada && (typeof linea.tipo_gasto !== "string" || !/^[a-z][a-z_]{1,40}$/u.test(linea.tipo_gasto) ||
+              typeof linea.catalogo_version !== "string" || !fechaCivil(linea.fecha) ||
+              !REFERENCIA_JUSTIFICANTE.test(linea.justificante_ref || "") || !HUELLA_JUSTIFICANTE.test(linea.justificante_sha256 || ""))) ||
             !((linea.justificante_ref === "" && linea.justificante_sha256 === "") ||
-              (/^[A-Za-z][A-Za-z0-9:_-]{2,127}$/u.test(linea.justificante_ref || "") &&
-                /^[a-f0-9]{64}$/u.test(linea.justificante_sha256 || ""))))
+              (REFERENCIA_JUSTIFICANTE.test(linea.justificante_ref || "") &&
+                HUELLA_JUSTIFICANTE.test(linea.justificante_sha256 || ""))))
           throw new TypeError("otro gasto incompatible");
         totalOtros += linea.importe_centimos;
       } else {

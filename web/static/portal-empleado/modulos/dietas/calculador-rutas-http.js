@@ -240,6 +240,28 @@ function validarPuntoBackend(entrada) {
   });
 }
 
+// D5: tipos versionados de otros medios y gastos. Ausente en servidores
+// anteriores: se proyecta como null y la vista no ofrece añadirlos.
+function proyectarOtrosGastos(valor) {
+  if (valor === undefined) return null;
+  if (!esObjetoPlano(valor) || !Array.isArray(valor.tipos) || valor.tipos.length < 1 || valor.tipos.length > 64
+    || typeof valor.version !== "string" || !/^provisional:[a-z0-9:-]{8,120}$/u.test(valor.version)) {
+    throw new TypeError("catalogo de otros gastos no valido");
+  }
+  textoCanonico(valor.rotulo, "rotulo de otros gastos");
+  const codigos = new Set();
+  const tipos = valor.tipos.map((tipo) => {
+    if (!esObjetoPlano(tipo) || Object.keys(tipo).length !== 2 || typeof tipo.codigo !== "string"
+      || !/^[a-z][a-z_]{1,40}$/u.test(tipo.codigo) || !["otro_medio", "otro_gasto"].includes(tipo.clase)
+      || codigos.has(tipo.codigo)) {
+      throw new TypeError("tipo de otros gastos no valido");
+    }
+    codigos.add(tipo.codigo);
+    return Object.freeze({ codigo: tipo.codigo, clase: tipo.clase });
+  });
+  return Object.freeze({ version: valor.version, tipos: Object.freeze(tipos) });
+}
+
 function proyectarCatalogo(respuesta) {
   if (!esObjetoPlano(respuesta) || !Array.isArray(respuesta.province_route_points)
     || !esObjetoPlano(respuesta.province_route_matrix)) {
@@ -275,7 +297,8 @@ function proyectarCatalogo(respuesta) {
       longitud: punto.coordenada.longitud,
     }));
   });
-  return Object.freeze({ catalogo, coordenadasPorCodigo });
+  const otrosGastos = proyectarOtrosGastos(respuesta.otros_gastos);
+  return Object.freeze({ catalogo, coordenadasPorCodigo, otrosGastos });
 }
 
 function redondear(valor, decimales = 2) {
@@ -454,6 +477,13 @@ export function crearCalculadorRutasDietasHTTP(opciones = {}) {
     return proyectada.catalogo;
   }
 
+  /** Tipos de otros medios y gastos servidos con el mismo catálogo. */
+  async function obtenerCatalogoOtrosGastos(opcionesEntrada = {}) {
+    const signal = opcionesPeticion(opcionesEntrada);
+    if (proyeccionCatalogo === null) await obtenerCatalogo({ signal });
+    return proyeccionCatalogo.otrosGastos;
+  }
+
   async function calcular(solicitudEntrada, opcionesEntrada = {}) {
     const signal = opcionesPeticion(opcionesEntrada);
     if (signal?.aborted) throw new Error("La consulta de Dietas fue cancelada.");
@@ -482,5 +512,5 @@ export function crearCalculadorRutasDietasHTTP(opciones = {}) {
     );
   }
 
-  return Object.freeze({ obtenerCatalogo, calcular });
+  return Object.freeze({ obtenerCatalogo, obtenerCatalogoOtrosGastos, calcular });
 }

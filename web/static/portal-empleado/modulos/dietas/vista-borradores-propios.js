@@ -1,5 +1,7 @@
 import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260925-tanda2-v1";
 import { crearTraductorBorradoresDietas } from "./i18n-borradores.js?v=20260925-tanda-v1";
+import { crearTraductorOtrosGastosDietas } from "./i18n-otros-gastos.js?v=20260925-d5-v1";
+import { calcularHuellaFichero, catalogoOtrosGastosValido, crearLineaOtroGasto, describirOtroGasto, leerOtrosGastos, pintarTiposOtroGasto } from "./formulario-otros-gastos.js?v=20260925-d5-v1";
 import { montarVistaMapaComisionDietas } from "./vista-mapa-comision.js?v=20260925-tanda2-v1";
 import { montarVistaRectificacionDietas } from "./vista-rectificacion-dietas.js?v=20260925-tanda-v1";
 
@@ -116,6 +118,8 @@ export function montarVistaBorradoresPropios(
     calculadorRuta,
     visorRuta,
     catalogoProyectado = [],
+    // Tipos de otros medios y gastos cuando no hay calculador que los sirva.
+    catalogoOtrosGastos = null,
     traducir = crearTraductorDietas(MENSAJES_DIETAS_ES),
     anunciar = () => {},
     confirmarOperacion = (texto) => globalThis.confirm?.(texto) === true,
@@ -146,6 +150,8 @@ export function montarVistaBorradoresPropios(
     !Array.isArray(catalogoProyectado) || catalogoProyectado.length > 500 ||
     catalogoProyectado.some((punto) => typeof punto?.codigo !== "string" ||
       !/^[A-Za-z0-9][A-Za-z0-9._:-]{1,63}$/u.test(punto.codigo) || typeof punto?.nombre !== "string" || !punto.nombre) ||
+    (catalogoOtrosGastos !== null && !catalogoOtrosGastosValido(catalogoOtrosGastos)) ||
+    (calculadorRuta?.obtenerCatalogoOtrosGastos !== undefined && typeof calculadorRuta.obtenerCatalogoOtrosGastos !== "function") ||
     ((calculadorRuta !== undefined || visorRuta !== undefined) &&
       (typeof calculadorRuta?.obtenerCatalogo !== "function" || typeof calculadorRuta?.calcular !== "function" ||
        typeof visorRuta?.montar !== "function")) ||
@@ -164,7 +170,7 @@ export function montarVistaBorradoresPropios(
     throw new TypeError("vista de borradores propios de Dietas no disponible");
   }
   const documento = contenedor.ownerDocument;
-  const tBorradores = crearTraductorBorradoresDietas(traducir);
+  const tBorradores = crearTraductorOtrosGastosDietas(crearTraductorBorradoresDietas(traducir));
   const enfocar = (elemento) => elemento?.focus?.(
     (documento.defaultView?.innerWidth ?? 1440) >= 1024
       ? { preventScroll: true }
@@ -212,7 +218,7 @@ export function montarVistaBorradoresPropios(
   let controladorCatalogo = null;
   let calculoCabeceraFirma = null;
   const rutasCalculadas = new Map();
-  const metadatosOtros = new WeakMap();
+  let catalogoOtros = calculadorRuta ? null : catalogoOtrosGastosValido(catalogoOtrosGastos);
   const asignacionVerificada = () => asignacion?.verificada === true &&
     asignacion?.relacion_ref === estado.detalle?.comision.relacion_ref &&
     asignacionFecha === fechaReferenciaPersonal;
@@ -524,7 +530,7 @@ export function montarVistaBorradoresPropios(
     const otros = nodo(documento, "section");
     otros.className = "dietas-comision-otros";
     otros.dataset.dietasOtros = "";
-    otros.append(tituloBloque("comision_bloque_otros", "comision_bloque_otros_ayuda"));
+    otros.append(tituloBloque("comision_bloque_otros", "otros_gastos_ayuda"));
     const listaOtros = nodo(documento, "div");
     listaOtros.dataset.dietasOtrosLista = "";
     const anadirOtro = nodo(documento, "button", tBorradores("comision_otros_anadir"));
@@ -575,6 +581,13 @@ export function montarVistaBorradoresPropios(
         }));
         selector.value = nombresRuta.has(anterior) ? anterior : "";
       });
+      if (typeof calculadorRuta.obtenerCatalogoOtrosGastos === "function") {
+        try { catalogoOtros = catalogoOtrosGastosValido(await calculadorRuta.obtenerCatalogoOtrosGastos({ signal })); }
+        catch { catalogoOtros = null; }
+        if (!activaAhora() || signal.aborted) return;
+        Array.from(formularioPersistente.querySelectorAll("select")).filter((selector) => selector.name === "tipo_gasto")
+          .forEach((selector) => pintarTiposOtroGasto(selector, catalogoOtros, tBorradores));
+      }
       pintar();
     } catch {
       if (!activaAhora() || signal.aborted) return;
@@ -635,39 +648,10 @@ export function montarVistaBorradoresPropios(
     if (focoIndice >= 0) enfocar(lista.querySelectorAll("select")[focoIndice] || anadir);
   }
   function nuevaLineaOtro(valor = {}) {
-    const fila = nodo(documento, "div");
-    fila.className = "dietas-comision-otro-linea";
-    fila.dataset.dietasOtroLinea = "";
-    const campo = (nombre, clave, tipo = "text") => {
-      const etiqueta = nodo(documento, "label", tBorradores(clave));
-      const entrada = nodo(documento, "input");
-      entrada.name = nombre;
-      entrada.type = tipo;
-      entrada.required = true;
-      entrada.value = valor[nombre] ?? "";
-      etiqueta.append(entrada);
-      return etiqueta;
-    };
-    const etiquetaTipo = nodo(documento, "label", tBorradores("comision_otros_tipo"));
-    const tipo = nodo(documento, "select");
-    tipo.name = "tipo";
-    [["otro_medio", "comision_otros_medio"], ["otro_gasto", "comision_otros_gasto"]].forEach(([codigo, clave]) => {
-      const opcion = nodo(documento, "option", tBorradores(clave));
-      opcion.value = codigo;
-      tipo.append(opcion);
-    });
-    tipo.value = valor.tipo || "otro_gasto";
-    etiquetaTipo.append(tipo);
-    const importe = campo("importe", "comision_otros_importe");
-    importe.querySelector("input").inputMode = "decimal";
-    const quitar = nodo(documento, "button", tBorradores("comision_otros_quitar"));
-    quitar.type = "button";
-    quitar.className = "boton-secundario";
-    quitar.dataset.dietasOtroQuitar = "";
-    fila.append(etiquetaTipo, campo("concepto", "comision_otros_concepto"), importe, quitar);
-    if (valor.justificante_ref && valor.justificante_sha256)
-      metadatosOtros.set(fila, { justificante_ref: valor.justificante_ref, justificante_sha256: valor.justificante_sha256 });
-    return fila;
+    const fechas = Array.from(formularioPersistente?.querySelectorAll("input") || []);
+    const fecha = (nombre) => fechas.find((entrada) => entrada.name === nombre)?.value || "";
+    return crearLineaOtroGasto(documento, { traducir: tBorradores, catalogo: catalogoOtros, valor,
+      fechaInicio: fecha("fecha_inicio"), fechaFin: fecha("fecha_fin") });
   }
   function selectorLocalidad(nombre, clave, valor = "", variables = {}) {
     const etiqueta = nodo(documento, "label", tBorradores(clave, variables));
@@ -811,23 +795,6 @@ export function montarVistaBorradoresPropios(
     form.querySelectorAll("[data-dietas-ruta-linea]").forEach((fila, indice) => {
       const titulo = fila.querySelector("h6");
       if (titulo) titulo.textContent = tBorradores("comision_ruta_numero", { numero: indice + 1 });
-    });
-  }
-  function otrosDesdeFormulario(form) {
-    const filas = form.querySelectorAll("[data-dietas-otro-linea]");
-    return Array.from(filas).map((fila) => {
-      const valor = (nombre) => String(fila.querySelectorAll("input").find((entrada) => entrada.name === nombre)?.value || "").trim();
-      const eurosTexto = valor("importe").replace(",", ".");
-      if (!/^(?:0|[1-9]\d{0,5})(?:\.\d{1,2})?$/u.test(eurosTexto)) throw new TypeError("importe no válido");
-      const [enteros, decimales = ""] = eurosTexto.split(".");
-      const custodia = metadatosOtros.get(fila);
-      return {
-        tipo: fila.querySelector("select")?.value,
-        concepto: valor("concepto"),
-        importe_centimos: Number(enteros) * 100 + Number(decimales.padEnd(2, "0")),
-        justificante_ref: custodia?.justificante_ref || "",
-        justificante_sha256: custodia?.justificante_sha256 || "",
-      };
     });
   }
   function codigosRuta(form, datos) {
@@ -1164,7 +1131,8 @@ export function montarVistaBorradoresPropios(
       bloqueOtros.className = "dietas-comision-grupo";
       bloqueOtros.append(nodo(documento, "h5", tBorradores("comision_bloque_otros")));
       const listaOtros = nodo(documento, "ul");
-      otros.forEach((linea) => listaOtros.append(nodo(documento, "li", `${linea.concepto} · ${euros(linea.importe_centimos)}`)));
+      otros.forEach((linea) => listaOtros.append(nodo(documento, "li",
+        `${describirOtroGasto(linea, tBorradores, fechaLegible)} · ${euros(linea.importe_centimos)}`)));
       bloqueOtros.append(listaOtros);
       resumen.append(bloqueOtros);
     } else if (!asignacionVerificada()) resumen.append(nodo(documento, "p", tBorradores("comision_total_sin_grupo")));
@@ -1233,9 +1201,12 @@ export function montarVistaBorradoresPropios(
       const etiquetaIndice = indiceAceptacion?.closest("label");
       if (etiquetaIndice) etiquetaIndice.hidden = modoAceptacion?.value !== "uno";
       const anadirOtro = formularioPersistente.querySelector("[data-dietas-otro-anadir]");
-      if (anadirOtro) anadirOtro.disabled = controlesBloqueados || !edicion || typeof cliente?.editar !== "function" || formularioPersistente.querySelectorAll("[data-dietas-otro-linea]").length >= 32;
+      if (anadirOtro) anadirOtro.disabled = controlesBloqueados || !edicion || !catalogoOtros || typeof cliente?.editar !== "function" || formularioPersistente.querySelectorAll("[data-dietas-otro-linea]").length >= 32;
       const indicacionOtros = formularioPersistente.querySelector("[data-dietas-otros-indicacion]");
-      if (indicacionOtros) indicacionOtros.hidden = Boolean(edicion);
+      if (indicacionOtros) {
+        indicacionOtros.hidden = Boolean(edicion && catalogoOtros);
+        indicacionOtros.textContent = tBorradores(edicion ? "otros_gastos_sin_catalogo" : "comision_otros_primero_guardar");
+      }
       const anadir = formularioPersistente.querySelector("[data-dietas-parada-anadir]");
       if (anadir) anadir.disabled = controlesBloqueados || valoresParadas(formularioPersistente).length >= MAXIMO_LOCALIDADES - 2;
       const totalParadas = valoresParadas(formularioPersistente).length;
@@ -1379,11 +1350,8 @@ export function montarVistaBorradoresPropios(
     }
     if (edicion) {
       let otros;
-      try { otros = otrosDesdeFormulario(form); }
-      catch { mensaje("comision_otros_error", "aviso"); pintar(); return; }
-      if (otros.some((linea) => linea.importe_centimos < 1 || linea.concepto.length < 3)) {
-        mensaje("comision_otros_error", "aviso"); pintar(); return;
-      }
+      try { otros = leerOtrosGastos(form, catalogoOtros, { fechaInicio: base.fecha_inicio, fechaFin: base.fecha_fin }); }
+      catch { mensaje("otros_gastos_error", "aviso"); pintar(); return; }
       let transporte;
       try { transporte = rutasDesdeFormulario(form); }
       catch { mensaje("comision_ajuste_error", "aviso"); pintar(); return; }
@@ -1806,7 +1774,21 @@ export function montarVistaBorradoresPropios(
     estado = { ...estado, items: [], detalle: null, detalleOrigen: null };
     cargar();
   }
+  // La huella se calcula en el navegador; el fichero no se envía ni se guarda.
+  async function calcularHuellaOtro(entrada) {
+    const fila = entrada.closest?.("[data-dietas-otro-linea]");
+    try {
+      const huella = await calcularHuellaFichero(entrada.files?.[0]);
+      const campo = Array.from(fila?.querySelectorAll("input") || []).find((control) => control.name === "justificante_sha256");
+      if (campo && activaAhora()) campo.value = huella;
+    } catch {
+      if (activaAhora()) { mensaje("otros_gastos_huella_error", "aviso"); pintar(); }
+    } finally {
+      try { entrada.value = ""; } catch { /* Algunos navegadores no permiten vaciarlo. */ }
+    }
+  }
   function cambiarFormulario(evento) {
+    if (evento.target?.dataset?.dietasOtroFichero !== undefined) { void calcularHuellaOtro(evento.target); return; }
     invalidarPreparacion(evento);
     cambiarRelacion(evento);
     if (evento.target?.name === "vehiculo_propio" || evento.target?.name === "pais") {

@@ -27,7 +27,8 @@ const documentoLeido = {
     { tipo: "dieta", concepto: "manutencion", fecha: "2026-09-20", importe_centimos: 2667 },
     { tipo: "kilometraje", ruta_indice: 1, kilometros: "42.5000", importe_centimos: 1105 },
     { tipo: "otro_gasto", concepto: "Aparcamiento", importe_centimos: 650, justificante_ref: "just:ticket-01", justificante_sha256: "a".repeat(64) },
-  ], manutencion_centimos: 2667, alojamiento_tope_centimos: 0, kilometraje_centimos: 1105, otros_centimos: 650, total_orientativo_centimos: 4422 },
+    { tipo: "otro_medio", tipo_gasto: "taxi", catalogo_version: "provisional:otros-gastos:20260925", fecha: "2026-09-21", concepto: "Estación a sede", importe_centimos: 1250, justificante_ref: "ticket:taxi-02", justificante_sha256: "b".repeat(64) },
+  ], manutencion_centimos: 2667, alojamiento_tope_centimos: 0, kilometraje_centimos: 1105, otros_centimos: 1900, total_orientativo_centimos: 5672 },
 };
 const recibo = { referencia: "rcd_1234567890123456789012", version: 4, registrado_en: "2026-09-24T10:00:00.000000Z", repeticion: false };
 function texto(nodo) { return [nodo.textContent, ...nodo.children.map(texto)].join(" "); }
@@ -57,9 +58,12 @@ test("abre el documento con sus líneas y total, exige motivo al devolver y mues
   assert.deepEqual(lecturas, [[referencia, "revision"]]);
   const detalle = panel.querySelector("[data-dietas-circuito-detalle]");
   assert.equal(detalle.hidden, false);
-  assert.equal(panel.querySelectorAll("[data-dietas-circuito-linea]").length, 3);
+  assert.equal(panel.querySelectorAll("[data-dietas-circuito-linea]").length, 4);
   assert.match(texto(detalle), /Justificante just:ticket-01/u);
-  assert.match(texto(panel.querySelector("[data-dietas-circuito-total]")), /44,22/u);
+  // La línea D5 muestra su tipo y fecha con rótulos de negocio, sin códigos.
+  assert.match(texto(detalle), /Taxi · 21 sept 2026 · Estación a sede/u);
+  assert.doesNotMatch(texto(detalle), /otros-gastos|tipo_gasto/u);
+  assert.match(texto(panel.querySelector("[data-dietas-circuito-total]")), /56,72/u);
   assert.equal(panel.querySelector('[data-dietas-circuito-decision="aprobar"]').textContent, "Elevar al responsable");
   await panel.listeners.click({ target: panel.querySelector('[data-dietas-circuito-decision="devolver"]') });
   assert.equal(llamadas.length, 0); assert.match(panel.querySelector("[data-dietas-circuito-estado]").textContent, /motivo/u);

@@ -85,10 +85,14 @@ El documento v2 muestra el total orientativo singular del grupo acreditado,
 separando dietas, kilometraje y otros conceptos; no lo presenta como
 liquidación.
 
-Otros medios y otros gastos reciben descripción e importe. No se pide al
-empleado escribir una referencia o huella documental. Cuando exista custodia
-autorizada, el servidor podrá conservar su referencia y SHA-256 como pareja;
-la descripción por sí sola no acredita un fichero.
+Otros medios y otros gastos (D5) llevan tipo del catálogo versionado que
+sirve `route-catalog` (`otros_gastos`), fecha dentro de la comisión,
+descripción, importe y justificante por referencia y huella SHA-256. El
+fichero queda en custodia de la persona: el navegador solo lo lee, si ella lo
+elige, para calcular la huella, y no lo envía. PostgreSQL (Dietas 000009)
+vuelve a exigir catálogo, fechas y justificante al guardar. Las líneas
+guardadas antes de D5 se siguen leyendo, pero para volver a guardar hay que
+completarlas.
 
 ## Comprobación
 

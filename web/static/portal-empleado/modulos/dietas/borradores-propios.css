@@ -177,6 +177,20 @@
 
 .dietas-borradores-propios .dietas-comision-otro-linea input,
 .dietas-borradores-propios .dietas-comision-otro-linea select { width: 100%; min-width: 0; }
+.dietas-borradores-propios .dietas-comision-otro-linea > button { justify-self: start; align-self: end; }
+
+/* En escritorio cada gasto ocupa dos filas: qué, cuándo, para qué y cuánto;
+   después el justificante que queda en custodia de la persona. */
+@media (min-width: 1024px) {
+  .dietas-borradores-propios .dietas-comision-otro-linea {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr) minmax(0, 2fr) minmax(0, .8fr);
+  }
+  .dietas-borradores-propios .dietas-comision-otro-huella { grid-column: span 2; }
+}
+
+@media (max-width: 520px) {
+  .dietas-borradores-propios .dietas-comision-otro-linea { grid-template-columns: minmax(0, 1fr); }
+}
 
 .dietas-borradores-propios .dietas-comision-asignacion {
   margin: 16px 0;
