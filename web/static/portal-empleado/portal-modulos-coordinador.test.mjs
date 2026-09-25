@@ -270,9 +270,10 @@ test("los siete módulos registrados conservan estado fiel sin inventar vistas",
     },
   });
   await coordinador.cargarInterno();
-  // Sin pantalla en el portal, Administración y Usuarios no entran en su catálogo.
+  // Sin pantalla en el portal, Administración y Usuarios no entran en su
+  // catálogo; Personal, Cronos y Dietas se cargan pero no se ofrecen.
   assert.deepEqual(coordinador.obtenerCatalogo().map(({ clave }) => clave), [
-    "personal", "cronos", "dietas", "bolsa", "contratacion_temporal",
+    "bolsa", "contratacion_temporal",
   ]);
   for (const clave of ["administracion", "usuarios"]) {
     assert.deepEqual(coordinador.resolverAcceso(clave), {

@@ -233,7 +233,7 @@ test("un catálogo interno pendiente deja de bloquear el arranque y admite reint
 test("un catálogo interno sustituido se aborta y no publica resultados tardíos", async () => {
   let resolverPrimero;
   const catalogoViejo = Object.freeze([{ clave: "bolsa" }]);
-  const catalogoNuevo = Object.freeze([{ clave: "personal" }]);
+  const catalogoNuevo = Object.freeze([{ clave: "contratacion_temporal" }]);
   const senales = [];
   const coordinador = crearCoordinadorModulosPortal({
     escaparHTML: String,

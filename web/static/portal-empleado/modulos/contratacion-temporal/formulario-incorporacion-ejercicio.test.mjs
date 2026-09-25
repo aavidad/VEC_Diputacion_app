@@ -91,7 +91,8 @@ test("historia inicial solo muestra recibo; sin efectos", async () => {
   assert.doesNotMatch(x.raiz.innerHTML, /<details open/u);
   assert.ok(x.raiz.innerHTML.indexOf("Inicio del período") < x.raiz.innerHTML.indexOf("<details"));
   assert.ok(x.raiz.innerHTML.indexOf("Fin del período") < x.raiz.innerHTML.indexOf("<details"));
-  for (const valor of ["2026-09-09T01:00:00Z", "Sí", "Firma oficial", "Eficacia administrativa",
+  assert.doesNotMatch(x.raiz.innerHTML, /sintétic|ct-ie-ayuda/u);
+  for (const valor of ["2026-09-09T01:00:00Z", "Firma oficial", "Eficacia administrativa",
     "solicitud:personal:1", "auditoria:ct:1", "Versión resultante del seguimiento"]) {
     assert.match(x.raiz.innerHTML, new RegExp(valor, "u"));
   }

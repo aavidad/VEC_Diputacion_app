@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { crearCoordinadorModulosPortal } from "./portal-modulos-coordinador.js";
+import { CLAVES_SIN_ENTRADA_PORTAL, crearCoordinadorModulosPortal } from "./portal-modulos-coordinador.js";
 import { traducirPortal } from "./portal-i18n.js";
 import { crearVistaInicioPortal } from "./portal-inicio.js";
 
@@ -111,7 +111,8 @@ test("el catálogo se publica al llegar con los módulos en «cargando» y cada 
   });
   await esperarTurnos();
   assert.deepEqual(avisos, [["catalogo", "cargando"]]);
-  assert.equal(coordinador.obtenerCatalogo(), CATALOGO);
+  // Personal, Cronos y Dietas se cargan pero no se ofrecen en menú ni Inicio.
+  assert.deepEqual(coordinador.obtenerCatalogo(), CATALOGO.filter(({ clave }) => !CLAVES_SIN_ENTRADA_PORTAL.includes(clave)));
   for (const clave of ["contratacion_temporal", "cronos", "personal", "dietas"]) {
     assert.equal(coordinador.resolverAcceso(clave).estado, "cargando", clave);
     assert.equal(coordinador.resolverAcceso(clave).disponible, false, clave);
@@ -289,13 +290,14 @@ test("Inicio con contratación temporal lenta: estado neutro hasta conocer el pe
   assert.match(neutro, /<h2>Inicio<\/h2>/);
   assert.match(neutro, /role="status" data-inicio-pendiente>Comprobando accesos…/);
   assert.doesNotMatch(neutro, /portal-inicio-empleado|portal-rrhh-inicio|Portal del Empleado<\/h2>/);
-  assert.equal((neutro.match(/aria-busy="true"/g) || []).length, CATALOGO.length, "todas las tarjetas «Comprobando»");
+  assert.equal((neutro.match(/aria-busy="true"/g) || []).length,
+    CATALOGO.filter(({ clave }) => !CLAVES_SIN_ENTRADA_PORTAL.includes(clave)).length, "todas las tarjetas ofrecidas «Comprobando»");
   assert.equal(coordinador.vistaPendiente("personal-registro"), true, "el registro RRHH espera al perfil");
   pendientes.contratacion_temporal.rechazar(new Error("sin CT"));
   await carga;
   assert.equal(coordinador.inicioPendiente(), false);
   assert.equal(coordinador.vistaPendiente("personal-registro"), false);
-  assert.match(vista(), /portal-inicio-empleado/, "sin CT: el Inicio del empleado");
+  assert.match(vista(), /data-inicio-sin-modulos/, "sin CT ni módulos ofrecidos: Inicio del empleado sin módulos");
   assert.doesNotMatch(vista(), /nota-seguridad|representa el acceso interno/u);
 });
 

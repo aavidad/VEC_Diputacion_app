@@ -8,16 +8,16 @@
 import {
   cargarCatalogoModulosInterno,
   renderizarNavegacionModulos,
-} from "./portal-catalogo-modulos.js?v=20260925-e10-v1";
-import { traducirPortal } from "./portal-i18n.js?v=20260925-e10-v1";
-import { calcularMetricasCuadro, tramitesParaInicio } from "./portal-inicio.js?v=20260925-e10-v1";
+} from "./portal-catalogo-modulos.js?v=20260926-portal-rrhh-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260926-portal-rrhh-v1";
+import { calcularMetricasCuadro, tramitesParaInicio } from "./portal-inicio.js?v=20260926-portal-rrhh-v1";
 import {
   componerCronosInterno,
   componerDietasInternas,
   componerPersonalVisible,
   componerRegistroPersonal,
 } from "./portal-composicion-empleado.js?v=20260925-personal-e10-v1";
-import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260925-e10-v1";
+import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260926-portal-rrhh-v1";
 import {
   CLAVES_CARGA_MODULAR,
   LIMITE_CARGA_MODULAR_MS,
@@ -38,6 +38,10 @@ export const CLAVES_MODULOS_VEC_REGISTRADOS = Object.freeze([
 export const CLAVES_MODULOS_CON_VISTA_PORTAL = Object.freeze([
   CLAVE_PERSONAL, "cronos", "dietas", "bolsa", CLAVE_CONTRATACION_TEMPORAL,
 ]);
+// Módulos que se cargan y conservan su vista, pero sin entrada propia en el
+// menú, en Inicio ni en el ayudante de trámites: el portal solo ofrece Bolsa
+// y la contratación temporal. Su URL directa sigue funcionando.
+export const CLAVES_SIN_ENTRADA_PORTAL = Object.freeze([CLAVE_PERSONAL, "cronos", "dietas"]);
 // Rol con el que la frontera de identidad atesta a Intervención. Solo decide
 // qué pantalla se ofrece; cada operación la sigue autorizando el servidor.
 const ROL_INTERVENCION = "intervencion";
@@ -104,11 +108,11 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   dietas: async () => {
     const [contrato, recorridos, clienteBorradores, clienteAsignacion, calculador, mapa, clienteCircuito] = await Promise.all([
       import("./modulos/dietas/contrato.js"),
-      import("./modulos/dietas/vista-recorridos.js?v=20260925-e10-v1"),
+      import("./modulos/dietas/vista-recorridos.js?v=20260926-portal-rrhh-v1"),
       import("./modulos/dietas/cliente-borradores-http.js?v=20260925-tanda2-v1"),
       import("./modulos/dietas/cliente-asignacion-http.js?v=20260925-tanda-v1"),
       import("./modulos/dietas/calculador-rutas-http.js?v=20260925-tanda-v1"),
-      import("./modulos/dietas/mapa-ruta.js?v=20260925-e10-v1"),
+      import("./modulos/dietas/mapa-ruta.js?v=20260926-portal-rrhh-v1"),
       import("./modulos/dietas/cliente-circuito-http.js?v=20260925-tanda2-v1"),
     ]);
     return Object.freeze({ contrato, recorridos, clienteBorradores, clienteAsignacion, calculador, mapa, clienteCircuito });
@@ -135,6 +139,11 @@ export function moduloDeVistaPortal(vista) {
   if (VISTAS_MODULOS_PERSONALES.has(vista)) return vista;
   if (VISTAS_MODULO_BOLSA.has(vista)) return "bolsa";
   return "";
+}
+
+/** Indica si una vista pertenece a un módulo que se ofrece en menú e Inicio. */
+export function vistaConEntradaPortal(vista) {
+  return !CLAVES_SIN_ENTRADA_PORTAL.includes(moduloDeVistaPortal(vista));
 }
 
 export function rutaDeVistaPortal(vista) {
@@ -171,6 +180,7 @@ export function crearCoordinadorModulosPortal({
   }
 
   let catalogo = Object.freeze([]);
+  let catalogoOfrecido = catalogo;
   let composicion = null;
   let desmontarVista = null;
   let vistaMontada = "";
@@ -465,6 +475,7 @@ export function crearCoordinadorModulosPortal({
     const carga = ++secuenciaCarga;
     composicion = null;
     catalogo = Object.freeze([]);
+    catalogoOfrecido = catalogo;
     cargaEnCurso = true;
     const vigente = () => carga === secuenciaCarga;
     const exigirVigente = () => {
@@ -499,6 +510,8 @@ export function crearCoordinadorModulosPortal({
     const conVista = catalogoInterno
       .filter((modulo) => CLAVES_MODULOS_CON_VISTA_PORTAL.includes(modulo.clave));
     catalogo = conVista.length === catalogoInterno.length ? catalogoInterno : Object.freeze(conVista);
+    const ofrecidos = catalogo.filter((modulo) => !CLAVES_SIN_ENTRADA_PORTAL.includes(modulo.clave));
+    catalogoOfrecido = ofrecidos.length === catalogo.length ? catalogo : Object.freeze(ofrecidos);
 
     const partes = {
       contratacionTemporal: undefined,
@@ -570,7 +583,7 @@ export function crearCoordinadorModulosPortal({
   }
 
   function obtenerCatalogo() {
-    return catalogo;
+    return catalogoOfrecido;
   }
 
   function vistaDisponible(vista) {
@@ -655,8 +668,8 @@ export function crearCoordinadorModulosPortal({
   function renderizarNavegacion(bolsaDisponible = true, moduloActivo = "portal", vistaPermitida = () => true) {
     if (typeof vistaPermitida !== "function") throw new TypeError("filtro de vistas no válido");
     const catalogoVisible = moduloActivo === "portal"
-      ? catalogo
-      : catalogo.filter((modulo) => modulo.clave === moduloActivo);
+      ? catalogoOfrecido
+      : catalogoOfrecido.filter((modulo) => modulo.clave === moduloActivo);
     return renderizarNavegacionModulos({
       catalogo: catalogoVisible,
       resolverAcceso: (clave) => {
