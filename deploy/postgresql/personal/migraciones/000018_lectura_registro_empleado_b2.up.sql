@@ -154,10 +154,10 @@ BEGIN
   ',"vigente_en":'||to_jsonb(m->>'vigente_en')::text||',"conocido_en":'||to_jsonb(m->>'conocido_en')::text||
   ',"limite":'||limite::text||',"cursor":'||to_jsonb(cursor)::text||
   ',"actor_ref":'||to_jsonb(m->>'actor_ref')::text||',"contexto_actor_ref":'||to_jsonb(m->>'contexto_actor_ref')::text||
-  ',"contexto_version":'||m->>'contexto_version'||',"cuenta_ref":'||to_jsonb(m->>'cuenta_ref')::text||
-  ',"cuenta_version":'||m->>'cuenta_version'||',"perfil_ref":'||to_jsonb(m->>'perfil_ref')::text||
-  ',"perfil_version":'||m->>'perfil_version'||',"persona_ref":'||to_jsonb(m->>'persona_ref')::text||
-  ',"persona_version":'||m->>'persona_version'||'}';
+  ',"contexto_version":'||(m->>'contexto_version')||',"cuenta_ref":'||to_jsonb(m->>'cuenta_ref')::text||
+  ',"cuenta_version":'||(m->>'cuenta_version')||',"perfil_ref":'||to_jsonb(m->>'perfil_ref')::text||
+  ',"perfil_version":'||(m->>'perfil_version')||',"persona_ref":'||to_jsonb(m->>'persona_ref')::text||
+  ',"persona_version":'||(m->>'persona_version')||'}';
  IF p_material IS DISTINCT FROM material_canon THEN
   RAISE EXCEPTION 'material B2 no canónico' USING ERRCODE='22023'; END IF;
  material_sha:=encode(sha256(convert_to(p_material,'UTF8')),'hex');
