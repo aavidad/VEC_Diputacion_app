@@ -1,4 +1,4 @@
-import { rotuloTipoOtroGasto } from "./i18n-otros-gastos.js?v=20260925-d5-v1";
+import { rotuloTipoOtroGasto } from "./i18n-otros-gastos.js?v=20260925-d5-v2";
 
 /**
  * Líneas de otros medios de transporte y otros gastos (D5) del formulario de
@@ -63,6 +63,10 @@ export function crearLineaOtroGasto(documento, { traducir, catalogo, valor = {},
   const fila = nodo(documento, "div");
   fila.className = "dietas-comision-otro-linea";
   fila.dataset.dietasOtroLinea = "";
+  // Las líneas guardadas antes de pedir tipo, fecha y justificante se avisan
+  // aparte para que la persona sepa qué completar antes de guardar.
+  const anterior = Object.keys(valor).length > 0 && !["tipo_gasto", "fecha", "justificante_ref", "justificante_sha256"]
+    .every((nombre) => typeof valor[nombre] === "string" && valor[nombre] !== "");
   const campo = (nombre, clave, tipo = "text", ajustes = {}) => {
     const etiqueta = nodo(documento, "label", traducir(clave));
     const entrada = nodo(documento, "input");
@@ -100,9 +104,37 @@ export function crearLineaOtroGasto(documento, { traducir, catalogo, valor = {},
   quitar.type = "button";
   quitar.className = "boton-secundario";
   quitar.dataset.dietasOtroQuitar = "";
+  const estadoHuella = nodo(documento, "p");
+  estadoHuella.className = "dietas-comision-otro-estado";
+  estadoHuella.dataset.dietasOtroHuellaEstado = "";
+  estadoHuella.setAttribute("role", "status");
+  estadoHuella.setAttribute("aria-live", "polite");
+  if (anterior) {
+    const aviso = nodo(documento, "p", traducir("otros_gastos_linea_anterior"));
+    aviso.className = "dietas-comision-otro-aviso";
+    aviso.dataset.dietasOtroAnterior = "";
+    fila.dataset.dietasOtroIncompleta = "";
+    fila.append(aviso);
+  }
   fila.append(etiquetaTipo, fecha, campo("concepto", "otros_gastos_descripcion", "text", { maxLength: 500, minLength: 3 }),
-    importe, referencia, huella, etiquetaFichero, quitar);
+    importe, referencia, huella, etiquetaFichero, quitar, estadoHuella);
   return fila;
+}
+
+/** Pone a cada botón «Quitar línea» un nombre accesible con su número. */
+export function numerarLineasOtroGasto(contenedor, traducir) {
+  Array.from(contenedor?.querySelectorAll("[data-dietas-otro-linea]") || []).forEach((fila, indice) => {
+    fila.querySelector("[data-dietas-otro-quitar]")?.setAttribute("aria-label",
+      traducir("otros_gastos_quitar_linea", { numero: indice + 1 }));
+  });
+}
+
+/** Error de lectura que señala el primer control que hay que corregir. */
+class LineaOtroGastoInvalida extends TypeError {
+  constructor(campo) {
+    super("línea de otros gastos incompleta");
+    this.campo = campo;
+  }
 }
 
 /**
@@ -110,13 +142,16 @@ export function crearLineaOtroGasto(documento, { traducir, catalogo, valor = {},
  * TypeError si alguna está incompleta; el servidor valida de nuevo.
  */
 export function leerOtrosGastos(form, catalogo, { fechaInicio, fechaFin }) {
-  const filas = form.querySelectorAll("[data-dietas-otro-linea]");
+  const filas = Array.from(form.querySelectorAll("[data-dietas-otro-linea]"));
   if (filas.length > 0 && !catalogo) throw new TypeError("catálogo de otros gastos no disponible");
-  return Array.from(filas).map((fila) => {
-    const valor = (nombre) => String([...fila.querySelectorAll("input"), ...fila.querySelectorAll("select")]
-      .find((entrada) => entrada.name === nombre)?.value || "").trim();
+  const lineas = [];
+  let primerInvalido = null;
+  for (const fila of filas) {
+    const controles = [...Array.from(fila.querySelectorAll("select")), ...Array.from(fila.querySelectorAll("input"))];
+    const control = (nombre) => controles.find((entrada) => entrada.name === nombre);
+    const valor = (nombre) => String(control(nombre)?.value || "").trim();
     const eurosTexto = valor("importe").replace(",", ".");
-    if (!/^(?:0|[1-9]\d{0,5})(?:\.\d{1,2})?$/u.test(eurosTexto)) throw new TypeError("importe no válido");
+    const importeValido = /^(?:0|[1-9]\d{0,5})(?:\.\d{1,2})?$/u.test(eurosTexto);
     const [enteros, decimales = ""] = eurosTexto.split(".");
     const tipo = catalogo.tipos.find((entrada) => entrada.codigo === valor("tipo_gasto"));
     const fecha = valor("fecha");
@@ -126,15 +161,59 @@ export function leerOtrosGastos(form, catalogo, { fechaInicio, fechaFin }) {
       catalogo_version: catalogo.version,
       fecha,
       concepto: valor("concepto"),
-      importe_centimos: Number(enteros) * 100 + Number(decimales.padEnd(2, "0")),
+      importe_centimos: importeValido ? Number(enteros) * 100 + Number(decimales.padEnd(2, "0")) : 0,
       justificante_ref: valor("justificante_ref"),
       justificante_sha256: valor("justificante_sha256").toLowerCase(),
     };
-    if (!tipo || !fechaCivil(fecha) || fecha < fechaInicio || fecha > fechaFin || linea.concepto.length < 3 ||
-        linea.importe_centimos < 1 || !REFERENCIA.test(linea.justificante_ref) || !HUELLA.test(linea.justificante_sha256))
-      throw new TypeError("línea de otros gastos incompleta");
-    return linea;
-  });
+    // Mismo orden que en pantalla: el foco va al primer campo que falla.
+    const invalidos = new Set([
+      !tipo && "tipo_gasto",
+      (!fechaCivil(fecha) || fecha < fechaInicio || fecha > fechaFin) && "fecha",
+      linea.concepto.length < 3 && "concepto",
+      linea.importe_centimos < 1 && "importe",
+      !REFERENCIA.test(linea.justificante_ref) && "justificante_ref",
+      !HUELLA.test(linea.justificante_sha256) && "justificante_sha256",
+    ].filter(Boolean));
+    controles.forEach((entrada) => {
+      if (invalidos.has(entrada.name)) entrada.setAttribute?.("aria-invalid", "true");
+      else entrada.removeAttribute?.("aria-invalid");
+    });
+    const primero = controles.find((entrada) => invalidos.has(entrada.name));
+    primerInvalido ??= primero || (invalidos.size > 0 ? fila : null);
+    lineas.push(linea);
+  }
+  if (primerInvalido) throw new LineaOtroGastoInvalida(primerInvalido);
+  return lineas;
+}
+
+/** Actualiza la huella de una línea desde el fichero elegido y anuncia el resultado. */
+const turnosHuella = new WeakMap();
+export async function actualizarHuellaOtroGasto(entrada, { traducir, activa = () => true, cripto = globalThis.crypto }) {
+  const fila = entrada?.closest?.("[data-dietas-otro-linea]");
+  if (!fila) return;
+  // Si la persona elige otro fichero antes de terminar, el resultado anterior se descarta.
+  const turno = (turnosHuella.get(fila) || 0) + 1;
+  turnosHuella.set(fila, turno);
+  const vigente = () => activa() && turnosHuella.get(fila) === turno;
+  const estado = fila.querySelector("[data-dietas-otro-huella-estado]");
+  if (estado) estado.textContent = "";
+  const fichero = entrada.files?.[0];
+  let mensajeHuella;
+  try {
+    if (Number.isSafeInteger(fichero?.size) && fichero.size > MAXIMO_FICHERO_BYTES) mensajeHuella = "otros_gastos_huella_grande";
+    else {
+      const huella = await calcularHuellaFichero(fichero, cripto);
+      if (!vigente()) return;
+      const campo = Array.from(fila.querySelectorAll("input")).find((control) => control.name === "justificante_sha256");
+      if (campo) { campo.value = huella; campo.removeAttribute?.("aria-invalid"); }
+      mensajeHuella = "otros_gastos_huella_calculada";
+    }
+  } catch {
+    mensajeHuella = "otros_gastos_huella_error";
+  } finally {
+    if (turnosHuella.get(fila) === turno) try { entrada.value = ""; } catch { /* Algunos navegadores no permiten vaciarlo. */ }
+  }
+  if (vigente() && estado) estado.textContent = traducir(mensajeHuella);
 }
 
 /** Huella SHA-256 en hexadecimal de un fichero local, sin enviarlo. */

@@ -1448,8 +1448,8 @@ test("A incierta conserva su clave tras un 403 posterior y no duplica B al reaut
   } finally { globalThis.FormData = FormDataOriginal; vista.desmontar(); }
 });
 
-test("editar D3 usa grupo acreditado para aceptar tramos y D4 sin vehículo envía otros gastos D5 con justificante", async () => {
-  const calculado = { ...item, comision: { ...item.comision,
+async function abrirEdicionD5(documentoComision) {
+  const calculado = { ...item, comision: { ...item.comision, ...(documentoComision ? { documento: documentoComision } : {}),
     codigos_ruta: ["18087", "18003"], calculo: {
       rotulo: "PROVISIONAL · pendiente de confirmación por RRHH", version_tarifa: "provisional:rd462:20260923",
       version_grafo: "grafo:prueba", hora_inicio: "09:00", hora_fin: "18:00", kilometros: "12.0000",
@@ -1482,9 +1482,17 @@ test("editar D3 usa grupo acreditado para aceptar tramos y D4 sin vehículo env�
   await panel.listeners.click({ target: editar });
   const form = contenedor.querySelector("[data-dietas-borrador-form]"); form.checkValidity = () => true;
   form.querySelector("[data-dietas-vehiculo-propio]").value = "no";
+  return { contenedor, vista, panel, form, peticiones };
+}
+
+test("editar D3 usa grupo acreditado para aceptar tramos y D4 sin vehículo envía otros gastos D5 con justificante", async () => {
+  const { contenedor, vista, panel, form, peticiones } = await abrirEdicionD5();
   await panel.listeners.click({ target: form.querySelector("[data-dietas-otro-anadir]") });
   const filaOtro = form.querySelector("[data-dietas-otro-linea]");
   const tipo = filaOtro.querySelectorAll("select").find((entrada) => entrada.name === "tipo_gasto");
+  // Tras «Añadir», el foco va al primer campo de la línea: el tipo.
+  assert.equal(contenedor.ownerDocument.activeElement, tipo);
+  assert.equal(filaOtro.querySelector("[data-dietas-otro-quitar]").attrs["aria-label"], "Quitar línea 1");
   // Los tipos se agrupan por apartado con rótulos de negocio, sin códigos.
   assert.deepEqual(tipo.children.slice(1).map((grupo) => [grupo.label, grupo.children.map((opcion) => opcion.textContent)]),
     [["Otros medios de transporte", ["Taxi"]], ["Otros gastos", ["Aparcamiento"]]]);
@@ -1504,6 +1512,7 @@ test("editar D3 usa grupo acreditado para aceptar tramos y D4 sin vehículo env�
     await panel.listeners.submit({ target: form, preventDefault() {} });
     assert.equal(peticiones.length, 0);
     assert.match(textoVisible(contenedor), /Revise cada gasto/u);
+    assert.equal(contenedor.ownerDocument.activeElement, campoOtro("fecha"));
     campoOtro("fecha").value = "2026-09-21";
     await panel.listeners.submit({ target: form, preventDefault() {} });
     assert.equal(peticiones.length, 1);
@@ -1514,5 +1523,26 @@ test("editar D3 usa grupo acreditado para aceptar tramos y D4 sin vehículo env�
     assert.deepEqual(peticiones[0].otros, [{ tipo: "otro_gasto", tipo_gasto: "aparcamiento",
       catalogo_version: "provisional:otros-gastos:20260925", fecha: "2026-09-21", concepto: "Aparcamiento",
       importe_centimos: 250, justificante_ref: "ticket:parking-01", justificante_sha256: "a".repeat(64) }]);
+  } finally { globalThis.FormData = original; vista.desmontar(); }
+});
+
+test("editar una comisión con gastos anteriores a D5 los marca y al guardar lleva el foco al primer campo que falta", async () => {
+  const { contenedor, vista, panel, form, peticiones } = await abrirEdicionD5({ grupo_dieta: 2, manutencion_centimos: 0,
+    alojamiento_tope_centimos: 0, kilometraje_centimos: 0, otros_centimos: 310, total_orientativo_centimos: 310,
+    lineas: [{ tipo: "otro_gasto", concepto: "Peaje anterior", importe_centimos: 310 }] });
+  const filaOtro = form.querySelector("[data-dietas-otro-linea]");
+  assert.match(textoVisible(filaOtro.querySelector("[data-dietas-otro-anterior]")), /Faltan el tipo, la fecha o el justificante/u);
+  assert.equal(filaOtro.querySelector("[data-dietas-otro-quitar]").attrs["aria-label"], "Quitar línea 1");
+  form.querySelector("[data-dietas-vehiculo-propio]").value = "no";
+  const datos = { fecha_inicio: "2026-09-20", fecha_fin: "2026-09-21", motivo: "Visita",
+    hora_inicio: "09:00", hora_fin: "18:00", origen_codigo: "18087", destino_codigo: "18003" };
+  const original = globalThis.FormData;
+  globalThis.FormData = class { get(nombre) { return datos[nombre] ?? null; } };
+  try {
+    await panel.listeners.submit({ target: form, preventDefault() {} });
+    assert.equal(peticiones.length, 0);
+    const tipo = filaOtro.querySelectorAll("select").find((entrada) => entrada.name === "tipo_gasto");
+    assert.equal(contenedor.ownerDocument.activeElement, tipo);
+    assert.equal(tipo.attrs["aria-invalid"], "true");
   } finally { globalThis.FormData = original; vista.desmontar(); }
 });

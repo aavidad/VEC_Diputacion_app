@@ -5,7 +5,8 @@ import { readFile } from "node:fs/promises";
 
 import { crearCalculadorRutasDietasHTTP } from "./calculador-rutas-http.js";
 import {
-  calcularHuellaFichero, catalogoOtrosGastosValido, crearLineaOtroGasto, describirOtroGasto, leerOtrosGastos,
+  actualizarHuellaOtroGasto, calcularHuellaFichero, catalogoOtrosGastosValido, crearLineaOtroGasto, describirOtroGasto,
+  leerOtrosGastos, numerarLineasOtroGasto,
 } from "./formulario-otros-gastos.js";
 import { crearTraductorOtrosGastosDietas, MENSAJES_OTROS_GASTOS_ES, rotuloTipoOtroGasto } from "./i18n-otros-gastos.js";
 import { crearTraductorDietas } from "./i18n.js";
@@ -26,7 +27,10 @@ function respuestaCatalogo(extra = {}) {
 
 // DOM mínimo: etiquetas, hijos, propiedades y búsqueda por etiqueta o data-*.
 class Nodo {
-  constructor(documento, etiqueta) { Object.assign(this, { ownerDocument: documento, tagName: etiqueta, children: [], dataset: {}, textContent: "", value: "" }); }
+  constructor(documento, etiqueta) { Object.assign(this, { ownerDocument: documento, tagName: etiqueta, children: [], dataset: {}, attrs: {}, textContent: "", value: "" }); }
+  setAttribute(nombre, valor) { this.attrs[nombre] = String(valor); }
+  removeAttribute(nombre) { delete this.attrs[nombre]; }
+  closest(selector) { for (let actual = this; actual; actual = actual.parent) if (actual.matches(selector)) return actual; return null; }
   append(...nodos) { this.children.push(...nodos); nodos.forEach((nodo) => { nodo.parent = this; }); }
   replaceChildren(...nodos) { this.children = []; this.append(...nodos); }
   matches(selector) { return selector.startsWith("[data-") ? Object.hasOwn(this.dataset, selector.slice(6, -1).replace(/-([a-z])/gu, (_m, l) => l.toUpperCase())) : this.tagName === selector; }
@@ -111,4 +115,87 @@ test("todo tipo del catálogo publicado tiene rótulo y la extensión se monta e
   }
   for (const texto of Object.values(MENSAJES_OTROS_GASTOS_ES))
     assert.doesNotMatch(texto, /\bD5\b|provisional:|otro_medio|otro_gasto|catalogo_version/u);
+});
+
+const FECHAS = Object.freeze({ fechaInicio: "2026-09-23", fechaFin: "2026-09-24" });
+const campoDe = (fila, nombre) => [...fila.querySelectorAll("select"), ...fila.querySelectorAll("input")].find((entrada) => entrada.name === nombre);
+
+test("una línea guardada antes de pedir tipo, fecha y justificante se marca y el foco va a su primer campo inválido", () => {
+  const catalogo = catalogoOtrosGastosValido(CATALOGO);
+  const form = documento.createElement("form");
+  const completa = crearLineaOtroGasto(documento, { traducir: t, catalogo, ...FECHAS,
+    valor: { tipo_gasto: "tren", fecha: "2026-09-23", concepto: "Tren a Motril", importe: "12,30",
+      justificante_ref: "billete:0923", justificante_sha256: "c".repeat(64) } });
+  const anterior = crearLineaOtroGasto(documento, { traducir: t, catalogo, ...FECHAS,
+    valor: { tipo: "otro_gasto", concepto: "Peaje anterior", importe: "3,10" } });
+  const nueva = crearLineaOtroGasto(documento, { traducir: t, catalogo, ...FECHAS });
+  form.append(completa, anterior);
+  assert.equal(completa.querySelector("[data-dietas-otro-anterior]"), null);
+  assert.equal(nueva.querySelector("[data-dietas-otro-anterior]"), null);
+  const aviso = anterior.querySelector("[data-dietas-otro-anterior]");
+  assert.equal(aviso.textContent, MENSAJES_OTROS_GASTOS_ES.otros_gastos_linea_anterior);
+  assert.ok(Object.hasOwn(anterior.dataset, "dietasOtroIncompleta"));
+  const error = (() => { try { leerOtrosGastos(form, catalogo, FECHAS); } catch (fallo) { return fallo; } return null; })();
+  assert.ok(error instanceof TypeError);
+  assert.equal(error.campo, campoDe(anterior, "tipo_gasto"));
+  assert.equal(campoDe(anterior, "tipo_gasto").attrs["aria-invalid"], "true");
+  assert.equal(campoDe(anterior, "fecha").attrs["aria-invalid"], "true");
+  assert.equal(campoDe(anterior, "importe").attrs["aria-invalid"], undefined);
+  assert.equal(campoDe(completa, "tipo_gasto").attrs["aria-invalid"], undefined);
+  // Corregido el tipo, el foco pasa al siguiente campo que falta.
+  campoDe(anterior, "tipo_gasto").value = "peaje";
+  assert.equal((() => { try { leerOtrosGastos(form, catalogo, FECHAS); } catch (fallo) { return fallo.campo; } return null; })(),
+    campoDe(anterior, "fecha"));
+  assert.equal(campoDe(anterior, "tipo_gasto").attrs["aria-invalid"], undefined);
+});
+
+test("el botón «Quitar línea» lleva el número de su línea en el nombre accesible", () => {
+  const catalogo = catalogoOtrosGastosValido(CATALOGO);
+  const lista = documento.createElement("div");
+  lista.append(...[1, 2, 3].map(() => crearLineaOtroGasto(documento, { traducir: t, catalogo, ...FECHAS })));
+  numerarLineasOtroGasto(lista, t);
+  assert.deepEqual(lista.querySelectorAll("[data-dietas-otro-quitar]").map((boton) => boton.attrs["aria-label"]),
+    ["Quitar línea 1", "Quitar línea 2", "Quitar línea 3"]);
+  lista.children.splice(0, 1);
+  numerarLineasOtroGasto(lista, t);
+  assert.deepEqual(lista.querySelectorAll("[data-dietas-otro-quitar]").map((boton) => boton.attrs["aria-label"]),
+    ["Quitar línea 1", "Quitar línea 2"]);
+});
+
+test("la huella anuncia su resultado, descarta un fichero anterior y avisa de los ficheros de más de 25 MB", async () => {
+  const catalogo = catalogoOtrosGastosValido(CATALOGO);
+  const fila = crearLineaOtroGasto(documento, { traducir: t, catalogo, ...FECHAS });
+  const entrada = fila.querySelector("[data-dietas-otro-fichero]");
+  const estado = fila.querySelector("[data-dietas-otro-huella-estado]");
+  assert.equal(estado.attrs["aria-live"], "polite");
+  assert.equal(estado.attrs.role, "status");
+  const huella = campoDe(fila, "justificante_sha256");
+  // El primer fichero tarda más que el segundo: su resultado no debe pisar al nuevo.
+  let soltarPrimero;
+  const primero = { size: 5, arrayBuffer: () => new Promise((resolver) => { soltarPrimero = () => resolver(new TextEncoder().encode("viejo").buffer); }) };
+  entrada.files = [primero];
+  const primeraLlamada = actualizarHuellaOtroGasto(entrada, { traducir: t });
+  entrada.files = [new Blob(["nuevo"])];
+  await actualizarHuellaOtroGasto(entrada, { traducir: t });
+  assert.equal(huella.value, createHash("sha256").update("nuevo").digest("hex"));
+  assert.equal(estado.textContent, MENSAJES_OTROS_GASTOS_ES.otros_gastos_huella_calculada);
+  soltarPrimero();
+  await primeraLlamada;
+  assert.equal(huella.value, createHash("sha256").update("nuevo").digest("hex"));
+  // Fichero demasiado grande: mensaje propio y sin leerlo.
+  let leido = false;
+  entrada.files = [{ size: 25 * 1024 * 1024 + 1, arrayBuffer: async () => { leido = true; return new ArrayBuffer(1); } }];
+  await actualizarHuellaOtroGasto(entrada, { traducir: t });
+  assert.equal(leido, false);
+  assert.equal(estado.textContent, MENSAJES_OTROS_GASTOS_ES.otros_gastos_huella_grande);
+  assert.equal(huella.value, createHash("sha256").update("nuevo").digest("hex"));
+  entrada.files = [new Blob([])];
+  await actualizarHuellaOtroGasto(entrada, { traducir: t });
+  assert.equal(estado.textContent, MENSAJES_OTROS_GASTOS_ES.otros_gastos_huella_error);
+  // Con la vista desmontada no se escribe nada.
+  estado.textContent = "";
+  entrada.files = [new Blob(["otro"])];
+  await actualizarHuellaOtroGasto(entrada, { traducir: t, activa: () => false });
+  assert.equal(estado.textContent, "");
+  assert.equal(huella.value, createHash("sha256").update("nuevo").digest("hex"));
 });

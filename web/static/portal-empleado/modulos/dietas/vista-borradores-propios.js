@@ -1,8 +1,8 @@
-import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260925-tanda2-v1";
-import { crearTraductorBorradoresDietas } from "./i18n-borradores.js?v=20260925-tanda-v1";
-import { crearTraductorOtrosGastosDietas } from "./i18n-otros-gastos.js?v=20260925-d5-v1";
-import { calcularHuellaFichero, catalogoOtrosGastosValido, crearLineaOtroGasto, describirOtroGasto, leerOtrosGastos, pintarTiposOtroGasto } from "./formulario-otros-gastos.js?v=20260925-d5-v1";
-import { montarVistaMapaComisionDietas } from "./vista-mapa-comision.js?v=20260925-tanda2-v1";
+import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260925-d5-v2";
+import { crearTraductorBorradoresDietas } from "./i18n-borradores.js?v=20260925-d5-v2";
+import { crearTraductorOtrosGastosDietas } from "./i18n-otros-gastos.js?v=20260925-d5-v2";
+import { actualizarHuellaOtroGasto, catalogoOtrosGastosValido, crearLineaOtroGasto, describirOtroGasto, leerOtrosGastos, numerarLineasOtroGasto, pintarTiposOtroGasto } from "./formulario-otros-gastos.js?v=20260925-d5-v2";
+import { montarVistaMapaComisionDietas } from "./vista-mapa-comision.js?v=20260925-d5-v2";
 import { montarVistaRectificacionDietas } from "./vista-rectificacion-dietas.js?v=20260925-tanda-v1";
 
 // NodeList no tiene find/filter/map en el navegador: se convierte siempre a array.
@@ -1205,6 +1205,7 @@ export function montarVistaBorradoresPropios(
       if (etiquetaIndice) etiquetaIndice.hidden = modoAceptacion?.value !== "uno";
       const anadirOtro = formularioPersistente.querySelector("[data-dietas-otro-anadir]");
       if (anadirOtro) anadirOtro.disabled = controlesBloqueados || !edicion || !catalogoOtros || typeof cliente?.editar !== "function" || formularioPersistente.querySelectorAll("[data-dietas-otro-linea]").length >= 32;
+      numerarLineasOtroGasto(formularioPersistente, tBorradores);
       const indicacionOtros = formularioPersistente.querySelector("[data-dietas-otros-indicacion]");
       if (indicacionOtros) {
         indicacionOtros.hidden = Boolean(edicion && catalogoOtros);
@@ -1354,7 +1355,7 @@ export function montarVistaBorradoresPropios(
     if (edicion) {
       let otros;
       try { otros = leerOtrosGastos(form, catalogoOtros, { fechaInicio: base.fecha_inicio, fechaFin: base.fecha_fin }); }
-      catch { mensaje("otros_gastos_error", "aviso"); pintar(); return; }
+      catch (error) { mensaje("otros_gastos_error", "aviso"); pintar(); enfocar(error?.campo); return; }
       let transporte;
       try { transporte = rutasDesdeFormulario(form); }
       catch { mensaje("comision_ajuste_error", "aviso"); pintar(); return; }
@@ -1630,7 +1631,7 @@ export function montarVistaBorradoresPropios(
     if (anadirOtro && edicion && !controlador && !anadirOtro.disabled) {
       const lista = formularioPersistente.querySelector("[data-dietas-otros-lista]");
       if (lista.querySelectorAll("[data-dietas-otro-linea]").length < 32) {
-        const fila = nuevaLineaOtro(); lista.append(fila); enfocar(fila.querySelector("input")); pintar();
+        const fila = nuevaLineaOtro(); lista.append(fila); pintar(); enfocar(fila.querySelector("select"));
       }
       return;
     }
@@ -1777,21 +1778,12 @@ export function montarVistaBorradoresPropios(
     estado = { ...estado, items: [], detalle: null, detalleOrigen: null };
     cargar();
   }
-  // La huella se calcula en el navegador; el fichero no se envía ni se guarda.
-  async function calcularHuellaOtro(entrada) {
-    const fila = entrada.closest?.("[data-dietas-otro-linea]");
-    try {
-      const huella = await calcularHuellaFichero(entrada.files?.[0]);
-      const campo = Array.from(fila?.querySelectorAll("input") || []).find((control) => control.name === "justificante_sha256");
-      if (campo && activaAhora()) campo.value = huella;
-    } catch {
-      if (activaAhora()) { mensaje("otros_gastos_huella_error", "aviso"); pintar(); }
-    } finally {
-      try { entrada.value = ""; } catch { /* Algunos navegadores no permiten vaciarlo. */ }
-    }
-  }
   function cambiarFormulario(evento) {
-    if (evento.target?.dataset?.dietasOtroFichero !== undefined) { void calcularHuellaOtro(evento.target); return; }
+    if (evento.target?.dataset?.dietasOtroFichero !== undefined) {
+      // La huella se calcula en el navegador; el fichero no se envía ni se guarda.
+      void actualizarHuellaOtroGasto(evento.target, { traducir: tBorradores, activa: activaAhora });
+      return;
+    }
     invalidarPreparacion(evento);
     cambiarRelacion(evento);
     if (evento.target?.name === "vehiculo_propio" || evento.target?.name === "pais") {
