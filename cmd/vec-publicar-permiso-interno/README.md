@@ -45,6 +45,25 @@ administrativo verifica que la misma persona conserve otro perfil RRHH de
 garantía alta y rechaza cualquier asignación previa distinta en el perfil
 lector.
 
+**Condición transitoria observada en el clon (25/09/2026).** Esa comprobación
+lee la asignación *actual* (`asignacion_perfil_actual`) del otro perfil de la
+persona y exige que su versión de rol conceda
+`contratacion_temporal.expediente.consultar` con garantía `alto`. En el
+perfil RRHH de vec-server esa asignación no es estable: vec-server la reescribe
+por operación. Solo contiene el rol `consulta_detalle_rrhh_desarrollo`
+inmediatamente después de una consulta de detalle CT de esa persona en
+vec-server; tras arrancar vec-server u otra operación vuelve a la asignación
+de técnico RRHH y la herramienta termina en «publicación denegada». Por tanto:
+
+1. con vec-server en marcha, abrir como esa persona el detalle de un
+   expediente CT (consulta de detalle RRHH);
+2. ejecutar inmediatamente la herramienta, sin otra operación ni reinicio de
+   vec-server entre medias;
+3. si falla, repetir desde el paso 1; un reintento exacto posterior solo
+   coteja la publicación ya hecha.
+
+La herramienta no relaja la comprobación: falla cerrada si el estado no se da.
+
 La lista `campos_permitidos` del rol enumera los campos de seguimiento
 autorizados. La consulta CT interna todavía usa el detalle RRHH para verificar
 la incorporación original; la proyección HTTP de seguimiento es la frontera
