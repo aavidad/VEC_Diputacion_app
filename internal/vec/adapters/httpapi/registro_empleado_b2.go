@@ -19,6 +19,7 @@ import (
 const (
 	PrefijoFichaEmpleadoB2        = "/api/vec/personal/empleados/"
 	RutaVacantesEmpleadoB2        = "/api/vec/personal/vacantes"
+	RutaEmpleadosOrganismoB2      = "/api/vec/personal/empleados-organismo"
 	maximoQueryRegistroEmpleadoB2 = 1200
 )
 
@@ -33,6 +34,12 @@ type AutoridadContextoRegistroEmpleadoB2 interface {
 type ConsultorRegistroEmpleadoB2 interface {
 	ConsultarFicha(context.Context, personaldomain.SolicitudFichaEmpleadoB2) (personalports.ResultadoFichaEmpleadoB2, error)
 	ConsultarVacantes(context.Context, personaldomain.SolicitudVacantesB2) (personalports.ResultadoVacantesB2, error)
+}
+
+// ConsultorEmpleadosRegistroB2 entrega la lista RRHH del organismo con la
+// que se elige una ficha; nunca contiene datos civiles.
+type ConsultorEmpleadosRegistroB2 interface {
+	ConsultarEmpleados(context.Context, personaldomain.SolicitudEmpleadosB2) (personalports.ResultadoEmpleadosB2, error)
 }
 
 type DenegacionRegistroEmpleadoB2 struct {
@@ -51,9 +58,23 @@ type handlerRegistroEmpleadoB2 struct {
 	consulta  ConsultorRegistroEmpleadoB2
 	auditoria AuditorDenegacionRegistroEmpleadoB2
 	vacantes  bool
+	lista     ConsultorEmpleadosRegistroB2
 }
 
 var _ ConsultorRegistroEmpleadoB2 = (*personalapp.ServicioRegistroEmpleadoB2)(nil)
+var _ ConsultorEmpleadosRegistroB2 = (*personalapp.ServicioEmpleadosRegistroB2)(nil)
+
+// NewHandlerEmpleadosOrganismoB2 sirve GET de la lista paginada. El organismo
+// procede de la autoridad del servidor y cada página consume su concesión V3.
+func NewHandlerEmpleadosOrganismoB2(a AutoridadContextoRegistroEmpleadoB2, c ConsultorEmpleadosRegistroB2, auditor AuditorDenegacionRegistroEmpleadoB2) (http.Handler, error) {
+	if dependenciaHTTPNula(a) || dependenciaHTTPNula(c) || dependenciaHTTPNula(auditor) {
+		return nil, ErrHandlerRegistroEmpleadoB2Invalido
+	}
+	return &handlerRegistroEmpleadoB2{autoridad: a, auditoria: auditor, lista: c}, nil
+}
+
+func (h *handlerRegistroEmpleadoB2) esLista() bool  { return h != nil && !dependenciaHTTPNula(h.lista) }
+func (h *handlerRegistroEmpleadoB2) paginada() bool { return h.vacantes || h.esLista() }
 
 func NewHandlerFichaEmpleadoB2(a AutoridadContextoRegistroEmpleadoB2, c ConsultorRegistroEmpleadoB2, auditor AuditorDenegacionRegistroEmpleadoB2) (http.Handler, error) {
 	return nuevoHandlerRegistroEmpleadoB2(a, c, auditor, false)
@@ -71,7 +92,7 @@ func nuevoHandlerRegistroEmpleadoB2(a AutoridadContextoRegistroEmpleadoB2, c Con
 }
 
 func (h *handlerRegistroEmpleadoB2) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if h == nil || r == nil || dependenciaHTTPNula(h.autoridad) || dependenciaHTTPNula(h.consulta) || dependenciaHTTPNula(h.auditoria) {
+	if h == nil || r == nil || dependenciaHTTPNula(h.autoridad) || (dependenciaHTTPNula(h.consulta) && !h.esLista()) || dependenciaHTTPNula(h.auditoria) {
 		responderRegistroEmpleadoB2(w, http.StatusServiceUnavailable, "servicio_no_disponible", nil)
 		return
 	}
@@ -90,13 +111,13 @@ func (h *handlerRegistroEmpleadoB2) ServeHTTP(w http.ResponseWriter, r *http.Req
 		responderRegistroEmpleadoB2(w, http.StatusBadRequest, "peticion_no_valida", nil)
 		return
 	}
-	filtro, err := leerFiltroRegistroEmpleadoB2(r.URL.RawQuery, h.vacantes)
+	filtro, err := leerFiltroRegistroEmpleadoB2(r.URL.RawQuery, h.paginada())
 	if err != nil {
 		responderRegistroEmpleadoB2(w, http.StatusBadRequest, "peticion_no_valida", nil)
 		return
 	}
 	empleadoRef := ""
-	if !h.vacantes {
+	if !h.paginada() {
 		empleadoRef = strings.TrimPrefix(r.URL.Path, PrefijoFichaEmpleadoB2)
 		if !personaldomain.ReferenciaEmpleadoValida(empleadoRef) {
 			responderRegistroEmpleadoB2(w, http.StatusNotFound, "recurso_no_encontrado", nil)
@@ -121,6 +142,21 @@ func (h *handlerRegistroEmpleadoB2) ServeHTTP(w http.ResponseWriter, r *http.Req
 	}
 	if organismo == "" {
 		h.denegar(w, r.Context(), http.StatusForbidden, "acceso_denegado", actor.Principal.ID)
+		return
+	}
+	if h.esLista() {
+		solicitud := personaldomain.SolicitudEmpleadosB2{Actor: actor, OrganismoRef: organismo, Corte: personaldomain.CorteEmpleadoB2{VigenteEn: filtro.vigenteEn, ConocidoEn: filtro.conocidoEn}, Limite: filtro.limite, Cursor: filtro.cursor}
+		resultado, err := h.lista.ConsultarEmpleados(r.Context(), solicitud)
+		if err != nil {
+			h.errorConsulta(w, r.Context(), actor.Principal.ID, err)
+			return
+		}
+		material, err := personaldomain.NuevoMaterialEmpleadosB2(solicitud)
+		if err != nil || resultado.Pagina.ValidarPara(material) != nil || !evidenciaRegistroEmpleadoB2HTTPValida(resultado.Evidencia) {
+			responderRegistroEmpleadoB2(w, http.StatusServiceUnavailable, "servicio_no_disponible", nil)
+			return
+		}
+		responderRegistroEmpleadoB2(w, http.StatusOK, "", map[string]any{"data": map[string]any{"pagina": resultado.Pagina, "evidencia": resultado.Evidencia}})
 		return
 	}
 	if h.vacantes {
@@ -158,6 +194,9 @@ func evidenciaRegistroEmpleadoB2HTTPValida(e personalports.EvidenciaRegistroEmpl
 }
 
 func (h *handlerRegistroEmpleadoB2) rutaValida(ruta string) bool {
+	if h.esLista() {
+		return ruta == RutaEmpleadosOrganismoB2
+	}
 	if h.vacantes {
 		return ruta == RutaVacantesEmpleadoB2
 	}
@@ -172,7 +211,7 @@ type filtroRegistroEmpleadoB2 struct {
 	cursor     string
 }
 
-func leerFiltroRegistroEmpleadoB2(raw string, vacantes bool) (filtroRegistroEmpleadoB2, error) {
+func leerFiltroRegistroEmpleadoB2(raw string, paginada bool) (filtroRegistroEmpleadoB2, error) {
 	var f filtroRegistroEmpleadoB2
 	if len(raw) > maximoQueryRegistroEmpleadoB2 || strings.Contains(raw, ";") {
 		return f, personaldomain.ErrRegistroEmpleadoB2Invalido
@@ -182,7 +221,7 @@ func leerFiltroRegistroEmpleadoB2(raw string, vacantes bool) (filtroRegistroEmpl
 		return f, personaldomain.ErrRegistroEmpleadoB2Invalido
 	}
 	for k, valores := range q {
-		permitido := k == "vigente_en" || k == "conocido_en" || (vacantes && (k == "limite" || k == "cursor"))
+		permitido := k == "vigente_en" || k == "conocido_en" || (paginada && (k == "limite" || k == "cursor"))
 		if !permitido || len(valores) != 1 || valores[0] == "" || valores[0] != strings.TrimSpace(valores[0]) {
 			return f, personaldomain.ErrRegistroEmpleadoB2Invalido
 		}
@@ -196,7 +235,7 @@ func leerFiltroRegistroEmpleadoB2(raw string, vacantes bool) (filtroRegistroEmpl
 	if err != nil || f.conocidoEn.Format("2006-01-02T15:04:05.000000Z") != valor {
 		return f, personaldomain.ErrRegistroEmpleadoB2Invalido
 	}
-	if vacantes {
+	if paginada {
 		f.limite = 50
 		if valor := q.Get("limite"); valor != "" {
 			f.limite, err = strconv.Atoi(valor)
@@ -229,7 +268,10 @@ func (h *handlerRegistroEmpleadoB2) errorConsulta(w http.ResponseWriter, ctx con
 
 func (h *handlerRegistroEmpleadoB2) denegar(w http.ResponseWriter, ctx context.Context, estado int, codigo, actor string) {
 	ruta := PrefijoFichaEmpleadoB2 + "{emp_ref}"
-	if h.vacantes {
+	switch {
+	case h.esLista():
+		ruta = RutaEmpleadosOrganismoB2
+	case h.vacantes:
 		ruta = RutaVacantesEmpleadoB2
 	}
 	orden := DenegacionRegistroEmpleadoB2{CorrelacionRef: nuevaCorrelacionRutaExacta(), Motivo: codigo, Ruta: ruta, ActorRef: actor}
@@ -262,4 +304,15 @@ func responderRegistroEmpleadoB2(w http.ResponseWriter, estado int, codigo strin
 	w.Header().Set("Content-Length", strconv.Itoa(len(contenido)))
 	w.WriteHeader(estado)
 	_, _ = w.Write(contenido)
+}
+
+// RutaAuditoriaRegistroEmpleadoB2 devuelve la ruta que se audita en la
+// frontera: las rutas fijas tal cual y la ficha como patrón, de modo que la
+// auditoría nunca guarda la referencia del empleado consultado.
+func RutaAuditoriaRegistroEmpleadoB2(ruta string) string {
+	switch ruta {
+	case RutaVacantesEmpleadoB2, RutaEmpleadosOrganismoB2, RutaCatalogosRegistroEmpleadoB2, RutaAltaEmpleadoB2, RutaHechosEmpleadoB2:
+		return ruta
+	}
+	return PrefijoFichaEmpleadoB2 + "{emp_ref}"
 }

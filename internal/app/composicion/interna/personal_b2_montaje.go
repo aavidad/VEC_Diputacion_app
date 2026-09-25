@@ -14,8 +14,8 @@ import (
 )
 
 type componentesPersonalB2 struct {
-	proveedor                               *internactproveedores.ProveedorAutorizacionPersonalB2
-	ficha, vacantes, alta, hecho, catalogos http.Handler
+	proveedor                                          *internactproveedores.ProveedorAutorizacionPersonalB2
+	ficha, vacantes, empleados, alta, hecho, catalogos http.Handler
 }
 
 // montarPersonalB2Gobernado activa todas las capacidades B2 o ninguna. Su
@@ -63,6 +63,10 @@ func montarPersonalB2Gobernado(
 	if err != nil {
 		return vacio, false
 	}
+	lista, err := personalapp.NuevoServicioEmpleadosRegistroB2(proveedor, repositorio)
+	if err != nil {
+		return vacio, false
+	}
 	catalogos, err := personalapp.NuevoServicioCatalogosRegistroEmpleadoB2(proveedor, repositorio)
 	if err != nil {
 		return vacio, false
@@ -74,6 +78,10 @@ func montarPersonalB2Gobernado(
 		return vacio, false
 	}
 	vacantes, err := httpapi.NewHandlerVacantesEmpleadoB2(autoridad, consulta, auditor)
+	if err != nil {
+		return vacio, false
+	}
+	empleados, err := httpapi.NewHandlerEmpleadosOrganismoB2(autoridad, lista, auditor)
 	if err != nil {
 		return vacio, false
 	}
@@ -90,5 +98,5 @@ func montarPersonalB2Gobernado(
 		return vacio, false
 	}
 	transferido = true
-	return componentesPersonalB2{proveedor, ficha, vacantes, alta, hecho, handlerCatalogos}, true
+	return componentesPersonalB2{proveedor, ficha, vacantes, empleados, alta, hecho, handlerCatalogos}, true
 }

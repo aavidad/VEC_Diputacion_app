@@ -34,13 +34,16 @@ func TestEnrutadorPersonalB2CierraDependenciasYRutas(t *testing.T) {
 	llamadas := 0
 	h := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { llamadas++; w.WriteHeader(http.StatusNoContent) })
 	auditoria := &auditoriaPersonalB2Prueba{}
-	if _, err := nuevoEnrutadorPersonalB2(h, h, nil, h, h, h, autoridadPersonalB2Prueba{}, auditoria); !errors.Is(err, ErrAPIInternaNoDisponible) {
+	if _, err := nuevoEnrutadorPersonalB2(h, h, nil, h, h, h, h, autoridadPersonalB2Prueba{}, auditoria); !errors.Is(err, ErrAPIInternaNoDisponible) {
 		t.Fatalf("dependencia ausente: %v", err)
 	}
-	if _, err := nuevoEnrutadorPersonalB2(h, h, h, h, h, nil, autoridadPersonalB2Prueba{}, auditoria); !errors.Is(err, ErrAPIInternaNoDisponible) {
+	if _, err := nuevoEnrutadorPersonalB2(h, h, h, h, h, h, nil, autoridadPersonalB2Prueba{}, auditoria); !errors.Is(err, ErrAPIInternaNoDisponible) {
 		t.Fatalf("catálogo ausente: %v", err)
 	}
-	router, err := nuevoEnrutadorPersonalB2(h, h, h, h, h, h, autoridadPersonalB2Prueba{}, auditoria)
+	if _, err := nuevoEnrutadorPersonalB2(h, h, h, nil, h, h, h, autoridadPersonalB2Prueba{}, auditoria); !errors.Is(err, ErrAPIInternaNoDisponible) {
+		t.Fatalf("lista de empleados ausente: %v", err)
+	}
+	router, err := nuevoEnrutadorPersonalB2(h, h, h, h, h, h, h, autoridadPersonalB2Prueba{}, auditoria)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -48,6 +51,7 @@ func TestEnrutadorPersonalB2CierraDependenciasYRutas(t *testing.T) {
 		{http.MethodPost, "/api/vec/personal/empleados"},
 		{http.MethodPost, "/api/vec/personal/hechos"},
 		{http.MethodGet, "/api/vec/personal/vacantes"},
+		{http.MethodGet, httpapi.RutaEmpleadosOrganismoB2},
 		{http.MethodGet, "/api/vec/personal/empleados/emp_0123456789abcdefghijkl"},
 		{http.MethodGet, httpapi.RutaCatalogosRegistroEmpleadoB2},
 		{http.MethodPost, httpapi.RutaCatalogosRegistroEmpleadoB2},
@@ -64,6 +68,7 @@ func TestEnrutadorPersonalB2CierraDependenciasYRutas(t *testing.T) {
 		"/api/vec/personal/hechos/otra", "/api/vec/personal/empleados%2Femp_0123456789abcdefghijkl",
 		"/api/vec/personal/catalogos-registro-empleado/otra",
 		"/api/vec/personal/catalogos-registro-empleado%2Fotra",
+		"/api/vec/personal/empleados-organismo/otra",
 	} {
 		respuesta := httptest.NewRecorder()
 		router.ServeHTTP(respuesta, httptest.NewRequest(http.MethodGet, ruta, nil))
@@ -71,7 +76,7 @@ func TestEnrutadorPersonalB2CierraDependenciasYRutas(t *testing.T) {
 			t.Fatalf("ruta no canónica %q: %d", ruta, respuesta.Code)
 		}
 	}
-	if llamadas != 6 || len(auditoria.ordenes) != 0 {
+	if llamadas != 7 || len(auditoria.ordenes) != 0 {
 		t.Fatalf("llamadas=%d auditorías=%d", llamadas, len(auditoria.ordenes))
 	}
 }
@@ -89,7 +94,7 @@ func TestEnrutadorSinDependenciasB2ConservaGETCTYCierraCatalogos(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	router, err := nuevoEnrutadorPersonalB2(ct, nil, nil, nil, nil, nil,
+	router, err := nuevoEnrutadorPersonalB2(ct, nil, nil, nil, nil, nil, nil,
 		autoridadPersonalB2Prueba{}, auditoria)
 	if err != nil {
 		t.Fatal(err)
@@ -120,7 +125,7 @@ func TestEnrutadorPersonalB2Audita401Y403AntesDeDelegar(t *testing.T) {
 		llamadas := 0
 		h := http.HandlerFunc(func(http.ResponseWriter, *http.Request) { llamadas++ })
 		auditoria := &auditoriaPersonalB2Prueba{}
-		router, err := nuevoEnrutadorPersonalB2(h, h, h, h, h, h, autoridadPersonalB2Prueba{caso.err}, auditoria)
+		router, err := nuevoEnrutadorPersonalB2(h, h, h, h, h, h, h, autoridadPersonalB2Prueba{caso.err}, auditoria)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -145,7 +150,7 @@ func TestEnrutadorCatalogosB2AuditaGETyPOSTDenegados(t *testing.T) {
 			llamadas := 0
 			h := http.HandlerFunc(func(http.ResponseWriter, *http.Request) { llamadas++ })
 			auditoria := &auditoriaPersonalB2Prueba{}
-			router, err := nuevoEnrutadorPersonalB2(h, h, h, h, h, h, autoridadPersonalB2Prueba{caso.err}, auditoria)
+			router, err := nuevoEnrutadorPersonalB2(h, h, h, h, h, h, h, autoridadPersonalB2Prueba{caso.err}, auditoria)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -205,5 +210,21 @@ func TestPuenteNoResponde401SinAuditoriaDurableEnCTYCatalogosB2(t *testing.T) {
 		if respuesta.Code != http.StatusServiceUnavailable || llamadas != 0 {
 			t.Fatalf("ruta %q: estado=%d llamadas=%d", caso.ruta, respuesta.Code, llamadas)
 		}
+	}
+}
+
+func TestEnrutadorListaEmpleadosB2AuditaRutaFija(t *testing.T) {
+	llamadas := 0
+	h := http.HandlerFunc(func(http.ResponseWriter, *http.Request) { llamadas++ })
+	auditoria := &auditoriaPersonalB2Prueba{}
+	router, err := nuevoEnrutadorPersonalB2(h, h, h, h, h, h, h, autoridadPersonalB2Prueba{httpapi.ErrAccesoRutaExactaDenegado}, auditoria)
+	if err != nil {
+		t.Fatal(err)
+	}
+	respuesta := httptest.NewRecorder()
+	router.ServeHTTP(respuesta, httptest.NewRequest(http.MethodGet, httpapi.RutaEmpleadosOrganismoB2, nil))
+	if respuesta.Code != http.StatusForbidden || llamadas != 0 || len(auditoria.ordenes) != 1 ||
+		auditoria.ordenes[0].Ruta != httpapi.RutaEmpleadosOrganismoB2 || auditoria.ordenes[0].Validar() != nil {
+		t.Fatalf("lista denegada: estado=%d llamadas=%d auditoría=%#v", respuesta.Code, llamadas, auditoria.ordenes)
 	}
 }

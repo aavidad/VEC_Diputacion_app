@@ -121,6 +121,7 @@ func (f *FuenteF1) ResolverContextoPersonalB2(ctx context.Context) (vecdomain.Co
 // realiza después en V3, nunca a partir del identificador de la URL.
 func RutaInternaGobernada(ruta string) bool {
 	if ruta == httpct.RutaConsultaSeguimientoV2 || ruta == httpapi.RutaVacantesEmpleadoB2 ||
+		ruta == httpapi.RutaEmpleadosOrganismoB2 ||
 		ruta == "/api/vec/personal/empleados" || ruta == "/api/vec/personal/hechos" ||
 		ruta == httpapi.RutaCatalogosRegistroEmpleadoB2 {
 		return true

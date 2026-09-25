@@ -56,6 +56,7 @@ type materialPersonalB2V3 struct {
 		CatalogoConsultar capacidadMaterial `json:"catalogo_consultar"`
 		CatalogoPublicar  capacidadMaterial `json:"catalogo_publicar"`
 		CatalogoRetirar   capacidadMaterial `json:"catalogo_retirar"`
+		Empleados         capacidadMaterial `json:"empleados"`
 	} `json:"capacidades"`
 }
 
@@ -72,6 +73,7 @@ type MaterialPersonalB2 struct {
 		CatalogoConsultar core.ReferenciaEntradaCatalogo `json:"catalogo_consultar"`
 		CatalogoPublicar  core.ReferenciaEntradaCatalogo `json:"catalogo_publicar"`
 		CatalogoRetirar   core.ReferenciaEntradaCatalogo `json:"catalogo_retirar"`
+		Empleados         core.ReferenciaEntradaCatalogo `json:"empleados"`
 	} `json:"motivos"`
 	V3   materialPersonalB2V3 `json:"v3"`
 	raiz *os.Root
@@ -127,15 +129,15 @@ func CargarMaterialPersonalB2(directorio string) (MaterialPersonalB2, error) {
 	}
 	d := json.NewDecoder(bytes.NewReader(b))
 	d.DisallowUnknownFields()
-	if d.Decode(&m) != nil || d.Decode(new(any)) != io.EOF || m.Version != 2 || m.CatalogoMotivos == "" {
+	if d.Decode(&m) != nil || d.Decode(new(any)) != io.EOF || m.Version != 3 || m.CatalogoMotivos == "" {
 		return MaterialPersonalB2{}, ErrPersonalB2V3NoDisponible
 	}
-	for _, motivo := range []core.ReferenciaEntradaCatalogo{m.Motivos.Ficha, m.Motivos.Vacantes, m.Motivos.Alta, m.Motivos.Hecho, m.Motivos.CatalogoConsultar, m.Motivos.CatalogoPublicar, m.Motivos.CatalogoRetirar} {
+	for _, motivo := range []core.ReferenciaEntradaCatalogo{m.Motivos.Ficha, m.Motivos.Vacantes, m.Motivos.Alta, m.Motivos.Hecho, m.Motivos.CatalogoConsultar, m.Motivos.CatalogoPublicar, m.Motivos.CatalogoRetirar, m.Motivos.Empleados} {
 		if !core.ReferenciaMotivoAutorizacionV2Valida(motivo) || motivo.CatalogoID != m.CatalogoMotivos {
 			return MaterialPersonalB2{}, ErrPersonalB2V3NoDisponible
 		}
 	}
-	for _, nombre := range []string{m.V3.ClaveArchivo, m.V3.Capacidades.Ficha.Archivo, m.V3.Capacidades.Vacantes.Archivo, m.V3.Capacidades.Alta.Archivo, m.V3.Capacidades.Hecho.Archivo, m.V3.Capacidades.CatalogoConsultar.Archivo, m.V3.Capacidades.CatalogoPublicar.Archivo, m.V3.Capacidades.CatalogoRetirar.Archivo} {
+	for _, nombre := range []string{m.V3.ClaveArchivo, m.V3.Capacidades.Ficha.Archivo, m.V3.Capacidades.Vacantes.Archivo, m.V3.Capacidades.Alta.Archivo, m.V3.Capacidades.Hecho.Archivo, m.V3.Capacidades.CatalogoConsultar.Archivo, m.V3.Capacidades.CatalogoPublicar.Archivo, m.V3.Capacidades.CatalogoRetirar.Archivo, m.V3.Capacidades.Empleados.Archivo} {
 		if !filepath.IsLocal(nombre) || nombre == "." {
 			return MaterialPersonalB2{}, ErrPersonalB2V3NoDisponible
 		}
@@ -157,8 +159,8 @@ type ConfiguracionPersonalB2 struct {
 type ProveedorAutorizacionPersonalB2 struct {
 	fuente   *internagobierno.FuenteF1
 	reloj    ct.Reloj
-	motivos  [7]core.ReferenciaEntradaCatalogo
-	emisores [7]*confianza.EmisorMaterialAutorizacionAtestadaV3
+	motivos  [8]core.ReferenciaEntradaCatalogo
+	emisores [8]*confianza.EmisorMaterialAutorizacionAtestadaV3
 	firmante *firmantePersonalB2V3
 }
 
@@ -170,7 +172,7 @@ func (p *ProveedorAutorizacionPersonalB2) Cerrar() {
 		clear(p.firmante.privada)
 		p.firmante = nil
 	}
-	p.emisores = [7]*confianza.EmisorMaterialAutorizacionAtestadaV3{}
+	p.emisores = [8]*confianza.EmisorMaterialAutorizacionAtestadaV3{}
 	p.fuente = nil
 }
 
@@ -211,7 +213,7 @@ func ConstruirPersonalB2(ctx context.Context, c ConfiguracionPersonalB2) (*Prove
 		clear(firmante.privada)
 		return nil, ErrPersonalB2V3NoDisponible
 	}
-	p := &ProveedorAutorizacionPersonalB2{fuente: c.Fuente, reloj: c.Reloj, firmante: firmante, motivos: [7]core.ReferenciaEntradaCatalogo{m.Motivos.Ficha, m.Motivos.Vacantes, m.Motivos.Alta, m.Motivos.Hecho, m.Motivos.CatalogoConsultar, m.Motivos.CatalogoPublicar, m.Motivos.CatalogoRetirar}}
+	p := &ProveedorAutorizacionPersonalB2{fuente: c.Fuente, reloj: c.Reloj, firmante: firmante, motivos: [8]core.ReferenciaEntradaCatalogo{m.Motivos.Ficha, m.Motivos.Vacantes, m.Motivos.Alta, m.Motivos.Hecho, m.Motivos.CatalogoConsultar, m.Motivos.CatalogoPublicar, m.Motivos.CatalogoRetirar, m.Motivos.Empleados}}
 	for i, capacidad := range []struct {
 		material  capacidadMaterial
 		audiencia string
@@ -223,6 +225,7 @@ func ConstruirPersonalB2(ctx context.Context, c ConfiguracionPersonalB2) (*Prove
 		{m.V3.Capacidades.CatalogoConsultar, personal.AudienciaConsultarCatalogoEmpleadoB2},
 		{m.V3.Capacidades.CatalogoPublicar, personal.AudienciaPublicarCatalogoEmpleadoB2},
 		{m.V3.Capacidades.CatalogoRetirar, personal.AudienciaRetirarCatalogoEmpleadoB2},
+		{m.V3.Capacidades.Empleados, personal.AudienciaEmpleadosB2},
 	} {
 		emisorCapacidad, e := crearCapacidad(m.raiz, capacidad.material, capacidad.audiencia, c.Reloj)
 		if e != nil {
@@ -244,6 +247,8 @@ func (p *ProveedorAutorizacionPersonalB2) AutorizarConsultaRegistroEmpleadoB2(ct
 		return p.autorizar(ctx, 0, m.Actor(), m.Recurso(), personal.AccionFichaEmpleadoB2, personal.AudienciaFichaEmpleadoB2)
 	case "vacantes":
 		return p.autorizar(ctx, 1, m.Actor(), m.Recurso(), personal.AccionVacantesB2, personal.AudienciaVacantesB2)
+	case "empleados":
+		return p.autorizar(ctx, 7, m.Actor(), m.Recurso(), personal.AccionEmpleadosB2, personal.AudienciaEmpleadosB2)
 	default:
 		return vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3{}, ErrPersonalB2V3NoDisponible
 	}
@@ -290,7 +295,7 @@ func (p *ProveedorAutorizacionPersonalB2) autorizar(ctx context.Context, i int, 
 	if err != nil {
 		return vacio, ErrPersonalB2V3NoDisponible
 	}
-	finalidades := [7]string{"consultar_ficha_empleado", "consultar_vacantes", "registrar_empleado", "registrar_hecho_empleado", "consultar_catalogo_empleado", "gobernar_catalogo_empleado", "gobernar_catalogo_empleado"}
+	finalidades := [8]string{"consultar_ficha_empleado", "consultar_vacantes", "registrar_empleado", "registrar_hecho_empleado", "consultar_catalogo_empleado", "gobernar_catalogo_empleado", "gobernar_catalogo_empleado", "consultar_empleados"}
 	solicitud, err := core.NuevaSolicitudAutorizacionLigadaV3(core.DatosSolicitudAutorizacionLigadaV3{VinculoAutenticacionActor: base.Vinculo, ReferenciaMotivo: p.motivos[i], Accion: accion, Recurso: recurso, Finalidad: finalidades[i], Correlacion: correlacion})
 	if err != nil {
 		return vacio, ErrPersonalB2V3NoDisponible
@@ -386,7 +391,7 @@ func sondearGobiernoPersonalB2(ctx context.Context, pool *pgxpool.Pool, m Materi
 			AudienciaDespliegue string `json:"audiencia_despliegue"`
 			Suite               string `json:"suite"`
 		} `json:"raiz"`
-	}{Claves: make([]clave, 0, 7)}
+	}{Claves: make([]clave, 0, 8)}
 	for _, c := range []struct {
 		m         capacidadMaterial
 		audiencia string
@@ -398,6 +403,7 @@ func sondearGobiernoPersonalB2(ctx context.Context, pool *pgxpool.Pool, m Materi
 		{m.V3.Capacidades.CatalogoConsultar, personal.AudienciaConsultarCatalogoEmpleadoB2},
 		{m.V3.Capacidades.CatalogoPublicar, personal.AudienciaPublicarCatalogoEmpleadoB2},
 		{m.V3.Capacidades.CatalogoRetirar, personal.AudienciaRetirarCatalogoEmpleadoB2},
+		{m.V3.Capacidades.Empleados, personal.AudienciaEmpleadosB2},
 	} {
 		material.Claves = append(material.Claves, clave{c.audiencia, c.m.ClaveID, c.m.Version, c.m.RevisionGobierno, c.m.HuellaGobierno, c.m.SHA256, c.m.EmisorID})
 	}

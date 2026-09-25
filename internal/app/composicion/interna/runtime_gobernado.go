@@ -200,6 +200,7 @@ func cargarProveedoresGobernados(ctx context.Context, cfg Configuracion) (provee
 	if disponible {
 		salida.vincularPersonalB2 = fuenteF1.VincularContextoPersonalB2
 		salida.fichaPersonalB2, salida.vacantesPersonalB2 = personalB2.ficha, personalB2.vacantes
+		salida.empleadosPersonalB2 = personalB2.empleados
 		salida.altaPersonalB2, salida.hechoPersonalB2 = personalB2.alta, personalB2.hecho
 		salida.catalogosPersonalB2 = personalB2.catalogos
 	}

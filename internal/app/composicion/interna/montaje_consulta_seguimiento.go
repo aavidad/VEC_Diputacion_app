@@ -37,6 +37,7 @@ type proveedoresConsultaSeguimiento struct {
 	vincularPersonalB2  func(context.Context) (context.Context, error)
 	fichaPersonalB2     http.Handler
 	vacantesPersonalB2  http.Handler
+	empleadosPersonalB2 http.Handler
 	altaPersonalB2      http.Handler
 	hechoPersonalB2     http.Handler
 	catalogosPersonalB2 http.Handler
@@ -121,10 +122,7 @@ func (p *puenteConsultaSeguimiento) auditarDenegacionPersonalB2(ctx context.Cont
 	if p == nil || ctx == nil || interfazNulaIdentidadOffline(p.auditoria) {
 		return false
 	}
-	if ruta != httpapi.RutaVacantesEmpleadoB2 && ruta != httpapi.RutaCatalogosRegistroEmpleadoB2 &&
-		ruta != "/api/vec/personal/empleados" && ruta != "/api/vec/personal/hechos" {
-		ruta = "/api/vec/personal/empleados/{emp_ref}"
-	}
+	ruta = httpapi.RutaAuditoriaRegistroEmpleadoB2(ruta)
 	orden := vecports.OrdenAuditoriaFronteraRutaExacta{
 		CorrelacionRef: correlacionDenegacionSeguimiento(),
 		Motivo:         vecports.MotivoAuditoriaFronteraRutaExactaAccesoDenegado,
@@ -159,10 +157,7 @@ func (p *puenteConsultaSeguimiento) auditarAutenticacionRequerida(ctx context.Co
 	superficie := vecports.SuperficieAuditoriaFronteraRutaExactaContratacionTemporal
 	if ruta != httpct.RutaConsultaSeguimientoV2 {
 		superficie = vecports.SuperficieAuditoriaFronteraRutaExactaPersonal
-		if ruta != httpapi.RutaVacantesEmpleadoB2 && ruta != httpapi.RutaCatalogosRegistroEmpleadoB2 &&
-			ruta != "/api/vec/personal/empleados" && ruta != "/api/vec/personal/hechos" {
-			ruta = "/api/vec/personal/empleados/{emp_ref}"
-		}
+		ruta = httpapi.RutaAuditoriaRegistroEmpleadoB2(ruta)
 	}
 	orden := vecports.OrdenAuditoriaFronteraRutaExacta{
 		CorrelacionRef: correlacion,
@@ -209,7 +204,7 @@ func nuevaAPIConsultaSeguimiento(p proveedoresConsultaSeguimiento, s *inc.Servid
 	if err != nil {
 		return nil, ErrAPIInternaNoDisponible
 	}
-	return nuevoEnrutadorPersonalB2(ctAPI, p.fichaPersonalB2, p.vacantesPersonalB2,
+	return nuevoEnrutadorPersonalB2(ctAPI, p.fichaPersonalB2, p.vacantesPersonalB2, p.empleadosPersonalB2,
 		p.altaPersonalB2, p.hechoPersonalB2, p.catalogosPersonalB2, p.autoridadRutas, p.auditoriaRutas)
 }
 
@@ -244,6 +239,7 @@ func componerConsultaSeguimiento(ctx context.Context, cfg Configuracion, p prove
 	puente := &puenteConsultaSeguimiento{extractor: p.extractor, api: api, auditoria: p.auditoriaRutas, limiteCuerpo: limiteCuerpo,
 		vincularB2: p.vincularPersonalB2,
 		personalB2: !manejadorNulo(p.fichaPersonalB2) && !manejadorNulo(p.vacantesPersonalB2) &&
+			!manejadorNulo(p.empleadosPersonalB2) &&
 			!manejadorNulo(p.altaPersonalB2) && !manejadorNulo(p.hechoPersonalB2) &&
 			!manejadorNulo(p.catalogosPersonalB2)}
 	servidor, err := construirServidorInterno(cfg, puente)
