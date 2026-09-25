@@ -78,7 +78,7 @@ func ordenDocumentoPrueba(t *testing.T) (OrdenDocumentoComision, dietasports.Res
 	}
 	return OrdenDocumentoComision{
 		ReferenciaComision: ref, VersionEsperada: 2,
-		DocumentoID: "documento:comision:1", ClaveIdempotencia: "clave:documento:1",
+		DocumentoID: "ref:" + strings.Repeat("6", 64), ClaveIdempotencia: "ref:" + strings.Repeat("7", 64),
 		TipoDocumentalRef: refs[2], SolicitudPolitica: politica,
 		Autorizacion: docports.AutorizacionV3{Accion: docports.AccionAlta},
 	}, resultado

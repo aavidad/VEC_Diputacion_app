@@ -1,5 +1,7 @@
 \set ON_ERROR_STOP on
 -- B5: consumidor nominal del servicio común de documentos; sin firma ni entrega.
+-- Incluye el registro de documentos con custodia externa (referencia y huella,
+-- sin contenido). Nunca instalada: se amplió en su sitio el 25/09/2026.
 BEGIN;
 SET LOCAL ROLE vec_autorizacion_atestada_v3_propietario;
 SET LOCAL search_path=pg_catalog;
@@ -40,6 +42,10 @@ DECLARE f oid:='vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_inter
     AND d->>'tipo_recurso' IS NOT DISTINCT FROM 'notificacion_preparada'
     AND d->>'finalidad' IS NOT DISTINCT FROM 'preparar_notificacion'
     AND d->'campos_permitidos' IS NOT DISTINCT FROM '["preparacion","recibo"]'::jsonb)
+   OR (d->>'accion' IS NOT DISTINCT FROM 'documentos.externo.registrar'
+    AND d->>'tipo_recurso' IS NOT DISTINCT FROM 'documento_externo'
+    AND d->>'finalidad' IS NOT DISTINCT FROM 'registrar_documento_externo'
+    AND d->'campos_permitidos' IS NOT DISTINCT FROM '["documento","recibo"]'::jsonb)
  ))
 $x$;
 BEGIN
@@ -103,7 +109,9 @@ BEGIN
      OR (a='documentos.original.descargar' AND d->>'tipo_recurso'='documento_original'
        AND d->>'finalidad'='descargar_documento_original' AND d->'campos_permitidos'='["contenido","documento"]'::jsonb)
      OR (a='documentos.notificacion.preparar' AND d->>'tipo_recurso'='notificacion_preparada'
-       AND d->>'finalidad'='preparar_notificacion' AND d->'campos_permitidos'='["preparacion","recibo"]'::jsonb))
+       AND d->>'finalidad'='preparar_notificacion' AND d->'campos_permitidos'='["preparacion","recibo"]'::jsonb)
+     OR (a='documentos.externo.registrar' AND d->>'tipo_recurso'='documento_externo'
+       AND d->>'finalidad'='registrar_documento_externo' AND d->'campos_permitidos'='["documento","recibo"]'::jsonb))
  THEN RAISE EXCEPTION 'AD3-60: operación documental denegada' USING ERRCODE='42501'; END IF;
  SELECT * INTO STRICT x FROM vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_interna(
   'operacion_documentos_comunes',p_capacidad,p_decision,p_motivo,p_contexto,

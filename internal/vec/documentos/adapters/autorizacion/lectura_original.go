@@ -57,7 +57,7 @@ func (f *FabricaContextoLecturaOriginal) ContextoLecturaOriginal(
 ) (vecports.ContextoOperacionAlmacen, error) {
 	denegado := vecports.ErrAutorizacionAlmacenInvalida
 	if f == nil || nulo(f.resolutor) || nulo(f.reloj) || ctx == nil || ctx.Err() != nil ||
-		d.Validar() != nil || d.ID != a.RecursoRef || d.ExpedienteRef != a.AmbitoRef {
+		d.Validar() != nil || !d.Descargable() || d.ID != a.RecursoRef || d.ExpedienteRef != a.AmbitoRef {
 		return vecports.ContextoOperacionAlmacen{}, denegado
 	}
 	instante := f.reloj.Ahora()

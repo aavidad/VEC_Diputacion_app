@@ -21,6 +21,7 @@ const (
 	AccionListar               = "documentos.expediente.listar"
 	AccionDescargar            = "documentos.original.descargar"
 	AccionPrepararNotificacion = "documentos.notificacion.preparar"
+	AccionRegistrarExterno     = "documentos.externo.registrar"
 	AudienciaV3                = "vec_documentos.operacion.v1"
 )
 
@@ -72,6 +73,10 @@ func (a AutorizacionV3) ValidarPara(accion string, ahora time.Time) error {
 		if a.Finalidad != "preparar_notificacion" {
 			return ErrSolicitudInvalida
 		}
+	case AccionRegistrarExterno:
+		if a.Finalidad != "registrar_documento_externo" {
+			return ErrSolicitudInvalida
+		}
 	default:
 		return ErrSolicitudInvalida
 	}
@@ -101,6 +106,66 @@ type AltaPersistente struct {
 	Objeto                                                  vecports.ResultadoOperacionObjeto
 	Politica                                                vecports.ResultadoPoliticaConservacionDocumental
 	Autorizacion                                            AutorizacionV3
+}
+
+// AltaExterna registra un original que custodia otro sistema. No tiene campo
+// de contenido: el tipo impide subir bytes cuando la custodia es externa.
+// MIME y Tamano son opcionales ("" y 0 significan no declarados).
+type AltaExterna struct {
+	ID, ClaveIdempotencia, ModuloID, ExpedienteRef, TipoRef string
+	Version                                                 uint64
+	MIME                                                    string
+	Tamano                                                  int64
+	Custodia                                                domain.ReferenciaCustodiaExterna
+	SolicitudPolitica                                       vecports.SolicitudPoliticaConservacionDocumental
+	Autorizacion                                            AutorizacionV3
+}
+
+// AltaExternaPersistente lleva ya resuelta la politica de conservacion.
+type AltaExternaPersistente struct {
+	ID, ClaveIdempotencia, ModuloID, ExpedienteRef, TipoRef string
+	Version                                                 uint64
+	MIME                                                    string
+	Tamano                                                  int64
+	Custodia                                                domain.ReferenciaCustodiaExterna
+	Politica                                                vecports.ResultadoPoliticaConservacionDocumental
+	Autorizacion                                            AutorizacionV3
+}
+
+// PreimagenExterna fija los campos que autoriza V3 y coteja la fachada SQL.
+func (a AltaExternaPersistente) PreimagenExterna() ([]byte, error) {
+	if a.Politica.Validar() != nil || a.Custodia.Validar() != nil ||
+		!domain.ReferenciaOpacaValida(a.ID) || !domain.ReferenciaOpacaValida(a.ClaveIdempotencia) ||
+		!domain.IdentificadorTecnicoValido(a.ModuloID) || !domain.ReferenciaOpacaValida(a.ExpedienteRef) ||
+		!domain.ReferenciaOpacaValida(a.TipoRef) || a.Version == 0 || a.Tamano < 0 ||
+		(a.MIME != "" && !domain.MIMEValido(a.MIME)) {
+		return nil, ErrSolicitudInvalida
+	}
+	p := a.Politica.Politica()
+	s := p.Solicitud()
+	return json.Marshal(struct {
+		Accion            string `json:"accion"`
+		ID                string `json:"id"`
+		Clave             string `json:"clave_idempotencia"`
+		Modulo            string `json:"modulo_id"`
+		Expediente        string `json:"expediente_ref"`
+		Tipo              string `json:"tipo_ref"`
+		Version           uint64 `json:"version"`
+		MIME              string `json:"mime"`
+		Tamano            int64  `json:"tamano"`
+		Huella            string `json:"huella_sha256"`
+		Custodio          string `json:"custodio_id"`
+		CustodiaRef       string `json:"custodia_ref"`
+		Politica          string `json:"politica_ref"`
+		VersionPolitica   uint64 `json:"version_politica"`
+		HuellaPolitica    string `json:"huella_politica_sha256"`
+		Proteccion        string `json:"proteccion"`
+		ConservacionHasta string `json:"conservacion_hasta"`
+	}{AccionRegistrarExterno, a.ID, a.ClaveIdempotencia, a.ModuloID, a.ExpedienteRef,
+		a.TipoRef, a.Version, a.MIME, a.Tamano, a.Custodia.HuellaSHA256,
+		a.Custodia.CustodioID, a.Custodia.Referencia,
+		s.PoliticaRef(), s.VersionPolitica(), hex.EncodeToString(s.HuellaPoliticaSHA256()),
+		string(p.Proteccion()), p.ConservacionHasta().UTC().Format(time.RFC3339Nano)})
 }
 
 type ConsultaExpediente struct {
@@ -145,6 +210,7 @@ type Repositorio interface {
 	ListarExpediente(context.Context, ConsultaExpediente) (PaginaDocumentos, error)
 	Obtener(context.Context, ConsultaDocumento) (domain.Documento, error)
 	ConfirmarPreparacion(context.Context, PreparacionNotificacion) (domain.NotificacionPreparada, error)
+	ConfirmarReferenciaExterna(context.Context, AltaExternaPersistente) (domain.Documento, error)
 }
 
 func (q ConsultaExpediente) PreimagenListar() ([]byte, error) {

@@ -89,6 +89,6 @@ func documentoValidoPrueba(ahora time.Time) domain.Documento {
 		Tamano: 4, ObjetoRef: "objeto:original:1", ObjetoVersion: "objeto:version:1",
 		PoliticaRef: ref("4"), VersionPolitica: 1, HuellaPoliticaSHA256: strings.Repeat("b", 64),
 		ConservacionHasta: ahora.AddDate(10, 0, 0), Proteccion: "conservacion",
-		EstadoFirma: domain.EstadoFirmaPendienteProveedor, CreadoEn: ahora,
+		EstadoFirma: domain.EstadoFirmaPendienteProveedor, CreadoEn: ahora, Custodia: domain.CustodiaVEC,
 	}
 }

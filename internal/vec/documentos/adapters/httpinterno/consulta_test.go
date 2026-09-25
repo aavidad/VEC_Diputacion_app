@@ -61,7 +61,7 @@ func documentoPrueba() domain.Documento {
 		TipoRef: "ref:" + strings.Repeat("3", 64), Version: 1, MIME: "application/pdf", HuellaSHA256: strings.Repeat("a", 64), Tamano: 6,
 		ObjetoRef: "obj:123", ObjetoVersion: "version:1", PoliticaRef: "ref:" + strings.Repeat("4", 64), VersionPolitica: 1,
 		HuellaPoliticaSHA256: strings.Repeat("b", 64), ConservacionHasta: time.Now().Add(time.Hour),
-		Proteccion: "conservacion", EstadoFirma: domain.EstadoFirmaPendienteProveedor, CreadoEn: time.Now(),
+		Proteccion: "conservacion", EstadoFirma: domain.EstadoFirmaPendienteProveedor, CreadoEn: time.Now(), Custodia: domain.CustodiaVEC,
 	}
 }
 func solicitud(ruta, cuerpo string) *http.Request {
@@ -123,6 +123,22 @@ func TestDescargaConservaBytesYVerificaHuella(t *testing.T) {
 func TestConstructorCierraDependenciasNulas(t *testing.T) {
 	if _, err := NuevasRutasExactas(nil, &autoridadPrueba{}); !errors.Is(err, ErrManejadorInvalido) {
 		t.Fatal(err)
+	}
+}
+
+func TestListaMarcaCustodiaExternaSinDescargaNiReferenciaDelCustodio(t *testing.T) {
+	d := documentoPrueba()
+	d.ObjetoRef, d.ObjetoVersion, d.MIME, d.Tamano = "", "", "application/pdf", 0
+	d.Custodia = domain.CustodiaExterna
+	d.CustodiaExternaRef = domain.ReferenciaCustodiaExterna{CustodioID: "dietas.justificantes", Referencia: "justificante:interno:0001", HuellaSHA256: d.HuellaSHA256}
+	s := &servicioPrueba{documento: d}
+	rutas, _ := NuevasRutasExactas(s, &autoridadPrueba{})
+	w := httptest.NewRecorder()
+	rutas[0].Manejador.ServeHTTP(w, solicitud(RutaConsultaExpediente, `{"expediente_ref":"ref:`+strings.Repeat("2", 64)+`","limite":50}`))
+	cuerpo := w.Body.String()
+	if w.Code != http.StatusOK || !strings.Contains(cuerpo, `"custodia":"externa"`) || !strings.Contains(cuerpo, `"descargable":false`) ||
+		strings.Contains(cuerpo, "justificante:interno") || strings.Contains(cuerpo, "dietas.justificantes") {
+		t.Fatalf("lista externa=%d %s", w.Code, cuerpo)
 	}
 }
 

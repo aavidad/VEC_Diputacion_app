@@ -42,7 +42,9 @@ BEGIN
      OR (accion='documentos.original.descargar' AND d->>'tipo_recurso'='documento_original'
       AND d->>'finalidad'='descargar_documento_original' AND d->'campos_permitidos'='["contenido","documento"]'::jsonb)
      OR (accion='documentos.notificacion.preparar' AND d->>'tipo_recurso'='notificacion_preparada'
-      AND d->>'finalidad'='preparar_notificacion' AND d->'campos_permitidos'='["preparacion","recibo"]'::jsonb))
+      AND d->>'finalidad'='preparar_notificacion' AND d->'campos_permitidos'='["preparacion","recibo"]'::jsonb)
+     OR (accion='documentos.externo.registrar' AND d->>'tipo_recurso'='documento_externo'
+      AND d->>'finalidad'='registrar_documento_externo' AND d->'campos_permitidos'='["documento","recibo"]'::jsonb))
  THEN RAISE EXCEPTION 'AD3-62: operación denegada' USING ERRCODE='42501'; END IF;
  -- El núcleo AD3 coteja las diez piezas byte a byte contra el consumo
  -- histórico y devuelve false solo para una repetición inequívoca.
@@ -54,7 +56,7 @@ BEGIN
     OR x.huella_efecto_sha256 IS DISTINCT FROM c->>'huella_efecto_sha256'
  THEN RAISE EXCEPTION 'AD3-62: consumo incoherente' USING ERRCODE='42501'; END IF;
  IF x.consumo_nuevo IS FALSE THEN
-  IF accion NOT IN ('documentos.generado.alta','documentos.notificacion.preparar')
+  IF accion NOT IN ('documentos.generado.alta','documentos.notificacion.preparar','documentos.externo.registrar')
   THEN RAISE EXCEPTION 'AD3-62: lectura requiere consumo nuevo' USING ERRCODE='42501'; END IF;
   -- El núcleo retorna replay antes de las comprobaciones vivas. Repetimos
   -- aquí la vigencia y bloqueamos el gobierno para que revocación concurrente

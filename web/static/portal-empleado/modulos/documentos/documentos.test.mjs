@@ -8,7 +8,7 @@ import { crearFuenteDocumentosHTTP } from "./cliente-http.js";
 
 const huella = "a".repeat(64);
 const dato = (cambios = {}) => ({ ref: "ref:1111111111111111111111111111111111111111111111111111111111111111", numero_vec: "VEC-2026-1", tipo: "dietas.comision.borrador.v1",
-  version: 1, estado_firma: "pendiente_firma", huella, mime: "application/pdf", descargable: true, ...cambios });
+  version: 1, estado_firma: "pendiente_firma", huella, mime: "application/pdf", custodia: "vec", descargable: true, ...cambios });
 
 test("la lista conserva número, firma pendiente y descarga declarada sin promover firma", () => {
   const [documento] = validarRespuestaDocumentos({ estado: "disponible", documentos: [dato()] }).documentos;
@@ -21,6 +21,17 @@ test("la lista conserva número, firma pendiente y descarga declarada sin promov
   assert.throws(() => validarRespuestaDocumentos({ estado: "vacio", documentos: [dato()] }));
   assert.throws(() => validarRespuestaDocumentos({ estado: "vacio", documentos: [], siguiente_cursor:"cursor:123" }));
   assert.throws(() => validarRespuestaDocumentos({ estado: "disponible", documentos: [dato({ huella: "mal" })] }));
+});
+
+test("la custodia externa se lista sin descarga aunque el servidor la declare", () => {
+  const [externo] = validarRespuestaDocumentos({ estado: "disponible", documentos: [dato({ custodia: "externa", mime: "", descargable: true })] }).documentos;
+  assert.equal(externo.custodia, "externa");
+  assert.equal(externo.descargable, false);
+  assert.equal(externo.huella, huella);
+  assert.throws(() => validarRespuestaDocumentos({ estado: "disponible", documentos: [dato({ custodia: "otra" })] }));
+  assert.throws(() => validarRespuestaDocumentos({ estado: "disponible", documentos: [dato({ custodia: undefined })] }));
+  assert.throws(() => validarRespuestaDocumentos({ estado: "disponible", documentos: [dato({ mime: "" })] }));
+  assert.equal(crearTraductorDocumentos()("custodia_externa"), MENSAJES_DOCUMENTOS_ES.custodia_externa);
 });
 
 test("el original requiere bytes, nombre seguro y extensión coherente", () => {

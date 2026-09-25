@@ -2,7 +2,7 @@ export const MENSAJES_DOCUMENTOS_ES = Object.freeze({
   error_vista: "Documentos no disponible",
   titulo: "Documentos del expediente",
   ayuda_etiqueta: "Ayuda sobre documentos",
-  aclaracion_firma: "Pendiente de firma indica que aún no existe una firma acreditada. El número VEC es interno. Preparar una notificación no acredita su entrega.",
+  aclaracion_firma: "Pendiente de firma indica que aún no existe una firma acreditada. El número VEC es interno. Preparar una notificación no acredita su entrega. Un documento con custodia externa lo guarda otro sistema: VEC conserva su huella, no su contenido.",
   expediente: "Expediente",
   consultar: "Consultar",
   cargar_mas: "Cargar más",
@@ -30,6 +30,8 @@ export const MENSAJES_DOCUMENTOS_ES = Object.freeze({
   tipo_generico: "Documento",
   descargar: "Descargar original",
   descargar_de: "Descargar original del documento {numero}",
+  custodia_externa: "Custodia externa",
+  huella_de: "Huella SHA-256: {huella}",
 });
 
 export function crearTraductorDocumentos(mensajes = MENSAJES_DOCUMENTOS_ES) {

@@ -71,8 +71,8 @@ func (s *ServicioDocumentoComision) Registrar(ctx context.Context, orden OrdenDo
 	if ctx == nil || s == nil || dependenciaDocumentoComisionNula(s.lector) ||
 		dependenciaDocumentoComisionNula(s.renderizador) || dependenciaDocumentoComisionNula(s.alta) ||
 		err != nil ||
-		!vecdomain.ReferenciaValida(orden.DocumentoID) || !vecdomain.ReferenciaValida(orden.ClaveIdempotencia) ||
-		!vecdomain.ReferenciaValida(orden.TipoDocumentalRef) ||
+		!vecdomain.ReferenciaOpacaValida(orden.DocumentoID) || !vecdomain.ReferenciaOpacaValida(orden.ClaveIdempotencia) ||
+		!vecdomain.ReferenciaOpacaValida(orden.TipoDocumentalRef) ||
 		orden.SolicitudPolitica.Validar() != nil ||
 		orden.SolicitudPolitica.ExpedienteRef() != agrupacionRef ||
 		orden.SolicitudPolitica.TipoDocumentalRef() != orden.TipoDocumentalRef ||

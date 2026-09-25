@@ -1,6 +1,7 @@
 import { crearTraductorDocumentos } from "./i18n.js?v=20260925-b5-documentos-v1";
 
 const MIME = new Set(["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]);
+const CUSTODIAS = new Set(["vec", "externa"]);
 const referencia = (v) => typeof v === "string" && (/^ref:[0-9a-f]{64}$/u.test(v) && !/^ref:0{64}$/u.test(v)
   || /^[a-z][a-z0-9_]{1,31}:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(v));
 const huellaValida = (v) => typeof v === "string" && /^[0-9a-f]{64}$/iu.test(v);
@@ -25,14 +26,16 @@ export function validarRespuestaDocumentos(respuesta) {
     if (!referencia(ref) || vistos.has(ref) || !/^VEC-[0-9]{4}-[0-9]{1,12}$/u.test(dato.numero_vec) ||
         typeof dato.tipo !== "string" || !dato.tipo.trim() || dato.tipo.length > 80 ||
         !Number.isSafeInteger(dato.version) || dato.version < 1 ||
-        dato.estado_firma !== "pendiente_firma" ||
-        !huellaValida(dato.huella) || typeof dato.mime !== "string" || !/^[a-z0-9.+-]+\/[a-z0-9.+-]+$/u.test(dato.mime)) throw new TypeError("documento inválido");
+        dato.estado_firma !== "pendiente_firma" || !CUSTODIAS.has(dato.custodia) ||
+        !huellaValida(dato.huella) || typeof dato.mime !== "string" ||
+        !(/^[a-z0-9.+-]+\/[a-z0-9.+-]+$/u.test(dato.mime) || (dato.custodia === "externa" && dato.mime === ""))) throw new TypeError("documento inválido");
     vistos.add(ref);
     // B5 no declara firma sin atestación verificable y confirmación durable.
     const firma = dato.estado_firma;
     return Object.freeze({ ref, numero: dato.numero_vec, tipo: dato.tipo.trim(), version: dato.version,
-      firma, huella: dato.huella.toLowerCase(), mime: dato.mime,
-      descargable: dato.descargable === true && MIME.has(dato.mime) });
+      firma, huella: dato.huella.toLowerCase(), mime: dato.mime, custodia: dato.custodia,
+      // VEC solo entrega bytes que custodia; de un original externo muestra la huella.
+      descargable: dato.custodia === "vec" && dato.descargable === true && MIME.has(dato.mime) });
   });
   return Object.freeze({ estado: documentos.length ? "disponible" : "vacio", documentos, siguienteCursor:respuesta.siguiente_cursor || "" });
 }
@@ -141,12 +144,18 @@ export function montarVistaDocumentos({ raiz, fuente, expedienteRef = "", anunci
       firma.append(elemento(doc, "span", t(`firma_${item.firma}`), `documentos-estado documentos-estado--${item.firma}`));
       tr.append(firma);
       const accion = elemento(doc, "td");
-      const boton = elemento(doc, "button", t("descargar"), "boton-secundario documentos-descargar");
-      boton.type = "button";
-      boton.disabled = !item.descargable;
-      boton.setAttribute("aria-label", t("descargar_de", { numero: item.numero }));
-      boton.addEventListener("click", () => descargar(item));
-      accion.append(boton);
+      if (item.custodia === "externa") {
+        const custodia = elemento(doc, "span", t("custodia_externa"), "documentos-custodia-externa");
+        custodia.title = t("huella_de", { huella: item.huella });
+        accion.append(custodia);
+      } else {
+        const boton = elemento(doc, "button", t("descargar"), "boton-secundario documentos-descargar");
+        boton.type = "button";
+        boton.disabled = !item.descargable;
+        boton.setAttribute("aria-label", t("descargar_de", { numero: item.numero }));
+        boton.addEventListener("click", () => descargar(item));
+        accion.append(boton);
+      }
       tr.append(accion);
       tbody.append(tr);
     }

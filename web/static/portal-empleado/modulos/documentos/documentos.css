@@ -31,6 +31,7 @@
 .documentos-estado--pendiente_firma { color: var(--portal-aviso); }
 .documentos-estado--borrador { color: var(--portal-azul-700); }
 .documentos-estado--sin_acreditar { color: var(--portal-peligro); }
+.documentos-custodia-externa { color: var(--portal-muted); font-size: .875rem; white-space: nowrap; }
 .documentos-descargar { min-height: 36px; }
 .documentos-descargar:disabled { opacity: .5; cursor: not-allowed; }
 .documentos-mas { display: block; min-height: 38px; margin: 16px auto 0; }

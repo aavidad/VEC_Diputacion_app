@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-base_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-repo_dir=$(CDPATH= cd -- "$base_dir/../../.." && pwd)
+base_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+repo_dir=$(CDPATH='' cd -- "$base_dir/../../.." && pwd)
 container="vec-b5-doc-$$-${RANDOM}"
 cleanup() { docker rm -f "$container" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
@@ -25,6 +25,8 @@ docker cp "$ad3/migraciones/000062_replay_documentos_comunes.up.sql" "$container
 docker cp "$base_dir/roles_up.sql" "$container:/tmp/roles.sql"
 docker cp "$base_dir/migraciones/000001_documentos_comunes.up.sql" "$container:/tmp/documentos.sql"
 docker cp "$base_dir/migraciones/000002_replay_autorizado.up.sql" "$container:/tmp/documentos2.sql"
+docker cp "$base_dir/migraciones/000003_custodia_externa.up.sql" "$container:/tmp/documentos3.sql"
+docker cp "$base_dir/pruebas_sql/custodia_externa_sintetica.sql" "$container:/tmp/externa.sql"
 docker cp "$base_dir/pruebas_sql/replay_ad3_62_sintetico.sql" "$container:/tmp/replay_ad3_62.sql"
 
 psql_pg() { docker exec "$container" psql -X -q -v ON_ERROR_STOP=1 -U postgres -f "$1"; }
@@ -57,6 +59,11 @@ docker exec "$container" sh -c "sed '\$s/^COMMIT;/ROLLBACK;/' /tmp/documentos2.s
 psql_pg /tmp/documentos2.rollback.sql
 test "$(docker exec "$container" psql -X -qAt -U postgres -c "SELECT to_regprocedure('vec_documentos.confirmar_alta_v2(bytea,jsonb,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL")" = t
 psql_pg /tmp/documentos2.sql
+docker exec "$container" sh -c "sed '\$s/^COMMIT;/ROLLBACK;/' /tmp/documentos3.sql >/tmp/documentos3.rollback.sql"
+psql_pg /tmp/documentos3.rollback.sql
+test "$(docker exec "$container" psql -X -qAt -U postgres -c "SELECT to_regclass('vec_documentos.referencia_externa') IS NULL AND to_regprocedure('vec_documentos.registrar_referencia_externa_v1(bytea,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL")" = t
+psql_pg /tmp/documentos3.sql
+if docker exec "$container" psql -X -q -v ON_ERROR_STOP=1 -U postgres -f /tmp/documentos3.sql >/dev/null 2>&1; then echo 'FALLO: segunda aplicación de 000003 aceptada' >&2; exit 1; fi
 
 docker exec -i "$container" psql -X -q -v ON_ERROR_STOP=1 -U postgres <<'SQL'
 CREATE ROLE vec_documentos_ensayo LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT NOREPLICATION NOBYPASSRLS;
@@ -64,7 +71,7 @@ GRANT vec_documentos_ejecutor TO vec_documentos_ensayo WITH ADMIN FALSE, INHERIT
 DO $checks$
 DECLARE t text;
 BEGIN
- FOREACH t IN ARRAY ARRAY['documento','preparacion_notificacion','auditoria_operacion','outbox'] LOOP
+ FOREACH t IN ARRAY ARRAY['documento','preparacion_notificacion','auditoria_operacion','outbox','referencia_externa','identificador_documental'] LOOP
   IF NOT EXISTS (SELECT 1 FROM pg_class WHERE oid=('vec_documentos.'||t)::regclass AND relrowsecurity AND relforcerowsecurity)
      OR has_table_privilege('vec_documentos_ensayo','vec_documentos.'||t,'SELECT')
      OR has_table_privilege('vec_documentos_ensayo','vec_documentos.'||t,'INSERT')
@@ -77,7 +84,8 @@ BEGIN
  THEN RAISE EXCEPTION 'ACL documental incompatible'; END IF;
  IF EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
   WHERE n.nspname IN ('vec_documentos','vec_autorizacion_atestada_v3') AND p.proname IN
-  ('confirmar_alta_v1','listar_expediente_v1','obtener_original_v1','preparar_notificacion_v1','consumir_operacion_documentos_v3_atestada')
+  ('confirmar_alta_v1','listar_expediente_v1','obtener_original_v1','preparar_notificacion_v1','consumir_operacion_documentos_v3_atestada',
+   'registrar_referencia_externa_v1','listar_expediente_v2','reservar_identificador_v1')
   AND (NOT p.prosecdef OR NOT ('search_path=pg_catalog'=ANY(p.proconfig))))
  THEN RAISE EXCEPTION 'función sensible sin SECURITY DEFINER/search_path fijo'; END IF;
 END $checks$;
@@ -175,6 +183,29 @@ SQL
 docker exec "$container" psql -X -q -v ON_ERROR_STOP=1 -U vec_documentos_ensayo -d postgres -f /tmp/replay_documentos.sql
 test "$(docker exec "$container" psql -X -qAt -U postgres -c "SELECT (SELECT count(*) FROM vec_documentos.documento)=1 AND (SELECT count(*) FROM vec_documentos.outbox)=1 AND (SELECT count(*) FROM vec_autorizacion_atestada_v3.ensayo_consumo_documentos)=1")" = t
 
+docker exec "$container" psql -X -q -v ON_ERROR_STOP=1 -U postgres -f /tmp/externa.sql
+docker exec -i "$container" psql -X -q -v ON_ERROR_STOP=1 -U vec_documentos_ensayo -d postgres <<'SQL'
+\set ON_ERROR_STOP on
+BEGIN ISOLATION LEVEL SERIALIZABLE;
+SELECT ensayo_externa.registrar();
+COMMIT;
+SQL
+docker exec -i "$container" psql -X -q -v ON_ERROR_STOP=1 -U vec_documentos_ensayo -d postgres <<'SQL'
+\set ON_ERROR_STOP on
+BEGIN ISOLATION LEVEL SERIALIZABLE;
+SELECT ensayo_externa.negativos();
+COMMIT;
+SQL
+docker exec -i "$container" psql -X -q -v ON_ERROR_STOP=1 -U vec_documentos_ensayo -d postgres <<'SQL'
+\set ON_ERROR_STOP on
+BEGIN ISOLATION LEVEL SERIALIZABLE;
+SELECT ensayo_externa.listar();
+COMMIT;
+SQL
+test "$(docker exec "$container" psql -X -qAt -U postgres -c "SELECT (SELECT count(*) FROM vec_documentos.referencia_externa)=1 AND (SELECT count(*) FROM vec_documentos.outbox WHERE tipo='documento_externo_registrado')=1 AND (SELECT count(*) FROM vec_documentos.identificador_documental)=2")" = t
+if docker exec "$container" psql -X -q -v ON_ERROR_STOP=1 -U postgres -c "UPDATE vec_documentos.referencia_externa SET custodia_ref='otra:ref'" >/dev/null 2>&1; then echo 'FALLO: referencia externa mutable' >&2; exit 1; fi
+printf 'PG18.4: custodia externa registrada sin contenido, replay idéntico, clave/identificador reutilizados rechazados, lista v2 con ambas custodias.\n'
+
 docker restart "$container" >/dev/null
 for _ in $(seq 1 60); do
  if docker exec "$container" psql -X -qAt -v ON_ERROR_STOP=1 -U postgres -c 'SELECT 1' >/dev/null 2>&1; then break; fi
@@ -212,5 +243,12 @@ END $fresco$;
 COMMIT;
 SQL
 docker exec "$container" psql -X -q -v ON_ERROR_STOP=1 -U vec_documentos_ensayo -d postgres -f /tmp/replay_documentos_fresco.sql
-test "$(docker exec "$container" psql -X -qAt -U postgres -c "SELECT to_regclass('vec_documentos.documento') IS NOT NULL AND (SELECT count(*) FROM vec_documentos.documento)=1 AND (SELECT count(*) FROM vec_documentos.outbox)=1 AND (SELECT count(*) FROM vec_autorizacion_atestada_v3.ensayo_consumo_documentos)=2 AND (SELECT decision_ref FROM vec_documentos.documento)='decision:00000000-0000-4000-8000-000000000001'")" = t
-printf 'PG18.4: replay inmediato mismo material y recuperación tras reinicio con decisión V3 sintética fresca: mismo recibo, 1 documento/outbox, 2 consumos autorizados. NO acredita cadena COSE real.\n'
+test "$(docker exec "$container" psql -X -qAt -U postgres -c "SELECT to_regclass('vec_documentos.documento') IS NOT NULL AND (SELECT count(*) FROM vec_documentos.documento)=1 AND (SELECT count(*) FROM vec_documentos.outbox WHERE tipo='documento_generado')=1 AND (SELECT count(*) FROM vec_autorizacion_atestada_v3.ensayo_consumo_documentos WHERE decision_ref IN ('decision:00000000-0000-4000-8000-000000000001','decision:00000000-0000-4000-8000-000000000002'))=2 AND (SELECT decision_ref FROM vec_documentos.documento)='decision:00000000-0000-4000-8000-000000000001'")" = t
+docker exec -i "$container" psql -X -q -v ON_ERROR_STOP=1 -U vec_documentos_ensayo -d postgres <<'SQL'
+\set ON_ERROR_STOP on
+BEGIN ISOLATION LEVEL SERIALIZABLE;
+SELECT ensayo_externa.recuperar();
+COMMIT;
+SQL
+test "$(docker exec "$container" psql -X -qAt -U postgres -c "SELECT (SELECT count(*) FROM vec_documentos.referencia_externa)=1 AND (SELECT count(*) FROM vec_documentos.outbox WHERE tipo='documento_externo_registrado')=1")" = t
+printf 'PG18.4: replay inmediato mismo material y recuperación tras reinicio con decisión V3 sintética fresca: mismo recibo, 1 documento/outbox, 2 consumos autorizados; registro externo recuperado con el mismo recibo. NO acredita cadena COSE real.\n'

@@ -37,9 +37,14 @@ func dependenciaNula(v any) bool {
 }
 
 func (s *Servicio) disponible() bool {
+	return s.registroDisponible() && !dependenciaNula(s.Almacen)
+}
+
+// registroDisponible basta para operaciones que no tocan bytes: registrar una
+// referencia externa y listar. El almacén solo se exige al custodiar o leer.
+func (s *Servicio) registroDisponible() bool {
 	return s != nil && !dependenciaNula(s.Repositorio) &&
-		!dependenciaNula(s.Almacen) && !dependenciaNula(s.Politicas) &&
-		!dependenciaNula(s.Reloj)
+		!dependenciaNula(s.Politicas) && !dependenciaNula(s.Reloj)
 }
 
 func efectoLigado(a ports.AutorizacionV3, preimagen []byte, err error) bool {
@@ -53,7 +58,7 @@ func (s *Servicio) AltaGenerado(ctx context.Context, in ports.AltaGenerado) (dom
 	if !s.disponible() || ctx == nil || ctx.Err() != nil ||
 		!domain.ReferenciaOpacaValida(in.ID) || !domain.ReferenciaOpacaValida(in.ClaveIdempotencia) ||
 		!domain.IdentificadorTecnicoValido(in.ModuloID) || !domain.ReferenciaOpacaValida(in.ExpedienteRef) ||
-		!domain.ReferenciaOpacaValida(in.TipoRef) || in.Version == 0 ||
+		!domain.ReferenciaOpacaValida(in.TipoRef) || in.Version == 0 || !domain.MIMEValido(in.MIME) ||
 		len(in.Contenido) == 0 || len(in.Contenido) > limiteOriginal ||
 		in.SolicitudPolitica.Validar() != nil ||
 		in.SolicitudPolitica.ExpedienteRef() != in.ExpedienteRef ||
@@ -111,7 +116,8 @@ func (s *Servicio) AltaGenerado(ctx context.Context, in ports.AltaGenerado) (dom
 	if err != nil {
 		return domain.Documento{}, err
 	}
-	if documento.Validar() != nil || documento.ID != in.ID || documento.Version != in.Version ||
+	if documento.Validar() != nil || documento.Custodia != domain.CustodiaVEC ||
+		documento.ID != in.ID || documento.Version != in.Version ||
 		documento.ModuloID != in.ModuloID || documento.ExpedienteRef != in.ExpedienteRef ||
 		documento.TipoRef != in.TipoRef || documento.MIME != in.MIME ||
 		documento.HuellaSHA256 != huella || documento.Tamano != int64(len(in.Contenido)) ||
@@ -145,8 +151,62 @@ func custodiaSatisfacePolitica(
 	return true
 }
 
+// RegistrarExterno anota un original custodiado por otro sistema con su
+// referencia, huella y metadatos gobernados. No lee ni escribe bytes: la
+// custodia, la integridad del contenido y su disponibilidad siguen siendo del
+// custodio. El efecto consume V3 en la misma transaccion que metadatos,
+// auditoria y outbox.
+func (s *Servicio) RegistrarExterno(ctx context.Context, in ports.AltaExterna) (domain.Documento, error) {
+	if !s.registroDisponible() || ctx == nil || ctx.Err() != nil ||
+		!domain.ReferenciaOpacaValida(in.ID) || !domain.ReferenciaOpacaValida(in.ClaveIdempotencia) ||
+		!domain.IdentificadorTecnicoValido(in.ModuloID) || !domain.ReferenciaOpacaValida(in.ExpedienteRef) ||
+		!domain.ReferenciaOpacaValida(in.TipoRef) || in.Version == 0 || in.Tamano < 0 ||
+		(in.MIME != "" && !domain.MIMEValido(in.MIME)) || in.Custodia.Validar() != nil ||
+		in.SolicitudPolitica.Validar() != nil ||
+		in.SolicitudPolitica.ExpedienteRef() != in.ExpedienteRef ||
+		in.SolicitudPolitica.TipoDocumentalRef() != in.TipoRef {
+		return domain.Documento{}, ports.ErrSolicitudInvalida
+	}
+	if in.Autorizacion.ValidarPara(ports.AccionRegistrarExterno, s.Reloj.Ahora()) != nil ||
+		in.Autorizacion.RecursoRef != in.ID || in.Autorizacion.AmbitoRef != in.ExpedienteRef {
+		return domain.Documento{}, ports.ErrSolicitudInvalida
+	}
+	politica, err := baseapp.ResolverPoliticaConservacionDocumental(ctx, s.Politicas, s.Reloj, in.SolicitudPolitica)
+	if err != nil {
+		return domain.Documento{}, err
+	}
+	persistente := ports.AltaExternaPersistente{
+		ID: in.ID, ClaveIdempotencia: in.ClaveIdempotencia,
+		ModuloID: in.ModuloID, ExpedienteRef: in.ExpedienteRef,
+		TipoRef: in.TipoRef, Version: in.Version, MIME: in.MIME, Tamano: in.Tamano,
+		Custodia: in.Custodia, Politica: politica, Autorizacion: in.Autorizacion,
+	}
+	preimagen, err := persistente.PreimagenExterna()
+	if !efectoLigado(in.Autorizacion, preimagen, err) {
+		return domain.Documento{}, ports.ErrSolicitudInvalida
+	}
+	documento, err := s.Repositorio.ConfirmarReferenciaExterna(ctx, persistente)
+	if err != nil {
+		return domain.Documento{}, err
+	}
+	if documento.Validar() != nil || documento.Custodia != domain.CustodiaExterna ||
+		documento.ID != in.ID || documento.Version != in.Version ||
+		documento.ModuloID != in.ModuloID || documento.ExpedienteRef != in.ExpedienteRef ||
+		documento.TipoRef != in.TipoRef || documento.MIME != in.MIME || documento.Tamano != in.Tamano ||
+		documento.HuellaSHA256 != in.Custodia.HuellaSHA256 || documento.CustodiaExternaRef != in.Custodia ||
+		documento.PoliticaRef != in.SolicitudPolitica.PoliticaRef() ||
+		documento.VersionPolitica != in.SolicitudPolitica.VersionPolitica() ||
+		documento.HuellaPoliticaSHA256 != hex.EncodeToString(in.SolicitudPolitica.HuellaPoliticaSHA256()) ||
+		documento.Proteccion != string(politica.Politica().Proteccion()) ||
+		!documento.ConservacionHasta.Equal(politica.Politica().ConservacionHasta()) ||
+		documento.EstadoFirma != domain.EstadoFirmaPendienteProveedor {
+		return domain.Documento{}, ports.ErrCapacidadNoDisponible
+	}
+	return documento, nil
+}
+
 func (s *Servicio) ListarExpediente(ctx context.Context, in ports.ConsultaExpediente) (ports.PaginaDocumentos, error) {
-	if !s.disponible() || ctx == nil || ctx.Err() != nil ||
+	if !s.registroDisponible() || ctx == nil || ctx.Err() != nil ||
 		!domain.ReferenciaOpacaValida(in.ExpedienteRef) || in.Limite == 0 || in.Limite > 100 ||
 		(in.Cursor != "" && !domain.ReferenciaValida(in.Cursor)) ||
 		in.Autorizacion.ValidarPara(ports.AccionListar, s.Reloj.Ahora()) != nil {
@@ -187,7 +247,7 @@ func (s *Servicio) DescargarOriginal(ctx context.Context, in ports.ConsultaDocum
 		return ports.Original{}, err
 	}
 	if d.Validar() != nil || d.ID != in.DocumentoID || d.Version != in.Version ||
-		d.Tamano > limiteOriginal {
+		!d.Descargable() || d.Tamano > limiteOriginal {
 		return ports.Original{}, ports.ErrOriginalNoDisponible
 	}
 	if dependenciaNula(s.ContextosLectura) {

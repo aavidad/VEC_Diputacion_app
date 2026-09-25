@@ -112,6 +112,11 @@ type documentoJSON struct {
 	Proteccion           string    `json:"proteccion"`
 	EstadoFirma          string    `json:"estado_firma"`
 	CreadoEn             time.Time `json:"creado_en"`
+	// Las proyecciones v1 de originales no llevan custodia; la lista v2 y el
+	// registro externo la declaran siempre.
+	Custodia    string `json:"custodia"`
+	CustodioID  string `json:"custodio_id"`
+	CustodiaRef string `json:"custodia_ref"`
 }
 
 func decodificarDocumento(raw []byte) (domain.Documento, error) {
@@ -126,6 +131,13 @@ func decodificarDocumento(raw []byte) (domain.Documento, error) {
 		PoliticaRef: v.PoliticaRef, VersionPolitica: v.VersionPolitica,
 		HuellaPoliticaSHA256: v.HuellaPoliticaSHA256, ConservacionHasta: v.ConservacionHasta,
 		Proteccion: v.Proteccion, EstadoFirma: v.EstadoFirma, CreadoEn: v.CreadoEn,
+		Custodia: v.Custodia,
+	}
+	switch v.Custodia {
+	case "":
+		d.Custodia = domain.CustodiaVEC
+	case domain.CustodiaExterna:
+		d.CustodiaExternaRef = domain.ReferenciaCustodiaExterna{CustodioID: v.CustodioID, Referencia: v.CustodiaRef, HuellaSHA256: v.HuellaSHA256}
 	}
 	if d.Validar() != nil {
 		return domain.Documento{}, ErrRepositorioNoDisponible
@@ -179,6 +191,33 @@ func (r *Repositorio) ConfirmarAlta(ctx context.Context, a ports.AltaPersistente
 	return decodificarDocumento(raw)
 }
 
+// ConfirmarReferenciaExterna registra la referencia y huella de un original
+// custodiado fuera de VEC. No hay objeto ni recibo de almacén que cotejar.
+func (r *Repositorio) ConfirmarReferenciaExterna(ctx context.Context, a ports.AltaExternaPersistente) (domain.Documento, error) {
+	preimagen, err := a.PreimagenExterna()
+	if err != nil || a.Autorizacion.RecursoRef != a.ID || a.Autorizacion.AmbitoRef != a.ExpedienteRef {
+		return domain.Documento{}, ports.ErrSolicitudInvalida
+	}
+	material, err := validarAutorizacion(a.Autorizacion, ports.AccionRegistrarExterno, preimagen)
+	if err != nil {
+		return domain.Documento{}, err
+	}
+	auth, _ := autorizacionJSON(a.Autorizacion)
+	raw, err := r.transaccion(ctx,
+		"SELECT vec_documentos.registrar_referencia_externa_v1($1,$2::jsonb,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)",
+		preimagen, string(auth), material.capacidad, material.decision, material.motivo,
+		material.contexto, material.persona, material.perfil, material.payload, material.sobre,
+		material.evidencia, material.raiz)
+	if err != nil {
+		return domain.Documento{}, err
+	}
+	d, err := decodificarDocumento(raw)
+	if err != nil || d.Custodia != domain.CustodiaExterna {
+		return domain.Documento{}, ErrRepositorioNoDisponible
+	}
+	return d, nil
+}
+
 func (r *Repositorio) ListarExpediente(ctx context.Context, c ports.ConsultaExpediente) (ports.PaginaDocumentos, error) {
 	if !domain.ReferenciaOpacaValida(c.ExpedienteRef) || c.Autorizacion.RecursoRef != c.ExpedienteRef ||
 		c.Autorizacion.AmbitoRef != c.ExpedienteRef || c.Limite < 1 || c.Limite > 100 ||
@@ -195,7 +234,7 @@ func (r *Repositorio) ListarExpediente(ctx context.Context, c ports.ConsultaExpe
 	}
 	auth, _ := autorizacionJSON(c.Autorizacion)
 	raw, err := r.transaccion(ctx,
-		"SELECT vec_documentos.listar_expediente_v1($1,$2::jsonb,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)",
+		"SELECT vec_documentos.listar_expediente_v2($1,$2::jsonb,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)",
 		preimagen, string(auth), material.capacidad, material.decision, material.motivo,
 		material.contexto, material.persona, material.perfil, material.payload, material.sobre,
 		material.evidencia, material.raiz)

@@ -166,7 +166,9 @@ func (h *manejador) servirLista(w http.ResponseWriter, r *http.Request) {
 			responderError(w, http.StatusBadGateway, "resultado_no_confiable")
 			return
 		}
-		descargable := d.MIME == "application/pdf" || d.MIME == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+		// Solo se ofrece descarga de originales que custodia VEC. De una
+		// referencia externa se muestran huella y custodia, nunca bytes.
+		descargable := d.Descargable() && (d.MIME == "application/pdf" || d.MIME == "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
 		salida = append(salida, struct {
 			Ref         string `json:"ref"`
 			Numero      string `json:"numero_vec"`
@@ -175,8 +177,9 @@ func (h *manejador) servirLista(w http.ResponseWriter, r *http.Request) {
 			EstadoFirma string `json:"estado_firma"`
 			Huella      string `json:"huella"`
 			MIME        string `json:"mime"`
+			Custodia    string `json:"custodia"`
 			Descargable bool   `json:"descargable"`
-		}{d.ID, d.NumeroVEC, d.TipoRef, d.Version, "pendiente_firma", d.HuellaSHA256, d.MIME, descargable})
+		}{d.ID, d.NumeroVEC, d.TipoRef, d.Version, "pendiente_firma", d.HuellaSHA256, d.MIME, d.Custodia, descargable})
 	}
 	estado := "disponible"
 	if len(salida) == 0 {
