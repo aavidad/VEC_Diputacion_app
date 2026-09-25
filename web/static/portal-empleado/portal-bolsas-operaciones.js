@@ -1,5 +1,6 @@
 import { causasBaja, consultarReglasSituacion, hoyCivil, instalarPropuestaReposicion, motivoConCausa, renderizarCausasBaja } from "./portal-bolsas-reglas-situacion.js?v=20260925-reposicion-v1";
 import { traducirReglasSituacion } from "./portal-bolsas-reglas-situacion-i18n.js?v=20260925-reposicion-v1";
+import { cargarContratosFicha, manejarClickContratos } from "./portal-bolsas-contratos.js?v=20260925-b13-v1";
 
 const BASE = "/api/vec/bolsa/bolsas";
 const TIPOS_JUSTIFICANTE = Object.freeze(["solicitud_candidato", "informe_medico", "resolucion", "correo", "acta_bolsa", "otro"]);
@@ -144,6 +145,8 @@ function renderizarPaso(estado, escaparHTML) {
 
 export function crearControladorOperacionesSituacion({ estado, renderizar, recargar, consultarReglas = consultarReglasSituacion }) {
   async function cargar(modalFicha) {
+    // B13: el histórico de contratos se carga junto a la ficha, en paralelo.
+    void cargarContratosFicha(modalFicha, { estado, renderizar, renderizarAlIniciar: false });
     const controlador = new AbortController();
     modalFicha.controladorOperaciones?.abort();
     modalFicha.controladorOperaciones = controlador;
@@ -260,7 +263,7 @@ export function crearControladorOperacionesSituacion({ estado, renderizar, recar
   }
 
   function instalar(documento = globalThis.document) {
-    documento.addEventListener("click", (evento) => { manejarClick(evento); });
+    documento.addEventListener("click", (evento) => { if (!manejarClickContratos(evento, { estado, renderizar })) manejarClick(evento); });
     documento.addEventListener("submit", (evento) => { manejarSubmit(evento); });
     instalarPropuestaReposicion(documento, () => estado.modalFicha);
   }

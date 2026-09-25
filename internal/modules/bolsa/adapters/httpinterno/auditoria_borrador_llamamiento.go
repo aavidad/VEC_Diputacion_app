@@ -117,6 +117,9 @@ func intentoAuditableBorradorLlamamiento(r *http.Request) (puertosbolsa.AccionIn
 			return puertosbolsa.AccionIntentoConsultarBorradorLlamamiento, puertosbolsa.ClaseRutaSituacionParticipacion, true
 		}
 	}
+	if _, _, ok := ReferenciasRutaContratosParticipacion(r); ok && r.Method == http.MethodGet {
+		return puertosbolsa.AccionIntentoConsultarBorradorLlamamiento, puertosbolsa.ClaseRutaSituacionParticipacion, true
+	}
 	if _, _, _, ok := ReferenciasRutaDatosContactoParticipacion(r); ok && r.Method == http.MethodGet {
 		return puertosbolsa.AccionIntentoConsultarDatosContactoParticipacion, puertosbolsa.ClaseRutaDatosContactoParticipacion, true
 	}
