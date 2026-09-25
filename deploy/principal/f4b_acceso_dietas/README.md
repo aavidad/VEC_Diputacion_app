@@ -43,7 +43,14 @@ en [`03_entorno.md`](../03_entorno.md#dietas-con-la-composición-actual-variable
   `vec_dietas_registrador_frontera`, `vec_personal_d7_ejecutor` o
   `vec_personal_registrador_frontera`.
 - Lista positiva mínima de objetos y ACL (la vertical R1D de F4, las cinco
-  fachadas D7/auditoría de Personal y `registrar_auditoria_frontera_comision_v2`).
+  fachadas D7/auditoría de Personal y `registrar_auditoria_frontera_comision_v2`),
+  ajustada al estado real tras Dietas 000001-000011: el ejecutor crea con
+  `crear_o_recuperar_comision_catalogada_v2` (Dietas 000006 le revoca
+  `…_calculada_v1`), no se exige `leer_concesion_historica_contexto_actor_v3`
+  (solo la usa Contratación temporal) y el `USAGE` del ejecutor en
+  `vec_autorizacion_atestada_v3`, sin el que la fachada de rutas de AD3-50 da
+  42501, exige instalar antes AD3-81 (incluida en el paquete incremental
+  `04_dietas_migraciones.sh --incremental`).
 - Segregación por esquema: cada grupo solo puede tener `CONNECT` en la base y
   `USAGE`/`SELECT`/`EXECUTE` en sus esquemas (Dietas: `vec_dietas`,
   `vec_personal`, `vec_autorizacion_atestada_v3`; Personal D7 y su auditoría:

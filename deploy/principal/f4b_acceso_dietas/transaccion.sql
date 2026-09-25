@@ -9,8 +9,15 @@ CREATE TEMP TABLE f4b_verificador (nombre text PRIMARY KEY, verificador text NOT
 INSERT INTO f4b_verificador
 SELECT key, value FROM jsonb_each_text(convert_from(decode(:'f4b_verificadores_b64','base64'),'UTF8')::jsonb);
 
--- Lista positiva mínima: la vertical R1D de F4 más las fachadas que la
--- composición actual acredita al arrancar con las tres cuentas nuevas.
+-- Lista positiva mínima: lo que la composición actual llama con cada grupo
+-- tras Dietas 000001-000011, AD3-50/81 y Personal 000012/000013, más las
+-- fachadas que acredita al arrancar con las tres cuentas nuevas. Frente a F4:
+-- - el ejecutor crea comisiones con crear_o_recuperar_comision_catalogada_v2
+--   (Dietas 000006 le revoca crear_o_recuperar_comision_calculada_v1);
+-- - leer_concesion_historica_contexto_actor_v3 (autorización 000011) solo la
+--   usa Contratación temporal, no Dietas: no se exige;
+-- - el USAGE de vec_autorizacion_atestada_v3 del ejecutor lo concede AD3-81
+--   (la fachada de rutas de AD3-50 es inalcanzable sin él).
 CREATE TEMP TABLE f4b_acl_requerida (grupo text, clase text, objeto text, privilegio text) ON COMMIT DROP;
 INSERT INTO f4b_acl_requerida
 SELECT DISTINCT c.grupo,'base',current_database(),'CONNECT' FROM f4b_cuenta c;
@@ -40,11 +47,10 @@ INSERT INTO f4b_acl_requerida VALUES
  ('vec_autorizacion_fuente','funcion','vec_autorizacion.obtener_instantanea(text,text)','EXECUTE'),
  ('vec_autorizacion_registro','funcion','vec_autorizacion.registrar_decision_si_vigente(jsonb)','EXECUTE'),
  ('vec_autorizacion_registro','funcion','vec_autorizacion.registrar_decision_contexto_actor_v3(bytea,bytea,numeric,numeric)','EXECUTE'),
- ('vec_autorizacion_registro','funcion','vec_autorizacion.leer_concesion_historica_contexto_actor_v3(bytea,bytea,numeric,numeric)','EXECUTE'),
  ('vec_autorizacion_motivos_evaluador','funcion','vec_autorizacion.resolver_motivo_autorizacion_v2_historico(text,integer,text,text,timestamptz)','EXECUTE'),
  ('vec_autorizacion_motivos_evaluador','funcion','vec_autorizacion.resolver_motivo_cobertura_historico_v1(text,integer,text,text,text,timestamptz)','EXECUTE'),
  ('vec_dietas_ejecutor','funcion','vec_dietas.recuperar_comision_por_clave_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE'),
- ('vec_dietas_ejecutor','funcion','vec_dietas.crear_o_recuperar_comision_calculada_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE'),
+ ('vec_dietas_ejecutor','funcion','vec_dietas.crear_o_recuperar_comision_catalogada_v2(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE'),
  ('vec_dietas_ejecutor','funcion','vec_dietas.consultar_comisiones_calculadas_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE'),
  ('vec_dietas_ejecutor','funcion','vec_personal.consultar_relaciones_propias_dietas_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE'),
  ('vec_dietas_ejecutor','funcion','vec_autorizacion_atestada_v3.registrar_y_consumir_acceso_rutas_dietas_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE'),

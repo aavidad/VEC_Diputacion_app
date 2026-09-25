@@ -76,6 +76,7 @@ func TestPaqueteDietasIncrementalOrdenYMarcas(t *testing.T) {
 		"dietas_borradores/migraciones/000009_otros_gastos_justificados.up.sql",
 		"dietas_borradores/migraciones/000010_devolucion_reenvio_comision.up.sql",
 		"dietas_borradores/migraciones/000011_campo_devolucion_decision.up.sql",
+		"autorizacion_atestada_v3/migraciones/000081_uso_esquema_acceso_rutas_dietas.up.sql",
 	}
 	obtenido, err := exec.Command("bash", filepath.Join(directorio, "04_dietas_migraciones.sh"), "--incremental").Output()
 	if err != nil {

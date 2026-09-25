@@ -144,7 +144,7 @@ python3 - "$base_dir/transaccion.sql" > "$test_dir/stubs.sql" <<'PY'
 import re, sys
 sql = open(sys.argv[1], encoding="utf-8").read()
 filas = re.findall(r"\('([a-z_0-9]+)','(esquema|relacion|funcion)','([^']+)','([A-Z]+)'\)", sql)
-assert len(filas) == 39, len(filas)
+assert len(filas) == 38, len(filas)
 for grupo, clase, objeto, _ in filas:
     if clase == "esquema":
         print(f"CREATE SCHEMA IF NOT EXISTS {objeto};")
