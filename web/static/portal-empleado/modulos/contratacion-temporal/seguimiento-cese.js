@@ -27,6 +27,14 @@ async function huellaSHA256(archivo) {
   return [...new Uint8Array(resumen)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+// Un 404 sin sobre de error del módulo («vec route not found») significa que
+// el servidor no compone el seguimiento de cese: no se monta el panel, igual
+// que la firma cuando su registro no está compuesto. Un 404 con sobre válido
+// es un expediente inexistente y sigue siendo un fallo.
+export function rutaSeguimientoCeseNoMontada(error) {
+  return error?.estado === 404 && error?.envelopeValido !== true;
+}
+
 export function montarPanelSeguimientoCese({
   contenedor, cliente, contexto, mensajes = {}, locale = "es-ES", anunciar = () => {},
   confirmarOperacion = () => false, alConfirmar = () => {},
@@ -115,6 +123,11 @@ export function montarPanelSeguimientoCese({
 
   function pintar() {
     if (controlador.signal.aborted) return;
+    if (datos?.ausente) {
+      contenedor.innerHTML = "";
+      contenedor.hidden = true;
+      return;
+    }
     if (!datos) {
       contenedor.innerHTML = `<section class="ct-exp-fase-panel ct-seg-cese" aria-busy="true"><p role="status">${escapar(t("cargando"))}</p></section>`;
       return;
@@ -148,9 +161,9 @@ export function montarPanelSeguimientoCese({
     pintar();
     try {
       datos = await cliente.consultarSeguimientoCese(contexto.expediente_ref, { signal: controlador.signal });
-    } catch {
+    } catch (error) {
       if (controlador.signal.aborted) return;
-      datos = { error: true };
+      datos = rutaSeguimientoCeseNoMontada(error) ? { ausente: true } : { error: true };
     }
     pintar();
   }
