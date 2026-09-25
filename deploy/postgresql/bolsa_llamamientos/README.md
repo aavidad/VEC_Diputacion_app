@@ -105,31 +105,37 @@ tablas para resolver esas integraciones.
 ./deploy/postgresql/bolsa_llamamientos/probar_integracion.sh
 ```
 
-Para B6, tras instalar `000018` en una réplica sintética, ejecutar además
-`pruebas_sql/b6_orden_vigente.sql`. La prueba se revierte completa y comprueba
-pausa, retorno tras contrato, recolocación al final, una sola fila append-only
-y denegación de lectura directa al ejecutor.
+Pruebas por migración (todas en PostgreSQL 18 desechable; las que se
+ejecutan como superusuario terminan en ROLLBACK y sustituyen, solo dentro de
+su transacción, el consumidor de autorización V3 por un doble: la
+autorización tiene sus propias pruebas):
 
-Para B13 (histórico de contratos), sobre la estructura real restaurada con
-CT `000113` y Bolsa `000024` instaladas, ejecutar
-`pruebas_sql/b13_historico_contratos.sql` como superusuario: proyecta las
-incorporaciones CT, las entrega dos veces al inbox sin duplicar, rechaza
-contenidos divergentes o inválidos y comprueba las ACL; termina en ROLLBACK.
-El relevo Go con adaptadores reales se prueba con
-`TestEntregaContratosCTBolsaPostgreSQL18` y `VEC_B13_PG18_CT_DSN` /
-`VEC_B13_PG18_BOLSA_DSN`. Cadencia, lote y ventana de relectura del relevo se
-fijan con `VEC_BOLSA_CONTRATOS_CT_INTERVALO` (`0` lo desactiva),
-`VEC_BOLSA_CONTRATOS_CT_LOTE` y `VEC_BOLSA_CONTRATOS_CT_RELECTURA`.
-
-Para la política de transiciones B2 (`000032`), tras instalar `000019` y
-`000032` en una réplica sintética con una participación disponible, ejecutar
-`pruebas_sql/b2_politica_transiciones.sql` como superusuario. También se
-revierte completa: comprueba que la versión 1 es el literal de `000012`, que
-publicar la política del Reglamento cierra `renuncia→disponible` y abre
-`renuncia→no_disponible` (también por B8 «pausar»), las invariantes fijas, la
-publicación idempotente, el solo-adición y las ACL. Sustituye dentro de la
-transacción el consumidor de autorización V3 por un doble; la autorización
-tiene sus propias pruebas. `000032` no modifica situaciones ya registradas.
+- `000018` (B6, orden vigente): `pruebas_sql/b6_orden_vigente.sql` sobre una
+  réplica sintética. Comprueba pausa, retorno tras contrato, recolocación al
+  final, una sola fila append-only y denegación de lectura directa.
+- `000024` (B13, histórico de contratos): `pruebas_sql/b13_historico_contratos.sql`
+  sobre la estructura real con CT `000113` y Bolsa `000024`. Proyecta las
+  incorporaciones CT, las entrega dos veces al inbox sin duplicar, rechaza
+  contenidos divergentes o inválidos y comprueba las ACL. El relevo Go con
+  adaptadores reales se prueba con `TestEntregaContratosCTBolsaPostgreSQL18`
+  (`VEC_B13_PG18_CT_DSN` / `VEC_B13_PG18_BOLSA_DSN`). Cadencia y lote del
+  relevo: `VEC_BOLSA_CONTRATOS_CT_INTERVALO` (`0` lo desactiva) y
+  `VEC_BOLSA_CONTRATOS_CT_LOTE`; `VEC_BOLSA_CONTRATOS_CT_RELECTURA` queda como
+  margen adicional. El inbox confía en el relevo (ver el comentario de
+  `000024`): Bolsa no lee tablas de CT y el evento no lleva firma de origen.
+- `000031` (intentos de contacto): `probar_intentos_contacto_pg18.sh`.
+- `000035` (contacto de origen CONVOCA): `probar_origen_datos_contacto_pg18.sh`.
+- `000039` (expiración): `probar_expiracion_rrhh_pg18.sh`.
+- `000028`, `000030`, `000032` y `000037`: `probar_revision_bolsa_pg18.sh`
+  instala la cadena, prueba UP/DOWN/UP y dependencias de `000032`/`000037` y
+  ejecuta `b2_politica_transiciones.sql` (la versión 1 es el literal de
+  `000012` más `disponible→disponible_desde`; el Reglamento cierra
+  `renuncia→disponible` y abre `renuncia→no_disponible`, invariantes fijas,
+  publicación idempotente, solo adición y ACL), `bof_ofertas_publicadas.sql`,
+  `b30_portal_candidato.sql`, `revision/b30_replay_autorizacion.sql` y
+  `b37_efectos_sanciones.sql` (suspensión con fin por la política vigente,
+  readmisión por recurso estimado como única salida de «excluido»).
+  `000032` no modifica situaciones ya registradas.
 
 El script usa PostgreSQL fijado por imagen y digest, verifica ACL negativas,
 RLS, `SECURITY DEFINER`, claves de idempotencia y una carrera real por la misma

@@ -12,6 +12,16 @@ SELECT pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_bolsa_llamamientos
 -- el histórico de la participación. La participación la resuelve Bolsa con
 -- su propio llamamiento: CT solo conoce la referencia opaca del llamamiento.
 -- Si el llamamiento no es de Bolsa, el evento se conserva sin participación.
+-- Confianza en el relevo: Bolsa no puede comprobar en su base que el evento
+-- exista en Contratación temporal (no lee sus tablas) y el evento no lleva
+-- firma de origen. La garantía es la del relevo Go, único consumidor con
+-- EXECUTE (rol ejecutor): lee cada evento con la función autorizada de
+-- lectura de CT (000113/000115), lo entrega sin modificarlo y Bolsa exige
+-- aquí su forma completa, la referencia determinista (tipo y origen) y la
+-- huella exacta del cuerpo. Un evento forjado con la credencial del ejecutor
+-- quedaría como historia informativa: no cambia la situación, el orden ni el
+-- llamamiento de nadie. Si algún día un consumidor decide con este histórico,
+-- el evento deberá llevar una firma de origen verificable aquí.
 DO $precondicion$
 BEGIN
  IF current_user <> 'vec_bolsa_llamamientos_propietario'
