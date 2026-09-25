@@ -19,6 +19,7 @@
 830 deploy/postgresql/bolsa_reglas_baremo/pruebas_sql/integracion_atestada_v2.sql
 1145 deploy/postgresql/confianza_atestacion_v2/migraciones/000001_catalogo_confianza_v2.up.sql
 830 deploy/postgresql/contexto_actor_v1/migraciones/000001_contexto_actor_v1.up.sql
+1255 deploy/postgresql/contexto_actor_v1/migraciones/000007_alcance_proyecciones_empleado.up.sql
 1162 deploy/postgresql/contratacion_temporal/migraciones/000051_informe_juridico_durable_v4_v5.up.sql
 1146 deploy/postgresql/contratacion_temporal/migraciones/000052_fiscalizacion_durable_v5_v6.up.sql
 1113 deploy/postgresql/contratacion_temporal/migraciones/000093_refiscalizacion_tras_subsanacion.up.sql
