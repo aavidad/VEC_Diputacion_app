@@ -71,3 +71,38 @@ type iniciadorNulo struct{}
 func (iniciadorNulo) BeginTx(context.Context, pgx.TxOptions) (pgx.Tx, error) {
 	panic("transacción abierta sin orden autorizada")
 }
+
+// El circuito de cada solicitud propia (cronos_v1 000010) se acepta sólo
+// coherente con su estado; sin 000010 faltan los dos campos a la vez.
+func TestCircuitoSolicitudPropiaCoherenteConElEstado(t *testing.T) {
+	texto := func(v string) *string { return &v }
+	si, no := true, false
+	for _, c := range []struct {
+		estado    string
+		circuito  *string
+		pendiente *bool
+		ok        bool
+		esperado  domain.CircuitoPermiso
+		asignar   bool
+	}{
+		{"solicitado", nil, nil, true, "", false},
+		{"solicitado", texto("J-A"), nil, false, "", false},
+		{"solicitado", texto("J-A"), &no, true, domain.CircuitoResponsableAdministracion, false},
+		{"solicitado", texto("J-A"), &si, true, domain.CircuitoResponsableAdministracion, true},
+		{"solicitado", texto("A"), &no, true, domain.CircuitoAdministracion, false},
+		{"solicitado", texto("A"), &si, false, "", false},
+		{"solicitado", nil, &no, false, "", false},
+		{"solicitado", texto("X"), &no, false, "", false},
+		{"pendiente_administracion", texto("J-A"), &no, true, domain.CircuitoResponsableAdministracion, false},
+		{"pendiente_administracion", texto("A"), &no, false, "", false},
+		{"pendiente_administracion", texto("J-A"), &si, false, "", false},
+		{"concedido", nil, &no, true, "", false},
+		{"concedido", texto("A"), &no, true, domain.CircuitoAdministracion, false},
+		{"denegado", texto("J-A"), &si, false, "", false},
+	} {
+		circuito, asignar, ok := circuitoSolicitudPropia(solicitudSQL{Estado: c.estado, Circuito: c.circuito, PendienteAsignacion: c.pendiente})
+		if ok != c.ok || circuito != c.esperado || asignar != c.asignar {
+			t.Fatalf("%+v: %q %v %v", c, circuito, asignar, ok)
+		}
+	}
+}

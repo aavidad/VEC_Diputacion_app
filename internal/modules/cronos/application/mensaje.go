@@ -51,6 +51,33 @@ func RecursoArchivoMensaje(m ports.MaterialArchivoMensaje) (vecdomain.RecursoAut
 	return r, nil
 }
 
+func contextoComunicaciones(ctx context.Context, orden ports.OrdenComunicaciones, reloj ports.Reloj) (vecdomain.ContextoActor, string, time.Time, error) {
+	actor, ahora, err := contextoActorComunicaciones(ctx, orden, reloj)
+	if err != nil {
+		return vecdomain.ContextoActor{}, "", time.Time{}, err
+	}
+	empleados, err := actor.Referencias(vecdomain.TipoReferenciaContextoActorEmpleado)
+	if err != nil || len(empleados) != 1 {
+		return vecdomain.ContextoActor{}, "", time.Time{}, ports.ErrComunicacionNoAcreditada
+	}
+	return actor, empleados[0], ahora, nil
+}
+
+func contextoActorComunicaciones(ctx context.Context, orden ports.OrdenComunicaciones, reloj ports.Reloj) (vecdomain.ContextoActor, time.Time, error) {
+	if ctx == nil || reloj == nil || orden.Proveedor() == nil {
+		return vecdomain.ContextoActor{}, time.Time{}, ports.ErrComunicacionNoAcreditada
+	}
+	actor, err := orden.Actor()
+	if err != nil {
+		return vecdomain.ContextoActor{}, time.Time{}, ports.ErrComunicacionNoAcreditada
+	}
+	ahora := reloj.AhoraUTC().UTC().Truncate(time.Microsecond)
+	if ahora.IsZero() || !actor.Instantanea.VigenteEn(ahora) {
+		return vecdomain.ContextoActor{}, time.Time{}, ports.ErrComunicacionNoAcreditada
+	}
+	return actor, ahora, nil
+}
+
 type ServicioMensajes struct {
 	repositorio ports.RepositorioMensajes
 	reloj       ports.Reloj

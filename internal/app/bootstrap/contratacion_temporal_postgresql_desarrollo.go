@@ -321,6 +321,12 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	if cronosEmpleadoSolicitado(cfg.CronosEmpleadoEnabled) {
 		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialCronosDesarrollo()...)
 	}
+	if cronosResolucionSolicitada(cfg.CronosEmpleadoEnabled, cfg.CronosResolucionEnabled) {
+		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialCronosResolucionDesarrollo()...)
+	}
+	if cronosNotificacionesSolicitadas(cfg.CronosEmpleadoEnabled, cfg.CronosNotificacionesEnabled) {
+		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialCronosNotificacionesDesarrollo()...)
+	}
 	if personalEmpleadoSolicitado(cfg.PersonalEmpleadoEnabled) {
 		descriptoresMaterial = append(descriptoresMaterial, descriptorMaterialFichaPropiaPersonalDesarrollo())
 	}
@@ -360,6 +366,26 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			}
 		}
 		dependencias.materialCronos = materialCronosDesdeProveedores(cronos)
+		if cronosResolucionSolicitada(cfg.CronosEmpleadoEnabled, cfg.CronosResolucionEnabled) {
+			var resolucion [4]*proveedorMaterialAltaContratacionTemporalDesarrollo
+			for i, audiencia := range audienciasCronosResolucionDesarrollo() {
+				resolucion[i], err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, audiencia)
+				if err != nil {
+					return vacias, err
+				}
+			}
+			dependencias.materialCronos = dependencias.materialCronos.conResolucion(resolucion)
+		}
+		if cronosNotificacionesSolicitadas(cfg.CronosEmpleadoEnabled, cfg.CronosNotificacionesEnabled) {
+			var notificaciones [4]*proveedorMaterialAltaContratacionTemporalDesarrollo
+			for i, audiencia := range audienciasCronosNotificacionesDesarrollo() {
+				notificaciones[i], err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, audiencia)
+				if err != nil {
+					return vacias, err
+				}
+			}
+			dependencias.materialCronos = dependencias.materialCronos.conNotificaciones(notificaciones)
+		}
 	}
 	if personalEmpleadoSolicitado(cfg.PersonalEmpleadoEnabled) {
 		dependencias.materialPersonalFichaPropia, err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, personaldomain.AudienciaFichaPropia)

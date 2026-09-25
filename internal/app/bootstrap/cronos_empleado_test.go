@@ -21,6 +21,7 @@ import (
 	"vec-diputacion-granada/config"
 	cronoscomp "vec-diputacion-granada/internal/modules/cronos/adapters/composicion"
 	cronoshttp "vec-diputacion-granada/internal/modules/cronos/adapters/httpinterno"
+	cronosapp "vec-diputacion-granada/internal/modules/cronos/application"
 	cronosdomain "vec-diputacion-granada/internal/modules/cronos/domain"
 	cronosports "vec-diputacion-granada/internal/modules/cronos/ports"
 	dp "vec-diputacion-granada/internal/modules/dietas/ports"
@@ -150,6 +151,74 @@ func TestComponerManejadoresCronosEmpleadoPublicaSoloOchoRutas(t *testing.T) {
 		if w.Code != http.StatusServiceUnavailable {
 			t.Fatal("manejador sin identidad no falla cerrado", ruta, w.Code)
 		}
+	}
+}
+
+func TestComponerManejadoresCronosConResolucionPublicaDoceRutas(t *testing.T) {
+	pool, err := pgxpool.New(context.Background(), "postgres://cronos_prueba@127.0.0.1:1/nadie?sslmode=disable")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(pool.Close)
+	canal, _ := cronosdomain.NuevaAcreditacionCanalMarcaje(cronosdomain.DatosAcreditacionCanalMarcaje{PoliticaVersionRef: "politica:canal:cronos:v1", CanalRef: "portal-empleado-web", OrigenRef: cronosdomain.OrigenMarcajeRemoto, CalidadRef: "mtls-certificado"})
+	motivo := core.ReferenciaEntradaCatalogo{CatalogoID: "motivos_cronos", CatalogoVersion: 1, CatalogoHuellaSHA256: strings.Repeat("d", 64), EntradaClave: "motivo_" + strings.Repeat("5", 32)}
+	emisor := emisorCronosEmpleadoDesarrollo{porAccion: map[string]emisorMaterialDietasDesarrollo{}}
+	autorizador, err := cronoscomp.NuevoAutorizadorCronos(emisor, cronoscomp.MotivosCronos{Saldo: motivo, Marcaje: motivo, Disponibilidad: motivo, Recuperacion: motivo, Movimientos: motivo, Correccion: motivo, Permisos: motivo, Permiso: motivo,
+		Bandeja: motivo, Resolucion: motivo, Avisos: motivo, ArchivoAviso: motivo})
+	if err != nil || !autorizador.ResolucionConfigurada() {
+		t.Fatal(err)
+	}
+	zona, _ := time.LoadLocation("Europe/Madrid")
+	identidad := seguridadCronosEmpleadoDesarrollo{autoridad: &autoridadCronosEmpleadoDesarrollo{reloj: relojRutasDietas{}}}
+	rutas, err := componerManejadoresCronosEmpleado(dependenciasCronosEmpleado{ejecutor: pool, auditor: pool, identidad: identidad, autorizador: autorizador, canal: canal, zona: zona})
+	if err != nil || len(rutas) != 12 {
+		t.Fatal(len(rutas), err)
+	}
+	for ruta, peticion := range map[string]*http.Request{
+		cronoshttp.RutaBandejaPermisos: httptest.NewRequest(http.MethodGet, cronoshttp.RutaBandejaPermisos+"?paso=responsable", nil),
+		cronoshttp.RutaAvisosPropios:   httptest.NewRequest(http.MethodGet, cronoshttp.RutaAvisosPropios, nil),
+	} {
+		if !strings.HasPrefix(ruta, prefijoRutasCronosEmpleado) {
+			t.Fatal("ruta fuera del prefijo", ruta)
+		}
+		w := httptest.NewRecorder()
+		rutas[ruta].ServeHTTP(w, peticion)
+		if w.Code != http.StatusServiceUnavailable {
+			t.Fatal("manejador sin identidad no falla cerrado", ruta, w.Code)
+		}
+	}
+	for _, ruta := range []string{cronoshttp.RutaResolverPermiso, cronoshttp.RutaArchivarAviso} {
+		if rutas[ruta] == nil {
+			t.Fatal("ruta ausente", ruta)
+		}
+	}
+	// Manejadores de resolución a medias: no se publica nada.
+	if _, err := PrepararManejadoresCronos(DependenciasManejadoresCronos{Resolucion: &cronosapp.ServicioResolucionPermisos{}}); !errors.Is(err, ErrManejadoresCronosNoDisponibles) {
+		t.Fatal("prepara manejadores con la resolución incompleta", err)
+	}
+}
+
+func TestCronosResolucionSinCronosFallaCerrado(t *testing.T) {
+	cfg, _ := generarMaterialDesarrolloPrueba(t)
+	cfg.CronosEmpleadoEnabled = "true"
+	cfg.CronosResolucionEnabled = "si"
+	composicion, err := NuevaComposicionSeguridadDesarrollo(cfg, io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := nuevasRutasCronosEmpleadoDesarrollo(cfg, composicion.identidad, composicion.derivadorIdempotencia, materialCronosDesdeCTDesarrollo{}); !errors.Is(err, config.ErrConfiguracionCronosResolucionSelector) {
+		t.Fatal("selector de resolución no canónico aceptado", err)
+	}
+	var proveedores [8]*proveedorMaterialAltaContratacionTemporalDesarrollo
+	for i := range proveedores {
+		proveedores[i] = &proveedorMaterialAltaContratacionTemporalDesarrollo{}
+	}
+	cfg.CronosResolucionEnabled = "true"
+	if _, err := nuevasRutasCronosEmpleadoDesarrollo(cfg, composicion.identidad, composicion.derivadorIdempotencia, materialCronosDesdeProveedores(proveedores)); !errors.Is(err, ErrComposicionCronosEmpleadoNoDisponible) {
+		t.Fatal("arranca la resolución sin su material V3", err)
+	}
+	if !cronosResolucionSolicitada("true", "true") || cronosResolucionSolicitada("false", "true") || cronosResolucionSolicitada("true", "") {
+		t.Fatal("selector combinado distinto")
 	}
 }
 
