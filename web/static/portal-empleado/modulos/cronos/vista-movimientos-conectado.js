@@ -1,4 +1,4 @@
-import { crearTraductorCronos, MENSAJES_CRONOS_ES } from "./i18n.js";
+import { crearTraductorCronos, MENSAJES_CRONOS_ES } from "./i18n.js?v=20260925-cronos-p2-v1";
 import { crearClienteSaldoCronosHTTP, ErrorClienteSaldoCronos, validarConsultaSaldoCronos, validarResultadoSaldoCronos } from "./cliente-saldo-http.js";
 
 const PERIODOS = ["hoy", "semana", "mes", "anio", "rango"];

@@ -127,6 +127,8 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   // las vistas conectadas de la persona empleada. Los clientes se piden por la
   // misma URL que usan las vistas (sin ?v=, servida no-cache): así sus clases
   // de error son la misma y los instanceof de cada vista siguen valiendo.
+  // i18n.js y vista-movimientos-propios.js van versionados con la misma URL
+  // que piden las vistas, para que cada módulo se evalúe una sola vez.
   cronos: async () => {
     const [saldo, remoto, movimientos, movimientosPropios, permisosPropios,
       clienteSaldo, clienteRemoto, clienteSolicitudes, i18n] = await Promise.all([

@@ -1,4 +1,4 @@
-import { crearTraductorCronos, MENSAJES_CRONOS_ES } from "./i18n.js";
+import { crearTraductorCronos, MENSAJES_CRONOS_ES } from "./i18n.js?v=20260925-cronos-p2-v1";
 import { validarDisponibilidadRemota, validarReciboMarcajeRemoto } from "./cliente-remoto-http.js";
 
 const MOVIMIENTOS = Object.freeze(["entrada", "inicio_pausa", "fin_pausa", "salida"]);

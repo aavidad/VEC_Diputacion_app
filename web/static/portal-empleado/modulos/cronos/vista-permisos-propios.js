@@ -1,6 +1,6 @@
 import { crearTraductorSolicitudesCronos, formatearCantidadCronos, MENSAJES_CRONOS_SOLICITUDES_ES } from "./i18n-solicitudes.js";
 import { ErrorClienteSolicitudesCronos, crearClienteSolicitudesCronosHTTP } from "./cliente-solicitudes-http.js";
-import { hoyCivilCronos } from "./vista-movimientos-propios.js";
+import { hoyCivilCronos } from "./vista-movimientos-propios.js?v=20260925-cronos-p2-v1";
 
 const ERRORES = new Map([
   ["peticion_invalida", "error_peticion_invalida"], ["conflicto", "error_conflicto"],
