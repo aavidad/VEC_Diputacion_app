@@ -21,7 +21,8 @@ import {
   componerCronosVisible,
   componerDietasInternas,
   componerPersonalVisible,
-} from "./portal-composicion-empleado.js?v=20260925-tanda2-v1";
+  componerRegistroPersonal,
+} from "./portal-composicion-empleado.js?v=20260925-b2-selector-v1";
 import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260924-f2-shell-v1";
 import {
   CLAVES_CARGA_MODULAR,
@@ -87,12 +88,12 @@ const CARGADORES_PRESENTACION_PREDETERMINADOS = Object.freeze({
     const [contrato, clienteCategorias, vistaCategorias, clienteRPT, vistaRPT, clienteEstructura, vistaEstructura, ficha] = await Promise.all([
       import("./modulos/personal/contrato.js?v=20260920-personal-catalogo-v1"),
       import("./modulos/personal/cliente-http-categorias.js?v=20260924-p1-personal-interno-v2"),
-      import("./modulos/personal/vista.js?v=20260925-organizacion-historica-v1"),
+      import("./modulos/personal/vista.js?v=20260925-b2-selector-v1"),
       import("./modulos/personal/cliente-http-rpt-publica.js?v=20260920-personal-rpt-publica-v3"),
       import("./modulos/personal/vista-rpt-publica.js?v=20260924-web-c-v1"),
       import("./modulos/personal/cliente-http-estructura-organizativa-publica.js?v=20260920-personal-estructura-v1"),
-      import("./modulos/personal/vista-estructura-organizativa-publica.js?v=20260925-organizacion-historica-v1"),
-      import("./modulos/personal/vista-ficha-integral.js?v=20260925-organizacion-historica-v1"),
+      import("./modulos/personal/vista-estructura-organizativa-publica.js?v=20260925-b2-selector-v1"),
+      import("./modulos/personal/vista-ficha-integral.js?v=20260925-b2-selector-v1"),
     ]);
     return Object.freeze({ contrato, clienteCategorias, vistaCategorias, clienteRPT, vistaRPT, clienteEstructura, vistaEstructura, ficha });
   },
@@ -156,14 +157,18 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
     return Object.freeze({ contrato, cliente, presentador, vista, adaptador });
   },
   personal: async () => {
-    const [contrato, cliente, vista, ficha] = await Promise.all([
+    const [contrato, cliente, vista, ficha, registro, clienteRegistro, clienteCatalogosRegistro, i18n] = await Promise.all([
       import("./modulos/personal/contrato.js?v=20260920-personal-catalogo-v1"),
       import("./modulos/personal/cliente-http-categorias.js?v=20260924-p1-personal-interno-v2"),
-      import("./modulos/personal/vista.js?v=20260925-organizacion-historica-v1"),
-      import("./modulos/personal/vista-ficha-integral.js?v=20260925-organizacion-historica-v1"),
+      import("./modulos/personal/vista.js?v=20260925-b2-selector-v1"),
+      import("./modulos/personal/vista-ficha-integral.js?v=20260925-b2-selector-v1"),
+      import("./modulos/personal/registro-b2.js?v=20260925-b2-selector-v1"),
+      import("./modulos/personal/registro-b2-cliente.js?v=20260925-b2-selector-v1"),
+      import("./modulos/personal/registro-b2-catalogos-cliente.js?v=20260925-b2-mtls-v1"),
+      import("./modulos/personal/i18n.js?v=20260925-b2-selector-v1"),
     ]);
     return Object.freeze({ contrato, cliente, vista, clienteCategorias: cliente, vistaCategorias: vista,
-      ficha });
+      ficha, registro, clienteRegistro, clienteCatalogosRegistro, i18n });
   },
   dietas: async () => {
     const [contrato, recorridos, clienteBorradores, clienteAsignacion, calculador, mapa, clienteCircuito] = await Promise.all([
@@ -195,7 +200,7 @@ function componerVistaPresentacionAislada(carga, exportacion) {
   return Object.freeze({ montar: carga.recursos.vista[exportacion] });
 }
 
-export const VISTAS_MODULOS_PERSONALES = Object.freeze(new Set(["cronos", "cronos-permisos", "dietas", "personal"]));
+export const VISTAS_MODULOS_PERSONALES = Object.freeze(new Set(["cronos", "cronos-permisos", "dietas", "personal", "personal-registro"]));
 const VISTAS_MODULO_BOLSA = Object.freeze(new Set(VISTAS_INTERNAS_BOLSA));
 export const VISTAS_MODULOS_CONECTADOS = Object.freeze(new Set([
   "contratacion-temporal", ...VISTAS_MODULOS_PERSONALES,
@@ -204,7 +209,7 @@ export const VISTAS_MODULOS_CONECTADOS = Object.freeze(new Set([
 export function moduloDeVistaPortal(vista) {
   if (vista === "portal") return "portal";
   if (vista === "contratacion-temporal") return "contratacion_temporal";
-  if (vista === "personal") return CLAVE_PERSONAL;
+  if (vista === "personal" || vista === "personal-registro") return CLAVE_PERSONAL;
   if (vista === "cronos-permisos") return "cronos";
   if (VISTAS_MODULOS_PERSONALES.has(vista)) return vista;
   if (VISTAS_PRESENTACION_VISUALES.has(vista)) return CLAVE_POR_VISTA_PRESENTACION[vista];
@@ -433,6 +438,7 @@ export function crearCoordinadorModulosPortal({
     let contratacionTemporal;
     let cronos;
     let personal;
+    let personalRegistro;
     let dietas;
     if (catalogo.some(({ clave }) => clave === CLAVE_CONTRATACION_TEMPORAL)) {
       try {
@@ -614,8 +620,11 @@ export function crearCoordinadorModulosPortal({
             montar: recursos.vista.montarModuloPersonal,
           });
         if (!personal) throw new TypeError("ficha de Personal no disponible");
+        // El registro RRHH es una vista aparte: si falta, Personal sigue.
+        personalRegistro = componerRegistroPersonal(recursos, entorno);
       } catch {
         personal = undefined;
+        personalRegistro = undefined;
       }
     }
     if (catalogo.some(({ clave }) => clave === "dietas")) {
@@ -641,6 +650,7 @@ export function crearCoordinadorModulosPortal({
       cronos,
       dietas,
       personal,
+      personalRegistro,
       vistasPresentacion: Object.freeze({}),
       estadosModulos: Object.freeze({
         contratacion_temporal: contratacionTemporal === undefined
@@ -672,6 +682,9 @@ export function crearCoordinadorModulosPortal({
       && typeof composicion?.cronos?.montarPermisos === "function";
     if (vista === "dietas") return composicion?.dietas !== undefined;
     if (vista === "personal") return composicion?.personal !== undefined;
+    // Oferta de interfaz para el perfil RRHH; cada lectura la autoriza V3.
+    if (vista === "personal-registro") return !presentacionActiva
+      && composicion?.personal !== undefined && composicion?.personalRegistro !== undefined && esPerfilRRHH();
     const clavePresentacion = CLAVE_POR_VISTA_PRESENTACION[vista];
     if (clavePresentacion !== undefined) {
       return presentacionActiva && composicion?.vistasPresentacion?.[clavePresentacion] !== undefined;
@@ -913,23 +926,41 @@ export function crearCoordinadorModulosPortal({
       return true;
     }
 
+    if (vista === "personal-registro") {
+      raiz.replaceChildren();
+      const navegacion = navegacionPersonal(raiz, vista);
+      const registro = composicion.personalRegistro.montar({ raiz, anunciar,
+        registrarDesmontar: (limpiar) => {
+          const retirar = () => { limpiar(); navegacion?.remove(); };
+          if (montaje !== secuenciaMontaje) { retirar(); return; }
+          desmontarVista = retirar;
+        },
+      });
+      if (montaje !== secuenciaMontaje) { registro.desmontar(); navegacion?.remove(); return false; }
+      desmontarVista = () => { registro.desmontar(); navegacion?.remove(); };
+      return true;
+    }
+
     if (vista === "personal") {
       raiz.replaceChildren();
+      const navegacionFicha = navegacionPersonal(raiz, vista);
       const moduloPersonal = await composicion.personal.montar({
         raiz,
         cliente: composicion.personal.cliente,
         anunciar,
         registrarDesmontar: (limpiar) => {
           if (typeof limpiar !== "function") throw new TypeError("limpieza de Personal no válida");
-          if (montaje !== secuenciaMontaje) { limpiar(); return; }
-          desmontarVista = limpiar;
+          const retirar = () => { limpiar(); navegacionFicha?.remove(); };
+          if (montaje !== secuenciaMontaje) { retirar(); return; }
+          desmontarVista = retirar;
         },
       });
       if (montaje !== secuenciaMontaje) {
         moduloPersonal.desmontar();
+        navegacionFicha?.remove();
         return false;
       }
-      desmontarVista = moduloPersonal.desmontar;
+      desmontarVista = () => { moduloPersonal.desmontar(); navegacionFicha?.remove(); };
       return true;
     }
 
@@ -975,6 +1006,22 @@ export function crearCoordinadorModulosPortal({
     }
     desmontarVista = moduloDietas.desmontar;
     return true;
+  }
+
+  // Subnavegación de Personal: solo si el registro RRHH se ofrece.
+  function navegacionPersonal(raiz, vista) {
+    if (!vistaDisponible("personal-registro")) return null;
+    const t = composicion.personalRegistro.traducir;
+    const navegacion = raiz.ownerDocument.createElement("nav");
+    navegacion.className = "panel";
+    navegacion.setAttribute("aria-label", t("registro_b2_navegacion"));
+    navegacion.dataset.personalSubvistas = "";
+    navegacion.innerHTML = `<div class="cuerpo-panel">
+        <button type="button" class="boton-secundario" data-vista="personal"${vista === "personal" ? ' aria-current="page"' : ""}>${escaparHTML(t("registro_b2_mi_ficha"))}</button>
+        <button type="button" class="boton-secundario" data-vista="personal-registro"${vista === "personal-registro" ? ' aria-current="page"' : ""}>${escaparHTML(t("registro_b2_titulo"))}</button>
+      </div>`;
+    raiz.append(navegacion);
+    return navegacion;
   }
 
   function esPerfilRRHH() {
