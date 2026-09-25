@@ -234,7 +234,7 @@ python3 "$SCRIPT" --material-dir "$MATERIAL" identity-roles \
 ```
 
 Los seis LOGIN de autorización, motivos RRHH, consulta y preflight V3 se
-preparan con `v3-roles` cuando AD3 `000050a`, AD3 `000053` y CT `000108`
+preparan con `v3-roles` cuando AD3 `000050a`, AD3 `000053` y CT `000109`
 consten instaladas. La segunda función del preflight, `leer_configuracion_interna_v1(jsonb)`,
 lee el gobierno V3 publicado para la renovación diaria; su función y ACL se
 cotejan antes de crear el LOGIN.
