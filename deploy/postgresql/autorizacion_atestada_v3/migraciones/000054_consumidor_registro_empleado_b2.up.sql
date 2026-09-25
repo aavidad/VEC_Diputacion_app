@@ -41,7 +41,7 @@ DECLARE f oid:='vec_autorizacion_atestada_v3.consumir_decision_mutacion_v3_inter
    AND c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_personal.registro_empleado.ficha.v1'
    AND d->>'tipo_recurso' IS NOT DISTINCT FROM 'registro_empleado_rrhh'
    AND d->>'finalidad' IS NOT DISTINCT FROM 'consultar_ficha_empleado'
-   AND d->'campos_permitidos' IS NOT DISTINCT FROM '["corte","eficacia_administrativa","empleado_ref","evidencia","firma_oficial","ocupaciones","persona_ref","relaciones","servicios","situaciones","version"]'::jsonb)
+   AND d->'campos_permitidos' IS NOT DISTINCT FROM '["corte","eficacia_administrativa","empleado_ref","evidencia","firma_oficial","ocupaciones","organismo_ref","persona_ref","relaciones","servicios","situaciones","version"]'::jsonb)
  OR (c->>'operacion' IS NOT DISTINCT FROM 'personal.registro_empleado.vacantes.consultar'
    AND c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_personal.registro_empleado.vacantes.v1'
    AND d->>'tipo_recurso' IS NOT DISTINCT FROM 'vacantes_rrhh'
@@ -135,7 +135,7 @@ BEGIN
        AND c->>'audiencia_consumo'='vec_personal.registro_empleado.ficha.v1'
        AND d->>'tipo_recurso'='registro_empleado_rrhh'
        AND d->>'finalidad'='consultar_ficha_empleado'
-       AND d->'campos_permitidos'='["corte","eficacia_administrativa","empleado_ref","evidencia","firma_oficial","ocupaciones","persona_ref","relaciones","servicios","situaciones","version"]'::jsonb)
+       AND d->'campos_permitidos'='["corte","eficacia_administrativa","empleado_ref","evidencia","firma_oficial","ocupaciones","organismo_ref","persona_ref","relaciones","servicios","situaciones","version"]'::jsonb)
       OR (c->>'operacion'='personal.registro_empleado.vacantes.consultar'
        AND c->>'audiencia_consumo'='vec_personal.registro_empleado.vacantes.v1'
        AND d->>'tipo_recurso'='vacantes_rrhh'
