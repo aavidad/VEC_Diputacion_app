@@ -80,6 +80,11 @@ func NewHTTPServerWithConfig(cfg config.Config) (*http.Server, error) {
 		servidor, _, err := NewHTTPServerDesarrolloWithConfig(cfg, os.Stderr)
 		return servidor, err
 	}
+	// Fuera del perfil de desarrollo no se compone la verificacion de firma:
+	// encenderla impide arrancar en lugar de ignorarse.
+	if cfg.FirmaVerificacionEnabled != "" && cfg.FirmaVerificacionEnabled != "false" {
+		return nil, ErrComposicionFirmaVerificacionNoDisponible
+	}
 	if err := validarModoAutenticacionIntegrado(cfg); err != nil {
 		return nil, err
 	}

@@ -334,21 +334,27 @@ func nombreArchivo(ref, ext string) string {
 // detalle del error nunca llega al cliente.
 func responderAutoridad(w http.ResponseWriter, err error) {
 	switch {
+	// La indisponibilidad declarada prevalece sobre cualquier causa envuelta.
+	case errors.Is(err, ports.ErrCapacidadNoDisponible):
+		responderError(w, http.StatusServiceUnavailable, "servicio_no_disponible")
 	case errors.Is(err, context.Canceled):
 		responderError(w, http.StatusRequestTimeout, "peticion_cancelada")
 	case errors.Is(err, context.DeadlineExceeded):
 		responderError(w, http.StatusGatewayTimeout, "plazo_agotado")
-	case errors.Is(err, ports.ErrCapacidadNoDisponible):
-		responderError(w, http.StatusServiceUnavailable, "servicio_no_disponible")
 	default:
 		responderError(w, http.StatusForbidden, "acceso_denegado")
 	}
 }
 
 // responderServicio traduce solo centinelas del puerto: conflicto 409,
-// validacion 422, ausencia 404, denegacion 403 e indisponibilidad 503.
+// validacion 422, ausencia 404, denegacion 403 e indisponibilidad 503. La
+// indisponibilidad declarada se evalua primero: una causa envuelta en
+// ErrCapacidadNoDisponible (cancelacion, denegacion, validacion...) no cambia
+// el 503 ni llega al cliente.
 func responderServicio(w http.ResponseWriter, err error) {
 	switch {
+	case errors.Is(err, ports.ErrCapacidadNoDisponible):
+		responderError(w, http.StatusServiceUnavailable, "servicio_no_disponible")
 	case errors.Is(err, context.Canceled):
 		responderError(w, http.StatusRequestTimeout, "peticion_cancelada")
 	case errors.Is(err, context.DeadlineExceeded):

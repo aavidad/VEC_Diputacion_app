@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -282,5 +283,36 @@ func TestListaDeclaraConservacionProvisional(t *testing.T) {
 	rutas[0].Manejador.ServeHTTP(w, solicitud(RutaConsultaExpediente, `{"expediente_ref":"ref:`+strings.Repeat("2", 64)+`","limite":5}`))
 	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"conservacion":"provisional"`) {
 		t.Fatalf("conservación provisional: %d %s", w.Code, w.Body.String())
+	}
+}
+
+func TestDescargaIndisponibleConCausaEnvueltaEs503SinFiltrarLaCausa(t *testing.T) {
+	ref := "ref:" + strings.Repeat("2", 64)
+	cuerpo := `{"expediente_ref":"` + ref + `","documento_ref":"ref:` + strings.Repeat("1", 64) + `","version":2}`
+	causas := []error{context.Canceled, context.DeadlineExceeded, ports.ErrAccesoDenegado, ports.ErrValidacion,
+		ports.ErrConflicto, ports.ErrNoEncontrado, ports.ErrOriginalNoDisponible, ports.ErrSolicitudInvalida}
+	for _, causa := range causas {
+		envuelto := fmt.Errorf("%w: %w: detalle secreto 10.0.0.1", ports.ErrCapacidadNoDisponible, causa)
+		for _, enAutoridad := range []bool{false, true} {
+			inc := &incidenciasPrueba{}
+			s := &servicioPrueba{documento: documentoPrueba()}
+			a := &autoridadPrueba{}
+			if enAutoridad {
+				a.errorFijo = envuelto
+			} else {
+				s.err = envuelto
+			}
+			rutas, err := NuevasRutasExactasConIncidencias(s, a, inc)
+			if err != nil {
+				t.Fatal(err)
+			}
+			w := httptest.NewRecorder()
+			rutas[1].Manejador.ServeHTTP(w, solicitud(RutaDescargaOriginal, cuerpo))
+			texto := w.Body.String()
+			if w.Code != http.StatusServiceUnavailable || !strings.Contains(texto, `"codigo":"servicio_no_disponible"`) ||
+				strings.Contains(texto, "secreto") || strings.Contains(texto, causa.Error()) || len(inc.emitidas) != 1 {
+				t.Fatalf("causa %v (autoridad=%v): %d %s incidencias=%d", causa, enAutoridad, w.Code, texto, len(inc.emitidas))
+			}
+		}
 	}
 }

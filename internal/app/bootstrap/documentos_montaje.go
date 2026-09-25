@@ -527,7 +527,13 @@ func admitirCatalogoConservacion(cfg config.Config, provisional bool, tipo strin
 func nuevosDocumentosDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdentityResolver, derivador *derivadorIdentidadOperacionDesarrollo,
 	material *proveedorMaterialAltaContratacionTemporalDesarrollo, registroIncidencias io.Writer,
 ) (*autoridadDocumentosDesarrollo, error) {
+	// Documentos se valida primero: con la firma encendida y un selector de
+	// Documentos invalido, el error visible es el de Documentos.
 	activo, err := cfg.DocumentosDesarrolloActivo()
+	if err != nil {
+		return nil, err
+	}
+	verificadorFirma, err := nuevoVerificadorFirmaDocumentos(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -700,7 +706,7 @@ func nuevosDocumentosDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdenti
 	})
 	base := &autoridadRutasDietasDesarrollo{resolvedor: identidad, cuentas: cuentas, registro: registroSesiones, revalidador: revalidador, contextos: contextos, reloj: reloj, instancia: nonce}
 	a := &autoridadDocumentosDesarrollo{base: base, reloj: reloj, cuentas: cuentas, registrador: registrador, incidencias: incidencias, cerrar: cerrar}
-	servicio := &docapp.Servicio{Repositorio: repositorio, Almacen: almacen, Politicas: politicas, Reloj: reloj}
+	servicio := &docapp.Servicio{Repositorio: repositorio, Almacen: almacen, Politicas: politicas, Reloj: reloj, VerificadorFirma: verificadorFirma}
 	rutas, err := dochttp.NuevasRutas(dochttp.Configuracion{
 		Servicio:  servicioLecturaVigilado{servicio: servicio, incidencias: incidencias},
 		Autoridad: autoridadConsultaDocumentos{autoridad: a, emisor: emisor, motivo: c.Motivos.Listar},
