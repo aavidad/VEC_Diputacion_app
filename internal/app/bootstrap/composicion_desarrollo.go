@@ -263,6 +263,9 @@ func nuevoServidorDesarrollo(
 	if err != nil {
 		return nil, nil, err
 	}
+	if err = componerContactoOrigenBolsaDesarrollo(reglasEjemplo.bolsa, autoridadContratacion.manejadorSituacionParticipacion); err != nil {
+		return nil, nil, err
+	}
 	rutasContratacion = append(rutasContratacion, rutasBolsasRRHH...)
 	coleccionesBolsasRRHH = append(coleccionesBolsasRRHH, autoridadContratacion.coleccionesAdicionales...)
 	rutasContratacion = append(rutasContratacion, rutasCalendarios...)
