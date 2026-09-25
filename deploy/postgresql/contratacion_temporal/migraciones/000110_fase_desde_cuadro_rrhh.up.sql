@@ -404,4 +404,41 @@ COMMENT ON FUNCTION vec_contratacion_temporal.consultar_cuadro_rrhh_atestado_v3(
     bytea, bytea, bytea, bytea, numeric, numeric,
     bytea, bytea, bytea, bytea
 ) IS 'Cuadro RRHH v2 más la fecha de entrada en la fase de cada expediente de la página, en el orden del contenido canónico.';
+
+-- Postcondición: objetos, propietario, definidor, ACL efectiva, RLS,
+-- disparadores y relleno completo, como CT111 y CT115.
+DO $postcondicion$
+DECLARE
+    v_v3 regprocedure := 'vec_contratacion_temporal.consultar_cuadro_rrhh_atestado_v3(vec_contratacion_temporal.alcance_consulta_rrhh_v1,vec_contratacion_temporal.consulta_cuadro_rrhh_v1,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)';
+    v_registro regprocedure := 'vec_contratacion_temporal.registrar_fase_entrada_publicacion_rrhh_v1()';
+    v_lector regprocedure := 'vec_contratacion_temporal.expedientes_contenido_cuadro_rrhh_v1(bytea)';
+    v_tabla regclass := 'vec_contratacion_temporal.fase_entrada_publicacion_rrhh';
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_catalog.pg_proc p WHERE p.oid IN (v_v3, v_registro, v_lector)
+                AND p.proowner <> 'vec_contratacion_temporal_propietario'::regrole)
+       OR NOT (SELECT p.prosecdef FROM pg_catalog.pg_proc p WHERE p.oid = v_v3)
+       OR NOT (SELECT p.prosecdef FROM pg_catalog.pg_proc p WHERE p.oid = v_registro)
+       OR EXISTS (SELECT 1 FROM pg_catalog.pg_proc p
+                   CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(p.proacl, pg_catalog.acldefault('f', p.proowner))) x
+                  WHERE p.oid IN (v_v3, v_registro, v_lector) AND x.grantee <> p.proowner
+                    AND NOT (p.oid = v_v3 AND x.grantee = 'vec_contratacion_temporal_consultor_rrhh'::regrole
+                             AND x.privilege_type = 'EXECUTE' AND NOT x.is_grantable))
+       OR NOT pg_catalog.has_function_privilege('vec_contratacion_temporal_consultor_rrhh', v_v3, 'EXECUTE')
+       OR pg_catalog.has_function_privilege('vec_contratacion_temporal_ejecutor', v_v3, 'EXECUTE')
+       OR (SELECT c.relowner <> 'vec_contratacion_temporal_propietario'::regrole
+                  OR NOT c.relrowsecurity OR NOT c.relforcerowsecurity
+             FROM pg_catalog.pg_class c WHERE c.oid = v_tabla)
+       OR EXISTS (SELECT 1 FROM pg_catalog.pg_class c
+                   CROSS JOIN LATERAL pg_catalog.aclexplode(COALESCE(c.relacl, pg_catalog.acldefault('r', c.relowner))) x
+                  WHERE c.oid = v_tabla AND x.grantee <> c.relowner)
+       OR (SELECT pg_catalog.count(*) FROM pg_catalog.pg_trigger t
+            WHERE NOT t.tgisinternal AND t.tgname IN ('publicacion_version_rrhh_fase_entrada',
+                  'fase_entrada_publicacion_rrhh_inmutable', 'fase_entrada_publicacion_rrhh_no_truncar')) <> 3
+       OR (SELECT pg_catalog.count(*) FROM vec_contratacion_temporal.fase_entrada_publicacion_rrhh)
+          <> (SELECT pg_catalog.count(*) FROM vec_contratacion_temporal.publicacion_version_rrhh) THEN
+        RAISE EXCEPTION USING ERRCODE = '55000',
+            MESSAGE = 'CT-000110: postcondición incumplida';
+    END IF;
+END
+$postcondicion$;
 COMMIT;

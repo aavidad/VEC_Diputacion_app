@@ -1,6 +1,10 @@
 \set ON_ERROR_STOP on
 -- Retira CT-000110. La aplicación que consulta la fachada v3 debe retirarse
--- antes; v1/v2 y la publicación CT37 no se tocan.
+-- antes; v1/v2 y la publicación CT37 no se tocan. Con historia no se pierde
+-- nada: fase_entrada_publicacion_rrhh es una proyección derivada, fila a
+-- fila, de la publicación CT37 (inmutable) y el UP la vuelve a calcular
+-- entera con su relleno, con los mismos valores. Ninguna migración posterior
+-- usa la tabla ni la fachada v3 (los DROP son RESTRICT).
 BEGIN;
 SET LOCAL ROLE vec_contratacion_temporal_propietario;
 SET LOCAL search_path = pg_catalog;

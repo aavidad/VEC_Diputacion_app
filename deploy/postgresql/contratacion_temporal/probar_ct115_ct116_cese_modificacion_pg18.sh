@@ -91,6 +91,9 @@ for m in 000115_cese_y_cierre_expediente 000116_modificacion_tras_nombramiento; 
   igual "$(escalar "SELECT md5(prosrc) FROM pg_proc WHERE proname='leer_contratos_bolsa_v1'")" "$antes_bolsa" "DOWN $m restaura la lectura de Bolsa"
   run <"$ct/$m.up.sql"; igual "$(escalar "$origen")" "$despues" "UP $m reproduce"
 done
+echo '== CT115 DOWN se niega con CT116 instalada y CT113 DOWN con CT115'
+falla_con "$ct/000115_cese_y_cierre_expediente.down.sql" 'CT116 instalada'
+falla_con "$ct/000113_publicacion_contratos_bolsa.down.sql" 'CT113 no está instalada'
 echo '== AD3-82 DOWN se niega con CT115 instalada'
 falla_con "$ad3/000082_consumidor_cese_cierre_contratacion_temporal.down.sql" 'DOWN no admitido'
 

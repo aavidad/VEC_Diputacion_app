@@ -9,6 +9,20 @@
 -- actuaciones y en sus propias tablas. Consume AD3-83 y publica
 -- `ct.modificacion.v1` en el outbox del expediente en la misma transacción.
 -- Requiere CT115 (utilidades comunes) y AD3-83.
+--
+-- Límites: la fase de retorno solo puede ser fiscalización o informe
+-- jurídico (lista cerrada en el material, en la tabla y en el dominio Go); el
+-- coste en céntimos va de 1 al mismo máximo que el análisis
+-- (922337203685477, el del dominio), y el límite de negocio es el crédito:
+-- con la RC validada, un coste superior al importe retenido se rechaza
+-- («credito_insuficiente»). No se fija aquí otro tope inventado.
+--
+-- Bolsa: esta migración no publica la modificación en el histórico de
+-- contratos de Bolsa (CT113/CT115). El histórico conserva la incorporación
+-- con su fin previsto original y recibe el fin real con el cese; el cambio de
+-- fechas o de jornada queda en el outbox del expediente
+-- (`ct.modificacion.v1`) para un consumidor que lo necesite. Publicarlo a
+-- Bolsa exigiría ampliar la lectura común con su propio tipo de evento.
 BEGIN;
 SET LOCAL ROLE vec_contratacion_temporal_propietario;
 SET LOCAL search_path = pg_catalog;

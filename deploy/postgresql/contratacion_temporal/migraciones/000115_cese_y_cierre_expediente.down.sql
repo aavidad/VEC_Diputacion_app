@@ -24,6 +24,10 @@ BEGIN
                   WHERE tipo_evento IN ('ct.cese.v1','ct.cierre_expediente.v1')) THEN
         RAISE EXCEPTION 'CT115 DOWN: no admitido con historia de cese o cierre' USING ERRCODE='55000';
     END IF;
+    -- CT116 usa las utilidades de CT115: se retira antes.
+    IF to_regclass('vec_contratacion_temporal.modificacion_nombramiento_v1') IS NOT NULL THEN
+        RAISE EXCEPTION 'CT115 DOWN: CT116 instalada; retirar CT116 antes' USING ERRCODE='55000';
+    END IF;
     SELECT pg_get_constraintdef(oid) INTO STRICT v_origen FROM pg_constraint
      WHERE conrelid='vec_contratacion_temporal.expediente_version_integral'::regclass
        AND conname='expediente_version_integral_origen_version_check';

@@ -278,4 +278,30 @@ GRANT EXECUTE ON FUNCTION vec_contratacion_temporal.continuar_llamamiento_rrhh_v
 COMMENT ON FUNCTION vec_contratacion_temporal.continuar_llamamiento_rrhh_v2(
     text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea) IS
     'CT119: continuación tras renuncia o expiración confirmadas por RRHH. Mismo permiso y consumidor que CT60; CT60 se conserva sin cambios.';
+
+-- Postcondición, como CT111 y CT115: la fachada nueva es del propietario, con
+-- definidor y solo el ejecutor la invoca; CT60 sigue instalada y la
+-- restricción ampliada admite exactamente renuncia y expiración.
+DO $postcondicion$
+DECLARE
+    v_v2 regprocedure := 'vec_contratacion_temporal.continuar_llamamiento_rrhh_v2(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)';
+BEGIN
+    IF (SELECT p.proowner <> 'vec_contratacion_temporal_propietario'::regrole OR NOT p.prosecdef
+          FROM pg_proc p WHERE p.oid = v_v2)
+       OR EXISTS (SELECT 1 FROM pg_proc p
+                   CROSS JOIN LATERAL aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) x
+                  WHERE p.oid = v_v2 AND x.grantee <> p.proowner
+                    AND NOT (x.grantee = 'vec_contratacion_temporal_ejecutor'::regrole
+                             AND x.privilege_type = 'EXECUTE' AND NOT x.is_grantable))
+       OR NOT has_function_privilege('vec_contratacion_temporal_ejecutor', v_v2, 'EXECUTE')
+       OR to_regprocedure('vec_contratacion_temporal.continuar_llamamiento_rrhh_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
+       OR NOT EXISTS (SELECT 1 FROM pg_constraint
+            WHERE conrelid = 'vec_contratacion_temporal.resolucion_manual_respuesta_rrhh'::regclass
+              AND conname = 'continuacion_confirmacion_completa' AND contype = 'c' AND convalidated
+              AND strpos(pg_get_constraintdef(oid),
+                  $r$((solicitud_json ->> 'Respuesta'::text) = ANY (ARRAY['renuncia'::text, 'expiracion_gobernada'::text]))$r$) > 0) THEN
+        RAISE EXCEPTION 'CT119: postcondición incumplida' USING ERRCODE='55000';
+    END IF;
+END
+$postcondicion$;
 COMMIT;

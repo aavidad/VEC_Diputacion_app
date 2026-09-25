@@ -96,6 +96,14 @@ VALUES
 
 -- Devuelve el tipo de admisión vigente o NULL. Solo la usan las funciones
 -- SECURITY DEFINER de este esquema, que se ejecutan como propietario.
+-- «referencia_exacta» fija referencia, versión y huella. «entrada_catalogo»
+-- admite una entrada del catálogo de reglas por su nombre en cualquier
+-- versión publicada: la base no tiene el catálogo y no puede contrastar la
+-- huella, que calcula el resolutor de reglas del servidor y queda guardada
+-- con cada hecho para auditoría. Por eso se exige forma estricta: la
+-- referencia es exactamente «catálogo:versión:entrada» con la versión como
+-- entero canónico (sin ceros a la izquierda ni decimales, como mucho siete
+-- cifras) y una huella SHA-256 hexadecimal en minúsculas distinta de cero.
 CREATE FUNCTION vec_contratacion_temporal.politica_llamamiento_admitida_v1(
     p_ref text,p_version numeric,p_sha256 text,p_uso text
 ) RETURNS text
@@ -113,6 +121,7 @@ AS $funcion$
        AND ((a.tipo='referencia_exacta' AND a.politica_ref=p_ref
              AND a.politica_version=p_version AND a.politica_sha256=p_sha256)
          OR (a.tipo='entrada_catalogo'
+             AND p_version::text ~ '^[1-9][0-9]{0,6}$'
              AND p_ref=a.catalogo_id||':'||p_version::text||':'||a.entrada_clave))
      ORDER BY a.admision_ref
      LIMIT 1

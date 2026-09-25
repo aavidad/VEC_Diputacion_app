@@ -90,6 +90,8 @@ psql_fichero "$up" >/dev/null
 psql_fichero "$down" >/dev/null
 psql_fichero "$up" >/dev/null
 esperar_fallo 'doble aplicación de CT119' 'CT119 ya instalada' psql_fichero "$up"
+esperar_fallo 'DOWN de CT111 con CT119 instalada' 'CT119 instalada' \
+    psql_fichero contratacion_temporal/migraciones/000111_plazo_respuesta_llamamiento.down.sql
 
 paso 'pruebas funcionales, negativas y ACL'
 probar contratacion_temporal/pruebas_sql/000119_continuacion_tras_expiracion_pg18.sql

@@ -12,6 +12,10 @@ LOCK TABLE vec_contratacion_temporal.resolucion_manual_respuesta_rrhh IN ACCESS 
 LOCK TABLE vec_contratacion_temporal.evento_plazo_llamamiento_rrhh IN ACCESS EXCLUSIVE MODE;
 DO $conservar$
 BEGIN
+    -- CT119 continúa tras la expiración que añade CT111: se retira antes.
+    IF to_regprocedure('vec_contratacion_temporal.continuar_llamamiento_rrhh_v2(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL THEN
+        RAISE EXCEPTION 'reversión denegada: CT119 instalada; retirar CT119 antes' USING ERRCODE='55000';
+    END IF;
     IF EXISTS (SELECT 1 FROM vec_contratacion_temporal.evento_plazo_llamamiento_rrhh)
        OR EXISTS (SELECT 1 FROM vec_contratacion_temporal.resolucion_manual_respuesta_rrhh
            WHERE solicitud_json->>'Respuesta'='expiracion_gobernada' OR justificante_ref IS NULL

@@ -331,3 +331,21 @@ SELECT prueba_ct111.exigir((SELECT count(*) FROM vec_contratacion_temporal.event
 -- Recibos persistidos para la comprobación tras reinicio.
 CREATE TABLE prueba_ct111.antes_reinicio AS SELECT * FROM resultado;
 GRANT SELECT ON prueba_ct111.antes_reinicio TO vec_ct111_runtime;
+
+-- La admisión por entrada de catálogo exige la forma estricta de la
+-- referencia: versión entera canónica y huella hexadecimal no nula.
+DO $admision$
+DECLARE h text := repeat('a', 64);
+BEGIN
+    IF vec_contratacion_temporal.politica_llamamiento_admitida_v1('vec.bolsa.reglas:3:b05.plazo_respuesta', 3, h, 'plazo') IS DISTINCT FROM 'entrada_catalogo'
+       OR vec_contratacion_temporal.politica_llamamiento_admitida_v1('vec.bolsa.reglas:03:b05.plazo_respuesta', 3, h, 'plazo') IS NOT NULL
+       OR vec_contratacion_temporal.politica_llamamiento_admitida_v1('vec.bolsa.reglas:3.0:b05.plazo_respuesta', 3.0, h, 'plazo') IS NOT NULL
+       OR vec_contratacion_temporal.politica_llamamiento_admitida_v1('vec.bolsa.reglas:12345678:b05.plazo_respuesta', 12345678, h, 'plazo') IS NOT NULL
+       OR vec_contratacion_temporal.politica_llamamiento_admitida_v1('vec.bolsa.reglas:3:b05.plazo_respuesta', 3, repeat('0', 64), 'plazo') IS NOT NULL
+       OR vec_contratacion_temporal.politica_llamamiento_admitida_v1('vec.bolsa.reglas:3:b05.plazo_respuesta', 3, upper(h), 'plazo') IS NOT NULL
+       OR vec_contratacion_temporal.politica_llamamiento_admitida_v1('vec.bolsa.reglas:3:b05.plazo_respuesta', 3, h, 'aceptacion') IS NOT NULL THEN
+        RAISE EXCEPTION 'CT111: admisión por catálogo sin forma estricta';
+    END IF;
+    RAISE NOTICE 'comprobado: admisión por catálogo con forma estricta';
+END
+$admision$;
