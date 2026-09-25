@@ -7,7 +7,7 @@ container="vec-b5-doc-$$-${RANDOM}"
 cleanup() { docker rm -f "$container" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 
-docker run -d --rm --name "$container" -e POSTGRES_HOST_AUTH_METHOD=trust postgres:18.4-alpine >/dev/null
+docker run -d --rm --name "$container" -p 127.0.0.1::5432 -e POSTGRES_HOST_AUTH_METHOD=trust postgres:18.4-alpine >/dev/null
 for _ in $(seq 1 60); do
  if docker exec "$container" psql -X -qAt -v ON_ERROR_STOP=1 -U postgres -c 'SELECT 1' >/dev/null 2>&1; then
   sleep 0.3
@@ -251,4 +251,10 @@ SELECT ensayo_externa.recuperar();
 COMMIT;
 SQL
 test "$(docker exec "$container" psql -X -qAt -U postgres -c "SELECT (SELECT count(*) FROM vec_documentos.referencia_externa)=1 AND (SELECT count(*) FROM vec_documentos.outbox WHERE tipo='documento_externo_registrado')=1")" = t
+# Contrato Go<->SQL del repositorio con el LOGIN ejecutor sobre la misma base.
+if [ "${VEC_DOCUMENTOS_SIN_GO:-}" != 1 ]; then
+ puerto=$(docker port "$container" 5432/tcp | head -1 | sed 's/.*://')
+ (cd "$repo_dir" && VEC_DOCUMENTOS_PG18_DSN="postgres://vec_documentos_ensayo@127.0.0.1:$puerto/postgres?sslmode=disable" \
+  go test -count=1 -v -run 'TestRepositorioPG18' ./internal/vec/documentos/adapters/postgres/)
+fi
 printf 'PG18.4: replay inmediato mismo material y recuperación tras reinicio con decisión V3 sintética fresca: mismo recibo, 1 documento/outbox, 2 consumos autorizados; registro externo recuperado con el mismo recibo. NO acredita cadena COSE real.\n'

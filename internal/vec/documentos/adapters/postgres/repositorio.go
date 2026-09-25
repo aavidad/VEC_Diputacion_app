@@ -3,12 +3,14 @@ package postgres
 import (
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"vec-diputacion-granada/internal/vec/documentos/domain"
 	"vec-diputacion-granada/internal/vec/documentos/ports"
@@ -19,9 +21,9 @@ var ErrRepositorioNoDisponible = errors.New("documentos: repositorio PostgreSQL 
 // Repositorio usa exclusivamente las fachadas nominales del esquema documental.
 // La conexión debe pertenecer a un LOGIN con la única membresía técnica
 // vec_documentos_ejecutor; las funciones SQL verifican esto de nuevo.
-type Repositorio struct{ db *sql.DB }
+type Repositorio struct{ db *pgxpool.Pool }
 
-func NuevoRepositorio(db *sql.DB) (*Repositorio, error) {
+func NuevoRepositorio(db *pgxpool.Pool) (*Repositorio, error) {
 	if db == nil {
 		return nil, ErrRepositorioNoDisponible
 	}
@@ -69,25 +71,21 @@ func (r *Repositorio) transaccion(ctx context.Context, funcion string, args ...a
 	if r == nil || r.db == nil || ctx == nil {
 		return nil, ErrRepositorioNoDisponible
 	}
-	tx, err := r.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
+	tx, err := r.db.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
 	if err != nil {
 		return nil, ErrRepositorioNoDisponible
 	}
-	defer tx.Rollback()
-	if _, err = tx.ExecContext(ctx, "SET LOCAL timezone='UTC'"); err != nil {
-		return nil, ErrRepositorioNoDisponible
-	}
-	if _, err = tx.ExecContext(ctx, "SET LOCAL statement_timeout='10s'"); err != nil {
-		return nil, ErrRepositorioNoDisponible
-	}
-	if _, err = tx.ExecContext(ctx, "SET LOCAL lock_timeout='2s'"); err != nil {
-		return nil, ErrRepositorioNoDisponible
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	for _, ajuste := range []string{"SET LOCAL timezone='UTC'", "SET LOCAL statement_timeout='10s'", "SET LOCAL lock_timeout='2s'"} {
+		if _, err = tx.Exec(ctx, ajuste); err != nil {
+			return nil, ErrRepositorioNoDisponible
+		}
 	}
 	var resultado []byte
-	if err = tx.QueryRowContext(ctx, funcion, args...).Scan(&resultado); err != nil {
+	if err = tx.QueryRow(ctx, funcion, args...).Scan(&resultado); err != nil {
 		return nil, ErrRepositorioNoDisponible
 	}
-	if err = tx.Commit(); err != nil {
+	if err = tx.Commit(ctx); err != nil {
 		return nil, ErrRepositorioNoDisponible
 	}
 	return resultado, nil

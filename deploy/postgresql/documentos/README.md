@@ -64,7 +64,9 @@ devuelve el mismo recibo, mantiene un documento y un outbox, y registra dos
 consumos de autorización distintos. Hace lo mismo con un registro de custodia
 externa (replay; clave reutilizada, identificador compartido con un original,
 referencia con ruta y finalidad ajena rechazados) y con la lista v2 paginada
-sobre ambas custodias. Corre sobre una **preimagen sintética** AD3-50 seguida
+sobre ambas custodias. Al final ejecuta el repositorio Go (pgx) contra esa base
+con el LOGIN ejecutor para cotejar preimagen, proyección y lista v2
+(`VEC_DOCUMENTOS_SIN_GO=1` lo omite). Corre sobre una **preimagen sintética** AD3-50 seguida
 de AD3-51/52/60/62 reales, y sustituye en esa base las fachadas AD3 por
 recibos sintéticos: no acredita COSE.
 
