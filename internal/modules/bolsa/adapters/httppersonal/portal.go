@@ -25,7 +25,7 @@ const (
 
 // EsRutaPortal indica si la ruta pertenece a «Mi bolsa» del candidato.
 func EsRutaPortal(ruta string) bool {
-	return ruta == RutaMiBolsa || ruta == RutaMiBolsaSolicitudes || ruta == RutaMiBolsaRespuestas || ruta == RutaMiBolsaDisposiciones
+	return ruta == RutaMiBolsa || ruta == RutaMiBolsaSolicitudes || ruta == RutaMiBolsaRespuestas || ruta == RutaMiBolsaDisposiciones || ruta == RutaMiBolsaContacto
 }
 
 // AccionPortalEn devuelve las acciones que admite cada ruta y método.
@@ -39,6 +39,8 @@ func AccionPortalEn(metodo, ruta string) []string {
 		return []string{puertosbolsa.AccionResponderLlamamientoPropio}
 	case metodo == http.MethodPost && ruta == RutaMiBolsaDisposiciones:
 		return []string{puertosbolsa.AccionManifestarDisposicionPropia}
+	case metodo == http.MethodPost && ruta == RutaMiBolsaContacto:
+		return []string{puertosbolsa.AccionConfirmarContactoPropio}
 	}
 	return nil
 }

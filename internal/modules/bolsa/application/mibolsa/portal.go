@@ -33,6 +33,8 @@ type Portal struct {
 	reloj       puertosvec.Reloj
 	// ofertas es opcional: sin él no se atiende la disposición a ofertas.
 	ofertas puertosbolsa.RegistroDisposicionOferta
+	// contacto es opcional: sin él no se atiende la confirmación del contacto.
+	contacto puertosbolsa.RegistroConfirmacionContacto
 }
 
 // ComandoRespuestaPortal es lo único que aporta la persona al responder.

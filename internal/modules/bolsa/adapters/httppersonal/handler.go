@@ -141,6 +141,8 @@ type respuesta struct {
 		AccionesPortal *accionesPortal `json:"acciones_portal,omitempty"`
 		// Ofertas solo aparece si está compuesta la disposición a ofertas.
 		Ofertas []ofertaPortal `json:"ofertas,omitempty"`
+		// Contactos solo aparece si está compuesta la confirmación del contacto.
+		Contactos []contactoPortal `json:"contactos,omitempty"`
 	} `json:"data"`
 }
 
@@ -179,6 +181,7 @@ func nuevaRespuesta(i puertosbolsa.InstantaneaMiBolsa) respuesta {
 	}
 	r.Data.Portal, r.Data.AccionesPortal = respuestaPortal(i)
 	r.Data.Ofertas = respuestaOfertas(i)
+	r.Data.Contactos = respuestaContactos(i)
 	return r
 }
 func responderError(w http.ResponseWriter, e error) {

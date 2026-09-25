@@ -720,6 +720,7 @@ async function cargar(estado) {
     estado.portalMiBolsa = respuesta?.consulta?.portal || null;
     estado.accionesPortal = respuesta?.consulta?.acciones_portal || null;
     estado.ofertasMiBolsa = respuesta?.consulta?.ofertas || null;
+    estado.contactosMiBolsa = respuesta?.consulta?.contactos || null;
     estado.fuenteBolsa = respuesta?.fuente || "real";
     estado.causaBolsa = respuesta?.causa || "";
     if (!estado.convocatoriaSolicitud) {

@@ -176,7 +176,7 @@ func (p *politicaMiBolsaDesarrollo) motivoDe(accion string) (dominiovec.Referenc
 	if p.motivoPortal == nil {
 		return dominiovec.ReferenciaEntradaCatalogo{}, false
 	}
-	for _, par := range puertosbolsa.AccionesPortalCandidato() {
+	for _, par := range accionesPropiasPortalDesarrollo() {
 		if par[0] == accion {
 			return *p.motivoPortal, true
 		}
@@ -368,6 +368,7 @@ func nuevaInstantaneaMiBolsaDesarrollo(identidad *identidadCandidatoBolsaDesarro
 		// sube de versión al cambiar de rol y la historia anterior se conserva.
 		rol.RolID, rol.Nombre = "candidato_bolsa_portal_propio_desarrollo", "Consulta y acciones propias de bolsa en desarrollo"
 		rol.Concesiones = append(rol.Concesiones, concesionesPortalMiBolsaDesarrollo()...)
+		rol.Concesiones = append(rol.Concesiones, concesionesContactoPropioDesarrollo()...)
 	}
 	asignacion := dominiovec.AsignacionPerfil{
 		AsignacionID: referenciaAltaContratacionTemporalDesarrollo("asg_", identidad.personaRef+"\x00"+identidad.perfilRef+"\x00bolsa-mi-bolsa-v1"),
@@ -411,7 +412,7 @@ func nuevaRutaMiBolsaDesarrollo(
 		alta.postgresql.proveedorMaterialMiBolsa == nil || identidadCT == nil ||
 		identidadCT.resolutor == nil || derivador == nil || !derivador.valido() ||
 		alta.soporte.registroDecisionesAnalisis == nil ||
-		(portal != nil && len(alta.postgresql.proveedoresMaterialPortal) != len(puertosbolsa.AccionesPortalCandidato())) {
+		(portal != nil && len(alta.postgresql.proveedoresMaterialPortal) != len(accionesPropiasPortalDesarrollo())) {
 		return nil, errMiBolsaNoDisponible
 	}
 	// ResolverRegistrado escribe el recibo rca_ mediante contexto_actor_v1.
@@ -508,6 +509,9 @@ func nuevaRutaMiBolsaDesarrollo(
 		if servicio, err = servicio.ConOfertas(); err != nil {
 			return nil, errMiBolsaNoDisponible
 		}
+		if servicio, err = servicio.ConContacto(); err != nil {
+			return nil, errMiBolsaNoDisponible
+		}
 	}
 	preparador := &preparadorMiBolsaDesarrollo{sello: sello, identidad: identidad, sesion: sesion, reloj: reloj}
 	var consultaHTTP http.Handler
@@ -552,5 +556,19 @@ func nuevaRutaMiBolsaDesarrollo(
 		return nil, errMiBolsaNoDisponible
 	}
 	rutas = append(rutas, vechttp.RutaExacta{Ruta: bolsapersonal.RutaMiBolsaDisposiciones, Manejador: disposicion})
+	// Confirmación del contacto propio (Bolsa 000040 y AD3-86).
+	registroContacto, err := postgresbolsa.NuevoRegistroConfirmacionContactoPostgreSQL(alta.postgresql.bolsa)
+	if err != nil {
+		return nil, errMiBolsaNoDisponible
+	}
+	conContacto, err := acciones.ConRegistroContacto(registroContacto)
+	if err != nil {
+		return nil, errMiBolsaNoDisponible
+	}
+	contacto, err := bolsapersonal.NuevoContacto(preparador, conContacto)
+	if err != nil {
+		return nil, errMiBolsaNoDisponible
+	}
+	rutas = append(rutas, vechttp.RutaExacta{Ruta: bolsapersonal.RutaMiBolsaContacto, Manejador: contacto})
 	return rutas, nil
 }

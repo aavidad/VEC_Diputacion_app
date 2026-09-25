@@ -67,6 +67,8 @@ type InstantaneaMiBolsa struct {
 	ReglasPortal *ReglasPortalVisibles
 	// Ofertas solo existe si la consulta pidió las ofertas de sus bolsas.
 	Ofertas []OfertaPortalCandidato
+	// Contactos solo existe si la consulta pidió el estado de su contacto.
+	Contactos []ContactoPortalCandidato
 }
 
 type ReglasPortalVisibles struct {
@@ -88,6 +90,8 @@ type SolicitudConsultaMiBolsa struct {
 	// LeerOfertas pide en la misma transacción las ofertas abiertas de sus
 	// bolsas y aquellas en que ya manifestó disposición (Bolsa 000029).
 	LeerOfertas bool
+	// LeerContacto pide el estado del contacto de cada bolsa (Bolsa 000040).
+	LeerContacto bool
 }
 
 // ConsultaMiBolsa es el contrato exacto para PostgreSQL. Debe revalidar y

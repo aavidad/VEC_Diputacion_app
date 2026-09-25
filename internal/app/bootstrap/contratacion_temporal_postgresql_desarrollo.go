@@ -323,6 +323,7 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	}
 	if debeComponerPortalCandidatoDesarrollo(cfg) {
 		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialPortalCandidatoDesarrollo()...)
+		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialContactoPropioDesarrollo()...)
 	}
 	if dietasBorradoresSolicitadas(cfg.DietasBorradoresEnabled) {
 		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialDietasDesarrollo()...)
@@ -462,8 +463,8 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 			dependencias.proveedorMaterialMiBolsa = proveedorMiBolsa
 		}
 		if debeComponerPortalCandidatoDesarrollo(cfg) {
-			dependencias.proveedoresMaterialPortal = make(map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo, 4)
-			for _, par := range puertosbolsa.AccionesPortalCandidato() {
+			dependencias.proveedoresMaterialPortal = make(map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo, len(accionesPropiasPortalDesarrollo()))
+			for _, par := range accionesPropiasPortalDesarrollo() {
 				proveedor, err := nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, par[1])
 				if err != nil {
 					return vacias, err

@@ -18,6 +18,7 @@ static/area-personal/i18n-contacto-propio.js
 static/area-personal/index.html
 static/area-personal/locales/es.json
 static/area-personal/mi-bolsa-campos.js
+static/area-personal/mi-bolsa-contacto.js
 static/area-personal/mi-bolsa-ofertas.js
 static/area-personal/mi-bolsa-portal.js
 static/area-personal/vistas/comunes.js
