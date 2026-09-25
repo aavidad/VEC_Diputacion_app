@@ -38,6 +38,7 @@ import (
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	vecmemory "vec-diputacion-granada/internal/vec/adapters/memory"
 	vecapp "vec-diputacion-granada/internal/vec/application"
+	vecdocumentos "vec-diputacion-granada/internal/vec/documentos"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
 )
@@ -259,6 +260,7 @@ func newVECShellAPICompuestaConIdentidadYRutas(
 		personalmodule.Manifest(),
 		cronosmodule.Manifest(),
 		dietasmodule.Manifest(),
+		vecdocumentos.Manifest(),
 		bolsamodule.Manifest(),
 		contrataciontemporal.Manifest(),
 		adminmodule.Manifest(),
