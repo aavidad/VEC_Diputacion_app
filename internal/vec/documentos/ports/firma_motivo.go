@@ -25,6 +25,7 @@ const (
 
 	// Motivos de EstadoVerificacionIndeterminada: falta una comprobacion
 	// necesaria o no pudo concluirse. Ninguno habilita la transicion a firmado.
+	MotivoIntegridadParcial           MotivoVerificacionFirma = "integridad_parcial"
 	MotivoVinculoOriginalNoAcreditado MotivoVerificacionFirma = "vinculo_original_no_acreditado"
 	MotivoFirmanteNoIdentificado      MotivoVerificacionFirma = "firmante_no_identificado"
 	MotivoCertificadoNoAcreditado     MotivoVerificacionFirma = "certificado_no_acreditado"
@@ -45,7 +46,7 @@ func (m MotivoVerificacionFirma) EstadoAsociado() EstadoVerificacionFirma {
 		return EstadoVerificacionValida
 	case MotivoIntegridadNoValida, MotivoCertificadoNoValido, MotivoConfianzaNoValida:
 		return EstadoVerificacionNoValida
-	case MotivoVinculoOriginalNoAcreditado, MotivoFirmanteNoIdentificado,
+	case MotivoIntegridadParcial, MotivoVinculoOriginalNoAcreditado, MotivoFirmanteNoIdentificado,
 		MotivoCertificadoNoAcreditado, MotivoConfianzaNoAcreditada,
 		MotivoRevocacionNoAcreditada, MotivoSelloTiempoNoAcreditado,
 		MotivoRechazadaPorValidador, MotivoCredencialRechazada,

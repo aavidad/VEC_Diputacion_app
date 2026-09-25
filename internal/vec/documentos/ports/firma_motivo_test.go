@@ -21,6 +21,7 @@ func TestMotivoCatalogoCerradoYEstadoUnico(t *testing.T) {
 		MotivoIntegridadNoValida:          EstadoVerificacionNoValida,
 		MotivoCertificadoNoValido:         EstadoVerificacionNoValida,
 		MotivoConfianzaNoValida:           EstadoVerificacionNoValida,
+		MotivoIntegridadParcial:           EstadoVerificacionIndeterminada,
 		MotivoVinculoOriginalNoAcreditado: EstadoVerificacionIndeterminada,
 		MotivoFirmanteNoIdentificado:      EstadoVerificacionIndeterminada,
 		MotivoCertificadoNoAcreditado:     EstadoVerificacionIndeterminada,
