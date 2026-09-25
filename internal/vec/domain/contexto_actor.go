@@ -98,7 +98,7 @@ func (v VinculoReferenciaContextoActor) Validar() error {
 	default:
 		return ErrInstantaneaContextoActorInvalida
 	}
-	if !referenciaOpacaContextoActorValida(v.VinculoRef, "vin_") || v.Version == 0 ||
+	if !prefijoVinculoReferenciaValido(v.VinculoRef, v.Tipo, referenciaOpacaContextoActorValida) || v.Version == 0 ||
 		!referenciaOpacaContextoActorValida(v.Referencia, prefijoReferencia) || !v.Estado.Valido() ||
 		!instanteContextoActorCanonico(v.VigenteDesde) || !instanteContextoActorCanonico(v.VigenteHasta) ||
 		!v.VigenteHasta.After(v.VigenteDesde) {

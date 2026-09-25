@@ -167,8 +167,8 @@ func TestAdministradorTecnicoSoloAccedeACarcasaYAdministracion(t *testing.T) {
 		{path: "/api/vec/modules/cronos/action", status: http.StatusForbidden},
 		{path: "/api/vec/modules/horarios/action", status: http.StatusForbidden},
 		{path: "/api/vec/modules/permisos/action", status: http.StatusForbidden},
-		{path: "/api/vec/modules/dietas/action", status: http.StatusForbidden},
-		{path: "/api/vec/modules/rutas/action", status: http.StatusForbidden},
+		{path: "/api/vec/modules/dietas/action", status: http.StatusNotFound},
+		{path: "/api/vec/modules/rutas/action", status: http.StatusNotFound},
 		{path: "/api/vec/modules/administracion/action", status: http.StatusAccepted},
 		{path: "/api/vec/modules/personal/action", status: http.StatusForbidden},
 		{path: "/api/vec/modules/nominas/action", status: http.StatusForbidden},
@@ -189,6 +189,41 @@ func TestAdministradorTecnicoSoloAccedeACarcasaYAdministracion(t *testing.T) {
 		if body["data"] == nil {
 			t.Fatalf("action response missing data: %#v", body)
 		}
+	}
+}
+
+func TestAccionesGenericasDietasRetiradasNoProducenEfectos(t *testing.T) {
+	store := memory.NewStore()
+	service, internal, err := application.NewServiceWithInternalOperations(store, store, store)
+	if err != nil {
+		t.Fatalf("NewServiceWithInternalOperations() error = %v", err)
+	}
+	handler, err := NewHandlerWithOptions(service, HandlerOptions{InternalOperations: internal})
+	if err != nil {
+		t.Fatalf("NewHandlerWithOptions() error = %v", err)
+	}
+	for _, caso := range []struct {
+		ruta, permiso, referencia, evento string
+	}{
+		{"/modules/dietas/action", "dietas.aprobacion.manage", "dietas-comision-demo", "vec.module.dietas.action.executed"},
+		{"/modules/rutas/action", "dietas.ruta.manage", "dietas-ruta-demo", "vec.module.dietas.route.executed"},
+	} {
+		t.Run(caso.ruta, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodPost, "/api/vec"+caso.ruta, nil)
+			handler.handleModuleAction(rec, req, principalConPermisosExpresosPrueba(caso.permiso), caso.ruta)
+			if rec.Code != http.StatusNotFound {
+				t.Fatalf("status = %d, want 404: %s", rec.Code, rec.Body.String())
+			}
+			auditoria, err := store.ListAudit(context.Background(), caso.referencia)
+			if err != nil || len(auditoria) != 0 {
+				t.Fatalf("auditoria DEMO = %v, error = %v", auditoria, err)
+			}
+			eventos, err := store.ListEvents(context.Background(), []string{caso.evento})
+			if err != nil || len(eventos) != 0 {
+				t.Fatalf("eventos DEMO = %v, error = %v", eventos, err)
+			}
+		})
 	}
 }
 
@@ -544,7 +579,7 @@ func TestSessionUsesConfiguredRolesForExternalIdentity(t *testing.T) {
 		personalmodule.PermissionEmployeeManage,
 		personalmodule.PermissionPayrollRead,
 		cronosmodule.PermissionTimeRead,
-		dietasmodule.PermissionExpenseRead,
+		"dietas.gasto.read",
 		adminmodule.PermissionRolesManage,
 	} {
 		if strings.Contains(body, prohibido) {

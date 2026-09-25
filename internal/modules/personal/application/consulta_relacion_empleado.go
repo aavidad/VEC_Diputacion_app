@@ -36,6 +36,10 @@ func (s *ServicioConsultaRelacionEmpleado) ConsultarPropiasParaDietas(ctx contex
 	}
 	a, e := s.proveedor.AutorizarConsultaRelacionPropia(ctx, m)
 	if e != nil {
+		if ctx.Err() == nil && errors.Is(e, personalports.ErrRelacionEmpleadoDenegada) &&
+			!errors.Is(e, context.Canceled) && !errors.Is(e, context.DeadlineExceeded) {
+			return z, personalports.ErrRelacionEmpleadoDenegada
+		}
 		return z, opaco(ctx, e)
 	}
 	if !autorizacionValida(m, a) {

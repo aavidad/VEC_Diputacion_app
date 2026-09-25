@@ -13,15 +13,14 @@ import {
 import {
   cargarCatalogoModulosInterno,
   renderizarNavegacionModulos,
-} from "./portal-catalogo-modulos.js?v=20260925-aspecto-v1";
-import { traducirPortal } from "./portal-i18n.js?v=20260925-aspecto-v1";
-import { calcularMetricasCuadro, tramitesParaInicio } from "./portal-inicio.js?v=20260925-aspecto-v1";
+} from "./portal-catalogo-modulos.js?v=20260925-tanda-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260925-tanda-v1";
+import { calcularMetricasCuadro, tramitesParaInicio } from "./portal-inicio.js?v=20260925-tanda-v1";
 import {
   componerCronosVisible,
   componerDietasInternas,
-  componerDietasVisible,
   componerPersonalVisible,
-} from "./portal-composicion-empleado.js";
+} from "./portal-composicion-empleado.js?v=20260925-tanda-v1";
 import { VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260924-f2-shell-v1";
 import {
   CLAVES_CARGA_MODULAR,
@@ -79,19 +78,9 @@ const CARGADORES_PRESENTACION_PREDETERMINADOS = Object.freeze({
   cronos: async () => {
     const [contrato, recorridos] = await Promise.all([
       import("./modulos/cronos/contrato.js"),
-      import("./modulos/cronos/vista-recorridos.js?v=20260925-aspecto-v1"),
+      import("./modulos/cronos/vista-recorridos.js?v=20260925-tanda-v1"),
     ]);
     return Object.freeze({ contrato, recorridos });
-  },
-  dietas: async () => {
-    const [contrato, vista, mapa, calculador, recorridos] = await Promise.all([
-      import("./modulos/dietas/contrato.js"),
-      import("./modulos/dietas/vista-itinerario.js?v=20260925-aspecto-v1"),
-      import("./modulos/dietas/mapa-ruta.js?v=20260925-aspecto-v1"),
-      import("./modulos/dietas/calculador-rutas-presentacion-osrm.js"),
-      import("./modulos/dietas/vista-recorridos.js?v=20260925-aspecto-v1"),
-    ]);
-    return Object.freeze({ contrato, vista, mapa, calculador, recorridos });
   },
   personal: async () => {
     const [contrato, clienteCategorias, vistaCategorias, clienteRPT, vistaRPT, clienteEstructura, vistaEstructura, ficha] = await Promise.all([
@@ -135,9 +124,9 @@ const CARGADORES_PRESENTACION_PREDETERMINADOS = Object.freeze({
 const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
   cronos: async () => {
     const [vista, recorridos, i18n] = await Promise.all([
-      import("./modulos/cronos/vista.js?v=20260925-aspecto-v1"),
-      import("./modulos/cronos/vista-recorridos.js?v=20260925-aspecto-v1"),
-      import("./modulos/cronos/i18n.js?v=20260925-aspecto-v1"),
+      import("./modulos/cronos/vista.js?v=20260925-tanda-v1"),
+      import("./modulos/cronos/vista-recorridos.js?v=20260925-tanda-v1"),
+      import("./modulos/cronos/i18n.js?v=20260925-tanda-v1"),
     ]);
     return Object.freeze({ vista, recorridos, i18n });
   },
@@ -162,26 +151,17 @@ const CARGADORES_INTERNOS_PREDETERMINADOS = Object.freeze({
       ficha });
   },
   dietas: async () => {
-    const [contrato, vista, mapa, calculador, recorridos, clienteBorradores] = await Promise.all([
+    const [contrato, recorridos, clienteBorradores, clienteAsignacion, calculador, mapa] = await Promise.all([
       import("./modulos/dietas/contrato.js"),
-      import("./modulos/dietas/vista-itinerario.js?v=20260925-aspecto-v1"),
-      import("./modulos/dietas/mapa-ruta.js?v=20260925-aspecto-v1"),
-      import("./modulos/dietas/calculador-rutas-http.js"),
-      import("./modulos/dietas/vista-recorridos.js?v=20260925-aspecto-v1"),
-      import("./modulos/dietas/cliente-borradores-http.js?v=20260924-f2-shell-v1"),
+      import("./modulos/dietas/vista-recorridos.js?v=20260925-tanda-v1"),
+      import("./modulos/dietas/cliente-borradores-http.js?v=20260925-tanda-v1"),
+      import("./modulos/dietas/cliente-asignacion-http.js?v=20260925-tanda-v1"),
+      import("./modulos/dietas/calculador-rutas-http.js?v=20260925-tanda-v1"),
+      import("./modulos/dietas/mapa-ruta.js?v=20260925-tanda-v1"),
     ]);
-    return Object.freeze({ contrato, vista, mapa, calculador, recorridos, clienteBorradores });
+    return Object.freeze({ contrato, recorridos, clienteBorradores, clienteAsignacion, calculador, mapa });
   },
 });
-
-function capacidadesDietas(contrato) {
-  return Object.freeze([
-    contrato.CAPACIDAD_CONSULTAR_GASTO,
-    contrato.CAPACIDAD_GESTIONAR_GASTO,
-    contrato.CAPACIDAD_CONSULTAR_RUTA,
-    contrato.CAPACIDAD_GESTIONAR_RUTA,
-  ]);
-}
 
 function componerModuloAislado(contexto, carga, componer) {
   if (!contexto || carga?.disponible !== true) return undefined;
@@ -308,7 +288,7 @@ export function crearCoordinadorModulosPortal({
         // sintético. Los recorridos nuevos son una lámina de presentación:
         // no reciben ni derivan ContextoActor ni permisos del menú.
         claves: [
-          ...CLAVES_CARGA_MODULAR.filter((clave) => contextos[clave] !== undefined),
+          ...CLAVES_CARGA_MODULAR.filter((clave) => clave !== "dietas" && contextos[clave] !== undefined),
           ...CLAVES_PRESENTACION_VISUAL,
         ],
         limiteMs: limiteCargaModularMs,
@@ -318,8 +298,9 @@ export function crearCoordinadorModulosPortal({
     if (carga !== secuenciaCarga) throw new Error("carga de presentación sustituida");
     const cronos = componerModuloAislado(contextos.cronos, cargas.cronos,
       (recursos) => componerCronosVisible(recursos, contextos.cronos, entorno));
-    const dietas = componerModuloAislado(contextos.dietas, cargas.dietas,
-      (recursos) => componerDietasVisible(recursos, contextos.dietas, capacidadesDietas(recursos.contrato), entorno));
+    // Dietas no tiene superficie de presentación: su recorrido solo se monta
+    // con clientes internos autorizados y respuestas reales del servidor.
+    const dietas = undefined;
     const personal = componerModuloAislado(contextos.personal, cargas.personal,
       (recursos) => componerPersonalVisible(recursos, entorno));
     const contratacionTemporal = componerModuloAislado(
@@ -636,9 +617,8 @@ export function crearCoordinadorModulosPortal({
           cargarDietas, "dietas", limiteCargaModularMs, temporizadores,
         );
         if (carga !== secuenciaCarga) throw new Error("carga interna sustituida");
-        // La composición interna sólo consume el cliente de borradores. Los
-        // demás recursos se cargan como contrato del módulo, pero el cálculo
-        // necesita una identidad explícita que este coordinador no posee.
+        // El recorrido interno consume solo clientes HTTP del mismo origen.
+        // La presentación y su itinerario sintético tienen un cargador aparte.
         dietas = componerDietasInternas(recursos, entorno);
         if (dietas === undefined) throw new TypeError("vista de Dietas no disponible");
       } catch {
@@ -971,8 +951,6 @@ export function crearCoordinadorModulosPortal({
     raiz.replaceChildren();
     const moduloDietas = await composicion.dietas.montar({
       raiz,
-      calculador: composicion.dietas.calculador,
-      visorRuta: composicion.dietas.visorRuta,
       anunciar,
       registrarDesmontar: (limpiar) => {
         if (typeof limpiar !== "function") throw new TypeError("limpieza de Dietas no válida");

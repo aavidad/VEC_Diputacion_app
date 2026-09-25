@@ -40,6 +40,15 @@ const (
 	SuperficieAdministracionPrivilegiada Superficie = "administracion_privilegiada"
 )
 
+// PoliticaInterna identifica la excepcion temporal aprobada para desarrollo y
+// presentacion. El valor vacio conserva la politica corporativa Kerberos +
+// certificado; la excepcion requiere una fecha limite explicita y no se aplica
+// a la administracion privilegiada. Se retira antes de esa fecha si se dispone
+// de Kerberos corporativo y certificado para la superficie interna.
+type PoliticaInterna string
+
+const PoliticaInternaDesarrolloCertificadoPersonal PoliticaInterna = "desarrollo_certificado_personal_protegido"
+
 // Valida informa de si la superficie pertenece al conjunto cerrado.
 func (s Superficie) Valida() bool {
 	switch s {
@@ -96,6 +105,8 @@ type ConfiguracionSuperficie struct {
 	MinimoGruposCriptograficosDistintos int
 	GarantiaMinima                      dominiovec.AuthAssurance
 	RequiereCuentaPrivilegiada          bool
+	PoliticaInterna                     PoliticaInterna
+	RetiradaPoliticaInternaEn           time.Time
 }
 
 // Validar aplica invariantes de una superficie individual. Ante cualquier
@@ -130,7 +141,8 @@ func (c ConfiguracionSuperficie) Validar() error {
 			len(c.MetodosAdmitidos) != 0 || len(c.FactoresRequeridos) != 0 ||
 			c.MinimoFactoresVerificados != 0 || c.MinimoGruposCriptograficosDistintos != 0 ||
 			c.GarantiaMinima != "" || c.RequiereCuentaPrivilegiada || c.DuracionMaximaAsercion != 0 ||
-			c.EdadMaximaAutenticacion != 0 || c.ToleranciaReloj != 0 {
+			c.EdadMaximaAutenticacion != 0 || c.ToleranciaReloj != 0 ||
+			c.PoliticaInterna != "" || !c.RetiradaPoliticaInternaEn.IsZero() {
 			return fmt.Errorf("%w: la superficie anonima no puede crear ni aceptar sesiones", ErrConfiguracionSuperficie)
 		}
 		return nil
@@ -153,12 +165,32 @@ func (c ConfiguracionSuperficie) Validar() error {
 		return err
 	}
 
+	if c.Superficie != SuperficieInternaCorporativa &&
+		(c.PoliticaInterna != "" || !c.RetiradaPoliticaInternaEn.IsZero()) {
+		return fmt.Errorf("%w: la politica temporal solo pertenece a la superficie interna", ErrConfiguracionSuperficie)
+	}
 	switch c.Superficie {
 	case SuperficieExternaPersonal:
 		if !dominiovec.CumpleGarantiaAutenticacion(c.GarantiaMinima, dominiovec.AuthAssuranceSubstantial) {
 			return fmt.Errorf("%w: el area personal exige garantia sustancial o superior", ErrConfiguracionSuperficie)
 		}
-	case SuperficieInternaCorporativa, SuperficieAdministracionPrivilegiada:
+	case SuperficieInternaCorporativa:
+		if c.PoliticaInterna == PoliticaInternaDesarrolloCertificadoPersonal {
+			if c.RetiradaPoliticaInternaEn.IsZero() || c.RetiradaPoliticaInternaEn.Location() != time.UTC ||
+				c.RetiradaPoliticaInternaEn.Nanosecond() != 0 ||
+				len(c.MetodosAdmitidos) != 1 || c.MetodosAdmitidos[0] != MetodoCertificado ||
+				len(c.FactoresRequeridos) != 1 || c.FactoresRequeridos[0] != MetodoCertificado ||
+				c.MinimoFactoresVerificados != 1 || c.MinimoGruposCriptograficosDistintos != 1 ||
+				c.GarantiaMinima != dominiovec.AuthAssuranceSubstantial {
+				return fmt.Errorf("%w: certificado personal temporal exige un factor, garantia sustancial y retirada UTC", ErrConfiguracionSuperficie)
+			}
+			break
+		}
+		if c.PoliticaInterna != "" || !c.RetiradaPoliticaInternaEn.IsZero() {
+			return fmt.Errorf("%w: politica interna desconocida", ErrConfiguracionSuperficie)
+		}
+		fallthrough
+	case SuperficieAdministracionPrivilegiada:
 		if !contieneMetodo(c.FactoresRequeridos, MetodoKerberos) ||
 			!contieneMetodo(c.FactoresRequeridos, MetodoCertificado) ||
 			c.MinimoGruposCriptograficosDistintos < 2 || c.GarantiaMinima != dominiovec.AuthAssuranceHigh {

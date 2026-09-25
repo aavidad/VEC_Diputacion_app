@@ -154,7 +154,7 @@ test("seguimiento: el montaje principal recupera el recibo, presenta solo el pan
     assert.equal(dom.hijos.length, 1);
     assert.match(dom.hijos[0].innerHTML, /Seguimiento de la incorporación/u);
     assert.match(dom.hijos[0].innerHTML, /recibo:ct:montaje/u);
-    assert.match(dom.hijos[0].innerHTML, /No permite anotar, cerrar ni alterar el expediente/u);
+    assert.doesNotMatch(dom.hijos[0].innerHTML, /ct-ayuda|No permite anotar, cerrar ni alterar el expediente/u);
     assert.doesNotMatch(dom.hijos[0].innerHTML, /firma oficial|eficacia administrativa/u);
   } finally {
     modulo.desmontar();

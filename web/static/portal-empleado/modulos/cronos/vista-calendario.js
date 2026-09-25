@@ -1,4 +1,4 @@
-import { crearTraductorCronosC4, MENSAJES_CRONOS_C4_ES } from "./i18n-c4.js?v=20260925-aspecto-v1";
+import { crearTraductorCronosC4, MENSAJES_CRONOS_C4_ES } from "./i18n-c4.js?v=20260925-tanda-v1";
 
 const ANIO_MINIMO = 1900;
 const ANIO_MAXIMO = 2100;
@@ -75,14 +75,13 @@ export function renderizarCalendarioCivilCronos({ anio, fechaSeleccionada, local
     throw new RangeError("año civil de Cronos no válido");
   }
   const t = crearTraductorCronosC4(mensajes);
-  const diaSemana = new Date(`${seleccionada}T00:00:00Z`).getUTCDay();
   return `<section class="panel cronos-calendario" data-cronos-calendario data-estado="no_configurado" aria-labelledby="cronos-calendario-titulo">
     <header class="cabecera-panel"><div><h3 id="cronos-calendario-titulo">${escaparHTML(t("calendario_civil_titulo"))}</h3></div><span class="cronos-estado cronos-estado-aviso">${escaparHTML(t("calendario_estado"))}</span></header>
     <div class="cuerpo-panel cronos-calendario-cuerpo">
       <nav class="cronos-calendario-navegacion" aria-label="${escaparHTML(t("calendario_civil_titulo"))}"><button type="button" class="boton-secundario" data-cronos-cal-anio="-1" aria-label="${escaparHTML(t("calendario_anterior"))}"${anioVisible === ANIO_MINIMO ? " disabled" : ""}>‹</button><strong aria-live="polite">${anioVisible}</strong><button type="button" class="boton-secundario" data-cronos-cal-anio="1" aria-label="${escaparHTML(t("calendario_siguiente"))}"${anioVisible === ANIO_MAXIMO ? " disabled" : ""}>›</button></nav>
       <div class="cronos-calendario-meses">${Array.from({ length: 12 }, (_, indice) => mesHTML(anioVisible, indice + 1, seleccionada, locale, t)).join("")}</div>
-      <div class="cronos-calendario-pie"><div class="cronos-calendario-seleccion" role="status"><span>${escaparHTML(t("calendario_seleccion"))}</span><strong>${escaparHTML(formatoFecha(seleccionada, locale))}</strong><span>${escaparHTML(t("calendario_natural"))}${[0, 6].includes(diaSemana) ? ` · ${escaparHTML(t("calendario_fin_semana"))}` : ""}</span></div>
-      <div class="cronos-calendario-leyenda" aria-label="${escaparHTML(t("calendario_leyenda"))}"><strong>${escaparHTML(t("calendario_leyenda"))}</strong><span>${escaparHTML(t("calendario_leyenda_dia"))}</span><span>${escaparHTML(t("calendario_leyenda_fin_semana"))}</span></div></div>
+      <div class="cronos-calendario-seleccion" role="status"><span>${escaparHTML(t("calendario_seleccion"))}</span><strong>${escaparHTML(formatoFecha(seleccionada, locale))}</strong></div>
+      <p class="cronos-calendario-aviso" role="status">${escaparHTML(t("calendario_estado_detalle"))}</p>
     </div>
   </section>`;
 }

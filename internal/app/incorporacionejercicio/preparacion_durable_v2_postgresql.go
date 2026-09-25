@@ -24,18 +24,20 @@ type PoolsPreparacionDurableV2 struct {
 }
 
 type ConfiguracionPreparacionDurableV2PostgreSQL struct {
-	Autoridad      *AutoridadAplicacion
-	Detalle        *appct.ServicioConsultaDetalleRRHH
-	Planes         []byte
-	TernaPlanes    ct.ReferenciaVersionadaPersonalRPT
-	FuentePersonal []byte
-	TernaPersonal  fuenteejercicio.TernaEsperada
-	Pools          PoolsPreparacionDurableV2
-	Reloj          ct.Reloj
+	Autoridad                  *AutoridadAplicacion
+	Detalle                    *appct.ServicioConsultaDetalleRRHH
+	Planes                     []byte
+	TernaPlanes                ct.ReferenciaVersionadaPersonalRPT
+	FuentePersonal             []byte
+	TernaPersonal              fuenteejercicio.TernaEsperada
+	Pools                      PoolsPreparacionDurableV2
+	Reloj                      ct.Reloj
+	PoliticaConsultaDesarrollo *PoliticaConsultaDesarrollo
 }
 
 // NuevoPreparadorDurableV2PostgreSQL ensambla la única implementación del
-// proveedor V2 con sus adaptadores reales. No efectúa IO, no consulta el reloj,
+// proveedor V2 con sus adaptadores reales. No efectúa IO; con política temporal
+// consulta el reloj para comprobar la fecha de retirada al ensamblar,
 // no obtiene identidad/autoridad ni concede permisos. Autoridad y Detalle ya
 // pertenecen a la misma petición autenticada y al contexto RRHH del servidor.
 // No admite callbacks de alta, confirmadores, nueva SQL o rutas alternativas.
@@ -68,7 +70,15 @@ func NuevoPreparadorDurableV2PostgreSQL(c ConfiguracionPreparacionDurableV2Postg
 	if err != nil {
 		return nil, f
 	}
-	lectura, err := lector.NuevoV2(c.Autoridad, txLectura, c.Reloj)
+	var lectura *lector.ConsumidorV2
+	if c.PoliticaConsultaDesarrollo == nil {
+		lectura, err = lector.NuevoV2(c.Autoridad, txLectura, c.Reloj)
+	} else {
+		p := c.PoliticaConsultaDesarrollo
+		lectura, err = lector.NuevoV2ConPolitica(c.Autoridad, txLectura, c.Reloj, lector.PoliticaConsultaV2{
+			Tipo: p.Tipo, Referencia: p.Referencia, HuellaSHA256: p.HuellaSHA256, RetiradaEn: p.RetiradaEn,
+		})
+	}
 	if err != nil {
 		return nil, f
 	}

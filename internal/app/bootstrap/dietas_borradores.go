@@ -13,8 +13,10 @@ import (
 	dietasapp "vec-diputacion-granada/internal/modules/dietas/application"
 	dietasports "vec-diputacion-granada/internal/modules/dietas/ports"
 	personalcomp "vec-diputacion-granada/internal/modules/personal/adapters/composicion"
+	personalhttp "vec-diputacion-granada/internal/modules/personal/adapters/httpinterno"
 	personalpostgres "vec-diputacion-granada/internal/modules/personal/adapters/postgres"
 	personalapp "vec-diputacion-granada/internal/modules/personal/application"
+	personalports "vec-diputacion-granada/internal/modules/personal/ports"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
 	vecdomain "vec-diputacion-granada/internal/vec/domain"
 	vecports "vec-diputacion-granada/internal/vec/ports"
@@ -26,21 +28,23 @@ var ErrComposicionBorradoresDietasNoDisponible = errors.New("bootstrap: borrador
 // de la misma política común. La raíz conserva la propiedad y el cierre de los
 // pools; este montaje no acepta DSN, selectores de actor ni permisos del HTTP.
 type dependenciasBorradoresDietas struct {
-	personal       *pgxpool.Pool
-	dietas         *pgxpool.Pool
-	seguridad      resolutorContextoPersonalDietas
-	reloj          vecports.Reloj
-	emisorPersonal personalcomp.EmisorMaterialRelacionDietasV3
-	emisorDietas   dietascomp.EmisorMaterialBorradorV3
-	motivoPersonal vecdomain.ReferenciaEntradaCatalogo
-	motivoDietas   vecdomain.ReferenciaEntradaCatalogo
-	preparador     interface {
+	personal           *pgxpool.Pool
+	personalAsignacion *pgxpool.Pool
+	dietas             *pgxpool.Pool
+	auditoriaPersonal  personalports.RegistradorAuditoriaFronteraAsignacionDietas
+	seguridad          resolutorContextoPersonalDietas
+	reloj              vecports.Reloj
+	emisorPersonal     personalcomp.EmisorMaterialRelacionDietasV3
+	emisorDietas       dietascomp.EmisorMaterialBorradorV3
+	motivoPersonal     vecdomain.ReferenciaEntradaCatalogo
+	motivoDietas       vecdomain.ReferenciaEntradaCatalogo
+	preparador         interface {
 		Preparar(context.Context, dietasports.SolicitudCrearBorradorPropio) (dietasports.SolicitudCrearBorradorPropio, error)
 	}
 }
 
 func componerBorradoresDietas(d dependenciasBorradoresDietas) ([]vechttp.RutaExacta, []vechttp.RutaColeccion, error) {
-	if d.personal == nil || d.dietas == nil || dependenciaDietasNula(d.seguridad) || dependenciaDietasNula(d.reloj) || dependenciaDietasNula(d.emisorPersonal) || dependenciaDietasNula(d.emisorDietas) {
+	if d.personal == nil || d.personalAsignacion == nil || d.dietas == nil || dependenciaDietasNula(d.auditoriaPersonal) || dependenciaDietasNula(d.seguridad) || dependenciaDietasNula(d.reloj) || dependenciaDietasNula(d.emisorPersonal) || dependenciaDietasNula(d.emisorDietas) {
 		return nil, nil, ErrComposicionBorradoresDietasNoDisponible
 	}
 	identidad, err := nuevaIdentidadPersonalDietas(d.seguridad, d.reloj)
@@ -59,6 +63,22 @@ func componerBorradoresDietas(d dependenciasBorradoresDietas) ([]vechttp.RutaExa
 	if err != nil {
 		return nil, nil, ErrComposicionBorradoresDietasNoDisponible
 	}
+	autorizadorAsignacion, err := personalcomp.NuevoProveedorAutorizacionAsignacionDietas(identidad, d.emisorPersonal, d.motivoPersonal)
+	if err != nil {
+		return nil, nil, ErrComposicionBorradoresDietasNoDisponible
+	}
+	repositorioAsignacion, err := personalpostgres.NuevoRepositorioAsignacionDietasPostgreSQL(d.personalAsignacion)
+	if err != nil {
+		return nil, nil, ErrComposicionBorradoresDietasNoDisponible
+	}
+	asignaciones, err := personalapp.NuevoServicioAsignacionDietas(autorizadorAsignacion, repositorioAsignacion)
+	if err != nil {
+		return nil, nil, ErrComposicionBorradoresDietasNoDisponible
+	}
+	proveedorAsignacionEnvio, err := dietascomp.NuevoProveedorAsignacionParaEnvioPersonal(asignaciones)
+	if err != nil {
+		return nil, nil, ErrComposicionBorradoresDietasNoDisponible
+	}
 	autorizadorDietas, err := dietascomp.NuevoEmisorAutorizacionBorrador(d.emisorDietas, d.motivoDietas)
 	if err != nil {
 		return nil, nil, ErrComposicionBorradoresDietasNoDisponible
@@ -71,7 +91,15 @@ func componerBorradoresDietas(d dependenciasBorradoresDietas) ([]vechttp.RutaExa
 	if err != nil {
 		return nil, nil, ErrComposicionBorradoresDietasNoDisponible
 	}
-	servicio, err := dietasapp.NuevoServicioBorradorComision(repositorioDietas)
+	servicio, err := dietasapp.NuevoServicioBorradorComisionConAsignacion(repositorioDietas, proveedorAsignacionEnvio)
+	if err != nil {
+		return nil, nil, ErrComposicionBorradoresDietasNoDisponible
+	}
+	manejadorRelaciones, err := personalhttp.NuevoManejadorRelacionesDietas(identidad, personal, d.auditoriaPersonal)
+	if err != nil {
+		return nil, nil, ErrComposicionBorradoresDietasNoDisponible
+	}
+	manejadorAsignacion, err := personalhttp.NuevoManejadorAsignacionDietas(identidad, asignaciones, d.auditoriaPersonal)
 	if err != nil {
 		return nil, nil, ErrComposicionBorradoresDietasNoDisponible
 	}
@@ -90,6 +118,19 @@ func componerBorradoresDietas(d dependenciasBorradoresDietas) ([]vechttp.RutaExa
 		ctx := context.WithValue(r.Context(), claveCacheSeguridadComunDesarrollo{}, &cacheSeguridadComunDesarrollo{})
 		manejador.ServeHTTP(w, r.WithContext(ctx))
 	})
-	return []vechttp.RutaExacta{{Ruta: dietashttp.RutaBorradores, Manejador: ruta}},
-		[]vechttp.RutaColeccion{{Prefijo: dietashttp.RutaBorradores, Manejador: ruta}}, nil
+	rutaRelaciones := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(r.Context(), claveCacheSeguridadComunDesarrollo{}, &cacheSeguridadComunDesarrollo{})
+		manejadorRelaciones.ServeHTTP(w, r.WithContext(ctx))
+	})
+	rutaAsignacion := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(r.Context(), claveCacheSeguridadComunDesarrollo{}, &cacheSeguridadComunDesarrollo{})
+		manejadorAsignacion.ServeHTTP(w, r.WithContext(ctx))
+	})
+	exactasAsignacion, coleccionesAsignacion := rutasAsignacionDietas(rutaAsignacion, catalogoValidadoresCompetentesAsignacionDietas)
+	exactas := append([]vechttp.RutaExacta{
+		{Ruta: dietashttp.RutaBorradores, Manejador: ruta},
+		{Ruta: personalhttp.RutaRelacionesDietas, Manejador: rutaRelaciones},
+	}, exactasAsignacion...)
+	colecciones := append([]vechttp.RutaColeccion{{Prefijo: dietashttp.RutaBorradores, Manejador: ruta}}, coleccionesAsignacion...)
+	return exactas, colecciones, nil
 }

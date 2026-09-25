@@ -84,3 +84,40 @@ func TestLoadCargaSoloLosDosConsumidoresPropiosDeDietas(t *testing.T) {
 		}
 	}
 }
+
+func TestAsignacionPersonalDietasRequiereTercerLoginNominal(t *testing.T) {
+	base, err := NuevaConfiguracionDietasBorradores("postgres://dietas:uno@bd/vec", "postgres://relaciones:dos@bd/vec")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := base.DSNAsignacionPersonal(); !errors.Is(err, ErrConfiguracionDietasBorradoresIncompleta) {
+		t.Fatalf("asignación sin login propio: %v", err)
+	}
+	if _, err := NuevaConfiguracionDietasBorradores("postgres://dietas:uno@bd/vec", "postgres://relaciones:dos@bd/vec", "postgres://dietas:tres@otra/vec"); !errors.Is(err, ErrConfiguracionDietasBorradoresNoSeparada) {
+		t.Fatalf("login de Dietas reutilizado: %v", err)
+	}
+	completa, err := NuevaConfiguracionDietasBorradores("postgres://dietas:uno@bd/vec", "postgres://relaciones:dos@bd/vec", "postgres://asignacion:tres@bd/vec")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dsn, err := completa.DSNAsignacionPersonal()
+	if err != nil || dsn != "postgres://asignacion:tres@bd/vec" {
+		t.Fatal("la asignación no recibió el login nominal")
+	}
+	if len((Config{DietasBorradoresPostgreSQL: completa}).dsnsPostgreSQLConfigurados()) != 3 {
+		t.Fatal("el login Personal no participa en el inventario")
+	}
+	conAuditoria, err := NuevaConfiguracionDietasBorradores("postgres://dietas:uno@bd/vec", "postgres://relaciones:dos@bd/vec", "postgres://asignacion:tres@bd/vec", "postgres://auditoria:cuatro@bd/vec")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := conAuditoria.DSNAuditoriaPersonal(); err != nil {
+		t.Fatalf("auditoría Personal nominal rechazada: %v", err)
+	}
+	if len((Config{DietasBorradoresPostgreSQL: conAuditoria}).dsnsPostgreSQLConfigurados()) != 4 {
+		t.Fatal("el login de auditoría Personal no participa en el inventario")
+	}
+	if _, err := NuevaConfiguracionDietasBorradores("postgres://dietas:uno@bd/vec", "postgres://relaciones:dos@bd/vec", "postgres://asignacion:tres@bd/vec", "postgres://relaciones:otra@bd/vec"); !errors.Is(err, ErrConfiguracionDietasBorradoresNoSeparada) {
+		t.Fatalf("auditoría Personal reutilizó login: %v", err)
+	}
+}

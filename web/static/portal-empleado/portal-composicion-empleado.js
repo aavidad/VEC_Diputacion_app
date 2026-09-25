@@ -1,89 +1,49 @@
 /** Montaje de vistas del empleado, sin inferir permisos ni componer escrituras. */
-import { obtenerAtlasSinteticoRRHH } from "./datos-sinteticos-rrhh.js";
-
-function centroSalidaSinteticoDietas() {
-  const atlas = obtenerAtlasSinteticoRRHH();
-  const centro = atlas?.centro;
-  const localidad = atlas?.localidades?.find((item) => item.referencia === centro?.localidad_ref);
-  const nombreCentro = String(centro?.nombre_visible || "").trim();
-  const nombreLocalidad = String(localidad?.nombre_visible || "").trim();
-  if (!nombreCentro || !nombreLocalidad) return undefined;
-  // La presentación solo proyecta etiquetas; nunca propaga referencias de
-  // empleado, centro o localidad al selector ni convierte este dato sintético
-  // en una consulta de Personal.
-  return Object.freeze({
-    etiqueta: `${nombreCentro} · ${nombreLocalidad}`,
-    localidad: nombreLocalidad,
-  });
-}
 export function componerCronosVisible(recursos, contextoActor, entorno) {
   if (typeof recursos.recorridos?.montarVistaRecorridosCronos !== "function") return undefined;
   return Object.freeze({ montar: recursos.recorridos.montarVistaRecorridosCronos });
 }
 
-export function componerDietasVisible(recursos, contextoActor, capacidades, entorno) {
-  const calculador = recursos.calculador.crearCalculadorRutasDietasPresentacionOSRM({
-    contextoActor, capacidades,
-    fetchImpl: typeof entorno.fetch === "function" ? entorno.fetch.bind(entorno) : undefined,
-  });
-  const visorRuta = recursos.mapa.crearVisorRutaDietas({ entorno, permitirTeselas: true });
-  // El objeto vacío conserva el fallo cerrado: si el atlas deja de resolver
-  // el centro no se transforma silenciosamente en Granada.
-  const centroSalidaAsociado = centroSalidaSinteticoDietas() || Object.freeze({});
-  return Object.freeze({
-    calculador, visorRuta,
-    montar: recursos.recorridos?.montarVistaRecorridosDietas
-      ? ({ raiz, anunciar, registrarDesmontar }) => recursos.recorridos.montarVistaRecorridosDietas(raiz, {
-        anunciar, registrarDesmontar,
-        montarItinerario: (hueco) => recursos.vista.montarVistaItinerarioDietas({
-          raiz: hueco, calculador, visorRuta, anunciar, centroSalidaAsociado,
-        }),
-      })
-      : recursos.vista.montarVistaItinerarioDietas,
-  });
-}
-
-/**
- * El portal interno puede ofrecer los borradores propios sin fabricar un
- * ContextoActor en el navegador. El cálculo de ruta HTTP conserva su contrato
- * más estricto: se añadirá sólo desde un proveedor explícito de identidad y
- * capacidades, nunca desde el catálogo o una entrada de menú.
- */
+/** El portal interno inyecta clientes HTTP; cada operación se autoriza en servidor. */
 export function componerDietasInternas(recursos, entorno) {
   if (!recursos?.contrato || typeof recursos.contrato !== "object"
     || typeof recursos?.clienteBorradores?.crearClienteBorradoresDietasHTTP !== "function"
+    || typeof recursos?.clienteAsignacion?.crearClienteAsignacionDietasHTTP !== "function"
+    || typeof recursos?.calculador?.crearCalculadorRutasDietasHTTP !== "function"
+    || typeof recursos?.mapa?.crearVisorRutaDietas !== "function"
     || typeof recursos?.recorridos?.montarVistaRecorridosDietas !== "function"
-    || typeof recursos?.vista?.montarVistaItinerarioPendienteDietas !== "function") return undefined;
-  const fetchImpl = typeof entorno?.fetch === "function" ? entorno.fetch.bind(entorno) : undefined;
+    || typeof entorno?.fetch !== "function") return undefined;
+  const fetchImpl = entorno.fetch.bind(entorno);
   const clienteBorradores = recursos.clienteBorradores.crearClienteBorradoresDietasHTTP({ fetchImpl });
-  // Solo la raíz de identidad puede inyectar este par ya autorizado. El
-  // navegador, el catálogo y el menú no construyen ContextoActor, capacidad ni
-  // cliente HTTP para rutas. En su ausencia se conserva el área visible pero
-  // no hay cálculo ni geometría.
-  const itinerarioAutorizado = entorno?.dietasItinerarioAutorizado;
-  const puedeCalcular = itinerarioAutorizado
-    && typeof itinerarioAutorizado === "object"
-    && typeof itinerarioAutorizado.calculador?.obtenerCatalogo === "function"
-    && typeof itinerarioAutorizado.calculador?.calcular === "function"
-    && typeof itinerarioAutorizado.visorRuta?.montar === "function";
+  const clienteAsignacion = recursos.clienteAsignacion.crearClienteAsignacionDietasHTTP({ fetchImpl });
+  // Catálogo y ruta por carretera los autoriza el servidor en cada petición;
+  // las teselas son las propias del mismo origen, sin proveedor externo.
+  const calculadorRuta = recursos.calculador.crearCalculadorRutasDietasHTTP({ fetchImpl });
+  const visorRuta = recursos.mapa.crearVisorRutaDietas({ entorno, permitirTeselas: true });
   return Object.freeze({
-    clienteBorradores,
-    montar: ({ raiz, anunciar, registrarDesmontar }) => recursos.recorridos.montarVistaRecorridosDietas(raiz, {
-      clienteBorradores,
-      anunciar,
-      registrarDesmontar,
-      // El área cartográfica sí queda visible, pero no recibe catálogo,
-      // identidad ni calculador. Solo una composición autorizada puede
-      // sustituir este estado cerrado por el visor y la ruta reales.
-      montarItinerario: (hueco) => (puedeCalcular
-        ? recursos.vista.montarVistaItinerarioDietas({
-          raiz: hueco,
-          calculador: itinerarioAutorizado.calculador,
-          visorRuta: itinerarioAutorizado.visorRuta,
-          anunciar,
-        })
-        : recursos.vista.montarVistaItinerarioPendienteDietas({ raiz: hueco })),
-    }),
+    clienteBorradores, clienteAsignacion,
+    montar: async ({ raiz, anunciar, registrarDesmontar }) => {
+      // Personal acredita las relaciones antes de montar. Si el portal
+      // abandona la vista mientras llega la respuesta, no se monta nada.
+      const cancelacion = new AbortController();
+      let vigente = true;
+      registrarDesmontar?.(() => { vigente = false; cancelacion.abort(); });
+      let relaciones = { relacionesAutorizadas: [], fechaReferenciaPersonal: undefined,
+        estadoRelaciones: "no_disponible", motivoRelaciones: undefined };
+      try {
+        const respuesta = await clienteAsignacion.obtenerRelaciones({ signal: cancelacion.signal });
+        relaciones = { relacionesAutorizadas: respuesta.relaciones_autorizadas,
+          fechaReferenciaPersonal: respuesta.fecha_referencia, estadoRelaciones: "disponible", motivoRelaciones: undefined };
+      } catch (error) {
+        if (["empleado_no_disponible", "empleado_ambiguo"].includes(error?.codigo))
+          relaciones = { ...relaciones, motivoRelaciones: error.codigo };
+      }
+      if (!vigente) return Object.freeze({ desmontar() {} });
+      return recursos.recorridos.montarVistaRecorridosDietas(raiz, {
+        clienteBorradores, clienteAsignacion, calculadorRuta, visorRuta, ...relaciones,
+        anunciar, registrarDesmontar,
+      });
+    },
   });
 }
 

@@ -95,6 +95,7 @@ type dependenciasPostgreSQLContratacionTemporalDesarrollo struct {
 	proveedorMaterialDespachoCorreo   *proveedorMaterialAltaContratacionTemporalDesarrollo
 	proveedorMaterialResultadoCorreo  *proveedorMaterialAltaContratacionTemporalDesarrollo
 	materialDietas                    materialDietasDesdeCTDesarrollo
+	materialCronos                    materialCronosDesdeCTDesarrollo
 	catalogoMaterial                  catalogoMaterialAutorizacionComunDesarrollo
 	cerrarUnaVez                      func()
 }
@@ -310,20 +311,38 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	if dietasBorradoresSolicitadas(cfg.DietasBorradoresEnabled) {
 		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialDietasDesarrollo()...)
 	}
+	if cronosEmpleadoSolicitado(cfg.CronosEmpleadoEnabled) {
+		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialCronosDesarrollo()...)
+	}
 	catalogoMaterial, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(descriptoresMaterial)
 	if err != nil {
 		return vacias, errGobiernoPostgreSQLContratacionTemporalDesarrolloIncoherente
 	}
 	dependencias.catalogoMaterial = catalogoMaterial
 	if dietasBorradoresSolicitadas(cfg.DietasBorradoresEnabled) {
-		var dietas [3]*proveedorMaterialAltaContratacionTemporalDesarrollo
-		for i, audiencia := range []string{audienciaConsumoPersonalDietasDesarrollo, audienciaConsumoCrearDietasDesarrollo, audienciaConsumoConsultarDietasDesarrollo} {
-			dietas[i], err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, audiencia)
+		proveedoresDietas := make(map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo)
+		for _, descriptor := range descriptoresMaterialDietasDesarrollo() {
+			proveedoresDietas[descriptor.Audiencia], err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, descriptor.Audiencia)
 			if err != nil {
 				return vacias, err
 			}
 		}
-		dependencias.materialDietas = materialDietasDesdeCTDesarrollo{personal: dietas[0], crear: dietas[1], consultar: dietas[2]}
+		dependencias.materialDietas = materialDietasDesdeCTDesarrollo{
+			personal:    proveedoresDietas[audienciaConsumoPersonalDietasDesarrollo],
+			crear:       proveedoresDietas[audienciaConsumoCrearDietasDesarrollo],
+			consultar:   proveedoresDietas[audienciaConsumoConsultarDietasDesarrollo],
+			adicionales: proveedoresDietas,
+		}
+	}
+	if cronosEmpleadoSolicitado(cfg.CronosEmpleadoEnabled) {
+		var cronos [4]*proveedorMaterialAltaContratacionTemporalDesarrollo
+		for i, audiencia := range audienciasCronosEmpleadoDesarrollo() {
+			cronos[i], err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, audiencia)
+			if err != nil {
+				return vacias, err
+			}
+		}
+		dependencias.materialCronos = materialCronosDesdeCTDesarrollo{marcaje: cronos[0], disponibilidad: cronos[1], recibo: cronos[2], saldo: cronos[3]}
 	}
 	proveedor, err := nuevoProveedorMaterialAltaContratacionTemporalDesarrollo(
 		material, soporte, reloj,

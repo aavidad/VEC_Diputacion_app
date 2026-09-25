@@ -306,8 +306,6 @@ func rutasBaseVEC() []string {
 		"/api/vec/modules/cronos/action",
 		"/api/vec/modules/horarios/action",
 		"/api/vec/modules/permisos/action",
-		"/api/vec/modules/dietas/action",
-		"/api/vec/modules/rutas/action",
 		"/api/vec/modules/bolsa/action",
 		"/api/vec/modules/administracion/action",
 		"/api/vec/modules/personal/action",

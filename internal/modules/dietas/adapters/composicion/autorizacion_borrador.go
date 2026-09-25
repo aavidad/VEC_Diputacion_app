@@ -36,7 +36,7 @@ func (e *EmisorAutorizacionBorrador) AutorizarBorradorPropio(ctx context.Context
 	if e == nil || nulo(e.emisor) || ctx == nil || ctx.Err() != nil || base.Contexto.Validar() != nil || base.Vinculo.ValidarPara(base.Contexto) != nil || len(efecto.Material) == 0 {
 		return vacio, dietasports.ErrAccesoBorradorDenegado
 	}
-	if operacion.Operacion != dietasports.OperacionCrearBorrador && operacion.Operacion != dietasports.OperacionConsultarBorrador {
+	if operacion.Operacion != dietasports.OperacionCrearBorrador && operacion.Operacion != dietasports.OperacionConsultarBorrador && operacion.Operacion != dietasports.OperacionConsultarDocumento && operacion.Operacion != dietasports.OperacionEditarBorrador && operacion.Operacion != dietasports.OperacionBorrarBorrador && operacion.Operacion != dietasports.OperacionEnviarBorrador {
 		return vacio, dietasports.ErrAccesoBorradorDenegado
 	}
 	accion, recurso, finalidad := contratoSolicitud(operacion)
@@ -69,6 +69,18 @@ func (e *EmisorAutorizacionBorrador) AutorizarBorradorPropio(ctx context.Context
 	audiencia := "vec_dietas.borrador_propio.consultar.v1"
 	if accion == dietasapp.AccionCrearBorradorPropio {
 		audiencia = "vec_dietas.borrador_propio.crear.v1"
+	}
+	if accion == dietasapp.AccionEditarBorradorPropio {
+		audiencia = "vec_dietas.borrador_propio.editar.v1"
+	}
+	if accion == dietasapp.AccionBorrarBorradorPropio {
+		audiencia = "vec_dietas.borrador_propio.borrar.v1"
+	}
+	if accion == dietasapp.AccionEnviarBorradorPropio {
+		audiencia = "vec_dietas.borrador_propio.enviar.v1"
+	}
+	if accion == dietasapp.AccionConsultarDocumentoPropio {
+		audiencia = "vec_dietas.documento_propio.consultar.v1"
 	}
 	if !vecports.MaterialAtestadoLigadoV3(solicitud, decision, confirmacion, base.Contexto, e.motivo, material, audiencia) {
 		return vacio, dietasports.ErrAccesoBorradorDenegado

@@ -20,11 +20,19 @@ var ErrComposicionBorradorInvalida = errors.New("dietas: composicion de borrador
 var referenciaComision = regexp.MustCompile(`^dco_[A-Za-z0-9_-]{22,128}$`)
 
 const (
-	AccionCrearBorradorPropio        = "dietas.borrador.propio.crear"
-	AccionConsultarBorradorPropio    = "dietas.borrador.propio.consultar"
-	FinalidadCrearBorradorPropio     = "crear_borrador_propio"
-	FinalidadConsultarBorradorPropio = "consultar_borrador_propio"
-	RecursoMisBorradores             = "dietas:borradores:propios"
+	AccionCrearBorradorPropio         = "dietas.borrador.propio.crear"
+	AccionConsultarBorradorPropio     = "dietas.borrador.propio.consultar"
+	AccionConsultarDocumentoPropio    = "dietas.documento.propio.consultar"
+	AccionEditarBorradorPropio        = "dietas.borrador.propio.editar"
+	AccionBorrarBorradorPropio        = "dietas.borrador.propio.borrar"
+	AccionEnviarBorradorPropio        = "dietas.borrador.propio.enviar"
+	FinalidadCrearBorradorPropio      = "crear_borrador_propio"
+	FinalidadConsultarBorradorPropio  = "consultar_borrador_propio"
+	FinalidadConsultarDocumentoPropio = "consultar_documento_propio_dietas"
+	FinalidadEditarBorradorPropio     = "editar_borrador_propio"
+	FinalidadBorrarBorradorPropio     = "borrar_borrador_propio"
+	FinalidadEnviarBorradorPropio     = "enviar_borrador_propio"
+	RecursoMisBorradores              = "dietas:borradores:propios"
 )
 
 type CasoUsoBorradorComision interface {
@@ -34,7 +42,8 @@ type CasoUsoBorradorComision interface {
 }
 
 type ServicioBorradorComision struct {
-	repositorio dietasports.RepositorioBorradorComision
+	repositorio  dietasports.RepositorioBorradorComision
+	asignaciones dietasports.ProveedorAsignacionParaEnvio
 }
 
 func NuevoServicioBorradorComision(repositorio dietasports.RepositorioBorradorComision) (*ServicioBorradorComision, error) {
@@ -42,6 +51,15 @@ func NuevoServicioBorradorComision(repositorio dietasports.RepositorioBorradorCo
 		return nil, ErrComposicionBorradorInvalida
 	}
 	return &ServicioBorradorComision{repositorio: repositorio}, nil
+}
+
+func NuevoServicioBorradorComisionConAsignacion(repositorio dietasports.RepositorioBorradorComision, asignaciones dietasports.ProveedorAsignacionParaEnvio) (*ServicioBorradorComision, error) {
+	s, err := NuevoServicioBorradorComision(repositorio)
+	if err != nil || interfazNula(asignaciones) {
+		return nil, ErrComposicionBorradorInvalida
+	}
+	s.asignaciones = asignaciones
+	return s, nil
 }
 
 func (s *ServicioBorradorComision) CrearPropio(ctx context.Context, identidad dietasports.IdentidadEfectivaBorrador, solicitud dietasports.SolicitudCrearBorradorPropio) (dietasports.ResultadoBorradorComision, error) {
@@ -177,7 +195,7 @@ type materialOperacionBorradorV1 struct {
 	RecursoRef      string                       `json:"recurso_ref"`
 	Identidad       identidadOperacionBorradorV1 `json:"identidad"`
 	HuellaSemantica string                       `json:"huella_semantica,omitempty"`
-	Comando         *crearOperacionBorradorV1    `json:"comando,omitempty"`
+	Comando         any                          `json:"comando,omitempty"`
 	Consulta        *listaOperacionBorradorV1    `json:"consulta,omitempty"`
 	Referencia      string                       `json:"referencia,omitempty"`
 }
@@ -211,6 +229,25 @@ type crearOperacionBorradorV1 struct {
 	HoraInicio        string                  `json:"hora_inicio,omitempty"`
 	HoraFin           string                  `json:"hora_fin,omitempty"`
 	Calculo           *domain.CalculoComision `json:"calculo,omitempty"`
+}
+type mutarOperacionBorradorV2 struct {
+	ClaveIdempotencia     string                                  `json:"clave_idempotencia"`
+	VersionEsperada       uint64                                  `json:"version_esperada"`
+	RelacionRef           string                                  `json:"relacion_ref"`
+	FechaInicio           string                                  `json:"fecha_inicio,omitempty"`
+	FechaFin              string                                  `json:"fecha_fin,omitempty"`
+	HoraInicio            string                                  `json:"hora_inicio,omitempty"`
+	HoraFin               string                                  `json:"hora_fin,omitempty"`
+	Motivo                string                                  `json:"motivo,omitempty"`
+	CodigosRuta           []string                                `json:"codigos_ruta,omitempty"`
+	VehiculoPropio        *bool                                   `json:"vehiculo_propio,omitempty"`
+	Rutas                 *[]domain.RutaDeclaradaComision         `json:"rutas,omitempty"`
+	TramosAceptados       *[]int                                  `json:"tramos_aceptados,omitempty"`
+	VersionTarifaAceptada string                                  `json:"version_tarifa_aceptada,omitempty"`
+	Calculo               *domain.CalculoComision                 `json:"calculo,omitempty"`
+	Documento             *domain.DocumentoComision               `json:"documento,omitempty"`
+	Otros                 []domain.OtroGastoDeclarado             `json:"otros,omitempty"`
+	Asignacion            *dietasports.AsignacionDietasAcreditada `json:"asignacion,omitempty"`
 }
 type listaOperacionBorradorV1 struct {
 	Cursor string `json:"cursor"`
@@ -290,16 +327,46 @@ func construirEfectoAutorizacionBorradorActor(actor vecdomain.ContextoActor, rel
 		if err != nil {
 			return dietasports.EfectoAutorizacionBorrador{}, dietasports.ErrEfectoAutorizacionBorradorInvalido
 		}
+	case solicitud.Operacion == dietasports.OperacionEditarBorrador:
+		operacion = "editar"
+		m.Esquema = dietasports.EsquemaEfectoAutorizacionDocumentoV2
+		m.RecursoRef = solicitud.Referencia
+		m.Referencia = solicitud.Referencia
+		e := solicitud.Editar
+		rutas := append([]domain.RutaDeclaradaComision{}, e.Rutas...)
+		tramos := append([]int{}, e.TramosAceptados...)
+		m.Comando = mutarOperacionBorradorV2{ClaveIdempotencia: e.ClaveIdempotencia, VersionEsperada: e.VersionEsperada, RelacionRef: e.RelacionRef, FechaInicio: e.FechaInicio, FechaFin: e.FechaFin, HoraInicio: e.HoraInicio, HoraFin: e.HoraFin, Motivo: e.Motivo, CodigosRuta: append([]string{}, e.CodigosRuta...), VehiculoPropio: &e.VehiculoPropio, Rutas: &rutas, TramosAceptados: &tramos, VersionTarifaAceptada: e.VersionTarifaAceptada, Asignacion: e.Asignacion, Calculo: e.Calculo, Documento: e.Documento, Otros: append([]domain.OtroGastoDeclarado(nil), e.Otros...)}
+		m.HuellaSemantica, err = huellaSemanticaMutacionBorrador(relacion, solicitud.Referencia, m.Comando)
+		if err != nil {
+			return dietasports.EfectoAutorizacionBorrador{}, dietasports.ErrEfectoAutorizacionBorradorInvalido
+		}
+	case solicitud.Operacion == dietasports.OperacionBorrarBorrador || solicitud.Operacion == dietasports.OperacionEnviarBorrador:
+		operacion = "borrar"
+		if solicitud.Operacion == dietasports.OperacionEnviarBorrador {
+			operacion = "enviar"
+		}
+		m.Esquema = dietasports.EsquemaEfectoAutorizacionDocumentoV2
+		m.RecursoRef = solicitud.Referencia
+		m.Referencia = solicitud.Referencia
+		e := solicitud.Mutacion
+		m.Comando = mutarOperacionBorradorV2{ClaveIdempotencia: e.ClaveIdempotencia, VersionEsperada: e.VersionEsperada, RelacionRef: e.RelacionRef, Asignacion: e.Asignacion}
+		m.HuellaSemantica, err = huellaSemanticaMutacionBorrador(relacion, solicitud.Referencia, m.Comando)
+		if err != nil {
+			return dietasports.EfectoAutorizacionBorrador{}, dietasports.ErrEfectoAutorizacionBorradorInvalido
+		}
 	case solicitud.Referencia != "":
 		operacion = "detalle"
 		m.RecursoRef = solicitud.Referencia
 		m.Referencia = solicitud.Referencia
-	case solicitud.Operacion == dietasports.OperacionConsultarBorrador:
+	case solicitud.Operacion == dietasports.OperacionConsultarBorrador || solicitud.Operacion == dietasports.OperacionConsultarDocumento:
 		operacion = "lista"
 		m.RecursoRef = "dietas:borradores:propios"
 		m.Consulta = &listaOperacionBorradorV1{solicitud.Consulta.Cursor, solicitud.Consulta.Limite}
 	default:
 		return dietasports.EfectoAutorizacionBorrador{}, dietasports.ErrEfectoAutorizacionBorradorInvalido
+	}
+	if solicitud.Operacion == dietasports.OperacionConsultarDocumento {
+		m.Esquema = dietasports.EsquemaEfectoAutorizacionDocumentoV2
 	}
 	m.Operacion = operacion
 	material, err := json.Marshal(m)
@@ -349,6 +416,24 @@ func huellaSemanticaCrearBorrador(relacion dietasports.RelacionServicioAcreditad
 	}
 	suma := sha256.Sum256(bytes)
 	return hex.EncodeToString(suma[:]), nil
+}
+
+func huellaSemanticaMutacionBorrador(relacion dietasports.RelacionServicioAcreditada, referencia string, comando any) (string, error) {
+	canon := struct {
+		PersonaRef      string `json:"persona_ref"`
+		EmpleadoRef     string `json:"empleado_ref"`
+		RelacionRef     string `json:"relacion_ref"`
+		UnidadRef       string `json:"unidad_ref"`
+		RelacionVersion int64  `json:"relacion_version"`
+		Referencia      string `json:"referencia"`
+		Comando         any    `json:"comando"`
+	}{relacion.PersonaRef, relacion.EmpleadoRef, relacion.RelacionRef, relacion.UnidadRef, relacion.Version, referencia, comando}
+	b, err := json.Marshal(canon)
+	if err != nil {
+		return "", err
+	}
+	h := sha256.Sum256(b)
+	return hex.EncodeToString(h[:]), nil
 }
 
 func relacionSelloValido(r dietasports.RelacionServicioAcreditada, s dietasports.RevalidacionRelacionPersonal) bool {
@@ -425,13 +510,41 @@ func NuevaSolicitudOperacionListarBorrador(c dietasports.ConsultaBorradoresPropi
 	}
 	return dietasports.SolicitudOperacionBorrador{Operacion: dietasports.OperacionConsultarBorrador, Consulta: c, RelacionRef: rel}, nil
 }
+func NuevaSolicitudOperacionListarDocumento(c dietasports.ConsultaBorradoresPropios, rel string) (dietasports.SolicitudOperacionBorrador, error) {
+	s, err := NuevaSolicitudOperacionListarBorrador(c, rel)
+	if err != nil {
+		return s, err
+	}
+	s.Operacion = dietasports.OperacionConsultarDocumento
+	return s, nil
+}
 func NuevaSolicitudOperacionObtenerBorrador(ref, rel string) (dietasports.SolicitudOperacionBorrador, error) {
 	if !referenciaDietas(ref, "dco_") || (rel != "" && !referenciaDietas(rel, "rel_")) {
 		return dietasports.SolicitudOperacionBorrador{}, domain.ErrComisionBorradorInvalida
 	}
 	return dietasports.SolicitudOperacionBorrador{Operacion: dietasports.OperacionConsultarBorrador, Referencia: ref, RelacionRef: rel}, nil
 }
+func NuevaSolicitudOperacionObtenerDocumento(ref, rel string) (dietasports.SolicitudOperacionBorrador, error) {
+	s, err := NuevaSolicitudOperacionObtenerBorrador(ref, rel)
+	if err != nil {
+		return s, err
+	}
+	s.Operacion = dietasports.OperacionConsultarDocumento
+	return s, nil
+}
 func validarSolicitudOperacion(s dietasports.SolicitudOperacionBorrador) error {
+	if s.Operacion == dietasports.OperacionEditarBorrador {
+		if s.Referencia != s.Editar.Referencia || s.RelacionRef != s.Editar.RelacionRef || !solicitudMutacionVacia(s.Mutacion) || !solicitudCrearVacia(s.Crear) || s.Consulta != (dietasports.ConsultaBorradoresPropios{}) {
+			return domain.ErrDocumentoComisionInvalido
+		}
+		return ValidarSolicitudEditarBase(s.Editar)
+	}
+	if s.Operacion == dietasports.OperacionBorrarBorrador || s.Operacion == dietasports.OperacionEnviarBorrador {
+		if s.Referencia != s.Mutacion.Referencia || s.RelacionRef != s.Mutacion.RelacionRef || !solicitudEditarVacia(s.Editar) || !solicitudCrearVacia(s.Crear) || s.Consulta != (dietasports.ConsultaBorradoresPropios{}) {
+			return domain.ErrDocumentoComisionInvalido
+		}
+		return ValidarSolicitudMutacion(s.Mutacion)
+	}
 	if s.Operacion == dietasports.OperacionCrearBorrador {
 		n, e := normalizarSolicitudCrear(s.Crear)
 		if e != nil || s.RelacionRef != n.RelacionRef || s.Referencia != "" || s.Consulta != (dietasports.ConsultaBorradoresPropios{}) || !solicitudesCrearIguales(s.Crear, n) {
@@ -439,7 +552,7 @@ func validarSolicitudOperacion(s dietasports.SolicitudOperacionBorrador) error {
 		}
 		return nil
 	}
-	if s.Operacion != dietasports.OperacionConsultarBorrador || (s.RelacionRef != "" && !referenciaDietas(s.RelacionRef, "rel_")) || !solicitudCrearVacia(s.Crear) {
+	if (s.Operacion != dietasports.OperacionConsultarBorrador && s.Operacion != dietasports.OperacionConsultarDocumento) || (s.RelacionRef != "" && !referenciaDietas(s.RelacionRef, "rel_")) || !solicitudCrearVacia(s.Crear) || !solicitudEditarVacia(s.Editar) || !solicitudMutacionVacia(s.Mutacion) {
 		return domain.ErrComisionBorradorInvalida
 	}
 	if s.Referencia != "" {

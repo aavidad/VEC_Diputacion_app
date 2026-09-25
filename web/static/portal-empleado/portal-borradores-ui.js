@@ -2,7 +2,7 @@ import {
   crearClienteBorradores,
   generarClaveIdempotencia,
 } from "./portal-borradores-api.js";
-import { crearControlAccesoBorradores } from "./portal-borradores-acceso.js?v=20260925-aspecto-v1";
+import { crearControlAccesoBorradores } from "./portal-borradores-acceso.js?v=20260925-tanda-v1";
 import { ESQUEMAS_BORRADORES } from "./portal-borradores-contrato.js";
 import {
   crearEstadoBorradores,
@@ -10,7 +10,7 @@ import {
 } from "./portal-borradores-estado.js?v=20260721-acceso-real-v2";
 import { crearCoordinadorOperacionesBorradores } from "./portal-borradores-operaciones.js?v=20260721-acceso-real-v2";
 import { crearRenderizadorBorradores } from "./portal-borradores-vista.js";
-import { traducirPortal } from "./portal-i18n.js?v=20260925-aspecto-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260925-tanda-v1";
 import {
   FASE_CARGANDO,
   FASE_ERROR,
