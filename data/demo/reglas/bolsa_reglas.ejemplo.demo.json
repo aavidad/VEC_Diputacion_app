@@ -473,7 +473,7 @@
     "estado": "publicado",
     "creado_por": "catalogo_ejemplo_vec",
     "creado_en": "2026-09-25T00:00:00Z",
-    "publicado_por": "catalogo_ejemplo_vec",
+    "publicado_por": "revision_catalogo_ejemplo_vec",
     "publicado_en": "2026-09-25T00:00:00Z",
     "aprobacion_ref": "sin_aprobacion_rrhh:ejemplo_desarrollo",
     "motivo_publicacion": "Publicación de ejemplo solo para desarrollo y presentación; no es una aprobación."
