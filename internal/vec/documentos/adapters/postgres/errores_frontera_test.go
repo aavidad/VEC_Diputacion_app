@@ -20,8 +20,8 @@ func TestClasificarErrorSQLSeparaDominioDeIndisponibilidad(t *testing.T) {
 		want error
 	}{
 		{&pgconn.PgError{Code: "23505", Message: "documentos: clave idempotente reutilizada"}, ports.ErrConflicto},
-		{&pgconn.PgError{Code: "PC003"}, ports.ErrConflicto},
-		{&pgconn.PgError{Code: "PD001"}, ports.ErrConflicto},
+		{&pgconn.PgError{Code: "PC003"}, ports.ErrCapacidadNoDisponible},
+		{&pgconn.PgError{Code: "PD001"}, ports.ErrCapacidadNoDisponible},
 		{&pgconn.PgError{Code: "22023"}, ports.ErrValidacion},
 		{&pgconn.PgError{Code: "23514"}, ports.ErrValidacion},
 		{&pgconn.PgError{Code: "02000"}, ports.ErrNoEncontrado},

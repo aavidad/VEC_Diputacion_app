@@ -120,13 +120,11 @@ func clasificarErrorSQL(err error) error {
 		return ports.ErrAccesoDenegado
 	case strings.HasPrefix(pgErr.Code, "22") || pgErr.Code == "23514" || pgErr.Code == "23502" || pgErr.Code == "23503":
 		return ports.ErrValidacion
-	case strings.HasPrefix(pgErr.Code, "PC") || strings.HasPrefix(pgErr.Code, "PD"):
-		// Códigos de dominio propios: la operación es incompatible con el
-		// estado registrado, no una caída de la dependencia.
-		return ports.ErrConflicto
 	default:
 		// 40001/40P01 (serialización), 55P03/57014 (bloqueo o plazo), 55000
-		// (esquema incompleto), 08xxx y cualquier otro: indisponibilidad.
+		// (esquema incompleto), 08xxx y cualquier otro: indisponibilidad. Las
+		// fachadas documentales no emiten códigos propios PCxxx/PDxxx; uno que
+		// llegara sería de otra función y no puede presentarse como conflicto.
 		return ErrRepositorioNoDisponible
 	}
 }

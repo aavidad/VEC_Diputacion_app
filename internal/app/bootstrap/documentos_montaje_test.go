@@ -178,9 +178,11 @@ func TestFronteraDocumentosAuditaDenegacionesYFallaCerrado(t *testing.T) {
 		registrador.ordenes[0].Ruta != docpg.RutaFronteraConsulta || strings.Contains(w.Body.String(), "robada") {
 		t.Fatalf("cookie: %d %+v", w.Code, registrador.ordenes)
 	}
+	// Ruta no publicada con TLS pero sin identidad verificable: 401 auditado
+	// sin actor y con la ruta cerrada «otra».
 	w = httptest.NewRecorder()
 	h.ServeHTTP(w, peticionDocumentos("/api/vec/documentos/originales/descargas", true))
-	if w.Code != http.StatusNotFound || registrador.ordenes[1].Ruta != docpg.RutaFronteraOtra {
+	if w.Code != http.StatusUnauthorized || registrador.ordenes[1].Ruta != docpg.RutaFronteraOtra || registrador.ordenes[1].ActorRef != "" {
 		t.Fatalf("ruta no publicada con TLS: %d %+v", w.Code, registrador.ordenes)
 	}
 	// Si la auditoría no se confirma: 503 e incidencia técnica.

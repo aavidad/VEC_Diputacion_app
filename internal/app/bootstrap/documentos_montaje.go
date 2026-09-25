@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -127,7 +128,8 @@ func (a *autoridadDocumentosDesarrollo) proteger(siguiente http.Handler) http.Ha
 		publicada := a != nil && a.publicadas[r.URL.Path] && r.URL.RawPath == ""
 		// Sin cadena mTLS verificada no hay identidad: se responde sin
 		// escritura durable para que un anónimo no amplifique la bitácora.
-		if r.TLS == nil || len(r.TLS.VerifiedChains) == 0 || len(r.TLS.VerifiedChains[0]) == 0 {
+		cert, conCadena := certificadoClienteVerificadoDocumentos(r)
+		if !conCadena {
 			if !publicada {
 				responderDenegacionDocumentos(w, http.StatusNotFound, "recurso_no_encontrado")
 				return
@@ -135,17 +137,14 @@ func (a *autoridadDocumentosDesarrollo) proteger(siguiente http.Handler) http.Ha
 			responderDenegacionDocumentos(w, http.StatusUnauthorized, "autenticacion_requerida")
 			return
 		}
+		// Hasta que el vínculo V2 quede verificado ninguna denegación lleva
+		// actor: ni la petición ni un principal aún no revalidado son fuente.
 		if a == nil || a.base == nil || cabeceraLibreComisionesDietas(r.Header) {
 			a.denegar(w, r, http.StatusUnauthorized, docpg.MotivoFronteraAutenticacion, "autenticacion_requerida", "")
 			return
 		}
-		if !publicada {
-			a.denegar(w, r, http.StatusNotFound, docpg.MotivoFronteraDenegado, "recurso_no_encontrado", "")
-			return
-		}
 		principal, err := a.base.resolvedor.ResolveDemoIdentity(r.Context(), r)
 		ahora := a.reloj.Ahora()
-		cert := r.TLS.VerifiedChains[0][0]
 		if err != nil || principal.AuthMethod != core.AuthMethodCertificate || principal.AuthAssurance != core.AuthAssuranceHigh ||
 			ahora.Before(cert.NotBefore) || !ahora.Before(cert.NotAfter) {
 			a.denegar(w, r, http.StatusUnauthorized, docpg.MotivoFronteraAutenticacion, "autenticacion_requerida", "")
@@ -170,10 +169,26 @@ func (a *autoridadDocumentosDesarrollo) proteger(siguiente http.Handler) http.Ha
 			a.denegar(w, r, http.StatusServiceUnavailable, docpg.MotivoFronteraDependencia, "servicio_no_disponible", "")
 			return
 		}
+		// Con la identidad ya verificada, la ruta no publicada se audita con
+		// su actor, igual que en la frontera de Dietas.
+		if !publicada {
+			a.denegar(w, r, http.StatusNotFound, docpg.MotivoFronteraDenegado, "recurso_no_encontrado", actorRef)
+			return
+		}
 		ctx := context.WithValue(r.Context(), claveContextoDocumentos{}, contextoDocumentos{autoridad: a, ruta: r.URL.Path,
 			seguridad: contextoSeguridadComunDesarrollo{Vinculo: vinculo, Resultado: resultado}})
 		siguiente.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+// certificadoClienteVerificadoDocumentos devuelve la hoja de la primera
+// cadena mTLS verificada. Sin cadena, o con una cadena vacía, no hay
+// certificado y nunca se indexa.
+func certificadoClienteVerificadoDocumentos(r *http.Request) (*x509.Certificate, bool) {
+	if r == nil || r.TLS == nil || len(r.TLS.VerifiedChains) == 0 || len(r.TLS.VerifiedChains[0]) == 0 || r.TLS.VerifiedChains[0][0] == nil {
+		return nil, false
+	}
+	return r.TLS.VerifiedChains[0][0], true
 }
 
 // denegar registra la denegación con el LOGIN auditor antes de responder. Si
