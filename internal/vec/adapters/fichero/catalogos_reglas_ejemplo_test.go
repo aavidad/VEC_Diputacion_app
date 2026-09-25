@@ -21,6 +21,7 @@ func TestPaquetesReglasEjemploCarganConAdaptadorReal(t *testing.T) {
 	}{
 		{"../../../../data/demo/reglas/bolsa_reglas.ejemplo.demo.json", "vec.bolsa.reglas", "bolsa", 26, false},
 		{"../../../../data/demo/reglas/ct_reglas.ejemplo.demo.json", "vec.contratacion_temporal.reglas", "contratacion_temporal", 8, false},
+		{"../../../../data/demo/reglas/bolsa_roles_segregacion.demo.json", "vec.bolsa.roles_segregacion", "bolsa", 1, false},
 		{"../../../../data/demo/reglas/ct_motivos_rectificacion.demo.json", "motivos_rectificacion_analisis", "contratacion_temporal", 6, true},
 	}
 	for _, caso := range casos {

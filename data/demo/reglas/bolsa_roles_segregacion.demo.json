@@ -1,0 +1,43 @@
+{
+  "version_esquema": 1,
+  "fuente": {
+    "revision": "roles-segregacion-bolsa-ejemplo-v1",
+    "actualizada_en": "2026-09-25T00:00:00Z",
+    "demostracion": true,
+    "aviso": "DEMOSTRACIÓN: reglas de ejemplo para desarrollo y presentación a RRHH. Se borran al pasar a producción, como los datos de ejemplo. Las marcadas «ejemplo» son supuestos de trabajo sin aprobación de RRHH ni validez administrativa.",
+    "origen_sha256": "992929b47a3ac796b2c0d4397c20ce546e6e7896c44779f51b8a45072ad7f76d"
+  },
+  "catalogo": {
+    "id": "vec.bolsa.roles_segregacion",
+    "version": 1,
+    "revision": 1,
+    "modulo_id": "bolsa",
+    "nombre": "Separación de funciones en Bolsa — ejemplo",
+    "descripcion": "Qué operaciones sobre la permanencia en la bolsa exigen que valide una segunda persona distinta de quien la registra. La exclusión la exige siempre; el catálogo solo puede añadir la pausa o la reactivación.",
+    "fuente_ref": "paquete:ejemplo:vec:v1",
+    "motivo_creacion": "Reglas de ejemplo para la presentación a RRHH; se retiran antes de producción.",
+    "entradas": [
+      {
+        "clave": "s01.segunda_persona",
+        "etiqueta": "Operaciones que valida una segunda persona",
+        "descripcion": "Lista de operaciones (pausar, reactivar, excluir) en las que quien valida no puede ser quien registra. La exclusión no se puede quitar de la lista.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo: segunda persona obligatoria en la exclusión.",
+          "duda": "Duda 6 de RRHH: qué operaciones requieren una segunda persona y cómo se suplen las ausencias.",
+          "unidad": "lista",
+          "valor": "excluir"
+        },
+        "orden": 1
+      }
+    ],
+    "estado": "publicado",
+    "creado_por": "catalogo_ejemplo_vec",
+    "creado_en": "2026-09-25T00:00:00Z",
+    "publicado_por": "revision_catalogo_ejemplo_vec",
+    "publicado_en": "2026-09-25T00:00:00Z",
+    "aprobacion_ref": "sin_aprobacion_rrhh:ejemplo_desarrollo",
+    "motivo_publicacion": "Publicación de ejemplo solo para desarrollo y presentación; no es una aprobación."
+  }
+}

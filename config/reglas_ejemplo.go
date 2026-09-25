@@ -13,6 +13,9 @@ import (
 const (
 	EnvBolsaReglasSourcePath = "VEC_BOLSA_REGLAS_SOURCE_PATH"
 	EnvCTReglasSourcePath    = "VEC_CT_REGLAS_SOURCE_PATH"
+	// EnvBolsaRolesSegregacionSourcePath declara qué operaciones de Bolsa
+	// exigen una segunda persona; sin él rige la exclusión como hasta ahora.
+	EnvBolsaRolesSegregacionSourcePath = "VEC_BOLSA_ROLES_SEGREGACION_SOURCE_PATH"
 )
 
 // ErrConfiguracionReglasEjemploFueraDesarrollo impide arrancar si un
@@ -27,27 +30,30 @@ var ErrConfiguracionReglasEjemploSinComposicion = errors.New("config: catalogo d
 
 // ConfiguracionReglasEjemplo contiene rutas locales de paquetes DEMO.
 type ConfiguracionReglasEjemplo struct {
-	BolsaSourcePath string
-	CTSourcePath    string
+	BolsaSourcePath                 string
+	CTSourcePath                    string
+	BolsaRolesSegregacionSourcePath string
 }
 
 func cargarConfiguracionReglasEjemplo() ConfiguracionReglasEjemplo {
 	return ConfiguracionReglasEjemplo{
-		BolsaSourcePath: envFirst(EnvBolsaReglasSourcePath),
-		CTSourcePath:    envFirst(EnvCTReglasSourcePath),
+		BolsaSourcePath:                 envFirst(EnvBolsaReglasSourcePath),
+		CTSourcePath:                    envFirst(EnvCTReglasSourcePath),
+		BolsaRolesSegregacionSourcePath: envFirst(EnvBolsaRolesSegregacionSourcePath),
 	}
 }
 
 func (c ConfiguracionReglasEjemplo) normalizar() ConfiguracionReglasEjemplo {
 	c.BolsaSourcePath = strings.TrimSpace(c.BolsaSourcePath)
 	c.CTSourcePath = strings.TrimSpace(c.CTSourcePath)
+	c.BolsaRolesSegregacionSourcePath = strings.TrimSpace(c.BolsaRolesSegregacionSourcePath)
 	return c
 }
 
 // Configurada indica si se ha declarado algún catálogo de reglas.
 func (c ConfiguracionReglasEjemplo) Configurada() bool {
 	c = c.normalizar()
-	return c.BolsaSourcePath != "" || c.CTSourcePath != ""
+	return c.BolsaSourcePath != "" || c.CTSourcePath != "" || c.BolsaRolesSegregacionSourcePath != ""
 }
 
 // ReglasEjemploDesarrollo valida la activación sin abrir ficheros. Devuelve

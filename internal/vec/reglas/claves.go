@@ -7,6 +7,10 @@ const (
 	ModuloBolsa                  = "bolsa"
 	CatalogoContratacionTemporal = "vec.contratacion_temporal.reglas"
 	ModuloContratacionTemporal   = "contratacion_temporal"
+	// CatalogoBolsaRolesSegregacion lista las operaciones de Bolsa que valida
+	// una segunda persona (duda 6 de RRHH).
+	CatalogoBolsaRolesSegregacion = "vec.bolsa.roles_segregacion"
+	BolsaSegundaPersona           = "s01.segunda_persona"
 	// MunicipioSedeDiputacion es la sede para el cómputo de plazos cuando el
 	// consumidor no conoce otra (Granada, código INE 18087).
 	MunicipioSedeDiputacion = "municipio:ine:18087"
