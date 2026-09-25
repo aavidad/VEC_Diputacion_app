@@ -79,9 +79,14 @@ func descriptoresMaterialSeguimientoCeseDesarrollo() []descriptorMaterialConsumi
 	}
 }
 
-// seguimientoCeseSolicitado exige los tres catálogos de ejemplo; con la doble
-// llave de desarrollo ya comprobada al arrancar.
+// seguimientoCeseSolicitado exige pedirlo expresamente
+// (VEC_CT_SEGUIMIENTO_CESE_ENABLED, que requiere AD3-82, AD3-83, CT115 y CT116
+// instaladas) y los tres catálogos de ejemplo; la doble llave de desarrollo
+// la comprueba el propio selector.
 func seguimientoCeseSolicitado(cfg config.Config) bool {
+	if activo, err := cfg.CTSeguimientoCeseDesarrolloActivo(); err != nil || !activo {
+		return false
+	}
 	r := cfg.ReglasEjemplo
 	return strings.TrimSpace(r.CTSourcePath) != "" && strings.TrimSpace(r.CausasCeseSourcePath) != "" &&
 		strings.TrimSpace(cfg.CTAnalisisMotivosSourcePath) != ""

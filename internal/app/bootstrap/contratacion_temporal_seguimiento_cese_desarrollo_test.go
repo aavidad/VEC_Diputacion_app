@@ -59,14 +59,22 @@ func TestFuenteReglasSeguimientoLeeLosCatalogosDeEjemplo(t *testing.T) {
 	}
 }
 
-func TestSeguimientoCeseSoloSeComponeConLosTresCatalogos(t *testing.T) {
+func TestSeguimientoCeseSoloSeComponeConSelectorYLosTresCatalogos(t *testing.T) {
 	cfg := config.Config{ReglasEjemplo: config.ConfiguracionReglasEjemplo{CTSourcePath: "ct.json", CausasCeseSourcePath: "causas.json"}}
 	if seguimientoCeseSolicitado(cfg) {
 		t.Fatal("sin motivos de rectificación no se compone")
 	}
 	cfg.CTAnalisisMotivosSourcePath = "motivos.json"
+	if seguimientoCeseSolicitado(cfg) {
+		t.Fatal("sin pedirlo expresamente no se compone aunque estén los catálogos")
+	}
+	cfg.CTSeguimientoCeseEnabled = "true"
+	if seguimientoCeseSolicitado(cfg) {
+		t.Fatal("fuera de la doble llave de desarrollo no se compone")
+	}
+	cfg.ExecutionProfile, cfg.AuthMode, cfg.DevelopmentGuard = config.ExecutionProfileDevelopment, config.AuthModeDevelopment, config.DevelopmentGuardAcknowledgement
 	if !seguimientoCeseSolicitado(cfg) {
-		t.Fatal("con los tres catálogos se compone")
+		t.Fatal("pedido, con doble llave y con los tres catálogos se compone")
 	}
 	rutas, err := nuevasRutasSeguimientoCeseDesarrollo(&DependenciasCT{cfg: config.Config{}}, nil)
 	if err != nil || rutas != nil {

@@ -346,6 +346,14 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	if err != nil {
 		return vacias, err
 	}
+	// Selectores de despliegue: un valor inválido o fuera de la doble llave
+	// detiene el arranque en lugar de interpretarse.
+	if _, err := cfg.BolsaPortalCandidatoDesarrolloActivo(); err != nil {
+		return vacias, err
+	}
+	if _, err := cfg.CTSeguimientoCeseDesarrolloActivo(); err != nil {
+		return vacias, err
+	}
 	if firmaDocumento {
 		descriptoresMaterial = append(descriptoresMaterial, descriptorMaterialFirmaDocumentoCTDesarrollo())
 	}
@@ -603,8 +611,13 @@ func descriptoresMaterialPortalCandidatoDesarrollo() []descriptorMaterialConsumi
 }
 
 // debeComponerPortalCandidatoDesarrollo: las acciones propias existen solo
-// con «Mi bolsa» compuesta y catálogo de reglas de Bolsa que las rija.
+// si se piden expresamente (VEC_BOLSA_PORTAL_CANDIDATO_ENABLED, que exige
+// AD3-84 y Bolsa 000030 instaladas), con «Mi bolsa» compuesta y catálogo de
+// reglas de Bolsa que las rija. Un selector inválido se rechaza al arrancar.
 func debeComponerPortalCandidatoDesarrollo(cfg config.Config) bool {
+	if activo, err := cfg.BolsaPortalCandidatoDesarrolloActivo(); err != nil || !activo {
+		return false
+	}
 	rutas, activas, err := cfg.ReglasEjemploDesarrollo()
 	return debeComponerMiBolsaDesarrollo(cfg) && err == nil && activas && rutas.BolsaSourcePath != ""
 }

@@ -168,6 +168,8 @@ type Config struct {
 	CronosEmpleadoEnabled                       string
 	CronosResolucionEnabled                     string
 	CTFirmaRegistroEnabled                      string
+	BolsaPortalCandidatoEnabled                 string
+	CTSeguimientoCeseEnabled                    string
 	CronosNotificacionesEnabled                 string
 	DocumentosEnabled                           string
 	FirmaVerificacionEnabled                    string
@@ -257,6 +259,8 @@ func Load() Config {
 		CronosEmpleadoEnabled:              envFirst(EnvCronosEmpleadoEnabled),
 		CronosResolucionEnabled:            envFirst(EnvCronosResolucionEnabled),
 		CTFirmaRegistroEnabled:             envFirst(EnvCTFirmaRegistroEnabled),
+		BolsaPortalCandidatoEnabled:        envFirst(EnvBolsaPortalCandidatoEnabled),
+		CTSeguimientoCeseEnabled:           envFirst(EnvCTSeguimientoCeseEnabled),
 		CronosNotificacionesEnabled:        envFirst(EnvCronosNotificacionesEnabled),
 		PersonalEmpleadoEnabled:            envFirst(EnvPersonalEmpleadoEnabled),
 		PersonalB2GobiernoEnabled:          envFirst(EnvPersonalB2GobiernoEnabled),
@@ -390,6 +394,8 @@ func (c Config) Normalize() Config {
 	c.CronosEmpleadoEnabled = strings.TrimSpace(c.CronosEmpleadoEnabled)
 	c.CronosResolucionEnabled = strings.TrimSpace(c.CronosResolucionEnabled)
 	c.CTFirmaRegistroEnabled = strings.TrimSpace(c.CTFirmaRegistroEnabled)
+	c.BolsaPortalCandidatoEnabled = strings.TrimSpace(c.BolsaPortalCandidatoEnabled)
+	c.CTSeguimientoCeseEnabled = strings.TrimSpace(c.CTSeguimientoCeseEnabled)
 	c.CronosNotificacionesEnabled = strings.TrimSpace(c.CronosNotificacionesEnabled)
 	c.DocumentosEnabled = strings.TrimSpace(c.DocumentosEnabled)
 	c.FirmaVerificacionEnabled = strings.TrimSpace(c.FirmaVerificacionEnabled)
