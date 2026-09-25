@@ -19,11 +19,21 @@ BEGIN
  PERFORM prueba_disp.publicar(o2, interval '2 seconds');
  PERFORM prueba_disp.publicar(o3, interval '1 day');
 
+ -- Las lecturas del candidato exigen la consulta propia consumida en la
+ -- misma transacción: sin marca, con una marca forjada o de otro candidato, 42501.
+ PERFORM prueba_disp.espera($$SELECT vec_bolsa_llamamientos.listar_ofertas_candidato_v1('can_disposicion_candidato_A01', clock_timestamp())$$, '42501');
+ PERFORM prueba_disp.espera($$SELECT set_config('vec_bolsa_llamamientos.marca_consumo', concat_ws(chr(31),'consulta','can_disposicion_candidato_A01','mi-bolsa',repeat('0',64)), true), vec_bolsa_llamamientos.listar_ofertas_candidato_v1('can_disposicion_candidato_A01', clock_timestamp())$$, '42501');
+ PERFORM prueba_disp.espera($$SELECT prueba_disp.consultar('can_disposicion_candidato_B01'), vec_bolsa_llamamientos.listar_ofertas_candidato_v1('can_disposicion_candidato_A01', clock_timestamp())$$, '42501');
+ PERFORM prueba_disp.espera($$SELECT * FROM vec_bolsa_llamamientos.anotar_consumo_candidato_v1('consulta','can_disposicion_candidato_A01','mi-bolsa')$$, '42501');
+ PERFORM prueba_disp.espera($$SELECT count(*) FROM vec_bolsa_llamamientos.secreto_marca_consumo$$, '42501');
+
  -- Alta, replay idempotente y segunda clave rechazada.
  SELECT * INTO STRICT r FROM prueba_disp.manifestar(o1, a, 'clave-disp-a1');
  IF r.reutilizada OR r.oferta_ref <> o1 OR r.recibo_ref !~ '^recibo:disposicion:' THEN RAISE EXCEPTION 'alta: %', r; END IF;
  SELECT * INTO STRICT r2 FROM prueba_disp.manifestar(o1, a, 'clave-disp-a1');
  IF NOT r2.reutilizada OR r2.recibo_ref <> r.recibo_ref OR r2.manifestada_en <> r.manifestada_en THEN RAISE EXCEPTION 'replay: %', r2; END IF;
+ -- Un reintento sin decisión viva nueva no devuelve el recibo.
+ PERFORM prueba_disp.espera(format($$SELECT * FROM prueba_disp.manifestar(%L,%L,'clave-disp-a1', p_repetida=>true)$$, o1, a), '42501');
  PERFORM prueba_disp.espera(format($$SELECT * FROM prueba_disp.manifestar(%L,%L,'clave-disp-a2')$$, o1, a), 'VBO05');
  SELECT * INTO STRICT r FROM prueba_disp.manifestar(o1, b, 'clave-disp-b1');
  IF r.reutilizada THEN RAISE EXCEPTION 'alta B: %', r; END IF;
@@ -43,34 +53,37 @@ BEGIN
  PERFORM prueba_disp.espera(format($$SELECT * FROM prueba_disp.manifestar(%L,'persona','clave-disp-x9')$$, o3), '22023');
  PERFORM prueba_disp.espera(format($$SELECT * FROM prueba_disp.manifestar(%L,%L,'clave-disp-x10', p_en=>clock_timestamp()-interval '1 hour')$$, o3, a), '22023');
  PERFORM prueba_disp.espera(format($$SELECT * FROM prueba_disp.manifestar(%L,%L,'clave-disp-x11')$$, 'oferta:'||repeat('9',64), a), '23503');
- IF EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.listar_ofertas_candidato_v1(a, clock_timestamp()) e
+ IF EXISTS (SELECT 1 FROM prueba_disp.ofertas(a) e
              CROSS JOIN LATERAL jsonb_array_elements(e) x WHERE x->>'oferta_ref' = o3 AND x->'disposicion' <> 'null'::jsonb) THEN
   RAISE EXCEPTION 'un negativo dejó disposición';
  END IF;
 
  -- Lista del candidato: abiertas de su bolsa, sin datos ajenos.
- j := vec_bolsa_llamamientos.listar_ofertas_candidato_v1(a, clock_timestamp());
+ j := prueba_disp.ofertas(a);
  IF jsonb_array_length(j) <> 3 OR (SELECT count(*) FROM jsonb_array_elements(j) x WHERE x->>'estado' <> 'abierta') <> 0
     OR (SELECT x->'disposicion'->>'recibo' FROM jsonb_array_elements(j) x WHERE x->>'oferta_ref' = o1) IS NULL
     OR (SELECT x->'disposicion' FROM jsonb_array_elements(j) x WHERE x->>'oferta_ref' = o2) <> 'null'::jsonb
     OR j::text LIKE '%part:disp%' OR j::text LIKE '%can_disposicion_candidato_B01%' THEN
   RAISE EXCEPTION 'lista del candidato A: %', j;
  END IF;
- IF jsonb_array_length(vec_bolsa_llamamientos.listar_ofertas_candidato_v1(c, clock_timestamp())) <> 0 THEN
+ IF jsonb_array_length(prueba_disp.ofertas(c)) <> 0 THEN
   RAISE EXCEPTION 'el candidato de otra bolsa ve las ofertas';
  END IF;
 
  -- Vencida la oferta 2 no se admite; desaparece de la lista sin disposición.
  PERFORM pg_sleep(2.2);
+ -- Aunque el instante declarado sea anterior al vencimiento, el reloj de la
+ -- base ya lo ha pasado: tampoco se admite.
+ PERFORM prueba_disp.espera(format($$SELECT * FROM prueba_disp.manifestar(%L,%L,'clave-disp-v0', p_en=>clock_timestamp()-interval '1.5 seconds')$$, o2, a), 'VBO06');
  PERFORM prueba_disp.espera(format($$SELECT * FROM prueba_disp.manifestar(%L,%L,'clave-disp-v1')$$, o2, a), 'VBO06');
- j := vec_bolsa_llamamientos.listar_ofertas_candidato_v1(a, clock_timestamp());
+ j := prueba_disp.ofertas(a);
  IF EXISTS (SELECT 1 FROM jsonb_array_elements(j) x WHERE x->>'oferta_ref' = o2) THEN RAISE EXCEPTION 'vencida sin disposición visible: %', j; END IF;
 
  -- Al vencer la oferta 1, VEC propone al mejor orden vigente entre quienes se
  -- ofrecieron (B, posición 2) y RRHH lo confirma.
  PERFORM pg_sleep(3);
  PERFORM prueba_disp.espera(format($$SELECT * FROM prueba_disp.manifestar(%L,%L,'clave-disp-v2')$$, o1, dd), 'VBO06');
- j := vec_bolsa_llamamientos.listar_ofertas_candidato_v1(a, clock_timestamp());
+ j := prueba_disp.ofertas(a);
  IF (SELECT x->>'estado' FROM jsonb_array_elements(j) x WHERE x->>'oferta_ref' = o1) <> 'pendiente_resolucion' THEN RAISE EXCEPTION 'pendiente: %', j; END IF;
  SET LOCAL ROLE vec_bolsa_llamamientos_propietario;
  propuesta := vec_bolsa_llamamientos.proyectar_oferta_v1(o1, clock_timestamp());
@@ -85,8 +98,8 @@ BEGIN
  -- Tras resolver, el replay de la disposición original sigue devolviendo su recibo.
  SELECT * INTO STRICT r2 FROM prueba_disp.manifestar(o1, a, 'clave-disp-a1', p_en=>clock_timestamp());
  IF NOT r2.reutilizada THEN RAISE EXCEPTION 'replay tras resolver: %', r2; END IF;
- IF (SELECT x->>'estado' FROM jsonb_array_elements(vec_bolsa_llamamientos.listar_ofertas_candidato_v1(b, clock_timestamp())) x WHERE x->>'oferta_ref' = o1) <> 'adjudicada_propia'
-    OR (SELECT x->>'estado' FROM jsonb_array_elements(vec_bolsa_llamamientos.listar_ofertas_candidato_v1(a, clock_timestamp())) x WHERE x->>'oferta_ref' = o1) <> 'resuelta' THEN
+ IF (SELECT x->>'estado' FROM jsonb_array_elements(prueba_disp.ofertas(b)) x WHERE x->>'oferta_ref' = o1) <> 'adjudicada_propia'
+    OR (SELECT x->>'estado' FROM jsonb_array_elements(prueba_disp.ofertas(a)) x WHERE x->>'oferta_ref' = o1) <> 'resuelta' THEN
   RAISE EXCEPTION 'estado tras resolver';
  END IF;
  RAISE NOTICE 'disposición a ofertas: alta, replay, cotejo, negativos, vencimiento, resolución y lista OK';

@@ -28,6 +28,10 @@ BEGIN
     OR to_regclass('vec_bolsa_llamamientos.contacto_participacion') IS NULL
     OR to_regprocedure('vec_bolsa_llamamientos.listar_participaciones_candidato_v1(text)') IS NULL
     OR to_regprocedure('vec_bolsa_llamamientos.constitucion_rechazar_mutacion()') IS NULL
+    -- 000029: participación vigente por bolsa y marca de consumo.
+    OR to_regprocedure('vec_bolsa_llamamientos.participaciones_vigentes_candidato_v1(text)') IS NULL
+    OR to_regprocedure('vec_bolsa_llamamientos.exigir_consumo_candidato_v1(text[],text)') IS NULL
+    OR to_regprocedure('vec_bolsa_llamamientos.anotar_consumo_candidato_v1(text,text,text)') IS NULL
     OR to_regclass('vec_bolsa_llamamientos.solicitud_portal_candidato') IS NOT NULL
     OR to_regclass('vec_bolsa_llamamientos.respuesta_portal_llamamiento') IS NOT NULL THEN
   RAISE EXCEPTION 'estado incompatible para el portal del candidato' USING ERRCODE='55000';
@@ -89,15 +93,15 @@ BEGIN
  END LOOP;
 END $tablas$;
 
--- Participación única del candidato en la bolsa. Sin vínculo, 42501.
+-- Participación vigente del candidato en la bolsa, con el mismo criterio que
+-- la lectura del portal (000029). Sin vínculo, 42501.
 CREATE FUNCTION vec_bolsa_llamamientos.participacion_portal_candidato_v1(p_candidato_ref text, p_bolsa_ref text)
 RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = pg_catalog AS $f$
-DECLARE v text; n integer;
+DECLARE v text;
 BEGIN
- SELECT min(p.participacion_ref), count(DISTINCT p.participacion_ref) INTO v, n
-   FROM vec_bolsa_llamamientos.listar_participaciones_candidato_v1(p_candidato_ref) p
+ SELECT p.participacion_ref INTO v FROM vec_bolsa_llamamientos.participaciones_vigentes_candidato_v1(p_candidato_ref) p
   WHERE p.bolsa_ref = p_bolsa_ref;
- IF n <> 1 THEN RAISE EXCEPTION 'participación del portal ajena o ambigua' USING ERRCODE='42501'; END IF;
+ IF v IS NULL THEN RAISE EXCEPTION 'participación del portal ajena' USING ERRCODE='42501'; END IF;
  RETURN v;
 END $f$;
 
@@ -258,6 +262,31 @@ BEGIN
  RETURN QUERY SELECT false, p_respuesta_ref, p_recibo_ref, p_respondida_en, p_modo;
 END $f$;
 
+-- Primer paso de la respuesta: consume la decisión propia y deja la marca
+-- «responder» para que, en la misma transacción, el servidor lea el contacto
+-- vigente (leer_portal_candidato_v1), calcule el plazo con el catálogo y
+-- llame a responder_llamamiento_portal_v1 con el MISMO material, que usa esta
+-- decisión en lugar de consumir otra.
+CREATE FUNCTION vec_bolsa_llamamientos.preparar_respuesta_portal_v1(
+ p_candidato_ref text, p_bolsa_ref text,
+ p_capacidad bytea, p_decision bytea, p_motivo bytea, p_contexto bytea, p_persona_version numeric, p_perfil_version numeric,
+ p_payload bytea, p_sobre bytea, p_evidencia bytea, p_raiz bytea)
+RETURNS void LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = pg_catalog SET lock_timeout = '2s' AS $f$
+DECLARE v_consumo record;
+BEGIN
+ PERFORM vec_bolsa_llamamientos.exigir_portal_candidato_v1(p_candidato_ref, p_bolsa_ref,
+   'bolsa.participaciones_propias.responder_llamamiento', p_capacidad, p_decision, p_contexto);
+ SELECT * INTO STRICT v_consumo FROM vec_autorizacion_atestada_v3.registrar_y_consumir_portal_candidato_bolsa_v3_atestada(
+  p_capacidad, p_decision, p_motivo, p_contexto, p_persona_version, p_perfil_version, p_payload, p_sobre, p_evidencia, p_raiz);
+ IF v_consumo.consumo_nuevo IS NOT TRUE OR v_consumo.efecto_ref IS DISTINCT FROM 'mi-bolsa:'||p_candidato_ref
+    OR v_consumo.decision_ref IS NULL OR strpos(v_consumo.decision_ref, chr(31)) <> 0 THEN
+  RAISE EXCEPTION 'portal del candidato denegado' USING ERRCODE='42501';
+ END IF;
+ -- El dato liga la marca a este material exacto: huella de la decisión y su referencia.
+ PERFORM vec_bolsa_llamamientos.anotar_consumo_candidato_v1('responder', p_candidato_ref,
+   encode(sha256(p_decision), 'hex') || v_consumo.decision_ref);
+END $f$;
+
 CREATE FUNCTION vec_bolsa_llamamientos.responder_llamamiento_portal_v1(
  p_respuesta_ref text, p_recibo_ref text, p_candidato_ref text, p_bolsa_ref text, p_respuesta text,
  p_causa text, p_justificante_ref text, p_justificante_sha256 text, p_modo text, p_contacto_en timestamptz, p_vence_antes_de timestamptz,
@@ -267,15 +296,28 @@ CREATE FUNCTION vec_bolsa_llamamientos.responder_llamamiento_portal_v1(
 RETURNS TABLE(reutilizada boolean, respuesta_ref text, recibo_ref text, respondida_en timestamptz, modo text)
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = pg_catalog SET lock_timeout = '2s' AS $f$
 DECLARE v_participacion text; v_previa vec_bolsa_llamamientos.respuesta_portal_llamamiento%ROWTYPE; v_consumo record;
+ v_dato text; v_decision_ref text;
 BEGIN
  v_participacion := vec_bolsa_llamamientos.exigir_portal_candidato_v1(p_candidato_ref, p_bolsa_ref,
    'bolsa.participaciones_propias.responder_llamamiento', p_capacidad, p_decision, p_contexto);
  -- Como B2, la decisión viva se consume antes de resolver el replay: un
  -- reintento no devuelve el recibo sin una autorización nueva y verificada.
- SELECT * INTO STRICT v_consumo FROM vec_autorizacion_atestada_v3.registrar_y_consumir_portal_candidato_bolsa_v3_atestada(
-  p_capacidad, p_decision, p_motivo, p_contexto, p_persona_version, p_perfil_version, p_payload, p_sobre, p_evidencia, p_raiz);
- IF v_consumo.consumo_nuevo IS NOT TRUE OR v_consumo.efecto_ref IS DISTINCT FROM 'mi-bolsa:'||p_candidato_ref THEN
-  RAISE EXCEPTION 'portal del candidato denegado' USING ERRCODE='42501';
+ -- Si preparar_respuesta_portal_v1 ya la consumió en esta transacción con
+ -- este mismo material, se usa esa (una sola vez); si no, se consume aquí.
+ BEGIN
+  v_dato := vec_bolsa_llamamientos.exigir_consumo_candidato_v1(ARRAY['responder'], p_candidato_ref);
+ EXCEPTION WHEN insufficient_privilege THEN v_dato := NULL;
+ END;
+ IF v_dato IS NOT NULL AND left(v_dato, 64) = encode(sha256(p_decision), 'hex') AND octet_length(v_dato) > 64 THEN
+  v_decision_ref := substr(v_dato, 65);
+  PERFORM set_config('vec_bolsa_llamamientos.marca_consumo', '', true);
+ ELSE
+  SELECT * INTO STRICT v_consumo FROM vec_autorizacion_atestada_v3.registrar_y_consumir_portal_candidato_bolsa_v3_atestada(
+   p_capacidad, p_decision, p_motivo, p_contexto, p_persona_version, p_perfil_version, p_payload, p_sobre, p_evidencia, p_raiz);
+  IF v_consumo.consumo_nuevo IS NOT TRUE OR v_consumo.efecto_ref IS DISTINCT FROM 'mi-bolsa:'||p_candidato_ref THEN
+   RAISE EXCEPTION 'portal del candidato denegado' USING ERRCODE='42501';
+  END IF;
+  v_decision_ref := v_consumo.decision_ref;
  END IF;
  SELECT * INTO v_previa FROM vec_bolsa_llamamientos.respuesta_portal_llamamiento r
   WHERE r.participacion_ref = v_participacion AND r.clave_idempotencia = p_clave;
@@ -290,14 +332,18 @@ BEGIN
  RETURN QUERY SELECT * FROM vec_bolsa_llamamientos.registrar_respuesta_portal_interna_v1(
   p_respuesta_ref, p_recibo_ref, p_candidato_ref, p_bolsa_ref, v_participacion, p_respuesta, p_causa, p_justificante_ref,
   p_justificante_sha256, p_modo, p_contacto_en, p_vence_antes_de, p_resultados_efectivos, p_regla_ref, p_clave,
-  p_respondida_en, v_consumo.decision_ref);
+  p_respondida_en, v_decision_ref);
 END $f$;
 
--- Lectura del portal por participación del candidato. Solo se usa dentro de
--- la transacción que ya consumió la consulta propia (Mi bolsa) o la acción
--- propia del candidato; no expone referencias de participación.
+-- Lectura del portal por participación vigente del candidato. Solo responde
+-- dentro de la transacción que ya consumió la consulta propia (Mi bolsa,
+-- marca «consulta») o la respuesta propia (marca «responder») del mismo
+-- candidato: sin marca, 42501. No expone referencias de participación.
 CREATE FUNCTION vec_bolsa_llamamientos.leer_portal_candidato_v1(p_candidato_ref text, p_corte timestamptz, p_resultados_efectivos text[])
-RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog AS $f$
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = pg_catalog AS $f$
+BEGIN
+ PERFORM vec_bolsa_llamamientos.exigir_consumo_candidato_v1(ARRAY['consulta','responder'], p_candidato_ref);
+ RETURN (
  SELECT coalesce(jsonb_agg(jsonb_build_object(
    'bolsa', p.bolsa_ref,
    'llamamiento_abierto', CASE WHEN a.contacto_en IS NULL THEN NULL ELSE jsonb_build_object(
@@ -315,11 +361,9 @@ RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog 
      WHERE r.participacion_ref = p.participacion_ref AND r.respondida_en <= p_corte
      ORDER BY r.respondida_en DESC LIMIT 1)
  ) ORDER BY p.bolsa_ref), '[]'::jsonb)
- FROM (SELECT DISTINCT ON (x.bolsa_ref) x.bolsa_ref, x.participacion_ref
-         FROM vec_bolsa_llamamientos.listar_participaciones_candidato_v1(p_candidato_ref) x
-        ORDER BY x.bolsa_ref, x.confirmada_en DESC) p
- LEFT JOIN LATERAL vec_bolsa_llamamientos.llamamiento_abierto_portal_v1(p.participacion_ref, p_corte, p_resultados_efectivos) a ON true
-$f$;
+ FROM vec_bolsa_llamamientos.participaciones_vigentes_candidato_v1(p_candidato_ref) p
+ LEFT JOIN LATERAL vec_bolsa_llamamientos.llamamiento_abierto_portal_v1(p.participacion_ref, p_corte, p_resultados_efectivos) a ON true);
+END $f$;
 
 -- Bandeja de RRHH: solicitudes pendientes y respuestas del portal, con el
 -- mismo contrato que consultar_avisos_rrhh_v1.
@@ -346,6 +390,7 @@ DO $acl$
 DECLARE f regprocedure; publicas regprocedure[] := ARRAY[
   'vec_bolsa_llamamientos.solicitar_portal_candidato_v1(text,text,text,text,text,timestamptz,timestamptz,text[],text,text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure,
   'vec_bolsa_llamamientos.responder_llamamiento_portal_v1(text,text,text,text,text,text,text,text,text,timestamptz,timestamptz,text[],text,text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure,
+  'vec_bolsa_llamamientos.preparar_respuesta_portal_v1(text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure,
   'vec_bolsa_llamamientos.leer_portal_candidato_v1(text,timestamptz,text[])'::regprocedure,
   'vec_bolsa_llamamientos.consultar_avisos_portal_rrhh_v1(timestamptz)'::regprocedure];
  internas regprocedure[] := ARRAY[

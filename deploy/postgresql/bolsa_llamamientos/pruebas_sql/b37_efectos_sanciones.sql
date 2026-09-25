@@ -237,12 +237,20 @@ BEGIN
 END $prueba$;
 
 -- La readmisión de 000032 no es invocable fuera de la función de recurso,
--- ni siquiera por el propietario.
+-- ni siquiera por el propietario: exige la marca de transacción que solo pone
+-- la función de recurso, con la sanción y la clave exactas. La comprobación no
+-- depende del idioma de los mensajes (el ensayo se repite con lc_messages en
+-- castellano).
 SET LOCAL ROLE vec_bolsa_llamamientos_propietario;
 DO $readmision$ BEGIN
  BEGIN
   PERFORM vec_bolsa_llamamientos.readmitir_participacion_por_recurso_v1('participacion:b37:3','x','r','Motivo','per_actor','readmision:x','recibo:x',clock_timestamp());
   RAISE EXCEPTION 'B37: readmisión directa aceptada';
+ EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+ BEGIN
+  PERFORM set_config('vec_bolsa_llamamientos.readmision_recurso', 'otra' || chr(31) || 'r', true);
+  PERFORM vec_bolsa_llamamientos.readmitir_participacion_por_recurso_v1('participacion:b37:3','x','r','Motivo','per_actor','readmision:x','recibo:x',clock_timestamp());
+  RAISE EXCEPTION 'B37: readmisión con marca de otra sanción aceptada';
  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
 END $readmision$;
 -- Sin «disponible>disponible_desde» en la política vigente, la suspensión con
@@ -278,6 +286,12 @@ DO $acl$ BEGIN
  BEGIN
   PERFORM 1 FROM vec_bolsa_llamamientos.readmitir_participacion_por_recurso_v1(NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
   RAISE EXCEPTION 'B37: readmisión invocable por el ejecutor';
+ EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+ -- Escribir la marca no basta: el ejecutor no alcanza la función.
+ BEGIN
+  PERFORM set_config('vec_bolsa_llamamientos.readmision_recurso', 'x' || chr(31) || 'r', true);
+  PERFORM 1 FROM vec_bolsa_llamamientos.readmitir_participacion_por_recurso_v1('participacion:b37:3','x','r','Motivo','per_actor','readmision:x','recibo:x',clock_timestamp());
+  RAISE EXCEPTION 'B37: readmisión invocable por el ejecutor con marca';
  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
 END $acl$;
 RESET ROLE;

@@ -37,7 +37,9 @@ CREATE TABLE vec_bolsa_llamamientos.politica_segregacion (
     operaciones text[] NOT NULL CHECK (
         array_ndims(operaciones) = 1
         AND operaciones IN (ARRAY['excluir'], ARRAY['pausar','excluir'], ARRAY['reactivar','excluir'], ARRAY['pausar','reactivar','excluir'])),
-    publicada_en timestamptz(6) NOT NULL
+    publicada_en timestamptz(6) NOT NULL,
+    -- Constancia de quién publicó: la cuenta de conexión (session_user).
+    publicada_por text NOT NULL DEFAULT session_user CHECK (octet_length(publicada_por) BETWEEN 1 AND 128)
 );
 COMMENT ON TABLE vec_bolsa_llamamientos.politica_segregacion IS
     'Versiones de solo adición de las operaciones B8 que exigen validador distinto del actor. La vigente es la de mayor versión.';
@@ -78,6 +80,12 @@ CREATE TRIGGER operacion_situacion_politica_segregacion BEFORE INSERT ON vec_bol
 
 -- Publica una entrada exacta del catálogo. Solo crea versión si difiere de la
 -- vigente; nunca admite una lista sin la exclusión.
+-- Quién publica: la aplicación, al arrancar, con la cuenta de ejecución
+-- (rol ejecutor) y la entrada vigente del catálogo configurable; no hay una
+-- decisión de autorización por publicación. Por eso el ejecutor conserva
+-- EXECUTE y cada versión deja constancia de la cuenta de conexión que la
+-- publicó (publicada_por). Ninguna publicación puede quitar la exclusión. Si
+-- se quiere reservar a una cuenta de despliegue, basta con retirar el GRANT.
 CREATE FUNCTION vec_bolsa_llamamientos.publicar_politica_segregacion_v1(p_catalogo_ref text, p_catalogo_sha256 text, p_operaciones text[])
 RETURNS TABLE(version bigint, reutilizada boolean, catalogo_ref text, operaciones text[])
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = pg_catalog SET lock_timeout = '2s' SET statement_timeout = '5s' AS $f$

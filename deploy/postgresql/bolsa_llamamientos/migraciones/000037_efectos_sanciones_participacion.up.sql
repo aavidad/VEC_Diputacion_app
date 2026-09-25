@@ -317,6 +317,9 @@ BEGIN
   IF v_actual.desde = v_sancion.situacion_desde THEN
    -- El efecto sigue vigente: se vuelve a la situación anterior a la sanción
    -- por la readmisión de 000032, y B8 lo anota como «reactivar».
+   -- Marca de transacción que la readmisión de 000032 exige y consume: solo
+   -- esta función la pone, con la sanción y la clave de este recurso.
+   PERFORM set_config('vec_bolsa_llamamientos.readmision_recurso', p_sancion_ref || chr(31) || p_clave_idempotencia, true);
    SELECT * INTO STRICT v_readmision FROM vec_bolsa_llamamientos.readmitir_participacion_por_recurso_v1(
      p_participacion_ref, p_sancion_ref, p_clave_idempotencia, p_motivo, p_actor,
      'readmision:' || substr(p_recibo_ref, 19), p_recibo_ref, p_registrada_en);

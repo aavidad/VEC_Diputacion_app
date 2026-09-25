@@ -84,11 +84,17 @@ func (b *BuzonContratosParticipacionPostgreSQL) RegistrarContrato(ctx context.Co
 		return r, ports.ErrContratosParticipacionNoDisponible
 	}
 	var participacion *string
+	var enCuarentena bool
 	err := pgx.BeginTxFunc(ctx, b.pool, pgx.TxOptions{IsoLevel: pgx.ReadCommitted, AccessMode: pgx.ReadWrite}, func(tx pgx.Tx) error {
-		return tx.QueryRow(ctx, `SELECT reutilizado, participacion_ref FROM vec_bolsa_llamamientos.registrar_contrato_participacion_v1($1::text::jsonb,$2,$3,$4)`, string(e.Contenido), e.HuellaSHA256, e.OrigenCreadaEn.UTC().Truncate(time.Microsecond), e.OrigenPosicion).Scan(&r.Reutilizado, &participacion)
+		return tx.QueryRow(ctx, `SELECT reutilizado, participacion_ref, en_cuarentena FROM vec_bolsa_llamamientos.registrar_contrato_participacion_v1($1::text::jsonb,$2,$3,$4)`, string(e.Contenido), e.HuellaSHA256, e.OrigenCreadaEn.UTC().Truncate(time.Microsecond), e.OrigenPosicion).Scan(&r.Reutilizado, &participacion, &enCuarentena)
 	})
 	if err != nil {
 		return ports.ResultadoRegistroContrato{}, errorContratosParticipacion(err)
+	}
+	// Una entrega divergente ya quedó confirmada en la cuarentena de Bolsa: se
+	// informa como divergente para que el relevo la registre y continúe.
+	if enCuarentena {
+		return ports.ResultadoRegistroContrato{}, ports.ErrEventoContratoDivergente
 	}
 	if participacion != nil {
 		r.ParticipacionRef = *participacion

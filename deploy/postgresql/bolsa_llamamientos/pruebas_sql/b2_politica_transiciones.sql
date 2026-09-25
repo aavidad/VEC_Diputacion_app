@@ -198,4 +198,10 @@ BEGIN
 END $ajeno$;
 
 SELECT 'b2_politica_transiciones: correcto' AS resultado;
+-- Constancia de quién publicó: cada versión guarda la cuenta de conexión.
+DO $publicador$ BEGIN
+ IF EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.politica_transiciones_situacion WHERE publicada_por IS DISTINCT FROM session_user) THEN
+  RAISE EXCEPTION 'la política no deja constancia de quién la publicó';
+ END IF;
+END $publicador$;
 ROLLBACK;
