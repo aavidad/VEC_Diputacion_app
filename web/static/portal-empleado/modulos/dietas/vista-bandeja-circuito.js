@@ -2,15 +2,17 @@ import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260925-d
 
 import { MENSAJES_CIRCUITO_DIETAS_ES } from "./i18n-circuito.js?v=20260925-dietas-circuito-v1";
 export { MENSAJES_CIRCUITO_DIETAS_ES } from "./i18n-circuito.js?v=20260925-dietas-circuito-v1";
+import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL } from "../../portal-i18n.js?v=20260925-dietas-locale-v1";
 
 const ETAPAS = Object.freeze(["revision", "autorizacion", "liquidacion", "fiscalizacion"]);
 const TONO_ESTADO = Object.freeze({ enviado_pendiente_revision: "info", pendiente_autorizacion: "info", pendiente_liquidacion: "violeta", pendiente_fiscalizacion: "violeta", fiscalizada: "exito", devuelta: "peligro" });
 const nodo = (documento, etiqueta, texto = "") => { const resultado = documento.createElement(etiqueta); if (texto) resultado.textContent = texto; return resultado; };
 const montada = (contenedor, raiz) => contenedor.querySelector?.("[data-dietas-bandeja-circuito]") === raiz;
-const fecha = (valor) => new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeZone: "UTC" }).format(new Date(`${valor}T00:00:00Z`));
-const instante = (valor) => new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" }).format(new Date(valor));
-const euros = (centimos) => new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format((Number(centimos) || 0) / 100);
-const kilometros = (valor) => new Intl.NumberFormat("es-ES", { maximumFractionDigits: 1 }).format(Number(valor) || 0);
+// Las fechas civiles (AAAA-MM-DD) no tienen zona: se leen y pintan en UTC para no correr un día.
+const fecha = (valor) => new Intl.DateTimeFormat(LOCALIZACION_PORTAL, { dateStyle: "medium", timeZone: "UTC" }).format(new Date(`${valor}T00:00:00Z`));
+const instante = (valor) => new Intl.DateTimeFormat(LOCALIZACION_PORTAL, { dateStyle: "medium", timeStyle: "short", timeZone: ZONA_HORARIA_PORTAL }).format(new Date(valor));
+const euros = (centimos) => new Intl.NumberFormat(LOCALIZACION_PORTAL, { style: "currency", currency: "EUR" }).format((Number(centimos) || 0) / 100);
+const kilometros = (valor) => new Intl.NumberFormat(LOCALIZACION_PORTAL, { maximumFractionDigits: 1 }).format(Number(valor) || 0);
 function crearTraductorCircuito(traducir) {
   return (clave, variables = {}) => {
     if (Object.hasOwn(MENSAJES_CIRCUITO_DIETAS_ES, clave)) {

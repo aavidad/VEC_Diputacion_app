@@ -1,5 +1,5 @@
 import { ErrorAPIBorradores } from "./portal-borradores-api.js";
-import { traducirPortal } from "./portal-i18n.js?v=20260925-tanda-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260925-dietas-locale-v1";
 
 const FASE_INICIAL = "inicial";
 const FASE_COMPROBANDO = "comprobando";
