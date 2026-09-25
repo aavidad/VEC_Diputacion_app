@@ -7,10 +7,11 @@ import (
 	"net/http"
 
 	dietas "vec-diputacion-granada/internal/modules/dietas"
+	"vec-diputacion-granada/internal/modules/dietas/domain"
 )
 
 // Manejador sirve únicamente el catálogo que el cliente necesita para pedir
-// una ruta al mediador OSRM. La autorización del actor pertenece a la frontera
+// una ruta al mediador OSRM y los tipos de otros medios y gastos. La autorización del actor pertenece a la frontera
 // HTTP que lo compone; este adaptador sólo valida método y proyección.
 type Manejador struct{}
 
@@ -35,12 +36,16 @@ func (m *Manejador) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(respuestaCatalogo{
 		ProvinceRoutePoints: dietas.ProvinceRoutePointMaps(),
 		ProvinceRouteMatrix: dietas.ProvinceRouteMatrixStatus(),
+		OtrosGastos:         domain.CatalogoOtrosGastosVigente(),
 	})
 }
 
 type respuestaCatalogo struct {
 	ProvinceRoutePoints []map[string]any `json:"province_route_points"`
 	ProvinceRouteMatrix map[string]any   `json:"province_route_matrix"`
+	// OtrosGastos son los tipos versionados de otros medios y gastos (D5).
+	// PostgreSQL vuelve a exigir la misma versión al guardar.
+	OtrosGastos domain.CatalogoOtrosGastos `json:"otros_gastos"`
 }
 
 var _ http.Handler = (*Manejador)(nil)

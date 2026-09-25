@@ -84,3 +84,38 @@ func TestPrepararEdicionSinVehiculoNoConsultaOSRMYConDosRutasSumaAjuste(t *testi
 		t.Fatalf("dos rutas: %v llamadas=%d cálculo=%+v", err, motor.llamadas, s.Calculo)
 	}
 }
+
+func TestPrepararEdicionSumaOtrosD5YRechazaFormaAnterior(t *testing.T) {
+	p, err := NuevoPreparadorComision(map[string]ports.CoordenadaRuta{"18087": {Nombre: "Granada", Latitud: 37.17, Longitud: -3.59}, "18003": {Nombre: "Albolote", Latitud: 37.23, Longitud: -3.65}}, &motorComisionPrueba{}, tarifasComisionPrueba{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	relacion := "rel_0123456789abcdefghijklmn"
+	asignacion := &ports.AsignacionDietasAcreditada{AsignacionRef: "ads_0123456789abcdefghijklmn", RelacionRef: relacion, PersonaRef: "per_0123456789abcdefghijklmn", UnidadRef: "unidad:prueba", CentroRef: "centro:prueba", AdministrativoPersonaRef: "per_aaaaaaaaaaaaaaaaaaaaaa", ResponsablePersonaRef: "per_bbbbbbbbbbbbbbbbbbbbbb", GrupoDieta: 2, VigenteDesde: "2026-09-01", Version: 1, ReciboRef: "rad_0123456789abcdef0123456789abcdef", DecisionRef: "decision:prueba", EfectoRef: relacion, ConsumoHuellaSHA256: strings.Repeat("a", 64), AuditoriaRef: "auditoria:prueba", RegistradaEn: time.Date(2026, 9, 23, 8, 0, 0, 0, time.UTC)}
+	otro := domain.OtroGastoDeclarado{Tipo: domain.ClaseOtroMedio, TipoGasto: "tren", CatalogoVersion: domain.VersionCatalogoOtrosGastos, Fecha: "2026-09-23", Concepto: "Tren Granada-Albolote", ImporteCentimos: 780, JustificanteRef: "billete:renfe-0923", JustificanteSHA256: strings.Repeat("d", 64)}
+	base := ports.SolicitudEditarComisionPropia{Referencia: "dco_0123456789abcdefghijklmn", ClaveIdempotencia: "clave_0123456789abcdef", VersionEsperada: 1, RelacionRef: relacion, FechaInicio: "2026-09-23", FechaFin: "2026-09-23", HoraInicio: "08:00", HoraFin: "18:00", Motivo: "Visita técnica", CodigosRuta: []string{"18087", "18003"}, Asignacion: asignacion, TramosAceptados: []int{0}, VersionTarifaAceptada: VersionTarifaComisionProvisional, Otros: []domain.OtroGastoDeclarado{otro}}
+	sinOtros := base
+	sinOtros.Otros = nil
+	previa, err := p.PrepararEdicion(context.Background(), sinOtros)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, err := p.PrepararEdicion(context.Background(), base)
+	if err != nil || s.Documento.OtrosCentimos != 780 || s.Documento.TotalOrientativoCentimos != previa.Documento.TotalOrientativoCentimos+780 {
+		t.Fatalf("otro medio D5 no sumado: %v %+v", err, s.Documento)
+	}
+	if ValidarSolicitudEditar(s) != nil {
+		t.Fatal("solicitud D5 preparada no supera su propia validación")
+	}
+	anterior := base
+	anterior.Otros = []domain.OtroGastoDeclarado{{Tipo: domain.ClaseOtroGasto, Concepto: "Peaje previo", ImporteCentimos: 300}}
+	if _, err := p.PrepararEdicion(context.Background(), anterior); err == nil {
+		t.Fatal("línea sin tipo, fecha ni justificante aceptada al guardar")
+	}
+	fuera := base
+	fuera.Otros = []domain.OtroGastoDeclarado{otro}
+	fuera.Otros[0].Fecha = "2026-09-24"
+	if _, err := p.PrepararEdicion(context.Background(), fuera); err == nil {
+		t.Fatal("gasto fuera de las fechas de la comisión aceptado")
+	}
+}

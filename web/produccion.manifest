@@ -109,13 +109,16 @@ static/portal-empleado/modulos/dietas/cliente-rectificacion-admin-http.js
 static/portal-empleado/modulos/dietas/cliente-rectificacion-http.js
 static/portal-empleado/modulos/dietas/contrato.js
 static/portal-empleado/modulos/dietas/dietas.css
+static/portal-empleado/modulos/dietas/formulario-otros-gastos.js
 static/portal-empleado/modulos/dietas/i18n-borradores.js
 static/portal-empleado/modulos/dietas/i18n-circuito.js
+static/portal-empleado/modulos/dietas/i18n-otros-gastos.js
 static/portal-empleado/modulos/dietas/i18n-rectificacion-admin.js
 static/portal-empleado/modulos/dietas/i18n-rectificacion-dietas.js
 static/portal-empleado/modulos/dietas/i18n-revision.js
 static/portal-empleado/modulos/dietas/i18n.js
 static/portal-empleado/modulos/dietas/mapa-ruta.js
+static/portal-empleado/modulos/dietas/texto-dietas.js
 static/portal-empleado/modulos/dietas/vista-bandeja-circuito.js
 static/portal-empleado/modulos/dietas/vista-borradores-propios.js
 static/portal-empleado/modulos/dietas/vista-mapa-comision.js

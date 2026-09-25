@@ -1,4 +1,4 @@
-import { traducirPortal } from "./portal-i18n.js?v=20260925-cronos-notif-e10-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260925-d5d6-cronos-v1";
 
 /** Contenido de ayuda sustituible por catálogo o conector, sin lógica de negocio. */
 export const AYUDA_PORTAL_BOLSA = Object.freeze({
@@ -57,6 +57,14 @@ export const TRAMITES_AYUDANTE_PORTAL = Object.freeze([
     pasos: Object.freeze([
       Object.freeze({ selector: "[data-dietas-area-itinerario]", bloqueado: false, titulo: traducirPortal("ayuda_contenido_054"), instruccion: traducirPortal("ayuda_contenido_055"), objetivo: traducirPortal("ayuda_contenido_056"), preparacion: traducirPortal("ayuda_contenido_057"), resultado: traducirPortal("ayuda_contenido_058"), actor: traducirPortal("ayuda_contenido_059"), limite: traducirPortal("ayuda_contenido_060") }),
       Object.freeze({ selector: "[data-dietas-area-itinerario]", bloqueado: false, titulo: traducirPortal("ayuda_contenido_061"), instruccion: traducirPortal("ayuda_contenido_062"), objetivo: traducirPortal("ayuda_contenido_063"), preparacion: traducirPortal("ayuda_contenido_064"), resultado: traducirPortal("ayuda_contenido_065"), actor: traducirPortal("ayuda_contenido_066"), limite: traducirPortal("ayuda_contenido_067") }),
+    ]),
+  }),
+  Object.freeze({
+    id: "dietas-revisar-documento", titulo: traducirPortal("ayuda_contenido_387"), modulo: traducirPortal("ayuda_contenido_388"), vista: "dietas", selector: "[data-dietas-bandeja-circuito]",
+    resumen: traducirPortal("ayuda_contenido_389"),
+    pasos: Object.freeze([
+      Object.freeze({ selector: "[data-dietas-bandeja-circuito]", bloqueado: false, titulo: traducirPortal("ayuda_contenido_390"), instruccion: traducirPortal("ayuda_contenido_391"), objetivo: traducirPortal("ayuda_contenido_392"), preparacion: traducirPortal("ayuda_contenido_393"), resultado: traducirPortal("ayuda_contenido_394"), actor: traducirPortal("ayuda_contenido_395"), limite: traducirPortal("ayuda_contenido_396") }),
+      Object.freeze({ selector: "[data-dietas-bandeja-circuito]", bloqueado: false, titulo: traducirPortal("ayuda_contenido_397"), instruccion: traducirPortal("ayuda_contenido_398"), objetivo: traducirPortal("ayuda_contenido_399"), preparacion: traducirPortal("ayuda_contenido_400"), resultado: traducirPortal("ayuda_contenido_401"), actor: traducirPortal("ayuda_contenido_402"), limite: traducirPortal("ayuda_contenido_403") }),
     ]),
   }),
   Object.freeze({

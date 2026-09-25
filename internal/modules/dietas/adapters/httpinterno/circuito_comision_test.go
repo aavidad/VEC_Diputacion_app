@@ -43,6 +43,7 @@ type usoCircuitoPrueba struct {
 	decision                       dietasports.SolicitudDecisionCircuito
 	consulta                       dietasports.ConsultaBandejaCircuito
 	replay                         bool
+	devolucion                     *domain.DevolucionComision
 }
 
 func (u *usoCircuitoPrueba) Decidir(_ context.Context, _ dietasports.IdentidadEfectivaCircuito, s dietasports.SolicitudDecisionCircuito) (dietasports.ResultadoCircuitoComision, error) {
@@ -59,7 +60,7 @@ func (u *usoCircuitoPrueba) ListarPendientes(_ context.Context, _ dietasports.Id
 func (u *usoCircuitoPrueba) ConsultarDocumento(_ context.Context, _ dietasports.IdentidadEfectivaCircuito, s dietasports.SolicitudDocumentoCircuito) (dietasports.DocumentoCircuito, error) {
 	u.documentos++
 	u.documento = s
-	return dietasports.DocumentoCircuito{Referencia: s.Referencia, Estado: s.Etapa.EstadoPendiente(), Version: 2, Calculo: json.RawMessage(`{}`), Documento: json.RawMessage(`{"lineas":[]}`)}, nil
+	return dietasports.DocumentoCircuito{Referencia: s.Referencia, Estado: s.Etapa.EstadoPendiente(), Version: 2, Calculo: json.RawMessage(`{}`), Documento: json.RawMessage(`{"lineas":[]}`), Devolucion: u.devolucion}, nil
 }
 
 func peticionCircuito(m http.Handler, metodo, ruta, cuerpo string) *httptest.ResponseRecorder {
@@ -180,5 +181,46 @@ func TestBandejaHTTPFiltraFechasSinUnidadLibre(t *testing.T) {
 	}
 	if got := get("?etapa=revision&fecha_desde=2026-10-01&fecha_hasta=2026-09-30"); got != http.StatusBadRequest || u.listas != 1 {
 		t.Fatalf("fechas invertidas: %d", got)
+	}
+}
+
+// Reenvío: el documento que ve quien revisa lleva la devolución anterior con
+// etapa, motivo, versión y fecha, sin actor ni persona que la hizo.
+func TestDocumentoCircuitoProyectaDevolucionAnteriorSinActor(t *testing.T) {
+	u := &usoCircuitoPrueba{devolucion: &domain.DevolucionComision{Etapa: domain.EtapaAutorizacion, Motivo: "Falta el justificante del taxi", Version: 3, DevueltaEn: "2026-09-23T09:00:00.123456Z"}}
+	m, err := NuevoManejadorCircuito(&identidadCircuitoPrueba{}, u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := peticionCircuito(m, http.MethodGet, RutaCircuito+"/dco_"+strings.Repeat("c", 22)+"?etapa=revision", "")
+	var cuerpo struct {
+		Comision struct {
+			Devolucion map[string]any `json:"devolucion"`
+		} `json:"comision"`
+	}
+	if w.Code != http.StatusOK || json.Unmarshal(w.Body.Bytes(), &cuerpo) != nil || len(cuerpo.Comision.Devolucion) != 4 ||
+		cuerpo.Comision.Devolucion["motivo"] != "Falta el justificante del taxi" || cuerpo.Comision.Devolucion["etapa"] != "autorizacion" ||
+		strings.Contains(w.Body.String(), "act_") || strings.Contains(w.Body.String(), "actor") {
+		t.Fatalf("devolución anterior: %d %s", w.Code, w.Body.String())
+	}
+}
+
+// Go y el navegador recortan conjuntos distintos; la frontera rechaza ambos.
+func TestDecisionHTTPRechazaBordesQueRecortaElNavegador(t *testing.T) {
+	r, u := &identidadCircuitoPrueba{}, &usoCircuitoPrueba{}
+	m, err := NuevoManejadorCircuito(r, u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, motivo := range []string{`\ufeffFalta justificante`, `Falta justificante\ufeff`, `Falta justificante\u0085`} {
+		p := httptest.NewRequest(http.MethodPost, RutaCircuito+"/dco_"+strings.Repeat("a", 22)+"/decisiones",
+			strings.NewReader(`{"etapa":"revision","decision":"devolver","motivo":"`+motivo+`","clave_idempotencia":"clave_0123456789abcdef","version_esperada":1}`))
+		p.Header.Set("Accept", "application/json")
+		p.Header.Set("Content-Type", "application/json; charset=utf-8")
+		w := httptest.NewRecorder()
+		m.ServeHTTP(w, p)
+		if w.Code != http.StatusBadRequest || r.llamadas != 0 || u.decisiones != 0 {
+			t.Fatalf("%s: %d %d %d", motivo, w.Code, r.llamadas, u.decisiones)
+		}
 	}
 }
