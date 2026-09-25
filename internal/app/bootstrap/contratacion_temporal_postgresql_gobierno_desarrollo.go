@@ -14,6 +14,7 @@ import (
 	cronosapp "vec-diputacion-granada/internal/modules/cronos/application"
 	altapersonal "vec-diputacion-granada/internal/modules/personal/adapters/contrataciontemporal"
 	lecturapersonal "vec-diputacion-granada/internal/modules/personal/adapters/lecturaincorporacion"
+	personal "vec-diputacion-granada/internal/modules/personal/domain"
 	confianzaatestacion "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
 )
 
@@ -163,7 +164,7 @@ func gobiernoActualPostgreSQLContratacionTemporalDesarrolloEsPropio(
 		    AND pg_catalog.left(c.acto_ref,
 		        pg_catalog.length('acto:ct:desarrollo:clave-capacidad:'))=
 		        'acto:ct:desarrollo:clave-capacidad:'
-		    AND c.audiencia_consumo IN ($1,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44,$45,$46,$47))
+		    AND c.audiencia_consumo IN ($1,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44,$45,$46,$47,$48,$49,$50,$51,$52,$53,$54,$55))
 		AND EXISTS (
 		 SELECT 1
 		   FROM vec_autorizacion_atestada_v3.puntero_configuracion_actual p
@@ -241,6 +242,17 @@ func gobiernoActualPostgreSQLContratacionTemporalDesarrolloEsPropio(
 		cronosapp.AudienciaSolicitudCorreccionPropia,
 		cronosapp.AudienciaConsultaPermisosPropios,
 		cronosapp.AudienciaSolicitudPermisoPropio,
+		// Registro B2 de Personal: vec-server publica sus ocho consumidores y
+		// vec-interno sólo los lee (ver personal_b2_material.go). Sin ellas, el
+		// siguiente arranque tras publicar B2 vería el gobierno como ajeno.
+		personal.AudienciaFichaEmpleadoB2,
+		personal.AudienciaVacantesB2,
+		personal.AudienciaAltaEmpleadoB2,
+		personal.AudienciaHechoEmpleadoB2,
+		personal.AudienciaConsultarCatalogoEmpleadoB2,
+		personal.AudienciaPublicarCatalogoEmpleadoB2,
+		personal.AudienciaRetirarCatalogoEmpleadoB2,
+		personal.AudienciaEmpleadosB2,
 	).Scan(&propio)
 	return propio, err
 }
@@ -296,7 +308,15 @@ func audienciaConsumoGobiernoPostgreSQLContratacionTemporalDesarrolloEsPropia(
 		cronosapp.AudienciaConsultaMovimientosPropios,
 		cronosapp.AudienciaSolicitudCorreccionPropia,
 		cronosapp.AudienciaConsultaPermisosPropios,
-		cronosapp.AudienciaSolicitudPermisoPropio:
+		cronosapp.AudienciaSolicitudPermisoPropio,
+		personal.AudienciaFichaEmpleadoB2,
+		personal.AudienciaVacantesB2,
+		personal.AudienciaAltaEmpleadoB2,
+		personal.AudienciaHechoEmpleadoB2,
+		personal.AudienciaConsultarCatalogoEmpleadoB2,
+		personal.AudienciaPublicarCatalogoEmpleadoB2,
+		personal.AudienciaRetirarCatalogoEmpleadoB2,
+		personal.AudienciaEmpleadosB2:
 		return true
 	default:
 		return false
