@@ -258,12 +258,20 @@ func TestRenovacionProgramadaCambioDeDiaSinTraficoCT(t *testing.T) {
 	}
 	ctx, cancelar := context.WithCancel(context.Background())
 	defer cancelar()
-	espera := &esperaProgramadaPrueba{reloj: r, cancelar: cancelar, parar: func(n int) bool { return n > 2 }}
+	espera := &esperaProgramadaPrueba{reloj: r, cancelar: cancelar, parar: func(int) bool { return renovaciones.Load() >= 2 }}
 	f.mantenerRenovacionProgramada(ctx, espera.esperar)
-	// Primera espera: hasta la medianoche UTC. Segunda: el día siguiente
-	// completo, sin reintento. Cada cambio de día renueva una sola vez.
-	if len(espera.esperas) != 3 || espera.esperas[0] != 90*time.Minute || espera.esperas[1] != 24*time.Hour || renovaciones.Load() != 2 {
-		t.Fatalf("esperas %v, renovaciones %d", espera.esperas, renovaciones.Load())
+	// Hasta la medianoche UTC y después el día siguiente completo, en tramos
+	// acotados que se recalculan, sin reintentos. Cada cambio de día renueva
+	// una sola vez.
+	var total time.Duration
+	for _, d := range espera.esperas[:len(espera.esperas)-1] {
+		if d > maximoEsperaRenovacionProgramadaCT {
+			t.Fatalf("espera sin acotar: %v", d)
+		}
+		total += d
+	}
+	if total != 90*time.Minute+24*time.Hour || renovaciones.Load() != 2 {
+		t.Fatalf("espera total %v (%d tramos), renovaciones %d", total, len(espera.esperas), renovaciones.Load())
 	}
 	if f.material.configuracionRef != dia3.configuracionRef || !f.material.expiraEn.Equal(dia3.expiraEn) || f.actual == nil {
 		t.Fatal("el temporizador no adoptó la configuración de cada nuevo día")
@@ -371,5 +379,36 @@ func TestRenovacionProgramadaCancelacionDetieneTemporizador(t *testing.T) {
 	}
 	if err := esperarTemporizadorCTDesarrollo(context.Background(), 0); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// Un intento bloqueado (red cortada, cerrojo consultivo ajeno) vence por su
+// propio plazo: el temporizador no retiene f.mu indefinidamente y el uso CT
+// vuelve a poder entrar.
+func TestRenovacionProgramadaIntentoBloqueadoTienePlazo(t *testing.T) {
+	m := materialRenovableCTPrueba(t, time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC))
+	r := &relojRenovableCTPrueba{}
+	r.fijar(m.expiraEn)
+	f := fuenteRenovableCTPrueba(t, m, r)
+	f.plazoIntento = 50 * time.Millisecond
+	var plazo atomic.Bool
+	f.renovar = func(ctx context.Context, _ materialAtestacionContratacionTemporalDesarrollo, _ time.Time) (materialAtestacionContratacionTemporalDesarrollo, error) {
+		limite, ok := ctx.Deadline()
+		plazo.Store(ok && time.Until(limite) <= f.plazoIntento)
+		<-ctx.Done()
+		return materialAtestacionContratacionTemporalDesarrollo{}, ctx.Err()
+	}
+	ctx, cancelar := context.WithCancel(context.Background())
+	defer cancelar()
+	espera := &esperaProgramadaPrueba{reloj: r, cancelar: cancelar, parar: func(n int) bool { return n > 1 }}
+	hecho := make(chan struct{})
+	go func() { defer close(hecho); f.mantenerRenovacionProgramada(ctx, espera.esperar) }()
+	select {
+	case <-hecho:
+	case <-time.After(5 * time.Second):
+		t.Fatal("el intento programado no respetó su plazo")
+	}
+	if !plazo.Load() {
+		t.Fatal("el intento programado no llevaba plazo propio")
 	}
 }
