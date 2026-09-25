@@ -309,12 +309,7 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialBorradorLlamamientoBolsaDesarrollo()...)
 	}
 	if debeComponerMiBolsaDesarrollo(cfg) {
-		descriptoresMaterial = append(descriptoresMaterial, descriptorMaterialConsumidorV3Desarrollo{
-			Audiencia:        puertosbolsa.AudienciaMiBolsa,
-			Dominio:          "vec.bolsa.mi-bolsa.desarrollo.capacidad-v3",
-			Prefijo:          "clave:capacidad:bolsa-mi-bolsa:",
-			ProveedorNominal: "proveedor-material-bolsa-mi-bolsa",
-		})
+		descriptoresMaterial = append(descriptoresMaterial, descriptorMaterialMiBolsaDesarrollo())
 	}
 	if dietasBorradoresSolicitadas(cfg.DietasBorradoresEnabled) {
 		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialDietasDesarrollo()...)
@@ -531,6 +526,15 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	dependencias.detenerRenovacion = iniciarRenovacionProgramadaCTDesarrollo(material.fuenteConfianza, esperarTemporizadorCTDesarrollo)
 	completa = true
 	return dependencias, nil
+}
+
+func descriptorMaterialMiBolsaDesarrollo() descriptorMaterialConsumidorV3Desarrollo {
+	return descriptorMaterialConsumidorV3Desarrollo{
+		Audiencia:        puertosbolsa.AudienciaMiBolsa,
+		Dominio:          "vec.bolsa.mi-bolsa.desarrollo.capacidad-v3",
+		Prefijo:          "clave:capacidad:bolsa-mi-bolsa:",
+		ProveedorNominal: "proveedor-material-bolsa-mi-bolsa",
+	}
 }
 
 func debeComponerMiBolsaDesarrollo(cfg config.Config) bool {

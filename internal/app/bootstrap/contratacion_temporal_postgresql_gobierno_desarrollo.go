@@ -6,6 +6,7 @@ import (
 	"errors"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"slices"
 	"time"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 	postgrescontratacion "vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/postgres"
@@ -16,6 +17,7 @@ import (
 	lecturapersonal "vec-diputacion-granada/internal/modules/personal/adapters/lecturaincorporacion"
 	personal "vec-diputacion-granada/internal/modules/personal/domain"
 	confianzaatestacion "vec-diputacion-granada/internal/vec/adapters/seguridad/confianzaatestacion"
+	docports "vec-diputacion-granada/internal/vec/documentos/ports"
 )
 
 func prepararRotacionGobiernoPostgreSQLContratacionTemporalDesarrollo(
@@ -164,7 +166,7 @@ func gobiernoActualPostgreSQLContratacionTemporalDesarrolloEsPropio(
 		    AND pg_catalog.left(c.acto_ref,
 		        pg_catalog.length('acto:ct:desarrollo:clave-capacidad:'))=
 		        'acto:ct:desarrollo:clave-capacidad:'
-		    AND c.audiencia_consumo IN ($1,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44,$45,$46,$47,$48,$49,$50,$51,$52,$53,$54,$55))
+		    AND c.audiencia_consumo = ANY($2::text[]))
 		AND EXISTS (
 		 SELECT 1
 		   FROM vec_autorizacion_atestada_v3.puntero_configuracion_actual p
@@ -186,84 +188,23 @@ func gobiernoActualPostgreSQLContratacionTemporalDesarrolloEsPropio(
 		    AND pg_catalog.left(r.acto_ref,
 		        pg_catalog.length('acto:ct:desarrollo:raiz-atestacion:'))=
 		        'acto:ct:desarrollo:raiz-atestacion:'
-		    AND r.audiencia_despliegue=$2)`,
-		audienciaConsumoAltaContratacionTemporal,
+		    AND r.audiencia_despliegue=$1)`,
 		audienciaAtestacionContratacionTemporalDesarrollo,
-		puertosbolsa.AudienciaIntegracionLlamamientoDesarrollo,
-		ports.AudienciaConsumoConsultaCuadroRRHHV3,
-		ports.AudienciaConsumoConsultaDetalleRRHHV3,
-		// Incorporación opt-in usa el mismo gobierno, con tres audiencias
-		// nominales separadas. No cambia raíz, actos propietarios ni permisos.
-		altapersonal.AudienciaAltaEjercicio,
-		lecturapersonal.AudienciaV2,
-		ports.AudienciaConfirmacionIncorporacionV2,
-		postgrescontratacion.AudienciaAnotacionAdministrativaV1,
-		postgrescontratacion.AudienciaCierreAdministrativoSinCese,
-		ctapplication.AudienciaDespachoCorreoLlamamientoV3,
-		ctapplication.AudienciaResultadoCorreoLlamamientoV3,
-		// B-BACK y B2 publican consumidores distintos. La lista permanece
-		// cerrada: no convierte Bolsa ni CT en una audiencia comodín.
-		puertosbolsa.AudienciaCrearBorradorLlamamientoInterno,
-		puertosbolsa.AudienciaConsultarBorradorLlamamientoInterno,
-		puertosbolsa.AudienciaCambiarSituacionParticipacion,
-		puertosbolsa.AudienciaRegistrarContactoParticipacion,
-		puertosbolsa.AudienciaConsultarContactoParticipacion,
-		puertosbolsa.AudienciaRegistrarDatosContactoParticipacion,
-		puertosbolsa.AudienciaEmitirLlamamiento,
-		// Dietas y su dependencia Personal derivan consumidores nominales
-		// bajo esta misma raíz (ver dietas_material_ct_desarrollo.go).
-		audienciaConsumoPersonalDietasDesarrollo,
-		audienciaConsumoCrearDietasDesarrollo,
-		audienciaConsumoConsultarDietasDesarrollo,
-		audienciaConsumoEditarDietasDesarrollo,
-		audienciaConsumoBorrarDietasDesarrollo,
-		audienciaConsumoEnviarDietasDesarrollo,
-		audienciaConsumoDocumentoDietasDesarrollo,
-		audienciaConsumoConsultarAsignacionDietas,
-		audienciaConsumoRegistrarAsignacionDietas,
-		audienciaConsumoCorregirAsignacionDietas,
-		audienciaConsumoCorregirGrupoDietas,
-		// Circuito de revisión de Dietas: AD3-59 y AD3-80.
-		audienciaConsumoRevisarDietas,
-		audienciaConsumoAutorizarDietas,
-		audienciaConsumoLiquidarDietas,
-		audienciaConsumoFiscalizarDietas,
-		audienciaConsumoBandejaRevisionDietas,
-		audienciaConsumoBandejaAutorizacionDietas,
-		audienciaConsumoBandejaLiquidacionDietas,
-		audienciaConsumoBandejaFiscalizacionDietas,
-		audienciaConsumoRevisorDocumentoDietas,
-		// Cronos (persona empleada): una audiencia por acción, AD3-53 y AD3-70.
-		cronosapp.AudienciaMarcajePropio,
-		cronosapp.AudienciaDisponibilidadMarcajeRemoto,
-		cronosapp.AudienciaRecuperacionMarcajeRemoto,
-		cronosapp.AudienciaConsultaSaldoPropio,
-		cronosapp.AudienciaConsultaMovimientosPropios,
-		cronosapp.AudienciaSolicitudCorreccionPropia,
-		cronosapp.AudienciaConsultaPermisosPropios,
-		cronosapp.AudienciaSolicitudPermisoPropio,
-		// Registro B2 de Personal: vec-server publica sus ocho consumidores y
-		// vec-interno sólo los lee (ver personal_b2_material.go). Sin ellas, el
-		// siguiente arranque tras publicar B2 vería el gobierno como ajeno.
-		personal.AudienciaFichaEmpleadoB2,
-		personal.AudienciaVacantesB2,
-		personal.AudienciaAltaEmpleadoB2,
-		personal.AudienciaHechoEmpleadoB2,
-		personal.AudienciaConsultarCatalogoEmpleadoB2,
-		personal.AudienciaPublicarCatalogoEmpleadoB2,
-		personal.AudienciaRetirarCatalogoEmpleadoB2,
-		personal.AudienciaEmpleadosB2,
+		audienciasConsumoGobiernoCTDesarrollo(),
 	).Scan(&propio)
 	return propio, err
 }
 
-// Las audiencias publicables se mantienen nominales: extender el gobierno de
-// anotación y cierre no concede una capacidad a otro consumidor.
-func audienciaConsumoGobiernoPostgreSQLContratacionTemporalDesarrolloEsPropia(
-	audiencia string,
-) bool {
-	switch audiencia {
-	case audienciaConsumoAltaContratacionTemporal,
+// audienciasConsumoGobiernoCTDesarrollo es la lista cerrada y única de
+// consumidores cuya clave de capacidad publica vec-server bajo la raíz de CT.
+// La consultan el publicador, antes de escribir, y la comprobación de gobierno
+// propio, sobre el puntero de emisión vigente. Mantener dos listas hizo que un
+// consumidor publicable (Cronos resolución y notificaciones) dejara, en la
+// publicación siguiente, el gobierno como «ajeno» y tumbara el arranque. Cada
+// audiencia es nominal y la admite su migración AD3; no hay comodines.
+func audienciasConsumoGobiernoCTDesarrollo() []string {
+	return []string{
+		audienciaConsumoAltaContratacionTemporal,
 		puertosbolsa.AudienciaIntegracionLlamamientoDesarrollo,
 		ports.AudienciaConsumoConsultaCuadroRRHHV3,
 		ports.AudienciaConsumoConsultaDetalleRRHHV3,
@@ -324,11 +265,21 @@ func audienciaConsumoGobiernoPostgreSQLContratacionTemporalDesarrolloEsPropia(
 		personal.AudienciaConsultarCatalogoEmpleadoB2,
 		personal.AudienciaPublicarCatalogoEmpleadoB2,
 		personal.AudienciaRetirarCatalogoEmpleadoB2,
-		personal.AudienciaEmpleadosB2:
-		return true
-	default:
-		return false
+		personal.AudienciaEmpleadosB2,
+		// Consumidores del catálogo común sin entrada previa en la lista:
+		// Mi bolsa (AD3-43), Documentos (AD3-60) y ficha propia (AD3-74).
+		puertosbolsa.AudienciaMiBolsa,
+		docports.AudienciaV3,
+		personal.AudienciaFichaPropia,
 	}
+}
+
+// Las audiencias publicables se mantienen nominales: extender el gobierno de
+// anotación y cierre no concede una capacidad a otro consumidor.
+func audienciaConsumoGobiernoPostgreSQLContratacionTemporalDesarrolloEsPropia(
+	audiencia string,
+) bool {
+	return slices.Contains(audienciasConsumoGobiernoCTDesarrollo(), audiencia)
 }
 
 func reconstruirClavesGobiernoPostgreSQLContratacionTemporalDesarrollo(
