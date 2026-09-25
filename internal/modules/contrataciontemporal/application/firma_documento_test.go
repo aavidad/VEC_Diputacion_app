@@ -215,3 +215,22 @@ func TestMaterialFirmaDocumentoCanonico(t *testing.T) {
 		t.Fatal("devolución con huella de firmado admitida")
 	}
 }
+
+// CT118 recalcula en SQL la huella de contexto del recurso con una
+// concatenación literal; debe coincidir con la del dominio V3.
+func TestHuellaContextoRecursoFirmaCoincideConCT118(t *testing.T) {
+	m := ports.MaterialFirmaDocumento{OrganizacionRef: "organizacion:desarrollo:dipgra", ExpedienteRef: "expediente:ct:001", VersionExpediente: 7,
+		Documento: "informe_definitivo", CatalogoRef: "vec.contratacion_temporal.circuito_firma:1", CatalogoHuella: strings.Repeat("c", 64),
+		PasoRef: "circuito:1:p1", PasoOrden: 1, Secuencia: 1, Resultado: domain.ResultadoFirmaDevuelto, MotivoDevolucion: "Falta la fecha",
+		ClaveIdempotencia: "clave-devolucion-00001"}
+	r, err := RecursoFirmaDocumento(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dominio, err := r.HuellaContextoAutorizacionSHA256()
+	h, _ := m.HuellaSHA256()
+	sql := huella([]byte(`{"ambitos":{"organizacion_ref":"` + m.OrganizacionRef + `"},"atributos":{"material_sha256":"` + h + `"}}`))
+	if err != nil || dominio != sql || r.Referencia != "operacion-firma-ct:clave-devolucion-00001" {
+		t.Fatalf("huella de contexto divergente: %s %s %v", dominio, sql, err)
+	}
+}

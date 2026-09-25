@@ -3,7 +3,8 @@
 -- AD3-85 y CT118 instaladas. Se ejecuta como superusuario del ensayo y todo
 -- se deshace al final: los dos roles de prueba se borran y las filas se
 -- revierten; no deja cambios.
--- El recorrido positivo (consumo V3 real) lo cubre la prueba Go del adaptador.
+-- El recorrido de escritura lo cubre ct118_recorrido_con_fachada_de_prueba.sql
+-- con un doble de la fachada AD3-85 dentro de una transacción revertida.
 BEGIN;
 SET LOCAL search_path = pg_catalog;
 CREATE ROLE vec_ct118_prueba_ejecutor LOGIN;
