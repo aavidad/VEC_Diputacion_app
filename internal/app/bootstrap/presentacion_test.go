@@ -210,6 +210,9 @@ func TestComposicionPresentacionRechazaDatosNoMarcadosYConectores(t *testing.T) 
 		func(c *config.Config) { c.OSRMGraphVersion = "grafo-osm-granada-v1" },
 		func(c *config.Config) { c.AuthMode = config.AuthModeFake },
 		func(c *config.Config) { c.StorageMode = config.StorageModeFile },
+		func(c *config.Config) { c.FirmaVerificacionEnabled = "true" },
+		func(c *config.Config) { c.FirmaVerificacionEnabled = " true " },
+		func(c *config.Config) { c.FirmaVerificacionEnabled = "si" },
 	}
 	for indice, mutar := range mutaciones {
 		cfg := base
@@ -220,5 +223,13 @@ func TestComposicionPresentacionRechazaDatosNoMarcadosYConectores(t *testing.T) 
 		if _, err := NewHTTPServerPresentacionPersonalWithConfig(cfg); !errors.Is(err, ErrComposicionPresentacionRRHHInvalida) {
 			t.Errorf("Personal: mutacion %d no rechazada: %v", indice, err)
 		}
+		if _, err := NewHTTPServerPresentacionPersonalRPTWithConfig(cfg); !errors.Is(err, ErrComposicionPresentacionRRHHInvalida) {
+			t.Errorf("RPT: mutacion %d no rechazada: %v", indice, err)
+		}
+	}
+	apagada := base
+	apagada.FirmaVerificacionEnabled = "false"
+	if _, err := NewHTTPServerPresentacionWithConfig(apagada); err != nil {
+		t.Fatalf("firma apagada explicitamente rechazada: %v", err)
 	}
 }

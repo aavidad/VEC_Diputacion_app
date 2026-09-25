@@ -231,3 +231,41 @@ func (f fabricaNoAlcanzable) ContextoLecturaOriginal(context.Context, domain.Doc
 	f.t.Fatal("no debe pedirse contexto de lectura de un original externo")
 	return vecports.ContextoOperacionAlmacen{}, nil
 }
+
+type fabricaLecturaFallida struct{ causa error }
+
+func (f fabricaLecturaFallida) ContextoLecturaOriginal(context.Context, domain.Documento, ports.AutorizacionV3) (vecports.ContextoOperacionAlmacen, error) {
+	return vecports.ContextoOperacionAlmacen{}, f.causa
+}
+
+func TestDescargaConservaCausaDeFabricaSinPerderCategoria(t *testing.T) {
+	servicio, repo, alta := escenarioExterna(t)
+	if _, err := servicio.RegistrarExterno(context.Background(), alta); err != nil {
+		t.Fatal(err)
+	}
+	ahora := servicio.Reloj.Ahora()
+	consulta := ports.ConsultaDocumento{DocumentoID: alta.ID, Version: alta.Version}
+	preimagen, err := consulta.PreimagenDescargar()
+	if err != nil {
+		t.Fatal(err)
+	}
+	consulta.Autorizacion = ports.AutorizacionV3{
+		Material: materialExternaPrueba(t, ports.AccionDescargar, alta.ID, preimagen, ahora),
+		Accion:   ports.AccionDescargar, Finalidad: "descargar_documento_original",
+		RecursoRef: alta.ID, AmbitoRef: alta.ExpedienteRef, PrincipalID: "per:0001",
+		PerfilActivoRef: "perfil:0001", CorrelacionRef: "corr:0001",
+	}
+	documento := documentoConfirmadoPrueba(repo.recibido)
+	documento.Custodia = domain.CustodiaVEC
+	documento.CustodiaExternaRef = domain.ReferenciaCustodiaExterna{}
+	documento.MIME, documento.Tamano = "application/pdf", 6
+	documento.ObjetoRef, documento.ObjetoVersion = "obj:123", "version:1"
+	servicio.Repositorio = &repositorioObtenerExterno{documento: documento}
+	servicio.Almacen = almacenNoAlcanzable{}
+	causa := errors.New("origen de lectura reservado")
+	servicio.ContextosLectura = fabricaLecturaFallida{causa: causa}
+	_, err = servicio.DescargarOriginal(context.Background(), consulta)
+	if !errors.Is(err, ports.ErrCapacidadNoDisponible) || !errors.Is(err, causa) {
+		t.Fatalf("categoria o causa perdida: %v", err)
+	}
+}

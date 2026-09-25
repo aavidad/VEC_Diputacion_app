@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"reflect"
 
@@ -22,6 +23,8 @@ type Servicio struct {
 	Politicas        vecports.ResolutorPoliticaConservacionDocumental
 	Reloj            vecports.Reloj
 	ContextosLectura ports.FabricaContextoLectura
+	// Reservado para el caso de uso de verificación: ningún método actual lo invoca.
+	VerificadorFirma ports.VerificadorFirmaMotivado
 }
 
 func dependenciaNula(v any) bool {
@@ -257,7 +260,7 @@ func (s *Servicio) DescargarOriginal(ctx context.Context, in ports.ConsultaDocum
 	}
 	contextoAlmacen, err := s.ContextosLectura.ContextoLecturaOriginal(ctx, d, in.Autorizacion)
 	if err != nil {
-		return ports.Original{}, ports.ErrCapacidadNoDisponible
+		return ports.Original{}, fmt.Errorf("%w: %w", ports.ErrCapacidadNoDisponible, err)
 	}
 	solicitud := vecports.SolicitudAbrirObjeto{
 		Contexto: contextoAlmacen,

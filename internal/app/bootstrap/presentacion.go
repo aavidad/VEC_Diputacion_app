@@ -116,7 +116,10 @@ func NewHTTPServerPresentacionPersonalRPTWithConfig(cfg config.Config) (*http.Se
 }
 
 func configuracionPresentacionSinteticaValida(cfg config.Config) bool {
+	// La presentacion no compone firma: un selector de verificacion distinto
+	// de apagado impide arrancar en lugar de ignorarse.
 	return cfg.RRHHPresentationEnabledByDoubleGuard() &&
+		(cfg.FirmaVerificacionEnabled == "" || cfg.FirmaVerificacionEnabled == "false") &&
 		cfg.AuthMode == config.AuthModeDisabled && cfg.StorageMode == config.StorageModeMemory &&
 		cfg.FakeCredentialsPath == "" && cfg.PersonalCatalogPath == "" && cfg.PersonalCatalogInMemory &&
 		cfg.OSRMBaseURL == "" && cfg.OSRMScopeName == "" && cfg.OSRMScopeBounds == "" &&
