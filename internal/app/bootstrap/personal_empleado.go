@@ -152,6 +152,11 @@ func (a *autoridadPersonalEmpleadoDesarrollo) ServeHTTP(w http.ResponseWriter, r
 		a.denegar(w, r, http.StatusNotFound, "no_encontrada", "no_disponible")
 		return
 	}
+	// curl/OpenSSL y muchos navegadores completan la cadena del cliente y
+	// envían también la CA; el resolvedor exige un único certificado. Se
+	// reduce a la hoja sólo si cada certificado enviado coincide con la cadena
+	// verificada, como en Contratación y Cronos.
+	r = peticionIdentidadConsultasContratacionTemporalDesarrollo(r)
 	if a.base == nil || r.Header.Get("Cookie") != "" || r.Header.Get("Authorization") != "" {
 		a.denegar(w, r, http.StatusUnauthorized, "autenticacion_requerida", "autenticacion_requerida")
 		return
