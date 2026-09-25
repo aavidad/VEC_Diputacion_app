@@ -409,7 +409,7 @@ export const MENSAJES_AYUDA_PORTAL_ES = Object.freeze({
   ayuda_ct_limite_nombramiento: "La propuesta y la validación manual de la resolución no son firma legal, no producen eficacia administrativa ni acreditan custodia documental.",
   ayuda_ct_limite_incorporacion: "La incorporación registrada y la descarga de la ficha para GINPIX no acreditan firma oficial, no realizan ningún envío ni producen eficacia administrativa.",
   ayuda_ct_limite_seguimiento: "La anotación administrativa conserva la fase y el estado sin iniciar cese, firma ni correo, y el cierre administrativo no registra cese ni envía datos a Personal, correo o GINPIX.",
-  ayuda_contenido_404: "El «Circuito de firma» indica, para cada borrador, quién firma y en qué orden, qué permite cada firma y qué ocurre si se devuelve. Es un ejemplo configurable a la espera de que RRHH lo defina; desde esta pantalla todavía no se firma.",
+  ayuda_contenido_404: "El «Circuito de firma» indica quién firma cada borrador y en qué orden. En el paso pendiente puede firmar de prueba con AutoFirma o devolver el borrador con un motivo; el servidor verifica la firma y la registra, pero es una firma de prueba sin eficacia administrativa hasta que el documento pase por el portafirmas corporativo.",
   ayuda_contenido_405: "Una firma electrónica sobre un borrador, aunque se haga con el certificado personal y se verifique, no tiene eficacia administrativa mientras el documento no pase por el portafirmas corporativo de la Diputación.",
   ayuda_extension: "Bolsa de trabajo y Contratación temporal ofrecen ayuda propia en sus módulos.",
   ayuda_paso_de: "Paso {actual} de {total}",

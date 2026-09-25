@@ -1,10 +1,14 @@
 /**
  * Circuito de firma de los borradores del expediente. Consulta el catálogo
- * vigente (solo lectura) y muestra, por documento, sus pasos con el estado de
- * cada uno. No firma ni decide estados: los recibe del servidor.
+ * vigente y, si el registro de firmas está compuesto, el estado real de cada
+ * paso. En el paso pendiente ofrece «Firmar» (AutoFirma) y «Devolver». No
+ * decide estados: los recibe del servidor. Una firma de prueba registrada no
+ * tiene eficacia administrativa hasta el portafirmas corporativo.
  */
 
-import { escaparHTML } from "./componentes-expedientes.js";
+import { escaparHTML, solicitudInformeDefinitivoDesdeEstado } from "./componentes-expedientes.js";
+import { crearAccionesFirma, fusionarEstadoFirmas, renderizarAccionesPaso } from "./circuito-firma-acciones.js";
+import { crearClienteFirmaDocumento } from "./firma-documento-cliente.js";
 import { crearTraductorCircuitoFirma } from "./i18n-circuito-firma.js";
 
 export const RUTA_CIRCUITO_FIRMA = "/api/vec/contratacion-temporal/circuito-firma";
@@ -124,7 +128,7 @@ export function crearClienteHTTPCircuitoFirma({ fetchImpl = globalThis.fetch } =
   });
 }
 
-function renderizarPaso(paso, t) {
+function renderizarPaso(paso, t, circuito, documento) {
   const tono = TONO_ESTADO[paso.estado];
   const detalles = [
     t(`circuito_firma_accion_${paso.accion}`),
@@ -137,6 +141,8 @@ function renderizarPaso(paso, t) {
     <div class="ct-circuito-paso-cuerpo">
       <p class="ct-circuito-cargo">${escaparHTML(paso.cargo)}</p>
       <p class="ct-circuito-detalle">${detalles.map(escaparHTML).join(" · ")}</p>
+      ${paso.estado === "devuelto" && paso.motivo_devolucion ? `<p class="ct-circuito-motivo">${escaparHTML(t("circuito_firma_motivo", { motivo: paso.motivo_devolucion }))}</p>` : ""}
+      ${renderizarAccionesPaso(circuito, documento, paso, t)}
     </div>
     <span class="ct-circuito-estado ct-tono-${tono}">${escaparHTML(t(`circuito_firma_estado_${paso.estado}`, { cargo: paso.cargo }))}</span>
   </li>`;
@@ -148,10 +154,12 @@ export function renderizarCircuitoFirma(circuito, t) {
     <header class="ct-circuito-cabecera">
       <h3 id="ct-circuito-firma-titulo">${escaparHTML(t("circuito_firma_titulo"))}</h3>
       ${circuito.ejemplo ? `<span class="ct-circuito-marca">${escaparHTML(t("circuito_firma_ejemplo"))}</span>` : ""}
+      ${circuito.registro ? `<span class="ct-circuito-marca">${escaparHTML(t("circuito_firma_sin_eficacia"))}</span>` : ""}
     </header>
+    <p class="ct-circuito-aviso" role="status" aria-live="polite" data-ct-firma-aviso></p>
     <div class="ct-circuito-documentos">${circuito.documentos.map((documento) => `<article class="ct-circuito-documento" data-ct-circuito-documento="${escaparHTML(documento.documento)}">
       <h4>${escaparHTML(documento.etiqueta)}</h4>
-      <ol aria-label="${escaparHTML(t("circuito_firma_pasos", { documento: documento.etiqueta }))}">${documento.pasos.map((paso) => renderizarPaso(paso, t)).join("")}</ol>
+      <ol aria-label="${escaparHTML(t("circuito_firma_pasos", { documento: documento.etiqueta }))}">${documento.pasos.map((paso) => renderizarPaso(paso, t, circuito, documento)).join("")}</ol>
     </article>`).join("")}</div>
   </section>`;
 }
@@ -162,24 +170,51 @@ export function renderizarCircuitoFirma(circuito, t) {
  */
 export function crearGestorCircuitoFirma({
   raiz, obtenerEstado, cliente = crearClienteHTTPCircuitoFirma(), mensajes = {}, esMontada = () => true,
+  clienteFirma = crearClienteFirmaDocumento(), dependenciasAcciones = {},
 } = {}) {
   if (typeof obtenerEstado !== "function") throw new TypeError("estado del circuito de firma no disponible");
   const t = crearTraductorCircuitoFirma(mensajes);
   const controlador = new AbortController();
   let consulta = null;
 
+  // El estado real solo se consulta con un expediente cuyos borradores
+  // existen; sin registro compuesto el bloque sigue siendo informativo.
+  async function conEstadoReal(circuito) {
+    const solicitud = circuito ? solicitudInformeDefinitivoDesdeEstado(obtenerEstado()) : null;
+    if (!solicitud || typeof clienteFirma?.consultar !== "function") return circuito;
+    const estado = await clienteFirma.consultar(solicitud.expediente_ref, { signal: controlador.signal }).catch(() => null);
+    return fusionarEstadoFirmas(circuito, estado) ?? circuito;
+  }
+
+  const acciones = crearAccionesFirma({
+    obtenerEstado, t, clienteFirma, ...dependenciasAcciones,
+    async alCambiar(aviso) {
+      const circuito = await consulta;
+      const nuevo = await conEstadoReal(circuito);
+      const actual = raiz.querySelector?.("[data-ct-circuito-firma]");
+      if (!nuevo || !actual || !esMontada()) return;
+      actual.outerHTML = renderizarCircuitoFirma(nuevo, t);
+      const repintado = raiz.querySelector?.("[data-ct-circuito-firma]");
+      repintado?.addEventListener?.("click", manejar);
+      const aviso_ = repintado?.querySelector?.("[data-ct-firma-aviso]");
+      if (aviso_) aviso_.textContent = aviso;
+    },
+  });
+  function manejar(evento) { void acciones.manejarClic(evento); }
+
   function insertar(circuito) {
     if (!circuito || !esMontada() || raiz.querySelector?.("[data-ct-circuito-firma]")) return;
     const cabecera = raiz.querySelector?.(".ct-exp-cabecera-expediente");
     if (typeof cabecera?.insertAdjacentHTML !== "function") return;
     cabecera.insertAdjacentHTML("afterend", renderizarCircuitoFirma(circuito, t));
+    raiz.querySelector?.("[data-ct-circuito-firma]")?.addEventListener?.("click", manejar);
   }
 
   function montarSiProcede(estado) {
     if (estado?.vista !== "expediente" || !estado.expediente || typeof cliente?.obtenerCircuito !== "function") return;
     consulta ??= Promise.resolve(cliente.obtenerCircuito({ signal: controlador.signal })).catch(() => null);
     const expedienteRef = estado.expediente.expediente_ref;
-    void consulta.then((circuito) => {
+    void consulta.then(conEstadoReal).then((circuito) => {
       const actual = obtenerEstado();
       if (actual?.vista === "expediente" && actual.expediente?.expediente_ref === expedienteRef) insertar(circuito);
     });

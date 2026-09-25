@@ -133,3 +133,45 @@
     padding-inline: 16px;
   }
 }
+
+/* Acciones del paso pendiente: firmar con AutoFirma o devolver con motivo. */
+.ct-circuito-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.ct-circuito-devolucion {
+  display: grid;
+  flex-basis: 100%;
+  gap: 4px;
+}
+
+.ct-circuito-devolucion textarea {
+  width: 100%;
+  min-height: 3rem;
+  font: inherit;
+}
+
+.ct-circuito-devolucion-botones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ct-circuito-motivo,
+.ct-circuito-resultado,
+.ct-circuito-aviso {
+  margin: 4px 0 0;
+  font-size: 0.85rem;
+}
+
+.ct-circuito-aviso:empty,
+.ct-circuito-resultado:empty {
+  display: none;
+}
+
+.ct-circuito-aviso {
+  padding: 8px 24px 0;
+}
