@@ -15,6 +15,7 @@ import {
 } from "./portal-bolsas-contrato.js";
 import { traducirBolsaInterna, traducirPortal } from "./portal-i18n.js?v=20260926-portal-rrhh-main-v1";
 import { crearControladorOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260923-pweb14-v1";
+import { crearControladorCorreoLlamamiento } from "./portal-bolsas-correo.js?v=20260925-correo-personalizado-v1";
 import { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js";
 export { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js";
 
@@ -384,6 +385,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     if (flujo) flujo.acceso_denegado = true;
     estado.datosCandidatos = { carga: "denegado", datos: null, error: mensaje };
   }
+  const controladorCorreoB7 = crearControladorCorreoLlamamiento({ estado, renderizar });
   const controladorOperacionesB8 = crearControladorOperacionesSituacion({
     estado,
     renderizar,
@@ -646,6 +648,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
 
   function instalar() {
     controladorOperacionesB8.instalar(documento);
+    controladorCorreoB7.instalar(documento);
     documento.addEventListener("change", (evento) => {
       const control = evento.target;
       if (!control?.closest?.('[data-bolsa-form="b7-paso2"]')) return;
@@ -782,6 +785,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
         if (estado.filtrosBolsa?.nuevo_llamamiento?.enviando) return;
         invalidarSeleccionMasiva();
         estado.filtrosBolsa = { ...estado.filtrosBolsa, estado: "", texto: "", nuevo_llamamiento: { paso: 1, estados: ["disponible"], participaciones: [], configuracion: null, error: "", recibo: "", seleccion_total: false, cursoresPagina: [""] } };
+        controladorCorreoB7.prepararFlujo(estado.filtrosBolsa.nuevo_llamamiento);
         renderizar();
         documento.querySelector('[aria-current="step"]')?.focus?.();
       } else if (accion === "cancelar-b7") {
