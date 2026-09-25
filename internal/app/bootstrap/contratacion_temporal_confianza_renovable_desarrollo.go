@@ -26,6 +26,9 @@ type fuenteConfianzaRenovableCTDesarrollo struct {
 	lector   *gobiernov3lector.Lector
 	leer     func(context.Context, materialAtestacionContratacionTemporalDesarrollo, time.Time) (materialAtestacionContratacionTemporalDesarrollo, error)
 	renovar  func(context.Context, materialAtestacionContratacionTemporalDesarrollo, time.Time) (materialAtestacionContratacionTemporalDesarrollo, error)
+	// plazoIntento acota cada renovación programada; cero usa el valor
+	// predeterminado. Sólo las pruebas lo reducen.
+	plazoIntento time.Duration
 }
 
 func nuevaFuenteConfianzaRenovableCTDesarrollo(pool *pgxpool.Pool, m materialAtestacionContratacionTemporalDesarrollo, reloj relojConfianzaCTDesarrollo) (*fuenteConfianzaRenovableCTDesarrollo, error) {
@@ -137,9 +140,19 @@ func (f *fuenteConfianzaRenovableCTDesarrollo) instantanea(ctx context.Context) 
 // mismo cerrojo consultivo y misma adopción idempotente que el disparo por
 // uso, que se conserva. Así la continuidad no depende de tráfico CT (ni del
 // lector de vec-interno, que no publica).
+//
+// Cada intento tiene plazo propio: `instantanea` retiene f.mu durante toda la
+// transacción de gobierno y el contexto del temporizador sólo se cancela al
+// cerrar, así que sin plazo un corte de red o un cerrojo consultivo ajeno
+// bloquearía también cada petición CT. La espera se acota a unos minutos y se
+// recalcula (los temporizadores de Go no avanzan con el equipo suspendido) y
+// los reintentos crecen hasta un tope, registrando el primer fallo y después
+// sólo al alcanzar el tope, para no emitir una línea por minuto.
 const (
-	reintentoRenovacionProgramadaCTDesarrollo = time.Minute
-	maximoEsperaRenovacionProgramadaCT        = 24 * time.Hour
+	reintentoRenovacionProgramadaCTDesarrollo       = time.Minute
+	reintentoMaximoRenovacionProgramadaCTDesarrollo = 15 * time.Minute
+	maximoEsperaRenovacionProgramadaCT              = 10 * time.Minute
+	plazoIntentoRenovacionProgramadaCTDesarrollo    = 30 * time.Second
 )
 
 type esperaRenovacionCTDesarrollo func(context.Context, time.Duration) error
@@ -168,6 +181,7 @@ func (f *fuenteConfianzaRenovableCTDesarrollo) mantenerRenovacionProgramada(ctx 
 	if f == nil || ctx == nil || esperar == nil || f.reloj == nil {
 		return
 	}
+	reintento := reintentoRenovacionProgramadaCTDesarrollo
 	for ctx.Err() == nil {
 		vence := f.vencimientoActual()
 		espera := min(max(vence.Sub(f.reloj.Ahora().UTC()), 0), maximoEsperaRenovacionProgramadaCT)
@@ -178,18 +192,29 @@ func (f *fuenteConfianzaRenovableCTDesarrollo) mantenerRenovacionProgramada(ctx 
 		if ahora.Before(vence) {
 			continue // Despertar anticipado: reloj de pared frente a monotónico.
 		}
-		_, err := f.instantanea(ctx)
+		plazo := f.plazoIntento
+		if plazo <= 0 {
+			plazo = plazoIntentoRenovacionProgramadaCTDesarrollo
+		}
+		intento, cancelarIntento := context.WithTimeout(ctx, plazo)
+		_, err := f.instantanea(intento)
+		cancelarIntento()
 		if ctx.Err() != nil {
 			return
 		}
-		if err != nil || !f.vencimientoActual().After(ahora) {
+		if err == nil && f.vencimientoActual().After(ahora) {
+			reintento = reintentoRenovacionProgramadaCTDesarrollo
+			continue
+		}
+		if reintento == reintentoRenovacionProgramadaCTDesarrollo || reintento == reintentoMaximoRenovacionProgramadaCTDesarrollo {
 			registrarFalloPostgreSQLContratacionTemporalDesarrollo(
 				"renovacion_programada_confianza", "renovacion_no_confirmada",
 			)
-			if esperar(ctx, reintentoRenovacionProgramadaCTDesarrollo) != nil {
-				return
-			}
 		}
+		if esperar(ctx, reintento) != nil {
+			return
+		}
+		reintento = min(2*reintento, reintentoMaximoRenovacionProgramadaCTDesarrollo)
 	}
 }
 
