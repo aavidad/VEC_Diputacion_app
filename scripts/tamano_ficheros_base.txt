@@ -83,6 +83,7 @@
 875 internal/vec/ports/reconciliacion_documental_v4.go
 1179 scripts/smoke_nominas_peoplenet.js
 13086 web/static/app.js
+804 web/static/portal-empleado/modulos/contratacion-temporal/componentes-expedientes.js
 876 web/static/portal-empleado/modulos/contratacion-temporal/cliente-http.test.mjs
 1067 web/static/portal-empleado/modulos/contratacion-temporal/expedientes.css
 960 web/static/portal-empleado/modulos/contratacion-temporal/expedientes-presentacion.test.mjs
@@ -92,8 +93,8 @@
 849 web/static/portal-empleado/modulos/contratacion-temporal/formulario-analisis.js
 1719 web/static/portal-empleado/modulos/dietas/dietas.css
 1548 web/static/portal-empleado/modulos/dietas/vista-borradores-propios.test.mjs
-1070 web/static/portal-empleado/portal-modulos-coordinador.js
-1073 web/static/portal-empleado/portal-modulos-coordinador.test.mjs
+1075 web/static/portal-empleado/portal-modulos-coordinador.js
+1074 web/static/portal-empleado/portal-modulos-coordinador.test.mjs
 945 web/static/portal-empleado/portal-componentes.css
 950 web/static/portal-empleado/portal.js
 1183 web/static/portal-empleado/portal-bolsas-api.js
