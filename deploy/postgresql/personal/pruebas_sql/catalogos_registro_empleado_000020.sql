@@ -8,13 +8,18 @@ DECLARE
  cap_desde timestamptz:=clock_timestamp()-interval '1 minute';
  cap_hasta timestamptz:=clock_timestamp()+interval '5 minutes';
 BEGIN
+ IF encode(sha256(convert_to(concat_ws(E'\n',
+  'vec.personal.catalogo-registro-empleado.entrada.v1','organismo:dipgra','regimen','regimen:uno',
+  '1','1','Régimen sintético','2026-09-20',''),'UTF8')),'hex')
+  <> 'b08fcb659efbcff4bf474e6d1d1051ca7e110007562dce9253bcd2fb69d47e62' THEN
+  RAISE EXCEPTION 'vector Go/SQL de huella divergente'; END IF;
  huella:=encode(sha256(convert_to(concat_ws(E'\n',
   'vec.personal.catalogo-registro-empleado.entrada.v1','org:sintetico','regimen','reg:sintetico',
-  '1','1','Régimen sintético','2020-01-01','','acto:sintetico:publicar'),'UTF8')),'hex');
+  '1','1','Régimen sintético','2020-01-01',''),'UTF8')),'hex');
  m:=jsonb_build_object('esquema','vec.personal.catalogo-registro-empleado.v1',
   'operacion','publicar','organismo_ref','org:sintetico','tipo','regimen','ref','reg:sintetico',
   'version',1,'revision',1,'denominacion','Régimen sintético','huella_sha256',huella,
-  'vigente_desde','2020-01-01','vigente_hasta',NULL,'acto_ref','acto:sintetico:publicar',
+  'vigente_desde','2020-01-01','vigente_hasta',NULL,
   'actor_ref','actor:sintetico:rrhh','idempotencia_ref','11111111-1111-4111-8111-111111111111');
  x:=jsonb_build_object('esquema','vec.contexto-actor.vinculado.v2','principal_ref','actor:sintetico:rrhh',
   'perfil_activo_ref','perfil:sintetico:rrhh','persona_version',1,'perfil_version',1);
@@ -43,6 +48,18 @@ BEGIN
    m_error::text,convert_to(c_error::text,'UTF8'),convert_to(d_error::text,'UTF8'),'x'::bytea,
    convert_to(x::text,'UTF8'),1,1,'x'::bytea,'x'::bytea,'x'::bytea,'x'::bytea);
   RAISE EXCEPTION 'huella falsa aceptada';
+ EXCEPTION WHEN SQLSTATE '23514' THEN NULL; END;
+ m_error:=m||jsonb_build_object('acto_ref','acto:cliente:forzado');
+ error_mh:=encode(sha256(convert_to(m_error::text,'UTF8')),'hex');
+ recurso:='{"ambitos":{"objetivo_ref":"'||efecto||'","organismo_ref":"org:sintetico"},"atributos":{"material_sha256":"'||error_mh||'","operacion":"publicar"}}';
+ error_rh:=encode(sha256(convert_to(recurso,'UTF8')),'hex');
+ c_error:=c||jsonb_build_object('huella_efecto_sha256',error_rh);
+ d_error:=d||jsonb_build_object('contexto_recurso_huella_sha256',error_rh);
+ BEGIN
+  PERFORM vec_personal.registrar_entrada_catalogo_empleado_rrhh_v1(
+   m_error::text,convert_to(c_error::text,'UTF8'),convert_to(d_error::text,'UTF8'),'x'::bytea,
+   convert_to(x::text,'UTF8'),1,1,'x'::bytea,'x'::bytea,'x'::bytea,'x'::bytea);
+  RAISE EXCEPTION 'acto externo aceptado';
  EXCEPTION WHEN SQLSTATE '23514' THEN NULL; END;
  r:=vec_personal.registrar_entrada_catalogo_empleado_rrhh_v1(m::text,
   convert_to(c::text,'UTF8'),convert_to(d::text,'UTF8'),'x'::bytea,
@@ -77,7 +94,7 @@ BEGIN
  IF q->>'organismo_ref'<>'org:sintetico' OR jsonb_array_length(q->'entradas')<>1
     OR q#>>'{entradas,0,huella_sha256}'<>huella THEN RAISE EXCEPTION 'consulta inválida %',q; END IF;
  m:=m||jsonb_build_object('operacion','retirar','revision',2,
-   'acto_ref','acto:sintetico:retirar','idempotencia_ref','22222222-2222-4222-8222-222222222222');
+   'idempotencia_ref','22222222-2222-4222-8222-222222222222');
  efecto:='org:sintetico:regimen:reg:sintetico:1';
  mh:=encode(sha256(convert_to(m::text,'UTF8')),'hex');
  recurso:='{"ambitos":{"objetivo_ref":"'||efecto||'","organismo_ref":"org:sintetico"},"atributos":{"material_sha256":"'||mh||'","operacion":"retirar"}}';

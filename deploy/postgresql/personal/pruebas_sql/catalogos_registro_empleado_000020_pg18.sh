@@ -67,6 +67,7 @@ SQL
 admin < "$sql"
 [[ $(valor "SELECT has_function_privilege('vec_cat_runtime','vec_personal.registrar_entrada_catalogo_empleado_rrhh_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE') AND NOT has_table_privilege('vec_cat_runtime','vec_personal.entrada_catalogo_registro_empleado_historia','SELECT') AND NOT has_function_privilege('vec_cat_runtime','vec_personal.validar_entrada_registro_empleado_v1(text,text,text,integer,date)','EXECUTE') AND NOT has_function_privilege('vec_cat_ajeno','vec_personal.registrar_entrada_catalogo_empleado_rrhh_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')") == t ]] || fallo 'ACL divergente'
 "$motor" exec -i "$contenedor" psql -X -q -v ON_ERROR_STOP=1 -U vec_cat_runtime -d postgres -o /dev/null < "$repo_dir/deploy/postgresql/personal/pruebas_sql/catalogos_registro_empleado_000020.sql"
+[[ $(valor "SELECT bool_and(acto_ref='personal:catalogo:v3:'||encode(sha256(convert_to(decision_ref,'UTF8')),'hex') AND NOT eficacia_administrativa) AND count(*)=2 FROM vec_personal.entrada_catalogo_registro_empleado_historia") == t ]] || fallo 'procedencia interna o eficacia divergente'
 "$motor" exec "$contenedor" psql -X -q -v ON_ERROR_STOP=1 -U postgres -d postgres \
   -c "BEGIN; SELECT pg_advisory_xact_lock(hashtextextended('vec_personal:catalogo-b2:idempotencia:33333333-3333-4333-8333-333333333333',0)); SELECT pg_sleep(1.6); COMMIT;" >/dev/null &
 locker_pid=$!

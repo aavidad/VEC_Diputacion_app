@@ -44,6 +44,7 @@ CREATE TABLE vec_personal.entrada_catalogo_registro_empleado_historia (
  decision_ref text NOT NULL,
  consumo_huella_sha256 text NOT NULL UNIQUE CHECK(consumo_huella_sha256 ~ '^[0-9a-f]{64}$'),
  auditoria_ref text NOT NULL,
+ eficacia_administrativa boolean NOT NULL DEFAULT false CHECK(NOT eficacia_administrativa),
  registrado_en timestamptz(6) NOT NULL CHECK(isfinite(registrado_en)),
  PRIMARY KEY(organismo_ref,tipo,ref,version,revision)
 );
@@ -160,7 +161,7 @@ CREATE FUNCTION vec_personal.registrar_entrada_catalogo_empleado_rrhh_v1(
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog SET row_security=on SET lock_timeout='2s' AS $f$
 DECLARE m jsonb; c jsonb; d jsonb; x jsonb; v record; previo record; anterior record;
  accion text; audiencia text; efecto text; recurso text; recurso_sha text; material_sha text;
- clave uuid; fecha_desde date; fecha_hasta date; ver integer; rev integer; estado text; huella_esperada text;
+ clave uuid; fecha_desde date; fecha_hasta date; ver integer; rev integer; estado text; huella_esperada text; acto_interno text;
  cap_desde timestamptz; cap_hasta timestamptz; dec_hasta timestamptz;
 BEGIN
  IF current_setting('transaction_isolation')<>'serializable' OR current_setting('transaction_read_only')<>'off'
@@ -184,8 +185,10 @@ BEGIN
   cap_hasta:=(c->>'expira_en')::timestamptz;
   dec_hasta:=(d->>'valida_hasta')::timestamptz;
  EXCEPTION WHEN others THEN RAISE EXCEPTION 'material de catálogo inválido' USING ERRCODE='22023'; END;
+ IF m ? 'acto_ref' THEN
+  RAISE EXCEPTION 'procedencia de catálogo externa denegada' USING ERRCODE='23514'; END IF;
  IF jsonb_typeof(m)<>'object' OR ARRAY(SELECT jsonb_object_keys(m) ORDER BY 1) IS DISTINCT FROM ARRAY[
-   'acto_ref','actor_ref','denominacion','esquema','huella_sha256','idempotencia_ref','operacion','organismo_ref','ref','revision',
+   'actor_ref','denominacion','esquema','huella_sha256','idempotencia_ref','operacion','organismo_ref','ref','revision',
    'tipo','version','vigente_desde','vigente_hasta']
     OR m->>'esquema' IS DISTINCT FROM 'vec.personal.catalogo-registro-empleado.v1'
     OR m->>'operacion' NOT IN ('publicar','retirar')
@@ -195,7 +198,6 @@ BEGIN
     OR m->>'huella_sha256' !~ '^[0-9a-f]{64}$'
     OR m->>'denominacion' IS NULL OR octet_length(m->>'denominacion') NOT BETWEEN 1 AND 256
     OR m->>'denominacion'<>btrim(m->>'denominacion') OR m->>'denominacion' ~ '[[:cntrl:]]'
-    OR m->>'acto_ref' !~ '^[a-z][a-z0-9_:-]{2,159}$'
     OR ver<1 OR rev<1 OR fecha_desde IS NULL OR NOT isfinite(fecha_desde)
     OR (fecha_hasta IS NOT NULL AND (NOT isfinite(fecha_hasta) OR fecha_hasta<=fecha_desde))
     OR m->>'actor_ref' IS DISTINCT FROM x->>'principal_ref'
@@ -230,9 +232,14 @@ BEGIN
  SELECT * INTO STRICT v FROM vec_autorizacion_atestada_v3.consumir_catalogo_registro_empleado_v3_atestada(
   p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,
   p_payload,p_sobre,p_evidencia,p_raiz);
- IF v.consumo_nuevo IS NOT TRUE OR v.efecto_ref IS DISTINCT FROM efecto
+ IF v.consumo_nuevo IS NOT TRUE OR v.decision_ref IS NULL OR v.decision_ref=''
+    OR v.efecto_ref IS DISTINCT FROM efecto
     OR v.huella_efecto_sha256 IS DISTINCT FROM recurso_sha THEN
   RAISE EXCEPTION 'consumo de catálogo divergente' USING ERRCODE='42501'; END IF;
+ -- Este acto_ref identifica únicamente una configuración interna consumida por
+ -- V3; no acredita documento, firma B5, fuente normativa ni eficacia jurídica.
+ -- decision_ref y auditoria_ref originales permanecen en la historia.
+ acto_interno:='personal:catalogo:v3:'||encode(sha256(convert_to(v.decision_ref,'UTF8')),'hex');
  IF v.consumida_en<cap_desde OR v.consumida_en>=cap_hasta OR v.consumida_en>=dec_hasta THEN
   RAISE EXCEPTION 'consumo de catálogo fuera de vigencia' USING ERRCODE='42501'; END IF;
  PERFORM pg_advisory_xact_lock(hashtextextended('vec_personal:catalogo-b2:idempotencia:'||clave::text,0));
@@ -243,7 +250,7 @@ BEGIN
   IF previo.organismo_ref IS DISTINCT FROM m->>'organismo_ref' OR previo.tipo IS DISTINCT FROM m->>'tipo'
      OR previo.ref IS DISTINCT FROM m->>'ref' OR previo.version IS DISTINCT FROM ver
      OR previo.revision IS DISTINCT FROM rev OR previo.estado IS DISTINCT FROM estado
-     OR previo.actor_ref IS DISTINCT FROM m->>'actor_ref' OR previo.acto_ref IS DISTINCT FROM m->>'acto_ref'
+     OR previo.actor_ref IS DISTINCT FROM m->>'actor_ref'
      OR previo.huella_sha256 IS DISTINCT FROM m->>'huella_sha256'
      OR previo.denominacion IS DISTINCT FROM m->>'denominacion'
      OR previo.vigente_desde IS DISTINCT FROM fecha_desde
@@ -266,7 +273,7 @@ BEGIN
  IF estado='publicada' THEN
   huella_esperada:=encode(sha256(convert_to(concat_ws(E'\n',
    'vec.personal.catalogo-registro-empleado.entrada.v1',m->>'organismo_ref',m->>'tipo',m->>'ref',
-   ver::text,rev::text,m->>'denominacion',fecha_desde::text,coalesce(fecha_hasta::text,''),m->>'acto_ref'),
+   ver::text,rev::text,m->>'denominacion',fecha_desde::text,coalesce(fecha_hasta::text,'')),
    'UTF8')),'hex');
   IF m->>'huella_sha256' IS DISTINCT FROM huella_esperada THEN
    RAISE EXCEPTION 'huella de entrada divergente' USING ERRCODE='23514'; END IF;
@@ -287,7 +294,7 @@ BEGIN
   organismo_ref,tipo,ref,version,revision,estado,vigente_desde,vigente_hasta,huella_sha256,denominacion,
   acto_ref,actor_ref,idempotencia_ref,decision_ref,consumo_huella_sha256,auditoria_ref,registrado_en)
  VALUES(m->>'organismo_ref',m->>'tipo',m->>'ref',ver,rev,estado,fecha_desde,fecha_hasta,m->>'huella_sha256',m->>'denominacion',
-  m->>'acto_ref',m->>'actor_ref',clave,v.decision_ref,v.consumo_huella_sha256,v.auditoria_ref,v.consumida_en);
+  acto_interno,m->>'actor_ref',clave,v.decision_ref,v.consumo_huella_sha256,v.auditoria_ref,v.consumida_en);
  IF clock_timestamp()>=cap_hasta OR clock_timestamp()>=dec_hasta THEN
   RAISE EXCEPTION 'capacidad de catálogo caducada' USING ERRCODE='42501'; END IF;
  RETURN jsonb_build_object('entrada',jsonb_build_object('organismo_ref',m->>'organismo_ref','tipo',m->>'tipo','ref',m->>'ref',

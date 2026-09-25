@@ -7,11 +7,11 @@ DECLARE m jsonb; c jsonb; d jsonb; x jsonb; huella text; mh text; rh text;
 BEGIN
  huella:=encode(sha256(convert_to(concat_ws(E'\n',
   'vec.personal.catalogo-registro-empleado.entrada.v1','org:sintetico','regimen','reg:carrera',
-  '1','1','Régimen carrera','2020-01-01','','acto:sintetico:carrera'),'UTF8')),'hex');
+  '1','1','Régimen carrera','2020-01-01',''),'UTF8')),'hex');
  m:=jsonb_build_object('esquema','vec.personal.catalogo-registro-empleado.v1',
   'operacion','publicar','organismo_ref','org:sintetico','tipo','regimen','ref','reg:carrera',
   'version',1,'revision',1,'denominacion','Régimen carrera','huella_sha256',huella,
-  'vigente_desde','2020-01-01','vigente_hasta',NULL,'acto_ref','acto:sintetico:carrera',
+  'vigente_desde','2020-01-01','vigente_hasta',NULL,
   'actor_ref','actor:sintetico:rrhh','idempotencia_ref','33333333-3333-4333-8333-333333333333');
  x:=jsonb_build_object('esquema','vec.contexto-actor.vinculado.v2','principal_ref','actor:sintetico:rrhh',
   'perfil_activo_ref','perfil:sintetico:rrhh','persona_version',1,'perfil_version',1);
