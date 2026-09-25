@@ -4,6 +4,7 @@ import "./atajos-incidencia.js";
 import "./fases-expediente.js";
 import { CAPACIDADES_CONTRATACION_TEMPORAL, versionPropuestaDocumentalValida } from "./contrato-expedientes.js";
 import { icono } from "../../../comun/iconos-vec.js?v=20260925-aspecto-v1";
+import { renderizarCambiosExpediente } from "./vista-expedientes-cambios.js";
 
 export function escaparHTML(valor) {
   return String(valor ?? "")
@@ -702,6 +703,7 @@ export function renderizarExpediente(estado, t, locale, zonaHoraria, analisisDis
     ${renderizarFases(expediente, t)}
     ${tramitacion}
     ${renderizarHistorialHitos(expediente, t)}
+    ${renderizarCambiosExpediente(expediente)}
     ${renderizarContinuidadDesdeExpediente(estado, t)}`;
 }
 
