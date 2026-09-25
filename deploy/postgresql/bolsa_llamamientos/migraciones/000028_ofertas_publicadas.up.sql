@@ -191,6 +191,9 @@ BEGIN
  IF consumo.efecto_ref IS DISTINCT FROM p_bolsa OR consumo.consumo_nuevo IS NOT TRUE
     OR d->>'principal_id' IS DISTINCT FROM p_actor
     OR d->>'accion' IS DISTINCT FROM 'llamamiento.emitir.v1'
+    OR d->>'modulo_id' IS DISTINCT FROM 'bolsa'
+    OR d->>'finalidad' IS DISTINCT FROM 'gestion_llamamientos_bolsa'
+    OR d->>'recurso_ref' IS DISTINCT FROM p_bolsa
     OR d->>'tipo_recurso' IS DISTINCT FROM 'bolsa_constituida' THEN
   RAISE EXCEPTION 'publicacion de oferta no autorizada' USING ERRCODE='42501';
  END IF;
@@ -252,6 +255,9 @@ BEGIN
  IF consumo.efecto_ref IS DISTINCT FROM p_bolsa OR consumo.consumo_nuevo IS NOT TRUE
     OR d->>'principal_id' IS DISTINCT FROM p_actor
     OR d->>'accion' IS DISTINCT FROM 'llamamiento.emitir.v1'
+    OR d->>'modulo_id' IS DISTINCT FROM 'bolsa'
+    OR d->>'finalidad' IS DISTINCT FROM 'gestion_llamamientos_bolsa'
+    OR d->>'recurso_ref' IS DISTINCT FROM p_bolsa
     OR d->>'tipo_recurso' IS DISTINCT FROM 'bolsa_constituida' THEN
   RAISE EXCEPTION 'resolucion de oferta no autorizada' USING ERRCODE='42501';
  END IF;

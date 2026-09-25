@@ -37,7 +37,8 @@ SET LOCAL session_replication_role = origin;
 DO $prueba$
 DECLARE
  cap bytea := convert_to('{"efecto_ref":"bolsa:of:1"}','UTF8');
- dec bytea := convert_to('{"principal_id":"per_actoractoractoractoractor","accion":"llamamiento.emitir.v1","tipo_recurso":"bolsa_constituida"}','UTF8');
+ dec bytea := convert_to('{"principal_id":"per_actoractoractoractoractor","accion":"llamamiento.emitir.v1","modulo_id":"bolsa","finalidad":"gestion_llamamientos_bolsa","recurso_ref":"bolsa:of:1","tipo_recurso":"bolsa_constituida"}','UTF8');
+ variante text;
  datos jsonb := '{"categoria":"Auxiliar administrativo","centro":"Residencia Sierra","fecha_inicio":"2026-10-01","fecha_fin":"2026-12-31","descripcion":"Sustitución por baja"}';
  plazo jsonb := '{"regla_ref":"vec.bolsa.reglas:1:b10.plazo_publicacion","huella_catalogo":"'||repeat('d',64)||'","unidad":"dias_habiles","cantidad":2,"computo":"administrativo","ultimo_dia":"2026-10-02","ejemplo":false}';
  r record; r2 record; estado text; codigo text;
@@ -76,8 +77,16 @@ BEGIN
   PERFORM vec_bolsa_llamamientos.publicar_oferta_v1(o2,'recibo:oferta:'||repeat('2',64),'bolsa:of:1','per_actoractoractoractoractor','clave-oferta-2',datos,plazo,clock_timestamp(),clock_timestamp()+interval '1 day',cap,convert_to('{"principal_id":"per_actoractoractoractoractor","accion":"situacion.cambiar","tipo_recurso":"bolsa_constituida"}','UTF8'),'\x00','\x00',1,1,'\x00','\x00','\x00','\x00');
   RAISE EXCEPTION 'acción ajena aceptada';
  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+ -- La decisión debe ser de Bolsa, con la finalidad de llamamientos y sobre esta bolsa.
+ FOREACH variante IN ARRAY ARRAY['{"modulo_id":"personal"}','{"finalidad":"otra_finalidad"}','{"recurso_ref":"bolsa:of:x"}','{"modulo_id":null}'] LOOP
+  BEGIN
+   PERFORM vec_bolsa_llamamientos.publicar_oferta_v1(o2,'recibo:oferta:'||repeat('2',64),'bolsa:of:1','per_actoractoractoractoractor','clave-oferta-2',datos,plazo,clock_timestamp(),clock_timestamp()+interval '1 day',cap,
+     convert_to((convert_from(dec,'UTF8')::jsonb || variante::jsonb)::text,'UTF8'),'\x00','\x00',1,1,'\x00','\x00','\x00','\x00');
+   RAISE EXCEPTION 'decisión ajena aceptada: %', variante;
+  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+ END LOOP;
  BEGIN
-  PERFORM vec_bolsa_llamamientos.publicar_oferta_v1(o2,'recibo:oferta:'||repeat('2',64),'bolsa:of:x','per_actoractoractoractoractor','clave-oferta-2',datos,plazo,clock_timestamp(),clock_timestamp()+interval '1 day',convert_to('{"efecto_ref":"bolsa:of:x"}','UTF8'),dec,'\x00','\x00',1,1,'\x00','\x00','\x00','\x00');
+  PERFORM vec_bolsa_llamamientos.publicar_oferta_v1(o2,'recibo:oferta:'||repeat('2',64),'bolsa:of:x','per_actoractoractoractoractor','clave-oferta-2',datos,plazo,clock_timestamp(),clock_timestamp()+interval '1 day',convert_to('{"efecto_ref":"bolsa:of:x"}','UTF8'),convert_to((convert_from(dec,'UTF8')::jsonb || '{"recurso_ref":"bolsa:of:x"}')::text,'UTF8'),'\x00','\x00',1,1,'\x00','\x00','\x00','\x00');
   RAISE EXCEPTION 'bolsa extinguida aceptada';
  EXCEPTION WHEN foreign_key_violation THEN NULL; END;
 
