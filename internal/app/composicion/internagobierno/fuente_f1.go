@@ -123,6 +123,11 @@ func (f *FuenteF1) ResolverContexto(ctx context.Context) (ct.ContextoAutorizacio
 	if err := f.identidad.ExigirSujetoPersonaCertificadoTemporal(ctx, datos.PrincipalID); err != nil {
 		return ct.ContextoAutorizacionAltaV3{}, ErrGobiernoInternoNoDisponible
 	}
+	// El vínculo entregado es el segundo; si su versión cambió tras la
+	// revalidación de PeticionVerificada, se revalida el que realmente sale.
+	if err := f.exigirVinculoCorporativoVigente(ctx, datos); err != nil {
+		return ct.ContextoAutorizacionAltaV3{}, ErrGobiernoInternoNoDisponible
+	}
 	return ct.ContextoAutorizacionAltaV3{Vinculo: v, Resultado: resultado}, nil
 }
 

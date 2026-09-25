@@ -40,7 +40,11 @@ haber exactamente cinco membresías: la canónica
 `vec_contexto_actor_v1_migrador → vec_contexto_actor_v1_propietario` y cuatro
 concesiones de desarrollo otorgadas por `postgres`, heredables y sin
 administración (la del LOGIN de gobierno AD3 conserva `SET`; una de las cuatro
-es un rol sin LOGIN). Cualquier otra diferencia exige revisar una nueva
+es un rol sin LOGIN). Riesgo aceptado: el script solo prohíbe superusuario y
+ADMIN en esas membresías; qué miembro conserva `SET` o LOGIN no se comprueba
+aparte, sino que queda fijado por el SHA256 del inventario revisado y el
+recuento de cinco. Por eso ese SHA256 debe revisarse antes de cada ejecución,
+nunca copiarse de otra. Cualquier otra diferencia exige revisar una nueva
 preimagen y adaptar el cambio mediante revisión independiente; el script no
 amplía el alcance automáticamente.
 
