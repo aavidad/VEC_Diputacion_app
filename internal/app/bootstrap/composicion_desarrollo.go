@@ -238,11 +238,15 @@ func nuevoServidorDesarrollo(
 		}
 	}()
 	// Enganche de las reglas de ejemplo: Bolsa consume reglasEjemplo.bolsa en
-	// el plazo de respuesta del asistente B7 y en la situación de las
-	// participaciones; Contratación temporal usa reglasEjemplo.contratacionTemporal
+	// el plazo de respuesta del asistente B7, en la situación de las
+	// participaciones y en la documentación para formalizar; Contratación temporal usa reglasEjemplo.contratacionTemporal
 	// para el plazo de la fase en el cuadro. El circuito de firma ya se consulta
 	// desde el detalle del expediente.
 	reglasEjemplo, err := nuevasReglasEjemploDesarrollo(cfg, consultaCalendarios, relojCalendariosDesarrollo{})
+	if err != nil {
+		return nil, nil, err
+	}
+	rutaFormalizacion, err := nuevaRutaDocumentacionFormalizacionDesarrollo(reglasEjemplo.bolsa)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -279,6 +283,7 @@ func nuevoServidorDesarrollo(
 	coleccionesBolsasRRHH = append(coleccionesBolsasRRHH, autoridadContratacion.coleccionesAdicionales...)
 	rutasContratacion = append(rutasContratacion, rutasCalendarios...)
 	rutasContratacion = append(rutasContratacion, nuevaRutaCircuitoFirmaContratacionTemporalDesarrollo(reglasEjemplo.circuitoFirmaCT))
+	rutasContratacion = append(rutasContratacion, rutaFormalizacion)
 	autoridadDietas, cerrarDietas, err := nuevasRutasDietasDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia)
 	if err != nil {
 		return nil, nil, err

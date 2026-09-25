@@ -222,6 +222,6 @@ export function renderizarLlamamiento(estado, t, fecha) {
     ${estado.propuesta.aceptacion?.respuesta === "aceptacion" && Number.isSafeInteger(estado.seleccion.solicitud?.version_esperada)
       && estado.seleccion.solicitud.version_esperada >= 6
       && estado.seleccion.solicitud.version_esperada < Number.MAX_SAFE_INTEGER
-      ? `${renderizarResumenPropuestaFormalizacion(estado.propuesta.aceptacion, t)}${formulario("propuesta", CAMPOS_PROPUESTA)}` : ""}
+      ? `${renderizarResumenPropuestaFormalizacion(estado.propuesta.aceptacion, t)}<div data-ct-documentacion-formalizacion></div>${formulario("propuesta", CAMPOS_PROPUESTA)}` : ""}
   </section>`;
 }

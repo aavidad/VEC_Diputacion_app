@@ -1,5 +1,6 @@
 const RUTA_LISTA = "/api/vec/documentos/expedientes/consultas";
 const RUTA_DESCARGA = "/api/vec/documentos/originales/descargas";
+const RUTA_REGISTRO_EXTERNO = "/api/vec/documentos/externos/registros";
 const MAX_JSON = 1024 * 1024;
 const MAX_ORIGINAL = 20 * 1024 * 1024;
 const LIMITE_MS = 15000;
@@ -59,6 +60,8 @@ async function pedir(ruta, cuerpo, { signal, maximo, binario = false, fetchImpl 
       credentials: "same-origin", mode: "same-origin", redirect: "error", referrerPolicy: "no-referrer", cache: "no-store",
     });
     if (respuesta.status === 401 || respuesta.status === 403 || respuesta.status === 404) throw fallo("denegado", respuesta.status);
+    if (respuesta.status === 409) throw fallo("conflicto", respuesta.status);
+    if (respuesta.status === 422) throw fallo("rechazado", respuesta.status);
     if (!respuesta.ok) throw fallo("consulta_fallida", respuesta.status);
     const bytes = await leerLimitado(respuesta, maximo);
     if (binario) {
@@ -91,6 +94,18 @@ export function crearFuenteDocumentosHTTP({ expedienteRef = "", fetchImpl } = {}
       if (!referencia(expediente)) throw fallo("referencia_invalida");
       if (cursor && (typeof cursor !== "string" || cursor.length > 512 || /[\s\\/?%*]/u.test(cursor))) throw fallo("referencia_invalida");
       return pedir(RUTA_LISTA, { expediente_ref: expediente, cursor, limite: 50 }, { signal, maximo: MAX_JSON, fetchImpl });
+    },
+    // Anota la referencia y la huella de un original que custodia otro
+    // sistema. El fichero nunca sale del navegador: solo viaja su SHA-256.
+    // Módulo y custodio los fija la configuración del servidor, no el cliente.
+    async registrarExterno({ tipo, referencia: referenciaCustodia, huella, claveIdempotencia, signal } = {}) {
+      if (!referencia(expediente) || !referencia(claveIdempotencia)
+        || typeof tipo !== "string" || !/^[a-z][a-z0-9_.-]{1,127}$/u.test(tipo)
+        || typeof referenciaCustodia !== "string" || !/^[!-~]{3,128}$/u.test(referenciaCustodia)
+        || /[/\\*?%]|\.\./u.test(referenciaCustodia)
+        || typeof huella !== "string" || !/^[0-9a-f]{64}$/u.test(huella) || /^0{64}$/u.test(huella)) throw fallo("referencia_invalida");
+      return pedir(RUTA_REGISTRO_EXTERNO, { clave_idempotencia: claveIdempotencia, expediente_ref: expediente, tipo,
+        referencia: referenciaCustodia, huella_sha256: huella }, { signal, maximo: MAX_JSON, fetchImpl });
     },
     async descargar(ref, { version, signal, mime, huella } = {}) {
       // La descarga liga documento, versión y expediente consultado: el
