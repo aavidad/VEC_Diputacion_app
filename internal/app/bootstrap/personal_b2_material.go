@@ -2,12 +2,13 @@ package bootstrap
 
 import (
 	"context"
-	"crypto/sha256"
 	"errors"
+	"path/filepath"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"vec-diputacion-granada/config"
 	personal "vec-diputacion-granada/internal/modules/personal/domain"
 )
 
@@ -101,24 +102,49 @@ func (c *ClaveCapacidadPersonalB2V3) Borrar() {
 
 var errMaterialPersonalB2V3Desarrollo = errors.New("vec: material Personal B2 de desarrollo no disponible")
 
-// DerivarClavesPersonalB2V3Desarrollo aplica la misma y única derivación que
-// usa el publicador (derivarMaterialConsumidorV3Desarrollo) a partir de la
-// clave base de capacidad CT (`clave:capacidad:ct:...`), que el llamante toma
-// de su material privado existente. No consulta ni escribe el gobierno; sirve
-// para cotejar el material privado contra lo publicado. Las coordenadas de
-// versión, revisión y orden no dependen de la derivación: el llamante las
-// toma del gobierno publicado.
-func DerivarClavesPersonalB2V3Desarrollo(claveBase []byte, claveBaseID, emisorID string, desde, hasta time.Time) ([8]ClaveCapacidadPersonalB2V3, error) {
+// DerivarClavesPersonalB2V3DesdeMaterialDesarrollo obtiene las ocho claves
+// B2 por la misma y única ruta de código de vec-server, sin otra derivación:
+// carga el material privado de idempotencia (cargarMaterialIdempotenciaDesarrollo),
+// lo entrega a nuevoDerivadorIdentidadOperacionDesarrollo, calcula la clave
+// base de capacidad CT con nuevoMaterialAtestacionContratacionTemporalDesarrollo
+// y aplica derivarMaterialConsumidorV3Desarrollo con los descriptores B2, igual
+// que publicarMaterialPersonalB2Desarrollo. La clave base, la semilla Ed25519
+// y el material de idempotencia sólo viven en memoria y se borran al salir;
+// nunca se devuelven ni se escriben.
+//
+// directorioIdempotencia es el subdirectorio `idempotencia` del material de
+// desarrollo de vec-server (VEC_DEVELOPMENT_MATERIAL_DIR): ruta absoluta,
+// canónica, sin enlaces y fuera de repositorios, como exige vec-server a ese
+// material. No consulta ni escribe el gobierno. Versión, revisión y orden del
+// puntero no dependen de la derivación: el llamante los toma del gobierno.
+func DerivarClavesPersonalB2V3DesdeMaterialDesarrollo(directorioIdempotencia string, ahora time.Time) ([8]ClaveCapacidadPersonalB2V3, error) {
 	var claves [8]ClaveCapacidadPersonalB2V3
-	if len(claveBase) < sha256.Size || claveBaseID == "" || emisorID == "" || !desde.Before(hasta) {
+	if !filepath.IsAbs(directorioIdempotencia) || filepath.Clean(directorioIdempotencia) != directorioIdempotencia ||
+		filepath.Base(directorioIdempotencia) != filepath.Dir(config.DevelopmentIdempotencyHMACConfigRelativePath) {
 		return claves, errMaterialPersonalB2V3Desarrollo
 	}
-	base := materialAtestacionContratacionTemporalDesarrollo{
-		claveHMACID: claveBaseID, claveHMAC: claveBase, claveHMACVersion: 1, claveHMACRevision: 1,
-		emisorID: emisorID, validaDesde: desde.UTC(), validaHasta: hasta.UTC(),
+	if evaluada, err := filepath.EvalSymlinks(directorioIdempotencia); err != nil || evaluada != directorioIdempotencia ||
+		dentroDeRepositorioGit(directorioIdempotencia) {
+		return claves, errMaterialPersonalB2V3Desarrollo
 	}
+	raiz := filepath.Dir(directorioIdempotencia)
+	idempotencia, err := cargarMaterialIdempotenciaDesarrollo(raiz, filepath.Join(raiz, config.DevelopmentIdempotencyHMACConfigRelativePath))
+	if err != nil {
+		return claves, errMaterialPersonalB2V3Desarrollo
+	}
+	defer idempotencia.borrar()
+	derivador, err := nuevoDerivadorIdentidadOperacionDesarrollo(&idempotencia)
+	if err != nil {
+		return claves, errMaterialPersonalB2V3Desarrollo
+	}
+	defer derivador.borrar()
+	material, err := nuevoMaterialAtestacionContratacionTemporalDesarrollo(derivador, ahora)
+	if err != nil {
+		return claves, errMaterialPersonalB2V3Desarrollo
+	}
+	defer material.borrarCopiasEfimeras()
 	for i, d := range DescriptoresCapacidadPersonalB2V3Desarrollo() {
-		derivado, err := derivarMaterialConsumidorV3Desarrollo(base, descriptorPersonalB2Interno(d))
+		derivado, err := derivarMaterialConsumidorV3Desarrollo(material, descriptorPersonalB2Interno(d))
 		if err != nil {
 			for j := range claves {
 				claves[j].Borrar()
@@ -128,8 +154,10 @@ func DerivarClavesPersonalB2V3Desarrollo(claveBase []byte, claveBaseID, emisorID
 		claves[i] = ClaveCapacidadPersonalB2V3{
 			CapacidadPublicadaPersonalB2V3: CapacidadPublicadaPersonalB2V3{
 				DescriptorCapacidadPersonalB2V3: d, ClaveID: derivado.claveHMACID,
-				HuellaGobierno: derivado.claveHMACHuella, SHA256: derivado.claveHMACSecreto,
-				EmisorID: derivado.emisorID, Desde: derivado.validaDesde, Hasta: derivado.validaHasta,
+				Version: derivado.claveHMACVersion, RevisionGobierno: derivado.claveHMACRevision,
+				OrdenPuntero: derivado.claveHMACOrden, HuellaGobierno: derivado.claveHMACHuella,
+				SHA256: derivado.claveHMACSecreto, EmisorID: derivado.emisorID,
+				Desde: derivado.validaDesde, Hasta: derivado.validaHasta,
 			},
 			secreto: derivado.claveHMAC,
 		}

@@ -4,9 +4,11 @@
 //
 // No publica gobierno, raíz, configuración, claves ni permisos; no amplía el
 // rol de preflight y no lee secretos del gobierno. Las claves B2 se obtienen
-// con la única derivación del publicador (bootstrap.DerivarClavesPersonalB2V3Desarrollo)
-// a partir de la clave base CT que aporta el operador, y solo se escriben si
-// sus huellas, versiones, revisiones y vigencias coinciden con lo publicado.
+// con bootstrap.DerivarClavesPersonalB2V3DesdeMaterialDesarrollo, que recorre
+// la misma ruta de código que vec-server desde su material privado de
+// idempotencia; la clave base CT sólo existe en memoria durante esa llamada.
+// Las claves se escriben sólo si sus huellas, versiones, revisiones y
+// vigencias coinciden con lo publicado.
 package main
 
 import (
@@ -22,15 +24,20 @@ import (
 )
 
 // variableDSN nombra la variable de entorno alternativa al fichero 0600 con
-// el DSN de solo lectura del gobierno. Se borra del entorno al arrancar.
+// el DSN del gobierno. Se retira del entorno del proceso para que no pase a
+// procesos hijos, pero eso no borra la copia inicial que conserva el núcleo
+// (visible en /proc/<pid>/environ para el mismo usuario y root) ni la de la
+// shell que la exportó. Se recomienda -dsn-archivo.
 const variableDSN = "VEC_PREPARAR_MATERIAL_GOBIERNO_DSN"
 
-var errUso = errors.New("uso: vec-preparar-material-interno -inventario-ct RUTA/ct_v3.json -clave-base RUTA -motivos RUTA -salida DIRECTORIO_NUEVO [-dsn-archivo RUTA]")
+var errUso = errors.New("uso: vec-preparar-material-interno -inventario-ct RUTA/ct_v3.json -material-idempotencia RUTA/idempotencia -motivos RUTA -salida DIRECTORIO_NUEVO [-dsn-archivo RUTA]")
 
 type dependencias struct {
 	abrirGobierno  func(context.Context, string) (fuenteGobierno, error)
 	reloj          func() time.Time
 	antesDeActivar func() error
+	// sincronizarPadre sólo se sustituye en pruebas; nil usa fsync(2).
+	sincronizarPadre func(*os.File) error
 }
 
 func main() {
@@ -53,11 +60,11 @@ func ejecutar(ctx context.Context, args []string, dsnEntorno string, hayDSNEntor
 	banderas.SetOutput(io.Discard)
 	var o opciones
 	banderas.StringVar(&o.inventarioCT, "inventario-ct", "", "ruta absoluta de ct_v3.json existente")
-	banderas.StringVar(&o.claveBase, "clave-base", "", "fichero 0600 con la clave base de capacidad CT (bytes en bruto)")
+	banderas.StringVar(&o.idempotencia, "material-idempotencia", "", "subdirectorio idempotencia del material de desarrollo de vec-server (0700)")
 	banderas.StringVar(&o.motivos, "motivos", "", "fichero JSON 0600 con los ocho motivos B2")
 	banderas.StringVar(&o.salida, "salida", "", "directorio nuevo (inexistente o vacío, 0700)")
-	banderas.StringVar(&o.dsnArchivo, "dsn-archivo", "", "fichero 0600 con el DSN de solo lectura del gobierno")
-	if err := banderas.Parse(args); err != nil || banderas.NArg() != 0 || o.inventarioCT == "" || o.claveBase == "" || o.motivos == "" || o.salida == "" {
+	banderas.StringVar(&o.dsnArchivo, "dsn-archivo", "", "fichero 0600 con el DSN del LOGIN de gobierno de vec-server")
+	if err := banderas.Parse(args); err != nil || banderas.NArg() != 0 || o.inventarioCT == "" || o.idempotencia == "" || o.motivos == "" || o.salida == "" {
 		fmt.Fprintln(errores, errUso)
 		return 2
 	}
@@ -66,9 +73,17 @@ func ejecutar(ctx context.Context, args []string, dsnEntorno string, hayDSNEntor
 		return 2
 	}
 	p := preparacion{opciones: o, dsnEntorno: dsnEntorno, dep: d}
-	if err := p.preparar(ctx); err != nil {
+	sincronizado, err := p.preparar(ctx)
+	if err != nil {
 		fmt.Fprintln(errores, mensajeSeguro(err))
 		return 1
+	}
+	if !sincronizado {
+		// rename(2) ya se hizo: el material está activado y visible; sólo
+		// falta confirmar que la entrada del directorio padre es durable ante
+		// un corte de energía. No es un fallo de preparación.
+		fmt.Fprintln(salida, "material Personal B2 activado; fsync del padre no confirmado")
+		return 0
 	}
 	fmt.Fprintln(salida, "material Personal B2 preparado y validado: personal_b2_v3.json (formato 4) y 8 claves de capacidad")
 	return 0

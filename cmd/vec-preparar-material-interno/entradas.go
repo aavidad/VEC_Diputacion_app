@@ -15,17 +15,21 @@ import (
 const (
 	errDSN           = errorPropio("DSN del gobierno: indique exactamente uno, la variable " + variableDSN + " o -dsn-archivo")
 	errDSNFichero    = errorPropio("DSN del gobierno: fichero inseguro o ilegible")
-	errClaveBase     = errorPropio("clave base: fichero inseguro, ilegible o de tamaño no admitido")
+	errIdempotencia  = errorPropio("material de idempotencia: directorio inseguro, ilegible o rechazado por el cargador de vec-server")
 	errMotivos       = errorPropio("motivos: fichero inseguro, ilegible o con formato no admitido")
 	errInventarioCT  = errorPropio("inventario CT: ruta insegura o ct_v3.json rechazado por el cargador real")
 	errEmisorCT      = errorPropio("inventario CT: las capacidades no comparten un único emisor")
-	maximoClaveBase  = 256
 	maximoMotivos    = 16 << 10
 	maximoDSNFichero = 4 << 10
+
+	// nombreDirectorioIdempotencia es el subdirectorio del material de
+	// desarrollo de vec-server (VEC_DEVELOPMENT_MATERIAL_DIR) que guarda la
+	// configuración y las generaciones HMAC de idempotencia.
+	nombreDirectorioIdempotencia = "idempotencia"
 )
 
 type opciones struct {
-	inventarioCT, claveBase, motivos, salida, dsnArchivo string
+	inventarioCT, idempotencia, motivos, salida, dsnArchivo string
 }
 
 // motivosB2 es el formato del fichero de motivos: exactamente las ocho
@@ -91,13 +95,26 @@ func delUsuario(info os.FileInfo) bool {
 	return ok && int(st.Uid) == os.Getuid()
 }
 
-func leerClaveBase(ruta string) ([]byte, error) {
-	b, ok := leerFicheroPrivado(ruta, maximoClaveBase)
-	if !ok || len(b) < 32 {
-		clear(b)
-		return nil, errClaveBase
+// comprobarIdempotencia exige que la ruta sea el subdirectorio `idempotencia`
+// del material de desarrollo de vec-server: absoluta, canónica, sin enlaces,
+// fuera de Git, 0700 y del usuario, dentro de un directorio del usuario sin
+// acceso de grupo ni otros. El contenido lo valida después el propio
+// cargador de vec-server (ficheros regulares sin acceso de terceros, formato
+// y generaciones).
+func comprobarIdempotencia(ruta string) error {
+	if !rutaCanonica(ruta) || filepath.Base(ruta) != nombreDirectorioIdempotencia || dentroDeGit(ruta) {
+		return errIdempotencia
 	}
-	return b, nil
+	for _, d := range []struct {
+		ruta   string
+		exacto bool
+	}{{ruta, true}, {filepath.Dir(ruta), false}} {
+		info, err := os.Lstat(d.ruta)
+		if err != nil || !info.IsDir() || !delUsuario(info) || info.Mode().Perm()&0077 != 0 || (d.exacto && info.Mode().Perm() != 0700) {
+			return errIdempotencia
+		}
+	}
+	return nil
 }
 
 func leerMotivos(ruta, catalogo string) (motivosB2, error) {

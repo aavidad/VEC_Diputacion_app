@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -61,112 +62,98 @@ type preparacion struct {
 	dep        dependencias
 }
 
-// preparar valida todas las entradas, coteja con el gobierno, compone en un
-// directorio temporal hermano de la salida, lo valida con los cargadores
-// reales y solo entonces lo activa con un único rename(2).
-func (p preparacion) preparar(ctx context.Context) error {
+// preparar valida todas las entradas, obtiene las claves B2 por la ruta de
+// vec-server, las coteja con el gobierno, compone en un directorio temporal
+// hermano de la salida, lo valida con los cargadores reales y solo entonces
+// lo activa con un único renameat(2). Devuelve `sincronizado=false` cuando
+// el material quedó activado pero el fsync del padre no se confirmó.
+func (p preparacion) preparar(ctx context.Context) (bool, error) {
 	if ctx == nil || p.dep.abrirGobierno == nil || p.dep.reloj == nil {
-		return errCancelada
+		return false, errCancelada
 	}
-	padre, salidaExiste, err := comprobarSalida(p.salida)
+	destino, err := abrirDestino(p.salida)
 	if err != nil {
-		return err
+		return false, err
 	}
+	defer destino.cerrar()
 	ct, err := leerDatosCT(p.inventarioCT)
 	if err != nil {
-		return err
+		return false, err
 	}
 	motivos, err := leerMotivos(p.motivos, ct.catalogo)
 	if err != nil {
-		return err
+		return false, err
 	}
 	dsn, err := leerDSN(p.dsnArchivo, p.dsnEntorno)
 	if err != nil {
-		return err
+		return false, err
 	}
-	base, err := leerClaveBase(p.claveBase)
-	if err != nil {
-		return err
+	if err := comprobarIdempotencia(p.idempotencia); err != nil {
+		return false, err
 	}
-	defer clear(base)
 	if ctx.Err() != nil {
-		return errCancelada
+		return false, errCancelada
+	}
+	claves, err := bootstrap.DerivarClavesPersonalB2V3DesdeMaterialDesarrollo(p.idempotencia, p.dep.reloj())
+	defer func() {
+		for i := range claves {
+			claves[i].Borrar()
+		}
+	}()
+	if err != nil {
+		return false, errIdempotencia
 	}
 	g, err := p.dep.abrirGobierno(ctx, dsn)
 	if err != nil {
-		return errGobiernoConexion
+		if errors.Is(err, errIdentidad) {
+			return false, errIdentidad
+		}
+		return false, errGobiernoConexion
 	}
-	capacidades, err := cotejar(ctx, g, ct, base)
+	capacidades, err := cotejar(ctx, g, ct, &claves)
 	g.cerrar()
 	defer borrarCapacidades(&capacidades)
 	if err != nil {
-		return err
+		return false, err
 	}
 	if ctx.Err() != nil {
-		return errCancelada
+		return false, errCancelada
 	}
-	temporal, err := os.MkdirTemp(padre, ".vec-preparar-material-")
+	temporal, raizTemporal, err := destino.crearTemporal()
 	if err != nil {
-		return errEscritura
+		return false, err
 	}
 	activado := false
 	defer func() {
+		_ = raizTemporal.Close()
 		if !activado {
-			_ = os.RemoveAll(temporal)
+			destino.retirar(temporal)
 		}
 	}()
-	if err := escribirMaterial(temporal, ct.catalogo, motivos, capacidades); err != nil {
-		return err
+	if err := escribirMaterial(raizTemporal, ct.catalogo, motivos, capacidades); err != nil {
+		return false, err
 	}
-	if err := validarConCargadores(temporal, ct.catalogo, motivos, capacidades, p.dep.reloj()); err != nil {
-		return err
+	ruta, ok := destino.rutaTemporal(temporal, raizTemporal)
+	if !ok {
+		return false, errActivacion
+	}
+	if err := validarConCargadores(ruta, ct.catalogo, motivos, capacidades, p.dep.reloj()); err != nil {
+		return false, err
 	}
 	if ctx.Err() != nil {
-		return errCancelada
+		return false, errCancelada
 	}
 	if p.dep.antesDeActivar != nil {
 		if err := p.dep.antesDeActivar(); err != nil {
-			return errCancelada
+			return false, errCancelada
 		}
 	}
-	if err := activar(temporal, p.salida, salidaExiste); err != nil {
-		return err
+	sincronizado, err := destino.activar(temporal, p.dep.sincronizarPadre)
+	if err != nil {
+		return false, err
 	}
 	activado = true
-	return nil
-}
-
-// comprobarSalida exige una salida inexistente o vacía (0700, del usuario,
-// no enlace) bajo un padre canónico del usuario sin escritura de terceros y
-// fuera de cualquier árbol Git.
-func comprobarSalida(salida string) (string, bool, error) {
-	if salida == "" || !filepath.IsAbs(salida) || filepath.Clean(salida) != salida || salida == "/" {
-		return "", false, errSalida
-	}
-	padre := filepath.Dir(salida)
-	if !rutaCanonica(padre) || dentroDeGit(padre) {
-		return "", false, errSalida
-	}
-	infoPadre, err := os.Lstat(padre)
-	if err != nil || !infoPadre.IsDir() || !delUsuario(infoPadre) || infoPadre.Mode().Perm()&0022 != 0 {
-		return "", false, errSalida
-	}
-	info, err := os.Lstat(salida)
-	if os.IsNotExist(err) {
-		return padre, false, nil
-	}
-	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm() != 0700 || !delUsuario(info) {
-		return "", false, errSalida
-	}
-	d, err := os.Open(salida)
-	if err != nil {
-		return "", false, errSalida
-	}
-	defer d.Close()
-	if _, err := d.Readdirnames(1); err != io.EOF {
-		return "", false, errSalida
-	}
-	return padre, true, nil
+	return sincronizado, nil
 }
 
 // leerDatosCT carga ct_v3.json con el cargador real de vec-interno y extrae
@@ -193,12 +180,7 @@ func leerDatosCT(ruta string) (datosCT, error) {
 	return datosCT{catalogo: m.CatalogoMotivos, emisor: emisor, raizID: m.V3.ClaveID, raizVersion: m.V3.ClaveVersion, audiencia: m.V3.Audiencia}, nil
 }
 
-func escribirMaterial(dir, catalogo string, motivos motivosB2, capacidades [8]capacidadCotejada) error {
-	raiz, err := os.OpenRoot(dir)
-	if err != nil {
-		return errEscritura
-	}
-	defer raiz.Close()
+func escribirMaterial(raiz *os.Root, catalogo string, motivos motivosB2, capacidades [8]capacidadCotejada) error {
 	inv := inventarioB2{Version: versionFormatoB2, CatalogoMotivos: catalogo, Motivos: motivos}
 	inv.V3.Capacidades = make(map[string]capacidadInventario, len(capacidades))
 	for _, c := range capacidades {
@@ -220,7 +202,7 @@ func escribirMaterial(dir, catalogo string, motivos motivosB2, capacidades [8]ca
 	if err := escribirPrivado(raiz, nombreInventarioB2, append(b, '\n')); err != nil {
 		return err
 	}
-	return sincronizarDirectorio(dir)
+	return sincronizarDirectorio(raiz)
 }
 
 // escribirPrivado crea el fichero de forma exclusiva y sin seguir enlaces,
@@ -248,8 +230,8 @@ func escribirPrivado(raiz *os.Root, nombre string, contenido []byte) error {
 	return nil
 }
 
-func sincronizarDirectorio(dir string) error {
-	d, err := os.Open(dir)
+func sincronizarDirectorio(raiz *os.Root) error {
+	d, err := raiz.Open(".")
 	if err != nil {
 		return errEscritura
 	}
@@ -336,25 +318,4 @@ func comprobarCapacidad(raiz *os.Root, x capacidadInventario, audiencia string, 
 		return errValidacion
 	}
 	return nil
-}
-
-// activar sustituye la salida por el temporal con un único rename(2). Si la
-// salida no existía se crea vacía justo antes y se retira si el rename falla;
-// si existía vacía, rename(2) solo la sustituye mientras siga vacía y siga
-// siendo un directorio (un enlace o contenido nuevo lo hacen fallar).
-func activar(temporal, salida string, existia bool) error {
-	creada := false
-	if !existia {
-		if err := os.Mkdir(salida, 0700); err != nil {
-			return errActivacion
-		}
-		creada = true
-	}
-	if err := syscall.Rename(temporal, salida); err != nil {
-		if creada {
-			_ = os.Remove(salida)
-		}
-		return errActivacion
-	}
-	return sincronizarDirectorio(filepath.Dir(salida))
 }

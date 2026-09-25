@@ -7,6 +7,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -185,30 +188,111 @@ func TestPublicacionPersonalB2IdempotenteYConservaMaterialPrevio(t *testing.T) {
 			t.Fatalf("identificador B2 no deriva del prefijo: %s", p.ClaveID)
 		}
 	}
-	// La interfaz para la herramienta de composición usa la misma derivación.
-	claves, err := DerivarClavesPersonalB2V3Desarrollo(claveBase, idBase, m.emisorID, m.validaDesde, m.validaHasta)
+}
+
+// publicacionCapturadaPrueba conserva una copia de cada clave B2 tal como la
+// recibe el publicador real (antes de que la borre) y emula las coordenadas
+// que asigna el gobierno.
+type publicacionCapturadaPrueba struct {
+	secretos [][]byte
+}
+
+func (p *publicacionCapturadaPrueba) publicar(m *materialAtestacionContratacionTemporalDesarrollo) error {
+	p.secretos = append(p.secretos, append([]byte(nil), m.claveHMAC...))
+	n := uint64(70 + len(p.secretos))
+	m.claveHMACVersion, m.claveHMACRevision, m.claveHMACOrden = n, n, n
+	return nil
+}
+
+// El material que obtiene la herramienta de composición debe ser, byte a
+// byte, el que publica vec-server desde el mismo material de idempotencia:
+// misma composición de seguridad, mismo derivador, misma clave base CT y
+// misma derivación por audiencia. Sólo versión, revisión y orden, que asigna
+// el gobierno, quedan fuera de la comparación.
+func TestClavesB2DesdeMaterialCoincidenByteAByteConLaPublicacion(t *testing.T) {
+	cfg, rutas := generarMaterialDesarrolloPrueba(t)
+	ahora := time.Date(2026, 9, 25, 10, 0, 0, 0, time.UTC)
+	composicion, err := NuevaComposicionSeguridadDesarrollo(cfg, io.Discard)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for i := range claves {
-		c := &claves[i]
-		secreto := c.CopiarSecreto()
-		suma := sha256.Sum256(secreto)
-		if c.ClaveID != primera[i].ClaveID || c.SHA256 != primera[i].SHA256 || c.HuellaGobierno != primera[i].HuellaGobierno || hex.EncodeToString(suma[:]) != c.SHA256 {
-			t.Fatalf("derivación de composición divergente en %s", c.Capacidad)
+	m, err := nuevoMaterialAtestacionContratacionTemporalDesarrollo(composicion.derivadorIdempotencia, ahora)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer m.borrarCopiasEfimeras()
+	gobierno := &publicacionCapturadaPrueba{}
+	publicadas, err := publicarMaterialPersonalB2ConDesarrollo(m, catalogoPersonalB2Prueba(t), gobierno.publicar)
+	if err != nil || len(gobierno.secretos) != 8 {
+		t.Fatalf("publicación B2: %v", err)
+	}
+	directorio := filepath.Dir(rutas.IdempotencyHMACConfig)
+	// El día no interviene: la herramienta puede ejecutarse otro día que el
+	// arranque de vec-server y obtiene las mismas claves.
+	for _, instante := range []time.Time{ahora, ahora.Add(36 * time.Hour)} {
+		claves, err := DerivarClavesPersonalB2V3DesdeMaterialDesarrollo(directorio, instante)
+		if err != nil {
+			t.Fatal(err)
 		}
-		cadena := hex.EncodeToString(secreto)
-		j, _ := json.Marshal(c)
-		for _, formato := range []string{fmt.Sprint(*c), fmt.Sprintf("%#v", *c), fmt.Sprintf("%v", c), string(j)} {
-			if strings.Contains(formato, cadena) || strings.Contains(strings.ToLower(formato), "secreto") {
-				t.Fatalf("formato expone el secreto: %s", formato)
+		for i := range claves {
+			c, p := &claves[i], publicadas[i]
+			secreto := c.CopiarSecreto()
+			suma := sha256.Sum256(secreto)
+			if !bytes.Equal(secreto, gobierno.secretos[i]) || c.DescriptorCapacidadPersonalB2V3 != p.DescriptorCapacidadPersonalB2V3 ||
+				c.ClaveID != p.ClaveID || c.SHA256 != p.SHA256 || c.HuellaGobierno != p.HuellaGobierno || c.EmisorID != p.EmisorID ||
+				!c.Desde.Equal(p.Desde) || !c.Hasta.Equal(p.Hasta) || hex.EncodeToString(suma[:]) != c.SHA256 {
+				t.Fatalf("clave B2 %s divergente de la publicada", c.Capacidad)
 			}
+			if !strings.HasSuffix(c.ClaveID, strings.TrimPrefix(m.claveHMACID, "clave:capacidad:ct:")) || bytes.Equal(secreto, m.claveHMAC) {
+				t.Fatalf("clave B2 %s no deriva de la base activa o la expone", c.Capacidad)
+			}
+			cadena := hex.EncodeToString(secreto)
+			j, _ := json.Marshal(c)
+			for _, formato := range []string{fmt.Sprint(*c), fmt.Sprintf("%#v", *c), fmt.Sprintf("%v", c), string(j)} {
+				if strings.Contains(formato, cadena) || strings.Contains(strings.ToLower(formato), "secreto") {
+					t.Fatalf("formato expone el secreto: %s", formato)
+				}
+			}
+			c.Borrar()
+			if c.CopiarSecreto() != nil {
+				t.Fatal("Borrar no retiró el secreto")
+			}
+			borrarBytes(secreto)
 		}
-		c.Borrar()
-		if c.CopiarSecreto() != nil {
-			t.Fatal("Borrar no retiró el secreto")
+	}
+}
+
+func TestClavesB2DesdeMaterialFallanCerradas(t *testing.T) {
+	cfg, rutas := generarMaterialDesarrolloPrueba(t)
+	ahora := time.Date(2026, 9, 25, 10, 0, 0, 0, time.UTC)
+	directorio := filepath.Dir(rutas.IdempotencyHMACConfig)
+	enlace := filepath.Join(filepath.Dir(cfg.DevelopmentMaterialDir), "enlace")
+	if err := os.Symlink(cfg.DevelopmentMaterialDir, enlace); err != nil {
+		t.Fatal(err)
+	}
+	otro := filepath.Join(filepath.Dir(cfg.DevelopmentMaterialDir), "otro", "idempotencia")
+	if err := os.MkdirAll(otro, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for nombre, ruta := range map[string]string{
+		"relativa":          "credenciales/idempotencia",
+		"no_canonica":       directorio + "/",
+		"raiz_del_material": cfg.DevelopmentMaterialDir,
+		"enlace":            filepath.Join(enlace, "idempotencia"),
+		"sin_material":      otro,
+	} {
+		if _, err := DerivarClavesPersonalB2V3DesdeMaterialDesarrollo(ruta, ahora); !errors.Is(err, errMaterialPersonalB2V3Desarrollo) {
+			t.Fatalf("%s: material aceptado", nombre)
 		}
-		borrarBytes(secreto)
+	}
+	if _, err := DerivarClavesPersonalB2V3DesdeMaterialDesarrollo(directorio, time.Date(2025, 12, 31, 0, 0, 0, 0, time.UTC)); err == nil {
+		t.Fatal("derivó fuera de la vigencia del material de atestación")
+	}
+	if err := os.Chmod(filepath.Join(directorio, "g2-huella-solicitud.bin"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := DerivarClavesPersonalB2V3DesdeMaterialDesarrollo(directorio, ahora); err == nil {
+		t.Fatal("aceptó una clave de idempotencia legible por terceros")
 	}
 }
 
@@ -227,11 +311,5 @@ func TestPublicacionPersonalB2FallaCerrada(t *testing.T) {
 	}
 	if _, err := publicarMaterialPersonalB2ConDesarrollo(m, catalogoPersonalB2Prueba(t), nil); err == nil {
 		t.Fatal("publicó sin publicador")
-	}
-	if _, err := DerivarClavesPersonalB2V3Desarrollo(make([]byte, 16), m.claveHMACID, m.emisorID, m.validaDesde, m.validaHasta); err == nil {
-		t.Fatal("derivó desde una clave base corta")
-	}
-	if _, err := DerivarClavesPersonalB2V3Desarrollo(m.claveHMAC, "clave:capacidad:bolsa:desarrollo:v1", m.emisorID, m.validaDesde, m.validaHasta); err == nil {
-		t.Fatal("derivó desde una clave que no es la base CT")
 	}
 }

@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -15,16 +14,16 @@ import (
 
 const (
 	errGobiernoConexion = errorPropio("gobierno V3: conexión de solo lectura no disponible o rol sin lectura")
-	errClaveBaseNoPub   = errorPropio("clave base: no coincide con ninguna clave base CT publicada (material privado divergente)")
-	errEmisorDistinto   = errorPropio("clave base: el emisor publicado no coincide con el de ct_v3.json")
+	errIdentidad        = errorPropio("gobierno V3: el LOGIN no es el de gobierno de vec-server (atributos o membresía no admitidos)")
+	errEmisorDistinto   = errorPropio("material de idempotencia: el emisor derivado no coincide con el de ct_v3.json")
 	errDerivacion       = errorPropio("claves B2: derivación rechazada")
-	errClaveB2          = errorPropio("claves B2: lo derivado no coincide con el gobierno publicado vigente")
+	errClaveB2          = errorPropio("claves B2: lo derivado no coincide con el gobierno publicado vigente (material divergente o B2 no publicado)")
 	errRaiz             = errorPropio("gobierno V3: la raíz vigente no coincide con la de ct_v3.json o no está vigente")
 
-	// audienciaClaveBaseCT es la audiencia de la clave base del publicador
-	// de desarrollo (vec-server); de ella derivan todas las capacidades.
-	audienciaClaveBaseCT = "vec_contratacion_temporal.confirmar_alta_atestada.v1"
-	prefijoClaveBaseCT   = "clave:capacidad:ct:"
+	// rolGobiernoVecServer es el grupo del LOGIN de gobierno de vec-server
+	// (rolGobiernoPostgreSQLContratacionTemporalDesarrollo); ese grupo puede
+	// asumir el propietario AD3 (SET, sin INHERIT), como hace el publicador.
+	rolGobiernoVecServer = "vec_autorizacion_atestada_v3_migrador"
 	rolPropietarioAD3    = "vec_autorizacion_atestada_v3_propietario"
 )
 
@@ -74,35 +73,21 @@ func borrarCapacidades(c *[8]capacidadCotejada) {
 	}
 }
 
-// cotejar localiza la clave base publicada por la huella de su secreto,
-// deriva las ocho claves B2 con la derivación única del publicador y exige
-// que cada una esté publicada, vigente, sin revocar, apuntada como clave de
-// emisión de su audiencia y dentro del checkpoint. La raíz vigente debe ser
-// la misma que usa ct_v3.json.
-func cotejar(ctx context.Context, g fuenteGobierno, ct datosCT, base []byte) ([8]capacidadCotejada, error) {
+// cotejar recibe las ocho claves B2 obtenidas por la ruta de vec-server y
+// exige que cada una esté publicada con las mismas coordenadas, vigente, sin
+// revocar, apuntada como clave de emisión de su audiencia y dentro del
+// checkpoint. El emisor debe ser el de ct_v3.json y la raíz vigente la misma
+// que usa ct_v3.json. No borra `claves`: es responsabilidad del llamante.
+func cotejar(ctx context.Context, g fuenteGobierno, ct datosCT, claves *[8]bootstrap.ClaveCapacidadPersonalB2V3) ([8]capacidadCotejada, error) {
 	var salida [8]capacidadCotejada
-	huella := sha256.Sum256(base)
-	fb, err := g.clavePorHuellaSecreto(ctx, hex.EncodeToString(huella[:]))
-	if errors.Is(err, errSinFila) {
-		return salida, errClaveBaseNoPub
-	}
-	if err != nil {
-		return salida, errGobiernoConexion
-	}
-	if fb.Audiencia != audienciaClaveBaseCT || !strings.HasPrefix(fb.ClaveID, prefijoClaveBaseCT) || !fb.ActoPropio || fb.Revocada {
-		return salida, errClaveBaseNoPub
-	}
-	if fb.EmisorID != ct.emisor {
-		return salida, errEmisorDistinto
-	}
-	claves, err := bootstrap.DerivarClavesPersonalB2V3Desarrollo(base, fb.ClaveID, fb.EmisorID, fb.Desde, fb.Hasta)
-	defer func() {
-		for i := range claves {
-			claves[i].Borrar()
+	descriptores := bootstrap.DescriptoresCapacidadPersonalB2V3Desarrollo()
+	for i := range claves {
+		if claves[i].DescriptorCapacidadPersonalB2V3 != descriptores[i] {
+			return salida, errDerivacion
 		}
-	}()
-	if err != nil {
-		return salida, errDerivacion
+		if claves[i].EmisorID != ct.emisor {
+			return salida, errEmisorDistinto
+		}
 	}
 	for i := range claves {
 		d := claves[i]
@@ -164,11 +149,22 @@ func abrirGobiernoPostgreSQL(ctx context.Context, dsn string) (fuenteGobierno, e
 		return nil, errGobiernoConexion
 	}
 	g := &gobiernoPostgreSQL{con: con, tx: tx}
-	var soloLectura bool
+	var soloLectura, identidad bool
 	for _, orden := range []string{
 		`SET LOCAL search_path = pg_catalog`,
 		`SET LOCAL statement_timeout = '10s'`,
 		`SET LOCAL lock_timeout = '2s'`,
+	} {
+		if _, err := tx.Exec(ctx, orden); err != nil {
+			g.cerrar()
+			return nil, errGobiernoConexion
+		}
+	}
+	if err := tx.QueryRow(ctx, sqlIdentidadGobierno, rolGobiernoVecServer, rolPropietarioAD3).Scan(&identidad); err != nil || !identidad {
+		g.cerrar()
+		return nil, errIdentidad
+	}
+	for _, orden := range []string{
 		`SET LOCAL ROLE ` + rolPropietarioAD3,
 	} {
 		if _, err := tx.Exec(ctx, orden); err != nil {
@@ -194,6 +190,33 @@ func (g *gobiernoPostgreSQL) cerrar() {
 	_ = g.con.Close(fin)
 	g.con = nil
 }
+
+// sqlIdentidadGobierno aplica al LOGIN de sesión los mismos atributos que
+// exige vec-server a su pool de gobierno
+// (comprobarIdentidadPostgreSQLContratacionTemporalDesarrollo: LOGIN, INHERIT,
+// sin SUPERUSER, CREATEDB, CREATEROLE, REPLICATION ni BYPASSRLS, sesión igual
+// a rol actual y miembro de $1) y además membresía exacta: su única
+// pertenencia directa es $1, sin opción ADMIN, y el cierre transitivo no
+// contiene más roles que $1 y el propietario AD3 ($2).
+const sqlIdentidadGobierno = `
+WITH RECURSIVE efectivas(rol_id) AS (
+	SELECT d.roleid FROM pg_catalog.pg_auth_members d WHERE d.member = session_user::text::regrole
+	UNION
+	SELECT s.roleid FROM pg_catalog.pg_auth_members s JOIN efectivas e ON e.rol_id = s.member)
+SELECT session_user = current_user
+       AND i.rolcanlogin AND i.rolinherit
+       AND NOT i.rolsuper AND NOT i.rolcreatedb AND NOT i.rolcreaterole
+       AND NOT i.rolreplication AND NOT i.rolbypassrls
+       AND pg_catalog.pg_has_role(session_user, $1::text, 'MEMBER')
+       AND (SELECT pg_catalog.count(*) FROM pg_catalog.pg_auth_members d
+             WHERE d.member = session_user::text::regrole) = 1
+       AND EXISTS (SELECT 1 FROM pg_catalog.pg_auth_members d
+                    WHERE d.member = session_user::text::regrole
+                      AND d.roleid = $1::text::regrole AND NOT d.admin_option)
+       AND NOT EXISTS (SELECT 1 FROM efectivas
+                        WHERE rol_id NOT IN ($1::text::regrole, $2::text::regrole))
+  FROM pg_catalog.pg_roles i
+ WHERE i.rolname = session_user`
 
 // sqlClavePorHuella calcula vigencia, revocación (programada o efectiva),
 // checkpoint y puntero de emisión vigente de la audiencia con el mismo reloj

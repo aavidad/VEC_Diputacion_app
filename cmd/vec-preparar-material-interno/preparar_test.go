@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -21,10 +22,11 @@ import (
 
 const (
 	catalogoPrueba = "motivos.b2"
-	emisorPrueba   = "emisor:ct:desarrollo:v1"
-	raizPrueba     = "clave:atestacion:ct:desarrollo:v1"
-	baseIDPrueba   = "clave:capacidad:ct:desarrollo:v1"
-	audienciaCT    = "vec:desarrollo:contratacion-temporal:atestacion:v3"
+	// La generación activa del material sintético es la 2 (la primera de la
+	// configuración), como en el generador de credenciales de desarrollo.
+	emisorPrueba = "emisor:ct:desarrollo:v2"
+	raizPrueba   = "clave:atestacion:ct:desarrollo:v2"
+	audienciaCT  = "vec:desarrollo:contratacion-temporal:atestacion:v3"
 )
 
 var (
@@ -53,10 +55,42 @@ func (g *gobiernoFalso) raizVigente(context.Context) (filaRaiz, error) { return 
 func (g *gobiernoFalso) cerrar()                                       { g.cerrado = true }
 
 type escenario struct {
-	dir, inventarioCT, claveBase, motivos, salida, dsnArchivo string
-	base                                                      []byte
-	gobierno                                                  *gobiernoFalso
-	huellasB2                                                 [8]string
+	dir, inventarioCT, idempotencia, motivos, salida, dsnArchivo string
+	// secretos reúne el material de idempotencia y las claves B2 derivadas:
+	// ninguno puede aparecer en la salida de la herramienta.
+	secretos  [][]byte
+	gobierno  *gobiernoFalso
+	huellasB2 [8]string
+}
+
+// configuracionIdempotencia reproduce idempotencia/configuracion.json de
+// scripts/generar_credenciales_desarrollo.sh para las generaciones dadas
+// (la primera es la activa).
+func configuracionIdempotencia(generaciones ...int) []byte {
+	var g []string
+	for _, n := range generaciones {
+		g = append(g, fmt.Sprintf(`{"generacion":%d,"referencia_localizador":"clave:hmac:convocatorias:localizador:desarrollo:v%d","referencia_huella_solicitud":"clave:hmac:convocatorias:huella:desarrollo:v%d"}`, n, n, n))
+	}
+	return []byte(`{"version":1,"esquema":"vec.bolsa.convocatoria.idempotencia-hmac.desarrollo.v1","autoridad":"no_autoritativo","version_esquema_hmac":2,"generaciones":[` + strings.Join(g, ",") + `]}`)
+}
+
+// escribirIdempotencia deja en dir un material sintético de idempotencia
+// con el formato del generador de desarrollo y devuelve sus secretos.
+func escribirIdempotencia(t *testing.T, dir string, generaciones ...int) [][]byte {
+	t.Helper()
+	escribir(t, filepath.Join(dir, "configuracion.json"), configuracionIdempotencia(generaciones...), 0600)
+	var secretos [][]byte
+	for _, n := range generaciones {
+		for _, dominio := range []string{"localizador", "huella-solicitud"} {
+			b := make([]byte, 32)
+			if _, err := rand.Read(b); err != nil {
+				t.Fatal(err)
+			}
+			escribir(t, filepath.Join(dir, fmt.Sprintf("g%d-%s.bin", n, dominio)), b, 0600)
+			secretos = append(secretos, b)
+		}
+	}
+	return secretos
 }
 
 func huellaHex(b []byte) string {
@@ -140,36 +174,46 @@ func nuevoEscenario(t *testing.T) *escenario {
 	}
 	e.inventarioCT = filepath.Join(ctDir, "ct_v3.json")
 	escribir(t, e.inventarioCT, jsonDe(t, inventarioCTJSON()), 0600)
-	e.base = make([]byte, 32)
-	if _, err := rand.Read(e.base); err != nil {
-		t.Fatal(err)
+	// Material de desarrollo de vec-server sintético: sólo su subdirectorio
+	// de idempotencia, que es lo único que lee la herramienta.
+	materialVecServer := filepath.Join(dir, "vec-server")
+	e.idempotencia = filepath.Join(materialVecServer, "idempotencia")
+	for _, d := range []string{materialVecServer, e.idempotencia} {
+		if err := os.Mkdir(d, 0700); err != nil {
+			t.Fatal(err)
+		}
 	}
-	e.claveBase = filepath.Join(privado, "clave_base.hmac")
-	escribir(t, e.claveBase, e.base, 0600)
+	e.secretos = escribirIdempotencia(t, e.idempotencia, 2, 1)
 	e.motivos = filepath.Join(privado, "motivos_b2.json")
 	escribir(t, e.motivos, jsonDe(t, motivosJSON()), 0600)
 	e.dsnArchivo = filepath.Join(privado, "gobierno.dsn")
 	escribir(t, e.dsnArchivo, []byte("postgres://lector:SECRETO_DSN_PRUEBA@127.0.0.1:1/vec\n"), 0600)
 	e.salida = filepath.Join(dir, "salida")
 	e.gobierno = &gobiernoFalso{claves: map[string]filaClave{}, raiz: filaRaiz{ClaveID: raizPrueba, Version: 1, Audiencia: audienciaCT, Vigente: true}}
-	e.gobierno.claves[huellaHex(e.base)] = filaClave{ClaveID: baseIDPrueba, Version: 1, Revision: 1, HuellaGobierno: strings.Repeat("9", 64),
-		EmisorID: emisorPrueba, Audiencia: audienciaClaveBaseCT, Desde: desdePrueba, Hasta: hastaPrueba, ActoPropio: true, Vigente: true, DentroCheckpoint: true, PunteroVigente: true}
-	claves, err := bootstrap.DerivarClavesPersonalB2V3Desarrollo(e.base, baseIDPrueba, emisorPrueba, desdePrueba, hastaPrueba)
+	e.publicar(t)
+	return e
+}
+
+// publicar simula el gobierno que deja vec-server a partir del material
+// actual: una fila por clave B2 obtenida por la ruta de vec-server.
+func (e *escenario) publicar(t *testing.T) {
+	t.Helper()
+	claves, err := bootstrap.DerivarClavesPersonalB2V3DesdeMaterialDesarrollo(e.idempotencia, ahoraPrueba)
 	if err != nil {
 		t.Fatal(err)
 	}
 	for i := range claves {
 		c := claves[i]
 		e.huellasB2[i] = c.SHA256
+		e.secretos = append(e.secretos, claves[i].CopiarSecreto())
 		e.gobierno.claves[c.SHA256] = filaClave{ClaveID: c.ClaveID, Version: uint64(40 + i), Revision: uint64(60 + i), HuellaGobierno: c.HuellaGobierno,
 			EmisorID: c.EmisorID, Audiencia: c.Audiencia, Desde: c.Desde, Hasta: c.Hasta, ActoPropio: true, Vigente: true, DentroCheckpoint: true, PunteroVigente: true}
 		claves[i].Borrar()
 	}
-	return e
 }
 
 func (e *escenario) args() []string {
-	return []string{"-inventario-ct", e.inventarioCT, "-clave-base", e.claveBase, "-motivos", e.motivos, "-salida", e.salida, "-dsn-archivo", e.dsnArchivo}
+	return []string{"-inventario-ct", e.inventarioCT, "-material-idempotencia", e.idempotencia, "-motivos", e.motivos, "-salida", e.salida, "-dsn-archivo", e.dsnArchivo}
 }
 
 func (e *escenario) dep() dependencias {
@@ -184,7 +228,11 @@ func (e *escenario) ejecutar(t *testing.T, d dependencias) (int, string) {
 	var out, errOut bytes.Buffer
 	codigo := ejecutar(context.Background(), e.args(), "", false, &out, &errOut, d)
 	texto := out.String() + errOut.String()
-	for _, prohibido := range []string{hex.EncodeToString(e.base), base64.StdEncoding.EncodeToString(e.base), "SECRETO_DSN_PRUEBA", "DSN_PRIVADO_PRUEBA", e.dir} {
+	prohibidos := []string{"SECRETO_DSN_PRUEBA", "DSN_PRIVADO_PRUEBA", e.dir}
+	for _, s := range e.secretos {
+		prohibidos = append(prohibidos, hex.EncodeToString(s), base64.StdEncoding.EncodeToString(s))
+	}
+	for _, prohibido := range prohibidos {
 		if strings.Contains(texto, prohibido) {
 			t.Fatalf("la salida expone un dato privado")
 		}
@@ -296,7 +344,7 @@ func TestGobiernoInconsistenteFallaCerrado(t *testing.T) {
 		},
 		"audiencia_cruzada": func(e *escenario) {
 			f := e.gobierno.claves[e.huellasB2[4]]
-			f.Audiencia = audienciaClaveBaseCT
+			f.Audiencia = "vec_contratacion_temporal.confirmar_alta_atestada.v1"
 			e.gobierno.claves[e.huellasB2[4]] = f
 		},
 		"vigencia_distinta": func(e *escenario) {
@@ -309,25 +357,17 @@ func TestGobiernoInconsistenteFallaCerrado(t *testing.T) {
 			f.ActoPropio = false
 			e.gobierno.claves[e.huellasB2[6]] = f
 		},
-		"base_no_propia": func(e *escenario) {
-			h := huellaHex(e.base)
-			f := e.gobierno.claves[h]
-			f.ActoPropio = false
-			e.gobierno.claves[h] = f
+		"clave_publicada_otro_id": func(e *escenario) {
+			f := e.gobierno.claves[e.huellasB2[5]]
+			f.ClaveID = "clave:capacidad:personal-b2-catalogo-publicar:desarrollo:v9"
+			e.gobierno.claves[e.huellasB2[5]] = f
 		},
-		"base_otra_audiencia": func(e *escenario) {
-			h := huellaHex(e.base)
-			f := e.gobierno.claves[h]
-			f.Audiencia = "otra.v1"
-			e.gobierno.claves[h] = f
-		},
-		"emisor_base_distinto": func(e *escenario) {
-			h := huellaHex(e.base)
-			f := e.gobierno.claves[h]
+		"emisor_publicado_distinto": func(e *escenario) {
+			f := e.gobierno.claves[e.huellasB2[2]]
 			f.EmisorID = "emisor:otro"
-			e.gobierno.claves[h] = f
+			e.gobierno.claves[e.huellasB2[2]] = f
 		},
-		"raiz_distinta":   func(e *escenario) { e.gobierno.raiz.ClaveID = "clave:atestacion:ct:desarrollo:v2" },
+		"raiz_distinta":   func(e *escenario) { e.gobierno.raiz.ClaveID = "clave:atestacion:ct:desarrollo:v3" },
 		"raiz_no_vigente": func(e *escenario) { e.gobierno.raiz.Vigente = false },
 		"raiz_ilegible":   func(e *escenario) { e.gobierno.errRaiz = errRaiz },
 		"version_publicada_cero": func(e *escenario) {
@@ -350,7 +390,7 @@ func TestGobiernoInconsistenteFallaCerrado(t *testing.T) {
 				t.Fatalf("aceptó un gobierno inconsistente: %d", codigo)
 			}
 			motivoCotejo := false
-			for _, m := range []errorPropio{errClaveB2, errRaiz, errClaveBaseNoPub, errEmisorDistinto} {
+			for _, m := range []errorPropio{errClaveB2, errRaiz} {
 				motivoCotejo = motivoCotejo || strings.Contains(texto, string(m))
 			}
 			if !motivoCotejo {
@@ -362,44 +402,63 @@ func TestGobiernoInconsistenteFallaCerrado(t *testing.T) {
 }
 
 func TestMaterialPrivadoDivergenteFallaCerrado(t *testing.T) {
+	// El material de idempotencia cambió después de que vec-server publicara
+	// (misma generación, otro secreto): las huellas derivadas no casan.
 	e := nuevoEscenario(t)
 	otra := make([]byte, 32)
 	if _, err := rand.Read(otra); err != nil {
 		t.Fatal(err)
 	}
-	escribir(t, e.claveBase, otra, 0600)
+	escribir(t, filepath.Join(e.idempotencia, "g2-huella-solicitud.bin"), otra, 0600)
 	codigo, texto := e.ejecutar(t, e.dep())
-	if codigo != 1 || !strings.Contains(texto, string(errClaveBaseNoPub)) {
-		t.Fatalf("clave base errónea aceptada: %d %s", codigo, texto)
+	if codigo != 1 || !strings.Contains(texto, string(errClaveB2)) {
+		t.Fatalf("material divergente aceptado: %d %s", codigo, texto)
 	}
 	e.sinResiduos(t)
 
-	// Clave base publicada, pero el gobierno B2 procede de otra base: las
-	// huellas derivadas no casan.
+	// Material rotado a otra generación que el gobierno aún no conoce: el
+	// emisor derivado deja de ser el de ct_v3.json.
 	e = nuevoEscenario(t)
-	f := e.gobierno.claves[huellaHex(e.base)]
-	delete(e.gobierno.claves, huellaHex(e.base))
-	e.gobierno.claves[huellaHex(otra)] = f
-	escribir(t, e.claveBase, otra, 0600)
+	e.secretos = append(e.secretos, escribirIdempotencia(t, e.idempotencia, 3, 2)...)
+	codigo, texto = e.ejecutar(t, e.dep())
+	if codigo != 1 || !strings.Contains(texto, string(errEmisorDistinto)) {
+		t.Fatalf("generación no publicada aceptada: %d %s", codigo, texto)
+	}
+	e.sinResiduos(t)
+
+	// Y aunque el gobierno la publicara, ct_v3.json sigue con el emisor v2.
+	e.publicar(t)
 	if codigo, _ := e.ejecutar(t, e.dep()); codigo != 1 {
-		t.Fatal("derivación de otra base aceptada")
+		t.Fatal("emisor distinto del de ct_v3.json aceptado")
 	}
 	e.sinResiduos(t)
 }
 
 func TestPermisosInsegurosRechazados(t *testing.T) {
 	casos := map[string]func(t *testing.T, e *escenario){
-		"clave_base_0644": func(t *testing.T, e *escenario) { must(t, os.Chmod(e.claveBase, 0644)) },
-		"clave_base_0400": func(t *testing.T, e *escenario) { must(t, os.Chmod(e.claveBase, 0400)) },
-		"motivos_0640":    func(t *testing.T, e *escenario) { must(t, os.Chmod(e.motivos, 0640)) },
-		"dsn_0644":        func(t *testing.T, e *escenario) { must(t, os.Chmod(e.dsnArchivo, 0644)) },
-		"ct_dir_0755":     func(t *testing.T, e *escenario) { must(t, os.Chmod(filepath.Dir(e.inventarioCT), 0755)) },
-		"ct_json_0644":    func(t *testing.T, e *escenario) { must(t, os.Chmod(e.inventarioCT, 0644)) },
-		"salida_0755":     func(t *testing.T, e *escenario) { must(t, os.Mkdir(e.salida, 0755)); must(t, os.Chmod(e.salida, 0755)) },
-		"padre_0777":      func(t *testing.T, e *escenario) { must(t, os.Chmod(e.dir, 0777)) },
-		"clave_base_corta": func(t *testing.T, e *escenario) {
-			escribir(t, e.claveBase, e.base[:16], 0600)
+		"idempotencia_fichero_0640": func(t *testing.T, e *escenario) {
+			must(t, os.Chmod(filepath.Join(e.idempotencia, "g1-localizador.bin"), 0640))
 		},
+		"idempotencia_configuracion_0644": func(t *testing.T, e *escenario) {
+			must(t, os.Chmod(filepath.Join(e.idempotencia, "configuracion.json"), 0644))
+		},
+		"idempotencia_dir_0750":   func(t *testing.T, e *escenario) { must(t, os.Chmod(e.idempotencia, 0750)) },
+		"material_vecserver_0755": func(t *testing.T, e *escenario) { must(t, os.Chmod(filepath.Dir(e.idempotencia), 0755)) },
+		"motivos_0640":            func(t *testing.T, e *escenario) { must(t, os.Chmod(e.motivos, 0640)) },
+		"dsn_0644":                func(t *testing.T, e *escenario) { must(t, os.Chmod(e.dsnArchivo, 0644)) },
+		"ct_dir_0755":             func(t *testing.T, e *escenario) { must(t, os.Chmod(filepath.Dir(e.inventarioCT), 0755)) },
+		"ct_json_0644":            func(t *testing.T, e *escenario) { must(t, os.Chmod(e.inventarioCT, 0644)) },
+		"salida_0755":             func(t *testing.T, e *escenario) { must(t, os.Mkdir(e.salida, 0755)); must(t, os.Chmod(e.salida, 0755)) },
+		"padre_0777":              func(t *testing.T, e *escenario) { must(t, os.Chmod(e.dir, 0777)) },
+		"idempotencia_corta": func(t *testing.T, e *escenario) {
+			escribir(t, filepath.Join(e.idempotencia, "g2-localizador.bin"), make([]byte, 16), 0600)
+		},
+		"idempotencia_otro_nombre": func(t *testing.T, e *escenario) {
+			otro := filepath.Join(filepath.Dir(e.idempotencia), "idempotencia-copia")
+			must(t, os.Rename(e.idempotencia, otro))
+			e.idempotencia = otro
+		},
+		"idempotencia_raiz_material": func(t *testing.T, e *escenario) { e.idempotencia = filepath.Dir(e.idempotencia) },
 	}
 	for nombre, alterar := range casos {
 		t.Run(nombre, func(t *testing.T) {
@@ -425,10 +484,22 @@ func must(t *testing.T, err error) {
 
 func TestEnlacesSimbolicosRechazados(t *testing.T) {
 	casos := map[string]func(t *testing.T, e *escenario){
-		"clave_base": func(t *testing.T, e *escenario) {
-			real := filepath.Join(e.dir, "privado", "real.hmac")
-			must(t, os.Rename(e.claveBase, real))
-			must(t, os.Symlink(real, e.claveBase))
+		"directorio_idempotencia": func(t *testing.T, e *escenario) {
+			real := filepath.Join(e.dir, "idempotencia-real")
+			must(t, os.Rename(e.idempotencia, real))
+			must(t, os.Symlink(real, e.idempotencia))
+		},
+		"material_vecserver": func(t *testing.T, e *escenario) {
+			material := filepath.Dir(e.idempotencia)
+			real := filepath.Join(e.dir, "vec-server-real")
+			must(t, os.Rename(material, real))
+			must(t, os.Symlink(real, material))
+		},
+		"fichero_idempotencia": func(t *testing.T, e *escenario) {
+			ruta := filepath.Join(e.idempotencia, "g2-huella-solicitud.bin")
+			real := filepath.Join(e.dir, "privado", "real.bin")
+			must(t, os.Rename(ruta, real))
+			must(t, os.Symlink(real, ruta))
 		},
 		"motivos": func(t *testing.T, e *escenario) {
 			real := filepath.Join(e.dir, "privado", "real.json")
@@ -628,4 +699,74 @@ func TestInventarioCTConEmisoresDistintosRechazado(t *testing.T) {
 		t.Fatalf("emisores distintos aceptados: %s", texto)
 	}
 	e.sinResiduos(t)
+}
+
+func TestIdempotenciaDentroDeRepositorioRechazada(t *testing.T) {
+	e := nuevoEscenario(t)
+	must(t, os.Mkdir(filepath.Join(filepath.Dir(e.idempotencia), ".git"), 0700))
+	if err := comprobarIdempotencia(e.idempotencia); err != errIdempotencia {
+		t.Fatal("material de idempotencia dentro de un repositorio aceptado")
+	}
+}
+
+// Tras el rename el material ya está activado: un fallo del fsync del padre
+// se informa como tal, no como un error que invite a repetir la preparación.
+func TestFsyncDelPadreNoConfirmadoTrasActivar(t *testing.T) {
+	e := nuevoEscenario(t)
+	d := e.dep()
+	d.sincronizarPadre = func(*os.File) error { return errors.New("EIO simulado") }
+	codigo, texto := e.ejecutar(t, d)
+	if codigo != 0 || !strings.Contains(texto, "activado; fsync del padre no confirmado") {
+		t.Fatalf("fsync fallido tras activar mal informado: %d %s", codigo, texto)
+	}
+	if _, err := internactproveedores.CargarMaterialPersonalB2(e.salida); err != nil {
+		t.Fatal("el material activado no es cargable")
+	}
+}
+
+// Si la ruta del padre pasa a designar otro directorio entre la composición
+// y la activación, no se activa en ninguno de los dos y el temporal se
+// retira del directorio original por su descriptor.
+func TestPadreSustituidoAntesDeActivarNoActiva(t *testing.T) {
+	e := nuevoEscenario(t)
+	movido := e.dir + "-movido"
+	d := e.dep()
+	d.antesDeActivar = func() error {
+		must(t, os.Rename(e.dir, movido))
+		must(t, os.Mkdir(e.dir, 0700))
+		return nil
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(movido) })
+	codigo, texto := e.ejecutar(t, d)
+	if codigo != 1 || !strings.Contains(texto, string(errActivacion)) {
+		t.Fatalf("activó con el padre sustituido: %d %s", codigo, texto)
+	}
+	e.sinResiduos(t)
+	if _, err := os.Lstat(filepath.Join(movido, "salida")); !os.IsNotExist(err) {
+		t.Fatal("activó en el directorio original movido")
+	}
+	entradas, err := os.ReadDir(movido)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, x := range entradas {
+		if strings.HasPrefix(x.Name(), prefijoTemporal) {
+			t.Fatal("quedó el temporal en el directorio original")
+		}
+	}
+}
+
+func TestIdentidadDeGobiernoSePropagaSinDetalles(t *testing.T) {
+	e := nuevoEscenario(t)
+	d := e.dep()
+	d.abrirGobierno = func(context.Context, string) (fuenteGobierno, error) { return nil, errIdentidad }
+	if codigo, texto := e.ejecutar(t, d); codigo != 1 || !strings.Contains(texto, string(errIdentidad)) {
+		t.Fatalf("identidad rechazada mal informada: %s", texto)
+	}
+	e.sinResiduos(t)
+	for _, clausula := range []string{"NOT i.rolsuper", "NOT i.rolbypassrls", "NOT i.rolcreaterole", "NOT d.admin_option", "rol_id NOT IN"} {
+		if !strings.Contains(sqlIdentidadGobierno, clausula) {
+			t.Fatalf("la comprobación de identidad no exige %s", clausula)
+		}
+	}
 }
