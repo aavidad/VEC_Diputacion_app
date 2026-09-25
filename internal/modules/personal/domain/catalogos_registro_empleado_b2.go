@@ -66,7 +66,6 @@ type SolicitudCambioCatalogoEmpleadoB2 struct {
 	HuellaSHA256    string
 	VigenteDesde    FechaCivil
 	VigenteHasta    FechaCivil
-	ActoRef         string
 	IdempotenciaRef string
 	Actor           core.ContextoActor
 }
@@ -129,7 +128,7 @@ func NuevoMaterialCambioCatalogoEmpleadoB2(s SolicitudCambioCatalogoEmpleadoB2) 
 		s.Version < 1 || s.Version > 2147483647 || s.Revision < 1 || s.Revision > 2147483647 ||
 		(s.Operacion == "publicar" && s.Revision != 1) || (s.Operacion == "retirar" && s.Revision < 2) ||
 		!denominacionCatalogoEmpleadoB2Valida(s.Denominacion) || !huellaRegistroDominioB2Valida(s.HuellaSHA256) ||
-		!intervaloActoB2Valido(s.VigenteDesde, s.VigenteHasta) || !patronReferenciaB2.MatchString(s.ActoRef) ||
+		!intervaloActoB2Valido(s.VigenteDesde, s.VigenteHasta) ||
 		!patronUUIDRegistroB2.MatchString(s.IdempotenciaRef) || s.Actor.Validar() != nil {
 		return MaterialCatalogoEmpleadoB2{}, ErrRegistroEmpleadoB2Invalido
 	}
@@ -148,12 +147,11 @@ func NuevoMaterialCambioCatalogoEmpleadoB2(s SolicitudCambioCatalogoEmpleadoB2) 
 		HuellaSHA256    string `json:"huella_sha256"`
 		VigenteDesde    string `json:"vigente_desde"`
 		VigenteHasta    string `json:"vigente_hasta"`
-		ActoRef         string `json:"acto_ref"`
 		ActorRef        string `json:"actor_ref"`
 		IdempotenciaRef string `json:"idempotencia_ref"`
 	}{"vec.personal.catalogo-registro-empleado.v1", s.Operacion, s.OrganismoRef, s.Tipo, s.Ref,
 		s.Version, s.Revision, s.Denominacion, s.HuellaSHA256, s.VigenteDesde.Texto(),
-		s.VigenteHasta.Texto(), s.ActoRef, s.Actor.Principal.ID, s.IdempotenciaRef}
+		s.VigenteHasta.Texto(), s.Actor.Principal.ID, s.IdempotenciaRef}
 	return nuevoMaterialCatalogoEmpleadoB2(s.Operacion, s.OrganismoRef, s.Tipo, s.Ref, s.Version, s.Revision, s.Actor, obj)
 }
 
@@ -212,12 +210,13 @@ func organismoCatalogoEmpleadoB2Valido(ref string) bool {
 	return len(ref) <= 127 && patronReferenciaB2.MatchString(ref)
 }
 
-// HuellaPublicacionCatalogoEmpleadoB2 fija la procedencia de una versión.
+// HuellaPublicacionCatalogoEmpleadoB2 fija el contenido de una versión.
+// La referencia de acto procede de la decisión V3 dentro de PostgreSQL.
 // La retirada conserva la huella original y no calcula otra publicación.
 func HuellaPublicacionCatalogoEmpleadoB2(s SolicitudCambioCatalogoEmpleadoB2) string {
 	partes := []string{"vec.personal.catalogo-registro-empleado.entrada.v1", s.OrganismoRef,
 		s.Tipo, s.Ref, strconv.FormatInt(s.Version, 10), strconv.FormatInt(s.Revision, 10),
-		s.Denominacion, s.VigenteDesde.Texto(), s.VigenteHasta.Texto(), s.ActoRef}
+		s.Denominacion, s.VigenteDesde.Texto(), s.VigenteHasta.Texto()}
 	suma := sha256.Sum256([]byte(strings.Join(partes, "\n")))
 	return hex.EncodeToString(suma[:])
 }

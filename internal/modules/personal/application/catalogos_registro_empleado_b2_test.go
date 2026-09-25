@@ -20,7 +20,7 @@ func cambioCatalogoPrueba(t *testing.T) domain.SolicitudCambioCatalogoEmpleadoB2
 	s := domain.SolicitudCambioCatalogoEmpleadoB2{
 		Operacion: "publicar", OrganismoRef: "organismo:dipgra", Tipo: "regimen", Ref: "regimen:uno",
 		Version: 1, Revision: 1, Denominacion: "Régimen sintético", VigenteDesde: fecha,
-		ActoRef: "acto:publicacion", IdempotenciaRef: "11111111-1111-4111-8111-111111111111", Actor: solicitudP(t).Actor,
+		IdempotenciaRef: "11111111-1111-4111-8111-111111111111", Actor: solicitudP(t).Actor,
 	}
 	s.HuellaSHA256 = domain.HuellaPublicacionCatalogoEmpleadoB2(s)
 	return s
@@ -28,13 +28,17 @@ func cambioCatalogoPrueba(t *testing.T) domain.SolicitudCambioCatalogoEmpleadoB2
 
 func TestCatalogoEmpleadoMaterialLigaOrganismoVersionYContenido(t *testing.T) {
 	s := cambioCatalogoPrueba(t)
+	if s.HuellaSHA256 != "b08fcb659efbcff4bf474e6d1d1051ca7e110007562dce9253bcd2fb69d47e62" {
+		t.Fatal("huella canónica de nueve campos divergente")
+	}
 	m, err := domain.NuevoMaterialCambioCatalogoEmpleadoB2(s)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if m.Recurso().Referencia != "organismo:dipgra:regimen:regimen:uno:1" ||
 		m.Recurso().Ambitos["organismo_ref"] != s.OrganismoRef ||
-		!bytes.Contains(m.Canonico(), []byte(`"huella_sha256":"`+s.HuellaSHA256+`"`)) {
+		!bytes.Contains(m.Canonico(), []byte(`"huella_sha256":"`+s.HuellaSHA256+`"`)) ||
+		bytes.Contains(m.Canonico(), []byte(`"acto_ref"`)) {
 		t.Fatal("material sin objetivo nominal")
 	}
 	primeraHuella, _ := m.HuellaSHA256()
