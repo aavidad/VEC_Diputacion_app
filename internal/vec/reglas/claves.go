@@ -59,4 +59,7 @@ const (
 	CTDuracionVacante             = "c08.vacante"
 	CTDuracionSustitucion         = "c08.sustitucion"
 	CTDuracionCircunstancias      = "c08.circunstancias_produccion"
+	CTModificacionFaseRetorno     = "c09.modificacion_fase_retorno"
+	CTCierreExpediente            = "c10.cierre_expediente"
+	CTCausasCese                  = "c11.causas_cese"
 )
