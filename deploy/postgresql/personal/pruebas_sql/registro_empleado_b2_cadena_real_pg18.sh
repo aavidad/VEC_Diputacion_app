@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Ensayo B2 con migraciones y consumo V3 reales. Solo datos sintéticos.
 # Requiere una base sintética preparada por VEC_B2_BASELINE_SQL con la cadena
-# ContextoActor 001..008, Personal 010/016/017/018 y AD3 hasta 050a.
+# ContextoActor 001..008, Personal 010/016/017 y AD3 hasta 050a.
 # VEC_B2_CASOS_SQL debe generar material V3 firmado por la infraestructura
-# real de pruebas y comprobar alta, replay, denegaciones y lectura. Nunca se
+# real de pruebas y comprobar publicación de catálogos, alta, replay,
+# denegaciones y lectura. Nunca se
 # sustituye el consumidor ni se fabrican decisiones dentro de este runner.
 # El material firmado se recibe desde un archivo privado externo a Git.
 # Hasta que estos dos SQL sintéticos y AD3-54..58 estén disponibles, el ensayo
@@ -65,25 +66,26 @@ archivo_privado() {
 
 [[ ${1:-} == '' || ${1:-} == '--preflight' ]] || fallo 'uso: registro_empleado_b2_cadena_real_pg18.sh [--preflight]'
 declare -a rutas_ad3=()
-for numero in 51 52 53 54 55 56 57 58 59 60; do
+for numero in 51 52 53 54 55 56 57 58 59 60 61; do
   rutas_ad3+=("$(resolver_ad3 "$numero")")
 done
 for ruta in \
   "$personal_dir/000019_escritura_registro_empleado_b2.up.sql" \
-  "$personal_dir/000018_lectura_registro_empleado_b2.up.sql"; do
+  "$personal_dir/000018_lectura_registro_empleado_b2.up.sql" \
+  "$personal_dir/000020_catalogos_registro_empleado.up.sql"; do
   [[ -f "$repo_dir/$ruta" ]] || fallo "falta $ruta"
 done
 [[ -n ${VEC_B2_BASELINE_SQL:-} && -f ${VEC_B2_BASELINE_SQL:-} ]] ||
   fallo 'VEC_B2_BASELINE_SQL debe señalar un SQL sintético que instale la preimagen real hasta CA-008 y AD3-050a'
 [[ -n ${VEC_B2_CASOS_SQL:-} && -f ${VEC_B2_CASOS_SQL:-} ]] ||
-  fallo 'VEC_B2_CASOS_SQL debe señalar casos con firma/atestación V3 real; no se admiten stubs'
+  fallo 'VEC_B2_CASOS_SQL debe señalar casos de catálogo/alta con firma V3 real; no se admiten stubs'
 if [[ ${VEC_B2_BASELINE_SQL} != "$base_dir"/* ]]; then
   archivo_privado "$VEC_B2_BASELINE_SQL"
 fi
 archivo_privado "$VEC_B2_CASOS_SQL"
 [[ $imagen =~ @sha256:[0-9a-f]{64}$ ]] ||
   fallo 'VEC_POSTGRES_TEST_IMAGE debe fijarse por digest sha256'
-printf 'Preflight B2 real: AD3-51..60 y material sintético presentes.\n'
+printf 'Preflight B2 real: AD3-51..61, Personal-018..020 y material sintético presentes.\n'
 [[ ${1:-} == '--preflight' ]] && exit 0
 
 command -v "$motor" >/dev/null 2>&1 || fallo "motor de contenedor ausente: $motor"
@@ -103,11 +105,16 @@ archivo "$VEC_B2_BASELINE_SQL"
 for indice in "${!rutas_ad3[@]}"; do
   numero=$((indice+51))
   ruta=${rutas_ad3[$indice]}
-  if [[ $numero == 60 ]]; then
+  if [[ $numero == 60 || $numero == 61 ]]; then
     sed '$s/^COMMIT;[[:space:]]*$/ROLLBACK;/' "$repo_dir/$ruta" | \
       "$motor" exec -i "$contenedor" psql -X -q -v ON_ERROR_STOP=1 -U postgres -d "$base" -o /dev/null
-    [[ $(consulta "SELECT to_regprocedure('vec_autorizacion_atestada_v3.consumir_registro_empleado_b2_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL") == t ]] ||
-      error 'ROLLBACK de AD3-60 dejó el consumidor instalado'
+    if [[ $numero == 60 ]]; then
+      [[ $(consulta "SELECT to_regprocedure('vec_autorizacion_atestada_v3.consumir_registro_empleado_b2_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL") == t ]] ||
+        error 'ROLLBACK de AD3-60 dejó el consumidor instalado'
+    else
+      [[ $(consulta "SELECT to_regprocedure('vec_autorizacion_atestada_v3.consumir_catalogo_registro_empleado_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL") == t ]] ||
+        error 'ROLLBACK de AD3-61 dejó el consumidor instalado'
+    fi
   fi
   if [[ $numero == 53 ]]; then aplicar_ref "$ref_53" "$ruta"
   elif [[ $numero == 59 ]]; then aplicar_ref "$ref_59" "$ruta"
@@ -116,13 +123,24 @@ done
 
 # Las migraciones Personal se ensayan en ROLLBACK y luego COMMIT, sin DOWN.
 for ruta in "$personal_dir/000018_lectura_registro_empleado_b2.up.sql" \
-            "$personal_dir/000019_escritura_registro_empleado_b2.up.sql"; do
+            "$personal_dir/000019_escritura_registro_empleado_b2.up.sql" \
+            "$personal_dir/000020_catalogos_registro_empleado.up.sql"; do
   sed '$s/^COMMIT;[[:space:]]*$/ROLLBACK;/' "$repo_dir/$ruta" | \
     "$motor" exec -i "$contenedor" psql -X -q -v ON_ERROR_STOP=1 -U postgres -d "$base" -o /dev/null
+  if [[ $ruta == *000020_* ]]; then
+    [[ $(consulta "SELECT to_regclass('vec_personal.entrada_catalogo_registro_empleado_historia') IS NULL AND to_regprocedure('vec_personal.registrar_entrada_catalogo_empleado_rrhh_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL") == t ]] ||
+      error 'ROLLBACK de Personal-020 dejó objetos instalados'
+  fi
   archivo "$repo_dir/$ruta"
 done
 [[ $(consulta "SELECT has_function_privilege('vec_personal_propietario','vec_autorizacion_atestada_v3.consumir_registro_empleado_b2_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE') AND NOT has_function_privilege('vec_personal_ejecutor','vec_autorizacion_atestada_v3.consumir_registro_empleado_b2_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')") == t ]] ||
   error 'ACL de consumo AD3-60 divergente'
+[[ $(consulta "SELECT has_function_privilege('vec_personal_propietario','vec_autorizacion_atestada_v3.consumir_catalogo_registro_empleado_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE') AND NOT has_function_privilege('vec_personal_ejecutor','vec_autorizacion_atestada_v3.consumir_catalogo_registro_empleado_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')") == t ]] ||
+  error 'ACL de consumo AD3-61 divergente'
+[[ $(consulta "SELECT NOT has_table_privilege('vec_personal_ejecutor','vec_personal.entrada_catalogo_registro_empleado_historia','SELECT') AND NOT has_table_privilege('vec_personal_ejecutor','vec_personal.entrada_catalogo_registro_empleado_actual','SELECT') AND has_function_privilege('vec_personal_ejecutor','vec_personal.registrar_entrada_catalogo_empleado_rrhh_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE') AND NOT has_function_privilege('public','vec_personal.registrar_entrada_catalogo_empleado_rrhh_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')") == t ]] ||
+  error 'ACL de catálogo Personal-020 divergente'
+[[ $(consulta "SELECT count(*)=2 FROM pg_class WHERE oid IN ('vec_personal.entrada_catalogo_registro_empleado_historia'::regclass,'vec_personal.entrada_catalogo_registro_empleado_actual'::regclass) AND relrowsecurity AND relforcerowsecurity") == t ]] ||
+  error 'RLS de catálogo Personal-020 divergente'
 [[ $(consulta "SELECT NOT has_table_privilege('vec_personal_ejecutor','vec_personal.registro_empleado_b2_recibo','SELECT') AND NOT has_table_privilege('vec_personal_ejecutor','vec_personal.relacion_servicio_historia','SELECT') AND NOT has_table_privilege('vec_personal_ejecutor','vec_personal.ocupacion_empleado_historia','SELECT') AND NOT has_table_privilege('vec_personal_ejecutor','vec_personal.servicio_reconocido_historia','SELECT') AND NOT has_table_privilege('vec_personal_ejecutor','vec_personal.situacion_empleado_historia','SELECT')") == t ]] ||
   error 'ACL de historia Personal divergente'
 
@@ -132,8 +150,16 @@ archivo "$VEC_B2_CASOS_SQL" >/dev/null 2>&1 ||
   error 'los casos V3 firmados fallaron; se ha ocultado su salida privada'
 recibos=$(consulta 'SELECT count(*) FROM vec_personal.registro_empleado_b2_recibo')
 [[ $recibos =~ ^[1-9][0-9]*$ ]] || error 'no existe recibo COMMIT de B2'
+altas=$(consulta "SELECT count(*) FROM vec_personal.registro_empleado_b2_recibo WHERE operacion='alta'")
+[[ $altas =~ ^[1-9][0-9]*$ ]] || error 'no existe alta V3 COMMIT de B2'
+catalogos=$(consulta 'SELECT count(*) FROM vec_personal.entrada_catalogo_registro_empleado_historia')
+[[ $catalogos =~ ^[1-9][0-9]*$ ]] || error 'no existe catálogo V3 COMMIT de B2'
 "$motor" restart "$contenedor" >/dev/null
 esperar
 [[ $(consulta 'SELECT count(*) FROM vec_personal.registro_empleado_b2_recibo') == "$recibos" ]] ||
   error 'los recibos cambiaron tras reinicio'
-printf 'PG18.4 B2 real: cadena AD3-51..60, ACL, casos firmados y %s recibos persistentes tras reinicio.\n' "$recibos"
+[[ $(consulta 'SELECT count(*) FROM vec_personal.entrada_catalogo_registro_empleado_historia') == "$catalogos" ]] ||
+  error 'los catálogos cambiaron tras reinicio'
+[[ $(consulta "SELECT to_regprocedure('vec_autorizacion_atestada_v3.consumir_catalogo_registro_empleado_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL AND to_regprocedure('vec_personal.registrar_entrada_catalogo_empleado_rrhh_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL AND has_function_privilege('vec_personal_propietario','vec_autorizacion_atestada_v3.consumir_catalogo_registro_empleado_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')") == t ]] ||
+  error 'consumidores y ACL de catálogo no sobrevivieron al reinicio'
+printf 'PG18.4 B2 real: cadena AD3-51..61, ACL, catálogo/alta firmados y %s recibos persistentes tras reinicio.\n' "$recibos"
