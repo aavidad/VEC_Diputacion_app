@@ -55,13 +55,14 @@ func TestPasosOperacionAlmacenConservanIdentificadoresCanonicos(t *testing.T) {
 		PasoAbandonarCargaDirecta: "02_abandonar_carga_directa",
 		PasoConfirmarCargaDirecta: "01_confirmar_carga_directa",
 		PasoLeerParaAnalisis:      "01_leer_para_analisis",
+		PasoLeerOriginalDocumento: "01_leer_original_documento",
 		PasoAnalizarContenido:     "02_analizar_contenido",
 		PasoPromover:              "01_promover",
 		PasoCustodiarDecision:     "01_custodiar_decision",
 		PasoCustodiarFirmado:      "01_custodiar_documento_firmado",
 		PasoRetenerFirmado:        "01_retener_documento_firmado",
 	}
-	if len(casos) != 9 {
+	if len(casos) != 10 {
 		t.Fatalf("identificadores de paso duplicados: %d", len(casos))
 	}
 	for paso, esperado := range casos {

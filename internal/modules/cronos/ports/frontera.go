@@ -30,7 +30,7 @@ var (
 	actorFronteraCronos       = regexp.MustCompile(`^per_[-A-Za-z0-9_]{22,128}$`)
 )
 
-// OrdenDenegacionFronteraCronos. Ruta es una de las ocho publicadas u
+// OrdenDenegacionFronteraCronos. Ruta es una de las publicadas u
 // "otra"; Metodo es GET, POST u "otro". ActorRef sólo si ya fue acreditado.
 type OrdenDenegacionFronteraCronos struct {
 	CorrelacionRef, Motivo, Ruta, Metodo, ActorRef string
@@ -46,7 +46,13 @@ func (o OrdenDenegacionFronteraCronos) Validar() error {
 	case "/api/interna/cronos/saldos/propio", "/api/interna/cronos/marcajes/remoto",
 		"/api/interna/cronos/marcajes/remoto/disponibilidad", "/api/interna/cronos/marcajes/remoto/recibo",
 		"/api/interna/cronos/movimientos/propio", "/api/interna/cronos/correcciones/propias",
-		"/api/interna/cronos/permisos/propio", "/api/interna/cronos/permisos/solicitudes", "otra":
+		"/api/interna/cronos/permisos/propio", "/api/interna/cronos/permisos/solicitudes",
+		// Resolución y avisos (000009) y notificaciones (000010): sin ellas una
+		// denegación en esas rutas no se podría auditar y respondería 503.
+		"/api/interna/cronos/permisos/bandeja", "/api/interna/cronos/permisos/resoluciones",
+		"/api/interna/cronos/avisos/propio", "/api/interna/cronos/avisos/archivos",
+		"/api/interna/cronos/notificaciones/propio", "/api/interna/cronos/notificaciones/envios",
+		"/api/interna/cronos/notificaciones/bandeja", "/api/interna/cronos/notificaciones/atenciones", "otra":
 	default:
 		return ErrDenegacionFronteraNoRegistrada
 	}

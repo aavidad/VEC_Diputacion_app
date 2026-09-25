@@ -12,14 +12,19 @@ var huellaJustificante = regexp.MustCompile(`^[0-9a-f]{64}$`)
 var referenciaJustificante = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9:_-]{2,127}$`)
 
 // Concepto describe el gasto o la razón declarada, también en otro_medio.
-// Referencia y huella son opcionales y solo identifican una custodia externa
-// cuando ambas existen; el texto no acredita un justificante documental.
+// Desde D5 cada línea lleva tipo del catálogo versionado, fecha del gasto y
+// justificante obligatorio por referencia y huella: el documento queda en
+// custodia de la persona. Las líneas anteriores a D5 (sin tipo ni fecha, con
+// justificante opcional) siguen siendo legibles, pero no se pueden guardar.
 type OtroGastoDeclarado struct {
 	Tipo               string `json:"tipo"`
 	Concepto           string `json:"concepto"`
 	ImporteCentimos    int64  `json:"importe_centimos"`
 	JustificanteRef    string `json:"justificante_ref"`
 	JustificanteSHA256 string `json:"justificante_sha256"`
+	TipoGasto          string `json:"tipo_gasto,omitempty"`
+	CatalogoVersion    string `json:"catalogo_version,omitempty"`
+	Fecha              string `json:"fecha,omitempty"`
 }
 
 type LineaDocumentoComision struct {
@@ -41,6 +46,8 @@ type LineaDocumentoComision struct {
 	AjusteKilometros   string  `json:"ajuste_kilometros,omitempty"`
 	MotivoAjuste       string  `json:"motivo_ajuste,omitempty"`
 	VersionGrafo       string  `json:"version_grafo,omitempty"`
+	TipoGasto          string  `json:"tipo_gasto,omitempty"`
+	CatalogoVersion    string  `json:"catalogo_version,omitempty"`
 }
 
 // DocumentoComision contiene solo los tramos elegidos del grupo acreditado
@@ -96,17 +103,12 @@ func ConstruirDocumentoComision(calculo CalculoComision, codigos []string, rutas
 		d.Lineas = append(d.Lineas, LineaDocumentoComision{Tipo: "kilometraje", RutaIndice: i + 1, OrigenCodigo: ruta.CodigosRuta[0], DestinoCodigo: ruta.CodigosRuta[len(ruta.CodigosRuta)-1], Kilometros: ruta.KilometrosFinales, KilometrosBase: ruta.KilometrosBase, AjusteKilometros: ruta.AjusteKilometros, MotivoAjuste: ruta.MotivoAjuste, ImporteCentimos: ruta.ImporteCentimos, VersionGrafo: ruta.VersionGrafo, VersionTarifaRef: calculo.VersionTarifa, Rotulo: calculo.Rotulo})
 	}
 	for _, otro := range otros {
-		if (otro.Tipo != "otro_medio" && otro.Tipo != "otro_gasto") || len(otro.Concepto) < 3 || len(otro.Concepto) > 500 || strings.TrimSpace(otro.Concepto) != otro.Concepto || strings.ContainsAny(otro.Concepto, "\r\n\x00") || otro.ImporteCentimos < 1 || otro.ImporteCentimos > 100000000 {
-			return vacio, ErrDocumentoComisionInvalido
-		}
-		parejaVacia := otro.JustificanteRef == "" && otro.JustificanteSHA256 == ""
-		parejaValida := referenciaJustificante.MatchString(otro.JustificanteRef) && huellaJustificante.MatchString(otro.JustificanteSHA256)
-		if !parejaVacia && !parejaValida {
+		if otro.validarComun() != nil {
 			return vacio, ErrDocumentoComisionInvalido
 		}
 		d.OtrosCentimos += otro.ImporteCentimos
 		ref, huella := otro.JustificanteRef, otro.JustificanteSHA256
-		d.Lineas = append(d.Lineas, LineaDocumentoComision{Tipo: otro.Tipo, Concepto: otro.Concepto, ImporteCentimos: otro.ImporteCentimos, JustificanteRef: &ref, JustificanteSHA256: &huella})
+		d.Lineas = append(d.Lineas, LineaDocumentoComision{Tipo: otro.Tipo, Fecha: otro.Fecha, Concepto: otro.Concepto, ImporteCentimos: otro.ImporteCentimos, JustificanteRef: &ref, JustificanteSHA256: &huella, TipoGasto: otro.TipoGasto, CatalogoVersion: otro.CatalogoVersion})
 	}
 	d.TotalOrientativoCentimos = d.ManutencionCentimos + d.AlojamientoTopeCentimos + d.KilometrajeCentimos + d.OtrosCentimos
 	return d, nil
@@ -123,7 +125,7 @@ func (d DocumentoComision) Validar(calculo CalculoComision, codigos []string) er
 			if linea.JustificanteRef == nil || linea.JustificanteSHA256 == nil {
 				return ErrDocumentoComisionInvalido
 			}
-			otros = append(otros, OtroGastoDeclarado{Tipo: linea.Tipo, Concepto: linea.Concepto, ImporteCentimos: linea.ImporteCentimos, JustificanteRef: *linea.JustificanteRef, JustificanteSHA256: *linea.JustificanteSHA256})
+			otros = append(otros, OtroGastoDeclarado{Tipo: linea.Tipo, Concepto: linea.Concepto, ImporteCentimos: linea.ImporteCentimos, JustificanteRef: *linea.JustificanteRef, JustificanteSHA256: *linea.JustificanteSHA256, TipoGasto: linea.TipoGasto, CatalogoVersion: linea.CatalogoVersion, Fecha: linea.Fecha})
 		}
 	}
 	esperado, err := ConstruirDocumentoComision(calculo, codigos, rutas, d.VehiculoPropio, d.GrupoDieta, d.TramosAceptados, d.VersionTarifaAceptada, otros)
@@ -131,4 +133,8 @@ func (d DocumentoComision) Validar(calculo CalculoComision, codigos []string) er
 		return ErrDocumentoComisionInvalido
 	}
 	return nil
+}
+
+func textoLinea(s string) bool {
+	return strings.TrimSpace(s) == s && !strings.ContainsAny(s, "\r\n\x00")
 }

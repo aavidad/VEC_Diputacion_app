@@ -43,11 +43,24 @@ function periodo(s, t, locale) {
     : t("periodo_dias", { desde: fechaVisible(s.desde, locale), hasta: fechaVisible(s.hasta, locale) });
 }
 
-/** Estado de una solicitud viva según el circuito de su permiso; la concesión es de otro corte. */
-function estadoSolicitud(s, circuito) {
-  if (s.estado === "concedido") return "estado_concedido";
-  if (s.estado === "pendiente_administracion" || circuito === "A") return "estado_pendiente_administracion";
-  return "estado_pendiente_jefatura";
+/**
+ * Punto del circuito en que está la solicitud. El circuito lo aplica el
+ * servidor (jefatura y después RRHH salvo marca directa), nunca el catálogo;
+ * si el servidor no lo indica, sólo se dice que está pendiente de resolver.
+ */
+export function estadoSolicitudPermisoCronos(s) {
+  switch (s.estado) {
+    case "concedido": return "estado_concedido";
+    case "denegado": return "estado_permiso_denegado";
+    case "cancelado": return "estado_permiso_cancelado";
+    case "pendiente_administracion": return "estado_permiso_pendiente_rrhh";
+    case "solicitado":
+      if (s.pendiente_asignacion === true) return "estado_permiso_pendiente_asignacion";
+      if (s.circuito === "A") return "estado_permiso_pendiente_rrhh";
+      if (s.circuito === "J-A") return "estado_permiso_pendiente_jefatura";
+      return "estado_permiso_pendiente";
+    default: return "estado_permiso_pendiente";
+  }
 }
 
 function tabla(cabeceras, filas, t) {
@@ -66,7 +79,7 @@ function formularioSolicitud(f, permiso, t) {
        <label>${escaparHTML(t("hasta"))}<input type="date" name="hasta" required value="${escaparHTML(f.hasta ?? "")}"${enviando ? " disabled" : ""}></label>`;
   const aviso = f.mensaje ? `<p class="cronos-solicitud-aviso" data-tono="${f.estado === "hecho" ? "exito" : "error"}" role="${f.estado === "hecho" ? "status" : "alert"}">${escaparHTML(f.mensaje)}</p>` : "";
   const titulo = t("solicitar_permiso", { permiso: permiso.nombre });
-  return `<section class="panel cronos-panel" aria-labelledby="cronos-permiso-form-titulo"><div class="cabecera-panel"><h3 id="cronos-permiso-form-titulo">${escaparHTML(titulo)}</h3><span class="cronos-circuito">${escaparHTML(t(`circuito_${permiso.circuito}`))}</span></div>
+  return `<section class="panel cronos-panel" aria-labelledby="cronos-permiso-form-titulo"><div class="cabecera-panel"><h3 id="cronos-permiso-form-titulo">${escaparHTML(titulo)}</h3></div>
     <div class="cuerpo-panel"><form class="cronos-solicitud-formulario" data-cronos-permiso-formulario aria-label="${escaparHTML(titulo)}">${campos}
     <div class="cronos-solicitud-acciones"><button type="submit" class="boton-primario"${enviando ? " disabled" : ""}>${escaparHTML(t(enviando ? "solicitar_enviando" : "solicitar_enviar"))}</button>
     <button type="button" class="boton-secundario" data-cronos-permiso-cerrar>${escaparHTML(t("cancelar"))}</button></div>${aviso}</form></div></section>`;
@@ -91,20 +104,20 @@ export function renderizarPermisosPropiosCronos({ estado = "cargando", anio, dat
   const concedidos = datos.solicitudes.filter((s) => s.estado === "concedido");
   const kpi = (clave, valor, tono) => `<article class="tarjeta-kpi" data-tono="${tono}"><span class="icono-kpi" aria-hidden="true"></span><div><p class="valor-kpi">${escaparHTML(new Intl.NumberFormat(locale).format(valor))}</p><p class="etiqueta-kpi">${escaparHTML(t(clave))}</p></div></article>`;
   const sintetico = datos.permisos.some((p) => p.sintetico);
-  const filas = datos.permisos.map((p) => `<tr><th scope="row">${escaparHTML(p.nombre)}</th><td>${escaparHTML(t(`circuito_${p.circuito}`))}</td>
+  const filas = datos.permisos.map((p) => `<tr><th scope="row">${escaparHTML(p.nombre)}</th>
     <td class="numero">${escaparHTML(maximo(p, t, locale))}</td><td class="numero">${escaparHTML(formatearCantidadCronos(p.minimo, p.unidad, t, locale))}</td>
     <td class="numero">${escaparHTML(formatearCantidadCronos(p.solicitado, p.unidad, t, locale))}</td><td class="numero">${escaparHTML(formatearCantidadCronos(p.concedido, p.unidad, t, locale))}</td>
     <td class="numero">${resta(p, datos.solicitudes, anio, hoy, t, locale)}</td>
     <td>${p.solicitable ? `<button type="button" class="boton-secundario" data-cronos-solicitar="${escaparHTML(p.permiso_ref)}" aria-label="${escaparHTML(t("solicitar_permiso", { permiso: p.nombre }))}">${escaparHTML(t("solicitar"))} ›</button>` : ""}</td></tr>`);
   const fila = (s) => {
     const p = porRef.get(s.permiso_ref);
-    return `<tr><th scope="row">${escaparHTML(p?.nombre ?? "")}</th><td>${escaparHTML(periodo(s, t, locale))}</td><td class="numero">${escaparHTML(formatearCantidadCronos(s.cantidad, s.unidad, t, locale))}</td><td><span class="cronos-estado" data-estado="${escaparHTML(s.estado)}">${escaparHTML(t(estadoSolicitud(s, p?.circuito)))}</span></td></tr>`;
+    return `<tr><th scope="row">${escaparHTML(p?.nombre ?? "")}</th><td>${escaparHTML(periodo(s, t, locale))}</td><td class="numero">${escaparHTML(formatearCantidadCronos(s.cantidad, s.unidad, t, locale))}</td><td><span class="cronos-estado" data-estado="${escaparHTML(s.estado)}">${escaparHTML(t(estadoSolicitudPermisoCronos(s)))}</span></td></tr>`;
   };
   const elegido = solicitud ? porRef.get(solicitud.permisoRef) : null;
   return `<section class="cronos-area cronos-permisos-propios" aria-labelledby="cronos-permisos-propios-titulo" data-estado="listo">${cabecera}
     <div class="rejilla-kpi">${kpi("kpi_pendientes_conceder", pendientes.length, "naranja")}${kpi("kpi_pendientes_justificar", justificar.length, "violeta")}${kpi("kpi_concedidos", concedidos.length, "verde")}</div>
     <section class="panel cronos-panel" aria-labelledby="cronos-permisos-anio"><div class="cabecera-panel"><h3 id="cronos-permisos-anio">${escaparHTML(t("permisos_anio", { anio }))}</h3>${sintetico ? `<span class="cronos-estado cronos-estado-aviso">${escaparHTML(t("permisos_a_confirmar"))}</span>` : ""}${navegacion}</div>
-      ${tabla(["permiso", "col_concede", "col_maximo", "col_minimo", "col_solicitado", "col_concedido", "col_resta", "col_accion"], filas, t)}</section>
+      ${tabla(["permiso", "col_maximo", "col_minimo", "col_solicitado", "col_concedido", "col_resta", "col_accion"], filas, t)}</section>
     ${formularioSolicitud(solicitud, elegido, t)}
     <section class="panel cronos-panel" aria-labelledby="cronos-permisos-pend"><div class="cabecera-panel"><h3 id="cronos-permisos-pend">${escaparHTML(t("pendientes_conceder_titulo"))}</h3></div>${tabla(["permiso", "periodo", "duracion", "estado"], pendientes.map(fila), t)}</section>
     <section class="panel cronos-panel" aria-labelledby="cronos-permisos-just"><div class="cabecera-panel"><h3 id="cronos-permisos-just">${escaparHTML(t("pendientes_justificar_titulo"))}</h3></div>${tabla(["permiso", "periodo", "duracion", "estado"], justificar.map(fila), t)}</section>
@@ -176,7 +189,7 @@ export function montarPermisosPropiosCronos({ raiz, cliente = crearClienteSolici
       const recibo = await cliente.solicitarPermiso({ clave_operacion: solicitud.clave, permiso_ref: permiso.permiso_ref, ...campos }, { signal: envio.signal });
       if (!activa) return;
       const cantidad = formatearCantidadCronos(recibo.cantidad, recibo.unidad, t, locale);
-      solicitud = { ...solicitud, estado: "hecho", mensaje: t(recibo.replay ? "solicitud_ya_registrada" : "solicitud_registrada", { cantidad, circuito: t(`circuito_${permiso.circuito}`) }) };
+      solicitud = { ...solicitud, estado: "hecho", mensaje: t(recibo.replay ? "solicitud_ya_registrada" : "solicitud_registrada", { cantidad }) };
       anunciar(solicitud.mensaje);
       await cargar();
     } catch (error) {

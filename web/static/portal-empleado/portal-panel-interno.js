@@ -7,7 +7,7 @@
  * Recibe las utilidades visuales para mantener este módulo puro y comprobable
  * sin acceder al DOM global.
  */
-import { traducirBolsaInterna, traducirPortal } from "./portal-i18n.js";
+import { traducirBolsaInterna, traducirPortal } from "./portal-i18n.js?v=20260925-d5d6-cronos-v1";
 import { renderizarBloqueAvisos } from "./portal-bolsas-avisos.js?v=20260925-aspecto-v1";
 import { renderizarOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260923-pweb14-v1";
 import { icono } from "../comun/iconos-vec.js?v=20260925-aspecto-v1";
@@ -43,20 +43,6 @@ export function crearPresentadorPanelInterno(dependencias) {
   }
   function etiquetaFuente() {
     return esActivo() ? "Panel interno agregado autorizado" : "";
-  }
-  function actualizarContextoSesion(elementos) {
-    if (!esActivo()) return false;
-    const datos = datosPanel();
-    elementos.avatar.textContent = "INT";
-    elementos.nombre.textContent = "Contexto interno autorizado";
-    elementos.perfil.textContent = datos.selector.clase === "unidad_gestion"
-      ? "Ámbito: unidad de gestión"
-      : "Ámbito: organización";
-    if (elementos.avisos) {
-      elementos.avisos.textContent = "—";
-      elementos.avisos.setAttribute("aria-label", "Avisos no incluidos en el contrato del panel interno");
-    }
-    return true;
   }
   function tarjetaKPI(nombreIcono, valor, etiqueta) {
     return `
@@ -815,5 +801,5 @@ export function crearPresentadorPanelInterno(dependencias) {
         error: estadoAvisos?.error || "",
       })}</div>`;
   }
-  return Object.freeze({ actualizarContextoSesion, esActivo, etiquetaFuente, renderizarEstadisticasBolsa, renderizarSoloBolsas, renderizarVista });
+  return Object.freeze({ esActivo, etiquetaFuente, renderizarEstadisticasBolsa, renderizarSoloBolsas, renderizarVista });
 }

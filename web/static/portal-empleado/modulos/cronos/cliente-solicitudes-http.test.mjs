@@ -54,3 +54,18 @@ test("los rechazos nominales del permiso llegan con su código y los demás son 
   await assert.rejects(cliente.solicitarPermiso(entrada), (e) => e.codigo === "respuesta_incompatible");
   await assert.rejects(cliente.solicitarPermiso({ ...entrada, hora_inicio: "09:00", hora_fin: "10:00" }), TypeError);
 });
+
+test("cada solicitud propia admite el circuito aplicado sólo coherente con su estado", async () => {
+  const solicitud = { solicitud_ref: "permiso:cronos:solicitud:a-0000001", catalogo_version_ref: "catalogo:cronos:asuntos-propios:v1", permiso_ref: "permiso:cronos:asuntos-propios",
+    desde: "2026-10-05", hasta: "2026-10-05", cantidad: 1, unidad: "dia", estado: "solicitado", version: 1, pendiente_justificar: false, solicitada_en: "2026-09-25T08:00:00Z" };
+  const consulta = (extra) => crearClienteSolicitudesCronosHTTP({ fetchImpl: async () => respuestaJSON(200, { anio: 2026, permisos: [], solicitudes: [{ ...solicitud, ...extra }] }) })
+    .consultarPermisos({ anio: 2026 });
+  for (const extra of [{}, { circuito: "J-A" }, { circuito: "A" }, { circuito: "J-A", pendiente_asignacion: true },
+    { estado: "pendiente_administracion", version: 2, circuito: "J-A" }, { estado: "concedido", version: 2 }, { estado: "concedido", version: 2, circuito: "A" }]) {
+    assert.equal((await consulta(extra)).solicitudes.length, 1, JSON.stringify(extra));
+  }
+  for (const extra of [{ circuito: "X" }, { circuito: "A", pendiente_asignacion: true }, { circuito: "J-A", pendiente_asignacion: false },
+    { pendiente_asignacion: true }, { estado: "pendiente_administracion", version: 2, circuito: "A" }, { estado: "concedido", version: 2, circuito: "J-A", pendiente_asignacion: true }]) {
+    await assert.rejects(consulta(extra), (e) => e instanceof ErrorClienteSolicitudesCronos && e.codigo === "respuesta_incompatible", JSON.stringify(extra));
+  }
+});

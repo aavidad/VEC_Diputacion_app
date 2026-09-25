@@ -266,13 +266,15 @@ type solicitudCrearJSON struct {
 	RelacionRef       string   `json:"relacion_ref"`
 }
 
+// reciboBorradorJSON es el recibo que ve el navegador: exactamente estas
+// cuatro claves, las que acepta cliente-borradores-http.js. La regla de
+// devengo ya viaja dentro de comision.calculo (regla_ref y su huella); el
+// recibo no la repite.
 type reciboBorradorJSON struct {
-	Referencia        string `json:"referencia"`
-	Version           uint64 `json:"version"`
-	RegistradoEn      string `json:"registrado_en"`
-	Repeticion        bool   `json:"repeticion"`
-	ReglaRef          string `json:"regla_ref,omitempty"`
-	ReglaHuellaSHA256 string `json:"regla_huella_sha256,omitempty"`
+	Referencia   string `json:"referencia"`
+	Version      uint64 `json:"version"`
+	RegistradoEn string `json:"registrado_en"`
+	Repeticion   bool   `json:"repeticion"`
 }
 
 type resultadoBorradorJSON struct {
@@ -288,12 +290,10 @@ func resultadoAJSON(resultado dietasports.ResultadoBorradorComision) resultadoBo
 	return resultadoBorradorJSON{
 		Comision: comision,
 		Recibo: reciboBorradorJSON{
-			Referencia:        resultado.Recibo.Referencia,
-			Version:           resultado.Recibo.Version,
-			RegistradoEn:      resultado.Recibo.RegistradoEn.UTC().Format("2006-01-02T15:04:05.000000Z"),
-			Repeticion:        resultado.Recibo.Repeticion,
-			ReglaRef:          resultado.Recibo.ReglaRef,
-			ReglaHuellaSHA256: resultado.Recibo.ReglaHuellaSHA256,
+			Referencia:   resultado.Recibo.Referencia,
+			Version:      resultado.Recibo.Version,
+			RegistradoEn: resultado.Recibo.RegistradoEn.UTC().Format("2006-01-02T15:04:05.000000Z"),
+			Repeticion:   resultado.Recibo.Repeticion,
 		},
 	}
 }

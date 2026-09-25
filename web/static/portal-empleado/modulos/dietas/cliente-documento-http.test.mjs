@@ -60,10 +60,25 @@ test("rechaza documento que atribuye dieta a otro grupo o altera su total", asyn
   }
 });
 
-test("PUT conserva ruta propia con ajuste y otro gasto sin inventar custodia", async () => {
+test("el número de documento admite de 6 a 18 dígitos, como SQL, Go y el cliente del revisor", async () => {
+  const conNumero = (numero) => crearClienteBorradoresDietasHTTP({ fetchImpl: async () => respuesta({ ...item,
+    comision: { ...item.comision, numero_documento: numero },
+  }) });
+  for (const numero of ["VEC-D-2026-000001", "VEC-D-2026-1000000", "VEC-D-2026-123456789012345678"]) {
+    const resultado = await conNumero(numero).editar(referencia, solicitud);
+    assert.equal(resultado.comision.numero_documento, numero);
+  }
+  for (const numero of ["VEC-D-2026-00001", "VEC-D-2026-1234567890123456789", "VEC-D-26-000001", "VEC-D-2026-00000a"]) {
+    await assert.rejects(() => conNumero(numero).editar(referencia, solicitud),
+      (error) => error.codigo === "respuesta_incompatible" && error.resultadoIndeterminado);
+  }
+});
+
+test("PUT conserva ruta propia con ajuste y otro gasto D5 con justificante por referencia y huella", async () => {
   const ruta = { codigos_ruta: ["18087", "18003"], ajuste_kilometros: "-0.5000", motivo_ajuste: "Atajo documentado" };
-  const otros = [{ tipo: "otro_gasto", concepto: "Aparcamiento", importe_centimos: 100,
-    justificante_ref: "", justificante_sha256: "" }];
+  const otros = [{ tipo: "otro_gasto", tipo_gasto: "aparcamiento", catalogo_version: "provisional:otros-gastos:20260925",
+    fecha: "2026-09-22", concepto: "Aparcamiento", importe_centimos: 100,
+    justificante_ref: "ticket:parking-01", justificante_sha256: "a".repeat(64) }];
   const calculo = { ...calculoBase, procedencia: "osrm_interno", motor: "OSRM", version_grafo: "grafo:uno",
     vehiculo_propio: true, kilometros: "11.5000", importe_kilometraje_centimos: 299,
     rutas: [{ ...ruta, version_grafo: "grafo:uno", tramos_ruta: [{ origen_codigo: "18087", destino_codigo: "18003", kilometros: "12.0000" }],
@@ -77,6 +92,21 @@ test("PUT conserva ruta propia con ajuste y otro gasto sin inventar custodia", a
   const guardado = await cliente.editar(referencia, { ...solicitud, vehiculo_propio: true, rutas: [ruta], otros });
   assert.equal(guardado.comision.documento.kilometraje_centimos, 299);
   assert.equal(guardado.comision.documento.otros_centimos, 100);
+  // Al guardar ya no se admite la forma anterior a D5 ni un justificante incompleto.
+  for (const otro of [{ tipo: "otro_gasto", concepto: "Aparcamiento", importe_centimos: 100, justificante_ref: "", justificante_sha256: "" },
+    { ...otros[0], justificante_sha256: "" }, { ...otros[0], fecha: "2026-02-30" }, { ...otros[0], tipo_gasto: "Taxi" },
+    { ...otros[0], extra: true }])
+    await assert.rejects(async () => cliente.editar(referencia, { ...solicitud, vehiculo_propio: true, rutas: [ruta], otros: [otro] }), TypeError);
+  // Una línea guardada antes de D5 se sigue pudiendo leer.
+  const anterior = { tipo: "otro_gasto", concepto: "Aparcamiento", importe_centimos: 100, justificante_ref: "", justificante_sha256: "" };
+  const clienteAnterior = crearClienteBorradoresDietasHTTP({ fetchImpl: async () => respuesta({ ...completo,
+    comision: { ...completo.comision, documento: { ...documentoRuta, lineas: [...documentoRuta.lineas.slice(0, -1), anterior] } } }) });
+  assert.equal((await clienteAnterior.editar(referencia, { ...solicitud, vehiculo_propio: true, rutas: [ruta], otros })).comision.documento.otros_centimos, 100);
+  // Una línea D5 devuelta sin justificante es incompatible.
+  const clienteIncompleto = crearClienteBorradoresDietasHTTP({ fetchImpl: async () => respuesta({ ...completo,
+    comision: { ...completo.comision, documento: { ...documentoRuta, lineas: [...documentoRuta.lineas.slice(0, -1), { ...otros[0], justificante_ref: "", justificante_sha256: "" }] } } }) });
+  await assert.rejects(() => clienteIncompleto.editar(referencia, { ...solicitud, vehiculo_propio: true, rutas: [ruta], otros }),
+    (error) => error.codigo === "respuesta_incompatible");
 });
 
 test("enviar solo confirma estado de revisión y recibo válido", async () => {

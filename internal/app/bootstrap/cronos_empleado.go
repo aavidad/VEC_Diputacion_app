@@ -66,6 +66,16 @@ type configuracionCronosEmpleadoDesarrollo struct {
 		Correccion     core.ReferenciaEntradaCatalogo `json:"correccion"`
 		Permisos       core.ReferenciaEntradaCatalogo `json:"permisos"`
 		Permiso        core.ReferenciaEntradaCatalogo `json:"permiso"`
+		// Resolución de permisos y avisos: sólo con su selector activo.
+		Bandeja      core.ReferenciaEntradaCatalogo `json:"bandeja"`
+		Resolucion   core.ReferenciaEntradaCatalogo `json:"resolucion"`
+		Avisos       core.ReferenciaEntradaCatalogo `json:"avisos"`
+		ArchivoAviso core.ReferenciaEntradaCatalogo `json:"archivo_aviso"`
+		// Notificaciones a RRHH: sólo con su selector activo.
+		Notificacion          core.ReferenciaEntradaCatalogo `json:"notificacion"`
+		Notificaciones        core.ReferenciaEntradaCatalogo `json:"notificaciones"`
+		BandejaNotificaciones core.ReferenciaEntradaCatalogo `json:"bandeja_notificaciones"`
+		AtencionNotificacion  core.ReferenciaEntradaCatalogo `json:"atencion_notificacion"`
 	} `json:"motivos"`
 	CanalRemoto struct {
 		PoliticaVersionRef string `json:"politica_version_ref"`
@@ -75,8 +85,9 @@ type configuracionCronosEmpleadoDesarrollo struct {
 }
 
 // autoridadCronosEmpleadoDesarrollo es la frontera de /api/interna/cronos/.
-// Sólo publica las ocho rutas exactas cuando todas las dependencias están
-// compuestas; toda otra ruta bajo el prefijo se deniega.
+// Sólo publica las rutas exactas (ocho, más cuatro con la resolución de
+// permisos) cuando todas sus dependencias están compuestas; toda otra ruta
+// bajo el prefijo se deniega.
 type autoridadCronosEmpleadoDesarrollo struct {
 	base        *autoridadRutasDietasDesarrollo
 	reloj       vecports.Reloj
@@ -137,6 +148,10 @@ func (a *autoridadCronosEmpleadoDesarrollo) ServeHTTP(w http.ResponseWriter, r *
 		a.denegar(w, r, http.StatusNotFound, cronosports.MotivoFronteraAccesoDenegado, "no_disponible", "")
 		return
 	}
+	// curl/OpenSSL completa la cadena del cliente y envía también la CA; el
+	// resolvedor exige un único certificado. Se reduce a la hoja sólo si cada
+	// certificado enviado coincide con la cadena verificada, como en CT.
+	r = peticionIdentidadConsultasContratacionTemporalDesarrollo(r)
 	if a.base == nil || r.Header.Get("Cookie") != "" || r.Header.Get("Authorization") != "" {
 		a.denegar(w, r, http.StatusUnauthorized, cronosports.MotivoFronteraAutenticacion, "autenticacion_requerida", "")
 		return
@@ -237,11 +252,77 @@ func servicioContextoActorCronos(resolutor vecports.ResolutorRegistroContextoAct
 	return vecapp.NuevoServicioContextoActorProductivoV2ConAlcance(resolutor, contextopg.NuevoGeneradorOperacionContextoActorV2Criptografico(), reloj, alcance)
 }
 
+// Errores del arranque que nombran la migración que falta. Envuelven
+// ErrComposicionCronosEmpleadoNoDisponible.
+var (
+	ErrCronosFalta000009 = fmt.Errorf("%w: falta cronos_v1 000009 (resolución de permisos y avisos; exige AD3-57)", ErrComposicionCronosEmpleadoNoDisponible)
+	ErrCronosFaltaAD358  = fmt.Errorf("%w: falta AD3-58 (consumidores de las notificaciones), que se instala antes de cronos_v1 000010", ErrComposicionCronosEmpleadoNoDisponible)
+	ErrCronosFalta000010 = fmt.Errorf("%w: falta cronos_v1 000010 (circuito jefatura-RRHH y notificaciones a RRHH)", ErrComposicionCronosEmpleadoNoDisponible)
+)
+
+// consultaMigracionesCronos: con el LOGIN ejecutor, si tiene las funciones de
+// 000009, el circuito y las funciones de 000010 y, en el catálogo (que todos
+// leen), las cuatro fachadas de AD3-58. Una función ausente cuenta como no
+// instalada, no como error.
+const consultaMigracionesCronos = `SELECT
+ (SELECT coalesce(bool_and(to_regprocedure(f) IS NOT NULL AND has_function_privilege(to_regprocedure(f),'EXECUTE')),false) FROM unnest(ARRAY[
+  'vec_cronos_v1.consultar_bandeja_permisos_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
+  'vec_cronos_v1.resolver_permiso_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
+  'vec_cronos_v1.consultar_avisos_propio_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
+  'vec_cronos_v1.archivar_aviso_propio_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)']) f),
+ to_regclass('vec_cronos_v1.permiso_circuito_directo') IS NOT NULL,
+ (SELECT coalesce(bool_and(to_regprocedure(f) IS NOT NULL AND has_function_privilege(to_regprocedure(f),'EXECUTE')),false) FROM unnest(ARRAY[
+  'vec_cronos_v1.registrar_notificacion_propia_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
+  'vec_cronos_v1.consultar_notificaciones_propio_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
+  'vec_cronos_v1.consultar_bandeja_notificaciones_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
+  'vec_cronos_v1.atender_notificacion_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)']) f),
+ (SELECT count(DISTINCT p.proname)=4 FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+   WHERE n.nspname='vec_autorizacion_atestada_v3' AND p.proname IN ('registrar_y_consumir_cronos_notificacion_v3_atestada',
+     'consumir_cronos_notificaciones_propio_v3_atestada','consumir_cronos_notificaciones_bandeja_v3_atestada',
+     'registrar_y_consumir_cronos_atencion_notificacion_v3_atestada'))`
+
+type estadoMigracionesCronos struct {
+	cronos000009, circuito000010, notificaciones000010, ad358 bool
+}
+
+// diagnostico devuelve nil si está todo lo que exigen los selectores
+// activos; si no, el error de la primera migración ausente en el orden de
+// instalación (000009, AD3-58, 000010).
+func (e estadoMigracionesCronos) diagnostico(resolucion, notificaciones bool) error {
+	if !resolucion && !notificaciones {
+		return nil
+	}
+	if !e.cronos000009 {
+		return ErrCronosFalta000009
+	}
+	if (resolucion && !e.circuito000010) || (notificaciones && !e.notificaciones000010) {
+		if !e.ad358 {
+			return ErrCronosFaltaAD358
+		}
+		return ErrCronosFalta000010
+	}
+	return nil
+}
+
 // preflightCronosEmpleado comprueba con cada LOGIN nominal que las funciones
 // de 000007 y 000008 existen (exigen AD3-53 y AD3-70) y que cada uno sólo tiene
 // las que le corresponden. Una función ausente hace fallar la consulta.
-func preflightCronosEmpleado(ctx context.Context, ejecutor, auditor *pgxpool.Pool) error {
+func preflightCronosEmpleado(ctx context.Context, ejecutor, auditor *pgxpool.Pool, resolucion, notificaciones bool) error {
 	var ok bool
+	// Con la resolución activa se exigen también las cuatro funciones de
+	// 000009 (AD3-57) y el circuito J-A de 000010, cuya bandeja devuelve lo
+	// pendiente de asignación; con las notificaciones, las cuatro de 000010
+	// (AD3-58). Si falta algo, el error nombra la primera migración ausente
+	// de la cadena 000009 → AD3-58 → 000010.
+	if resolucion || notificaciones {
+		var e estadoMigracionesCronos
+		if ejecutor.QueryRow(ctx, consultaMigracionesCronos).Scan(&e.cronos000009, &e.circuito000010, &e.notificaciones000010, &e.ad358) != nil {
+			return ErrComposicionCronosEmpleadoNoDisponible
+		}
+		if err := e.diagnostico(resolucion, notificaciones); err != nil {
+			return err
+		}
+	}
 	if ejecutor.QueryRow(ctx, `SELECT bool_and(has_function_privilege(f,'EXECUTE')) FROM unnest(ARRAY[
   'vec_cronos_v1.consultar_saldo_propio_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
   'vec_cronos_v1.consultar_estado_remoto_propio_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
@@ -271,8 +352,17 @@ func nuevasRutasCronosEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp.D
 	if !activo {
 		return nil, nil
 	}
+	resolucion, err := cfg.CronosResolucionDesarrolloActiva()
+	if err != nil {
+		return nil, err
+	}
+	notificaciones, err := cfg.CronosNotificacionesDesarrolloActivas()
+	if err != nil {
+		return nil, err
+	}
 	identidad, ok := resolvedor.(*resolvedorIdentidadDesarrollo)
-	if !ok || identidad == nil || derivador == nil || !derivador.valido() || !material.completo() {
+	if !ok || identidad == nil || derivador == nil || !derivador.valido() || !material.completo() || (resolucion && !material.completoResolucion()) ||
+		(notificaciones && !material.completoNotificaciones()) {
 		return nil, errCronosEmpleadoEn()
 	}
 	contenido, err := leerFicheroMaterialSeguro(filepath.Join(cfg.DevelopmentMaterialDir, "identidad", "cronos-empleado.json"), 256<<10)
@@ -290,7 +380,20 @@ func nuevasRutasCronosEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp.D
 	}
 	motivos := cronoscomp.MotivosCronos{Saldo: c.Motivos.Saldo, Marcaje: c.Motivos.Marcaje, Disponibilidad: c.Motivos.Disponibilidad, Recuperacion: c.Motivos.Recuperacion,
 		Movimientos: c.Motivos.Movimientos, Correccion: c.Motivos.Correccion, Permisos: c.Motivos.Permisos, Permiso: c.Motivos.Permiso}
-	for _, m := range []core.ReferenciaEntradaCatalogo{motivos.Marcaje, motivos.Disponibilidad, motivos.Recuperacion, motivos.Movimientos, motivos.Correccion, motivos.Permisos, motivos.Permiso} {
+	comunes := []core.ReferenciaEntradaCatalogo{motivos.Marcaje, motivos.Disponibilidad, motivos.Recuperacion, motivos.Movimientos, motivos.Correccion, motivos.Permisos, motivos.Permiso}
+	// La resolución exige sus cuatro motivos con su selector; sin él se
+	// ignoran para no emitir decisiones de una capacidad no compuesta.
+	if resolucion {
+		motivos.Bandeja, motivos.Resolucion, motivos.Avisos, motivos.ArchivoAviso = c.Motivos.Bandeja, c.Motivos.Resolucion, c.Motivos.Avisos, c.Motivos.ArchivoAviso
+		comunes = append(comunes, motivos.Bandeja, motivos.Resolucion, motivos.Avisos, motivos.ArchivoAviso)
+	}
+	// Igual para las notificaciones a RRHH.
+	if notificaciones {
+		motivos.Notificacion, motivos.Notificaciones = c.Motivos.Notificacion, c.Motivos.Notificaciones
+		motivos.BandejaNotificaciones, motivos.AtencionNotificacion = c.Motivos.BandejaNotificaciones, c.Motivos.AtencionNotificacion
+		comunes = append(comunes, motivos.Notificacion, motivos.Notificaciones, motivos.BandejaNotificaciones, motivos.AtencionNotificacion)
+	}
+	for _, m := range comunes {
 		if m.CatalogoID != motivos.Saldo.CatalogoID {
 			return nil, errCronosEmpleadoEn()
 		}
@@ -352,7 +455,11 @@ func nuevasRutasCronosEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp.D
 		}
 		usuarios[usuario] = true
 	}
-	if preflightCronosEmpleado(ctx, pools[6], pools[7]) != nil {
+	if err := preflightCronosEmpleado(ctx, pools[6], pools[7], resolucion, notificaciones); err != nil {
+		// Una migración ausente se nombra; cualquier otro fallo, con su lugar.
+		if errors.Is(err, ErrCronosFalta000009) || errors.Is(err, ErrCronosFaltaAD358) || errors.Is(err, ErrCronosFalta000010) {
+			return nil, err
+		}
 		return nil, errCronosEmpleadoEn()
 	}
 	registro, err := identidadpg.NuevoRegistroSesionesPostgreSQL(ctx, pools[0], pools[1], &seudonimizadorSesionDesarrollo{derivador: derivador}, espacioIdentidadSesionDesarrollo, dominioIdentidadSesionDesarrollo)
@@ -393,7 +500,7 @@ func nuevasRutasCronosEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp.D
 		return nil, errCronosEmpleadoEn()
 	}
 	emisor := emisorCronosEmpleadoDesarrollo{porAccion: map[string]emisorMaterialDietasDesarrollo{}}
-	for accion, proveedor := range map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo{
+	proveedoresPorAccion := map[string]*proveedorMaterialAltaContratacionTemporalDesarrollo{
 		cronosapp.AccionRegistrarMarcajePropio:        material.marcaje,
 		cronosapp.AccionConsultarDisponibilidadRemota: material.disponibilidad,
 		cronosapp.AccionRecuperarMarcajeRemoto:        material.recibo,
@@ -402,7 +509,20 @@ func nuevasRutasCronosEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp.D
 		cronosapp.AccionSolicitarCorreccion:           material.correccion,
 		cronosapp.AccionConsultarPermisosPropios:      material.permisos,
 		cronosapp.AccionSolicitarPermisoPropio:        material.solicitudPermiso,
-	} {
+	}
+	if resolucion {
+		proveedoresPorAccion[cronosapp.AccionConsultarBandeja] = material.bandeja
+		proveedoresPorAccion[cronosapp.AccionResolverPermiso] = material.resolucion
+		proveedoresPorAccion[cronosapp.AccionConsultarAvisosPropios] = material.avisos
+		proveedoresPorAccion[cronosapp.AccionArchivarAvisoPropio] = material.archivoAviso
+	}
+	if notificaciones {
+		proveedoresPorAccion[cronosapp.AccionRegistrarNotificacion] = material.notificacion
+		proveedoresPorAccion[cronosapp.AccionConsultarNotificacionesPropias] = material.notificaciones
+		proveedoresPorAccion[cronosapp.AccionConsultarBandejaNotif] = material.bandejaNotificaciones
+		proveedoresPorAccion[cronosapp.AccionAtenderNotificacion] = material.atencionNotificacion
+	}
+	for accion, proveedor := range proveedoresPorAccion {
 		e, err := nuevoEmisorMaterialRenovableCTDesarrollo(autorizador, proveedor)
 		if err != nil {
 			return nil, errCronosEmpleadoEn()
@@ -410,7 +530,7 @@ func nuevasRutasCronosEmpleadoDesarrollo(cfg config.Config, resolvedor vechttp.D
 		emisor.porAccion[accion] = e
 	}
 	autorizadorCronos, err := cronoscomp.NuevoAutorizadorCronos(emisor, motivos)
-	if err != nil {
+	if err != nil || autorizadorCronos.ResolucionConfigurada() != resolucion || autorizadorCronos.NotificacionesConfiguradas() != notificaciones {
 		return nil, errCronosEmpleadoEn()
 	}
 	nonce, err := nonceRutasDietas()
@@ -444,7 +564,8 @@ type dependenciasCronosEmpleado struct {
 }
 
 // componerManejadoresCronosEmpleado une repositorios, casos de uso y
-// manejadores. Devuelve las ocho rutas exactas o ninguna.
+// manejadores. Devuelve las ocho rutas exactas, más las cuatro de la
+// resolución de permisos si el autorizador la tiene configurada, o ninguna.
 func componerManejadoresCronosEmpleado(d dependenciasCronosEmpleado) (map[string]http.Handler, error) {
 	if d.ejecutor == nil || d.auditor == nil || dependenciaDietasNula(d.identidad) || d.autorizador == nil || d.zona == nil {
 		return nil, errCronosEmpleadoEn()
@@ -502,17 +623,55 @@ func componerManejadoresCronosEmpleado(d dependenciasCronosEmpleado) (map[string
 	if err != nil {
 		return nil, errCronosEmpleadoEn()
 	}
-	m, err := PrepararManejadoresCronos(DependenciasManejadoresCronos{
+	deps := DependenciasManejadoresCronos{
 		ConsultaSaldo: consultaSaldo, ResolverSaldo: resolutor,
 		MarcajesRemotos: marcajes, ResolverMarcajeRemoto: resolutor, ResolverRecuperacionRemota: resolutor,
 		Movimientos: movimientos, ResolverMovimientos: resolutor,
 		Correcciones: correcciones, ResolverCorreccion: resolutor,
 		Permisos: permisos, ResolverPermisos: resolutor,
-	})
-	if err != nil {
+	}
+	resolucion := d.autorizador.ResolucionConfigurada()
+	if resolucion {
+		resolucionRepo, err := cronospg.NuevoRepositorioResolucionPermisos(d.ejecutor)
+		if err != nil {
+			return nil, errCronosEmpleadoEn()
+		}
+		avisosRepo, err := cronospg.NuevoRepositorioAvisosPropios(d.ejecutor)
+		if err != nil {
+			return nil, errCronosEmpleadoEn()
+		}
+		if deps.Resolucion, err = cronosapp.NuevoServicioResolucionPermisos(resolucionRepo, reloj, d.zona); err != nil {
+			return nil, errCronosEmpleadoEn()
+		}
+		if deps.Avisos, err = cronosapp.NuevoServicioAvisosPropios(avisosRepo, reloj, d.zona); err != nil {
+			return nil, errCronosEmpleadoEn()
+		}
+		deps.ResolverResolucion, deps.ResolverAvisos = resolutor, resolutor
+	}
+	notificaciones := d.autorizador.NotificacionesConfiguradas()
+	if notificaciones {
+		propiasRepo, err := cronospg.NuevoRepositorioNotificacionesPropias(d.ejecutor)
+		if err != nil {
+			return nil, errCronosEmpleadoEn()
+		}
+		bandejaRepo, err := cronospg.NuevoRepositorioBandejaNotificaciones(d.ejecutor)
+		if err != nil {
+			return nil, errCronosEmpleadoEn()
+		}
+		if deps.NotificacionesPropias, err = cronosapp.NuevoServicioNotificacionesPropias(propiasRepo, reloj, d.zona); err != nil {
+			return nil, errCronosEmpleadoEn()
+		}
+		if deps.BandejaNotificaciones, err = cronosapp.NuevoServicioBandejaNotificaciones(bandejaRepo, reloj, d.zona); err != nil {
+			return nil, errCronosEmpleadoEn()
+		}
+		deps.ResolverNotificacionesPropias, deps.ResolverBandejaNotificaciones = resolutor, resolutor
+	}
+	m, err := PrepararManejadoresCronos(deps)
+	if err != nil || (m.Resolucion != nil) != resolucion || (m.Avisos != nil) != resolucion ||
+		(m.NotificacionesPropias != nil) != notificaciones || (m.BandejaNotificaciones != nil) != notificaciones {
 		return nil, errCronosEmpleadoEn()
 	}
-	return map[string]http.Handler{
+	rutas := map[string]http.Handler{
 		cronoshttp.RutaConsultarSaldoPropio:         m.SaldoPropio,
 		cronoshttp.RutaRegistrarMarcajeRemoto:       m.MarcajeRemoto,
 		cronoshttp.RutaDisponibilidadMarcajeRemoto:  m.MarcajeRemoto,
@@ -521,7 +680,20 @@ func componerManejadoresCronosEmpleado(d dependenciasCronosEmpleado) (map[string
 		cronoshttp.RutaSolicitarCorreccionPropia:    m.CorreccionPropia,
 		cronoshttp.RutaConsultarPermisosPropios:     m.PermisosPropios,
 		cronoshttp.RutaSolicitarPermisoPropio:       m.PermisosPropios,
-	}, nil
+	}
+	if resolucion {
+		rutas[cronoshttp.RutaBandejaPermisos] = m.Resolucion
+		rutas[cronoshttp.RutaResolverPermiso] = m.Resolucion
+		rutas[cronoshttp.RutaAvisosPropios] = m.Avisos
+		rutas[cronoshttp.RutaArchivarAviso] = m.Avisos
+	}
+	if notificaciones {
+		rutas[cronoshttp.RutaNotificacionesPropias] = m.NotificacionesPropias
+		rutas[cronoshttp.RutaRegistrarNotificacion] = m.NotificacionesPropias
+		rutas[cronoshttp.RutaBandejaNotificaciones] = m.BandejaNotificaciones
+		rutas[cronoshttp.RutaAtenderNotificacion] = m.BandejaNotificaciones
+	}
+	return rutas, nil
 }
 
 // componerRaizConCronosEmpleado monta el prefijo interno de Cronos delante de

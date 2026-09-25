@@ -4,11 +4,15 @@
  * del día y calendario con olvidos en «Jornada»; permisos propios aparte.
  * Falta cualquier pieza → undefined (el módulo no se ofrece). Cada vista
  * consulta su API y muestra su propio estado: un 404 de una capacidad
- * desactivada no afecta a las demás.
+ * desactivada no afecta a las demás. La bandeja de resolución y los avisos
+ * son opcionales y van juntos: sin sus tres piezas no se ofrecen. Igual las
+ * notificaciones a RRHH (envío de la persona y bandeja de RRHH).
  */
 export function componerCronosInterno(recursos, entorno) {
   const { saldo, remoto, movimientos, movimientosPropios, permisosPropios,
-    clienteSaldo, clienteRemoto, clienteSolicitudes, i18n } = recursos ?? {};
+    clienteSaldo, clienteRemoto, clienteSolicitudes, i18n,
+    bandejaPermisos, avisosPropios, clienteResolucion, i18nResolucion,
+    notificacionesPropias, bandejaNotificaciones, clienteNotificaciones, i18nNotificaciones } = recursos ?? {};
   if (typeof saldo?.montarVistaSaldoCronos !== "function"
     || typeof remoto?.montarVistaRemotoCronos !== "function"
     || typeof movimientos?.montarVistaMovimientosCronos !== "function"
@@ -25,8 +29,45 @@ export function componerCronosInterno(recursos, entorno) {
     solicitudes: clienteSolicitudes.crearClienteSolicitudesCronosHTTP(transporte),
   });
   const traducir = i18n.crearTraductorCronos();
+  const resolucion = typeof bandejaPermisos?.montarBandejaPermisosCronos === "function"
+    && typeof avisosPropios?.montarAvisosPropiosCronos === "function"
+    && typeof clienteResolucion?.crearClienteResolucionCronosHTTP === "function"
+    && typeof i18nResolucion?.crearTraductorResolucionCronos === "function";
+  const clienteResolucionHTTP = resolucion ? clienteResolucion.crearClienteResolucionCronosHTTP(transporte) : undefined;
+  const traducirResolucion = resolucion ? i18nResolucion.crearTraductorResolucionCronos() : undefined;
+  const subvistasResolucion = resolucion ? Object.freeze({
+    montarBandeja({ raiz, anunciar = () => {}, registrarDesmontar } = {}) {
+      return bandejaPermisos.montarBandejaPermisosCronos({ raiz, cliente: clienteResolucionHTTP, anunciar, registrarDesmontar });
+    },
+    montarAvisos({ raiz, anunciar = () => {}, registrarDesmontar } = {}) {
+      return avisosPropios.montarAvisosPropiosCronos({ raiz, cliente: clienteResolucionHTTP, anunciar, registrarDesmontar });
+    },
+  }) : {};
+  // Notificaciones a RRHH: opcionales y juntas (persona y bandeja de RRHH).
+  const notificaciones = typeof notificacionesPropias?.montarNotificacionesPropiasCronos === "function"
+    && typeof bandejaNotificaciones?.montarBandejaNotificacionesCronos === "function"
+    && typeof clienteNotificaciones?.crearClienteNotificacionesCronosHTTP === "function"
+    && typeof i18nNotificaciones?.crearTraductorNotificacionesCronos === "function";
+  const clienteNotificacionesHTTP = notificaciones ? clienteNotificaciones.crearClienteNotificacionesCronosHTTP(transporte) : undefined;
+  const traducirNotificaciones = notificaciones ? i18nNotificaciones.crearTraductorNotificacionesCronos() : undefined;
+  const subvistasNotificaciones = notificaciones ? Object.freeze({
+    montarNotificaciones({ raiz, anunciar = () => {}, registrarDesmontar } = {}) {
+      return notificacionesPropias.montarNotificacionesPropiasCronos({ raiz, cliente: clienteNotificacionesHTTP, anunciar, registrarDesmontar });
+    },
+    montarBandejaNotificaciones({ raiz, anunciar = () => {}, registrarDesmontar } = {}) {
+      return bandejaNotificaciones.montarBandejaNotificacionesCronos({ raiz, cliente: clienteNotificacionesHTTP, anunciar, registrarDesmontar });
+    },
+  }) : {};
+  const etiquetas = Object.freeze({
+    ...(resolucion ? { bandeja: traducirResolucion("bandeja_titulo"), avisos: traducirResolucion("avisos_titulo") } : {}),
+    ...(notificaciones ? { notificaciones: traducirNotificaciones("notificaciones_titulo"),
+      bandejaNotificaciones: traducirNotificaciones("bandeja_notificaciones_titulo") } : {}),
+  });
   return Object.freeze({
     traducir,
+    ...(resolucion || notificaciones ? { etiquetas } : {}),
+    ...subvistasResolucion,
+    ...subvistasNotificaciones,
     montar({ raiz, anunciar = () => {}, registrarDesmontar } = {}) {
       const t = traducir; const documento = raiz.ownerDocument;
       const elemento = (etiqueta, clase, texto) => {
@@ -137,13 +178,20 @@ export function componerDietasInternas(recursos, entorno) {
   });
 }
 
-export function componerPersonalVisible(recursos, entorno, { catalogosPublicos = true } = {}) {
+export function componerPersonalVisible(recursos, entorno, {
+  catalogosPublicos = true, ocultarSinFuente = false, destinosDisponibles = () => ({}),
+} = {}) {
+  // `catalogosPublicos` admite todos (true), ninguno (false) o la lista de los
+  // que el servidor ha servido de verdad («rpt», «estructura»).
+  const publicos = catalogosPublicos === true ? ["rpt", "estructura"]
+    : Array.isArray(catalogosPublicos) ? catalogosPublicos : [];
+  if (publicos.some((clave) => !["rpt", "estructura"].includes(clave))
+    || typeof ocultarSinFuente !== "boolean" || typeof destinosDisponibles !== "function") return undefined;
   const catalogos = [
     [recursos.clienteCategorias?.crearClienteHTTPCategoriasPersonal, recursos.vistaCategorias?.montarModuloPersonal],
-    ...(catalogosPublicos ? [
-      [recursos.clienteRPT?.crearClienteHTTPRPTPublica, recursos.vistaRPT?.montarModuloRPTPublica],
-      [recursos.clienteEstructura?.crearClienteHTTPEstructuraOrganizativaPublica, recursos.vistaEstructura?.montarModuloEstructuraOrganizativaPublica],
-    ] : []),
+    ...(publicos.includes("rpt") ? [[recursos.clienteRPT?.crearClienteHTTPRPTPublica, recursos.vistaRPT?.montarModuloRPTPublica]] : []),
+    ...(publicos.includes("estructura") ? [[recursos.clienteEstructura?.crearClienteHTTPEstructuraOrganizativaPublica,
+      recursos.vistaEstructura?.montarModuloEstructuraOrganizativaPublica]] : []),
   ];
   if (catalogos.some(([cliente, vista]) => typeof cliente !== "function" || typeof vista !== "function")) return undefined;
   const montarCatalogos = async ({ raiz, anunciar, registrarDesmontar }) => {
@@ -181,14 +229,26 @@ export function componerPersonalVisible(recursos, entorno, { catalogosPublicos =
     }
     return Object.freeze({ desmontar });
   };
+  const montarFicha = ({ raiz, anunciar, registrarDesmontar }, fuentes = {}) => recursos.ficha.montarVistaFichaIntegralPersonal({
+    raiz, anunciar, registrarDesmontar, montarCatalogos, fuentes, ocultarSinFuente,
+    destinosDisponibles: destinosDisponibles(),
+    navegarModulo: (modulo) => {
+      if (["dietas", "cronos"].includes(modulo) && entorno.location) entorno.location.hash = `#${modulo}`;
+    },
+  });
+  // Ficha propia servida por Personal: una consulta al entrar decide qué
+  // apartados tienen fuente para esta persona; sin ella no se ofrecen. La
+  // cancela la señal del coordinador al salir de la vista antes de responder.
+  const crearFuentes = recursos.clienteFichaPropia?.crearFuentesFichaPropia;
+  const conFichaPropia = typeof crearFuentes === "function" && typeof entorno.fetch === "function";
   return Object.freeze({
     montar: recursos.ficha?.montarVistaFichaIntegralPersonal
-      ? ({ raiz, anunciar, registrarDesmontar }) => recursos.ficha.montarVistaFichaIntegralPersonal({
-        raiz, anunciar, registrarDesmontar, montarCatalogos, fuentes: {},
-        navegarModulo: (modulo) => {
-          if (["dietas", "cronos"].includes(modulo) && entorno.location) entorno.location.hash = `#${modulo}`;
-        },
-      })
+      ? (conFichaPropia
+        ? async (entrada) => {
+          const fuentes = await crearFuentes({ fetchImpl: entorno.fetch.bind(entorno) }).preparar({ signal: entrada?.signal });
+          return montarFicha(entrada, fuentes);
+        }
+        : (entrada) => montarFicha(entrada))
       : montarCatalogos,
   });
 }
@@ -211,6 +271,9 @@ export function componerRegistroPersonal(recursos, entorno) {
   const clienteCatalogos = clienteCatalogosRegistro.crearClienteCatalogosRegistroB2({ fetchImpl });
   return Object.freeze({
     traducir: i18n.crearTraductorPersonal(),
+    // Consulta mínima autorizada: acredita que esta superficie sirve el
+    // registro y que V3 concede su lectura al actor antes de ofrecerlo.
+    sondear: ({ signal } = {}) => clienteCatalogos.listar({ tipo: "regimen", limite: 1, signal }),
     montar: ({ raiz, anunciar = () => {}, registrarDesmontar } = {}) => registro.montarRegistroB2({
       raiz, cliente, clienteCatalogos, anunciar, registrarDesmontar,
     }),

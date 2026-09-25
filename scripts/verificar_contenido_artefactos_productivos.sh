@@ -177,6 +177,10 @@ transportes_mtls_revisados=(
 	static/portal-empleado/modulos/dietas/cliente-borradores-http.js
 	static/portal-empleado/modulos/dietas/calculador-rutas-http.js
 	static/portal-empleado/modulos/personal/cliente-http-categorias.js
+	# Personal (25/09): catálogos públicos de lectura (RPT y estructura) también en el
+	# paquete interno; mismo origen y sin cookies, como cliente-http-categorias.js.
+	static/portal-empleado/modulos/personal/cliente-http-rpt-publica.js
+	static/portal-empleado/modulos/personal/cliente-http-estructura-organizativa-publica.js
 	static/portal-empleado/peticiones-centro/peticiones-centro.js
 	static/portal-empleado/organizacion/organizacion.js
 	# Dietas (25/09): asignación D7, rectificación y circuito; mismo origen, no-store,
@@ -191,6 +195,14 @@ transportes_mtls_revisados=(
 	# propios; GET y POST a rutas internas fijas, same-origin, no-store,
 	# redirect error y no-referrer; la persona la deriva el servidor del mTLS.
 	static/portal-empleado/modulos/cronos/cliente-solicitudes-http.js
+	# Resolución de permisos y avisos de Cronos (25/09): bandeja, resolución,
+	# avisos y archivo; GET/POST a rutas internas fijas, same-origin, no-store,
+	# redirect error y no-referrer; persona y competencia las deriva el servidor.
+	static/portal-empleado/modulos/cronos/cliente-resolucion-http.js
+	# Notificaciones de Cronos a RRHH (25/09): consulta, envío, bandeja de RRHH
+	# y atención; GET/POST a rutas internas fijas, same-origin, no-store,
+	# redirect error y no-referrer; el documento no se sube, solo su huella.
+	static/portal-empleado/modulos/cronos/cliente-notificaciones-http.js
 	# Saldo propio y fichaje remoto de Cronos (25/09): con omit el navegador no
 	# presentaria el certificado mTLS tras el proxy; GET/POST a rutas internas
 	# fijas, same-origin, no-store, redirect error y no-referrer.
@@ -201,6 +213,14 @@ transportes_mtls_revisados=(
 	# redirect error y no-referrer; actor y organismo los deriva el servidor.
 	static/portal-empleado/modulos/personal/registro-b2-cliente.js
 	static/portal-empleado/modulos/personal/registro-b2-catalogos-cliente.js
+	# Documentos (25/09): consulta del expediente documental por RRHH; POST a
+	# rutas internas fijas, same-origin, no-store, redirect error y no-referrer;
+	# actor y concesión V3 los deriva el servidor del mTLS.
+	static/portal-empleado/modulos/documentos/cliente-http.js
+	# Ficha propia de la persona empleada (25/09): un solo GET a ruta interna
+	# fija, sin parámetros, same-origin, no-store, redirect error y no-referrer;
+	# persona y empleado los deriva el servidor del mTLS.
+	static/portal-empleado/modulos/personal/cliente-http-ficha-propia.js
 )
 mapfile -t usos_mismo_origen < <(
 	grep -rliE 'credentials[[:space:]]*:[[:space:]]*["'"'"']same-origin' \

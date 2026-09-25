@@ -8,9 +8,15 @@ import "errors"
 // autorización de cada petición sigue siendo del PDP común.
 const EnvCronosEmpleadoEnabled = "VEC_CRONOS_EMPLEADO_ENABLED"
 
+// EnvCronosResolucionEnabled añade la resolución de permisos (bandejas de
+// jefatura y RRHH) y los avisos de resolución. Exige Cronos de la persona
+// empleada activo y, antes del binario, AD3-57 y cronos_v1 000009 instaladas.
+const EnvCronosResolucionEnabled = "VEC_CRONOS_RESOLUCION_ENABLED"
+
 var (
 	ErrConfiguracionCronosEmpleadoSelector   = errors.New("config: selector de Cronos para la persona empleada invalido")
 	ErrConfiguracionCronosEmpleadoActivacion = errors.New("config: Cronos para la persona empleada fuera del perfil de desarrollo")
+	ErrConfiguracionCronosResolucionSelector = errors.New("config: selector de la resolución de permisos de Cronos invalido")
 )
 
 // CronosEmpleadoDesarrolloActivo valida la activación sin abrir ficheros ni
@@ -27,5 +33,54 @@ func (c Config) CronosEmpleadoDesarrolloActivo() (bool, error) {
 		return true, nil
 	default:
 		return false, ErrConfiguracionCronosEmpleadoSelector
+	}
+}
+
+// CronosResolucionDesarrolloActiva valida el selector de la resolución de
+// permisos: sólo "true" o "false", y "true" sólo con Cronos activo.
+func (c Config) CronosResolucionDesarrolloActiva() (bool, error) {
+	c = c.Normalize()
+	switch c.CronosResolucionEnabled {
+	case "", "false":
+		return false, nil
+	case "true":
+		activo, err := c.CronosEmpleadoDesarrolloActivo()
+		if err != nil {
+			return false, err
+		}
+		if !activo {
+			return false, ErrConfiguracionCronosResolucionSelector
+		}
+		return true, nil
+	default:
+		return false, ErrConfiguracionCronosResolucionSelector
+	}
+}
+
+// EnvCronosNotificacionesEnabled añade las notificaciones de la persona a
+// RRHH y la bandeja de RRHH. Exige Cronos de la persona empleada activo y,
+// antes del binario, AD3-58 y cronos_v1 000010 instaladas.
+const EnvCronosNotificacionesEnabled = "VEC_CRONOS_NOTIFICACIONES_ENABLED"
+
+var ErrConfiguracionCronosNotificacionesSelector = errors.New("config: selector de las notificaciones de Cronos invalido")
+
+// CronosNotificacionesDesarrolloActivas valida el selector: sólo "true" o
+// "false", y "true" sólo con Cronos activo.
+func (c Config) CronosNotificacionesDesarrolloActivas() (bool, error) {
+	c = c.Normalize()
+	switch c.CronosNotificacionesEnabled {
+	case "", "false":
+		return false, nil
+	case "true":
+		activo, err := c.CronosEmpleadoDesarrolloActivo()
+		if err != nil {
+			return false, err
+		}
+		if !activo {
+			return false, ErrConfiguracionCronosNotificacionesSelector
+		}
+		return true, nil
+	default:
+		return false, ErrConfiguracionCronosNotificacionesSelector
 	}
 }

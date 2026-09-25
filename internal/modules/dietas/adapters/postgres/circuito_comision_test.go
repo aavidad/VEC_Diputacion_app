@@ -92,3 +92,27 @@ func TestEfectoCircuitoCoincideConElCotejoSQL(t *testing.T) {
 		}
 	}
 }
+
+// 000010: la salida SQL del documento de un reenvío trae la devolución
+// anterior; el adaptador la conserva y rechaza una incoherente.
+func TestDocumentoCircuitoConservaDevolucionAnteriorDeSQL(t *testing.T) {
+	ref := "dco_" + strings.Repeat("d", 22)
+	s := dietasports.SolicitudDocumentoCircuito{Referencia: ref, Etapa: domain.EtapaRevision, UnidadRef: "U01"}
+	salida := func(version int) []byte {
+		return []byte(`{"resultado":"concedido","comision":{"referencia":"` + ref + `","numero_documento":"VEC-D-2026-900001",` +
+			`"fecha_apertura":"2026-09-23T07:00:00.000000Z","estado":"enviado_pendiente_revision","version":5,` +
+			`"fecha_inicio":"2026-09-23","fecha_fin":"2026-09-23","hora_inicio":"08:00","hora_fin":"12:00","motivo":"Visita sintética",` +
+			`"codigos_ruta":["GR1","GR2"],"calculo":{},"documento":{},"devolucion":{"etapa":"autorizacion",` +
+			`"motivo":"Falta el justificante del taxi","version":` + fmt.Sprint(version) + `,"devuelta_en":"2026-09-23T09:00:00.123456Z"}}}`)
+	}
+	d, err := decodificarDocumentoCircuito(salida(3), s)
+	if err != nil || d.Devolucion == nil || d.Devolucion.Motivo != "Falta el justificante del taxi" || d.Devolucion.Etapa != domain.EtapaAutorizacion || d.Devolucion.Version != 3 {
+		t.Fatalf("devolución anterior perdida: %#v %v", d.Devolucion, err)
+	}
+	if _, err := decodificarDocumentoCircuito(salida(5), s); !errors.Is(err, dietasports.ErrCircuitoNoDisponible) {
+		t.Fatalf("devolución de la versión actual aceptada: %v", err)
+	}
+	if _, err := decodificarDocumentoCircuito([]byte(`{"resultado":"no_encontrado"}`), s); !errors.Is(err, dietasports.ErrComisionNoEncontrada) {
+		t.Fatalf("ausencia: %v", err)
+	}
+}

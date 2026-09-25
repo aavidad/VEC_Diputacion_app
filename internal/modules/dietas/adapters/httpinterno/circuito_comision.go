@@ -93,7 +93,7 @@ func (m *ManejadorCircuito) decidir(w http.ResponseWriter, r *http.Request, ref 
 	if err := decodificarSolicitud(w, r, &e); err != nil || e.Etapa.EstadoPendiente() == "" ||
 		(e.Decision != domain.DecisionAprobar && e.Decision != domain.DecisionDevolver) ||
 		!claveCircuitoHTTP.MatchString(e.ClaveIdempotencia) || e.VersionEsperada == 0 || e.VersionEsperada > 999999999999999999 ||
-		len(e.Motivo) > 600 || e.Motivo != strings.TrimSpace(e.Motivo) ||
+		len(e.Motivo) > 600 || !domain.TextoSinBordes(e.Motivo) ||
 		(e.Decision == domain.DecisionDevolver && len(e.Motivo) < 3) {
 		responderError(w, http.StatusBadRequest, "peticion_invalida")
 		return

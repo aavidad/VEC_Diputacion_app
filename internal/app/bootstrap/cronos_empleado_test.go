@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/hex"
+	"encoding/pem"
 	"errors"
 	"io"
 	"net/http"
@@ -20,6 +21,7 @@ import (
 	"vec-diputacion-granada/config"
 	cronoscomp "vec-diputacion-granada/internal/modules/cronos/adapters/composicion"
 	cronoshttp "vec-diputacion-granada/internal/modules/cronos/adapters/httpinterno"
+	cronosapp "vec-diputacion-granada/internal/modules/cronos/application"
 	cronosdomain "vec-diputacion-granada/internal/modules/cronos/domain"
 	cronosports "vec-diputacion-granada/internal/modules/cronos/ports"
 	dp "vec-diputacion-granada/internal/modules/dietas/ports"
@@ -152,6 +154,74 @@ func TestComponerManejadoresCronosEmpleadoPublicaSoloOchoRutas(t *testing.T) {
 	}
 }
 
+func TestComponerManejadoresCronosConResolucionPublicaDoceRutas(t *testing.T) {
+	pool, err := pgxpool.New(context.Background(), "postgres://cronos_prueba@127.0.0.1:1/nadie?sslmode=disable")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(pool.Close)
+	canal, _ := cronosdomain.NuevaAcreditacionCanalMarcaje(cronosdomain.DatosAcreditacionCanalMarcaje{PoliticaVersionRef: "politica:canal:cronos:v1", CanalRef: "portal-empleado-web", OrigenRef: cronosdomain.OrigenMarcajeRemoto, CalidadRef: "mtls-certificado"})
+	motivo := core.ReferenciaEntradaCatalogo{CatalogoID: "motivos_cronos", CatalogoVersion: 1, CatalogoHuellaSHA256: strings.Repeat("d", 64), EntradaClave: "motivo_" + strings.Repeat("5", 32)}
+	emisor := emisorCronosEmpleadoDesarrollo{porAccion: map[string]emisorMaterialDietasDesarrollo{}}
+	autorizador, err := cronoscomp.NuevoAutorizadorCronos(emisor, cronoscomp.MotivosCronos{Saldo: motivo, Marcaje: motivo, Disponibilidad: motivo, Recuperacion: motivo, Movimientos: motivo, Correccion: motivo, Permisos: motivo, Permiso: motivo,
+		Bandeja: motivo, Resolucion: motivo, Avisos: motivo, ArchivoAviso: motivo})
+	if err != nil || !autorizador.ResolucionConfigurada() {
+		t.Fatal(err)
+	}
+	zona, _ := time.LoadLocation("Europe/Madrid")
+	identidad := seguridadCronosEmpleadoDesarrollo{autoridad: &autoridadCronosEmpleadoDesarrollo{reloj: relojRutasDietas{}}}
+	rutas, err := componerManejadoresCronosEmpleado(dependenciasCronosEmpleado{ejecutor: pool, auditor: pool, identidad: identidad, autorizador: autorizador, canal: canal, zona: zona})
+	if err != nil || len(rutas) != 12 {
+		t.Fatal(len(rutas), err)
+	}
+	for ruta, peticion := range map[string]*http.Request{
+		cronoshttp.RutaBandejaPermisos: httptest.NewRequest(http.MethodGet, cronoshttp.RutaBandejaPermisos+"?paso=responsable", nil),
+		cronoshttp.RutaAvisosPropios:   httptest.NewRequest(http.MethodGet, cronoshttp.RutaAvisosPropios, nil),
+	} {
+		if !strings.HasPrefix(ruta, prefijoRutasCronosEmpleado) {
+			t.Fatal("ruta fuera del prefijo", ruta)
+		}
+		w := httptest.NewRecorder()
+		rutas[ruta].ServeHTTP(w, peticion)
+		if w.Code != http.StatusServiceUnavailable {
+			t.Fatal("manejador sin identidad no falla cerrado", ruta, w.Code)
+		}
+	}
+	for _, ruta := range []string{cronoshttp.RutaResolverPermiso, cronoshttp.RutaArchivarAviso} {
+		if rutas[ruta] == nil {
+			t.Fatal("ruta ausente", ruta)
+		}
+	}
+	// Manejadores de resolución a medias: no se publica nada.
+	if _, err := PrepararManejadoresCronos(DependenciasManejadoresCronos{Resolucion: &cronosapp.ServicioResolucionPermisos{}}); !errors.Is(err, ErrManejadoresCronosNoDisponibles) {
+		t.Fatal("prepara manejadores con la resolución incompleta", err)
+	}
+}
+
+func TestCronosResolucionSinCronosFallaCerrado(t *testing.T) {
+	cfg, _ := generarMaterialDesarrolloPrueba(t)
+	cfg.CronosEmpleadoEnabled = "true"
+	cfg.CronosResolucionEnabled = "si"
+	composicion, err := NuevaComposicionSeguridadDesarrollo(cfg, io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := nuevasRutasCronosEmpleadoDesarrollo(cfg, composicion.identidad, composicion.derivadorIdempotencia, materialCronosDesdeCTDesarrollo{}); !errors.Is(err, config.ErrConfiguracionCronosResolucionSelector) {
+		t.Fatal("selector de resolución no canónico aceptado", err)
+	}
+	var proveedores [8]*proveedorMaterialAltaContratacionTemporalDesarrollo
+	for i := range proveedores {
+		proveedores[i] = &proveedorMaterialAltaContratacionTemporalDesarrollo{}
+	}
+	cfg.CronosResolucionEnabled = "true"
+	if _, err := nuevasRutasCronosEmpleadoDesarrollo(cfg, composicion.identidad, composicion.derivadorIdempotencia, materialCronosDesdeProveedores(proveedores)); !errors.Is(err, ErrComposicionCronosEmpleadoNoDisponible) {
+		t.Fatal("arranca la resolución sin su material V3", err)
+	}
+	if !cronosResolucionSolicitada("true", "true") || cronosResolucionSolicitada("false", "true") || cronosResolucionSolicitada("true", "") {
+		t.Fatal("selector combinado distinto")
+	}
+}
+
 // TLS y resolvedor de certificado son reales; sesión, contexto y auditoría
 // son dobles. Acredita la frontera, no PostgreSQL ni el recorrido publicado.
 func TestCronosEmpleadoFronteraMTLSDeniegaConMotivoYAudita(t *testing.T) {
@@ -273,4 +343,69 @@ func TestCronosEmpleadoFronteraMTLSDeniegaConMotivoYAudita(t *testing.T) {
 		t.Fatalf("denegación acreditada sin intento de auditoría: %+v", auditoria.ordenes)
 	}
 	auditoria.err = nil
+}
+
+// TestCronosEmpleadoFronteraAceptaCadenaClienteConCA reproduce el cliente
+// curl/OpenSSL: con --cacert, OpenSSL completa la cadena del certificado de
+// cliente y envía también la CA, así que el servidor recibe dos
+// PeerCertificates. La frontera debe aceptarlo igual que Contratación, por
+// HTTP/2, sin relajar la comprobación exacta contra la cadena verificada.
+func TestCronosEmpleadoFronteraAceptaCadenaClienteConCA(t *testing.T) {
+	cfg, rutasMaterial := generarMaterialDesarrolloPrueba(t)
+	composicion, err := NuevaComposicionSeguridadDesarrollo(cfg, io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	identidad := composicion.identidad.(*resolvedorIdentidadDesarrollo)
+	clienteCert, err := tls.LoadX509KeyPair(rutasMaterial.ClientCertificate, rutasMaterial.ClientPrivateKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	caPEM, err := os.ReadFile(rutasMaterial.CACertificate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raices := x509.NewCertPool()
+	bloque, _ := pem.Decode(caPEM)
+	if !raices.AppendCertsFromPEM(caPEM) || bloque == nil {
+		t.Fatal("CA de desarrollo ilegible")
+	}
+	digest := sha256.Sum256(clienteCert.Certificate[0])
+	huella := hex.EncodeToString(digest[:])
+	principal := identidad.porHuella[digest]
+	fixture := nuevoEscenarioMaterialRutasDietasPrueba(t, dp.AccionConsultarCatalogoRutasDietas, time.Now().UTC().Truncate(time.Microsecond))
+	reloj := &relojSesionConsultaPrueba{ahora: fixture.ahora}
+	cuenta := cuentaRutasDietasDesarrollo{CertificadoSHA256: huella, Sujeto: principal.ID, CuentaRef: fixture.resultado.Contexto.Instantanea.CuentaRef, PerfilRef: fixture.resultado.Contexto.PerfilActivoRef}
+	registro := &registroSesionConsultaPrueba{reloj: reloj, cuenta: cuenta.CuentaRef}
+	contextos := &resolutorContextoCronosPrueba{base: &resolutorSesionConsultaPrueba{base: fixture.resultado, reloj: reloj}}
+	cuentas := map[string]cuentaRutasDietasDesarrollo{huella: cuenta}
+	base := &autoridadRutasDietasDesarrollo{resolvedor: identidad, cuentas: cuentas, registro: registro, revalidador: &revalidadorSesionConsultaPrueba{registro: registro}, contextos: contextos, reloj: reloj, instancia: strings.Repeat("a", 64)}
+	auditoria := &registroDenegacionCronosPrueba{}
+	autoridad := &autoridadCronosEmpleadoDesarrollo{base: base, reloj: reloj, cuentas: cuentas, registrador: auditoria}
+	datos := 0
+	autoridad.rutas = map[string]http.Handler{cronoshttp.RutaConsultarSaldoPropio: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if _, err := (seguridadCronosEmpleadoDesarrollo{autoridad: autoridad}).ResolverIdentidadRegistradaCronos(r.Context()); err != nil {
+			t.Error("la identidad registrada no llega al manejador", err)
+		}
+		datos++
+		w.WriteHeader(http.StatusOK)
+	})}
+	servidor := httptest.NewUnstartedServer(componerRaizConCronosEmpleado(http.NotFoundHandler(), autoridad))
+	servidor.EnableHTTP2 = true
+	servidor.TLS = composicion.tls.Clone()
+	servidor.StartTLS()
+	t.Cleanup(servidor.Close)
+	conCA := clienteCert
+	conCA.Certificate = [][]byte{clienteCert.Certificate[0], bloque.Bytes}
+	transport := &http.Transport{ForceAttemptHTTP2: true, TLSClientConfig: &tls.Config{Certificates: []tls.Certificate{conCA}, RootCAs: raices, ServerName: "localhost", MinVersion: tls.VersionTLS13}}
+	t.Cleanup(transport.CloseIdleConnections)
+	res, err := (&http.Client{Transport: transport}).Get(servidor.URL + cronoshttp.RutaConsultarSaldoPropio + "?periodo=hoy")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	cuerpo, _ := io.ReadAll(res.Body)
+	if res.ProtoMajor != 2 || res.StatusCode != http.StatusOK || datos != 1 || len(auditoria.ordenes) != 0 {
+		t.Fatalf("cadena cliente con CA por %s: %d %s, datos=%d, auditoría=%+v", res.Proto, res.StatusCode, cuerpo, datos, auditoria.ordenes)
+	}
 }

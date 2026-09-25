@@ -1,13 +1,10 @@
-import { MENSAJES_AYUDA_PORTAL_ES } from "./portal-i18n-ayuda.js?v=20260925-tanda-v1";
+import { MENSAJES_AYUDA_PORTAL_ES } from "./portal-i18n-ayuda.js?v=20260925-d5d6-cronos-v1";
 import { MENSAJES_PANEL_INTERNO_ES } from "./portal-panel-interno-i18n.js?v=20260925-aspecto-v1";
 
 /** Catálogo común de los estados del shell y del acceso a Borradores. */
 export const MENSAJES_PORTAL_ES = Object.freeze({
   ...MENSAJES_AYUDA_PORTAL_ES,
   ...MENSAJES_PANEL_INTERNO_ES,
-  contexto_portal_titulo: "Portal interno",
-  contexto_portal_descripcion: "Identidad personal no mostrada",
-  contexto_portal_accesible: "Portal interno. Identidad personal no mostrada",
   acceso_borradores_disponible: "Borradores disponibles",
   acceso_borradores_denegado: "Sin permiso para gestionar borradores",
   acceso_borradores_error: "Servicio de borradores no disponible",
@@ -28,6 +25,20 @@ export const MENSAJES_PORTAL_ES = Object.freeze({
   estado_modulo_no_habilitado: "No habilitado",
   estado_modulo_disponible_perfil: "Disponible para el perfil activo",
   estado_modulo_no_disponible_titulo: "Módulo no disponible",
+  inicio_titulo_neutro: "Inicio",
+  inicio_comprobando_accesos: "Comprobando accesos…",
+  inicio_modulos_etiqueta: "Módulos del portal",
+  inicio_accesos_comprobados: "Accesos comprobados",
+  inicio_empleado_sin_modulos: "No hay módulos disponibles para su perfil.",
+  resumen_modulos_comprobando: "Comprobando módulos",
+  resumen_modulos_ninguno: "Sin módulos disponibles",
+  resumen_modulos_uno: "{cantidad} módulo disponible",
+  resumen_modulos_varios: "{cantidad} módulos disponibles",
+  perfil_sesion_rrhh: "Recursos Humanos",
+  perfil_sesion_intervencion: "Intervención",
+  perfil_sesion_personal: "Personal",
+  perfil_sesion_jefatura: "Jefatura",
+  sesion_etiqueta: "Sesión",
   titulo_error_catalogo_modulos: "No se pudieron comprobar los módulos",
   error_catalogo_modulos: "El catálogo interno de módulos no está disponible. Reintente la comprobación.",
   personal_catalogo_profesional: "Catálogo profesional de Personal",
@@ -36,7 +47,6 @@ export const MENSAJES_PORTAL_ES = Object.freeze({
   cronos_permisos_miga: "Portal del Empleado → Cronos → Permisos",
   cronos_permisos_titulo: "Cronos · permisos y ausencias",
   contratos_consulta_etiqueta: "Consulta",
-  contratos_consulta_estado: "Fuente de contratos sin configurar · altas, ceses y reincorporaciones pendientes",
   descripcion_superficie_no_montada: "No se pudo montar la superficie solicitada.",
   contratacion_temporal_encabezado: "Contratación temporal",
   contratacion_temporal_miga: "Portal del Empleado → Contratación temporal",

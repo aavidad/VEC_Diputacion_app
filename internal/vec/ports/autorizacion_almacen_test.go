@@ -147,6 +147,32 @@ func TestContextoOperacionAlmacenAnalisisYRetencionVinculanObjetoYVersionExactos
 	}
 }
 
+func TestLecturaOriginalDocumentoGeneradoExigeDecisionYObjetoExactos(t *testing.T) {
+	decision, recurso, vinculos, instante := autorizacionAlmacenPrueba(t,
+		AccionNegocioLeerOriginalDocumentoGenerado, []string{"contenido", "documento"}, true)
+	contexto, err := NuevoContextoLeerDocumentoGeneradoAlmacen(decision, recurso, vinculos, instante)
+	if err != nil || contexto.ValidarParaEn(AccionAlmacenLeer, instante) != nil {
+		t.Fatalf("lectura autorizada: %v", err)
+	}
+	if !contexto.coincideObjeto(vinculos.ObjetoVinculado) ||
+		contexto.coincideObjeto(ReferenciaObjetoAlmacen{Referencia: vinculos.ObjetoVinculado.Referencia, Version: "version:otra"}) {
+		t.Fatal("lectura permite version diferente")
+	}
+	if _, err := contexto.DerivarPaso(PasoAlmacenLeerParaAnalisis); !errors.Is(err, ErrAutorizacionAlmacenInvalida) {
+		t.Fatalf("lectura permite paso de analisis: %v", err)
+	}
+	cruzado := vinculos
+	cruzado.ObjetoVinculado = ReferenciaObjetoAlmacen{Referencia: "objeto:otro", Version: vinculos.ObjetoVinculado.Version}
+	if _, err := NuevoContextoLeerDocumentoGeneradoAlmacen(decision, recurso, cruzado, instante); !errors.Is(err, ErrAutorizacionAlmacenInvalida) {
+		t.Fatalf("lectura permite objeto ajeno: %v", err)
+	}
+	denegada := clonarDecisionAutorizacionCanonica(decision)
+	denegada.Concedida = false
+	if _, err := NuevoContextoLeerDocumentoGeneradoAlmacen(denegada, recurso, vinculos, instante); !errors.Is(err, ErrAutorizacionAlmacenInvalida) {
+		t.Fatalf("lectura sin decision positiva: %v", err)
+	}
+}
+
 func autorizacionAlmacenPrueba(
 	t *testing.T,
 	accion string,

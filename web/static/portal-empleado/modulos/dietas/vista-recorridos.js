@@ -1,7 +1,7 @@
-import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260925-tanda2-v1";
-import { montarVistaBorradoresPropios } from "./vista-borradores-propios.js?v=20260925-tanda2-v1";
-import { montarVistaBandejaCircuitoDietas } from "./vista-bandeja-circuito.js?v=20260925-tanda2-v1";
-import { montarVistaRectificacionAdminDietas } from "./vista-rectificacion-admin.js?v=20260925-tanda2-v1";
+import { crearTraductorDietas, MENSAJES_DIETAS_ES } from "./i18n.js?v=20260925-d5d6-v1";
+import { montarVistaBorradoresPropios } from "./vista-borradores-propios.js?v=20260925-d5d6-v1";
+import { montarVistaBandejaCircuitoDietas } from "./vista-bandeja-circuito.js?v=20260925-d5d6-cronos-v1";
+import { montarVistaRectificacionAdminDietas } from "./vista-rectificacion-admin.js?v=20260925-d5d6-v1";
 
 const ETAPAS_CIRCUITO = Object.freeze(["revision", "autorizacion", "liquidacion", "fiscalizacion"]);
 const nodo = (documento, etiqueta, texto = "") => {
@@ -14,9 +14,9 @@ const montada = (contenedor, raiz) => contenedor.querySelector?.("[data-dietas-r
 /**
  * Reúne el recorrido propio y las bandejas del circuito de Dietas. Las
  * bandejas salen de las competencias que acredita el servidor: una por etapa
- * acreditada más el «Control de documentos». Sin fuente gobernada aparece una
- * sola pestaña que lo dice en una línea, sin acciones. Sin cliente de
- * circuito, la persona ve únicamente sus documentos.
+ * acreditada más el «Control de documentos». Sin fuente gobernada no se
+ * ofrece ninguna pestaña del circuito: la persona ve solo sus documentos,
+ * igual que sin cliente de circuito.
  */
 export function montarVistaRecorridosDietas(contenedor, {
   clienteBorradores,
@@ -58,7 +58,6 @@ export function montarVistaRecorridosDietas(contenedor, {
   let etapasDisponibles = [["solicitante", "recorridos_solicitante"],
     ...(clienteRectificacionAdmin ? [["rectificacion_admin", "ra_titulo"]] : [])];
   let etapasCircuito = [];
-  let sinFuente = false;
   function pintarPasos() {
     pasos.replaceChildren();
     pasos.hidden = etapasDisponibles.length < 2;
@@ -130,11 +129,6 @@ export function montarVistaRecorridosDietas(contenedor, {
       vistaCircuito = montarVistaRectificacionAdminDietas(areaCircuito, {
         cliente: clienteRectificacionAdmin, clienteCatalogoCompetente, traducir, anunciar,
       });
-    } else if (siguiente === "circuito_sin_fuente") {
-      const linea = nodo(documento, "p", traducir("circuito_sin_fuente"));
-      linea.className = "panel dietas-circuito-sin-fuente";
-      linea.dataset.dietasCircuitoSinFuente = "";
-      areaCircuito.append(linea);
     } else if (siguiente === "control" && clienteCircuito && etapasCircuito.length) {
       vistaCircuito = montarVistaBandejaCircuitoDietas(areaCircuito, {
         cliente: clienteCircuito, traducir, anunciar, etapaInicial: etapasCircuito[0], etapas: etapasCircuito, control: true,
@@ -176,13 +170,14 @@ export function montarVistaRecorridosDietas(contenedor, {
     try {
       const competencias = await clienteCircuito.competencias({ signal: cancelacionCompetencias.signal });
       if (!activa) return;
-      sinFuente = competencias.fuente === "sin_fuente";
+      // Sin fuente gobernada no hay bandejas que ofrecer: ninguna pestaña.
+      if (competencias.fuente === "sin_fuente") return;
       etapasCircuito = ETAPAS_CIRCUITO.filter((codigo) => competencias.etapas.includes(codigo));
     } catch {
       return;
     }
-    const circuito = sinFuente ? [["circuito_sin_fuente", "circuito_revision"]]
-      : [...etapasCircuito.map((codigo) => [codigo, `circuito_etapa_${codigo}`]), ...(etapasCircuito.length ? [["control", "circuito_control"]] : [])];
+    if (etapasCircuito.length === 0) return;
+    const circuito = [...etapasCircuito.map((codigo) => [codigo, `circuito_etapa_${codigo}`]), ["control", "circuito_control"]];
     etapasDisponibles = [etapasDisponibles[0], ...circuito, ...etapasDisponibles.slice(1)];
     pintarPasos();
     pintar();

@@ -149,6 +149,34 @@ test("Personal limpia una vez también si un catálogo falla después de registr
   assert.equal(limpiarTemprano, 1);
 });
 
+test("Personal compone solo los catálogos públicos servidos y pasa accesos y ocultación a la ficha", async () => {
+  const clientes = [];
+  const recursos = (entradaFicha) => ({
+    ficha: { montarVistaFichaIntegralPersonal(entrada) { entradaFicha.push(entrada); return { desmontar() {} }; } },
+    clienteCategorias: { crearClienteHTTPCategoriasPersonal() { clientes.push("categorias"); return {}; } },
+    clienteEstructura: { crearClienteHTTPEstructuraOrganizativaPublica() { clientes.push("estructura"); return {}; } },
+    vistaCategorias: { montarModuloPersonal: async () => ({ desmontar() {} }) },
+    vistaEstructura: { montarModuloEstructuraOrganizativaPublica: async () => ({ desmontar() {} }) },
+  });
+  const entradas = [];
+  let disponibles = { dietas: false, cronos: false };
+  // Sin recursos RPT: basta con que el servidor no lo sirva para no exigirlos.
+  const personal = componerPersonalVisible(recursos(entradas), { fetch() {} }, {
+    catalogosPublicos: ["estructura"], ocultarSinFuente: true, destinosDisponibles: () => disponibles,
+  });
+  assert.notEqual(personal, undefined);
+  disponibles = { dietas: true, cronos: false };
+  personal.montar({ raiz: {}, anunciar() {} });
+  assert.equal(entradas[0].ocultarSinFuente, true);
+  assert.deepEqual(entradas[0].destinosDisponibles, { dietas: true, cronos: false }, "la disponibilidad se evalúa al montar");
+  await entradas[0].montarCatalogos({ raiz: {}, anunciar() {} });
+  assert.deepEqual(clientes, ["categorias", "estructura"]);
+  // Pedir un catálogo servido sin sus recursos, o uno desconocido, no compone.
+  assert.equal(componerPersonalVisible(recursos([]), {}, { catalogosPublicos: ["rpt"] }), undefined);
+  assert.equal(componerPersonalVisible(recursos([]), {}, { catalogosPublicos: ["otro"] }), undefined);
+  assert.equal(componerPersonalVisible(recursos([]), {}, { destinosDisponibles: {} }), undefined);
+});
+
 test("Dietas interna compone el circuito de revisión solo con su cliente HTTP same-origin", async () => {
   const llamadas = [];
   const asignacion = Object.freeze({ async obtenerRelaciones() { return { relaciones_autorizadas: [], fecha_referencia: "2026-09-25" }; } });
@@ -216,4 +244,52 @@ test("Jornada: una parte que falla deja su aviso accesible y, sin calendario, no
   assert.equal(recibidas.calendario.incrustada, true);
   recibidas.movimientos.abrirCorreccion();
   assert.equal(olvidos, 1);
+});
+
+test("Cronos ofrece bandeja y avisos solo con sus tres piezas y un único cliente de resolución", () => {
+  const creados = []; const montados = [];
+  const partes = { saldo: () => ({}), remoto: () => ({}), movimientos: () => ({}), calendario: () => ({}) };
+  const conResolucion = {
+    ...recursosCronos(partes),
+    bandejaPermisos: { montarBandejaPermisosCronos: (o) => { montados.push(["bandeja", o]); return Object.freeze({ desmontar() {} }); } },
+    avisosPropios: { montarAvisosPropiosCronos: (o) => { montados.push(["avisos", o]); return Object.freeze({ desmontar() {} }); } },
+    clienteResolucion: { crearClienteResolucionCronosHTTP: (t) => { const c = Object.freeze({ t }); creados.push(c); return c; } },
+    i18nResolucion: { crearTraductorResolucionCronos: () => (clave) => ({ bandeja_titulo: "Solicitudes por resolver", avisos_titulo: "Avisos de resolución" })[clave] },
+  };
+  const cronos = componerCronosInterno(conResolucion, { fetch() {} });
+  assert.equal(creados.length, 1);
+  assert.deepEqual({ ...cronos.etiquetas }, { bandeja: "Solicitudes por resolver", avisos: "Avisos de resolución" });
+  cronos.montarBandeja({ raiz: "r1" }); cronos.montarAvisos({ raiz: "r2" });
+  assert.deepEqual(montados.map(([n, o]) => [n, o.raiz]), [["bandeja", "r1"], ["avisos", "r2"]]);
+  assert.strictEqual(montados[0][1].cliente, creados[0]);
+  assert.strictEqual(montados[1][1].cliente, creados[0]);
+  const { clienteResolucion: _omitido, ...incompleto } = conResolucion;
+  const sin = componerCronosInterno(incompleto, {});
+  assert.notEqual(sin, undefined, "sin resolución Cronos sigue disponible");
+  assert.equal(sin.montarBandeja, undefined);
+  assert.equal(sin.montarAvisos, undefined);
+});
+
+test("Cronos ofrece las notificaciones a RRHH solo con sus cuatro piezas, con o sin resolución", () => {
+  const creados = []; const montados = [];
+  const partes = { saldo: () => ({}), remoto: () => ({}), movimientos: () => ({}), calendario: () => ({}) };
+  const conNotificaciones = {
+    ...recursosCronos(partes),
+    notificacionesPropias: { montarNotificacionesPropiasCronos: (o) => { montados.push(["propias", o]); return Object.freeze({ desmontar() {} }); } },
+    bandejaNotificaciones: { montarBandejaNotificacionesCronos: (o) => { montados.push(["bandeja", o]); return Object.freeze({ desmontar() {} }); } },
+    clienteNotificaciones: { crearClienteNotificacionesCronosHTTP: (t) => { const c = Object.freeze({ t }); creados.push(c); return c; } },
+    i18nNotificaciones: { crearTraductorNotificacionesCronos: () => (clave) => ({ notificaciones_titulo: "Notificaciones a RRHH", bandeja_notificaciones_titulo: "Notificaciones recibidas" })[clave] },
+  };
+  const cronos = componerCronosInterno(conNotificaciones, { fetch() {} });
+  assert.equal(creados.length, 1);
+  assert.deepEqual({ ...cronos.etiquetas }, { notificaciones: "Notificaciones a RRHH", bandejaNotificaciones: "Notificaciones recibidas" });
+  assert.equal(cronos.montarBandeja, undefined, "sin resolución no hay bandeja de permisos");
+  cronos.montarNotificaciones({ raiz: "r1" }); cronos.montarBandejaNotificaciones({ raiz: "r2" });
+  assert.deepEqual(montados.map(([n, o]) => [n, o.raiz]), [["propias", "r1"], ["bandeja", "r2"]]);
+  assert.strictEqual(montados[0][1].cliente, creados[0]);
+  assert.strictEqual(montados[1][1].cliente, creados[0]);
+  const { i18nNotificaciones: _omitido, ...incompleto } = conNotificaciones;
+  const sin = componerCronosInterno(incompleto, {});
+  assert.equal(sin.montarNotificaciones, undefined);
+  assert.equal(sin.etiquetas, undefined);
 });
