@@ -284,6 +284,7 @@ export function montarRegistroB2({ raiz, cliente, clienteCatalogos, empleadoRef 
     if (!activo || !botones.has(nueva)) return;
     limpiarVuelo(); montajeActos?.desmontar(); montajeActos = undefined; montajeCatalogos?.desmontar(); montajeCatalogos = undefined; vista = nueva; ayuda.open = false;
     textoAyuda.replaceChildren(nodo(d, "p", t(vista === "actos" ? "registro_b2_acto_ayuda" : vista === "catalogos" ? "registro_b2_catalogos_ayuda" : "registro_b2_ayuda")));
+    if (vista === "empleados") textoAyuda.append(nodo(d, "p", t("registro_b2_nueva_alta_motivo")));
     form.hidden = vista === "actos" || vista === "catalogos";
     for (const [clave, tab] of botones) { tab.setAttribute("aria-selected", String(clave === vista)); tab.setAttribute("tabindex", clave === vista ? "0" : "-1"); }
     contenido.setAttribute("aria-labelledby", `personal-registro-b2-tab-${vista}`);

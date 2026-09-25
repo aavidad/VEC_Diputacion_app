@@ -268,6 +268,8 @@ test("RRHH elige el empleado en la lista del organismo y abre su ficha", async (
   assert.match(alta.title, /expediente de contratación/);
   const motivo = buscar(raiz, (n) => n.id === alta.attrs.get("aria-describedby"));
   assert.equal(motivo.className, "solo-lectura");
+  const ayuda = buscar(raiz, (n) => n.className === "personal-registro-b2-ayuda");
+  assert.match(texto(ayuda), /expediente de contratación/);
   buscar(raiz, (n) => n.textContent === "Siguiente").listeners.get("click")(); await completar();
   assert.equal(listas[1], "p_25_" + "a".repeat(64));
   assert.match(texto(raiz), /No hay empleados registrados en esta fecha/);
