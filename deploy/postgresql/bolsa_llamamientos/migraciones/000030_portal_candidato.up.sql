@@ -203,6 +203,13 @@ BEGIN
                          WHEN 'reactivacion' THEN 'bolsa.participaciones_propias.solicitar_reactivacion' END;
  IF v_accion IS NULL THEN RAISE EXCEPTION 'solicitud del portal inválida' USING ERRCODE='22023'; END IF;
  v_participacion := vec_bolsa_llamamientos.exigir_portal_candidato_v1(p_candidato_ref, p_bolsa_ref, v_accion, p_capacidad, p_decision, p_contexto);
+ -- Como B2, la decisión viva se consume antes de resolver el replay: un
+ -- reintento no devuelve el recibo sin una autorización nueva y verificada.
+ SELECT * INTO STRICT v_consumo FROM vec_autorizacion_atestada_v3.registrar_y_consumir_portal_candidato_bolsa_v3_atestada(
+  p_capacidad, p_decision, p_motivo, p_contexto, p_persona_version, p_perfil_version, p_payload, p_sobre, p_evidencia, p_raiz);
+ IF v_consumo.consumo_nuevo IS NOT TRUE OR v_consumo.efecto_ref IS DISTINCT FROM 'mi-bolsa:'||p_candidato_ref THEN
+  RAISE EXCEPTION 'portal del candidato denegado' USING ERRCODE='42501';
+ END IF;
  SELECT * INTO v_previa FROM vec_bolsa_llamamientos.solicitud_portal_candidato s
   WHERE s.participacion_ref = v_participacion AND s.clave_idempotencia = p_clave;
  IF FOUND THEN
@@ -211,11 +218,6 @@ BEGIN
   END IF;
   RETURN QUERY SELECT true, v_previa.solicitud_ref, v_previa.recibo_ref, v_previa.registrada_en;
   RETURN;
- END IF;
- SELECT * INTO STRICT v_consumo FROM vec_autorizacion_atestada_v3.registrar_y_consumir_portal_candidato_bolsa_v3_atestada(
-  p_capacidad, p_decision, p_motivo, p_contexto, p_persona_version, p_perfil_version, p_payload, p_sobre, p_evidencia, p_raiz);
- IF v_consumo.consumo_nuevo IS NOT TRUE OR v_consumo.efecto_ref IS DISTINCT FROM 'mi-bolsa:'||p_candidato_ref THEN
-  RAISE EXCEPTION 'portal del candidato denegado' USING ERRCODE='42501';
  END IF;
  RETURN QUERY SELECT * FROM vec_bolsa_llamamientos.registrar_solicitud_portal_interna_v1(
   p_solicitud_ref, p_recibo_ref, p_candidato_ref, p_bolsa_ref, v_participacion, p_tipo, p_pausa_hasta, p_pausa_maxima,
@@ -268,6 +270,13 @@ DECLARE v_participacion text; v_previa vec_bolsa_llamamientos.respuesta_portal_l
 BEGIN
  v_participacion := vec_bolsa_llamamientos.exigir_portal_candidato_v1(p_candidato_ref, p_bolsa_ref,
    'bolsa.participaciones_propias.responder_llamamiento', p_capacidad, p_decision, p_contexto);
+ -- Como B2, la decisión viva se consume antes de resolver el replay: un
+ -- reintento no devuelve el recibo sin una autorización nueva y verificada.
+ SELECT * INTO STRICT v_consumo FROM vec_autorizacion_atestada_v3.registrar_y_consumir_portal_candidato_bolsa_v3_atestada(
+  p_capacidad, p_decision, p_motivo, p_contexto, p_persona_version, p_perfil_version, p_payload, p_sobre, p_evidencia, p_raiz);
+ IF v_consumo.consumo_nuevo IS NOT TRUE OR v_consumo.efecto_ref IS DISTINCT FROM 'mi-bolsa:'||p_candidato_ref THEN
+  RAISE EXCEPTION 'portal del candidato denegado' USING ERRCODE='42501';
+ END IF;
  SELECT * INTO v_previa FROM vec_bolsa_llamamientos.respuesta_portal_llamamiento r
   WHERE r.participacion_ref = v_participacion AND r.clave_idempotencia = p_clave;
  IF FOUND THEN
@@ -277,11 +286,6 @@ BEGIN
   END IF;
   RETURN QUERY SELECT true, v_previa.respuesta_ref, v_previa.recibo_ref, v_previa.respondida_en, v_previa.modo;
   RETURN;
- END IF;
- SELECT * INTO STRICT v_consumo FROM vec_autorizacion_atestada_v3.registrar_y_consumir_portal_candidato_bolsa_v3_atestada(
-  p_capacidad, p_decision, p_motivo, p_contexto, p_persona_version, p_perfil_version, p_payload, p_sobre, p_evidencia, p_raiz);
- IF v_consumo.consumo_nuevo IS NOT TRUE OR v_consumo.efecto_ref IS DISTINCT FROM 'mi-bolsa:'||p_candidato_ref THEN
-  RAISE EXCEPTION 'portal del candidato denegado' USING ERRCODE='42501';
  END IF;
  RETURN QUERY SELECT * FROM vec_bolsa_llamamientos.registrar_respuesta_portal_interna_v1(
   p_respuesta_ref, p_recibo_ref, p_candidato_ref, p_bolsa_ref, v_participacion, p_respuesta, p_causa, p_justificante_ref,

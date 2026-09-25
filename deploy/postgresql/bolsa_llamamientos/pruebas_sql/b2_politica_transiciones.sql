@@ -65,10 +65,10 @@ BEGIN
  SELECT greatest(clock_timestamp(), max(desde)) + interval '1 hour' INTO base FROM vec_bolsa_llamamientos.situacion_participacion;
  SELECT md5(string_agg(s::text, '|' ORDER BY s.participacion_ref, s.desde)) INTO historia_antes FROM vec_bolsa_llamamientos.situacion_participacion s;
 
- -- Versión 1: el literal de 000012.
+ -- Versión 1: el literal de 000012 más disponible>disponible_desde.
  SELECT transiciones INTO STRICT v1 FROM vec_bolsa_llamamientos.politica_transiciones_situacion WHERE version = 1;
- IF cardinality(v1) <> 17 OR NOT ('renuncia>disponible' = ANY (v1)) OR 'renuncia>no_disponible' = ANY (v1) THEN
-  RAISE EXCEPTION '000032: la versión 1 no reproduce 000012: %', v1;
+ IF cardinality(v1) <> 18 OR NOT ('renuncia>disponible' = ANY (v1)) OR NOT ('disponible>disponible_desde' = ANY (v1)) OR 'renuncia>no_disponible' = ANY (v1) THEN
+  RAISE EXCEPTION '000032: la versión 1 no es la esperada: %', v1;
  END IF;
 
  -- Con la versión 1: la renuncia no pasa a no disponible.

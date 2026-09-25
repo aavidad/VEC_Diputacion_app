@@ -1,18 +1,21 @@
 #!/usr/bin/env bash
-# Ensayo de Bolsa 000032 (política de transiciones y readmisión) y 000037
-# (efectos de las sanciones) en PostgreSQL 18 efímero. Instala la cadena real
-# de Bolsa con dobles de los consumidores AD3 (solo firmas y retorno: la
-# autorización real se ensaya en su propio esquema) y comprueba: ROLLBACK,
-# UP/DOWN/UP de ambas, dobles aplicaciones rechazadas, DOWN de 000032
-# rechazado mientras 000037 está instalada, 000037 rechazada sin 000032, la
-# versión inicial de la política, ACL con roles reales y la prueba funcional
-# b37_efectos_sanciones.sql. Los datos viven en /dev/shm/vec-pg-b37-<pid>
-# (montado con -v, sin volúmenes anónimos) y se borran al terminar.
+# Ensayo de las migraciones de Bolsa corregidas tras la revisión de la
+# integración (000028, 000030, 000032, 000037) en PostgreSQL 18 efímero.
+# Instala la cadena real de Bolsa con dobles de los consumidores AD3 (solo
+# firmas y retorno: la autorización real se ensaya en su propio esquema) y
+# comprueba: ROLLBACK, UP/DOWN/UP de 000032 y 000037, dobles aplicaciones
+# rechazadas, DOWN de 000032 rechazado mientras 000037 está instalada, 000037
+# rechazada sin 000032, la versión inicial de la política, ACL con roles
+# reales y las pruebas funcionales b2 (política), bof (ofertas: decisión de
+# Bolsa, finalidad y recurso), b30 (portal, incluido el replay con decisión
+# viva) y b37 (efectos de sanciones y readmisión). Los datos viven en
+# /dev/shm/vec-pg-revision-bolsa-<pid> (montado con -v, sin volúmenes anónimos) y se
+# borran al terminar.
 set -Eeuo pipefail
 repo=$(git -C "$(dirname -- "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)
 imagen=${VEC_POSTGRES_TEST_IMAGE:-postgres:18.4-bookworm}
-contenedor=vec-pg-b37-$$
-datos=/dev/shm/vec-pg-b37-$$
+contenedor=vec-pg-revision-bolsa-$$
+datos=/dev/shm/vec-pg-revision-bolsa-$$
 limpiar() {
   docker rm -f "$contenedor" >/dev/null 2>&1 || true
   if [[ -d $datos ]]; then docker run --rm -v "$datos":/d --entrypoint /bin/sh "$imagen" -c 'rm -rf /d/* /d/.[!.]*' >/dev/null 2>&1 || true; fi
@@ -33,11 +36,11 @@ for ruta in deploy/postgresql/autorizacion/roles_up.sql deploy/postgresql/autori
   fichero "$ruta" >/dev/null
 done
 fichero deploy/postgresql/bolsa_llamamientos/pruebas_sql/contacto_origen/dobles_ad3.sql >/dev/null 2>&1
-# B2 y el portal del candidato leen además la huella del efecto: sus dobles
+# B2, el portal del candidato y la emisión leen además la huella del efecto: sus dobles
 # devuelven la firma completa.
 psql_pg >/dev/null <<'SQL'
 DO $f$ DECLARE n text; BEGIN
- FOREACH n IN ARRAY ARRAY['registrar_y_consumir_situacion_participacion_v3_atestada','registrar_y_consumir_portal_candidato_bolsa_v3_atestada'] LOOP
+ FOREACH n IN ARRAY ARRAY['registrar_y_consumir_situacion_participacion_v3_atestada','registrar_y_consumir_portal_candidato_bolsa_v3_atestada','registrar_y_consumir_emision_llamamiento_v3_atestada'] LOOP
   EXECUTE format('DROP FUNCTION IF EXISTS vec_autorizacion_atestada_v3.%I(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)', n);
   EXECUTE format($s$CREATE FUNCTION vec_autorizacion_atestada_v3.%I(p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)
    RETURNS TABLE(decision_ref text,efecto_ref text,huella_efecto_sha256 text,consumo_huella_sha256 text,auditoria_ref text,consumida_en timestamptz,consumo_nuevo boolean)
@@ -80,6 +83,16 @@ psql_pg -tAc "SELECT NOT has_function_privilege('vec_bolsa_llamamientos_ejecutor
   AND NOT EXISTS (SELECT 1 FROM pg_proc p, aclexplode(p.proacl) a WHERE p.oid='vec_bolsa_llamamientos.readmitir_participacion_por_recurso_v1(text,text,text,text,text,text,text,timestamptz)'::regprocedure AND a.grantee<>p.proowner)" \
   | grep -qx t || { echo 'la readmisión es invocable por otros roles' >&2; exit 1; }
 echo 'ACL: OK'
-fichero deploy/postgresql/bolsa_llamamientos/pruebas_sql/b37_efectos_sanciones.sql 2>&1 | grep -q 'OK B37 efectos de sanciones' || {
-  fichero deploy/postgresql/bolsa_llamamientos/pruebas_sql/b37_efectos_sanciones.sql >&2 || true; exit 1; }
-echo 'Comportamiento B37: OK'
+p=deploy/postgresql/bolsa_llamamientos/pruebas_sql
+prueba() { # fichero, marca de éxito
+  local salida
+  salida=$(fichero "$1" 2>&1) || { printf '%s\n' "$salida" >&2; exit 1; }
+  [[ -z ${2:-} ]] || grep -q "$2" <<<"$salida" || { printf '%s\n' "$salida" >&2; exit 1; }
+  echo "OK $(basename "$1")"
+}
+prueba $p/b37_efectos_sanciones.sql 'OK B37 efectos de sanciones'
+fichero $p/revision/datos.sql >/dev/null
+prueba $p/b2_politica_transiciones.sql
+prueba $p/bof_ofertas_publicadas.sql 'OK B-OF focal'
+prueba $p/b30_portal_candidato.sql
+prueba $p/revision/b30_replay_autorizacion.sql 'OK B30 replay con decisión viva'
