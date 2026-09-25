@@ -255,6 +255,10 @@ func (h *manejadorConsultaDetalleRRHH) ServeHTTP(
 		responderErrorConsultaRRHH(w, r, err, clasificarErrorConsultaRRHH(err))
 		return
 	}
+	if cambiosExpedienteRRHHSolicitados(r.Header) {
+		h.responderCambios(w, r)
+		return
+	}
 	if problema := validarMetadatosConsultaRRHHConPDF(r, MaximoCuerpoConsultaDetalleRRHHBytes, true); problema != nil {
 		responderErrorConsultaRRHH(w, r, nil, *problema)
 		return
