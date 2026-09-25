@@ -8,7 +8,16 @@
 -- audiencias, su cardinalidad y su orden los fija esta función. La raíz y la
 -- audiencia de atestación son las compartidas del gobierno V3 vigente. Se
 -- conservan login nominal, membresía exacta, punteros, revocaciones,
--- checkpoint, huellas y validación conjunta de configuración y claves.
+-- mínimos de configuración y raíz del checkpoint, huellas y validación
+-- conjunta de configuración y claves.
+--
+-- Escalas: a diferencia de v1, ninguna función compara revision_gobierno de
+-- una clave con checkpoint_gobierno.revision. Son contadores distintos: el
+-- publicador numera cada clave desde el máximo existente, mientras que el
+-- checkpoint solo avanza con configuración, raíz, punteros o revocaciones
+-- (AD3-2/6/7). La clave se acepta si su revisión es exactamente la publicada
+-- y es el puntero efectivo de su audiencia; el anti-retroceso lo garantizan
+-- los mínimos de configuración y raíz del checkpoint (consenso B2 R3–R5).
 -- Ambas funciones son STABLE: todas sus lecturas usan una sola instantánea,
 -- de modo que una renovación concurrente no produce una vista mezclada. El
 -- reloj es clock_timestamp(), como en la sonda v1: una sentencia larga del
@@ -249,7 +258,6 @@ BEGIN
         IF NOT FOUND
            OR v_clave.revision_gobierno IS DISTINCT FROM
               (v_item ->> 'revision_gobierno')::numeric
-           OR v_clave.revision_gobierno > v_checkpoint.revision
            OR v_clave.huella_gobierno_sha256 IS DISTINCT FROM
               v_item ->> 'huella_gobierno_sha256'
            OR v_clave.huella_secreto_sha256 IS DISTINCT FROM
@@ -445,7 +453,6 @@ BEGIN
             AND version = (v_item ->> 'version')::numeric;
         IF v_clave.clave_id IS NULL
            OR v_clave.revision_gobierno IS DISTINCT FROM (v_item ->> 'revision_gobierno')::numeric
-           OR v_clave.revision_gobierno > v_checkpoint.revision
            OR v_clave.huella_gobierno_sha256 IS DISTINCT FROM v_item ->> 'huella_gobierno_sha256'
            OR v_clave.huella_secreto_sha256 IS DISTINCT FROM v_item ->> 'huella_secreto_sha256'
            OR v_clave.emisor_id IS DISTINCT FROM v_item ->> 'emisor_id'

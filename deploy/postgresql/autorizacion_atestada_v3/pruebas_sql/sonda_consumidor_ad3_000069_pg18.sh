@@ -9,12 +9,20 @@
 # posteriores (CT y B2 54–56), sin ejecutar esas migraciones. Gobierno, raíz
 # y claves son sintéticos (secretos de relleno, sin valor real).
 #
+# El fixture NO toca checkpoint_gobierno.revision: solo lo mueven los
+# triggers reales de AD3-2, de modo que las revisiones de las claves quedan por
+# encima del contador, como tras una publicación real de vec-server. v2 debe
+# aceptarlas de inmediato (sin comparación entre escalas); v1 sigue igual y las
+# rechaza salvo que el DBA adelante el contador (contraste, en ROLLBACK).
+#
 # Comprueba: ROLLBACK sin rastro, UP, segunda aplicación rechazada, positivos
 # CT5 y B2-8, negativos (consumidor desconocido/NULL, mezcla, duplicado,
-# orden, ausencia, exceso, huellas falsas, raíz B2 propia, login incorrecto,
-# revocación, rotación de puntero, caducidad, retroceso por checkpoint),
-# aislamiento entre consumidores, sin acceso directo a tablas ni secretos,
-# funciones antiguas intactas (md5 antes/después), UP/DOWN/UP y reinicio.
+# orden, ausencia, exceso, huellas falsas, revisión falsificada, raíz B2
+# propia, login incorrecto, revocación, rotación de puntero con salto de
+# versión, caducidad, retroceso por mínimos de configuración y raíz del
+# checkpoint), aislamiento entre consumidores, sin acceso directo a tablas ni
+# secretos, funciones antiguas intactas (md5 antes/después), UP/DOWN/UP y
+# reinicio.
 # No acredita firma COSE, decisión PDP ni la cadena AD3 íntegra.
 set -Eeuo pipefail
 trap 'printf "AD3-69: orden fallida en la línea %s\n" "$LINENO" >&2' ERR
@@ -141,7 +149,8 @@ INSERT INTO prueba_ad3_69.audiencia VALUES
  ('personal_b2',6,'vec_personal.registro_empleado.catalogo.publicar.v1'),
  ('personal_b2',7,'vec_personal.registro_empleado.catalogo.retirar.v1'),
  ('personal_b2',8,'vec_personal.registro_empleado.empleados.v1');
--- Clave sintética n: versión, revisión y orden de puntero = n; secreto de relleno.
+-- Clave sintética n: versión, revisión y orden de puntero = n; secreto de
+-- relleno. No ajusta el checkpoint: solo lo mueven los triggers de AD3-2.
 CREATE FUNCTION prueba_ad3_69.clave(n int, audiencia text, desde timestamptz, hasta timestamptz)
 RETURNS void LANGUAGE sql AS $f$
  INSERT INTO vec_autorizacion_atestada_v3.clave_capacidad_version
@@ -151,7 +160,6 @@ RETURNS void LANGUAGE sql AS $f$
    FROM (SELECT decode(repeat(lpad(to_hex(n),2,'0'),32),'hex') AS s) x;
  INSERT INTO vec_autorizacion_atestada_v3.puntero_clave_emision (orden,clave_id,version,establecida_en,acto_ref)
  VALUES (n,'k'||n,n,clock_timestamp()-interval '1 second','acto_puntero_clave_'||n);
- UPDATE vec_autorizacion_atestada_v3.checkpoint_gobierno SET revision=greatest(revision,n) WHERE control_id;
 $f$;
 CREATE FUNCTION prueba_ad3_69.configuracion(n int, desde timestamptz, hasta timestamptz)
 RETURNS void LANGUAGE sql AS $f$
@@ -192,6 +200,12 @@ SELECT prueba_ad3_69.clave(n,a.nombre,clock_timestamp()-interval '1 day',clock_t
   FROM (SELECT row_number() OVER (ORDER BY consumidor,i)::int AS n,nombre FROM prueba_ad3_69.audiencia) a;
 SQL
 ok 'fixture sintético: raíz compartida, configuración c1 y 13 claves (CT5 + B2-8)'
+escalas=$(valor "SELECT c.revision||'/'||m.maxima||':'||(c.revision < m.maxima)
+                  FROM vec_autorizacion_atestada_v3.checkpoint_gobierno c,
+                       (SELECT max(revision_gobierno) AS maxima FROM vec_autorizacion_atestada_v3.clave_capacidad_version) m
+                 WHERE c.control_id")
+[[ $escalas == *':true' ]] || fallo "el checkpoint ya alcanza las claves ($escalas); el ensayo no reproduce el desfase"
+ok "checkpoint sin ajustar por debajo de las claves (revisión/máxima de clave: ${escalas%:*})"
 
 huella_v1() {
   valor "SELECT string_agg(p.proname||':'||md5(pg_get_functiondef(p.oid))||':'||md5(coalesce(p.proacl::text,'')),'|' ORDER BY p.proname)
@@ -296,15 +310,29 @@ IF j->>$$revision$$ IS DISTINCT FROM ct->$$configuracion$$->>$$revision$$
    OR vec_autorizacion_atestada_v3.leer_configuracion_interna_v2($$personal_b2$$, b2) IS DISTINCT FROM j
 THEN RAISE EXCEPTION $$positivo lectura$$; END IF;'
 
-# --- Positivos CT5 y B2-8, y la sonda antigua sigue igual (CT sí, B2 no).
-arnes vec_interno_preflight_v3_desarrollo '' "$positivos
-IF vec_autorizacion_atestada_v3.comprobar_material_emision_interna_v1(ct) IS NOT TRUE
+# --- Positivos CT5 y B2-8 con el checkpoint sin ajustar. v1, intacta, sigue
+# comparando revision_gobierno con el contador y rechaza CT (el fallo que v2
+# corrige); con el contador adelantado por el DBA (ROLLBACK) acepta CT como
+# antes. v1 nunca acepta B2.
+salida=$(arnes vec_interno_preflight_v3_desarrollo '' "$positivos
+BEGIN PERFORM vec_autorizacion_atestada_v3.comprobar_material_emision_interna_v1(ct);
+  RAISE EXCEPTION \$\$v1 aceptó CT sin checkpoint\$\$ USING ERRCODE=\$\$P0001\$\$;
+EXCEPTION WHEN SQLSTATE \$\$42501\$\$ THEN n := n + 1; END;
+BEGIN PERFORM vec_autorizacion_atestada_v3.leer_configuracion_interna_v1(ct);
+  RAISE EXCEPTION \$\$v1 leyó CT sin checkpoint\$\$ USING ERRCODE=\$\$P0001\$\$;
+EXCEPTION WHEN SQLSTATE \$\$42501\$\$ THEN n := n + 1; END;
+RAISE NOTICE \$\$v1 rechaza CT sin checkpoint: %\$\$, n;" 2>&1 || true)
+[[ $salida == *'v1 rechaza CT sin checkpoint: 2'* ]] || fallo "positivos v2 / contraste v1: $salida"
+arnes vec_interno_preflight_v3_desarrollo \
+  "UPDATE vec_autorizacion_atestada_v3.checkpoint_gobierno
+      SET revision=(SELECT max(revision_gobierno) FROM vec_autorizacion_atestada_v3.clave_capacidad_version) WHERE control_id;" \
+  "IF vec_autorizacion_atestada_v3.comprobar_material_emision_interna_v1(ct) IS NOT TRUE
    OR (vec_autorizacion_atestada_v3.leer_configuracion_interna_v1(ct)->>\$\$revision\$\$) IS DISTINCT FROM \$\$c1\$\$
 THEN RAISE EXCEPTION \$\$v1 CT\$\$; END IF;
 BEGIN PERFORM vec_autorizacion_atestada_v3.comprobar_material_emision_interna_v1(b2);
   RAISE EXCEPTION \$\$v1 aceptó B2\$\$ USING ERRCODE=\$\$P0001\$\$;
 EXCEPTION WHEN SQLSTATE \$\$42501\$\$ THEN NULL; END;" >/dev/null
-ok 'positivos: CT5 y B2-8 en sonda y lectura; v1 conserva CT y rechaza B2'
+ok 'positivos: CT5 y B2-8 en sonda y lectura v2 sin tocar el checkpoint; v1 intacta rechaza CT sin checkpoint, lo acepta con él adelantado y rechaza B2'
 
 # --- Negativos estáticos de discriminador y material.
 casos=$(cat <<'CASOS'
@@ -487,27 +515,29 @@ BEGIN
   RAISE NOTICE 'retroceso raíz rechazado: %%', n;
 END $t$;$fmt$, :'b2_c3', :'ct_c3') \gexec
 RESET SESSION AUTHORIZATION;
-UPDATE vec_autorizacion_atestada_v3.checkpoint_gobierno SET raiz_version_minima=0, revision=12 WHERE control_id;
+UPDATE vec_autorizacion_atestada_v3.checkpoint_gobierno SET raiz_version_minima=0 WHERE control_id;
+SELECT (revision < (SELECT max(revision_gobierno) FROM vec_autorizacion_atestada_v3.clave_capacidad_version))::text AS por_debajo
+  FROM vec_autorizacion_atestada_v3.checkpoint_gobierno WHERE control_id \gset
 SET SESSION AUTHORIZATION vec_interno_preflight_v3_desarrollo;
 SELECT format($fmt$DO $t$
-DECLARE b2 jsonb := %L; n int := 0;
+DECLARE b2 jsonb := %L; ct jsonb := %L;
 BEGIN
-  BEGIN PERFORM vec_autorizacion_atestada_v3.comprobar_material_emision_interna_v2('personal_b2', b2);
-    RAISE EXCEPTION 'revisión posterior al checkpoint aceptada' USING ERRCODE='P0001';
-  EXCEPTION WHEN SQLSTATE '42501' THEN n := n + 1; END;
-  BEGIN PERFORM vec_autorizacion_atestada_v3.leer_configuracion_interna_v2('personal_b2', b2);
-    RAISE EXCEPTION 'revisión posterior al checkpoint aceptada en lectura' USING ERRCODE='P0001';
-  EXCEPTION WHEN SQLSTATE '42501' THEN n := n + 1; END;
-  RAISE NOTICE 'revisión de clave posterior al checkpoint rechazada: %%', n;
-END $t$;$fmt$, :'b2_c3') \gexec
+  IF %L::boolean IS NOT TRUE
+     OR vec_autorizacion_atestada_v3.comprobar_material_emision_interna_v2('personal_b2', b2) IS NOT TRUE
+     OR (vec_autorizacion_atestada_v3.leer_configuracion_interna_v2('personal_b2', b2)->>'revision') <> 'c3'
+     OR vec_autorizacion_atestada_v3.comprobar_material_emision_interna_v2('ct', ct) IS NOT TRUE
+     OR (vec_autorizacion_atestada_v3.leer_configuracion_interna_v2('ct', ct)->>'revision') <> 'c3'
+  THEN RAISE EXCEPTION 'mínimos restituidos'; END IF;
+  RAISE NOTICE 'claves por encima del contador aceptadas con mínimos restituidos';
+END $t$;$fmt$, :'b2_c3', :'ct_c3', :'por_debajo') \gexec
 RESET SESSION AUTHORIZATION;
 ROLLBACK;
 SQL
 )
 [[ $salida == *'configuración sustituida rechazada en sonda'* && $salida == *'retroceso configuración rechazado: 2'* \
-   && $salida == *'retroceso raíz rechazado: 2'* && $salida == *'posterior al checkpoint rechazada: 2'* ]] \
+   && $salida == *'retroceso raíz rechazado: 2'* && $salida == *'claves por encima del contador aceptadas'* ]] \
   || fallo "renovación/retroceso: $salida"
-ok 'renovación c1→c3 leída; retroceso por checkpoint (secuencia, raíz, revisión) rechazado'
+ok 'renovación c1→c3 leída; retroceso por mínimos de configuración y raíz rechazado; con mínimos restituidos, claves por encima del contador aceptadas'
 
 [[ $(huella_v1) == "$v1_antes" ]] || fallo 'funciones antiguas alteradas durante el ensayo'
 
