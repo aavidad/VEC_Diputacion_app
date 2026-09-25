@@ -13,12 +13,12 @@ import (
 	"vec-diputacion-granada/internal/app/composicion/internactproveedores"
 )
 
-// Segundo paso del ensayo que prepara probar_postgresql_pg18.sh (cadena AD3
-// 1/2 real). El primer paso ya publicó el gobierno con el publicador real de
-// vec-server (TestPublicaGobiernoB2ComoVecServerParaEnsayoPostgreSQL18) desde
-// el material de idempotencia VEC_T4_MATERIAL_IDEMPOTENCIA; aquí la
-// herramienta lee ese mismo material y ese gobierno con el LOGIN de gobierno
-// de vec-server, dentro de READ ONLY, y debe aceptarlo.
+// Último paso del ensayo que prepara probar_postgresql_pg18.sh (cadena AD3
+// 1/2/50a/53a/69 real). Los pasos anteriores publicaron el gobierno con el
+// publicador real de vec-server desde el material de idempotencia
+// VEC_T4_MATERIAL_IDEMPOTENCIA, sin tocar el checkpoint; aquí la herramienta
+// lee ese mismo material y ese gobierno con el LOGIN de gobierno de
+// vec-server, dentro de READ ONLY, y debe aceptarlo de inmediato.
 func TestCotejoContraGobiernoPostgreSQL18(t *testing.T) {
 	if os.Getenv("VEC_T4_PG_DESECHABLE") != "si" {
 		t.Skip("requiere PostgreSQL 18.4 desechable (probar_postgresql_pg18.sh)")
@@ -71,27 +71,16 @@ func TestCotejoContraGobiernoPostgreSQL18(t *testing.T) {
 	}
 	e := escenarioPublicado(t)
 
-	// El publicador asigna a cada clave B2 una revisión posterior a la del
-	// checkpoint, que sólo avanza al publicarse una configuración o raíz
-	// nueva (avanzar_checkpoint de AD3-2). Recién publicadas, la sonda de
-	// vec-interno (AD3-69: revision_gobierno <= checkpoint) las rechazaría, y
-	// la herramienta también.
-	t.Run("publicacion_aun_fuera_del_checkpoint", func(t *testing.T) {
-		e2 := escenarioPublicado(t)
-		if codigo, texto := ejecutarCon(e2, gobiernoDSN); codigo != 1 || !strings.Contains(texto, string(errClaveB2)) {
-			t.Fatalf("aceptó claves fuera del checkpoint: %s", texto)
-		}
-		e2.sinResiduos(t)
-	})
-	// El DBA sólo adelanta el checkpoint, como harían las renovaciones
-	// posteriores; claves, punteros, raíz y configuración son los que dejó
-	// el publicador real.
-	if _, err := admin.Exec(ctx, `UPDATE vec_autorizacion_atestada_v3.checkpoint_gobierno
-	   SET revision = (SELECT max(revision_gobierno) FROM vec_autorizacion_atestada_v3.clave_capacidad_version)
-	 WHERE control_id`); err != nil {
-		t.Fatal(err)
+	// El publicador numera las claves por encima del contador del checkpoint
+	// (escalas distintas). Como la sonda AD3-69 v2, la herramienta no las
+	// compara: el ensayo exige que el desfase exista y que se acepte sin que
+	// nadie adelante el checkpoint.
+	var desfase bool
+	if err := admin.QueryRow(ctx, `SELECT (SELECT revision FROM vec_autorizacion_atestada_v3.checkpoint_gobierno WHERE control_id)
+	    < (SELECT max(revision_gobierno) FROM vec_autorizacion_atestada_v3.clave_capacidad_version
+	        WHERE audiencia_consumo LIKE 'vec_personal.registro_empleado.%')`).Scan(&desfase); err != nil || !desfase {
+		t.Fatal("el checkpoint ya alcanza las claves B2: el ensayo no reproduce el caso real")
 	}
-	antes = contar()
 
 	t.Run("positivo_publicado_por_vec_server", func(t *testing.T) {
 		if codigo, texto := ejecutarCon(e, gobiernoDSN); codigo != 0 {

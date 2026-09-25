@@ -43,11 +43,12 @@ comparando en el servidor con el secreto que dejó el publicador real.
    emisor derivado de la generación activa debe ser el de `ct_v3.json`.
 3. Cada una de las ocho claves B2 debe estar publicada con el mismo
    identificador, audiencia, huella de gobierno, huella del secreto, emisor y
-   vigencia; vigente ahora, sin ninguna revocación (ni siquiera programada),
-   dentro del checkpoint y como puntero de emisión vigente de su audiencia.
-   `version` y `revision_gobierno` se toman de esa fila publicada.
+   vigencia; vigente ahora, sin ninguna revocación (ni siquiera programada)
+   y como puntero de emisión vigente de su audiencia. `version` y
+   `revision_gobierno` se toman de esa fila publicada.
 4. La raíz de la configuración vigente (puntero, no revocada, no caducada,
-   secuencia y versión dentro del checkpoint, una sola raíz) debe ser la de
+   secuencia de configuración y versión de raíz no inferiores a los mínimos
+   del checkpoint, una sola raíz) debe ser la de
    `ct_v3.json`.
 5. La identidad de la sesión es la del LOGIN de gobierno de `vec-server`,
    con los mismos atributos que exige su pool (LOGIN, INHERIT, sin
@@ -60,13 +61,15 @@ Todo se lee en **una sola instantánea** (`REPEATABLE READ READ ONLY`, además
 de `default_transaction_read_only=on`) con el reloj `clock_timestamp()` que
 usa la sonda AD3-69. Cualquier diferencia falla cerrada.
 
-**Checkpoint recién publicado.** El publicador de `vec-server` asigna a cada
-clave una revisión nueva, pero el checkpoint (`avanzar_checkpoint`, AD3-2)
-solo avanza cuando se publica una configuración o una raíz nueva. Unas claves
-B2 recién publicadas pueden quedar con `revision_gobierno` mayor que la del
-checkpoint: la sonda de `vec-interno` las rechazaría y la herramienta también
-(«lo derivado no coincide con el gobierno publicado vigente»). Hay que
-esperar a que el checkpoint las alcance; la herramienta no lo adelanta.
+**Revisión de clave y checkpoint.** El publicador de `vec-server` numera cada
+clave nueva desde el máximo existente, mientras que el contador
+`checkpoint_gobierno.revision` solo avanza con configuración, raíz, punteros o
+revocaciones (AD3-2/6/7): son escalas distintas. Como la sonda AD3-69 (v2),
+la herramienta **no compara** la revisión de la clave con ese contador; exige
+que sea exactamente la publicada y el puntero efectivo de su audiencia, y el
+anti-retroceso lo aplican los mínimos de configuración y raíz del checkpoint.
+Unas claves B2 recién publicadas se aceptan de inmediato, sin tocar el
+checkpoint.
 
 Después compone el material en un directorio temporal hermano de la salida,
 lo abre con el cargador real de formato 4
@@ -164,8 +167,7 @@ el aviso de fsync del padre no confirmado), 1 = rechazado, 2 = uso incorrecto.
 
 Se ejecuta como el usuario del servicio, en la máquina donde corren
 `vec-server` y `vec-interno`, después de que `vec-server` haya arrancado con
-B2 activo (y, por tanto, publicado las ocho claves) y de que el checkpoint las
-haya alcanzado.
+B2 activo (y, por tanto, publicado las ocho claves).
 
 Directorios que intervienen (los valores reales son privados y no están en
 Git):
@@ -211,7 +213,7 @@ chmod 0600 "$PRIVADO/motivos_b2.json"
 
 Si la herramienta responde que lo derivado no coincide con el gobierno
 publicado, las causas posibles son: `vec-server` todavía no ha publicado B2,
-el checkpoint aún no alcanza sus revisiones, el material de idempotencia no es
+el material de idempotencia no es
 el que usa el `vec-server` en marcha, o alguna clave B2 está revocada o ya no
 es la de emisión. No hay que tocar el gobierno a mano.
 
@@ -246,7 +248,7 @@ B2 cambian: hay que volver a preparar tras la nueva publicación.
   terceros.
 - Unitarias de la herramienta (`go test ./cmd/vec-preparar-material-interno/`):
   gobierno inconsistente (clave ausente, puntero no vigente, revocación,
-  checkpoint, caducidad, huella, audiencia, identificador, emisor, vigencia,
+  caducidad, huella, audiencia, identificador, emisor, vigencia,
   acto ajeno, raíz distinta o no vigente), material de idempotencia divergente
   o rotado, permisos, enlaces simbólicos, nombre y ubicación del directorio de
   idempotencia, salida con contenido o reaparecida en carrera, padre
@@ -254,14 +256,20 @@ B2 cambian: hay que volver a preparar tras la nueva publicación.
   interrupción antes de activar, motivos inválidos, DSN y ausencia de secretos
   en la salida, con carga final mediante los cargadores reales.
 - PostgreSQL 18.4 desechable: `cmd/vec-preparar-material-interno/probar_postgresql_pg18.sh`
-  instala la cadena canónica AD3 1/2, crea un material de idempotencia
-  sintético y un LOGIN de gobierno como el de `vec-server`, **publica con el
-  publicador real de `vec-server`** (pool con su comprobación de identidad,
-  CT y las ocho claves B2, dos veces para comprobar la idempotencia, y
-  comparación byte a byte en el servidor) y ejecuta la herramienta: rechazo
-  mientras el checkpoint no alcanza las claves, positivo tras adelantarlo
-  (el DBA solo toca el checkpoint), transacción de solo lectura (escritura
-  rechazada con 25006), identidad (sin grupo, superusuario, BYPASSRLS,
-  CREATEROLE, membresía de más, NOINHERIT), material divergente, revocación
-  programada y puntero rotado. Requiere Docker (o
-  `VEC_CONTENEDOR_MOTOR=podman`) y la imagen `postgres:18.4-alpine`.
+  instala la cadena canónica AD3 1/2/50a/53a/69, crea un material de
+  idempotencia sintético, un LOGIN de gobierno como el de `vec-server` y el
+  LOGIN nominal de preflight de `vec-interno`. **Nadie toca el checkpoint.**
+  Con el publicador real de `vec-server` publica la clave base CT, las cinco
+  claves que lee CT interno y las ocho B2 (configuración de ayer y después de
+  hoy, repetida, concurrente, con un rollback y un salto de versión) y exige
+  que `comprobar/leer_*_interna_v2('ct'|'personal_b2')` y la consulta exacta
+  de `vec-interno` para CT las acepten de inmediato, mientras v1 (intacta)
+  sigue rechazando CT; repite la publicación B2 (idempotencia y comparación
+  byte a byte en el servidor), reinicia PostgreSQL y comprueba de nuevo más
+  los negativos que alteran el gobierno (mínimos de configuración y raíz
+  retrocedidos, clave sustituida y revocada, solo sobre CT). Por último
+  ejecuta la herramienta: positivo inmediato sin adelantar el checkpoint,
+  transacción de solo lectura (escritura rechazada con 25006), identidad (sin
+  grupo, superusuario, BYPASSRLS, CREATEROLE, membresía de más, NOINHERIT),
+  material divergente, revocación programada y puntero rotado. Requiere
+  Docker (o `VEC_CONTENEDOR_MOTOR=podman`) y la imagen `postgres:18.4-alpine`.

@@ -33,11 +33,10 @@ var errSinFila = errors.New("sin fila")
 // los hechos de vigencia calculados en la misma instantánea. Nunca incluye
 // el secreto.
 type filaClave struct {
-	ClaveID, HuellaGobierno, EmisorID, Audiencia string
-	Version, Revision                            uint64
-	Desde, Hasta                                 time.Time
-	ActoPropio, Vigente, Revocada                bool
-	DentroCheckpoint, PunteroVigente             bool
+	ClaveID, HuellaGobierno, EmisorID, Audiencia  string
+	Version, Revision                             uint64
+	Desde, Hasta                                  time.Time
+	ActoPropio, Vigente, Revocada, PunteroVigente bool
 }
 
 type filaRaiz struct {
@@ -75,8 +74,12 @@ func borrarCapacidades(c *[8]capacidadCotejada) {
 
 // cotejar recibe las ocho claves B2 obtenidas por la ruta de vec-server y
 // exige que cada una esté publicada con las mismas coordenadas, vigente, sin
-// revocar, apuntada como clave de emisión de su audiencia y dentro del
-// checkpoint. El emisor debe ser el de ct_v3.json y la raíz vigente la misma
+// revocar y apuntada como clave de emisión de su audiencia. Como la sonda
+// AD3-69, no compara la revisión de la clave con checkpoint_gobierno.revision:
+// son escalas distintas (el publicador numera las claves desde el máximo
+// existente y el checkpoint avanza por configuración, raíz, punteros o
+// revocaciones); el anti-retroceso queda en los mínimos de configuración y
+// raíz que aplica raizVigente. El emisor debe ser el de ct_v3.json y la raíz vigente la misma
 // que usa ct_v3.json. No borra `claves`: es responsabilidad del llamante.
 func cotejar(ctx context.Context, g fuenteGobierno, ct datosCT, claves *[8]bootstrap.ClaveCapacidadPersonalB2V3) ([8]capacidadCotejada, error) {
 	var salida [8]capacidadCotejada
@@ -98,7 +101,7 @@ func cotejar(ctx context.Context, g fuenteGobierno, ct datosCT, claves *[8]boots
 		}
 		if err != nil || f.ClaveID != d.ClaveID || f.Audiencia != d.Audiencia || f.HuellaGobierno != d.HuellaGobierno ||
 			f.EmisorID != d.EmisorID || !f.Desde.Equal(d.Desde) || !f.Hasta.Equal(d.Hasta) || f.Version == 0 || f.Revision == 0 ||
-			!f.ActoPropio || !f.Vigente || f.Revocada || !f.DentroCheckpoint || !f.PunteroVigente {
+			!f.ActoPropio || !f.Vigente || f.Revocada || !f.PunteroVigente {
 			borrarCapacidades(&salida)
 			return [8]capacidadCotejada{}, errClaveB2
 		}
@@ -218,8 +221,8 @@ SELECT session_user = current_user
   FROM pg_catalog.pg_roles i
  WHERE i.rolname = session_user`
 
-// sqlClavePorHuella calcula vigencia, revocación (programada o efectiva),
-// checkpoint y puntero de emisión vigente de la audiencia con el mismo reloj
+// sqlClavePorHuella calcula vigencia, revocación (programada o efectiva) y
+// puntero de emisión vigente de la audiencia con el mismo reloj
 // clock_timestamp() que la sonda AD3-69.
 const sqlClavePorHuella = `
 SELECT k.clave_id, k.version::bigint, k.revision_gobierno::bigint, k.huella_gobierno_sha256,
@@ -228,7 +231,6 @@ SELECT k.clave_id, k.version::bigint, k.revision_gobierno::bigint, k.huella_gobi
        k.valida_desde <= a.ahora AND a.ahora < k.valida_hasta,
        EXISTS (SELECT 1 FROM vec_autorizacion_atestada_v3.revocacion_clave_capacidad r
                 WHERE r.clave_id = k.clave_id AND r.version = k.version),
-       k.revision_gobierno <= (SELECT c.revision FROM vec_autorizacion_atestada_v3.checkpoint_gobierno c WHERE c.control_id),
        (SELECT ROW(p.clave_id, p.version)
           FROM vec_autorizacion_atestada_v3.puntero_clave_emision p
           JOIN vec_autorizacion_atestada_v3.clave_capacidad_version q
@@ -270,9 +272,9 @@ SELECT r.clave_id, r.version::bigint, r.audiencia_despliegue,
 func (g *gobiernoPostgreSQL) clavePorHuellaSecreto(ctx context.Context, huella string) (filaClave, error) {
 	var f filaClave
 	var version, revision int64
-	var dentro, puntero *bool
+	var puntero *bool
 	err := g.tx.QueryRow(ctx, sqlClavePorHuella, huella).Scan(&f.ClaveID, &version, &revision, &f.HuellaGobierno,
-		&f.EmisorID, &f.Audiencia, &f.Desde, &f.Hasta, &f.ActoPropio, &f.Vigente, &f.Revocada, &dentro, &puntero)
+		&f.EmisorID, &f.Audiencia, &f.Desde, &f.Hasta, &f.ActoPropio, &f.Vigente, &f.Revocada, &puntero)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return filaClave{}, errSinFila
 	}
@@ -280,7 +282,6 @@ func (g *gobiernoPostgreSQL) clavePorHuellaSecreto(ctx context.Context, huella s
 		return filaClave{}, errGobiernoConexion
 	}
 	f.Version, f.Revision = uint64(version), uint64(revision)
-	f.DentroCheckpoint = dentro != nil && *dentro
 	f.PunteroVigente = puntero != nil && *puntero
 	f.Desde, f.Hasta = f.Desde.UTC(), f.Hasta.UTC()
 	return f, nil

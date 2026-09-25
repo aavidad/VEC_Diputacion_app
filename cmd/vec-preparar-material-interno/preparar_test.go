@@ -207,7 +207,7 @@ func (e *escenario) publicar(t *testing.T) {
 		e.huellasB2[i] = c.SHA256
 		e.secretos = append(e.secretos, claves[i].CopiarSecreto())
 		e.gobierno.claves[c.SHA256] = filaClave{ClaveID: c.ClaveID, Version: uint64(40 + i), Revision: uint64(60 + i), HuellaGobierno: c.HuellaGobierno,
-			EmisorID: c.EmisorID, Audiencia: c.Audiencia, Desde: c.Desde, Hasta: c.Hasta, ActoPropio: true, Vigente: true, DentroCheckpoint: true, PunteroVigente: true}
+			EmisorID: c.EmisorID, Audiencia: c.Audiencia, Desde: c.Desde, Hasta: c.Hasta, ActoPropio: true, Vigente: true, PunteroVigente: true}
 		claves[i].Borrar()
 	}
 }
@@ -326,11 +326,6 @@ func TestGobiernoInconsistenteFallaCerrado(t *testing.T) {
 			f := e.gobierno.claves[e.huellasB2[7]]
 			f.Revocada = true
 			e.gobierno.claves[e.huellasB2[7]] = f
-		},
-		"fuera_de_checkpoint": func(e *escenario) {
-			f := e.gobierno.claves[e.huellasB2[1]]
-			f.DentroCheckpoint = false
-			e.gobierno.claves[e.huellasB2[1]] = f
 		},
 		"clave_caducada": func(e *escenario) {
 			f := e.gobierno.claves[e.huellasB2[2]]
@@ -767,6 +762,20 @@ func TestIdentidadDeGobiernoSePropagaSinDetalles(t *testing.T) {
 	for _, clausula := range []string{"NOT i.rolsuper", "NOT i.rolbypassrls", "NOT i.rolcreaterole", "NOT d.admin_option", "rol_id NOT IN"} {
 		if !strings.Contains(sqlIdentidadGobierno, clausula) {
 			t.Fatalf("la comprobación de identidad no exige %s", clausula)
+		}
+	}
+}
+
+// Como la sonda AD3-69, el cotejo no compara la revisión de la clave con
+// checkpoint_gobierno.revision (escalas distintas), pero sí conserva los
+// mínimos de configuración y raíz del checkpoint como anti-retroceso.
+func TestGobiernoSinComparacionEntreEscalasConservaMinimos(t *testing.T) {
+	if strings.Contains(sqlClavePorHuella, "checkpoint") {
+		t.Fatal("la consulta de clave vuelve a comparar con el checkpoint")
+	}
+	for _, clausula := range []string{"cfg.secuencia >= ck.configuracion_secuencia_minima", "r.version >= ck.raiz_version_minima"} {
+		if !strings.Contains(sqlRaizVigente, clausula) {
+			t.Fatalf("la raíz vigente no exige %s", clausula)
 		}
 	}
 }
