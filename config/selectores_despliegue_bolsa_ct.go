@@ -1,6 +1,9 @@
 package config
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 // Selectores de despliegue de capacidades que dependen de migraciones de
 // autorización y de dominio que se instalan aparte del binario. Si el binario
@@ -24,34 +27,55 @@ const (
 
 var (
 	ErrConfiguracionBolsaPortalCandidatoSelector   = errors.New("config: selector del portal del candidato de Bolsa invalido")
-	ErrConfiguracionBolsaPortalCandidatoActivacion = errors.New("config: portal del candidato de Bolsa fuera del perfil de desarrollo")
+	ErrConfiguracionBolsaPortalCandidatoActivacion = errors.New("config: portal del candidato de Bolsa fuera del perfil de desarrollo o sin sus catalogos")
 	ErrConfiguracionCTSeguimientoCeseSelector      = errors.New("config: selector del seguimiento de cese de CT invalido")
-	ErrConfiguracionCTSeguimientoCeseActivacion    = errors.New("config: seguimiento de cese de CT fuera del perfil de desarrollo")
+	ErrConfiguracionCTSeguimientoCeseActivacion    = errors.New("config: seguimiento de cese de CT fuera del perfil de desarrollo o sin sus catalogos")
 )
 
 // BolsaPortalCandidatoDesarrolloActivo valida el selector del portal del
-// candidato sin abrir ficheros.
+// candidato sin abrir ficheros. Encendido exige también el catálogo de reglas
+// de Bolsa: pedirlo sin él detiene el arranque en lugar de dejar las rutas sin
+// montar en silencio.
 func (c Config) BolsaPortalCandidatoDesarrolloActivo() (bool, error) {
 	c = c.Normalize()
+	reglas := c.ReglasEjemplo.normalizar()
 	return selectorDesarrolloActivo(c, c.BolsaPortalCandidatoEnabled,
-		ErrConfiguracionBolsaPortalCandidatoSelector, ErrConfiguracionBolsaPortalCandidatoActivacion)
+		ErrConfiguracionBolsaPortalCandidatoSelector, ErrConfiguracionBolsaPortalCandidatoActivacion,
+		catalogoRequerido{EnvBolsaReglasSourcePath, reglas.BolsaSourcePath})
 }
 
 // CTSeguimientoCeseDesarrolloActivo valida el selector del seguimiento de
-// cese sin abrir ficheros.
+// cese sin abrir ficheros. Encendido exige los tres catálogos que usa (reglas
+// de CT, causas de cese y motivos de rectificación): pedirlo sin alguno
+// detiene el arranque nombrando la variable que falta.
 func (c Config) CTSeguimientoCeseDesarrolloActivo() (bool, error) {
 	c = c.Normalize()
+	reglas := c.ReglasEjemplo.normalizar()
 	return selectorDesarrolloActivo(c, c.CTSeguimientoCeseEnabled,
-		ErrConfiguracionCTSeguimientoCeseSelector, ErrConfiguracionCTSeguimientoCeseActivacion)
+		ErrConfiguracionCTSeguimientoCeseSelector, ErrConfiguracionCTSeguimientoCeseActivacion,
+		catalogoRequerido{EnvCTReglasSourcePath, reglas.CTSourcePath},
+		catalogoRequerido{EnvCTCausasCeseSourcePath, reglas.CausasCeseSourcePath},
+		catalogoRequerido{EnvCTAnalisisMotivosSourcePath, c.CTAnalisisMotivosSourcePath})
 }
 
-func selectorDesarrolloActivo(c Config, valor string, errSelector, errActivacion error) (bool, error) {
+// catalogoRequerido nombra la variable de entorno de un catálogo que una
+// capacidad encendida necesita, con la ruta ya normalizada.
+type catalogoRequerido struct {
+	variable, ruta string
+}
+
+func selectorDesarrolloActivo(c Config, valor string, errSelector, errActivacion error, requeridos ...catalogoRequerido) (bool, error) {
 	switch valor {
 	case "", "false":
 		return false, nil
 	case "true":
 		if !c.DevelopmentEnabledByDoubleKey() {
 			return false, errActivacion
+		}
+		for _, requerido := range requeridos {
+			if requerido.ruta == "" {
+				return false, fmt.Errorf("%w: falta %s", errActivacion, requerido.variable)
+			}
 		}
 		return true, nil
 	default:

@@ -82,20 +82,17 @@ func descriptoresMaterialSeguimientoCeseDesarrollo() []descriptorMaterialConsumi
 
 // seguimientoCeseSolicitado exige pedirlo expresamente
 // (VEC_CT_SEGUIMIENTO_CESE_ENABLED, que requiere AD3-82, AD3-83, CT115 y CT116
-// instaladas) y los tres catálogos de ejemplo; la doble llave de desarrollo
-// la comprueba el propio selector.
+// instaladas). El propio selector comprueba la doble llave de desarrollo y los
+// tres catálogos de ejemplo; la raíz valida el selector antes de componer, de
+// modo que pedirlo sin alguno de ellos detiene el arranque en lugar de dejar
+// las rutas sin montar en silencio.
 func seguimientoCeseSolicitado(cfg config.Config) bool {
 	activo, err := cfg.CTSeguimientoCeseDesarrolloActivo()
 	if err != nil {
 		slog.Error("seguimiento de cese de CT no compuesto: selector inválido", "causa", err)
 		return false
 	}
-	if !activo {
-		return false
-	}
-	r := cfg.ReglasEjemplo
-	return strings.TrimSpace(r.CTSourcePath) != "" && strings.TrimSpace(r.CausasCeseSourcePath) != "" &&
-		strings.TrimSpace(cfg.CTAnalisisMotivosSourcePath) != ""
+	return activo
 }
 
 func motivoSeguimientoCeseDesarrollo(ruta string) vecdomain.ReferenciaEntradaCatalogo {

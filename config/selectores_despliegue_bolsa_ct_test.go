@@ -11,11 +11,18 @@ func TestSelectoresPortalCandidatoYSeguimientoCese(t *testing.T) {
 		fijar                 func(*Config, string)
 		activo                func(Config) (bool, error)
 		errSelector, errDoble error
+		catalogos             []func(*Config)
 	}{
 		{"portal", func(c *Config, v string) { c.BolsaPortalCandidatoEnabled = v }, Config.BolsaPortalCandidatoDesarrolloActivo,
-			ErrConfiguracionBolsaPortalCandidatoSelector, ErrConfiguracionBolsaPortalCandidatoActivacion},
+			ErrConfiguracionBolsaPortalCandidatoSelector, ErrConfiguracionBolsaPortalCandidatoActivacion,
+			[]func(*Config){func(c *Config) { c.ReglasEjemplo.BolsaSourcePath = "bolsa.json" }}},
 		{"cese", func(c *Config, v string) { c.CTSeguimientoCeseEnabled = v }, Config.CTSeguimientoCeseDesarrolloActivo,
-			ErrConfiguracionCTSeguimientoCeseSelector, ErrConfiguracionCTSeguimientoCeseActivacion},
+			ErrConfiguracionCTSeguimientoCeseSelector, ErrConfiguracionCTSeguimientoCeseActivacion,
+			[]func(*Config){
+				func(c *Config) { c.ReglasEjemplo.CTSourcePath = "ct.json" },
+				func(c *Config) { c.ReglasEjemplo.CausasCeseSourcePath = " causas.json " },
+				func(c *Config) { c.CTAnalisisMotivosSourcePath = "motivos.json" },
+			}},
 	}
 	for _, caso := range casos {
 		for _, valor := range []string{"", "false", " false "} {
@@ -35,6 +42,14 @@ func TestSelectoresPortalCandidatoYSeguimientoCese(t *testing.T) {
 			t.Fatalf("%s: sin doble llave: %v", caso.nombre, err)
 		}
 		c.ExecutionProfile, c.AuthMode, c.DevelopmentGuard = ExecutionProfileDevelopment, AuthModeDevelopment, DevelopmentGuardAcknowledgement
+		// Pedido sin alguno de sus catálogos, el arranque se detiene en lugar
+		// de dejar la capacidad sin montar en silencio.
+		for _, fijarCatalogo := range caso.catalogos {
+			if activo, err := caso.activo(c); activo || !errors.Is(err, caso.errDoble) {
+				t.Fatalf("%s: sin todos sus catálogos: %t %v", caso.nombre, activo, err)
+			}
+			fijarCatalogo(&c)
+		}
 		if activo, err := caso.activo(c); !activo || err != nil {
 			t.Fatalf("%s: con doble llave: %t %v", caso.nombre, activo, err)
 		}

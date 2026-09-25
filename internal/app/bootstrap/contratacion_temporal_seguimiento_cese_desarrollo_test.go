@@ -2,6 +2,8 @@ package bootstrap
 
 import (
 	"context"
+	"errors"
+	"strings"
 	"testing"
 
 	"vec-diputacion-granada/config"
@@ -75,6 +77,15 @@ func TestSeguimientoCeseSoloSeComponeConSelectorYLosTresCatalogos(t *testing.T) 
 	cfg.ExecutionProfile, cfg.AuthMode, cfg.DevelopmentGuard = config.ExecutionProfileDevelopment, config.AuthModeDevelopment, config.DevelopmentGuardAcknowledgement
 	if !seguimientoCeseSolicitado(cfg) {
 		t.Fatal("pedido, con doble llave y con los tres catálogos se compone")
+	}
+	sinCausas := cfg
+	sinCausas.ReglasEjemplo.CausasCeseSourcePath = ""
+	if err := validarSelectoresDespliegueBolsaCT(sinCausas); !errors.Is(err, config.ErrConfiguracionCTSeguimientoCeseActivacion) ||
+		!strings.Contains(err.Error(), config.EnvCTCausasCeseSourcePath) {
+		t.Fatalf("pedido sin causas de cese el arranque debe fallar nombrando la variable: %v", err)
+	}
+	if seguimientoCeseSolicitado(sinCausas) {
+		t.Fatal("sin causas de cese no se compone")
 	}
 	rutas, err := nuevasRutasSeguimientoCeseDesarrollo(&DependenciasCT{cfg: config.Config{}}, nil)
 	if err != nil || rutas != nil {

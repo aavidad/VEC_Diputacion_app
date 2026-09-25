@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"errors"
+	"fmt"
 
 	"vec-diputacion-granada/config"
 )
@@ -32,6 +33,12 @@ func seleccionMaterialCTDesarrolloDesdeConfig(cfg config.Config) (seleccionMater
 	personalB2, err := cfg.PersonalB2GobiernoDesarrolloActivo()
 	if err != nil {
 		return s, err
+	}
+	// Pedir el portal del candidato sin poder componer «Mi bolsa» (PostgreSQL
+	// de llamamientos y material de identidad del candidato) no se ignora.
+	if portal, _ := cfg.BolsaPortalCandidatoDesarrolloActivo(); portal && !debeComponerMiBolsaDesarrollo(cfg) {
+		return s, fmt.Errorf("%w: falta Mi bolsa (PostgreSQL de llamamientos o identidad del candidato)",
+			config.ErrConfiguracionBolsaPortalCandidatoActivacion)
 	}
 	s = seleccionMaterialCTDesarrollo{
 		borradoresBolsa:     cfg.BolsaBorradoresEnabled,

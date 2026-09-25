@@ -88,6 +88,23 @@ func TestValidacionSelectoresDespliegueBolsaCT(t *testing.T) {
 	}
 }
 
+// Pedir el portal del candidato sin su catálogo de reglas o sin poder componer
+// «Mi bolsa» detiene el arranque en lugar de no montar sus rutas en silencio.
+func TestPortalCandidatoPedidoSinSusRequisitosDetieneElArranque(t *testing.T) {
+	cfg := config.Config{BolsaPortalCandidatoEnabled: "true", ExecutionProfile: config.ExecutionProfileDevelopment,
+		AuthMode: config.AuthModeDevelopment, DevelopmentGuard: config.DevelopmentGuardAcknowledgement}
+	if err := validarSelectoresDespliegueBolsaCT(cfg); !errors.Is(err, config.ErrConfiguracionBolsaPortalCandidatoActivacion) {
+		t.Fatalf("sin reglas de Bolsa = %v", err)
+	}
+	cfg.ReglasEjemplo.BolsaSourcePath = "bolsa.json"
+	if err := validarSelectoresDespliegueBolsaCT(cfg); err != nil {
+		t.Fatalf("con reglas de Bolsa el selector es válido: %v", err)
+	}
+	if _, err := seleccionMaterialCTDesarrolloDesdeConfig(cfg); !errors.Is(err, config.ErrConfiguracionBolsaPortalCandidatoActivacion) {
+		t.Fatalf("sin Mi bolsa = %v", err)
+	}
+}
+
 func TestDiagnosticoMigracionesPortalCandidato(t *testing.T) {
 	completo := estadoMigracionesPortalCandidato{ad384: true, ad386: true, bolsa29: true, bolsa30: true, bolsa40: true}
 	if err := completo.diagnostico(); err != nil {
