@@ -13,13 +13,15 @@ import {
   validarRespuestaContactos,
   validarRespuestaEstadisticas,
 } from "./portal-bolsas-contrato.js";
-import { traducirBolsaInterna, traducirPortal } from "./portal-i18n.js?v=20260926-portal-rrhh-main-v1";
+import { LOCALIZACION_PORTAL, ZONA_HORARIA_PORTAL, traducirBolsaInterna, traducirPortal } from "./portal-i18n.js?v=20260925-plazo-regla-v1";
 import { crearControladorOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260923-pweb14-v1";
 import { emitirLlamamiento, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js";
 export { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js";
 
 export const RUTA_BOLSAS = "/api/vec/bolsa/bolsas";
 export const RUTA_ESTADISTICAS_BOLSA = "/api/vec/bolsa/estadisticas";
+export const RUTA_PLAZO_RESPUESTA_LLAMAMIENTO = "/api/vec/bolsa/llamamientos/plazo-respuesta";
+const ESQUEMA_PLAZO_RESPUESTA = "vec.bolsa.llamamiento.plazo_respuesta.v1";
 // El enrutador del servidor solo acepta rutas canónicas (sin secuencias
 // porcentuales): las referencias llevan ":" y "-", legales en un segmento de
 // ruta, así que se envían sin escapar y solo se escapa lo que no es legal.
@@ -288,6 +290,42 @@ export async function registrarContactoCandidato(bolsaRef, participacionRef, pay
   } catch(_error){return{ok:false,status:0,codigo:"error_red",mensaje:traducirBolsaInterna("contacto_comunicacion_error")}}
 }
 
+/**
+ * Consulta de solo lectura del plazo de respuesta que propone el catálogo de
+ * reglas de Bolsa. Sin catálogo responde configurada=false; cualquier fallo o
+ * contrato inesperado deja el asistente B7 con el texto libre de siempre.
+ */
+export async function consultarPlazoRespuestaLlamamiento({ fetchImpl = globalThis.fetch, signal } = {}) {
+  try {
+    const respuesta = await fetchImpl(RUTA_PLAZO_RESPUESTA_LLAMAMIENTO, { method: "GET", credentials: "same-origin", mode: "same-origin", cache: "no-store", redirect: "error", signal, headers: { Accept: "application/json" } });
+    if (!respuesta?.ok) return { ok: false, status: respuesta?.status || 0 };
+    const datos = (await respuesta.json())?.data;
+    if (datos?.esquema !== ESQUEMA_PLAZO_RESPUESTA || typeof datos.configurada !== "boolean") return { ok: false, status: 0 };
+    return { ok: true, datos };
+  } catch (_error) {
+    return { ok: false, status: 0 };
+  }
+}
+
+/**
+ * Convierte la regla en la propuesta editable del paso 3 y su procedencia,
+ * visible solo para RRHH. Devuelve null si no hay regla válida.
+ */
+export function propuestaPlazoRespuesta(datos) {
+  if (!datos?.configurada) return null;
+  const regla = datos.regla || {};
+  const venceEn = new Date(datos.vencimiento?.vence_en || "");
+  const cadena = (valor) => typeof valor === "string" && valor.trim().length > 0;
+  if (!cadena(regla.texto) || !/^[^:\s]+:\d+:[^:\s]+$/.test(regla.referencia || "") || !["ejemplo", "reglamento"].includes(regla.origen) ||
+    (regla.origen === "reglamento" && !cadena(regla.articulo)) || !Number.isFinite(venceEn.getTime())) return null;
+  const fecha = new Intl.DateTimeFormat(LOCALIZACION_PORTAL, { timeZone: ZONA_HORARIA_PORTAL, weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(venceEn);
+  const hora = new Intl.DateTimeFormat(LOCALIZACION_PORTAL, { timeZone: ZONA_HORARIA_PORTAL, hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }).format(venceEn);
+  const procedencia = regla.origen === "ejemplo"
+    ? traducirPortal("panel_b7_plazo_procedencia_ejemplo")
+    : traducirPortal(regla.ejemplo ? "panel_b7_plazo_procedencia_reglamento_parcial" : "panel_b7_plazo_procedencia_reglamento", { articulo: regla.articulo });
+  return { texto: traducirPortal("panel_b7_plazo_regla_texto", { fecha, hora }), procedencia, ejemplo: regla.origen === "ejemplo" || regla.ejemplo === true, descripcion: regla.texto, referencia: regla.referencia };
+}
+
 export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFuenteLectura = () => null, documento = globalThis.document }) {
   const controladoresLectura = new Map();
   let controladorSeleccionMasiva = null;
@@ -299,6 +337,18 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     registro.flujo.participaciones = [...registro.comando.participaciones];
     registro.flujo.configuracion = { ...registro.comando.configuracion };
     registro.flujo.clave_idempotencia = registro.comando.clave_idempotencia;
+  }
+  // La propuesta del catálogo se pide al abrir el asistente, para que esté
+  // lista en el paso 3; sin ella el plazo sigue siendo texto libre.
+  async function cargarPlazoRespuestaB7(flujo) {
+    const resultado = await consultarPlazoRespuestaLlamamiento();
+    const propuesta = resultado.ok ? propuestaPlazoRespuesta(resultado.datos) : null;
+    if (!propuesta || estado.filtrosBolsa?.nuevo_llamamiento !== flujo) return;
+    flujo.reglaPlazo = propuesta;
+    // Si RRHH ya está en el paso 3 no se vuelve a pintar (perdería lo escrito):
+    // solo se rellena el plazo si sigue vacío.
+    const campo = flujo.paso === 3 ? documento.querySelector?.('[data-bolsa-form="b7-paso3"] input[name="plazo"]') : null;
+    if (campo && !String(campo.value || "").trim()) campo.value = propuesta.texto;
   }
   const plazoIndicado = (valor) => {
     const plazo = String(valor || "").trim();
@@ -754,6 +804,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
         if (estado.filtrosBolsa?.nuevo_llamamiento?.enviando) return;
         invalidarSeleccionMasiva();
         estado.filtrosBolsa = { ...estado.filtrosBolsa, estado: "", texto: "", nuevo_llamamiento: { paso: 1, estados: ["disponible"], participaciones: [], configuracion: null, error: "", recibo: "", seleccion_total: false, cursoresPagina: [""] } };
+        void cargarPlazoRespuestaB7(estado.filtrosBolsa.nuevo_llamamiento);
         renderizar();
         documento.querySelector('[aria-current="step"]')?.focus?.();
       } else if (accion === "cancelar-b7") {
