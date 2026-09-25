@@ -158,6 +158,8 @@ static/portal-empleado/modulos/contratacion-temporal/contrato-expedientes.js
 static/portal-empleado/modulos/contratacion-temporal/contrato-analisis.js
 static/portal-empleado/modulos/contratacion-temporal/contrato.js
 static/portal-empleado/modulos/contratacion-temporal/contrato-cobertura.js
+static/portal-empleado/modulos/contratacion-temporal/avisos-via-cobertura.js
+static/portal-empleado/modulos/contratacion-temporal/contrato-avisos-via-cobertura.js
 static/portal-empleado/modulos/contratacion-temporal/contrato-asignacion.js
 static/portal-empleado/modulos/contratacion-temporal/contrato-informe-juridico.js
 static/portal-empleado/modulos/contratacion-temporal/contrato-fiscalizacion.js
@@ -206,6 +208,7 @@ static/portal-empleado/modulos/contratacion-temporal/i18n-expedientes.js
 static/portal-empleado/modulos/contratacion-temporal/i18n-llamamiento.js
 static/portal-empleado/modulos/contratacion-temporal/i18n.js
 static/portal-empleado/modulos/contratacion-temporal/i18n-subsanacion-reparos.js
+static/portal-empleado/modulos/contratacion-temporal/i18n-avisos-via-cobertura.js
 static/portal-empleado/modulos/contratacion-temporal/presentador-expedientes.js
 static/portal-empleado/modulos/contratacion-temporal/renderizado-llamamiento.js
 static/portal-empleado/modulos/contratacion-temporal/formulario-propuesta-formalizacion.js
@@ -279,3 +282,4 @@ static/portal-empleado/modulos/contratacion-temporal/vista-estadisticas.js
 static/portal-empleado/modulos/contratacion-temporal/cliente-http-estadisticas.js
 static/portal-empleado/modulos/contratacion-temporal/contrato-estadisticas.js
 static/portal-empleado/modulos/contratacion-temporal/estadisticas.css
+static/portal-empleado/modulos/contratacion-temporal/avisos-via-cobertura.css

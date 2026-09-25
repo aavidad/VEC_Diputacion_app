@@ -1,4 +1,5 @@
 /** Contrato neutral y cerrado de propuesta, decisión y rectificación. */
+import { validarAvisosViaCobertura } from "./contrato-avisos-via-cobertura.js";
 
 const MAXIMO_ENTERO_SEGURO = Number.MAX_SAFE_INTEGER;
 const MAXIMA_PRIORIDAD = 65_535;
@@ -327,9 +328,11 @@ export function validarPropuestaCobertura(propuesta) {
     "evaluaciones",
     "identidad_semantica",
   ];
-  const campos = Object.hasOwn(propuesta ?? {}, "motivos_alternativa")
-    ? [...camposV1, "motivos_alternativa"]
-    : camposV1;
+  const campos = [
+    ...camposV1,
+    ...["motivos_alternativa", "avisos_via"]
+      .filter((campo) => Object.hasOwn(propuesta ?? {}, campo)),
+  ];
   exigirCamposExactos(propuesta, campos, "propuesta de cobertura");
   if (propuesta.esquema
       !== "vec.contratacion-temporal.propuesta-cobertura.v1"
@@ -376,6 +379,9 @@ export function validarPropuestaCobertura(propuesta) {
       throw new TypeError("propuesta de cobertura no válida");
     }
     salida.motivos_alternativa = motivos;
+  }
+  if (Object.hasOwn(propuesta, "avisos_via")) {
+    salida.avisos_via = validarAvisosViaCobertura(propuesta.avisos_via);
   }
   return clonarYCongelar(salida);
 }

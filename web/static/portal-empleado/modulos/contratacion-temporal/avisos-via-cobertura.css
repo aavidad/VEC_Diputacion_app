@@ -1,0 +1,135 @@
+/* Comprobaciones automáticas de la vía de cobertura (fase 3). Solo tokens del tema. */
+.ct-avisos-via {
+  display: grid;
+  min-width: 0;
+  margin: 0 0 16px;
+  overflow: hidden;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio-lg);
+  background: var(--portal-superficie);
+  box-shadow: var(--portal-sombra-sm);
+}
+
+.ct-avisos-via-titulo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--portal-borde);
+  background: var(--portal-superficie-alterna);
+}
+
+.ct-avisos-via-titulo h3 {
+  margin: 0;
+  color: var(--portal-tinta);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.ct-avisos-via-boton-ayuda {
+  display: inline-flex;
+  min-width: 28px;
+  min-height: 28px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--portal-borde);
+  border-radius: 999px;
+  background: var(--portal-superficie);
+  color: var(--portal-azul-700);
+  cursor: pointer;
+  font-size: .875rem;
+  font-weight: 600;
+}
+
+.ct-avisos-via-boton-ayuda:hover,
+.ct-avisos-via-boton-ayuda:focus-visible,
+.ct-avisos-via-boton-ayuda[aria-expanded="true"] {
+  border-color: var(--portal-azul-700);
+  outline: 2px solid transparent;
+  box-shadow: 0 0 0 3px var(--portal-azul-100);
+}
+
+.ct-avisos-via-ayuda {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--portal-borde);
+  background: var(--portal-azul-100);
+  color: var(--portal-tinta);
+  font-size: .8125rem;
+}
+
+.ct-avisos-via-ayuda[hidden] { display: none; }
+.ct-avisos-via-ayuda p { margin: 0 0 8px; }
+
+.ct-avisos-via-reglas {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.ct-avisos-via-reglas > div {
+  padding: 8px 12px;
+  border: 1px solid var(--portal-borde);
+  border-radius: var(--portal-radio);
+  background: var(--portal-superficie);
+}
+
+.ct-avisos-via-reglas dt { font-weight: 600; }
+.ct-avisos-via-reglas dd { margin: 4px 0 0; }
+.ct-avisos-via-reglas dd p { margin: 0 0 4px; }
+.ct-avisos-via-origen { color: var(--portal-azul-700); font-weight: 600; }
+.ct-avisos-via-referencia { color: var(--portal-muted); overflow-wrap: anywhere; }
+
+.ct-avisos-via-cuerpo { padding: 12px 16px; }
+
+.ct-avisos-via-vacio {
+  margin: 0;
+  color: var(--portal-muted);
+  font-size: .875rem;
+}
+
+.ct-avisos-via-lista {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ct-aviso-via {
+  padding: 10px 12px;
+  border: 1px solid var(--portal-borde);
+  border-left: 4px solid var(--ct-tono, var(--portal-muted));
+  border-radius: var(--portal-radio);
+  background: var(--ct-tono-suave, var(--portal-superficie-alterna));
+  font-size: .875rem;
+}
+
+.ct-aviso-via p { margin: 4px 0 0; color: var(--portal-tinta); }
+
+.ct-aviso-via-cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.ct-aviso-via-pastilla {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--portal-superficie);
+  color: var(--ct-tono, var(--portal-muted));
+  font-size: .75rem;
+  font-weight: 600;
+}
+
+.ct-aviso-via-pastilla::before {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ct-tono, var(--portal-muted));
+  content: "";
+}
