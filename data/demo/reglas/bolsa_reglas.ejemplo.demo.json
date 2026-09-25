@@ -548,7 +548,8 @@
           "duda": "Duda 62.",
           "unidad": "ninguna",
           "sancion": "pasar_al_final",
-          "efecto": "ninguna"
+          "efecto": "ninguna",
+          "orden": "final"
         },
         "orden": 34
       },
@@ -566,7 +567,8 @@
           "inicio": "notificacion",
           "computo": "civil",
           "sancion": "suspension",
-          "efecto": "pausar"
+          "efecto": "pausar",
+          "fin": "automatico"
         },
         "orden": 35
       },
@@ -583,6 +585,21 @@
           "valor": "interpuesto,estimado,desestimado,inadmitido,desistido"
         },
         "orden": 36
+      },
+      {
+        "clave": "b24.recurso_revierte",
+        "etiqueta": "Recurso de reposición estimado",
+        "descripcion": "Estados del recurso que dejan sin efecto la sanción: la baja o la suspensión vigente se revierten a la situación anterior y la persona deja de estar al final de la lista. Lo resuelve una persona distinta de quien lo anota.",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Ley 39/2015, art. 119.",
+          "duda": "Duda 62.",
+          "unidad": "lista",
+          "valor": "estimado",
+          "motivo": "Readmisión por recurso de reposición estimado"
+        },
+        "orden": 37
       }
     ],
     "estado": "publicado",

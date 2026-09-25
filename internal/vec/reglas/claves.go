@@ -48,6 +48,9 @@ const (
 	// de modo que añadir otra no exige cambiar código.
 	BolsaPrefijoSanciones = "b24.sancion."
 	BolsaEstadosRecurso   = "b24.recurso_estados"
+	// BolsaEstadosRecursoRevocatorios lista los estados del recurso que
+	// revierten la sanción (readmisión); sin la entrada ninguno la revierte.
+	BolsaEstadosRecursoRevocatorios = "b24.recurso_revierte"
 )
 
 // Reglas de Contratación temporal.
