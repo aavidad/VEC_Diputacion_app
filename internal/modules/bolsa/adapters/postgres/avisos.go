@@ -10,7 +10,30 @@ import (
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
 )
 
-type ConsultaAvisosRRHHPostgreSQL struct{ pool *pgxpool.Pool }
+type ConsultaAvisosRRHHPostgreSQL struct {
+	pool *pgxpool.Pool
+	// portal añade las solicitudes y respuestas del portal del candidato
+	// (Bolsa 000030); solo se activa si esa migración está compuesta.
+	portal bool
+}
+
+// NuevaConsultaAvisosRRHHConPortalPostgreSQL incluye en la bandeja las
+// solicitudes pendientes y las respuestas del portal del candidato.
+func NuevaConsultaAvisosRRHHConPortalPostgreSQL(pool *pgxpool.Pool) (*ConsultaAvisosRRHHPostgreSQL, error) {
+	c, err := NuevaConsultaAvisosRRHHPostgreSQL(pool)
+	if err != nil {
+		return nil, err
+	}
+	c.portal = true
+	return c, nil
+}
+
+func (c *ConsultaAvisosRRHHPostgreSQL) origen() string {
+	if c.portal {
+		return `(SELECT * FROM vec_bolsa_llamamientos.consultar_avisos_rrhh_v1($1) UNION ALL SELECT * FROM vec_bolsa_llamamientos.consultar_avisos_portal_rrhh_v1($1)) a`
+	}
+	return `vec_bolsa_llamamientos.consultar_avisos_rrhh_v1($1) a`
+}
 
 var _ puertosbolsa.ConsultaAvisosRRHH = (*ConsultaAvisosRRHHPostgreSQL)(nil)
 
@@ -25,7 +48,7 @@ func (c *ConsultaAvisosRRHHPostgreSQL) ListarAvisosRRHH(ctx context.Context, cor
 	if c == nil || c.pool == nil || ctx == nil || corte.IsZero() || offset < 0 || limite < 1 || limite > 101 {
 		return nil, puertosbolsa.ErrConsultaAvisosNoDisponible
 	}
-	filas, err := c.pool.Query(ctx, `SELECT tipo,bolsa_ref,referencia,detalle,fecha FROM vec_bolsa_llamamientos.consultar_avisos_rrhh_v1($1) ORDER BY fecha DESC,tipo,referencia LIMIT $2 OFFSET $3`, corte, limite, offset)
+	filas, err := c.pool.Query(ctx, `SELECT tipo,bolsa_ref,referencia,detalle,fecha FROM `+c.origen()+` ORDER BY fecha DESC,tipo,referencia LIMIT $2 OFFSET $3`, corte, limite, offset)
 	if err != nil {
 		return nil, puertosbolsa.ErrConsultaAvisosNoDisponible
 	}
@@ -49,16 +72,22 @@ func (c *ConsultaAvisosRRHHPostgreSQL) ContarAvisosRRHH(ctx context.Context, cor
 	if c == nil || c.pool == nil || ctx == nil || corte.IsZero() {
 		return nil, puertosbolsa.ErrConsultaAvisosNoDisponible
 	}
-	filas, err := c.pool.Query(ctx, `SELECT tipo,count(*) FROM vec_bolsa_llamamientos.consultar_avisos_rrhh_v1($1) GROUP BY tipo`, corte)
+	filas, err := c.pool.Query(ctx, `SELECT tipo,count(*) FROM `+c.origen()+` GROUP BY tipo`, corte)
 	if err != nil {
 		return nil, puertosbolsa.ErrConsultaAvisosNoDisponible
 	}
 	defer filas.Close()
 	conteos := map[string]int{dominiobolsa.AvisoSaltoOrden: 0, dominiobolsa.AvisoTresAnos: 0}
+	if c.portal {
+		conteos[dominiobolsa.AvisoSolicitudPortal], conteos[dominiobolsa.AvisoRespuestaPortal] = 0, 0
+	}
 	for filas.Next() {
 		var tipo string
 		var total int
-		if err := filas.Scan(&tipo, &total); err != nil || (tipo != dominiobolsa.AvisoSaltoOrden && tipo != dominiobolsa.AvisoTresAnos) || total < 0 {
+		if err := filas.Scan(&tipo, &total); err != nil || total < 0 {
+			return nil, puertosbolsa.ErrConsultaAvisosNoDisponible
+		}
+		if _, conocido := conteos[tipo]; !conocido {
 			return nil, puertosbolsa.ErrConsultaAvisosNoDisponible
 		}
 		conteos[tipo] = total
