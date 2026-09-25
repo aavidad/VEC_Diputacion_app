@@ -148,11 +148,21 @@ BEGIN
    SELECT 1 FROM f4b_acl_grupo a
    WHERE a.grantable OR NOT (
         (a.clase='base' AND a.objeto=current_database() AND a.privilegio='CONNECT')
-     OR (EXISTS (SELECT 1 FROM f4b_esquema_permitido p WHERE p.grupo=a.grupo AND p.esquema=a.esquema)
+     OR (EXISTS (SELECT 1 FROM f4b_esquema_permitido p
+                 WHERE p.grupo=a.grupo AND p.esquema=a.esquema AND NOT p.solo_requerida)
          AND ((a.clase='esquema' AND a.privilegio='USAGE')
            OR (a.clase IN ('relacion','columna') AND a.privilegio='SELECT')
            OR (a.clase='funcion' AND a.privilegio='EXECUTE')
-           OR (a.clase='tipo' AND a.privilegio='USAGE'))))
+           OR (a.clase='tipo' AND a.privilegio='USAGE')))
+     -- Esquema restringido: solo lo que figura en la lista positiva.
+     OR (EXISTS (SELECT 1 FROM f4b_esquema_permitido p
+                 WHERE p.grupo=a.grupo AND p.esquema=a.esquema AND p.solo_requerida)
+         AND EXISTS (SELECT 1 FROM f4b_acl_requerida e
+                     WHERE e.grupo=a.grupo AND e.clase=a.clase AND e.privilegio=a.privilegio
+                       AND e.clase IN ('esquema','funcion')
+                       AND a.objeto=CASE e.clase
+                         WHEN 'funcion' THEN (SELECT to_regprocedure(e.objeto)::text)
+                         ELSE e.objeto END)))
  ) OR EXISTS (
    SELECT 1 FROM pg_shdepend d JOIN pg_roles g ON g.oid=d.refobjid
    WHERE g.rolname IN (SELECT grupo FROM f4b_cuenta)

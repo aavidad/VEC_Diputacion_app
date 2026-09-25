@@ -11,7 +11,12 @@ case "$test_base/" in "$repo_dir/"*) echo 'base de prueba dentro de Git' >&2; ex
 [[ "$(stat -c '%a' "$test_base")" == 700 && "$(stat -c '%u' "$test_base")" == "$(id -u)" ]] || exit 2
 test_dir="$(mktemp -d "$test_base/f4b-pg18.XXXXXXXX")"
 container="f4b-dietas-pg18-$$"
-trap 'docker rm -f "$container" >/dev/null 2>&1 || true' EXIT
+# Datos del servidor en un directorio propio montado con -v (sin volumen
+# anónimo de la imagen), en memoria y borrado al terminar. El servidor corre
+# con el UID del usuario para poder borrarlo sin privilegios.
+datos="/dev/shm/vec-pg-f4b-$$"
+mkdir -m 700 "$datos"
+trap 'docker rm -f "$container" >/dev/null 2>&1 || true; rm -rf -- "$datos"' EXIT
 
 # CA y certificado de servidor sintéticos (SAN localhost) para verify-full.
 openssl req -x509 -newkey rsa:2048 -nodes -days 2 -subj '/CN=vec-f4b-ca-prueba' \
@@ -25,7 +30,8 @@ openssl req -x509 -newkey rsa:2048 -nodes -days 2 -subj '/CN=vec-f4b-ca-ajena' \
   -keyout "$test_dir/ajena.key" -out "$test_dir/ajena.crt" >/dev/null 2>&1
 
 docker run --rm --network none -d --name "$container" \
-  -e POSTGRES_HOST_AUTH_METHOD=trust \
+  --user "$(id -u):$(id -g)" -e POSTGRES_HOST_AUTH_METHOD=trust \
+  -v "$datos:/var/lib/postgresql:rw" \
   -v "$repo_dir:$repo_dir:ro" -v "$test_dir:$test_dir:rw" \
   postgres:18.4 >/dev/null
 for _ in $(seq 1 60); do
@@ -79,7 +85,7 @@ sin_efecto() {
 }
 
 # TLS del servidor y pg_hba: las once cuentas solo por hostssl con SCRAM.
-docker exec -u root "$container" sh -c "mkdir -p /var/lib/postgresql/tls && cp '$test_dir/servidor.crt' '$test_dir/servidor.key' /var/lib/postgresql/tls/ && chown -R postgres:postgres /var/lib/postgresql/tls && chmod 600 /var/lib/postgresql/tls/servidor.key"
+docker exec -u root "$container" sh -c "mkdir -p /var/lib/postgresql/tls && cp '$test_dir/servidor.crt' '$test_dir/servidor.key' /var/lib/postgresql/tls/ && chown -R $(id -u):$(id -g) /var/lib/postgresql/tls && chmod 600 /var/lib/postgresql/tls/servidor.key"
 hba="$(psql_admin -c 'SHOW hba_file')"
 cuentas=(vec_dietas_r1d_registro_identidad_desarrollo vec_dietas_r1d_revalidacion_identidad_desarrollo
   vec_dietas_r1d_contexto_desarrollo vec_dietas_r1d_fuente_autorizacion_desarrollo
@@ -179,6 +185,10 @@ psql_admin -c 'CREATE ROLE f4b_login_ajeno LOGIN; GRANT vec_personal_d7_ejecutor
 debe_fallar login-ajeno 'LOGIN ajeno conserva ruta a grupo Dietas o Personal D7' --rollback
 psql_admin -c 'DROP ROLE f4b_login_ajeno' >/dev/null
 sin_efecto login-ajeno
+psql_admin -c 'CREATE ROLE f4b_login_ajeno LOGIN; GRANT vec_dietas_ejecutor TO f4b_login_ajeno' >/dev/null
+debe_fallar login-ajeno-dietas 'LOGIN ajeno conserva ruta a grupo Dietas o Personal D7' --rollback
+psql_admin -c 'DROP ROLE f4b_login_ajeno' >/dev/null
+sin_efecto login-ajeno-dietas
 
 psql_admin -c 'CREATE ROLE vec_personal_d7_asignacion NOLOGIN; GRANT vec_personal_d7_ejecutor TO vec_personal_d7_asignacion WITH ADMIN FALSE, INHERIT TRUE, SET TRUE' >/dev/null
 debe_fallar set-true 'cuentas o grupos F4b con atributos' --commit
@@ -199,6 +209,14 @@ psql_admin -c 'GRANT INSERT ON vec_dietas.version_tarifa_provisional TO vec_diet
 debe_fallar escritura-directa 'ACL de grupo fuera de los esquemas permitidos F4b' --rollback
 psql_admin -c 'REVOKE INSERT ON vec_dietas.version_tarifa_provisional FROM vec_dietas_ejecutor' >/dev/null
 sin_efecto escritura-directa
+
+# En AD3 el ejecutor solo puede tener USAGE (AD3-81) y el EXECUTE de rutas.
+psql_admin -c 'CREATE TABLE vec_autorizacion_atestada_v3.consumo_decision_v3 (id integer); GRANT SELECT ON vec_autorizacion_atestada_v3.consumo_decision_v3 TO vec_dietas_ejecutor' >/dev/null
+debe_fallar ad3-tabla 'ACL de grupo fuera de los esquemas permitidos F4b' --rollback
+psql_admin -c 'REVOKE SELECT ON vec_autorizacion_atestada_v3.consumo_decision_v3 FROM vec_dietas_ejecutor; GRANT SELECT (id) ON vec_autorizacion_atestada_v3.consumo_decision_v3 TO vec_dietas_ejecutor' >/dev/null
+debe_fallar ad3-columna 'ACL de grupo fuera de los esquemas permitidos F4b' --rollback
+psql_admin -c 'DROP TABLE vec_autorizacion_atestada_v3.consumo_decision_v3' >/dev/null
+sin_efecto ad3-tabla
 
 psql_admin -c 'GRANT pg_read_all_data TO vec_dietas_registrador_frontera' >/dev/null
 debe_fallar ascenso 'cuentas o grupos F4b con atributos' --rollback
@@ -290,4 +308,4 @@ fi
 if rg -q -e 'SCRAM-SHA-256\$4096:' -e 'eyJ2ZWNfZGlldGFzX2Y0' "$test_dir"/*.err "$test_dir"/*.out; then
   echo 'verificador SCRAM en la salida del ejecutor' >&2; exit 1
 fi
-echo "PG18 F4b: estado 0600 sin sobrescritura, nueve negativos sin efecto, ROLLBACK limpio, COMMIT con once LOGIN (una membresía INHERIT/SET FALSE/ADMIN FALSE), sonda TLS verify-full 11/11 y sin TLS/CA ajena rechazados, reentrada denegada, retirada v4, testigos CT/Bolsa, require_auth frente a trust y registro del servidor sin verificadores OK"
+echo "PG18 F4b: estado 0600 sin sobrescritura, doce negativos sin efecto, ROLLBACK limpio, COMMIT con once LOGIN (una membresía INHERIT/SET FALSE/ADMIN FALSE), sonda TLS verify-full 11/11 y sin TLS/CA ajena rechazados, reentrada denegada, retirada v4, testigos CT/Bolsa, require_auth frente a trust y registro del servidor sin verificadores OK"

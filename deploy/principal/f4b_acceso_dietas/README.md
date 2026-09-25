@@ -55,8 +55,10 @@ en [`03_entorno.md`](../03_entorno.md#dietas-con-la-composición-actual-variable
   `USAGE`/`SELECT`/`EXECUTE` en sus esquemas (Dietas: `vec_dietas`,
   `vec_personal`, `vec_autorizacion_atestada_v3`; Personal D7 y su auditoría:
   `vec_personal`; auditoría Dietas: `vec_dietas`; identidad, contexto y
-  autorización: el suyo). Escritura directa de tablas, CT/Bolsa, otra base o
-  `CREATE`/`TEMP` detienen F4b.
+  autorización: el suyo). En `vec_autorizacion_atestada_v3` el ejecutor solo
+  puede tener el `USAGE` de AD3-81 y el `EXECUTE` de la fachada de rutas, sin
+  `SELECT` de tablas ni columnas. Escritura directa de tablas, CT/Bolsa, otra
+  base o `CREATE`/`TEMP` detienen F4b.
 - Ninguna concesión a `PUBLIC` en la base ni en esquemas, relaciones o
   funciones `vec_`.
 
@@ -125,11 +127,14 @@ verificadores, membresías e historia. No usar P6 de nuevo ni `DOWN`.
 
 `VEC_F4B_TEST_BASE=<directorio_privado_0700> bash deploy/principal/f4b_acceso_dietas/probar_pg18.sh`
 
-PostgreSQL 18.4 desechable sin red, CA y certificado de servidor sintéticos y
+PostgreSQL 18.4 desechable sin red, con los datos en `/dev/shm/vec-pg-f4b-<pid>`
+montado con `-v` (sin volumen anónimo) y borrado al terminar, CA y certificado
+de servidor sintéticos y
 `pg_hba` solo `hostssl` para las once cuentas. Reproduce R1D + P6, crea stubs
 de las firmas requeridas y prueba: estado `0600` sin sobrescritura; estado con
-permisos abiertos, LOGIN ajeno, `SET TRUE`, novena cuenta R1D, ACL a CT,
-escritura directa, ascenso a `pg_read_all_data`, ACL requerida ausente,
+permisos abiertos, LOGIN ajeno con ruta a Personal D7 o al ejecutor Dietas,
+`SET TRUE`, novena cuenta R1D, ACL a CT, escritura directa, `SELECT` de tabla
+o columna AD3 al ejecutor, ascenso a `pg_read_all_data`, ACL requerida ausente,
 `PUBLIC` y cuenta R1D sin contraseña rechazados sin efecto; `ROLLBACK` limpio
 (ni siquiera el `CONNECT` del grupo D7); adopción de una cuenta D7 ya
 preparada; `COMMIT` con once LOGIN; reentrada denegada; sonda TLS 11/11 con
