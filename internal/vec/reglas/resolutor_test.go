@@ -98,7 +98,7 @@ func TestResolutorResuelveTodasLasClavesPublicadas(t *testing.T) {
 			BolsaRecuperaPosicion, BolsaPrestaServicios, BolsaAvisoEncadenamiento, BolsaPausaVoluntaria,
 			BolsaVacanteDuracionMaxima, BolsaSAEDuracionMaxima, BolsaPlazoDocumentacion,
 			BolsaDocumentosIncorporacion, BolsaPlazoIncorporacion, BolsaConsecuencias, BolsaVigencia,
-			BolsaAgotamiento, BolsaCamposPortal,
+			BolsaAgotamiento, BolsaCamposPortal, BolsaPortalCandidato,
 		}},
 		{rutaReglasCTPrueba, CatalogoContratacionTemporal, ModuloContratacionTemporal, []string{
 			CTPlazoAnalisis, CTPlazoInformes, CTPlazoFiscalizacion, CTPlazoSubsanacion, CTMotivosRectificacion,

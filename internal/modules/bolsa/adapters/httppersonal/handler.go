@@ -123,6 +123,10 @@ type respuesta struct {
 		ConsultadaEn    string          `json:"consultada_en"`
 		CamposVisibles  []string        `json:"campos_visibles"`
 		Participaciones []participacion `json:"participaciones"`
+		// Portal y AccionesPortal solo aparecen si están compuestas las
+		// acciones propias del candidato.
+		Portal         []estadoPortal  `json:"portal,omitempty"`
+		AccionesPortal *accionesPortal `json:"acciones_portal,omitempty"`
 	} `json:"data"`
 }
 
@@ -159,6 +163,7 @@ func nuevaRespuesta(i puertosbolsa.InstantaneaMiBolsa) respuesta {
 		}
 		r.Data.Participaciones = append(r.Data.Participaciones, x)
 	}
+	r.Data.Portal, r.Data.AccionesPortal = respuestaPortal(i)
 	return r
 }
 func responderError(w http.ResponseWriter, e error) {

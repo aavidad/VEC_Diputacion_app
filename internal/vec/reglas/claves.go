@@ -45,6 +45,10 @@ const (
 	BolsaAgotamiento                  = "b26.agotamiento"
 	// BolsaCamposPortal es la lista de datos de «Mi bolsa» (duda 17).
 	BolsaCamposPortal = "b28.campos_portal"
+	// BolsaPortalCandidato fija el modo de las acciones propias del candidato
+	// (dudas 3 y 18): quién valida, qué contacto abre el plazo y desde qué
+	// situaciones se admite cada solicitud.
+	BolsaPortalCandidato = "b29.portal_candidato"
 )
 
 // Reglas de Contratación temporal.

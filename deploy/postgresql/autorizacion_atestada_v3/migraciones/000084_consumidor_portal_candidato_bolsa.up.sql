@@ -1,10 +1,12 @@
 \set ON_ERROR_STOP on
 -- AD3-84. Acciones propias del candidato en «Mi bolsa» (petición RRHH p. 1
--- punto 5 y p. 2; dudas 3, 17 y 18): solicitar pausa, solicitar reactivación
--- y responder a un llamamiento abierto. Un único perfil nominal
--- 'portal_candidato_bolsa' con tres operaciones, cada una con su audiencia, y
--- un único consumidor: Bolsa 000030. El recurso es siempre el propio
--- 'mi-bolsa:<candidato>' del contexto (lo comprueba Bolsa contra los vínculos).
+-- punto 5 y p. 2; dudas 3, 17 y 18): solicitar pausa, solicitar reactivación,
+-- responder a un llamamiento abierto y manifestar disposición a una oferta
+-- publicada. Un único perfil nominal 'portal_candidato_bolsa' con cuatro
+-- operaciones, cada una con su audiencia, y un único propietario consumidor:
+-- Bolsa (000030 para las tres primeras; la disposición la consumirá la
+-- función de ofertas). El recurso es el propio 'mi-bolsa:<candidato>' o la
+-- oferta; Bolsa coteja siempre al candidato con los vínculos del contexto.
 -- Se inserta junto a la primera línea de cada lista del núcleo, de modo que no
 -- depende del orden de instalación de otras extensiones; toma el consultivo
 -- común del núcleo antes de leer su preimagen.
@@ -29,15 +31,18 @@ DECLARE
  runtime_nuevo text:=runtime||E'               OR p_perfil_mutacion IS NOT DISTINCT FROM ''portal_candidato_bolsa''\n';
  extension text:=$x$           OR (
  p_perfil_mutacion IS NOT DISTINCT FROM 'portal_candidato_bolsa'
- AND ((c->>'operacion' IS NOT DISTINCT FROM 'bolsa.participaciones_propias.solicitar_pausa'
-       AND c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_bolsa_llamamientos.participaciones_propias.solicitar_pausa.v1')
-   OR (c->>'operacion' IS NOT DISTINCT FROM 'bolsa.participaciones_propias.solicitar_reactivacion'
-       AND c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_bolsa_llamamientos.participaciones_propias.solicitar_reactivacion.v1')
-   OR (c->>'operacion' IS NOT DISTINCT FROM 'bolsa.participaciones_propias.responder_llamamiento'
-       AND c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_bolsa_llamamientos.participaciones_propias.responder_llamamiento.v1'))
+ AND ((((c->>'operacion' IS NOT DISTINCT FROM 'bolsa.participaciones_propias.solicitar_pausa'
+         AND c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_bolsa_llamamientos.participaciones_propias.solicitar_pausa.v1')
+     OR (c->>'operacion' IS NOT DISTINCT FROM 'bolsa.participaciones_propias.solicitar_reactivacion'
+         AND c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_bolsa_llamamientos.participaciones_propias.solicitar_reactivacion.v1')
+     OR (c->>'operacion' IS NOT DISTINCT FROM 'bolsa.participaciones_propias.responder_llamamiento'
+         AND c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_bolsa_llamamientos.participaciones_propias.responder_llamamiento.v1'))
+    AND d->>'tipo_recurso' IS NOT DISTINCT FROM 'participaciones_candidato')
+   OR (c->>'operacion' IS NOT DISTINCT FROM 'bolsa.participaciones_propias.manifestar_disposicion'
+       AND c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_bolsa_llamamientos.participaciones_propias.manifestar_disposicion.v1'
+       AND d->>'tipo_recurso' IS NOT DISTINCT FROM 'oferta_bolsa'))
  AND d->>'accion' IS NOT DISTINCT FROM c->>'operacion'
  AND d->>'modulo_id' IS NOT DISTINCT FROM 'bolsa'
- AND d->>'tipo_recurso' IS NOT DISTINCT FROM 'participaciones_candidato'
  AND d->>'finalidad' IS NOT DISTINCT FROM 'gestion_participaciones_propias'
  AND d->>'recurso_ref' IS NOT DISTINCT FROM c->>'efecto_ref'
  AND d->>'contexto_recurso_huella_sha256' IS NOT DISTINCT FROM c->>'huella_efecto_sha256'
@@ -84,7 +89,8 @@ DO $audiencias$
 DECLARE d text; a text;
  nuevas text[]:=ARRAY['vec_bolsa_llamamientos.participaciones_propias.solicitar_pausa.v1',
                       'vec_bolsa_llamamientos.participaciones_propias.solicitar_reactivacion.v1',
-                      'vec_bolsa_llamamientos.participaciones_propias.responder_llamamiento.v1'];
+                      'vec_bolsa_llamamientos.participaciones_propias.responder_llamamiento.v1',
+                      'vec_bolsa_llamamientos.participaciones_propias.manifestar_disposicion.v1'];
 BEGIN
  SELECT regexp_replace(pg_get_constraintdef(c.oid,true),'\s+',' ','g') INTO STRICT d
  FROM pg_constraint c WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
@@ -110,14 +116,19 @@ DECLARE c jsonb; d jsonb; x record;
 BEGIN
  BEGIN c:=convert_from(p_capacidad,'UTF8')::jsonb; d:=convert_from(p_decision,'UTF8')::jsonb;
  EXCEPTION WHEN others THEN RAISE EXCEPTION 'AD3-84: material del portal del candidato inválido' USING ERRCODE='22023'; END;
- IF c->>'operacion' NOT IN ('bolsa.participaciones_propias.solicitar_pausa','bolsa.participaciones_propias.solicitar_reactivacion','bolsa.participaciones_propias.responder_llamamiento')
+ IF coalesce(c->>'operacion','') NOT IN ('bolsa.participaciones_propias.solicitar_pausa','bolsa.participaciones_propias.solicitar_reactivacion','bolsa.participaciones_propias.responder_llamamiento','bolsa.participaciones_propias.manifestar_disposicion')
     OR c->>'audiencia_consumo' IS DISTINCT FROM 'vec_bolsa_llamamientos.participaciones_propias.'||substr(c->>'operacion',length('bolsa.participaciones_propias.')+1)||'.v1'
     OR d->>'accion' IS DISTINCT FROM c->>'operacion'
     OR d->>'modulo_id' IS DISTINCT FROM 'bolsa'
-    OR d->>'tipo_recurso' IS DISTINCT FROM 'participaciones_candidato'
     OR d->>'finalidad' IS DISTINCT FROM 'gestion_participaciones_propias'
     OR d->>'recurso_ref' IS DISTINCT FROM c->>'efecto_ref'
-    OR coalesce(d->>'recurso_ref','') !~ '^mi-bolsa:can_[A-Za-z0-9_-]{22,128}$'
+    -- Las tres acciones sobre la propia bolsa actúan sobre 'mi-bolsa:<candidato>';
+    -- manifestar disposición actúa sobre la oferta y Bolsa coteja al candidato
+    -- con los vínculos del contexto.
+    OR (c->>'operacion' <> 'bolsa.participaciones_propias.manifestar_disposicion'
+        AND (d->>'tipo_recurso' IS DISTINCT FROM 'participaciones_candidato' OR coalesce(d->>'recurso_ref','') !~ '^mi-bolsa:can_[A-Za-z0-9_-]{22,128}$'))
+    OR (c->>'operacion' = 'bolsa.participaciones_propias.manifestar_disposicion'
+        AND (d->>'tipo_recurso' IS DISTINCT FROM 'oferta_bolsa' OR coalesce(d->>'recurso_ref','') !~ '^oferta:[0-9a-f]{64}$'))
     OR d->>'contexto_recurso_huella_sha256' IS DISTINCT FROM c->>'huella_efecto_sha256'
     OR d->'campos_permitidos' IS DISTINCT FROM '[]'::jsonb
     OR d->'obligaciones' IS DISTINCT FROM '[]'::jsonb

@@ -231,9 +231,12 @@ LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = pg_catalog AS $f$
 DECLARE v_abierto record;
 BEGIN
  IF current_user <> 'vec_bolsa_llamamientos_propietario' OR p_respuesta NOT IN ('acepta','renuncia','renuncia_justificada')
-    OR p_modo NOT IN ('firme','propuesta_rrhh') OR p_contacto_en IS NULL OR p_vence_antes_de IS NULL OR p_respondida_en IS NULL
-    OR p_vence_antes_de <= p_contacto_en THEN
+    OR p_modo NOT IN ('firme','propuesta_rrhh') OR p_respondida_en IS NULL OR p_vence_antes_de <= p_contacto_en THEN
   RAISE EXCEPTION 'respuesta del portal inválida' USING ERRCODE='22023';
+ END IF;
+ -- Sin contacto leído por el servidor no hay llamamiento que responder.
+ IF p_contacto_en IS NULL OR p_vence_antes_de IS NULL THEN
+  RAISE EXCEPTION 'no hay un llamamiento abierto' USING ERRCODE='VBP04';
  END IF;
  PERFORM pg_advisory_xact_lock(hashtextextended('vec_bolsa_llamamientos:portal:'||p_participacion_ref, 0));
  SELECT * INTO v_abierto FROM vec_bolsa_llamamientos.llamamiento_abierto_portal_v1(p_participacion_ref, p_respondida_en, p_resultados_efectivos);

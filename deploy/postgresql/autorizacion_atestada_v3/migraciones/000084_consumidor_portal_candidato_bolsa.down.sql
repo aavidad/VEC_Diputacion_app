@@ -22,8 +22,8 @@ BEGIN
     OR EXISTS (SELECT 1 FROM vec_autorizacion_atestada_v3.clave_capacidad_version
                 WHERE audiencia_consumo LIKE 'vec_bolsa_llamamientos.participaciones_propias.%')
     OR EXISTS (SELECT 1 FROM vec_autorizacion_atestada_v3.atestacion_decision_v3
-                WHERE convert_from(capacidad_canonica,'UTF8')::jsonb->>'operacion' LIKE 'bolsa.participaciones_propias.solicitar_%'
-                   OR convert_from(capacidad_canonica,'UTF8')::jsonb->>'operacion'='bolsa.participaciones_propias.responder_llamamiento')
+                WHERE convert_from(capacidad_canonica,'UTF8')::jsonb->>'operacion' LIKE 'bolsa.participaciones_propias.%'
+                   AND convert_from(capacidad_canonica,'UTF8')::jsonb->>'operacion'<>'bolsa.participaciones_propias.consultar')
  THEN RAISE EXCEPTION 'AD3-84: DOWN denegado: Bolsa 000030 instalada o historia del portal del candidato' USING ERRCODE='55000'; END IF;
 END $proteger$;
 
@@ -38,15 +38,18 @@ DECLARE
  runtime_nuevo text:=runtime||E'               OR p_perfil_mutacion IS NOT DISTINCT FROM ''portal_candidato_bolsa''\n';
  extension text:=$x$           OR (
  p_perfil_mutacion IS NOT DISTINCT FROM 'portal_candidato_bolsa'
- AND ((c->>'operacion' IS NOT DISTINCT FROM 'bolsa.participaciones_propias.solicitar_pausa'
-       AND c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_bolsa_llamamientos.participaciones_propias.solicitar_pausa.v1')
-   OR (c->>'operacion' IS NOT DISTINCT FROM 'bolsa.participaciones_propias.solicitar_reactivacion'
-       AND c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_bolsa_llamamientos.participaciones_propias.solicitar_reactivacion.v1')
-   OR (c->>'operacion' IS NOT DISTINCT FROM 'bolsa.participaciones_propias.responder_llamamiento'
-       AND c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_bolsa_llamamientos.participaciones_propias.responder_llamamiento.v1'))
+ AND ((((c->>'operacion' IS NOT DISTINCT FROM 'bolsa.participaciones_propias.solicitar_pausa'
+         AND c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_bolsa_llamamientos.participaciones_propias.solicitar_pausa.v1')
+     OR (c->>'operacion' IS NOT DISTINCT FROM 'bolsa.participaciones_propias.solicitar_reactivacion'
+         AND c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_bolsa_llamamientos.participaciones_propias.solicitar_reactivacion.v1')
+     OR (c->>'operacion' IS NOT DISTINCT FROM 'bolsa.participaciones_propias.responder_llamamiento'
+         AND c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_bolsa_llamamientos.participaciones_propias.responder_llamamiento.v1'))
+    AND d->>'tipo_recurso' IS NOT DISTINCT FROM 'participaciones_candidato')
+   OR (c->>'operacion' IS NOT DISTINCT FROM 'bolsa.participaciones_propias.manifestar_disposicion'
+       AND c->>'audiencia_consumo' IS NOT DISTINCT FROM 'vec_bolsa_llamamientos.participaciones_propias.manifestar_disposicion.v1'
+       AND d->>'tipo_recurso' IS NOT DISTINCT FROM 'oferta_bolsa'))
  AND d->>'accion' IS NOT DISTINCT FROM c->>'operacion'
  AND d->>'modulo_id' IS NOT DISTINCT FROM 'bolsa'
- AND d->>'tipo_recurso' IS NOT DISTINCT FROM 'participaciones_candidato'
  AND d->>'finalidad' IS NOT DISTINCT FROM 'gestion_participaciones_propias'
  AND d->>'recurso_ref' IS NOT DISTINCT FROM c->>'efecto_ref'
  AND d->>'contexto_recurso_huella_sha256' IS NOT DISTINCT FROM c->>'huella_efecto_sha256'
@@ -77,7 +80,8 @@ DO $audiencias$
 DECLARE d text; a text;
  nuevas text[]:=ARRAY['vec_bolsa_llamamientos.participaciones_propias.solicitar_pausa.v1',
                       'vec_bolsa_llamamientos.participaciones_propias.solicitar_reactivacion.v1',
-                      'vec_bolsa_llamamientos.participaciones_propias.responder_llamamiento.v1'];
+                      'vec_bolsa_llamamientos.participaciones_propias.responder_llamamiento.v1',
+                      'vec_bolsa_llamamientos.participaciones_propias.manifestar_disposicion.v1'];
 BEGIN
  SELECT regexp_replace(pg_get_constraintdef(c.oid,true),'\s+',' ','g') INTO STRICT d
  FROM pg_constraint c WHERE c.conrelid='vec_autorizacion_atestada_v3.clave_capacidad_version'::regclass
