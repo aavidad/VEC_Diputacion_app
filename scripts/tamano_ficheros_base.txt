@@ -33,7 +33,7 @@
 1059 deploy/postgresql/ejecucion_documental_v4/probar_integracion.sh
 1032 deploy/postgresql/identidad_sesiones_v1/migraciones/000002_operaciones_v1.up.sql
 1869 deploy/postgresql/identidad_sesiones_v1/migraciones/000006_politica_certificado_personal_desarrollo.up.sql
-1311 deploy/principal/composicion_interna/aprovisionar.py
+1317 deploy/principal/composicion_interna/aprovisionar.py
 802 internal/app/composicion/interna/identidad_test.go
 987 internal/app/incorporacionejercicio/servicio_test.go
 1303 internal/modules/bolsa/adapters/memory/baremacion_test.go

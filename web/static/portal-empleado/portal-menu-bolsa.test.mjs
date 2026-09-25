@@ -237,8 +237,12 @@ test("accesoBolsaEfectivo abre el cuadro cuando hay bolsas reales aunque los bor
   const denegado = Object.freeze({ disponible: false, vista: "", estado: "error", etiqueta: "x" });
   const conBolsas = { carga: "listo", datos: { bolsas: [{ bolsa_ref: "bolsa:administrativo:2026-09-17" }] }, error: "" };
   assert.deepEqual(accesoBolsaEfectivo(denegado, conBolsas), { disponible: true, vista: "resumen", estado: "disponible", etiqueta: "Cuadro de bolsas" });
-  assert.equal(accesoBolsaEfectivo(denegado, { carga: "listo", datos: { bolsas: [] }, error: "" }), denegado);
+  // Un cuadro vacío responde con su contrato: el módulo está compuesto y autorizado.
+  assert.equal(accesoBolsaEfectivo(denegado, { carga: "listo", datos: { bolsas: [] }, error: "" }).disponible, true);
+  assert.equal(accesoBolsaEfectivo(denegado, { carga: "listo", datos: {}, error: "" }), denegado);
   assert.equal(accesoBolsaEfectivo(denegado, { carga: "cargando", datos: null, error: "" }), denegado);
+  assert.equal(accesoBolsaEfectivo(denegado, { carga: "denegado", datos: null, error: "x" }), denegado);
+  assert.equal(accesoBolsaEfectivo(denegado, { carga: "error", datos: null, error: "x" }), denegado);
   assert.equal(accesoBolsaEfectivo(denegado, undefined), denegado);
   const borradores = Object.freeze({ disponible: true, vista: "elaboracion", estado: "disponible", etiqueta: "Borradores disponibles" });
   assert.equal(accesoBolsaEfectivo(borradores, conBolsas), borradores);

@@ -156,6 +156,7 @@ type Config struct {
 	BolsaBorradoresEnabled                      bool
 	DietasBorradoresEnabled                     string
 	CronosEmpleadoEnabled                       string
+	PersonalB2GobiernoEnabled                   string
 	DietasBorradoresPostgreSQL                  ConfiguracionDietasBorradores
 	BolsaAuditoriaFronteraPostgreSQL            ConfiguracionPostgreSQLBolsaAuditoriaFrontera
 	BolsaImportacionConvocaPostgreSQL           ConfiguracionPostgreSQLImportacionConvoca
@@ -226,9 +227,10 @@ func Load() Config {
 			dsnProyectorGobierno: envFirst(EnvBolsaBorradoresProyectorGobiernoDatabaseURL),
 			dsnVerificadorRecibo: envFirst(EnvBolsaBorradoresVerificadorReciboDatabaseURL),
 		},
-		BolsaBorradoresEnabled:  envBool(EnvBolsaBorradoresEnabled),
-		DietasBorradoresEnabled: envFirst(EnvDietasBorradoresEnabled),
-		CronosEmpleadoEnabled:   envFirst(EnvCronosEmpleadoEnabled),
+		BolsaBorradoresEnabled:    envBool(EnvBolsaBorradoresEnabled),
+		DietasBorradoresEnabled:   envFirst(EnvDietasBorradoresEnabled),
+		CronosEmpleadoEnabled:     envFirst(EnvCronosEmpleadoEnabled),
+		PersonalB2GobiernoEnabled: envFirst(EnvPersonalB2GobiernoEnabled),
 		DietasBorradoresPostgreSQL: ConfiguracionDietasBorradores{
 			dsnDietas:             envFirst(EnvDietasBorradoresDatabaseURL),
 			dsnPersonal:           envFirst(EnvDietasPersonalRelacionesDatabaseURL),
@@ -347,6 +349,7 @@ func (c Config) Normalize() Config {
 	c.BolsaBorradoresPostgreSQL = c.BolsaBorradoresPostgreSQL.normalizar()
 	c.DietasBorradoresEnabled = strings.TrimSpace(c.DietasBorradoresEnabled)
 	c.CronosEmpleadoEnabled = strings.TrimSpace(c.CronosEmpleadoEnabled)
+	c.PersonalB2GobiernoEnabled = strings.TrimSpace(c.PersonalB2GobiernoEnabled)
 	c.DietasBorradoresPostgreSQL = c.DietasBorradoresPostgreSQL.normalizar()
 	c.BolsaAuditoriaFronteraPostgreSQL = c.BolsaAuditoriaFronteraPostgreSQL.normalizar()
 	c.BolsaPublicaPostgreSQL = c.BolsaPublicaPostgreSQL.normalizar()

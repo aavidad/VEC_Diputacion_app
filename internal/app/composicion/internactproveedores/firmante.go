@@ -20,6 +20,13 @@ type firmanteV3 struct {
 }
 
 func (f *firmanteV3) FirmarAtestacionAutorizacionV3(ctx context.Context, solicitud vecports.SolicitudFirmaAtestacionAutorizacionV3) (vecports.ResultadoFirmaAtestacionAutorizacionV3, error) {
+	return f.firmarConEvidencia(ctx, solicitud, "evidencia:firma:ct:interno:")
+}
+
+// firmarConEvidencia firma con la raíz compartida y etiqueta la evidencia con
+// el prefijo del consumidor. Los consumidores no copian la clave privada: la
+// conserva y la borra únicamente la composición CT.
+func (f *firmanteV3) firmarConEvidencia(ctx context.Context, solicitud vecports.SolicitudFirmaAtestacionAutorizacionV3, prefijoEvidencia string) (vecports.ResultadoFirmaAtestacionAutorizacionV3, error) {
 	vacio := vecports.ResultadoFirmaAtestacionAutorizacionV3{}
 	if f == nil || ctx == nil || ctx.Err() != nil || len(f.privada) != ed25519.PrivateKeySize || f.reloj == nil {
 		return vacio, vecports.ErrFirmaAtestacionNoDisponible
@@ -54,5 +61,5 @@ func (f *firmanteV3) FirmarAtestacionAutorizacionV3(ctx context.Context, solicit
 	}
 	defer clear(firma)
 	huella := sha256.Sum256(mensaje)
-	return vecports.NuevoResultadoFirmaAtestacionAutorizacionV3(solicitud, firma, "evidencia:firma:ct:interno:"+hex.EncodeToString(huella[:8]), f.reloj.Ahora())
+	return vecports.NuevoResultadoFirmaAtestacionAutorizacionV3(solicitud, firma, prefijoEvidencia+hex.EncodeToString(huella[:8]), f.reloj.Ahora())
 }

@@ -8,10 +8,10 @@ import { crearAyudanteTramites } from "./ayudante-tramites.js?v=20260925-portal-
 import { crearSuperficieBorradoresPortal } from "./portal-borradores-ui.js?v=20260925-portal-integrado-v1";
 import { crearUtilidadesVista } from "./portal-vistas-utilidades.js?v=20260925-portal-integrado-v1";
 import { crearVistasOperaciones } from "./portal-vistas-operaciones.js?v=20260924-f2-shell-v1";
-import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260925-portal-integrado-v1";
+import { CODIGO_CARGA_SUSTITUIDA, crearCoordinadorModulosPortal, moduloDeVistaPortal, rutaDeVistaPortal, VISTAS_MODULOS_PERSONALES } from "./portal-modulos-coordinador.js?v=20260925-portal-bolsa-v1";
 import { crearTraductorPersonal } from "./modulos/personal/i18n.js?v=20260925-portal-integrado-v1";
 import { crearVistaInicioPortal } from "./portal-inicio.js?v=20260925-portal-integrado-v1";
-import { accesoBolsaEfectivo, instalarMenuBolsa, resumenAccesosModulos, sincronizarMenuBolsa, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260924-f2-shell-v1";
+import { accesoBolsaEfectivo, instalarMenuBolsa, resumenAccesosModulos, sincronizarMenuBolsa, VISTAS_INTERNAS_BOLSA } from "./portal-menu-bolsa.js?v=20260925-portal-bolsa-v1";
 import { traducirPortal } from "./portal-i18n.js?v=20260925-portal-integrado-v1";
 import { crearControladorBolsas } from "./portal-bolsas-api.js?v=20260925-portal-integrado-v1";
 import { crearSuperficieBorradorLlamamiento } from "./portal-borrador-llamamiento-ui.js?v=20260921-bback01-v1";
@@ -342,14 +342,16 @@ async function cargarFuenteDatos() {
   estado.errorFuente = "";
   estado.vistaMontada = "";
   estado.vistaCerrada = "";
+  // La disponibilidad de Bolsa en Inicio y en el menú la decide la API real del
+  // cuadro de bolsas: se consulta en paralelo con el catálogo, sin esperarla ni
+  // bloquear los demás módulos. Borradores sigue comprobando su API al abrir su vista.
+  if (requiereLecturaBolsas(estado.vista) || estado.datosBolsas?.carga !== "listo") void controladorBolsas.cargarBolsas();
   await coordinadorModulos.cargarInterno({ alCambiar: alCambiarModulos }).catch((error) => {
     // Una carga sustituida por otra más reciente no es un fallo del catálogo.
     if (error?.codigo === CODIGO_CARGA_SUSTITUIDA || intento !== secuenciaFuente) return;
     estado.errorFuente = traducirPortal("error_catalogo_modulos");
   });
   if (intento !== secuenciaFuente) return;
-  // Borradores comprueba su API al abrir la vista. El cuadro de bolsas usa su propia API compuesta.
-  if (requiereLecturaBolsas(estado.vista)) void controladorBolsas.cargarBolsas();
   actualizarNavegacionModulos();
   renderizarTrasCarga();
 }
