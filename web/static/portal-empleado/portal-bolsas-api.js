@@ -18,8 +18,9 @@ import { crearControladorOperacionesSituacion } from "./portal-bolsas-operacione
 import { crearControladorIntentosContacto } from "./portal-bolsas-intentos.js?v=20260926-integracion-bolsa-ct-v1";
 import { crearControladorSanciones } from "./portal-bolsas-sanciones.js?v=20260926-integracion-bolsa-ct-v1";
 import { crearControladorCorreoLlamamiento } from "./portal-bolsas-correo.js?v=20260926-integracion-bolsa-ct-v1";
-import { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js";
-export { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js";
+import { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20260926-integracion-bolsa-ct-v1";
+export { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js?v=20260926-integracion-bolsa-ct-v1";
+import { crearControladorOrigenContacto } from "./portal-bolsas-contacto-origen.js?v=20260926-integracion-bolsa-ct-v1";
 
 export const RUTA_BOLSAS = "/api/vec/bolsa/bolsas";
 export const RUTA_ESTADISTICAS_BOLSA = "/api/vec/bolsa/estadisticas";
@@ -439,6 +440,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
   }
   const controladorIntentosContacto = crearControladorIntentosContacto({ estado, renderizar });
   const controladorCorreoB7 = crearControladorCorreoLlamamiento({ estado, renderizar });
+  const controladorOrigenContacto = crearControladorOrigenContacto({ estado, renderizar });
   const controladorOperacionesB8 = crearControladorOperacionesSituacion({
     estado,
     renderizar,
@@ -649,6 +651,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     void controladorSancionesB24.cargar(estado.modalFicha);
     void controladorOperacionesB8.cargar(estado.modalFicha);
     void controladorIntentosContacto.cargar(estado.modalFicha);
+    void controladorOrigenContacto.cargar(estado.modalFicha);
     documento.querySelector("[data-bolsa-ficha-inline='true']")?.focus?.();
   }
 
@@ -978,6 +981,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
             registro.estado = "confirmado";
             flujo.recibo = res.datos.recibo_ref;
             flujo.llamamiento_ref = res.datos.llamamiento_ref;
+            flujo.avisos_contacto = res.datos.avisos_contacto || [];
           } else if ([400, 409, 422].includes(res.status)) {
             // Rechazo definitivo: el servidor no aplicó este comando. Una
             // revisión podrá iniciar otra intención con una clave nueva.

@@ -99,7 +99,7 @@ func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudRegistrarDato
 	if err != nil {
 		return puertosbolsa.SolicitudRegistrarDatosContactoParticipacion{}, err
 	}
-	return puertosbolsa.SolicitudRegistrarDatosContactoParticipacion{Vinculo: contexto.Vinculo, ResultadoContexto: contexto.Resultado, BolsaRef: entrada.BolsaRef, ParticipacionRef: entrada.ParticipacionRef, Datos: entrada.Datos, Motivo: entrada.Motivo, ClaveIdempotencia: entrada.ClaveIdempotencia, Correlacion: correlacion, MotivoAutorizacion: motivoRegistrarDatosContactoParticipacionBolsaDesarrollo()}, nil
+	return puertosbolsa.SolicitudRegistrarDatosContactoParticipacion{Vinculo: contexto.Vinculo, ResultadoContexto: contexto.Resultado, BolsaRef: entrada.BolsaRef, ParticipacionRef: entrada.ParticipacionRef, Datos: entrada.Datos, Motivo: entrada.Motivo, ClaveIdempotencia: entrada.ClaveIdempotencia, Correlacion: correlacion, MotivoAutorizacion: motivoRegistrarDatosContactoParticipacionBolsaDesarrollo(), Origen: entrada.Origen}, nil
 }
 
 func (p *preparadorBorradorLlamamientoDesarrollo) PrepararSolicitudConsultarDatosContacto(ctx context.Context, bolsaRef, participacionRef string) (puertosbolsa.SolicitudConsultarDatosContactoParticipacion, error) {
@@ -283,6 +283,10 @@ type manejadorParticipacionBolsaDesarrollo struct {
 	servicio                                                              *aplicacionbolsa.ServicioContactoParticipacion
 	// servicioSituacion permite componer después las reglas de transición.
 	servicioSituacion *aplicacionbolsa.ServicioSituacionParticipacion
+	// datos y emision reciben después la regla del contacto de origen CONVOCA.
+	datos   *aplicacionbolsa.ServicioDatosContactoParticipacion
+	emision *aplicacionbolsa.ServicioEmisionLlamamiento
+	fuente  *fuenteCorreoParticipacionB7
 }
 
 func (m *manejadorParticipacionBolsaDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -602,7 +606,8 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
-	servicioEmision, err := aplicacionbolsa.NuevoServicioEmisionLlamamiento(preparador, emisor, repositorioEmision, &fuenteCorreoParticipacionB7{repositorioDatos, dependenciasCT.kms}, &emisorCorreoBolsaB7{correoSMTP}, dependenciasCT.reloj.Ahora, aplicacionbolsa.CorreoPersonalizadoLlamamiento{Catalogo: catalogoCorreo, Personalizacion: personalizacion, Huellas: repositorioEmision})
+	fuenteCorreo := &fuenteCorreoParticipacionB7{repositorioDatos, dependenciasCT.kms}
+	servicioEmision, err := aplicacionbolsa.NuevoServicioEmisionLlamamiento(preparador, emisor, repositorioEmision, fuenteCorreo, &emisorCorreoBolsaB7{correoSMTP}, dependenciasCT.reloj.Ahora, aplicacionbolsa.CorreoPersonalizadoLlamamiento{Catalogo: catalogoCorreo, Personalizacion: personalizacion, Huellas: repositorioEmision})
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
@@ -626,7 +631,7 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
-	mutador := &manejadorParticipacionBolsaDesarrollo{situacion: handlerSituacion, operaciones: handlerOperaciones, contratos: handlerContratos, sanciones: handlerSanciones, contacto: handlerContacto, datosContacto: handlerDatos, preparador: preparador, servicio: servicioContacto, servicioSituacion: servicioSituacion}
+	mutador := &manejadorParticipacionBolsaDesarrollo{situacion: handlerSituacion, operaciones: handlerOperaciones, contratos: handlerContratos, sanciones: handlerSanciones, contacto: handlerContacto, datosContacto: handlerDatos, preparador: preparador, servicio: servicioContacto, servicioSituacion: servicioSituacion, datos: servicioDatos, emision: servicioEmision, fuente: fuenteCorreo}
 	envolver := func(siguiente http.Handler) http.Handler {
 		auditada, auditErr := bolsahttp.NuevaAuditoriaBorradorLlamamiento(siguiente, auditoria, seguridadvec.GeneradorReferenciasCriptograficas{}, actorBorradorLlamamientoDesdeContextoDesarrollo{})
 		if auditErr != nil {

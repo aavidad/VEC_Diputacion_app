@@ -81,6 +81,9 @@ type EmisionLlamamiento struct {
 	EmitidoEn       time.Time                  `json:"emitido_en"`
 	Reutilizada     bool                       `json:"reutilizada"`
 	Contactos       []ResultadoContactoEmision `json:"contactos,omitempty"`
+	// AvisosContacto se calcula a la hora de la respuesta y no se persiste
+	// (duda 45: contacto de origen CONVOCA vencido sin confirmar).
+	AvisosContacto []AvisoContactoEmision `json:"avisos_contacto,omitempty"`
 }
 
 type RepositorioEmisionLlamamiento interface {

@@ -67,7 +67,7 @@ func (r *repositorioDatosContactoPrueba) BuscarRegistroDatosContacto(_ context.C
 func (r *repositorioDatosContactoPrueba) RegistrarDatosContacto(_ context.Context, comando puertosbolsa.ComandoRegistrarDatosContactoParticipacion) (puertosbolsa.RegistroDatosContactoParticipacion, error) {
 	r.llamadas++
 	r.ultimo = comando
-	registro := puertosbolsa.RegistroDatosContactoParticipacion{ReciboRef: comando.ReciboRef, ParticipacionRef: comando.ParticipacionRef, Version: comando.Sobre.Version, Motivo: comando.Motivo, RegistradaEn: comando.RegistradaEn, Sobre: comando.Sobre}
+	registro := puertosbolsa.RegistroDatosContactoParticipacion{ReciboRef: comando.ReciboRef, ParticipacionRef: comando.ParticipacionRef, Version: comando.Sobre.Version, Motivo: comando.Motivo, RegistradaEn: comando.RegistradaEn, Sobre: comando.Sobre, Origen: comando.Origen}
 	r.registros = append(r.registros, registro)
 	return registro, nil
 }

@@ -169,7 +169,7 @@ export function validarConfirmacionPropuestaLlamamiento(datos, etag) {
 
 export function validarEmisionLlamamiento(datos) {
   const obligatorios = ["llamamiento_ref", "recibo_ref", "bolsa_ref", "estado", "participaciones", "configuracion", "emitido_en", "reutilizada"];
-  const permitidos = new Set([...obligatorios, "contactos"]);
+  const permitidos = new Set([...obligatorios, "contactos", "avisos_contacto"]);
   if (!esObjeto(datos) || obligatorios.some((campo) => !Object.hasOwn(datos, campo))
     || Object.keys(datos).some((campo) => !permitidos.has(campo))
     || datos.estado !== "emitido_pendiente_respuesta" || typeof datos.reutilizada !== "boolean"
@@ -187,6 +187,13 @@ export function validarEmisionLlamamiento(datos) {
     || datos.contactos.some((c) => !esObjeto(c) || !["enviado", "no_enviado"].includes(c.resultado)
       || typeof c.recibo_ref !== "string" || typeof c.participacion_ref !== "string"))) {
     throw new Error("contactos de emisión no válidos");
+  }
+  // Duda 45: avisos a RRHH (contacto de origen CONVOCA vencido o no comprobado).
+  if (datos.avisos_contacto !== undefined && (!Array.isArray(datos.avisos_contacto) || datos.avisos_contacto.length > 100
+    || datos.avisos_contacto.some((a) => !esObjeto(a) || !datos.participaciones.includes(a.participacion_ref)
+      || !["contacto_origen_convoca_no_confirmado", "estado_contacto_no_disponible"].includes(a.aviso)
+      || (a.ultimo_dia !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(a.ultimo_dia))))) {
+    throw new Error("avisos de contacto de emisión no válidos");
   }
   return datos;
 }

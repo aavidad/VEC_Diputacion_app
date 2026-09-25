@@ -56,6 +56,8 @@ type RegistroDatosContactoParticipacion struct {
 	Motivo           string
 	RegistradaEn     time.Time
 	Sobre            SobreDatosContacto
+	// Origen solo existe en una versión de origen CONVOCA (duda 45).
+	Origen *dominiobolsa.MarcaOrigenDatosContacto
 }
 
 // DatosContactoParticipacionLeidos es la lectura autorizada para RRHH: claro
@@ -66,6 +68,10 @@ type DatosContactoParticipacionLeidos struct {
 	RegistradaEn     time.Time
 	Datos            dominiobolsa.DatosContactoParticipacion
 	Enmascarados     dominiobolsa.DatosContactoEnmascarados
+	// Origen y EstadoOrigen (vigente o vencido a la hora de la consulta) solo
+	// existen si la versión vigente es de origen CONVOCA.
+	Origen       *dominiobolsa.MarcaOrigenDatosContacto
+	EstadoOrigen string
 }
 
 type SolicitudRegistrarDatosContactoParticipacion struct {
@@ -78,12 +84,15 @@ type SolicitudRegistrarDatosContactoParticipacion struct {
 	ClaveIdempotencia  string
 	Correlacion        dominiovec.ReferenciaCorrelacionAutorizacionV2
 	MotivoAutorizacion dominiovec.ReferenciaEntradaCatalogo
+	// Origen vacío registra un contacto propio; «convoca» lo marca como
+	// contacto de origen CONVOCA con la vigencia de la regla b29.
+	Origen string
 }
 
 func (s SolicitudRegistrarDatosContactoParticipacion) Validar() error {
 	if s.ResultadoContexto.Validar() != nil || s.Vinculo.ValidarPara(s.ResultadoContexto) != nil ||
 		s.BolsaRef == "" || s.ParticipacionRef == "" || s.Datos.ParticipacionRef != s.ParticipacionRef ||
-		s.Motivo == "" || s.ClaveIdempotencia == "" ||
+		s.Motivo == "" || s.ClaveIdempotencia == "" || !dominiobolsa.OrigenDatosContactoAdmitido(s.Origen) ||
 		s.Correlacion.Validar() != nil || !dominiovec.ReferenciaMotivoAutorizacionV2Valida(s.MotivoAutorizacion) {
 		return ErrDatosContactoParticipacionNoDisponibles
 	}
@@ -114,6 +123,8 @@ type ComandoRegistrarDatosContactoParticipacion struct {
 	// CamposCambiados nombra, sin valores, los campos que difieren de la
 	// versión anterior; alimenta la traza de valores (petición RRHH p.4).
 	CamposCambiados []string
+	// Origen se registra en la misma transacción que la versión.
+	Origen *dominiobolsa.MarcaOrigenDatosContacto
 }
 
 // VerificadorPertenenciaParticipacion lo satisface el repositorio de B2.

@@ -106,7 +106,7 @@ func TestResolutorResuelveTodasLasClavesPublicadas(t *testing.T) {
 			BolsaPrefijoSanciones + "baja_llamamiento_directo", BolsaPrefijoSanciones + "baja_sin_contacto",
 			BolsaPrefijoSanciones + "baja_publicacion", BolsaPrefijoSanciones + "baja_renuncia_nombramiento",
 			BolsaPrefijoSanciones + "pasar_al_final", BolsaPrefijoSanciones + "suspension",
-			BolsaCamposPortal, BolsaPortalCandidato,
+			BolsaCamposPortal, BolsaPortalCandidato, BolsaContactoOrigenConvoca,
 		}},
 		{rutaReglasCTPrueba, CatalogoContratacionTemporal, ModuloContratacionTemporal, []string{
 			CTPlazoAnalisis, CTPlazoInformes, CTPlazoFiscalizacion, CTPlazoSubsanacion, CTMotivosRectificacion,

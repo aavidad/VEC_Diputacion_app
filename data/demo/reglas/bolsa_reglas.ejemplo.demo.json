@@ -754,6 +754,23 @@
           "reactivacion_desde": "no_disponible,disponible_desde"
         },
         "orden": 45
+      },
+      {
+        "clave": "b29.contacto_origen_convoca",
+        "etiqueta": "Contacto de origen CONVOCA",
+        "descripcion": "El correo y el teléfono traídos de CONVOCA se usan como «contacto de origen CONVOCA» durante doce meses desde su registro en VEC o hasta que la persona los confirme en su portal. Vencido ese plazo, el llamamiento por correo avisa a RRHH de que el contacto no está confirmado; no se bloquea y RRHH llama por teléfono.",
+        "vigente_desde": "2026-02-07T00:00:00+01:00",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo; Reglamento (UE) 2016/679, art. 5.1.d (exactitud de los datos).",
+          "duda": "Duda 45.",
+          "unidad": "meses",
+          "cantidad": "12",
+          "inicio": "registro_contacto_origen",
+          "computo": "civil",
+          "origen_contacto": "convoca"
+        },
+        "orden": 46
       }
     ],
     "estado": "publicado",

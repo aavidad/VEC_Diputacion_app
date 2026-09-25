@@ -276,6 +276,9 @@ func nuevoServidorDesarrollo(
 	if err != nil {
 		return nil, nil, err
 	}
+	if err = componerContactoOrigenBolsaDesarrollo(reglasEjemplo.bolsa, autoridadContratacion.manejadorSituacionParticipacion); err != nil {
+		return nil, nil, err
+	}
 	rutasContratacion = append(rutasContratacion, rutasBolsasRRHH...)
 	rutaPlazoRespuesta, err := nuevaRutaPlazoRespuestaBolsaDesarrollo(reglasEjemplo.bolsa, relojCalendariosDesarrollo{})
 	if err != nil {

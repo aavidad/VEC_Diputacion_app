@@ -1,7 +1,7 @@
 import { crearControladorPortal } from "./portal-eventos.js?v=20260926-integracion-bolsa-ct-v1";
 import { crearPresentadorPanelInterno } from "./portal-panel-interno.js?v=20260926-integracion-bolsa-ct-v1";
 import { extraerDatosEnvelopeCanonico } from "./portal-contrato.js?v=20260925-sin-demo2-v1";
-import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?v=20260718-llamamientos-v1";
+import { crearClientePropuestasLlamamiento } from "./portal-llamamientos-api.js?v=20260926-integracion-bolsa-ct-v1";
 import { resolverSolicitudPropuestaLlamamiento } from "./portal-llamamientos-flujo.js?v=20260925-sin-demo-v1";
 import { AYUDA_PORTAL_BOLSA, detectarContextoContratacionTemporal, obtenerAyudaContratacionTemporal, renderizarAyudaContratacionTemporal, TRAMITES_AYUDANTE_PORTAL } from "./ayuda-contenido.js?v=20260926-integracion-bolsa-ct-v1";
 import { crearAyudanteTramites } from "./ayudante-tramites.js?v=20260926-integracion-bolsa-ct-v1";

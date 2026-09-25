@@ -3,7 +3,7 @@ import {
   validarPayloadCrearLlamamiento,
   validarPayloadResultadoLlamamiento,
 } from "./portal-bolsas-contrato.js";
-import { validarEmisionLlamamiento } from "./portal-llamamientos-contrato.js?v=20260718-llamamientos-v1";
+import { validarEmisionLlamamiento } from "./portal-llamamientos-contrato.js?v=20260926-integracion-bolsa-ct-v1";
 
 export const RUTA_EMISIONES_LLAMAMIENTO = "/api/vec/bolsa/llamamientos/emisiones";
 

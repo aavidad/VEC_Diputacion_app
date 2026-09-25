@@ -23,6 +23,8 @@ type ServicioEmisionLlamamiento struct {
 	emisor        puertosbolsa.EmisorCorreoBolsa
 	reloj         func() time.Time
 	correo        CorreoPersonalizadoLlamamiento
+	// origenes es opcional: sin él no se avisa del contacto no confirmado.
+	origenes puertosbolsa.FuenteOrigenContactoParticipacion
 }
 
 // CorreoPersonalizadoLlamamiento agrupa el catálogo del correo, la fuente de
@@ -37,7 +39,17 @@ func NuevoServicioEmisionLlamamiento(cb puertosbolsa.ResolutorContextoContactoPa
 	if cb == nil || a == nil || r == nil || f == nil || e == nil || reloj == nil || !correo.Catalogo.Valido() || correo.Personalizacion == nil || correo.Huellas == nil {
 		return nil, puertosbolsa.ErrEmisionLlamamientoNoDisponible
 	}
-	return &ServicioEmisionLlamamiento{cb, a, r, f, e, reloj, correo}, nil
+	return &ServicioEmisionLlamamiento{contextoBolsa: cb, autorizador: a, repositorio: r, correos: f, emisor: e, reloj: reloj, correo: correo}, nil
+}
+
+// EstablecerAvisoContactoNoConfirmado habilita el aviso a RRHH cuando el
+// contacto de una persona llamada es de origen CONVOCA y ya ha vencido.
+func (s *ServicioEmisionLlamamiento) EstablecerAvisoContactoNoConfirmado(f puertosbolsa.FuenteOrigenContactoParticipacion) error {
+	if s == nil || f == nil {
+		return puertosbolsa.ErrEmisionLlamamientoNoDisponible
+	}
+	s.origenes = f
+	return nil
 }
 
 func (s *ServicioEmisionLlamamiento) EmitirLlamamiento(ctx context.Context, q puertosbolsa.SolicitudEmitirLlamamiento) (puertosbolsa.EmisionLlamamiento, error) {
@@ -88,7 +100,7 @@ func (s *ServicioEmisionLlamamiento) EmitirLlamamiento(ctx context.Context, q pu
 	}
 	if reservada.Reutilizada {
 		if len(reservada.Contactos) == len(q.Participaciones) {
-			return reservada, nil
+			return s.conAvisosContacto(ctx, reservada), nil
 		}
 		return puertosbolsa.EmisionLlamamiento{}, puertosbolsa.ErrEmisionLlamamientoNoDisponible
 	}
@@ -106,7 +118,11 @@ func (s *ServicioEmisionLlamamiento) EmitirLlamamiento(ctx context.Context, q pu
 		reciboContacto := sha256.Sum256([]byte(q.BolsaRef + "\x1f" + q.ClaveIdempotencia + "\x1f" + participacion))
 		contactos = append(contactos, puertosbolsa.ResultadoContactoEmision{ParticipacionRef: participacion, Resultado: resultado, ReciboRef: "recibo:contacto:" + hex.EncodeToString(reciboContacto[:])})
 	}
-	return s.repositorio.RegistrarContactos(ctx, q.BolsaRef, q.ClaveIdempotencia, actor.PersonaRef, tokenFinalizacion, contactos)
+	emitido, err := s.repositorio.RegistrarContactos(ctx, q.BolsaRef, q.ClaveIdempotencia, actor.PersonaRef, tokenFinalizacion, contactos)
+	if err != nil {
+		return emitido, err
+	}
+	return s.conAvisosContacto(ctx, emitido), nil
 }
 
 func (s *ServicioEmisionLlamamiento) RecuperarLlamamiento(ctx context.Context, q puertosbolsa.SolicitudRecuperarLlamamiento) (puertosbolsa.EmisionLlamamiento, error) {
@@ -117,7 +133,33 @@ func (s *ServicioEmisionLlamamiento) RecuperarLlamamiento(ctx context.Context, q
 	if err != nil || resuelto.Validar() != nil {
 		return puertosbolsa.EmisionLlamamiento{}, errorDependenciaSituacion(err)
 	}
-	return s.repositorio.Recuperar(ctx, q.BolsaRef, q.ClaveIdempotencia)
+	recuperado, err := s.repositorio.Recuperar(ctx, q.BolsaRef, q.ClaveIdempotencia)
+	if err != nil {
+		return recuperado, err
+	}
+	return s.conAvisosContacto(ctx, recuperado), nil
+}
+
+// conAvisosContacto añade, a la hora de la respuesta, un aviso por cada
+// persona cuyo contacto de origen CONVOCA ha vencido sin confirmarse. Un
+// origen que no se puede leer se avisa como no comprobado: nunca se da por
+// confirmado. El llamamiento no se bloquea.
+func (s *ServicioEmisionLlamamiento) conAvisosContacto(ctx context.Context, emision puertosbolsa.EmisionLlamamiento) puertosbolsa.EmisionLlamamiento {
+	emision.AvisosContacto = nil
+	if s.origenes == nil {
+		return emision
+	}
+	ahora := s.reloj().UTC()
+	for _, participacion := range emision.Participaciones {
+		marca, err := s.origenes.OrigenContactoParticipacion(ctx, participacion)
+		switch {
+		case err != nil:
+			emision.AvisosContacto = append(emision.AvisosContacto, puertosbolsa.AvisoContactoEmision{ParticipacionRef: participacion, Aviso: puertosbolsa.AvisoEstadoContactoNoDisponible})
+		case marca != nil && marca.Vencida(ahora):
+			emision.AvisosContacto = append(emision.AvisosContacto, puertosbolsa.AvisoContactoEmision{ParticipacionRef: participacion, Aviso: puertosbolsa.AvisoContactoNoConfirmado, UltimoDia: marca.UltimoDia})
+		}
+	}
+	return emision
 }
 
 func mismaSolicitudEmision(previa puertosbolsa.EmisionLlamamiento, q puertosbolsa.SolicitudEmitirLlamamiento) bool {
