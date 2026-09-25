@@ -15,6 +15,7 @@ import {
 } from "./portal-bolsas-contrato.js";
 import { traducirBolsaInterna, traducirPortal } from "./portal-i18n.js?v=20260925-d5d6-cronos-v1";
 import { crearControladorOperacionesSituacion } from "./portal-bolsas-operaciones.js?v=20260923-pweb14-v1";
+import { crearControladorIntentosContacto } from "./portal-bolsas-intentos.js?v=20260925-intentos-contacto-v1";
 import { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js";
 export { emitirLlamamiento, crearLlamamientoCandidato, registrarResultadoLlamamiento } from "./portal-llamamientos-operaciones-api.js";
 
@@ -384,6 +385,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     if (flujo) flujo.acceso_denegado = true;
     estado.datosCandidatos = { carga: "denegado", datos: null, error: mensaje };
   }
+  const controladorIntentosContacto = crearControladorIntentosContacto({ estado, renderizar });
   const controladorOperacionesB8 = crearControladorOperacionesSituacion({
     estado,
     renderizar,
@@ -577,6 +579,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
     estado.modalFicha?.controladorOperaciones?.abort();
     estado.modalFicha = { abierto: true, candidato, bolsa: datos.bolsa };
     void controladorOperacionesB8.cargar(estado.modalFicha);
+    void controladorIntentosContacto.cargar(estado.modalFicha);
     documento.querySelector("[data-bolsa-ficha-inline='true']")?.focus?.();
   }
 
@@ -646,6 +649,7 @@ export function crearControladorBolsas({ estado, renderizar, navegar, obtenerFue
 
   function instalar() {
     controladorOperacionesB8.instalar(documento);
+    controladorIntentosContacto.instalar(documento);
     documento.addEventListener("change", (evento) => {
       const control = evento.target;
       if (!control?.closest?.('[data-bolsa-form="b7-paso2"]')) return;
