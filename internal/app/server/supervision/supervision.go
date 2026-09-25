@@ -1,4 +1,4 @@
-package server
+package supervision
 
 import (
 	"bytes"
@@ -296,4 +296,11 @@ func (e *escritorErrorLogSaneado) detenerVolcadoBloqueado() {
 func (e *escritorErrorLogSaneado) escribir(linea string) {
 	// El ErrorLog no tiene otro destino al que informar de su propio fallo.
 	_, _ = io.WriteString(e.destino, linea)
+}
+
+// esRespuestaInformativa reconoce las respuestas 1xx provisionales (salvo 101,
+// que es final): no fijan el estado observado. Misma regla que el paquete
+// server, repetida aquí para no arrastrar ese paquete ni ser arrastrado por él.
+func esRespuestaInformativa(estado int) bool {
+	return estado >= 100 && estado <= 199 && estado != http.StatusSwitchingProtocols
 }

@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"vec-diputacion-granada/internal/app/server"
+	"vec-diputacion-granada/internal/app/server/supervision"
 	"vec-diputacion-granada/internal/vec/adapters/observabilidad"
 	"vec-diputacion-granada/internal/vec/domain"
 	"vec-diputacion-granada/internal/vec/ports"
@@ -98,7 +98,7 @@ func crearEmisorServidor(destino, registro io.Writer) (ports.EmisorIncidenciasTe
 // después vacía y cierra el emisor; se registra también en el cierre
 // ordenado del servidor.
 func componerSupervisionServidor(srv *http.Server, emisor ports.EmisorIncidenciasTecnicas, cerrarEmisor func(), registro io.Writer) func() {
-	volcarErrorLog := server.SupervisarServidor(srv, emisor, registro)
+	volcarErrorLog := supervision.SupervisarServidor(srv, emisor, registro)
 	var una sync.Once
 	cerrar := func() {
 		una.Do(func() {
