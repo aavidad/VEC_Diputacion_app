@@ -118,6 +118,9 @@ acreditada: 000012 vec_personal.…: huella distinta`.
 
 **Orden seguro de activación:**
 
+0. AD3-81 (`USAGE` del ejecutor Dietas en `vec_autorizacion_atestada_v3`,
+   que la fachada de rutas de AD3-50 necesita y F4b exige), vía
+   `04_dietas_migraciones.sh --incremental`: omite lo ya instalado.
 1. F4b `--inventario`, `--rollback` y, revisado, `--commit`.
 2. `pg_hba.conf` (antes de la sonda; recarga con `SELECT pg_reload_conf()`),
    por encima de cualquier línea `host`/`local` más general que las alcance:

@@ -7,7 +7,7 @@
 #                                           el nucleo AD3-48 y las migraciones
 #                                           de main ya instalados.
 #   04_dietas_migraciones.sh --incremental  paquete D2-D7 idempotente: Dietas
-#                                           000005-000011, AD3-59/80/75 y
+#                                           000005-000011, AD3-59/80/75/81 y
 #                                           Personal 000012/000013 en orden
 #                                           causal. Cada migracion va
 #                                           tras una comprobacion de su marca
@@ -31,6 +31,8 @@
 #   AD3-75 (exige los cuerpos exactos de AD3-59 y AD3-80; ninguna migracion
 #           Dietas la exige ni ella exige ninguna de Dietas)
 #   000009 (exige 000008) -> 000010 (exige 000009) -> 000011 (exige 000010)
+#   AD3-81 (exige la fachada de rutas de AD3-50 del paquete R1; solo concede
+#           al ejecutor Dietas el USAGE del esquema que esa fachada necesita)
 # 000010 y 000011 van siempre juntas y seguidas, en la misma transaccion:
 # 000010 sola proyecta la devolucion sin cotejar el campo de la decision V3.
 # Con AD3-75 antes de 000009 la lista con devolucion sigue cerrada en Dietas
@@ -91,6 +93,7 @@ incremental=(
   "dietas_borradores/migraciones/000009_otros_gastos_justificados.up.sql|to_regclass('vec_dietas.tipo_otro_gasto_provisional') IS NOT NULL"
   "dietas_borradores/migraciones/000010_devolucion_reenvio_comision.up.sql|to_regprocedure('vec_dietas.devolucion_vigente_comision_v1(text,bigint)') IS NOT NULL"
   "dietas_borradores/migraciones/000011_campo_devolucion_decision.up.sql|EXISTS (SELECT 1 FROM pg_proc WHERE oid=to_regprocedure('vec_dietas.autorizar_documento_v2$firma_dietas') AND strpos(prosrc,'vec.dietas.campo_devolucion')>0)"
+  "autorizacion_atestada_v3/migraciones/000081_uso_esquema_acceso_rutas_dietas.up.sql|EXISTS (SELECT 1 FROM pg_namespace n, aclexplode(n.nspacl) a WHERE n.nspname='$ad3' AND a.grantee=to_regrole('vec_dietas_ejecutor') AND a.privilege_type='USAGE')"
 )
 
 printf '%s\n' '\set ON_ERROR_STOP on' 'BEGIN;'
