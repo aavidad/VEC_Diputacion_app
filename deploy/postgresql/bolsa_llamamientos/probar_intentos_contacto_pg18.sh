@@ -102,6 +102,17 @@ SQL
 } | psql_pg >/dev/null
 psql_pg -tAc "SELECT count(*) FILTER (WHERE canal='telefono')||'/'||count(*) FROM vec_bolsa_llamamientos.contacto_participacion" | grep -qx '4/5' || { echo 'recuento inesperado'; exit 1; }
 echo 'Comportamiento: OK'
+# Una decisión ilegible tras un consumo válido es 42501, no 22P02. El doble
+# del consumidor se sustituye solo dentro de esta transacción.
+psql_pg >/dev/null <<'SQL'
+BEGIN;
+CREATE OR REPLACE FUNCTION vec_autorizacion_atestada_v3.registrar_y_consumir_contacto_participacion_v3_atestada(p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)
+ RETURNS TABLE(efecto_ref text,consumo_nuevo boolean) LANGUAGE sql VOLATILE SECURITY DEFINER SET search_path=pg_catalog AS $$ SELECT 'participacion:1', true $$;
+SET LOCAL ROLE vec_bolsa_llamamientos_ejecutor;
+SELECT prueba.espera($$SELECT * FROM vec_bolsa_llamamientos.registrar_contacto_participacion_v2('contacto:ilegible','bolsa:1','participacion:1',NULL,'telefono','2026-09-30T08:00:00Z','per_aaaaaaaaaaaaaaaaaaaaaa','contactado','Llamada de prueba','ilegible','recibo:ilegible','\x00','\xff','\x00','\x00',1,1,'\x00','\x00','\x00','\x00',NULL,NULL,NULL,NULL)$$,'42501');
+ROLLBACK;
+SQL
+echo 'Decisión ilegible: OK'
 # 5. Concurrencia: dos intentos a la vez sobre el mismo llamamiento.
 psql_pg < "$pruebas/datos_concurrencia.sql" >/dev/null
 lanzar() {

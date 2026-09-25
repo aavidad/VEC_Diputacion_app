@@ -59,8 +59,10 @@ BEGIN
     FROM vec_bolsa_llamamientos.contacto_participacion c
    WHERE c.participacion_ref=p_participacion_ref AND c.llamamiento_ref=p_llamamiento_ref AND c.canal='telefono' AND c.contacto_ref<>p_contacto_ref;
  END IF;
- SELECT * INTO consumo FROM vec_autorizacion_atestada_v3.registrar_y_consumir_contacto_participacion_v3_atestada(p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz);
- d:=convert_from(p_decision,'UTF8')::jsonb;
+ SELECT * INTO STRICT consumo FROM vec_autorizacion_atestada_v3.registrar_y_consumir_contacto_participacion_v3_atestada(p_capacidad,p_decision,p_motivo,p_contexto,p_persona_version,p_perfil_version,p_payload,p_sobre,p_evidencia,p_raiz);
+ -- Una decisión ilegible es una autorización fallida (42501), no un dato mal formado.
+ BEGIN d:=convert_from(p_decision,'UTF8')::jsonb;
+ EXCEPTION WHEN others THEN RAISE EXCEPTION 'contacto no autorizado' USING ERRCODE='42501'; END;
  IF consumo.efecto_ref IS DISTINCT FROM p_participacion_ref OR consumo.consumo_nuevo IS NOT TRUE OR d->>'principal_id' IS DISTINCT FROM p_actor OR d->>'accion' IS DISTINCT FROM 'bolsa.contacto_participacion.registrar' OR d->>'modulo_id' IS DISTINCT FROM 'bolsa' OR d->>'tipo_recurso' IS DISTINCT FROM 'participacion_bolsa' OR d->>'finalidad' IS DISTINCT FROM 'gestion_contactos_participacion' OR d->>'recurso_ref' IS DISTINCT FROM p_participacion_ref OR d->'campos_permitidos' IS DISTINCT FROM '[]'::jsonb OR d->'obligaciones' IS DISTINCT FROM '[]'::jsonb THEN RAISE EXCEPTION 'contacto no autorizado' USING ERRCODE='42501'; END IF;
  SELECT * INTO anterior FROM vec_bolsa_llamamientos.contacto_participacion c WHERE c.participacion_ref=p_participacion_ref AND c.clave_idempotencia=p_clave FOR SHARE;
  IF FOUND THEN
