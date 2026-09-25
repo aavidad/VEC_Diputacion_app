@@ -523,6 +523,7 @@ export const MENSAJES_PERSONAL_ES = Object.freeze({
   ficha_estado_vacio: "Sin registros en la última consulta",
   ficha_estado_no_configurado: "Fuente no conectada",
   ficha_estado_denegado: "Acceso denegado",
+  ficha_estado_excede_limite: "Demasiados registros",
   ficha_estado_error: "Consulta fallida",
   ficha_no_consta: "No consta",
   ficha_desplazar_tabla: "Desplace la tabla horizontalmente para ver todas las columnas.",
@@ -531,6 +532,7 @@ export const MENSAJES_PERSONAL_ES = Object.freeze({
   ficha_vacio: "La fuente autorizada no devuelve registros en esta consulta.",
   ficha_no_configurado: "No hay una fuente propia autorizada conectada para este apartado. La ausencia de datos no equivale a cero.",
   ficha_denegado: "No tiene permiso para consultar este apartado.",
+  ficha_excede_limite: "Este apartado tiene más registros de los que se pueden mostrar aquí. Solicite el detalle a Recursos Humanos.",
   ficha_error: "No se pudo consultar este apartado. Los demás apartados siguen disponibles.",
 });
 
