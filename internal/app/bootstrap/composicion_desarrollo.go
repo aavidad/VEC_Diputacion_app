@@ -243,9 +243,8 @@ func nuevoServidorDesarrollo(
 	if err != nil {
 		return nil, nil, err
 	}
-	_ = reglasEjemplo
-	rutasContratacion, autoridadContratacion, cerrarContratacion, err := nuevasRutasContratacionTemporalDesarrollo(
-		cfg, resolvedor, composicion.derivadorIdempotencia, composicion.emisorKMS, registro, incorporacion...,
+	rutasContratacion, autoridadContratacion, cerrarContratacion, err := nuevasRutasContratacionTemporalConReglasDesarrollo(
+		cfg, reglasEjemplo, resolvedor, composicion.derivadorIdempotencia, composicion.emisorKMS, registro, incorporacion...,
 	)
 	if err != nil {
 		return nil, nil, err

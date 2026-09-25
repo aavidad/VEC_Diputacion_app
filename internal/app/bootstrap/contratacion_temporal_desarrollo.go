@@ -204,6 +204,26 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	func(),
 	error,
 ) {
+	return nuevasRutasContratacionTemporalConReglasDesarrollo(cfg, reglasEjemploDesarrollo{}, resolvedor, derivador, kms, registro, incorporacion...)
+}
+
+// nuevasRutasContratacionTemporalConReglasDesarrollo recibe además las
+// reglas de ejemplo ya validadas; sin ellas cada consumidor conserva su
+// conducta sin catálogo.
+func nuevasRutasContratacionTemporalConReglasDesarrollo(
+	cfg config.Config,
+	reglasEjemplo reglasEjemploDesarrollo,
+	resolvedor vechttp.DemoIdentityResolver,
+	derivador *derivadorIdentidadOperacionDesarrollo,
+	kms *emisorKMSDesarrollo,
+	registro io.Writer,
+	incorporacion ...ConfiguracionIncorporacionDesarrollo,
+) (
+	[]vechttp.RutaExacta,
+	*autoridadConsultasContratacionTemporalDesarrollo,
+	func(),
+	error,
+) {
 	if len(incorporacion) > 1 || (len(incorporacion) != 0 && cfg.IncorporacionV2File != "") {
 		return nil, nil, nil, ErrComposicionDesarrolloIncompleta
 	}
@@ -211,6 +231,7 @@ func nuevasRutasContratacionTemporalDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	dependencias.reglasEjemplo = reglasEjemplo
 	if err := dependencias.cfg.ContratacionTemporalPostgreSQL.ValidarIdentidadOperativa(); err != nil {
 		return nil, nil, nil, err
 	}

@@ -14,6 +14,7 @@ import (
 	"vec-diputacion-granada/config"
 	bolsahttp "vec-diputacion-granada/internal/modules/bolsa/adapters/httpinterno"
 	postgresbolsa "vec-diputacion-granada/internal/modules/bolsa/adapters/postgres"
+	reglasbolsa "vec-diputacion-granada/internal/modules/bolsa/adapters/reglasvec"
 	aplicacionbolsa "vec-diputacion-granada/internal/modules/bolsa/application"
 	dominiobolsa "vec-diputacion-granada/internal/modules/bolsa/domain"
 	puertosbolsa "vec-diputacion-granada/internal/modules/bolsa/ports"
@@ -277,14 +278,18 @@ type emisorBorradorLlamamientoDesarrollo struct {
 }
 
 type manejadorParticipacionBolsaDesarrollo struct {
-	situacion, operaciones, contacto, datosContacto http.Handler
-	preparador                                      *preparadorBorradorLlamamientoDesarrollo
-	servicio                                        *aplicacionbolsa.ServicioContactoParticipacion
+	situacion, operaciones, contacto, datosContacto, sanciones http.Handler
+	preparador                                                 *preparadorBorradorLlamamientoDesarrollo
+	servicio                                                   *aplicacionbolsa.ServicioContactoParticipacion
 }
 
 func (m *manejadorParticipacionBolsaDesarrollo) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if _, _, ok := bolsahttp.ReferenciasRutaOperacionesSituacion(r); ok {
 		m.operaciones.ServeHTTP(w, r)
+		return
+	}
+	if _, _, _, ok := bolsahttp.ReferenciasRutaSancionesParticipacion(r); ok && m.sanciones != nil {
+		m.sanciones.ServeHTTP(w, r)
 		return
 	}
 	if _, _, _, ok := bolsahttp.ReferenciasRutaDatosContactoParticipacion(r); ok {
@@ -529,6 +534,24 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
+	// Sanciones (duda 62): mismo servicio de situación y autorización B8; el
+	// catálogo solo existe con el paquete de reglas de ejemplo declarado.
+	repositorioSanciones, err := postgresbolsa.NuevoRepositorioSancionesParticipacionPostgreSQL(alta.postgresql.bolsa)
+	if err != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+	}
+	var catalogoSanciones puertosbolsa.CatalogoSancionesParticipacion
+	if catalogo := reglasbolsa.NuevoCatalogoSanciones(dependenciasCT.reglasEjemplo.bolsa); catalogo != nil {
+		catalogoSanciones = catalogo
+	}
+	servicioSanciones, err := aplicacionbolsa.NuevoServicioSancionesParticipacion(servicioSituacion, catalogoSanciones, repositorioSanciones)
+	if err != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+	}
+	handlerSanciones, err := bolsahttp.NuevoHandlerSancionesParticipacion(preparador, servicioSanciones)
+	if err != nil {
+		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
+	}
 	repositorioContacto, err := postgresbolsa.NuevoRepositorioContactoParticipacionPostgreSQL(alta.postgresql.bolsa)
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
@@ -569,7 +592,7 @@ func nuevasDependenciasBorradorLlamamientoDesarrollo(
 	if err != nil {
 		return nil, nil, nil, vacio, nil, nil, errBorradorNoDisponibleEn()
 	}
-	mutador := &manejadorParticipacionBolsaDesarrollo{situacion: handlerSituacion, operaciones: handlerOperaciones, contacto: handlerContacto, datosContacto: handlerDatos, preparador: preparador, servicio: servicioContacto}
+	mutador := &manejadorParticipacionBolsaDesarrollo{situacion: handlerSituacion, operaciones: handlerOperaciones, sanciones: handlerSanciones, contacto: handlerContacto, datosContacto: handlerDatos, preparador: preparador, servicio: servicioContacto}
 	envolver := func(siguiente http.Handler) http.Handler {
 		auditada, auditErr := bolsahttp.NuevaAuditoriaBorradorLlamamiento(siguiente, auditoria, seguridadvec.GeneradorReferenciasCriptograficas{}, actorBorradorLlamamientoDesdeContextoDesarrollo{})
 		if auditErr != nil {

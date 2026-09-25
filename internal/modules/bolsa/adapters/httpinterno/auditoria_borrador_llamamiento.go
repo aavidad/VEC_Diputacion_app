@@ -117,6 +117,16 @@ func intentoAuditableBorradorLlamamiento(r *http.Request) (puertosbolsa.AccionIn
 			return puertosbolsa.AccionIntentoConsultarBorradorLlamamiento, puertosbolsa.ClaseRutaSituacionParticipacion, true
 		}
 	}
+	// Las sanciones usan la autorización de las operaciones de situación y
+	// se auditan con su misma acción y clase de ruta.
+	if _, _, _, ok := ReferenciasRutaSancionesParticipacion(r); ok {
+		if r.Method == http.MethodPost {
+			return puertosbolsa.AccionIntentoCambiarSituacionParticipacion, puertosbolsa.ClaseRutaSituacionParticipacion, true
+		}
+		if r.Method == http.MethodGet {
+			return puertosbolsa.AccionIntentoConsultarBorradorLlamamiento, puertosbolsa.ClaseRutaSituacionParticipacion, true
+		}
+	}
 	if _, _, _, ok := ReferenciasRutaDatosContactoParticipacion(r); ok && r.Method == http.MethodGet {
 		return puertosbolsa.AccionIntentoConsultarDatosContactoParticipacion, puertosbolsa.ClaseRutaDatosContactoParticipacion, true
 	}
