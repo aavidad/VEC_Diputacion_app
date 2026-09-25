@@ -105,8 +105,11 @@ while IFS= read -r paquete; do
 			"${modulo}/internal/vec/canonico/documental" | \
 			"${modulo}/internal/vec/canonico/pagos" | \
 			"${modulo}/internal/vec/canonico/recibomaterial" | \
+			"${modulo}/internal/vec/documentos/domain" | \
+			"${modulo}/internal/vec/documentos/ports" | \
 			"${modulo}/internal/vec/domain" | \
-			"${modulo}/internal/vec/ports")
+			"${modulo}/internal/vec/ports" | \
+			"${modulo}/internal/vec/reglas")
 			;;
 		*)
 			prohibidas+=("${paquete}")
