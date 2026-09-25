@@ -36,6 +36,7 @@ export const MENSAJES_CRONOS_NOTIFICACIONES_ES = Object.freeze({
   col_accion: "Acción",
   sin_documento: "—",
   huella_documento: "Huella SHA-256: {huella}",
+  ver_huella: "Huella",
   estado_registrada: "Pendiente de atender",
   estado_atendida: "Atendida el {fecha}",
 
@@ -52,6 +53,7 @@ export const MENSAJES_CRONOS_NOTIFICACIONES_ES = Object.freeze({
   sin_atendidas: "No hay notificaciones atendidas.",
   error_no_competente_notificacion: "No le corresponde atender esta notificación.",
   error_atender: "No se pudo marcar como atendida. Puede reintentarlo.",
+  bandeja_demasiado_grande: "Hay más de 500 notificaciones y no se pueden mostrar todas a la vez. Avise al equipo de soporte de VEC.",
 });
 
 const CATALOGO = Object.freeze({ ...MENSAJES_CRONOS_SOLICITUDES_ES, ...MENSAJES_CRONOS_NOTIFICACIONES_ES });
@@ -76,6 +78,21 @@ export function fechaCivilVisibleCronos(fecha, locale = "es-ES") {
 /** Instante visible en la zona de la persona. */
 export function instanteVisibleCronos(valor, locale = "es-ES", zonaHoraria = "Europe/Madrid") {
   return new Intl.DateTimeFormat(locale, { timeZone: zonaHoraria, dateStyle: "medium", timeStyle: "short" }).format(new Date(valor));
+}
+
+function escaparHTML(valor) {
+  return String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
+}
+/**
+ * Documento por referencia y huella. La huella se ofrece a todos (también al
+ * lector de pantalla y al teclado) en un detalle desplegable, no sólo en un
+ * title.
+ */
+export function documentoNotificacionCronos(n, t) {
+  if (!n.adjunto_ref) return escaparHTML(t("sin_documento"));
+  return `${escaparHTML(n.adjunto_ref)}<details class="cronos-huella"><summary>${escaparHTML(t("ver_huella"))}</summary>`
+    + `<span class="cronos-huella-valor">${escaparHTML(t("huella_documento", { huella: n.adjunto_sha256 }))}</span></details>`;
 }
 
 /** Número localizado (contador de caracteres). */

@@ -77,6 +77,23 @@ test("sin permiso o sin empleado no muestra notificaciones", async () => {
   }
 });
 
+test("una bandeja de más de 500 se avisa sin códigos y sin mostrar una lista recortada", async () => {
+  const { nodo, raiz } = raizFalsa(); const anuncios = [];
+  montarBandejaNotificacionesCronos({ raiz, anunciar: (m) => anuncios.push(m),
+    cliente: { consultarBandeja: async () => { throw new ErrorClienteNotificacionesCronos("bandeja_demasiado_grande", 409); }, atender: async () => ({}) } });
+  await esperar();
+  assert.match(nodo.innerHTML, /Hay más de 500 notificaciones/);
+  assert.match(nodo.innerHTML, /role="alert"/);
+  assert.doesNotMatch(nodo.innerHTML, /PC013|bandeja_demasiado_grande|409|data-cronos-atender/u);
+  assert.match(anuncios[0], /Hay más de 500 notificaciones/);
+});
+
+test("la huella del documento se ofrece en un detalle desplegable, no sólo en un title", () => {
+  const html = renderizarBandejaNotificacionesCronos({ estado: "listo", datos: bandeja() });
+  assert.match(html, /<details class="cronos-huella"><summary>Huella<\/summary><span class="cronos-huella-valor">Huella SHA-256: a{64}<\/span><\/details>/u);
+  assert.doesNotMatch(html, /title="Huella/u);
+});
+
 test("la vista no guarda nada en el navegador", async () => {
   const fuente = await readFile(new URL("./vista-bandeja-notificaciones.js", import.meta.url), "utf8");
   assert.doesNotMatch(fuente, /localStorage|sessionStorage|indexedDB|document\.cookie|Math\.random|querySelectorAll/u);

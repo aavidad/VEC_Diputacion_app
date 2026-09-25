@@ -102,3 +102,54 @@ test("la fecha de hoy es la civil de Madrid y la vista no guarda nada en el nave
   const fuente = await readFile(new URL("./vista-notificaciones-propias.js", import.meta.url), "utf8");
   assert.doesNotMatch(fuente, /localStorage|sessionStorage|indexedDB|document\.cookie|Math\.random|FormData|querySelectorAll/u);
 });
+
+test("el documento se lee una sola vez: «input» no lo vuelve a leer, «change» sí", async () => {
+  const { nodo, nodos, raiz } = raizFalsa(); let lecturas = 0;
+  montarNotificacionesPropiasCronos({ raiz, cliente: { consultarPropias: async () => datos(), enviar: async () => ({}) },
+    cripto: { subtle: { digest: async () => new Uint8Array(32).fill(0xab).buffer } } });
+  await esperar();
+  nodos["[data-cronos-documento-estado]"] = { textContent: "", dataset: {} };
+  const control = { name: "documento", files: [{ size: 3, arrayBuffer: async () => { lecturas++; return new Uint8Array([1, 2, 3]).buffer; } }] };
+  await nodo.eventos.input({ type: "input", target: control });
+  assert.equal(lecturas, 0, "input no lee el fichero");
+  await nodo.eventos.change({ type: "change", target: control });
+  assert.equal(lecturas, 1);
+  assert.equal(nodos["[data-cronos-documento-estado]"].textContent, "Huella del documento calculada.");
+});
+
+test("un error de envío no repinta el formulario: el fichero sigue con su huella y el foco vuelve al campo o al botón", async () => {
+  const { nodo, nodos, raiz } = raizFalsa(); const envios = [];
+  const cliente = { consultarPropias: async () => datos(), enviar: async (e) => { envios.push(e); throw new ErrorClienteNotificacionesCronos("servicio_no_disponible", 503); } };
+  montarNotificacionesPropiasCronos({ raiz, cliente, cripto: { subtle: { digest: async () => new Uint8Array(32).fill(0xab).buffer } } });
+  await esperar();
+  const foco = [];
+  const control = (name) => ({ name, disabled: false, focus() { foco.push(name); } });
+  const campos = ["tipo", "fecha", "texto", "referencia", "documento"].map(control);
+  const boton = { ...control("enviar"), textContent: "Enviar a RRHH" };
+  const aviso = { innerHTML: "" };
+  const elementos = Object.assign([...campos, boton], { namedItem: () => null });
+  const form = { elements: elementos, querySelector: (sel) => ({ "[data-cronos-envio-aviso]": aviso, "[data-cronos-notificacion-enviar]": boton })[sel] ?? null };
+  nodos["[data-cronos-notificacion-formulario]"] = form;
+  nodos["[data-cronos-notificacion-enviar]"] = boton;
+  for (const c of campos) nodos[`[data-cronos-notificacion-formulario] [name="${c.name}"]`] = c;
+  nodos["[data-cronos-documento-estado]"] = { textContent: "", dataset: {} };
+  await nodo.eventos.change({ type: "change", target: { name: "documento", files: [{ size: 3, arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer }] } });
+  const pintado = nodo.innerHTML;
+  await nodo.eventos.submit({ target: formulario({ tipo: TIPO, fecha: "2026-09-24", texto: "   ", referencia: "registro:sintetico:0001" }), preventDefault() {} });
+  assert.equal(nodo.innerHTML, pintado, "un error local no repinta");
+  assert.match(aviso.innerHTML, /Revise el tipo, la fecha y el mensaje/);
+  assert.deepEqual(foco, ["texto"], "el foco va al campo en error");
+  await nodo.eventos.submit({ target: formulario({ tipo: TIPO, fecha: "2026-09-24", texto: "Olvidé fichar", referencia: "registro:sintetico:0001" }), preventDefault() {} });
+  assert.equal(nodo.innerHTML, pintado, "el envío fallido no recrea el campo del fichero");
+  assert.equal(envios[0].adjunto_sha256, "ab".repeat(32), "se envía la huella del fichero que sigue elegido");
+  assert.match(aviso.innerHTML, /No se pudo enviar la notificación/);
+  assert.equal(boton.textContent, "Enviar a RRHH");
+  assert.ok([...campos, boton].every((c) => c.disabled === false), "los campos vuelven a estar activos");
+  assert.deepEqual(foco, ["texto", "enviar"], "tras un error del servidor el foco vuelve al botón");
+});
+
+test("la huella del documento se ofrece en un detalle desplegable, no sólo en un title", () => {
+  const html = renderizarNotificacionesPropiasCronos({ estado: "listo", datos: datos(), hoy: "2026-09-25" });
+  assert.match(html, /<details class="cronos-huella"><summary>Huella<\/summary><span class="cronos-huella-valor">Huella SHA-256: a{64}<\/span><\/details>/u);
+  assert.doesNotMatch(html, /title="Huella/u);
+});

@@ -131,7 +131,7 @@ function validarReciboAtencion(v, entrada) {
 }
 
 const CODIGOS_403 = new Set(["sin_empleado", "no_competente"]);
-const CODIGOS_409 = new Set(["estado_cambiado", "tipo_no_vigente"]);
+const CODIGOS_409 = new Set(["estado_cambiado", "tipo_no_vigente", "bandeja_demasiado_grande"]);
 
 export function crearClienteNotificacionesCronosHTTP({ fetchImpl = globalThis.fetch, plazoMs = 10_000 } = {}) {
   if (typeof fetchImpl !== "function" || !Number.isSafeInteger(plazoMs) || plazoMs < 1 || plazoMs > 30_000) throw new TypeError("cliente de notificaciones Cronos no disponible");

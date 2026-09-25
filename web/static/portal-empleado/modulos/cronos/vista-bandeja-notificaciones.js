@@ -1,5 +1,5 @@
 import {
-  crearTraductorNotificacionesCronos, fechaCivilVisibleCronos, instanteVisibleCronos,
+  crearTraductorNotificacionesCronos, documentoNotificacionCronos, fechaCivilVisibleCronos, instanteVisibleCronos,
 } from "./i18n-notificaciones.js";
 import { ErrorClienteNotificacionesCronos, crearClienteNotificacionesCronosHTTP } from "./cliente-notificaciones-http.js";
 
@@ -14,8 +14,7 @@ function claveNueva() { return globalThis.crypto.randomUUID(); }
 function persona(n, t) { return n.empleado_etiqueta || t("persona_sin_nombre"); }
 
 function fila(n, filtro, atendiendo, t, locale, zonaHoraria) {
-  const documento = n.adjunto_ref
-    ? `<span title="${escaparHTML(t("huella_documento", { huella: n.adjunto_sha256 }))}">${escaparHTML(n.adjunto_ref)}</span>` : escaparHTML(t("sin_documento"));
+  const documento = documentoNotificacionCronos(n, t);
   const accion = filtro === "pendientes"
     ? `<button type="button" class="boton-secundario" data-cronos-atender="${escaparHTML(n.notificacion_ref)}" aria-label="${escaparHTML(t("atender_notificacion", { persona: persona(n, t) }))}"${atendiendo ? " disabled" : ""}>${escaparHTML(t(atendiendo ? "atendiendo" : "atender"))}</button>`
     : `<span class="cronos-estado" data-estado="atendida">${escaparHTML(t("estado_atendida", { fecha: instanteVisibleCronos(n.atendida_en, locale, zonaHoraria) }))}</span>`;
@@ -35,9 +34,10 @@ export function renderizarBandejaNotificacionesCronos({ estado = "cargando", fil
     `<button type="button" class="boton-secundario" data-cronos-filtro-notificaciones="${f}" aria-pressed="${f === filtro}">${escaparHTML(t(`filtro_${f}`))}</button>`).join("")}</div>`;
   const cabeceraPanel = `<div class="cabecera-panel"><h3 id="cronos-bandeja-notificaciones-filtro">${escaparHTML(t(`filtro_${filtro}`))}</h3>${selector}</div>`;
   if (estado !== "listo") {
-    const clave = { denegado: "denegado", sin_empleado: "sin_empleado", error: "error" }[estado] ?? "cargando";
+    const clave = { denegado: "denegado", sin_empleado: "sin_empleado", error: "error", demasiado_grande: "bandeja_demasiado_grande" }[estado] ?? "cargando";
+    const alerta = estado === "error" || estado === "demasiado_grande";
     return `<section class="cronos-area cronos-bandeja-notificaciones" aria-labelledby="cronos-bandeja-notificaciones-titulo" data-estado="${escaparHTML(estado)}">${cabecera}
-      <section class="panel cronos-panel" aria-labelledby="cronos-bandeja-notificaciones-filtro">${cabeceraPanel}<div class="cuerpo-panel"><p class="cronos-${estado === "cargando" ? "vacio" : "acceso-denegado"}" role="${estado === "error" ? "alert" : "status"}">${escaparHTML(t(clave))}</p></div></section></section>`;
+      <section class="panel cronos-panel" aria-labelledby="cronos-bandeja-notificaciones-filtro">${cabeceraPanel}<div class="cuerpo-panel"><p class="cronos-${estado === "cargando" ? "vacio" : "acceso-denegado"}" role="${alerta ? "alert" : "status"}">${escaparHTML(t(clave))}</p></div></section></section>`;
   }
   const tono = tonoMensaje === "error" ? "error" : "exito";
   const aviso = mensaje ? `<div class="cuerpo-panel"><p class="cronos-solicitud-aviso" data-tono="${tono}" role="${tono === "error" ? "alert" : "status"}">${escaparHTML(mensaje)}</p></div>` : "";
@@ -54,6 +54,8 @@ function estadoError(error) {
   if (error instanceof ErrorClienteNotificacionesCronos) {
     if (error.codigo === "sin_empleado") return "sin_empleado";
     if (["acceso_denegado", "autenticacion_requerida", "no_competente"].includes(error.codigo)) return "denegado";
+    // Más de 500: el servidor la rechaza entera en vez de recortarla.
+    if (error.codigo === "bandeja_demasiado_grande") return "demasiado_grande";
   }
   return "error";
 }
@@ -83,7 +85,7 @@ export function montarBandejaNotificacionesCronos({ raiz, cliente = crearCliente
       estado = "listo"; datos = r; dibujar();
     } catch (error) {
       if (!activa || turno !== secuencia || controlador.signal.aborted) return;
-      estado = estadoError(error); dibujar(); anunciar(t(estado));
+      estado = estadoError(error); dibujar(); anunciar(t(estado === "demasiado_grande" ? "bandeja_demasiado_grande" : estado));
     }
   };
   const atender = async (notificacionRef) => {

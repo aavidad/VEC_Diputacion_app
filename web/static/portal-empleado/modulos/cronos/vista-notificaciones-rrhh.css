@@ -57,7 +57,30 @@
 }
 
 .cronos-documento-estado[data-tono="error"] { color: var(--portal-peligro); }
-.cronos-documento-estado:empty { display: none; }
+/* Vacía sigue en el árbol accesible (región role=status ya presente cuando
+   se anuncia la huella), pero no ocupa hueco en la rejilla. Nunca display:none. */
+.cronos-notificacion-formulario { position: relative; }
+.cronos-documento-estado:empty {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Huella SHA-256 desplegable: accesible con teclado y lector de pantalla. */
+.cronos-huella {
+  margin-top: var(--portal-espacio-1);
+  font-size: .8125rem;
+  color: var(--portal-muted);
+}
+.cronos-huella summary { cursor: pointer; width: fit-content; }
+.cronos-huella-valor {
+  display: block;
+  margin-top: var(--portal-espacio-1);
+  overflow-wrap: anywhere;
+}
 
 .cronos-notificacion-texto {
   max-width: 420px;

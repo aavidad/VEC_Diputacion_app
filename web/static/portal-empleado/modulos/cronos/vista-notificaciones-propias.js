@@ -1,5 +1,5 @@
 import {
-  crearTraductorNotificacionesCronos, fechaCivilVisibleCronos, instanteVisibleCronos, numeroVisibleCronos,
+  crearTraductorNotificacionesCronos, documentoNotificacionCronos, fechaCivilVisibleCronos, instanteVisibleCronos, numeroVisibleCronos,
 } from "./i18n-notificaciones.js";
 import {
   ErrorClienteNotificacionesCronos, MAXIMO_TEXTO_NOTIFICACION_CRONOS, adjuntoNotificacionValido, calcularHuellaDocumentoCronos,
@@ -35,7 +35,7 @@ function formularioNotificacion(f, datos, envio, t, locale) {
   const documento = f.documento
     ? `<p class="cronos-documento-estado" data-cronos-documento-estado data-tono="${f.documento === "documento_error" ? "error" : "exito"}" role="status">${escaparHTML(t(f.documento))}</p>`
     : `<p class="cronos-documento-estado" data-cronos-documento-estado role="status"></p>`;
-  const aviso = envio?.mensaje ? `<p class="cronos-solicitud-aviso" data-tono="error" role="alert">${escaparHTML(envio.mensaje)}</p>` : "";
+  const aviso = avisoEnvio(envio?.mensaje);
   if (!datos.tipos.length) return `<p class="cronos-vacio" role="status">${escaparHTML(t("sin_tipos"))}</p>`;
   return `<form class="cronos-notificacion-formulario" data-cronos-notificacion-formulario aria-labelledby="cronos-notificacion-nueva">
     <div class="cronos-notificacion-fila">
@@ -49,14 +49,19 @@ function formularioNotificacion(f, datos, envio, t, locale) {
       <label class="cronos-campo">${escaparHTML(t("campo_documento"))}<input type="file" name="documento" data-cronos-documento${inactivo}></label>
     </div>
     ${documento}
-    <div class="cronos-solicitud-acciones"><button type="submit" class="boton-primario"${inactivo}>${escaparHTML(t(enviando ? "enviando" : "enviar"))}</button></div>${aviso}
+    <div class="cronos-solicitud-acciones"><button type="submit" class="boton-primario" data-cronos-notificacion-enviar${inactivo}>${escaparHTML(t(enviando ? "enviando" : "enviar"))}</button></div>
+    <div data-cronos-envio-aviso>${aviso}</div>
   </form>`;
 }
 
+function avisoEnvio(mensaje) {
+  return mensaje ? `<p class="cronos-solicitud-aviso" data-tono="error" role="alert">${escaparHTML(mensaje)}</p>` : "";
+}
+
+
 function filaNotificacion(n, t, locale, zonaHoraria) {
   const estado = n.estado === "atendida" ? t("estado_atendida", { fecha: instanteVisibleCronos(n.atendida_en, locale, zonaHoraria) }) : t("estado_registrada");
-  const documento = n.adjunto_ref
-    ? `<span title="${escaparHTML(t("huella_documento", { huella: n.adjunto_sha256 }))}">${escaparHTML(n.adjunto_ref)}</span>` : escaparHTML(t("sin_documento"));
+  const documento = documentoNotificacionCronos(n, t);
   return `<tr><td>${escaparHTML(instanteVisibleCronos(n.registrada_en, locale, zonaHoraria))}</td><th scope="row">${escaparHTML(n.tipo_nombre)}</th>
     <td>${escaparHTML(fechaCivilVisibleCronos(n.fecha_referida, locale))}</td><td class="cronos-notificacion-texto">${escaparHTML(n.texto)}</td>
     <td>${documento}</td><td><span class="cronos-estado" data-estado="${escaparHTML(n.estado)}">${escaparHTML(estado)}</span></td></tr>`;
@@ -75,7 +80,7 @@ export function renderizarNotificacionesPropiasCronos({ estado = "cargando", dat
       <section class="panel cronos-panel"><div class="cuerpo-panel"><p class="cronos-${estado === "cargando" ? "vacio" : "acceso-denegado"}" role="${estado === "error" ? "alert" : "status"}">${escaparHTML(t(clave))}</p></div></section></section>`;
   }
   const tono = tonoMensaje === "error" ? "error" : "exito";
-  const aviso = mensaje ? `<p class="cronos-solicitud-aviso" data-tono="${tono}" role="${tono === "error" ? "alert" : "status"}">${escaparHTML(mensaje)}</p>` : "";
+  const aviso = mensaje ? `<p class="cronos-solicitud-aviso" data-cronos-notificacion-mensaje data-tono="${tono}" role="${tono === "error" ? "alert" : "status"}">${escaparHTML(mensaje)}</p>` : "";
   const f = formulario ?? formularioVacio(hoy);
   const cabeceras = ["col_enviada", "col_tipo", "col_fecha", "col_mensaje", "col_documento", "col_estado"];
   const filas = datos.notificaciones.map((n) => filaNotificacion(n, t, locale, zonaHoraria)).join("");
@@ -131,25 +136,50 @@ export function montarNotificacionesPropiasCronos({ raiz, cliente = crearCliente
     const nodo = contenedor.querySelector?.("[data-cronos-documento-estado]");
     if (nodo) { nodo.textContent = clave ? t(clave) : ""; nodo.dataset.tono = clave === "documento_error" ? "error" : "exito"; }
   };
-  const alCambiar = async (evento) => {
+  // El fichero se lee una sola vez, en «change»; «input» también se dispara
+  // en un input type=file y no debe volver a leerlo.
+  const alCambiarDocumento = async (control) => {
+    const lectura = ++lecturaDocumento;
+    formulario = { ...formulario, huella: "" };
+    const archivo = control.files?.length === 1 ? control.files[0] : null;
+    if (!archivo) { estadoDocumento(""); return; }
+    estadoDocumento("documento_calculando");
+    try {
+      const huella = await calcularHuellaDocumentoCronos(archivo, cripto);
+      if (!activa || lectura !== lecturaDocumento) return;
+      formulario = { ...formulario, huella };
+      estadoDocumento("documento_listo");
+    } catch {
+      if (!activa || lectura !== lecturaDocumento) return;
+      estadoDocumento("documento_error");
+    }
+  };
+  // El envío se refleja sobre el formulario ya pintado, sin recrearlo: el
+  // fichero elegido sigue en su campo junto a la huella que se conserva.
+  // Tras un error, el foco vuelve al campo que lo causa o al botón.
+  const reflejarEnvio = (foco = "") => {
+    const form = contenedor.querySelector?.("[data-cronos-notificacion-formulario]");
+    const aviso = form?.querySelector?.("[data-cronos-envio-aviso]");
+    const boton = form?.querySelector?.("[data-cronos-notificacion-enviar]");
+    if (!form?.elements || !aviso || !boton) { dibujar(); } else {
+      const enviando = envio?.enviando === true;
+      for (const control of Array.from(form.elements)) control.disabled = enviando;
+      boton.textContent = t(enviando ? "enviando" : "enviar");
+      aviso.innerHTML = avisoEnvio(envio?.mensaje);
+    }
+    if (!foco) return;
+    const destino = foco === "enviar" ? "[data-cronos-notificacion-enviar]" : `[data-cronos-notificacion-formulario] [name="${foco}"]`;
+    contenedor.querySelector?.(destino)?.focus?.();
+  };
+  const campoEnError = (clave) => {
+    if (clave === "error_datos") return !formulario.tipo ? "tipo" : !/^\d{4}-\d{2}-\d{2}$/u.test(formulario.fecha) ? "fecha" : "texto";
+    return formulario.referencia ? "documento" : "referencia";
+  };
+  const alCambiar = (evento) => {
     const control = evento.target;
     if (!control || typeof control.name !== "string") return;
     if (control.name === "documento") {
-      const lectura = ++lecturaDocumento;
-      formulario = { ...formulario, huella: "" };
-      const archivo = control.files?.length === 1 ? control.files[0] : null;
-      if (!archivo) { estadoDocumento(""); return; }
-      estadoDocumento("documento_calculando");
-      try {
-        const huella = await calcularHuellaDocumentoCronos(archivo, cripto);
-        if (!activa || lectura !== lecturaDocumento) return;
-        formulario = { ...formulario, huella };
-        estadoDocumento("documento_listo");
-      } catch {
-        if (!activa || lectura !== lecturaDocumento) return;
-        estadoDocumento("documento_error");
-      }
-      return;
+      return evento.type === "input" ? undefined : alCambiarDocumento(control);
     }
     if (["tipo", "fecha", "texto", "referencia"].includes(control.name)) {
       formulario = { ...formulario, [control.name]: String(control.value ?? "") };
@@ -169,14 +199,16 @@ export function montarNotificacionesPropiasCronos({ raiz, cliente = crearCliente
     const errorLocal = !formulario.tipo || !/^\d{4}-\d{2}-\d{2}$/u.test(formulario.fecha) || !textoNotificacionValido(formulario.texto) ? "error_datos"
       : formulario.documento === "documento_calculando" || !adjuntoNotificacionValido(formulario.referencia, formulario.huella) ? "error_documento" : "";
     if (errorLocal) {
-      envio = { ...(envio ?? {}), enviando: false, mensaje: t(errorLocal) }; dibujar(); anunciar(envio.mensaje);
+      envio = { ...(envio ?? {}), enviando: false, mensaje: t(errorLocal) }; reflejarEnvio(campoEnError(errorLocal)); anunciar(envio.mensaje);
       return;
     }
     const entrada = { tipo_version_ref: formulario.tipo, fecha_referida: formulario.fecha, texto: formulario.texto,
       ...(formulario.referencia ? { adjunto_ref: formulario.referencia, adjunto_sha256: formulario.huella } : {}) };
     const firma = JSON.stringify(entrada);
     const clave = envio?.firma === firma && envio.clave ? envio.clave : claveNueva();
-    envio = { clave, firma, enviando: true, mensaje: "" }; mensaje = ""; dibujar();
+    envio = { clave, firma, enviando: true, mensaje: "" }; mensaje = "";
+    contenedor.querySelector?.("[data-cronos-notificacion-mensaje]")?.remove?.();
+    reflejarEnvio();
     peticion = new AbortController();
     try {
       const recibo = await cliente.enviar({ clave_operacion: clave, ...entrada }, { signal: peticion.signal });
@@ -189,9 +221,14 @@ export function montarNotificacionesPropiasCronos({ raiz, cliente = crearCliente
       const codigo = error instanceof ErrorClienteNotificacionesCronos ? error.codigo : error instanceof TypeError ? "peticion_invalida" : "";
       const texto = t(ERRORES_ENVIO.get(codigo) ?? "error_envio");
       anunciar(texto);
-      if (codigo === "tipo_no_vigente") { envio = null; mensaje = texto; tonoMensaje = "error"; await cargar(); return; }
+      if (codigo === "tipo_no_vigente") {
+        // La lista se repinta: el campo del fichero vuelve vacío, así que
+        // tampoco se conserva su huella.
+        envio = null; mensaje = texto; tonoMensaje = "error"; formulario = { ...formulario, tipo: "", huella: "", documento: "" };
+        await cargar(); contenedor.querySelector?.('[data-cronos-notificacion-formulario] [name="tipo"]')?.focus?.(); return;
+      }
       envio = { ...envio, enviando: false, mensaje: texto };
-      dibujar();
+      reflejarEnvio(codigo === "peticion_invalida" ? "tipo" : "enviar");
     }
   };
   contenedor.addEventListener("change", alCambiar); contenedor.addEventListener("input", alCambiar); contenedor.addEventListener("submit", alEnviar);

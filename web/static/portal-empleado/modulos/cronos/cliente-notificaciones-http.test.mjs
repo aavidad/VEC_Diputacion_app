@@ -76,6 +76,8 @@ test("los rechazos nominales llegan con su código", async () => {
     const cliente = crearClienteNotificacionesCronosHTTP({ fetchImpl: async () => respuestaJSON(estado, cuerpo) });
     await assert.rejects(cliente.enviar(ENTRADA), (e) => e instanceof ErrorClienteNotificacionesCronos && e.codigo === codigo, `${estado} ${cuerpo.error}`);
   }
+  const grande = crearClienteNotificacionesCronosHTTP({ fetchImpl: async () => respuestaJSON(409, { error: "bandeja_demasiado_grande" }) });
+  await assert.rejects(grande.consultarBandeja(), (e) => e instanceof ErrorClienteNotificacionesCronos && e.codigo === "bandeja_demasiado_grande");
   const atencion = { recibo: { atencion_ref: "notificacion:cronos:atencion:0f0e0d0c-0b0a-4000-8000-000000000002", notificacion_ref: REF,
     recibo_ref: "recibo:cronos:0b9f3c2e-1d4a-4c6b-9e8f-0a1b2c3d4e5f", instante_utc: "2026-09-25T08:00:00Z", replay: true } };
   const cliente = crearClienteNotificacionesCronosHTTP({ fetchImpl: async () => respuestaJSON(200, atencion) });
