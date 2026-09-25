@@ -473,7 +473,7 @@ BEGIN
  resultado:=jsonb_build_object('empleado_ref',emp,'anio',anio,
   'catalogo',coalesce((SELECT jsonb_agg(jsonb_build_object('permiso_ref',c.permiso_ref,'version_ref',c.version_ref,'nombre',c.nombre,
       'vigente_desde',c.vigente_desde,'vigente_hasta',c.vigente_hasta,'unidad',c.unidad,'computo',c.computo,'circuito',c.circuito,
-      'minimo',c.minimo,'maximo_solicitud',c.maximo_solicitud,'maximo_mensual',c.maximo_mensual,'maximo_anual',c.maximo_anual,
+      'fuente_ref',c.fuente_ref,'minimo',c.minimo,'maximo_solicitud',c.maximo_solicitud,'maximo_mensual',c.maximo_mensual,'maximo_anual',c.maximo_anual,
       'justificante_exigido',c.justificante_exigido,'solicitable',c.solicitable AND k.ahora>=c.vigente_desde AND (c.vigente_hasta IS NULL OR k.ahora<c.vigente_hasta),
       'sintetico',c.sintetico) ORDER BY c.orden,c.permiso_ref)
      FROM vec_cronos_v1.catalogo_vigente_v1(referencia) c),'[]'::jsonb),

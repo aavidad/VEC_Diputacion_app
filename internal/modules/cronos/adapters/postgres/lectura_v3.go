@@ -46,6 +46,12 @@ func errorProveedorV3(ctx context.Context, err error) error {
 // durable con el material y las diez piezas V3 y confirma. Los bytes secretos
 // se borran al terminar. Sin COMMIT confirmado no se devuelve nada.
 func ejecutarLecturaV3(ctx context.Context, db iniciadorMarcaje, consulta string, material []byte, v3 vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3) ([]byte, error) {
+	return ejecutarFuncionV3(ctx, db, consulta, material, v3, errorSeguro)
+}
+
+// ejecutarFuncionV3 es ejecutarLecturaV3 con la traducción de errores de la
+// función durable a elección del adaptador (rechazos nominales de 000008).
+func ejecutarFuncionV3(ctx context.Context, db iniciadorMarcaje, consulta string, material []byte, v3 vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3, traducir func(context.Context, error) error) ([]byte, error) {
 	if db == nil || ctx == nil || len(material) == 0 || v3.ValidarEstructura() != nil {
 		return nil, ports.ErrDependenciaNoDisponible
 	}
@@ -69,7 +75,7 @@ func ejecutarLecturaV3(ctx context.Context, db iniciadorMarcaje, consulta string
 	}
 	var bruto []byte
 	if err := tx.QueryRow(ctx, consulta, string(material), secretos[0], secretos[1], secretos[2], secretos[3], v3.PersonaVersion(), v3.PerfilVersion(), secretos[4], secretos[5], secretos[6], secretos[7]).Scan(&bruto); err != nil {
-		return nil, errorSeguro(ctx, err)
+		return nil, traducir(ctx, err)
 	}
 	if err := tx.Commit(ctx); err != nil {
 		clear(bruto)

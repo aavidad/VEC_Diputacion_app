@@ -96,7 +96,7 @@ func (e *emisorPrueba) EmitirMaterialAutorizacionAtestadaV3(_ context.Context, s
 
 func motivosPrueba() MotivosCronos {
 	m := vecdomain.ReferenciaEntradaCatalogo{CatalogoID: "motivos_cronos", CatalogoVersion: 1, CatalogoHuellaSHA256: strings.Repeat("d", 64), EntradaClave: "motivo_" + strings.Repeat("5", 32)}
-	return MotivosCronos{Saldo: m, Marcaje: m, Disponibilidad: m, Recuperacion: m}
+	return MotivosCronos{Saldo: m, Marcaje: m, Disponibilidad: m, Recuperacion: m, Movimientos: m, Correccion: m, Permisos: m, Permiso: m}
 }
 
 func canalPrueba(t *testing.T) domain.AcreditacionCanalMarcaje {

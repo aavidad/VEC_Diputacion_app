@@ -335,14 +335,14 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 		}
 	}
 	if cronosEmpleadoSolicitado(cfg.CronosEmpleadoEnabled) {
-		var cronos [4]*proveedorMaterialAltaContratacionTemporalDesarrollo
+		var cronos [8]*proveedorMaterialAltaContratacionTemporalDesarrollo
 		for i, audiencia := range audienciasCronosEmpleadoDesarrollo() {
 			cronos[i], err = nuevoProveedorMaterialBorradorLlamamientoDesarrollo(ctx, gobierno, material, reloj, catalogoMaterial, audiencia)
 			if err != nil {
 				return vacias, err
 			}
 		}
-		dependencias.materialCronos = materialCronosDesdeCTDesarrollo{marcaje: cronos[0], disponibilidad: cronos[1], recibo: cronos[2], saldo: cronos[3]}
+		dependencias.materialCronos = materialCronosDesdeProveedores(cronos)
 	}
 	proveedor, err := nuevoProveedorMaterialAltaContratacionTemporalDesarrollo(
 		material, soporte, reloj,
