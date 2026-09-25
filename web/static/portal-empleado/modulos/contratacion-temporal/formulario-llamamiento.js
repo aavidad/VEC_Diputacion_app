@@ -1,6 +1,6 @@
 /** Una intención visible por acción; no se guarda nada en el navegador. */
 import { crearTraductorContratacionTemporal } from "./i18n.js";
-import { renderizarLlamamiento } from "./renderizado-llamamiento.js";
+import { renderizarLlamamiento, reciboAntecedenteSiguiente } from "./renderizado-llamamiento.js";
 import { esValidacionRespuestaPendiente, cargarPublicacionesFormalizacionDesarrollo } from "./cliente-http-llamamiento.js";
 import {
   CAMPOS_SELECCION, CAMPOS_COMUNICACION, referenciaLlamamientoValida,
@@ -236,9 +236,10 @@ export function montarFormularioLlamamiento({
     repintar();
     return true;
   }
+  // Antecedente del siguiente llamamiento: renuncia resuelta o expiración
+  // confirmada por RRHH, ambas con la intención de siguiente pendiente.
   function puedeContinuar() {
-    return estado.resolucion.recibo?.respuesta === "renuncia"
-      && estado.resolucion.recibo.intencion_siguiente?.estado_local === "pendiente";
+    return reciboAntecedenteSiguiente(estado)?.intencion_siguiente?.estado_local === "pendiente";
   }
   function versionFiscalizadaPermitePropuesta() {
     const version = estado.seleccion.solicitud?.version_esperada;
@@ -318,7 +319,7 @@ export function montarFormularioLlamamiento({
           && estado[anterior].solicitud?.clave_idempotencia === solicitud.clave_idempotencia,
       )) throw new TypeError("la operación necesita su propia clave");
       if (["resolucion", "siguiente"].includes(operacion) && [estado.seleccion, estado.comunicacion,
-        estado.respuesta, ...(operacion !== "resolucion" ? [estado.resolucion] : [])]
+        estado.respuesta, ...(operacion !== "resolucion" ? [estado.resolucion, estado.expiracion] : [])]
         .some((anterior) => anterior.solicitud?.clave_idempotencia === solicitud.clave_idempotencia)) {
         throw new TypeError("la operación necesita su propia clave");
       }
@@ -375,8 +376,9 @@ export function montarFormularioLlamamiento({
         signal: paso.controlador.signal,
       });
       respuestaRecibida = true;
+      const antecedente = estado.resolucion.recibo?.respuesta === "renuncia" ? estado.resolucion : estado.expiracion;
       const recibo = contrato.recibo(respuesta, solicitud, operacion === "siguiente"
-        ? estado.resolucion.solicitud.llamamiento_ref : operacion === "propuesta" ? estado.propuesta.aceptacion.resuelta_en : undefined);
+        ? antecedente.solicitud.llamamiento_ref : operacion === "propuesta" ? estado.propuesta.aceptacion.resuelta_en : undefined);
       if (!montado) return;
       guardarBorradores();
       paso.recibo = recibo;
@@ -447,7 +449,7 @@ export function montarFormularioLlamamiento({
           respuesta: recibo.respuesta, prueba_respuesta_ref: recibo.justificante_ref,
         };
       }
-      if (operacion === "resolucion" && puedeContinuar()) {
+      if (["resolucion", "expiracion"].includes(operacion) && puedeContinuar()) {
         estado.siguiente.valores = { ...estado.siguiente.valores,
           organizacion_ref: solicitud.organizacion_ref, expediente_ref: solicitud.expediente_ref,
           resolucion_ref: recibo.resolucion_ref, intencion_ref: recibo.intencion_siguiente.referencia };

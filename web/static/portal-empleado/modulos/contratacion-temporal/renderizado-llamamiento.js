@@ -5,7 +5,14 @@ import { CAMPOS_SELECCION, CAMPOS_COMUNICACION,
   CAMPOS_RESPUESTA_RECIBIDA, CAMPOS_RESPUESTA_EDITABLES, CAMPOS_RESOLUCION,
   CAMPOS_REVISION_RESOLUCION, RESPUESTAS_RESOLUCION,
   CAMPOS_SIGUIENTE, CAMPOS_RECIBO_SIGUIENTE, CAMPOS_PROPUESTA, CAMPOS_RECIBO_PROPUESTA,
-  PUBLICACIONES_FORMALIZACION } from "./contrato-llamamiento.js";
+  PUBLICACIONES_FORMALIZACION, RESPUESTA_EXPIRACION } from "./contrato-llamamiento.js";
+
+/** Recibo que habilita el siguiente llamamiento: la renuncia resuelta o la
+ * expiración confirmada por RRHH (sin respuesta en plazo). */
+export function reciboAntecedenteSiguiente(estado) {
+  if (estado.resolucion?.recibo?.respuesta === "renuncia") return estado.resolucion.recibo;
+  return estado.expiracion?.recibo?.respuesta === RESPUESTA_EXPIRACION ? estado.expiracion.recibo : null;
+}
 
 export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
   const esRespuesta = (operacion) => ["respuesta", "respuesta_siguiente"].includes(operacion);
@@ -45,6 +52,8 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
       siguiente = t(esSucesor
         ? "llamamiento_resultado_sucesor_renuncia_pendiente"
         : "llamamiento_resultado_siguiente_continuacion");
+    } else if (expiracion?.intencion_siguiente?.estado_local === "pendiente") {
+      siguiente = t("llamamiento_resultado_siguiente_continuacion");
     } else if (resolucion?.respuesta === "aceptacion") {
       siguiente = estado.propuesta.recibo
         ? t("llamamiento_resultado_siguiente_propuesta_registrada")
@@ -218,10 +227,10 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
       ? formulario("respuesta", CAMPOS_RESPUESTA_RECIBIDA) : ""}
     ${RESPUESTAS_RESOLUCION.includes(estado.respuesta.recibo?.respuesta)
       ? formulario("resolucion", CAMPOS_RESOLUCION) : ""}
-    ${estado.resolucion.recibo?.respuesta === "renuncia"
-      && estado.resolucion.recibo.intencion_siguiente?.estado_local === "pendiente"
+    ${reciboAntecedenteSiguiente(estado)?.intencion_siguiente?.estado_local === "pendiente"
       ? formulario("siguiente", CAMPOS_SIGUIENTE) : ""}
-    ${estado.siguiente?.recibo ? formulario("comunicacion_siguiente", CAMPOS_COMUNICACION) : ""}
+    ${estado.siguiente?.recibo && estado.resolucion.recibo?.respuesta === "renuncia"
+      ? formulario("comunicacion_siguiente", CAMPOS_COMUNICACION) : ""}
     ${estado.comunicacion_siguiente?.recibo?.version_resultante === 2
       && ["registrada_localmente", "replay_registrada_localmente"].includes(estado.comunicacion_siguiente.recibo.estado_local)
       ? formulario("respuesta_siguiente", CAMPOS_RESPUESTA_RECIBIDA) : ""}
