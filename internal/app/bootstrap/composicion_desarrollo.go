@@ -237,13 +237,13 @@ func nuevoServidorDesarrollo(
 			cerrarCalendarios()
 		}
 	}()
-	// Enganche de las reglas de ejemplo: los módulos de Bolsa y Contratación
-	// temporal recibirán reglasEjemplo.bolsa y reglasEjemplo.contratacionTemporal.
+	// Enganche de las reglas de ejemplo: Bolsa consume reglasEjemplo.bolsa en
+	// el plazo de respuesta del asistente B7; Contratación temporal recibirá
+	// reglasEjemplo.contratacionTemporal.
 	reglasEjemplo, err := nuevasReglasEjemploDesarrollo(cfg, consultaCalendarios, relojCalendariosDesarrollo{})
 	if err != nil {
 		return nil, nil, err
 	}
-	_ = reglasEjemplo
 	rutasContratacion, autoridadContratacion, cerrarContratacion, err := nuevasRutasContratacionTemporalDesarrollo(
 		cfg, resolvedor, composicion.derivadorIdempotencia, composicion.emisorKMS, registro, incorporacion...,
 	)
@@ -264,6 +264,11 @@ func nuevoServidorDesarrollo(
 		return nil, nil, err
 	}
 	rutasContratacion = append(rutasContratacion, rutasBolsasRRHH...)
+	rutaPlazoRespuesta, err := nuevaRutaPlazoRespuestaBolsaDesarrollo(reglasEjemplo.bolsa, relojCalendariosDesarrollo{})
+	if err != nil {
+		return nil, nil, err
+	}
+	rutasContratacion = append(rutasContratacion, rutaPlazoRespuesta)
 	coleccionesBolsasRRHH = append(coleccionesBolsasRRHH, autoridadContratacion.coleccionesAdicionales...)
 	rutasContratacion = append(rutasContratacion, rutasCalendarios...)
 	autoridadDietas, cerrarDietas, err := nuevasRutasDietasDesarrollo(cfg, resolvedor, composicion.derivadorIdempotencia)

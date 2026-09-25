@@ -1,4 +1,4 @@
-import { traducirPortal } from "./portal-i18n.js?v=20260925-d5d6-cronos-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260925-plazo-regla-v1";
 
 /** Contenido de ayuda sustituible por catálogo o conector, sin lógica de negocio. */
 export const AYUDA_PORTAL_BOLSA = Object.freeze({

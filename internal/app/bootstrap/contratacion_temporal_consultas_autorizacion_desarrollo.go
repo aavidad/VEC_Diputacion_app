@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 	"vec-diputacion-granada/config"
+	bolsahttp "vec-diputacion-granada/internal/modules/bolsa/adapters/httpinterno"
 	bolsapersonal "vec-diputacion-granada/internal/modules/bolsa/adapters/httppersonal"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 	vechttp "vec-diputacion-granada/internal/vec/adapters/httpapi"
@@ -117,6 +118,7 @@ func (m *revalidadorConsultasContratacionTemporalDesarrollo) ServeHTTP(
 			capacidad.ruta == rutaBolsasRRHHDesarrollo || rutaBolsasCandidatosRRHHDesarrollo(capacidad.ruta) || rutaBolsasOperacionesRRHHDesarrollo(capacidad.ruta) ||
 			capacidad.ruta == rutaEstadisticasBolsaRRHHDesarrollo ||
 			capacidad.ruta == rutaAvisosBolsaRRHHDesarrollo ||
+			capacidad.ruta == bolsahttp.RutaPlazoRespuestaLlamamiento ||
 			rutaCalendariosDesarrollo(capacidad.ruta) {
 			// El resolvedor ya ha cotejado la hoja y su cadena mTLS. Revalidar
 			// aquí su ventana también cubre conexiones abiertas antes de caducar.

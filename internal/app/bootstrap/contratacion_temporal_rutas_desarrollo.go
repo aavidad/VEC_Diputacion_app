@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"net/http"
 
+	bolsahttp "vec-diputacion-granada/internal/modules/bolsa/adapters/httpinterno"
 	bolsapersonal "vec-diputacion-granada/internal/modules/bolsa/adapters/httppersonal"
 	"vec-diputacion-granada/internal/modules/contrataciontemporal/adapters/httpinterno"
 )
@@ -36,6 +37,7 @@ func esRutaContratacionTemporalDesarrollo(r *http.Request) bool {
 		r.URL.Path == rutaBolsasRRHHDesarrollo || rutaBolsasCandidatosRRHHDesarrollo(r.URL.Path) || rutaBolsasOperacionesRRHHDesarrollo(r.URL.Path) ||
 		r.URL.Path == rutaEstadisticasBolsaRRHHDesarrollo ||
 		r.URL.Path == rutaAvisosBolsaRRHHDesarrollo ||
+		r.URL.Path == bolsahttp.RutaPlazoRespuestaLlamamiento ||
 		r.URL.Path == rutaCatalogosAltaContratacionTemporalDesarrollo ||
 		r.URL.Path == rutaOrganizacionContratacionTemporalDesarrollo ||
 		r.URL.Path == rutaCambiosOrganizacionContratacionTemporalDesarrollo ||
