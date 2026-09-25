@@ -39,7 +39,7 @@
 1303 internal/modules/bolsa/adapters/memory/baremacion_test.go
 849 internal/modules/bolsa/adapters/postgres/baremacion.go
 1525 internal/modules/bolsa/domain/baremacion.go
-1160 internal/modules/bolsa/domain/llamamientos.go
+1162 internal/modules/bolsa/domain/llamamientos.go
 959 internal/modules/bolsa/domain/llamamientos_test.go
 2055 internal/modules/bolsa/ports/baremacion.go
 2043 internal/modules/bolsa/ports/baremacion_test.go
