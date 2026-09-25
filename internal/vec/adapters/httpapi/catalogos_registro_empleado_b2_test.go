@@ -74,9 +74,9 @@ func TestCatalogosEmpleadoB2HTTPPublicaYRecuperaSinIdentidadCliente(t *testing.T
 	a := &autoridadRegistroEmpleadoB2Prueba{actor: actorOrganizacionHistoricaPrueba(t), organismo: "org_prueba"}
 	o := &operadorCatalogosEmpleadoB2Prueba{}
 	h, _ := NewHandlerCatalogosRegistroEmpleadoB2(a, o, &auditorRegistroEmpleadoB2Prueba{})
-	s := personaldomain.SolicitudCambioCatalogoEmpleadoB2{OrganismoRef: "org_prueba", Tipo: "regimen", Ref: "reg_prueba", Version: 1, Revision: 1, Denominacion: "Régimen de prueba", VigenteDesde: "2026-09-25", ActoRef: "acto_prueba"}
+	s := personaldomain.SolicitudCambioCatalogoEmpleadoB2{OrganismoRef: "org_prueba", Tipo: "regimen", Ref: "reg_prueba", Version: 1, Revision: 1, Denominacion: "Régimen de prueba", VigenteDesde: "2026-09-25"}
 	hash := personaldomain.HuellaPublicacionCatalogoEmpleadoB2(s)
-	cuerpo := fmt.Sprintf(`{"operacion":"publicar","tipo":"regimen","ref":"reg_prueba","version":1,"revision":1,"denominacion":"Régimen de prueba","huella_sha256":"%s","vigente_desde":"2026-09-25","vigente_hasta":"","acto_ref":"acto_prueba"}`, hash)
+	cuerpo := fmt.Sprintf(`{"operacion":"publicar","tipo":"regimen","ref":"reg_prueba","version":1,"revision":1,"denominacion":"Régimen de prueba","huella_sha256":"%s","vigente_desde":"2026-09-25","vigente_hasta":""}`, hash)
 	r := httptest.NewRequest(http.MethodPost, RutaCatalogosRegistroEmpleadoB2, strings.NewReader(cuerpo))
 	r.Header.Set("Content-Type", "application/json")
 	r.Header.Set("Idempotency-Key", claveRegistroEmpleadoB2Prueba)
@@ -102,6 +102,15 @@ func TestCatalogosEmpleadoB2HTTPPublicaYRecuperaSinIdentidadCliente(t *testing.T
 	h.ServeHTTP(w, r)
 	if w.Code != 400 || o.llamadas != 2 {
 		t.Fatalf("cliente suministra organismo=%d llamadas=%d", w.Code, o.llamadas)
+	}
+	mal = strings.TrimSuffix(cuerpo, "}") + `,"acto_ref":"acto_espurio"}`
+	r = httptest.NewRequest(http.MethodPost, RutaCatalogosRegistroEmpleadoB2, strings.NewReader(mal))
+	r.Header.Set("Content-Type", "application/json")
+	r.Header.Set("Idempotency-Key", claveRegistroEmpleadoB2Prueba)
+	w = httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	if w.Code != 400 || o.llamadas != 2 || a.llamadas != 2 {
+		t.Fatalf("cliente suministra acto=%d autoridad=%d llamadas=%d", w.Code, a.llamadas, o.llamadas)
 	}
 }
 

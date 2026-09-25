@@ -48,7 +48,6 @@ type entradaCambioCatalogoEmpleadoB2 struct {
 	HuellaSHA256 string `json:"huella_sha256"`
 	VigenteDesde string `json:"vigente_desde"`
 	VigenteHasta string `json:"vigente_hasta"`
-	ActoRef      string `json:"acto_ref"`
 }
 
 func (h *handlerCatalogosRegistroEmpleadoB2) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -156,7 +155,7 @@ func (h *handlerCatalogosRegistroEmpleadoB2) ServeHTTP(w http.ResponseWriter, r 
 		Operacion: entrada.Operacion, OrganismoRef: organismo, Tipo: entrada.Tipo, Ref: entrada.Ref,
 		Version: entrada.Version, Revision: entrada.Revision, Denominacion: entrada.Denominacion,
 		HuellaSHA256: entrada.HuellaSHA256, VigenteDesde: desde, VigenteHasta: hasta,
-		ActoRef: entrada.ActoRef, IdempotenciaRef: clave, Actor: actor,
+		IdempotenciaRef: clave, Actor: actor,
 	}
 	resultado, err := h.operador.Cambiar(r.Context(), solicitud)
 	if err != nil {
