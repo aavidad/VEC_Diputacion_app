@@ -48,7 +48,7 @@ func (s *Servicio) registroDisponible() bool {
 }
 
 func efectoLigado(a ports.AutorizacionV3, preimagen []byte, err error) bool {
-	return err == nil && a.Material.ResumenCapacidad().EfectoHuellaSHA256() == ports.HuellaPreimagen(preimagen)
+	return err == nil && a.Material.ResumenCapacidad().EfectoHuellaSHA256() == ports.HuellaEfectoV3(preimagen)
 }
 
 // AltaGenerado custodia los bytes por el puerto existente y solo confirma
@@ -83,7 +83,7 @@ func (s *Servicio) AltaGenerado(ctx context.Context, in ports.AltaGenerado) (dom
 		Politica: politica, Autorizacion: in.Autorizacion,
 	}
 	preimagen, err := persistente.PreimagenAlta()
-	if err != nil || in.Autorizacion.Material.ResumenCapacidad().EfectoHuellaSHA256() != ports.HuellaPreimagen(preimagen) {
+	if err != nil || in.Autorizacion.Material.ResumenCapacidad().EfectoHuellaSHA256() != ports.HuellaEfectoV3(preimagen) {
 		return domain.Documento{}, ports.ErrSolicitudInvalida
 	}
 	solicitud := vecports.SolicitudEscribirObjeto{

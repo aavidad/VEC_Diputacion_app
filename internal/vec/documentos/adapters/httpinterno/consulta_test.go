@@ -13,29 +13,36 @@ import (
 
 	"vec-diputacion-granada/internal/vec/documentos/domain"
 	"vec-diputacion-granada/internal/vec/documentos/ports"
+	vecdomain "vec-diputacion-granada/internal/vec/domain"
 )
 
 type autoridadPrueba struct {
-	denegar  bool
-	recurso  string
-	llamadas int
+	denegar    bool
+	errorFijo  error
+	recurso    string
+	expediente string
+	limite     uint32
+	llamadas   int
 }
 
-func (a *autoridadPrueba) ResolverConsultaExpediente(_ context.Context, recurso string) (ports.AutorizacionV3, error) {
-	a.recurso = recurso
-	a.llamadas++
+func (a *autoridadPrueba) resultado() (ports.AutorizacionV3, error) {
+	if a.errorFijo != nil {
+		return ports.AutorizacionV3{}, a.errorFijo
+	}
 	if a.denegar {
 		return ports.AutorizacionV3{}, errors.New("denegado")
 	}
 	return ports.AutorizacionV3{}, nil
 }
-func (a *autoridadPrueba) ResolverDescargaOriginal(_ context.Context, recurso string, _ uint64) (ports.AutorizacionV3, error) {
-	a.recurso = recurso
+func (a *autoridadPrueba) ResolverConsultaExpediente(_ context.Context, c ports.ConsultaExpediente) (ports.AutorizacionV3, error) {
+	a.recurso, a.limite = c.ExpedienteRef, c.Limite
 	a.llamadas++
-	if a.denegar {
-		return ports.AutorizacionV3{}, errors.New("denegado")
-	}
-	return ports.AutorizacionV3{}, nil
+	return a.resultado()
+}
+func (a *autoridadPrueba) ResolverDescargaOriginal(_ context.Context, c ports.ConsultaDocumento, expediente string) (ports.AutorizacionV3, error) {
+	a.recurso, a.expediente = c.DocumentoID, expediente
+	a.llamadas++
+	return a.resultado()
 }
 
 type servicioPrueba struct {
@@ -44,16 +51,31 @@ type servicioPrueba struct {
 	cursor       string
 	ultimoCursor string
 	llamadas     int
+	err          error
 }
 
 func (s *servicioPrueba) ListarExpediente(_ context.Context, consulta ports.ConsultaExpediente) (ports.PaginaDocumentos, error) {
 	s.llamadas++
 	s.ultimoCursor = consulta.Cursor
+	if s.err != nil {
+		return ports.PaginaDocumentos{}, s.err
+	}
 	return ports.PaginaDocumentos{Items: []domain.Documento{s.documento}, SiguienteCursor: s.cursor}, nil
 }
 func (s *servicioPrueba) DescargarOriginal(_ context.Context, _ ports.ConsultaDocumento) (ports.Original, error) {
 	s.llamadas++
+	if s.err != nil {
+		return ports.Original{}, s.err
+	}
 	return s.original, nil
+}
+
+type incidenciasPrueba struct {
+	emitidas []vecdomain.SolicitudIncidenciaTecnica
+}
+
+func (i *incidenciasPrueba) Emitir(s vecdomain.SolicitudIncidenciaTecnica) {
+	i.emitidas = append(i.emitidas, s)
 }
 func documentoPrueba() domain.Documento {
 	return domain.Documento{
@@ -108,14 +130,14 @@ func TestDescargaConservaBytesYVerificaHuella(t *testing.T) {
 	a := &autoridadPrueba{}
 	rutas, _ := NuevasRutasExactas(s, a)
 	w := httptest.NewRecorder()
-	rutas[1].Manejador.ServeHTTP(w, solicitud(RutaDescargaOriginal, `{"documento_ref":"ref:1111111111111111111111111111111111111111111111111111111111111111","version":1}`))
+	rutas[1].Manejador.ServeHTTP(w, solicitud(RutaDescargaOriginal, `{"expediente_ref":"ref:2222222222222222222222222222222222222222222222222222222222222222","documento_ref":"ref:1111111111111111111111111111111111111111111111111111111111111111","version":1}`))
 	if w.Code != http.StatusOK || w.Body.String() != string(pdf) || w.Header().Get("X-Content-SHA256") != huella ||
 		w.Header().Get("Content-Disposition") != `attachment; filename="documento-ref_1111111111111111111111111111111111111111111111111111111111111111.pdf"` || w.Header().Get("Set-Cookie") != "" {
 		t.Fatalf("descarga=%d cabeceras=%v", w.Code, w.Header())
 	}
 	s.original.HuellaSHA256 = strings.Repeat("a", 64)
 	w = httptest.NewRecorder()
-	rutas[1].Manejador.ServeHTTP(w, solicitud(RutaDescargaOriginal, `{"documento_ref":"ref:1111111111111111111111111111111111111111111111111111111111111111","version":1}`))
+	rutas[1].Manejador.ServeHTTP(w, solicitud(RutaDescargaOriginal, `{"expediente_ref":"ref:2222222222222222222222222222222222222222222222222222222222222222","documento_ref":"ref:1111111111111111111111111111111111111111111111111111111111111111","version":1}`))
 	if w.Code != http.StatusBadGateway || w.Header().Get("Content-Disposition") != "" {
 		t.Fatalf("huella falsa=%d", w.Code)
 	}
@@ -155,5 +177,65 @@ func TestListaTransportaCursorSoloEnCuerpoYRechazaBucle(t *testing.T) {
 	rutas[0].Manejador.ServeHTTP(w, solicitud(RutaConsultaExpediente, `{"expediente_ref":"`+ref+`","cursor":"cursor:primera","limite":50}`))
 	if w.Code != http.StatusBadGateway || s.ultimoCursor != "cursor:primera" {
 		t.Fatalf("cursor repetido=%d", w.Code)
+	}
+}
+
+func TestErroresDelServicioSeTraducenSinDetalleInterno(t *testing.T) {
+	ref := "ref:" + strings.Repeat("2", 64)
+	casos := []struct {
+		err    error
+		estado int
+		codigo string
+	}{
+		{ports.ErrConflicto, http.StatusConflict, "conflicto"},
+		{ports.ErrValidacion, http.StatusUnprocessableEntity, "contenido_no_valido"},
+		{ports.ErrNoEncontrado, http.StatusNotFound, "recurso_no_encontrado"},
+		{ports.ErrAccesoDenegado, http.StatusForbidden, "acceso_denegado"},
+		{errors.Join(ports.ErrCapacidadNoDisponible, errors.New("dial tcp 10.0.0.1:5432 secreto")), http.StatusServiceUnavailable, "servicio_no_disponible"},
+		{errors.New("pq: texto interno"), http.StatusServiceUnavailable, "servicio_no_disponible"},
+	}
+	for _, c := range casos {
+		inc := &incidenciasPrueba{}
+		s := &servicioPrueba{documento: documentoPrueba(), err: c.err}
+		rutas, err := NuevasRutasExactasConIncidencias(s, &autoridadPrueba{}, inc)
+		if err != nil {
+			t.Fatal(err)
+		}
+		w := httptest.NewRecorder()
+		rutas[0].Manejador.ServeHTTP(w, solicitud(RutaConsultaExpediente, `{"expediente_ref":"`+ref+`","limite":10}`))
+		cuerpo := w.Body.String()
+		if w.Code != c.estado || !strings.Contains(cuerpo, `"codigo":"`+c.codigo+`"`) || strings.Contains(cuerpo, "secreto") || strings.Contains(cuerpo, "interno") {
+			t.Fatalf("%v: %d %s", c.err, w.Code, cuerpo)
+		}
+		if (c.estado >= 500) != (len(inc.emitidas) == 1) {
+			t.Fatalf("%v: incidencias %+v", c.err, inc.emitidas)
+		}
+		if c.estado >= 500 && inc.emitidas[0].Codigo != vecdomain.IncidenciaHTTPInternoFallido {
+			t.Fatalf("incidencia inesperada %+v", inc.emitidas[0])
+		}
+	}
+}
+
+func TestAutoridadCaidaEsIndisponibilidadYDenegacionEs403(t *testing.T) {
+	ref := "ref:" + strings.Repeat("2", 64)
+	inc := &incidenciasPrueba{}
+	a := &autoridadPrueba{errorFijo: errors.Join(ports.ErrCapacidadNoDisponible, errors.New("gobierno caído"))}
+	s := &servicioPrueba{documento: documentoPrueba()}
+	rutas, _ := NuevasRutasExactasConIncidencias(s, a, inc)
+	w := httptest.NewRecorder()
+	rutas[1].Manejador.ServeHTTP(w, solicitud(RutaDescargaOriginal, `{"expediente_ref":"`+ref+`","documento_ref":"ref:`+strings.Repeat("1", 64)+`","version":2}`))
+	if w.Code != http.StatusServiceUnavailable || s.llamadas != 0 || a.expediente != ref || len(inc.emitidas) != 1 {
+		t.Fatalf("autoridad caída=%d servicio=%d expediente=%q", w.Code, s.llamadas, a.expediente)
+	}
+	a.errorFijo = errors.New("sin concesión")
+	w = httptest.NewRecorder()
+	rutas[1].Manejador.ServeHTTP(w, solicitud(RutaDescargaOriginal, `{"expediente_ref":"`+ref+`","documento_ref":"ref:`+strings.Repeat("1", 64)+`","version":2}`))
+	if w.Code != http.StatusForbidden || len(inc.emitidas) != 1 {
+		t.Fatalf("denegación=%d", w.Code)
+	}
+	w = httptest.NewRecorder()
+	rutas[1].Manejador.ServeHTTP(w, solicitud(RutaDescargaOriginal, `{"documento_ref":"ref:`+strings.Repeat("1", 64)+`","version":2}`))
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("descarga sin expediente=%d", w.Code)
 	}
 }

@@ -64,7 +64,7 @@ func (f *FabricaContextoLecturaOriginal) ContextoLecturaOriginal(
 	preimagen, err := (docports.ConsultaDocumento{DocumentoID: d.ID, Version: d.Version}).PreimagenDescargar()
 	if err != nil || a.ValidarPara(docports.AccionDescargar, instante) != nil ||
 		a.Material.ResumenCapacidad().Operacion() != docports.AccionDescargar ||
-		a.Material.ResumenCapacidad().EfectoHuellaSHA256() != docports.HuellaPreimagen(preimagen) {
+		a.Material.ResumenCapacidad().EfectoHuellaSHA256() != docports.HuellaEfectoV3(preimagen) {
 		return vecports.ContextoOperacionAlmacen{}, denegado
 	}
 	seudonimos, err := f.resolutor.SeudonimosLecturaOriginal(ctx, a)

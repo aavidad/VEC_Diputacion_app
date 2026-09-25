@@ -6,6 +6,7 @@ import (
 	"crypto/ed25519"
 	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"os"
 	"strings"
 	"testing"
@@ -36,7 +37,7 @@ func dsnEnsayo(t *testing.T) string {
 func materialSintetico(t *testing.T, accion, recurso, finalidad, tipo string, campos []string, preimagen []byte, decisionRef string) vecports.ExportacionMaterialConsumoAutorizacionAtestadaV3 {
 	t.Helper()
 	ahora := time.Now().UTC().Truncate(time.Microsecond)
-	h := ports.HuellaPreimagen(preimagen)
+	h := ports.HuellaEfectoV3(preimagen)
 	capacidad, _ := json.Marshal(map[string]any{
 		"audiencia_consumo": ports.AudienciaV3, "operacion": accion, "efecto_ref": recurso,
 		"huella_efecto_sha256": h, "decision_ref": decisionRef, "relleno": strings.Repeat("r", 512),
@@ -125,6 +126,20 @@ func TestRepositorioPG18RegistraReferenciaExternaYLaListaConCustodia(t *testing.
 	repetido, err := repo.ConfirmarReferenciaExterna(ctx, alta)
 	if err != nil || repetido.NumeroVEC != d.NumeroVEC || !repetido.CreadoEn.Equal(d.CreadoEn) {
 		t.Fatalf("replay externo: %v %+v", err, repetido)
+	}
+	// Misma clave con otra referencia: la fachada decide conflicto (23505),
+	// que el adaptador traduce a ports.ErrConflicto, no a indisponibilidad.
+	otra := alta
+	otra.Custodia.Referencia = "justificante:go:0002"
+	po, err := otra.PreimagenExterna()
+	if err != nil {
+		t.Fatal(err)
+	}
+	otra.Autorizacion = autorizacion(materialSintetico(t, ports.AccionRegistrarExterno, otra.ID, "registrar_documento_externo",
+		"documento_externo", []string{"documento", "recibo"}, po, "decision:00000000-0000-4000-8000-0000000000a6"),
+		ports.AccionRegistrarExterno, "registrar_documento_externo", otra.ID, expediente)
+	if _, err := repo.ConfirmarReferenciaExterna(ctx, otra); !errors.Is(err, ports.ErrConflicto) {
+		t.Fatalf("clave reutilizada: %v", err)
 	}
 	consulta := ports.ConsultaExpediente{ExpedienteRef: expediente, Limite: 10}
 	pl, err := consulta.PreimagenListar()

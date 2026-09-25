@@ -30,7 +30,7 @@ GRANT SELECT,INSERT,UPDATE ON ensayo_externa.material TO vec_documentos_ensayo;
 CREATE FUNCTION ensayo_externa.preparar(p_caso text,p_accion text,p_recurso text,p_ambito text,p_finalidad text,
  p_tipo text,p_campos jsonb,p_preimagen bytea,p_decision text) RETURNS void
 LANGUAGE plpgsql SET search_path=pg_catalog AS $f$
-DECLARE h text:=encode(sha256(p_preimagen),'hex'); c bytea; d bytea;
+DECLARE h text:=encode(sha256(convert_to('{"ambitos":{},"atributos":{"preimagen_sha256":"'||encode(sha256(p_preimagen),'hex')||'"}}','UTF8')),'hex'); c bytea; d bytea;
 BEGIN
  c:=convert_to(jsonb_build_object('audiencia_consumo','vec_documentos.operacion.v1','operacion',p_accion,'efecto_ref',p_recurso,
   'huella_efecto_sha256',h,'decision_ref',p_decision,'nonce','nonce:'||p_decision,

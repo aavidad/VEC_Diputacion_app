@@ -7,16 +7,20 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"vec-diputacion-granada/internal/vec/documentos/domain"
 	"vec-diputacion-granada/internal/vec/documentos/ports"
 )
 
-var ErrRepositorioNoDisponible = errors.New("documentos: repositorio PostgreSQL no disponible")
+// ErrRepositorioNoDisponible envuelve ports.ErrCapacidadNoDisponible: es la
+// única clase de error que significa dependencia caída (HTTP 503).
+var ErrRepositorioNoDisponible = fmt.Errorf("%w: repositorio PostgreSQL", ports.ErrCapacidadNoDisponible)
 
 // Repositorio usa exclusivamente las fachadas nominales del esquema documental.
 // La conexión debe pertenecer a un LOGIN con la única membresía técnica
@@ -43,7 +47,7 @@ func validarAutorizacion(a ports.AutorizacionV3, accion string, preimagen []byte
 		return materialV3{}, ports.ErrSolicitudInvalida
 	}
 	resumen := a.Material.ResumenCapacidad()
-	if resumen.Operacion() != accion || resumen.EfectoHuellaSHA256() != ports.HuellaPreimagen(preimagen) {
+	if resumen.Operacion() != accion || resumen.EfectoHuellaSHA256() != ports.HuellaEfectoV3(preimagen) {
 		return materialV3{}, ports.ErrSolicitudInvalida
 	}
 	return materialV3{
@@ -83,12 +87,48 @@ func (r *Repositorio) transaccion(ctx context.Context, funcion string, args ...a
 	}
 	var resultado []byte
 	if err = tx.QueryRow(ctx, funcion, args...).Scan(&resultado); err != nil {
-		return nil, ErrRepositorioNoDisponible
+		return nil, clasificarErrorSQL(err)
 	}
 	if err = tx.Commit(ctx); err != nil {
-		return nil, ErrRepositorioNoDisponible
+		return nil, clasificarErrorSQL(err)
 	}
 	return resultado, nil
+}
+
+// clasificarErrorSQL separa lo que decide la fachada documental (conflicto,
+// validación, ausencia o denegación) de la indisponibilidad real. Nunca
+// propaga el texto del servidor: sólo centinelas del puerto.
+func clasificarErrorSQL(err error) error {
+	// Se conserva la causa de cancelación para que la frontera responda 408/504.
+	if errors.Is(err, context.Canceled) {
+		return fmt.Errorf("%w: %w", ErrRepositorioNoDisponible, context.Canceled)
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return fmt.Errorf("%w: %w", ErrRepositorioNoDisponible, context.DeadlineExceeded)
+	}
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) {
+		// Red, cierre del pool, contexto o protocolo: indisponibilidad.
+		return ErrRepositorioNoDisponible
+	}
+	switch {
+	case pgErr.Code == "23505":
+		return ports.ErrConflicto
+	case pgErr.Code == "02000" || pgErr.Code == "P0002":
+		return ports.ErrNoEncontrado
+	case pgErr.Code == "42501":
+		return ports.ErrAccesoDenegado
+	case strings.HasPrefix(pgErr.Code, "22") || pgErr.Code == "23514" || pgErr.Code == "23502" || pgErr.Code == "23503":
+		return ports.ErrValidacion
+	case strings.HasPrefix(pgErr.Code, "PC") || strings.HasPrefix(pgErr.Code, "PD"):
+		// Códigos de dominio propios: la operación es incompatible con el
+		// estado registrado, no una caída de la dependencia.
+		return ports.ErrConflicto
+	default:
+		// 40001/40P01 (serialización), 55P03/57014 (bloqueo o plazo), 55000
+		// (esquema incompleto), 08xxx y cualquier otro: indisponibilidad.
+		return ErrRepositorioNoDisponible
+	}
 }
 
 type documentoJSON struct {

@@ -19,8 +19,27 @@ instaladas antes y después de ellas sobre el núcleo AD3 real.
 6. `migraciones/000003_custodia_externa.up.sql`, en la misma ventana y antes
    de la primera alta: su precondición exige que la numeración interna no se
    haya usado, porque el registro de identificadores parte vacío.
-7. Crear fuera del repositorio el LOGIN de aplicación con **solo** la membresía
-   `vec_documentos_ejecutor`; no conceder propiedad, migración ni acceso a tablas.
+7. `roles_000004_up.sql` como DBA, una sola vez (rol `vec_documentos_auditor`).
+8. `migraciones/000004_efecto_contexto_y_frontera.up.sql`.
+9. Crear fuera del repositorio dos LOGIN de aplicación: uno con **solo** la
+   membresía `vec_documentos_ejecutor` y otro con **solo**
+   `vec_documentos_auditor`; no conceder propiedad, migración ni acceso a tablas.
+
+## Documentos-4
+
+El PDP V3 real fija `huella_efecto_sha256` y `contexto_recurso_huella_sha256`
+como SHA-256 del contexto canónico del recurso autorizado, no de la
+preimagen. 000001/000002 comparaban con `SHA-256(preimagen)`, que ningún
+emisor V3 real puede producir. 000004 sustituye (misma firma, ACL y
+propietario) `consumir_v3_v1/v2` para exigir la huella del recurso
+`{"ambitos":{},"atributos":{"preimagen_sha256":"<hex>"}}`, que es la que
+construye `ports.RecursoV3` en Go y recalcula `huella_efecto_v1`. La columna
+`huella_preimagen_sha256` sigue guardando `SHA-256(preimagen)`.
+
+También crea `denegacion_frontera` (solo adición, RLS forzada, sin lectura)
+y `registrar_denegacion_frontera_v1`, que solo puede ejecutar un LOGIN con la
+única membresía `vec_documentos_auditor`. La frontera HTTP de
+`/api/vec/documentos/` registra ahí sus denegaciones con valores cerrados.
 
 AD3-60 y AD3-62 no se han instalado nunca en ninguna base: el 25/09/2026 se
 ampliaron en su sitio con la acción `documentos.externo.registrar`. La AD3-61

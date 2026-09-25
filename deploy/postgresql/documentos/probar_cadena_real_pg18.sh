@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Ensayo PostgreSQL 18.4 desechable de AD3-60/62 y Documentos 000001-000003
+# Ensayo PostgreSQL 18.4 desechable de AD3-60/62 y Documentos 000001-000004
 # sobre una base VEC restaurada con el núcleo AD3 real, junto a las AD3 de main
 # que reescriben el mismo núcleo (53, 54-56, 59, 61, 70, 80). Sin red; borra el
 # contenedor al salir.
@@ -147,6 +147,8 @@ documentos() {
   instalar "$ad3/000062_replay_documentos_comunes.up.sql" f:vec_autorizacion_atestada_v3.consumir_operacion_documentos_replay_v3_atestada
   instalar documentos/migraciones/000002_replay_autorizado.up.sql f:vec_documentos.confirmar_alta_v2
   instalar documentos/migraciones/000003_custodia_externa.up.sql t:vec_documentos.referencia_externa
+  instalar documentos/roles_000004_up.sql r:vec_documentos_auditor
+  instalar documentos/migraciones/000004_efecto_contexto_y_frontera.up.sql t:vec_documentos.denegacion_frontera
 }
 case $orden in
   main-60) for p in "${main_antes[@]}" "${main_despues[@]}"; do instalar "${p% *}" "${p##* }"; done; documentos ;;
@@ -267,4 +269,4 @@ comprobar_nucleo >/dev/null
 fachada_real
 acl_documental
 ok 'tras reiniciar PostgreSQL: mismo núcleo, fachada y ACL; la sonda vuelve a detenerse en la clave'
-echo "PG18.4 ($orden): AD3-60/62 y Documentos 000001-000003 sobre núcleo AD3 real con AD3-53/54/59/70/80. NO acredita cadena COSE con clave documental publicada."
+echo "PG18.4 ($orden): AD3-60/62 y Documentos 000001-000004 sobre núcleo AD3 real con AD3-53/54/59/70/80. NO acredita cadena COSE con clave documental publicada."

@@ -17,6 +17,8 @@ import (
 	"vec-diputacion-granada/internal/vec/adapters/httpapi"
 	"vec-diputacion-granada/internal/vec/documentos/domain"
 	"vec-diputacion-granada/internal/vec/documentos/ports"
+	vecdomain "vec-diputacion-granada/internal/vec/domain"
+	vecports "vec-diputacion-granada/internal/vec/ports"
 )
 
 const (
@@ -29,12 +31,14 @@ const (
 
 var ErrManejadorInvalido = errors.New("documentos http: dependencias invalidas")
 
-// La autoridad obtiene la concesion V3 del contexto autenticado por el canal.
-// El servicio resuelve el contexto de custodia despues de su lectura autorizada.
-// La referencia del cuerpo solo identifica el recurso; no concede autoridad.
+// La autoridad obtiene la concesion V3 del contexto autenticado por el canal,
+// ligada a la preimagen exacta de la consulta (expediente, cursor y limite, o
+// documento y version). Un error envuelto en ports.ErrCapacidadNoDisponible es
+// dependencia caida (503); cualquier otro es denegacion (403).
+// Las referencias del cuerpo solo identifican el recurso; no conceden nada.
 type AutoridadContextoConsulta interface {
-	ResolverConsultaExpediente(context.Context, string) (ports.AutorizacionV3, error)
-	ResolverDescargaOriginal(context.Context, string, uint64) (ports.AutorizacionV3, error)
+	ResolverConsultaExpediente(context.Context, ports.ConsultaExpediente) (ports.AutorizacionV3, error)
+	ResolverDescargaOriginal(context.Context, ports.ConsultaDocumento, string) (ports.AutorizacionV3, error)
 }
 
 type ServicioLectura interface {
@@ -43,20 +47,30 @@ type ServicioLectura interface {
 }
 
 type manejador struct {
-	servicio  ServicioLectura
-	autoridad AutoridadContextoConsulta
-	descarga  bool
+	servicio    ServicioLectura
+	autoridad   AutoridadContextoConsulta
+	incidencias vecports.EmisorIncidenciasTecnicas
+	descarga    bool
 }
 
 // NuevasRutasExactas entrega los dos manejadores al unico dispatcher de la raiz.
 // La raiz debe proporcionar tambien su AutoridadRutasExactas independiente.
 func NuevasRutasExactas(servicio ServicioLectura, autoridad AutoridadContextoConsulta) ([]httpapi.RutaExacta, error) {
+	return NuevasRutasExactasConIncidencias(servicio, autoridad, nil)
+}
+
+// NuevasRutasExactasConIncidencias declara HTTP_INTERNO_FALLIDO en cada
+// respuesta 5xx: ningun fallo tecnico queda silencioso. El emisor no bloquea.
+func NuevasRutasExactasConIncidencias(servicio ServicioLectura, autoridad AutoridadContextoConsulta, incidencias vecports.EmisorIncidenciasTecnicas) ([]httpapi.RutaExacta, error) {
 	if nula(servicio) || nula(autoridad) {
 		return nil, ErrManejadorInvalido
 	}
+	if nula(incidencias) {
+		incidencias = nil
+	}
 	return []httpapi.RutaExacta{
-		{Ruta: RutaConsultaExpediente, Manejador: &manejador{servicio: servicio, autoridad: autoridad}},
-		{Ruta: RutaDescargaOriginal, Manejador: &manejador{servicio: servicio, autoridad: autoridad, descarga: true}},
+		{Ruta: RutaConsultaExpediente, Manejador: &manejador{servicio: servicio, autoridad: autoridad, incidencias: incidencias}},
+		{Ruta: RutaDescargaOriginal, Manejador: &manejador{servicio: servicio, autoridad: autoridad, incidencias: incidencias, descarga: true}},
 	}, nil
 }
 func nula(v any) bool {
@@ -73,6 +87,9 @@ func nula(v any) bool {
 
 func (h *manejador) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	cabeceras(w)
+	if h != nil && h.incidencias != nil {
+		w = &escritorVigilado{ResponseWriter: w, incidencias: h.incidencias}
+	}
 	if h == nil || nula(h.servicio) || nula(h.autoridad) || r == nil || r.URL == nil {
 		responderError(w, http.StatusServiceUnavailable, "servicio_no_disponible")
 		return
@@ -145,12 +162,14 @@ func (h *manejador) servirLista(w http.ResponseWriter, r *http.Request) {
 		responderError(w, http.StatusUnprocessableEntity, "contenido_no_valido")
 		return
 	}
-	autorizacion, err := h.autoridad.ResolverConsultaExpediente(r.Context(), entrada.ExpedienteRef)
+	consulta := ports.ConsultaExpediente{ExpedienteRef: entrada.ExpedienteRef, Cursor: entrada.Cursor, Limite: entrada.Limite}
+	autorizacion, err := h.autoridad.ResolverConsultaExpediente(r.Context(), consulta)
 	if err != nil {
-		responderError(w, http.StatusForbidden, "acceso_denegado")
+		responderAutoridad(w, err)
 		return
 	}
-	pagina, err := h.servicio.ListarExpediente(r.Context(), ports.ConsultaExpediente{ExpedienteRef: entrada.ExpedienteRef, Cursor: entrada.Cursor, Limite: entrada.Limite, Autorizacion: autorizacion})
+	consulta.Autorizacion = autorizacion
+	pagina, err := h.servicio.ListarExpediente(r.Context(), consulta)
 	if err != nil {
 		responderServicio(w, err)
 		return
@@ -189,19 +208,23 @@ func (h *manejador) servirLista(w http.ResponseWriter, r *http.Request) {
 }
 func (h *manejador) servirOriginal(w http.ResponseWriter, r *http.Request) {
 	var entrada struct {
-		DocumentoRef string `json:"documento_ref"`
-		Version      uint64 `json:"version"`
+		ExpedienteRef string `json:"expediente_ref"`
+		DocumentoRef  string `json:"documento_ref"`
+		Version       uint64 `json:"version"`
 	}
-	if err := decodificar(w, r, &entrada); err != nil || !domain.ReferenciaOpacaValida(entrada.DocumentoRef) || entrada.Version == 0 {
+	if err := decodificar(w, r, &entrada); err != nil || !domain.ReferenciaOpacaValida(entrada.ExpedienteRef) ||
+		!domain.ReferenciaOpacaValida(entrada.DocumentoRef) || entrada.Version == 0 {
 		responderError(w, http.StatusUnprocessableEntity, "contenido_no_valido")
 		return
 	}
-	autorizacion, err := h.autoridad.ResolverDescargaOriginal(r.Context(), entrada.DocumentoRef, entrada.Version)
+	consulta := ports.ConsultaDocumento{DocumentoID: entrada.DocumentoRef, Version: entrada.Version}
+	autorizacion, err := h.autoridad.ResolverDescargaOriginal(r.Context(), consulta, entrada.ExpedienteRef)
 	if err != nil {
-		responderError(w, http.StatusForbidden, "acceso_denegado")
+		responderAutoridad(w, err)
 		return
 	}
-	original, err := h.servicio.DescargarOriginal(r.Context(), ports.ConsultaDocumento{DocumentoID: entrada.DocumentoRef, Version: entrada.Version, Autorizacion: autorizacion})
+	consulta.Autorizacion = autorizacion
+	original, err := h.servicio.DescargarOriginal(r.Context(), consulta)
 	if err != nil {
 		responderServicio(w, err)
 		return
@@ -258,19 +281,65 @@ func nombreArchivo(ref, ext string) string {
 	b.WriteString(ext)
 	return b.String()
 }
+
+// responderAutoridad distingue la denegacion de la dependencia caida; el
+// detalle del error nunca llega al cliente.
+func responderAutoridad(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, context.Canceled):
+		responderError(w, http.StatusRequestTimeout, "peticion_cancelada")
+	case errors.Is(err, context.DeadlineExceeded):
+		responderError(w, http.StatusGatewayTimeout, "plazo_agotado")
+	case errors.Is(err, ports.ErrCapacidadNoDisponible):
+		responderError(w, http.StatusServiceUnavailable, "servicio_no_disponible")
+	default:
+		responderError(w, http.StatusForbidden, "acceso_denegado")
+	}
+}
+
+// responderServicio traduce solo centinelas del puerto: conflicto 409,
+// validacion 422, ausencia 404, denegacion 403 e indisponibilidad 503.
 func responderServicio(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, context.Canceled):
 		responderError(w, http.StatusRequestTimeout, "peticion_cancelada")
 	case errors.Is(err, context.DeadlineExceeded):
 		responderError(w, http.StatusGatewayTimeout, "plazo_agotado")
-	case errors.Is(err, ports.ErrOriginalNoDisponible):
+	case errors.Is(err, ports.ErrConflicto):
+		responderError(w, http.StatusConflict, "conflicto")
+	case errors.Is(err, ports.ErrValidacion):
+		responderError(w, http.StatusUnprocessableEntity, "contenido_no_valido")
+	case errors.Is(err, ports.ErrOriginalNoDisponible), errors.Is(err, ports.ErrNoEncontrado):
 		responderError(w, http.StatusNotFound, "recurso_no_encontrado")
-	case errors.Is(err, ports.ErrSolicitudInvalida):
+	case errors.Is(err, ports.ErrSolicitudInvalida), errors.Is(err, ports.ErrAccesoDenegado):
 		responderError(w, http.StatusForbidden, "acceso_denegado")
 	default:
 		responderError(w, http.StatusServiceUnavailable, "servicio_no_disponible")
 	}
+}
+
+// escritorVigilado emite una incidencia tecnica por cada respuesta 5xx. Solo
+// codigo, componente y etapa del catalogo: nunca ruta, cuerpo ni error.
+type escritorVigilado struct {
+	http.ResponseWriter
+	incidencias vecports.EmisorIncidenciasTecnicas
+	escrito     bool
+}
+
+func (e *escritorVigilado) WriteHeader(estado int) {
+	if !e.escrito && estado >= 500 {
+		e.incidencias.Emitir(vecdomain.SolicitudIncidenciaTecnica{Codigo: vecdomain.IncidenciaHTTPInternoFallido,
+			Componente: vecdomain.ComponenteIncidenciaHTTP, Etapa: vecdomain.EtapaIncidenciaPeticion})
+	}
+	e.escrito = true
+	e.ResponseWriter.WriteHeader(estado)
+}
+
+func (e *escritorVigilado) Write(b []byte) (int, error) {
+	if !e.escrito {
+		e.WriteHeader(http.StatusOK)
+	}
+	return e.ResponseWriter.Write(b)
 }
 func responderError(w http.ResponseWriter, status int, codigo string) {
 	responderJSON(w, status, map[string]any{"error": map[string]string{"codigo": codigo, "clave_i18n": "api.documentos.error." + codigo}})

@@ -76,7 +76,7 @@ func materialExternaPrueba(t *testing.T, accion, efecto string, preimagen []byte
 	h := strings.Repeat("a", 64)
 	resumen, err := vecports.NuevoResumenCapacidadAtestacionAutorizacionV3(
 		"decision:externa:prueba", h, h, "contexto:prueba", h, accion,
-		efecto, ports.HuellaPreimagen(preimagen), ports.AudienciaV3, ahora, ahora.Add(5*time.Second))
+		efecto, ports.HuellaEfectoV3(preimagen), ports.AudienciaV3, ahora, ahora.Add(5*time.Second))
 	if err != nil {
 		t.Fatal(err)
 	}
