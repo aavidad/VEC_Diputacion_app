@@ -45,9 +45,11 @@ body.rg-app { margin: 0; background: var(--portal-fondo); color: var(--portal-ti
 .rg-fila--ejemplo th { border-left-color: var(--portal-aviso); }
 .rg-regla-nombre { font-weight: 600; color: var(--portal-azul-700); }
 .rg-tabla small { color: var(--portal-muted); overflow-wrap: anywhere; }
+.rg-tabla td:nth-child(3) { min-width: 150px; }
 .rg-tabla td:nth-child(5) { max-width: 340px; }
 .rg-numero { text-align: right; font-variant-numeric: tabular-nums; }
-.rg-tabla thead th.rg-numero { text-align: right; }
+.rg-tabla thead th.rg-numero, .rg-tabla td.rg-numero { text-align: right; }
+.rg-tabla tbody th { min-width: 240px; }
 .rg-pastilla { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
 .rg-pastilla::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 .rg-pastilla--reglamento { background: var(--portal-exito-suave); color: var(--portal-exito); }
