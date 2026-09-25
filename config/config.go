@@ -14,7 +14,9 @@ const (
 	// conexiones inactivas. Las consultas RRHH ligan su cursor al canal TLS, así
 	// que un cierre por inactividad obliga a rehacer la consulta; un despliegue
 	// detrás de un proxy con una conexión persistente puede necesitar más margen.
-	EnvHTTPIdleTimeout                             = "VEC_HTTP_IDLE_TIMEOUT"
+	EnvHTTPIdleTimeout = "VEC_HTTP_IDLE_TIMEOUT"
+	// EnvHTTPShutdownTimeout limita conjuntamente Shutdown y el cierre de
+	// recursos. Debe ser menor que --time de podman stop (30 s en principal).
 	EnvHTTPShutdownTimeout                         = "VEC_HTTP_SHUTDOWN_TIMEOUT"
 	LegacyEnvAddress                               = "BOLSA_HTTP_ADDR"
 	EnvStorageMode                                 = "VEC_BOLSA_STORAGE_MODE"

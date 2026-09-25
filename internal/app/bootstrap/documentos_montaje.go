@@ -17,7 +17,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -531,23 +530,15 @@ func nuevosDocumentosDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdenti
 	defer cancelar()
 	var pools []*pgxpool.Pool
 	var cierres []func()
-	var unaVez sync.Once
-	var cerrarIncidencias func(context.Context) error
-	var errorCierre error
-	cerrarConContexto := func(ctx context.Context) error {
-		unaVez.Do(func() {
-			if cerrarIncidencias != nil {
-				errorCierre = cerrarIncidencias(ctx)
-			}
-			for i := len(cierres) - 1; i >= 0; i-- {
-				cierres[i]()
-			}
-			for i := len(pools) - 1; i >= 0; i-- {
-				pools[i].Close()
-			}
-		})
-		return errorCierre
-	}
+	var cerrarIncidencias vecports.CierreEmisionIncidencias
+	cerrarConContexto := nuevoCierreDocumentos(func(ctx context.Context) error {
+		cierresCompuestos := make([]func(), 0, len(pools)+len(cierres))
+		for _, pool := range pools {
+			cierresCompuestos = append(cierresCompuestos, pool.Close)
+		}
+		cierresCompuestos = append(cierresCompuestos, cierres...)
+		return cerrarDocumentos(ctx, cerrarIncidencias, cierresCompuestos)
+	})
 	cerrar := func() { _ = cerrarConContexto(context.Background()) }
 	completa := false
 	defer func() {
@@ -655,7 +646,7 @@ func nuevosDocumentosDesarrollo(cfg config.Config, resolvedor vechttp.DemoIdenti
 	if err != nil {
 		return nil, errDocumentosEn()
 	}
-	cerrarIncidencias = incidencias.Cerrar
+	cerrarIncidencias = incidencias
 	base := &autoridadRutasDietasDesarrollo{resolvedor: identidad, cuentas: cuentas, registro: registroSesiones, revalidador: revalidador, contextos: contextos, reloj: reloj, instancia: nonce}
 	a := &autoridadDocumentosDesarrollo{base: base, reloj: reloj, cuentas: cuentas, registrador: registrador, incidencias: incidencias, cerrar: cerrar, cerrarConContexto: cerrarConContexto}
 	servicio := &docapp.Servicio{Repositorio: repositorio, Almacen: almacen, Politicas: politicas, Reloj: reloj}

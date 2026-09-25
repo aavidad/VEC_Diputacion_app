@@ -83,6 +83,10 @@ func main() {
 
 	ctx, detener := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer detener()
+	go func() {
+		<-ctx.Done()
+		detener() // La segunda señal recupera su comportamiento por defecto.
+	}()
 	var servir func() error
 	if cfg.TLSCertFile != "" {
 		log.Printf("vec server listening with TLS on %s", srv.Addr)

@@ -61,6 +61,8 @@ func NewHTTPServer() (*http.Server, error) {
 	return NewHTTPServerWithConfig(config.Load())
 }
 
+// Deprecated: usar NewHTTPServerWithConfigYCierre y ejecutar el cierre de
+// recursos después de Shutdown desde el proceso servidor.
 func NewHTTPServerWithConfig(cfg config.Config) (*http.Server, error) {
 	servidor, cerrar, err := NewHTTPServerWithConfigYCierre(cfg)
 	if err != nil {

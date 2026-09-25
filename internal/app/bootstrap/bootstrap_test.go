@@ -6,6 +6,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"io"
 	"net"
 	"net/http"
@@ -103,6 +106,40 @@ func nuevoServidorFakeAisladoPrueba(t *testing.T, cfg config.Config) *http.Serve
 		t.Fatal(err)
 	}
 	return servidor
+}
+
+func TestComposicionConCierreNoRegistraCierreConcurrenteEnShutdown(t *testing.T) {
+	for fichero, funcion := range map[string]string{
+		"bootstrap.go":              "NewHTTPServerWithConfigYCierre",
+		"composicion_desarrollo.go": "nuevoHTTPServerDesarrolloConCierre",
+	} {
+		arbol, err := parser.ParseFile(token.NewFileSet(), fichero, nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		encontrada := false
+		for _, declaracion := range arbol.Decls {
+			funcionReal, ok := declaracion.(*ast.FuncDecl)
+			if !ok || funcionReal.Name.Name != funcion {
+				continue
+			}
+			encontrada = true
+			ast.Inspect(funcionReal.Body, func(n ast.Node) bool {
+				llamada, ok := n.(*ast.CallExpr)
+				if !ok {
+					return true
+				}
+				selector, ok := llamada.Fun.(*ast.SelectorExpr)
+				if ok && selector.Sel.Name == "RegisterOnShutdown" {
+					t.Errorf("%s registra un cierre concurrente durante Shutdown", funcion)
+				}
+				return true
+			})
+		}
+		if !encontrada {
+			t.Errorf("no se encontró %s en %s", funcion, fichero)
+		}
+	}
 }
 
 func registroFakePrueba(token string) registroCredencialFake {

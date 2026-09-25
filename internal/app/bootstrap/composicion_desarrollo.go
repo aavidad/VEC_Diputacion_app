@@ -195,6 +195,8 @@ func (c *ComposicionSeguridadDesarrollo) DerivadorIdentidadesBorrador() (
 // NewHTTPServerDesarrolloWithConfig arranca una vertical web real sobre mTLS.
 // Devuelve tambien la composicion: T20 debe consumir ProcedenciaActosBorrador
 // y su KMS en la misma raiz antes de admitir escrituras durables.
+// Deprecated: usar NewHTTPServerWithConfigYCierre para ejecutar el cierre de
+// recursos después de Shutdown desde el proceso servidor.
 func NewHTTPServerDesarrolloWithConfig(
 	cfg config.Config,
 	registro io.Writer,
