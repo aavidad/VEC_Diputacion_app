@@ -30,6 +30,9 @@ func main() {
 		log.Printf("relleno_vinculos aplicar=%t nuevos=%d existentes=%d", *aplicar, r.Nuevos, r.Existentes)
 		return
 	}
+	if len(os.Args) > 1 && os.Args[1] == "comprobar-dietas" {
+		os.Exit(ejecutarComprobacionDietas(context.Background(), os.Args[2:], os.Stdout, os.Stderr, config.Load(), bootstrap.ComprobarArranqueDietasSoloLectura))
+	}
 	if len(os.Args) > 1 && os.Args[1] == "publicar-proyeccion-publica" {
 		if err := ejecutarPublicacionProyeccionPublica(context.Background(), os.Args[2:], os.Stdout, config.Load(), publicarProyeccionPublicaPostgreSQL); err != nil {
 			log.Fatal(err)
