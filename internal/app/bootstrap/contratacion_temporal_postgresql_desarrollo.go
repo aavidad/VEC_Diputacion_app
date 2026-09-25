@@ -329,6 +329,9 @@ func nuevasDependenciasPostgreSQLContratacionTemporalDesarrollo(
 	if personalEmpleadoSolicitado(cfg.PersonalEmpleadoEnabled) {
 		descriptoresMaterial = append(descriptoresMaterial, descriptorMaterialFichaPropiaPersonalDesarrollo())
 	}
+	if seguimientoCeseSolicitado(cfg) {
+		descriptoresMaterial = append(descriptoresMaterial, descriptoresMaterialSeguimientoCeseDesarrollo()...)
+	}
 	personalB2, err := cfg.PersonalB2GobiernoDesarrolloActivo()
 	if err != nil {
 		return vacias, err

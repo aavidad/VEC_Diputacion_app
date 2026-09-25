@@ -21,7 +21,7 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 		rutaConsultaRRHHContratacionTemporalDesarrollo(ruta) ||
 		ruta == httpinterno.RutaDecisionCobertura ||
 		ruta == httpinterno.RutaRectificacionCobertura
-	if ruta == httpinterno.RutaSubsanacionReparos {
+	if ruta == httpinterno.RutaSubsanacionReparos || rutaSeguimientoCeseDesarrollo(ruta) {
 		dinamica = true
 	}
 	if !valida || !dinamica {
@@ -104,6 +104,12 @@ func (s *soporteAltaContratacionTemporalDesarrollo) instantaneaParaContexto(
 			{Clave: "fase_previa", Valores: []string{datos.Recurso.Ambitos["fase_previa"]}},
 			{Clave: "estado_previo", Valores: []string{datos.Recurso.Ambitos["estado_previo"]}},
 		}
+	} else if rutaSeguimientoCeseDesarrollo(ruta) {
+		ambitos, valida := s.ambitosSeguimientoCese(ruta, datos)
+		if !valida {
+			return dominiovec.InstantaneaAutorizacion{}, false
+		}
+		instantanea.AsignacionPerfil.Ambitos = ambitos
 	} else if ruta == httpinterno.RutaSubsanacionReparos {
 		if !s.solicitudAutorizacionSubsanacionReparosValida(datos) {
 			return dominiovec.InstantaneaAutorizacion{}, false

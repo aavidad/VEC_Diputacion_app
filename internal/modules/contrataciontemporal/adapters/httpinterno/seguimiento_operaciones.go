@@ -68,10 +68,6 @@ func (h *manejadorSeguimiento) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		responderErrorSeguimiento(w, r, http.StatusNotFound, "recurso_no_encontrado")
 		return
 	}
-	if h.ruta == RutaSeguimientoCese {
-		h.consultar(w, r)
-		return
-	}
 	if r.URL.RawQuery != "" || r.URL.ForceQuery {
 		responderErrorSeguimiento(w, r, http.StatusNotFound, "recurso_no_encontrado")
 		return
@@ -92,6 +88,10 @@ func (h *manejadorSeguimiento) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	canal, err := h.autoridad.ResolverContextoCanalSeguimiento(r.Context())
 	if err != nil || !canal.Valido() {
 		responderErrorSeguimiento(w, r, http.StatusForbidden, "acceso_denegado")
+		return
+	}
+	if h.ruta == RutaSeguimientoCese {
+		h.consultar(w, r, canal, contenido)
 		return
 	}
 	var recibo ports.ReciboOperacionSeguimiento
@@ -209,27 +209,18 @@ func (h *manejadorSeguimiento) modificacion(ctx context.Context, canal applicati
 		Periodo: domain.PeriodoPrevisto{Inicio: inicio, Fin: fin}, Jornada: domain.JornadaDiezmilesimas(in.PorcentajeJornada), Observaciones: in.Observaciones})
 }
 
-// consultar devuelve las opciones de los catálogos y, para un expediente
-// cuyo detalle se acaba de acreditar, su cese y su cierre.
-func (h *manejadorSeguimiento) consultar(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		responderErrorSeguimiento(w, r, http.StatusMethodNotAllowed, "metodo_no_permitido")
-		return
+// consultar devuelve las opciones de los catálogos y, tras acreditar la
+// lectura del expediente exacto, su cese y su cierre.
+func (h *manejadorSeguimiento) consultar(w http.ResponseWriter, r *http.Request, canal application.ContextoCanalSeguimiento, contenido []byte) {
+	var in struct {
+		ExpedienteRef string `json:"expediente_ref"`
 	}
-	valores := r.URL.Query()
-	expediente := valores.Get("expediente_ref")
-	if len(valores) != 1 || len(valores["expediente_ref"]) != 1 || !domain.ReferenciaOpacaValida(expediente) {
+	if decodificarCuerpoSeguimiento(contenido, &in) != nil || !domain.ReferenciaOpacaValida(in.ExpedienteRef) {
 		responderErrorSeguimiento(w, r, http.StatusUnprocessableEntity, "contenido_no_valido")
 		return
 	}
-	canal, err := h.autoridad.ResolverContextoCanalSeguimiento(r.Context())
-	if err != nil || !canal.Valido() {
-		responderErrorSeguimiento(w, r, http.StatusForbidden, "acceso_denegado")
-		return
-	}
-	if err := h.lectura.AutorizarLecturaSeguimiento(r.Context(), canal.OrganizacionRef, expediente); err != nil {
-		estado, codigo := estadoErrorSeguimiento(err)
-		responderErrorSeguimiento(w, r, estado, codigo, err)
+	if err := h.lectura.AutorizarLecturaSeguimiento(r.Context(), canal.OrganizacionRef, in.ExpedienteRef); err != nil {
+		responderErrorSeguimiento(w, r, http.StatusForbidden, "acceso_denegado", err)
 		return
 	}
 	opciones, err := h.ejecutor.Opciones(r.Context())
@@ -237,7 +228,7 @@ func (h *manejadorSeguimiento) consultar(w http.ResponseWriter, r *http.Request)
 		responderErrorSeguimiento(w, r, http.StatusServiceUnavailable, "servicio_no_disponible", err)
 		return
 	}
-	estado, err := h.ejecutor.Estado(r.Context(), canal.OrganizacionRef, expediente)
+	estado, err := h.ejecutor.Estado(r.Context(), canal.OrganizacionRef, in.ExpedienteRef)
 	if err != nil {
 		codigo, clave := estadoErrorSeguimiento(err)
 		responderErrorSeguimiento(w, r, codigo, clave, err)

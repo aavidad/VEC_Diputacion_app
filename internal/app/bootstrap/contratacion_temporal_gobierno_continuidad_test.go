@@ -194,6 +194,7 @@ func TestTodoConsumidorPublicableDejaElGobiernoPropio(t *testing.T) {
 	descriptores = append(descriptores, descriptoresMaterialDocumentosDesarrollo()...)
 	descriptores = append(descriptores, descriptorMaterialFichaPropiaPersonalDesarrollo())
 	descriptores = append(descriptores, descriptoresMaterialPersonalB2Desarrollo()...)
+	descriptores = append(descriptores, descriptoresMaterialSeguimientoCeseDesarrollo()...)
 	if _, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(descriptores); err != nil {
 		t.Fatal("el catálogo común completo colisiona", err)
 	}

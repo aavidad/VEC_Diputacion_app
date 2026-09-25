@@ -47,7 +47,7 @@ func descriptoresFronterasContratacionTemporalDesarrollo(
 	perfilesConsulta []string,
 ) []descriptorFronteraComunDesarrollo {
 	perfilesConsulta = append([]string(nil), perfilesConsulta...)
-	return []descriptorFronteraComunDesarrollo{
+	return append([]descriptorFronteraComunDesarrollo{
 		fronteraContratacionTemporalDesarrollo("ct-analisis-registrar", ctports.AccionRegistrarAnalisis, cthttp.RutaRegistroAnalisisRRHH, []string{perfilCT}),
 		fronteraContratacionTemporalDesarrollo("ct-analisis-rectificar", ctports.AccionRectificarAnalisis, cthttp.RutaRectificacionAnalisisRRHH, []string{perfilCT}),
 		fronteraContratacionTemporalDesarrollo("ct-solicitud-crear", ctports.AccionCrearSolicitud, cthttp.RutaAltaSolicitudes, []string{perfilCT}),
@@ -58,7 +58,7 @@ func descriptoresFronterasContratacionTemporalDesarrollo(
 		fronteraContratacionTemporalDesarrollo("ct-cobertura-rectificar", string(ctdomain.AccionRectificarCoberturaGobernada), cthttp.RutaRectificacionCobertura, []string{perfilCT}),
 		fronteraContratacionTemporalDesarrollo("ct-cuadro-consultar", ctports.AccionConsultarCuadroRRHH, cthttp.RutaConsultaCuadroRRHH, perfilesConsulta),
 		fronteraContratacionTemporalDesarrollo("ct-expediente-consultar", ctports.AccionConsultarDetalleRRHH, cthttp.RutaConsultaDetalleRRHH, perfilesConsulta),
-	}
+	}, descriptoresFronterasSeguimientoCeseDesarrollo(perfilCT)...)
 }
 
 func fronteraContratacionTemporalDesarrollo(

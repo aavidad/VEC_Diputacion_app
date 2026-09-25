@@ -13,6 +13,8 @@ import (
 const (
 	EnvBolsaReglasSourcePath = "VEC_BOLSA_REGLAS_SOURCE_PATH"
 	EnvCTReglasSourcePath    = "VEC_CT_REGLAS_SOURCE_PATH"
+	// EnvCTCausasCeseSourcePath es el catálogo de causas de cese de ejemplo.
+	EnvCTCausasCeseSourcePath = "VEC_CT_CAUSAS_CESE_SOURCE_PATH"
 )
 
 // ErrConfiguracionReglasEjemploFueraDesarrollo impide arrancar si un
@@ -22,27 +24,30 @@ var ErrConfiguracionReglasEjemploFueraDesarrollo = errors.New("config: catalogo 
 
 // ConfiguracionReglasEjemplo contiene rutas locales de paquetes DEMO.
 type ConfiguracionReglasEjemplo struct {
-	BolsaSourcePath string
-	CTSourcePath    string
+	BolsaSourcePath      string
+	CTSourcePath         string
+	CausasCeseSourcePath string
 }
 
 func cargarConfiguracionReglasEjemplo() ConfiguracionReglasEjemplo {
 	return ConfiguracionReglasEjemplo{
-		BolsaSourcePath: envFirst(EnvBolsaReglasSourcePath),
-		CTSourcePath:    envFirst(EnvCTReglasSourcePath),
+		BolsaSourcePath:      envFirst(EnvBolsaReglasSourcePath),
+		CTSourcePath:         envFirst(EnvCTReglasSourcePath),
+		CausasCeseSourcePath: envFirst(EnvCTCausasCeseSourcePath),
 	}
 }
 
 func (c ConfiguracionReglasEjemplo) normalizar() ConfiguracionReglasEjemplo {
 	c.BolsaSourcePath = strings.TrimSpace(c.BolsaSourcePath)
 	c.CTSourcePath = strings.TrimSpace(c.CTSourcePath)
+	c.CausasCeseSourcePath = strings.TrimSpace(c.CausasCeseSourcePath)
 	return c
 }
 
 // Configurada indica si se ha declarado algún catálogo de reglas.
 func (c ConfiguracionReglasEjemplo) Configurada() bool {
 	c = c.normalizar()
-	return c.BolsaSourcePath != "" || c.CTSourcePath != ""
+	return c.BolsaSourcePath != "" || c.CTSourcePath != "" || c.CausasCeseSourcePath != ""
 }
 
 // ReglasEjemploDesarrollo valida la activación sin abrir ficheros. Devuelve
