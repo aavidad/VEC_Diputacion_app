@@ -4,10 +4,26 @@ set -euo pipefail
 base_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 repo_dir=$(CDPATH='' cd -- "$base_dir/../../.." && pwd)
 container="vec-b5-doc-$$-${RANDOM}"
-cleanup() { docker rm -f "$container" >/dev/null 2>&1 || true; }
+# VEC_PG18_DATOS_DIR (opcional): directorio anfitrión, p. ej. /dev/shm, donde
+# guardar los datos del PostgreSQL desechable en vez de la capa del contenedor.
+# Se usa un subdirectorio temporal propio que se borra al salir; no crea
+# volúmenes con nombre.
+datos=()
+pgdir=
+if [ -n "${VEC_PG18_DATOS_DIR:-}" ]; then
+ pgdir=$(mktemp -d "$VEC_PG18_DATOS_DIR/vec-doc-pg.XXXXXX"); chmod 0777 "$pgdir"
+ datos=(-v "$pgdir:/var/lib/postgresql")
+fi
+cleanup() {
+ docker rm -f "$container" >/dev/null 2>&1 || true
+ if [ -n "$pgdir" ]; then
+  docker run --rm -v "$pgdir:/d" --entrypoint sh postgres:18.4-alpine -c 'rm -rf /d/* /d/.[!.]*' >/dev/null 2>&1 || true
+  rm -rf -- "$pgdir" 2>/dev/null || true
+ fi
+}
 trap cleanup EXIT
 
-docker run -d --rm --name "$container" -p 127.0.0.1::5432 -e POSTGRES_HOST_AUTH_METHOD=trust postgres:18.4-alpine >/dev/null
+docker run -d --rm "${datos[@]}" --name "$container" -p 127.0.0.1::5432 -e POSTGRES_HOST_AUTH_METHOD=trust postgres:18.4-alpine >/dev/null
 for _ in $(seq 1 60); do
  if docker exec "$container" psql -X -qAt -v ON_ERROR_STOP=1 -U postgres -c 'SELECT 1' >/dev/null 2>&1; then
   sleep 0.3
@@ -89,7 +105,9 @@ BEGIN
  IF EXISTS(SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
   WHERE p.oid='vec_documentos.confirmar_alta_v1(bytea,jsonb,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure AND a.grantee=0)
     OR has_function_privilege('vec_documentos_ensayo','vec_documentos.consumir_v3_v1(bytea,text,text,text,text,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
-    OR NOT has_function_privilege('vec_documentos_ensayo','vec_documentos.confirmar_alta_v1(bytea,jsonb,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
+    OR has_function_privilege('vec_documentos_ensayo','vec_documentos.confirmar_alta_v1(bytea,jsonb,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
+    OR has_function_privilege('vec_documentos_ensayo','vec_documentos.preparar_notificacion_v1(bytea,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
+    OR NOT has_function_privilege('vec_documentos_ensayo','vec_documentos.confirmar_alta_v2(bytea,jsonb,jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
  THEN RAISE EXCEPTION 'ACL documental incompatible'; END IF;
  IF EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
   WHERE n.nspname IN ('vec_documentos','vec_autorizacion_atestada_v3') AND p.proname IN
@@ -103,6 +121,19 @@ psql_pg /tmp/replay_ad3_62.sql
 psql_pg /tmp/frontera4.sql
 test "$(docker exec "$container" psql -X -qAt -v ON_ERROR_STOP=1 -U vec_documentos_auditor_ensayo -d postgres -c "SELECT vec_documentos.registrar_denegacion_frontera_v1('corr_0123456789abcdef0123456789abcdef','acceso_denegado','/api/vec/documentos/expedientes/consultas','POST','per:00000000-0000-4000-8000-000000000001') LIKE 'denegacion:documentos:%'")" = t
 if docker exec "$container" psql -X -q -v ON_ERROR_STOP=1 -U vec_documentos_ensayo -d postgres -c "SELECT vec_documentos.registrar_denegacion_frontera_v1('corr_no_disponible','acceso_denegado','otra','POST','')" >/dev/null 2>&1; then echo 'FALLO: el ejecutor registra denegaciones' >&2; exit 1; fi
+# Un LOGIN con la membresía auditora y cualquier otra no registra: una única
+# membresía exacta, como exige AD3-60 al ejecutor.
+docker exec -i "$container" psql -X -q -v ON_ERROR_STOP=1 -U postgres <<'SQL'
+CREATE ROLE vec_documentos_ensayo_otro_grupo NOLOGIN;
+CREATE ROLE vec_documentos_auditor_doble LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT NOREPLICATION NOBYPASSRLS;
+GRANT vec_documentos_auditor TO vec_documentos_auditor_doble WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;
+GRANT vec_documentos_ensayo_otro_grupo TO vec_documentos_auditor_doble;
+CREATE ROLE vec_documentos_auditor_set LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT NOREPLICATION NOBYPASSRLS;
+GRANT vec_documentos_auditor TO vec_documentos_auditor_set WITH ADMIN FALSE, INHERIT TRUE, SET TRUE;
+SQL
+for r in vec_documentos_auditor_doble vec_documentos_auditor_set; do
+ if docker exec "$container" psql -X -q -v ON_ERROR_STOP=1 -U "$r" -d postgres -c "SELECT vec_documentos.registrar_denegacion_frontera_v1('corr_no_disponible','acceso_denegado','otra','POST','')" >/dev/null 2>&1; then echo "FALLO: auditor sin membresía única exacta registra ($r)" >&2; exit 1; fi
+done
 if docker exec "$container" psql -X -q -v ON_ERROR_STOP=1 -U vec_documentos_auditor_ensayo -d postgres -c "SELECT vec_documentos.registrar_denegacion_frontera_v1('corr_no_disponible','texto libre','otra','POST','')" >/dev/null 2>&1; then echo 'FALLO: motivo libre aceptado' >&2; exit 1; fi
 if docker exec "$container" psql -X -q -v ON_ERROR_STOP=1 -U vec_documentos_auditor_ensayo -d postgres -c "SELECT count(*) FROM vec_documentos.denegacion_frontera" >/dev/null 2>&1; then echo 'FALLO: el auditor lee denegaciones' >&2; exit 1; fi
 if docker exec "$container" psql -X -q -v ON_ERROR_STOP=1 -U postgres -c "UPDATE vec_documentos.denegacion_frontera SET motivo='dependencia'" >/dev/null 2>&1; then echo 'FALLO: denegación mutable' >&2; exit 1; fi
@@ -172,6 +203,25 @@ END $test$;
 COMMIT;
 SQL
 test "$(docker exec "$container" psql -X -qAt -U postgres -c "SELECT count(*)=1 FROM vec_documentos.documento WHERE estado_firma='pendiente_proveedor' AND objeto_retenido_hasta>=conservacion_hasta")" = t
+# Historia de solo adición incluso para el superusuario (que ignora RLS): cada
+# UPDATE/DELETE sobre filas existentes lo detiene el disparador con 42501.
+docker exec -i "$container" psql -X -q -v ON_ERROR_STOP=1 -U postgres <<'SQL'
+DO $inmutable$
+DECLARE s text;
+BEGIN
+ FOREACH s IN ARRAY ARRAY[
+  'UPDATE vec_documentos.documento SET mime=mime','DELETE FROM vec_documentos.documento',
+  'UPDATE vec_documentos.outbox SET tipo=tipo','DELETE FROM vec_documentos.outbox',
+  'UPDATE vec_documentos.auditoria_operacion SET resultado=resultado','DELETE FROM vec_documentos.auditoria_operacion'] LOOP
+  BEGIN
+   EXECUTE s;
+   RAISE EXCEPTION 'FALLO: historia mutable como superusuario: %', s;
+  EXCEPTION WHEN SQLSTATE '42501' THEN NULL;
+  END;
+ END LOOP;
+END $inmutable$;
+SQL
+test "$(docker exec "$container" psql -X -qAt -U postgres -c "SELECT (SELECT count(*) FROM vec_documentos.documento)=1 AND (SELECT count(*) FROM vec_documentos.outbox)=1 AND (SELECT count(*) FROM vec_documentos.auditoria_operacion)>=1")" = t
 
 docker exec -i "$container" sh -c 'cat >/tmp/replay_documentos.sql' <<'SQL'
 \set ON_ERROR_STOP on
@@ -197,6 +247,31 @@ END $replay$;
 COMMIT;
 SQL
 docker exec "$container" psql -X -q -v ON_ERROR_STOP=1 -U vec_documentos_ensayo -d postgres -f /tmp/replay_documentos.sql
+# Decisión V3 fresca (otro decision_ref, fachada AD3 sintética que la acepta)
+# con la huella de la preimagen original, presentada con otra preimagen del
+# mismo id y clave (cambia tipo_ref): la fachada documental la deniega con
+# 42501 porque la huella no es la de la preimagen presentada.
+docker exec -i "$container" sh -c 'cat >/tmp/sonda_ligadura.sql' <<'SQL'
+\set ON_ERROR_STOP on
+BEGIN ISOLATION LEVEL SERIALIZABLE;
+SET LOCAL timezone='UTC';
+DO $sonda$
+DECLARE f record; c jsonb; d jsonb; p2 bytea; estado text:='aceptada';
+BEGIN
+ SELECT * INTO STRICT f FROM public.ensayo_documentos_b5;
+ c:=jsonb_set(convert_from(f.capacidad,'UTF8')::jsonb,'{decision_ref}','"decision:00000000-0000-4000-8000-00000000cafe"');
+ d:=jsonb_set(convert_from(f.decision,'UTF8')::jsonb,'{decision_ref}','"decision:00000000-0000-4000-8000-00000000cafe"');
+ p2:=convert_to(replace(convert_from(f.preimagen,'UTF8'),'tipo:00000000-0000-4000-8000-000000000001','tipo:00000000-0000-4000-8000-000000000009'),'UTF8');
+ IF p2=f.preimagen THEN RAISE EXCEPTION 'la sonda no cambió la preimagen'; END IF;
+ BEGIN
+  PERFORM vec_documentos.confirmar_alta_v2(p2,f.objeto,f.auth,convert_to(c::text,'UTF8'),convert_to(d::text,'UTF8'),
+   '\x01'::bytea,'\x01'::bytea,1,1,'\x01'::bytea,'\x01'::bytea,'\x01'::bytea,'\x01'::bytea);
+ EXCEPTION WHEN OTHERS THEN estado:=SQLSTATE; END;
+ IF estado<>'42501' THEN RAISE EXCEPTION 'FALLO: decisión de otra preimagen no rechazada como denegación (sqlstate %)', estado; END IF;
+END $sonda$;
+ROLLBACK;
+SQL
+docker exec "$container" psql -X -q -v ON_ERROR_STOP=1 -U vec_documentos_ensayo -d postgres -f /tmp/sonda_ligadura.sql
 test "$(docker exec "$container" psql -X -qAt -U postgres -c "SELECT (SELECT count(*) FROM vec_documentos.documento)=1 AND (SELECT count(*) FROM vec_documentos.outbox)=1 AND (SELECT count(*) FROM vec_autorizacion_atestada_v3.ensayo_consumo_documentos)=1")" = t
 
 docker exec "$container" psql -X -q -v ON_ERROR_STOP=1 -U postgres -f /tmp/externa.sql

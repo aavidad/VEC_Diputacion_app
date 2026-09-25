@@ -30,7 +30,23 @@ repo=$(CDPATH='' cd -- "$dir/../../.." && pwd)
 pg=$repo/deploy/postgresql
 tmp=$(mktemp -d)
 C="vec-b5-cadena-$$"
-limpiar() { docker rm -f "$C" >/dev/null 2>&1 || true; rm -rf -- "$tmp"; }
+# VEC_PG18_DATOS_DIR (opcional): directorio anfitrión, p. ej. /dev/shm, para
+# los datos del PostgreSQL desechable; subdirectorio temporal propio, sin
+# volúmenes con nombre, que se borra al salir.
+datos=()
+pgdir=
+if [[ -n ${VEC_PG18_DATOS_DIR:-} ]]; then
+  pgdir=$(mktemp -d "$VEC_PG18_DATOS_DIR/vec-doc-cadena.XXXXXX"); chmod 0777 "$pgdir"
+  datos=(-v "$pgdir:/var/lib/postgresql")
+fi
+limpiar() {
+  docker rm -f "$C" >/dev/null 2>&1 || true
+  if [[ -n $pgdir ]]; then
+    docker run --rm -v "$pgdir:/d" --entrypoint sh postgres:18.4-alpine -c 'rm -rf /d/* /d/.[!.]*' >/dev/null 2>&1 || true
+    rm -rf -- "$pgdir" 2>/dev/null || true
+  fi
+  rm -rf -- "$tmp"
+}
 trap limpiar EXIT INT TERM
 sed -E "s/ PASSWORD '[^']*'//; s/ PASSWORD [^ ;]+//" "$roles" | grep -vE '^(CREATE|ALTER) ROLE postgres( |;)|^\\(un)?restrict' > "$tmp/roles.sql"
 if grep -qi 'password' "$tmp/roles.sql"; then echo 'No se pudieron retirar las contraseñas' >&2; exit 2; fi
@@ -85,7 +101,7 @@ instalar() {
   ok "$(basename "$1"): ROLLBACK sin rastro, COMMIT y repetición rechazada"
 }
 
-docker run -d --rm --network none --name "$C" -e POSTGRES_HOST_AUTH_METHOD=trust postgres:18.4-alpine >/dev/null
+docker run -d --rm --network none "${datos[@]}" --name "$C" -e POSTGRES_HOST_AUTH_METHOD=trust postgres:18.4-alpine >/dev/null
 esperar
 [[ $(val 'SHOW server_version_num') == 180004 ]] || fallo 'no es PostgreSQL 18.4'
 sql -o /dev/null < "$tmp/roles.sql" || fallo 'roles'

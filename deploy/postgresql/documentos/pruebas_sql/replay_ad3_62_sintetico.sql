@@ -88,6 +88,30 @@ BEGIN
 END $test$;
 COMMIT;
 
+-- Decisión retirada: con todo el gobierno vigente, la revalidación viva
+-- devuelve NULL y el replay debe denegarse (42501).
+\connect postgres postgres
+CREATE OR REPLACE FUNCTION vec_autorizacion.revalidar_decision_contexto_actor_v3_viva(bytea,bytea,numeric,numeric)
+RETURNS timestamptz LANGUAGE sql AS $$ SELECT NULL::timestamptz $$;
+\connect postgres vec_documentos_ensayo
+BEGIN ISOLATION LEVEL SERIALIZABLE;
+SET LOCAL timezone='UTC';
+DO $test$
+DECLARE f record;
+BEGIN
+ SELECT * INTO STRICT f FROM public.ensayo_ad3_62;
+ BEGIN
+  PERFORM vec_autorizacion_atestada_v3.consumir_operacion_documentos_replay_v3_atestada(
+   f.capacidad,f.decision,'\x01'::bytea,'\x01'::bytea,1,1,
+   '\x01'::bytea,'\x01'::bytea,'\x01'::bytea,f.raiz);
+  RAISE EXCEPTION 'AD3-62 aceptó una decisión retirada';
+ EXCEPTION WHEN SQLSTATE '42501' THEN NULL; END;
+END $test$;
+COMMIT;
+\connect postgres postgres
+CREATE OR REPLACE FUNCTION vec_autorizacion.revalidar_decision_contexto_actor_v3_viva(bytea,bytea,numeric,numeric)
+RETURNS timestamptz LANGUAGE sql AS $$ SELECT clock_timestamp() $$;
+
 \connect postgres postgres
 INSERT INTO vec_autorizacion_atestada_v3.revocacion_clave_capacidad VALUES('clave:ensayo',1,now());
 \connect postgres vec_documentos_ensayo

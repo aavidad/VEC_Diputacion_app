@@ -29,20 +29,27 @@ instaladas antes y después de ellas sobre el núcleo AD3 real.
 
 El PDP V3 real fija `huella_efecto_sha256` y `contexto_recurso_huella_sha256`
 como SHA-256 del contexto canónico del recurso autorizado, no de la
-preimagen. 000001/000002 comparaban con `SHA-256(preimagen)`, que ningún
-emisor V3 real puede producir. 000004 sustituye (misma firma, ACL y
-propietario) `consumir_v3_v1/v2` para exigir la huella del recurso
+preimagen. `consumir_v3_v1/v2` (000001/000002, nunca instaladas, corregidas
+en su sitio) exigen esa huella del recurso
 `{"ambitos":{},"atributos":{"preimagen_sha256":"<hex>"}}`, que es la que
-construye `ports.RecursoV3` en Go y recalcula `huella_efecto_v1`. La columna
+construye `ports.RecursoV3` en Go. 000004 ya no las reescribe: comprueba
+antes de crear nada que su cuerpo instalado liga esa huella y publica la
+misma expresión como `huella_efecto_v1`. La columna
 `huella_preimagen_sha256` sigue guardando `SHA-256(preimagen)`.
+
+`confirmar_alta_v1` y `preparar_notificacion_v1` no se conceden al ejecutor:
+el alta y la preparación solo entran por sus versiones v2 (replay autorizado).
 
 También crea `denegacion_frontera` (solo adición, RLS forzada, sin lectura)
 y `registrar_denegacion_frontera_v1`, que solo puede ejecutar un LOGIN con la
-única membresía `vec_documentos_auditor`. La frontera HTTP de
+única membresía `vec_documentos_auditor` (exactamente una, heredada, sin
+`SET` ni `ADMIN`, como AD3-60 exige al ejecutor). La frontera HTTP de
 `/api/vec/documentos/` registra ahí sus denegaciones con valores cerrados.
 
 AD3-60 y AD3-62 no se han instalado nunca en ninguna base: el 25/09/2026 se
-ampliaron en su sitio con la acción `documentos.externo.registrar`. La AD3-61
+ampliaron en su sitio con la acción `documentos.externo.registrar`. AD3-60
+toma también el cerrojo común `vec_autorizacion_atestada_v3:nucleo`, como las
+demás migraciones que reescriben el núcleo (53, 54, 59, 61, 70, 80). La AD3-61
 de `main` es de Dietas (competencias y rectificación) y no guarda relación
 con este módulo.
 
@@ -85,9 +92,17 @@ externa (replay; clave reutilizada, identificador compartido con un original,
 referencia con ruta y finalidad ajena rechazados) y con la lista v2 paginada
 sobre ambas custodias. Al final ejecuta el repositorio Go (pgx) contra esa base
 con el LOGIN ejecutor para cotejar preimagen, proyección y lista v2
-(`VEC_DOCUMENTOS_SIN_GO=1` lo omite). Corre sobre una **preimagen sintética** AD3-50 seguida
+(`VEC_DOCUMENTOS_SIN_GO=1` lo omite). Además rechaza con 42501 una decisión
+fresca con la huella de otra preimagen, el replay AD3-62 de una decisión
+retirada, el UPDATE/DELETE como superusuario de `documento`, `outbox` y
+`auditoria_operacion`, y el registro de denegaciones por un LOGIN auditor con
+otra membresía o con `SET`. Corre sobre una **preimagen sintética** AD3-50 seguida
 de AD3-51/52/60/62 reales, y sustituye en esa base las fachadas AD3 por
 recibos sintéticos: no acredita COSE.
+
+Ambos scripts aceptan `VEC_PG18_DATOS_DIR` (p. ej. `/dev/shm`) para guardar
+los datos del PostgreSQL desechable en un subdirectorio temporal de ese
+directorio, que borran al salir; no crean volúmenes con nombre.
 
 `probar_cadena_real_pg18.sh BASE.dump ROLES.sql [main-60|60-main]` restaura
 una base VEC sintética con el núcleo AD3 real (la misma preimagen del ensayo
