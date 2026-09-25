@@ -15,7 +15,9 @@ DO $precondicion$
 DECLARE v_fuente text;
 BEGIN
  IF current_user <> 'vec_bolsa_llamamientos_propietario'
-    OR to_regclass('vec_bolsa_llamamientos.politica_transiciones_situacion') IS NULL THEN
+    OR to_regclass('vec_bolsa_llamamientos.politica_transiciones_situacion') IS NULL
+    -- 000037 usa la readmisión: se retira antes.
+    OR to_regclass('vec_bolsa_llamamientos.reversion_sancion_participacion') IS NOT NULL THEN
   RAISE EXCEPTION 'estado incompatible para revertir la politica de transiciones B2' USING ERRCODE='55000';
  END IF;
  IF EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.situacion_participacion WHERE politica_transiciones_version IS NOT NULL)
@@ -29,6 +31,7 @@ BEGIN
  END IF;
 END $precondicion$;
 
+DROP FUNCTION vec_bolsa_llamamientos.readmitir_participacion_por_recurso_v1(text,text,text,text,text,text,text,timestamptz);
 DROP FUNCTION vec_bolsa_llamamientos.publicar_politica_transiciones_situacion_v1(text,text,text[]);
 DROP FUNCTION vec_bolsa_llamamientos.consultar_politica_transiciones_situacion_v1();
 CREATE OR REPLACE FUNCTION vec_bolsa_llamamientos.registrar_situacion_participacion_v1(p_bolsa_ref text,p_participacion_ref text, p_situacion text, p_desde timestamptz, p_fecha_disponible timestamptz, p_motivo text, p_actor text, p_clave_idempotencia text, p_recibo_ref text, p_registrada_en timestamptz,p_capacidad bytea,p_decision bytea,p_motivo_autorizacion bytea,p_contexto bytea,p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)

@@ -92,6 +92,7 @@ const (
 	BolsaCausaBajaRenunciaTrasDisposicion = BolsaPrefijoCausaBaja + "renuncia_tras_disposicion"
 	BolsaCausaBajaRenunciaNombramiento    = BolsaPrefijoCausaBaja + "renuncia_nombramiento"
 	BolsaTransicionesRenuncia             = BolsaPrefijoTransicionesSituacion + "renuncia"
+	BolsaTransicionesDisponible           = BolsaPrefijoTransicionesSituacion + "disponible"
 )
 
 // Reglas de Contratación temporal.

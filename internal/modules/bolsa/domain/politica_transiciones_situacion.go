@@ -18,11 +18,13 @@ const maximoTransiciones = 42
 
 // PoliticaTransicionesSituacion es la tabla de transiciones de situación que
 // rige un cambio. Procede del catálogo configurable (b28.transiciones.<origen>)
-// publicado en la base de datos; sin publicación rige la compilada, que es el
-// literal de la migración 000012. Toda política respeta tres invariantes
-// fijas, las mismas que exige la base de datos: nunca se sale de «excluido»
-// (B2 no tiene readmisión), no hay transiciones a la misma situación y desde
-// cualquier otra situación se puede dar de baja definitiva (art. 11).
+// publicado en la base de datos; sin publicación rige la compilada, que es la
+// versión 1 de la migración 000032. Toda política respeta tres invariantes
+// fijas, las mismas que exige la base de datos: nunca se sale de «excluido»,
+// no hay transiciones a la misma situación y desde cualquier otra situación
+// se puede dar de baja definitiva (art. 11). La readmisión por recurso de
+// reposición estimado es la única salida de «excluido» y no forma parte de la
+// política: la aplica la base solo desde el registro del recurso (000037).
 // El valor cero equivale a la compilada.
 type PoliticaTransicionesSituacion struct {
 	destinos map[string][]string

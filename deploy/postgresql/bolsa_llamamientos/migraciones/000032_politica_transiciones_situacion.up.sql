@@ -13,11 +13,18 @@ SELECT pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_bolsa_llamamientos
 -- una política versionada de solo adición que publica el catálogo
 -- configurable (b28.transiciones.<origen>), igual que 000033 hace con la
 -- segunda persona de B8. La comprobación sigue en la base de datos:
---  * la versión 1 es exactamente el literal anterior, de modo que instalar
---    esta migración no cambia ninguna conducta;
---  * invariantes fijas: nunca se sale de «excluido» (B2 no tiene
---    readmisión), no hay transiciones a la misma situación y desde toda
---    situación se puede dar de baja definitiva («excluido», art. 11);
+--  * la versión 1 es el literal anterior más «disponible>disponible_desde»
+--    (decisión de dirección): una suspensión con fecha de fin deja a la
+--    persona fuera del turno hasta ese día (000037) y ese cambio también
+--    pasa por la política;
+--  * invariantes fijas: nunca se sale de «excluido», no hay transiciones a
+--    la misma situación y desde toda situación se puede dar de baja
+--    definitiva («excluido», art. 11);
+--  * la ÚNICA excepción a «nunca se sale de excluido» es la readmisión por
+--    un recurso de reposición estimado y registrado contra la sanción que
+--    excluyó (readmitir_participacion_por_recurso_v1, más abajo). No la
+--    concede ninguna versión de la política ni puede publicarse desde el
+--    catálogo: solo la invoca la función de recurso de 000037;
 --  * cada nuevo cambio deja en su fila la versión de política aplicada.
 -- Las situaciones ya registradas (incluidas las renuncias vigentes) no se
 -- tocan: la historia es de solo adición.
@@ -27,6 +34,9 @@ BEGIN
  IF current_user <> 'vec_bolsa_llamamientos_propietario'
     OR to_regclass('vec_bolsa_llamamientos.situacion_participacion') IS NULL
     OR to_regprocedure('vec_bolsa_llamamientos.constitucion_rechazar_mutacion()') IS NULL
+    OR to_regclass('vec_bolsa_llamamientos.sancion_participacion') IS NULL
+    OR to_regclass('vec_bolsa_llamamientos.recurso_sancion_participacion') IS NULL
+    OR to_regprocedure('vec_bolsa_llamamientos.readmitir_participacion_por_recurso_v1(text,text,text,text,text,text,text,timestamptz)') IS NOT NULL
     OR to_regclass('vec_bolsa_llamamientos.politica_transiciones_situacion') IS NOT NULL
     OR to_regprocedure('vec_bolsa_llamamientos.transiciones_situacion_canonicas(text[])') IS NOT NULL
     OR EXISTS (SELECT 1 FROM pg_catalog.pg_attribute
@@ -98,11 +108,11 @@ CREATE POLICY politica_transiciones_situacion_solo_propietario ON vec_bolsa_llam
 REVOKE ALL ON vec_bolsa_llamamientos.politica_transiciones_situacion FROM PUBLIC;
 CREATE TRIGGER politica_transiciones_situacion_inmutable BEFORE UPDATE OR DELETE ON vec_bolsa_llamamientos.politica_transiciones_situacion FOR EACH ROW EXECUTE FUNCTION vec_bolsa_llamamientos.constitucion_rechazar_mutacion();
 
--- Versión 1: exactamente el literal de 000012.
+-- Versión 1: el literal de 000012 más «disponible>disponible_desde».
 INSERT INTO vec_bolsa_llamamientos.politica_transiciones_situacion(version, catalogo_ref, catalogo_sha256, transiciones, publicada_en)
 SELECT 1, 'migracion:bolsa_llamamientos:000032:defecto', encode(sha256(convert_to(array_to_string(t, ','), 'UTF8')), 'hex'), t, clock_timestamp()
   FROM (SELECT vec_bolsa_llamamientos.transiciones_situacion_canonicas(ARRAY[
-   'disponible>no_disponible','disponible>pendiente_incorporacion','disponible>renuncia','disponible>excluido',
+   'disponible>no_disponible','disponible>pendiente_incorporacion','disponible>renuncia','disponible>excluido','disponible>disponible_desde',
    'no_disponible>disponible','no_disponible>excluido',
    'pendiente_incorporacion>trabajando','pendiente_incorporacion>disponible','pendiente_incorporacion>renuncia','pendiente_incorporacion>excluido',
    'trabajando>disponible','trabajando>disponible_desde','trabajando>excluido',
@@ -110,8 +120,8 @@ SELECT 1, 'migracion:bolsa_llamamientos:000032:defecto', encode(sha256(convert_t
    'renuncia>disponible','renuncia>excluido']) AS t) v;
 DO $v1$
 BEGIN
- IF (SELECT cardinality(transiciones) FROM vec_bolsa_llamamientos.politica_transiciones_situacion WHERE version = 1) IS DISTINCT FROM 17 THEN
-  RAISE EXCEPTION 'la version 1 no reproduce 000012' USING ERRCODE='55000';
+ IF (SELECT cardinality(transiciones) FROM vec_bolsa_llamamientos.politica_transiciones_situacion WHERE version = 1) IS DISTINCT FROM 18 THEN
+  RAISE EXCEPTION 'la version 1 no es la esperada' USING ERRCODE='55000';
  END IF;
 END $v1$;
 
@@ -183,6 +193,78 @@ BEGIN
  RETURN QUERY SELECT p.version, p.catalogo_ref, p.transiciones
    FROM vec_bolsa_llamamientos.politica_transiciones_situacion p ORDER BY p.version DESC LIMIT 1;
 END $f$;
+
+-- Readmisión por recurso de reposición estimado: la ÚNICA salida de
+-- «excluido» y el único cambio de situación que no exige que la política
+-- vigente admita la transición cuando el origen es «excluido». Para cualquier
+-- otro origen (una suspensión revocada) la política sí se exige. Sin EXECUTE
+-- para nadie y con SECURITY INVOKER: solo la alcanzan funciones del
+-- propietario, y además comprueba que quien la llama directamente es la
+-- función de recurso de 000037 (registrar_recurso_sancion_participacion_v2),
+-- que ya ha consumido la autorización, anotado el recurso y comprobado que el
+-- catálogo declara revocatorio ese estado. Aquí se exige que ese recurso sea
+-- el último estado registrado de la sanción, en este mismo instante, y que la
+-- situación vigente sea la que dejó esa sanción. La situación restaurada es
+-- la anterior a la sanción (si era «disponible_desde» y la fecha ya pasó,
+-- «disponible»). La fila lleva la versión de política vigente.
+CREATE FUNCTION vec_bolsa_llamamientos.readmitir_participacion_por_recurso_v1(
+ p_participacion_ref text, p_sancion_ref text, p_recurso_clave_idempotencia text, p_motivo text, p_actor text,
+ p_clave_idempotencia text, p_recibo_ref text, p_registrada_en timestamptz)
+RETURNS TABLE(situacion text, fecha_disponible timestamptz, desde timestamptz, politica_transiciones_version bigint)
+LANGUAGE plpgsql VOLATILE SET search_path = pg_catalog AS $f$
+DECLARE v_pila text; v_sancion record; v_ultimo record; v_actual record; v_previa record; v_politica record;
+ v_situacion text; v_fecha timestamptz;
+BEGIN
+ IF current_user <> 'vec_bolsa_llamamientos_propietario' THEN RAISE EXCEPTION USING ERRCODE='42501', MESSAGE='readmision no autorizada'; END IF;
+ -- La pila empieza por esta función; la siguiente función de la pila (las
+ -- líneas intermedias citan la sentencia) es quien la llama.
+ GET DIAGNOSTICS v_pila = PG_CONTEXT;
+ SELECT t.l INTO v_pila FROM unnest(string_to_array(v_pila, E'\n')) WITH ORDINALITY AS t(l, n)
+  WHERE t.n > 1 AND (t.l LIKE 'PL/pgSQL function %' OR t.l LIKE 'SQL function %') ORDER BY t.n LIMIT 1;
+ IF v_pila IS NULL OR v_pila NOT LIKE 'PL/pgSQL function vec_bolsa_llamamientos.registrar_recurso_sancion_participacion_v2(%' THEN
+  RAISE EXCEPTION USING ERRCODE='42501', MESSAGE='readmision no autorizada';
+ END IF;
+ IF p_participacion_ref IS NULL OR p_sancion_ref IS NULL OR p_recurso_clave_idempotencia IS NULL
+    OR p_motivo IS NULL OR p_motivo <> btrim(p_motivo) OR octet_length(p_motivo) NOT BETWEEN 1 AND 1000
+    OR p_actor IS NULL OR p_clave_idempotencia IS NULL OR p_recibo_ref IS NULL OR p_registrada_en IS NULL THEN
+  RAISE EXCEPTION USING ERRCODE='22023', MESSAGE='readmision invalida';
+ END IF;
+ SELECT s.* INTO v_sancion FROM vec_bolsa_llamamientos.sancion_participacion s
+  WHERE s.sancion_ref = p_sancion_ref AND s.participacion_ref = p_participacion_ref;
+ IF NOT FOUND OR v_sancion.situacion_desde IS NULL THEN
+  RAISE EXCEPTION USING ERRCODE='22023', MESSAGE='readmision invalida';
+ END IF;
+ SELECT r.* INTO v_ultimo FROM vec_bolsa_llamamientos.recurso_sancion_participacion r
+  WHERE r.sancion_ref = p_sancion_ref ORDER BY r.registrada_en DESC, r.clave_idempotencia DESC LIMIT 1;
+ IF NOT FOUND OR v_ultimo.clave_idempotencia <> p_recurso_clave_idempotencia OR v_ultimo.registrada_en <> p_registrada_en THEN
+  RAISE EXCEPTION USING ERRCODE='22023', MESSAGE='recurso no vigente';
+ END IF;
+ SELECT sp.* INTO STRICT v_actual FROM vec_bolsa_llamamientos.situacion_participacion sp
+  WHERE sp.participacion_ref = p_participacion_ref ORDER BY sp.desde DESC LIMIT 1 FOR UPDATE;
+ IF v_actual.desde <> v_sancion.situacion_desde OR p_registrada_en <= v_actual.desde
+    OR (v_actual.situacion = 'excluido' AND v_sancion.efecto <> 'excluir') THEN
+  RAISE EXCEPTION USING ERRCODE='22023', MESSAGE='readmision invalida';
+ END IF;
+ SELECT sp.* INTO v_previa FROM vec_bolsa_llamamientos.situacion_participacion sp
+  WHERE sp.participacion_ref = p_participacion_ref AND sp.desde < v_sancion.situacion_desde ORDER BY sp.desde DESC LIMIT 1;
+ IF NOT FOUND THEN RAISE EXCEPTION USING ERRCODE='22023', MESSAGE='readmision invalida'; END IF;
+ v_situacion := v_previa.situacion; v_fecha := v_previa.fecha_disponible;
+ IF v_situacion = 'disponible_desde' AND v_fecha <= p_registrada_en THEN
+  v_situacion := 'disponible'; v_fecha := NULL;
+ END IF;
+ IF v_situacion = 'excluido' OR v_situacion = v_actual.situacion THEN
+  RAISE EXCEPTION USING ERRCODE='22023', MESSAGE='readmision invalida';
+ END IF;
+ PERFORM pg_advisory_xact_lock_shared(hashtextextended('vec_bolsa_llamamientos:politica_transiciones_situacion', 0));
+ SELECT p.version, p.transiciones INTO STRICT v_politica FROM vec_bolsa_llamamientos.politica_transiciones_situacion p ORDER BY p.version DESC LIMIT 1;
+ IF v_actual.situacion <> 'excluido' AND NOT ((v_actual.situacion || '>' || v_situacion) = ANY (v_politica.transiciones)) THEN
+  RAISE EXCEPTION USING ERRCODE='22023', MESSAGE='transicion de situacion invalida';
+ END IF;
+ INSERT INTO vec_bolsa_llamamientos.situacion_participacion(participacion_ref,situacion,desde,hasta,fecha_disponible,motivo,actor,registrada_en,clave_idempotencia,recibo_ref,politica_transiciones_version)
+ VALUES (p_participacion_ref, v_situacion, p_registrada_en, NULL, v_fecha, p_motivo, p_actor, p_registrada_en, p_clave_idempotencia, p_recibo_ref, v_politica.version);
+ RETURN QUERY SELECT v_situacion, v_fecha, p_registrada_en, v_politica.version;
+END $f$;
+REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.readmitir_participacion_por_recurso_v1(text,text,text,text,text,text,text,timestamptz) FROM PUBLIC;
 
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.publicar_politica_transiciones_situacion_v1(text,text,text[]) FROM PUBLIC;
 REVOKE ALL ON FUNCTION vec_bolsa_llamamientos.consultar_politica_transiciones_situacion_v1() FROM PUBLIC;

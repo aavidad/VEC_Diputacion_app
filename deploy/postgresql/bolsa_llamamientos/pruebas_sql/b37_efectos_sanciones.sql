@@ -1,6 +1,6 @@
 \set ON_ERROR_STOP on
 -- Prueba de 000037 (efectos de las sanciones) en una base DESECHABLE con
--- 000026 y 000037 aplicadas. Se ejecuta como superusuario y termina en
+-- 000026, 000032 y 000037 aplicadas. Se ejecuta como superusuario y termina en
 -- ROLLBACK. TEST-ONLY: como b24, sustituye dentro de la transacción el
 -- consumidor V3 de la situación por un doble y siembra una bolsa sintética
 -- sin disparadores de integridad. Nada persiste.
@@ -77,13 +77,13 @@ BEGIN
  IF r.reutilizada OR NOT r.orden_final OR r.situacion IS NOT NULL THEN RAISE EXCEPTION 'B37: penalización no aplicada %', r; END IF;
  ref_final := r.sancion_ref;
  o := pg_temp.orden(t0 + interval '1 second');
- IF o <> '1:1:orden_acta,2:5:sancion_al_final,3:2:pausa,4:3:pausa,5:4:pausa' THEN RAISE EXCEPTION 'B37: pasar al final no movió el orden %', o; END IF;
+ IF o <> '1:1:orden_acta,2:5:sancion_al_final,3:2:adelanta_por_sancion,4:3:adelanta_por_sancion,5:4:adelanta_por_sancion' THEN RAISE EXCEPTION 'B37: pasar al final no movió el orden %', o; END IF;
  -- Antes de la sanción, el orden no cambia (historia reproducible).
  IF pg_temp.orden(t0 - interval '1 second') <> '1:1:orden_acta,2:2:orden_acta,3:3:orden_acta,4:4:orden_acta,5:5:orden_acta' THEN RAISE EXCEPTION 'B37: la penalización altera el pasado'; END IF;
  SELECT * INTO STRICT r FROM pg_temp.sancionar(p1, 'k-final-1', 'ninguna', NULL, true, false, t0 + interval '2 second', 'pasar_al_final');
  ref_final2 := r.sancion_ref;
  o := pg_temp.orden(t0 + interval '3 second');
- IF o <> '1:4:sancion_al_final,2:5:sancion_al_final,3:1:pausa,4:2:pausa,5:3:pausa' THEN RAISE EXCEPTION 'B37: orden relativo de penalizados %', o; END IF;
+ IF o <> '1:4:sancion_al_final,2:5:sancion_al_final,3:1:adelanta_por_sancion,4:2:adelanta_por_sancion,5:3:adelanta_por_sancion' THEN RAISE EXCEPTION 'B37: orden relativo de penalizados %', o; END IF;
  -- Replay idéntico y replay con otro efecto sobre el orden.
  SELECT * INTO STRICT r FROM pg_temp.sancionar(p2, 'k-final-2', 'ninguna', NULL, true, false, t0, 'pasar_al_final');
  IF NOT r.reutilizada OR r.sancion_ref <> ref_final THEN RAISE EXCEPTION 'B37: replay de penalización %', r; END IF;
@@ -112,6 +112,10 @@ BEGIN
     OR NOT EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.operacion_situacion_participacion WHERE participacion_ref=p4 AND operacion='pausar' AND justificante_tipo='resolucion' AND validador='persona:jefatura')
     OR NOT EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.sancion_participacion WHERE sancion_ref=ref_susp AND efecto='pausar' AND suspension_hasta=hasta) THEN
   RAISE EXCEPTION 'B37: filas de la suspensión incompletas';
+ END IF;
+ -- 000032: el cambio pasa por la política vigente y guarda su versión.
+ IF (SELECT politica_transiciones_version FROM vec_bolsa_llamamientos.situacion_participacion WHERE participacion_ref=p4 AND situacion='disponible_desde') IS DISTINCT FROM 1 THEN
+  RAISE EXCEPTION 'B37: la suspensión no anota la versión de política';
  END IF;
  IF (SELECT orden_vigente FROM vec_bolsa_llamamientos.leer_orden_vigente_bolsa_v1('bolsa:b37', t0 + interval '7 second') WHERE participacion_ref=p4) IS NOT NULL THEN
   RAISE EXCEPTION 'B37: la suspendida conserva turno';
@@ -162,6 +166,13 @@ BEGIN
  IF NOT r.reutilizada OR r.situacion <> 'disponible' THEN RAISE EXCEPTION 'B37: replay de readmisión %', r; END IF;
  SELECT count(*) INTO filas FROM vec_bolsa_llamamientos.situacion_participacion WHERE participacion_ref=p3;
  IF filas <> 3 THEN RAISE EXCEPTION 'B37: la readmisión duplicó situaciones (%)', filas; END IF;
+ -- La readmisión guarda la versión de política y deja en B8 «reactivar»
+ -- justificada por la resolución y validada por quien resuelve.
+ IF (SELECT politica_transiciones_version FROM vec_bolsa_llamamientos.situacion_participacion WHERE participacion_ref=p3 AND desde=t0 + interval '12 second') IS DISTINCT FROM 1
+    OR NOT EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.operacion_situacion_participacion WHERE participacion_ref=p3 AND desde=t0 + interval '12 second'
+                    AND operacion='reactivar' AND justificante_tipo='resolucion' AND justificante_ref='registro:2026/000300' AND validador='persona:jefatura' AND actor='per_actor') THEN
+  RAISE EXCEPTION 'B37: la readmisión no anota versión ni operación B8';
+ END IF;
  -- Una sanción se revierte una sola vez; la clave usada sin reversión no se adopta.
  BEGIN
   PERFORM pg_temp.recurso(p3, ref_baja, 'estimado', 'r-est-2', true, 'persona:jefatura', t0 + interval '14 second');
@@ -187,6 +198,18 @@ BEGIN
  -- Recurso estimado contra la suspensión vigente: vuelve a disponible.
  SELECT * INTO STRICT r FROM pg_temp.recurso(p4, ref_susp, 'estimado', 'r-susp', true, 'persona:jefatura', t0 + interval '17 second');
  IF r.situacion <> 'disponible' THEN RAISE EXCEPTION 'B37: la suspensión estimada no se levantó %', r; END IF;
+ IF NOT EXISTS (SELECT 1 FROM vec_bolsa_llamamientos.operacion_situacion_participacion WHERE participacion_ref=p4 AND operacion='reactivar' AND desde=t0 + interval '17 second') THEN
+  RAISE EXCEPTION 'B37: levantar la suspensión no deja «reactivar»';
+ END IF;
+ -- Revocar exige la huella de la resolución que estima el recurso.
+ BEGIN
+  PERFORM vec_bolsa_llamamientos.registrar_recurso_sancion_participacion_v2(
+   p1, ref_final2, 'estimado', DATE '2026-09-24', 'registro:2026/000301', NULL, 'per_actor', 'r-sin-huella', t0 + interval '18 second',
+   true, 'persona:jefatura', 'vec.bolsa.reglas:1:b24.recurso_revierte', repeat('c',64), 'Recurso de reposición estimado',
+   'recibo:readmision:' || encode(sha256(convert_to(ref_final2 || chr(31) || 'r-sin-huella','UTF8')),'hex'),
+   NULL, pg_temp.decision(p1,'per_actor'), NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+  RAISE EXCEPTION 'B37: revocación sin huella aceptada';
+ EXCEPTION WHEN SQLSTATE '22023' THEN NULL; END;
 
  -- Histórico v2 con efecto y reversión.
  SELECT * INTO STRICT r FROM vec_bolsa_llamamientos.listar_sanciones_participacion_v2(p3,'per_actor',NULL,pg_temp.decision(p3,'per_actor'),NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL) WHERE sancion_ref = ref_baja;
@@ -213,6 +236,31 @@ BEGIN
  EXCEPTION WHEN others THEN IF SQLERRM LIKE 'B37:%' THEN RAISE; END IF; END;
 END $prueba$;
 
+-- La readmisión de 000032 no es invocable fuera de la función de recurso,
+-- ni siquiera por el propietario.
+SET LOCAL ROLE vec_bolsa_llamamientos_propietario;
+DO $readmision$ BEGIN
+ BEGIN
+  PERFORM vec_bolsa_llamamientos.readmitir_participacion_por_recurso_v1('participacion:b37:3','x','r','Motivo','per_actor','readmision:x','recibo:x',clock_timestamp());
+  RAISE EXCEPTION 'B37: readmisión directa aceptada';
+ EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+END $readmision$;
+-- Sin «disponible>disponible_desde» en la política vigente, la suspensión con
+-- fin se rechaza: la política de 000032 decide.
+SELECT 1 FROM vec_bolsa_llamamientos.publicar_politica_transiciones_situacion_v1('prueba:b37', repeat('9',64), ARRAY[
+   'disponible>no_disponible','disponible>pendiente_incorporacion','disponible>renuncia','disponible>excluido',
+   'no_disponible>disponible','no_disponible>excluido',
+   'pendiente_incorporacion>trabajando','pendiente_incorporacion>disponible','pendiente_incorporacion>renuncia','pendiente_incorporacion>excluido',
+   'trabajando>disponible','trabajando>disponible_desde','trabajando>excluido',
+   'disponible_desde>disponible','disponible_desde>excluido','renuncia>disponible','renuncia>excluido']);
+RESET ROLE;
+DO $politica$ BEGIN
+ BEGIN
+  PERFORM pg_temp.sancionar('participacion:b37:5', 'k-susp-sin-politica', 'pausar', (clock_timestamp() AT TIME ZONE 'Europe/Madrid')::date + 30, false, true, clock_timestamp() + interval '2 minute');
+  RAISE EXCEPTION 'B37: suspensión fuera de la política aceptada';
+ EXCEPTION WHEN SQLSTATE '22023' THEN NULL; END;
+END $politica$;
+
 SET LOCAL ROLE vec_bolsa_llamamientos_ejecutor;
 DO $acl$ BEGIN
  BEGIN
@@ -226,6 +274,10 @@ DO $acl$ BEGIN
  BEGIN
   PERFORM 1 FROM vec_bolsa_llamamientos.registrar_suspension_con_fin_v1(NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
   RAISE EXCEPTION 'B37: suspensión interna invocable';
+ EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+ BEGIN
+  PERFORM 1 FROM vec_bolsa_llamamientos.readmitir_participacion_por_recurso_v1(NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+  RAISE EXCEPTION 'B37: readmisión invocable por el ejecutor';
  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
 END $acl$;
 RESET ROLE;

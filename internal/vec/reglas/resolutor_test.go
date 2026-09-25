@@ -101,7 +101,7 @@ func TestResolutorResuelveTodasLasClavesPublicadas(t *testing.T) {
 			BolsaAgotamiento, BolsaCausaBajaNoAcepta, BolsaCausaBajaNoSePresenta,
 			BolsaCausaBajaNoAportaDocumentacion, BolsaCausaBajaSinContacto,
 			BolsaCausaBajaRenunciaTrasDisposicion, BolsaCausaBajaRenunciaNombramiento,
-			BolsaTransicionesRenuncia,
+			BolsaTransicionesRenuncia, BolsaTransicionesDisponible,
 			BolsaEstadosRecurso, BolsaEstadosRecursoRevocatorios,
 			BolsaPrefijoSanciones + "baja_llamamiento_directo", BolsaPrefijoSanciones + "baja_sin_contacto",
 			BolsaPrefijoSanciones + "baja_publicacion", BolsaPrefijoSanciones + "baja_renuncia_nombramiento",

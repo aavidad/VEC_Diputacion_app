@@ -26,13 +26,14 @@ var catalogoSituacionesParticipacion = map[string]struct{}{
 
 // transicionesSituacionParticipacion es el literal de
 // registrar_situacion_participacion_v1 en la migración 000012 de
-// bolsa_llamamientos y la versión 1 de su política de transiciones (000032).
+// bolsa_llamamientos más «disponible → disponible_desde» (suspensión con
+// fecha de fin, 000037): la versión 1 de su política de transiciones (000032).
 // Rige mientras la base no publique otra: desde 000032 la base de datos guarda
 // la política vigente, publicada al arrancar desde el catálogo de reglas
 // (b28.transiciones.<origen>), y esa política sustituye a esta tabla. Ver
 // PoliticaTransicionesSituacion.
 var transicionesSituacionParticipacion = map[string]map[string]struct{}{
-	SituacionDisponible:             {SituacionNoDisponible: {}, SituacionPendienteIncorporacion: {}, SituacionRenuncia: {}, SituacionExcluido: {}},
+	SituacionDisponible:             {SituacionNoDisponible: {}, SituacionPendienteIncorporacion: {}, SituacionRenuncia: {}, SituacionExcluido: {}, SituacionDisponibleDesde: {}},
 	SituacionNoDisponible:           {SituacionDisponible: {}, SituacionExcluido: {}},
 	SituacionPendienteIncorporacion: {SituacionTrabajando: {}, SituacionDisponible: {}, SituacionRenuncia: {}, SituacionExcluido: {}},
 	SituacionTrabajando:             {SituacionDisponible: {}, SituacionDisponibleDesde: {}, SituacionExcluido: {}},

@@ -6,11 +6,11 @@ import (
 	"testing"
 )
 
-func TestPoliticaTransicionesCompiladaEsLaDe000012(t *testing.T) {
+func TestPoliticaTransicionesCompiladaEsLaVersion1De000032(t *testing.T) {
 	var cero PoliticaTransicionesSituacion
 	for _, politica := range []PoliticaTransicionesSituacion{cero, PoliticaTransicionesSituacionCompilada()} {
 		pares := politica.Pares()
-		if len(pares) != 17 || !slices.Contains(pares, "renuncia>disponible") || slices.Contains(pares, "renuncia>no_disponible") ||
+		if len(pares) != 18 || !slices.Contains(pares, "renuncia>disponible") || !slices.Contains(pares, "disponible>disponible_desde") || slices.Contains(pares, "renuncia>no_disponible") ||
 			!politica.Admite(SituacionRenuncia, SituacionDisponible) || politica.Admite(SituacionExcluido, SituacionDisponible) {
 			t.Fatalf("compilada: %v", pares)
 		}

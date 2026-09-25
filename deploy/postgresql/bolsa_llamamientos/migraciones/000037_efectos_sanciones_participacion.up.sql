@@ -18,16 +18,26 @@ SELECT pg_advisory_xact_lock(pg_catalog.hashtextextended('vec_bolsa_llamamientos
 --     la reserva B7, los avisos y las lecturas; su firma y ACL no cambian.
 --  2. Suspensión con fin: la sanción deja la situación B2 existente
 --     «disponible_desde» con la fecha de fin calculada, de modo que la
---     persona vuelve al turno sola al llegar la fecha. La operación B8
---     («pausar», justificada por la resolución y validada por quien resuelve)
---     queda registrada igual que en 000026.
+--     persona vuelve al turno sola al llegar la fecha. El cambio pasa por la
+--     política de transiciones vigente de 000032 («disponible>disponible_desde»,
+--     incluida en su versión inicial) y guarda su versión. La operación B8
+--     queda registrada como «pausar» (salir del turno, justificada por la
+--     resolución y validada por quien resuelve), igual que en 000026; en B8
+--     «pausar» sin fecha deja «no_disponible» y con fecha de fin deja
+--     «disponible_desde»: el histórico B8 muestra la situación resultante.
 --  3. Recurso estimado: al anotar un estado del recurso que el catálogo
 --     declara revocatorio, en la misma transacción y bajo la misma
 --     autorización se revierte la sanción: una baja o una suspensión vigente
 --     devuelven la situación anterior (readmisión) y la penalización del
---     orden deja de aplicarse. No existe como operación libre: exige un
---     recurso registrado de esa sanción, que sea su último estado, y una
---     segunda persona que lo resuelve.
+--     orden deja de aplicarse. La readmisión la hace
+--     readmitir_participacion_por_recurso_v1 de 000032, única excepción a
+--     «nunca se sale de excluido»; para una suspensión exige además la
+--     política vigente. Deja en B8 una operación «reactivar» justificada por
+--     la resolución que estima el recurso y validada por quien la resuelve.
+--     No existe como operación libre: exige un recurso registrado de esa
+--     sanción, que sea su último estado, y una segunda persona que lo
+--     resuelve.
+-- Depende de 000032 (política de transiciones y readmisión).
 -- Sin catálogo, o con consecuencias que no declaran estos efectos, la
 -- conducta es la de 000026: las funciones _v1 siguen instaladas.
 DO $precondicion$
@@ -40,6 +50,8 @@ BEGIN
     OR to_regprocedure('vec_bolsa_llamamientos.consumir_autorizacion_sancion_v1(text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
     OR to_regprocedure('vec_bolsa_llamamientos.registrar_sancion_participacion_v1(text,text,text,text,text,text,text,date,text,text,text,text,text,date,date,text,text,timestamptz,text,text,text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
     OR to_regprocedure('vec_bolsa_llamamientos.registrar_recurso_sancion_participacion_v1(text,text,text,date,text,text,text,text,timestamptz,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL
+    OR to_regclass('vec_bolsa_llamamientos.politica_transiciones_situacion') IS NULL
+    OR to_regprocedure('vec_bolsa_llamamientos.readmitir_participacion_por_recurso_v1(text,text,text,text,text,text,text,timestamptz)') IS NULL
     OR to_regclass('vec_bolsa_llamamientos.penalizacion_orden_sancion') IS NOT NULL
     OR to_regclass('vec_bolsa_llamamientos.reversion_sancion_participacion') IS NOT NULL THEN
   RAISE EXCEPTION 'estado incompatible para los efectos de las sanciones' USING ERRCODE='55000';
@@ -115,7 +127,7 @@ CREATE FUNCTION vec_bolsa_llamamientos.registrar_suspension_con_fin_v1(
  p_perfil_version numeric, p_payload bytea, p_sobre bytea, p_evidencia bytea, p_raiz bytea)
 RETURNS TABLE(reutilizada boolean, sancion_ref text, recibo_ref text, situacion text, desde timestamptz)
 LANGUAGE plpgsql VOLATILE SET search_path = pg_catalog AS $f$
-DECLARE v_previa record; v_anterior record; v_situacion record; v_fin timestamptz;
+DECLARE v_previa record; v_anterior record; v_situacion record; v_fin timestamptz; v_politica record;
 BEGIN
  IF current_user <> 'vec_bolsa_llamamientos_propietario' THEN RAISE EXCEPTION USING ERRCODE='42501', MESSAGE='sancion no autorizada'; END IF;
  IF p_bolsa_ref IS NULL OR p_participacion_ref IS NULL OR p_clave_idempotencia IS NULL OR p_actor IS NULL OR p_registrada_en IS NULL
@@ -167,8 +179,15 @@ BEGIN
  IF v_anterior.situacion <> 'disponible' OR p_desde < v_anterior.desde THEN
   RAISE EXCEPTION USING ERRCODE='22023', MESSAGE='transicion de situacion invalida';
  END IF;
- INSERT INTO vec_bolsa_llamamientos.situacion_participacion(participacion_ref, situacion, desde, hasta, fecha_disponible, motivo, actor, registrada_en, clave_idempotencia, recibo_ref)
- VALUES (p_participacion_ref, 'disponible_desde', p_desde, NULL, v_fin, p_causa, p_actor, p_registrada_en, p_clave_idempotencia, p_recibo_ref);
+ -- Como B2 (000032): la política vigente debe admitir el cambio y la fila
+ -- guarda su versión. Cerrojo compartido frente a la publicación.
+ PERFORM pg_advisory_xact_lock_shared(hashtextextended('vec_bolsa_llamamientos:politica_transiciones_situacion', 0));
+ SELECT p.version, p.transiciones INTO STRICT v_politica FROM vec_bolsa_llamamientos.politica_transiciones_situacion p ORDER BY p.version DESC LIMIT 1;
+ IF NOT ((v_anterior.situacion || '>disponible_desde') = ANY (v_politica.transiciones)) THEN
+  RAISE EXCEPTION USING ERRCODE='22023', MESSAGE='transicion de situacion invalida';
+ END IF;
+ INSERT INTO vec_bolsa_llamamientos.situacion_participacion(participacion_ref, situacion, desde, hasta, fecha_disponible, motivo, actor, registrada_en, clave_idempotencia, recibo_ref, politica_transiciones_version)
+ VALUES (p_participacion_ref, 'disponible_desde', p_desde, NULL, v_fin, p_causa, p_actor, p_registrada_en, p_clave_idempotencia, p_recibo_ref, v_politica.version);
  INSERT INTO vec_bolsa_llamamientos.operacion_situacion_participacion(participacion_ref, desde, operacion, justificante_tipo, justificante_ref, justificante_sha256, actor, validador, validada_en, registrada_en, clave_idempotencia)
  VALUES (p_participacion_ref, p_desde, 'pausar', 'resolucion', p_resolucion_ref, p_resolucion_sha256, p_actor, p_resuelta_por, p_registrada_en, p_registrada_en, p_clave_idempotencia);
  INSERT INTO vec_bolsa_llamamientos.sancion_participacion(
@@ -240,8 +259,8 @@ CREATE FUNCTION vec_bolsa_llamamientos.registrar_recurso_sancion_participacion_v
  p_perfil_version numeric, p_payload bytea, p_sobre bytea, p_evidencia bytea, p_raiz bytea)
 RETURNS TABLE(reutilizada boolean, sancion_ref text, estado text, registrada_en timestamptz, recibo_ref text, situacion text, desde timestamptz)
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = pg_catalog AS $f$
-DECLARE v_r record; v_sancion record; v_rev record; v_ultimo record; v_actual record; v_previa record;
- v_situacion text; v_fecha timestamptz; v_desde timestamptz;
+DECLARE v_r record; v_sancion record; v_rev record; v_ultimo record; v_actual record; v_readmision record;
+ v_situacion text; v_desde timestamptz;
 BEGIN
  IF current_user <> 'vec_bolsa_llamamientos_propietario' THEN RAISE EXCEPTION USING ERRCODE='42501', MESSAGE='recurso no autorizado'; END IF;
  IF p_revierte IS NULL THEN RAISE EXCEPTION USING ERRCODE='22023', MESSAGE='recurso invalido'; END IF;
@@ -259,7 +278,7 @@ BEGIN
   RETURN QUERY SELECT v_r.reutilizada, v_r.sancion_ref, v_r.estado, v_r.registrada_en, NULL::text, NULL::text, NULL::timestamptz;
   RETURN;
  END IF;
- IF p_documento_ref IS NULL OR p_resuelta_por IS NULL OR p_resuelta_por <> btrim(p_resuelta_por) OR octet_length(p_resuelta_por) NOT BETWEEN 1 AND 256
+ IF p_documento_ref IS NULL OR p_documento_sha256 IS NULL OR p_resuelta_por IS NULL OR p_resuelta_por <> btrim(p_resuelta_por) OR octet_length(p_resuelta_por) NOT BETWEEN 1 AND 256
     OR p_resuelta_por = p_actor OR p_regla_ref IS NULL OR octet_length(p_regla_ref) NOT BETWEEN 1 AND 300
     OR p_regla_huella IS NULL OR p_regla_huella !~ '^[a-f0-9]{64}$'
     OR p_motivo IS NULL OR p_motivo <> btrim(p_motivo) OR octet_length(p_motivo) NOT BETWEEN 1 AND 1000
@@ -296,19 +315,14 @@ BEGIN
   SELECT sp.* INTO STRICT v_actual FROM vec_bolsa_llamamientos.situacion_participacion sp
    WHERE sp.participacion_ref = p_participacion_ref ORDER BY sp.desde DESC LIMIT 1 FOR UPDATE;
   IF v_actual.desde = v_sancion.situacion_desde THEN
-   -- El efecto sigue vigente: se vuelve a la situación anterior a la sanción.
-   SELECT sp.* INTO STRICT v_previa FROM vec_bolsa_llamamientos.situacion_participacion sp
-    WHERE sp.participacion_ref = p_participacion_ref AND sp.desde < v_sancion.situacion_desde ORDER BY sp.desde DESC LIMIT 1;
-   v_situacion := v_previa.situacion; v_fecha := v_previa.fecha_disponible;
-   IF v_situacion = 'disponible_desde' AND v_fecha <= p_registrada_en THEN
-    v_situacion := 'disponible'; v_fecha := NULL;
-   END IF;
-   IF v_situacion = 'excluido' OR p_registrada_en <= v_actual.desde THEN
-    RAISE EXCEPTION USING ERRCODE='22023', MESSAGE='readmision invalida';
-   END IF;
-   v_desde := p_registrada_en;
-   INSERT INTO vec_bolsa_llamamientos.situacion_participacion(participacion_ref, situacion, desde, hasta, fecha_disponible, motivo, actor, registrada_en, clave_idempotencia, recibo_ref)
-   VALUES (p_participacion_ref, v_situacion, v_desde, NULL, v_fecha, p_motivo, p_actor, p_registrada_en, 'readmision:' || substr(p_recibo_ref, 19), p_recibo_ref);
+   -- El efecto sigue vigente: se vuelve a la situación anterior a la sanción
+   -- por la readmisión de 000032, y B8 lo anota como «reactivar».
+   SELECT * INTO STRICT v_readmision FROM vec_bolsa_llamamientos.readmitir_participacion_por_recurso_v1(
+     p_participacion_ref, p_sancion_ref, p_clave_idempotencia, p_motivo, p_actor,
+     'readmision:' || substr(p_recibo_ref, 19), p_recibo_ref, p_registrada_en);
+   v_situacion := v_readmision.situacion; v_desde := v_readmision.desde;
+   INSERT INTO vec_bolsa_llamamientos.operacion_situacion_participacion(participacion_ref, desde, operacion, justificante_tipo, justificante_ref, justificante_sha256, actor, validador, validada_en, registrada_en, clave_idempotencia)
+   VALUES (p_participacion_ref, v_desde, 'reactivar', 'resolucion', p_documento_ref, p_documento_sha256, p_actor, p_resuelta_por, p_registrada_en, p_registrada_en, 'readmision:' || substr(p_recibo_ref, 19));
   ELSIF v_sancion.efecto = 'excluir' THEN
    RAISE EXCEPTION USING ERRCODE='22023', MESSAGE='readmision invalida';
   END IF;
@@ -356,9 +370,11 @@ BEGIN
   LIMIT 200;
 END $f$;
 
--- Orden vigente de 000018 con la penalización «al final». Única diferencia:
--- la columna «penalizada» (penalización aplicada en p_en y no revertida)
--- encabeza la ordenación y da la razón «sancion_al_final».
+-- Orden vigente de 000018 con la penalización «al final». Diferencias: la
+-- columna «penalizada» (penalización aplicada en p_en y no revertida)
+-- encabeza la ordenación y da la razón «sancion_al_final»; quien sube porque
+-- alguien con mejor orden de acta está penalizado recibe la razón
+-- «adelanta_por_sancion» en lugar de «pausa».
 CREATE OR REPLACE FUNCTION vec_bolsa_llamamientos.leer_orden_vigente_bolsa_v1(p_bolsa_ref text,p_en timestamptz)
 RETURNS TABLE(politica_ref text,version_politica bigint,criterio text,tipo_lista text,reposicion text,provisional boolean,rotulo text,actor text,vigente_desde timestamptz,participacion_ref text,orden_acta bigint,orden_vigente bigint,situacion text,razon text)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $f$
@@ -394,6 +410,8 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $f$
              WHEN NOT b.ocupa_turno THEN 'sin_turno'
              WHEN b.penalizada THEN 'sancion_al_final'
              WHEN b.repuesta_en IS NOT NULL AND e.orden_vigente IS DISTINCT FROM b.orden_acta THEN 'reposicion_tras_contrato'
+             WHEN e.orden_vigente IS DISTINCT FROM b.orden_acta
+                  AND EXISTS (SELECT 1 FROM base o WHERE o.penalizada AND o.ocupa_turno AND o.orden_acta < b.orden_acta) THEN 'adelanta_por_sancion'
              WHEN e.orden_vigente IS DISTINCT FROM b.orden_acta THEN 'pausa'
              ELSE 'orden_acta' END
    FROM base b CROSS JOIN politica p LEFT JOIN elegibles e USING(participacion_ref)

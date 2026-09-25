@@ -594,6 +594,20 @@
         "orden": 35
       },
       {
+        "clave": "b28.transiciones.disponible",
+        "etiqueta": "Situaciones posibles desde «disponible»",
+        "descripcion": "Desde «disponible» se puede pasar a no disponible, pendiente de incorporación, renuncia, baja definitiva o no disponible hasta una fecha (suspensión con fecha de fin, que vuelve sola al turno ese día).",
+        "vigente_desde": "2026-02-01T00:00:00Z",
+        "atributos": {
+          "origen": "ejemplo",
+          "norma": "Supuesto de trabajo; Reglamento de bolsas de la Diputación de Granada (BOP-GRA-2026-009002), art. 11.",
+          "duda": "Duda 62. Bolsa publica esta lista en la base de datos al arrancar (migración 000032); la base aplica la política publicada.",
+          "unidad": "lista",
+          "valor": "no_disponible,pendiente_incorporacion,renuncia,excluido,disponible_desde"
+        },
+        "orden": 48
+      },
+      {
         "clave": "b28.transiciones.renuncia",
         "etiqueta": "Situaciones posibles tras una renuncia",
         "descripcion": "Una renuncia no justificada supone la baja definitiva (art. 11); la justificada (art. 10) conserva la posición como «no disponible» hasta que termine la causa. Ya no puede volver directamente a «disponible».",
