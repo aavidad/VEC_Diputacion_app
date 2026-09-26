@@ -113,18 +113,6 @@ var categoriasSinteticasDesarrollo = []categoriaCatalogosAltaContratacionTempora
 	},
 }
 
-// centroSinteticoDesarrollo nombra, junto a los centros de la RPT, el centro de
-// los expedientes dados de alta antes de publicarlos; no es de la Diputación.
-func centroSinteticoDesarrollo() centroCatalogosAltaContratacionTemporalDesarrollo {
-	return centroCatalogosAltaContratacionTemporalDesarrollo{
-		Referencia: centroAltaContratacionTemporalDesarrollo,
-		Etiqueta:   `RESIDENCIA DE MAYORES "SIERRA NEVADA"`,
-		Contactos: []opcionReferenciaCatalogosAltaContratacionTemporalDesarrollo{{
-			Referencia: contactoAltaContratacionTemporalDesarrollo, Etiqueta: "Contacto del centro",
-		}},
-	}
-}
-
 func categoriaDeCatalogoDesarrollo(ref string) bool {
 	_, ok := gruposPorCategoriaSinteticaDesarrollo[ref]
 	return ok
@@ -212,9 +200,14 @@ func construirCatalogosAltaDesarrollo(rutaFuente, rutaRPT string) (*catalogosAlt
 			})
 		}
 	}
-	// Como las categorías sintéticas, el centro sintético va al final para que
-	// los expedientes que ya lo usan muestren su nombre en cuadro y detalle.
-	centros = append(centros, centroSinteticoDesarrollo())
+	// Como las categorías sintéticas, los centros de expedientes anteriores van
+	// al final para que muestren su nombre en cuadro, detalle y documentos. El
+	// nombre procede del paquete de ejemplo retirable, no del código.
+	anteriores, err := cargarCentrosAnterioresCT()
+	if err != nil {
+		return nil, err
+	}
+	centros = append(centros, anteriores...)
 	categorias := make([]categoriaCatalogosAltaContratacionTemporalDesarrollo, len(categoriasSinteticasDesarrollo))
 	copy(categorias, categoriasSinteticasDesarrollo)
 	if strings.TrimSpace(rutaRPT) != "" {

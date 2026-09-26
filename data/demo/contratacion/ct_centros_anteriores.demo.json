@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "motivo": "Nombre de ejemplo para el centro de los expedientes dados de alta antes de publicar los centros de la RPT. No es un centro de la Diputación; se sustituye o retira editando este fichero.",
+  "centros": [
+    {
+      "referencia": "centro:desarrollo:001",
+      "etiqueta": "RESIDENCIA DE MAYORES \"SIERRA NEVADA\""
+    }
+  ]
+}
