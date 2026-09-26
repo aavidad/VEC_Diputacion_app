@@ -1,5 +1,60 @@
 # Estado y plan de ataque del proyecto
 
+## Bolsa y Contratación temporal cerradas para la presentación — 26 de septiembre de 2026
+
+Corte de cierre para la presentación a RRHH del lunes 28/09/2026. `main` = `c14172597`
+(PR #72). No recalcula la tabla de métricas del 25/09: deja constancia de lo integrado,
+desplegado y recorrido; la ratificación con la definición de terminado la hace Dirección
+aparte.
+
+**Integrado en `main` y desplegado en la principal de cidonia:**
+
+- **PR #66** — «Bolsa y Contratación temporal: cierre para la presentación a RRHH». Treinta
+  migraciones nuevas: autorización AD3 000082–000086, Bolsa entre 000024 y 000040,
+  Contratación entre 000110 y 000121 y Calendarios 000004. Selectores encendidos en la
+  principal: `VEC_BOLSA_PORTAL_CANDIDATO_ENABLED`, `VEC_CT_SEGUIMIENTO_CESE_ENABLED` y
+  `VEC_CT_FIRMA_REGISTRO_ENABLED`. Incluye «Mi bolsa» y el portal del candidato.
+- **PR #67 y #69** — pulido visible: sin referencias técnicas en pantalla, justificantes
+  copiables, huella SHA-256 del justificante calculada en el navegador y ayuda solo en el
+  botón «?».
+- **PR #68, #70 y #71** — Documentos para la formalización: la frontera reduce a la hoja la
+  cadena mTLS del cliente, se admite el vínculo real del actor (`per_…`) como principal y la
+  repetición exacta del registro externo devuelve el mismo recibo. Migraciones Documentos
+  000001–000006 y AD3-60/62 instaladas en la principal.
+- **PR #72** — la prueba del callback tardío de cobertura es determinista (fallaba de forma
+  intermitente sin defecto en el código de producción).
+
+**Verificación de firma.** El validador AutofirmaV2 (solo verificación, no firma) corre en el
+pod de la principal. Firma válida: aceptada; firma alterada o con certificado revocado:
+rechazada; validador parado: nunca acepta. Es una firma de prueba con una autoridad de
+certificación de desarrollo, **sin validez legal**: la firma real se hará con el portafirmas
+de la Diputación.
+
+**Evidencia.** Recorridos en Chrome real:
+
+- en la principal: lectura y casos negativos;
+- en la copia de ensayo: lectura, escritura (incluido el cese), reinicio de la aplicación y
+  de PostgreSQL, recuperación con los mismos recibos y cero cambios en las tablas de
+  negocio, y casos negativos.
+
+Las evidencias quedan en cidonia, fuera de Git, en
+`~openclaw/.local/state/vec-recorrido-bolsa-ct-20260926/evidencias/`.
+
+**Reglas pendientes de RRHH.** Lo que RRHH aún no ha decidido va en el paquete de ejemplo
+modificable `data/demo/reglas/*.demo.json` (marca `paquete:ejemplo:vec:v1`). Las respuestas a
+`dudas_bolsa_contratacion.md` se aplican cambiando ese catálogo, no el código.
+
+**Pendiente conocido (no bloquea la presentación):**
+
+- El acceso de PostgreSQL de la principal sigue sin contraseña para las conexiones TCP
+  internas (`pg_hba` en `trust`). El cierre con `scram` se aplaza a después de la
+  presentación por decisión del operador; el paso d6 del despliegue se ejecutó con
+  `OMITIR_REVISION_HBA=1`.
+- Los expedientes antiguos de ensayo que no tienen número se muestran como «Sin numerar».
+- El interruptor de módulos desde administración y la activación de otros módulos quedan
+  aplazados hasta el visto bueno de RRHH.
+- Producción real sigue en **NO-GO**: datos sintéticos, sin EIPD ni categorización ENS.
+
 ## Métricas oficiales puestas al día — 25 de septiembre de 2026
 
 Sustituye a las cifras de los cortes anteriores, que no incluían lo integrado el 24 y el
