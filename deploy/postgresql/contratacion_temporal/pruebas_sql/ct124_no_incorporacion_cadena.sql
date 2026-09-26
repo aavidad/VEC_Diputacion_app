@@ -89,19 +89,38 @@ BEGIN
  RETURN convert_to((r0||jsonb_build_object('operacion_ref',p_op,'propuesta',p,
    'llamamiento',(r0->'llamamiento')||jsonb_build_object('LlamamientoRef',p_llam,'PropuestaRef','propuesta:prueba:b42')))::text,'UTF8');
 END $$;
-CREATE FUNCTION pg_temp.no_inc_bolsa(p_evento jsonb, p_huella text, p_creada timestamptz, p_pos bigint, p_cons jsonb) RETURNS jsonb LANGUAGE plpgsql AS $$
+CREATE FUNCTION pg_temp.no_inc_bolsa(p_evento jsonb, p_huella text, p_creada timestamptz, p_pos bigint, p_plazos jsonb) RETURNS jsonb LANGUAGE plpgsql AS $$
 DECLARE g record;
 BEGIN
- SELECT * INTO STRICT g FROM vec_bolsa_llamamientos.registrar_no_incorporacion_bolsa_v1(p_evento,p_huella,p_creada,p_pos,p_cons);
+ SELECT * INTO STRICT g FROM vec_bolsa_llamamientos.registrar_no_incorporacion_bolsa_v1(p_evento,p_huella,p_creada,p_pos,p_plazos);
  RETURN to_jsonb(g);
 EXCEPTION WHEN others THEN RETURN jsonb_build_object('error',SQLSTATE,'mensaje',SQLERRM);
 END $$;
-CREATE FUNCTION pg_temp.consecuencia(p_efecto text) RETURNS jsonb LANGUAGE sql AS $$
- SELECT jsonb_build_object('clave','b24.sancion.baja_llamamiento_directo','etiqueta','Baja por no incorporarse tras aceptar el llamamiento',
-   'efecto',p_efecto,'regla_ref','vec.bolsa.reglas:3:b24.sancion.baja_llamamiento_directo','regla_huella_sha256',repeat('c',64),
-   'suspension_hasta',NULL,'recurso_vence','2026-10-20','recurso_regla_ref','vec.bolsa.reglas:3:b24.consecuencias',
-   'recurso_regla_huella_sha256',repeat('c',64),'orden_final',false,'fin_automatico',false) $$;
-DO $$ BEGIN EXECUTE format('GRANT USAGE ON SCHEMA %I TO vec_ct115_runtime, vec_b42_runtime',pg_my_temp_schema()::regnamespace); END $$;
+CREATE FUNCTION pg_temp.reevaluar_bolsa(p_ref text, p_plazos jsonb) RETURNS jsonb LANGUAGE plpgsql AS $$
+DECLARE g record;
+BEGIN
+ SELECT * INTO STRICT g FROM vec_bolsa_llamamientos.reevaluar_no_incorporacion_bolsa_v1(p_ref,p_plazos);
+ RETURN to_jsonb(g);
+EXCEPTION WHEN others THEN RETURN jsonb_build_object('error',SQLSTATE,'mensaje',SQLERRM);
+END $$;
+-- Fechas que calcula el relevo con el calendario del catálogo.
+CREATE FUNCTION pg_temp.plazos(p_recurso_ref text DEFAULT 'vec.bolsa.reglas:3:b24.consecuencias') RETURNS jsonb LANGUAGE sql AS $$
+ SELECT jsonb_build_object('recurso_vence','2026-10-20','recurso_regla_ref',p_recurso_ref,
+   'recurso_regla_huella_sha256',repeat('d',64),'suspension_hasta',NULL) $$;
+-- Política de no incorporación que la aplicación publica al arrancar.
+CREATE FUNCTION pg_temp.consecuencias(p_efecto text DEFAULT 'excluir', p_clave text DEFAULT 'b24.sancion.baja_llamamiento_directo') RETURNS jsonb LANGUAGE sql AS $$
+ SELECT jsonb_build_object(p_clave,jsonb_build_object('etiqueta','Baja por no incorporarse tras aceptar el llamamiento',
+   'efecto',p_efecto,'regla_ref','vec.bolsa.reglas:3:'||p_clave,'regla_huella_sha256',repeat('c',64),
+   'con_plazo',false,'orden_final',false,'fin_automatico',false)) $$;
+CREATE FUNCTION pg_temp.publicar_politica(p_consecuencias jsonb) RETURNS jsonb LANGUAGE plpgsql AS $$
+DECLARE g record;
+BEGIN
+ SELECT * INTO STRICT g FROM vec_bolsa_llamamientos.publicar_politica_no_incorporacion_bolsa_v1('vec.bolsa.reglas:3:no-incorporacion',
+   repeat('e',64),p_consecuencias,'vec.bolsa.reglas:3:b24.consecuencias',repeat('d',64));
+ RETURN to_jsonb(g);
+EXCEPTION WHEN others THEN RETURN jsonb_build_object('error',SQLSTATE,'mensaje',SQLERRM);
+END $$;
+DO $$ BEGIN EXECUTE format('GRANT USAGE ON SCHEMA %I TO vec_ct115_runtime, vec_b42_runtime, vec_b42_relevo',pg_my_temp_schema()::regnamespace); END $$;
 
 SELECT pg_temp.entrada_no_inc(:'exp_a',7,'ni1','per_ct124_segunda',:'acept_a')::text AS ni \gset
 SELECT pg_temp.entrada_no_inc(:'exp_a',7,'ni_misma','per_ct124_actor',:'acept_a')::text AS ni_misma \gset
@@ -179,29 +198,157 @@ SELECT pg_temp.exigir((SELECT count(*) FROM vec_contratacion_temporal.outbox_exp
 SELECT (:'pub'::jsonb)->'evento' AS ev, (:'pub'::jsonb)->>'huella_sha256' AS ev_h, (:'pub'::jsonb)->>'origen_creada_en' AS ev_c,
   (:'pub'::jsonb)->>'origen_posicion' AS ev_p \gset
 SELECT (:'ev'::jsonb)||jsonb_build_object('motivo_clave','no_aporta_documentacion') AS ev_div \gset
+-- Evento forjado: forma válida y referencia bien derivada, pero de un origen
+-- que CT no publicó, para el mismo llamamiento.
+SELECT (:'ev'::jsonb)||jsonb_build_object('origen_ref','evento:ct:forjado:b42','evento_ref',
+  'evento:ct:no-incorporacion-bolsa:'||encode(sha256(convert_to('no_incorporacion'||chr(31)||'evento:ct:forjado:b42','UTF8')),'hex')) AS ev_forjado \gset
+SELECT encode(sha256(convert_to((:'ev_forjado'::jsonb)::text,'UTF8')),'hex') AS ev_forjado_h,
+       encode(sha256(convert_to((:'ev_div'::jsonb)::text,'UTF8')),'hex') AS ev_div_h \gset
+
+SELECT 'vec_contratacion_temporal.no_incorporacion_publicada_bolsa_v1(text,text,bigint)'::regprocedure::oid AS oid_origen \gset
+-- El ejecutor general de Bolsa no entrega: ni forjado ni auténtico.
 SET SESSION AUTHORIZATION vec_b42_runtime;
+SELECT pg_temp.exigir(NOT has_function_privilege('vec_bolsa_llamamientos.registrar_no_incorporacion_bolsa_v1(jsonb,text,timestamptz,bigint,jsonb)','EXECUTE')
+  AND NOT has_function_privilege('vec_bolsa_llamamientos.reevaluar_no_incorporacion_bolsa_v1(text,jsonb)','EXECUTE')
+  AND NOT has_function_privilege('vec_bolsa_llamamientos.cursor_no_incorporaciones_bolsa_v1()','EXECUTE')
+  AND NOT has_table_privilege('vec_bolsa_llamamientos.no_incorporacion_bolsa','SELECT')
+  AND NOT has_function_privilege('vec_bolsa_llamamientos.no_incorporacion_registrada_b42(text)','EXECUTE')
+  AND NOT has_function_privilege(:'oid_origen'::oid,'EXECUTE') AND NOT has_schema_privilege('vec_contratacion_temporal','USAGE'),
+  'el ejecutor general de Bolsa no alcanza la bandeja ni la comprobación de origen');
+SELECT pg_temp.exigir(pg_temp.no_inc_bolsa(:'ev_forjado'::jsonb,:'ev_forjado_h',:'ev_c'::timestamptz,:'ev_p'::bigint,pg_temp.plazos())->>'error'='42501',
+  'evento forjado con el ejecutor general: sin permiso');
+SELECT pg_temp.exigir(pg_temp.no_inc_bolsa(:'ev'::jsonb,:'ev_h',:'ev_c'::timestamptz,:'ev_p'::bigint,pg_temp.plazos())->>'error'='42501',
+  'evento auténtico con el ejecutor general: sin permiso');
+-- Una consecuencia fuera del catálogo no se puede publicar.
+SELECT pg_temp.exigir(pg_temp.publicar_politica(pg_temp.consecuencias('expulsar'))->>'error'='22023'
+  AND pg_temp.publicar_politica(pg_temp.consecuencias('excluir','otra.clave'))->>'error'='22023'
+  AND pg_temp.publicar_politica(jsonb_build_object('b24.sancion.baja_llamamiento_directo',
+        (pg_temp.consecuencias()->'b24.sancion.baja_llamamiento_directo')||'{"con_plazo":true}'))->>'error'='22023',
+  'política con consecuencia fuera de catálogo rechazada');
+RESET SESSION AUTHORIZATION;
+
+-- El relevo tampoco puede leer nada más ni publicar la política.
+SET SESSION AUTHORIZATION vec_b42_relevo;
+SET TimeZone='UTC'; SET statement_timeout='15s';
 SELECT pg_temp.exigir(NOT has_table_privilege('vec_bolsa_llamamientos.no_incorporacion_bolsa','SELECT')
-  AND NOT has_function_privilege('vec_bolsa_llamamientos.no_incorporacion_registrada_b42(text)','EXECUTE'),'bandeja cerrada al ejecutor de Bolsa');
+  AND NOT has_function_privilege('vec_bolsa_llamamientos.publicar_politica_no_incorporacion_bolsa_v1(text,text,jsonb,text,text)','EXECUTE')
+  AND NOT has_function_privilege('vec_bolsa_llamamientos.consultar_avisos_rrhh_v3(timestamptz)','EXECUTE')
+  AND NOT has_function_privilege('vec_bolsa_llamamientos.no_incorporacion_registrada_b42(text)','EXECUTE')
+  AND NOT has_function_privilege(:'oid_origen'::oid,'EXECUTE') AND NOT has_schema_privilege('vec_contratacion_temporal','USAGE')
+  AND pg_temp.publicar_politica(pg_temp.consecuencias())->>'error'='42501','el relevo solo alcanza su bandeja');
+-- Forjado con el rol del relevo: CT no lo publicó; cuarentena sin efecto.
+SELECT pg_temp.no_inc_bolsa(:'ev_forjado'::jsonb,:'ev_forjado_h',:'ev_c'::timestamptz,:'ev_p'::bigint,pg_temp.plazos())::text AS b_forjado \gset
 SELECT pg_temp.exigir(pg_temp.no_inc_bolsa((:'ev'::jsonb)||'{"resuelta_por":"per_ct124_actor"}',:'ev_h',:'ev_c'::timestamptz,:'ev_p'::bigint,
-  pg_temp.consecuencia('excluir'))->>'error'='22023','huella distinta del cuerpo');
-SELECT pg_temp.no_inc_bolsa(:'ev'::jsonb,:'ev_h',:'ev_c'::timestamptz,:'ev_p'::bigint,pg_temp.consecuencia('excluir'))::text AS b1 \gset
-SELECT pg_temp.no_inc_bolsa(:'ev'::jsonb,:'ev_h',:'ev_c'::timestamptz,:'ev_p'::bigint,pg_temp.consecuencia('ninguna'))::text AS b2 \gset
-SELECT pg_temp.no_inc_bolsa(:'ev_div'::jsonb,encode(sha256(convert_to((:'ev_div'::jsonb)::text,'UTF8')),'hex'),:'ev_c'::timestamptz,:'ev_p'::bigint,
-  pg_temp.consecuencia('excluir'))::text AS b3 \gset
+  pg_temp.plazos())->>'error'='22023','huella distinta del cuerpo');
+SELECT count(*) AS cursor_forjado FROM vec_bolsa_llamamientos.cursor_no_incorporaciones_bolsa_v1() \gset
+RESET SESSION AUTHORIZATION;
+SELECT pg_temp.exigir((:'b_forjado'::jsonb)->>'en_cuarentena'='true' AND :'cursor_forjado'='0'
+  AND (SELECT count(*) FROM vec_bolsa_llamamientos.no_incorporacion_bolsa)=0
+  AND (SELECT motivo FROM vec_bolsa_llamamientos.no_incorporacion_bolsa_cuarentena WHERE origen_ref='evento:ct:forjado:b42')='origen_no_verificado'
+  AND (SELECT situacion FROM vec_bolsa_llamamientos.situacion_participacion
+        WHERE participacion_ref=(SELECT convert_from(a.registro_canonico,'UTF8')::jsonb #>> '{propuesta,participacion_seleccionada_ref}'
+                                   FROM vec_bolsa_llamamientos.integracion_desarrollo a WHERE a.operacion_ref=:'apertura_a')
+        ORDER BY desde DESC LIMIT 1)='disponible'
+  AND (SELECT count(*) FROM vec_bolsa_llamamientos.sancion_participacion WHERE clave_idempotencia=(:'ev_forjado'::jsonb)->>'evento_ref')=0,
+  'evento forjado con el rol del relevo e inexistente en CT: cuarentena sin efecto ni cursor');
+
+-- Aceptación tardía (se deshace): sin la aceptación de RRHH en Bolsa el evento
+-- queda «sin_aceptacion» y no abre el siguiente; cuando la aceptación existe,
+-- la reentrega lo reevalúa y aplica la baja.
+BEGIN;
+SET LOCAL session_replication_role=replica;
+CREATE TEMP TABLE acept_guardada ON COMMIT DROP AS SELECT * FROM vec_bolsa_llamamientos.integracion_desarrollo WHERE operacion_ref=:'terminal_a';
+DELETE FROM vec_bolsa_llamamientos.integracion_desarrollo WHERE operacion_ref=:'terminal_a';
+SET LOCAL session_replication_role=origin;
+SET SESSION AUTHORIZATION vec_b42_runtime;
+SELECT pg_temp.publicar_politica(pg_temp.consecuencias())::text AS pol_tarde \gset
+RESET SESSION AUTHORIZATION;
+SET SESSION AUTHORIZATION vec_b42_relevo;
+SELECT pg_temp.no_inc_bolsa(:'ev'::jsonb,:'ev_h',:'ev_c'::timestamptz,:'ev_p'::bigint,pg_temp.plazos())::text AS tarde1 \gset
+RESET SESSION AUTHORIZATION;
+SET LOCAL session_replication_role=replica;
+INSERT INTO vec_bolsa_llamamientos.integracion_desarrollo SELECT * FROM acept_guardada;
+SET LOCAL session_replication_role=origin;
+SET SESSION AUTHORIZATION vec_b42_relevo;
+SELECT pg_temp.no_inc_bolsa(:'ev'::jsonb,:'ev_h',:'ev_c'::timestamptz,:'ev_p'::bigint,pg_temp.plazos())::text AS tarde2 \gset
+RESET SESSION AUTHORIZATION;
+SELECT string_agg(estado,',' ORDER BY secuencia) AS tarde_estados FROM vec_bolsa_llamamientos.no_incorporacion_bolsa_evaluacion \gset
+ROLLBACK;
+SELECT pg_temp.exigir((:'tarde1'::jsonb)->>'estado'='sin_aceptacion' AND (:'tarde2'::jsonb)->>'reutilizado'='true'
+  AND (:'tarde2'::jsonb)->>'estado'='aplicada' AND :'tarde_estados'='sin_aceptacion,aplicada',
+  'aceptación tardía: la reentrega reevalúa y aplica ('||:'tarde1'||' '||:'tarde2'||')');
+
+-- Sin política publicada: consecuencia no admitida, aviso de revisión y sin
+-- siguiente llamamiento.
+SET SESSION AUTHORIZATION vec_b42_relevo;
+SELECT pg_temp.no_inc_bolsa(:'ev'::jsonb,:'ev_h',:'ev_c'::timestamptz,:'ev_p'::bigint,pg_temp.plazos())::text AS b0 \gset
+SELECT count(*) AS pendientes0 FROM vec_bolsa_llamamientos.pendientes_no_incorporacion_bolsa_v1(10) \gset
+RESET SESSION AUTHORIZATION;
+SET SESSION AUTHORIZATION vec_b42_runtime;
+SET TimeZone='UTC'; SET statement_timeout='15s'; SET idle_in_transaction_session_timeout='20s';
+SELECT count(*) AS avisos0 FROM vec_bolsa_llamamientos.consultar_avisos_rrhh_v3(clock_timestamp()) WHERE tipo='no_incorporacion_revision'
+  AND detalle->>'estado'='consecuencia_no_admitida' \gset
+BEGIN ISOLATION LEVEL SERIALIZABLE;
+SELECT pg_temp.guardar_bolsa(convert_to(:'sig_bolsa','UTF8'),'bolsa.llamamiento.siguiente.abrir')->>'error' AS sig_sin_baja \gset
+ROLLBACK;
+RESET SESSION AUTHORIZATION;
+SELECT pg_temp.exigir((:'b0'::jsonb)->>'estado'='consecuencia_no_admitida' AND (:'b0'::jsonb)->>'reutilizado'='false'
+  AND :'pendientes0'='1' AND :'avisos0'='1' AND :'sig_sin_baja'='42501',
+  'estado no aplicado: revisión de RRHH en los avisos y sin siguiente llamamiento ('||:'b0'||')');
+
+-- Política publicada al arrancar: fechas calculadas con otra regla, sin
+-- efecto; con las de la política, la reevaluación aplica la baja.
+SET SESSION AUTHORIZATION vec_b42_runtime;
+SELECT pg_temp.publicar_politica(pg_temp.consecuencias())::text AS pol \gset
+SELECT pg_temp.publicar_politica(pg_temp.consecuencias())::text AS pol2 \gset
+RESET SESSION AUTHORIZATION;
+SET SESSION AUTHORIZATION vec_b42_relevo;
+SELECT pg_temp.reevaluar_bolsa((:'ev'::jsonb)->>'evento_ref',pg_temp.plazos('vec.bolsa.reglas:2:b24.consecuencias'))::text AS r_mal \gset
+SELECT pg_temp.reevaluar_bolsa((:'ev'::jsonb)->>'evento_ref',pg_temp.plazos())::text AS r_bien \gset
+SELECT pg_temp.no_inc_bolsa(:'ev'::jsonb,:'ev_h',:'ev_c'::timestamptz,:'ev_p'::bigint,pg_temp.plazos())::text AS b2 \gset
+SELECT pg_temp.no_inc_bolsa(:'ev_div'::jsonb,:'ev_div_h',:'ev_c'::timestamptz,:'ev_p'::bigint,pg_temp.plazos())::text AS b3 \gset
+SELECT count(*) AS pendientes1 FROM vec_bolsa_llamamientos.pendientes_no_incorporacion_bolsa_v1(10) \gset
 SELECT to_jsonb(x)::text AS cursor_b FROM vec_bolsa_llamamientos.cursor_no_incorporaciones_bolsa_v1() x \gset
 RESET SESSION AUTHORIZATION;
-SELECT pg_temp.exigir((:'b1'::jsonb)->>'estado'='aplicada' AND (:'b1'::jsonb)->>'reutilizado'='false','baja aplicada '||:'b1');
-SELECT pg_temp.exigir((:'b2'::jsonb)->>'reutilizado'='true' AND (:'b2'::jsonb)->>'estado'='aplicada','reentrega idéntica sin efecto nuevo');
+SELECT pg_temp.exigir((:'pol'::jsonb)->>'version'='1' AND (:'pol'::jsonb)->>'reutilizada'='false'
+  AND (:'pol2'::jsonb)->>'reutilizada'='true','política publicada una vez');
+SELECT pg_temp.exigir((:'r_mal'::jsonb)->>'estado'='consecuencia_no_admitida' AND (:'r_bien'::jsonb)->>'estado'='aplicada',
+  'fechas de otra regla sin efecto; reevaluación con la política aplicada '||:'r_bien');
+SELECT (:'r_bien'::jsonb)||'{"reutilizado":false}' AS b1 \gset
+SELECT pg_temp.exigir((:'b2'::jsonb)->>'reutilizado'='true' AND (:'b2'::jsonb)->>'estado'='aplicada' AND :'pendientes1'='0',
+  'reentrega idéntica sin efecto nuevo');
 SELECT pg_temp.exigir((:'b3'::jsonb)->>'en_cuarentena'='true','entrega divergente en cuarentena');
 SELECT pg_temp.exigir((:'cursor_b'::jsonb)->>'origen_ref'=(:'pub'::jsonb)->>'origen_ref','cursor de la bandeja');
-SELECT pg_temp.exigir((SELECT situacion FROM vec_bolsa_llamamientos.situacion_participacion s
+SELECT pg_temp.exigir((SELECT string_agg(estado,',' ORDER BY secuencia) FROM vec_bolsa_llamamientos.no_incorporacion_bolsa_evaluacion)
+    ='consecuencia_no_admitida,aplicada'
+  AND (SELECT situacion FROM vec_bolsa_llamamientos.situacion_participacion s
     WHERE s.participacion_ref=(:'b1'::jsonb)->>'participacion_ref' ORDER BY desde DESC LIMIT 1)='excluido'
   AND (SELECT count(*) FROM vec_bolsa_llamamientos.sancion_participacion WHERE clave_idempotencia=(:'ev'::jsonb)->>'evento_ref'
-       AND efecto='excluir' AND resuelta_por='per_ct124_segunda' AND actor='per_ct124_actor' AND resolucion_ref='resolucion:rrhh:2026/0142')=1
+       AND efecto='excluir' AND resuelta_por='per_ct124_segunda' AND actor='per_ct124_actor' AND resolucion_ref='resolucion:rrhh:2026/0142'
+       AND recurso_regla_ref='vec.bolsa.reglas:3:b24.consecuencias')=1
   AND (SELECT count(*) FROM vec_bolsa_llamamientos.operacion_situacion_participacion WHERE clave_idempotencia=(:'ev'::jsonb)->>'evento_ref'
        AND operacion='excluir' AND validador='per_ct124_segunda' AND justificante_tipo='resolucion')=1
-  AND (SELECT count(*) FROM vec_bolsa_llamamientos.no_incorporacion_bolsa_cuarentena)=1,
+  AND (SELECT count(*) FROM vec_bolsa_llamamientos.no_incorporacion_bolsa_cuarentena)=2,
   'baja en Bolsa: situación excluida, sanción y operación con la resolución y la segunda persona');
+
+-- Segundo evento distinto para el mismo llamamiento (se deshace; doble de la
+-- comprobación de CT que lo da por publicado): cuarentena, sin segunda baja.
+BEGIN;
+CREATE OR REPLACE FUNCTION vec_contratacion_temporal.no_incorporacion_publicada_bolsa_v1(p_origen_ref text, p_huella_sha256 text, p_posicion bigint)
+RETURNS boolean LANGUAGE sql VOLATILE SECURITY DEFINER SET search_path=pg_catalog AS $$ SELECT true $$;
+SELECT (:'ev'::jsonb)||jsonb_build_object('origen_ref','evento:ct:segundo:b42','evento_ref',
+  'evento:ct:no-incorporacion-bolsa:'||encode(sha256(convert_to('no_incorporacion'||chr(31)||'evento:ct:segundo:b42','UTF8')),'hex')) AS ev_seg \gset
+SET SESSION AUTHORIZATION vec_b42_relevo;
+SELECT pg_temp.no_inc_bolsa(:'ev_seg'::jsonb,encode(sha256(convert_to((:'ev_seg'::jsonb)::text,'UTF8')),'hex'),:'ev_c'::timestamptz,
+  (:'ev_p'::bigint)+1,pg_temp.plazos())::text AS b_seg \gset
+SELECT to_jsonb(x)::text AS cursor_seg FROM vec_bolsa_llamamientos.cursor_no_incorporaciones_bolsa_v1() x \gset
+RESET SESSION AUTHORIZATION;
+SELECT (SELECT motivo FROM vec_bolsa_llamamientos.no_incorporacion_bolsa_cuarentena WHERE origen_ref='evento:ct:segundo:b42') AS seg_motivo,
+       (SELECT count(*) FROM vec_bolsa_llamamientos.sancion_participacion WHERE clave_idempotencia=(:'ev_seg'::jsonb)->>'evento_ref') AS seg_sanciones \gset
+ROLLBACK;
+SELECT pg_temp.exigir((:'b_seg'::jsonb)->>'en_cuarentena'='true' AND :'seg_motivo'='llamamiento_repetido' AND :'seg_sanciones'='0'
+  AND (:'cursor_seg'::jsonb)->>'origen_ref'='evento:ct:segundo:b42',
+  'segundo evento distinto para el mismo llamamiento: cuarentena sin efecto (el cursor lo reconoce)');
 
 -- ---------------------------------------------------------------- CT: antecedente de la continuación
 SELECT intencion_ref AS int_a FROM vec_contratacion_temporal.no_incorporacion_v1 WHERE expediente_ref=:'exp_a' \gset
@@ -261,5 +408,5 @@ SELECT pg_temp.exigir((SELECT count(*) FROM vec_contratacion_temporal.resolucion
 
 CREATE TABLE public.prueba_ct124_ni AS SELECT :'ni'::jsonb AS ni, :'r_ni'::jsonb AS r_ni, :'pub'::jsonb AS pub, :'b1'::jsonb AS b1,
   :'sig_bolsa'::text AS sig_bolsa, :'g_sig'::jsonb AS g_sig, :'mat_conf'::text AS mat_conf, :'cont'::jsonb AS cont;
-GRANT SELECT ON public.prueba_ct124_ni TO vec_ct115_runtime, vec_b42_runtime;
+GRANT SELECT ON public.prueba_ct124_ni TO vec_ct115_runtime, vec_b42_runtime, vec_b42_relevo;
 SELECT 'cadena no incorporación OK';

@@ -5,12 +5,14 @@
 -- incorporación sintética en el expediente B (el A, con su aceptación
 -- confirmada y su propuesta de nombramiento, queda sin incorporación).
 -- Dobles explícitos de las fachadas AD3 (prueban las transacciones CT y Bolsa,
--- no la criptografía V3), rol de ejecución de Bolsa y constitución sintética
+-- no la criptografía V3), roles de ejecución y de relevo de Bolsa y constitución sintética
 -- de la bolsa del llamamiento del expediente A con la persona aceptada.
 -- Base desechable: se confirma.
 BEGIN;
 CREATE ROLE vec_b42_runtime LOGIN INHERIT IN ROLE vec_bolsa_llamamientos_ejecutor;
 GRANT CONNECT ON DATABASE postgres TO vec_b42_runtime;
+-- LOGIN del relevo de no incorporaciones: solo el grupo que crea Bolsa 000042.
+CREATE ROLE vec_b42_relevo LOGIN INHERIT IN ROLE vec_bolsa_llamamientos_relevo_no_incorporacion;
 CREATE OR REPLACE FUNCTION vec_autorizacion_atestada_v3.registrar_y_consumir_no_incorporacion_ct_v3_atestada(
  p_capacidad bytea,p_decision bytea,p_motivo bytea,p_contexto bytea,p_persona_version numeric,p_perfil_version numeric,p_payload bytea,p_sobre bytea,p_evidencia bytea,p_raiz bytea)
 RETURNS TABLE(decision_ref text,efecto_ref text,huella_efecto_sha256 text,consumo_huella_sha256 text,auditoria_ref text,consumida_en timestamptz,consumo_nuevo boolean)

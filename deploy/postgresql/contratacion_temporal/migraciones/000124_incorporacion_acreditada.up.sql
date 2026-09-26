@@ -41,6 +41,9 @@ BEGIN
     IF current_user<>'vec_contratacion_temporal_propietario' THEN
         RAISE EXCEPTION 'CT124: rol de migración incompatible' USING ERRCODE='55000';
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='vec_bolsa_llamamientos_propietario' AND NOT rolcanlogin) THEN
+        RAISE EXCEPTION 'CT124: falta el propietario de Bolsa (destinatario de la comprobación de origen)' USING ERRCODE='55000';
+    END IF;
     IF to_regclass('vec_contratacion_temporal.confirmacion_ginpix_v1') IS NOT NULL
        OR to_regclass('vec_contratacion_temporal.incorporacion_centro_v1') IS NOT NULL
        OR to_regclass('vec_contratacion_temporal.no_incorporacion_v1') IS NOT NULL THEN
@@ -842,6 +845,10 @@ CREATE POLICY lectura_no_incorporacion_ct124 ON vec_contratacion_temporal.no_inc
     pg_has_role(session_user,'vec_contratacion_temporal_ejecutor','MEMBER')
     AND NOT pg_has_role(session_user,'vec_contratacion_temporal_propietario','MEMBER')
     AND NOT pg_has_role(session_user,'vec_contratacion_temporal_migrador','MEMBER'));
+-- Comprobación de origen de Bolsa: solo la fila nombrada, y solo dentro de
+-- no_incorporacion_publicada_bolsa_v1 (que fija y vacía la opción).
+CREATE POLICY existencia_no_incorporacion_ct124 ON vec_contratacion_temporal.no_incorporacion_v1 FOR SELECT TO vec_contratacion_temporal_propietario USING (
+    evento_ref=current_setting('vec.ct124.existencia_origen_ref',true));
 CREATE POLICY escritura_no_incorporacion_ct124 ON vec_contratacion_temporal.no_incorporacion_v1 FOR INSERT TO vec_contratacion_temporal_propietario WITH CHECK (
     organizacion_ref=current_setting('vec.ct115.organizacion_ref',true)
     AND expediente_ref=current_setting('vec.ct115.expediente_ref',true)
@@ -1192,10 +1199,23 @@ WHEN invalid_text_representation OR datetime_field_overflow OR numeric_value_out
 END
 $funcion$;
 
--- Publicación a Bolsa (bandeja de Bolsa 000042), como CT113: paginada por
--- (posición, evento) y solo de transacciones ya terminadas. El evento lleva
+-- Cuerpo del evento que se publica a Bolsa (bandeja de Bolsa 000042): el
+-- mismo para la lectura del relevo y para la comprobación de origen. Lleva
 -- referencias opacas, las claves del catálogo y la resolución por referencia
 -- y huella; nunca datos de la persona.
+CREATE FUNCTION vec_contratacion_temporal.evento_no_incorporacion_bolsa_ct124(n vec_contratacion_temporal.no_incorporacion_v1)
+RETURNS jsonb LANGUAGE sql STABLE SET search_path=pg_catalog SET timezone='UTC' AS $$
+    SELECT jsonb_build_object('esquema','vec.contratacion-temporal.no-incorporacion-bolsa.v1','tipo','no_incorporacion',
+        'evento_ref','evento:ct:no-incorporacion-bolsa:'||encode(sha256(convert_to('no_incorporacion'||chr(31)||n.evento_ref,'UTF8')),'hex'),
+        'origen_ref',n.evento_ref,'organizacion_ref',n.organizacion_ref,'expediente_ref',n.expediente_ref,
+        'llamamiento_ref',n.llamamiento_ref,'motivo_clave',n.motivo_clave,'consecuencia_clave',n.consecuencia_clave,
+        'resolucion_ref',n.resolucion_ref,'resolucion_sha256',n.resolucion_sha256,'resuelta_por',n.resuelta_por,
+        'actor_ref',n.actor_ref,'fecha_notificacion',to_char(n.fecha_notificacion,'YYYY-MM-DD'),
+        'ocurrido_en',to_char(n.registrada_en AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'))
+$$;
+
+-- Publicación a Bolsa, como CT113: paginada por (posición, evento) y solo de
+-- transacciones ya terminadas.
 CREATE FUNCTION vec_contratacion_temporal.leer_no_incorporaciones_bolsa_v1(p_desde_posicion bigint, p_desde_ref text, p_limite integer)
 RETURNS TABLE(evento_ref text, evento jsonb, huella_sha256 text, origen_ref text, origen_posicion bigint, origen_creada_en timestamptz)
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog SET row_security='on' SET timezone='UTC' AS $f$
@@ -1213,13 +1233,7 @@ BEGIN
     RETURN QUERY
     WITH base AS (
         SELECT n.evento_ref AS origen, n.confirmada_en, n.transaccion_publicacion::text::bigint AS posicion,
-               'evento:ct:no-incorporacion-bolsa:'||encode(sha256(convert_to('no_incorporacion'||chr(31)||n.evento_ref,'UTF8')),'hex') AS ref,
-               jsonb_build_object('esquema','vec.contratacion-temporal.no-incorporacion-bolsa.v1','tipo','no_incorporacion',
-                   'origen_ref',n.evento_ref,'organizacion_ref',n.organizacion_ref,'expediente_ref',n.expediente_ref,
-                   'llamamiento_ref',n.llamamiento_ref,'motivo_clave',n.motivo_clave,'consecuencia_clave',n.consecuencia_clave,
-                   'resolucion_ref',n.resolucion_ref,'resolucion_sha256',n.resolucion_sha256,'resuelta_por',n.resuelta_por,
-                   'actor_ref',n.actor_ref,'fecha_notificacion',to_char(n.fecha_notificacion,'YYYY-MM-DD'),
-                   'ocurrido_en',to_char(n.registrada_en AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"')) AS cuerpo
+               vec_contratacion_temporal.evento_no_incorporacion_bolsa_ct124(n) AS cuerpo
           FROM vec_contratacion_temporal.no_incorporacion_v1 n
           JOIN vec_contratacion_temporal.outbox_expediente_integral o
             ON o.evento_ref=n.evento_ref AND o.expediente_ref=n.expediente_ref AND o.tipo_evento='ct.no-incorporacion.v1'
@@ -1228,10 +1242,39 @@ BEGIN
            AND (p_desde_posicion IS NULL OR (n.transaccion_publicacion::text::bigint,n.evento_ref)>(p_desde_posicion,p_desde_ref))
          ORDER BY 3, n.evento_ref
          LIMIT p_limite)
-    SELECT b.ref, b.cuerpo||jsonb_build_object('evento_ref',b.ref),
-           encode(sha256(convert_to((b.cuerpo||jsonb_build_object('evento_ref',b.ref))::text,'UTF8')),'hex'),
+    SELECT b.cuerpo->>'evento_ref', b.cuerpo, encode(sha256(convert_to(b.cuerpo::text,'UTF8')),'hex'),
            b.origen, b.posicion, b.confirmada_en
       FROM base b ORDER BY b.posicion, b.origen;
+END
+$f$;
+
+-- Comprobación de origen para Bolsa 000042: dice solo si CT publicó ese
+-- evento exacto (referencia de origen, huella del cuerpo y posición de
+-- publicación). No devuelve datos. La invoca la bandeja de Bolsa (su
+-- propietario), que así no depende de la palabra del relevo. La fila se lee
+-- con una política propia que solo deja ver la no incorporación nombrada
+-- mientras dura esta función (la opción se vacía antes de salir; si falla,
+-- la transacción se deshace con ella).
+CREATE FUNCTION vec_contratacion_temporal.no_incorporacion_publicada_bolsa_v1(p_origen_ref text, p_huella_sha256 text, p_posicion bigint)
+RETURNS boolean LANGUAGE plpgsql VOLATILE SECURITY DEFINER
+SET search_path=pg_catalog SET row_security='on' SET timezone='UTC'
+AS $f$
+DECLARE v_cuerpo jsonb; v_posicion bigint;
+BEGIN
+    IF current_user<>'vec_contratacion_temporal_propietario' OR p_origen_ref IS NULL OR p_huella_sha256 IS NULL OR p_posicion IS NULL
+       OR octet_length(p_origen_ref) NOT BETWEEN 1 AND 512 OR p_huella_sha256 !~ '^[0-9a-f]{64}$' THEN
+        RETURN false;
+    END IF;
+    PERFORM set_config('vec.ct124.existencia_origen_ref',p_origen_ref,true);
+    SELECT vec_contratacion_temporal.evento_no_incorporacion_bolsa_ct124(n), n.transaccion_publicacion::text::bigint
+      INTO v_cuerpo, v_posicion
+      FROM vec_contratacion_temporal.no_incorporacion_v1 n
+      JOIN vec_contratacion_temporal.outbox_expediente_integral o
+        ON o.evento_ref=n.evento_ref AND o.expediente_ref=n.expediente_ref AND o.tipo_evento='ct.no-incorporacion.v1'
+     WHERE n.evento_ref=p_origen_ref;
+    PERFORM set_config('vec.ct124.existencia_origen_ref','',true);
+    RETURN v_cuerpo IS NOT NULL AND v_posicion=p_posicion
+       AND encode(sha256(convert_to(v_cuerpo::text,'UTF8')),'hex')=p_huella_sha256;
 END
 $f$;
 
@@ -1432,7 +1475,9 @@ DECLARE v record; f regprocedure; t text; destinatario text;
       'vec_contratacion_temporal.aceptacion_vigente_ct124(text,text)'::regprocedure,
       'vec_contratacion_temporal.intencion_no_incorporacion_ct124(text,text,text,text,text,text)'::regprocedure,
       'vec_contratacion_temporal.resultado_no_incorporacion_ct124(vec_contratacion_temporal.no_incorporacion_v1)'::regprocedure,
-      'vec_contratacion_temporal.antecedente_no_incorporacion_ct124(text,text)'::regprocedure];
+      'vec_contratacion_temporal.antecedente_no_incorporacion_ct124(text,text)'::regprocedure,
+      'vec_contratacion_temporal.evento_no_incorporacion_bolsa_ct124(vec_contratacion_temporal.no_incorporacion_v1)'::regprocedure,
+      'vec_contratacion_temporal.no_incorporacion_publicada_bolsa_v1(text,text,bigint)'::regprocedure];
 BEGIN
     FOREACH t IN ARRAY tablas LOOP
         FOR v IN SELECT DISTINCT x.grantee FROM pg_class c CROSS JOIN LATERAL aclexplode(coalesce(c.relacl,acldefault('r',c.relowner))) x
@@ -1469,6 +1514,22 @@ BEGIN
     END IF;
 END
 $acl$;
+-- Comprobación de origen de Bolsa 000042: el propietario de Bolsa (sus
+-- funciones definidoras) solo puede invocar esta función del esquema de CT.
+GRANT USAGE ON SCHEMA vec_contratacion_temporal TO vec_bolsa_llamamientos_propietario;
+GRANT EXECUTE ON FUNCTION vec_contratacion_temporal.no_incorporacion_publicada_bolsa_v1(text,text,bigint) TO vec_bolsa_llamamientos_propietario;
+DO $acl_bolsa$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+                WHERE n.nspname='vec_contratacion_temporal' AND has_function_privilege('vec_bolsa_llamamientos_propietario',p.oid,'EXECUTE')
+                  AND p.oid<>'vec_contratacion_temporal.no_incorporacion_publicada_bolsa_v1(text,text,bigint)'::regprocedure)
+       OR EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+                   WHERE n.nspname='vec_contratacion_temporal'
+                     AND has_table_privilege('vec_bolsa_llamamientos_propietario',c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')) THEN
+        RAISE EXCEPTION 'CT124: el propietario de Bolsa alcanza más que la comprobación de origen' USING ERRCODE='42501';
+    END IF;
+END
+$acl_bolsa$;
 COMMENT ON TABLE vec_contratacion_temporal.confirmacion_ginpix_v1 IS
     'CT124: confirmación de GINPIX (número de alta y fecha) de la ficha de la incorporación acreditada; el cierre toma de aquí su número.';
 COMMENT ON TABLE vec_contratacion_temporal.incorporacion_centro_v1 IS

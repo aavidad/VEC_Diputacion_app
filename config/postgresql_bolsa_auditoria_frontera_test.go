@@ -41,3 +41,29 @@ func TestAuditoriaFronteraBolsaSoloSeExigeAlComponerBolsaYSeRedacta(t *testing.T
 		t.Fatal("DSN de auditoría Bolsa expuesto")
 	}
 }
+
+// El relevo de no incorporaciones exige su propio LOGIN: ni el de Bolsa, ni
+// el de auditoría, ni ninguno de CT.
+func TestRelevoNoIncorporacionExigeLoginPropioYSeRedacta(t *testing.T) {
+	if _, err := (Config{}).DSNBolsaRelevoNoIncorporacionSeparado(); !errors.Is(err, ErrConfiguracionPostgreSQLBolsaRelevoNoIncorporacionIncompleta) {
+		t.Fatalf("sin conexión: %v", err)
+	}
+	const secreto = "postgres://relevo:secreto-relevo@localhost/vec"
+	t.Setenv(EnvBolsaLlamamientosDatabaseURL, "postgres://bolsa@localhost/vec")
+	t.Setenv(EnvBolsaAuditoriaFronteraDatabaseURL, "postgres://auditoria@localhost/vec")
+	t.Setenv(EnvBolsaRelevoNoIncorporacionDatabaseURL, " "+secreto+" ")
+	cargada := Load()
+	if dsn, err := cargada.DSNBolsaRelevoNoIncorporacionSeparado(); err != nil || dsn != secreto {
+		t.Fatalf("DSN relevo = (%q, %v)", dsn, err)
+	}
+	for _, reutilizado := range []string{"postgres://bolsa:otra@localhost/otra", "postgres://auditoria:otra@localhost/otra"} {
+		t.Setenv(EnvBolsaRelevoNoIncorporacionDatabaseURL, reutilizado)
+		if _, err := Load().DSNBolsaRelevoNoIncorporacionSeparado(); !errors.Is(err, ErrConfiguracionPostgreSQLBolsaRelevoNoIncorporacionNoSeparada) {
+			t.Fatalf("LOGIN reutilizado %q: %v", reutilizado, err)
+		}
+	}
+	serializada, err := json.Marshal(cargada.BolsaRelevoNoIncorporacionPostgreSQL)
+	if err != nil || strings.Contains(fmt.Sprintf("%+v %#v %s", cargada.BolsaRelevoNoIncorporacionPostgreSQL, cargada.BolsaRelevoNoIncorporacionPostgreSQL, serializada), "secreto-relevo") {
+		t.Fatal("DSN del relevo expuesto")
+	}
+}

@@ -14,7 +14,27 @@ import (
 )
 
 type buzonNoIncorporacionesPrueba struct {
-	recibidos []ports.EventoNoIncorporacionRecibido
+	recibidos   []ports.EventoNoIncorporacionRecibido
+	pendientes  []ports.PendienteNoIncorporacion
+	reevaluados map[string]*ports.PlazosNoIncorporacion
+}
+
+func (b *buzonNoIncorporacionesPrueba) PendientesNoIncorporacion(_ context.Context, limite int) ([]ports.PendienteNoIncorporacion, error) {
+	if len(b.pendientes) > limite {
+		return b.pendientes[:limite], nil
+	}
+	return b.pendientes, nil
+}
+
+func (b *buzonNoIncorporacionesPrueba) ReevaluarNoIncorporacion(_ context.Context, ref string, plazos *ports.PlazosNoIncorporacion) (ports.ResultadoRegistroNoIncorporacion, error) {
+	if b.reevaluados == nil {
+		b.reevaluados = map[string]*ports.PlazosNoIncorporacion{}
+	}
+	b.reevaluados[ref] = plazos
+	if plazos == nil {
+		return ports.ResultadoRegistroNoIncorporacion{Reutilizado: true, Estado: "consecuencia_no_admitida"}, nil
+	}
+	return ports.ResultadoRegistroNoIncorporacion{Reutilizado: true, Estado: ports.EstadoNoIncorporacionAplicada}, nil
 }
 
 func (b *buzonNoIncorporacionesPrueba) CursorNoIncorporaciones(context.Context) (ports.CursorContratosParticipacion, bool, error) {
@@ -49,7 +69,7 @@ func eventoNoIncorporacionPrueba() (string, string) {
 	return c, hex.EncodeToString(h[:])
 }
 
-func TestRecepcionNoIncorporacionesResuelveLaConsecuenciaConElCatalogo(t *testing.T) {
+func TestRecepcionNoIncorporacionesCalculaLosPlazosConElCatalogo(t *testing.T) {
 	buzon, catalogo := &buzonNoIncorporacionesPrueba{}, &catalogoNoIncorporacionPrueba{}
 	s, err := NuevoServicioRecepcionNoIncorporaciones(buzon, catalogo)
 	if err != nil {
@@ -60,13 +80,16 @@ func TestRecepcionNoIncorporacionesResuelveLaConsecuenciaConElCatalogo(t *testin
 	if err != nil || res.Estado != "aplicada" || len(buzon.recibidos) != 1 {
 		t.Fatalf("res=%+v err=%v", res, err)
 	}
-	cons := buzon.recibidos[0].Consecuencia
-	if cons == nil || cons.Efecto != "excluir" || cons.RecursoVence != "2026-10-20" || cons.SuspensionHasta != nil ||
+	// La consecuencia no viaja: la resuelve la base con su política; el
+	// relevo solo aporta las fechas del calendario y la regla del recurso.
+	plazos := buzon.recibidos[0].Plazos
+	if plazos == nil || plazos.RecursoVence != "2026-10-20" || plazos.RecursoReglaRef != "vec.bolsa.reglas:3:b24.consecuencias" ||
+		plazos.RecursoReglaHuellaSHA256 != strings.Repeat("d", 64) || plazos.SuspensionHasta != nil ||
 		catalogo.clave != "b24.sancion.baja_llamamiento_directo" || !catalogo.fecha.Equal(time.Date(2026, 9, 20, 0, 0, 0, 0, time.UTC)) {
-		t.Fatalf("consecuencia: %+v", cons)
+		t.Fatalf("plazos: %+v", plazos)
 	}
 	catalogo.err = dominiobolsa.ErrSancionParticipacionInvalida
-	if _, err := s.Recibir(context.Background(), []byte(c), h, time.Now(), 7); err != nil || buzon.recibidos[1].Consecuencia != nil {
+	if _, err := s.Recibir(context.Background(), []byte(c), h, time.Now(), 7); err != nil || buzon.recibidos[1].Plazos != nil {
 		t.Fatalf("clave desconocida: se conserva sin efecto: %v", err)
 	}
 	catalogo.err = ports.ErrSancionesNoConfiguradas
@@ -87,6 +110,40 @@ func TestRecepcionNoIncorporacionesResuelveLaConsecuenciaConElCatalogo(t *testin
 	}
 	if _, err := NuevoServicioRecepcionNoIncorporaciones(buzon, nil); err == nil {
 		t.Fatal("sin catálogo no hay bandeja")
+	}
+}
+
+// Lo pendiente se reevalúa con plazos recalculados; una clave desconocida va
+// sin plazos y una indisponibilidad del catálogo detiene la pasada.
+func TestRecepcionNoIncorporacionesReevaluaLosPendientes(t *testing.T) {
+	buzon, catalogo := &buzonNoIncorporacionesPrueba{}, &catalogoNoIncorporacionPrueba{}
+	s, err := NuevoServicioRecepcionNoIncorporaciones(buzon, catalogo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	buzon.pendientes = []ports.PendienteNoIncorporacion{{EventoRef: "evento:1", ConsecuenciaClave: "b24.sancion.baja_llamamiento_directo", FechaNotificacion: "2026-09-20"}}
+	aplicadas, err := s.ReevaluarPendientes(context.Background(), 10)
+	if err != nil || aplicadas != 1 || buzon.reevaluados["evento:1"] == nil || buzon.reevaluados["evento:1"].RecursoVence != "2026-10-20" ||
+		!catalogo.fecha.Equal(time.Date(2026, 9, 20, 0, 0, 0, 0, time.UTC)) {
+		t.Fatalf("reevaluación: %d %v %+v", aplicadas, err, buzon.reevaluados)
+	}
+	catalogo.err = dominiobolsa.ErrSancionParticipacionInvalida
+	if aplicadas, err := s.ReevaluarPendientes(context.Background(), 10); err != nil || aplicadas != 0 || buzon.reevaluados["evento:1"] != nil {
+		t.Fatalf("clave desconocida: %d %v", aplicadas, err)
+	}
+	catalogo.err = ports.ErrSancionesNoConfiguradas
+	if _, err := s.ReevaluarPendientes(context.Background(), 10); !errors.Is(err, ports.ErrSancionesNoConfiguradas) {
+		t.Fatalf("catálogo no disponible: %v", err)
+	}
+	catalogo.err = nil
+	buzon.pendientes[0].FechaNotificacion = "2026-02-30"
+	if _, err := s.ReevaluarPendientes(context.Background(), 10); err == nil {
+		t.Fatal("fecha inválida aceptada")
+	}
+	for _, limite := range []int{0, ports.LimitePendientesNoIncorporacion + 1} {
+		if _, err := s.ReevaluarPendientes(context.Background(), limite); err == nil {
+			t.Fatalf("límite %d aceptado", limite)
+		}
 	}
 }
 

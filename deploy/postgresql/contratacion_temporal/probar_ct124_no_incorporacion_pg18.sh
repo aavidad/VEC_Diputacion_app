@@ -3,7 +3,7 @@
 # siguiente llamamiento» (AD3-88, CT124 y Bolsa 000042) en PostgreSQL 18.4
 # desechable sobre la estructura real restaurada de la principal (volcado con
 # datos sintéticos). Instala la cadena previa si el volcado no la trae
-# (AD3-82/83; CT110/111/113/115/116/119/121; Bolsa 000019-000039); comprueba
+# (AD3-82…86; CT110/111/113/115/116/119/121; Bolsa 000010-000041); comprueba
 # ROLLBACK, UP, doble UP, DOWN exacto (núcleo AD3, continuación CT119/CT121 y
 # su restricción, cierre CT115, origen de versión y guardado de Bolsa) y UP
 # otra vez; recorre con dobles explícitos de las fachadas AD3 la no
@@ -69,10 +69,9 @@ ad3=$repo/deploy/postgresql/autorizacion_atestada_v3/migraciones
 ct=$repo/deploy/postgresql/contratacion_temporal/migraciones
 bolsa=$repo/deploy/postgresql/bolsa_llamamientos/migraciones
 pruebas=$repo/deploy/postgresql/contratacion_temporal/pruebas_sql
-echo '== Cadena previa (si falta): AD3-82/83, CT110-CT121, Bolsa 000019-000039'
+echo '== Cadena previa (si falta): AD3-82…86, CT110-CT121, Bolsa 000010-000041'
 if [[ $(escalar "SELECT to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_cese_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NULL") == t ]]; then
-  run <"$ad3/000082_consumidor_cese_cierre_contratacion_temporal.up.sql"
-  run <"$ad3/000083_consumidor_modificacion_tras_nombramiento_ct.up.sql"
+  for m in 000082 000083 000084 000085 000086; do run <"$(ls "$ad3"/${m}_*.up.sql)"; done
 fi
 if [[ $(escalar "SELECT to_regclass('vec_contratacion_temporal.cese_nombramiento_v1') IS NULL") == t ]]; then
   run <"$ct/000113_publicacion_contratos_bolsa.up.sql"
@@ -86,7 +85,7 @@ if [[ $(escalar "SELECT to_regprocedure('vec_contratacion_temporal.continuar_lla
   run <"$ct/000121_sucesor_tras_expiracion.up.sql"
 fi
 if [[ $(escalar "SELECT to_regclass('vec_bolsa_llamamientos.sancion_participacion') IS NULL") == t ]]; then
-  for m in 000019 000021 000024 000025 000026 000028 000031 000032 000033 000034 000035 000037 000039; do
+  for m in 000010 000019 000021 000022 000023 000024 000025 000026 000028 000029 000030 000031 000032 000033 000034 000035 000037 000039 000040 000041; do
     run <"$(ls "$bolsa/${m}"_*.up.sql)"
   done
 fi
@@ -115,6 +114,24 @@ igual "$(escalar "$nucleo")" "$con_ad388" 'UP tras DOWN reproduce el núcleo'
 igual "$(escalar "SELECT has_function_privilege('vec_contratacion_temporal_ejecutor','vec_autorizacion_atestada_v3.registrar_y_consumir_no_incorporacion_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')
   OR NOT has_function_privilege('vec_contratacion_temporal_propietario','vec_autorizacion_atestada_v3.registrar_y_consumir_no_incorporacion_ct_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)','EXECUTE')")" f 'solo el propietario de CT invoca la fachada de no incorporación'
 
+# DOWN de AD3-88 con historia del perfil del centro (que comparte audiencia
+# con AD3-23): una decisión atestada sintética de ese perfil lo impide.
+if salida=$({ echo 'BEGIN;'; echo 'SET LOCAL session_replication_role=replica;'
+  echo "INSERT INTO vec_autorizacion_atestada_v3.atestacion_decision_v3(decision_ref,huella_decision_sha256,decision_canonica,motivo_canonico,
+    contexto_actor_canonico,payload_vec_ad_3,sobre_cose_sign1,evidencia_verificacion,raiz_publica_spki,capacidad_canonica,huella_capacidad_sha256,
+    efecto_ref,huella_efecto_sha256,registrada_en) VALUES ('decision:prueba:ad388',repeat('a',64),convert_to(repeat('d',300),'UTF8'),
+    convert_to(repeat('m',40),'UTF8'),convert_to(repeat('c',80),'UTF8'),'\x00'::bytea,'\x00'::bytea,'\x00'::bytea,'\x00'::bytea,
+    convert_to(jsonb_build_object('operacion','contratacion_temporal.incorporacion.consultar_centro',
+      'audiencia_consumo','vec_contratacion_temporal.confirmar_alta_atestada.v1','relleno',repeat('x',600))::text,'UTF8'),
+    repeat('b',64),'efecto:prueba:ad388',repeat('c',64),clock_timestamp());"
+  echo 'SET LOCAL session_replication_role=origin;'
+  grep -v '^BEGIN;$\|^COMMIT;$\|^\\set' "$ad3/000088_consumidor_incorporacion_acreditada_ct.down.sql"
+  echo 'ROLLBACK;'; } | run 2>&1); then
+  echo 'FALLO: DOWN AD3-88 aceptado con historia del perfil del centro' >&2; exit 1
+fi
+grep -q 'consumos de sus perfiles' <<<"$salida" || { echo "FALLO: rechazo inesperado del DOWN AD3-88: $salida" >&2; exit 1; }
+igual "$(escalar "$nucleo")" "$con_ad388" 'DOWN AD3-88 rechazado con historia del perfil del centro, sin tocar el núcleo'
+
 echo '== CT124: ROLLBACK, UP, doble UP, DOWN exacto, UP'
 sed 's/^COMMIT;$/ROLLBACK;/' "$ct/000124_incorporacion_acreditada.up.sql" | run
 igual "$(escalar "$estado_ct")" "$inicial_ct" 'ROLLBACK CT124 conserva cierre, continuación, restricción y origen'
@@ -140,10 +157,13 @@ run <"$bolsa/000042_no_incorporacion_ct.down.sql"
 igual "$(escalar "$guardado")" "$inicial_guardado" 'DOWN Bolsa 000042 restaura exactamente el guardado y su ACL'
 run <"$bolsa/000042_no_incorporacion_ct.up.sql"
 igual "$(escalar "$guardado")" "$con_b42" 'UP tras DOWN reproduce Bolsa 000042'
-igual "$(escalar "SELECT has_function_privilege('vec_bolsa_llamamientos_ejecutor','vec_bolsa_llamamientos.registrar_no_incorporacion_bolsa_v1(jsonb,text,timestamptz,bigint,jsonb)','EXECUTE')
+igual "$(escalar "SELECT has_function_privilege('vec_bolsa_llamamientos_relevo_no_incorporacion','vec_bolsa_llamamientos.registrar_no_incorporacion_bolsa_v1(jsonb,text,timestamptz,bigint,jsonb)','EXECUTE')
+  AND NOT has_function_privilege('vec_bolsa_llamamientos_ejecutor','vec_bolsa_llamamientos.registrar_no_incorporacion_bolsa_v1(jsonb,text,timestamptz,bigint,jsonb)','EXECUTE')
   AND NOT has_function_privilege('public','vec_bolsa_llamamientos.registrar_no_incorporacion_bolsa_v1(jsonb,text,timestamptz,bigint,jsonb)','EXECUTE')
   AND NOT has_function_privilege('vec_bolsa_llamamientos_ejecutor','vec_bolsa_llamamientos.no_incorporacion_registrada_b42(text)','EXECUTE')
-  AND NOT has_table_privilege('vec_bolsa_llamamientos_ejecutor','vec_bolsa_llamamientos.no_incorporacion_bolsa','SELECT')")" t 'bandeja solo por su función; tabla y auxiliar cerrados'
+  AND NOT has_table_privilege('vec_bolsa_llamamientos_ejecutor','vec_bolsa_llamamientos.no_incorporacion_bolsa','SELECT')
+  AND NOT has_table_privilege('vec_bolsa_llamamientos_relevo_no_incorporacion','vec_bolsa_llamamientos.no_incorporacion_bolsa','SELECT')
+  AND (SELECT NOT rolcanlogin AND NOT rolsuper AND NOT rolbypassrls FROM pg_roles WHERE rolname='vec_bolsa_llamamientos_relevo_no_incorporacion')")" t 'bandeja solo para el rol del relevo (sin LOGIN); ejecutor general, tabla y auxiliar cerrados'
 
 echo '== Transacciones (dobles explícitos de las fachadas AD3)'
 b='expediente:ct:fe4934a1c7a9f9ad91aaccc6026ff7d39a494031d14d8a98dcd0d6a140619ba7'
@@ -158,7 +178,8 @@ if [[ ${VEC_CT124_GO:-} == 1 ]]; then
   (cd "$repo" && VEC_CT124NI_PG_DSN="postgres://vec_ct115_runtime@127.0.0.1:$puerto/postgres?sslmode=disable" VEC_CT124NI_ORG="$org" \
     VEC_CT124NI_EXP="$a" VEC_CT124NI_EVENTO="$evento" TMPDIR=${TMPDIR:-/dev/shm} go test -count=1 -run TestNoIncorporacionPostgreSQLContratoGoSQL -v \
     ./internal/modules/contrataciontemporal/adapters/postgres/ 2>&1 | tail -8)
-  (cd "$repo" && VEC_B42_PG_DSN="postgres://vec_b42_runtime@127.0.0.1:$puerto/postgres?sslmode=disable" VEC_CT124NI_EVENTO="$evento" \
+  (cd "$repo" && VEC_B42_PG_DSN="postgres://vec_b42_relevo@127.0.0.1:$puerto/postgres?sslmode=disable" \
+    VEC_B42_EJECUTOR_PG_DSN="postgres://vec_b42_runtime@127.0.0.1:$puerto/postgres?sslmode=disable" VEC_CT124NI_EVENTO="$evento" \
     TMPDIR=${TMPDIR:-/dev/shm} go test -count=1 -run TestBandejaNoIncorporacionesPostgreSQLContratoGoSQL -v ./internal/modules/bolsa/adapters/postgres/ 2>&1 | tail -8)
   rm -f "$evento"
   echo 'ENSAYO GO COMPLETO'

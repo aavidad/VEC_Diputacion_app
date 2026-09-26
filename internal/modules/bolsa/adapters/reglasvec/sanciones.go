@@ -180,3 +180,35 @@ func errorCatalogo(err error) error {
 	}
 	return errors.Join(ports.ErrSancionesNoConfiguradas, err)
 }
+
+// entradaPoliticaNoIncorporacion nombra en la referencia publicada el conjunto
+// de consecuencias b24 y el plazo del recurso de una misma versión.
+const entradaPoliticaNoIncorporacion = "no_incorporacion"
+
+// PoliticaNoIncorporacion compone la política que Bolsa 000042 aplica a las
+// no incorporaciones: todas las consecuencias b24.sancion.* y la regla del
+// plazo del recurso (b24.consecuencias). Sin catálogo o sin esa regla no hay
+// política que publicar; una entrada mal formada es un error.
+func (c *CatalogoSanciones) PoliticaNoIncorporacion(ctx context.Context) (ports.PoliticaNoIncorporacion, error) {
+	if c == nil || ctx == nil {
+		return ports.PoliticaNoIncorporacion{}, ports.ErrSancionesNoConfiguradas
+	}
+	recurso, err := c.resolutor.Regla(ctx, reglas.BolsaConsecuencias)
+	if err != nil {
+		return ports.PoliticaNoIncorporacion{}, errorCatalogo(err)
+	}
+	consecuencias, err := c.Consecuencias(ctx)
+	if err != nil {
+		return ports.PoliticaNoIncorporacion{}, err
+	}
+	politica := ports.PoliticaNoIncorporacion{Consecuencias: make(map[string]ports.ConsecuenciaPoliticaNoIncorporacion, len(consecuencias)),
+		RecursoReglaRef: recurso.Referencia, RecursoReglaHuellaSHA256: recurso.HuellaCatalogo, CatalogoSHA256: recurso.HuellaCatalogo}
+	for _, k := range consecuencias {
+		politica.Consecuencias[k.Clave] = ports.ConsecuenciaPoliticaNoIncorporacion{Etiqueta: k.Etiqueta, Efecto: k.Efecto,
+			ReglaRef: k.ReglaRef, ReglaHuellaSHA256: k.Huella, ConPlazo: k.ConPlazo, OrdenFinal: k.OrdenFinal, FinAutomatico: k.FinAutomatico}
+	}
+	entrada := recurso.ReferenciaEntrada
+	entrada.EntradaClave = entradaPoliticaNoIncorporacion
+	politica.CatalogoRef = entrada.Referencia()
+	return politica, nil
+}
