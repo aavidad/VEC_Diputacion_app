@@ -38,7 +38,9 @@ func (s *soporteAltaContratacionTemporalDesarrollo) capacidadValida(
 		principalValido = rutaPeticionCentroDesarrollo(capacidad.ruta) && principalPeticionCentroDesarrolloValido(capacidad.principal)
 	}
 	if s.candidatoBolsa {
-		principalValido = capacidad.ruta == "/api/vec/bolsa/mi-bolsa" &&
+		// Toda ruta personal de la persona: «Mi bolsa», sus acciones propias
+		// y las solicitudes de Selección.
+		principalValido = rutaPersonalCandidatoDesarrollo(capacidad.ruta) &&
 			principalSinteticoContratacionTemporalDesarrolloValido(capacidad.principal) &&
 			len(capacidad.principal.Roles) == 1 && capacidad.principal.Roles[0] == "candidato_bolsa"
 	}

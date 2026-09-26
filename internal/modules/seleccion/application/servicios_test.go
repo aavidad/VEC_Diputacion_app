@@ -5,7 +5,10 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -179,19 +182,25 @@ func (r *registroPrueba) ConvocatoriasVigentes(context.Context) ([]domain.Convoc
 	return r.vigentes, nil
 }
 
-// protectorPrueba invierte los bytes y liga el sobre a la asociación.
+// protectorPrueba invierte los bytes y liga el sobre a la asociación con un
+// nonce de 12 bytes derivado de ella.
 type protectorPrueba struct{}
+
+func nonceAsociacionPrueba(a sel.AsociacionDatos) []byte {
+	suma := sha256.Sum256([]byte(a.PersonaRef + "|" + a.ConvocatoriaRef + "|" + strconv.Itoa(a.Version)))
+	return suma[:12]
+}
 
 func (protectorPrueba) CifrarDatosSolicitud(_ context.Context, a sel.AsociacionDatos, claro []byte) (sel.SobreDatos, error) {
 	cifrado := make([]byte, len(claro))
 	for i, b := range claro {
 		cifrado[len(claro)-1-i] = b ^ 0x5a
 	}
-	return sel.SobreDatos{ClaveRef: "clave:prueba", Nonce: []byte(a.PersonaRef + "|" + a.ConvocatoriaRef + "|" + string(rune('0'+a.Version))), Cifrado: cifrado}, nil
+	return sel.SobreDatos{ClaveRef: "clave:prueba", Nonce: nonceAsociacionPrueba(a), Cifrado: cifrado}, nil
 }
 
 func (protectorPrueba) ConDatosSolicitudDescifrados(_ context.Context, a sel.AsociacionDatos, s sel.SobreDatos, usar func([]byte) error) error {
-	if string(s.Nonce) != a.PersonaRef+"|"+a.ConvocatoriaRef+"|"+string(rune('0'+a.Version)) {
+	if !bytes.Equal(s.Nonce, nonceAsociacionPrueba(a)) {
 		return errors.New("asociación distinta")
 	}
 	claro := make([]byte, len(s.Cifrado))
@@ -202,7 +211,8 @@ func (protectorPrueba) ConDatosSolicitudDescifrados(_ context.Context, a sel.Aso
 }
 
 func (protectorPrueba) HuellaConClave(_ context.Context, dominio string, datos []byte) (string, error) {
-	return strings.Repeat("a", 32) + strings.Repeat("b", 32)[:32-len(dominio)%3] + strings.Repeat("c", len(dominio)%3), nil
+	suma := sha256.Sum256(append([]byte(dominio+"\x00"), datos...))
+	return hex.EncodeToString(suma[:]), nil
 }
 
 type referenciasPrueba struct{}

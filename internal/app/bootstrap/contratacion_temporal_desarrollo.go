@@ -452,6 +452,9 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			PerfilesActivosRef: []string{candidato.perfilRef},
 			ClavePolitica:      "politica-bolsa-mi-bolsa", ClaveCapacidad: "capacidad-bolsa-mi-bolsa-consultar",
 		})
+		if seleccionSolicitudesSolicitada(cfg) {
+			declaracionesFrontera = append(declaracionesFrontera, descriptoresFronterasSeleccionPersonalDesarrollo(candidato.perfilRef)...)
+		}
 		if debeComponerPortalCandidatoDesarrollo(cfg) {
 			for clave, ruta := range map[string]string{
 				"bolsa-mi-bolsa-solicitar":   bolsapersonal.RutaMiBolsaSolicitudes,
@@ -479,6 +482,16 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			return nil, nil, nil, errBorradorNoDisponibleEn()
 		}
 		declaracionesFrontera = append(declaracionesFrontera, bolsaFronteras...)
+	}
+	var soporteSeleccionRRHH *soporteSeleccionRRHHDesarrollo
+	if seleccionSolicitudesSolicitada(cfg) {
+		// Perfil propio de RRHH para Selección, declarado antes de cerrar el
+		// catálogo de fronteras.
+		soporteSeleccionRRHH, err = nuevoSoporteSeleccionRRHHDesarrollo(alta.soporte, reloj.Ahora())
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		declaracionesFrontera = append(declaracionesFrontera, descriptoresFronterasSeleccionRRHHDesarrollo(soporteSeleccionRRHH.perfilRef())...)
 	}
 	catalogoFronteras, err := nuevoCatalogoFronterasComunDesarrollo(declaracionesFrontera)
 	if err != nil {
@@ -699,14 +712,35 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 			}
 			portal = reglasPortalCandidatoDesarrollo{resolutor: reglasBolsa}
 		}
+		var seleccionPersona *dependenciasSeleccionDesarrollo
+		if seleccionSolicitudesSolicitada(cfg) {
+			seleccionPersona = &dependenciasSeleccionDesarrollo{repositorio: alta.postgresql.seleccion,
+				proveedores: alta.postgresql.proveedoresMaterialSeleccion, kms: dependencias.kms, reloj: reloj}
+			if !seleccionPersona.valida() {
+				return nil, nil, nil, errSeleccionNoDisponible
+			}
+		}
 		rutasMiBolsa, err := nuevaRutaMiBolsaDesarrollo(
 			context.Background(), resolvedorDesarrollo.candidatoBolsa, sello, &alta,
-			consultasRRHH.identidad, catalogoFronteras, derivador, reloj, camposMiBolsa, portal,
+			consultasRRHH.identidad, catalogoFronteras, derivador, reloj, camposMiBolsa, portal, seleccionPersona,
 		)
 		if err != nil {
 			return nil, nil, nil, err
 		}
 		rutas = append(rutas, rutasMiBolsa...)
+		if seleccionPersona != nil {
+			if soporteSeleccionRRHH == nil {
+				return nil, nil, nil, errSeleccionNoDisponible
+			}
+			rutasSeleccion, err := componerSeleccionRRHHDesarrollo(context.Background(), &alta, consultasRRHH.identidad, catalogoFronteras, soporteSeleccionRRHH, seleccionPersona, reloj)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			rutas = append(rutas, rutasSeleccion...)
+		}
+	} else if seleccionSolicitudesSolicitada(cfg) {
+		// La persona de Selección usa la identidad de «Mi bolsa».
+		return nil, nil, nil, errSeleccionNoDisponible
 	}
 	autoridad := &autoridadConsultasContratacionTemporalDesarrollo{
 		sello:                                    sello,

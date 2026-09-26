@@ -96,18 +96,30 @@ declare -A fichero=(
 for m in roles ad3_89 ad3_90 sel_1; do [[ $(escalar "${detecta[$m]}") == f ]] || falla "$m presente antes de instalar"; done
 ok 'nada de Selección presente al empezar'
 h0=$(huella_ad3)
+go_prueba() { # $1 patrón de la prueba; el resto, variables de entorno
+  local patron=$1; shift
+  command -v go >/dev/null 2>&1 || return 0
+  ( cd "$repo" && env "$@" go test -count=1 -v -run "^${patron}\$" ./internal/app/bootstrap/ >/dev/shm/seleccion-go-$$.log 2>&1 ) \
+    || { tail -20 /dev/shm/seleccion-go-$$.log >&2; falla "prueba Go $patron"; }
+  grep -q -- "--- PASS: $patron " /dev/shm/seleccion-go-$$.log || { tail -5 /dev/shm/seleccion-go-$$.log >&2; falla "prueba Go $patron no ejecutada"; }
+  rm -f /dev/shm/seleccion-go-$$.log
+}
+login_bolsa="host=$socket user=vec_bolsa_llamamientos_desarrollo dbname=postgres sslmode=disable"
 
 echo '== Instalación en orden, con ROLLBACK previo sin rastro'
 run <"$sel/roles_up.sql"; [[ $(escalar "${detecta[roles]}") == t ]] || falla 'roles'
 falla_con "$sel/roles_up.sql" 'ya existen roles'
 ok 'roles de Selección (doble ejecución rechazada)'
+escalar 'GRANT vec_seleccion_ejecutor TO vec_bolsa_llamamientos_desarrollo' >/dev/null
+ok 'membresía única del LOGIN de Bolsa en vec_seleccion_ejecutor'
 for m in ad3_89 ad3_90 sel_1; do
+  go_prueba TestArranqueSeleccionSinMigracionesSeDetienePostgreSQL VEC_SELECCION_SIN_MIGRACIONES_PG_DSN_BOLSA="$login_bolsa" VEC_SELECCION_SIN_MIGRACIONES_FALTA=$m
   sed 's/^COMMIT;$/ROLLBACK;/' "${fichero[$m]}.up.sql" | run
   [[ $(escalar "${detecta[$m]}") == f ]] || falla "ROLLBACK de $m dejó rastro"
   run <"${fichero[$m]}.up.sql"
   [[ $(escalar "${detecta[$m]}") == t ]] || falla "$m no detectada tras UP"
   if run <"${fichero[$m]}.up.sql" >/dev/null 2>&1; then falla "doble UP de $m aceptado"; fi
-  ok "$m: ROLLBACK sin rastro, UP, detección y doble UP rechazado"
+  ok "$m: arranque detenido sin ella, ROLLBACK sin rastro, UP, detección y doble UP rechazado"
 done
 
 echo '== Ida y vuelta DOWN/UP sin historia'
@@ -119,6 +131,12 @@ falla_con "${fichero[ad3_89]}.down.sql" 'AD3-90 sigue instalada'
 falla_con "${fichero[ad3_90]}.down.sql" 'Selección 000001 sigue instalada'
 ok 'DOWN fuera de orden rechazados'
 
+echo '== Arranque doble de vec-server con el selector encendido'
+go_prueba TestArranqueDobleSeleccionPostgreSQL VEC_SELECCION_ARRANQUE_PG=1 \
+  VEC_SELECCION_ARRANQUE_PG_DSN_GOBIERNO="host=$socket user=vec_ad3_o207_gobierno dbname=postgres sslmode=disable" \
+  VEC_SELECCION_ARRANQUE_PG_DSN_BOLSA="$login_bolsa" VEC_SELECCION_ARRANQUE_PG_DSN_ADMIN="host=$socket user=postgres dbname=postgres sslmode=disable"
+ok 'dos arranques, apagado y encendido: sin versiones nuevas de convocatorias, roles ni motivos'
+
 echo '== ACL con roles reales'
 escalar "CREATE ROLE vec_prueba_seleccion LOGIN; GRANT vec_seleccion_ejecutor TO vec_prueba_seleccion; CREATE ROLE vec_prueba_ajeno LOGIN;" >/dev/null
 for consulta in 'SELECT count(*) FROM vec_seleccion.solicitud' 'SELECT count(*) FROM vec_seleccion.convocatoria_publicada' \
@@ -127,7 +145,7 @@ for consulta in 'SELECT count(*) FROM vec_seleccion.solicitud' 'SELECT count(*) 
   if como vec_prueba_seleccion <<<"$consulta" >/dev/null 2>&1; then falla "el ejecutor accede a: $consulta"; fi
 done
 if como vec_prueba_ajeno <<<'SELECT vec_seleccion.convocatorias_publicadas_v1()' >/dev/null 2>&1; then falla 'un LOGIN ajeno ejecuta Selección'; fi
-[[ $(como vec_prueba_seleccion <<<'SELECT vec_seleccion.convocatorias_publicadas_v1()') == '[]' ]] || falla 'el ejecutor no lee convocatorias'
+[[ $(como vec_prueba_seleccion <<<'SELECT jsonb_typeof(vec_seleccion.convocatorias_publicadas_v1())') == array ]] || falla 'el ejecutor no lee convocatorias'
 salida=$(como vec_prueba_seleccion <<<"SET default_transaction_isolation='serializable';
 SELECT * FROM vec_seleccion.publicar_convocatoria_v1('proceso:publico:ensayo-acl','Ensayo',now()-interval '1 day',now()+interval '1 day','{\"turnos\":[{\"clave\":\"libre\",\"etiqueta\":\"Turno libre\"}],\"requisitos\":[],\"baremo\":{\"maximo\":\"10\",\"redondeo\":\"mitad_arriba\",\"grupos\":[]},\"numeracion\":{\"patron\":\"{anio}/SOL-{numero}\",\"ancho\":6},\"fecha_referencia\":\"2026-10-30\",\"marca_ejemplo\":true}',repeat('e',64),'2026-09-01T00:00:00Z');
 SELECT * FROM vec_seleccion.guardar_borrador_propio_v1('per_AAAAAAAAAAAAAAAAAAAAAA','proceso:publico:ensayo-acl',1,0,'clave-acl-001',repeat('a',64),'sol_AAAAAAAAAAAAAAAAAAAAAAAAAA','libre','k','\\x000102030405060708090a0b','\\x00112233445566778899aabbccddeeff00',repeat('b',64),'***5678*',true,'[]','[]',0,
@@ -149,9 +167,11 @@ ok 'accesos de RRHH auditados y dos eventos en la outbox'
 antes_go=$(escalar 'SELECT count(*) FROM vec_seleccion.presentacion')
 if command -v go >/dev/null 2>&1; then
   ( cd "$repo" && VEC_SELECCION_PG_DSN="host=$socket user=vec_prueba_seleccion dbname=postgres" \
-      go test -count=1 -run TestRepositorioPostgreSQLRecorridoCompleto ./internal/modules/seleccion/adapters/postgres/ >/dev/shm/seleccion-go-$$.log 2>&1 || { tail -20 /dev/shm/seleccion-go-$$.log >&2; false; } ) \
+      go test -count=1 -v -run 'TestRepositorioPostgreSQLRecorridoCompleto|TestRecorridoHTTPConPostgreSQL' ./internal/modules/seleccion/adapters/postgres/ ./internal/modules/seleccion/application/ >/dev/shm/seleccion-go-$$.log 2>&1 &&
+      grep -q -- '--- PASS: TestRepositorioPostgreSQLRecorridoCompleto ' /dev/shm/seleccion-go-$$.log &&
+      grep -q -- '--- PASS: TestRecorridoHTTPConPostgreSQL ' /dev/shm/seleccion-go-$$.log || { tail -20 /dev/shm/seleccion-go-$$.log >&2; false; } ) \
     || falla 'el adaptador Go no recorre la solicitud contra PostgreSQL'
-  ok 'adaptador PostgreSQL de Go: publicación doble, borrador parcial y completo, presentación, RRHH'
+  ok 'Go contra PostgreSQL: adaptador y recorrido HTTP con material V3 real (borrador parcial y completo, presentación, RRHH)'
 fi
 if escalar "SET ROLE vec_seleccion_propietario; UPDATE vec_seleccion.solicitud SET creada_en=now()" >/dev/null 2>&1; then falla 'historia mutable'; fi
 if escalar "SET ROLE vec_seleccion_propietario; DELETE FROM vec_seleccion.presentacion" >/dev/null 2>&1; then falla 'presentación borrable'; fi
@@ -178,7 +198,7 @@ SQL
 primera=$(escalar "SELECT 'true|'||numero_justificante||'|'||recibo_ref||'|'||presentada_en FROM vec_seleccion.presentacion ORDER BY presentacion_id LIMIT 1")
 [[ $(tail -1 <<<"$repetida") == "$primera" ]] || falla "la repetición tras reiniciar no devuelve el mismo recibo: $repetida / $primera"
 [[ $(escalar 'SELECT count(*) FROM vec_seleccion.presentacion') == $(escalar "SELECT count(*) FROM vec_seleccion.presentacion WHERE presentada_en <= now()") ]] || falla 'presentaciones inconsistentes'
-[[ $(escalar 'SELECT count(*) FROM vec_seleccion.presentacion') -le $((antes_go + 1)) ]] || falla 'la repetición duplicó la presentación'
+[[ $(escalar 'SELECT count(*) FROM vec_seleccion.presentacion') -le $((antes_go + 2)) ]] || falla 'la repetición duplicó la presentación'
 ok 'tras reiniciar: mismas presentaciones y la repetición devuelve el mismo justificante y recibo'
 falla_con "${fichero[sel_1]}.down.sql" 'no admitido con solicitudes'
 ok 'DOWN de Selección 000001 rechazado con historia'

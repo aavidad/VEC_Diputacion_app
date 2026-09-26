@@ -90,8 +90,9 @@ func (a autorizador) autorizar(ctx context.Context, o Orden, r dominiovec.Result
 	}
 	decision, confirmacion, exportador, err := a.emisor.EmitirMaterialAutorizacionAtestadaV3(ctx, solicitud, r)
 	if err != nil {
-		if errors.Is(err, dominiovec.ErrAutorizacionDenegada) || errors.Is(err, dominiovec.ErrPermissionDenied) {
-			return nil, err
+		if errors.Is(err, dominiovec.ErrAutorizacionDenegada) || errors.Is(err, dominiovec.ErrPermissionDenied) ||
+			errors.Is(err, puertosvec.ErrDenegacionExplicitaAutorizacionLigadaV3) {
+			return nil, denegar(err)
 		}
 		return nil, errors.Join(ports.ErrNoDisponible, err)
 	}

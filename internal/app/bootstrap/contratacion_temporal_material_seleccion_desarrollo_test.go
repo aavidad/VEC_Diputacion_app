@@ -15,7 +15,7 @@ func seleccionMaterialCTCompletaDesarrollo() seleccionMaterialCTDesarrollo {
 		borradoresBolsa: true, miBolsa: true, portalCandidato: true,
 		dietas: true, cronos: true, documentos: true, cronosResolucion: true, cronosAvisos: true,
 		fichaPropiaPersonal: true, firmaDocumento: true, seguimientoCese: true, personalB2: true, cancelacion: true,
-		incorporacionAcreditada: true,
+		incorporacionAcreditada: true, seleccionSolicitudes: true,
 	}
 }
 
@@ -64,6 +64,24 @@ func TestAudienciasSeguimientoCeseYFirmaPublicablesPorElGobiernoCT(t *testing.T)
 		if !audienciaConsumoGobiernoPostgreSQLContratacionTemporalDesarrolloEsPropia(d.Audiencia) {
 			t.Errorf("audiencia de cese o firma no publicable por CT: %s", d.Audiencia)
 		}
+	}
+}
+
+// Las cinco audiencias de Selección (AD3-89 y AD3-90) están en la lista única
+// del gobierno de CT: sin ellas el arranque con el selector encendido caería
+// al publicar sus claves.
+func TestAudienciasSeleccionPublicablesPorElGobiernoCT(t *testing.T) {
+	descriptores := descriptoresMaterialSeleccionDesarrollo()
+	if len(descriptores) != 5 {
+		t.Fatalf("Selección declara %d audiencias; se esperaban 5", len(descriptores))
+	}
+	for _, d := range descriptores {
+		if !audienciaConsumoGobiernoPostgreSQLContratacionTemporalDesarrolloEsPropia(d.Audiencia) {
+			t.Errorf("audiencia de Selección no publicable por CT: %s", d.Audiencia)
+		}
+	}
+	if _, err := nuevoCatalogoMaterialAutorizacionComunDesarrollo(descriptores); err != nil {
+		t.Fatal("las audiencias de Selección colisionan en el catálogo común", err)
 	}
 }
 

@@ -355,3 +355,68 @@ incorporación la entrega un relevo con **conexión propia**:
 - Al arrancar, la aplicación publica con la cuenta de ejecución de Bolsa la
   política de no incorporación desde el catálogo (b24); sin ella, las entregas
   quedan pendientes de revisión en los avisos de Bolsa.
+
+## Selección: solicitudes de participación («Convoca integrado», fase 1)
+
+Módulo nuevo **Selección** (no Bolsa): una persona, también ajena a la
+Diputación, presenta su solicitud en una convocatoria y RRHH la consulta.
+Apagado por defecto; **no se despliega en la principal antes del lunes 28**
+(consenso del 26/09): primero en la copia de ensayo.
+
+Orden de instalación (cada paso con `ROLLBACK` previo, como las demás):
+
+1. `deploy/postgresql/seleccion/roles_up.sql` como superusuario: crea
+   `vec_seleccion_propietario`, `vec_seleccion_migrador` y
+   `vec_seleccion_ejecutor` (NOLOGIN). Detección:
+   `SELECT count(*)=3 FROM pg_roles WHERE rolname IN ('vec_seleccion_propietario','vec_seleccion_migrador','vec_seleccion_ejecutor')`.
+2. **Una sola membresía nueva**, sin LOGIN ni DSN nuevos: vec-server usa la
+   conexión de Bolsa (`VEC_BOLSA_LLAMAMIENTOS_DATABASE_URL`):
+   `GRANT vec_seleccion_ejecutor TO <LOGIN ejecutor de Bolsa> WITH ADMIN FALSE, INHERIT TRUE, SET FALSE;`
+   (en el volcado sintético, `vec_bolsa_llamamientos_desarrollo`). No cambia el
+   contador `vec_conexiones` de `arrancar_app.sh`.
+3. AD3-89 (`autorizacion_atestada_v3/migraciones/000089_consumidor_solicitud_propia_seleccion.up.sql`).
+   Detección: `SELECT to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_solicitud_propia_seleccion_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL`.
+4. AD3-90 (`000090_consumidor_consulta_solicitudes_seleccion.up.sql`). Detección:
+   `SELECT to_regprocedure('vec_autorizacion_atestada_v3.registrar_y_consumir_consulta_solicitudes_seleccion_v3_atestada(bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)') IS NOT NULL`.
+5. Selección 000001 (`deploy/postgresql/seleccion/migraciones/000001_solicitudes_participacion.up.sql`).
+   Detección: `SELECT to_regclass('vec_seleccion.solicitud') IS NOT NULL`.
+
+AD3-89/90 toman el cerrojo común del núcleo (en serie con cualquier otra
+reescritura) y añaden cinco audiencias a la lista del núcleo; las mismas cinco
+están en la lista única del gobierno de CT, que publica sus claves al arrancar.
+Los DOWN van en orden inverso y solo sin historia (sin solicitudes, accesos ni
+claves de capacidad de esas audiencias). Ensayo completo:
+`deploy/postgresql/seleccion/probar_pg18.sh GLOBALS VOLCADO`.
+
+Variables (doble llave de desarrollo, como los demás selectores):
+
+- `VEC_SELECCION_SOLICITUDES_ENABLED=true|false` (ausente = apagado; otro
+  valor detiene el arranque).
+- `VEC_SELECCION_CONVOCATORIAS_SOURCE_PATH=data/demo/reglas/seleccion_convocatorias.ejemplo.demo.json`
+  (obligatoria con el selector encendido): plazos, turnos, requisitos
+  (obligatorio, impide presentar), fecha de referencia, baremo y formato del
+  justificante. Es un **paquete de ejemplo** (`paquete:ejemplo:vec:v1`), sin
+  aprobación de RRHH; se cambia editando el fichero, nunca el código.
+
+Además requiere «Mi bolsa» compuesta (identidad `identidad/bolsa-candidato.json`
+y conexión de Bolsa): la persona entra con ese certificado mTLS y su perfil,
+que gana las tres acciones de AD3-89. RRHH usa un perfil propio del
+certificado corporativo (no el de CT ni el de Bolsa), con su rol
+`tecnico_rrhh_seleccion_desarrollo`.
+
+Al arrancar con el selector encendido: comprueba con el LOGIN de Bolsa AD3-89,
+AD3-90 y Selección 000001 y se detiene nombrando la primera que falte;
+publica las convocatorias del catálogo (una versión nueva solo si cambia el
+contenido; `publicada_en` es el del catálogo, no el reloj), el contexto, rol y
+motivo de RRHH y el motivo de la persona con el instante fijo de la ventana
+sintética. Un segundo arranque, o apagar y volver a encender, no crea
+versiones (prueba `TestArranqueDobleSeleccionPostgreSQL`).
+
+Rutas: persona `GET /api/vec/seleccion/mis-solicitudes`,
+`…/convocatorias`, `…/convocatoria`, `GET|PUT …/borrador`,
+`POST …/presentacion`; RRHH `GET /api/vec/seleccion/solicitudes/convocatorias`,
+`POST …/solicitudes/consultas` y `POST …/solicitudes/detalle/consultas`. Todas
+declaradas en la frontera común; cualquier otro método o ruta queda denegado.
+El número de presentación es un **justificante interno**, no un asiento de
+registro administrativo ni una firma; firma, registro en sede, tasas y
+notificación se declaran «no disponible» en el recibo.
