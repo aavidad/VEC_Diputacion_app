@@ -207,6 +207,19 @@ grep -q '^--- PASS: TestArranqueSeguimientoCeseIncorporacionAcreditadaPostgreSQL
   || { printf '%s\n' "$salida" | tail -20 >&2; echo 'FALLO: arranque del seguimiento con incorporación acreditada' >&2; exit 1; }
 ok 'seguimiento de cese e incorporación acreditada arrancan sobre el catálogo ya publicado'
 
+echo '== Arranque doble del rol del centro (prueba Go)'
+# Reproduce el fallo T3 del clon del 26/09: el binario anterior publicó el rol
+# del perfil del centro con dos concesiones y el nuevo, con la incorporación
+# acreditada y la cancelación encendidas, le añade otras. Publica primero como
+# el binario anterior y después como el nuevo, su rearranque y la vuelta atrás.
+salida=$(cd "$repo" && VEC_ARRANQUE_T3_PG_DESECHABLE=1 \
+  VEC_ARRANQUE_T3_PG_DSN_GOBIERNO="host=$socket user=vec_ad3_o207_gobierno dbname=postgres sslmode=disable" \
+  VEC_ARRANQUE_T3_PG_DSN_ADMIN="host=$socket user=postgres dbname=postgres sslmode=disable" \
+  go test -count=1 -run '^TestArranqueDobleRolPeticionCentroPostgreSQL$' -v ./internal/app/bootstrap/ 2>&1) || true
+grep -q '^--- PASS: TestArranqueDobleRolPeticionCentroPostgreSQL' <<<"$salida" \
+  || { printf '%s\n' "$salida" | tail -20 >&2; echo 'FALLO: arranque doble del rol del centro' >&2; exit 1; }
+ok 'el rol del centro publicado por el binario anterior no detiene el arranque nuevo'
+
 echo '== DOWN con historia o con dependientes instalados se niega'
 for m in ct_122 ct_123 ct_124 ct_125 ct_126 ad3_87 ad3_88 $([[ $recorrido != incorporacion ]] && echo bolsa_42) $([[ $recorrido == sucesor ]] && echo ct_128); do
   if run <"${fichero[$m]}.down.sql" >/dev/null 2>&1; then echo "FALLO: DOWN de $m aceptado" >&2; exit 1; fi

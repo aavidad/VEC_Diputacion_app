@@ -122,6 +122,9 @@ func (a autoridadPostgreSQLDesarrollo) prepararInstantanea(
 		return vacia, falloPostgreSQLCTDesarrollo(err)
 	}
 	preparada := clonarInstantaneaAutorizacionPostgreSQLDesarrollo(solicitada)
+	if err := resolverVersionRolPostgreSQLDesarrollo(ctx, tx, &preparada); err != nil {
+		return vacia, falloPostgreSQLCTDesarrollo(err)
+	}
 	if encontrada {
 		if actual.perfilRef != perfilRef ||
 			actual.principalID != solicitada.AsignacionPerfil.PrincipalID ||
@@ -142,6 +145,87 @@ func (a autoridadPostgreSQLDesarrollo) prepararInstantanea(
 		return vacia, falloPostgreSQLCTDesarrollo(nil)
 	}
 	return preparada, nil
+}
+
+// resolverVersionRolPostgreSQLDesarrollo elige la versión del rol que se va a
+// publicar. Una versión de rol publicada es inmutable: si otro arranque ya
+// publicó la versión pedida con otras concesiones (por ejemplo, porque un
+// selector o el catálogo de reglas añaden acciones al perfil), republicarla se
+// rechazaba sin error SQL y el arranque se detenía. Se reutiliza la versión
+// cuyo contenido sea idéntico al pedido y, si no hay ninguna, se toma la
+// siguiente libre; la asignación del perfil pasa entonces a su versión
+// siguiente con la lógica de siempre. Sin conflicto, la versión pedida no
+// cambia.
+func resolverVersionRolPostgreSQLDesarrollo(
+	ctx context.Context,
+	tx pgx.Tx,
+	instantanea *dominiovec.InstantaneaAutorizacion,
+) error {
+	if ctx == nil || tx == nil || instantanea == nil || instantanea.VersionRol.Version <= 0 {
+		return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+	}
+	filas, err := tx.Query(ctx, `
+		SELECT version, huella_sha256
+		  FROM vec_autorizacion.version_rol
+		 WHERE rol_id=$1
+		 ORDER BY version`, instantanea.VersionRol.RolID)
+	if err != nil {
+		return err
+	}
+	publicadas := make(map[int]string)
+	var versiones []int
+	for filas.Next() {
+		var version int64
+		var huella string
+		if err := filas.Scan(&version, &huella); err != nil {
+			filas.Close()
+			return err
+		}
+		if version <= 0 || version >= 1<<31 {
+			filas.Close()
+			return errPostgreSQLContratacionTemporalDesarrolloNoDisponible
+		}
+		publicadas[int(version)] = huella
+		versiones = append(versiones, int(version))
+	}
+	filas.Close()
+	if err := filas.Err(); err != nil {
+		return err
+	}
+	coincide := func(version int) (bool, error) {
+		candidata := instantanea.VersionRol
+		candidata.Version = version
+		huella, err := candidata.HuellaSHA256()
+		return err == nil && huella == publicadas[version], err
+	}
+	elegida := instantanea.VersionRol.Version
+	if _, ocupada := publicadas[elegida]; ocupada {
+		igual, err := coincide(elegida)
+		if err != nil {
+			return err
+		}
+		if !igual {
+			elegida = 0
+			for _, version := range versiones {
+				if igual, err := coincide(version); err != nil {
+					return err
+				} else if igual {
+					elegida = version
+					break
+				}
+			}
+			if elegida == 0 {
+				elegida = versiones[len(versiones)-1] + 1
+			}
+		}
+	}
+	if elegida == instantanea.VersionRol.Version {
+		return nil
+	}
+	instantanea.VersionRol.Version = elegida
+	instantanea.AsignacionPerfil.VersionRolRef = instantanea.VersionRol.Referencia()
+	instantanea.ControlVigenciaVersionRol.VersionRolRef = instantanea.VersionRol.Referencia()
+	return instantanea.Validar()
 }
 
 func leerAsignacionActualPostgreSQLDesarrollo(
