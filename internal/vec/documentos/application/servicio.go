@@ -241,7 +241,9 @@ func (s *Servicio) registrarExterno(ctx context.Context, in ports.AltaExterna, a
 		documento.VersionPolitica != in.SolicitudPolitica.VersionPolitica() ||
 		documento.HuellaPoliticaSHA256 != hex.EncodeToString(in.SolicitudPolitica.HuellaPoliticaSHA256()) ||
 		documento.Proteccion != string(politica.Politica().Proteccion()) ||
-		!documento.ConservacionHasta.Equal(politica.Politica().ConservacionHasta()) ||
+		// Una repetición devuelve el recibo original, cuya conservación se
+		// calculó antes con la misma política: igual o anterior, nunca posterior.
+		documento.ConservacionHasta.After(politica.Politica().ConservacionHasta()) ||
 		documento.EstadoPolitica != ports.EstadoPolitica(politica.Politica()) ||
 		documento.EstadoFirma != domain.EstadoFirmaPendienteProveedor {
 		return domain.Documento{}, ports.ErrCapacidadNoDisponible

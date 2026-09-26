@@ -166,6 +166,7 @@ documentos() {
   instalar documentos/roles_000004_up.sql r:vec_documentos_auditor
   instalar documentos/migraciones/000004_efecto_contexto_y_frontera.up.sql t:vec_documentos.denegacion_frontera
   instalar documentos/migraciones/000005_principal_vinculo_actor.up.sql f:vec_documentos.principal_ref_v1
+  instalar documentos/migraciones/000006_replay_registro_externo.up.sql f:vec_documentos.registro_externo_equivalente_v1
 }
 case $orden in
   main-60) for p in "${main_antes[@]}" "${main_despues[@]}"; do instalar "${p% *}" "${p##* }"; done; documentos ;;

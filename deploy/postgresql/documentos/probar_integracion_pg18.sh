@@ -45,6 +45,7 @@ docker cp "$base_dir/migraciones/000003_custodia_externa.up.sql" "$container:/tm
 docker cp "$base_dir/roles_000004_up.sql" "$container:/tmp/roles4.sql"
 docker cp "$base_dir/migraciones/000004_efecto_contexto_y_frontera.up.sql" "$container:/tmp/documentos4.sql"
 docker cp "$base_dir/migraciones/000005_principal_vinculo_actor.up.sql" "$container:/tmp/documentos5.sql"
+docker cp "$base_dir/migraciones/000006_replay_registro_externo.up.sql" "$container:/tmp/documentos6.sql"
 docker cp "$base_dir/pruebas_sql/frontera_000004.sql" "$container:/tmp/frontera4.sql"
 docker cp "$base_dir/pruebas_sql/custodia_externa_sintetica.sql" "$container:/tmp/externa.sql"
 docker cp "$base_dir/pruebas_sql/replay_ad3_62_sintetico.sql" "$container:/tmp/replay_ad3_62.sql"
@@ -96,6 +97,11 @@ psql_pg /tmp/documentos5.rollback.sql
 test "$(docker exec "$container" psql -X -qAt -U postgres -c "SELECT to_regprocedure('vec_documentos.principal_ref_v1(text)') IS NULL")" = t
 psql_pg /tmp/documentos5.sql
 if docker exec "$container" psql -X -q -v ON_ERROR_STOP=1 -U postgres -f /tmp/documentos5.sql >/dev/null 2>&1; then echo 'FALLO: segunda aplicación de 000005 aceptada' >&2; exit 1; fi
+docker exec "$container" sh -c "sed '\$s/^COMMIT;/ROLLBACK;/' /tmp/documentos6.sql >/tmp/documentos6.rollback.sql"
+psql_pg /tmp/documentos6.rollback.sql
+test "$(docker exec "$container" psql -X -qAt -U postgres -c "SELECT to_regprocedure('vec_documentos.registro_externo_equivalente_v1(vec_documentos.referencia_externa,jsonb)') IS NULL")" = t
+psql_pg /tmp/documentos6.sql
+if docker exec "$container" psql -X -q -v ON_ERROR_STOP=1 -U postgres -f /tmp/documentos6.sql >/dev/null 2>&1; then echo 'FALLO: segunda aplicación de 000006 aceptada' >&2; exit 1; fi
 # El principal del vínculo V2 real (per_ y token) se admite; lo que no es ni
 # eso ni una referencia opaca, no.
 test "$(docker exec "$container" psql -X -qAt -U postgres -c "SELECT vec_documentos.principal_ref_v1('per_0123456789abcdefghijkl') AND vec_documentos.principal_ref_v1('per:00000000-0000-4000-8000-000000000001') AND NOT vec_documentos.principal_ref_v1('per_corto') AND NOT vec_documentos.principal_ref_v1('per_0123456789abcdefghij:kl') AND NOT coalesce(vec_documentos.principal_ref_v1(NULL),false)")" = t
@@ -426,5 +432,11 @@ if [ "${VEC_DOCUMENTOS_SIN_GO:-}" != 1 ]; then
  (cd "$repo_dir" && VEC_DOCUMENTOS_PG18_DSN="postgres://vec_documentos_ensayo@127.0.0.1:$puerto/postgres?sslmode=disable" \
   VEC_DOCUMENTOS_PG18_AUDITOR_DSN="postgres://vec_documentos_auditor_ensayo@127.0.0.1:$puerto/postgres?sslmode=disable" \
   go test -count=1 -v -run 'TestRepositorioPG18|TestRegistradorFronteraPG18' ./internal/vec/documentos/adapters/postgres/)
+ # Documentos-6: la repetición con concesión nueva no duplica registro ni
+ # outbox y queda auditada como repetida; los dos conflictos no dejan efecto.
+ exp6="ref:$(printf 'c2%.0s' $(seq 32))"
+ test "$(docker exec "$container" psql -X -qAt -U postgres -c "SELECT (SELECT count(*) FROM vec_documentos.referencia_externa WHERE expediente_ref='$exp6')=1
+  AND (SELECT count(*) FROM vec_documentos.outbox WHERE expediente_ref='$exp6')=1
+  AND (SELECT array_agg(resultado ORDER BY registrada_en) FROM vec_documentos.auditoria_operacion WHERE expediente_ref='$exp6' AND accion='documentos.externo.registrar')=ARRAY['creado','repetido']")" = t
 fi
 printf 'PG18.4: replay inmediato mismo material y recuperación tras reinicio con decisión V3 sintética fresca: mismo recibo, 1 documento/outbox, 2 consumos autorizados; registro externo recuperado con el mismo recibo; Documentos-4: huella de efecto por contexto de recurso y registro de denegaciones solo del auditor. NO acredita cadena COSE real.\n'

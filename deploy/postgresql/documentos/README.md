@@ -26,7 +26,16 @@ instaladas antes y después de ellas sobre el núcleo AD3 real.
    ella el alta y el registro externo de la composición real fallan con
    23514 y la API responde 422 `contenido_no_valido`; la consulta no se ve
    afectada. No cambia funciones ni filas: sustituye dos `CHECK`.
-10. Crear fuera del repositorio dos LOGIN de aplicación: uno con **solo** la
+10. `migraciones/000006_replay_registro_externo.up.sql`: la repetición exacta
+   de un registro externo con otra concesión V3 devuelve el recibo original.
+   La política calcula `conservacion_hasta` como «ahora + plazo», así que la
+   preimagen cambia en cada petición y 000003 respondía 23505 (HTTP 409). Ahora
+   se coteja el material campo a campo y se admite una conservación igual o
+   posterior a la registrada; cualquier otro cambio sigue siendo conflicto.
+   Sustituye solo el cuerpo de `registrar_referencia_externa_v1` (comprueba
+   antes su huella) y añade `registro_externo_equivalente_v1`, que exige el
+   arranque de `vec-server`.
+11. Crear fuera del repositorio dos LOGIN de aplicación: uno con **solo** la
    membresía `vec_documentos_ejecutor` y otro con **solo**
    `vec_documentos_auditor`; no conceder propiedad, migración ni acceso a tablas.
 
