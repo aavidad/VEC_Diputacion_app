@@ -42,6 +42,7 @@ const consultaMigracionesIncorporacionAcreditada = `SELECT
   'vec_contratacion_temporal.preparar_confirmacion_ginpix_v1(jsonb)',
   'vec_contratacion_temporal.confirmar_confirmacion_ginpix_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
   'vec_contratacion_temporal.consultar_incorporaciones_centro_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
+  'vec_contratacion_temporal.expediente_del_centro_v1(text,text,text)',
   'vec_contratacion_temporal.confirmar_incorporacion_centro_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)',
   'vec_contratacion_temporal.consultar_incorporacion_acreditada_v1(text,text)',
   'vec_contratacion_temporal.preparar_no_incorporacion_v1(jsonb)',

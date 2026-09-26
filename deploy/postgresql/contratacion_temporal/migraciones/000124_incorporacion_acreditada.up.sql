@@ -654,6 +654,45 @@ BEGIN
 END
 $funcion$;
 
+-- Pertenencia del expediente exacto al centro del actor (petición
+-- ratificada por el centro, como solicitante o ratificador, y entregada a
+-- RRHH), sin paginar. Solo responde sí o no, sin datos; la autorización la
+-- exige y consume la operación que la usa (la cancelación desde el centro,
+-- CT122), no esta comprobación.
+CREATE FUNCTION vec_contratacion_temporal.expediente_del_centro_v1(p_actor text, p_organizacion text, p_expediente text)
+RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path=pg_catalog SET row_security=on SET timezone='UTC'
+AS $funcion$
+DECLARE a jsonb;
+BEGIN
+    IF current_user<>'vec_contratacion_temporal_propietario' OR session_user=current_user
+       OR NOT pg_has_role(session_user,'vec_contratacion_temporal_ejecutor','MEMBER')
+       OR pg_has_role(session_user,'vec_contratacion_temporal_migrador','MEMBER') THEN
+        RAISE EXCEPTION 'CT124: sesión no autorizada' USING ERRCODE='42501';
+    END IF;
+    IF p_actor IS NULL OR octet_length(p_actor) NOT BETWEEN 1 AND 4096 THEN
+        RAISE EXCEPTION 'CT124: pertenencia inválida' USING ERRCODE='22023';
+    END IF;
+    BEGIN a:=p_actor::jsonb;
+    EXCEPTION WHEN data_exception THEN RAISE EXCEPTION 'CT124: pertenencia inválida' USING ERRCODE='22023'; END;
+    IF NOT vec_contratacion_temporal.actor_centro_valido_ct124(a) OR NOT vec_contratacion_temporal.referencia_valida_ct115(p_organizacion)
+       OR NOT vec_contratacion_temporal.referencia_valida_ct115(p_expediente) THEN
+        RAISE EXCEPTION 'CT124: pertenencia inválida' USING ERRCODE='22023';
+    END IF;
+    RETURN EXISTS (
+        SELECT 1
+          FROM vec_contratacion_temporal.entrega_peticion_centro_confirmacion c
+          CROSS JOIN LATERAL (SELECT r.peticion, r.estado FROM vec_contratacion_temporal.peticion_centro_revision r
+                               WHERE r.peticion_ref=c.peticion_ref AND r.centro_ref=a->>'centro_ref'
+                               ORDER BY r.version DESC LIMIT 1) u
+          JOIN vec_contratacion_temporal.expediente_integral_actual ac ON ac.expediente_ref=c.expediente_ref
+          JOIN vec_contratacion_temporal.expediente_version_integral v ON v.expediente_ref=ac.expediente_ref AND v.version=ac.version
+         WHERE c.expediente_ref=p_expediente AND u.estado='ratificada'
+           AND (a=u.peticion->'configuracion'->'solicitante' OR a=u.peticion->'configuracion'->'ratificador')
+           AND v.agregado_json->>'organizacion_ref'=p_organizacion);
+END
+$funcion$;
+
 -- Confirmación de la incorporación por el centro. Errores: 22023 material,
 -- 42501 autorización, P0681 clave reutilizada con otro contenido, P0682 el
 -- expediente no admite la confirmación (fase, petición ajena o ya confirmada).
@@ -1459,6 +1498,7 @@ DECLARE v record; f regprocedure; t text; destinatario text;
       'vec_contratacion_temporal.preparar_confirmacion_ginpix_v1(jsonb)'::regprocedure,
       'vec_contratacion_temporal.confirmar_confirmacion_ginpix_v1(jsonb,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure,
       'vec_contratacion_temporal.consultar_incorporaciones_centro_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure,
+      'vec_contratacion_temporal.expediente_del_centro_v1(text,text,text)'::regprocedure,
       'vec_contratacion_temporal.confirmar_incorporacion_centro_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea)'::regprocedure,
       'vec_contratacion_temporal.consultar_incorporacion_acreditada_v1(text,text)'::regprocedure,
       'vec_contratacion_temporal.preparar_no_incorporacion_v1(jsonb)'::regprocedure,

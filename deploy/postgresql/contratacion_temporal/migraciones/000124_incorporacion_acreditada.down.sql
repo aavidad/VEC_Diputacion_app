@@ -175,6 +175,7 @@ DROP TABLE vec_contratacion_temporal.no_incorporacion_v1;
 DROP FUNCTION vec_contratacion_temporal.consultar_incorporacion_acreditada_v1(text,text);
 DROP FUNCTION vec_contratacion_temporal.confirmar_incorporacion_centro_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea);
 DROP FUNCTION vec_contratacion_temporal.consultar_incorporaciones_centro_v1(text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea);
+DROP FUNCTION vec_contratacion_temporal.expediente_del_centro_v1(text,text,text);
 DROP FUNCTION vec_contratacion_temporal.consumir_incorporacion_centro_ct124(text,text,jsonb,text,text,bytea,bytea,bytea,bytea,numeric,numeric,bytea,bytea,bytea,bytea);
 DROP FUNCTION vec_contratacion_temporal.expedientes_centro_ct124(jsonb,text);
 DROP FUNCTION vec_contratacion_temporal.actor_centro_valido_ct124(jsonb);
