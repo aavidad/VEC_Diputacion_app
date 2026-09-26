@@ -269,6 +269,7 @@ export const AYUDA_CONTRATACION_TEMPORAL = Object.freeze({
         traducirPortal("ayuda_contenido_287"),
         traducirPortal("ayuda_contenido_288"),
         traducirPortal("ayuda_contenido_289"),
+        traducirPortal("ayuda_ct_formulario_subsanacion"),
       ]),
     }),
     obtencion_candidato: Object.freeze({

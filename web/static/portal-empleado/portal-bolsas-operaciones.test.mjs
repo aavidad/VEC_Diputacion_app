@@ -110,9 +110,9 @@ test("P-WEB-13 pinta solo operaciones admitidas y documenta custodia y validaci√
   const excluir = renderizarOperacionesSituacion({ candidato: { estado_clave: "disponible" }, estado: { carga: "listo", items: [], operacion: "excluir", paso: 2, formulario: { motivo: "Solicitud" } } });
   assert.match(excluir, /El documento permanece en su custodia y no se sube a VEC/);
   const validarExclusion = renderizarOperacionesSituacion({ candidato: { estado_clave: "disponible" }, estado: { carga: "listo", items: [], operacion: "excluir", paso: 3, formulario: { validador: "RRHH" } } });
-  assert.match(validarExclusion, /persona validadora distinta/i);
+  assert.match(validarExclusion, /Confirmo que el validador es otra persona/);
   assert.match(validarExclusion, /name="confirma_validador_distinto" required/);
-  assert.match(validarExclusion, /Regla provisional, duda 6/);
+  assert.doesNotMatch(validarExclusion, /Regla provisional|duda 6/);
   const enviando = renderizarOperacionesSituacion({ candidato: { estado_clave: "disponible" }, estado: { carga: "listo", items: [], operacion: "excluir", paso: 3, formulario: {}, enviando: true } });
   assert.match(enviando, /Registrando‚Ä¶/);
   assert.match(enviando, /data-b8-accion="cancelar" disabled/);

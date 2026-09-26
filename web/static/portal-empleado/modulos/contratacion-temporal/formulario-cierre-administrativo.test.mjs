@@ -89,6 +89,7 @@ test("las seis etiquetas y el motivo se traducen, se escapan y conservan la clav
   assert.doesNotMatch(x.innerHTML, />cierre_administrativo_ejercicio</u);
   await x.preparar("cierre_administrativo_ejercicio");
   for (const etiqueta of ["Versión esperada", "Clave de recuperación", "Transición", "Motivo"]) assert.match(x.innerHTML, new RegExp(etiqueta, "u"));
+  assert.doesNotMatch(x.innerHTML.replace(/data-copiar-justificante="[^"]*"/gu, ""), /<code>|cerrar_administrativamente_sin_cese<\/dd>/u);
   await x.continuar();
   assert.equal(enviada.motivo_clave, "cierre_administrativo_ejercicio");
   assert.doesNotMatch(x.innerHTML, /<revisado>|<seguro>/u);

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { instalarCopiaJustificantes, justificanteTraducido, renderizarJustificante } from "./portal-justificante.js";
+import { claveRecuperacionTraducida, instalarCopiaJustificantes, justificanteTraducido, renderizarJustificante } from "./portal-justificante.js";
 
 const escapar = (valor) => String(valor).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll('"', "&quot;");
 
@@ -29,4 +29,11 @@ test("un único oyente copia la referencia del botón y confirma con su texto", 
   assert.equal(boton.textContent, "Referencia copiada");
   oyentes[0][1]({ target: { closest: () => null } });
   assert.equal(copiados.length, 1);
+});
+
+test("la clave de recuperación se ofrece para copiar sin mostrarla", () => {
+  const t = (clave) => ({ clave_recuperacion_preparada: "Clave de recuperación preparada", clave_recuperacion_copiar: "Copiar clave", clave_recuperacion_copiada: "Clave copiada" })[clave];
+  const html = claveRecuperacionTraducida("11111111-1111-4111-8111-111111111111", escapar, t);
+  assert.match(html, /Clave de recuperación preparada<\/span> <button[^>]+data-copiar-justificante="11111111-1111-4111-8111-111111111111"[^>]*>Copiar clave<\/button>/u);
+  assert.doesNotMatch(html.replace(/data-copiar-justificante="[^"]*"/u, ""), /11111111/u);
 });

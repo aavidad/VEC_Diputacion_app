@@ -34,3 +34,10 @@ export function justificanteTraducido(referencia, escapar, t) {
     escapar, etiqueta: t("justificante_registrado"), copiar: t("justificante_copiar"), copiado: t("justificante_copiado"),
   });
 }
+
+/** Clave de recuperación de un resultado incierto: se ofrece copiarla, no se muestra. */
+export function claveRecuperacionTraducida(clave, escapar, t) {
+  return renderizarJustificante(clave, {
+    escapar, etiqueta: t("clave_recuperacion_preparada"), copiar: t("clave_recuperacion_copiar"), copiado: t("clave_recuperacion_copiada"),
+  });
+}

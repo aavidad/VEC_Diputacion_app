@@ -1,4 +1,5 @@
 import { escaparHTML as e } from "./componentes-expedientes.js";
+import { claveRecuperacionTraducida, justificanteTraducido } from "../../portal-justificante.js";
 import { renderizarResumenPropuestaFormalizacion } from "./formulario-propuesta-formalizacion.js";
 import { lecturaPlazoLlamamiento, renderizarPlazoLlamamiento } from "./renderizado-plazo-llamamiento.js";
 import { CAMPOS_SELECCION, CAMPOS_COMUNICACION,
@@ -9,6 +10,9 @@ import { CAMPOS_SELECCION, CAMPOS_COMUNICACION,
 
 /** Recibo que habilita el siguiente llamamiento: la renuncia resuelta o la
  * expiración confirmada por RRHH (sin respuesta en plazo). */
+// Referencias sin valor para quien tramita: constan en la auditoría del servidor.
+const OCULTOS_RECIBO = new Set(["auditoria_ref", "organizacion_ref"]);
+
 export function reciboAntecedenteSiguiente(estado) {
   if (estado.resolucion?.recibo?.respuesta === "renuncia") return estado.resolucion.recibo;
   return estado.expiracion?.recibo?.respuesta === RESPUESTA_EXPIRACION ? estado.expiracion.recibo : null;
@@ -69,7 +73,6 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
         ${resueltaEn ? `<div><dt>${e(t("llamamiento_resultado_resuelta_en"))}</dt><dd>${resueltaEn}</dd></div>` : ""}
         <div><dt>${e(t("llamamiento_resultado_vencimiento"))}</dt><dd>${vencimiento}</dd></div>
         <div><dt>${e(t("llamamiento_resultado_siguiente"))}</dt><dd>${e(siguiente)}</dd></div></dl>
-      <p>${e(t("llamamiento_resultado_limite"))}</p>
     </section>`;
   }
   function campo(operacion, nombre, valor, bloqueado) {
@@ -83,20 +86,25 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
     }
     if (esResolucion(operacion) && CAMPOS_REVISION_RESOLUCION.includes(nombre)) {
       return `<div class="ct-campo"><label for="${id}"><input id="${id}" name="${nombre}"
-        type="checkbox" autocomplete="off"${valor === true ? " checked" : ""}${bloqueado ? " disabled" : ""}
-        aria-describedby="ct-llamamiento-${operacion}-ayuda"> ${e(t("llamamiento_" + nombre))}</label></div>`;
+        type="checkbox" autocomplete="off"${valor === true ? " checked" : ""}${bloqueado ? " disabled" : ""}> ${e(t("llamamiento_" + nombre))}</label></div>`;
     }
     const numero = nombre === "version_esperada" || nombre === "version_comunicacion_esperada";
     if (nombre === "respuesta") return `<div class="ct-campo">
       <label for="${id}">${e(t(esResolucion(operacion)
         ? "llamamiento_respuesta_solicitada" : "llamamiento_respuesta_declarada"))} *</label>
-      <select id="${id}" name="respuesta" required${bloqueado ? " disabled" : ""}
-        aria-describedby="ct-llamamiento-${operacion}-ayuda">
+      <select id="${id}" name="respuesta" required${bloqueado ? " disabled" : ""}>
         <option value="">${e(t("seleccionar"))}</option>
         ${RESPUESTAS_RESOLUCION.map((opcion) => `<option value="${opcion}"
           ${valor === opcion ? "selected" : ""}>${e(t(esResolucion(operacion)
             ? "llamamiento_resolucion_" + opcion : "llamamiento_respuesta_" + opcion))}</option>`).join("")}
       </select></div>`;
+    // Una referencia o clave ya fijada viaja oculta; en pantalla solo se ofrece copiarla.
+    if (bloqueado && valor !== "" && (/_ref$/u.test(nombre) || nombre === "clave_idempotencia")) {
+      const etiqueta = t(operacion === "comunicacion_siguiente" && nombre === "prueba_entrega_ref"
+        ? "llamamiento_prueba_continuacion_ref" : "llamamiento_" + nombre);
+      const visible = nombre === "clave_idempotencia" ? claveRecuperacionTraducida(valor, e, t) : justificanteTraducido(valor, e, t);
+      return `<div class="ct-campo"><span>${e(etiqueta)}</span><input id="${id}" name="${nombre}" value="${e(valor)}" type="hidden" readonly><p>${visible}</p></div>`;
+    }
     const recepcion = nombre === "recibida_en";
     const tipo = numero ? 'type="number" min="1" max="9007199254740990" step="1"'
       : recepcion ? 'type="datetime-local" step="0.000001"'
@@ -105,8 +113,7 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
       && nombre === "prueba_entrega_ref" ? "llamamiento_prueba_continuacion_ref" : "llamamiento_" + nombre))} *</label>
       <input id="${id}" name="${nombre}" value="${e(recepcion ? String(valor).replace(/Z$/u, "") : valor)}"
         ${tipo}
-        required autocomplete="off" spellcheck="false"${bloqueado ? " readonly" : ""}
-        aria-describedby="ct-llamamiento-${operacion}-ayuda">
+        required autocomplete="off" spellcheck="false"${bloqueado ? " readonly" : ""}>
       </div>`;
   }
   function recibo(operacion, datos) {
@@ -123,16 +130,14 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
       ? ["recibo_ref", "confirmada_en", "organizacion_ref", "llamamiento_ref", "version_llamamiento"]
       : ["comunicacion_ref", "recibo_ref", "auditoria_ref", "version_resultante", "estado_local",
         ...(Object.hasOwn(datos, "registrada_en") ? ["registrada_en", "intencion_envio_ref"] : [])];
+    const camposVisibles = campos.filter((campo) => !OCULTOS_RECIBO.has(campo));
     return `<section class="ct-recibo" data-ct-llamamiento-recibo="${operacion}"
       aria-labelledby="ct-llamamiento-recibo-${operacion}" tabindex="-1">
       <h4 id="ct-llamamiento-recibo-${operacion}">${e(t(operacion === "comunicacion_siguiente" ? "llamamiento_comunicacion_siguiente_recibo" : operacion === "propuesta" ? "llamamiento_propuesta_recibo" : operacion === "siguiente" ? "llamamiento_siguiente_recibo" : esResolucion(operacion)
         ? "llamamiento_" + operacion + "_recibo_" + datos.respuesta : operacion === "respuesta_siguiente"
         ? "llamamiento_respuesta_siguiente_recibo" : esRespuesta(operacion)
         ? "llamamiento_respuesta_recibo" : "llamamiento_recibo"))}</h4>
-      <p>${e(t("llamamiento_recibo_" + operacion + "_ayuda"))}</p>
-      ${esResolucion(operacion) && datos.intencion_siguiente ? `<p class="ct-ayuda">${e(t(operacion === "resolucion" && estado.siguiente?.recibo
-        ? "llamamiento_intencion_siguiente_historica" : "llamamiento_intencion_siguiente_ayuda"))}</p>` : ""}
-      <dl>${campos.map((nombre) => {
+      <dl>${camposVisibles.map((nombre) => {
         const intencion = nombre.startsWith("intencion_siguiente_");
         let valor = intencion ? datos.intencion_siguiente[nombre.slice("intencion_siguiente_".length)] : datos[nombre];
         if (["confirmada_en", "registrada_en", "recibida_en", "resuelta_en", "intencion_siguiente_actualizada_en"].includes(nombre)) {
@@ -143,6 +148,7 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
         else if (nombre === "estado_plazo") valor = e(t("llamamiento_plazo_" + valor));
         else if (nombre === "respuesta") valor = e(t(esResolucion(operacion)
           ? "llamamiento_resolucion_" + valor : "llamamiento_respuesta_" + valor));
+        else if (/_ref$|^intencion_siguiente_referencia$/u.test(nombre)) valor = justificanteTraducido(valor, e, t);
         else valor = e(valor);
         return `<div><dt>${e(t(operacion === "siguiente" && nombre === "llamamiento_ref" ? "llamamiento_nuevo_ref"
           : operacion === "siguiente" && nombre === "confirmada_en" ? "llamamiento_continuacion_confirmada_en" : nombre === "respuesta"
@@ -163,10 +169,6 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
       <h3 id="ct-llamamiento-${operacion}-titulo">${e(titulo)}</h3>
       ${paso.recibo ? `<details data-ct-llamamiento-datos-registrados="${operacion}"><summary>${e(t("llamamiento_datos_registrados"))}</summary>` : ""}
       <form data-ct-llamamiento-form="${operacion}" novalidate aria-busy="${paso.ocupado || paso.calculando}">
-        <p id="ct-llamamiento-${operacion}-ayuda">${e(t(operacion === "seleccion"
-          ? "llamamiento_clave_ayuda" : operacion === "respuesta_siguiente" ? "llamamiento_respuesta_siguiente_ayuda" : operacion === "comunicacion_siguiente" ? "llamamiento_comunicacion_siguiente_ayuda" : operacion === "propuesta" ? "llamamiento_propuesta_ayuda" : operacion === "siguiente" ? "llamamiento_siguiente_ayuda" : esResolucion(operacion) ? "llamamiento_" + operacion + "_ayuda" : esRespuesta(operacion)
-            ? "llamamiento_respuesta_ayuda" : "llamamiento_prueba_ayuda"))}</p>
-        ${operacion !== "seleccion" ? `<p>${e(t("llamamiento_clave_ayuda"))}</p>` : ""}
         <fieldset${paso.ocupado || paso.calculando ? " disabled" : ""}>
           <legend>${e(t("llamamiento_contexto"))}</legend>
           <div class="ct-campos">${campos.map((nombre) => campo(
@@ -179,8 +181,7 @@ export function renderizarLlamamiento(estado, t, fecha, ahora = Date.now()) {
         ${esRespuesta(operacion) ? `<div class="ct-campo">
           <label for="${idCorreo}">${e(t("llamamiento_correo_archivo"))} *</label>
           <input id="${idCorreo}" type="file" accept=".eml" data-ct-llamamiento-correo
-            ${paso.solicitud !== null ? "disabled" : ""} aria-describedby="${idCorreo}-ayuda">
-          <p id="${idCorreo}-ayuda" class="ct-ayuda">${e(t("llamamiento_correo_ayuda"))}</p>
+            ${paso.solicitud !== null ? "disabled" : ""}>
           ${paso.valores.correo_sha256 ? `<p class="ct-ayuda" data-ct-llamamiento-huella-calculada>
             ${e(t("llamamiento_correo_huella_conservada"))}</p>` : ""}
         </div>` : ""}

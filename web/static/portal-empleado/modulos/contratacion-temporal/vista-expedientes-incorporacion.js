@@ -110,8 +110,7 @@ export function crearGestorIncorporacion({
     const contenedor = raiz.querySelector("[data-ct-exp-incorporacion-ejercicio]");
     if (!contenedor) return;
     const t = crearTraductorExpedientesContratacion(mensajes);
-    contenedor.innerHTML = `<p class="ct-ayuda">${escaparHTML(t("incorporacion_consulta_bajo_demanda"))}</p>
-      <button class="boton-secundario" type="button" data-ct-exp-accion="consultar-incorporacion">${escaparHTML(t("incorporacion_consultar"))}</button>`;
+    contenedor.innerHTML = `<button class="boton-secundario" type="button" data-ct-exp-accion="consultar-incorporacion">${escaparHTML(t("incorporacion_consultar"))}</button>`;
   }
 
   async function montarIncorporacionEjercicio() {

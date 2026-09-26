@@ -156,7 +156,7 @@ export function renderizarOperacionesSituacion({ candidato, estado = {}, escapar
 function renderizarPaso(estado, escaparHTML) {
   const datos = estado.formulario || {};
   const operacion = estado.operacion;
-  const exclusiones = operacion === "excluir" ? `<p class="nota-seguridad" role="note"><strong>La exclusión requiere una persona validadora distinta de quien la registra.</strong> Regla provisional, duda 6; confirme esta separación antes de continuar.</p><label><input type="checkbox" name="confirma_validador_distinto" required ${datos.confirma_validador_distinto ? "checked" : ""}> Confirmo que el validador es otra persona.</label>` : "";
+  const exclusiones = operacion === "excluir" ? `<label><input type="checkbox" name="confirma_validador_distinto" required ${datos.confirma_validador_distinto ? "checked" : ""}> Confirmo que el validador es otra persona.</label>` : "";
   const etapa = estado.paso;
   const causas = operacion === "excluir" ? estado.causasBaja || [] : [];
   const campos = etapa === 1 && causas.length
