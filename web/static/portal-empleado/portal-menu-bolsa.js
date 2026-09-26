@@ -4,7 +4,7 @@
  * Las categorías solo ordenan enlaces del router existente. No deciden
  * permisos, no cargan datos y no conservan estado en el navegador.
  */
-import { traducirPortal } from "./portal-i18n.js?v=20260926-huecos-analisis-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260926-huecos-rrhh-v1";
 const VISTAS_POR_CATEGORIA = Object.freeze({
   "bolsas-candidatos": Object.freeze([
     "elaboracion", "convocatorias", "solicitudes", "meritos", "alegaciones", "importacion",

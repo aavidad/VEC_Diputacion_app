@@ -7,7 +7,7 @@
 import { validarSolicitudInformeJuridico } from "./contrato-informe-juridico.js";
 import { escaparHTML } from "./componentes-expedientes.js";
 import { crearTraductorContratacionTemporal } from "./i18n.js";
-import { MENSAJES_INFORME_TRAS_SUBSANACION_ES } from "./i18n-informe-tras-subsanacion.js?v=20260926-reparos-informe-v1";
+import { MENSAJES_INFORME_TRAS_SUBSANACION_ES } from "./i18n-informe-tras-subsanacion.js?v=20260926-huecos-rrhh-v1";
 import { justificanteTraducido } from "../../portal-justificante.js";
 
 const ACCION_SUBSANACION = "contratacion_temporal.subsanacion_reparos.registrar";

@@ -9,7 +9,7 @@ import { crearTraductorContratacionTemporal } from "./i18n.js";
 import { PATRON_REFERENCIA } from "./vista-expedientes-analisis.js";
 import { enlaceReglasVigentes } from "../../reglas/enlace.js?v=20260926-integracion-bolsa-ct-v1";
 import { justificanteTraducido } from "../../portal-justificante.js";
-import { informeNuevoEmitidoEnSubsanacion, renderizarAvisoInformeNuevoEmitido } from "./informe-tras-subsanacion.js?v=20260926-reparos-informe-v1";
+import { informeNuevoEmitidoEnSubsanacion, renderizarAvisoInformeNuevoEmitido } from "./informe-tras-subsanacion.js?v=20260926-huecos-rrhh-v1";
 
 export function renderizarNavegacion(estado, t) {
   const opciones = [
