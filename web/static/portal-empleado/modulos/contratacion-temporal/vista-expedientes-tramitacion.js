@@ -1,7 +1,7 @@
 /** Montaje y gestión de estados de las fases de tramitación (alta, análisis, cobertura, asignación, informe, fiscalización y subsanación). */
 
 import { escaparHTML } from "./componentes-expedientes.js";
-import { montarFormularioAnalisisRRHH } from "./formulario-analisis.js";
+import { montarFormularioAnalisisRRHH } from "./formulario-analisis.js?v=20260926-huecos-analisis-v1";
 import { montarFormularioAsignacion } from "./formulario-asignacion.js";
 import { montarFormularioCobertura } from "./formulario-cobertura.js";
 import { montarFormularioFiscalizacion } from "./formulario-fiscalizacion.js";

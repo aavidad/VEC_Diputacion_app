@@ -132,7 +132,7 @@ test("el contrato de análisis clona, congela y conserva el DTO exacto", () => {
   assert.equal(salida.operacion, "registrar");
 });
 
-test("la configuración real exige contrato cerrado y cinco modalidades", () => {
+test("la configuración real exige contrato cerrado y modalidades bien formadas", () => {
   const entrada = configuracionAnalisis();
   const salida = validarConfiguracionAnalisis(entrada);
   entrada.modalidades[0].etiqueta = "Alterada";
@@ -151,18 +151,24 @@ test("la configuración real exige contrato cerrado y cinco modalidades", () => 
     }),
     /configuración/u,
   );
+  // Qué modalidades hay lo decide el catálogo del servidor: cuatro o una nueva
+  // se admiten; repetidas o sin ninguna, no.
+  assert.equal(validarConfiguracionAnalisis(configuracionAnalisis({
+    modalidades: configuracionAnalisis().modalidades.slice(0, 4),
+  })).modalidades.length, 4);
+  assert.equal(validarConfiguracionAnalisis(configuracionAnalisis({
+    modalidades: [...configuracionAnalisis().modalidades, {
+      clave: "otra_modalidad", etiqueta: "Otra modalidad",
+    }],
+  })).modalidades.at(-1).clave, "otra_modalidad");
   assert.throws(
     () => validarConfiguracionAnalisis(configuracionAnalisis({
-      modalidades: configuracionAnalisis().modalidades.slice(0, 4),
+      modalidades: [...configuracionAnalisis().modalidades, configuracionAnalisis().modalidades[0]],
     })),
     /modalidades/u,
   );
   assert.throws(
-    () => validarConfiguracionAnalisis(configuracionAnalisis({
-      modalidades: [...configuracionAnalisis().modalidades.slice(0, 4), {
-        clave: "otra_modalidad", etiqueta: "Otra modalidad",
-      }],
-    })),
+    () => validarConfiguracionAnalisis(configuracionAnalisis({ modalidades: [] })),
     /modalidades/u,
   );
   assert.throws(

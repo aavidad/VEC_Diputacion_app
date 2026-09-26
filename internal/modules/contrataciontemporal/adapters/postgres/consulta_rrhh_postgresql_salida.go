@@ -46,6 +46,25 @@ type salidaCuadroConsultaRRHH struct {
 	// CT-000110: entrada en la fase actual, en el orden del canon.
 	faseDesdeExpedientes []string
 	faseDesdeInstantes   []time.Time
+	// CT-000125: si cada expediente consta como urgente, en el mismo orden.
+	urgentes []bool
+}
+
+// urgentesAlineados devuelve la urgencia declarada de cada resumen, alineada
+// con los expedientes ya comprobados por fasesDesde. Una cardinalidad distinta
+// es no confiable; sin ningún urgente devuelve nil.
+func (s salidaCuadroConsultaRRHH) urgentesAlineados(
+	resumenes []ports.ResumenExpedienteRRHH,
+) ([]bool, error) {
+	if len(s.urgentes) != len(resumenes) {
+		return nil, ports.ErrResultadoConsultaRRHHNoConfiable
+	}
+	for _, urgente := range s.urgentes {
+		if urgente {
+			return append([]bool(nil), s.urgentes...), nil
+		}
+	}
+	return nil, nil
 }
 
 // fasesDesde alinea la fecha de entrada en fase con los resúmenes ya

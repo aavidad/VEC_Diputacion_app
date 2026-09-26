@@ -109,3 +109,23 @@ const (
 	CTCierreExpediente            = "c10.cierre_expediente"
 	CTCausasCese                  = "c11.causas_cese"
 )
+
+// Opciones del análisis de Contratación temporal que se consultan por
+// prefijo: cada entrada es una opción (su clave es lo que sigue al prefijo) y
+// añadir otra no exige cambiar código. Sin ninguna, rigen las de siempre.
+const (
+	CTPrefijoModalidad = "c12.modalidad."
+	CTPrefijoCausa     = "c13.causa."
+	CTPrefijoEntradaRC = "c14.entrada_rc."
+	// CTUrgencia habilita declarar urgente un expediente al analizarlo.
+	CTUrgencia = "c15.urgencia"
+	// AtributoCantidadUrgente es la cantidad de un plazo cuando el
+	// expediente es urgente; sin él rige la cantidad ordinaria.
+	AtributoCantidadUrgente = "cantidad_urgente"
+	// CTNumeracion fija el prefijo y los dígitos del número visible de los
+	// expedientes (duda 15). Sin ella rige «AAAA/CT-NNNNNN».
+	CTNumeracion = "c16.numeracion"
+	// CTPrefijoViaCobertura agrupa las vías de cobertura: cada entrada es una
+	// vía con sus comprobaciones (duda 7). Sin ninguna rigen las de siempre.
+	CTPrefijoViaCobertura = "c17.via_cobertura."
+)

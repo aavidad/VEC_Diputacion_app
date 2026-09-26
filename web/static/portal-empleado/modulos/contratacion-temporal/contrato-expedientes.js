@@ -173,6 +173,7 @@ const ESTADOS_PLAZO = new Set(["en_plazo", "vence_hoy", "vencido", "no_calculado
 function validarResumen(entrada, nombre) {
   const tieneFaseClave = Object.hasOwn(entrada, "fase_clave");
   const tienePlazoEstado = Object.hasOwn(entrada, "plazo_estado");
+  const tieneUrgente = Object.hasOwn(entrada, "urgente");
   const campos = [
     "expediente_ref", "numero_visible", "centro", "categoria", "modalidad",
     "estado_clave", "estado", "fase_actual", "fecha_solicitud", "responsable",
@@ -180,8 +181,10 @@ function validarResumen(entrada, nombre) {
   ];
   if (tieneFaseClave) campos.push("fase_clave");
   if (tienePlazoEstado) campos.push("plazo_estado");
+  if (tieneUrgente) campos.push("urgente");
   exigirCamposExactos(entrada, campos, nombre);
   if (!ESTADOS.has(entrada.estado_clave)
+    || (tieneUrgente && entrada.urgente !== true)
     || (tienePlazoEstado && !ESTADOS_PLAZO.has(entrada.plazo_estado))
     || !PATRON_NUMERO.test(entrada.numero_visible)
     || (tieneFaseClave && !PATRON_CLAVE.test(entrada.fase_clave))
@@ -202,6 +205,7 @@ function validarResumen(entrada, nombre) {
     responsable: cadenaNoVacia(entrada.responsable, `${nombre}.responsable`),
     plazo: cadenaNoVacia(entrada.plazo, `${nombre}.plazo`, 80),
     ...(tienePlazoEstado ? { plazo_estado: entrada.plazo_estado } : {}),
+    ...(tieneUrgente ? { urgente: true } : {}),
     version: entrada.version,
   };
 }

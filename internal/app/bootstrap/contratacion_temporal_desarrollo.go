@@ -264,6 +264,13 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	origen := nuevoOrigenConsultasConCatalogoDesarrollo(catalogoDesarrollo)
 	sello := dependencias.sello
 	reloj := dependencias.reloj
+	// Las reglas del análisis se resuelven antes del alta: al abrir
+	// PostgreSQL se publican sus vías de cobertura y su numeración.
+	reglasAnalisis, err := nuevasFuentesReglasAnalisisDesarrollo(cfg, reloj)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	dependencias.opcionesCatalogoCT = reglasAnalisis.opciones
 	alta, err := nuevasDependenciasAltaContratacionTemporalDesarrollo(
 		dependencias, origen,
 	)
@@ -281,11 +288,16 @@ func nuevasRutasContratacionTemporalConReglasDesarrollo(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	reglasAnalisis, err := nuevasFuentesReglasAnalisisDesarrollo(cfg, reloj)
-	if err != nil {
-		return nil, nil, nil, err
-	}
 	dependencias.retribucionesCT = reglasAnalisis.retribuciones
+	catalogoDesarrollo.componerOpcionesAnalisis(reglasAnalisis.opciones)
+	if alta.postgresql.ejecucion != nil {
+		ctxMigracion, cancelarMigracion := context.WithTimeout(context.Background(), 5*time.Second)
+		err = comprobarMigracionUrgenciaAnalisis(ctxMigracion, alta.postgresql.ejecucion)
+		cancelarMigracion()
+		if err != nil {
+			return nil, nil, nil, err
+		}
+	}
 	servicioAnalisis, err := nuevasDependenciasAnalisisContratacionTemporalDesarrollo(
 		dependencias,
 		&alta,

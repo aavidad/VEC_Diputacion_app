@@ -237,6 +237,9 @@ type PaginaCuadroRRHH struct {
 	// Plazos es opcional y lo calcula la aplicación con el catálogo de
 	// reglas; alineado con Expedientes, nil donde la fase no tiene plazo.
 	Plazos []*PlazoFaseRRHH `json:"-"`
+	// Urgentes (CT-000125) es opcional: si RRHH declaró urgente cada
+	// expediente al analizarlo, alineado con Expedientes; nil si ninguno.
+	Urgentes []bool `json:"-"`
 }
 
 type TotalesCuadroRRHH struct {
@@ -266,7 +269,8 @@ func (p PaginaCuadroRRHH) ValidarContenidoPublicablePara(
 		(p.Totales != nil && (!p.Totales.validar() ||
 			p.Totales.Total < uint64(len(p.Expedientes)))) ||
 		(p.HayMas && !cursorRRHHValido(p.CursorSiguiente)) ||
-		(!p.HayMas && p.CursorSiguiente != "") || !p.fasesDesdeValidas() {
+		(!p.HayMas && p.CursorSiguiente != "") || !p.fasesDesdeValidas() ||
+		(len(p.Urgentes) != 0 && len(p.Urgentes) != len(p.Expedientes)) {
 		return ErrResultadoConsultaRRHHNoConfiable
 	}
 	vistas := make(map[string]struct{}, len(p.Expedientes))

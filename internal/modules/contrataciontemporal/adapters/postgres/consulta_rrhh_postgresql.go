@@ -151,6 +151,10 @@ func (s *SesionConsultaRRHHPostgreSQL) ConsultarCuadroYRegistrar(
 				return ports.PaginaCuadroRRHH{},
 					&diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaResultadoSQL, Sentinela: ports.ErrResultadoConsultaRRHHNoConfiable, Causa: err}
 			}
+			if pagina.Urgentes, err = salida.urgentesAlineados(pagina.Expedientes); err != nil {
+				return ports.PaginaCuadroRRHH{},
+					&diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaResultadoSQL, Sentinela: ports.ErrResultadoConsultaRRHHNoConfiable, Causa: err}
+			}
 			if err := pagina.ValidarParaEjecucionInterna(orden); err != nil {
 				return ports.PaginaCuadroRRHH{},
 					&diagnostico.FalloConsultaRRHH{Etapa: diagnostico.EtapaPaginaInterna, Sentinela: ports.ErrResultadoConsultaRRHHNoConfiable, Causa: err}
@@ -452,7 +456,7 @@ func destinosCuadroConsultaRRHH(s *salidaCuadroConsultaRRHH) []any {
 		append(destinosCierreConsultaRRHH(&s.cierre),
 			&s.totalFiltrado, &s.enTramitacion,
 			&s.conIncidencia, &s.enLlamamiento,
-			&s.faseDesdeExpedientes, &s.faseDesdeInstantes)...,
+			&s.faseDesdeExpedientes, &s.faseDesdeInstantes, &s.urgentes)...,
 	)
 }
 

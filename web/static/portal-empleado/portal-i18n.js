@@ -1,4 +1,4 @@
-import { MENSAJES_AYUDA_PORTAL_ES } from "./portal-i18n-ayuda.js?v=20260926-integracion-bolsa-ct-v1";
+import { MENSAJES_AYUDA_PORTAL_ES } from "./portal-i18n-ayuda.js?v=20260926-huecos-analisis-v1";
 import { MENSAJES_PANEL_INTERNO_ES } from "./portal-panel-interno-i18n.js?v=20260926-integracion-bolsa-ct-v1";
 
 /** Catálogo común de los estados del shell y del acceso a Borradores. */

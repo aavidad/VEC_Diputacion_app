@@ -10,7 +10,7 @@ import {
 } from "./portal-borradores-estado.js?v=20260721-acceso-real-v2";
 import { crearCoordinadorOperacionesBorradores } from "./portal-borradores-operaciones.js?v=20260721-acceso-real-v2";
 import { crearRenderizadorBorradores } from "./portal-borradores-vista.js";
-import { traducirPortal } from "./portal-i18n.js?v=20260926-integracion-bolsa-ct-v1";
+import { traducirPortal } from "./portal-i18n.js?v=20260926-huecos-analisis-v1";
 import {
   FASE_CARGANDO,
   FASE_ERROR,

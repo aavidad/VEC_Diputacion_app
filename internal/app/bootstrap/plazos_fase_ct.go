@@ -60,7 +60,13 @@ func (c calculadoraPlazoFaseCT) CalcularPlazoFase(
 	if clave == "" {
 		return ports.PlazoFaseRRHH{}, false, nil
 	}
-	regla, vencimiento, err := c.reglas.Vencimiento(ctx, clave, solicitud.Desde, "")
+	// Un expediente urgente usa la cantidad urgente de la regla (c03:
+	// cinco días en lugar de diez); sin ella, la ordinaria.
+	calcular := c.reglas.Vencimiento
+	if solicitud.Urgente {
+		calcular = c.reglas.VencimientoUrgente
+	}
+	regla, vencimiento, err := calcular(ctx, clave, solicitud.Desde, "")
 	if err != nil {
 		return ports.PlazoFaseRRHH{}, false, err
 	}

@@ -249,7 +249,7 @@ export function renderizarCuadro(estado, t) {
     <td${modalidadAusente ? ` title="${escaparHTML(t("modalidad_no_informada_bandeja"))}"` : ""}>${escaparHTML(expediente.modalidad)}</td>
     <td><span class="ct-exp-chip ${estadoClave(expediente.estado_clave)}">${escaparHTML(expediente.estado)}</span></td>
     <td>${escaparHTML(expediente.fase_actual)}</td>
-    <td>${plazoBandeja(expediente, t)}</td>
+    <td>${plazoBandeja(expediente, t)}${expediente.urgente ? ` <span class="ct-marca-urgente">${escaparHTML(t("marca_urgente"))}</span>` : ""}</td>
     <td><button type="button" class="boton-terciario" data-ct-exp-abrir="${escaparHTML(expediente.expediente_ref)}">${escaparHTML(t("abrir"))}</button></td>
   </tr>
   <tr class="ct-exp-fila-resumen" id="${escaparHTML(resumenId)}" data-ct-fase="${escaparHTML(fase)}" data-ct-exp-resumen-fila
