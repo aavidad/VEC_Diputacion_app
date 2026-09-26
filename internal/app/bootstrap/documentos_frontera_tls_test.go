@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/hex"
+	"encoding/pem"
 	"errors"
 	"io"
 	"log/slog"
@@ -118,17 +119,40 @@ func TestFronteraDocumentosConSesionVerificada(t *testing.T) {
 	if estado := enviar(docpg.RutaFronteraConsulta, nil); estado != http.StatusNoContent || servidos != 1 || len(registrador.ordenes) != 0 || capturado == nil {
 		t.Fatalf("petición limpia: estado=%d servidos=%d auditadas=%d", estado, servidos, len(registrador.ordenes))
 	}
+	// curl/OpenSSL completa la cadena del cliente y envía también la CA: la
+	// frontera la reduce a la hoja (como Cronos, Personal, Dietas y CT) y la
+	// petición llega al manejador sin denegación.
+	bloqueCA, _ := pem.Decode(ca)
+	if bloqueCA == nil {
+		t.Fatal("CA de prueba sin PEM")
+	}
+	conCadena := clienteCert
+	conCadena.Certificate = append([][]byte{clienteCert.Certificate[0]}, bloqueCA.Bytes)
+	transporteCadena := &http.Transport{TLSClientConfig: &tls.Config{Certificates: []tls.Certificate{conCadena}, RootCAs: raices, ServerName: "localhost", MinVersion: tls.VersionTLS13}}
+	t.Cleanup(transporteCadena.CloseIdleConnections)
+	solicitudCadena, err := http.NewRequest(http.MethodPost, servidor.URL+docpg.RutaFronteraConsulta, strings.NewReader(`{}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	respuestaCadena, err := (&http.Client{Transport: transporteCadena}).Do(solicitudCadena)
+	if err != nil {
+		t.Fatal(err)
+	}
+	respuestaCadena.Body.Close()
+	if respuestaCadena.StatusCode != http.StatusNoContent || servidos != 2 || len(registrador.ordenes) != 0 {
+		t.Fatalf("cliente con cadena completa: estado=%d servidos=%d auditadas=%d", respuestaCadena.StatusCode, servidos, len(registrador.ordenes))
+	}
 	for _, cabecera := range []string{"Cookie", "Authorization"} {
 		antes := len(registrador.ordenes)
 		estado := enviar(docpg.RutaFronteraConsulta, map[string]string{cabecera: "x"})
-		if estado != http.StatusUnauthorized || servidos != 1 || len(registrador.ordenes) != antes+1 {
+		if estado != http.StatusUnauthorized || servidos != 2 || len(registrador.ordenes) != antes+1 {
 			t.Fatalf("%s: estado=%d servidos=%d", cabecera, estado, servidos)
 		}
 		if o := registrador.ordenes[antes]; o.Motivo != docpg.MotivoFronteraAutenticacion || o.ActorRef != "" || o.Ruta != docpg.RutaFronteraConsulta {
 			t.Fatalf("%s: orden %+v", cabecera, o)
 		}
 	}
-	if estado := enviar("/api/vec/documentos/otra", nil); estado != http.StatusNotFound || servidos != 1 {
+	if estado := enviar("/api/vec/documentos/otra", nil); estado != http.StatusNotFound || servidos != 2 {
 		t.Fatalf("ruta no publicada: estado=%d servidos=%d", estado, servidos)
 	}
 	if o := registrador.ordenes[len(registrador.ordenes)-1]; o.Motivo != docpg.MotivoFronteraDenegado || o.ActorRef != actorRef || o.Ruta != docpg.RutaFronteraOtra {
@@ -158,7 +182,7 @@ func TestFronteraDocumentosConSesionVerificada(t *testing.T) {
 	cuenta.Sujeto = "desarrollo:otro-sujeto"
 	a.cuentas[huella] = cuenta
 	antes := len(registrador.ordenes)
-	if estado := enviar(docpg.RutaFronteraConsulta, nil); estado != http.StatusForbidden || servidos != 1 || len(registrador.ordenes) != antes+1 {
+	if estado := enviar(docpg.RutaFronteraConsulta, nil); estado != http.StatusForbidden || servidos != 2 || len(registrador.ordenes) != antes+1 {
 		t.Fatalf("cuenta cruzada: estado=%d servidos=%d", estado, servidos)
 	}
 	if o := registrador.ordenes[antes]; o.Motivo != docpg.MotivoFronteraDenegado || o.ActorRef != "" {
