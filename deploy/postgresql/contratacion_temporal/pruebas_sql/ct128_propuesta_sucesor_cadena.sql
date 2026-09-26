@@ -3,7 +3,9 @@
 -- de A (CT124) y la continuación confirmada (siguiente llamamiento B), con la
 -- cuenta de ejecución y en SERIALIZABLE:
 --   CT62/CT63/CT57/CT64  aviso, aceptación, justificante y resolución de B;
---   CT96+CT128           propuesta de nombramiento de B (versión 8 → 9), que
+--   CT96+CT128           propuesta de nombramiento de B (versión N → N+1,
+--                        donde N es la versión que deja la no incorporación
+--                        de A tras los cuatro ojos de CT124), que
 --                        deja la de A sustituida por su no incorporación;
 --   CT124/CT115          incorporación de B (sintética, como en CT124),
 --                        publicación a Bolsa, confirmación de GINPIX, cese y
@@ -22,9 +24,13 @@ SELECT recibo_ref AS ni_recibo FROM vec_contratacion_temporal.no_incorporacion_v
 SELECT cont::text AS cont FROM public.prueba_ct124_ni \gset
 INSERT INTO prueba_ct128.valor VALUES ('exp_a',:'exp_a'),('org',:'org'),('llam_b',:'llam_b'),('prop_a',:'prop_a'),('ni_recibo',:'ni_recibo'),
   ('cont_recibo',(:'cont'::jsonb)->>'ReciboRef'),('apertura_b',(:'cont'::jsonb)#>>'{ReciboBolsa,OperacionRef}');
-SELECT prueba_ct128.exigir((SELECT version FROM vec_contratacion_temporal.expediente_integral_actual WHERE expediente_ref=:'exp_a')=8
-  AND (SELECT fase_clave FROM vec_contratacion_temporal.expediente_version_integral WHERE expediente_ref=:'exp_a' AND version=8)='fiscalizacion',
-  'A en fiscalización (versión 8) tras su no incorporación');
+-- N: versión que deja la no incorporación de A (con cuatro ojos, la de la
+-- confirmación por la segunda persona). Todo lo posterior se cuenta desde ella.
+SELECT version AS vn, version-1 AS vn_menos1, version+1 AS vn1, version+2 AS vn2, version+3 AS vn3, version+4 AS vn4
+  FROM vec_contratacion_temporal.expediente_integral_actual WHERE expediente_ref=:'exp_a' \gset
+SELECT prueba_ct128.exigir((SELECT version_esperada+1 FROM vec_contratacion_temporal.no_incorporacion_v1 WHERE recibo_ref=:'ni_recibo')=:vn
+  AND (SELECT fase_clave FROM vec_contratacion_temporal.expediente_version_integral WHERE expediente_ref=:'exp_a' AND version=:vn)='fiscalizacion',
+  'A en fiscalización (versión '||:vn||') tras la confirmación de su no incorporación');
 
 SET SESSION AUTHORIZATION vec_ct115_runtime;
 SET timezone = 'UTC';
@@ -69,7 +75,7 @@ SELECT prueba_ct128.paso('resolucion','registrar_resolucion_manual_respuesta_rrh
 COMMIT;
 SELECT prueba_ct128.exigir(prueba_ct128.r('resolucion')->>'Estado'='confirmado','aceptación de B resuelta');
 
--- 5. Propuesta de B desde la versión 8 (consulta y confirmación).
+-- 5. Propuesta de B desde la versión N (consulta y confirmación).
 CREATE FUNCTION pg_temp.solicitud_propuesta(p_clave text, p_version integer) RETURNS text LANGUAGE sql AS $f$
  SELECT format('"ClaveIdempotencia":"%s","OrganizacionRef":"%s","ExpedienteRef":"%s","LlamamientoRef":"%s","ResolucionLlamamientoAceptadaRef":"%s","ReciboResolucionAceptadaRef":"%s","VersionEsperada":%s,"TipoFormalizacion":%s,"Plantilla":%s,"Anexos":null,"PoliticaFirma":%s,"PlanFirma":%s',
    p_clave,prueba_ct128.v('org'),prueba_ct128.v('exp_a'),prueba_ct128.v('llam_b'),
@@ -84,7 +90,7 @@ CREATE FUNCTION pg_temp.material_propuesta(p_clave text, p_version integer) RETU
    prueba_ct128.instante(date_trunc('microseconds',clock_timestamp())))||'}' $f$;
 BEGIN ISOLATION LEVEL SERIALIZABLE;
 SELECT prueba_ct128.paso('propuesta-consulta','registrar_propuesta_formalizacion_v2',
-    '{"Etapa":"consulta","Solicitud":{'||pg_temp.solicitud_propuesta('c1280000-0000-4000-8000-000000000005',8)||'}}',
+    '{"Etapa":"consulta","Solicitud":{'||pg_temp.solicitud_propuesta('c1280000-0000-4000-8000-000000000005',:vn)||'}}',
     'contratacion_temporal.formalizacion.propuesta.registrar','propuesta_formalizacion_ct') IS NOT NULL;
 COMMIT;
 SELECT prueba_ct128.exigir(prueba_ct128.r('propuesta-consulta')->'Justificante'->'Continuacion'->>'ReciboRef'=prueba_ct128.v('cont_recibo')
@@ -92,16 +98,16 @@ SELECT prueba_ct128.exigir(prueba_ct128.r('propuesta-consulta')->'Justificante'-
     'consulta de la propuesta de B: continuación de la no incorporación y selección original');
 -- Negativo: desde una versión anterior a la no incorporación.
 BEGIN ISOLATION LEVEL SERIALIZABLE;
-SELECT prueba_ct128.exigir(prueba_ct128.codigo('registrar_propuesta_formalizacion_v2',pg_temp.material_propuesta('c1280000-0000-4000-8000-000000000015',7),
-    'contratacion_temporal.formalizacion.propuesta.registrar','propuesta_formalizacion_ct')='P0615','propuesta de B desde la versión 7 rechazada');
+SELECT prueba_ct128.exigir(prueba_ct128.codigo('registrar_propuesta_formalizacion_v2',pg_temp.material_propuesta('c1280000-0000-4000-8000-000000000015',:vn_menos1),
+    'contratacion_temporal.formalizacion.propuesta.registrar','propuesta_formalizacion_ct')='P0615','propuesta de B desde una versión anterior rechazada');
 ROLLBACK;
-SELECT pg_temp.material_propuesta('c1280000-0000-4000-8000-000000000005',8) AS mat_prop \gset
+SELECT pg_temp.material_propuesta('c1280000-0000-4000-8000-000000000005',:vn) AS mat_prop \gset
 BEGIN ISOLATION LEVEL SERIALIZABLE;
 SELECT prueba_ct128.paso('propuesta','registrar_propuesta_formalizacion_v2',:'mat_prop',
     'contratacion_temporal.formalizacion.propuesta.registrar','propuesta_formalizacion_ct') IS NOT NULL;
 COMMIT;
 SELECT prueba_ct128.exigir(prueba_ct128.r('propuesta')->>'Estado'='confirmado'
-    AND (prueba_ct128.r('propuesta')->>'VersionResultante')::int=9,'propuesta de B confirmada: versión 9 '||prueba_ct128.r('propuesta')::text);
+    AND (prueba_ct128.r('propuesta')->>'VersionResultante')::int=:vn1,'propuesta de B confirmada: versión N+1 '||prueba_ct128.r('propuesta')::text);
 -- Repetición idéntica: mismo recibo, sin efecto nuevo.
 BEGIN ISOLATION LEVEL SERIALIZABLE;
 SELECT prueba_ct128.repetir('propuesta')::text AS replay_prop \gset
@@ -110,12 +116,12 @@ SELECT prueba_ct128.exigir((:'replay_prop'::jsonb)->>'Estado'='replay_confirmado
     AND (:'replay_prop'::jsonb)-'Estado'=prueba_ct128.r('propuesta')-'Estado','repetición de la propuesta de B con el mismo recibo');
 -- Negativos: otra clave con la misma aceptación y la aceptación de A.
 BEGIN ISOLATION LEVEL SERIALIZABLE;
-SELECT prueba_ct128.exigir(prueba_ct128.codigo('registrar_propuesta_formalizacion_v2',pg_temp.material_propuesta('c1280000-0000-4000-8000-000000000016',9),
+SELECT prueba_ct128.exigir(prueba_ct128.codigo('registrar_propuesta_formalizacion_v2',pg_temp.material_propuesta('c1280000-0000-4000-8000-000000000016',:vn1),
     'contratacion_temporal.formalizacion.propuesta.registrar','propuesta_formalizacion_ct') IN ('P0611','P0615'),'segunda propuesta de B con otra clave rechazada');
 ROLLBACK;
 BEGIN ISOLATION LEVEL SERIALIZABLE;
 SELECT prueba_ct128.exigir(prueba_ct128.codigo('registrar_propuesta_formalizacion_v2',
-    replace(pg_temp.material_propuesta('c1280000-0000-4000-8000-000000000017',8),'c1280000-0000-4000-8000-000000000017','c1280000-0000-4000-8000-000000000018'),
+    replace(pg_temp.material_propuesta('c1280000-0000-4000-8000-000000000017',:vn),'c1280000-0000-4000-8000-000000000017','c1280000-0000-4000-8000-000000000018'),
     'contratacion_temporal.formalizacion.propuesta.registrar','propuesta_formalizacion_ct') IN ('P0611','P0612'),'otra propuesta sobre la versión ya propuesta rechazada');
 ROLLBACK;
 -- Consulta del panel: la propuesta vigente y la historia.
@@ -126,19 +132,30 @@ SELECT prueba_ct128.exigir(jsonb_array_length((:'consulta'::jsonb)->'propuestas'
     AND (:'consulta'::jsonb)#>>'{propuestas,0,vigente}'='false' AND (:'consulta'::jsonb)#>>'{propuestas,0,version_resultante}'='7'
     AND (:'consulta'::jsonb)#>>'{propuestas,0,sustitucion,motivo_clave}'='no_presentado'
     AND (:'consulta'::jsonb)#>>'{propuestas,0,sustitucion,no_incorporacion_recibo_ref}'=prueba_ct128.v('ni_recibo')
-    AND (:'consulta'::jsonb)#>>'{propuestas,1,vigente}'='true' AND (:'consulta'::jsonb)#>>'{propuestas,1,version_resultante}'='9'
+    AND (:'consulta'::jsonb)#>>'{propuestas,1,vigente}'='true' AND (:'consulta'::jsonb)#>>'{propuestas,1,version_resultante}'=:'vn1'
     AND (:'consulta'::jsonb)#>'{propuestas,1,sustitucion}'='null'::jsonb
     AND (:'consulta'::jsonb)#>>'{propuestas,1,recibo_ref}'=prueba_ct128.r('propuesta')->>'ReciboLocalRef','consulta: A sustituida y B vigente '||:'consulta');
 SELECT prueba_ct128.exigir(NOT has_table_privilege('vec_contratacion_temporal.propuesta_sustitucion_v1','SELECT')
     AND NOT has_function_privilege('vec_contratacion_temporal.propuesta_sustituible_ct128(jsonb,text,text,numeric)','EXECUTE'),
     'tabla y auxiliar de la sustitución cerrados al ejecutor');
--- La no incorporación de B se puede preparar (la propuesta vigente es la de B).
+-- La no incorporación de B se puede proponer (la propuesta vigente es la de
+-- B): material de CT124 con cuatro ojos, como el adaptador Go.
 RESET SESSION AUTHORIZATION;
-SELECT pg_temp.entrada('registrar_no_incorporacion','no-incorporacion','contratacion_temporal.incorporacion.no_incorporacion',
-   'no_incorporacion_contratacion_temporal','registrar_no_incorporacion_contratacion_temporal',:'exp_a',9,
-   jsonb_build_object('motivo_clave','no_presentado','consecuencia_clave','b24.sancion.baja_llamamiento_directo',
-     'resolucion_ref','resolucion:rrhh:2026/0150','resolucion_sha256',repeat('b',64),'resuelta_por','per_ct124_segunda','segunda_persona',true,
-     'fecha_notificacion','2026-09-21','observaciones',''),'{}'::jsonb,'{}'::jsonb,'en_curso','ni_b128')::text AS ni_b \gset
+CREATE FUNCTION pg_temp.propuesta_ni(p_exp text, p_version numeric, p_sufijo text, p_acept text) RETURNS jsonb LANGUAGE plpgsql AS $$
+DECLARE m jsonb;
+BEGIN
+ m:=jsonb_build_object('paso','proponer','propuesta_ref','','motivo_clave','no_presentado','consecuencia_clave','b24.sancion.baja_llamamiento_directo',
+  'resolucion_ref','resolucion:rrhh:2026/0150','resolucion_sha256',repeat('b',64),'resuelta_por','','segunda_persona',true,
+  'fecha_notificacion','2026-09-21','observaciones','');
+ RETURN jsonb_set(pg_temp.entrada('registrar_no_incorporacion','no-incorporacion','contratacion_temporal.incorporacion.no_incorporacion',
+   'no_incorporacion_contratacion_temporal','registrar_no_incorporacion_contratacion_temporal',p_exp,p_version,m,
+   jsonb_strip_nulls((m-'segunda_persona'-'observaciones'-'propuesta_ref'-'resuelta_por')||jsonb_build_object('segunda_persona','si',
+     'observaciones_huella_sha256',encode(sha256(convert_to('','UTF8')),'hex'),'aceptacion_ref',p_acept)),
+   jsonb_build_object('accion_clave','contratacion_temporal.incorporacion.no_incorporacion_propuesta','fase_destino','nombramiento',
+     'documentos_ref',jsonb_build_array('resolucion:rrhh:2026/0150')),'en_curso',p_sufijo,NULL,'per_ct124_actor'),
+   '{expediente_siguiente,fase_actual}','"nombramiento"')||jsonb_build_object('esquema','vec.contratacion-temporal.confirmar-no-incorporacion.v1');
+END $$;
+SELECT pg_temp.propuesta_ni(:'exp_a',:vn1,'ni_b128',prueba_ct128.r('resolucion')->>'ResolucionRef')::text AS ni_b \gset
 SET SESSION AUTHORIZATION vec_ct115_runtime;
 BEGIN ISOLATION LEVEL SERIALIZABLE READ ONLY;
 SELECT pg_temp.preparar('preparar_no_incorporacion_v1','vec.contratacion-temporal.preparar-no-incorporacion.v1',:'ni_b'::jsonb)::text AS prep_ni_b \gset
@@ -154,10 +171,10 @@ SELECT prueba_ct128.exigir(
     AND (SELECT count(*) FROM vec_contratacion_temporal.propuesta_sustitucion_v1 s
           WHERE s.expediente_ref=:'exp_a' AND s.propuesta_anterior_ref=:'prop_a' AND s.ronda=2
             AND s.no_incorporacion_recibo_ref=:'ni_recibo' AND s.propuesta_ref=prueba_ct128.r('propuesta')->>'PropuestaRef')=1
-    AND (SELECT fase_clave||'/'||estado FROM vec_contratacion_temporal.expediente_version_integral WHERE expediente_ref=:'exp_a' AND version=9)='nombramiento/en_curso'
-    AND (SELECT count(*) FROM vec_contratacion_temporal.outbox_expediente_integral WHERE expediente_ref=:'exp_a' AND version_expediente=9
+    AND (SELECT fase_clave||'/'||estado FROM vec_contratacion_temporal.expediente_version_integral WHERE expediente_ref=:'exp_a' AND version=:vn1)='nombramiento/en_curso'
+    AND (SELECT count(*) FROM vec_contratacion_temporal.outbox_expediente_integral WHERE expediente_ref=:'exp_a' AND version_expediente=:vn1
           AND tipo_evento='contratacion_temporal.propuesta_formalizacion_registrada')=1,
-    'historia: propuesta de A conservada y sustituida; propuesta de B en la versión 9');
+    'historia: propuesta de A conservada y sustituida; propuesta de B en la versión N+1');
 
 -- Negativo estructural: una segunda propuesta vigente escrita directamente
 -- (sin sustitución) se rechaza al confirmar la transacción.
@@ -180,12 +197,12 @@ ROLLBACK;
 SELECT prueba_ct128.exigir(:'dup' LIKE '23%','segunda propuesta sin no incorporación rechazada por la base: '||:'dup');
 
 -- 6. Incorporación de B (sintética como en CT124: solo el periodo) en la
--- versión 9, publicación a Bolsa, GINPIX, cese y cierre con B.
+-- versión N+1, publicación a Bolsa, GINPIX, cese y cierre con B.
 SET session_replication_role=replica;
 INSERT INTO vec_contratacion_temporal.incorporacion_registro_v2(recibo_ref,seguimiento_ref,organizacion_ref,idempotencia_ref,solicitud_ref,expediente_ref,
   version_expediente,version_anterior,version_resultante,estado_anterior_sha256,estado_resultante_sha256,material_json,material_canonico,material_sha256,
   intencion_canonica,intencion_sha256,exportacion_ct,persona_version,perfil_version,recibo_json,auditoria_ref,outbox_ref,registrada_en,evidencia_orden_json)
-SELECT 'ref:'||repeat('b',64),'seguimiento:ct128:b',:'org','idem:ct128:b','solicitud:ct128:b',:'exp_a',9,1,2,repeat('1',64),repeat('2',64),
+SELECT 'ref:'||repeat('b',64),'seguimiento:ct128:b',:'org','idem:ct128:b','solicitud:ct128:b',:'exp_a',:vn1,1,2,repeat('1',64),repeat('2',64),
   '{"Confirmacion":{"PeriodoIncorporacion":{"desde":"2027-01-01T00:00:00Z","hasta":"2027-03-31T00:00:00Z"}}}','\x01',encode(sha256('\x01'::bytea),'hex'),
   '\x02',encode(sha256('\x02'::bytea),'hex'),ARRAY['\x01','\x01','\x01','\x01','\x01','\x01','\x01','\x01']::bytea[],1,1,
   jsonb_build_object('MaterialOriginalSHA256',encode(sha256('\x01'::bytea),'hex'),'IntencionSHA256',encode(sha256('\x02'::bytea),'hex'),
@@ -196,7 +213,7 @@ VALUES ('ref:outbox:'||repeat('b',64),'ref:'||repeat('b',64),jsonb_build_object(
 RESET session_replication_role;
 SELECT 'ref:'||repeat('b',64) AS inc_b \gset
 
-SELECT pg_temp.entrada_ginpix(:'exp_a',9,'GX-2027-0128','2027-02-10','g128',:'inc_b')::text AS ginpix \gset
+SELECT pg_temp.entrada_ginpix(:'exp_a',:vn1,'GX-2027-0128','2027-02-10','g128',:'inc_b')::text AS ginpix \gset
 SET SESSION AUTHORIZATION vec_ct115_runtime;
 BEGIN ISOLATION LEVEL SERIALIZABLE READ ONLY;
 SELECT pg_temp.preparar('preparar_confirmacion_ginpix_v1','vec.contratacion-temporal.preparar-confirmacion-ginpix.v1',:'ginpix'::jsonb)::text AS prep_g \gset
@@ -205,25 +222,25 @@ SELECT prueba_ct128.exigir((:'prep_g'::jsonb)->>'resultado'='preparada' AND (:'p
 BEGIN ISOLATION LEVEL SERIALIZABLE;
 SELECT pg_temp.confirmar('confirmar_confirmacion_ginpix_v1',:'ginpix'::jsonb)::text AS r_g \gset
 COMMIT;
-SELECT prueba_ct128.exigir((:'r_g'::jsonb)->>'resultado'='confirmada' AND (:'r_g'::jsonb)#>>'{recibo,version_resultante}'='10','GINPIX de B confirmada '||:'r_g');
+SELECT prueba_ct128.exigir((:'r_g'::jsonb)->>'resultado'='confirmada' AND (:'r_g'::jsonb)#>>'{recibo,version_resultante}'=:'vn2','GINPIX de B confirmada '||:'r_g');
 RESET SESSION AUTHORIZATION;
-SELECT pg_temp.entrada_cese(:'exp_a',10,'cese128',:'inc_b')::text AS cese \gset
+SELECT pg_temp.entrada_cese(:'exp_a',:vn2,'cese128',:'inc_b')::text AS cese \gset
 SET SESSION AUTHORIZATION vec_ct115_runtime;
 BEGIN ISOLATION LEVEL SERIALIZABLE;
 SELECT pg_temp.confirmar('confirmar_cese_nombramiento_v1',:'cese'::jsonb)::text AS r_cese \gset
 COMMIT;
-SELECT prueba_ct128.exigir((:'r_cese'::jsonb)->>'resultado'='confirmada' AND (:'r_cese'::jsonb)#>>'{recibo,version_resultante}'='11','cese de B '||:'r_cese');
+SELECT prueba_ct128.exigir((:'r_cese'::jsonb)->>'resultado'='confirmada' AND (:'r_cese'::jsonb)#>>'{recibo,version_resultante}'=:'vn3','cese de B '||:'r_cese');
 RESET SESSION AUTHORIZATION;
 SELECT prueba_ct128.exigir((SELECT llamamiento_ref FROM vec_contratacion_temporal.cese_nombramiento_v1 WHERE expediente_ref=:'exp_a')=:'llam_b'
     AND (SELECT incorporacion_ref FROM vec_contratacion_temporal.cese_nombramiento_v1 WHERE expediente_ref=:'exp_a')=:'inc_b',
     'el cese es el de B: su llamamiento y su incorporación');
-SELECT pg_temp.entrada_cierre(:'exp_a',11,'GX-2027-0128','2027-02-10','cierre128',(:'r_cese'::jsonb)#>>'{recibo,recibo_ref}')::text AS cierre \gset
+SELECT pg_temp.entrada_cierre(:'exp_a',:vn3,'GX-2027-0128','2027-02-10','cierre128',(:'r_cese'::jsonb)#>>'{recibo,recibo_ref}')::text AS cierre \gset
 SET SESSION AUTHORIZATION vec_ct115_runtime;
 BEGIN ISOLATION LEVEL SERIALIZABLE;
 SELECT pg_temp.confirmar('confirmar_cierre_expediente_v1',:'cierre'::jsonb)::text AS r_cierre \gset
 COMMIT;
 SELECT prueba_ct128.exigir((:'r_cierre'::jsonb)->>'resultado'='confirmada' AND (:'r_cierre'::jsonb)#>>'{recibo,estado_resultante}'='completado'
-    AND (:'r_cierre'::jsonb)#>>'{recibo,version_resultante}'='12','cierre del expediente con B '||:'r_cierre');
+    AND (:'r_cierre'::jsonb)#>>'{recibo,version_resultante}'=:'vn4','cierre del expediente con B '||:'r_cierre');
 RESET SESSION AUTHORIZATION;
 -- Publicación a Bolsa: un solo contrato por la incorporación de B, con su llamamiento.
 SELECT count(*) AS contratos_b, min(evento->>'llamamiento_ref') AS llam_contrato

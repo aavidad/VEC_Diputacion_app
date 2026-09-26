@@ -34,7 +34,10 @@ func TestPropuestasExpedientePostgreSQLContratoGoSQL(t *testing.T) {
 	}
 	p := estado.Propuestas
 	if len(p) != 2 || p[0].Vigente || p[0].VersionResultante != 7 || p[0].Sustitucion == nil ||
-		p[0].Sustitucion.MotivoClave != "no_presentado" || !p[1].Vigente || p[1].VersionResultante != 9 ||
+		p[0].Sustitucion.MotivoClave != "no_presentado" || !p[1].Vigente ||
+		// La de B sigue a la no incorporación confirmada de A (con cuatro
+		// ojos, al menos propuesta y confirmación después de la versión 7).
+		p[1].VersionResultante <= p[0].VersionResultante+2 ||
 		p[1].Sustitucion != nil || estado.GINPIX == nil || estado.NoIncorporacion == nil {
 		t.Fatalf("propuestas: %+v", estado)
 	}

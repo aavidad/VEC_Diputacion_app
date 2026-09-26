@@ -72,10 +72,13 @@ pruebas=$repo/deploy/postgresql/contratacion_temporal/pruebas_sql
 echo '== Estado de la integración: AD3-82…88, CT110…126 (sin CT117) y Bolsa hasta 000042'
 for m in 000082 000083 000084 000085 000086 000087 000088; do run <"$(ls "$ad3"/${m}_*.up.sql)"; done
 for m in 000110 000111 000113 000115 000116 000118 000119 000120 000121; do run <"$(ls "$ct"/${m}_*.up.sql)"; done
-for m in 000010 000019 000021 000022 000023 000024 000025 000026 000028 000029 000030 000031 000032 000033 000034 000035 000037 000039 000040 000041 000042; do
+for m in 000010 000019 000021 000022 000023 000024 000025 000026 000028 000029 000030 000031 000032 000033 000034 000035 000037 000039 000040 000041; do
   run <"$(ls "$bolsa"/${m}_*.up.sql)"
 done
-for m in 000122 000123 000124 000125 000126; do run <"$(ls "$ct"/${m}_*.up.sql)"; done
+# Bolsa 000042 verifica el origen en CT124: va después de CT124.
+for m in 000122 000123 000124; do run <"$(ls "$ct"/${m}_*.up.sql)"; done
+run <"$bolsa/000042_no_incorporacion_ct.up.sql"
+for m in 000125 000126; do run <"$(ls "$ct"/${m}_*.up.sql)"; done
 ok 'cadena previa instalada'
 
 detecta="SELECT to_regclass('vec_contratacion_temporal.propuesta_sustitucion_v1') IS NOT NULL"
